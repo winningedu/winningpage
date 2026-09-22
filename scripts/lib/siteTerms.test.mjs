@@ -41,4 +41,21 @@ describe("loadSiteTerms", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("파일 끝 개행(들)을 잘라 DB content와 동일하게 정규화한다", () => {
+    const dir = makeTermsDir({
+      "manifest.json": JSON.stringify([
+        { code: "privacy_policy", title: "개인정보처리방침", file: "p.txt" },
+      ]),
+      // 에디터가 저장 시 붙이는 trailing newline(들)은 실제 문서 내용이 아니다.
+      "p.txt": "본문 마지막 줄\n\n",
+    });
+
+    try {
+      const [{ content }] = loadSiteTerms(dir);
+      expect(content).toBe("본문 마지막 줄");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

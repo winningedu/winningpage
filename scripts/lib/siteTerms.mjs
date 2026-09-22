@@ -13,6 +13,8 @@ export function loadSiteTerms(dir) {
   return manifest.map(({ code, title, file }) => ({
     code,
     title,
-    content: readFileSync(path.join(dir, file), "utf8"),
+    // 에디터가 저장 시 덧붙이는 trailing newline(들)은 문서 내용이 아니다 —
+    // DB content(terms 테이블)에는 그 줄바꿈이 없으므로 여기서 잘라 맞춘다.
+    content: readFileSync(path.join(dir, file), "utf8").replace(/\n+$/, ""),
   }));
 }
