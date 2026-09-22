@@ -1,5 +1,6 @@
 import type { MiddlewareFunction } from "react-router";
 import { redirect } from "react-router";
+import { site } from "@/config/site";
 import { ADMIN_SECTION_KEYS } from "@/pages/admin/adminSectionKeys";
 import {
   canAccessSection,
@@ -199,6 +200,17 @@ export const requireSignupEnabledMiddleware: MiddlewareFunction = async () => {
     throw redirect("/login");
   }
 };
+
+// 2c) /online-inquiry — 카카오톡 채널 상담 랜딩 게이트. site.company.kakaoChannelUrl이
+// 없으면(스쿨멘토처럼 카카오 채널 자체가 없는 사이트) 안내 문구만 남는 죽은
+// 페이지가 되므로 홈으로 되돌린다. site.company는 빌드타임 상수라 DB 조회 없이
+// 동기 판정한다(async는 다른 미들웨어들과 시그니처를 맞추기 위함).
+export const requireOnlineInquiryAvailableMiddleware: MiddlewareFunction =
+  async () => {
+    if (!site.company.kakaoChannelUrl) {
+      throw redirect("/");
+    }
+  };
 
 // 3) /app/goal/* — 로그인 + 이용권('goal') 확인(RequireGoalAccess.jsx의 1・2단계,
 // 즉 RequireEntitlement의 standalone 분기 이관). 두 라우트 그룹(온보딩 그룹 +
