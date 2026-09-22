@@ -153,7 +153,13 @@ const TABLES = [
 
   // 콘텐츠 마스터
   { name: "trending_departments", mirror: true },
-  { name: "winning_assessment_knowledge_items" }, // RAG 지식베이스 (embedding vector 포함)
+  // mirror — 마이그레이션이 S에 기본 지식 17행을 id 포함 명시값으로 이미 심어
+  // 두는데(copy_key류 unique 제약이 없어) id 기준 upsert만으로는 dev 17행이
+  // 별도 id로 추가돼 34행 중복이 난다(2026-09-22 실측). mirrorPrune은 dev id
+  // 집합에 없는 prod 행만 삭제(전체 삭제 아님) 후 upsertAll이 dev 값(embedding
+  // 포함 전 컬럼)을 그대로 넣으므로, 참조 FK 없는(git grep 확인) 이 테이블에
+  // 안전하게 S 선적재 17행을 dev 17행으로 교체한다.
+  { name: "winning_assessment_knowledge_items", mirror: true }, // RAG 지식베이스 (embedding vector 포함)
 ];
 
 // ---------------------------------------------------------------------------
