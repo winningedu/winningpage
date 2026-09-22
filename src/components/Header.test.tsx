@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import Header from "./Header";
 
 // jsdom에는 ResizeObserver가 없다 — 로그인 메가 패널 회색존 좌측 정렬(2026-09-03)이
@@ -38,6 +38,24 @@ vi.mock("@/context/AuthProvider", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// 사이트별 브랜드(로고·brandName) — 기본값은 위닝에듀 정본과 동일해 기존 테스트의
+// alt/src 단언이 그대로 통과한다. 스쿨멘토 케이스만 siteState.current를 덮어써
+// 검증한다(vi.hoisted로 TDZ 없이 mock factory보다 먼저 초기화한다).
+const siteState = vi.hoisted(() => ({
+  current: {
+    brandName: "위닝에듀",
+    logo: {
+      horizontal: "/images/winning-logo-horizontal.svg",
+      stacked: "/images/winning-logo-stacked.svg",
+    },
+  },
+}));
+vi.mock("@/config/site", () => ({
+  get site() {
+    return siteState.current;
+  },
+}));
+
 // 가입 오픈 여부 게이트(WC074) — 이 파일의 기존 테스트는 전부 signup_enabled=true
 // 전제(회원가입 CTA가 항상 보임)라 실제 조회 대신 true로 고정한다. 게이트 자체의
 // 숨김 동작은 useSignupEnabled 자체 테스트/별도 케이스가 다룰 영역이다.
@@ -67,6 +85,16 @@ vi.mock("@/lib/supabase", () => ({
     },
   },
 }));
+
+afterEach(() => {
+  siteState.current = {
+    brandName: "위닝에듀",
+    logo: {
+      horizontal: "/images/winning-logo-horizontal.svg",
+      stacked: "/images/winning-logo-stacked.svg",
+    },
+  };
+});
 
 function renderHeader() {
   return render(
@@ -184,6 +212,26 @@ describe("Header — 비로그인 상태", () => {
     const img = logo.querySelector("img");
 
     expect(img).toHaveAttribute("src", "/images/winning-logo-horizontal.svg");
+  });
+
+  it("스쿨멘토 사이트에서는 로고 src·alt가 스쿨멘토 정본으로 바뀐다", () => {
+    siteState.current = {
+      brandName: "스쿨멘토",
+      logo: {
+        horizontal: "/images/schoolmentor-logo-horizontal.png",
+        stacked: "/images/schoolmentor-logo-stacked.png",
+      },
+    };
+    mockUseAuth.mockReturnValue({ session: null, user: null, isReady: true });
+    renderHeader();
+
+    const logo = screen.getByRole("link", { name: "스쿨멘토" });
+    const img = logo.querySelector("img");
+
+    expect(img).toHaveAttribute(
+      "src",
+      "/images/schoolmentor-logo-horizontal.png",
+    );
   });
 
   it("로그인·회원가입·햄버거는 shadcn Button(data-slot=button)으로 렌더된다", () => {

@@ -11,6 +11,7 @@ import {
 import { Link, useLocation } from "react-router";
 import chevronIcon from "@/assets/header/chevron.svg";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import { useAuth } from "@/context/AuthProvider";
 import {
   MEGA_COL_GAP,
@@ -835,8 +836,8 @@ export default function Header() {
           onMouseLeave={scheduleMegaClose}
         >
           <img
-            src="/images/winning-logo-horizontal.svg"
-            alt="위닝에듀"
+            src={site.logo.horizontal}
+            alt={site.brandName}
             className="h-5.5 w-auto object-contain"
           />
         </Link>
