@@ -104,3 +104,68 @@ jobs:
               labels: [label],
             });
             core.info(`새 Issue #${created.number}를 만들었습니다.`);
+
+  # 위닝에듀(W)·스쿨멘토(S) prod DB 마이그레이션 버전 일치 검사(2026-09-22).
+  # 같은 마이그레이션을 두 워크플로가 각각 적용하므로 한쪽만 실패하면 스키마가
+  # 어긋난다 — S는 비공개라 사람이 알아채기 어려워 매일 자동으로 대조한다.
+  # DB 비밀번호 없이 SUPABASE_ACCESS_TOKEN(Management API SELECT)만 쓴다.
+  # SCHOOLMENTOR_PROJECT_REF 변수가 비어 있으면 스크립트가 "건너뜀"으로 정상 종료.
+  schema-parity:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SCHOOLMENTOR_PROJECT_REF: ${{ vars.SCHOOLMENTOR_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      - name: W/S 마이그레이션 버전 대조
+        run: node scripts/check-schema-parity.mjs
+
+      - name: 실패 시 GitHub Issue 생성(열린 Issue 있으면 코멘트)
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const label = "nightly-schema-parity";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+            const body = [
+              `위닝에듀·스쿨멘토 prod DB 마이그레이션 버전이 어긋났습니다. (${today}, run #${context.runId})`,
+              "",
+              `실행 로그: ${runUrl}`,
+              "",
+              "db-push-prod / db-push-prod-schoolmentor 실행 이력을 확인하고 실패한 쪽을 workflow_dispatch로 다시 돌리세요.",
+            ].join("\n");
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+              per_page: 1,
+            });
+
+            if (open.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body,
+              });
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Schema Parity 실패] ${today}`,
+              body,
+              labels: [label],
+            });
