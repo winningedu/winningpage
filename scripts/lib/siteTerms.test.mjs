@@ -15,16 +15,25 @@ function makeTermsDir(files) {
   return dir;
 }
 
+// manifest 항목에 필요한 메타 필드(route/is_required/sort_order/effective_from)를
+// 전부 채운 기본형 — 개별 테스트는 여기서 필요한 값만 덮어써 만든다.
+function fullManifestEntry(overrides = {}) {
+  return {
+    code: "service_fulltext",
+    title: "위닝로직 서비스 이용약관",
+    file: "service_fulltext.txt",
+    route: "/terms",
+    is_required: false,
+    sort_order: 300,
+    effective_from: "2026-09-01",
+    ...overrides,
+  };
+}
+
 describe("loadSiteTerms", () => {
-  it("manifest 순서대로 code·title·content를 읽어 온다", () => {
+  it("manifest 순서대로 code·title·content·메타 필드를 읽어 온다", () => {
     const dir = makeTermsDir({
-      "manifest.json": JSON.stringify([
-        {
-          code: "service_fulltext",
-          title: "위닝로직 서비스 이용약관",
-          file: "service_fulltext.txt",
-        },
-      ]),
+      "manifest.json": JSON.stringify([fullManifestEntry()]),
       "service_fulltext.txt": "제1조 (목적)\n본 약관은...",
     });
 
@@ -35,8 +44,27 @@ describe("loadSiteTerms", () => {
           code: "service_fulltext",
           title: "위닝로직 서비스 이용약관",
           content: "제1조 (목적)\n본 약관은...",
+          route: "/terms",
+          is_required: false,
+          sort_order: 300,
+          effective_from: "2026-09-01",
         },
       ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("메타 필드가 누락된 manifest 항목은 조용히 넘기지 않고 에러를 던진다", () => {
+    const dir = makeTermsDir({
+      "manifest.json": JSON.stringify([
+        fullManifestEntry({ sort_order: undefined }),
+      ]),
+      "service_fulltext.txt": "제1조 (목적)\n본 약관은...",
+    });
+
+    try {
+      expect(() => loadSiteTerms(dir)).toThrow(/service_fulltext.*sort_order/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -45,7 +73,13 @@ describe("loadSiteTerms", () => {
   it("파일 끝 개행(들)을 잘라 DB content와 동일하게 정규화한다", () => {
     const dir = makeTermsDir({
       "manifest.json": JSON.stringify([
-        { code: "privacy_policy", title: "개인정보처리방침", file: "p.txt" },
+        fullManifestEntry({
+          code: "privacy_policy",
+          title: "개인정보처리방침",
+          file: "p.txt",
+          route: "/privacy",
+          sort_order: 310,
+        }),
       ]),
       // 에디터가 저장 시 붙이는 trailing newline(들)은 실제 문서 내용이 아니다.
       "p.txt": "본문 마지막 줄\n\n",
