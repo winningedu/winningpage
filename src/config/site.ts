@@ -6,7 +6,7 @@
 // 하고 사이트 분기(`if site.key === "schoolmentor"`)를 직접 두지 않는다.
 export type SiteKey = "winning" | "schoolmentor";
 
-interface SiteConfig {
+export interface SiteConfig {
   key: SiteKey;
   name: string;
   brandName: string;
