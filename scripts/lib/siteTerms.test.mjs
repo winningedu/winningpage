@@ -86,4 +86,21 @@ describe("planSiteTermsRows", () => {
       },
     ]);
   });
+
+  it("해당 code가 기존에 없으면 v1로 upsert를 만든다", () => {
+    const { upserts } = planSiteTermsRows(
+      [{ code: "refund_policy", version: "v3", is_active: true }],
+      [{ code: "privacy_policy", title: "개인정보처리방침", content: "..." }],
+    );
+
+    expect(upserts).toEqual([
+      {
+        code: "privacy_policy",
+        version: "v1",
+        title: "개인정보처리방침",
+        content: "...",
+        is_active: true,
+      },
+    ]);
+  });
 });
