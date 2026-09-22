@@ -13,4 +13,13 @@ describe("buildTenantIdMap", () => {
 
     expect(idMap.get("dev-1")).toBe("prod-1");
   });
+
+  it("name의 대소문자·앞뒤 공백 차이를 정규화해 매핑한다(DB 백필과 동일 규칙)", () => {
+    const sourceTenants = [{ id: "dev-1", name: " winning busan " }];
+    const targetTenants = [{ id: "prod-1", name: "WINNING BUSAN" }];
+
+    const idMap = buildTenantIdMap(sourceTenants, targetTenants);
+
+    expect(idMap.get("dev-1")).toBe("prod-1");
+  });
 });
