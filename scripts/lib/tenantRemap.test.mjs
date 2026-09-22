@@ -32,3 +32,16 @@ describe("buildTenantIdMap", () => {
     );
   });
 });
+
+// remapTenantIds(rows, idMap) — products/coupons처럼 tenant_id(FK)를 가진
+// 시딩 대상 행에 idMap을 적용해 source id를 target id로 치환한다.
+describe("remapTenantIds", () => {
+  it("tenant_id가 null인 행은 그대로 둔다", () => {
+    const rows = [{ id: "p1", tenant_id: null }];
+    const idMap = new Map();
+
+    const result = remapTenantIds(rows, idMap);
+
+    expect(result).toEqual([{ id: "p1", tenant_id: null }]);
+  });
+});
