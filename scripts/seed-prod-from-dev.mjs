@@ -98,7 +98,11 @@ const TABLES = [
   { name: "products", special: "products", remapTenant: true },
   { name: "coupons", remapTenant: true },
   // 학습진단 카피
-  { name: "learning_diagnosis_v2_survey_copy" },
+  // copy_key 자연키로 upsert — 마이그레이션이 S에 기본 문구 1행을 미리 심어 두는데
+  // id 기준 upsert면 그 행과 dev 행이 서로 다른 id라 병렬로 남아
+  // learning_diagnosis_v2_survey_copy_copy_key_key(copy_key UNIQUE) 위반이 난다
+  // (2026-09-22 실측). id를 참조하는 FK 없음(git grep 확인) — 안전.
+  { name: "learning_diagnosis_v2_survey_copy", pk: "copy_key" },
   // 랜딩/메뉴
   { name: "page_contents" },
   // mirror: 과거 수동 시딩으로 id가 갈라진 prod 전용 행이 남아 있는 테이블.
