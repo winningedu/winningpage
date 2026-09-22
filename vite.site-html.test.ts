@@ -16,8 +16,7 @@ describe("transformSiteHtml — 위닝에듀", () => {
 
 describe("transformSiteHtml — 스쿨멘토", () => {
   it("<title>을 스쿨멘토로 바꾼다", () => {
-    const html = "<title>위닝에듀</title>";
-    const result = transformSiteHtml(html, "schoolmentor");
+    const result = transformSiteHtml(REAL_INDEX_HTML, "schoolmentor");
 
     expect(result).toContain("<title>스쿨멘토</title>");
   });
@@ -36,5 +35,31 @@ describe("transformSiteHtml — 스쿨멘토", () => {
     );
     expect(result).not.toContain("favicon.svg");
     expect(result).not.toContain('type="image/svg+xml"');
+  });
+
+  it("실제 index.html에 적용하면 winning 로고 svg 경로가 0회, 스쿨멘토 png 경로가 preload+스플래시 img 2회 등장한다", () => {
+    const result = transformSiteHtml(REAL_INDEX_HTML, "schoolmentor");
+
+    expect(result).not.toContain("winning-logo-horizontal.svg");
+    expect(
+      result.split("/images/schoolmentor-logo-horizontal.png").length - 1,
+    ).toBe(2);
+  });
+
+  it("manifest 링크를 /schoolmentor/site.webmanifest로 바꾼다", () => {
+    const result = transformSiteHtml(REAL_INDEX_HTML, "schoolmentor");
+
+    expect(result).toContain(
+      '<link rel="manifest" href="/schoolmentor/site.webmanifest" />',
+    );
+    expect(result).not.toContain('href="/site.webmanifest"');
+  });
+});
+
+describe("transformSiteHtml — 치환 지점을 못 찾으면 throw한다", () => {
+  it("favicon 블록이 없는 html이면 에러를 던진다", () => {
+    expect(() =>
+      transformSiteHtml("<title>위닝에듀</title>", "winning"),
+    ).toThrow(/치환 지점을 찾지 못했다/);
   });
 });

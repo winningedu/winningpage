@@ -29,25 +29,33 @@ function validateSiteEnv() {
   };
 }
 
-// index.html의 <title>·favicon을 사이트별로 치환한다. 실제 치환 로직은
-// vite.siteHtml.mjs(순수 함수, vitest로 검증)에 있다 — 이 플러그인은 그 함수에
-// mode의 VITE_SITE를 넘기는 얇은 어댑터다. validateSiteEnv와 같은 이유(mode는
-// config 훅에서만 받고, transformIndexHtml 훅 인자에는 없다)로 mode를 클로저에
-// 담아 재사용한다. test 모드는 건너뛴다(CI엔 .env.local이 없다 — VITE_SITE 부재).
+// index.html의 <title>·favicon·manifest·로고 preload·스플래시 로고를 사이트별로
+// 치환한다. 실제 치환 로직은 vite.siteHtml.mjs(순수 함수, vitest로 검증)에 있다 —
+// 이 플러그인은 그 함수에 VITE_SITE를 넘기는 얇은 어댑터다. loadEnv는 config
+// 훅에서 딱 한 번만 부른다(dev 서버에서 transformIndexHtml은 내비게이션마다 다시
+// 불릴 수 있어, 거기서 loadEnv를 매번 다시 하면 낭비다) — validateSiteEnv와 같은
+// 이유로 잘못된 VITE_SITE는 여기서도 즉시 throw한다(무음 no-op 금지). test 모드는
+// 건너뛴다(CI엔 .env.local이 없다 — VITE_SITE 부재).
 function siteHtml() {
   let mode = "production";
+  let siteKey;
   return {
     name: "site-html",
     config(_config, env) {
       mode = env.mode;
+      if (mode === "test") return;
+      const loadedEnv = loadEnv(mode, process.cwd(), "");
+      if (
+        loadedEnv.VITE_SITE !== "winning" &&
+        loadedEnv.VITE_SITE !== "schoolmentor"
+      ) {
+        throw new Error("VITE_SITE 누락/오류 — winning 또는 schoolmentor");
+      }
+      siteKey = loadedEnv.VITE_SITE;
     },
     transformIndexHtml(html) {
       if (mode === "test") return html;
-      const env = loadEnv(mode, process.cwd(), "");
-      if (env.VITE_SITE !== "winning" && env.VITE_SITE !== "schoolmentor") {
-        return html;
-      }
-      return transformSiteHtml(html, env.VITE_SITE);
+      return transformSiteHtml(html, siteKey);
     },
   };
 }
