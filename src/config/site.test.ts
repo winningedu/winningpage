@@ -34,7 +34,9 @@ describe("site — winning", () => {
     expect(site.company.ceo).toBe("강원석");
     expect(site.company.corpRegNo).toBe("180111-0161411");
     expect(site.company.bizRegNo).toBe("266-88-03449");
-    expect(site.company.address).toBe("(본점) 세종특별자치시 마음안1로 61, 404호");
+    expect(site.company.address).toBe(
+      "(본점) 세종특별자치시 마음안1로 61, 404호",
+    );
     expect(site.company.patentNo).toBe("10-2024-0048889");
     expect(site.company.mailOrderNo).toBe("제2026-세종아름-0264호");
     expect(site.company.supportChannelLabel).toBe("카카오 채널 '위닝에듀'");
@@ -60,9 +62,7 @@ describe("site — schoolmentor", () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.favicon.png96).toBe("/schoolmentor/favicon-96x96.png");
-    expect(site.favicon.appleTouch).toBe(
-      "/schoolmentor/apple-touch-icon.png",
-    );
+    expect(site.favicon.appleTouch).toBe("/schoolmentor/apple-touch-icon.png");
     expect(site.favicon.ico).toBe("/schoolmentor/favicon.ico");
     expect(site.favicon.svg).toBeUndefined();
   });
@@ -92,8 +92,6 @@ describe("site — 잘못된 VITE_SITE", () => {
     vi.stubEnv("VITE_SITE", "tokyo");
     vi.resetModules();
 
-    await expect(import("./site")).rejects.toThrow(
-      /VITE_SITE 누락\/오류/,
-    );
+    await expect(import("./site")).rejects.toThrow(/VITE_SITE 누락\/오류/);
   });
 });

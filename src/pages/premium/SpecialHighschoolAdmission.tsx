@@ -290,9 +290,7 @@ export default function SpecialHighschoolAdmission() {
         sub="학생의 현재 상황 진단부터 부담 없이 시작하세요"
         cta={{
           label: "카카오톡 상담",
-          ...(COMPANY.kakaoChannelUrl
-            ? { href: COMPANY.kakaoChannelUrl }
-            : {}),
+          ...(COMPANY.kakaoChannelUrl ? { href: COMPANY.kakaoChannelUrl } : {}),
         }}
         secondaryCta={{
           label: "전화 상담 051.902.0080",

@@ -10,9 +10,7 @@ const REAL_INDEX_HTML = readFileSync(
 
 describe("transformSiteHtml — 위닝에듀", () => {
   it("실제 index.html에 적용해도 바이트 단위로 동일하다(winning이 baseline)", () => {
-    expect(transformSiteHtml(REAL_INDEX_HTML, "winning")).toBe(
-      REAL_INDEX_HTML,
-    );
+    expect(transformSiteHtml(REAL_INDEX_HTML, "winning")).toBe(REAL_INDEX_HTML);
   });
 });
 

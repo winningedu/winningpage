@@ -4,7 +4,7 @@
 //
 // 브랜드 데이터 자체의 정본은 sites.ts(순수 데이터, env 비의존 — vite.config.js도
 // 같은 데이터를 쓴다)다. 이 파일은 런타임에 VITE_SITE로 그중 하나를 고르기만 한다.
-import { type SiteConfig, SITES, type SiteKey } from "@/config/sites";
+import { SITES, type SiteConfig, type SiteKey } from "@/config/sites";
 
 export type { SiteConfig, SiteKey };
 

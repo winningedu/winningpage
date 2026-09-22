@@ -25,7 +25,7 @@ function buildFaviconLinks(favicon) {
 }
 
 const FAVICON_BLOCK_RE =
-  /    <link rel="icon" type="image\/png" href="[^"]*" sizes="96x96" \/>\n    <link rel="icon" type="image\/svg\+xml" href="[^"]*" \/>\n    <link rel="shortcut icon" href="[^"]*" \/>\n    <link rel="apple-touch-icon" sizes="180x180" href="[^"]*" \/>/;
+  / {4}<link rel="icon" type="image\/png" href="[^"]*" sizes="96x96" \/>\n {4}<link rel="icon" type="image\/svg\+xml" href="[^"]*" \/>\n {4}<link rel="shortcut icon" href="[^"]*" \/>\n {4}<link rel="apple-touch-icon" sizes="180x180" href="[^"]*" \/>/;
 
 export function transformSiteHtml(html, siteKey) {
   const config = SITES[siteKey];

@@ -31,9 +31,7 @@ function buildBizInfoLine(company: typeof site.company) {
     `법인등록번호: ${company.corpRegNo}`,
     company.patentNo ? `특허출원: ${company.patentNo}` : null,
     `사업자 등록번호: ${company.bizRegNo}`,
-    company.mailOrderNo
-      ? `통신판매업 신고번호: ${company.mailOrderNo}`
-      : null,
+    company.mailOrderNo ? `통신판매업 신고번호: ${company.mailOrderNo}` : null,
   ]
     .filter(Boolean)
     .join(" | ");
