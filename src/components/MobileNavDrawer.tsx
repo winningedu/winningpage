@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { useNavGroups } from "@/hooks/useNavGroups";
+import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { buildMyMenu, type MyMenuRole } from "./myMenuItems";
 
 type NavGroups = ReturnType<typeof useNavGroups>;
@@ -70,6 +71,9 @@ export default function MobileNavDrawer({
 }: MobileNavDrawerProps) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { pathname } = useLocation();
+  // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
+  // 회원가입 CTA를 숨긴다(Header.tsx와 동일 원칙).
+  const signupEnabled = useSignupEnabled();
 
   useEffect(() => {
     if (!open) {
@@ -268,12 +272,14 @@ export default function MobileNavDrawer({
                 로그인
               </Button>
 
-              <Button
-                render={<Link to="/signup" onClick={onClose} />}
-                className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
-              >
-                회원가입
-              </Button>
+              {signupEnabled && (
+                <Button
+                  render={<Link to="/signup" onClick={onClose} />}
+                  className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
+                >
+                  회원가입
+                </Button>
+              )}
             </div>
           )}
         </div>

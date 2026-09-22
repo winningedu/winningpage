@@ -5,6 +5,7 @@ import { COMPANY } from "@/data/company";
 import { useMemberType } from "@/hooks/useMemberType";
 import type { PaymentInfo } from "@/hooks/usePaymentConfirmation";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
+import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { openPaidServiceOrAlert } from "@/lib/paidServiceAccess";
 import {
   accountLabel,
@@ -266,6 +267,9 @@ export default function PaymentSuccess() {
     orderId,
     amount,
   });
+  // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
+  // 비회원 결제 복구용 회원가입 CTA를 숨긴다(Header.tsx와 동일 원칙).
+  const signupEnabled = useSignupEnabled();
   // 계좌번호 복사 피드백. 2초 후 자동으로 꺼진다.
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -707,7 +711,7 @@ export default function PaymentSuccess() {
                     로그인하고 이용하기
                   </Link>
                 );
-              if (needsSignup)
+              if (needsSignup && signupEnabled)
                 return (
                   <Link
                     to="/signup"

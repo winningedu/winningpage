@@ -21,6 +21,7 @@ import {
   NAV_GUARD,
 } from "@/data/navigation";
 import { cleanText, isSameObject, useNavGroups } from "@/hooks/useNavGroups";
+import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
@@ -301,6 +302,10 @@ export default function Header() {
   // 위임한다(명세서 B-3) — 이 컴포넌트는 세션이 확정된 뒤 프로필(profiles 테이블)만
   // 별도로 조회한다.
   const { session, user, isReady: isAuthReady } = useAuth();
+  // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
+  // 회원가입 CTA를 숨긴다(routeMiddleware.ts requireSignupEnabledMiddleware가
+  // 라우트 진입 자체는 이미 막는다, 이 훅은 CTA 노출만 담당).
+  const signupEnabled = useSignupEnabled();
   const [profile, setProfile] = useState<Profile | null>(() =>
     readCachedProfile(),
   );
@@ -772,14 +777,16 @@ export default function Header() {
           로그인
         </Button>
 
-        <Button
-          render={<Link to="/signup" />}
-          variant="ghost"
-          style={{ width: ACCOUNT_BTN_W_CLAMP }}
-          className="h-8 shrink-0 rounded-lg bg-primary px-3 text-sm font-medium leading-5 text-[#f5f5f5] hover:bg-[#012347]"
-        >
-          회원가입
-        </Button>
+        {signupEnabled && (
+          <Button
+            render={<Link to="/signup" />}
+            variant="ghost"
+            style={{ width: ACCOUNT_BTN_W_CLAMP }}
+            className="h-8 shrink-0 rounded-lg bg-primary px-3 text-sm font-medium leading-5 text-[#f5f5f5] hover:bg-[#012347]"
+          >
+            회원가입
+          </Button>
+        )}
       </>
     );
   })();
