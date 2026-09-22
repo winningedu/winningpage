@@ -95,7 +95,8 @@ type ProfileUser = {
 // 어긋나지 않게 한다. 전부 optional인 이유 — 이 prop은 마이페이지 셸
 // (useMyPageProfile.Profile, 컬럼 집합이 다름)이 넘겨주는데, 셸이 어떤 컬럼을
 // select 했는지 이 컴포넌트가 강제할 수 없다(위 174번째 줄 주석과 동일한 사유로
-// birth_date/gender/org_code는 이 컴포넌트가 직접 다시 읽어 보강한다).
+// birth_date/gender는 이 컴포넌트가 직접 다시 읽어 보강한다. 소속은
+// org_code가 아니라 fn_my_tenant() RPC로 별도 조회한다, 아래 myTenant 참고).
 type Profile = Partial<
   Pick<
     Tables<"profiles">,
@@ -108,9 +109,13 @@ type Profile = Partial<
     | "school_name"
     | "birth_date"
     | "gender"
-    | "org_code"
   >
 >;
+
+// 소속 — profiles.org_code는 죽은 컬럼(2026-09-22 tenant 전환)이라 더 이상
+// select하지 않는다. 표시는 fn_my_tenant() RPC로만 한다(아래 useEffect). id는
+// 이 화면이 쓰지 않아(표시는 name만) 담지 않는다.
+type MyTenant = { name: string };
 
 type ParentLink = {
   id: string;
@@ -148,7 +153,6 @@ export default function ProfileTab({
     school_name: profile?.school_name || "",
     birth_date: profile?.birth_date || "",
     gender: profile?.gender || "",
-    org_code: profile?.org_code || "",
   });
   const [toggles, setToggles] = useState({
     marketing_agreed: false,
@@ -163,6 +167,11 @@ export default function ProfileTab({
   // 학부모 번호를 저장한 계정에만 노출된다(아래 렌더 조건 참고).
   const [guardianPhoneOpen, setGuardianPhoneOpen] = useState(false);
   const [orgCodeOpen, setOrgCodeOpen] = useState(false);
+  // 소속 — undefined 로딩중, null 미설정(OrgCodeModal 진입 가능), {name} 설정됨
+  // (읽기 전용, 진입 버튼 숨김 — 1회 입력 원칙, 2026-09-22 tenant 전환).
+  const [myTenant, setMyTenant] = useState<MyTenant | null | undefined>(
+    undefined,
+  );
 
   // 학교·학년 인라인 편집.
   const [editingSchool, setEditingSchool] = useState(false);
@@ -194,7 +203,7 @@ export default function ProfileTab({
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "name, email, phone, guardian_phone, school_type, school_name, birth_date, gender, org_code, marketing_agreed, ads_agreed",
+          "name, email, phone, guardian_phone, school_type, school_name, birth_date, gender, marketing_agreed, ads_agreed",
         )
         .eq("id", profileId)
         .maybeSingle();
@@ -211,7 +220,6 @@ export default function ProfileTab({
         school_name: data.school_name ?? prev.school_name,
         birth_date: data.birth_date ?? prev.birth_date,
         gender: data.gender ?? prev.gender,
-        org_code: data.org_code ?? prev.org_code,
       }));
       setToggles({
         marketing_agreed: Boolean(data.marketing_agreed),
@@ -274,6 +282,30 @@ export default function ProfileTab({
 
       if (!alive || error) return;
       setLinkCode(data?.code || "");
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [profileId, isParent]);
+
+  // 소속 — fn_my_tenant()(2026-09-22 tenant 전환)로 조회한다. profiles.org_code는
+  // 죽은 컬럼이라 더 이상 직접 select하지 않는다. 1행이면 설정됨(읽기 전용),
+  // 0행이면 미설정(OrgCodeModal로 1회 입력 가능) — 아래 렌더가 이 상태로 분기한다.
+  useEffect(() => {
+    if (!profileId || isParent) return;
+    let alive = true;
+
+    (async () => {
+      const { data, error } = await supabase.rpc("fn_my_tenant");
+
+      if (!alive) return;
+      if (error || !Array.isArray(data) || data.length === 0) {
+        setMyTenant(null);
+        return;
+      }
+      const row = data[0];
+      setMyTenant(row ? { name: row.name } : null);
     })();
 
     return () => {
@@ -512,15 +544,25 @@ export default function ProfileTab({
         </ProfileField>
       )}
 
-      {/* 소속코드 — 학생 전용, 가입 시 안 넣은 경우 여기서 입력/수정한다(태스크5,
-          2026-09-01). 검증 규칙 없음(자유 텍스트) — 가입 폼(StudentForm.tsx
-          "소속코드 (선택)")과 라벨·placeholder 톤을 맞춘다. */}
-      {!isParent && (
+      {/* 소속 — 학생 전용, 가입 시 안 넣은 경우 여기서 1회 입력한다(태스크5,
+          2026-09-01, 2026-09-22 tenant 전환으로 fn_my_tenant/fn_set_my_tenant
+          경유로 교체). 이미 설정돼 있으면(myTenant) 소속명만 읽기 전용으로
+          보여주고 진입 버튼을 숨긴다 — 재설정은 셀프서비스가 아니라 어드민
+          경로(fn_admin_set_profile_tenant) 전용이다. */}
+      {!isParent && myTenant && (
         <ProfileField
-          label="소속코드"
-          value={form.org_code || "-"}
+          label="소속"
+          value={myTenant.name}
           readOnly
-          actionLabel={form.org_code ? "변경" : "입력"}
+          className="mb-5"
+        />
+      )}
+      {!isParent && myTenant === null && (
+        <ProfileField
+          label="소속"
+          value="-"
+          readOnly
+          actionLabel="입력"
           onAction={() => setOrgCodeOpen(true)}
           className="mb-5"
         />
@@ -694,10 +736,9 @@ export default function ProfileTab({
       <OrgCodeModal
         open={orgCodeOpen}
         {...(profileId !== undefined && { profileId })}
-        currentOrgCode={form.org_code}
         onClose={() => setOrgCodeOpen(false)}
-        onChanged={(orgCode) => {
-          updateForm("org_code", orgCode);
+        onChanged={(tenantName) => {
+          setMyTenant({ name: tenantName });
           window.dispatchEvent(new Event("winning-profile-updated"));
         }}
       />

@@ -18,7 +18,7 @@ import { useTermsDocs } from "@/hooks/useTermsDocs";
 import {
   filterOrgProducts,
   type ServiceProduct,
-  useMatchedOrgCodes,
+  useMatchedTenantIds,
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
@@ -88,10 +88,10 @@ const COUPON_REASON_TEXT: Record<string, string> = {
   login_required: "로그인 후 사용할 수 있습니다.",
   sold_out: "발급 수량이 모두 소진되었습니다.",
   not_granted: "발급받지 않은 쿠폰입니다.",
-  // 단체 쿠폰(coupons.org_code, 20260827010205) — 학생·학부모 둘 다 소속
-  // 코드가 일치하지 않을 때.
+  // 단체 쿠폰(coupons.tenant_id, 20260827010205, 2026-09-22 tenant 전환) —
+  // 학생·학부모 둘 다 소속이 일치하지 않을 때.
   org_mismatch: "소속 코드가 일치하는 회원만 사용할 수 있는 단체 쿠폰입니다.",
-  // org 한정 상품(products.org_code, 2026-09-01) 포함 주문 — fn_usable_coupons/
+  // org 한정 상품(products.tenant_id, 2026-09-01) 포함 주문 — fn_usable_coupons/
   // fn_coupon_by_code 에 p_order_id 를 넘기면 이 사유로 전부 배제된다. 아래
   // hasOrgProductInOrder 가 이미 쿠폰 섹션 자체를 안내문으로 대체해 이 문구가
   // 화면에 실제로 노출될 일은 없지만(방어적 매핑), 다른 경로에서 이 reason이
@@ -399,12 +399,12 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
   // order 가 아직 로드되지 않은 동안은 undefined 로 호출돼(캐치올: 본인+연결된
   // 상대) order 도착 후 재호출된다. 표시 전용, 정본은 fn_respond_enrollment/
   // fn_parent_create_enrollment 의 서버 재검증.
-  const { codes: matchedOrgCodes, loaded: orgCodesLoaded } = useMatchedOrgCodes(
+  const { ids: matchedTenantIds, loaded: orgCodesLoaded } = useMatchedTenantIds(
     order?.student_profile_id,
   );
   const visibleServices = useMemo(
-    () => filterOrgProducts(filteredServices, matchedOrgCodes),
-    [filteredServices, matchedOrgCodes],
+    () => filterOrgProducts(filteredServices, matchedTenantIds),
+    [filteredServices, matchedTenantIds],
   );
 
   // 서비스별 단일 선택: { [serviceKey]: productId }. 초기값은 orderItems(학생이
@@ -537,7 +537,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
   // 에서 조용히 빠져 학부모가 모르는 사이 일부 상품만 결제될 수 있다.
   const missingOrderItem = useMemo(() => {
     // org 필터가 아직 판정되기 전(orgCodesLoaded=false)에는 org 한정 상품이
-    // 일시적으로 빈 배열(matchedOrgCodes=[])로 취급돼 정상 매칭 케이스에서도
+    // 일시적으로 빈 배열(matchedTenantIds=[])로 취급돼 정상 매칭 케이스에서도
     // visibleServices 에서 빠져 있을 수 있다 — productsLoading 과 같은 이유로
     // 이 창에서는 판정을 유보한다(오탐 방지).
     if (

@@ -40,6 +40,7 @@ import {
   verifySignupEmailCode,
 } from "@/lib/signupEmailAuth";
 import { supabase } from "@/lib/supabase";
+import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { fetchIdentityMobile } from "./identityVerification";
 // AS-IS Signup.jsx(§2.2)의 17개 시도 + '기타' select 관례를 StudentForm(C-1)과 공유한다
 // (§3.3 C-1 예시 데이터 "울산"과 표기 형식 일치 — "울산광역시"가 아닌 "울산").
@@ -127,6 +128,12 @@ function getSignupRpcMessage(raw?: string) {
   }
   if (message.includes("phone_or_guardian_required")) {
     return "전화번호 또는 학부모 핸드폰 중 하나는 입력해 주세요.";
+  }
+
+  // WC073(tenant_required, 2026-09-22 tenant 전환) — StudentForm과 동일 매핑
+  // 참고. 위닝에듀는 현재 발생하지 않지만 서버 스키마 선반영 대비.
+  if (message.includes("tenant_required")) {
+    return "소속 코드를 확인해 주세요.";
   }
 
   return `회원 정보 저장 중 문제가 발생했습니다: ${raw}`;
@@ -538,6 +545,16 @@ export default function Under14Form() {
         return;
       }
 
+      // T8 소속코드는 선택 입력이라 빈 값은 통과시키고, 값이 있을 때만 형식을
+      // 본다 — "존재하는 코드인지"는 서버 판정이라 여기서는 형식만 막는다.
+      if (
+        formData.orgCode.trim() &&
+        !isValidTenantCodeFormat(formData.orgCode)
+      ) {
+        setFormError("소속코드 형식을 확인해 주세요. (영문·숫자 8자)");
+        return;
+      }
+
       const { data: profileResult, error: profileError } = await supabase.rpc(
         "complete_signup_profile",
         {
@@ -564,7 +581,7 @@ export default function Under14Form() {
           // 하에서는 undefined 값을 명시적으로 넣는 것도 금지라 키 자체를 조건부로 스프레드한다
           // (인자 생략이 명시적 null과 런타임에서 동일하다).
           ...(formData.orgCode.trim() && {
-            p_org_code: formData.orgCode.trim(),
+            p_org_code: normalizeTenantCode(formData.orgCode),
           }),
         },
       );
@@ -760,8 +777,9 @@ export default function Under14Form() {
           placeholder="학교명 입력"
         />
 
-        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력, 검증 규칙 없음. 생년월일·성별은
-            PASS 본인확인 값이 정본이라 이 화면에 입력칸을 두지 않는다(파일 상단 주석). */}
+        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력. 2026-09-22 tenant 전환으로 8자
+            코드 형식 검증이 생겼다(handleNext). 생년월일·성별은 PASS 본인확인
+            값이 정본이라 이 화면에 입력칸을 두지 않는다(파일 상단 주석). */}
         <TextField
           label="소속코드 (선택)"
           id="under14-org-code"
@@ -770,7 +788,7 @@ export default function Under14Form() {
           value={formData.orgCode}
           onChange={(v) => updateFormData({ orgCode: v })}
           placeholder="소속코드가 없으면 입력하지 마세요"
-          helperText="소속코드가 없으면 입력하지 마세요"
+          helperText="소속코드가 없으면 입력하지 마세요 (영문·숫자 8자)"
         />
       </section>
 

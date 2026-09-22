@@ -66,6 +66,7 @@ import {
   verifySignupEmailCode,
 } from "@/lib/signupEmailAuth";
 import { supabase } from "@/lib/supabase";
+import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 
 // Under14Form(D-2)도 동일 지역 목록(17개 시도 + '기타')을 쓰므로 이 상수를 공유한다.
 export const REGION_OPTIONS = [
@@ -772,6 +773,12 @@ export default function StudentForm() {
     if (!allRequiredAgreed)
       return "필수 약관에 동의해야 회원가입을 진행할 수 있습니다.";
 
+    // T8 소속코드는 선택 입력이라 빈 값은 통과시키고, 값이 있을 때만 형식을
+    // 본다 — "존재하는 코드인지"는 서버 판정이라 여기서는 형식만 막는다.
+    if (formData.orgCode.trim() && !isValidTenantCodeFormat(formData.orgCode)) {
+      return "소속코드 형식을 확인해 주세요. (영문·숫자 8자)";
+    }
+
     return "";
   }
 
@@ -870,7 +877,7 @@ export default function StudentForm() {
           // 하에서는 undefined 값을 명시적으로 넣는 것도 금지라 키 자체를 조건부로 스프레드한다
           // (인자 생략이 명시적 null과 런타임에서 동일하다).
           ...(formData.orgCode.trim() && {
-            p_org_code: formData.orgCode.trim(),
+            p_org_code: normalizeTenantCode(formData.orgCode),
           }),
           // T3(2026-09-03): 학생 명의 번호가 없을 때만 학부모 핸드폰을 보낸다.
           // p_guardian_consent는 항상 false로 고정한다 — 14세 이상은 법정대리인
@@ -979,6 +986,15 @@ export default function StudentForm() {
 
         if (errorMessage.includes("gender_required")) {
           setFormError("성별을 선택해 주세요.");
+          return;
+        }
+
+        // WC073(tenant_required, 2026-09-22 tenant 전환) — 소속 코드가 필수인
+        // 서비스(스쿨멘토)에서 코드가 비었거나 존재하지 않을 때. 위닝에듀는
+        // app_settings.require_tenant_on_signup=false 라 현재는 발생하지 않지만
+        // 서버 스키마 선반영 대비 매핑해 둔다.
+        if (errorMessage.includes("tenant_required")) {
+          setFormError("소속 코드를 확인해 주세요.");
           return;
         }
 
@@ -1337,8 +1353,9 @@ export default function StudentForm() {
           disabled={formData.schoolType === "N수생"}
         />
 
-        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력, 검증 규칙 없음. 향후 소속 마스터가
-            도입되면 FK로 전환될 수 있다(마이그레이션 컬럼 주석 참고). */}
+        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력. 2026-09-22 tenant 전환으로
+            8자 코드 형식 검증이 생겼다(validateForm). "존재하는 코드인지"는
+            서버(fn_resolve_tenant_code)만 판정하므로 여기서는 형식만 막는다. */}
         <TextField
           label="소속코드 (선택)"
           id="student-org-code"
@@ -1347,7 +1364,7 @@ export default function StudentForm() {
           value={formData.orgCode}
           onChange={handleField("orgCode")}
           placeholder="소속코드가 없으면 입력하지 마세요"
-          helperText="소속코드가 없으면 입력하지 마세요"
+          helperText="소속코드가 없으면 입력하지 마세요 (영문·숫자 8자)"
         />
       </section>
 
