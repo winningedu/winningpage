@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadSiteTerms } from "./siteTerms.mjs";
+import { loadSiteTerms, planSiteTermsRows } from "./siteTerms.mjs";
 
 // loadSiteTerms(dir) — manifest.json + 원문 txt 파일을 읽어
 // [{code, title, content}] 로 변환한다(scripts/seed-prod-from-dev.mjs의
@@ -57,5 +57,29 @@ describe("loadSiteTerms", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("planSiteTermsRows", () => {
+  it("기존 최대 버전(v4) 다음 버전(v5)으로 활성 upsert를 만든다", () => {
+    const existingRows = [
+      { code: "service_fulltext", version: "v3", is_active: false },
+      { code: "service_fulltext", version: "v4", is_active: true },
+    ];
+    const siteTerms = [
+      { code: "service_fulltext", title: "위닝로직 서비스 이용약관", content: "제1조..." },
+    ];
+
+    const { upserts } = planSiteTermsRows(existingRows, siteTerms);
+
+    expect(upserts).toEqual([
+      {
+        code: "service_fulltext",
+        version: "v5",
+        title: "위닝로직 서비스 이용약관",
+        content: "제1조...",
+        is_active: true,
+      },
+    ]);
   });
 });

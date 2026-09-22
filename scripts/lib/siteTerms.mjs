@@ -18,3 +18,27 @@ export function loadSiteTerms(dir) {
     content: readFileSync(path.join(dir, file), "utf8").replace(/\n+$/, ""),
   }));
 }
+
+// code의 기존 version("vN") 중 최댓값 다음 값. 없으면 "v1".
+function nextVersion(existingRows, code) {
+  const numbers = existingRows
+    .filter((row) => row.code === code)
+    .map((row) => Number(row.version.replace(/^v/, "")))
+    .filter((n) => Number.isFinite(n));
+  const max = numbers.length ? Math.max(...numbers) : 0;
+  return `v${max + 1}`;
+}
+
+// existingRows(타깃 DB terms 전체) + siteTerms(로드된 사이트 전용 약관)로
+// 반영 계획을 만든다 — DB 접속 없음, 순수 계산.
+export function planSiteTermsRows(existingRows, siteTerms) {
+  const upserts = siteTerms.map(({ code, title, content }) => ({
+    code,
+    version: nextVersion(existingRows, code),
+    title,
+    content,
+    is_active: true,
+  }));
+
+  return { upserts };
+}
