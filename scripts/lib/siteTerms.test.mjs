@@ -120,4 +120,20 @@ describe("planSiteTermsRows", () => {
       { code: "student_service", version: "v1" },
     ]);
   });
+
+  it("siteTerms에 없는 code는 비활성만 되고 새 upsert는 없다", () => {
+    const existingRows = [
+      { code: "student_service", version: "v1", is_active: true },
+    ];
+
+    const { upserts } = planSiteTermsRows(existingRows, [
+      {
+        code: "service_fulltext",
+        title: "위닝로직 서비스 이용약관",
+        content: "...",
+      },
+    ]);
+
+    expect(upserts.some((row) => row.code === "student_service")).toBe(false);
+  });
 });
