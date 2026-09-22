@@ -17,4 +17,13 @@ describe("site — winning", () => {
     expect(site.logo.horizontal).toBe("/images/winning-logo-horizontal.svg");
     expect(site.logo.stacked).toBe("/images/winning-logo-stacked.svg");
   });
+
+  it("favicon 4종(png96·apple-touch·ico·svg)을 모두 가진다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.favicon.png96).toBe("/favicon-96x96.png");
+    expect(site.favicon.appleTouch).toBe("/apple-touch-icon.png");
+    expect(site.favicon.ico).toBe("/favicon.ico");
+    expect(site.favicon.svg).toBe("/favicon.svg");
+  });
 });
