@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { COMPANY } from "@/data/company";
+import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
 
 // 결제/랜딩 공용 푸터. 사업자 정보 + 이용약관/개인정보처리방침 링크 포함.
@@ -21,6 +21,33 @@ const FOOTER_COLUMN_WIDTH_CLASS: Record<string, string> = {
 };
 const FOOTER_COLUMN_WIDTH_DEFAULT = "w-30";
 
+// 사업자 문구는 site.company의 선택 필드(특허출원·통신판매업·고객센터)가 없으면
+// 해당 조각 자체를 생략한다(값 없이 렌더하지 않는다는 원칙 — 스쿨멘토는 이 필드가
+// 아예 없다). 구분자 " | "가 빈 조각 자리에 남지 않도록 join 전에 필터링한다.
+function buildBizInfoLine(company: typeof site.company) {
+  return [
+    `상호명: ${company.name}`,
+    `대표: ${company.ceo}`,
+    `법인등록번호: ${company.corpRegNo}`,
+    company.patentNo ? `특허출원: ${company.patentNo}` : null,
+    `사업자 등록번호: ${company.bizRegNo}`,
+    company.mailOrderNo ? `통신판매업 신고번호: ${company.mailOrderNo}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function buildAddressLine(company: typeof site.company) {
+  return [
+    `주소: ${company.address}`,
+    company.supportChannelLabel
+      ? `온라인고객센터 : ${company.supportChannelLabel}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
 export default function SiteFooter() {
   const navGroups = useNavGroups();
 
@@ -34,8 +61,8 @@ export default function SiteFooter() {
             className="inline-flex shrink-0 items-center"
           >
             <img
-              src="/images/winning-logo-stacked.svg"
-              alt="위닝에듀"
+              src={site.logo.stacked}
+              alt={site.brandName}
               className="h-25 w-auto object-contain"
             />
           </Link>
@@ -72,8 +99,8 @@ export default function SiteFooter() {
             className="inline-flex shrink-0 items-center"
           >
             <img
-              src="/images/winning-logo-stacked.svg"
-              alt="위닝에듀"
+              src={site.logo.stacked}
+              alt={site.brandName}
               className="h-auto w-46.25"
             />
           </Link>
@@ -118,15 +145,8 @@ export default function SiteFooter() {
               공백 누락), "신고번호:  제2026"(이중 공백) 오타가 있다. COMPANY 데이터가
               정상이므로 시안 텍스트를 따르지 않고 현행 그대로 유지한다. */}
           <div className="space-y-1 break-keep py-3 text-sm leading-[1.4] text-ink">
-            <p>
-              상호명: {COMPANY.name} | 대표: {COMPANY.ceo} | 법인등록번호:{" "}
-              {COMPANY.corpRegNo} | 특허출원: {COMPANY.patentNo} | 사업자
-              등록번호: {COMPANY.bizRegNo} | 통신판매업 신고번호:{" "}
-              {COMPANY.mailOrderNo}
-            </p>
-            <p>
-              주소: {COMPANY.address} | 온라인고객센터 : 카카오 채널 '위닝에듀'
-            </p>
+            <p>{buildBizInfoLine(site.company)}</p>
+            <p>{buildAddressLine(site.company)}</p>
           </div>
 
           <div className="flex flex-col items-start gap-2 py-3 lg:items-end">

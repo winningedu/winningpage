@@ -1,12 +1,14 @@
 // 장기 로드맵 섹션의 원형 다이어그램(특목고입학 시안 전용) — 중앙 네이비 원(로고) 주위로
 // 6개의 흰 pill을 60°씩 원형 배치한다. 이미지 통짜 대신 순수 CSS(absolute + 삼각함수 좌표)로
 // 그린다 — 시안의 roadmap-ellipse.png 는 점선 원 하나만 담긴 Figma 구성 가이드라 자산으로
-// 쓰지 않고 border-dashed 로 대체한다. 로고는 기존 winning-logo-stacked.svg(짙은 회색
-// #36393E)를 brightness-0 invert 필터로 반전해 흰색으로 쓴다 — 별도 흰색 자산이 없다.
+// 쓰지 않고 border-dashed 로 대체한다. 로고는 site.logo.stacked(짙은 회색 #36393E)를
+// brightness-0 invert 필터로 반전해 흰색으로 쓴다 — 별도 흰색 자산이 없다.
 //
 // 6개 고정 배치 전제(각도 하드코딩)라 범용 개수로 확장하려면 각도 계산을 일반화해야 한다 —
 // 지금은 이 시안 전용 단일 용도.
 // 모바일은 원형 absolute 배치가 좁은 폭에서 겹치기 쉬워 아래 wrap 리스트로 대체한다(sm 미만).
+import { site } from "@/config/site";
+
 type PremiumRoadmapDiagramProps = {
   pills: [string, string, string, string, string, string];
 };
@@ -29,8 +31,8 @@ export default function PremiumRoadmapDiagram({
         />
         <div className="absolute left-1/2 top-1/2 flex size-32 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-full bg-primary shadow-[0_0.75rem_1.75rem_rgba(1,50,98,0.28)]">
           <img
-            src="/images/winning-logo-stacked.svg"
-            alt="위닝에듀"
+            src={site.logo.stacked}
+            alt={site.brandName}
             className="h-10 w-auto brightness-0 invert"
           />
         </div>
@@ -55,8 +57,8 @@ export default function PremiumRoadmapDiagram({
       <div className="flex flex-col items-center gap-6 sm:hidden">
         <div className="flex size-28 flex-col items-center justify-center gap-1 rounded-full bg-primary shadow-[0_0.75rem_1.75rem_rgba(1,50,98,0.28)]">
           <img
-            src="/images/winning-logo-stacked.svg"
-            alt="위닝에듀"
+            src={site.logo.stacked}
+            alt={site.brandName}
             className="h-8 w-auto brightness-0 invert"
           />
         </div>

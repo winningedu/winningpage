@@ -23,8 +23,8 @@ type PremiumCtaBannerProps = {
   title: ReactNode;
   eyebrow?: ReactNode;
   sub?: ReactNode;
-  cta: { label: string; to?: string; href?: string };
-  secondaryCta?: { label: string; href: string };
+  cta: { label: string; to?: string | undefined; href?: string | undefined };
+  secondaryCta?: { label: string; href: string } | undefined;
   /** public/images/premium/cta-s-program-bg.webp — 페이지가 명시적으로 넘긴다. variant="light" 에선 불필요. */
   bgSrc?: string;
   /** light: 베이지 배경+pill(S→A 안내). plain: 흰 배경+텍스트 링크(시안 S 하단 첫 배너). */
@@ -64,12 +64,14 @@ export default function PremiumCtaBanner({
           <h2 className="break-keep text-[2rem] font-semibold leading-[1.4] text-ink-strong">
             {title}
           </h2>
-          <Link
-            to={cta.to ?? "#"}
-            className="rounded-sm text-[1.25rem] font-medium leading-[1.4] text-ink-strong underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-          >
-            {cta.label}
-          </Link>
+          {cta.to ? (
+            <Link
+              to={cta.to}
+              className="rounded-sm text-[1.25rem] font-medium leading-[1.4] text-ink-strong underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            >
+              {cta.label}
+            </Link>
+          ) : null}
         </div>
       </section>
     );
@@ -111,9 +113,9 @@ export default function PremiumCtaBanner({
               >
                 {cta.label}
               </a>
-            ) : (
+            ) : cta.to ? (
               <Link
-                to={cta.to ?? "#"}
+                to={cta.to}
                 style={
                   primaryTone === "brand"
                     ? { backgroundColor: PREMIUM_GRADUATE_GREEN }
@@ -123,7 +125,7 @@ export default function PremiumCtaBanner({
               >
                 {cta.label}
               </Link>
-            )}
+            ) : null}
             {secondaryCta ? (
               <a
                 href={secondaryCta.href}
@@ -154,12 +156,14 @@ export default function PremiumCtaBanner({
         <h2 className="break-keep text-[2rem] font-semibold leading-[1.4] text-white">
           {title}
         </h2>
-        <Link
-          to={cta.to ?? "#"}
-          className="text-[1.25rem] font-medium leading-[1.4] text-white underline-offset-4 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none"
-        >
-          {cta.label}
-        </Link>
+        {cta.to ? (
+          <Link
+            to={cta.to}
+            className="text-[1.25rem] font-medium leading-[1.4] text-white underline-offset-4 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none"
+          >
+            {cta.label}
+          </Link>
+        ) : null}
       </div>
     </section>
   );

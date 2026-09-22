@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { site } from "@/config/site";
 import {
   FALLBACK_NAV_GROUPS,
   MENU_GROUP_ORDER,
@@ -283,6 +284,25 @@ function replacePremiumNavGroup(groups: NavGroup[]): NavGroup[] {
   return next;
 }
 
+// "온라인문의"(→ /online-inquiry, navigation.ts 코드 정의)는 카카오톡 채널 상담
+// 랜딩(OnlineInquiry.tsx)으로 연결된다. site.company.kakaoChannelUrl이 없는
+// 사이트(스쿨멘토)는 그 랜딩이 안내 문구만 남는 죽은 페이지가 되므로, 최종 메뉴
+// 트리에서 이 항목 자체를 제거한다 — insertGrowthPlanningInService/
+// replacePremiumNavGroup과 같은 이유로 최종 반환값에만 적용한다(캐시·DB 파생
+// 경로는 그대로 둔다).
+export function removeOnlineInquiryWithoutKakao(
+  groups: NavGroup[],
+): NavGroup[] {
+  if (site.company.kakaoChannelUrl) return groups;
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => cleanText(item.to) !== "/online-inquiry",
+    ),
+  }));
+}
+
 // 캐시에 저장된 라벨도 normalizeMenuLabel을 다시 태운다 — 키 bump(v8)로 기존 캐시는 비워지지만,
 // 캐시가 쓰이는 다른 경로(직접 조작 등)에서도 구 라벨이 새어 나오지 않도록 하는 안전망이다.
 function normalizeCachedGroups(groups: NavGroup[]): NavGroup[] {
@@ -474,8 +494,11 @@ export function useNavGroups() {
     };
   }, [instanceId]);
 
-  // '성장설계' 주입・'프리미엄' 그룹 교체는 여기(최종 반환값)에만 적용한다 — 위
-  // insertGrowthPlanningInService/replacePremiumNavGroup 주석 참고. 서로 다른 그룹을
-  // 다루므로(서비스 vs 프리미엄) 적용 순서는 결과에 영향 없다.
-  return replacePremiumNavGroup(insertGrowthPlanningInService(navGroups));
+  // '성장설계' 주입・'프리미엄' 그룹 교체・'온라인문의' 제거는 여기(최종 반환값)에만
+  // 적용한다 — 위 insertGrowthPlanningInService/replacePremiumNavGroup/
+  // removeOnlineInquiryWithoutKakao 주석 참고. 서로 다른 그룹·항목을 다루므로 적용
+  // 순서는 결과에 영향 없다.
+  return removeOnlineInquiryWithoutKakao(
+    replacePremiumNavGroup(insertGrowthPlanningInService(navGroups)),
+  );
 }
