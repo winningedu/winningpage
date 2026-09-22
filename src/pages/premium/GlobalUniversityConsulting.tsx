@@ -12,6 +12,7 @@ import {
   PremiumNumberedCards,
   PremiumSectionHeading,
 } from "@/components/premium";
+import { buildPhoneSecondaryCta } from "@/lib/premiumContact";
 
 // 해외명문대 진학컨설팅(프리미엄) 랜딩 — /page/premium/global-university.
 // 대입컨설팅 A/S·대학원입학과 같은 컴포넌트 조합 방식의 코드 페이지(구 CMS DynamicPage 대체).
@@ -252,10 +253,7 @@ export default function GlobalUniversityConsulting() {
         title={<>&quot;The next chapter is yours — are you ready?&quot;</>}
         sub="1:1 상담을 통해, 목표에 맞는 진학 전략을 체계적으로 설계해 드립니다. 학생의 현재 상황 진단에서 부담 없이 시작하세요."
         cta={{ label: "이용 신청하기", to: "/premium-apply" }}
-        secondaryCta={{
-          label: "전화 상담 051.902.0080",
-          href: "tel:0519020080",
-        }}
+        secondaryCta={buildPhoneSecondaryCta()}
         variant="light"
       />
     </main>

@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router";
 import { Navigate } from "react-router";
+import { requireOnlineInquiryAvailableMiddleware } from "@/lib/routeMiddleware";
 import CompanyNews from "@/pages/CompanyNews";
 import CompanyNewsList from "@/pages/CompanyNewsList";
 import ColumnDetail from "@/pages/column/ColumnDetail";
@@ -20,7 +21,11 @@ const contentRoutes: RouteObject[] = [
   { path: "/info/column", Component: ColumnHome },
   { path: "/info/column/list", Component: ColumnList },
   { path: "/info/column/:id", Component: ColumnDetail },
-  { path: "/online-inquiry", Component: OnlineInquiry },
+  {
+    path: "/online-inquiry",
+    Component: OnlineInquiry,
+    middleware: [requireOnlineInquiryAvailableMiddleware],
+  },
   {
     path: "/page/online-inquiry",
     Component: () => <Navigate to="/online-inquiry" replace />,

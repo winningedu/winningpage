@@ -2,20 +2,11 @@
 // schoolmentor)로 배포하기 위한 빌드타임 상수다(env: VITE_SITE, vite.config.js가
 // 빌드 시점에 값 존재를 한 번 더 검증한다).
 //
-// 아직 이 값을 소비하는 UI가 없다 — 지금은 뼈대만 둔다. 브랜드 문자열(로고·회사명
-// 등) 치환에는 쓰지 않는다(이번 작업 범위 밖) — 가입 가능 여부 같은 "운영 토글"
-// 판단에만 쓸 것.
-export type SiteKey = "winning" | "schoolmentor";
+// 브랜드 데이터 자체의 정본은 sites.ts(순수 데이터, env 비의존 — vite.config.js도
+// 같은 데이터를 쓴다)다. 이 파일은 런타임에 VITE_SITE로 그중 하나를 고르기만 한다.
+import { SITES, type SiteConfig, type SiteKey } from "@/config/sites";
 
-interface SiteConfig {
-  key: SiteKey;
-  name: string;
-}
-
-const SITES: Record<SiteKey, SiteConfig> = {
-  winning: { key: "winning", name: "위닝에듀" },
-  schoolmentor: { key: "schoolmentor", name: "스쿨멘토" },
-};
+export type { SiteConfig, SiteKey };
 
 function resolveSiteKey(value: string | undefined): SiteKey {
   if (value === "winning" || value === "schoolmentor") return value;

@@ -15,6 +15,9 @@
 //     위 --admin-only에 더해 app_settings에 그 사이트 전용 오버라이드(아래
 //     SITE_APP_SETTINGS)를 upsert한다 — "빈 S DB에 설정+관리자만" 초기화용.
 //     --site는 winning|schoolmentor 둘 중 하나만 허용(다른 값은 즉시 에러).
+//     --site=schoolmentor는 이어서 terms도 SITE_TERMS_DIR 원문(scripts/site-terms/)
+//     으로 오버라이드한다(아래 applySiteTerms) — dev 약관 복사(handleTerms) 뒤,
+//     app_settings 오버라이드와 같은 자리에서 실행된다.
 //
 // 접속 정보:
 //   dev(소스)  — .env.seed.local (없으면 .env.local, 로컬 URL이면 중단)
@@ -50,6 +53,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { loadSiteTerms, planSiteTermsRows } from "./lib/siteTerms.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -66,6 +70,15 @@ const PAGE = 1000;
 const SITE_APP_SETTINGS = {
   winning: {},
   schoolmentor: { signup_enabled: false, require_tenant_on_signup: true },
+};
+
+// --site=<key> 약관 오버라이드 — dev에서 복사된 W(위닝에듀) 약관 중 일부를
+// 그 사이트 소유 회사(고객사) 명의 원문으로 교체한다. 디렉터리는
+// scripts/lib/siteTerms.mjs의 manifest.json 형식(code/title/file)을 따른다.
+// null이면 오버라이드 없음(핸들terms가 복사한 dev 약관을 그대로 둔다).
+const SITE_TERMS_DIR = {
+  winning: null,
+  schoolmentor: path.join(repoRoot, "scripts", "site-terms", "schoolmentor"),
 };
 
 // FK 의존 순서 고려: 참조되는 쪽을 먼저.
@@ -556,6 +569,55 @@ async function applySiteAppSettings(prodClient, siteKey) {
 }
 
 // ---------------------------------------------------------------------------
+// 사이트별 terms 오버라이드 (--site=<winning|schoolmentor>) — handleTerms가
+// dev 약관을 복사한 뒤에 실행되어야 한다(그래야 오버라이드 대상이 아닌 code는
+// dev 원문 그대로 남는다).
+// ---------------------------------------------------------------------------
+
+async function applySiteTerms(prodClient, siteKey) {
+  const dir = SITE_TERMS_DIR[siteKey];
+  if (!dir) {
+    console.log(`\n--site=${siteKey}: terms 오버라이드 없음(dev 원문 유지).`);
+    return;
+  }
+
+  const siteTerms = loadSiteTerms(dir);
+  const { data: existingRows, error: selectError } = await prodClient
+    .from("terms")
+    .select("code, version, is_active");
+  if (selectError)
+    throw new Error(`terms 오버라이드용 조회 실패: ${selectError.message}`);
+
+  const { deactivate, upserts } = planSiteTermsRows(existingRows, siteTerms);
+
+  for (const { code, version } of deactivate) {
+    const { error } = await prodClient
+      .from("terms")
+      .update({ is_active: false })
+      .eq("code", code)
+      .eq("version", version);
+    if (error)
+      throw new Error(
+        `terms 오버라이드 비활성화 실패(${code} ${version}): ${error.message}`,
+      );
+  }
+
+  if (upserts.length > 0) {
+    const { error } = await prodClient
+      .from("terms")
+      .upsert(upserts, { onConflict: "code,version" });
+    if (error)
+      throw new Error(`terms 오버라이드 upsert 실패: ${error.message}`);
+  }
+
+  console.log(
+    `\n--site=${siteKey}: terms 오버라이드 적용 완료 — ` +
+      `${upserts.map((row) => `${row.code}→${row.version}`).join(", ")} 활성화, ` +
+      `기존 활성 ${deactivate.length}건 비활성화.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 최고 관리자 계정 생성 (마지막 단계)
 // ---------------------------------------------------------------------------
 
@@ -803,7 +865,10 @@ async function main() {
   if (ADMIN_ONLY) {
     // 테이블 upsert·storage 미러를 전부 건너뛴다 — "빈 S DB에 설정+관리자만"
     // 시나리오용(위 --admin-only 가드가 이미 APPLY·prod 존재를 보장했다).
-    if (SITE_KEY) await applySiteAppSettings(prodClient, SITE_KEY);
+    if (SITE_KEY) {
+      await applySiteAppSettings(prodClient, SITE_KEY);
+      await applySiteTerms(prodClient, SITE_KEY);
+    }
     await createAdminMaster(prodClient);
     console.log("\n완료: --admin-only (테이블 upsert·storage 미러 스킵)");
     return;
@@ -920,7 +985,10 @@ async function main() {
       `  ${ok}/${referencedPaths.size - missing.length}개 파일 복사 완료`,
     );
 
-    if (SITE_KEY) await applySiteAppSettings(prodClient, SITE_KEY);
+    if (SITE_KEY) {
+      await applySiteAppSettings(prodClient, SITE_KEY);
+      await applySiteTerms(prodClient, SITE_KEY);
+    }
     await createAdminMaster(prodClient);
   } else {
     console.log(

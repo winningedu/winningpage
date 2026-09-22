@@ -12,6 +12,7 @@ import {
   PremiumSuccessStories,
 } from "@/components/premium";
 import { COMPANY } from "@/data/company";
+import { buildPhoneSecondaryCta } from "@/lib/premiumContact";
 
 // 특목고입학 프로그램(프리미엄) 랜딩 — /page/premium/special-highschool.
 // 대입컨설팅 A/S·대학원입학·해외명문대와 같은 컴포넌트 조합 방식의 코드 페이지
@@ -289,10 +290,7 @@ export default function SpecialHighschoolAdmission() {
         title="1:1 상담을 통해, 목표에 맞는 입시 전략을 체계적으로 설계해 드립니다"
         sub="학생의 현재 상황 진단부터 부담 없이 시작하세요"
         cta={{ label: "카카오톡 상담", href: COMPANY.kakaoChannelUrl }}
-        secondaryCta={{
-          label: "전화 상담 051.902.0080",
-          href: "tel:0519020080",
-        }}
+        secondaryCta={buildPhoneSecondaryCta()}
         variant="light"
         primaryTone="navy"
       />
