@@ -62,13 +62,27 @@ export function planSiteTermsRows(existingRows, siteTerms) {
     .filter((row) => row.is_active)
     .map(({ code, version }) => ({ code, version }));
 
-  const upserts = siteTerms.map(({ code, title, content }) => ({
-    code,
-    version: nextVersion(existingRows, code),
-    title,
-    content,
-    is_active: true,
-  }));
+  const upserts = siteTerms.map(
+    ({
+      code,
+      title,
+      content,
+      route,
+      is_required,
+      sort_order,
+      effective_from,
+    }) => ({
+      code,
+      version: nextVersion(existingRows, code),
+      title,
+      content,
+      is_active: true,
+      route,
+      is_required,
+      sort_order,
+      effective_from,
+    }),
+  );
 
   return { deactivate, upserts };
 }

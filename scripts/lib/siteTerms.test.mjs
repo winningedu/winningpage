@@ -121,6 +121,36 @@ describe("planSiteTermsRows", () => {
     ]);
   });
 
+  it("siteTerms의 메타 필드(route·is_required·sort_order·effective_from)를 upsert 행에 그대로 싣는다", () => {
+    const siteTerms = [
+      {
+        code: "service_fulltext",
+        title: "위닝로직 서비스 이용약관",
+        content: "제1조...",
+        route: "/terms",
+        is_required: false,
+        sort_order: 300,
+        effective_from: "2026-09-01",
+      },
+    ];
+
+    const { upserts } = planSiteTermsRows([], siteTerms);
+
+    expect(upserts).toEqual([
+      {
+        code: "service_fulltext",
+        version: "v1",
+        title: "위닝로직 서비스 이용약관",
+        content: "제1조...",
+        is_active: true,
+        route: "/terms",
+        is_required: false,
+        sort_order: 300,
+        effective_from: "2026-09-01",
+      },
+    ]);
+  });
+
   it("해당 code가 기존에 없으면 v1로 upsert를 만든다", () => {
     const { upserts } = planSiteTermsRows(
       [{ code: "refund_policy", version: "v3", is_active: true }],
