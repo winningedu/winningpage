@@ -53,4 +53,11 @@ describe("remapTenantIds", () => {
 
     expect(result).toEqual([{ id: "p1", tenant_id: "prod-1" }]);
   });
+
+  it("idMap에 없는 tenant_id면 어느 행인지 알 수 있는 에러를 던진다", () => {
+    const rows = [{ id: "p1", tenant_id: "dev-unknown" }];
+    const idMap = new Map();
+
+    expect(() => remapTenantIds(rows, idMap)).toThrow(/p1.*dev-unknown/s);
+  });
 });
