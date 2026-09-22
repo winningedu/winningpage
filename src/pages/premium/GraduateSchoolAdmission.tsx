@@ -12,6 +12,7 @@ import {
   PremiumSectionHeading,
 } from "@/components/premium";
 import { PREMIUM_GRADUATE_ACCEPTANCES } from "@/components/premium/premiumStaticData";
+import { buildPhoneSecondaryCta } from "@/lib/premiumContact";
 
 // 대학원입학 프로그램(프리미엄) 랜딩 — /page/premium/graduate-school.
 // 대입컨설팅 A/S와 같은 컴포넌트 조합 방식의 코드 페이지(구 CMS DynamicPage 대체).
@@ -244,10 +245,7 @@ export default function GraduateSchoolAdmission() {
         }
         sub="평일·주말 10:00~22:00 (주말 상담 가능)"
         cta={{ label: "이용 신청하기", to: "/premium-apply" }}
-        secondaryCta={{
-          label: "전화 상담 051.902.0080",
-          href: "tel:0519020080",
-        }}
+        secondaryCta={buildPhoneSecondaryCta()}
         variant="light"
         primaryTone="brand"
       />

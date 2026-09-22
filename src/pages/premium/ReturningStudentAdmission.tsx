@@ -10,6 +10,7 @@ import {
   PremiumNumberedList,
   PremiumSectionHeading,
 } from "@/components/premium";
+import { buildPhoneSecondaryCta } from "@/lib/premiumContact";
 
 // 국제・해외고 국내대 입학컨설팅(프리미엄) 랜딩 — /page/premium/returning-student.
 // 대입컨설팅 A/S·대학원입학·해외명문대·특목고입학과 같은 컴포넌트 조합 방식의 코드 페이지
@@ -241,10 +242,7 @@ export default function ReturningStudentAdmission() {
         title="해외에서의 시간이 합격의 근거가 되도록"
         sub="평일·주말 10:00~22:00 (주말 상담 가능)"
         cta={{ label: "이용 신청하기", to: "/premium-apply" }}
-        secondaryCta={{
-          label: "전화 상담 051.902.0080",
-          href: "tel:0519020080",
-        }}
+        secondaryCta={buildPhoneSecondaryCta()}
         variant="light"
       />
     </main>

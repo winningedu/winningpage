@@ -23,8 +23,8 @@ type PremiumCtaBannerProps = {
   title: ReactNode;
   eyebrow?: ReactNode;
   sub?: ReactNode;
-  cta: { label: string; to?: string; href?: string };
-  secondaryCta?: { label: string; href: string };
+  cta: { label: string; to?: string | undefined; href?: string | undefined };
+  secondaryCta?: { label: string; href: string } | undefined;
   /** public/images/premium/cta-s-program-bg.webp — 페이지가 명시적으로 넘긴다. variant="light" 에선 불필요. */
   bgSrc?: string;
   /** light: 베이지 배경+pill(S→A 안내). plain: 흰 배경+텍스트 링크(시안 S 하단 첫 배너). */
