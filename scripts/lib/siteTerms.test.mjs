@@ -67,7 +67,11 @@ describe("planSiteTermsRows", () => {
       { code: "service_fulltext", version: "v4", is_active: true },
     ];
     const siteTerms = [
-      { code: "service_fulltext", title: "위닝로직 서비스 이용약관", content: "제1조..." },
+      {
+        code: "service_fulltext",
+        title: "위닝로직 서비스 이용약관",
+        content: "제1조...",
+      },
     ];
 
     const { upserts } = planSiteTermsRows(existingRows, siteTerms);
