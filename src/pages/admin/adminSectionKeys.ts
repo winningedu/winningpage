@@ -47,7 +47,9 @@ export const ADMIN_SECTION_KEYS = [
   "winningSuhaengResourceDb",
   "winningSetukDb",
   "winningDeepReportDb",
-  // 회원관리
+  // 회원관리 — 소속(테넌트) 마스터가 회원 데이터의 상위 개념이라 members 앞에
+  // 둔다(admin_resources sort_order 305, 20260922002929 참고).
+  "tenants",
   "members",
   // 회원관리 — 이용 현황
   "dailyEntries",

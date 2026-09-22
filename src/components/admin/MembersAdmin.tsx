@@ -61,7 +61,11 @@ interface ProfileRow {
   guardian_phone?: string | null;
   memo?: string | null;
   member_category?: string | null;
-  org_code?: string | null;
+  // 2026-09-22 — org_code(자유 입력 text, 죽은 컬럼)를 tenants FK 로 대체.
+  tenant_id?: string | null;
+  // profiles 컬럼이 아니라 loadRows()가 tenants 를 묶어 얹는 파생 필드다
+  // (service_labels 와 같은 방식).
+  tenant_name?: string;
   // profiles 컬럼이 아니라 loadRows()가 program_access 를 묶어 얹는 파생 필드다.
   service_labels?: string;
   is_active?: boolean | null;
@@ -224,6 +228,10 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   const [keyword, setKeyword] = useState("");
   const [memberType, setMemberType] = useState("");
   const [page, setPage] = useState(1);
+  // 소속(테넌트) 목록(2026-09-22) — 목록의 tenant_name 파생과 상세의 소속
+  // 배정 드롭다운이 함께 쓴다. RLS 는 fn_admin_can('tenants','view') 라
+  // 이 화면에 들어온 어드민이면 통과한다.
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
 
   const [selected, setSelected] = useState<ProfileRow | null>(null);
   const [tab, setTab] = useState<TabKey>("profile");
@@ -254,6 +262,12 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   // 어드민이 바로 고쳐 쓰는 값이다(연락·복구 채널 승격).
   const [guardianPhoneDraft, setGuardianPhoneDraft] = useState("");
   const [savingGuardianPhone, setSavingGuardianPhone] = useState(false);
+  // 소속(테넌트) 배정/해제(2026-09-22, WC072) — categoryDraft 와 같은 인라인
+  // 편집 패턴. 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다. 쓰기는
+  // 반드시 fn_admin_set_profile_tenant RPC 전용이다 — profiles.tenant_id 를
+  // 직접 UPDATE 하면 fn_profiles_lock_tenant 트리거(WC070)가 막는다.
+  const [tenantDraft, setTenantDraft] = useState("");
+  const [savingTenant, setSavingTenant] = useState(false);
 
   async function loadRows() {
     setLoading(true);
@@ -296,10 +310,30 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       servicesById.set(row.id, list);
     }
 
+    // 소속(2026-09-22, org_code 자유 입력 대체) — service_labels 와 같은
+    // 방식으로 한 번만 조회해 profiles.tenant_id → tenants.name 을 얹는다.
+    const { data: tenantRows, error: tenantError } = await supabase
+      .from("tenants")
+      .select("id, name")
+      .order("name");
+
+    if (tenantError) {
+      console.error(tenantError);
+    }
+
+    const tenantList = tenantRows || [];
+    setTenants(tenantList);
+    const tenantNameById = new Map(
+      tenantList.map((tenant) => [tenant.id, tenant.name]),
+    );
+
     setRows(
       profileRows.map((row) => ({
         ...row,
         service_labels: (servicesById.get(row.id) || []).join(", "),
+        tenant_name: row.tenant_id
+          ? tenantNameById.get(row.tenant_id) || ""
+          : "",
       })),
     );
     setLoading(false);
@@ -416,6 +450,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setDraft("");
     setCategoryDraft(row.member_category || "");
     setGuardianPhoneDraft(row.guardian_phone || "");
+    setTenantDraft(row.tenant_id || "");
     loadDetail(row);
   }
 
@@ -581,6 +616,44 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     alert("학부모 핸드폰을 저장했습니다.");
   }
 
+  // 소속 배정/해제(2026-09-22, WC072) — categoryDraft/guardianPhoneDraft 와
+  // 같은 인라인 저장 패턴이지만, profiles.tenant_id 는 직접 update 할 수
+  // 없어(fn_profiles_lock_tenant 트리거, WC070) RPC 를 부른다. p_tenant_id
+  // 는 NULL 이면 해제다 — 생성 타입(database.types.ts)이 인자를 string 으로
+  // 좁혀놔서(실제 SQL 시그니처는 nullable uuid) 그대로 두면 컴파일이 막힌다.
+  async function saveTenant() {
+    if (!selected || savingTenant) return;
+    setSavingTenant(true);
+
+    const nextId = tenantDraft || null;
+    const { error } = await supabase.rpc("fn_admin_set_profile_tenant", {
+      p_profile_id: selected.id,
+      p_tenant_id: nextId as unknown as string,
+    });
+
+    setSavingTenant(false);
+
+    if (error) {
+      alert(`소속 저장 실패: ${error.message}`);
+      return;
+    }
+
+    const nextName = nextId
+      ? tenants.find((tenant) => tenant.id === nextId)?.name || ""
+      : "";
+
+    // 목록과 상세가 같은 값을 보게 맞춰둔다(재조회 없이).
+    setSelected({ ...selected, tenant_id: nextId, tenant_name: nextName });
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === selected.id
+          ? { ...row, tenant_id: nextId, tenant_name: nextName }
+          : row,
+      ),
+    );
+    alert("소속을 저장했습니다.");
+  }
+
   // 결제 요약 3종 — 참조 HTML 의 "이번 달 결제 / 미납액 / 누적 결제액".
   // 미납액은 아직 결제가 끝나지 않은 주문(pending·waiting_deposit)의 합으로
   // 잡는다. 취소·실패·환불은 받을 돈이 아니므로 제외한다.
@@ -715,6 +788,11 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
             setGuardianPhoneDraft={setGuardianPhoneDraft}
             onSaveGuardianPhone={saveGuardianPhone}
             savingGuardianPhone={savingGuardianPhone}
+            tenants={tenants}
+            tenantDraft={tenantDraft}
+            setTenantDraft={setTenantDraft}
+            onSaveTenant={saveTenant}
+            savingTenant={savingTenant}
           />
         ) : tab === "services" ? (
           <ServicesPane accesses={accesses} />
@@ -856,6 +934,11 @@ function ProfilePane({
   setGuardianPhoneDraft,
   onSaveGuardianPhone,
   savingGuardianPhone,
+  tenants,
+  tenantDraft,
+  setTenantDraft,
+  onSaveTenant,
+  savingTenant,
 }: {
   profile: ProfileRow;
   isParent: boolean;
@@ -871,6 +954,11 @@ function ProfilePane({
   setGuardianPhoneDraft: (value: string) => void;
   onSaveGuardianPhone: () => void;
   savingGuardianPhone: boolean;
+  tenants: { id: string; name: string }[];
+  tenantDraft: string;
+  setTenantDraft: (value: string) => void;
+  onSaveTenant: () => void;
+  savingTenant: boolean;
 }) {
   const address = [profile.address, profile.address_detail]
     .filter(Boolean)
@@ -891,7 +979,32 @@ function ProfilePane({
         <Row label="이름" value={profile.name || "-"} />
         <Row label="성별" value={profile.gender || "-"} />
         <Row label="생년월일" value={profile.birth_date || "-"} />
-        <Row label="소속코드" value={profile.org_code || "-"} />
+        {/* 소속(2026-09-22, org_code 자유 입력 → tenants FK 배정/해제 전환).
+            client 쪽 권한 체크는 두지 않는다 — 회원구분/학부모 핸드폰 인라인
+            편집(saveMemberCategory/saveGuardianPhone)과 같은 원칙으로, 쓰기는
+            fn_admin_set_profile_tenant RPC 가 fn_admin_can('members','edit')
+            로 서버에서 게이트한다(WC072). 조회 전용 관리자가 눌러도 화면이
+            숨겨져 있지 않을 뿐 저장은 실패 alert 로 막힌다. */}
+        <Row
+          label="소속"
+          value={
+            <div className="flex items-center gap-2">
+              <span className="max-w-[13.75rem]">
+                <Select value={tenantDraft} onChange={setTenantDraft}>
+                  <option value="">소속 없음</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </Select>
+              </span>
+              <ActionButton onClick={onSaveTenant} disabled={savingTenant}>
+                {savingTenant ? "저장 중..." : "저장"}
+              </ActionButton>
+            </div>
+          }
+        />
         <Row label="가입일" value={formatDateTime(profile.created_at)} />
         <Row
           label="계정 상태"
