@@ -32,6 +32,10 @@ function nextVersion(existingRows, code) {
 // existingRows(타깃 DB terms 전체) + siteTerms(로드된 사이트 전용 약관)로
 // 반영 계획을 만든다 — DB 접속 없음, 순수 계산.
 export function planSiteTermsRows(existingRows, siteTerms) {
+  const deactivate = existingRows
+    .filter((row) => row.is_active)
+    .map(({ code, version }) => ({ code, version }));
+
   const upserts = siteTerms.map(({ code, title, content }) => ({
     code,
     version: nextVersion(existingRows, code),
@@ -40,5 +44,5 @@ export function planSiteTermsRows(existingRows, siteTerms) {
     is_active: true,
   }));
 
-  return { upserts };
+  return { deactivate, upserts };
 }

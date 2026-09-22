@@ -103,4 +103,21 @@ describe("planSiteTermsRows", () => {
       },
     ]);
   });
+
+  it("code와 무관하게 현재 활성 행 전부를 deactivate 대상으로 돌려준다", () => {
+    const existingRows = [
+      { code: "service_fulltext", version: "v4", is_active: true },
+      { code: "service_fulltext", version: "v3", is_active: false },
+      { code: "refund_policy", version: "v2", is_active: true },
+      { code: "student_service", version: "v1", is_active: true },
+    ];
+
+    const { deactivate } = planSiteTermsRows(existingRows, []);
+
+    expect(deactivate).toEqual([
+      { code: "service_fulltext", version: "v4" },
+      { code: "refund_policy", version: "v2" },
+      { code: "student_service", version: "v1" },
+    ]);
+  });
 });
