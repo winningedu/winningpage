@@ -446,14 +446,16 @@ export default function PaymentSuccess() {
                 다시 결제하게 만드는 사고를 구조적으로 막는다. 1순위는 카카오톡 문의(권한
                 부여 실패 분기와 동일 채널), 2순위는 마이페이지에서 본인 확인. */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href={COMPANY.kakaoChannelUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-primary px-8 py-3.5 text-center text-base font-semibold leading-5 text-white transition hover:bg-primary/90"
-            >
-              카카오톡으로 문의하기
-            </a>
+            {COMPANY.kakaoChannelUrl ? (
+              <a
+                href={COMPANY.kakaoChannelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl bg-primary px-8 py-3.5 text-center text-base font-semibold leading-5 text-white transition hover:bg-primary/90"
+              >
+                카카오톡으로 문의하기
+              </a>
+            ) : null}
             <button
               type="button"
               onClick={() => navigate(FALLBACK_PATH)}
@@ -666,9 +668,11 @@ export default function PaymentSuccess() {
             </p>
             {/* 12.5px 은 시안에 없는 단계였다 — 14px 로 올리고 보조 정보라는 사실은
                   ink.sub(#808080)로 표현한다(무게는 본문과 같은 w500). */}
-            <p className="mt-3 text-[0.875rem] font-medium leading-5 text-ink-sub">
-              문의: 카카오톡 {COMPANY.kakao}
-            </p>
+            {COMPANY.kakao ? (
+              <p className="mt-3 text-[0.875rem] font-medium leading-5 text-ink-sub">
+                문의: 카카오톡 {COMPANY.kakao}
+              </p>
+            ) : null}
           </div>
 
           {/* CTA 는 390에서 카드 폭(=풀폭), sm 이상에서 내용 폭.
@@ -720,7 +724,7 @@ export default function PaymentSuccess() {
                     회원가입하고 이용 등록하기
                   </Link>
                 );
-              if (grantPermanent)
+              if (grantPermanent && COMPANY.kakaoChannelUrl)
                 return (
                   <a
                     href={COMPANY.kakaoChannelUrl}
