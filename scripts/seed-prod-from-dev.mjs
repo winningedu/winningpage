@@ -18,6 +18,8 @@
 //     --site=schoolmentor는 이어서 terms도 SITE_TERMS_DIR 원문(scripts/site-terms/)
 //     으로 오버라이드한다(아래 applySiteTerms) — dev 약관 복사(handleTerms) 뒤,
 //     app_settings 오버라이드와 같은 자리에서 실행된다.
+//   products/coupons의 tenant_id는 dev·타깃 tenants.name 기준으로 자동 재매핑된다
+//   (scripts/lib/tenantRemap.mjs) — 타깃 DB에 없는 테넌트면 즉시 에러로 중단.
 //
 // 접속 정보:
 //   dev(소스)  — .env.seed.local (없으면 .env.local, 로컬 URL이면 중단)
@@ -54,6 +56,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { loadSiteTerms, planSiteTermsRows } from "./lib/siteTerms.mjs";
+import { buildTenantIdMap, remapTenantIds } from "./lib/tenantRemap.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -87,13 +90,19 @@ const TABLES = [
   // 약관
   { name: "terms", pk: "code,version", special: "terms" },
   // 결제 카탈로그
-  { name: "programs" },
+  // programs: 마이그레이션이 만든 행의 id가 환경마다 다르다(스쿨멘토 신규 DB에서 실측). FK는 전부
+  // program_key(text)를 참조하므로 자연키로 upsert해 기존 id를 보존한다(2026-09-22).
+  { name: "programs", pk: "program_key" },
   // products는 slug 기준 — prod 기존 행 id를 order_items/program_access_grants가
   // 참조 중이라 id를 dev값으로 못 바꾼다(과거 수동 시딩 시대에 id가 갈라짐).
-  { name: "products", special: "products" },
-  { name: "coupons" },
+  { name: "products", special: "products", remapTenant: true },
+  { name: "coupons", remapTenant: true },
   // 학습진단 카피
-  { name: "learning_diagnosis_v2_survey_copy" },
+  // copy_key 자연키로 upsert — 마이그레이션이 S에 기본 문구 1행을 미리 심어 두는데
+  // id 기준 upsert면 그 행과 dev 행이 서로 다른 id라 병렬로 남아
+  // learning_diagnosis_v2_survey_copy_copy_key_key(copy_key UNIQUE) 위반이 난다
+  // (2026-09-22 실측). id를 참조하는 FK 없음(git grep 확인) — 안전.
+  { name: "learning_diagnosis_v2_survey_copy", pk: "copy_key" },
   // 랜딩/메뉴
   { name: "page_contents" },
   // mirror: 과거 수동 시딩으로 id가 갈라진 prod 전용 행이 남아 있는 테이블.
@@ -144,7 +153,13 @@ const TABLES = [
 
   // 콘텐츠 마스터
   { name: "trending_departments", mirror: true },
-  { name: "winning_assessment_knowledge_items" }, // RAG 지식베이스 (embedding vector 포함)
+  // mirror — 마이그레이션이 S에 기본 지식 17행을 id 포함 명시값으로 이미 심어
+  // 두는데(copy_key류 unique 제약이 없어) id 기준 upsert만으로는 dev 17행이
+  // 별도 id로 추가돼 34행 중복이 난다(2026-09-22 실측). mirrorPrune은 dev id
+  // 집합에 없는 prod 행만 삭제(전체 삭제 아님) 후 upsertAll이 dev 값(embedding
+  // 포함 전 컬럼)을 그대로 넣으므로, 참조 FK 없는(git grep 확인) 이 테이블에
+  // 안전하게 S 선적재 17행을 dev 17행으로 교체한다.
+  { name: "winning_assessment_knowledge_items", mirror: true }, // RAG 지식베이스 (embedding vector 포함)
 ];
 
 // ---------------------------------------------------------------------------
@@ -884,6 +899,20 @@ async function main() {
   const results = [];
   let devRolesCache = null;
 
+  // tenant_id 재매핑 — products/coupons처럼 tenant_id(FK → public.tenants(id))를
+  // 가진 테이블은 dev id를 그대로 쓰면 FK 위반(products_tenant_id_fkey 실측).
+  // 환경 간 안정 키는 tenants.name뿐이라 name 기준으로 미리 매핑해 둔다.
+  // prod 미설정(타깃 정보 자체가 없는 순수 드라이런)이면 매핑 대상이 없으므로 빈 맵.
+  const tenantIdMap = prodClient
+    ? buildTenantIdMap(
+        await fetchAll(devClient, "tenants"),
+        await fetchAll(prodClient, "tenants"),
+      )
+    : new Map();
+  if (tenantIdMap.size > 0) {
+    console.log(`\ntenant 재매핑 ${tenantIdMap.size}건`);
+  }
+
   for (const table of TABLES) {
     const rows = await fetchAll(devClient, table.name);
 
@@ -904,11 +933,15 @@ async function main() {
     }
 
     const replaced = replaceHostDeep(rows, devHost, prodHost, hostCounter);
+    // upsert 직전 적용 — tenant_id 컬럼을 가진 테이블만(TABLES의 remapTenant 플래그).
+    const tenantRemapped = table.remapTenant
+      ? remapTenantIds(replaced, tenantIdMap)
+      : replaced;
 
     if (table.special === "terms") {
-      await handleTerms(prodClient, replaced);
+      await handleTerms(prodClient, tenantRemapped);
     } else if (table.special === "products") {
-      await handleProducts(prodClient, replaced);
+      await handleProducts(prodClient, tenantRemapped);
     } else if (table.special === "admin_roles") {
       const nameToProdId = await handleAdminRoles(prodClient, replaced);
       console.log(
@@ -938,8 +971,9 @@ async function main() {
       results.push({ table: table.name, devCount: rows.length, prodCount: n });
       continue;
     } else {
-      if (table.mirror) await mirrorPrune(prodClient, table.name, replaced);
-      await upsertAll(prodClient, table.name, replaced, table.pk ?? "id");
+      if (table.mirror)
+        await mirrorPrune(prodClient, table.name, tenantRemapped);
+      await upsertAll(prodClient, table.name, tenantRemapped, table.pk ?? "id");
     }
 
     const prodCount = await countRows(prodClient, table.name);
