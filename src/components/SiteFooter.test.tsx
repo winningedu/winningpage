@@ -119,9 +119,18 @@ describe("SiteFooter", () => {
     ).toHaveAttribute("href", "/privacy");
   });
 
-  it("사업자 정보 텍스트를 포함한다", () => {
+  it("사업자 정보 두 줄을 문자 단위로 정확히 렌더한다", () => {
     renderFooter();
-    expect(screen.getByText(/상호명: 주식회사 위닝에듀/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허출원: 10-2024-0048889 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
+      ),
+    ).toBeInTheDocument();
   });
 });
 
