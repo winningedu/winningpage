@@ -32,6 +32,7 @@ import {
   TextLinkButton,
 } from "@/components/auth";
 import { useCooldown } from "@/hooks/useCooldown";
+import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import {
   isValidMobile,
   normalizePhone,
@@ -129,6 +130,9 @@ async function requestPhoneReset(phone: string): Promise<PhoneResetResult> {
 
 export default function FindPassword() {
   const navigate = useNavigate();
+  // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
+  // 회원가입 안내 CTA를 숨긴다(Header.tsx와 동일 원칙).
+  const signupEnabled = useSignupEnabled();
   const [method, setMethod] = useState<FindMethod>("phone");
 
   // --- ② 이메일 링크(기존) ---
@@ -463,9 +467,11 @@ export default function FindPassword() {
                 회원가입을 진행해 주세요.
               </InfoCard>
 
-              <TextLinkButton as="link" to="/signup" tone="primary" size="md">
-                회원가입하러 가기
-              </TextLinkButton>
+              {signupEnabled && (
+                <TextLinkButton as="link" to="/signup" tone="primary" size="md">
+                  회원가입하러 가기
+                </TextLinkButton>
+              )}
             </div>
           )}
 

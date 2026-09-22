@@ -8,6 +8,13 @@
 //   node scripts/seed-prod-from-dev.mjs
 //   node scripts/seed-prod-from-dev.mjs --apply
 //   node scripts/seed-prod-from-dev.mjs --verify   # 시딩 후 검증(읽기만)
+//   node scripts/seed-prod-from-dev.mjs --apply --admin-only
+//     테이블 upsert·storage 미러를 전부 건너뛰고 관리자 계정 생성만 실행한다
+//     (--apply·SEED_CONFIRM 게이트는 그대로 요구, --verify와는 함께 못 쓴다).
+//   node scripts/seed-prod-from-dev.mjs --apply --admin-only --site=schoolmentor
+//     위 --admin-only에 더해 app_settings에 그 사이트 전용 오버라이드(아래
+//     SITE_APP_SETTINGS)를 upsert한다 — "빈 S DB에 설정+관리자만" 초기화용.
+//     --site는 winning|schoolmentor 둘 중 하나만 허용(다른 값은 즉시 에러).
 //
 // 접속 정보:
 //   dev(소스)  — .env.seed.local (없으면 .env.local, 로컬 URL이면 중단)
@@ -51,6 +58,15 @@ const repoRoot = path.resolve(
 
 const DEV_PROJECT_REF = "gjowqdiopinhixfivnkx";
 const PAGE = 1000;
+
+// --site=<key> 오버라이드(2026-09-22, S 가입 차단용) — 마이그레이션이 심는
+// app_settings 기본값은 W(위닝에듀) 기준이라, 그와 다른 값만 사이트별로
+// 여기 명시한다. winning은 빈 객체(마이그레이션 기본값 그대로 둔다는 뜻).
+// applySiteAppSettings()가 --apply 시에만 이 맵을 읽어 upsert한다.
+const SITE_APP_SETTINGS = {
+  winning: {},
+  schoolmentor: { signup_enabled: false, require_tenant_on_signup: true },
+};
 
 // FK 의존 순서 고려: 참조되는 쪽을 먼저.
 // special 필드는 단순 upsert로 안 되는 테이블(아래 handleXxx 함수 참고).
@@ -513,6 +529,33 @@ async function mirrorBanner(devUrl, prodUrl, prodKey, relPath) {
 }
 
 // ---------------------------------------------------------------------------
+// 사이트별 app_settings 오버라이드 (--site=<winning|schoolmentor>)
+// ---------------------------------------------------------------------------
+
+async function applySiteAppSettings(prodClient, siteKey) {
+  const overrides = SITE_APP_SETTINGS[siteKey];
+  const keys = Object.keys(overrides);
+  if (keys.length === 0) {
+    console.log(
+      `\n--site=${siteKey}: 오버라이드 없음(마이그레이션 기본값 유지).`,
+    );
+    return;
+  }
+  for (const key of keys) {
+    // jsonb boolean으로 저장 — supabase-js가 JS boolean을 그대로 jsonb로
+    // 직렬화한다(false도 그대로 false로 들어간다, undefined로 새지 않는다).
+    const { error } = await prodClient
+      .from("app_settings")
+      .upsert({ key, value: overrides[key] }, { onConflict: "key" });
+    if (error)
+      throw new Error(`app_settings 오버라이드 실패(${key}): ${error.message}`);
+  }
+  console.log(
+    `\n--site=${siteKey}: app_settings 오버라이드 적용 완료(${keys.join(", ")}).`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 최고 관리자 계정 생성 (마지막 단계)
 // ---------------------------------------------------------------------------
 
@@ -685,6 +728,18 @@ async function verifyMain(dev, prod) {
 async function main() {
   const APPLY = process.argv.includes("--apply");
   const VERIFY = process.argv.includes("--verify");
+  const ADMIN_ONLY = process.argv.includes("--admin-only");
+  const siteArg = process.argv.find((a) => a.startsWith("--site="));
+  const SITE_KEY = siteArg ? siteArg.slice("--site=".length) : null;
+
+  if (SITE_KEY !== null && !Object.hasOwn(SITE_APP_SETTINGS, SITE_KEY)) {
+    throw new Error(
+      `--site 값이 올바르지 않습니다: ${JSON.stringify(SITE_KEY)} (winning|schoolmentor 중 하나여야 합니다)`,
+    );
+  }
+  if (ADMIN_ONLY && VERIFY) {
+    throw new Error("--admin-only와 --verify는 함께 쓸 수 없습니다.");
+  }
 
   if (VERIFY) {
     if (APPLY) throw new Error("--verify와 --apply는 함께 쓸 수 없습니다.");
@@ -699,6 +754,13 @@ async function main() {
     await verifyMain(dev, prod);
     return;
   }
+
+  if (ADMIN_ONLY && !APPLY) {
+    throw new Error(
+      "--admin-only는 --apply와 함께 써야 합니다(드라이런 대상 아님).",
+    );
+  }
+
   const dev = loadDevEnv();
   const prod = loadProdEnv();
   const devHost = hostOf(dev.url);
@@ -737,6 +799,15 @@ async function main() {
     : null;
   const prodHost = prod ? hostOf(prod.url) : undefined;
   const hostCounter = { count: 0 };
+
+  if (ADMIN_ONLY) {
+    // 테이블 upsert·storage 미러를 전부 건너뛴다 — "빈 S DB에 설정+관리자만"
+    // 시나리오용(위 --admin-only 가드가 이미 APPLY·prod 존재를 보장했다).
+    if (SITE_KEY) await applySiteAppSettings(prodClient, SITE_KEY);
+    await createAdminMaster(prodClient);
+    console.log("\n완료: --admin-only (테이블 upsert·storage 미러 스킵)");
+    return;
+  }
 
   // banners 리스팅(참조 대조용) — dev 소스에서만.
   console.log("\nbanners 버킷 리스팅(dev)...");
@@ -849,6 +920,7 @@ async function main() {
       `  ${ok}/${referencedPaths.size - missing.length}개 파일 복사 완료`,
     );
 
+    if (SITE_KEY) await applySiteAppSettings(prodClient, SITE_KEY);
     await createAdminMaster(prodClient);
   } else {
     console.log(

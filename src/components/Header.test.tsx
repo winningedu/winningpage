@@ -38,6 +38,13 @@ vi.mock("@/context/AuthProvider", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// 가입 오픈 여부 게이트(WC074) — 이 파일의 기존 테스트는 전부 signup_enabled=true
+// 전제(회원가입 CTA가 항상 보임)라 실제 조회 대신 true로 고정한다. 게이트 자체의
+// 숨김 동작은 useSignupEnabled 자체 테스트/별도 케이스가 다룰 영역이다.
+vi.mock("@/hooks/useSignupEnabled", () => ({
+  useSignupEnabled: () => true,
+}));
+
 // Header가 세션 확정 후 profiles 테이블을 조회한다(queryProfileById 등) — 실제 네트워크
 // 대신 이 mock으로 프로필 행을 즉시/항상 돌려준다. queryProfileById가 byId?.name으로
 // 곧장 성공하므로 select/eq 체인 어떤 필드로 불려도 이 한 응답으로 충분하다.

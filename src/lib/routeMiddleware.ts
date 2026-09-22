@@ -6,6 +6,7 @@ import {
   fetchAdminPermissions,
   fetchIsSuperAdmin,
 } from "./adminPermissions";
+import { getAppSettingBool } from "./appSettings";
 import { isOnboardingDone } from "./goalOnboarding";
 import { markProgramEntry } from "./programEntry";
 import { entitlementQueryOptions, queryClient } from "./queryClient";
@@ -187,6 +188,16 @@ export const requireAdminMiddleware: MiddlewareFunction = async ({
 
   setCached(user.id, "admin-role", role);
   throw new AdminForbiddenError();
+};
+
+// 2b) /signup/* — 가입 오픈 여부 확인(app_settings.signup_enabled, WC074 게이트).
+// 값이 true가 아니면(false는 물론 null=미확인도) 막는다 — "확인 못 했으니 일단
+// 통과"는 이 게이트의 목적(스쿨멘토 비공개 기간 가입 차단)을 무력화한다.
+export const requireSignupEnabledMiddleware: MiddlewareFunction = async () => {
+  const signupEnabled = await getAppSettingBool(supabase, "signup_enabled");
+  if (signupEnabled !== true) {
+    throw redirect("/login");
+  }
 };
 
 // 3) /app/goal/* — 로그인 + 이용권('goal') 확인(RequireGoalAccess.jsx의 1・2단계,

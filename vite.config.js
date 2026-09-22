@@ -1,7 +1,32 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+
+// VITE_SITE(winning|schoolmentor) 빌드 검증 — src/config/site.ts가 런타임에 같은
+// 값을 다시 확인하지만, 여기서 먼저 막아야 값이 빠진 빌드가 배포까지 가지 않는다.
+//
+// defineConfig를 함수 형태(mode 콜백)로 바꾸지 않고 플러그인 훅으로 구현한다 —
+// vitest.config.ts가 mergeConfig(viteConfig, ...)로 이 파일을 그대로 물려받는데,
+// mergeConfig는 콜백 형태 config를 병합하지 못한다("Cannot merge config in form
+// of callback"). 플러그인의 config 훅은 정적 객체 export를 유지한 채로 mode를
+// 받을 수 있어 이 제약을 피한다.
+//
+// vitest도 이 config를 로드하는데(CI typecheck job) CI엔 .env.local이 없어
+// VITE_SITE가 정의돼 있지 않다 — test 모드는 검증을 건너뛴다(로컬 .env.local엔
+// 이미 VITE_SITE=winning이 있어 dev/build는 그대로 걸린다).
+function validateSiteEnv() {
+  return {
+    name: "validate-site-env",
+    config(_config, { mode }) {
+      if (mode === "test") return;
+      const env = loadEnv(mode, process.cwd(), "");
+      if (env.VITE_SITE !== "winning" && env.VITE_SITE !== "schoolmentor") {
+        throw new Error("VITE_SITE 누락/오류 — winning 또는 schoolmentor");
+      }
+    },
+  };
+}
 
 export default defineConfig({
   resolve: {
@@ -47,6 +72,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    validateSiteEnv(),
     react({
       babel: {
         plugins: [["babel-plugin-react-compiler"]],
