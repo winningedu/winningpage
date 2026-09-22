@@ -1170,6 +1170,7 @@ export type Database = {
           org_code: string | null;
           slug: string;
           stackable: boolean;
+          tenant_id: string | null;
           title: string;
           valid_until: string | null;
         };
@@ -1187,6 +1188,7 @@ export type Database = {
           org_code?: string | null;
           slug: string;
           stackable?: boolean;
+          tenant_id?: string | null;
           title: string;
           valid_until?: string | null;
         };
@@ -1204,10 +1206,19 @@ export type Database = {
           org_code?: string | null;
           slug?: string;
           stackable?: boolean;
+          tenant_id?: string | null;
           title?: string;
           valid_until?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "coupons_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       daily_entries: {
         Row: {
@@ -4045,6 +4056,7 @@ export type Database = {
           session_quota: number | null;
           slug: string;
           sort_order: number;
+          tenant_id: string | null;
           validity_days: number | null;
         };
         Insert: {
@@ -4068,6 +4080,7 @@ export type Database = {
           session_quota?: number | null;
           slug: string;
           sort_order?: number;
+          tenant_id?: string | null;
           validity_days?: number | null;
         };
         Update: {
@@ -4091,6 +4104,7 @@ export type Database = {
           session_quota?: number | null;
           slug?: string;
           sort_order?: number;
+          tenant_id?: string | null;
           validity_days?: number | null;
         };
         Relationships: [
@@ -4100,6 +4114,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "programs";
             referencedColumns: ["program_key"];
+          },
+          {
+            foreignKeyName: "products_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -4132,6 +4153,7 @@ export type Database = {
           school_name: string | null;
           school_type: string | null;
           sms_agreed: boolean | null;
+          tenant_id: string | null;
           terms_service_agreed: boolean | null;
           updated_at: string | null;
           username: string | null;
@@ -4164,6 +4186,7 @@ export type Database = {
           school_name?: string | null;
           school_type?: string | null;
           sms_agreed?: boolean | null;
+          tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
           updated_at?: string | null;
           username?: string | null;
@@ -4196,11 +4219,20 @@ export type Database = {
           school_name?: string | null;
           school_type?: string | null;
           sms_agreed?: boolean | null;
+          tenant_id?: string | null;
           terms_service_agreed?: boolean | null;
           updated_at?: string | null;
           username?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       program_access: {
         Row: {
@@ -4877,6 +4909,68 @@ export type Database = {
         };
         Relationships: [];
       };
+      tenant_code_attempts: {
+        Row: {
+          attempted_at: string;
+          id: number;
+          user_id: string;
+        };
+        Insert: {
+          attempted_at?: string;
+          id?: number;
+          user_id: string;
+        };
+        Update: {
+          attempted_at?: string;
+          id?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      tenants: {
+        Row: {
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          org_type: string;
+          region: string;
+          tier: string;
+          updated_at: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          org_type: string;
+          region: string;
+          tier: string;
+          updated_at?: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          org_type?: string;
+          region?: string;
+          tier?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenants_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       terms: {
         Row: {
           audience: string;
@@ -5320,6 +5414,7 @@ export type Database = {
           refund_method: string | null;
           status: string | null;
           student_name: string | null;
+          tenant_name: string | null;
         };
         Relationships: [
           {
@@ -5708,6 +5803,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_admin_set_profile_tenant: {
+        Args: { p_profile_id: string; p_tenant_id: string };
+        Returns: undefined;
+      };
       fn_agree_payment_terms: { Args: never; Returns: Json };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
@@ -5828,6 +5927,31 @@ export type Database = {
         Returns: boolean;
       };
       fn_coupon_pending_hold_minutes: { Args: never; Returns: number };
+      fn_create_tenant: {
+        Args: {
+          p_name: string;
+          p_org_type: string;
+          p_region: string;
+          p_tier: string;
+        };
+        Returns: {
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          org_type: string;
+          region: string;
+          tier: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "tenants";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       fn_delete_account: { Args: { p_user_id: string }; Returns: string };
       fn_finalize_paid_order: {
         Args: {
@@ -5843,6 +5967,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_generate_tenant_code: { Args: never; Returns: string };
       fn_goal_reset_student: {
         Args: { p_profile_id: string };
         Returns: undefined;
@@ -5894,6 +6019,18 @@ export type Database = {
         Args: { p_student_profile_id?: string };
         Returns: string[];
       };
+      fn_matched_tenant_ids: {
+        Args: { p_student_profile_id?: string };
+        Returns: string[];
+      };
+      fn_my_tenant: {
+        Args: never;
+        Returns: {
+          id: string;
+          name: string;
+        }[];
+      };
+      fn_normalize_tenant_code: { Args: { p: string }; Returns: string };
       fn_order_consumption_state: {
         Args: { p_order_id: string };
         Returns: {
@@ -6047,6 +6184,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_resolve_tenant_code: { Args: { p_code: string }; Returns: string };
       fn_respond_enrollment: {
         Args: {
           p_approve: boolean;
@@ -6152,6 +6290,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_set_my_tenant: {
+        Args: { p_code: string };
+        Returns: {
+          name: string;
+          tenant_id: string;
+        }[];
+      };
       fn_student_parent: {
         Args: never;
         Returns: {
@@ -6169,6 +6314,10 @@ export type Database = {
           p_program_key: string;
         };
         Returns: Json;
+      };
+      fn_tenant_matches: {
+        Args: { p_parent: string; p_student: string; p_tenant_id: string };
+        Returns: boolean;
       };
       fn_usable_coupons:
         | {

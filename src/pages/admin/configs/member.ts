@@ -59,6 +59,33 @@ interface MemberCustomConfig {
 type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
+  // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
+  // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
+  // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·
+  // 등록 폼 모두 custom 컴포넌트가 직접 다룬다(src/components/admin/TenantsAdmin.tsx).
+  // columns 는 목록에서만 쓰인다(members 와 같은 관례).
+  tenants: {
+    title: "소속(테넌트) 관리",
+    table: "tenants",
+    searchPlaceholder: "소속명 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "tenants",
+    columns: [
+      { key: "name", label: "이름" },
+      { key: "region", label: "지역" },
+      { key: "org_type", label: "기업형태" },
+      { key: "code", label: "소속 코드" },
+      // 정산·영업 우선순위 등 내부 판단 재료라 회원에게는 어떤 경로로도
+      // 노출되지 않는다(tenants.tier 코멘트, 20260922002929) — 노출 여부가
+      // 불확실해 일단 어드민 화면에만 라벨로 구분해 보여준다(판단 근거는
+      // TenantsAdmin.tsx 주석 참고).
+      { key: "tier", label: "등급(내부용)" },
+      { key: "created_at", label: "생성일", type: "date" },
+    ],
+  },
+
   // 회원 목록 + 고객 상세 — QA 182 의 「고객조회상담」 메인메뉴를 별도로 만들지
   // 않고 이 화면에 통합한다(사용자 확정 2026-08-22). 상세는 탭 6개(고객상세정보/
   // 이용서비스/결제내역/상담/알림톡·문자/서비스이용내역)이고, profiles 한 테이블이
@@ -106,7 +133,10 @@ export const memberConfigs: Record<string, MemberConfig> = {
       // program_access 를 별도로 묶어 각 행에 얹어주는 파생 필드다(active 상태만,
       // 콤마 조인). 값이 없으면 formatValue가 "-"로 채운다.
       { key: "birth_date", label: "생년월일", type: "date" },
-      { key: "org_code", label: "소속코드" },
+      // 2026-09-22 — org_code(자유 입력 text) → tenant_name(tenants FK 조인,
+      // MembersAdmin.loadRows()가 program_access 와 같은 방식으로 얹는 파생
+      // 필드다) 로 교체.
+      { key: "tenant_name", label: "소속" },
       { key: "school_name", label: "학교명" },
       { key: "region", label: "지역" },
       { key: "service_labels", label: "이용서비스" },

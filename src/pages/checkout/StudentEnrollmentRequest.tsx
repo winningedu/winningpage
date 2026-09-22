@@ -9,7 +9,7 @@ import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { getApprovedParentLink } from "@/lib/parentLink";
 import {
   filterOrgProducts,
-  useMatchedOrgCodes,
+  useMatchedTenantIds,
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
@@ -111,13 +111,13 @@ export default function StudentEnrollmentRequest() {
     refetch,
   } = useProducts(undefined, { orderableOnly: true });
 
-  // org 한정 상품 노출 필터(2026-09-01) — 학생 본인 기준(fn_matched_org_codes 를
-  // 인자 없이 호출 → 본인 + 연결된 학부모의 org_code). 표시 전용, 정본은
+  // org 한정 상품 노출 필터(2026-09-01) — 학생 본인 기준(fn_matched_tenant_ids 를
+  // 인자 없이 호출 → 본인 + 연결된 학부모의 소속). 표시 전용, 정본은
   // fn_request_enrollment 의 서버 재검증(api/request-enrollment.ts WC064 매핑).
-  const { codes: matchedOrgCodes } = useMatchedOrgCodes();
+  const { ids: matchedTenantIds } = useMatchedTenantIds();
   const orgFilteredServices = useMemo(
-    () => filterOrgProducts(filteredServices, matchedOrgCodes),
-    [filteredServices, matchedOrgCodes],
+    () => filterOrgProducts(filteredServices, matchedTenantIds),
+    [filteredServices, matchedTenantIds],
   );
 
   // 서비스별 단일 선택: { [serviceKey]: productId } — Pricing.jsx 와 동일 규칙

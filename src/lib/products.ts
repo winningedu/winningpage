@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
 const PRODUCT_COLUMNS =
-  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, org_code, sale_ends_at";
+  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, tenant_id, sale_ends_at";
 
 type ProductRow = {
   id: string;
@@ -21,10 +21,11 @@ type ProductRow = {
   badge?: string | null;
   is_recommended?: boolean | null;
   is_active?: boolean;
-  // 소속 한정 상품 축(2026-09-01, supabase/migrations/20260901050440). org_code
-  // 가 있으면 fn_matched_org_codes 로 얻은 목록에 포함될 때만, sale_ends_at 이
-  // 있으면 그 시각 이전일 때만 노출한다 — filterOrgProducts 가 이 두 컬럼을 쓴다.
-  org_code?: string | null;
+  // 소속 한정 상품 축(2026-09-01, supabase/migrations/20260901050440. tenant_id
+  // FK로 전환됨). tenant_id 가 있으면 fn_matched_tenant_ids 로 얻은 목록에
+  // 포함될 때만, sale_ends_at 이 있으면 그 시각 이전일 때만 노출한다 —
+  // filterOrgProducts 가 이 두 컬럼을 쓴다.
+  tenant_id?: string | null;
   sale_ends_at?: string | null;
 };
 
@@ -35,7 +36,7 @@ export type ServiceProduct = {
   price: number | null | undefined;
   badge: string | null | undefined;
   recommended: boolean;
-  orgCode: string | null | undefined;
+  tenantId: string | null | undefined;
   saleEndsAt: string | null | undefined;
 };
 
@@ -72,7 +73,7 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
       price: r.price,
       badge: r.badge,
       recommended: !!r.is_recommended,
-      orgCode: r.org_code,
+      tenantId: r.tenant_id,
       saleEndsAt: r.sale_ends_at,
     });
   });
@@ -149,16 +150,17 @@ export function useProducts(
   return { services, loading, error, refetch };
 }
 
-// fn_matched_org_codes(2026-09-01, supabase/migrations/20260901050440) 호출 훅 —
-// 로그인 사용자가 소속으로 확인받을 수 있는 org_code 목록(본인 + 연결된(approved)
-// 상대 전원 + p_student_profile_id 로 지정된, 호출자와 연결된 학생)을 반환한다.
-// authenticated 전용 RPC라 비로그인 상태에서 호출하면 42501(permission denied)이
-// 나므로, 세션이 없으면 RPC 자체를 부르지 않고 빈 배열로 확정한다(비로그인은
-// org 상품 전부 숨김이 정책이라 결과도 같다). loaded=false 인 동안은 codes가
-// 아직 신뢰할 수 있는 값이 아니다 — 호출부가 이 시점에 필터링하면 org 상품이
-// 일시적으로 사라졌다 나타나는 깜빡임/오탐이 생길 수 있다.
-export function useMatchedOrgCodes(studentProfileId?: string | null) {
-  const [codes, setCodes] = useState<string[]>([]);
+// fn_matched_tenant_ids(2026-09-01, supabase/migrations/20260901050440. tenant
+// 전환으로 fn_matched_org_codes 대체) 호출 훅 — 로그인 사용자가 소속으로 확인받을
+// 수 있는 tenant_id(uuid) 목록(본인 + 연결된(approved) 상대 전원 +
+// p_student_profile_id 로 지정된, 호출자와 연결된 학생)을 반환한다. authenticated
+// 전용 RPC라 비로그인 상태에서 호출하면 42501(permission denied)이 나므로, 세션이
+// 없으면 RPC 자체를 부르지 않고 빈 배열로 확정한다(비로그인은 org 상품 전부
+// 숨김이 정책이라 결과도 같다). loaded=false 인 동안은 ids가 아직 신뢰할 수 있는
+// 값이 아니다 — 호출부가 이 시점에 필터링하면 org 상품이 일시적으로 사라졌다
+// 나타나는 깜빡임/오탐이 생길 수 있다.
+export function useMatchedTenantIds(studentProfileId?: string | null) {
+  const [ids, setIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -168,12 +170,12 @@ export function useMatchedOrgCodes(studentProfileId?: string | null) {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session) {
         if (!alive) return;
-        setCodes([]);
+        setIds([]);
         setLoaded(true);
         return;
       }
 
-      const { data, error } = await supabase.rpc("fn_matched_org_codes", {
+      const { data, error } = await supabase.rpc("fn_matched_tenant_ids", {
         // p_student_profile_id는 DEFAULT가 있는 optional 인자다.
         // exactOptionalPropertyTypes 하에서는 명시적 null도 금지라 값이 있을 때만
         // 키를 스프레드한다(생략이 명시적 null과 런타임에서 동일하다).
@@ -181,10 +183,10 @@ export function useMatchedOrgCodes(studentProfileId?: string | null) {
       });
       if (!alive) return;
       if (error) {
-        console.warn("fn_matched_org_codes 조회 실패:", error.message);
-        setCodes([]);
+        console.warn("fn_matched_tenant_ids 조회 실패:", error.message);
+        setIds([]);
       } else {
-        setCodes(data || []);
+        setIds(data || []);
       }
       setLoaded(true);
     })();
@@ -193,28 +195,27 @@ export function useMatchedOrgCodes(studentProfileId?: string | null) {
     };
   }, [studentProfileId]);
 
-  return { codes, loaded };
+  return { ids, loaded };
 }
 
-// org 한정 상품(products.org_code) 노출 필터 — 각 화면(StudentEnrollmentRequest,
+// org 한정 상품(products.tenant_id) 노출 필터 — 각 화면(StudentEnrollmentRequest,
 // ParentCheckout, PricingSelling 등)이 useProducts 로 받은 서비스 그룹에 이 필터를
 // 한 번 더 적용한다(정본은 여전히 DB — fn_request_enrollment/fn_parent_create_
-// enrollment 가 서버에서 재검증한다, 이 필터는 표시 전용). 규칙: org_code 가 없으면
-// 노출, 있으면 matchedOrgCodes 에 포함되고(대소문자 무관 — products.org_code 는
-// CHECK 로 upper(trim()) 정규화 저장, fn_matched_org_codes 반환값도 동일 정규화)
-// sale_ends_at 이 없거나 아직 지나지 않았을 때만 노출한다. 필터 후 상품이 하나도
-// 남지 않은 서비스 그룹은 통째로 뺀다(카탈로그에 빈 섹션을 보여주지 않는다).
+// enrollment 가 서버에서 재검증한다, 이 필터는 표시 전용). 규칙: tenant_id 가
+// 없으면 노출, 있으면 matchedTenantIds 에 포함되고 sale_ends_at 이 없거나 아직
+// 지나지 않았을 때만 노출한다. 필터 후 상품이 하나도 남지 않은 서비스 그룹은
+// 통째로 뺀다(카탈로그에 빈 섹션을 보여주지 않는다).
 export function filterOrgProducts(
   services: ServiceGroup[],
-  matchedOrgCodes: string[],
+  matchedTenantIds: string[],
 ): ServiceGroup[] {
-  const matched = new Set(matchedOrgCodes);
+  const matched = new Set(matchedTenantIds);
   return services
     .map((service) => ({
       ...service,
       products: service.products.filter((p) => {
-        if (!p.orgCode) return true;
-        if (!matched.has(p.orgCode)) return false;
+        if (!p.tenantId) return true;
+        if (!matched.has(p.tenantId)) return false;
         if (p.saleEndsAt && new Date(p.saleEndsAt).getTime() <= Date.now()) {
           return false;
         }

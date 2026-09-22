@@ -107,8 +107,10 @@ interface CouponRow {
   grant_type: string;
   grant_on_signup: boolean;
   is_active: boolean;
-  // 단체 쿠폰 축(2026-08-27). NULL = 소속 제한 없음.
-  org_code: string | null;
+  // 단체 쿠폰 축(2026-08-27 org_code, 2026-09-22 tenants FK 로 전환). NULL =
+  // 소속 제한 없음. org_code(text, 자유 입력)는 죽은 컬럼으로 남아 더 이상
+  // 읽지도 쓰지도 않는다(20260922002935 컬럼 코멘트).
+  tenant_id: string | null;
   created_at?: string;
   [key: string]: unknown;
 }
@@ -146,6 +148,12 @@ interface ProfileRow {
   email?: string | null;
 }
 
+// 소속(테넌트) 선택지 — 드롭다운에만 쓴다(2026-09-22, org_code 자유 입력 대체).
+interface TenantOption {
+  id: string;
+  name: string;
+}
+
 type ViewMode = "list" | "create" | "edit" | "history" | "grants";
 
 // 신규 등록/수정 폼 로컬 상태 — NULLABLE_KEYS 3필드는 `${key}_mode` 3상태 컨트롤과
@@ -161,10 +169,9 @@ interface CouponForm {
   stackable: boolean;
   grant_type: string;
   grant_on_signup: boolean;
-  // 단체 쿠폰 축(2026-08-27). 화면 입력은 원문 그대로 두고 저장 시
-  // formToPayload 가 upper(trim())한다 — DB CHECK(coupons_org_code_normalized_check)
-  // 와 대칭.
-  org_code: string;
+  // 단체 쿠폰 축(2026-08-27 org_code → 2026-09-22 tenants FK). 드롭다운이
+  // 담는 값은 tenants.id(uuid) 또는 빈 문자열(소속 없음)이다.
+  tenant_id: string;
   valid_until: string;
   valid_until_mode: string;
   max_uses_per_user: number | string;
@@ -188,8 +195,8 @@ const FIELD_LABEL: Record<string, string> = {
   stackable: "중복 사용",
   grant_type: "배포 방식",
   grant_on_signup: "가입 시 자동 발급",
-  org_code: "소속 코드(단체 쿠폰)",
-  kind: "쿠폰 종류", // 파생값(DB 컬럼 아님) — org_code/code+max_redemptions 로 목록에서만 계산
+  tenant_id: "소속(단체 쿠폰)",
+  kind: "쿠폰 종류", // 파생값(DB 컬럼 아님) — tenant_id/code+max_redemptions 로 목록에서만 계산
   used: "사용 건수", // 파생값(DB 컬럼 아님) — 유효 / 전체(무효화 포함)
   id: "내부 키",
   created_at: "등록 일시",
@@ -278,18 +285,19 @@ const COUPON_SAVE_CAP_MISMATCH_TEXT =
 //   ② 차단 alert 는 아래 승인된 문구를 쓴다.
 const SLUG_DUPLICATE_TEXT = "이미 사용 중인 쿠폰 키입니다.";
 
-// validateForm 이 org_code(단체 쿠폰)+grant_type='granted' 조합을 막을 때
-// 쓰는 전용 문구(2026-08-27). 일반 "<X> 항목을 입력해주세요." 템플릿은 이미
-// 값이 채워진 필드를 "안 채웠다"고 말하게 돼 사실과 어긋난다 — 그래서
-// org_code 하나만 이 템플릿을 쓰지 않고 별도 문구를 alert 에서 분기한다.
+// validateForm 이 tenant_id(단체 쿠폰)+grant_type='granted' 조합을 막을 때
+// 쓰는 전용 문구(2026-08-27 org_code 기준으로 작성, 2026-09-22 소속 선택
+// 드롭다운으로 전환). 일반 "<X> 항목을 입력해주세요." 템플릿은 이미 값이
+// 채워진 필드를 "안 채웠다"고 말하게 돼 사실과 어긋난다 — 그래서 tenant_id
+// 하나만 이 템플릿을 쓰지 않고 별도 문구를 alert 에서 분기한다.
 const ORG_CODE_GRANTED_CONFLICT_TEXT =
-  "소속 코드(단체 쿠폰)는 조건형 쿠폰에만 설정할 수 있습니다. 발급형으로 쓰려면 소속 코드를 비워주세요.";
+  "소속(단체 쿠폰)은 조건형 쿠폰에만 설정할 수 있습니다. 발급형으로 쓰려면 소속을 비워주세요.";
 
-// org_code 입력칸 도움말(2026-08-27) — profiles.org_code(20260825093735)와
-// 비교 판정(fn_coupon_org_matches)이라는 사실을 운영자가 알아야 "왜 이
-// 쿠폰이 특정 회원한테만 보이는지" 문의를 줄일 수 있다.
+// 소속 선택 드롭다운 도움말(2026-08-27 작성, 2026-09-22 profiles.org_code →
+// profiles.tenant_id 비교 판정(fn_tenant_matches)으로 전환). 운영자가 알아야
+// "왜 이 쿠폰이 특정 회원한테만 보이는지" 문의를 줄일 수 있다.
 const ORG_CODE_HELPER_TEXT =
-  "입력하면 이 소속 코드로 가입한 학생·학부모만 사용할 수 있습니다(단체 쿠폰). 비우면 제한 없음.";
+  "선택하면 이 소속으로 배정된 학생·학부모만 사용할 수 있습니다(단체 쿠폰). '소속 없음'을 고르면 제한 없음.";
 
 // 선물 쿠폰 코드 생성 프리셋(2026-08-27) — WIN-XXXX-XXXX, 0/O·1/I 제외(전화로
 // 불러줄 때 헷갈리는 문자를 빼는 이 저장소의 기존 관례와 같은 이유).
@@ -413,7 +421,7 @@ const FORM_KEYS: (keyof CouponForm)[] = [
   "is_active",
   "slug",
   "code",
-  "org_code",
+  "tenant_id",
   "title",
   "discount_amount",
   "min_amount",
@@ -465,7 +473,7 @@ function emptyForm(): CouponForm {
     is_active: true,
     slug: "",
     code: "",
-    org_code: "",
+    tenant_id: "",
     title: "",
     discount_amount: "",
     min_amount: 0,
@@ -495,7 +503,7 @@ function rowToForm(row: CouponRow): CouponForm {
   form.is_active = row.is_active !== false;
   form.slug = row.slug ?? "";
   form.code = row.code ?? "";
-  form.org_code = row.org_code ?? "";
+  form.tenant_id = row.tenant_id ?? "";
   form.title = row.title ?? "";
   form.discount_amount = row.discount_amount ?? "";
   form.min_amount = row.min_amount ?? 0;
@@ -531,12 +539,10 @@ function formToPayload(form: CouponForm): CouponInsert & CouponUpdate {
     // code 는 UNIQUE 인데 NULL 은 다중 허용이다 — 빈 문자열로 저장하면 두 번째
     // 코드 없는 쿠폰이 23505 로 막힌다. 반드시 NULL 로 정규화한다.
     code: String(form.code ?? "").trim() || null,
-    // coupons_org_code_normalized_check(20260827010205)가 upper(trim())을
-    // 강제한다 — 화면에서 소문자를 입력해도 저장 전에 대칭으로 맞춘다.
-    org_code:
-      String(form.org_code ?? "")
-        .trim()
-        .toUpperCase() || null,
+    // 드롭다운이 tenants.id(uuid) 를 직접 담으므로 정규화가 필요 없다 —
+    // org_code 시절의 upper(trim()) 대칭 처리(coupons_org_code_normalized_check)는
+    // tenant_id 전환과 함께 사라진다.
+    tenant_id: form.tenant_id || null,
     title: String(form.title ?? "").trim(),
     discount_amount: Number(form.discount_amount),
     min_amount: Number(form.min_amount),
@@ -580,15 +586,15 @@ function validateForm(form: CouponForm): keyof CouponForm | null {
   // coupons_grant_type_check 를 화면에서 먼저 건다 — 23514 원문 노출 방지.
   if (!GRANT_TYPES.includes(form.grant_type)) return "grant_type";
 
-  // 단체 쿠폰(org_code)은 조건형(auto)에만 얹는다(2026-08-27). 발급형은
-  // 이미 coupon_grants 로 "누가 쓸 수 있는가"를 정하고 있어 소속 코드
-  // 축까지 겹치면 두 판정이 동시에 걸려 운영이 헷갈린다 — 소속 제한이
-  // 필요하면 발급을 끄고 org_code 만 쓴다.
+  // 단체 쿠폰(tenant_id)은 조건형(auto)에만 얹는다(2026-08-27 org_code 기준
+  // 결정, 2026-09-22 tenant_id 로 축 전환). 발급형은 이미 coupon_grants 로
+  // "누가 쓸 수 있는가"를 정하고 있어 소속 축까지 겹치면 두 판정이 동시에
+  // 걸려 운영이 헷갈린다 — 소속 제한이 필요하면 발급을 끄고 소속만 쓴다.
   if (
-    String(form.org_code ?? "").trim() !== "" &&
+    String(form.tenant_id ?? "").trim() !== "" &&
     form.grant_type === "granted"
   ) {
-    return "org_code";
+    return "tenant_id";
   }
 
   // `${key}_mode` 는 동적 조합 키라 CouponForm의 정적 키로 인덱싱할 수 없다 —
@@ -717,6 +723,9 @@ interface RedemptionStats {
 export default function CouponAdmin() {
   const [view, setView] = useState<ViewMode>("list"); // list | create | edit | history | grants
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
+  // 소속(테넌트) 드롭다운 선택지(2026-09-22) — 등록·수정 폼의 소속 필드가
+  // 여기서 읽는다. RLS 는 fn_admin_can('tenants','view') 라 어드민이면 통과한다.
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [redemptionStats, setRedemptionStats] = useState<RedemptionStats>({
     byCoupon: {},
     truncated: false,
@@ -763,22 +772,26 @@ export default function CouponAdmin() {
 
     // 정렬은 slug 오름차순 — sql/55 3)절 fn_usable_coupons 의 `order by c.slug`
     // 와 같은 기준이라 "어드민에서 보이는 순서 = 판정 순회 순서" 가 된다.
-    const [couponRes, redemptionRes, grantExistsRes] = await Promise.all([
-      supabase.from("coupons").select("*").order("slug", { ascending: true }),
-      supabase
-        .from("coupon_redemptions")
-        .select("coupon_id, voided_at")
-        .limit(REDEMPTION_SCAN_LIMIT),
-      // 요구사항 ⑥ — 발급 이력 버튼 게이트용. revoked_at is null(살아있는 발급)
-      // 인 행만 봐서 grantedCouponIds 를 만든다. 실패해도 목록 자체는 살리고
-      // 게이트는 grant_type 단독 조건으로 열화시킨다(redemptionStats 와 같은
-      // 열화 방식).
-      supabase
-        .from("coupon_grants")
-        .select("coupon_id")
-        .is("revoked_at", null)
-        .limit(REDEMPTION_SCAN_LIMIT),
-    ]);
+    const [couponRes, redemptionRes, grantExistsRes, tenantRes] =
+      await Promise.all([
+        supabase.from("coupons").select("*").order("slug", { ascending: true }),
+        supabase
+          .from("coupon_redemptions")
+          .select("coupon_id, voided_at")
+          .limit(REDEMPTION_SCAN_LIMIT),
+        // 요구사항 ⑥ — 발급 이력 버튼 게이트용. revoked_at is null(살아있는 발급)
+        // 인 행만 봐서 grantedCouponIds 를 만든다. 실패해도 목록 자체는 살리고
+        // 게이트는 grant_type 단독 조건으로 열화시킨다(redemptionStats 와 같은
+        // 열화 방식).
+        supabase
+          .from("coupon_grants")
+          .select("coupon_id")
+          .is("revoked_at", null)
+          .limit(REDEMPTION_SCAN_LIMIT),
+        // 소속 드롭다운 선택지(2026-09-22). 실패해도 쿠폰 목록 자체는 살리고
+        // 드롭다운만 빈 채로 열화시킨다(redemptionStats 와 같은 원칙).
+        supabase.from("tenants").select("id, name").order("name"),
+      ]);
 
     setLoading(false);
 
@@ -803,6 +816,14 @@ export default function CouponAdmin() {
       setGrantedCouponIds(
         new Set((grantExistsRes.data || []).map((row) => row.coupon_id)),
       );
+    }
+
+    if (tenantRes.error) {
+      // 드롭다운 선택지만 열화시킨다 — grantExistsRes/redemptionRes 와 같은 원칙.
+      console.warn("소속 목록 조회 실패:", tenantRes.error.message);
+      setTenants([]);
+    } else {
+      setTenants((tenantRes.data as TenantOption[]) || []);
     }
 
     if (redemptionRes.error) {
@@ -897,11 +918,11 @@ export default function CouponAdmin() {
   async function save() {
     const invalidKey = validateForm(form);
     if (invalidKey) {
-      // org_code 는 "안 채움"이 아니라 "조합 충돌"이라 전용 문구를 먼저
+      // tenant_id 는 "안 채움"이 아니라 "조합 충돌"이라 전용 문구를 먼저
       // 분기한다(2026-08-27) — 그 외 키는 기존 AdminForm 템플릿(Admin.jsx:4258
       // "<X> 항목을 입력해주세요.")에 FIELD_LABEL 을 끼워 넣는다(2026-08-12,
       // 사용자 지시).
-      if (invalidKey === "org_code") {
+      if (invalidKey === "tenant_id") {
         alert(ORG_CODE_GRANTED_CONFLICT_TEXT);
         return;
       }
@@ -1323,11 +1344,12 @@ export default function CouponAdmin() {
                           </td>
 
                           <td className="px-3 py-3">{row.title}</td>
-                          {/* 파생 칼럼(DB 컬럼 아님) — org_code 가 있으면 단체,
+                          {/* 파생 칼럼(DB 컬럼 아님) — tenant_id 가 있으면 단체,
                               없고 code+총 발행 수량 1이면 선물, 그 외 할인
-                              (2026-08-27, 세 종류를 한눈에 구분). */}
+                              (2026-08-27 org_code 기준 결정, 2026-09-22
+                              tenant_id 로 축 전환. 세 종류를 한눈에 구분). */}
                           <td className="px-3 py-3">
-                            {row.org_code
+                            {row.tenant_id
                               ? "단체"
                               : row.code && row.max_redemptions === 1
                                 ? "선물"
@@ -1951,10 +1973,11 @@ export default function CouponAdmin() {
               {/* 필수 표시는 AdminForm 과 같은 규범(빨간 별표). NULL 을 고를 수
                   있는 3필드도 "선택 자체" 가 필수다 — 비워둘 수 없다. code 는
                   비워도 되고(코드 없는 쿠폰), stackable 은 불리언이라 항상 값이
-                  있다(기본 false), org_code 는 비우면 소속 제한 없음(2026-08-27)
+                  있다(기본 false), tenant_id 는 비우면(소속 없음) 소속 제한
+                  없음(2026-08-27 org_code 기준 결정, 2026-09-22 축 전환)
                   — 셋만 별표가 없다. */}
               {key !== "code" &&
-                key !== "org_code" &&
+                key !== "tenant_id" &&
                 key !== "stackable" &&
                 key !== "grant_on_signup" && (
                   <span className="ml-1 text-red-500">*</span>
@@ -2113,14 +2136,20 @@ export default function CouponAdmin() {
                 </div>
               )}
 
-              {key === "org_code" && (
+              {key === "tenant_id" && (
                 <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
-                    value={form.org_code}
-                    onChange={(e) => patch({ org_code: e.target.value })}
-                    className={`${INPUT_CLASS} font-mono`}
-                  />
+                  <select
+                    value={form.tenant_id}
+                    onChange={(e) => patch({ tenant_id: e.target.value })}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="">소속 없음</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </option>
+                    ))}
+                  </select>
                   <span className="text-xs font-bold text-gray-500">
                     {ORG_CODE_HELPER_TEXT}
                   </span>

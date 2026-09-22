@@ -5,7 +5,7 @@ import { formatKRW, SINGLE_SELECT_NOTICE } from "@/data/pricingCatalog";
 import { saveCart } from "@/lib/cart";
 import {
   filterOrgProducts,
-  useMatchedOrgCodes,
+  useMatchedTenantIds,
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
@@ -72,16 +72,16 @@ export default function PricingSelling() {
   const hasNoServices = Boolean(error) || services.length === 0;
 
   // org 한정 상품(부산캠퍼스 특가 등) 노출 필터(2026-09-01) — 게스트는 세션이
-  // 없어 useMatchedOrgCodes 가 RPC 자체를 부르지 않고 codes=[] 로 즉시
+  // 없어 useMatchedTenantIds 가 RPC 자체를 부르지 않고 ids=[] 로 즉시
   // 확정하므로 org 상품은 전부 숨김이 정본대로 유지된다(팀 리드 확정 —
-  // 비대상·게스트에게 완전 숨김). matchedOrgCodes 의 초기값도 빈 배열이라
+  // 비대상·게스트에게 완전 숨김). matchedTenantIds 의 초기값도 빈 배열이라
   // RPC 응답 전에도 org 상품이 먼저 보였다 사라지는 깜빡임이 없다 — 로그인
   // 사용자가 이 화면을 보는 경로가 있다면 응답 도착 후 매칭된 상품만
   // 나타난다(StudentEnrollmentRequest.tsx 와 동일 패턴).
-  const { codes: matchedOrgCodes } = useMatchedOrgCodes();
+  const { ids: matchedTenantIds } = useMatchedTenantIds();
   const visibleServices = useMemo(
-    () => filterOrgProducts(services, matchedOrgCodes),
-    [services, matchedOrgCodes],
+    () => filterOrgProducts(services, matchedTenantIds),
+    [services, matchedTenantIds],
   );
   // 서비스별 단일 선택: { [serviceKey]: productId }
   const [selected, setSelected] = useState<SelectedMap>({});

@@ -24,6 +24,7 @@ import MentorApplicationsAdmin from "@/components/admin/MentorApplicationsAdmin"
 import PremiumBookAdmin from "@/components/admin/PremiumBookAdmin";
 import RevenueAdmin from "@/components/admin/RevenueAdmin";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
+import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -229,6 +230,9 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
   {
     title: "회원관리",
     items: [
+      // 소속(테넌트) 마스터가 회원 데이터의 상위 개념이라 회원 목록 앞에 둔다
+      // (admin_resources sort_order 305 < members, 20260922002929).
+      { key: "tenants", label: "소속(테넌트) 관리" },
       { key: "members", label: "회원 목록" },
       { key: "dailyEntries", label: "일일 입장", section: "이용 현황" },
       { key: "usageStatus", label: "이용 현황", section: "이용 현황" },
@@ -314,6 +318,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   adminMembers: AdminMembersAdmin,
   adminRoles: AdminRolesAdmin,
   revenue: RevenueAdmin,
+  tenants: TenantsAdmin,
 };
 
 // CUSTOM_COMPONENT_REGISTRY와 같은 이유의 간접 레이어 — config.ListSummary가
