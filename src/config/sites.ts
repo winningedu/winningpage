@@ -5,10 +5,10 @@ export type SiteKey = "winning" | "schoolmentor";
 
 export interface SiteConfig {
   key: SiteKey;
-  name: string;
   brandName: string;
   logo: { horizontal: string; stacked: string };
   favicon: { png96: string; appleTouch: string; ico: string; svg?: string };
+  manifest: string;
   company: {
     name: string;
     ceo: string;
@@ -28,7 +28,6 @@ export interface SiteConfig {
 export const SITES: Record<SiteKey, SiteConfig> = {
   winning: {
     key: "winning",
-    name: "위닝에듀",
     brandName: "위닝에듀",
     logo: {
       horizontal: "/images/winning-logo-horizontal.svg",
@@ -40,6 +39,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/favicon.ico",
       svg: "/favicon.svg",
     },
+    manifest: "/site.webmanifest",
     company: {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
@@ -57,7 +57,6 @@ export const SITES: Record<SiteKey, SiteConfig> = {
   },
   schoolmentor: {
     key: "schoolmentor",
-    name: "스쿨멘토",
     brandName: "스쿨멘토",
     logo: {
       horizontal: "/images/schoolmentor-logo-horizontal.png",
@@ -68,6 +67,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       appleTouch: "/schoolmentor/apple-touch-icon.png",
       ico: "/schoolmentor/favicon.ico",
     },
+    manifest: "/schoolmentor/site.webmanifest",
     company: {
       name: "주식회사 위닝로직",
       ceo: "강원석",

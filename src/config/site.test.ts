@@ -18,6 +18,12 @@ describe("site — winning", () => {
     expect(site.logo.stacked).toBe("/images/winning-logo-stacked.svg");
   });
 
+  it("manifest 경로가 /site.webmanifest다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.manifest).toBe("/site.webmanifest");
+  });
+
   it("favicon 4종(png96·apple-touch·ico·svg)을 모두 가진다", async () => {
     const { site } = await loadSite("winning");
 
@@ -56,6 +62,12 @@ describe("site — schoolmentor", () => {
       "/images/schoolmentor-logo-horizontal.png",
     );
     expect(site.logo.stacked).toBe("/images/schoolmentor-logo-stacked.png");
+  });
+
+  it("manifest 경로가 /schoolmentor/site.webmanifest다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.manifest).toBe("/schoolmentor/site.webmanifest");
   });
 
   it("favicon은 /schoolmentor/ 경로 3종만 있고 svg는 없다", async () => {
