@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { Link } from "react-router";
 
 import Chip from "@/components/Chip";
+import { site } from "@/config/site";
 
 /**
  * 뉴스 섹션 (QA 행109, 2026-09-07 시안 Figma node 4885:19030 재구현) — 독립 풀폭 섹션
@@ -182,12 +183,12 @@ export default function NewsSection({
 
   return (
     <section
-      aria-label="위닝에듀 소식"
+      aria-label={`${site.brandName} 소식`}
       className="w-full bg-white pt-12 pb-12 md:pt-30 md:pb-30"
     >
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <h2 className="text-center text-[1.75rem] font-semibold leading-[1.4] tracking-[-0.04rem] text-ink sm:text-[2rem]">
-          위닝에듀의 새로운 소식
+          {site.brandName}의 새로운 소식
         </h2>
 
         <div className="mt-perf-inset grid grid-cols-1 gap-perf-inset md:mt-15.25 md:grid-cols-2 md:gap-16">

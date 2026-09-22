@@ -1,8 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import NewsSection from "./NewsSection";
+
+vi.mock("@/config/site", () => ({
+  site: { brandName: "스쿨멘토" },
+}));
 
 // QA 행109(2026-09-07 시안 4885:19030) — 필터 탭 제거, 열당 최대 5행.
 function makeItems(
@@ -70,5 +74,14 @@ describe("NewsSection", () => {
 
     expect(screen.getByText("등록된 회사소식이 없습니다.")).toBeInTheDocument();
     expect(screen.getByText("등록된 공지사항이 없습니다.")).toBeInTheDocument();
+  });
+
+  test("헤딩·aria-label에 site.brandName을 쓴다", () => {
+    renderSection({ companyNews: [], notices: [] });
+
+    expect(screen.getByText("스쿨멘토의 새로운 소식")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "스쿨멘토 소식" }),
+    ).toBeInTheDocument();
   });
 });

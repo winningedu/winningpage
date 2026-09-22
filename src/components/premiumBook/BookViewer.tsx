@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { site } from "@/config/site";
 import type { PremiumBookPage } from "./bookPairing";
 import {
   buildViews,
@@ -41,7 +42,7 @@ const ARM_FALLBACK_MS = 120;
 const SPREAD_QUERY = "(min-width: 1024px)";
 const REDUCE_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-const WATERMARK_SRC = "/images/winning-logo-stacked.svg";
+export const WATERMARK_SRC = site.logo.stacked;
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() =>

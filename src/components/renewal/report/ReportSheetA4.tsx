@@ -19,6 +19,7 @@
 // (ReadinessOverview·AdmissionSection, page2 첫 줄)는 손자 요소라 이 선택자가 안 닿아
 // 각 컴포넌트에서 직접 자체 마진을 걷어냈다(완료 보고 참고).
 import type { ReactNode } from "react";
+import { site } from "@/config/site";
 import { SAMPLE_REPORT_COPY } from "@/data/diagnosisScreenCopy";
 
 type ReportSheetA4Props = {
@@ -32,7 +33,7 @@ export default function ReportSheetA4({
   totalPages,
   children,
 }: ReportSheetA4Props) {
-  const pageLabel = `위닝에듀 학습진단 리포트 ${page}페이지 / ${totalPages}페이지`;
+  const pageLabel = `${site.brandName} 학습진단 리포트 ${page}페이지 / ${totalPages}페이지`;
 
   return (
     <section
