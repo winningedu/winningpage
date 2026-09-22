@@ -22,4 +22,13 @@ describe("buildTenantIdMap", () => {
 
     expect(idMap.get("dev-1")).toBe("prod-1");
   });
+
+  it("source에 있는 name이 target에 없으면 부분 매핑 대신 에러를 던진다", () => {
+    const sourceTenants = [{ id: "dev-1", name: "위닝부산캠퍼스" }];
+    const targetTenants = [];
+
+    expect(() => buildTenantIdMap(sourceTenants, targetTenants)).toThrow(
+      /타깃 DB에 없는 테넌트.*위닝부산캠퍼스/,
+    );
+  });
 });
