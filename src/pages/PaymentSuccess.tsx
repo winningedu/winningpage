@@ -14,6 +14,7 @@ import {
   installmentLabel,
   methodLabel,
 } from "@/lib/paymentReceiptFormat";
+import { buildAccessInfoBody } from "./paymentSuccessCopy";
 
 // 색은 전부 tailwind 토큰으로 쓴다(하드코딩 hex 없음). 이전 ACCENT = '#2563EB' 는
 // 시안 어느 캔버스에도 없는 값이었다 — 완료 화면 시안을 픽셀 실측하면
@@ -648,23 +649,16 @@ export default function PaymentSuccess() {
                   leading-relaxed 를 유지한다 — 시안의 lh20(1.43)은 한 줄짜리 명세 행 기준
                   값이라 3~4줄 문단에 그대로 쓰면 답답해진다. */}
             <p className="mt-2 break-keep text-[0.875rem] font-medium leading-relaxed text-ink">
-              {(() => {
-                if (isWaitingDeposit)
-                  return "위 가상계좌로 입금기한 내에 입금해 주세요. 입금이 확인되면 이용 권한이 자동으로 부여됩니다.";
-                if (needsLogin)
-                  return "결제가 확인되었습니다. 이용 권한은 결제하신 계정에 등록되어 있습니다. 로그인하신 뒤 이용해 주세요.";
-                if (needsSignup)
-                  return "결제는 정상적으로 완료됐습니다. 다만 비회원으로 결제하셔서 이용 권한을 넣어 드릴 계정이 없습니다. 아래 버튼으로 회원가입하신 뒤 주문번호와 함께 문의해 주시면 바로 등록해 드립니다.";
-                if (grantPermanent)
-                  return "결제는 정상적으로 완료됐습니다. 다만 이 주문은 이용 권한 자동 등록이 되지 않아 확인이 필요합니다. 아래 연락처로 주문번호와 함께 문의해 주시면 바로 등록해 드립니다.";
-                if (grantFailed)
-                  return "결제는 정상적으로 완료됐습니다. 다만 이용 권한 등록이 아직 끝나지 않았습니다. 이 페이지를 새로고침하면 자동으로 다시 시도되며, 계속 같은 안내가 보이면 아래 연락처로 주문번호와 함께 문의해 주세요.";
-                if (noEntryProduct)
-                  return "결제가 확인되었습니다. 이 상품은 별도 입장 화면 없이 진행되는 서비스라, 이용 방법은 아래 연락처로 안내드립니다. 주문 내역은 마이페이지에서 확인할 수 있습니다.";
-                if (entries.length > 1)
-                  return "결제가 확인되어 지금 바로 이용할 수 있습니다. 아래 버튼으로 각 프로그램에 입장해 주세요.";
-                return "결제가 확인되어 지금 바로 이용할 수 있습니다. 아래 버튼으로 프로그램에 입장해 주세요.";
-              })()}
+              {buildAccessInfoBody({
+                isWaitingDeposit,
+                needsLogin,
+                needsSignup,
+                grantPermanent,
+                grantFailed,
+                noEntryProduct,
+                hasMultipleEntries: entries.length > 1,
+                hasContactChannel: Boolean(COMPANY.kakaoChannelUrl),
+              })}
             </p>
             {/* 12.5px 은 시안에 없는 단계였다 — 14px 로 올리고 보조 정보라는 사실은
                   ink.sub(#808080)로 표현한다(무게는 본문과 같은 w500). */}
