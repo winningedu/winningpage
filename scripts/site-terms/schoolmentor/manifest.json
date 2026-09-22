@@ -2,11 +2,19 @@
   {
     "code": "service_fulltext",
     "title": "위닝로직 서비스 이용약관",
-    "file": "service_fulltext.txt"
+    "file": "service_fulltext.txt",
+    "route": "/terms",
+    "is_required": false,
+    "sort_order": 300,
+    "effective_from": "2026-09-01"
   },
   {
     "code": "privacy_policy",
     "title": "개인정보처리방침",
-    "file": "privacy_policy.txt"
+    "file": "privacy_policy.txt",
+    "route": "/privacy",
+    "is_required": false,
+    "sort_order": 310,
+    "effective_from": "2026-09-01"
   }
 ]
