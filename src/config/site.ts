@@ -12,6 +12,20 @@ interface SiteConfig {
   brandName: string;
   logo: { horizontal: string; stacked: string };
   favicon: { png96: string; appleTouch: string; ico: string; svg?: string };
+  company: {
+    name: string;
+    ceo: string;
+    corpRegNo: string;
+    bizRegNo: string;
+    address: string;
+    patentNo?: string;
+    mailOrderNo?: string;
+    supportChannelLabel?: string;
+    tel?: string;
+    centerTel?: string;
+    kakao?: string;
+    kakaoChannelUrl?: string;
+  };
 }
 
 const SITES: Record<SiteKey, SiteConfig> = {
@@ -29,6 +43,20 @@ const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/favicon.ico",
       svg: "/favicon.svg",
     },
+    company: {
+      name: "주식회사 위닝에듀",
+      ceo: "강원석",
+      corpRegNo: "180111-0161411",
+      patentNo: "10-2024-0048889",
+      bizRegNo: "266-88-03449",
+      mailOrderNo: "제2026-세종아름-0264호",
+      address: "(본점) 세종특별자치시 마음안1로 61, 404호",
+      tel: "010-3664-0081",
+      centerTel: "051-902-0080",
+      kakao: "winningedu_official",
+      kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
+      supportChannelLabel: "카카오 채널 '위닝에듀'",
+    },
   },
   schoolmentor: {
     key: "schoolmentor",
@@ -42,6 +70,14 @@ const SITES: Record<SiteKey, SiteConfig> = {
       png96: "/schoolmentor/favicon-96x96.png",
       appleTouch: "/schoolmentor/apple-touch-icon.png",
       ico: "/schoolmentor/favicon.ico",
+    },
+    company: {
+      name: "주식회사 위닝로직",
+      ceo: "강원석",
+      corpRegNo: "164711-0016571",
+      bizRegNo: "783-81-04298",
+      address:
+        "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
     },
   },
 };
