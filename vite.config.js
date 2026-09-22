@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
+import { transformSiteHtml } from "./vite.siteHtml.mjs";
 
 // VITE_SITE(winning|schoolmentor) 빌드 검증 — src/config/site.ts가 런타임에 같은
 // 값을 다시 확인하지만, 여기서 먼저 막아야 값이 빠진 빌드가 배포까지 가지 않는다.
@@ -24,6 +25,29 @@ function validateSiteEnv() {
       if (env.VITE_SITE !== "winning" && env.VITE_SITE !== "schoolmentor") {
         throw new Error("VITE_SITE 누락/오류 — winning 또는 schoolmentor");
       }
+    },
+  };
+}
+
+// index.html의 <title>·favicon을 사이트별로 치환한다. 실제 치환 로직은
+// vite.siteHtml.mjs(순수 함수, vitest로 검증)에 있다 — 이 플러그인은 그 함수에
+// mode의 VITE_SITE를 넘기는 얇은 어댑터다. validateSiteEnv와 같은 이유(mode는
+// config 훅에서만 받고, transformIndexHtml 훅 인자에는 없다)로 mode를 클로저에
+// 담아 재사용한다. test 모드는 건너뛴다(CI엔 .env.local이 없다 — VITE_SITE 부재).
+function siteHtml() {
+  let mode = "production";
+  return {
+    name: "site-html",
+    config(_config, env) {
+      mode = env.mode;
+    },
+    transformIndexHtml(html) {
+      if (mode === "test") return html;
+      const env = loadEnv(mode, process.cwd(), "");
+      if (env.VITE_SITE !== "winning" && env.VITE_SITE !== "schoolmentor") {
+        return html;
+      }
+      return transformSiteHtml(html, env.VITE_SITE);
     },
   };
 }
@@ -73,6 +97,7 @@ export default defineConfig({
   },
   plugins: [
     validateSiteEnv(),
+    siteHtml(),
     react({
       babel: {
         plugins: [["babel-plugin-react-compiler"]],
