@@ -87,7 +87,9 @@ const TABLES = [
   // 약관
   { name: "terms", pk: "code,version", special: "terms" },
   // 결제 카탈로그
-  { name: "programs" },
+  // programs: 마이그레이션이 만든 행의 id가 환경마다 다르다(스쿨멘토 신규 DB에서 실측). FK는 전부
+  // program_key(text)를 참조하므로 자연키로 upsert해 기존 id를 보존한다(2026-09-22).
+  { name: "programs", pk: "program_key" },
   // products는 slug 기준 — prod 기존 행 id를 order_items/program_access_grants가
   // 참조 중이라 id를 dev값으로 못 바꾼다(과거 수동 시딩 시대에 id가 갈라짐).
   { name: "products", special: "products" },
