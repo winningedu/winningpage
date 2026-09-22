@@ -6,6 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 import MobileNavDrawer from "./MobileNavDrawer";
 import type { MyMenuRole } from "./myMenuItems";
 
+// 가입 오픈 여부 게이트(WC074) — 이 파일의 기존 테스트는 전부 signup_enabled=true
+// 전제(회원가입 CTA가 항상 보임)라 실제 supabase 조회 대신 true로 고정한다.
+vi.mock("@/hooks/useSignupEnabled", () => ({
+  useSignupEnabled: () => true,
+}));
+
 const navGroups = [
   {
     title: "서비스",

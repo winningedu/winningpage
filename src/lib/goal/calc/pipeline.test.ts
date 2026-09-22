@@ -456,7 +456,13 @@ test("시나리오4 — 0시간 제출을 아주 여러 번 반복해도 확률�
     weeklySchedule,
   });
 
-  for (let day = 0; day < 200; day += 1) {
+  // 0시간 제출은 매일 idealSusiBonus rate(이 프로필은 0.0462)만큼만 깎는다
+  // (bonus.js: studyHours===0 분기는 성취/집중 배율을 무시하고 -rate 고정).
+  // base idealSusi=83.6 이라 0 floor 에 닿으려면 83.6/0.0462 ≈ 1810 일이 필요하다.
+  // 반복이 그보다 짧으면(예: 200일) floor 클램프가 한 번도 작동하지 않아
+  // 이 시나리오(경계 = 0 밑으로 안 내려감)를 실제로 검증하지 못한다 —
+  // decay 지평을 넘기도록 2000일을 돈다.
+  for (let day = 0; day < 2000; day += 1) {
     state = applyDailyRecord(state, {
       achievement: "full",
       focus: "good",

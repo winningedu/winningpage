@@ -262,11 +262,11 @@ export const revenueConfigs: Record<string, RevenueConfig> = {
   // 제네릭 PATCH 로의 completed 전환을 막는다), 대장을 손으로 고칠 수 있으면
   // 감사 기록이 되지 못한다.
   //
-  // ⚠️ 수강자명·소속코드가 함께 나가므로 다운로드는 게이트를 탄다(QA 268 계열).
+  // ⚠️ 수강자명·소속명이 함께 나가므로 다운로드는 게이트를 탄다(QA 268 계열).
   refundLedger: {
     title: "환불 처리 대장",
     table: "admin_refund_ledger",
-    searchPlaceholder: "수강자명, 주문번호, 소속코드 검색",
+    searchPlaceholder: "수강자명, 주문번호, 소속명 검색",
     order: "completed_at",
     readOnly: true,
     noCreate: true,
@@ -276,7 +276,9 @@ export const revenueConfigs: Record<string, RevenueConfig> = {
       { key: "completed_at", label: "처리일", type: "date" },
       { key: "student_name", label: "수강자명" },
       { key: "program_name", label: "프로그램" },
-      { key: "org_code", label: "소속코드" },
+      // 2026-09-22 — org_code(자유 입력 text) → tenant_name(tenants FK 조인,
+      // admin_refund_ledger 뷰가 이미 끝에 붙여 반환한다) 로 교체.
+      { key: "tenant_name", label: "소속" },
       { key: "paid_amount", label: "납부금액", type: "money" },
       { key: "refund_amount", label: "환불금액", type: "money" },
       { key: "refund_method", label: "환불방법" },
@@ -287,7 +289,7 @@ export const revenueConfigs: Record<string, RevenueConfig> = {
       { key: "completed_at", label: "처리일", type: "text", readOnly: true },
       { key: "order_id", label: "주문번호", type: "text", readOnly: true },
       { key: "student_name", label: "수강자명", type: "text", readOnly: true },
-      { key: "org_code", label: "소속코드", type: "text", readOnly: true },
+      { key: "tenant_name", label: "소속", type: "text", readOnly: true },
       { key: "program_name", label: "프로그램", type: "text", readOnly: true },
       { key: "paid_amount", label: "납부금액", type: "text", readOnly: true },
       { key: "refund_amount", label: "환불금액", type: "text", readOnly: true },

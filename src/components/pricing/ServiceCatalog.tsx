@@ -82,9 +82,9 @@ export default function ServiceCatalog({
   // org 한정 상품(부산캠퍼스 특가 등) 카드의 "구성: ..." 문구용 — bundle_items를
   // 조회해 라벨·수량을 만든다(useBundleCompositionMap, mypage/bundleComposition.ts와
   // 공유). 훅은 최상위에서만 호출해야 하므로 아래 서비스/상품 순회 루프 밖에서
-  // 대상 productId를 미리 모은다(org_code가 없는 일반 상품은 빈 배열).
+  // 대상 productId를 미리 모은다(tenant_id가 없는 일반 상품은 빈 배열).
   const orgProductIds = services.flatMap((service) =>
-    service.products.filter((p) => p.orgCode).map((p) => p.id),
+    service.products.filter((p) => p.tenantId).map((p) => p.id),
   );
   const bundleCompositionMap = useBundleCompositionMap(orgProductIds);
   // radiogroup 키보드 규약(WAI-ARIA APG) — 화살표 이동은 포커스만 옮기는 게 아니라
@@ -360,7 +360,7 @@ export default function ServiceCatalog({
                 // 이 button 밖(서비스명 h2 · 자세히보기/셰브론 · 설명문 · 단일선택 안내 ·
                 // 컨테이너 패딩 · 요약바)은 접힘과 무관하고 각자 sm 근거가 따로 있어 손대지 않았다.
                 return (
-                  // org 한정 상품(products.org_code, 2026-09-01) 카드는 구성 표기 +
+                  // org 한정 상품(products.tenant_id, 2026-09-22 tenants 전환) 카드는 구성 표기 +
                   // 쿠폰 제외 고지를 button 바깥에 별도 문단으로 덧붙인다 — 그래서
                   // 이 map 반환값이 두 형제 노드가 됐고, key는 Fragment가 갖는다
                   // (button 자체의 key는 제거).
@@ -553,7 +553,7 @@ export default function ServiceCatalog({
                   조회하는 useBundleCompositionMap(위 컴포넌트 최상위 호출)이
                   만든 "라벨 N회권" 라인을 ' + '로 이어 붙인다(사용자 확정 카피,
                   2026-09-01). 쿠폰 제외 고지는 이 상품군에 공통인 고정 문구다. */}
-                    {product.orgCode && (
+                    {product.tenantId && (
                       <p className="-mt-1 mb-1 break-keep text-[0.75rem] font-medium leading-4.25 text-ink-sub">
                         구성:{" "}
                         {(bundleCompositionMap.get(product.id) ?? []).join(

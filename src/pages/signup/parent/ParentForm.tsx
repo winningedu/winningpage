@@ -47,6 +47,7 @@ import {
   verifySignupEmailCode,
 } from "@/lib/signupEmailAuth";
 import { supabase } from "@/lib/supabase";
+import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { isValidBirthDate } from "@/lib/validators";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,6 +128,9 @@ const RPC_ERRORS: [string, string][] = [
   ["birth_date_required", "생년월일을 입력해 주세요."],
   ["invalid_gender", "성별 값이 올바르지 않습니다. 다시 선택해 주세요."],
   ["gender_required", "성별을 선택해 주세요."],
+  // WC073(tenant_required, 2026-09-22 tenant 전환) — StudentForm과 동일 매핑
+  // 참고. 위닝에듀는 현재 발생하지 않지만 서버 스키마 선반영 대비.
+  ["tenant_required", "소속 코드를 확인해 주세요."],
 ];
 
 export default function ParentForm() {
@@ -434,6 +438,11 @@ export default function ParentForm() {
       return "올바른 생년월일을 입력해 주세요.";
     }
     if (!formData.gender) return "성별을 선택해 주세요.";
+    // T8 소속코드는 선택 입력이라 빈 값은 통과시키고, 값이 있을 때만 형식을
+    // 본다 — "존재하는 코드인지"는 서버 판정이라 여기서는 형식만 막는다.
+    if (formData.orgCode.trim() && !isValidTenantCodeFormat(formData.orgCode)) {
+      return "소속코드 형식을 확인해 주세요. (영문·숫자 8자)";
+    }
     if (!requiredAgreementsChecked) {
       return "필수 약관에 동의해야 회원가입을 진행할 수 있습니다.";
     }
@@ -512,7 +521,7 @@ export default function ParentForm() {
           // 하에서는 undefined 값을 명시적으로 넣는 것도 금지라 키 자체를 조건부로 스프레드한다
           // (인자 생략이 명시적 null과 런타임에서 동일하다).
           ...(formData.orgCode.trim() && {
-            p_org_code: formData.orgCode.trim(),
+            p_org_code: normalizeTenantCode(formData.orgCode),
           }),
         },
       );
@@ -757,7 +766,8 @@ export default function ParentForm() {
           required
         />
 
-        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력, 검증 규칙 없음. */}
+        {/* T8(QA 2026-08-22): 소속코드 — 선택 입력. 2026-09-22 tenant 전환으로
+            8자 코드 형식 검증이 생겼다(validateForm). */}
         <TextField
           label="소속코드 (선택)"
           id="parent-org-code"
@@ -765,7 +775,7 @@ export default function ParentForm() {
           value={formData.orgCode}
           onChange={(value) => updateFormData({ orgCode: value })}
           placeholder="소속코드가 없으면 입력하지 마세요"
-          helperText="소속코드가 없으면 입력하지 마세요"
+          helperText="소속코드가 없으면 입력하지 마세요 (영문·숫자 8자)"
         />
       </div>
 

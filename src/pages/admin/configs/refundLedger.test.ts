@@ -112,7 +112,7 @@ test("QA 275 — 대장에 파일18 의 열이 모두 있다", () => {
     "completed_at",
     "student_name",
     "program_name",
-    "org_code",
+    "tenant_name",
     "paid_amount",
     "refund_amount",
     "refund_method",
@@ -135,7 +135,7 @@ test("대장은 읽기 전용이고 상세 필드도 편집 불가다", () => {
 });
 
 test("대장 다운로드는 개인정보 게이트를 탄다", () => {
-  // 수강자명·소속코드가 파일로 나간다.
+  // 수강자명·소속명이 파일로 나간다.
   expect(ledger.excel).toBe(true);
   expect(ledger.sensitiveDownload).toBe(true);
 });

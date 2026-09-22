@@ -8,6 +8,7 @@ import {
   TextLinkButton,
 } from "@/components/auth";
 import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
+import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { supabase } from "@/lib/supabase";
 
 // 오픈 리다이렉트 방지: 같은 사이트 내부 경로만 허용
@@ -35,6 +36,9 @@ const LOGIN_TIMEOUT_MS = 12000;
 export default function Login() {
   const [params] = useSearchParams();
   const redirectTo = safeRedirect(params.get("redirect"));
+  // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
+  // 회원가입 안내 문단을 숨긴다(Header.tsx와 동일 원칙).
+  const signupEnabled = useSignupEnabled();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -221,19 +225,21 @@ export default function Login() {
           색은 두 요소 모두 #36393e 로 토큰이 없다 — sRGB 거리상 ink(#525252)가
           ink.title(#181d24)보다 가까워(약 42.5 vs 48.6) ink 로 맞춘다. 시안이 링크를
           네이비가 아닌 본문색 + 굵기로만 구분하므로 tone 도 primary → ink 로 되돌린다. */}
-      <p className="whitespace-nowrap text-center text-xs font-medium text-ink sm:text-base">
-        아직 위닝에듀 회원이 아니신가요?{" "}
-        <TextLinkButton
-          as="link"
-          to="/signup"
-          tone="ink"
-          size="xs"
-          weight="bold"
-          className="sm:text-base"
-        >
-          회원가입
-        </TextLinkButton>
-      </p>
+      {signupEnabled && (
+        <p className="whitespace-nowrap text-center text-xs font-medium text-ink sm:text-base">
+          아직 위닝에듀 회원이 아니신가요?{" "}
+          <TextLinkButton
+            as="link"
+            to="/signup"
+            tone="ink"
+            size="xs"
+            weight="bold"
+            className="sm:text-base"
+          >
+            회원가입
+          </TextLinkButton>
+        </p>
+      )}
     </AuthLayout>
   );
 }

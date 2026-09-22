@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router";
 import { Outlet } from "react-router";
 import { SignupProvider } from "@/context/SignupContext";
+import { requireSignupEnabledMiddleware } from "@/lib/routeMiddleware";
 import FindAccount from "@/pages/FindAccount";
 import FindPassword from "@/pages/FindPassword";
 import Login from "@/pages/Login";
@@ -42,6 +43,9 @@ const authRoutes: RouteObject[] = [
 
   {
     Component: SignupFlowLayout,
+    // 가입 오픈 여부 게이트(app_settings.signup_enabled) — /signup 하위 전체에
+    // 건다(SignupFlowLayout 안 어떤 단계로 직접 진입해도 걸리도록).
+    middleware: [requireSignupEnabledMiddleware],
     children: [
       { path: "/signup", Component: MemberType },
       { path: "/signup/student/birth", Component: StudentBirth },

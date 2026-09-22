@@ -1,0 +1,55 @@
+# main 브랜치에 마이그레이션이 머지되면 prod DB(schoolmentor)에 자동 적용.
+# 배포 순서: 앱(Vercel)과 병렬로 돌므로 파괴적 변경은 expand-contract 2단계로 나눌 것.
+# db-push-prod.yml(위닝에듀)과 동일 스키마를 스쿨멘토 프로젝트에도 반영한다 —
+# 마이그레이션은 양쪽 DB에 동일 적용되는 게 전제(사이트별 값 차이는
+# app_settings 오버라이드로 scripts/seed-prod-from-dev.mjs --site 가 심는다).
+name: DB Push (prod, schoolmentor)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+concurrency:
+  group: db-push-prod-schoolmentor
+  cancel-in-progress: false
+
+jobs:
+  push-prod:
+    # repo variable 미설정(=스쿨멘토 프로젝트 아직 없음) 상태에서는 잡 자체를
+    # 건너뛴다 — 그렇지 않으면 main 마이그레이션 push마다 빨간 실패가 쌓인다.
+    if: ${{ vars.SCHOOLMENTOR_PROJECT_REF != '' }}
+    runs-on: ubuntu-latest
+    environment: prod-db-schoolmentor
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PROD_SCHOOLMENTOR }}
+      # repo variable — 스쿨멘토 Supabase 프로젝트가 아직 없어도 워크플로우
+      # 파일을 먼저 반영해둘 수 있게 하드코딩 대신 vars로 둔다. 프로젝트
+      # 생성 후 SCHOOLMENTOR_PROJECT_REF를 설정하면 그 순간부터 동작한다.
+      PROJECT_REF: ${{ vars.SCHOOLMENTOR_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # PROJECT_REF 미설정 상태로 link를 시도하면 조용히 엉뚱한(빈) ref로
+      # 실패하거나 오해하기 쉬운 에러가 난다 — 여기서 먼저 명확히 막는다.
+      - name: PROJECT_REF 설정 확인
+        run: |
+          if [ -z "$PROJECT_REF" ]; then
+            echo "vars.SCHOOLMENTOR_PROJECT_REF 가 설정되지 않았습니다 — 스쿨멘토 Supabase 프로젝트 생성 후 repo variable을 등록하십시오." >&2
+            exit 1
+          fi
+
+      - run: supabase link --project-ref "$PROJECT_REF"
+
+      # --include-all: 원격 마지막 적용 버전보다 작은 타임스탬프의 미적용 파일도 적용한다.
+      # 병렬 브랜치가 각자 번호를 매기면 머지 순서와 파일명 순서가 어긋날 수 있고, 기본
+      # 동작은 그 경우 push 자체를 거부해 이후 모든 마이그레이션이 연쇄 차단된다
+      # (2026-08-24 #159가 0825 접두사로 먼저 적용된 뒤 #165의 0824000007/8이 막힌 사고).
+      - run: supabase db push --include-all
