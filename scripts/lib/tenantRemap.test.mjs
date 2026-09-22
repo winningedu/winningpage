@@ -44,4 +44,13 @@ describe("remapTenantIds", () => {
 
     expect(result).toEqual([{ id: "p1", tenant_id: null }]);
   });
+
+  it("tenant_id가 있는 행은 idMap의 target id로 치환한다", () => {
+    const rows = [{ id: "p1", tenant_id: "dev-1" }];
+    const idMap = new Map([["dev-1", "prod-1"]]);
+
+    const result = remapTenantIds(rows, idMap);
+
+    expect(result).toEqual([{ id: "p1", tenant_id: "prod-1" }]);
+  });
 });

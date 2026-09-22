@@ -35,5 +35,14 @@ export function buildTenantIdMap(sourceTenants, targetTenants) {
 
 // rows의 tenant_id를 idMap으로 치환한다. null/undefined는 그대로 둔다.
 export function remapTenantIds(rows, idMap) {
-  return rows;
+  return rows.map((row) => {
+    if (row.tenant_id === null || row.tenant_id === undefined) return row;
+    const target = idMap.get(row.tenant_id);
+    if (target === undefined) {
+      throw new Error(
+        `remapTenantIds: idMap에 없는 tenant_id(${row.tenant_id}) — 행: ${JSON.stringify(row)}`,
+      );
+    }
+    return { ...row, tenant_id: target };
+  });
 }
