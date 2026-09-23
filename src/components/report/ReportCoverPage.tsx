@@ -24,11 +24,13 @@ export type ReportCoverPageProps = {
 export default function ReportCoverPage({
   serviceLabel,
   title,
+  studentName,
 }: ReportCoverPageProps) {
   return (
     <section>
       <p className="text-sm font-semibold text-accent">{serviceLabel}</p>
       <p>{title}</p>
+      {studentName && <p>{studentName} 학생</p>}
     </section>
   );
 }

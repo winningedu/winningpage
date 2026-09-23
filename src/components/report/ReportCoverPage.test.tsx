@@ -22,4 +22,22 @@ describe("ReportCoverPage", () => {
 
     expect(screen.getByText("학습진단")).toBeInTheDocument();
   });
+
+  it("studentName이 없으면 이름 줄을 렌더하지 않는다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    expect(screen.queryByText(/학생$/)).not.toBeInTheDocument();
+  });
+
+  it("studentName이 있으면 'OOO 학생'을 렌더한다", () => {
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        studentName="김민준"
+      />,
+    );
+
+    expect(screen.getByText("김민준 학생")).toBeInTheDocument();
+  });
 });
