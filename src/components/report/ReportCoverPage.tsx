@@ -115,10 +115,11 @@ export default function ReportCoverPage({
         </p>
       )}
 
-      {/* 일러스트 영역 — flex-1로 남는 세로 공간을 전부 차지하고, 도형은 그 영역의
-          우하단에 배치한다(고객사 참고 샘플의 "우하단 3D 오브젝트" 구성만 참조, 실제
-          도형은 3D 오브젝트가 아닌 추상 기하 구성). */}
-      <div className="relative mt-8 min-h-30 flex-1 lg:mt-12 lg:min-h-50">
+      {/* 일러스트 영역 — flex-1로 남는 세로 공간을 차지하되 max-height 상한을 둔다
+          (QA t11 실측 — 상한이 없으면 flex-1 영역이 인쇄에서 267mm 상한을 넘겨 표지가
+          두 페이지로 흘러넘쳤다). 도형은 그 영역의 우하단에 배치한다(고객사 참고 샘플의
+          "우하단 3D 오브젝트" 구성만 참조, 실제 도형은 3D 오브젝트가 아닌 추상 기하 구성). */}
+      <div className="fd-report-cover-illustration relative mt-8 min-h-30 flex-1 lg:mt-12 lg:min-h-50 lg:max-h-80">
         <CoverIllustration />
       </div>
 
@@ -140,16 +141,17 @@ export default function ReportCoverPage({
 }
 
 // 추상 기하 일러스트 — 브랜드 primary(#013262) 계열 + accent(#0b84fd) 반투명 도형
-// 조합(원·회전 사각형·곡선). 컨테이너에 맞춰 늘어나도록 `preserveAspectRatio="xMaxYMax slice"`
-// 로 우하단 기준 정렬한다. viewBox 내부 좌표는 report-print.css 상단 주석이 명시한 예외
-// (SVG viewBox는 컨테이너 종속 좌표라 rem 제약 대상이 아니다)에 해당한다.
+// 조합(원·회전 사각형·곡선). `preserveAspectRatio="xMaxYMax meet"`로 우하단 기준 정렬하되
+// 영역을 넘지 않게 축소한다(`slice`는 영역을 꽉 채우려고 무한히 커져 QA t11 실측에서
+// 인쇄 페이지 상한을 넘겼다). viewBox 내부 좌표는 report-print.css 상단 주석이 명시한
+// 예외(SVG viewBox는 컨테이너 종속 좌표라 rem 제약 대상이 아니다)에 해당한다.
 function CoverIllustration() {
   return (
     <svg
       role="presentation"
       aria-hidden="true"
       viewBox="0 0 400 260"
-      preserveAspectRatio="xMaxYMax slice"
+      preserveAspectRatio="xMaxYMax meet"
       className="absolute inset-0 h-full w-full print:[print-color-adjust:exact]"
     >
       <circle cx="330" cy="190" r="120" fill="#013262" opacity="0.08" />

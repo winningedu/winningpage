@@ -135,4 +135,13 @@ describe("ReportCoverPage", () => {
     expect(printStyle).toContain("overflow: hidden");
     expect(printStyle).toContain("break-after: page");
   });
+
+  it("일러스트 SVG는 영역 안에 들어오도록 preserveAspectRatio를 meet으로 맞춘다", () => {
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const svg = container.querySelector("svg");
+    expect(svg).toHaveAttribute("preserveAspectRatio", "xMaxYMax meet");
+  });
 });
