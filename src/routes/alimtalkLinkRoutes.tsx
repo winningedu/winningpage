@@ -47,10 +47,11 @@ import { supabase } from "@/lib/supabase";
 //   되고, 학생 id가 없는 구 형식(발신 당시 병기 전 발송분·수기 발송)도 계속
 //   파싱된다 — parseReportId 참고.
 //
-//   2026-09-06(QA 시트 2차 행60) — 구분자를 '.'에서 '_'로 바꿨다. '.'이 있는
-//   경로는 vercel.json 의 SPA rewrite(정적 파일 제외 정규식)에 걸려 카카오톡
-//   에서 링크를 눌렀을 때 Vercel 플랫폼 404가 났다. 이미 발송된 '.' 형식
-//   구 링크도 parseReportId가 계속 파싱하도록 남겨둔다.
+//   2026-09-23(QA 시트 2차 행60, 404 관측 2026-09-06) — 구분자를 '.'에서
+//   '_'로 바꿨다. '.'이 있는 경로는 vercel.json 의 SPA rewrite(정적 파일
+//   제외 정규식)에 걸려 카카오톡에서 링크를 눌렀을 때 Vercel 플랫폼 404가
+//   났다. 이미 발송된 '.' 형식 구 링크도 parseReportId가 계속 파싱하도록
+//   남겨둔다.
 // ---------------------------------------------------------------------------
 
 const VALID_PERIODS = new Set(["weekly", "monthly"]);
@@ -73,10 +74,10 @@ export function parseReportId(reportId: string | undefined): {
 } {
   if (!reportId) return { at: undefined, studentProfileId: undefined };
 
-  // '_' 가 새 구분자다(2026-09-06, QA 시트 행60 — '.'이 vercel.json rewrite의
-  // 정적 파일 제외 규칙에 걸려 카카오톡에서 누르면 404가 났다). 이미 발송된
-  // 구 링크가 '.'을 쓰므로 둘 다 첫 구분자로 인식하고, 더 앞에 나오는 쪽을
-  // 쓴다.
+  // '_' 가 새 구분자다(2026-09-23 변경, QA 시트 2차 행60 — 404 관측
+  // 2026-09-06. '.'이 vercel.json rewrite의 정적 파일 제외 규칙에 걸려
+  // 카카오톡에서 누르면 404가 났다). 이미 발송된 구 링크가 '.'을 쓰므로
+  // 둘 다 첫 구분자로 인식하고, 더 앞에 나오는 쪽을 쓴다.
   const underscoreIndex = reportId.indexOf("_");
   const dotIndex = reportId.indexOf(".");
   const candidates = [underscoreIndex, dotIndex].filter((i) => i !== -1);
