@@ -246,6 +246,9 @@ async function buildGrowthReport({
     completionScore,
     recordDays,
     elapsedDays: effectiveWindow.elapsedDays,
+    periodStart: period.start,
+    periodEnd: period.end,
+    nowYmd,
   });
 
   const positionKpi = cohortPercentile.insufficientSample
