@@ -1120,7 +1120,10 @@ interface GoalStudentDetailProps {
     | undefined;
 }
 
-function GoalStudentDetail({
+// GoalStudentsAdmin.test.tsx가 학생 전환 시 재발송 상태 초기화를 profileId prop
+// 교체(rerender)로 직접 검증할 수 있도록 named export한다(default export는
+// GoalStudentsAdmin 그대로 유지).
+export function GoalStudentDetail({
   profileId,
   onBack,
   onNavigateWithPrefill,
@@ -1168,6 +1171,16 @@ function GoalStudentDetail({
     setResendResult(null);
     setResendError(null);
   }, [firstResendCandidate]);
+
+  // QA — 학생을 전환해도(같은 컴포넌트 인스턴스가 재사용되는 경우 포함) 이전
+  // 학생의 재발송 결과가 다음 학생 화면에 남지 않게 한다. 위 kind 전환 effect는
+  // firstResendCandidate가 바뀔 때만 도는데, kind가 그대로면 그 값이 학생이
+  // 바뀌어도 동일해 초기화가 안 된다 — profileId 자체를 별도로 감시한다.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: profileId(스칼라) 하나로 "다른 학생으로 전환됐는가"만 판별한다(RefundRequestModal.tsx의 orderId와 같은 패턴).
+  useEffect(() => {
+    setResendResult(null);
+    setResendError(null);
+  }, [profileId]);
 
   async function handleResendReport() {
     if (!student?.profile_id || !resendPeriod) return;
