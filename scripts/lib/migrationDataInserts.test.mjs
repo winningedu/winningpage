@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findInserts } from "./migrationDataInserts.mjs";
+import { checkMigrationFile, findInserts } from "./migrationDataInserts.mjs";
 
 // findInserts(sql) — 함수 본문(create [or replace] function ... $tag$...$tag$)
 // 안의 insert는 실행 시점 로직(예: 결제 승인 시 orders insert)이라 마이그레이션
@@ -49,5 +49,31 @@ describe("findInserts", () => {
     const sql = `insert into auth.users (id) values ('u1');`;
 
     expect(findInserts(sql)).toEqual(["auth.users"]);
+  });
+});
+
+// checkMigrationFile(fileName, sql, { allowed, cutoff }) — 컷오프 이후
+// 파일에서 allowed 목록 밖 테이블에 insert하면 violations를 채운다.
+describe("checkMigrationFile", () => {
+  it("허용 목록 테이블에만 insert하면 violations가 빈 배열이다", () => {
+    const sql = `insert into public.programs (id) values (1);`;
+
+    const result = checkMigrationFile("20260924000000_seed.sql", sql, {
+      allowed: ["programs"],
+      cutoff: "20260923000000",
+    });
+
+    expect(result).toEqual({ skipped: false, violations: [] });
+  });
+
+  it("허용 목록 밖 테이블에 insert하면 그 테이블명이 violations에 담긴다", () => {
+    const sql = `insert into public.products (id) values (1);`;
+
+    const result = checkMigrationFile("20260924000000_seed.sql", sql, {
+      allowed: ["programs"],
+      cutoff: "20260923000000",
+    });
+
+    expect(result).toEqual({ skipped: false, violations: ["products"] });
   });
 });

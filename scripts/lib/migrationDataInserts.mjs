@@ -50,3 +50,36 @@ export function findInserts(sql) {
   }
   return result;
 }
+
+// 앱 코드가 존재를 전제하는 참조 데이터 테이블 — 마이그레이션이 insert해도
+// 되는 유일한 목록. 새 참조 테이블이 생기면 이 배열에 추가한다.
+export const ALLOWED_TABLES = [
+  "admin_resources",
+  "admin_roles",
+  "admin_role_permissions",
+  "app_settings",
+  "program_categories",
+  "programs",
+  "learning_diagnosis_v2_survey_copy",
+];
+
+// 이 값 미만(파일명 14자리 타임스탬프) 마이그레이션은 이 린트 도입 이전에
+// 이미 병합된 기존 파일이라 손대지 않고 검사에서 제외한다.
+export const BASELINE_CUTOFF = "20260923000000";
+
+// 마이그레이션 파일 하나를 검사한다. 파일명이 <14자리>_ 형식이 아니면
+// 컷오프로 건너뛸 근거가 없으므로 그대로 검사한다.
+export function checkMigrationFile(
+  fileName,
+  sql,
+  { allowed = ALLOWED_TABLES, cutoff = BASELINE_CUTOFF } = {},
+) {
+  const match = fileName.match(/^(\d{14})_/);
+  if (match && match[1] < cutoff) {
+    return { skipped: true, violations: [] };
+  }
+
+  const tables = findInserts(sql);
+  const violations = tables.filter((table) => !allowed.includes(table));
+  return { skipped: false, violations };
+}
