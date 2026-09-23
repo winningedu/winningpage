@@ -364,7 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "score_update",
     );
 
-    // 11-b) 학습방향 리포트("내 현재 위치") 재생성 — 팀장 결정(고객사 문구 "목표대학을
+    // 11-b) 학습방향 리포트("내 현재 위치") 재생성 — 2026-09-23 결정(고객사 문구 "목표대학을
     //       변경하면 기존의 학습 data 반영이 새롭게 적용됩니다"가 그 의미다). target·
     //       naesin·mock 셋 중 무엇을 고쳤든 저장된 값이 바뀌었으므로 세 section 모두
     //       대상이다 — intake.ts와 같은 함수를 그대로 호출한다(재구현 금지, 실패 처리도
