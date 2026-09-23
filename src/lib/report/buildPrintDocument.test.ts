@@ -28,4 +28,23 @@ describe("buildPrintDocument", () => {
     expect(html).toContain("<title>리포트</title>");
     expect(html).toContain('<main class="fd-print-area"><p>안녕하세요</p></main>');
   });
+
+  it("현재 문서의 <link rel=stylesheet> href를 절대 URL로, <style> 텍스트를 그대로 head에 모은다", () => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/assets/index.css";
+    document.head.appendChild(link);
+
+    const style = document.createElement("style");
+    style.textContent = ".x { color: red; }";
+    document.head.appendChild(style);
+
+    const root = document.createElement("main");
+    const html = buildPrintDocument({ root, title: "리포트" });
+
+    expect(html).toContain(
+      `<link rel="stylesheet" href="${window.location.origin}/assets/index.css">`,
+    );
+    expect(html).toContain("<style>.x { color: red; }</style>");
+  });
 });

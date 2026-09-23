@@ -25,9 +25,24 @@ export function buildPrintDocument({
   title,
   extraCss,
 }: BuildPrintDocumentInput): string {
+  const doc = root.ownerDocument;
+
+  const styleTags = Array.from(
+    doc.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
+      'link[rel="stylesheet"], style',
+    ),
+  ).map((node) => {
+    if (node.tagName === "LINK") {
+      // .href는 document.baseURI 기준으로 이미 절대 URL을 반환한다.
+      return `<link rel="stylesheet" href="${escapeHtml((node as HTMLLinkElement).href)}">`;
+    }
+    return `<style>${node.textContent ?? ""}</style>`;
+  });
+
   const headParts: string[] = [
     '<meta charset="UTF-8">',
     `<title>${escapeHtml(title)}</title>`,
+    ...styleTags,
   ];
 
   return [
