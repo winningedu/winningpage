@@ -219,4 +219,35 @@ describe("acquireWithTimeout", () => {
       vi.useRealTimers();
     }
   });
+
+  it("timeout 후 뒤늦게 슬롯을 받으면 즉시 반납해 자리를 새지 않는다", async () => {
+    vi.useFakeTimers();
+    try {
+      const semaphore = createSemaphore(1);
+      const release1 = await semaphore.acquire();
+
+      const timedOut = acquireWithTimeout(semaphore, 10);
+      const assertion = expect(timedOut).rejects.toBeInstanceOf(
+        RenderQueueTimeoutError,
+      );
+      await vi.advanceTimersByTimeAsync(10);
+      await assertion;
+
+      // timeout 뒤에 슬롯을 반납한다 — 대기 큐에 남아 있던 acquireWithTimeout의
+      // 내부 acquire가 뒤늦게 슬롯을 받게 된다.
+      release1();
+
+      let acquired3 = false;
+      semaphore.acquire().then(() => {
+        acquired3 = true;
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(acquired3).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

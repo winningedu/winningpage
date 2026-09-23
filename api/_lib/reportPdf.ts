@@ -159,12 +159,21 @@ export function acquireWithTimeout(
   timeoutMs: number,
 ): Promise<() => void> {
   return new Promise((resolve, reject) => {
+    let timedOut = false;
+
     const timer = setTimeout(() => {
+      timedOut = true;
       reject(new RenderQueueTimeoutError());
     }, timeoutMs);
 
     semaphore.acquire().then((release) => {
       clearTimeout(timer);
+      if (timedOut) {
+        // 이미 타임아웃으로 거부한 뒤 뒤늦게 슬롯을 받았다 — 아무도 이 release를
+        // 호출하지 못하면 슬롯이 영구히 새어(leak) 동시 처리 한도가 줄어든다.
+        release();
+        return;
+      }
       resolve(release);
     });
   });
