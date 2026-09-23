@@ -63,6 +63,15 @@ describe("isAllowedBaseUrl", () => {
   ])("%s 는 거부된다", (url) => {
     expect(isAllowedBaseUrl(url)).toBe(false);
   });
+
+  it("serverless 환경(VERCEL)에서는 localhost/127.0.0.1이 거부된다(운영 루프백 SSRF 차단)", () => {
+    expect(isAllowedBaseUrl("http://localhost:5173", { VERCEL: "1" })).toBe(
+      false,
+    );
+    expect(isAllowedBaseUrl("http://127.0.0.1:3000", { VERCEL: "1" })).toBe(
+      false,
+    );
+  });
 });
 
 describe("sanitizeFileName", () => {

@@ -62,7 +62,7 @@ export default defineHandler({
     if (isHtmlTooLarge(html)) {
       return fail(res, 413, "요청 본문이 너무 큽니다.");
     }
-    if (!isAllowedBaseUrl(baseUrl)) {
+    if (!isAllowedBaseUrl(baseUrl, process.env)) {
       return fail(res, 400, "허용되지 않은 baseUrl입니다.");
     }
     if (!filenameInput) {

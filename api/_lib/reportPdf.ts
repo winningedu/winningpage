@@ -31,7 +31,10 @@ const EXACT_ALLOWED_ORIGINS = new Set([
 const VERCEL_PREVIEW_RE = /^[a-z0-9-]+\.vercel\.app$/i;
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1)$/;
 
-export function isAllowedBaseUrl(baseUrl: string): boolean {
+export function isAllowedBaseUrl(
+  baseUrl: string,
+  env: RuntimeEnv = {},
+): boolean {
   let url: URL;
   try {
     url = new URL(baseUrl);
@@ -45,7 +48,11 @@ export function isAllowedBaseUrl(baseUrl: string): boolean {
     return true;
   }
 
-  if (url.protocol === "http:" && LOCALHOST_RE.test(url.hostname)) {
+  if (
+    url.protocol === "http:" &&
+    LOCALHOST_RE.test(url.hostname) &&
+    !isServerlessRuntime(env)
+  ) {
     return true;
   }
 
