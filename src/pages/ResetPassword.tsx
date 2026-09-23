@@ -104,6 +104,26 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
+      if (isTokenHashMode) {
+        // 사용자가 실제로 제출하는 이 순간에만 토큰을 소모한다 — 마운트
+        // 시점에 미리 소모하면 메일 보안 스캐너가 링크를 먼저 열었을 때
+        // 정작 사용자가 열면 이미 만료된 상태가 된다(otp_expired, 파일
+        // 상단 배경 참고).
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash as string,
+          type: "recovery",
+        });
+
+        if (verifyError) {
+          if (verifyError.code === "otp_expired" || verifyError.status === 403) {
+            setExpired(true);
+          } else {
+            setFormError("링크 확인에 실패했습니다. 다시 시도해 주세요.");
+          }
+          return;
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {

@@ -65,4 +65,66 @@ describe("ResetPassword — token_hash 모드", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText("새 비밀번호")).toBeInTheDocument();
   });
+
+  async function fillAndSubmitPassword() {
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "New!pass2" },
+    });
+    fireEvent.change(screen.getByLabelText("새 비밀번호 확인"), {
+      target: { value: "New!pass2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호 변경하기" }));
+  }
+
+  it("제출하면 verifyOtp로 세션을 만든 뒤 updateUser·rpc·signOut을 순서대로 호출하고 완료 화면을 보여준다", async () => {
+    const callOrder: string[] = [];
+    mockVerifyOtp.mockImplementation(async () => {
+      callOrder.push("verifyOtp");
+      return { error: null };
+    });
+    mockUpdateUser.mockImplementation(async () => {
+      callOrder.push("updateUser");
+      return { error: null };
+    });
+    mockRpc.mockImplementation(async () => {
+      callOrder.push("rpc");
+      return { error: null };
+    });
+    mockSignOut.mockImplementation(async () => {
+      callOrder.push("signOut");
+      return { error: null };
+    });
+
+    renderResetPassword("/login/reset-password?token_hash=abc123&type=recovery");
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText("비밀번호가 변경됐어요")).toBeInTheDocument(),
+    );
+
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      token_hash: "abc123",
+      type: "recovery",
+    });
+    expect(mockUpdateUser).toHaveBeenCalledWith({ password: "New!pass2" });
+    expect(mockRpc).toHaveBeenCalledWith("fn_activate_admin_member");
+    expect(mockSignOut).toHaveBeenCalled();
+    expect(callOrder).toEqual(["verifyOtp", "updateUser", "rpc", "signOut"]);
+  });
+
+  it("verifyOtp가 otp_expired/403으로 실패하면 만료 화면을 보여주고 updateUser는 부르지 않는다", async () => {
+    mockVerifyOtp.mockResolvedValue({
+      error: { code: "otp_expired", status: 403 },
+    });
+
+    renderResetPassword("/login/reset-password?token_hash=abc123&type=recovery");
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText("링크가 만료됐어요")).toBeInTheDocument(),
+    );
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
