@@ -92,6 +92,11 @@ describe("sanitizePrintHtml", () => {
       '<head><link rel="stylesheet" href="y.css"></head>',
     );
   });
+
+  it("on[a-z]+= 이벤트 핸들러 속성(큰따옴표)을 제거하고 나머지 속성은 남긴다", () => {
+    const html = '<img src="x.png" onerror="alert(1)" alt="설명">';
+    expect(sanitizePrintHtml(html)).toBe('<img src="x.png" alt="설명">');
+  });
 });
 
 describe("isAllowedBaseUrl", () => {

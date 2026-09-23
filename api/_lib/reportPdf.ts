@@ -46,6 +46,10 @@ const FRAME_TAG_RE = /<frame\b[^>]*>/gi;
 // 있는 <link>만 골라 제거하고, rel="stylesheet" 등 다른 <link>는 남긴다.
 const LINK_IMPORT_TAG_RE = /<link\b(?=[^>]*\brel\s*=\s*["']?import\b)[^>]*>/gi;
 
+// onclick·onerror 등 인라인 이벤트 핸들러 속성 — 값이 큰따옴표/작은따옴표/
+// 따옴표 없는 세 형태 중 무엇이든 속성 전체(공백 포함)를 제거한다.
+const EVENT_HANDLER_ATTR_RE = /\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
@@ -56,7 +60,8 @@ export function sanitizePrintHtml(html: string): string {
     .replace(EMBED_TAG_RE, "")
     .replace(FRAMESET_TAG_RE, "")
     .replace(FRAME_TAG_RE, "")
-    .replace(LINK_IMPORT_TAG_RE, "");
+    .replace(LINK_IMPORT_TAG_RE, "")
+    .replace(EVENT_HANDLER_ATTR_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
