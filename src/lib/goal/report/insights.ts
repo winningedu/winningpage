@@ -1,4 +1,4 @@
-// 목표관리 리포트 자연어 슬롯 — 규칙 기반 전용(D9/D11, 팀장 확정 "멘토 덮어쓰기는 후속").
+// 목표관리 리포트 자연어 슬롯 — 규칙 기반 전용(D9/D11, "멘토 덮어쓰기는 후속" 결정).
 //
 // 이 파일은 aggregate.js 가 계산한 숫자/구조를 받아 조건 분기 + 템플릿 문자열만 채운다.
 // LLM 호출도, 저장된 카피도 없다 — 같은 입력이면 항상 같은 문장이 나온다(테스트 가능성).
@@ -54,6 +54,12 @@ function formatHoursMinutes(hoursFloat: number): string {
   return `${h}시간${m}분`;
 }
 
+/** 'YYYY-MM-DD' → 'YYYY.M.D'(월/일 0 없이, 고객사 요청 문구 표기). */
+function formatYmdDot(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return `${y}.${m}.${d}`;
+}
+
 /** 성장 리포트 히어로 문단. period='weekly'|'monthly'. */
 export function buildHeroNarrative({
   period,
@@ -63,6 +69,9 @@ export function buildHeroNarrative({
   completionScore,
   recordDays,
   elapsedDays,
+  periodStart,
+  periodEnd,
+  nowYmd,
 }: {
   period: "weekly" | "monthly";
   totalStudyHours: number;
@@ -71,6 +80,9 @@ export function buildHeroNarrative({
   completionScore: number;
   recordDays: number;
   elapsedDays: number;
+  periodStart: string;
+  periodEnd: string;
+  nowYmd: string;
 }): string {
   const periodWord = period === "monthly" ? "이번 달" : "이번 주";
   const timeLabel = formatHoursMinutes(totalStudyHours);
@@ -80,7 +92,17 @@ export function buildHeroNarrative({
   }
 
   if (recordDays <= 0) {
-    return `${periodWord} 아직 학습 기록이 없습니다. 오늘의 공부 기록을 남기면 리포트가 채워집니다.`;
+    const isPast = periodEnd < nowYmd;
+    const emptyPeriodWord =
+      period === "monthly"
+        ? isPast
+          ? "지난달"
+          : "이번 달"
+        : isPast
+          ? "지난주"
+          : "이번 주";
+    const range = `${formatYmdDot(periodStart)}~${formatYmdDot(periodEnd)}`;
+    return `${emptyPeriodWord}(${range}) 학습목표 또는 실행내역의 입력 내용이 없습니다. 학습목표의 관리를 위해서는 지속적인 목표관리 체크 및 현황 입력이 중요합니다.`;
   }
 
   const toneSentence =

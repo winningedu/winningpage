@@ -176,6 +176,12 @@
 
   --breakpoint-desktop: 90rem;
   --breakpoint-wide: 74rem;
+  /* QA 2차 시트 행68: 상단 메뉴가 노트북 폭(1280·1366px)에서 햄버거로 바뀌는 문제 —
+     헤더 전용 상시 노출 기준을 80rem(1280px)으로 낮춘다(NN/g: 데스크톱 햄버거는
+     안티패턴, 노트북 폭은 상시 내비 유지 권장). Header.tsx만 이 토큰(`nav:` variant)을
+     쓴다 — ParentCheckout.tsx 등 다른 파일의 `desktop:`(90rem, 페이지 레이아웃 의미)은
+     이 변경과 무관하게 그대로 둔다. */
+  --breakpoint-nav: 80rem;
 
   --font-grace:
     GraceSerif, "Noto Serif KR", "Nanum Myeongjo", Batang, AppleMyungjo, serif;

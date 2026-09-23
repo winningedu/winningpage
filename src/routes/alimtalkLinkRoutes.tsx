@@ -40,12 +40,18 @@ import { supabase } from "@/lib/supabase";
 //   "이번 주"가 열려서 지난 알림톡을 누른 사람이 엉뚱한 내용을 본다.
 //
 //   2026-09-02(QA 시트 행210) — 학부모가 어느 자녀의 리포트인지 구분할 수
-//   있어야 해서 reportId 형식을 `<기간키>.<학생profile id>` 로 확장한다
+//   있어야 해서 reportId 형식을 `<기간키>_<학생profile id>` 로 확장한다
 //   (api/cron/weekly-report.ts·monthly-report.ts 가 발신 시 병기). 템플릿
 //   URL 자체는 안 바뀐다 — #{reportId} 변수값만 길어질 뿐이다. 기간키에는
-//   '.'이 나오지 않으므로(YYYY-MM-DD, YYYY-MM) 첫 '.' 을 기준으로 나누면
+//   '_'이 나오지 않으므로(YYYY-MM-DD, YYYY-MM) 첫 '_' 을 기준으로 나누면
 //   되고, 학생 id가 없는 구 형식(발신 당시 병기 전 발송분·수기 발송)도 계속
 //   파싱된다 — parseReportId 참고.
+//
+//   2026-09-23(QA 시트 2차 행60, 404 관측 2026-09-06) — 구분자를 '.'에서
+//   '_'로 바꿨다. '.'이 있는 경로는 vercel.json 의 SPA rewrite(정적 파일
+//   제외 정규식)에 걸려 카카오톡에서 링크를 눌렀을 때 Vercel 플랫폼 404가
+//   났다. 이미 발송된 '.' 형식 구 링크도 parseReportId가 계속 파싱하도록
+//   남겨둔다.
 // ---------------------------------------------------------------------------
 
 const VALID_PERIODS = new Set(["weekly", "monthly"]);
@@ -54,11 +60,13 @@ const VALID_PERIODS = new Set(["weekly", "monthly"]);
  * reportId 변수값을 (기간키, 학생 profile id)로 나눈다.
  *
  *   "2026-08-17"                                → { at: "2026-08-17", studentProfileId: undefined }  (구 형식)
- *   "2026-08-17.3f2a9c1e-....-....-....-......"  → { at: "2026-08-17", studentProfileId: "3f2a9c1e-...." }
+ *   "2026-08-17_3f2a9c1e-....-....-....-......"  → { at: "2026-08-17", studentProfileId: "3f2a9c1e-...." }  (신 형식)
+ *   "2026-08-17.3f2a9c1e-....-....-....-......"  → { at: "2026-08-17", studentProfileId: "3f2a9c1e-...." }  (구 발송분 호환)
  *   undefined / ""                               → { at: undefined, studentProfileId: undefined }
  *
- * 첫 '.' 로만 나눈다 — 기간키(YYYY-MM-DD, YYYY-MM)에는 '.'이 나오지 않고
- * UUID에도 '.'이 없으므로 두 번째 이후 '.'을 걱정할 필요가 없다.
+ * '_'과 '.' 중 먼저 나오는 것을 첫 구분자로 삼는다 — 기간키(YYYY-MM-DD,
+ * YYYY-MM)와 UUID 어디에도 '_'·'.'이 나오지 않으므로 두 번째 이후는
+ * 걱정할 필요가 없다.
  */
 export function parseReportId(reportId: string | undefined): {
   at: string | undefined;
@@ -66,11 +74,20 @@ export function parseReportId(reportId: string | undefined): {
 } {
   if (!reportId) return { at: undefined, studentProfileId: undefined };
 
+  // '_' 가 새 구분자다(2026-09-23 변경, QA 시트 2차 행60 — 404 관측
+  // 2026-09-06. '.'이 vercel.json rewrite의 정적 파일 제외 규칙에 걸려
+  // 카카오톡에서 누르면 404가 났다). 이미 발송된 구 링크가 '.'을 쓰므로
+  // 둘 다 첫 구분자로 인식하고, 더 앞에 나오는 쪽을 쓴다.
+  const underscoreIndex = reportId.indexOf("_");
   const dotIndex = reportId.indexOf(".");
-  if (dotIndex === -1) return { at: reportId, studentProfileId: undefined };
+  const candidates = [underscoreIndex, dotIndex].filter((i) => i !== -1);
+  if (candidates.length === 0) {
+    return { at: reportId, studentProfileId: undefined };
+  }
 
-  const at = reportId.slice(0, dotIndex) || undefined;
-  const studentProfileId = reportId.slice(dotIndex + 1) || undefined;
+  const splitIndex = Math.min(...candidates);
+  const at = reportId.slice(0, splitIndex) || undefined;
+  const studentProfileId = reportId.slice(splitIndex + 1) || undefined;
   return { at, studentProfileId };
 }
 

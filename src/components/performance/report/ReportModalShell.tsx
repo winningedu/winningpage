@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 
 // 대형 리포트 모달의 **껍데기** — docs/수행평가-상세-명세.md §5.13(`3754:4722` 설계 리포트) /
 // §5.16(`3754:4512` 평가 리포트) 공통.
@@ -59,8 +66,14 @@ import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 //     하면 `finalFocus`로 목적지를 지정한다(Base UI `Dialog.Popup`의 같은 이름 prop 그대로
 //     전달한다 — 지정하지 않으면 열리기 전 포커스였던 요소로 자동 복귀한다).
 type ReportModalShellFooterContext = {
-  /** react-to-print 핸들러. 함수형 `footer`에서 인쇄 버튼 `onClick`에 그대로 연결한다. */
+  /** 인쇄/PDF 핸들러. 데스크톱은 react-to-print, 모바일·인앱(QA 2차 시트 행39·56)은
+   * api/report-pdf.ts 서버 렌더 경로로 내부 분기한다. 함수형 `footer`에서 인쇄
+   * 버튼 `onClick`에 그대로 연결한다. */
   print: () => void;
+  /** 서버 PDF 경로가 진행 중인 동안 true(폼 제출은 완료 이벤트가 없어 고정 타이머로
+   * 복구된다). 호출부가 버튼 라벨을 "PDF 만드는 중…"으로 바꾸거나 비활성화하는 데
+   * 쓸 수 있다 — 선택 사항이라 쓰지 않아도 무방하다. */
+  isPreparingPdf: boolean;
 };
 
 type ReportModalShellProps = {
@@ -75,6 +88,10 @@ type ReportModalShellProps = {
   documentTitle?: string;
   /** 스크롤 영역의 `aria-label`. */
   scrollLabel: string;
+  /** 로그인 학생 이름(QA 2차 시트 행37·51 표지). 없으면 표지에서 그 줄이 빠진다
+   * (호출부 DesignReportModal/EvaluationReportModal이 이미 받는 studentName을
+   * 그대로 넘긴다). */
+  studentName?: string | null;
   /** 본문(폭 70.5rem 래퍼 안에 들어간다). */
   children: ReactNode;
   /** 푸터 우측 정렬 버튼 그룹. 함수형이면 `ctx.print`를 받는다. */
@@ -91,17 +108,50 @@ export default function ReportModalShell({
   subtitle,
   documentTitle,
   scrollLabel,
+  studentName,
   children,
   footer,
   onClose,
   finalFocus,
 }: ReportModalShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const print = useReactToPrint({
+  const reactToPrint = useReactToPrint({
     contentRef,
     pageStyle: PRINT_PAGE_STYLE,
     ...(documentTitle ? { documentTitle } : {}),
   });
+
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 react-to-print(iframe
+  // 인쇄)가 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로
+  // 응답하는 경로로 대신 보낸다.
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+  const print = () => {
+    // documentTitle 없으면 서버 PDF 경로를 타지 않는다 — api/report-pdf.ts 응답의
+    // 파일명(Content-Disposition)이 필수라 폴백 문자열("리포트")로 채워 보내면 모든
+    // 리포트가 같은 이름으로 저장된다. 이 경우 UA와 무관하게 기존 react-to-print
+    // 경로로 둔다(호출부가 documentTitle을 반드시 넘기게 하는 계약은 위 주석 참고).
+    if (!shouldUseServerPdf(window.navigator.userAgent) || !documentTitle) {
+      reactToPrint();
+      return;
+    }
+    if (!contentRef.current || isPreparingServerPdf) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = contentRef.current;
+    const fileName = documentTitle;
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({
+        root,
+        title: fileName,
+        extraCss: PRINT_PAGE_STYLE,
+      });
+      downloadReportPdf({ html, filename: fileName, accessToken });
+    })();
+  };
 
   return (
     <Dialog
@@ -135,6 +185,19 @@ export default function ReportModalShell({
             빠진다. `display: contents`라 패널의 flex 레이아웃(헤더/본문/푸터 순서)에는
             영향을 주지 않는다. */}
         <div ref={contentRef} className="contents">
+          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다
+              ("print:block hidden 류" 결정). variant="flow"의 인쇄 전용 규칙이 한
+              페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
+              페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
+              없어 targetMajor/targetUniversity는 넘기지 않는다. */}
+          <div className="hidden print:block">
+            <ReportCoverPage
+              serviceLabel="수행평가"
+              title={title}
+              {...(studentName ? { studentName } : {})}
+            />
+          </div>
+
           {/* 헤더 — §5.13/§5.16 실측: 패널 상단에서 2.5rem 내려 시작, 세로 gap 0.25rem,
               아래 구분선까지 1.1875rem. 좌 인셋은 본문과 같은 2.5rem(넓은 뷰포트 기준,
               좁은 화면은 1.25rem으로 줄인다). 구분선 폭이 모달보다 11px 넓은 것은 시안
@@ -207,7 +270,9 @@ export default function ReportModalShell({
             우측 인셋 실측치가 명세에 없다). `contentRef` 밖이라 인쇄에서 자연히 빠진다. */}
         {footer ? (
           <DialogFooter className="mx-0 mb-0 flex h-20 shrink-0 flex-row items-center justify-end gap-3 rounded-b-perf-modal border-t border-performance-line bg-white p-0 px-5 xl:px-10">
-            {typeof footer === "function" ? footer({ print }) : footer}
+            {typeof footer === "function"
+              ? footer({ print, isPreparingPdf: isPreparingServerPdf })
+              : footer}
           </DialogFooter>
         ) : null}
       </DialogContent>
@@ -221,7 +286,7 @@ export default function ReportModalShell({
 // 색 정규화 베이스는 `REPORT_PRINT_PAGE_BASE_STYLE`(공용, `src/lib/report/printPageStyle.ts`)
 // 이 두 화면(이 모달 + 목표관리 성장 리포트)을 위해 갖고, 이 상수는 그 뒤에 모달
 // 크롬 전용 규칙만 이어붙인다.
-const PRINT_PAGE_STYLE = `
+export const PRINT_PAGE_STYLE = `
   ${REPORT_PRINT_PAGE_BASE_STYLE}
   /* 인셋은 @page 여백(15mm)이 대신한다. **헤더와 본문을 같이 걷는다** — 본문만 0으로
      만들면 제목·부제만 좌측으로 들여쓰인 채 남아 좌측 정렬이 어긋난다. */

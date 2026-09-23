@@ -16,10 +16,8 @@ import { useAuth } from "@/context/AuthProvider";
 import {
   MEGA_COL_GAP,
   MEGA_COL_W,
-  MEGA_GUARD,
   NAV_CELL_GAP,
   NAV_CELL_W,
-  NAV_GUARD,
 } from "@/data/navigation";
 import { cleanText, isSameObject, useNavGroups } from "@/hooks/useNavGroups";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
@@ -295,8 +293,49 @@ const LOGOUT_FALLBACK_TIMEOUT_MS = 1800;
 // 꺼진다 — 기존 열림/닫힘 타이머·이펙트를 그대로 재사용할 수 있는 최소 변경이다.
 const MEGA_GENERIC_TRIGGER = "__mega-generic__";
 // 계정 그룹 버튼(로그인/회원가입/로그아웃) 폭 — 시안 §1 w 90px(5.625rem), 1920 기준.
-// nav 셀과 동일한 1440~1919 clamp(vw) 비례 축소 원칙을 적용한다(90*1440/1920=67.5px).
-const ACCOUNT_BTN_W_CLAMP = "clamp(4.21875rem, 4.6875vw, 5.625rem)";
+// nav 셀과 동일한 clamp(vw) 비례 축소 원칙을 적용한다(90*1440/1920=67.5px, QA 행68로
+// floor 기준점이 1440(4.21875rem)에서 1280(90*1280/1920=60px=3.75rem)으로 낮아졌다 —
+// 1440~1920 구간의 vw 계수(4.6875vw)·ceiling(5.625rem)은 그대로라 1440px 이상 렌더는
+// 기존과 픽셀 동일하다).
+const ACCOUNT_BTN_W_CLAMP = "clamp(3.75rem, 4.6875vw, 5.625rem)";
+
+// QA 2차 시트 행68 — 상단 메뉴 상시 노출 기준을 90rem(1440px)에서 80rem(1280px)으로
+// 낮춘다(--breakpoint-nav, src/index.css; NN/g: 데스크톱 햄버거는 안티패턴, 노트북 폭은
+// 상시 내비 유지 권장). 1440px 이상은 navigation.ts가 export하는 고정값(NAV_CELL_W 등)이
+// 여전히 정본이라 그대로 둔다 — 다만 nav가 처음으로 1280~1439px에서도 렌더되면서 nav 5칸
+// 고정폭(692px)·계정 그룹·로고가 그대로면 1440px에서도 근소했던 겹침 위험(위 겹침 재발
+// 위험 주석)이 더 좁은 구간에서 커진다. 아래 navScaleClamp가 navigation.ts/LOGO_W의
+// 1440+ 정본값을 clamp()의 ceiling으로 재사용하면서 1280px에서만 floor(8/9배)로 줄어들게
+// 한다 — navigation.ts 자체는 이번 작업 범위 밖이라 건드리지 않고, 이 파일에서 로컬로만
+// 재계산한다. 모든 값이 동일 비율(1280/1440=8/9)·동일 순수 vw 비례식(value =
+// ceiling*100vw_px/1440, rem→px 환산 포함하면 계수 = ceiling*16*100/1440 =
+// ceiling*10/9)을 쓰므로 nav 셀·gap·메가 컬럼·gap·로고·글자 크기가 1280~1439 구간
+// 어느 지점에서도 정확히 같은 비율로 줄어든다 — 그래야 NAV_GUARD=MEGA_GUARD 좌측선
+// 공유 전제(피치 148px 동일, navigation.ts 상단 주석)가 새 구간에서도 깨지지 않는다.
+function navScaleClamp(ceilingRem: number, floorRatio = 8 / 9) {
+  const floor = ceilingRem * floorRatio;
+  const vwCoefficient = (ceilingRem * 10) / 9;
+  return `clamp(${floor}rem, ${vwCoefficient}vw, ${ceilingRem}rem)`;
+}
+
+const LOGO_W_RESPONSIVE = navScaleClamp(Number.parseFloat(LOGO_W));
+const NAV_CELL_W_RESPONSIVE = navScaleClamp(Number.parseFloat(NAV_CELL_W));
+const NAV_CELL_GAP_RESPONSIVE = navScaleClamp(Number.parseFloat(NAV_CELL_GAP));
+const MEGA_COL_W_RESPONSIVE = navScaleClamp(Number.parseFloat(MEGA_COL_W));
+const MEGA_COL_GAP_RESPONSIVE = navScaleClamp(Number.parseFloat(MEGA_COL_GAP));
+// nav 아이템 글자 크기(기존 text-base=1rem 고정 클래스 대신 인라인 style로 스케일한다 —
+// tracking-[-0.02em]은 em 단위라 font-size를 따라 자동으로 함께 줄어든다).
+const NAV_FONT_SIZE_RESPONSIVE = navScaleClamp(1);
+// navigation.ts의 NAV_GUARD/MEGA_GUARD = max(0, calc(18.382rem − (100vw−72.75rem)/2))이고
+// 18.382rem = 7.5rem(2xl 패딩 가정, 그 아래 구간에서도 보수적으로 고정 — navigation.ts
+// 주석 참고, 이번 변경 대상 아님) + LOGO_W(10.882rem, 고정). 로고가 1280~1439에서
+// 줄어드는데 이 상수를 그대로 쓰면 실제보다 넓은 안전영역을 계속 확보해 nav를 필요
+// 이상으로 오른쪽(계정 그룹 쪽)으로 밀어 오히려 겹침을 키운다 — navigation.ts는 건드리지
+// 않고 이 파일에서만 같은 수식의 LOGO_W 항을 LOGO_W_RESPONSIVE로 바꿔 로컬 재계산한다.
+// 1440px 이상에서는 LOGO_W_RESPONSIVE가 ceiling(10.882rem)으로 고정돼 계산 결과가
+// navigation.ts의 NAV_GUARD/MEGA_GUARD와 항상 동일하다(픽셀 동일 요건 충족).
+const NAV_GUARD_RESPONSIVE = `max(0px, calc(7.5rem + ${LOGO_W_RESPONSIVE} - (100vw - 72.75rem) / 2))`;
+const MEGA_GUARD_RESPONSIVE = NAV_GUARD_RESPONSIVE;
 
 export default function Header() {
   // 세션 구독 자체는 AuthProvider(전역 단일 구독, src/context/AuthProvider.tsx)에
@@ -827,7 +866,7 @@ export default function Header() {
         <Link
           to="/"
           className="flex shrink-0 items-center"
-          style={{ width: LOGO_W }}
+          style={{ width: LOGO_W_RESPONSIVE }}
           onClick={() => setActiveMega(null)}
           onMouseEnter={() => {
             clearMegaCloseTimer();
@@ -847,10 +886,13 @@ export default function Header() {
             래퍼(모바일 hidden)와 햄버거(항상 표시)의 순서를 바꿔 gap-3 flex 안에서
             자연스럽게 "계정 그룹 마지막"으로 자리잡게 한다 — 데스크톱에서는 두 요소 모두
             보여 햄버거가 계정 그룹 우측에 서고, 모바일에서는 계정 그룹 래퍼만 숨어(hidden
-            desktop:flex) 기존과 동일하게 햄버거 단독으로 보인다. QA 행242가 데스크톱
-            (90rem 이상)에서 햄버거를 숨겼던 것(desktop:hidden)을 폐기한다. */}
+            nav:flex) 기존과 동일하게 햄버거 단독으로 보인다. QA 행242가 데스크톱
+            (90rem 이상)에서 햄버거를 숨겼던 것(desktop:hidden)을 폐기한다. QA 행68로
+            상시 노출 기준 자체가 90rem(desktop:)에서 80rem(nav:)로 낮아졌다(위 nav
+            스케일 상수 주석 참고, 헤더 전용 --breakpoint-nav — 다른 파일의 desktop:는
+            그대로 90rem). */}
         <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden shrink-0 flex-nowrap items-center justify-end gap-3 whitespace-nowrap desktop:flex">
+          <div className="hidden shrink-0 flex-nowrap items-center justify-end gap-3 whitespace-nowrap nav:flex">
             {accountGroupNode}
           </div>
 
@@ -890,9 +932,13 @@ export default function Header() {
           분리돼 있어 이제는 이 원칙이 자연히 충족된다.
           0729 시안: 셀 100px 내부 좌측 정렬(justify-start) — 메가 컬럼과 좌측선을 공유한다
           (컬럼 정렬은 아래 메가 패널 컬럼 grid의 MEGA_GUARD/MEGA_COL_W 참고).
-          데스크톱 인라인 nav 전환 시점(desktop: 브레이크포인트)은 90rem(nav 5칸 692px 고정 폭 +
-          로고/계정 그룹 폭 기준 재산정, tailwind.config.js 주석 참고 — max-w-content와 더 이상
-          동일 값이 아니다).
+          데스크톱 인라인 nav 전환 시점은 90rem(nav 5칸 692px 고정 폭 + 로고/계정 그룹 폭
+          기준 재산정, tailwind.config.js 주석 참고 — max-w-content와 더 이상 동일 값이
+          아니다)이었으나, QA 2차 시트 행68(NN/g: 데스크톱 햄버거 안티패턴)로 헤더 전용
+          `nav:` 브레이크포인트(--breakpoint-nav, src/index.css)를 새로 만들어 80rem(1280px)
+          으로 낮췄다 — 아래 nav 스케일 상수(navScaleClamp)가 1280~1439px 구간에서만 nav
+          5칸·gap·메가 컬럼·로고를 8/9 비율로 줄여 이 구간에서도 계정 그룹과 겹치지 않게
+          한다(1440px 이상은 이 상수들이 ceiling으로 고정돼 기존과 픽셀 동일).
           겹침 재발 위험(2026-09-03, 계정 그룹 최대 폭 가정 — 학부모 로그인, 이름 5자 truncate
           상한+"…"+"님"+" 학부모회원"(§6-6) + D-day 배지 + chevron + 로그아웃 버튼, CSS
           박스모델 계산값 — 계정 그룹은 우측 정렬 shrink-0이라 nav 좌측 시작(NAV_GUARD)과는
@@ -926,12 +972,15 @@ export default function Header() {
           중앙 정렬돼 nav 라벨이 로고/계정 그룹 행보다 0.5px 아래로 보였다 — 투명
           테두리로 같은 1px을 내부로 밀어 넣어 두 행의 내용 높이(63px)를 실제로
           맞춘다. */}
-      <nav className="pointer-events-none fixed left-0 top-0 hidden h-16 w-full border-b border-transparent desktop:block">
+      <nav className="pointer-events-none fixed left-0 top-0 hidden h-16 w-full border-b border-transparent nav:block">
         <div className="pointer-events-none mx-auto flex h-full w-full max-w-content items-center px-8">
           {/* biome-ignore lint/a11y/noStaticElementInteractions: 마우스 호버로 메가메뉴 닫힘 타이머를 관리하는 데스크톱 편의 동작 — 실제 nav 링크는 클릭·키보드 모두로 접근 가능하다. */}
           <div
             className="pointer-events-auto flex items-center"
-            style={{ gap: NAV_CELL_GAP, marginLeft: NAV_GUARD }}
+            style={{
+              gap: NAV_CELL_GAP_RESPONSIVE,
+              marginLeft: NAV_GUARD_RESPONSIVE,
+            }}
             onMouseEnter={clearMegaCloseTimer}
             onMouseLeave={scheduleMegaClose}
           >
@@ -946,7 +995,7 @@ export default function Header() {
                 <div
                   key={group.title}
                   className="pointer-events-none relative flex shrink-0 items-center justify-start"
-                  style={{ width: NAV_CELL_W }}
+                  style={{ width: NAV_CELL_W_RESPONSIVE }}
                   onMouseEnter={() => hasDropdown && setActiveMega(group.title)}
                 >
                   {/* nav 아이템은 페이지 이동 없이 메가 패널 트리거 전용(사용자 확정) —
@@ -971,13 +1020,14 @@ export default function Header() {
                           prev === group.title ? null : group.title,
                         );
                     }}
-                    className={`pointer-events-auto cursor-default whitespace-nowrap py-4 text-base leading-[1.4] tracking-[-0.02em] transition ${
+                    className={`pointer-events-auto cursor-default whitespace-nowrap py-4 leading-[1.4] tracking-[-0.02em] transition ${
                       isPathActive || isOpenHighlight
                         ? "font-semibold text-primary"
                         : isMegaPanelOpen
                           ? "font-medium text-ink"
                           : "font-medium text-ink-header"
                     }`}
+                    style={{ fontSize: NAV_FONT_SIZE_RESPONSIVE }}
                   >
                     {group.title}
                   </button>
@@ -999,7 +1049,7 @@ export default function Header() {
             오픈 200ms / 클로즈 120ms 모두 opacity만(이동 없음), ease-out-quart(프로젝트 표준
             이징 — MobileNavDrawer의 ease-(--ease-out-quart) 관례를 그대로 따른다). */}
       <div
-        className={`fixed inset-x-0 top-16 bottom-0 z-40 hidden bg-black/30 desktop:block motion-reduce:transition-none motion-reduce:duration-0 ${
+        className={`fixed inset-x-0 top-16 bottom-0 z-40 hidden bg-black/30 nav:block motion-reduce:transition-none motion-reduce:duration-0 ${
           isMegaPanelOpen
             ? "visible opacity-100 pointer-events-auto transition-opacity duration-200 ease-(--ease-out-quart)"
             : isMegaPanelClosing
@@ -1016,7 +1066,7 @@ export default function Header() {
       />
 
       <div
-        className={`fixed left-0 top-16 z-50 hidden w-full border-b border-black/5 bg-white shadow-[0_18px_45px_rgba(13,27,42,0.14)] desktop:block motion-reduce:transition-none motion-reduce:duration-0 ${
+        className={`fixed left-0 top-16 z-50 hidden w-full border-b border-black/5 bg-white shadow-[0_18px_45px_rgba(13,27,42,0.14)] nav:block motion-reduce:transition-none motion-reduce:duration-0 ${
           isMegaPanelOpen
             ? "visible opacity-100 translate-y-0 pointer-events-auto transition-all duration-180 ease-(--ease-out-quart)"
             : isMegaPanelClosing
@@ -1067,9 +1117,9 @@ export default function Header() {
             <div
               className="grid"
               style={{
-                marginLeft: MEGA_GUARD,
-                gridTemplateColumns: `repeat(5, ${MEGA_COL_W})`,
-                columnGap: MEGA_COL_GAP,
+                marginLeft: MEGA_GUARD_RESPONSIVE,
+                gridTemplateColumns: `repeat(5, ${MEGA_COL_W_RESPONSIVE})`,
+                columnGap: MEGA_COL_GAP_RESPONSIVE,
               }}
             >
               {navGroups.map((group) => (

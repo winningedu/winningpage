@@ -23,9 +23,13 @@ type ReportPageOneData = {
     grade?: string;
     schoolType?: string;
     desiredMajor?: string;
+    /** 표지(ReportCoverPage) 전용 원본값 — "미입력" 표시용 폴백을 거치지 않는다
+     * (diagnosisReport.ts 주석 참고). */
+    desiredMajorRaw?: string | null;
     gpa?: string;
     gradeTrend?: string;
     diagnosedAt?: string;
+    diagnosedAtRaw?: string | null;
     [key: string]: unknown;
   };
   headlineLines: string[];

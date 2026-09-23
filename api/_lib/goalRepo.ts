@@ -337,7 +337,7 @@ export async function fetchProbabilityHistory(
  *   온보딩 계약이 표시명만 보내기 때문이다(intake.js validateTarget).
  *
  *   그럼에도 `.order('id').limit(1)` 을 붙인다. 인덱스가 아직 적용되지 않은 DB
- *   (이 sql 은 팀장이 수동 실행한다 — 파일 헤더 5-7행)에서 표시명 중복 2행을
+ *   (이 sql 은 수동 실행 대상이다 — 파일 헤더 5-7행)에서 표시명 중복 2행을
  *   만나면 `.maybeSingle()` 이 PGRST116 을 던지고, 그 예외가 intake.js 최상위
  *   catch 까지 올라가 온보딩 전체가 500 이 된다 — 422 cut_not_found 도 아니고
  *   awaiting_cuts 저장도 못 해 사용자 입력이 통째로 유실된다.
@@ -423,7 +423,7 @@ export const TABLE_DAILY_RECORDS = "goal_daily_records";
 /**
  * 오늘(record_date 기준) 일별 기록 1행. 없으면 null.
  *
- * record_date 는 실제 달력 모델(팀장 작업 지시 "실제 달력 모델")의 정본 조회 키다 —
+ * record_date 는 실제 달력 모델(가상 달력 모델 폐기, 실제 달력 전환 결정)의 정본 조회 키다 —
  * goal_daily_records_date_key(profile_id, record_date) UNIQUE 인덱스가 하루 1행을
  * 보장한다(sql/55_goal_management.sql (2) 인덱스 절).
  */
@@ -469,8 +469,8 @@ export async function fetchLatestDailyRecord(
 // 성장/학습방향 리포트(#33/#34/#37/#38) 조회 — api/goal/report.js 전용.
 //
 // 이 절의 함수 이름은 병렬 브랜치(daily-record/timer/plan)의 goalRepo.js 헬퍼와
-// 겹치지 않도록 전부 `*InRange` 접미사로 새로 지었다(팀장 지시 — dev 머지 시
-// union되도록). 계산은 전혀 하지 않는다 — 행을 그대로 돌려주고, 합산·백분위 같은
+// 겹치지 않도록 전부 `*InRange` 접미사로 새로 지었다(dev 머지 시 union되도록).
+// 계산은 전혀 하지 않는다 — 행을 그대로 돌려주고, 합산·백분위 같은
 // 산술은 src/lib/goal/report/aggregate.js(순수 함수)가 한다(이 파일의 §1 헌장 유지).
 // ---------------------------------------------------------------------------
 
@@ -1061,6 +1061,24 @@ export function buildStudentPayload(
     // 이 플래그 없이는 두 상태를 구분할 수 없다(§9-4).
     jungsiAvailable:
       num(row.ideal_jungsi_cut) !== null && num(row.min_jungsi_cut) !== null,
+    // 내 정보 수정(QA 2차 시트 행25・31・32) 편집 화면이 폼을 원래 입력값으로 미리
+    // 채우는 데 쓴다. 위 targets/scores는 표시·계산 파생값이라(currentScore는 이미
+    // 9등급 환산, lastNaesinExam은 FLOW 키가 아니라 라벨) 편집 폼 hydration에는
+    // 쓸 수 없다 — 그래서 저장된 raw jsonb/컬럼을 그대로 얹는다. naesin_scores/
+    // mock_exam_scores는 intake.ts가 쓰는 그 모양 그대로다(위 buildStudentPayload
+    // 본문 주석 목록 밖의 새 필드라 기존 소비처는 영향받지 않는다).
+    targetInput: {
+      ideal: {
+        university: row.ideal_university || "",
+        department: row.ideal_department || "",
+      },
+      min: {
+        university: row.min_university || "",
+        department: row.min_department || "",
+      },
+    },
+    naesinInput: row.naesin_scores || null,
+    mockInput: row.mock_exam_scores || null,
   };
 }
 

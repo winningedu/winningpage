@@ -1,6 +1,15 @@
 import type { ComponentProps } from "react";
+import { useRef, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { site } from "@/config/site";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 import { buildReportFileName } from "@/pages/renewal/reportFileName";
 import ReportPageOne from "./ReportPageOne";
 import ReportPageTwo from "./ReportPageTwo";
@@ -12,6 +21,40 @@ import ReportSincerityBanner from "./ReportSincerityBanner";
 // 충분히 길게 잡되, 실제 문제(afterprint 미수신)가 있을 때 탭 제목이 바뀐 채로 남는 기간은
 // 짧게 유지한다.
 const PDF_TITLE_RESTORE_FALLBACK_MS = 5000;
+
+// 2026-09-23 QA 행72: 전역 @page 누수 — `@page`는 클래스로 스코프가 안 되고
+// report-print.css는 Vite 전역 번들에 실려 모든 인쇄(성장 리포트·수행평가 리포트 포함)에
+// margin:0이 새는 원인이었다. 이 컴포넌트가 마운트된 동안에만 문서에 존재하는 <style>로
+// 옮겨, 언마운트 시 React가 자동으로 걷어가게 한다(size/margin 0은 A4 풀블리드 설계라
+// 이 리포트에만 필요하다).
+//
+// html font-size:3mm(rem 균등 축소 트릭 — 70rem 시트 → 210mm A4 폭)도 같은 이유로
+// 이 <style>에 함께 둔다. 이 값 역시 body 전체에 걸리는 태그 셀렉터라 report-print.css의
+// 전역 번들에 있으면, 같은 SPA 세션에서 학습진단 리포트를 한 번 연 뒤 성장·수행평가
+// 리포트를 인쇄할 때 rem이 71%로 축소되는 사고가 난다.
+//
+// SiteLayout의 헤더·푸터(항상 #root의 직계 자식 — SiteLayout·RootLayout이 둘 다 Fragment라
+// DOM에 별도 래퍼를 두지 않는다)를 인쇄에서 숨기는 규칙도 여기로 옮긴다. 기존
+// report-print.css의 `header, footer` 태그 셀렉터는 SiteLayout 밖 화면(목표관리
+// GoalPageHeader 등 중첩된 시맨틱 <header>)까지 전부 잡는 과대 셀렉터였다 — `#root >`로
+// 좁혀 SiteLayout이 실제로 렌더하는 두 요소만 겨냥한다.
+const DIAGNOSIS_REPORT_PAGE_RULE = `
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    html {
+      font-size: 3mm !important; /* 70rem 시트 → 210mm(A4 폭) */
+    }
+
+    #root > header,
+    #root > footer {
+      display: none !important; /* SiteLayout 의 Header(fixed)·SiteFooter */
+    }
+  }
+`;
 
 export type DiagnosisReportData = ComponentProps<typeof ReportPageTwo>["data"] &
   ComponentProps<typeof ReportPageOne>["data"] & {
@@ -72,12 +115,40 @@ export default function DiagnosisReportView({
   // "위닝에듀"로 저장되는 문제가 있었다. 다이얼로그가 실제로 닫힐 때 발생하는 afterprint
   // 이벤트로 원복 시점을 옮기고, 이벤트가 오지 않는 예외 상황을 대비해 폴백 타이머를 둔다
   // (둘 중 먼저 온 쪽이 원복하고 나머지는 restored 플래그로 무시한다).
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 window.print()가
+  // 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로 응답하는
+  // 경로로 대신 보낸다. mainRef는 인쇄 대상(fd-print-area) 전체를 그대로 캡처한다.
+  const mainRef = useRef<HTMLElement>(null);
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+
+  const handleServerPdfDownload = (fileName: string) => {
+    if (!mainRef.current) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = mainRef.current;
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({ root, title: fileName });
+      downloadReportPdf({ html, filename: fileName, accessToken });
+    })();
+  };
+
   const handlePdfDownload = () => {
-    const originalTitle = document.title;
-    document.title = buildReportFileName({
+    const fileName = buildReportFileName({
       studentName: resolvedStudentName,
       diagnosedAt: data.student?.diagnosedAt ?? null,
     });
+
+    if (shouldUseServerPdf(window.navigator.userAgent)) {
+      handleServerPdfDownload(fileName);
+      return;
+    }
+
+    const originalTitle = document.title;
+    document.title = fileName;
 
     let restored = false;
     const restoreTitle = () => {
@@ -96,7 +167,11 @@ export default function DiagnosisReportView({
   };
 
   return (
-    <main className="fd-print-area min-h-screen w-full bg-[#FBFAFA] pt-16">
+    <main
+      ref={mainRef}
+      className="fd-print-area min-h-screen w-full bg-[#FBFAFA] pt-16"
+    >
+      <style>{DIAGNOSIS_REPORT_PAGE_RULE}</style>
       {/* 데스크톱 A4 리포트 — A4 출력물 컨셉(2026-08-20)이므로 lg(1024px) 미만에서는 렌더하지
           않는다. fd-desktop-report 훅으로 report-print.css 가 인쇄 시(뷰포트 무관) 항상
           강제 표시한다. */}
@@ -104,6 +179,30 @@ export default function DiagnosisReportView({
         {/* 불성실 응답 경고는 시트 **위**에 둔다 — '결과가 다를 수 있다'는 안내가 리포트 2장을
             다 읽은 뒤에 나오면 기능을 못 한다. 시트 밖인 이유는 승인된 A4 레이아웃의 첫 요소를
             밀어내지 않기 위해서다. */}
+        {/* 표지(QA 2차 시트 행37·51) — 화면·인쇄 모두 첫 시트다. 페이지 번호를 갖지
+            않는다 — ReportSheetA4를 쓰지 않아 "N페이지 / 총페이지" 표기 자체가 없고,
+            시트1·2의 표기(1페이지/2페이지 등)도 이 표지를 세지 않은 종전 값 그대로
+            유지한다("기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게 안정적인
+            번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
+            치수를 그대로 쓰고, `.fd-report-sheet + .fd-report-sheet` 인접 형제 규칙이
+            표지→1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 목표
+            대학은 이 리포트 데이터에 없어(학습진단은 희망 진로/학과만 수집) 전달하지
+            않는다. */}
+        <ReportCoverPage
+          variant="a4"
+          serviceLabel="학습진단"
+          title={`${site.brandName} 학습진단 리포트`}
+          {...(resolvedStudentName !== null
+            ? { studentName: resolvedStudentName }
+            : {})}
+          {...(data.student?.desiredMajorRaw
+            ? { targetMajor: data.student.desiredMajorRaw }
+            : {})}
+          {...(data.student?.diagnosedAtRaw
+            ? { dateLabel: data.student.diagnosedAtRaw }
+            : {})}
+        />
+
         {/* exactOptionalPropertyTypes 대응 — undefined면 키 자체를 생략(ReportSincerityBanner 미수정 범위). */}
         <ReportSincerityBanner
           {...(data.notices?.sincerityBanner !== undefined
@@ -126,9 +225,10 @@ export default function DiagnosisReportView({
           <button
             type="button"
             onClick={handlePdfDownload}
-            className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            disabled={isPreparingServerPdf}
+            className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
-            PDF 파일로 다운 받기
+            {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 파일로 다운 받기"}
           </button>
         </div>
       </div>
@@ -143,9 +243,10 @@ export default function DiagnosisReportView({
         <button
           type="button"
           onClick={handlePdfDownload}
-          className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          disabled={isPreparingServerPdf}
+          className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
-          PDF 파일로 다운 받기
+          {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 파일로 다운 받기"}
         </button>
       </div>
     </main>
