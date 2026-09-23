@@ -21,8 +21,10 @@ import {
   renderErrorPage,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
+  runWithCleanup,
   sanitizeFileName,
   sanitizePrintHtml,
+  shouldIsolateContext,
 } from "./reportPdf.js";
 
 describe("isHtmlTooLarge", () => {
@@ -260,6 +262,16 @@ describe("isServerlessRuntime", () => {
   });
 });
 
+describe("shouldIsolateContext", () => {
+  it("로컬(서버리스 아님)이면 true다 — 격리 컨텍스트를 쓴다", () => {
+    expect(shouldIsolateContext({})).toBe(true);
+  });
+
+  it("서버리스(VERCEL)면 false다 — 기본 컨텍스트를 재사용한다", () => {
+    expect(shouldIsolateContext({ VERCEL: "1" })).toBe(false);
+  });
+});
+
 describe("resolveChromiumPackUrl", () => {
   it("CHROMIUM_PACK_URL이 있으면 그 값을 쓴다", () => {
     expect(
@@ -378,6 +390,33 @@ describe("acquireWithTimeout", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("runWithCleanup", () => {
+  it("cleanup이 throw해도 work의 성공 결과를 그대로 반환한다", async () => {
+    const work = async () => "pdf-buffer";
+    const cleanup = vi.fn(async () => {
+      throw new Error("close 실패");
+    });
+
+    await expect(runWithCleanup(work, [cleanup])).resolves.toBe("pdf-buffer");
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("work가 throw하면 그 오류가 전파되고, cleanup들은 전부 호출된다", async () => {
+    const workError = new Error("setContent 실패");
+    const work = async () => {
+      throw workError;
+    };
+    const cleanup1 = vi.fn(async () => {});
+    const cleanup2 = vi.fn(async () => {});
+
+    await expect(runWithCleanup(work, [cleanup1, cleanup2])).rejects.toBe(
+      workError,
+    );
+    expect(cleanup1).toHaveBeenCalledTimes(1);
+    expect(cleanup2).toHaveBeenCalledTimes(1);
   });
 });
 
