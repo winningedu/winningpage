@@ -25,6 +25,7 @@
     "typecheck:api": "tsc --noEmit -p api/tsconfig.json",
     "typecheck:scripts": "tsc --noEmit -p tsconfig.scripts.json",
     "check:types-drift": "node scripts/check-database-types-drift.mjs",
+    "check:migration-data": "node scripts/check-migration-data-inserts.mjs",
     "gen:types": "printf '// 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types\\n' > src/types/database.types.ts && supabase gen types typescript --project-id gjowqdiopinhixfivnkx --schema public >> src/types/database.types.ts && biome format --write src/types/database.types.ts",
     "// type-coverage": "any/암묵적 any 비율을 재는 후퇴 방지 게이트. strict 번다운(strictNullChecks 등) 완료 후 95.22% 실측, 95로 고정(2026-08-14). npx로 격리 설치하면 typescript peerDependency 범위(2~7)가 최신인 7.0.2로 풀려 classic 컴파일러 API가 없어 크래시한다 — 반드시 devDependency로 로컬 설치된 typescript(5.9.3)를 쓰게 두고 npx는 그 로컬 바이너리를 집는다.",
     "type-coverage": "type-coverage --at-least 95",
