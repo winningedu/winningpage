@@ -4,9 +4,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildContentDispositionHeader,
+  DEFAULT_CHROMIUM_PACK_URL,
+  DEFAULT_LOCAL_CHROME_PATH,
   isAllowedBaseUrl,
   isHtmlTooLarge,
+  isServerlessRuntime,
   MAX_HTML_BYTES,
+  resolveChromiumPackUrl,
+  resolveLocalExecutablePath,
   sanitizeFileName,
   stripScriptTags,
 } from "./reportPdf.js";
@@ -90,6 +95,56 @@ describe("buildContentDispositionHeader", () => {
     const header = buildContentDispositionHeader("report-2026.pdf");
     expect(header).toBe(
       `attachment; filename="report-2026.pdf"; filename*=UTF-8''report-2026.pdf`,
+    );
+  });
+});
+
+describe("isServerlessRuntime", () => {
+  it("VERCEL 환경변수가 있으면 true다", () => {
+    expect(isServerlessRuntime({ VERCEL: "1" })).toBe(true);
+  });
+
+  it("AWS_LAMBDA_FUNCTION_NAME이 있으면 true다", () => {
+    expect(
+      isServerlessRuntime({ AWS_LAMBDA_FUNCTION_NAME: "report-pdf" }),
+    ).toBe(true);
+  });
+
+  it("둘 다 없으면 false다(로컬)", () => {
+    expect(isServerlessRuntime({})).toBe(false);
+  });
+});
+
+describe("resolveChromiumPackUrl", () => {
+  it("CHROMIUM_PACK_URL이 있으면 그 값을 쓴다", () => {
+    expect(
+      resolveChromiumPackUrl({
+        CHROMIUM_PACK_URL: "https://example.com/x.tar",
+      }),
+    ).toBe("https://example.com/x.tar");
+  });
+
+  it("없으면 기본 Sparticuz chromium v153 pack URL을 쓴다", () => {
+    expect(resolveChromiumPackUrl({})).toBe(DEFAULT_CHROMIUM_PACK_URL);
+    expect(DEFAULT_CHROMIUM_PACK_URL).toBe(
+      "https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar",
+    );
+  });
+});
+
+describe("resolveLocalExecutablePath", () => {
+  it("PUPPETEER_EXECUTABLE_PATH이 있으면 그 값을 쓴다", () => {
+    expect(
+      resolveLocalExecutablePath({
+        PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium",
+      }),
+    ).toBe("/usr/bin/chromium");
+  });
+
+  it("없으면 로컬 macOS Chrome 기본 경로를 쓴다", () => {
+    expect(resolveLocalExecutablePath({})).toBe(DEFAULT_LOCAL_CHROME_PATH);
+    expect(DEFAULT_LOCAL_CHROME_PATH).toBe(
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     );
   });
 });

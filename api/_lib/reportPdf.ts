@@ -71,3 +71,31 @@ export function buildContentDispositionHeader(fileName: string): string {
   const asciiFallback = ASCII_ONLY_RE.test(fileName) ? fileName : "report.pdf";
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
+
+export interface RuntimeEnv {
+  VERCEL?: string;
+  AWS_LAMBDA_FUNCTION_NAME?: string;
+  CHROMIUM_PACK_URL?: string;
+  PUPPETEER_EXECUTABLE_PATH?: string;
+}
+
+/** Vercel/Lambda 서버리스 실행인지 판별 — true면 @sparticuz/chromium-min 바이너리
+ * (원격 pack) 경로를 쓰고, false(로컬 개발)면 로컬 설치된 Chrome을 쓴다. */
+export function isServerlessRuntime(env: RuntimeEnv): boolean {
+  return Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
+// chromium v153 릴리스 pack — 실제 존재 확인(curl -sIL, 302→200) 완료.
+export const DEFAULT_CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar";
+
+export function resolveChromiumPackUrl(env: RuntimeEnv): string {
+  return env.CHROMIUM_PACK_URL ?? DEFAULT_CHROMIUM_PACK_URL;
+}
+
+export const DEFAULT_LOCAL_CHROME_PATH =
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+
+export function resolveLocalExecutablePath(env: RuntimeEnv): string {
+  return env.PUPPETEER_EXECUTABLE_PATH ?? DEFAULT_LOCAL_CHROME_PATH;
+}
