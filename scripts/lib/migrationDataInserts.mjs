@@ -53,6 +53,7 @@ export function findInserts(sql) {
 
 // 앱 코드가 존재를 전제하는 참조 데이터 테이블 — 마이그레이션이 insert해도
 // 되는 유일한 목록. 새 참조 테이블이 생기면 이 배열에 추가한다.
+// storage.buckets는 데이터가 아니라 버킷 정의(인프라 설정)라 허용한다.
 export const ALLOWED_TABLES = [
   "admin_resources",
   "admin_roles",
@@ -61,6 +62,7 @@ export const ALLOWED_TABLES = [
   "program_categories",
   "programs",
   "learning_diagnosis_v2_survey_copy",
+  "storage.buckets",
 ];
 
 // 이 값 미만(파일명 14자리 타임스탬프) 마이그레이션은 이 린트 도입 이전에

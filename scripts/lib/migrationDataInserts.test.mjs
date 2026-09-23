@@ -185,7 +185,6 @@ describe("실제 저장소 회귀", () => {
     const { violationsByFile } = checkAll("00000000000000");
 
     expect(violationsByFile).toEqual({
-      "20260821000001_storage.sql": ["storage.buckets"],
       "20260821000004_products_pricing_20260806.sql": ["products"],
       "20260822000010_admin_permissions.sql": ["admin_members"],
       "20260824000001_university_acceptances_graduate_track.sql": [
