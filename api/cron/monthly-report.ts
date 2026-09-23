@@ -116,10 +116,13 @@ export default defineHandler({
         variables: {
           학생명: target.studentName,
           N월: String(month),
-          // reportId = <월간 키('YYYY-MM')>.<학생 profile id> — 학부모가 알림톡
+          // reportId = <월간 키('YYYY-MM')>_<학생 profile id> — 학부모가 알림톡
           // 링크를 눌렀을 때 어느 자녀의 리포트인지 구분하기 위해서다
           // (src/routes/alimtalkLinkRoutes.tsx parseReportId, QA 시트 행210).
-          reportId: `${targetMonth}.${target.studentProfileId}`,
+          // 구분자는 '.'이 아니라 '_'다 — '.'은 vercel.json rewrite의 정적
+          // 파일 제외 규칙에 걸려 카카오톡에서 누르면 404가 났다(QA 시트 2차
+          // 행60, 2026-09-06).
+          reportId: `${targetMonth}_${target.studentProfileId}`,
         },
       });
 
