@@ -75,6 +75,9 @@ export default function CascadingSelect({
   const meta = resolveMeta(levels);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // 검색형(combobox) 입력 필드의 key → DOM 노드. 모바일 키보드가 올라올 때 openCombobox에서
+  // scrollIntoView 호출 대상을 찾는 데만 쓴다(버튼형 드롭다운은 키보드가 뜨지 않아 대상 없음).
+  const inputRefsByKey = useRef<Record<string, HTMLInputElement | null>>({});
 
   // 콤보박스(검색형) 전용 상태 — key 별 입력 중인 텍스트와 키보드 하이라이트 인덱스.
   // 값이 확정(선택)되면 이 입력 텍스트는 지우고 currentValue[key] 를 그대로 표시에 쓴다.
@@ -150,6 +153,12 @@ export default function CascadingSelect({
     setActiveOptionIndex(null);
     const key = meta[index]!.key;
     setQueryByKey((prev) => ({ ...prev, [key]: "" }));
+    // 모바일 키보드가 올라오며 목록이 화면 밖으로 밀리는 문제를 완화 — 열 때 입력 필드를 한 번
+    // 화면 중앙으로 맞춘다. jsdom엔 scrollIntoView가 없어 optional call로 무시되게 한다.
+    inputRefsByKey.current[key]?.scrollIntoView?.({
+      block: "center",
+      behavior: "smooth",
+    });
   }
 
   // 4열 고정 그리드는 228×4 + 20×3 = 972 를 요구한다. lg(1024) 에서 카드 내부 가용 폭은
@@ -212,6 +221,9 @@ export default function CascadingSelect({
               <div className="relative">
                 <input
                   type="text"
+                  ref={(el) => {
+                    inputRefsByKey.current[level.key] = el;
+                  }}
                   role="combobox"
                   aria-label={level.label}
                   aria-haspopup="listbox"

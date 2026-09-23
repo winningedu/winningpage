@@ -214,6 +214,21 @@ describe("CascadingSelect 목록 위치(QA 시트 2차 행57)", () => {
     // 목록(OverlayScrollbars 호스트) 자신은 포지셔닝 유틸을 직접 갖지 않는다.
     expect(listbox).not.toHaveClass("absolute");
   });
+
+  test("콤보박스를 열면 입력 필드를 화면 중앙으로 스크롤한다(모바일 키보드 대응)", () => {
+    render(<ControlledCascadingSelect levels={LEVELS} />);
+
+    const universityInput = screen.getByRole("combobox", { name: "대학 선택" });
+    const scrollIntoViewSpy = vi.fn();
+    universityInput.scrollIntoView = scrollIntoViewSpy;
+
+    fireEvent.focus(universityInput);
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      block: "center",
+      behavior: "smooth",
+    });
+  });
 });
 
 describe("CascadingSelect 기존 드롭다운(전형 유형·세부 전형)", () => {
