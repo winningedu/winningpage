@@ -51,3 +51,23 @@ export function isAllowedBaseUrl(baseUrl: string): boolean {
 
   return false;
 }
+
+// 경로 문자(/, \)와 제어 문자(0x00-0x1F, 0x7F)를 제거한다 — Content-Disposition
+// 헤더 값·다운로드 파일명에 그대로 실리므로 헤더 인젝션·경로 탈출을 막는다.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 제어 문자를 의도적으로 제거하는 필터다.
+const UNSAFE_FILENAME_RE = /[\\/\x00-\x1f\x7f]/g;
+
+export function sanitizeFileName(rawFileName: string): string {
+  const cleaned = rawFileName.replace(UNSAFE_FILENAME_RE, "");
+  return /\.pdf$/i.test(cleaned) ? cleaned : `${cleaned}.pdf`;
+}
+
+const ASCII_ONLY_RE = /^[\x20-\x7e]+$/;
+
+/** RFC 6266 filename*(UTF-8) + ASCII filename 폴백을 함께 담은 Content-Disposition
+ * 값을 만든다 — 한글 파일명은 filename만으로는 구형 클라이언트에서 깨지므로
+ * 인코딩된 filename*를 함께 준다(RFC 6266 §5 예시와 동일한 조합). */
+export function buildContentDispositionHeader(fileName: string): string {
+  const asciiFallback = ASCII_ONLY_RE.test(fileName) ? fileName : "report.pdf";
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
