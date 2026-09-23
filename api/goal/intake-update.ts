@@ -304,6 +304,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       last_naesin_exam: naesinDerived.lastNaesinExam,
       last_mogo_exam: mockDerived.lastMogoExam,
 
+      // 확정 결정(2026-09-23) — 부분 수정은 base_*만 새로 계산하고 goal_student_state
+      // 뷰가 얹는 누적 Σdelta(goalRepo.ts:16)는 그대로 둔다. 고객사 문구("기존의 학습
+      // data 반영이 새롭게 적용됩니다")가 "학습 기록은 보존하고 기준만 새로 계산한다"는
+      // 뜻이라고 확인됐다 — intake.ts:1296의 재온보딩 차단 사유(base_*를 다시 계산하면
+      // 옛 delta가 새 base 위에 얹혀 확률이 튄다)와 달리, 여기 학생 본인 부분 수정은
+      // 그 튐을 감수하는 쪽으로 정했다. 전체 리셋 + delta clear는 관리자 소프트 리셋
+      // (api/goal/admin/reset-student.ts) 전용이며 이 경로와는 무관하다.
       base_ideal_susi: baseProbsForStorage.idealSusi,
       base_ideal_jungsi: baseProbsForStorage.idealJungsi,
       base_min_susi: baseProbsForStorage.minSusi,
