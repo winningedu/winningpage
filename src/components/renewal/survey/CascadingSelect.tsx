@@ -75,6 +75,9 @@ export default function CascadingSelect({
   const meta = resolveMeta(levels);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // 검색형(combobox) 입력 필드의 key → DOM 노드. 모바일 키보드가 올라올 때 openCombobox에서
+  // scrollIntoView 호출 대상을 찾는 데만 쓴다(버튼형 드롭다운은 키보드가 뜨지 않아 대상 없음).
+  const inputRefsByKey = useRef<Record<string, HTMLInputElement | null>>({});
 
   // 콤보박스(검색형) 전용 상태 — key 별 입력 중인 텍스트와 키보드 하이라이트 인덱스.
   // 값이 확정(선택)되면 이 입력 텍스트는 지우고 currentValue[key] 를 그대로 표시에 쓴다.
@@ -150,6 +153,12 @@ export default function CascadingSelect({
     setActiveOptionIndex(null);
     const key = meta[index]!.key;
     setQueryByKey((prev) => ({ ...prev, [key]: "" }));
+    // 모바일 키보드가 올라오며 목록이 화면 밖으로 밀리는 문제를 완화 — 열 때 입력 필드를 한 번
+    // 화면 중앙으로 맞춘다. jsdom엔 scrollIntoView가 없어 optional call로 무시되게 한다.
+    inputRefsByKey.current[key]?.scrollIntoView?.({
+      block: "center",
+      behavior: "smooth",
+    });
   }
 
   // 4열 고정 그리드는 228×4 + 20×3 = 972 를 요구한다. lg(1024) 에서 카드 내부 가용 폭은
@@ -212,6 +221,9 @@ export default function CascadingSelect({
               <div className="relative">
                 <input
                   type="text"
+                  ref={(el) => {
+                    inputRefsByKey.current[level.key] = el;
+                  }}
                   role="combobox"
                   aria-label={level.label}
                   aria-haspopup="listbox"
@@ -328,70 +340,111 @@ export default function CascadingSelect({
             )}
 
             {isOpen && (
-              <ScrollArea
-                id={listboxId}
-                role="listbox"
-                aria-label={level.label}
-                className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 max-h-72 rounded-2xl border border-[#EDEDED] bg-white p-2 shadow-[0_1rem_2.5rem_rgba(15,23,42,0.12)]"
-              >
-                {(() => {
-                  if (level.loading)
-                    return (
-                      <p className="px-4 py-3 text-base text-[#808080]">
-                        불러오는 중입니다…
-                      </p>
-                    );
-                  if (level.error)
-                    // 재시도 콜백이 있으면(대학 단계) 다시 조회할 수 있게 버튼을 함께 준다 —
-                    // 없으면(하위 단계) 상위 선택을 바꾸면 자연히 재조회되므로 안내만 남긴다.
-                    return (
-                      <div className="flex flex-col gap-2 px-4 py-3">
-                        <p className="text-base text-[#C23B3B]">
-                          목록을 불러오지 못했습니다.
+              // QA 시트 2차 행57 — positioning(absolute/top)은 이 plain wrapper가 전담한다.
+              // ScrollArea(OverlayScrollbars 호스트) 자신에 걸면 overlayscrollbars.css의
+              // `[data-overlayscrollbars]{position:relative}`(@layer 밖, 언레이어드)가
+              // Tailwind `@layer utilities`의 `.absolute`를 항상 이겨 목록이 정상 흐름에
+              // 남아 카드 바닥까지 밀려난다(실측 재현 완료) — align-items:stretch 문제가 아니다.
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30">
+                <ScrollArea
+                  id={listboxId}
+                  role="listbox"
+                  aria-label={level.label}
+                  className="max-h-72 rounded-2xl border border-[#EDEDED] bg-white p-2 shadow-[0_1rem_2.5rem_rgba(15,23,42,0.12)]"
+                >
+                  {(() => {
+                    if (level.loading)
+                      return (
+                        <p className="px-4 py-3 text-base text-[#808080]">
+                          불러오는 중입니다…
                         </p>
-                        {level.onRetry && (
-                          <button
-                            type="button"
-                            onClick={() => level.onRetry?.()}
-                            className="inline-flex min-h-11 w-fit items-center rounded-xl border border-primary px-4 py-2 text-base font-medium text-primary transition hover:bg-[#F1F8FF] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-accent/30"
-                          >
-                            다시 시도
-                          </button>
-                        )}
-                      </div>
-                    );
+                      );
+                    if (level.error)
+                      // 재시도 콜백이 있으면(대학 단계) 다시 조회할 수 있게 버튼을 함께 준다 —
+                      // 없으면(하위 단계) 상위 선택을 바꾸면 자연히 재조회되므로 안내만 남긴다.
+                      return (
+                        <div className="flex flex-col gap-2 px-4 py-3">
+                          <p className="text-base text-[#C23B3B]">
+                            목록을 불러오지 못했습니다.
+                          </p>
+                          {level.onRetry && (
+                            <button
+                              type="button"
+                              onClick={() => level.onRetry?.()}
+                              className="inline-flex min-h-11 w-fit items-center rounded-xl border border-primary px-4 py-2 text-base font-medium text-primary transition hover:bg-[#F1F8FF] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-accent/30"
+                            >
+                              다시 시도
+                            </button>
+                          )}
+                        </div>
+                      );
 
-                  if (searchable) {
+                    if (searchable) {
+                      if (options.length === 0)
+                        return (
+                          <p className="px-4 py-3 text-base text-[#808080]">
+                            선택 가능한 옵션이 없습니다.
+                          </p>
+                        );
+                      if (filteredOptions.length === 0)
+                        return (
+                          <p className="px-4 py-3 text-base text-[#808080]">
+                            일치하는 {level.label ?? "항목"}이 없어요.
+                          </p>
+                        );
+                      return filteredOptions.map((option, optionIndex) => {
+                        const isSelected = option === selected;
+                        const isActive = optionIndex === activeOptionIndex;
+                        return (
+                          <button
+                            key={option}
+                            id={`cascade-option-${level.key}-${optionIndex}`}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            // mousedown에서 preventDefault 해야 input이 blur 되지 않는다(blur가
+                            // click보다 먼저 발생해 열린 목록이 click 전에 닫히는 걸 막는다).
+                            // 실제 선택 확정은 표준 클릭 시맨틱을 유지하기 위해 onClick에서 한다.
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSelect(index, option)}
+                            onMouseEnter={() =>
+                              setActiveOptionIndex(optionIndex)
+                            }
+                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-base transition hover:bg-[#F1F8FF] ${
+                              isSelected || isActive
+                                ? "bg-[#F1F8FF] font-medium text-primary"
+                                : "text-ink"
+                            }`}
+                          >
+                            <span className="truncate">{option}</span>
+                            {isSelected && (
+                              <Check
+                                size={18}
+                                className="shrink-0 text-primary"
+                              />
+                            )}
+                          </button>
+                        );
+                      });
+                    }
+
                     if (options.length === 0)
                       return (
                         <p className="px-4 py-3 text-base text-[#808080]">
                           선택 가능한 옵션이 없습니다.
                         </p>
                       );
-                    if (filteredOptions.length === 0)
-                      return (
-                        <p className="px-4 py-3 text-base text-[#808080]">
-                          일치하는 {level.label ?? "항목"}이 없어요.
-                        </p>
-                      );
-                    return filteredOptions.map((option, optionIndex) => {
+                    return options.map((option) => {
                       const isSelected = option === selected;
-                      const isActive = optionIndex === activeOptionIndex;
                       return (
                         <button
                           key={option}
-                          id={`cascade-option-${level.key}-${optionIndex}`}
                           type="button"
                           role="option"
                           aria-selected={isSelected}
-                          // mousedown에서 preventDefault 해야 input이 blur 되지 않는다(blur가
-                          // click보다 먼저 발생해 열린 목록이 click 전에 닫히는 걸 막는다).
-                          // 실제 선택 확정은 표준 클릭 시맨틱을 유지하기 위해 onClick에서 한다.
-                          onMouseDown={(event) => event.preventDefault()}
                           onClick={() => handleSelect(index, option)}
-                          onMouseEnter={() => setActiveOptionIndex(optionIndex)}
                           className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-base transition hover:bg-[#F1F8FF] ${
-                            isSelected || isActive
+                            isSelected
                               ? "bg-[#F1F8FF] font-medium text-primary"
                               : "text-ink"
                           }`}
@@ -406,38 +459,9 @@ export default function CascadingSelect({
                         </button>
                       );
                     });
-                  }
-
-                  if (options.length === 0)
-                    return (
-                      <p className="px-4 py-3 text-base text-[#808080]">
-                        선택 가능한 옵션이 없습니다.
-                      </p>
-                    );
-                  return options.map((option) => {
-                    const isSelected = option === selected;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        onClick={() => handleSelect(index, option)}
-                        className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-base transition hover:bg-[#F1F8FF] ${
-                          isSelected
-                            ? "bg-[#F1F8FF] font-medium text-primary"
-                            : "text-ink"
-                        }`}
-                      >
-                        <span className="truncate">{option}</span>
-                        {isSelected && (
-                          <Check size={18} className="shrink-0 text-primary" />
-                        )}
-                      </button>
-                    );
-                  });
-                })()}
-              </ScrollArea>
+                  })()}
+                </ScrollArea>
+              </div>
             )}
           </div>
         );
