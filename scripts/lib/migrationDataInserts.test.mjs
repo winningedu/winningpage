@@ -50,6 +50,42 @@ describe("findInserts", () => {
 
     expect(findInserts(sql)).toEqual(["auth.users"]);
   });
+
+  it("주석 처리된 insert는 무시한다", () => {
+    const sql = `
+      -- insert into public.admin_member_permissions (profile_id) values ('x');
+      insert into public.admin_resources (key) values ('popups');
+    `;
+
+    expect(findInserts(sql)).toEqual(["admin_resources"]);
+  });
+
+  it("$fn$ 같은 임의 태그의 달러 인용 함수 본문도 제거한다", () => {
+    const sql = `
+      create or replace function public.fn_do_thing()
+      returns void
+      language plpgsql
+      as $fn$
+      begin
+        insert into public.orders (id) values (1);
+      end;
+      $fn$;
+
+      insert into public.admin_resources (key) values ('popups');
+    `;
+
+    expect(findInserts(sql)).toEqual(["admin_resources"]);
+  });
+
+  it("한 파일에서 여러 테이블·중복 insert를 등장 순으로 중복 제거해 반환한다", () => {
+    const sql = `
+      insert into public.programs (id) values (1);
+      insert into public.products (id) values (1);
+      insert into public.programs (id) values (2);
+    `;
+
+    expect(findInserts(sql)).toEqual(["programs", "products"]);
+  });
 });
 
 // checkMigrationFile(fileName, sql, { allowed, cutoff }) — 컷오프 이후
