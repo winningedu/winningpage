@@ -97,6 +97,25 @@ describe("sanitizePrintHtml", () => {
     const html = '<img src="x.png" onerror="alert(1)" alt="설명">';
     expect(sanitizePrintHtml(html)).toBe('<img src="x.png" alt="설명">');
   });
+
+  it("작은따옴표·따옴표 없는 이벤트 핸들러 값도 제거한다", () => {
+    expect(sanitizePrintHtml("<div onclick='doEvil()'>본문</div>")).toBe(
+      "<div>본문</div>",
+    );
+    expect(sanitizePrintHtml("<div onmouseover=doEvil()>본문</div>")).toBe(
+      "<div>본문</div>",
+    );
+  });
+
+  it("대문자·혼합 대소문자로 우회한 위험 태그·속성도 제거한다", () => {
+    expect(sanitizePrintHtml("<SCRIPT>alert(1)</SCRIPT>")).toBe("");
+    expect(sanitizePrintHtml('<IfRamE src="https://evil.com"></IFRAME>')).toBe(
+      "",
+    );
+    expect(sanitizePrintHtml('<img src="x.png" OnError="alert(1)">')).toBe(
+      '<img src="x.png">',
+    );
+  });
 });
 
 describe("isAllowedBaseUrl", () => {
