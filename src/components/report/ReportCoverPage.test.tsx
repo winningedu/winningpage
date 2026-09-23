@@ -168,4 +168,35 @@ describe("ReportCoverPage", () => {
       screen.getByText("김민준 학생").closest(".fd-report-cover-footer"),
     ).not.toBeNull();
   });
+
+  it("좁은 화면에서 푸터 텍스트가 한 글자씩 세로로 안 깨지게 nowrap을 건다", () => {
+    // 모바일 폭(320px급)에서 로고 img가 폭을 차지해 텍스트 컬럼이 shrink되며 글자
+    // 단위로 줄바꿈되던 버그(QA t11 실측, m-growth.png) — 학생명·기간 줄에 줄바꿈
+    // 금지를 걸어 한 줄을 유지시킨다.
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        studentName="부산학생1"
+        dateLabel="2026-09-21 ~ 2026-09-27"
+      />,
+    );
+
+    expect(screen.getByText("부산학생1 학생").className).toContain(
+      "whitespace-nowrap",
+    );
+    expect(screen.getByText("2026-09-21 ~ 2026-09-27").className).toContain(
+      "whitespace-nowrap",
+    );
+  });
+
+  it("좁은 화면에서는 푸터를 세로로 쌓고, sm 이상에서 가로 정렬로 돌아간다", () => {
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const footer = container.querySelector(".fd-report-cover-footer");
+    expect(footer?.className).toContain("flex-col");
+    expect(footer?.className).toContain("sm:flex-row");
+  });
 });

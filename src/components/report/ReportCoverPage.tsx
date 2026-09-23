@@ -134,16 +134,24 @@ export default function ReportCoverPage({
           !important } }`, SiteLayout 헤더·푸터 인쇄 제거용)이 태그 셀렉터라 리터럴
           <footer> 요소를 전부 잡는다(QA t11 실측 — 표지 푸터가 인쇄에서 안 보임). 그
           전역 파일은 이 컴포넌트의 수정 범위 밖이라 여기서 <div>로 피해 간다. */}
-      <div className="fd-report-cover-footer mt-auto flex items-end justify-between gap-4 pt-8">
+      {/* 모바일 폭(320px급)에서는 로고와 텍스트를 나란히 두면 텍스트 컬럼이 shrink되며
+          글자 단위로 줄바꿈됐다(QA t11 실측, m-growth.png) — 기본은 세로로 쌓고
+          sm 이상에서만 가로 정렬로 돌아간다. 텍스트 줄에는 whitespace-nowrap을 걸어
+          같은 이유로 줄 중간이 깨지지 않게 한다. */}
+      <div className="fd-report-cover-footer mt-auto flex flex-col items-start gap-3 pt-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <img
           src={site.logo.horizontal}
           alt={site.brandName}
-          className="h-5.5 w-auto object-contain lg:h-6.5"
+          className="h-5.5 w-auto shrink-0 object-contain lg:h-6.5"
         />
         {(studentName || dateLabel) && (
-          <div className="flex flex-col items-end gap-1 text-right text-sm text-ink-sub">
-            {studentName && <p className="font-medium">{studentName} 학생</p>}
-            {dateLabel && <p>{dateLabel}</p>}
+          <div className="flex flex-col items-start gap-1 text-left text-sm text-ink-sub sm:items-end sm:text-right">
+            {studentName && (
+              <p className="whitespace-nowrap font-medium">
+                {studentName} 학생
+              </p>
+            )}
+            {dateLabel && <p className="whitespace-nowrap">{dateLabel}</p>}
           </div>
         )}
       </div>
