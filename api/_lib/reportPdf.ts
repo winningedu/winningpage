@@ -50,18 +50,36 @@ const LINK_IMPORT_TAG_RE = /<link\b(?=[^>]*\brel\s*=\s*["']?import\b)[^>]*>/gi;
 // 따옴표 없는 세 형태 중 무엇이든 속성 전체(공백 포함)를 제거한다.
 const EVENT_HANDLER_ATTR_RE = /\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
 
+// 위 필터들을 뚫는 새 우회가 나와도 브라우저 단에서 한 번 더 막는 심층 방어 —
+// script/object/frame 전면 차단 + 이미지·스타일·폰트만 최소 허용한다.
+// base 오리진이 'self'가 되도록(문서 자체 오리진 기준) <base> 태그 앞이 아니라
+// head 맨 앞(첫 자식)에 심는다 — base는 그대로 둔다.
+const PRINT_HTML_CSP_META =
+  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; frame-src 'none'; object-src 'none'\">";
+const HEAD_OPEN_TAG_RE = /<head\b[^>]*>/i;
+
+function injectContentSecurityPolicy(html: string): string {
+  if (!HEAD_OPEN_TAG_RE.test(html)) return html;
+  return html.replace(
+    HEAD_OPEN_TAG_RE,
+    (headOpenTag) => `${headOpenTag}${PRINT_HTML_CSP_META}`,
+  );
+}
+
 export function sanitizePrintHtml(html: string): string {
-  return html
-    .replace(SCRIPT_TAG_RE, "")
-    .replace(UNCLOSED_SCRIPT_TAG_RE, "")
-    .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
-    .replace(IFRAME_TAG_RE, "")
-    .replace(OBJECT_TAG_RE, "")
-    .replace(EMBED_TAG_RE, "")
-    .replace(FRAMESET_TAG_RE, "")
-    .replace(FRAME_TAG_RE, "")
-    .replace(LINK_IMPORT_TAG_RE, "")
-    .replace(EVENT_HANDLER_ATTR_RE, "");
+  return injectContentSecurityPolicy(
+    html
+      .replace(SCRIPT_TAG_RE, "")
+      .replace(UNCLOSED_SCRIPT_TAG_RE, "")
+      .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
+      .replace(IFRAME_TAG_RE, "")
+      .replace(OBJECT_TAG_RE, "")
+      .replace(EMBED_TAG_RE, "")
+      .replace(FRAMESET_TAG_RE, "")
+      .replace(FRAME_TAG_RE, "")
+      .replace(LINK_IMPORT_TAG_RE, "")
+      .replace(EVENT_HANDLER_ATTR_RE, ""),
+  );
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을

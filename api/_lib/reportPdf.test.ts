@@ -34,12 +34,15 @@ describe("isHtmlTooLarge", () => {
   });
 });
 
+const CSP_META =
+  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; frame-src 'none'; object-src 'none'\">";
+
 describe("sanitizePrintHtml", () => {
   it("<script>...</script> 전체(속성 포함)를 제거한다", () => {
     const html =
       '<html><head><script src="x.js">var a=1;</script></head><body><p>본문</p></body></html>';
     expect(sanitizePrintHtml(html)).toBe(
-      "<html><head></head><body><p>본문</p></body></html>",
+      `<html><head>${CSP_META}</head><body><p>본문</p></body></html>`,
     );
   });
 
@@ -50,7 +53,7 @@ describe("sanitizePrintHtml", () => {
 
   it("닫는 태그가 없는 <script>도 끝까지 통째로 제거한다", () => {
     const html = "<html><head><script>var a=1;var b=2;";
-    expect(sanitizePrintHtml(html)).toBe("<html><head>");
+    expect(sanitizePrintHtml(html)).toBe(`<html><head>${CSP_META}`);
   });
 
   it("<iframe>...</iframe> 전체를 제거한다", () => {
@@ -89,7 +92,7 @@ describe("sanitizePrintHtml", () => {
     const html =
       '<head><link rel="import" href="x.html"><link rel="stylesheet" href="y.css"></head>';
     expect(sanitizePrintHtml(html)).toBe(
-      '<head><link rel="stylesheet" href="y.css"></head>',
+      `<head>${CSP_META}<link rel="stylesheet" href="y.css"></head>`,
     );
   });
 
@@ -114,6 +117,13 @@ describe("sanitizePrintHtml", () => {
     );
     expect(sanitizePrintHtml('<img src="x.png" OnError="alert(1)">')).toBe(
       '<img src="x.png">',
+    );
+  });
+
+  it("<head> 맨 앞에 CSP meta 태그를 심층 방어로 주입한다", () => {
+    const html = "<html><head><title>t</title></head><body></body></html>";
+    expect(sanitizePrintHtml(html)).toBe(
+      `<html><head>${CSP_META}<title>t</title></head><body></body></html>`,
     );
   });
 });
