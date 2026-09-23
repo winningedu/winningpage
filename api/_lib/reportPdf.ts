@@ -33,6 +33,10 @@ const OBJECT_TAG_RE = /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi;
 // embed는 HTML void 요소라 닫는 태그가 없다 — 여는 태그 하나만 제거하면 된다.
 const EMBED_TAG_RE = /<embed\b[^>]*>/gi;
 
+// frameset은 콘텐츠(그 안의 frame들 포함)를 통째로 제거한다 — frame은 항상
+// frameset 안에서만 유효하므로 별도 정규식이 필요 없다.
+const FRAMESET_TAG_RE = /<frameset\b[^>]*>[\s\S]*?<\/frameset\s*>/gi;
+
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
@@ -40,7 +44,8 @@ export function sanitizePrintHtml(html: string): string {
     .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
     .replace(IFRAME_TAG_RE, "")
     .replace(OBJECT_TAG_RE, "")
-    .replace(EMBED_TAG_RE, "");
+    .replace(EMBED_TAG_RE, "")
+    .replace(FRAMESET_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
