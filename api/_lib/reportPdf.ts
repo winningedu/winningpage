@@ -16,7 +16,7 @@ export function isHtmlTooLarge(html: string): boolean {
 // 입력에서 <script> 요소를 통째로 걷어낸다.
 const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 
-export function stripScriptTags(html: string): string {
+export function sanitizePrintHtml(html: string): string {
   return html.replace(SCRIPT_TAG_RE, "");
 }
 

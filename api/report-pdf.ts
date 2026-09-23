@@ -26,7 +26,7 @@ import {
   REPORT_PDF_RATE_LIMIT_WINDOW_MS,
   RenderQueueTimeoutError,
   sanitizeFileName,
-  stripScriptTags,
+  sanitizePrintHtml,
 } from "./_lib/reportPdf.js";
 import { renderReportPdf } from "./_lib/reportPdfRender.js";
 
@@ -86,7 +86,7 @@ export default defineHandler({
       return fail(res, 400, "filename이 비어 있습니다.");
     }
 
-    const safeHtml = stripScriptTags(html);
+    const safeHtml = sanitizePrintHtml(html);
     const fileName = sanitizeFileName(filenameInput);
 
     let pdf: Buffer;

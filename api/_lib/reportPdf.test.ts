@@ -21,7 +21,7 @@ import {
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
   sanitizeFileName,
-  stripScriptTags,
+  sanitizePrintHtml,
 } from "./reportPdf.js";
 
 describe("isHtmlTooLarge", () => {
@@ -34,18 +34,18 @@ describe("isHtmlTooLarge", () => {
   });
 });
 
-describe("stripScriptTags", () => {
+describe("sanitizePrintHtml", () => {
   it("<script>...</script> 전체(속성 포함)를 제거한다", () => {
     const html =
       '<html><head><script src="x.js">var a=1;</script></head><body><p>본문</p></body></html>';
-    expect(stripScriptTags(html)).toBe(
+    expect(sanitizePrintHtml(html)).toBe(
       "<html><head></head><body><p>본문</p></body></html>",
     );
   });
 
   it("script가 없으면 그대로 반환한다", () => {
     const html = "<p>스크립트 없음</p>";
-    expect(stripScriptTags(html)).toBe(html);
+    expect(sanitizePrintHtml(html)).toBe(html);
   });
 });
 
