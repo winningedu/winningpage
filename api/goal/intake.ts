@@ -31,6 +31,7 @@
 // 특히 요일별 목표는 calculateWeekSchedule 을 그대로 호출한다 — 자습시간
 // 오버라이드 규칙을 이 파일에 베껴 쓰면 두 벌이 갈린다(buildWeeklySchedule 주석 참고).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   fiveScaleToNine,
@@ -1107,6 +1108,86 @@ export function buildWeeklySchedule({
   });
 }
 
+export type EngineDerivedInput = {
+  /** SCHOOL_TYPE_MAP을 거친 라벨("일반고"/"특목고") — 코드값이 아니다. */
+  schoolType: string;
+  /** 학생이 실제로 고른 학년("고1"/"고2"/"고3") — '중3' 치환 전. */
+  gradeLabel: string;
+  naesinAllNone: boolean;
+  currentScore: number;
+  currentMogo: number;
+  lastNaesinExam: string;
+  lastMogoExam: string;
+  remainNaesin: number | null;
+  remainMogo: number | null;
+  weeklySchedule: ReturnType<typeof calculateWeekSchedule>;
+  ideal: { university: string; department: string };
+  min: { university: string; department: string };
+  now: Date;
+};
+
+/**
+ * 목표 대학 컷 조회 → 계산 엔진 호출 → 저장용 확률 스냅샷까지, "합격가능성 계산
+ * 경로"를 한 곳에 묶은 함수(원 핸들러 5~9단계 중 순수 계산 글루만). 온보딩(이 파일의
+ * handler)과 내 정보 수정 부분 업데이트(api/goal/intake-update.ts)가 반드시 같은
+ * 경로를 타야 한다 — 특히 '중3' 치환, cuts null→0 판정, convertedGrade 오버라이드처럼
+ * 미묘한 매핑을 두 곳에 각자 베껴 쓰면 반드시 갈린다(파일 상단 주석 "계산 모듈은
+ * 동결" 원칙의 연장). 호출부는 반환된 state/baseProbsForStorage/cuts/missing/
+ * hasSusiCuts/hasJungsiCuts를 그대로 저장·응답에 쓰면 된다.
+ */
+export async function computeEngineDerivedFields(
+  supabaseAdmin: SupabaseClient,
+  input: EngineDerivedInput,
+) {
+  // 원본 effectiveGrade(IntakeForm.tsx:1176-1179) — 위 handler 주석과 동일 사유.
+  const isMiddleSubstituted = input.naesinAllNone && input.gradeLabel === "고1";
+  const engineGrade = isMiddleSubstituted ? "중3" : input.gradeLabel;
+
+  const schoolCutType = getSchoolCutType(input.schoolType);
+
+  const { cuts, missing } = await fetchTargetCuts(supabaseAdmin, {
+    schoolCutType,
+    ideal: input.ideal,
+    min: input.min,
+  });
+
+  const hasSusiCuts = cuts.idealNaesin !== null && cuts.minNaesin !== null;
+  const hasJungsiCuts = cuts.idealJungsi !== null && cuts.minJungsi !== null;
+
+  // biome-ignore lint/suspicious/noExplicitAny: calc/pipeline.ts 반환 타입 추론 결함(범위 밖) — handler와 동일 사유.
+  const state: any = buildInitialStudentState({
+    schoolType: input.schoolType,
+    grade: engineGrade,
+    currentScore: input.currentScore,
+    currentMogo: input.currentMogo,
+    lastNaesin: input.lastNaesinExam,
+    lastMogo: input.lastMogoExam,
+    remainingNaesin: input.remainNaesin,
+    remainingMogo: input.remainMogo,
+    cuts: cuts as CutsInput,
+    convertedGrade: input.currentScore,
+    weeklySchedule: input.weeklySchedule,
+    now: input.now,
+  });
+
+  const baseProbsForStorage = {
+    idealSusi: hasSusiCuts ? state.baseProbs.idealSusi : null,
+    idealJungsi: hasJungsiCuts ? state.baseProbs.idealJungsi : null,
+    minSusi: hasSusiCuts ? state.baseProbs.minSusi : null,
+    minJungsi: hasJungsiCuts ? state.baseProbs.minJungsi : null,
+  };
+
+  return {
+    schoolCutType,
+    cuts,
+    missing,
+    hasSusiCuts,
+    hasJungsiCuts,
+    state,
+    baseProbsForStorage,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 핸들러
 // ---------------------------------------------------------------------------
@@ -1169,26 +1250,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const schoolType = SCHOOL_TYPE_MAP[input.schoolType];
     const inputGrade = GRADE_MAP[input.grade]; // 온보딩에서 학생이 실제로 고른 학년
 
-    // 원본 effectiveGrade(IntakeForm.tsx:1176-1179). 고1인데 내신이 하나도 없으면
-    // '중3' 으로 계산한다. 엔진 쪽에서 이 리터럴이 정확히 세 가지를 바꾼다:
-    //   - getConversionTypeForStudent 가 'middleschool' 을 돌려줘(pipeline.js:93-98)
-    //     convertedGrade 주입 경로가 그대로 성립한다(고1이면 '5grade' 라 주입 없이는 throw).
-    //   - applyPreHighGradePenalty 가 +0.10 을 얹는다(primitives.js:155).
-    //   - isPreHighStudent 는 remainingNaesin 오버라이드가 없을 때만 remainNaesin 을
-    //     0 으로 강제한다(pipeline.js:219-222). 아래에서 NAESIN_NONE_REMAINING[고1]=10 을
-    //     항상 넘기므로 이 경로는 실제로는 0 이 아니라 10 을 받는다(calc/DIVERGENCE.md #1).
-    // 이 '중3' 리터럴은 DB 에는 저장하지 않는다 — 아래 upsert 는 inputGrade 를 쓴다
-    // (§9 아래 "저장" 주석 참고). 엔진 호출에만 쓰인다.
-    //
-    // 와이어의 grade 는 계속 'g1' 이고 치환은 GRADE_MAP 통과 **뒤에** 일어난다 —
-    // GRADE_MAP 에 '중3' 을 넣으면 클라이언트가 직접 중3 을 주장할 수 있게 된다.
-    // schoolType 은 절대 바꾸지 않는다('일반고'/'특목고' 유지 → school_type CHECK 통과 +
-    // 컷 조회 대상도 그대로).
-    const isMiddleSubstituted = input.naesinAllNone && inputGrade === "고1";
-    const grade = isMiddleSubstituted ? "중3" : inputGrade;
-
-    const schoolCutType = getSchoolCutType(schoolType);
-
     // 5) 성적 파생 — remain_naesin/remain_mogo도 이 두 함수가 직접 계산해 돌려준다
     //    (deriveNaesin/deriveMogo 주석 참고, QA 행290・291 재설계로 아래 옛 remainingNaesin/
     //    remainingMogo 오버라이드 표 계산은 필요 없어졌다).
@@ -1200,87 +1261,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resolvedRounds: resolvedMockRounds,
     } = deriveMogo(input);
 
-    // 6) 목표 대학 컷 4회 조회
-    //    파이프라인은 컷 누락을 에러로 알려주지 않는다 — calcNaesinProb 이 이를
-    //    확률 0 으로 접어버리기 때문이다(primitives.js:119). 그래서 존재 확인은
-    //    반드시 파이프라인 호출 전에 여기서 한다.
-    const { cuts, missing } = await fetchTargetCuts(supabaseAdmin, {
-      schoolCutType,
-      ideal: input.ideal,
-      min: input.min,
-    });
-
-    // 정시 컷을 외부 수집하지 않기로 확정했다(§9-Q1(b)) — 수시 컷만 필수로
-    // 남기고, 정시 컷이 없으면 정시 확률 2종만 null 로 온보딩을 완료시킨다.
-    // 계산 엔진은 컷 누락을 이미 확률 0 으로 접어 흡수하므로(pipeline.js:173,
-    // 225-228) 이 파일은 "무엇을 null 로 되돌려 쓸지"만 결정하면 된다.
-    const hasSusiCuts = cuts.idealNaesin !== null && cuts.minNaesin !== null;
-    // 정시는 쌍 단위로만 유효하다 — 상한/하한 중 하나만 있으면 둘 다 버린다.
-    // goalRepo.js:364 buildStudentPayload 의 jungsiAvailable 이 이미 이 쌍
-    // 단위 정의를 쓰고 있어(대학별 독립 채택 안 함) 그대로 맞춘다.
-    const hasJungsiCuts = cuts.idealJungsi !== null && cuts.minJungsi !== null;
-
-    // 7) 요일별 목표 학습시간
-    const weeklySchedule = buildWeeklySchedule(input);
-
-    // 8) 파이프라인
-    //    컷이 하나라도 없어도 여기서 파이프라인을 부른다 — current_score /
-    //    converted_grade / remain_* / week_* 가 정확히 같은 코드 경로에서
-    //    나오게 하기 위해서다(재구현 금지). 컷이 없을 때 나오는 확률 0 과
-    //    rate 는 아래에서 통째로 버리고 null 을 저장한다.
-    //
-    // 남은 시험 회차 오버라이드 — QA 행290・291 재설계로 remainNaesin/remainMogo는 이제
-    // deriveNaesin/deriveMogo가 항상 명시적으로 계산해 돌려준다(옛 NAESIN_NONE_REMAINING/
-    // MOGO_NONE_REMAINING 표 직접 조회 + isMiddleSubstituted 전용 분기는 그 두 함수
-    // 안으로 흡수됐다 — deriveNaesin/deriveMogo 주석 참고). 여기서는 그 값을 그대로
-    // buildInitialStudentState의 remainingNaesin/remainingMogo 오버라이드로 넘기기만
-    // 한다. isMiddleSubstituted 여부와 무관하게(grade가 '중3'으로 치환됐어도) 항상
-    // non-null 값을 넘기므로 pipeline.js:219-222 "오버라이드가 없을 때만 0" 가드가
-    // 실제로 적용될 일이 없다 — 세 학년 모두 오버라이드가 항상 우선한다(원본 이탈,
-    // calc/DIVERGENCE.md #1과 동일한 취지의 승인 사항).
-
+    // 6~8) 목표 대학 컷 조회 → 파이프라인 → 확률 스냅샷.
+    //    '중3' 치환·cuts null 판정·convertedGrade 오버라이드 등 미묘한 매핑은 전부
+    //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
+    //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
     const now = new Date();
-    // calc/pipeline.ts(다른 배치 소유, 이 작업 범위 밖) buildInitialStudentState의
-    // 반환 타입이 실제 리터럴 shape(baseProbs/rates/weeklySchedule 등) 대신 넓은
-    // `object`로 추론된다(pipeline.test.ts에도 동일하게 나타나는 기존 결함,
-    // 이 작업에서 만들지 않았고 pipeline.ts는 수정하지 않는다) — 이 지점만 any로
-    // 받는다.
-    // biome-ignore lint/suspicious/noExplicitAny: 위 사유 — calc/pipeline.ts 반환 타입 추론 결함(범위 밖).
-    const state: any = buildInitialStudentState({
+    const {
+      cuts,
+      missing,
+      hasSusiCuts,
+      hasJungsiCuts,
+      state,
+      baseProbsForStorage,
+    } = await computeEngineDerivedFields(supabaseAdmin, {
       schoolType,
-      grade,
+      gradeLabel: inputGrade,
+      naesinAllNone: input.naesinAllNone,
       currentScore,
       currentMogo,
-      lastNaesin: lastNaesinExam,
-      lastMogo: lastMogoExam,
-      remainingNaesin: remainNaesin,
-      remainingMogo: remainMogo,
-      // TargetCuts(goalRepo.ts)는 컷 누락을 null로 표현하는데 pipeline.ts CutsInput은
-      // number만 받는다 — 파이프라인이 누락을 내부에서 0으로 접어 처리한다는 사실은
-      // 위 §9-Q1(b)/baseProbsForStorage 주석에 이미 문서화돼 있다. pipeline.ts는
-      // 범위 밖이라 타입을 못 바꾸므로 여기서만 캐스팅한다(런타임 동작 변경 없음).
-      cuts: cuts as CutsInput,
-      // §7-5(갱신, QA 행290) — 고1・고2는 5등급제 원점수를 받지만 deriveNaesin이 이미
-      // fiveScaleToNine으로 9등급 환산까지 끝낸 값을 currentScore에 담아 돌려준다.
-      // 그래서 이 override는 여전히 항등(currentScore 그대로) — grade_conversions DB
-      // 조회 없이 conversionType='5grade'(고1·고2) 주입 요구를 만족시킨다.
-      convertedGrade: currentScore,
-      weeklySchedule,
+      lastNaesinExam,
+      lastMogoExam,
+      remainNaesin,
+      remainMogo,
+      weeklySchedule: buildWeeklySchedule(input),
+      ideal: input.ideal,
+      min: input.min,
       now,
     });
-
-    // 컷 쌍(수시/정시) 별 null 오버라이드를 여기서 한 번만 계산해 goal_students
-    // 행과 goal_probability_logs 양쪽에 재사용한다. state.baseProbs.idealJungsi
-    // 등은 컷이 없을 때 파이프라인이 0 으로 접은 값이지 null 이 아니라서
-    // (pipeline.js:225-228), 이 판정 없이 두 곳에 각각 조건을 쓰면 어느 한쪽이
-    // 어긋나기 쉽다 — "미산출"과 "0%"가 두 표에서 다른 이야기를 하면 안 된다
-    // (goalRepo.js:46-48 num() 의 "0 과 null 을 절대 섞지 않는다" 규칙).
-    const baseProbsForStorage = {
-      idealSusi: hasSusiCuts ? state.baseProbs.idealSusi : null,
-      idealJungsi: hasJungsiCuts ? state.baseProbs.idealJungsi : null,
-      minSusi: hasSusiCuts ? state.baseProbs.minSusi : null,
-      minJungsi: hasJungsiCuts ? state.baseProbs.minJungsi : null,
-    };
 
     // 9) 저장
     const row = {
