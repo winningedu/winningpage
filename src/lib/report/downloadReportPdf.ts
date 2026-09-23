@@ -7,6 +7,12 @@ import { supabase } from "@/lib/supabase";
 
 const REPORT_PDF_ENDPOINT = "/api/report-pdf";
 
+// urlencoded는 한글 등 non-ASCII를 %EA%B0... 식으로 약 3배 부풀린다. Vercel
+// 요청 상한은 4.5MB라, 인코딩 후 크기가 이보다 먼저 이 문턱을 넘으면 서버가
+// 413을 주기 전에 클라이언트에서 먼저 막는다(서버 MAX_HTML_BYTES 3MB는
+// 디코딩 후 html 필드만 기준이라 이 값과 다르다 — api/_lib/reportPdf.ts 참고).
+const MAX_ENCODED_PAYLOAD_BYTES = 4 * 1024 * 1024;
+
 export interface DownloadReportPdfInput {
   html: string;
   filename: string;
@@ -26,6 +32,21 @@ export function downloadReportPdf({
   filename,
   accessToken,
 }: DownloadReportPdfInput): void {
+  const baseUrl = window.location.origin;
+
+  // 실제로 폼이 보낼 필드 그대로 인코딩해 크기를 잰다 — percent-encoding
+  // 결과는 전부 ASCII라 문자열 길이가 곧 바이트 수다.
+  const encodedSize = new URLSearchParams({
+    html,
+    filename,
+    token: accessToken,
+    baseUrl,
+  }).toString().length;
+
+  if (encodedSize > MAX_ENCODED_PAYLOAD_BYTES) {
+    throw new Error("PDF 문서가 너무 큽니다");
+  }
+
   const form = document.createElement("form");
   form.method = "post";
   form.action = REPORT_PDF_ENDPOINT;
@@ -35,7 +56,7 @@ export function downloadReportPdf({
   appendHiddenField(form, "html", html);
   appendHiddenField(form, "filename", filename);
   appendHiddenField(form, "token", accessToken);
-  appendHiddenField(form, "baseUrl", window.location.origin);
+  appendHiddenField(form, "baseUrl", baseUrl);
 
   document.body.appendChild(form);
   form.submit();

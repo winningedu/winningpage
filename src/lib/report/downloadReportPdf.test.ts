@@ -40,4 +40,26 @@ describe("downloadReportPdf", () => {
 
     submitSpy.mockRestore();
   });
+
+  it("urlencoded 인코딩 후 크기가 4MB를 넘으면 폼을 제출하지 않고 에러를 던진다", () => {
+    const submitSpy = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => {});
+
+    const hugeHtml = "a".repeat(4 * 1024 * 1024 + 1);
+
+    expect(() =>
+      downloadReportPdf({
+        html: hugeHtml,
+        filename: "리포트.pdf",
+        accessToken: "test-token",
+      }),
+    ).toThrow("PDF 문서가 너무 큽니다");
+
+    expect(submitSpy).not.toHaveBeenCalled();
+    // 폼을 만들지 않았으므로 문서에도 아무것도 남지 않는다.
+    expect(document.body.children.length).toBe(0);
+
+    submitSpy.mockRestore();
+  });
 });
