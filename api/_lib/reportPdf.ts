@@ -20,8 +20,15 @@ const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 // 끝까지 통째로 제거한다.
 const UNCLOSED_SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*$/gi;
 
+// iframe은 요소 전체(콘텐츠 포함)를 제거해야 한다 — 콘텐츠가 없어도 여닫는
+// 태그가 항상 온다.
+const IFRAME_TAG_RE = /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi;
+
 export function sanitizePrintHtml(html: string): string {
-  return html.replace(SCRIPT_TAG_RE, "").replace(UNCLOSED_SCRIPT_TAG_RE, "");
+  return html
+    .replace(SCRIPT_TAG_RE, "")
+    .replace(UNCLOSED_SCRIPT_TAG_RE, "")
+    .replace(IFRAME_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을

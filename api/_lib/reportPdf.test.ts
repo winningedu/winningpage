@@ -52,6 +52,12 @@ describe("sanitizePrintHtml", () => {
     const html = "<html><head><script>var a=1;var b=2;";
     expect(sanitizePrintHtml(html)).toBe("<html><head>");
   });
+
+  it("<iframe>...</iframe> 전체를 제거한다", () => {
+    const html =
+      '<body><iframe src="https://evil.com"></iframe><p>본문</p></body>';
+    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+  });
 });
 
 describe("isAllowedBaseUrl", () => {
