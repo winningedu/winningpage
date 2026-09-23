@@ -19,8 +19,11 @@ import type { VercelResponse } from "@vercel/node";
 import { defineHandler } from "./_lib/handler.js";
 import {
   buildContentDispositionHeader,
+  createSlidingWindowRateLimiter,
   isAllowedBaseUrl,
   isHtmlTooLarge,
+  REPORT_PDF_RATE_LIMIT_MAX,
+  REPORT_PDF_RATE_LIMIT_WINDOW_MS,
   RenderQueueTimeoutError,
   sanitizeFileName,
   stripScriptTags,
@@ -32,6 +35,15 @@ export const config = { runtime: "nodejs", maxDuration: 60 };
 function fail(res: VercelResponse, status: number, message: string) {
   res.status(status).json({ detail: message });
 }
+
+// 인스턴스 로컬 인메모리 한도 — 사용자당 1분에 5회. 인스턴스 재시작·다중
+// 인스턴스 스케일아웃에서는 한도가 리셋/분산될 수 있지만, 브라우저 렌더는
+// 비용이 크므로 한 인스턴스가 한 사용자에게 무제한으로 소모되는 것을 막는
+// 1차 방어선이다.
+const rateLimiter = createSlidingWindowRateLimiter(
+  REPORT_PDF_RATE_LIMIT_MAX,
+  REPORT_PDF_RATE_LIMIT_WINDOW_MS,
+);
 
 export default defineHandler({
   methods: ["POST"],
@@ -55,6 +67,10 @@ export default defineHandler({
       await ctx.supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user?.id) {
       return fail(res, 401, "로그인이 필요합니다.");
+    }
+
+    if (!rateLimiter.tryConsume(userData.user.id, Date.now())) {
+      return fail(res, 429, "요청이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.");
     }
 
     if (!html) {
