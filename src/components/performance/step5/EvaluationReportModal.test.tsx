@@ -344,3 +344,22 @@ describe("라벨·본문 소유권 + 빈 상태", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// [4] QA 2차 시트 행37·51 — studentName이 ReportModalShell 표지까지 전달된다.
+// ─────────────────────────────────────────────────────────────────────
+describe("표지(ReportModalShell 공용 컴포넌트)로의 studentName 전달", () => {
+  test("studentName을 표지에 반영한다", () => {
+    render(
+      <EvaluationReportModal
+        open
+        report={buildReport()}
+        studentName="김민준"
+        onClose={noop}
+      />,
+    );
+
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(cover).toHaveTextContent("김민준 학생");
+  });
+});

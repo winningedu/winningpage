@@ -120,6 +120,7 @@ export default function EvaluationReportModal({
         reportName: REPORT_FILE_NAME_LABEL,
       })}
       scrollLabel="평가 리포트 본문"
+      {...(studentName !== undefined ? { studentName } : {})}
       onClose={onClose}
       footer={({ print }) => (
         <>
