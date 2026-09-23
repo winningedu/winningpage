@@ -142,3 +142,30 @@ export function createSemaphore(maxConcurrent: number): Semaphore {
     },
   };
 }
+
+/** 큐 대기가 이 시간을 넘으면 acquireWithTimeout이 RenderQueueTimeoutError로
+ * 거부한다 — reportPdfRender.ts가 503으로 변환한다. */
+export class RenderQueueTimeoutError extends Error {
+  constructor() {
+    super("PDF 생성이 혼잡합니다. 잠시 후 다시 시도해 주세요.");
+    this.name = "RenderQueueTimeoutError";
+  }
+}
+
+/** semaphore.acquire()를 timeoutMs 안에 못 받으면 RenderQueueTimeoutError로
+ * 거부한다. */
+export function acquireWithTimeout(
+  semaphore: Semaphore,
+  timeoutMs: number,
+): Promise<() => void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new RenderQueueTimeoutError());
+    }, timeoutMs);
+
+    semaphore.acquire().then((release) => {
+      clearTimeout(timer);
+      resolve(release);
+    });
+  });
+}

@@ -3,6 +3,7 @@
 // 스크립트)로만 검증한다 — vitest는 네트워크/브라우저를 띄우지 않는다.
 import { describe, expect, it, vi } from "vitest";
 import {
+  acquireWithTimeout,
   buildContentDispositionHeader,
   createSemaphore,
   DEFAULT_CHROMIUM_PACK_URL,
@@ -190,5 +191,14 @@ describe("createSemaphore", () => {
     const release2 = await pending2;
     expect(acquired2).toBe(true);
     expect(typeof release2).toBe("function");
+  });
+});
+
+describe("acquireWithTimeout", () => {
+  it("한도 내에서 즉시 획득되면 release 함수를 반환한다", async () => {
+    const semaphore = createSemaphore(1);
+    const release = await acquireWithTimeout(semaphore, 20_000);
+    expect(typeof release).toBe("function");
+    release();
   });
 });
