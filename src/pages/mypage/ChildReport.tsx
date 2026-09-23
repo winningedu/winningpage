@@ -222,6 +222,7 @@ export default function ChildReport() {
         period={period}
         onPeriodChange={handlePeriodChange}
         report={result.report}
+        studentName={child.student_name}
       />
     </main>
   );

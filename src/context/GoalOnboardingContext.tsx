@@ -283,7 +283,11 @@ function mergeKeyedObject<T extends Record<string, object>>(
   ) as T;
 }
 
-function buildInitialState(
+// 내 정보 수정 화면(Profile.tsx/TargetUniversity.tsx)이 서버에 저장된 naesin_scores/
+// mock_exam_scores(intake.ts 모양, 이 컨텍스트의 naesin/mockExam과 거의 같은 필드명)로
+// 편집 폼을 미리 채울 때도 이 함수를 그대로 쓴다 — FLOW 12/14개 키를 빈 값으로 채우는
+// 규칙을 편집 화면에서 다시 구현하면 두 벌이 갈린다.
+export function buildInitialState(
   stored: Partial<GoalOnboardingState> | null,
 ): GoalOnboardingState {
   const defaults = buildDefaultState();

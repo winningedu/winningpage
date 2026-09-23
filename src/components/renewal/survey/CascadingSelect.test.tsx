@@ -193,6 +193,44 @@ describe("CascadingSelect 검색형 콤보박스(대학·학과)", () => {
   });
 });
 
+describe("CascadingSelect 목록 위치(QA 시트 2차 행57)", () => {
+  test("목록은 OverlayScrollbars 호스트가 아닌 별도 positioned 래퍼에 담겨 입력 바로 아래에 붙는다", () => {
+    // overlayscrollbars.css의 `[data-overlayscrollbars]{position:relative}`는 @layer 밖이라
+    // Tailwind `@layer utilities`의 `.absolute`보다 항상 우선한다 — ScrollArea(OverlayScrollbars
+    // 호스트) 자신에 `absolute`를 직접 걸면 캐스케이드에서 밀려 항상 position:relative로
+    // 계산되고, 목록이 정상 흐름에 남아 카드 바닥까지 밀려난다(실측 재현 완료). 목록을 감싸는
+    // 별도의 plain wrapper에 positioning을 맡겨야 한다.
+    render(<ControlledCascadingSelect levels={LEVELS} />);
+
+    const universityInput = screen.getByRole("combobox", { name: "대학 선택" });
+    fireEvent.focus(universityInput);
+
+    const listbox = screen.getByRole("listbox", { name: "대학 선택" });
+    const positionedWrapper = listbox.parentElement;
+
+    expect(positionedWrapper).not.toBeNull();
+    expect(positionedWrapper).toHaveClass("absolute");
+    expect(positionedWrapper).toHaveClass("top-[calc(100%+0.5rem)]");
+    // 목록(OverlayScrollbars 호스트) 자신은 포지셔닝 유틸을 직접 갖지 않는다.
+    expect(listbox).not.toHaveClass("absolute");
+  });
+
+  test("콤보박스를 열면 입력 필드를 화면 중앙으로 스크롤한다(모바일 키보드 대응)", () => {
+    render(<ControlledCascadingSelect levels={LEVELS} />);
+
+    const universityInput = screen.getByRole("combobox", { name: "대학 선택" });
+    const scrollIntoViewSpy = vi.fn();
+    universityInput.scrollIntoView = scrollIntoViewSpy;
+
+    fireEvent.focus(universityInput);
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      block: "center",
+      behavior: "smooth",
+    });
+  });
+});
+
 describe("CascadingSelect 기존 드롭다운(전형 유형·세부 전형)", () => {
   test("후보가 적은 단계는 여전히 button+listbox 드롭다운을 쓴다", () => {
     render(<ControlledCascadingSelect levels={LEVELS} />);

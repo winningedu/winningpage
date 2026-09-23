@@ -93,6 +93,15 @@ export interface GoalStudentPayload {
   probabilityHistory: GoalProbabilityHistoryEntry[];
   /** 최근 7일 goal_daily_records 순공시간 평균. 기록 0건이면 null(억지 산출 금지). */
   recentAvgStudyHours: number | null;
+  /** 내 정보 수정(내 목표 대학·내 정보 수정 화면) 폼 hydration 전용 — 원본 입력값. */
+  targetInput: {
+    ideal: { university: string; department: string };
+    min: { university: string; department: string };
+  };
+  /** naesin_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
+  naesinInput: Record<string, unknown> | null;
+  /** mock_exam_scores 원본(intake.ts 저장 모양) — 없으면 아직 저장된 적 없음. */
+  mockInput: Record<string, unknown> | null;
 }
 
 /** 오늘 확률 스냅샷 — api/goal/daily-record.ts buildProbsPayload(). */
@@ -396,6 +405,69 @@ export async function submitGoalIntake(
 
   console.error(
     "[goalApi] POST /api/goal/intake 실패:",
+    response.status,
+    result?.detail,
+  );
+  return { kind: "error" };
+}
+
+// ---------------------------------------------------------------------------
+// submitGoalIntakeUpdate — POST /api/goal/intake-update
+// ---------------------------------------------------------------------------
+//
+// 내 정보 수정(QA 2차 시트 행25・31・32) — 목표대학/내신/모의고사 중 한 section만
+// 부분 수정한다. 반환 계약은 submitGoalIntake와 같은 관례를 따른다.
+export type SubmitGoalIntakeUpdateResult =
+  | { kind: "no-session" }
+  | { kind: "not-allowed" }
+  | { kind: "success"; student: GoalStudentPayload }
+  | { kind: "not-onboarded" }
+  | { kind: "cuts-missing"; missing: string[] }
+  | { kind: "validation-error"; detail: string }
+  | { kind: "error" };
+
+export async function submitGoalIntakeUpdate(
+  body: object,
+): Promise<SubmitGoalIntakeUpdateResult> {
+  const authHeader = await getAuthHeader();
+  if (!authHeader) return { kind: "no-session" };
+
+  let response: Response;
+  try {
+    response = await apiFetch("/api/goal/intake-update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    console.error("[goalApi] POST /api/goal/intake-update 호출 오류:", error);
+    return { kind: "error" };
+  }
+
+  const result = await parseJsonSafe(response);
+
+  if (response.status === 200) {
+    return { kind: "success", student: result?.student };
+  }
+
+  if (response.status === 404) return { kind: "not-onboarded" };
+
+  if (response.status === 422) {
+    return { kind: "cuts-missing", missing: result?.missing };
+  }
+
+  if (response.status === 400) {
+    return { kind: "validation-error", detail: result?.detail };
+  }
+
+  if (response.status === 401) return { kind: "no-session" };
+  if (response.status === 403) return { kind: "not-allowed" };
+
+  console.error(
+    "[goalApi] POST /api/goal/intake-update 실패:",
     response.status,
     result?.detail,
   );

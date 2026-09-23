@@ -1,8 +1,15 @@
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 import AdmissionChanceCard from "./AdmissionChanceCard";
 import ConditionListCard from "./ConditionListCard";
 import ConditionTileCard from "./ConditionTileCard";
@@ -112,6 +119,11 @@ type GrowthReportBodyProps = {
   period: "weekly" | "monthly";
   onPeriodChange: (period: "weekly" | "monthly") => void;
   report: GrowthReport;
+  /** 로그인 학생 이름(자기 열람) 또는 자녀 이름(학부모 열람, ChildReport.tsx의
+   * child.student_name). 자기 열람 경로(GrowthReport.tsx)는 이 리포트 조회 API에
+   * 학생 이름이 내려오지 않아 생략한다 — 값이 없으면 표지에서 그 줄이 통째로 빠진다
+   * (폴백 문구를 지어내지 않는다). */
+  studentName?: string | null;
 };
 
 // 성장 리포트 본문(#33 주간 / #34 월간) — parent-view-spec.md §1-3/§4 원칙에 따라 셸과 완전히
@@ -141,9 +153,17 @@ export default function GrowthReportBody({
   period,
   onPeriodChange,
   report,
+  studentName,
 }: GrowthReportBodyProps) {
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
+
+  // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
+  // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
+  // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
+  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 targetUniversity로
+  // 재사용한다 — 별도로 학과만 떼어낼 필드가 없어 targetMajor는 쓰지 않는다.
+  const coverTargetUniversity = admission.upper.university || undefined;
 
   // PDF 저장(QA 행319) — 수행평가 리포트 모달과 같은 react-to-print(iframe 격리) 패턴을
   // 재사용한다(`ReportModalShell.tsx`). 이 페이지는 모달이 아니라 전체 페이지라 딤·포털이
@@ -154,14 +174,42 @@ export default function GrowthReportBody({
   // 추가로 이어붙일 규칙도 없다(카드들은 전부 div 기반 CSS 바/게이지라 SVG/canvas 대체
   // 문제 자체가 없다).
   const contentRef = useRef<HTMLDivElement>(null);
+  const reportFileName = buildGoalReportFileName({
+    period,
+    periodLabel: report.periodLabel,
+  });
   const print = useReactToPrint({
     contentRef,
     pageStyle: REPORT_PRINT_PAGE_BASE_STYLE,
-    documentTitle: buildGoalReportFileName({
-      period,
-      periodLabel: report.periodLabel,
-    }),
+    documentTitle: reportFileName,
   });
+
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 react-to-print(iframe
+  // 인쇄)가 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로
+  // 응답하는 경로로 대신 보낸다.
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+  const handlePdfButtonClick = () => {
+    if (!shouldUseServerPdf(window.navigator.userAgent)) {
+      print();
+      return;
+    }
+    if (!contentRef.current) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = contentRef.current;
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({
+        root,
+        title: reportFileName,
+        extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
+      });
+      downloadReportPdf({ html, filename: reportFileName, accessToken });
+    })();
+  };
 
   return (
     <div className="max-w-goal-content px-4 pb-24 pt-perf-inset md:px-12">
@@ -175,19 +223,44 @@ export default function GrowthReportBody({
         />
         <button
           type="button"
-          onClick={print}
-          className="flex h-9 shrink-0 items-center rounded-lg border border-line px-4 text-app-label font-semibold leading-[1.2] text-ink-strong transition-colors hover:bg-surface-04"
+          onClick={handlePdfButtonClick}
+          disabled={isPreparingServerPdf}
+          className="flex h-9 shrink-0 items-center rounded-lg border border-line px-4 text-app-label font-semibold leading-[1.2] text-ink-strong transition-colors hover:bg-surface-04 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          PDF 저장
+          {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 저장"}
         </button>
       </div>
 
       <div ref={contentRef}>
+        {/* 표지(QA 2차 시트 행37·51) — "화면 최상단"은 이 본문(contentRef) 영역의
+            최상단으로 해석한다: 위 탭·PDF 버튼 툴바는 화면 제어용이라 인쇄 대상
+            (contentRef) 밖에 있고, 표지는 인쇄 첫 페이지여야도 하므로 반드시
+            contentRef 안이어야 한다. variant="flow"의 인쇄 전용 규칙
+            (`FLOW_COVER_PRINT_RULE`)이 인쇄에서만 한 페이지를 채우고
+            break-after:page로 다음 내용과 분리한다 — 화면에서는 리포트 본문 맨
+            위 카드 하나로 보인다. */}
+        {/* heading 없으면 표지를 렌더하지 않는다 — ReportCoverPage의 title은 필수
+            <h1>이라, 빈 문자열 폴백을 넘기면 내용 없는 <h1>만 DOM에 남는다(데이터
+            없으면 렌더 안 함 원칙). */}
+        {report.heading ? (
+          <ReportCoverPage
+            serviceLabel="목표관리"
+            title={report.heading}
+            {...(studentName ? { studentName } : {})}
+            {...(coverTargetUniversity
+              ? { targetUniversity: coverTargetUniversity }
+              : {})}
+            {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
+          />
+        ) : null}
+
         <div className="mt-6 flex flex-wrap items-baseline gap-3">
           {/* 30px — 타입 스케일 밖 값(app-title 1.75rem보다 큼), 디자인 결정 대기 중 */}
-          <h1 className="text-[1.875rem] font-bold leading-[1.4] text-ink-strong">
-            {report.heading}
-          </h1>
+          {report.heading ? (
+            <h1 className="text-[1.875rem] font-bold leading-[1.4] text-ink-strong">
+              {report.heading}
+            </h1>
+          ) : null}
           <span className="text-app-body font-medium leading-[1.4] text-ink-sub">
             {report.periodLabel}
           </span>
@@ -270,7 +343,8 @@ export default function GrowthReportBody({
         </div>
 
         {/* 멘토가 이 기간에 아직 코멘트를 쓰지 않았으면(goal_mentor_comments 행 없음) 카드
-            자체를 렌더하지 않는다(팀장 확정 "리포트에서 코멘트 행 없으면 멘토 카드 자체 미렌더"). */}
+            자체를 렌더하지 않는다(데이터 없으면 렌더 안 함 원칙 — 코멘트 행 없으면
+            멘토 카드 자체 미렌더). */}
         {mentorComment && (
           <div className="mt-10">
             <MentorCommentCard

@@ -26,7 +26,7 @@
 // DirectionReportBody.jsx가 지금까지 goalReportMock.js에서 그대로 읽던 그 모양)으로
 // 되돌리는 배선만 한다.
 //
-// 기간 경계는 순수 달력이다(팀장 확정) — 주간 period='그 주 월요일 YMD',
+// 기간 경계는 순수 달력이다 — 주간 period='그 주 월요일 YMD',
 // 월간 period='YYYY-MM'. 생략하면 오늘(KST) 기준 이번 주/이번 달로 기본값 처리한다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -246,6 +246,9 @@ async function buildGrowthReport({
     completionScore,
     recordDays,
     elapsedDays: effectiveWindow.elapsedDays,
+    periodStart: period.start,
+    periodEnd: period.end,
+    nowYmd,
   });
 
   const positionKpi = cohortPercentile.insufficientSample

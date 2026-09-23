@@ -31,6 +31,7 @@
 // 특히 요일별 목표는 calculateWeekSchedule 을 그대로 호출한다 — 자습시간
 // 오버라이드 규칙을 이 파일에 베껴 쓰면 두 벌이 갈린다(buildWeeklySchedule 주석 참고).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   fiveScaleToNine,
@@ -293,7 +294,7 @@ function fail(detail: string) {
   return { status: 400, body: { detail } };
 }
 
-function validateTarget(value: unknown, label: string) {
+export function validateTarget(value: unknown, label: string) {
   if (!isPlainObject(value))
     return { error: fail(`${label} 정보가 올바르지 않습니다.`) };
 
@@ -309,6 +310,293 @@ function validateTarget(value: unknown, label: string) {
   }
 
   return { value: { university, department } };
+}
+
+/**
+ * 내신 성적 검증 — validateIntakeBody의 "── 내신 ──" 절을 그대로 뗀 것이다.
+ * 내 정보 수정(부분 업데이트, api/goal/intake-update.ts)이 온보딩과 완전히 같은
+ * 규칙으로 내신을 재검증해야 해서 별도 함수로 공유한다(중복 구현 금지 — 두 벌이
+ * 되면 QA 행290 재설계 규칙이 갈린다). gradeLabel(고1/고2/고3)은 호출부가 이미
+ * 확정해(GRADE_MAP 통과 또는 기존 학생 행) 넘긴다.
+ */
+export function validateNaesinInput(naesinBody: unknown, gradeLabel: string) {
+  if (!isPlainObject(naesinBody))
+    return { error: fail("내신 성적이 올바르지 않습니다.") };
+
+  const naesinScale = gradeLabel === "고3" ? 9 : 5;
+
+  const naesinLastExamKey = clean(naesinBody.lastExam);
+  const naesinAllNone = naesinLastExamKey === "";
+  const selectedNaesinExam = naesinAllNone
+    ? null
+    : NAESIN_FLOW_BY_KEY[naesinLastExamKey];
+
+  if (!naesinAllNone) {
+    if (!selectedNaesinExam) {
+      return {
+        error: fail("마지막으로 본 내신 시험을 올바르게 선택해 주세요."),
+      };
+    }
+    if (
+      (GRADE_RANK[selectedNaesinExam.gradeLabel] ?? 0) >
+      (GRADE_RANK[gradeLabel] ?? 0)
+    ) {
+      return { error: fail("선택한 시험이 현재 학년보다 앞섭니다.") };
+    }
+  }
+
+  // "전 시험 없음" 특례 — 평균을 낼 시험이 없어 currentScore 가 0 이 되는 것을 막는다
+  // (0 이면 applyPreHighGradePenalty clamp(1,9)가 1등급(최상위)으로 접어버린다, 구판과
+  // 동일한 이유). 원본과 같이 고1은 중학교 평균 **원점수**(0~100, middleAvgToNine으로
+  // 9등급 환산), 고2・고3은 이전 학년까지의 평균 **등급**(1~9, 9등급제 그대로 — 기존
+  // priorNaesinGrade 흐름 유지)을 받는다.
+  let priorNaesinGrade = "";
+  let naesinOverall = "";
+
+  if (naesinAllNone) {
+    const isScoreInput = gradeLabel === "고1";
+    if (
+      !isInRange(
+        naesinBody.priorNaesinGrade,
+        isScoreInput ? 0 : 1,
+        isScoreInput ? 100 : 9,
+      )
+    ) {
+      return {
+        error: fail(
+          isScoreInput
+            ? "중학교 내신 평균 점수를 0~100 사이로 입력해 주세요."
+            : "내신 성적이 없다면 이전까지의 내신 평균 등급을 1~9 사이로 입력해 주세요.",
+        ),
+      };
+    }
+    priorNaesinGrade = normalizeGrade(naesinBody.priorNaesinGrade);
+  } else {
+    if (!isInRange(naesinBody.overall, 1, naesinScale)) {
+      return {
+        error: fail(`내신 평균 등급은 1~${naesinScale} 사이여야 합니다.`),
+      };
+    }
+    naesinOverall = normalizeGrade(naesinBody.overall);
+  }
+
+  // 최근 시험별 과목군 평균 — 선택 사항(리포트 유닛 입력용, 온보딩 진행을 막지 않는다).
+  // 표시 창(선택 시험 포함 역순 최대 3개, Step4Naesin.tsx recentExams와 동일 규칙) 밖의
+  // 시험은 무시한다 — mockRounds와 같은 이유(GoalOnboardingContext가 NAESIN_EXAM_FLOW
+  // 12개 키를 전부 빈 객체로 들고 있고, lastExam을 바꿔도 이전에 입력해 둔 다른 시험의
+  // 데이터를 지우지 않는다 — buildInitialNaesinExams 주석 참고). FLOW 밖 키・과목군 밖
+  // 키도 조용히 무시하고(화이트리스트 밖 데이터를 저장하지 않는다), 군 평균이 없는 군도
+  // 조용히 건너뛴다("빈 군은 저장 제외" 규칙).
+  const naesinWindowKeys = new Set<string>();
+  if (!naesinAllNone) {
+    const lastIndex = NAESIN_FLOW.findIndex((e) => e.key === naesinLastExamKey);
+    if (lastIndex !== -1) {
+      for (const entry of NAESIN_FLOW.slice(
+        Math.max(0, lastIndex - 2),
+        lastIndex + 1,
+      )) {
+        naesinWindowKeys.add(entry.key);
+      }
+    }
+  }
+
+  const naesinExams: {
+    key: string;
+    groups: Record<
+      string,
+      { avg: number; subjects: { name: string; grade: number }[] }
+    >;
+  }[] = [];
+  const rawNaesinExams = isPlainObject(naesinBody.exams)
+    ? naesinBody.exams
+    : {};
+  for (const [examKey, examValue] of Object.entries(rawNaesinExams)) {
+    if (!naesinWindowKeys.has(examKey)) continue; // 창 밖은 무조건 무시(FLOW 밖 키도 자동 제외).
+    if (!isPlainObject(examValue) || !isPlainObject(examValue.groups)) continue;
+
+    const groups: Record<
+      string,
+      { avg: number; subjects: { name: string; grade: number }[] }
+    > = {};
+    for (const groupKey of NAESIN_GROUP_KEYS) {
+      const groupValue = examValue.groups[groupKey];
+      if (!isPlainObject(groupValue) || !isValidGrade(groupValue.avg)) continue;
+
+      const subjects: { name: string; grade: number }[] = [];
+      if (Array.isArray(groupValue.subjects)) {
+        for (const subject of groupValue.subjects) {
+          if (!isPlainObject(subject)) continue;
+          const name = clean(subject.name);
+          if (!name || name.length > NAME_MAX_LENGTH) continue;
+          if (!isValidGrade(subject.grade)) continue;
+          subjects.push({ name, grade: Number(normalizeGrade(subject.grade)) });
+        }
+      }
+      groups[groupKey] = {
+        avg: Number(normalizeGrade(groupValue.avg)),
+        subjects,
+      };
+    }
+    if (Object.keys(groups).length > 0)
+      naesinExams.push({ key: examKey, groups });
+  }
+
+  return {
+    value: {
+      naesinScale,
+      naesinLastExamKey,
+      naesinAllNone,
+      selectedNaesinExam,
+      priorNaesinGrade,
+      naesinOverall,
+      naesinExams,
+    },
+  };
+}
+
+/**
+ * 모의고사 성적 검증 — validateIntakeBody의 "── 모의고사 ──" 절을 그대로 뗀 것이다.
+ * validateNaesinInput과 같은 이유로 내 정보 수정과 공유한다.
+ */
+export function validateMockExamInput(
+  mockExamBody: unknown,
+  gradeLabel: string,
+) {
+  if (!isPlainObject(mockExamBody))
+    return { error: fail("모의고사 성적이 올바르지 않습니다.") };
+
+  const mockLastRoundKey = clean(mockExamBody.lastRound);
+  const mockAllNone = mockLastRoundKey === "";
+  const selectedMockRound = mockAllNone
+    ? null
+    : MOCK_FLOW_BY_KEY[mockLastRoundKey];
+
+  if (!mockAllNone) {
+    if (!selectedMockRound) {
+      return {
+        error: fail("마지막으로 본 모의고사를 올바르게 선택해 주세요."),
+      };
+    }
+    if (
+      (GRADE_RANK[selectedMockRound.gradeLabel] ?? 0) >
+      (GRADE_RANK[gradeLabel] ?? 0)
+    ) {
+      return { error: fail("선택한 모의고사가 현재 학년보다 앞섭니다.") };
+    }
+  }
+
+  const mockTrack =
+    mockExamBody.track === "과탐" || mockExamBody.track === "사탐"
+      ? mockExamBody.track
+      : "";
+  if (!mockAllNone && !mockTrack) {
+    return { error: fail("탐구 선택 과목(과탐/사탐)을 골라 주세요.") };
+  }
+
+  // 로컬 E2E 버그 — "표시 창"(선택 회차 포함 역순 최대 3개, Step5MockExam.tsx
+  // recentRounds와 동일 규칙) 밖의 회차는 클라이언트가 무엇을 보내든(빈 값이든, 이전에
+  // 다른 lastRound를 고르며 남은 스테일 데이터든) 무시한다 — 학생이 "고3 10모"를 고르고
+  // 입력했다가 마음을 바꿔 "고2 6모"로 다시 고르면, GoalOnboardingContext는 고3 회차
+  // 데이터를 지우지 않고 그대로 들고 있는다(다른 회차를 다시 고를 때 입력이 사라지지
+  // 않게 하려는 설계, buildInitialMockRounds 주석 참고) — 그 남은 데이터가 조용히
+  // 저장되는 걸 여기서 막는다.
+  const mockWindowKeys = new Set<string>();
+  if (!mockAllNone) {
+    const lastIndex = MOCK_FLOW.findIndex((r) => r.key === mockLastRoundKey);
+    if (lastIndex !== -1) {
+      for (const entry of MOCK_FLOW.slice(
+        Math.max(0, lastIndex - 2),
+        lastIndex + 1,
+      )) {
+        mockWindowKeys.add(entry.key);
+      }
+    }
+  }
+
+  // 값이 하나라도 있는 회차는 국/수/영/탐구1/탐구2 전부 채워야 한다(부분 회차는 종합
+  // 백분위 계산을 왜곡한다 — buildMogoScores 주석 참고).
+  const mockRounds: Record<
+    string,
+    {
+      kor: { grade: string; pct: number | null };
+      math: { grade: string; pct: number | null };
+      eng: { grade: string };
+      tam1: { grade: string; pct: number | null };
+      tam2: { grade: string; pct: number | null };
+    }
+  > = {};
+  // MOCK_FLOW(학년 순) 순서로 순회한다 — Object.entries(body 원본)는 클라이언트가 보낸
+  // JSON 키 순서를 그대로 따르는데, calcJeongsiCompositeFE(jeongsi.js:195-212)의 영어
+  // 점수는 "마지막으로 값이 있는 회차가 덮어쓴다"는 규칙이 Object.values() 순회 순서에
+  // 의존한다 — 삽입 순서가 시간순이 아니면 오래된 회차의 영어 등급이 더 최근 회차를
+  // 덮어쓸 수 있다.
+  const rawMockRounds = isPlainObject(mockExamBody.rounds)
+    ? mockExamBody.rounds
+    : {};
+  for (const flowEntry of MOCK_FLOW) {
+    const roundKey = flowEntry.key;
+    if (!mockWindowKeys.has(roundKey)) continue; // 창 밖은 무조건 무시(FLOW 밖 키도 자동 제외).
+    const roundValue = rawMockRounds[roundKey];
+    if (!isPlainObject(roundValue)) continue;
+
+    // "값이 있다"의 정의 — isNumericInput만으로는 grade:""(미입력 기본값)도 "문자열이니
+    // 숫자로 해석해도 되는 값"으로 통과시켜, 완전히 빈 회차까지 "값이 있다"고 오판했다
+    // (로컬 E2E에서 재현된 400의 원인 — GoalOnboardingContext가 MOCK_FLOW 14개 키를
+    // 전부 빈 객체로 채워 두므로, 이 가드 없이는 창 안의 빈 회차조차 5과목 필수 검증에
+    // 걸린다). clean()으로 실제 비어있지 않은지까지 확인한다.
+    const hasAnyInput =
+      MOCK_SUBJECTS.some((subject) => {
+        const entry = roundValue[subject];
+        return isPlainObject(entry) && clean(entry.grade) !== "";
+      }) ||
+      (isPlainObject(roundValue.eng) && clean(roundValue.eng.grade) !== "");
+    if (!hasAnyInput) continue; // 완전히 빈 회차는 저장하지 않는다(선택 회차 포함).
+
+    const label = flowLabel(flowEntry);
+    const round: Record<string, unknown> = {};
+    for (const subjectKey of MOCK_SUBJECTS) {
+      const entry = roundValue[subjectKey];
+      if (!isPlainObject(entry) || !isValidGrade(entry.grade)) {
+        return {
+          error: fail(
+            `모의고사 ${label} 등급은 5과목 모두 1~9 사이여야 합니다.`,
+          ),
+        };
+      }
+      const pct = isInRange(entry.pct, 0, 100)
+        ? Math.round(Number(entry.pct))
+        : null;
+      round[subjectKey] = { grade: normalizeGrade(entry.grade), pct };
+    }
+    if (!isPlainObject(roundValue.eng) || !isValidGrade(roundValue.eng.grade)) {
+      return {
+        error: fail(`모의고사 ${label} 등급은 5과목 모두 1~9 사이여야 합니다.`),
+      };
+    }
+    round.eng = { grade: normalizeGrade(roundValue.eng.grade) };
+
+    mockRounds[roundKey] = round as (typeof mockRounds)[string];
+  }
+
+  // 마지막 회차는 currentMogo/remain_mogo 가 실제로 쓰는 값이다(리포트・확률 기준) — 없음이
+  // 아니면 반드시 채워져 있어야 한다. 참고용으로만 보여준 이전 회차 2개는 선택 입력이다.
+  if (!mockAllNone && !mockRounds[mockLastRoundKey]) {
+    return {
+      error: fail(
+        "마지막으로 선택한 모의고사의 5개 과목 등급을 모두 입력해 주세요.",
+      ),
+    };
+  }
+
+  return {
+    value: {
+      mockLastRoundKey,
+      mockAllNone,
+      selectedMockRound,
+      mockTrack,
+      mockRounds,
+    },
+  };
 }
 
 /**
@@ -447,263 +735,34 @@ export function validateIntakeBody(body: unknown) {
   if (minTarget.error) return { error: minTarget.error };
 
   // ── 내신 ─────────────────────────────────────────────────────────────
-  // QA 행290 재설계(qa3-held-high-design.md §2) — 고정 4회차 체크박스에서 "마지막 시험 1개
-  // 선택 + 그 시험까지의 전체 평균 + 최근 시험별 과목군 평균"으로 바뀌었다. 스케일은
-  // 사용자가 고르지 않는다 — 학년으로만 정해진다(고1・고2 5등급제, 고3 9등급제 — 2025학년도
-  // 고1부터 실제 제도가 5등급제, 설계안 §9 결정②). "없음"은 새 전역 플래그가 아니라
-  // lastExam === "" 로 파생한다(구판과 같은 이유 — 모순 상태를 원천 차단).
-  if (!isPlainObject(body.naesin))
-    return { error: fail("내신 성적이 올바르지 않습니다.") };
-
+  // QA 행290 재설계(qa3-held-high-design.md §2) 로직은 validateNaesinInput으로
+  // 추출했다(내 정보 수정 부분 업데이트와 공유, 중복 구현 금지 — validateNaesinInput
+  // JSDoc 참고).
   const gradeLabel = GRADE_MAP[grade]; // 위에서 이미 GRADE_MAP[grade] 존재를 검증했다.
-  const naesinScale = gradeLabel === "고3" ? 9 : 5;
-
-  const naesinLastExamKey = clean(body.naesin.lastExam);
-  const naesinAllNone = naesinLastExamKey === "";
-  const selectedNaesinExam = naesinAllNone
-    ? null
-    : NAESIN_FLOW_BY_KEY[naesinLastExamKey];
-
-  if (!naesinAllNone) {
-    if (!selectedNaesinExam) {
-      return {
-        error: fail("마지막으로 본 내신 시험을 올바르게 선택해 주세요."),
-      };
-    }
-    if (
-      (GRADE_RANK[selectedNaesinExam.gradeLabel] ?? 0) >
-      (GRADE_RANK[gradeLabel] ?? 0)
-    ) {
-      return { error: fail("선택한 시험이 현재 학년보다 앞섭니다.") };
-    }
-  }
-
-  // "전 시험 없음" 특례 — 평균을 낼 시험이 없어 currentScore 가 0 이 되는 것을 막는다
-  // (0 이면 applyPreHighGradePenalty clamp(1,9)가 1등급(최상위)으로 접어버린다, 구판과
-  // 동일한 이유). 원본과 같이 고1은 중학교 평균 **원점수**(0~100, middleAvgToNine으로
-  // 9등급 환산), 고2・고3은 이전 학년까지의 평균 **등급**(1~9, 9등급제 그대로 — 기존
-  // priorNaesinGrade 흐름 유지)을 받는다.
-  let priorNaesinGrade = "";
-  let naesinOverall = "";
-
-  if (naesinAllNone) {
-    const isScoreInput = gradeLabel === "고1";
-    if (
-      !isInRange(
-        body.naesin.priorNaesinGrade,
-        isScoreInput ? 0 : 1,
-        isScoreInput ? 100 : 9,
-      )
-    ) {
-      return {
-        error: fail(
-          isScoreInput
-            ? "중학교 내신 평균 점수를 0~100 사이로 입력해 주세요."
-            : "내신 성적이 없다면 이전까지의 내신 평균 등급을 1~9 사이로 입력해 주세요.",
-        ),
-      };
-    }
-    priorNaesinGrade = normalizeGrade(body.naesin.priorNaesinGrade);
-  } else {
-    if (!isInRange(body.naesin.overall, 1, naesinScale)) {
-      return {
-        error: fail(`내신 평균 등급은 1~${naesinScale} 사이여야 합니다.`),
-      };
-    }
-    naesinOverall = normalizeGrade(body.naesin.overall);
-  }
-
-  // 최근 시험별 과목군 평균 — 선택 사항(리포트 유닛 입력용, 온보딩 진행을 막지 않는다).
-  // 표시 창(선택 시험 포함 역순 최대 3개, Step4Naesin.tsx recentExams와 동일 규칙) 밖의
-  // 시험은 무시한다 — mockRounds와 같은 이유(GoalOnboardingContext가 NAESIN_EXAM_FLOW
-  // 12개 키를 전부 빈 객체로 들고 있고, lastExam을 바꿔도 이전에 입력해 둔 다른 시험의
-  // 데이터를 지우지 않는다 — buildInitialNaesinExams 주석 참고). FLOW 밖 키・과목군 밖
-  // 키도 조용히 무시하고(화이트리스트 밖 데이터를 저장하지 않는다), 군 평균이 없는 군도
-  // 조용히 건너뛴다("빈 군은 저장 제외" 규칙).
-  const naesinWindowKeys = new Set<string>();
-  if (!naesinAllNone) {
-    const lastIndex = NAESIN_FLOW.findIndex((e) => e.key === naesinLastExamKey);
-    if (lastIndex !== -1) {
-      for (const entry of NAESIN_FLOW.slice(
-        Math.max(0, lastIndex - 2),
-        lastIndex + 1,
-      )) {
-        naesinWindowKeys.add(entry.key);
-      }
-    }
-  }
-
-  const naesinExams: {
-    key: string;
-    groups: Record<
-      string,
-      { avg: number; subjects: { name: string; grade: number }[] }
-    >;
-  }[] = [];
-  const rawNaesinExams = isPlainObject(body.naesin.exams)
-    ? body.naesin.exams
-    : {};
-  for (const [examKey, examValue] of Object.entries(rawNaesinExams)) {
-    if (!naesinWindowKeys.has(examKey)) continue; // 창 밖은 무조건 무시(FLOW 밖 키도 자동 제외).
-    if (!isPlainObject(examValue) || !isPlainObject(examValue.groups)) continue;
-
-    const groups: Record<
-      string,
-      { avg: number; subjects: { name: string; grade: number }[] }
-    > = {};
-    for (const groupKey of NAESIN_GROUP_KEYS) {
-      const groupValue = examValue.groups[groupKey];
-      if (!isPlainObject(groupValue) || !isValidGrade(groupValue.avg)) continue;
-
-      const subjects: { name: string; grade: number }[] = [];
-      if (Array.isArray(groupValue.subjects)) {
-        for (const subject of groupValue.subjects) {
-          if (!isPlainObject(subject)) continue;
-          const name = clean(subject.name);
-          if (!name || name.length > NAME_MAX_LENGTH) continue;
-          if (!isValidGrade(subject.grade)) continue;
-          subjects.push({ name, grade: Number(normalizeGrade(subject.grade)) });
-        }
-      }
-      groups[groupKey] = {
-        avg: Number(normalizeGrade(groupValue.avg)),
-        subjects,
-      };
-    }
-    if (Object.keys(groups).length > 0)
-      naesinExams.push({ key: examKey, groups });
-  }
+  const naesinResult = validateNaesinInput(body.naesin, gradeLabel);
+  if (naesinResult.error) return { error: naesinResult.error };
+  const {
+    naesinScale,
+    naesinLastExamKey,
+    naesinAllNone,
+    selectedNaesinExam,
+    priorNaesinGrade,
+    naesinOverall,
+    naesinExams,
+  } = naesinResult.value;
 
   // ── 모의고사 ─────────────────────────────────────────────────────────
-  // QA 행291 재설계(qa3-held-high-design.md §3) — 고정 4회차(3/6/9/10월, 학년 무구분)에서
-  // 학년별 전체 시퀀스(MOCK_FLOW, 고3 5・7모 포함)로 바뀌었다. 등급 입력에 더해 백분위
-  // (원본 GRADE_PERCENTILE 밴드에서 사용자가 고른 칩 값)를 함께 받는다 — 안 보내면(칩을
-  // 안 골랐으면) gradeToPercentile 의 밴드 중앙값으로 대체한다(구판 추정과 동일한 폴백).
-  if (!isPlainObject(body.mockExam))
-    return { error: fail("모의고사 성적이 올바르지 않습니다.") };
-
-  const mockLastRoundKey = clean(body.mockExam.lastRound);
-  const mockAllNone = mockLastRoundKey === "";
-  const selectedMockRound = mockAllNone
-    ? null
-    : MOCK_FLOW_BY_KEY[mockLastRoundKey];
-
-  if (!mockAllNone) {
-    if (!selectedMockRound) {
-      return {
-        error: fail("마지막으로 본 모의고사를 올바르게 선택해 주세요."),
-      };
-    }
-    if (
-      (GRADE_RANK[selectedMockRound.gradeLabel] ?? 0) >
-      (GRADE_RANK[gradeLabel] ?? 0)
-    ) {
-      return { error: fail("선택한 모의고사가 현재 학년보다 앞섭니다.") };
-    }
-  }
-
-  const mockTrack =
-    body.mockExam.track === "과탐" || body.mockExam.track === "사탐"
-      ? body.mockExam.track
-      : "";
-  if (!mockAllNone && !mockTrack) {
-    return { error: fail("탐구 선택 과목(과탐/사탐)을 골라 주세요.") };
-  }
-
-  // 로컬 E2E 버그 — "표시 창"(선택 회차 포함 역순 최대 3개, Step5MockExam.tsx
-  // recentRounds와 동일 규칙) 밖의 회차는 클라이언트가 무엇을 보내든(빈 값이든, 이전에
-  // 다른 lastRound를 고르며 남은 스테일 데이터든) 무시한다 — 학생이 "고3 10모"를 고르고
-  // 입력했다가 마음을 바꿔 "고2 6모"로 다시 고르면, GoalOnboardingContext는 고3 회차
-  // 데이터를 지우지 않고 그대로 들고 있는다(다른 회차를 다시 고를 때 입력이 사라지지
-  // 않게 하려는 설계, buildInitialMockRounds 주석 참고) — 그 남은 데이터가 조용히
-  // 저장되는 걸 여기서 막는다.
-  const mockWindowKeys = new Set<string>();
-  if (!mockAllNone) {
-    const lastIndex = MOCK_FLOW.findIndex((r) => r.key === mockLastRoundKey);
-    if (lastIndex !== -1) {
-      for (const entry of MOCK_FLOW.slice(
-        Math.max(0, lastIndex - 2),
-        lastIndex + 1,
-      )) {
-        mockWindowKeys.add(entry.key);
-      }
-    }
-  }
-
-  // 값이 하나라도 있는 회차는 국/수/영/탐구1/탐구2 전부 채워야 한다(부분 회차는 종합
-  // 백분위 계산을 왜곡한다 — buildMogoScores 주석 참고).
-  const mockRounds: Record<
-    string,
-    {
-      kor: { grade: string; pct: number | null };
-      math: { grade: string; pct: number | null };
-      eng: { grade: string };
-      tam1: { grade: string; pct: number | null };
-      tam2: { grade: string; pct: number | null };
-    }
-  > = {};
-  // MOCK_FLOW(학년 순) 순서로 순회한다 — Object.entries(body 원본)는 클라이언트가 보낸
-  // JSON 키 순서를 그대로 따르는데, calcJeongsiCompositeFE(jeongsi.js:195-212)의 영어
-  // 점수는 "마지막으로 값이 있는 회차가 덮어쓴다"는 규칙이 Object.values() 순회 순서에
-  // 의존한다 — 삽입 순서가 시간순이 아니면 오래된 회차의 영어 등급이 더 최근 회차를
-  // 덮어쓸 수 있다.
-  const rawMockRounds = isPlainObject(body.mockExam.rounds)
-    ? body.mockExam.rounds
-    : {};
-  for (const flowEntry of MOCK_FLOW) {
-    const roundKey = flowEntry.key;
-    if (!mockWindowKeys.has(roundKey)) continue; // 창 밖은 무조건 무시(FLOW 밖 키도 자동 제외).
-    const roundValue = rawMockRounds[roundKey];
-    if (!isPlainObject(roundValue)) continue;
-
-    // "값이 있다"의 정의 — isNumericInput만으로는 grade:""(미입력 기본값)도 "문자열이니
-    // 숫자로 해석해도 되는 값"으로 통과시켜, 완전히 빈 회차까지 "값이 있다"고 오판했다
-    // (로컬 E2E에서 재현된 400의 원인 — GoalOnboardingContext가 MOCK_FLOW 14개 키를
-    // 전부 빈 객체로 채워 두므로, 이 가드 없이는 창 안의 빈 회차조차 5과목 필수 검증에
-    // 걸린다). clean()으로 실제 비어있지 않은지까지 확인한다.
-    const hasAnyInput =
-      MOCK_SUBJECTS.some((subject) => {
-        const entry = roundValue[subject];
-        return isPlainObject(entry) && clean(entry.grade) !== "";
-      }) ||
-      (isPlainObject(roundValue.eng) && clean(roundValue.eng.grade) !== "");
-    if (!hasAnyInput) continue; // 완전히 빈 회차는 저장하지 않는다(선택 회차 포함).
-
-    const label = flowLabel(flowEntry);
-    const round: Record<string, unknown> = {};
-    for (const subjectKey of MOCK_SUBJECTS) {
-      const entry = roundValue[subjectKey];
-      if (!isPlainObject(entry) || !isValidGrade(entry.grade)) {
-        return {
-          error: fail(
-            `모의고사 ${label} 등급은 5과목 모두 1~9 사이여야 합니다.`,
-          ),
-        };
-      }
-      const pct = isInRange(entry.pct, 0, 100)
-        ? Math.round(Number(entry.pct))
-        : null;
-      round[subjectKey] = { grade: normalizeGrade(entry.grade), pct };
-    }
-    if (!isPlainObject(roundValue.eng) || !isValidGrade(roundValue.eng.grade)) {
-      return {
-        error: fail(`모의고사 ${label} 등급은 5과목 모두 1~9 사이여야 합니다.`),
-      };
-    }
-    round.eng = { grade: normalizeGrade(roundValue.eng.grade) };
-
-    mockRounds[roundKey] = round as (typeof mockRounds)[string];
-  }
-
-  // 마지막 회차는 currentMogo/remain_mogo 가 실제로 쓰는 값이다(리포트・확률 기준) — 없음이
-  // 아니면 반드시 채워져 있어야 한다. 참고용으로만 보여준 이전 회차 2개는 선택 입력이다.
-  if (!mockAllNone && !mockRounds[mockLastRoundKey]) {
-    return {
-      error: fail(
-        "마지막으로 선택한 모의고사의 5개 과목 등급을 모두 입력해 주세요.",
-      ),
-    };
-  }
+  // QA 행291 재설계(qa3-held-high-design.md §3) 로직은 validateMockExamInput으로
+  // 추출했다(이유는 위 내신과 동일).
+  const mockResult = validateMockExamInput(body.mockExam, gradeLabel);
+  if (mockResult.error) return { error: mockResult.error };
+  const {
+    mockLastRoundKey,
+    mockAllNone,
+    selectedMockRound,
+    mockTrack,
+    mockRounds,
+  } = mockResult.value;
 
   // ── 자습 시간 · 하루 일과 ────────────────────────────────────────────
   if (!isPlainObject(body.studyHours))
@@ -782,6 +841,25 @@ export function validateIntakeBody(body: unknown) {
  * 평균 **원점수**(0~100)를 middleAvgToNine으로, 고2・고3은 이전 학년까지의 평균
  * **등급**(1~9, 9등급제)을 그대로 쓴다(기존 priorNaesinGrade 흐름 유지).
  */
+/**
+ * 저장된 학생 행에서 내신 "전 시험 없음(naesinAllNone)" 여부를 판정한다 —
+ * intake-update.ts가 내신 section을 건드리지 않는 부분 수정에서, 기존 학년 치환
+ * (고1 중3 특례) 여부를 다시 판단할 때 이 값이 필요하다.
+ *
+ * naesin_scores.lastExam(jsonb 내부 필드)이 아니라 last_naesin_exam 컬럼(바로 위
+ * deriveNaesin이 온보딩·수정 저장 시점마다 직접 쓰는 값, "" 아니면 실제 시험 라벨만
+ * 들어온다)을 근거로 삼는다 — naesin_scores가 null이거나 2026-09-02(749cc3a4)
+ * 이전 구 형식(지금과 다른 키 이름공간이라 lastExam 필드 자체가 없음)이어도 이
+ * 컬럼만은 온보딩 시점에 항상 계산되어 채워져 있다. `!existing.naesin_scores?.lastExam`
+ * 식으로 jsonb를 직접 보면 이런 행에서 undefined를 "전 시험 없음"으로 오판해 고1
+ * 학생의 엔진 학년이 '중3'으로 잘못 치환된다.
+ */
+export function isStoredNaesinAllNone(row: {
+  last_naesin_exam: unknown;
+}): boolean {
+  return row.last_naesin_exam === "";
+}
+
 export function deriveNaesin(input) {
   const {
     naesinAllNone,
@@ -827,7 +905,7 @@ export function deriveNaesin(input) {
  * 과목군 입력이 하나도 없으면(전체 평균만 입력) 빈 객체 — 리포트 쪽이 4과목 flat 모드로
  * 폴백한다(qa3-held-high-design.md §7 입력 규칙).
  */
-function deriveNaesinGroupAverages(naesinExams, selectedNaesinExam) {
+export function deriveNaesinGroupAverages(naesinExams, selectedNaesinExam) {
   if (!selectedNaesinExam) return {};
   const match = naesinExams.find((exam) => exam.key === selectedNaesinExam.key);
   if (!match) return {};
@@ -1049,6 +1127,131 @@ export function buildWeeklySchedule({
   });
 }
 
+/**
+ * 학습방향 리포트(내신·정시 각 1건, source_type='intake', source_label='내 현재 위치')를
+ * 다시 만들어 저장한다. (profile_id, kind, source_type, source_label) 동일 키로 upsert
+ * 하므로(saveGoalDirectionReport JSDoc) "새 행 추가"가 아니라 "현재 위치" 스냅샷 자체를
+ * 덮어쓴다 — 온보딩(이 파일의 handler)뿐 아니라 내 정보 수정 부분 업데이트
+ * (api/goal/intake-update.ts)도 저장된 값(목표 대학·내신·모의고사 중 무엇을 고쳤든)이
+ * 바뀌면 이 함수를 그대로 호출해 "학습 data 반영이 새롭게 적용됩니다" 문구를 실제로
+ * 지킨다 — 재구현 금지.
+ */
+export async function regenerateDirectionReports(
+  supabaseAdmin: SupabaseClient,
+  profileId: string,
+  savedRow: {
+    grade: string | null;
+    naesin_scores: unknown;
+    mock_exam_scores: unknown;
+    converted_grade: number | null;
+    current_mogo: number | null;
+  },
+): Promise<void> {
+  for (const kind of ["naesin", "jungsi"] as const) {
+    const legacyEntry =
+      kind === "naesin"
+        ? { value: savedRow.converted_grade }
+        : { value: savedRow.current_mogo };
+    const { payload, snapshot } = buildGoalDirectionReport({
+      kind,
+      sourceType: "intake",
+      sourceLabel: "내 현재 위치",
+      grade: savedRow.grade,
+      naesinScores: savedRow.naesin_scores,
+      mockExamScores: savedRow.mock_exam_scores,
+      legacyEntry,
+      gradePercentile: GRADE_PERCENTILE,
+    });
+    await saveGoalDirectionReport(supabaseAdmin, profileId, {
+      kind,
+      sourceType: "intake",
+      sourceLabel: "내 현재 위치",
+      payload,
+      snapshot,
+    });
+  }
+}
+
+export type EngineDerivedInput = {
+  /** SCHOOL_TYPE_MAP을 거친 라벨("일반고"/"특목고") — 코드값이 아니다. */
+  schoolType: string;
+  /** 학생이 실제로 고른 학년("고1"/"고2"/"고3") — '중3' 치환 전. */
+  gradeLabel: string;
+  naesinAllNone: boolean;
+  currentScore: number;
+  currentMogo: number;
+  lastNaesinExam: string;
+  lastMogoExam: string;
+  remainNaesin: number | null;
+  remainMogo: number | null;
+  weeklySchedule: ReturnType<typeof calculateWeekSchedule>;
+  ideal: { university: string; department: string };
+  min: { university: string; department: string };
+  now: Date;
+};
+
+/**
+ * 목표 대학 컷 조회 → 계산 엔진 호출 → 저장용 확률 스냅샷까지, "합격가능성 계산
+ * 경로"를 한 곳에 묶은 함수(원 핸들러 5~9단계 중 순수 계산 글루만). 온보딩(이 파일의
+ * handler)과 내 정보 수정 부분 업데이트(api/goal/intake-update.ts)가 반드시 같은
+ * 경로를 타야 한다 — 특히 '중3' 치환, cuts null→0 판정, convertedGrade 오버라이드처럼
+ * 미묘한 매핑을 두 곳에 각자 베껴 쓰면 반드시 갈린다(파일 상단 주석 "계산 모듈은
+ * 동결" 원칙의 연장). 호출부는 반환된 state/baseProbsForStorage/cuts/missing/
+ * hasSusiCuts/hasJungsiCuts를 그대로 저장·응답에 쓰면 된다.
+ */
+export async function computeEngineDerivedFields(
+  supabaseAdmin: SupabaseClient,
+  input: EngineDerivedInput,
+) {
+  // 원본 effectiveGrade(IntakeForm.tsx:1176-1179) — 위 handler 주석과 동일 사유.
+  const isMiddleSubstituted = input.naesinAllNone && input.gradeLabel === "고1";
+  const engineGrade = isMiddleSubstituted ? "중3" : input.gradeLabel;
+
+  const schoolCutType = getSchoolCutType(input.schoolType);
+
+  const { cuts, missing } = await fetchTargetCuts(supabaseAdmin, {
+    schoolCutType,
+    ideal: input.ideal,
+    min: input.min,
+  });
+
+  const hasSusiCuts = cuts.idealNaesin !== null && cuts.minNaesin !== null;
+  const hasJungsiCuts = cuts.idealJungsi !== null && cuts.minJungsi !== null;
+
+  // biome-ignore lint/suspicious/noExplicitAny: calc/pipeline.ts 반환 타입 추론 결함(범위 밖) — handler와 동일 사유.
+  const state: any = buildInitialStudentState({
+    schoolType: input.schoolType,
+    grade: engineGrade,
+    currentScore: input.currentScore,
+    currentMogo: input.currentMogo,
+    lastNaesin: input.lastNaesinExam,
+    lastMogo: input.lastMogoExam,
+    remainingNaesin: input.remainNaesin,
+    remainingMogo: input.remainMogo,
+    cuts: cuts as CutsInput,
+    convertedGrade: input.currentScore,
+    weeklySchedule: input.weeklySchedule,
+    now: input.now,
+  });
+
+  const baseProbsForStorage = {
+    idealSusi: hasSusiCuts ? state.baseProbs.idealSusi : null,
+    idealJungsi: hasJungsiCuts ? state.baseProbs.idealJungsi : null,
+    minSusi: hasSusiCuts ? state.baseProbs.minSusi : null,
+    minJungsi: hasJungsiCuts ? state.baseProbs.minJungsi : null,
+  };
+
+  return {
+    schoolCutType,
+    cuts,
+    missing,
+    hasSusiCuts,
+    hasJungsiCuts,
+    state,
+    baseProbsForStorage,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 핸들러
 // ---------------------------------------------------------------------------
@@ -1093,6 +1296,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //    base_* 를 다시 계산하면 그동안 쌓인 Σdelta 가 옛 base 위에 얹혀 확률이 튄다.
     //    status='awaiting_cuts'(onboarded_at = null) 인 행은 아직 확률이 없으므로
     //    목표 대학을 바꿔 다시 시도할 수 있게 열어 둔다.
+    //    (학생 부분 수정은 delta 유지(2026-09-23 결정) — 이 전면 재온보딩 차단과
+    //    달리 api/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
     const existing = await fetchStudentRow(supabaseAdmin, profileId);
     if (existing?.onboarded_at) {
       return res.status(409).json({
@@ -1111,26 +1316,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const schoolType = SCHOOL_TYPE_MAP[input.schoolType];
     const inputGrade = GRADE_MAP[input.grade]; // 온보딩에서 학생이 실제로 고른 학년
 
-    // 원본 effectiveGrade(IntakeForm.tsx:1176-1179). 고1인데 내신이 하나도 없으면
-    // '중3' 으로 계산한다. 엔진 쪽에서 이 리터럴이 정확히 세 가지를 바꾼다:
-    //   - getConversionTypeForStudent 가 'middleschool' 을 돌려줘(pipeline.js:93-98)
-    //     convertedGrade 주입 경로가 그대로 성립한다(고1이면 '5grade' 라 주입 없이는 throw).
-    //   - applyPreHighGradePenalty 가 +0.10 을 얹는다(primitives.js:155).
-    //   - isPreHighStudent 는 remainingNaesin 오버라이드가 없을 때만 remainNaesin 을
-    //     0 으로 강제한다(pipeline.js:219-222). 아래에서 NAESIN_NONE_REMAINING[고1]=10 을
-    //     항상 넘기므로 이 경로는 실제로는 0 이 아니라 10 을 받는다(calc/DIVERGENCE.md #1).
-    // 이 '중3' 리터럴은 DB 에는 저장하지 않는다 — 아래 upsert 는 inputGrade 를 쓴다
-    // (§9 아래 "저장" 주석 참고). 엔진 호출에만 쓰인다.
-    //
-    // 와이어의 grade 는 계속 'g1' 이고 치환은 GRADE_MAP 통과 **뒤에** 일어난다 —
-    // GRADE_MAP 에 '중3' 을 넣으면 클라이언트가 직접 중3 을 주장할 수 있게 된다.
-    // schoolType 은 절대 바꾸지 않는다('일반고'/'특목고' 유지 → school_type CHECK 통과 +
-    // 컷 조회 대상도 그대로).
-    const isMiddleSubstituted = input.naesinAllNone && inputGrade === "고1";
-    const grade = isMiddleSubstituted ? "중3" : inputGrade;
-
-    const schoolCutType = getSchoolCutType(schoolType);
-
     // 5) 성적 파생 — remain_naesin/remain_mogo도 이 두 함수가 직접 계산해 돌려준다
     //    (deriveNaesin/deriveMogo 주석 참고, QA 행290・291 재설계로 아래 옛 remainingNaesin/
     //    remainingMogo 오버라이드 표 계산은 필요 없어졌다).
@@ -1142,87 +1327,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resolvedRounds: resolvedMockRounds,
     } = deriveMogo(input);
 
-    // 6) 목표 대학 컷 4회 조회
-    //    파이프라인은 컷 누락을 에러로 알려주지 않는다 — calcNaesinProb 이 이를
-    //    확률 0 으로 접어버리기 때문이다(primitives.js:119). 그래서 존재 확인은
-    //    반드시 파이프라인 호출 전에 여기서 한다.
-    const { cuts, missing } = await fetchTargetCuts(supabaseAdmin, {
-      schoolCutType,
-      ideal: input.ideal,
-      min: input.min,
-    });
-
-    // 정시 컷을 외부 수집하지 않기로 확정했다(§9-Q1(b)) — 수시 컷만 필수로
-    // 남기고, 정시 컷이 없으면 정시 확률 2종만 null 로 온보딩을 완료시킨다.
-    // 계산 엔진은 컷 누락을 이미 확률 0 으로 접어 흡수하므로(pipeline.js:173,
-    // 225-228) 이 파일은 "무엇을 null 로 되돌려 쓸지"만 결정하면 된다.
-    const hasSusiCuts = cuts.idealNaesin !== null && cuts.minNaesin !== null;
-    // 정시는 쌍 단위로만 유효하다 — 상한/하한 중 하나만 있으면 둘 다 버린다.
-    // goalRepo.js:364 buildStudentPayload 의 jungsiAvailable 이 이미 이 쌍
-    // 단위 정의를 쓰고 있어(대학별 독립 채택 안 함) 그대로 맞춘다.
-    const hasJungsiCuts = cuts.idealJungsi !== null && cuts.minJungsi !== null;
-
-    // 7) 요일별 목표 학습시간
-    const weeklySchedule = buildWeeklySchedule(input);
-
-    // 8) 파이프라인
-    //    컷이 하나라도 없어도 여기서 파이프라인을 부른다 — current_score /
-    //    converted_grade / remain_* / week_* 가 정확히 같은 코드 경로에서
-    //    나오게 하기 위해서다(재구현 금지). 컷이 없을 때 나오는 확률 0 과
-    //    rate 는 아래에서 통째로 버리고 null 을 저장한다.
-    //
-    // 남은 시험 회차 오버라이드 — QA 행290・291 재설계로 remainNaesin/remainMogo는 이제
-    // deriveNaesin/deriveMogo가 항상 명시적으로 계산해 돌려준다(옛 NAESIN_NONE_REMAINING/
-    // MOGO_NONE_REMAINING 표 직접 조회 + isMiddleSubstituted 전용 분기는 그 두 함수
-    // 안으로 흡수됐다 — deriveNaesin/deriveMogo 주석 참고). 여기서는 그 값을 그대로
-    // buildInitialStudentState의 remainingNaesin/remainingMogo 오버라이드로 넘기기만
-    // 한다. isMiddleSubstituted 여부와 무관하게(grade가 '중3'으로 치환됐어도) 항상
-    // non-null 값을 넘기므로 pipeline.js:219-222 "오버라이드가 없을 때만 0" 가드가
-    // 실제로 적용될 일이 없다 — 세 학년 모두 오버라이드가 항상 우선한다(원본 이탈,
-    // calc/DIVERGENCE.md #1과 동일한 취지의 승인 사항).
-
+    // 6~8) 목표 대학 컷 조회 → 파이프라인 → 확률 스냅샷.
+    //    '중3' 치환·cuts null 판정·convertedGrade 오버라이드 등 미묘한 매핑은 전부
+    //    computeEngineDerivedFields(내 정보 수정과 공유하는 계산 경로)로 옮겼다 —
+    //    그 함수 JSDoc 참고, 이 파일에서 재구현하지 않는다.
     const now = new Date();
-    // calc/pipeline.ts(다른 배치 소유, 이 작업 범위 밖) buildInitialStudentState의
-    // 반환 타입이 실제 리터럴 shape(baseProbs/rates/weeklySchedule 등) 대신 넓은
-    // `object`로 추론된다(pipeline.test.ts에도 동일하게 나타나는 기존 결함,
-    // 이 작업에서 만들지 않았고 pipeline.ts는 수정하지 않는다) — 이 지점만 any로
-    // 받는다.
-    // biome-ignore lint/suspicious/noExplicitAny: 위 사유 — calc/pipeline.ts 반환 타입 추론 결함(범위 밖).
-    const state: any = buildInitialStudentState({
+    const {
+      cuts,
+      missing,
+      hasSusiCuts,
+      hasJungsiCuts,
+      state,
+      baseProbsForStorage,
+    } = await computeEngineDerivedFields(supabaseAdmin, {
       schoolType,
-      grade,
+      gradeLabel: inputGrade,
+      naesinAllNone: input.naesinAllNone,
       currentScore,
       currentMogo,
-      lastNaesin: lastNaesinExam,
-      lastMogo: lastMogoExam,
-      remainingNaesin: remainNaesin,
-      remainingMogo: remainMogo,
-      // TargetCuts(goalRepo.ts)는 컷 누락을 null로 표현하는데 pipeline.ts CutsInput은
-      // number만 받는다 — 파이프라인이 누락을 내부에서 0으로 접어 처리한다는 사실은
-      // 위 §9-Q1(b)/baseProbsForStorage 주석에 이미 문서화돼 있다. pipeline.ts는
-      // 범위 밖이라 타입을 못 바꾸므로 여기서만 캐스팅한다(런타임 동작 변경 없음).
-      cuts: cuts as CutsInput,
-      // §7-5(갱신, QA 행290) — 고1・고2는 5등급제 원점수를 받지만 deriveNaesin이 이미
-      // fiveScaleToNine으로 9등급 환산까지 끝낸 값을 currentScore에 담아 돌려준다.
-      // 그래서 이 override는 여전히 항등(currentScore 그대로) — grade_conversions DB
-      // 조회 없이 conversionType='5grade'(고1·고2) 주입 요구를 만족시킨다.
-      convertedGrade: currentScore,
-      weeklySchedule,
+      lastNaesinExam,
+      lastMogoExam,
+      remainNaesin,
+      remainMogo,
+      weeklySchedule: buildWeeklySchedule(input),
+      ideal: input.ideal,
+      min: input.min,
       now,
     });
-
-    // 컷 쌍(수시/정시) 별 null 오버라이드를 여기서 한 번만 계산해 goal_students
-    // 행과 goal_probability_logs 양쪽에 재사용한다. state.baseProbs.idealJungsi
-    // 등은 컷이 없을 때 파이프라인이 0 으로 접은 값이지 null 이 아니라서
-    // (pipeline.js:225-228), 이 판정 없이 두 곳에 각각 조건을 쓰면 어느 한쪽이
-    // 어긋나기 쉽다 — "미산출"과 "0%"가 두 표에서 다른 이야기를 하면 안 된다
-    // (goalRepo.js:46-48 num() 의 "0 과 null 을 절대 섞지 않는다" 규칙).
-    const baseProbsForStorage = {
-      idealSusi: hasSusiCuts ? state.baseProbs.idealSusi : null,
-      idealJungsi: hasJungsiCuts ? state.baseProbs.idealJungsi : null,
-      minSusi: hasSusiCuts ? state.baseProbs.minSusi : null,
-      minJungsi: hasJungsiCuts ? state.baseProbs.minJungsi : null,
-    };
 
     // 9) 저장
     const row = {
@@ -1340,35 +1471,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "intake",
     );
 
-    // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트(내신·정시 각 1건, source_type=
-    //       'intake', source_label='내 현재 위치')를 생성해 저장한다. naesin_scores/
-    //       mock_exam_scores는 savedRow 그대로 넘겨 새 shape(groupAverages/rounds,
-    //       병렬 유닛 소유)이 이미 반영돼 있으면 우선 쓰고, 아니면 이 지점에서
-    //       파이프라인이 막 계산한 대표값(converted_grade/current_mogo)으로
-    //       폴백한다(report.ts ensureDirectionReports의 fallback과 동일 값 소스).
-    for (const kind of ["naesin", "jungsi"] as const) {
-      const legacyEntry =
-        kind === "naesin"
-          ? { value: savedRow.converted_grade }
-          : { value: savedRow.current_mogo };
-      const { payload, snapshot } = buildGoalDirectionReport({
-        kind,
-        sourceType: "intake",
-        sourceLabel: "내 현재 위치",
-        grade: savedRow.grade,
-        naesinScores: savedRow.naesin_scores,
-        mockExamScores: savedRow.mock_exam_scores,
-        legacyEntry,
-        gradePercentile: GRADE_PERCENTILE,
-      });
-      await saveGoalDirectionReport(supabaseAdmin, profileId, {
-        kind,
-        sourceType: "intake",
-        sourceLabel: "내 현재 위치",
-        payload,
-        snapshot,
-      });
-    }
+    // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트. naesin_scores/mock_exam_scores는
+    //       savedRow 그대로 넘겨 새 shape(groupAverages/rounds, 병렬 유닛 소유)이 이미
+    //       반영돼 있으면 우선 쓰고, 아니면 이 지점에서 파이프라인이 막 계산한 대표값
+    //       (converted_grade/current_mogo)으로 폴백한다(report.ts ensureDirectionReports의
+    //       fallback과 동일 값 소스). 실제 조립·저장은 regenerateDirectionReports로
+    //       뗐다 — 내 정보 수정 부분 업데이트와 공유한다(그 함수 JSDoc 참고).
+    await regenerateDirectionReports(supabaseAdmin, profileId, savedRow);
 
     // 12) 응답 — GET /api/goal/student 와 완전히 같은 본문을 담는다.
     //     뷰를 다시 읽는 이유는 두 엔드포인트가 같은 조립 경로를 타게 하기 위해서다
