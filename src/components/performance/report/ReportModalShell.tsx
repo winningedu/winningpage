@@ -221,7 +221,7 @@ export default function ReportModalShell({
 // 색 정규화 베이스는 `REPORT_PRINT_PAGE_BASE_STYLE`(공용, `src/lib/report/printPageStyle.ts`)
 // 이 두 화면(이 모달 + 목표관리 성장 리포트)을 위해 갖고, 이 상수는 그 뒤에 모달
 // 크롬 전용 규칙만 이어붙인다.
-const PRINT_PAGE_STYLE = `
+export const PRINT_PAGE_STYLE = `
   ${REPORT_PRINT_PAGE_BASE_STYLE}
   /* 인셋은 @page 여백(15mm)이 대신한다. **헤더와 본문을 같이 걷는다** — 본문만 0으로
      만들면 제목·부제만 좌측으로 들여쓰인 채 남아 좌측 정렬이 어긋난다. */

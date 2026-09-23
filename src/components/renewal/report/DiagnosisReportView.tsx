@@ -13,6 +13,20 @@ import ReportSincerityBanner from "./ReportSincerityBanner";
 // 짧게 유지한다.
 const PDF_TITLE_RESTORE_FALLBACK_MS = 5000;
 
+// 2026-09-23 QA 행72: 전역 @page 누수 — `@page`는 클래스로 스코프가 안 되고
+// report-print.css는 Vite 전역 번들에 실려 모든 인쇄(성장 리포트·수행평가 리포트 포함)에
+// margin:0이 새는 원인이었다. 이 컴포넌트가 마운트된 동안에만 문서에 존재하는 <style>로
+// 옮겨, 언마운트 시 React가 자동으로 걷어가게 한다(size/margin 0은 A4 풀블리드 설계라
+// 이 리포트에만 필요하다).
+const DIAGNOSIS_REPORT_PAGE_RULE = `
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+  }
+`;
+
 export type DiagnosisReportData = ComponentProps<typeof ReportPageTwo>["data"] &
   ComponentProps<typeof ReportPageOne>["data"] & {
     notices?: { sincerityBanner?: string | null };
@@ -97,6 +111,7 @@ export default function DiagnosisReportView({
 
   return (
     <main className="fd-print-area min-h-screen w-full bg-[#FBFAFA] pt-16">
+      <style>{DIAGNOSIS_REPORT_PAGE_RULE}</style>
       {/* 데스크톱 A4 리포트 — A4 출력물 컨셉(2026-08-20)이므로 lg(1024px) 미만에서는 렌더하지
           않는다. fd-desktop-report 훅으로 report-print.css 가 인쇄 시(뷰포트 무관) 항상
           강제 표시한다. */}
