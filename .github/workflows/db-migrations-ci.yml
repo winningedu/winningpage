@@ -53,6 +53,14 @@ jobs:
           done
           exit $fail
 
+      # 마이그레이션이 참조 데이터(scripts/lib/migrationDataInserts.mjs의
+      # ALLOWED_TABLES) 밖 테이블에 insert하지 않는지 검사한다. W 영업
+      # 데이터가 마이그레이션에 섞여 S에 재현되는 사고(2026-09 발견)를
+      # 막는다. npm ci 이전 단계라 node 내장 모듈만 쓰는 순수 스크립트다.
+      - name: Check migration data inserts
+        if: steps.changes.outputs.supabase == 'true'
+        run: node scripts/check-migration-data-inserts.mjs
+
       - uses: supabase/setup-cli@v1
         if: steps.changes.outputs.supabase == 'true'
         with:
