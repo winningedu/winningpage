@@ -16,4 +16,10 @@ describe("ReportCoverPage", () => {
       screen.getByText("위닝에듀 학습진단 리포트"),
     ).toBeInTheDocument();
   });
+
+  it("serviceLabel을 렌더한다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    expect(screen.getByText("학습진단")).toBeInTheDocument();
+  });
 });

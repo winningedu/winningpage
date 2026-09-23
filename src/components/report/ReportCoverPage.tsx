@@ -21,6 +21,14 @@ export type ReportCoverPageProps = {
   className?: string;
 };
 
-export default function ReportCoverPage({ title }: ReportCoverPageProps) {
-  return <p>{title}</p>;
+export default function ReportCoverPage({
+  serviceLabel,
+  title,
+}: ReportCoverPageProps) {
+  return (
+    <section>
+      <p className="text-sm font-semibold text-accent">{serviceLabel}</p>
+      <p>{title}</p>
+    </section>
+  );
 }
