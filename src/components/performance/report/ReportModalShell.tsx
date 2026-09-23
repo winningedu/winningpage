@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import {
@@ -11,7 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 
 // 대형 리포트 모달의 **껍데기** — docs/수행평가-상세-명세.md §5.13(`3754:4722` 설계 리포트) /
 // §5.16(`3754:4512` 평가 리포트) 공통.
@@ -60,8 +66,14 @@ import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 //     하면 `finalFocus`로 목적지를 지정한다(Base UI `Dialog.Popup`의 같은 이름 prop 그대로
 //     전달한다 — 지정하지 않으면 열리기 전 포커스였던 요소로 자동 복귀한다).
 type ReportModalShellFooterContext = {
-  /** react-to-print 핸들러. 함수형 `footer`에서 인쇄 버튼 `onClick`에 그대로 연결한다. */
+  /** 인쇄/PDF 핸들러. 데스크톱은 react-to-print, 모바일·인앱(QA 2차 시트 행39·56)은
+   * api/report-pdf.ts 서버 렌더 경로로 내부 분기한다. 함수형 `footer`에서 인쇄
+   * 버튼 `onClick`에 그대로 연결한다. */
   print: () => void;
+  /** 서버 PDF 경로가 진행 중인 동안 true(폼 제출은 완료 이벤트가 없어 고정 타이머로
+   * 복구된다). 호출부가 버튼 라벨을 "PDF 만드는 중…"으로 바꾸거나 비활성화하는 데
+   * 쓸 수 있다 — 선택 사항이라 쓰지 않아도 무방하다. */
+  isPreparingPdf: boolean;
 };
 
 type ReportModalShellProps = {
@@ -103,11 +115,39 @@ export default function ReportModalShell({
   finalFocus,
 }: ReportModalShellProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const print = useReactToPrint({
+  const reactToPrint = useReactToPrint({
     contentRef,
     pageStyle: PRINT_PAGE_STYLE,
     ...(documentTitle ? { documentTitle } : {}),
   });
+
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 react-to-print(iframe
+  // 인쇄)가 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로
+  // 응답하는 경로로 대신 보낸다.
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+  const print = () => {
+    if (!shouldUseServerPdf(window.navigator.userAgent)) {
+      reactToPrint();
+      return;
+    }
+    if (!contentRef.current || isPreparingServerPdf) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = contentRef.current;
+    const fileName = documentTitle ?? "리포트";
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({
+        root,
+        title: fileName,
+        extraCss: PRINT_PAGE_STYLE,
+      });
+      downloadReportPdf({ html, filename: fileName, accessToken });
+    })();
+  };
 
   return (
     <Dialog
@@ -226,7 +266,9 @@ export default function ReportModalShell({
             우측 인셋 실측치가 명세에 없다). `contentRef` 밖이라 인쇄에서 자연히 빠진다. */}
         {footer ? (
           <DialogFooter className="mx-0 mb-0 flex h-20 shrink-0 flex-row items-center justify-end gap-3 rounded-b-perf-modal border-t border-performance-line bg-white p-0 px-5 xl:px-10">
-            {typeof footer === "function" ? footer({ print }) : footer}
+            {typeof footer === "function"
+              ? footer({ print, isPreparingPdf: isPreparingServerPdf })
+              : footer}
           </DialogFooter>
         ) : null}
       </DialogContent>

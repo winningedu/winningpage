@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 import AdmissionChanceCard from "./AdmissionChanceCard";
 import ConditionListCard from "./ConditionListCard";
 import ConditionTileCard from "./ConditionTileCard";
@@ -168,14 +174,42 @@ export default function GrowthReportBody({
   // 추가로 이어붙일 규칙도 없다(카드들은 전부 div 기반 CSS 바/게이지라 SVG/canvas 대체
   // 문제 자체가 없다).
   const contentRef = useRef<HTMLDivElement>(null);
+  const reportFileName = buildGoalReportFileName({
+    period,
+    periodLabel: report.periodLabel,
+  });
   const print = useReactToPrint({
     contentRef,
     pageStyle: REPORT_PRINT_PAGE_BASE_STYLE,
-    documentTitle: buildGoalReportFileName({
-      period,
-      periodLabel: report.periodLabel,
-    }),
+    documentTitle: reportFileName,
   });
+
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 react-to-print(iframe
+  // 인쇄)가 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로
+  // 응답하는 경로로 대신 보낸다.
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+  const handlePdfButtonClick = () => {
+    if (!shouldUseServerPdf(window.navigator.userAgent)) {
+      print();
+      return;
+    }
+    if (!contentRef.current) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = contentRef.current;
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({
+        root,
+        title: reportFileName,
+        extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
+      });
+      downloadReportPdf({ html, filename: reportFileName, accessToken });
+    })();
+  };
 
   return (
     <div className="max-w-goal-content px-4 pb-24 pt-perf-inset md:px-12">
@@ -189,10 +223,11 @@ export default function GrowthReportBody({
         />
         <button
           type="button"
-          onClick={print}
-          className="flex h-9 shrink-0 items-center rounded-lg border border-line px-4 text-app-label font-semibold leading-[1.2] text-ink-strong transition-colors hover:bg-surface-04"
+          onClick={handlePdfButtonClick}
+          disabled={isPreparingServerPdf}
+          className="flex h-9 shrink-0 items-center rounded-lg border border-line px-4 text-app-label font-semibold leading-[1.2] text-ink-strong transition-colors hover:bg-surface-04 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          PDF 저장
+          {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 저장"}
         </button>
       </div>
 

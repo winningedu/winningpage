@@ -1,8 +1,15 @@
 import type { ComponentProps } from "react";
+import { useRef, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
+import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 import { buildReportFileName } from "@/pages/renewal/reportFileName";
 import ReportPageOne from "./ReportPageOne";
 import ReportPageTwo from "./ReportPageTwo";
@@ -88,12 +95,40 @@ export default function DiagnosisReportView({
   // "위닝에듀"로 저장되는 문제가 있었다. 다이얼로그가 실제로 닫힐 때 발생하는 afterprint
   // 이벤트로 원복 시점을 옮기고, 이벤트가 오지 않는 예외 상황을 대비해 폴백 타이머를 둔다
   // (둘 중 먼저 온 쪽이 원복하고 나머지는 restored 플래그로 무시한다).
+  // 서버 PDF 경로(QA 2차 시트 행39·56) — 카카오톡 인앱 등에서는 window.print()가
+  // 무동작이라, api/report-pdf.ts가 Content-Disposition: attachment로 응답하는
+  // 경로로 대신 보낸다. mainRef는 인쇄 대상(fd-print-area) 전체를 그대로 캡처한다.
+  const mainRef = useRef<HTMLElement>(null);
+  const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+
+  const handleServerPdfDownload = (fileName: string) => {
+    if (!mainRef.current) return;
+    // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
+    setIsPreparingServerPdf(true);
+    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+
+    const root = mainRef.current;
+    void (async () => {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) return;
+      const html = buildPrintDocument({ root, title: fileName });
+      downloadReportPdf({ html, filename: fileName, accessToken });
+    })();
+  };
+
   const handlePdfDownload = () => {
-    const originalTitle = document.title;
-    document.title = buildReportFileName({
+    const fileName = buildReportFileName({
       studentName: resolvedStudentName,
       diagnosedAt: data.student?.diagnosedAt ?? null,
     });
+
+    if (shouldUseServerPdf(window.navigator.userAgent)) {
+      handleServerPdfDownload(fileName);
+      return;
+    }
+
+    const originalTitle = document.title;
+    document.title = fileName;
 
     let restored = false;
     const restoreTitle = () => {
@@ -112,7 +147,10 @@ export default function DiagnosisReportView({
   };
 
   return (
-    <main className="fd-print-area min-h-screen w-full bg-[#FBFAFA] pt-16">
+    <main
+      ref={mainRef}
+      className="fd-print-area min-h-screen w-full bg-[#FBFAFA] pt-16"
+    >
       <style>{DIAGNOSIS_REPORT_PAGE_RULE}</style>
       {/* 데스크톱 A4 리포트 — A4 출력물 컨셉(2026-08-20)이므로 lg(1024px) 미만에서는 렌더하지
           않는다. fd-desktop-report 훅으로 report-print.css 가 인쇄 시(뷰포트 무관) 항상
@@ -167,9 +205,10 @@ export default function DiagnosisReportView({
           <button
             type="button"
             onClick={handlePdfDownload}
-            className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            disabled={isPreparingServerPdf}
+            className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
-            PDF 파일로 다운 받기
+            {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 파일로 다운 받기"}
           </button>
         </div>
       </div>
@@ -184,9 +223,10 @@ export default function DiagnosisReportView({
         <button
           type="button"
           onClick={handlePdfDownload}
-          className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          disabled={isPreparingServerPdf}
+          className="flex h-perf-inset w-63.25 items-center justify-center rounded-[1.875rem] bg-primary px-10 py-5 text-[1.25rem] font-semibold text-white transition-colors duration-150 hover:bg-[#01427e] focus:outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
-          PDF 파일로 다운 받기
+          {isPreparingServerPdf ? "PDF 만드는 중…" : "PDF 파일로 다운 받기"}
         </button>
       </div>
     </main>
