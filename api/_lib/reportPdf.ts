@@ -28,7 +28,7 @@ const EXACT_ALLOWED_ORIGINS = new Set([
   "https://www.schoolmentor.kr",
   "https://schoolmentor.kr",
 ]);
-const VERCEL_PREVIEW_RE = /^[a-z0-9-]+\.vercel\.app$/i;
+const VERCEL_PREVIEW_RE = /^winningpage[a-z0-9-]*\.vercel\.app$/i;
 const LOCALHOST_RE = /^(localhost|127\.0\.0\.1)$/;
 
 export function isAllowedBaseUrl(

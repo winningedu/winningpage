@@ -48,6 +48,8 @@ describe("isAllowedBaseUrl", () => {
     "https://www.schoolmentor.kr",
     "https://schoolmentor.kr",
     "https://winningpage-git-feat-x-team.vercel.app",
+    "https://winningpage-schoolmentor-git-qa.vercel.app",
+    "https://winningpage-git-qa-winningedu.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
   ])("%s 는 허용된다", (url) => {
@@ -60,6 +62,8 @@ describe("isAllowedBaseUrl", () => {
     "http://localhost.evil.com:5173",
     "ftp://localhost:5173",
     "not-a-url",
+    "https://evil.vercel.app",
+    "https://other-project.vercel.app",
   ])("%s 는 거부된다", (url) => {
     expect(isAllowedBaseUrl(url)).toBe(false);
   });
