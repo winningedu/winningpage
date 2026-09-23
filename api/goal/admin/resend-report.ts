@@ -5,8 +5,13 @@
 // 한다. 학부모가 알림톡을 거부했거나 번호를 바꿨거나 실수로 지웠을 때 관리자가
 // 다시 보낼 방법이 없었다 — 이 라우트가 그 구제 수단이다.
 //
-// "2주 전까지는" — 기간 시작이 오늘(KST) 기준 14일보다 더 전이면 400.
-// 미래 기간도 400(아직 일어나지 않은 일을 리포트할 수 없다).
+// "2주 전까지는" — 고객사 의도는 "자동 발송된 지 2주 안이면 다시 보낼 수
+// 있다"다. 기준일은 기간 시작이 아니라 **그 기간이 실제로 자동 발송되는
+// 날짜**다(api/_lib/goalReportResendPolicy.ts): daily=그날 자신(22시 발송),
+// weekly=다음 월요일(그 주 리포트는 다음 주 월요일 08시에 나간다), monthly=그
+// 달 마지막 날(23시 발송). 오늘(KST) − 발송일 > 14 면 400, 발송일이 아직
+// 오지 않았으면(자동 발송 전) 400 — 이번 주 주간 리포트를 그 주 월요일이
+// 오기 전에 재발송하는 것도 이 규칙으로 막힌다.
 //
 // dedupeKey — 원래 크론이 쓰던 키(`<종류>Report:<parentId>:<studentId>:<periodKey>`)
 // 뒤에 `:resend:<발송 시각 ms>` 를 붙인다(sendXFor의 dedupeSuffix). 자동 발송의
@@ -24,7 +29,12 @@ import {
   kstYMD,
   toYMD,
 } from "../../../src/lib/goal/calc/index.js";
-import { MAX_RESEND_DAYS_AGO } from "../../_lib/goalReportResendPolicy.js";
+import {
+  dailyReportDispatchYmd,
+  MAX_RESEND_DAYS_AGO,
+  monthlyReportDispatchYmd,
+  weeklyReportDispatchYmd,
+} from "../../_lib/goalReportResendPolicy.js";
 import type { ReportSendResult } from "../../_lib/goalReportSend.js";
 import {
   loadDailyReportInputs,
@@ -50,8 +60,8 @@ export type ResendPeriodValidation =
   | { ok: false; detail: string };
 
 /**
- * kind·periodKey 형식 + "2주 이내" 규칙을 검증한다. DB를 보지 않는 순수 함수라
- * 로컬에서 바로 단언할 수 있다(resend-report.test.ts).
+ * kind·periodKey 형식 + "2주 이내(자동 발송일 기준)" 규칙을 검증한다. DB를
+ * 보지 않는 순수 함수라 로컬에서 바로 단언할 수 있다(resend-report.test.ts).
  *
  * @param todayYmd 기준 "오늘"(KST). 생략하면 실제 오늘.
  */
@@ -68,6 +78,7 @@ export function validateResendPeriod(
   }
 
   let startYmd: string;
+  let dispatchYmd: string;
 
   if (kind === "monthly") {
     if (!MONTHLY_PERIOD_RE.test(periodKey)) {
@@ -84,6 +95,7 @@ export function validateResendPeriod(
       };
     }
     startYmd = `${periodKey}-01`;
+    dispatchYmd = monthlyReportDispatchYmd(periodKey);
   } else {
     // toYMD가 Date 롤오버로 정규화한 값과 원문이 다르면(예: 2월 30일 → 3월 2일)
     // 존재하지 않는 달력 날짜다.
@@ -95,17 +107,22 @@ export function validateResendPeriod(
     }
     startYmd = periodKey;
 
-    if (kind === "weekly" && getMondayYMD(periodKey) !== periodKey) {
-      return {
-        ok: false,
-        detail: "주간 periodKey는 그 주의 월요일이어야 합니다.",
-      };
+    if (kind === "weekly") {
+      if (getMondayYMD(periodKey) !== periodKey) {
+        return {
+          ok: false,
+          detail: "주간 periodKey는 그 주의 월요일이어야 합니다.",
+        };
+      }
+      dispatchYmd = weeklyReportDispatchYmd(periodKey);
+    } else {
+      dispatchYmd = dailyReportDispatchYmd(periodKey);
     }
   }
 
-  const diff = diffDaysYMD(startYmd, todayYmd);
+  const diff = diffDaysYMD(dispatchYmd, todayYmd);
   if (diff < 0) {
-    return { ok: false, detail: "미래 기간은 다시 보낼 수 없습니다." };
+    return { ok: false, detail: "아직 발송 시점이 지나지 않은 기간입니다." };
   }
   if (diff > MAX_RESEND_DAYS_AGO) {
     return { ok: false, detail: "2주 이내 기간만 다시 보낼 수 있습니다." };
