@@ -1,6 +1,8 @@
 import type { ComponentProps } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { site } from "@/config/site";
 import { buildReportFileName } from "@/pages/renewal/reportFileName";
 import ReportPageOne from "./ReportPageOne";
 import ReportPageTwo from "./ReportPageTwo";
@@ -119,6 +121,30 @@ export default function DiagnosisReportView({
         {/* 불성실 응답 경고는 시트 **위**에 둔다 — '결과가 다를 수 있다'는 안내가 리포트 2장을
             다 읽은 뒤에 나오면 기능을 못 한다. 시트 밖인 이유는 승인된 A4 레이아웃의 첫 요소를
             밀어내지 않기 위해서다. */}
+        {/* 표지(QA 2차 시트 행37·51) — 화면·인쇄 모두 첫 시트다. 페이지 번호를 갖지
+            않는다 — ReportSheetA4를 쓰지 않아 "N페이지 / 총페이지" 표기 자체가 없고,
+            시트1·2의 표기(1페이지/2페이지 등)도 이 표지를 세지 않은 종전 값 그대로
+            유지한다(팀장 지시 "기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게
+            안정적인 번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
+            치수를 그대로 쓰고, `.fd-report-sheet + .fd-report-sheet` 인접 형제 규칙이
+            표지→1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 목표
+            대학은 이 리포트 데이터에 없어(학습진단은 희망 진로/학과만 수집) 전달하지
+            않는다. */}
+        <ReportCoverPage
+          variant="a4"
+          serviceLabel="학습진단"
+          title={`${site.brandName} 학습진단 리포트`}
+          {...(resolvedStudentName !== null
+            ? { studentName: resolvedStudentName }
+            : {})}
+          {...(data.student?.desiredMajor !== undefined
+            ? { targetMajor: data.student.desiredMajor }
+            : {})}
+          {...(data.student?.diagnosedAt !== undefined
+            ? { dateLabel: data.student.diagnosedAt }
+            : {})}
+        />
+
         {/* exactOptionalPropertyTypes 대응 — undefined면 키 자체를 생략(ReportSincerityBanner 미수정 범위). */}
         <ReportSincerityBanner
           {...(data.notices?.sincerityBanner !== undefined
