@@ -15,7 +15,7 @@
 // 쓰지 않고, 같은 검증(auth.getUser)을 이 핸들러가 직접 부른다(auth:"none" +
 // change-phone.ts와 동일한 선례).
 
-import type { VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { defineHandler } from "./_lib/handler.js";
 import {
   buildContentDispositionHeader,
@@ -25,6 +25,7 @@ import {
   REPORT_PDF_RATE_LIMIT_MAX,
   REPORT_PDF_RATE_LIMIT_WINDOW_MS,
   RenderQueueTimeoutError,
+  renderErrorPage,
   sanitizeFileName,
   sanitizePrintHtml,
 } from "./_lib/reportPdf.js";
@@ -32,7 +33,36 @@ import { renderReportPdf } from "./_lib/reportPdfRender.js";
 
 export const config = { runtime: "nodejs", maxDuration: 60 };
 
-function fail(res: VercelResponse, status: number, message: string) {
+// 이 엔드포인트는 fetch(JSON 기대)로도, 숨김 <form> 최상위 내비게이션으로도
+// 올 수 있다 — 폼 제출은 응답이 그대로 새 문서로 렌더되므로, JSON을 주면
+// 브라우저가 원본 리포트 화면 대신 JSON 텍스트를 보여준다(FIX-5). 폼 요청인지는
+// downloadReportPdf.ts가 항상 붙이는 enctype(Content-Type)으로 판별한다.
+function isFormRequest(req: VercelRequest): boolean {
+  const contentType = req.headers["content-type"] ?? "";
+  return contentType.includes("application/x-www-form-urlencoded");
+}
+
+// 폼 오류 페이지의 "돌아가기" 링크 — Referer가 있으면 원래 리포트 페이지로,
+// 없으면 홈으로 보낸다. Referer는 클라이언트가 보내는 신뢰할 수 없는 값이라
+// renderErrorPage가 href에 HTML 이스케이프를 적용한다.
+function resolveBackHref(req: VercelRequest): string {
+  const referer = req.headers.referer;
+  return typeof referer === "string" && referer ? referer : "/";
+}
+
+function fail(
+  req: VercelRequest,
+  res: VercelResponse,
+  status: number,
+  message: string,
+) {
+  if (isFormRequest(req)) {
+    res
+      .status(status)
+      .setHeader("Content-Type", "text/html; charset=utf-8")
+      .send(renderErrorPage(status, message, resolveBackHref(req)));
+    return;
+  }
   res.status(status).json({ detail: message });
 }
 
@@ -60,30 +90,35 @@ export default defineHandler({
     const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl : "";
 
     if (!token) {
-      return fail(res, 401, "로그인이 필요합니다.");
+      return fail(req, res, 401, "로그인이 필요합니다.");
     }
 
     const { data: userData, error: userError } =
       await ctx.supabaseAdmin.auth.getUser(token);
     if (userError || !userData?.user?.id) {
-      return fail(res, 401, "로그인이 필요합니다.");
+      return fail(req, res, 401, "로그인이 필요합니다.");
     }
 
     if (!rateLimiter.tryConsume(userData.user.id, Date.now())) {
-      return fail(res, 429, "요청이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.");
+      return fail(
+        req,
+        res,
+        429,
+        "요청이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.",
+      );
     }
 
     if (!html) {
-      return fail(res, 400, "html이 비어 있습니다.");
+      return fail(req, res, 400, "html이 비어 있습니다.");
     }
     if (isHtmlTooLarge(html)) {
-      return fail(res, 413, "요청 본문이 너무 큽니다.");
+      return fail(req, res, 413, "요청 본문이 너무 큽니다.");
     }
     if (!isAllowedBaseUrl(baseUrl, process.env)) {
-      return fail(res, 400, "허용되지 않은 baseUrl입니다.");
+      return fail(req, res, 400, "허용되지 않은 baseUrl입니다.");
     }
     if (!filenameInput) {
-      return fail(res, 400, "filename이 비어 있습니다.");
+      return fail(req, res, 400, "filename이 비어 있습니다.");
     }
 
     const safeHtml = sanitizePrintHtml(html);
@@ -98,10 +133,10 @@ export default defineHandler({
       });
     } catch (error) {
       if (error instanceof RenderQueueTimeoutError) {
-        return fail(res, 503, error.message);
+        return fail(req, res, 503, error.message);
       }
       console.error("[report-pdf] 렌더 실패:", error);
-      return fail(res, 500, "PDF 생성 중 오류가 발생했습니다.");
+      return fail(req, res, 500, "PDF 생성 중 오류가 발생했습니다.");
     }
 
     res.setHeader("Content-Type", "application/pdf");
