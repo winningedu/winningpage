@@ -21,6 +21,7 @@ import {
   buildContentDispositionHeader,
   isAllowedBaseUrl,
   isHtmlTooLarge,
+  RenderQueueTimeoutError,
   sanitizeFileName,
   stripScriptTags,
 } from "./_lib/reportPdf.js";
@@ -80,6 +81,9 @@ export default defineHandler({
         env: process.env,
       });
     } catch (error) {
+      if (error instanceof RenderQueueTimeoutError) {
+        return fail(res, 503, error.message);
+      }
       console.error("[report-pdf] 렌더 실패:", error);
       return fail(res, 500, "PDF 생성 중 오류가 발생했습니다.");
     }
