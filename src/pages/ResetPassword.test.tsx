@@ -22,8 +22,7 @@ vi.mock("@/lib/supabase", () => ({
   supabase: {
     auth: {
       getSession: (...args: unknown[]) => mockGetSession(...args),
-      onAuthStateChange: (...args: unknown[]) =>
-        mockOnAuthStateChange(...args),
+      onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
       verifyOtp: (...args: unknown[]) => mockVerifyOtp(...args),
       updateUser: (...args: unknown[]) => mockUpdateUser(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
@@ -58,7 +57,9 @@ describe("ResetPassword — token_hash 모드", () => {
   });
 
   it("token_hash와 type=recovery가 있으면 세션을 기다리지 않고 즉시 폼을 보여준다", () => {
-    renderResetPassword("/login/reset-password?token_hash=abc123&type=recovery");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
 
     expect(
       screen.queryByText("링크를 확인하고 있어요"),
@@ -95,7 +96,9 @@ describe("ResetPassword — token_hash 모드", () => {
       return { error: null };
     });
 
-    renderResetPassword("/login/reset-password?token_hash=abc123&type=recovery");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
 
     await fillAndSubmitPassword();
 
@@ -118,7 +121,9 @@ describe("ResetPassword — token_hash 모드", () => {
       error: { code: "otp_expired", status: 403 },
     });
 
-    renderResetPassword("/login/reset-password?token_hash=abc123&type=recovery");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
 
     await fillAndSubmitPassword();
 

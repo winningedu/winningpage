@@ -16,8 +16,9 @@
 // 각 테스트는 새 브라우저 컨텍스트에서 돈다 — e2e/fixtures/auth.ts의
 // 워커 스코프 storageState 공유 관례는 여기서 쓰지 않는다(세션별 격리 원칙,
 // [[feedback_verification-playwright-isolated]]).
-import { createClient } from "@supabase/supabase-js";
+
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 
 const SEED_SUPABASE_URL = process.env.SEED_SUPABASE_URL;
 const SEED_SERVICE_ROLE_KEY = process.env.SEED_SERVICE_ROLE_KEY;

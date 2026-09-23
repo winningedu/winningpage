@@ -65,7 +65,8 @@ export default function ResetPassword() {
   // verifyOtp를 불러 세션을 만든다(handleSubmit 참고). 그래야 메일 보안
   // 스캐너가 링크를 미리 열어도 토큰이 소모되지 않는다.
   const tokenHash = searchParams.get("token_hash");
-  const isTokenHashMode = Boolean(tokenHash) && searchParams.get("type") === "recovery";
+  const isTokenHashMode =
+    Boolean(tokenHash) && searchParams.get("type") === "recovery";
 
   const [ready, setReady] = useState(isTokenHashMode);
   const [expired, setExpired] = useState(
@@ -149,7 +150,10 @@ export default function ResetPassword() {
         });
 
         if (verifyError) {
-          if (verifyError.code === "otp_expired" || verifyError.status === 403) {
+          if (
+            verifyError.code === "otp_expired" ||
+            verifyError.status === 403
+          ) {
             setExpired(true);
           } else {
             setFormError("링크 확인에 실패했습니다. 다시 시도해 주세요.");
