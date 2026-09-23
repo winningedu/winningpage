@@ -53,15 +53,30 @@ const FLOW_SHEET_CLASS =
 
 // react-to-print(iframe 격리) 두 화면(목표관리 성장 리포트·수행평가 리포트 모달)이 공유하는
 // 베이스(`REPORT_PRINT_PAGE_BASE_STYLE`, `@page 15mm`)를 전제로 한 페이지 안쪽 여유
-// (297mm - 15mm*2 = 267mm)를 채운다. `break-after: page`로 다음 내용(본문 첫 섹션)을
-// 항상 새 페이지에서 시작시킨다 — 화면 클래스(`lg:min-h-[30rem]`)에는 영향을 주지 않도록
-// `@media print` 안에서만 선언한다(PerformanceReportSurface.tsx의 인쇄 전용 `<style>` 관례).
+// (297mm - 15mm*2 = 267mm)를 정확히 채운다. `height`+`max-height`+`overflow: hidden`으로
+// 상한을 고정해 내부 컨텐츠(일러스트+푸터)가 267mm를 넘어도 두 번째 페이지로 흘러넘치지
+// 않게 막는다(QA t11 실측 — min-height만으로는 상한이 없어 flex-1 일러스트가 페이지를
+// 두 장 차지했다). 화면 패딩(`lg:p-16`)은 `@page 15mm` 여백과 이중이 되지 않도록 인쇄에서
+// 줄이고, 카드형 그림자·둥근 모서리도 인쇄에서 제거한다. `break-after: page`로 다음 내용
+// (본문 첫 섹션)을 항상 새 페이지에서 시작시킨다 — 화면 클래스(`lg:min-h-[30rem]`)에는
+// 영향을 주지 않도록 `@media print` 안에서만 선언한다(PerformanceReportSurface.tsx의
+// 인쇄 전용 `<style>` 관례).
 const FLOW_COVER_PRINT_RULE = `
   @media print {
     .fd-report-cover-flow {
-      min-height: 267mm;
+      height: 267mm;
+      max-height: 267mm;
+      overflow: hidden;
+      box-sizing: border-box;
+      padding: 8mm;
+      box-shadow: none;
+      border-radius: 0;
       break-after: page;
       page-break-after: always;
+    }
+
+    .fd-report-cover-flow .fd-report-cover-illustration {
+      max-height: 120mm;
     }
   }
 `;

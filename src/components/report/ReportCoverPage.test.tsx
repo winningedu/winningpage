@@ -6,6 +6,13 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ReportCoverPage from "./ReportCoverPage";
 
+// flow 표지가 인쇄에서 한 페이지를 넘지 않도록 상한을 두는 인쇄 규칙 검사(QA t11
+// 커버픽스 — flow 표지가 react-to-print 실측에서 두 페이지를 차지하던 버그).
+function getFlowPrintStyle(container: HTMLElement) {
+  const styleTag = container.querySelector("style");
+  return styleTag?.textContent ?? "";
+}
+
 describe("ReportCoverPage", () => {
   it("title을 렌더한다", () => {
     render(
@@ -116,5 +123,16 @@ describe("ReportCoverPage", () => {
     expect(
       screen.getByLabelText("학습진단 리포트 표지").className,
     ).not.toContain("fd-report-sheet");
+  });
+
+  it("flow 변형은 인쇄에서 높이를 267mm로 고정하고 넘치는 내용을 자른다", () => {
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const printStyle = getFlowPrintStyle(container);
+    expect(printStyle).toContain("height: 267mm");
+    expect(printStyle).toContain("overflow: hidden");
+    expect(printStyle).toContain("break-after: page");
   });
 });
