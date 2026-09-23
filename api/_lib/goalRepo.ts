@@ -1061,6 +1061,24 @@ export function buildStudentPayload(
     // 이 플래그 없이는 두 상태를 구분할 수 없다(§9-4).
     jungsiAvailable:
       num(row.ideal_jungsi_cut) !== null && num(row.min_jungsi_cut) !== null,
+    // 내 정보 수정(QA 2차 시트 행25・31・32) 편집 화면이 폼을 원래 입력값으로 미리
+    // 채우는 데 쓴다. 위 targets/scores는 표시·계산 파생값이라(currentScore는 이미
+    // 9등급 환산, lastNaesinExam은 FLOW 키가 아니라 라벨) 편집 폼 hydration에는
+    // 쓸 수 없다 — 그래서 저장된 raw jsonb/컬럼을 그대로 얹는다. naesin_scores/
+    // mock_exam_scores는 intake.ts가 쓰는 그 모양 그대로다(위 buildStudentPayload
+    // 본문 주석 목록 밖의 새 필드라 기존 소비처는 영향받지 않는다).
+    targetInput: {
+      ideal: {
+        university: row.ideal_university || "",
+        department: row.ideal_department || "",
+      },
+      min: {
+        university: row.min_university || "",
+        department: row.min_department || "",
+      },
+    },
+    naesinInput: row.naesin_scores || null,
+    mockInput: row.mock_exam_scores || null,
   };
 }
 
