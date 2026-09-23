@@ -3,6 +3,8 @@
 // 수행평가 리포트)을 인쇄해도 여백이 0으로 새는 원인이었다. DiagnosisReportView가 마운트된
 // 동안에만 문서에 @page 규칙이 존재하도록 옮겼는지 검증한다.
 import "@testing-library/jest-dom/vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
@@ -32,5 +34,14 @@ describe("DiagnosisReportView — @page margin:0 마운트 스코프", () => {
     unmount();
 
     expect(hasZeroMarginPageRule()).toBe(false);
+  });
+
+  it("report-print.css 파일 텍스트에 @page 규칙이 더 이상 없다(전역 번들 재유입 방지)", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/styles/report-print.css"),
+      "utf8",
+    );
+
+    expect(css.includes("@page")).toBe(false);
   });
 });
