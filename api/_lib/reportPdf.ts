@@ -15,9 +15,13 @@ export function isHtmlTooLarge(html: string): boolean {
 // setJavaScriptEnabled(false) + 요청 인터셉션) — 서버가 신뢰하지 않는 클라이언트
 // 입력에서 <script> 요소를 통째로 걷어낸다.
 const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+// 닫는 태그 없이 끝나는 <script>는 브라우저가 문서 끝까지를 스크립트 콘텐츠로
+// 삼킨다 — 위 정규식(비탐욕적, 닫는 태그 필수)이 못 잡으므로 남은 여는 태그부터
+// 끝까지 통째로 제거한다.
+const UNCLOSED_SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*$/gi;
 
 export function sanitizePrintHtml(html: string): string {
-  return html.replace(SCRIPT_TAG_RE, "");
+  return html.replace(SCRIPT_TAG_RE, "").replace(UNCLOSED_SCRIPT_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을

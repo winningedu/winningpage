@@ -47,6 +47,11 @@ describe("sanitizePrintHtml", () => {
     const html = "<p>스크립트 없음</p>";
     expect(sanitizePrintHtml(html)).toBe(html);
   });
+
+  it("닫는 태그가 없는 <script>도 끝까지 통째로 제거한다", () => {
+    const html = "<html><head><script>var a=1;var b=2;";
+    expect(sanitizePrintHtml(html)).toBe("<html><head>");
+  });
 });
 
 describe("isAllowedBaseUrl", () => {
