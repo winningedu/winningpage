@@ -9,7 +9,7 @@
 // 링크가 만료됐거나 이미 사용된 경우 이벤트가 오지 않으므로, 일정 시간 안에
 // 세션이 감지되지 않으면 "링크가 유효하지 않다"는 안내로 전환한다.
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   AuthLayout,
   AuthTitle,
@@ -26,9 +26,18 @@ const RECOVERY_WAIT_TIMEOUT_MS = 4000;
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  const [searchParams] = useSearchParams();
+  // Supabase 공식 가이드(passwords "Resetting a password")가 권장하는 신규
+  // 경로 — 메일 링크가 ?token_hash=...&type=recovery로 온다. 이 값이 있으면
+  // 세션이 이미 있는지 기다릴 필요가 없다: 사용자가 폼을 제출하는 순간에만
+  // verifyOtp를 불러 세션을 만든다(handleSubmit 참고). 그래야 메일 보안
+  // 스캐너가 링크를 미리 열어도 토큰이 소모되지 않는다.
+  const tokenHash = searchParams.get("token_hash");
+  const isTokenHashMode = Boolean(tokenHash) && searchParams.get("type") === "recovery";
+
+  const [ready, setReady] = useState(isTokenHashMode);
   const [expired, setExpired] = useState(false);
-  const readyRef = useRef(false);
+  const readyRef = useRef(isTokenHashMode);
 
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -41,6 +50,10 @@ export default function ResetPassword() {
   }, [ready]);
 
   useEffect(() => {
+    // token_hash 모드는 세션 대기 자체가 필요 없다 — handleSubmit이 제출
+    // 순간에 verifyOtp로 세션을 직접 만든다.
+    if (isTokenHashMode) return;
+
     let cancelled = false;
 
     // onAuthStateChange 구독 전에 이미 세션이 만들어졌을 수 있어(마운트 타이밍),
@@ -64,7 +77,7 @@ export default function ResetPassword() {
       subscription.unsubscribe();
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [isTokenHashMode]);
 
   const passwordValid = password ? PASSWORD_REGEX.test(password) : null;
   const canSubmit =
