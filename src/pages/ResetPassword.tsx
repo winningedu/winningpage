@@ -1,13 +1,25 @@
 // [신규] 새 비밀번호 설정 — QA 지시 2026-08-21, FindPassword.tsx가 보낸 이메일의
 // 재설정 링크가 도착하는 화면(redirectTo: `${origin}/login/reset-password`).
 //
-// Supabase 클라이언트는 이 URL을 열면(detectSessionInUrl 기본값 true) 링크에 담긴
-// recovery 토큰을 스스로 감지해 임시 세션을 만들고 'PASSWORD_RECOVERY' 이벤트를
-// 쏜다. 그 세션이 있어야만 updateUser({ password })가 통과한다 — 로그인 세션이
-// 아니라 이 한 번의 비밀번호 변경만을 위한 임시 세션이다.
+// 두 가지 경로를 동시에 지원한다(2026-09-23 token_hash 전환).
 //
-// 링크가 만료됐거나 이미 사용된 경우 이벤트가 오지 않으므로, 일정 시간 안에
-// 세션이 감지되지 않으면 "링크가 유효하지 않다"는 안내로 전환한다.
+// ① token_hash 모드(신규, Supabase 공식 가이드 권장) — 메일 링크가
+//   ?token_hash=...&type=recovery 로 온다. 세션을 미리 만들지 않고, 사용자가
+//   폼을 "제출하는 순간"에만 verifyOtp({ token_hash, type: "recovery" })를
+//   불러 세션을 만든다. 메일 보안 스캐너가 링크를 미리 열어 GET 한 번에
+//   토큰을 소모해 버리는 문제(otp_expired)를 이렇게 피한다.
+//
+// ② 레거시(해시 링크) 모드 — Supabase 기본 ConfirmationURL 템플릿이 여기 붙는
+//   경로다. 관리자 초대 링크(api/admin/invite-member.ts:159)도 이 경로를 그대로
+//   쓴다. Supabase 클라이언트는 이 URL을 열면(detectSessionInUrl 기본값 true)
+//   링크에 담긴 recovery 토큰을 스스로 감지해 임시 세션을 만들고
+//   'PASSWORD_RECOVERY' 이벤트를 쏜다. 그 세션이 있어야만
+//   updateUser({ password })가 통과한다 — 로그인 세션이 아니라 이 한 번의
+//   비밀번호 변경만을 위한 임시 세션이다. 링크가 만료됐거나 이미 사용된 경우
+//   이벤트가 오지 않으므로, 일정 시간 안에 세션이 감지되지 않으면(또는 Supabase가
+//   실패를 나타내는 해시를 바로 돌려주면) "링크가 유효하지 않다"는 안내로 전환한다.
+//
+// 메일 템플릿이 ①로 전면 교체되기 전까지는 ②를 폴백으로 유지해야 한다.
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
