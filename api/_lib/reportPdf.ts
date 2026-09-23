@@ -199,6 +199,44 @@ export function resolveLocalExecutablePath(env: RuntimeEnv): string {
   return env.PUPPETEER_EXECUTABLE_PATH ?? DEFAULT_LOCAL_CHROME_PATH;
 }
 
+/** work를 실행하고, 성공/실패와 무관하게 cleanups를 순서대로(생성의 역순으로
+ * 넘겨받는다고 가정) 모두 실행한다. cleanup 각각은 개별 try/catch로 감싸
+ * 실패해도 무시한다(console.warn 한 줄만 남긴다) — 서버리스 single-process
+ * chromium은 마지막 page.close()로 브라우저 프로세스 자체가 내려가
+ * 뒤이은 context.close()가 ConnectionClosedError를 던지는 일이 있는데,
+ * 그 정리 단계 오류가 이미 성공한 work의 결과(PDF 버퍼)를 덮어써 500으로
+ * 만들던 버그가 있었다. work가 실패하면 그 오류를 그대로 전파한다(cleanup은
+ * 실패 여부와 무관하게 전부 호출된 뒤에). */
+export async function runWithCleanup<T>(
+  work: () => Promise<T>,
+  cleanups: Array<() => Promise<void> | void>,
+): Promise<T> {
+  let hasError = false;
+  let error: unknown;
+  let result: T | undefined;
+
+  try {
+    result = await work();
+  } catch (caught) {
+    hasError = true;
+    error = caught;
+  }
+
+  for (const cleanup of cleanups) {
+    try {
+      await cleanup();
+    } catch (cleanupError) {
+      console.warn(
+        "[report-pdf] cleanup 단계 실패 — 무시하고 계속한다",
+        cleanupError instanceof Error ? cleanupError.message : cleanupError,
+      );
+    }
+  }
+
+  if (hasError) throw error;
+  return result as T;
+}
+
 // 인스턴스 하나가 렌더 요청을 동시에 너무 많이 받으면 브라우저 프로세스가
 // 메모리 압박으로 죽는다 — reportPdfRender.ts가 이 세마포어로 동시 렌더 수를
 // 제한한다. 순수 로직만 여기 둔다(브라우저 자체는 vitest로 검증할 수 없다).

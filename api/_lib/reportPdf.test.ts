@@ -21,6 +21,7 @@ import {
   renderErrorPage,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
+  runWithCleanup,
   sanitizeFileName,
   sanitizePrintHtml,
   shouldIsolateContext,
@@ -389,6 +390,18 @@ describe("acquireWithTimeout", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("runWithCleanup", () => {
+  it("cleanup이 throw해도 work의 성공 결과를 그대로 반환한다", async () => {
+    const work = async () => "pdf-buffer";
+    const cleanup = vi.fn(async () => {
+      throw new Error("close 실패");
+    });
+
+    await expect(runWithCleanup(work, [cleanup])).resolves.toBe("pdf-buffer");
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });
 
