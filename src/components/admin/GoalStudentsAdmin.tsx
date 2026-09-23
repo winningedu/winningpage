@@ -23,9 +23,15 @@ import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/admin
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
+  Field,
   GOAL_CUT_SOURCE_OPTIONS,
+  Select,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import {
+  listResendCandidates,
+  type ResendKind,
+} from "./goalReportResendOptions";
 
 // 이 파일 로컬 전용 타입(새 전역 타입 파일 없음). goal_students/goal_student_state는
 // 파생·원자료 컬럼이 매우 많은 넓은 테이블/뷰라 실제로 읽는 필드만 명시하고
@@ -1089,6 +1095,21 @@ function GoalProbabilityChart({ logs }: { logs: GoalProbabilityLogRow[] }) {
 
 const GOAL_RECORD_PAGE = 30;
 
+// api/goal/admin/resend-report.ts 의 ResendReportResponse와 같은 모양이다(그
+// 서버 타입은 api/ 전용 tsconfig 아래라 여기서 직접 import하지 않는다 — 대신
+// 이 화면이 실제로 읽는 필드만 로컬로 좁게 선언한다).
+interface ResendReportResult {
+  sent: number;
+  failed: number;
+  skipped: number;
+  recipients: Array<{
+    parentProfileId: string;
+    phone: string;
+    status: "sent" | "failed" | "skipped";
+    reason?: string;
+  }>;
+}
+
 interface GoalStudentDetailProps {
   profileId: string;
   onBack: () => void;
@@ -1122,6 +1143,74 @@ function GoalStudentDetail({
   // 부분 갱신하는 것보다 안전하다 — GoalStudentsAdmin의 rows state는
   // mutationSeq 같은 재조회 트리거를 두지 않는다).
   const [resetting, setResetting] = useState(false);
+
+  // 리포트 알림톡 재발송(QA 2차 행70). 후보 목록·라벨은 서버 검증(2주 규칙)과
+  // 같은 상수를 공유하는 순수 함수(goalReportResendOptions.ts)에 위임한다.
+  const [resendKind, setResendKind] = useState<ResendKind>("daily");
+  const resendCandidates = useMemo(
+    () => listResendCandidates(resendKind),
+    [resendKind],
+  );
+  const [resendPeriod, setResendPeriod] = useState(
+    () => resendCandidates[0]?.periodKey || "",
+  );
+  const [resending, setResending] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [resendResult, setResendResult] = useState<ResendReportResult | null>(
+    null,
+  );
+
+  // kind가 바뀌면 그 종류의 후보 중 최신 것으로 되돌린다(이전 kind의 periodKey를
+  // 그대로 들고 있으면 형식이 안 맞아 서버가 400을 낸다).
+  const firstResendCandidate = resendCandidates[0]?.periodKey || "";
+  useEffect(() => {
+    setResendPeriod(firstResendCandidate);
+    setResendResult(null);
+    setResendError(null);
+  }, [firstResendCandidate]);
+
+  async function handleResendReport() {
+    if (!student?.profile_id || !resendPeriod) return;
+
+    setResending(true);
+    setResendError(null);
+    setResendResult(null);
+
+    try {
+      const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
+
+      const response = await fetch("/api/goal/admin/resend-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          studentProfileId: student.profile_id,
+          kind: resendKind,
+          periodKey: resendPeriod,
+        }),
+      });
+
+      const result = await response.json().catch(async () => {
+        const text = await response.text().catch(() => "");
+        return { detail: text || `HTTP ${response.status}` };
+      });
+
+      if (!response.ok) {
+        throw new Error(result?.detail || `HTTP ${response.status}`);
+      }
+
+      setResendResult(result as ResendReportResult);
+    } catch (error) {
+      console.error("goal/admin/resend-report 실패:", error);
+      setResendError(
+        error instanceof Error ? error.message : "재발송에 실패했습니다.",
+      );
+    } finally {
+      setResending(false);
+    }
+  }
 
   const _todayYMD = useMemo(() => kstYMD(), []);
 
@@ -1891,6 +1980,94 @@ function GoalStudentDetail({
           </GoalCard>
         </div>
       </div>
+
+      {/* ── 리포트 알림톡 재발송(QA 2차 행70) ─────────────────────────── */}
+      <GoalCard title="리포트 알림톡 다시 보내기">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <div className="w-32">
+            <Field label="종류">
+              <Select
+                value={resendKind}
+                onChange={(value) => setResendKind(value as ResendKind)}
+              >
+                <option value="daily">일간</option>
+                <option value="weekly">주간</option>
+                <option value="monthly">월간</option>
+              </Select>
+            </Field>
+          </div>
+
+          <div className="w-56">
+            <Field label="기간">
+              <Select value={resendPeriod} onChange={setResendPeriod}>
+                {resendCandidates.length === 0 ? (
+                  <option value="">선택 가능한 기간이 없습니다</option>
+                ) : (
+                  resendCandidates.map((candidate) => (
+                    <option
+                      key={candidate.periodKey}
+                      value={candidate.periodKey}
+                    >
+                      {candidate.periodKey} ({candidate.label})
+                    </option>
+                  ))
+                )}
+              </Select>
+            </Field>
+          </div>
+
+          <ActionButton
+            onClick={handleResendReport}
+            disabled={resending || !resendPeriod}
+          >
+            {resending ? "발송 중…" : "다시 보내기"}
+          </ActionButton>
+        </div>
+
+        {resendError && (
+          <div className="border-t border-[#edf0f4] px-4 py-3 text-sm font-bold text-red-600">
+            {resendError}
+          </div>
+        )}
+
+        {resendResult && (
+          <div className="border-t border-[#edf0f4] px-4 py-3 text-sm">
+            <p className="font-black">
+              성공 {resendResult.sent} · 실패 {resendResult.failed} · 스킵{" "}
+              {resendResult.skipped}
+            </p>
+            {resendResult.recipients.length === 0 ? (
+              <p className="mt-1 text-gray-500">
+                연결된 학부모가 없어 보낼 대상이 없습니다.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-xs font-bold text-gray-600">
+                {resendResult.recipients.map((recipient) => (
+                  <li key={recipient.parentProfileId}>
+                    {recipient.phone} —{" "}
+                    <GoalRiskBadge
+                      tone={
+                        recipient.status === "sent"
+                          ? "gray"
+                          : recipient.status === "failed"
+                            ? "red"
+                            : "orange"
+                      }
+                    >
+                      {recipient.status === "sent"
+                        ? "발송 완료"
+                        : recipient.status === "failed"
+                          ? "발송 실패"
+                          : "건너뜀"}
+                    </GoalRiskBadge>
+                    {recipient.reason ? ` (${recipient.reason})` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </GoalCard>
 
       {/* ── C-5 하단: 일별 기록 타임라인 ──────────────────────────────── */}
       <GoalCard
