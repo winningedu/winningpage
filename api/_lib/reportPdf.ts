@@ -286,3 +286,34 @@ export function acquireWithTimeout(
     });
   });
 }
+
+// 폼(application/x-www-form-urlencoded) 제출은 최상위 내비게이션이라, JSON
+// 에러 응답이 그대로 화면을 덮어써 버린다(FIX-5) — report-pdf.ts가 폼 요청일
+// 때 이 함수로 만든 HTML을 대신 응답한다. detail·backHref는 신뢰할 수 없는
+// 값(detail은 고정 문구지만 backHref는 Referer 헤더)일 수 있어 이스케이프한다.
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+export function renderErrorPage(
+  status: number,
+  detail: string,
+  backHref: string,
+): string {
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>PDF를 만들지 못했습니다</title>
+</head>
+<body>
+<h1>PDF를 만들지 못했습니다</h1>
+<p>${escapeHtml(detail)} (${status})</p>
+<a href="${escapeHtml(backHref)}">돌아가기</a>
+</body>
+</html>`;
+}

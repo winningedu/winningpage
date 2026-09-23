@@ -18,6 +18,7 @@ import {
   REPORT_PDF_RATE_LIMIT_MAX,
   REPORT_PDF_RATE_LIMIT_WINDOW_MS,
   RenderQueueTimeoutError,
+  renderErrorPage,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
   sanitizeFileName,
@@ -381,5 +382,30 @@ describe("리포트 PDF 속도 제한 설정값", () => {
   it("사용자당 1분에 5회까지 허용한다", () => {
     expect(REPORT_PDF_RATE_LIMIT_MAX).toBe(5);
     expect(REPORT_PDF_RATE_LIMIT_WINDOW_MS).toBe(60_000);
+  });
+});
+
+describe("renderErrorPage", () => {
+  it("사유 문구와 돌아가기 링크를 담은 간단한 HTML을 만든다", () => {
+    const html = renderErrorPage(401, "로그인이 필요합니다.", "/mypage");
+    expect(html).toContain("<title>PDF를 만들지 못했습니다</title>");
+    expect(html).toContain("<h1>PDF를 만들지 못했습니다</h1>");
+    expect(html).toContain("로그인이 필요합니다.");
+    expect(html).toContain('<a href="/mypage">돌아가기</a>');
+  });
+
+  it("상태 코드를 화면에 함께 보여준다(QA·문의 시 원인 추적용)", () => {
+    const html = renderErrorPage(429, "요청이 너무 잦습니다.", "/");
+    expect(html).toContain("429");
+  });
+
+  it("backHref·detail의 HTML 특수문자를 이스케이프한다(반사 XSS 방지)", () => {
+    const html = renderErrorPage(
+      400,
+      '<script>alert("x")</script>',
+      '"><script>alert(1)</script>',
+    );
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
   });
 });
