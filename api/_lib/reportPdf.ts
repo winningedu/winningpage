@@ -26,12 +26,17 @@ const UNCLOSED_SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*$/gi;
 const SELF_CLOSING_IFRAME_TAG_RE = /<iframe\b[^>]*\/>/gi;
 const IFRAME_TAG_RE = /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi;
 
+// object도 iframe처럼 외부/플러그인 콘텐츠를 끼워 넣을 수 있어 여닫는 쌍
+// 전체를 제거한다(self-closing은 스펙상 없다 — 항상 </object>가 필요하다).
+const OBJECT_TAG_RE = /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi;
+
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
     .replace(UNCLOSED_SCRIPT_TAG_RE, "")
     .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
-    .replace(IFRAME_TAG_RE, "");
+    .replace(IFRAME_TAG_RE, "")
+    .replace(OBJECT_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
