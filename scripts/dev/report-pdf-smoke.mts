@@ -11,8 +11,8 @@ import {
   renderReportPdf,
 } from "../../api/_lib/reportPdfRender.js";
 
-// 한글 텍스트 + 인라인 스타일 + @page{margin:15mm} + 2페이지(page-break-before) —
-// 팀장 지시 스모크 스펙 그대로.
+// 한글 텍스트 + 인라인 스타일 + @page{margin:15mm} + 2페이지(page-break-before)를
+// 검증하는 스모크 스펙.
 const SAMPLE_HTML = `<!DOCTYPE html>
 <html lang="ko">
 <head>

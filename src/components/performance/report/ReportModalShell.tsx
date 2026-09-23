@@ -185,8 +185,8 @@ export default function ReportModalShell({
             빠진다. `display: contents`라 패널의 flex 레이아웃(헤더/본문/푸터 순서)에는
             영향을 주지 않는다. */}
         <div ref={contentRef} className="contents">
-          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다(팀장
-              지시 "print:block hidden 류"). variant="flow"의 인쇄 전용 규칙이 한
+          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다
+              ("print:block hidden 류" 결정). variant="flow"의 인쇄 전용 규칙이 한
               페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
               페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
               없어 targetMajor/targetUniversity는 넘기지 않는다. */}

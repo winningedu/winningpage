@@ -1,6 +1,6 @@
 // QA 2차 시트 행37·51 — 수행평가 리포트 모달(설계/평가 공용 껍데기)에 공용 표지
-// (ReportCoverPage)를 인쇄 전용으로 붙인다. 화면 모달에는 보이지 않는다(팀장 지시
-// "print:block hidden 류").
+// (ReportCoverPage)를 인쇄 전용으로 붙인다. 화면 모달에는 보이지 않는다
+// ("print:block hidden 류" 결정).
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

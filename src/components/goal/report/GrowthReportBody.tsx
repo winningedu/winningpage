@@ -343,7 +343,8 @@ export default function GrowthReportBody({
         </div>
 
         {/* 멘토가 이 기간에 아직 코멘트를 쓰지 않았으면(goal_mentor_comments 행 없음) 카드
-            자체를 렌더하지 않는다(팀장 확정 "리포트에서 코멘트 행 없으면 멘토 카드 자체 미렌더"). */}
+            자체를 렌더하지 않는다(데이터 없으면 렌더 안 함 원칙 — 코멘트 행 없으면
+            멘토 카드 자체 미렌더). */}
         {mentorComment && (
           <div className="mt-10">
             <MentorCommentCard
