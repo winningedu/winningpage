@@ -144,4 +144,23 @@ describe("ReportCoverPage", () => {
     const svg = container.querySelector("svg");
     expect(svg).toHaveAttribute("preserveAspectRatio", "xMaxYMax meet");
   });
+
+  it("표지 푸터는 report-print.css의 전역 footer 태그 인쇄 숨김 규칙에 걸리지 않는다", () => {
+    // report-print.css `@media print { header, footer { display: none !important } }`는
+    // SiteLayout 헤더·푸터를 지우려는 규칙인데 태그 셀렉터라 리터럴 <footer> 요소를 전부
+    // 잡는다. 실측(QA t11)에서 표지 푸터가 인쇄에서 완전히 안 보였다 — <footer> 대신
+    // 다른 태그를 써서 이 전역 셀렉터를 피한다.
+    const { container } = render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        studentName="김민준"
+      />,
+    );
+
+    expect(container.querySelector("footer")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("김민준 학생").closest(".fd-report-cover-footer"),
+    ).not.toBeNull();
+  });
 });

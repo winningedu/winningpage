@@ -123,7 +123,11 @@ export default function ReportCoverPage({
         <CoverIllustration />
       </div>
 
-      <footer className="fd-report-cover-footer mt-auto flex items-end justify-between gap-4 pt-8">
+      {/* report-print.css 의 전역 규칙(`@media print { header, footer { display: none
+          !important } }`, SiteLayout 헤더·푸터 인쇄 제거용)이 태그 셀렉터라 리터럴
+          <footer> 요소를 전부 잡는다(QA t11 실측 — 표지 푸터가 인쇄에서 안 보임). 그
+          전역 파일은 이 컴포넌트의 수정 범위 밖이라 여기서 <div>로 피해 간다. */}
+      <div className="fd-report-cover-footer mt-auto flex items-end justify-between gap-4 pt-8">
         <img
           src={site.logo.horizontal}
           alt={site.brandName}
@@ -135,7 +139,7 @@ export default function ReportCoverPage({
             {dateLabel && <p>{dateLabel}</p>}
           </div>
         )}
-      </footer>
+      </div>
     </section>
   );
 }
