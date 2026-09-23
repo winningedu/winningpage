@@ -137,11 +137,11 @@ export default function DiagnosisReportView({
           {...(resolvedStudentName !== null
             ? { studentName: resolvedStudentName }
             : {})}
-          {...(data.student?.desiredMajor !== undefined
-            ? { targetMajor: data.student.desiredMajor }
+          {...(data.student?.desiredMajorRaw
+            ? { targetMajor: data.student.desiredMajorRaw }
             : {})}
-          {...(data.student?.diagnosedAt !== undefined
-            ? { dateLabel: data.student.diagnosedAt }
+          {...(data.student?.diagnosedAtRaw
+            ? { dateLabel: data.student.diagnosedAtRaw }
             : {})}
         />
 

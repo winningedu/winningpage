@@ -34,4 +34,16 @@ describe("DiagnosisReportView — 표지", () => {
     expect(cover).toHaveTextContent("김민준 학생");
     expect(cover).toHaveTextContent("컴퓨터공학과");
   });
+
+  it("설문에 희망 학과가 없으면 표지에 '미입력'을 찍지 않고 목표 줄 자체를 렌더하지 않는다", () => {
+    // makeInput() 기본값은 goal.targetMajor: null — StudentInfoBlock의 desiredMajor는
+    // orMissing()이 "미입력"으로 채우지만, 표지는 그 표시용 폴백을 그대로 받으면 안 된다
+    // (팀장 지시, no-fallback-constants).
+    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} />);
+
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(cover).not.toHaveTextContent("미입력");
+    expect(cover.textContent).not.toMatch(/목표/);
+  });
 });
