@@ -76,4 +76,26 @@ describe("checkMigrationFile", () => {
 
     expect(result).toEqual({ skipped: false, violations: ["products"] });
   });
+
+  it("파일명 타임스탬프가 컷오프 미만이면 위반이 있어도 건너뛴다", () => {
+    const sql = `insert into public.products (id) values (1);`;
+
+    const result = checkMigrationFile("20260101000000_old.sql", sql, {
+      allowed: ["programs"],
+      cutoff: "20260923000000",
+    });
+
+    expect(result).toEqual({ skipped: true, violations: [] });
+  });
+
+  it("파일명이 <14자리>_ 형식이 아니면 컷오프와 무관하게 검사한다", () => {
+    const sql = `insert into public.products (id) values (1);`;
+
+    const result = checkMigrationFile("not-a-timestamped-file.sql", sql, {
+      allowed: ["programs"],
+      cutoff: "20260923000000",
+    });
+
+    expect(result).toEqual({ skipped: false, violations: ["products"] });
+  });
 });
