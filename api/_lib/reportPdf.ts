@@ -10,3 +10,12 @@ export const MAX_HTML_BYTES = 3 * 1024 * 1024;
 export function isHtmlTooLarge(html: string): boolean {
   return Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES;
 }
+
+// 방어적 2차 필터(1차는 클라이언트 buildPrintDocument, 3차는 렌더 단계
+// setJavaScriptEnabled(false) + 요청 인터셉션) — 서버가 신뢰하지 않는 클라이언트
+// 입력에서 <script> 요소를 통째로 걷어낸다.
+const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+
+export function stripScriptTags(html: string): string {
+  return html.replace(SCRIPT_TAG_RE, "");
+}
