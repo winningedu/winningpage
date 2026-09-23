@@ -4,7 +4,11 @@
 // 요구해 vitest로 안정적으로 돌릴 수 없다(scripts/dev/report-pdf-smoke.mts가
 // 대신 통합 검증한다).
 
-/** 폼 본문 html 필드 상한 — 초과 시 413. */
+/** 폼 본문 html 필드 상한 — 초과 시 413. 이 값은 **디코딩 후** html 문자열의
+ * UTF-8 바이트 수 기준이다(isHtmlTooLarge가 Buffer.byteLength로 잰다) —
+ * 폼 전체를 urlencoded로 인코딩한 뒤(대략 3배 부풀림) 크기와는 다르다.
+ * 클라이언트의 4MB 인코딩 후 상한은 src/lib/report/downloadReportPdf.ts
+ * 참고. */
 export const MAX_HTML_BYTES = 3 * 1024 * 1024;
 
 export function isHtmlTooLarge(html: string): boolean {
