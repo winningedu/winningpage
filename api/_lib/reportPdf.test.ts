@@ -269,4 +269,25 @@ describe("createSlidingWindowRateLimiter", () => {
       expect(limiter.tryConsume("user-1", 1000 * i)).toBe(true);
     }
   });
+
+  it("윈도우 내 한도를 넘는 요청은 거부한다", () => {
+    const limiter = createSlidingWindowRateLimiter(5, 60_000);
+    for (let i = 0; i < 5; i++) {
+      limiter.tryConsume("user-1", 1000 * i);
+    }
+    expect(limiter.tryConsume("user-1", 5000)).toBe(false);
+  });
+
+  it("윈도우가 지나면 오래된 기록이 밀려나 다시 허용한다", () => {
+    const limiter = createSlidingWindowRateLimiter(1, 60_000);
+    expect(limiter.tryConsume("user-1", 0)).toBe(true);
+    expect(limiter.tryConsume("user-1", 59_999)).toBe(false);
+    expect(limiter.tryConsume("user-1", 60_001)).toBe(true);
+  });
+
+  it("키(사용자)가 다르면 한도를 독립적으로 센다", () => {
+    const limiter = createSlidingWindowRateLimiter(1, 60_000);
+    expect(limiter.tryConsume("user-1", 0)).toBe(true);
+    expect(limiter.tryConsume("user-2", 0)).toBe(true);
+  });
 });
