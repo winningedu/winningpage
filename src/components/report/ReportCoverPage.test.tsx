@@ -9,12 +9,13 @@ import ReportCoverPage from "./ReportCoverPage";
 describe("ReportCoverPage", () => {
   it("title을 렌더한다", () => {
     render(
-      <ReportCoverPage serviceLabel="학습진단" title="위닝에듀 학습진단 리포트" />,
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="위닝에듀 학습진단 리포트"
+      />,
     );
 
-    expect(
-      screen.getByText("위닝에듀 학습진단 리포트"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("위닝에듀 학습진단 리포트")).toBeInTheDocument();
   });
 
   it("serviceLabel을 렌더한다", () => {
@@ -57,7 +58,9 @@ describe("ReportCoverPage", () => {
       />,
     );
 
-    expect(screen.getByText("목표 서울대학교 컴퓨터공학과")).toBeInTheDocument();
+    expect(
+      screen.getByText("목표 서울대학교 컴퓨터공학과"),
+    ).toBeInTheDocument();
   });
 
   it("targetMajor만 있으면 그 값만으로 목표 줄을 렌더한다", () => {
@@ -95,5 +98,23 @@ describe("ReportCoverPage", () => {
 
     const logo = screen.getByAltText("위닝에듀");
     expect(logo).toHaveAttribute("src", "/images/winning-logo-horizontal.svg");
+  });
+
+  it("variant='a4'면 fd-report-sheet 클래스를 붙인다(인쇄 페이지 나눔 계약)", () => {
+    render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" variant="a4" />,
+    );
+
+    expect(screen.getByLabelText("학습진단 리포트 표지").className).toContain(
+      "fd-report-sheet",
+    );
+  });
+
+  it("기본(variant 생략)이면 fd-report-sheet 클래스를 붙이지 않는다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    expect(
+      screen.getByLabelText("학습진단 리포트 표지").className,
+    ).not.toContain("fd-report-sheet");
   });
 });
