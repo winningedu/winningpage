@@ -69,3 +69,27 @@ export function listMonthlyResendCandidates(
     .filter((c) => diffDaysYMD(c.start, todayYmd) <= MAX_RESEND_DAYS_AGO)
     .map((c) => c.key);
 }
+
+/** 일간 후보 옆에 붙일 상대 표기("오늘"/"어제"/"N일 전"). */
+export function formatDailyResendOptionLabel(
+  periodKey: string,
+  todayYmd: string = kstYMD(),
+): string {
+  const diff = diffDaysYMD(periodKey, todayYmd);
+  if (diff === 0) return "오늘";
+  if (diff === 1) return "어제";
+  return `${diff}일 전`;
+}
+
+const WEEKLY_OPTION_LABELS = ["이번 주", "지난 주", "전전 주"];
+const MONTHLY_OPTION_LABELS = ["이번 달", "지난 달"];
+
+/** listWeeklyResendCandidates 결과의 인덱스(최근순) → 상대 표기. */
+export function formatWeeklyResendOptionLabel(index: number): string {
+  return WEEKLY_OPTION_LABELS[index] ?? `${index}주 전`;
+}
+
+/** listMonthlyResendCandidates 결과의 인덱스(최근순) → 상대 표기. */
+export function formatMonthlyResendOptionLabel(index: number): string {
+  return MONTHLY_OPTION_LABELS[index] ?? `${index}달 전`;
+}

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+  formatDailyResendOptionLabel,
+  formatMonthlyResendOptionLabel,
+  formatWeeklyResendOptionLabel,
   listDailyResendCandidates,
   listMonthlyResendCandidates,
   listWeeklyResendCandidates,
@@ -47,5 +50,32 @@ describe("listMonthlyResendCandidates", () => {
     // 통과하지 못한다 — "지난 달" 후보가 실제로 남는 경우는 구조상 없다.
     const result = listMonthlyResendCandidates("2026-09-01");
     expect(result).toEqual(["2026-09"]);
+  });
+});
+
+describe("formatDailyResendOptionLabel", () => {
+  test("오늘·어제·그 밖은 N일 전으로 표시한다", () => {
+    expect(formatDailyResendOptionLabel("2026-09-23", "2026-09-23")).toBe(
+      "오늘",
+    );
+    expect(formatDailyResendOptionLabel("2026-09-22", "2026-09-23")).toBe(
+      "어제",
+    );
+    expect(formatDailyResendOptionLabel("2026-09-10", "2026-09-23")).toBe(
+      "13일 전",
+    );
+  });
+});
+
+describe("formatWeeklyResendOptionLabel / formatMonthlyResendOptionLabel", () => {
+  test("최근순 인덱스를 이번 주/지난 주/전전 주로 표시한다", () => {
+    expect(formatWeeklyResendOptionLabel(0)).toBe("이번 주");
+    expect(formatWeeklyResendOptionLabel(1)).toBe("지난 주");
+    expect(formatWeeklyResendOptionLabel(2)).toBe("전전 주");
+  });
+
+  test("최근순 인덱스를 이번 달/지난 달로 표시한다", () => {
+    expect(formatMonthlyResendOptionLabel(0)).toBe("이번 달");
+    expect(formatMonthlyResendOptionLabel(1)).toBe("지난 달");
   });
 });
