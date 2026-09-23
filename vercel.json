@@ -2,6 +2,10 @@
   "regions": ["icn1"],
   "rewrites": [
     {
+      "source": "/services/goal/reports/:period/:reportId",
+      "destination": "/index.html"
+    },
+    {
       "source": "/((?!api/|@|src/|node_modules/|.*\\.).*)",
       "destination": "/index.html"
     }

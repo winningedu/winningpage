@@ -69,6 +69,22 @@ describe("parseReportId", () => {
     });
   });
 
+  it("신 형식(주간_학생id, '_' 구분자)도 첫 구분자로 나눈다", () => {
+    expect(
+      parseReportId("2026-08-17_3f2a9c1e-aaaa-bbbb-cccc-000000000000"),
+    ).toEqual({
+      at: "2026-08-17",
+      studentProfileId: "3f2a9c1e-aaaa-bbbb-cccc-000000000000",
+    });
+  });
+
+  it("신 형식(월간_학생id, '_' 구분자)도 첫 구분자로 나눈다", () => {
+    expect(parseReportId("2026-08_3f2a9c1e-uuid")).toEqual({
+      at: "2026-08",
+      studentProfileId: "3f2a9c1e-uuid",
+    });
+  });
+
   it("쓰레기값(공백·특수문자)도 첫 '.' 기준으로 그대로 나눈다", () => {
     expect(parseReportId("garbage value")).toEqual({
       at: "garbage value",
