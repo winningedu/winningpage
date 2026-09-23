@@ -23,6 +23,7 @@ import {
   resolveLocalExecutablePath,
   sanitizeFileName,
   sanitizePrintHtml,
+  shouldIsolateContext,
 } from "./reportPdf.js";
 
 describe("isHtmlTooLarge", () => {
@@ -257,6 +258,12 @@ describe("isServerlessRuntime", () => {
 
   it("둘 다 없으면 false다(로컬)", () => {
     expect(isServerlessRuntime({})).toBe(false);
+  });
+});
+
+describe("shouldIsolateContext", () => {
+  it("로컬(서버리스 아님)이면 true다 — 격리 컨텍스트를 쓴다", () => {
+    expect(shouldIsolateContext({})).toBe(true);
   });
 });
 

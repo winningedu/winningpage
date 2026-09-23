@@ -176,6 +176,14 @@ export function isServerlessRuntime(env: RuntimeEnv): boolean {
   return Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME);
 }
 
+/** 서버리스(--single-process)에서는 incognito 브라우저 컨텍스트 생성/해제가
+ * 불안정해(마지막 페이지가 닫히며 브라우저 프로세스 자체가 죽는 레이스가
+ * 있다) 격리를 포기하고 기본 컨텍스트의 page를 재사용한다. 로컬은 지금처럼
+ * 요청마다 격리 컨텍스트를 쓴다. */
+export function shouldIsolateContext(env: RuntimeEnv): boolean {
+  return !isServerlessRuntime(env);
+}
+
 // chromium v153 릴리스 pack — 실제 존재 확인(curl -sIL, 302→200) 완료.
 export const DEFAULT_CHROMIUM_PACK_URL =
   "https://github.com/Sparticuz/chromium/releases/download/v153.0.0/chromium-v153.0.0-pack.x64.tar";
