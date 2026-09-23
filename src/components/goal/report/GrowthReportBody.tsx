@@ -239,21 +239,28 @@ export default function GrowthReportBody({
             (`FLOW_COVER_PRINT_RULE`)이 인쇄에서만 한 페이지를 채우고
             break-after:page로 다음 내용과 분리한다 — 화면에서는 리포트 본문 맨
             위 카드 하나로 보인다. */}
-        <ReportCoverPage
-          serviceLabel="목표관리"
-          title={report.heading ?? ""}
-          {...(studentName ? { studentName } : {})}
-          {...(coverTargetUniversity
-            ? { targetUniversity: coverTargetUniversity }
-            : {})}
-          {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
-        />
+        {/* heading 없으면 표지를 렌더하지 않는다 — ReportCoverPage의 title은 필수
+            <h1>이라, 빈 문자열 폴백을 넘기면 내용 없는 <h1>만 DOM에 남는다(데이터
+            없으면 렌더 안 함 원칙). */}
+        {report.heading ? (
+          <ReportCoverPage
+            serviceLabel="목표관리"
+            title={report.heading}
+            {...(studentName ? { studentName } : {})}
+            {...(coverTargetUniversity
+              ? { targetUniversity: coverTargetUniversity }
+              : {})}
+            {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
+          />
+        ) : null}
 
         <div className="mt-6 flex flex-wrap items-baseline gap-3">
           {/* 30px — 타입 스케일 밖 값(app-title 1.75rem보다 큼), 디자인 결정 대기 중 */}
-          <h1 className="text-[1.875rem] font-bold leading-[1.4] text-ink-strong">
-            {report.heading}
-          </h1>
+          {report.heading ? (
+            <h1 className="text-[1.875rem] font-bold leading-[1.4] text-ink-strong">
+              {report.heading}
+            </h1>
+          ) : null}
           <span className="text-app-body font-medium leading-[1.4] text-ink-sub">
             {report.periodLabel}
           </span>
