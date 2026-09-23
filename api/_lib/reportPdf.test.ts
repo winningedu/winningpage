@@ -265,6 +265,10 @@ describe("shouldIsolateContext", () => {
   it("로컬(서버리스 아님)이면 true다 — 격리 컨텍스트를 쓴다", () => {
     expect(shouldIsolateContext({})).toBe(true);
   });
+
+  it("서버리스(VERCEL)면 false다 — 기본 컨텍스트를 재사용한다", () => {
+    expect(shouldIsolateContext({ VERCEL: "1" })).toBe(false);
+  });
 });
 
 describe("resolveChromiumPackUrl", () => {
