@@ -32,4 +32,22 @@ describe("findInserts", () => {
 
     expect(findInserts(sql)).toEqual(["tenants"]);
   });
+
+  it("대문자·public 접두어를 소문자 테이블명으로 정규화한다", () => {
+    const sql = `INSERT INTO public.products (id) VALUES (1);`;
+
+    expect(findInserts(sql)).toEqual(["products"]);
+  });
+
+  it("스키마 접두어 없는 테이블명도 public으로 간주해 같은 값으로 찾는다", () => {
+    const sql = `insert into app_settings (key) values ('foo');`;
+
+    expect(findInserts(sql)).toEqual(["app_settings"]);
+  });
+
+  it("public이 아닌 다른 스키마는 접두어를 붙인 그대로 반환한다", () => {
+    const sql = `insert into auth.users (id) values ('u1');`;
+
+    expect(findInserts(sql)).toEqual(["auth.users"]);
+  });
 });
