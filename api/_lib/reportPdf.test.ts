@@ -68,6 +68,11 @@ describe("sanitizePrintHtml", () => {
     const html = '<body><object data="evil.swf"></object><p>본문</p></body>';
     expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
   });
+
+  it("<embed> 태그를 제거한다(닫는 태그 없는 void 요소)", () => {
+    const html = '<body><embed src="evil.swf"><p>본문</p></body>';
+    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+  });
 });
 
 describe("isAllowedBaseUrl", () => {

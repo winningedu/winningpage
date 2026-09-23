@@ -30,13 +30,17 @@ const IFRAME_TAG_RE = /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi;
 // 전체를 제거한다(self-closing은 스펙상 없다 — 항상 </object>가 필요하다).
 const OBJECT_TAG_RE = /<object\b[^>]*>[\s\S]*?<\/object\s*>/gi;
 
+// embed는 HTML void 요소라 닫는 태그가 없다 — 여는 태그 하나만 제거하면 된다.
+const EMBED_TAG_RE = /<embed\b[^>]*>/gi;
+
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
     .replace(UNCLOSED_SCRIPT_TAG_RE, "")
     .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
     .replace(IFRAME_TAG_RE, "")
-    .replace(OBJECT_TAG_RE, "");
+    .replace(OBJECT_TAG_RE, "")
+    .replace(EMBED_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
