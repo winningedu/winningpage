@@ -125,6 +125,36 @@ describe("Profile 내신 섹션", () => {
     ).toBeInTheDocument();
   });
 
+  it("저장된 내신 exams가 배열 형식이어도 과목군 평균을 편집 폼에 그대로 복원한다", async () => {
+    mockFetchGoalStudent.mockResolvedValue({
+      kind: "onboarded",
+      student: baseStudent({
+        naesinInput: {
+          lastExam: "g3_s1mid",
+          scale: 9,
+          overall: 2,
+          exams: [
+            {
+              key: "g3_s1mid",
+              groups: { korean: { avg: 1.5, subjects: [] } },
+            },
+          ],
+          groupAverages: { korean: 1.5 },
+        },
+      }),
+    });
+    renderPage();
+
+    const editButtons = await screen.findAllByRole("button", { name: "수정" });
+    const naesinEditButton = editButtons[0];
+    expect(naesinEditButton).toBeDefined();
+    if (!naesinEditButton) throw new Error("내신 수정 버튼을 찾지 못했다");
+    fireEvent.click(naesinEditButton);
+    await screen.findByRole("button", { name: "고3 1학기 중간" });
+
+    expect(await screen.findByDisplayValue("1.5")).toBeInTheDocument();
+  });
+
   it("내신 저장을 누르면 section:'naesin'으로 서버에 저장 요청한다", async () => {
     mockSubmitGoalIntakeUpdate.mockResolvedValue({
       kind: "success",

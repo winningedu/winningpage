@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import GoalCard from "@/components/goal/GoalCard";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
+import { NAESIN_SUBJECT_GROUPS } from "@/components/goal/onboarding/onboardingOptions";
 import {
   isNaesinInputValid,
   NaesinScoreFields,
@@ -60,30 +61,51 @@ function toStr(value: unknown): string {
 }
 
 /** naesin_scores(intake.ts 저장 모양, avg/grade가 숫자) → NaesinState(전부 문자열) 부분 변환. */
+/**
+ * naesin_scores.exams 한 시험 항목({key, groups} 하나)을 NaesinState 과목군 모양으로
+ * 변환. NAESIN_SUBJECT_GROUPS 6종 전부를 채운다 — 저장값에 일부 과목군만 있어도
+ * NaesinGroupEditor(Step4Naesin.tsx)가 6종 전부를 기대해 나머지가 undefined면
+ * 렌더링 중 죽는다(group.subjects 접근).
+ */
+function normalizeStoredNaesinExamGroups(
+  rawGroups: Record<string, unknown>,
+): NaesinState["exams"][string]["groups"] {
+  const groups: NaesinState["exams"][string]["groups"] = {};
+  for (const { key: groupKey } of NAESIN_SUBJECT_GROUPS) {
+    const group = rawGroups[groupKey] as
+      | { avg?: unknown; subjects?: { name: string; grade: unknown }[] }
+      | undefined;
+    groups[groupKey] = {
+      avg: toStr(group?.avg),
+      subjects: (group?.subjects || []).map((subject) => ({
+        name: subject.name,
+        grade: toStr(subject.grade),
+      })),
+    };
+  }
+  return groups;
+}
+
 function normalizeStoredNaesin(
   raw: Record<string, unknown> | null,
 ): NaesinState | undefined {
   if (!raw) return undefined;
-  const rawExams = (raw.exams as Record<string, unknown>) || {};
   const exams: NaesinState["exams"] = {};
-  for (const [examKey, examValue] of Object.entries(rawExams)) {
-    const rawGroups =
-      (examValue as { groups?: Record<string, unknown> })?.groups || {};
-    const groups: NaesinState["exams"][string]["groups"] = {};
-    for (const [groupKey, groupValue] of Object.entries(rawGroups)) {
-      const group = groupValue as {
-        avg?: unknown;
-        subjects?: { name: string; grade: unknown }[];
+  // naesin_scores.exams는 2026-09-02(749cc3a4) 이후로 시험별 배열
+  // `[{ key, groups }]`로만 저장된다 — buildNaesinExamsPayload/naesinExams가 그 모양을
+  // 만든다(api/goal/intake.ts). 그 이전(고정 4회차 체크박스 방식)의 원본 형식은 시험
+  // key 이름공간 자체가 달라 지금 화면과 호환 불가능이라 별도 변환 없이 그대로
+  // 버려진다(buildInitialState가 알 수 없는 키를 자동으로 defaults로 채운다).
+  if (Array.isArray(raw.exams)) {
+    for (const entry of raw.exams) {
+      if (!entry || typeof entry !== "object") continue;
+      const { key, groups } = entry as {
+        key?: unknown;
+        groups?: Record<string, unknown>;
       };
-      groups[groupKey] = {
-        avg: toStr(group.avg),
-        subjects: (group.subjects || []).map((subject) => ({
-          name: subject.name,
-          grade: toStr(subject.grade),
-        })),
-      };
+      if (typeof key !== "string" || !key) continue;
+      exams[key] = { groups: normalizeStoredNaesinExamGroups(groups || {}) };
     }
-    exams[examKey] = { groups };
   }
   return {
     lastExam: toStr(raw.lastExam),
