@@ -22,6 +22,7 @@ import {
   kstYMD,
   toYMD,
 } from "../../../src/lib/goal/calc/index.js";
+import { MAX_RESEND_DAYS_AGO } from "../../_lib/goalReportResendPolicy.js";
 import type { ReportSendResult } from "../../_lib/goalReportSend.js";
 import {
   sendDailyReportFor,
@@ -33,9 +34,6 @@ import { sendError } from "../../_lib/httpResponse.js";
 import { maskPhone } from "../../_lib/phoneCode.js";
 
 export const config = { runtime: "nodejs" };
-
-/** "2주 전까지는 보낼 수 있도록"(고객사 요청) — 기간 시작이 이보다 더 전이면 거부. */
-export const MAX_RESEND_DAYS_AGO = 14;
 
 export type ResendKind = "daily" | "weekly" | "monthly";
 

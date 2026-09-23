@@ -22,6 +22,9 @@ import {
   toYmd,
   weekOfMonth,
 } from "./goalReportNotify.js";
+import { MAX_RESEND_DAYS_AGO } from "./goalReportResendPolicy.js";
+
+export { MAX_RESEND_DAYS_AGO };
 
 export type ReportSendOutcome = {
   parentProfileId: string;
