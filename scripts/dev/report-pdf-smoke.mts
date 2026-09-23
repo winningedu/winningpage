@@ -39,6 +39,16 @@ const PDF_PAGE_OBJECT_RE = /\/Type\s*\/Page(?!s)\b/g;
 async function main() {
   const outPath = process.argv[2] ?? "/tmp/report-pdf-smoke.pdf";
 
+  // FIX-6 측정 — 폼이 실제로 보내는 urlencoded 인코딩 후 크기(html 필드만).
+  // 서버의 MAX_HTML_BYTES(3MB)는 디코딩 후 기준이라 이 값과 다르다 —
+  // api/_lib/reportPdf.ts 주석 참고. 클라이언트 downloadReportPdf.ts는 전체
+  // 필드 인코딩 후 4MB를 넘으면 폼 제출 전에 막는다.
+  const encodedSize = new URLSearchParams({ html: SAMPLE_HTML }).toString()
+    .length;
+  console.log(
+    `샘플 HTML 인코딩 후 크기(html 필드만, urlencoded): ${encodedSize} bytes`,
+  );
+
   let pdf: Buffer;
   try {
     pdf = await renderReportPdf({
