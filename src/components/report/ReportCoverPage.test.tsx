@@ -40,4 +40,35 @@ describe("ReportCoverPage", () => {
 
     expect(screen.getByText("김민준 학생")).toBeInTheDocument();
   });
+
+  it("targetMajor·targetUniversity가 모두 없으면 목표 줄을 렌더하지 않는다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    expect(screen.queryByText(/목표/)).not.toBeInTheDocument();
+  });
+
+  it("targetUniversity·targetMajor를 모두 주면 한 줄로 합쳐 렌더한다", () => {
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        targetUniversity="서울대학교"
+        targetMajor="컴퓨터공학과"
+      />,
+    );
+
+    expect(screen.getByText("목표 서울대학교 컴퓨터공학과")).toBeInTheDocument();
+  });
+
+  it("targetMajor만 있으면 그 값만으로 목표 줄을 렌더한다", () => {
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        targetMajor="컴퓨터공학과"
+      />,
+    );
+
+    expect(screen.getByText("목표 컴퓨터공학과")).toBeInTheDocument();
+  });
 });

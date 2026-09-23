@@ -25,11 +25,18 @@ export default function ReportCoverPage({
   serviceLabel,
   title,
   studentName,
+  targetMajor,
+  targetUniversity,
 }: ReportCoverPageProps) {
+  const targetLine = [targetUniversity, targetMajor]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+
   return (
     <section>
       <p className="text-sm font-semibold text-accent">{serviceLabel}</p>
       <p>{title}</p>
+      {targetLine && <p>목표 {targetLine}</p>}
       {studentName && <p>{studentName} 학생</p>}
     </section>
   );
