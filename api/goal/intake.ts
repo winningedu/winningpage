@@ -294,7 +294,7 @@ function fail(detail: string) {
   return { status: 400, body: { detail } };
 }
 
-function validateTarget(value: unknown, label: string) {
+export function validateTarget(value: unknown, label: string) {
   if (!isPlainObject(value))
     return { error: fail(`${label} 정보가 올바르지 않습니다.`) };
 
@@ -886,7 +886,7 @@ export function deriveNaesin(input) {
  * 과목군 입력이 하나도 없으면(전체 평균만 입력) 빈 객체 — 리포트 쪽이 4과목 flat 모드로
  * 폴백한다(qa3-held-high-design.md §7 입력 규칙).
  */
-function deriveNaesinGroupAverages(naesinExams, selectedNaesinExam) {
+export function deriveNaesinGroupAverages(naesinExams, selectedNaesinExam) {
   if (!selectedNaesinExam) return {};
   const match = naesinExams.find((exam) => exam.key === selectedNaesinExam.key);
   if (!match) return {};
