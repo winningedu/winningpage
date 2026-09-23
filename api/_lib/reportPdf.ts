@@ -19,3 +19,35 @@ const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 export function stripScriptTags(html: string): string {
   return html.replace(SCRIPT_TAG_RE, "");
 }
+
+// baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
+// 전부 abort하므로, 여기서 거부하면 페이지 자체를 렌더할 수 없다(SSRF 방지).
+const EXACT_ALLOWED_ORIGINS = new Set([
+  "https://www.winningedu.com",
+  "https://winningedu.com",
+  "https://www.schoolmentor.kr",
+  "https://schoolmentor.kr",
+]);
+const VERCEL_PREVIEW_RE = /^[a-z0-9-]+\.vercel\.app$/i;
+const LOCALHOST_RE = /^(localhost|127\.0\.0\.1)$/;
+
+export function isAllowedBaseUrl(baseUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return false;
+  }
+
+  if (EXACT_ALLOWED_ORIGINS.has(url.origin)) return true;
+
+  if (url.protocol === "https:" && VERCEL_PREVIEW_RE.test(url.hostname)) {
+    return true;
+  }
+
+  if (url.protocol === "http:" && LOCALHOST_RE.test(url.hostname)) {
+    return true;
+  }
+
+  return false;
+}
