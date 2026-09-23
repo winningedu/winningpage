@@ -54,6 +54,12 @@ function formatHoursMinutes(hoursFloat: number): string {
   return `${h}시간${m}분`;
 }
 
+/** 'YYYY-MM-DD' → 'YYYY.M.D'(월/일 0 없이, 고객사 요청 문구 표기). */
+function formatYmdDot(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return `${y}.${m}.${d}`;
+}
+
 /** 성장 리포트 히어로 문단. period='weekly'|'monthly'. */
 export function buildHeroNarrative({
   period,
@@ -63,6 +69,9 @@ export function buildHeroNarrative({
   completionScore,
   recordDays,
   elapsedDays,
+  periodStart,
+  periodEnd,
+  nowYmd,
 }: {
   period: "weekly" | "monthly";
   totalStudyHours: number;
@@ -71,6 +80,9 @@ export function buildHeroNarrative({
   completionScore: number;
   recordDays: number;
   elapsedDays: number;
+  periodStart: string;
+  periodEnd: string;
+  nowYmd: string;
 }): string {
   const periodWord = period === "monthly" ? "이번 달" : "이번 주";
   const timeLabel = formatHoursMinutes(totalStudyHours);
@@ -80,7 +92,17 @@ export function buildHeroNarrative({
   }
 
   if (recordDays <= 0) {
-    return `${periodWord} 아직 학습 기록이 없습니다. 오늘의 공부 기록을 남기면 리포트가 채워집니다.`;
+    const isPast = periodEnd < nowYmd;
+    const emptyPeriodWord =
+      period === "monthly"
+        ? isPast
+          ? "지난달"
+          : "이번 달"
+        : isPast
+          ? "지난주"
+          : "이번 주";
+    const range = `${formatYmdDot(periodStart)}~${formatYmdDot(periodEnd)}`;
+    return `${emptyPeriodWord}(${range}) 학습목표 또는 실행내역의 입력 내용이 없습니다. 학습목표의 관리를 위해서는 지속적인 목표관리 체크 및 현황 입력이 중요합니다.`;
   }
 
   const toneSentence =
