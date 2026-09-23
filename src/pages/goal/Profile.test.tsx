@@ -99,6 +99,14 @@ function renderPage() {
   );
 }
 
+/** "수정" 버튼 목록에서 index번째 버튼을 안전하게 꺼낸다(noNonNullAssertion 회피). */
+function getEditButton(editButtons: HTMLElement[], index: number): HTMLElement {
+  const button = editButtons[index];
+  expect(button).toBeDefined();
+  if (!button) throw new Error(`"수정" 버튼[${index}]을 찾지 못했다`);
+  return button;
+}
+
 describe("Profile 내신 섹션", () => {
   beforeEach(() => {
     mockFetchGoalStudent.mockReset();
@@ -118,11 +126,38 @@ describe("Profile 내신 섹션", () => {
     renderPage();
 
     const editButtons = await screen.findAllByRole("button", { name: "수정" });
-    fireEvent.click(editButtons[0]!);
+    fireEvent.click(getEditButton(editButtons, 0));
 
     expect(
       await screen.findByRole("button", { name: "고3 1학기 중간" }),
     ).toBeInTheDocument();
+  });
+
+  it("저장된 내신 exams가 배열 형식이어도 과목군 평균을 편집 폼에 그대로 복원한다", async () => {
+    mockFetchGoalStudent.mockResolvedValue({
+      kind: "onboarded",
+      student: baseStudent({
+        naesinInput: {
+          lastExam: "g3_s1mid",
+          scale: 9,
+          overall: 2,
+          exams: [
+            {
+              key: "g3_s1mid",
+              groups: { korean: { avg: 1.5, subjects: [] } },
+            },
+          ],
+          groupAverages: { korean: 1.5 },
+        },
+      }),
+    });
+    renderPage();
+
+    const editButtons = await screen.findAllByRole("button", { name: "수정" });
+    fireEvent.click(getEditButton(editButtons, 0));
+    await screen.findByRole("button", { name: "고3 1학기 중간" });
+
+    expect(await screen.findByDisplayValue("1.5")).toBeInTheDocument();
   });
 
   it("내신 저장을 누르면 section:'naesin'으로 서버에 저장 요청한다", async () => {
@@ -133,7 +168,7 @@ describe("Profile 내신 섹션", () => {
     renderPage();
 
     const editButtons = await screen.findAllByRole("button", { name: "수정" });
-    fireEvent.click(editButtons[0]!);
+    fireEvent.click(getEditButton(editButtons, 0));
     await screen.findByRole("button", { name: "고3 1학기 중간" });
 
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
@@ -166,7 +201,7 @@ describe("Profile 모의고사 섹션", () => {
     renderPage();
 
     const editButtons = await screen.findAllByRole("button", { name: "수정" });
-    fireEvent.click(editButtons[1]!);
+    fireEvent.click(getEditButton(editButtons, 1));
 
     expect(
       await screen.findByRole("button", { name: "고3 3모" }),
@@ -181,7 +216,7 @@ describe("Profile 모의고사 섹션", () => {
     renderPage();
 
     const editButtons = await screen.findAllByRole("button", { name: "수정" });
-    fireEvent.click(editButtons[1]!);
+    fireEvent.click(getEditButton(editButtons, 1));
     await screen.findByRole("button", { name: "고3 3모" });
 
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
