@@ -1,9 +1,10 @@
 // api/report-pdf.ts 가 쓰는 순수 로직(HTML 크기·baseUrl 허용 목록·<script> 제거·
 // 실행 환경 판별). 실제 브라우저 렌더는 scripts/dev/report-pdf-smoke.mts(통합
 // 스크립트)로만 검증한다 — vitest는 네트워크/브라우저를 띄우지 않는다.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildContentDispositionHeader,
+  createSemaphore,
   DEFAULT_CHROMIUM_PACK_URL,
   DEFAULT_LOCAL_CHROME_PATH,
   isAllowedBaseUrl,
@@ -159,5 +160,15 @@ describe("resolveLocalExecutablePath", () => {
     expect(DEFAULT_LOCAL_CHROME_PATH).toBe(
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     );
+  });
+});
+
+describe("createSemaphore", () => {
+  it("최대 동시 개수까지는 즉시 획득된다", async () => {
+    const semaphore = createSemaphore(2);
+    const release1 = await semaphore.acquire();
+    const release2 = await semaphore.acquire();
+    expect(typeof release1).toBe("function");
+    expect(typeof release2).toBe("function");
   });
 });

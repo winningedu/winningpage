@@ -106,3 +106,39 @@ export const DEFAULT_LOCAL_CHROME_PATH =
 export function resolveLocalExecutablePath(env: RuntimeEnv): string {
   return env.PUPPETEER_EXECUTABLE_PATH ?? DEFAULT_LOCAL_CHROME_PATH;
 }
+
+// 인스턴스 하나가 렌더 요청을 동시에 너무 많이 받으면 브라우저 프로세스가
+// 메모리 압박으로 죽는다 — reportPdfRender.ts가 이 세마포어로 동시 렌더 수를
+// 제한한다. 순수 로직만 여기 둔다(브라우저 자체는 vitest로 검증할 수 없다).
+export interface Semaphore {
+  /** 슬롯을 획득하면 release 함수를 담은 프라미스를 반환한다 — 슬롯이 꽉 찼으면
+   * 다른 acquire가 release를 부를 때까지 대기한다(선입선출 큐). */
+  acquire(): Promise<() => void>;
+}
+
+export function createSemaphore(maxConcurrent: number): Semaphore {
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  function release(): void {
+    active -= 1;
+    const next = queue.shift();
+    if (next) next();
+  }
+
+  return {
+    acquire(): Promise<() => void> {
+      return new Promise((resolve) => {
+        const grant = () => {
+          active += 1;
+          resolve(release);
+        };
+        if (active < maxConcurrent) {
+          grant();
+        } else {
+          queue.push(grant);
+        }
+      });
+    },
+  };
+}
