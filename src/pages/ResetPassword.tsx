@@ -24,6 +24,26 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 // 넉넉히 준다. 이 시간이 지나도 세션이 없으면 링크 자체가 무효한 것으로 본다.
 const RECOVERY_WAIT_TIMEOUT_MS = 4000;
 
+/**
+ * 레거시(해시 링크) 경로에서 Supabase가 실패로 돌려보낸 경우를 감지한다.
+ *
+ * Supabase는 recovery 토큰이 만료됐거나 이미 쓰였으면 detectSessionInUrl이
+ * 아무것도 하지 않는 대신 `#error=access_denied&error_code=otp_expired&...`
+ * 형태로 해시만 남긴다 — 이벤트가 오지 않으므로 기존 4초 타임아웃으로도
+ * 결국 만료 화면에 도달하지만, 이미 실패가 확정된 값이 해시에 있는데 4초를
+ * 그냥 흘려보낼 이유가 없다.
+ */
+function hashHasExpiredError(): boolean {
+  if (typeof window === "undefined") return false;
+  const raw = window.location.hash;
+  if (!raw) return false;
+  const params = new URLSearchParams(raw.startsWith("#") ? raw.slice(1) : raw);
+  return (
+    params.get("error_code") === "otp_expired" ||
+    params.get("error") === "access_denied"
+  );
+}
+
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,7 +56,9 @@ export default function ResetPassword() {
   const isTokenHashMode = Boolean(tokenHash) && searchParams.get("type") === "recovery";
 
   const [ready, setReady] = useState(isTokenHashMode);
-  const [expired, setExpired] = useState(false);
+  const [expired, setExpired] = useState(
+    () => !isTokenHashMode && hashHasExpiredError(),
+  );
   const readyRef = useRef(isTokenHashMode);
 
   const [password, setPassword] = useState("");

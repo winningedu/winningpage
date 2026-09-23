@@ -128,3 +128,55 @@ describe("ResetPassword — token_hash 모드", () => {
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });
+
+describe("ResetPassword — 레거시(해시 링크) 폴백", () => {
+  beforeEach(() => {
+    mockGetSession.mockReset();
+    mockOnAuthStateChange.mockReset();
+    mockVerifyOtp.mockReset();
+    mockUpdateUser.mockReset();
+    mockSignOut.mockReset();
+    mockRpc.mockReset();
+    window.location.hash = "";
+  });
+
+  it("token_hash가 없고 PASSWORD_RECOVERY 이벤트가 오면 폼을 보여준다(관리자 초대 링크 경로)", async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+
+    let onAuthStateChangeCallback: ((event: string) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((callback) => {
+      onAuthStateChangeCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    renderResetPassword("/login/reset-password");
+
+    expect(screen.getByText("링크를 확인하고 있어요")).toBeInTheDocument();
+
+    onAuthStateChangeCallback?.("PASSWORD_RECOVERY");
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("새 비밀번호")).toBeInTheDocument(),
+    );
+  });
+
+  it("해시에 error_code=otp_expired가 있으면 4초를 기다리지 않고 즉시 만료 화면을 보여준다", () => {
+    vi.useFakeTimers();
+    try {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      mockOnAuthStateChange.mockReturnValue({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      });
+      window.location.hash =
+        "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired";
+
+      renderResetPassword("/login/reset-password");
+
+      // 4초 타이머를 전혀 진행시키지 않았는데도(advance 없음) 이미 만료
+      // 화면이어야 한다 — 마운트 시 해시를 즉시 판정하기 때문이다.
+      expect(screen.getByText("링크가 만료됐어요")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
