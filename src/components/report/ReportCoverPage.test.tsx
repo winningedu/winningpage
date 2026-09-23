@@ -71,4 +71,29 @@ describe("ReportCoverPage", () => {
 
     expect(screen.getByText("목표 컴퓨터공학과")).toBeInTheDocument();
   });
+
+  it("dateLabel이 없으면 렌더하지 않는다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    expect(screen.queryByText("2026.09.10")).not.toBeInTheDocument();
+  });
+
+  it("dateLabel이 있으면 렌더한다", () => {
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        dateLabel="2026.09.10"
+      />,
+    );
+
+    expect(screen.getByText("2026.09.10")).toBeInTheDocument();
+  });
+
+  it("사이트 로고를 site.brandName을 alt로 렌더한다", () => {
+    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+
+    const logo = screen.getByAltText("위닝에듀");
+    expect(logo).toHaveAttribute("src", "/images/winning-logo-horizontal.svg");
+  });
 });

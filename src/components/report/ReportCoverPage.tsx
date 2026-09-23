@@ -8,6 +8,8 @@
 //
 // 값이 없는 항목은 렌더하지 않는다(폴백 상수 금지 — no-fallback-constants) — 학생 이름·
 // 목표대학·목표학과·날짜는 전부 선택 prop이고, 없으면 그 줄 자체가 빠진다.
+import { site } from "@/config/site";
+
 export type ReportCoverPageVariant = "a4" | "flow";
 
 export type ReportCoverPageProps = {
@@ -27,6 +29,7 @@ export default function ReportCoverPage({
   studentName,
   targetMajor,
   targetUniversity,
+  dateLabel,
 }: ReportCoverPageProps) {
   const targetLine = [targetUniversity, targetMajor]
     .filter((value): value is string => Boolean(value))
@@ -38,6 +41,8 @@ export default function ReportCoverPage({
       <p>{title}</p>
       {targetLine && <p>목표 {targetLine}</p>}
       {studentName && <p>{studentName} 학생</p>}
+      {dateLabel && <p>{dateLabel}</p>}
+      <img src={site.logo.horizontal} alt={site.brandName} />
     </section>
   );
 }
