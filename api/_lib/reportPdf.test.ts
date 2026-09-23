@@ -84,6 +84,14 @@ describe("sanitizePrintHtml", () => {
     const html = '<body><frame src="evil.html"><p>본문</p></body>';
     expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
   });
+
+  it('<link rel="import">는 제거하지만 다른 rel의 <link>는 남긴다', () => {
+    const html =
+      '<head><link rel="import" href="x.html"><link rel="stylesheet" href="y.css"></head>';
+    expect(sanitizePrintHtml(html)).toBe(
+      '<head><link rel="stylesheet" href="y.css"></head>',
+    );
+  });
 });
 
 describe("isAllowedBaseUrl", () => {

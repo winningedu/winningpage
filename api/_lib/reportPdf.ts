@@ -41,6 +41,11 @@ const FRAMESET_TAG_RE = /<frameset\b[^>]*>[\s\S]*?<\/frameset\s*>/gi;
 // 잔여물)도 void 요소로 취급해 여는 태그를 제거한다.
 const FRAME_TAG_RE = /<frame\b[^>]*>/gi;
 
+// HTML Imports(<link rel="import">)는 폐기된 스펙이지만 일부 구형 Chromium
+// 빌드가 여전히 지원해 외부 문서를 끼워 넣을 수 있다 — rel="import" 속성이
+// 있는 <link>만 골라 제거하고, rel="stylesheet" 등 다른 <link>는 남긴다.
+const LINK_IMPORT_TAG_RE = /<link\b(?=[^>]*\brel\s*=\s*["']?import\b)[^>]*>/gi;
+
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
@@ -50,7 +55,8 @@ export function sanitizePrintHtml(html: string): string {
     .replace(OBJECT_TAG_RE, "")
     .replace(EMBED_TAG_RE, "")
     .replace(FRAMESET_TAG_RE, "")
-    .replace(FRAME_TAG_RE, "");
+    .replace(FRAME_TAG_RE, "")
+    .replace(LINK_IMPORT_TAG_RE, "");
 }
 
 // baseUrl 허용 목록 — puppeteer의 요청 인터셉션이 이 오리진(+ data:) 외 요청을
