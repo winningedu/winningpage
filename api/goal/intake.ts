@@ -1108,6 +1108,51 @@ export function buildWeeklySchedule({
   });
 }
 
+/**
+ * 학습방향 리포트(내신·정시 각 1건, source_type='intake', source_label='내 현재 위치')를
+ * 다시 만들어 저장한다. (profile_id, kind, source_type, source_label) 동일 키로 upsert
+ * 하므로(saveGoalDirectionReport JSDoc) "새 행 추가"가 아니라 "현재 위치" 스냅샷 자체를
+ * 덮어쓴다 — 온보딩(이 파일의 handler)뿐 아니라 내 정보 수정 부분 업데이트
+ * (api/goal/intake-update.ts)도 저장된 값(목표 대학·내신·모의고사 중 무엇을 고쳤든)이
+ * 바뀌면 이 함수를 그대로 호출해 "학습 data 반영이 새롭게 적용됩니다" 문구를 실제로
+ * 지킨다 — 재구현 금지.
+ */
+export async function regenerateDirectionReports(
+  supabaseAdmin: SupabaseClient,
+  profileId: string,
+  savedRow: {
+    grade: string | null;
+    naesin_scores: unknown;
+    mock_exam_scores: unknown;
+    converted_grade: number | null;
+    current_mogo: number | null;
+  },
+): Promise<void> {
+  for (const kind of ["naesin", "jungsi"] as const) {
+    const legacyEntry =
+      kind === "naesin"
+        ? { value: savedRow.converted_grade }
+        : { value: savedRow.current_mogo };
+    const { payload, snapshot } = buildGoalDirectionReport({
+      kind,
+      sourceType: "intake",
+      sourceLabel: "내 현재 위치",
+      grade: savedRow.grade,
+      naesinScores: savedRow.naesin_scores,
+      mockExamScores: savedRow.mock_exam_scores,
+      legacyEntry,
+      gradePercentile: GRADE_PERCENTILE,
+    });
+    await saveGoalDirectionReport(supabaseAdmin, profileId, {
+      kind,
+      sourceType: "intake",
+      sourceLabel: "내 현재 위치",
+      payload,
+      snapshot,
+    });
+  }
+}
+
 export type EngineDerivedInput = {
   /** SCHOOL_TYPE_MAP을 거친 라벨("일반고"/"특목고") — 코드값이 아니다. */
   schoolType: string;
@@ -1405,35 +1450,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "intake",
     );
 
-    // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트(내신·정시 각 1건, source_type=
-    //       'intake', source_label='내 현재 위치')를 생성해 저장한다. naesin_scores/
-    //       mock_exam_scores는 savedRow 그대로 넘겨 새 shape(groupAverages/rounds,
-    //       병렬 유닛 소유)이 이미 반영돼 있으면 우선 쓰고, 아니면 이 지점에서
-    //       파이프라인이 막 계산한 대표값(converted_grade/current_mogo)으로
-    //       폴백한다(report.ts ensureDirectionReports의 fallback과 동일 값 소스).
-    for (const kind of ["naesin", "jungsi"] as const) {
-      const legacyEntry =
-        kind === "naesin"
-          ? { value: savedRow.converted_grade }
-          : { value: savedRow.current_mogo };
-      const { payload, snapshot } = buildGoalDirectionReport({
-        kind,
-        sourceType: "intake",
-        sourceLabel: "내 현재 위치",
-        grade: savedRow.grade,
-        naesinScores: savedRow.naesin_scores,
-        mockExamScores: savedRow.mock_exam_scores,
-        legacyEntry,
-        gradePercentile: GRADE_PERCENTILE,
-      });
-      await saveGoalDirectionReport(supabaseAdmin, profileId, {
-        kind,
-        sourceType: "intake",
-        sourceLabel: "내 현재 위치",
-        payload,
-        snapshot,
-      });
-    }
+    // 11-b) QA 행301(a) — 온보딩 최초 학습방향 리포트. naesin_scores/mock_exam_scores는
+    //       savedRow 그대로 넘겨 새 shape(groupAverages/rounds, 병렬 유닛 소유)이 이미
+    //       반영돼 있으면 우선 쓰고, 아니면 이 지점에서 파이프라인이 막 계산한 대표값
+    //       (converted_grade/current_mogo)으로 폴백한다(report.ts ensureDirectionReports의
+    //       fallback과 동일 값 소스). 실제 조립·저장은 regenerateDirectionReports로
+    //       뗐다 — 내 정보 수정 부분 업데이트와 공유한다(그 함수 JSDoc 참고).
+    await regenerateDirectionReports(supabaseAdmin, profileId, savedRow);
 
     // 12) 응답 — GET /api/goal/student 와 완전히 같은 본문을 담는다.
     //     뷰를 다시 읽는 이유는 두 엔드포인트가 같은 조립 경로를 타게 하기 위해서다
