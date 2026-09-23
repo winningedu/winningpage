@@ -151,6 +151,39 @@ export const RENDER_CONCURRENCY_LIMIT = 2;
 // 않는다.
 export const RENDER_QUEUE_TIMEOUT_MS = 20_000;
 
+// 사용자별(요청 body의 인증된 userId 기준) 인메모리 슬라이딩 윈도우 속도 제한 —
+// 인스턴스 로컬이라 인스턴스가 여러 개면 한도가 인스턴스 수만큼 느슨해질 수
+// 있지만, 한 인스턴스가 무한정 렌더를 받는 남용을 막는 1차 방어선이다.
+export interface RateLimiter {
+  /** 이번 요청을 허용하면 true를 반환하고 창에 기록한다. 초과면 false. */
+  tryConsume(key: string, now: number): boolean;
+}
+
+export function createSlidingWindowRateLimiter(
+  maxRequests: number,
+  windowMs: number,
+): RateLimiter {
+  const hitsByKey = new Map<string, number[]>();
+
+  return {
+    tryConsume(key: string, now: number): boolean {
+      const windowStart = now - windowMs;
+      const recent = (hitsByKey.get(key) ?? []).filter(
+        (timestamp) => timestamp > windowStart,
+      );
+
+      if (recent.length >= maxRequests) {
+        hitsByKey.set(key, recent);
+        return false;
+      }
+
+      recent.push(now);
+      hitsByKey.set(key, recent);
+      return true;
+    },
+  };
+}
+
 /** 큐 대기가 이 시간을 넘으면 acquireWithTimeout이 RenderQueueTimeoutError로
  * 거부한다 — reportPdfRender.ts가 503으로 변환한다. */
 export class RenderQueueTimeoutError extends Error {

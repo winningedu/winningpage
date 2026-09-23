@@ -6,6 +6,7 @@ import {
   acquireWithTimeout,
   buildContentDispositionHeader,
   createSemaphore,
+  createSlidingWindowRateLimiter,
   DEFAULT_CHROMIUM_PACK_URL,
   DEFAULT_LOCAL_CHROME_PATH,
   isAllowedBaseUrl,
@@ -258,5 +259,14 @@ describe("렌더 동시성 설정값", () => {
   it("동시 렌더 한도는 2, 대기 타임아웃은 20초다", () => {
     expect(RENDER_CONCURRENCY_LIMIT).toBe(2);
     expect(RENDER_QUEUE_TIMEOUT_MS).toBe(20_000);
+  });
+});
+
+describe("createSlidingWindowRateLimiter", () => {
+  it("윈도우 내 한도 이하 요청은 전부 허용한다", () => {
+    const limiter = createSlidingWindowRateLimiter(5, 60_000);
+    for (let i = 0; i < 5; i++) {
+      expect(limiter.tryConsume("user-1", 1000 * i)).toBe(true);
+    }
   });
 });
