@@ -79,6 +79,11 @@ describe("sanitizePrintHtml", () => {
       '<html><frameset><frame src="evil.html"></frameset><p>본문</p></html>';
     expect(sanitizePrintHtml(html)).toBe("<html><p>본문</p></html>");
   });
+
+  it("frameset 밖에 홀로 있는 <frame> 태그도 제거한다", () => {
+    const html = '<body><frame src="evil.html"><p>본문</p></body>';
+    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+  });
 });
 
 describe("isAllowedBaseUrl", () => {
