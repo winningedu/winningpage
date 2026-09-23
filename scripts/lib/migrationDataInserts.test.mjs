@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { checkMigrationFile, findInserts } from "./migrationDataInserts.mjs";
 
@@ -133,5 +136,66 @@ describe("checkMigrationFile", () => {
     });
 
     expect(result).toEqual({ skipped: false, violations: ["products"] });
+  });
+});
+
+// 실제 저장소 회귀 테스트 — 컷오프를 0으로 낮춰 supabase/migrations/ 전체를
+// 돌려본 실측 스냅샷. 새 파일이 추가돼 이 목록이 늘어나는 건 정상(그 파일이
+// 참조 데이터 밖에 insert했다는 뜻이므로 실제로 고쳐야 한다). 목록이
+// 줄어드는 것도 정상(그 위반이 해소됨). 어느 쪽이든 스냅샷을 실측으로
+// 갱신하기 전에 왜 바뀌었는지 먼저 확인할 것.
+describe("실제 저장소 회귀", () => {
+  const migrationsDir = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "supabase",
+    "migrations",
+  );
+
+  function checkAll(cutoff) {
+    const files = readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+    const violationsByFile = {};
+    let checked = 0;
+    let skipped = 0;
+    for (const file of files) {
+      const sql = readFileSync(join(migrationsDir, file), "utf8");
+      const result = checkMigrationFile(file, sql, { cutoff });
+      if (result.skipped) {
+        skipped++;
+        continue;
+      }
+      checked++;
+      if (result.violations.length > 0) {
+        violationsByFile[file] = result.violations;
+      }
+    }
+    return { violationsByFile, checked, skipped };
+  }
+
+  it("기본 컷오프로는 위반이 0건이다(도입 이전 파일은 전부 제외)", () => {
+    const { violationsByFile } = checkAll(undefined);
+
+    expect(violationsByFile).toEqual({});
+  });
+
+  it("컷오프를 0으로 낮추면 현재 저장소의 위반 파일이 실측 스냅샷과 같다", () => {
+    const { violationsByFile } = checkAll("00000000000000");
+
+    expect(violationsByFile).toEqual({
+      "20260821000001_storage.sql": ["storage.buckets"],
+      "20260821000004_products_pricing_20260806.sql": ["products"],
+      "20260822000010_admin_permissions.sql": ["admin_members"],
+      "20260824000001_university_acceptances_graduate_track.sql": [
+        "university_acceptances",
+      ],
+      "20260825000020_terms_content_to_db.sql": ["terms"],
+      "20260829102136_terms_ver10_refund_clauses.sql": ["terms"],
+      "20260831035903_terms_ver11_consent_v4_docs.sql": ["terms"],
+      "20260901050445_busan_9900_bundle_seed.sql": ["products", "bundle_items"],
+      "20260922002935_tenant_id_columns_backfill.sql": ["tenants"],
+    });
   });
 });
