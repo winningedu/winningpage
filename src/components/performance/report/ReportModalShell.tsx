@@ -126,7 +126,11 @@ export default function ReportModalShell({
   // 응답하는 경로로 대신 보낸다.
   const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
   const print = () => {
-    if (!shouldUseServerPdf(window.navigator.userAgent)) {
+    // documentTitle 없으면 서버 PDF 경로를 타지 않는다 — api/report-pdf.ts 응답의
+    // 파일명(Content-Disposition)이 필수라 폴백 문자열("리포트")로 채워 보내면 모든
+    // 리포트가 같은 이름으로 저장된다. 이 경우 UA와 무관하게 기존 react-to-print
+    // 경로로 둔다(호출부가 documentTitle을 반드시 넘기게 하는 계약은 위 주석 참고).
+    if (!shouldUseServerPdf(window.navigator.userAgent) || !documentTitle) {
       reactToPrint();
       return;
     }
@@ -136,7 +140,7 @@ export default function ReportModalShell({
     window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
 
     const root = contentRef.current;
-    const fileName = documentTitle ?? "리포트";
+    const fileName = documentTitle;
     void (async () => {
       const accessToken = await getReportAccessToken();
       if (!accessToken) return;
@@ -181,8 +185,8 @@ export default function ReportModalShell({
             빠진다. `display: contents`라 패널의 flex 레이아웃(헤더/본문/푸터 순서)에는
             영향을 주지 않는다. */}
         <div ref={contentRef} className="contents">
-          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다(팀장
-              지시 "print:block hidden 류"). variant="flow"의 인쇄 전용 규칙이 한
+          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다
+              ("print:block hidden 류" 결정). variant="flow"의 인쇄 전용 규칙이 한
               페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
               페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
               없어 targetMajor/targetUniversity는 넘기지 않는다. */}

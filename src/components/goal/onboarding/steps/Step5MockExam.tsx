@@ -14,7 +14,7 @@ import {
 } from "@/context/GoalOnboardingContext";
 import { getPercentileChips } from "@/lib/goal/calc/index.js";
 
-// QA 행291 재설계 — qa3-held-high-design.md §3 / 팀장 지시. 원본(target 앱 IntakeForm.tsx)은
+// QA 행291 재설계 — qa3-held-high-design.md §3. 원본(target 앱 IntakeForm.tsx)은
 // "마지막으로 본 모의고사 1개 선택(학년별 시퀀스, 고3은 5・7모 포함 6회) + 최근 3회차 ×
 // 국/수/영/탐구1/탐구2 등급 + 백분위 칩(컷/안정/최고) + 탐구 트랙(과탐/사탐)"이었다. 우리 구
 // 5단계(고정 4회차 × 등급만, 밴드 중앙값 추정)를 그 구조로 교체한다.

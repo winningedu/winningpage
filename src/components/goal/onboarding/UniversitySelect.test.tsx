@@ -1,4 +1,4 @@
-// OverlayScrollbars cascade-layer 버그(팀장 지시) — src/index.css가 overlayscrollbars.css를
+// OverlayScrollbars cascade-layer 버그 — src/index.css가 overlayscrollbars.css를
 // @layer 없이 import해 `[data-overlayscrollbars]{position:relative}`가 Tailwind v4
 // @layer utilities의 absolute를 항상 이긴다(unlayered > layered). ScrollArea 루트에
 // 직접 absolute 포지셔닝을 걸면 무시되고 목록이 정상 흐름에 남아 아래로 밀린다 —

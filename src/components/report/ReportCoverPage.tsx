@@ -130,10 +130,11 @@ export default function ReportCoverPage({
         <CoverIllustration />
       </div>
 
-      {/* report-print.css 의 전역 규칙(`@media print { header, footer { display: none
-          !important } }`, SiteLayout 헤더·푸터 인쇄 제거용)이 태그 셀렉터라 리터럴
-          <footer> 요소를 전부 잡는다(QA t11 실측 — 표지 푸터가 인쇄에서 안 보임). 그
-          전역 파일은 이 컴포넌트의 수정 범위 밖이라 여기서 <div>로 피해 간다. */}
+      {/* 2026-09-23 QA 행72로 SiteLayout 헤더·푸터 인쇄 숨김 규칙이 `#root > header,
+          #root > footer`로 좁혀져(DiagnosisReportView.tsx의 DIAGNOSIS_REPORT_PAGE_RULE)
+          더 이상 태그 셀렉터로 문서 전체의 <footer>를 잡지 않는다. 이 표지의 푸터는
+          #root의 직계 자식이 아니라 그 규칙에 걸리지 않지만, <div>는 그대로 둔다(굳이
+          <footer>로 되돌릴 이유가 없다). */}
       {/* 모바일 폭(320px급)에서는 로고와 텍스트를 나란히 두면 텍스트 컬럼이 shrink되며
           글자 단위로 줄바꿈됐다(QA t11 실측, m-growth.png) — 기본은 세로로 쌓고
           sm 이상에서만 가로 정렬로 돌아간다. 텍스트 줄에는 whitespace-nowrap을 걸어

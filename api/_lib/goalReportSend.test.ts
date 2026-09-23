@@ -313,7 +313,9 @@ describe("sendDailyReport — 발송(DB 조회 없이 입력만 사용)", () => 
     );
 
     expect(sendAndLogMock).toHaveBeenCalledTimes(1);
-    const call = sendAndLogMock.mock.calls[0]![0];
+    const args = sendAndLogMock.mock.calls[0];
+    if (!args) throw new Error("sendAndLog가 호출되지 않았어요.");
+    const call = args[0];
     expect(call.dedupeKey).toBe(
       "dailyReport:parent-1:student-1:2026-09-10:resend:1000",
     );
@@ -396,7 +398,9 @@ describe("sendWeeklyReport — 발송(DB 조회 없이 입력만 사용)", () =>
     });
 
     expect(sendAndLogMock).toHaveBeenCalledTimes(1);
-    const call = sendAndLogMock.mock.calls[0]![0];
+    const args = sendAndLogMock.mock.calls[0];
+    if (!args) throw new Error("sendAndLog가 호출되지 않았어요.");
+    const call = args[0];
     expect(call.dedupeKey).toBe("weeklyReport:parent-1:student-1:2026-09-07");
     expect(call.templateKey).toBe("weeklyReport");
     expect(call.variables.reportId).toBe("2026-09-07_student-1");
@@ -468,7 +472,9 @@ describe("sendMonthlyReport — 발송(DB 조회 없이 입력만 사용)", () =
     });
 
     expect(sendAndLogMock).toHaveBeenCalledTimes(1);
-    const call = sendAndLogMock.mock.calls[0]![0];
+    const args = sendAndLogMock.mock.calls[0];
+    if (!args) throw new Error("sendAndLog가 호출되지 않았어요.");
+    const call = args[0];
     expect(call.dedupeKey).toBe("monthlyReport:parent-1:student-1:2026-08");
     expect(call.templateKey).toBe("monthlyReport");
     expect(call.variables.reportId).toBe("2026-08_student-1");

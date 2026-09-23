@@ -14,7 +14,7 @@ import {
   useGoalOnboarding,
 } from "@/context/GoalOnboardingContext";
 
-// QA 행290 재설계 — qa3-held-high-design.md §2 / 팀장 지시. 원본(target 앱 IntakeForm.tsx)
+// QA 행290 재설계 — qa3-held-high-design.md §2. 원본(target 앱 IntakeForm.tsx)
 // 은 "마지막으로 본 시험 1개 선택 + 그 시험까지의 전체 평균 등급 + 최근 3시험 × 6과목군
 // 편집기"였다. 우리 구 4단계(고정 4회차 × 단일 등급 체크박스)를 그 구조로 교체한다.
 //

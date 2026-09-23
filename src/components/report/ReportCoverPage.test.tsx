@@ -151,10 +151,9 @@ describe("ReportCoverPage", () => {
   });
 
   it("표지 푸터는 report-print.css의 전역 footer 태그 인쇄 숨김 규칙에 걸리지 않는다", () => {
-    // report-print.css `@media print { header, footer { display: none !important } }`는
-    // SiteLayout 헤더·푸터를 지우려는 규칙인데 태그 셀렉터라 리터럴 <footer> 요소를 전부
-    // 잡는다. 실측(QA t11)에서 표지 푸터가 인쇄에서 완전히 안 보였다 — <footer> 대신
-    // 다른 태그를 써서 이 전역 셀렉터를 피한다.
+    // 2026-09-23 QA 행72로 SiteLayout 헤더·푸터 인쇄 숨김 규칙이 `#root > header,
+    // #root > footer`(DiagnosisReportView.tsx)로 좁혀져 더 이상 문서 전체의 <footer>를
+    // 잡지 않는다. 이 테스트는 회귀 방지용으로 남긴다 — <footer> 대신 <div>를 계속 쓴다.
     const { container } = render(
       <ReportCoverPage
         serviceLabel="학습진단"

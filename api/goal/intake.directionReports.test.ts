@@ -1,5 +1,5 @@
-// regenerateDirectionReports 회귀 테스트 — 팀장 지시(고객사 문구 "목표대학을 변경하면
-// 기존의 학습 data 반영이 새롭게 적용됩니다"). 온보딩(intake.ts)과 내 정보 수정 부분
+// regenerateDirectionReports 회귀 테스트 — 고객사 문구("목표대학을 변경하면
+// 기존의 학습 data 반영이 새롭게 적용됩니다") 근거. 온보딩(intake.ts)과 내 정보 수정 부분
 // 업데이트(intake-update.ts) 둘 다 이 함수를 공유하므로, 저장 호출 계약(naesin·jungsi
 // 각 1건, source_type='intake', source_label='내 현재 위치')만 여기서 고정한다. 실제
 // DB I/O(saveGoalDirectionReport 내부)는 로컬 스택 QA 몫이라 그 함수만 mock한다.

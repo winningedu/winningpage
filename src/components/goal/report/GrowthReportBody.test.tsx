@@ -7,6 +7,15 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
 
+/** heading을 아예 생략한(=undefined 아님, 키 자체가 없는) 리포트. exactOptionalPropertyTypes
+ * 때문에 `makeReport({ heading: undefined })`는 쓸 수 없다 — 키를 지워서 만든다. */
+function makeReportWithoutHeading(
+  overrides: Partial<Omit<GrowthReport, "heading">> = {},
+): GrowthReport {
+  const { heading: _heading, ...rest } = makeReport(overrides);
+  return rest;
+}
+
 function makeReport(overrides: Partial<GrowthReport> = {}): GrowthReport {
   return {
     heading: "주간 성장 리포트",
@@ -72,5 +81,32 @@ describe("GrowthReportBody — 표지", () => {
     const cover = screen.getByLabelText(/리포트 표지/);
     expect(cover).toHaveTextContent("김민준 학생");
     expect(cover).toHaveTextContent("서울대학교 컴퓨터공학과");
+  });
+
+  // QA — heading이 없을 때 빈 문자열 폴백("")을 표지 title로 넘기면 빈 <h1>이
+  // 그대로 DOM에 남는다(스크린리더에 내용 없는 제목으로 읽힌다). 데이터가 없으면
+  // 렌더하지 않는다.
+  it("heading이 없으면 표지 자체를 렌더하지 않는다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReportWithoutHeading()}
+      />,
+    );
+
+    expect(screen.queryByLabelText(/리포트 표지/)).not.toBeInTheDocument();
+  });
+
+  it("heading이 없으면 본문 h1도 렌더하지 않는다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReportWithoutHeading()}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 });

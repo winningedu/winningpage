@@ -27,11 +27,31 @@ const PDF_TITLE_RESTORE_FALLBACK_MS = 5000;
 // margin:0이 새는 원인이었다. 이 컴포넌트가 마운트된 동안에만 문서에 존재하는 <style>로
 // 옮겨, 언마운트 시 React가 자동으로 걷어가게 한다(size/margin 0은 A4 풀블리드 설계라
 // 이 리포트에만 필요하다).
+//
+// html font-size:3mm(rem 균등 축소 트릭 — 70rem 시트 → 210mm A4 폭)도 같은 이유로
+// 이 <style>에 함께 둔다. 이 값 역시 body 전체에 걸리는 태그 셀렉터라 report-print.css의
+// 전역 번들에 있으면, 같은 SPA 세션에서 학습진단 리포트를 한 번 연 뒤 성장·수행평가
+// 리포트를 인쇄할 때 rem이 71%로 축소되는 사고가 난다.
+//
+// SiteLayout의 헤더·푸터(항상 #root의 직계 자식 — SiteLayout·RootLayout이 둘 다 Fragment라
+// DOM에 별도 래퍼를 두지 않는다)를 인쇄에서 숨기는 규칙도 여기로 옮긴다. 기존
+// report-print.css의 `header, footer` 태그 셀렉터는 SiteLayout 밖 화면(목표관리
+// GoalPageHeader 등 중첩된 시맨틱 <header>)까지 전부 잡는 과대 셀렉터였다 — `#root >`로
+// 좁혀 SiteLayout이 실제로 렌더하는 두 요소만 겨냥한다.
 const DIAGNOSIS_REPORT_PAGE_RULE = `
   @media print {
     @page {
       size: A4 portrait;
       margin: 0;
+    }
+
+    html {
+      font-size: 3mm !important; /* 70rem 시트 → 210mm(A4 폭) */
+    }
+
+    #root > header,
+    #root > footer {
+      display: none !important; /* SiteLayout 의 Header(fixed)·SiteFooter */
     }
   }
 `;
@@ -162,8 +182,8 @@ export default function DiagnosisReportView({
         {/* 표지(QA 2차 시트 행37·51) — 화면·인쇄 모두 첫 시트다. 페이지 번호를 갖지
             않는다 — ReportSheetA4를 쓰지 않아 "N페이지 / 총페이지" 표기 자체가 없고,
             시트1·2의 표기(1페이지/2페이지 등)도 이 표지를 세지 않은 종전 값 그대로
-            유지한다(팀장 지시 "기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게
-            안정적인 번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
+            유지한다("기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게 안정적인
+            번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
             치수를 그대로 쓰고, `.fd-report-sheet + .fd-report-sheet` 인접 형제 규칙이
             표지→1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 목표
             대학은 이 리포트 데이터에 없어(학습진단은 희망 진로/학과만 수집) 전달하지

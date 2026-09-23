@@ -31,6 +31,7 @@ import {
 } from "../../../src/lib/goal/calc/index.js";
 import {
   dailyReportDispatchYmd,
+  dispatchAtKst,
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
@@ -63,12 +64,17 @@ export type ResendPeriodValidation =
  * kind·periodKey 형식 + "2주 이내(자동 발송일 기준)" 규칙을 검증한다. DB를
  * 보지 않는 순수 함수라 로컬에서 바로 단언할 수 있다(resend-report.test.ts).
  *
- * @param todayYmd 기준 "오늘"(KST). 생략하면 실제 오늘.
+ * QA — "오늘 날짜"(YMD)만 보고 판정하면 당일 발송 시각(daily 22:00·weekly
+ * 08:00·monthly 23:00, 전부 KST) 전에도 재발송이 통과해 크론 자동 발송과
+ * 겹쳐 학부모가 2통을 받는다. now는 날짜가 아니라 실제 "지금 시각"이어야
+ * dispatchAtKst와 시·분까지 비교할 수 있다.
+ *
+ * @param now 기준 "지금"(실제 시각). 생략하면 실제 지금.
  */
 export function validateResendPeriod(
   kind: unknown,
   periodKey: unknown,
-  todayYmd: string = kstYMD(),
+  now: Date = new Date(),
 ): ResendPeriodValidation {
   if (kind !== "daily" && kind !== "weekly" && kind !== "monthly") {
     return { ok: false, detail: "kind가 올바르지 않습니다." };
@@ -120,10 +126,14 @@ export function validateResendPeriod(
     }
   }
 
-  const diff = diffDaysYMD(dispatchYmd, todayYmd);
-  if (diff < 0) {
+  // 날짜만 비교하는 diff와 별개로, 발송 "시각"(시·분)까지 지났는지를 우선 본다 —
+  // 당일(diff===0)이어도 그 시각 전이면 아직 자동 발송이 일어나지 않은 상태다.
+  if (now.getTime() < dispatchAtKst(kind, periodKey).getTime()) {
     return { ok: false, detail: "아직 발송 시점이 지나지 않은 기간입니다." };
   }
+
+  const todayYmd = kstYMD(now);
+  const diff = diffDaysYMD(dispatchYmd, todayYmd);
   if (diff > MAX_RESEND_DAYS_AGO) {
     return { ok: false, detail: "2주 이내 기간만 다시 보낼 수 있습니다." };
   }

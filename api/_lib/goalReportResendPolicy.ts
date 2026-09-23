@@ -45,3 +45,41 @@ export function monthlyReportDispatchYmd(monthKey: string): string {
   // 다음 달 1일에서 하루를 빼면 이번 달 마지막 날.
   return addDaysYMD(nextMonthStart, -1);
 }
+
+// QA — *DispatchYmd 함수들은 "날짜"까지만 알려준다. 재발송 검증(resend-report.ts)이
+// 이 날짜만 보고 "오늘 = 발송일이면 통과"로 판정하면, 크론이 실제로 도는
+// 시각(daily 22:00 · weekly 08:00 · monthly 23:00, 전부 KST) 전에도 재발송을
+// 허용해 버린다 — 관리자가 재발송한 직후 크론이 또 자동 발송해 학부모가 2통을
+// 받는 사고로 이어진다. dispatchAtKst는 그 시·분까지 포함한 발송 "시각" 하나를
+// UTC Date로 돌려준다.
+const DISPATCH_TIME_KST: Record<
+  "daily" | "weekly" | "monthly",
+  { hour: number; minute: number }
+> = {
+  daily: { hour: 22, minute: 0 },
+  weekly: { hour: 8, minute: 0 },
+  monthly: { hour: 23, minute: 0 },
+};
+
+/**
+ * kind별 원본 periodKey(daily=날짜 자신, weekly=weekStart, monthly=monthKey)의
+ * 자동 발송 시각을 KST 시·분까지 반영해 UTC Date로 변환한다.
+ *
+ * KST = UTC+9라 UTC 시는 KST 시에서 9를 뺀 값이다. Date.UTC는 그 값이 음수여도
+ * (예: 08:00 KST → -1시) 알아서 전날로 굴려준다 — weekly가 그 경우다.
+ */
+export function dispatchAtKst(
+  kind: "daily" | "weekly" | "monthly",
+  periodKey: string,
+): Date {
+  const dispatchYmd =
+    kind === "daily"
+      ? dailyReportDispatchYmd(periodKey)
+      : kind === "weekly"
+        ? weeklyReportDispatchYmd(periodKey)
+        : monthlyReportDispatchYmd(periodKey);
+
+  const [year, month, day] = dispatchYmd.split("-").map(Number);
+  const { hour, minute } = DISPATCH_TIME_KST[kind];
+  return new Date(Date.UTC(year!, month! - 1, day!, hour - 9, minute, 0));
+}
