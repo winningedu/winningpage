@@ -12,6 +12,7 @@ import {
   isHtmlTooLarge,
   isServerlessRuntime,
   MAX_HTML_BYTES,
+  RenderQueueTimeoutError,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
   sanitizeFileName,
@@ -200,5 +201,22 @@ describe("acquireWithTimeout", () => {
     const release = await acquireWithTimeout(semaphore, 20_000);
     expect(typeof release).toBe("function");
     release();
+  });
+
+  it("대기가 timeoutMs를 넘으면 RenderQueueTimeoutError로 거부한다", async () => {
+    vi.useFakeTimers();
+    try {
+      const semaphore = createSemaphore(1);
+      await semaphore.acquire(); // 유일한 슬롯을 점유해 release하지 않는다.
+
+      const pending = acquireWithTimeout(semaphore, 20_000);
+      const assertion = expect(pending).rejects.toBeInstanceOf(
+        RenderQueueTimeoutError,
+      );
+      await vi.advanceTimersByTimeAsync(20_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
