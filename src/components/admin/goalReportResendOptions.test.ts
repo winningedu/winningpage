@@ -1,113 +1,76 @@
+// api/goal/admin/resend-report.test.ts 와 같은 기준일 규칙(기간 시작이 아니라
+// 그 기간의 자동 발송일)로 후보를 고른다 — TODAY=2026-09-23(수)를 기본으로 쓴다.
+
 import { describe, expect, test } from "vitest";
 import {
-  formatDailyResendOptionLabel,
-  formatMonthlyResendOptionLabel,
-  formatResendOptionLabel,
-  formatWeeklyResendOptionLabel,
   listDailyResendCandidates,
   listMonthlyResendCandidates,
   listResendCandidates,
   listWeeklyResendCandidates,
 } from "./goalReportResendOptions";
 
+const TODAY = "2026-09-23";
+
 describe("listDailyResendCandidates", () => {
-  test("오늘부터 13일 전까지 최근순 14개를 돌려준다", () => {
-    const result = listDailyResendCandidates("2026-09-23");
+  test("오늘부터 13일 전까지 최근순 14개, 라벨은 오늘/어제/N일 전", () => {
+    const result = listDailyResendCandidates(TODAY);
     expect(result).toHaveLength(14);
-    expect(result[0]).toBe("2026-09-23");
-    expect(result[13]).toBe("2026-09-10");
+    expect(result[0]).toEqual({ periodKey: "2026-09-23", label: "오늘" });
+    expect(result[1]).toEqual({ periodKey: "2026-09-22", label: "어제" });
+    expect(result[2]).toEqual({ periodKey: "2026-09-21", label: "2일 전" });
+    expect(result[13]).toEqual({ periodKey: "2026-09-10", label: "13일 전" });
   });
 });
 
 describe("listWeeklyResendCandidates", () => {
-  test("주 중반(수요일)이면 이번 주·지난 주 월요일 2개만 남는다", () => {
-    // 2026-09-23은 수요일. 이번 주 월요일 09-21, 지난 주 09-14는 diff 9일로
-    // 통과하지만 그 전 주 09-07은 diff 16일이라 걸러진다.
-    const result = listWeeklyResendCandidates("2026-09-23");
-    expect(result).toEqual(["2026-09-21", "2026-09-14"]);
+  test("이번 주는 발송일(다음 월요일)이 미래라 후보에 없다 — 지난 주부터 시작", () => {
+    // 2026-09-23(수)의 이번 주 월요일은 09-21이지만, 그 주 발송일(09-28)은
+    // 아직 미래라 후보에 없다.
+    const result = listWeeklyResendCandidates(TODAY);
+    expect(result).toEqual([
+      { periodKey: "2026-09-14", label: "지난 주" },
+      { periodKey: "2026-09-07", label: "전전 주" },
+    ]);
   });
 
-  test("오늘이 월요일이면 3주 전 월요일까지 3개가 남는다", () => {
-    // 2026-09-21은 월요일. diff: 0, 7, 14 — 셋 다 14 이내.
+  test("오늘이 월요일이면 발송일이 이미 지난 주가 3개까지 늘어난다", () => {
+    // 2026-09-21(월) 기준 3주 전(08-31) 발송일(09-07)까지의 diff가 정확히 14.
     const result = listWeeklyResendCandidates("2026-09-21");
-    expect(result).toEqual(["2026-09-21", "2026-09-14", "2026-09-07"]);
+    expect(result).toEqual([
+      { periodKey: "2026-09-14", label: "지난 주" },
+      { periodKey: "2026-09-07", label: "전전 주" },
+      { periodKey: "2026-08-31", label: "3주 전" },
+    ]);
   });
 });
 
 describe("listMonthlyResendCandidates", () => {
-  test("달 초(14일 이내)면 이번 달·지난 달이 모두 남는다", () => {
-    // 2026-09-10 기준 이번 달(09-01) diff=9, 지난 달(08-01) diff=40 → 지난 달은 걸러짐
+  test("달 초(1~14일경)면 지난 달만 후보로 남는다 — 이번 달은 아직 발송 전", () => {
     const result = listMonthlyResendCandidates("2026-09-10");
-    expect(result).toEqual(["2026-09"]);
+    expect(result).toEqual([{ periodKey: "2026-08", label: "지난 달" }]);
   });
 
-  test("달 후반이면 이번 달도 걸러져 후보가 비어 있을 수 있다", () => {
-    // 2026-09-23 기준 이번 달 1일(09-01) diff=22 > 14 → 제외, 지난 달은 더 멀다.
-    const result = listMonthlyResendCandidates("2026-09-23");
+  test("달 후반이면 지난 달 발송일도 14일을 넘겨 후보가 비어 있다", () => {
+    const result = listMonthlyResendCandidates(TODAY);
     expect(result).toEqual([]);
   });
 
-  test("월 1일이면 이번 달만 남는다(지난 달은 최소 28일 전이라 항상 걸러진다)", () => {
-    // 지난 달 1일은 오늘(이번 달 1일)로부터 최소 28일 전이라 14일 규칙을 절대
-    // 통과하지 못한다 — "지난 달" 후보가 실제로 남는 경우는 구조상 없다.
-    const result = listMonthlyResendCandidates("2026-09-01");
-    expect(result).toEqual(["2026-09"]);
-  });
-});
-
-describe("formatDailyResendOptionLabel", () => {
-  test("오늘·어제·그 밖은 N일 전으로 표시한다", () => {
-    expect(formatDailyResendOptionLabel("2026-09-23", "2026-09-23")).toBe(
-      "오늘",
-    );
-    expect(formatDailyResendOptionLabel("2026-09-22", "2026-09-23")).toBe(
-      "어제",
-    );
-    expect(formatDailyResendOptionLabel("2026-09-10", "2026-09-23")).toBe(
-      "13일 전",
-    );
-  });
-});
-
-describe("formatWeeklyResendOptionLabel / formatMonthlyResendOptionLabel", () => {
-  test("최근순 인덱스를 이번 주/지난 주/전전 주로 표시한다", () => {
-    expect(formatWeeklyResendOptionLabel(0)).toBe("이번 주");
-    expect(formatWeeklyResendOptionLabel(1)).toBe("지난 주");
-    expect(formatWeeklyResendOptionLabel(2)).toBe("전전 주");
-  });
-
-  test("최근순 인덱스를 이번 달/지난 달로 표시한다", () => {
-    expect(formatMonthlyResendOptionLabel(0)).toBe("이번 달");
-    expect(formatMonthlyResendOptionLabel(1)).toBe("지난 달");
+  test("그 달의 마지막 날이면 '이번 달'이 후보로 뜬다(발송 당일)", () => {
+    const result = listMonthlyResendCandidates("2026-09-30");
+    expect(result).toEqual([{ periodKey: "2026-09", label: "이번 달" }]);
   });
 });
 
 describe("listResendCandidates — kind 분기", () => {
   test("kind별로 대응하는 후보 목록 함수를 그대로 위임한다", () => {
-    const today = "2026-09-23";
-    expect(listResendCandidates("daily", today)).toEqual(
-      listDailyResendCandidates(today),
+    expect(listResendCandidates("daily", TODAY)).toEqual(
+      listDailyResendCandidates(TODAY),
     );
-    expect(listResendCandidates("weekly", today)).toEqual(
-      listWeeklyResendCandidates(today),
+    expect(listResendCandidates("weekly", TODAY)).toEqual(
+      listWeeklyResendCandidates(TODAY),
     );
-    expect(listResendCandidates("monthly", today)).toEqual(
-      listMonthlyResendCandidates(today),
-    );
-  });
-});
-
-describe("formatResendOptionLabel — kind 분기", () => {
-  test("daily는 상대 날짜, weekly/monthly는 인덱스 기준 라벨을 쓴다", () => {
-    const today = "2026-09-23";
-    expect(formatResendOptionLabel("daily", "2026-09-23", 0, today)).toBe(
-      "오늘",
-    );
-    expect(formatResendOptionLabel("weekly", "2026-09-21", 0, today)).toBe(
-      "이번 주",
-    );
-    expect(formatResendOptionLabel("monthly", "2026-09", 0, today)).toBe(
-      "이번 달",
+    expect(listResendCandidates("monthly", TODAY)).toEqual(
+      listMonthlyResendCandidates(TODAY),
     );
   });
 });

@@ -29,7 +29,6 @@ import {
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import {
-  formatResendOptionLabel,
   listResendCandidates,
   type ResendKind,
 } from "./goalReportResendOptions";
@@ -1153,7 +1152,7 @@ function GoalStudentDetail({
     [resendKind],
   );
   const [resendPeriod, setResendPeriod] = useState(
-    () => resendCandidates[0] || "",
+    () => resendCandidates[0]?.periodKey || "",
   );
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -1163,7 +1162,7 @@ function GoalStudentDetail({
 
   // kind가 바뀌면 그 종류의 후보 중 최신 것으로 되돌린다(이전 kind의 periodKey를
   // 그대로 들고 있으면 형식이 안 맞아 서버가 400을 낸다).
-  const firstResendCandidate = resendCandidates[0] || "";
+  const firstResendCandidate = resendCandidates[0]?.periodKey || "";
   useEffect(() => {
     setResendPeriod(firstResendCandidate);
     setResendResult(null);
@@ -2004,10 +2003,12 @@ function GoalStudentDetail({
                 {resendCandidates.length === 0 ? (
                   <option value="">선택 가능한 기간이 없습니다</option>
                 ) : (
-                  resendCandidates.map((periodKey, index) => (
-                    <option key={periodKey} value={periodKey}>
-                      {periodKey} (
-                      {formatResendOptionLabel(resendKind, periodKey, index)})
+                  resendCandidates.map((candidate) => (
+                    <option
+                      key={candidate.periodKey}
+                      value={candidate.periodKey}
+                    >
+                      {candidate.periodKey} ({candidate.label})
                     </option>
                   ))
                 )}
