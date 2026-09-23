@@ -403,6 +403,21 @@ describe("runWithCleanup", () => {
     await expect(runWithCleanup(work, [cleanup])).resolves.toBe("pdf-buffer");
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
+
+  it("work가 throw하면 그 오류가 전파되고, cleanup들은 전부 호출된다", async () => {
+    const workError = new Error("setContent 실패");
+    const work = async () => {
+      throw workError;
+    };
+    const cleanup1 = vi.fn(async () => {});
+    const cleanup2 = vi.fn(async () => {});
+
+    await expect(runWithCleanup(work, [cleanup1, cleanup2])).rejects.toBe(
+      workError,
+    );
+    expect(cleanup1).toHaveBeenCalledTimes(1);
+    expect(cleanup2).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("렌더 동시성 설정값", () => {
