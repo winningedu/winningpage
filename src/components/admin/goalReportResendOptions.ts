@@ -21,6 +21,7 @@ import {
   kstYMD,
 } from "@/lib/goal/calc/index.js";
 import {
+  dispatchAtKst,
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
@@ -34,13 +35,20 @@ export type ResendCandidate = {
   label: string;
 };
 
-/** 오늘부터 13일 전까지, 최근순 14개(=MAX_RESEND_DAYS_AGO 이내 전량). */
+/**
+ * 오늘부터 13일 전까지, 최근순 14개(=MAX_RESEND_DAYS_AGO 이내 전량).
+ *
+ * QA — "오늘"은 그 발송 시각(22:00 KST)이 실제로 지나야 후보가 된다. 그 전에
+ * 보여주면 눌러도 서버(validateResendPeriod)가 거부하는 죽은 후보다.
+ */
 export function listDailyResendCandidates(
   todayYmd: string = kstYMD(),
+  now: Date = new Date(),
 ): ResendCandidate[] {
   const items: ResendCandidate[] = [];
   for (let i = 0; i < MAX_RESEND_DAYS_AGO; i++) {
     const periodKey = addDaysYMD(todayYmd, -i);
+    if (now.getTime() < dispatchAtKst("daily", periodKey).getTime()) continue;
     const label = i === 0 ? "오늘" : i === 1 ? "어제" : `${i}일 전`;
     items.push({ periodKey, label });
   }
@@ -54,6 +62,7 @@ export function listDailyResendCandidates(
  */
 export function listWeeklyResendCandidates(
   todayYmd: string = kstYMD(),
+  now: Date = new Date(),
 ): ResendCandidate[] {
   const thisMonday = getMondayYMD(todayYmd);
   const raw: ResendCandidate[] = [
@@ -64,7 +73,11 @@ export function listWeeklyResendCandidates(
 
   return raw.filter(({ periodKey }) => {
     const diff = diffDaysYMD(weeklyReportDispatchYmd(periodKey), todayYmd);
-    return diff >= 0 && diff <= MAX_RESEND_DAYS_AGO;
+    return (
+      diff >= 0 &&
+      diff <= MAX_RESEND_DAYS_AGO &&
+      now.getTime() >= dispatchAtKst("weekly", periodKey).getTime()
+    );
   });
 }
 
@@ -76,6 +89,7 @@ export function listWeeklyResendCandidates(
  */
 export function listMonthlyResendCandidates(
   todayYmd: string = kstYMD(),
+  now: Date = new Date(),
 ): ResendCandidate[] {
   const thisMonthKey = todayYmd.slice(0, 7);
   const thisMonthStart = `${thisMonthKey}-01`;
@@ -88,7 +102,11 @@ export function listMonthlyResendCandidates(
 
   return raw.filter(({ periodKey }) => {
     const diff = diffDaysYMD(monthlyReportDispatchYmd(periodKey), todayYmd);
-    return diff >= 0 && diff <= MAX_RESEND_DAYS_AGO;
+    return (
+      diff >= 0 &&
+      diff <= MAX_RESEND_DAYS_AGO &&
+      now.getTime() >= dispatchAtKst("monthly", periodKey).getTime()
+    );
   });
 }
 
@@ -96,8 +114,9 @@ export function listMonthlyResendCandidates(
 export function listResendCandidates(
   kind: ResendKind,
   todayYmd: string = kstYMD(),
+  now: Date = new Date(),
 ): ResendCandidate[] {
-  if (kind === "daily") return listDailyResendCandidates(todayYmd);
-  if (kind === "weekly") return listWeeklyResendCandidates(todayYmd);
-  return listMonthlyResendCandidates(todayYmd);
+  if (kind === "daily") return listDailyResendCandidates(todayYmd, now);
+  if (kind === "weekly") return listWeeklyResendCandidates(todayYmd, now);
+  return listMonthlyResendCandidates(todayYmd, now);
 }
