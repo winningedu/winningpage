@@ -93,3 +93,28 @@ export function formatWeeklyResendOptionLabel(index: number): string {
 export function formatMonthlyResendOptionLabel(index: number): string {
   return MONTHLY_OPTION_LABELS[index] ?? `${index}달 전`;
 }
+
+export type ResendKind = "daily" | "weekly" | "monthly";
+
+/** GoalStudentsAdmin 섹션이 kind select 값 하나로 후보 목록을 고를 때 쓰는 진입점. */
+export function listResendCandidates(
+  kind: ResendKind,
+  todayYmd: string = kstYMD(),
+): string[] {
+  if (kind === "daily") return listDailyResendCandidates(todayYmd);
+  if (kind === "weekly") return listWeeklyResendCandidates(todayYmd);
+  return listMonthlyResendCandidates(todayYmd);
+}
+
+/** GoalStudentsAdmin 섹션이 period select 옵션 문구를 고를 때 쓰는 진입점. */
+export function formatResendOptionLabel(
+  kind: ResendKind,
+  periodKey: string,
+  index: number,
+  todayYmd: string = kstYMD(),
+): string {
+  if (kind === "daily")
+    return formatDailyResendOptionLabel(periodKey, todayYmd);
+  if (kind === "weekly") return formatWeeklyResendOptionLabel(index);
+  return formatMonthlyResendOptionLabel(index);
+}

@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import {
   formatDailyResendOptionLabel,
   formatMonthlyResendOptionLabel,
+  formatResendOptionLabel,
   formatWeeklyResendOptionLabel,
   listDailyResendCandidates,
   listMonthlyResendCandidates,
+  listResendCandidates,
   listWeeklyResendCandidates,
 } from "./goalReportResendOptions";
 
@@ -77,5 +79,35 @@ describe("formatWeeklyResendOptionLabel / formatMonthlyResendOptionLabel", () =>
   test("최근순 인덱스를 이번 달/지난 달로 표시한다", () => {
     expect(formatMonthlyResendOptionLabel(0)).toBe("이번 달");
     expect(formatMonthlyResendOptionLabel(1)).toBe("지난 달");
+  });
+});
+
+describe("listResendCandidates — kind 분기", () => {
+  test("kind별로 대응하는 후보 목록 함수를 그대로 위임한다", () => {
+    const today = "2026-09-23";
+    expect(listResendCandidates("daily", today)).toEqual(
+      listDailyResendCandidates(today),
+    );
+    expect(listResendCandidates("weekly", today)).toEqual(
+      listWeeklyResendCandidates(today),
+    );
+    expect(listResendCandidates("monthly", today)).toEqual(
+      listMonthlyResendCandidates(today),
+    );
+  });
+});
+
+describe("formatResendOptionLabel — kind 분기", () => {
+  test("daily는 상대 날짜, weekly/monthly는 인덱스 기준 라벨을 쓴다", () => {
+    const today = "2026-09-23";
+    expect(formatResendOptionLabel("daily", "2026-09-23", 0, today)).toBe(
+      "오늘",
+    );
+    expect(formatResendOptionLabel("weekly", "2026-09-21", 0, today)).toBe(
+      "이번 주",
+    );
+    expect(formatResendOptionLabel("monthly", "2026-09", 0, today)).toBe(
+      "이번 달",
+    );
   });
 });
