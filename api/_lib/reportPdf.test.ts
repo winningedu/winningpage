@@ -181,6 +181,10 @@ describe("sanitizeFileName", () => {
       "....etcpasswd.pdf",
     );
   });
+
+  it('큰따옴표(")와 역슬래시(\\)를 제거한다(Content-Disposition 헤더 인젝션 방지)', () => {
+    expect(sanitizeFileName('리포트"; x=1\\.pdf')).toBe("리포트; x=1.pdf");
+  });
 });
 
 describe("buildContentDispositionHeader", () => {

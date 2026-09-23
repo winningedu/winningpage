@@ -121,10 +121,11 @@ export function isAllowedBaseUrl(
   return false;
 }
 
-// 경로 문자(/, \)와 제어 문자(0x00-0x1F, 0x7F)를 제거한다 — Content-Disposition
-// 헤더 값·다운로드 파일명에 그대로 실리므로 헤더 인젝션·경로 탈출을 막는다.
+// 경로 문자(/, \), 큰따옴표(")와 제어 문자(0x00-0x1F, 0x7F)를 제거한다 —
+// buildContentDispositionHeader의 filename="..." 값에 그대로 실리므로
+// 헤더 인젝션(따옴표 탈출)·경로 탈출을 막는다.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: 제어 문자를 의도적으로 제거하는 필터다.
-const UNSAFE_FILENAME_RE = /[\\/\x00-\x1f\x7f]/g;
+const UNSAFE_FILENAME_RE = /[\\/"\x00-\x1f\x7f]/g;
 
 export function sanitizeFileName(rawFileName: string): string {
   const cleaned = rawFileName.replace(UNSAFE_FILENAME_RE, "");
