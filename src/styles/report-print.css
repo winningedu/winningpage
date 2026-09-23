@@ -15,12 +15,13 @@
  * 다른 페이지와 충돌하지 않도록 한다. (기존 코드베이스에 @media print 셀렉터 없음.)
  */
 
+/*
+ * 2026-09-23 QA 행72: 전역 @page 누수 — `@page`는 클래스로 스코프가 안 되고 이 파일은 Vite
+ * 전역 번들에 실려 모든 인쇄에 적용되므로, size/margin 0 선언은 DiagnosisReportView.tsx가
+ * 마운트된 동안에만 문서에 존재하는 <style> 태그(DIAGNOSIS_REPORT_PAGE_RULE)로 옮겼다.
+ * 이 파일에는 더 이상 @page 규칙이 없다.
+ */
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 0;
-  }
-
   html {
     font-size: 3mm !important; /* 70rem 시트 → 210mm(A4 폭) */
   }
