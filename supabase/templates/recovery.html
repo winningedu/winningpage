@@ -1,0 +1,20 @@
+<!-- 비밀번호 재설정 메일 — 운영 Supabase(prod·dev·스쿨멘토)의 "Reset Password"
+     템플릿과 같은 내용(정본은 여기, 반영은 Management API PATCH).
+     {{ .ConfirmationURL }}(GET 한 번에 토큰 소비 → 메일 스캐너가 미리 열면 만료)
+     대신 token_hash 쿼리를 실어 보낸다 — ResetPassword.tsx가 사용자가 폼을 제출하는
+     시점에만 verifyOtp({ token_hash, type: 'recovery' })로 소비한다(Supabase 공식
+     권장, docs/guides/auth/passwords "Resetting a password").
+     {{ .RedirectTo }}는 resetPasswordForEmail의 redirectTo(허용 목록 밖이면 Site URL).
+     "30분"은 mailer_otp_exp=1800과 FindPassword.tsx RESET_LINK_TTL_MINUTES에 맞춘 값. -->
+<h2>비밀번호를 재설정해 주세요</h2>
+<p>위닝에듀 비밀번호 재설정 요청을 받았습니다. 아래 버튼을 눌러 새 비밀번호를 정해 주세요.</p>
+<p>
+  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery" style="display:inline-block;padding:12px 24px;background:#B88737;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold">비밀번호 재설정하기</a>
+</p>
+<p style="color:#666;font-size:13px">
+  이 링크는 30분간, 한 번만 쓸 수 있어요. 버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.<br>
+  {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery
+</p>
+<p style="color:#888;font-size:12px">
+  본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 비밀번호는 변경되지 않습니다.
+</p>
