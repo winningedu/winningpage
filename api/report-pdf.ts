@@ -121,7 +121,9 @@ export default defineHandler({
       return fail(req, res, 400, "filename이 비어 있습니다.");
     }
 
-    const safeHtml = sanitizePrintHtml(html);
+    const safeHtml = sanitizePrintHtml(html, {
+      baseOrigin: new URL(baseUrl).origin,
+    });
     const fileName = sanitizeFileName(filenameInput);
 
     let pdf: Buffer;

@@ -35,97 +35,137 @@ describe("isHtmlTooLarge", () => {
   });
 });
 
-const CSP_META =
-  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; frame-src 'none'; object-src 'none'\">";
+const TEST_ORIGIN = "https://www.winningedu.com";
+const TEST_OPTIONS = { baseOrigin: TEST_ORIGIN };
+
+function cspMeta(origin: string): string {
+  const content = `default-src 'none'; img-src ${origin} data:; style-src ${origin} 'unsafe-inline'; font-src ${origin} data:; script-src 'none'; frame-src 'none'; object-src 'none'`;
+  return `<meta http-equiv="Content-Security-Policy" content="${content}">`;
+}
+const CSP_META = cspMeta(TEST_ORIGIN);
 
 describe("sanitizePrintHtml", () => {
   it("<script>...</script> 전체(속성 포함)를 제거한다", () => {
     const html =
       '<html><head><script src="x.js">var a=1;</script></head><body><p>본문</p></body></html>';
-    expect(sanitizePrintHtml(html)).toBe(
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
       `<html><head>${CSP_META}</head><body><p>본문</p></body></html>`,
     );
   });
 
   it("script가 없으면 그대로 반환한다", () => {
     const html = "<p>스크립트 없음</p>";
-    expect(sanitizePrintHtml(html)).toBe(html);
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(html);
   });
 
   it("닫는 태그가 없는 <script>도 끝까지 통째로 제거한다", () => {
     const html = "<html><head><script>var a=1;var b=2;";
-    expect(sanitizePrintHtml(html)).toBe(`<html><head>${CSP_META}`);
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      `<html><head>${CSP_META}`,
+    );
   });
 
   it("<iframe>...</iframe> 전체를 제거한다", () => {
     const html =
       '<body><iframe src="https://evil.com"></iframe><p>본문</p></body>';
-    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<body><p>본문</p></body>",
+    );
   });
 
   it("자체 닫힘(self-closing) <iframe/>도 제거한다", () => {
     const html = '<body><iframe src="https://evil.com"/><p>본문</p></body>';
-    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<body><p>본문</p></body>",
+    );
   });
 
   it("<object>...</object> 전체를 제거한다", () => {
     const html = '<body><object data="evil.swf"></object><p>본문</p></body>';
-    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<body><p>본문</p></body>",
+    );
   });
 
   it("<embed> 태그를 제거한다(닫는 태그 없는 void 요소)", () => {
     const html = '<body><embed src="evil.swf"><p>본문</p></body>';
-    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<body><p>본문</p></body>",
+    );
   });
 
   it("<frameset>...</frameset>과 그 안의 <frame> 태그를 제거한다", () => {
     const html =
       '<html><frameset><frame src="evil.html"></frameset><p>본문</p></html>';
-    expect(sanitizePrintHtml(html)).toBe("<html><p>본문</p></html>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<html><p>본문</p></html>",
+    );
   });
 
   it("frameset 밖에 홀로 있는 <frame> 태그도 제거한다", () => {
     const html = '<body><frame src="evil.html"><p>본문</p></body>';
-    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      "<body><p>본문</p></body>",
+    );
   });
 
   it('<link rel="import">는 제거하지만 다른 rel의 <link>는 남긴다', () => {
     const html =
       '<head><link rel="import" href="x.html"><link rel="stylesheet" href="y.css"></head>';
-    expect(sanitizePrintHtml(html)).toBe(
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
       `<head>${CSP_META}<link rel="stylesheet" href="y.css"></head>`,
     );
   });
 
   it("on[a-z]+= 이벤트 핸들러 속성(큰따옴표)을 제거하고 나머지 속성은 남긴다", () => {
     const html = '<img src="x.png" onerror="alert(1)" alt="설명">';
-    expect(sanitizePrintHtml(html)).toBe('<img src="x.png" alt="설명">');
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
+      '<img src="x.png" alt="설명">',
+    );
   });
 
   it("작은따옴표·따옴표 없는 이벤트 핸들러 값도 제거한다", () => {
-    expect(sanitizePrintHtml("<div onclick='doEvil()'>본문</div>")).toBe(
-      "<div>본문</div>",
-    );
-    expect(sanitizePrintHtml("<div onmouseover=doEvil()>본문</div>")).toBe(
-      "<div>본문</div>",
-    );
+    expect(
+      sanitizePrintHtml("<div onclick='doEvil()'>본문</div>", TEST_OPTIONS),
+    ).toBe("<div>본문</div>");
+    expect(
+      sanitizePrintHtml("<div onmouseover=doEvil()>본문</div>", TEST_OPTIONS),
+    ).toBe("<div>본문</div>");
   });
 
   it("대문자·혼합 대소문자로 우회한 위험 태그·속성도 제거한다", () => {
-    expect(sanitizePrintHtml("<SCRIPT>alert(1)</SCRIPT>")).toBe("");
-    expect(sanitizePrintHtml('<IfRamE src="https://evil.com"></IFRAME>')).toBe(
+    expect(sanitizePrintHtml("<SCRIPT>alert(1)</SCRIPT>", TEST_OPTIONS)).toBe(
       "",
     );
-    expect(sanitizePrintHtml('<img src="x.png" OnError="alert(1)">')).toBe(
-      '<img src="x.png">',
-    );
+    expect(
+      sanitizePrintHtml(
+        '<IfRamE src="https://evil.com"></IFRAME>',
+        TEST_OPTIONS,
+      ),
+    ).toBe("");
+    expect(
+      sanitizePrintHtml('<img src="x.png" OnError="alert(1)">', TEST_OPTIONS),
+    ).toBe('<img src="x.png">');
   });
 
   it("<head> 맨 앞에 CSP meta 태그를 심층 방어로 주입한다", () => {
     const html = "<html><head><title>t</title></head><body></body></html>";
-    expect(sanitizePrintHtml(html)).toBe(
+    expect(sanitizePrintHtml(html, TEST_OPTIONS)).toBe(
       `<html><head>${CSP_META}<title>t</title></head><body></body></html>`,
     );
+  });
+
+  it("CSP의 img-src/style-src/font-src는 'self'가 아니라 baseOrigin을 명시한다(page.setContent는 about:blank 오리진이라 'self'가 base href 오리진을 가리키지 않는다)", () => {
+    const html = "<head></head>";
+    const result = sanitizePrintHtml(html, {
+      baseOrigin: "https://www.winningedu.com",
+    });
+    expect(result).not.toContain("'self'");
+    expect(result).toContain("img-src https://www.winningedu.com data:");
+    expect(result).toContain(
+      "style-src https://www.winningedu.com 'unsafe-inline'",
+    );
+    expect(result).toContain("font-src https://www.winningedu.com data:");
   });
 });
 

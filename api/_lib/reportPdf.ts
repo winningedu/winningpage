@@ -56,21 +56,37 @@ const EVENT_HANDLER_ATTR_RE = /\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
 
 // 위 필터들을 뚫는 새 우회가 나와도 브라우저 단에서 한 번 더 막는 심층 방어 —
 // script/object/frame 전면 차단 + 이미지·스타일·폰트만 최소 허용한다.
-// base 오리진이 'self'가 되도록(문서 자체 오리진 기준) <base> 태그 앞이 아니라
-// head 맨 앞(첫 자식)에 심는다 — base는 그대로 둔다.
-const PRINT_HTML_CSP_META =
-  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; frame-src 'none'; object-src 'none'\">";
+// puppeteer는 page.setContent()로 문서를 넣는데, 이 문서의 오리진은
+// about:blank라 CSP의 'self'는 base href(baseOrigin) 오리진을 가리키지
+// 않는다 — 'self' 대신 검증을 통과한 baseOrigin을 명시해야 baseOrigin에서
+// 오는 로고·웹폰트·CSS(<link>)가 실제로 로드된다(회귀: 'self'였을 때 prod에서
+// 로고·폰트·외부 스타일시트가 전부 차단돼 스타일 없는 PDF가 됐다).
+// <base> 태그 앞이 아니라 head 맨 앞(첫 자식)에 심는다 — base는 그대로 둔다.
+function buildContentSecurityPolicyMeta(baseOrigin: string): string {
+  const content = `default-src 'none'; img-src ${baseOrigin} data:; style-src ${baseOrigin} 'unsafe-inline'; font-src ${baseOrigin} data:; script-src 'none'; frame-src 'none'; object-src 'none'`;
+  return `<meta http-equiv="Content-Security-Policy" content="${content}">`;
+}
 const HEAD_OPEN_TAG_RE = /<head\b[^>]*>/i;
 
-function injectContentSecurityPolicy(html: string): string {
+function injectContentSecurityPolicy(html: string, baseOrigin: string): string {
   if (!HEAD_OPEN_TAG_RE.test(html)) return html;
+  const meta = buildContentSecurityPolicyMeta(baseOrigin);
   return html.replace(
     HEAD_OPEN_TAG_RE,
-    (headOpenTag) => `${headOpenTag}${PRINT_HTML_CSP_META}`,
+    (headOpenTag) => `${headOpenTag}${meta}`,
   );
 }
 
-export function sanitizePrintHtml(html: string): string {
+export interface SanitizePrintHtmlOptions {
+  /** isAllowedBaseUrl로 이미 검증된 baseUrl의 origin — CSP의 img-src/style-src/
+   * font-src에 'self' 대신 이 값을 명시한다. */
+  baseOrigin: string;
+}
+
+export function sanitizePrintHtml(
+  html: string,
+  { baseOrigin }: SanitizePrintHtmlOptions,
+): string {
   return injectContentSecurityPolicy(
     html
       .replace(SCRIPT_TAG_RE, "")
@@ -83,6 +99,7 @@ export function sanitizePrintHtml(html: string): string {
       .replace(FRAME_TAG_RE, "")
       .replace(LINK_IMPORT_TAG_RE, "")
       .replace(EVENT_HANDLER_ATTR_RE, ""),
+    baseOrigin,
   );
 }
 
