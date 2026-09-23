@@ -20,14 +20,17 @@ const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 // 끝까지 통째로 제거한다.
 const UNCLOSED_SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*$/gi;
 
-// iframe은 요소 전체(콘텐츠 포함)를 제거해야 한다 — 콘텐츠가 없어도 여닫는
-// 태그가 항상 온다.
+// iframe은 self-closing(<iframe .../>)일 수도, 여는/닫는 태그 쌍(콘텐츠 포함)일
+// 수도 있다 — self-closing부터 먼저 걷어내야 쌍 매칭 정규식이 뒤 이어지는
+// 진짜 </iframe>을 엉뚱하게 삼키지 않는다.
+const SELF_CLOSING_IFRAME_TAG_RE = /<iframe\b[^>]*\/>/gi;
 const IFRAME_TAG_RE = /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi;
 
 export function sanitizePrintHtml(html: string): string {
   return html
     .replace(SCRIPT_TAG_RE, "")
     .replace(UNCLOSED_SCRIPT_TAG_RE, "")
+    .replace(SELF_CLOSING_IFRAME_TAG_RE, "")
     .replace(IFRAME_TAG_RE, "");
 }
 

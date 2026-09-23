@@ -58,6 +58,11 @@ describe("sanitizePrintHtml", () => {
       '<body><iframe src="https://evil.com"></iframe><p>본문</p></body>';
     expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
   });
+
+  it("자체 닫힘(self-closing) <iframe/>도 제거한다", () => {
+    const html = '<body><iframe src="https://evil.com"/><p>본문</p></body>';
+    expect(sanitizePrintHtml(html)).toBe("<body><p>본문</p></body>");
+  });
 });
 
 describe("isAllowedBaseUrl", () => {
