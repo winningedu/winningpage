@@ -10,6 +10,7 @@ import QuestionCard from "@/components/goal/onboarding/QuestionCard";
 import WizardActions from "@/components/goal/onboarding/WizardActions";
 import {
   type NaesinGroupState,
+  type NaesinState,
   useGoalOnboarding,
 } from "@/context/GoalOnboardingContext";
 
@@ -177,6 +178,176 @@ function NaesinGroupEditor({
   );
 }
 
+/**
+ * "다음"/"저장" 버튼 활성 조건 — 온보딩(Step4Naesin)과 내 정보 수정(Profile.tsx 내신
+ * 섹션)이 정확히 같은 규칙을 써야 한다(서버 validateNaesinInput과도 짝이 맞아야
+ * 400을 미리 걸러낼 수 있다).
+ */
+export function isNaesinInputValid(
+  grade: "g1" | "g2" | "g3",
+  naesin: NaesinState,
+): boolean {
+  const scaleMax = grade === "g3" ? 9 : 5;
+  return naesin.lastExam === ""
+    ? isValidPrior(naesin.priorNaesinGrade, grade)
+    : isValidGrade(naesin.overall, scaleMax);
+}
+
+export type NaesinScoreFieldsProps = {
+  /** 4단계는 학년을 이미 고른 뒤에만 진입해 항상 채워져 있다(온보딩). 내 정보 수정은
+   * 학생의 기존 행에서 넘긴다 — 이 화면으로는 학년 자체를 바꿀 수 없다. */
+  grade: "g1" | "g2" | "g3";
+  naesin: NaesinState;
+  onLastExamChange: (key: string) => void;
+  onOverallChange: (value: string) => void;
+  onPriorNaesinGradeChange: (value: string) => void;
+  onGroupAvgChange: (examKey: string, groupKey: string, avg: string) => void;
+  onGroupSubjectsChange: (
+    examKey: string,
+    groupKey: string,
+    subjects: { name: string; grade: string }[],
+  ) => void;
+};
+
+/**
+ * 내신 성적 입력 필드 일체(마지막 시험 선택 → 없음 특례 또는 전체 평균 → 최근 시험별
+ * 과목군 평균) — QuestionCard/WizardActions 같은 온보딩 위저드 전용 chrome은 뺐다.
+ * Step4Naesin(온보딩)과 Profile.tsx(내 정보 수정) 둘 다 이 컴포넌트를 감싸는 쪽만
+ * 다르고 안쪽 필드·검증 규칙은 완전히 같다 — 값·계산이 갈리는 것을 막기 위해
+ * 새로 만들지 않고 여기서 뗀 것을 공유한다.
+ */
+export function NaesinScoreFields({
+  grade,
+  naesin,
+  onLastExamChange,
+  onOverallChange,
+  onPriorNaesinGradeChange,
+  onGroupAvgChange,
+  onGroupSubjectsChange,
+}: NaesinScoreFieldsProps) {
+  const scaleMax = grade === "g3" ? 9 : 5;
+
+  const visibleExams = useMemo(
+    () => NAESIN_EXAM_FLOW.filter((exam) => RANK[exam.grade] <= RANK[grade]),
+    [grade],
+  );
+
+  const allNone = naesin.lastExam === "";
+  const selectedIndex = NAESIN_EXAM_FLOW.findIndex(
+    (exam) => exam.key === naesin.lastExam,
+  );
+  const recentExams: FlowEntry[] =
+    selectedIndex === -1
+      ? []
+      : NAESIN_EXAM_FLOW.slice(
+          Math.max(0, selectedIndex - 2),
+          selectedIndex + 1,
+        ).reverse();
+
+  const priorCopy = PRIOR_NAESIN_COPY[grade];
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {visibleExams.map((exam) => (
+          <button
+            key={exam.key}
+            type="button"
+            onClick={() => onLastExamChange(exam.key)}
+            className={`rounded-xl border-2 px-4 py-2.5 text-app-label font-bold transition-colors ${
+              naesin.lastExam === exam.key
+                ? "border-accent bg-accent text-white"
+                : "border-line text-ink-sub hover:border-accent"
+            }`}
+          >
+            {flowLabel(exam)}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => onLastExamChange("")}
+          className={`rounded-xl border-2 px-4 py-2.5 text-app-label font-bold transition-colors ${
+            allNone
+              ? "border-accent bg-accent text-white"
+              : "border-line text-ink-sub hover:border-accent"
+          }`}
+        >
+          아직 없음
+        </button>
+      </div>
+
+      {allNone ? (
+        <div className="mt-8">
+          <div className="rounded-xl bg-surface-03 px-5 py-4">
+            <p className="text-app-body font-semibold text-accent">
+              {priorCopy.bannerTitle}
+            </p>
+            <p className="mt-1 text-app-body leading-normal text-ink-sub">
+              {priorCopy.bannerBody}
+            </p>
+          </div>
+          <div className="mt-6">
+            <GradeNumberField
+              label={priorCopy.label}
+              value={naesin.priorNaesinGrade}
+              suffix={priorCopy.suffix}
+              width="16rem"
+              onChange={(event) => onPriorNaesinGradeChange(event.target.value)}
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-8">
+            <GradeNumberField
+              label={`그 시험까지의 전체 내신 평균 등급 (${scaleMax === 5 ? "5등급제" : "9등급제"})`}
+              value={naesin.overall}
+              suffix="등급"
+              width="16rem"
+              placeholder={scaleMax === 5 ? "예: 1.25" : "예: 2.50"}
+              onChange={(event) => onOverallChange(event.target.value)}
+            />
+          </div>
+
+          {recentExams.length > 0 && (
+            <div className="mt-10 flex flex-col gap-8">
+              <p className="text-app-body font-semibold text-ink-strong">
+                최근 시험별 과목군 평균 (선택 사항)
+              </p>
+              {recentExams.map((exam) => {
+                const examState = naesin.exams[exam.key];
+                if (!examState) return null;
+                return (
+                  <div key={exam.key}>
+                    <p className="mb-3 inline-block rounded-lg bg-surface-03 px-2.5 py-1 text-app-label font-black text-accent">
+                      {flowLabel(exam)}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {NAESIN_SUBJECT_GROUPS.map((group) => (
+                        <NaesinGroupEditor
+                          key={group.key}
+                          label={group.label}
+                          group={examState.groups[group.key]!}
+                          onAvgChange={(avg) =>
+                            onGroupAvgChange(exam.key, group.key, avg)
+                          }
+                          onSubjectsChange={(subjects) =>
+                            onGroupSubjectsChange(exam.key, group.key, subjects)
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 type Step4NaesinProps = {
   goPrev: () => void;
   goNext: () => void;
@@ -198,34 +369,7 @@ export default function Step4Naesin({ goPrev, goNext }: Step4NaesinProps) {
   const safeGrade: "g1" | "g2" | "g3" =
     grade === "g1" || grade === "g2" || grade === "g3" ? grade : "g1";
 
-  // 스케일: 고1・고2 5등급제, 고3 9등급제(설계안 §2 결정②).
-  const scaleMax = safeGrade === "g3" ? 9 : 5;
-
-  // 학년까지 절단된 시험 목록 — 고1이면 고1 4개, 고3이면 12개 전부.
-  const visibleExams = useMemo(
-    () =>
-      NAESIN_EXAM_FLOW.filter((exam) => RANK[exam.grade] <= RANK[safeGrade]),
-    [safeGrade],
-  );
-
-  const allNone = naesin.lastExam === "";
-  const selectedIndex = NAESIN_EXAM_FLOW.findIndex(
-    (exam) => exam.key === naesin.lastExam,
-  );
-  // 선택 시험 포함 역순(최신순) 최대 3개.
-  const recentExams: FlowEntry[] =
-    selectedIndex === -1
-      ? []
-      : NAESIN_EXAM_FLOW.slice(
-          Math.max(0, selectedIndex - 2),
-          selectedIndex + 1,
-        ).reverse();
-
-  const priorCopy = PRIOR_NAESIN_COPY[safeGrade];
-
-  const canProceed = allNone
-    ? isValidPrior(naesin.priorNaesinGrade, safeGrade)
-    : isValidGrade(naesin.overall, scaleMax);
+  const canProceed = isNaesinInputValid(safeGrade, naesin);
 
   return (
     <>
@@ -235,106 +379,15 @@ export default function Step4Naesin({ goPrev, goNext }: Step4NaesinProps) {
         title="마지막으로 본 내신 시험을 선택해 주세요."
         description="목표 대학과의 격차를 계산하는 기준 데이터입니다. 아직 내신 시험을 한 번도 보지 않았다면 '아직 없음'을 선택하세요."
       >
-        <div className="flex flex-wrap gap-2">
-          {visibleExams.map((exam) => (
-            <button
-              key={exam.key}
-              type="button"
-              onClick={() => setNaesinLastExam(exam.key)}
-              className={`rounded-xl border-2 px-4 py-2.5 text-app-label font-bold transition-colors ${
-                naesin.lastExam === exam.key
-                  ? "border-accent bg-accent text-white"
-                  : "border-line text-ink-sub hover:border-accent"
-              }`}
-            >
-              {flowLabel(exam)}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setNaesinLastExam("")}
-            className={`rounded-xl border-2 px-4 py-2.5 text-app-label font-bold transition-colors ${
-              allNone
-                ? "border-accent bg-accent text-white"
-                : "border-line text-ink-sub hover:border-accent"
-            }`}
-          >
-            아직 없음
-          </button>
-        </div>
-
-        {allNone ? (
-          <div className="mt-8">
-            <div className="rounded-xl bg-surface-03 px-5 py-4">
-              <p className="text-app-body font-semibold text-accent">
-                {priorCopy.bannerTitle}
-              </p>
-              <p className="mt-1 text-app-body leading-normal text-ink-sub">
-                {priorCopy.bannerBody}
-              </p>
-            </div>
-            <div className="mt-6">
-              <GradeNumberField
-                label={priorCopy.label}
-                value={naesin.priorNaesinGrade}
-                suffix={priorCopy.suffix}
-                width="16rem"
-                onChange={(event) => setPriorNaesinGrade(event.target.value)}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="mt-8">
-              <GradeNumberField
-                label={`그 시험까지의 전체 내신 평균 등급 (${scaleMax === 5 ? "5등급제" : "9등급제"})`}
-                value={naesin.overall}
-                suffix="등급"
-                width="16rem"
-                placeholder={scaleMax === 5 ? "예: 1.25" : "예: 2.50"}
-                onChange={(event) => setNaesinOverall(event.target.value)}
-              />
-            </div>
-
-            {recentExams.length > 0 && (
-              <div className="mt-10 flex flex-col gap-8">
-                <p className="text-app-body font-semibold text-ink-strong">
-                  최근 시험별 과목군 평균 (선택 사항)
-                </p>
-                {recentExams.map((exam) => {
-                  const examState = naesin.exams[exam.key];
-                  if (!examState) return null;
-                  return (
-                    <div key={exam.key}>
-                      <p className="mb-3 inline-block rounded-lg bg-surface-03 px-2.5 py-1 text-app-label font-black text-accent">
-                        {flowLabel(exam)}
-                      </p>
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        {NAESIN_SUBJECT_GROUPS.map((group) => (
-                          <NaesinGroupEditor
-                            key={group.key}
-                            label={group.label}
-                            group={examState.groups[group.key]!}
-                            onAvgChange={(avg) =>
-                              setNaesinGroupAvg(exam.key, group.key, avg)
-                            }
-                            onSubjectsChange={(subjects) =>
-                              setNaesinGroupSubjects(
-                                exam.key,
-                                group.key,
-                                subjects,
-                              )
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
+        <NaesinScoreFields
+          grade={safeGrade}
+          naesin={naesin}
+          onLastExamChange={setNaesinLastExam}
+          onOverallChange={setNaesinOverall}
+          onPriorNaesinGradeChange={setPriorNaesinGrade}
+          onGroupAvgChange={setNaesinGroupAvg}
+          onGroupSubjectsChange={setNaesinGroupSubjects}
+        />
       </QuestionCard>
 
       <WizardActions
