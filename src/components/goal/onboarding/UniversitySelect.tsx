@@ -147,44 +147,52 @@ export default function UniversitySelect({
 
         {isOpen && (
           // 드롭다운은 입력 필드 아래 오버레이로, 레이아웃을 밀어내지 않는다(part-02 #4 구현 노트).
-          <ScrollArea className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-20 max-h-68 rounded-xl border border-line bg-white shadow-[0_0.75rem_2rem_rgba(15,23,42,0.12)]">
-            <ul
-              // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: APG Combobox 패턴 — 커스텀 콤보박스의 옵션 목록.
-              role="listbox"
-            >
-              {!searchTerm.trim() ? (
-                <li className="px-5 py-4.25 text-app-body text-ink-sub">
-                  대학명을 입력해 검색하세요.
-                </li>
-              ) : searching ? (
-                <li className="px-5 py-4.25 text-app-body text-ink-sub">
-                  검색 중…
-                </li>
-              ) : searchResults.length === 0 ? (
-                <li className="px-5 py-4.25 text-app-body text-ink-sub">
-                  검색 결과가 없습니다.
-                </li>
-              ) : (
-                searchResults.map((university) => (
-                  <li key={university.name}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={value.university === university.name}
-                      onClick={() => selectUniversity(university.name)}
-                      className={`flex h-17 w-full items-center px-5 text-left text-app-card-title transition-colors hover:bg-surface-03 ${
-                        value.university === university.name
-                          ? "bg-surface-03 text-accent"
-                          : "text-ink"
-                      }`}
-                    >
-                      {university.name}
-                    </button>
+          // 포지셔닝(absolute)은 ScrollArea 밖의 plain wrapper가 맡는다 — src/index.css가
+          // overlayscrollbars.css를 @layer 없이 import해 `[data-overlayscrollbars]{position:
+          // relative}`가 unlayered로 항상 Tailwind @layer utilities의 absolute를 이긴다
+          // (cascade layers: unlayered > layered). ScrollArea 루트에 직접 absolute를 걸면
+          // 무시되고 목록이 정상 흐름에 남아 아래로 밀린다 — ScrollArea 자신은 크기·모양
+          // (max-h/rounded/border/shadow)만 맡는다.
+          <div className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-20">
+            <ScrollArea className="max-h-68 rounded-xl border border-line bg-white shadow-[0_0.75rem_2rem_rgba(15,23,42,0.12)]">
+              <ul
+                // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: APG Combobox 패턴 — 커스텀 콤보박스의 옵션 목록.
+                role="listbox"
+              >
+                {!searchTerm.trim() ? (
+                  <li className="px-5 py-4.25 text-app-body text-ink-sub">
+                    대학명을 입력해 검색하세요.
                   </li>
-                ))
-              )}
-            </ul>
-          </ScrollArea>
+                ) : searching ? (
+                  <li className="px-5 py-4.25 text-app-body text-ink-sub">
+                    검색 중…
+                  </li>
+                ) : searchResults.length === 0 ? (
+                  <li className="px-5 py-4.25 text-app-body text-ink-sub">
+                    검색 결과가 없습니다.
+                  </li>
+                ) : (
+                  searchResults.map((university) => (
+                    <li key={university.name}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={value.university === university.name}
+                        onClick={() => selectUniversity(university.name)}
+                        className={`flex h-17 w-full items-center px-5 text-left text-app-card-title transition-colors hover:bg-surface-03 ${
+                          value.university === university.name
+                            ? "bg-surface-03 text-accent"
+                            : "text-ink"
+                        }`}
+                      >
+                        {university.name}
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </ScrollArea>
+          </div>
         )}
       </div>
 
