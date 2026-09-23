@@ -28,8 +28,13 @@ async function getBrowser(env: RuntimeEnv): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = (async () => {
       const executablePath = await resolveExecutablePath(env);
+      const serverless = isServerlessRuntime(env);
       return puppeteer.launch({
-        args: chromium.args,
+        // chromium.args(--single-process, --no-zygote 등)는 Lambda/Vercel 서버리스
+        // 컨테이너 전용이다 — 로컬 데스크톱 Chrome에 그대로 주면 렌더러가 즉시
+        // 죽는다(스모크 스크립트 실측: ConnectionClosedError). 로컬은 puppeteer
+        // 기본 인자만 쓴다.
+        args: serverless ? chromium.args : [],
         executablePath,
         headless: "shell",
       });
@@ -98,4 +103,14 @@ export async function renderReportPdf({
   } finally {
     await page.close();
   }
+}
+
+/** 스모크 스크립트(scripts/dev/report-pdf-smoke.mts) 전용 — 모듈 스코프 캐시를 정리해
+ * 브라우저 프로세스가 스크립트 종료 후 고아로 남지 않게 한다. 실제 요청 경로에서는
+ * 부르지 않는다(웜 재사용이 목적이므로). */
+export async function closeRenderBrowserForTesting(): Promise<void> {
+  if (!browserPromise) return;
+  const browser = await browserPromise;
+  browserPromise = null;
+  await browser.close();
 }
