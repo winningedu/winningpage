@@ -9,13 +9,14 @@
 //
 // 대상: **지난 달**에 기록이 하나라도 있는 학생의 연결된 학부모.
 // 링크의 reportId: 월간 키 = 'YYYY-MM' (api/goal/report).
+//
+// 학생 1명분 발송(dedupeKey·변수 조립·sendAndLog)은 api/_lib/goalReportSend.ts
+// 의 sendMonthlyReportFor 로 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)
+// 이 같은 로직을 재사용한다. 이 파일은 "지난 달 기록을 남긴 학생이 누구인지"
+// 골라 그 함수를 호출하는 역할만 한다.
 
-import { sendAndLog } from "../_lib/alimtalkSend.js";
-import {
-  kstNow,
-  resolveParentRecipients,
-  toYmd,
-} from "../_lib/goalReportNotify.js";
+import { kstNow, toYmd } from "../_lib/goalReportNotify.js";
+import { sendMonthlyReportFor } from "../_lib/goalReportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
@@ -97,42 +98,24 @@ export default defineHandler({
       return;
     }
 
-    const recipients = await resolveParentRecipients(supabaseAdmin, studentIds);
     const summary = { sent: 0, failed: 0, skipped: 0 };
 
-    for (const target of recipients) {
-      const outcome = await sendAndLog({
+    for (const studentId of studentIds) {
+      const result = await sendMonthlyReportFor(
         supabaseAdmin,
-        templateKey: "monthlyReport",
-        phone: target.parentPhone,
-        profileId: target.parentProfileId,
-        dedupeKey: `monthlyReport:${target.parentProfileId}:${target.studentProfileId}:${targetMonth}`,
-        meta: {
-          studentProfileId: target.studentProfileId,
-          month: targetMonth,
-          monthStart,
-          monthEnd,
-        },
-        variables: {
-          학생명: target.studentName,
-          N월: String(month),
-          // reportId = <월간 키('YYYY-MM')>_<학생 profile id> — 학부모가 알림톡
-          // 링크를 눌렀을 때 어느 자녀의 리포트인지 구분하기 위해서다
-          // (src/routes/alimtalkLinkRoutes.tsx parseReportId, QA 시트 행210).
-          // 구분자는 '.'이 아니라 '_'다(2026-09-23 변경) — '.'은 vercel.json
-          // rewrite의 정적 파일 제외 규칙에 걸려 카카오톡에서 누르면 404가
-          // 났다(QA 시트 2차 행60, 404 관측 2026-09-06).
-          reportId: `${targetMonth}_${target.studentProfileId}`,
-        },
-      });
+        studentId,
+        targetMonth,
+      );
 
-      if (outcome.status === "sent") summary.sent += 1;
-      else if (outcome.status === "failed") {
-        summary.failed += 1;
-        console.error(
-          `cron/monthly-report 발송 실패 student=${target.studentProfileId}: ${outcome.reason}`,
-        );
-      } else summary.skipped += 1;
+      for (const outcome of result.outcomes) {
+        if (outcome.status === "sent") summary.sent += 1;
+        else if (outcome.status === "failed") {
+          summary.failed += 1;
+          console.error(
+            `cron/monthly-report 발송 실패 student=${studentId}: ${outcome.reason}`,
+          );
+        } else summary.skipped += 1;
+      }
     }
 
     console.log(

@@ -10,15 +10,14 @@
 //   리포트는 저장되지 않고 기간 키로 계산된다 — 주간 키는 **그 주 월요일 YMD**다
 //   (api/goal/report). 그래서 지난 주 월요일을 그대로 넣는다. 이렇게 해야 2주
 //   뒤에 링크를 눌러도 그 주 리포트가 열린다.
+//
+// 학생 1명분 발송(dedupeKey·변수 조립·sendAndLog)은 api/_lib/goalReportSend.ts
+// 의 sendWeeklyReportFor 로 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)
+// 이 같은 로직을 재사용한다. 이 파일은 "지난 주 기록을 남긴 학생이 누구인지"
+// 골라 그 함수를 호출하는 역할만 한다.
 
-import { sendAndLog } from "../_lib/alimtalkSend.js";
-import {
-  kstNow,
-  mondayOf,
-  resolveParentRecipients,
-  toYmd,
-  weekOfMonth,
-} from "../_lib/goalReportNotify.js";
+import { kstNow, mondayOf, toYmd } from "../_lib/goalReportNotify.js";
+import { sendWeeklyReportFor } from "../_lib/goalReportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
@@ -77,43 +76,24 @@ export default defineHandler({
       return;
     }
 
-    const recipients = await resolveParentRecipients(supabaseAdmin, studentIds);
-
-    const monday = new Date(`${weekStart}T00:00:00Z`);
-    const month = monday.getUTCMonth() + 1;
-    const nth = weekOfMonth(monday);
-
     const summary = { sent: 0, failed: 0, skipped: 0 };
 
-    for (const target of recipients) {
-      const outcome = await sendAndLog({
+    for (const studentId of studentIds) {
+      const result = await sendWeeklyReportFor(
         supabaseAdmin,
-        templateKey: "weeklyReport",
-        phone: target.parentPhone,
-        profileId: target.parentProfileId,
-        dedupeKey: `weeklyReport:${target.parentProfileId}:${target.studentProfileId}:${weekStart}`,
-        meta: { studentProfileId: target.studentProfileId, weekStart, weekEnd },
-        variables: {
-          학생명: target.studentName,
-          N월: String(month),
-          N주차: String(nth),
-          // reportId = <주간 키(그 주 월요일 YMD)>_<학생 profile id> — 학부모가
-          // 알림톡 링크를 눌렀을 때 어느 자녀의 리포트인지 구분하기 위해서다
-          // (src/routes/alimtalkLinkRoutes.tsx parseReportId, QA 시트 행210).
-          // 구분자는 '.'이 아니라 '_'다(2026-09-23 변경) — '.'은 vercel.json
-          // rewrite의 정적 파일 제외 규칙에 걸려 카카오톡에서 누르면 404가
-          // 났다(QA 시트 2차 행60, 404 관측 2026-09-06).
-          reportId: `${weekStart}_${target.studentProfileId}`,
-        },
-      });
+        studentId,
+        weekStart,
+      );
 
-      if (outcome.status === "sent") summary.sent += 1;
-      else if (outcome.status === "failed") {
-        summary.failed += 1;
-        console.error(
-          `cron/weekly-report 발송 실패 student=${target.studentProfileId}: ${outcome.reason}`,
-        );
-      } else summary.skipped += 1;
+      for (const outcome of result.outcomes) {
+        if (outcome.status === "sent") summary.sent += 1;
+        else if (outcome.status === "failed") {
+          summary.failed += 1;
+          console.error(
+            `cron/weekly-report 발송 실패 student=${studentId}: ${outcome.reason}`,
+          );
+        } else summary.skipped += 1;
+      }
     }
 
     console.log(
