@@ -159,6 +159,10 @@ export interface RateLimiter {
   tryConsume(key: string, now: number): boolean;
 }
 
+// api/report-pdf.ts가 사용자(userId)당 적용하는 한도 — 1분에 5회.
+export const REPORT_PDF_RATE_LIMIT_MAX = 5;
+export const REPORT_PDF_RATE_LIMIT_WINDOW_MS = 60_000;
+
 export function createSlidingWindowRateLimiter(
   maxRequests: number,
   windowMs: number,

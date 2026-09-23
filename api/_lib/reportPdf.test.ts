@@ -15,6 +15,8 @@ import {
   MAX_HTML_BYTES,
   RENDER_CONCURRENCY_LIMIT,
   RENDER_QUEUE_TIMEOUT_MS,
+  REPORT_PDF_RATE_LIMIT_MAX,
+  REPORT_PDF_RATE_LIMIT_WINDOW_MS,
   RenderQueueTimeoutError,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
@@ -289,5 +291,12 @@ describe("createSlidingWindowRateLimiter", () => {
     const limiter = createSlidingWindowRateLimiter(1, 60_000);
     expect(limiter.tryConsume("user-1", 0)).toBe(true);
     expect(limiter.tryConsume("user-2", 0)).toBe(true);
+  });
+});
+
+describe("리포트 PDF 속도 제한 설정값", () => {
+  it("사용자당 1분에 5회까지 허용한다", () => {
+    expect(REPORT_PDF_RATE_LIMIT_MAX).toBe(5);
+    expect(REPORT_PDF_RATE_LIMIT_WINDOW_MS).toBe(60_000);
   });
 });
