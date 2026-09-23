@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,10 @@ type ReportModalShellProps = {
   documentTitle?: string;
   /** 스크롤 영역의 `aria-label`. */
   scrollLabel: string;
+  /** 로그인 학생 이름(QA 2차 시트 행37·51 표지). 없으면 표지에서 그 줄이 빠진다
+   * (호출부 DesignReportModal/EvaluationReportModal이 이미 받는 studentName을
+   * 그대로 넘긴다). */
+  studentName?: string | null;
   /** 본문(폭 70.5rem 래퍼 안에 들어간다). */
   children: ReactNode;
   /** 푸터 우측 정렬 버튼 그룹. 함수형이면 `ctx.print`를 받는다. */
@@ -91,6 +96,7 @@ export default function ReportModalShell({
   subtitle,
   documentTitle,
   scrollLabel,
+  studentName,
   children,
   footer,
   onClose,
@@ -135,6 +141,19 @@ export default function ReportModalShell({
             빠진다. `display: contents`라 패널의 flex 레이아웃(헤더/본문/푸터 순서)에는
             영향을 주지 않는다. */}
         <div ref={contentRef} className="contents">
+          {/* 표지(QA 2차 시트 행37·51) — 인쇄 전용, 화면 모달에는 보이지 않는다(팀장
+              지시 "print:block hidden 류"). variant="flow"의 인쇄 전용 규칙이 한
+              페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
+              페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
+              없어 targetMajor/targetUniversity는 넘기지 않는다. */}
+          <div className="hidden print:block">
+            <ReportCoverPage
+              serviceLabel="수행평가"
+              title={title}
+              {...(studentName ? { studentName } : {})}
+            />
+          </div>
+
           {/* 헤더 — §5.13/§5.16 실측: 패널 상단에서 2.5rem 내려 시작, 세로 gap 0.25rem,
               아래 구분선까지 1.1875rem. 좌 인셋은 본문과 같은 2.5rem(넓은 뷰포트 기준,
               좁은 화면은 1.25rem으로 줄인다). 구분선 폭이 모달보다 11px 넓은 것은 시안

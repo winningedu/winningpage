@@ -981,10 +981,17 @@ export function buildReport(input: any, ctx: BuildReportCtx = {}) {
       grade: orMissing(optionLabelOf("q1", safeInput.profile?.gradeLevel)),
       schoolType: orMissing(optionLabelOf("q2", safeInput.profile?.schoolType)),
       desiredMajor: orMissing(safeInput.goal?.targetMajor),
+      // 표지(ReportCoverPage) 전용 원본값 — "미입력"(orMissing) 표시용 폴백을 거치지
+      // 않은 순수 데이터. StudentInfoBlock의 desiredMajor/diagnosedAt은 항상 행을
+      // 렌더하는 표(빈 값도 "미입력"으로 채워야 레이아웃이 유지된다)라 그대로 두고,
+      // 표지는 값이 없으면 그 줄 자체를 지워야 해서(no-fallback-constants) 별도로
+      // null 그대로 내려보낸다.
+      desiredMajorRaw: safeInput.goal?.targetMajor ?? null,
       gpa: formatGpa(safeInput.gradeSystem, safeInput.scores?.naesinOverall),
       // F-14 확정(2026-08-11) — 축약 라벨을 쓴다. 원문 라벨은 w-50 안에서 2줄로 접힌다.
       gradeTrend: orMissing(formatGradeTrend(safeInput.gradeTrend)),
       diagnosedAt: orMissing(formatDiagnosedAt(safeInput.meta?.diagnosedAt)),
+      diagnosedAtRaw: formatDiagnosedAt(safeInput.meta?.diagnosedAt),
     },
 
     // §5.2 name 결측 폴백 — '{name} 학생의 주요 학습 특성'에서 접두를 제거한 축약형.

@@ -1,13 +1,33 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import GoalCard from "@/components/goal/GoalCard";
 import GrowthReportBody, {
   type GrowthReport as GrowthReportData,
 } from "@/components/goal/report/GrowthReportBody";
+import { useAuth } from "@/context/AuthProvider";
+import type { FetchGoalStudentResult } from "@/lib/goalApi";
 import { fetchGoalReport } from "@/lib/goalApi";
+import { goalStudentQueryOptions } from "@/lib/queryClient";
 
 const VALID_PERIODS = ["weekly", "monthly"] as const;
 type ReportPeriod = (typeof VALID_PERIODS)[number];
+
+// 표지(QA 2차 시트 행37·51) 학생 이름 — 새 fetch를 추가하지 않고, GoalAppLayout에
+// 상주하는 GoalSidebar(GoalSidebarContent.tsx "{profile.name}의 목표관리")가 이미
+// 구독하는 캐시(goalStudentQueryOptions, GET /api/goal/student)를 그대로 재구독한다 —
+// react-query는 같은 queryKey면 캐시를 공유하므로 이 페이지가 별도로 다시 조회하지
+// 않는다(사이드바가 이미 채워 둔 값을 읽는다). GoalSidebar.test.ts의
+// deriveDailyRecordDone과 같은 이유로 순수 함수로 분리해 단독 테스트한다 — 이 페이지
+// 전체(react-router/react-query/AuthProvider 의존)를 마운트하지 않고도 파생 로직만
+// 검증할 수 있다.
+export function deriveGrowthReportStudentName(
+  goalStudentResult: FetchGoalStudentResult | undefined,
+): string | null {
+  return goalStudentResult?.kind === "onboarded"
+    ? goalStudentResult.student.profile.name
+    : null;
+}
 
 type GoalReportResult =
   | { kind: "success"; report: GrowthReportData }
@@ -38,6 +58,10 @@ export default function GrowthReport() {
   //    at 은 "그 탭 안에서 몇 번째 주/달"이다 — 파일 상단 주석이 원래 지적한
   //    바로 그 구분이며, 이제 at 이 후자를 실제로 담는다.
   const at = searchParams.get("at") || undefined;
+
+  const { userId } = useAuth();
+  const { data: goalStudentResult } = useQuery(goalStudentQueryOptions(userId));
+  const studentName = deriveGrowthReportStudentName(goalStudentResult);
 
   // fetchGoalReport() 결과를 discriminated union 그대로 보관한다(재가공하지 않는다 —
   // goalApi.js의 kind 계약을 이 컴포넌트가 다시 해석하는 지점을 하나로 좁혀 둔다).
@@ -89,6 +113,7 @@ export default function GrowthReport() {
       period={period}
       onPeriodChange={handlePeriodChange}
       report={result.report}
+      studentName={studentName}
     />
   );
 }

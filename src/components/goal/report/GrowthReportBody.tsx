@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 import AdmissionChanceCard from "./AdmissionChanceCard";
 import ConditionListCard from "./ConditionListCard";
@@ -112,6 +113,11 @@ type GrowthReportBodyProps = {
   period: "weekly" | "monthly";
   onPeriodChange: (period: "weekly" | "monthly") => void;
   report: GrowthReport;
+  /** 로그인 학생 이름(자기 열람) 또는 자녀 이름(학부모 열람, ChildReport.tsx의
+   * child.student_name). 자기 열람 경로(GrowthReport.tsx)는 이 리포트 조회 API에
+   * 학생 이름이 내려오지 않아 생략한다 — 값이 없으면 표지에서 그 줄이 통째로 빠진다
+   * (폴백 문구를 지어내지 않는다). */
+  studentName?: string | null;
 };
 
 // 성장 리포트 본문(#33 주간 / #34 월간) — parent-view-spec.md §1-3/§4 원칙에 따라 셸과 완전히
@@ -141,9 +147,17 @@ export default function GrowthReportBody({
   period,
   onPeriodChange,
   report,
+  studentName,
 }: GrowthReportBodyProps) {
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
+
+  // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
+  // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
+  // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
+  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 targetUniversity로
+  // 재사용한다 — 별도로 학과만 떼어낼 필드가 없어 targetMajor는 쓰지 않는다.
+  const coverTargetUniversity = admission.upper.university || undefined;
 
   // PDF 저장(QA 행319) — 수행평가 리포트 모달과 같은 react-to-print(iframe 격리) 패턴을
   // 재사용한다(`ReportModalShell.tsx`). 이 페이지는 모달이 아니라 전체 페이지라 딤·포털이
@@ -183,6 +197,23 @@ export default function GrowthReportBody({
       </div>
 
       <div ref={contentRef}>
+        {/* 표지(QA 2차 시트 행37·51) — "화면 최상단"은 이 본문(contentRef) 영역의
+            최상단으로 해석한다: 위 탭·PDF 버튼 툴바는 화면 제어용이라 인쇄 대상
+            (contentRef) 밖에 있고, 표지는 인쇄 첫 페이지여야도 하므로 반드시
+            contentRef 안이어야 한다. variant="flow"의 인쇄 전용 규칙
+            (`FLOW_COVER_PRINT_RULE`)이 인쇄에서만 한 페이지를 채우고
+            break-after:page로 다음 내용과 분리한다 — 화면에서는 리포트 본문 맨
+            위 카드 하나로 보인다. */}
+        <ReportCoverPage
+          serviceLabel="목표관리"
+          title={report.heading ?? ""}
+          {...(studentName ? { studentName } : {})}
+          {...(coverTargetUniversity
+            ? { targetUniversity: coverTargetUniversity }
+            : {})}
+          {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
+        />
+
         <div className="mt-6 flex flex-wrap items-baseline gap-3">
           {/* 30px — 타입 스케일 밖 값(app-title 1.75rem보다 큼), 디자인 결정 대기 중 */}
           <h1 className="text-[1.875rem] font-bold leading-[1.4] text-ink-strong">
