@@ -171,4 +171,24 @@ describe("createSemaphore", () => {
     expect(typeof release1).toBe("function");
     expect(typeof release2).toBe("function");
   });
+
+  it("한도를 초과하면 release 전까지 대기하다가, release되면 다음 대기자가 획득한다", async () => {
+    const semaphore = createSemaphore(1);
+    const release1 = await semaphore.acquire();
+
+    let acquired2 = false;
+    const pending2 = semaphore.acquire().then((release) => {
+      acquired2 = true;
+      return release;
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(acquired2).toBe(false);
+
+    release1();
+    const release2 = await pending2;
+    expect(acquired2).toBe(true);
+    expect(typeof release2).toBe("function");
+  });
 });
