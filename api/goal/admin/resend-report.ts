@@ -13,8 +13,10 @@
 // dedupe와 절대 충돌하지 않는다 — 매 재발송 요청이 새 dedupeKey를 받으므로,
 // "기록이 없어도 재발송은 허용"(안내 목적) 요구와도 자연히 맞는다.
 //
-// 발송 자체(기록 조회·변수 조립·sendAndLog)는 크론과 100% 같은 함수
-// (api/_lib/goalReportSend.ts)를 쓴다 — 여기서 다시 구현하지 않는다.
+// 조회·발송(기록 조회·변수 조립·sendAndLog)은 크론과 100% 같은 함수
+// (api/_lib/goalReportSend.ts)를 쓴다 — 여기서 다시 구현하지 않는다. studentIds를
+// [studentProfileId] 하나로 넘기면 그 학생 한 명분만 조회한다(기록이 없어도
+// 항목은 만들어진다 — "기록이 없어도 재발송 허용" 요구사항).
 
 import {
   diffDaysYMD,
@@ -25,9 +27,12 @@ import {
 import { MAX_RESEND_DAYS_AGO } from "../../_lib/goalReportResendPolicy.js";
 import type { ReportSendResult } from "../../_lib/goalReportSend.js";
 import {
-  sendDailyReportFor,
-  sendMonthlyReportFor,
-  sendWeeklyReportFor,
+  loadDailyReportInputs,
+  loadMonthlyReportInputs,
+  loadWeeklyReportInputs,
+  sendDailyReport,
+  sendMonthlyReport,
+  sendWeeklyReport,
 } from "../../_lib/goalReportSend.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
@@ -175,26 +180,46 @@ export default defineHandler({
 
     let result: ReportSendResult;
     if (kind === "daily") {
-      result = await sendDailyReportFor(
+      const inputs = await loadDailyReportInputs(
         supabaseAdmin,
-        studentProfileId,
+        [studentProfileId],
         validation.startYmd,
-        { dedupeSuffix },
       );
+      const input = inputs.get(studentProfileId) ?? {
+        studentProfileId,
+        date: validation.startYmd,
+        record: null,
+        plan: { total: 0, done: 0 },
+        recipients: [],
+      };
+      result = await sendDailyReport(supabaseAdmin, input, { dedupeSuffix });
     } else if (kind === "weekly") {
-      result = await sendWeeklyReportFor(
+      const inputs = await loadWeeklyReportInputs(
         supabaseAdmin,
-        studentProfileId,
+        [studentProfileId],
         validation.startYmd,
-        { dedupeSuffix },
       );
-    } else {
-      result = await sendMonthlyReportFor(
-        supabaseAdmin,
+      const input = inputs.get(studentProfileId) ?? {
         studentProfileId,
-        String(periodKey),
-        { dedupeSuffix },
+        weekStart: validation.startYmd,
+        recipients: [],
+      };
+      result = await sendWeeklyReport(supabaseAdmin, input, { dedupeSuffix });
+    } else {
+      const monthKey = String(periodKey);
+      const inputs = await loadMonthlyReportInputs(
+        supabaseAdmin,
+        [studentProfileId],
+        monthKey,
       );
+      const input = inputs.get(studentProfileId) ?? {
+        studentProfileId,
+        monthKey,
+        recipients: [],
+      };
+      result = await sendMonthlyReport(supabaseAdmin, input, {
+        dedupeSuffix,
+      });
     }
 
     return void res.status(200).json(buildResendResponse(result));

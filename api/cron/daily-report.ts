@@ -11,13 +11,17 @@
 // 실패는 건별로 삼킨다 — 한 명이 실패했다고 나머지가 멈추면 안 된다.
 // 집계 결과를 응답으로 돌려주고, 상세는 alimtalk_send_logs 에 남는다.
 //
-// 학생 1명분 발송(기록 조회·변수 조립·dedupeKey·sendAndLog)은
-// api/_lib/goalReportSend.ts 의 sendDailyReportFor 로 옮겼다 — 관리자 재발송
-// (api/goal/admin/resend-report.ts)이 같은 로직을 재사용한다. 이 파일은 "오늘
-// 기록을 남긴 학생이 누구인지" 골라 그 함수를 호출하는 역할만 한다.
+// 조회(오늘 기록이 있는 학생·계획·수신자)와 발송(sendAndLog)은
+// api/_lib/goalReportSend.ts 의 loadDailyReportInputs/sendDailyReport 로
+// 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)이 같은 함수를
+// 재사용한다. 조회는 학생 수와 무관하게 고정 횟수(배치)로 돈다 — 학생마다
+// 다시 조회하지 않는다.
 
 import { kstNow, toYmd } from "../_lib/goalReportNotify.js";
-import { sendDailyReportFor } from "../_lib/goalReportSend.js";
+import {
+  loadDailyReportInputs,
+  sendDailyReport,
+} from "../_lib/goalReportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
@@ -39,33 +43,19 @@ export default defineHandler({
     // 로컬에서 특정 날짜를 재현할 때 필요하다(크론 인증은 그대로 요구한다).
     const today = String(req.query.date || toYmd(kstNow()));
 
-    const { data: records, error } = await supabaseAdmin
-      .from("goal_daily_records")
-      .select("profile_id")
-      .eq("record_date", today);
+    // studentIds=null → 오늘 기록이 있는 학생을 loadDailyReportInputs가 직접
+    // 찾는다(기록·계획·수신자 조회가 학생 수와 무관하게 고정 횟수로 돈다).
+    const inputs = await loadDailyReportInputs(supabaseAdmin, null, today);
 
-    if (error) {
-      console.error("cron/daily-report 기록 조회 실패:", error);
-      res.status(500).json({ detail: error.message });
-      return;
-    }
-
-    const rows = records || [];
-    if (rows.length === 0) {
+    if (inputs.size === 0) {
       res.status(200).json({ ok: true, date: today, records: 0 });
       return;
     }
 
-    // (profile_id, record_date) 는 UNIQUE(§실제 달력 모델) 이므로 학생 수 ===
-    // 기록 행 수다 — record별이 아니라 studentId별로 한 번씩만 발송을 시도한다.
-    const studentIds = Array.from(
-      new Set(rows.map((r) => String(r.profile_id))),
-    );
-
     const summary = { sent: 0, failed: 0, skipped: 0, noParent: 0 };
 
-    for (const studentId of studentIds) {
-      const result = await sendDailyReportFor(supabaseAdmin, studentId, today);
+    for (const [studentId, input] of inputs) {
+      const result = await sendDailyReport(supabaseAdmin, input);
 
       if (result.noParent) {
         summary.noParent += 1;
@@ -84,11 +74,11 @@ export default defineHandler({
     }
 
     console.log(
-      `cron/daily-report ${today} — 기록 ${rows.length}건, ${JSON.stringify(summary)}`,
+      `cron/daily-report ${today} — 기록 ${inputs.size}건, ${JSON.stringify(summary)}`,
     );
 
     res
       .status(200)
-      .json({ ok: true, date: today, records: rows.length, ...summary });
+      .json({ ok: true, date: today, records: inputs.size, ...summary });
   },
 });

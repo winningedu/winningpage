@@ -10,13 +10,16 @@
 // 대상: **지난 달**에 기록이 하나라도 있는 학생의 연결된 학부모.
 // 링크의 reportId: 월간 키 = 'YYYY-MM' (api/goal/report).
 //
-// 학생 1명분 발송(dedupeKey·변수 조립·sendAndLog)은 api/_lib/goalReportSend.ts
-// 의 sendMonthlyReportFor 로 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)
-// 이 같은 로직을 재사용한다. 이 파일은 "지난 달 기록을 남긴 학생이 누구인지"
-// 골라 그 함수를 호출하는 역할만 한다.
+// 조회(지난 달 기록이 있는 학생·수신자)와 발송(sendAndLog)은
+// api/_lib/goalReportSend.ts 의 loadMonthlyReportInputs/sendMonthlyReport 로
+// 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)이 같은 함수를
+// 재사용한다. 조회는 학생 수와 무관하게 고정 횟수(배치)로 돈다.
 
 import { kstNow, toYmd } from "../_lib/goalReportNotify.js";
-import { sendMonthlyReportFor } from "../_lib/goalReportSend.js";
+import {
+  loadMonthlyReportInputs,
+  sendMonthlyReport,
+} from "../_lib/goalReportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
@@ -54,10 +57,11 @@ export default defineHandler({
     // 지난 달 = 지금(=말일 밤) 이 속한 달. 발송 시점이 1일 아침이지만 KST 로는
     // 아직 말일이므로 now 의 달이 곧 대상 달이다.
     const targetMonth = forcedMonth || toYmd(now).slice(0, 7);
-    const monthStart = `${targetMonth}-01`;
     // split 결과가 undefined 일 수 있다고 보므로(noUncheckedIndexedAccess) 명시적으로
     // 좁힌다. targetMonth 형식이 깨지면 여기서 400 으로 끊는 편이 낫다 —
-    // NaN 이 그대로 흘러가면 조회 범위가 조용히 어긋난 채 발송된다.
+    // NaN 이 그대로 흘러가면 조회 범위가 조용히 어긋난 채 발송된다. year/month
+    // 자체(monthStart/monthEnd 계산)는 loadMonthlyReportInputs 내부에서 targetMonth로
+    // 다시 계산한다 — 여기서는 형식 검증에만 쓴다.
     const [yearPart, monthPart] = targetMonth.split("-");
     const year = Number(yearPart);
     const month = Number(monthPart);
@@ -74,38 +78,23 @@ export default defineHandler({
       return;
     }
 
-    // 다음 달 0일 = 이 달 마지막 날.
-    const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
-
-    const { data: records, error } = await supabaseAdmin
-      .from("goal_daily_records")
-      .select("profile_id")
-      .gte("record_date", monthStart)
-      .lte("record_date", monthEnd);
-
-    if (error) {
-      console.error("cron/monthly-report 기록 조회 실패:", error);
-      res.status(500).json({ detail: error.message });
-      return;
-    }
-
-    const studentIds = Array.from(
-      new Set((records || []).map((r) => String(r.profile_id))),
+    // studentIds=null → 그 달에 기록이 있는 학생을 loadMonthlyReportInputs가
+    // 직접 찾는다(수신자 조회가 학생 수와 무관하게 고정 횟수로 돈다).
+    const inputs = await loadMonthlyReportInputs(
+      supabaseAdmin,
+      null,
+      targetMonth,
     );
 
-    if (studentIds.length === 0) {
+    if (inputs.size === 0) {
       res.status(200).json({ ok: true, month: targetMonth, students: 0 });
       return;
     }
 
     const summary = { sent: 0, failed: 0, skipped: 0 };
 
-    for (const studentId of studentIds) {
-      const result = await sendMonthlyReportFor(
-        supabaseAdmin,
-        studentId,
-        targetMonth,
-      );
+    for (const [studentId, input] of inputs) {
+      const result = await sendMonthlyReport(supabaseAdmin, input);
 
       for (const outcome of result.outcomes) {
         if (outcome.status === "sent") summary.sent += 1;
@@ -119,13 +108,13 @@ export default defineHandler({
     }
 
     console.log(
-      `cron/monthly-report ${targetMonth} — 학생 ${studentIds.length}명, ${JSON.stringify(summary)}`,
+      `cron/monthly-report ${targetMonth} — 학생 ${inputs.size}명, ${JSON.stringify(summary)}`,
     );
 
     res.status(200).json({
       ok: true,
       month: targetMonth,
-      students: studentIds.length,
+      students: inputs.size,
       ...summary,
     });
   },

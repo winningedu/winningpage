@@ -1,11 +1,20 @@
-// 목표관리 리포트 알림톡 — "학생 1명분 발송"을 크론 3종(일간·주간·월간)과
+// 목표관리 리포트 알림톡 — "조회 → 발송"을 크론 3종(일간·주간·월간)과
 // 관리자 재발송(api/goal/admin/resend-report.ts)이 공유하는 부분.
 //
-// 왜 뽑았는가
-//   크론마다 인라인으로 있던 "기간 계산 → 기록 조회 → 수신자 → 변수 조립 →
-//   sendAndLog" 중 "학생 1명분" 단위를 여기로 뽑는다. 관리자 재발송은 크론처럼
-//   날짜 전체를 훑을 필요가 없고 특정 학생 1명에게만 다시 보내면 되므로, 그
-//   경계가 자연스러운 재사용 지점이다.
+// 로더/발송 두 단계로 나눈 이유
+//   처음에는 "학생 1명분 발송" 함수 하나로 뽑았는데, 그러면 크론이 학생마다
+//   그 함수를 호출해 학생 수만큼 DB 조회가 늘어난다(N+1) — 원래 크론은 기록·
+//   plan_tasks·수신자를 전체 학생분 한 번씩(배치)만 조회했다. 그래서 조회
+//   (loadXReportInputs)와 발송(sendXReport)을 분리한다:
+//     loadXReportInputs(supabaseAdmin, studentIds, periodKey)
+//       studentIds가 null이면 크론처럼 그 기간에 해당하는 학생을 직접 찾고,
+//       배열이면(관리자 재발송) 그 학생들만 대상으로 한다 — 어느 쪽이든 조회는
+//       기간당 고정 횟수(학생 수에 비례하지 않음)다.
+//     sendXReport(supabaseAdmin, input, options)
+//       이미 로드된 입력만 읽고 sendAndLog를 부른다. DB 조회는 하지 않는다
+//       (sendAndLog 내부의 dedupe 조회·로그 insert는 발송 자체에 필연적이라 예외).
+//   크론 = loadXReportInputs(null, 기간) 1회 + 입력 맵을 순회하며 sendXReport.
+//   관리자 재발송 = loadXReportInputs([학생 1명], 기간) 1회 + sendXReport 1회.
 //
 // dedupeKey·variables 포맷은 절대 바꾸지 않는다
 //   기존 크론이 이미 이 포맷으로 alimtalk_send_logs.dedupe_key 를 쌓아 왔다.
@@ -18,6 +27,7 @@ import { sendAndLog } from "./alimtalkSend.js";
 import {
   achievementRate,
   formatHours,
+  type ReportRecipient,
   resolveParentRecipients,
   toYmd,
   weekOfMonth,
@@ -49,6 +59,64 @@ export type ReportSendOptions = {
   dedupeSuffix?: string;
 };
 
+/** studentIds → { studentProfileId: 그 학생의 승인된 학부모 목록 } 배치 조회. */
+async function groupRecipientsByStudent(
+  supabaseAdmin: SupabaseClient,
+  studentIds: string[],
+): Promise<Map<string, ReportRecipient[]>> {
+  const recipients = await resolveParentRecipients(supabaseAdmin, studentIds);
+  const byStudent = new Map<string, ReportRecipient[]>();
+  for (const recipient of recipients) {
+    const list = byStudent.get(recipient.studentProfileId) || [];
+    list.push(recipient);
+    byStudent.set(recipient.studentProfileId, list);
+  }
+  return byStudent;
+}
+
+async function sendToRecipients(
+  supabaseAdmin: SupabaseClient,
+  studentProfileId: string,
+  recipients: ReportRecipient[],
+  buildDedupeKey: (parentProfileId: string, suffix?: string) => string,
+  buildVariables: (studentName: string) => Record<string, string>,
+  templateKey: "dailyReport" | "weeklyReport" | "monthlyReport",
+  meta: Record<string, unknown>,
+  options: ReportSendOptions,
+): Promise<ReportSendResult> {
+  if (recipients.length === 0) {
+    return { studentProfileId, noParent: true, outcomes: [] };
+  }
+
+  const outcomes: ReportSendOutcome[] = [];
+  for (const target of recipients) {
+    const dedupeKey = buildDedupeKey(
+      target.parentProfileId,
+      options.dedupeSuffix,
+    );
+    const variables = buildVariables(target.studentName);
+
+    const outcome = await sendAndLog({
+      supabaseAdmin,
+      templateKey,
+      phone: target.parentPhone,
+      profileId: target.parentProfileId,
+      dedupeKey,
+      meta,
+      variables,
+    });
+
+    outcomes.push({
+      parentProfileId: target.parentProfileId,
+      phone: target.parentPhone,
+      status: outcome.status,
+      ...(outcome.status === "failed" ? { reason: outcome.reason } : {}),
+    });
+  }
+
+  return { studentProfileId, noParent: false, outcomes };
+}
+
 // ── 일간 ────────────────────────────────────────────────────────────────
 
 export type DailyReportRecordLike = {
@@ -59,6 +127,14 @@ export type DailyReportRecordLike = {
   body_condition?: string | null;
   memo?: string | null;
 } | null;
+
+export type DailyReportInput = {
+  studentProfileId: string;
+  date: string;
+  record: DailyReportRecordLike;
+  plan: { total: number; done: number };
+  recipients: ReportRecipient[];
+};
 
 export function buildDailyReportDedupeKey(
   parentProfileId: string,
@@ -107,79 +183,130 @@ export function buildDailyReportVariables(params: {
   };
 }
 
-/** 학생 1명 · 하루치 일간 리포트 알림톡을 그 학생의 연결된 학부모 전원에게 보낸다. */
-export async function sendDailyReportFor(
+/**
+ * 일간 리포트 발송 입력을 배치로 조회한다.
+ *
+ * @param studentIds null이면(크론) date에 기록이 있는 학생을 직접 찾는다 —
+ *   원래 크론의 단일 쿼리(기록 조회가 곧 대상 학생 발견)와 동일하다. 배열이면
+ *   (관리자 재발송) 그 학생들만 조회한다 — 기록이 없어도 항목은 만들어진다
+ *   (record: null, "기록 없어도 재발송 허용" 요구사항).
+ */
+export async function loadDailyReportInputs(
   supabaseAdmin: SupabaseClient,
-  studentProfileId: string,
+  studentIds: string[] | null,
   date: string,
-  options: ReportSendOptions = {},
-): Promise<ReportSendResult> {
-  const recipients = await resolveParentRecipients(supabaseAdmin, [
-    studentProfileId,
-  ]);
-  if (recipients.length === 0) {
-    return { studentProfileId, noParent: true, outcomes: [] };
-  }
-
-  const { data: record } = await supabaseAdmin
+): Promise<Map<string, DailyReportInput>> {
+  let recordQuery = supabaseAdmin
     .from("goal_daily_records")
     .select(
-      "study_hours, target_ideal_hours, target_min_hours, tasks, body_condition, memo",
+      "profile_id, study_hours, target_ideal_hours, target_min_hours, tasks, body_condition, memo",
     )
-    .eq("profile_id", studentProfileId)
-    .eq("record_date", date)
-    .maybeSingle();
+    .eq("record_date", date);
+  if (studentIds) {
+    recordQuery = recordQuery.in("profile_id", studentIds);
+  }
+  const { data: recordRows, error: recordError } = await recordQuery;
+  if (recordError) {
+    // 원래 크론(daily-report.ts)이 이 조회 실패를 500으로 끊었다 — defineHandler의
+    // 최상위 catch가 받아 같은 결과(500)를 낸다. 다만 원본이 실었던 원문
+    // error.message는 여기선 싣지 못한다(호출부가 cron·재발송 둘이라 응답 모양이
+    // 라우트마다 다르다 — 라우트별 unhandledMessage로 통일하는 편이 안전하다).
+    throw new Error(`goal_daily_records 조회 실패: ${recordError.message}`);
+  }
+  const rows = recordRows || [];
 
-  const { data: planTasks } = await supabaseAdmin
-    .from("goal_plan_tasks")
-    .select("done")
-    .eq("plan_date", date)
-    .eq("profile_id", studentProfileId);
-
-  const plan = {
-    total: (planTasks || []).length,
-    done: (planTasks || []).filter(
-      (task: { done?: boolean | null }) => task.done,
-    ).length,
-  };
-
-  const outcomes: ReportSendOutcome[] = [];
-  for (const target of recipients) {
-    const dedupeKey = buildDailyReportDedupeKey(
-      target.parentProfileId,
-      studentProfileId,
-      date,
-      options.dedupeSuffix,
+  const targetIds =
+    studentIds ??
+    Array.from(
+      new Set(
+        rows.map((row: { profile_id: unknown }) => String(row.profile_id)),
+      ),
     );
-    const variables = buildDailyReportVariables({
-      studentName: target.studentName,
-      date,
-      record: (record as DailyReportRecordLike) || null,
-      plan,
-    });
 
-    const outcome = await sendAndLog({
-      supabaseAdmin,
-      templateKey: "dailyReport",
-      phone: target.parentPhone,
-      profileId: target.parentProfileId,
-      dedupeKey,
-      meta: { studentProfileId, date },
-      variables,
-    });
-
-    outcomes.push({
-      parentProfileId: target.parentProfileId,
-      phone: target.parentPhone,
-      status: outcome.status,
-      ...(outcome.status === "failed" ? { reason: outcome.reason } : {}),
-    });
+  if (targetIds.length === 0) {
+    return new Map();
   }
 
-  return { studentProfileId, noParent: false, outcomes };
+  // 계획 달성(goal_plan_tasks)·수신자(resolveParentRecipients)는 학생 수와
+  // 무관하게 각각 한 번씩만 돈다 — 학생별로 다시 조회하지 않는다.
+  const [{ data: planTasks, error: planError }, recipientsByStudent] =
+    await Promise.all([
+      supabaseAdmin
+        .from("goal_plan_tasks")
+        .select("profile_id, done")
+        .eq("plan_date", date)
+        .in("profile_id", targetIds),
+      groupRecipientsByStudent(supabaseAdmin, targetIds),
+    ]);
+  // 원본과 같은 완화 정책 — 계획 조회 실패는 전체 발송을 막지 않는다(전체계획수
+  // 0으로 보내는 편이, 학부모 전원에게 "리포트 미발송"보다 낫다).
+  if (planError) {
+    console.error("goal_plan_tasks 조회 실패:", planError);
+  }
+
+  const recordByStudent = new Map<string, DailyReportRecordLike>();
+  for (const row of rows) {
+    recordByStudent.set(
+      String((row as { profile_id: unknown }).profile_id),
+      row as DailyReportRecordLike,
+    );
+  }
+
+  const planStat = new Map<string, { total: number; done: number }>();
+  for (const task of planTasks || []) {
+    const key = String(task.profile_id);
+    const stat = planStat.get(key) || { total: 0, done: 0 };
+    stat.total += 1;
+    if (task.done) stat.done += 1;
+    planStat.set(key, stat);
+  }
+
+  const inputs = new Map<string, DailyReportInput>();
+  for (const studentId of targetIds) {
+    inputs.set(studentId, {
+      studentProfileId: studentId,
+      date,
+      record: recordByStudent.get(studentId) || null,
+      plan: planStat.get(studentId) || { total: 0, done: 0 },
+      recipients: recipientsByStudent.get(studentId) || [],
+    });
+  }
+  return inputs;
+}
+
+/** loadDailyReportInputs가 만든 입력 하나로 sendAndLog만 부른다(DB 조회 없음). */
+export async function sendDailyReport(
+  supabaseAdmin: SupabaseClient,
+  input: DailyReportInput,
+  options: ReportSendOptions = {},
+): Promise<ReportSendResult> {
+  const { studentProfileId, date, record, plan, recipients } = input;
+  return sendToRecipients(
+    supabaseAdmin,
+    studentProfileId,
+    recipients,
+    (parentProfileId, suffix) =>
+      buildDailyReportDedupeKey(
+        parentProfileId,
+        studentProfileId,
+        date,
+        suffix,
+      ),
+    (studentName) =>
+      buildDailyReportVariables({ studentName, date, record, plan }),
+    "dailyReport",
+    { studentProfileId, date },
+    options,
+  );
 }
 
 // ── 주간 ────────────────────────────────────────────────────────────────
+
+export type WeeklyReportInput = {
+  studentProfileId: string;
+  weekStart: string;
+  recipients: ReportRecipient[];
+};
 
 export function buildWeeklyReportDedupeKey(
   parentProfileId: string,
@@ -211,62 +338,98 @@ export function buildWeeklyReportVariables(params: {
   };
 }
 
-/** 학생 1명분 주간 리포트 발행 안내 알림톡을 그 학생의 연결된 학부모 전원에게 보낸다. */
-export async function sendWeeklyReportFor(
+/**
+ * 주간 리포트 발송 입력을 배치로 조회한다.
+ *
+ * @param studentIds null이면(크론) 그 주에 기록이 있는 학생을 직접 찾는다.
+ *   배열이면(관리자 재발송) 그 학생들만 조회한다 — "그 주에 기록이 있었는지"는
+ *   보지 않는다(재발송은 안내 목적이라 기록 유무와 무관하게 허용).
+ */
+export async function loadWeeklyReportInputs(
   supabaseAdmin: SupabaseClient,
-  studentProfileId: string,
+  studentIds: string[] | null,
   weekStart: string,
-  options: ReportSendOptions = {},
-): Promise<ReportSendResult> {
-  const recipients = await resolveParentRecipients(supabaseAdmin, [
-    studentProfileId,
-  ]);
-  if (recipients.length === 0) {
-    return { studentProfileId, noParent: true, outcomes: [] };
-  }
-
+): Promise<Map<string, WeeklyReportInput>> {
   const weekEnd = toYmd(
     new Date(
       new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
     ),
   );
 
-  const outcomes: ReportSendOutcome[] = [];
-  for (const target of recipients) {
-    const dedupeKey = buildWeeklyReportDedupeKey(
-      target.parentProfileId,
-      studentProfileId,
-      weekStart,
-      options.dedupeSuffix,
+  let targetIds = studentIds;
+  if (!targetIds) {
+    const { data: rows, error } = await supabaseAdmin
+      .from("goal_daily_records")
+      .select("profile_id")
+      .gte("record_date", weekStart)
+      .lte("record_date", weekEnd);
+    if (error) {
+      throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
+    }
+    targetIds = Array.from(
+      new Set((rows || []).map((row) => String(row.profile_id))),
     );
-    const variables = buildWeeklyReportVariables({
-      studentName: target.studentName,
-      weekStart,
-      studentProfileId,
-    });
-
-    const outcome = await sendAndLog({
-      supabaseAdmin,
-      templateKey: "weeklyReport",
-      phone: target.parentPhone,
-      profileId: target.parentProfileId,
-      dedupeKey,
-      meta: { studentProfileId, weekStart, weekEnd },
-      variables,
-    });
-
-    outcomes.push({
-      parentProfileId: target.parentProfileId,
-      phone: target.parentPhone,
-      status: outcome.status,
-      ...(outcome.status === "failed" ? { reason: outcome.reason } : {}),
-    });
   }
 
-  return { studentProfileId, noParent: false, outcomes };
+  if (targetIds.length === 0) {
+    return new Map();
+  }
+
+  const recipientsByStudent = await groupRecipientsByStudent(
+    supabaseAdmin,
+    targetIds,
+  );
+
+  const inputs = new Map<string, WeeklyReportInput>();
+  for (const studentId of targetIds) {
+    inputs.set(studentId, {
+      studentProfileId: studentId,
+      weekStart,
+      recipients: recipientsByStudent.get(studentId) || [],
+    });
+  }
+  return inputs;
+}
+
+/** loadWeeklyReportInputs가 만든 입력 하나로 sendAndLog만 부른다(DB 조회 없음). */
+export async function sendWeeklyReport(
+  supabaseAdmin: SupabaseClient,
+  input: WeeklyReportInput,
+  options: ReportSendOptions = {},
+): Promise<ReportSendResult> {
+  const { studentProfileId, weekStart, recipients } = input;
+  const weekEnd = toYmd(
+    new Date(
+      new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
+    ),
+  );
+
+  return sendToRecipients(
+    supabaseAdmin,
+    studentProfileId,
+    recipients,
+    (parentProfileId, suffix) =>
+      buildWeeklyReportDedupeKey(
+        parentProfileId,
+        studentProfileId,
+        weekStart,
+        suffix,
+      ),
+    (studentName) =>
+      buildWeeklyReportVariables({ studentName, weekStart, studentProfileId }),
+    "weeklyReport",
+    { studentProfileId, weekStart, weekEnd },
+    options,
+  );
 }
 
 // ── 월간 ────────────────────────────────────────────────────────────────
+
+export type MonthlyReportInput = {
+  studentProfileId: string;
+  monthKey: string;
+  recipients: ReportRecipient[];
+};
 
 export function buildMonthlyReportDedupeKey(
   parentProfileId: string,
@@ -295,57 +458,86 @@ export function buildMonthlyReportVariables(params: {
   };
 }
 
-/** 학생 1명분 월간 리포트 발행 안내 알림톡을 그 학생의 연결된 학부모 전원에게 보낸다. */
-export async function sendMonthlyReportFor(
+/**
+ * 월간 리포트 발송 입력을 배치로 조회한다.
+ *
+ * @param studentIds null이면(크론) 그 달에 기록이 있는 학생을 직접 찾는다.
+ *   배열이면(관리자 재발송) 그 학생들만 조회한다.
+ */
+export async function loadMonthlyReportInputs(
   supabaseAdmin: SupabaseClient,
-  studentProfileId: string,
+  studentIds: string[] | null,
   monthKey: string,
-  options: ReportSendOptions = {},
-): Promise<ReportSendResult> {
-  const recipients = await resolveParentRecipients(supabaseAdmin, [
-    studentProfileId,
-  ]);
-  if (recipients.length === 0) {
-    return { studentProfileId, noParent: true, outcomes: [] };
-  }
-
+): Promise<Map<string, MonthlyReportInput>> {
   const [yearPart, monthPart] = monthKey.split("-");
   const year = Number(yearPart);
   const month = Number(monthPart);
   const monthStart = `${monthKey}-01`;
   const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
 
-  const outcomes: ReportSendOutcome[] = [];
-  for (const target of recipients) {
-    const dedupeKey = buildMonthlyReportDedupeKey(
-      target.parentProfileId,
-      studentProfileId,
-      monthKey,
-      options.dedupeSuffix,
+  let targetIds = studentIds;
+  if (!targetIds) {
+    const { data: rows, error } = await supabaseAdmin
+      .from("goal_daily_records")
+      .select("profile_id")
+      .gte("record_date", monthStart)
+      .lte("record_date", monthEnd);
+    if (error) {
+      throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
+    }
+    targetIds = Array.from(
+      new Set((rows || []).map((row) => String(row.profile_id))),
     );
-    const variables = buildMonthlyReportVariables({
-      studentName: target.studentName,
-      monthKey,
-      studentProfileId,
-    });
-
-    const outcome = await sendAndLog({
-      supabaseAdmin,
-      templateKey: "monthlyReport",
-      phone: target.parentPhone,
-      profileId: target.parentProfileId,
-      dedupeKey,
-      meta: { studentProfileId, month: monthKey, monthStart, monthEnd },
-      variables,
-    });
-
-    outcomes.push({
-      parentProfileId: target.parentProfileId,
-      phone: target.parentPhone,
-      status: outcome.status,
-      ...(outcome.status === "failed" ? { reason: outcome.reason } : {}),
-    });
   }
 
-  return { studentProfileId, noParent: false, outcomes };
+  if (targetIds.length === 0) {
+    return new Map();
+  }
+
+  const recipientsByStudent = await groupRecipientsByStudent(
+    supabaseAdmin,
+    targetIds,
+  );
+
+  const inputs = new Map<string, MonthlyReportInput>();
+  for (const studentId of targetIds) {
+    inputs.set(studentId, {
+      studentProfileId: studentId,
+      monthKey,
+      recipients: recipientsByStudent.get(studentId) || [],
+    });
+  }
+  return inputs;
+}
+
+/** loadMonthlyReportInputs가 만든 입력 하나로 sendAndLog만 부른다(DB 조회 없음). */
+export async function sendMonthlyReport(
+  supabaseAdmin: SupabaseClient,
+  input: MonthlyReportInput,
+  options: ReportSendOptions = {},
+): Promise<ReportSendResult> {
+  const { studentProfileId, monthKey, recipients } = input;
+  const [yearPart, monthPart] = monthKey.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const monthStart = `${monthKey}-01`;
+  const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
+
+  return sendToRecipients(
+    supabaseAdmin,
+    studentProfileId,
+    recipients,
+    (parentProfileId, suffix) =>
+      buildMonthlyReportDedupeKey(
+        parentProfileId,
+        studentProfileId,
+        monthKey,
+        suffix,
+      ),
+    (studentName) =>
+      buildMonthlyReportVariables({ studentName, monthKey, studentProfileId }),
+    "monthlyReport",
+    { studentProfileId, month: monthKey, monthStart, monthEnd },
+    options,
+  );
 }

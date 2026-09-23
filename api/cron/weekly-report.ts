@@ -11,13 +11,16 @@
 //   (api/goal/report). 그래서 지난 주 월요일을 그대로 넣는다. 이렇게 해야 2주
 //   뒤에 링크를 눌러도 그 주 리포트가 열린다.
 //
-// 학생 1명분 발송(dedupeKey·변수 조립·sendAndLog)은 api/_lib/goalReportSend.ts
-// 의 sendWeeklyReportFor 로 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)
-// 이 같은 로직을 재사용한다. 이 파일은 "지난 주 기록을 남긴 학생이 누구인지"
-// 골라 그 함수를 호출하는 역할만 한다.
+// 조회(지난 주 기록이 있는 학생·수신자)와 발송(sendAndLog)은
+// api/_lib/goalReportSend.ts 의 loadWeeklyReportInputs/sendWeeklyReport 로
+// 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)이 같은 함수를
+// 재사용한다. 조회는 학생 수와 무관하게 고정 횟수(배치)로 돈다.
 
 import { kstNow, mondayOf, toYmd } from "../_lib/goalReportNotify.js";
-import { sendWeeklyReportFor } from "../_lib/goalReportSend.js";
+import {
+  loadWeeklyReportInputs,
+  sendWeeklyReport,
+} from "../_lib/goalReportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };
@@ -55,35 +58,19 @@ export default defineHandler({
           )
         : toYmd(lastSunday);
 
-    const { data: records, error } = await supabaseAdmin
-      .from("goal_daily_records")
-      .select("profile_id")
-      .gte("record_date", weekStart)
-      .lte("record_date", weekEnd);
+    // studentIds=null → 그 주에 기록이 있는 학생을 loadWeeklyReportInputs가
+    // 직접 찾는다(수신자 조회가 학생 수와 무관하게 고정 횟수로 돈다).
+    const inputs = await loadWeeklyReportInputs(supabaseAdmin, null, weekStart);
 
-    if (error) {
-      console.error("cron/weekly-report 기록 조회 실패:", error);
-      res.status(500).json({ detail: error.message });
-      return;
-    }
-
-    const studentIds = Array.from(
-      new Set((records || []).map((r) => String(r.profile_id))),
-    );
-
-    if (studentIds.length === 0) {
+    if (inputs.size === 0) {
       res.status(200).json({ ok: true, weekStart, students: 0 });
       return;
     }
 
     const summary = { sent: 0, failed: 0, skipped: 0 };
 
-    for (const studentId of studentIds) {
-      const result = await sendWeeklyReportFor(
-        supabaseAdmin,
-        studentId,
-        weekStart,
-      );
+    for (const [studentId, input] of inputs) {
+      const result = await sendWeeklyReport(supabaseAdmin, input);
 
       for (const outcome of result.outcomes) {
         if (outcome.status === "sent") summary.sent += 1;
@@ -97,14 +84,14 @@ export default defineHandler({
     }
 
     console.log(
-      `cron/weekly-report ${weekStart}~${weekEnd} — 학생 ${studentIds.length}명, ${JSON.stringify(summary)}`,
+      `cron/weekly-report ${weekStart}~${weekEnd} — 학생 ${inputs.size}명, ${JSON.stringify(summary)}`,
     );
 
     res.status(200).json({
       ok: true,
       weekStart,
       weekEnd,
-      students: studentIds.length,
+      students: inputs.size,
       ...summary,
     });
   },
