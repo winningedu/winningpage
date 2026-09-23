@@ -1,15 +1,27 @@
 // [신규] 새 비밀번호 설정 — QA 지시 2026-08-21, FindPassword.tsx가 보낸 이메일의
 // 재설정 링크가 도착하는 화면(redirectTo: `${origin}/login/reset-password`).
 //
-// Supabase 클라이언트는 이 URL을 열면(detectSessionInUrl 기본값 true) 링크에 담긴
-// recovery 토큰을 스스로 감지해 임시 세션을 만들고 'PASSWORD_RECOVERY' 이벤트를
-// 쏜다. 그 세션이 있어야만 updateUser({ password })가 통과한다 — 로그인 세션이
-// 아니라 이 한 번의 비밀번호 변경만을 위한 임시 세션이다.
+// 두 가지 경로를 동시에 지원한다(2026-09-23 token_hash 전환).
 //
-// 링크가 만료됐거나 이미 사용된 경우 이벤트가 오지 않으므로, 일정 시간 안에
-// 세션이 감지되지 않으면 "링크가 유효하지 않다"는 안내로 전환한다.
+// ① token_hash 모드(신규, Supabase 공식 가이드 권장) — 메일 링크가
+//   ?token_hash=...&type=recovery 로 온다. 세션을 미리 만들지 않고, 사용자가
+//   폼을 "제출하는 순간"에만 verifyOtp({ token_hash, type: "recovery" })를
+//   불러 세션을 만든다. 메일 보안 스캐너가 링크를 미리 열어 GET 한 번에
+//   토큰을 소모해 버리는 문제(otp_expired)를 이렇게 피한다.
+//
+// ② 레거시(해시 링크) 모드 — Supabase 기본 ConfirmationURL 템플릿이 여기 붙는
+//   경로다. 관리자 초대 링크(api/admin/invite-member.ts:159)도 이 경로를 그대로
+//   쓴다. Supabase 클라이언트는 이 URL을 열면(detectSessionInUrl 기본값 true)
+//   링크에 담긴 recovery 토큰을 스스로 감지해 임시 세션을 만들고
+//   'PASSWORD_RECOVERY' 이벤트를 쏜다. 그 세션이 있어야만
+//   updateUser({ password })가 통과한다 — 로그인 세션이 아니라 이 한 번의
+//   비밀번호 변경만을 위한 임시 세션이다. 링크가 만료됐거나 이미 사용된 경우
+//   이벤트가 오지 않으므로, 일정 시간 안에 세션이 감지되지 않으면(또는 Supabase가
+//   실패를 나타내는 해시를 바로 돌려주면) "링크가 유효하지 않다"는 안내로 전환한다.
+//
+// 메일 템플릿이 ①로 전면 교체되기 전까지는 ②를 폴백으로 유지해야 한다.
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   AuthLayout,
   AuthTitle,
@@ -24,11 +36,43 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 // 넉넉히 준다. 이 시간이 지나도 세션이 없으면 링크 자체가 무효한 것으로 본다.
 const RECOVERY_WAIT_TIMEOUT_MS = 4000;
 
+/**
+ * 레거시(해시 링크) 경로에서 Supabase가 실패로 돌려보낸 경우를 감지한다.
+ *
+ * Supabase는 recovery 토큰이 만료됐거나 이미 쓰였으면 detectSessionInUrl이
+ * 아무것도 하지 않는 대신 `#error=access_denied&error_code=otp_expired&...`
+ * 형태로 해시만 남긴다 — 이벤트가 오지 않으므로 기존 4초 타임아웃으로도
+ * 결국 만료 화면에 도달하지만, 이미 실패가 확정된 값이 해시에 있는데 4초를
+ * 그냥 흘려보낼 이유가 없다.
+ */
+function hashHasExpiredError(): boolean {
+  if (typeof window === "undefined") return false;
+  const raw = window.location.hash;
+  if (!raw) return false;
+  const params = new URLSearchParams(raw.startsWith("#") ? raw.slice(1) : raw);
+  return (
+    params.get("error_code") === "otp_expired" ||
+    params.get("error") === "access_denied"
+  );
+}
+
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
-  const [expired, setExpired] = useState(false);
-  const readyRef = useRef(false);
+  const [searchParams] = useSearchParams();
+  // Supabase 공식 가이드(passwords "Resetting a password")가 권장하는 신규
+  // 경로 — 메일 링크가 ?token_hash=...&type=recovery로 온다. 이 값이 있으면
+  // 세션이 이미 있는지 기다릴 필요가 없다: 사용자가 폼을 제출하는 순간에만
+  // verifyOtp를 불러 세션을 만든다(handleSubmit 참고). 그래야 메일 보안
+  // 스캐너가 링크를 미리 열어도 토큰이 소모되지 않는다.
+  const tokenHash = searchParams.get("token_hash");
+  const isTokenHashMode =
+    Boolean(tokenHash) && searchParams.get("type") === "recovery";
+
+  const [ready, setReady] = useState(isTokenHashMode);
+  const [expired, setExpired] = useState(
+    () => !isTokenHashMode && hashHasExpiredError(),
+  );
+  const readyRef = useRef(isTokenHashMode);
 
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -41,6 +85,10 @@ export default function ResetPassword() {
   }, [ready]);
 
   useEffect(() => {
+    // token_hash 모드는 세션 대기 자체가 필요 없다 — handleSubmit이 제출
+    // 순간에 verifyOtp로 세션을 직접 만든다.
+    if (isTokenHashMode) return;
+
     let cancelled = false;
 
     // onAuthStateChange 구독 전에 이미 세션이 만들어졌을 수 있어(마운트 타이밍),
@@ -64,7 +112,7 @@ export default function ResetPassword() {
       subscription.unsubscribe();
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [isTokenHashMode]);
 
   const passwordValid = password ? PASSWORD_REGEX.test(password) : null;
   const canSubmit =
@@ -91,6 +139,29 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
+      if (isTokenHashMode) {
+        // 사용자가 실제로 제출하는 이 순간에만 토큰을 소모한다 — 마운트
+        // 시점에 미리 소모하면 메일 보안 스캐너가 링크를 먼저 열었을 때
+        // 정작 사용자가 열면 이미 만료된 상태가 된다(otp_expired, 파일
+        // 상단 배경 참고).
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash as string,
+          type: "recovery",
+        });
+
+        if (verifyError) {
+          if (
+            verifyError.code === "otp_expired" ||
+            verifyError.status === 403
+          ) {
+            setExpired(true);
+          } else {
+            setFormError("링크 확인에 실패했습니다. 다시 시도해 주세요.");
+          }
+          return;
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {

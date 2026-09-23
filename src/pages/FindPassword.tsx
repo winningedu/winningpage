@@ -18,8 +18,8 @@
 // ② 이메일 링크(기존, 그대로 유지)
 //   Supabase resetPasswordForEmail로 재설정 링크를 보내고, 사용자가 그 링크를
 //   열면 /login/reset-password(ResetPassword.tsx)로 이동해 새 비밀번호를 정한다.
-//   계정 존재 여부를 노출하지 않는 원칙(자세한 이유는 이 섹션의 isServerFailure
-//   주석 참고)은 이 경로만 해당한다 — 휴대폰 경로는 OTP로 번호 소유를 이미
+//   계정 존재 여부를 노출하지 않는 원칙(자세한 이유는 @/lib/authErrors의
+//   isServerFailure 주석 참고)은 이 경로만 해당한다 — 휴대폰 경로는 OTP로 번호 소유를 이미
 //   증명했으므로 그 원칙의 예외다(find-account-by-phone.ts와 동일 논리).
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useNavigate } from "react-router";
@@ -33,6 +33,7 @@ import {
 } from "@/components/auth";
 import { useCooldown } from "@/hooks/useCooldown";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
+import { isRateLimited, isServerFailure } from "@/lib/authErrors";
 import {
   isValidMobile,
   normalizePhone,
@@ -45,33 +46,12 @@ import { supabase } from "@/lib/supabase";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_COOLDOWN_SECONDS = 60;
 const COPY_FEEDBACK_MS = 2000;
+// Supabase 대시보드의 mailer_otp_exp(초 단위, 기본 1800 = 30분)와 같은 값이다.
+// 그 설정을 바꾸면 이 분 단위 안내 문구도 같이 바꿔야 어긋나지 않는다.
+const RESET_LINK_TTL_MINUTES = 30;
 
 type FindMethod = "phone" | "email";
 type FieldStatus = "default" | "error" | "success";
-
-/**
- * "서버가 못 보낸 것"인지 판정한다. 계정 존재 여부와 무관한 실패만 true 다.
- *
- * 왜 구분하나 — 실제로 당한 사고 (2026-08-23)
- *   dev 의 SMTP 자격증명이 틀어져 `/auth/v1/recover` 가 **500** 을 뱉고 있었는데,
- *   이 화면은 실패를 통째로 삼키고 "보냈어요"만 띄웠다. 메일은 한 통도 안 나갔는데
- *   사용자는 오지 않는 메일을 기다리며 스팸함만 뒤지게 된다 — 실제 사용자였으면
- *   계정을 영영 못 찾는다.
- *
- *   "계정이 없다"는 계속 숨겨야 맞다(그걸 구분해 보여주면 이메일 등록 여부를
- *   캐는 경로가 된다). 하지만 5xx 는 **어떤 계정 정보도 담고 있지 않으므로**
- *   사실대로 알려도 그 원칙이 깨지지 않는다.
- *
- * AuthRetryableFetchError 는 auth-js 가 네트워크 오류와 500·501·502·503·504,
- * Cloudflare 520~530 을 묶어 던지는 타입이다. status 를 못 읽는 경우까지 덮으려고
- * 이름과 status 둘 다 본다.
- */
-export function isServerFailure(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { name?: string; status?: number };
-  if (candidate.name === "AuthRetryableFetchError") return true;
-  return typeof candidate.status === "number" && candidate.status >= 500;
-}
 
 type PhoneResetResult =
   | {
@@ -161,6 +141,7 @@ export default function FindPassword() {
     setEmailMessage("");
 
     let serverFailed = false;
+    let rateLimited = false;
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
@@ -168,16 +149,27 @@ export default function FindPassword() {
         { redirectTo: `${window.location.origin}/login/reset-password` },
       );
 
-      // 계정이 없는 경우에는 실패를 숨긴다(파일 상단 주석). 서버 장애는 숨기지
-      // 않는다 — 위 isServerFailure 주석 참고.
+      // 계정이 없는 경우에는 실패를 숨긴다(파일 상단 주석). 서버 장애·발송
+      // 한도 초과는 숨기지 않는다 — 위 isServerFailure 주석 참고.
       if (error) {
         console.error("비밀번호 재설정 메일 발송 오류:", error);
-        serverFailed = isServerFailure(error);
+        // rate limit을 먼저 본다 — Supabase가 over_email_send_rate_limit에
+        // status 429를 함께 채워 던지는데, isServerFailure는 5xx만 보므로
+        // 순서와 무관하게 서로 겹치지 않는다.
+        rateLimited = isRateLimited(error);
+        serverFailed = !rateLimited && isServerFailure(error);
       }
     } finally {
       setSending(false);
 
-      if (serverFailed) {
+      if (rateLimited) {
+        // 쿨다운을 걸지 않는다 — Supabase 쪽 rate limit이 이미 발송을 막고
+        // 있으므로 클라이언트가 또 기다리게 할 이유가 없다.
+        setEmailMessage(
+          "요청이 많아 지금은 메일을 보낼 수 없어요. 잠시 후 다시 시도해 주세요.",
+        );
+        setEmailStatus("error");
+      } else if (serverFailed) {
         // 쿨다운을 걸지 않는다 — 아예 발송되지 않았으므로 60초를 기다리게 할
         // 이유가 없다. 남용은 Supabase 쪽 rate limit 이 계속 막는다.
         setEmailMessage(
@@ -187,7 +179,7 @@ export default function FindPassword() {
       } else {
         emailCooldown.start();
         setEmailMessage(
-          "입력하신 이메일로 비밀번호 재설정 링크를 보냈어요. 메일함(스팸함 포함)을 확인해 주세요.",
+          `입력하신 이메일로 비밀번호 재설정 링크를 보냈어요. 링크는 ${RESET_LINK_TTL_MINUTES}분간 유효해요. 메일함(스팸함 포함)을 확인해 주세요.`,
         );
         setEmailStatus("success");
       }

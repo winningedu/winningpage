@@ -248,16 +248,33 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# 메일 템플릿 6종 + 비밀번호 변경 알림 — 운영(prod·dev·스쿨멘토)과 같은 내용을
+# 로컬 스택에도 깐다. 정본은 templates/*.html, 운영 반영은 Management API PATCH
+# (config push 금지 — site_url 등 dev 값이 통째로 밀린다).
+[auth.email.template.invite]
+subject = "[위닝에듀] 관리자 초대"
+content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+[auth.email.template.recovery]
+subject = "[위닝에듀] 비밀번호 재설정 안내"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.magic_link]
+subject = "[위닝에듀] 이메일 인증코드"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "[위닝에듀] 이메일 변경 인증코드"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.reauthentication]
+subject = "[위닝에듀] 본인 확인 코드 {{ .Token }}"
+content_path = "./supabase/templates/reauthentication.html"
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "[위닝에듀] 비밀번호가 변경되었습니다"
+content_path = "./supabase/templates/password_changed.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
@@ -421,5 +438,5 @@ enabled = true
 # 가입 확인 메일을 코드형({{ .Token }})으로 — 기본 링크형이면 가입 폼의
 # 6자리 인증코드 입력 단계를 로컬에서 통과할 수 없다. templates/confirmation.html 참고.
 [auth.email.template.confirmation]
-subject = "위닝에듀 가입 인증코드"
+subject = "[위닝에듀] 가입 인증코드"
 content_path = "./supabase/templates/confirmation.html"
