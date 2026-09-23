@@ -143,6 +143,14 @@ export function createSemaphore(maxConcurrent: number): Semaphore {
   };
 }
 
+// 인스턴스 하나가 브라우저 렌더를 동시에 처리할 최대 개수 — 이보다 많으면
+// 큐에서 대기한다(메모리 압박으로 브라우저 프로세스가 죽는 것을 막는다).
+export const RENDER_CONCURRENCY_LIMIT = 2;
+
+// 큐 대기가 이 시간(ms)을 넘으면 503으로 응답한다 — 사용자를 무한정 붙잡지
+// 않는다.
+export const RENDER_QUEUE_TIMEOUT_MS = 20_000;
+
 /** 큐 대기가 이 시간을 넘으면 acquireWithTimeout이 RenderQueueTimeoutError로
  * 거부한다 — reportPdfRender.ts가 503으로 변환한다. */
 export class RenderQueueTimeoutError extends Error {

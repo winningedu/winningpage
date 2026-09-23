@@ -12,6 +12,8 @@ import {
   isHtmlTooLarge,
   isServerlessRuntime,
   MAX_HTML_BYTES,
+  RENDER_CONCURRENCY_LIMIT,
+  RENDER_QUEUE_TIMEOUT_MS,
   RenderQueueTimeoutError,
   resolveChromiumPackUrl,
   resolveLocalExecutablePath,
@@ -249,5 +251,12 @@ describe("acquireWithTimeout", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("렌더 동시성 설정값", () => {
+  it("동시 렌더 한도는 2, 대기 타임아웃은 20초다", () => {
+    expect(RENDER_CONCURRENCY_LIMIT).toBe(2);
+    expect(RENDER_QUEUE_TIMEOUT_MS).toBe(20_000);
   });
 });
