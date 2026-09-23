@@ -125,13 +125,18 @@ describe("ReportCoverPage", () => {
     ).not.toContain("fd-report-sheet");
   });
 
-  it("flow 변형은 인쇄에서 높이를 267mm로 고정하고 넘치는 내용을 자른다", () => {
+  it("flow 변형은 인쇄에서 높이를 고정하고 넘치는 내용을 자른다", () => {
+    // 267mm(= A4 - @page 15mm*2 여백) 그대로 쓰면 Chromium 인쇄 엔진이 해당 박스를
+    // 두 페이지로 쪼개는 실제 버그가 있다(QA t11 실측 — react-to-print PDF에서
+    // height:250mm 이상 + break-after:page 조합마다 재현, 249mm 이하는 재현 안 됨).
+    // 여유를 두고 230mm로 고정한다.
     const { container } = render(
       <ReportCoverPage serviceLabel="학습진단" title="제목" />,
     );
 
     const printStyle = getFlowPrintStyle(container);
-    expect(printStyle).toContain("height: 267mm");
+    expect(printStyle).toContain("height: 230mm");
+    expect(printStyle).toContain("max-height: 230mm");
     expect(printStyle).toContain("overflow: hidden");
     expect(printStyle).toContain("break-after: page");
   });
