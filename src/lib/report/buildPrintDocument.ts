@@ -20,12 +20,38 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;");
 }
 
+function serializeHtmlAttributes(htmlEl: HTMLElement): string {
+  const parts: string[] = [];
+  const lang = htmlEl.getAttribute("lang");
+  if (lang) parts.push(`lang="${escapeHtml(lang)}"`);
+  const className = htmlEl.getAttribute("class");
+  if (className) parts.push(`class="${escapeHtml(className)}"`);
+  for (const attr of Array.from(htmlEl.attributes)) {
+    if (attr.name.startsWith("data-")) {
+      parts.push(`${attr.name}="${escapeHtml(attr.value)}"`);
+    }
+  }
+  return parts.length ? ` ${parts.join(" ")}` : "";
+}
+
+/** root를 그대로 쓰지 않고 복제본에서 <script>를 제거한 뒤 outerHTML을 뽑는다 —
+ * 이 문서는 절대 <script>를 포함해선 안 된다(서버는 setJavaScriptEnabled(false)로
+ * 실행 자체를 한 번 더 막지만, 그 전에 마크업 단계에서도 넣지 않는다). */
+function serializeWithoutScripts(root: HTMLElement): string {
+  const clone = root.cloneNode(true) as HTMLElement;
+  for (const script of Array.from(clone.querySelectorAll("script"))) {
+    script.remove();
+  }
+  return clone.outerHTML;
+}
+
 export function buildPrintDocument({
   root,
   title,
   extraCss,
 }: BuildPrintDocumentInput): string {
   const doc = root.ownerDocument;
+  const win = doc.defaultView;
 
   const styleTags = Array.from(
     doc.querySelectorAll<HTMLLinkElement | HTMLStyleElement>(
@@ -41,17 +67,19 @@ export function buildPrintDocument({
 
   const headParts: string[] = [
     '<meta charset="UTF-8">',
+    ...(win ? [`<base href="${escapeHtml(win.location.origin)}/">`] : []),
     `<title>${escapeHtml(title)}</title>`,
     ...styleTags,
+    ...(extraCss ? [`<style>${extraCss}</style>`] : []),
   ];
 
   return [
     "<!DOCTYPE html>",
-    "<html>",
+    `<html${serializeHtmlAttributes(doc.documentElement)}>`,
     "<head>",
     ...headParts,
     "</head>",
-    `<body>${root.outerHTML}</body>`,
+    `<body>${serializeWithoutScripts(root)}</body>`,
     "</html>",
   ].join("\n");
 }
