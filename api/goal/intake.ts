@@ -841,6 +841,25 @@ export function validateIntakeBody(body: unknown) {
  * 평균 **원점수**(0~100)를 middleAvgToNine으로, 고2・고3은 이전 학년까지의 평균
  * **등급**(1~9, 9등급제)을 그대로 쓴다(기존 priorNaesinGrade 흐름 유지).
  */
+/**
+ * 저장된 학생 행에서 내신 "전 시험 없음(naesinAllNone)" 여부를 판정한다 —
+ * intake-update.ts가 내신 section을 건드리지 않는 부분 수정에서, 기존 학년 치환
+ * (고1 중3 특례) 여부를 다시 판단할 때 이 값이 필요하다.
+ *
+ * naesin_scores.lastExam(jsonb 내부 필드)이 아니라 last_naesin_exam 컬럼(바로 위
+ * deriveNaesin이 온보딩·수정 저장 시점마다 직접 쓰는 값, "" 아니면 실제 시험 라벨만
+ * 들어온다)을 근거로 삼는다 — naesin_scores가 null이거나 2026-09-02(749cc3a4)
+ * 이전 구 형식(지금과 다른 키 이름공간이라 lastExam 필드 자체가 없음)이어도 이
+ * 컬럼만은 온보딩 시점에 항상 계산되어 채워져 있다. `!existing.naesin_scores?.lastExam`
+ * 식으로 jsonb를 직접 보면 이런 행에서 undefined를 "전 시험 없음"으로 오판해 고1
+ * 학생의 엔진 학년이 '중3'으로 잘못 치환된다.
+ */
+export function isStoredNaesinAllNone(row: {
+  last_naesin_exam: unknown;
+}): boolean {
+  return row.last_naesin_exam === "";
+}
+
 export function deriveNaesin(input) {
   const {
     naesinAllNone,

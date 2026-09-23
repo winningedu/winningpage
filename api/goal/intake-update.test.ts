@@ -2,7 +2,28 @@
 // intake.naesinMogo.test.ts와 같은 규약 — handler I/O(supabase 조회·upsert)는
 // 로컬 스택 QA로, 분리 가능한 순수 함수만 여기서 검증한다.
 import { describe, expect, it } from "vitest";
+import { isStoredNaesinAllNone } from "./intake.js";
 import { ensureOwnProfile, validateIntakeUpdateBody } from "./intake-update.js";
+
+describe("isStoredNaesinAllNone", () => {
+  it("last_naesin_exam이 빈 문자열이면 전 시험 없음으로 판정한다", () => {
+    expect(isStoredNaesinAllNone({ last_naesin_exam: "" })).toBe(true);
+  });
+
+  it("last_naesin_exam에 시험 라벨이 있으면 전 시험 없음이 아니다", () => {
+    expect(isStoredNaesinAllNone({ last_naesin_exam: "고3 1학기 중간" })).toBe(
+      false,
+    );
+  });
+
+  it("last_naesin_exam이 null인 행(구 형식 등)을 전 시험 없음으로 오판하지 않는다", () => {
+    expect(isStoredNaesinAllNone({ last_naesin_exam: null })).toBe(false);
+  });
+
+  it("last_naesin_exam이 undefined인 행을 전 시험 없음으로 오판하지 않는다", () => {
+    expect(isStoredNaesinAllNone({ last_naesin_exam: undefined })).toBe(false);
+  });
+});
 
 describe("ensureOwnProfile", () => {
   it("body에 profileId가 없으면 통과시킨다(세션 본인 것만 쓰는 정상 경로)", () => {

@@ -40,6 +40,7 @@ import {
   deriveMogo,
   deriveNaesin,
   deriveNaesinGroupAverages,
+  isStoredNaesinAllNone,
   regenerateDirectionReports,
   validateMockExamInput,
   validateNaesinInput,
@@ -207,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             department: existing.min_department,
           };
 
-    const existingNaesinAllNone = !existing.naesin_scores?.lastExam;
+    const existingNaesinAllNone = isStoredNaesinAllNone(existing);
     const naesinDerived =
       value.section === "naesin"
         ? deriveNaesin({
