@@ -53,15 +53,37 @@ const FLOW_SHEET_CLASS =
 
 // react-to-print(iframe 격리) 두 화면(목표관리 성장 리포트·수행평가 리포트 모달)이 공유하는
 // 베이스(`REPORT_PRINT_PAGE_BASE_STYLE`, `@page 15mm`)를 전제로 한 페이지 안쪽 여유
-// (297mm - 15mm*2 = 267mm)를 채운다. `break-after: page`로 다음 내용(본문 첫 섹션)을
+// (297mm - 15mm*2 = 267mm)를 채운다. `height`+`max-height`+`overflow: hidden`으로 상한을
+// 고정해 내부 컨텐츠(일러스트+푸터)가 넘쳐도 두 번째 페이지로 흘러넘치지 않게 막는다
+// (QA t11 실측 — min-height만으로는 상한이 없어 flex-1 일러스트가 페이지를 두 장 차지했다).
+//
+// 267mm 그대로 쓰지 않고 230mm로 여유를 둔 이유(QA t11 2차 실측, react-to-print로 뽑은
+// 실제 PDF를 pdftoppm으로 페이지별 렌더링해 확인) — height가 250mm 이상이면(249mm는
+// 재현 안 됨) `break-after: page`와 맞물려 Chromium 인쇄 엔진이 이 박스를 두 페이지로
+// 쪼개는 버그가 재현된다(일러스트 max-height·SVG absolute 여부와 무관, 박스 자체의 고정
+// height 값에만 좌우됨). 이 파일 밖(report-print.css)은 손댈 수 없어 임계값 아래로 여유
+// (250mm - 230mm = 20mm)를 두는 쪽으로 우회한다.
+//
+// 화면 패딩(`lg:p-16`)은 `@page 15mm` 여백과 이중이 되지 않도록 인쇄에서 줄이고, 카드형
+// 그림자·둥근 모서리도 인쇄에서 제거한다. `break-after: page`로 다음 내용(본문 첫 섹션)을
 // 항상 새 페이지에서 시작시킨다 — 화면 클래스(`lg:min-h-[30rem]`)에는 영향을 주지 않도록
 // `@media print` 안에서만 선언한다(PerformanceReportSurface.tsx의 인쇄 전용 `<style>` 관례).
 const FLOW_COVER_PRINT_RULE = `
   @media print {
     .fd-report-cover-flow {
-      min-height: 267mm;
+      height: 230mm;
+      max-height: 230mm;
+      overflow: hidden;
+      box-sizing: border-box;
+      padding: 8mm;
+      box-shadow: none;
+      border-radius: 0;
       break-after: page;
       page-break-after: always;
+    }
+
+    .fd-report-cover-flow .fd-report-cover-illustration {
+      max-height: 120mm;
     }
   }
 `;
@@ -100,41 +122,55 @@ export default function ReportCoverPage({
         </p>
       )}
 
-      {/* 일러스트 영역 — flex-1로 남는 세로 공간을 전부 차지하고, 도형은 그 영역의
-          우하단에 배치한다(고객사 참고 샘플의 "우하단 3D 오브젝트" 구성만 참조, 실제
-          도형은 3D 오브젝트가 아닌 추상 기하 구성). */}
-      <div className="relative mt-8 min-h-30 flex-1 lg:mt-12 lg:min-h-50">
+      {/* 일러스트 영역 — flex-1로 남는 세로 공간을 차지하되 max-height 상한을 둔다
+          (QA t11 실측 — 상한이 없으면 flex-1 영역이 인쇄에서 267mm 상한을 넘겨 표지가
+          두 페이지로 흘러넘쳤다). 도형은 그 영역의 우하단에 배치한다(고객사 참고 샘플의
+          "우하단 3D 오브젝트" 구성만 참조, 실제 도형은 3D 오브젝트가 아닌 추상 기하 구성). */}
+      <div className="fd-report-cover-illustration relative mt-8 min-h-30 flex-1 lg:mt-12 lg:min-h-50 lg:max-h-80">
         <CoverIllustration />
       </div>
 
-      <footer className="fd-report-cover-footer mt-auto flex items-end justify-between gap-4 pt-8">
+      {/* report-print.css 의 전역 규칙(`@media print { header, footer { display: none
+          !important } }`, SiteLayout 헤더·푸터 인쇄 제거용)이 태그 셀렉터라 리터럴
+          <footer> 요소를 전부 잡는다(QA t11 실측 — 표지 푸터가 인쇄에서 안 보임). 그
+          전역 파일은 이 컴포넌트의 수정 범위 밖이라 여기서 <div>로 피해 간다. */}
+      {/* 모바일 폭(320px급)에서는 로고와 텍스트를 나란히 두면 텍스트 컬럼이 shrink되며
+          글자 단위로 줄바꿈됐다(QA t11 실측, m-growth.png) — 기본은 세로로 쌓고
+          sm 이상에서만 가로 정렬로 돌아간다. 텍스트 줄에는 whitespace-nowrap을 걸어
+          같은 이유로 줄 중간이 깨지지 않게 한다. */}
+      <div className="fd-report-cover-footer mt-auto flex flex-col items-start gap-3 pt-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <img
           src={site.logo.horizontal}
           alt={site.brandName}
-          className="h-5.5 w-auto object-contain lg:h-6.5"
+          className="h-5.5 w-auto shrink-0 object-contain lg:h-6.5"
         />
         {(studentName || dateLabel) && (
-          <div className="flex flex-col items-end gap-1 text-right text-sm text-ink-sub">
-            {studentName && <p className="font-medium">{studentName} 학생</p>}
-            {dateLabel && <p>{dateLabel}</p>}
+          <div className="flex flex-col items-start gap-1 text-left text-sm text-ink-sub sm:items-end sm:text-right">
+            {studentName && (
+              <p className="whitespace-nowrap font-medium">
+                {studentName} 학생
+              </p>
+            )}
+            {dateLabel && <p className="whitespace-nowrap">{dateLabel}</p>}
           </div>
         )}
-      </footer>
+      </div>
     </section>
   );
 }
 
 // 추상 기하 일러스트 — 브랜드 primary(#013262) 계열 + accent(#0b84fd) 반투명 도형
-// 조합(원·회전 사각형·곡선). 컨테이너에 맞춰 늘어나도록 `preserveAspectRatio="xMaxYMax slice"`
-// 로 우하단 기준 정렬한다. viewBox 내부 좌표는 report-print.css 상단 주석이 명시한 예외
-// (SVG viewBox는 컨테이너 종속 좌표라 rem 제약 대상이 아니다)에 해당한다.
+// 조합(원·회전 사각형·곡선). `preserveAspectRatio="xMaxYMax meet"`로 우하단 기준 정렬하되
+// 영역을 넘지 않게 축소한다(`slice`는 영역을 꽉 채우려고 무한히 커져 QA t11 실측에서
+// 인쇄 페이지 상한을 넘겼다). viewBox 내부 좌표는 report-print.css 상단 주석이 명시한
+// 예외(SVG viewBox는 컨테이너 종속 좌표라 rem 제약 대상이 아니다)에 해당한다.
 function CoverIllustration() {
   return (
     <svg
       role="presentation"
       aria-hidden="true"
       viewBox="0 0 400 260"
-      preserveAspectRatio="xMaxYMax slice"
+      preserveAspectRatio="xMaxYMax meet"
       className="absolute inset-0 h-full w-full print:[print-color-adjust:exact]"
     >
       <circle cx="330" cy="190" r="120" fill="#013262" opacity="0.08" />

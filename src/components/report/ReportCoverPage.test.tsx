@@ -6,6 +6,13 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ReportCoverPage from "./ReportCoverPage";
 
+// flow 표지가 인쇄에서 한 페이지를 넘지 않도록 상한을 두는 인쇄 규칙 검사(QA t11
+// 커버픽스 — flow 표지가 react-to-print 실측에서 두 페이지를 차지하던 버그).
+function getFlowPrintStyle(container: HTMLElement) {
+  const styleTag = container.querySelector("style");
+  return styleTag?.textContent ?? "";
+}
+
 describe("ReportCoverPage", () => {
   it("title을 렌더한다", () => {
     render(
@@ -116,5 +123,80 @@ describe("ReportCoverPage", () => {
     expect(
       screen.getByLabelText("학습진단 리포트 표지").className,
     ).not.toContain("fd-report-sheet");
+  });
+
+  it("flow 변형은 인쇄에서 높이를 고정하고 넘치는 내용을 자른다", () => {
+    // 267mm(= A4 - @page 15mm*2 여백) 그대로 쓰면 Chromium 인쇄 엔진이 해당 박스를
+    // 두 페이지로 쪼개는 실제 버그가 있다(QA t11 실측 — react-to-print PDF에서
+    // height:250mm 이상 + break-after:page 조합마다 재현, 249mm 이하는 재현 안 됨).
+    // 여유를 두고 230mm로 고정한다.
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const printStyle = getFlowPrintStyle(container);
+    expect(printStyle).toContain("height: 230mm");
+    expect(printStyle).toContain("max-height: 230mm");
+    expect(printStyle).toContain("overflow: hidden");
+    expect(printStyle).toContain("break-after: page");
+  });
+
+  it("일러스트 SVG는 영역 안에 들어오도록 preserveAspectRatio를 meet으로 맞춘다", () => {
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const svg = container.querySelector("svg");
+    expect(svg).toHaveAttribute("preserveAspectRatio", "xMaxYMax meet");
+  });
+
+  it("표지 푸터는 report-print.css의 전역 footer 태그 인쇄 숨김 규칙에 걸리지 않는다", () => {
+    // report-print.css `@media print { header, footer { display: none !important } }`는
+    // SiteLayout 헤더·푸터를 지우려는 규칙인데 태그 셀렉터라 리터럴 <footer> 요소를 전부
+    // 잡는다. 실측(QA t11)에서 표지 푸터가 인쇄에서 완전히 안 보였다 — <footer> 대신
+    // 다른 태그를 써서 이 전역 셀렉터를 피한다.
+    const { container } = render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        studentName="김민준"
+      />,
+    );
+
+    expect(container.querySelector("footer")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("김민준 학생").closest(".fd-report-cover-footer"),
+    ).not.toBeNull();
+  });
+
+  it("좁은 화면에서 푸터 텍스트가 한 글자씩 세로로 안 깨지게 nowrap을 건다", () => {
+    // 모바일 폭(320px급)에서 로고 img가 폭을 차지해 텍스트 컬럼이 shrink되며 글자
+    // 단위로 줄바꿈되던 버그(QA t11 실측, m-growth.png) — 학생명·기간 줄에 줄바꿈
+    // 금지를 걸어 한 줄을 유지시킨다.
+    render(
+      <ReportCoverPage
+        serviceLabel="학습진단"
+        title="제목"
+        studentName="부산학생1"
+        dateLabel="2026-09-21 ~ 2026-09-27"
+      />,
+    );
+
+    expect(screen.getByText("부산학생1 학생").className).toContain(
+      "whitespace-nowrap",
+    );
+    expect(screen.getByText("2026-09-21 ~ 2026-09-27").className).toContain(
+      "whitespace-nowrap",
+    );
+  });
+
+  it("좁은 화면에서는 푸터를 세로로 쌓고, sm 이상에서 가로 정렬로 돌아간다", () => {
+    const { container } = render(
+      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+    );
+
+    const footer = container.querySelector(".fd-report-cover-footer");
+    expect(footer?.className).toContain("flex-col");
+    expect(footer?.className).toContain("sm:flex-row");
   });
 });
