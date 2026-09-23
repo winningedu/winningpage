@@ -21,4 +21,15 @@ describe("findInserts", () => {
 
     expect(findInserts(sql)).toEqual(["admin_resources"]);
   });
+
+  it("do 블록 안의 insert는 데이터 시드이므로 검출한다", () => {
+    const sql = `
+      do $$
+      begin
+        insert into public.tenants (code, name) values ('AB', '테스트');
+      end $$;
+    `;
+
+    expect(findInserts(sql)).toEqual(["tenants"]);
+  });
 });
