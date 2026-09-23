@@ -79,7 +79,10 @@ export function dispatchAtKst(
         ? weeklyReportDispatchYmd(periodKey)
         : monthlyReportDispatchYmd(periodKey);
 
-  const [year, month, day] = dispatchYmd.split("-").map(Number);
+  const [yearText = "", monthText = "", dayText = ""] = dispatchYmd.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
   const { hour, minute } = DISPATCH_TIME_KST[kind];
-  return new Date(Date.UTC(year!, month! - 1, day!, hour - 9, minute, 0));
+  return new Date(Date.UTC(year, month - 1, day, hour - 9, minute, 0));
 }
