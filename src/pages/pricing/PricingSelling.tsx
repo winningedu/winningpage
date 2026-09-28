@@ -9,7 +9,10 @@ import {
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
-import { BODY as PARENT_BODY, TITLE as PARENT_TITLE } from "./parentPricingCopy";
+import {
+  BODY as PARENT_BODY,
+  TITLE as PARENT_TITLE,
+} from "./parentPricingCopy";
 
 // 서비스별 단일 선택 맵: { [serviceKey]: productId }
 type SelectedMap = Record<string, string>;

@@ -62,12 +62,18 @@ vi.mock("react-router", async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-function renderPricing(viewer?: "guest" | "parent") {
+function renderPricing(viewer: "guest" | "parent" = "guest") {
   return render(
     <MemoryRouter>
       <PricingSelling viewer={viewer} />
     </MemoryRouter>,
   );
+}
+
+function firstRadio() {
+  const radio = screen.getAllByRole("radio")[0];
+  if (!radio) throw new Error("radio를 찾지 못했습니다");
+  return radio;
 }
 
 describe("PricingSelling parent viewer", () => {
@@ -81,8 +87,7 @@ describe("PricingSelling parent viewer", () => {
   it("parent 뷰는 상품을 선택해도 결제하기 버튼이 없고 안내 문구만 보이며 /checkout으로 이동하지 않는다", () => {
     renderPricing("parent");
 
-    const radio = screen.getAllByRole("radio")[0];
-    fireEvent.click(radio);
+    fireEvent.click(firstRadio());
 
     expect(
       screen.queryByRole("button", { name: /결제하기/ }),
@@ -96,8 +101,7 @@ describe("PricingSelling parent viewer", () => {
 
     expect(screen.queryByText(TITLE)).not.toBeInTheDocument();
 
-    const radio = screen.getAllByRole("radio")[0];
-    fireEvent.click(radio);
+    fireEvent.click(firstRadio());
 
     expect(
       screen.getAllByRole("button", { name: /결제하기/ }).length,
