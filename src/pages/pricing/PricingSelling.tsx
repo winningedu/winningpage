@@ -9,6 +9,7 @@ import {
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
+import { BODY as PARENT_BODY, TITLE as PARENT_TITLE } from "./parentPricingCopy";
 
 // 서비스별 단일 선택 맵: { [serviceKey]: productId }
 type SelectedMap = Record<string, string>;
@@ -66,7 +67,20 @@ type CartItem = {
 // Pricing.jsx 의 역할별 분기(학부모 차단 모달 등)를 거치지 않고 곧장
 // /checkout 진입점으로 넘어가 버린다. /pricing 으로 되돌리면 useMemberType
 // 기반 분기를 다시 타므로, 같은 역할 판정을 한 곳에서만 하게 된다.
-export default function PricingSelling() {
+type PricingSellingProps = {
+  /**
+   * 열람 주체 — 기본 "guest"(비로그인, 결제까지 진행). "parent"면 학부모가
+   * 자녀의 서비스요금표를 열람하는 경로다(팀 리드 결정, 2026-09-28 — 이전엔
+   * ParentPricingBlockedModal 로 페이지 자체를 가렸으나, 요금표 열람은
+   * 허용하고 결제 버튼만 막는 쪽으로 바뀌었다). 상품 목록·쿠폰 안내는
+   * 게스트와 동일하게 보여주고, 안내 배너를 추가하고 결제 버튼을 숨긴다.
+   */
+  viewer?: "guest" | "parent";
+};
+
+export default function PricingSelling({
+  viewer = "guest",
+}: PricingSellingProps) {
   const navigate = useNavigate();
   const { services, loading, error, refetch } = useProducts();
   const hasNoServices = Boolean(error) || services.length === 0;
@@ -208,6 +222,23 @@ export default function PricingSelling() {
             결제할 서비스를 선택해 주세요
           </h1>
         </section>
+
+        {viewer === "parent" && (
+          // 학부모 안내 배너 — 요금표는 그대로 보여주되 결제는 학생 로그인
+          // 경로로만 가능함을 알린다(parentPricingCopy.ts, 팀 리드 결정
+          // 2026-09-28). 폭은 아래 본문 컨테이너와 같은 규약(mx-auto
+          // max-w-content px-5 sm:px-8)을 써서 콘텐츠 좌우 정렬을 맞춘다.
+          <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+            <div className="rounded-2xl border border-line bg-surface-info p-6 text-left sm:p-8">
+              <p className="text-[1rem] font-semibold text-ink">
+                {PARENT_TITLE}
+              </p>
+              <p className="mt-2 text-[0.875rem] font-medium text-ink-sub">
+                {PARENT_BODY}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 서비스 섹션들.
             컨테이너는 프로젝트 공통 관용구 `mx-auto w-full max-w-content px-5 sm:px-8` 를 쓴다
