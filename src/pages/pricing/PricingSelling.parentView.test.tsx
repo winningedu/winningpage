@@ -90,4 +90,17 @@ describe("PricingSelling parent viewer", () => {
     expect(screen.getAllByText(BODY).length).toBeGreaterThan(0);
     expect(mockNavigate).not.toHaveBeenCalledWith("/checkout");
   });
+
+  it("guest(기본)는 배너가 없고 상품 선택 시 결제하기 버튼이 존재한다", () => {
+    renderPricing();
+
+    expect(screen.queryByText(TITLE)).not.toBeInTheDocument();
+
+    const radio = screen.getAllByRole("radio")[0];
+    fireEvent.click(radio);
+
+    expect(
+      screen.getAllByRole("button", { name: /결제하기/ }).length,
+    ).toBeGreaterThan(0);
+  });
 });
