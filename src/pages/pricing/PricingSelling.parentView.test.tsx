@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { ServiceGroup } from "@/lib/products";
@@ -76,5 +76,18 @@ describe("PricingSelling parent viewer", () => {
 
     expect(screen.getByText(TITLE)).toBeInTheDocument();
     expect(screen.getByText(BODY)).toBeInTheDocument();
+  });
+
+  it("parent 뷰는 상품을 선택해도 결제하기 버튼이 없고 안내 문구만 보이며 /checkout으로 이동하지 않는다", () => {
+    renderPricing("parent");
+
+    const radio = screen.getAllByRole("radio")[0];
+    fireEvent.click(radio);
+
+    expect(
+      screen.queryByRole("button", { name: /결제하기/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(BODY).length).toBeGreaterThan(0);
+    expect(mockNavigate).not.toHaveBeenCalledWith("/checkout");
   });
 });
