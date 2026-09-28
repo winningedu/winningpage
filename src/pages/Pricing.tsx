@@ -2,7 +2,6 @@ import { useMemberType } from "@/hooks/useMemberType";
 import BlockedMemberNotice from "./checkout/BlockedMemberNotice";
 import MemberTypeRetryNotice from "./checkout/MemberTypeRetryNotice";
 import StudentEnrollmentRequest from "./checkout/StudentEnrollmentRequest";
-import ParentPricingBlockedModal from "./pricing/ParentPricingBlockedModal";
 import PricingSelling from "./pricing/PricingSelling";
 
 // /pricing("이용신청 > 서비스요금")도 회원 유형에 따라 갈린다(2026-08-12b
@@ -12,8 +11,10 @@ import PricingSelling from "./pricing/PricingSelling";
 //                      goCheckout, 순수 이동만 했다. 해당 파일 상단 주석 참고)
 //   'student'        → StudentEnrollmentRequest (Checkout.jsx 의 /checkout
 //                      진입과 완전히 같은 컴포넌트 — 화면을 두 벌 만들지 않는다)
-//   'parent'         → ParentPricingBlockedModal ("학생이 요청한 건만 결제할
-//                      수 있다" 모달 → 확인 시 /mypage. 시안 노드 없음, TODO(copy))
+//   'parent'         → PricingSelling(viewer="parent") — 요금표는 게스트와
+//                      동일하게 열람하되, 안내 배너를 보여주고 결제 버튼은
+//                      숨긴다(팀 리드 결정, 2026-09-28 — 이전엔 페이지 자체를
+//                      차단 모달로 가렸으나 열람은 허용하는 쪽으로 바뀌었다).
 //   조회 실패(error)  → MemberTypeRetryNotice (재시도 버튼 — 아래 error 분기
 //                      주석 참고. NULL/mentor 차단과 원인이 다르므로 문구도 다르다)
 //   그 외('mentor'/NULL) → BlockedMemberNotice (/checkout 의 그 외 분기와 동일 처리)
@@ -46,7 +47,7 @@ export default function Pricing() {
   if (error) return <MemberTypeRetryNotice onRetry={refetch} />;
 
   if (memberType === "student") return <StudentEnrollmentRequest />;
-  if (memberType === "parent") return <ParentPricingBlockedModal />;
+  if (memberType === "parent") return <PricingSelling viewer="parent" />;
 
   return <BlockedMemberNotice memberType={memberType} />;
 }
