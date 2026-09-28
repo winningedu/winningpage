@@ -20,9 +20,9 @@ type ConfirmModalProps = {
    * 위에 반드시 떠야 하는 전역 안내(SessionKickGuard, 배정 메시지 "E2E 실버그"
    * 대응). z-10000으로 그 어떤 기존 페이지 레이어보다 위에 올린다.
    *
-   * 기본값 false — 결제 흐름 안내 모달(ParentCheckout·StudentEnrollmentRequest·
-   * ParentPricingBlockedModal)은 서로 같은 스택 안에서만 겹치므로 기존 z-50/
-   * z-100 그대로 둔다(하위호환, 기존 호출부는 이 prop을 생략하므로 영향 없음).
+   * 기본값 false — 결제 흐름 안내 모달(ParentCheckout·StudentEnrollmentRequest)은
+   * 서로 같은 스택 안에서만 겹치므로 기존 z-50/z-100 그대로 둔다(하위호환,
+   * 기존 호출부는 이 prop을 생략하므로 영향 없음).
    */
   elevated?: boolean;
 };

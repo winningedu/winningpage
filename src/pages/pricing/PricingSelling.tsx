@@ -9,6 +9,10 @@ import {
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
+import {
+  BODY as PARENT_BODY,
+  TITLE as PARENT_TITLE,
+} from "./parentPricingCopy";
 
 // 서비스별 단일 선택 맵: { [serviceKey]: productId }
 type SelectedMap = Record<string, string>;
@@ -66,7 +70,20 @@ type CartItem = {
 // Pricing.jsx 의 역할별 분기(학부모 차단 모달 등)를 거치지 않고 곧장
 // /checkout 진입점으로 넘어가 버린다. /pricing 으로 되돌리면 useMemberType
 // 기반 분기를 다시 타므로, 같은 역할 판정을 한 곳에서만 하게 된다.
-export default function PricingSelling() {
+type PricingSellingProps = {
+  /**
+   * 열람 주체 — 기본 "guest"(비로그인, 결제까지 진행). "parent"면 학부모가
+   * 자녀의 서비스요금표를 열람하는 경로다(팀 리드 결정, 2026-09-28 — 이전엔
+   * ParentPricingBlockedModal 로 페이지 자체를 가렸으나, 요금표 열람은
+   * 허용하고 결제 버튼만 막는 쪽으로 바뀌었다). 상품 목록·쿠폰 안내는
+   * 게스트와 동일하게 보여주고, 안내 배너를 추가하고 결제 버튼을 숨긴다.
+   */
+  viewer?: "guest" | "parent";
+};
+
+export default function PricingSelling({
+  viewer = "guest",
+}: PricingSellingProps) {
   const navigate = useNavigate();
   const { services, loading, error, refetch } = useProducts();
   const hasNoServices = Boolean(error) || services.length === 0;
@@ -168,6 +185,9 @@ export default function PricingSelling() {
   const discountTotal = listTotal - totalPrice;
 
   async function goCheckout() {
+    // 학부모 뷰는 결제 버튼 자체를 렌더하지 않지만(아래 JSX 참고), 방어적으로도
+    // 이 함수가 절대 /checkout 으로 보내지 않게 막는다(팀 리드 결정, 2026-09-28).
+    if (viewer === "parent") return;
     if (selectedItems.length === 0) return;
     saveCart(selectedItems); // 선택 항목 저장 (로그인 후에도 유지)
     // 로그인 안 됐으면 로그인 페이지로 → 로그인 후 /pricing 으로 복귀
@@ -208,6 +228,23 @@ export default function PricingSelling() {
             결제할 서비스를 선택해 주세요
           </h1>
         </section>
+
+        {viewer === "parent" && (
+          // 학부모 안내 배너 — 요금표는 그대로 보여주되 결제는 학생 로그인
+          // 경로로만 가능함을 알린다(parentPricingCopy.ts, 팀 리드 결정
+          // 2026-09-28). 폭은 아래 본문 컨테이너와 같은 규약(mx-auto
+          // max-w-content px-5 sm:px-8)을 써서 콘텐츠 좌우 정렬을 맞춘다.
+          <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+            <div className="rounded-2xl border border-line bg-surface-info p-6 text-left sm:p-8">
+              <p className="text-[1rem] font-semibold text-ink">
+                {PARENT_TITLE}
+              </p>
+              <p className="mt-2 text-[0.875rem] font-medium text-ink-sub">
+                {PARENT_BODY}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 서비스 섹션들.
             컨테이너는 프로젝트 공통 관용구 `mx-auto w-full max-w-content px-5 sm:px-8` 를 쓴다
@@ -333,13 +370,22 @@ export default function PricingSelling() {
                 </dd>
               </div>
             </dl>
-            <button
-              type="button"
-              onClick={goCheckout}
-              className="mt-5 w-full rounded-lg bg-accent py-3.5 text-[0.9375rem] font-bold text-white transition hover:brightness-95"
-            >
-              {formatKRW(totalPrice)} 결제하기
-            </button>
+            {viewer === "parent" ? (
+              // 학부모 뷰는 결제 버튼 대신 안내 문구를 같은 자리에 보여준다
+              // (팀 리드 결정, 2026-09-28 — 요금표 열람은 허용하되 결제 진입은
+              // 계속 막는다).
+              <p className="mt-5 text-center text-[0.8125rem] font-medium text-ink-sub">
+                {PARENT_BODY}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={goCheckout}
+                className="mt-5 w-full rounded-lg bg-accent py-3.5 text-[0.9375rem] font-bold text-white transition hover:brightness-95"
+              >
+                {formatKRW(totalPrice)} 결제하기
+              </button>
+            )}
           </div>
         )}
       </main>
@@ -383,16 +429,24 @@ export default function PricingSelling() {
                 </p>
               </div>
             </div>
-            {/* CTA 는 모바일 밴드와 동일하게 accent. 그림자 틴트도 accent(#0B84FD) rgb 로 맞춘다.
-                크기는 MyPage 수준 통일(사용자 확정 2026-08-19) — 7f072f45의 결제 버튼과 동일
-                위계(text-[0.875rem] font-semibold). 기존 20px는 그 규약 폐기 이전 값이었다. */}
-            <button
-              type="button"
-              onClick={goCheckout}
-              className="shrink-0 rounded-lg bg-accent px-8 py-3.5 text-[0.875rem] font-semibold leading-[1.25rem] tracking-[-0.02em] text-white shadow-[0_0.625rem_1.625rem_rgba(11,132,253,0.28)] transition hover:brightness-95"
-            >
-              {formatKRW(totalPrice)} 결제하기
-            </button>
+            {viewer === "parent" ? (
+              // 학부모 뷰는 결제 버튼 대신 안내 문구를 같은 자리에 보여준다
+              // (팀 리드 결정, 2026-09-28).
+              <p className="max-w-[16rem] text-[0.8125rem] font-medium text-ink-sub">
+                {PARENT_BODY}
+              </p>
+            ) : (
+              // CTA 는 모바일 밴드와 동일하게 accent. 그림자 틴트도 accent(#0B84FD) rgb 로 맞춘다.
+              // 크기는 MyPage 수준 통일(사용자 확정 2026-08-19) — 7f072f45의 결제 버튼과 동일
+              // 위계(text-[0.875rem] font-semibold). 기존 20px는 그 규약 폐기 이전 값이었다.
+              <button
+                type="button"
+                onClick={goCheckout}
+                className="shrink-0 rounded-lg bg-accent px-8 py-3.5 text-[0.875rem] font-semibold leading-[1.25rem] tracking-[-0.02em] text-white shadow-[0_0.625rem_1.625rem_rgba(11,132,253,0.28)] transition hover:brightness-95"
+              >
+                {formatKRW(totalPrice)} 결제하기
+              </button>
+            )}
           </div>
         </div>
       )}
