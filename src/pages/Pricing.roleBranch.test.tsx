@@ -78,9 +78,6 @@ describe("Pricing 역할 분기", () => {
     ).toBeInTheDocument();
     // 예전 모달은 dialog role로 렌더됐다 — 더 이상 모달이 아니어야 한다.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(mockNavigate).not.toHaveBeenCalledWith(
-      "/mypage",
-      expect.anything(),
-    );
+    expect(mockNavigate).not.toHaveBeenCalledWith("/mypage", expect.anything());
   });
 });
