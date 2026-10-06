@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import type { CollectUpload } from "@/lib/growth/api";
 import { CollectSection } from "./CollectSection";
-import type { SemesterItem } from "./collectLogic";
+import { gradeOfKey, type SemesterItem, semesterOfKey } from "./collectLogic";
 import { LIMIT_MESSAGE } from "./uploadFlow";
 
 const BADGE_CLASS: Record<"ok" | "warn" | "none", string> = {
@@ -67,7 +67,8 @@ export function SemesterRecordsCard({
     <CollectSection title="학기별 기록">
       <ul>
         {items.map((item) => {
-          const [grade, semester] = [`고${item.key[1]}`, Number(item.key[3])];
+          const grade = `고${gradeOfKey(item.key)}`;
+          const semester = semesterOfKey(item.key);
           const semesterUploads = uploads.filter(
             (u) => u.gradeLabel === grade && u.semester === semester,
           );

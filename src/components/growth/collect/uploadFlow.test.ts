@@ -211,13 +211,23 @@ describe("업로드 실행 흐름", () => {
     });
   });
 
-  test("Storage 업로드 실패면 추출을 부르지 않는다", async () => {
+  test("Storage 업로드가 실패하면 서버가 행을 닫도록 추출을 한 번 부르고 실패로 끝난다", async () => {
     const { deps, events, dispatch } = setup({
       uploadToStorage: vi.fn().mockResolvedValue({ error: { message: "x" } }),
+      extract: vi.fn().mockResolvedValue({
+        kind: "error",
+        status: 410,
+        code: "UPLOAD_OBJECT_MISSING",
+        message: "없음",
+      }),
     });
     expect(await runUpload(deps, request, dispatch)).toBe("failed");
-    expect(deps.extract).not.toHaveBeenCalled();
-    expect(events.at(-1)).toMatchObject({ type: "failed" });
+    expect(deps.extract).toHaveBeenCalledTimes(1);
+    expect(deps.extract).toHaveBeenCalledWith("up1");
+    expect(events.at(-1)).toEqual({
+      type: "failed",
+      message: "파일을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    });
   });
 
   test("추출 타임아웃은 실패로 끝나고 다시 시도하라고 알린다", async () => {

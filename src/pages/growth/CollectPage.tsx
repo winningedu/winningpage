@@ -6,15 +6,17 @@ import {
   NoticeBox,
 } from "@/components/growth/collect/CollectSection";
 import {
-  averageToText,
   buildDirectGrades,
+  buildGradeDisplay,
   buildSemesterItems,
   type CommitFailure,
   canSkipFirstYear,
   classifyCommitError,
   createBlockReason,
   currentFor,
+  gradeOfKey,
   initialTrack,
+  semesterOfKey,
   trackChoiceNotice,
 } from "@/components/growth/collect/collectLogic";
 import { GradesCard } from "@/components/growth/collect/GradesCard";
@@ -45,7 +47,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSession } from "@/context/SessionContext";
-import { collectCommit, type SemesterKey, type Track } from "@/lib/growth/api";
+import {
+  collectCommit,
+  collectExtract,
+  type SemesterKey,
+  type Track,
+} from "@/lib/growth/api";
 
 // 활동 선택(3단계, 명세 No.37~51, 73, 75, 113, 120~122, 145, 153, 154). 경로: /app/growth/collect
 // 집계는 서버 summary 가 정본이고 이 화면은 입력(트랙, 성적, 업로드, 직접 입력)을 모아 보낸다.
@@ -91,6 +98,7 @@ export default function CollectPage() {
   const [committing, setCommitting] = useState(false);
   const [failure, setFailure] = useState<CommitFailure | null>(null);
   const [skipOpen, setSkipOpen] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const manualRef = useRef<HTMLElement>(null);
 
   // 등급 체계는 서버 summary 가 정한다. directGrades 가 summary 호출의 입력이라 직전 응답의 체계를 들고 있는다.
@@ -162,15 +170,11 @@ export default function CollectPage() {
 
   const items = summary && track ? buildSemesterItems(track, summary) : [];
   const gradeKeys = summary?.range.semesters ?? [];
-  const gradeValues: Partial<Record<SemesterKey, string>> = {};
-  for (const key of gradeKeys) {
-    gradeValues[key] =
-      gradeTexts[key] ??
-      averageToText(
-        summary?.gradeInputs.semesters.find((s) => s.key === key)?.average ??
-          null,
-      );
-  }
+  const gradeValues = buildGradeDisplay(
+    gradeTexts,
+    gradeKeys,
+    summary?.gradeInputs.semesters ?? [],
+  );
 
   const blockReason = createBlockReason({
     hasOpenReport: true,
@@ -185,6 +189,14 @@ export default function CollectPage() {
       (u) => u.status === "pending" || u.status === "processing",
     ) ?? [];
   const manualActivities = activities.filter((a) => a.source === "manual");
+
+  // 탭을 닫아 남은 pending 도 서버 extract 가 닫는다(객체가 없으면 410 으로 failed 처리). 결과와 무관하게 집계를 다시 부른다.
+  const retryUpload = async (uploadId: string) => {
+    setRetryingId(uploadId);
+    await collectExtract(uploadId);
+    await refresh();
+    setRetryingId(null);
+  };
 
   const commit = async () => {
     if (!track || blockReason !== null) return;
@@ -243,8 +255,9 @@ export default function CollectPage() {
               onAddFile={(item) =>
                 setUploadTarget({
                   title: item.title,
-                  gradeLabel: `고${item.key[1]}` as UploadTarget["gradeLabel"],
-                  semester: Number(item.key[3]) as 1 | 2,
+                  gradeLabel:
+                    `고${gradeOfKey(item.key)}` as UploadTarget["gradeLabel"],
+                  semester: semesterOfKey(item.key),
                   uploadsLeft: item.uploadsLeft,
                 })
               }
@@ -284,9 +297,24 @@ export default function CollectPage() {
         {pendingUploads.length > 0 && (
           <NoticeBox tone="warn" role="status">
             <p className="font-semibold">아직 처리 중인 파일이 있어요</p>
-            <ul className="mt-1">
+            <ul className="mt-1 flex flex-col gap-1">
               {pendingUploads.map((u) => (
-                <li key={u.id}>{u.fileName}</li>
+                <li
+                  key={u.id}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span className="min-w-0 truncate">{u.fileName}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={retryingId !== null}
+                    aria-label={`${u.fileName} 다시 처리`}
+                    onClick={() => void retryUpload(u.id)}
+                  >
+                    다시 처리
+                  </Button>
+                </li>
               ))}
             </ul>
           </NoticeBox>

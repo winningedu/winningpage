@@ -4,6 +4,7 @@ import type {
   ApiResult,
   CollectSummary,
   CurrentSemester,
+  GradeInputSemester,
   GradeSystem,
   SemesterKey,
   SourceCounts,
@@ -76,8 +77,18 @@ export type SemesterItem = {
   uploadsLeft: number | null;
 };
 
+/** "고2-1" 에서 학년(2). */
+export function gradeOfKey(key: SemesterKey): 1 | 2 | 3 {
+  return Number(key[1]) as 1 | 2 | 3;
+}
+
+/** "고2-1" 에서 학기(1). */
+export function semesterOfKey(key: SemesterKey): 1 | 2 {
+  return Number(key[3]) as 1 | 2;
+}
+
 export function semesterTitle(key: SemesterKey): string {
-  return `${key[1]}학년 ${key[3]}학기`;
+  return `${gradeOfKey(key)}학년 ${semesterOfKey(key)}학기`;
 }
 
 /** 서버 학기 행에 트랙 학년까지의 범위 밖 학기를 흐린 행으로 덧붙인다. */
@@ -87,7 +98,7 @@ export function buildSemesterItems(
 ): SemesterItem[] {
   const maxGrade = TRACK_GRADE[track];
   const rows = new Map(summary.semesters.map((r) => [r.key, r]));
-  return ALL_SEMESTERS.filter((key) => Number(key[1]) <= maxGrade).map(
+  return ALL_SEMESTERS.filter((key) => gradeOfKey(key) <= maxGrade).map(
     (key): SemesterItem => {
       const row = rows.get(key);
       const base = {
@@ -173,6 +184,23 @@ export function buildDirectGrades(
     else if (result.status === "error") errors[key] = result.message;
   }
   return { directGrades, errors };
+}
+
+/** 성적 칸에 보일 문자열. 사용자가 고친 칸(빈 문자열 포함)은 그대로, 나머지는 서버 평균. */
+export function buildGradeDisplay(
+  gradeTexts: Partial<Record<SemesterKey, string>>,
+  gradeKeys: readonly SemesterKey[],
+  serverSemesters: readonly GradeInputSemester[],
+): Partial<Record<SemesterKey, string>> {
+  const values: Partial<Record<SemesterKey, string>> = {};
+  for (const key of gradeKeys) {
+    values[key] =
+      gradeTexts[key] ??
+      averageToText(
+        serverSemesters.find((s) => s.key === key)?.average ?? null,
+      );
+  }
+  return values;
 }
 
 const NINE_NOTICE =

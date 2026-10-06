@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from "react";
+import { type ReactNode, useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
   runUpload,
   type UploadDeps,
   type UploadOutcome,
+  type UploadState,
   uploadReducer,
   validateUploadFile,
 } from "./uploadFlow";
@@ -108,123 +109,177 @@ export function UploadDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {state.phase === "idle" && (
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                pick(e.dataTransfer.files[0]);
-              }}
-              className="flex h-28 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line bg-surface-04 text-app-label text-ink-sub hover:bg-surface-03"
-            >
-              {file ? (
-                <span className="font-medium text-ink-strong">{file.name}</span>
-              ) : (
-                <span>파일을 끌어다 놓거나 눌러서 고르세요</span>
-              )}
-            </button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPT_ATTRIBUTE}
-              aria-label="올릴 파일 선택"
-              className="sr-only"
-              onChange={(e) => pick(e.target.files?.[0])}
-            />
-            {fileError && (
-              <p role="alert" className="text-app-label text-error">
-                {fileError}
-              </p>
-            )}
-            {limited && (
-              <p role="alert" className="text-app-label text-error">
-                {LIMIT_MESSAGE}
-              </p>
-            )}
-            <label className="flex items-start gap-2 text-app-label text-ink-strong">
+        <PhaseBody
+          state={state}
+          idleForm={
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  pick(e.dataTransfer.files[0]);
+                }}
+                className="flex h-28 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-line bg-surface-04 text-app-label text-ink-sub hover:bg-surface-03"
+              >
+                {file ? (
+                  <span className="font-medium text-ink-strong">
+                    {file.name}
+                  </span>
+                ) : (
+                  <span>파일을 끌어다 놓거나 눌러서 고르세요</span>
+                )}
+              </button>
               <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-                className="mt-0.5"
+                ref={inputRef}
+                type="file"
+                accept={ACCEPT_ATTRIBUTE}
+                aria-label="올릴 파일 선택"
+                className="sr-only"
+                onChange={(e) => pick(e.target.files?.[0])}
               />
-              <span>{CONSENT_TEXT}</span>
-            </label>
-          </div>
-        )}
-
-        {(state.phase === "requesting" || state.phase === "uploading") && (
-          <p role="status" className="text-app-body text-ink-strong">
-            파일을 올리는 중이에요.
-          </p>
-        )}
-        {state.phase === "extracting" && (
-          <p role="status" className="text-app-body text-ink-strong">
-            내용을 읽는 중이에요. 약 1분 걸려요.
-          </p>
-        )}
-        {state.phase === "ok" && (
-          <p role="status" className="text-app-body text-ink-strong">
-            {state.topic
-              ? `주제를 뽑았어요: ${state.topic}`
-              : "추출을 마쳤어요."}
-          </p>
-        )}
-        {(state.phase === "failed" || state.phase === "limit") && (
-          <p role="alert" className="text-app-body text-error">
-            {state.message}
-          </p>
-        )}
+              {fileError && (
+                <p role="alert" className="text-app-label text-error">
+                  {fileError}
+                </p>
+              )}
+              {limited && (
+                <p role="alert" className="text-app-label text-error">
+                  {LIMIT_MESSAGE}
+                </p>
+              )}
+              <label className="flex items-start gap-2 text-app-label text-ink-strong">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>{CONSENT_TEXT}</span>
+              </label>
+            </div>
+          }
+        />
 
         <DialogFooter>
-          {state.phase === "idle" && (
-            <>
-              <Button type="button" variant="outline" onClick={requestClose}>
-                취소
-              </Button>
-              <Button type="button" disabled={!canSubmit} onClick={submit}>
-                올리기
-              </Button>
-            </>
-          )}
-          {state.phase === "ok" && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  dispatch({ type: "reset" });
-                  setFile(null);
-                  setConsent(false);
-                }}
-              >
-                파일 더 올리기
-              </Button>
-              <Button type="button" onClick={onClose}>
-                닫기
-              </Button>
-            </>
-          )}
-          {(state.phase === "failed" || state.phase === "limit") && (
-            <>
-              <Button type="button" variant="outline" onClick={onClose}>
-                닫기
-              </Button>
-              {state.phase === "failed" && (
-                <Button
-                  type="button"
-                  onClick={() => dispatch({ type: "reset" })}
-                >
-                  다시 시도
-                </Button>
-              )}
-            </>
-          )}
+          <PhaseActions
+            state={state}
+            canSubmit={canSubmit}
+            onCancel={requestClose}
+            onSubmit={submit}
+            onClose={onClose}
+            onRetry={() => dispatch({ type: "reset" })}
+            onAnother={() => {
+              dispatch({ type: "reset" });
+              setFile(null);
+              setConsent(false);
+            }}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+/** 단계마다 하나의 본문만 그린다. idle 은 호출부가 만든 폼을 받는다. */
+function PhaseBody({
+  state,
+  idleForm,
+}: {
+  state: UploadState;
+  idleForm: ReactNode;
+}) {
+  switch (state.phase) {
+    case "idle":
+      return idleForm;
+    case "requesting":
+    case "uploading":
+      return (
+        <p role="status" className="text-app-body text-ink-strong">
+          파일을 올리는 중이에요.
+        </p>
+      );
+    case "extracting":
+      return (
+        <p role="status" className="text-app-body text-ink-strong">
+          내용을 읽는 중이에요. 약 1분 걸려요.
+        </p>
+      );
+    case "ok":
+      return (
+        <p role="status" className="text-app-body text-ink-strong">
+          {state.topic ? `주제를 뽑았어요: ${state.topic}` : "추출을 마쳤어요."}
+        </p>
+      );
+    case "failed":
+    case "limit":
+      return (
+        <p role="alert" className="text-app-body text-error">
+          {state.message}
+        </p>
+      );
+  }
+}
+
+function PhaseActions({
+  state,
+  canSubmit,
+  onCancel,
+  onSubmit,
+  onClose,
+  onRetry,
+  onAnother,
+}: {
+  state: UploadState;
+  canSubmit: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+  onClose: () => void;
+  onRetry: () => void;
+  onAnother: () => void;
+}) {
+  switch (state.phase) {
+    case "idle":
+      return (
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>
+            취소
+          </Button>
+          <Button type="button" disabled={!canSubmit} onClick={onSubmit}>
+            올리기
+          </Button>
+        </>
+      );
+    case "ok":
+      return (
+        <>
+          <Button type="button" variant="outline" onClick={onAnother}>
+            파일 더 올리기
+          </Button>
+          <Button type="button" onClick={onClose}>
+            닫기
+          </Button>
+        </>
+      );
+    case "failed":
+      return (
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            닫기
+          </Button>
+          <Button type="button" onClick={onRetry}>
+            다시 시도
+          </Button>
+        </>
+      );
+    case "limit":
+      return (
+        <Button type="button" variant="outline" onClick={onClose}>
+          닫기
+        </Button>
+      );
+    default:
+      return null;
+  }
 }

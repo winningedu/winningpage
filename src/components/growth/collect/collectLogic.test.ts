@@ -6,14 +6,17 @@ import type {
 } from "@/lib/growth/api";
 import {
   buildDirectGrades,
+  buildGradeDisplay,
   buildOverview,
   buildSemesterItems,
   canSkipFirstYear,
   classifyCommitError,
   createBlockReason,
   currentFor,
+  gradeOfKey,
   gradeSystemInfo,
   initialTrack,
+  semesterOfKey,
   TRACKS,
   trackChoiceNotice,
   validateGradeInput,
@@ -324,6 +327,33 @@ describe("커밋 오류 분류", () => {
     });
     expect(classifyCommitError({ kind: "timeout" })).toMatchObject({
       kind: "other",
+    });
+  });
+});
+
+describe("학기 키 분해", () => {
+  test("학년과 학기를 키에서 뽑는다", () => {
+    expect(gradeOfKey("고2-1")).toBe(2);
+    expect(semesterOfKey("고3-2")).toBe(2);
+  });
+});
+
+describe("성적 칸 표시값", () => {
+  const server = [
+    { key: "고1-1" as const, average: 2.94, source: "goal" as const },
+  ];
+  test("고친 칸은 입력값, 안 건드린 칸은 서버 평균, 평균 없는 칸은 빈 문자열이다", () => {
+    expect(
+      buildGradeDisplay(
+        { "고1-2": "3.5" },
+        ["고1-1", "고1-2", "고2-1"],
+        server,
+      ),
+    ).toEqual({ "고1-1": "2.9", "고1-2": "3.5", "고2-1": "" });
+  });
+  test("지워서 빈 입력도 서버 평균으로 되돌리지 않는다", () => {
+    expect(buildGradeDisplay({ "고1-1": "" }, ["고1-1"], server)).toEqual({
+      "고1-1": "",
     });
   });
 });

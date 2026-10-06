@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   collectSummary: vi.fn(),
   collectCommit: vi.fn(),
+  collectExtract: vi.fn(),
   navigate: vi.fn(),
   refetchBootstrap: vi.fn(),
   shell: {} as Record<string, unknown>,
@@ -13,7 +14,7 @@ vi.mock("@/lib/growth/api", () => ({
   collectSummary: mocks.collectSummary,
   collectCommit: mocks.collectCommit,
   collectUploadUrl: vi.fn(),
-  collectExtract: vi.fn(),
+  collectExtract: mocks.collectExtract,
 }));
 vi.mock("@/lib/supabase", () => ({ supabase: { from: vi.fn(), storage: {} } }));
 vi.mock("react-router", () => ({ useNavigate: () => mocks.navigate }));
@@ -168,6 +169,39 @@ describe("CollectPage", () => {
     expect(
       screen.getAllByText("아직 처리 중인 파일이 있어요").length,
     ).toBeGreaterThan(0);
+  });
+
+  test("처리 중인 파일의 다시 처리는 추출을 부르고 집계를 다시 불러온다", async () => {
+    ready({
+      uploadsPending: 1,
+      uploads: [
+        {
+          id: "u9",
+          fileName: "stuck.pdf",
+          gradeLabel: "고1",
+          semester: 2,
+          status: "pending",
+        },
+      ],
+    });
+    mocks.collectExtract.mockResolvedValue({
+      kind: "error",
+      status: 410,
+      code: "UPLOAD_OBJECT_MISSING",
+      message: "없음",
+    });
+    render(<CollectPage />);
+    const button = await screen.findByRole("button", {
+      name: "stuck.pdf 다시 처리",
+    });
+    const before = mocks.collectSummary.mock.calls.length;
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mocks.collectExtract).toHaveBeenCalledWith("u9"),
+    );
+    await waitFor(() =>
+      expect(mocks.collectSummary.mock.calls.length).toBeGreaterThan(before),
+    );
   });
 
   test("1학년 자료가 충분하면 1학년 자료 없이 진행 버튼이 없다", async () => {

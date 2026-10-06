@@ -1,5 +1,5 @@
 // 파일 추가 모달의 업로드 상태 머신과 실행 흐름(시안 646:2436, 646:2730, 명세 No.42, 43, 122, 145).
-// 흐름: collectUploadUrl -> Storage 서명 URL 직접 업로드 -> collectExtract. 바이트는 서버리스를
+// 흐름: collectUploadUrl, Storage 서명 URL 직접 업로드, collectExtract. 바이트는 서버리스를
 // 거치지 않는다(performance/guideUpload.ts 와 같은 선례). 끝나면 호출자가 summary 를 다시 부른다.
 import type {
   ApiResult,
@@ -141,7 +141,11 @@ export async function runUpload(
   dispatch({ type: "url-issued" });
   const { bucket, path, token, uploadId } = issued.data;
   const stored = await deps.uploadToStorage(bucket, path, token, file);
-  if (stored.error) return fail(UPLOAD_FAILED_MESSAGE);
+  if (stored.error) {
+    // 객체가 없으면 서버가 UPLOAD_OBJECT_MISSING 410 으로 행을 failed 로 닫는다. 결과는 쓰지 않는다.
+    await deps.extract(uploadId);
+    return fail(UPLOAD_FAILED_MESSAGE);
+  }
 
   dispatch({ type: "uploaded" });
   const extracted = await deps.extract(uploadId);
