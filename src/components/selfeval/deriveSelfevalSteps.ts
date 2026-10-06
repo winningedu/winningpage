@@ -90,7 +90,14 @@ function pathOf(
 export function deriveSelfevalSteps(
   input: DeriveSelfevalStepsInput,
 ): SelfevalStepItem[] {
-  const through = completedThrough(input.openSession);
+  // 열린 세션이 없는데 생성 결과나 저장 완료 화면이면 완료 세션을 다시 보는 것이다.
+  // 그 앞 단계는 끝난 것으로 본다(성장설계 deriveGrowthSteps 와 같은 규칙).
+  const viewingFinished =
+    input.openSession === null &&
+    (input.screenStep === 5 || input.screenStep === 6);
+  const through = viewingFinished
+    ? (input.screenStep as number) - 1
+    : completedThrough(input.openSession);
   // 세션 단계 0 은 기본 입력이 아직 끝나지 않았다. 그 세션의 이어하기 경로를 쓴다.
   const session = input.openSession;
   return STEP_DEFS.map(({ key, label }, index): SelfevalStepItem => {

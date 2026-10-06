@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { SessionListItem } from "@/lib/selfeval/types";
 import {
+  archivedSessions,
   archiveOptions,
   archiveTitle,
   filterSessions,
@@ -128,5 +129,30 @@ describe("rowMeta", () => {
     expect(
       rowMeta(item({ academicYear: null, semester: null, area: null })),
     ).toEqual(["3단계 활동 선택까지", "마지막 저장 2026.10.01"]);
+  });
+});
+
+describe("archivedSessions", () => {
+  const list = [
+    item({ id: "w" }),
+    item({ id: "c", status: "completed" }),
+    item({ id: "d", discarded: true }),
+    item({ id: "e", expired: true }),
+    item({ id: "t", terminal: { reason: "x", at: "2026-10-01T00:00:00Z" } }),
+  ];
+
+  test("파기 세션은 보관 대상이 아니라 빠지고 만료와 종결은 남는다", () => {
+    expect(archivedSessions(list).map((x) => x.id)).toEqual([
+      "w",
+      "c",
+      "e",
+      "t",
+    ]);
+  });
+
+  test("상태 선택지에도 파기가 나오지 않는다", () => {
+    expect(archiveOptions(archivedSessions(list)).states).not.toContain(
+      "discarded",
+    );
   });
 });

@@ -122,6 +122,31 @@ describe("열린 세션이 있을 때", () => {
     );
   });
 
+  test("열린 세션 없이 완료 세션의 결과나 저장 완료를 보면 앞 단계는 전부 끝난 것이다", () => {
+    expect(statuses(base({ screenStep: 6, openSession: null }))).toEqual([
+      "done",
+      "done",
+      "done",
+      "done",
+      "done",
+      "current",
+    ]);
+    expect(statuses(base({ screenStep: 5, openSession: null }))).toEqual([
+      "done",
+      "done",
+      "done",
+      "done",
+      "current",
+      "locked",
+    ]);
+  });
+
+  test("열린 세션 없이 4 이하 화면이면 앞 단계를 끝난 것으로 보지 않는다", () => {
+    expect(statuses(base({ screenStep: 2, openSession: null }))[0]).toBe(
+      "upcoming",
+    );
+  });
+
   test("단계 5는 검증은 했으나 저장 전이라 검증과 저장은 아직 끝나지 않는다", () => {
     const steps = deriveSelfevalSteps(
       base({ screenStep: 1, openSession: open(5) }),

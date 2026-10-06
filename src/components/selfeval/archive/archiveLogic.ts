@@ -38,6 +38,11 @@ export function archiveTitle(
   return name === "" ? "자기평가서" : `${name} 자기평가서`;
 }
 
+/** 파기는 학생이 버린 세션이라 보관 대상이 아니다. 만료와 종결은 남긴다(명세 No.66). */
+export function archivedSessions(items: SessionListItem[]): SessionListItem[] {
+  return items.filter((i) => sessionState(i) !== "discarded");
+}
+
 export type ArchiveFilter = {
   academicYear?: number | undefined;
   semester?: 1 | 2 | undefined;

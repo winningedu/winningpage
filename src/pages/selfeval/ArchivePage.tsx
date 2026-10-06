@@ -4,6 +4,7 @@ import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import {
   type ArchiveFilter,
+  archivedSessions,
   archiveOptions,
   archiveTitle,
   filterSessions,
@@ -122,7 +123,8 @@ export default function ArchivePage() {
     );
   }
 
-  if (sessions.length === 0) {
+  const archived = archivedSessions(sessions);
+  if (archived.length === 0) {
     return (
       <>
         {header}
@@ -143,8 +145,8 @@ export default function ArchivePage() {
     );
   }
 
-  const options = archiveOptions(sessions);
-  const visible = filterSessions(sessions, filter);
+  const options = archiveOptions(archived);
+  const visible = filterSessions(archived, filter);
   const numberOrUndefined = (v: string) => (v === "" ? undefined : Number(v));
 
   return (

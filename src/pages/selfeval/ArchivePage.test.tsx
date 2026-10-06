@@ -114,14 +114,15 @@ describe("ArchivePage", () => {
     expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/done");
   });
 
-  test("파기된 세션에는 버튼이 없다", () => {
-    setShell([item({ status: "archived", discarded: true })]);
+  test("파기된 세션은 목록에 나오지 않고 상태 필터에도 파기가 없다", () => {
+    setShell([
+      item({ id: "d", status: "archived", discarded: true, subject: "국어" }),
+      item({ id: "w", subject: "수학" }),
+    ]);
     renderPage();
-    const row = screen
-      .getByText("수학 자기평가서")
-      .closest("li") as HTMLElement;
-    expect(within(row).getByText("파기")).toBeTruthy();
-    expect(within(row).queryByRole("button")).toBeNull();
+    expect(screen.queryByText("국어 자기평가서")).toBeNull();
+    expect(screen.getByText("수학 자기평가서")).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "파기" })).toBeNull();
   });
 
   test("열린 세션이 없으면 만료 세션의 새로 시작하기가 바로 시작 화면으로 간다", () => {
