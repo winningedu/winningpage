@@ -1,4 +1,3 @@
-// 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types
 export type Json =
   | string
   | number
@@ -5081,6 +5080,246 @@ export type Database = {
         };
         Relationships: [];
       };
+      selfeval_reports: {
+        Row: {
+          char_count: Json | null;
+          created_at: string;
+          id: string;
+          mandatory_fixes: Json | null;
+          profile_id: string;
+          report_type: string;
+          revision: number;
+          score: number | null;
+          sections: NonNullable<Json>;
+          session_id: string;
+        };
+        Insert: {
+          char_count?: Json | null;
+          created_at?: string;
+          id?: string;
+          mandatory_fixes?: Json | null;
+          profile_id: string;
+          report_type: string;
+          revision: number;
+          score?: number | null;
+          sections: NonNullable<Json>;
+          session_id: string;
+        };
+        Update: {
+          char_count?: Json | null;
+          created_at?: string;
+          id?: string;
+          mandatory_fixes?: Json | null;
+          profile_id?: string;
+          report_type?: string;
+          revision?: number;
+          score?: number | null;
+          sections?: NonNullable<Json>;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_reports_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_reports_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "selfeval_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      selfeval_session_activities: {
+        Row: {
+          activity_record_id: string;
+          analysis: Json | null;
+          analysis_source: string | null;
+          created_at: string;
+          fit_reasons: Json | null;
+          fit_score: number | null;
+          id: string;
+          profile_id: string;
+          role: string;
+          session_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          activity_record_id: string;
+          analysis?: Json | null;
+          analysis_source?: string | null;
+          created_at?: string;
+          fit_reasons?: Json | null;
+          fit_score?: number | null;
+          id?: string;
+          profile_id: string;
+          role: string;
+          session_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          activity_record_id?: string;
+          analysis?: Json | null;
+          analysis_source?: string | null;
+          created_at?: string;
+          fit_reasons?: Json | null;
+          fit_score?: number | null;
+          id?: string;
+          profile_id?: string;
+          role?: string;
+          session_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_session_activities_activity_record_id_fkey";
+            columns: ["activity_record_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_session_activities_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_session_activities_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "selfeval_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      selfeval_sessions: {
+        Row: {
+          academic_year: number | null;
+          activity_name: string | null;
+          area: string | null;
+          career: NonNullable<Json>;
+          completed_at: string | null;
+          created_at: string;
+          current_step: number;
+          grade_label: string | null;
+          growth_applied: boolean;
+          growth_report_id: string | null;
+          growth_snapshot: Json | null;
+          id: string;
+          last_activity_at: string;
+          ledger_id: string | null;
+          ledger_reversed_at: string | null;
+          plan_item_id: string | null;
+          profile_id: string;
+          regenerate_count: number;
+          reply_pending: Json | null;
+          school_prompt: string | null;
+          semester: number | null;
+          status: string;
+          step_state: NonNullable<Json>;
+          subject: string | null;
+          target_chars: number | null;
+          target_chars_mode: string;
+          teacher_note: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          academic_year?: number | null;
+          activity_name?: string | null;
+          area?: string | null;
+          career?: NonNullable<Json>;
+          completed_at?: string | null;
+          created_at?: string;
+          current_step?: number;
+          grade_label?: string | null;
+          growth_applied?: boolean;
+          growth_report_id?: string | null;
+          growth_snapshot?: Json | null;
+          id?: string;
+          last_activity_at?: string;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          plan_item_id?: string | null;
+          profile_id: string;
+          regenerate_count?: number;
+          reply_pending?: Json | null;
+          school_prompt?: string | null;
+          semester?: number | null;
+          status?: string;
+          step_state?: NonNullable<Json>;
+          subject?: string | null;
+          target_chars?: number | null;
+          target_chars_mode?: string;
+          teacher_note?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          academic_year?: number | null;
+          activity_name?: string | null;
+          area?: string | null;
+          career?: NonNullable<Json>;
+          completed_at?: string | null;
+          created_at?: string;
+          current_step?: number;
+          grade_label?: string | null;
+          growth_applied?: boolean;
+          growth_report_id?: string | null;
+          growth_snapshot?: Json | null;
+          id?: string;
+          last_activity_at?: string;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          plan_item_id?: string | null;
+          profile_id?: string;
+          regenerate_count?: number;
+          reply_pending?: Json | null;
+          school_prompt?: string | null;
+          semester?: number | null;
+          status?: string;
+          step_state?: NonNullable<Json>;
+          subject?: string | null;
+          target_chars?: number | null;
+          target_chars_mode?: string;
+          teacher_note?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_sessions_growth_report_id_fkey";
+            columns: ["growth_report_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_sessions_ledger_id_fkey";
+            columns: ["ledger_id"];
+            isOneToOne: false;
+            referencedRelation: "performance_credit_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_sessions_plan_item_id_fkey";
+            columns: ["plan_item_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_plan_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_sessions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       services: {
         Row: {
           created_at: string | null;
@@ -6124,6 +6363,10 @@ export type Database = {
         Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
       };
+      consume_selfeval_credit: {
+        Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
+        Returns: Json;
+      };
       finalize_performance_submission: {
         Args: {
           p_profile_id: string;
@@ -6766,6 +7009,47 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_selfeval_claim_step: {
+        Args: {
+          p_profile_id: string;
+          p_session_id: string;
+          p_stale_seconds?: number;
+          p_step: string;
+        };
+        Returns: Json;
+      };
+      fn_selfeval_finalize: {
+        Args: {
+          p_char_count: Json;
+          p_profile_id: string;
+          p_promoted: Json;
+          p_score: number;
+          p_sections: Json;
+          p_session_id: string;
+        };
+        Returns: Json;
+      };
+      fn_selfeval_finish_step: {
+        Args: {
+          p_extra_attempts?: number;
+          p_issues?: Json;
+          p_ok: boolean;
+          p_patch?: Json;
+          p_profile_id: string;
+          p_session_id: string;
+          p_step: string;
+        };
+        Returns: boolean;
+      };
+      fn_selfeval_terminate_session: {
+        Args: {
+          p_profile_id: string;
+          p_reason: string;
+          p_session_id: string;
+          p_step: string;
+        };
+        Returns: Json;
+      };
       fn_set_my_tenant: {
         Args: { p_code: string };
         Returns: {
@@ -6922,6 +7206,10 @@ export type Database = {
       };
       reverse_growth_credit: {
         Args: { p_profile_id: string; p_reason?: string; p_report_id: string };
+        Returns: Json;
+      };
+      reverse_selfeval_credit: {
+        Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
       };
       revoke_parent_link: { Args: { p_link_id: string }; Returns: Json };
