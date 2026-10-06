@@ -1,13 +1,17 @@
-// 성장설계 등급 체계 판정·평균 계산(순수 함수). 등급 체계는 앱이 정하며 생성 결과가 덮어쓰지 못한다(No.120).
+// 성장설계 등급 체계 판정, 평균 계산(순수 함수). 등급 체계는 앱이 정하며 생성 결과가 덮어쓰지 못한다(No.120).
 
-import type { GradeSystem } from "./types.js";
+import type { GradeSystem, SemesterKey } from "./types.js";
 
 export type { GradeSystem };
 
 /** 5등급제 적용 첫 입학 연도 */
 const FIVE_SCALE_START_YEAR = 2025;
 
-/** 고등학교 입학 연도로 등급 체계 판정. 2025 이상 five, 2024 이하 nine (No.73, No.153). */
+/**
+ * 고등학교 입학 연도로 등급 체계 판정. 2025 이상 five, 2024 이하 nine (No.73, No.153).
+ * 목표관리 src/lib/goal/report/aggregate.ts 의 deriveGradeSystem 은 대입 학년도 기준이라
+ * 재수, N수생에서 답이 갈릴 수 있다. 성장설계는 명세 No.73 대로 입학 연도를 정본으로 쓴다.
+ */
 export function deriveGradeSystem(
   admissionYear: number | null | undefined,
 ): GradeSystem | null {
@@ -43,7 +47,11 @@ export const NINE_SCALE_BANDS: readonly GradeBand[] = [
   { grade: 9, cumulativePercent: 100 },
 ];
 
-/** 상위 누적 백분위(0~100)로 등급 산출. 범위 밖이면 null. */
+/**
+ * 상위 누적 백분위(0~100)로 등급 산출. 범위 밖이면 null.
+ * 상위 누적 비율(작을수록 상위)이며 수능 백분위(src/lib/goal/calc/jeongsi.js 의
+ * GRADE_PERCENTILE, 클수록 상위)와 방향이 반대다.
+ */
 export function gradeFromPercentile(
   percentile: number,
   system: GradeSystem,
@@ -57,7 +65,7 @@ export function gradeFromPercentile(
 }
 
 /**
- * 2022 개정 교육과정 사회·과학 융합선택 과목(공식 목록). 평균 계산에서 제외 (No.75, No.154).
+ * 2022 개정 교육과정 사회, 과학 융합선택 과목(공식 목록). 평균 계산에서 제외 (No.75, No.154).
  * 출처: 2022 개정 교육과정 고등학교 선택 과목 구분(교육부 고시) 기준, 검토용으로 export.
  */
 export const FUSION_ELECTIVE_SUBJECTS: readonly string[] = [
@@ -75,8 +83,8 @@ export const FUSION_ELECTIVE_SUBJECTS: readonly string[] = [
 ];
 
 /**
- * 체육·예술·교양 교과 및 과학탐구실험 과목. 평균 계산에서 제외 (No.75, No.154).
- * 목표관리 naesin_scores 에는 선택과목 유형·성취도가 없어 과목명 사전으로 판정한다.
+ * 체육, 예술, 교양 교과 및 과학탐구실험 과목. 평균 계산에서 제외 (No.75, No.154).
+ * 목표관리 naesin_scores 에는 선택과목 유형, 성취도가 없어 과목명 사전으로 판정한다.
  * 2015 개정과 2022 개정 명칭을 함께 둔다. 공식 고시 대조는 아직 안 했으므로 검토 대상.
  */
 export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
@@ -100,6 +108,8 @@ export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
   "음악 연주와 창작",
   "음악 감상과 비평",
   "미술 감상과 비평",
+  "음악과 미디어",
+  "미술과 매체",
   // 교양
   "철학",
   "논리학",
@@ -119,13 +129,18 @@ export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
   "교육의 이해",
   "삶과 종교",
   // 과학탐구실험
+  "과학탐구실험",
   "과학탐구실험1",
   "과학탐구실험2",
 ];
 
-/** 과목명 비교용 정규화: 공백 제거, 로마숫자 Ⅰ/Ⅱ 를 1/2 로 통일 */
+/** 과목명 비교용 정규화: 끝의 괄호 접미사 제거, 공백 제거, 로마숫자 Ⅰ/Ⅱ 를 1/2 로 통일 */
 function normalizeSubjectName(name: string): string {
-  return name.replace(/\s+/g, "").replace(/Ⅰ/g, "1").replace(/Ⅱ/g, "2");
+  return name
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .replace(/\s+/g, "")
+    .replace(/Ⅰ/g, "1")
+    .replace(/Ⅱ/g, "2");
 }
 
 const normalizedExcluded = new Set<string>(
@@ -174,13 +189,13 @@ export function averageGrade(subjects: SubjectGrade[]): AverageGradeResult {
 }
 
 export interface SemesterSubjects {
-  /** 학기 키. "고1-1" 형식 문자열을 그대로 보존한다. */
-  key: string;
+  /** 학기 키. "고1-1" 형식을 그대로 보존한다. */
+  key: SemesterKey;
   subjects: SubjectGrade[];
 }
 
 export interface SemesterAverage extends AverageGradeResult {
-  key: string;
+  key: SemesterKey;
 }
 
 /** 학기별 averageGrade 매핑 */

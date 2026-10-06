@@ -1,4 +1,4 @@
-// 성장설계 등급 체계 판정·평균 계산 테스트(No.73·74·75·120·153·154).
+// 성장설계 등급 체계 판정, 평균 계산 테스트(No.73, 74, 75, 120, 153, 154).
 // 순수 함수만 다루므로 DB/네트워크 없이 검증한다.
 import { describe, expect, test } from "vitest";
 import {
@@ -94,7 +94,7 @@ describe("isExcludedFromAverage (No.75, No.154)", () => {
     "과학의 역사와 문화",
     "기후변화와 환경생태",
     "융합과학 탐구",
-  ])("사회·과학 융합선택 %s 는 평균에서 제외", (name) => {
+  ])("사회, 과학 융합선택 %s 는 평균에서 제외", (name) => {
     expect(isExcludedFromAverage(name)).toBe(true);
   });
 
@@ -113,11 +113,11 @@ describe("isExcludedFromAverage (No.75, No.154)", () => {
     "생태와 환경",
     "인간과 경제활동",
     "논술",
-  ])("체육·예술·교양 %s 는 평균에서 제외", (name) => {
+  ])("체육, 예술, 교양 %s 는 평균에서 제외", (name) => {
     expect(isExcludedFromAverage(name)).toBe(true);
   });
 
-  test("과학탐구실험 1·2 는 제외, 표기 차이(로마숫자·공백)를 정규화해 비교", () => {
+  test("과학탐구실험 1, 2 는 제외, 표기 차이(로마숫자, 공백)를 정규화해 비교", () => {
     expect(isExcludedFromAverage("과학탐구실험1")).toBe(true);
     expect(isExcludedFromAverage("과학탐구실험Ⅱ")).toBe(true);
     expect(isExcludedFromAverage("과학탐구실험 2")).toBe(true);
@@ -210,4 +210,26 @@ describe("isExcludedFromAverage 교육과정 명칭 보강", () => {
       expect(isExcludedFromAverage(name)).toBe(true);
     },
   );
+});
+
+describe("isExcludedFromAverage 사전 보강", () => {
+  test("번호 없는 2015 개정 단일 과목 과학탐구실험은 제외한다", () => {
+    expect(isExcludedFromAverage("과학탐구실험")).toBe(true);
+  });
+
+  test("2022 예술 융합선택 음악과 미디어는 제외한다", () => {
+    expect(isExcludedFromAverage("음악과 미디어")).toBe(true);
+  });
+
+  test("2022 예술 융합선택 미술과 매체는 제외한다", () => {
+    expect(isExcludedFromAverage("미술과 매체")).toBe(true);
+  });
+
+  test.each([
+    ["음악(1)", true],
+    ["체육 (2)", true],
+    ["국어(1)", false],
+  ])("괄호 접미사가 붙은 %s 도 접미사를 떼고 비교한다", (name, expected) => {
+    expect(isExcludedFromAverage(name)).toBe(expected);
+  });
 });

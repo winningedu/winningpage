@@ -1,14 +1,13 @@
-// 성장설계 prefill 회귀 테스트(No.19·20·33·34·143). 순수 함수라 DB/네트워크 없이 검증한다.
+// 성장설계 prefill 회귀 테스트(No.19, 20, 33, 34, 143). 순수 함수라 DB/네트워크 없이 검증한다.
 import { describe, expect, test } from "vitest";
 import {
   autoFilledFromActivities,
   initialStudentProfileFromGoal,
   prefillSurveyFromDiagnosis,
-  semesterAverageInputs,
   semesterSubjectsFromNaesin,
 } from "./prefill.js";
 
-describe("prefillSurveyFromDiagnosis — q5 진로 확정 정도(No.34)", () => {
+describe("prefillSurveyFromDiagnosis, q5 진로 확정 정도(No.34)", () => {
   test("BOTH 는 '정해짐' 으로 채운다", () => {
     const r = prefillSurveyFromDiagnosis({ goal: { level: "BOTH" } });
     expect(r.q5).toBe("정해짐");
@@ -35,7 +34,7 @@ describe("prefillSurveyFromDiagnosis — q5 진로 확정 정도(No.34)", () => 
   });
 });
 
-describe("prefillSurveyFromDiagnosis — q10·q11·q24·비객체(No.34)", () => {
+describe("prefillSurveyFromDiagnosis, q10, q11, q24, 비객체(No.34)", () => {
   test("targetMajor 가 있으면 q10 을 {name, source} 로 채운다", () => {
     const r = prefillSurveyFromDiagnosis({
       goal: { targetMajor: " 경영학과 " },
@@ -85,7 +84,7 @@ describe("prefillSurveyFromDiagnosis — q10·q11·q24·비객체(No.34)", () =>
   });
 });
 
-describe("initialStudentProfileFromGoal(No.19·20)", () => {
+describe("initialStudentProfileFromGoal(No.19, 20)", () => {
   test("입력이 null 이면 source 만 담는다", () => {
     expect(initialStudentProfileFromGoal(null)).toEqual({ source: "goal" });
   });
@@ -126,7 +125,7 @@ describe("initialStudentProfileFromGoal(No.19·20)", () => {
     ).toBeUndefined();
   });
 
-  test("grade 는 고1·고2·고3 일 때만 채운다", () => {
+  test("grade 는 고1, 고2, 고3 일 때만 채운다", () => {
     expect(initialStudentProfileFromGoal({ grade: "고2" }).grade).toBe("고2");
     expect(
       initialStudentProfileFromGoal({ grade: "중3" }).grade,
@@ -174,7 +173,7 @@ describe("semesterSubjectsFromNaesin(No.19)", () => {
     });
   });
 
-  test("같은 학기에 중간·기말이 있으면 기말의 과목만 쓴다", () => {
+  test("같은 학기에 중간, 기말이 있으면 기말의 과목만 쓴다", () => {
     const r = semesterSubjectsFromNaesin([
       exam("1학년 1학기 기말", [["국어", 1]]),
       exam("1학년 1학기 중간", [["국어", 4]]),
@@ -222,6 +221,15 @@ describe("semesterSubjectsFromNaesin(No.19)", () => {
     expect(r.skipped).toEqual(["모의고사"]);
   });
 
+  test("중학교 학기 키는 고1-2 로 받아들이지 않고 skipped 에 담는다", () => {
+    const r = semesterSubjectsFromNaesin([
+      exam("중1 2학기", [["국어", 2]]),
+      exam("중3-1", [["국어", 2]]),
+    ]);
+    expect(r.semesters).toEqual([]);
+    expect(r.skipped).toEqual(["중1 2학기", "중3-1"]);
+  });
+
   test("입력이 배열이 아니면 빈 결과다", () => {
     expect(semesterSubjectsFromNaesin(null)).toEqual({
       semesters: [],
@@ -230,18 +238,7 @@ describe("semesterSubjectsFromNaesin(No.19)", () => {
   });
 });
 
-describe("semesterAverageInputs", () => {
-  test("각 학기를 {key, subjects} 로 넘긴다", () => {
-    const { semesters } = semesterSubjectsFromNaesin([
-      exam("1-1", [["국어", 2]]),
-    ]);
-    expect(semesterAverageInputs(semesters)).toEqual([
-      { key: "고1-1", subjects: [{ name: "국어", grade: 2 }] },
-    ]);
-  });
-});
-
-describe("autoFilledFromActivities(No.33·143)", () => {
+describe("autoFilledFromActivities(No.33, 143)", () => {
   test("활동이 2건 이상인 과목만 빈도순으로 고른다", () => {
     const r = autoFilledFromActivities([
       { subject: "수학" },
@@ -274,6 +271,25 @@ describe("autoFilledFromActivities(No.33·143)", () => {
       "『사피엔스』",
       "코스모스(저 칼 세이건)",
       "총 균 쇠",
+    ]);
+  });
+
+  test("겹낫표와 홑낫표는 여는 쪽만 있어도 닫는 쪽만 있어도 책으로 본다", () => {
+    const r = autoFilledFromActivities([
+      {
+        sources: [
+          "『토지",
+          "채식주의자』",
+          "「소년이 온다",
+          "작별하지 않는다」",
+        ],
+      },
+    ]);
+    expect(r.books).toEqual([
+      "『토지",
+      "채식주의자』",
+      "「소년이 온다",
+      "작별하지 않는다」",
     ]);
   });
 
