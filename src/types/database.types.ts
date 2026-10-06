@@ -6426,6 +6426,51 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;
       };
+      fn_growth_claim_step: {
+        Args: {
+          p_profile_id: string;
+          p_report_id: string;
+          p_stale_seconds?: number;
+          p_step: number;
+        };
+        Returns: Json;
+      };
+      fn_growth_commit_collect: {
+        Args: {
+          p_activity_ids: string[];
+          p_grade_inputs: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_track: string;
+        };
+        Returns: boolean;
+      };
+      fn_growth_complete_report: {
+        Args: {
+          p_plan_items: Json;
+          p_profile: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_sections: Json;
+        };
+        Returns: Json;
+      };
+      fn_growth_finish_step: {
+        Args: {
+          p_extra_attempts?: number;
+          p_issues?: Json;
+          p_ok: boolean;
+          p_patch?: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_step: number;
+        };
+        Returns: boolean;
+      };
+      fn_growth_merge_survey_answers: {
+        Args: { p_patch: Json; p_profile_id: string; p_report_id: string };
+        Returns: Json;
+      };
       fn_is_active_admin: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_linked_pair: {
         Args: { p_a: string; p_b: string };
