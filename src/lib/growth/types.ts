@@ -350,6 +350,13 @@ export type ReportsList = {
   lastTerminal: LastTerminal | null;
 };
 
+/** 학부모가 자녀의 완료 회차를 볼 때의 목록 응답. child.name 은 이름이 없으면 null. */
+export type ChildReportsList = {
+  ok: true;
+  items: ReportListItem[];
+  child: { id: string; name: string | null };
+};
+
 export type ReportDetailView = "parent";
 
 export type ReportPlanItem = {

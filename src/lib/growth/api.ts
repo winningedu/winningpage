@@ -18,6 +18,7 @@ import {
   normalizeApiResult,
 } from "./apiResult";
 import type {
+  ChildReportsList,
   CollectAggregateRequest,
   CollectCommitResponse,
   CollectSummaryResponse,
@@ -168,6 +169,23 @@ export function fetchReports() {
 export function fetchReportDetail(reportId: string, view?: ReportDetailView) {
   const query = new URLSearchParams({ reportId });
   if (view) query.set("view", view);
+  return request<ReportDetail>(`${BASE}/reports?${query.toString()}`, {
+    method: "GET",
+  });
+}
+
+// ── 학부모 열람 ───────────────────────────────────────────────────────
+/** 학부모가 자녀의 완료 회차 목록을 본다. 연결된 자녀가 아니면 403 NOT_LINKED. */
+export function fetchChildReports(childId: string) {
+  const query = new URLSearchParams({ childId });
+  return request<ChildReportsList>(`${BASE}/reports?${query.toString()}`, {
+    method: "GET",
+  });
+}
+
+/** 학부모가 자녀의 완료 회차 한 건을 본다. 성적 민감 섹션은 서버가 뺀다. */
+export function fetchChildReportDetail(childId: string, reportId: string) {
+  const query = new URLSearchParams({ reportId, childId, view: "parent" });
   return request<ReportDetail>(`${BASE}/reports?${query.toString()}`, {
     method: "GET",
   });

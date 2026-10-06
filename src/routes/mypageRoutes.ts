@@ -4,6 +4,8 @@ import { requireAuthMiddleware } from "@/lib/routeMiddleware";
 import MyPage from "@/pages/MyPage";
 import ChildDiagnosisReport from "@/pages/mypage/ChildDiagnosisReport";
 import ChildDiagnosisReports from "@/pages/mypage/ChildDiagnosisReports";
+import ChildGrowthReport from "@/pages/mypage/ChildGrowthReport";
+import ChildGrowthReports from "@/pages/mypage/ChildGrowthReports";
 import ChildReport from "@/pages/mypage/ChildReport";
 
 const mypageRoutes: RouteObject[] = [
@@ -43,6 +45,21 @@ const mypageRoutes: RouteObject[] = [
   {
     path: "/mypage/children/:studentId/report/diagnosis/:attemptId",
     Component: ChildDiagnosisReport,
+    middleware: [requireAuthMiddleware],
+    HydrateFallback: AuthCheckingFallback,
+  },
+
+  // 학부모가 자녀의 성장설계 리포트를 여는 뷰어(알림톡 "리포트 보기" 진입, 목록 → 회차 상세).
+  // 같은 셸 원칙(SiteLayout 안, fn_parent_children 게이트)이고 서버가 연결 여부를 다시 확인한다.
+  {
+    path: "/mypage/children/:childId/growth",
+    Component: ChildGrowthReports,
+    middleware: [requireAuthMiddleware],
+    HydrateFallback: AuthCheckingFallback,
+  },
+  {
+    path: "/mypage/children/:childId/growth/:reportId",
+    Component: ChildGrowthReport,
     middleware: [requireAuthMiddleware],
     HydrateFallback: AuthCheckingFallback,
   },
