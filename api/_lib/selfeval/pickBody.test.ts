@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canChangeSelection,
   manualSelectionRow,
+  nextStepAfterManualPick,
   nextStepAfterPick,
   pickContextFrom,
   selectionRows,
@@ -257,6 +258,11 @@ describe("canChangeSelection / nextStepAfterPick", () => {
   it("단계는 줄어들지 않는다", () => {
     expect(nextStepAfterPick(1)).toBe(2);
     expect(nextStepAfterPick(2)).toBe(2);
+  });
+  it("직접 입력 선택은 분석 산출물이 이미 있어 단계 3으로 올린다", () => {
+    expect(nextStepAfterManualPick(1)).toBe(3);
+    expect(nextStepAfterManualPick(2)).toBe(3);
+    expect(nextStepAfterManualPick(3)).toBe(3);
   });
 });
 

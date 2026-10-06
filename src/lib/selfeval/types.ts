@@ -618,7 +618,7 @@ export type PickManualResponse = {
   ok: true;
   activityRecordId: string;
   selection: PickSelection;
-  currentStep: 2;
+  currentStep: 3;
 };
 
 // ---------------------------------------------------------------------------

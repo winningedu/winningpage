@@ -201,6 +201,16 @@ function AnalysisBody({
                   직접 입력한 활동이라 분석 항목을 학생이 채워야 해요
                 </p>
               )}
+              {core?.record.topic && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-app-section font-semibold text-ink-strong">
+                    {core.record.topic}
+                  </h2>
+                  <span className="rounded-full bg-surface-04 px-3 py-1 text-app-caption font-semibold text-accent">
+                    핵심 활동
+                  </span>
+                </div>
+              )}
               <AnalysisTable
                 analysis={analysis}
                 disabled={busy}

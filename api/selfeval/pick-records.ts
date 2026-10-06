@@ -4,14 +4,15 @@
 // 자기평가서 활동 선택 엔드포인트(계획서 §2 4, 5, 명세 No.26~36). body.action 으로 가른다.
 //   list    후보 목록과 현재 선택, 자동 추천, 성장설계 연동 정보.
 //   select  핵심 1개와 보조 최대 2개를 확정한다(current_step 2).
-//   manual  직접 입력 활동 1건을 만들어 핵심으로 확정한다(current_step 2).
+//   manual  직접 입력 활동 1건을 만들어 핵심으로 확정한다. 분석이 학생 입력으로 이미 채워져
+//           분석 단계를 건너뛰고 current_step 3 으로 올린다(명세 No.26).
 //
 //   list   200 { ok, candidates[CandidateRow], selection:{coreId,supportIds}|null,
 //                auto:{coreId,supportIds,coreMismatch,noneAboveThreshold}|null,
 //                sourceCounts:{performance,deep,manual,total}, direction:{mismatch}|null,
 //                planCandidates[], planItem|null, growthApplied, currentStep }
 //   select 200 { ok, selection:{coreId,supportIds}, coreMismatch, warnings[], currentStep:2 }
-//   manual 200 { ok, activityRecordId, selection:{coreId,supportIds:[]}, currentStep:2 }
+//   manual 200 { ok, activityRecordId, selection:{coreId,supportIds:[]}, currentStep:3 }
 //
 //   400 INVALID_BODY / ACTIVITY_NAME_REQUIRED / SUBJECT_REQUIRED
 //       / CORE_REQUIRED / UNAVAILABLE / UNKNOWN_ACTIVITY / TOO_MANY_SUPPORT
@@ -50,6 +51,7 @@ import {
 import {
   canChangeSelection,
   manualSelectionRow,
+  nextStepAfterManualPick,
   nextStepAfterPick,
   pickContextFrom,
   selectionRows,
@@ -192,7 +194,7 @@ async function handleManual(
       manualToAnalysis(input),
     ),
   ]);
-  const step = nextStepAfterPick(session.current_step);
+  const step = nextStepAfterManualPick(session.current_step);
   await updateSession(db, userId, session.id, {
     current_step: step,
     last_activity_at: new Date().toISOString(),

@@ -109,6 +109,29 @@ describe("AnalysisPage", () => {
     expect(screen.getByText("자료에서 확인된 사실만 씁니다")).toBeTruthy();
   });
 
+  test("표 위에 핵심 활동의 활동명과 핵심 활동 배지를 보인다", async () => {
+    detailMock.mockResolvedValue(
+      makeDetail({
+        activities: [makeActivity("core", { analysis: makeAnalysis() })],
+      }),
+    );
+    renderPage();
+    expect(await screen.findByText("버스 배차 분석")).toBeTruthy();
+    expect(screen.getByText("핵심 활동")).toBeTruthy();
+  });
+
+  test("활동명이 없으면 활동명 줄을 그리지 않는다", async () => {
+    const core = makeActivity("core", { analysis: makeAnalysis() });
+    detailMock.mockResolvedValue(
+      makeDetail({
+        activities: [{ ...core, record: { ...core.record, topic: null } }],
+      }),
+    );
+    renderPage();
+    await screen.findByText("교과 개념");
+    expect(screen.queryByText("핵심 활동")).toBeNull();
+  });
+
   test("학생 입력은 배지, 비운 칸은 안내, 협업은 채점 제외 캡션을 단다", async () => {
     detailMock.mockResolvedValue(
       makeDetail({

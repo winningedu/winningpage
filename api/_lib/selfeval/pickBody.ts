@@ -182,3 +182,8 @@ export function canChangeSelection(
 export function nextStepAfterPick(current: SessionStep): SessionStep {
   return current < 2 ? 2 : current;
 }
+
+/** 직접 입력 활동은 분석 산출물이 이미 있어 STEP4 분석 확인으로 바로 간다(명세 No.26). */
+export function nextStepAfterManualPick(current: SessionStep): SessionStep {
+  return current < 3 ? 3 : current;
+}
