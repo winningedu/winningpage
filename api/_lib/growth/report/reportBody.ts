@@ -156,7 +156,7 @@ export function toStoredOutputs(row: StoredRow): StoredOutputs {
   };
 }
 
-type CallText = (
+type CallStructured = (
   system: string,
   user: string,
   options: {
@@ -165,12 +165,14 @@ type CallText = (
     maxOutputTokens: number;
     abortSignal: AbortSignal;
   },
-) => Promise<string>;
+) => Promise<{ text: string; finishReason: string | null }>;
 
-/** gemini callText 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
-export function callModelWith(callText: CallText): RunStepDeps["callModel"] {
+/** gemini callStructured 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
+export function callModelWith(
+  callStructured: CallStructured,
+): RunStepDeps["callModel"] {
   return (bundle, signal) =>
-    callText(bundle.system, bundle.user, {
+    callStructured(bundle.system, bundle.user, {
       responseMimeType: "application/json",
       responseSchema: bundle.responseSchema,
       maxOutputTokens: bundle.maxOutputTokens,

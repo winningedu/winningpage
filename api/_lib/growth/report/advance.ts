@@ -1,7 +1,7 @@
 // 성장설계 리포트 한 단계 진행 서비스. api/growth/report 핸들러와 크론(growth-resume)이 함께 쓴다.
 // HTTP 를 모른다. 결과는 AdvanceOutcome 으로 돌려주고 응답 매핑은 호출자가 한다.
 
-import type { callText } from "../../gemini.js";
+import type { callStructured } from "../../gemini.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
@@ -38,7 +38,7 @@ import {
 const NOTIFY_WAIT_MS = 5000;
 
 export type AdvanceDeps = {
-  callText: typeof callText;
+  callStructured: typeof callStructured;
   now: () => string;
   /** 이 요청이 시작된 시각(Date.now). 단계 예산 계산에 쓴다. */
   startedAt: number;
@@ -184,7 +184,7 @@ export async function advanceStep(
         ? await loadCarried(db, userId, await loadPreviousReportId(db, userId))
         : undefined;
     const result = await runStep(step, context, toStoredOutputs(row), {
-      callModel: callModelWith(deps.callText),
+      callModel: callModelWith(deps.callStructured),
       now: deps.now,
       budgetMs: STEP_BUDGET_MS - (Date.now() - deps.startedAt),
       ...(carried !== undefined && { carried }),

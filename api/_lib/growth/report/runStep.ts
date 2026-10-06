@@ -58,7 +58,11 @@ export type StoredOutputs = {
 };
 
 export type RunStepDeps = {
-  callModel: (bundle: PromptBundle, signal: AbortSignal) => Promise<string>;
+  /** finishReason 은 출력 한도 잘림(MAX_TOKENS)을 알아채는 데 쓴다. */
+  callModel: (
+    bundle: PromptBundle,
+    signal: AbortSignal,
+  ) => Promise<{ text: string; finishReason: string | null }>;
   now: () => string;
   /** 이 요청에 남은 예산(ms). */
   budgetMs: number;
@@ -199,9 +203,9 @@ async function callWithRetry(
       };
     }
     const bundle = buildStepPrompt(step, input, retryNotes);
-    let raw: string;
+    let reply: { text: string; finishReason: string | null };
     try {
-      raw = await withinBudget(
+      reply = await withinBudget(
         (signal) => deps.callModel(bundle, signal),
         remaining,
       );
@@ -217,9 +221,17 @@ async function callWithRetry(
         failure: timedOut ? "timeout" : "upstream",
       };
     }
-    const parsed = parseStepResponse(step, raw, input.context);
+    // 잘린 응답은 우연히 파싱돼도 뒷부분이 비어 있을 수 있어 쓰지 않는다.
+    const truncated = reply.finishReason === "MAX_TOKENS";
+    const parsed = truncated
+      ? null
+      : parseStepResponse(step, reply.text, input.context);
     let issues: ValidationIssue[];
-    if (parsed.ok) {
+    if (parsed === null) {
+      issues = [
+        { code: "truncated", message: "응답이 출력 한도를 넘어 잘렸습니다." },
+      ];
+    } else if (parsed.ok) {
       const output: StepOutput = { ...parsed.output, ...seed };
       const verdict = validateStepOutput(step, output, input.context, extra);
       if (verdict.ok) return { ok: true, output, extraAttempts };

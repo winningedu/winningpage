@@ -264,11 +264,18 @@ export const MAX_MODEL_ATTEMPTS_PER_SESSION = MAX_MODEL_ATTEMPTS_PER_STEP;
 
 /** 검증 실패 시 해당 단계 재요청에 붙일 문제 목록(No.88). */
 export function buildRetryNote(issues: ValidationIssue[]): string[] {
-  return issues.map((i) =>
+  const notes = issues.map((i) =>
     i.path
       ? `[${i.path}] ${i.message} 이 문제를 고쳐서 다시 작성해 주세요.`
       : `${i.message} 이 문제를 고쳐서 다시 작성해 주세요.`,
   );
+  // 잘림이나 깨진 JSON 은 같은 길이로 다시 쓰면 또 잘린다. 분량을 줄이라고 명시한다.
+  if (issues.some((i) => i.code === "truncated" || i.code === "invalid_json")) {
+    notes.push(
+      "이전 응답이 출력 한도를 넘어 잘렸다. 모든 항목의 글 길이를 절반 이하로 줄이고, 같은 뜻의 문장을 반복하지 않는다. 항목 수는 안내한 범위를 지킨다.",
+    );
+  }
+  return notes;
 }
 
 /** 해당 단계의 누적 시도 횟수가 상한 미만이면 재시도 가능. */

@@ -273,6 +273,13 @@ const COMMON_RULES = [
   "- 점수가 아니라 서술로 쓴다. 학생을 등급이나 점수로 평가하는 문장을 쓰지 않는다.",
   "- 항목의 format 은 안내된 값 그대로 쓴다. prose 는 body.text, list 는 body.items, table 은 body.rows, diagram 은 안내된 필드를 쓴다.",
   `금지 표현: ${FORBIDDEN_PHRASES.map((p) => `"${p}"`).join(", ")}. 이 표현과 같은 뜻의 말을 어떤 필드에도 쓰지 않는다.`,
+  "",
+  "분량 원칙",
+  "- prose 항목의 body.text 는 2~4문장, 350자 이내로 쓴다.",
+  "- list 항목의 body.items 는 3~5개, 항목당 120자 이내로 쓴다.",
+  "- table 항목의 body.rows 는 8행 이내, label 과 value 는 각각 80자 이내로 쓴다.",
+  "- narrative 의 theme 은 60자 이내, subthemes 의 text 는 120자 이내로 쓴다. match 의 각 text 는 120자 이내로 쓴다. planDraft 의 title 은 40자 이내, description 은 160자 이내로 쓴다.",
+  "- 같은 문장이나 같은 뜻의 문장을 되풀이하지 않는다. 또한 으로 시작하는 문장을 연달아 쓰지 않는다. 할 말이 없으면 짧게 끝낸다.",
 ].join("\n");
 
 const SECTION_SPECS: Record<string, string> = {
@@ -397,6 +404,7 @@ const STEP_RULES: Record<ModelStep, string> = {
   7: [
     "7단계: 학년별 방향 설계",
     "구체적인 탐구 주제를 쓰지 말고 방향과 조건까지만 쓴다. 탐구 주제: 처럼 주제를 못 박는 표현을 쓰지 않는다.",
+    "항목마다 조건은 2~3개만 쓰고 길게 설명하지 않는다.",
     "planDraft 에 실행계획 항목을 쓴다. program 은 school, self, deep 중 하나, priority 는 required 또는 recommended, period 는 course_selection, semester, vacation 중 하나다.",
     "required 는 최대 3건, recommended 도 최대 3건이며 required 는 1건 이상 둔다. deadline 은 쓰지 않는다.",
     "planDraft 의 title 과 description 에는 등급이나 점수 숫자를 쓰지 않는다. 학부모가 읽는 글이다. 퍼센트 숫자도 쓰지 않는다.",

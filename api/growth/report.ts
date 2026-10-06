@@ -49,7 +49,7 @@
 // _lib/growth/report/advance 에, 판단 로직은 _lib/growth/report/reportBody 에 있고 거기서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
-import { callText } from "../_lib/gemini.js";
+import { callStructured } from "../_lib/gemini.js";
 import {
   type AdvanceOutcome,
   advanceStep,
@@ -190,7 +190,7 @@ export default defineHandler({
     }
 
     const outcome = await advanceStep(db, userId, row, step, {
-      callText,
+      callStructured,
       now: () => new Date().toISOString(),
       startedAt,
     });
