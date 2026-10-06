@@ -89,6 +89,13 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     payment_keywords: ["자기평가서"],
     program_keys: ["selfeval"],
   },
+  // 심화탐구. programs.program_key 'inquiry'(20261006111510) 와 consume_inquiry_credit 의 c_program_key 와 같은 값.
+  inquiry: {
+    service_key: "inquiry",
+    service_name: "위닝 심화탐구",
+    payment_keywords: ["심화탐구", "심화 탐구"],
+    program_keys: ["inquiry"],
+  },
 };
 
 export function clean(value: unknown): string {
