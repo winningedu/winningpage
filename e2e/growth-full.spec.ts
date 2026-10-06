@@ -30,10 +30,16 @@ test.describe("성장설계 표준 성공 경로", () => {
     await expect(page.getByRole("main")).toBeVisible();
 
     await page.goto("/app/growth/plan");
-    const first = page.getByRole("checkbox").first();
-    await expect(first).toBeVisible();
-    await first.check();
-    await expect(first).toBeChecked();
+    // 체크 상태는 쿼리 캐시 갱신 뒤 반영되므로 check() 대신 click 뒤 폴링으로 확인한다.
+    // "미체크 첫 항목" 로케이터는 클릭 뒤 다음 항목으로 옮겨 가므로 index 로 고정한다.
+    const boxes = page.getByRole("checkbox");
+    await expect(boxes.first()).toBeVisible();
+    const states = await boxes.evaluateAll((els) =>
+      els.map((el) => (el as HTMLInputElement).checked),
+    );
+    const target = boxes.nth(states.indexOf(false));
+    await target.click();
+    await expect(target).toBeChecked({ timeout: 10_000 });
     await context.close();
   });
 });
