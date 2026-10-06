@@ -48,6 +48,15 @@ describe("openPaidServiceOrAlert 서비스 키 매핑", () => {
     expect(await resolvedServiceKey({ slug: "growth" })).toBe("growth");
   });
 
+  test("이름에 심화탐구가 있으면 inquiry 키로 매핑된다", async () => {
+    expect(await resolvedServiceKey({ name: "위닝 심화탐구" })).toBe("inquiry");
+    expect(await resolvedServiceKey({ name: "심화 탐구" })).toBe("inquiry");
+  });
+
+  test("슬러그가 inquiry여도 inquiry 키로 매핑된다", async () => {
+    expect(await resolvedServiceKey({ slug: "inquiry" })).toBe("inquiry");
+  });
+
   test("기존 수행평가 매핑은 그대로다", async () => {
     expect(await resolvedServiceKey({ name: "수행평가" })).toBe("suhaeng");
   });

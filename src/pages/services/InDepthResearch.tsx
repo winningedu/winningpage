@@ -20,7 +20,6 @@ import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
 import { useInView } from "@/hooks/useInView";
 import { getDemoAccessState } from "@/lib/demoAccess";
-import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 
 // 심화탐구 서비스 랜딩 — /services/research (구 경로 /page/services-in-depth-research)
 // Figma 시안(1907:21352, "심화탐구" 프레임, 1920×5871) + 히어로 합성 프레임(2181:9089) +
@@ -30,11 +29,9 @@ import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 // components/services/ServiceLandingPage 공용 스켈레톤을 벗어나 bespoke로 구현했다(구
 // SERVICE_LANDING_CONTENT.research 항목은 serviceLandingContent.js에서 함께 제거 — 3종 선례와 동일).
 // 심화탐구는 상세 페이지(PAID_SERVICE_CONFIGS 미등록 — 실제 서비스 앱이 아직 없다)가 없어,
-// 히어로 CTA는 이동 대신 "서비스 예정입니다" alert로 안내한다(alertServiceNotReady,
-// paidServiceAccess.js — 자기평가・콜멘토와 동일 처리, 2026-08-05 사용자 확정). 이전에는
-// /learning-diagnosis로 임시 우회했으나(자기평가서 선례와 동일한 처리) 학습진단 안내는 히어로
-// 문구와 모순돼 폐기했다. 상세 페이지가 생기면 PAID_SERVICE_CONFIGS에 등록하고
-// openPaidServiceOrAlert로 교체한다.
+// 히어로 CTA는 심화탐구 앱(/app/inquiry)으로 직접 이동한다(handleHeroCta 참고).
+
+const INQUIRY_APP_ROUTE = "/app/inquiry";
 
 // 컨테이너 폭 — 시안은 섹션마다 1436~1444px(1920 기준)로 드리프트하지만(섹션 C의 1520은 좌240/
 // 우160 비대칭 오토레이아웃 잔재라 유령 래퍼로 판정), 실 콘텐츠 박스(카드 행) 기준 1439~1444를
@@ -199,29 +196,19 @@ function HeroSection() {
   ];
   const navigate = useNavigate();
 
-  // 히어로 CTA — 로그인 게이트 3분기(demoAccess.js의 getDemoAccessState, ProtectedAdmin과
-  // 동일 기준을 재사용). 비로그인은 /login으로 보내 복귀지를 이 랜딩 자신으로 남기고(자동
-  // 재실행은 하지 않는다 — 로그인 후 다시 CTA를 눌러야 한다), 어드민은 데모 라우트로,
-  // 로그인했지만 비어드민이면 기존 준비중 alert 그대로 유지한다. 실제 접근 통제는 라우트의
-  // ProtectedAdmin이 최종 방어선이다.
+  // 히어로 CTA는 인앱 서비스(/app/inquiry)로 직접 이동한다(수행평가 소개 페이지의 HERO_SERVICE
+  // 와 같은 방식). 비로그인은 /login 으로 보내 복귀지를 앱 경로로 남긴다. 인앱 서비스라
+  // openPaidServiceOrAlert(티켓 발급)는 쓰지 않는다. 실제 접근 통제는 앱 라우트가 맡는다.
   async function handleHeroCta(event?: MouseEvent<HTMLButtonElement>) {
     const access = await getDemoAccessState();
-
-    if (access === "admin") {
-      event?.preventDefault?.();
-      navigate("/demo/research");
-      return;
-    }
+    event?.preventDefault?.();
 
     if (access === "guest") {
-      event?.preventDefault?.();
-      navigate(`/login?redirect=${encodeURIComponent("/services/research")}`, {
-        replace: true,
-      });
+      navigate(`/login?redirect=${encodeURIComponent(INQUIRY_APP_ROUTE)}`);
       return;
     }
 
-    alertServiceNotReady(event);
+    navigate(INQUIRY_APP_ROUTE);
   }
 
   return (
@@ -311,8 +298,8 @@ function HeroSection() {
 
         {/* CTA — 시안(3163:4727)은 280×68 / cornerRadius 50(높이 68이라 실효 pill) / 그림자
             visible:false 이지만, 4페이지 CTA 통일을 우선해 선례 규격(max-w-[18.75rem],
-            rounded-[1.875rem], 네이비 그림자)을 그대로 쓴다. 클릭 시 준비중 alert로 안내한다
-            (alertServiceNotReady — 상세 페이지 미구현, 위 상단 주석 참고). */}
+            rounded-[1.875rem], 네이비 그림자)을 그대로 쓴다. 클릭 시 심화탐구 앱으로 이동한다
+            (handleHeroCta 참고). */}
         <button
           type="button"
           onClick={handleHeroCta}

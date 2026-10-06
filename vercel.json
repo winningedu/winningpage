@@ -53,6 +53,10 @@
     {
       "path": "/api/cron/selfeval-archive",
       "schedule": "10 19 * * *"
+    },
+    {
+      "path": "/api/cron/inquiry-archive",
+      "schedule": "20 19 * * *"
     }
   ]
 }

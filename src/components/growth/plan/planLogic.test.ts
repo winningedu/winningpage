@@ -233,12 +233,12 @@ describe("항목 표시", () => {
     expect(isUncheckLocked(item({ done: false }))).toBe(false);
   });
 
-  it("진행 문구: 학교는 직접 체크, 연동 가능한 self 는 송신측 전까지 직접 체크 안내", () => {
+  it("진행 문구: 학교는 직접 체크, 연동 가능한 self 는 확정 시 자동 완료 안내", () => {
     expect(progressNote(item({ program: "school" }), false)).toBe(
       "진행: 직접 체크",
     );
     expect(progressNote(item({ program: "self" }), true)).toBe(
-      "진행: 위닝 자기평가서에서 진행한 뒤 여기서 직접 체크해요.",
+      "진행: 위닝 자기평가서에서 확정하면 자동으로 완료돼요. 직접 체크해도 돼요.",
     );
     expect(progressNote(item({ program: "deep" }), true)).toContain(
       "위닝 심화탐구",
@@ -342,9 +342,9 @@ describe("연동 이동", () => {
     expect(rows).toEqual([{ label: "활동 조건", value: "t" }]);
   });
 
-  it("self 는 자기평가서 새 세션 화면, 나머지는 서비스 소개 경로다", () => {
+  it("self 는 자기평가서 새 세션 화면, deep 은 심화탐구 앱이다", () => {
     expect(handoffDestination("self")).toBe("/app/selfeval/new");
-    expect(handoffDestination("deep")).toBe("/services/research");
+    expect(handoffDestination("deep")).toBe("/app/inquiry");
     expect(handoffDestination("school")).toBe("/services");
   });
 
@@ -445,11 +445,10 @@ describe("피해야 할 반복", () => {
 });
 
 describe("handoffSubtitle", () => {
-  it("송신측이 없는 지금은 자동 완료를 약속하지 않고 직접 체크를 안내한다", () => {
+  it("자기평가서와 심화탐구 송신측이 있으므로 확정 시 자동 완료를 안내한다", () => {
     const text = handoffSubtitle("자기평가서");
     expect(text).toBe(
-      "이 과제의 방향을 받은 상태로 자기평가서가 열려요. 해당 프로그램에서 진행한 뒤 여기서 직접 체크해 완료해요.",
+      "이 과제의 방향을 받은 상태로 자기평가서가 열려요. 자기평가서에서 확정하면 이 과제가 자동으로 완료돼요.",
     );
-    expect(text).not.toContain("자동");
   });
 });

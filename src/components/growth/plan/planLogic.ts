@@ -230,18 +230,21 @@ export function showHandoffButton(
 export const HANDOFF_STORAGE_KEY = "growth:handoff";
 
 /**
- * 연동 이동 도착지. self 는 자기평가서 새 세션 화면으로 직접 보내고(기본 입력 화면이
- * sessionStorage growth:handoff 를 읽는다), 아직 앱이 없는 deep 은 소개 랜딩으로 보낸다
- * (라우트: serviceLandingRoutes.tsx).
+ * 연동 이동 도착지. self 는 자기평가서 새 세션 화면으로, deep 은 심화탐구 앱으로 보낸다.
+ * 두 앱 모두 sessionStorage growth:handoff 를 읽어 과제를 미리 채운다
+ * (자기평가서는 기본 입력 화면, 심화탐구는 src/lib/inquiry/handoff.ts).
  */
 export function handoffDestination(program: PlanProgram): string {
   if (program === "self") return "/app/selfeval/new";
-  if (program === "deep") return "/services/research";
+  if (program === "deep") return "/app/inquiry";
   return "/services";
 }
 
-/** 프로그램 쪽에서 확정을 되돌려 주는 송신측이 생기면 true 로 바꾼다. */
-export const HANDOFF_AUTO_COMPLETE = false;
+/**
+ * 자기평가서(저장 시)와 심화탐구(확정 시) 두 송신측이 completePlanItemFromProgram 으로
+ * 과제를 확정해 주므로 자동 완료를 약속한다.
+ */
+export const HANDOFF_AUTO_COMPLETE = true;
 
 /** 이동 모달 부제. 자동 완료는 송신측이 있을 때만 약속한다. */
 export function handoffSubtitle(name: string): string {
