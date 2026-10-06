@@ -256,6 +256,8 @@ export async function advanceStep(
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           const sending = notifyGrowthReportDone(db, userId, reportId);
+          // 시간 제한에 걸려 race 가 먼저 끝난 뒤 발송이 실패하면 처리되지 않은 거부가
+          // 되므로 미리 삼킨다. 실제 실패 로그는 notify 안에서 남긴다.
           sending.catch(() => {});
           const gave = await Promise.race([
             sending.then(() => false),
