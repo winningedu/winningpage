@@ -16,14 +16,16 @@ import {
 describe("SECTION_REGISTRY", () => {
   test("37항목이고 부별 14/10/13 이다(No.90, No.92~94)", () => {
     expect(SECTION_REGISTRY).toHaveLength(37);
-    const count = (p: number) => SECTION_REGISTRY.filter((s) => s.part === p).length;
+    const count = (p: number) =>
+      SECTION_REGISTRY.filter((s) => s.part === p).length;
     expect([count(1), count(2), count(3)]).toEqual([14, 10, 13]);
   });
 
   test("id 중복이 없고 형식은 6종 안이다(No.91)", () => {
     const ids = SECTION_REGISTRY.map((s) => s.id);
     expect(new Set(ids).size).toBe(37);
-    for (const s of SECTION_REGISTRY) expect(SECTION_FORMATS).toContain(s.format);
+    for (const s of SECTION_REGISTRY)
+      expect(SECTION_FORMATS).toContain(s.format);
     expect(SECTION_FORMATS).toHaveLength(6);
   });
 
@@ -42,15 +44,16 @@ describe("SECTION_REGISTRY", () => {
   });
 
   test("대표 항목의 형식이 시안과 같다", () => {
-    const fmt = (id: string) => SECTION_REGISTRY.find((s) => s.id === id)?.format;
-    expect([fmt("1-3"), fmt("1-4"), fmt("1-12"), fmt("1-8"), fmt("2-7"), fmt("3-13")]).toEqual([
-      "diagram",
-      "bar",
-      "line",
-      "list",
-      "prose",
-      "list",
-    ]);
+    const fmt = (id: string) =>
+      SECTION_REGISTRY.find((s) => s.id === id)?.format;
+    expect([
+      fmt("1-3"),
+      fmt("1-4"),
+      fmt("1-12"),
+      fmt("1-8"),
+      fmt("2-7"),
+      fmt("3-13"),
+    ]).toEqual(["diagram", "bar", "line", "list", "prose", "list"]);
   });
 });
 
@@ -73,7 +76,10 @@ const allIds = () => SECTION_REGISTRY.map((d) => d.id);
 
 describe("validateSectionItem", () => {
   test("올바른 ok 항목은 통과한다", () => {
-    expect(validateSectionItem(okItem("1-1"))).toEqual({ ok: true, errors: [] });
+    expect(validateSectionItem(okItem("1-1"))).toEqual({
+      ok: true,
+      errors: [],
+    });
   });
 
   test("ok 인데 body 가 없으면 실패한다", () => {
@@ -84,19 +90,28 @@ describe("validateSectionItem", () => {
   test("no_data 인데 no_data_reason 이 없으면 실패하고 있으면 통과한다(No.87)", () => {
     const base = okItem("1-14", { status: "no_data", body: null });
     expect(validateSectionItem(base).ok).toBe(false);
-    expect(validateSectionItem({ ...base, no_data_reason: "입결 자료 없음" }).ok).toBe(true);
+    expect(
+      validateSectionItem({ ...base, no_data_reason: "입결 자료 없음" }).ok,
+    ).toBe(true);
   });
 
   test("형식·배지 값이 허용 집합 밖이거나 객체가 아니면 실패한다", () => {
-    expect(validateSectionItem({ ...okItem("1-1"), format: "pie" }).ok).toBe(false);
-    expect(validateSectionItem({ ...okItem("1-1"), badge: "x" }).ok).toBe(false);
+    expect(validateSectionItem({ ...okItem("1-1"), format: "pie" }).ok).toBe(
+      false,
+    );
+    expect(validateSectionItem({ ...okItem("1-1"), badge: "x" }).ok).toBe(
+      false,
+    );
     expect(validateSectionItem(null).ok).toBe(false);
   });
 });
 
 describe("validateSections", () => {
   test("전체 37항목이 기대 id 와 정확히 일치하면 통과한다", () => {
-    expect(validateSections(allItems(), allIds())).toEqual({ ok: true, errors: [] });
+    expect(validateSections(allItems(), allIds())).toEqual({
+      ok: true,
+      errors: [],
+    });
   });
 
   test("누락·초과·중복 id 를 오류로 보고한다", () => {
@@ -105,7 +120,10 @@ describe("validateSections", () => {
     expect(missing.errors.join()).toContain("1-1");
     const extra = validateSections([...allItems(), okItem("1-1")], allIds());
     expect(extra.ok).toBe(false);
-    const unknown = validateSections([...allItems(), { ...okItem("1-1"), id: "9-9" }], allIds());
+    const unknown = validateSections(
+      [...allItems(), { ...okItem("1-1"), id: "9-9" }],
+      allIds(),
+    );
     expect(unknown.errors.join()).toContain("9-9");
   });
 
@@ -143,7 +161,11 @@ describe("validateNarrative", () => {
     expect(validateNarrative(good()).ok).toBe(true);
     const withPrev = {
       ...good(),
-      previous: { theme: "이전 주제", issuedAt: "2026-09-01", reason: "career_change" },
+      previous: {
+        theme: "이전 주제",
+        issuedAt: "2026-09-01",
+        reason: "career_change",
+      },
     };
     expect(validateNarrative(withPrev).ok).toBe(true);
   });
@@ -154,7 +176,9 @@ describe("validateNarrative", () => {
 
   test("하위 주제가 3개가 아니면 실패한다", () => {
     const n = good();
-    expect(validateNarrative({ ...n, subthemes: n.subthemes.slice(0, 2) }).ok).toBe(false);
+    expect(
+      validateNarrative({ ...n, subthemes: n.subthemes.slice(0, 2) }).ok,
+    ).toBe(false);
   });
 
   test("학년 중복이면 실패한다", () => {
@@ -165,12 +189,19 @@ describe("validateNarrative", () => {
 
   test("단계가 학년과 짝이 아니면 실패한다(고1 seed, 고2 flower, 고3 bloom)", () => {
     const n = good();
-    const bad = [{ ...n.subthemes[0], stage: "bloom" }, n.subthemes[1], n.subthemes[2]];
+    const bad = [
+      { ...n.subthemes[0], stage: "bloom" },
+      n.subthemes[1],
+      n.subthemes[2],
+    ];
     expect(validateNarrative({ ...n, subthemes: bad }).ok).toBe(false);
   });
 
   test("previous 의 reason 이 career_change 가 아니면 실패한다", () => {
-    const bad = { ...good(), previous: { theme: "a", issuedAt: "d", reason: "x" } };
+    const bad = {
+      ...good(),
+      previous: { theme: "a", issuedAt: "d", reason: "x" },
+    };
     expect(validateNarrative(bad).ok).toBe(false);
   });
 });
@@ -186,38 +217,64 @@ describe("parentVisibleSections", () => {
 
 describe("overviewCards", () => {
   const full = {
-    consistencyPercent: 82,
-    consistencyLabel: "높음",
-    axesConfirmed: 3,
+    consistencyPercent: 50,
+    consistencyLabel: "갈리는 중",
+    axesConfirmed: 2,
     axesTotal: 5,
-    estimate: "2.3",
-    actual: "2.1",
-    curveLabel: "상승형",
-    recommendedDone: 4,
-    recommendedTotal: 10,
-    brokenSemester: "2-1",
-    activityCount: 27,
+    weakestAxisText: "D 축이 가장 부족해요",
+    estimate: "2.5",
+    actual: "2.3",
+    curveLabel: "상승곡선",
+    recommendedDone: 2,
+    recommendedTotal: 8,
+    brokenSemester: "고2-1",
+    activityCount: 14,
   };
 
-  test("6카드를 만들고 값이 있으면 그대로 표시한다", () => {
+  test("6카드를 시안 라벨과 key 로 만든다", () => {
     const cards = overviewCards(full);
-    expect(cards).toHaveLength(6);
     expect(cards.map((c) => c.key)).toEqual([
       "consistency",
       "axes",
-      "grade",
-      "curve",
-      "recommended",
-      "activity",
+      "estimate",
+      "recommendedCourses",
+      "brokenSemester",
+      "activities",
     ]);
-    expect(cards[0]?.value).toBe("82%");
-    expect(cards[0]?.sub).toBe("높음");
-    expect(cards[1]?.value).toBe("3/5");
-    expect(cards[2]?.value).toBe("2.3 / 2.1");
-    expect(cards[3]?.value).toBe("상승형");
-    expect(cards[4]?.value).toBe("4/10");
-    expect(cards[5]?.value).toBe("27");
-    expect(cards[5]?.sub).toBe("단절 학기 2-1");
+    expect(cards.map((c) => c.label)).toEqual([
+      "방향 일관성",
+      "A부터 E 확인됨",
+      "내부 추정 등급",
+      "권장과목 이수",
+      "끊긴 시기",
+      "분석 활동",
+    ]);
+    expect(cards.map((c) => c.value)).toEqual([
+      "50%",
+      "2 / 5",
+      "2.5",
+      "2 / 8",
+      "고2-1",
+      "14건",
+    ]);
+    expect(cards[0]?.sub).toBe("갈리는 중");
+    expect(cards[1]?.sub).toBe("D 축이 가장 부족해요");
+    expect(cards[2]?.sub).toBe("실제 평균 2.3, 상승곡선");
+  });
+
+  test("가장 부족한 축 문구가 없으면 sub 를 생략한다", () => {
+    const { weakestAxisText: _omit, ...rest } = full;
+    expect(overviewCards(rest)[1]).not.toHaveProperty("sub");
+  });
+
+  test("추정 등급 sub 는 있는 값만 결합한다", () => {
+    expect(overviewCards({ ...full, curveLabel: null })[2]?.sub).toBe(
+      "실제 평균 2.3",
+    );
+    expect(overviewCards({ ...full, actual: null })[2]?.sub).toBe("상승곡선");
+    expect(
+      overviewCards({ ...full, actual: null, curveLabel: null })[2],
+    ).not.toHaveProperty("sub");
   });
 
   test("값이 null 인 카드는 자료 없음 텍스트가 된다", () => {
@@ -225,14 +282,13 @@ describe("overviewCards", () => {
       ...full,
       consistencyPercent: null,
       estimate: null,
-      curveLabel: null,
       brokenSemester: null,
       activityCount: null,
     });
     expect(cards[0]?.value).toBe("자료 없음");
     expect(cards[2]?.value).toBe("자료 없음");
-    expect(cards[3]?.value).toBe("자료 없음");
+    expect(cards[4]?.value).toBe("자료 없음");
     expect(cards[5]?.value).toBe("자료 없음");
-    expect(cards[1]?.value).toBe("3/5");
+    expect(cards[1]?.value).toBe("2 / 5");
   });
 });
