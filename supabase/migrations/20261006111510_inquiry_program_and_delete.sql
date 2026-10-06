@@ -40,6 +40,13 @@ begin
     select 1 from public.coupon_redemptions where user_id = p_user_id
   ) into v_has_retained_records;
 
+  -- 자기평가서(FK 역순). selfeval_sessions.ledger_id 가 원장을 참조하고 selfeval_session_activities 가
+  -- activity_records 를 restrict 로 참조하므로 둘보다 앞에서 지운다. 20261006111050 의 블록을
+  -- 이 파일이 함수 본문을 다시 쓰면서 그대로 가져온다.
+  delete from public.selfeval_reports where profile_id = p_user_id;
+  delete from public.selfeval_session_activities where profile_id = p_user_id;
+  delete from public.selfeval_sessions where profile_id = p_user_id;
+
   -- 심화탐구(FK 역순). inquiry_sessions.ledger_id 가 원장을 참조하므로 원장 삭제보다 먼저.
   -- inquiry_assets 가 activity_records 를 참조하므로 활동 기록 삭제보다도 앞이다.
   delete from public.inquiry_reports where profile_id = p_user_id;

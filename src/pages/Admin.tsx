@@ -77,8 +77,8 @@ import { programConfigs } from "./admin/configs/program";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
-import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
+import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import {
   AdminForm,
   type AdminRow,
