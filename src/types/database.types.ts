@@ -6471,6 +6471,15 @@ export type Database = {
         Args: { p_patch: Json; p_profile_id: string; p_report_id: string };
         Returns: Json;
       };
+      fn_growth_terminate_report: {
+        Args: {
+          p_profile_id: string;
+          p_reason: string;
+          p_report_id: string;
+          p_step: number;
+        };
+        Returns: Json;
+      };
       fn_is_active_admin: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_linked_pair: {
         Args: { p_a: string; p_b: string };

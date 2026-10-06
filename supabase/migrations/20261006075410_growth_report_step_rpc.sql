@@ -17,6 +17,11 @@
 -- jsonb 키는 api/_lib/growth/report/types.ts 의 StepRecord, ClaimResult 와 같다.
 --   StepRecord: status, attempts, startedAt, finishedAt, issues
 --   ClaimResult.kind: claimed, done, locked, order, running, exhausted
+--
+-- 함수 목록: fn_growth_claim_step, fn_growth_finish_step, fn_growth_complete_report,
+--   fn_growth_terminate_report
+--
+-- 이 파일의 문장은 전부 create or replace, comment, revoke, grant 라 재실행해도 안전하다.
 
 -- 1) 단계 선점 ----------------------------------------------------------------
 create or replace function public.fn_growth_claim_step(
@@ -51,6 +56,12 @@ begin
 
   if not found then
     return jsonb_build_object('kind', 'locked');
+  end if;
+
+  -- 응답 유실 뒤 8단계 재요청 멱등: 완료된 회차에서 요청 단계가 이미 ok 면 done 이다.
+  if v_report.status = 'completed'
+     and v_report.step_state -> 'steps' -> (p_step::text) ->> 'status' = 'ok' then
+    return jsonb_build_object('kind', 'done');
   end if;
 
   if v_report.status not in ('draft', 'in_progress') then
@@ -257,6 +268,10 @@ begin
     raise exception 'growth_plan_items_not_array' using errcode = '22023';
   end if;
 
+  if jsonb_typeof(p_sections) is distinct from 'array' then
+    raise exception 'growth_sections_not_array' using errcode = '22023';
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended(p_profile_id::text, 101));
 
   select * into v_report
@@ -294,7 +309,7 @@ begin
                   '8',
                   jsonb_build_object(
                     'status', 'ok',
-                    'attempts', coalesce((v_rec8 ->> 'attempts')::integer, 0) + 1,
+                    'attempts', coalesce((v_rec8 ->> 'attempts')::integer, 1),
                     'startedAt', v_now_iso,
                     'finishedAt', v_now_iso,
                     'issues', '[]'::jsonb
@@ -358,6 +373,63 @@ comment on function public.fn_growth_complete_report(uuid, uuid, jsonb, jsonb, j
 
 revoke all on function public.fn_growth_complete_report(uuid, uuid, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.fn_growth_complete_report(uuid, uuid, jsonb, jsonb, jsonb) to service_role;
+
+-- 4) 회차 종결 ----------------------------------------------------------------
+-- 시도 상한 초과 등으로 더 진행할 수 없는 회차를 archived 로 닫고 terminal 사유를 남긴다.
+-- 차감 원장이 있고 아직 환원 전이면 needsReverse 로 알려, 호출자가 환원을 이어서 처리한다.
+create or replace function public.fn_growth_terminate_report(
+  p_report_id uuid,
+  p_profile_id uuid,
+  p_step smallint,
+  p_reason text
+) returns jsonb
+language plpgsql security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_report  public.growth_reports;
+  v_now_iso text := to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_profile_id::text, 101));
+
+  select * into v_report
+    from public.growth_reports r
+   where r.id = p_report_id and r.profile_id = p_profile_id
+     for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+
+  if v_report.status not in ('draft', 'in_progress') then
+    return jsonb_build_object('ok', false, 'reason', 'not_open');
+  end if;
+
+  update public.growth_reports r
+     set status = 'archived',
+         step_state = jsonb_set(
+           coalesce(r.step_state, '{}'::jsonb),
+           '{terminal}',
+           jsonb_build_object('reason', p_reason, 'at', v_now_iso, 'step', p_step),
+           true
+         ),
+         last_activity_at = now(),
+         updated_at = now()
+   where r.id = p_report_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'needsReverse', (v_report.ledger_id is not null and v_report.ledger_reversed_at is null),
+    'ledgerId', v_report.ledger_id
+  );
+end;
+$$;
+
+comment on function public.fn_growth_terminate_report(uuid, uuid, smallint, text) is
+  '성장설계 회차 종결(P4). draft 또는 in_progress 회차를 archived 로 바꾸고 step_state.terminal 에 {reason, at, step} 을 병합한다(steps 는 보존). 반환 jsonb: {ok:false, reason:not_found}(행 없음)/{ok:false, reason:not_open}(draft, in_progress 아님)/{ok:true, needsReverse, ledgerId}. needsReverse 는 ledger_id 가 있고 ledger_reversed_at 이 비어 있을 때 true 다. 프로필 advisory 잠금(101) 뒤 회차 행을 for update 로 잡는다.';
+
+revoke all on function public.fn_growth_terminate_report(uuid, uuid, smallint, text) from public, anon, authenticated;
+grant execute on function public.fn_growth_terminate_report(uuid, uuid, smallint, text) to service_role;
 
 comment on column public.growth_reports.step_state is
   '성장설계 리포트 생성 단계 상태(api/_lib/growth/report/types.ts 의 StepState 와 같은 키). steps 는 키 "1"~"8" 에 {status(pending/running/ok/failed), attempts, startedAt, finishedAt, issues} 를 담는다. planDraft 는 7단계가 만든 실행계획 초안이고 8단계가 growth_plan_items 로 옮긴다. terminal 은 {reason, at, step} 형태의 종결 실패다. 재시도와 장애 추적용이며 결과 데이터는 각 결과 컬럼에 둔다.';
