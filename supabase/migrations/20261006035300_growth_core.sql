@@ -160,8 +160,52 @@ create policy "growth_plan_items update own"
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
-grant select, update on public.growth_plan_items to authenticated;
+-- 학생은 수동 체크(status, done_at)만, 나머지 컬럼은 service_role 만 쓴다.
+-- 열 단위 grant 로 다른 컬럼 update 를 막고, 트리거로 완료 출처 위조를 막는다.
+grant select on public.growth_plan_items to authenticated;
+grant update (status, done_at, done_source_program, updated_at)
+  on public.growth_plan_items to authenticated;
 grant all on public.growth_plan_items to service_role;
+
+-- 학생 update 가드. 학생은 done_source_program 을 manual 로만 쓸 수 있고(self/deep 연결은
+-- 서비스 산출물과 이어지는 값이라 service_role 전용) done_ref_id 는 바꿀 수 없다.
+-- service_role 경로(auth.role() 가 service_role 또는 null)는 검사 없이 통과한다.
+create or replace function public.fn_growth_plan_items_guard_student_update()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.role() is distinct from 'authenticated' then
+    return new;
+  end if;
+
+  if new.done_source_program is not null
+     and new.done_source_program <> 'manual'
+     and new.done_source_program is distinct from old.done_source_program then
+    raise exception 'plan_item_done_source_not_allowed' using errcode = '42501';
+  end if;
+
+  if new.done_ref_id is distinct from old.done_ref_id then
+    raise exception 'plan_item_done_source_not_allowed' using errcode = '42501';
+  end if;
+
+  if new.status = 'done' then
+    new.done_at := coalesce(new.done_at, now());
+    new.done_source_program := coalesce(new.done_source_program, 'manual');
+  elsif new.status = 'pending' then
+    new.done_at := null;
+    new.done_source_program := null;
+    new.done_ref_id := null;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger growth_plan_items_guard_student_update
+  before update on public.growth_plan_items
+  for each row execute function public.fn_growth_plan_items_guard_student_update();
 
 -- 4) growth_uploads ----------------------------------------------------------
 create table public.growth_uploads (

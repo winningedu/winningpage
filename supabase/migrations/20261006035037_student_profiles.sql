@@ -28,13 +28,13 @@ create table public.student_profiles (
   universities text[] not null default '{}'
     check (cardinality(universities) <= 2),
   updated_by uuid
-    references public.profiles(id),
+    references public.profiles(id) on delete set null,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
 comment on table public.student_profiles is
-  '학생 공용 프로필(학생당 1행). 여섯 서비스가 공유하는 학년·학교유형·진로·희망 대학(최대 2개)만 둔다. 성장설계 전용 값(설문 응답·트랙)은 growth_profiles 에 둔다. 읽기=본인/연결 학부모/관리자, 쓰기=본인, delete 정책 없음(탈퇴는 fn_delete_account).';
+  '학생 공용 프로필(학생당 1행). 정본은 이 테이블이다. goal_students 와 profiles 의 school_type, grade 는 초기값 소스일 뿐이며 역동기화하지 않는다. 여섯 서비스가 공유하는 학년·학교유형·진로·희망 대학(최대 2개)만 둔다. 성장설계 전용 값(설문 응답·트랙)은 growth_profiles 에 둔다. 읽기=본인/연결 학부모/관리자, 쓰기=본인, delete 정책 없음(탈퇴는 fn_delete_account).';
 
 alter table public.student_profiles enable row level security;
 
@@ -57,6 +57,26 @@ create policy "student_profiles update own"
   to authenticated
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
+
+-- updated_by 는 호출자(auth.uid())로 고정하고 updated_at 은 now() 로 채운다.
+-- service_role 경로는 auth.uid() 가 null 이라 클라이언트가 넣은 updated_by 를 그대로 둔다.
+create or replace function public.fn_student_profiles_stamp()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is not null then
+    new.updated_by := auth.uid();
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create trigger trg_student_profiles_stamp
+  before insert or update on public.student_profiles
+  for each row execute function public.fn_student_profiles_stamp();
 
 grant select, insert, update on public.student_profiles to authenticated;
 grant all on public.student_profiles to service_role;

@@ -37,11 +37,16 @@ create table public.activity_records (
   sources jsonb,
   confirmed_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint activity_records_manual_shape_check
+    check (source_program <> 'manual'
+           or (status in ('planned', 'draft') and source_ref_id is null)),
+  constraint activity_records_upload_ref_check
+    check (source_program <> 'upload' or source_ref_id is not null)
 );
 
 comment on table public.activity_records is
-  '활동 기록 저장소. status: planned(재료 조회 제외) / draft(직접 입력 작성 중) / confirmed(수행평가 최종본·심화탐구 확정본) / final(자기평가서 최종본). source_program=upload 는 growth_uploads.id 를 source_ref_id 로 쓴다. (source_program, source_ref_id) 부분 유니크로 중복 승격을 막는다. 본인은 manual 행만 쓰고 나머지 source 는 service_role 만 쓴다.';
+  '활동 기록 저장소. status: planned(재료 조회 제외) / draft(직접 입력 작성 중) / confirmed(수행평가 최종본·심화탐구 확정본) / final(자기평가서 최종본). source_program=upload 는 growth_uploads.id 를 source_ref_id 로 쓴다. (source_program, source_ref_id) 부분 유니크로 중복 승격을 막는다. 본인은 manual 행만 쓰고 나머지 source 는 service_role 만 쓴다. 직접 입력(manual)은 planned/draft 까지만 허용하고 확정 승격(confirmed/final)은 service_role 이 한다.';
 
 comment on column public.activity_records.subject_group is
   '교과/창체 등 활동 구분.';
