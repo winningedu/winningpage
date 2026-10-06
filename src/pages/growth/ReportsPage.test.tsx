@@ -121,7 +121,7 @@ describe("ReportsPage", () => {
           progress: Array.from({ length: 8 }, (_, i) => ({
             step: i + 1,
             label: "x",
-            status: i < 2 ? "done" : "pending",
+            status: i < 2 ? "ok" : "pending",
             attempts: 0,
           })),
           nextStep: 3,

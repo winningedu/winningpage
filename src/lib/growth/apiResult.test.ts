@@ -51,6 +51,32 @@ describe("normalizeApiResult", () => {
     });
   });
 
+  test("coded 형식 본문의 error.code와 error.message를 읽고 error 키는 extra에서 뺀다", () => {
+    const result = normalizeApiResult(500, {
+      error: { code: "STEP_FATAL", message: "종결됐어요." },
+      terminal: true,
+      issues: ["x"],
+      progress: [{ step: 1, status: "failed" }],
+    });
+    expect(result).toEqual({
+      kind: "error",
+      status: 500,
+      code: "STEP_FATAL",
+      message: "종결됐어요.",
+      extra: {
+        terminal: true,
+        issues: ["x"],
+        progress: [{ step: 1, status: "failed" }],
+      },
+    });
+  });
+
+  test("coded 형식에서 error 안에 code가 없으면 UNKNOWN으로 둔다", () => {
+    const result = normalizeApiResult(500, { error: {} });
+    expect(result).toMatchObject({ kind: "error", code: "UNKNOWN" });
+    if (result.kind === "error") expect(result.extra).toBeUndefined();
+  });
+
   test("본문이 없으면 INVALID_RESPONSE 오류다", () => {
     expect(normalizeApiResult(502, null)).toMatchObject({
       kind: "error",

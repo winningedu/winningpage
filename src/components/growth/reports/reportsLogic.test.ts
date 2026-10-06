@@ -18,7 +18,7 @@ function progress(doneCount: number): StepProgress[] {
   return Array.from({ length: 8 }, (_, i) => ({
     step: i + 1,
     label: `단계${i + 1}`,
-    status: i < doneCount ? "done" : "pending",
+    status: i < doneCount ? "ok" : "pending",
     attempts: 0,
   }));
 }

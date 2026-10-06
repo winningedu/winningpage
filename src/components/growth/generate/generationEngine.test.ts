@@ -16,7 +16,7 @@ function progressOf(done: number): StepProgress[] {
   return Array.from({ length: 8 }, (_, i) => ({
     step: i + 1,
     label: `단계${i + 1}`,
-    status: i < done ? "done" : "pending",
+    status: i < done ? "ok" : "pending",
     attempts: i < done ? 1 : 0,
   }));
 }
@@ -352,7 +352,7 @@ describe("generationEngine", () => {
     const last = states.at(-1);
     expect(last?.phase).toBe("failed");
     expect(last?.currentStep).toBe(3);
-    expect(last?.progress.filter((p) => p.status === "done")).toHaveLength(2);
+    expect(last?.progress.filter((p) => p.status === "ok")).toHaveLength(2);
     expect(calls).toEqual([1]);
   });
 

@@ -23,7 +23,7 @@ function progressOf(done: number) {
   return Array.from({ length: 8 }, (_, i) => ({
     step: i + 1,
     label: "",
-    status: i < done ? "done" : "pending",
+    status: i < done ? "ok" : "pending",
     attempts: 0,
   }));
 }
