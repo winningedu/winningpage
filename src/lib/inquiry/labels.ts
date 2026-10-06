@@ -85,3 +85,13 @@ export const LINK_KIND_DEFINITIONS: Record<LinkKind, string> = {
   critique: "앞 활동에서 쓴 도구나 결론의 전제를 다시 검증한다",
   extension: "앞 활동의 문제의식을 공동체나 사회 범위로 넓힌다",
 };
+
+/** 주제 추천 라운드 상한(No.53): 최초 1 + 재추천 3. 서버 TOPIC_MAX_ROUNDS 와 같다. */
+export const TOPIC_MAX_ROUNDS = 4;
+
+/** mode 별 모델 호출 시도 상한(No.22). 서버 MAX_MODEL_ATTEMPTS_PER_MODE 와 같다. */
+export const MAX_MODEL_ATTEMPTS = 10;
+
+/** 예비 주제 안내(No.4, 146). 서버 PROVISIONAL_TOPIC_NOTE 와 같다. */
+export const PROVISIONAL_TOPIC_NOTE =
+  "고른 활동이 없어 관심 기반 예비 주제를 보여 드려요. 이전 활동과 이어지지 않아 연계 점수는 0점이에요.";

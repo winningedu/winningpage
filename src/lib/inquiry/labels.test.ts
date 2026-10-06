@@ -38,6 +38,11 @@ describe("서버 상수와 같은 값", () => {
   test("LINK_KIND_DEFINITIONS", () => {
     expect(labels.LINK_KIND_DEFINITIONS).toEqual(server.LINK_KIND_DEFINITIONS);
   });
+  test("주제 추천 한도와 예비 주제 안내", () => {
+    expect(labels.TOPIC_MAX_ROUNDS).toBe(server.TOPIC_MAX_ROUNDS);
+    expect(labels.MAX_MODEL_ATTEMPTS).toBe(server.MAX_MODEL_ATTEMPTS_PER_MODE);
+    expect(labels.PROVISIONAL_TOPIC_NOTE).toBe(server.PROVISIONAL_TOPIC_NOTE);
+  });
   test("신뢰도 C 문장과 확인 요청 안내", () => {
     expect(labels.RELIABILITY_NOTES.C).toBe(server.RELIABILITY_C_NOTE);
     expect(labels.RELIABILITY_CHECK_NOTICE).toBe(

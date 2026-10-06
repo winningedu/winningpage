@@ -10,6 +10,7 @@ import type {
   GenerationFailureExtra,
   PlanReportRequest,
   PlanReportResponse,
+  SessionView,
   RecommendRequest,
   RecommendResponse,
   SessionRequest,
@@ -106,6 +107,11 @@ describe("P4 계약 타입", () => {
     }>();
     expectTypeOf<RecommendResponse["topics"]>().toEqualTypeOf<TopicView[]>();
     expectTypeOf<PlanReportResponse>().toHaveProperty("design");
+    expectTypeOf<
+      PlanReportResponse["designReportId"]
+    >().toEqualTypeOf<string>();
+    expectTypeOf<PlanReportResponse["session"]>().toEqualTypeOf<SessionView>();
+    expectTypeOf<RecommendResponse["session"]>().toEqualTypeOf<SessionView>();
     expectTypeOf<EvaluateResponse>().toHaveProperty("evaluation");
     expectTypeOf<FinalizeResponse["status"]>().toEqualTypeOf<
       "completed" | "already_completed"

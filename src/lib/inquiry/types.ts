@@ -569,6 +569,8 @@ export type RecommendResponse = {
   quota: QuotaView | null;
   attempts: number;
   gradeNote: string | null;
+  /** 라운드 수와 상태가 갱신된 세션. applyBootstrap({ session }) 으로 그대로 반영한다. */
+  session: SessionView;
 };
 
 export type PlanReportRequest = {
@@ -583,6 +585,9 @@ export type PlanReportResponse = {
   attempts: number;
   /** done 은 이미 만들어 둔 설계를 돌려준 멱등 응답. */
   result: "ok" | "done";
+  designReportId: string;
+  /** 주제 선택과 설계 id 가 반영된 세션. */
+  session: SessionView;
 };
 
 export type EvaluateRequest = {
