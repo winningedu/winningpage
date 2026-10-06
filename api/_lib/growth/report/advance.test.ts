@@ -240,6 +240,31 @@ describe("advanceStep 8단계", () => {
     expect(out).toMatchObject({ kind: "ok", completion: { planItemCount: 4 } });
   });
 
+  it("알림이 5초 넘게 걸려도 advanceStep 은 5초 안에 ok 를 돌려주고 경고한다", async () => {
+    vi.useFakeTimers();
+    try {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mocks.runStep.mockResolvedValue({ ...okResult, step: 8, completion });
+      mocks.completeReport.mockResolvedValue({
+        ok: true,
+        reason: "completed",
+        issuedAt: "t",
+        planItemCount: 4,
+      });
+      mocks.notifyGrowthReportDone.mockReturnValue(new Promise(() => {}));
+      let out: unknown;
+      const p = advanceStep(db, "u", row8, 8, deps).then((o) => {
+        out = o;
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      await p;
+      expect(out).toMatchObject({ kind: "ok" });
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("already_completed 면 알림 없이 done", async () => {
     mocks.runStep.mockResolvedValue({ ...okResult, step: 8, completion });
     mocks.completeReport.mockResolvedValue({

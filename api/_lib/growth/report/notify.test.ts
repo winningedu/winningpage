@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendAndLog: vi.fn(),
@@ -52,11 +52,12 @@ describe("buildGrowthDoneVariables", () => {
       issuedAt: "2026-11-14T11:00:00Z",
       studentId: "s1",
       reportId: "r1",
+      siteUrl: "https://www.schoolmentor.kr",
     });
     expect(v.학생이름).toBe("김학생");
     expect(v.발행일).toBe("2026.11.14");
     expect(v.링크).toBe(
-      "https://www.winningedu.com/mypage/children/s1/growth/r1",
+      "https://www.schoolmentor.kr/mypage/children/s1/growth/r1",
     );
   });
 });
@@ -65,6 +66,37 @@ describe("notifyGrowthReportDone", () => {
   beforeEach(() => {
     mocks.sendAndLog.mockReset();
     mocks.resolveParentRecipients.mockReset();
+    vi.stubEnv("PUBLIC_SITE_URL", "https://www.winningedu.com/");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("PUBLIC_SITE_URL 이 없으면 링크를 못 만들어 발송을 건너뛰고 경고한다", async () => {
+    vi.stubEnv("PUBLIC_SITE_URL", "");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.resolveParentRecipients.mockResolvedValue([recipient]);
+    expect(await notifyGrowthReportDone(fakeDb(), "s1", "r1")).toEqual({
+      sent: false,
+      reason: "no_site_url",
+    });
+    expect(mocks.sendAndLog).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("배포의 PUBLIC_SITE_URL 도메인으로 링크를 만든다", async () => {
+    vi.stubEnv("PUBLIC_SITE_URL", "https://www.schoolmentor.kr");
+    mocks.resolveParentRecipients.mockResolvedValue([recipient]);
+    mocks.sendAndLog.mockResolvedValue({ status: "sent", logId: 1 });
+    await notifyGrowthReportDone(fakeDb(), "s1", "r1");
+    expect(mocks.sendAndLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          링크: "https://www.schoolmentor.kr/mypage/children/s1/growth/r1",
+        }),
+      }),
+    );
   });
 
   it("연결 학부모가 없으면 조용히 no_parent", async () => {

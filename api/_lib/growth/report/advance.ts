@@ -34,6 +34,9 @@ import {
   type StepState,
 } from "./types.js";
 
+/** 완료 알림을 기다리는 최대 시간. 8단계 요청 예산 보호용. */
+const NOTIFY_WAIT_MS = 5000;
+
 export type AdvanceDeps = {
   callText: typeof callText;
   now: () => string;
@@ -248,10 +251,27 @@ export async function advanceStep(
 
       // No.111: 이번 요청이 완료시킨 경우에만 학부모에게 알린다. 실패는 결과에 영향이 없다.
       if (completion !== undefined && !alreadyCompleted) {
+        // 8단계 요청 예산을 넘기지 않도록 5초까지만 기다린다. 늦는 발송은 버리지 않고
+        // 계속 두되 결과는 기다리지 않는다.
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          await notifyGrowthReportDone(db, userId, reportId);
+          const sending = notifyGrowthReportDone(db, userId, reportId);
+          sending.catch(() => {});
+          const gave = await Promise.race([
+            sending.then(() => false),
+            new Promise<boolean>((resolve) => {
+              timer = setTimeout(() => resolve(true), NOTIFY_WAIT_MS);
+            }),
+          ]);
+          if (gave) {
+            console.warn(
+              `growth/report 완료 알림이 ${NOTIFY_WAIT_MS}ms 안에 끝나지 않아 기다리지 않아요.`,
+            );
+          }
         } catch (e) {
           console.error("growth/report 완료 알림 실패:", e);
+        } finally {
+          if (timer) clearTimeout(timer);
         }
       }
 
