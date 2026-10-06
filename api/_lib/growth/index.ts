@@ -3,7 +3,10 @@
 
 export * from "./axes.js";
 export * from "./consistency.js";
+export type { SemesterAverage as GradeCurveSemesterAverage } from "./gradeCurve.js";
 export * from "./gradeCurve.js";
+// 이름 충돌 해소
+export type { SemesterAverage } from "./gradeSystem.js";
 export * from "./gradeSystem.js";
 export * from "./linkagePhrases.js";
 export * from "./prefill.js";
@@ -14,7 +17,3 @@ export * from "./targetGrade.js";
 export * from "./tracks.js";
 export * from "./types.js";
 export * from "./validation.js";
-
-// 이름 충돌 해소
-export type { SemesterAverage } from "./gradeSystem.js";
-export type { SemesterAverage as GradeCurveSemesterAverage } from "./gradeCurve.js";

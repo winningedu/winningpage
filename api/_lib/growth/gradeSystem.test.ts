@@ -2,9 +2,9 @@
 // 순수 함수만 다루므로 DB/네트워크 없이 검증한다.
 import { describe, expect, test } from "vitest";
 import {
+  averageGrade,
   deriveGradeSystem,
   FIVE_SCALE_BANDS,
-  averageGrade,
   gradeFromPercentile,
   isExcludedFromAverage,
   semesterAverages,

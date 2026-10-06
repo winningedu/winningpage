@@ -8,8 +8,8 @@ import {
   findForbiddenPhrases,
   MAX_MODEL_ATTEMPTS_PER_SESSION,
   MAX_MODEL_ATTEMPTS_PER_STEP,
-  validateStep,
   type ValidationContext,
+  validateStep,
 } from "./validation.js";
 
 const ctx = { expectedSectionIds: ["a", "b"] };

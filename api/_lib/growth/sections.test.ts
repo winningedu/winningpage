@@ -1,14 +1,14 @@
 // 성장설계 리포트 37항목 레지스트리, 스키마 테스트(No.90~94).
 import { describe, expect, test } from "vitest";
 import {
-  SECTION_FORMATS,
-  SECTION_REGISTRY,
   expectedSectionIds,
+  type Narrative,
   overviewCards,
   parentVisibleSections,
-  type Narrative,
-  validateNarrative,
+  SECTION_FORMATS,
+  SECTION_REGISTRY,
   type SectionItem,
+  validateNarrative,
   validateSectionItem,
   validateSections,
 } from "./sections.js";

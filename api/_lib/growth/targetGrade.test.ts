@@ -1,12 +1,12 @@
 // 목표 등급 역산과 입결 대비 테스트(명세 No.80, 81, 156, 157, 시안 1-14, 3-10).
 import { describe, expect, test } from "vitest";
-import type { SemesterKey } from "./types.js";
 import {
   ADMISSION_DISCLAIMER,
   backsolveTarget,
   compareWithAdmission,
   targetScheduleRows,
 } from "./targetGrade.js";
+import type { SemesterKey } from "./types.js";
 
 describe("compareWithAdmission", () => {
   test("입결 2개년 중 최신 연도 컷을 고르고 추정이 컷 이하면 within 이다", () => {

@@ -3,9 +3,9 @@
 import { describe, expect, test } from "vitest";
 import {
   CONSISTENCY_LABEL,
+  type ConsistencyActivity,
   computeConsistency,
   countLinked,
-  type ConsistencyActivity,
   linkedBreakdown,
   projectConsistency,
 } from "./consistency.js";

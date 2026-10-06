@@ -2,13 +2,13 @@
 import { describe, expect, test } from "vitest";
 import {
   AXIS_REQUIREMENTS,
+  AXIS_TO_UNIVERSITY_FACTORS,
   countAxisEvidence,
   evaluateAxes,
   judgeAxis,
+  projectAxes,
   shortfalls,
   weakestAxis,
-  AXIS_TO_UNIVERSITY_FACTORS,
-  projectAxes,
 } from "./axes.js";
 
 describe("AXIS_REQUIREMENTS (No.66~70)", () => {
