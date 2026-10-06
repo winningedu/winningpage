@@ -252,7 +252,7 @@ describe("PlanPage", () => {
     ).toMatchObject({
       itemId: "i2",
     });
-    expect(navigateMock).toHaveBeenCalledWith("/services/self-assessment");
+    expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/new");
   });
 
   it("전달값이 없는 self 항목은 수동 체크 안내만 보인다", async () => {
