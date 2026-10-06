@@ -26,8 +26,18 @@ begin
     raise exception 'performance_credit_ledger_source_kind_check 제약이 없습니다';
   end if;
 
-  select array_agg(t.m[1] order by t.ord) into v_vals
-    from regexp_matches(v_def, '''([^'']+)''::text', 'g') with ordinality as t(m, ord);
+  -- 제약 정의는 처음에는 array['a'::text, ...] 형태이고, 한 번 합집합으로 다시 쓰이면
+  -- '{a,b}'::text[] 형태가 된다. 두 형태를 모두 값 목록으로 푼다.
+  select array_agg(x.v order by x.ord, x.pos) into v_vals
+    from (
+      select t.ord, u.pos, btrim(u.v, ' "') as v
+        from regexp_matches(v_def, '''([^'']+)''::text', 'g') with ordinality as t(m, ord)
+        cross join lateral unnest(
+          case when t.m[1] like '{%' then string_to_array(btrim(t.m[1], '{}'), ',')
+               else array[t.m[1]] end
+        ) with ordinality as u(v, pos)
+    ) x
+   where x.v <> '';
 
   if v_vals is null or cardinality(v_vals) = 0 then
     raise exception 'source_kind 허용값을 읽지 못했습니다: %', v_def;
