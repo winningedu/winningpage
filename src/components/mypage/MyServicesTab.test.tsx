@@ -139,7 +139,7 @@ describe("MyServicesTab — 무료 진단 합성 카드", () => {
   });
 });
 
-describe("MyServicesTab — 성장설계 항목", () => {
+describe("MyServicesTab 성장설계 항목", () => {
   afterEach(() => {
     state.grants = [];
     state.ledger = [];

@@ -13,6 +13,7 @@ import {
   groupPeriodLabel,
   HANDOFF_STORAGE_KEY,
   handoffDestination,
+  handoffSubtitle,
   isUncheckLocked,
   isValidDeadline,
   parseAvoidRepeats,
@@ -149,7 +150,7 @@ describe("낙관적 갱신과 롤백", () => {
       progress: { total: 9, done: 4, remaining: 5, percent: 44 },
       metrics: { marker: 1 },
       nextDeadline: { itemId: "a" },
-    } as never);
+    });
     expect(next.groups[0]?.items[0]?.doneAt).toBe("srv");
     expect(next.progress.percent).toBe(44);
     expect(next.metrics).toEqual({ marker: 1 });
@@ -232,12 +233,12 @@ describe("항목 표시", () => {
     expect(isUncheckLocked(item({ done: false }))).toBe(false);
   });
 
-  it("진행 문구: 학교는 직접 체크, 연동 가능한 self 는 자동 완료 안내", () => {
+  it("진행 문구: 학교는 직접 체크, 연동 가능한 self 는 송신측 전까지 직접 체크 안내", () => {
     expect(progressNote(item({ program: "school" }), false)).toBe(
       "진행: 직접 체크",
     );
     expect(progressNote(item({ program: "self" }), true)).toBe(
-      "진행: 위닝 자기평가서에서 확정하면 자동으로 완료돼요. 직접 체크해도 돼요.",
+      "진행: 위닝 자기평가서에서 진행한 뒤 여기서 직접 체크해요.",
     );
     expect(progressNote(item({ program: "deep" }), true)).toContain(
       "위닝 심화탐구",
@@ -440,5 +441,15 @@ describe("피해야 할 반복", () => {
       parseAvoidRepeats(["a", { text: "b", evidenceIds: [] }, { x: 1 }, 3, ""]),
     ).toEqual(["a", "b"]);
     expect(parseAvoidRepeats(undefined)).toEqual([]);
+  });
+});
+
+describe("handoffSubtitle", () => {
+  it("송신측이 없는 지금은 자동 완료를 약속하지 않고 직접 체크를 안내한다", () => {
+    const text = handoffSubtitle("자기평가서");
+    expect(text).toBe(
+      "이 과제의 방향을 받은 상태로 자기평가서가 열려요. 해당 프로그램에서 진행한 뒤 여기서 직접 체크해 완료해요.",
+    );
+    expect(text).not.toContain("자동");
   });
 });

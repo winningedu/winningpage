@@ -127,7 +127,10 @@ export function describeGeneration(
       };
     }
     case "terminal": {
-      const money = state.charged
+      const charged =
+        state.charged ??
+        state.progress.find((p) => p.step === 1)?.status === "done";
+      const money = charged
         ? "이용권은 복구됐어요."
         : "이용권은 차감되지 않았어요.";
       if (code === "REPORT_LOCKED") {
@@ -136,6 +139,15 @@ export function describeGeneration(
           tone: "error",
           title: "이 회차는 더 진행할 수 없어요",
           body: `이미 닫힌 회차예요. ${money}`,
+          action: "start",
+        };
+      }
+      if (code === "STEP_FATAL") {
+        return {
+          ...base,
+          tone: "error",
+          title: "복구할 수 없는 오류로 이 회차를 닫았어요",
+          body: `이 회차는 더 진행할 수 없어요. ${money}`,
           action: "start",
         };
       }

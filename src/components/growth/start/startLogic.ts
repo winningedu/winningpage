@@ -3,6 +3,7 @@ import type {
   ProfileInitial,
   SurveyEntitlement,
 } from "@/lib/growth/api";
+import { formatKoreanDate } from "@/lib/growth/format";
 import { GROWTH_PATHS } from "../growthPaths";
 
 /** 미완 회차의 이어하기 목적지. */
@@ -263,9 +264,7 @@ const two = (n: number) => String(n).padStart(2, "0");
 
 /** "2026년 11월 2일". 해석할 수 없으면 null. */
 export function formatStartedDate(iso: string): string | null {
-  const d = parseDate(iso);
-  if (!d) return null;
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return formatKoreanDate(iso);
 }
 
 /** "2026.11.05 21:40". 해석할 수 없으면 null. */

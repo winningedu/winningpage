@@ -38,6 +38,8 @@ export function usePlanActions(userId: string | null) {
 
       setNotice(null);
       setPending(itemId, true);
+      // 진행 중인 조회가 낙관적 값을 옛 응답으로 덮어쓰지 못하게 먼저 취소한다.
+      await queryClient.cancelQueries({ queryKey: key });
       queryClient.setQueryData<PlanResponse>(key, (cur) =>
         cur
           ? {

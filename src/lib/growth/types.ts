@@ -468,13 +468,7 @@ export type PlanResponse = { ok: true; plan: PlanBody };
 
 export type PlanItemAction =
   | { action: "check"; itemId: string; done: boolean }
-  | { action: "set-deadline"; itemId: string; deadline: string | null }
-  | {
-      action: "program-done";
-      itemId: string;
-      program: "self" | "deep";
-      refId: string;
-    };
+  | { action: "set-deadline"; itemId: string; deadline: string | null };
 
 export type PlanItemChangeResponse =
   | {
@@ -482,6 +476,7 @@ export type PlanItemChangeResponse =
       changed: true;
       item: PlanItemView;
       progress: PlanProgress;
+      nextDeadline: unknown;
       metrics: unknown;
     }
   | {

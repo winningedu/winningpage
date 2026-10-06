@@ -16,7 +16,8 @@ import { STEP_COUNT } from "./stepLabels";
 //   running  --STEP_RUNNING--> waiting(3초) --> running(같은 단계), 최대 20회 뒤 failed
 //   running  --STEP_VALIDATION_FAILED / MODEL_UPSTREAM_FAILED / STEP_TIMEOUT-->
 //            terminal(extra.terminal) | failed(retry 로 같은 단계 재호출)
-//   running  --ATTEMPTS_EXHAUSTED / REPORT_LOCKED / STEP_FATAL--> terminal
+//   running  --ATTEMPTS_EXHAUSTED / STEP_FATAL--> terminal
+//   running  --REPORT_LOCKED--> 목록 재조회, 이 회차가 완료면 done, 아니면 terminal
 //   running  --NO_ENTITLEMENT--> failed(errorCode 로 이용권 안내)
 //   running  --STEP_ORDER--> 목록 재조회 뒤 첫 미완 단계부터 running
 //   running  --STEP_SUPERSEDED--> 1초 뒤 목록 재조회, 이어서 running 또는 done
@@ -138,6 +139,15 @@ export function createGenerationEngine(deps: GenerationEngineDeps) {
     return result.data.open.progress;
   }
 
+  /** 목록의 완료 회차(items)에 이 회차가 있는지. 조회 실패면 false. */
+  async function isAlreadyCompleted(): Promise<boolean> {
+    const result = await fetchOpen();
+    if (result.kind !== "ok") return false;
+    return result.data.items.some(
+      (i) => i.id === reportId && i.status === "completed",
+    );
+  }
+
   async function loop(startStep: number) {
     busy = true;
     let step = startStep;
@@ -223,6 +233,15 @@ export function createGenerationEngine(deps: GenerationEngineDeps) {
           if (extra.attempts !== undefined) set({ attempts: extra.attempts });
           if (MODEL_FAILURE_CODES.has(result.code)) {
             set({ issues: extra.issues ?? null });
+          }
+          if (result.code === "REPORT_LOCKED") {
+            // 다른 탭이나 크론이 이미 완료한 회차일 수 있어 목록으로 확인한다.
+            const completed = await isAlreadyCompleted();
+            if (disposed) return;
+            if (completed) {
+              set({ phase: "done" });
+              return;
+            }
           }
           if (
             TERMINAL_CODES.has(result.code) ||

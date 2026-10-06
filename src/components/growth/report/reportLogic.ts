@@ -39,7 +39,8 @@ export type SectionView = {
   title: string;
   /** 허용 집합 밖이면 null. 본문 대신 자료 없음을 그린다. */
   format: SectionFormat | null;
-  badge: SectionBadge;
+  /** 서버가 주지 않았거나 모르는 값이면 null. 배지를 그리지 않는다. */
+  badge: SectionBadge | null;
   status: "ok" | "no_data";
   evidenceCount: number;
   body: unknown;
@@ -91,7 +92,8 @@ export function normalizeSections(raw: unknown): SectionView[] {
       part,
       title: item.title,
       format,
-      badge: item.badge === "proposal" ? "proposal" : "fact",
+      badge:
+        item.badge === "proposal" || item.badge === "fact" ? item.badge : null,
       status: item.status === "ok" && format !== null ? "ok" : "no_data",
       evidenceCount: Array.isArray(item.evidence_ids)
         ? item.evidence_ids.filter((e) => typeof e === "string").length

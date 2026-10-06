@@ -106,7 +106,7 @@ const routes: RouteObject[] = [
       // 수행평가 학생 앱 — SessionProvider/RequireEntitlement 셸. SiteLayout 밖.
       ...performanceAppRoutes,
 
-      // 성장설계 학생 앱 — SessionProvider/RequireEntitlement 셸. SiteLayout 밖.
+      // 성장설계 학생 앱: SessionProvider/RequireEntitlement 셸. SiteLayout 밖.
       ...growthAppRoutes,
 
       // 알림톡 승인 링크 → 실제 라우트 리다이렉트. SiteLayout 밖에 둔다 —

@@ -4,9 +4,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchDetailMock, stepMock } = vi.hoisted(() => ({
+const { fetchDetailMock, stepMock, shellState } = vi.hoisted(() => ({
   fetchDetailMock: vi.fn(),
   stepMock: vi.fn(),
+  shellState: { latestCompletedReportId: "r1" as string | null },
 }));
 
 vi.mock("@/lib/growth/api", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/context/SessionContext", () => ({
 }));
 vi.mock("@/components/growth/GrowthShellContext", () => ({
   useGrowthScreenStep: stepMock,
+  useGrowthShell: () => shellState,
 }));
 
 import ReportPage from "./ReportPage";
@@ -76,7 +78,10 @@ function renderPage() {
 }
 
 describe("ReportPage", () => {
-  beforeEach(() => fetchDetailMock.mockReset());
+  beforeEach(() => {
+    fetchDetailMock.mockReset();
+    shellState.latestCompletedReportId = "r1";
+  });
   afterEach(cleanup);
 
   it("5단계로 알리고 대주제를 제목으로 쓴다", async () => {
@@ -142,5 +147,26 @@ describe("ReportPage", () => {
     expect(
       screen.getByRole("button", { name: "다시 시도" }),
     ).toBeInTheDocument();
+  });
+
+  it("최신 완료 회차가 아니면 실행계획 보기 대신 안내를 보여 준다", async () => {
+    shellState.latestCompletedReportId = "r2";
+    fetchDetailMock.mockResolvedValue(ok());
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: "대주제 문장" });
+    expect(screen.queryByRole("link", { name: "실행계획 보기" })).toBeNull();
+    expect(
+      screen.getByText("실행계획은 최신 회차에서 볼 수 있어요"),
+    ).toBeInTheDocument();
+  });
+
+  it("최신 회차를 아직 모를 때는 버튼을 숨기지 않는다", async () => {
+    shellState.latestCompletedReportId = null;
+    fetchDetailMock.mockResolvedValue(ok());
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: "대주제 문장" });
+    expect(screen.getAllByRole("link", { name: "실행계획 보기" })).toHaveLength(
+      2,
+    );
   });
 });

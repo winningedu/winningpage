@@ -147,6 +147,21 @@ describe("ReportBody", () => {
     expect(three).not.toHaveTextContent("근거");
   });
 
+  it("배지가 없는 섹션은 배지를 그리지 않는다", () => {
+    render(
+      <ReportBody
+        detail={detail({
+          sections: [
+            section({ id: "1-2", title: "장기 목표", badge: undefined }),
+          ],
+        })}
+      />,
+    );
+    const card = screen.getByLabelText("1-2 장기 목표");
+    expect(card).not.toHaveTextContent("확인된 사실");
+    expect(card).not.toHaveTextContent("제안");
+  });
+
   it("자료 없음 항목은 사유를 보여 준다", () => {
     render(
       <ReportBody

@@ -3,6 +3,7 @@ import type {
   OpenReportSummary,
   ReportListItem,
 } from "@/lib/growth/api";
+import { formatKoreanDate as formatKoreanDateKst } from "@/lib/growth/format";
 import { GROWTH_PATHS } from "../growthPaths";
 
 /**
@@ -76,8 +77,5 @@ export function terminalNotice(
 
 /** `2026년 11월 14일`. 잘못된 값이면 빈 문자열. */
 export function formatKoreanDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  return formatKoreanDateKst(iso) ?? "";
 }

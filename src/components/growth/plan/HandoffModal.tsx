@@ -1,6 +1,6 @@
 import AppModal from "@/components/goal/AppModal";
 import type { ProgramHandoff } from "@/lib/growth/api";
-import { buildHandoffRows } from "./planLogic";
+import { buildHandoffRows, handoffSubtitle } from "./planLogic";
 
 type Props = {
   handoff: ProgramHandoff | null;
@@ -28,7 +28,7 @@ export default function HandoffModal({
       open={handoff !== null}
       onClose={onClose}
       title={`위닝 ${name}로 이동할까요?`}
-      subtitle={`이 과제의 방향을 받은 상태로 ${name}가 열려요. ${name}에서 확정하면 이 과제가 자동으로 완료돼요.`}
+      subtitle={handoffSubtitle(name)}
       submitLabel="이동하기"
       onSubmit={() => handoff && onConfirm(handoff)}
     >

@@ -31,9 +31,11 @@ function SectionCard({ section }: { section: SectionView }) {
             {FORMAT_LABELS[section.format]}
           </span>
         )}
-        <span className="rounded-full bg-surface-04 px-2 py-0.5 text-app-badge font-semibold text-ink-strong">
-          {BADGE_LABELS[section.badge]}
-        </span>
+        {section.badge && (
+          <span className="rounded-full bg-surface-04 px-2 py-0.5 text-app-badge font-semibold text-ink-strong">
+            {BADGE_LABELS[section.badge]}
+          </span>
+        )}
         {section.evidenceCount > 0 && (
           <span className="text-app-caption text-ink-sub">
             근거 {section.evidenceCount}건

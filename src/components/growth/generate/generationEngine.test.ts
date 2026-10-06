@@ -219,7 +219,7 @@ describe("generationEngine", () => {
     },
   );
 
-  test.each(["ATTEMPTS_EXHAUSTED", "REPORT_LOCKED", "STEP_FATAL"])(
+  test.each(["ATTEMPTS_EXHAUSTED", "STEP_FATAL"])(
     "%s 는 terminal 이다",
     async (code) => {
       const { engine, states } = setup([errStep(code)]);
@@ -228,6 +228,56 @@ describe("generationEngine", () => {
       expect(states.at(-1)?.errorCode).toBe(code);
     },
   );
+
+  test("REPORT_LOCKED 인데 목록에 이 회차가 완료로 있으면 done 으로 본다", async () => {
+    const done: ApiResult<ReportsList> = {
+      kind: "ok",
+      data: {
+        ok: true,
+        open: null,
+        archivedCount: 0,
+        lastTerminal: null,
+        items: [
+          {
+            id: REPORT_ID,
+            status: "completed",
+            track: null,
+            issuedAt: "2026-10-06T00:00:00Z",
+            theme: null,
+            lastActivityAt: "2026-10-06T00:00:00Z",
+            plan: null,
+          },
+        ],
+      },
+    };
+    const { engine, states, fetchOpen } = setup([errStep("REPORT_LOCKED")], {
+      open: [done],
+    });
+    await engine.start();
+    expect(fetchOpen).toHaveBeenCalledTimes(1);
+    expect(states.at(-1)?.phase).toBe("done");
+  });
+
+  test("REPORT_LOCKED 이고 목록에 완료 회차가 없거나 조회가 실패하면 terminal 이다", async () => {
+    const empty: ApiResult<ReportsList> = {
+      kind: "ok",
+      data: {
+        ok: true,
+        open: null,
+        archivedCount: 0,
+        lastTerminal: null,
+        items: [],
+      },
+    };
+    for (const lookup of [empty, { kind: "timeout" } as const]) {
+      const { engine, states } = setup([errStep("REPORT_LOCKED")], {
+        open: [lookup],
+      });
+      await engine.start();
+      expect(states.at(-1)?.phase).toBe("terminal");
+      expect(states.at(-1)?.errorCode).toBe("REPORT_LOCKED");
+    }
+  });
 
   test("NO_ENTITLEMENT, 네트워크 오류, 타임아웃은 failed 이고 코드를 남긴다", async () => {
     for (const [result, code] of [

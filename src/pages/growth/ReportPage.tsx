@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
-import { useGrowthScreenStep } from "@/components/growth/GrowthShellContext";
+import {
+  useGrowthScreenStep,
+  useGrowthShell,
+} from "@/components/growth/GrowthShellContext";
 import { GROWTH_PATHS } from "@/components/growth/growthPaths";
 import ReportBody from "@/components/growth/report/ReportBody";
 import { normalizeNarrative } from "@/components/growth/report/reportLogic";
@@ -20,6 +23,10 @@ export default function ReportPage() {
   useGrowthScreenStep(5);
   const { userId } = useSession();
   const { reportId } = useParams();
+  const { latestCompletedReportId } = useGrowthShell();
+  // 실행계획은 최신 완료 회차 것만 있다. 최신을 아직 모르면(null) 숨기지 않는다.
+  const isOlderReport =
+    latestCompletedReportId !== null && latestCompletedReportId !== reportId;
   const { data, error, isError, refetch } = useQuery(
     growthReportDetailQuery(userId ?? null, reportId),
   );
@@ -56,12 +63,14 @@ export default function ReportPage() {
             >
               지난 리포트
             </Link>
-            <Link
-              to={GROWTH_PATHS.plan}
-              className={cn(buttonVariants(), "h-10 px-5 text-app-label")}
-            >
-              실행계획 보기
-            </Link>
+            {!isOlderReport && (
+              <Link
+                to={GROWTH_PATHS.plan}
+                className={cn(buttonVariants(), "h-10 px-5 text-app-label")}
+              >
+                실행계획 보기
+              </Link>
+            )}
           </>
         }
       />
@@ -87,12 +96,18 @@ export default function ReportPage() {
           <>
             <ReportBody detail={data} />
             <div className="mt-8 flex justify-center">
-              <Link
-                to={GROWTH_PATHS.plan}
-                className={cn(buttonVariants(), "h-12 px-8 text-app-body")}
-              >
-                실행계획 보기
-              </Link>
+              {isOlderReport ? (
+                <p className="text-app-label text-ink-sub">
+                  실행계획은 최신 회차에서 볼 수 있어요
+                </p>
+              ) : (
+                <Link
+                  to={GROWTH_PATHS.plan}
+                  className={cn(buttonVariants(), "h-12 px-8 text-app-body")}
+                >
+                  실행계획 보기
+                </Link>
+              )}
             </div>
           </>
         )}

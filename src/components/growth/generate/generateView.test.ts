@@ -124,12 +124,44 @@ describe("describeGeneration", () => {
         phase: "terminal",
         errorCode: "ATTEMPTS_EXHAUSTED",
         charged: null,
+        progress: progressOf(0),
       }),
       0,
     );
     expect(free?.body).toBe(
       "이 회차는 더 진행할 수 없어요. 이용권은 차감되지 않았어요.",
     );
+  });
+
+  test("재진입으로 charged 응답이 없어도 1단계가 끝났으면 복구됐다고 안내한다", () => {
+    const d = describeGeneration(
+      stateOf({
+        phase: "terminal",
+        errorCode: "ATTEMPTS_EXHAUSTED",
+        charged: null,
+        progress: progressOf(2),
+      }),
+      0,
+    );
+    expect(d?.body).toBe("이 회차는 더 진행할 수 없어요. 이용권은 복구됐어요.");
+  });
+
+  test("복구할 수 없는 오류는 시도 상한 문구와 구분해 안내한다", () => {
+    const d = describeGeneration(
+      stateOf({
+        phase: "terminal",
+        errorCode: "STEP_FATAL",
+        charged: null,
+        progress: progressOf(0),
+      }),
+      0,
+    );
+    expect(d?.title).toBe("복구할 수 없는 오류로 이 회차를 닫았어요");
+    expect(d?.title).not.toContain("10회");
+    expect(d?.body).toBe(
+      "이 회차는 더 진행할 수 없어요. 이용권은 차감되지 않았어요.",
+    );
+    expect(d?.action).toBe("start");
   });
 
   test("완료는 리포트 보기 버튼을 건넨다", () => {

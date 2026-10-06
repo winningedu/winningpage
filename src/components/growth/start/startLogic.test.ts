@@ -282,7 +282,9 @@ describe("studentSummaryLine", () => {
 describe("날짜 표기와 진행률", () => {
   test("시작일은 한국어 날짜, 마지막 저장은 점 구분 날짜와 시각", () => {
     const iso = new Date(2026, 10, 2, 21, 40).toISOString();
-    expect(formatStartedDate(iso)).toBe("2026년 11월 2일");
+    expect(formatStartedDate("2026-11-02T12:40:00+09:00")).toBe(
+      "2026년 11월 2일",
+    );
     expect(formatSavedAt(iso)).toBe("2026.11.02 21:40");
   });
 

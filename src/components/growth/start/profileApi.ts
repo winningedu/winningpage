@@ -2,7 +2,9 @@
 import { supabase } from "@/lib/supabase";
 import type { ProfileSavePayload } from "./startLogic";
 
-export type WriteResult = { ok: true } | { ok: false };
+export type WriteResult =
+  | { ok: true }
+  | { ok: false; reason?: "db_error" | "no_row" };
 
 export async function saveStudentProfile(
   userId: string,
@@ -19,9 +21,13 @@ export async function promoteGrade(
   userId: string,
   next: { grade: 2 | 3; semester: 1 },
 ): Promise<WriteResult> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("student_profiles")
     .update({ grade: `고${next.grade}`, semester: next.semester })
-    .eq("profile_id", userId);
-  return error ? { ok: false } : { ok: true };
+    .eq("profile_id", userId)
+    .select("profile_id");
+  if (error) return { ok: false, reason: "db_error" };
+  // RLS 나 행 없음으로 0행이 갱신돼도 error 는 null 이라 행 수로 확인한다.
+  if (!data || data.length === 0) return { ok: false, reason: "no_row" };
+  return { ok: true };
 }

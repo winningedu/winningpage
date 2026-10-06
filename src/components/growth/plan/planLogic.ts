@@ -108,13 +108,11 @@ export function applyServerChange(
 ): PlanBody {
   const next = applyItemPatch(plan, response.item);
   if (!response.changed) return next;
-  const extra = response as Record<string, unknown>;
   return {
     ...next,
     progress: response.progress,
     metrics: response.metrics,
-    nextDeadline:
-      "nextDeadline" in extra ? extra.nextDeadline : plan.nextDeadline,
+    nextDeadline: response.nextDeadline,
   };
 }
 
@@ -197,9 +195,12 @@ export function groupPeriodLabel(group: PlanGroup): string | null {
 export function progressNote(item: PlanItemView, hasHandoff: boolean): string {
   if (item.program === "school") return "진행: 직접 체크";
   const name = PROGRAM_LABELS[item.program];
-  return hasHandoff
+  if (!hasHandoff) {
+    return "진행: 직접 체크. 위닝 프로그램을 쓰지 않아도 하면 체크해요.";
+  }
+  return HANDOFF_AUTO_COMPLETE
     ? `진행: ${name}에서 확정하면 자동으로 완료돼요. 직접 체크해도 돼요.`
-    : "진행: 직접 체크. 위닝 프로그램을 쓰지 않아도 하면 체크해요.";
+    : `진행: ${name}에서 진행한 뒤 여기서 직접 체크해요.`;
 }
 
 /** 완료 항목의 출처 배지. 완료가 아니면 null. */
@@ -233,6 +234,17 @@ export function handoffDestination(program: PlanProgram): string {
   if (program === "self") return "/services/self-assessment";
   if (program === "deep") return "/services/research";
   return "/services";
+}
+
+/** 프로그램 쪽에서 확정을 되돌려 주는 송신측이 생기면 true 로 바꾼다. */
+export const HANDOFF_AUTO_COMPLETE = false;
+
+/** 이동 모달 부제. 자동 완료는 송신측이 있을 때만 약속한다. */
+export function handoffSubtitle(name: string): string {
+  const head = `이 과제의 방향을 받은 상태로 ${name}가 열려요.`;
+  return HANDOFF_AUTO_COMPLETE
+    ? `${head} ${name}에서 확정하면 이 과제가 자동으로 완료돼요.`
+    : `${head} 해당 프로그램에서 진행한 뒤 여기서 직접 체크해 완료해요.`;
 }
 
 export type HandoffRow = { label: string; value: string };
