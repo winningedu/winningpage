@@ -2,7 +2,7 @@
 --   growth_profiles   학생별 설문 응답·트랙(학생당 1행)
 --   growth_reports    성장설계 회차(리포트). 단계 진행·결과·차감 원장 연결
 --   growth_plan_items 리포트가 만든 실행 계획 항목
---   growth_uploads    생기부 등 업로드 메타와 추출 결과
+--   growth_uploads    활동 자료 업로드 메타와 추출 결과
 --
 -- 쓰기 원칙: 리포트·계획 생성·업로드 추출은 전부 API(service_role)가 쓴다.
 -- 본인이 직접 쓰는 것은 growth_profiles(설문 저장)와 growth_plan_items 수동 체크뿐이다.
