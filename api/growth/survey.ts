@@ -5,34 +5,39 @@
 //   GET  시작 화면과 학생 조사 화면에 필요한 데이터를 한 번에 돌려준다.
 //   POST 문항별 자동 저장(No.28, No.144). 미완 회차가 없으면 첫 저장 때 만든다.
 //
-// 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 조립 규칙은 이 파일에서
-// export 한 순수 함수(validateSurveyPostBody, buildSurveyBootstrap, nextSurveyWrite)로 검증한다.
+// 계약:
+//   - 직접 입력 활동은 클라이언트가 activity_records 에 RLS 로 직접 쓰고,
+//     student_profiles 초기값(profileInitial)도 클라이언트가 저장한다.
+//   - 클라이언트는 설문 저장을 직렬화하지 않아도 된다(RPC 가 답을 원자 병합한다).
+//   - current_step 이 0 보다 큰 회차는 REPORT_LOCKED(409)로 막는다.
+//
+// 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 조립 규칙은
+// api/_lib/growth/intake/surveyBootstrap.ts 의 순수 함수로 검증한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { fetchStudentRow } from "../_lib/goalRepo.js";
 import {
-  decideOpenReport,
-  deriveResumeStep,
-  type GrowthReportRow,
-  summarizeOpenReport,
-} from "../_lib/growth/intake/reportSession.js";
+  GROWTH_SETTING_KEYS,
+  GrowthSettingError,
+  parseSufficiencyThresholds,
+  readGrowthSetting,
+} from "../_lib/growth/intake/appSettings.js";
 import {
   countAnswered,
-  mergeSurveyAnswers,
-  SURVEY_QUESTIONS,
   type SurveyAnswers,
-  type SurveyQuestion,
-  validateSurveyPatch,
 } from "../_lib/growth/intake/survey.js";
 import {
-  autoFilledFromActivities,
-  type GoalStudentProfile,
-  initialStudentProfileFromGoal,
-  prefillSurveyFromDiagnosis,
-  type SurveyPrefill,
-} from "../_lib/growth/prefill.js";
-import { shouldProposePromotion } from "../_lib/growth/session.js";
+  assertReportWritable,
+  buildSurveyBootstrap,
+  pickOpenReport,
+  REPORT_LOCKED_MESSAGE,
+  type SurveyActivityRow,
+  type SurveyEntitlement,
+  type SurveyReportRow,
+  stripNullKeys,
+  validateSurveyPostBody,
+} from "../_lib/growth/intake/surveyBootstrap.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -42,240 +47,13 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export type SurveyPostBody = {
-  reportId: string | undefined;
-  patch: SurveyAnswers;
-};
-
-/** POST 바디 형태 검증. 실패 사유는 INVALID_BODY 메시지로 쓴다. */
-export function validateSurveyPostBody(
-  raw: unknown,
-): { ok: true; body: SurveyPostBody } | { ok: false; reason: string } {
-  const b =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  let reportId: string | undefined;
-  if (b.reportId !== undefined) {
-    if (typeof b.reportId !== "string" || !UUID_RE.test(b.reportId.trim())) {
-      return { ok: false, reason: "reportId가 올바르지 않습니다." };
-    }
-    reportId = b.reportId.trim();
-  }
-  const patchResult = validateSurveyPatch(b.answers);
-  if (!patchResult.ok) return { ok: false, reason: patchResult.reason };
-  return { ok: true, body: { reportId, patch: patchResult.patch } };
-}
-
-export type SurveyInsertRow = {
-  status: "draft";
-  current_step: 0;
-  survey_answers: SurveyAnswers;
-  last_activity_at: string;
-};
-
-export type SurveyUpdateRow = {
-  survey_answers: SurveyAnswers;
-  last_activity_at: string;
-  updated_at: string;
-};
-
-export type SurveyWrite =
-  | { kind: "insert"; row: SurveyInsertRow }
-  | { kind: "update"; id: string; row: SurveyUpdateRow };
-
-/** 문항별 저장이 만들 쓰기 동작을 정한다. 미완 회차가 없으면 insert, 있으면 병합 update. */
-export function nextSurveyWrite(input: {
-  openRow: { id: string; survey_answers: unknown } | null;
-  patch: SurveyAnswers;
-  nowIso: string;
-}): SurveyWrite {
-  const { openRow, patch, nowIso } = input;
-  if (!openRow) {
-    return {
-      kind: "insert",
-      row: {
-        status: "draft",
-        current_step: 0,
-        survey_answers: mergeSurveyAnswers({}, patch),
-        last_activity_at: nowIso,
-      },
-    };
-  }
-  return {
-    kind: "update",
-    id: openRow.id,
-    row: {
-      survey_answers: mergeSurveyAnswers(openRow.survey_answers, patch),
-      last_activity_at: nowIso,
-      updated_at: nowIso,
-    },
-  };
-}
-
-export type SurveyEntitlement = {
-  hasAccess: boolean;
-  quotaTotal: number | null;
-  quotaRemaining: number | null;
-  planEndsAt: string | null;
-  planLabel: string | null;
-};
-
-/** growth_reports 조회 행. 회차 시작 시각(created_at)까지 담는다. */
-export type SurveyReportRow = Omit<GrowthReportRow, "issued_at"> & {
-  issued_at: string | null;
-  created_at: string;
-};
-
-// 세션 규칙 함수는 issued_at 을 문자열로 가정한다. 미완 회차는 null 이라 시작 시각으로 채워 넘긴다.
-function asSessionRow(row: SurveyReportRow): GrowthReportRow {
-  return { ...row, issued_at: row.issued_at ?? row.created_at };
-}
-
-export type SurveyBootstrapInput = {
-  entitlement: SurveyEntitlement;
-  /** student_profiles 행. 없으면 null. */
-  profile: Record<string, unknown> | null;
-  /** growth_reports 본인 행 전부. */
-  reports: SurveyReportRow[];
-  /** 최신 diagnosis_reports.snapshot. 없으면 null. */
-  diagnosisSnapshot: unknown;
-  /** goal_students 행. 없으면 null. */
-  goalStudent: unknown;
-  /** activity_records 중 planned 가 아닌 본인 행. */
-  activities: { subject?: string | null; sources?: unknown }[];
-  /** growth_profiles.survey_answers. 다음 회차 프리필 재료. */
-  previousSurveyAnswers: unknown;
-  nowIso: string;
-};
-
-export type SurveyOpenReport = {
-  id: string;
-  status: "draft" | "in_progress";
-  currentStep: number;
-  track: string | null;
-  answered: number;
-  total: number;
-  lastActivityAt: string;
-  startedAt: string;
-  resume: ReturnType<typeof deriveResumeStep>;
-  card: ReturnType<typeof summarizeOpenReport>;
-};
-
-export type SurveyBootstrapBody = {
-  ok: true;
-  questions: readonly SurveyQuestion[];
-  entitlement: SurveyEntitlement;
-  profile: Record<string, unknown> | null;
-  profileInitial: GoalStudentProfile | null;
-  openReport: SurveyOpenReport | null;
-  reports: { id: string; issuedAt: string; track: string | null }[];
-  archivedCount: number;
-  prefill: {
-    survey: SurveyPrefill | null;
-    autoFilled: ReturnType<typeof autoFilledFromActivities>;
-    previousAnswers: unknown;
-  };
-  promotion: ReturnType<typeof shouldProposePromotion> | null;
-};
-
-function nonEmptyObject(v: unknown): Record<string, unknown> | null {
-  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
-  return Object.keys(v).length > 0 ? (v as Record<string, unknown>) : null;
-}
-
-const GRADE_NUMBER = { 고1: 1, 고2: 2, 고3: 3 } as const;
-
-// 학년(고1~고3)과 학기가 모두 있을 때만 판정한다. 값을 지어내지 않는다.
-function promotionOf(profile: Record<string, unknown> | null, nowIso: string) {
-  if (!profile) return null;
-  const { grade, semester, updated_at: updatedAt } = profile;
-  if (typeof grade !== "string" || !Object.hasOwn(GRADE_NUMBER, grade))
-    return null;
-  if (semester !== 1 && semester !== 2) return null;
-  if (typeof updatedAt !== "string") return null;
-  return shouldProposePromotion(
-    {
-      grade: GRADE_NUMBER[grade as keyof typeof GRADE_NUMBER],
-      semester,
-      updatedAt,
-    },
-    nowIso,
-  );
-}
-
-function summarizeOpen(row: SurveyReportRow): SurveyOpenReport {
-  const { answered, total } = countAnswered(row.survey_answers);
-  // 미완 회차의 issued_at 은 null 이라 시작 시각은 created_at 으로 대체한다.
-  const card = {
-    ...summarizeOpenReport(asSessionRow(row), answered, total),
-    startedAt: row.created_at,
-  };
-  return {
-    id: row.id,
-    status: row.status as "draft" | "in_progress",
-    currentStep: row.current_step,
-    track: row.track,
-    answered,
-    total,
-    lastActivityAt: row.last_activity_at,
-    startedAt: row.created_at,
-    resume: deriveResumeStep(asSessionRow(row)),
-    card,
-  };
-}
-
-/** GET 응답 조립. DB 호출 없이 조회 결과만 받는다. expiredIds 는 핸들러가 archived 로 바꾼다. */
-export function buildSurveyBootstrap(input: SurveyBootstrapInput): {
-  body: SurveyBootstrapBody;
-  expiredIds: string[];
-} {
-  const decision = decideOpenReport(
-    input.reports.map(asSessionRow),
-    input.nowIso,
-  );
-  const open =
-    decision.kind === "reuse"
-      ? input.reports.find((r) => r.id === decision.report.id)
-      : undefined;
-  const expiredIds =
-    decision.kind === "expire_and_create" ? decision.expiredIds : [];
-  const body: SurveyBootstrapBody = {
-    ok: true,
-    questions: SURVEY_QUESTIONS,
-    entitlement: input.entitlement,
-    profile: input.profile,
-    profileInitial: input.goalStudent
-      ? initialStudentProfileFromGoal(input.goalStudent)
-      : null,
-    openReport: open ? summarizeOpen(open) : null,
-    reports: input.reports
-      .flatMap((r) =>
-        r.status === "completed" && r.issued_at !== null
-          ? [{ id: r.id, issuedAt: r.issued_at, track: r.track }]
-          : [],
-      )
-      .sort((a, b) => Date.parse(b.issuedAt) - Date.parse(a.issuedAt)),
-    archivedCount:
-      input.reports.filter((r) => r.status === "archived").length +
-      expiredIds.length,
-    prefill: {
-      survey: input.diagnosisSnapshot
-        ? prefillSurveyFromDiagnosis(input.diagnosisSnapshot)
-        : null,
-      autoFilled: autoFilledFromActivities(input.activities),
-      previousAnswers: open
-        ? null
-        : nonEmptyObject(input.previousSurveyAnswers),
-    },
-    promotion: promotionOf(input.profile, input.nowIso),
-  };
-  return { body, expiredIds };
-}
-
 const REPORT_COLUMNS =
   "id,status,current_step,track,step_state,survey_answers,activity_ids,grade_inputs,ledger_id,ledger_reversed_at,model_attempt_count,issued_at,last_activity_at,created_at";
+
+const ACTIVITY_COLUMNS =
+  "id,source_program,status,grade_label,semester,subject_group,subject,sources";
+
+type Db = SupabaseClient;
 
 function fail(
   res: VercelResponse,
@@ -287,7 +65,7 @@ function fail(
 }
 
 async function readEntitlement(
-  supabaseAdmin: SupabaseClient,
+  supabaseAdmin: Db,
   userId: string,
 ): Promise<SurveyEntitlement> {
   const config = SERVICE_CONFIGS.growth;
@@ -313,39 +91,77 @@ async function readEntitlement(
   };
 }
 
-async function handleGet(
-  res: VercelResponse,
-  supabaseAdmin: SupabaseClient,
+function readThresholds(db: Db) {
+  return readGrowthSetting(
+    async (key) => {
+      const { data, error } = await db
+        .from("app_settings")
+        .select("value")
+        .eq("key", key)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    GROWTH_SETTING_KEYS.sufficiencyThresholds,
+    parseSufficiencyThresholds,
+  );
+}
+
+/** 만료된 미완 회차는 보관 처리해 학생당 미완 1개 제약을 풀어 둔다. */
+async function archiveExpired(
+  db: Db,
   userId: string,
+  expiredIds: string[],
+  nowIso: string,
 ) {
+  if (expiredIds.length === 0) return;
+  const { error } = await db
+    .from("growth_reports")
+    .update({ status: "archived", updated_at: nowIso })
+    .eq("profile_id", userId)
+    .in("id", expiredIds);
+  if (error) throw error;
+}
+
+async function handleGet(res: VercelResponse, db: Db, userId: string) {
   const nowIso = new Date().toISOString();
-  const entitlement = await readEntitlement(supabaseAdmin, userId);
+  let thresholds: { enough: number };
+  try {
+    thresholds = await readThresholds(db);
+  } catch (e) {
+    if (e instanceof GrowthSettingError) {
+      console.error("growth/survey 설정 오류:", e);
+      fail(res, 500, "SETTING_MISSING", "성장설계 설정을 읽지 못했습니다.");
+      return;
+    }
+    throw e;
+  }
+  const entitlement = await readEntitlement(db, userId);
 
   const [profileRes, reportsRes, diagnosisRes, activitiesRes, growthRes] =
     await Promise.all([
-      supabaseAdmin
+      db
         .from("student_profiles")
         .select("*")
         .eq("profile_id", userId)
         .maybeSingle(),
-      supabaseAdmin
+      db
         .from("growth_reports")
         .select(REPORT_COLUMNS)
         .eq("profile_id", userId)
         .order("last_activity_at", { ascending: false }),
-      supabaseAdmin
+      db
         .from("diagnosis_reports")
         .select("snapshot")
         .eq("profile_id", userId)
         .order("diagnosed_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabaseAdmin
+      db
         .from("activity_records")
-        .select("subject,sources")
-        .eq("profile_id", userId)
-        .neq("status", "planned"),
-      supabaseAdmin
+        .select(ACTIVITY_COLUMNS)
+        .eq("profile_id", userId),
+      db
         .from("growth_profiles")
         .select("survey_answers")
         .eq("profile_id", userId)
@@ -360,7 +176,7 @@ async function handleGet(
   ]) {
     if (r.error) throw r.error;
   }
-  const goalStudent = await fetchStudentRow(supabaseAdmin, userId);
+  const goalStudent = await fetchStudentRow(db, userId);
 
   const { body, expiredIds } = buildSurveyBootstrap({
     entitlement,
@@ -368,39 +184,64 @@ async function handleGet(
     reports: (reportsRes.data ?? []) as SurveyReportRow[],
     diagnosisSnapshot: diagnosisRes.data?.snapshot ?? null,
     goalStudent,
-    activities: activitiesRes.data ?? [],
+    activityRows: (activitiesRes.data ?? []) as SurveyActivityRow[],
+    thresholds,
     previousSurveyAnswers: growthRes.data?.survey_answers ?? null,
     nowIso,
   });
-
-  // 만료된 미완 회차는 보관 처리해 학생당 미완 1개 제약을 풀어 둔다.
-  if (expiredIds.length > 0) {
-    const { error } = await supabaseAdmin
-      .from("growth_reports")
-      .update({ status: "archived", updated_at: nowIso })
-      .eq("profile_id", userId)
-      .in("id", expiredIds);
-    if (error) throw error;
-  }
-
+  await archiveExpired(db, userId, expiredIds, nowIso);
   res.status(200).json(body);
 }
 
-async function findOpenRow(supabaseAdmin: SupabaseClient, userId: string) {
-  const { data, error } = await supabaseAdmin
+/** 미완 행 조회. GET 과 같은 규칙(pickOpenReport)으로 재사용 대상을 고른다. */
+async function loadOpenReport(db: Db, userId: string, nowIso: string) {
+  const { data, error } = await db
     .from("growth_reports")
-    .select("id,survey_answers")
+    .select(REPORT_COLUMNS)
     .eq("profile_id", userId)
-    .in("status", ["draft", "in_progress"])
-    .maybeSingle();
+    .in("status", ["draft", "in_progress"]);
   if (error) throw error;
-  return data;
+  return pickOpenReport((data ?? []) as SurveyReportRow[], nowIso);
+}
+
+function saved(reportId: string, answers: unknown, savedAt: string) {
+  const { answered, total } = countAnswered(answers);
+  return { ok: true, reportId, answered, total, savedAt };
+}
+
+/** 잠금 가드를 통과한 회차에 RPC 로 답을 원자 병합하고 응답한다. */
+async function mergeAndRespond(
+  res: VercelResponse,
+  db: Db,
+  userId: string,
+  open: SurveyReportRow,
+  patch: SurveyAnswers,
+  nowIso: string,
+) {
+  const guard = assertReportWritable(open);
+  if (!guard.ok) {
+    fail(res, 409, guard.code, guard.message);
+    return;
+  }
+  // null 값(문항 비우기)은 RPC 가 jsonb_strip_nulls 로 지운다.
+  const { data, error } = await db.rpc("fn_growth_merge_survey_answers", {
+    p_report_id: open.id,
+    p_profile_id: userId,
+    p_patch: patch,
+  });
+  if (error) throw error;
+  if (data === null) {
+    // 가드 불일치(그 사이 생성이 시작됐거나 닫힘).
+    fail(res, 409, "REPORT_LOCKED", REPORT_LOCKED_MESSAGE);
+    return;
+  }
+  res.status(200).json(saved(open.id, data, nowIso));
 }
 
 async function handlePost(
   req: { body: unknown },
   res: VercelResponse,
-  supabaseAdmin: SupabaseClient,
+  db: Db,
   userId: string,
 ) {
   const validated = validateSurveyPostBody(req.body);
@@ -411,8 +252,10 @@ async function handlePost(
   const { reportId, patch } = validated.body;
   const nowIso = new Date().toISOString();
 
-  let openRow = await findOpenRow(supabaseAdmin, userId);
-  if (reportId && openRow?.id !== reportId) {
+  const { open, expiredIds } = await loadOpenReport(db, userId, nowIso);
+  await archiveExpired(db, userId, expiredIds, nowIso);
+
+  if (reportId && open?.id !== reportId) {
     fail(
       res,
       409,
@@ -421,59 +264,43 @@ async function handlePost(
     );
     return;
   }
+  if (open) {
+    await mergeAndRespond(res, db, userId, open, patch, nowIso);
+    return;
+  }
 
   // 새 회차는 이용권이 있어야 만든다. 차감은 여기서 하지 않는다(4단계 생성 성공 시 차감).
-  if (!openRow) {
-    const entitlement = await readEntitlement(supabaseAdmin, userId);
-    if (!entitlement.hasAccess || entitlement.quotaRemaining === 0) {
-      fail(
-        res,
-        403,
-        "NO_ENTITLEMENT",
-        "이용권이 없어요. 성장설계는 이용권 1회로 리포트 하나를 만들어요.",
-      );
-      return;
-    }
+  const entitlement = await readEntitlement(db, userId);
+  if (!entitlement.hasAccess || entitlement.quotaRemaining === 0) {
+    fail(
+      res,
+      403,
+      "NO_ENTITLEMENT",
+      "이용권이 없어요. 성장설계는 이용권 1회로 리포트 하나를 만들어요.",
+    );
+    return;
   }
 
-  let write = nextSurveyWrite({ openRow, patch, nowIso });
-  let savedId: string;
-  let savedAnswers: SurveyAnswers;
-
-  if (write.kind === "insert") {
-    const { data, error } = await supabaseAdmin
-      .from("growth_reports")
-      .insert({ profile_id: userId, ...write.row })
-      .select("id,survey_answers")
-      .single();
-    if (error?.code === "23505") {
-      // 동시 요청이 먼저 만들었다. 다시 조회해 그 행에 병합한다.
-      openRow = await findOpenRow(supabaseAdmin, userId);
-      if (!openRow) throw error;
-      write = nextSurveyWrite({ openRow, patch, nowIso });
-    } else if (error) {
-      throw error;
-    } else {
-      savedId = data.id;
-      savedAnswers = data.survey_answers as SurveyAnswers;
-      res.status(200).json(saved(savedId, savedAnswers, nowIso));
-      return;
-    }
-  }
-
-  if (write.kind !== "update") throw new Error("growth/survey 쓰기 상태 오류");
-  const { error } = await supabaseAdmin
+  const { data, error } = await db
     .from("growth_reports")
-    .update(write.row)
-    .eq("id", write.id)
-    .eq("profile_id", userId);
+    .insert({
+      profile_id: userId,
+      status: "draft",
+      current_step: 0,
+      survey_answers: stripNullKeys(patch),
+      last_activity_at: nowIso,
+    })
+    .select("id,survey_answers")
+    .single();
+  if (error?.code === "23505") {
+    // 동시 요청이 먼저 만들었다. 다시 조회해 그 행에 RPC 로 병합한다.
+    const raced = await loadOpenReport(db, userId, nowIso);
+    if (!raced.open) throw error;
+    await mergeAndRespond(res, db, userId, raced.open, patch, nowIso);
+    return;
+  }
   if (error) throw error;
-  res.status(200).json(saved(write.id, write.row.survey_answers, nowIso));
-}
-
-function saved(reportId: string, answers: SurveyAnswers, savedAt: string) {
-  const { answered, total } = countAnswered(answers);
-  return { ok: true, reportId, answered, total, savedAt };
+  res.status(200).json(saved(data.id, data.survey_answers, nowIso));
 }
 
 export default defineHandler({

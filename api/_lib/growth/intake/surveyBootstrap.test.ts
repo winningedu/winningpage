@@ -1,13 +1,16 @@
 // 성장설계 설문 엔드포인트의 순수 조립 함수 테스트. 핸들러 본문은 DB 에 묶여 있어 다루지 않는다.
 import { describe, expect, test } from "vitest";
-import { SURVEY_QUESTIONS } from "../_lib/growth/intake/survey.js";
+import { SURVEY_QUESTIONS } from "./survey.js";
 import {
+  assertReportWritable,
   buildSurveyBootstrap,
-  nextSurveyWrite,
+  pickOpenReport,
+  type SurveyActivityRow,
   type SurveyBootstrapInput,
   type SurveyReportRow,
+  stripNullKeys,
   validateSurveyPostBody,
-} from "./survey.js";
+} from "./surveyBootstrap.js";
 
 const REPORT_ID = "0b6f3c2e-5d1a-4c3b-8a9e-1f2d3c4b5a69";
 
@@ -50,58 +53,6 @@ describe("validateSurveyPostBody", () => {
   });
 });
 
-describe("nextSurveyWrite", () => {
-  const NOW = "2026-10-06T00:00:00.000Z";
-
-  test("미완 회차가 없으면 draft 행을 새로 만든다", () => {
-    const write = nextSurveyWrite({
-      openRow: null,
-      patch: { q1: "첫 답" },
-      nowIso: NOW,
-    });
-    expect(write).toEqual({
-      kind: "insert",
-      row: {
-        status: "draft",
-        current_step: 0,
-        survey_answers: { q1: "첫 답" },
-        last_activity_at: NOW,
-      },
-    });
-  });
-
-  test("미완 회차가 있으면 기존 답에 병합해 갱신한다", () => {
-    const write = nextSurveyWrite({
-      openRow: {
-        id: REPORT_ID,
-        survey_answers: { q1: "옛 답", q2: "유지" },
-      },
-      patch: { q1: "새 답", q3: "둘 다" },
-      nowIso: NOW,
-    });
-    expect(write).toEqual({
-      kind: "update",
-      id: REPORT_ID,
-      row: {
-        survey_answers: { q1: "새 답", q2: "유지", q3: "둘 다" },
-        last_activity_at: NOW,
-        updated_at: NOW,
-      },
-    });
-  });
-
-  test("null 값은 해당 문항을 비운다", () => {
-    const write = nextSurveyWrite({
-      openRow: { id: REPORT_ID, survey_answers: { q1: "a", q2: "b" } },
-      patch: { q1: null },
-      nowIso: NOW,
-    });
-    expect(write.kind === "update" && write.row.survey_answers).toEqual({
-      q2: "b",
-    });
-  });
-});
-
 const NOW_ISO = "2026-10-06T00:00:00.000Z";
 
 function bootstrapInput(
@@ -119,9 +70,25 @@ function bootstrapInput(
     reports: [],
     diagnosisSnapshot: null,
     goalStudent: null,
-    activities: [],
+    activityRows: [],
+    thresholds: { enough: 5 },
     previousSurveyAnswers: null,
     nowIso: NOW_ISO,
+    ...over,
+  };
+}
+
+function activityRow(
+  over: Partial<SurveyActivityRow> & { id: string },
+): SurveyActivityRow {
+  return {
+    source_program: "manual",
+    status: "confirmed",
+    grade_label: "고2",
+    semester: 1,
+    subject_group: "국어",
+    subject: "국어",
+    sources: null,
     ...over,
   };
 }
@@ -155,9 +122,9 @@ describe("buildSurveyBootstrap", () => {
           goal: { level: "BOTH", targetMajor: "컴퓨터공학" },
         },
         goalStudent: { ideal_department: "컴퓨터공학", grade: "고2" },
-        activities: [
-          { subject: "수학", sources: null },
-          { subject: "수학", sources: null },
+        activityRows: [
+          activityRow({ id: "a1", subject: "수학" }),
+          activityRow({ id: "a2", subject: "수학" }),
         ],
         previousSurveyAnswers: { q1: "지난 회차 답" },
       }),
@@ -207,6 +174,7 @@ describe("buildSurveyBootstrap", () => {
       track: null,
       answered: 3,
       total: SURVEY_QUESTIONS.length,
+      answers: { q1: "답", q2: "답", q3: "둘 다" },
       lastActivityAt: "2026-10-05T00:00:00.000Z",
       startedAt: "2026-10-04T00:00:00.000Z",
       resume: { resumeStep: 0, phase: "survey" },
@@ -215,6 +183,12 @@ describe("buildSurveyBootstrap", () => {
         lastSavedAt: "2026-10-05T00:00:00.000Z",
         stepLabel: `2단계 학생 조사 ${SURVEY_QUESTIONS.length}문항 중 3문항 답함`,
       },
+    });
+    // 학생 조사 화면 복원용으로 저장된 답 본문을 그대로 담는다(No.144).
+    expect(body.openReport?.answers).toEqual({
+      q1: "답",
+      q2: "답",
+      q3: "둘 다",
     });
     // 미완 회차가 있으면 이전 회차 답은 프리필에 쓰지 않는다.
     expect(body.prefill.previousAnswers).toBeNull();
@@ -295,5 +269,121 @@ describe("buildSurveyBootstrap", () => {
         buildSurveyBootstrap(bootstrapInput({ profile })).body.promotion,
       ).toBeNull();
     }
+  });
+});
+
+describe("buildSurveyBootstrap 시작 화면 카드 값", () => {
+  test("저장 활동 개요가 건수, 교과 창체 구분, 1학년 충분도를 담는다", () => {
+    const { body } = buildSurveyBootstrap(
+      bootstrapInput({
+        activityRows: [
+          activityRow({ id: "f1", grade_label: "고1", semester: 1 }),
+          activityRow({ id: "f2", grade_label: "고1", semester: 2 }),
+          activityRow({ id: "c1", source_program: "upload" }),
+          activityRow({ id: "e1", subject_group: "창체" }),
+          activityRow({ id: "p1", status: "planned" }),
+        ],
+        thresholds: { enough: 3 },
+      }),
+    );
+    expect(body.activityOverview.total).toBe(4);
+    expect(body.activityOverview.bySource).toMatchObject({
+      manual: 3,
+      upload: 1,
+      total: 4,
+    });
+    expect(body.activityOverview.byGroup).toEqual({
+      curricular: 3,
+      extracurricular: 1,
+      unclassified: 0,
+    });
+    expect(body.activityOverview.firstYear).toMatchObject({ count: 2 });
+  });
+
+  test("planned 활동은 자동 채움에서도 빠진다", () => {
+    const { body } = buildSurveyBootstrap(
+      bootstrapInput({
+        activityRows: [
+          activityRow({ id: "a", subject: "수학" }),
+          activityRow({ id: "a2", subject: "수학" }),
+          activityRow({ id: "b", subject: "과학", status: "planned" }),
+          activityRow({ id: "b2", subject: "과학", status: "planned" }),
+          activityRow({ id: "b3", subject: "과학", status: "planned" }),
+        ],
+      }),
+    );
+    expect(body.prefill.autoFilled.favoriteSubjects).toEqual(["수학"]);
+  });
+
+  test("이용권, 지난 리포트, 승급 제안이 한 응답에 함께 들어간다", () => {
+    const { body } = buildSurveyBootstrap(
+      bootstrapInput({
+        reports: [
+          reportRow({
+            id: "done",
+            status: "completed",
+            track: "고2",
+            issued_at: "2026-09-01T00:00:00.000Z",
+          }),
+        ],
+        profile: {
+          grade: "고1",
+          semester: 2,
+          updated_at: "2026-02-01T00:00:00.000Z",
+        },
+      }),
+    );
+    expect(body.entitlement.quotaRemaining).toBe(1);
+    expect(body.reports).toHaveLength(1);
+    expect(body.promotion).toMatchObject({ propose: true });
+  });
+});
+
+describe("stripNullKeys", () => {
+  test("null 값 키를 뺀 새 객체를 돌려주고 입력은 바꾸지 않는다", () => {
+    const patch = { q1: "답", q2: null, q3: ["a"] };
+    expect(stripNullKeys(patch)).toEqual({ q1: "답", q3: ["a"] });
+    expect(patch).toHaveProperty("q2", null);
+  });
+});
+
+describe("assertReportWritable", () => {
+  test("current_step 이 0 이면 쓸 수 있다", () => {
+    expect(assertReportWritable({ current_step: 0 })).toEqual({ ok: true });
+  });
+
+  test("리포트 생성이 시작된 회차는 REPORT_LOCKED 로 막는다", () => {
+    expect(assertReportWritable({ current_step: 1 })).toEqual({
+      ok: false,
+      code: "REPORT_LOCKED",
+      message: "리포트 생성이 시작된 회차는 설문을 바꿀 수 없어요.",
+    });
+  });
+});
+
+describe("pickOpenReport", () => {
+  test("90일 안의 미완 회차는 재사용 대상으로 돌려준다", () => {
+    const row = reportRow({ id: REPORT_ID });
+    expect(pickOpenReport([row], NOW_ISO)).toEqual({
+      open: row,
+      expiredIds: [],
+    });
+  });
+
+  test("90일이 지난 미완 회차는 부활시키지 않고 만료 대상으로 돌려준다", () => {
+    const stale = reportRow({
+      id: REPORT_ID,
+      last_activity_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(pickOpenReport([stale], NOW_ISO)).toEqual({
+      open: null,
+      expiredIds: [REPORT_ID],
+    });
+  });
+
+  test("미완 회차가 없으면 아무것도 돌려주지 않는다", () => {
+    expect(
+      pickOpenReport([reportRow({ id: "a", status: "completed" })], NOW_ISO),
+    ).toEqual({ open: null, expiredIds: [] });
   });
 });
