@@ -40,12 +40,24 @@ const invalid = (reason: string): UploadValidation => ({
   code: "INVALID_BODY",
 });
 
+function hasControlChar(text: string): boolean {
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 export function validateUploadRequest(raw: unknown): UploadValidation {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return invalid("본문 형식 오류");
   const b = raw as Record<string, unknown>;
-  if (typeof b.fileName !== "string" || b.fileName.trim() === "")
-    return invalid("파일명 필요");
+  if (typeof b.fileName !== "string") return invalid("파일명 필요");
+  const fileName = b.fileName.trim();
+  if (fileName === "" || fileName.length > 255)
+    return invalid("파일명 길이 오류");
+  // 제어 문자(U+0000~U+001F, U+007F)는 파일명에 허용하지 않는다.
+  if (hasControlChar(fileName)) return invalid("파일명에 제어 문자 포함");
   if (typeof b.mimeType !== "string") return invalid("mimeType 필요");
   const ext = ALLOWED_UPLOAD_MIME[b.mimeType];
   if (ext === undefined)
@@ -74,7 +86,7 @@ export function validateUploadRequest(raw: unknown): UploadValidation {
   return {
     ok: true,
     value: {
-      fileName: b.fileName,
+      fileName,
       mimeType: b.mimeType,
       byteSize: b.byteSize,
       gradeLabel: b.gradeLabel as UploadGradeLabel,
@@ -84,6 +96,25 @@ export function validateUploadRequest(raw: unknown): UploadValidation {
     },
   };
 }
+
+/**
+ * 업로드 객체 경로. 업로드는 학생과 학기 단위라 회차(reportId)가 바뀌어도 객체를 찾을 수
+ * 있어야 하므로 reportId 를 넣지 않는다. 크론도 DB 행(학생 id, 업로드 id, 확장자)만으로
+ * 경로를 재구성한다.
+ */
+export function uploadObjectPath(
+  userId: string,
+  uploadId: string,
+  ext: string,
+): string {
+  return `${userId}/${uploadId}.${ext}`;
+}
+
+/**
+ * 추출 응답 최대 출력 토큰. 한국어 4항목이 각 1000자(VALUE_LIMIT)면 JSON 한 개가
+ * 한글 4000자 안팎이라 모델 기본값 1800 과 2200 으로는 응답이 잘린다.
+ */
+export const EXTRACTION_MAX_OUTPUT_TOKENS = 4096;
 
 export const EXTRACTION_FIELDS = [
   "topic",

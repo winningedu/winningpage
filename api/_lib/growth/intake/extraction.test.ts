@@ -12,11 +12,13 @@ vi.mock("mammoth", () => ({
 import {
   buildExtractionPrompt,
   EXTRACTION_FIELDS,
+  EXTRACTION_MAX_OUTPUT_TOKENS,
   EXTRACTION_RESPONSE_SCHEMA,
   MAX_UPLOAD_BYTES,
   parseExtractionResponse,
   textFromUpload,
   toActivityRecordFromExtraction,
+  uploadObjectPath,
   validateUploadRequest,
 } from "./extraction.js";
 
@@ -292,5 +294,49 @@ describe("toActivityRecordFromExtraction", () => {
       numbers: null,
       sources: [{ type: "upload", file: "보고서.pdf" }],
     });
+  });
+});
+
+describe("validateUploadRequest 파일명 검증", () => {
+  test("공백만 있는 파일명은 거부한다", () => {
+    const r = validateUploadRequest({ ...validBody, fileName: "   " });
+    expect(r).toMatchObject({ ok: false, code: "INVALID_BODY" });
+  });
+
+  test("trim 후 255자를 넘으면 거부하고 255자는 통과한다", () => {
+    expect(
+      validateUploadRequest({ ...validBody, fileName: "가".repeat(256) }),
+    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
+    expect(
+      validateUploadRequest({
+        ...validBody,
+        fileName: `  ${"가".repeat(255)} `,
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
+  test("제어 문자가 있으면 거부한다", () => {
+    for (const c of ["\u0000", "\n", "\u001f", "\u007f"]) {
+      expect(
+        validateUploadRequest({ ...validBody, fileName: `a${c}b.pdf` }),
+      ).toMatchObject({ ok: false, code: "INVALID_BODY" });
+    }
+  });
+
+  test("통과한 파일명은 trim 된 값으로 돌려준다", () => {
+    const r = validateUploadRequest({ ...validBody, fileName: "  a.pdf " });
+    expect(r).toMatchObject({ ok: true, value: { fileName: "a.pdf" } });
+  });
+});
+
+describe("uploadObjectPath", () => {
+  test("회차 없이 학생과 업로드 id 로 경로를 만든다", () => {
+    expect(uploadObjectPath("u1", "up1", "pdf")).toBe("u1/up1.pdf");
+  });
+});
+
+describe("EXTRACTION_MAX_OUTPUT_TOKENS", () => {
+  test("4항목 각 1000자 한국어 JSON 이 들어갈 만큼 4096 이다", () => {
+    expect(EXTRACTION_MAX_OUTPUT_TOKENS).toBe(4096);
   });
 });

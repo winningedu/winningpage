@@ -91,16 +91,21 @@ export function isExtracurricularGroup(group: string | null): boolean {
   return EXTRACURRICULAR_GROUP_PREFIXES.some((p) => group.startsWith(p));
 }
 
-/** 교과와 창체 건수(시작 화면 "교과 11건, 창체 3건"). */
+/** 교과, 창체, 미분류 건수. 교과군이 비어 있는 행(업로드 추출, 직접 입력)은 미분류로 센다. */
 export function countByGroup(rows: readonly ActivityRow[]): {
   curricular: number;
   extracurricular: number;
+  unclassified: number;
 } {
+  let curricular = 0;
   let extracurricular = 0;
+  let unclassified = 0;
   for (const r of rows) {
-    if (isExtracurricularGroup(r.subject_group)) extracurricular += 1;
+    if (r.subject_group == null || r.subject_group === "") unclassified += 1;
+    else if (isExtracurricularGroup(r.subject_group)) extracurricular += 1;
+    else curricular += 1;
   }
-  return { curricular: rows.length - extracurricular, extracurricular };
+  return { curricular, extracurricular, unclassified };
 }
 
 export type SemesterRow = {
@@ -145,7 +150,7 @@ const NO_SYSTEM_NOTE = "입학 연도가 없어 등급 체계를 정하지 못�
  * 없으면 목표관리 내신 성적을 접은 평균을 쓴다. 둘 다 없으면 null 로 둔다(No.46, No.82).
  */
 export function buildGradeInputs(input: {
-  admissionYear: number | null;
+  profile: { admission_year: number | null } | null;
   naesinScores: unknown;
   direct: Partial<Record<SemesterKey, number | null>> | null;
 }): {
@@ -153,7 +158,10 @@ export function buildGradeInputs(input: {
   semesters: GradeInputSemester[];
   note: string | null;
 } {
-  const system = deriveGradeSystem(input.admissionYear);
+  const system =
+    input.profile === null
+      ? null
+      : deriveGradeSystem(input.profile.admission_year);
   const folded = new Map(
     semesterAverages(
       semesterSubjectsFromNaesin(input.naesinScores).semesters.map((s) => ({
@@ -186,12 +194,17 @@ export function buildGradeInputs(input: {
 /** 학기당 업로드 상한(No.42, 명세 고정값). */
 export const UPLOAD_LIMIT_PER_SEMESTER = 10;
 
+export type UploadStatus = "pending" | "processing" | "ok" | "failed";
+
 export type UploadRow = {
   id: string;
   grade_label: "고1" | "고2" | "고3" | null;
   semester: 1 | 2 | null;
-  extraction_status: string;
+  extraction_status: UploadStatus;
 };
+
+/** 파일 목록 표시용으로 파일명까지 받는 업로드 행. */
+export type CollectUploadRow = UploadRow & { file_name: string };
 
 /** 학기에 더 올릴 수 있는 건수. 추출 실패(failed)는 상한에서 세지 않는다. */
 export function uploadQuotaLeft(
@@ -214,14 +227,10 @@ export type CollectSummaryInput = {
   current?: { grade: 1 | 2 | 3; semester: 1 | 2 } | undefined;
   rows: readonly ActivityRow[];
   thresholds: { enough: number };
-  profile: {
-    admission_year: number | null;
-    grade?: unknown;
-    semester?: unknown;
-  };
+  profile: { admission_year: number | null } | null;
   naesinScores: unknown;
   directGrades: Partial<Record<SemesterKey, number | null>> | null;
-  uploads: readonly UploadRow[];
+  uploads: readonly CollectUploadRow[];
 };
 
 /** "고1-2" 를 "1학년 2학기" 로 바꾼다. */
@@ -267,12 +276,32 @@ export function buildCollectSummary(input: CollectSummaryInput) {
     byGroup: countByGroup(material),
     semesters,
     firstYear,
+    // 추출이 끝나지 않은 업로드: 대기와 처리 중을 모두 센다.
     uploadsPending: input.uploads.filter(
-      (u) => u.extraction_status === "pending",
+      (u) =>
+        u.extraction_status === "pending" ||
+        u.extraction_status === "processing",
     ).length,
+    uploads: input.uploads.map((u) => ({
+      id: u.id,
+      fileName: u.file_name,
+      gradeLabel: u.grade_label,
+      semester: u.semester,
+      status: u.extraction_status,
+    })),
+    uploadQuotaBySemester: Object.fromEntries(
+      semesters.map((r) => [
+        r.key,
+        uploadQuotaLeft(
+          input.uploads,
+          `고${r.key[1]}` as "고1" | "고2" | "고3",
+          Number(r.key[3]) as 1 | 2,
+        ),
+      ]),
+    ) as Partial<Record<SemesterKey, number>>,
     analysisActivityIds: material.map((r) => r.id),
     gradeInputs: buildGradeInputs({
-      admissionYear: input.profile.admission_year,
+      profile: input.profile,
       naesinScores: input.naesinScores,
       direct: input.directGrades,
     }),

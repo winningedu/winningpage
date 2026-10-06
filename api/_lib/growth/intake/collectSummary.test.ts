@@ -9,6 +9,7 @@ import {
   filterMaterialActivities,
   semesterRows,
   UPLOAD_LIMIT_PER_SEMESTER,
+  type UploadStatus,
   uploadQuotaLeft,
 } from "./collectSummary.js";
 
@@ -89,7 +90,25 @@ describe("countByGroup", () => {
       row({ id: "7", subject_group: "봉사활동" }),
       row({ id: "8", subject_group: null }),
     ];
-    expect(countByGroup(rows)).toEqual({ curricular: 3, extracurricular: 5 });
+    expect(countByGroup(rows)).toEqual({
+      curricular: 2,
+      extracurricular: 5,
+      unclassified: 1,
+    });
+  });
+
+  test("subject_group 이 null 이거나 빈 문자열이면 교과가 아니라 미분류로 센다", () => {
+    const rows = [
+      row({ id: "1", subject_group: "국어" }),
+      row({ id: "2", subject_group: null }),
+      row({ id: "3", subject_group: "" }),
+      row({ id: "4", subject_group: "창체" }),
+    ];
+    expect(countByGroup(rows)).toEqual({
+      curricular: 1,
+      extracurricular: 1,
+      unclassified: 2,
+    });
   });
 });
 
@@ -164,7 +183,7 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
 
   test("직접 입력이 있으면 우선하고, 없으면 내신 접은 평균, 둘 다 없으면 null 로 둔다", () => {
     const result = buildGradeInputs({
-      admissionYear: 2025,
+      profile: { admission_year: 2025 },
       naesinScores: naesin,
       direct: { "고1-1": 1.5, "고2-1": 4 },
     });
@@ -179,7 +198,7 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
 
   test("직접 입력이 null 이면 내신 접은 값으로 대체한다", () => {
     const result = buildGradeInputs({
-      admissionYear: 2024,
+      profile: { admission_year: 2024 },
       naesinScores: naesin,
       direct: { "고1-1": null },
     });
@@ -193,7 +212,7 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
 
   test("전부 비어 있으면 자료 없음 안내를 돌려준다", () => {
     const result = buildGradeInputs({
-      admissionYear: 2025,
+      profile: { admission_year: 2025 },
       naesinScores: null,
       direct: null,
     });
@@ -203,9 +222,19 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
     );
   });
 
+  test("profile 이 있어도 admission_year 가 null 이면 같은 안내 경로를 탄다", () => {
+    const result = buildGradeInputs({
+      profile: { admission_year: null },
+      naesinScores: null,
+      direct: null,
+    });
+    expect(result.system).toBeNull();
+    expect(result.note).toContain("입학 연도가 없어");
+  });
+
   test("입학 연도가 없으면 등급 체계 null 과 함께 안내를 앞에 붙인다", () => {
     const result = buildGradeInputs({
-      admissionYear: null,
+      profile: null,
       naesinScores: naesin,
       direct: null,
     });
@@ -213,7 +242,7 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
     expect(result.note).toBe("입학 연도가 없어 등급 체계를 정하지 못했습니다");
 
     const empty = buildGradeInputs({
-      admissionYear: null,
+      profile: null,
       naesinScores: null,
       direct: null,
     });
@@ -226,7 +255,7 @@ describe("buildGradeInputs (No.73, No.46, No.82)", () => {
 describe("uploadQuotaLeft (No.42)", () => {
   const up = (
     id: string,
-    extraction_status: string,
+    extraction_status: UploadStatus,
     grade_label: "고1" | "고2" | null = "고1",
     semester: 1 | 2 | null = 1,
   ) => ({ id, grade_label, semester, extraction_status });
@@ -237,17 +266,17 @@ describe("uploadQuotaLeft (No.42)", () => {
 
   test("같은 학기의 failed 를 뺀 건수만큼 상한에서 줄어든다", () => {
     const uploads = [
-      up("1", "done"),
+      up("1", "ok"),
       up("2", "pending"),
       up("3", "failed"),
-      up("4", "done", "고1", 2),
-      up("5", "done", "고2", 1),
+      up("4", "ok", "고1", 2),
+      up("5", "ok", "고2", 1),
     ];
     expect(uploadQuotaLeft(uploads, "고1", 1)).toBe(8);
   });
 
   test("상한을 넘으면 0 이다", () => {
-    const uploads = Array.from({ length: 12 }, (_, i) => up(String(i), "done"));
+    const uploads = Array.from({ length: 12 }, (_, i) => up(String(i), "ok"));
     expect(uploadQuotaLeft(uploads, "고1", 1)).toBe(0);
     expect(uploadQuotaLeft(uploads, "고1", 1, 20)).toBe(8);
   });
@@ -283,7 +312,11 @@ describe("buildCollectSummary", () => {
     const s = buildCollectSummary({ ...base, track: "고2", rows });
     expect(s.analysisActivityIds).toEqual(["a", "b"]);
     expect(s.bySource.total).toBe(2);
-    expect(s.byGroup).toEqual({ curricular: 1, extracurricular: 1 });
+    expect(s.byGroup).toEqual({
+      curricular: 1,
+      extracurricular: 1,
+      unclassified: 0,
+    });
     expect(s.semesters.map((r) => r.key)).toEqual([
       "고1-1",
       "고1-2",
@@ -297,35 +330,106 @@ describe("buildCollectSummary", () => {
     expect(s.gradeInputs.system).toBe("five");
   });
 
+  test("profile 이 null 이면 등급 체계 null 과 안내 경로로 요약을 만든다", () => {
+    const s = buildCollectSummary({
+      ...base,
+      profile: null,
+      track: "고2",
+      rows: [],
+    });
+    expect(s.gradeInputs.system).toBeNull();
+    expect(s.gradeInputs.note).toContain("입학 연도가 없어");
+  });
+
   test("1학년 활동이 0건이면 omitted 에 3-2 가 들어간다(No.51)", () => {
     const rows = [row({ id: "a", grade_label: "고2", semester: 1 })];
     const s = buildCollectSummary({ ...base, track: "고2", rows });
     expect(s.omitted.ids).toContain("3-2");
   });
 
-  test("추출 대기 중인 업로드 건수를 센다", () => {
-    const uploads = [
-      {
-        id: "u1",
-        grade_label: "고1",
-        semester: 1,
-        extraction_status: "pending",
-      },
-      { id: "u2", grade_label: "고1", semester: 1, extraction_status: "ok" },
-      {
-        id: "u3",
-        grade_label: "고1",
-        semester: 1,
-        extraction_status: "failed",
-      },
-    ] as const;
+  test("추출 대기와 처리 중인 업로드 건수를 센다", () => {
+    const u = (
+      id: string,
+      extraction_status: "pending" | "processing" | "ok" | "failed",
+    ) => ({
+      id,
+      file_name: `${id}.pdf`,
+      grade_label: "고1" as const,
+      semester: 1 as const,
+      extraction_status,
+    });
     const s = buildCollectSummary({
       ...base,
       track: "고2",
       rows: [],
-      uploads: [...uploads],
+      uploads: [
+        u("u1", "pending"),
+        u("u2", "ok"),
+        u("u3", "failed"),
+        u("u4", "processing"),
+      ],
     });
-    expect(s.uploadsPending).toBe(1);
+    expect(s.uploadsPending).toBe(2);
+  });
+
+  test("파일 목록과 학기별 남은 업로드 수를 분석 범위 학기만 담는다", () => {
+    const s = buildCollectSummary({
+      ...base,
+      track: "고2",
+      rows: [],
+      uploads: [
+        {
+          id: "u1",
+          file_name: "a.pdf",
+          grade_label: "고1",
+          semester: 1,
+          extraction_status: "ok",
+        },
+        {
+          id: "u2",
+          file_name: "b.pdf",
+          grade_label: "고1",
+          semester: 1,
+          extraction_status: "failed",
+        },
+        {
+          id: "u3",
+          file_name: "c.pdf",
+          grade_label: "고3",
+          semester: 1,
+          extraction_status: "ok",
+        },
+      ],
+    });
+    expect(s.uploads).toEqual([
+      {
+        id: "u1",
+        fileName: "a.pdf",
+        gradeLabel: "고1",
+        semester: 1,
+        status: "ok",
+      },
+      {
+        id: "u2",
+        fileName: "b.pdf",
+        gradeLabel: "고1",
+        semester: 1,
+        status: "failed",
+      },
+      {
+        id: "u3",
+        fileName: "c.pdf",
+        gradeLabel: "고3",
+        semester: 1,
+        status: "ok",
+      },
+    ]);
+    expect(s.uploadQuotaBySemester).toEqual({
+      "고1-1": 9,
+      "고1-2": 10,
+      "고2-1": 10,
+      "고2-2": 10,
+    });
   });
 
   test("부족 학기가 있으면 시안 문구로 경고한다", () => {
