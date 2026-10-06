@@ -16,6 +16,7 @@ import {
   COMMON_RULES,
   MODE_MAX_OUTPUT_TOKENS,
   RESPONSE_SCHEMAS,
+  RELIABILITY_REQUIRED_SENTENCE,
 } from "./prompts.js";
 import type { SectionId } from "./types.js";
 import { findMarkdown, FORBIDDEN_OUTPUT_PHRASES } from "./validation.js";
@@ -547,5 +548,16 @@ describe("buildEvaluationPrompt", () => {
     expectClean(
       r.user.replace(/<<학생 입력 시작>>[\s\S]*<<학생 입력 끝>>/, ""),
     );
+  });
+});
+
+describe("신뢰도 B, C 설계 지시 문장", () => {
+  it("I절 must 에 그대로 넣을 문장이 프롬프트에 들어가고 검증기 패턴과 맞는다", async () => {
+    const { RELIABILITY_REQUIRED_RE } = await import("./validation.js");
+    expect(
+      RELIABILITY_REQUIRED_RE.test(
+        RELIABILITY_REQUIRED_SENTENCE.replace(/\s+/g, ""),
+      ),
+    ).toBe(true);
   });
 });

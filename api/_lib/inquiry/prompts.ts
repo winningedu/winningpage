@@ -33,6 +33,10 @@ export type ResponseSchema = NonNullable<
 >;
 
 /** 모드별 응답 최대 출력 토큰(§2 26). */
+/** 신뢰도 B, C 설계의 Ⅰ절 must 에 그대로 넣게 하는 문장(No.39). 검증기 RELIABILITY_REQUIRED_RE 와 맞는다. */
+export const RELIABILITY_REQUIRED_SENTENCE =
+  "출발 활동에서 당시에는 어디까지 다루지 못했다고 밝힌다";
+
 export const MODE_MAX_OUTPUT_TOKENS: Record<GenerationMode, number> = {
   topic_recommendation: 4096,
   design_report: 6144,
@@ -491,7 +495,7 @@ export function buildDesignPrompt(input: {
   ];
   if (a.reliability !== "A") {
     parts.push(
-      `[신뢰도 ${a.reliability} 지시]\n출발 활동 내용은 학생의 기억이나 한 줄 입력에서 왔다. I절의 must나 tip에 "${RELIABILITY_PHRASE.required}"는 표현으로, 출발 활동에서 아직 다루지 못한 부분을 학생이 밝히게 안내한다. I절 어디에도 "${RELIABILITY_PHRASE.forbidden}"는 표현을 쓰지 않는다.`,
+      `[신뢰도 ${a.reliability} 지시]\n출발 활동 내용은 학생의 기억이나 한 줄 입력에서 왔다. I절 must 의 한 항목은 반드시 다음 문장을 글자 그대로 넣는다: "${RELIABILITY_REQUIRED_SENTENCE}". 출발 활동에서 아직 다루지 못한 부분을 학생이 스스로 밝히게 하는 뜻이다. I절 어디에도 "${RELIABILITY_PHRASE.forbidden}"는 표현과 그 변형을 쓰지 않는다.`,
     );
   }
   if (input.handoff) {

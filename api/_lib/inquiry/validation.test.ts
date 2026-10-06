@@ -18,6 +18,8 @@ import {
   validateDesignResponse,
   validateEvaluationResponse,
   validateTopicsResponse,
+  RELIABILITY_FORBIDDEN_RE,
+  RELIABILITY_REQUIRED_RE,
 } from "./validation.js";
 
 describe("금지 산출 사전", () => {
@@ -771,5 +773,20 @@ describe("validateEvaluationResponse", () => {
       }),
     );
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("신뢰도 문구 어미 변형(실측 완화)", () => {
+  it("다루지 못한, 다루지 못함 도 요구 표현으로 받는다", () => {
+    expect(
+      RELIABILITY_REQUIRED_RE.test("당시에는여기까지다루지못한점을밝힌다"),
+    ).toBe(true);
+    expect(RELIABILITY_REQUIRED_RE.test("다루지못함을적는다")).toBe(true);
+    expect(RELIABILITY_REQUIRED_RE.test("다루었다")).toBe(false);
+  });
+  it("확인하지 않은, 확인하지 않음 도 금지 표현으로 잡는다", () => {
+    expect(RELIABILITY_FORBIDDEN_RE.test("확인하지않은부분")).toBe(true);
+    expect(RELIABILITY_FORBIDDEN_RE.test("확인하지않음")).toBe(true);
+    expect(RELIABILITY_FORBIDDEN_RE.test("확인했다")).toBe(false);
   });
 });

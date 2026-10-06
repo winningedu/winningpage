@@ -510,6 +510,11 @@ function readSectionPlan(
   return { id, role: role as string, must, avoid, tip: tip as string };
 }
 
+/** "다루지 못했다" 와 그 어미 변형(공백 제거 뒤 비교). */
+export const RELIABILITY_REQUIRED_RE = /다루지못(했|한|함|해|하)/;
+/** "확인하지 않았다" 와 그 어미 변형(공백 제거 뒤 비교). */
+export const RELIABILITY_FORBIDDEN_RE = /확인하지않(았|은|음|아|는)/;
+
 /** 신뢰도 B, C 의 Ⅰ절 표현 규칙(No.39). */
 function checkReliabilityPhrase(
   sections: SectionPlan[],
@@ -519,19 +524,17 @@ function checkReliabilityPhrase(
   const first = sections.find((s) => s.id === "I");
   if (!first) return [];
   const issues: ValidationIssue[] = [];
+  // 어미 변형("다루지 못한", "다루지 못함")도 같은 뜻이라 받는다. 모델이 정확한 종결형을
+  // 쓰지 않아 재요청까지 실패하던 실측(2026-10-06) 뒤 완화. 금지 표현도 같은 기준으로 넓힌다.
   const guidance = stripSpaces([...first.must, first.tip].join(""));
-  if (!guidance.includes(stripSpaces(RELIABILITY_PHRASE.required))) {
+  if (!RELIABILITY_REQUIRED_RE.test(guidance)) {
     issues.push({
       code: "reliability_phrase_missing",
       message: `Ⅰ절 안내에 "${RELIABILITY_PHRASE.required}" 표현으로 출발 활동의 확인 범위를 밝히게 한다.`,
       path: "sections[0]",
     });
   }
-  if (
-    stripSpaces(collectText(first)).includes(
-      stripSpaces(RELIABILITY_PHRASE.forbidden),
-    )
-  ) {
+  if (RELIABILITY_FORBIDDEN_RE.test(stripSpaces(collectText(first)))) {
     issues.push({
       code: "reliability_phrase_forbidden",
       message: `Ⅰ절에 "${RELIABILITY_PHRASE.forbidden}" 표현을 쓰지 않는다.`,
