@@ -15,7 +15,6 @@ import {
   computeStep5,
   computeStep6,
   consistencyActivities,
-  overviewInput,
   representativeAxes,
 } from "./compute.js";
 import type {
@@ -276,9 +275,55 @@ describe("appSections 기본", () => {
       expect(item.format).toBe(def?.format);
       expect(item.badge).toBe(def?.badge);
     }
-    for (const id of ["1-1", "1-3", "1-4", "1-5", "1-12", "3-1"]) {
+    for (const id of ["1-3", "1-5", "3-1"]) {
       expect(find(items, id).evidence_ids).toEqual(["a1", "a2"]);
     }
+    for (const id of ["1-1", "1-4", "1-12", "1-13", "1-14", "3-10"]) {
+      expect(find(items, id).evidence_ids).toEqual([]);
+    }
+  });
+
+  it("1-5 근거는 과목이 확인된 활동만 든다", () => {
+    const context = ctx({
+      activities: [act("a1"), act("a2", { subjectGroup: null })],
+    });
+    const item = find(appSections(context, emptyOutputs(context)), "1-5");
+    expect(item.evidence_ids).toEqual(["a1"]);
+  });
+
+  it("3-1 근거는 저장된 1-8 섹션의 근거를 받고, 1-8 이 없으면 활동 전체다", () => {
+    const context = ctx({ activities: [act("a1"), act("a2"), act("a3")] });
+    const sec18 = {
+      id: "1-8",
+      title: "반복된 문제의식",
+      format: "list" as const,
+      badge: "fact" as const,
+      status: "ok" as const,
+      evidence_ids: ["a2"],
+      body: [],
+    };
+    const withSec = appSections(context, {
+      ...emptyOutputs(context),
+      narrative,
+      sections: [sec18],
+    });
+    expect(find(withSec, "3-1").evidence_ids).toEqual(["a2"]);
+    const without = appSections(context, {
+      ...emptyOutputs(context),
+      narrative,
+      sections: [],
+    });
+    expect(find(without, "3-1").evidence_ids).toEqual(["a1", "a2", "a3"]);
+  });
+
+  it("활동이 0건이면 서사가 있어도 3-1 은 no_data", () => {
+    const context = ctx({ activities: [] });
+    const item = find(
+      appSections(context, { ...emptyOutputs(context), narrative }),
+      "3-1",
+    );
+    expect(item.status).toBe("no_data");
+    expect(item.evidence_ids).toEqual([]);
   });
 
   it("제외 항목은 만들지 않는다", () => {
@@ -539,71 +584,5 @@ describe("appSections 성적 계열", () => {
     expect(body.rows.map((r) => r.key)).toEqual(["고2-2", "고3-1", "고3-2"]);
     // (1.8 * 6 - 8) / 3
     expect(body.requiredAverage).toBe(0.93);
-  });
-});
-
-describe("overviewInput", () => {
-  it("끊긴 학기는 활동 0건인 첫 학기", () => {
-    const context = ctx({
-      activities: [
-        act("a", { gradeLabel: "고1", semester: 1 }),
-        act("b", { gradeLabel: "고2", semester: 1 }),
-      ],
-    });
-    const o = overviewInput(context, emptyOutputs(context));
-    expect(o.brokenSemester).toBe("고1-2");
-    expect(o.activityCount).toBe(2);
-    expect(o.recommendedDone).toBeNull();
-    expect(o.recommendedTotal).toBeNull();
-  });
-
-  it("빈 학기가 없으면 null", () => {
-    const context = ctx({
-      range: { semesters: ["고1-1"], description: "d" },
-      activities: [act("a")],
-    });
-    expect(
-      overviewInput(context, emptyOutputs(context)).brokenSemester,
-    ).toBeNull();
-  });
-
-  it("일관성, 축, 곡선 값을 옮긴다", () => {
-    const context = ctx({
-      activities: [act("a")],
-      grades: {
-        system: "nine",
-        semesters: [
-          { key: "고1-1", average: 3, source: "direct" },
-          { key: "고1-2", average: 3, source: "direct" },
-          { key: "고2-1", average: 2, source: "direct" },
-        ],
-        note: null,
-      },
-    });
-    const signals = [sig("a", { axes: ["A"], linkage: ["subject_link"] })];
-    const outputs = {
-      classification: classify(context),
-      narrative: null,
-      consistency: computeStep5(context, signals).consistency,
-      axes: computeStep6(context, signals),
-      signals,
-    };
-    const o = overviewInput(context, outputs);
-    expect(o.consistencyPercent).toBe(100);
-    expect(o.consistencyLabel).toBe("뚜렷함");
-    expect(o.axesTotal).toBe(5);
-    expect(o.axesConfirmed).toBe(0);
-    expect(o.weakestAxisText).toMatch(/보강이 가장 급해요$/);
-    expect(o.curveLabel).toBe("상승");
-    expect(o.actual).toBe("2.67");
-    expect(o.estimate).toBe("2.37");
-  });
-
-  it("성적이 없으면 곡선 값은 null", () => {
-    const context = ctx();
-    const o = overviewInput(context, emptyOutputs(context));
-    expect(o.estimate).toBeNull();
-    expect(o.actual).toBeNull();
-    expect(o.curveLabel).toBeNull();
   });
 });

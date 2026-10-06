@@ -19,6 +19,7 @@ import {
 import { capPlanItems } from "../tracks.js";
 import type { Axis } from "../types.js";
 import {
+  EVIDENCE_EXEMPT_SECTION_IDS,
   FORBIDDEN_PHRASES,
   type StepValidationResult,
   type ValidationIssue,
@@ -593,14 +594,15 @@ function parseSections(
       evidence_ids: evidence,
     };
     if (raw.status === "no_data") {
+      const reason =
+        typeof raw.no_data_reason === "string" && raw.no_data_reason !== ""
+          ? raw.no_data_reason
+          : NO_DATA_TEXT;
       found.set(def.id, {
         ...base,
         status: "no_data",
-        body: null,
-        no_data_reason:
-          typeof raw.no_data_reason === "string" && raw.no_data_reason !== ""
-            ? raw.no_data_reason
-            : NO_DATA_TEXT,
+        body: { text: NO_DATA_TEXT, reason },
+        no_data_reason: reason,
       });
       continue;
     }
@@ -846,7 +848,17 @@ function checkVerdictLabels(
   for (const e of axes) {
     const id = AXIS_SECTION[e.axis];
     const section = sections.find((x) => x.id === id);
-    if (!section || section.status === "no_data") continue;
+    if (section?.status === "no_data") {
+      if (e.count > 0) {
+        issues.push({
+          code: "axis_no_data_with_evidence",
+          message: `항목 "${id}" 은 활동 ${e.count}건이 있는 축인데 no_data 로 두었습니다. 활동 근거로 작성하세요.`,
+          path: id,
+        });
+      }
+      continue;
+    }
+    if (!section) continue;
     const rows =
       isRecord(section.body) && Array.isArray(section.body.rows)
         ? section.body.rows
@@ -894,10 +906,21 @@ export function validateStepOutput(
   });
   const issues = [...result.issues];
 
-  // validateStep 은 근거 id 대조를 6단계 이후에만 하므로 3, 4, 5단계는 여기서 맡는다.
+  // validateStep 은 근거 누락과 근거 id 대조를 6단계 이후에만 하므로 3, 4, 5단계는 여기서 맡는다.
   if (step === 3 || step === 4 || step === 5) {
     const known = new Set(context.evidenceIds);
     for (const s of sections) {
+      if (
+        s.status !== "no_data" &&
+        !EVIDENCE_EXEMPT_SECTION_IDS.includes(s.id) &&
+        s.evidence_ids.length < 1
+      ) {
+        issues.push({
+          code: "missing_evidence",
+          message: `항목 "${s.id}" 에 근거(evidence_ids)가 연결되어 있지 않습니다.`,
+          path: s.id,
+        });
+      }
       const bad = s.evidence_ids.filter((e) => !known.has(e));
       if (bad.length > 0) {
         issues.push({

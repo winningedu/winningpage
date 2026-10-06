@@ -4,11 +4,9 @@
 
 import {
   AXES,
-  AXIS_NAMES,
   type AxisEvaluation,
   type AxisEvidence,
   evaluateAxes,
-  weakestAxis,
 } from "../axes.js";
 import {
   type ConsistencyActivity,
@@ -25,7 +23,6 @@ import {
   NARRATIVE_STAGE_LABELS,
   type Narrative,
   NO_DATA_TEXT,
-  type OverviewInput,
   SECTION_REGISTRY,
   type SectionDef,
   type SectionItem,
@@ -188,6 +185,8 @@ export type AppSectionOutputs = {
   consistency: ConsistencyResult;
   axes: AxisEvaluation[];
   signals: ActivitySignal[];
+  /** 저장된 앞 단계 섹션. 3-1 근거를 1-8 에서 받는 데 쓴다. */
+  sections?: SectionItem[];
 };
 
 const VERDICT_LABEL_KO: Record<CurveVerdict, string> = {
@@ -298,12 +297,12 @@ function profileRows(
   ];
 }
 
-function section12(ids: string[], info: CurveInfo | null): SectionItem {
+function section12(info: CurveInfo | null): SectionItem {
   if (info === null) {
     return noDataItem("1-12", "성적 자료가 아직 없어요");
   }
   const { summary } = info;
-  return okItem("1-12", ids, {
+  return okItem("1-12", [], {
     system: info.system,
     points: info.points,
     actual: summary.actual,
@@ -315,7 +314,7 @@ function section12(ids: string[], info: CurveInfo | null): SectionItem {
   });
 }
 
-function section13(ids: string[], info: CurveInfo | null): SectionItem {
+function section13(info: CurveInfo | null): SectionItem {
   if (info === null || info.summary.estimate === null) {
     return noDataItem("1-13", "성적 자료가 아직 없어요");
   }
@@ -324,7 +323,7 @@ function section13(ids: string[], info: CurveInfo | null): SectionItem {
     summary.correction === null || summary.correction === 0
       ? "보정 없음"
       : `${summary.correction > 0 ? "+" : ""}${summary.correction}`;
-  return okItem("1-13", ids, {
+  return okItem("1-13", [], {
     rows: [
       { label: "실제 평균", value: String(summary.actual) },
       { label: "곡선 판정", value: VERDICT_LABEL_KO[summary.verdict] },
@@ -339,7 +338,6 @@ function section13(ids: string[], info: CurveInfo | null): SectionItem {
 
 function section14(
   context: ReportContext,
-  ids: string[],
   info: CurveInfo | null,
 ): SectionItem {
   const estimate = info?.summary.estimate ?? null;
@@ -351,7 +349,7 @@ function section14(
       "희망 대학 입결이나 내부 추정 등급이 아직 없어요",
     );
   }
-  return okItem("1-14", ids, {
+  return okItem("1-14", [], {
     estimate,
     rows: universities.map((u) => {
       const cmp = compareWithAdmission({ estimate, cuts: u.cuts });
@@ -371,7 +369,7 @@ function section14(
   });
 }
 
-function section310(context: ReportContext, ids: string[]): SectionItem {
+function section310(context: ReportContext): SectionItem {
   const completed = context.grades.semesters.flatMap((s) =>
     s.average === null ? [] : [{ key: s.key, average: s.average }],
   );
@@ -389,6 +387,8 @@ function section310(context: ReportContext, ids: string[]): SectionItem {
       "희망 대학 입결이나 완료 학기 성적이 아직 없어요",
     );
   }
+  // 여러 희망 대학 중 가장 낮은 컷(가장 어려운 곳) 기준이다.
+  // 명세 No.81 은 기준 대학을 정하지 않아 보수적으로 잡은 가정이다.
   const targetCut = Math.min(...latestCuts);
   const lastDone = Math.max(
     ...completed.map((c) => ALL_SEMESTERS.indexOf(c.key)),
@@ -401,7 +401,7 @@ function section310(context: ReportContext, ids: string[]): SectionItem {
     remainingSemesters,
     targetCut,
   });
-  return okItem("3-10", ids, {
+  return okItem("3-10", [], {
     targetCut,
     requiredAverage: result.requiredAverage,
     reachable: result.reachable,
@@ -425,10 +425,18 @@ export function appSections(
   const ids = context.activities.map((a) => a.id);
   const info = curveInfo(context);
   const { classification, narrative, signals } = outputs;
+  const subjectIds = context.activities
+    .filter((a) => a.subjectGroup !== null)
+    .map((a) => a.id);
+  const sec18 = outputs.sections?.find((x) => x.id === "1-8");
+  const narrativeIds =
+    sec18 && sec18.status === "ok" && sec18.evidence_ids.length > 0
+      ? sec18.evidence_ids
+      : ids;
   const axesById = new Map(signals.map((s) => [s.activityId, s.axes]));
 
   const builders: [string, () => SectionItem][] = [
-    ["1-1", () => okItem("1-1", ids, { rows: profileRows(context) })],
+    ["1-1", () => okItem("1-1", [], { rows: profileRows(context) })],
     [
       "1-3",
       () =>
@@ -448,7 +456,7 @@ export function appSections(
     [
       "1-4",
       () =>
-        okItem("1-4", ids, {
+        okItem("1-4", [], {
           bars: classification.byGrade.map((g) => ({
             label: g.grade,
             value: g.count,
@@ -460,21 +468,21 @@ export function appSections(
       () =>
         classification.bySubjectGroup.length === 0
           ? noDataItem("1-5", "과목이 확인된 활동이 아직 없어요")
-          : okItem("1-5", ids, {
+          : okItem("1-5", subjectIds, {
               bars: classification.bySubjectGroup.map((s) => ({
                 label: s.subjectGroup,
                 value: s.count,
               })),
             }),
     ],
-    ["1-12", () => section12(ids, info)],
-    ["1-13", () => section13(ids, info)],
-    ["1-14", () => section14(context, ids, info)],
+    ["1-12", () => section12(info)],
+    ["1-13", () => section13(info)],
+    ["1-14", () => section14(context, info)],
     [
       "3-1",
       () =>
-        narrative
-          ? okItem("3-1", ids, {
+        narrative && context.activities.length > 0
+          ? okItem("3-1", narrativeIds, {
               theme: narrative.theme,
               subthemes: narrative.subthemes.map((s) => ({
                 grade: s.grade,
@@ -487,47 +495,10 @@ export function appSections(
     ],
     ["3-8", () => noDataItem("3-8", "권장과목, 인재상 자료가 아직 없어요")],
     ["3-9", () => noDataItem("3-9", "권장과목, 인재상 자료가 아직 없어요")],
-    ["3-10", () => section310(context, ids)],
+    ["3-10", () => section310(context)],
   ];
 
   return builders
     .filter(([id]) => !omitted.has(id))
     .map(([, build]) => build());
-}
-
-// ---------------------------------------------------------------------------
-// 한눈에 카드 입력
-// ---------------------------------------------------------------------------
-
-export function overviewInput(
-  context: ReportContext,
-  outputs: AppSectionOutputs,
-): OverviewInput {
-  const { consistency, axes, classification } = outputs;
-  const info = curveInfo(context);
-  const weakest = weakestAxis(axes);
-  // 모두 확인됨이면 가장 부족한 축 문구를 생략한다.
-  const weakestAxisText =
-    weakest && weakest.verdict !== "confirmed"
-      ? `${AXIS_NAMES[weakest.axis]} 보강이 가장 급해요`
-      : null;
-  return {
-    consistencyPercent: consistency.percent,
-    consistencyLabel: consistency.verdictLabel,
-    axesConfirmed:
-      axes.length === 0
-        ? null
-        : axes.filter((a) => a.verdict === "confirmed").length,
-    axesTotal: axes.length === 0 ? null : AXES.length,
-    weakestAxisText,
-    estimate:
-      info?.summary.estimate == null ? null : String(info.summary.estimate),
-    actual: info === null ? null : String(info.summary.actual),
-    curveLabel: info === null ? null : VERDICT_LABEL_KO[info.summary.verdict],
-    recommendedDone: null,
-    recommendedTotal: null,
-    brokenSemester:
-      classification.bySemester.find((s) => s.count === 0)?.key ?? null,
-    activityCount: context.activities.length,
-  };
 }

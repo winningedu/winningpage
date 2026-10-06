@@ -17,13 +17,14 @@ import {
   type CarriedItem,
   type CompletionPayload,
   completionPayload,
-  mergeSections as mergeByRegistry,
+  mergeSections,
 } from "./assemble.js";
 import {
   appSections,
   classify,
   computeStep5,
   computeStep6,
+  consistencyActivities,
 } from "./compute.js";
 import {
   buildStepPrompt,
@@ -150,14 +151,6 @@ export function readStored(stored: StoredOutputs): ReadStored {
   };
 }
 
-/** 같은 id 는 incoming 이 덮고, 순서는 레지스트리 순이다. 기존의 다른 단계 섹션은 남는다. */
-export function mergeSections(
-  existing: SectionItem[],
-  incoming: SectionItem[],
-): SectionItem[] {
-  return mergeByRegistry(existing, incoming);
-}
-
 const fatal = (step: StepNumber, issues: ValidationIssue[]): RunStepResult => ({
   ok: false,
   step,
@@ -201,7 +194,7 @@ async function callWithRetry(
         ok: false,
         step,
         issues: lastIssues,
-        extraAttempts: attempt === 0 ? 0 : 1,
+        extraAttempts: 0,
         failure: "timeout",
       };
     }
@@ -266,6 +259,29 @@ function noDataSection(id: string, reason: string): SectionItem {
     evidence_ids: [],
     body: { text: NO_DATA_TEXT, reason },
     no_data_reason: reason,
+  };
+}
+
+/** 1-10 본문의 계산 필드는 모델이 아니라 앱 일관성 값으로 고정한다. 해석 문장 등 나머지는 모델 값을 둔다. */
+function withAppConsistency(
+  item: SectionItem,
+  c: ConsistencyResult,
+  linkedIds: string[],
+): SectionItem {
+  if (item.status === "no_data") return item;
+  const body = isRecord(item.body) ? item.body : {};
+  return {
+    ...item,
+    body: {
+      ...body,
+      percent: c.percent,
+      formula: c.formula,
+      verdictLabel: c.verdictLabel,
+      linked: linkedIds,
+      total: c.total,
+      smallSample: c.smallSample,
+      criteria: c.criteria,
+    },
   };
 }
 
@@ -351,6 +367,56 @@ function modelResult(
   }
 }
 
+const NO_ACTIVITY_REASON = "분석할 활동이 없어요";
+
+/** 활동 0건 회차의 3, 4, 6, 7단계. 앱이 no_data 섹션과 빈 산출물만 만든다. */
+function noActivityResult(
+  step: 3 | 4 | 6 | 7,
+  context: ReportContext,
+  stored: StoredOutputs,
+  s: ReadStored,
+): RunStepResult {
+  const sections = stepSectionIds(step, context).map((id) =>
+    noDataSection(id, NO_ACTIVITY_REASON),
+  );
+  const merged = mergeSections(s.sections, sections);
+  switch (step) {
+    case 3:
+      return ok(
+        step,
+        { step, sections },
+        {
+          narrative_theme: null,
+          grade_subthemes: null,
+          stage: null,
+          sections: merged,
+        },
+      );
+    case 4: {
+      const match: MatchSignals = { aligned: [], conflicting: [] };
+      return ok(
+        step,
+        { step, match, sections },
+        { signals: { ...signalsBase(stored), match }, sections: merged },
+      );
+    }
+    case 6: {
+      const axes = computeStep6(context, s.signals);
+      return ok(
+        step,
+        { step, axes, sections },
+        { axis_scores: axes, sections: merged },
+      );
+    }
+    case 7:
+      return ok(
+        step,
+        { step, sections, planDraft: [] },
+        { sections: merged, planDraft: [] },
+      );
+  }
+}
+
 export async function runStep(
   step: StepNumber,
   context: ReportContext,
@@ -378,6 +444,7 @@ export async function runStep(
       consistency: s.consistency,
       axes: s.axes,
       signals: s.signals,
+      sections: s.sections,
     });
     const assembled = assembleFinal(context, s.sections, app);
     if (!assembled.ok) {
@@ -386,7 +453,8 @@ export async function runStep(
         step,
         issues: assembled.issues,
         extraAttempts: 0,
-        failure: "validation",
+        // 같은 입력이면 조립 결과도 같아 재시도해도 소용없다.
+        failure: "fatal",
       };
     }
     const planDraft = s.planDraft ?? [];
@@ -422,6 +490,10 @@ export async function runStep(
   if (step === 3 || step === 4 || step === 5) {
     if (!hasByActivity(stored)) return missingPrior(step, "signals");
   }
+  // 활동이 0건이면 모델을 부르지 않는다. 근거 없이 서술하지 않고, 추천도 만들지 않는다.
+  if (context.activities.length === 0 && step !== 5) {
+    return noActivityResult(step, context, stored, s);
+  }
   if (step === 7) {
     if (!s.narrative) return missingPrior(step, "narrative");
     if (!s.match) return missingPrior(step, "match");
@@ -451,9 +523,17 @@ export async function runStep(
       { expectedFormula },
       { consistency },
     );
-    return r.ok
-      ? modelResult(5, context, stored, s, r.output, r.extraAttempts)
-      : r;
+    if (!r.ok) return r;
+    const linkedIds = consistencyActivities(context, s.signals)
+      .filter((a) => a.signals.length > 0)
+      .map((a) => a.id);
+    const output: StepOutput = {
+      ...r.output,
+      sections: (r.output.sections ?? []).map((x) =>
+        x.id === "1-10" ? withAppConsistency(x, consistency, linkedIds) : x,
+      ),
+    };
+    return modelResult(5, context, stored, s, output, r.extraAttempts);
   }
 
   if (step === 6) {

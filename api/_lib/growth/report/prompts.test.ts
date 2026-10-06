@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_DATA_TEXT } from "../sections.js";
 import {
   buildStepPrompt,
   parseStepResponse,
@@ -273,6 +274,7 @@ describe("섹션 정규화", () => {
     expect(r.output.sections?.[0]).toMatchObject({
       status: "no_data",
       no_data_reason: "자료 없음",
+      body: { text: NO_DATA_TEXT, reason: "자료 없음" },
     });
     const bad = parseStepResponse(
       3,
@@ -564,6 +566,68 @@ describe("validateStepOutput", () => {
     expect(r6.issues.map((i) => i.code)).toContain("unknown_evidence");
   });
 
+  it("3, 4, 5단계도 근거 없는 ok 섹션은 missing_evidence 로 막는다", () => {
+    const ctx = makeContext();
+    const r3 = validateStepOutput(
+      3,
+      {
+        step: 3,
+        narrative: validNarrative() as never,
+        sections: [
+          okSection("1-8", { format: "list", body: [], evidence_ids: [] }),
+        ],
+      },
+      ctx,
+      {},
+    );
+    expect(r3.issues).toContainEqual(
+      expect.objectContaining({ code: "missing_evidence", path: "1-8" }),
+    );
+    const r4 = validateStepOutput(
+      4,
+      {
+        step: 4,
+        match: { aligned: [], conflicting: [] },
+        sections: [okSection("1-2", { evidence_ids: [] })],
+      },
+      ctx,
+      {},
+    );
+    expect(r4.issues.map((i) => i.code)).toContain("missing_evidence");
+    const r5 = validateStepOutput(
+      5,
+      {
+        step: 5,
+        sections: [
+          okSection("1-9", {
+            format: "table",
+            body: { rows: [] },
+            evidence_ids: [],
+          }),
+        ],
+      },
+      ctx,
+      {},
+    );
+    expect(r5.issues.map((i) => i.code)).toContain("missing_evidence");
+  });
+
+  it("no_data 섹션은 근거가 없어도 missing_evidence 가 아니다", () => {
+    const r = validateStepOutput(
+      4,
+      {
+        step: 4,
+        match: { aligned: [], conflicting: [] },
+        sections: [
+          okSection("1-2", { status: "no_data", evidence_ids: [], body: null }),
+        ],
+      },
+      makeContext(),
+      {},
+    );
+    expect(r.issues.map((i) => i.code)).not.toContain("missing_evidence");
+  });
+
   it("3단계는 서사 검증 결과를 합친다", () => {
     const ctx = makeContext();
     const r = validateStepOutput(
@@ -652,6 +716,49 @@ describe("validateStepOutput", () => {
       { axes },
     );
     expect(bad.issues.map((i) => i.code)).toContain("verdict_label_mismatch");
+  });
+
+  it("6단계는 활동이 있는 축의 섹션을 no_data 로 두면 문제로 낸다", () => {
+    const axis = (count: number) =>
+      [
+        {
+          axis: "A",
+          name: "학업역량",
+          count,
+          required: 5,
+          verdict: "caution",
+          verdictLabel: "주의",
+          guideline: "g",
+          optional: false,
+          activityIds: count > 0 ? ["a1"] : [],
+        },
+      ] as never;
+    const noData = okSection("2-1", {
+      status: "no_data",
+      evidence_ids: [],
+      body: null,
+    });
+    const withEvidence = validateStepOutput(
+      6,
+      { step: 6, sections: [noData] },
+      makeContext(),
+      { axes: axis(1) },
+    );
+    expect(withEvidence.issues).toContainEqual(
+      expect.objectContaining({
+        code: "axis_no_data_with_evidence",
+        path: "2-1",
+      }),
+    );
+    const without = validateStepOutput(
+      6,
+      { step: 6, sections: [noData] },
+      makeContext(),
+      { axes: axis(0) },
+    );
+    expect(without.issues.map((i) => i.code)).not.toContain(
+      "axis_no_data_with_evidence",
+    );
   });
 
   describe("7단계 실행계획", () => {

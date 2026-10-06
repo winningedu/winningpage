@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { NO_DATA_TEXT, type SectionItem } from "../sections.js";
 import {
-  mergeSections,
+  expectedSectionIds,
+  NO_DATA_TEXT,
+  type SectionItem,
+} from "../sections.js";
+import { validateStep } from "../validation.js";
+import {
   type RunStepDeps,
   readStored,
   runStep,
@@ -211,19 +215,6 @@ describe("readStored", () => {
   });
 });
 
-describe("mergeSections", () => {
-  const sec = (id: string, text: string) =>
-    ({ id, body: text }) as unknown as SectionItem;
-  it("같은 id 는 incoming 이 덮고 다른 단계 섹션은 남기며 레지스트리 순이다", () => {
-    const merged = mergeSections(
-      [sec("1-8", "old"), sec("1-2", "keep")],
-      [sec("1-8", "new"), sec("1-1", "x")],
-    );
-    expect(merged.map((s) => s.id)).toEqual(["1-1", "1-2", "1-8"]);
-    expect(merged.find((s) => s.id === "1-8")?.body).toBe("new");
-  });
-});
-
 const sec8 = (over: Record<string, unknown> = {}) => ({
   id: "1-8",
   status: "ok",
@@ -340,6 +331,30 @@ describe("3단계 모델 호출", () => {
     });
   });
 
+  it("첫 호출 뒤 예산이 바닥나 재시도를 못 하면 extraAttempts 0", async () => {
+    let t = 0;
+    const callModel = vi.fn(async () => {
+      t += 20_000;
+      return "not json";
+    });
+    const r = await runStep(
+      3,
+      makeContext(),
+      withSignals,
+      deps({
+        callModel,
+        budgetMs: 10_000,
+        now: () => new Date(Date.UTC(2026, 9, 6) + t).toISOString(),
+      }),
+    );
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(r).toMatchObject({
+      ok: false,
+      failure: "timeout",
+      extraAttempts: 0,
+    });
+  });
+
   it("남은 예산이 0 이하면 호출하지 않고 timeout", async () => {
     const d = deps({ budgetMs: 0 });
     const r = await runStep(3, makeContext(), withSignals, d);
@@ -369,6 +384,78 @@ describe("5단계", () => {
       });
     }
     expect(r.patch.consistency).toMatchObject({ total: 0 });
+  });
+});
+
+describe("5단계 모델 호출", () => {
+  const sigs = [
+    {
+      activityId: "a1",
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+    {
+      activityId: "a2",
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+    {
+      activityId: "a3",
+      axes: ["C"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+  ];
+  it("1-10 본문의 계산 필드는 모델 값이 아니라 앱 값으로 덮는다", async () => {
+    const ctx = makeContext();
+    const { computeStep5 } = await import("./compute.js");
+    const { consistency, expectedFormula } = computeStep5(ctx, sigs as never);
+    const model = JSON.stringify({
+      formula: expectedFormula,
+      sections: [
+        { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
+        {
+          id: "1-10",
+          status: "ok",
+          evidence_ids: ["a1"],
+          body: {
+            percent: 1,
+            verdictLabel: "엉터리",
+            linked: 99,
+            total: 7,
+            text: "해석",
+          },
+        },
+      ],
+    });
+    const r = await runStep(
+      5,
+      ctx,
+      emptyStored({ signals: { byActivity: sigs } }),
+      deps({ callModel: vi.fn(async () => model) }),
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item?.body).toMatchObject({
+      percent: consistency.percent,
+      formula: consistency.formula,
+      verdictLabel: consistency.verdictLabel,
+      total: consistency.total,
+      smallSample: consistency.smallSample,
+      criteria: consistency.criteria,
+      linked: ["a1", "a2", "a3"],
+      text: "해석",
+    });
   });
 });
 
@@ -431,10 +518,114 @@ describe("8단계", () => {
     const r = await runStep(8, ctx, stored, deps());
     expect(r).toMatchObject({
       ok: false,
-      failure: "validation",
+      failure: "fatal",
       extraAttempts: 0,
     });
     if (!r.ok) expect(r.issues.length).toBeGreaterThan(0);
+  });
+});
+
+describe("8단계 3-1 근거", () => {
+  it("저장된 1-8 섹션의 근거를 3-1 이 받는다", async () => {
+    const ctx = makeContext({
+      expectedSectionIds: expectedSectionIds({ omit: [] }).filter(
+        (id) => !/^(1-2|1-6|1-7|1-9|1-10|1-11|2-|3-[2-7]|3-1[1-3])/.test(id),
+      ),
+    });
+    const first = await runStep(2, ctx, withSignals, deps());
+    if (!first.ok) throw new Error("step2");
+    const cls = (first.patch.signals as Record<string, unknown>).classification;
+    const r = await runStep(
+      8,
+      ctx,
+      emptyStored({
+        signals: { byActivity: [], classification: cls },
+        narrative_theme: "주제",
+        grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+        consistency: await consistencyOf(ctx),
+        axis_scores: await axesOf(ctx),
+        sections: [
+          {
+            id: "1-8",
+            title: "반복된 문제의식",
+            format: "list",
+            badge: "fact",
+            status: "ok",
+            evidence_ids: ["a2"],
+            body: [],
+          },
+        ],
+      }),
+      deps({ carried: [] }),
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = r.completion?.sections.find((x) => x.id === "3-1");
+    expect(item?.evidence_ids).toEqual(["a2"]);
+  });
+});
+
+describe("활동 0건 회차", () => {
+  const zero = () =>
+    makeContext({
+      activities: [],
+      evidenceIds: [],
+      expectedSectionIds: expectedSectionIds({ omit: [] }),
+    });
+
+  it("모델 없이 1단계부터 8단계까지 끝까지 통과한다", async () => {
+    const ctx = zero();
+    const d = deps({ carried: [] });
+    let stored = emptyStored();
+    for (const step of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
+      const r = await runStep(step, ctx, stored, d);
+      if (!r.ok) throw new Error(`${step}: ${JSON.stringify(r.issues)}`);
+      stored = { ...stored, ...r.patch } as StoredOutputs;
+      if (step === 8) {
+        expect(r.completion?.planRows).toEqual([]);
+        expect(r.completion?.sections).toHaveLength(37);
+        const verdict = validateStep(
+          8,
+          { sections: r.completion?.sections },
+          {
+            expectedSectionIds: ctx.expectedSectionIds,
+            knownEvidenceIds: ctx.evidenceIds,
+          },
+        );
+        expect(verdict.issues).toEqual([]);
+      }
+    }
+    expect(d.callModel).not.toHaveBeenCalled();
+    expect(stored.narrative_theme).toBeNull();
+    expect(stored.grade_subthemes).toBeNull();
+    expect(stored.stage).toBeNull();
+    expect(stored.planDraft).toEqual([]);
+    expect((stored.signals as { match: unknown }).match).toEqual({
+      aligned: [],
+      conflicting: [],
+    });
+  });
+
+  it("3, 4, 6, 7단계 섹션은 전부 no_data 와 같은 사유를 쓴다", async () => {
+    const ctx = zero();
+    let stored = emptyStored({ signals: { byActivity: [] } });
+    const ids: Record<number, string[]> = {};
+    for (const step of [3, 4, 5, 6, 7] as const) {
+      const r = await runStep(step, ctx, stored, deps());
+      if (!r.ok) throw new Error(`${step}: ${JSON.stringify(r.issues)}`);
+      stored = { ...stored, ...r.patch } as StoredOutputs;
+      ids[step] = (r.output.sections ?? []).map((x) => x.id);
+      for (const x of r.output.sections ?? []) {
+        expect(x).toMatchObject({
+          status: "no_data",
+          evidence_ids: [],
+          no_data_reason: "분석할 활동이 없어요",
+        });
+      }
+    }
+    expect(ids[3]).toEqual(["1-8"]);
+    expect(ids[4]).toEqual(["1-2", "1-6", "1-7", "1-11"]);
+    expect(ids[6]).toHaveLength(10);
+    expect(ids[7]).toHaveLength(9);
   });
 });
 
