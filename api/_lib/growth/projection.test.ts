@@ -28,6 +28,44 @@ describe("projectCompletion", () => {
     });
   });
 
+  test("연결 3건과 비연결 3건을 완료하면 10/20 = 50% 로 예측한다", () => {
+    const result = projectCompletion({
+      current: {
+        consistency: { linked: 7, total: 14 },
+        axisCounts: zero,
+        grade: "고2",
+      },
+      items: [
+        { id: "1", linksToTheme: true },
+        { id: "2", linksToTheme: true },
+        { id: "3", linksToTheme: true },
+        { id: "4", linksToTheme: false },
+        { id: "5" },
+        { id: "6", linksToTheme: false },
+      ],
+    });
+    expect(result.consistency.after).toEqual({
+      percent: 50,
+      verdictLabel: "갈리는 중",
+    });
+  });
+
+  test("한 항목이 C 와 D 두 축 근거를 함께 올린다", () => {
+    const result = projectCompletion({
+      current: {
+        consistency: { linked: 0, total: 0 },
+        axisCounts: zero,
+        grade: "고2",
+      },
+      items: [{ id: "1", axes: ["C", "D"] }],
+    });
+    const count = (axis: Axis) =>
+      result.axes.find((a) => a.axis === axis)?.after.count;
+    expect(count("C")).toBe(1);
+    expect(count("D")).toBe(1);
+    expect(count("A")).toBe(0);
+  });
+
   test("D 과제 3건을 완료하면 D 축이 아직 없음에서 확인됨으로 바뀐다", () => {
     const result = projectCompletion({
       current: {
@@ -36,9 +74,9 @@ describe("projectCompletion", () => {
         grade: "고2",
       },
       items: [
-        { id: "1", axis: "D" },
-        { id: "2", axis: "D" },
-        { id: "3", axis: "D" },
+        { id: "1", axes: ["D"] },
+        { id: "2", axes: ["D"] },
+        { id: "3", axes: ["D"] },
       ],
     });
     const d = result.axes.find((a) => a.axis === "D");
@@ -55,8 +93,8 @@ describe("projectCompletion", () => {
         grade: "고2",
       },
       items: [
-        { id: "1", axis: "D", linksToTheme: true, done: true },
-        { id: "2", axis: "D", linksToTheme: true, done: true },
+        { id: "1", axes: ["D"], linksToTheme: true, done: true },
+        { id: "2", axes: ["D"], linksToTheme: true, done: true },
       ],
     });
     expect(result.consistency.after).toEqual(result.consistency.before);

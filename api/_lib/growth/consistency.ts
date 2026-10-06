@@ -41,9 +41,10 @@ function toPercent(linked: number, total: number): number {
   return Math.round((linked / total) * 1000) / 10;
 }
 
-function judge(percent: number): ConsistencyVerdict {
-  if (percent >= CLEAR_MIN) return "clear";
-  if (percent >= SPLITTING_MIN) return "splitting";
+/** 판정은 반올림 전 원비율을 정수 곱셈으로 비교한다. total 은 1 이상이어야 한다. */
+function judge(linked: number, total: number): ConsistencyVerdict {
+  if (linked * 100 >= CLEAR_MIN * total) return "clear";
+  if (linked * 100 >= SPLITTING_MIN * total) return "splitting";
   return "scattered";
 }
 
@@ -80,7 +81,7 @@ export function computeConsistency(
     };
   }
   const percent = toPercent(linked, total);
-  const verdict = judge(percent);
+  const verdict = judge(linked, total);
   return {
     ...base,
     percent,
@@ -124,15 +125,18 @@ export type ConsistencyProjection = {
 
 /**
  * 완료 시 변화 예측(No.103).
- * 새 활동이 생기는 것이므로 전체도 additionalLinked 만큼 늘어난다고 본다.
+ * addedTotal 은 새로 생기는 활동 수(연결 여부 무관), addedLinked 는 그중 연결되는 수다.
+ * addedLinked 가 addedTotal 보다 크면 addedTotal 로 맞춘다.
  */
 export function projectConsistency(
   current: { linked: number; total: number } | null,
-  additionalLinked: number,
+  addedLinked: number,
+  addedTotal: number,
 ): ConsistencyProjection | null {
   if (current === null) return null;
-  const total = current.total + additionalLinked;
+  const clampedLinked = Math.min(addedLinked, addedTotal);
+  const linked = current.linked + clampedLinked;
+  const total = current.total + addedTotal;
   if (total === 0) return { percent: null, verdict: null };
-  const percent = toPercent(current.linked + additionalLinked, total);
-  return { percent, verdict: judge(percent) };
+  return { percent: toPercent(linked, total), verdict: judge(linked, total) };
 }

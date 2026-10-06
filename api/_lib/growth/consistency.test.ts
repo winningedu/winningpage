@@ -19,7 +19,7 @@ function makeActivities(linked: number, total: number): ConsistencyActivity[] {
 }
 
 describe("computeConsistency", () => {
-  test("7/14 는 50% 이고 '갈리는 중' 으로 판정한다(No.59·60)", () => {
+  test("7/14 는 50% 이고 '갈리는 중' 으로 판정한다(No.59, 60)", () => {
     const r = computeConsistency(makeActivities(7, 14));
     expect(r.percent).toBe(50);
     expect(r.linked).toBe(7);
@@ -28,14 +28,14 @@ describe("computeConsistency", () => {
     expect(r.verdictLabel).toBe("갈리는 중");
   });
 
-  test("9/14 는 64.3% 이고 '뚜렷함' 이다(No.59·60)", () => {
+  test("9/14 는 64.3% 이고 '뚜렷함' 이다(No.59, 60)", () => {
     const r = computeConsistency(makeActivities(9, 14));
     expect(r.percent).toBe(64.3);
     expect(r.verdict).toBe("clear");
     expect(r.verdictLabel).toBe("뚜렷함");
   });
 
-  test("4/14 는 28.6% 이고 '흩어짐' 이다(No.59·60)", () => {
+  test("4/14 는 28.6% 이고 '흩어짐' 이다(No.59, 60)", () => {
     const r = computeConsistency(makeActivities(4, 14));
     expect(r.percent).toBe(28.6);
     expect(r.verdict).toBe("scattered");
@@ -130,12 +130,45 @@ describe("linkedBreakdown", () => {
 });
 
 describe("projectConsistency", () => {
-  test("7/14 에 연결 3건이 추가되면 전체도 늘어 10/17 로 예측한다(No.103)", () => {
-    const r = projectConsistency({ linked: 7, total: 14 }, 3);
+  test("7/14 에 활동 3건이 모두 연결되면 10/17 로 예측한다(No.103)", () => {
+    const r = projectConsistency({ linked: 7, total: 14 }, 3, 3);
+    expect(r).toEqual({ percent: 58.8, verdict: "splitting" });
+  });
+
+  test("7/14 에 연결 3건, 비연결 3건이 추가되면 10/20 = 50% 로 예측한다", () => {
+    const r = projectConsistency({ linked: 7, total: 14 }, 3, 6);
+    expect(r).toEqual({ percent: 50, verdict: "splitting" });
+  });
+
+  test("추가 연결 수가 추가 활동 수보다 크면 추가 활동 수로 맞춘다", () => {
+    const r = projectConsistency({ linked: 7, total: 14 }, 9, 3);
     expect(r).toEqual({ percent: 58.8, verdict: "splitting" });
   });
 
   test("입력이 null 이면 null 이다", () => {
-    expect(projectConsistency(null, 3)).toBeNull();
+    expect(projectConsistency(null, 3, 3)).toBeNull();
+  });
+});
+
+describe("판정은 반올림 전 원비율로 한다", () => {
+  test("1199/2000 은 표시가 60 으로 올라가도 갈리는 중이다", () => {
+    expect(computeConsistency(makeActivities(1199, 2000)).verdict).toBe(
+      "splitting",
+    );
+  });
+
+  test("1200/2000 은 뚜렷함이다", () => {
+    expect(computeConsistency(makeActivities(1200, 2000)).verdict).toBe(
+      "clear",
+    );
+  });
+
+  test("예측도 1199/2000 은 갈리는 중, 1200/2000 은 뚜렷함이다", () => {
+    expect(
+      projectConsistency({ linked: 1199, total: 2000 }, 0, 0)?.verdict,
+    ).toBe("splitting");
+    expect(
+      projectConsistency({ linked: 1200, total: 2000 }, 0, 0)?.verdict,
+    ).toBe("clear");
   });
 });

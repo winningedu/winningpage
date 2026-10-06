@@ -7,7 +7,7 @@ import type { Axis, HighGrade } from "./types.js";
 
 export type ProjectionItem = {
   id: string;
-  axis?: Axis | null;
+  axes?: Axis[];
   linksToTheme?: boolean;
   done?: boolean;
 };
@@ -41,9 +41,10 @@ export type CompletionProjection = {
 
 function snapshotConsistency(
   current: { linked: number; total: number },
-  additionalLinked: number,
+  addedLinked: number,
+  addedTotal: number,
 ): ConsistencySnapshot {
-  const projected = projectConsistency(current, additionalLinked);
+  const projected = projectConsistency(current, addedLinked, addedTotal);
   if (projected === null || projected.verdict === null) {
     return { percent: projected?.percent ?? null, verdictLabel: null };
   }
@@ -58,11 +59,12 @@ export function projectCompletion(
   input: ProjectionInput,
 ): CompletionProjection {
   const pending = input.items.filter((item) => item.done !== true);
-  const additionalLinked = pending.filter(
+  const addedTotal = pending.length;
+  const addedLinked = pending.filter(
     (item) => item.linksToTheme === true,
   ).length;
   const additions = pending.flatMap((item) =>
-    item.axis ? [{ axis: item.axis }] : [],
+    (item.axes ?? []).map((axis) => ({ axis })),
   );
 
   const { current } = input;
@@ -83,8 +85,8 @@ export function projectCompletion(
 
   return {
     consistency: {
-      before: snapshotConsistency(current.consistency, 0),
-      after: snapshotConsistency(current.consistency, additionalLinked),
+      before: snapshotConsistency(current.consistency, 0, 0),
+      after: snapshotConsistency(current.consistency, addedLinked, addedTotal),
     },
     axes,
     changedAxes: axes
