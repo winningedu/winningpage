@@ -75,6 +75,13 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     payment_keywords: ["진단", "학습진단"],
     program_keys: ["diagnose"],
   },
+  // 성장설계. programs.program_key 'growth'(20261006035354) 와 consume_growth_credit 의 c_program_key 와 같은 값.
+  growth: {
+    service_key: "growth",
+    service_name: "위닝 성장설계",
+    payment_keywords: ["성장설계"],
+    program_keys: ["growth"],
+  },
 };
 
 export function clean(value: unknown): string {
