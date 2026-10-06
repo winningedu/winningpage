@@ -1,10 +1,10 @@
-// 성장설계 성적 곡선 판정·보정(No.61·76·77). 순수 함수만.
-import type { GradeSystem } from "./types.js";
+// 성장설계 성적 곡선 판정, 보정(No.61, 76, 77). 순수 함수만.
+import type { GradeSystem, SemesterKey } from "./types.js";
 
 export type { GradeSystem };
 export type CurveVerdict = "rising" | "falling" | "flat" | "not_judgeable";
 
-export type SemesterAverage = { key: string; average: number | null };
+export type SemesterAverage = { key: SemesterKey; average: number | null };
 
 export type CurveJudgement = {
   verdict: CurveVerdict;
@@ -41,7 +41,7 @@ export function judgeCurve(input: {
 
   // null 평균 학기는 무시한다.
   const valid = input.semesterAverages.filter(
-    (s): s is { key: string; average: number } => s.average !== null,
+    (s): s is { key: SemesterKey; average: number } => s.average !== null,
   );
   // No.76: 학기 2개 이하이면 곡선 판정 안 함
   if (valid.length <= 2) return notJudgeable;
@@ -87,7 +87,8 @@ const SYSTEM_LABEL: Record<GradeSystem, string> = {
 
 export type EstimateAdjustment = {
   estimate: number | null;
-  correction: number;
+  // null 은 자료 없음, 0 은 보정 없음.
+  correction: number | null;
   label: string;
 };
 
@@ -98,19 +99,19 @@ export function adjustEstimate(input: {
 }): EstimateAdjustment {
   const width = ADJUST[input.system];
   if (input.actualAverage === null) {
-    return { estimate: null, correction: 0, label: "" };
+    return { estimate: null, correction: null, label: "" };
   }
   // 범위(five 1~5, nine 1~9) 클램프는 표시 계층 몫이라 여기선 하지 않는다.
   if (input.verdict === "rising") {
     return {
-      estimate: input.actualAverage - width,
+      estimate: round2(input.actualAverage - width),
       correction: -width,
       label: `상승곡선, ${SYSTEM_LABEL[input.system]} 기준 ${width}`,
     };
   }
   if (input.verdict === "falling") {
     return {
-      estimate: input.actualAverage + width,
+      estimate: round2(input.actualAverage + width),
       correction: width,
       label: `하향곡선, ${SYSTEM_LABEL[input.system]} 기준 ${width}`,
     };
@@ -122,7 +123,7 @@ export type CurveSummary = {
   actual: number | null;
   estimate: number | null;
   verdict: CurveVerdict;
-  correction: number;
+  correction: number | null;
   basis: string;
   thresholdText: string;
 };

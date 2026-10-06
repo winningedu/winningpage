@@ -1,4 +1,4 @@
-// 성장설계 성적 곡선 판정·보정 테스트(No.61·76·77, 개발참고 "곡선 보정").
+// 성장설계 성적 곡선 판정, 보정 테스트(No.61, 76, 77, 개발참고 "곡선 보정").
 import { describe, expect, test } from "vitest";
 import { adjustEstimate, curveSummary, judgeCurve } from "./gradeCurve.js";
 
@@ -36,7 +36,7 @@ describe("judgeCurve", () => {
       semesterAverages: [
         { key: "고1-1", average: 2.8 },
         { key: "고1-2", average: 2.5 },
-        { key: "고1-3", average: 2.1 },
+        { key: "고1-1", average: 2.1 },
       ],
     });
     expect(r.verdict).toBe("not_judgeable");
@@ -67,6 +67,32 @@ describe("judgeCurve", () => {
     expect(make(3.4).verdict).toBe("flat");
     expect(make(3.5).verdict).toBe("falling");
     expect(make(3.5).threshold).toBe(0.5);
+  });
+
+  test("five 에서 학년 간 차이 정확히 +0.25 는 falling, -0.25 는 rising (경계 포함)", () => {
+    const make = (to: number) =>
+      judgeCurve({
+        system: "five",
+        semesterAverages: [
+          { key: "고1-1", average: 2.5 },
+          { key: "고1-2", average: 2.5 },
+          { key: "고2-1", average: to },
+        ],
+      });
+    expect(make(2.75).verdict).toBe("falling");
+    expect(make(2.25).verdict).toBe("rising");
+  });
+
+  test("nine 에서 -0.5 는 rising (경계 포함)", () => {
+    const r = judgeCurve({
+      system: "nine",
+      semesterAverages: [
+        { key: "고1-1", average: 3.0 },
+        { key: "고1-2", average: 3.0 },
+        { key: "고2-1", average: 2.5 },
+      ],
+    });
+    expect(r.verdict).toBe("rising");
   });
 
   test("평균이 null 인 학기는 무시하고, 남은 유효 학기가 2개 이하면 not_judgeable", () => {
@@ -137,6 +163,17 @@ describe("adjustEstimate", () => {
     expect(r.label).toBe("하향곡선, 5등급제 기준 0.15");
   });
 
+  test("estimate 는 소수 둘째 자리로 반올림한다 (부동소수 오차 회귀)", () => {
+    expect(
+      adjustEstimate({ actualAverage: 3.1, verdict: "rising", system: "nine" })
+        .estimate,
+    ).toBe(2.8);
+    expect(
+      adjustEstimate({ actualAverage: 2.3, verdict: "falling", system: "five" })
+        .estimate,
+    ).toBe(2.45);
+  });
+
   test("nine 보정 폭은 0.3", () => {
     expect(
       adjustEstimate({ actualAverage: 3, verdict: "rising", system: "nine" })
@@ -156,14 +193,14 @@ describe("adjustEstimate", () => {
     }
   });
 
-  test("actualAverage 가 null 이면 estimate null, correction 0", () => {
+  test("actualAverage 가 null 이면 estimate null, correction null (자료 없음)", () => {
     const r = adjustEstimate({
       actualAverage: null,
       verdict: "rising",
       system: "five",
     });
     expect(r.estimate).toBeNull();
-    expect(r.correction).toBe(0);
+    expect(r.correction).toBeNull();
   });
 
   test("체계 범위를 벗어나도 클램프하지 않는다", () => {
@@ -205,6 +242,7 @@ describe("curveSummary", () => {
     });
     expect(r.thresholdText).toContain("9등급제는 학년 간 0.5등급");
     expect(r.estimate).toBeNull();
+    expect(r.correction).toBeNull();
     expect(r.verdict).toBe("not_judgeable");
   });
 });
