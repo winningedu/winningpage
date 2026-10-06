@@ -1,4 +1,9 @@
-import { createSession, discardOpenSession, expect, test } from "./fixtures/selfeval";
+import {
+  createSession,
+  discardOpenSession,
+  expect,
+  test,
+} from "./fixtures/selfeval";
 
 // 직접 입력 활동으로 분석 확인 화면에 도달한다(모델 호출 없음, 분석 확인은 누르지 않는다).
 test.describe("자기평가서 직접 입력 활동", () => {
@@ -36,9 +41,9 @@ test.describe("자기평가서 직접 입력 활동", () => {
     await expect(
       page.getByRole("button", { name: "결과와 근거 고치기" }),
     ).toContainText("평균 8.4분, 표준편차 2.1분이었다.");
-    await expect(page.getByRole("button", { name: "계기 고치기" })).toContainText(
-      "버스가 자주 늦어 분포가 궁금했다.",
-    );
+    await expect(
+      page.getByRole("button", { name: "계기 고치기" }),
+    ).toContainText("버스가 자주 늦어 분포가 궁금했다.");
 
     for (const label of [
       "계기",

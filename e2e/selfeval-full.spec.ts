@@ -49,7 +49,12 @@ test.describe("자기평가서 모델 포함 완주", () => {
     // 부르지 않고, 세션 단계가 2 에 머물러 작성하기가 STEP_ORDER 로 막힌다. 결함이 고쳐지면 이
     // 분기는 타지 않는다.
     const sessionId = page.url().match(/\/s\/([^/]+)\/analysis/)?.[1] ?? "";
-    const detail = await api(request, token, "GET", `/reports?sessionId=${sessionId}`);
+    const detail = await api(
+      request,
+      token,
+      "GET",
+      `/reports?sessionId=${sessionId}`,
+    );
     if (detail.json.session.currentStep < 3) {
       test.info().annotations.push({
         type: "app-defect",
@@ -67,9 +72,7 @@ test.describe("자기평가서 모델 포함 완주", () => {
     await page.waitForURL(/\/result/);
     await waitGenerated(page);
     await confirmAllFeelings(page);
-    await expect(
-      page.getByText("확인이 필요한 표현이 없습니다"),
-    ).toBeVisible();
+    await expect(page.getByText("확인이 필요한 표현이 없습니다")).toBeVisible();
 
     // C: 첫 문단의 첫 문장을 바꿔 저장하고 새로고침 뒤에도 남는지 본다.
     const marker = "배차 간격 표본을 직접 다시 확인해 정리했다.";
@@ -135,13 +138,12 @@ test.describe("자기평가서 모델 포함 완주", () => {
       await submitBasics(page, { growth: true });
 
       // 활동 선택: 추천 그대로. 자동 선택이 비어 있으면 첫 후보를 직접 고른다.
-      const analyze = page.getByRole("button", { name: /^선택한 \d+건 분석하기$/ });
+      const analyze = page.getByRole("button", {
+        name: /^선택한 \d+건 분석하기$/,
+      });
       await expect(analyze).toBeVisible();
       if (await analyze.isDisabled()) {
-        await page
-          .getByRole("checkbox", { name: /선택$/ })
-          .first()
-          .check();
+        await page.getByRole("checkbox", { name: /선택$/ }).first().check();
       }
       await expect(analyze).toBeEnabled();
       await analyze.click();

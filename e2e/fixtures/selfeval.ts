@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   type APIRequestContext,
-  expect as pwExpect,
   type Locator,
   type Page,
+  expect as pwExpect,
 } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { test as authTest } from "./auth";
@@ -132,7 +132,8 @@ export async function createSession(
     area: "subject",
     subject: "확률과 통계",
     activityName: null,
-    schoolPrompt: "교과 학습 과정에서 스스로 탐구한 내용과 배운 점을 서술하시오.",
+    schoolPrompt:
+      "교과 학습 과정에서 스스로 탐구한 내용과 배운 점을 서술하시오.",
     teacherNote: null,
     targetChars: 500,
     targetCharsMode: "with_space",
@@ -171,7 +172,8 @@ export async function addManualActivity(
       subjectOrArea: "확률과 통계",
       gradeLabel: "고2",
       semester: 2,
-      motive: "통학 버스가 배차 간격보다 늦게 오는 날이 잦아 실제 분포가 궁금했다.",
+      motive:
+        "통학 버스가 배차 간격보다 늦게 오는 날이 잦아 실제 분포가 궁금했다.",
       concept:
         "확률변수의 평균과 표준편차, 정규분포를 이용한 구간 추정을 적용했다.",
       action:
@@ -181,8 +183,7 @@ export async function addManualActivity(
       result:
         "평균 배차 간격은 8.4분, 표준편차는 2.1분이었고 95% 구간은 약 4.3분에서 12.5분이었다.",
       role: "자료 수집과 계산을 직접 맡았다.",
-      limitation:
-        "표본이 2주치뿐이라 요일별 차이는 확인하지 못했다.",
+      limitation: "표본이 2주치뿐이라 요일별 차이는 확인하지 못했다.",
       next: "요일별로 나누어 분산 차이를 검정해 볼 계획이다.",
     },
   });

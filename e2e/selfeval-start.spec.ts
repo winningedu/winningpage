@@ -15,7 +15,9 @@ test.describe("자기평가서 시작 화면", () => {
     ).toBeVisible();
 
     // 통계 3칸
-    await expect(page.getByText("이용 가능 횟수", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("이용 가능 횟수", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("저장된 활동", { exact: true })).toBeVisible();
     await expect(
       page.getByText("작성 중인 자기평가서", { exact: true }),

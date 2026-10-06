@@ -17,10 +17,15 @@ test.describe("자기평가서 보관함", () => {
     await state.selectOption({ label: "완료" });
 
     const rows = page.getByRole("listitem").filter({
-      has: page.getByRole("button", { name: /다시 보기|이어서 작성하기|새로 시작하기/ }),
+      has: page.getByRole("button", {
+        name: /다시 보기|이어서 작성하기|새로 시작하기/,
+      }),
     });
     const count = await rows.count();
-    expect(count, "로컬 완료 세션이 2건 이상이어야 한다").toBeGreaterThanOrEqual(2);
+    expect(
+      count,
+      "로컬 완료 세션이 2건 이상이어야 한다",
+    ).toBeGreaterThanOrEqual(2);
     for (let i = 0; i < count; i += 1) {
       await expect(rows.nth(i)).toContainText("완료");
       await expect(

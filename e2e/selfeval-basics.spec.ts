@@ -41,9 +41,7 @@ test.describe("자기평가서 기본 입력", () => {
 
     // 목표 글자 수 비움 -> 분량 판정 안내
     await target.fill("");
-    await expect(
-      page.getByText("비워 두면 분량 판정만 꺼져요"),
-    ).toBeVisible();
+    await expect(page.getByText("비워 두면 분량 판정만 꺼져요")).toBeVisible();
 
     // 전부 채우고 제출 -> 활동 선택으로 이동
     await prompt.fill("교과 학습에서 스스로 탐구한 내용을 서술하시오.");

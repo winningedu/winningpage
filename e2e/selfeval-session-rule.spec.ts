@@ -20,7 +20,9 @@ test.describe("자기평가서 열린 세션 규칙", () => {
     await expect(
       page.getByRole("button", { name: "이어서 작성하기" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "새로 만들기" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "새로 만들기" }),
+    ).toBeVisible();
 
     // 통계 "작성 중인 자기평가서" 칸이 1건
     const openStat = page

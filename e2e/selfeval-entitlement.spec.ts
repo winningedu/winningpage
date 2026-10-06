@@ -14,7 +14,9 @@ test.describe("자기평가서 접근 차단", () => {
     await expect(page.locator("#login-email")).toBeVisible();
   });
 
-  test("깨진 JSON 바디의 응답 상태를 기록한다", async ({ request }, testInfo) => {
+  test("깨진 JSON 바디의 응답 상태를 기록한다", async ({
+    request,
+  }, testInfo) => {
     const token = await getStudentToken(request);
     const res = await request.fetch(`${API_BASE}/session`, {
       method: "POST",
