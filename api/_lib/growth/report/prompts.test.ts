@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NO_DATA_TEXT } from "../sections.js";
 import {
   buildStepPrompt,
+  normalizeAxisSections,
   parseStepResponse,
   STEP_MAX_OUTPUT_TOKENS,
   STEP_RESPONSE_SCHEMAS,
@@ -877,6 +878,15 @@ describe("buildStepPrompt", () => {
   };
   const steps = [1, 3, 4, 5, 6, 7] as const;
 
+  it("6단계 규칙에 count 0 축 no_data 와 activityIds 근거 지시가 있다", () => {
+    const system = buildStepPrompt(6, {
+      context: makeContext(),
+      prior: { axes: [] },
+    }).system;
+    expect(system).toContain("count 가 0 인 축은 status 를 no_data");
+    expect(system).toContain("그 축 activityIds 를 넣는다");
+  });
+
   it("모든 단계 system 에 근거 원칙과 금지 표현이 있다", () => {
     for (const step of steps) {
       const b = buildStepPrompt(step, { context: ctx, prior });
@@ -999,5 +1009,77 @@ describe("buildStepPrompt", () => {
   it("필요한 이전 단계 결과가 없으면 던진다", () => {
     expect(() => buildStepPrompt(3, { context: ctx, prior: {} })).toThrow();
     expect(() => buildStepPrompt(6, { context: ctx, prior: {} })).toThrow();
+  });
+});
+
+describe("normalizeAxisSections", () => {
+  const axisEval = (axis: string, count: number, activityIds: string[]) =>
+    ({
+      axis,
+      name: axis,
+      count,
+      required: 1,
+      verdict: "none",
+      verdictLabel: "아직 없음",
+      guideline: "g",
+      optional: false,
+      activityIds,
+    }) as never;
+  const known = ["a1", "a2", "a3"];
+
+  it("근거 활동이 0건인 축은 모델이 ok 로 써도 no_data 로 바꿔 근거 누락이 나지 않는다", () => {
+    const sections = [
+      okSection("2-1", {
+        format: "table",
+        body: { rows: [] },
+        evidence_ids: [],
+      }),
+    ] as never;
+    const axes = [axisEval("A", 0, [])];
+    const out = normalizeAxisSections(sections, axes, known);
+    expect(out[0]).toMatchObject({
+      id: "2-1",
+      status: "no_data",
+      no_data_reason: "해당 축의 근거 활동이 없어요",
+      evidence_ids: [],
+    });
+    const v = validateStepOutput(6, { step: 6, sections: out }, makeContext(), {
+      axes,
+    });
+    expect(v.issues.map((i) => i.code)).not.toContain("missing_evidence");
+  });
+
+  it("근거 활동이 있는 축의 빈 근거 id 는 앱의 activityIds 로 채운다", () => {
+    const sections = [okSection("2-2", { evidence_ids: [] })] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("B", 2, ["a1", "a2", "zz"])],
+      known,
+    );
+    expect(out[0]?.status).toBe("ok");
+    expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
+  });
+
+  it("모델이 넣은 알 수 없는 id 는 걸러내고 올바른 id 는 그대로 둔다", () => {
+    const sections = [
+      okSection("2-3", { evidence_ids: ["a3", "nope"] }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("C", 2, ["a1", "a2"])],
+      known,
+    );
+    expect(out[0]?.evidence_ids).toEqual(["a3"]);
+  });
+
+  it("근거 활동이 0건인 축 섹션이 응답에 없으면 no_data 항목을 보강한다", () => {
+    const sections = [okSection("2-1", { evidence_ids: ["a1"] })] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 1, ["a1"]), axisEval("D", 0, [])],
+      known,
+    );
+    expect(out.map((x) => x.id)).toEqual(["2-1", "2-4"]);
+    expect(out[1]).toMatchObject({ id: "2-4", status: "no_data" });
   });
 });

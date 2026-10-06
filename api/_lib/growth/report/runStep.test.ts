@@ -494,6 +494,98 @@ describe("5단계 모델 호출", () => {
   });
 });
 
+describe("6단계 축 섹션 정규화", () => {
+  const sigs = [
+    {
+      activityId: "a1",
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+    {
+      activityId: "a2",
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+    {
+      activityId: "a3",
+      axes: ["C"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    },
+  ];
+  const bodyOf = (format: string) =>
+    format === "prose"
+      ? "본문"
+      : format === "list"
+        ? []
+        : format === "table"
+          ? { rows: [] }
+          : {};
+
+  it("근거 없는 축을 ok 로 쓰거나 빠뜨려도 앱이 no_data 로 정규화해 한 번에 통과한다", async () => {
+    const { computeStep6 } = await import("./compute.js");
+    const { SECTION_REGISTRY } = await import("../sections.js");
+    const ctx = makeContext();
+    const axes = computeStep6(ctx, sigs as never);
+    const label = (a: string) => axes.find((x) => x.axis === a)?.verdictLabel;
+    const axisRow = (a: string) => ({
+      rows: [{ label: "판정", value: label(a) }],
+    });
+    const mk = (id: string, over: Record<string, unknown>) => {
+      const def = SECTION_REGISTRY.find((d) => d.id === id);
+      return {
+        id,
+        status: "ok",
+        evidence_ids: ["a1"],
+        body: bodyOf(def?.format ?? "prose"),
+        ...over,
+      };
+    };
+    const sections = [
+      mk("2-1", { evidence_ids: [], body: axisRow("A") }),
+      mk("2-3", { evidence_ids: ["a3"], body: axisRow("C") }),
+      mk("2-5", { evidence_ids: [], body: axisRow("E") }),
+      ...["2-6", "2-7", "2-8", "2-9", "2-10"].map((id) => mk(id, {})),
+    ];
+    const callModel = vi.fn(async () => reply(JSON.stringify({ sections })));
+    const r = await runStep(
+      6,
+      ctx,
+      { ...emptyStored({ signals: { byActivity: sigs } }) },
+      deps({ callModel }),
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(callModel).toHaveBeenCalledTimes(1);
+    const out = r.output.sections ?? [];
+    const byId = (id: string) => out.find((x) => x.id === id);
+    expect(byId("2-1")?.evidence_ids.sort()).toEqual(
+      axes.find((x) => x.axis === "A")?.activityIds.sort(),
+    );
+    for (const id of ["2-2", "2-4", "2-5"])
+      expect(byId(id)?.status).toBe("no_data");
+    expect(out.map((x) => x.id)).toEqual([
+      "2-1",
+      "2-2",
+      "2-3",
+      "2-4",
+      "2-5",
+      "2-6",
+      "2-7",
+      "2-8",
+      "2-9",
+      "2-10",
+    ]);
+  });
+});
+
 describe("8단계", () => {
   const ready = () => {
     const ctx = makeContext({
