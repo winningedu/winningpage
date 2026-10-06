@@ -58,21 +58,8 @@ export function validatePlanItemBody(raw: unknown): PlanItemValidation {
         action: { action: "set-deadline", itemId, deadline: body.deadline },
       };
     case "program-done":
-      if (body.program !== "self" && body.program !== "deep") {
-        return { ok: false, reason: "program 은 self 또는 deep 이어야 해요" };
-      }
-      if (!isUuid(body.refId)) {
-        return { ok: false, reason: "refId 가 올바르지 않아요" };
-      }
-      return {
-        ok: true,
-        action: {
-          action: "program-done",
-          itemId,
-          program: body.program,
-          refId: body.refId,
-        },
-      };
+      // 하위 프로그램이 서버 간으로만 부르는 액션이다(complete.ts). HTTP 로는 받지 않는다.
+      return { ok: false, reason: "허용되지 않는 액션" };
     default:
       return { ok: false, reason: "알 수 없는 action 이에요" };
   }
@@ -172,25 +159,4 @@ export function decideMutation(
       };
     }
   }
-}
-
-export type MutationResponse = {
-  changed: boolean;
-  reason?: string;
-  item: PlanItemRow;
-};
-
-/** 응답 본문 조각. update 는 patch 를 적용한 행, 나머지는 원래 행. */
-export function mutationResponse(
-  decision: MutationDecision,
-  item: PlanItemRow,
-): MutationResponse {
-  if (decision.kind === "update") {
-    return { changed: true, item: { ...item, ...decision.patch } };
-  }
-  return {
-    changed: false,
-    reason: decision.kind === "noop" ? decision.reason : decision.code,
-    item,
-  };
 }

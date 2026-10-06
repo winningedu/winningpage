@@ -75,6 +75,8 @@ export type PlanItemView = {
 export type PlanGroup = {
   period: PlanPeriod;
   label: string;
+  /** 묶음에서 첫 non-null period_label(예: 고3 월 단위). 없으면 null. */
+  periodLabel: string | null;
   items: PlanItemView[];
 };
 
@@ -95,7 +97,7 @@ export type ProgramHandoff = {
   };
 };
 
-/** PATCH /api/growth/plan/item 액션. */
+/** 항목 상태 변경 액션. program-done 은 서버 간 함수(complete.ts)만 쓰고 HTTP 바디로는 받지 않는다. */
 export type PlanItemAction =
   | { action: "check"; itemId: string; done: boolean }
   | { action: "set-deadline"; itemId: string; deadline: string | null }

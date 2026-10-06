@@ -58,6 +58,14 @@ describe("readProjectionCurrent", () => {
     ).toBeNull();
   });
 
+  test("연계 수가 전체보다 크면 null", () => {
+    expect(
+      readProjectionCurrent(
+        report({ consistency: { linked: 15, total: 14, percent: 100 } }),
+      ),
+    ).toBeNull();
+  });
+
   test("축 점수가 배열이 아니거나 축이 빠지면 null", () => {
     expect(readProjectionCurrent(report({ axis_scores: {} }))).toBeNull();
     expect(
@@ -165,5 +173,12 @@ describe("planMetrics", () => {
     expect(m?.afterAll.consistency.verdictLabel).toBe("뚜렷함");
     expect(m?.changedAxesNow).toEqual([]);
     expect(m?.changedAxesAfterAll).toEqual(["B"]);
+  });
+
+  test("남은 변화 축은 지금 대비 전부 완료 시 판정이 바뀌는 축", () => {
+    const m = planMetrics(report(), rows);
+    expect(m?.changedAxesRemaining).toEqual(["B"]);
+    const none = planMetrics(report(), []);
+    expect(none?.changedAxesRemaining).toEqual([]);
   });
 });

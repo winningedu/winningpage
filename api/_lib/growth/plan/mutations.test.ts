@@ -1,9 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  decideMutation,
-  mutationResponse,
-  validatePlanItemBody,
-} from "./mutations.js";
+import { decideMutation, validatePlanItemBody } from "./mutations.js";
 import type { PlanItemRow } from "./types.js";
 
 const ID = "3f2b8c1e-9a4d-4e6b-8c2a-1d5e7f9a0b3c";
@@ -95,7 +91,7 @@ describe("validatePlanItemBody", () => {
     ).toBe(false);
   });
 
-  test("program-done 은 self 또는 deep 과 UUID refId 를 받는다", () => {
+  test("program-done 은 HTTP 바디로 받지 않는다", () => {
     expect(
       validatePlanItemBody({
         action: "program-done",
@@ -103,31 +99,7 @@ describe("validatePlanItemBody", () => {
         program: "deep",
         refId: REF,
       }),
-    ).toEqual({
-      ok: true,
-      action: {
-        action: "program-done",
-        itemId: ID,
-        program: "deep",
-        refId: REF,
-      },
-    });
-    expect(
-      validatePlanItemBody({
-        action: "program-done",
-        itemId: ID,
-        program: "school",
-        refId: REF,
-      }).ok,
-    ).toBe(false);
-    expect(
-      validatePlanItemBody({
-        action: "program-done",
-        itemId: ID,
-        program: "self",
-        refId: "nope",
-      }).ok,
-    ).toBe(false);
+    ).toEqual({ ok: false, reason: "허용되지 않는 액션" });
   });
 });
 
@@ -329,30 +301,5 @@ describe("decideMutation program-done", () => {
         NOW,
       ),
     ).toEqual({ kind: "noop", reason: "already_done" });
-  });
-});
-
-describe("mutationResponse", () => {
-  test("update 는 patch 를 적용한 행과 changed true", () => {
-    const row = item();
-    const decision = decideMutation(
-      row,
-      { action: "check", itemId: ID, done: true },
-      NOW,
-    );
-    const res = mutationResponse(decision, row);
-    expect(res.changed).toBe(true);
-    expect(res.reason).toBeUndefined();
-    expect(res.item).toMatchObject({ status: "done", done_at: NOW });
-  });
-
-  test("noop 은 원래 행과 사유, reject 는 changed false", () => {
-    const row = item(doneManual);
-    expect(
-      mutationResponse({ kind: "noop", reason: "already_done" }, row),
-    ).toEqual({ changed: false, reason: "already_done", item: row });
-    expect(
-      mutationResponse({ kind: "reject", code: "X", message: "m" }, row),
-    ).toEqual({ changed: false, reason: "X", item: row });
   });
 });

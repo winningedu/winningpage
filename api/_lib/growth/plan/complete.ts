@@ -10,7 +10,12 @@
 
 import type { Db } from "../intake/collectDb.js";
 import { decideMutation } from "./mutations.js";
-import { loadPlanItem, updatePlanItem } from "./planDb.js";
+import {
+  loadActivityRef,
+  loadPlanItem,
+  loadPlanReport,
+  updatePlanItem,
+} from "./planDb.js";
 import type { PlanItemRow } from "./types.js";
 
 export type CompleteInput = {
@@ -20,13 +25,16 @@ export type CompleteInput = {
   nowIso?: string;
 };
 
+type CompleteFailureCode =
+  | "ITEM_NOT_FOUND"
+  | "REPORT_NOT_COMPLETED"
+  | "REF_NOT_FOUND"
+  | "PROGRAM_MISMATCH"
+  | "CONFLICT";
+
 export type CompleteResult =
   | { ok: true; changed: boolean; reason?: string; item: PlanItemRow }
-  | {
-      ok: false;
-      code: "ITEM_NOT_FOUND" | "PROGRAM_MISMATCH" | "CONFLICT";
-      message: string;
-    };
+  | { ok: false; code: CompleteFailureCode; message: string };
 
 export async function completePlanItemFromProgram(
   db: Db,
@@ -41,6 +49,15 @@ export async function completePlanItemFromProgram(
       message: "실행계획 항목을 찾을 수 없어요.",
     };
   }
+  // loadPlanReport 는 완료(completed) 회차만 돌려준다.
+  const report = await loadPlanReport(db, userId, item.report_id);
+  if (!report) {
+    return {
+      ok: false,
+      code: "REPORT_NOT_COMPLETED",
+      message: "완료된 리포트의 항목만 확정할 수 있어요.",
+    };
+  }
   const decision = decideMutation(
     item,
     {
@@ -52,7 +69,19 @@ export async function completePlanItemFromProgram(
     input.nowIso ?? new Date().toISOString(),
   );
   if (decision.kind === "reject") {
-    return { ok: false, code: "PROGRAM_MISMATCH", message: decision.message };
+    return {
+      ok: false,
+      code: decision.code as CompleteFailureCode,
+      message: decision.message,
+    };
+  }
+  // 산출물 참조는 본인의 해당 프로그램 활동 기록이어야 한다.
+  if (!(await loadActivityRef(db, userId, input.refId, input.program))) {
+    return {
+      ok: false,
+      code: "REF_NOT_FOUND",
+      message: "확정할 산출물을 찾을 수 없어요.",
+    };
   }
   if (decision.kind === "noop") {
     return { ok: true, changed: false, reason: decision.reason, item };

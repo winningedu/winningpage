@@ -70,22 +70,24 @@ export async function loadPlanItem(
   return (data as PlanItemRow | null) ?? null;
 }
 
-/** 항목 회차의 status 만 조회. 없으면 null. */
-export async function loadReportStatus(
+/** 본인 소유이고 해당 프로그램이 만든 활동 기록인지. */
+export async function loadActivityRef(
   db: Db,
   userId: string,
-  reportId: string,
-): Promise<string | null> {
+  refId: string,
+  program: string,
+): Promise<boolean> {
   const data = must(
     await db
-      .from("growth_reports")
-      .select("status")
-      .eq("id", reportId)
+      .from("activity_records")
+      .select("id")
+      .eq("id", refId)
       .eq("profile_id", userId)
+      .eq("source_program", program)
       .maybeSingle(),
-    "growth_reports 조회 실패",
-  ) as { status: string } | null;
-  return data?.status ?? null;
+    "activity_records 조회 실패",
+  );
+  return data !== null;
 }
 
 /** 낙관적 잠금 갱신. updated_at 이 읽은 값과 같을 때만 쓴다. 0행이면 null(경쟁). */

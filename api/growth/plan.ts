@@ -6,7 +6,8 @@
 //
 // 응답 200 { ok: true, plan: {
 //   reportId, issuedAt, track, theme, stage, currentGrade, subtheme,
-//   groups[{ period, label, items[] }],      시기 묶음, 항목에 마감 상태와 이월 여부 포함
+//   groups[{ period, label, periodLabel, items[] }],   시기 묶음, 항목에 마감 상태와 이월 여부 포함
+//     carried 항목은 groups 에도 들어가고 carried 목록에도 다시 나온다(이월 묶음 표시용)
 //   progress{ total, done, remaining, percent },
 //   nextDeadline, carried[], avoidRepeats[],
 //   metrics|null,                            리포트 시점, 현재, 전부 완료 시 지표(조회 때 계산, 저장 안 함)
@@ -24,13 +25,12 @@
 import type { VercelResponse } from "@vercel/node";
 import { planMetrics } from "../_lib/growth/plan/metrics.js";
 import { loadPlanItems, loadPlanReport } from "../_lib/growth/plan/planDb.js";
-import { buildPlanBody } from "../_lib/growth/plan/view.js";
+import { buildPlanBody, todayKstIso } from "../_lib/growth/plan/view.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 function fail(
   res: VercelResponse,
@@ -68,13 +68,11 @@ export default defineHandler({
     }
     const items = await loadPlanItems(db, userId, report.id);
     const metrics = planMetrics(report, items);
-    const todayIso = new Date(Date.now() + KST_OFFSET_MS).toISOString();
-    res
-      .status(200)
-      .json({
-        ok: true,
-        plan: buildPlanBody(report, items, todayIso, metrics),
-      });
+    const todayIso = todayKstIso(Date.now());
+    res.status(200).json({
+      ok: true,
+      plan: buildPlanBody(report, items, todayIso, metrics),
+    });
   },
 });
 

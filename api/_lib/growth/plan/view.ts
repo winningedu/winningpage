@@ -30,6 +30,13 @@ export function currentGradeOf(track: Track | null): HighGrade | null {
   return "고3";
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** 주어진 시각(ms)의 KST 날짜 YYYY-MM-DD. */
+export function todayKstIso(nowMs: number): string {
+  return new Date(nowMs + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 export function toItemView(row: PlanItemRow, todayIso: string): PlanItemView {
   const state = deadlineState(row.deadline, todayIso);
   return {
@@ -44,7 +51,7 @@ export function toItemView(row: PlanItemRow, todayIso: string): PlanItemView {
     periodLabel: row.period_label,
     deadline: row.deadline,
     dday: state.dday,
-    urgent: state.urgent,
+    urgent: row.status === "done" ? false : state.urgent,
     deadlineLabel: state.label,
     done: row.status === "done",
     doneSource: row.done_source_program,
@@ -55,24 +62,25 @@ export function toItemView(row: PlanItemRow, todayIso: string): PlanItemView {
   };
 }
 
-/** 시기 묶음. 시기 순서는 orderPlanPeriods, 묶음 안은 sort_order 오름차순. 항목이 있는 시기만. */
+/** 시기 묶음. 묶음 안 순서는 orderPlanPeriods 결과 그대로(과목 선택 시기는 마감 빠른 순). 항목이 있는 시기만. */
 export function groupItems(rows: PlanItemRow[], todayIso: string): PlanGroup[] {
+  // sort_order 는 orderPlanPeriods 의 동순위 판정(입력 순서)에만 쓴다.
+  const bySortOrder = [...rows].sort((a, b) => a.sort_order - b.sort_order);
   const groups: PlanGroup[] = [];
-  for (const row of orderPlanPeriods(
-    rows.map((r) => ({ ...r, deadline: r.deadline })),
-  )) {
+  for (const row of orderPlanPeriods(bySortOrder)) {
     let group = groups.find((g) => g.period === row.period);
     if (!group) {
       group = {
         period: row.period,
         label: PERIOD_LABELS[row.period],
+        periodLabel: null,
         items: [],
       };
       groups.push(group);
     }
+    group.periodLabel ??= row.period_label;
     group.items.push(toItemView(row, todayIso));
   }
-  for (const g of groups) g.items.sort((a, b) => a.sortOrder - b.sortOrder);
   return groups;
 }
 

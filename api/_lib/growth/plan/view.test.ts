@@ -11,6 +11,7 @@ import {
   PERIOD_LABELS,
   progress,
   subthemeFor,
+  todayKstIso,
   toItemView,
 } from "./view.js";
 
@@ -155,6 +156,40 @@ describe("groupItems", () => {
   });
   it("빈 입력은 빈 배열", () => {
     expect(groupItems([], TODAY)).toEqual([]);
+  });
+  it("과목 선택 시기는 sort_order 와 무관하게 마감 빠른 순", () => {
+    const groups = groupItems(
+      [
+        row({
+          id: "late",
+          period: "course_selection",
+          deadline: "2026-12-01",
+          sort_order: 0,
+        }),
+        row({
+          id: "early",
+          period: "course_selection",
+          deadline: "2026-10-20",
+          sort_order: 1,
+        }),
+      ],
+      TODAY,
+    );
+    expect(groups[0]?.items.map((i) => i.id)).toEqual(["early", "late"]);
+  });
+  it("묶음의 periodLabel 은 첫 non-null 항목 라벨, 없으면 null", () => {
+    const groups = groupItems(
+      [
+        row({ id: "a", period: "vacation", period_label: null }),
+        row({ id: "b", period: "vacation", period_label: "겨울방학" }),
+        row({ id: "c", period: "semester" }),
+      ],
+      TODAY,
+    );
+    expect(groups.find((g) => g.period === "vacation")?.periodLabel).toBe(
+      "겨울방학",
+    );
+    expect(groups.find((g) => g.period === "semester")?.periodLabel).toBeNull();
   });
 });
 
@@ -337,5 +372,22 @@ describe("buildPlanBody", () => {
     expect(body.metrics).toBe(metrics);
     expect(Object.keys(body.handoffs).sort()).toEqual(["d", "f"]);
     expect(body.handoffs.s).toBeUndefined();
+  });
+});
+
+describe("toItemView 완료 항목", () => {
+  it("마감이 지났어도 완료 항목은 urgent false", () => {
+    const v = toItemView(
+      row({ status: "done", deadline: "2026-10-01" }),
+      TODAY,
+    );
+    expect(v.urgent).toBe(false);
+  });
+});
+
+describe("todayKstIso", () => {
+  it("UTC 15시 이후는 KST 로 다음 날짜", () => {
+    expect(todayKstIso(Date.parse("2026-10-06T14:59:59Z"))).toBe("2026-10-06");
+    expect(todayKstIso(Date.parse("2026-10-06T15:00:00Z"))).toBe("2026-10-07");
   });
 });

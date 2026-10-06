@@ -8,8 +8,9 @@ import {
   type ProjectionItem,
   projectCompletion,
 } from "../projection.js";
-import type { Axis, HighGrade } from "../types.js";
+import type { Axis } from "../types.js";
 import type { PlanItemRow, PlanReportRow } from "./types.js";
+import { currentGradeOf } from "./view.js";
 
 export type MetricSnapshot = {
   consistency: { percent: number | null; verdictLabel: string | null };
@@ -22,6 +23,8 @@ export type PlanMetrics = {
   afterAll: MetricSnapshot;
   changedAxesNow: Axis[];
   changedAxesAfterAll: Axis[];
+  /** 지금 대비 전부 완료 시 판정이 더 바뀌는 축. */
+  changedAxesRemaining: Axis[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -32,23 +35,17 @@ function isCount(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
-function gradeOf(track: PlanReportRow["track"]): HighGrade | null {
-  if (track === "고1" || track === "고2" || track === "고3") return track;
-  if (track === "졸업" || track === "N수") return "고3";
-  return null;
-}
-
 /** 리포트 스냅샷에서 예측 입력의 현재값을 읽는다. 모양이 다르면 null. */
 export function readProjectionCurrent(
   report: PlanReportRow,
 ): ProjectionInput["current"] | null {
-  const grade = gradeOf(report.track);
+  const grade = currentGradeOf(report.track);
   if (grade === null) return null;
 
   const { consistency, axis_scores: axisScores } = report;
   if (!isRecord(consistency)) return null;
   const { linked, total } = consistency;
-  if (!isCount(linked) || !isCount(total)) return null;
+  if (!isCount(linked) || !isCount(total) || linked > total) return null;
 
   if (!Array.isArray(axisScores)) return null;
   const axisCounts = {} as Record<Axis, number>;
@@ -111,11 +108,20 @@ export function planMetrics(
   const now = projectCompletion({ current, items: asAdditions(doneOnly) });
   const afterAll = projectCompletion({ current, items: asAdditions(all) });
 
+  const nowSnapshot = snapshotOf(now, "after");
+  const afterAllSnapshot = snapshotOf(afterAll, "after");
+  const changedAxesRemaining = AXES.filter(
+    (axis) =>
+      nowSnapshot.axes.find((e) => e.axis === axis)?.verdictLabel !==
+      afterAllSnapshot.axes.find((e) => e.axis === axis)?.verdictLabel,
+  );
+
   return {
     atReport: snapshotOf(base, "before"),
-    now: snapshotOf(now, "after"),
-    afterAll: snapshotOf(afterAll, "after"),
+    now: nowSnapshot,
+    afterAll: afterAllSnapshot,
     changedAxesNow: now.changedAxes,
     changedAxesAfterAll: afterAll.changedAxes,
+    changedAxesRemaining,
   };
 }

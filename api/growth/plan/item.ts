@@ -1,27 +1,31 @@
 // PATCH /api/growth/plan/item
 // Authorization: Bearer <access_token>
 //
-// 실행계획 항목 상태 변경(명세 No.161, 164). 한 라우트에 세 액션을 둔다.
+// 실행계획 항목 상태 변경(명세 No.161, 164). 한 라우트에 두 액션을 둔다.
 //
 // 요청  { itemId: uuid, action: "check", done: boolean }
 //       { itemId: uuid, action: "set-deadline", deadline: "YYYY-MM-DD" | null }   과목 선택 시기 항목만
-//       { itemId: uuid, action: "program-done", program: "self" | "deep", refId: uuid }
-// 응답  200 { ok: true, changed: true, item, progress, metrics }
+// 응답  200 { ok: true, changed: true, item, progress, nextDeadline, metrics }
+//         item 은 조회 응답과 같은 PlanItemView(마감 상태 포함),
 //         progress 는 그 회차 전체 항목으로 다시 센 { total, done, remaining, percent },
+//         nextDeadline 은 갱신 뒤 미완료 항목 중 가장 이른 마감(없으면 null),
 //         metrics 는 갱신 뒤 항목으로 다시 계산한 지표(스냅샷이 깨지면 null).
-//       200 { ok: true, changed: false, reason, item }   이미 같은 상태(변경 없음)
-//         reason: already_done, already_pending, same_deadline, duplicate_confirm
+//       200 { ok: true, changed: false, reason, item }   이미 같은 상태(변경 없음), item 은 PlanItemView
+//         reason: already_done, already_pending, same_deadline
 //
 // 오류 코드
-//   INVALID_BODY 400, ITEM_NOT_FOUND 404(남의 항목 포함), REPORT_NOT_COMPLETED 409,
+//   INVALID_BODY 400(program-done 같은 허용되지 않는 액션 포함), ITEM_NOT_FOUND 404(남의 항목 포함),
+//   REPORT_NOT_COMPLETED 409, REPORT_NOT_LATEST 409(최신 완료 회차의 항목이 아님),
 //   PROGRAM_DONE_LOCKED 409(하위 프로그램 확정 항목의 체크 해제),
-//   DEADLINE_NOT_ALLOWED 409, PROGRAM_MISMATCH 409,
+//   DEADLINE_NOT_ALLOWED 409,
 //   CONFLICT 409(낙관적 잠금 경쟁, 다시 불러온 뒤 재시도),
 //   METHOD_NOT_ALLOWED 405, UNAUTHENTICATED 401, INTERNAL 500.
 //
 // 판정은 api/_lib/growth/plan/mutations 의 decideMutation 이 한다. 쓰기는 읽은 updated_at 을
-// 조건으로 건 낙관적 잠금이다. program-done 은 원래 하위 프로그램이 서버 간으로 부르는 경로
-// (api/_lib/growth/plan/complete)이고, 이 라우트의 같은 액션은 같은 규칙을 따른다.
+// 조건으로 건 낙관적 잠금이다. 하위 프로그램 확정(program-done)은 이 라우트로 받지 않고
+// 서버 간 함수 api/_lib/growth/plan/complete 만 쓴다.
+// 최신 완료 회차의 항목만 바꿀 수 있다. 다음 회차는 미완료 항목을 복사해 이월하므로, 지난 회차의
+// 항목을 바꾸면 이월 복사본과 상태가 둘로 갈라진다(이중 상태 방지).
 // 소유자 격리: service_role 로 쓰므로 모든 쿼리에 profile_id 조건을 건다.
 // 핸들러 본문은 DB 에 묶여 단위 테스트하지 않는다.
 
@@ -35,10 +39,14 @@ import {
   loadPlanItem,
   loadPlanItems,
   loadPlanReport,
-  loadReportStatus,
   updatePlanItem,
 } from "../../_lib/growth/plan/planDb.js";
-import { progress } from "../../_lib/growth/plan/view.js";
+import {
+  nextDeadline,
+  progress,
+  todayKstIso,
+  toItemView,
+} from "../../_lib/growth/plan/view.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -76,8 +84,8 @@ export default defineHandler({
       fail(res, 404, "ITEM_NOT_FOUND", "실행계획 항목을 찾을 수 없어요.");
       return;
     }
-    const status = await loadReportStatus(db, userId, item.report_id);
-    if (status !== "completed") {
+    const report = await loadPlanReport(db, userId, item.report_id);
+    if (!report) {
       fail(
         res,
         409,
@@ -86,20 +94,35 @@ export default defineHandler({
       );
       return;
     }
+    const latest = await loadPlanReport(db, userId, null);
+    if (!latest || latest.id !== item.report_id) {
+      fail(
+        res,
+        409,
+        "REPORT_NOT_LATEST",
+        "최신 리포트의 실행계획만 바꿀 수 있어요",
+      );
+      return;
+    }
+    const nowMs = Date.now();
+    const todayIso = todayKstIso(nowMs);
 
     const decision = decideMutation(
       item,
       body.action,
-      new Date().toISOString(),
+      new Date(nowMs).toISOString(),
     );
     if (decision.kind === "reject") {
       fail(res, 409, decision.code, decision.message);
       return;
     }
     if (decision.kind === "noop") {
-      res
-        .status(200)
-        .json({ ok: true, changed: false, reason: decision.reason, item });
+      res.status(200).json({
+        ok: true,
+        changed: false,
+        reason: decision.reason,
+        item: toItemView(item, todayIso),
+      });
       return;
     }
     const updated = await updatePlanItem(
@@ -119,13 +142,13 @@ export default defineHandler({
       return;
     }
     const items = await loadPlanItems(db, userId, item.report_id);
-    const report = await loadPlanReport(db, userId, item.report_id);
     res.status(200).json({
       ok: true,
       changed: true,
-      item: updated,
+      item: toItemView(updated, todayIso),
       progress: progress(items),
-      metrics: report ? planMetrics(report, items) : null,
+      nextDeadline: nextDeadline(items, todayIso),
+      metrics: planMetrics(report, items),
     });
   },
 });
