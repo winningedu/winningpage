@@ -207,3 +207,22 @@ export function diffAnswers(
   }
   return patch;
 }
+
+export type QuestionGroup = {
+  name: string;
+  items: { q: SurveyQuestion; n: number }[];
+};
+
+/** 그룹은 서버가 준 순서대로 한 번씩 묶는다. 번호는 전체 순서의 1부터다. */
+export function groupQuestions(
+  questions: readonly SurveyQuestion[],
+): QuestionGroup[] {
+  const groups: QuestionGroup[] = [];
+  questions.forEach((q, index) => {
+    const last = groups[groups.length - 1];
+    const item = { q, n: index + 1 };
+    if (last && last.name === q.group) last.items.push(item);
+    else groups.push({ name: q.group, items: [item] });
+  });
+  return groups;
+}

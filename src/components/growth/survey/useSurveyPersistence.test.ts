@@ -173,4 +173,44 @@ describe("useSurveyPersistence", () => {
     });
     expect(saved).toBe(false);
   });
+
+  test("잠금 실패 뒤에는 saveNow 와 leave 가 더 보내지 않는다", async () => {
+    saveSurveyMock.mockResolvedValue({
+      kind: "error",
+      status: 409,
+      code: "REPORT_NOT_OPEN",
+      message: "",
+    });
+    const { rerender, result } = setup({}, "r1");
+    rerender({ answers: { q1: "a" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(result.current.failure).toBe("closed");
+    rerender({ answers: { q1: "ab" } });
+    await act(async () => {
+      await result.current.saveNow();
+      await result.current.leave();
+    });
+    expect(saveSurveyMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("한 번도 편집하지 않았으면 leave 는 저장하지 않는다", async () => {
+    saveSurveyMock.mockResolvedValue(ok("r1"));
+    const { result } = setup({ q1: "프리필" }, undefined);
+    await act(async () => {
+      await result.current.leave();
+    });
+    expect(saveSurveyMock).not.toHaveBeenCalled();
+  });
+
+  test("편집했으면 leave 가 남은 변경을 저장한다", async () => {
+    saveSurveyMock.mockResolvedValue(ok("r1"));
+    const { rerender, result } = setup({ q1: "프리필" }, undefined);
+    rerender({ answers: { q1: "고침" } });
+    await act(async () => {
+      await result.current.leave();
+    });
+    expect(saveSurveyMock).toHaveBeenCalledTimes(1);
+  });
 });

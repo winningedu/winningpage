@@ -36,9 +36,16 @@ export function useSurveyPersistence({
   answersRef.current = answers;
   const savedRef = useRef(savedAnswers);
   const reportIdRef = useRef(reportId);
+  // 잠금 또는 이용권 실패가 난 뒤에는 어떤 경로로도 더 보내지 않는다.
+  const failureRef = useRef<SaveFailure | null>(null);
+  // 마운트 때의 답 객체. 이 참조에서 벗어났으면 사용자가 편집한 것이다(프리필만으로는 같다).
+  const initialAnswersRef = useRef(answers);
+  const editedRef = useRef(false);
+  if (answers !== initialAnswersRef.current) editedRef.current = true;
   const chainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const run = useCallback(async () => {
+    if (failureRef.current !== null) return;
     const patch = diffAnswers(savedRef.current, answersRef.current);
     if (Object.keys(patch).length === 0) return;
     setSaveState({ phase: "saving" });
@@ -53,6 +60,7 @@ export function useSurveyPersistence({
       if (kind === "failed") {
         setSaveState({ phase: "error" });
       } else {
+        failureRef.current = kind;
         setFailure(kind);
         setSaveState({ phase: "idle" });
       }
@@ -92,8 +100,15 @@ export function useSurveyPersistence({
     }
   }, [autosave, persist]);
 
+  /** 화면을 떠날 때 호출한다. 편집한 적이 없으면 저장하지 않아 빈 회차를 만들지 않는다. */
+  const leave = useCallback(async (): Promise<void> => {
+    if (!editedRef.current) return;
+    await persist();
+  }, [persist]);
+
   return {
     saveState,
+    leave,
     failure,
     persist,
     saveNow,

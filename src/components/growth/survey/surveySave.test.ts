@@ -47,6 +47,16 @@ describe("classifySaveFailure", () => {
       }),
     ).toBe("locked");
   });
+  test("409 REPORT_NOT_OPEN 은 닫힌 회차", () => {
+    expect(
+      classifySaveFailure({
+        kind: "error",
+        status: 409,
+        code: "REPORT_NOT_OPEN",
+        message: "",
+      }),
+    ).toBe("closed");
+  });
   test("403 NO_ENTITLEMENT 는 이용권 없음", () => {
     expect(
       classifySaveFailure({

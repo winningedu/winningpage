@@ -63,6 +63,7 @@ export default function SurveyQuestionBlock({
 
       {question.kind === "choice" && (
         <ChipGroup
+          mode="single"
           labelId={labelId}
           options={options}
           selected={typeof value === "string" ? [value] : []}
@@ -75,6 +76,7 @@ export default function SurveyQuestionBlock({
 
       {question.kind === "multi" && (
         <ChipGroup
+          mode="multi"
           labelId={labelId}
           options={options}
           selected={Array.isArray(value) ? (value as string[]) : []}
@@ -158,21 +160,24 @@ function TextInput({
 }
 
 function ChipGroup({
+  mode,
   labelId,
   options,
   selected,
   disabled,
   onToggle,
 }: {
+  mode: "single" | "multi";
   labelId: string;
   options: readonly string[];
   selected: readonly string[];
   disabled: boolean;
   onToggle: (option: string) => void;
 }) {
+  const groupRole = mode === "single" ? "radiogroup" : "group";
   return (
-    <fieldset
-      aria-labelledby={labelId}
+    <div
+      {...{ role: groupRole, "aria-labelledby": labelId }}
       className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0"
     >
       {options.map((option) => {
@@ -186,7 +191,9 @@ function ChipGroup({
           <button
             key={option}
             type="button"
-            aria-pressed={on}
+            {...(mode === "single"
+              ? { role: "radio", "aria-checked": on }
+              : { "aria-pressed": on })}
             disabled={disabled}
             onClick={() => onToggle(option)}
             className={className}
@@ -195,6 +202,6 @@ function ChipGroup({
           </button>
         );
       })}
-    </fieldset>
+    </div>
   );
 }

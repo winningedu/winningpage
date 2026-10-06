@@ -106,7 +106,7 @@ describe("SurveyPage", () => {
     );
     renderPage();
     expect(await screen.findByText("무료진단에서 가져옴")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "고민 중" }));
+    fireEvent.click(screen.getByRole("radio", { name: "고민 중" }));
     expect(screen.queryByText("무료진단에서 가져옴")).toBeNull();
   });
 
@@ -161,7 +161,7 @@ describe("SurveyPage", () => {
     setShell(bootstrap());
     saveSurveyMock.mockResolvedValue({ kind: "timeout" });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "정해짐" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "정해짐" }));
     fireEvent.click(screen.getByRole("button", { name: "활동 선택으로" }));
     fireEvent.click(await screen.findByRole("button", { name: "넘어가기" }));
     await waitFor(() => expect(saveSurveyMock).toHaveBeenCalled());
@@ -189,5 +189,55 @@ describe("SurveyPage", () => {
       ).disabled,
     ).toBe(true);
     expect(screen.getByRole("link", { name: "리포트 생성으로" })).toBeTruthy();
+  });
+
+  test("회차가 닫혔다는 409 REPORT_NOT_OPEN 이면 안내와 시작 화면 링크를 띄운다", async () => {
+    setShell(bootstrap());
+    saveSurveyMock.mockResolvedValue({
+      kind: "error",
+      status: 409,
+      code: "REPORT_NOT_OPEN",
+      message: "",
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("radio", { name: "정해짐" }));
+    expect(
+      await screen.findByText(
+        "이 회차는 닫혔어요. 시작 화면에서 다시 시작해 주세요",
+        {},
+        { timeout: 3000 },
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "시작 화면으로" }).getAttribute("href"),
+    ).toBe("/app/growth");
+  });
+
+  test("단일 선택은 radiogroup 과 aria-checked, 다중 선택은 aria-pressed 를 쓴다", async () => {
+    setShell(bootstrap());
+    renderPage();
+    const radio = await screen.findByRole("radio", { name: "고민 중" });
+    expect(radio.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(radio);
+    expect(radio.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getAllByRole("radiogroup").length).toBeGreaterThan(0);
+    const pressed = document.querySelectorAll("button[aria-pressed]");
+    expect(pressed.length).toBeGreaterThan(0);
+  });
+
+  test("편집하지 않고 떠나면 회차를 만들지 않는다", async () => {
+    setShell(
+      bootstrap({
+        prefill: {
+          survey: { filledFrom: "diagnosis", q5: "정해짐" },
+          autoFilled: { favoriteSubjects: [], books: [] },
+          previousAnswers: null,
+        },
+      }),
+    );
+    const { unmount } = renderPage();
+    await screen.findByText("무료진단에서 가져옴");
+    unmount();
+    expect(saveSurveyMock).not.toHaveBeenCalled();
   });
 });

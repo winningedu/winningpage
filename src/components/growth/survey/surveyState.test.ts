@@ -6,6 +6,7 @@ import {
   countAnswered,
   diffAnswers,
   firstUnansweredNumber,
+  groupQuestions,
   initialAnswers,
   isShortAnswer,
 } from "./surveyState";
@@ -227,5 +228,19 @@ describe("diffAnswers", () => {
   });
   test("프리필 값은 저장본에 없으므로 첫 저장 때 함께 보낸다", () => {
     expect(diffAnswers({}, { q5: "정해짐" })).toEqual({ q5: "정해짐" });
+  });
+});
+
+describe("groupQuestions", () => {
+  const q = (key: string, group: string) =>
+    ({ key, group, kind: "text" }) as never;
+  test("서버 순서대로 같은 그룹을 한 번씩 묶고 번호는 전체 순서의 1부터다", () => {
+    const groups = groupQuestions([q("a", "g1"), q("b", "g1"), q("c", "g2")]);
+    expect(groups.map((g) => g.name)).toEqual(["g1", "g2"]);
+    expect(groups[0]?.items.map((i) => i.n)).toEqual([1, 2]);
+    expect(groups[1]?.items.map((i) => [i.q.key, i.n])).toEqual([["c", 3]]);
+  });
+  test("빈 목록은 빈 배열", () => {
+    expect(groupQuestions([])).toEqual([]);
   });
 });

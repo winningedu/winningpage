@@ -15,17 +15,35 @@ import type { SurveyBootstrap } from "@/lib/growth/api";
 import { cn } from "@/lib/utils";
 import SurveyProgressCard from "./SurveyProgressCard";
 import SurveyQuestionBlock from "./SurveyQuestionBlock";
-import { prefillBanners } from "./surveySave";
+import { prefillBanners, type SaveFailure } from "./surveySave";
 import {
   answersReducer,
   countAnswered,
   firstUnansweredNumber,
+  groupQuestions,
   initialAnswers,
 } from "./surveyState";
 import { useSurveyPersistence } from "./useSurveyPersistence";
 
 const LOCKED_MESSAGE = "리포트 생성이 시작된 회차는 설문을 바꿀 수 없어요";
+const CLOSED_MESSAGE = "이 회차는 닫혔어요. 시작 화면에서 다시 시작해 주세요";
 const PRICING_PATH = "/pricing?service=growth";
+
+type FormState =
+  | { kind: "active" }
+  | { kind: "locked"; reason: "generating" | "closed" }
+  | { kind: "noEntitlement" };
+
+function formStateOf(
+  lockedByServer: boolean,
+  failure: SaveFailure | null,
+): FormState {
+  if (lockedByServer || failure === "locked")
+    return { kind: "locked", reason: "generating" };
+  if (failure === "closed") return { kind: "locked", reason: "closed" };
+  if (failure === "entitlement") return { kind: "noEntitlement" };
+  return { kind: "active" };
+}
 
 type SurveyFormProps = {
   bootstrap: SurveyBootstrap;
@@ -50,7 +68,7 @@ export default function SurveyForm({
   const [state, dispatch] = useReducer(answersReducer, initial);
 
   const lockedByServer = (openReport?.currentStep ?? 0) > 0;
-  const { saveState, failure, persist, saveNow, retry } = useSurveyPersistence({
+  const { saveState, failure, leave, saveNow, retry } = useSurveyPersistence({
     answers: state.answers,
     // 프리필 값은 서버에 없으므로 첫 저장 때 함께 보낸다.
     savedAnswers: resumed ? initial.answers : {},
@@ -58,18 +76,17 @@ export default function SurveyForm({
     enabled: !lockedByServer,
   });
 
-  const locked = lockedByServer || failure === "locked";
-  const noEntitlement = failure === "entitlement";
-  const disabled = locked || noEntitlement;
+  const formState = formStateOf(lockedByServer, failure);
+  const disabled = formState.kind !== "active";
 
   // 페이지를 떠날 때 남은 변경을 저장하고 시작 화면과 사이드바 데이터를 갱신한다.
-  const persistRef = useRef(persist);
-  persistRef.current = persist;
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
   const refetchRef = useRef(refetchBootstrap);
   refetchRef.current = refetchBootstrap;
   useEffect(() => {
     return () => {
-      persistRef
+      leaveRef
         .current()
         .catch(() => undefined)
         .finally(() => {
@@ -102,17 +119,7 @@ export default function SurveyForm({
     else void goCollect();
   };
 
-  // 그룹은 서버가 준 순서대로 한 번씩 묶는다. 번호는 전체 순서의 1부터다.
-  const groups: {
-    name: string;
-    items: { q: (typeof questions)[number]; n: number }[];
-  }[] = [];
-  questions.forEach((q, index) => {
-    const last = groups[groups.length - 1];
-    const item = { q, n: index + 1 };
-    if (last && last.name === q.group) last.items.push(item);
-    else groups.push({ name: q.group, items: [item] });
-  });
+  const groups = groupQuestions(questions);
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
@@ -123,24 +130,30 @@ export default function SurveyForm({
         onRetry={retry}
       />
 
-      {locked && (
+      {formState.kind === "locked" && (
         <GoalCard tone="cream" className="px-5 py-4">
           <p className="text-app-body font-semibold text-ink-strong">
-            {LOCKED_MESSAGE}
+            {formState.reason === "closed" ? CLOSED_MESSAGE : LOCKED_MESSAGE}
           </p>
           <Link
-            to={GROWTH_PATHS.generate}
+            to={
+              formState.reason === "closed"
+                ? GROWTH_PATHS.home
+                : GROWTH_PATHS.generate
+            }
             className={cn(
               buttonVariants({ variant: "default" }),
               "mt-3 h-10 px-4 text-app-label",
             )}
           >
-            리포트 생성으로
+            {formState.reason === "closed"
+              ? "시작 화면으로"
+              : "리포트 생성으로"}
           </Link>
         </GoalCard>
       )}
 
-      {noEntitlement && (
+      {formState.kind === "noEntitlement" && (
         <GoalCard tone="cream" className="px-5 py-4">
           <p className="text-app-body font-semibold text-ink-strong">
             성장설계 이용권이 없어 답을 저장할 수 없어요

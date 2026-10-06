@@ -25,6 +25,9 @@ export default function SurveyPage() {
     };
   }, [refetchBootstrap]);
 
+  const readyState =
+    bootstrap && fresh ? "ready" : bootstrapError ? "error" : "loading";
+
   return (
     <>
       <GoalPageHeader
@@ -32,16 +35,18 @@ export default function SurveyPage() {
         subcopy="활동 기록만으로는 알 수 없는 것을 묻습니다. 24문항이며 약 10분 걸립니다."
       />
       <div className="max-w-goal-content px-4 pb-24 md:px-12">
-        {bootstrap && fresh ? (
+        {readyState === "ready" && bootstrap && (
           <SurveyForm
             bootstrap={bootstrap}
             refetchBootstrap={refetchBootstrap}
           />
-        ) : bootstrapError ? (
+        )}
+        {readyState === "error" && (
           <p role="alert" className="text-app-body text-ink-sub">
             조사 문항을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.
           </p>
-        ) : (
+        )}
+        {readyState === "loading" && (
           <p className="text-app-body text-ink-sub">불러오는 중</p>
         )}
       </div>

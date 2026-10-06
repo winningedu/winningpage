@@ -93,7 +93,7 @@ describe("회차가 없을 때", () => {
 });
 
 describe("완료 뒤에만 다음 단계를 올린다", () => {
-  test("설문을 다 채우기 전에는 활동 선택이 잠겨 있다", () => {
+  test("설문을 다 채우기 전이어도 회차가 있으면 활동 선택은 열려 있고 조사는 완료가 아니다", () => {
     const input = base({
       screenStep: 2,
       openReport: open({ answered: 23, total: 24 }),
@@ -101,19 +101,28 @@ describe("완료 뒤에만 다음 단계를 올린다", () => {
     expect(statuses(input)).toEqual([
       "done",
       "current",
-      "locked",
+      "upcoming",
       "locked",
       "locked",
       "locked",
     ]);
+    expect(deriveGrowthSteps(input)[2]?.to).toBe(GROWTH_PATHS.collect);
   });
 
-  test("문항 수가 0이면 완료로 보지 않는다", () => {
+  test("문항 수가 0이면 학생 조사를 완료로 보지 않는다", () => {
     const input = base({
       screenStep: 2,
       openReport: open({ answered: 0, total: 0 }),
     });
-    expect(deriveGrowthSteps(input)[2]?.status).toBe("locked");
+    const steps = deriveGrowthSteps({ ...input, screenStep: 1 });
+    expect(steps[1]?.status).toBe("upcoming");
+    expect(steps[2]?.status).toBe("upcoming");
+  });
+
+  test("회차가 없으면 활동 선택은 잠겨 있다", () => {
+    expect(deriveGrowthSteps(base({ screenStep: 2 }))[2]?.status).toBe(
+      "locked",
+    );
   });
 
   test("설문을 다 채우면 활동 선택이 열리고 학생 조사는 완료다", () => {

@@ -121,9 +121,10 @@ export function deriveGrowthSteps(input: DeriveGrowthStepsInput): GrowthStep[] {
       return { key, label, status: "done", to };
     }
     // 시작과 학생 조사는 회차가 없어도 들어갈 수 있다(조사 화면이 첫 저장 때 회차를 만든다).
-    // 활동 선택과 리포트 생성은 바로 앞 단계가 끝나야 열린다.
+    // 활동 선택은 회차가 있으면 열리고, 리포트 생성은 바로 앞 단계가 끝나야 열린다.
     const reachable =
       step <= 2 ||
+      (step === 3 && input.openReport !== null) ||
       (step <= 4 && step <= through + 1) ||
       (step >= 5 && hasCompletedReport);
     return reachable

@@ -26,7 +26,7 @@ export function saveStatusLabel(state: SaveState, now: number): string | null {
   }
 }
 
-export type SaveFailure = "locked" | "entitlement" | "failed";
+export type SaveFailure = "locked" | "closed" | "entitlement" | "failed";
 
 export function classifySaveFailure(
   result: Exclude<ApiResult<unknown>, { kind: "ok" }>,
@@ -34,6 +34,8 @@ export function classifySaveFailure(
   if (result.kind === "error") {
     if (result.status === 409 && result.code === "REPORT_LOCKED")
       return "locked";
+    if (result.status === 409 && result.code === "REPORT_NOT_OPEN")
+      return "closed";
     if (result.status === 403 && result.code === "NO_ENTITLEMENT")
       return "entitlement";
   }
