@@ -275,7 +275,7 @@ export type ExtractResult = {
 export type StepProgress = {
   step: number;
   label: string;
-  status: "pending" | "running" | "done" | "failed";
+  status: "pending" | "running" | "ok" | "failed";
   attempts: number;
 };
 

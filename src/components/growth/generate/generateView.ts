@@ -11,11 +11,11 @@ export type StepBadge = "완료" | "진행 중" | "대기" | "실패";
 export type GenerationAction = "retry" | "start" | "pricing" | "report";
 
 export function completedCount(progress: StepProgress[]): number {
-  return progress.filter((p) => p.status === "done").length;
+  return progress.filter((p) => p.status === "ok").length;
 }
 
 export function stepBadge(state: GenerationState, step: number): StepBadge {
-  if (state.progress.find((p) => p.step === step)?.status === "done") {
+  if (state.progress.find((p) => p.step === step)?.status === "ok") {
     return "완료";
   }
   if (step !== state.currentStep) return "대기";
@@ -129,7 +129,7 @@ export function describeGeneration(
     case "terminal": {
       const charged =
         state.charged ??
-        state.progress.find((p) => p.step === 1)?.status === "done";
+        state.progress.find((p) => p.step === 1)?.status === "ok";
       const money = charged
         ? "이용권은 복구됐어요."
         : "이용권은 차감되지 않았어요.";
@@ -168,7 +168,7 @@ export function entitlementStatus(
 ): { label: string; note: string | null } | null {
   const charged =
     state.charged ??
-    (state.progress.find((p) => p.step === 1)?.status === "done" ? true : null);
+    (state.progress.find((p) => p.step === 1)?.status === "ok" ? true : null);
   if (state.phase === "terminal") {
     return charged
       ? { label: "복구됨", note: "1회 되돌림" }

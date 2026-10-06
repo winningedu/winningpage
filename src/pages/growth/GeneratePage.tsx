@@ -172,7 +172,7 @@ function GenerationRunner({
     initialProgress: initial,
   });
   const [resumedDone] = useState(
-    () => initial.filter((p) => p.status === "done").length,
+    () => initial.filter((p) => p.status === "ok").length,
   );
 
   const finished = state.phase === "done" || state.phase === "terminal";

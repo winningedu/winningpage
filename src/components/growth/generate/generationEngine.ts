@@ -65,7 +65,7 @@ export const ORDER_RETRY_LIMIT = 3;
 export function firstPendingStep(progress: StepProgress[]): number | null {
   for (let step = 1; step <= STEP_COUNT; step++) {
     const found = progress.find((p) => p.step === step);
-    if (found?.status !== "done") return step;
+    if (found?.status !== "ok") return step;
   }
   return null;
 }

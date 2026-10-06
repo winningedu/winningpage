@@ -24,7 +24,7 @@ export function deriveOpenCard(open: OpenReportSummary): OpenCardView {
   if (open.currentStep === 0) {
     return { statusLabel: "작성 중", progressLabel: "학생 조사 중" };
   }
-  const done = open.progress.filter((p) => p.status === "done").length;
+  const done = open.progress.filter((p) => p.status === "ok").length;
   return {
     statusLabel: "생성 중",
     progressLabel: `${open.progress.length}단계 중 ${done}단계 완료`,
