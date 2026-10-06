@@ -7,6 +7,7 @@ import {
   FORBIDDEN_PHRASES,
   SCHOOL_NAME_PATTERN,
   SCORE_RUBRIC,
+  SENTENCE_STYLE,
 } from "./dictionaries.js";
 import {
   containsUniversity,
@@ -218,6 +219,19 @@ export type WriteValidation =
 const ROLES_3: readonly ParagraphRole[] = ["process", "judgment", "wrap"];
 const ROLES_4: readonly ParagraphRole[] = ["link", ...ROLES_3];
 
+/**
+ * 학생 제출형 평서문 "했다" 체가 아닌 종결(합니다체, 해요체, 죠). 끝의 문장 부호와 따옴표는
+ * 떼고 본다. 이 검사는 SENTENCE_STYLE 이 "했다" 일 때만 켠다. 상수가 "함" 같은 다른 문체로
+ * 바뀌면 그때 규칙을 다시 정해야 하므로, 조용히 틀린 검사를 돌리지 않고 끈다.
+ */
+const NON_PLAIN_ENDING = /(습니다|니다|해요|어요|아요|예요|에요|죠)$/;
+const TRAILING_MARKS = /[\s.!?"'\u201d\u2019)\]」』]+$/;
+
+function isPlainStyle(text: string): boolean {
+  if (SENTENCE_STYLE !== "했다") return true;
+  return !NON_PLAIN_ENDING.test(text.replace(TRAILING_MARKS, ""));
+}
+
 /** 문단당 이 수 이상이면 짧은 글(300자 이하) 모드 위반. 명세 §2 14 의 2문장 이하. */
 const SHORT_MODE_MAX_SENTENCES = 2;
 
@@ -333,6 +347,13 @@ export function validateWriteResponse(
         return;
       }
       const text = fixNominalEndings(rawText);
+      if (!isPlainStyle(text)) {
+        issues.push({
+          code: "sentence_style",
+          message: `문장 ${id} 이(가) '${SENTENCE_STYLE}' 체가 아닙니다. 모든 문장을 '${SENTENCE_STYLE}' 체로 바꿔 다시 작성합니다.`,
+          path: id,
+        });
+      }
       const evidence = readEvidence(s.evidence, ctx, id, issues);
       const feeling =
         s.feeling === true ||

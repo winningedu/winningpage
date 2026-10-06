@@ -309,6 +309,32 @@ describe("validateWriteResponse", () => {
       expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
   });
 
+  it("했습니다, 해요 같은 존댓말 종결은 sentence_style 로 막는다", () => {
+    for (const bad of [
+      "탐구 활동을 시작했습니다.",
+      "결과를 정리합니다",
+      "그래프를 그렸어요.",
+      "표를 만들었죠?",
+      "값이 컸네요 예요.",
+    ]) {
+      const b = body3();
+      para(b, 0).sentences[1] = sent(bad);
+      const r = validateWriteResponse(b, wctx);
+      expect(r.ok, bad).toBe(false);
+      if (!r.ok) {
+        const issue = r.issues.find((i) => i.code === "sentence_style");
+        expect(issue?.path, bad).toBe("p1-s2");
+        expect(issue?.message).toContain("했다");
+      }
+    }
+  });
+
+  it("했다 체 평서문은 sentence_style 에 걸리지 않는다", () => {
+    const b = body3();
+    para(b, 0).sentences[1] = sent('상관계수를 계산했다."');
+    expect(validateWriteResponse(b, wctx).ok).toBe(true);
+  });
+
   it("대학명, 학교명, 마크다운, 금지 표현을 막는다", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("한국대 진학을 목표로 했다.");
