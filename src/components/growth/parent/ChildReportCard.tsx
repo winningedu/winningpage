@@ -44,9 +44,7 @@ export default function ChildReportCard({
             </p>
           ) : null}
         </div>
-        <span aria-hidden="true" className="text-app-body text-ink-sub">
-          →
-        </span>
+        <span className="text-app-label text-ink-sub">자세히 보기</span>
       </Link>
     </li>
   );

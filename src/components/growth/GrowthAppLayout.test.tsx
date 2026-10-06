@@ -37,8 +37,14 @@ vi.mock("@/components/ui/RouteLoadingOverlay", () => ({
   default: () => null,
 }));
 
-import StartPage from "@/pages/growth/StartPage";
 import GrowthAppLayout from "./GrowthAppLayout";
+import { useGrowthScreenStep } from "./GrowthShellContext";
+
+// 시작 화면 대신 1단계만 올리는 더미 자식. 레이아웃 스모크는 페이지 내용에 의존하지 않는다.
+function StepOneChild() {
+  useGrowthScreenStep(1);
+  return <div>child</div>;
+}
 
 beforeEach(() => {
   fetchSurveyBootstrapMock.mockReset();
@@ -66,7 +72,7 @@ function renderLayout() {
       <MemoryRouter initialEntries={["/app/growth"]}>
         <Routes>
           <Route element={<GrowthAppLayout />}>
-            <Route path="/app/growth" element={<StartPage />} />
+            <Route path="/app/growth" element={<StepOneChild />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -78,9 +84,7 @@ describe("GrowthAppLayout 렌더 스모크", () => {
   test("헤더, 사이드바, 페이지 타이틀, 하단 고지를 함께 그린다", async () => {
     renderLayout();
     expect(screen.getByTestId("site-header")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "위닝 성장설계" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("child")).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "꼭 알아 두세요" }),
     ).toBeInTheDocument();
