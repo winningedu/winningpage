@@ -1,0 +1,179 @@
+// api/growth/report 의 순수 보조: 바디 검증, 응답과 오류 조립, 종결 판정, 모델 어댑터.
+
+import type { ValidationIssue } from "../validation.js";
+import type { PromptBundle } from "./prompts.js";
+import type { RunStepDeps, StoredOutputs } from "./runStep.js";
+import {
+  isExhausted,
+  nextStep,
+  parseStepState,
+  progress,
+  stepRecord,
+} from "./stepState.js";
+import type { ClaimResult, StepNumber, StepState } from "./types.js";
+import { STEP_NUMBERS } from "./types.js";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type ReportBody = { reportId: string; step: StepNumber };
+
+export function validateReportBody(
+  raw: unknown,
+): { ok: true; body: ReportBody } | { ok: false; reason: string } {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    return { ok: false, reason: "요청 본문이 올바르지 않아요." };
+  const { reportId, step } = raw as Record<string, unknown>;
+  if (typeof reportId !== "string" || !UUID_RE.test(reportId))
+    return { ok: false, reason: "reportId 오류" };
+  if (
+    typeof step !== "number" ||
+    !(STEP_NUMBERS as readonly number[]).includes(step)
+  )
+    return { ok: false, reason: "step 은 1~8 정수여야 해요." };
+  return { ok: true, body: { reportId, step: step as StepNumber } };
+}
+
+export type StepResponseInput = {
+  reportId: string;
+  step: StepNumber;
+  state: StepState;
+  result: "ok" | "done" | "failed";
+  issues?: ValidationIssue[];
+  charged?: boolean;
+  completion?: { issuedAt: string; planItemCount: number };
+};
+
+export function stepResponse(input: StepResponseInput) {
+  const { state } = input;
+  return {
+    ok: true as const,
+    reportId: input.reportId,
+    step: input.step,
+    result: input.result,
+    attempts: stepRecord(state, input.step).attempts,
+    nextStep: nextStep(state),
+    progress: progress(state),
+    ...(input.issues !== undefined && { issues: input.issues }),
+    ...(input.charged !== undefined && { charged: input.charged }),
+    ...(input.completion !== undefined && { completion: input.completion }),
+  };
+}
+
+export type CodedError = { status: number; code: string; message: string };
+
+export function claimErrorOf(
+  claim: Exclude<ClaimResult, { kind: "claimed" } | { kind: "done" }>,
+): CodedError {
+  switch (claim.kind) {
+    case "locked":
+      return {
+        status: 409,
+        code: "REPORT_LOCKED",
+        message: "이 회차는 더 이상 생성을 진행할 수 없어요.",
+      };
+    case "order":
+      return {
+        status: 409,
+        code: "STEP_ORDER",
+        message: `앞 단계가 아직 끝나지 않았어요. 현재 ${claim.currentStep}단계부터 진행해 주세요.`,
+      };
+    case "running":
+      return {
+        status: 409,
+        code: "STEP_RUNNING",
+        message: "같은 단계가 이미 진행 중이에요. 잠시 뒤 다시 확인해 주세요.",
+      };
+    case "exhausted":
+      return {
+        status: 409,
+        code: "ATTEMPTS_EXHAUSTED",
+        message: "이 단계의 시도 횟수를 모두 사용했어요.",
+      };
+  }
+}
+
+export type StepFailure = "validation" | "upstream" | "timeout" | "fatal";
+
+const FAILURE_ERRORS: Record<StepFailure, CodedError> = {
+  validation: {
+    status: 422,
+    code: "STEP_VALIDATION_FAILED",
+    message: "분석 결과가 기준을 통과하지 못했어요. 다시 시도해 주세요.",
+  },
+  upstream: {
+    status: 502,
+    code: "MODEL_UPSTREAM_FAILED",
+    message: "분석 서버 응답에 실패했어요. 잠시 뒤 다시 시도해 주세요.",
+  },
+  timeout: {
+    status: 504,
+    code: "STEP_TIMEOUT",
+    message: "분석 시간이 초과됐어요. 다시 시도해 주세요.",
+  },
+  fatal: {
+    status: 500,
+    code: "STEP_FATAL",
+    message: "리포트를 만드는 중 복구할 수 없는 오류가 났어요.",
+  },
+};
+
+export function failureErrorOf(failure: StepFailure): CodedError {
+  return FAILURE_ERRORS[failure];
+}
+
+/** 복구 불가(fatal)이거나 그 단계 시도가 상한에 닿았으면 회차를 종결한다. */
+export function shouldTerminate(
+  state: StepState,
+  step: StepNumber,
+  failure: StepFailure,
+): boolean {
+  return failure === "fatal" || isExhausted(stepRecord(state, step));
+}
+
+/** growth_reports 행 중 단계 산출 컬럼. */
+export type StoredRow = {
+  signals: unknown;
+  narrative_theme: string | null;
+  grade_subthemes: unknown;
+  stage: string | null;
+  consistency: unknown;
+  axis_scores: unknown;
+  sections: unknown;
+  step_state: unknown;
+};
+
+export function toStoredOutputs(row: StoredRow): StoredOutputs {
+  return {
+    signals: row.signals,
+    narrative_theme: row.narrative_theme,
+    grade_subthemes: row.grade_subthemes,
+    stage: row.stage,
+    consistency: row.consistency,
+    axis_scores: row.axis_scores,
+    sections: row.sections,
+    planDraft: parseStepState(row.step_state).planDraft,
+  };
+}
+
+type CallText = (
+  system: string,
+  user: string,
+  options: {
+    responseMimeType: string;
+    responseSchema: PromptBundle["responseSchema"];
+    maxOutputTokens: number;
+    abortSignal: AbortSignal;
+  },
+) => Promise<string>;
+
+/** gemini callText 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
+export function callModelWith(callText: CallText): RunStepDeps["callModel"] {
+  return (bundle, signal) =>
+    callText(bundle.system, bundle.user, {
+      responseMimeType: "application/json",
+      responseSchema: bundle.responseSchema,
+      maxOutputTokens: bundle.maxOutputTokens,
+      abortSignal: signal,
+    });
+}
