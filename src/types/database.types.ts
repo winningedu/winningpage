@@ -1,3 +1,4 @@
+// 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types
 export type Json =
   | string
   | number
@@ -2892,6 +2893,396 @@ export type Database = {
         };
         Relationships: [];
       };
+      inquiry_assets: {
+        Row: {
+          activity_record_id: string | null;
+          created_at: string;
+          gaps: string[] | null;
+          id: string;
+          interview_answers: Json | null;
+          kind: string;
+          oneline_text: string | null;
+          position: number;
+          profile_id: string;
+          reliability: string;
+          session_id: string;
+        };
+        Insert: {
+          activity_record_id?: string | null;
+          created_at?: string;
+          gaps?: string[] | null;
+          id?: string;
+          interview_answers?: Json | null;
+          kind: string;
+          oneline_text?: string | null;
+          position: number;
+          profile_id: string;
+          reliability: string;
+          session_id: string;
+        };
+        Update: {
+          activity_record_id?: string | null;
+          created_at?: string;
+          gaps?: string[] | null;
+          id?: string;
+          interview_answers?: Json | null;
+          kind?: string;
+          oneline_text?: string | null;
+          position?: number;
+          profile_id?: string;
+          reliability?: string;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_assets_activity_record_id_fkey";
+            columns: ["activity_record_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_assets_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_assets_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      inquiry_reports: {
+        Row: {
+          created_at: string;
+          id: string;
+          label: string | null;
+          model: string | null;
+          profile_id: string;
+          prompt_version: string | null;
+          report_type: string;
+          score: number | null;
+          sections: NonNullable<Json>;
+          session_id: string;
+          submission_id: string | null;
+          topic_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          label?: string | null;
+          model?: string | null;
+          profile_id: string;
+          prompt_version?: string | null;
+          report_type: string;
+          score?: number | null;
+          sections: NonNullable<Json>;
+          session_id: string;
+          submission_id?: string | null;
+          topic_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          label?: string | null;
+          model?: string | null;
+          profile_id?: string;
+          prompt_version?: string | null;
+          report_type?: string;
+          score?: number | null;
+          sections?: NonNullable<Json>;
+          session_id?: string;
+          submission_id?: string | null;
+          topic_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_reports_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_reports_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_reports_submission_id_fkey";
+            columns: ["submission_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_submissions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_reports_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      inquiry_sessions: {
+        Row: {
+          career: string | null;
+          completed_at: string | null;
+          created_at: string;
+          current_step: number;
+          design_report_id: string | null;
+          evaluation_count: number;
+          final_report_id: string | null;
+          generation_state: NonNullable<Json>;
+          grade_label: string | null;
+          growth_report_id: string | null;
+          id: string;
+          last_activity_at: string;
+          latest_evaluation_id: string | null;
+          ledger_id: string | null;
+          ledger_reversed_at: string | null;
+          plan_item_id: string | null;
+          profile_id: string;
+          reply_pending: boolean;
+          selected_topic_id: string | null;
+          semester: number | null;
+          status: string;
+          subject: string;
+          topic_round_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          career?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          current_step?: number;
+          design_report_id?: string | null;
+          evaluation_count?: number;
+          final_report_id?: string | null;
+          generation_state?: NonNullable<Json>;
+          grade_label?: string | null;
+          growth_report_id?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          latest_evaluation_id?: string | null;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          plan_item_id?: string | null;
+          profile_id: string;
+          reply_pending?: boolean;
+          selected_topic_id?: string | null;
+          semester?: number | null;
+          status?: string;
+          subject: string;
+          topic_round_count?: number;
+          updated_at?: string;
+        };
+        Update: {
+          career?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          current_step?: number;
+          design_report_id?: string | null;
+          evaluation_count?: number;
+          final_report_id?: string | null;
+          generation_state?: NonNullable<Json>;
+          grade_label?: string | null;
+          growth_report_id?: string | null;
+          id?: string;
+          last_activity_at?: string;
+          latest_evaluation_id?: string | null;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          plan_item_id?: string | null;
+          profile_id?: string;
+          reply_pending?: boolean;
+          selected_topic_id?: string | null;
+          semester?: number | null;
+          status?: string;
+          subject?: string;
+          topic_round_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_sessions_design_report_fk";
+            columns: ["design_report_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_final_report_fk";
+            columns: ["final_report_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_growth_report_id_fkey";
+            columns: ["growth_report_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_latest_evaluation_fk";
+            columns: ["latest_evaluation_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_ledger_id_fkey";
+            columns: ["ledger_id"];
+            isOneToOne: false;
+            referencedRelation: "performance_credit_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_plan_item_id_fkey";
+            columns: ["plan_item_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_plan_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_sessions_selected_topic_fk";
+            columns: ["selected_topic_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      inquiry_submissions: {
+        Row: {
+          char_counts: NonNullable<Json>;
+          created_at: string;
+          id: string;
+          is_draft: boolean;
+          is_final: boolean;
+          profile_id: string;
+          revision: number;
+          sections: NonNullable<Json>;
+          session_id: string;
+          submitted_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          char_counts: NonNullable<Json>;
+          created_at?: string;
+          id?: string;
+          is_draft?: boolean;
+          is_final?: boolean;
+          profile_id: string;
+          revision: number;
+          sections: NonNullable<Json>;
+          session_id: string;
+          submitted_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          char_counts?: NonNullable<Json>;
+          created_at?: string;
+          id?: string;
+          is_draft?: boolean;
+          is_final?: boolean;
+          profile_id?: string;
+          revision?: number;
+          sections?: NonNullable<Json>;
+          session_id?: string;
+          submitted_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_submissions_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_submissions_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      inquiry_topics: {
+        Row: {
+          created_at: string;
+          detail: NonNullable<Json>;
+          fit: string;
+          id: string;
+          idx: number;
+          link_kind: string;
+          linkage_type: string;
+          profile_id: string;
+          round: number;
+          selected: boolean;
+          session_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          detail: NonNullable<Json>;
+          fit: string;
+          id?: string;
+          idx: number;
+          link_kind: string;
+          linkage_type: string;
+          profile_id: string;
+          round: number;
+          selected?: boolean;
+          session_id: string;
+        };
+        Update: {
+          created_at?: string;
+          detail?: NonNullable<Json>;
+          fit?: string;
+          id?: string;
+          idx?: number;
+          link_kind?: string;
+          linkage_type?: string;
+          profile_id?: string;
+          round?: number;
+          selected?: boolean;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_topics_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inquiry_topics_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "inquiry_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       learning_diagnosis_options: {
         Row: {
           created_at: string | null;
@@ -5080,246 +5471,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      selfeval_reports: {
-        Row: {
-          char_count: Json | null;
-          created_at: string;
-          id: string;
-          mandatory_fixes: Json | null;
-          profile_id: string;
-          report_type: string;
-          revision: number;
-          score: number | null;
-          sections: NonNullable<Json>;
-          session_id: string;
-        };
-        Insert: {
-          char_count?: Json | null;
-          created_at?: string;
-          id?: string;
-          mandatory_fixes?: Json | null;
-          profile_id: string;
-          report_type: string;
-          revision: number;
-          score?: number | null;
-          sections: NonNullable<Json>;
-          session_id: string;
-        };
-        Update: {
-          char_count?: Json | null;
-          created_at?: string;
-          id?: string;
-          mandatory_fixes?: Json | null;
-          profile_id?: string;
-          report_type?: string;
-          revision?: number;
-          score?: number | null;
-          sections?: NonNullable<Json>;
-          session_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "selfeval_reports_profile_id_fkey";
-            columns: ["profile_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_reports_session_id_fkey";
-            columns: ["session_id"];
-            isOneToOne: false;
-            referencedRelation: "selfeval_sessions";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      selfeval_session_activities: {
-        Row: {
-          activity_record_id: string;
-          analysis: Json | null;
-          analysis_source: string | null;
-          created_at: string;
-          fit_reasons: Json | null;
-          fit_score: number | null;
-          id: string;
-          profile_id: string;
-          role: string;
-          session_id: string;
-          updated_at: string;
-        };
-        Insert: {
-          activity_record_id: string;
-          analysis?: Json | null;
-          analysis_source?: string | null;
-          created_at?: string;
-          fit_reasons?: Json | null;
-          fit_score?: number | null;
-          id?: string;
-          profile_id: string;
-          role: string;
-          session_id: string;
-          updated_at?: string;
-        };
-        Update: {
-          activity_record_id?: string;
-          analysis?: Json | null;
-          analysis_source?: string | null;
-          created_at?: string;
-          fit_reasons?: Json | null;
-          fit_score?: number | null;
-          id?: string;
-          profile_id?: string;
-          role?: string;
-          session_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "selfeval_session_activities_activity_record_id_fkey";
-            columns: ["activity_record_id"];
-            isOneToOne: false;
-            referencedRelation: "activity_records";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_session_activities_profile_id_fkey";
-            columns: ["profile_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_session_activities_session_id_fkey";
-            columns: ["session_id"];
-            isOneToOne: false;
-            referencedRelation: "selfeval_sessions";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      selfeval_sessions: {
-        Row: {
-          academic_year: number | null;
-          activity_name: string | null;
-          area: string | null;
-          career: NonNullable<Json>;
-          completed_at: string | null;
-          created_at: string;
-          current_step: number;
-          grade_label: string | null;
-          growth_applied: boolean;
-          growth_report_id: string | null;
-          growth_snapshot: Json | null;
-          id: string;
-          last_activity_at: string;
-          ledger_id: string | null;
-          ledger_reversed_at: string | null;
-          plan_item_id: string | null;
-          profile_id: string;
-          regenerate_count: number;
-          reply_pending: Json | null;
-          school_prompt: string | null;
-          semester: number | null;
-          status: string;
-          step_state: NonNullable<Json>;
-          subject: string | null;
-          target_chars: number | null;
-          target_chars_mode: string;
-          teacher_note: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          academic_year?: number | null;
-          activity_name?: string | null;
-          area?: string | null;
-          career?: NonNullable<Json>;
-          completed_at?: string | null;
-          created_at?: string;
-          current_step?: number;
-          grade_label?: string | null;
-          growth_applied?: boolean;
-          growth_report_id?: string | null;
-          growth_snapshot?: Json | null;
-          id?: string;
-          last_activity_at?: string;
-          ledger_id?: string | null;
-          ledger_reversed_at?: string | null;
-          plan_item_id?: string | null;
-          profile_id: string;
-          regenerate_count?: number;
-          reply_pending?: Json | null;
-          school_prompt?: string | null;
-          semester?: number | null;
-          status?: string;
-          step_state?: NonNullable<Json>;
-          subject?: string | null;
-          target_chars?: number | null;
-          target_chars_mode?: string;
-          teacher_note?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          academic_year?: number | null;
-          activity_name?: string | null;
-          area?: string | null;
-          career?: NonNullable<Json>;
-          completed_at?: string | null;
-          created_at?: string;
-          current_step?: number;
-          grade_label?: string | null;
-          growth_applied?: boolean;
-          growth_report_id?: string | null;
-          growth_snapshot?: Json | null;
-          id?: string;
-          last_activity_at?: string;
-          ledger_id?: string | null;
-          ledger_reversed_at?: string | null;
-          plan_item_id?: string | null;
-          profile_id?: string;
-          regenerate_count?: number;
-          reply_pending?: Json | null;
-          school_prompt?: string | null;
-          semester?: number | null;
-          status?: string;
-          step_state?: NonNullable<Json>;
-          subject?: string | null;
-          target_chars?: number | null;
-          target_chars_mode?: string;
-          teacher_note?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "selfeval_sessions_growth_report_id_fkey";
-            columns: ["growth_report_id"];
-            isOneToOne: false;
-            referencedRelation: "growth_reports";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_sessions_ledger_id_fkey";
-            columns: ["ledger_id"];
-            isOneToOne: false;
-            referencedRelation: "performance_credit_ledger";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_sessions_plan_item_id_fkey";
-            columns: ["plan_item_id"];
-            isOneToOne: false;
-            referencedRelation: "growth_plan_items";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "selfeval_sessions_profile_id_fkey";
-            columns: ["profile_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       services: {
         Row: {
           created_at: string | null;
@@ -6359,11 +6510,11 @@ export type Database = {
         Args: { p_profile_id: string; p_reason?: string; p_report_id: string };
         Returns: Json;
       };
-      consume_performance_credit: {
+      consume_inquiry_credit: {
         Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
       };
-      consume_selfeval_credit: {
+      consume_performance_credit: {
         Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
       };
@@ -6723,6 +6874,39 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_inquiry_claim_generation: {
+        Args: {
+          p_mode: string;
+          p_profile_id: string;
+          p_session_id: string;
+          p_stale_seconds?: number;
+        };
+        Returns: Json;
+      };
+      fn_inquiry_finalize: {
+        Args: { p_fields: Json; p_profile_id: string; p_session_id: string };
+        Returns: Json;
+      };
+      fn_inquiry_finish_generation: {
+        Args: {
+          p_extra_attempts?: number;
+          p_issues?: Json;
+          p_mode: string;
+          p_ok: boolean;
+          p_profile_id: string;
+          p_session_id: string;
+        };
+        Returns: boolean;
+      };
+      fn_inquiry_terminate_session: {
+        Args: {
+          p_mode: string;
+          p_profile_id: string;
+          p_reason: string;
+          p_session_id: string;
+        };
+        Returns: Json;
+      };
       fn_is_active_admin: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_linked_pair: {
         Args: { p_a: string; p_b: string };
@@ -7009,47 +7193,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      fn_selfeval_claim_step: {
-        Args: {
-          p_profile_id: string;
-          p_session_id: string;
-          p_stale_seconds?: number;
-          p_step: string;
-        };
-        Returns: Json;
-      };
-      fn_selfeval_finalize: {
-        Args: {
-          p_char_count: Json;
-          p_profile_id: string;
-          p_promoted: Json;
-          p_score: number;
-          p_sections: Json;
-          p_session_id: string;
-        };
-        Returns: Json;
-      };
-      fn_selfeval_finish_step: {
-        Args: {
-          p_extra_attempts?: number;
-          p_issues?: Json;
-          p_ok: boolean;
-          p_patch?: Json;
-          p_profile_id: string;
-          p_session_id: string;
-          p_step: string;
-        };
-        Returns: boolean;
-      };
-      fn_selfeval_terminate_session: {
-        Args: {
-          p_profile_id: string;
-          p_reason: string;
-          p_session_id: string;
-          p_step: string;
-        };
-        Returns: Json;
-      };
       fn_set_my_tenant: {
         Args: { p_code: string };
         Returns: {
@@ -7208,7 +7351,7 @@ export type Database = {
         Args: { p_profile_id: string; p_reason?: string; p_report_id: string };
         Returns: Json;
       };
-      reverse_selfeval_credit: {
+      reverse_inquiry_credit: {
         Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
       };
