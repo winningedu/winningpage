@@ -3,7 +3,9 @@
 // 실패도 예외가 아니라 반환값이고, 판별자는 서버 본문의 `ok`와 겹치지 않게 `kind`로 둔다.
 //
 //   { kind: "ok", data }                            2xx + 본문 ok:true
-//   { kind: "error", status, code, message, extra? } 서버 실패 응답(본문 { ok:false, code, message, ... })
+//   { kind: "error", status, code, message, extra? } 서버 실패 응답
+//       coded 형식 본문 { error: { code, message }, ...extra } 를 기본으로 읽고,
+//       최상위 { ok:false, code, message, ...extra } 도 허용한다.
 //   { kind: "timeout" }                             타임아웃(재시도 가능한 실패). 호출 계층이 만든다.
 //
 // status 0은 서버에 닿지 못한 실패(네트워크, 세션 없음 등)에 쓴다. 호출 계층이 만든다.
@@ -15,7 +17,7 @@ export type ApiResult<T> =
       status: number;
       code: string;
       message: string;
-      /** code, message, ok 를 뺀 나머지 본문 필드(attempts, issues, progress, terminal, open 등). */
+      /** code, message, ok, error 를 뺀 나머지 본문 필드(attempts, issues, progress, terminal, open 등). */
       extra?: Record<string, unknown>;
     }
   | { kind: "timeout" };
@@ -55,7 +57,10 @@ export function normalizeApiResult<T>(
     };
   }
 
-  const { ok: _ok, code, message, ...rest } = body;
+  const { ok: _ok, error, code: topCode, message: topMessage, ...rest } = body;
+  const nested = isRecord(error) ? error : {};
+  const code = nested.code ?? topCode;
+  const message = nested.message ?? topMessage;
   const result: ApiResult<T> = {
     kind: "error",
     status,
