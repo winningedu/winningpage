@@ -561,3 +561,76 @@ export async function finalizeSession(
     "fn_selfeval_finalize",
   );
 }
+
+// ---------------------------------------------------------------------------
+// 분석 저장과 리포트 추가(P4). 모델 단계의 결과는 finishStep RPC 가 쓰고, 아래는 학생이
+// 직접 고친 값을 쓰는 경로다.
+// ---------------------------------------------------------------------------
+
+/** 학생이 고친 분석을 세션 활동에 저장한다. 출처(analysis_source)는 건드리지 않는다. */
+export async function updateSessionActivityAnalysis(
+  db: Db,
+  userId: string,
+  sessionId: string,
+  activityRecordId: string,
+  analysis: unknown,
+): Promise<void> {
+  mustHave(
+    must(
+      await db
+        .from("selfeval_session_activities")
+        .update({ analysis })
+        .eq("session_id", sessionId)
+        .eq("profile_id", userId)
+        .eq("activity_record_id", activityRecordId)
+        .select("activity_record_id")
+        .maybeSingle(),
+      "selfeval_session_activities 분석 저장 실패",
+    ),
+    "분석 저장 대상 활동",
+  );
+}
+
+/** 학생 편집본 같은 리포트를 이력에 추가한다. revision 은 같은 유형의 max+1 이다. */
+export async function insertReport(
+  db: Db,
+  userId: string,
+  sessionId: string,
+  row: {
+    report_type: ReportRow["report_type"];
+    sections: unknown;
+    char_count: unknown;
+    score: number | null;
+    mandatory_fixes: unknown;
+  },
+): Promise<ReportRow> {
+  // (session_id, report_type, revision) 유니크라 동시 요청이 같은 revision 을 잡으면 한쪽이
+  // 23505 로 진다. 한 번만 다시 읽어 시도한다.
+  for (let attempt = 0; ; attempt++) {
+    const last = must(
+      await db
+        .from("selfeval_reports")
+        .select("revision")
+        .eq("session_id", sessionId)
+        .eq("profile_id", userId)
+        .eq("report_type", row.report_type)
+        .order("revision", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      "selfeval_reports revision 조회 실패",
+    ) as { revision: number } | null;
+    const { data, error } = await db
+      .from("selfeval_reports")
+      .insert({
+        ...row,
+        session_id: sessionId,
+        profile_id: userId,
+        revision: (last?.revision ?? 0) + 1,
+      })
+      .select(REPORT_COLUMNS)
+      .single();
+    if (error?.code === PG_UNIQUE_VIOLATION && attempt === 0) continue;
+    if (error) throw new Error(`selfeval_reports 저장 실패: ${error.message}`);
+    return data as ReportRow;
+  }
+}
