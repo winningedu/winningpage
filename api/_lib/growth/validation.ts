@@ -35,8 +35,8 @@ const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
 /**
  * 텍스트에서 발견된 금지 표현(중복 제거). 입력과 사전 항목 모두 공백을 제거해 비교하고,
  * 발견 목록은 사전 원문으로 돌려준다.
- * ADMISSION_DISCLAIMER 같은 고지 문구는 검증 뒤 앱이 붙인다.
- * 모델 출력에 들어 있으면 금지 표현으로 처리된다.
+ * 앱이 붙이는 고지 문구(ADMISSION_DISCLAIMER 등)도 8단계 조립 뒤 같은 검사를 받는다.
+ * 그래서 고정 문구는 이 사전의 어떤 항목도 포함하지 않게 쓴다.
  */
 export function findForbiddenPhrases(text: string): string[] {
   const compact = stripSpaces(text);

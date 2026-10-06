@@ -65,7 +65,7 @@ export function compareWithAdmission(input: {
 
 // 입결 옆에 항상 붙이는 고정 고지(No.78, 80).
 export const ADMISSION_DISCLAIMER =
-  "입결은 참고 자료이며 합격 가능성을 뜻하지 않아요.";
+  "입결은 참고 자료일 뿐이며 합격 여부를 가늠하는 값이 아니에요.";
 
 export type BacksolveResult = {
   requiredAverage: number | null;

@@ -7,6 +7,7 @@ import {
   targetScheduleRows,
 } from "./targetGrade.js";
 import type { SemesterKey } from "./types.js";
+import { findForbiddenPhrases } from "./validation.js";
 
 describe("compareWithAdmission", () => {
   test("입결 2개년 중 최신 연도 컷을 고르고 추정이 컷 이하면 within 이다", () => {
@@ -98,8 +99,12 @@ describe("compareWithAdmission", () => {
 describe("ADMISSION_DISCLAIMER", () => {
   test("고정 고지 문구를 노출한다", () => {
     expect(ADMISSION_DISCLAIMER).toBe(
-      "입결은 참고 자료이며 합격 가능성을 뜻하지 않아요.",
+      "입결은 참고 자료일 뿐이며 합격 여부를 가늠하는 값이 아니에요.",
     );
+  });
+
+  test("금지 표현 사전의 어떤 항목도 포함하지 않는다", () => {
+    expect(findForbiddenPhrases(ADMISSION_DISCLAIMER)).toEqual([]);
   });
 });
 

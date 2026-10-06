@@ -235,7 +235,7 @@ describe("ReportBody", () => {
               body: {
                 status: "unreachable",
                 rows: [{ key: "고3-1", target: 1.9, note: null }],
-                note: "입결은 참고 자료이며 합격 가능성을 뜻하지 않아요.",
+                note: "입결은 참고 자료일 뿐이며 합격 여부를 가늠하는 값이 아니에요.",
               },
             }),
           ],
