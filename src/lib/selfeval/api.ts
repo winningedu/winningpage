@@ -4,8 +4,7 @@
 // 서버에 닿지 못한 실패는 status 0(세션 없음은 401 UNAUTHENTICATED, 네트워크는 NETWORK)이다.
 //
 // 결과 해석(normalizeApiResult)은 성장설계의 것을 그대로 쓴다. 오류 본문 모양이 같다.
-// 모델을 부르는 단계(analyze, write, verify)와 최종 저장은 P6 가 이 파일 끝에 추가한다.
-// 그때는 request 의 `ai: true` 옵션으로 70초 타임아웃 경로를 쓴다.
+// 모델을 부르는 단계(analyze run, write generate, verify)는 `ai: true` 로 70초 타임아웃 경로를 쓴다.
 //
 // 타입은 types.ts 에 있고 이 파일이 다시 내보낸다. 화면은 이 파일 하나만 import 한다.
 
@@ -17,14 +16,23 @@ import {
 } from "../growth/apiResult";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
 import type {
+  AnalysisField,
+  AnalyzeEditResponse,
+  AnalyzeRunResponse,
+  ConflictChoice,
   EntryResponse,
+  FinalizeResponse,
   ManualInput,
   PickListResponse,
   PickManualResponse,
   PickSelectResponse,
+  PromotedRecord,
   SessionDetailResponse,
   SessionInput,
   SessionResponse,
+  VerifyResponse,
+  WriteEditResponse,
+  WriteGenerateResponse,
 } from "./types";
 
 export type { ApiResult } from "../growth/apiResult";
@@ -36,7 +44,7 @@ const BASE = "/api/selfeval";
 type RequestOptions = {
   method: "GET" | "POST";
   body?: unknown;
-  /** true 면 모델 호출용 70초 타임아웃 경로를 쓴다(P6 가 사용). */
+  /** true 면 모델 호출용 70초 타임아웃 경로를 쓴다. */
   ai?: boolean;
 };
 
@@ -155,5 +163,83 @@ export function pickManual(sessionId: string, input: ManualInput) {
   return request<PickManualResponse>(`${BASE}/pick-records`, {
     method: "POST",
     body: { sessionId, action: "manual", input },
+  });
+}
+
+// ── 분석 ──────────────────────────────────────────────────────────────
+/** 모델로 11항목을 분석한다. 직접 입력 활동은 모델 없이 바로 돌아온다. */
+export function analyzeRun(sessionId: string) {
+  return request<AnalyzeRunResponse>(`${BASE}/analyze`, {
+    method: "POST",
+    body: { sessionId, action: "run" },
+    ai: true,
+  });
+}
+
+export function analyzeSave(
+  sessionId: string,
+  edits: Partial<Record<AnalysisField, string>>,
+) {
+  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
+    method: "POST",
+    body: { sessionId, action: "save", edits },
+  });
+}
+
+export function analyzeResolveConflict(
+  sessionId: string,
+  index: number,
+  choice: ConflictChoice,
+) {
+  return request<AnalyzeEditResponse>(`${BASE}/analyze`, {
+    method: "POST",
+    body: { sessionId, action: "resolve-conflict", index, choice },
+  });
+}
+
+// ── 생성 ──────────────────────────────────────────────────────────────
+export function writeGenerate(sessionId: string) {
+  return request<WriteGenerateResponse>(`${BASE}/write`, {
+    method: "POST",
+    body: { sessionId, action: "generate" },
+    ai: true,
+  });
+}
+
+export function writeEdit(sessionId: string, paragraphs: string[]) {
+  return request<WriteEditResponse>(`${BASE}/write`, {
+    method: "POST",
+    body: { sessionId, action: "edit", paragraphs },
+  });
+}
+
+export function writeConfirmFeeling(sessionId: string, sentenceId: string) {
+  return request<WriteEditResponse>(`${BASE}/write`, {
+    method: "POST",
+    body: { sessionId, action: "confirm-feeling", sentenceId },
+  });
+}
+
+// ── 검증과 최종 저장 ──────────────────────────────────────────────────
+export function verifySession(sessionId: string) {
+  return request<VerifyResponse>(`${BASE}/verify`, {
+    method: "POST",
+    body: { sessionId },
+    ai: true,
+  });
+}
+
+export function finalizeSession(
+  sessionId: string,
+  promoted: PromotedRecord,
+  fulfillsPlanItem?: boolean,
+) {
+  return request<FinalizeResponse>(`${BASE}/finalize`, {
+    method: "POST",
+    body: {
+      sessionId,
+      promoted,
+      ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
+    },
   });
 }

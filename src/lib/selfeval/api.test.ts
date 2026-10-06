@@ -17,14 +17,22 @@ vi.mock("../apiFetch", async () => {
 
 import { ApiFetchTimeoutError } from "../apiFetch";
 import {
+  analyzeResolveConflict,
+  analyzeRun,
+  analyzeSave,
   createSession,
   discardSession,
   fetchEntry,
   fetchSessionDetail,
+  finalizeSession,
   pickList,
   pickManual,
   pickSelect,
   updateSession,
+  verifySession,
+  writeConfirmFeeling,
+  writeEdit,
+  writeGenerate,
 } from "./api";
 
 const json = (status: number, body: unknown) =>
@@ -147,6 +155,70 @@ describe("활동 선택", () => {
       sessionId: "s1",
       action: "manual",
       input: { activityName: "x" },
+    });
+  });
+});
+
+describe("분석, 생성, 검증, 최종 저장", () => {
+  test("분석은 action 으로 run, save, resolve-conflict 가 갈린다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await analyzeRun("s1");
+    expect(lastCall().path).toBe("/api/selfeval/analyze");
+    expect(lastCall().body).toEqual({ sessionId: "s1", action: "run" });
+    await analyzeSave("s1", { result: "고친 값" });
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "save",
+      edits: { result: "고친 값" },
+    });
+    await analyzeResolveConflict("s1", 1, "b");
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "resolve-conflict",
+      index: 1,
+      choice: "b",
+    });
+  });
+
+  test("생성은 generate, edit, confirm-feeling 이 /write 하나로 간다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await writeGenerate("s1");
+    expect(lastCall().path).toBe("/api/selfeval/write");
+    expect(lastCall().body).toEqual({ sessionId: "s1", action: "generate" });
+    await writeEdit("s1", ["a", "b"]);
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "edit",
+      paragraphs: ["a", "b"],
+    });
+    await writeConfirmFeeling("s1", "p1s2");
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "confirm-feeling",
+      sentenceId: "p1s2",
+    });
+  });
+
+  test("검증은 sessionId 만, 최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await verifySession("s1");
+    expect(lastCall().path).toBe("/api/selfeval/verify");
+    expect(lastCall().body).toEqual({ sessionId: "s1" });
+    const promoted = {
+      topic: "t",
+      concept: "c",
+      method: "m",
+      result: "r",
+      limitation: "l",
+      numbers: [],
+      sources: [],
+    };
+    await finalizeSession("s1", promoted, true);
+    expect(lastCall().path).toBe("/api/selfeval/finalize");
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      promoted,
+      fulfillsPlanItem: true,
     });
   });
 });

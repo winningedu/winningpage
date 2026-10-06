@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import AppModal from "@/components/goal/AppModal";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
@@ -15,6 +15,10 @@ import {
   type SubmitErrorView,
   validateBasics,
 } from "@/components/selfeval/basics/basicsLogic";
+import {
+  clearHandoff,
+  readHandoffItemId,
+} from "@/components/selfeval/basics/handoff";
 import { saveBasicsProfile } from "@/components/selfeval/basics/profileApi";
 import {
   useSelfevalScreenStep,
@@ -155,9 +159,20 @@ function BasicsBody({
   const { userId } = useSession();
   const { refetchEntry } = useSelfevalShell();
 
-  const [form, setForm] = useState<BasicsFormState>(() =>
-    session ? formFromSession(session, entry) : initialForm(entry),
-  );
+  const [form, setForm] = useState<BasicsFormState>(() => {
+    if (session) return formFromSession(session, entry);
+    const base = initialForm(entry);
+    // 성장설계 실행계획에서 넘어온 과제는 과제 카드의 초기 선택이 된다(새로 만들 때만).
+    const handoffItemId = entry.growth
+      ? readHandoffItemId(
+          safeSessionStorage(),
+          entry.growth.planItems.map((item) => item.id),
+        )
+      : null;
+    return handoffItemId ? { ...base, planItemId: handoffItemId } : base;
+  });
+  // 전달값은 한 번만 쓴다. 지우지 않으면 다음에 직접 들어온 새 세션에도 같은 과제가 선택된다.
+  useEffect(() => clearHandoff(safeSessionStorage()), []);
   const [errors, setErrors] = useState<BasicsErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<SubmitErrorView | null>(null);
@@ -321,6 +336,14 @@ function BasicsBody({
       />
     </div>
   );
+}
+
+function safeSessionStorage(): Storage | null {
+  try {
+    return typeof sessionStorage === "undefined" ? null : sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
 function problemMessage(problem: Exclude<SubmitErrorView, { kind: "open" }>) {

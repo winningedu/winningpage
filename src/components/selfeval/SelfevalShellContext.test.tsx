@@ -50,7 +50,10 @@ const OPEN = {
   lastActivityAt: "2026-10-06T00:00:00Z",
 };
 
-function entryResponse(entry: Record<string, unknown> = {}) {
+function entryResponse(
+  entry: Record<string, unknown> = {},
+  sessions: unknown[] = [],
+) {
   return {
     kind: "ok",
     data: {
@@ -66,7 +69,7 @@ function entryResponse(entry: Record<string, unknown> = {}) {
         academicYearDefault: 2026,
         ...entry,
       },
-      sessions: [],
+      sessions,
     },
   };
 }
@@ -93,6 +96,15 @@ describe("SelfevalShellProvider", () => {
     expect(result.current.openSession).toBeNull();
     await waitFor(() => expect(result.current.openSession?.id).toBe("s1"));
     expect(result.current.entry?.activityCount).toBe(4);
+  });
+
+  test("보관함이 읽을 세션 목록을 노출한다(받기 전에는 null)", async () => {
+    fetchEntryMock.mockResolvedValue(entryResponse({}, [{ id: "s9" }]));
+    const { result } = renderHook(() => useSelfevalShell(), { wrapper });
+    expect(result.current.sessions).toBeNull();
+    await waitFor(() =>
+      expect(result.current.sessions).toEqual([{ id: "s9" }]),
+    );
   });
 
   test("이름은 profiles 에서, 학년은 진입 정보 프로필에서 읽는다", async () => {

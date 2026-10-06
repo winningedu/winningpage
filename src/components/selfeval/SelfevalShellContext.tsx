@@ -11,7 +11,7 @@ import {
 import { useSession } from "@/context/SessionContext";
 import { growthProfileNameQuery } from "@/lib/growth/profile";
 import { SelfevalApiError, selfevalEntryQuery } from "@/lib/selfeval/queries";
-import type { EntryResponse } from "@/lib/selfeval/types";
+import type { EntryResponse, SessionListItem } from "@/lib/selfeval/types";
 import type { SelfevalScreenStep } from "./deriveSelfevalSteps";
 
 // 자기평가서 셸 전역 상태. 성장설계 GrowthShellContext 와 같은 구조다.
@@ -29,6 +29,8 @@ type SelfevalShellValue = {
   entry: Entry | null;
   /** 열린(draft, in_progress) 세션. 진입 정보 전이거나 없으면 null. */
   openSession: Entry["openSession"];
+  /** 보관함이 읽는 세션 목록. 진입 정보 전이면 null. */
+  sessions: SessionListItem[] | null;
   /** 사이드바 "OO의 자기평가서" 이름. profiles 에서 읽으며 없으면 null. */
   studentName: string | null;
   /** 사이드바 학년 줄. 진입 정보 프로필의 학년이며 없으면 null. */
@@ -67,6 +69,7 @@ export function SelfevalShellProvider({ children }: { children: ReactNode }) {
     () => ({
       entry,
       openSession: entry?.openSession ?? null,
+      sessions: query.data?.sessions ?? null,
       studentName,
       gradeLabel: entry?.profile?.gradeLabel ?? null,
       isEntryLoading: query.isPending && query.fetchStatus !== "idle",
@@ -77,6 +80,7 @@ export function SelfevalShellProvider({ children }: { children: ReactNode }) {
     }),
     [
       entry,
+      query.data?.sessions,
       query.isPending,
       query.fetchStatus,
       entryError,

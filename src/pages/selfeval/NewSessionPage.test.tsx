@@ -569,3 +569,39 @@ describe("기본 입력 수정(sessionId 쿼리)", () => {
     );
   });
 });
+
+describe("성장설계 handoff", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  test("전달된 과제가 과제 카드의 초기 선택이 되고 키는 지워진다", async () => {
+    sessionStorage.setItem(
+      "growth:handoff",
+      JSON.stringify({ itemId: "p2", program: "self" }),
+    );
+    setShell(makeEntry({ growth: GROWTH }));
+    renderPage();
+    expect(
+      (screen.getByRole("radio", { name: /동아리 설문/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    await waitFor(() =>
+      expect(sessionStorage.getItem("growth:handoff")).toBeNull(),
+    );
+  });
+
+  test("목록에 없는 과제면 아무것도 고르지 않는다", () => {
+    sessionStorage.setItem(
+      "growth:handoff",
+      JSON.stringify({ itemId: "nope", program: "self" }),
+    );
+    setShell(makeEntry({ growth: GROWTH }));
+    renderPage();
+    expect(
+      (
+        screen.getByRole("radio", {
+          name: /통계 탐구 설계/,
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+  });
+});
