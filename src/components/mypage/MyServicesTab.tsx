@@ -146,6 +146,11 @@ const PROGRAM_KEY_META: Record<string, ProgramKeyMeta> = {
     category: "duration",
     route: "/app/selfeval",
   },
+  inquiry: {
+    serviceName: "위닝 심화탐구",
+    category: "duration",
+    route: "/app/inquiry",
+  },
   mentor: {
     serviceName: "위닝 콜멘토",
     category: "session",

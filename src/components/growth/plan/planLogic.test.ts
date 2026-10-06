@@ -342,9 +342,9 @@ describe("연동 이동", () => {
     expect(rows).toEqual([{ label: "활동 조건", value: "t" }]);
   });
 
-  it("self 는 자기평가서 새 세션 화면, 나머지는 서비스 소개 경로다", () => {
+  it("self 는 자기평가서 새 세션 화면, deep 은 심화탐구 앱이다", () => {
     expect(handoffDestination("self")).toBe("/app/selfeval/new");
-    expect(handoffDestination("deep")).toBe("/services/research");
+    expect(handoffDestination("deep")).toBe("/app/inquiry");
     expect(handoffDestination("school")).toBe("/services");
   });
 
