@@ -33,6 +33,7 @@ export const ADMIN_SECTION_KEYS = [
   "learningDiagnosisV2SurveyCopy",
   "goalUniversityCuts",
   "goalStudents",
+  "growthReports",
   // 서비스 관리 — 프리미엄
   "premiumBookPages",
   "premiumConsults",

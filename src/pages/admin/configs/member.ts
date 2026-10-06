@@ -59,6 +59,23 @@ interface MemberCustomConfig {
 type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
+  // 성장설계 회차 운영(growthReports) — 회차 목록/상세/실패 회차 복구/이용권 부여.
+  // 데이터는 /api/admin/growth-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
+  // custom 컴포넌트(src/pages/admin/growth/GrowthReportsAdmin.tsx)가 전부 그린다.
+  growthReports: {
+    title: "성장설계 회차",
+    table: "growth_reports",
+    searchPlaceholder: "이름 또는 이메일 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "growthReports",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
+    ],
+  },
+
   // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·

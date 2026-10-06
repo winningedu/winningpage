@@ -76,6 +76,7 @@ import { memberConfigs } from "./admin/configs/member";
 import { programConfigs } from "./admin/configs/program";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
+import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import {
   AdminForm,
   type AdminRow,
@@ -186,6 +187,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
         section: "서비스",
       },
       { key: "goalStudents", label: "목표관리 — 학생 현황", section: "서비스" },
+      { key: "growthReports", label: "성장설계 회차", section: "서비스" },
       {
         key: "premiumBookPages",
         label: "프리미엄 책자 관리",
@@ -319,6 +321,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   adminRoles: AdminRolesAdmin,
   revenue: RevenueAdmin,
   tenants: TenantsAdmin,
+  growthReports: GrowthReportsAdmin,
 };
 
 // CUSTOM_COMPONENT_REGISTRY와 같은 이유의 간접 레이어 — config.ListSummary가
