@@ -140,6 +140,12 @@ const PROGRAM_KEY_META: Record<string, ProgramKeyMeta> = {
     category: "duration",
     route: "/app/growth",
   },
+  // 회차제 상품이라 수행평가(suhaeng)와 같은 duration 으로 둔다.
+  selfeval: {
+    serviceName: "위닝 자기평가서",
+    category: "duration",
+    route: "/app/selfeval",
+  },
   mentor: {
     serviceName: "위닝 콜멘토",
     category: "session",

@@ -229,9 +229,13 @@ export function showHandoffButton(
 // ── 연동 이동 ─────────────────────────────────────────────────────────
 export const HANDOFF_STORAGE_KEY = "growth:handoff";
 
-/** 송신측 서비스가 아직 없어 서비스 소개 랜딩으로 보낸다(라우트: serviceLandingRoutes.tsx). */
+/**
+ * 연동 이동 도착지. self 는 자기평가서 새 세션 화면으로 직접 보내고(기본 입력 화면이
+ * sessionStorage growth:handoff 를 읽는다), 아직 앱이 없는 deep 은 소개 랜딩으로 보낸다
+ * (라우트: serviceLandingRoutes.tsx).
+ */
 export function handoffDestination(program: PlanProgram): string {
-  if (program === "self") return "/services/self-assessment";
+  if (program === "self") return "/app/selfeval/new";
   if (program === "deep") return "/services/research";
   return "/services";
 }

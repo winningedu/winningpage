@@ -1,4 +1,4 @@
-import type { MouseEvent, MutableRefObject } from "react";
+import type { MutableRefObject } from "react";
 import { useNavigate } from "react-router";
 import heroGrain from "@/assets/renewal/landing/hero-grain.png";
 import iconBinoculars from "@/assets/services/goal/icon-binoculars.png";
@@ -35,8 +35,6 @@ import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTabsPanel from "@/components/services/ServiceTabsPanel";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
 import { useInView } from "@/hooks/useInView";
-import { getDemoAccessState } from "@/lib/demoAccess";
-import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 
 // 자기평가서 서비스 랜딩 — /services/self-assessment (구 경로 /page/services-self-assessment)
 // Figma 시안(1907:20783, "자기평가서" 프레임, 1920×6560) + 상태 변형 노드 8개 + 히어로 애니메이션
@@ -44,12 +42,8 @@ import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 // 와 같은 방식으로 components/services/ServiceLandingPage 공용 스켈레톤을 벗어나 bespoke로
 // 구현했다(구 SERVICE_LANDING_CONTENT.selfAssessment 항목은 serviceLandingContent.js에서 함께
 // 제거 — goal/performance 선례와 동일).
-// 자기평가는 상세 페이지(PAID_SERVICE_CONFIGS 미등록 — 실제 서비스 앱이 아직 없다)가 없어,
-// 히어로 CTA는 이동 대신 "서비스 예정입니다" alert로 안내한다(alertServiceNotReady,
-// paidServiceAccess.js — 심화탐구・콜멘토와 동일 처리, 2026-08-05 사용자 확정). 이전에는
-// /learning-diagnosis로 임시 우회했으나(기존 ServiceLandingPage 스켈레톤의 paidServiceName: null
-// 분기와 동일한 처리) 학습진단 안내는 히어로 문구와 모순돼 폐기했다. 상세 페이지가 생기면
-// PAID_SERVICE_CONFIGS에 등록하고 openPaidServiceOrAlert로 교체한다.
+// 히어로 CTA 는 /app/selfeval 로 이동한다(handleHeroCta). 게스트와 이용권 미보유 처리는
+// 앱 라우트의 RequireEntitlement 가 한다(자기평가서 개발 계획서 §2 32).
 
 // 컨테이너 폭 — 시안은 섹션마다 1436~1444px(1920 기준)로 드리프트하지만, StageSection 실측
 // (1441×0.766 ≈ 1104 ≈ 1100)이 dev 정본 토큰 max-w-content(안쪽 실폭 1100px)와 정확히 맞아
@@ -281,32 +275,10 @@ function HeroSection() {
   ];
   const navigate = useNavigate();
 
-  // 히어로 CTA — 로그인 게이트 3분기(demoAccess.js의 getDemoAccessState, ProtectedAdmin과
-  // 동일 기준을 재사용). 비로그인은 /login으로 보내 복귀지를 이 랜딩 자신으로 남기고(자동
-  // 재실행은 하지 않는다 — 로그인 후 다시 CTA를 눌러야 한다), 어드민은 데모 라우트로,
-  // 로그인했지만 비어드민이면 기존 준비중 alert 그대로 유지한다. 실제 접근 통제는 라우트의
-  // ProtectedAdmin이 최종 방어선이다.
-  async function handleHeroCta(event?: MouseEvent<HTMLButtonElement>) {
-    const access = await getDemoAccessState();
-
-    if (access === "admin") {
-      event?.preventDefault?.();
-      navigate("/demo/self-assessment");
-      return;
-    }
-
-    if (access === "guest") {
-      event?.preventDefault?.();
-      navigate(
-        `/login?redirect=${encodeURIComponent("/services/self-assessment")}`,
-        {
-          replace: true,
-        },
-      );
-      return;
-    }
-
-    alertServiceNotReady(event);
+  // 히어로 CTA, 실제 서비스 앱(/app/selfeval)으로 이동만 한다. 비로그인은 /login, 이용권이
+  // 없으면 /pricing 으로 보내는 일은 앱 라우트의 RequireEntitlement 가 맡는다.
+  function handleHeroCta() {
+    navigate("/app/selfeval");
   }
 
   return (

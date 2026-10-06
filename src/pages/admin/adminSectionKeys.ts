@@ -34,6 +34,7 @@ export const ADMIN_SECTION_KEYS = [
   "goalUniversityCuts",
   "goalStudents",
   "growthReports",
+  "selfevalSessions",
   // 서비스 관리 — 프리미엄
   "premiumBookPages",
   "premiumConsults",

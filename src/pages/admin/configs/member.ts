@@ -76,6 +76,23 @@ export const memberConfigs: Record<string, MemberConfig> = {
     ],
   },
 
+  // 자기평가서 세션 운영(selfevalSessions): 세션 목록, 상세, 실패 세션 복구, 이용권 부여.
+  // 데이터는 /api/admin/selfeval-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
+  // custom 컴포넌트(src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx)가 전부 그린다.
+  selfevalSessions: {
+    title: "자기평가서 세션",
+    table: "selfeval_sessions",
+    searchPlaceholder: "이름, 이메일 또는 과목 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "selfevalSessions",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
+    ],
+  },
+
   // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·
