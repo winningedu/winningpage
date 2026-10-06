@@ -1,6 +1,8 @@
 // 성장설계 등급 체계 판정·평균 계산(순수 함수). 등급 체계는 앱이 정하며 생성 결과가 덮어쓰지 못한다(No.120).
 
-export type GradeSystem = "five" | "nine";
+import type { GradeSystem } from "./types.js";
+
+export type { GradeSystem };
 
 /** 5등급제 적용 첫 입학 연도 */
 const FIVE_SCALE_START_YEAR = 2025;
@@ -75,15 +77,29 @@ export const FUSION_ELECTIVE_SUBJECTS: readonly string[] = [
 /**
  * 체육·예술·교양 교과 및 과학탐구실험 과목. 평균 계산에서 제외 (No.75, No.154).
  * 목표관리 naesin_scores 에는 선택과목 유형·성취도가 없어 과목명 사전으로 판정한다.
+ * 2015 개정과 2022 개정 명칭을 함께 둔다. 공식 고시 대조는 아직 안 했으므로 검토 대상.
  */
 export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
   // 체육
   "체육",
   "운동과 건강",
+  "스포츠 생활",
+  "체육 탐구",
+  "체육1",
+  "체육2",
+  "스포츠 문화",
+  "스포츠 과학",
+  "스포츠 생활1",
+  "스포츠 생활2",
   // 예술
   "음악",
   "미술",
   "연극",
+  "음악 연주",
+  "미술 창작",
+  "음악 연주와 창작",
+  "음악 감상과 비평",
+  "미술 감상과 비평",
   // 교양
   "철학",
   "논리학",
@@ -94,6 +110,14 @@ export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
   "생태와 환경",
   "인간과 경제활동",
   "논술",
+  "환경",
+  "실용 경제",
+  "보건",
+  "인간과 철학",
+  "논리와 사고",
+  "인간과 심리",
+  "교육의 이해",
+  "삶과 종교",
   // 과학탐구실험
   "과학탐구실험1",
   "과학탐구실험2",
@@ -101,10 +125,7 @@ export const NON_ACADEMIC_SUBJECTS: readonly string[] = [
 
 /** 과목명 비교용 정규화: 공백 제거, 로마숫자 Ⅰ/Ⅱ 를 1/2 로 통일 */
 function normalizeSubjectName(name: string): string {
-  return name
-    .replace(/\s+/g, "")
-    .replace(/Ⅰ/g, "1")
-    .replace(/Ⅱ/g, "2");
+  return name.replace(/\s+/g, "").replace(/Ⅰ/g, "1").replace(/Ⅱ/g, "2");
 }
 
 const normalizedExcluded = new Set<string>(

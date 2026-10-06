@@ -195,3 +195,19 @@ describe("semesterAverages", () => {
     ]);
   });
 });
+
+describe("isExcludedFromAverage 교육과정 명칭 보강", () => {
+  test.each(["스포츠 문화", "인간과 철학", "음악 감상과 비평"])(
+    "2022 개정 명칭 %s 는 평균에서 제외한다",
+    (name) => {
+      expect(isExcludedFromAverage(name)).toBe(true);
+    },
+  );
+
+  test.each(["실용 경제", "체육 탐구", "보건"])(
+    "2015 개정 명칭 %s 는 평균에서 제외한다",
+    (name) => {
+      expect(isExcludedFromAverage(name)).toBe(true);
+    },
+  );
+});
