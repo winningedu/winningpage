@@ -240,8 +240,11 @@ export function handoffDestination(program: PlanProgram): string {
   return "/services";
 }
 
-/** 프로그램 쪽에서 확정을 되돌려 주는 송신측이 생기면 true 로 바꾼다. */
-export const HANDOFF_AUTO_COMPLETE = false;
+/**
+ * 자기평가서(저장 시)와 심화탐구(확정 시) 두 송신측이 completePlanItemFromProgram 으로
+ * 과제를 확정해 주므로 자동 완료를 약속한다.
+ */
+export const HANDOFF_AUTO_COMPLETE = true;
 
 /** 이동 모달 부제. 자동 완료는 송신측이 있을 때만 약속한다. */
 export function handoffSubtitle(name: string): string {
