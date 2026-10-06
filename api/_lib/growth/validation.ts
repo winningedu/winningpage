@@ -16,6 +16,20 @@ export const FORBIDDEN_PHRASES: readonly string[] = [
   "상향권",
 ];
 
+/**
+ * 활동 근거(evidence_ids) 검사를 면제하는 항목 id.
+ * 프로필, 분포 집계, 성적과 입결 기반 항목은 활동 근거 대신 데이터 자체가 근거다.
+ * 활동이 0건인 회차에서도 ok 로 둘 수 있어야 한다.
+ */
+export const EVIDENCE_EXEMPT_SECTION_IDS: readonly string[] = [
+  "1-1",
+  "1-4",
+  "1-12",
+  "1-13",
+  "1-14",
+  "3-10",
+];
+
 const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
 
 /**
@@ -161,10 +175,15 @@ function readSections(payload: unknown): StepSectionDraft[] {
   );
 }
 
-// 6, 7단계: no_data 가 아닌 항목은 근거(evidence_ids)가 1개 이상이어야 한다.
+// 6~8단계: no_data 가 아닌 항목은 근거(evidence_ids)가 1개 이상이어야 한다(면제 항목 제외).
 function checkEvidence(sections: StepSectionDraft[]): ValidationIssue[] {
   return sections
-    .filter((s) => s.status !== "no_data" && (s.evidence_ids?.length ?? 0) < 1)
+    .filter(
+      (s) =>
+        s.status !== "no_data" &&
+        !EVIDENCE_EXEMPT_SECTION_IDS.includes(s.id) &&
+        (s.evidence_ids?.length ?? 0) < 1,
+    )
     .map((s) => ({
       code: "missing_evidence",
       message: `항목 "${s.id}" 에 근거(evidence_ids)가 연결되어 있지 않습니다.`,

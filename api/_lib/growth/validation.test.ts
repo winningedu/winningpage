@@ -238,6 +238,28 @@ describe("validateStep 8단계(리포트 확정, sections 위임)", () => {
     );
   });
 
+  test("근거 면제 섹션(1-1)은 ok 이고 evidence_ids 가 비어도 missing_evidence 가 없다", () => {
+    const r = run(edit("1-1", { evidence_ids: [] }));
+    expect(r.issues.map((i) => i.code)).not.toContain("missing_evidence");
+  });
+
+  test("면제 목록 밖(2-1)은 근거가 없으면 여전히 missing_evidence", () => {
+    const r = run(edit("2-1", { evidence_ids: [] }));
+    expect(r.issues.find((i) => i.code === "missing_evidence")?.path).toBe(
+      "2-1",
+    );
+  });
+
+  test("면제 섹션이라도 모르는 근거 id 를 가리키면 unknown_evidence", () => {
+    const r = run(edit("1-1", { evidence_ids: ["e9"] }), {
+      ...ctx8,
+      knownEvidenceIds: ["e1"],
+    });
+    expect(
+      r.issues.find((i) => i.code === "unknown_evidence" && i.path === "1-1"),
+    ).toBeDefined();
+  });
+
   test("누락 섹션은 section_schema 로 보고한다", () => {
     const r = run(full().slice(1));
     expect(
