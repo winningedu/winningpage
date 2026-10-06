@@ -14,6 +14,8 @@ export { expect } from "./auth";
 // 자기평가서 E2E 공용 헬퍼. 로컬 스택(vercel dev 3001, 로컬 Supabase 54321) 전용이다.
 // 로그인 storageState 는 e2e/fixtures/auth.ts 의 test 픽스처를 그대로 쓰고, 여기는 API 직접 호출과
 // service role 보조(이용권, 성장설계 과제)만 맡는다.
+// 모든 selfeval 스펙이 QA 학생 계정 하나를 공유하고 학생당 열린 세션은 1개뿐이므로 반드시
+// `--workers=1` 로 돌린다. 워커를 여럿 두면 다른 스펙이 만든 세션을 서로 파기해 실패한다.
 
 export const API_BASE = "http://127.0.0.1:3001/api/selfeval";
 const SUPABASE_URL = "http://127.0.0.1:54321";
