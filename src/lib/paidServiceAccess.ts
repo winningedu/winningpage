@@ -97,6 +97,26 @@ const PAID_SERVICE_CONFIGS: PaidServiceConfig[] = [
       );
     },
   },
+  {
+    serviceKey: "growth",
+    serviceName: "성장설계 서비스",
+    match(service = {}) {
+      const text = [
+        service.name,
+        service.title,
+        service.label,
+        service.description,
+        service.desc,
+        service.link,
+        service.to,
+        service.slug,
+      ]
+        .map((v) => String(v || "").toLowerCase())
+        .join(" ");
+
+      return text.includes("성장설계") || text.includes("growth");
+    },
+  },
 ];
 
 function getPaidServiceConfig(service?: PaidServiceLike) {

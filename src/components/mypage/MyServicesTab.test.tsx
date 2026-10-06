@@ -138,3 +138,36 @@ describe("MyServicesTab — 무료 진단 합성 카드", () => {
     expect(screen.queryByText("무료 1회")).not.toBeInTheDocument();
   });
 });
+
+describe("MyServicesTab 성장설계 항목", () => {
+  afterEach(() => {
+    state.grants = [];
+    state.ledger = [];
+    mockFetchLatestDiagnosisReport.mockReset();
+  });
+
+  it("growth grant 는 서비스명을 그대로 보여 주고 /app/growth 로 연결한다", async () => {
+    state.grants = [
+      {
+        id: "grant-growth",
+        program_key: "growth",
+        granted_sessions: null,
+        granted_months: 6,
+        starts_at: "2026-01-01T00:00:00Z",
+        expires_at: "2099-01-01T00:00:00Z",
+        first_accessed_at: "2026-01-02T00:00:00Z",
+      },
+    ];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByText("위닝 성장설계")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: /프로그램 가기/ })).toHaveAttribute(
+      "href",
+      "/app/growth",
+    );
+  });
+});

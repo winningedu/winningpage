@@ -88,7 +88,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:3000",
+        // 병렬 워크트리가 각자 vercel dev 를 다른 포트에 띄울 수 있도록
+        // VITE_API_PROXY_TARGET 으로 바꿀 수 있다. 기본은 3000.
+        target: process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:3000",
         changeOrigin: false,
         // api/_lib 는 서버 함수와 프론트가 계산식을 공유하는 소스 모듈이다
         // (예: SubmissionForm → submission-chars). 브라우저가 vite 모듈 URL

@@ -135,6 +135,11 @@ const PROGRAM_KEY_META: Record<string, ProgramKeyMeta> = {
     // (performanceAppRoutes.tsx).
     route: "/app/performance",
   },
+  growth: {
+    serviceName: "위닝 성장설계",
+    category: "duration",
+    route: "/app/growth",
+  },
   mentor: {
     serviceName: "위닝 콜멘토",
     category: "session",

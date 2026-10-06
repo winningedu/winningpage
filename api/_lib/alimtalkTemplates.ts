@@ -27,7 +27,7 @@
 //   통일하지 말 것. 가입 축하 템플릿은 2026-08-25 재심사에서 버튼을 뺐다.
 
 /** 승인 문안에 쓰인 사이트 주소. 승인 시점 문자열이라 임의로 바꾸지 않는다. */
-const SITE_WWW = "https://www.winningedu.com";
+export const SITE_WWW = "https://www.winningedu.com";
 
 export type AlimtalkButton = {
   name: string;
@@ -169,6 +169,36 @@ ${v(vars, "학생명")} 학생의 ${v(vars, "N월")}월 월간 학습 리포트�
       // 월간 키는 'YYYY-MM'.
       linkMo: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
       linkPc: `${SITE_WWW}/services/goal/reports/monthly/${v(vars, "reportId")}`,
+    }),
+  },
+  /**
+   * 성장설계 리포트 완료 안내(No.111). 수신자는 연결된 학부모.
+   * 문안은 시안 651:4775 의 고정 문장을 옮겼다. 시안의 구성, 방향 일관성,
+   * 먼저 할 일 줄은 변수 계약(학생이름, 발행일, 링크)에 없어 넣지 않았다.
+   *
+   * 카카오 템플릿 등록과 승인 전에는 발송이 실패 로그로 남는다.
+   * ALIGO_TPL_GROWTH_REPORT_DONE 에 승인 코드가 들어가야 하고, 본문과 버튼은
+   * 승인본과 글자 단위로 같아야 한다.
+   */
+  growthReportDone: {
+    codeEnv: "ALIGO_TPL_GROWTH_REPORT_DONE",
+    subject: "성장설계 리포트가 도착했어요",
+    build: (vars) => `성장설계 리포트가 도착했어요
+
+${v(vars, "학생이름")} 학생
+지금까지의 활동을 분석해 남은 기간을 설계했어요.
+
+발행일 ${v(vars, "발행일")}
+
+성적 진단 항목은 학부모 화면에 보이지 않아요.`,
+    smsFallback: (vars) =>
+      `[위닝에듀] ${v(vars, "학생이름")} 학생의 성장설계 리포트가 도착했습니다.`,
+    button: (vars) => ({
+      name: "성장설계 리포트 보기",
+      linkType: "WL",
+      linkTypeName: "웹링크",
+      linkMo: v(vars, "링크"),
+      linkPc: v(vars, "링크"),
     }),
   },
 } satisfies Record<string, AlimtalkTemplate>;

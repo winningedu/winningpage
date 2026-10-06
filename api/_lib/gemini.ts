@@ -172,6 +172,36 @@ function buildConfig(
 }
 
 /**
+ * 구조화 출력(JSON) 생성. `callText`와 같은 요청을 보내되 `finishReason`까지 돌려준다.
+ * 구조화 출력은 `MAX_TOKENS`로 잘리면 JSON이 깨지는데, 호출부가 잘림을 알아야
+ * 재요청 메모를 "분량을 줄여라"로 바꿀 수 있어서 `callText`와 분리했다.
+ *
+ * @returns `text`는 응답 텍스트(없으면 빈 문자열), `finishReason`은 첫 후보의 종료 사유(없으면 null)
+ */
+export async function callStructured(
+  system: string,
+  userMsg: GenerateContentParameters["contents"],
+  options: GenerateCallOptions = {},
+): Promise<{ text: string; finishReason: string | null }> {
+  const response = await generateWithRetry(
+    {
+      model: options.model || PERFORMANCE_MODEL,
+      contents: userMsg,
+      config: buildConfig(system, options, {
+        temperature: 0.35,
+        maxOutputTokens: 1800,
+      }),
+    },
+    options.retryCount ?? 2,
+  );
+
+  return {
+    text: response.text || "",
+    finishReason: response.candidates?.[0]?.finishReason ?? null,
+  };
+}
+
+/**
  * 텍스트 전용 생성. 외부 `api/_lib/gemini.js:47-60` 이식.
  *
  * @param system systemInstruction

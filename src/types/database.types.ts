@@ -10,6 +10,80 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      activity_records: {
+        Row: {
+          concept: string | null;
+          confirmed_at: string | null;
+          created_at: string;
+          grade_label: string | null;
+          id: string;
+          limitation: string | null;
+          method: string | null;
+          numbers: Json | null;
+          profile_id: string;
+          result: string | null;
+          semester: number | null;
+          source_program: string;
+          source_ref_id: string | null;
+          sources: Json | null;
+          status: string;
+          subject: string | null;
+          subject_group: string | null;
+          topic: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          concept?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          grade_label?: string | null;
+          id?: string;
+          limitation?: string | null;
+          method?: string | null;
+          numbers?: Json | null;
+          profile_id: string;
+          result?: string | null;
+          semester?: number | null;
+          source_program: string;
+          source_ref_id?: string | null;
+          sources?: Json | null;
+          status: string;
+          subject?: string | null;
+          subject_group?: string | null;
+          topic?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          concept?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          grade_label?: string | null;
+          id?: string;
+          limitation?: string | null;
+          method?: string | null;
+          numbers?: Json | null;
+          profile_id?: string;
+          result?: string | null;
+          semester?: number | null;
+          source_program?: string;
+          source_ref_id?: string | null;
+          sources?: Json | null;
+          status?: string;
+          subject?: string | null;
+          subject_group?: string | null;
+          topic?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_records_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       admin_access_logs: {
         Row: {
           action: string;
@@ -431,7 +505,7 @@ export type Database = {
       };
       admission_posts: {
         Row: {
-          attachments: Json;
+          attachments: NonNullable<Json>;
           category: string;
           content: string | null;
           content_json: Json | null;
@@ -440,7 +514,7 @@ export type Database = {
           file_url: string | null;
           id: number;
           image_url: string | null;
-          image_urls: Json;
+          image_urls: NonNullable<Json>;
           is_active: boolean;
           is_pinned: boolean;
           show_on_home: boolean;
@@ -449,7 +523,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category: string;
           content?: string | null;
           content_json?: Json | null;
@@ -458,7 +532,7 @@ export type Database = {
           file_url?: string | null;
           id?: number;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean;
           is_pinned?: boolean;
           show_on_home?: boolean;
@@ -467,7 +541,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category?: string;
           content?: string | null;
           content_json?: Json | null;
@@ -476,7 +550,7 @@ export type Database = {
           file_url?: string | null;
           id?: number;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean;
           is_pinned?: boolean;
           show_on_home?: boolean;
@@ -813,7 +887,7 @@ export type Database = {
           dedupe_key: string | null;
           id: number;
           message: string;
-          meta: Json;
+          meta: NonNullable<Json>;
           phone: string;
           profile_id: string | null;
           provider_code: string | null;
@@ -829,7 +903,7 @@ export type Database = {
           dedupe_key?: string | null;
           id?: never;
           message: string;
-          meta?: Json;
+          meta?: NonNullable<Json>;
           phone: string;
           profile_id?: string | null;
           provider_code?: string | null;
@@ -845,7 +919,7 @@ export type Database = {
           dedupe_key?: string | null;
           id?: never;
           message?: string;
-          meta?: Json;
+          meta?: NonNullable<Json>;
           phone?: string;
           profile_id?: string | null;
           provider_code?: string | null;
@@ -870,17 +944,17 @@ export type Database = {
         Row: {
           key: string;
           updated_at: string;
-          value: Json;
+          value: NonNullable<Json>;
         };
         Insert: {
           key: string;
           updated_at?: string;
-          value: Json;
+          value: NonNullable<Json>;
         };
         Update: {
           key?: string;
           updated_at?: string;
-          value?: Json;
+          value?: NonNullable<Json>;
         };
         Relationships: [];
       };
@@ -1000,7 +1074,7 @@ export type Database = {
       };
       company_news: {
         Row: {
-          attachments: Json;
+          attachments: NonNullable<Json>;
           category: string | null;
           content: string | null;
           created_at: string;
@@ -1008,7 +1082,7 @@ export type Database = {
           file_url: string | null;
           id: string;
           image_url: string | null;
-          image_urls: Json;
+          image_urls: NonNullable<Json>;
           is_active: boolean;
           is_pinned: boolean;
           sort_order: number;
@@ -1017,7 +1091,7 @@ export type Database = {
           view_count: number;
         };
         Insert: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category?: string | null;
           content?: string | null;
           created_at?: string;
@@ -1025,7 +1099,7 @@ export type Database = {
           file_url?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean;
           is_pinned?: boolean;
           sort_order?: number;
@@ -1034,7 +1108,7 @@ export type Database = {
           view_count?: number;
         };
         Update: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category?: string | null;
           content?: string | null;
           created_at?: string;
@@ -1042,7 +1116,7 @@ export type Database = {
           file_url?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean;
           is_pinned?: boolean;
           sort_order?: number;
@@ -1332,28 +1406,28 @@ export type Database = {
           attempt_id: string;
           created_at: string;
           diagnosed_at: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
           schema_version: string;
-          snapshot: Json;
+          snapshot: NonNullable<Json>;
         };
         Insert: {
           attempt_id: string;
           created_at?: string;
           diagnosed_at: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
           schema_version: string;
-          snapshot: Json;
+          snapshot: NonNullable<Json>;
         };
         Update: {
           attempt_id?: string;
           created_at?: string;
           diagnosed_at?: string;
-          payload?: Json;
+          payload?: NonNullable<Json>;
           profile_id?: string;
           schema_version?: string;
-          snapshot?: Json;
+          snapshot?: NonNullable<Json>;
         };
         Relationships: [
           {
@@ -1500,7 +1574,7 @@ export type Database = {
           created_at: string | null;
           id: string;
           image_url: string | null;
-          image_urls: Json;
+          image_urls: NonNullable<Json>;
           is_active: boolean | null;
           is_featured: boolean;
           published_at: string | null;
@@ -1516,7 +1590,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
           published_at?: string | null;
@@ -1532,7 +1606,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
           published_at?: string | null;
@@ -1549,7 +1623,7 @@ export type Database = {
           generated_for: string;
           id: number;
           origin: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
           source: string;
         };
@@ -1558,7 +1632,7 @@ export type Database = {
           generated_for: string;
           id?: never;
           origin: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
           source: string;
         };
@@ -1567,7 +1641,7 @@ export type Database = {
           generated_for?: string;
           id?: never;
           origin?: string;
-          payload?: Json;
+          payload?: NonNullable<Json>;
           profile_id?: string;
           source?: string;
         };
@@ -1635,7 +1709,7 @@ export type Database = {
           target_min_hours?: number;
           tasks?: string[];
           updated_at?: string;
-          virtual_day_index?: number | null;
+          virtual_day_index?: never;
         };
         Update: {
           achievement?: string;
@@ -1659,7 +1733,7 @@ export type Database = {
           target_min_hours?: number;
           tasks?: string[];
           updated_at?: string;
-          virtual_day_index?: number | null;
+          virtual_day_index?: never;
         };
         Relationships: [
           {
@@ -1683,9 +1757,9 @@ export type Database = {
           created_at: string;
           id: number;
           kind: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
-          snapshot: Json;
+          snapshot: NonNullable<Json>;
           source_label: string;
           source_type: string;
         };
@@ -1693,9 +1767,9 @@ export type Database = {
           created_at?: string;
           id?: number;
           kind: string;
-          payload: Json;
+          payload: NonNullable<Json>;
           profile_id: string;
-          snapshot: Json;
+          snapshot: NonNullable<Json>;
           source_label: string;
           source_type: string;
         };
@@ -1703,9 +1777,9 @@ export type Database = {
           created_at?: string;
           id?: number;
           kind?: string;
-          payload?: Json;
+          payload?: NonNullable<Json>;
           profile_id?: string;
-          snapshot?: Json;
+          snapshot?: NonNullable<Json>;
           source_label?: string;
           source_type?: string;
         };
@@ -1987,7 +2061,7 @@ export type Database = {
           remain_naesin: number;
           school_type: string;
           status: string;
-          study_schedule: Json;
+          study_schedule: NonNullable<Json>;
           updated_at: string;
           week_ideal: number;
           week_min: number;
@@ -2026,7 +2100,7 @@ export type Database = {
           remain_naesin?: number;
           school_type: string;
           status?: string;
-          study_schedule?: Json;
+          study_schedule?: NonNullable<Json>;
           updated_at?: string;
           week_ideal?: number;
           week_min?: number;
@@ -2065,7 +2139,7 @@ export type Database = {
           remain_naesin?: number;
           school_type?: string;
           status?: string;
-          study_schedule?: Json;
+          study_schedule?: NonNullable<Json>;
           updated_at?: string;
           week_ideal?: number;
           week_min?: number;
@@ -2304,6 +2378,281 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "goal_students";
             referencedColumns: ["profile_id"];
+          },
+        ];
+      };
+      growth_plan_items: {
+        Row: {
+          axis: string | null;
+          carried_from_report_id: string | null;
+          category: string | null;
+          created_at: string;
+          deadline: string | null;
+          description: string | null;
+          done_at: string | null;
+          done_ref_id: string | null;
+          done_source_program: string | null;
+          id: string;
+          period: string;
+          period_label: string | null;
+          priority: string;
+          profile_id: string;
+          program: string;
+          report_id: string;
+          sort_order: number;
+          status: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          axis?: string | null;
+          carried_from_report_id?: string | null;
+          category?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          description?: string | null;
+          done_at?: string | null;
+          done_ref_id?: string | null;
+          done_source_program?: string | null;
+          id?: string;
+          period: string;
+          period_label?: string | null;
+          priority: string;
+          profile_id: string;
+          program: string;
+          report_id: string;
+          sort_order?: number;
+          status?: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          axis?: string | null;
+          carried_from_report_id?: string | null;
+          category?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          description?: string | null;
+          done_at?: string | null;
+          done_ref_id?: string | null;
+          done_source_program?: string | null;
+          id?: string;
+          period?: string;
+          period_label?: string | null;
+          priority?: string;
+          profile_id?: string;
+          program?: string;
+          report_id?: string;
+          sort_order?: number;
+          status?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "growth_plan_items_carried_from_report_id_fkey";
+            columns: ["carried_from_report_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_reports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "growth_plan_items_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "growth_plan_items_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: false;
+            referencedRelation: "growth_reports";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      growth_profiles: {
+        Row: {
+          profile_id: string;
+          survey_answers: NonNullable<Json>;
+          survey_saved_at: string | null;
+          track: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          survey_answers?: NonNullable<Json>;
+          survey_saved_at?: string | null;
+          track?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          survey_answers?: NonNullable<Json>;
+          survey_saved_at?: string | null;
+          track?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "growth_profiles_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      growth_reports: {
+        Row: {
+          activity_ids: string[];
+          axis_scores: Json | null;
+          consistency: Json | null;
+          created_at: string;
+          current_step: number;
+          grade_inputs: Json | null;
+          grade_subthemes: Json | null;
+          id: string;
+          issued_at: string | null;
+          last_activity_at: string;
+          ledger_id: string | null;
+          ledger_reversed_at: string | null;
+          model_attempt_count: number;
+          narrative_theme: string | null;
+          profile_id: string;
+          schema_version: number;
+          sections: Json | null;
+          signals: Json | null;
+          stage: string | null;
+          status: string;
+          step_state: NonNullable<Json>;
+          survey_answers: Json | null;
+          track: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          activity_ids?: string[];
+          axis_scores?: Json | null;
+          consistency?: Json | null;
+          created_at?: string;
+          current_step?: number;
+          grade_inputs?: Json | null;
+          grade_subthemes?: Json | null;
+          id?: string;
+          issued_at?: string | null;
+          last_activity_at?: string;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          model_attempt_count?: number;
+          narrative_theme?: string | null;
+          profile_id: string;
+          schema_version?: number;
+          sections?: Json | null;
+          signals?: Json | null;
+          stage?: string | null;
+          status?: string;
+          step_state?: NonNullable<Json>;
+          survey_answers?: Json | null;
+          track?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          activity_ids?: string[];
+          axis_scores?: Json | null;
+          consistency?: Json | null;
+          created_at?: string;
+          current_step?: number;
+          grade_inputs?: Json | null;
+          grade_subthemes?: Json | null;
+          id?: string;
+          issued_at?: string | null;
+          last_activity_at?: string;
+          ledger_id?: string | null;
+          ledger_reversed_at?: string | null;
+          model_attempt_count?: number;
+          narrative_theme?: string | null;
+          profile_id?: string;
+          schema_version?: number;
+          sections?: Json | null;
+          signals?: Json | null;
+          stage?: string | null;
+          status?: string;
+          step_state?: NonNullable<Json>;
+          survey_answers?: Json | null;
+          track?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "growth_reports_ledger_id_fkey";
+            columns: ["ledger_id"];
+            isOneToOne: false;
+            referencedRelation: "performance_credit_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "growth_reports_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      growth_uploads: {
+        Row: {
+          byte_size: number;
+          consent_at: string;
+          created_at: string;
+          extracted: Json | null;
+          extraction_error: string | null;
+          extraction_status: string;
+          file_name: string;
+          grade_label: string | null;
+          id: string;
+          mime_type: string;
+          profile_id: string;
+          semester: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          byte_size: number;
+          consent_at: string;
+          created_at?: string;
+          extracted?: Json | null;
+          extraction_error?: string | null;
+          extraction_status?: string;
+          file_name: string;
+          grade_label?: string | null;
+          id?: string;
+          mime_type: string;
+          profile_id: string;
+          semester?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          byte_size?: number;
+          consent_at?: string;
+          created_at?: string;
+          extracted?: Json | null;
+          extraction_error?: string | null;
+          extraction_status?: string;
+          file_name?: string;
+          grade_label?: string | null;
+          id?: string;
+          mime_type?: string;
+          profile_id?: string;
+          semester?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "growth_uploads_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -2954,7 +3303,7 @@ export type Database = {
       };
       notices: {
         Row: {
-          attachments: Json;
+          attachments: NonNullable<Json>;
           category: string | null;
           content: string | null;
           created_at: string | null;
@@ -2962,7 +3311,7 @@ export type Database = {
           file_url: string | null;
           id: string;
           image_url: string | null;
-          image_urls: Json;
+          image_urls: NonNullable<Json>;
           is_active: boolean | null;
           is_pinned: boolean | null;
           sort_order: number | null;
@@ -2971,7 +3320,7 @@ export type Database = {
           view_count: number;
         };
         Insert: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category?: string | null;
           content?: string | null;
           created_at?: string | null;
@@ -2979,7 +3328,7 @@ export type Database = {
           file_url?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_pinned?: boolean | null;
           sort_order?: number | null;
@@ -2988,7 +3337,7 @@ export type Database = {
           view_count?: number;
         };
         Update: {
-          attachments?: Json;
+          attachments?: NonNullable<Json>;
           category?: string | null;
           content?: string | null;
           created_at?: string | null;
@@ -2996,7 +3345,7 @@ export type Database = {
           file_url?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_pinned?: boolean | null;
           sort_order?: number | null;
@@ -3176,7 +3525,7 @@ export type Database = {
           created_at: string | null;
           id: string;
           image_url: string | null;
-          image_urls: Json;
+          image_urls: NonNullable<Json>;
           is_active: boolean | null;
           menu_group: string;
           menu_group_order: number | null;
@@ -3194,7 +3543,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           menu_group?: string;
           menu_group_order?: number | null;
@@ -3212,7 +3561,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           image_url?: string | null;
-          image_urls?: Json;
+          image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           menu_group?: string;
           menu_group_order?: number | null;
@@ -3514,7 +3863,7 @@ export type Database = {
           prompt_version: string | null;
           report_type: string;
           score: number | null;
-          sections: Json;
+          sections: NonNullable<Json>;
           session_id: string;
           submission_id: string | null;
           summary: string | null;
@@ -3528,7 +3877,7 @@ export type Database = {
           prompt_version?: string | null;
           report_type: string;
           score?: number | null;
-          sections: Json;
+          sections: NonNullable<Json>;
           session_id: string;
           submission_id?: string | null;
           summary?: string | null;
@@ -3542,7 +3891,7 @@ export type Database = {
           prompt_version?: string | null;
           report_type?: string;
           score?: number | null;
-          sections?: Json;
+          sections?: NonNullable<Json>;
           session_id?: string;
           submission_id?: string | null;
           summary?: string | null;
@@ -3771,7 +4120,7 @@ export type Database = {
         Row: {
           char_counts: Json | null;
           created_at: string;
-          fields: Json;
+          fields: NonNullable<Json>;
           finalize_reason: string | null;
           finalized_at: string | null;
           id: string;
@@ -3785,7 +4134,7 @@ export type Database = {
         Insert: {
           char_counts?: Json | null;
           created_at?: string;
-          fields: Json;
+          fields: NonNullable<Json>;
           finalize_reason?: string | null;
           finalized_at?: string | null;
           id?: string;
@@ -3799,7 +4148,7 @@ export type Database = {
         Update: {
           char_counts?: Json | null;
           created_at?: string;
-          fields?: Json;
+          fields?: NonNullable<Json>;
           finalize_reason?: string | null;
           finalized_at?: string | null;
           id?: string;
@@ -4909,6 +5258,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      student_profiles: {
+        Row: {
+          admission_year: number | null;
+          career: string | null;
+          created_at: string;
+          department: string | null;
+          grade: string | null;
+          profile_id: string;
+          school_type: string | null;
+          semester: number | null;
+          universities: string[];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          admission_year?: number | null;
+          career?: string | null;
+          created_at?: string;
+          department?: string | null;
+          grade?: string | null;
+          profile_id: string;
+          school_type?: string | null;
+          semester?: number | null;
+          universities?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          admission_year?: number | null;
+          career?: string | null;
+          created_at?: string;
+          department?: string | null;
+          grade?: string | null;
+          profile_id?: string;
+          school_type?: string | null;
+          semester?: number | null;
+          universities?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_profiles_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_code_attempts: {
         Row: {
           attempted_at: string;
@@ -5710,6 +6116,10 @@ export type Database = {
         Args: { p_attempt_id: string; p_profile_id: string; p_reason?: string };
         Returns: Json;
       };
+      consume_growth_credit: {
+        Args: { p_profile_id: string; p_reason?: string; p_report_id: string };
+        Returns: Json;
+      };
       consume_performance_credit: {
         Args: { p_profile_id: string; p_reason?: string; p_session_id: string };
         Returns: Json;
@@ -5725,7 +6135,7 @@ export type Database = {
         Returns: Json;
       };
       fn_activate_admin_member: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           activated_at: string | null;
           created_at: string;
@@ -5807,7 +6217,10 @@ export type Database = {
         Args: { p_profile_id: string; p_tenant_id: string };
         Returns: undefined;
       };
-      fn_agree_payment_terms: { Args: never; Returns: Json };
+      fn_agree_payment_terms: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
         Returns: {
@@ -5900,7 +6313,10 @@ export type Database = {
         };
         Returns: boolean;
       };
-      fn_coupon_grant_valid_months: { Args: never; Returns: number };
+      fn_coupon_grant_valid_months: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       fn_coupon_grant_valid_until: {
         Args: { p_coupon_id: string; p_user_id: string };
         Returns: string;
@@ -5926,7 +6342,10 @@ export type Database = {
         };
         Returns: boolean;
       };
-      fn_coupon_pending_hold_minutes: { Args: never; Returns: number };
+      fn_coupon_pending_hold_minutes: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       fn_create_tenant: {
         Args: {
           p_name: string;
@@ -5967,7 +6386,10 @@ export type Database = {
         };
         Returns: Json;
       };
-      fn_generate_tenant_code: { Args: never; Returns: string };
+      fn_generate_tenant_code: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       fn_goal_reset_student: {
         Args: { p_profile_id: string };
         Returns: undefined;
@@ -6004,6 +6426,60 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;
       };
+      fn_growth_claim_step: {
+        Args: {
+          p_profile_id: string;
+          p_report_id: string;
+          p_stale_seconds?: number;
+          p_step: number;
+        };
+        Returns: Json;
+      };
+      fn_growth_commit_collect: {
+        Args: {
+          p_activity_ids: string[];
+          p_grade_inputs: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_track: string;
+        };
+        Returns: boolean;
+      };
+      fn_growth_complete_report: {
+        Args: {
+          p_plan_items: Json;
+          p_profile: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_sections: Json;
+        };
+        Returns: Json;
+      };
+      fn_growth_finish_step: {
+        Args: {
+          p_extra_attempts?: number;
+          p_issues?: Json;
+          p_ok: boolean;
+          p_patch?: Json;
+          p_profile_id: string;
+          p_report_id: string;
+          p_step: number;
+        };
+        Returns: boolean;
+      };
+      fn_growth_merge_survey_answers: {
+        Args: { p_patch: Json; p_profile_id: string; p_report_id: string };
+        Returns: Json;
+      };
+      fn_growth_terminate_report: {
+        Args: {
+          p_profile_id: string;
+          p_reason: string;
+          p_report_id: string;
+          p_step: number;
+        };
+        Returns: Json;
+      };
       fn_is_active_admin: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_linked_pair: {
         Args: { p_a: string; p_b: string };
@@ -6024,7 +6500,7 @@ export type Database = {
         Returns: string[];
       };
       fn_my_tenant: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           id: string;
           name: string;
@@ -6040,7 +6516,7 @@ export type Database = {
         }[];
       };
       fn_parent_children: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           link_id: string;
           link_status: string;
@@ -6298,7 +6774,7 @@ export type Database = {
         }[];
       };
       fn_student_parent: {
-        Args: never;
+        Args: Record<PropertyKey, never>;
         Returns: {
           link_id: string;
           link_status: string;
@@ -6373,18 +6849,21 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      generate_link_code_string: { Args: never; Returns: string };
+      generate_link_code_string: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       increment_board_view: {
         Args: { p_id: string; p_source: string };
         Returns: number;
       };
-      is_admin: { Args: never; Returns: boolean };
+      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_email_available: { Args: { check_email: string }; Returns: boolean };
       is_username_available: {
         Args: { check_username: string };
         Returns: boolean;
       };
-      is_winning_admin: { Args: never; Returns: boolean };
+      is_winning_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       issue_student_link_code: {
         Args: { p_student_id: string };
         Returns: string;
@@ -6435,10 +6914,14 @@ export type Database = {
         Args: { p_session_id: string };
         Returns: boolean;
       };
-      reissue_link_code: { Args: never; Returns: Json };
+      reissue_link_code: { Args: Record<PropertyKey, never>; Returns: Json };
       request_parent_link: { Args: { p_code: string }; Returns: Json };
       respond_parent_link: {
         Args: { p_approve: boolean; p_link_id: string };
+        Returns: Json;
+      };
+      reverse_growth_credit: {
+        Args: { p_profile_id: string; p_reason?: string; p_report_id: string };
         Returns: Json;
       };
       revoke_parent_link: { Args: { p_link_id: string }; Returns: Json };
