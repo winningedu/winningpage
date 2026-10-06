@@ -2,8 +2,8 @@
 import {
   MIN_CHARS_SECTION_IDS,
   MIN_SUBMISSION_CHARS,
-  SECTIONS,
   SECTION_IDS,
+  SECTIONS,
 } from "./constants.js";
 import type { SectionId, SubmissionSections } from "./types.js";
 

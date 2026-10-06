@@ -2,12 +2,12 @@
 import { describe, expect, it } from "vitest";
 import { MIN_SUBMISSION_CHARS } from "./constants.js";
 import {
-  PLACEHOLDER_RE,
   checkSubmissionForEvaluation,
   countChars,
   countPlaceholders,
   emptySections,
   normalizeSections,
+  PLACEHOLDER_RE,
   shortageOf,
   stripPlaceholders,
   totalForMinimum,

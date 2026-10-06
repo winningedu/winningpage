@@ -23,8 +23,9 @@
 // reply.ts 의 순수 함수로 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
-import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { completePlanItemFromProgram } from "../_lib/growth/plan/complete.js";
+import { defineHandler, requireUserId } from "../_lib/handler.js";
+import { sortRecordCandidates, subjectCounts } from "../_lib/inquiry/assets.js";
 import {
   asGradeLabel,
   decideCreate,
@@ -53,8 +54,7 @@ import {
 import { pickLatestCompleted } from "../_lib/inquiry/growthHandoff.js";
 import { resendPendingReplies } from "../_lib/inquiry/reply.js";
 import { gradeNote } from "../_lib/inquiry/stage.js";
-import { sortRecordCandidates, subjectCounts } from "../_lib/inquiry/assets.js";
-import { toRecordCandidate, type SessionRow } from "../_lib/inquiry/views.js";
+import { type SessionRow, toRecordCandidate } from "../_lib/inquiry/views.js";
 
 type OpenInfo = {
   id: string;

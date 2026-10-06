@@ -7,10 +7,10 @@ import {
   MAX_FIX_FIRST,
   REVISION_NEEDED_BELOW_TOTAL,
   RUBRIC,
-  SECTION_IDS,
-  SECTIONS,
   type RubricItem,
   type RubricRequirement,
+  SECTION_IDS,
+  SECTIONS,
 } from "./constants.js";
 import type {
   CoreErrorId,

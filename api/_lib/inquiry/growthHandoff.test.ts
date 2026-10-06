@@ -1,6 +1,7 @@
 // 성장설계 수신 테스트(명세 No.107~109, 111, 178, 181, 개발계획 §1 과제 매칭, §2 23, §6 12, 13).
 // axis_scores 는 성장설계 AxisEvaluation[](axis, verdict, optional 포함)로 저장된다(growth/report/runStep.ts).
 import { describe, expect, it } from "vitest";
+import type { GrowthReportRow, PlanItemRow } from "./growthHandoff.js";
 import {
   buildHandoff,
   handoffPayload,
@@ -11,7 +12,6 @@ import {
   pickLatestCompleted,
   weakAxesFrom,
 } from "./growthHandoff.js";
-import type { GrowthReportRow, PlanItemRow } from "./growthHandoff.js";
 
 const report = (over: Partial<GrowthReportRow> = {}): GrowthReportRow => ({
   id: "r1",

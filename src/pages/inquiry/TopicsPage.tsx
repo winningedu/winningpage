@@ -5,6 +5,7 @@ import {
   useInquiryScreenStep,
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
+import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
 import GeneratingCard from "@/components/inquiry/topics/GeneratingCard";
 import GenerationFailedCard from "@/components/inquiry/topics/GenerationFailedCard";
@@ -21,7 +22,6 @@ import {
   remainingRerecommends,
   shouldStartRecommend,
 } from "@/components/inquiry/topics/topicsLogic";
-import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {

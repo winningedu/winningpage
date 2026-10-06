@@ -2,9 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { describe, expect, test } from "vitest";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { type InquiryStep, deriveInquirySteps } from "./deriveInquirySteps";
-import { INQUIRY_PATHS } from "./inquiryPaths";
+import { deriveInquirySteps, type InquiryStep } from "./deriveInquirySteps";
 import InquirySidebar from "./InquirySidebar";
+import { INQUIRY_PATHS } from "./inquiryPaths";
 
 const STEPS = deriveInquirySteps({
   screenStep: 2,

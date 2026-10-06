@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
+import {
+  useInquiryScreenStep,
+  useInquiryShell,
+} from "@/components/inquiry/InquiryShellContext";
 import BasicInfoCard from "@/components/inquiry/info/BasicInfoCard";
 import EmptyAssetsDialog from "@/components/inquiry/info/EmptyAssetsDialog";
 import GrowthBanner from "@/components/inquiry/info/GrowthBanner";
+import InterviewPanel from "@/components/inquiry/info/InterviewPanel";
 import {
   addAsset,
   decideSubmit,
@@ -26,7 +31,6 @@ import {
   validateInfoForm,
   warningMessages,
 } from "@/components/inquiry/info/infoLogic";
-import InterviewPanel from "@/components/inquiry/info/InterviewPanel";
 import LinkRulesCard from "@/components/inquiry/info/LinkRulesCard";
 import OnelineInput from "@/components/inquiry/info/OnelineInput";
 import QuotaCard from "@/components/inquiry/info/QuotaCard";
@@ -36,10 +40,6 @@ import SubmitError from "@/components/inquiry/info/SubmitError";
 import { CARD, CARD_HINT, CARD_TITLE } from "@/components/inquiry/info/styles";
 import Warnings from "@/components/inquiry/info/Warnings";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import {
-  useInquiryScreenStep,
-  useInquiryShell,
-} from "@/components/inquiry/InquiryShellContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/context/SessionContext";

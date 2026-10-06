@@ -1,4 +1,6 @@
 // 기억으로 되살리기(7문항) 패널의 순수 로직(No.33~35). 빈틈 후보 규칙은 src/lib/inquiry/gaps.ts 에 있다.
+
+import { validateInterview } from "@/lib/inquiry/gaps";
 import type {
   GapCandidate,
   InterviewAnswers,
@@ -7,7 +9,6 @@ import type {
   InterviewTaskType,
 } from "@/lib/inquiry/types";
 import { interviewAsset, type LocalAsset } from "./infoLogic";
-import { validateInterview } from "@/lib/inquiry/gaps";
 
 export const INTERVIEW_QUESTIONS = [
   "어떤 활동이었나요 (주제 한 줄, 필수)",

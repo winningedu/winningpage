@@ -2,24 +2,24 @@
 import { describe, expect, it } from "vitest";
 import { CHECKLIST, RUBRIC } from "./constants.js";
 import {
+  buildRetryNote,
   CITATION_RE,
+  canRetry,
   collectText,
   completeSentenceCount,
   exceedsLength,
+  FORBIDDEN_OUTPUT_PHRASES,
   findFabricatedCitations,
   findForbiddenPhrases,
   findMarkdown,
-  FORBIDDEN_OUTPUT_PHRASES,
-  buildRetryNote,
-  canRetry,
   parseJsonResponse,
+  RELIABILITY_FORBIDDEN_RE,
+  RELIABILITY_REQUIRED_RE,
   stripCodeFence,
   TRUNCATED_RETRY_NOTE,
   validateDesignResponse,
   validateEvaluationResponse,
   validateTopicsResponse,
-  RELIABILITY_FORBIDDEN_RE,
-  RELIABILITY_REQUIRED_RE,
 } from "./validation.js";
 
 describe("금지 산출 사전", () => {

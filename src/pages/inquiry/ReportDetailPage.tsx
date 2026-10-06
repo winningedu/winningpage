@@ -4,8 +4,8 @@ import { Link, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import DesignBody from "@/components/inquiry/design/DesignBody";
 import EvaluationBody from "@/components/inquiry/evaluate/EvaluationBody";
-import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import { useInquiryScreenStep } from "@/components/inquiry/InquiryShellContext";
+import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import FinalFieldsTable from "@/components/inquiry/reports/FinalFieldsTable";
 import LoadError, { errorCode } from "@/components/inquiry/reports/LoadError";
 import {

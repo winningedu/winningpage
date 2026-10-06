@@ -26,9 +26,9 @@ import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {
   fail,
   hasInquiryAccess,
+  loadSessionParts,
   NO_ENTITLEMENT_MESSAGE,
   SESSION_NOT_FOUND_MESSAGE,
-  loadSessionParts,
 } from "../_lib/inquiry/compose.js";
 import {
   loadDesignReport,

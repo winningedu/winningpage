@@ -10,10 +10,10 @@ import type {
   GenerationFailureExtra,
   PlanReportRequest,
   PlanReportResponse,
-  SessionView,
   RecommendRequest,
   RecommendResponse,
   SessionRequest,
+  SessionView,
   TopicView,
 } from "./types";
 

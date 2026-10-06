@@ -3,11 +3,11 @@ import type { ApiResult, TopicView } from "@/lib/inquiry/api";
 import {
   classifyCall,
   MAX_RUNNING_RETRIES,
+  nextLineIndex,
   PLAN_LINES,
   PROVISIONAL_BADGE,
   RECOMMEND_LINES,
   RUNNING_RETRY_MS,
-  nextLineIndex,
   reliabilityNoteFor,
   remainingRerecommends,
   shouldStartRecommend,

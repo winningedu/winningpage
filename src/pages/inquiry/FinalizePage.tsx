@@ -12,11 +12,11 @@ import {
 } from "@/components/inquiry/finalize/finalizeLogic";
 import ResultCard from "@/components/inquiry/finalize/ResultCard";
 import SummaryTable from "@/components/inquiry/finalize/SummaryTable";
-import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import {
   useInquiryScreenStep,
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
+import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import StepGate from "@/components/inquiry/StepGate";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

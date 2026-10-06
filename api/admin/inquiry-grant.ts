@@ -11,13 +11,13 @@
 //
 // 핸들러 본문은 테스트하지 않는다. 판단과 조립은 api/_lib/inquiry/ops/grant.ts.
 
+import { defineHandler } from "../_lib/handler.js";
+import { sendError } from "../_lib/httpResponse.js";
 import {
   buildGrantRow,
   INQUIRY_PROGRAM_KEY,
   validateGrantBody,
 } from "../_lib/inquiry/ops/grant.js";
-import { defineHandler } from "../_lib/handler.js";
-import { sendError } from "../_lib/httpResponse.js";
 import {
   findProgramAccessRow,
   readQuotaSnapshot,

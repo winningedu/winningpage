@@ -9,8 +9,8 @@ import {
   topicRowsOf,
   validateRecommendBody,
 } from "./recommendFlow.js";
-import type { AssetView, RecordRow, SessionRow } from "./views.js";
 import type { ModelTopic } from "./validation.js";
+import type { AssetView, RecordRow, SessionRow } from "./views.js";
 
 const SID = "123e4567-e89b-12d3-a456-426614174000";
 

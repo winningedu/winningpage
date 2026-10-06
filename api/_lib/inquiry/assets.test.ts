@@ -1,6 +1,5 @@
 // 자산 신뢰도, 입력 검증, 경고, 출발 활동 후보 정렬 테스트(명세 No.31, 36~43).
 import { describe, expect, it } from "vitest";
-import { MAX_RECORD_CANDIDATES, ONELINE_MAX_CHARS } from "./constants.js";
 import {
   assetWarnings,
   reliabilityOf,
@@ -8,6 +7,7 @@ import {
   subjectCounts,
   validateAssetInputs,
 } from "./assets.js";
+import { MAX_RECORD_CANDIDATES, ONELINE_MAX_CHARS } from "./constants.js";
 import type { AssetInput, RecordCandidate } from "./types.js";
 
 function rec(over: Partial<RecordCandidate> & { id: string }): RecordCandidate {

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import ProvisionalNotice from "./ProvisionalNotice";
 import { PROVISIONAL_TOPIC_NOTE } from "@/lib/inquiry/labels";
+import ProvisionalNotice from "./ProvisionalNotice";
 
 describe("ProvisionalNotice", () => {
   test("안내 문장과 확인 질문 3개, 정보 입력 이동 버튼을 그린다", () => {

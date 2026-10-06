@@ -4,7 +4,6 @@
 
 import { type Db, must, mustHave } from "./db.js";
 import { type ClaimResult, interpretClaim } from "./session.js";
-import type { ReportRow, TopicRow } from "./views.js";
 import type {
   DesignReport,
   Fit,
@@ -14,6 +13,7 @@ import type {
   TopicDetail,
   ValidationIssue,
 } from "./types.js";
+import type { ReportRow, TopicRow } from "./views.js";
 
 /** inquiry_topics 에 넣을 행. link_kind, linkage_type, fit 은 서버 계산값이다(No.124). */
 export type NewTopicRow = {

@@ -27,8 +27,8 @@ import {
 } from "./inquirySessionsApi";
 import {
   buildInquirySessionsSearch,
-  inquirySessionsQueryReducer,
   initialInquirySessionsQuery,
+  inquirySessionsQueryReducer,
 } from "./inquirySessionsQuery";
 import {
   canRecover,

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
-import * as serverAssets from "../../../../api/_lib/inquiry/assets";
 import type {
   AssetView,
   HandoffView,
   RecordCandidate,
   SessionView,
 } from "@/lib/inquiry/types";
+import * as serverAssets from "../../../../api/_lib/inquiry/assets";
 import {
   addAsset,
   decideSubmit,
@@ -22,8 +22,8 @@ import {
   recordAsset,
   recordPeriod,
   removeAsset,
-  submitErrorView,
   subjectChips,
+  submitErrorView,
   toAssetInputs,
   toggleRecord,
   validateInfoForm,

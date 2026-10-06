@@ -13,6 +13,8 @@
 //
 // 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 판단과 변환은 api/_lib/inquiry/ops/list.ts.
 
+import { defineHandler } from "../_lib/handler.js";
+import { sendError } from "../_lib/httpResponse.js";
 import type {
   ProfileSummary,
   SessionListRow,
@@ -22,8 +24,6 @@ import {
   parseListQuery,
   toSessionListItem,
 } from "../_lib/inquiry/ops/list.js";
-import { defineHandler } from "../_lib/handler.js";
-import { sendError } from "../_lib/httpResponse.js";
 
 const SESSION_COLUMNS =
   "id, profile_id, status, current_step, subject, selected_topic_id, completed_at, last_activity_at, ledger_id, ledger_reversed_at, generation_state, evaluation_count, topic_round_count";

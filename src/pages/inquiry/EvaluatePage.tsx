@@ -2,11 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import EvaluationBody from "@/components/inquiry/evaluate/EvaluationBody";
 import { remainingReevaluations } from "@/components/inquiry/evaluate/evaluateLogic";
-import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import {
   useInquiryScreenStep,
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
+import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import StepGate from "@/components/inquiry/StepGate";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

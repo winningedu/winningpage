@@ -1,8 +1,8 @@
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInquiryShell } from "./InquiryShellContext";
-import { type GuardedStep, guardFor } from "./stepGuards";
 import StepGuardCard from "./StepGuardCard";
+import { type GuardedStep, guardFor } from "./stepGuards";
 
 // 단계 화면(3~6)의 공통 바깥틀: 페이지 머리와 선행 조건 안내(No.113, 114).
 // 선행 조건이 충족되면 children(P6 가 채우는 본문)을 그린다.

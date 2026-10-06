@@ -1,23 +1,22 @@
 // 평가 서버 계산 테스트(명세 No.82~92, 94~96, 4, 개발계획 §2 19, §6 7, 8, 9).
 // 순수 함수만 다루므로 DB 와 모델 호출 없이 검증한다.
 import { describe, expect, it } from "vitest";
+import { CHECKLIST, RUBRIC } from "./constants.js";
+import type { AppFacts, ModelEvaluation } from "./scoring.js";
 import {
   appCoreErrors,
   applyCaps,
   buildEvaluation,
-  splitFixes,
-  validateModelEvaluationShape,
   deterministicRequirement,
   labelFor,
   levelFor,
   mergeCoreErrors,
   scoreOf,
   sourceStatuses,
+  splitFixes,
+  validateModelEvaluationShape,
 } from "./scoring.js";
-import { CHECKLIST, RUBRIC } from "./constants.js";
-import type { AppFacts } from "./scoring.js";
 import type { CoreErrorResult, FixItem, SectionId } from "./types.js";
-import type { ModelEvaluation } from "./scoring.js";
 
 const IDS: SectionId[] = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 

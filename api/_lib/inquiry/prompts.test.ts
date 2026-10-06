@@ -15,11 +15,11 @@ import {
   buildTopicsPrompt,
   COMMON_RULES,
   MODE_MAX_OUTPUT_TOKENS,
-  RESPONSE_SCHEMAS,
   RELIABILITY_REQUIRED_SENTENCE,
+  RESPONSE_SCHEMAS,
 } from "./prompts.js";
 import type { SectionId } from "./types.js";
-import { findMarkdown, FORBIDDEN_OUTPUT_PHRASES } from "./validation.js";
+import { FORBIDDEN_OUTPUT_PHRASES, findMarkdown } from "./validation.js";
 
 // em dash, en dash, 가운뎃점, 화살표(U+2190~U+21FF)
 const BANNED_CHARS = /[\u2014\u2013\u00B7\u318D\u2190-\u21FF]/;

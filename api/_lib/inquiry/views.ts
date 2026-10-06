@@ -1,10 +1,6 @@
 // 심화탐구 뷰 변환(부록 A 공용 뷰 타입). DB 행을 받아 응답용 뷰로 바꾸는 순수 함수만 둔다.
 // 클라이언트 src/lib/inquiry/types.ts 가 이 타입을 그대로 미러한다.
-import {
-  type GenerationState,
-  parseGenerationState,
-  screenStepFor,
-} from "./session.js";
+
 import {
   CHECKLIST,
   type ChecklistItem,
@@ -17,6 +13,11 @@ import {
   type SectionMeta,
 } from "./constants.js";
 import { extractActivityFields } from "./extract.js";
+import {
+  type GenerationState,
+  parseGenerationState,
+  screenStepFor,
+} from "./session.js";
 import {
   countChars,
   countPlaceholders,

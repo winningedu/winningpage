@@ -1,8 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import type { ReportRow } from "./reportsLogic";
 import ReportsTable from "./ReportsTable";
+import type { ReportRow } from "./reportsLogic";
 
 const base: ReportRow = {
   sessionId: "s1",

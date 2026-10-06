@@ -28,6 +28,7 @@
 
 import { callStructured } from "../_lib/gemini.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
+import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {
   fail,
   loadAssetViews,
@@ -36,6 +37,7 @@ import {
   NO_ENTITLEMENT_MESSAGE,
   SESSION_NOT_FOUND_MESSAGE,
 } from "../_lib/inquiry/compose.js";
+import type { Db } from "../_lib/inquiry/db.js";
 import {
   loadDesignReport,
   loadLatestRoundTopics,
@@ -64,7 +66,6 @@ import {
   saveDesign,
 } from "../_lib/inquiry/generateDb.js";
 import { buildDesignPrompt } from "../_lib/inquiry/prompts.js";
-import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import { parseGenerationState } from "../_lib/inquiry/session.js";
 import { stageLabel, stageOf } from "../_lib/inquiry/stage.js";
 import type { DesignReport } from "../_lib/inquiry/types.js";
@@ -73,12 +74,11 @@ import {
   primaryAssetOf,
   primaryReliability,
   type ReportRow,
-  toDesignView,
-  toTopicView,
   type SessionRow,
   type TopicView,
+  toDesignView,
+  toTopicView,
 } from "../_lib/inquiry/views.js";
-import type { Db } from "../_lib/inquiry/db.js";
 
 async function designViewOf(
   db: Db,

@@ -1,24 +1,24 @@
 // 주제 추천 흐름의 판단 부분(개발계획 §2 9, 10, 24, 부록 B 1번). DB 와 모델을 모르는 순수 함수다.
 // 선행 조건, 프롬프트 입력 조립, 응답에 서버 고정값 붙이기, 차감 결정을 맡는다.
 
-import { STAGE_LINK_RULES, TOPIC_MAX_ROUNDS } from "./constants.js";
-import type { NewTopicRow } from "./generateDb.js";
-import { gateFailure, type PrecheckResult } from "./generate.js";
 import {
   asGradeLabel,
   type HandoffView,
   type SessionInfo,
 } from "./bootstrap.js";
+import { STAGE_LINK_RULES, TOPIC_MAX_ROUNDS } from "./constants.js";
+import { gateFailure, type PrecheckResult } from "./generate.js";
+import type { NewTopicRow } from "./generateDb.js";
 import type { buildTopicsPrompt } from "./prompts.js";
 import { gateFor, nextRound } from "./session.js";
 import { fitFor, sortTopicsByFit, stageLabel, stageOf } from "./stage.js";
 import type {
+  Fit,
   GradeLabel,
   LinkageType,
   LinkKind,
   SessionStatus,
   TopicDetail,
-  Fit,
 } from "./types.js";
 import type { ModelTopic } from "./validation.js";
 import type { AssetView, RecordRow, SessionRow, TopicRow } from "./views.js";
