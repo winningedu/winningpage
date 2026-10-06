@@ -7,19 +7,53 @@
 -- 환불 소비 판정이 이 원장 하나를 정본으로 재계산한다). source_kind 에 'selfeval_session' 을
 -- 추가한다. 되돌림 행의 session_id 는 항상 NULL 이라 기존 shape check 가 이미 허용한다.
 --
--- 같은 제약을 다른 서비스(심화탐구)도 자기 값으로 다시 건다. 기존 값을 하나라도 빼면 다른
--- 서비스의 원장 적재가 깨지므로, 머지 때 마지막 파일이 모든 값을 합쳐 갖도록 대조한다.
-alter table public.performance_credit_ledger
-  drop constraint performance_credit_ledger_source_kind_check;
-alter table public.performance_credit_ledger
-  add constraint performance_credit_ledger_source_kind_check
-  check (source_kind = any (array[
-    'performance_session'::text,
-    'mentor_call_booking'::text,
-    'diagnosis_attempt'::text,
-    'growth_report'::text,
-    'selfeval_session'::text
-  ]));
+-- 같은 제약을 다른 서비스(심화탐구 inquiry_session)도 같은 base 에서 병렬로 다시 건다. 정적 목록으로
+-- 다시 쓰면 머지 순서에 따라 상대 값이 사라지거나, 상대 값의 원장 행이 이미 있어 적용이 실패한다.
+-- 그래서 현재 제약 정의에서 허용값을 읽어 'selfeval_session' 을 더한 합집합으로 다시 만든다.
+-- 제약이 없으면 전제가 깨진 것이므로 예외를 낸다(폴백 없음).
+do $$
+declare
+  v_def  text;
+  v_vals text[];
+begin
+  select pg_get_constraintdef(c.oid) into v_def
+    from pg_constraint c
+   where c.conname = 'performance_credit_ledger_source_kind_check'
+     and c.conrelid = 'public.performance_credit_ledger'::regclass;
+
+  if v_def is null then
+    raise exception 'performance_credit_ledger_source_kind_check 제약이 없습니다';
+  end if;
+
+  -- 제약 정의는 두 형태로 나온다. 처음 만든 형태는 array['a'::text, 'b'::text] 이고, 이 블록이
+  -- 한 번 다시 만든 뒤에는 '{a,b}'::text[] 배열 리터럴이다. 둘 다 읽어야 두 번째 실행(다른 서비스가
+  -- 먼저 합집합으로 바꾼 뒤)에서 배열 리터럴을 값 하나로 오독해 제약이 깨지는 일이 없다.
+  select array_agg(x.v order by x.ord, x.pos) into v_vals
+    from (
+      select t.ord, u.pos, btrim(u.v, ' "') as v
+        from regexp_matches(v_def, '''([^'']+)''::text', 'g') with ordinality as t(m, ord)
+        cross join lateral unnest(
+          case when t.m[1] like '{%' then string_to_array(btrim(t.m[1], '{}'), ',')
+               else array[t.m[1]] end
+        ) with ordinality as u(v, pos)
+    ) x
+   where x.v <> '';
+
+  if v_vals is null or cardinality(v_vals) = 0 then
+    raise exception 'source_kind 허용값을 읽지 못했습니다: %', v_def;
+  end if;
+
+  if not ('selfeval_session' = any (v_vals)) then
+    v_vals := v_vals || 'selfeval_session'::text;
+  end if;
+
+  execute 'alter table public.performance_credit_ledger drop constraint performance_credit_ledger_source_kind_check';
+  execute format(
+    'alter table public.performance_credit_ledger add constraint performance_credit_ledger_source_kind_check check (source_kind = any (%L::text[]))',
+    v_vals
+  );
+end
+$$;
 
 -- 세션 차감, consume_growth_credit 미러.
 -- 잠금은 같은 salt(101), 프로필 단위라 부여, 회수, 수행평가, 진단, 성장설계 차감과 순서를
