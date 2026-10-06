@@ -8,17 +8,42 @@
 -- 환불 소비 판정이 이 원장 하나를 정본으로 재계산한다). source_kind 에 'inquiry_session' 을
 -- 추가한다. 기존 4값은 모두 유지한다. 원본 행과 되돌림 행 모두 session_id 는 NULL 이라
 -- 기존 performance_credit_ledger_session_id_shape_check 가 이미 허용한다(변경 없음).
-alter table public.performance_credit_ledger
-  drop constraint performance_credit_ledger_source_kind_check;
-alter table public.performance_credit_ledger
-  add constraint performance_credit_ledger_source_kind_check
-  check (source_kind = any (array[
-    'performance_session'::text,
-    'mentor_call_booking'::text,
-    'diagnosis_attempt'::text,
-    'growth_report'::text,
-    'inquiry_session'::text
-  ]));
+-- source_kind CHECK 교체. 정적 목록으로 다시 쓰면 같은 base 에서 병렬로 진행하는 다른 서비스
+-- (자기평가서 selfeval_session)가 먼저 넣은 값이 머지 순서에 따라 사라지거나, 그 값의 원장
+-- 행이 이미 있어 적용이 실패한다. 그래서 현재 제약 정의에서 허용값을 읽어 'inquiry_session'
+-- 을 더한 합집합으로 다시 만든다. 제약이 없으면 전제가 깨진 것이므로 예외를 낸다(폴백 없음).
+do $$
+declare
+  v_def  text;
+  v_vals text[];
+begin
+  select pg_get_constraintdef(c.oid) into v_def
+    from pg_constraint c
+   where c.conname = 'performance_credit_ledger_source_kind_check'
+     and c.conrelid = 'public.performance_credit_ledger'::regclass;
+
+  if v_def is null then
+    raise exception 'performance_credit_ledger_source_kind_check 제약이 없습니다';
+  end if;
+
+  select array_agg(t.m[1] order by t.ord) into v_vals
+    from regexp_matches(v_def, '''([^'']+)''::text', 'g') with ordinality as t(m, ord);
+
+  if v_vals is null or cardinality(v_vals) = 0 then
+    raise exception 'source_kind 허용값을 읽지 못했습니다: %', v_def;
+  end if;
+
+  if not ('inquiry_session' = any (v_vals)) then
+    v_vals := v_vals || 'inquiry_session'::text;
+  end if;
+
+  execute 'alter table public.performance_credit_ledger drop constraint performance_credit_ledger_source_kind_check';
+  execute format(
+    'alter table public.performance_credit_ledger add constraint performance_credit_ledger_source_kind_check check (source_kind = any (%L::text[]))',
+    v_vals
+  );
+end
+$$;
 
 -- 세션 차감, consume_diagnosis_attempt 미러. 무료 1회 분기는 없다.
 -- 잠금은 같은 salt(101), 프로필 단위라 부여, 회수, 수행평가, 진단 차감과 순서를 공유해
