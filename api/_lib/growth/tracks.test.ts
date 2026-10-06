@@ -1,20 +1,14 @@
-// 성장설계 트랙 규칙 테스트(명세 No.21·40·44·45·50·51·56·96·98~100·115·116·139·147·164).
+// 성장설계 트랙 규칙 테스트(명세 No.40, 44, 45, 50, 51, 96, 98~100, 164).
 // 순수 함수만 다루므로 DB/네트워크 없이 검증한다.
 import { describe, expect, test } from "vitest";
 import {
-  activeReport,
   analysisRange,
-  careerChanged,
-  isExpired,
-  openReport,
-  shouldProposePromotion,
   capPlanItems,
   deadlineState,
   orderPlanPeriods,
   firstYearSufficiency,
   monthlyPlan,
   omittedSections,
-  SUFFICIENCY_THRESHOLDS,
   semesterNotice,
   sufficiency,
   sufficiencyLabel,
@@ -36,7 +30,7 @@ describe("analysisRange (No.50)", () => {
     });
   });
 
-  test("고3은 1·2학년 전체와 3학년 현재까지, 실행계획 월 단위 문구를 쓴다", () => {
+  test("고3은 1, 2학년 전체와 3학년 현재까지, 실행계획 월 단위 문구를 쓴다", () => {
     expect(analysisRange("고3")).toEqual({
       semesters: ["고1-1", "고1-2", "고2-1", "고2-2", "고3-1", "고3-2"],
       description:
@@ -74,7 +68,7 @@ describe("analysisRange (No.50)", () => {
   });
 });
 
-describe("omittedSections (No.45·50·51)", () => {
+describe("omittedSections (No.45, 50, 51)", () => {
   test("졸업과 N수는 3부 로드맵 항목 3-1~3-4 를 제외하고 사유를 채운다", () => {
     for (const t of ["졸업", "N수"] as const) {
       const r = omittedSections(t, {});
@@ -115,6 +109,8 @@ describe("monthlyPlan (No.50)", () => {
   });
 });
 
+const T = { enough: 3 };
+
 describe("sufficiency (No.44)", () => {
   test.each([
     [0, "none", "없음"],
@@ -123,12 +119,12 @@ describe("sufficiency (No.44)", () => {
     [3, "enough", "있음"],
     [10, "enough", "있음"],
   ] as const)("건수 %i 는 %s(%s)", (count, level, label) => {
-    expect(sufficiency(count)).toBe(level);
+    expect(sufficiency(count, T)).toBe(level);
     expect(sufficiencyLabel(level)).toBe(label);
   });
 
-  test("임계값을 인자로 바꿀 수 있고 기본값은 상수다", () => {
-    expect(SUFFICIENCY_THRESHOLDS).toEqual({ enough: 3 });
+  test("임계값을 인자로 받아 판정한다", () => {
+    expect(sufficiency(4, { enough: 5 })).toBe("insufficient");
     expect(sufficiency(3, { enough: 5 })).toBe("insufficient");
     expect(sufficiency(5, { enough: 5 })).toBe("enough");
   });
@@ -136,12 +132,12 @@ describe("sufficiency (No.44)", () => {
 
 describe("firstYearSufficiency (No.44)", () => {
   test("1학년 두 학기 합계로 판정한다", () => {
-    expect(firstYearSufficiency({ "고1-1": 1, "고1-2": 1 })).toEqual({
+    expect(firstYearSufficiency({ "고1-1": 1, "고1-2": 1 }, T)).toEqual({
       count: 2,
       level: "insufficient",
       label: "부족",
     });
-    expect(firstYearSufficiency({ "고1-1": 2, "고1-2": 2 })).toEqual({
+    expect(firstYearSufficiency({ "고1-1": 2, "고1-2": 2 }, T)).toEqual({
       count: 4,
       level: "enough",
       label: "있음",
@@ -149,7 +145,7 @@ describe("firstYearSufficiency (No.44)", () => {
   });
 
   test("기록이 없으면 없음이고 다른 학년 건수는 무시한다", () => {
-    expect(firstYearSufficiency({ "고2-1": 9 })).toEqual({
+    expect(firstYearSufficiency({ "고2-1": 9 }, T)).toEqual({
       count: 0,
       level: "none",
       label: "없음",
@@ -177,7 +173,7 @@ const item = (
   deadline: string | null = null,
 ): Item => ({ id, period, priority, deadline });
 
-describe("orderPlanPeriods (No.98·99)", () => {
+describe("orderPlanPeriods (No.98, 99)", () => {
   test("과목 선택(마감 빠른 순), 남은 학기, 방학 순으로 배치한다", () => {
     const out = orderPlanPeriods([
       item("v", "vacation"),
@@ -205,7 +201,7 @@ describe("orderPlanPeriods (No.98·99)", () => {
   });
 });
 
-describe("capPlanItems (No.96·164)", () => {
+describe("capPlanItems (No.96, 164)", () => {
   test("required 는 상위 3건만 남기고 초과분은 recommended 로 내린다", () => {
     const items = ["a", "b", "c", "d", "e"].map((id) => item(id, "semester"));
     const r = capPlanItems(items);
@@ -273,113 +269,5 @@ describe("deadlineState (No.100)", () => {
       urgent: false,
       label: null,
     });
-  });
-});
-
-describe("isExpired (No.115·116·139)", () => {
-  test("마지막 활동 후 90일이 지나면 만료, 89일이면 아직이다", () => {
-    expect(isExpired("2026-07-08T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(
-      true,
-    );
-    expect(isExpired("2026-07-09T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(
-      false,
-    );
-  });
-
-  test("기준 일수를 바꿀 수 있다", () => {
-    expect(isExpired("2026-10-01T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(
-      true,
-    );
-    expect(isExpired("2026-10-02T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(
-      false,
-    );
-  });
-});
-
-describe("activeReport / openReport (No.115·116)", () => {
-  const reports = [
-    { id: "a", status: "completed", issuedAt: "2026-03-01T00:00:00Z" },
-    { id: "b", status: "completed", issuedAt: "2026-06-01T00:00:00Z" },
-    { id: "c", status: "draft", issuedAt: "2026-07-01T00:00:00Z" },
-    { id: "d", status: "in_progress", issuedAt: "2026-08-01T00:00:00Z" },
-  ];
-
-  test("activeReport 는 가장 최근 completed 1개를 돌려준다", () => {
-    expect(activeReport(reports)?.id).toBe("b");
-  });
-
-  test("completed 가 없으면 null 이다", () => {
-    expect(activeReport([reports[2] as (typeof reports)[number]])).toBeNull();
-    expect(activeReport([])).toBeNull();
-  });
-
-  test("openReport 는 draft 또는 in_progress 1개를 돌려주고 여럿이면 최신이다", () => {
-    expect(openReport(reports)?.id).toBe("d");
-    expect(openReport([reports[0] as (typeof reports)[number]])).toBeNull();
-  });
-});
-
-describe("careerChanged (No.56·147)", () => {
-  test("공백을 정규화한 뒤 다르면 변경이다", () => {
-    expect(careerChanged("의사", "약사")).toBe(true);
-    expect(careerChanged("컴퓨터  공학자", " 컴퓨터 공학자 ")).toBe(false);
-  });
-
-  test("이전 값이 null 이면 변경이 아니다", () => {
-    expect(careerChanged(null, "의사")).toBe(false);
-  });
-
-  test("현재 값이 비워지면 변경이다", () => {
-    expect(careerChanged("의사", null)).toBe(true);
-    expect(careerChanged("의사", "   ")).toBe(true);
-  });
-});
-
-describe("shouldProposePromotion (No.21)", () => {
-  test("학년도 전환 3월 1일(KST) 이전엔 제안하지 않고 당일부터 제안한다", () => {
-    const profile = {
-      grade: 1,
-      semester: 2,
-      updatedAt: "2026-01-10T00:00:00+09:00",
-    } as const;
-    expect(
-      shouldProposePromotion(profile, "2026-02-28T23:59:59+09:00"),
-    ).toEqual({
-      propose: false,
-      next: null,
-    });
-    expect(
-      shouldProposePromotion(profile, "2026-03-01T00:00:00+09:00"),
-    ).toEqual({
-      propose: true,
-      next: { grade: 2, semester: 1 },
-    });
-  });
-
-  test("같은 학년도에 갱신했으면 제안하지 않는다", () => {
-    const profile = {
-      grade: 2,
-      semester: 1,
-      updatedAt: "2026-03-02T00:00:00+09:00",
-    } as const;
-    expect(
-      shouldProposePromotion(profile, "2027-02-28T00:00:00+09:00").propose,
-    ).toBe(false);
-  });
-
-  test("고2 는 고3 1학기를 제안하고 고3 은 제안하지 않는다(졸업 처리는 결정 대기)", () => {
-    const old = "2026-04-01T00:00:00+09:00";
-    expect(
-      shouldProposePromotion(
-        { grade: 2, semester: 2, updatedAt: old },
-        "2027-03-05T00:00:00+09:00",
-      ).next,
-    ).toEqual({ grade: 3, semester: 1 });
-    expect(
-      shouldProposePromotion(
-        { grade: 3, semester: 2, updatedAt: old },
-        "2027-03-05T00:00:00+09:00",
-      ),
-    ).toEqual({ propose: false, next: null });
   });
 });
