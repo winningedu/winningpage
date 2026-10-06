@@ -11,6 +11,7 @@ import {
   PLAN_ITEM_TITLE,
   QA_STUDENT_PROFILE_ID,
   readQuotaRemaining,
+  resetManualActivityRecords,
   saveFinal,
   serviceRoleClient,
   submitBasics,
@@ -122,6 +123,7 @@ test.describe("자기평가서 모델 포함 완주", () => {
     await discardOpenSession(request, token);
     const admin = serviceRoleClient();
     const itemId = await insertPendingPlanItem(admin);
+    const linked = await resetManualActivityRecords(admin);
     try {
       await openNewSession(page);
 
@@ -137,14 +139,27 @@ test.describe("자기평가서 모델 포함 완주", () => {
       ).toBeChecked();
       await submitBasics(page, { growth: true });
 
-      // 활동 선택: 추천 그대로. 자동 선택이 비어 있으면 첫 후보를 직접 고른다.
+      // 활동 선택: 판단이 든 초안 하나만 고른다. 공유 로컬 DB 에 다른 서비스 기록이 있어도 섞이지 않게
+      // 자동 선택된 다른 후보는 해제한다.
       const analyze = page.getByRole("button", {
         name: /^선택한 \d+건 분석하기$/,
       });
       await expect(analyze).toBeVisible();
-      if (await analyze.isDisabled()) {
-        await page.getByRole("checkbox", { name: /선택$/ }).first().check();
+      const mineLabel = `${linked.topic} 선택`;
+      await expect(
+        page.getByRole("checkbox", { name: mineLabel }),
+      ).toBeVisible();
+      // 선택 상한이 있어 먼저 다른 후보를 모두 풀고 나서 내 후보를 고른다.
+      const boxes = page.getByRole("checkbox", { name: /선택$/ });
+      const boxCount = await boxes.count();
+      for (let i = 0; i < boxCount; i += 1) {
+        const box = boxes.nth(i);
+        const isMine = (await box.getAttribute("aria-label")) === mineLabel;
+        if (!isMine && (await box.isChecked())) await box.uncheck();
       }
+      await expect(analyze).toHaveText("선택한 0건 분석하기");
+      await page.getByRole("checkbox", { name: mineLabel }).check();
+      await expect(analyze).toHaveText("선택한 1건 분석하기");
       await expect(analyze).toBeEnabled();
       await analyze.click();
       await page.waitForURL(/\/analysis/);

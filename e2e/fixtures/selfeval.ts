@@ -158,6 +158,114 @@ export async function createSession(
 }
 
 export const MANUAL_ACTIVITY_NAME = "버스 배차 간격 탐구";
+/** 판단 문장과 근거를 포함한 결과. 생성은 기록에 있는 내용만 쓰므로 검증의 판단 항목이 여기서 갈린다. */
+export const MANUAL_RESULT_WITH_JUDGMENT =
+  "평균 배차 간격은 8.4분, 표준편차는 2.1분이었다. 표준편차가 평균의 4분의 1에 이르러 배차가 고르지 않다고 판단했고, 그 근거로 간격 40개의 도수분포표를 남겼다.";
+
+/** 연동 스펙이 후보 목록에서 고르는 기록의 활동명 머리. 실행마다 뒤에 시각을 붙여 유일하게 만든다. */
+export const LINKED_ACTIVITY_PREFIX = "버스 배차 간격 연동 탐구";
+
+/**
+ * 이전 실행이 남긴 E2E 기록(직접 입력 초안, 연동용 초안, 자기평가서 확정본) 가운데 완료 세션이
+ * 참조하지 않는 것을 지우고, 판단이 든 초안 하나를 이번 실행만의 활동명으로 둔다. 완료 세션이 참조해
+ * 남는 옛 기록과 이름이 겹치지 않도록 활동명에 시각을 붙인다. 연동 스펙은 돌려받은 이름으로 고른다.
+ */
+export async function resetManualActivityRecords(
+  admin: SupabaseClient,
+): Promise<{ id: string; topic: string }> {
+  const found = await admin
+    .from("activity_records")
+    .select("id, topic")
+    .eq("profile_id", QA_STUDENT_PROFILE_ID)
+    .in("source_program", ["manual", "self"]);
+  if (found.error) {
+    throw new Error(`활동 기록 조회 실패: ${found.error.message}`);
+  }
+  const ids = (found.data ?? [])
+    .filter((r) => {
+      const topic = (r.topic as string | null) ?? "";
+      return (
+        topic === MANUAL_ACTIVITY_NAME ||
+        topic.startsWith(LINKED_ACTIVITY_PREFIX)
+      );
+    })
+    .map((r) => r.id as string);
+  if (ids.length > 0) {
+    // 완료 세션이 참조하는 기록은 그대로 둔다(같은 과목 완료 세션이 쓴 기록은 후보에서 빠진다).
+    // 그 밖의 세션(파기, 진행 중) 연결은 끊고 기록을 지운다.
+    const open = await admin
+      .from("selfeval_sessions")
+      .select("id")
+      .eq("profile_id", QA_STUDENT_PROFILE_ID)
+      .neq("status", "completed");
+    if (open.error) {
+      throw new Error(`세션 조회 실패: ${open.error.message}`);
+    }
+    const openIds = (open.data ?? []).map((s) => s.id as string);
+    if (openIds.length > 0) {
+      const unlink = await admin
+        .from("selfeval_session_activities")
+        .delete()
+        .in("activity_record_id", ids)
+        .in("session_id", openIds);
+      if (unlink.error) {
+        throw new Error(`세션 활동 정리 실패: ${unlink.error.message}`);
+      }
+    }
+    const stillUsed = await admin
+      .from("selfeval_session_activities")
+      .select("activity_record_id")
+      .in("activity_record_id", ids);
+    if (stillUsed.error) {
+      throw new Error(`세션 활동 조회 실패: ${stillUsed.error.message}`);
+    }
+    const keep = new Set(
+      (stillUsed.data ?? []).map((r) => r.activity_record_id as string),
+    );
+    const removable = ids.filter((id) => !keep.has(id));
+    if (removable.length > 0) {
+      const removed = await admin
+        .from("activity_records")
+        .delete()
+        .in("id", removable);
+      if (removed.error) {
+        throw new Error(`활동 기록 정리 실패: ${removed.error.message}`);
+      }
+    }
+  }
+  const topic = `${LINKED_ACTIVITY_PREFIX} ${new Date()
+    .toISOString()
+    .slice(11, 19)
+    .replace(/:/g, "")}`;
+  const inserted = await admin
+    .from("activity_records")
+    .insert({
+      profile_id: QA_STUDENT_PROFILE_ID,
+      source_program: "manual",
+      status: "draft",
+      grade_label: "고2",
+      semester: 2,
+      subject_group: "확률과 통계",
+      subject: "확률과 통계",
+      topic,
+      concept:
+        "확률변수의 평균과 표준편차, 정규분포를 이용한 구간 추정을 적용했다.",
+      method:
+        "도착 간격 40개를 표로 만들어 평균과 표준편차를 계산하고 히스토그램으로 분포를 확인했다.",
+      result: MANUAL_RESULT_WITH_JUDGMENT,
+      limitation: "표본이 2주치뿐이라 요일별 차이는 확인하지 못했다.",
+      numbers: ["8.4분", "2.1분", "40개"],
+      sources: [],
+    })
+    .select("id")
+    .single();
+  if (inserted.error || !inserted.data) {
+    throw new Error(
+      `활동 기록 삽입 실패: ${inserted.error?.message ?? "없음"}`,
+    );
+  }
+  return { id: inserted.data.id as string, topic };
+}
 
 /** 직접 입력 활동을 핵심으로 확정한다(current_step 2). 활동 기록 id 를 돌려준다. */
 export async function addManualActivity(
@@ -182,8 +290,7 @@ export async function addManualActivity(
         "2주 동안 정류장에서 버스 도착 시각을 기록하고 배차 간격 데이터를 정리했다.",
       method:
         "도착 간격 40개를 표로 만들어 평균과 표준편차를 계산하고 히스토그램으로 분포를 확인했다.",
-      result:
-        "평균 배차 간격은 8.4분, 표준편차는 2.1분이었고 95% 구간은 약 4.3분에서 12.5분이었다.",
+      result: MANUAL_RESULT_WITH_JUDGMENT,
       role: "자료 수집과 계산을 직접 맡았다.",
       limitation: "표본이 2주치뿐이라 요일별 차이는 확인하지 못했다.",
       next: "요일별로 나누어 분산 차이를 검정해 볼 계획이다.",
@@ -272,6 +379,12 @@ export async function insertPendingPlanItem(
       `완료된 성장설계 리포트가 없다: ${report.error?.message ?? "없음"}`,
     );
   }
+  // 중단된 실행이 남긴 같은 제목의 과제가 있으면 카드가 둘이 되어 선택이 막히므로 먼저 지운다.
+  await admin
+    .from("growth_plan_items")
+    .delete()
+    .eq("profile_id", QA_STUDENT_PROFILE_ID)
+    .eq("title", PLAN_ITEM_TITLE);
   const inserted = await admin
     .from("growth_plan_items")
     .insert({
@@ -405,9 +518,9 @@ export async function submitManualActivity(page: Page, activityName: string) {
   await form
     .getByLabel("방법")
     .fill("도착 간격 40개로 표를 만들고 평균과 표준편차를 계산했다.");
-  await form
-    .getByLabel("결과와 근거")
-    .fill("평균 배차 간격은 8.4분, 표준편차는 2.1분이었다.");
+  // 생성은 기록에 있는 내용만 쓰므로 판단 문장과 근거 수치를 기록에 넣어야 검증의 판단 항목
+  // (15점 미만이면 필수 수정)이 통과한다.
+  await form.getByLabel("결과와 근거").fill(MANUAL_RESULT_WITH_JUDGMENT);
   await form.getByLabel("역할").fill("자료 수집과 계산을 직접 맡았다.");
   await form
     .getByLabel("한계")
@@ -423,14 +536,23 @@ export async function submitManualActivity(page: Page, activityName: string) {
 export async function waitAnalysisReady(page: Page) {
   const write = page.getByRole("button", { name: "이 내용으로 작성하기" });
   await waitVisibleWithRetry(page, write, /^다시 시도/);
-  // 수치 충돌이 남아 있으면 첫 선택지를 고른다.
-  for (let i = 0; i < 5 && (await write.isDisabled()); i += 1) {
+  // 수치 충돌이 남아 있으면 첫 선택지를 고른다. 버튼은 분석이 도는 동안에도 비활성으로 보이므로
+  // 충돌 행이 없을 때는 누르지 않고 기다린다(없는 행을 누르면 테스트 시간이 다할 때까지 멈춘다).
+  for (let i = 0; i < 60 && (await write.isDisabled()); i += 1) {
     const row = page
       .getByRole("listitem")
       .filter({ hasText: "확인 필요" })
       .first();
-    await row.getByRole("button").first().click();
-    await page.waitForTimeout(800);
+    if ((await row.count()) > 0) {
+      // 고르면 행이 바로 사라져 클릭 동작이 재시도로 끝나지 않을 수 있다. 제한 시간을 두고 실패는
+      // 무시한 뒤 버튼 상태로 다시 판단한다.
+      await row
+        .getByRole("button")
+        .first()
+        .click({ timeout: 5_000, noWaitAfter: true })
+        .catch(() => undefined);
+    }
+    await page.waitForTimeout(1_000);
   }
   await pwExpect(write).toBeEnabled();
 }
