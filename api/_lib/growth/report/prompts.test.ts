@@ -889,6 +889,23 @@ describe("buildStepPrompt", () => {
     }
   });
 
+  it("모든 단계 system 에 분량 원칙과 반복 금지가 있다", () => {
+    for (const step of steps) {
+      const b = buildStepPrompt(step, { context: ctx, prior });
+      expect(b.system).toContain("분량 원칙");
+      expect(b.system).toContain("350자 이내");
+      expect(b.system).toContain("120자 이내");
+      expect(b.system).toContain("8행 이내");
+      expect(b.system).toContain("160자 이내");
+      expect(b.system).toContain("연달아");
+    }
+  });
+
+  it("7단계 규칙은 항목마다 조건을 2~3개만 쓰게 한다", () => {
+    const b = buildStepPrompt(7, { context: ctx, prior });
+    expect(b.system).toContain("조건은 2~3개만");
+  });
+
   it("새 텍스트에 금지 기호가 없다", () => {
     const banned = ["\u2014", "\u2013", "\u00b7", "\u2192"];
     for (const step of steps) {

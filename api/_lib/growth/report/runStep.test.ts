@@ -69,6 +69,15 @@ const emptyStored = (over: Partial<StoredOutputs> = {}): StoredOutputs => ({
   ...over,
 });
 
+type ModelReply = Awaited<ReturnType<RunStepDeps["callModel"]>>;
+const reply = (
+  text: string,
+  finishReason: string | null = "STOP",
+): ModelReply => ({
+  text,
+  finishReason,
+});
+
 const deps = (over: Partial<RunStepDeps> = {}): RunStepDeps => ({
   callModel: vi.fn(async () => {
     throw new Error("모델을 부르면 안 된다");
@@ -137,7 +146,7 @@ describe("1단계 모델 호출", () => {
       activities: [activity("a1", { text: linked }), activity("a2")],
       evidenceIds: ["a1", "a2"],
     });
-    const callModel = vi.fn(async () => signalJson({ linkage: [] }));
+    const callModel = vi.fn(async () => reply(signalJson({ linkage: [] })));
     const r = await runStep(1, ctx, emptyStored(), deps({ callModel }));
     if (!r.ok) throw new Error(JSON.stringify(r));
     const by = (
@@ -247,7 +256,7 @@ describe("3단계 모델 호출", () => {
       evidence_ids: [],
       body: {},
     };
-    const callModel = vi.fn(async () => narrativeJson());
+    const callModel = vi.fn(async () => reply(narrativeJson()));
     const r = await runStep(
       3,
       makeContext(),
@@ -270,8 +279,8 @@ describe("3단계 모델 호출", () => {
   it("검증 실패 뒤 한 번 재요청하고 두 번째 user 에 이전 문제를 담는다", async () => {
     const callModel = vi
       .fn<RunStepDeps["callModel"]>()
-      .mockResolvedValueOnce("not json")
-      .mockResolvedValueOnce(narrativeJson());
+      .mockResolvedValueOnce(reply("not json"))
+      .mockResolvedValueOnce(reply(narrativeJson()));
     const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
     expect(r).toMatchObject({ ok: true, extraAttempts: 1 });
     expect(callModel).toHaveBeenCalledTimes(2);
@@ -280,7 +289,7 @@ describe("3단계 모델 호출", () => {
   });
 
   it("두 번 실패하면 validation 과 extraAttempts 1", async () => {
-    const callModel = vi.fn(async () => "not json");
+    const callModel = vi.fn(async () => reply("not json"));
     const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
     expect(callModel).toHaveBeenCalledTimes(2);
     expect(r).toMatchObject({
@@ -289,6 +298,32 @@ describe("3단계 모델 호출", () => {
       extraAttempts: 1,
     });
     if (!r.ok) expect(r.issues[0]?.code).toBe("invalid_json");
+  });
+
+  it("출력 한도로 잘린 응답은 파싱하지 않고 truncated 로 재요청하며 메모를 담는다", async () => {
+    const callModel = vi
+      .fn<RunStepDeps["callModel"]>()
+      .mockResolvedValueOnce(reply("{", "MAX_TOKENS"))
+      .mockResolvedValueOnce(reply(narrativeJson()));
+    const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(r).toMatchObject({ ok: true, extraAttempts: 1 });
+    const second = callModel.mock.calls[1]?.[0].user ?? "";
+    expect(second).toContain("출력 한도를 넘어 잘렸다");
+    expect(second).toContain("절반 이하");
+  });
+
+  it("두 번 다 잘리면 validation 실패와 truncated issue", async () => {
+    const callModel = vi.fn(async () => reply("{", "MAX_TOKENS"));
+    const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(callModel).toHaveBeenCalledTimes(2);
+    expect(r).toMatchObject({ ok: false, failure: "validation" });
+    if (!r.ok) expect(r.issues[0]?.code).toBe("truncated");
+  });
+
+  it("잘렸어도 JSON 이 우연히 완결돼 있으면 쓰지 않고 잘림으로 본다", async () => {
+    const callModel = vi.fn(async () => reply(narrativeJson(), "MAX_TOKENS"));
+    const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(r).toMatchObject({ ok: false, failure: "validation" });
   });
 
   it("예외는 upstream", async () => {
@@ -306,7 +341,7 @@ describe("3단계 모델 호출", () => {
   it("재시도 중 예외도 upstream 이고 추가 호출 1건을 센다", async () => {
     const callModel = vi
       .fn<RunStepDeps["callModel"]>()
-      .mockResolvedValueOnce("not json")
+      .mockResolvedValueOnce(reply("not json"))
       .mockRejectedValueOnce(new Error("boom"));
     const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
     expect(r).toMatchObject({
@@ -317,7 +352,7 @@ describe("3단계 모델 호출", () => {
   });
 
   it("예산 안에 끝나지 않으면 timeout", async () => {
-    const callModel = vi.fn(() => new Promise<string>(() => undefined));
+    const callModel = vi.fn(() => new Promise<ModelReply>(() => undefined));
     const r = await runStep(
       3,
       makeContext(),
@@ -335,7 +370,7 @@ describe("3단계 모델 호출", () => {
     let t = 0;
     const callModel = vi.fn(async () => {
       t += 20_000;
-      return "not json";
+      return reply("not json");
     });
     const r = await runStep(
       3,
@@ -440,7 +475,7 @@ describe("5단계 모델 호출", () => {
       5,
       ctx,
       emptyStored({ signals: { byActivity: sigs } }),
-      deps({ callModel: vi.fn(async () => model) }),
+      deps({ callModel: vi.fn(async () => reply(model)) }),
     );
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     const item = (r.patch.sections as SectionItem[]).find(

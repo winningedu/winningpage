@@ -44,7 +44,7 @@ import type { StepNumber } from "./types.js";
 
 const db = {} as never;
 const deps = {
-  callText: vi.fn(),
+  callStructured: vi.fn(),
   now: () => "2026-10-06T00:00:00.000Z",
   startedAt: Date.now(),
 };

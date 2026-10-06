@@ -172,15 +172,15 @@ describe("toStoredOutputs", () => {
 });
 
 describe("callModelWith", () => {
-  it("번들과 signal 을 callText 옵션으로 넘기고 응답을 돌려준다", async () => {
+  it("번들과 signal 을 callStructured 옵션으로 넘기고 text 와 finishReason 을 돌려준다", async () => {
     const calls: unknown[][] = [];
-    const callText = async (...args: unknown[]) => {
+    const callStructured = async (...args: unknown[]) => {
       calls.push(args);
-      return "{}";
+      return { text: "{}", finishReason: "MAX_TOKENS" };
     };
     const schema = { type: "object" };
     const signal = new AbortController().signal;
-    const out = await callModelWith(callText)(
+    const out = await callModelWith(callStructured)(
       {
         system: "S",
         user: "U",
@@ -189,7 +189,7 @@ describe("callModelWith", () => {
       },
       signal,
     );
-    expect(out).toBe("{}");
+    expect(out).toEqual({ text: "{}", finishReason: "MAX_TOKENS" });
     expect(calls[0]).toEqual([
       "S",
       "U",
