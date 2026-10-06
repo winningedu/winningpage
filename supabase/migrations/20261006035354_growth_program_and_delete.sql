@@ -6,6 +6,8 @@
 -- 2) fn_delete_account 는 20260822000005 본문을 그대로 두고 성장설계 테이블 정리만
 --    추가한다. growth_reports.ledger_id 가 performance_credit_ledger 를 참조하므로
 --    (ON DELETE NO ACTION) 원장 삭제보다 앞, 맨 위에서 지운다. 기존 삭제 순서는 바꾸지 않는다.
+--    또한 diagnosis_attempts.ledger_id 도 원장을 NO ACTION 으로 참조해 진단 유료 이용자의
+--    탈퇴가 원장 삭제에서 실패하던 기존 버그라, 원장 삭제 직전에 diagnosis_attempts 를 지운다.
 insert into public.programs (program_key, name, is_active, sort_order)
 select 'growth', '위닝 성장설계', true,
        coalesce((select max(sort_order) from public.programs), 0) + 1
@@ -47,6 +49,7 @@ begin
   delete from public.student_profiles where profile_id = p_user_id;
   delete from public.goal_students where profile_id = p_user_id;
   delete from public.performance_sessions where profile_id = p_user_id;
+  delete from public.diagnosis_attempts where profile_id = p_user_id;
   delete from public.performance_credit_ledger where profile_id = p_user_id;
   delete from public.performance_session_vectors where profile_id = p_user_id;
   delete from public.program_access_grants where profile_id = p_user_id;

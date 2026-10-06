@@ -28,7 +28,7 @@ create or replace function public.consume_growth_credit(
   "p_reason" text default 'growth:step1-success'
 ) returns jsonb
 language plpgsql security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   c_program_key constant text := 'growth';
@@ -154,7 +154,7 @@ begin
     (profile_id, grant_id, delta, reason, source_kind)
   values (
     p_profile_id, v_selected_id, -1,
-    coalesce(nullif(btrim(p_reason), ''), 'growth:step1-success'),
+    coalesce(nullif(btrim(p_reason), ''), 'growth:step1-success') || ':' || p_report_id::text,
     'growth_report'
   )
   returning id into v_ledger_id;
@@ -180,7 +180,7 @@ end;
 $$;
 
 comment on function public.consume_growth_credit(uuid, uuid, text) is
-  '성장설계 회차 1개 차감(No.14: 첫 모델 호출 단계 성공 시 1회, 같은 회차 재요청은 추가 차감 없음). growth 부여에서 performance_credit_ledger(source_kind=growth_report, session_id NULL)에 -1 을 적재하고 growth_reports.ledger_id 를 갱신한다. 무료 1회 분기 없음. status 어휘: charged/already_charged/session_not_found/no_entitlement/entitlement_expired/quota_exhausted. 이미 되돌린 회차(ledger_reversed_at 있음)의 재호출은 새로 차감한다. 잠금은 consume_diagnosis_attempt 와 같은 advisory(101, 프로필 단위).';
+  '성장설계 회차 1개 차감(No.14: 첫 모델 호출 단계 성공 시 1회, 같은 회차 재요청은 추가 차감 없음). growth 부여에서 performance_credit_ledger(source_kind=growth_report, session_id NULL)에 -1 을 적재하고 growth_reports.ledger_id 를 갱신한다. 원장 reason 은 사유 뒤에 콜론과 report_id 를 붙여 회차를 추적할 수 있다. 무료 1회 분기 없음. status 어휘: charged/already_charged/session_not_found/no_entitlement/entitlement_expired/quota_exhausted. 이미 되돌린 회차(ledger_reversed_at 있음)의 재호출은 새로 차감한다. 잠금은 consume_diagnosis_attempt 와 같은 advisory(101, 프로필 단위).';
 
 revoke all on function public.consume_growth_credit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.consume_growth_credit(uuid, uuid, text) to service_role;
@@ -197,7 +197,7 @@ create or replace function public.reverse_growth_credit(
   "p_reason" text default 'growth:generation-failed'
 ) returns jsonb
 language plpgsql security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_report public.growth_reports;
@@ -223,10 +223,23 @@ begin
        select 1 from public.performance_credit_ledger l
         where l.reversal_of = v_report.ledger_id
      ) then
+    -- 되돌림 행은 있는데 회차 시각이 비어 있는 불일치를 복구한다.
+    if v_report.ledger_reversed_at is null then
+      update public.growth_reports
+         set ledger_reversed_at = now(),
+             updated_at = now()
+       where id = p_report_id;
+    end if;
+
     return jsonb_build_object(
       'status', 'already_reversed', 'reversed', false,
       'ledger_id', v_report.ledger_id
     );
+  end if;
+
+  -- 정상 발급된 회차는 되돌리지 않는다(발급 완료 회차의 무료화 방지).
+  if v_report.status = 'completed' then
+    return jsonb_build_object('status', 'report_completed', 'reversed', false);
   end if;
 
   select * into v_orig
@@ -237,7 +250,7 @@ begin
     (profile_id, grant_id, delta, reason, source_kind, reversal_of, session_id)
   values (
     v_orig.profile_id, v_orig.grant_id, -v_orig.delta,
-    coalesce(nullif(btrim(p_reason), ''), 'growth:generation-failed'),
+    coalesce(nullif(btrim(p_reason), ''), 'growth:generation-failed') || ':' || p_report_id::text,
     v_orig.source_kind, v_orig.id, null
   );
 
@@ -253,7 +266,7 @@ end;
 $$;
 
 comment on function public.reverse_growth_credit(uuid, uuid, text) is
-  '성장설계 차감 되돌림(No.14: 생성 실패 시 되돌림). growth_reports.ledger_id 의 원장 행을 reversal_of 로 참조하는 +1 행을 적재하고 ledger_reversed_at 을 기록한다. status 어휘: reversed/nothing_to_reverse/already_reversed/session_not_found. 되돌림 행은 원본의 grant_id·profile_id·source_kind 를 상속하고 session_id 는 NULL(performance_credit_ledger_validate_reversal 요구). 잠금은 consume_growth_credit 과 같은 advisory(101).';
+  '성장설계 차감 되돌림(No.14: 생성 실패 시 되돌림). growth_reports.ledger_id 의 원장 행을 reversal_of 로 참조하는 +1 행을 적재하고 ledger_reversed_at 을 기록한다. status 어휘: reversed/nothing_to_reverse/already_reversed/report_completed/session_not_found. completed 회차는 되돌리지 않고 report_completed 를 돌려준다. 되돌림 행은 있는데 ledger_reversed_at 이 비어 있으면 already_reversed 분기에서 시각을 채워 복구한다. 원장 reason 에는 report_id 를 붙인다. 되돌림 행은 원본의 grant_id·profile_id·source_kind 를 상속하고 session_id 는 NULL(performance_credit_ledger_validate_reversal 요구). 잠금은 consume_growth_credit 과 같은 advisory(101).';
 
 revoke all on function public.reverse_growth_credit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.reverse_growth_credit(uuid, uuid, text) to service_role;
