@@ -27,7 +27,13 @@ import {
   type AnalysisSource,
 } from "../types.js";
 import { validateAnalyzeResponse } from "../validation.js";
-import { isRecord, isUuid, readAnalysis, splitActivities } from "./shared.js";
+import {
+  isRecord,
+  isUuid,
+  readAnalysis,
+  splitActivities,
+  touchSession,
+} from "./shared.js";
 
 /** 분석 완료 단계. 이 값 이상이어야 분석을 고치거나 충돌을 정할 수 있다. */
 const ANALYZED_STEP = 3;
@@ -225,6 +231,7 @@ export async function saveAnalysis(
     core.activity_record_id,
     analysis,
   );
+  await touchSession(db, userId, session.id);
   return { kind: "done", result: { analysis } };
 }
 
@@ -265,5 +272,6 @@ export async function resolveAnalysisConflict(
     core.activity_record_id,
     analysis,
   );
+  await touchSession(db, userId, session.id);
   return { kind: "done", result: { analysis } };
 }

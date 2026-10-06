@@ -276,6 +276,18 @@ describe("saveAnalysis", () => {
       out.result.analysis,
     );
   });
+
+  it("저장하면 세션의 마지막 활동 시각을 갱신한다", async () => {
+    mocks.loadSessionActivities.mockResolvedValue([
+      activity("core", record("c1"), storedAnalysis(), "model"),
+    ]);
+    await saveAnalysis(db, "u1", session({ current_step: 3 }), {
+      method: "새 글",
+    });
+    expect(mocks.updateSession).toHaveBeenCalledWith(db, "u1", "s1", {
+      last_activity_at: expect.any(String),
+    });
+  });
 });
 
 describe("resolveAnalysisConflict", () => {
@@ -307,6 +319,9 @@ describe("resolveAnalysisConflict", () => {
     expect(out.result.analysis.conflicts[0]?.resolved).toBe("80");
     expect(out.result.analysis.values).toEqual(conflicted().values);
     expect(mocks.updateSessionActivityAnalysis).toHaveBeenCalledOnce();
+    expect(mocks.updateSession).toHaveBeenCalledWith(db, "u1", "s1", {
+      last_activity_at: expect.any(String),
+    });
   });
 
   it("없는 index 는 400 CONFLICT_INDEX_INVALID 다", async () => {

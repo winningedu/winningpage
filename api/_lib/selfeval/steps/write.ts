@@ -42,6 +42,7 @@ import {
   readAnalysis,
   reportRowOut,
   splitActivities,
+  touchSession,
 } from "./shared.js";
 
 /** 생성 완료 단계. 이 값 이상이어야 편집하고 느낌 문장을 확인할 수 있다. */
@@ -383,5 +384,6 @@ async function saveEdited(
     score: null,
     mandatory_fixes: null,
   });
+  await touchSession(db, userId, session.id);
   return reportRowOut(row);
 }

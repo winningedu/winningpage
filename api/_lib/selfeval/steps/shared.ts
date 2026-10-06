@@ -1,5 +1,6 @@
 // analyze, write, verify, finalize 가 함께 쓰는 순수 보조.
 
+import { type Db, updateSession } from "../db.js";
 import type { ReportRow, SessionRow } from "../rows.js";
 import type {
   ActivityRecordLike,
@@ -90,4 +91,15 @@ export function reportRowOut(row: ReportRow) {
     sections: row.sections,
     charCount: row.char_count,
   };
+}
+
+/** 학생이 직접 고친 저장도 마지막 활동이다. 편집만 이어가는 세션이 90일 만료에 걸리지 않게 한다(명세 No.19). */
+export async function touchSession(
+  db: Db,
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  await updateSession(db, userId, sessionId, {
+    last_activity_at: new Date().toISOString(),
+  });
 }

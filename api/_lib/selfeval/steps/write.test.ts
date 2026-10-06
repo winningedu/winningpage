@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   loadSessionActivities: vi.fn(),
   loadReports: vi.fn(),
   insertReport: vi.fn(),
+  updateSession: vi.fn(),
   hasSelfevalAccess: vi.fn(),
   readSelfevalQuota: vi.fn(),
 }));
@@ -21,6 +22,7 @@ vi.mock("../db.js", () => ({
   loadSessionActivities: mocks.loadSessionActivities,
   loadReports: mocks.loadReports,
   insertReport: mocks.insertReport,
+  updateSession: mocks.updateSession,
 }));
 vi.mock("../access.js", () => ({
   hasSelfevalAccess: mocks.hasSelfevalAccess,
@@ -488,6 +490,9 @@ describe("saveEdit", () => {
       char_count: { withSpace: 7, withoutSpace: 6 },
     });
     expect(row.sections.paragraphs[0].sentences[0].text).toBe("새 문장이다.");
+    expect(mocks.updateSession).toHaveBeenCalledWith(db, "u1", "s1", {
+      last_activity_at: expect.any(String),
+    });
   });
 });
 
@@ -506,6 +511,9 @@ describe("confirmFeelingSentence", () => {
     expect(out.kind).toBe("done");
     const row = mocks.insertReport.mock.calls[0]?.[3];
     expect(row.sections.paragraphs[0].sentences[0].confirmed).toBe(true);
+    expect(mocks.updateSession).toHaveBeenCalledWith(db, "u1", "s1", {
+      last_activity_at: expect.any(String),
+    });
   });
 
   it("없는 문장 id 는 404 SENTENCE_NOT_FOUND 다", async () => {
