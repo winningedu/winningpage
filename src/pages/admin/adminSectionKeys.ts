@@ -44,6 +44,8 @@ export const ADMIN_SECTION_KEYS = [
   "mentorApplyCopy",
   // 서비스 관리 — 위닝 DB
   "winningBaseData",
+  // 서비스 관리, 심화탐구
+  "inquirySessions",
   "winningDbInputs",
   "winningSuhaengTopicDb",
   "winningSuhaengResourceDb",

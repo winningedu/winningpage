@@ -78,6 +78,7 @@ import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
+import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
 import {
   AdminForm,
   type AdminRow,
@@ -206,6 +207,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       { key: "mentorApplyFaqs", label: "멘토신청 FAQ", section: "멘토" },
       { key: "mentorApplyCopy", label: "멘토신청 문구", section: "멘토" },
       { key: "winningBaseData", label: "기초데이터추출", section: "위닝 DB" },
+      { key: "inquirySessions", label: "심화탐구 세션", section: "서비스" },
       { key: "winningDbInputs", label: "위닝DB입력", section: "위닝 DB" },
       {
         key: "winningSuhaengTopicDb",
@@ -325,6 +327,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   tenants: TenantsAdmin,
   growthReports: GrowthReportsAdmin,
   selfevalSessions: SelfevalSessionsAdmin,
+  inquirySessions: InquirySessionsAdmin,
 };
 
 // CUSTOM_COMPONENT_REGISTRY와 같은 이유의 간접 레이어 — config.ListSummary가

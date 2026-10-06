@@ -292,4 +292,19 @@ export const memberConfigs: Record<string, MemberConfig> = {
       },
     ],
   },
+  // 심화탐구 세션 운영(inquirySessions): 세션 목록, 생성 상태 상세, 실패 세션 복구, 이용권 부여.
+  // custom 컴포넌트(src/pages/admin/inquiry/InquirySessionsAdmin.tsx)가 전부 그린다.
+  inquirySessions: {
+    title: "심화탐구 세션",
+    table: "inquiry_sessions",
+    searchPlaceholder: "이름 또는 이메일 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "inquirySessions",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
+    ],
+  },
 };
