@@ -175,7 +175,7 @@ export const AXIS_TO_UNIVERSITY_FACTORS: Record<
     detail: "계열 관련 교과 이수 노력, 계열 관련 교과 성취도",
   },
   C: {
-    factor: "학업역량·진로역량",
+    factor: "학업역량, 진로역량",
     detail: "학업역량의 탐구력, 진로역량의 진로 탐색 활동과 경험",
   },
   D: {

@@ -1,4 +1,4 @@
-// 성장설계 리포트 37항목 레지스트리·스키마 테스트(No.90~94).
+// 성장설계 리포트 37항목 레지스트리, 스키마 테스트(No.90~94).
 import { describe, expect, test } from "vitest";
 import {
   SECTION_FORMATS,
@@ -29,14 +29,14 @@ describe("SECTION_REGISTRY", () => {
     expect(SECTION_FORMATS).toHaveLength(6);
   });
 
-  test("배지: 1·2부와 3-1 은 fact, 3부 나머지는 proposal 이다(No.5)", () => {
+  test("배지: 1, 2부와 3-1 은 fact, 3부 나머지는 proposal 이다(No.5)", () => {
     for (const s of SECTION_REGISTRY) {
       const expected = s.part === 3 && s.id !== "3-1" ? "proposal" : "fact";
       expect(s.badge, s.id).toBe(expected);
     }
   });
 
-  test("externalData 는 1-14·3-8·3-9·3-10, gradeSensitive 는 1-12·1-13·1-14·3-10 이다(No.87, No.112)", () => {
+  test("externalData 는 1-14, 3-8, 3-9, 3-10, gradeSensitive 는 1-12, 1-13, 1-14, 3-10 이다(No.87, No.112)", () => {
     const pick = (k: "externalData" | "gradeSensitive") =>
       SECTION_REGISTRY.filter((s) => s[k]).map((s) => s.id);
     expect(pick("externalData")).toEqual(["1-14", "3-8", "3-9", "3-10"]);
@@ -95,7 +95,7 @@ describe("validateSectionItem", () => {
     ).toBe(true);
   });
 
-  test("형식·배지 값이 허용 집합 밖이거나 객체가 아니면 실패한다", () => {
+  test("형식, 배지 값이 허용 집합 밖이거나 객체가 아니면 실패한다", () => {
     expect(validateSectionItem({ ...okItem("1-1"), format: "pie" }).ok).toBe(
       false,
     );
@@ -114,7 +114,7 @@ describe("validateSections", () => {
     });
   });
 
-  test("누락·초과·중복 id 를 오류로 보고한다", () => {
+  test("누락, 초과, 중복 id 를 오류로 보고한다", () => {
     const missing = validateSections(allItems().slice(1), allIds());
     expect(missing.ok).toBe(false);
     expect(missing.errors.join()).toContain("1-1");
@@ -127,7 +127,7 @@ describe("validateSections", () => {
     expect(unknown.errors.join()).toContain("9-9");
   });
 
-  test("레지스트리와 형식·배지가 다르면 실패한다", () => {
+  test("레지스트리와 형식, 배지가 다르면 실패한다", () => {
     const items = allItems();
     items[0] = { ...items[0], format: "bar" } as SectionItem;
     items[1] = { ...items[1], badge: "proposal" } as SectionItem;

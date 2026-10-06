@@ -106,7 +106,7 @@ function build(rows: Row[], part: 1 | 2 | 3): SectionDef[] {
     part,
     title,
     format,
-    // 1·2부 전부 사실, 3부는 3-1 만 사실이고 나머지는 제안
+    // 1, 2부 전부 사실, 3부는 3-1 만 사실이고 나머지는 제안
     badge: part === 3 && id !== "3-1" ? "proposal" : "fact",
     externalData: EXTERNAL.has(id),
     gradeSensitive: GRADE_SENSITIVE.has(id),
@@ -193,7 +193,7 @@ export function validateSectionItem(value: unknown): ValidationResult {
   return result(errors);
 }
 
-/** 항목 목록 전체 검증: id 집합 정확 일치 + 레지스트리 형식·배지 일치. */
+/** 항목 목록 전체 검증: id 집합 정확 일치 + 레지스트리 형식, 배지 일치. */
 export function validateSections(
   items: unknown[],
   expectedIds: string[],
@@ -250,7 +250,7 @@ const STAGE_BY_GRADE: Record<NarrativeGrade, NarrativeStage> = {
   고3: "bloom",
 };
 
-/** 서사 검증: theme 비어있지 않음, 하위 주제 3개·학년 중복 없음·단계 짝(No.52, No.56). */
+/** 서사 검증: theme 비어있지 않음, 하위 주제 3개, 학년 중복 없음, 단계 짝(No.52, No.56). */
 export function validateNarrative(value: unknown): ValidationResult {
   if (!isRecord(value)) return result(["서사가 객체가 아님"]);
   const errors: string[] = [];

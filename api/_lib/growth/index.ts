@@ -9,6 +9,7 @@ export * from "./linkagePhrases.js";
 export * from "./prefill.js";
 export * from "./projection.js";
 export * from "./sections.js";
+export * from "./session.js";
 export * from "./targetGrade.js";
 export * from "./tracks.js";
 export * from "./types.js";
@@ -17,10 +18,3 @@ export * from "./validation.js";
 // 이름 충돌 해소
 export type { SemesterAverage } from "./gradeSystem.js";
 export type { SemesterAverage as GradeCurveSemesterAverage } from "./gradeCurve.js";
-export type { SemesterSubjects } from "./gradeSystem.js";
-export type { SemesterSubjects as PrefillSemesterSubjects } from "./prefill.js";
-export type { SectionItem, ValidationResult } from "./sections.js";
-export type {
-  SectionItem as ValidationSectionItem,
-  ValidationResult as ValidationValidationResult,
-} from "./validation.js";
