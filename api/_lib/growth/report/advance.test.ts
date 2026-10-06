@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   terminateReportRpc: vi.fn(),
   runStep: vi.fn(),
   hasPaidServiceAccess: vi.fn(),
+  notifyGrowthReportDone: vi.fn(),
+}));
+vi.mock("./notify.js", () => ({
+  notifyGrowthReportDone: mocks.notifyGrowthReportDone,
 }));
 
 vi.mock("./reportDb.js", () => ({
@@ -209,7 +213,34 @@ describe("advanceStep 8단계", () => {
     });
   });
 
-  it("already_completed 면 done", async () => {
+  it("완료되면 학생 id 와 회차 id 로 학부모 알림을 부른다", async () => {
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 8, completion });
+    mocks.completeReport.mockResolvedValue({
+      ok: true,
+      reason: "completed",
+      issuedAt: "t",
+      planItemCount: 4,
+    });
+    mocks.notifyGrowthReportDone.mockResolvedValue({ sent: true, count: 1 });
+    await advanceStep(db, "u", row8, 8, deps);
+    expect(mocks.notifyGrowthReportDone).toHaveBeenCalledWith(db, "u", "r1");
+  });
+
+  it("알림이 던져도 결과는 그대로 ok", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 8, completion });
+    mocks.completeReport.mockResolvedValue({
+      ok: true,
+      reason: "completed",
+      issuedAt: "t",
+      planItemCount: 4,
+    });
+    mocks.notifyGrowthReportDone.mockRejectedValue(new Error("boom"));
+    const out = await advanceStep(db, "u", row8, 8, deps);
+    expect(out).toMatchObject({ kind: "ok", completion: { planItemCount: 4 } });
+  });
+
+  it("already_completed 면 알림 없이 done", async () => {
     mocks.runStep.mockResolvedValue({ ...okResult, step: 8, completion });
     mocks.completeReport.mockResolvedValue({
       ok: true,
@@ -217,6 +248,7 @@ describe("advanceStep 8단계", () => {
     });
     const out = await advanceStep(db, "u", row8, 8, deps);
     expect(out.kind).toBe("done");
+    expect(mocks.notifyGrowthReportDone).not.toHaveBeenCalled();
   });
 
   it("not_ready 면 선점을 닫고 not_ready", async () => {

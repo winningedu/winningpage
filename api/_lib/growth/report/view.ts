@@ -291,7 +291,13 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ReportsQuery =
-  | { ok: true; reportId: string | undefined; view: "student" | "parent" }
+  | {
+      ok: true;
+      reportId: string | undefined;
+      /** 학부모가 연결 자녀를 지정할 때만 있다. */
+      childId: string | undefined;
+      view: "student" | "parent";
+    }
   | { ok: false; reason: string };
 
 export function parseReportsQuery(
@@ -305,9 +311,18 @@ export function parseReportsQuery(
     }
     reportId = raw;
   }
+  const rawChild = query.childId;
+  let childId: string | undefined;
+  if (rawChild !== undefined) {
+    if (typeof rawChild !== "string" || !UUID_RE.test(rawChild)) {
+      return { ok: false, reason: "childId 형식이 올바르지 않아요." };
+    }
+    childId = rawChild;
+  }
   return {
     ok: true,
     reportId,
+    childId,
     view: query.view === "parent" ? "parent" : "student",
   };
 }

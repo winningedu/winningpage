@@ -5,6 +5,7 @@ import type { callText } from "../../gemini.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
+import { notifyGrowthReportDone } from "./notify.js";
 import {
   callModelWith,
   chargeGate,
@@ -242,6 +243,15 @@ export async function advanceStep(
         } catch (e) {
           console.error("growth/report 차감 실패:", e);
           charged = false;
+        }
+      }
+
+      // No.111: 이번 요청이 완료시킨 경우에만 학부모에게 알린다. 실패는 결과에 영향이 없다.
+      if (completion !== undefined && !alreadyCompleted) {
+        try {
+          await notifyGrowthReportDone(db, userId, reportId);
+        } catch (e) {
+          console.error("growth/report 완료 알림 실패:", e);
         }
       }
 

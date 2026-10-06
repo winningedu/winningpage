@@ -326,6 +326,16 @@ describe("parseReportsQuery", () => {
     });
   });
 
+  it("UUID childId 를 받고 형식이 틀리면 거절한다", () => {
+    expect(parseReportsQuery({ childId: id })).toMatchObject({
+      ok: true,
+      childId: id,
+    });
+    expect(parseReportsQuery({ childId: "abc" }).ok).toBe(false);
+    expect(parseReportsQuery({ childId: [id] }).ok).toBe(false);
+    expect(parseReportsQuery({ childId: "" }).ok).toBe(false);
+  });
+
   it("UUID 가 아니거나 배열이면 거절한다", () => {
     expect(parseReportsQuery({ reportId: "abc" }).ok).toBe(false);
     expect(parseReportsQuery({ reportId: [id] }).ok).toBe(false);
