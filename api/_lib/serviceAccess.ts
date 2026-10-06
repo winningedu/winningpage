@@ -82,6 +82,13 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     payment_keywords: ["성장설계"],
     program_keys: ["growth"],
   },
+  // 자기평가서. programs.program_key 'selfeval' 과 consume_selfeval_credit 의 c_program_key 와 같은 값.
+  selfeval: {
+    service_key: "selfeval",
+    service_name: "위닝 자기평가서",
+    payment_keywords: ["자기평가서"],
+    program_keys: ["selfeval"],
+  },
 };
 
 export function clean(value: unknown): string {
