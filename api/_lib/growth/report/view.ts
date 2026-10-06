@@ -7,7 +7,7 @@ import {
   overviewCards,
   type SectionItem,
 } from "../sections.js";
-import { analysisRange } from "../tracks.js";
+import { analysisRange, omittedSections } from "../tracks.js";
 import type { SemesterKey, Track } from "../types.js";
 import { parentView } from "./assemble.js";
 import { nextStep, parseStepState, progress } from "./stepState.js";
@@ -30,6 +30,19 @@ export type StoredReportRow = {
   last_activity_at: string;
   created_at: string;
 };
+
+/** 목록과 미완 요약에 필요한 컬럼만. 큰 jsonb 는 읽지 않는다. */
+export type StoredListRow = Pick<
+  StoredReportRow,
+  | "id"
+  | "status"
+  | "current_step"
+  | "track"
+  | "narrative_theme"
+  | "issued_at"
+  | "step_state"
+  | "last_activity_at"
+>;
 
 export type StoredPlanItemRow = {
   id: string;
@@ -58,7 +71,7 @@ export function planCounts(items: { status: string }[]): PlanCounts {
   };
 }
 
-export function listItem(row: StoredReportRow, counts: PlanCounts | null) {
+export function listItem(row: StoredListRow, counts: PlanCounts | null) {
   return {
     id: row.id,
     status: row.status,
@@ -71,7 +84,7 @@ export function listItem(row: StoredReportRow, counts: PlanCounts | null) {
 }
 
 /** 미완 회차 요약. 생성 화면 재진입에 쓴다. */
-export function openSummary(row: StoredReportRow) {
+export function openSummary(row: StoredListRow) {
   const state = parseStepState(row.step_state);
   return {
     id: row.id,
@@ -83,6 +96,29 @@ export function openSummary(row: StoredReportRow) {
     terminal: state.terminal ?? null,
     lastActivityAt: row.last_activity_at,
   };
+}
+
+/** 종결 사유를 가진 archived 중 가장 최근 1건. 90일 만료 archived 와 구분한다. */
+export function lastTerminalOf(rows: StoredListRow[]): {
+  reportId: string;
+  reason: string;
+  at: string;
+  step: number;
+} | null {
+  let best: {
+    reportId: string;
+    reason: string;
+    at: string;
+    step: number;
+  } | null = null;
+  for (const r of rows) {
+    if (r.status !== "archived") continue;
+    const t = parseStepState(r.step_state).terminal;
+    if (!t) continue;
+    if (best === null || Date.parse(t.at) > Date.parse(best.at))
+      best = { reportId: r.id, reason: t.reason, at: t.at, step: t.step };
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +243,20 @@ export function detailBody(
     issuedAt: row.issued_at,
     currentStep: row.current_step,
     progress: progress(state),
+    range:
+      track === null
+        ? null
+        : (({ semesters, description }) => ({ semesters, description }))(
+            analysisRange(track),
+          ),
+    omitted:
+      track === null
+        ? null
+        : omittedSections(track, {
+            noFirstYearData:
+              track !== "고1" &&
+              !activities.some((a) => a.gradeLabel === "고1"),
+          }),
     narrative:
       row.narrative_theme === null
         ? null

@@ -1,28 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { MAX_MODEL_ATTEMPTS_PER_STEP } from "../validation.js";
 import {
-  completedThrough,
   emptyStepRecord,
   interpretClaim,
   isExhausted,
-  isStaleRunning,
-  markFailed,
-  markOk,
-  markRunning,
-  markTerminal,
   nextStep,
   parseStepState,
   progress,
-  setPlanDraft,
   stepRecord,
   terminalReasonFor,
 } from "./stepState.js";
-import {
-  CLAIM_STALE_SECONDS,
-  STEP_LABELS,
-  type StepNumber,
-  type StepState,
-} from "./types.js";
+import { STEP_LABELS, type StepNumber, type StepState } from "./types.js";
 
 function okThrough(...steps: number[]): StepState {
   const state: StepState = { steps: {} };
@@ -93,68 +81,29 @@ describe("stepRecord", () => {
   });
 });
 
-describe("nextStep, completedThrough", () => {
+describe("nextStep", () => {
   it("빈 상태는 1단계부터", () => {
     expect(nextStep({ steps: {} })).toBe(1);
-    expect(completedThrough({ steps: {} })).toBe(0);
   });
 
   it("연속으로 ok 인 다음 단계를 가리킨다", () => {
     expect(nextStep(okThrough(1, 2, 3))).toBe(4);
-    expect(completedThrough(okThrough(1, 2, 3))).toBe(3);
   });
 
   it("중간이 비면 거기서 멈춘다", () => {
     const s = okThrough(1, 3, 4);
     expect(nextStep(s)).toBe(2);
-    expect(completedThrough(s)).toBe(1);
   });
 
   it("전부 ok 면 null 과 8", () => {
     const s = okThrough(1, 2, 3, 4, 5, 6, 7, 8);
     expect(nextStep(s)).toBeNull();
-    expect(completedThrough(s)).toBe(8);
   });
 
   it("failed, running 은 ok 가 아니다", () => {
     const s = okThrough(1);
     s.steps[2] = { ...emptyStepRecord(), status: "failed" };
     expect(nextStep(s)).toBe(2);
-  });
-});
-
-describe("isStaleRunning", () => {
-  const now = "2026-01-01T00:10:00.000Z";
-  const running = (startedAt: string | null) => ({
-    ...emptyStepRecord(),
-    status: "running" as const,
-    startedAt,
-  });
-  const ago = (sec: number) =>
-    new Date(Date.parse(now) - sec * 1000).toISOString();
-
-  it("정확히 staleSeconds 는 신선하다", () => {
-    expect(isStaleRunning(running(ago(CLAIM_STALE_SECONDS)), now)).toBe(false);
-  });
-
-  it("staleSeconds 를 넘기면 오래된 것이다", () => {
-    expect(isStaleRunning(running(ago(CLAIM_STALE_SECONDS + 1)), now)).toBe(
-      true,
-    );
-  });
-
-  it("startedAt 이 null 인 running 은 오래된 것이다", () => {
-    expect(isStaleRunning(running(null), now)).toBe(true);
-  });
-
-  it("running 이 아니면 false", () => {
-    expect(
-      isStaleRunning({ ...running(ago(999)), status: "failed" }, now),
-    ).toBe(false);
-  });
-
-  it("staleSeconds 인자를 존중한다", () => {
-    expect(isStaleRunning(running(ago(10)), now, 5)).toBe(true);
   });
 });
 
@@ -185,81 +134,6 @@ describe("progress", () => {
       status: "pending",
       attempts: 0,
     });
-  });
-});
-
-describe("전이 함수", () => {
-  const t0 = "2026-01-01T00:00:00.000Z";
-  const t1 = "2026-01-01T00:00:30.000Z";
-  const issue = { code: "c", message: "m" };
-
-  it("markRunning 은 attempts 를 올리고 시각을 기록하며 issues 를 유지한다", () => {
-    const base: StepState = {
-      steps: {
-        3: {
-          ...emptyStepRecord(),
-          status: "failed",
-          attempts: 2,
-          finishedAt: t0,
-          issues: [issue],
-        },
-      },
-    };
-    const next = markRunning(base, 3, t1);
-    expect(next.steps[3]).toEqual({
-      status: "running",
-      attempts: 3,
-      startedAt: t1,
-      finishedAt: null,
-      issues: [issue],
-    });
-  });
-
-  it("markOk 는 issues 를 비우고 finishedAt 을 기록한다", () => {
-    const running = markRunning(
-      { steps: { 1: { ...emptyStepRecord(), issues: [issue] } } },
-      1,
-      t0,
-    );
-    const ok = markOk(running, 1, t1);
-    expect(ok.steps[1]).toMatchObject({
-      status: "ok",
-      finishedAt: t1,
-      issues: [],
-      attempts: 1,
-      startedAt: t0,
-    });
-  });
-
-  it("markFailed 는 issues 를 저장한다", () => {
-    const failed = markFailed(markRunning({ steps: {} }, 6, t0), 6, t1, [
-      issue,
-    ]);
-    expect(failed.steps[6]).toMatchObject({
-      status: "failed",
-      finishedAt: t1,
-      issues: [issue],
-      attempts: 1,
-    });
-  });
-
-  it("markTerminal, setPlanDraft 는 해당 필드만 바꾼다", () => {
-    const s = markTerminal(okThrough(1), 6, "r", t1);
-    expect(s.terminal).toEqual({ reason: "r", at: t1, step: 6 });
-    expect(s.steps[1]?.status).toBe("ok");
-    const draft = [{ title: "x" }] as never;
-    expect(setPlanDraft(s, draft).planDraft).toBe(draft);
-  });
-
-  it("입력 상태를 바꾸지 않는다", () => {
-    const base = okThrough(1);
-    const frozen = JSON.stringify(base);
-    markRunning(base, 2, t0);
-    markOk(base, 1, t0);
-    markFailed(base, 1, t0, [issue]);
-    markTerminal(base, 1, "r", t0);
-    setPlanDraft(base, []);
-    expect(JSON.stringify(base)).toBe(frozen);
   });
 });
 

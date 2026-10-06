@@ -177,3 +177,58 @@ export function callModelWith(callText: CallText): RunStepDeps["callModel"] {
       abortSignal: signal,
     });
 }
+
+/** 차감 판단에 쓰는 행 필드. */
+export type ChargeRow = {
+  ledger_id: string | null;
+  ledger_reversed_at: string | null;
+  status: "draft" | "in_progress" | "completed" | "archived";
+};
+
+/** 차감 이력이 있고 되돌리지 않은 회차. */
+export function isCharged(row: ChargeRow): boolean {
+  return row.ledger_id !== null && row.ledger_reversed_at === null;
+}
+
+/** 종결 시 차감을 되돌려야 하는 회차. */
+export function needsReverse(row: ChargeRow): boolean {
+  return isCharged(row);
+}
+
+export type ChargeGate =
+  | "check_access"
+  | "late_charge"
+  | "refuse_closed"
+  | "none";
+
+/** 선점 전 차감 판단. 1단계는 이용권 확인, 2단계 이상 미차감은 열린 회차만 늦은 차감. */
+export function chargeGate(row: ChargeRow, step: StepNumber): ChargeGate {
+  if (isCharged(row)) return "none";
+  if (step === 1) return "check_access";
+  return row.status === "draft" || row.status === "in_progress"
+    ? "late_charge"
+    : "refuse_closed";
+}
+
+export type TerminateOutcome = {
+  ok: boolean;
+  reason: string;
+  needsReverse: boolean;
+};
+
+/** fn_growth_terminate_report 반환 jsonb 를 정규화한다. 성공이면 needsReverse 가 반드시 불리언이어야 한다. */
+export function interpretTerminate(raw: unknown): TerminateOutcome {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    throw new Error(`종결 결과를 해석할 수 없습니다: ${JSON.stringify(raw)}`);
+  const r = raw as Record<string, unknown>;
+  if (r.ok === true) {
+    if (typeof r.needsReverse !== "boolean")
+      throw new Error(`종결 결과를 해석할 수 없습니다: ${JSON.stringify(raw)}`);
+    return { ok: true, reason: "terminated", needsReverse: r.needsReverse };
+  }
+  return {
+    ok: false,
+    reason: typeof r.reason === "string" ? r.reason : "unknown",
+    needsReverse: false,
+  };
+}

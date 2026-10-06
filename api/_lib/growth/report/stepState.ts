@@ -3,7 +3,6 @@
 
 import { canRetry, type ValidationIssue } from "../validation.js";
 import {
-  CLAIM_STALE_SECONDS,
   type ClaimResult,
   type PlanItemDraft,
   STEP_LABELS,
@@ -90,24 +89,6 @@ export function nextStep(state: StepState): StepNumber | null {
   return null;
 }
 
-export function completedThrough(state: StepState): number {
-  const next = nextStep(state);
-  return next === null ? STEP_NUMBERS.length : next - 1;
-}
-
-/** running 이고 startedAt 이 staleSeconds 보다 오래됐으면 true. startedAt 이 없는 running 도 true. */
-export function isStaleRunning(
-  record: StepRecord,
-  nowIso: string,
-  staleSeconds: number = CLAIM_STALE_SECONDS,
-): boolean {
-  if (record.status !== "running") return false;
-  if (record.startedAt === null) return true;
-  const started = Date.parse(record.startedAt);
-  if (Number.isNaN(started)) return true;
-  return Date.parse(nowIso) - started > staleSeconds * 1000;
-}
-
 export function isExhausted(record: StepRecord): boolean {
   return !canRetry(record.attempts);
 }
@@ -124,72 +105,6 @@ export function progress(
       attempts: r.attempts,
     };
   });
-}
-
-function withRecord(
-  state: StepState,
-  step: StepNumber,
-  record: StepRecord,
-): StepState {
-  return { ...state, steps: { ...state.steps, [step]: record } };
-}
-
-export function markRunning(
-  state: StepState,
-  step: StepNumber,
-  nowIso: string,
-): StepState {
-  const r = stepRecord(state, step);
-  return withRecord(state, step, {
-    ...r,
-    status: "running",
-    attempts: r.attempts + 1,
-    startedAt: nowIso,
-    finishedAt: null,
-  });
-}
-
-export function markOk(
-  state: StepState,
-  step: StepNumber,
-  nowIso: string,
-): StepState {
-  return withRecord(state, step, {
-    ...stepRecord(state, step),
-    status: "ok",
-    finishedAt: nowIso,
-    issues: [],
-  });
-}
-
-export function markFailed(
-  state: StepState,
-  step: StepNumber,
-  nowIso: string,
-  issues: ValidationIssue[],
-): StepState {
-  return withRecord(state, step, {
-    ...stepRecord(state, step),
-    status: "failed",
-    finishedAt: nowIso,
-    issues,
-  });
-}
-
-export function markTerminal(
-  state: StepState,
-  step: StepNumber,
-  reason: string,
-  nowIso: string,
-): StepState {
-  return { ...state, terminal: { reason, at: nowIso, step } };
-}
-
-export function setPlanDraft(
-  state: StepState,
-  planDraft: PlanItemDraft[],
-): StepState {
-  return { ...state, planDraft };
 }
 
 /** 선점 RPC 가 돌려준 jsonb 를 ClaimResult 로 정규화한다. */

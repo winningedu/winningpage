@@ -12,13 +12,12 @@ import {
   type StudentProfileRow,
   universityTargets,
 } from "./context.js";
-import type { StoredRow } from "./reportBody.js";
 import {
-  interpretClaim,
-  markTerminal,
-  parseStepState,
-  terminalReasonFor,
-} from "./stepState.js";
+  interpretTerminate,
+  type StoredRow,
+  type TerminateOutcome,
+} from "./reportBody.js";
+import { interpretClaim } from "./stepState.js";
 import type { ClaimResult, ReportContext, StepNumber } from "./types.js";
 
 const REPORT_COLUMNS =
@@ -302,37 +301,29 @@ export async function reverseCredit(
   };
 }
 
-/** 회차를 archived 로 닫고 step_state.terminal 을 남긴다. 이미 닫혔으면 아무것도 바꾸지 않는다. */
-export async function terminateReport(
+/**
+ * 회차를 archived 로 닫고 step_state.terminal 을 남긴다(fn_growth_terminate_report).
+ * 차감을 되돌려야 하는지는 RPC 가 잠금 안에서 판단해 needsReverse 로 돌려준다.
+ */
+export async function terminateReportRpc(
   db: Db,
   userId: string,
   reportId: string,
   step: StepNumber,
-  kind: "exhausted" | "fatal",
-  nowIso: string,
-): Promise<void> {
-  const current = must(
-    await db
-      .from("growth_reports")
-      .select("step_state")
-      .eq("id", reportId)
-      .eq("profile_id", userId)
-      .maybeSingle(),
-    "growth_reports step_state 조회 실패",
-  ) as { step_state: unknown } | null;
-  const state = markTerminal(
-    parseStepState(current?.step_state),
-    step,
-    terminalReasonFor(kind, step),
-    nowIso,
-  );
-  must(
-    await db
-      .from("growth_reports")
-      .update({ status: "archived", step_state: state })
-      .eq("id", reportId)
-      .eq("profile_id", userId)
-      .in("status", ["draft", "in_progress"]),
-    "growth_reports 종결 실패",
+  reason: string,
+): Promise<TerminateOutcome> {
+  return interpretTerminate(
+    mustHave(
+      must(
+        await db.rpc("fn_growth_terminate_report", {
+          p_report_id: reportId,
+          p_profile_id: userId,
+          p_step: step,
+          p_reason: reason,
+        }),
+        "fn_growth_terminate_report 실패",
+      ),
+      "fn_growth_terminate_report",
+    ),
   );
 }

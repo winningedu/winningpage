@@ -11,8 +11,12 @@
 //      open 은 미완(draft, in_progress) 회차 요약 1건이다(생성 화면 재진입용).
 //      { id, status, currentStep, track, progress[], nextStep, terminal|null, lastActivityAt }
 //      보관(archived) 회차는 archivedCount 로 수만 알려 준다.
+//      lastTerminal 은 종결 사유가 있는 archived 중 가장 최근 1건
+//      { reportId, reason, at, step } 또는 null 이다(90일 만료 archived 와 구분).
+//      목록은 큰 jsonb(sections, signals 등)를 읽지 않는다.
 //   ② 상세 `GET /api/growth/reports?reportId=<uuid>[&view=parent]`
 //      200 { ok, report:{ id, status, track, issuedAt, currentStep, progress[],
+//            range:{ semesters, description }|null, omitted:{ ids, reasons }|null,
 //            narrative|null, overview[], consistency, axes, sections[],
 //            excludedSectionIds[], planItems[], lastActivityAt } }
 //      view=parent 면 성적 민감 섹션(1-12, 1-13, 1-14, 3-10)을 빼고 그 id 를
@@ -34,16 +38,21 @@ import type { VercelResponse } from "@vercel/node";
 import { type Db, must } from "../_lib/growth/intake/collectDb.js";
 import {
   detailBody,
+  lastTerminalOf,
   listItem,
   openSummary,
   type PlanCounts,
   parseReportsQuery,
   planCounts,
+  type StoredListRow,
   type StoredPlanItemRow,
   type StoredReportRow,
 } from "../_lib/growth/report/view.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+
+const LIST_COLUMNS =
+  "id, status, track, narrative_theme, issued_at, last_activity_at, step_state, current_step";
 
 const REPORT_COLUMNS =
   "id, status, current_step, track, narrative_theme, grade_subthemes, stage, axis_scores, consistency, sections, signals, issued_at, activity_ids, step_state, last_activity_at, created_at";
@@ -65,11 +74,11 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
   const rows = must(
     await db
       .from("growth_reports")
-      .select(REPORT_COLUMNS)
+      .select(LIST_COLUMNS)
       .eq("profile_id", userId)
       .order("last_activity_at", { ascending: false }),
     "growth_reports 조회 실패",
-  ) as StoredReportRow[];
+  ) as StoredListRow[];
 
   const completed = rows.filter((r) => r.status === "completed");
   const open =
@@ -105,6 +114,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
     }),
     open: open ? openSummary(open) : null,
     archivedCount: rows.filter((r) => r.status === "archived").length,
+    lastTerminal: lastTerminalOf(rows),
   });
 }
 

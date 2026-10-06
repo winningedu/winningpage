@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detailBody,
+  lastTerminalOf,
   listItem,
   openSummary,
   overviewFromStored,
@@ -329,5 +330,75 @@ describe("parseReportsQuery", () => {
     expect(parseReportsQuery({ reportId: "abc" }).ok).toBe(false);
     expect(parseReportsQuery({ reportId: [id] }).ok).toBe(false);
     expect(parseReportsQuery({ reportId: "" }).ok).toBe(false);
+  });
+});
+
+describe("lastTerminalOf", () => {
+  const term = (id: string, at: string, step = 3) =>
+    row({
+      id,
+      status: "archived",
+      step_state: { terminal: { reason: `r-${id}`, at, step } },
+    });
+
+  it("archived 중 terminal 이 있는 가장 최근 1건을 돌려준다", () => {
+    expect(
+      lastTerminalOf([
+        term("a", "2026-10-01T00:00:00Z"),
+        term("b", "2026-10-03T00:00:00Z", 5),
+        term("c", "2026-10-02T00:00:00Z"),
+      ]),
+    ).toEqual({
+      reportId: "b",
+      reason: "r-b",
+      at: "2026-10-03T00:00:00Z",
+      step: 5,
+    });
+  });
+
+  it("terminal 없는 archived(만료)와 다른 상태는 무시한다", () => {
+    expect(
+      lastTerminalOf([
+        row({ id: "x", status: "archived", step_state: {} }),
+        row({
+          id: "y",
+          status: "in_progress",
+          step_state: { terminal: { reason: "r", at: "t", step: 1 } },
+        }),
+      ]),
+    ).toBeNull();
+    expect(lastTerminalOf([])).toBeNull();
+  });
+});
+
+describe("detailBody range, omitted", () => {
+  const act = (gradeLabel: string | null) => ({ gradeLabel, semester: 1 });
+
+  it("범위와 제외 항목을 싣는다", () => {
+    const body = detailBody(row({ track: "고2" }), [], [act("고1")], {
+      parent: false,
+    });
+    expect(body.range?.semesters).toEqual(["고1-1", "고1-2", "고2-1", "고2-2"]);
+    expect(body.range?.description).toContain("1학년 전체");
+    expect(body.omitted).toEqual({ ids: [], reasons: [] });
+  });
+
+  it("고2 이상에서 1학년 활동이 없으면 3-2 를 뺀다", () => {
+    const body = detailBody(row({ track: "고2" }), [], [act("고2")], {
+      parent: false,
+    });
+    expect(body.omitted?.ids).toEqual(["3-2"]);
+  });
+
+  it("고1 은 1학년 자료 없음 플래그를 쓰지 않는다", () => {
+    const body = detailBody(row({ track: "고1" }), [], [], { parent: false });
+    expect(body.omitted?.ids).toEqual(["3-2", "3-3"]);
+    expect(body.omitted?.reasons).toHaveLength(1);
+  });
+
+  it("track 이 null 이면 둘 다 null", () => {
+    const body = detailBody(row({ track: null }), [], [], { parent: false });
+    expect(body.range).toBeNull();
+    expect(body.omitted).toBeNull();
   });
 });
