@@ -39,6 +39,10 @@ create policy "growth_profiles update own"
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
+create trigger trg_growth_profiles_updated_at
+  before update on public.growth_profiles
+  for each row execute function public.set_updated_at();
+
 grant select, insert, update on public.growth_profiles to authenticated;
 grant all on public.growth_profiles to service_role;
 
@@ -68,9 +72,15 @@ create table public.growth_reports (
     references public.performance_credit_ledger(id),
   ledger_reversed_at timestamptz,
   model_attempt_count integer not null default 0,
+  schema_version integer not null default 1,
+  step_state jsonb not null default '{}'::jsonb,
   last_activity_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint growth_reports_completed_has_issued_at
+    check (status <> 'completed' or issued_at is not null),
+  constraint growth_reports_reversed_needs_ledger
+    check (ledger_reversed_at is null or ledger_id is not null)
 );
 
 comment on table public.growth_reports is
@@ -78,6 +88,20 @@ comment on table public.growth_reports is
 
 comment on column public.growth_reports.survey_answers is
   '회차 시작 시점의 설문 응답 스냅샷. 이후 growth_profiles 가 바뀌어도 이 회차는 변하지 않는다.';
+
+comment on column public.growth_reports.activity_ids is
+  '분석 대상 활동 ID 고정(No.113 세션 누적). 활동이 나중에 바뀌어도 이 회차가 읽은 재료를 재현하기 위한 것. FK 무결성은 두지 않는다.';
+
+comment on column public.growth_reports.schema_version is
+  'sections 항목 스키마 버전. 섹션 구조가 바뀔 때 올려 과거 회차를 구분해 읽는다.';
+
+comment on column public.growth_reports.step_state is
+  '단계별 운영 상태. 키는 단계 이름이고 값은 status, error, attempts, started_at, finished_at 를 담은 객체다. 재시도와 장애 추적용이며 결과 데이터는 담지 않는다.';
+
+-- 차감 원장에서 회차를 거꾸로 찾는다(환불 소비 판정, 정합성 점검).
+create index growth_reports_ledger_idx
+  on public.growth_reports (ledger_id)
+  where ledger_id is not null;
 
 -- 학생당 미완 회차 1개.
 create unique index growth_reports_one_open_per_profile
@@ -128,7 +152,7 @@ create table public.growth_plan_items (
   done_ref_id uuid,
   done_at timestamptz,
   carried_from_report_id uuid
-    references public.growth_reports(id),
+    references public.growth_reports(id) on delete set null,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -136,6 +160,10 @@ create table public.growth_plan_items (
 
 comment on table public.growth_plan_items is
   '성장설계 실행 계획 항목. program: school(학교 활동)/self(자기평가서)/deep(심화탐구). 완료는 수동 체크(done_source_program=manual) 또는 해당 서비스 산출물 연결(self/deep, done_ref_id)로 기록한다. carried_from_report_id 는 이전 회차에서 이월된 항목의 원본 회차. 본인은 update(수동 체크)만 하고 insert/delete 는 service_role 만 한다.';
+
+create index growth_plan_items_carried_from_idx
+  on public.growth_plan_items (carried_from_report_id)
+  where carried_from_report_id is not null;
 
 create index growth_plan_items_report_idx
   on public.growth_plan_items (report_id);
@@ -145,6 +173,8 @@ create index growth_plan_items_profile_status_idx
 
 alter table public.growth_plan_items enable row level security;
 
+-- 학부모 select 를 유지한다. 항목 title, description 에는 성적 수치나 등급을 쓰지 않는다
+-- (학부모 열람 범위, No.112). 생성 단계 검증이 강제한다.
 create policy "growth_plan_items select own linked admin"
   on public.growth_plan_items for select
   to authenticated
@@ -159,6 +189,10 @@ create policy "growth_plan_items update own"
   to authenticated
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
+
+create trigger trg_growth_plan_items_updated_at
+  before update on public.growth_plan_items
+  for each row execute function public.set_updated_at();
 
 -- 학생은 수동 체크(status, done_at)만, 나머지 컬럼은 service_role 만 쓴다.
 -- 열 단위 grant 로 다른 컬럼 update 를 막고, 트리거로 완료 출처 위조를 막는다.

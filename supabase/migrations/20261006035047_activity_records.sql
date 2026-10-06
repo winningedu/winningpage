@@ -85,5 +85,9 @@ create policy "activity_records delete own manual"
   to authenticated
   using (profile_id = auth.uid() and source_program = 'manual');
 
+create trigger trg_activity_records_updated_at
+  before update on public.activity_records
+  for each row execute function public.set_updated_at();
+
 grant select, insert, update, delete on public.activity_records to authenticated;
 grant all on public.activity_records to service_role;
