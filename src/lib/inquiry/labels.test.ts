@@ -76,6 +76,12 @@ describe("화면 고정 라벨", () => {
     ]);
   });
 
+  test("작성 화면 금지 항목과 가설 기각 안내", () => {
+    expect(labels.WRITING_FORBIDDEN).toEqual(server.WRITING_FORBIDDEN);
+    expect(labels.WRITING_FORBIDDEN).toHaveLength(4);
+    expect(labels.HYPOTHESIS_NOTICE).toEqual(server.HYPOTHESIS_NOTICE);
+  });
+
   test("보관함 라벨", () => {
     expect(labels.ARCHIVE_LABEL).toBe("보관함");
   });
@@ -96,6 +102,40 @@ describe("금지 문자", () => {
     for (const file of readdirSync(dir).filter((f) => f.endsWith(".ts"))) {
       expect(hasForbidden(readFileSync(resolve(dir, file), "utf8")), file).toBe(
         false,
+      );
+    }
+  });
+});
+
+describe("평가 리포트 라벨(P6b)", () => {
+  test("평가가 하지 않는 것과 평가 상한", () => {
+    expect(labels.NOT_PRODUCED).toEqual(server.NOT_PRODUCED);
+    expect(labels.NOT_PRODUCED).toHaveLength(6);
+    expect(labels.MAX_EVALUATIONS).toBe(server.MAX_EVALUATIONS);
+  });
+  test("평가 항목 이름과 배점", () => {
+    for (const item of server.RUBRIC) {
+      expect(labels.RUBRIC_ITEM_LABELS[item.id]).toEqual({
+        label: item.label,
+        maxScore: item.maxScore,
+      });
+    }
+  });
+  test("핵심 오류 이름", () => {
+    for (const e of server.CORE_ERRORS) {
+      expect(labels.CORE_ERROR_LABELS[e.id]).toBe(e.label);
+    }
+  });
+  test("체크리스트 13 이름", () => {
+    for (const c of server.CHECKLIST) {
+      expect(labels.CHECKLIST_LABELS[c.id]).toBe(c.text);
+    }
+    expect(Object.keys(labels.CHECKLIST_LABELS)).toHaveLength(13);
+  });
+  test("절 이름", () => {
+    for (const s of server.SECTIONS) {
+      expect(labels.EVAL_SECTION_LABELS[s.id]).toBe(
+        `${s.numeral}절 ${s.title}`,
       );
     }
   });

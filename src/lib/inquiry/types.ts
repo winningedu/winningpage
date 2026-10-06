@@ -598,6 +598,7 @@ export type EvaluateResponse = {
   ok: true;
   evaluation: EvaluationView;
   submission: SubmissionView;
+  session: SessionView;
   attempts: number;
 };
 

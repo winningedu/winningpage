@@ -3,7 +3,7 @@
 //
 // 심화탐구 평가 리포트 생성 엔드포인트(명세 No.22, 71, 77, 78, 81~102, 개발계획 부록 B 3번).
 //   요청  { sessionId }
-//   응답 200 { ok, evaluation: EvaluationView, submission: SubmissionView, attempts }
+//   응답 200 { ok, evaluation: EvaluationView, submission: SubmissionView, session: SessionView, attempts }
 //
 // 계약:
 //   - 초안 작성본이 없으면 409 NO_SUBMISSION, 빈 절 422 SECTION_EMPTY, 분량 부족 422 SUBMISSION_TOO_SHORT
@@ -28,6 +28,7 @@ import {
   hasInquiryAccess,
   NO_ENTITLEMENT_MESSAGE,
   SESSION_NOT_FOUND_MESSAGE,
+  loadSessionParts,
 } from "../_lib/inquiry/compose.js";
 import {
   loadDesignReport,
@@ -214,10 +215,16 @@ export default defineHandler({
       return;
     }
     const { report, submission: saved } = outcome.saved;
+    // 생성 뒤 세션을 다시 읽어 뷰로 내린다(클라이언트가 재조회 없이 셸 상태를 맞추게, plan-report 와 같음).
+    const fresh = await loadSession(db, userId, sessionId);
+    if (!fresh)
+      throw new Error(`inquiry_sessions ${sessionId}: 평가 뒤 행이 없습니다.`);
+    const { session: sessionView } = await loadSessionParts(db, userId, fresh);
     res.status(200).json({
       ok: true,
       evaluation: toEvaluationView(report, saved.revision),
       submission: toSubmissionView(saved),
+      session: sessionView,
       attempts: outcome.attempts,
     });
   },

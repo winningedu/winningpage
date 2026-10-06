@@ -2,9 +2,12 @@
 // src 에서 api/ 를 import 하지 않으므로 복사해 두고, labels.test.ts 가 서버 상수와 대조한다.
 // 서버 쪽 문구를 바꾸면 이 파일도 같이 바꾼다(테스트가 어긋남을 잡는다).
 import type {
+  CoreErrorId,
   Fit,
   LinkKind,
   Reliability,
+  RubricItemId,
+  SectionId,
   Stage,
   SubmissionLabel,
 } from "./types";
@@ -95,3 +98,82 @@ export const MAX_MODEL_ATTEMPTS = 10;
 /** 예비 주제 안내(No.4, 146). 서버 PROVISIONAL_TOPIC_NOTE 와 같다. */
 export const PROVISIONAL_TOPIC_NOTE =
   "고른 활동이 없어 관심 기반 예비 주제를 보여 드려요. 이전 활동과 이어지지 않아 연계 점수는 0점이에요.";
+
+/** 작성 화면 금지 항목 상시 노출(No.80). 서버 WRITING_FORBIDDEN 과 같다. */
+export const WRITING_FORBIDDEN: readonly string[] = [
+  "확인하지 않은 수치와 연구 결과",
+  "출처 없이 옮겨 적은 문장",
+  "하지 않은 실험을 한 것처럼 쓴 서술",
+  "상관을 인과로 바꾼 결론",
+];
+
+/** 가설 기각 안내(No.74). 서버 HYPOTHESIS_NOTICE 와 같다. */
+export const HYPOTHESIS_NOTICE = {
+  title: "가설이 틀려도 돼요",
+  body: "왜 예상과 달랐는지를 설명하는 대목에서 사고 과정이 가장 잘 드러나요. 결과를 가설에 맞춰 고치지 마세요.",
+} as const;
+
+/** 평가 실행(재평가 포함) 상한. 서버 MAX_EVALUATIONS 와 같다. 남은 재평가는 이 값에서 1을 뺀다(No.22). */
+export const MAX_EVALUATIONS = 4;
+
+/** 평가 리포트 하단 "이 평가가 하지 않는 것" 칩. 서버 NOT_PRODUCED 와 같다. */
+export const NOT_PRODUCED: readonly string[] = [
+  "인공지능 작성 판정",
+  "합격 가능성",
+  "교사 예상 점수",
+  "학생부 등급",
+  "생활기록부 문장 생성",
+  "보고서 대필",
+];
+
+/** 평가표 항목 이름과 배점(No.82). 서버 RUBRIC 의 label, maxScore 와 같다. */
+export const RUBRIC_ITEM_LABELS: Record<
+  RubricItemId,
+  { label: string; maxScore: number }
+> = {
+  linkage: { label: "기존 활동과의 연계 및 탐구 동기", maxScore: 20 },
+  question: { label: "질문의 구체성과 심화성", maxScore: 20 },
+  method: { label: "탐구 방법과 학생의 분석", maxScore: 25 },
+  evidence: { label: "근거와 내용의 정확성", maxScore: 15 },
+  conclusion: { label: "결론과 한계 인식", maxScore: 10 },
+  structure: { label: "구성과 표현", maxScore: 10 },
+};
+
+/** 핵심 오류 6종의 이름(No.85). 서버 CORE_ERRORS 의 label 과 같다. */
+export const CORE_ERROR_LABELS: Record<CoreErrorId, string> = {
+  variable_mismatch: "질문과 측정변수가 맞지 않아요",
+  proxy_undeclared: "대리 지표를 쓰면서 밝히지 않았어요",
+  correlation_as_cause: "상관을 인과로 단정했어요",
+  overclaim: "증거를 넘어선 단정이 있어요",
+  unsourced_number: "출처 없는 수치 주장이 있어요",
+  placeholder_left: "아직 쓰지 않은 자리가 남아 있어요",
+};
+
+/** 체크리스트 13 항목 이름(No.66). 서버 CHECKLIST 의 text 와 같다. */
+export const CHECKLIST_LABELS: Record<string, string> = {
+  c01: "출발 활동 이름",
+  c02: "확인하지 않고 넘어간 것",
+  c03: "이번 질문이 필요한 이유",
+  c04: "질문 한 문장",
+  c05: "가설 1과 2",
+  c06: "출처와 기준 시점",
+  c07: "가공 방법과 단위 통일",
+  c08: "확인한 값만",
+  c09: "가설 판정",
+  c10: "한 문장 정리",
+  c11: "진로 연결은 직무의 성격으로",
+  c12: "한계 두 가지 이상",
+  c13: "후속 탐구의 활동",
+};
+
+/** 평가 화면에서 쓰는 절 이름(위치 표시와 자리표시자 안내). */
+export const EVAL_SECTION_LABELS: Record<SectionId, string> = {
+  I: "Ⅰ절 탐구 동기",
+  II: "Ⅱ절 탐구 질문과 가설",
+  III: "Ⅲ절 탐구 방법",
+  IV: "Ⅳ절 탐구 결과",
+  V: "Ⅴ절 해석",
+  VI: "Ⅵ절 한계",
+  VII: "Ⅶ절 후속 탐구",
+  VIII: "Ⅷ절 참고 자료",
+};
