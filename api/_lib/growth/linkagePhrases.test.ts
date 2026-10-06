@@ -16,7 +16,9 @@ describe("detectLinkage - 연계 성립(No.63)", () => {
   });
 
   test("'작년' + '배운' + '바탕으로' 는 grade_link 다", () => {
-    const r = detectLinkage("작년에 배운 통계 개념을 바탕으로 이번 설문을 설계했다");
+    const r = detectLinkage(
+      "작년에 배운 통계 개념을 바탕으로 이번 설문을 설계했다",
+    );
     expect(r.linked).toBe(true);
     expect(r.kind).toBe("grade_link");
     expect(r.matched.a).toBe("작년");
@@ -31,7 +33,9 @@ describe("detectLinkage - 연계 성립(No.63)", () => {
   });
 
   test("학년 표현과 과목 표현이 함께 있으면 grade_link 가 우선한다", () => {
-    const r = detectLinkage("1학년 때 통합과학에서 학습한 내용을 연계하여 보고서를 썼다");
+    const r = detectLinkage(
+      "1학년 때 통합과학에서 학습한 내용을 연계하여 보고서를 썼다",
+    );
     expect(r.kind).toBe("grade_link");
   });
 
@@ -44,14 +48,18 @@ describe("detectLinkage - 연계 성립(No.63)", () => {
   });
 
   test("과목 표현 없이 '앞서' 만 있으면 linked 이고 kind 는 null 이다", () => {
-    const r = detectLinkage("앞서 진행한 배차 분석의 표본을 사례로 삼아 이번에 다시 검토함");
+    const r = detectLinkage(
+      "앞서 진행한 배차 분석의 표본을 사례로 삼아 이번에 다시 검토함",
+    );
     expect(r.linked).toBe(true);
     expect(r.kind).toBeNull();
     expect(r.matched.a).toBe("앞서");
   });
 
   test("'이전에' 도 선행 맥락으로 인식한다", () => {
-    const r = detectLinkage("이전에 학습한 회귀 모형에 이어서 이번에 변수를 추가했다");
+    const r = detectLinkage(
+      "이전에 학습한 회귀 모형에 이어서 이번에 변수를 추가했다",
+    );
     expect(r.linked).toBe(true);
   });
 
@@ -110,6 +118,8 @@ describe("extractLinkedSentences - 근거 문장 추출(No.84)", () => {
 
   test("연계 문장이 없거나 빈 문자열이면 빈 배열이다", () => {
     expect(extractLinkedSentences("")).toEqual([]);
-    expect(extractLinkedSentences("통계를 학습했다. 이번에 설문을 만들었다.")).toEqual([]);
+    expect(
+      extractLinkedSentences("통계를 학습했다. 이번에 설문을 만들었다."),
+    ).toEqual([]);
   });
 });

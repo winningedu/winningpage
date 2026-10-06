@@ -11,10 +11,12 @@ export type LinkageResult = {
 };
 
 /** A: 과목 신호. 과목명 사전 없이 "명사 + 에서" 를 본다. "이번 활동에서" 는 C 이므로 제외한다. */
-export const LINKAGE_A_SUBJECT = /(?<!이번\s)(?!이번)[가-힣A-Za-z0-9ⅠⅡ]{2,}에서/i;
+export const LINKAGE_A_SUBJECT =
+  /(?<!이번\s)(?!이번)[가-힣A-Za-z0-9ⅠⅡ]{2,}에서/i;
 
 /** A: 학년 신호. 학년 간 연계는 호흡이 더 길어 과목 신호보다 우선한다. */
-export const LINKAGE_A_GRADE = /[1-3]학년|(?:고|중)[1-3](?!\d)|작년|지난\s*학년|전\s*학년/i;
+export const LINKAGE_A_GRADE =
+  /[1-3]학년|(?:고|중)[1-3](?!\d)|작년|지난\s*학년|전\s*학년/i;
 
 /** A: 학년·과목을 특정하지 않는 선행 맥락. 연계는 성립하지만 kind 는 null 이다. */
 export const LINKAGE_A_OTHER = /앞서|이전에|지난|전\s*학기/i;
@@ -39,7 +41,13 @@ export function detectLinkage(text: string): LinkageResult {
   const linked = a !== null && b !== null && c !== null;
   return {
     linked,
-    kind: !linked ? null : grade !== null ? "grade_link" : subject !== null ? "subject_link" : null,
+    kind: !linked
+      ? null
+      : grade !== null
+        ? "grade_link"
+        : subject !== null
+          ? "subject_link"
+          : null,
     matched: { a, b, c },
   };
 }

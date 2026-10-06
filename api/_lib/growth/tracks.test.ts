@@ -39,15 +39,28 @@ describe("analysisRange (No.50)", () => {
   test("고3은 1·2학년 전체와 3학년 현재까지, 실행계획 월 단위 문구를 쓴다", () => {
     expect(analysisRange("고3")).toEqual({
       semesters: ["고1-1", "고1-2", "고2-1", "고2-2", "고3-1", "고3-2"],
-      description: "1학년과 2학년 전체, 3학년 현재까지가 분석 범위예요. 실행계획은 월 단위로 나눠요.",
+      description:
+        "1학년과 2학년 전체, 3학년 현재까지가 분석 범위예요. 실행계획은 월 단위로 나눠요.",
     });
   });
 
-  test.each(["졸업", "N수"] as const)("%s 는 3개 학년 전체이고 로드맵 없이 진단만 나온다고 알린다", (t) => {
-    const r = analysisRange(t);
-    expect(r.semesters).toEqual(["고1-1", "고1-2", "고2-1", "고2-2", "고3-1", "고3-2"]);
-    expect(r.description).toContain("씨앗, 꽃, 만개 로드맵 없이 진단만 나와요");
-  });
+  test.each(["졸업", "N수"] as const)(
+    "%s 는 3개 학년 전체이고 로드맵 없이 진단만 나온다고 알린다",
+    (t) => {
+      const r = analysisRange(t);
+      expect(r.semesters).toEqual([
+        "고1-1",
+        "고1-2",
+        "고2-1",
+        "고2-2",
+        "고3-1",
+        "고3-2",
+      ]);
+      expect(r.description).toContain(
+        "씨앗, 꽃, 만개 로드맵 없이 진단만 나와요",
+      );
+    },
+  );
 
   test("current 가 있으면 현재 학기까지만 포함한다", () => {
     expect(analysisRange("고2", { grade: 2, semester: 1 }).semesters).toEqual([
@@ -55,7 +68,9 @@ describe("analysisRange (No.50)", () => {
       "고1-2",
       "고2-1",
     ]);
-    expect(analysisRange("고1", { grade: 1, semester: 1 }).semesters).toEqual(["고1-1"]);
+    expect(analysisRange("고1", { grade: 1, semester: 1 }).semesters).toEqual([
+      "고1-1",
+    ]);
   });
 });
 
@@ -85,14 +100,18 @@ describe("omittedSections (No.45·50·51)", () => {
   });
 
   test("고1 이면서 자료 없음이어도 id 는 중복되지 않는다", () => {
-    expect(omittedSections("고1", { noFirstYearData: true }).ids).toEqual(["3-2", "3-3"]);
+    expect(omittedSections("고1", { noFirstYearData: true }).ids).toEqual([
+      "3-2",
+      "3-3",
+    ]);
   });
 });
 
 describe("monthlyPlan (No.50)", () => {
   test("고3 만 월 단위 실행계획이다", () => {
     expect(monthlyPlan("고3")).toBe(true);
-    for (const t of ["고1", "고2", "졸업", "N수"] as const) expect(monthlyPlan(t)).toBe(false);
+    for (const t of ["고1", "고2", "졸업", "N수"] as const)
+      expect(monthlyPlan(t)).toBe(false);
   });
 });
 
@@ -130,7 +149,11 @@ describe("firstYearSufficiency (No.44)", () => {
   });
 
   test("기록이 없으면 없음이고 다른 학년 건수는 무시한다", () => {
-    expect(firstYearSufficiency({ "고2-1": 9 })).toEqual({ count: 0, level: "none", label: "없음" });
+    expect(firstYearSufficiency({ "고2-1": 9 })).toEqual({
+      count: 0,
+      level: "none",
+      label: "없음",
+    });
   });
 });
 
@@ -204,7 +227,10 @@ describe("capPlanItems (No.96·164)", () => {
   });
 
   test("상한 이내면 그대로 둔다", () => {
-    const r = capPlanItems([item("a", "semester"), item("b", "semester", "recommended")]);
+    const r = capPlanItems([
+      item("a", "semester"),
+      item("b", "semester", "recommended"),
+    ]);
     expect(r.required.map((i) => i.id)).toEqual(["a"]);
     expect(r.recommended.map((i) => i.id)).toEqual(["b"]);
     expect(r.dropped).toEqual([]);
@@ -222,28 +248,51 @@ describe("deadlineState (No.100)", () => {
 
   test("D-7 은 긴급이고 D-8 은 아니다", () => {
     expect(deadlineState("2026-10-13", "2026-10-06").urgent).toBe(true);
-    expect(deadlineState("2026-10-14", "2026-10-06")).toMatchObject({ dday: 8, urgent: false });
+    expect(deadlineState("2026-10-14", "2026-10-06")).toMatchObject({
+      dday: 8,
+      urgent: false,
+    });
   });
 
   test("당일은 D-0 이고 지난 마감은 D+n 이며 둘 다 긴급이다", () => {
-    expect(deadlineState("2026-10-06", "2026-10-06")).toEqual({ dday: 0, urgent: true, label: "D-0" });
-    expect(deadlineState("2026-10-04", "2026-10-06")).toEqual({ dday: -2, urgent: true, label: "D+2" });
+    expect(deadlineState("2026-10-06", "2026-10-06")).toEqual({
+      dday: 0,
+      urgent: true,
+      label: "D-0",
+    });
+    expect(deadlineState("2026-10-04", "2026-10-06")).toEqual({
+      dday: -2,
+      urgent: true,
+      label: "D+2",
+    });
   });
 
   test("마감이 없으면 전부 null 이다", () => {
-    expect(deadlineState(null, "2026-10-06")).toEqual({ dday: null, urgent: false, label: null });
+    expect(deadlineState(null, "2026-10-06")).toEqual({
+      dday: null,
+      urgent: false,
+      label: null,
+    });
   });
 });
 
 describe("isExpired (No.115·116·139)", () => {
   test("마지막 활동 후 90일이 지나면 만료, 89일이면 아직이다", () => {
-    expect(isExpired("2026-07-08T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(true);
-    expect(isExpired("2026-07-09T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(false);
+    expect(isExpired("2026-07-08T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(
+      true,
+    );
+    expect(isExpired("2026-07-09T00:00:00Z", "2026-10-06T00:00:00Z")).toBe(
+      false,
+    );
   });
 
   test("기준 일수를 바꿀 수 있다", () => {
-    expect(isExpired("2026-10-01T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(true);
-    expect(isExpired("2026-10-02T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(false);
+    expect(isExpired("2026-10-01T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(
+      true,
+    );
+    expect(isExpired("2026-10-02T00:00:00Z", "2026-10-06T00:00:00Z", 5)).toBe(
+      false,
+    );
   });
 });
 
@@ -288,29 +337,49 @@ describe("careerChanged (No.56·147)", () => {
 
 describe("shouldProposePromotion (No.21)", () => {
   test("학년도 전환 3월 1일(KST) 이전엔 제안하지 않고 당일부터 제안한다", () => {
-    const profile = { grade: 1, semester: 2, updatedAt: "2026-01-10T00:00:00+09:00" } as const;
-    expect(shouldProposePromotion(profile, "2026-02-28T23:59:59+09:00")).toEqual({
+    const profile = {
+      grade: 1,
+      semester: 2,
+      updatedAt: "2026-01-10T00:00:00+09:00",
+    } as const;
+    expect(
+      shouldProposePromotion(profile, "2026-02-28T23:59:59+09:00"),
+    ).toEqual({
       propose: false,
       next: null,
     });
-    expect(shouldProposePromotion(profile, "2026-03-01T00:00:00+09:00")).toEqual({
+    expect(
+      shouldProposePromotion(profile, "2026-03-01T00:00:00+09:00"),
+    ).toEqual({
       propose: true,
       next: { grade: 2, semester: 1 },
     });
   });
 
   test("같은 학년도에 갱신했으면 제안하지 않는다", () => {
-    const profile = { grade: 2, semester: 1, updatedAt: "2026-03-02T00:00:00+09:00" } as const;
-    expect(shouldProposePromotion(profile, "2027-02-28T00:00:00+09:00").propose).toBe(false);
+    const profile = {
+      grade: 2,
+      semester: 1,
+      updatedAt: "2026-03-02T00:00:00+09:00",
+    } as const;
+    expect(
+      shouldProposePromotion(profile, "2027-02-28T00:00:00+09:00").propose,
+    ).toBe(false);
   });
 
   test("고2 는 고3 1학기를 제안하고 고3 은 제안하지 않는다(졸업 처리는 결정 대기)", () => {
     const old = "2026-04-01T00:00:00+09:00";
     expect(
-      shouldProposePromotion({ grade: 2, semester: 2, updatedAt: old }, "2027-03-05T00:00:00+09:00").next,
+      shouldProposePromotion(
+        { grade: 2, semester: 2, updatedAt: old },
+        "2027-03-05T00:00:00+09:00",
+      ).next,
     ).toEqual({ grade: 3, semester: 1 });
     expect(
-      shouldProposePromotion({ grade: 3, semester: 2, updatedAt: old }, "2027-03-05T00:00:00+09:00"),
+      shouldProposePromotion(
+        { grade: 3, semester: 2, updatedAt: old },
+        "2027-03-05T00:00:00+09:00",
+      ),
     ).toEqual({ propose: false, next: null });
   });
 });

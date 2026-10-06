@@ -46,8 +46,12 @@ describe("computeConsistency", () => {
     expect(computeConsistency(makeActivities(6, 10)).verdict).toBe("clear");
     expect(computeConsistency(makeActivities(7, 20)).percent).toBe(35);
     expect(computeConsistency(makeActivities(7, 20)).verdict).toBe("splitting");
-    expect(computeConsistency(makeActivities(34, 100)).verdict).toBe("scattered");
-    expect(computeConsistency(makeActivities(59, 100)).verdict).toBe("splitting");
+    expect(computeConsistency(makeActivities(34, 100)).verdict).toBe(
+      "scattered",
+    );
+    expect(computeConsistency(makeActivities(59, 100)).verdict).toBe(
+      "splitting",
+    );
   });
 
   test("한 활동에서 여러 신호가 나와도 분자에서는 1건으로만 센다(No.62)", () => {
@@ -110,8 +114,16 @@ describe("linkedBreakdown", () => {
       { id: "d", signals: [] },
     ];
     expect(linkedBreakdown(activities)).toEqual([
-      { id: "a", primarySignal: "axis_match", signals: ["grade_link", "axis_match"] },
-      { id: "b", primarySignal: "subject_link", signals: ["grade_link", "subject_link"] },
+      {
+        id: "a",
+        primarySignal: "axis_match",
+        signals: ["grade_link", "axis_match"],
+      },
+      {
+        id: "b",
+        primarySignal: "subject_link",
+        signals: ["grade_link", "subject_link"],
+      },
       { id: "c", primarySignal: "grade_link", signals: ["grade_link"] },
     ]);
   });

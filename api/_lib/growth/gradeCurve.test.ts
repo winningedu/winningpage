@@ -116,22 +116,36 @@ describe("judgeCurve", () => {
 
 describe("adjustEstimate", () => {
   test("rising 보정은 빼고(유리) 라벨을 만든다 (No.77, 부호 회귀)", () => {
-    const r = adjustEstimate({ actualAverage: 2.3, verdict: "rising", system: "five" });
+    const r = adjustEstimate({
+      actualAverage: 2.3,
+      verdict: "rising",
+      system: "five",
+    });
     expect(r.estimate).toBeCloseTo(2.15, 10);
     expect(r.correction).toBeCloseTo(-0.15, 10);
     expect(r.label).toBe("상승곡선, 5등급제 기준 0.15");
   });
 
   test("falling 보정은 더한다(불리) (No.77, 부호 회귀)", () => {
-    const r = adjustEstimate({ actualAverage: 2.3, verdict: "falling", system: "five" });
+    const r = adjustEstimate({
+      actualAverage: 2.3,
+      verdict: "falling",
+      system: "five",
+    });
     expect(r.estimate).toBeCloseTo(2.45, 10);
     expect(r.correction).toBeCloseTo(0.15, 10);
     expect(r.label).toBe("하향곡선, 5등급제 기준 0.15");
   });
 
   test("nine 보정 폭은 0.3", () => {
-    expect(adjustEstimate({ actualAverage: 3, verdict: "rising", system: "nine" }).estimate).toBeCloseTo(2.7, 10);
-    expect(adjustEstimate({ actualAverage: 3, verdict: "falling", system: "nine" }).estimate).toBeCloseTo(3.3, 10);
+    expect(
+      adjustEstimate({ actualAverage: 3, verdict: "rising", system: "nine" })
+        .estimate,
+    ).toBeCloseTo(2.7, 10);
+    expect(
+      adjustEstimate({ actualAverage: 3, verdict: "falling", system: "nine" })
+        .estimate,
+    ).toBeCloseTo(3.3, 10);
   });
 
   test("flat 과 not_judgeable 은 보정 0", () => {
@@ -143,13 +157,21 @@ describe("adjustEstimate", () => {
   });
 
   test("actualAverage 가 null 이면 estimate null, correction 0", () => {
-    const r = adjustEstimate({ actualAverage: null, verdict: "rising", system: "five" });
+    const r = adjustEstimate({
+      actualAverage: null,
+      verdict: "rising",
+      system: "five",
+    });
     expect(r.estimate).toBeNull();
     expect(r.correction).toBe(0);
   });
 
   test("체계 범위를 벗어나도 클램프하지 않는다", () => {
-    const r = adjustEstimate({ actualAverage: 1.05, verdict: "rising", system: "five" });
+    const r = adjustEstimate({
+      actualAverage: 1.05,
+      verdict: "rising",
+      system: "five",
+    });
     expect(r.estimate).toBeCloseTo(0.9, 10);
   });
 });
@@ -176,7 +198,11 @@ describe("curveSummary", () => {
   });
 
   test("nine 의 thresholdText 는 0.5등급", () => {
-    const r = curveSummary({ system: "nine", actualAverage: null, semesterAverages: [] });
+    const r = curveSummary({
+      system: "nine",
+      actualAverage: null,
+      semesterAverages: [],
+    });
     expect(r.thresholdText).toContain("9등급제는 학년 간 0.5등급");
     expect(r.estimate).toBeNull();
     expect(r.verdict).toBe("not_judgeable");

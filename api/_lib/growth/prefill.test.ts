@@ -37,17 +37,25 @@ describe("prefillSurveyFromDiagnosis — q5 진로 확정 정도(No.34)", () => 
 
 describe("prefillSurveyFromDiagnosis — q10·q11·q24·비객체(No.34)", () => {
   test("targetMajor 가 있으면 q10 을 {name, source} 로 채운다", () => {
-    const r = prefillSurveyFromDiagnosis({ goal: { targetMajor: " 경영학과 " } });
+    const r = prefillSurveyFromDiagnosis({
+      goal: { targetMajor: " 경영학과 " },
+    });
     expect(r.q10).toEqual({ name: "경영학과", source: "diagnosis" });
   });
 
   test("targetMajor 가 비어 있으면 q10 을 비운다", () => {
-    expect(prefillSurveyFromDiagnosis({ goal: { targetMajor: "  " } }).q10).toBeUndefined();
-    expect(prefillSurveyFromDiagnosis({ goal: { targetMajor: null } }).q10).toBeUndefined();
+    expect(
+      prefillSurveyFromDiagnosis({ goal: { targetMajor: "  " } }).q10,
+    ).toBeUndefined();
+    expect(
+      prefillSurveyFromDiagnosis({ goal: { targetMajor: null } }).q10,
+    ).toBeUndefined();
   });
 
   test("targetUniversity 가 있으면 q11 을 1곳짜리 배열로 채운다", () => {
-    const r = prefillSurveyFromDiagnosis({ goal: { targetUniversity: "연세대" } });
+    const r = prefillSurveyFromDiagnosis({
+      goal: { targetUniversity: "연세대" },
+    });
     expect(r.q11).toEqual([{ name: "연세대", source: "diagnosis" }]);
   });
 
@@ -56,14 +64,23 @@ describe("prefillSurveyFromDiagnosis — q10·q11·q24·비객체(No.34)", () =>
   });
 
   test("schedule 코드는 주당 시간과 대응하지 않아 q24 를 지어내지 않는다", () => {
-    for (const schedule of ["PA_7D", "EXAM_2W", "MONTH_1", "SUSI", "NONE", "UNKNOWN"]) {
+    for (const schedule of [
+      "PA_7D",
+      "EXAM_2W",
+      "MONTH_1",
+      "SUSI",
+      "NONE",
+      "UNKNOWN",
+    ]) {
       expect(prefillSurveyFromDiagnosis({ schedule }).q24).toBeUndefined();
     }
   });
 
   test("snapshot 이 객체가 아니면 빈 결과다", () => {
     for (const bad of [null, undefined, "x", 3, []]) {
-      expect(prefillSurveyFromDiagnosis(bad)).toEqual({ filledFrom: "diagnosis" });
+      expect(prefillSurveyFromDiagnosis(bad)).toEqual({
+        filledFrom: "diagnosis",
+      });
     }
   });
 });
@@ -75,32 +92,52 @@ describe("initialStudentProfileFromGoal(No.19·20)", () => {
 
   test("department 는 ideal_department 를 우선하고 없으면 min_department 를 쓴다", () => {
     expect(
-      initialStudentProfileFromGoal({ ideal_department: "의예", min_department: "생명" }).department,
+      initialStudentProfileFromGoal({
+        ideal_department: "의예",
+        min_department: "생명",
+      }).department,
     ).toBe("의예");
     expect(
-      initialStudentProfileFromGoal({ ideal_department: " ", min_department: "생명" }).department,
+      initialStudentProfileFromGoal({
+        ideal_department: " ",
+        min_department: "생명",
+      }).department,
     ).toBe("생명");
   });
 
   test("universities 는 비지 않은 것만, 중복 제거, 최대 2곳이다", () => {
     expect(
-      initialStudentProfileFromGoal({ ideal_university: "서울대", min_university: "고려대" }).universities,
+      initialStudentProfileFromGoal({
+        ideal_university: "서울대",
+        min_university: "고려대",
+      }).universities,
     ).toEqual(["서울대", "고려대"]);
     expect(
-      initialStudentProfileFromGoal({ ideal_university: "서울대", min_university: "서울대" }).universities,
+      initialStudentProfileFromGoal({
+        ideal_university: "서울대",
+        min_university: "서울대",
+      }).universities,
     ).toEqual(["서울대"]);
     expect(
-      initialStudentProfileFromGoal({ ideal_university: "", min_university: null }).universities,
+      initialStudentProfileFromGoal({
+        ideal_university: "",
+        min_university: null,
+      }).universities,
     ).toBeUndefined();
   });
 
   test("grade 는 고1·고2·고3 일 때만 채운다", () => {
     expect(initialStudentProfileFromGoal({ grade: "고2" }).grade).toBe("고2");
-    expect(initialStudentProfileFromGoal({ grade: "중3" }).grade).toBeUndefined();
+    expect(
+      initialStudentProfileFromGoal({ grade: "중3" }).grade,
+    ).toBeUndefined();
   });
 
   test("schoolType 은 school_type 그대로 옮기고 career 는 절대 채우지 않는다", () => {
-    const r = initialStudentProfileFromGoal({ school_type: "일반고", career: "의사" });
+    const r = initialStudentProfileFromGoal({
+      school_type: "일반고",
+      career: "의사",
+    });
     expect(r.schoolType).toBe("일반고");
     expect("career" in r).toBe(false);
   });
@@ -117,19 +154,16 @@ const exam = (key: string, subjects: [string, unknown][], group = "all") => ({
 });
 
 describe("semesterSubjectsFromNaesin(No.19)", () => {
-  test.each([
-    "고1 1학기",
-    "1-1",
-    "1학년 1학기",
-    "고1-1",
-    "1학년 1학기 기말",
-  ])("key '%s' 를 '고1-1' 로 정규화한다", (key) => {
-    const r = semesterSubjectsFromNaesin({
-      naesinExams: [exam(key, [["국어", 2]])],
-    });
-    expect(r.semesters.map((x) => x.key)).toEqual(["고1-1"]);
-    expect(r.skipped).toEqual([]);
-  });
+  test.each(["고1 1학기", "1-1", "1학년 1학기", "고1-1", "1학년 1학기 기말"])(
+    "key '%s' 를 '고1-1' 로 정규화한다",
+    (key) => {
+      const r = semesterSubjectsFromNaesin({
+        naesinExams: [exam(key, [["국어", 2]])],
+      });
+      expect(r.semesters.map((x) => x.key)).toEqual(["고1-1"]);
+      expect(r.skipped).toEqual([]);
+    },
+  );
 
   test("naesinExams 가 배열 자체로 와도 읽는다", () => {
     const r = semesterSubjectsFromNaesin([exam("2-2", [["수학", 3]])]);
@@ -162,7 +196,13 @@ describe("semesterSubjectsFromNaesin(No.19)", () => {
       {
         key: "1-1",
         groups: {
-          a: { avg: 2, subjects: [{ name: "국어", grade: 2 }, { name: "음악", grade: "P" }] },
+          a: {
+            avg: 2,
+            subjects: [
+              { name: "국어", grade: 2 },
+              { name: "음악", grade: "P" },
+            ],
+          },
           b: { avg: 3, subjects: [{ name: "수학", grade: 3 }] },
         },
       },
@@ -174,19 +214,27 @@ describe("semesterSubjectsFromNaesin(No.19)", () => {
   });
 
   test("파싱 불가한 key 는 건너뛰고 skipped 에 담는다", () => {
-    const r = semesterSubjectsFromNaesin([exam("모의고사", [["국어", 2]]), exam("1-2", [["국어", 2]])]);
+    const r = semesterSubjectsFromNaesin([
+      exam("모의고사", [["국어", 2]]),
+      exam("1-2", [["국어", 2]]),
+    ]);
     expect(r.semesters.map((x) => x.key)).toEqual(["고1-2"]);
     expect(r.skipped).toEqual(["모의고사"]);
   });
 
   test("입력이 배열이 아니면 빈 결과다", () => {
-    expect(semesterSubjectsFromNaesin(null)).toEqual({ semesters: [], skipped: [] });
+    expect(semesterSubjectsFromNaesin(null)).toEqual({
+      semesters: [],
+      skipped: [],
+    });
   });
 });
 
 describe("semesterAverageInputs", () => {
   test("각 학기를 {key, subjects} 로 넘긴다", () => {
-    const { semesters } = semesterSubjectsFromNaesin([exam("1-1", [["국어", 2]])]);
+    const { semesters } = semesterSubjectsFromNaesin([
+      exam("1-1", [["국어", 2]]),
+    ]);
     expect(semesterAverageInputs(semesters)).toEqual([
       { key: "고1-1", subjects: [{ name: "국어", grade: 2 }] },
     ]);
@@ -222,10 +270,17 @@ describe("autoFilledFromActivities(No.33·143)", () => {
       },
       { sources: "문자열 단독" },
     ]);
-    expect(r.books).toEqual(["『사피엔스』", "코스모스(저 칼 세이건)", "총 균 쇠"]);
+    expect(r.books).toEqual([
+      "『사피엔스』",
+      "코스모스(저 칼 세이건)",
+      "총 균 쇠",
+    ]);
   });
 
   test("근거가 없으면 빈 배열이다", () => {
-    expect(autoFilledFromActivities([])).toEqual({ favoriteSubjects: [], books: [] });
+    expect(autoFilledFromActivities([])).toEqual({
+      favoriteSubjects: [],
+      books: [],
+    });
   });
 });

@@ -1,6 +1,8 @@
 // 성장설계 초기값 채우기(prefill). 다른 서비스 데이터에서 설문·프로필 초기값을 만든다.
 // 순수 함수. 값이 없으면 undefined 로 비워 둔다(임의 기본값 금지).
 
+import type { HighGrade } from "./types.js";
+
 type Rec = Record<string, unknown>;
 
 const isRec = (v: unknown): v is Rec =>
@@ -38,7 +40,10 @@ export function prefillSurveyFromDiagnosis(snapshot: unknown): SurveyPrefill {
   const result: SurveyPrefill = { filledFrom: "diagnosis" };
   if (!isRec(snapshot)) return result;
   const goal = isRec(snapshot.goal) ? snapshot.goal : {};
-  if (typeof goal.level === "string" && Object.hasOwn(Q5_BY_LEVEL, goal.level)) {
+  if (
+    typeof goal.level === "string" &&
+    Object.hasOwn(Q5_BY_LEVEL, goal.level)
+  ) {
     result.q5 = Q5_BY_LEVEL[goal.level];
   }
   const major = nonEmptyText(goal.targetMajor);
@@ -58,7 +63,7 @@ export type GoalStudentProfile = {
   career?: undefined;
   department?: string;
   universities?: string[];
-  grade?: "고1" | "고2" | "고3";
+  grade?: HighGrade;
   schoolType?: string;
   source: "goal";
 };
@@ -97,7 +102,8 @@ export type SemesterSubjects = {
 };
 
 /** exam.key → "고N-M". 학년(1~3)과 학기(1~2)를 못 찾으면 undefined. */
-const SEMESTER_PATTERN = /(?:고\s*)?([1-3])\s*(?:학년|-|\s)\s*([12])(?:\s*학기)?/;
+const SEMESTER_PATTERN =
+  /(?:고\s*)?([1-3])\s*(?:학년|-|\s)\s*([12])(?:\s*학기)?/;
 
 function normalizeSemesterKey(key: string): string | undefined {
   const m = SEMESTER_PATTERN.exec(key);
@@ -111,7 +117,8 @@ function flattenSubjects(exam: Rec): { name: string; grade: number }[] {
     if (!isRec(group) || !Array.isArray(group.subjects)) continue;
     for (const subject of group.subjects) {
       if (!isRec(subject) || typeof subject.name !== "string") continue;
-      if (typeof subject.grade !== "number" || !Number.isFinite(subject.grade)) continue;
+      if (typeof subject.grade !== "number" || !Number.isFinite(subject.grade))
+        continue;
       out.push({ name: subject.name, grade: subject.grade });
     }
   }

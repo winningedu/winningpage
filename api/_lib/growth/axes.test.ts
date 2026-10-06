@@ -1,11 +1,22 @@
 // 성장설계 5축 판정 모듈 테스트(명세 No.64~72, 103, 152).
 import { describe, expect, test } from "vitest";
-import { AXIS_REQUIREMENTS, countAxisEvidence, evaluateAxes, judgeAxis, shortfalls, weakestAxis, AXIS_TO_UNIVERSITY_FACTORS, projectAxes } from "./axes.js";
+import {
+  AXIS_REQUIREMENTS,
+  countAxisEvidence,
+  evaluateAxes,
+  judgeAxis,
+  shortfalls,
+  weakestAxis,
+  AXIS_TO_UNIVERSITY_FACTORS,
+  projectAxes,
+} from "./axes.js";
 
 describe("AXIS_REQUIREMENTS (No.66~70)", () => {
   test("학년별 축별 요구 건수 15개가 명세와 같다", () => {
     const required = (g: "고1" | "고2" | "고3") =>
-      (["A", "B", "C", "D", "E"] as const).map((a) => AXIS_REQUIREMENTS[g][a].required);
+      (["A", "B", "C", "D", "E"] as const).map(
+        (a) => AXIS_REQUIREMENTS[g][a].required,
+      );
     expect(required("고1")).toEqual([3, 1, 2, 2, 1]);
     expect(required("고2")).toEqual([5, 4, 2, 1, 2]);
     expect(required("고3")).toEqual([3, 6, 2, 1, 2]);
@@ -48,10 +59,18 @@ describe("judgeAxis (No.65)", () => {
 });
 
 describe("evaluateAxes / shortfalls (No.71)", () => {
-  const ev = (activityId: string, axis: "A" | "B" | "C" | "D" | "E") => ({ activityId, axis });
+  const ev = (activityId: string, axis: "A" | "B" | "C" | "D" | "E") => ({
+    activityId,
+    axis,
+  });
 
   test("다섯 축 각각 건수, 판정, 한글 라벨, 지침을 담는다", () => {
-    const r = evaluateAxes("고1", [ev("a1", "A"), ev("a2", "A"), ev("a3", "A"), ev("a1", "D")]);
+    const r = evaluateAxes("고1", [
+      ev("a1", "A"),
+      ev("a2", "A"),
+      ev("a3", "A"),
+      ev("a1", "D"),
+    ]);
     expect(r.map((x) => x.axis)).toEqual(["A", "B", "C", "D", "E"]);
     const a = r[0];
     expect(a).toMatchObject({
@@ -69,7 +88,9 @@ describe("evaluateAxes / shortfalls (No.71)", () => {
   });
 
   test("gradeFilterIds 가 있으면 그 활동만 센다", () => {
-    const r = evaluateAxes("고1", [ev("a1", "A"), ev("a2", "A")], { gradeFilterIds: ["a2"] });
+    const r = evaluateAxes("고1", [ev("a1", "A"), ev("a2", "A")], {
+      gradeFilterIds: ["a2"],
+    });
     expect(r[0]?.count).toBe(1);
     expect(r[0]?.activityIds).toEqual(["a2"]);
   });
@@ -122,12 +143,17 @@ describe("weakestAxis", () => {
 
 describe("AXIS_TO_UNIVERSITY_FACTORS (No.72)", () => {
   test("시안 2부 머리 표 문구와 같다", () => {
-    expect(AXIS_TO_UNIVERSITY_FACTORS.A).toEqual({ factor: "학업역량", detail: "학업성취도, 학업태도" });
+    expect(AXIS_TO_UNIVERSITY_FACTORS.A).toEqual({
+      factor: "학업역량",
+      detail: "학업성취도, 학업태도",
+    });
     expect(AXIS_TO_UNIVERSITY_FACTORS.B).toEqual({
       factor: "진로역량",
       detail: "계열 관련 교과 이수 노력, 계열 관련 교과 성취도",
     });
-    expect(AXIS_TO_UNIVERSITY_FACTORS.C.detail).toBe("학업역량의 탐구력, 진로역량의 진로 탐색 활동과 경험");
+    expect(AXIS_TO_UNIVERSITY_FACTORS.C.detail).toBe(
+      "학업역량의 탐구력, 진로역량의 진로 탐색 활동과 경험",
+    );
     expect(AXIS_TO_UNIVERSITY_FACTORS.D).toEqual({
       factor: "공동체역량",
       detail: "협업과 소통, 나눔과 배려, 성실성과 규칙준수, 리더십",
@@ -140,8 +166,18 @@ describe("AXIS_TO_UNIVERSITY_FACTORS (No.72)", () => {
 
 describe("projectAxes (No.103)", () => {
   test("D 가 0건일 때 활동 3건을 더하면 confirmed 가 된다", () => {
-    const r = projectAxes({ A: 0, B: 0, C: 0, D: 0, E: 0 }, [{ axis: "D" }, { axis: "D" }, { axis: "D" }], "고2");
-    expect(r.find((x) => x.axis === "D")).toMatchObject({ count: 3, verdict: "confirmed" });
-    expect(r.find((x) => x.axis === "A")).toMatchObject({ count: 0, verdict: "none" });
+    const r = projectAxes(
+      { A: 0, B: 0, C: 0, D: 0, E: 0 },
+      [{ axis: "D" }, { axis: "D" }, { axis: "D" }],
+      "고2",
+    );
+    expect(r.find((x) => x.axis === "D")).toMatchObject({
+      count: 3,
+      verdict: "confirmed",
+    });
+    expect(r.find((x) => x.axis === "A")).toMatchObject({
+      count: 0,
+      verdict: "none",
+    });
   });
 });

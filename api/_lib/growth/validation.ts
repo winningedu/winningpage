@@ -58,10 +58,16 @@ export function validateStep(
   context: ValidationContext,
 ): ValidationResult {
   const issues: ValidationIssue[] = [];
-  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+  if (
+    payload === null ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
     return {
       ok: false,
-      issues: [{ code: "invalid_payload", message: "응답이 객체 형식이 아닙니다." }],
+      issues: [
+        { code: "invalid_payload", message: "응답이 객체 형식이 아닙니다." },
+      ],
     };
   }
   for (const phrase of findForbiddenPhrases(collectText(payload))) {
@@ -70,10 +76,16 @@ export function validateStep(
       message: `금지 표현 "${phrase}" 이(가) 포함되어 있습니다.`,
     });
   }
-  if (step === 5) issues.push(...checkFormula(payload as Record<string, unknown>));
-  if (step === 6 || step === 7) issues.push(...checkEvidence(readSections(payload)));
-  if (step === 7) issues.push(...checkTopicGenerated(payload, context.topicPatterns));
-  if (step === 8) issues.push(...checkFinalReport(readSections(payload), context.expectedSectionIds));
+  if (step === 5)
+    issues.push(...checkFormula(payload as Record<string, unknown>));
+  if (step === 6 || step === 7)
+    issues.push(...checkEvidence(readSections(payload)));
+  if (step === 7)
+    issues.push(...checkTopicGenerated(payload, context.topicPatterns));
+  if (step === 8)
+    issues.push(
+      ...checkFinalReport(readSections(payload), context.expectedSectionIds),
+    );
   return { ok: issues.length === 0, issues };
 }
 
@@ -86,21 +98,28 @@ export const DEFAULT_TOPIC_PATTERNS: readonly RegExp[] = [
 ];
 
 // 7단계: 성장설계는 방향과 조건까지만 제시한다. 구체 주제 제시를 탐지한다.
-function checkTopicGenerated(payload: unknown, custom?: RegExp[]): ValidationIssue[] {
+function checkTopicGenerated(
+  payload: unknown,
+  custom?: RegExp[],
+): ValidationIssue[] {
   const patterns = custom ?? DEFAULT_TOPIC_PATTERNS;
   const text = collectText(payload);
   return patterns.some((re) => re.test(text))
     ? [
         {
           code: "topic_generated",
-          message: "구체적인 탐구 주제가 생성되었습니다. 방향과 조건까지만 제시해야 합니다.",
+          message:
+            "구체적인 탐구 주제가 생성되었습니다. 방향과 조건까지만 제시해야 합니다.",
         },
       ]
     : [];
 }
 
 // 8단계: 섹션 id 집합 일치, 외부 데이터가 없는 항목도 no_data 로 존재(No.87), format·badge 필수.
-function checkFinalReport(sections: SectionItem[], expected: string[]): ValidationIssue[] {
+function checkFinalReport(
+  sections: SectionItem[],
+  expected: string[],
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const present = new Set(sections.map((s) => s.id));
   for (const id of expected) {
@@ -122,10 +141,18 @@ function checkFinalReport(sections: SectionItem[], expected: string[]): Validati
       });
     }
     if (!s.format) {
-      issues.push({ code: "missing_format", message: `섹션 "${s.id}" 에 format 이 없습니다.`, path: s.id });
+      issues.push({
+        code: "missing_format",
+        message: `섹션 "${s.id}" 에 format 이 없습니다.`,
+        path: s.id,
+      });
     }
     if (!s.badge) {
-      issues.push({ code: "missing_badge", message: `섹션 "${s.id}" 에 badge 가 없습니다.`, path: s.id });
+      issues.push({
+        code: "missing_badge",
+        message: `섹션 "${s.id}" 에 badge 가 없습니다.`,
+        path: s.id,
+      });
     }
   }
   return issues;
@@ -137,7 +164,9 @@ function readSections(payload: unknown): SectionItem[] {
   if (!Array.isArray(sections)) return [];
   return sections.filter(
     (s): s is SectionItem =>
-      s !== null && typeof s === "object" && typeof (s as SectionItem).id === "string",
+      s !== null &&
+      typeof s === "object" &&
+      typeof (s as SectionItem).id === "string",
   );
 }
 
@@ -156,7 +185,13 @@ function checkEvidence(sections: SectionItem[]): ValidationIssue[] {
 function checkFormula(payload: Record<string, unknown>): ValidationIssue[] {
   const formula = payload.formula;
   if (typeof formula !== "string" || formula.trim() === "") {
-    return [{ code: "missing_formula", message: "계산식(formula)이 포함되어야 합니다.", path: "formula" }];
+    return [
+      {
+        code: "missing_formula",
+        message: "계산식(formula)이 포함되어야 합니다.",
+        path: "formula",
+      },
+    ];
   }
   const hasDivision = formula.includes("÷") || formula.includes("/");
   if (!hasDivision || !formula.includes("%")) {
@@ -184,6 +219,9 @@ export function buildRetryNote(issues: ValidationIssue[]): string[] {
 }
 
 /** 누적 시도 횟수가 상한 미만이면 재시도 가능. */
-export function canRetry(attemptCount: number, max = MAX_MODEL_ATTEMPTS_PER_SESSION): boolean {
+export function canRetry(
+  attemptCount: number,
+  max = MAX_MODEL_ATTEMPTS_PER_SESSION,
+): boolean {
   return attemptCount < max;
 }

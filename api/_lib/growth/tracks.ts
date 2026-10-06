@@ -1,13 +1,27 @@
 // 성장설계 트랙 규칙 모듈(순수 함수). 명세 번호는 각 함수 주석 참고.
 
-export type Track = "고1" | "고2" | "고3" | "졸업" | "N수";
-export type SemesterKey = "고1-1" | "고1-2" | "고2-1" | "고2-2" | "고3-1" | "고3-2";
+import type { SemesterKey, Track } from "./types.js";
+
+export type { SemesterKey, Track };
 
 export type AnalysisRange = { semesters: SemesterKey[]; description: string };
 
-const ALL_SEMESTERS: SemesterKey[] = ["고1-1", "고1-2", "고2-1", "고2-2", "고3-1", "고3-2"];
+const ALL_SEMESTERS: SemesterKey[] = [
+  "고1-1",
+  "고1-2",
+  "고2-1",
+  "고2-2",
+  "고3-1",
+  "고3-2",
+];
 
-const RANGE_GRADE: Record<Track, 1 | 2 | 3> = { 고1: 1, 고2: 2, 고3: 3, 졸업: 3, N수: 3 };
+const RANGE_GRADE: Record<Track, 1 | 2 | 3> = {
+  고1: 1,
+  고2: 2,
+  고3: 3,
+  졸업: 3,
+  N수: 3,
+};
 
 const RANGE_DESCRIPTION: Record<Track, string> = {
   고1: "1학년 현재까지가 분석 범위예요.",
@@ -111,7 +125,11 @@ export type PlanItem = {
   priority: PlanPriority;
 };
 
-const PERIOD_ORDER: Record<PlanPeriod, number> = { course_selection: 0, semester: 1, vacation: 2 };
+const PERIOD_ORDER: Record<PlanPeriod, number> = {
+  course_selection: 0,
+  semester: 1,
+  vacation: 2,
+};
 const MAX_PER_PRIORITY = 3;
 
 /** 실행계획 배치(No.98·99): 과목 선택(마감 빠른 순) → 남은 학기 → 방학, 묶음 안은 required 우선. 안정 정렬. */
@@ -130,7 +148,9 @@ export function orderPlanPeriods<T extends PlanItem>(items: readonly T[]): T[] {
           return da < db ? -1 : 1;
         }
       }
-      const byPriority = Number(a.it.priority !== "required") - Number(b.it.priority !== "required");
+      const byPriority =
+        Number(a.it.priority !== "required") -
+        Number(b.it.priority !== "required");
       return byPriority !== 0 ? byPriority : a.index - b.index;
     })
     .map(({ it }) => it);
@@ -188,23 +208,34 @@ export function isExpired(
 
 export type ReportRef = { id: string; status: string; issuedAt: string };
 
-function latestOf<T extends ReportRef>(reports: readonly T[], match: (r: T) => boolean): T | null {
+function latestOf<T extends ReportRef>(
+  reports: readonly T[],
+  match: (r: T) => boolean,
+): T | null {
   let found: T | null = null;
   for (const r of reports) {
     if (!match(r)) continue;
-    if (!found || Date.parse(r.issuedAt) > Date.parse(found.issuedAt)) found = r;
+    if (!found || Date.parse(r.issuedAt) > Date.parse(found.issuedAt))
+      found = r;
   }
   return found;
 }
 
 /** 현재 유효한 회차: 가장 최근 completed 1개(No.115·116). */
-export function activeReport<T extends ReportRef>(reports: readonly T[]): T | null {
+export function activeReport<T extends ReportRef>(
+  reports: readonly T[],
+): T | null {
   return latestOf(reports, (r) => r.status === "completed");
 }
 
 /** 진행 중인 회차: draft 또는 in_progress 1개, 여럿이면 최신(No.115·116). */
-export function openReport<T extends ReportRef>(reports: readonly T[]): T | null {
-  return latestOf(reports, (r) => r.status === "draft" || r.status === "in_progress");
+export function openReport<T extends ReportRef>(
+  reports: readonly T[],
+): T | null {
+  return latestOf(
+    reports,
+    (r) => r.status === "draft" || r.status === "in_progress",
+  );
 }
 
 function normalizeCareer(value: string | null): string {
@@ -212,7 +243,10 @@ function normalizeCareer(value: string | null): string {
 }
 
 /** 진로 변경 감지(No.56·147): 공백 정규화 후 비교. 이전 값이 없으면 변경이 아니다. */
-export function careerChanged(previous: string | null, current: string | null): boolean {
+export function careerChanged(
+  previous: string | null,
+  current: string | null,
+): boolean {
   if (previous === null) return false;
   return normalizeCareer(previous) !== normalizeCareer(current);
 }
@@ -235,5 +269,8 @@ export function shouldProposePromotion(
 ): { propose: boolean; next: { grade: 2 | 3; semester: 1 } | null } {
   const stale = academicYear(profile.updatedAt) < academicYear(now);
   if (!stale || profile.grade === 3) return { propose: false, next: null };
-  return { propose: true, next: { grade: profile.grade === 1 ? 2 : 3, semester: 1 } };
+  return {
+    propose: true,
+    next: { grade: profile.grade === 1 ? 2 : 3, semester: 1 },
+  };
 }

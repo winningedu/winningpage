@@ -1,5 +1,7 @@
 // 성장설계 성적 곡선 판정·보정(No.61·76·77). 순수 함수만.
-export type GradeSystem = "five" | "nine";
+import type { GradeSystem } from "./types.js";
+
+export type { GradeSystem };
 export type CurveVerdict = "rising" | "falling" | "flat" | "not_judgeable";
 
 export type SemesterAverage = { key: string; average: number | null };

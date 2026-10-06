@@ -30,7 +30,7 @@ export type ConsistencyResult = {
 const CLEAR_MIN = 60;
 const SPLITTING_MIN = 35;
 
-const VERDICT_LABEL: Record<ConsistencyVerdict, string> = {
+export const VERDICT_LABEL: Record<ConsistencyVerdict, string> = {
   clear: "뚜렷함",
   splitting: "갈리는 중",
   scattered: "흩어짐",
@@ -71,7 +71,13 @@ export function computeConsistency(
     smallSample: total < SMALL_SAMPLE_BELOW,
   };
   if (total === 0) {
-    return { ...base, percent: null, formula: "", verdict: null, verdictLabel: null };
+    return {
+      ...base,
+      percent: null,
+      formula: "",
+      verdict: null,
+      verdictLabel: null,
+    };
   }
   const percent = toPercent(linked, total);
   const verdict = judge(percent);
@@ -86,7 +92,11 @@ export function computeConsistency(
 }
 
 /** 대표 신호 우선순위: 축 일치 > 과목 간 > 학년 간(시안 1-10). */
-const SIGNAL_PRIORITY: LinkSignal[] = ["axis_match", "subject_link", "grade_link"];
+const SIGNAL_PRIORITY: LinkSignal[] = [
+  "axis_match",
+  "subject_link",
+  "grade_link",
+];
 
 export type LinkedBreakdownItem = {
   id: string;
