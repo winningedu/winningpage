@@ -47,7 +47,7 @@ const mypageRoutes: RouteObject[] = [
     HydrateFallback: AuthCheckingFallback,
   },
 
-  // 학부모가 자녀의 성장설계 리포트를 여는 뷰어(알림톡 "리포트 보기" 진입, 목록 → 회차 상세).
+  // 학부모가 자녀의 성장설계 리포트를 여는 뷰어(알림톡 "리포트 보기" 진입, 목록에서 회차 상세로).
   // 같은 셸 원칙(SiteLayout 안, fn_parent_children 게이트)이고 서버가 연결 여부를 다시 확인한다.
   // 알림톡으로만 들어오는 화면이라 lazy 로 초기 번들에서 뺀다(청크 대기 중에도 AuthCheckingFallback).
   {

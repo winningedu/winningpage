@@ -46,7 +46,7 @@ export default function ChildGrowthReport() {
         to={listPath}
         className="text-app-label font-medium text-ink-sub underline underline-offset-4 transition hover:text-ink"
       >
-        ← 목록으로
+        목록으로
       </Link>
       <h1 className="mt-4 text-app-title font-semibold text-ink">
         {gate.childName} 학생의 성장설계 리포트

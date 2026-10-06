@@ -43,7 +43,7 @@ export default function ChildGrowthReports() {
         to="/mypage?tab=children"
         className="text-app-label font-medium text-ink-sub underline underline-offset-4 transition hover:text-ink"
       >
-        ← 자녀 목록
+        자녀 목록으로
       </Link>
       <h1 className="mt-4 text-app-title font-semibold text-ink">
         {name} 학생의 성장설계 리포트
