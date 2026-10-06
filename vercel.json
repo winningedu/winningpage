@@ -41,6 +41,10 @@
     {
       "path": "/api/cron/monthly-report",
       "schedule": "0 23 28-31 * *"
+    },
+    {
+      "path": "/api/cron/growth-archive",
+      "schedule": "0 19 * * *"
     }
   ]
 }
