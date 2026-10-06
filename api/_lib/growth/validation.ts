@@ -1,5 +1,6 @@
 // 성장설계 생성 단계 응답 검증(No.87, No.88, No.89, No.95, No.163).
-// 외부 의존 없는 순수 함수 모음.
+// 외부 의존은 sections 모듈의 순수 검증 함수뿐이다.
+import { validateSections } from "./sections.js";
 
 /** 금지 표현 사전(모든 단계 적용, No.163). */
 export const FORBIDDEN_PHRASES: readonly string[] = [
@@ -15,13 +16,21 @@ export const FORBIDDEN_PHRASES: readonly string[] = [
   "상향권",
 ];
 
-/** 텍스트에서 발견된 금지 표현(중복 제거). */
+const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
+
+/**
+ * 텍스트에서 발견된 금지 표현(중복 제거). 입력과 사전 항목 모두 공백을 제거해 비교하고,
+ * 발견 목록은 사전 원문으로 돌려준다.
+ * ADMISSION_DISCLAIMER 같은 고지 문구는 검증 뒤 앱이 붙인다.
+ * 모델 출력에 들어 있으면 금지 표현으로 처리된다.
+ */
 export function findForbiddenPhrases(text: string): string[] {
-  return FORBIDDEN_PHRASES.filter((p) => text.includes(p));
+  const compact = stripSpaces(text);
+  return FORBIDDEN_PHRASES.filter((p) => compact.includes(stripSpaces(p)));
 }
 
-/** 섹션 항목의 느슨한 구조적 타입. */
-export type SectionItem = {
+/** 1~7단계 부분 산출물의 느슨한 항목 타입. 최종 항목 스키마는 sections.SectionItem 이다. */
+export type StepSectionDraft = {
   id: string;
   format?: string;
   badge?: string;
@@ -32,10 +41,14 @@ export type SectionItem = {
 };
 
 export type ValidationIssue = { code: string; message: string; path?: string };
-export type ValidationResult = { ok: boolean; issues: ValidationIssue[] };
+export type StepValidationResult = { ok: boolean; issues: ValidationIssue[] };
 export type ValidationContext = {
   expectedSectionIds: string[];
   topicPatterns?: RegExp[];
+  /** 5단계: 앱이 계산한 기대 계산식. 주어지면 공백 제거 후 정확히 같아야 한다. */
+  expectedFormula?: string;
+  /** 6~8단계: 주어지면 evidence_ids 가 모두 이 목록 안에 있어야 한다. */
+  knownEvidenceIds?: string[];
 };
 export type StepNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -56,7 +69,7 @@ export function validateStep(
   step: StepNumber,
   payload: unknown,
   context: ValidationContext,
-): ValidationResult {
+): StepValidationResult {
   const issues: ValidationIssue[] = [];
   if (
     payload === null ||
@@ -77,15 +90,20 @@ export function validateStep(
     });
   }
   if (step === 5)
-    issues.push(...checkFormula(payload as Record<string, unknown>));
-  if (step === 6 || step === 7)
-    issues.push(...checkEvidence(readSections(payload)));
+    issues.push(
+      ...checkFormula(
+        payload as Record<string, unknown>,
+        context.expectedFormula,
+      ),
+    );
+  if (step === 6 || step === 7 || step === 8) {
+    const drafts = readSections(payload);
+    issues.push(...checkEvidence(drafts));
+    issues.push(...checkKnownEvidence(drafts, context.knownEvidenceIds));
+  }
   if (step === 7)
     issues.push(...checkTopicGenerated(payload, context.topicPatterns));
-  if (step === 8)
-    issues.push(
-      ...checkFinalReport(readSections(payload), context.expectedSectionIds),
-    );
+  if (step === 8) issues.push(...checkFinalReport(payload, context));
   return { ok: issues.length === 0, issues };
 }
 
@@ -94,7 +112,6 @@ export const DEFAULT_TOPIC_PATTERNS: readonly RegExp[] = [
   /탐구\s*주제\s*[:：]/,
   /주제\s*[:：]\s*["“]/,
   /연구\s*주제\s*[:：]/,
-  /제목\s*[:：]/,
 ];
 
 // 7단계: 성장설계는 방향과 조건까지만 제시한다. 구체 주제 제시를 탐지한다.
@@ -115,63 +132,37 @@ function checkTopicGenerated(
     : [];
 }
 
-// 8단계: 섹션 id 집합 일치, 외부 데이터가 없는 항목도 no_data 로 존재(No.87), format·badge 필수.
+// 8단계: 항목 스키마, 레지스트리 대조, id 집합 일치는 sections.validateSections 에 위임한다.
 function checkFinalReport(
-  sections: SectionItem[],
-  expected: string[],
+  payload: unknown,
+  context: ValidationContext,
 ): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  const present = new Set(sections.map((s) => s.id));
-  for (const id of expected) {
-    if (!present.has(id)) {
-      issues.push({
-        code: "missing_section",
-        message: `섹션 "${id}" 이(가) 빠졌습니다. 데이터가 없으면 status "no_data" 로 포함해야 합니다.`,
-        path: id,
-      });
-    }
-  }
-  const expectedSet = new Set(expected);
-  for (const s of sections) {
-    if (!expectedSet.has(s.id)) {
-      issues.push({
-        code: "unexpected_section",
-        message: `정의되지 않은 섹션 "${s.id}" 이(가) 포함되어 있습니다.`,
-        path: s.id,
-      });
-    }
-    if (!s.format) {
-      issues.push({
-        code: "missing_format",
-        message: `섹션 "${s.id}" 에 format 이 없습니다.`,
-        path: s.id,
-      });
-    }
-    if (!s.badge) {
-      issues.push({
-        code: "missing_badge",
-        message: `섹션 "${s.id}" 에 badge 가 없습니다.`,
-        path: s.id,
-      });
-    }
-  }
-  return issues;
-}
-
-// payload.sections 배열에서 id 를 가진 객체 항목만 추린다.
-function readSections(payload: unknown): SectionItem[] {
-  const sections = (payload as { sections?: unknown }).sections;
-  if (!Array.isArray(sections)) return [];
-  return sections.filter(
-    (s): s is SectionItem =>
-      s !== null &&
-      typeof s === "object" &&
-      typeof (s as SectionItem).id === "string",
+  const raw = (payload as { sections?: unknown }).sections;
+  const items = Array.isArray(raw) ? raw : [];
+  return validateSections(items, context.expectedSectionIds).errors.map(
+    (message) => {
+      const id = /^([^:\s]+):/.exec(message)?.[1];
+      return id
+        ? { code: "section_schema", message, path: id }
+        : { code: "section_schema", message };
+    },
   );
 }
 
-// 6·7단계: no_data 가 아닌 항목은 근거(evidence_ids)가 1개 이상이어야 한다.
-function checkEvidence(sections: SectionItem[]): ValidationIssue[] {
+// payload.sections 배열에서 id 를 가진 객체 항목만 추린다.
+function readSections(payload: unknown): StepSectionDraft[] {
+  const sections = (payload as { sections?: unknown }).sections;
+  if (!Array.isArray(sections)) return [];
+  return sections.filter(
+    (s): s is StepSectionDraft =>
+      s !== null &&
+      typeof s === "object" &&
+      typeof (s as StepSectionDraft).id === "string",
+  );
+}
+
+// 6, 7단계: no_data 가 아닌 항목은 근거(evidence_ids)가 1개 이상이어야 한다.
+function checkEvidence(sections: StepSectionDraft[]): ValidationIssue[] {
   return sections
     .filter((s) => s.status !== "no_data" && (s.evidence_ids?.length ?? 0) < 1)
     .map((s) => ({
@@ -181,8 +172,32 @@ function checkEvidence(sections: SectionItem[]): ValidationIssue[] {
     }));
 }
 
+// 6~8단계: evidence_ids 가 알려진 근거 id 목록 안에 있어야 한다(목록이 있을 때만).
+function checkKnownEvidence(
+  sections: StepSectionDraft[],
+  known?: string[],
+): ValidationIssue[] {
+  if (!known) return [];
+  const set = new Set(known);
+  const issues: ValidationIssue[] = [];
+  for (const s of sections) {
+    const unknown = (s.evidence_ids ?? []).filter((e) => !set.has(e));
+    if (unknown.length > 0) {
+      issues.push({
+        code: "unknown_evidence",
+        message: `항목 "${s.id}" 이(가) 모르는 근거 id 를 가리킵니다: ${unknown.join(", ")}`,
+        path: s.id,
+      });
+    }
+  }
+  return issues;
+}
+
 // 5단계: 일관성 계산식 포함 여부와 형식(분수식과 % 표기)
-function checkFormula(payload: Record<string, unknown>): ValidationIssue[] {
+function checkFormula(
+  payload: Record<string, unknown>,
+  expectedFormula?: string,
+): ValidationIssue[] {
   const formula = payload.formula;
   if (typeof formula !== "string" || formula.trim() === "") {
     return [
@@ -203,11 +218,30 @@ function checkFormula(payload: Record<string, unknown>): ValidationIssue[] {
       },
     ];
   }
+  if (
+    expectedFormula !== undefined &&
+    stripSpaces(formula) !== stripSpaces(expectedFormula)
+  ) {
+    return [
+      {
+        code: "formula_mismatch",
+        message:
+          "계산식이 앱이 계산한 값과 다릅니다. 주어진 계산식을 그대로 쓰세요.",
+        path: "formula",
+      },
+    ];
+  }
   return [];
 }
 
-/** 세션당 모델 호출 시도 상한(성공과 실패 합산, No.89). */
-export const MAX_MODEL_ATTEMPTS_PER_SESSION = 10;
+/**
+ * 모델을 부르는 단계마다 세션당 성공과 실패 합산 10회(No.89).
+ * 단계별 카운터, 세션 안에서 단계마다 10회.
+ */
+export const MAX_MODEL_ATTEMPTS_PER_STEP = 10;
+
+/** @deprecated MAX_MODEL_ATTEMPTS_PER_STEP 를 쓴다. */
+export const MAX_MODEL_ATTEMPTS_PER_SESSION = MAX_MODEL_ATTEMPTS_PER_STEP;
 
 /** 검증 실패 시 해당 단계 재요청에 붙일 문제 목록(No.88). */
 export function buildRetryNote(issues: ValidationIssue[]): string[] {
@@ -218,10 +252,7 @@ export function buildRetryNote(issues: ValidationIssue[]): string[] {
   );
 }
 
-/** 누적 시도 횟수가 상한 미만이면 재시도 가능. */
-export function canRetry(
-  attemptCount: number,
-  max = MAX_MODEL_ATTEMPTS_PER_SESSION,
-): boolean {
-  return attemptCount < max;
+/** 해당 단계의 누적 시도 횟수가 상한 미만이면 재시도 가능. */
+export function canRetry(attemptCount: number): boolean {
+  return attemptCount < MAX_MODEL_ATTEMPTS_PER_STEP;
 }

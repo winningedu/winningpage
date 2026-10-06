@@ -1,12 +1,15 @@
 // 성장설계 생성 단계 응답 검증 테스트(No.87, No.88, No.89, No.95, No.163).
 import { describe, expect, test } from "vitest";
+import { SECTION_REGISTRY } from "./sections.js";
 import {
   buildRetryNote,
   canRetry,
   collectText,
   findForbiddenPhrases,
   MAX_MODEL_ATTEMPTS_PER_SESSION,
+  MAX_MODEL_ATTEMPTS_PER_STEP,
   validateStep,
+  type ValidationContext,
 } from "./validation.js";
 
 const ctx = { expectedSectionIds: ["a", "b"] };
@@ -19,6 +22,11 @@ describe("findForbiddenPhrases", () => {
     expect(found).toContain("합격 가능성");
     expect(found).toContain("안정권");
     expect(found.filter((p) => p === "합격 가능성")).toHaveLength(1);
+  });
+
+  test("공백을 제거하고 비교하며 사전 원문으로 돌려준다", () => {
+    expect(findForbiddenPhrases("합격가능성이 있다")).toContain("합격 가능성");
+    expect(findForbiddenPhrases("합격  확률은")).toContain("합격 확률");
   });
 
   test("금지 표현이 없으면 빈 배열", () => {
@@ -80,7 +88,35 @@ describe("validateStep 5단계(계산식)", () => {
   });
 });
 
-describe("validateStep 6·7단계(근거 연결)", () => {
+describe("validateStep 5단계(기대 계산식 일치)", () => {
+  const f = "(일치 4 ÷ 전체 5) × 100 = 80%";
+  const run = (formula: string, expectedFormula?: string) =>
+    validateStep(
+      5,
+      { formula },
+      {
+        ...ctx,
+        ...(expectedFormula === undefined ? {} : { expectedFormula }),
+      },
+    );
+
+  test("공백 차이만 있으면 통과", () => {
+    expect(run("(일치 4÷전체 5)×100=80%", f).issues).toEqual([]);
+  });
+
+  test("값이 다르면 formula_mismatch 와 formula 경로", () => {
+    const hit = run("(일치 3 ÷ 전체 5) × 100 = 60%", f).issues.find(
+      (i) => i.code === "formula_mismatch",
+    );
+    expect(hit?.path).toBe("formula");
+  });
+
+  test("expectedFormula 가 없으면 일치 검사를 생략한다", () => {
+    expect(run("4 / 5 = 80%").issues).toEqual([]);
+  });
+});
+
+describe("validateStep 6, 7단계(근거 연결)", () => {
   test("no_data 가 아닌 항목에 evidence_ids 가 없으면 missing_evidence 와 항목 id 경로", () => {
     for (const step of [6, 7] as const) {
       const r = validateStep(
@@ -130,10 +166,13 @@ describe("validateStep 7단계(주제 생성 금지)", () => {
       "탐구 주제: 미세먼지 분석",
       "주제 : “기후 변화”",
       "연구 주제：전기차",
-      "제목: 나의 탐구",
     ]) {
       expect(codes(body)).toContain("topic_generated");
     }
+  });
+
+  test("표 텍스트의 제목 항목은 주제 생성으로 보지 않는다", () => {
+    expect(codes("제목: 활동 요약표")).toEqual([]);
   });
 
   test("방향과 조건만 제시하면 통과", () => {
@@ -153,44 +192,84 @@ describe("validateStep 7단계(주제 생성 금지)", () => {
   });
 });
 
-describe("validateStep 8단계(리포트 확정)", () => {
-  const item = (id: string, extra: Record<string, unknown> = {}) => ({
-    id,
-    format: "text",
-    badge: "A",
-    status: "ok",
-    evidence_ids: ["e1"],
-    ...extra,
-  });
-  const run = (sections: unknown[]) => validateStep(8, { sections }, ctx);
+describe("validateStep 8단계(리포트 확정, sections 위임)", () => {
+  const ids = SECTION_REGISTRY.map((d) => d.id);
+  const ctx8 = { expectedSectionIds: ids };
+  const full = (): Record<string, unknown>[] =>
+    SECTION_REGISTRY.map((d) => ({
+      id: d.id,
+      title: d.title,
+      format: d.format,
+      badge: d.badge,
+      status: "ok",
+      evidence_ids: ["e1"],
+      body: "내용",
+    }));
+  const run = (sections: unknown[], c: ValidationContext = ctx8) =>
+    validateStep(8, { sections }, c);
+  const edit = (id: string, patch: Record<string, unknown>) =>
+    full().map((s) => (s.id === id ? { ...s, ...patch } : s));
 
-  test("섹션 id 집합이 기대와 같고 format·badge 가 있으면 통과", () => {
-    expect(run([item("a"), item("b", { status: "no_data" })])).toEqual({
-      ok: true,
-      issues: [],
-    });
+  test("레지스트리로 만든 정상 37항목은 통과", () => {
+    expect(ids).toHaveLength(37);
+    expect(run(full())).toEqual({ ok: true, issues: [] });
   });
 
-  test("누락 섹션은 missing_section(No.87: no_data 로 존재해야 함)", () => {
-    const r = run([item("a")]);
-    const hit = r.issues.find((i) => i.code === "missing_section");
-    expect(hit?.path).toBe("b");
+  test("레지스트리와 format 이 다르면 section_schema 와 항목 id 경로", () => {
+    const def = SECTION_REGISTRY[0];
+    const other = def?.format === "prose" ? "table" : "prose";
+    const r = run(edit(ids[0] ?? "", { format: other }));
+    const hit = r.issues.find((i) => i.code === "section_schema");
+    expect(hit?.path).toBe(ids[0]);
   });
 
-  test("초과 섹션은 unexpected_section", () => {
-    const r = run([item("a"), item("b"), item("c")]);
-    expect(r.issues.find((i) => i.code === "unexpected_section")?.path).toBe(
-      "c",
+  test("no_data 항목에 no_data_reason 이 없으면 section_schema", () => {
+    const r = run(edit("1-1", { status: "no_data", evidence_ids: [] }));
+    const hit = r.issues.find(
+      (i) => i.code === "section_schema" && i.path === "1-1",
+    );
+    expect(hit?.message).toContain("no_data_reason");
+  });
+
+  test("ok 항목에 evidence 가 없으면 missing_evidence", () => {
+    const r = run(edit("1-2", { evidence_ids: [] }));
+    expect(r.issues.find((i) => i.code === "missing_evidence")?.path).toBe(
+      "1-2",
     );
   });
 
-  test("format 과 badge 누락을 각각 보고한다", () => {
-    const r = run([
-      item("a", { format: undefined }),
-      item("b", { badge: undefined }),
-    ]);
-    expect(r.issues.find((i) => i.code === "missing_format")?.path).toBe("a");
-    expect(r.issues.find((i) => i.code === "missing_badge")?.path).toBe("b");
+  test("누락 섹션은 section_schema 로 보고한다", () => {
+    const r = run(full().slice(1));
+    expect(
+      r.issues.find((i) => i.code === "section_schema" && i.path === ids[0]),
+    ).toBeDefined();
+  });
+});
+
+describe("validateStep 6~8단계(근거 id 실존)", () => {
+  const known = { ...ctx, knownEvidenceIds: ["e1", "e2"] };
+  const sections = [
+    { id: "a", status: "ok", evidence_ids: ["e1", "e9"] },
+    { id: "b", status: "ok", evidence_ids: ["e2"] },
+  ];
+
+  test("목록에 없는 근거 id 를 unknown_evidence 로 탐지한다", () => {
+    for (const step of [6, 7, 8] as const) {
+      const hit = validateStep(step, { sections }, known).issues.filter(
+        (i) => i.code === "unknown_evidence",
+      );
+      expect(hit).toHaveLength(1);
+      expect(hit[0]?.path).toBe("a");
+      expect(hit[0]?.message).toContain("e9");
+    }
+  });
+
+  test("knownEvidenceIds 를 주지 않으면 검사를 생략한다", () => {
+    for (const step of [6, 7] as const) {
+      expect(
+        validateStep(step, { sections }, ctx).issues.map((i) => i.code),
+      ).not.toContain("unknown_evidence");
+    }
   });
 });
 
@@ -213,12 +292,11 @@ describe("buildRetryNote / canRetry(No.88, No.89)", () => {
     expect(buildRetryNote([])).toEqual([]);
   });
 
-  test("세션당 시도 상한 10: 9회까지 허용, 10회부터 거부", () => {
-    expect(MAX_MODEL_ATTEMPTS_PER_SESSION).toBe(10);
+  test("단계별 시도 상한 10: 9회까지 허용, 10회부터 거부", () => {
+    expect(MAX_MODEL_ATTEMPTS_PER_STEP).toBe(10);
+    expect(MAX_MODEL_ATTEMPTS_PER_SESSION).toBe(MAX_MODEL_ATTEMPTS_PER_STEP);
     expect(canRetry(9)).toBe(true);
     expect(canRetry(10)).toBe(false);
     expect(canRetry(11)).toBe(false);
-    expect(canRetry(2, 3)).toBe(true);
-    expect(canRetry(3, 3)).toBe(false);
   });
 });
