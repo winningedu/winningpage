@@ -59,7 +59,7 @@ interface MemberCustomConfig {
 type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
-  // 성장설계 회차 운영(growthReports) — 회차 목록/상세/실패 회차 복구/이용권 부여.
+  // 성장설계 회차 운영(growthReports): 회차 목록, 상세, 실패 회차 복구, 이용권 부여.
   // 데이터는 /api/admin/growth-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
   // custom 컴포넌트(src/pages/admin/growth/GrowthReportsAdmin.tsx)가 전부 그린다.
   growthReports: {
