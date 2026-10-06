@@ -225,7 +225,12 @@ async function callWithRetry(
     const truncated = reply.finishReason === "MAX_TOKENS";
     const parsed = truncated
       ? null
-      : parseStepResponse(step, reply.text, input.context);
+      : parseStepResponse(
+          step,
+          reply.text,
+          input.context,
+          extra.axes ? { axes: extra.axes } : {},
+        );
     let issues: ValidationIssue[];
     if (parsed === null) {
       issues = [

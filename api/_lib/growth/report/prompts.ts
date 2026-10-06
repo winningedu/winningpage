@@ -400,6 +400,8 @@ const STEP_RULES: Record<ModelStep, string> = {
     "앱이 계산한 축별 판정을 서술로 풀어 쓴다. 판정과 판정 라벨은 입력의 verdictLabel 그대로 쓰고 바꾸지 않는다. 바꾸면 검증에 실패한다.",
     "각 축 항목의 rows 에는 label 이 판정인 행(value 는 verdictLabel), 근거 활동 행, 대학 평가요소 대응 행을 두고, 부족하면 무엇이 부족한지 행을 더한다.",
     "축별 대학 평가요소 대응은 입력의 universityFactor 를 따른다.",
+    "count 가 0 인 축은 status 를 no_data 로 두고 no_data_reason 에 자료 없음이라고 쓰며 body 를 쓰지 않는다.",
+    "count 가 0 보다 큰 축의 evidence_ids 에는 입력의 그 축 activityIds 를 넣는다.",
   ].join("\n"),
   7: [
     "7단계: 학년별 방향 설계",
@@ -741,6 +743,7 @@ export function parseStepResponse(
   step: ModelStep,
   rawText: string,
   context: ReportContext,
+  options: { axes?: AxisEvaluation[] } = {},
 ): ParseResult {
   let parsed: unknown;
   try {
@@ -751,7 +754,25 @@ export function parseStepResponse(
   if (!isRecord(parsed))
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
   if (step === 1) return parseSignals(parsed, context);
-  const { sections, issues } = parseSections(parsed, step, context);
+  const parsedSections = parseSections(parsed, step, context);
+  let { sections } = parsedSections;
+  let { issues } = parsedSections;
+  if (step === 6 && options.axes) {
+    // 근거 활동이 없는 축은 앱이 no_data 로 확정하므로 모델의 누락과 형식 오류를 문제로 보지 않는다.
+    const emptyIds = new Set(
+      options.axes
+        .filter((e) => e.count === 0)
+        .map((e) => AXIS_SECTION[e.axis]),
+    );
+    issues = issues.filter((i) => !(i.path && emptyIds.has(i.path)));
+    sections = normalizeAxisSections(
+      sections,
+      options.axes,
+      context.evidenceIds,
+    );
+    const order = stepSectionIds(step, context);
+    sections = order.flatMap((id) => sections.filter((x) => x.id === id));
+  }
   const output: StepOutput = { step, sections };
   if (step === 3) {
     const narrative = parseNarrative(parsed, context);
@@ -800,6 +821,54 @@ const AXIS_SECTION: Record<Axis, string> = {
   D: "2-4",
   E: "2-5",
 };
+
+const AXIS_NO_DATA_REASON = "해당 축의 근거 활동이 없어요";
+
+function axisNoDataSection(id: string): SectionItem {
+  const def = SECTION_REGISTRY.find((d) => d.id === id);
+  return {
+    id,
+    title: def?.title ?? id,
+    format: def?.format ?? "prose",
+    badge: def?.badge ?? "fact",
+    status: "no_data",
+    evidence_ids: [],
+    body: { text: NO_DATA_TEXT, reason: AXIS_NO_DATA_REASON },
+    no_data_reason: AXIS_NO_DATA_REASON,
+  };
+}
+
+/**
+ * 6단계 축 섹션(2-1부터 2-5)을 앱이 계산한 축 평가에 맞춰 정규화한다.
+ * 근거 활동이 없는 축은 모델 응답과 무관하게 no_data 로 두고,
+ * 근거가 있는 축은 비었거나 알 수 없는 근거 id 를 앱이 아는 activityIds 로 채운다.
+ */
+export function normalizeAxisSections(
+  sections: SectionItem[],
+  axes: AxisEvaluation[],
+  knownEvidenceIds: readonly string[],
+): SectionItem[] {
+  const known = new Set(knownEvidenceIds);
+  const out = [...sections];
+  for (const e of axes) {
+    const id = AXIS_SECTION[e.axis];
+    const idx = out.findIndex((x) => x.id === id);
+    if (e.count === 0) {
+      if (idx >= 0) out[idx] = axisNoDataSection(id);
+      else out.push(axisNoDataSection(id));
+      continue;
+    }
+    const section = out[idx];
+    if (!section || section.status === "no_data") continue;
+    const valid = section.evidence_ids.filter((x) => known.has(x));
+    out[idx] = {
+      ...section,
+      evidence_ids:
+        valid.length > 0 ? valid : e.activityIds.filter((x) => known.has(x)),
+    };
+  }
+  return out;
+}
 
 function checkPlanDraft(plan: PlanItemDraft[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
