@@ -132,7 +132,7 @@ const PERIOD_ORDER: Record<PlanPeriod, number> = {
 };
 const MAX_PER_PRIORITY = 3;
 
-/** 실행계획 배치(No.98, 99): 과목 선택(마감 빠른 순) → 남은 학기 → 방학, 묶음 안은 required 우선. 안정 정렬. */
+/** 실행계획 배치(No.98, 99): 과목 선택(마감 빠른 순), 남은 학기, 방학 순이며, 묶음 안은 required 우선. 안정 정렬. */
 export function orderPlanPeriods<T extends PlanItem>(items: readonly T[]): T[] {
   return items
     .map((it, index) => ({ it, index }))

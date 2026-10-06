@@ -9,7 +9,7 @@ const isRec = (v: unknown): v is Rec =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
- * 진단 goal.level 코드(Q3_LEVEL) → q5 진로 확정 정도(No.34). 대응 없는 코드는 비운다.
+ * 진단 goal.level 코드(Q3_LEVEL) 를 q5 진로 확정 정도(No.34)로 옮긴다. 대응 없는 코드는 비운다.
  * 이 매핑표는 명세 근거 없음, 고객사 확인 대상(No.33, No.34).
  */
 const Q5_BY_LEVEL: Record<string, string> = {
@@ -22,7 +22,7 @@ const Q5_BY_LEVEL: Record<string, string> = {
 };
 
 /**
- * 진단 schedule 코드(SCHEDULE) → q24 주당 가능 시간(No.34).
+ * 진단 schedule 코드(SCHEDULE) 를 q24 주당 가능 시간(No.34)으로 옮긴다.
  * 진단의 schedule 은 '임박 일정'(PA_7D, EXAM_2W, MONTH_1, SUSI, NONE, UNKNOWN)이라 주당 시간과
  * 대응하는 코드가 없다. 지어내지 않으므로 의도적으로 비어 있다. 명세가 대응표를 확정하면 여기만 채운다.
  */
@@ -38,7 +38,7 @@ export type SurveyPrefill = Partial<
   Record<"q5" | "q10" | "q11" | "q24", unknown>
 > & { filledFrom: "diagnosis" };
 
-/** 무료진단 snapshot → 성장설계 설문 초기값(No.34). */
+/** 무료진단 snapshot 으로 성장설계 설문 초기값(No.34)을 만든다. */
 export function prefillSurveyFromDiagnosis(snapshot: unknown): SurveyPrefill {
   const result: SurveyPrefill = { filledFrom: "diagnosis" };
   if (!isRec(snapshot)) return result;
@@ -73,7 +73,7 @@ export type GoalStudentProfile = {
 
 const GRADES = ["고1", "고2", "고3"] as const;
 
-/** goal_students 행 → 성장설계 학생 프로필 초기값(No.19, 20). 진로는 목표관리에 없어 채우지 않는다. */
+/** goal_students 행으로 성장설계 학생 프로필 초기값(No.19, 20)을 만든다. 진로는 목표관리에 없어 채우지 않는다. */
 export function initialStudentProfileFromGoal(
   goalStudent: unknown,
 ): GoalStudentProfile {
@@ -104,7 +104,7 @@ export type NaesinSemesterSubjects = {
   subjects: { name: string; grade: number }[];
 };
 
-/** exam.key → "고N-M". 학년(1~3)과 학기(1~2)를 못 찾거나 "중" 접두 키면 undefined. */
+/** exam.key 를 "고N-M" 으로 바꾼다. 학년(1~3)과 학기(1~2)를 못 찾거나 "중" 접두 키면 undefined. */
 const SEMESTER_PATTERN =
   /(?<!중\s*)(?:고\s*)?([1-3])\s*(?:학년|-|\s)\s*([12])(?:\s*학기)?/;
 

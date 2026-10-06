@@ -1,4 +1,4 @@
--- 활동 기록 저장소 — 수행평가·심화탐구·자기평가서·직접 입력·업로드에서 나온 활동을
+-- 활동 기록 저장소, 수행평가, 심화탐구, 자기평가서, 직접 입력, 업로드에서 나온 활동을
 -- 한 표로 모아 성장설계가 재료로 읽는다.
 --
 -- status 의미:
@@ -10,7 +10,7 @@
 -- 같은 원본이 두 번 승격되지 않도록 (source_program, source_ref_id) 를 부분 유니크로 건다.
 --
 -- 읽기: 본인 / 승인 연결된 학부모(fn_is_linked_pair) / 관리자.
--- 쓰기: 본인은 source_program = 'manual' 행만 insert·update·delete 한다.
+-- 쓰기: 본인은 source_program = 'manual' 행만 insert, update, delete 한다.
 --       나머지 source 는 각 서비스 API(service_role)만 쓴다.
 
 create table public.activity_records (
@@ -46,7 +46,7 @@ create table public.activity_records (
 );
 
 comment on table public.activity_records is
-  '활동 기록 저장소. status: planned(재료 조회 제외) / draft(직접 입력 작성 중) / confirmed(수행평가 최종본·심화탐구 확정본) / final(자기평가서 최종본). source_program=upload 는 growth_uploads.id 를 source_ref_id 로 쓴다. (source_program, source_ref_id) 부분 유니크로 중복 승격을 막는다. 본인은 manual 행만 쓰고 나머지 source 는 service_role 만 쓴다. 직접 입력(manual)은 planned/draft 까지만 허용하고 확정 승격(confirmed/final)은 service_role 이 한다.';
+  '활동 기록 저장소. status: planned(재료 조회 제외) / draft(직접 입력 작성 중) / confirmed(수행평가 최종본, 심화탐구 확정본) / final(자기평가서 최종본). source_program=upload 는 growth_uploads.id 를 source_ref_id 로 쓴다. (source_program, source_ref_id) 부분 유니크로 중복 승격을 막는다. 본인은 manual 행만 쓰고 나머지 source 는 service_role 만 쓴다. 직접 입력(manual)은 planned/draft 까지만 허용하고 확정 승격(confirmed/final)은 service_role 이 한다.';
 
 comment on column public.activity_records.subject_group is
   '교과/창체 등 활동 구분.';

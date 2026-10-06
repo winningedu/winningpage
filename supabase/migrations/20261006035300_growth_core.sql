@@ -1,10 +1,10 @@
 -- 성장설계(service key growth) 핵심 테이블 4종.
---   growth_profiles   학생별 설문 응답·트랙(학생당 1행)
---   growth_reports    성장설계 회차(리포트). 단계 진행·결과·차감 원장 연결
+--   growth_profiles   학생별 설문 응답, 트랙(학생당 1행)
+--   growth_reports    성장설계 회차(리포트). 단계 진행, 결과, 차감 원장 연결
 --   growth_plan_items 리포트가 만든 실행 계획 항목
 --   growth_uploads    활동 자료 업로드 메타와 추출 결과
 --
--- 쓰기 원칙: 리포트·계획 생성·업로드 추출은 전부 API(service_role)가 쓴다.
+-- 쓰기 원칙: 리포트, 계획 생성, 업로드 추출은 전부 API(service_role)가 쓴다.
 -- 본인이 직접 쓰는 것은 growth_profiles(설문 저장)와 growth_plan_items 수동 체크뿐이다.
 
 -- 1) growth_profiles ---------------------------------------------------------
@@ -264,7 +264,7 @@ create table public.growth_uploads (
 );
 
 comment on table public.growth_uploads is
-  '성장설계 업로드 메타와 추출 결과. 원문은 보관하지 않는다(원문 미보관 원칙) — 저장 경로 컬럼이 없고 파일명·형식·크기·동의 시각과 추출 결과만 남긴다. extracted 는 주제·개념·결과·한계 네 항목만 담는다. 추출 성공분은 activity_records(source_program=upload, source_ref_id=이 행 id)로 승격된다.';
+  '성장설계 업로드 메타와 추출 결과. 원문은 보관하지 않는다(원문 미보관 원칙), 저장 경로 컬럼이 없고 파일명, 형식, 크기, 동의 시각과 추출 결과만 남긴다. extracted 는 주제, 개념, 결과, 한계 네 항목만 담는다. 추출 성공분은 activity_records(source_program=upload, source_ref_id=이 행 id)로 승격된다.';
 
 create index growth_uploads_profile_grade_semester_idx
   on public.growth_uploads (profile_id, grade_label, semester);

@@ -1,10 +1,10 @@
--- 성장설계 회차 차감·되돌림 RPC (No.14 차감 규칙).
+-- 성장설계 회차 차감, 되돌림 RPC (No.14 차감 규칙).
 --
 -- No.14 차감 규칙: 첫 모델 호출 단계가 성공했을 때 회차 1개를 한 번만 차감한다.
 -- 같은 회차의 재요청은 추가로 차감하지 않고, 생성이 실패하면 차감을 되돌린다.
 --
 -- 소비 원장은 새로 만들지 않고 performance_credit_ledger 를 재사용한다(진단 게이팅
--- 20260821000005 와 같은 이유 — 회차 요약·입장 판정·환불 소비 판정이 이 원장 하나를
+-- 20260821000005 와 같은 이유, 회차 요약, 입장 판정, 환불 소비 판정이 이 원장 하나를
 -- 정본으로 재계산한다). source_kind 에 'growth_report' 를 추가한다. 원본 행은
 -- session_id NULL 형태이고 되돌림 행은 session_id 가 항상 NULL 이라 기존
 -- performance_credit_ledger_session_id_shape_check 가 이미 허용한다(변경 없음).
@@ -19,8 +19,8 @@ alter table public.performance_credit_ledger
     'growth_report'::text
   ]));
 
--- 회차 차감 — consume_diagnosis_attempt 미러. 무료 1회 분기는 없다.
--- 잠금은 같은 salt(101)·프로필 단위라 부여·회수·수행평가·진단 차감과 순서를 공유해
+-- 회차 차감, consume_diagnosis_attempt 미러. 무료 1회 분기는 없다.
+-- 잠금은 같은 salt(101), 프로필 단위라 부여, 회수, 수행평가, 진단 차감과 순서를 공유해
 -- 데드락을 피하고 같은 사용자의 동시 요청을 직렬화한다.
 create or replace function public.consume_growth_credit(
   "p_report_id" uuid,
@@ -75,7 +75,7 @@ begin
     );
   end if;
 
-  -- 운영자 제재만 program_access 캐시에서 읽는다. 기간·회차는 원장에서만 판정한다.
+  -- 운영자 제재만 program_access 캐시에서 읽는다. 기간, 회차는 원장에서만 판정한다.
   select * into v_access
     from public.program_access
    where id = p_profile_id and program_key = c_program_key;
@@ -185,7 +185,7 @@ comment on function public.consume_growth_credit(uuid, uuid, text) is
 revoke all on function public.consume_growth_credit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.consume_growth_credit(uuid, uuid, text) to service_role;
 
--- 차감 되돌림 — 생성 실패 시 No.14 에 따라 차감 1건을 그대로 상쇄한다.
+-- 차감 되돌림, 생성 실패 시 No.14 에 따라 차감 1건을 그대로 상쇄한다.
 -- performance_credit_ledger_validate_reversal(BEFORE INSERT)이 요구하는 조건을 맞춘다:
 --   reversal_of = 원본 행 id (원본이 되돌림 행이면 WC014)
 --   grant_id / profile_id / source_kind = 원본과 동일 (WC015/016/017)
@@ -266,7 +266,7 @@ end;
 $$;
 
 comment on function public.reverse_growth_credit(uuid, uuid, text) is
-  '성장설계 차감 되돌림(No.14: 생성 실패 시 되돌림). growth_reports.ledger_id 의 원장 행을 reversal_of 로 참조하는 +1 행을 적재하고 ledger_reversed_at 을 기록한다. status 어휘: reversed/nothing_to_reverse/already_reversed/report_completed/session_not_found. completed 회차는 되돌리지 않고 report_completed 를 돌려준다. 되돌림 행은 있는데 ledger_reversed_at 이 비어 있으면 already_reversed 분기에서 시각을 채워 복구한다. 원장 reason 에는 report_id 를 붙인다. 되돌림 행은 원본의 grant_id·profile_id·source_kind 를 상속하고 session_id 는 NULL(performance_credit_ledger_validate_reversal 요구). 잠금은 consume_growth_credit 과 같은 advisory(101).';
+  '성장설계 차감 되돌림(No.14: 생성 실패 시 되돌림). growth_reports.ledger_id 의 원장 행을 reversal_of 로 참조하는 +1 행을 적재하고 ledger_reversed_at 을 기록한다. status 어휘: reversed/nothing_to_reverse/already_reversed/report_completed/session_not_found. completed 회차는 되돌리지 않고 report_completed 를 돌려준다. 되돌림 행은 있는데 ledger_reversed_at 이 비어 있으면 already_reversed 분기에서 시각을 채워 복구한다. 원장 reason 에는 report_id 를 붙인다. 되돌림 행은 원본의 grant_id, profile_id, source_kind 를 상속하고 session_id 는 NULL(performance_credit_ledger_validate_reversal 요구). 잠금은 consume_growth_credit 과 같은 advisory(101).';
 
 revoke all on function public.reverse_growth_credit(uuid, uuid, text) from public, anon, authenticated;
 grant execute on function public.reverse_growth_credit(uuid, uuid, text) to service_role;
