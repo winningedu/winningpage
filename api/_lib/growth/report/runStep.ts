@@ -180,7 +180,7 @@ async function callWithRetry(
   step: ModelStep,
   input: StepPromptInput,
   deps: RunStepDeps,
-  extra: { expectedFormula?: string; axes?: AxisEvaluation[] },
+  extra: { axes?: AxisEvaluation[] },
   seed: Partial<StepOutput> = {},
 ): Promise<ModelCallOutcome> {
   const startedAt = Date.parse(deps.now());
@@ -279,18 +279,25 @@ function noDataSection(id: string, reason: string): SectionItem {
   };
 }
 
-/** 1-10 본문의 계산 필드는 모델이 아니라 앱 일관성 값으로 고정한다. 해석 문장 등 나머지는 모델 값을 둔다. */
-function withAppConsistency(
-  item: SectionItem,
+/**
+ * 1-10 방향 진단은 앱이 일관성 값으로 만든다. 모델은 쓰지 않는다.
+ * 근거는 연계된 활동이고, 연계가 0건이면 분모 활동 전부다.
+ */
+function appConsistencySection(
   c: ConsistencyResult,
   linkedIds: string[],
+  allIds: string[],
 ): SectionItem {
-  if (item.status === "no_data") return item;
-  const body = isRecord(item.body) ? item.body : {};
+  const def = SECTION_REGISTRY.find((d) => d.id === "1-10");
   return {
-    ...item,
+    id: "1-10",
+    title: def?.title ?? "1-10",
+    format: def?.format ?? "diagram",
+    badge: def?.badge ?? "fact",
+    status: "ok",
+    evidence_ids: linkedIds.length > 0 ? linkedIds : allIds,
+    formula: c.formula,
     body: {
-      ...body,
       percent: c.percent,
       formula: c.formula,
       verdictLabel: c.verdictLabel,
@@ -519,9 +526,9 @@ export async function runStep(
   }
 
   if (step === 5) {
-    const { consistency, expectedFormula } = computeStep5(context, s.signals);
+    const { consistency } = computeStep5(context, s.signals);
     if (consistency.total === 0) {
-      const sections = stepSectionIds(5, context).map((id) =>
+      const sections = ["1-9", "1-10"].map((id) =>
         noDataSection(id, "분석할 활동이 없어요"),
       );
       return ok(
@@ -535,20 +542,26 @@ export async function runStep(
     }
     const r = await callWithRetry(
       5,
-      { context, prior: { signals: s.signals, consistency, expectedFormula } },
+      { context, prior: { signals: s.signals, consistency } },
       deps,
-      { expectedFormula },
+      {},
       { consistency },
     );
     if (!r.ok) return r;
-    const linkedIds = consistencyActivities(context, s.signals)
+    const counted = consistencyActivities(context, s.signals);
+    const linkedIds = counted
       .filter((a) => a.signals.length > 0)
       .map((a) => a.id);
     const output: StepOutput = {
       ...r.output,
-      sections: (r.output.sections ?? []).map((x) =>
-        x.id === "1-10" ? withAppConsistency(x, consistency, linkedIds) : x,
-      ),
+      sections: [
+        ...(r.output.sections ?? []),
+        appConsistencySection(
+          consistency,
+          linkedIds,
+          counted.map((a) => a.id),
+        ),
+      ],
     };
     return modelResult(5, context, stored, s, output, r.extraAttempts);
   }

@@ -52,7 +52,6 @@ export type StepSectionDraft = {
   status?: "ok" | "no_data";
   evidence_ids?: string[];
   body?: unknown;
-  formula?: string;
 };
 
 export type ValidationIssue = { code: string; message: string; path?: string };
@@ -60,8 +59,6 @@ export type StepValidationResult = { ok: boolean; issues: ValidationIssue[] };
 export type ValidationContext = {
   expectedSectionIds: string[];
   topicPatterns?: RegExp[];
-  /** 5단계: 앱이 계산한 기대 계산식. 주어지면 공백 제거 후 정확히 같아야 한다. */
-  expectedFormula?: string;
   /** 6~8단계: 주어지면 evidence_ids 가 모두 이 목록 안에 있어야 한다. */
   knownEvidenceIds?: string[];
 };
@@ -104,13 +101,6 @@ export function validateStep(
       message: `금지 표현 "${phrase}" 이(가) 포함되어 있습니다.`,
     });
   }
-  if (step === 5)
-    issues.push(
-      ...checkFormula(
-        payload as Record<string, unknown>,
-        context.expectedFormula,
-      ),
-    );
   if (step === 6 || step === 7 || step === 8) {
     const drafts = readSections(payload);
     issues.push(...checkEvidence(drafts));
@@ -211,47 +201,6 @@ function checkKnownEvidence(
     }
   }
   return issues;
-}
-
-// 5단계: 일관성 계산식 포함 여부와 형식(분수식과 % 표기)
-function checkFormula(
-  payload: Record<string, unknown>,
-  expectedFormula?: string,
-): ValidationIssue[] {
-  const formula = payload.formula;
-  if (typeof formula !== "string" || formula.trim() === "") {
-    return [
-      {
-        code: "missing_formula",
-        message: "계산식(formula)이 포함되어야 합니다.",
-        path: "formula",
-      },
-    ];
-  }
-  const hasDivision = formula.includes("÷") || formula.includes("/");
-  if (!hasDivision || !formula.includes("%")) {
-    return [
-      {
-        code: "invalid_formula",
-        message: "계산식에는 나눗셈(÷ 또는 /)과 % 표기가 모두 있어야 합니다.",
-        path: "formula",
-      },
-    ];
-  }
-  if (
-    expectedFormula !== undefined &&
-    stripSpaces(formula) !== stripSpaces(expectedFormula)
-  ) {
-    return [
-      {
-        code: "formula_mismatch",
-        message:
-          "계산식이 앱이 계산한 값과 다릅니다. 주어진 계산식을 그대로 쓰세요.",
-        path: "formula",
-      },
-    ];
-  }
-  return [];
 }
 
 /**

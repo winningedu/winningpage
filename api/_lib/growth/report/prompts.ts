@@ -64,7 +64,7 @@ const STEP_SECTION_IDS: Record<ModelStep, string[]> = {
   1: [],
   3: ["1-8"],
   4: ["1-2", "1-6", "1-7", "1-11"],
-  5: ["1-9", "1-10"],
+  5: ["1-9"],
   6: ["2-1", "2-2", "2-3", "2-4", "2-5", "2-6", "2-7", "2-8", "2-9", "2-10"],
   7: ["3-2", "3-3", "3-4", "3-5", "3-6", "3-7", "3-11", "3-12", "3-13"],
 };
@@ -131,12 +131,6 @@ const bodySchema = {
       },
     },
     rows: { type: "array", items: rowSchema },
-    percent: { type: "number" },
-    formula: { type: "string" },
-    verdictLabel: { type: "string" },
-    criteria: { type: "string" },
-    smallSample: { type: "boolean" },
-    linked: strings,
   },
 } as const;
 
@@ -230,8 +224,8 @@ export const STEP_RESPONSE_SCHEMAS = {
   },
   5: {
     type: "object",
-    properties: { formula: { type: "string" }, sections: sectionsSchema },
-    required: ["formula", "sections"],
+    properties: { sections: sectionsSchema },
+    required: ["sections"],
   },
   6: {
     type: "object",
@@ -260,7 +254,6 @@ export type StepPromptInput = {
     narrative?: Narrative;
     match?: MatchSignals;
     consistency?: ConsistencyResult;
-    expectedFormula?: string;
     axes?: AxisEvaluation[];
   };
 };
@@ -273,7 +266,7 @@ const COMMON_RULES = [
   "문체는 존댓말이 아닌 리포트 평서문(예: 탐구가 이어진다, 확인된다)으로 쓴다.",
   "",
   "근거 표시 원칙",
-  "- 모든 판단에는 evidence_ids 로 입력에 주어진 활동 id 를 단다. 입력에 없는 id 를 만들지 않는다.",
+  "- 판단의 근거(evidence_ids)에는 그 판단을 가장 직접 뒷받침하는 활동만 최대 3개 쓰고 활동 전체를 나열하지 않는다. 입력에 없는 id 를 만들지 않는다.",
   "- 활동 id 는 a1, a2 같은 짧은 별칭이다. 근거에는 입력에 있는 별칭만 그대로 쓰고 다른 글자를 붙이지 않는다.",
   "- 확인된 사실과 제안을 섞지 않는다. 각 항목의 badge 는 안내된 값 그대로 따른다.",
   "- 자료가 없으면 status 를 no_data 로 두고 no_data_reason 에 자료 없음 이라고 쓴다. 지어내지 않는다.",
@@ -300,9 +293,7 @@ const SECTION_SPECS: Record<string, string> = {
     "활동에서 드러난 선호 탐구 방식을 rows 로 쓴다. 행마다 label, value, evidence_ids 를 단다.",
   "1-11": "활동과 설문 답을 함께 읽어 현재 핵심 정체성을 서술한다.",
   "1-9":
-    "rows 에 학기별 연계 여부를 쓴다. label 은 학기(예: 고1-1), value 는 연계, 단절, 자료 없음 중 하나, evidence_ids 는 그 학기 활동 id.",
-  "1-10":
-    "body 에 percent, formula, verdictLabel, criteria, smallSample, linked(연계된 활동 id 배열)를 입력값 그대로 담는다.",
+    "rows 에 분석 범위의 학기별 연계 여부를 쓴다. label 은 학기 키(예: 고1-1), value 는 연계, 단절, 자료 없음 중 하나다. evidence_ids 는 앱이 채우니 비워 둔다.",
   "2-1":
     "rows 에 판정, 근거 활동, 대학 평가요소 대응을 쓴다. 부족하면 부족한 점 행을 더한다. 판정 행의 value 는 입력의 verdictLabel 그대로다.",
   "2-2": "2-1 과 같은 구성으로 쓴다.",
@@ -412,9 +403,8 @@ const STEP_RULES: Record<ModelStep, string> = {
     "어긋남은 학생을 탓하지 않고 확인된 차이로만 쓴다.",
   ].join("\n"),
   5: [
-    "5단계: 방향 일관성 진단",
-    "앱이 계산한 일관성 값을 서술로 풀어 쓴다. 숫자를 다시 계산하거나 바꾸지 않는다.",
-    "응답의 formula 에는 입력의 계산식을 글자 그대로 복사한다. 한 글자라도 다르면 검증에 실패한다.",
+    "5단계: 학기별 연계 여부",
+    "항목 1-9 에 학기마다 연계 여부를 쓴다. 숫자를 계산하지 않는다.",
     "연계 여부는 입력의 활동별 연계 신호를 따른다.",
   ].join("\n"),
   6: [
@@ -423,7 +413,7 @@ const STEP_RULES: Record<ModelStep, string> = {
     "각 축 항목의 rows 에는 label 이 판정인 행(value 는 verdictLabel), 근거 활동 행, 대학 평가요소 대응 행을 두고, 부족하면 무엇이 부족한지 행을 더한다.",
     "축별 대학 평가요소 대응은 입력의 universityFactor 를 따른다.",
     "count 가 0 인 축은 status 를 no_data 로 두고 no_data_reason 에 자료 없음이라고 쓰며 body 를 쓰지 않는다.",
-    "count 가 0 보다 큰 축의 evidence_ids 에는 입력의 그 축 activityIds 를 넣는다.",
+    "축 항목 2-1 부터 2-5 의 evidence_ids 는 앱이 채우니 빈 배열로 둔다.",
   ].join("\n"),
   7: [
     "7단계: 학년별 방향 설계",
@@ -468,14 +458,14 @@ function stepUser(
     }
     case 5: {
       const signals = need(prior.signals, step, "signals");
-      const c = need(prior.consistency, step, "consistency");
-      const formula = prior.expectedFormula ?? c.formula;
       const byActivity = context.activities.map((a) => ({
         ...brief(a),
+        semester:
+          a.gradeLabel && a.semester ? `${a.gradeLabel}-${a.semester}` : null,
         linkage: signals.find((s) => s.activityId === a.id)?.linkage ?? [],
         summary: signals.find((s) => s.activityId === a.id)?.summary ?? "",
       }));
-      return `${head}\n\n[앱이 계산한 일관성]\n${json({ percent: c.percent, linked: c.linked, total: c.total, verdictLabel: c.verdictLabel, criteria: c.criteria, smallSample: c.smallSample })}\n계산식(글자 그대로 복사): ${formula}\n\n[활동별 연계 신호]\n${json(byActivity)}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n[활동별 연계 신호]\n${json(byActivity)}\n\n${sectionGuide(step, context)}`;
     }
     case 6: {
       const axes = need(prior.axes, step, "axes");
@@ -604,6 +594,47 @@ function normalizeBody(format: SectionItem["format"], body: unknown): unknown {
   }
 }
 
+/** 모델이 한 판단에 달 수 있는 근거 수. 가장 직접적인 활동만 남긴다. */
+export const MODEL_EVIDENCE_LIMIT = 3;
+
+/** 문자열만 남기고 중복을 없앤 뒤 앞 MODEL_EVIDENCE_LIMIT 개만 둔다. */
+function representativeEvidence(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const ids = raw.filter((e): e is string => typeof e === "string");
+  return [...new Set(ids)].slice(0, MODEL_EVIDENCE_LIMIT);
+}
+
+/** 본문 항목(items, rows)이 가진 evidence_ids 를 대표 근거로 줄인다. */
+function limitEntryEvidence(entry: unknown): unknown {
+  if (!isRecord(entry) || !Array.isArray(entry.evidence_ids)) return entry;
+  return { ...entry, evidence_ids: representativeEvidence(entry.evidence_ids) };
+}
+
+function limitBodyEvidence(body: unknown): unknown {
+  if (Array.isArray(body)) return body.map(limitEntryEvidence);
+  if (!isRecord(body)) return body;
+  const out: Record<string, unknown> = { ...body };
+  if (Array.isArray(body.rows)) out.rows = body.rows.map(limitEntryEvidence);
+  if (Array.isArray(body.items)) out.items = body.items.map(limitEntryEvidence);
+  return out;
+}
+
+/** 본문 항목(items, rows)의 근거를 순서대로 모아 중복 없이 돌려준다. */
+function bodyEvidenceUnion(body: unknown): string[] {
+  const entries = Array.isArray(body)
+    ? body
+    : isRecord(body)
+      ? [
+          ...(Array.isArray(body.items) ? body.items : []),
+          ...(Array.isArray(body.rows) ? body.rows : []),
+        ]
+      : [];
+  const ids = entries.flatMap((e) =>
+    isRecord(e) ? representativeEvidence(e.evidence_ids) : [],
+  );
+  return [...new Set(ids)];
+}
+
 function parseSections(
   body: Record<string, unknown>,
   step: ModelStep,
@@ -618,9 +649,7 @@ function parseSections(
     if (!expected.includes(raw.id) || found.has(raw.id)) continue;
     const def = SECTION_REGISTRY.find((d) => d.id === raw.id);
     if (!def) continue;
-    const evidence = Array.isArray(raw.evidence_ids)
-      ? raw.evidence_ids.filter((e): e is string => typeof e === "string")
-      : [];
+    const evidence = representativeEvidence(raw.evidence_ids);
     const base = {
       id: def.id,
       title: def.title,
@@ -651,7 +680,14 @@ function parseSections(
       });
       continue;
     }
-    found.set(def.id, { ...base, status: "ok", body: normalized });
+    const limited = limitBodyEvidence(normalized);
+    // 섹션 근거를 비워 보내면 본문 항목 근거의 합집합을 쓴다.
+    found.set(def.id, {
+      ...base,
+      evidence_ids: evidence.length > 0 ? evidence : bodyEvidenceUnion(limited),
+      status: "ok",
+      body: limited,
+    });
   }
   for (const id of expected) {
     if (!found.has(id) && !issues.some((i) => i.path === id)) {
@@ -666,12 +702,50 @@ function parseSections(
     const item = found.get(id);
     return item ? [item] : [];
   });
-  // 5단계 계산식은 1-10 항목에 싣는다. 검증이 이 값을 앱 계산식과 대조한다.
-  if (step === 5 && typeof body.formula === "string") {
-    const target = sections.find((x) => x.id === "1-10");
-    if (target) target.formula = body.formula;
-  }
   return { sections, issues };
+}
+
+/** 활동의 학기 키(예: 고1-1). 학년이나 학기를 모르면 null. */
+function semesterKeyOf(a: ReportContext["activities"][number]): string | null {
+  return a.gradeLabel !== null && a.semester !== null
+    ? `${a.gradeLabel}-${a.semester}`
+    : null;
+}
+
+/**
+ * 1-9 행의 근거는 앱이 그 학기 활동 전부로 채운다. 학기 키가 아닌 label 이나 활동 없는 학기는 비운다.
+ * 섹션 근거는 행 근거의 합집합이다.
+ */
+function fillSemesterEvidence(
+  sections: SectionItem[],
+  context: ReportContext,
+): SectionItem[] {
+  return sections.map((s) => {
+    if (s.id !== "1-9" || s.status !== "ok" || !isRecord(s.body)) return s;
+    const rows = Array.isArray(s.body.rows) ? s.body.rows : [];
+    const filled = rows.map((row) => {
+      if (!isRecord(row)) return row;
+      const label = typeof row.label === "string" ? row.label.trim() : "";
+      const ids = context.activities
+        .filter((a) => semesterKeyOf(a) === label)
+        .map((a) => a.id);
+      return { ...row, evidence_ids: ids };
+    });
+    const union = [
+      ...new Set(
+        filled.flatMap((r) =>
+          isRecord(r) && Array.isArray(r.evidence_ids)
+            ? (r.evidence_ids as string[])
+            : [],
+        ),
+      ),
+    ];
+    return {
+      ...s,
+      body: { ...s.body, rows: filled },
+      evidence_ids: union,
+    };
+  });
 }
 
 function parseNarrative(
@@ -708,10 +782,10 @@ function parseMatchList(raw: unknown): MatchSignals["aligned"] | null {
   const out: MatchSignals["aligned"] = [];
   for (const x of raw) {
     if (!isRecord(x) || typeof x.text !== "string") return null;
-    const ids = Array.isArray(x.evidenceIds)
-      ? x.evidenceIds.filter((e): e is string => typeof e === "string")
-      : [];
-    out.push({ text: x.text, evidenceIds: ids });
+    out.push({
+      text: x.text,
+      evidenceIds: representativeEvidence(x.evidenceIds),
+    });
   }
   return out;
 }
@@ -802,6 +876,7 @@ export function parseStepResponse(
     const order = stepSectionIds(step, context);
     sections = order.flatMap((id) => sections.filter((x) => x.id === id));
   }
+  if (step === 5) sections = fillSemesterEvidence(sections, context);
   const output: StepOutput = { step, sections };
   if (step === 3) {
     const narrative = parseNarrative(parsed, context);
@@ -870,7 +945,7 @@ function axisNoDataSection(id: string): SectionItem {
 /**
  * 6단계 축 섹션(2-1부터 2-5)을 앱이 계산한 축 평가에 맞춰 정규화한다.
  * 근거 활동이 없는 축은 모델 응답과 무관하게 no_data 로 두고,
- * 근거가 있는 축은 비었거나 알 수 없는 근거 id 를 앱이 아는 activityIds 로 채운다.
+ * 근거가 있는 축의 근거는 모델 값과 무관하게 앱이 아는 activityIds 로 덮는다.
  */
 export function normalizeAxisSections(
   sections: SectionItem[],
@@ -889,11 +964,9 @@ export function normalizeAxisSections(
     }
     const section = out[idx];
     if (!section || section.status === "no_data") continue;
-    const valid = section.evidence_ids.filter((x) => known.has(x));
     out[idx] = {
       ...section,
-      evidence_ids:
-        valid.length > 0 ? valid : e.activityIds.filter((x) => known.has(x)),
+      evidence_ids: e.activityIds.filter((x) => known.has(x)),
     };
   }
   return out;
@@ -989,7 +1062,7 @@ export function validateStepOutput(
   step: ModelStep,
   output: StepOutput,
   context: ReportContext,
-  extra: { expectedFormula?: string; axes?: AxisEvaluation[] } = {},
+  extra: { axes?: AxisEvaluation[] } = {},
 ): StepValidationResult {
   const sections = output.sections ?? [];
   const payload: Record<string, unknown> = {};
@@ -997,18 +1070,11 @@ export function validateStepOutput(
   if (step === 1) payload.signals = output.signals ?? [];
   if (step === 3 && output.narrative) payload.narrative = output.narrative;
   if (step === 4 && output.match) payload.match = output.match;
-  if (step === 5) {
-    const formula = sections.find((x) => x.id === "1-10")?.formula;
-    if (formula !== undefined) payload.formula = formula;
-  }
   if (step === 7) payload.planDraft = output.planDraft ?? [];
 
   const result = validateStep(step, payload, {
     expectedSectionIds: stepSectionIds(step, context),
     knownEvidenceIds: context.evidenceIds,
-    ...(extra.expectedFormula !== undefined
-      ? { expectedFormula: extra.expectedFormula }
-      : {}),
   });
   const issues = [...result.issues];
 
