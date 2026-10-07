@@ -49,18 +49,35 @@ export type ResponseSchema = NonNullable<
 >;
 
 /**
- * 단계별 응답 최대 출력 토큰(1단계는 묶음 한 번당).
- * 실측 정상 출력 최대(1단계 묶음 약 1800, 3단계 708, 4단계 4075, 5단계 565, 6단계 2412, 7단계 2654)의 약 2배다.
+ * 단일 호출 단계(1, 3, 5)의 응답 최대 출력 토큰(1단계는 묶음 한 번당).
+ * 실측 정상 출력 최대(1단계 묶음 약 1800, 3단계 708, 5단계 565)의 약 2배다.
  * 반복 루프는 한도까지 같은 문장을 되풀이하므로 한도가 낮을수록 빨리 잘려 단계 예산 안에서 재요청할 수 있다.
+ * 4, 6, 7단계는 호출을 섹션별로 나누므로 아래 호출별 한도를 쓴다.
  */
-export const STEP_MAX_OUTPUT_TOKENS: Record<ModelStep, number> = {
+export const STEP_MAX_OUTPUT_TOKENS: Record<1 | 3 | 5, number> = {
   1: 4096,
   3: 2048,
-  4: 4096,
   5: 2048,
-  6: 4096,
-  7: 4096,
 };
+
+/**
+ * 섹션 호출 1회의 최대 출력 토큰. 섹션 하나의 정상 출력(분량 원칙 최대치 약 700)의 약 2배다.
+ * 일반 본문에서 나는 반복 루프를 낮은 한도로 일찍 끊어 재요청하게 한다.
+ */
+export const SECTION_CALL_MAX_OUTPUT_TOKENS = 1536;
+/** 4단계 match 호출의 최대 출력 토큰. aligned, conflicting 각 text 120자 이내 목록이라 섹션 호출과 같게 둔다. */
+export const MATCH_CALL_MAX_OUTPUT_TOKENS = 1536;
+/** 7단계 planDraft 호출의 최대 출력 토큰. 필수 3건, 권장 3건(항목당 약 250토큰)의 약 1.3배다. */
+export const PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS = 2048;
+
+/** 호출을 섹션별로 나누는 단계. 3, 5단계와 1단계는 나누지 않는다. */
+export type SplitStep = 4 | 6 | 7;
+
+/** 나눈 호출 하나가 만드는 것. 섹션 하나, 4단계 match, 7단계 planDraft 중 하나다. */
+export type StepCall =
+  | { kind: "section"; id: string }
+  | { kind: "match" }
+  | { kind: "planDraft" };
 
 const AXIS_LIST: readonly Axis[] = ["A", "B", "C", "D", "E"];
 const KEYWORD_LIMIT = 5;
@@ -82,6 +99,30 @@ export function stepSectionIds(
 ): string[] {
   const omitted = new Set(context.omitted.ids);
   return STEP_SECTION_IDS[step].filter((id) => !omitted.has(id));
+}
+
+/**
+ * 나눈 단계의 호출 목록. 섹션 호출은 stepSectionIds 순서이고, 4단계는 match, 7단계는 planDraft 호출이 뒤따른다.
+ * 6단계에서 근거 활동이 없는 축 섹션은 앱이 no_data 로 확정하므로 부르지 않는다(axes 를 넘기면 거른다).
+ */
+export function stepCalls(
+  step: SplitStep,
+  context: ReportContext,
+  axes?: readonly AxisEvaluation[],
+): StepCall[] {
+  const skipped = new Set(
+    step === 6
+      ? (axes ?? [])
+          .filter((e) => e.count === 0)
+          .map((e) => AXIS_SECTION[e.axis])
+      : [],
+  );
+  const calls: StepCall[] = stepSectionIds(step, context)
+    .filter((id) => !skipped.has(id))
+    .map((id) => ({ kind: "section", id }));
+  if (step === 4) calls.push({ kind: "match" });
+  if (step === 7) calls.push({ kind: "planDraft" });
+  return calls;
 }
 
 const strings = { type: "array", items: { type: "string" } } as const;
@@ -209,6 +250,12 @@ const planDraftSchema = {
   },
 } as const;
 
+const matchSchema = {
+  type: "object",
+  properties: { aligned: matchListSchema, conflicting: matchListSchema },
+  required: ["aligned", "conflicting"],
+} as const;
+
 export const STEP_RESPONSE_SCHEMAS = {
   1: SIGNALS_SCHEMA,
   3: {
@@ -216,34 +263,37 @@ export const STEP_RESPONSE_SCHEMAS = {
     properties: { narrative: narrativeSchema, sections: sectionsSchema },
     required: ["narrative", "sections"],
   },
-  4: {
-    type: "object",
-    properties: {
-      match: {
-        type: "object",
-        properties: { aligned: matchListSchema, conflicting: matchListSchema },
-        required: ["aligned", "conflicting"],
-      },
-      sections: sectionsSchema,
-    },
-    required: ["match", "sections"],
-  },
   5: {
     type: "object",
     properties: { sections: sectionsSchema },
     required: ["sections"],
   },
-  6: {
+} as Record<1 | 3 | 5, ResponseSchema>;
+
+/** 나눈 호출 종류별 응답 스키마. 섹션 호출은 { sections }(항목 1개는 프롬프트로 지시, 스키마에 maxItems 는 쓰지 않는다), match 와 planDraft 호출은 그 필드 하나만 받는다. */
+const CALL_RESPONSE_SCHEMAS = {
+  section: {
     type: "object",
     properties: { sections: sectionsSchema },
     required: ["sections"],
   },
-  7: {
+  match: {
     type: "object",
-    properties: { sections: sectionsSchema, planDraft: planDraftSchema },
-    required: ["sections", "planDraft"],
+    properties: { match: matchSchema },
+    required: ["match"],
   },
-} as Record<ModelStep, ResponseSchema>;
+  planDraft: {
+    type: "object",
+    properties: { planDraft: planDraftSchema },
+    required: ["planDraft"],
+  },
+} as Record<StepCall["kind"], ResponseSchema>;
+
+const CALL_MAX_OUTPUT_TOKENS: Record<StepCall["kind"], number> = {
+  section: SECTION_CALL_MAX_OUTPUT_TOKENS,
+  match: MATCH_CALL_MAX_OUTPUT_TOKENS,
+  planDraft: PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS,
+};
 
 export type PromptBundle = {
   system: string;
@@ -259,6 +309,8 @@ export type StepPromptInput = {
    * 별칭은 묶음과 상관없이 전체 context 기준으로 유지한다.
    */
   batch?: ReportContext["activities"];
+  /** 4, 6, 7단계에서 이 호출이 만들 것. 이 단계들은 필수다. */
+  call?: StepCall;
   prior: {
     signals?: ActivitySignal[];
     classification?: Classification;
@@ -266,6 +318,8 @@ export type StepPromptInput = {
     match?: MatchSignals;
     consistency?: ConsistencyResult;
     axes?: AxisEvaluation[];
+    /** 1-8 반복 문제의식 항목의 text. 섹션 간 서술이 어긋나지 않게 모든 호출에 싣는다. */
+    problems?: string[];
   };
 };
 
@@ -333,8 +387,13 @@ const SECTION_SPECS: Record<string, string> = {
   "3-13": "피해야 할 반복을 items 로 쓴다.",
 };
 
-function sectionGuide(step: ModelStep, context: ReportContext): string {
-  const ids = stepSectionIds(step, context);
+function sectionGuide(
+  step: ModelStep,
+  context: ReportContext,
+  /** 나눈 호출이면 그 섹션 하나만 싣는다. */
+  onlyId?: string,
+): string {
+  const ids = onlyId ? [onlyId] : stepSectionIds(step, context);
   if (ids.length === 0) return "";
   const rows = ids.map((id) => {
     const def = SECTION_REGISTRY.find((d) => d.id === id);
@@ -346,7 +405,10 @@ function sectionGuide(step: ModelStep, context: ReportContext): string {
       instruction: SECTION_SPECS[id],
     };
   });
-  return `작성할 항목(이 id 를 모두, 이 id 만 쓴다):\n${json(rows)}`;
+  const lead = onlyId
+    ? "작성할 항목(이 id 하나만 쓴다)"
+    : "작성할 항목(이 id 를 모두, 이 id 만 쓴다)";
+  return `${lead}:\n${json(rows)}`;
 }
 
 function activityBrief(
@@ -395,7 +457,7 @@ function need<T>(value: T | undefined, step: ModelStep, name: string): T {
   return value;
 }
 
-const STEP_RULES: Record<ModelStep, string> = {
+const STEP_RULES: Record<1 | 3 | 5, string> = {
   1: [
     "1단계: 활동 읽기",
     "활동마다 axes(A부터 E 중 해당하는 축 0개 이상), method(탐구 방식 한 단어), keywords(최대 5개), summary(80자 이내 한 줄)를 쓴다.",
@@ -409,39 +471,107 @@ const STEP_RULES: Record<ModelStep, string> = {
     "항목 1-8 에는 활동에서 반복된 문제의식을 근거와 함께 쓴다.",
     "구체적인 탐구 주제를 새로 만들지 않고 활동에서 드러난 흐름만 쓴다.",
   ].join("\n"),
-  4: [
-    "4단계: 학생 조사 응답 대조",
-    "설문 답과 활동 신호를 대조해 match.aligned(맞는 신호)와 match.conflicting(어긋나는 신호)을 쓴다. 각 항목은 text 와 evidenceIds 를 가진다.",
-    "어긋남은 학생을 탓하지 않고 확인된 차이로만 쓴다.",
-  ].join("\n"),
   5: [
     "5단계: 학기별 연계 여부",
     "항목 1-9 에 학기마다 연계 여부를 쓴다. 숫자를 계산하지 않는다.",
     "연계 여부는 입력의 활동별 연계 신호를 따른다.",
   ].join("\n"),
-  6: [
-    "6단계: A부터 E 5축 진단",
-    "앱이 계산한 축별 판정을 서술로 풀어 쓴다. 판정과 판정 라벨은 입력의 verdictLabel 그대로 쓰고 바꾸지 않는다. 바꾸면 검증에 실패한다.",
-    "각 축 항목의 rows 에는 해석 한 행(label 은 해석, 120자 이내 한두 문장)만 쓰고, 부족하면 부족한 점 한 행(120자 이내)을 더한다.",
-    "판정, 근거 활동, 대학 평가요소 대응 행은 앱이 만드므로 쓰지 않는다. 활동을 나열하지 않는다.",
-    "count 가 0 인 축은 status 를 no_data 로 두고 no_data_reason 에 자료 없음이라고 쓰며 body 를 쓰지 않는다.",
-    "축 항목 2-1 부터 2-5 의 evidence_ids 는 앱이 채우니 빈 배열로 둔다.",
-  ].join("\n"),
-  7: [
-    "7단계: 학년별 방향 설계",
-    "구체적인 탐구 주제를 쓰지 말고 방향과 조건까지만 쓴다. 탐구 주제: 처럼 주제를 못 박는 표현을 쓰지 않는다.",
-    "항목마다 조건은 2~3개만 쓰고 길게 설명하지 않는다.",
-    "planDraft 에 실행계획 항목을 쓴다. program 은 school, self, deep 중 하나, priority 는 required 또는 recommended, period 는 course_selection, semester, vacation 중 하나다.",
-    "required 는 최대 3건, recommended 도 최대 3건이며 required 는 1건 이상 둔다. deadline 은 쓰지 않는다.",
-    "planDraft 의 title 과 description 에는 등급이나 점수 숫자를 쓰지 않는다. 학부모가 읽는 글이다. 퍼센트 숫자도 쓰지 않는다.",
-    "트랙의 제외 항목은 요청하지 않았으니 쓰지 않는다. 분석 범위 밖의 학기는 평가하지 않는다.",
-  ].join("\n"),
 };
+
+const AXIS_SECTION_IDS: readonly string[] = ["2-1", "2-2", "2-3", "2-4", "2-5"];
+
+/** 나눈 호출의 단계 규칙. 그 호출 종류에 해당하는 지시만 담는다. */
+function callRules(step: SplitStep, call: StepCall): string {
+  if (call.kind === "match") {
+    return [
+      "4단계: 학생 조사 응답 대조",
+      "설문 답과 활동 신호를 대조해 match.aligned(맞는 신호)와 match.conflicting(어긋나는 신호)을 쓴다. 각 항목은 text 와 evidenceIds 를 가진다.",
+      "어긋남은 학생을 탓하지 않고 확인된 차이로만 쓴다.",
+    ].join("\n");
+  }
+  if (call.kind === "planDraft") {
+    return [
+      "7단계: 학년별 방향 설계 중 실행계획",
+      "구체적인 탐구 주제를 쓰지 말고 방향과 조건까지만 쓴다. 탐구 주제: 처럼 주제를 못 박는 표현을 쓰지 않는다.",
+      "planDraft 에 실행계획 항목을 쓴다. program 은 school, self, deep 중 하나, priority 는 required 또는 recommended, period 는 course_selection, semester, vacation 중 하나다.",
+      "required 는 최대 3건, recommended 도 최대 3건이며 required 는 1건 이상 둔다. deadline 은 쓰지 않는다.",
+      "planDraft 의 title 과 description 에는 등급이나 점수 숫자를 쓰지 않는다. 학부모가 읽는 글이다. 퍼센트 숫자도 쓰지 않는다.",
+      "트랙의 제외 항목은 요청하지 않았으니 쓰지 않는다. 분석 범위 밖의 학기는 평가하지 않는다.",
+    ].join("\n");
+  }
+  switch (step) {
+    case 4:
+      return [
+        "4단계: 학생 조사 응답 대조",
+        "설문 답과 활동 신호를 읽고 지정한 항목 하나만 쓴다. sections 에는 그 항목 하나만 담는다.",
+      ].join("\n");
+    case 6: {
+      const lines = [
+        "6단계: A부터 E 5축 진단",
+        "앱이 계산한 축별 판정을 바탕으로 지정한 항목 하나만 쓴다. sections 에는 그 항목 하나만 담는다.",
+      ];
+      if (AXIS_SECTION_IDS.includes(call.id)) {
+        lines.push(
+          "판정과 판정 라벨은 입력의 verdictLabel 그대로이며 앱이 행으로 만든다. 판정 값을 바꾸지 않는다.",
+          "rows 에는 해석 한 행(label 은 해석, 120자 이내 한두 문장)만 쓰고, 부족하면 부족한 점 한 행(120자 이내)을 더한다.",
+          "판정, 근거 활동, 대학 평가요소 대응 행은 앱이 만드므로 쓰지 않는다. 활동을 나열하지 않는다.",
+          "축 항목의 evidence_ids 는 앱이 채우니 빈 배열로 둔다.",
+        );
+      }
+      return lines.join("\n");
+    }
+    case 7:
+      return [
+        "7단계: 학년별 방향 설계",
+        "지정한 항목 하나만 쓴다. sections 에는 그 항목 하나만 담는다.",
+        "구체적인 탐구 주제를 쓰지 말고 방향과 조건까지만 쓴다. 탐구 주제: 처럼 주제를 못 박는 표현을 쓰지 않는다.",
+        "항목마다 조건은 2~3개만 쓰고 길게 설명하지 않는다.",
+        "트랙의 제외 항목은 요청하지 않았으니 쓰지 않는다. 분석 범위 밖의 학기는 평가하지 않는다.",
+      ].join("\n");
+  }
+}
+
+/**
+ * 4, 6, 7단계 모든 호출이 공유하는 앞 단계 결과. 섹션마다 따로 불러도 대주제와 소주제 문구가 어긋나지 않게 한다.
+ * 설문 대조(match)는 4단계 이후 호출에만 싣는다.
+ */
+function sharedInput(
+  step: SplitStep,
+  prior: StepPromptInput["prior"],
+  table: AliasTable,
+): string {
+  const narrative = need(prior.narrative, step, "narrative");
+  const view = {
+    theme: narrative.theme,
+    subthemes: narrative.subthemes.map((t) => ({
+      grade: t.grade,
+      stage: t.stage,
+      text: t.text,
+    })),
+  };
+  const parts = [
+    `[리포트의 대주제와 학년별 소주제]\n리포트의 대주제와 학년별 소주제다. 서술에서 이 표현을 그대로 이어 쓰고 새 대주제를 만들지 않는다.\n${json(view)}`,
+  ];
+  if (prior.problems && prior.problems.length > 0)
+    parts.push(`[반복 문제의식(1-8)]\n${json(prior.problems)}`);
+  if (step !== 4) {
+    const match = need(prior.match, step, "match");
+    parts.push(`[설문 대조]\n${json(matchBrief(match, table))}`);
+  }
+  return parts.join("\n\n");
+}
 
 function stepUser(
   step: ModelStep,
-  { context, prior, batch }: StepPromptInput,
+  { context, prior, batch, call }: StepPromptInput,
 ): string {
+  const splitCall = (): StepCall => {
+    if (!call)
+      throw new Error(`${step}단계 프롬프트에는 호출 종류(call)가 필요합니다.`);
+    return call;
+  };
+  const guide = (c: StepCall): string =>
+    c.kind === "section" ? `\n\n${sectionGuide(step, context, c.id)}` : "";
   const head = `학생 트랙: ${context.track}, 현재 학년: ${context.currentGrade}\n분석 범위: ${context.range.semesters.join(", ")}`;
   const career = context.profile.career?.trim() ?? "";
   const table = buildAliasTable(context);
@@ -464,12 +594,13 @@ function stepUser(
       return `${head}\n\n[설문의 진로 답]\n${json({ career: context.profile.career, survey: context.survey })}\n\n[활동 목록]\n${json(context.activities.map(brief))}\n\n[활동 신호]\n${json(signalBrief(signals, table))}${previous}\n\n${sectionGuide(step, context)}`;
     }
     case 4: {
+      const c = splitCall();
       const signals = need(prior.signals, step, "signals");
       const note =
-        career === ""
+        career === "" && c.kind === "section" && c.id === "1-2"
           ? "\n설문의 진로 답이 비어 있으므로 항목 1-2 는 no_data 로 둔다."
           : "";
-      return `${head}\n\n[설문 전체 답]\n${json({ career: context.profile.career, survey: context.survey })}${note}\n\n[활동 신호]\n${json(signalBrief(signals, table))}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n${sharedInput(step, prior, table)}\n\n[설문 전체 답]\n${json({ career: context.profile.career, survey: context.survey })}${note}\n\n[활동 신호]\n${json(signalBrief(signals, table))}${guide(c)}`;
     }
     case 5: {
       const signals = need(prior.signals, step, "signals");
@@ -483,6 +614,7 @@ function stepUser(
       return `${head}\n\n[활동별 연계 신호]\n${json(byActivity)}\n\n${sectionGuide(step, context)}`;
     }
     case 6: {
+      const c = splitCall();
       const axes = need(prior.axes, step, "axes");
       const view = axes.map((e) => ({
         axis: e.axis,
@@ -497,18 +629,17 @@ function stepUser(
       const signals = prior.signals
         ? `\n\n[활동 신호]\n${json(signalBrief(prior.signals, table))}`
         : "";
-      return `${head}\n\n[앱이 계산한 축 진단]\n${json(view)}\n\n[활동 목록]\n${json(context.activities.map(brief))}${signals}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n${sharedInput(step, prior, table)}\n\n[앱이 계산한 축 진단]\n${json(view)}\n\n[활동 목록]\n${json(context.activities.map(brief))}${signals}${guide(c)}`;
     }
     case 7: {
-      const narrative = need(prior.narrative, step, "narrative");
-      const match = need(prior.match, step, "match");
-      const c = need(prior.consistency, step, "consistency");
+      const c = splitCall();
+      const c5 = need(prior.consistency, step, "consistency");
       const axes = need(prior.axes, step, "axes");
       const omitted =
         context.omitted.reasons.length > 0
           ? `\n제외 사유: ${context.omitted.reasons.join(" / ")}`
           : "";
-      return `${head}\n분석 범위 설명: ${context.range.description}${omitted}\n\n[서사]\n${json(narrative)}\n\n[설문 대조]\n${json(matchBrief(match, table))}\n\n[방향 일관성 요약]\n${json({ percent: c.percent, verdictLabel: c.verdictLabel, smallSample: c.smallSample })}\n\n[5축 요약]\n${json(axes.map((e) => ({ axis: e.axis, name: AXIS_NAMES[e.axis], count: e.count, required: e.required, verdictLabel: e.verdictLabel, guideline: e.guideline })))}\n\n[활동 목록]\n${json(context.activities.map(brief))}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n분석 범위 설명: ${context.range.description}${omitted}\n\n${sharedInput(step, prior, table)}\n\n[방향 일관성 요약]\n${json({ percent: c5.percent, verdictLabel: c5.verdictLabel, smallSample: c5.smallSample })}\n\n[5축 요약]\n${json(axes.map((e) => ({ axis: e.axis, name: AXIS_NAMES[e.axis], count: e.count, required: e.required, verdictLabel: e.verdictLabel, guideline: e.guideline })))}\n\n[활동 목록]\n${json(context.activities.map(brief))}${guide(c)}`;
     }
   }
 }
@@ -518,14 +649,25 @@ export function buildStepPrompt(
   input: StepPromptInput,
   retryNotes: string[] = [],
 ): PromptBundle {
-  const system = `${COMMON_RULES}\n\n${STEP_RULES[step]}`;
   const retry =
     retryNotes.length > 0
       ? `\n\n[이전 응답의 문제]\n${retryNotes.map((n) => `- ${n}`).join("\n")}`
       : "";
+  const user = `${stepUser(step, input)}${retry}`;
+  if (step === 4 || step === 6 || step === 7) {
+    const call = input.call;
+    if (!call)
+      throw new Error(`${step}단계 프롬프트에는 호출 종류(call)가 필요합니다.`);
+    return {
+      system: `${COMMON_RULES}\n\n${callRules(step, call)}`,
+      user,
+      responseSchema: CALL_RESPONSE_SCHEMAS[call.kind],
+      maxOutputTokens: CALL_MAX_OUTPUT_TOKENS[call.kind],
+    };
+  }
   return {
-    system,
-    user: `${stepUser(step, input)}${retry}`,
+    system: `${COMMON_RULES}\n\n${STEP_RULES[step]}`,
+    user,
     responseSchema: STEP_RESPONSE_SCHEMAS[step],
     maxOutputTokens: STEP_MAX_OUTPUT_TOKENS[step],
   };
@@ -651,12 +793,20 @@ function bodyEvidenceUnion(body: unknown): string[] {
   return [...new Set(ids)];
 }
 
-function parseSections(
-  body: Record<string, unknown>,
+/** 이 호출이 만들 섹션 id. 나누지 않은 호출은 단계 전체, match 와 planDraft 호출은 없다. */
+function callSectionIds(
   step: ModelStep,
   context: ReportContext,
+  call: StepCall | undefined,
+): string[] {
+  if (!call) return stepSectionIds(step, context);
+  return call.kind === "section" ? [call.id] : [];
+}
+
+function parseSections(
+  body: Record<string, unknown>,
+  expected: string[],
 ): { sections: SectionItem[]; issues: ValidationIssue[] } {
-  const expected = stepSectionIds(step, context);
   const issues: ValidationIssue[] = [];
   const found = new Map<string, SectionItem>();
   const raws = Array.isArray(body.sections) ? body.sections : [];
@@ -861,6 +1011,8 @@ export function parseStepResponse(
   options: {
     axes?: AxisEvaluation[];
     batch?: ReportContext["activities"];
+    /** 나눈 호출이면 그 호출이 만들 것만 파싱한다. 없으면 단계 전체다. */
+    call?: StepCall;
   } = {},
 ): ParseResult {
   let parsed: unknown;
@@ -879,25 +1031,28 @@ export function parseStepResponse(
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
   if (step === 1)
     return parseSignals(parsed, context, options.batch ?? context.activities);
-  const parsedSections = parseSections(parsed, step, context);
+  const call = options.call;
+  const expected = callSectionIds(step, context, call);
+  const parsedSections = parseSections(parsed, expected);
   let { sections } = parsedSections;
   let { issues } = parsedSections;
   if (step === 6 && options.axes) {
+    // 나눈 호출이면 이 호출의 섹션에 해당하는 축만 정규화한다. 다른 축 섹션을 끼워 넣지 않는다.
+    const axes = call
+      ? options.axes.filter((e) => expected.includes(AXIS_SECTION[e.axis]))
+      : options.axes;
     // 근거 활동이 없는 축은 앱이 no_data 로 확정하므로 모델의 누락과 형식 오류를 문제로 보지 않는다.
     const emptyIds = new Set(
-      options.axes
-        .filter((e) => e.count === 0)
-        .map((e) => AXIS_SECTION[e.axis]),
+      axes.filter((e) => e.count === 0).map((e) => AXIS_SECTION[e.axis]),
     );
     issues = issues.filter((i) => !(i.path && emptyIds.has(i.path)));
     sections = normalizeAxisSections(
       sections,
-      options.axes,
+      axes,
       context.evidenceIds,
       context.activities,
     );
-    const order = stepSectionIds(step, context);
-    sections = order.flatMap((id) => sections.filter((x) => x.id === id));
+    sections = expected.flatMap((id) => sections.filter((x) => x.id === id));
   }
   if (step === 5) sections = fillSemesterEvidence(sections, context);
   const output: StepOutput = { step, sections };
@@ -911,7 +1066,7 @@ export function parseStepResponse(
         path: "narrative",
       });
   }
-  if (step === 4) {
+  if (step === 4 && (!call || call.kind === "match")) {
     const m = isRecord(parsed.match) ? parsed.match : null;
     const aligned = parseMatchList(m?.aligned);
     const conflicting = parseMatchList(m?.conflicting);
@@ -923,7 +1078,7 @@ export function parseStepResponse(
         path: "match",
       });
   }
-  if (step === 7) {
+  if (step === 7 && (!call || call.kind === "planDraft")) {
     const plan = parsePlanDraft(parsed.planDraft);
     output.planDraft = plan.items;
     issues.push(...plan.issues);
@@ -1134,18 +1289,21 @@ export function validateStepOutput(
   step: ModelStep,
   output: StepOutput,
   context: ReportContext,
-  extra: { axes?: AxisEvaluation[] } = {},
+  extra: { axes?: AxisEvaluation[]; call?: StepCall } = {},
 ): StepValidationResult {
   const sections = output.sections ?? [];
+  // 나눈 호출이면 그 호출이 만든 것만 검증한다. planDraft 상한은 planDraft 호출이 아니면 보지 않는다.
+  const checksPlan =
+    step === 7 && (!extra.call || extra.call.kind === "planDraft");
   const payload: Record<string, unknown> = {};
   if (output.sections) payload.sections = sections;
   if (step === 1) payload.signals = output.signals ?? [];
   if (step === 3 && output.narrative) payload.narrative = output.narrative;
   if (step === 4 && output.match) payload.match = output.match;
-  if (step === 7) payload.planDraft = output.planDraft ?? [];
+  if (checksPlan) payload.planDraft = output.planDraft ?? [];
 
   const result = validateStep(step, payload, {
-    expectedSectionIds: stepSectionIds(step, context),
+    expectedSectionIds: callSectionIds(step, context, extra.call),
     knownEvidenceIds: context.evidenceIds,
   });
   const issues = [...result.issues];
@@ -1193,6 +1351,6 @@ export function validateStepOutput(
   }
   if (step === 6 && extra.axes)
     issues.push(...checkVerdictLabels(sections, extra.axes));
-  if (step === 7) issues.push(...checkPlanDraft(output.planDraft ?? []));
+  if (checksPlan) issues.push(...checkPlanDraft(output.planDraft ?? []));
   return { ok: issues.length === 0, issues };
 }

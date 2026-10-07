@@ -29,9 +29,13 @@ import {
 import {
   buildStepPrompt,
   type ModelStep,
+  normalizeAxisSections,
   type PromptBundle,
   parseStepResponse,
+  type SplitStep,
+  type StepCall,
   type StepPromptInput,
+  stepCalls,
   stepSectionIds,
   validateStepOutput,
 } from "./prompts.js";
@@ -230,6 +234,7 @@ async function callWithRetry(
       : parseStepResponse(step, reply.text, input.context, {
           ...(extra.axes ? { axes: extra.axes } : {}),
           ...(input.batch ? { batch: input.batch } : {}),
+          ...(input.call ? { call: input.call } : {}),
         });
     let issues: ValidationIssue[];
     if (parsed === null) {
@@ -238,7 +243,10 @@ async function callWithRetry(
       ];
     } else if (parsed.ok) {
       const output: StepOutput = { ...parsed.output, ...seed };
-      const verdict = validateStepOutput(step, output, input.context, extra);
+      const verdict = validateStepOutput(step, output, input.context, {
+        ...extra,
+        ...(input.call ? { call: input.call } : {}),
+      });
       if (verdict.ok) return { ok: true, output, extraAttempts };
       issues = verdict.issues;
     } else {
@@ -258,45 +266,41 @@ async function callWithRetry(
 
 /** 1단계 한 묶음의 활동 수. 출력이 활동 수에 비례해 한도를 넘지 않게 나눈다. */
 export const SIGNAL_BATCH_SIZE = 15;
-/** 1단계 묶음을 동시에 부르는 최대 수. */
-export const SIGNAL_BATCH_CONCURRENCY = 6;
+/** 한 단계 안에서 모델을 동시에 부르는 최대 수. 1단계 묶음과 4, 6, 7단계 섹션 호출이 같이 쓴다. */
+export const MODEL_CALL_CONCURRENCY = 6;
 
 const FAILURE_SEVERITY = ["validation", "timeout", "upstream"] as const;
 
-/**
- * 1단계. 활동을 묶음으로 나눠 동시에 부르고 활동 순서대로 합친다.
- * 모든 묶음이 같은 단계 예산을 쓰고, 하나라도 끝내 실패하면 단계 전체가 실패한다.
- * 실패 종류는 upstream, timeout, validation 순으로 심한 것을 고르고 issues 는 실패한 묶음 것을 이어 붙인다.
- */
-async function readActivitiesInBatches(
-  context: ReportContext,
-  deps: RunStepDeps,
-): Promise<ModelCallOutcome> {
-  const stepStartedAt = Date.parse(deps.now());
-  const batches: ReportContext["activities"][] = [];
-  for (let i = 0; i < context.activities.length; i += SIGNAL_BATCH_SIZE)
-    batches.push(context.activities.slice(i, i + SIGNAL_BATCH_SIZE));
+type CallSuccess = Extract<ModelCallOutcome, { ok: true }>;
 
-  const outcomes: ModelCallOutcome[] = new Array(batches.length);
+/**
+ * 한 단계의 호출들을 동시에(최대 MODEL_CALL_CONCURRENCY) 부르고 입력 순서대로 결과를 모은다.
+ * 모든 호출이 같은 단계 예산을 쓰고, 하나라도 끝내 실패하면 단계 전체가 실패한다.
+ * 실패 종류는 upstream, timeout, validation 순으로 심한 것을 고르고 issues 는 실패한 호출 것을 이어 붙인다.
+ * extraAttempts 는 재요청이 하나라도 있으면 1이다.
+ */
+async function runCalls(
+  step: ModelStep,
+  jobs: ((stepStartedAt: number) => Promise<ModelCallOutcome>)[],
+  deps: RunStepDeps,
+): Promise<
+  | { ok: true; outputs: StepOutput[]; extraAttempts: number }
+  | Extract<ModelCallOutcome, { ok: false }>
+> {
+  const stepStartedAt = Date.parse(deps.now());
+  const outcomes: ModelCallOutcome[] = new Array(jobs.length);
   let next = 0;
   const worker = async (): Promise<void> => {
-    while (next < batches.length) {
+    while (next < jobs.length) {
       const index = next++;
-      const batch = batches[index];
-      if (!batch) return;
-      outcomes[index] = await callWithRetry(
-        1,
-        { context, prior: {}, batch },
-        deps,
-        {},
-        {},
-        stepStartedAt,
-      );
+      const job = jobs[index];
+      if (!job) return;
+      outcomes[index] = await job(stepStartedAt);
     }
   };
   await Promise.all(
     Array.from(
-      { length: Math.min(SIGNAL_BATCH_CONCURRENCY, batches.length) },
+      { length: Math.min(MODEL_CALL_CONCURRENCY, jobs.length) },
       worker,
     ),
   );
@@ -314,16 +318,113 @@ async function readActivitiesInBatches(
     );
     return {
       ok: false,
-      step: 1,
+      step,
       issues: failed.flatMap((f) => f.issues),
       extraAttempts,
       failure,
     };
   }
-  const signals = outcomes.flatMap((o) =>
-    o.ok ? (o.output.signals ?? []) : [],
+  return {
+    ok: true,
+    outputs: outcomes.map((o) => (o as CallSuccess).output),
+    extraAttempts,
+  };
+}
+
+/** 1단계. 활동을 묶음으로 나눠 동시에 부르고 활동 순서대로 합친다. */
+async function readActivitiesInBatches(
+  context: ReportContext,
+  deps: RunStepDeps,
+): Promise<ModelCallOutcome> {
+  const batches: ReportContext["activities"][] = [];
+  for (let i = 0; i < context.activities.length; i += SIGNAL_BATCH_SIZE)
+    batches.push(context.activities.slice(i, i + SIGNAL_BATCH_SIZE));
+
+  const r = await runCalls(
+    1,
+    batches.map(
+      (batch) => (startedAt: number) =>
+        callWithRetry(
+          1,
+          { context, prior: {}, batch },
+          deps,
+          {},
+          {},
+          startedAt,
+        ),
+    ),
+    deps,
   );
-  return { ok: true, output: { step: 1, signals }, extraAttempts };
+  if (!r.ok) return r;
+  const signals = r.outputs.flatMap((o) => o.signals ?? []);
+  return {
+    ok: true,
+    output: { step: 1, signals },
+    extraAttempts: r.extraAttempts,
+  };
+}
+
+/**
+ * 4, 6, 7단계. 섹션마다(4단계는 match, 7단계는 planDraft 도) 따로 부르고 stepSectionIds 순서로 합친다.
+ * 한 응답이 길수록 잦은 반복 루프를 호출을 쪼개 줄인다. 합친 뒤 단계 전체 검증을 한 번 더 돈다.
+ */
+async function runSplitStep(
+  step: SplitStep,
+  context: ReportContext,
+  prior: StepPromptInput["prior"],
+  deps: RunStepDeps,
+  axes?: AxisEvaluation[],
+): Promise<ModelCallOutcome> {
+  const extra = axes ? { axes } : {};
+  const calls: StepCall[] = stepCalls(step, context, axes);
+  const r = await runCalls(
+    step,
+    calls.map(
+      (call) => (startedAt: number) =>
+        callWithRetry(
+          step,
+          { context, prior, call },
+          deps,
+          extra,
+          {},
+          startedAt,
+        ),
+    ),
+    deps,
+  );
+  if (!r.ok) return r;
+
+  let sections = r.outputs.flatMap((o) => o.sections ?? []);
+  const merged: StepOutput = { step, sections };
+  for (const o of r.outputs) {
+    if (o.match) merged.match = o.match;
+    if (o.planDraft) merged.planDraft = o.planDraft;
+  }
+  if (step === 6 && axes) {
+    // 근거 활동이 없는 축 섹션은 부르지 않았으니 앱이 no_data 로 채우고 단계 순서로 되돌린다.
+    sections = normalizeAxisSections(
+      sections,
+      axes,
+      context.evidenceIds,
+      context.activities,
+    );
+    sections = stepSectionIds(step, context).flatMap((id) =>
+      sections.filter((x) => x.id === id),
+    );
+    merged.sections = sections;
+    merged.axes = axes;
+  }
+  const verdict = validateStepOutput(step, merged, context, extra);
+  if (!verdict.ok) {
+    return {
+      ok: false,
+      step,
+      issues: verdict.issues,
+      extraAttempts: r.extraAttempts,
+      failure: "validation",
+    };
+  }
+  return { ok: true, output: merged, extraAttempts: r.extraAttempts };
 }
 
 function ok(
@@ -377,6 +478,21 @@ function appConsistencySection(
       criteria: c.criteria,
     },
   };
+}
+
+/** 저장된 1-8 반복 문제의식 항목의 text. 섹션 호출 모두에 같은 문제의식을 이어 쓰게 한다. */
+function repeatedProblemTexts(sections: SectionItem[]): string[] {
+  const body = sections.find((x) => x.id === "1-8")?.body;
+  const items = Array.isArray(body)
+    ? body
+    : isRecord(body) && Array.isArray(body.items)
+      ? body.items
+      : [];
+  return items.flatMap((item) =>
+    isRecord(item) && typeof item.text === "string" && item.text.trim() !== ""
+      ? [item.text]
+      : [],
+  );
 }
 
 function signalsBase(stored: StoredOutputs): Record<string, unknown> {
@@ -588,8 +704,14 @@ export async function runStep(
   if (context.activities.length === 0 && step !== 5) {
     return noActivityResult(step, context, stored, s);
   }
-  if (step === 7) {
+  // 4, 6, 7단계는 섹션 호출마다 3단계 서사를 공통 입력으로 싣고, 6, 7단계는 4단계 설문 대조도 싣는다.
+  if (step === 4 || step === 6 || step === 7) {
     if (!s.narrative) return missingPrior(step, "narrative");
+  }
+  if (step === 6) {
+    if (!s.match) return missingPrior(step, "match");
+  }
+  if (step === 7) {
     if (!s.match) return missingPrior(step, "match");
     if (!s.consistency) return missingPrior(step, "consistency");
     if (!s.axes) return missingPrior(step, "axes");
@@ -636,28 +758,30 @@ export async function runStep(
     return modelResult(5, context, stored, s, output, r.extraAttempts);
   }
 
-  if (step === 6) {
-    const axes = computeStep6(context, s.signals);
-    const r = await callWithRetry(
-      6,
-      { context, prior: { signals: s.signals, axes } },
-      deps,
-      { axes },
-      { axes },
-    );
+  if (step === 4 || step === 6 || step === 7) {
+    const prior: StepPromptInput["prior"] = { signals: s.signals };
+    if (s.narrative) prior.narrative = s.narrative;
+    const problems = repeatedProblemTexts(s.sections);
+    if (problems.length > 0) prior.problems = problems;
+    if (step !== 4 && s.match) prior.match = s.match;
+    if (step === 7) {
+      if (s.consistency) prior.consistency = s.consistency;
+      if (s.axes) prior.axes = s.axes;
+    }
+    const axes = step === 6 ? computeStep6(context, s.signals) : undefined;
+    if (axes) prior.axes = axes;
+    const r = await runSplitStep(step, context, prior, deps, axes);
     return r.ok
-      ? modelResult(6, context, stored, s, r.output, r.extraAttempts)
+      ? modelResult(step, context, stored, s, r.output, r.extraAttempts)
       : r;
   }
 
-  const prior: StepPromptInput["prior"] = { signals: s.signals };
-  if (step === 7) {
-    if (s.narrative) prior.narrative = s.narrative;
-    if (s.match) prior.match = s.match;
-    if (s.consistency) prior.consistency = s.consistency;
-    if (s.axes) prior.axes = s.axes;
-  }
-  const r = await callWithRetry(step, { context, prior }, deps, {});
+  const r = await callWithRetry(
+    step,
+    { context, prior: { signals: s.signals } },
+    deps,
+    {},
+  );
   return r.ok
     ? modelResult(step, context, stored, s, r.output, r.extraAttempts)
     : r;
