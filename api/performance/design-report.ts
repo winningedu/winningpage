@@ -164,6 +164,12 @@
 //   `JSON.parse` 한 줄이고, 형식 강제는 `responseSchema`가 한다.
 
 import type { VercelResponse } from "@vercel/node";
+import {
+  performanceTraceContext,
+  retryReasonOf,
+  validationOf,
+} from "../_lib/aiTelemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -1204,322 +1210,377 @@ export default defineHandler({
         .filter(Boolean)
         .join(" ");
 
-      // ── 자료 RAG. **`includeOtherSubjects:false`가 이 호출의 핵심**이다(§8.7 표) —
-      //    이 플래그가 벡터 경로의 `filter_subject`로 연결돼 있어(knowledge.js
-      //    `resolveFilterSubject`) 국어 리포트에 `연잎 효과 초발수 표면`이 섞이던 원인을
-      //    막는다. `selectedTopic`은 이제 **확정된 주제**다(주제 추천 때의 `previous_topic`이
-      //    아니다) — 자료 검색이 겨냥해야 하는 것이 그것이다.
-      const knowledge = await loadDynamicAssessmentKnowledge({
-        supabase: supabaseAdmin,
-        grade: ragGrade,
-        subject: ragSubject,
-        career,
-        selectedTopic,
-        assessmentInfo: assessmentText,
-        purpose: "resource",
-        maxItems: 8,
-        maxChars: RESOURCE_MAX_CHARS,
-        includeOtherSubjects: false,
-      });
-
-      const candidates = buildResourceCandidates(knowledge.rows);
-
-      // ── 학생 과거 수행 RAG. threshold가 주제 추천(0.48)과 다른 **0.46**인 것이 원문이다
-      //    (§8.7 표 「학생 과거 수행 … 설계리포트 0.46」). 검색 실패는 빈 배열로 흡수되지만
-      //    `profileId` 누락은 프로그래밍 오류로 던지므로 여기서만 감싼다.
-      let studentSessions: Awaited<
-        ReturnType<typeof loadRelevantStudentSessions>
-      > = [];
-      try {
-        studentSessions = await loadRelevantStudentSessions({
-          supabase: supabaseAdmin,
+      // 계기판 기록. RAG 와 모델 호출 구간 전체를 try/finally 로 감싸 어떤 경로로
+      // 빠져나가도 응답 직전에 한 번 내보낸다. 기록 실패는 요청에 영향을 주지 않는다.
+      const trace = createAiTrace(
+        performanceTraceContext({
+          feature: "design_report",
+          sessionId: sessionRow.id,
           profileId: userId,
+          promptVersion: resolveDesignPromptVersion(),
+        }),
+      );
+      try {
+        // ── 자료 RAG. **`includeOtherSubjects:false`가 이 호출의 핵심**이다(§8.7 표) —
+        //    이 플래그가 벡터 경로의 `filter_subject`로 연결돼 있어(knowledge.js
+        //    `resolveFilterSubject`) 국어 리포트에 `연잎 효과 초발수 표면`이 섞이던 원인을
+        //    막는다. `selectedTopic`은 이제 **확정된 주제**다(주제 추천 때의 `previous_topic`이
+        //    아니다) — 자료 검색이 겨냥해야 하는 것이 그것이다.
+        const knowledge = await loadDynamicAssessmentKnowledge({
+          supabase: supabaseAdmin,
           grade: ragGrade,
           subject: ragSubject,
           career,
           selectedTopic,
           assessmentInfo: assessmentText,
-          matchThreshold: STUDENT_HISTORY_DESIGN_MATCH_THRESHOLD,
+          purpose: "resource",
+          maxItems: 8,
+          maxChars: RESOURCE_MAX_CHARS,
+          includeOtherSubjects: false,
+          telemetry: trace,
         });
-      } catch (historyError) {
-        console.error(
-          "performance/design-report 과거 수행 RAG 실패(무시):",
-          historyError,
-        );
-      }
 
-      // 프롬프트 버전은 **서버가** 정한다. 요청 body를 보지 않는다(prompts.js
-      // `resolveDesignPromptVersion` 시그니처 자체가 그 계약이다).
-      const promptVersion = resolveDesignPromptVersion();
+        const candidates = buildResourceCandidates(knowledge.rows);
 
-      const system = buildDesignReportSystem({
-        promptVersion,
-        structureType: structure.type,
-        structureReason: structure.reason,
-        writingFrame: structure.writingFrame,
-        writingBranch: branchKey,
-        resourceKnowledgeText: knowledge.text,
-        allowedResources: candidates.allowed,
-        studentHistoryText: formatRelevantStudentSessionsForPrompt(
-          studentSessions.slice(0, STUDENT_HISTORY_PROMPT_LIMIT),
-          // **여기만 맨 `subject`다(결합값 금지).** 이 인자는 검색 질의문이 아니라
-          // `performance_session_vectors.subject`와의 등가 비교 대상이다
-          // (knowledge.js `sameSubject`). 결합값을 넘기면 `같은 과목` 판정이 영구히 false다.
-          subject,
-        ),
-      });
-
-      const userMsg = buildDesignReportUser({
-        selectedTopic,
-        selectedTopicDetail: flattenTopicDetail(topicRow.detail),
-        gradeLabel,
-        // buildDesignReportUser는 값을 `|| ""`로 다루므로 null→"" 치환은 결과에 영향 없다.
-        semester: sessionRow.semester || "",
-        schoolType: sessionRow.school_type || "",
-        subjectGroup: sessionRow.subject_group || "",
-        subject,
-        career,
-        previousTopic,
-        assessmentText,
-      });
-
-      // ── 모델 호출. 실패 형태 3가지를 각각 다르게 다룬다(§8.4 ⓑ·ⓒ·ⓓ).
-      const abortController = new AbortController();
-      const abortTimer = setTimeout(
-        () => abortController.abort(),
-        MODEL_TIMEOUT_MS,
-      );
-
-      let payload: Record<string, unknown> | null = null;
-      let lastFailure = "unknown";
-
-      try {
-        for (let attempt = 0; attempt <= STRUCTURE_RETRY; attempt++) {
-          const isRetry = attempt > 0;
-
-          let response: Awaited<ReturnType<typeof generateWithRetry>>;
-          try {
-            response = await generateWithRetry({
-              model: PERFORMANCE_MODEL,
-              contents: userMsg,
-              config: {
-                systemInstruction: system,
-                // 재시도는 원문 재시도와 같은 취지로 온도를 낮춘다
-                // (`suhaengpyeong/api/recommend-topics.js:221` — 0.25 → 0.2).
-                temperature: isRetry
-                  ? 0.2
-                  : DESIGN_GENERATION_DEFAULTS.temperature,
-                // 같은 상한으로 다시 부르면 같은 자리에서 다시 잘린다 → 올려서 재시도.
-                maxOutputTokens: isRetry
-                  ? DESIGN_MAX_OUTPUT_TOKENS_RETRY
-                  : DESIGN_GENERATION_DEFAULTS.maxOutputTokens,
-                thinkingConfig: { thinkingBudget: 0 },
-                responseMimeType: "application/json",
-                responseSchema: DESIGN_REPORT_SCHEMA,
-                abortSignal: abortController.signal,
-              },
-            });
-          } catch (modelError) {
-            // 과부하 재시도(700ms×2^n, 2회)는 generateWithRetry가 이미 소진했다.
-            // 여기까지 오면 상류가 실제로 죽었거나 우리 시한이 끝난 것이다. **무차감**.
-            console.error(
-              "performance/design-report 모델 호출 실패:",
-              modelError,
-            );
-            return fail(
-              res,
-              503,
-              "MODEL_UNAVAILABLE",
-              "설계 리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-              {
-                charged: false,
-              },
-            );
-          }
-
-          const finishReason = response?.candidates?.[0]?.finishReason;
-
-          // ⓒ — 절단된 응답은 **파싱하지 않는다.**
-          if (finishReason === "MAX_TOKENS") {
-            lastFailure = "finish-reason:MAX_TOKENS";
-            console.warn(
-              `performance/design-report MAX_TOKENS 절단 (attempt ${attempt + 1})`,
-            );
-            continue;
-          }
-
-          if (finishReason && finishReason !== "STOP") {
-            lastFailure = `finish-reason:${finishReason}`;
-            console.warn(
-              `performance/design-report 비정상 종료 ${finishReason} (attempt ${attempt + 1})`,
-            );
-            continue;
-          }
-
-          const rawText = trimmed(response?.text);
-          if (!rawText) {
-            lastFailure = "empty-response";
-            continue;
-          }
-
-          let parsed: unknown;
-          try {
-            // 유일한 파싱이다. `responseMimeType:'application/json'`이 형식을 보장하므로
-            // 코드펜스 제거·헤더 보정 같은 전처리를 두지 않는다(§8.4).
-            parsed = JSON.parse(rawText);
-          } catch (parseError) {
-            lastFailure = "json-parse-failed";
-            // ⓓ — 원문은 서버 로그에만 남긴다.
-            console.error(
-              "performance/design-report JSON 파싱 실패:",
-              parseError?.message,
-              rawText.slice(0, 400),
-            );
-            continue;
-          }
-
-          const check = validateDesignPayload(parsed);
-          if (!check.ok) {
-            // tsconfig strict:false(strictNullChecks 꺼짐)에서 이 boolean 판별
-            // 유니온이 `!check.ok`만으로 좁혀지지 않는다(recommend-topics.ts와 같은
-            // 격리 재현 결과) — 그래서 여기서만 명시적으로 좁힌다.
-            const { reason } = check as { ok: false; reason: string };
-            lastFailure = `contract:${reason}`;
-            console.warn(
-              `performance/design-report 계약 위반 ${reason} (attempt ${attempt + 1})`,
-            );
-            continue;
-          }
-
-          payload = parsed as Record<string, unknown>;
-          break;
+        // ── 학생 과거 수행 RAG. threshold가 주제 추천(0.48)과 다른 **0.46**인 것이 원문이다
+        //    (§8.7 표 「학생 과거 수행 … 설계리포트 0.46」). 검색 실패는 빈 배열로 흡수되지만
+        //    `profileId` 누락은 프로그래밍 오류로 던지므로 여기서만 감싼다.
+        let studentSessions: Awaited<
+          ReturnType<typeof loadRelevantStudentSessions>
+        > = [];
+        try {
+          studentSessions = await loadRelevantStudentSessions({
+            supabase: supabaseAdmin,
+            profileId: userId,
+            grade: ragGrade,
+            subject: ragSubject,
+            career,
+            selectedTopic,
+            assessmentInfo: assessmentText,
+            matchThreshold: STUDENT_HISTORY_DESIGN_MATCH_THRESHOLD,
+            telemetry: trace,
+          });
+        } catch (historyError) {
+          console.error(
+            "performance/design-report 과거 수행 RAG 실패(무시):",
+            historyError,
+          );
         }
-      } finally {
-        clearTimeout(abortTimer);
-      }
 
-      if (!payload) {
-        // 재시도까지 실패. **무차감**이고 주제도 확정되지 않는다(RPC를 부르지 않았다).
-        console.error(
-          `performance/design-report 계약 위반 확정: ${lastFailure}`,
+        // 프롬프트 버전은 **서버가** 정한다. 요청 body를 보지 않는다(prompts.js
+        // `resolveDesignPromptVersion` 시그니처 자체가 그 계약이다).
+        const promptVersion = resolveDesignPromptVersion();
+
+        const system = buildDesignReportSystem({
+          promptVersion,
+          structureType: structure.type,
+          structureReason: structure.reason,
+          writingFrame: structure.writingFrame,
+          writingBranch: branchKey,
+          resourceKnowledgeText: knowledge.text,
+          allowedResources: candidates.allowed,
+          studentHistoryText: formatRelevantStudentSessionsForPrompt(
+            studentSessions.slice(0, STUDENT_HISTORY_PROMPT_LIMIT),
+            // **여기만 맨 `subject`다(결합값 금지).** 이 인자는 검색 질의문이 아니라
+            // `performance_session_vectors.subject`와의 등가 비교 대상이다
+            // (knowledge.js `sameSubject`). 결합값을 넘기면 `같은 과목` 판정이 영구히 false다.
+            subject,
+          ),
+        });
+
+        const userMsg = buildDesignReportUser({
+          selectedTopic,
+          selectedTopicDetail: flattenTopicDetail(topicRow.detail),
+          gradeLabel,
+          // buildDesignReportUser는 값을 `|| ""`로 다루므로 null→"" 치환은 결과에 영향 없다.
+          semester: sessionRow.semester || "",
+          schoolType: sessionRow.school_type || "",
+          subjectGroup: sessionRow.subject_group || "",
+          subject,
+          career,
+          previousTopic,
+          assessmentText,
+        });
+
+        // ── 모델 호출. 실패 형태 3가지를 각각 다르게 다룬다(§8.4 ⓑ·ⓒ·ⓓ).
+        const abortController = new AbortController();
+        const abortTimer = setTimeout(
+          () => abortController.abort(),
+          MODEL_TIMEOUT_MS,
         );
-        return fail(
-          res,
-          422,
-          "MODEL_CONTRACT_VIOLATION",
-          "설계 리포트를 정리하지 못했어요. 다시 시도해 주세요.",
+
+        let payload: Record<string, unknown> | null = null;
+        let lastFailure = "unknown";
+
+        try {
+          for (let attempt = 0; attempt <= STRUCTURE_RETRY; attempt++) {
+            const isRetry = attempt > 0;
+            trace.beginAttempt(retryReasonOf(isRetry, lastFailure));
+
+            let response: Awaited<ReturnType<typeof generateWithRetry>>;
+            try {
+              response = await generateWithRetry(
+                {
+                  model: PERFORMANCE_MODEL,
+                  contents: userMsg,
+                  config: {
+                    systemInstruction: system,
+                    // 재시도는 원문 재시도와 같은 취지로 온도를 낮춘다
+                    // (`suhaengpyeong/api/recommend-topics.js:221` — 0.25 → 0.2).
+                    temperature: isRetry
+                      ? 0.2
+                      : DESIGN_GENERATION_DEFAULTS.temperature,
+                    // 같은 상한으로 다시 부르면 같은 자리에서 다시 잘린다 → 올려서 재시도.
+                    maxOutputTokens: isRetry
+                      ? DESIGN_MAX_OUTPUT_TOKENS_RETRY
+                      : DESIGN_GENERATION_DEFAULTS.maxOutputTokens,
+                    thinkingConfig: { thinkingBudget: 0 },
+                    responseMimeType: "application/json",
+                    responseSchema: DESIGN_REPORT_SCHEMA,
+                    abortSignal: abortController.signal,
+                  },
+                },
+                2,
+                trace,
+              );
+            } catch (modelError) {
+              // 과부하 재시도(700ms×2^n, 2회)는 generateWithRetry가 이미 소진했다.
+              // 여기까지 오면 상류가 실제로 죽었거나 우리 시한이 끝난 것이다. **무차감**.
+              console.error(
+                "performance/design-report 모델 호출 실패:",
+                modelError,
+              );
+              return fail(
+                res,
+                503,
+                "MODEL_UNAVAILABLE",
+                "설계 리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+                {
+                  charged: false,
+                },
+              );
+            }
+
+            const finishReason = response?.candidates?.[0]?.finishReason;
+
+            // ⓒ — 절단된 응답은 **파싱하지 않는다.**
+            if (finishReason === "MAX_TOKENS") {
+              lastFailure = "finish-reason:MAX_TOKENS";
+              console.warn(
+                `performance/design-report MAX_TOKENS 절단 (attempt ${attempt + 1})`,
+              );
+              trace.annotateLastCall(validationOf(false, lastFailure));
+              continue;
+            }
+
+            if (finishReason && finishReason !== "STOP") {
+              lastFailure = `finish-reason:${finishReason}`;
+              console.warn(
+                `performance/design-report 비정상 종료 ${finishReason} (attempt ${attempt + 1})`,
+              );
+              trace.annotateLastCall(validationOf(false, lastFailure));
+              continue;
+            }
+
+            const rawText = trimmed(response?.text);
+            if (!rawText) {
+              lastFailure = "empty-response";
+              trace.annotateLastCall(validationOf(false, lastFailure));
+              continue;
+            }
+
+            let parsed: unknown;
+            try {
+              // 유일한 파싱이다. `responseMimeType:'application/json'`이 형식을 보장하므로
+              // 코드펜스 제거·헤더 보정 같은 전처리를 두지 않는다(§8.4).
+              parsed = JSON.parse(rawText);
+            } catch (parseError) {
+              lastFailure = "json-parse-failed";
+              // ⓓ — 원문은 서버 로그에만 남긴다.
+              console.error(
+                "performance/design-report JSON 파싱 실패:",
+                parseError?.message,
+                rawText.slice(0, 400),
+              );
+              trace.annotateLastCall(validationOf(false, lastFailure));
+              continue;
+            }
+
+            const check = validateDesignPayload(parsed);
+            if (!check.ok) {
+              // tsconfig strict:false(strictNullChecks 꺼짐)에서 이 boolean 판별
+              // 유니온이 `!check.ok`만으로 좁혀지지 않는다(recommend-topics.ts와 같은
+              // 격리 재현 결과) — 그래서 여기서만 명시적으로 좁힌다.
+              const { reason } = check as { ok: false; reason: string };
+              lastFailure = `contract:${reason}`;
+              console.warn(
+                `performance/design-report 계약 위반 ${reason} (attempt ${attempt + 1})`,
+              );
+              trace.annotateLastCall(validationOf(false, lastFailure));
+              continue;
+            }
+
+            payload = parsed as Record<string, unknown>;
+            trace.annotateLastCall(validationOf(true, ""));
+            break;
+          }
+        } finally {
+          clearTimeout(abortTimer);
+        }
+
+        if (!payload) {
+          // 재시도까지 실패. **무차감**이고 주제도 확정되지 않는다(RPC를 부르지 않았다).
+          console.error(
+            `performance/design-report 계약 위반 확정: ${lastFailure}`,
+          );
+          return fail(
+            res,
+            422,
+            "MODEL_CONTRACT_VIOLATION",
+            "설계 리포트를 정리하지 못했어요. 다시 시도해 주세요.",
+            {
+              charged: false,
+            },
+          );
+        }
+
+        // ── 자료 소유권 재설계 실행부. 여기서부터 응답에 실리는 자료 문자열은 전부 DB 행이다.
+        const { resources, rejected } = resolveChosenResources(
+          payload.chosen_resources,
+          candidates,
+        );
+        trace.recordCitations(
+          resources.map((r) => String(r.id)).filter(Boolean),
+        );
+
+        if (rejected.length) {
+          // 조용히 버리지 않는다 — 후보 밖 id가 실제로 나온다면 `[사용 허용 자료명 목록]`
+          // 지시가 먹지 않았다는 신호다(관측 가치가 있다). 사용자 응답에는 싣지 않는다(ⓓ).
+          console.warn(
+            `performance/design-report 후보 밖 자료 id 폐기 session=${sessionRow.id} rejected=${JSON.stringify(rejected)} allowed=${candidates.allowed.length}건`,
+          );
+        }
+
+        const sections = buildSections({ payload, resources, branchKey });
+        const structureForClient = {
+          type: structure.type,
+          reason: structure.reason,
+          writingFrame: structure.writingFrame,
+        };
+
+        // ─────────────────────────────────────────────────────────────────
+        // 커밋 — 주제 확정 + 리포트 저장이 **한 트랜잭션**이다(sql/57 (4)).
+        // 이 지점까지 오지 못하면 주제도 확정되지 않고 리포트도 남지 않는다.
+        // ─────────────────────────────────────────────────────────────────
+        const { data: commitRaw, error: commitError } = await supabaseAdmin.rpc(
+          "commit_performance_design_report",
           {
-            charged: false,
+            p_session_id: sessionRow.id,
+            p_profile_id: userId,
+            p_topic_id: topicRow.id,
+            p_sections: buildReportEnvelope({
+              structure: {
+                ...structureForClient,
+                mode: structure.mode ?? null,
+              },
+              sections,
+              resources,
+            }),
+            p_model: PERFORMANCE_MODEL,
+            p_prompt_version: promptVersion,
           },
         );
-      }
 
-      // ── 자료 소유권 재설계 실행부. 여기서부터 응답에 실리는 자료 문자열은 전부 DB 행이다.
-      const { resources, rejected } = resolveChosenResources(
-        payload.chosen_resources,
-        candidates,
-      );
+        if (commitError) {
+          console.error(
+            "performance/design-report 커밋 RPC 실패:",
+            commitError,
+          );
+          return fail(
+            res,
+            500,
+            "INTERNAL",
+            "설계 리포트 저장에 실패했습니다.",
+            {
+              charged: false,
+            },
+          );
+        }
 
-      if (rejected.length) {
-        // 조용히 버리지 않는다 — 후보 밖 id가 실제로 나온다면 `[사용 허용 자료명 목록]`
-        // 지시가 먹지 않았다는 신호다(관측 가치가 있다). 사용자 응답에는 싣지 않는다(ⓓ).
-        console.warn(
-          `performance/design-report 후보 밖 자료 id 폐기 session=${sessionRow.id} rejected=${JSON.stringify(rejected)} allowed=${candidates.allowed.length}건`,
-        );
-      }
+        const commit =
+          commitRaw && typeof commitRaw === "object" ? commitRaw : {};
+        const commitStatus = String(commit.status || "");
 
-      const sections = buildSections({ payload, resources, branchKey });
-      const structureForClient = {
-        type: structure.type,
-        reason: structure.reason,
-        writingFrame: structure.writingFrame,
-      };
+        // 소유권은 위에서 이미 확인했으므로 아래 두 상태는 경합(세션·주제가 그 사이에
+        // 지워짐)에서만 나온다. RPC가 판정 권위를 갖는 지점이라 그대로 전달한다.
+        if (commitStatus === "session_not_found") {
+          return fail(
+            res,
+            403,
+            "NOT_SESSION_OWNER",
+            "세션을 찾을 수 없습니다.",
+            {
+              charged: false,
+            },
+          );
+        }
+        if (commitStatus === "topic_not_in_session") {
+          return fail(
+            res,
+            404,
+            "TOPIC_NOT_IN_SESSION",
+            "이 수행평가의 주제가 아니에요.",
+            { charged: false },
+          );
+        }
+        if (commitStatus !== "committed" || !commit.report_id) {
+          console.error(
+            "performance/design-report 알 수 없는 커밋 상태:",
+            commitStatus,
+          );
+          return fail(
+            res,
+            500,
+            "INTERNAL",
+            "설계 리포트 저장에 실패했습니다.",
+            {
+              charged: false,
+            },
+          );
+        }
 
-      // ─────────────────────────────────────────────────────────────────
-      // 커밋 — 주제 확정 + 리포트 저장이 **한 트랜잭션**이다(sql/57 (4)).
-      // 이 지점까지 오지 못하면 주제도 확정되지 않고 리포트도 남지 않는다.
-      // ─────────────────────────────────────────────────────────────────
-      const { data: commitRaw, error: commitError } = await supabaseAdmin.rpc(
-        "commit_performance_design_report",
-        {
-          p_session_id: sessionRow.id,
-          p_profile_id: userId,
-          p_topic_id: topicRow.id,
-          p_sections: buildReportEnvelope({
-            structure: { ...structureForClient, mode: structure.mode ?? null },
-            sections,
-            resources,
-          }),
-          p_model: PERFORMANCE_MODEL,
-          p_prompt_version: promptVersion,
-        },
-      );
+        const quota = await readQuota(supabaseAdmin, userId);
 
-      if (commitError) {
-        console.error("performance/design-report 커밋 RPC 실패:", commitError);
-        return fail(res, 500, "INTERNAL", "설계 리포트 저장에 실패했습니다.", {
+        res.status(200).json({
+          reportId: commit.report_id,
+          topicId: topicRow.id,
+          structure: structureForClient,
+          sections,
+          resources,
+          quotaRemaining: quota.quotaRemaining,
+          // §8.6이 이 엔드포인트 응답에 못박은 값이다. 이 파일에는 차감 코드가 없다.
           charged: false,
+          generationCount:
+            Number(commit.generation_count) || generationCount + 1,
+          maxGenerations: MAX_DESIGN_GENERATIONS,
+          promptVersion,
+          model: PERFORMANCE_MODEL,
+          knowledge: {
+            source: knowledge.source,
+            hitCount: knowledge.hitCount,
+            degraded: knowledge.degraded,
+            candidateCount: candidates.allowed.length,
+            chosenCount: resources.length,
+            rejectedCount: rejected.length,
+            studentHistoryCount: Math.min(
+              studentSessions.length,
+              STUDENT_HISTORY_PROMPT_LIMIT,
+            ),
+          },
         });
+      } finally {
+        await trace.flush(supabaseAdmin);
       }
-
-      const commit =
-        commitRaw && typeof commitRaw === "object" ? commitRaw : {};
-      const commitStatus = String(commit.status || "");
-
-      // 소유권은 위에서 이미 확인했으므로 아래 두 상태는 경합(세션·주제가 그 사이에
-      // 지워짐)에서만 나온다. RPC가 판정 권위를 갖는 지점이라 그대로 전달한다.
-      if (commitStatus === "session_not_found") {
-        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
-          charged: false,
-        });
-      }
-      if (commitStatus === "topic_not_in_session") {
-        return fail(
-          res,
-          404,
-          "TOPIC_NOT_IN_SESSION",
-          "이 수행평가의 주제가 아니에요.",
-          { charged: false },
-        );
-      }
-      if (commitStatus !== "committed" || !commit.report_id) {
-        console.error(
-          "performance/design-report 알 수 없는 커밋 상태:",
-          commitStatus,
-        );
-        return fail(res, 500, "INTERNAL", "설계 리포트 저장에 실패했습니다.", {
-          charged: false,
-        });
-      }
-
-      const quota = await readQuota(supabaseAdmin, userId);
-
-      res.status(200).json({
-        reportId: commit.report_id,
-        topicId: topicRow.id,
-        structure: structureForClient,
-        sections,
-        resources,
-        quotaRemaining: quota.quotaRemaining,
-        // §8.6이 이 엔드포인트 응답에 못박은 값이다. 이 파일에는 차감 코드가 없다.
-        charged: false,
-        generationCount: Number(commit.generation_count) || generationCount + 1,
-        maxGenerations: MAX_DESIGN_GENERATIONS,
-        promptVersion,
-        model: PERFORMANCE_MODEL,
-        knowledge: {
-          source: knowledge.source,
-          hitCount: knowledge.hitCount,
-          degraded: knowledge.degraded,
-          candidateCount: candidates.allowed.length,
-          chosenCount: resources.length,
-          rejectedCount: rejected.length,
-          studentHistoryCount: Math.min(
-            studentSessions.length,
-            STUDENT_HISTORY_PROMPT_LIMIT,
-          ),
-        },
-      });
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).
       console.error("performance/design-report error:", error);

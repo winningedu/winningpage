@@ -26,6 +26,8 @@
 //   405 { detail }        POST 아님.
 //   500 { detail }        임베딩 실패, 서버 설정 누락 등.
 
+import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
+import { type AiTrace, createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import {
   buildKnowledgeSearchText,
@@ -144,7 +146,10 @@ async function markEmbeddingError(
 async function embedOne(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   id: string,
-  { force = false }: { force?: boolean } = {},
+  {
+    force = false,
+    telemetry,
+  }: { force?: boolean; telemetry?: AiTrace | undefined } = {},
 ) {
   const { data: itemData, error: fetchError } = await supabaseAdmin
     .from(KNOWLEDGE_TABLE)
@@ -211,7 +216,7 @@ async function embedOne(
   const model = getEmbeddingModel();
 
   try {
-    const embedding = await embedText(searchText);
+    const embedding = await embedText(searchText, telemetry);
 
     const { error: updateError } = await supabaseAdmin
       .from(KNOWLEDGE_TABLE)
@@ -268,7 +273,11 @@ async function embedOne(
  */
 async function backfill(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
-  { limit, force }: { limit: number; force: boolean },
+  {
+    limit,
+    force,
+    telemetry,
+  }: { limit: number; force: boolean; telemetry?: AiTrace | undefined },
 ) {
   let query = supabaseAdmin
     .from(KNOWLEDGE_TABLE)
@@ -296,7 +305,10 @@ async function backfill(
 
   for (const row of rows || []) {
     try {
-      const result = await embedOne(supabaseAdmin, row.id, { force });
+      const result = await embedOne(supabaseAdmin, row.id, {
+        force,
+        telemetry,
+      });
 
       if (result.status === "embedded") embedded += 1;
       else skipped += 1;
@@ -334,6 +346,19 @@ export default defineHandler({
     const { action = "embed-one", id, limit, force = false } = req.body || {};
     const forceFlag = force === true || force === "true";
 
+    // 계기판 기록. 요청 하나에 trace 하나이고, 응답 뒤 finally 에서 한 번 내보낸다.
+    const trace = createAiTrace(
+      performanceTraceContext(
+        action === "backfill"
+          ? { feature: "embed_backfill" }
+          : {
+              feature: "embed_one",
+              targetKind: "knowledge_item",
+              targetId: typeof id === "string" ? id : null,
+            },
+      ),
+    );
+
     try {
       if (action === "embed-one") {
         if (!id) {
@@ -341,7 +366,10 @@ export default defineHandler({
           return;
         }
 
-        const result = await embedOne(supabaseAdmin, id, { force: forceFlag });
+        const result = await embedOne(supabaseAdmin, id, {
+          force: forceFlag,
+          telemetry: trace,
+        });
         res.status(200).json({ action, ...result });
         return;
       }
@@ -350,6 +378,7 @@ export default defineHandler({
         const result = await backfill(supabaseAdmin, {
           limit: clampLimit(limit ?? DEFAULT_BACKFILL_LIMIT),
           force: forceFlag,
+          telemetry: trace,
         });
 
         res.status(200).json({
@@ -366,6 +395,8 @@ export default defineHandler({
     } catch (error) {
       console.error("admin-embed error:", error);
       res.status(500).json({ detail: errorMessage(error) });
+    } finally {
+      await trace.flush(supabaseAdmin);
     }
   },
 });

@@ -97,6 +97,11 @@
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
 import type { VercelResponse } from "@vercel/node";
+import {
+  performanceTraceContext,
+  validationOf,
+} from "../_lib/aiTelemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { callVision, PERFORMANCE_MODEL } from "../_lib/performance/gemini.js";
@@ -596,12 +601,28 @@ export default defineHandler({
         VISION_TIMEOUT_MS,
       );
 
+      // 계기판 기록. 업로드 분기에서 모델을 부르기 직전에만 만든다.
+      const trace = createAiTrace(
+        performanceTraceContext({
+          feature: "analyze_guide",
+          sessionId: sessionRow.id,
+          profileId: userId,
+          promptVersion: GUIDE_PROMPT_VERSION,
+          step: String(images.length),
+        }),
+      );
+
       try {
         text = await callVision(
           GUIDE_EXTRACTION_SYSTEM,
           images,
           buildGuideExtractionUserPrompt(images.length),
-          { abortSignal: abortController.signal },
+          { abortSignal: abortController.signal, telemetry: trace },
+        );
+        trace.annotateLastCall(
+          String(text || "").trim()
+            ? validationOf(true, "")
+            : validationOf(false, "empty-guide"),
         );
       } catch (modelError) {
         console.error(
@@ -621,6 +642,7 @@ export default defineHandler({
         );
       } finally {
         clearTimeout(abortTimer);
+        await trace.flush(supabaseAdmin);
       }
 
       const guideText = String(text || "").trim();

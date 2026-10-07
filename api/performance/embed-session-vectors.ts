@@ -48,6 +48,8 @@
 //   행별로 try/catch를 감싸 실패를 격리한다. 실패 기록(`embedding_status='error'`)
 //   자체가 또 실패해도 로그만 남기고 원래 루프는 계속 돈다.
 
+import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
+import { type AiTrace, createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import {
   embedText,
@@ -109,11 +111,12 @@ async function markEmbeddingError(
 async function embedOne(
   supabaseAdmin: ReturnType<typeof createSupabaseAdmin>,
   row: SessionVectorRow,
+  telemetry?: AiTrace,
 ) {
   const model = getEmbeddingModel();
 
   try {
-    const embedding = await embedText(row.search_text);
+    const embedding = await embedText(row.search_text, telemetry);
 
     const { error: updateError } = await supabaseAdmin
       .from(TABLE)
@@ -181,9 +184,14 @@ export default defineHandler({
     let failed = 0;
     const results: Array<Record<string, unknown>> = [];
 
+    // 계기판 기록. 배치 하나에 trace 하나이고 행별 실패는 루프가 흡수한다.
+    const trace = createAiTrace(
+      performanceTraceContext({ feature: "session_vectors" }),
+    );
+
     for (const row of rows) {
       try {
-        const result = await embedOne(supabaseAdmin, row);
+        const result = await embedOne(supabaseAdmin, row, trace);
         embedded += 1;
         results.push(result);
       } catch (itemError) {
@@ -201,6 +209,8 @@ export default defineHandler({
         );
       }
     }
+
+    await trace.flush(supabaseAdmin);
 
     res.status(200).json({
       ok: failed === 0,
