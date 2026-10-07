@@ -979,19 +979,25 @@ describe("buildStepPrompt", () => {
     expect(b.system).not.toContain("모든 판단에는 evidence_ids");
   });
 
-  it("6단계 user 에 축 평가와 대학 평가요소가 들어간다", () => {
+  it("6단계 user 에 축 평가가 들어가고 앱이 만드는 대학 평가요소는 빠진다", () => {
     const b = buildStepPrompt(6, { context: ctx, prior });
     expect(b.user).toContain("판단 근거로 쓴 기록 5건");
-    expect(b.user).toContain("학업성취도");
+    expect(b.user).not.toContain("universityFactor");
     expect(b.system).toContain("판정");
   });
 
-  it("6단계 규칙은 근거 활동 행 value 에 활동 주제를 쓰고 별칭은 행 근거에 달라고 한다", () => {
+  it("6단계 규칙은 판정, 근거 활동, 대학 평가요소 대응 행을 앱이 만든다며 해석과 부족한 점만 쓰라고 한다", () => {
     const b = buildStepPrompt(6, { context: ctx, prior });
-    expect(b.system).toContain(
-      "근거 활동 행의 value 에는 활동 주제를 쓰고 별칭은 쓰지 않는다",
-    );
-    expect(b.system).toContain("행의 evidence_ids 에 단다");
+    expect(b.system).toContain("앱이 만드므로 쓰지 않는다");
+    expect(b.system).toContain("해석");
+    expect(b.system).toContain("부족한 점");
+    expect(b.system).not.toContain("근거 활동 행의 value 에는");
+    expect(b.system).not.toContain("universityFactor");
+    expect(b.system).toContain("verdictLabel");
+    expect(b.system).toContain("no_data");
+    const spec = buildStepPrompt(6, { context: ctx, prior }).user;
+    expect(spec).toContain("해석 한 행");
+    expect(spec).not.toContain("rows 에 판정, 근거 활동");
   });
 
   it("7단계는 주제 생성 금지와 숫자 금지를 지시하고 제외 항목은 요청하지 않는다", () => {
@@ -1038,6 +1044,7 @@ describe("normalizeAxisSections", () => {
       activityIds,
     }) as never;
   const known = ["a1", "a2", "a3"];
+  const acts = known.map((id) => activity(id));
 
   it("근거 활동이 0건인 축은 모델이 ok 로 써도 no_data 로 바꿔 근거 누락이 나지 않는다", () => {
     const sections = [
@@ -1048,7 +1055,7 @@ describe("normalizeAxisSections", () => {
       }),
     ] as never;
     const axes = [axisEval("A", 0, [])];
-    const out = normalizeAxisSections(sections, axes, known);
+    const out = normalizeAxisSections(sections, axes, known, acts);
     expect(out[0]).toMatchObject({
       id: "2-1",
       status: "no_data",
@@ -1067,6 +1074,7 @@ describe("normalizeAxisSections", () => {
       sections,
       [axisEval("B", 2, ["a1", "a2", "zz"])],
       known,
+      acts,
     );
     expect(out[0]?.status).toBe("ok");
     expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
@@ -1080,6 +1088,7 @@ describe("normalizeAxisSections", () => {
       sections,
       [axisEval("C", 2, ["a1", "a2"])],
       known,
+      acts,
     );
     expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
   });
@@ -1090,9 +1099,166 @@ describe("normalizeAxisSections", () => {
       sections,
       [axisEval("A", 1, ["a1"]), axisEval("D", 0, [])],
       known,
+      acts,
     );
     expect(out.map((x) => x.id)).toEqual(["2-1", "2-4"]);
     expect(out[1]).toMatchObject({ id: "2-4", status: "no_data" });
+  });
+});
+
+describe("축 섹션 앱 행 조립", () => {
+  const axisEval = (axis: string, count: number, activityIds: string[]) =>
+    ({
+      axis,
+      name: axis,
+      count,
+      required: 1,
+      verdict: "caution",
+      verdictLabel: "주의",
+      guideline: "g",
+      optional: false,
+      activityIds,
+    }) as never;
+  const acts = [
+    activity("a1", { topic: "열 전달" }),
+    activity("a2", { topic: null }),
+    activity("a3", { topic: "  " }),
+    activity("a4", { topic: "전기 회로" }),
+    activity("a5", { topic: "광합성" }),
+    activity("a6", { topic: "삼투압" }),
+    activity("a7", { topic: "산화 환원" }),
+  ];
+  const known = acts.map((a) => a.id);
+  const rowsOf = (
+    out: ReturnType<typeof normalizeAxisSections>,
+  ): Record<string, unknown>[] => {
+    const body = out[0]?.body;
+    const rows = isBodyWithRows(body) ? body.rows : [];
+    return rows;
+  };
+  const isBodyWithRows = (
+    body: unknown,
+  ): body is { rows: Record<string, unknown>[] } =>
+    typeof body === "object" && body !== null && "rows" in body;
+
+  it("근거 활동 행은 앞 3건 topic 과 외 N건이고 topic 이 빈 활동은 건너뛴다", () => {
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 6, ["a1", "a2", "a3", "a4", "a5", "a6"])],
+      known,
+      acts,
+    );
+    const rows = rowsOf(out);
+    expect(rows[0]).toMatchObject({ label: "판정", value: "주의" });
+    expect(rows[1]).toMatchObject({
+      label: "근거 활동",
+      value: "열 전달, 전기 회로, 광합성 외 1건",
+      evidence_ids: ["a1", "a4", "a5"],
+    });
+    expect(rows[0]?.evidence_ids).toEqual([]);
+    expect(out[0]?.evidence_ids).toEqual(["a1", "a2", "a3", "a4", "a5", "a6"]);
+  });
+
+  it("근거 활동이 3건 이하이면 외 가 붙지 않는다", () => {
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 3, ["a4", "a1", "a2"])],
+      known,
+      acts,
+    );
+    expect(rowsOf(out)[1]).toMatchObject({
+      value: "열 전달, 전기 회로",
+      evidence_ids: ["a1", "a4"],
+    });
+  });
+
+  it("쓸 topic 이 하나도 없으면 근거 활동 행을 만들지 않는다", () => {
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 2, ["a2", "a3"])],
+      known,
+      acts,
+    );
+    expect(rowsOf(out).map((r) => r.label)).toEqual([
+      "판정",
+      "대학 평가요소 대응",
+    ]);
+  });
+
+  it("대학 평가요소 대응 행은 앱 상수로 만든다", () => {
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 1, ["a1"])],
+      known,
+      acts,
+    );
+    expect(rowsOf(out)[2]).toMatchObject({
+      label: "대학 평가요소 대응",
+      value: "학업역량: 학업성취도, 학업태도",
+      evidence_ids: [],
+    });
+  });
+
+  it("모델이 쓴 판정, 근거 활동, 대학 평가요소 대응 행은 버리고 해석과 부족한 점은 뒤에 둔다", () => {
+    const sections = [
+      okSection("2-1", {
+        format: "table",
+        body: {
+          rows: [
+            { label: "판정", value: "확인됨", evidence_ids: ["a1"] },
+            { label: "근거 활동", value: "x", evidence_ids: ["a1"] },
+            { label: "대학 평가요소 대응", value: "y", evidence_ids: [] },
+            { label: "해석", value: "좋다", evidence_ids: ["a1"] },
+            { label: "부족한 점", value: "적다", evidence_ids: [] },
+          ],
+        },
+      }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 1, ["a1"])],
+      known,
+      acts,
+    );
+    const rows = rowsOf(out);
+    expect(rows.map((r) => r.label)).toEqual([
+      "판정",
+      "근거 활동",
+      "대학 평가요소 대응",
+      "해석",
+      "부족한 점",
+    ]);
+    expect(rows[0]?.value).toBe("주의");
+    const v = validateStepOutput(6, { step: 6, sections: out }, makeContext(), {
+      axes: [axisEval("A", 1, ["a1"])],
+    });
+    expect(v.issues.map((i) => i.code)).not.toContain("verdict_label_mismatch");
+  });
+
+  it("모델 행이 없어도 섹션은 ok 이다", () => {
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [axisEval("A", 1, ["a1"])],
+      known,
+      acts,
+    );
+    expect(out[0]?.status).toBe("ok");
+    expect(rowsOf(out)).toHaveLength(3);
   });
 });
 

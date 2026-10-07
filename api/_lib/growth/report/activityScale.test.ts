@@ -139,7 +139,7 @@ const ko = (n: number): string => "탐구가 이어진다 ".repeat(n).slice(0, n
 
 /**
  * 본문 길이. 분량 원칙의 상한(prose 350자, list 5개 120자, table 8행 80자)을 모두 채우면
- * 활동 수와 무관하게 4, 7단계만으로 한도를 넘는다. 실측 정상 출력(6단계 최대 2412, 7단계 최대 2654)에 맞춰
+ * 활동 수와 무관하게 4, 7단계만으로 한도를 넘는다. 실측 정상 출력에 맞춰
  * 원칙 안의 중간 길이로 쓰고, 활동 수에 따라 늘어나는 것은 근거 나열뿐이게 한다.
  */
 const LEN = {
@@ -149,6 +149,7 @@ const LEN = {
   rows: 4,
   rowText: 45,
   rowLabel: 25,
+  axisText: 120,
   match: 3,
   matchText: 80,
   plan: 2,
@@ -209,11 +210,10 @@ function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
       const axis = AXIS_OF_SECTION[def.id];
       if (axis) {
         return {
+          // 판정, 근거 활동, 대학 평가요소 대응 행은 앱이 만든다. 모델은 해석과 부족한 점만 120자 이내로 쓴다.
           rows: [
-            entry({ label: "판정", value: w.verdictLabels[axis] }, appOwned),
-            entry({}, appOwned),
-            entry({}, appOwned),
-            entry({}, appOwned),
+            entry({ label: "해석", value: ko(LEN.axisText) }, appOwned),
+            entry({ label: "부족한 점", value: ko(LEN.axisText) }, appOwned),
           ],
         };
       }
