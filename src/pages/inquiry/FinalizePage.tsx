@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
+import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import FieldsForm from "@/components/inquiry/finalize/FieldsForm";
 import {
   buildSummaryRows,
@@ -17,7 +18,7 @@ import {
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import StepGate from "@/components/inquiry/StepGate";
+import StepGate, { STEP_BODY_CLASS } from "@/components/inquiry/StepGate";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/context/SessionContext";
@@ -148,18 +149,20 @@ function FinalizeForm({
   );
 }
 
-// 가드를 통과한 뒤에만 그려 세션이 있을 때만 조회한다. 적립 직후 세션이 completed 가 돼도
-// 결과 카드는 이 컴포넌트의 상태로 유지한다.
-function FinalizeContent() {
+// 가드를 통과한 뒤에만 그려 세션이 있을 때만 조회한다. 적립 완료 상태는 StepGate 바깥
+// (FinalizePage)이 들고 있다. 적립 직후 셸 재조회로 열린 세션이 사라져도 StepGate 가
+// 이 컴포넌트를 언마운트하기 때문이다.
+function FinalizeContent({
+  onDone,
+}: {
+  onDone: (replySent: boolean | null) => void;
+}) {
   const { userId } = useSession();
   const { session, refetchBootstrap } = useInquiryShell();
   const sessionId = session?.id ?? null;
   const { data, isPending, isError, refetch } = useQuery(
     inquirySessionDetailQuery(userId ?? null, sessionId),
   );
-  const [done, setDone] = useState<{ replySent: boolean | null } | null>(null);
-
-  if (done) return <ResultCard replySent={done.replySent} />;
   if (isPending && !isError) {
     return (
       <div role="status" aria-label="불러오는 중">
@@ -201,7 +204,7 @@ function FinalizeContent() {
       sessionId={data.session.id}
       preview={data.finalizePreview}
       onDone={(replySent) => {
-        setDone({ replySent });
+        onDone(replySent);
         void refetchBootstrap();
       }}
     />
@@ -210,9 +213,21 @@ function FinalizeContent() {
 
 export default function FinalizePage() {
   useInquiryScreenStep(6);
+  const [done, setDone] = useState<{ replySent: boolean | null } | null>(null);
+
+  if (done) {
+    return (
+      <>
+        <GoalPageHeader title={TITLE} subcopy={SUBCOPY} />
+        <div className={STEP_BODY_CLASS}>
+          <ResultCard replySent={done.replySent} />
+        </div>
+      </>
+    );
+  }
   return (
     <StepGate step={6} title={TITLE} subcopy={SUBCOPY}>
-      <FinalizeContent />
+      <FinalizeContent onDone={(replySent) => setDone({ replySent })} />
     </StepGate>
   );
 }
