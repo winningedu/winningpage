@@ -1,13 +1,20 @@
-import { deleteOpenSessions, expect, test } from "./fixtures/inquiry";
+import {
+  deleteOpenSessions,
+  expect,
+  latestCompletedSession,
+  test,
+} from "./fixtures/inquiry";
 
-// 보관함. 로컬 QA 학생에게 확정 세션 1건(생명과학I, 87.5점)이 시딩돼 있다는 전제다.
-// 완주 스펙이 먼저 돌았으면 확정 행이 더 있을 수 있어 "1행 이상" 으로 확인한다.
-const SEED_SUBJECT = "생명과학I";
-const SEED_SCORE = "87.5";
+// 보관함. 계정에 확정 세션이 1건 이상 있어야 한다. 기준 행은 가장 최근 확정 세션의 과목과 점수로 고른다.
+// 확정 행이 여럿일 수 있어 "1행 이상" 으로 확인한다.
+let SEED_SUBJECT = "";
+let SEED_SCORE = "";
 
 test.describe("심화탐구 보관함", () => {
-  test.beforeAll(() => {
-    deleteOpenSessions();
+  test.beforeAll(async () => {
+    await deleteOpenSessions();
+    ({ subject: SEED_SUBJECT, score: SEED_SCORE } =
+      await latestCompletedSession());
   });
 
   test("확정 세션이 목록에 과목, 점수, 상태와 함께 보인다", async ({

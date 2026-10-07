@@ -244,8 +244,13 @@ describe("mergeCoreErrors (§2 19)", () => {
   it("모델이 보낸 앱 판정 오류는 버리고 앱 판정으로 대체한다", () => {
     const out = mergeCoreErrors(
       [
-        { id: "placeholder_left", location: "I", detail: "모델 판정" },
-        { id: "overclaim", location: "V", detail: "단정" },
+        {
+          id: "placeholder_left",
+          location: "I",
+          detail: "모델 판정",
+          quote: "인용",
+        },
+        { id: "overclaim", location: "V", detail: "단정", quote: "인용" },
       ],
       app,
     );
@@ -255,17 +260,47 @@ describe("mergeCoreErrors (§2 19)", () => {
   it("앱이 문제를 못 찾았으면 모델이 보낸 앱 판정 오류도 사라진다", () => {
     expect(
       mergeCoreErrors(
-        [{ id: "unsourced_number", location: "IV", detail: "x" }],
+        [
+          {
+            id: "unsourced_number",
+            location: "IV",
+            detail: "x",
+            quote: "인용",
+          },
+        ],
         [],
       ),
     ).toEqual([]);
   });
+  it("저장 모양에는 quote 키가 새지 않는다", () => {
+    const out = mergeCoreErrors(
+      [{ id: "overclaim", location: "V", detail: "d", quote: "인용 문장" }],
+      [],
+    );
+    expect(out).toHaveLength(1);
+    expect(Object.keys(out[0] ?? {}).sort()).toEqual([
+      "detail",
+      "effect",
+      "id",
+      "location",
+    ]);
+  });
   it("같은 id 는 하나만 남기고 CORE_ERRORS 순서로 정렬하며 effect 를 붙인다", () => {
     const out = mergeCoreErrors(
       [
-        { id: "correlation_as_cause", location: "V", detail: "a" },
-        { id: "variable_mismatch", location: "III", detail: "b" },
-        { id: "variable_mismatch", location: "IV", detail: "c" },
+        {
+          id: "correlation_as_cause",
+          location: "V",
+          detail: "a",
+          quote: "인용",
+        },
+        {
+          id: "variable_mismatch",
+          location: "III",
+          detail: "b",
+          quote: "인용",
+        },
+        { id: "variable_mismatch", location: "IV", detail: "c", quote: "인용" },
       ],
       [],
     );
@@ -462,15 +497,8 @@ describe("validateModelEvaluationShape", () => {
     expect(
       validateModelEvaluationShape(
         modelEval({
-          coreErrors: [{ id: "bogus" as never, location: "I", detail: "d" }],
-        }),
-      ),
-    ).toBeNull();
-    expect(
-      validateModelEvaluationShape(
-        modelEval({
           coreErrors: [
-            { id: "overclaim", location: "IX" as never, detail: "d" },
+            { id: "bogus" as never, location: "I", detail: "d", quote: "인용" },
           ],
         }),
       ),
@@ -478,10 +506,34 @@ describe("validateModelEvaluationShape", () => {
     expect(
       validateModelEvaluationShape(
         modelEval({
-          coreErrors: [{ id: "overclaim", location: "V", detail: "d" }],
+          coreErrors: [
+            {
+              id: "overclaim",
+              location: "IX" as never,
+              detail: "d",
+              quote: "인용",
+            },
+          ],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      validateModelEvaluationShape(
+        modelEval({
+          coreErrors: [
+            { id: "overclaim", location: "V", detail: "d", quote: "인용" },
+          ],
         }),
       ),
     ).not.toBeNull();
+  });
+  it("핵심 오류에 quote 문자열이 없으면 null 이다", () => {
+    expect(
+      validateModelEvaluationShape({
+        ...modelEval(),
+        coreErrors: [{ id: "overclaim", location: "V", detail: "d" }],
+      }),
+    ).toBeNull();
   });
   it("수정, 출처, 체크리스트의 타입이 틀리면 null 이다", () => {
     expect(
@@ -536,7 +588,12 @@ describe("buildEvaluation (No.82~96)", () => {
   it("자리표시자와 핵심 오류 상한이 동시에 걸린다", () => {
     const m = modelEval({
       coreErrors: [
-        { id: "variable_mismatch", location: "III", detail: "불일치" },
+        {
+          id: "variable_mismatch",
+          location: "III",
+          detail: "불일치",
+          quote: "인용",
+        },
       ],
       fixes: [fix("III"), fix("I")],
     });
@@ -554,6 +611,24 @@ describe("buildEvaluation (No.82~96)", () => {
     expect(r.label).toBe("major_revision_needed");
     expect(r.placeholders).toEqual({ III: 2 });
     expect(r.fixFirst[0]?.location).toBe("III");
+  });
+  it("상관 인과 오판을 뺀 입력은 결론 상한과 대폭 수정 라벨이 없다", () => {
+    const withError = modelEval({
+      coreErrors: [
+        {
+          id: "correlation_as_cause",
+          location: "VI",
+          detail: "d",
+          quote: "상관이지 인과를 보인 것은 아니다.",
+        },
+      ],
+    });
+    const capped = buildEvaluation(withError, facts());
+    expect(capped.label).toBe("major_revision_needed");
+    const r = buildEvaluation({ ...withError, coreErrors: [] }, facts());
+    expect(r.items.find((i) => i.id === "conclusion")?.capReason).toBeNull();
+    expect(r.total).toBeGreaterThanOrEqual(80);
+    expect(r.label).not.toBe("major_revision_needed");
   });
   it("총점은 항목 점수 합이고 소수 첫째 자리까지다", () => {
     const m = modelEval();
@@ -578,7 +653,9 @@ describe("buildEvaluation (No.82~96)", () => {
   });
   it("예비 주제에 핵심 오류가 있으면 대폭 수정 필요다", () => {
     const m = modelEval({
-      coreErrors: [{ id: "overclaim", location: "V", detail: "d" }],
+      coreErrors: [
+        { id: "overclaim", location: "V", detail: "d", quote: "인용" },
+      ],
     });
     expect(buildEvaluation(m, facts({ isProvisional: true })).label).toBe(
       "major_revision_needed",

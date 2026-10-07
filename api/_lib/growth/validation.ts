@@ -18,11 +18,12 @@ export const FORBIDDEN_PHRASES: readonly string[] = [
 
 /**
  * 활동 근거(evidence_ids) 검사를 면제하는 항목 id.
- * 프로필, 분포 집계, 성적과 입결 기반 항목은 활동 근거 대신 데이터 자체가 근거다.
+ * 프로필, 분포 집계, 설문 답 기반 항목(1-2), 성적과 입결 기반 항목은 활동 근거 대신 데이터 자체가 근거다.
  * 활동이 0건인 회차에서도 ok 로 둘 수 있어야 한다.
  */
 export const EVIDENCE_EXEMPT_SECTION_IDS: readonly string[] = [
   "1-1",
+  "1-2",
   "1-4",
   "1-12",
   "1-13",

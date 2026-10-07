@@ -1,5 +1,6 @@
 // 평가 요청의 순수 판단(부록 B 3번, 개발계획 §2 18~20). DB 와 모델 호출은 핸들러와 evaluateDb 가 한다.
 import { CHECKLIST, MIN_SUBMISSION_CHARS, SECTIONS } from "./constants.js";
+import { dropDeniedCausalErrors } from "./coreErrorGuard.js";
 import { sourceLines } from "./extract.js";
 import type { buildEvaluationPrompt } from "./prompts.js";
 import {
@@ -185,7 +186,11 @@ export function validateEvaluation(
       ],
     };
   }
-  return { ok: true, value: shaped };
+  // 인과를 부정한 문장을 인과 단정으로 읽은 오판은 목록에서 빼고, 점수는 buildEvaluation 이 다시 계산한다.
+  return {
+    ok: true,
+    value: { ...shaped, coreErrors: dropDeniedCausalErrors(shaped.coreErrors) },
+  };
 }
 
 export type EvaluationReportInsert = {
@@ -248,4 +253,4 @@ export function parseEvaluateBody(
 }
 
 /** inquiry_reports.prompt_version 에 남기는 평가 프롬프트 판. 프롬프트를 바꾸면 올린다. */
-export const EVALUATION_PROMPT_VERSION = "inquiry-evaluation-v1";
+export const EVALUATION_PROMPT_VERSION = "inquiry-evaluation-v2";

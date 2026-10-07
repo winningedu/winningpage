@@ -5,6 +5,7 @@ import {
   buildAppFacts,
   buildEvaluationRow,
   buildPromptInput,
+  EVALUATION_PROMPT_VERSION,
   parseEvaluateBody,
   precheckEvaluation,
   retryNotesFor,
@@ -301,6 +302,61 @@ describe("validateEvaluation", () => {
   it("객체가 아니면 이슈로 돌려준다", () => {
     const r = validateEvaluation("텍스트");
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("validateEvaluation 핵심 오류 가드", () => {
+  const denial =
+    "탁도가 높은 지점이 용존산소량도 낮았지만 이것은 상관이지 인과를 보인 것은 아니다.";
+  const core = (id: string, quote?: string) => ({
+    id,
+    location: "VI",
+    detail: "판정 이유",
+    quote,
+  });
+
+  it("인과 부정 인용의 correlation_as_cause 는 빠지고 overclaim 은 남는다", () => {
+    const r = validateEvaluation(
+      modelResponse({
+        coreErrors: [
+          core("correlation_as_cause", denial),
+          core("overclaim", "반드시 그렇다."),
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok)
+      expect(r.value.coreErrors.map((e) => e.id)).toEqual(["overclaim"]);
+  });
+
+  it("인과를 단정한 인용의 correlation_as_cause 는 남는다", () => {
+    const r = validateEvaluation(
+      modelResponse({
+        coreErrors: [
+          core("correlation_as_cause", "탁도가 높아서 용존산소량이 낮아졌다"),
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.coreErrors.map((e) => e.id)).toEqual([
+        "correlation_as_cause",
+      ]);
+    }
+  });
+
+  it("quote 없는 핵심 오류 응답은 이슈로 거절한다", () => {
+    const r = validateEvaluation(
+      modelResponse({ coreErrors: [core("overclaim")] }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.issues.map((i) => i.code)).toContain("core_error_quote_missing");
+    }
+  });
+
+  it("프롬프트 버전은 v2 다", () => {
+    expect(EVALUATION_PROMPT_VERSION).toBe("inquiry-evaluation-v2");
   });
 });
 

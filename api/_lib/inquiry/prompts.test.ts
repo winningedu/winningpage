@@ -160,7 +160,7 @@ describe("응답 스키마(RESPONSE_SCHEMAS)", () => {
     const req = item.properties?.requirements?.items as Schema;
     expect(req.required).toEqual(["id", "met", "note"]);
     const core = root.properties?.coreErrors?.items as Schema;
-    expect(core.required).toEqual(["id", "location", "detail"]);
+    expect(core.required).toEqual(["id", "location", "detail", "quote"]);
     // 앱이 판정하는 핵심 오류(⑤ ⑥)는 열거값에 없다.
     expect(core.properties?.id?.enum).toEqual(
       CORE_ERRORS.filter((c) => !c.appJudged).map((c) => c.id),
@@ -512,6 +512,8 @@ describe("buildEvaluationPrompt", () => {
     expect(r.system).toContain("unsourced_number");
     expect(r.system).toContain("placeholder_left");
     expect(r.system).toContain("보내지 않는다");
+    expect(r.system).toContain("인과가 아니라고 밝힌 문장");
+    expect(r.system).toContain("글에 있는 그대로 옮긴다");
   });
 
   it("평가 규칙을 담는다(No.84, 94, 98, 99, 100, 101, 102)", () => {

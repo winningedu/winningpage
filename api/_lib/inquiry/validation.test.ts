@@ -666,11 +666,15 @@ describe("validateEvaluationResponse", () => {
 
   it("핵심 오류 id 와 위치가 허용값이어야 한다", () => {
     const bad = validateEvaluationResponse(
-      evaluation({ coreErrors: [{ id: "nope", location: "V", detail: "d" }] }),
+      evaluation({
+        coreErrors: [{ id: "nope", location: "V", detail: "d", quote: "q" }],
+      }),
     );
     const badLoc = validateEvaluationResponse(
       evaluation({
-        coreErrors: [{ id: "overclaim", location: "IX", detail: "d" }],
+        coreErrors: [
+          { id: "overclaim", location: "IX", detail: "d", quote: "q" },
+        ],
       }),
     );
     expect(bad.ok).toBe(false);
@@ -682,7 +686,7 @@ describe("validateEvaluationResponse", () => {
       evaluation({
         coreErrors: [
           { id: "placeholder_left", location: "V", detail: "d" },
-          { id: "overclaim", location: "V", detail: "d" },
+          { id: "overclaim", location: "V", detail: "d", quote: "과장 문장" },
         ],
       }),
     );
@@ -693,6 +697,36 @@ describe("validateEvaluationResponse", () => {
       ).coreErrors.map((c) => c.id);
       expect(ids).toEqual(["overclaim"]);
     }
+  });
+
+  it("모델 판정 핵심 오류에 인용 문장이 없으면 이슈를 남긴다", () => {
+    for (const quote of [undefined, "", "   "]) {
+      const r = validateEvaluationResponse(
+        evaluation({
+          coreErrors: [{ id: "overclaim", location: "V", detail: "d", quote }],
+        }),
+      );
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.issues).toContainEqual({
+          code: "core_error_quote_missing",
+          message: "핵심 오류에는 학생 글의 인용 문장(quote)이 있어야 한다.",
+          path: "coreErrors[0].quote",
+        });
+      }
+    }
+  });
+
+  it("인용 문장은 정규화 결과에 실린다", () => {
+    const r = validateEvaluationResponse(
+      evaluation({
+        coreErrors: [
+          { id: "overclaim", location: "V", detail: "d", quote: "과장 문장" },
+        ],
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.evaluation.coreErrors[0]?.quote).toBe("과장 문장");
   });
 
   it("먼저 고칠 것은 5필드가 모두 차 있어야 한다", () => {

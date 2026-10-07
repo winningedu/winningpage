@@ -589,7 +589,7 @@ describe("validateStepOutput", () => {
       {
         step: 4,
         match: { aligned: [], conflicting: [] },
-        sections: [okSection("1-2", { evidence_ids: [] })],
+        sections: [okSection("1-6", { evidence_ids: [] })],
       },
       ctx,
       {},
@@ -611,6 +611,23 @@ describe("validateStepOutput", () => {
       {},
     );
     expect(r5.issues.map((i) => i.code)).toContain("missing_evidence");
+  });
+
+  it("4단계 1-2 는 근거가 비어도 missing_evidence 가 없고 모르는 id 는 unknown_evidence", () => {
+    const ctx = makeContext();
+    const run = (evidence_ids: string[]) =>
+      validateStepOutput(
+        4,
+        {
+          step: 4,
+          match: { aligned: [], conflicting: [] },
+          sections: [okSection("1-2", { evidence_ids })],
+        },
+        ctx,
+        {},
+      ).issues.map((i) => i.code);
+    expect(run([])).not.toContain("missing_evidence");
+    expect(run(["1791348612292"])).toContain("unknown_evidence");
   });
 
   it("no_data 섹션은 근거가 없어도 missing_evidence 가 아니다", () => {
@@ -909,6 +926,13 @@ describe("buildStepPrompt", () => {
       expect(b.system).toContain("160자 이내");
       expect(b.system).toContain("연달아");
     }
+  });
+
+  it("4단계 1-2 지시는 활동 근거 없이 쓰고 evidence_ids 를 비우게 한다", () => {
+    const b = buildStepPrompt(4, { context: ctx, prior });
+    expect(b.user).toContain(
+      "이 항목은 활동 근거 없이 쓴다. evidence_ids 는 비워 둔다.",
+    );
   });
 
   it("7단계 규칙은 항목마다 조건을 2~3개만 쓰게 한다", () => {

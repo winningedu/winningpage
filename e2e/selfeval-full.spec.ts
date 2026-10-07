@@ -1,3 +1,4 @@
+import { resolveStudentProfileId } from "./fixtures/env";
 import {
   api,
   confirmAllFeelings,
@@ -9,7 +10,6 @@ import {
   insertPendingPlanItem,
   openNewSession,
   PLAN_ITEM_TITLE,
-  QA_STUDENT_PROFILE_ID,
   readQuotaRemaining,
   resetManualActivityRecords,
   saveFinal,
@@ -23,7 +23,7 @@ import {
 } from "./fixtures/selfeval";
 
 // 모델을 부르는 완주 경로. E2E_SELFEVAL_FULL=1 일 때만 돈다(수 분, 이용 횟수 소모).
-// 전제: 로컬 스택, 완료된 성장설계 리포트 1건(연동 스펙), 학생 QA 계정.
+// 전제: 로컬 스택 또는 dev 프리뷰(env 계약은 fixtures/selfeval.ts 머리말), 완료된 성장설계 리포트 1건(연동 스펙), 학생 QA 계정.
 test.describe("자기평가서 모델 포함 완주", () => {
   test.skip(!process.env.E2E_SELFEVAL_FULL, "E2E_SELFEVAL_FULL=1 일 때만 실행");
   test.setTimeout(600_000);
@@ -37,7 +37,6 @@ test.describe("자기평가서 모델 포함 완주", () => {
     await discardOpenSession(request, token);
     const quotaBefore = await readQuotaRemaining(request, token);
     const completedBefore = await countCompleted(request, token);
-    expect(quotaBefore).not.toBeNull();
 
     await openNewSession(page);
     await submitBasics(page, { growth: false });
@@ -99,7 +98,12 @@ test.describe("자기평가서 모델 포함 완주", () => {
 
     // 이용 횟수는 생성 성공에서 1회 차감된다.
     const quotaAfter = await readQuotaRemaining(request, token);
-    expect(quotaAfter).toBe((quotaBefore ?? 0) - 1);
+    if (quotaBefore === null) {
+      // 무제한 이용권(dev QA 계정)은 잔여가 계속 null 이다.
+      expect(quotaAfter).toBeNull();
+    } else {
+      expect(quotaAfter).toBe(quotaBefore - 1);
+    }
 
     // 보관함에 완료 행이 하나 늘었다.
     await page.getByRole("button", { name: "보관함으로" }).click();
@@ -149,13 +153,16 @@ test.describe("자기평가서 모델 포함 완주", () => {
       await expect(
         page.getByRole("checkbox", { name: mineLabel }),
       ).toBeVisible();
-      // 선택 상한이 있어 먼저 다른 후보를 모두 풀고 나서 내 후보를 고른다.
-      const boxes = page.getByRole("checkbox", { name: /선택$/ });
-      const boxCount = await boxes.count();
-      for (let i = 0; i < boxCount; i += 1) {
-        const box = boxes.nth(i);
-        const isMine = (await box.getAttribute("aria-label")) === mineLabel;
-        if (!isMine && (await box.isChecked())) await box.uncheck();
+      // 선택 상한이 있어 먼저 자동 선택된 후보를 모두(내 후보 포함) 풀고 나서 내 후보만 고른다.
+      // 체크 상태로 거른 로케이터에 uncheck 를 쓰면 클릭 직후 대상에서 빠져 사후 확인이 끝나지 않고,
+      // 같은 이름의 후보가 여럿이라 이름으로 고정할 수도 없다. 첫 상자를 click 으로 풀고 개수가 줄기를 기다린다.
+      const checked = page.getByRole("checkbox", {
+        name: /선택$/,
+        checked: true,
+      });
+      for (let left = await checked.count(); left > 0; left -= 1) {
+        await checked.first().click();
+        await expect(checked).toHaveCount(left - 1);
       }
       await expect(analyze).toHaveText("선택한 0건 분석하기");
       await page.getByRole("checkbox", { name: mineLabel }).check();
@@ -197,7 +204,7 @@ test.describe("자기평가서 모델 포함 완주", () => {
         .eq("id", itemId)
         .single();
       expect(item.error).toBeNull();
-      expect(item.data?.profile_id).toBe(QA_STUDENT_PROFILE_ID);
+      expect(item.data?.profile_id).toBe(await resolveStudentProfileId());
       expect(item.data?.status).toBe("done");
       expect(item.data?.done_source_program).toBe("self");
     } finally {

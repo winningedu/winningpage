@@ -6,44 +6,34 @@ import {
   type Page,
   expect as pwExpect,
 } from "@playwright/test";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { test as authTest } from "./auth";
+import {
+  apiBase,
+  resolveStudentProfileId,
+  serviceRoleClient,
+  studentCredentials,
+  supabaseEnv,
+} from "./env";
 
 export { expect } from "./auth";
 
-// 자기평가서 E2E 공용 헬퍼. 로컬 스택(vercel dev 3001, 로컬 Supabase 54321) 전용이다.
+// 자기평가서 E2E 공용 헬퍼. 접속 값은 모두 e2e/fixtures/env.ts 의 env 계약에서 읽는다.
 // 로그인 storageState 는 e2e/fixtures/auth.ts 의 test 픽스처를 그대로 쓰고, 여기는 API 직접 호출과
 // service role 보조(이용권, 성장설계 과제)만 맡는다.
+// 세 스위트(성장설계, 자기평가서, 심화탐구)는 같은 env 계약을 쓴다. 로컬은 vite 5303 과 vercel dev 3000 을
+// 띄우고 `E2E_API_BASE=http://127.0.0.1:3000/api` 만 더 주면 Supabase 값은 `supabase status` 에서 읽는다.
+// dev 프리뷰는 `E2E_BASE_URL=https://winningpage-git-dev-winningedu-s-projects.vercel.app` 와
+// `E2E_SUPABASE_URL=https://gjowqdiopinhixfivnkx.supabase.co`, `E2E_SUPABASE_ANON_KEY`,
+// `E2E_SUPABASE_SERVICE_ROLE_KEY`(Supabase Management API `GET /v1/projects/<ref>/api-keys?reveal=true` 로
+// 받고 값은 기록하지 않는다), 계정 `E2E_STUDENT_EMAIL`/`E2E_STUDENT_PASSWORD` 를 준다.
 // 모든 selfeval 스펙이 QA 학생 계정 하나를 공유하고 학생당 열린 세션은 1개뿐이므로 반드시
 // `--workers=1` 로 돌린다. 워커를 여럿 두면 다른 스펙이 만든 세션을 서로 파기해 실패한다.
+// 연동 케이스는 그 계정에 완료된 성장설계 리포트 1건이 있어야 한다(없으면
+// `E2E_GROWTH_FULL=1 npx playwright test e2e/growth-full.spec.ts --workers=1` 을 같은 계정으로 먼저 돌린다).
+// 예: `E2E_BASE_URL=... E2E_SUPABASE_URL=... E2E_SUPABASE_ANON_KEY=... E2E_SUPABASE_SERVICE_ROLE_KEY=... E2E_STUDENT_EMAIL=... E2E_STUDENT_PASSWORD=... npx playwright test e2e/selfeval-*.spec.ts --workers=1`
 
-export const API_BASE = "http://127.0.0.1:3001/api/selfeval";
-const SUPABASE_URL = "http://127.0.0.1:54321";
-/** 로컬 QA 학생 프로필 id. */
-export const QA_STUDENT_PROFILE_ID = "00000000-0000-4000-8000-000000000002";
-
-/** .env 계열 파일에서 KEY=VALUE 한 줄을 읽는다(따옴표는 벗긴다). 없으면 null. */
-function readEnvFile(file: string, key: string): string | null {
-  const full = path.join(process.cwd(), file);
-  if (!fs.existsSync(full)) return null;
-  for (const line of fs.readFileSync(full, "utf8").split("\n")) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && m[1] === key) return m[2].replace(/^["']|["']$/g, "");
-  }
-  return null;
-}
-
-function requireEnv(keys: string[], files: string[]): string {
-  for (const key of keys) {
-    const fromProcess = process.env[key];
-    if (fromProcess) return fromProcess;
-    for (const file of files) {
-      const value = readEnvFile(file, key);
-      if (value) return value;
-    }
-  }
-  throw new Error(`${keys.join(" 또는 ")} 값을 찾을 수 없다.`);
-}
+export { serviceRoleClient };
 
 export type ApiReply = {
   status: number;
@@ -55,22 +45,12 @@ export type ApiReply = {
 export async function getStudentToken(
   request: APIRequestContext,
 ): Promise<string> {
-  const email = process.env.E2E_STUDENT_EMAIL;
-  const password = process.env.E2E_STUDENT_PASSWORD;
-  if (!email || !password) {
-    throw new Error("E2E_STUDENT_EMAIL / E2E_STUDENT_PASSWORD 가 필요하다.");
-  }
-  const anonKey = requireEnv(
-    ["VITE_SUPABASE_ANON_KEY"],
-    [".env", ".env.local"],
-  );
-  const res = await request.post(
-    `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      headers: { apikey: anonKey, "Content-Type": "application/json" },
-      data: { email, password },
-    },
-  );
+  const { email, password } = studentCredentials();
+  const { url, anonKey } = supabaseEnv();
+  const res = await request.post(`${url}/auth/v1/token?grant_type=password`, {
+    headers: { apikey: anonKey, "Content-Type": "application/json" },
+    data: { email, password },
+  });
   if (!res.ok()) {
     throw new Error(`학생 로그인 실패: ${res.status()}`);
   }
@@ -87,7 +67,7 @@ export async function api(
   apiPath: string,
   body?: unknown,
 ): Promise<ApiReply> {
-  const res = await request.fetch(`${API_BASE}${apiPath}`, {
+  const res = await request.fetch(`${apiBase()}/selfeval${apiPath}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -173,10 +153,11 @@ export const LINKED_ACTIVITY_PREFIX = "버스 배차 간격 연동 탐구";
 export async function resetManualActivityRecords(
   admin: SupabaseClient,
 ): Promise<{ id: string; topic: string }> {
+  const profileId = await resolveStudentProfileId();
   const found = await admin
     .from("activity_records")
     .select("id, topic")
-    .eq("profile_id", QA_STUDENT_PROFILE_ID)
+    .eq("profile_id", profileId)
     .in("source_program", ["manual", "self"]);
   if (found.error) {
     throw new Error(`활동 기록 조회 실패: ${found.error.message}`);
@@ -196,7 +177,7 @@ export async function resetManualActivityRecords(
     const open = await admin
       .from("selfeval_sessions")
       .select("id")
-      .eq("profile_id", QA_STUDENT_PROFILE_ID)
+      .eq("profile_id", profileId)
       .neq("status", "completed");
     if (open.error) {
       throw new Error(`세션 조회 실패: ${open.error.message}`);
@@ -240,7 +221,7 @@ export async function resetManualActivityRecords(
   const inserted = await admin
     .from("activity_records")
     .insert({
-      profile_id: QA_STUDENT_PROFILE_ID,
+      profile_id: profileId,
       source_program: "manual",
       status: "draft",
       grade_label: "고2",
@@ -305,17 +286,6 @@ export async function addManualActivity(
   return id;
 }
 
-/** service role 클라이언트. 이용권 보충과 성장설계 과제 삽입에만 쓴다. */
-export function serviceRoleClient(): SupabaseClient {
-  const key = requireEnv(
-    ["SUPABASE_SERVICE_ROLE_KEY", "WINNING_SUPABASE_SERVICE_ROLE_KEY"],
-    [".env", ".env.local"],
-  );
-  return createClient(SUPABASE_URL, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
 /** 현재 이용 가능 횟수. 이용권이 없으면 null. */
 export async function readQuotaRemaining(
   request: APIRequestContext,
@@ -331,15 +301,22 @@ export async function ensureSelfevalQuota(
   token: string,
   minRemaining: number,
 ): Promise<number | null> {
-  const remaining = (await readQuotaRemaining(request, token)) ?? 0;
+  const entry = await api(request, token, "GET", "/reports");
+  const quota = entry.json?.entry?.quota as {
+    quotaRemaining: number | null;
+  } | null;
+  // quotaRemaining 이 null 이면 무제한 이용권이라 아무것도 넣지 않는다(dev QA 계정).
+  if (quota && quota.quotaRemaining === null) return null;
+  const remaining = quota?.quotaRemaining ?? 0;
   if (remaining >= minRemaining) return remaining;
 
+  const profileId = await resolveStudentProfileId();
   const admin = serviceRoleClient();
   const now = new Date();
   const expires = new Date(now);
   expires.setMonth(expires.getMonth() + 12);
   const inserted = await admin.from("program_access_grants").insert({
-    profile_id: QA_STUDENT_PROFILE_ID,
+    profile_id: profileId,
     program_key: "selfeval",
     granted_by: "qa",
     granted_sessions: 5,
@@ -351,7 +328,7 @@ export async function ensureSelfevalQuota(
     throw new Error(`이용권 삽입 실패: ${inserted.error.message}`);
   }
   const synced = await admin.rpc("fn_sync_program_access_cache", {
-    p_profile_id: QA_STUDENT_PROFILE_ID,
+    p_profile_id: profileId,
     p_program_key: "selfeval",
   });
   if (synced.error) {
@@ -366,10 +343,11 @@ export const PLAN_ITEM_TITLE = "자기평가서 E2E 과제";
 export async function insertPendingPlanItem(
   admin: SupabaseClient,
 ): Promise<string> {
+  const profileId = await resolveStudentProfileId();
   const report = await admin
     .from("growth_reports")
     .select("id")
-    .eq("profile_id", QA_STUDENT_PROFILE_ID)
+    .eq("profile_id", profileId)
     .eq("status", "completed")
     .order("issued_at", { ascending: false })
     .limit(1)
@@ -383,13 +361,13 @@ export async function insertPendingPlanItem(
   await admin
     .from("growth_plan_items")
     .delete()
-    .eq("profile_id", QA_STUDENT_PROFILE_ID)
+    .eq("profile_id", profileId)
     .eq("title", PLAN_ITEM_TITLE);
   const inserted = await admin
     .from("growth_plan_items")
     .insert({
       report_id: report.data.id,
-      profile_id: QA_STUDENT_PROFILE_ID,
+      profile_id: profileId,
       program: "self",
       status: "pending",
       title: PLAN_ITEM_TITLE,

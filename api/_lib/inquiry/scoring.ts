@@ -32,7 +32,12 @@ export type ModelEvaluation = {
     requirements: { id: string; met: boolean; note: string }[];
     evidence: string;
   }[];
-  coreErrors: { id: CoreErrorId; location: SectionId; detail: string }[];
+  coreErrors: {
+    id: CoreErrorId;
+    location: SectionId;
+    detail: string;
+    quote: string;
+  }[];
   fixes: FixItem[];
   sources: { text: string; hasUrlOrCitation: boolean }[];
   checklist: { id: string; met: boolean }[];
@@ -193,7 +198,13 @@ export function mergeCoreErrors(
   for (const e of model) {
     const meta = CORE_ERRORS.find((m) => m.id === e.id);
     if (!meta || meta.appJudged || byId.has(e.id)) continue;
-    byId.set(e.id, { ...e, effect: effectFor(e.id) });
+    // quote 는 가드 판정용이라 저장 모양(CoreErrorResult)에는 싣지 않는다.
+    byId.set(e.id, {
+      id: e.id,
+      location: e.location,
+      detail: e.detail,
+      effect: effectFor(e.id),
+    });
   }
   for (const e of app) byId.set(e.id, e);
   return CORE_ERRORS.flatMap((m) => {
@@ -391,13 +402,19 @@ function parseCoreErrors(raw: unknown): ModelEvaluation["coreErrors"] | null {
     if (
       !isRecord(e) ||
       typeof e.detail !== "string" ||
+      typeof e.quote !== "string" ||
       !isSectionId(e.location)
     ) {
       return null;
     }
     const meta = CORE_ERRORS.find((m) => m.id === e.id);
     if (!meta) return null;
-    out.push({ id: meta.id, location: e.location, detail: e.detail });
+    out.push({
+      id: meta.id,
+      location: e.location,
+      detail: e.detail,
+      quote: e.quote,
+    });
   }
   return out;
 }

@@ -241,8 +241,9 @@ const EVALUATION_SCHEMA = {
           },
           location: { type: "string", enum: [...SECTION_IDS] },
           detail: str,
+          quote: str,
         },
-        required: ["id", "location", "detail"],
+        required: ["id", "location", "detail", "quote"],
       },
     },
     fixes: {
@@ -522,6 +523,8 @@ const EVALUATION_RULES = `[이번 작업: 평가 리포트]
 학생이 쓴 보고서 8절을 평가 요건에 비춰 판정한다. 점수와 수준은 계산하지 않는다. 앱이 계산한다.
 items에는 평가 항목 6개를 한 번씩 쓰고, 각 항목에 요건 4개의 met(충족 여부)와 note(판정 이유)를 쓴다. evidence는 그 항목의 근거 문장이다.
 coreErrors에는 핵심 오류 중 variable_mismatch, proxy_undeclared, correlation_as_cause, overclaim 4종만 판정한다. 해당하는 것만 쓰고 위치를 절 id로 쓴다. unsourced_number와 placeholder_left는 앱이 판정하므로 보내지 않는다.
+coreErrors의 quote에는 그 오류가 드러난 학생 문장 하나를 글에 있는 그대로 옮긴다. 글에 없는 문장을 만들지 않는다.
+correlation_as_cause는 학생이 상관을 인과로 단정한 문장에만 쓴다. 학생이 상관과 인과를 구분해 인과가 아니라고 밝힌 문장은 이 오류가 아니라 한계 인식의 증거다.
 fixes는 먼저 고칠 것 후보다. 핵심 오류와 관련된 것을 먼저, 그다음 충족하지 못한 요건이 많은 순서로 최대 6건 쓴다. 각 건에 위치, 문제, 영향, 수정, 확인 기준을 모두 쓴다.
 sources는 VIII절의 줄마다 text와 hasUrlOrCitation(링크나 서지가 적혀 있는지)을 쓴다.
 checklist는 체크리스트 13개 각각의 충족 여부다.
