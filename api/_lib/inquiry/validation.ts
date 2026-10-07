@@ -688,7 +688,12 @@ export type ValidatedEvaluation = {
     requirements: { id: string; met: boolean; note: string }[];
     evidence: string;
   }[];
-  coreErrors: { id: CoreErrorId; location: SectionId; detail: string }[];
+  coreErrors: {
+    id: CoreErrorId;
+    location: SectionId;
+    detail: string;
+    quote: string;
+  }[];
   fixes: FixItem[];
   sources: { text: string; hasUrlOrCitation: boolean }[];
   checklist: { id: string; met: boolean }[];
@@ -791,8 +796,23 @@ export function validateEvaluationResponse(
     // 앱이 판정하는 오류(⑤, ⑥)는 모델 응답을 버린다.
     if (meta.appJudged) continue;
     const detail = asString(c.detail);
+    // quote 는 학생 글 원문이라 금지 표현 검사(feedback)에 넣지 않는다.
+    const quote = asString(c.quote).trim();
+    if (!quote) {
+      issues.push({
+        code: "core_error_quote_missing",
+        message: "핵심 오류에는 학생 글의 인용 문장(quote)이 있어야 한다.",
+        path: `coreErrors[${i}].quote`,
+      });
+      continue;
+    }
     feedback.push(detail);
-    coreErrors.push({ id: meta.id, location: c.location as SectionId, detail });
+    coreErrors.push({
+      id: meta.id,
+      location: c.location as SectionId,
+      detail,
+      quote,
+    });
   }
 
   const fixes: FixItem[] = [];
