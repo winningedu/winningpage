@@ -111,7 +111,8 @@ async function recommendToFinalize(page: Page) {
 test.describe("심화탐구 모델 완주", () => {
   test.skip(!INQUIRY_FULL, "E2E_INQUIRY_FULL=1 일 때만 실행");
   test.describe.configure({ mode: "serial" });
-  test.setTimeout(8 * 60_000);
+  // 모델 대기 3번(추천, 설계, 평가)이 각각 MODEL_WAIT 까지 걸릴 수 있다(dev 프리뷰는 로컬보다 느리다). 화면 조작 여유 3분을 더한다.
+  test.setTimeout(3 * MODEL_WAIT + 3 * 60_000);
 
   test.beforeAll(async () => {
     await deleteOpenSessions();
