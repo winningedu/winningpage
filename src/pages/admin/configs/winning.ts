@@ -24,6 +24,9 @@ interface WinningCrudConfig {
   // 고정 저장하는 필드 — winning_assessment_knowledge_items 테이블을 4개
   // knowledge_type으로 나눠 쓰는 이 파일 전용 관용구다.
   fixedValues?: Record<string, unknown>;
+  // knowledgeBulk: 목록 상단에 엑셀 일괄 등록 패널(KnowledgeBulkPanel)을 켠다.
+  // fixedValues.knowledge_type 이 있는 지식 DB 메뉴에만 둔다.
+  knowledgeBulk?: boolean;
   columns: WinningColumn[];
   fields: WinningField[];
   defaults: Record<string, unknown>;
@@ -48,6 +51,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
     order: "created_at",
     excel: true,
     fixedValues: { knowledge_type: "topic_pattern" },
+    knowledgeBulk: true,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },
@@ -131,6 +135,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
     order: "created_at",
     excel: true,
     fixedValues: { knowledge_type: "verified_resource" },
+    knowledgeBulk: true,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },

@@ -79,6 +79,7 @@ import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
+import KnowledgeBulkPanel from "./admin/knowledge/KnowledgeBulkPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import {
   AdminForm,
@@ -3698,6 +3699,14 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 rows={rows}
                 onReload={loadRows}
                 mutationSeq={mutationSeq}
+              />
+            )}
+
+            {config.knowledgeBulk && (
+              <KnowledgeBulkPanel
+                config={config}
+                rows={rows}
+                onReload={loadRows}
               />
             )}
 

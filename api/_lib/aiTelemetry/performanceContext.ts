@@ -9,6 +9,7 @@ export type PerformanceFeature =
   | "analyze_guide"
   | "embed_one"
   | "embed_backfill"
+  | "knowledge_dedupe"
   | "session_vectors";
 
 export function performanceTraceContext(input: {

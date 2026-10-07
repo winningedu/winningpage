@@ -7375,6 +7375,19 @@ export type Database = {
         Returns: boolean;
       };
       fn_is_super_admin: { Args: { p_profile_id?: string }; Returns: boolean };
+      fn_knowledge_near_duplicates: {
+        Args: {
+          filter_knowledge_type: string;
+          match_count: number;
+          min_similarity: number;
+          query_embedding: string;
+        };
+        Returns: {
+          id: string;
+          similarity: number;
+          title: string;
+        }[];
+      };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
       fn_mark_program_entry: {
         Args: { p_program_key: string };
