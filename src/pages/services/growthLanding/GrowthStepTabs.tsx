@@ -99,11 +99,12 @@ export default function GrowthStepTabs({
             <p className={`mt-4 ${CARD_TITLE_CLASS}`}>{card.title}</p>
             <p className={`mt-3.75 ${CARD_DESC_MUTED_CLASS}`}>{card.desc}</p>
             {card.example !== null && (
-              <div className="mt-4 border-l-[0.1875rem] border-primary bg-[#EEF4FF] px-4 py-3">
-                <span className="text-[0.875rem] font-semibold leading-[1.5] text-primary">
+              // 시안(754:71623 example): 가로 배치, 간격 8, 패딩 좌우 12 상하 8.
+              <div className="mt-4 flex items-baseline gap-2 border-l-[0.1875rem] border-primary bg-[#EEF4FF] px-3 py-2">
+                <span className="shrink-0 text-[0.875rem] font-semibold leading-[1.5] text-primary">
                   예시
                 </span>
-                <p className="mt-1 break-keep text-[0.875rem] leading-[1.5] text-ink">
+                <p className="break-keep text-[0.875rem] leading-[1.5] text-ink">
                   {card.example}
                 </p>
               </div>
