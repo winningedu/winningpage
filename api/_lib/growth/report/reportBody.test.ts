@@ -8,6 +8,7 @@ import {
   interpretTerminate,
   isCharged,
   needsReverse,
+  REPORT_MODEL_TEMPERATURE,
   shouldTerminate,
   stepResponse,
   toStoredOutputs,
@@ -197,9 +198,11 @@ describe("callModelWith", () => {
         responseMimeType: "application/json",
         responseSchema: schema,
         maxOutputTokens: 1234,
+        temperature: REPORT_MODEL_TEMPERATURE,
         abortSignal: signal,
       },
     ]);
+    expect(REPORT_MODEL_TEMPERATURE).toBe(0.2);
   });
 });
 
