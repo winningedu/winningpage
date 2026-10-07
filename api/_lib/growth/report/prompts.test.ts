@@ -986,6 +986,14 @@ describe("buildStepPrompt", () => {
     expect(b.system).toContain("판정");
   });
 
+  it("6단계 규칙은 근거 활동 행 value 에 활동 주제를 쓰고 별칭은 행 근거에 달라고 한다", () => {
+    const b = buildStepPrompt(6, { context: ctx, prior });
+    expect(b.system).toContain(
+      "근거 활동 행의 value 에는 활동 주제를 쓰고 별칭은 쓰지 않는다",
+    );
+    expect(b.system).toContain("행의 evidence_ids 에 단다");
+  });
+
   it("7단계는 주제 생성 금지와 숫자 금지를 지시하고 제외 항목은 요청하지 않는다", () => {
     const b = buildStepPrompt(7, {
       context: makeContext({

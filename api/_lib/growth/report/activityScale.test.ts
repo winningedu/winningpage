@@ -339,7 +339,50 @@ function representative(aliases: string[]): string[] {
 type RunOptions = {
   /** 6단계 첫 호출만 대표 근거 규칙을 무시하고 모든 별칭을 모든 근거 필드에 나열한다. */
   ignoreRuleOnStep6?: boolean;
+  /** 참이면 3~7단계 응답의 본문 문자열 끝에 입력의 별칭 목록을 덧붙인다. 한도 판정은 이 원문 기준이다. */
+  leakAliasesInText?: boolean;
 };
+
+const TEXT_KEYS = new Set([
+  "text",
+  "value",
+  "label",
+  "direction",
+  "record_to_leave",
+  "theme",
+  "title",
+  "description",
+]);
+
+/** 응답 객체의 본문 문자열 끝에 별칭 목록을 덧붙인 사본. */
+function leakAliases(value: unknown, aliases: string[], key = ""): unknown {
+  if (typeof value === "string")
+    return TEXT_KEYS.has(key) ? `${value} (${aliases.join(", ")})` : value;
+  if (Array.isArray(value))
+    return value.map((v) => leakAliases(v, aliases, key));
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [k, leakAliases(v, aliases, k)]),
+  );
+}
+
+const EVIDENCE_KEYS = new Set([
+  "id",
+  "evidence_ids",
+  "evidenceIds",
+  "linked",
+  "activityId",
+]);
+
+/** 근거 필드와 앱이 만든 도식 노드 id 를 뺀 모든 문자열. */
+function textsOf(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(textsOf);
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([k, v]) =>
+    EVIDENCE_KEYS.has(k) ? [] : textsOf(v),
+  );
+}
 
 async function runAllSteps(n: number, options: RunOptions = {}) {
   const context = makeContext(n);
@@ -358,15 +401,18 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
       const ignoring =
         options.ignoreRuleOnStep6 === true && step === 6 && stepCalls === 0;
       stepCalls++;
+      const response = worstResponse({
+        step: step as ModelStep,
+        context,
+        ids: ignoring ? aliases : representative(aliases),
+        emptyForApp: !ignoring,
+        batchIds: step === 1 ? aliases : [],
+        verdictLabels,
+      });
       const text = JSON.stringify(
-        worstResponse({
-          step: step as ModelStep,
-          context,
-          ids: ignoring ? aliases : representative(aliases),
-          emptyForApp: !ignoring,
-          batchIds: step === 1 ? aliases : [],
-          verdictLabels,
-        }),
+        options.leakAliasesInText === true && step >= 3 && step <= 7
+          ? leakAliases(response, aliases)
+          : response,
       );
       const tokens = estimateTokens(text);
       const cut = tokens > bundle.maxOutputTokens;
@@ -493,6 +539,27 @@ describe("규칙을 무시한 모델", () => {
     expect(extraAttempts[6]).toBe(1);
     for (const step of [1, 2, 3, 4, 5, 7, 8])
       expect(extraAttempts[step], `${step}단계`).toBe(0);
+  });
+});
+
+describe("본문에 별칭 목록을 덧붙이는 모델", () => {
+  it("활동 16건에서 정리 뒤 8단계 본문 어디에도 별칭과 UUID 가 남지 않고 재요청도 없다", async () => {
+    const { calls, extraAttempts, stored } = await runAllSteps(16, {
+      leakAliasesInText: true,
+    });
+    expect(calls.filter((c) => c.cut)).toEqual([]);
+    expect(Object.values(extraAttempts).every((x) => x === 0)).toBe(true);
+    const texts = textsOf([
+      stored.sections,
+      stored.narrative_theme,
+      stored.grade_subthemes,
+      stored.planDraft,
+    ]);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const t of texts) {
+      expect(t, t).not.toMatch(/(?<![A-Za-z0-9])a\d+(?![A-Za-z0-9])/);
+      expect(t, t).not.toMatch(UUID_RE);
+    }
   });
 });
 
