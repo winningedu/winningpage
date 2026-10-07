@@ -1,0 +1,516 @@
+// 활동 수가 16, 37, 60, 120건이어도 1~8단계가 출력 한도 안에서 끝나는지 목 모델로 확인한다.
+// 목 모델은 최악의 모델이다. 근거 필드마다 프롬프트에 나온 별칭을 전부 나열하고(대표 3개 규칙 무시),
+// 요청된 항목을 모두 분량 원칙의 최대 길이로 쓴다. 출력 토큰은 글자 수로 어림한다.
+
+import { describe, expect, it } from "vitest";
+import {
+  expectedSectionIds,
+  SECTION_REGISTRY,
+  type SectionItem,
+} from "../sections.js";
+import { computeStep6 } from "./compute.js";
+import {
+  buildStepPrompt,
+  type ModelStep,
+  STEP_MAX_OUTPUT_TOKENS,
+  stepSectionIds,
+} from "./prompts.js";
+import {
+  type RunStepDeps,
+  readStored,
+  runStep,
+  type StoredOutputs,
+} from "./runStep.js";
+import type { ContextActivity, ReportContext } from "./types.js";
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+
+// ---------------------------------------------------------------------------
+// 토큰 어림
+// ---------------------------------------------------------------------------
+
+/** UUID 36자의 실측 토큰 수(약 30). */
+const UUID_TOKENS = 30;
+
+/**
+ * 응답 텍스트의 출력 토큰을 보수적으로 어림한다.
+ * 비 ASCII 글자 1자는 1토큰, ASCII 4자는 1토큰이다. UUID 는 실측 약 30토큰으로 센다.
+ */
+function estimateTokens(text: string): number {
+  const uuids = text.match(UUID_RE)?.length ?? 0;
+  const rest = text.replace(UUID_RE, "");
+  let nonAscii = 0;
+  let ascii = 0;
+  for (const ch of rest) {
+    if (ch.charCodeAt(0) > 127) nonAscii++;
+    else ascii++;
+  }
+  return nonAscii + Math.ceil(ascii / 4) + uuids * UUID_TOKENS;
+}
+
+// ---------------------------------------------------------------------------
+// 픽스처
+// ---------------------------------------------------------------------------
+
+const uuidOf = (i: number): string => {
+  const h = (i + 1).toString(16);
+  return `${h.padStart(8, "0")}-1111-4111-8111-${h.padStart(12, "0")}`;
+};
+
+const SEMESTERS = [
+  { gradeLabel: "고1", semester: 1 },
+  { gradeLabel: "고1", semester: 2 },
+  { gradeLabel: "고2", semester: 1 },
+] as const;
+const SUBJECTS = [
+  ["과학", "물리"],
+  ["과학", "화학"],
+  ["과학", "생명과학"],
+  ["수학", "수학"],
+  ["국어", "문학"],
+  ["영어", "영어"],
+] as const;
+const CREATIVE = ["자율활동", "동아리활동", "진로활동"] as const;
+
+function makeActivity(i: number): ContextActivity {
+  const sem = SEMESTERS[i % SEMESTERS.length];
+  const creative = i % 5 === 4;
+  const subject = SUBJECTS[i % SUBJECTS.length];
+  return {
+    id: uuidOf(i),
+    sourceProgram: "manual",
+    gradeLabel: sem?.gradeLabel ?? "고1",
+    semester: sem?.semester ?? 1,
+    subjectGroup: creative
+      ? (CREATIVE[i % CREATIVE.length] ?? null)
+      : (subject?.[0] ?? null),
+    subject: creative ? null : (subject?.[1] ?? null),
+    topic: `주제 ${i + 1}`,
+    text: `활동 ${i + 1} 본문 열 전달과 에너지 흐름을 실험으로 확인했다`,
+    group: creative ? "extracurricular" : "curricular",
+  };
+}
+
+function makeContext(n: number): ReportContext {
+  const activities = Array.from({ length: n }, (_, i) => makeActivity(i));
+  return {
+    reportId: "r1",
+    profileId: "p1",
+    track: "고2",
+    currentGrade: "고2",
+    range: { semesters: ["고1-1", "고1-2", "고2-1"], description: "범위" },
+    omitted: { ids: [], reasons: [] },
+    expectedSectionIds: expectedSectionIds({ omit: [] }),
+    noFirstYearData: false,
+    activities,
+    evidenceIds: activities.map((a) => a.id),
+    survey: { career: "물리학자" },
+    profile: {
+      schoolType: null,
+      grade: "고2",
+      semester: 1,
+      career: "물리학자",
+      admissionYear: null,
+    },
+    grades: { system: null, semesters: [], note: null },
+    universities: [],
+    previousNarrative: null,
+    nowIso: "2026-10-06T00:00:00.000Z",
+  };
+}
+
+const emptyStored = (): StoredOutputs => ({
+  signals: null,
+  narrative_theme: null,
+  grade_subthemes: null,
+  stage: null,
+  consistency: null,
+  axis_scores: null,
+  sections: [],
+  planDraft: null,
+});
+
+// ---------------------------------------------------------------------------
+// 최악의 모델 응답
+// ---------------------------------------------------------------------------
+
+/** 길이 n 인 한글 문장. 금지 표현과 주제 패턴을 피한다. */
+const ko = (n: number): string => "탐구가 이어진다 ".repeat(n).slice(0, n);
+
+/**
+ * 본문 길이. 분량 원칙의 상한(prose 350자, list 5개 120자, table 8행 80자)을 모두 채우면
+ * 활동 수와 무관하게 4, 7단계만으로 한도를 넘는다. 실측 정상 출력(6단계 최대 2412, 7단계 최대 2654)에 맞춰
+ * 원칙 안의 중간 길이로 쓰고, 활동 수에 따라 늘어나는 것은 근거 나열뿐이게 한다.
+ */
+const LEN = {
+  prose: 160,
+  listItems: 4,
+  listText: 70,
+  rows: 4,
+  rowText: 45,
+  rowLabel: 25,
+  match: 3,
+  matchText: 80,
+  plan: 2,
+} as const;
+
+type WorstInput = {
+  step: ModelStep;
+  context: ReportContext;
+  /** 근거 필드마다 넣을 id(별칭 또는 활동 id). 규칙을 따르는 모델은 대표 3개, 무시하는 모델은 전부다. */
+  ids: string[];
+  /** 참이면 축 항목 2-1~2-5 와 1-9 행의 근거를 프롬프트대로 비워 둔다(앱이 채운다). */
+  emptyForApp: boolean;
+  /** 1단계 한 호출이 읽는 활동 id 목록(ids 와 같은 표기). */
+  batchIds: string[];
+  /** 6단계 축별 verdictLabel. */
+  verdictLabels: Record<string, string>;
+};
+
+const AXIS_OF_SECTION: Record<string, string> = {
+  "2-1": "A",
+  "2-2": "B",
+  "2-3": "C",
+  "2-4": "D",
+  "2-5": "E",
+};
+
+function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
+  const appOwned = w.emptyForApp ? [] : w.ids;
+  const entry = (
+    extra: Record<string, unknown> = {},
+    evidence: string[] = w.ids,
+  ) => ({
+    label: ko(LEN.rowLabel),
+    value: ko(LEN.rowText),
+    evidence_ids: evidence,
+    ...extra,
+  });
+  switch (def.format) {
+    case "prose":
+      return { text: ko(LEN.prose) };
+    case "list":
+      return {
+        items: Array.from({ length: LEN.listItems }, () => ({
+          text: ko(LEN.listText),
+          evidence_ids: w.ids,
+        })),
+      };
+    case "table": {
+      if (def.id === "1-9") {
+        return {
+          rows: w.context.range.semesters.map((label) => ({
+            label,
+            value: "연계",
+            evidence_ids: appOwned,
+          })),
+        };
+      }
+      const axis = AXIS_OF_SECTION[def.id];
+      if (axis) {
+        return {
+          rows: [
+            entry({ label: "판정", value: w.verdictLabels[axis] }, appOwned),
+            entry({}, appOwned),
+            entry({}, appOwned),
+            entry({}, appOwned),
+          ],
+        };
+      }
+      if (def.id === "3-5") {
+        return {
+          rows: Array.from({ length: LEN.rows }, () => ({
+            subject: ko(LEN.rowLabel),
+            direction: ko(LEN.rowText),
+            record_to_leave: ko(LEN.rowText),
+            evidence_ids: w.ids,
+          })),
+        };
+      }
+      return { rows: Array.from({ length: LEN.rows }, () => entry()) };
+    }
+    default:
+      return {};
+  }
+}
+
+function sectionsFor(w: WorstInput) {
+  return stepSectionIds(w.step, w.context).map((id) => {
+    const def = SECTION_REGISTRY.find((d) => d.id === id);
+    if (!def) throw new Error(`레지스트리에 없는 항목 ${id}`);
+    return {
+      id,
+      status: "ok",
+      evidence_ids:
+        w.emptyForApp && (id in AXIS_OF_SECTION || id === "1-9") ? [] : w.ids,
+      body: bodyFor(def, w),
+    };
+  });
+}
+
+const matchList = (ids: string[]) =>
+  Array.from({ length: LEN.match }, () => ({
+    text: ko(LEN.matchText),
+    evidenceIds: ids,
+  }));
+
+/** 그 단계의 정상 형식 응답을 최대 길이로 쓴다. */
+function worstResponse(w: WorstInput): unknown {
+  switch (w.step) {
+    case 1:
+      return {
+        signals: w.batchIds.map((activityId) => ({
+          activityId,
+          axes: ["A", "B", "C", "D", "E"],
+          method: ko(10),
+          keywords: Array.from({ length: 5 }, () => ko(6)),
+          summary: ko(80),
+        })),
+      };
+    case 3:
+      return {
+        narrative: {
+          theme: ko(60),
+          subthemes: [
+            { grade: "고1", stage: "seed", text: ko(120) },
+            { grade: "고2", stage: "flower", text: ko(120) },
+            { grade: "고3", stage: "bloom", text: ko(120) },
+          ],
+        },
+        sections: sectionsFor(w),
+      };
+    case 4:
+      return {
+        match: { aligned: matchList(w.ids), conflicting: matchList(w.ids) },
+        sections: sectionsFor(w),
+      };
+    case 5:
+      return { sections: sectionsFor(w) };
+    case 6:
+      return { sections: sectionsFor(w) };
+    case 7: {
+      const plan = (priority: string) =>
+        Array.from({ length: LEN.plan }, () => ({
+          program: "deep",
+          title: ko(40),
+          description: ko(160),
+          priority,
+          period: "semester",
+          periodLabel: ko(10),
+          axis: "C",
+          category: ko(10),
+        }));
+      return {
+        sections: sectionsFor(w),
+        planDraft: [...plan("required"), ...plan("recommended")],
+      };
+    }
+  }
+}
+
+const ALIAS_RE = /"(?:id|activityId)": "(a\d+)"/g;
+
+/** 프롬프트에 나온 활동 별칭(중복 없이, 나온 순서). */
+function aliasesIn(user: string): string[] {
+  return [...new Set([...user.matchAll(ALIAS_RE)].map((m) => m[1] ?? ""))];
+}
+
+// ---------------------------------------------------------------------------
+// 1~8단계 실행
+// ---------------------------------------------------------------------------
+
+type CallLog = {
+  step: number;
+  tokens: number;
+  limit: number;
+  cut: boolean;
+  user: string;
+};
+
+/** 대표 근거 규칙대로 입력 전체에서 고르게 퍼진 별칭 3개(앞, 가운데, 끝)를 고른다. */
+function representative(aliases: string[]): string[] {
+  if (aliases.length <= 3) return aliases;
+  const mid = Math.floor(aliases.length / 2);
+  return [aliases[0], aliases[mid], aliases[aliases.length - 1]].filter(
+    (x): x is string => x !== undefined,
+  );
+}
+
+type RunOptions = {
+  /** 6단계 첫 호출만 대표 근거 규칙을 무시하고 모든 별칭을 모든 근거 필드에 나열한다. */
+  ignoreRuleOnStep6?: boolean;
+};
+
+async function runAllSteps(n: number, options: RunOptions = {}) {
+  const context = makeContext(n);
+  const calls: CallLog[] = [];
+  const extraAttempts: Record<number, number> = {};
+  let stored = emptyStored();
+  let last: Awaited<ReturnType<typeof runStep>> | null = null;
+  for (const step of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
+    const signals = readStored(stored).signals;
+    const verdictLabels = Object.fromEntries(
+      computeStep6(context, signals).map((e) => [e.axis, e.verdictLabel]),
+    );
+    let stepCalls = 0;
+    const callModel: RunStepDeps["callModel"] = async (bundle) => {
+      const aliases = aliasesIn(bundle.user);
+      const ignoring =
+        options.ignoreRuleOnStep6 === true && step === 6 && stepCalls === 0;
+      stepCalls++;
+      const text = JSON.stringify(
+        worstResponse({
+          step: step as ModelStep,
+          context,
+          ids: ignoring ? aliases : representative(aliases),
+          emptyForApp: !ignoring,
+          batchIds: step === 1 ? aliases : [],
+          verdictLabels,
+        }),
+      );
+      const tokens = estimateTokens(text);
+      const cut = tokens > bundle.maxOutputTokens;
+      calls.push({
+        step,
+        tokens,
+        limit: bundle.maxOutputTokens,
+        cut,
+        user: bundle.user,
+      });
+      return { text, finishReason: cut ? "MAX_TOKENS" : "STOP" };
+    };
+    const r = await runStep(step, context, stored, {
+      callModel,
+      now: () => "2026-10-06T00:00:00.000Z",
+      budgetMs: 50_000,
+      carried: [],
+    });
+    if (!r.ok)
+      throw new Error(
+        `${n}건 ${step}단계 실패: ${r.failure} ${JSON.stringify(r.issues).slice(0, 400)}`,
+      );
+    extraAttempts[step] = r.extraAttempts;
+    stored = { ...stored, ...r.patch } as StoredOutputs;
+    last = r;
+  }
+  return { context, calls, extraAttempts, last, stored };
+}
+
+const maxByStep = (calls: CallLog[]): Record<number, number> => {
+  const out: Record<number, number> = {};
+  for (const c of calls) out[c.step] = Math.max(out[c.step] ?? 0, c.tokens);
+  return out;
+};
+
+describe("활동 수별 출력 한도", () => {
+  it.each([16, 37, 60, 120])(
+    "활동 %i건에서 1~8단계가 모두 한도 안에서 끝난다",
+    async (n) => {
+      const { calls, extraAttempts } = await runAllSteps(n);
+      expect(Object.values(extraAttempts).every((x) => x === 0)).toBe(true);
+      const max = maxByStep(calls);
+      const table = Object.entries(max)
+        .map(([s, t]) => `${s}단계 ${t}`)
+        .join(", ");
+      const cut = calls.filter((c) => c.cut);
+      expect(
+        cut,
+        `${n}건 잘린 호출 ${JSON.stringify(cut)}; 단계별 최대 어림 토큰: ${table}`,
+      ).toEqual([]);
+      // 1단계는 15건 묶음이라 호출 수가 활동 수에 비례한다.
+      expect(calls.filter((c) => c.step === 1)).toHaveLength(Math.ceil(n / 15));
+    },
+    30_000,
+  );
+
+  it("8단계 조립 결과의 근거 id 는 모두 활동 UUID 이고 별칭이 남지 않는다", async () => {
+    const { last, context } = await runAllSteps(60);
+    if (!last?.ok || last.step !== 8) throw new Error("8단계 결과 없음");
+    const sections = last.output.sections as SectionItem[];
+    const known = new Set(context.evidenceIds);
+    for (const s of sections) {
+      for (const id of s.evidence_ids) {
+        expect(known.has(id), `${s.id} 근거 ${id}`).toBe(true);
+      }
+    }
+    expect(JSON.stringify(sections)).not.toMatch(/"a\d+"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 대조군: 옛 구조(UUID 근거, 옛 한도, 1단계 비묶음)
+// ---------------------------------------------------------------------------
+
+const OLD_LIMITS: Record<ModelStep, number> = {
+  1: 4096,
+  3: 2048,
+  4: 3072,
+  5: 2048,
+  6: 6144,
+  7: 6144,
+};
+
+/** 옛 구조의 단계별 어림 토큰. 구현은 건드리지 않고 같은 최악 응답을 UUID 근거로 어림만 한다. */
+function oldStructureTokens(n: number): Record<ModelStep, number> {
+  const context = makeContext(n);
+  const uuids = context.evidenceIds;
+  const axes = computeStep6(context, []);
+  const verdictLabels = Object.fromEntries(
+    axes.map((e) => [e.axis, e.verdictLabel]),
+  );
+  const out = {} as Record<ModelStep, number>;
+  for (const step of [1, 3, 4, 5, 6, 7] as const) {
+    out[step] = estimateTokens(
+      JSON.stringify(
+        worstResponse({
+          step,
+          context,
+          ids: uuids,
+          emptyForApp: false,
+          batchIds: uuids,
+          verdictLabels,
+        }),
+      ),
+    );
+  }
+  return out;
+}
+
+describe("규칙을 무시한 모델", () => {
+  it("6단계 활동 60건에서 모든 별칭을 나열하면 첫 응답이 잘리고 재요청이 잘림 메모와 함께 성공한다", async () => {
+    const { calls, extraAttempts } = await runAllSteps(60, {
+      ignoreRuleOnStep6: true,
+    });
+    const step6 = calls.filter((c) => c.step === 6);
+    expect(step6).toHaveLength(2);
+    expect(step6[0]?.cut).toBe(true);
+    expect(step6[0]?.tokens).toBeGreaterThan(step6[0]?.limit ?? 0);
+    expect(step6[1]?.cut).toBe(false);
+    expect(step6[0]?.user).not.toContain("이전 응답의 문제");
+    expect(step6[1]?.user).toContain("이전 응답의 문제");
+    expect(step6[1]?.user).toContain("출력 한도를 넘어 잘렸");
+    expect(step6[1]?.user).toContain("절반 이하로 줄이고");
+    expect(extraAttempts[6]).toBe(1);
+    for (const step of [1, 2, 3, 4, 5, 7, 8])
+      expect(extraAttempts[step], `${step}단계`).toBe(0);
+  });
+});
+
+describe("옛 구조 대조군", () => {
+  it("UUID 근거, 옛 한도, 1단계 비묶음이면 활동 60건에서 한도를 넘는다", () => {
+    const tokens = oldStructureTokens(60);
+    const over = (Object.keys(OLD_LIMITS) as unknown as ModelStep[]).filter(
+      (s) => tokens[s] > OLD_LIMITS[s],
+    );
+    expect(
+      over.length,
+      `옛 구조 60건 단계별 어림: ${JSON.stringify(tokens)}`,
+    ).toBeGreaterThan(0);
+  });
+
+  it("새 한도 상수는 옛 한도와 다르고 번들에 그대로 실린다", () => {
+    const context = makeContext(3);
+    const b = buildStepPrompt(1, { context, prior: {} });
+    expect(b.maxOutputTokens).toBe(STEP_MAX_OUTPUT_TOKENS[1]);
+  });
+});
