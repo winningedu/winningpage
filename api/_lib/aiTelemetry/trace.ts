@@ -53,7 +53,7 @@ export type AiSearchEntry = {
   rawHits?: number | null;
   packedHits?: number | null;
   topScore?: number | null;
-  source?: "vector" | "keyword" | "none" | null;
+  source?: "hybrid" | "vector" | "keyword" | "none" | null;
   degraded: boolean;
   injectedChars?: number | null;
   embedMs?: number | null;

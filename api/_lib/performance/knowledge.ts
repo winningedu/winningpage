@@ -41,6 +41,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiTrace } from "../aiTelemetry/trace.js";
 import { createSupabaseAdmin } from "../supabaseAdmin.js";
 import { embedText } from "./embeddings.js";
+import { buildKnowledgeKeywordQuery } from "./knowledgeKeywords.js";
 import { NO_KNOWLEDGE_TEXT, NO_STUDENT_HISTORY_TEXT } from "./prompts.js";
 
 /** 위닝DB 지식 항목 행 — 이 파일이 실제로 읽는 필드만 담은 최소 형태. */
@@ -448,38 +449,51 @@ export function buildKnowledgeQueryText({
 }
 
 /**
- * 벡터 검색. 원문 `loadByVectorSearch`(`dynamic-knowledge.js:217-260`).
- * 질의문 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3 — 학생 과거 수행
- * 경로의 2000자와 다르다. 혼동 금지).
+ * 하이브리드 RPC 의 단어 질의. 과목이 비면 normalizeSubject 의 기본값('국어')이 질의에
+ * 섞이지 않게 정규화 교과군도 비운다. 학생 요청 경로와 관리자 검색 테스트가 같이 쓴다.
  */
-async function loadByVectorSearch(
-  db: SupabaseClient,
-  {
-    grade,
+export function buildKnowledgeKeywordQueryFor({
+  subject,
+  career,
+  selectedTopic,
+}: {
+  subject?: string | undefined;
+  career?: string | undefined;
+  selectedTopic?: string | undefined;
+}): string {
+  return buildKnowledgeKeywordQuery({
     subject,
+    normalizedSubject: subject ? normalizeSubject(subject) : "",
     career,
     selectedTopic,
-    assessmentInfo,
-    knowledgeType,
-    maxItems,
-    maxChars,
-    includeOtherSubjects,
-  }: KnowledgeSearchArgs,
-): Promise<KnowledgeSearchResult> {
-  const queryText = buildKnowledgeQueryText({
-    grade,
-    subject,
-    career,
-    selectedTopic,
-    assessmentInfo,
   });
+}
 
+/** 질의 임베딩과 그 소요 시간. 하이브리드와 벡터 경로가 한 번 만든 값을 같이 쓴다. */
+type QueryEmbedding = { embedding: number[]; embedMs: number };
+
+/**
+ * 질의문 임베딩. 질의문 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3).
+ * 학생 과거 수행 경로의 2000자와 다르므로 혼동하지 않는다.
+ */
+async function embedKnowledgeQuery(
+  args: KnowledgeSearchArgs,
+): Promise<QueryEmbedding> {
+  const queryText = buildKnowledgeQueryText(args);
   const embedStartedAt = Date.now();
-  const queryEmbedding = await embedText(queryText);
-  const embedMs = Date.now() - embedStartedAt;
+  const embedding = await embedText(queryText);
+  return { embedding, embedMs: Date.now() - embedStartedAt };
+}
 
-  const { data, error } = await db.rpc("match_winning_suhaeng_all_subjects", {
-    query_embedding: queryEmbedding,
+/** 두 벡터 계열 RPC 가 같이 받는 필터 인자. */
+function knowledgeRpcFilterArgs({
+  grade,
+  subject,
+  knowledgeType,
+  maxItems,
+  includeOtherSubjects,
+}: KnowledgeSearchArgs) {
+  return {
     filter_knowledge_type: knowledgeType,
     filter_grade: getBaseGradeForRpc(grade),
     match_count: Math.max(maxItems * 2, 10),
@@ -489,14 +503,25 @@ async function loadByVectorSearch(
       includeOtherSubjects: Boolean(includeOtherSubjects),
       subject: subject ?? "",
     }),
-  });
+  };
+}
 
-  if (error) throw error;
-
-  const rows = (data || []).slice(0, maxItems);
-
-  const rawHits = (data || []).length;
-  const topScore = data?.[0]?.similarity ?? null;
+/**
+ * RPC 결과 행을 maxItems 로 자르고 packRows 로 채운다. 하이브리드와 벡터 경로가 같이 쓴다.
+ * topScore 는 행 중 유사도 최댓값이다. 하이브리드는 RRF 순서라 1위가 최댓값이 아닐 수 있다.
+ */
+function packSearchRows(
+  data: KnowledgeRow[] | null,
+  { knowledgeType, maxItems, maxChars }: KnowledgeSearchArgs,
+  embedMs: number,
+): KnowledgeSearchResult {
+  const all = data || [];
+  const rows = all.slice(0, maxItems);
+  const rawHits = all.length;
+  const similarities = all
+    .map((row) => row.similarity)
+    .filter((value): value is number => typeof value === "number");
+  const topScore = similarities.length ? Math.max(...similarities) : null;
 
   if (!rows.length) {
     return { text: "", hitCount: 0, rows: [], rawHits, topScore, embedMs };
@@ -513,6 +538,45 @@ async function loadByVectorSearch(
     topScore,
     embedMs,
   };
+}
+
+/**
+ * 하이브리드 검색(1차 경로). 의미 순위와 PGroonga 단어 순위를 RPC 안에서 RRF 로 합친다.
+ * 필터와 threshold 는 벡터 경로와 같다. threshold 는 의미 쪽에만 걸리므로 단어로만 걸린
+ * 행은 유사도가 threshold 아래일 수 있고, 그 행도 실제 유사도와 함께 직렬화된다.
+ */
+async function loadByHybridSearch(
+  db: SupabaseClient,
+  args: KnowledgeSearchArgs,
+  query: QueryEmbedding,
+): Promise<KnowledgeSearchResult> {
+  const { data, error } = await db.rpc("match_winning_suhaeng_hybrid", {
+    query_embedding: query.embedding,
+    query_keywords: buildKnowledgeKeywordQueryFor(args),
+    ...knowledgeRpcFilterArgs(args),
+  });
+
+  if (error) throw error;
+
+  return packSearchRows(data, args, query.embedMs);
+}
+
+/**
+ * 벡터 검색(하이브리드 실패 시 2차 경로). 원문 `loadByVectorSearch`(`dynamic-knowledge.js:217-260`).
+ */
+async function loadByVectorSearch(
+  db: SupabaseClient,
+  args: KnowledgeSearchArgs,
+  query: QueryEmbedding,
+): Promise<KnowledgeSearchResult> {
+  const { data, error } = await db.rpc("match_winning_suhaeng_all_subjects", {
+    query_embedding: query.embedding,
+    ...knowledgeRpcFilterArgs(args),
+  });
+
+  if (error) throw error;
+
+  return packSearchRows(data, args, query.embedMs);
 }
 
 /**
@@ -639,8 +703,12 @@ async function loadByLegacyKeywordSearch(
 /**
  * 위닝DB 지식 검색 단일 진입점. 원문 `loadDynamicAssessmentKnowledge`(`:339-393`).
  *
+ * 경로는 3단이다. 1차는 하이브리드(match_winning_suhaeng_hybrid), 그것이 throw 하면
+ * 벡터(match_winning_suhaeng_all_subjects), 그것도 throw 하면 레거시 키워드 검색이다.
+ * 2단과 3단은 결과가 나와도 degraded 로 표시한다.
+ *
  * **폴백 발동 조건이 원문과 다르다.** 원문은 벡터 결과가 비기만 해도 키워드 검색으로
- * 떨어졌다(`if (vectorResult) return …` 이후 무조건 진행). 여기서는 **벡터 검색이
+ * 떨어졌다(`if (vectorResult) return …` 이후 무조건 진행). 여기서는 **앞 경로가
  * throw한 경우에만** 폴백한다 — 빈 결과는 정상적인 "관련 항목 없음"이기 때문이다
  * (§8.7 「제안(키워드 폴백 축소)」). 지금 dev 코퍼스가 0행이라 원문 동작을 그대로 두면
  * 매 요청마다 160행 스캔이 헛돈다.
@@ -681,7 +749,7 @@ export async function loadDynamicAssessmentKnowledge({
   telemetry?: AiTrace;
 } = {}): Promise<{
   text: string;
-  source: "vector" | "keyword" | "none";
+  source: "hybrid" | "vector" | "keyword" | "none";
   hitCount: number;
   injectedChars: number;
   degraded: boolean;
@@ -708,7 +776,7 @@ export async function loadDynamicAssessmentKnowledge({
   const finish = (
     result: {
       text: string;
-      source: "vector" | "keyword" | "none";
+      source: "hybrid" | "vector" | "keyword" | "none";
       hitCount: number;
       injectedChars: number;
       degraded: boolean;
@@ -749,39 +817,59 @@ export async function loadDynamicAssessmentKnowledge({
     return result;
   };
 
-  try {
-    const vector = await loadByVectorSearch(db, args);
-    const meta = {
-      rawHits: vector.rawHits,
-      topScore: vector.topScore,
-      embedMs: vector.embedMs,
-      status: "ok" as const,
-    };
-
-    if (vector.hitCount) {
-      return finish(
-        {
-          text: vector.text,
-          source: "vector",
-          hitCount: vector.hitCount,
-          injectedChars: vector.text.length,
-          degraded: false,
-          rows: vector.rows,
-        },
-        meta,
-      );
-    }
-
-    return finish(
+  // 검색 결과 하나를 반환값으로 바꾼다. 행이 없으면 NO_KNOWLEDGE_TEXT 와 source none 이다.
+  const finishSearch = (
+    search: KnowledgeSearchResult,
+    source: "hybrid" | "vector",
+    degraded: boolean,
+  ) =>
+    finish(
+      search.hitCount
+        ? {
+            text: search.text,
+            source,
+            hitCount: search.hitCount,
+            injectedChars: search.text.length,
+            degraded,
+            rows: search.rows,
+          }
+        : {
+            text: NO_KNOWLEDGE_TEXT,
+            source: "none",
+            hitCount: 0,
+            injectedChars: 0,
+            degraded,
+            rows: [],
+          },
       {
-        text: NO_KNOWLEDGE_TEXT,
-        source: "none",
-        hitCount: 0,
-        injectedChars: 0,
-        degraded: false,
-        rows: [],
+        rawHits: search.rawHits,
+        topScore: search.topScore,
+        embedMs: search.embedMs,
+        status: "ok",
       },
-      meta,
+    );
+
+  // 질의 임베딩은 한 번만 만든다. 임베딩이 실패하면 두 벡터 계열 경로가 같은 오류로 떨어진다.
+  const queryEmbedding = embedKnowledgeQuery(args);
+  // 두 경로가 모두 throw 하는 경우에도 처리되지 않은 거부로 남지 않게 한다.
+  queryEmbedding.catch(() => {});
+
+  try {
+    return finishSearch(
+      await loadByHybridSearch(db, args, await queryEmbedding),
+      "hybrid",
+      false,
+    );
+  } catch (error) {
+    console.error("위닝DB 하이브리드 검색 실패, 벡터 검색으로 대체:", error);
+  }
+
+  try {
+    // 하이브리드가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
+    return finishSearch(
+      await loadByVectorSearch(db, args, await queryEmbedding),
+      "vector",
+      true,
     );
   } catch (error) {
     console.error(

@@ -1,6 +1,8 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 목록 상단의 검색 테스트.
-// 학생 요청과 같은 조건으로 벡터 검색을 돌려, 어떤 카드가 몇 위로 잡히고 threshold 를
+// 학생 요청과 같은 조건으로 검색을 돌려, 어떤 카드가 몇 위로 잡히고 threshold 를
 // 넘는지, 실제 프롬프트에 들어가는지를 보여 준다. 판단은 서버(searchPreview.ts)가 한다.
+// 기본은 학생 요청의 1차 경로인 하이브리드(뜻 검색과 단어 검색 결합)이고, 폴백 경로인
+// 벡터 검색으로 바꿔 비교할 수 있다.
 
 import { Fragment, useState } from "react";
 
@@ -11,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { SearchPreviewMode } from "../../../../api/_lib/performance/searchPreview.js";
 import {
   type KnowledgeSearchPreviewResult,
   postKnowledgeSearchPreview,
@@ -24,6 +27,22 @@ const INPUT_CLASS =
 
 // 학생 요청의 학년 값과 같은 형식이다. 빈 값이면 학년 필터 없이 검색한다.
 const GRADE_OPTIONS = ["고1", "고2", "고3"];
+
+const MODE_OPTIONS: { value: SearchPreviewMode; label: string }[] = [
+  { value: "hybrid", label: "하이브리드" },
+  { value: "vector", label: "벡터만" },
+];
+
+const MODE_DESCRIPTIONS: Record<SearchPreviewMode, string> = {
+  hybrid:
+    "학생 요청의 1차 경로입니다. 뜻 검색 순위와 단어 검색 순위를 합친 점수 순서로 보여 줍니다. 실제 주입은 앞에서부터 개수와 글자 상한까지이고, 단어로만 걸린 카드는 유사도가 threshold 아래여도 주입됩니다.",
+  vector:
+    "하이브리드가 실패할 때 쓰는 폴백 경로입니다. threshold 아래 카드도 함께 보여 줍니다. 실제 주입은 threshold 를 넘은 카드 중 앞에서부터 개수와 글자 상한까지입니다.",
+};
+
+function formatRank(rank: number | null | undefined): string {
+  return typeof rank === "number" ? String(rank) : "없음";
+}
 
 type PreviewConfig = {
   title: string;
@@ -60,6 +79,7 @@ export default function KnowledgeSearchPreview({
   const [includeOtherSubjects, setIncludeOtherSubjects] = useState(
     knowledgeType === "topic_pattern",
   );
+  const [mode, setMode] = useState<SearchPreviewMode>("hybrid");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<KnowledgeSearchPreviewResult | null>(
@@ -79,6 +99,7 @@ export default function KnowledgeSearchPreview({
           knowledgeType,
           ...form,
           includeOtherSubjects,
+          mode,
         }),
       );
     } catch (error) {
@@ -89,9 +110,13 @@ export default function KnowledgeSearchPreview({
     }
   }
 
-  const boundary = result
-    ? result.items.findIndex((item) => !item.passesThreshold)
-    : -1;
+  const isHybridResult = result?.mode === "hybrid";
+  // 벡터 결과만 유사도 내림차순이라 threshold 경계선이 한 줄로 그어진다.
+  const boundary =
+    result && !isHybridResult
+      ? result.items.findIndex((item) => !item.passesThreshold)
+      : -1;
+  const columnCount = isHybridResult ? 9 : 7;
 
   return (
     <div className="mb-6 flex items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
@@ -119,10 +144,7 @@ export default function KnowledgeSearchPreview({
         <DialogContent className="sm:max-w-[64rem]">
           <DialogHeader>
             <DialogTitle>{config.title} 검색 테스트</DialogTitle>
-            <DialogDescription>
-              threshold 아래 카드도 함께 보여 줍니다. 실제 주입은 threshold 를
-              넘은 카드 중 앞에서부터 개수와 글자 상한까지입니다.
-            </DialogDescription>
+            <DialogDescription>{MODE_DESCRIPTIONS[mode]}</DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-4 gap-3 text-xs font-bold">
@@ -178,14 +200,34 @@ export default function KnowledgeSearchPreview({
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-bold">
-              <input
-                type="checkbox"
-                checked={includeOtherSubjects}
-                onChange={(e) => setIncludeOtherSubjects(e.target.checked)}
-              />
-              다른 교과군 카드도 포함
-            </label>
+            <div className="flex items-center gap-4">
+              <fieldset className="inline-flex items-center gap-3 text-xs font-bold">
+                <legend className="sr-only">검색 방식</legend>
+                {MODE_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <input
+                      type="radio"
+                      name={`search-preview-mode-${knowledgeType}`}
+                      value={option.value}
+                      checked={mode === option.value}
+                      onChange={() => setMode(option.value)}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="inline-flex items-center gap-2 text-xs font-bold">
+                <input
+                  type="checkbox"
+                  checked={includeOtherSubjects}
+                  onChange={(e) => setIncludeOtherSubjects(e.target.checked)}
+                />
+                다른 교과군 카드도 포함
+              </label>
+            </div>
             <button
               type="button"
               onClick={runSearch}
@@ -205,8 +247,14 @@ export default function KnowledgeSearchPreview({
           {result && (
             <div className="max-h-[24rem] overflow-y-auto border border-gray-200 text-xs">
               <p className="bg-gray-50 px-2 py-1 font-bold text-gray-600">
-                threshold {result.threshold}, 결과 {result.items.length}건
+                {isHybridResult ? "하이브리드" : "벡터만"}, threshold{" "}
+                {result.threshold}, 결과 {result.items.length}건
               </p>
+              {isHybridResult && (
+                <p className="bg-gray-50 px-2 pb-1 font-bold break-all text-gray-500">
+                  단어 질의: {result.keywordQuery || "없음(뜻 검색만 반영)"}
+                </p>
+              )}
               <table className="w-full text-left">
                 <thead className="sticky top-0 bg-gray-50">
                   <tr>
@@ -215,6 +263,12 @@ export default function KnowledgeSearchPreview({
                     <th className="w-[5rem] px-2 py-1">학년</th>
                     <th className="w-[6rem] px-2 py-1">교과군</th>
                     <th className="w-[6rem] px-2 py-1">유사도</th>
+                    {isHybridResult && (
+                      <>
+                        <th className="w-[7rem] px-2 py-1">뜻, 단어 순위</th>
+                        <th className="w-[6rem] px-2 py-1">RRF 점수</th>
+                      </>
+                    )}
                     <th className="w-[6rem] px-2 py-1">threshold</th>
                     <th className="w-[6rem] px-2 py-1">실제 주입</th>
                   </tr>
@@ -222,7 +276,10 @@ export default function KnowledgeSearchPreview({
                 <tbody>
                   {result.items.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-2 py-6 text-center">
+                      <td
+                        colSpan={columnCount}
+                        className="px-2 py-6 text-center"
+                      >
                         검색된 카드가 없습니다. 임베딩이 끝난 사용 중 카드만
                         검색됩니다.
                       </td>
@@ -233,7 +290,7 @@ export default function KnowledgeSearchPreview({
                       {index === boundary && (
                         <tr className="border-t-2 border-red-400">
                           <td
-                            colSpan={7}
+                            colSpan={columnCount}
                             className="bg-red-50 px-2 py-1 font-black text-red-600"
                           >
                             여기부터 threshold 미달
@@ -241,7 +298,7 @@ export default function KnowledgeSearchPreview({
                         </tr>
                       )}
                       <tr
-                        className={`border-t border-gray-100 ${item.passesThreshold ? "" : "text-gray-400"}`}
+                        className={`border-t border-gray-100 ${(isHybridResult ? item.wouldBeInjected : item.passesThreshold) ? "" : "text-gray-400"}`}
                       >
                         <td className="px-2 py-1">{item.rank}</td>
                         <td className="px-2 py-1">{item.title}</td>
@@ -250,6 +307,19 @@ export default function KnowledgeSearchPreview({
                         <td className="px-2 py-1 tabular-nums">
                           {item.similarity.toFixed(4)}
                         </td>
+                        {isHybridResult && (
+                          <>
+                            <td className="px-2 py-1 tabular-nums">
+                              {formatRank(item.semanticRank)},{" "}
+                              {formatRank(item.keywordRank)}
+                            </td>
+                            <td className="px-2 py-1 tabular-nums">
+                              {typeof item.rrfScore === "number"
+                                ? item.rrfScore.toFixed(5)
+                                : ""}
+                            </td>
+                          </>
+                        )}
                         <td className="px-2 py-1">
                           {item.passesThreshold ? "통과" : "미달"}
                         </td>

@@ -7,7 +7,7 @@ import {
 } from "./knowledge.js";
 import {
   buildSearchPreviewItems,
-  buildSearchPreviewRpcArgs,
+  buildSearchPreviewRpc,
   validateSearchPreviewBody,
 } from "./searchPreview.js";
 
@@ -42,8 +42,23 @@ describe("validateSearchPreviewBody", () => {
         assessmentInfo: "",
         includeOtherSubjects: true,
         limit: 20,
+        mode: "hybrid",
       },
     });
+  });
+
+  it("검색 방식은 기본 hybrid 이고 vector 를 고를 수 있으며 다른 값은 거절한다", () => {
+    const vector = validateSearchPreviewBody({
+      knowledgeType: "topic_pattern",
+      mode: "vector",
+    });
+    expect(vector.ok && vector.body.mode).toBe("vector");
+    expect(
+      validateSearchPreviewBody({
+        knowledgeType: "topic_pattern",
+        mode: "bm25",
+      }).ok,
+    ).toBe(false);
   });
 
   it("자료 DB 는 기본으로 다른 과목을 빼고 지정값은 그대로 쓴다", () => {
@@ -166,7 +181,72 @@ describe("buildSearchPreviewItems", () => {
   });
 });
 
-describe("buildSearchPreviewRpcArgs", () => {
+describe("buildSearchPreviewItems hybrid", () => {
+  function fused(
+    id: string,
+    similarity: number,
+    ranks: { semantic: number | null; keyword: number | null; rrf: number },
+  ) {
+    return {
+      ...row(id, similarity),
+      semantic_rank: ranks.semantic,
+      keyword_rank: ranks.keyword,
+      rrf_score: ranks.rrf,
+    };
+  }
+
+  it("두 순위와 RRF 점수를 붙이고 단어로만 걸린 행도 RPC 순서대로 주입한다", () => {
+    const result = buildSearchPreviewItems(
+      "topic_pattern",
+      [
+        fused("both", 0.8, { semantic: 1, keyword: 2, rrf: 0.0325 }),
+        fused("kw", 0.42, { semantic: null, keyword: 1, rrf: 0.0164 }),
+        fused("sem", 0.7, { semantic: 2, keyword: null, rrf: 0.0161 }),
+      ],
+      "hybrid",
+    );
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        rank: 1,
+        id: "both",
+        semanticRank: 1,
+        keywordRank: 2,
+        rrfScore: 0.0325,
+        passesThreshold: true,
+        wouldBeInjected: true,
+      }),
+      expect.objectContaining({
+        rank: 2,
+        id: "kw",
+        semanticRank: null,
+        keywordRank: 1,
+        similarity: 0.42,
+        passesThreshold: false,
+        wouldBeInjected: true,
+      }),
+      expect.objectContaining({ rank: 3, id: "sem", wouldBeInjected: true }),
+    ]);
+  });
+
+  it("hybrid 도 앞 6건까지만 주입된다", () => {
+    const rows = Array.from({ length: 8 }, (_, i) =>
+      fused(`r${i}`, 0.3, { semantic: null, keyword: i + 1, rrf: 0.01 }),
+    );
+    expect(
+      buildSearchPreviewItems("topic_pattern", rows, "hybrid").items.map(
+        (item) => item.wouldBeInjected,
+      ),
+    ).toEqual([true, true, true, true, true, true, false, false]);
+  });
+
+  it("vector 결과에는 하이브리드 순위 필드가 없다", () => {
+    const item = buildSearchPreviewItems("topic_pattern", [row("a", 0.8)])
+      .items[0];
+    expect(item).not.toHaveProperty("rrfScore");
+  });
+});
+
+describe("buildSearchPreviewRpc", () => {
   const base = {
     grade: "고2 이과",
     subject: "물리학",
@@ -176,32 +256,67 @@ describe("buildSearchPreviewRpcArgs", () => {
     limit: 15,
   };
 
-  it("threshold 0 과 요청 상한으로 부르고 학년은 실제 경로처럼 정규화한다", () => {
+  it("vector 는 기존 RPC 를 threshold 0 과 요청 상한으로 부르고 학년은 실제 경로처럼 정규화한다", () => {
     expect(
-      buildSearchPreviewRpcArgs(
-        { ...base, knowledgeType: "topic_pattern", includeOtherSubjects: true },
+      buildSearchPreviewRpc(
+        {
+          ...base,
+          knowledgeType: "topic_pattern",
+          includeOtherSubjects: true,
+          mode: "vector",
+        },
         [0.1, 0.2],
       ),
     ).toEqual({
-      query_embedding: [0.1, 0.2],
-      filter_knowledge_type: "topic_pattern",
-      filter_grade: "고2",
-      filter_subject: null,
-      match_count: 15,
-      match_threshold: 0,
+      fn: "match_winning_suhaeng_all_subjects",
+      args: {
+        query_embedding: [0.1, 0.2],
+        filter_knowledge_type: "topic_pattern",
+        filter_grade: "고2",
+        filter_subject: null,
+        match_count: 15,
+        match_threshold: 0,
+      },
+    });
+  });
+
+  it("hybrid 는 실제 경로 threshold 와 단어 질의로 하이브리드 RPC 를 부른다", () => {
+    expect(
+      buildSearchPreviewRpc(
+        {
+          ...base,
+          career: "기계공학",
+          knowledgeType: "verified_resource",
+          includeOtherSubjects: false,
+          mode: "hybrid",
+        },
+        [0.1],
+      ),
+    ).toEqual({
+      fn: "match_winning_suhaeng_hybrid",
+      args: {
+        query_embedding: [0.1],
+        query_keywords: '"물리학" OR "과학" OR "기계공학"',
+        filter_knowledge_type: "verified_resource",
+        filter_grade: "고2",
+        filter_subject: "과학",
+        match_count: 15,
+        match_threshold: RESOURCE_MATCH_THRESHOLD,
+      },
     });
   });
 
   it("다른 과목을 빼면 정규화한 교과군으로 거른다", () => {
     expect(
-      buildSearchPreviewRpcArgs(
+      buildSearchPreviewRpc(
         {
           ...base,
           knowledgeType: "verified_resource",
           includeOtherSubjects: false,
+          mode: "vector",
         },
         [0.1],
-      ).filter_subject,
+      ).args.filter_subject,
     ).toBe("과학");
   });
 });

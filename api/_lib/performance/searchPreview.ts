@@ -3,6 +3,7 @@
 // 학생 요청 경로(knowledge.ts)의 함수를 그대로 가져다 쓴다.
 
 import {
+  buildKnowledgeKeywordQueryFor,
   getBaseGradeForRpc,
   type KnowledgeRow,
   knowledgeMatchThreshold,
@@ -25,6 +26,9 @@ export const SEARCH_PREVIEW_DEFAULT_LIMIT = 20;
 /** 검색 테스트 행 수 상한. */
 export const SEARCH_PREVIEW_MAX_LIMIT = 50;
 
+/** 검색 방식. hybrid 는 학생 요청 경로의 1차 경로이고 vector 는 폴백 비교용이다. */
+export type SearchPreviewMode = "vector" | "hybrid";
+
 export type SearchPreviewBody = {
   knowledgeType: BulkKnowledgeType;
   grade: string;
@@ -34,6 +38,7 @@ export type SearchPreviewBody = {
   assessmentInfo: string;
   includeOtherSubjects: boolean;
   limit: number;
+  mode: SearchPreviewMode;
 };
 
 const TEXT_KEYS = [
@@ -87,6 +92,11 @@ export function validateSearchPreviewBody(
   const includeOtherSubjects =
     source.includeOtherSubjects ?? knowledgeType === "topic_pattern";
 
+  const mode = source.mode ?? "hybrid";
+  if (mode !== "vector" && mode !== "hybrid") {
+    return { ok: false, reason: "mode 는 vector 또는 hybrid 입니다." };
+  }
+
   return {
     ok: true,
     body: {
@@ -94,6 +104,7 @@ export function validateSearchPreviewBody(
       ...texts,
       includeOtherSubjects,
       limit: rawLimit as number,
+      mode,
     },
   };
 }
@@ -108,26 +119,49 @@ export type SearchPreviewItem = {
   similarity: number;
   passesThreshold: boolean;
   wouldBeInjected: boolean;
+  /** hybrid 만. 의미 순위, 의미 쪽 threshold 아래라 순위가 없으면 null. */
+  semanticRank?: number | null;
+  /** hybrid 만. 단어 순위, 단어가 걸리지 않았으면 null. */
+  keywordRank?: number | null;
+  /** hybrid 만. RRF 합산 점수(결과 순서의 기준). */
+  rrfScore?: number | null;
+};
+
+/** 하이브리드 RPC 행. 벡터 RPC 행에는 세 순위 컬럼이 없다. */
+export type SearchPreviewRow = KnowledgeRow & {
+  semantic_rank?: number | null;
+  keyword_rank?: number | null;
+  rrf_score?: number | null;
 };
 
 /**
- * threshold 0 으로 받은 RPC 행(유사도 내림차순)에 학생 요청 경로의 판정을 붙인다.
- * 주입 여부는 실제 경로와 같은 순서로 정한다. threshold 통과 행 중 앞 maxItems 건을
- * 골라 packRows 로 글자 상한까지 채우고, 상한을 넘긴 행부터 뒤는 모두 버린다.
+ * RPC 행에 학생 요청 경로의 판정을 붙인다. 주입 여부는 실제 경로와 같은 순서로 정한다.
+ * 후보 중 앞 maxItems 건을 골라 packRows 로 글자 상한까지 채우고, 상한을 넘긴 행부터 뒤는
+ * 모두 버린다.
+ *
+ * vector 는 threshold 0 으로 받은 행(유사도 내림차순)이라 후보가 threshold 통과 행이다.
+ * hybrid 는 RPC 가 의미 쪽에 실제 threshold 를 이미 걸었으므로 RRF 순서의 모든 행이 후보다.
+ * 단어로만 걸린 행은 유사도가 threshold 아래여도 주입된다. 다만 검색 테스트의 상한
+ * (limit)이 실제 경로의 match_count 보다 크면 RPC 안 두 순위의 후보 폭이 넓어져, 후보가
+ * 아주 많을 때 꼬리 순서가 실제 경로와 조금 다를 수 있다.
  */
 export function buildSearchPreviewItems(
   knowledgeType: BulkKnowledgeType,
-  rows: KnowledgeRow[],
+  rows: SearchPreviewRow[],
+  mode: SearchPreviewMode = "vector",
 ): { threshold: number; items: SearchPreviewItem[] } {
   const threshold = knowledgeMatchThreshold(knowledgeType);
   const isResource = knowledgeType === "verified_resource";
   const maxItems = isResource ? RESOURCE_MAX_ITEMS : TOPIC_MAX_ITEMS;
   const maxChars = isResource ? RESOURCE_MAX_CHARS : TOPIC_MAX_CHARS;
 
-  const passing = rows.filter((row) => (row.similarity ?? 0) >= threshold);
-  const injected = new Set(
+  const candidates =
+    mode === "hybrid"
+      ? rows
+      : rows.filter((row) => (row.similarity ?? 0) >= threshold);
+  const injected = new Set<KnowledgeRow>(
     packRows(
-      passing.slice(0, maxItems),
+      candidates.slice(0, maxItems),
       maxChars,
       knowledgeVectorLabel(knowledgeType),
     ).map((entry) => entry.row),
@@ -145,20 +179,31 @@ export function buildSearchPreviewItems(
       similarity: row.similarity ?? 0,
       passesThreshold: (row.similarity ?? 0) >= threshold,
       wouldBeInjected: injected.has(row),
+      ...(mode === "hybrid"
+        ? {
+            semanticRank: row.semantic_rank ?? null,
+            keywordRank: row.keyword_rank ?? null,
+            rrfScore: row.rrf_score ?? null,
+          }
+        : {}),
     })),
   };
 }
 
 /**
- * RPC match_winning_suhaeng_all_subjects 인자. 학년과 과목 필터는 학생 요청 경로와 같은
- * 함수로 만들고, threshold 는 0 으로 낮춰 기준 아래 행도 받는다. 통과 판정은
- * buildSearchPreviewItems 가 실제 경로 threshold 로 다시 한다.
+ * 검색 테스트가 부를 RPC 와 인자. 학년과 과목 필터는 학생 요청 경로와 같은 함수로 만든다.
+ *
+ * vector 는 match_winning_suhaeng_all_subjects 를 threshold 0 으로 불러 기준 아래 행도 받는다.
+ * 통과 판정은 buildSearchPreviewItems 가 실제 경로 threshold 로 다시 한다.
+ *
+ * hybrid 는 match_winning_suhaeng_hybrid 를 실제 경로 threshold 로 부른다. threshold 를 낮추면
+ * 의미 순위에 기준 아래 행이 끼어 RRF 합산 순서가 실제 경로와 달라지기 때문이다.
  */
-export function buildSearchPreviewRpcArgs(
+export function buildSearchPreviewRpc(
   body: SearchPreviewBody,
   queryEmbedding: number[],
 ) {
-  return {
+  const filters = {
     query_embedding: queryEmbedding,
     filter_knowledge_type: body.knowledgeType,
     filter_grade: getBaseGradeForRpc(body.grade),
@@ -167,6 +212,21 @@ export function buildSearchPreviewRpcArgs(
       subject: body.subject,
     }),
     match_count: body.limit,
-    match_threshold: 0,
+  };
+
+  if (body.mode === "vector") {
+    return {
+      fn: "match_winning_suhaeng_all_subjects" as const,
+      args: { ...filters, match_threshold: 0 },
+    };
+  }
+
+  return {
+    fn: "match_winning_suhaeng_hybrid" as const,
+    args: {
+      ...filters,
+      query_keywords: buildKnowledgeKeywordQueryFor(body),
+      match_threshold: knowledgeMatchThreshold(body.knowledgeType),
+    },
   };
 }

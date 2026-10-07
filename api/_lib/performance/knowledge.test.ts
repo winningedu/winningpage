@@ -17,6 +17,7 @@ import {
   RESOURCE_MATCH_THRESHOLD,
   TOPIC_MATCH_THRESHOLD,
 } from "./knowledge.js";
+import { buildKnowledgeKeywordQuery } from "./knowledgeKeywords.js";
 
 const CTX = { service: "performance" as const, feature: "recommend_topics" };
 
@@ -26,7 +27,7 @@ const ROWS = [
 ];
 
 type MockOptions = {
-  rpc?: () => unknown;
+  rpc?: (name: string, args: Record<string, unknown>) => unknown;
   keywordRows?: unknown[];
   keywordError?: unknown;
 };
@@ -51,7 +52,7 @@ beforeEach(() => {
 });
 
 describe("loadDynamicAssessmentKnowledge 기록", () => {
-  it("벡터 검색 성공이면 검색 행 1개를 vector 로 남긴다", async () => {
+  it("하이브리드 검색 성공이면 검색 행 1개를 hybrid 로 남긴다", async () => {
     const supabase = mockDb({
       rpc: () => Promise.resolve({ data: ROWS, error: null }),
     });
@@ -62,7 +63,7 @@ describe("loadDynamicAssessmentKnowledge 기록", () => {
       maxItems: 6,
       telemetry: trace,
     });
-    expect(result.source).toBe("vector");
+    expect(result.source).toBe("hybrid");
     expect(trace.searches).toHaveLength(1);
     expect(trace.searches[0]).toMatchObject({
       kind: "knowledge",
@@ -72,7 +73,7 @@ describe("loadDynamicAssessmentKnowledge 기록", () => {
       raw_hits: 2,
       packed_hits: result.hitCount,
       top_score: 0.81,
-      source: "vector",
+      source: "hybrid",
       degraded: false,
       injected_chars: result.injectedChars,
       status: "ok",
@@ -82,6 +83,76 @@ describe("loadDynamicAssessmentKnowledge 기록", () => {
     // 질의 임베딩에는 telemetry 를 넘기지 않는다.
     expect(embedText).toHaveBeenCalledWith(expect.any(String));
     expect(embedText.mock.calls[0]).toHaveLength(1);
+  });
+
+  it("하이브리드 RPC 에 단어 질의와 벡터 경로와 같은 필터를 넘긴다", async () => {
+    const supabase = mockDb({});
+    await loadDynamicAssessmentKnowledge({
+      supabase,
+      grade: "고2",
+      subject: "물리학Ⅰ",
+      career: "의학 / 생명과학",
+      selectedTopic: "항생제 내성",
+      purpose: "resource",
+      maxItems: 8,
+      includeOtherSubjects: false,
+    });
+    const rpc = (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
+    expect(rpc).toHaveBeenCalledWith("match_winning_suhaeng_hybrid", {
+      query_embedding: [0.1, 0.2],
+      query_keywords: buildKnowledgeKeywordQuery({
+        subject: "물리학Ⅰ",
+        normalizedSubject: "과학",
+        career: "의학 / 생명과학",
+        selectedTopic: "항생제 내성",
+      }),
+      filter_knowledge_type: "verified_resource",
+      filter_grade: "고2",
+      match_count: 16,
+      match_threshold: RESOURCE_MATCH_THRESHOLD,
+      filter_subject: "과학",
+    });
+  });
+
+  it("하이브리드 행은 RRF 순서를 지키고 계기판 top_score 는 유사도 최댓값이다", async () => {
+    const fused = [
+      { id: "kw", title: "단어 일치", content: "가", similarity: 0.42 },
+      { id: "both", title: "둘 다", content: "나", similarity: 0.77 },
+      { id: "sem", title: "뜻 일치", content: "다", similarity: 0.9 },
+    ];
+    const supabase = mockDb({
+      rpc: () => Promise.resolve({ data: fused, error: null }),
+    });
+    const trace = createAiTrace(CTX);
+    const result = await loadDynamicAssessmentKnowledge({
+      supabase,
+      maxItems: 2,
+      telemetry: trace,
+    });
+    expect(result.rows.map((row) => row.id)).toEqual(["kw", "both"]);
+    // 단어로만 걸린 행도 유사도 줄이 같은 형식으로 들어간다.
+    expect(result.text).toContain("- 유사도: 0.4200");
+    expect(trace.searches[0]).toMatchObject({
+      source: "hybrid",
+      raw_hits: 3,
+      packed_hits: 2,
+      top_score: 0.9,
+    });
+  });
+
+  it("하이브리드 행도 maxChars 상한에서 packRows 가 자른다", async () => {
+    const long = [
+      { id: "a", title: "가", content: "x".repeat(100), similarity: 0.6 },
+      { id: "b", title: "나", content: "y".repeat(100), similarity: 0.6 },
+    ];
+    const result = await loadDynamicAssessmentKnowledge({
+      supabase: mockDb({
+        rpc: () => Promise.resolve({ data: long, error: null }),
+      }),
+      maxChars: 250,
+    });
+    expect(result.rows.map((row) => row.id)).toEqual(["a"]);
+    expect(result.injectedChars).toBe(result.text.length);
   });
 
   it("자료 검색은 verified_resource 임계값을 쓴다", async () => {
@@ -115,7 +186,43 @@ describe("loadDynamicAssessmentKnowledge 기록", () => {
     });
   });
 
-  it("벡터가 throw 하고 키워드가 성공하면 degraded keyword 로 남긴다", async () => {
+  it("하이브리드가 throw 하고 벡터가 성공하면 degraded vector 로 남긴다", async () => {
+    const supabase = mockDb({
+      rpc: (name: string) =>
+        name === "match_winning_suhaeng_hybrid"
+          ? Promise.reject(new Error("pgroonga missing"))
+          : Promise.resolve({ data: ROWS, error: null }),
+    });
+    const trace = createAiTrace(CTX);
+    const result = await loadDynamicAssessmentKnowledge({
+      supabase,
+      telemetry: trace,
+    });
+    expect(result).toMatchObject({
+      source: "vector",
+      degraded: true,
+      hitCount: 2,
+    });
+    expect(
+      (
+        supabase as unknown as { rpc: ReturnType<typeof vi.fn> }
+      ).rpc.mock.calls.map((call) => call[0]),
+    ).toEqual([
+      "match_winning_suhaeng_hybrid",
+      "match_winning_suhaeng_all_subjects",
+    ]);
+    // 질의 임베딩은 두 경로가 하나를 같이 쓴다.
+    expect(embedText).toHaveBeenCalledTimes(1);
+    expect(trace.searches[0]).toMatchObject({
+      source: "vector",
+      degraded: true,
+      top_score: 0.81,
+      status: "ok",
+      error_message: null,
+    });
+  });
+
+  it("하이브리드와 벡터가 모두 throw 하고 키워드가 성공하면 degraded keyword 로 남긴다", async () => {
     const supabase = mockDb({
       rpc: () => Promise.reject(new Error("rpc down")),
       keywordRows: ROWS,
@@ -136,7 +243,7 @@ describe("loadDynamicAssessmentKnowledge 기록", () => {
     });
   });
 
-  it("두 경로가 모두 throw 하면 status error 로 남긴다", async () => {
+  it("세 경로가 모두 throw 하면 status error 로 남긴다", async () => {
     const supabase = mockDb({
       rpc: () => Promise.reject(new Error("rpc down")),
       keywordError: new Error("table gone"),

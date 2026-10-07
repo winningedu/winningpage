@@ -10,6 +10,7 @@ import type {
 import type {
   SearchPreviewBody,
   SearchPreviewItem,
+  SearchPreviewMode,
 } from "../../../../api/_lib/performance/searchPreview.js";
 import type { BackfillRound } from "./backfillLoop";
 import type { BulkRequest } from "./knowledgeBulkPlan";
@@ -84,14 +85,17 @@ export async function postEmbedBackfill(): Promise<BackfillRound> {
 }
 
 export type KnowledgeSearchPreviewResult = {
+  mode: SearchPreviewMode;
   threshold: number;
   queryText: string;
+  /** hybrid 일 때 RPC 에 넘긴 단어 질의. vector 면 null. */
+  keywordQuery: string | null;
   items: SearchPreviewItem[];
 };
 
 export async function postKnowledgeSearchPreview(
-  body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit"> &
-    Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit">>,
+  body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode"> &
+    Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode">>,
 ): Promise<KnowledgeSearchPreviewResult> {
   const { response, result } = await postJson(
     "/api/performance/admin-knowledge-search",
@@ -100,8 +104,11 @@ export async function postKnowledgeSearchPreview(
   if (!response.ok || !result?.ok)
     throw new Error(failureMessage(response, result));
   return {
+    mode: result.mode === "vector" ? "vector" : "hybrid",
     threshold: Number(result.threshold),
     queryText: String(result.queryText ?? ""),
+    keywordQuery:
+      typeof result.keywordQuery === "string" ? result.keywordQuery : null,
     items: result.items as SearchPreviewItem[],
   };
 }

@@ -7856,6 +7856,37 @@ export type Database = {
           title: string;
         }[];
       };
+      match_winning_suhaeng_hybrid: {
+        Args: {
+          filter_grade?: string;
+          filter_knowledge_type: string;
+          filter_subject?: string;
+          full_text_weight?: number;
+          match_count?: number;
+          match_threshold?: number;
+          query_embedding: string;
+          query_keywords: string;
+          rrf_k?: number;
+          semantic_weight?: number;
+        };
+        Returns: {
+          career_field: string;
+          content: string;
+          grade: string;
+          id: string;
+          keyword_rank: number;
+          keyword_score: number;
+          knowledge_type: string;
+          memo: string;
+          rrf_score: number;
+          semantic_rank: number;
+          similarity: number;
+          source: string;
+          source_link: string;
+          subject: string;
+          title: string;
+        }[];
+      };
       performance_owns_session: {
         Args: { p_session_id: string };
         Returns: boolean;
