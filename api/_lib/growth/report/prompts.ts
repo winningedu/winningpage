@@ -35,6 +35,7 @@ import {
 import type {
   ActivitySignal,
   Classification,
+  ContextActivity,
   MatchSignals,
   PlanItemDraft,
   ReportContext,
@@ -306,7 +307,7 @@ const SECTION_SPECS: Record<string, string> = {
   "1-9":
     "rows 에 분석 범위의 학기별 연계 여부를 쓴다. label 은 학기 키(예: 고1-1), value 는 연계, 단절, 자료 없음 중 하나다. evidence_ids 는 앱이 채우니 비워 둔다.",
   "2-1":
-    "rows 에 판정, 근거 활동, 대학 평가요소 대응을 쓴다. 부족하면 부족한 점 행을 더한다. 판정 행의 value 는 입력의 verdictLabel 그대로다.",
+    "rows 에 해석 한 행(label 은 해석, value 는 120자 이내 한두 문장)을 쓴다. 부족하면 부족한 점 한 행(label 은 부족한 점, value 는 120자 이내)을 더한다. 판정, 근거 활동, 대학 평가요소 대응 행은 앱이 만드므로 쓰지 않는다.",
   "2-2": "2-1 과 같은 구성으로 쓴다.",
   "2-3": "2-1 과 같은 구성으로 쓴다.",
   "2-4": "2-1 과 같은 구성으로 쓴다.",
@@ -421,9 +422,8 @@ const STEP_RULES: Record<ModelStep, string> = {
   6: [
     "6단계: A부터 E 5축 진단",
     "앱이 계산한 축별 판정을 서술로 풀어 쓴다. 판정과 판정 라벨은 입력의 verdictLabel 그대로 쓰고 바꾸지 않는다. 바꾸면 검증에 실패한다.",
-    "각 축 항목의 rows 에는 label 이 판정인 행(value 는 verdictLabel), 근거 활동 행, 대학 평가요소 대응 행을 두고, 부족하면 무엇이 부족한지 행을 더한다.",
-    "근거 활동 행의 value 에는 활동 주제를 쓰고 별칭은 쓰지 않는다. 그 행의 대표 근거는 행의 evidence_ids 에 단다.",
-    "축별 대학 평가요소 대응은 입력의 universityFactor 를 따른다.",
+    "각 축 항목의 rows 에는 해석 한 행(label 은 해석, 120자 이내 한두 문장)만 쓰고, 부족하면 부족한 점 한 행(120자 이내)을 더한다.",
+    "판정, 근거 활동, 대학 평가요소 대응 행은 앱이 만드므로 쓰지 않는다. 활동을 나열하지 않는다.",
     "count 가 0 인 축은 status 를 no_data 로 두고 no_data_reason 에 자료 없음이라고 쓰며 body 를 쓰지 않는다.",
     "축 항목 2-1 부터 2-5 의 evidence_ids 는 앱이 채우니 빈 배열로 둔다.",
   ].join("\n"),
@@ -493,7 +493,6 @@ function stepUser(
         verdictLabel: e.verdictLabel,
         guideline: e.guideline,
         activityIds: e.activityIds.map((id) => toAlias(table, id)),
-        universityFactor: AXIS_TO_UNIVERSITY_FACTORS[e.axis],
       }));
       const signals = prior.signals
         ? `\n\n[활동 신호]\n${json(signalBrief(prior.signals, table))}`
@@ -895,6 +894,7 @@ export function parseStepResponse(
       sections,
       options.axes,
       context.evidenceIds,
+      context.activities,
     );
     const order = stepSectionIds(step, context);
     sections = order.flatMap((id) => sections.filter((x) => x.id === id));
@@ -965,15 +965,56 @@ function axisNoDataSection(id: string): SectionItem {
   };
 }
 
+/** 앱이 만드는 축 섹션 행의 라벨. 모델이 같은 라벨로 쓴 행은 버린다. */
+const APP_AXIS_ROW_LABELS = ["판정", "근거 활동", "대학 평가요소 대응"];
+
+/** 근거 활동 행에 보여줄 topic 수. 근거 id 도 같은 건수만 단다. */
+const AXIS_TOPIC_LIMIT = 3;
+
+/** 축 섹션의 앱 행(판정, 근거 활동, 대학 평가요소 대응)을 조립한다. */
+function buildAxisAppRows(
+  e: AxisEvaluation,
+  activities: readonly ContextActivity[],
+): Record<string, unknown>[] {
+  const inAxis = new Set(e.activityIds);
+  const withTopic = activities
+    .filter((a) => inAxis.has(a.id))
+    .flatMap((a) => {
+      const topic = a.topic?.trim() ?? "";
+      return topic === "" ? [] : [{ id: a.id, topic }];
+    });
+  const shown = withTopic.slice(0, AXIS_TOPIC_LIMIT);
+  const rest = withTopic.length - shown.length;
+  const rows: Record<string, unknown>[] = [
+    { label: "판정", value: e.verdictLabel, evidence_ids: [] },
+  ];
+  if (shown.length > 0) {
+    rows.push({
+      label: "근거 활동",
+      value: `${shown.map((x) => x.topic).join(", ")}${rest > 0 ? ` 외 ${rest}건` : ""}`,
+      evidence_ids: shown.map((x) => x.id),
+    });
+  }
+  const factor = AXIS_TO_UNIVERSITY_FACTORS[e.axis];
+  rows.push({
+    label: "대학 평가요소 대응",
+    value: `${factor.factor}: ${factor.detail}`,
+    evidence_ids: [],
+  });
+  return rows;
+}
+
 /**
  * 6단계 축 섹션(2-1부터 2-5)을 앱이 계산한 축 평가에 맞춰 정규화한다.
  * 근거 활동이 없는 축은 모델 응답과 무관하게 no_data 로 두고,
  * 근거가 있는 축의 근거는 모델 값과 무관하게 앱이 아는 activityIds 로 덮는다.
+ * 근거가 있는 축의 rows 는 앱 행(판정, 근거 활동, 대학 평가요소 대응)을 앞에 두고 모델 행을 뒤에 잇는다.
  */
 export function normalizeAxisSections(
   sections: SectionItem[],
   axes: AxisEvaluation[],
   knownEvidenceIds: readonly string[],
+  activities: readonly ContextActivity[],
 ): SectionItem[] {
   const known = new Set(knownEvidenceIds);
   const out = [...sections];
@@ -987,9 +1028,17 @@ export function normalizeAxisSections(
     }
     const section = out[idx];
     if (!section || section.status === "no_data") continue;
+    const body = isRecord(section.body) ? section.body : {};
+    const modelRows = (Array.isArray(body.rows) ? body.rows : []).filter(
+      (r) => !(isRecord(r) && APP_AXIS_ROW_LABELS.includes(String(r.label))),
+    );
     out[idx] = {
       ...section,
       evidence_ids: e.activityIds.filter((x) => known.has(x)),
+      body: {
+        ...body,
+        rows: [...buildAxisAppRows(e, activities), ...modelRows],
+      },
     };
   }
   return out;
