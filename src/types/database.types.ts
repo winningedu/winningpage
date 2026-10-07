@@ -6411,6 +6411,7 @@ export type Database = {
           is_active: boolean | null;
           keywords: string | null;
           knowledge_type: string;
+          last_reviewed_at: string | null;
           memo: string | null;
           rag_use: boolean | null;
           search_text: string | null;
@@ -6434,6 +6435,7 @@ export type Database = {
           is_active?: boolean | null;
           keywords?: string | null;
           knowledge_type: string;
+          last_reviewed_at?: string | null;
           memo?: string | null;
           rag_use?: boolean | null;
           search_text?: string | null;
@@ -6457,6 +6459,7 @@ export type Database = {
           is_active?: boolean | null;
           keywords?: string | null;
           knowledge_type?: string;
+          last_reviewed_at?: string | null;
           memo?: string | null;
           rag_use?: boolean | null;
           search_text?: string | null;

@@ -44,7 +44,7 @@ import { embedText } from "./embeddings.js";
 import { NO_KNOWLEDGE_TEXT, NO_STUDENT_HISTORY_TEXT } from "./prompts.js";
 
 /** 위닝DB 지식 항목 행 — 이 파일이 실제로 읽는 필드만 담은 최소 형태. */
-type KnowledgeRow = {
+export type KnowledgeRow = {
   id?: string;
   knowledge_type?: string;
   grade?: string;
@@ -89,6 +89,26 @@ export const TOPIC_MAX_CHARS = 4500;
 
 /** 자료(설계 리포트) 호출부 주입 상한(§8.7 표). P10이 쓴다. */
 export const RESOURCE_MAX_CHARS = 8000;
+
+/** 주제 추천 호출부(recommend-topics.ts)가 프롬프트에 넣는 위닝DB 행 수 상한. */
+export const TOPIC_MAX_ITEMS = 6;
+
+/** 설계 리포트 호출부(design-report.ts)가 프롬프트에 넣는 위닝DB 행 수 상한. */
+export const RESOURCE_MAX_ITEMS = 8;
+
+/** 지식 유형별 벡터 검색 임계값. 학생 요청 경로와 관리자 검색 테스트가 함께 쓴다. */
+export function knowledgeMatchThreshold(knowledgeType: string): number {
+  return knowledgeType === "verified_resource"
+    ? RESOURCE_MATCH_THRESHOLD
+    : TOPIC_MATCH_THRESHOLD;
+}
+
+/** 벡터 검색 결과를 프롬프트 조각으로 만들 때 붙이는 라벨. */
+export function knowledgeVectorLabel(knowledgeType: string): string {
+  return knowledgeType === "verified_resource"
+    ? "전과목 유사도 기반 위닝 수행 자료 DB"
+    : "전과목 유사도 기반 위닝 수행 주제 DB";
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // normalizeSubject — 8교과군 정규화 사전 (원문 `dynamic-knowledge.js:5-65`)
@@ -256,7 +276,7 @@ ${row.content || ""}
  * 상한에 걸려 잘린 행을 함께 버리는 것이 중요하다 — 프롬프트에 내용이 들어가지 않은
  * 자료를 호출부가 "모델이 고를 수 있는 후보"로 제시하면, 모델은 제목만 보고 고르게 된다.
  */
-function packRows(
+export function packRows(
   rows: KnowledgeRow[],
   maxChars: number,
   label: string,
@@ -360,7 +380,7 @@ export function getBaseGradeForRpc(grade: unknown): string | null {
 // 남겼다. 주제 추천 경로에 필터를 걸지 않으면 0.50은 **튜닝된 그 조건 그대로** 유효하다.
 // 자료 경로(P10)는 필터가 붙으므로 그때 재측정 대상이 되며, 이 사실은 P10 착수 시점의
 // 알려진 부채다.
-function resolveFilterSubject({
+export function resolveFilterSubject({
   includeOtherSubjects,
   subject,
 }: {
@@ -401,6 +421,33 @@ type KnowledgeSearchResult = {
 };
 
 /**
+ * 벡터 검색 질의문. 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3).
+ * 학생 요청 경로와 관리자 검색 테스트가 같은 문자열을 쓰도록 순수 함수로 둔다.
+ */
+export function buildKnowledgeQueryText({
+  grade,
+  subject,
+  career,
+  selectedTopic,
+  assessmentInfo,
+}: {
+  grade?: string | undefined;
+  subject?: string | undefined;
+  career?: string | undefined;
+  selectedTopic?: string | undefined;
+  assessmentInfo?: string | undefined;
+}): string {
+  return [
+    `학년: ${grade || ""}`,
+    `현재 과목: ${subject || ""}`,
+    `정규화 과목군: ${normalizeSubject(subject)}`,
+    `희망 진로: ${career || ""}`,
+    `선택 또는 이전 주제: ${selectedTopic || ""}`,
+    `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2500)}`,
+  ].join("\n");
+}
+
+/**
  * 벡터 검색. 원문 `loadByVectorSearch`(`dynamic-knowledge.js:217-260`).
  * 질의문 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3 — 학생 과거 수행
  * 경로의 2000자와 다르다. 혼동 금지).
@@ -419,14 +466,13 @@ async function loadByVectorSearch(
     includeOtherSubjects,
   }: KnowledgeSearchArgs,
 ): Promise<KnowledgeSearchResult> {
-  const queryText = [
-    `학년: ${grade || ""}`,
-    `현재 과목: ${subject || ""}`,
-    `정규화 과목군: ${normalizeSubject(subject)}`,
-    `희망 진로: ${career || ""}`,
-    `선택 또는 이전 주제: ${selectedTopic || ""}`,
-    `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2500)}`,
-  ].join("\n");
+  const queryText = buildKnowledgeQueryText({
+    grade,
+    subject,
+    career,
+    selectedTopic,
+    assessmentInfo,
+  });
 
   const embedStartedAt = Date.now();
   const queryEmbedding = await embedText(queryText);
@@ -437,10 +483,7 @@ async function loadByVectorSearch(
     filter_knowledge_type: knowledgeType,
     filter_grade: getBaseGradeForRpc(grade),
     match_count: Math.max(maxItems * 2, 10),
-    match_threshold:
-      knowledgeType === "verified_resource"
-        ? RESOURCE_MATCH_THRESHOLD
-        : TOPIC_MATCH_THRESHOLD,
+    match_threshold: knowledgeMatchThreshold(knowledgeType),
     // includeOtherSubjects/subject는 falsy 취급이 undefined와 동일해 값 대체가 안전하다.
     filter_subject: resolveFilterSubject({
       includeOtherSubjects: Boolean(includeOtherSubjects),
@@ -459,12 +502,7 @@ async function loadByVectorSearch(
     return { text: "", hitCount: 0, rows: [], rawHits, topScore, embedMs };
   }
 
-  const label =
-    knowledgeType === "verified_resource"
-      ? "전과목 유사도 기반 위닝 수행 자료 DB"
-      : "전과목 유사도 기반 위닝 수행 주제 DB";
-
-  const packed = packRows(rows, maxChars, label);
+  const packed = packRows(rows, maxChars, knowledgeVectorLabel(knowledgeType));
 
   return {
     text: packed.map((entry) => entry.piece).join("\n\n"),
@@ -688,10 +726,7 @@ export async function loadDynamicAssessmentKnowledge({
       telemetry?.recordSearch({
         kind: "knowledge",
         knowledgeType,
-        threshold:
-          knowledgeType === "verified_resource"
-            ? RESOURCE_MATCH_THRESHOLD
-            : TOPIC_MATCH_THRESHOLD,
+        threshold: knowledgeMatchThreshold(knowledgeType),
         matchCountRequested: Math.max(maxItems * 2, 10),
         rawHits: meta.rawHits,
         packedHits: result.hitCount,

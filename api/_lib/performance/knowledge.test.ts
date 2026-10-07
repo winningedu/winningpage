@@ -11,6 +11,7 @@ vi.mock("../supabaseAdmin.js", () => ({
 
 import { createAiTrace } from "../aiTelemetry/trace.js";
 import {
+  buildKnowledgeQueryText,
   loadDynamicAssessmentKnowledge,
   loadRelevantStudentSessions,
   RESOURCE_MATCH_THRESHOLD,
@@ -223,5 +224,65 @@ describe("loadRelevantStudentSessions 기록", () => {
     await expect(
       loadRelevantStudentSessions({ supabase: mockDb({}) }),
     ).rejects.toThrow("profileId");
+  });
+});
+
+describe("buildKnowledgeQueryText", () => {
+  it("6줄 질의문을 원문 그대로 만들고 안내문은 2500자에서 자른다", () => {
+    const longInfo = "가".repeat(2600);
+    expect(
+      buildKnowledgeQueryText({
+        grade: "고2",
+        subject: "물리학",
+        career: "기계공학",
+        selectedTopic: "마찰력",
+        assessmentInfo: longInfo,
+      }),
+    ).toBe(
+      [
+        "학년: 고2",
+        "현재 과목: 물리학",
+        "정규화 과목군: 과학",
+        "희망 진로: 기계공학",
+        "선택 또는 이전 주제: 마찰력",
+        `수행평가 안내문: ${"가".repeat(2500)}`,
+      ].join("\n"),
+    );
+  });
+
+  it("빈 입력은 라벨만 남긴다", () => {
+    expect(buildKnowledgeQueryText({})).toBe(
+      [
+        "학년: ",
+        "현재 과목: ",
+        "정규화 과목군: 국어",
+        "희망 진로: ",
+        "선택 또는 이전 주제: ",
+        "수행평가 안내문: ",
+      ].join("\n"),
+    );
+  });
+
+  it("벡터 검색은 이 함수가 만든 문자열을 임베딩한다", async () => {
+    const supabase = mockDb({
+      rpc: () => Promise.resolve({ data: ROWS, error: null }),
+    });
+    await loadDynamicAssessmentKnowledge({
+      supabase,
+      grade: "고1",
+      subject: "국어",
+      career: "교사",
+      selectedTopic: "",
+      assessmentInfo: "안내",
+    });
+    expect(embedText).toHaveBeenCalledWith(
+      buildKnowledgeQueryText({
+        grade: "고1",
+        subject: "국어",
+        career: "교사",
+        selectedTopic: "",
+        assessmentInfo: "안내",
+      }),
+    );
   });
 });

@@ -74,6 +74,7 @@ import {
   loadRelevantStudentSessions,
   STUDENT_HISTORY_PROMPT_LIMIT,
   TOPIC_MAX_CHARS,
+  TOPIC_MAX_ITEMS,
 } from "../_lib/performance/knowledge.js";
 import {
   buildTopicExclusionBlock,
@@ -693,7 +694,7 @@ export default defineHandler({
         selectedTopic: previousTopic,
         assessmentInfo: assessmentText,
         purpose: "topic",
-        maxItems: 6,
+        maxItems: TOPIC_MAX_ITEMS,
         maxChars: TOPIC_MAX_CHARS,
         // 다른 과목 후보가 검색 결과에 들어와야 CROSS_SUBJECT_CONNECTION_GUIDE 11조와
         // 「다른 과목 선배 데이터 활용 규칙」 5조가 사문이 되지 않는다(knowledge.js 주석).

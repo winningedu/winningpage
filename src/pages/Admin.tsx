@@ -80,6 +80,13 @@ import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
 import KnowledgeBulkPanel from "./admin/knowledge/KnowledgeBulkPanel";
+import KnowledgeSearchPreview from "./admin/knowledge/KnowledgeSearchPreview";
+import {
+  DEFAULT_REVIEW_STALE_MONTHS,
+  isStaleReview,
+  REVIEW_STALE_MONTH_OPTIONS,
+  type ReviewStaleMonths,
+} from "./admin/knowledge/reviewCycle";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import {
   AdminForm,
@@ -2895,6 +2902,12 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 종목 목록이 섹션마다 달라 이전 선택이 남으면 결과가 통째로 0건이 된다.
   const [listFilterValue, setListFilterValue] = useState("");
 
+  // 지식 DB "미검토만 보기" 필터(config.knowledgeReview). 기준 개월 수는 화면에서 고른다.
+  const [reviewStaleOnly, setReviewStaleOnly] = useState(false);
+  const [reviewStaleMonths, setReviewStaleMonths] = useState<ReviewStaleMonths>(
+    DEFAULT_REVIEW_STALE_MONTHS,
+  );
+
   const config = CONFIGS[activeKey];
   const ListSummaryComponent = config.listSummaryKey
     ? LIST_SUMMARY_REGISTRY[config.listSummaryKey]
@@ -2927,12 +2940,20 @@ export function AdminSectionRoute({ section }: { section: string }) {
     if (config.serverPaginate) return rows;
 
     const key = config.listFilter?.key;
-    const base =
+    const listFiltered =
       key && activeListFilter
         ? rows.filter(
             (row) => String(row[key] ?? "").trim() === activeListFilter,
           )
         : rows;
+
+    const now = new Date();
+    const base =
+      config.knowledgeReview && reviewStaleOnly
+        ? listFiltered.filter((row) =>
+            isStaleReview(row.last_reviewed_at, now, reviewStaleMonths),
+          )
+        : listFiltered;
 
     const q = keyword.trim().toLowerCase();
     if (!q) return base;
@@ -2943,6 +2964,9 @@ export function AdminSectionRoute({ section }: { section: string }) {
     config.serverPaginate,
     config.listFilter?.key,
     activeListFilter,
+    config.knowledgeReview,
+    reviewStaleOnly,
+    reviewStaleMonths,
   ]);
 
   // 목록 조회 쿼리(필터 + 검색 + 정렬)를 한 곳에서 만든다 — loadRows와 CSV 청크
@@ -3311,6 +3335,23 @@ export function AdminSectionRoute({ section }: { section: string }) {
     await loadRows();
   }
 
+  // 지식 DB 행 버튼 "검토 완료". last_reviewed_at 한 컬럼만 고치므로 임베딩은 다시 만들지
+  // 않는다. 쓰기 권한은 기존 is_admin 정책(winning_assessment_knowledge_admin_all)이다.
+  async function markReviewed(row) {
+    const { error } = await supabase
+      .from(config.table)
+      .update({ last_reviewed_at: new Date().toISOString() })
+      .eq("id", row.id);
+
+    if (error) {
+      reportAdminError("검토 완료 표시 실패", error);
+      return;
+    }
+
+    setMutationSeq((seq) => seq + 1);
+    await loadRows();
+  }
+
   async function deleteRow(row) {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
@@ -3615,6 +3656,39 @@ export function AdminSectionRoute({ section }: { section: string }) {
                     </select>
                   )}
 
+                  {config.knowledgeReview && (
+                    <>
+                      <label className="inline-flex h-9 items-center gap-2 text-sm font-bold whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={reviewStaleOnly}
+                          onChange={(e) => {
+                            setReviewStaleOnly(e.target.checked);
+                            setPage(1);
+                          }}
+                        />
+                        미검토만 보기
+                      </label>
+                      <select
+                        value={reviewStaleMonths}
+                        onChange={(e) => {
+                          setReviewStaleMonths(
+                            Number(e.target.value) as ReviewStaleMonths,
+                          );
+                          setPage(1);
+                        }}
+                        aria-label="미검토 기준 개월 수"
+                        className="h-9 border border-gray-400 px-3 text-sm font-bold outline-hidden"
+                      >
+                        {REVIEW_STALE_MONTH_OPTIONS.map((months) => (
+                          <option key={months} value={months}>
+                            {months}개월 이전
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+
                   <input
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
@@ -3710,6 +3784,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
               />
             )}
 
+            {config.knowledgeSearchPreview && (
+              <KnowledgeSearchPreview config={config} />
+            )}
+
             {loading ? (
               <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
                 데이터를 불러오는 중입니다.
@@ -3727,6 +3805,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 onCompleteRefund={completeRefund}
                 onOpenSection={openRowSection}
                 onOpenMetaEdit={setMetaEditRow}
+                onMarkReviewed={markReviewed}
               />
             )}
 

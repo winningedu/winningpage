@@ -185,6 +185,7 @@ import {
   loadDynamicAssessmentKnowledge,
   loadRelevantStudentSessions,
   RESOURCE_MAX_CHARS,
+  RESOURCE_MAX_ITEMS,
   STUDENT_HISTORY_DESIGN_MATCH_THRESHOLD,
   STUDENT_HISTORY_PROMPT_LIMIT,
 } from "../_lib/performance/knowledge.js";
@@ -1234,7 +1235,7 @@ export default defineHandler({
           selectedTopic,
           assessmentInfo: assessmentText,
           purpose: "resource",
-          maxItems: 8,
+          maxItems: RESOURCE_MAX_ITEMS,
           maxChars: RESOURCE_MAX_CHARS,
           includeOtherSubjects: false,
           telemetry: trace,

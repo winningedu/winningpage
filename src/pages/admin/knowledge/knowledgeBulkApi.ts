@@ -1,5 +1,5 @@
-// 지식 DB 엑셀 일괄 등록 화면이 부르는 서버 API 3종.
-//   중복 검사, 일괄 반영: coded 형식({ ok } 또는 { error: { message } })
+// 지식 DB 관리 화면(엑셀 일괄 등록, 검색 테스트)이 부르는 서버 API 4종.
+//   중복 검사, 일괄 반영, 검색 테스트: coded 형식({ ok } 또는 { error: { message } })
 //   임베딩 backfill: admin-embed 의 detail 형식({ detail })
 
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
@@ -7,6 +7,10 @@ import type {
   DedupeItem,
   DedupeResult,
 } from "../../../../api/_lib/performance/knowledgeDedupe.js";
+import type {
+  SearchPreviewBody,
+  SearchPreviewItem,
+} from "../../../../api/_lib/performance/searchPreview.js";
 import type { BackfillRound } from "./backfillLoop";
 import type { BulkRequest } from "./knowledgeBulkPlan";
 
@@ -76,5 +80,28 @@ export async function postEmbedBackfill(): Promise<BackfillRound> {
   return {
     embedded: Number(result?.embedded ?? 0),
     failed: Number(result?.failed ?? 0),
+  };
+}
+
+export type KnowledgeSearchPreviewResult = {
+  threshold: number;
+  queryText: string;
+  items: SearchPreviewItem[];
+};
+
+export async function postKnowledgeSearchPreview(
+  body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit"> &
+    Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit">>,
+): Promise<KnowledgeSearchPreviewResult> {
+  const { response, result } = await postJson(
+    "/api/performance/admin-knowledge-search",
+    body,
+  );
+  if (!response.ok || !result?.ok)
+    throw new Error(failureMessage(response, result));
+  return {
+    threshold: Number(result.threshold),
+    queryText: String(result.queryText ?? ""),
+    items: result.items as SearchPreviewItem[],
   };
 }
