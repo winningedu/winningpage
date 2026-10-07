@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
+import { useSyncExternalStore } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -303,6 +305,63 @@ describe("FinalizePage 이미 완료된 세션", () => {
     expect(await screen.findByText(/활동 기록에 적립됐어요\./)).toBeVisible();
     expect(
       screen.queryByRole("button", { name: SUBMIT }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("FinalizePage 확정 직후 셸 재조회", () => {
+  test("셸 세션이 null 로 바뀌고 로딩이 오가도 결과 카드를 유지한다", async () => {
+    finalizeMock.mockResolvedValue({
+      kind: "ok",
+      data: {
+        ok: true,
+        status: "completed",
+        activityRecordId: "a1",
+        finalReportId: "f1",
+        replySent: true,
+      },
+    });
+    // 셸 상태를 구독형 스토어로 두어 값이 바뀌면 소비자가 실제로 다시 그려진다
+    const listeners = new Set<() => void>();
+    let shell = {
+      session: session() as ReturnType<typeof session> | null,
+      isBootstrapLoading: false,
+      refetchBootstrap: refetchMock,
+      applyBootstrap: vi.fn(),
+    };
+    const setShell = (next: Partial<typeof shell>) => {
+      shell = { ...shell, ...next };
+      act(() => {
+        for (const l of listeners) l();
+      });
+    };
+    shellMock.mockImplementation(() =>
+      useSyncExternalStore(
+        (cb) => {
+          listeners.add(cb);
+          return () => listeners.delete(cb);
+        },
+        () => shell,
+      ),
+    );
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: SUBMIT }));
+    expect(
+      await screen.findByRole("heading", { name: "적립을 마쳤어요" }),
+    ).toBeVisible();
+    await waitFor(() => expect(refetchMock).toHaveBeenCalled());
+
+    // 재조회 중에는 열린 세션이 없어 session 이 null 이고 스켈레톤이 잠깐 뜬다
+    setShell({ session: null, isBootstrapLoading: true });
+    setShell({ isBootstrapLoading: false });
+
+    expect(
+      screen.getByRole("heading", { name: "적립을 마쳤어요" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "보관함으로" })).toBeVisible();
+    expect(
+      screen.queryByText("아직 시작한 세션이 없어요"),
     ).not.toBeInTheDocument();
   });
 });
