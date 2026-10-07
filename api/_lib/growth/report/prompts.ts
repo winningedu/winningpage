@@ -286,7 +286,7 @@ const SECTION_SPECS: Record<string, string> = {
   "1-8":
     "활동들에서 되풀이된 문제의식을 items 로 쓴다. 항목마다 text 와 evidence_ids 를 단다.",
   "1-2":
-    "설문의 진로 답에서 학생이 말한 장기 목표를 서술한다. 진로 답이 비어 있으면 no_data 로 둔다.",
+    "설문의 진로 답에서 학생이 말한 장기 목표를 서술한다. 진로 답이 비어 있으면 no_data 로 둔다. 이 항목은 활동 근거 없이 쓴다. evidence_ids 는 비워 둔다.",
   "1-6":
     "활동에서 드러난 지적 성향을 rows 로 쓴다. 행마다 label, value, evidence_ids 를 단다.",
   "1-7":
