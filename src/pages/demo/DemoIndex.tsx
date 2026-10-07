@@ -2,13 +2,12 @@ import { Link } from "react-router";
 import { DEMO_REGISTRY } from "@/demo/demoRegistry";
 
 // 어드민 전용 데모 허브 — 시연 진입점일 뿐 디자인 대상이 아니라 작게 유지한다.
-// growth-intro는 /services/growth로 승격돼 여기 목록엔 없고, 링크만 그 경로로 건다.
 const DEMO_CARDS = [
   { key: "self-assessment", to: "/demo/self-assessment" },
   { key: "growth-design", to: "/demo/growth-design" },
   { key: "research", to: "/demo/research" },
   { key: "research-intro", to: "/demo/research-intro" },
-  { key: "growth-intro", to: "/services/growth" },
+  { key: "growth-intro", to: "/demo/growth-intro" },
 ];
 
 export default function DemoIndex() {

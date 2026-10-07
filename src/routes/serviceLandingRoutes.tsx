@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router";
 import { Navigate } from "react-router";
 import Callmentor from "@/pages/services/Callmentor";
 import GoalManagement from "@/pages/services/GoalManagement";
+import GrowthDesign from "@/pages/services/GrowthDesign";
 import InDepthResearch from "@/pages/services/InDepthResearch";
 import PerformanceAssessment from "@/pages/services/PerformanceAssessment";
 import SelfAssessment from "@/pages/services/SelfAssessment";
@@ -19,6 +20,7 @@ const serviceLandingRoutes: RouteObject[] = [
   { path: "/services/performance", Component: PerformanceAssessment },
   { path: "/services/self-assessment", Component: SelfAssessment },
   { path: "/services/research", Component: InDepthResearch },
+  { path: "/services/growth", Component: GrowthDesign },
 
   // 구 경로(DB page_contents 미갱신 시 잔존) → 신규 라우트로 리다이렉트
   {
