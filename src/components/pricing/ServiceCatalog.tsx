@@ -57,6 +57,11 @@ type ServiceCatalogProps = {
    * 통합하지 않고 컨테이너가 주입한다.
    */
   planNotice?: string;
+  /**
+   * 서비스별 추가 안내문(키 = service.key). planNotice 와 달리 플랜 수와
+   * 무관하게 해당 서비스 블록 하단에 표시한다. 생략하면 렌더하지 않는다.
+   */
+  serviceNotices?: Partial<Record<string, string>>;
 };
 
 /**
@@ -78,6 +83,7 @@ export default function ServiceCatalog({
   onToggle,
   showDetailLinks = false,
   planNotice,
+  serviceNotices,
 }: ServiceCatalogProps) {
   // org 한정 상품(부산캠퍼스 특가 등) 카드의 "구성: ..." 문구용 — bundle_items를
   // 조회해 라벨·수량을 만든다(useBundleCompositionMap, mypage/bundleComposition.ts와
@@ -588,6 +594,11 @@ export default function ServiceCatalog({
             {planNotice && service.products.length > 1 && (
               <p className="mt-4 text-[0.75rem] font-medium leading-4.25 text-ink">
                 {planNotice}
+              </p>
+            )}
+            {serviceNotices?.[service.key] && (
+              <p className="mt-4 text-[0.75rem] font-medium leading-4.25 text-ink">
+                {serviceNotices[service.key]}
               </p>
             )}
           </section>

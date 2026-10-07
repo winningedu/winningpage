@@ -55,6 +55,11 @@ const BUSAN_9900_SERVICE_KEY = "special";
 const SINGLE_PLAN_NOTICE =
   "한 서비스 내에서 여러 플랜을 동시 선택할 수 없어요. 하나의 플랜만 선택 가능합니다.";
 
+// 콜멘토 제공 시기 안내, 고객사 가격표(2026-10-07) 문구 그대로.
+const SERVICE_NOTICES = {
+  mentor: "위닝 콜멘토 서비스는 2026년 말부터 제공될 예정입니다.",
+};
+
 // 학부모 미연결 실패 모달(시안 3921:7480) 본문 — 시안 원문 그대로(3줄 줄바꿈
 // 유지). 제목의 시안 오타 "실패했습니다.," → "실패했습니다."로 정정(사용자 확정).
 const FAIL_MODAL_BODY = (
@@ -416,6 +421,7 @@ export default function StudentEnrollmentRequest() {
               selected={selected}
               onToggle={toggle}
               planNotice={SINGLE_PLAN_NOTICE}
+              serviceNotices={SERVICE_NOTICES}
             />
           )}
         </div>
