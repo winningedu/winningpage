@@ -182,8 +182,10 @@ async function callWithRetry(
   deps: RunStepDeps,
   extra: { axes?: AxisEvaluation[] },
   seed: Partial<StepOutput> = {},
+  /** 묶음 호출들이 단계 시작 하나를 공유할 때 넘긴다. 없으면 이 호출의 시작이다. */
+  stepStartedAt?: number,
 ): Promise<ModelCallOutcome> {
-  const startedAt = Date.parse(deps.now());
+  const startedAt = stepStartedAt ?? Date.parse(deps.now());
   const left = (): number => {
     const elapsed = Date.parse(deps.now()) - startedAt;
     return deps.budgetMs - (Number.isNaN(elapsed) ? 0 : elapsed);
@@ -225,12 +227,10 @@ async function callWithRetry(
     const truncated = reply.finishReason === "MAX_TOKENS";
     const parsed = truncated
       ? null
-      : parseStepResponse(
-          step,
-          reply.text,
-          input.context,
-          extra.axes ? { axes: extra.axes } : {},
-        );
+      : parseStepResponse(step, reply.text, input.context, {
+          ...(extra.axes ? { axes: extra.axes } : {}),
+          ...(input.batch ? { batch: input.batch } : {}),
+        });
     let issues: ValidationIssue[];
     if (parsed === null) {
       issues = [
@@ -254,6 +254,76 @@ async function callWithRetry(
     extraAttempts: 1,
     failure: "validation",
   };
+}
+
+/** 1단계 한 묶음의 활동 수. 출력이 활동 수에 비례해 한도를 넘지 않게 나눈다. */
+export const SIGNAL_BATCH_SIZE = 15;
+/** 1단계 묶음을 동시에 부르는 최대 수. */
+export const SIGNAL_BATCH_CONCURRENCY = 6;
+
+const FAILURE_SEVERITY = ["validation", "timeout", "upstream"] as const;
+
+/**
+ * 1단계. 활동을 묶음으로 나눠 동시에 부르고 활동 순서대로 합친다.
+ * 모든 묶음이 같은 단계 예산을 쓰고, 하나라도 끝내 실패하면 단계 전체가 실패한다.
+ * 실패 종류는 upstream, timeout, validation 순으로 심한 것을 고르고 issues 는 실패한 묶음 것을 이어 붙인다.
+ */
+async function readActivitiesInBatches(
+  context: ReportContext,
+  deps: RunStepDeps,
+): Promise<ModelCallOutcome> {
+  const stepStartedAt = Date.parse(deps.now());
+  const batches: ReportContext["activities"][] = [];
+  for (let i = 0; i < context.activities.length; i += SIGNAL_BATCH_SIZE)
+    batches.push(context.activities.slice(i, i + SIGNAL_BATCH_SIZE));
+
+  const outcomes: ModelCallOutcome[] = new Array(batches.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < batches.length) {
+      const index = next++;
+      const batch = batches[index];
+      if (!batch) return;
+      outcomes[index] = await callWithRetry(
+        1,
+        { context, prior: {}, batch },
+        deps,
+        {},
+        {},
+        stepStartedAt,
+      );
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(SIGNAL_BATCH_CONCURRENCY, batches.length) },
+      worker,
+    ),
+  );
+
+  const extraAttempts = outcomes.some((o) => o.extraAttempts > 0) ? 1 : 0;
+  const failed = outcomes.filter(
+    (o): o is Extract<ModelCallOutcome, { ok: false }> => !o.ok,
+  );
+  if (failed.length > 0) {
+    const failure = FAILURE_SEVERITY.reduce<
+      "validation" | "timeout" | "upstream"
+    >(
+      (worst, kind) => (failed.some((f) => f.failure === kind) ? kind : worst),
+      "validation",
+    );
+    return {
+      ok: false,
+      step: 1,
+      issues: failed.flatMap((f) => f.issues),
+      extraAttempts,
+      failure,
+    };
+  }
+  const signals = outcomes.flatMap((o) =>
+    o.ok ? (o.output.signals ?? []) : [],
+  );
+  return { ok: true, output: { step: 1, signals }, extraAttempts };
 }
 
 function ok(
@@ -505,7 +575,7 @@ export async function runStep(
         { signals: { ...signalsBase(stored), byActivity: [] } },
       );
     }
-    const r = await callWithRetry(1, { context, prior: {} }, deps, {});
+    const r = await readActivitiesInBatches(context, deps);
     return r.ok
       ? modelResult(1, context, stored, s, r.output, r.extraAttempts)
       : r;

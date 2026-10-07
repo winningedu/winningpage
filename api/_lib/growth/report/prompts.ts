@@ -248,6 +248,11 @@ export type PromptBundle = {
 
 export type StepPromptInput = {
   context: ReportContext;
+  /**
+   * 1단계 묶음 호출에서 이 호출이 읽을 활동. 없으면 context 의 활동 전부다.
+   * 별칭은 묶음과 상관없이 전체 context 기준으로 유지한다.
+   */
+  batch?: ReportContext["activities"];
   prior: {
     signals?: ActivitySignal[];
     classification?: Classification;
@@ -428,7 +433,7 @@ const STEP_RULES: Record<ModelStep, string> = {
 
 function stepUser(
   step: ModelStep,
-  { context, prior }: StepPromptInput,
+  { context, prior, batch }: StepPromptInput,
 ): string {
   const head = `학생 트랙: ${context.track}, 현재 학년: ${context.currentGrade}\n분석 범위: ${context.range.semesters.join(", ")}`;
   const career = context.profile.career?.trim() ?? "";
@@ -438,7 +443,10 @@ function stepUser(
   switch (step) {
     case 1: {
       return `${head}\n\n[활동 전체]\n${json(
-        context.activities.map((a) => ({ ...brief(a), text: a.text })),
+        (batch ?? context.activities).map((a) => ({
+          ...brief(a),
+          text: a.text,
+        })),
       )}`;
     }
     case 3: {
@@ -536,6 +544,7 @@ const fail = (code: string, message: string, path?: string): ParseResult => ({
 function parseSignals(
   body: Record<string, unknown>,
   context: ReportContext,
+  batch: ReportContext["activities"],
 ): ParseResult {
   if (!Array.isArray(body.signals))
     return fail("invalid_payload", "signals 배열이 없습니다.", "signals");
@@ -545,7 +554,8 @@ function parseSignals(
     if (!context.evidenceIds.includes(raw.activityId)) continue;
     if (!byId.has(raw.activityId)) byId.set(raw.activityId, raw);
   }
-  const signals: ActivitySignal[] = context.activities.map((a) => {
+  // 묶음 호출이면 묶음의 활동만 기대하고, 묶음 밖 activityId 는 쓰지 않는다.
+  const signals: ActivitySignal[] = batch.map((a) => {
     const raw = byId.get(a.id);
     const axes = Array.isArray(raw?.axes)
       ? AXIS_LIST.filter((ax) => (raw.axes as unknown[]).includes(ax))
@@ -842,7 +852,10 @@ export function parseStepResponse(
   step: ModelStep,
   rawText: string,
   context: ReportContext,
-  options: { axes?: AxisEvaluation[] } = {},
+  options: {
+    axes?: AxisEvaluation[];
+    batch?: ReportContext["activities"];
+  } = {},
 ): ParseResult {
   let parsed: unknown;
   try {
@@ -856,7 +869,8 @@ export function parseStepResponse(
   parsed = restoreEvidenceIds(buildAliasTable(context), parsed);
   if (!isRecord(parsed))
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
-  if (step === 1) return parseSignals(parsed, context);
+  if (step === 1)
+    return parseSignals(parsed, context, options.batch ?? context.activities);
   const parsedSections = parseSections(parsed, step, context);
   let { sections } = parsedSections;
   let { issues } = parsedSections;
