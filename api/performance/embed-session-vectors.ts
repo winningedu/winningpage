@@ -1,5 +1,6 @@
 // GET /api/performance/embed-session-vectors   (Vercel Cron 전용 — 일 1회, POST는 수동 트리거)
 // Authorization: Bearer <CRON_SECRET>
+// 평가 직후 즉시 임베딩(instantEmbed)이 기본 경로이고 이 크론은 실패분 안전망이다.
 //
 //   → 200 { ok, ranAt, batchLimit, scanned, embedded, failed, results }
 //   → 401 (시크릿 불일치 · 미설정)

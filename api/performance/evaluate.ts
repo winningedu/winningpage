@@ -85,6 +85,7 @@
 //   전량을 폐기로 지정). 이 파일의 유일한 파싱은 `JSON.parse` 한 줄이다.
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import {
   performanceTraceContext,
   retryReasonOf,
@@ -101,6 +102,7 @@ import {
   guideTextFromSession,
   inferGuideStructure,
 } from "../_lib/performance/guide-structure.js";
+import { embedSessionVectorNow } from "../_lib/performance/instantEmbed.js";
 import {
   buildEvaluationSystem,
   buildEvaluationUser,
@@ -987,6 +989,8 @@ export default defineHandler({
         //    승격이 즉시 일어난다. 순서를 뒤집으면 첫 커밋에서는 행이 없어 그 UPDATE가
         //    0행에 적중하고 승격이 다음 평가나 finalize까지 늦어진다.
         //    실패해도 평가 리포트 저장 자체는 막지 않는다(부가 기능).
+        //    성공했을 때만 응답 뒤 즉시 임베딩을 예약한다(아래 sessionVectorReady).
+        let sessionVectorReady = false;
         try {
           await upsertSessionVectorMetadata({
             supabase: supabaseAdmin,
@@ -1000,6 +1004,7 @@ export default defineHandler({
             topicTitle: selectedTopic,
             summaryText: `평가 총평: ${summary}\n설계 리포트: ${flattenReportSectionsToText(designEnvelope.sections)}`,
           });
+          sessionVectorReady = true;
         } catch (vectorError) {
           // 학생 과거 수행 RAG는 부가 기능이다 — 실패해도 평가 리포트 저장 자체를 막지 않는다.
           console.error(
@@ -1119,6 +1124,26 @@ export default defineHandler({
             Number(commit.evaluation_count) || evaluationCount + 1,
           maxEvaluations: MAX_EVALUATIONS,
         });
+
+        // 응답을 보낸 뒤 이 세션 벡터 1건을 바로 임베딩한다. 같은 날 다음 수행평가의
+        // 과거 수행 검색에 직전 기록이 잡히게 하려는 것이다. 실패분은 매일 도는
+        // embed-session-vectors 크론이 pending 으로 다시 잡는다.
+        if (sessionVectorReady) {
+          scheduleAfterResponse(async () => {
+            const instantTrace = createAiTrace(
+              performanceTraceContext({
+                feature: "session_vectors",
+                sessionId: sessionRow.id,
+                profileId: userId,
+                step: "instant",
+              }),
+            );
+            await embedSessionVectorNow(supabaseAdmin, sessionRow.id, {
+              telemetry: instantTrace,
+            });
+            await instantTrace.flush(supabaseAdmin);
+          });
+        }
       } finally {
         await trace.flush(supabaseAdmin);
       }

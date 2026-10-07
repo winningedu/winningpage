@@ -290,6 +290,29 @@ describe("[4] §8.6 엔드포인트 표 실패 코드", () => {
       true,
     );
   });
+  // 평가 직후 즉시 임베딩(고객사 안내 5번). 커밋이 committed 로 확정된 뒤에만, 그리고
+  // 벡터 메타 upsert 가 성공했을 때만 응답 뒤 작업으로 예약한다.
+  test("evaluate.ts 커밋 확정 뒤 벡터 갱신이 성공했을 때만 즉시 임베딩을 예약한다", () => {
+    // EVALUATE_CODE 는 문자열 리터럴을 지운 본문이라 "committed" 가 "" 로 남는다.
+    const idxCommitted = EVALUATE_CODE.indexOf('commitStatus !== ""');
+    const idxSchedule = EVALUATE_CODE.indexOf("scheduleAfterResponse(");
+    expect(idxCommitted).toBeGreaterThan(0);
+    expect(idxSchedule).toBeGreaterThan(idxCommitted);
+    expect(
+      /if \(sessionVectorReady\) \{\s*scheduleAfterResponse\(/.test(
+        EVALUATE_CODE,
+      ),
+    ).toBe(true);
+    expect(
+      /sessionVectorReady = true;[\s\S]{0,80}\} catch \(vectorError\)/.test(
+        EVALUATE_CODE,
+      ),
+    ).toBe(true);
+    expect(EVALUATE_CODE.includes("embedSessionVectorNow(supabaseAdmin")).toBe(
+      true,
+    );
+    expect(EVALUATE_API.includes('step: "instant"')).toBe(true);
+  });
   test("evaluate.ts — 텍스트 파서 폴백이 없다(JSON.parse 1곳뿐, §12.4)", () => {
     expect((EVALUATE_CODE.match(/JSON\.parse\(/g) || []).length).toBe(1);
   });
