@@ -6,6 +6,7 @@ import audienceData from "@/assets/services/research/audience-data.png";
 import audienceDesign from "@/assets/services/research/audience-design.png";
 import audienceReview from "@/assets/services/research/audience-review.png";
 import audienceTopic from "@/assets/services/research/audience-topic.png";
+import heroTopics from "@/assets/services/research/hero-topics.png";
 import outcomeCalendar from "@/assets/services/research/outcome-calendar.png";
 import outcomeFolder from "@/assets/services/research/outcome-folder.png";
 import outcomeSkill from "@/assets/services/research/outcome-skill.png";
@@ -20,51 +21,43 @@ import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
 import { useInView } from "@/hooks/useInView";
 import { getDemoAccessState } from "@/lib/demoAccess";
+import InDepthResearchScreenPreview from "./InDepthResearchScreenPreview";
 
-// 심화탐구 서비스 랜딩 — /services/research (구 경로 /page/services-in-depth-research)
-// Figma 시안(1907:21352, "심화탐구" 프레임, 1920×5871) + 히어로 합성 프레임(2181:9089) +
-// 히어로 오라 원본(3248:2355) + 회전 4프레임(2716:3097/3162/3168/3174) + FAQ 펼침 상태 변형
-// (2181:9318) 재실측 정합 전면 재작성. 목표관리(GoalManagement.jsx), 수행평가
-// (PerformanceAssessment.jsx), 자기평가(SelfAssessment.jsx)와 같은 방식으로
-// components/services/ServiceLandingPage 공용 스켈레톤을 벗어나 bespoke로 구현했다(구
-// SERVICE_LANDING_CONTENT.research 항목은 serviceLandingContent.js에서 함께 제거 — 3종 선례와 동일).
-// 심화탐구는 상세 페이지(PAID_SERVICE_CONFIGS 미등록 — 실제 서비스 앱이 아직 없다)가 없어,
-// 히어로 CTA는 심화탐구 앱(/app/inquiry)으로 직접 이동한다(handleHeroCta 참고).
+// 심화탐구 서비스 랜딩. 경로는 /services/research 이고 구 경로는 /page/services-in-depth-research 다.
+// Figma 754:72264 (capture_W6_research__desktop, 1920 x 5624) + FAQ 펼침 754:72637 + 화면 미리보기
+// 변형 754:72638, 754:72651. 2026-10-07 리디자인. 새 시안은 종전 구현을 1920 폭으로 캡처한
+// 프레임이라 섹션 여백과 카피는 그대로이고, 히어로 캡처와 화면 미리보기 섹션이 추가됐다.
+// 목표관리(GoalManagement.jsx), 수행평가(PerformanceAssessment.jsx), 자기평가(SelfAssessment.jsx)와
+// 같은 방식으로 components/services/ServiceLandingPage 공용 스켈레톤을 벗어나 bespoke로 구현했다.
+// 심화탐구는 상세 페이지(PAID_SERVICE_CONFIGS 미등록)가 없어, 히어로 CTA는 심화탐구 앱
+// (/app/inquiry)으로 직접 이동한다(handleHeroCta 참고).
 
 const INQUIRY_APP_ROUTE = "/app/inquiry";
 
-// 컨테이너 폭 — 시안은 섹션마다 1436~1444px(1920 기준)로 드리프트하지만(섹션 C의 1520은 좌240/
-// 우160 비대칭 오토레이아웃 잔재라 유령 래퍼로 판정), 실 콘텐츠 박스(카드 행) 기준 1439~1444를
-// ×0.766 환산하면 1102~1106 ≈ dev 정본 토큰 max-w-content(안쪽 실폭 1100px)와 맞아 전 섹션을
-// 이 컨테이너로 통일했다. 시안 예외였던 OutcomesSection 패널(1145px)도 헤더가 카드보다 149.5px
-// 왼쪽에 매달린 시안 결함이라 좌단 일치 + full-width로 정규화했다(섹션 C는 헤더/카드 좌단이
-// 정확히 일치하므로 D만 어긋난 것 = 시안 실수).
+// 컨테이너 폭: 전 섹션을 max-w-content(안쪽 실폭 1100px) 컨테이너로 통일했다.
 //
-// 섹션 간 상단 여백 — 시안 섹션 스택(1907:21353)의 형제 갭은 전 경계 0이고, 리듬은 전적으로 각
-// 섹션 내부 상·하 패딩이 만든다. 따라서 경계 실효 갭 = 앞 섹션 하단패딩 + 뒤 섹션 상단패딩으로
-// 계산했다. 배경이 히어로~FAQ 전 구간 #FFFFFF로 동일하므로 전 경계 ×0.67을 적용하고 그 값을
-// 뒤 섹션 pt에 몰아준다(pb는 마지막 FAQ만 갖는다). FAQ→푸터만 유일한 배경 전환 경계라 ×0.67
-// 미적용 — 시안 217px 그대로 lg:pb-[13.5625rem].
-//   Hero→Process        120×0.67 = 80   → lg:pt-20
-//   Process→Audience   (120+119)×0.67 = 160 → lg:pt-40
-//   Audience→FiveSteps (182+120)×0.67 = 202 → lg:pt-50.5
-//   FiveSteps→Outcomes (137+120)×0.67 = 172 → lg:pt-43
-//   Outcomes→Testi     (120+119)×0.67 = 160 → lg:pt-40
-//   Testi→Faq          (168+100)×0.67 = 180 → lg:pt-45
-//   Faq→Footer          217 (배경 전환, 축소 없음) → lg:pb-54.25
-// 이전 구현은 전 섹션 lg:pt-25 단일값이었다 — 정책 계산값이 아니라 임시 균일값이었으므로
-// 위 표대로 경계별 차등으로 교체했다. 이 값들만 ServiceSection 의 className 으로 넘긴다.
+// 섹션 간 상단 여백: 시안 섹션 스택의 형제 갭은 전 경계 0이고, 리듬은 각 섹션 내부 상하
+// 패딩이 만든다. 경계 실효 갭 값을 뒤 섹션 pt에 몰아주고 pb는 마지막 FAQ만 갖는다.
+// 수치는 시안 실측값 그대로다(환산 없음).
+//   Hero 다음 Process        80  lg:pt-20
+//   Process 다음 Audience   160  lg:pt-40
+//   Audience 다음 FiveSteps 202  lg:pt-50.5
+//   FiveSteps 다음 Preview   80  lg:pt-20 (화면 미리보기 인스턴스 754:72387 상하 패딩 80/80)
+//   Preview 다음 Outcomes   172  미리보기 pb 80 + Outcomes lg:pt-43
+//   Outcomes 다음 Testi     160  lg:pt-40
+//   Testi 다음 Faq          180  lg:pt-45
+//   Faq 다음 Footer         217  lg:pb-54.25 (유일한 배경 전환 경계)
 //
 // 섹션 마크업은 전부 components/services/ 공통 컴포넌트로 수렴했다(2026-08-05). 이 페이지가
 // 기준(canonical)이지만 로컬 구현을 유지하면 공통 컴포넌트를 고쳐도 기준에 반영되지 않는
 // 역전 상태가 되므로, 나머지 3종과 동일하게 전 섹션이 컴포넌트를 통해서만 렌더된다.
 // SECTION_HEADING_CLASS 도 serviceTokens.js 단일 정본이며 ServiceSection 이 소유한다.
 
-// 가운뎃점 표기 — 시안 원문은 U+00B7 `·`와 U+30FB `・`를 혼용한다(같은 프레임 안에서도 타이틀은
-// U+30FB, 설명은 U+00B7). 페이지 전역·3종 선례 페이지가 전부 U+30FB로 통일돼 있어 코드 정본을
+// 가운뎃점 표기: 시안 원문은 U+00B7과 U+30FB `・`를 혼용한다(같은 프레임 안에서도 타이틀은
+// U+30FB, 설명은 U+00B7). 페이지 전역과 3종 선례 페이지가 전부 U+30FB로 통일돼 있어 코드 정본을
 // 따라 아래 전 카피를 U+30FB로 맞췄다.
 
-// STEP 라벨은 데이터에 두지 않는다 — ServiceProcessCards 가 index 로 생성한다.
+// STEP 라벨은 데이터에 두지 않는다, ServiceProcessCards 가 index 로 생성한다.
 const PROCESS_STEPS = [
   {
     title: "주제 선택",
@@ -102,7 +95,7 @@ const AUDIENCE_CARDS = [
   },
   {
     // 시안(1907:21486)은 카드1과 같은 일러스트를 재사용했지만 QA 시트 행 43(2026-09-02)이
-    // "1·4번 동일 — 하나는 새 이미지로" 지적. 이후 고객사 신규 에셋이 시안(Figma 1907:21465)에
+    // "1번과 4번 동일, 하나는 새 이미지로" 지적. 이후 고객사 신규 에셋이 시안(Figma 1907:21465)에
     // 반영돼 audience-review.png로 교체했다(기존엔 audience-quality-v2 임시 대체 jpg였다).
     image: audienceReview,
     title: "완성도를 높이고 싶은 학생",
@@ -119,7 +112,8 @@ const FIVE_STEPS = [
   { title: "자료 정리", desc: "자료 수집・정리・출처 관리 방향을 안내합니다." },
   {
     title: "설계서 작성",
-    desc: "가설→검증→해석→한계의 설계서를 함께 구성합니다.",
+    // 시안 원문은 네 낱말을 화살표로 잇지만 금지 문자라 쉼표로 쓴다.
+    desc: "가설, 검증, 해석, 한계의 설계서를 함께 구성합니다.",
   },
   {
     title: "완성본 평가",
@@ -127,10 +121,10 @@ const FIVE_STEPS = [
   },
 ];
 
-// 아이콘 매핑 — 시안(1907:21536) 4열의 x좌표 순서(Settings 슬라이더 → Wallet → Folder →
+// 아이콘 매핑, 시안(1907:21536) 4열의 x좌표 순서(Settings 슬라이더, Wallet, Folder,
 // Calendar)와 라벨이 1:1 대응함을 재확인했다. 아이콘은 전부 VECTOR(imageRef 0건)이지만 기존
 // 200×200 PNG가 투명 배경으로 이미 잘 뽑혀 있고, 시안 프레임에 fill #FFBFBF(분홍) 아트보드
-// 배경 잔재가 붙어 있어 재추출하면 분홍 배경이 딸려온다 → 기존 에셋 재사용.
+// 배경 잔재가 붙어 있어 재추출하면 분홍 배경이 딸려온다. 그래서 기존 에셋을 재사용한다.
 const OUTCOME_ITEMS = [
   { icon: outcomeSkill, label: "탐구 역량 향상" },
   { icon: outcomeWallet, label: "자료 해석력 강화" },
@@ -138,10 +132,10 @@ const OUTCOME_ITEMS = [
   { icon: outcomeCalendar, label: "자기주도 탐구 경험" },
 ];
 
-// 후기 작성자명 — 시안 원본은 "고1 김민△ / 고2 이△은 / 고2 박○석"처럼 마스킹 기호와 마스킹
+// 후기 작성자명, 시안 원본은 "고1 김민△ / 고2 이△은 / 고2 박○석"처럼 마스킹 기호와 마스킹
 // 글자 수가 일관되지 않은 placeholder였다. 선례(목표관리・수행평가・자기평가)의 "고N 김OO"
-// 표기로 통일했다(신규 카피 아님, 표기만 정정). 카드 노출 순서는 시안 DOM 순서(우→좌→중)가
-// 아니라 실제 x좌표 기준 좌→우 순서다. 인용문 3건은 시안 원문과 문자열 완전 일치.
+// 표기로 통일했다(신규 카피 아님, 표기만 정정). 카드 노출 순서는 시안 DOM 순서(우, 좌, 중)가
+// 아니라 실제 x좌표 기준 좌우 순서다. 인용문 3건은 시안 원문과 문자열 완전 일치.
 const TESTIMONIALS = [
   {
     emoji: "😉",
@@ -163,11 +157,11 @@ const TESTIMONIALS = [
   },
 ];
 
-// FAQ — 이전 구현은 "시안(2181:9284)에 답변 레이어가 없다"고 판단해 구 serviceLandingContent.js의
+// FAQ, 이전 구현은 "시안(2181:9284)에 답변 레이어가 없다"고 판단해 구 serviceLandingContent.js의
 // 답변을 끌어다 썼다. 재실측 결과 답변 정본이 펼침 상태 변형 노드 2181:9318(2181:9332/9339/9346/
 // 9353)에 전문으로 존재해 4건 모두 시안 정본으로 교체했다. 시안 답변은 "수행・작성・수집은 학생
 // 본인이 한다"는 책임 한계 문구가 4건 중 3건에 들어 있어 카드사 심사/과장광고 관점에서도 구
-// 답변보다 안전하다. 질문 4개는 두 노드가 문자열·순서 모두 동일 = 기존 코드와 일치(변경 없음).
+// 답변보다 안전하다. 질문 4개는 두 노드가 문자열과 순서 모두 동일 = 기존 코드와 일치(변경 없음).
 const FAQ_ITEMS = [
   {
     q: "심화탐구 프로그램은 어떤 학생에게 적합한가요?",
@@ -188,7 +182,7 @@ const FAQ_ITEMS = [
 ];
 
 function HeroSection() {
-  // 히어로를 벗어나 스크롤하면 30초 회전을 멈춘다 — 서비스 랜딩 4종 + LearningDiagnosisLanding
+  // 히어로를 벗어나 스크롤하면 30초 회전을 멈춘다, 서비스 랜딩 4종 + LearningDiagnosisLanding
   // 공통 useInView 훅 구조.
   const [auraRef, auraInView] = useInView() as [
     MutableRefObject<HTMLDivElement | null>,
@@ -216,10 +210,10 @@ function HeroSection() {
     // (4페이지 공통 규격). 이전 구현의 pb-14 pt-10 sm:pb-16 sm:pt-14 단독 조합은 md 이상에서
     // 목업 음수 마진과 충돌해 다음 섹션 pt 계산이 어긋난다.
     <section className="relative overflow-hidden bg-white pb-14 pt-10 sm:pb-16 sm:pt-14 md:pb-0 md:pt-9">
-      {/* 오라 애니메이션 — 이전 구현의 CSS 방사형 그라디언트 2겹(마젠타 0.32를 강하게 섞은 것)을
+      {/* 오라 애니메이션, 이전 구현의 CSS 방사형 그라디언트 2겹(마젠타 0.32를 강하게 섞은 것)을
           폐기하고 시안 정본 벡터(hero-aura.svg = 3248:2356 Eclipse + 3248:2357 Rectangle 29)로
           교체했다. 회전 4프레임(2716:3097/3162/3168/3174)이 0°/90°/180°/270° 등간격 Smart
-          Animate라 단일 rotate(0→360deg) 루프로 무손실 붕괴된다.
+          Animate라 단일 rotate(0deg 부터 360deg) 루프로 무손실 붕괴된다.
 
           ⚠ 자기평가 값을 복사하지 말 것 2건:
           (1) 회전 피벗이 Eclipse 중심(800,541)이 아니라 Texture 사각형 중심 (800,600)이다.
@@ -228,14 +222,14 @@ function HeroSection() {
               Rect 29 하단 블러 808.69px > 반변 800으로 잘린다) transform-origin은 뷰박스 중심이
               곧 피벗이므로 기본값 50% 50% 그대로 둔다.
           (2) 히어로 합성 프레임(2181:9089)에서 Texture의 상대 y = 0 이다(자기평가는 −230).
-              따라서 위치 래퍼는 top-0 — 자기평가의 top-[-14.375rem]을 복사하면 오라가 화면
+              따라서 위치 래퍼는 top-0, 자기평가의 top-[-14.375rem]을 복사하면 오라가 화면
               위로 사라진다.
 
           바깥 div(auraRef) = 위치 전담(Texture 박스 1600×1200 = 4:3, 1600px = 100rem).
           안쪽 .idr-aura-spin = 회전 전담(viewBox 1680 정사각을 1600×1200 좌표계에 맞춤:
           폭 1680/1600 = 105%, left −40/1600 = −2.5%, top −240/1200 = −20%).
           같은 요소에 위치용 translate와 회전용 rotate를 같이 걸면 rotate가 translate를 덮어써
-          가운데 정렬이 깨진다 — 반드시 2단으로 분리한다. */}
+          가운데 정렬이 깨진다, 반드시 2단으로 분리한다. */}
       <div
         ref={auraRef}
         className="pointer-events-none absolute left-1/2 top-0 aspect-4/3 w-[100rem] max-w-none -translate-x-1/2 select-none"
@@ -265,11 +259,11 @@ function HeroSection() {
           />
         </div>
       </div>
-      {/* 그레인 — 회전 래퍼의 형제(밖)에 둔다. transform이 걸린 요소는 새 stacking context를
+      {/* 그레인, 회전 래퍼의 형제(밖)에 둔다. transform이 걸린 요소는 새 stacking context를
           만들어 mix-blend-overlay가 섹션 배경(bg-white)을 backdrop으로 못 잡고 그레인이 전면
           노출되는 회귀가 실제로 있었다(수행평가・학습진단 선례). 타일 8.375rem은 시안 Texture의
           imageRef(bcfa0f2e…, 220×220) × scalingFactor 0.609091 = 134px 실측값이며, opacity-40은
-          시안(opacity 1 + OVERLAY)보다 옅다 — 4페이지 통일값을 우선했다. */}
+          시안(opacity 1 + OVERLAY)보다 옅다, 4페이지 통일값을 우선했다. */}
       <div
         aria-hidden="true"
         style={{ backgroundImage: `url(${heroGrain})` }}
@@ -277,7 +271,7 @@ function HeroSection() {
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-content flex-col items-center px-5 text-center sm:px-8">
-        {/* eyebrow/H1/서브 문단/CTA/목업 폭 — 목표관리・수행평가・자기평가와 통일한 4페이지 공통
+        {/* eyebrow/H1/서브 문단/CTA/목업 폭, 목표관리・수행평가・자기평가와 통일한 4페이지 공통
             규격. 카피 자체는 시안 원문(3163:4724~4728) 그대로다.
             시안 실측 eyebrow 색 #0B84FD는 dev 정본 accent 토큰과 정확히 일치.
             시안 weight는 500이지만 선례 3종이 전부 font-normal이라 선례를 따랐다. */}
@@ -285,7 +279,7 @@ function HeroSection() {
           탐구 설계 프로그램
         </p>
 
-        {/* max-w-160 제거 — 시안 H1은 1443px 폭에 강제 개행 없는 1줄인데 40rem(640px)로
+        {/* max-w-160 제거, 시안 H1은 1443px 폭에 강제 개행 없는 1줄인데 40rem(640px)로
             묶으면 데스크톱에서도 억지로 2줄이 된다. */}
         <h1 className="mt-6 break-keep text-[1.75rem] font-semibold leading-[1.3] tracking-[-0.02em] text-[#0F172A] sm:text-[2.25rem] md:text-[2rem]">
           주제 추천부터 탐구 설계까지, 심화탐구를 끝까지
@@ -296,7 +290,7 @@ function HeroSection() {
           스스로 완성하도록 돕습니다
         </p>
 
-        {/* CTA — 시안(3163:4727)은 280×68 / cornerRadius 50(높이 68이라 실효 pill) / 그림자
+        {/* CTA, 시안(3163:4727)은 280×68 / cornerRadius 50(높이 68이라 실효 pill) / 그림자
             visible:false 이지만, 4페이지 CTA 통일을 우선해 선례 규격(max-w-[18.75rem],
             rounded-[1.875rem], 네이비 그림자)을 그대로 쓴다. 클릭 시 심화탐구 앱으로 이동한다
             (handleHeroCta 참고). */}
@@ -308,19 +302,14 @@ function HeroSection() {
           지금 시작하기
         </button>
 
-        {/* 브라우저 목업 — 시안(2181:9094)은 툴바 인스턴스와 탭 파비콘 로고 둘뿐이고 툴바 79px
-            아래 1280×474 영역에 자식 노드가 전혀 없다(순백 빈 캔버스). 선례 방식대로 크롬
-            프레임만 CSS로 조립하고 본문은 빈 배경으로 둔다(실 제품 스크린샷 자산 없음).
-            프레임 값은 시안과 선례가 정확히 일치한다: radius 5 = rounded-[0.3125rem], border
-            없음, 그림자 3겹(0/10/50 @20%, 0/20/30 @30%, 0/0/1 @70%). 신호등 #ED6A5E/#F6BE4F/
-            #62C554 · 주소창 #F1F3F4 pill · 탭바 #DFE1E5 도 시안 실측값 그대로다(이전 구현의
-            #FF5F57/#FEBC2E/#28C840, border 있는 흰 주소창은 시안 근거가 없었다).
-            하단 음수 마진은 시안 오버플로 111px(→85px)보다 큰 선례값(126.3px)을 쓴다 — 4페이지
-            공통 규격 우선. */}
+        {/* 브라우저 목업: 새 시안(754:72290)은 목업 안에 주제 추천 화면 캡처를 넣는다.
+            프레임 값은 선례 3종과 같은 규격이다. */}
         <ServiceHeroBrowserFrame>
-          <div
-            className="aspect-1280/553 w-full bg-[#FAFAFA] md:aspect-auto md:min-h-0 md:flex-1"
-            aria-hidden="true"
+          <img
+            src={heroTopics}
+            alt="심화탐구 주제 추천 화면"
+            className="w-full md:min-h-0 md:flex-1 md:object-cover md:object-top"
+            draggable={false}
           />
         </ServiceHeroBrowserFrame>
       </div>
@@ -333,16 +322,16 @@ export default function InDepthResearch() {
     <main className="min-h-screen bg-white pt-16">
       <HeroSection />
 
-      {/* 프로세스 — 시안 원문은 쉼표 뒤 스페이스 2개(U+0020 ×2)지만 HTML은 연속 공백을
-          접으므로 렌더 결과가 같다 → 1스페이스 유지(디자인 파일 오타로 판단).
+      {/* 프로세스, 시안 원문은 쉼표 뒤 스페이스 2개(U+0020 ×2)지만 HTML은 연속 공백을
+          접으므로 렌더 결과가 같다. 1스페이스를 유지한다(디자인 파일 오타로 판단).
           4열 폭 검산: (1100 − 30×3) / 4 = 252.5px, 시안 331×0.766 = 253.5px ✓ */}
       <ServiceSection className="lg:pt-20" heading="심화탐구, 이렇게 완성돼요">
         <ServiceProcessCards items={PROCESS_STEPS} />
       </ServiceSection>
 
-      {/* 추천 대상 — 시안(1907:21472)은 characterStyleOverrides로 "이런 학생에게 "(#525252) +
+      {/* 추천 대상, 시안(1907:21472)은 characterStyleOverrides로 "이런 학생에게 "(#525252) +
           "심화 탐구 서비스를 추천해요"(#013262) 2-tone 좌측 정렬이다. 강조 런만 네이비로
-          넣는다(자기평가 선례와 동일 — accent #0B84FD가 아니라 #013262). 카드 이미지는
+          넣는다(자기평가 선례와 동일, accent #0B84FD가 아니라 #013262). 카드 이미지는
           일러스트 PNG라 잘림 없는 imageFit 기본값(contain)을 쓴다. */}
       <ServiceSection
         className="lg:pt-40"
@@ -356,7 +345,7 @@ export default function InDepthResearch() {
         <ServiceAudienceCards items={AUDIENCE_CARDS} />
       </ServiceSection>
 
-      {/* 다섯 단계 — 3장 + 2장(중앙 정렬) 배치는 splitLastRow 가 담당한다.
+      {/* 다섯 단계, 3장 + 2장(중앙 정렬) 배치는 splitLastRow 가 담당한다.
           3열 폭 검산: (1100 − 30×2) / 3 = 346.7px, 시안 453×0.7644 = 346.3px ✓
           (섹션 C의 실 콘텐츠 박스는 프레임 1520이 아니라 카드 행 1439 = 453×3 + 40×2 이다.
            1520은 1920 안에서 좌240/우160 비대칭이라 오토레이아웃 잔재로 판정) */}
@@ -364,14 +353,29 @@ export default function InDepthResearch() {
         <ServiceStepCards items={FIVE_STEPS} splitLastRow />
       </ServiceSection>
 
-      {/* 성과 — 시안은 헤더 좌단(x=82823)이 카드 좌단(x=82972.5)보다 149.5px 왼쪽에 매달려
+      {/* 화면 미리보기: 시안 ScreenPreview 인스턴스 754:72387 의 상하 패딩이 80/80 이고 앞
+          섹션(다섯 단계)은 하단 패딩 0 이라 pt 80 이다. 뒤 섹션(성과) 상단 172 는 기존
+          lg:pt-43 을 그대로 두고 이 섹션이 pb 80 을 가진다. 헤딩 2톤은 시안
+          characterStyleOverrides 로 "확인하세요"만 네이비(#013262 = text-primary)다. */}
+      <ServiceSection
+        className="lg:pt-20 lg:pb-20"
+        heading={
+          <>
+            직접 보고 <span className="text-primary">확인하세요</span>
+          </>
+        }
+      >
+        <InDepthResearchScreenPreview />
+      </ServiceSection>
+
+      {/* 성과, 시안은 헤더 좌단(x=82823)이 카드 좌단(x=82972.5)보다 149.5px 왼쪽에 매달려
           있으나, 바로 앞 섹션은 헤더/카드 좌단이 정확히 일치하므로 시안 결함으로 판단하고
           헤더 = 카드 = max-w-content 좌단 일치 + 패널 full-width 로 정규화했다. */}
       <ServiceSection className="lg:pt-43" heading="심화탐구로 달라지는 것들">
         <ServiceOutcomesPanel items={OUTCOME_ITEMS} />
       </ServiceSection>
 
-      {/* 후기 — 시안 헤딩 색은 #525252지만 페이지 전 섹션이 공유하는 헤딩 정본(#0F172A)을
+      {/* 후기, 시안 헤딩 색은 #525252지만 페이지 전 섹션이 공유하는 헤딩 정본(#0F172A)을
           유지한다. 3열 폭 검산: (1100 − 46×2) / 3 = 336px, 시안 440×0.766 = 337px ✓ */}
       <ServiceSection
         className="lg:pt-40"
@@ -380,8 +384,8 @@ export default function InDepthResearch() {
         <ServiceTestimonials items={TESTIMONIALS} />
       </ServiceSection>
 
-      {/* FAQ — 헤딩 크기는 펼침 보드(2181:9318)만 44px이고 페이지 안 섹션 헤딩은 전부 32px라
-          헤딩 정본(32px)을 그대로 쓴다. FAQ→푸터는 페이지에서 유일한 배경 전환 경계라 시안
+      {/* FAQ, 헤딩 크기는 펼침 보드(2181:9318)만 44px이고 페이지 안 섹션 헤딩은 전부 32px라
+          헤딩 정본(32px)을 그대로 쓴다. FAQ 와 푸터 사이는 페이지에서 유일한 배경 전환 경계라 시안
           하단 여백 217px를 ×0.67 축소 없이 그대로 쓴다(lg:pb-[13.5625rem]). */}
       <ServiceSection
         className="pb-20 sm:pb-24 lg:pb-54.25 lg:pt-45"
