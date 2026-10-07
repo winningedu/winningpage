@@ -135,8 +135,14 @@ export default function ServiceCatalog({
     else return;
     e.preventDefault(); // 기본 동작(페이지 스크롤)을 막는다.
 
-    const nextIndex =
-      (currentIndex + delta + products.length) % products.length;
+    // 주문 불가 상품(isOrderable=false)은 포커스도 선택도 받지 못하므로 그 칸은 건너뛴다.
+    // 한 바퀴를 다 돌아도 주문 가능 상품이 없으면(전부 주문 불가) 아무것도 하지 않는다.
+    let nextIndex = currentIndex;
+    for (let step = 0; step < products.length; step += 1) {
+      nextIndex = (nextIndex + delta + products.length) % products.length;
+      if (products[nextIndex]?.isOrderable) break;
+      if (step === products.length - 1) return;
+    }
     // nextIndex는 products.length에 대한 모듈러 연산 결과라 항상 유효 범위 인덱스다.
     const nextProduct = products[nextIndex]!;
     // 이미 선택된 항목으로 되돌아온 경우(그룹 상품이 1개뿐이라 어느 방향으로 이동해도
@@ -308,9 +314,11 @@ export default function ServiceCatalog({
                 // 없으면(아직 아무것도 고르지 않은 초기 상태) 첫 항목만 0. 나머지는 -1 —
                 // 그룹 전체가 Tab 정지점 하나가 되고, 그룹 안 이동은 화살표 키가 맡는다.
                 const hasSelectionInGroup = Boolean(selected[service.key]);
+                // 주문 불가 상품은 disabled 라 포커스를 받지 못한다 — 선택이 없을 때의
+                // 대표 탭 정지점은 첫 "주문 가능" 항목이다.
                 const isRovingTabStop = hasSelectionInGroup
                   ? isSelected
-                  : index === 0;
+                  : index === service.products.findIndex((p) => p.isOrderable);
                 // 원본(ServiceProduct.listPrice)은 null/undefined 가능(무할인 상품) —
                 // Number() 로 좁혀 비교한다(StudentEnrollmentRequest.tsx 옛 구현과 동일 관행).
                 const hasDiscount =
@@ -388,6 +396,10 @@ export default function ServiceCatalog({
                       // 반영하므로 AT 에 거짓 정보를 주지 않는다.
                       role="radio"
                       aria-checked={isSelected}
+                      // 주문 불가(products.is_orderable=false) 상품은 카드를 흐리게 보이되
+                      // 선택은 막는다. 서버 게이트(request-enrollment, fn_parent_create_
+                      // enrollment)가 정본이고 이건 표시 전용이다.
+                      disabled={!product.isOrderable}
                       tabIndex={isRovingTabStop ? 0 : -1}
                       onClick={() => onToggle(service.key, product.id)}
                       onKeyDown={(e) =>
@@ -399,9 +411,11 @@ export default function ServiceCatalog({
                         )
                       }
                       className={`flex min-h-16 w-full items-center justify-between gap-5 rounded-2xl border p-2.75 text-left transition lg:min-h-0 lg:gap-4 lg:p-5 ${
-                        isSelected
-                          ? "border-accent bg-surface-info ring-1 ring-accent/30"
-                          : "border-line bg-white hover:border-ink-sub"
+                        !product.isOrderable
+                          ? "cursor-not-allowed border-line bg-white opacity-50"
+                          : isSelected
+                            ? "border-accent bg-surface-info ring-1 ring-accent/30"
+                            : "border-line bg-white hover:border-ink-sub"
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-2 lg:gap-3">

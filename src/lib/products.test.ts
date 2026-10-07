@@ -6,13 +6,21 @@ const { rows } = vi.hoisted(() => ({
 }));
 
 // supabase 쿼리 빌더 — 체이닝 메서드는 자기 자신을 돌려주고 await 시 rows 를 준다.
-vi.mock("./supabase", () => {
-  const builder: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "order"]) builder[m] = () => builder;
-  builder.then = (resolve: (v: unknown) => unknown) =>
-    resolve({ data: rows.current, error: null });
-  return { supabase: { from: () => builder } };
-});
+vi.mock("./supabase", () => ({
+  supabase: {
+    from: () => {
+      const builder: Promise<unknown> & Record<string, unknown> = Object.assign(
+        Promise.resolve({ data: rows.current, error: null }),
+        {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+        },
+      );
+      return builder;
+    },
+  },
+}));
 
 import { useProducts } from "./products";
 
@@ -31,7 +39,7 @@ describe("useProducts isOrderable 매핑", () => {
     rows.current = [row("a", true), row("b", false)];
     const { result } = renderHook(() => useProducts());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    const products = result.current.services[0]!.products;
+    const products = result.current.services[0]?.products ?? [];
     expect(products.map((p) => p.isOrderable)).toEqual([true, false]);
   });
 
@@ -39,7 +47,7 @@ describe("useProducts isOrderable 매핑", () => {
     rows.current = [row("a", null), row("b", undefined)];
     const { result } = renderHook(() => useProducts());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    const products = result.current.services[0]!.products;
+    const products = result.current.services[0]?.products ?? [];
     expect(products.map((p) => p.isOrderable)).toEqual([false, false]);
   });
 });
