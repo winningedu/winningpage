@@ -232,10 +232,15 @@ describe("validateStep 8단계(리포트 확정, sections 위임)", () => {
   });
 
   test("ok 항목에 evidence 가 없으면 missing_evidence", () => {
-    const r = run(edit("1-2", { evidence_ids: [] }));
+    const r = run(edit("1-6", { evidence_ids: [] }));
     expect(r.issues.find((i) => i.code === "missing_evidence")?.path).toBe(
-      "1-2",
+      "1-6",
     );
+  });
+
+  test("설문 답 기반 항목(1-2)은 evidence_ids 가 비어도 missing_evidence 가 없다", () => {
+    const r = run(edit("1-2", { evidence_ids: [] }));
+    expect(r.issues.map((i) => i.code)).not.toContain("missing_evidence");
   });
 
   test("근거 면제 섹션(1-1)은 ok 이고 evidence_ids 가 비어도 missing_evidence 가 없다", () => {
