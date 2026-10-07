@@ -1107,3 +1107,272 @@ describe("normalizeAxisSections", () => {
     expect(out[1]).toMatchObject({ id: "2-4", status: "no_data" });
   });
 });
+
+describe("활동 id 별칭", () => {
+  const U1 = "11111111-1111-4111-8111-111111111111";
+  const U2 = "22222222-2222-4222-8222-222222222222";
+  const U3 = "33333333-3333-4333-8333-333333333333";
+  const uuidPattern =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+  const activities = [U1, U2, U3].map((id, i) =>
+    activity(id, { text: `본문 ${i + 1}` }),
+  );
+  const ctx = makeContext({
+    activities,
+    evidenceIds: activities.map((a) => a.id),
+  });
+  const signals: ActivitySignal[] = activities.map((a) => ({
+    activityId: a.id,
+    axes: ["A"],
+    method: "실험",
+    keywords: ["열"],
+    linkage: ["subject_link"],
+    summary: "요약",
+  }));
+  const consistency = {
+    percent: 33.3,
+    linked: 1,
+    total: 3,
+    formula: "연결 활동 1건 ÷ 전체 3건 × 100 = 33.3%",
+    verdict: "splitting" as const,
+    verdictLabel: "갈리는 중",
+    criteria: "기준 문구",
+    smallSample: true,
+  };
+  const axes = [
+    {
+      axis: "A" as const,
+      name: "학업역량",
+      count: 2,
+      required: 5,
+      verdict: "caution" as const,
+      verdictLabel: "주의",
+      guideline: "판단 근거로 쓴 기록 5건",
+      optional: false,
+      activityIds: [U1, U3],
+    },
+  ];
+  const prior = {
+    signals,
+    narrative: validNarrative() as never,
+    match: {
+      aligned: [{ text: "일치", evidenceIds: [U2] }],
+      conflicting: [{ text: "어긋남", evidenceIds: [U3] }],
+    },
+    consistency,
+    axes,
+  };
+
+  it.each([1, 3, 4, 5, 6, 7] as const)(
+    "%i단계 user 에는 활동 id 가 없고 별칭이 있다",
+    (step) => {
+      const { user } = buildStepPrompt(step, { context: ctx, prior });
+      expect(user).not.toMatch(uuidPattern);
+      expect(user).toContain('"a1"');
+    },
+  );
+
+  it("6단계 축 진단의 activityIds 도 별칭이다", () => {
+    const { user } = buildStepPrompt(6, { context: ctx, prior });
+    expect(user).toMatch(/"activityIds": \[\s*"a1",\s*"a3"\s*\]/);
+  });
+
+  it("7단계 설문 대조의 근거도 별칭이다", () => {
+    const { user } = buildStepPrompt(7, { context: ctx, prior });
+    expect(user).toMatch(/"evidenceIds": \[\s*"a2"\s*\]/);
+  });
+
+  it("system 에 별칭 사용 원칙이 있다", () => {
+    const { system } = buildStepPrompt(3, { context: ctx, prior });
+    expect(system).toContain("a1");
+    expect(system).toContain("별칭");
+  });
+
+  describe("응답 파싱", () => {
+    const section = (id: string, over: Record<string, unknown> = {}) => ({
+      id,
+      status: "ok",
+      body: { items: [{ text: "열 전달 반복", evidence_ids: ["a1", "a3"] }] },
+      evidence_ids: ["a2"],
+      ...over,
+    });
+
+    it("1단계 signals 의 별칭 activityId 를 활동 id 로 돌려준다", () => {
+      const r = parseStepResponse(
+        1,
+        JSON.stringify({
+          signals: [
+            {
+              activityId: "a2",
+              axes: ["B"],
+              method: "실험",
+              keywords: ["열"],
+              summary: "요약",
+            },
+          ],
+        }),
+        ctx,
+      );
+      if (!r.ok) throw new Error(JSON.stringify(r.issues));
+      expect(r.output.signals?.map((s) => s.activityId)).toEqual([U1, U2, U3]);
+      expect(r.output.signals?.find((s) => s.activityId === U2)?.axes).toEqual([
+        "B",
+      ]);
+    });
+
+    it("1단계의 모르는 별칭은 무시한다", () => {
+      const r = parseStepResponse(
+        1,
+        JSON.stringify({
+          signals: [
+            {
+              activityId: "a99",
+              axes: ["B"],
+              method: null,
+              keywords: [],
+              summary: "x",
+            },
+          ],
+        }),
+        ctx,
+      );
+      if (!r.ok) throw new Error(JSON.stringify(r.issues));
+      expect(r.output.signals?.every((s) => s.axes.length === 0)).toBe(true);
+    });
+
+    it("3단계 섹션 근거를 활동 id 로 돌리고 검증을 통과하며 본문은 그대로다", () => {
+      const r = parseStepResponse(
+        3,
+        JSON.stringify({
+          narrative: validNarrative(),
+          sections: [section("1-8")],
+        }),
+        ctx,
+      );
+      if (!r.ok) throw new Error(JSON.stringify(r.issues));
+      const s = r.output.sections?.[0];
+      expect(s?.evidence_ids).toEqual([U2]);
+      expect(JSON.stringify(s?.body)).toContain(U1);
+      expect(JSON.stringify(s?.body)).toContain("열 전달 반복");
+      expect(validateStepOutput(3, r.output, ctx, {}).issues).toEqual([]);
+    });
+
+    it("3단계의 모르는 별칭은 unknown_evidence", () => {
+      const r = parseStepResponse(
+        3,
+        JSON.stringify({
+          narrative: validNarrative(),
+          sections: [section("1-8", { evidence_ids: ["a99"] })],
+        }),
+        ctx,
+      );
+      if (!r.ok) throw new Error(JSON.stringify(r.issues));
+      expect(
+        validateStepOutput(3, r.output, ctx, {}).issues.map((i) => i.code),
+      ).toContain("unknown_evidence");
+    });
+
+    it("4단계 match 의 evidenceIds 를 활동 id 로 돌리고, 모르는 별칭은 unknown_evidence", () => {
+      const sections = stepSectionIds(4, ctx).map((id) => ({
+        id,
+        status: "no_data",
+        evidence_ids: [],
+      }));
+      const parse = (ids: string[]) =>
+        parseStepResponse(
+          4,
+          JSON.stringify({
+            match: {
+              aligned: [{ text: "일치", evidenceIds: ids }],
+              conflicting: [],
+            },
+            sections,
+          }),
+          ctx,
+        );
+      const ok = parse(["a1", "a3"]);
+      if (!ok.ok) throw new Error(JSON.stringify(ok.issues));
+      expect(ok.output.match?.aligned[0]?.evidenceIds).toEqual([U1, U3]);
+      expect(
+        validateStepOutput(4, ok.output, ctx, {}).issues.map((i) => i.code),
+      ).not.toContain("unknown_evidence");
+      const bad = parse(["a99"]);
+      if (!bad.ok) throw new Error(JSON.stringify(bad.issues));
+      expect(
+        validateStepOutput(4, bad.output, ctx, {}).issues.map((i) => i.code),
+      ).toContain("unknown_evidence");
+    });
+
+    it("5단계 1-10 의 linked 별칭을 활동 id 로 돌리고, 모르는 별칭은 unknown_evidence", () => {
+      const parse = (linked: string[], evidence: string[]) =>
+        parseStepResponse(
+          5,
+          JSON.stringify({
+            formula: consistency.formula,
+            sections: [
+              {
+                id: "1-9",
+                status: "ok",
+                body: { rows: [] },
+                evidence_ids: ["a1"],
+              },
+              {
+                id: "1-10",
+                status: "ok",
+                body: { percent: 33.3, linked },
+                evidence_ids: evidence,
+              },
+            ],
+          }),
+          ctx,
+        );
+      const ok = parse(["a1", "a2"], ["a1"]);
+      if (!ok.ok) throw new Error(JSON.stringify(ok.issues));
+      const s = ok.output.sections?.find((x) => x.id === "1-10");
+      expect(s?.body).toMatchObject({ linked: [U1, U2] });
+      expect(s?.evidence_ids).toEqual([U1]);
+      expect(
+        validateStepOutput(5, ok.output, ctx, {
+          expectedFormula: consistency.formula,
+        }).issues.map((i) => i.code),
+      ).not.toContain("unknown_evidence");
+      const bad = parse([], ["a99"]);
+      if (!bad.ok) throw new Error(JSON.stringify(bad.issues));
+      expect(
+        validateStepOutput(5, bad.output, ctx, {
+          expectedFormula: consistency.formula,
+        }).issues.map((i) => i.code),
+      ).toContain("unknown_evidence");
+    });
+
+    it("6단계와 7단계 섹션 근거도 활동 id 로 돌린다", () => {
+      for (const step of [6, 7] as const) {
+        const r = parseStepResponse(
+          step,
+          JSON.stringify({
+            sections: [section(stepSectionIds(step, ctx)[0] as string)],
+            planDraft: [],
+          }),
+          ctx,
+          step === 6 ? { axes: [] } : {},
+        );
+        const issues = r.ok ? [] : r.issues;
+        expect(issues.map((i) => i.code)).not.toContain("unknown_evidence");
+        if (r.ok) expect(r.output.sections?.[0]?.evidence_ids).toEqual([U2]);
+      }
+    });
+
+    it("활동 id 로 직접 답해도 그대로 통과한다", () => {
+      const r = parseStepResponse(
+        3,
+        JSON.stringify({
+          narrative: validNarrative(),
+          sections: [section("1-8", { evidence_ids: [U1] })],
+        }),
+        ctx,
+      );
+      if (!r.ok) throw new Error(JSON.stringify(r.issues));
+      expect(r.output.sections?.[0]?.evidence_ids).toEqual([U1]);
+    });
+  });
+});

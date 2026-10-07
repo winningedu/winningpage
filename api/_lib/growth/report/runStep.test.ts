@@ -5,6 +5,7 @@ import {
   type SectionItem,
 } from "../sections.js";
 import { validateStep } from "../validation.js";
+import { stepSectionIds } from "./prompts.js";
 import {
   type RunStepDeps,
   readStored,
@@ -764,3 +765,226 @@ async function axesOf(ctx: ReportContext) {
   const { computeStep6 } = await import("./compute.js");
   return computeStep6(ctx, []);
 }
+
+describe("활동 id 별칭 응답", () => {
+  const U = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333",
+  ];
+  const uuidPattern =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+  const activities = U.map((id, i) => activity(id, { text: `본문 ${i + 1}` }));
+  const ctx = makeContext({ activities, evidenceIds: U });
+  const sigs = U.map((id, i) => ({
+    activityId: id,
+    axes: [i === 2 ? "C" : "A"],
+    linkage: [],
+    keywords: [],
+    method: null,
+    summary: "s",
+  }));
+  const withSigs = (over: Partial<StoredOutputs> = {}) =>
+    emptyStored({ signals: { byActivity: sigs }, ...over });
+  const bodyOf = (format: string) =>
+    format === "prose"
+      ? "본문"
+      : format === "list"
+        ? []
+        : format === "table"
+          ? { rows: [] }
+          : {};
+  const sectionsFor = async (
+    step: 6 | 7,
+    over: (id: string) => Record<string, unknown> = () => ({}),
+  ) => {
+    const { SECTION_REGISTRY } = await import("../sections.js");
+    return stepSectionIds(step, ctx).map((id) => {
+      const def = SECTION_REGISTRY.find((d) => d.id === id);
+      return {
+        id,
+        status: "ok",
+        evidence_ids: ["a1"],
+        body: bodyOf(def?.format ?? "prose"),
+        ...over(id),
+      };
+    });
+  };
+  const capture = (text: string) => {
+    const seen: string[] = [];
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      seen.push(bundle.user);
+      return reply(text);
+    });
+    return { seen, callModel };
+  };
+
+  it("1단계는 별칭으로 답한 신호를 활동 id 로 저장한다", async () => {
+    const { seen, callModel } = capture(
+      JSON.stringify({
+        signals: [
+          {
+            activityId: "a2",
+            axes: ["B"],
+            method: "실험",
+            keywords: ["열"],
+            summary: "요약",
+          },
+        ],
+      }),
+    );
+    const r = await runStep(1, ctx, emptyStored(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const by = (
+      r.patch.signals as {
+        byActivity: { activityId: string; axes: string[] }[];
+      }
+    ).byActivity;
+    expect(by.map((s) => s.activityId)).toEqual(U);
+    expect(by[1]?.axes).toEqual(["B"]);
+  });
+
+  it("3단계는 별칭 근거를 활동 id 로 저장한다", async () => {
+    const { seen, callModel } = capture(
+      narrativeJson([
+        sec8({
+          evidence_ids: ["a2"],
+          body: [{ text: "a1 반복", evidence_ids: ["a1"] }],
+        }),
+      ]),
+    );
+    const r = await runStep(3, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const s = (r.patch.sections as SectionItem[]).find((x) => x.id === "1-8");
+    expect(s?.evidence_ids).toEqual([U[1]]);
+  });
+
+  it("4단계는 별칭 match 를 활동 id 로 저장한다", async () => {
+    const sections = stepSectionIds(4, ctx).map((id) => ({
+      id,
+      status: "no_data",
+      evidence_ids: [],
+    }));
+    const { seen, callModel } = capture(
+      JSON.stringify({
+        match: {
+          aligned: [{ text: "일치", evidenceIds: ["a3"] }],
+          conflicting: [],
+        },
+        sections,
+      }),
+    );
+    const r = await runStep(4, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    expect(r.output.match?.aligned[0]?.evidenceIds).toEqual([U[2]]);
+  });
+
+  it("5단계는 별칭 근거로 통과하고 연계 활동은 활동 id 다", async () => {
+    const { computeStep5 } = await import("./compute.js");
+    const { expectedFormula } = computeStep5(ctx, sigs as never);
+    const { seen, callModel } = capture(
+      JSON.stringify({
+        formula: expectedFormula,
+        sections: [
+          { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
+          {
+            id: "1-10",
+            status: "ok",
+            evidence_ids: ["a1", "a2"],
+            body: { linked: ["a1"] },
+          },
+        ],
+      }),
+    );
+    const r = await runStep(5, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item?.evidence_ids).toEqual([U[0], U[1]]);
+  });
+
+  it("6단계는 별칭 근거로 통과한다", async () => {
+    const { computeStep6 } = await import("./compute.js");
+    const axes = computeStep6(ctx, sigs as never);
+    const label = (a: string) => axes.find((x) => x.axis === a)?.verdictLabel;
+    const axisRows = (id: string) => {
+      const a = { "2-1": "A", "2-2": "B", "2-3": "C", "2-4": "D", "2-5": "E" }[
+        id
+      ];
+      return a ? { body: { rows: [{ label: "판정", value: label(a) }] } } : {};
+    };
+    const sections = await sectionsFor(6, (id) => ({
+      evidence_ids: id === "2-3" ? ["a3"] : ["a1"],
+      ...axisRows(id),
+    }));
+    const { seen, callModel } = capture(JSON.stringify({ sections }));
+    const r = await runStep(6, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const out = r.output.sections ?? [];
+    expect(out.find((x) => x.id === "2-1")?.evidence_ids.sort()).toEqual(
+      axes.find((x) => x.axis === "A")?.activityIds.sort(),
+    );
+  });
+
+  it("7단계는 설문 대조의 활동 id 를 별칭으로 싣고 별칭 근거로 통과한다", async () => {
+    const { computeStep5, computeStep6 } = await import("./compute.js");
+    const { consistency } = computeStep5(ctx, sigs as never);
+    const axes = computeStep6(ctx, sigs as never);
+    const stored = withSigs({
+      signals: {
+        byActivity: sigs,
+        match: {
+          aligned: [{ text: "일치", evidenceIds: [U[1]] }],
+          conflicting: [],
+        },
+      },
+      narrative_theme: "열과 에너지 흐름",
+      grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+      consistency,
+      axis_scores: axes,
+    });
+    const sections = await sectionsFor(7);
+    const plan = [
+      {
+        program: "deep",
+        title: "탐구 방향 정하기",
+        description: "방향과 조건만 정한다",
+        priority: "required",
+        axis: "C",
+        category: null,
+        period: "semester",
+        periodLabel: "2학기",
+        deadline: null,
+      },
+    ];
+    const { seen, callModel } = capture(
+      JSON.stringify({ sections, planDraft: plan }),
+    );
+    const r = await runStep(7, ctx, stored, deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    expect(seen[0]).toMatch(/"evidenceIds": \[\s*"a2"\s*\]/);
+    expect(r.output.sections?.[0]?.evidence_ids).toEqual([U[0]]);
+  });
+
+  it("모르는 별칭만 쓰면 3단계는 unknown_evidence 로 두 번 실패한다", async () => {
+    const { callModel } = capture(
+      narrativeJson([
+        sec8({
+          evidence_ids: ["a99"],
+          body: [{ text: "x", evidence_ids: ["a99"] }],
+        }),
+      ]),
+    );
+    const r = await runStep(3, ctx, withSigs(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.issues.map((i) => i.code)).toContain("unknown_evidence");
+  });
+});
