@@ -153,13 +153,16 @@ test.describe("자기평가서 모델 포함 완주", () => {
       await expect(
         page.getByRole("checkbox", { name: mineLabel }),
       ).toBeVisible();
-      // 선택 상한이 있어 먼저 다른 후보를 모두 풀고 나서 내 후보를 고른다.
-      const boxes = page.getByRole("checkbox", { name: /선택$/ });
-      const boxCount = await boxes.count();
-      for (let i = 0; i < boxCount; i += 1) {
-        const box = boxes.nth(i);
-        const isMine = (await box.getAttribute("aria-label")) === mineLabel;
-        if (!isMine && (await box.isChecked())) await box.uncheck();
+      // 선택 상한이 있어 먼저 자동 선택된 후보를 모두(내 후보 포함) 풀고 나서 내 후보만 고른다.
+      // 체크 상태로 거른 로케이터에 uncheck 를 쓰면 클릭 직후 대상에서 빠져 사후 확인이 끝나지 않고,
+      // 같은 이름의 후보가 여럿이라 이름으로 고정할 수도 없다. 첫 상자를 click 으로 풀고 개수가 줄기를 기다린다.
+      const checked = page.getByRole("checkbox", {
+        name: /선택$/,
+        checked: true,
+      });
+      for (let left = await checked.count(); left > 0; left -= 1) {
+        await checked.first().click();
+        await expect(checked).toHaveCount(left - 1);
       }
       await expect(analyze).toHaveText("선택한 0건 분석하기");
       await page.getByRole("checkbox", { name: mineLabel }).check();
