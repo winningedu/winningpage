@@ -63,6 +63,7 @@ import {
   ADMIN_SECTION_KEYS,
   type AdminSectionKey,
 } from "./admin/adminSectionKeys";
+import AiTelemetryAdmin from "./admin/aiTelemetry/AiTelemetryAdmin";
 import { adminSettingsConfigs } from "./admin/configs/adminSettings";
 import { admissionConfigs } from "./admin/configs/admission";
 import { boardConfigs } from "./admin/configs/board";
@@ -191,6 +192,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       { key: "goalStudents", label: "목표관리 — 학생 현황", section: "서비스" },
       { key: "growthReports", label: "성장설계 회차", section: "서비스" },
       { key: "selfevalSessions", label: "자기평가서 세션", section: "서비스" },
+      { key: "aiTelemetry", label: "AI 호출 계기판", section: "서비스" },
       {
         key: "premiumBookPages",
         label: "프리미엄 책자 관리",
@@ -327,6 +329,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   tenants: TenantsAdmin,
   growthReports: GrowthReportsAdmin,
   selfevalSessions: SelfevalSessionsAdmin,
+  aiTelemetry: AiTelemetryAdmin,
   inquirySessions: InquirySessionsAdmin,
 };
 
