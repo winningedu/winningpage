@@ -46,14 +46,18 @@ export type ResponseSchema = NonNullable<
   NonNullable<Parameters<typeof callText>[2]>["responseSchema"]
 >;
 
-/** 단계별 응답 최대 출력 토큰. */
+/**
+ * 단계별 응답 최대 출력 토큰(1단계는 묶음 한 번당).
+ * 실측 정상 출력 최대(1단계 묶음 약 1800, 3단계 708, 4단계 4075, 5단계 565, 6단계 2412, 7단계 2654)의 약 2배다.
+ * 반복 루프는 한도까지 같은 문장을 되풀이하므로 한도가 낮을수록 빨리 잘려 단계 예산 안에서 재요청할 수 있다.
+ */
 export const STEP_MAX_OUTPUT_TOKENS: Record<ModelStep, number> = {
   1: 4096,
   3: 2048,
-  4: 3072,
+  4: 4096,
   5: 2048,
-  6: 6144,
-  7: 6144,
+  6: 4096,
+  7: 4096,
 };
 
 const AXIS_LIST: readonly Axis[] = ["A", "B", "C", "D", "E"];

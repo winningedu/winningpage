@@ -163,9 +163,13 @@ type CallStructured = (
     responseMimeType: string;
     responseSchema: PromptBundle["responseSchema"];
     maxOutputTokens: number;
+    temperature: number;
     abortSignal: AbortSignal;
   },
 ) => Promise<{ text: string; finishReason: string | null }>;
+
+/** 성장설계 리포트 모델 온도. 실측에서 0.35 는 반복 루프가 22회 중 9회, 0.2 는 21회 중 4회였다. */
+export const REPORT_MODEL_TEMPERATURE = 0.2;
 
 /** gemini callStructured 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
 export function callModelWith(
@@ -176,6 +180,7 @@ export function callModelWith(
       responseMimeType: "application/json",
       responseSchema: bundle.responseSchema,
       maxOutputTokens: bundle.maxOutputTokens,
+      temperature: REPORT_MODEL_TEMPERATURE,
       abortSignal: signal,
     });
 }
