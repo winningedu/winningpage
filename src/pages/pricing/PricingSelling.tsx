@@ -160,7 +160,7 @@ export default function PricingSelling({
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 장바구니·합계에 넣지 않는다.
+      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 장바구니와 합계에 넣지 않는다.
       if (!product?.isOrderable) return;
       items.push({
         id: product.id,

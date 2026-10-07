@@ -87,11 +87,11 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
 
 // products 테이블에서 활성 상품을 조회해 서비스별로 그룹핑한 배열을 반환한다.
 // serviceKey를 넘기면 해당 서비스 상품만 조회한다. is_orderable=false 상품도 함께
-// 돌려주고 각 상품의 isOrderable 로 구분한다 — 결제 카탈로그(ParentCheckout.tsx,
+// 돌려주고 각 상품의 isOrderable 로 구분한다, 결제 카탈로그(ParentCheckout.tsx,
 // StudentEnrollmentRequest.tsx)는 카드를 보이되 선택만 막는다(예전엔 화면마다
 // ALLOWED_SERVICE_KEYS 하드코딩 상수로 중복 유지하다 드리프트로 결제 차단 버그가
-// 났다 — is_orderable 컬럼 도입 배경, supabase/migrations/20260825000000). 조회
-// 실패 시 예외를 던진다(호출부인 useProducts가 error 상태로 변환한다) — 조용히
+// 났다, is_orderable 컬럼 도입 배경, supabase/migrations/20260825000000). 조회
+// 실패 시 예외를 던진다(호출부인 useProducts가 error 상태로 변환한다), 조용히
 // 빈 배열을 반환하지 않는다.
 async function fetchProducts(
   serviceKey?: string | null,

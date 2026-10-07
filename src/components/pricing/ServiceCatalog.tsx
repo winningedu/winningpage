@@ -314,7 +314,7 @@ export default function ServiceCatalog({
                 // 없으면(아직 아무것도 고르지 않은 초기 상태) 첫 항목만 0. 나머지는 -1 —
                 // 그룹 전체가 Tab 정지점 하나가 되고, 그룹 안 이동은 화살표 키가 맡는다.
                 const hasSelectionInGroup = Boolean(selected[service.key]);
-                // 주문 불가 상품은 disabled 라 포커스를 받지 못한다 — 선택이 없을 때의
+                // 주문 불가 상품은 disabled 라 포커스를 받지 못한다, 선택이 없을 때의
                 // 대표 탭 정지점은 첫 "주문 가능" 항목이다.
                 const isRovingTabStop = hasSelectionInGroup
                   ? isSelected

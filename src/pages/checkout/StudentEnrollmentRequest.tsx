@@ -191,7 +191,7 @@ export default function StudentEnrollmentRequest() {
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 요청·합계에 넣지 않는다.
+      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 요청과 합계에 넣지 않는다.
       if (!product?.isOrderable) return;
       items.push({
         id: product.id,

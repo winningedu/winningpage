@@ -5,7 +5,7 @@ const { rows } = vi.hoisted(() => ({
   rows: { current: [] as Record<string, unknown>[] },
 }));
 
-// supabase 쿼리 빌더 — 체이닝 메서드는 자기 자신을 돌려주고 await 시 rows 를 준다.
+// supabase 쿼리 빌더, 체이닝 메서드는 자기 자신을 돌려주고 await 시 rows 를 준다.
 vi.mock("./supabase", () => ({
   supabase: {
     from: () => {

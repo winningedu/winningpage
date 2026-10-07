@@ -385,7 +385,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
 
   // 카탈로그 — 학생이 이미 고른 상품을 학부모가 바꿀 수 있게(StudentEnrollmentRequest.tsx
   // 와 동일 패턴). is_orderable=false 상품(콜멘토 제공 예정 등)도 함께 받아 카드는
-  // 보이되 선택은 막는다(isOrderable) — 예전 ALLOWED_SERVICE_KEYS 하드코딩 상수는 제거했다(드리프트로 diagnose
+  // 보이되 선택은 막는다(isOrderable), 예전 ALLOWED_SERVICE_KEYS 하드코딩 상수는 제거했다(드리프트로 diagnose
   // 누락 버그, is_orderable 컬럼 도입 배경). productsLoading/productsError 로 이름을
   // 바꿔 위 결제 loading state 와 충돌하지 않게 한다.
   const {
@@ -486,7 +486,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      // 주문 불가 상품은 원 주문 프리필로 selected 에 들어와도 결제 항목·합계에
+      // 주문 불가 상품은 원 주문 프리필로 selected 에 들어와도 결제 항목과 합계에
       // 넣지 않는다(missingOrderItem 이 그 경우를 결제 차단으로 알린다).
       if (!product?.isOrderable) return;
       items.push({
