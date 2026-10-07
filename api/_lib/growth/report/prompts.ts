@@ -29,6 +29,7 @@ import {
   type AliasTable,
   buildAliasTable,
   restoreEvidenceIds,
+  scrubAliasText,
   toAlias,
 } from "./evidenceAlias.js";
 import type {
@@ -276,6 +277,7 @@ const COMMON_RULES = [
   "",
   "근거 표시 원칙",
   "- 판단의 근거(evidence_ids)에는 그 판단을 가장 직접 뒷받침하는 활동만 최대 3개 쓰고 활동 전체를 나열하지 않는다. 입력에 없는 id 를 만들지 않는다.",
+  "- 학생에게 보이는 글에는 활동 별칭이나 id 를 쓰지 않는다. 활동은 주제로 가리키고, 근거는 evidence_ids 와 evidenceIds 에만 단다.",
   "- 활동 id 는 a1, a2 같은 짧은 별칭이다. 근거에는 입력에 있는 별칭만 그대로 쓰고 다른 글자를 붙이지 않는다.",
   "- 확인된 사실과 제안을 섞지 않는다. 각 항목의 badge 는 안내된 값 그대로 따른다.",
   "- 자료가 없으면 status 를 no_data 로 두고 no_data_reason 에 자료 없음 이라고 쓴다. 지어내지 않는다.",
@@ -420,6 +422,7 @@ const STEP_RULES: Record<ModelStep, string> = {
     "6단계: A부터 E 5축 진단",
     "앱이 계산한 축별 판정을 서술로 풀어 쓴다. 판정과 판정 라벨은 입력의 verdictLabel 그대로 쓰고 바꾸지 않는다. 바꾸면 검증에 실패한다.",
     "각 축 항목의 rows 에는 label 이 판정인 행(value 는 verdictLabel), 근거 활동 행, 대학 평가요소 대응 행을 두고, 부족하면 무엇이 부족한지 행을 더한다.",
+    "근거 활동 행의 value 에는 활동 주제를 쓰고 별칭은 쓰지 않는다. 그 행의 대표 근거는 행의 evidence_ids 에 단다.",
     "축별 대학 평가요소 대응은 입력의 universityFactor 를 따른다.",
     "count 가 0 인 축은 status 를 no_data 로 두고 no_data_reason 에 자료 없음이라고 쓰며 body 를 쓰지 않는다.",
     "축 항목 2-1 부터 2-5 의 evidence_ids 는 앱이 채우니 빈 배열로 둔다.",
@@ -870,7 +873,9 @@ export function parseStepResponse(
   if (!isRecord(parsed))
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
   // 모델은 별칭으로 답하므로 근거 필드를 활동 id 로 되돌린 뒤 단계별로 파싱한다.
-  parsed = restoreEvidenceIds(buildAliasTable(context), parsed);
+  // 먼저 본문에 새어 나온 별칭을 지우고 근거 필드로 옮긴다.
+  const aliasTable = buildAliasTable(context);
+  parsed = restoreEvidenceIds(aliasTable, scrubAliasText(aliasTable, parsed));
   if (!isRecord(parsed))
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
   if (step === 1)
