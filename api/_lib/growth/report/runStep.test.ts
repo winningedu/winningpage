@@ -594,10 +594,14 @@ describe("6단계 축 섹션 정규화", () => {
           ? { rows: [] }
           : {};
 
-  it("근거 없는 축을 ok 로 쓰거나 빠뜨려도 앱이 no_data 로 정규화해 한 번에 통과한다", async () => {
+  it("근거 없는 축은 모델을 부르지 않고 앱이 no_data 로 확정해 한 번에 통과한다", async () => {
     const { computeStep6 } = await import("./compute.js");
     const { SECTION_REGISTRY } = await import("../sections.js");
-    const ctx = makeContext();
+    const ctx = makeContext({
+      activities: ["a1", "a2", "a3"].map((id) =>
+        activity(id, { gradeLabel: "고2" }),
+      ),
+    });
     const axes = computeStep6(ctx, sigs as never);
     const label = (a: string) => axes.find((x) => x.axis === a)?.verdictLabel;
     const axisRow = (a: string) => ({
@@ -616,18 +620,34 @@ describe("6단계 축 섹션 정규화", () => {
     const sections = [
       mk("2-1", { evidence_ids: [], body: axisRow("A") }),
       mk("2-3", { evidence_ids: ["a3"], body: axisRow("C") }),
-      mk("2-5", { evidence_ids: [], body: axisRow("E") }),
       ...["2-6", "2-7", "2-8", "2-9", "2-10"].map((id) => mk(id, {})),
     ];
-    const callModel = vi.fn(async () => reply(JSON.stringify({ sections })));
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      const id = /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(
+        bundle.user,
+      )?.[1];
+      return reply(
+        JSON.stringify({ sections: sections.filter((x) => x.id === id) }),
+      );
+    });
     const r = await runStep(
       6,
       ctx,
-      { ...emptyStored({ signals: { byActivity: sigs } }) },
+      {
+        ...emptyStored({
+          signals: {
+            byActivity: sigs,
+            match: { aligned: [], conflicting: [] },
+          },
+          narrative_theme: "열 흐름",
+          grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+        }),
+      },
       deps({ callModel }),
     );
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
-    expect(callModel).toHaveBeenCalledTimes(1);
+    // 근거 활동이 있는 A, C 축 섹션과 축이 아닌 5개 섹션만 부른다.
+    expect(callModel).toHaveBeenCalledTimes(7);
     const out = r.output.sections ?? [];
     const byId = (id: string) => out.find((x) => x.id === id);
     expect(byId("2-1")?.evidence_ids.sort()).toEqual(
@@ -905,7 +925,33 @@ describe("활동 id 별칭 응답", () => {
     summary: "s",
   }));
   const withSigs = (over: Partial<StoredOutputs> = {}) =>
-    emptyStored({ signals: { byActivity: sigs }, ...over });
+    emptyStored({
+      signals: { byActivity: sigs },
+      narrative_theme: "열 흐름",
+      grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+      ...over,
+    });
+  /** 섹션 호출이면 그 섹션 하나만 담은 응답을 낸다. 아니면 full 을 그대로 낸다. */
+  const perCall = (
+    sections: { id: string }[],
+    otherwise: Record<string, unknown> = {},
+  ) =>
+    capturePer((user) => {
+      const id = /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(
+        user,
+      )?.[1];
+      return id
+        ? JSON.stringify({ sections: sections.filter((x) => x.id === id) })
+        : JSON.stringify(otherwise);
+    });
+  const capturePer = (respond: (user: string) => string) => {
+    const seen: string[] = [];
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      seen.push(bundle.user);
+      return reply(respond(bundle.user));
+    });
+    return { seen, callModel };
+  };
   const bodyOf = (format: string) =>
     format === "prose"
       ? "본문"
@@ -987,15 +1033,12 @@ describe("활동 id 별칭 응답", () => {
       status: "no_data",
       evidence_ids: [],
     }));
-    const { seen, callModel } = capture(
-      JSON.stringify({
-        match: {
-          aligned: [{ text: "일치", evidenceIds: ["a3"] }],
-          conflicting: [],
-        },
-        sections,
-      }),
-    );
+    const { seen, callModel } = perCall(sections, {
+      match: {
+        aligned: [{ text: "일치", evidenceIds: ["a3"] }],
+        conflicting: [],
+      },
+    });
     const r = await runStep(4, ctx, withSigs(), deps({ callModel }));
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(seen[0]).not.toMatch(uuidPattern);
@@ -1040,8 +1083,18 @@ describe("활동 id 별칭 응답", () => {
       evidence_ids: id === "2-3" ? ["a3"] : ["a1"],
       ...axisRows(id),
     }));
-    const { seen, callModel } = capture(JSON.stringify({ sections }));
-    const r = await runStep(6, ctx, withSigs(), deps({ callModel }));
+    const { seen, callModel } = perCall(sections);
+    const r = await runStep(
+      6,
+      ctx,
+      withSigs({
+        signals: {
+          byActivity: sigs,
+          match: { aligned: [], conflicting: [] },
+        },
+      }),
+      deps({ callModel }),
+    );
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(seen[0]).not.toMatch(uuidPattern);
     const out = r.output.sections ?? [];

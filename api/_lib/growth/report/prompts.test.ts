@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import { NO_DATA_TEXT } from "../sections.js";
 import {
   buildStepPrompt,
+  MATCH_CALL_MAX_OUTPUT_TOKENS,
   normalizeAxisSections,
+  PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS,
   parseStepResponse,
+  SECTION_CALL_MAX_OUTPUT_TOKENS,
   STEP_MAX_OUTPUT_TOKENS,
   STEP_RESPONSE_SCHEMAS,
+  type StepCall,
+  stepCalls,
   stepSectionIds,
   validateStepOutput,
 } from "./prompts.js";
@@ -64,15 +69,18 @@ describe("단계 상수", () => {
     expect(STEP_MAX_OUTPUT_TOKENS).toEqual({
       1: 4096,
       3: 2048,
-      4: 4096,
       5: 2048,
-      6: 4096,
-      7: 4096,
     });
   });
 
-  it("단계마다 응답 스키마가 있다", () => {
-    for (const step of [1, 3, 4, 5, 6, 7] as const) {
+  it("호출별 출력 토큰 상한은 섹션 1536, match 1536, planDraft 2048 이다", () => {
+    expect(SECTION_CALL_MAX_OUTPUT_TOKENS).toBe(1536);
+    expect(MATCH_CALL_MAX_OUTPUT_TOKENS).toBe(1536);
+    expect(PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS).toBe(2048);
+  });
+
+  it("단일 호출 단계마다 응답 스키마가 있다", () => {
+    for (const step of [1, 3, 5] as const) {
       expect(STEP_RESPONSE_SCHEMAS[step]).toMatchObject({ type: "object" });
     }
   });
@@ -864,19 +872,92 @@ describe("buildStepPrompt", () => {
     axes,
   };
   const steps = [1, 3, 4, 5, 6, 7] as const;
+  // 4, 6, 7단계는 호출 종류를 함께 넘긴다. 기본은 각 단계의 첫 섹션 호출이다.
+  const FIRST_CALL = {
+    4: { kind: "section", id: "1-2" },
+    6: { kind: "section", id: "2-1" },
+    7: { kind: "section", id: "3-2" },
+  } as const;
+  const build = (
+    step: (typeof steps)[number],
+    over: Partial<Parameters<typeof buildStepPrompt>[1]> = {},
+    notes: string[] = [],
+  ) =>
+    buildStepPrompt(
+      step,
+      {
+        context: ctx,
+        prior,
+        ...(step === 4 || step === 6 || step === 7
+          ? { call: FIRST_CALL[step] }
+          : {}),
+        ...over,
+      },
+      notes,
+    );
+  /** 4, 6, 7단계의 모든 호출 종류. */
+  const everyCall: [4 | 6 | 7, StepCall][] = [
+    [4, { kind: "section", id: "1-2" }],
+    [4, { kind: "match" }],
+    [6, { kind: "section", id: "2-1" }],
+    [6, { kind: "section", id: "2-6" }],
+    [7, { kind: "section", id: "3-2" }],
+    [7, { kind: "planDraft" }],
+  ];
 
-  it("6단계 규칙에 count 0 축 no_data 와 activityIds 근거 지시가 있다", () => {
-    const system = buildStepPrompt(6, {
-      context: makeContext(),
-      prior: { axes: [] },
-    }).system;
-    expect(system).toContain("count 가 0 인 축은 status 를 no_data");
+  it("6단계 축 섹션 호출 규칙에 판정 값 고정과 evidence_ids 앱 채움 지시가 있고 count 0 지시는 없다", () => {
+    const system = build(6).system;
     expect(system).toContain("evidence_ids 는 앱이 채우니 빈 배열로 둔다");
+    expect(system).not.toContain("count 가 0 인 축");
   });
 
-  it("모든 단계 system 에 근거 원칙과 금지 표현이 있다", () => {
-    for (const step of steps) {
-      const b = buildStepPrompt(step, { context: ctx, prior });
+  it("6단계 축이 아닌 섹션 호출에는 판정 지시가 없다", () => {
+    const system = build(6, { call: { kind: "section", id: "2-6" } }).system;
+    expect(system).not.toContain("verdictLabel");
+  });
+
+  it("4, 6, 7단계 호출 종류별로 호출 한도와 응답 스키마가 다르다", () => {
+    const section = build(4);
+    expect(section.maxOutputTokens).toBe(SECTION_CALL_MAX_OUTPUT_TOKENS);
+    expect(section.responseSchema).toMatchObject({ required: ["sections"] });
+    const match = build(4, { call: { kind: "match" } });
+    expect(match.maxOutputTokens).toBe(MATCH_CALL_MAX_OUTPUT_TOKENS);
+    expect(match.responseSchema).toMatchObject({ required: ["match"] });
+    const plan = build(7, { call: { kind: "planDraft" } });
+    expect(plan.maxOutputTokens).toBe(PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS);
+    expect(plan.responseSchema).toMatchObject({ required: ["planDraft"] });
+  });
+
+  it("4, 6, 7단계는 호출 종류 없이 만들면 던진다", () => {
+    for (const step of [4, 6, 7] as const)
+      expect(() => buildStepPrompt(step, { context: ctx, prior })).toThrow();
+  });
+
+  it("stepCalls 는 섹션 호출 뒤에 4단계 match, 7단계 planDraft 를 두고 근거 없는 축은 6단계에서 거른다", () => {
+    const c4 = stepCalls(4, ctx);
+    expect(c4.map((c) => (c.kind === "section" ? c.id : c.kind))).toEqual([
+      "1-2",
+      "1-6",
+      "1-7",
+      "1-11",
+      "match",
+    ]);
+    const c7 = stepCalls(7, ctx);
+    expect(c7.at(-1)).toEqual({ kind: "planDraft" });
+    expect(c7).toHaveLength(10);
+    const c6 = stepCalls(6, ctx, [
+      { ...axes[0], axis: "A", count: 2 },
+      { ...axes[0], axis: "B", count: 0 },
+    ] as never);
+    const ids6 = c6.map((c) => (c.kind === "section" ? c.id : c.kind));
+    expect(ids6).toContain("2-1");
+    expect(ids6).not.toContain("2-2");
+    expect(ids6).toContain("2-6");
+  });
+
+  it("모든 호출 system 에 근거 원칙과 금지 표현이 있다", () => {
+    for (const step of [1, 3, 5] as const) {
+      const b = build(step);
       expect(b.system).toContain("evidence_ids");
       expect(b.system).toContain("자료 없음");
       expect(b.system).toContain("합격 가능성");
@@ -884,11 +965,18 @@ describe("buildStepPrompt", () => {
       expect(b.maxOutputTokens).toBe(STEP_MAX_OUTPUT_TOKENS[step]);
       expect(b.responseSchema).toBe(STEP_RESPONSE_SCHEMAS[step]);
     }
+    for (const [step, call] of everyCall) {
+      const b = build(step, { call });
+      expect(b.system).toContain("evidence_ids");
+      expect(b.system).toContain("자료 없음");
+      expect(b.system).toContain("합격 가능성");
+      expect(b.system).toContain("JSON");
+    }
   });
 
-  it("모든 단계 system 에 분량 원칙과 반복 금지가 있다", () => {
+  it("모든 호출 system 에 분량 원칙과 반복 금지가 있다", () => {
     for (const step of steps) {
-      const b = buildStepPrompt(step, { context: ctx, prior });
+      const b = build(step);
       expect(b.system).toContain("분량 원칙");
       expect(b.system).toContain("350자 이내");
       expect(b.system).toContain("120자 이내");
@@ -899,21 +987,24 @@ describe("buildStepPrompt", () => {
   });
 
   it("4단계 1-2 지시는 활동 근거 없이 쓰고 evidence_ids 를 비우게 한다", () => {
-    const b = buildStepPrompt(4, { context: ctx, prior });
+    const b = build(4);
     expect(b.user).toContain(
       "이 항목은 활동 근거 없이 쓴다. evidence_ids 는 비워 둔다.",
     );
   });
 
   it("7단계 규칙은 항목마다 조건을 2~3개만 쓰게 한다", () => {
-    const b = buildStepPrompt(7, { context: ctx, prior });
+    const b = build(7);
     expect(b.system).toContain("조건은 2~3개만");
   });
 
   it("새 텍스트에 금지 기호가 없다", () => {
     const banned = ["\u2014", "\u2013", "\u00b7", "\u2192"];
-    for (const step of steps) {
-      const b = buildStepPrompt(step, { context: ctx, prior });
+    const bundles = [
+      ...[1, 3, 5].map((step) => build(step as 1 | 3 | 5)),
+      ...everyCall.map(([step, call]) => build(step, { call })),
+    ];
+    for (const b of bundles) {
       for (const ch of banned) {
         expect(b.system.includes(ch)).toBe(false);
         expect(b.user.replace(/÷|×/g, "").includes(ch)).toBe(false);
@@ -949,7 +1040,7 @@ describe("buildStepPrompt", () => {
   });
 
   it("4단계 user 에 설문 전체와 신호가 들어간다", () => {
-    const b = buildStepPrompt(4, { context: ctx, prior: { signals } });
+    const b = build(4);
     expect(b.user).toContain("물리학자");
     expect(b.user).toContain("a2 요약");
     expect(b.system).toContain("no_data");
@@ -980,14 +1071,14 @@ describe("buildStepPrompt", () => {
   });
 
   it("6단계 user 에 축 평가가 들어가고 앱이 만드는 대학 평가요소는 빠진다", () => {
-    const b = buildStepPrompt(6, { context: ctx, prior });
+    const b = build(6);
     expect(b.user).toContain("판단 근거로 쓴 기록 5건");
     expect(b.user).not.toContain("universityFactor");
     expect(b.system).toContain("판정");
   });
 
   it("6단계 규칙은 판정, 근거 활동, 대학 평가요소 대응 행을 앱이 만든다며 해석과 부족한 점만 쓰라고 한다", () => {
-    const b = buildStepPrompt(6, { context: ctx, prior });
+    const b = build(6);
     expect(b.system).toContain("앱이 만드므로 쓰지 않는다");
     expect(b.system).toContain("해석");
     expect(b.system).toContain("부족한 점");
@@ -995,23 +1086,30 @@ describe("buildStepPrompt", () => {
     expect(b.system).not.toContain("universityFactor");
     expect(b.system).toContain("verdictLabel");
     expect(b.system).toContain("no_data");
-    const spec = buildStepPrompt(6, { context: ctx, prior }).user;
+    const spec = build(6).user;
     expect(spec).toContain("해석 한 행");
     expect(spec).not.toContain("rows 에 판정, 근거 활동");
   });
 
   it("7단계는 주제 생성 금지와 숫자 금지를 지시하고 제외 항목은 요청하지 않는다", () => {
-    const b = buildStepPrompt(7, {
-      context: makeContext({
-        omitted: { ids: ["3-2"], reasons: ["고1은 대상이 아님"] },
-      }),
-      prior,
+    const omittedCtx = makeContext({
+      omitted: { ids: ["3-2"], reasons: ["고1은 대상이 아님"] },
     });
-    expect(b.system).toContain("방향과 조건까지만");
-    expect(b.system).toContain("등급");
-    expect(b.user).not.toContain('"3-2"');
-    expect(b.user).toContain('"3-3"');
-    expect(b.user).toContain("고1은 대상이 아님");
+    const calls = stepCalls(7, omittedCtx);
+    expect(calls.some((c) => c.kind === "section" && c.id === "3-2")).toBe(
+      false,
+    );
+    const section = build(7, {
+      context: omittedCtx,
+      call: { kind: "section", id: "3-3" },
+    });
+    expect(section.system).toContain("방향과 조건까지만");
+    expect(section.user).not.toContain('"3-2"');
+    expect(section.user).toContain('"3-3"');
+    expect(section.user).toContain("고1은 대상이 아님");
+    const plan = build(7, { context: omittedCtx, call: { kind: "planDraft" } });
+    expect(plan.system).toContain("등급");
+    expect(plan.user).not.toContain("작성할 항목");
   });
 
   it("retryNotes 가 있으면 user 끝에 이전 응답의 문제 블록을 붙인다", () => {
@@ -1026,7 +1124,13 @@ describe("buildStepPrompt", () => {
 
   it("필요한 이전 단계 결과가 없으면 던진다", () => {
     expect(() => buildStepPrompt(3, { context: ctx, prior: {} })).toThrow();
-    expect(() => buildStepPrompt(6, { context: ctx, prior: {} })).toThrow();
+    expect(() =>
+      buildStepPrompt(6, {
+        context: ctx,
+        prior: {},
+        call: { kind: "section", id: "2-1" },
+      }),
+    ).toThrow();
   });
 });
 
@@ -1320,19 +1424,37 @@ describe("활동 id 별칭", () => {
   it.each([1, 3, 4, 5, 6, 7] as const)(
     "%i단계 user 에는 활동 id 가 없고 별칭이 있다",
     (step) => {
-      const { user } = buildStepPrompt(step, { context: ctx, prior });
+      const { user } = buildStepPrompt(step, {
+        context: ctx,
+        prior,
+        ...(step === 4
+          ? { call: { kind: "section", id: "1-2" } as const }
+          : step === 6
+            ? { call: { kind: "section", id: "2-1" } as const }
+            : step === 7
+              ? { call: { kind: "section", id: "3-2" } as const }
+              : {}),
+      });
       expect(user).not.toMatch(uuidPattern);
       expect(user).toContain('"a1"');
     },
   );
 
   it("6단계 축 진단의 activityIds 도 별칭이다", () => {
-    const { user } = buildStepPrompt(6, { context: ctx, prior });
+    const { user } = buildStepPrompt(6, {
+      context: ctx,
+      prior,
+      call: { kind: "section", id: "2-1" },
+    });
     expect(user).toMatch(/"activityIds": \[\s*"a1",\s*"a3"\s*\]/);
   });
 
   it("7단계 설문 대조의 근거도 별칭이다", () => {
-    const { user } = buildStepPrompt(7, { context: ctx, prior });
+    const { user } = buildStepPrompt(7, {
+      context: ctx,
+      prior,
+      call: { kind: "planDraft" },
+    });
     expect(user).toMatch(/"evidenceIds": \[\s*"a2"\s*\]/);
   });
 
@@ -1585,10 +1707,35 @@ describe("모델 근거 목록 대표 3개 절단", () => {
   });
 
   it("응답 스키마에는 maxItems 를 넣지 않는다", () => {
-    for (const step of [3, 4, 5, 6, 7] as const)
+    for (const step of [3, 5] as const)
       expect(JSON.stringify(STEP_RESPONSE_SCHEMAS[step])).not.toContain(
         "maxItems",
       );
+    const calls: [4 | 7, StepCall][] = [
+      [4, { kind: "section", id: "1-2" }],
+      [4, { kind: "match" }],
+      [7, { kind: "planDraft" }],
+    ];
+    for (const [step, call] of calls)
+      expect(
+        JSON.stringify(
+          buildStepPrompt(step, {
+            context: makeContext(),
+            call,
+            prior: {
+              signals: [],
+              narrative: validNarrative() as never,
+              match: { aligned: [], conflicting: [] },
+              consistency: {
+                percent: 0,
+                verdictLabel: "없음",
+                smallSample: true,
+              } as never,
+              axes: [],
+            },
+          }).responseSchema,
+        ),
+      ).not.toContain("maxItems");
   });
 });
 
@@ -1759,5 +1906,107 @@ describe("1-9 학기 근거는 앱이 채운다", () => {
     expect(
       validateStepOutput(5, r.output, ctx, {}).issues.map((i) => i.code),
     ).toContain("missing_evidence");
+  });
+});
+
+describe("호출 범위 파싱과 검증", () => {
+  const ctx = makeContext();
+  const section = (id: string) => ({
+    id,
+    status: "ok",
+    evidence_ids: ["a1"],
+    body: { text: "서술" },
+  });
+
+  it("섹션 호출은 그 섹션 하나만 기대하고 다른 섹션이 없어도 통과한다", () => {
+    const r = parseStepResponse(
+      4,
+      JSON.stringify({ sections: [section("1-11")] }),
+      ctx,
+      { call: { kind: "section", id: "1-11" } },
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.output.sections?.map((s) => s.id)).toEqual(["1-11"]);
+    expect(r.output.match).toBeUndefined();
+  });
+
+  it("섹션 호출이 요청한 섹션을 빠뜨리면 missing_section 이다", () => {
+    const r = parseStepResponse(
+      4,
+      JSON.stringify({ sections: [section("1-6")] }),
+      ctx,
+      { call: { kind: "section", id: "1-11" } },
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues.map((i) => i.code)).toEqual(["missing_section"]);
+  });
+
+  it("match 호출은 섹션 없이 match 만 파싱한다", () => {
+    const r = parseStepResponse(
+      4,
+      JSON.stringify({
+        match: {
+          aligned: [{ text: "일치", evidenceIds: ["a2"] }],
+          conflicting: [],
+        },
+      }),
+      ctx,
+      { call: { kind: "match" } },
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.output.match?.aligned).toHaveLength(1);
+    expect(r.output.sections).toEqual([]);
+  });
+
+  it("match 호출이 모르는 근거를 가리키면 unknown_evidence 다", () => {
+    const v = validateStepOutput(
+      4,
+      {
+        step: 4,
+        sections: [],
+        match: {
+          aligned: [{ text: "일치", evidenceIds: ["zz"] }],
+          conflicting: [],
+        },
+      },
+      ctx,
+      { call: { kind: "match" } },
+    );
+    expect(v.issues.map((i) => i.code)).toContain("unknown_evidence");
+  });
+
+  it("7단계 섹션 호출은 planDraft 가 없어도 실행계획 상한 검증을 하지 않는다", () => {
+    const sections = [
+      { ...section("3-2"), title: "t", format: "prose", badge: "fact" },
+    ] as never;
+    const sectionCall = validateStepOutput(7, { step: 7, sections }, ctx, {
+      call: { kind: "section", id: "3-2" },
+    });
+    expect(sectionCall.issues.map((i) => i.code)).not.toContain(
+      "no_required_plan_item",
+    );
+    const planCall = validateStepOutput(7, { step: 7, planDraft: [] }, ctx, {
+      call: { kind: "planDraft" },
+    });
+    expect(planCall.issues.map((i) => i.code)).toContain(
+      "no_required_plan_item",
+    );
+  });
+
+  it("6단계 섹션 호출은 다른 축 섹션을 끼워 넣지 않는다", () => {
+    const axes = [
+      { axis: "A", count: 1, verdictLabel: "주의", activityIds: ["a1"] },
+      { axis: "B", count: 0, verdictLabel: "없음", activityIds: [] },
+    ] as never;
+    const r = parseStepResponse(
+      6,
+      JSON.stringify({
+        sections: [{ ...section("2-1"), body: { rows: [] } }],
+      }),
+      ctx,
+      { axes, call: { kind: "section", id: "2-1" } },
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.output.sections?.map((s) => s.id)).toEqual(["2-1"]);
   });
 });

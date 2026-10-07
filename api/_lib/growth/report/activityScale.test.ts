@@ -1,4 +1,5 @@
 // 활동 수가 16, 37, 60, 120건이어도 1~8단계가 출력 한도 안에서 끝나는지 목 모델로 확인한다.
+// 4, 6, 7단계는 섹션마다(4단계는 match, 7단계는 planDraft 도) 따로 부르므로 한도도 호출 종류별로 본다.
 // 목 모델은 최악의 모델이다. 근거 필드마다 프롬프트에 나온 별칭을 전부 나열하고(대표 3개 규칙 무시),
 // 요청된 항목을 모두 분량 원칙의 최대 길이로 쓴다. 출력 토큰은 글자 수로 어림한다.
 
@@ -166,7 +167,16 @@ type WorstInput = {
   batchIds: string[];
   /** 6단계 축별 verdictLabel. */
   verdictLabels: Record<string, string>;
+  /** 나눈 호출이면 그 호출이 만들 것. 없으면 단계 전체(옛 구조 대조군). */
+  only?: CallKindInfo;
+  /** 참이면 표 본문을 분량 원칙 최대(8행, 80자)로 쓰고 근거를 전부 나열한다. 한 섹션 호출을 한도 밖으로 보내는 모델이다. */
+  maximal?: boolean;
 };
+
+type CallKindInfo =
+  | { kind: "section"; id: string }
+  | { kind: "match" }
+  | { kind: "planDraft" };
 
 const AXIS_OF_SECTION: Record<string, string> = {
   "2-1": "A",
@@ -227,6 +237,13 @@ function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
           })),
         };
       }
+      if (w.maximal) {
+        return {
+          rows: Array.from({ length: 8 }, () =>
+            entry({ label: ko(80), value: ko(80) }),
+          ),
+        };
+      }
       return { rows: Array.from({ length: LEN.rows }, () => entry()) };
     }
     default:
@@ -235,7 +252,12 @@ function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
 }
 
 function sectionsFor(w: WorstInput) {
-  return stepSectionIds(w.step, w.context).map((id) => {
+  const only = w.only;
+  if (only && only.kind !== "section") return [];
+  const ids = stepSectionIds(w.step, w.context).filter(
+    (id) => !only || id === only.id,
+  );
+  return ids.map((id) => {
     const def = SECTION_REGISTRY.find((d) => d.id === id);
     if (!def) throw new Error(`레지스트리에 없는 항목 ${id}`);
     return {
@@ -279,11 +301,15 @@ function worstResponse(w: WorstInput): unknown {
         },
         sections: sectionsFor(w),
       };
-    case 4:
-      return {
-        match: { aligned: matchList(w.ids), conflicting: matchList(w.ids) },
-        sections: sectionsFor(w),
+    case 4: {
+      const match = {
+        aligned: matchList(w.ids),
+        conflicting: matchList(w.ids),
       };
+      if (w.only?.kind === "match") return { match };
+      if (w.only) return { sections: sectionsFor(w) };
+      return { match, sections: sectionsFor(w) };
+    }
     case 5:
       return { sections: sectionsFor(w) };
     case 6:
@@ -300,10 +326,10 @@ function worstResponse(w: WorstInput): unknown {
           axis: "C",
           category: ko(10),
         }));
-      return {
-        sections: sectionsFor(w),
-        planDraft: [...plan("required"), ...plan("recommended")],
-      };
+      const planDraft = [...plan("required"), ...plan("recommended")];
+      if (w.only?.kind === "planDraft") return { planDraft };
+      if (w.only) return { sections: sectionsFor(w) };
+      return { sections: sectionsFor(w), planDraft };
     }
   }
 }
@@ -321,6 +347,9 @@ function aliasesIn(user: string): string[] {
 
 type CallLog = {
   step: number;
+  /** single 은 1, 3, 5단계의 단일 호출이다. */
+  kind: "single" | "section" | "match" | "planDraft";
+  sectionId: string | null;
   tokens: number;
   limit: number;
   cut: boolean;
@@ -336,8 +365,20 @@ function representative(aliases: string[]): string[] {
   );
 }
 
+/** 프롬프트의 "작성할 항목" 블록에서 섹션 호출의 섹션 id 를 읽는다. */
+const sectionIdOf = (user: string): string | undefined =>
+  /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(user)?.[1];
+
+/** 단계와 프롬프트로 호출 종류를 알아낸다. 4, 6, 7단계 섹션 호출이 아닌 호출은 4단계 match, 7단계 planDraft 다. */
+function callOf(step: number, user: string): CallKindInfo | null {
+  if (step !== 4 && step !== 6 && step !== 7) return null;
+  const id = sectionIdOf(user);
+  if (id) return { kind: "section", id };
+  return step === 4 ? { kind: "match" } : { kind: "planDraft" };
+}
+
 type RunOptions = {
-  /** 6단계 첫 호출만 대표 근거 규칙을 무시하고 모든 별칭을 모든 근거 필드에 나열한다. */
+  /** 6단계 2-6 섹션의 첫 호출만 대표 근거 규칙을 무시하고 모든 별칭을 모든 근거 필드에 나열하며 표를 최대 분량으로 쓴다. */
   ignoreRuleOnStep6?: boolean;
   /** 참이면 3~7단계 응답의 본문 문자열 끝에 입력의 별칭 목록을 덧붙인다. 한도 판정은 이 원문 기준이다. */
   leakAliasesInText?: boolean;
@@ -395,12 +436,17 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
     const verdictLabels = Object.fromEntries(
       computeStep6(context, signals).map((e) => [e.axis, e.verdictLabel]),
     );
-    let stepCalls = 0;
+    let ignored = false;
     const callModel: RunStepDeps["callModel"] = async (bundle) => {
       const aliases = aliasesIn(bundle.user);
+      const only = callOf(step, bundle.user);
       const ignoring =
-        options.ignoreRuleOnStep6 === true && step === 6 && stepCalls === 0;
-      stepCalls++;
+        options.ignoreRuleOnStep6 === true &&
+        step === 6 &&
+        only?.kind === "section" &&
+        only.id === "2-6" &&
+        !ignored;
+      if (ignoring) ignored = true;
       const response = worstResponse({
         step: step as ModelStep,
         context,
@@ -408,6 +454,8 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
         emptyForApp: !ignoring,
         batchIds: step === 1 ? aliases : [],
         verdictLabels,
+        ...(only ? { only } : {}),
+        maximal: ignoring,
       });
       const text = JSON.stringify(
         options.leakAliasesInText === true && step >= 3 && step <= 7
@@ -418,6 +466,8 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
       const cut = tokens > bundle.maxOutputTokens;
       calls.push({
         step,
+        kind: only ? only.kind : "single",
+        sectionId: only?.kind === "section" ? only.id : null,
         tokens,
         limit: bundle.maxOutputTokens,
         cut,
@@ -442,9 +492,26 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
   return { context, calls, extraAttempts, last, stored };
 }
 
-const maxByStep = (calls: CallLog[]): Record<number, number> => {
-  const out: Record<number, number> = {};
-  for (const c of calls) out[c.step] = Math.max(out[c.step] ?? 0, c.tokens);
+/** 호출 종류별 최대 어림 토큰과 한도. 키는 "4단계 섹션" 같은 이름이다. */
+const KIND_LABEL = {
+  single: "",
+  section: " 섹션",
+  match: " match",
+  planDraft: " planDraft",
+} as const;
+
+const maxByKind = (
+  calls: CallLog[],
+): Record<string, { tokens: number; limit: number }> => {
+  const out: Record<string, { tokens: number; limit: number }> = {};
+  for (const c of calls) {
+    const key = `${c.step}단계${KIND_LABEL[c.kind]}`;
+    const prev = out[key];
+    out[key] = {
+      tokens: Math.max(prev?.tokens ?? 0, c.tokens),
+      limit: c.limit,
+    };
+  }
   return out;
 };
 
@@ -454,9 +521,9 @@ describe("활동 수별 출력 한도", () => {
     async (n) => {
       const { calls, extraAttempts } = await runAllSteps(n);
       expect(Object.values(extraAttempts).every((x) => x === 0)).toBe(true);
-      const max = maxByStep(calls);
+      const max = maxByKind(calls);
       const table = Object.entries(max)
-        .map(([s, t]) => `${s}단계 ${t}`)
+        .map(([k, v]) => `${k} ${v.tokens}/${v.limit}`)
         .join(", ");
       const cut = calls.filter((c) => c.cut);
       expect(
@@ -465,6 +532,21 @@ describe("활동 수별 출력 한도", () => {
       ).toEqual([]);
       // 1단계는 15건 묶음이라 호출 수가 활동 수에 비례한다.
       expect(calls.filter((c) => c.step === 1)).toHaveLength(Math.ceil(n / 15));
+      // 4, 6, 7단계는 섹션 수(4단계 4, 6단계 10, 7단계 9)에 match 또는 planDraft 호출이 더해지고 활동 수와 무관하다.
+      const count = (step: number, kind: CallLog["kind"]) =>
+        calls.filter((c) => c.step === step && c.kind === kind).length;
+      expect(count(4, "section")).toBe(4);
+      expect(count(4, "match")).toBe(1);
+      expect(count(6, "section")).toBe(10);
+      expect(count(7, "section")).toBe(9);
+      expect(count(7, "planDraft")).toBe(1);
+      // 호출별 한도는 종류별 상수다.
+      for (const c of calls.filter((x) => x.kind === "section"))
+        expect(c.limit).toBe(1536);
+      for (const c of calls.filter((x) => x.kind === "match"))
+        expect(c.limit).toBe(1536);
+      for (const c of calls.filter((x) => x.kind === "planDraft"))
+        expect(c.limit).toBe(2048);
     },
     30_000,
   );
@@ -523,11 +605,15 @@ function oldStructureTokens(n: number): Record<ModelStep, number> {
 }
 
 describe("규칙을 무시한 모델", () => {
-  it("6단계 활동 60건에서 모든 별칭을 나열하면 첫 응답이 잘리고 재요청이 잘림 메모와 함께 성공한다", async () => {
+  it("6단계 활동 60건에서 한 섹션이 모든 별칭을 나열하면 그 섹션 첫 응답만 잘리고 재요청이 잘림 메모와 함께 성공한다", async () => {
     const { calls, extraAttempts } = await runAllSteps(60, {
       ignoreRuleOnStep6: true,
     });
-    const step6 = calls.filter((c) => c.step === 6);
+    const all6 = calls.filter((c) => c.step === 6);
+    expect(all6).toHaveLength(11);
+    expect(all6.filter((c) => c.sectionId !== "2-6")).toHaveLength(9);
+    expect(all6.filter((c) => c.cut)).toHaveLength(1);
+    const step6 = all6.filter((c) => c.sectionId === "2-6");
     expect(step6).toHaveLength(2);
     expect(step6[0]?.cut).toBe(true);
     expect(step6[0]?.tokens).toBeGreaterThan(step6[0]?.limit ?? 0);
