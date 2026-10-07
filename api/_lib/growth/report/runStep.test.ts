@@ -1106,3 +1106,152 @@ describe("활동 id 별칭 응답", () => {
       expect(r.issues.map((i) => i.code)).toContain("unknown_evidence");
   });
 });
+
+describe("1단계 묶음 호출", () => {
+  const many = (n: number) => {
+    const activities = Array.from({ length: n }, (_, i) =>
+      activity(`act-${String(i + 1).padStart(3, "0")}`),
+    );
+    return makeContext({
+      activities,
+      evidenceIds: activities.map((a) => a.id),
+    });
+  };
+  /** 프롬프트에 실린 활동 별칭을 읽어 그 활동들의 신호로 답한다. */
+  const aliasesIn = (user: string): string[] =>
+    [...user.matchAll(/"id": "(a\d+)"/g)].map((m) => m[1] ?? "");
+  const answer = (user: string): ModelReply =>
+    reply(
+      JSON.stringify({
+        signals: aliasesIn(user).map((alias) => ({
+          activityId: alias,
+          axes: ["A"],
+          method: "실험",
+          keywords: ["열"],
+          summary: `요약 ${alias}`,
+        })),
+      }),
+    );
+  const byActivityOf = (r: Awaited<ReturnType<typeof runStep>>) => {
+    if (!r.ok) throw new Error(JSON.stringify(r));
+    return (r.patch.signals as { byActivity: { activityId: string }[] })
+      .byActivity;
+  };
+
+  it.each([
+    [16, [15, 1]],
+    [37, [15, 15, 7]],
+    [60, [15, 15, 15, 15]],
+  ])(
+    "활동 %i건은 묶음 %j 로 나눠 부르고 별칭은 전체 기준이며 순서대로 합친다",
+    async (n, sizes) => {
+      const ctx = many(n);
+      const seen: string[] = [];
+      const callModel = vi.fn(async (bundle: { user: string }) => {
+        seen.push(bundle.user);
+        return answer(bundle.user);
+      });
+      const r = await runStep(1, ctx, emptyStored(), deps({ callModel }));
+      expect(callModel).toHaveBeenCalledTimes(sizes.length);
+      let start = 0;
+      for (const size of sizes) {
+        const prompt = seen.find((u) => u.includes(`"a${start + 1}"`));
+        if (!prompt) throw new Error(`a${start + 1} 묶음 없음`);
+        expect(aliasesIn(prompt)).toEqual(
+          Array.from({ length: size }, (_, i) => `a${start + i + 1}`),
+        );
+        start += size;
+      }
+      const by = byActivityOf(r);
+      expect(by.map((s) => s.activityId)).toEqual(
+        ctx.activities.map((a) => a.id),
+      );
+      if (r.ok) expect(r.extraAttempts).toBe(0);
+    },
+  );
+
+  it("활동 15건 이하는 호출 1회다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => answer(b.user));
+    const r = await runStep(1, many(15), emptyStored(), deps({ callModel }));
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(byActivityOf(r)).toHaveLength(15);
+  });
+
+  it("활동 100건(7묶음)에서도 동시에 진행 중인 호출은 6을 넘지 않는다", async () => {
+    let running = 0;
+    let peak = 0;
+    const callModel = vi.fn(async (b: { user: string }) => {
+      running += 1;
+      peak = Math.max(peak, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(100), emptyStored(), deps({ callModel }));
+    expect(callModel).toHaveBeenCalledTimes(7);
+    expect(peak).toBe(6);
+    expect(byActivityOf(r)).toHaveLength(100);
+  });
+
+  it("한 묶음의 첫 응답이 잘리면 재요청해 성공하고 extraAttempts 는 1이다", async () => {
+    let truncatedOnce = false;
+    const callModel = vi.fn(async (b: { user: string }) => {
+      if (!truncatedOnce && b.user.includes('"a16"')) {
+        truncatedOnce = true;
+        return reply('{"signals":[', "MAX_TOKENS");
+      }
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(byActivityOf(r)).toHaveLength(37);
+    expect(callModel).toHaveBeenCalledTimes(4);
+    if (r.ok) expect(r.extraAttempts).toBe(1);
+  });
+
+  it("한 묶음이 두 번 다 실패하면 단계가 실패하고 patch 도 없다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) =>
+      b.user.includes('"a16"')
+        ? reply('{"signals":[', "MAX_TOKENS")
+        : answer(b.user),
+    );
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.failure).toBe("validation");
+    expect(r.extraAttempts).toBe(1);
+    expect(r.issues.map((i) => i.code)).toEqual(["truncated"]);
+    expect("patch" in r).toBe(false);
+  });
+
+  it("upstream 오류 묶음이 섞이면 failure 는 upstream 이다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => {
+      if (b.user.includes('"a1"')) throw new Error("boom");
+      if (b.user.includes('"a16"')) return reply('{"signals":[', "MAX_TOKENS");
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.failure).toBe("upstream");
+  });
+
+  it("단계 예산이 끝나면 timeout 이다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return answer(b.user);
+    });
+    const r = await runStep(
+      1,
+      many(100),
+      emptyStored(),
+      deps({
+        callModel,
+        budgetMs: 20,
+        now: () => new Date().toISOString(),
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.failure).toBe("timeout");
+    // 예산이 끝난 뒤에는 남은 묶음을 띄우지 않는다.
+    expect(callModel.mock.calls.length).toBeLessThanOrEqual(6);
+  });
+});
