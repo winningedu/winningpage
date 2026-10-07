@@ -25,6 +25,12 @@ import {
   type ValidationIssue,
   validateStep,
 } from "../validation.js";
+import {
+  type AliasTable,
+  buildAliasTable,
+  restoreEvidenceIds,
+  toAlias,
+} from "./evidenceAlias.js";
 import type {
   ActivitySignal,
   Classification,
@@ -268,6 +274,7 @@ const COMMON_RULES = [
   "",
   "근거 표시 원칙",
   "- 모든 판단에는 evidence_ids 로 입력에 주어진 활동 id 를 단다. 입력에 없는 id 를 만들지 않는다.",
+  "- 활동 id 는 a1, a2 같은 짧은 별칭이다. 근거에는 입력에 있는 별칭만 그대로 쓰고 다른 글자를 붙이지 않는다.",
   "- 확인된 사실과 제안을 섞지 않는다. 각 항목의 badge 는 안내된 값 그대로 따른다.",
   "- 자료가 없으면 status 를 no_data 로 두고 no_data_reason 에 자료 없음 이라고 쓴다. 지어내지 않는다.",
   "- 점수가 아니라 서술로 쓴다. 학생을 등급이나 점수로 평가하는 문장을 쓰지 않는다.",
@@ -339,9 +346,12 @@ function sectionGuide(step: ModelStep, context: ReportContext): string {
   return `작성할 항목(이 id 를 모두, 이 id 만 쓴다):\n${json(rows)}`;
 }
 
-function activityBrief(a: ReportContext["activities"][number]) {
+function activityBrief(
+  a: ReportContext["activities"][number],
+  table: AliasTable,
+) {
   return {
-    id: a.id,
+    id: toAlias(table, a.id),
     period: a.gradeLabel
       ? `${a.gradeLabel}${a.semester ? ` ${a.semester}학기` : ""}`
       : null,
@@ -351,15 +361,27 @@ function activityBrief(a: ReportContext["activities"][number]) {
   };
 }
 
-function signalBrief(signals: ActivitySignal[]) {
+function signalBrief(signals: ActivitySignal[], table: AliasTable) {
   return signals.map((s) => ({
-    activityId: s.activityId,
+    activityId: toAlias(table, s.activityId),
     axes: s.axes,
     method: s.method,
     keywords: s.keywords,
     linkage: s.linkage,
     summary: s.summary,
   }));
+}
+
+function matchBrief(match: MatchSignals, table: AliasTable): MatchSignals {
+  const alias = (list: MatchSignals["aligned"]) =>
+    list.map((m) => ({
+      ...m,
+      evidenceIds: m.evidenceIds.map((id) => toAlias(table, id)),
+    }));
+  return {
+    aligned: alias(match.aligned),
+    conflicting: alias(match.conflicting),
+  };
 }
 
 function need<T>(value: T | undefined, step: ModelStep, name: string): T {
@@ -420,10 +442,13 @@ function stepUser(
 ): string {
   const head = `학생 트랙: ${context.track}, 현재 학년: ${context.currentGrade}\n분석 범위: ${context.range.semesters.join(", ")}`;
   const career = context.profile.career?.trim() ?? "";
+  const table = buildAliasTable(context);
+  const brief = (a: ReportContext["activities"][number]) =>
+    activityBrief(a, table);
   switch (step) {
     case 1: {
       return `${head}\n\n[활동 전체]\n${json(
-        context.activities.map((a) => ({ ...activityBrief(a), text: a.text })),
+        context.activities.map((a) => ({ ...brief(a), text: a.text })),
       )}`;
     }
     case 3: {
@@ -431,7 +456,7 @@ function stepUser(
       const previous = context.previousNarrative
         ? `\n\n[이전 회차 서사]\n이전 주제: ${context.previousNarrative.theme}\n이전 진로: ${context.previousNarrative.career ?? "없음"}\n현재 진로 답이 이전과 달라 진로가 바뀌었다면 narrative.previous 를 채우고, 같다면 previous 를 쓰지 않는다.`
         : "";
-      return `${head}\n\n[설문의 진로 답]\n${json({ career: context.profile.career, survey: context.survey })}\n\n[활동 목록]\n${json(context.activities.map(activityBrief))}\n\n[활동 신호]\n${json(signalBrief(signals))}${previous}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n[설문의 진로 답]\n${json({ career: context.profile.career, survey: context.survey })}\n\n[활동 목록]\n${json(context.activities.map(brief))}\n\n[활동 신호]\n${json(signalBrief(signals, table))}${previous}\n\n${sectionGuide(step, context)}`;
     }
     case 4: {
       const signals = need(prior.signals, step, "signals");
@@ -439,14 +464,14 @@ function stepUser(
         career === ""
           ? "\n설문의 진로 답이 비어 있으므로 항목 1-2 는 no_data 로 둔다."
           : "";
-      return `${head}\n\n[설문 전체 답]\n${json({ career: context.profile.career, survey: context.survey })}${note}\n\n[활동 신호]\n${json(signalBrief(signals))}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n[설문 전체 답]\n${json({ career: context.profile.career, survey: context.survey })}${note}\n\n[활동 신호]\n${json(signalBrief(signals, table))}\n\n${sectionGuide(step, context)}`;
     }
     case 5: {
       const signals = need(prior.signals, step, "signals");
       const c = need(prior.consistency, step, "consistency");
       const formula = prior.expectedFormula ?? c.formula;
       const byActivity = context.activities.map((a) => ({
-        ...activityBrief(a),
+        ...brief(a),
         linkage: signals.find((s) => s.activityId === a.id)?.linkage ?? [],
         summary: signals.find((s) => s.activityId === a.id)?.summary ?? "",
       }));
@@ -462,13 +487,13 @@ function stepUser(
         verdict: e.verdict,
         verdictLabel: e.verdictLabel,
         guideline: e.guideline,
-        activityIds: e.activityIds,
+        activityIds: e.activityIds.map((id) => toAlias(table, id)),
         universityFactor: AXIS_TO_UNIVERSITY_FACTORS[e.axis],
       }));
       const signals = prior.signals
-        ? `\n\n[활동 신호]\n${json(signalBrief(prior.signals))}`
+        ? `\n\n[활동 신호]\n${json(signalBrief(prior.signals, table))}`
         : "";
-      return `${head}\n\n[앱이 계산한 축 진단]\n${json(view)}\n\n[활동 목록]\n${json(context.activities.map(activityBrief))}${signals}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n\n[앱이 계산한 축 진단]\n${json(view)}\n\n[활동 목록]\n${json(context.activities.map(brief))}${signals}\n\n${sectionGuide(step, context)}`;
     }
     case 7: {
       const narrative = need(prior.narrative, step, "narrative");
@@ -479,7 +504,7 @@ function stepUser(
         context.omitted.reasons.length > 0
           ? `\n제외 사유: ${context.omitted.reasons.join(" / ")}`
           : "";
-      return `${head}\n분석 범위 설명: ${context.range.description}${omitted}\n\n[서사]\n${json(narrative)}\n\n[설문 대조]\n${json(match)}\n\n[방향 일관성 요약]\n${json({ percent: c.percent, verdictLabel: c.verdictLabel, smallSample: c.smallSample })}\n\n[5축 요약]\n${json(axes.map((e) => ({ axis: e.axis, name: AXIS_NAMES[e.axis], count: e.count, required: e.required, verdictLabel: e.verdictLabel, guideline: e.guideline })))}\n\n[활동 목록]\n${json(context.activities.map(activityBrief))}\n\n${sectionGuide(step, context)}`;
+      return `${head}\n분석 범위 설명: ${context.range.description}${omitted}\n\n[서사]\n${json(narrative)}\n\n[설문 대조]\n${json(matchBrief(match, table))}\n\n[방향 일관성 요약]\n${json({ percent: c.percent, verdictLabel: c.verdictLabel, smallSample: c.smallSample })}\n\n[5축 요약]\n${json(axes.map((e) => ({ axis: e.axis, name: AXIS_NAMES[e.axis], count: e.count, required: e.required, verdictLabel: e.verdictLabel, guideline: e.guideline })))}\n\n[활동 목록]\n${json(context.activities.map(brief))}\n\n${sectionGuide(step, context)}`;
     }
   }
 }
@@ -751,6 +776,10 @@ export function parseStepResponse(
   } catch {
     return fail("invalid_json", "응답이 JSON 형식이 아닙니다.");
   }
+  if (!isRecord(parsed))
+    return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
+  // 모델은 별칭으로 답하므로 근거 필드를 활동 id 로 되돌린 뒤 단계별로 파싱한다.
+  parsed = restoreEvidenceIds(buildAliasTable(context), parsed);
   if (!isRecord(parsed))
     return fail("invalid_json", "응답이 JSON 객체가 아닙니다.");
   if (step === 1) return parseSignals(parsed, context);
