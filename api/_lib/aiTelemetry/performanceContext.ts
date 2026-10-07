@@ -11,6 +11,7 @@ export type PerformanceFeature =
   | "embed_backfill"
   | "knowledge_dedupe"
   | "knowledge_search_preview"
+  | "knowledge_eval"
   | "session_vectors";
 
 export function performanceTraceContext(input: {

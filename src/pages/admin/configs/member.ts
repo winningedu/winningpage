@@ -110,6 +110,23 @@ export const memberConfigs: Record<string, MemberConfig> = {
     ],
   },
 
+  // 지식 검색 품질 평가(knowledgeEvals): 기준 문제집, 평가 실행과 조합 비교, 실행 이력.
+  // 문제집은 custom 컴포넌트가 클라이언트 Supabase 로 직접 읽고 쓰고, 실행은
+  // /api/admin/knowledge-eval 이 한다(src/pages/admin/knowledgeEvals/KnowledgeEvalsAdmin.tsx).
+  knowledgeEvals: {
+    title: "지식 검색 품질 평가",
+    table: "knowledge_golden_queries",
+    searchPlaceholder: "",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "knowledgeEvals",
+    columns: [
+      { key: "grade", label: "학년" },
+      { key: "subject", label: "과목" },
+    ],
+  },
+
   // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·

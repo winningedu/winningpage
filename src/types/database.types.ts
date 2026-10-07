@@ -3469,6 +3469,93 @@ export type Database = {
           },
         ];
       };
+      knowledge_eval_runs: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          knowledge_type: string;
+          metrics: NonNullable<Json>;
+          mode: string;
+          note: string | null;
+          params: NonNullable<Json>;
+          per_query: NonNullable<Json>;
+          query_count: number;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          knowledge_type: string;
+          metrics: NonNullable<Json>;
+          mode: string;
+          note?: string | null;
+          params: NonNullable<Json>;
+          per_query: NonNullable<Json>;
+          query_count: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          knowledge_type?: string;
+          metrics?: NonNullable<Json>;
+          mode?: string;
+          note?: string | null;
+          params?: NonNullable<Json>;
+          per_query?: NonNullable<Json>;
+          query_count?: number;
+        };
+        Relationships: [];
+      };
+      knowledge_golden_queries: {
+        Row: {
+          assessment_info: string | null;
+          career: string | null;
+          created_at: string;
+          created_by: string | null;
+          expected_resource_ids: string[];
+          grade: string;
+          id: string;
+          is_active: boolean;
+          knowledge_type: string;
+          note: string | null;
+          selected_topic: string | null;
+          subject: string;
+          updated_at: string;
+        };
+        Insert: {
+          assessment_info?: string | null;
+          career?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expected_resource_ids: string[];
+          grade: string;
+          id?: string;
+          is_active?: boolean;
+          knowledge_type: string;
+          note?: string | null;
+          selected_topic?: string | null;
+          subject: string;
+          updated_at?: string;
+        };
+        Update: {
+          assessment_info?: string | null;
+          career?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expected_resource_ids?: string[];
+          grade?: string;
+          id?: string;
+          is_active?: boolean;
+          knowledge_type?: string;
+          note?: string | null;
+          selected_topic?: string | null;
+          subject?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       learning_diagnosis_options: {
         Row: {
           created_at: string | null;

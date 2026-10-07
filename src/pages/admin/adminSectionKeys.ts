@@ -36,6 +36,7 @@ export const ADMIN_SECTION_KEYS = [
   "growthReports",
   "selfevalSessions",
   "aiTelemetry",
+  "knowledgeEvals",
   // 서비스 관리 — 프리미엄
   "premiumBookPages",
   "premiumConsults",

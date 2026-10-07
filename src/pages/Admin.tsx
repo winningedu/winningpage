@@ -87,6 +87,7 @@ import {
   REVIEW_STALE_MONTH_OPTIONS,
   type ReviewStaleMonths,
 } from "./admin/knowledge/reviewCycle";
+import KnowledgeEvalsAdmin from "./admin/knowledgeEvals/KnowledgeEvalsAdmin";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import {
   AdminForm,
@@ -201,6 +202,11 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       { key: "growthReports", label: "성장설계 회차", section: "서비스" },
       { key: "selfevalSessions", label: "자기평가서 세션", section: "서비스" },
       { key: "aiTelemetry", label: "AI 호출 계기판", section: "서비스" },
+      {
+        key: "knowledgeEvals",
+        label: "지식 검색 품질 평가",
+        section: "서비스",
+      },
       {
         key: "premiumBookPages",
         label: "프리미엄 책자 관리",
@@ -338,6 +344,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   growthReports: GrowthReportsAdmin,
   selfevalSessions: SelfevalSessionsAdmin,
   aiTelemetry: AiTelemetryAdmin,
+  knowledgeEvals: KnowledgeEvalsAdmin,
   inquirySessions: InquirySessionsAdmin,
 };
 
