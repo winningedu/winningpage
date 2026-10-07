@@ -35,6 +35,11 @@
 //   여기서 조용히 2번 더 호출해도 차감은 일어나지 않는다. 수행평가 차감 지점은 주제
 //   추천 최초 성공 1곳뿐이다(§9.2). 목표관리는 캐시(goal_advice_cache) 자체가
 //   레이트리밋이라 별도 차감이 없다.
+//
+// 기록 훅 (AI 호출 계기판)
+//   `generateWithRetry`가 선택 인자 `telemetry`(AiTrace)를 받으면 시도마다 지연,
+//   토큰 사용량, 종료 사유, 오류 코드를 기록한다. 기록은 계기판 전용이라 요청 객체,
+//   config, 재시도 판정, 백오프, throw 동작은 바꾸지 않으며, 기록 중 예외는 삼킨다.
 
 import type {
   GenerateContentConfig,
@@ -42,6 +47,7 @@ import type {
   GenerateContentResponse,
 } from "@google/genai";
 import { GoogleGenAI } from "@google/genai";
+import type { AiTrace } from "./aiTelemetry/trace.js";
 
 /** 외부 `_lib/config.js:30`의 `MODEL` 상수와 같은 값. 이름은 수행평가 이식 당시 그대로 유지한다(호출부 무수정 원칙). */
 export const PERFORMANCE_MODEL = "gemini-2.5-flash";
@@ -87,6 +93,52 @@ function isRetryableGeminiError(error: unknown): boolean {
   );
 }
 
+/** 요청 contents 와 systemInstruction 의 글자 수. inlineData 파트(base64)는 0 으로 친다. */
+function measureInputChars(request: GenerateContentParameters): number {
+  const measure = (value: unknown): number => {
+    if (value == null) return 0;
+    if (typeof value === "string") return value.length;
+    if (Array.isArray(value)) {
+      return value.reduce<number>((sum, item) => sum + measure(item), 0);
+    }
+    if (typeof value === "object") {
+      if ("inlineData" in value) return 0;
+      return JSON.stringify(value).length;
+    }
+    return String(value).length;
+  };
+  const config = request.config as { systemInstruction?: unknown } | undefined;
+  return measure(request.contents) + measure(config?.systemInstruction);
+}
+
+/** 오류에서 기록용 코드를 뽑는다. abort 는 "aborted", 판별 불가면 "unknown". */
+function describeErrorCode(error: unknown): string {
+  const err = error as {
+    status?: unknown;
+    code?: unknown;
+    name?: string;
+    message?: string;
+  };
+  if (
+    err?.name === "AbortError" ||
+    String(err?.message || "").includes("abort")
+  ) {
+    return "aborted";
+  }
+  const code = err?.status ?? err?.code;
+  return code == null ? "unknown" : String(code);
+}
+
+/** 기록 호출이 호출 흐름을 깨지 않도록 예외를 삼킨다. */
+function safeRecord(telemetry: AiTrace | undefined, record: () => void) {
+  if (!telemetry) return;
+  try {
+    record();
+  } catch (recordError) {
+    console.warn("[ai-telemetry] 기록 실패:", recordError);
+  }
+}
+
 /**
  * 재시도를 감싼 저수준 호출. **응답 객체를 그대로 돌려준다.**
  *
@@ -96,19 +148,59 @@ function isRetryableGeminiError(error: unknown): boolean {
  *
  * @param request `ai.models.generateContent` 요청 객체
  * @param retryCount 추가 시도 횟수(총 호출 = retryCount + 1)
+ * @param telemetry 계기판 기록 객체(선택). 없으면 기록하지 않는다.
  */
 export async function generateWithRetry(
   request: GenerateContentParameters,
   retryCount = 2,
+  telemetry?: AiTrace,
 ): Promise<GenerateContentResponse> {
   const ai = getGeminiClient();
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retryCount; attempt++) {
+    const startedAt = Date.now();
     try {
-      return await ai.models.generateContent(request);
+      const response = await ai.models.generateContent(request);
+      safeRecord(telemetry, () =>
+        telemetry?.recordCall({
+          kind: "generate",
+          model: String(request.model),
+          startedAt,
+          latencyMs: Date.now() - startedAt,
+          transportAttempt: attempt + 1,
+          status: "ok",
+          finishReason: response.candidates?.[0]?.finishReason ?? null,
+          usage: {
+            promptTokens: response.usageMetadata?.promptTokenCount ?? null,
+            outputTokens: response.usageMetadata?.candidatesTokenCount ?? null,
+            cachedTokens:
+              response.usageMetadata?.cachedContentTokenCount ?? null,
+            thoughtsTokens: response.usageMetadata?.thoughtsTokenCount ?? null,
+            totalTokens: response.usageMetadata?.totalTokenCount ?? null,
+          },
+          inputChars: measureInputChars(request),
+          outputChars: (response.text ?? "").length,
+        }),
+      );
+      return response;
     } catch (error) {
       lastError = error;
+      safeRecord(telemetry, () =>
+        telemetry?.recordCall({
+          kind: "generate",
+          model: String(request.model),
+          startedAt,
+          latencyMs: Date.now() - startedAt,
+          transportAttempt: attempt + 1,
+          status: "error",
+          errorCode: describeErrorCode(error),
+          errorMessage: String(
+            (error as { message?: string })?.message ?? error,
+          ),
+          inputChars: measureInputChars(request),
+        }),
+      );
 
       if (!isRetryableGeminiError(error) || attempt === retryCount) {
         throw error;
@@ -135,6 +227,8 @@ type GenerateCallOptions = {
   responseMimeType?: string;
   responseSchema?: GenerateContentConfig["responseSchema"];
   abortSignal?: AbortSignal;
+  /** 계기판 기록 객체. config 에는 싣지 않는다. */
+  telemetry?: AiTrace;
 };
 
 /**
@@ -193,6 +287,7 @@ export async function callStructured(
       }),
     },
     options.retryCount ?? 2,
+    options.telemetry,
   );
 
   return {
@@ -225,6 +320,7 @@ export async function callText(
       }),
     },
     options.retryCount ?? 2,
+    options.telemetry,
   );
 
   return response.text || "";
@@ -285,6 +381,7 @@ export async function callVision(
       }),
     },
     options.retryCount ?? 2,
+    options.telemetry,
   );
 
   return response.text || "";

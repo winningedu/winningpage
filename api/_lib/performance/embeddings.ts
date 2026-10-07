@@ -29,6 +29,7 @@
 // (`winning_suhaeng_embedding_hnsw_idx`) 재생성까지 따라온다.
 
 import { GoogleGenAI } from "@google/genai";
+import type { AiTrace } from "../aiTelemetry/trace.js";
 
 /** 코퍼스에 이미 저장된 벡터를 만든 모델. 위 경고 참고. */
 export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2";
@@ -148,7 +149,10 @@ export function buildKnowledgeSearchText(item: KnowledgeSearchTextItem = {}) {
  * 저장하면 그 행은 영원히 검색에 잡히지 않으면서 `embedding_status='done'`으로
  * 보이기 때문에, 실패는 조용히 넘기지 않고 반드시 터뜨린다.
  */
-export async function embedText(text: string): Promise<number[]> {
+export async function embedText(
+  text: string,
+  telemetry?: AiTrace,
+): Promise<number[]> {
   const value = String(text || "").trim();
 
   if (!value) {
@@ -158,20 +162,59 @@ export async function embedText(text: string): Promise<number[]> {
   const ai = getGeminiClient();
   const model = getEmbeddingModel();
   const outputDimensionality = getEmbeddingDimension();
+  const startedAt = Date.now();
 
-  const response = await ai.models.embedContent({
-    model,
-    contents: value,
-    config: { outputDimensionality },
-  });
+  // 기록 중 예외가 호출 흐름에 영향을 주지 않도록 삼킨다. 토큰 수는 응답에 없어 null 이다.
+  const record = (status: "ok" | "error", error?: unknown, code?: string) => {
+    if (!telemetry) return;
+    try {
+      const err = error as {
+        status?: unknown;
+        code?: unknown;
+        message?: string;
+      };
+      telemetry.recordCall({
+        kind: "embed",
+        model,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        transportAttempt: 1,
+        status,
+        errorCode:
+          status === "ok"
+            ? null
+            : (code ?? String(err?.status ?? err?.code ?? "unknown")),
+        errorMessage:
+          status === "ok" ? null : String(err?.message ?? error ?? ""),
+        inputChars: value.length,
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
+    }
+  };
+
+  let response: Awaited<ReturnType<typeof ai.models.embedContent>>;
+  try {
+    response = await ai.models.embedContent({
+      model,
+      contents: value,
+      config: { outputDimensionality },
+    });
+  } catch (error) {
+    record("error", error);
+    throw error;
+  }
 
   const embedding = response.embeddings?.[0]?.values;
 
   if (!Array.isArray(embedding) || embedding.length === 0) {
-    throw new Error(
+    const emptyError = new Error(
       "Gemini embedding 생성 실패: embedding 값이 비어 있습니다.",
     );
+    record("error", emptyError, "empty_embedding");
+    throw emptyError;
   }
 
+  record("ok");
   return embedding;
 }

@@ -38,6 +38,7 @@
 // `source:'none'`이며, 이때 프롬프트에는 원문 그대로 `관련 위닝DB 항목 없음`이 들어간다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiTrace } from "../aiTelemetry/trace.js";
 import { createSupabaseAdmin } from "../supabaseAdmin.js";
 import { embedText } from "./embeddings.js";
 import { NO_KNOWLEDGE_TEXT, NO_STUDENT_HISTORY_TEXT } from "./prompts.js";
@@ -391,6 +392,12 @@ type KnowledgeSearchResult = {
   text: string;
   hitCount: number;
   rows: KnowledgeRow[];
+  /** 계기판용: 검색이 돌려준 원 행 수(패킹 전). */
+  rawHits: number;
+  /** 계기판용: 첫 행의 유사도. 키워드 검색은 null. */
+  topScore: number | null;
+  /** 계기판용: 질의 임베딩에 걸린 시간(ms). 키워드 검색은 null. */
+  embedMs: number | null;
 };
 
 /**
@@ -421,7 +428,9 @@ async function loadByVectorSearch(
     `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2500)}`,
   ].join("\n");
 
+  const embedStartedAt = Date.now();
   const queryEmbedding = await embedText(queryText);
+  const embedMs = Date.now() - embedStartedAt;
 
   const { data, error } = await db.rpc("match_winning_suhaeng_all_subjects", {
     query_embedding: queryEmbedding,
@@ -443,7 +452,12 @@ async function loadByVectorSearch(
 
   const rows = (data || []).slice(0, maxItems);
 
-  if (!rows.length) return { text: "", hitCount: 0, rows: [] };
+  const rawHits = (data || []).length;
+  const topScore = data?.[0]?.similarity ?? null;
+
+  if (!rows.length) {
+    return { text: "", hitCount: 0, rows: [], rawHits, topScore, embedMs };
+  }
 
   const label =
     knowledgeType === "verified_resource"
@@ -457,6 +471,9 @@ async function loadByVectorSearch(
     hitCount: packed.length,
     // 프롬프트에 **실제로 들어간** 행만 돌려준다(packRows 주석 참조).
     rows: packed.map((entry) => entry.row),
+    rawHits,
+    topScore,
+    embedMs,
   };
 }
 
@@ -556,7 +573,18 @@ async function loadByLegacyKeywordSearch(
     .slice(0, maxItems)
     .map((item) => item.row);
 
-  if (!scored.length) return { text: "", hitCount: 0, rows: [] };
+  const rawHits = (rows ?? []).length;
+
+  if (!scored.length) {
+    return {
+      text: "",
+      hitCount: 0,
+      rows: [],
+      rawHits,
+      topScore: null,
+      embedMs: null,
+    };
+  }
 
   const packed = packRows(scored, maxChars, "위닝DB 후보");
 
@@ -564,6 +592,9 @@ async function loadByLegacyKeywordSearch(
     text: packed.map((entry) => entry.piece).join("\n\n"),
     hitCount: packed.length,
     rows: packed.map((entry) => entry.row),
+    rawHits,
+    topScore: null,
+    embedMs: null,
   };
 }
 
@@ -596,6 +627,7 @@ export async function loadDynamicAssessmentKnowledge({
   maxItems = 6,
   maxChars = TOPIC_MAX_CHARS,
   includeOtherSubjects = true,
+  telemetry,
 }: {
   supabase?: SupabaseClient;
   grade?: string;
@@ -607,6 +639,8 @@ export async function loadDynamicAssessmentKnowledge({
   maxItems?: number;
   maxChars?: number;
   includeOtherSubjects?: boolean;
+  /** 계기판 기록 객체(선택). 검색 동작에는 영향이 없다. */
+  telemetry?: AiTrace;
 } = {}): Promise<{
   text: string;
   source: "vector" | "keyword" | "none";
@@ -615,6 +649,7 @@ export async function loadDynamicAssessmentKnowledge({
   degraded: boolean;
   rows: KnowledgeRow[];
 }> {
+  const startedAt = Date.now();
   const db = supabase || createSupabaseAdmin();
   const knowledgeType =
     purpose === "resource" ? "verified_resource" : "topic_pattern";
@@ -631,28 +666,88 @@ export async function loadDynamicAssessmentKnowledge({
     includeOtherSubjects,
   };
 
+  // 세 반환 지점을 한 곳으로 모아 반환 직전에 한 번만 기록한다.
+  const finish = (
+    result: {
+      text: string;
+      source: "vector" | "keyword" | "none";
+      hitCount: number;
+      injectedChars: number;
+      degraded: boolean;
+      rows: KnowledgeRow[];
+    },
+    meta: {
+      rawHits: number | null;
+      topScore: number | null;
+      embedMs: number | null;
+      status: "ok" | "error";
+      errorMessage?: string | null;
+    },
+  ) => {
+    try {
+      telemetry?.recordSearch({
+        kind: "knowledge",
+        knowledgeType,
+        threshold:
+          knowledgeType === "verified_resource"
+            ? RESOURCE_MATCH_THRESHOLD
+            : TOPIC_MATCH_THRESHOLD,
+        matchCountRequested: Math.max(maxItems * 2, 10),
+        rawHits: meta.rawHits,
+        packedHits: result.hitCount,
+        topScore: meta.topScore,
+        source: result.source,
+        degraded: result.degraded,
+        injectedChars: result.injectedChars,
+        embedMs: meta.embedMs,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        status: meta.status,
+        errorMessage: meta.errorMessage ?? null,
+        hitResourceIds: result.rows
+          .map((row) => row.id)
+          .filter((id): id is string => Boolean(id)),
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
+    }
+    return result;
+  };
+
   try {
     const vector = await loadByVectorSearch(db, args);
+    const meta = {
+      rawHits: vector.rawHits,
+      topScore: vector.topScore,
+      embedMs: vector.embedMs,
+      status: "ok" as const,
+    };
 
     if (vector.hitCount) {
-      return {
-        text: vector.text,
-        source: "vector",
-        hitCount: vector.hitCount,
-        injectedChars: vector.text.length,
-        degraded: false,
-        rows: vector.rows,
-      };
+      return finish(
+        {
+          text: vector.text,
+          source: "vector",
+          hitCount: vector.hitCount,
+          injectedChars: vector.text.length,
+          degraded: false,
+          rows: vector.rows,
+        },
+        meta,
+      );
     }
 
-    return {
-      text: NO_KNOWLEDGE_TEXT,
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: false,
-      rows: [],
-    };
+    return finish(
+      {
+        text: NO_KNOWLEDGE_TEXT,
+        source: "none",
+        hitCount: 0,
+        injectedChars: 0,
+        degraded: false,
+        rows: [],
+      },
+      meta,
+    );
   } catch (error) {
     console.error(
       "전과목 RAG 위닝DB 검색 실패, 기존 키워드 검색으로 대체:",
@@ -662,39 +757,60 @@ export async function loadDynamicAssessmentKnowledge({
 
   try {
     const keyword = await loadByLegacyKeywordSearch(db, args);
+    const meta = {
+      rawHits: keyword.rawHits,
+      topScore: keyword.topScore,
+      embedMs: keyword.embedMs,
+      status: "ok" as const,
+    };
 
     if (keyword.hitCount) {
-      return {
-        text: keyword.text,
-        source: "keyword",
-        hitCount: keyword.hitCount,
-        injectedChars: keyword.text.length,
-        // 벡터가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
-        degraded: true,
-        rows: keyword.rows,
-      };
+      return finish(
+        {
+          text: keyword.text,
+          source: "keyword",
+          hitCount: keyword.hitCount,
+          injectedChars: keyword.text.length,
+          // 벡터가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
+          degraded: true,
+          rows: keyword.rows,
+        },
+        meta,
+      );
     }
 
-    return {
-      text: NO_KNOWLEDGE_TEXT,
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: true,
-      rows: [],
-    };
+    return finish(
+      {
+        text: NO_KNOWLEDGE_TEXT,
+        source: "none",
+        hitCount: 0,
+        injectedChars: 0,
+        degraded: true,
+        rows: [],
+      },
+      meta,
+    );
   } catch (error) {
     console.error("위닝DB 지식 조회 오류:", error);
 
     // 실패 문구를 프롬프트에 흘리지 않는다(§8.7 「제안(관측성)」).
-    return {
-      text: "",
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: true,
-      rows: [],
-    };
+    return finish(
+      {
+        text: "",
+        source: "none",
+        hitCount: 0,
+        injectedChars: 0,
+        degraded: true,
+        rows: [],
+      },
+      {
+        rawHits: null,
+        topScore: null,
+        embedMs: null,
+        status: "error",
+        errorMessage: String((error as { message?: string })?.message ?? error),
+      },
+    );
   }
 }
 
@@ -715,6 +831,7 @@ type StudentSessionRow = {
   topic_title?: string;
   career_goal?: string;
   summary_text?: string;
+  similarity?: number;
 };
 
 /** 요약 압축. 원문 `reports.js:4-7`. */
@@ -747,6 +864,7 @@ export async function loadRelevantStudentSessions({
   assessmentInfo = "",
   matchCount = 8,
   matchThreshold = STUDENT_HISTORY_MATCH_THRESHOLD,
+  telemetry,
 }: {
   supabase?: SupabaseClient;
   profileId?: string;
@@ -757,6 +875,8 @@ export async function loadRelevantStudentSessions({
   assessmentInfo?: string;
   matchCount?: number;
   matchThreshold?: number;
+  /** 계기판 기록 객체(선택). 검색 동작에는 영향이 없다. */
+  telemetry?: AiTrace;
 } = {}): Promise<StudentSessionRow[]> {
   if (!profileId) {
     throw new Error(
@@ -765,6 +885,38 @@ export async function loadRelevantStudentSessions({
   }
 
   const db = supabase || createSupabaseAdmin();
+  const startedAt = Date.now();
+
+  // 성공과 실패 어느 쪽이든 반환 직전에 한 번 기록한다. 기록 예외는 삼킨다.
+  const record = (meta: {
+    rawHits: number | null;
+    topScore: number | null;
+    embedMs: number | null;
+    status: "ok" | "error";
+    errorMessage?: string | null;
+  }) => {
+    try {
+      telemetry?.recordSearch({
+        kind: "student_history",
+        knowledgeType: null,
+        threshold: matchThreshold,
+        matchCountRequested: matchCount,
+        rawHits: meta.rawHits,
+        packedHits: meta.rawHits,
+        topScore: meta.topScore,
+        source: "vector",
+        degraded: meta.status === "error",
+        embedMs: meta.embedMs,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        status: meta.status,
+        errorMessage: meta.errorMessage ?? null,
+        hitResourceIds: null,
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
+    }
+  };
 
   try {
     const queryText = [
@@ -775,7 +927,9 @@ export async function loadRelevantStudentSessions({
       `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2000)}`,
     ].join("\n");
 
+    const embedStartedAt = Date.now();
     const queryEmbedding = await embedText(queryText);
+    const embedMs = Date.now() - embedStartedAt;
 
     const { data, error } = await db.rpc("match_student_performance_sessions", {
       // pgvector 인자: 생성 타입이 확장 타입을 몰라 string으로 나오지만
@@ -789,9 +943,22 @@ export async function loadRelevantStudentSessions({
 
     if (error) throw error;
 
+    record({
+      rawHits: (data || []).length,
+      topScore: data?.[0]?.similarity ?? null,
+      embedMs,
+      status: "ok",
+    });
     return data || [];
   } catch (error) {
     console.error("학생 과거 수행 RAG 검색 오류:", error);
+    record({
+      rawHits: null,
+      topScore: null,
+      embedMs: null,
+      status: "error",
+      errorMessage: String((error as { message?: string })?.message ?? error),
+    });
     return [];
   }
 }
