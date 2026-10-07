@@ -208,12 +208,10 @@ function ensureLearningDiagnosisInService(groups: NavGroup[]): NavGroup[] {
   });
 }
 
-// '성장설계'(/services/growth)를 '서비스' 그룹에 삽입한다. 비로그인 포함 전원에게 노출되지만,
-// 아직 DB(page_contents)에 정식 등록되지 않은 임시 대체(고객사 목업 데모)라 이 훅의 최종
-// 반환값에만 적용한다 — readCachedNavGroups/buildNavGroups(즉 캐시·DB 경로)에는 절대 섞지
-// 않는다. page_contents(DB)는 dev의 전 브랜치가 공유하므로 캐시나 DB 파생 경로에 넣으면
-// 이 라우트가 없는 다른 브랜치 프리뷰에서도 메뉴 링크가 뜨고 App.jsx의 path="*"에 걸려
-// 홈으로 튕긴다. 정식 메뉴로 DB 등록되면 이 함수와 호출부는 제거한다.
+// '성장설계'(/services/growth)는 코드 소유 랜딩(GrowthDesign)이지만 page_contents(DB) 메뉴에
+// 아직 등록되지 않아 코드에서 '서비스' 그룹의 자기평가 앞에 삽입한다. 이 훅의 최종 반환값에만
+// 적용하고 readCachedNavGroups/buildNavGroups(캐시, DB 경로)에는 섞지 않는다. DB 등록 뒤
+// 이 함수와 호출부를 제거한다.
 // '수행평가' 다음, '자기평가' 앞이 확정 순서이고, '자기평가'를 못 찾으면(DB 변경 등) 그룹
 // 끝에 append해 항목 자체가 사라지지 않게 한다.
 function insertGrowthPlanningInService(groups: NavGroup[]): NavGroup[] {

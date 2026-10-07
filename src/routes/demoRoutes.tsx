@@ -19,10 +19,6 @@ function DemoChunkLoadingFallback() {
 // 같은 층위)에 둔다. 자체 크롬(헤더/푸터 또는 전체화면 앱 UI)을 갖고 있어 사이트
 // 헤더/푸터와 겹치면 크롬이 이중화된다. lazy가 핵심이다 — 가드(requireAdminMiddleware)를
 // 통과하기 전엔 HTML 문자열이 든 청크를 네트워크에서 받지도 않는다.
-//
-// /services/growth — 서비스 랜딩 중 하나로 비로그인 포함 전원 공개. 렌더하는 실체는
-// 고객사 제공 HTML 목업(growth-intro)이라 위 /demo 라우트들과 같은 이유로 SiteLayout
-// 밖에 두지만, 접근 통제는 걸지 않는다.
 const demoRoutes: RouteObject[] = [
   {
     path: "/demo",
@@ -43,16 +39,6 @@ const demoRoutes: RouteObject[] = [
     middleware: [requireAdminMiddleware],
     HydrateFallback: DemoChunkLoadingFallback,
     ErrorBoundary: AdminAccessBoundary,
-  },
-  {
-    path: "/services/growth",
-    lazy: async () => {
-      const { default: DemoFrame } = await import("@/pages/demo/DemoFrame");
-      return {
-        Component: () => <DemoFrame demoKeyOverride="growth-intro" />,
-      };
-    },
-    HydrateFallback: DemoChunkLoadingFallback,
   },
 ];
 

@@ -45,9 +45,7 @@ type Attachment = string | { name?: string; url?: string };
 // 카드 타이틀 weight 는 시안이 Bold/Regular 혼용(학습진단·수시카드·프리미엄만 Bold)인데 확대
 // 렌더로도 구분이 안 되는 시안 실수로 판단해 전 카드 font-bold 로 통일했다.
 // 카드는 사용자 확정으로 6→8장으로 확장했다(수시카드는 코드 정본 서비스가 아니라 제외,
-// 성장설계·자기평가·심화탐구를 새로 추가). "성장설계"는 /services/growth가 아직 코드 정본
-// 랜딩이 없어(useNavGroups.ts 고객사 목업 데모 주석 참고) 다른 카드처럼 Link 로 보내지 않고,
-// 서비스 준비중 alert(alertServiceNotReady)로 안내한다 — 회사소식 상세 CTA와 동일한 처리다.
+// 성장설계, 자기평가, 심화탐구를 새로 추가).
 // 목표관리 카드 설명 텍스트만 시안 실측이 #ffffff 로 다른 카드(배경색의 밝은 틴트)와 규칙이
 // 다르다(시안 결함으로 추정) — 카피가 아닌 색 값 판단은 임의 확정하지 않고 실측값을
 // 보수적으로 유지했다. 카드 설명 텍스트의 opacity는 WCAG AA(4.5:1) 검증 결과 0.7에서 기존
@@ -95,7 +93,7 @@ const HERO_CARDS = [
     title: "성장설계",
     desc: ["나만의 강점을 찾는", "성장 로드맵 설계"],
     best: false,
-    route: null, // /services/growth는 아직 코드 정본 랜딩이 없다(useNavGroups.ts 고객사 목업 데모 주석 참고) — 준비중 alert 처리
+    route: "/services/growth",
   },
   {
     key: "self",
