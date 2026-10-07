@@ -84,7 +84,7 @@ describe("stepSectionIds", () => {
     expect(stepSectionIds(1, ctx)).toEqual([]);
     expect(stepSectionIds(3, ctx)).toEqual(["1-8"]);
     expect(stepSectionIds(4, ctx)).toEqual(["1-2", "1-6", "1-7", "1-11"]);
-    expect(stepSectionIds(5, ctx)).toEqual(["1-9", "1-10"]);
+    expect(stepSectionIds(5, ctx)).toEqual(["1-9"]);
     expect(stepSectionIds(6, ctx)).toHaveLength(10);
     expect(stepSectionIds(7, ctx)).toEqual([
       "3-2",
@@ -314,26 +314,6 @@ describe("섹션 정규화", () => {
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(r.output.sections?.[0]?.body).toBe("동아리 방향");
   });
-
-  it("5단계는 formula 를 1-10 항목에 싣는다", () => {
-    const raw = JSON.stringify({
-      formula: "연결 활동 1건 ÷ 전체 3건 × 100 = 33.3%",
-      sections: [
-        { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
-        {
-          id: "1-10",
-          status: "ok",
-          body: { percent: 33.3 },
-          evidence_ids: ["a1"],
-        },
-      ],
-    });
-    const r = parseStepResponse(5, raw, makeContext());
-    if (!r.ok) throw new Error(JSON.stringify(r.issues));
-    expect(r.output.sections?.find((s) => s.id === "1-10")?.formula).toBe(
-      "연결 활동 1건 ÷ 전체 3건 × 100 = 33.3%",
-    );
-  });
 });
 
 function validNarrative() {
@@ -520,23 +500,13 @@ const okSection = (id: string, over: Record<string, unknown> = {}) => ({
 });
 
 describe("validateStepOutput", () => {
-  it("5단계는 계산식을 앱 값과 대조한다", () => {
+  it("5단계는 모델이 계산식을 쓰지 않아도 1-9 만으로 통과한다", () => {
     const ctx = makeContext();
-    const formula = "연결 활동 1건 ÷ 전체 3건 × 100 = 33.3%";
     const output = {
       step: 5 as const,
-      sections: [
-        okSection("1-9", { format: "table", body: { rows: [] } }),
-        okSection("1-10", { format: "diagram", body: {}, formula }),
-      ],
+      sections: [okSection("1-9", { format: "table", body: { rows: [] } })],
     };
-    expect(
-      validateStepOutput(5, output, ctx, { expectedFormula: formula }).ok,
-    ).toBe(true);
-    const bad = validateStepOutput(5, output, ctx, {
-      expectedFormula: "연결 활동 2건 ÷ 전체 3건 × 100 = 66.7%",
-    });
-    expect(bad.issues.map((i) => i.code)).toContain("formula_mismatch");
+    expect(validateStepOutput(5, output, ctx, {}).ok).toBe(true);
   });
 
   it("근거 id 가 모르는 값이면 3, 4, 5, 6, 7 단계 모두 문제로 낸다", () => {
@@ -901,7 +871,7 @@ describe("buildStepPrompt", () => {
       prior: { axes: [] },
     }).system;
     expect(system).toContain("count 가 0 인 축은 status 를 no_data");
-    expect(system).toContain("그 축 activityIds 를 넣는다");
+    expect(system).toContain("evidence_ids 는 앱이 채우니 빈 배열로 둔다");
   });
 
   it("모든 단계 system 에 근거 원칙과 금지 표현이 있다", () => {
@@ -985,18 +955,28 @@ describe("buildStepPrompt", () => {
     expect(b.system).toContain("no_data");
   });
 
-  it("5단계는 계산식을 그대로 복사하도록 지시한다", () => {
+  it("5단계 프롬프트와 스키마에는 1-10 과 계산식이 없다", () => {
     const b = buildStepPrompt(5, { context: ctx, prior });
-    expect(b.user).toContain(consistency.formula);
-    expect(b.system).toContain("글자 그대로");
+    expect(b.system).not.toContain("1-10");
+    expect(b.system).not.toContain("formula");
+    expect(b.system).not.toContain("글자 그대로");
+    expect(b.user).not.toContain("1-10");
+    expect(b.user).not.toContain("계산식");
+    expect(b.user).toContain("1-9");
+    expect(JSON.stringify(b.responseSchema)).not.toContain("formula");
+    expect(JSON.stringify(b.responseSchema)).not.toContain("1-10");
+    expect(b.responseSchema).toMatchObject({ required: ["sections"] });
   });
 
-  it("5단계는 expectedFormula 가 있으면 그것을 쓴다", () => {
-    const b = buildStepPrompt(5, {
-      context: ctx,
-      prior: { ...prior, expectedFormula: "기대 식 ÷ 1 = 1%" },
-    });
-    expect(b.user).toContain("기대 식 ÷ 1 = 1%");
+  it("5단계 활동별 신호에 학기 키가 들어간다", () => {
+    const b = buildStepPrompt(5, { context: ctx, prior });
+    expect(b.user).toContain('"semester": "고1-1"');
+  });
+
+  it("근거는 대표 활동 최대 3개만 쓰라고 지시한다", () => {
+    const b = buildStepPrompt(3, { context: ctx, prior });
+    expect(b.system).toContain("최대 3개");
+    expect(b.system).not.toContain("모든 판단에는 evidence_ids");
   });
 
   it("6단계 user 에 축 평가와 대학 평가요소가 들어간다", () => {
@@ -1084,7 +1064,7 @@ describe("normalizeAxisSections", () => {
     expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
   });
 
-  it("모델이 넣은 알 수 없는 id 는 걸러내고 올바른 id 는 그대로 둔다", () => {
+  it("모델이 쓴 근거와 무관하게 앱의 activityIds 로 덮는다", () => {
     const sections = [
       okSection("2-3", { evidence_ids: ["a3", "nope"] }),
     ] as never;
@@ -1093,7 +1073,7 @@ describe("normalizeAxisSections", () => {
       [axisEval("C", 2, ["a1", "a2"])],
       known,
     );
-    expect(out[0]?.evidence_ids).toEqual(["a3"]);
+    expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
   });
 
   it("근거 활동이 0건인 축 섹션이 응답에 없으면 no_data 항목을 보강한다", () => {
@@ -1303,48 +1283,6 @@ describe("활동 id 별칭", () => {
       ).toContain("unknown_evidence");
     });
 
-    it("5단계 1-10 의 linked 별칭을 활동 id 로 돌리고, 모르는 별칭은 unknown_evidence", () => {
-      const parse = (linked: string[], evidence: string[]) =>
-        parseStepResponse(
-          5,
-          JSON.stringify({
-            formula: consistency.formula,
-            sections: [
-              {
-                id: "1-9",
-                status: "ok",
-                body: { rows: [] },
-                evidence_ids: ["a1"],
-              },
-              {
-                id: "1-10",
-                status: "ok",
-                body: { percent: 33.3, linked },
-                evidence_ids: evidence,
-              },
-            ],
-          }),
-          ctx,
-        );
-      const ok = parse(["a1", "a2"], ["a1"]);
-      if (!ok.ok) throw new Error(JSON.stringify(ok.issues));
-      const s = ok.output.sections?.find((x) => x.id === "1-10");
-      expect(s?.body).toMatchObject({ linked: [U1, U2] });
-      expect(s?.evidence_ids).toEqual([U1]);
-      expect(
-        validateStepOutput(5, ok.output, ctx, {
-          expectedFormula: consistency.formula,
-        }).issues.map((i) => i.code),
-      ).not.toContain("unknown_evidence");
-      const bad = parse([], ["a99"]);
-      if (!bad.ok) throw new Error(JSON.stringify(bad.issues));
-      expect(
-        validateStepOutput(5, bad.output, ctx, {
-          expectedFormula: consistency.formula,
-        }).issues.map((i) => i.code),
-      ).toContain("unknown_evidence");
-    });
-
     it("6단계와 7단계 섹션 근거도 활동 id 로 돌린다", () => {
       for (const step of [6, 7] as const) {
         const r = parseStepResponse(
@@ -1374,5 +1312,278 @@ describe("활동 id 별칭", () => {
       if (!r.ok) throw new Error(JSON.stringify(r.issues));
       expect(r.output.sections?.[0]?.evidence_ids).toEqual([U1]);
     });
+  });
+});
+
+describe("모델 근거 목록 대표 3개 절단", () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => `e${i + 1}`);
+  const ctx = makeContext({
+    activities: many(6).map((id) => activity(id)),
+    evidenceIds: many(6),
+  });
+  const ok = (r: ReturnType<typeof parseStepResponse>) => {
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    return r.output;
+  };
+
+  it("섹션 evidence_ids 는 중복을 없앤 앞 3개만 남긴다", () => {
+    const raw = JSON.stringify({
+      narrative: validNarrative(),
+      sections: [
+        {
+          id: "1-8",
+          status: "ok",
+          body: { items: [{ text: "x", evidence_ids: ["e1"] }] },
+          evidence_ids: ["e1", "e1", "e2", "e3", "e4", "e5"],
+        },
+      ],
+    });
+    const out = ok(parseStepResponse(3, raw, ctx));
+    expect(out.sections?.[0]?.evidence_ids).toEqual(["e1", "e2", "e3"]);
+  });
+
+  it("본문 items 의 evidence_ids 도 3개로 줄인다", () => {
+    const raw = JSON.stringify({
+      narrative: validNarrative(),
+      sections: [
+        {
+          id: "1-8",
+          status: "ok",
+          body: { items: [{ text: "x", evidence_ids: many(5) }] },
+          evidence_ids: ["e1"],
+        },
+      ],
+    });
+    const out = ok(parseStepResponse(3, raw, ctx));
+    expect(out.sections?.[0]?.body).toEqual([
+      { text: "x", evidence_ids: ["e1", "e2", "e3"] },
+    ]);
+  });
+
+  it("본문 rows 의 evidence_ids 도 3개로 줄인다", () => {
+    const sections = stepSectionIds(4, ctx).map((id) =>
+      id === "1-6"
+        ? {
+            id,
+            status: "ok",
+            body: { rows: [{ label: "a", value: "b", evidence_ids: many(4) }] },
+            evidence_ids: ["e1"],
+          }
+        : { id, status: "no_data", evidence_ids: [] },
+    );
+    const out = ok(
+      parseStepResponse(
+        4,
+        JSON.stringify({
+          match: { aligned: [], conflicting: [] },
+          sections,
+        }),
+        ctx,
+      ),
+    );
+    const body = out.sections?.find((s) => s.id === "1-6")?.body as {
+      rows: { evidence_ids: string[] }[];
+    };
+    expect(body.rows[0]?.evidence_ids).toEqual(["e1", "e2", "e3"]);
+  });
+
+  it("4단계 match 의 evidenceIds 도 3개로 줄인다", () => {
+    const sections = stepSectionIds(4, ctx).map((id) => ({
+      id,
+      status: "no_data",
+      evidence_ids: [],
+    }));
+    const out = ok(
+      parseStepResponse(
+        4,
+        JSON.stringify({
+          match: {
+            aligned: [{ text: "t", evidenceIds: many(5) }],
+            conflicting: [{ text: "u", evidenceIds: ["e2", "e2", "e6"] }],
+          },
+          sections,
+        }),
+        ctx,
+      ),
+    );
+    expect(out.match?.aligned[0]?.evidenceIds).toEqual(["e1", "e2", "e3"]);
+    expect(out.match?.conflicting[0]?.evidenceIds).toEqual(["e2", "e6"]);
+  });
+
+  it("응답 스키마에는 maxItems 를 넣지 않는다", () => {
+    for (const step of [3, 4, 5, 6, 7] as const)
+      expect(JSON.stringify(STEP_RESPONSE_SCHEMAS[step])).not.toContain(
+        "maxItems",
+      );
+  });
+});
+
+describe("섹션 근거 합집합", () => {
+  const ids = ["e1", "e2", "e3", "e4", "e5"];
+  const ctx = makeContext({
+    activities: ids.map((id) => activity(id)),
+    evidenceIds: ids,
+  });
+  const raw = (item: unknown[], evidence: string[]) =>
+    JSON.stringify({
+      narrative: validNarrative(),
+      sections: [
+        {
+          id: "1-8",
+          status: "ok",
+          body: { items: item },
+          evidence_ids: evidence,
+        },
+      ],
+    });
+
+  it("섹션 근거가 비면 items 근거의 합집합을 순서대로 쓰고 절단하지 않는다", () => {
+    const r = parseStepResponse(
+      3,
+      raw(
+        [
+          { text: "x", evidence_ids: ["e1", "e2", "e3"] },
+          { text: "y", evidence_ids: ["e3", "e4", "e5"] },
+        ],
+        [],
+      ),
+      ctx,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.output.sections?.[0]?.evidence_ids).toEqual(ids);
+    expect(validateStepOutput(3, r.output, ctx, {}).issues).toEqual([]);
+  });
+
+  it("rows 근거도 합집합에 든다", () => {
+    const sections = stepSectionIds(4, ctx).map((id) =>
+      id === "1-6"
+        ? {
+            id,
+            status: "ok",
+            body: {
+              rows: [
+                { label: "a", value: "b", evidence_ids: ["e2"] },
+                { label: "c", value: "d", evidence_ids: ["e1", "e2"] },
+              ],
+            },
+            evidence_ids: [],
+          }
+        : { id, status: "no_data", evidence_ids: [] },
+    );
+    const r = parseStepResponse(
+      4,
+      JSON.stringify({ match: { aligned: [], conflicting: [] }, sections }),
+      ctx,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(
+      r.output.sections?.find((s) => s.id === "1-6")?.evidence_ids,
+    ).toEqual(["e2", "e1"]);
+  });
+
+  it("섹션과 본문 근거가 모두 비면 missing_evidence", () => {
+    const r = parseStepResponse(
+      3,
+      raw([{ text: "x", evidence_ids: [] }], []),
+      ctx,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(
+      validateStepOutput(3, r.output, ctx, {}).issues.map((i) => i.code),
+    ).toContain("missing_evidence");
+  });
+});
+
+describe("1-9 학기 근거는 앱이 채운다", () => {
+  const ctx = makeContext({
+    activities: [
+      activity("s1", { gradeLabel: "고1", semester: 1 }),
+      activity("s2", { gradeLabel: "고1", semester: 1 }),
+      activity("s3", { gradeLabel: "고1", semester: 2 }),
+      activity("s4", { gradeLabel: "고2", semester: 1 }),
+      activity("s5", { gradeLabel: null, semester: null }),
+    ],
+    evidenceIds: ["s1", "s2", "s3", "s4", "s5"],
+  });
+  const raw = (rows: unknown[], evidence: string[] = []) =>
+    JSON.stringify({
+      sections: [
+        { id: "1-9", status: "ok", body: { rows }, evidence_ids: evidence },
+      ],
+    });
+  const rowsOf = (r: ReturnType<typeof parseStepResponse>) => {
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const s = r.output.sections?.find((x) => x.id === "1-9");
+    return {
+      section: s,
+      rows: (
+        (s?.body ?? { rows: [] }) as {
+          rows: { label: string; evidence_ids: string[] }[];
+        }
+      ).rows,
+    };
+  };
+
+  it("각 행 근거를 그 학기 활동 전부로 채우고 섹션 근거는 합집합이다", () => {
+    const { section, rows } = rowsOf(
+      parseStepResponse(
+        5,
+        raw([
+          { label: "고1-1", value: "연계", evidence_ids: ["s4"] },
+          { label: "고1-2", value: "단절", evidence_ids: [] },
+          { label: "고2-1", value: "연계", evidence_ids: [] },
+        ]),
+        ctx,
+      ),
+    );
+    expect(rows.map((r) => r.evidence_ids)).toEqual([
+      ["s1", "s2"],
+      ["s3"],
+      ["s4"],
+    ]);
+    expect(section?.evidence_ids).toEqual(["s1", "s2", "s3", "s4"]);
+  });
+
+  it("모델이 근거를 비워도 missing_evidence 없이 통과한다", () => {
+    const r = parseStepResponse(
+      5,
+      raw([{ label: "고1-1", value: "연계", evidence_ids: [] }]),
+      ctx,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(
+      validateStepOutput(5, r.output, ctx, {}).issues.map((i) => i.code),
+    ).not.toContain("missing_evidence");
+  });
+
+  it("학기 키가 아니거나 활동이 없는 학기 행은 근거가 빈다", () => {
+    const { section, rows } = rowsOf(
+      parseStepResponse(
+        5,
+        raw(
+          [
+            { label: "고3-2", value: "자료 없음", evidence_ids: ["s1"] },
+            { label: "엉뚱", value: "연계", evidence_ids: ["s1"] },
+            { label: "고1-1", value: "연계", evidence_ids: [] },
+          ],
+          ["s5"],
+        ),
+        ctx,
+      ),
+    );
+    expect(rows.map((r) => r.evidence_ids)).toEqual([[], [], ["s1", "s2"]]);
+    expect(section?.evidence_ids).toEqual(["s1", "s2"]);
+  });
+
+  it("행이 전부 근거 없는 학기이면 섹션 근거가 비어 missing_evidence 로 남는다", () => {
+    const r = parseStepResponse(
+      5,
+      raw([{ label: "고3-2", value: "자료 없음", evidence_ids: ["s1"] }]),
+      ctx,
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(
+      validateStepOutput(5, r.output, ctx, {}).issues.map((i) => i.code),
+    ).toContain("missing_evidence");
   });
 });

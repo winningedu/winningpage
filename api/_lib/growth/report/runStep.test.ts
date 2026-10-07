@@ -450,48 +450,111 @@ describe("5단계 모델 호출", () => {
       summary: "s",
     },
   ];
-  it("1-10 본문의 계산 필드는 모델 값이 아니라 앱 값으로 덮는다", async () => {
+  const only19 = JSON.stringify({
+    sections: [
+      {
+        id: "1-9",
+        status: "ok",
+        body: { rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }] },
+        evidence_ids: [],
+      },
+    ],
+  });
+  const run5 = (
+    ctx: ReturnType<typeof makeContext>,
+    text: string,
+    signals = sigs,
+  ) =>
+    runStep(
+      5,
+      ctx,
+      emptyStored({ signals: { byActivity: signals } }),
+      deps({ callModel: vi.fn(async () => reply(text)) }),
+    );
+
+  it("모델이 1-9 만 보내도 통과하고 앱이 1-10 을 만들어 붙인다", async () => {
     const ctx = makeContext();
     const { computeStep5 } = await import("./compute.js");
-    const { consistency, expectedFormula } = computeStep5(ctx, sigs as never);
+    const { consistency } = computeStep5(ctx, sigs as never);
+    const r = await run5(ctx, only19);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const sections = r.patch.sections as SectionItem[];
+    expect(sections.map((x) => x.id)).toEqual(["1-9", "1-10"]);
+    const item = sections.find((x) => x.id === "1-10");
+    expect(item).toMatchObject({
+      title: "방향 진단",
+      format: "diagram",
+      badge: "fact",
+      status: "ok",
+      formula: consistency.formula,
+      evidence_ids: ["a1", "a2", "a3"],
+      body: {
+        percent: consistency.percent,
+        formula: consistency.formula,
+        verdictLabel: consistency.verdictLabel,
+        linked: ["a1", "a2", "a3"],
+        total: consistency.total,
+        smallSample: consistency.smallSample,
+        criteria: consistency.criteria,
+      },
+    });
+    expect(r.patch.consistency).toEqual(consistency);
+    // 1-9 행 근거는 앱이 그 학기 활동으로 채운다.
+    const nine = sections.find((x) => x.id === "1-9");
+    expect(nine?.body).toMatchObject({
+      rows: [{ evidence_ids: ["a1", "a2", "a3"] }],
+    });
+  });
+
+  it("모델이 1-10 을 써 보내도 무시하고 앱 값을 쓴다", async () => {
+    const ctx = makeContext();
+    const { computeStep5 } = await import("./compute.js");
+    const { consistency } = computeStep5(ctx, sigs as never);
     const model = JSON.stringify({
-      formula: expectedFormula,
+      formula: "엉터리",
       sections: [
-        { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
+        ...JSON.parse(only19).sections,
         {
           id: "1-10",
           status: "ok",
           evidence_ids: ["a1"],
+          formula: "엉터리",
           body: {
             percent: 1,
             verdictLabel: "엉터리",
             linked: 99,
-            total: 7,
             text: "해석",
           },
         },
       ],
     });
-    const r = await runStep(
-      5,
-      ctx,
-      emptyStored({ signals: { byActivity: sigs } }),
-      deps({ callModel: vi.fn(async () => reply(model)) }),
-    );
+    const r = await run5(ctx, model);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     const item = (r.patch.sections as SectionItem[]).find(
       (x) => x.id === "1-10",
     );
-    expect(item?.body).toMatchObject({
+    expect(item?.formula).toBe(consistency.formula);
+    expect(item?.body).toEqual({
       percent: consistency.percent,
       formula: consistency.formula,
       verdictLabel: consistency.verdictLabel,
+      linked: ["a1", "a2", "a3"],
       total: consistency.total,
       smallSample: consistency.smallSample,
       criteria: consistency.criteria,
-      linked: ["a1", "a2", "a3"],
-      text: "해석",
     });
+  });
+
+  it("연계가 0건이면 분모 활동 전부를 1-10 근거로 둔다", async () => {
+    const ctx = makeContext();
+    const unlinked = sigs.map((x) => ({ ...x, axes: [] }));
+    const r = await run5(ctx, only19, unlinked);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item?.body).toMatchObject({ linked: [] });
+    expect(item?.evidence_ids).toEqual(["a1", "a2", "a3"]);
   });
 });
 
@@ -628,6 +691,63 @@ describe("8단계", () => {
     expect(r.completion?.profile.profile_id).toBe("p1");
     expect(r.completion?.planRows).toEqual([]);
     expect(r.patch.sections).toBe(r.completion?.sections);
+  });
+
+  it("5단계가 만든 1-10 을 8단계 조립이 그대로 받아 저장 patch 에 싣는다", async () => {
+    const { ctx: base } = ready();
+    const ctx = makeContext({
+      expectedSectionIds: [...base.expectedSectionIds, "1-9", "1-10"],
+    });
+    const sigs = ctx.activities.map((a) => ({
+      activityId: a.id,
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    }));
+    const model = JSON.stringify({
+      sections: [
+        {
+          id: "1-9",
+          status: "ok",
+          body: { rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }] },
+          evidence_ids: [],
+        },
+      ],
+    });
+    const second = await runStep(
+      2,
+      ctx,
+      emptyStored({ signals: { byActivity: sigs } }),
+      deps(),
+    );
+    if (!second.ok) throw new Error("step2");
+    let stored = emptyStored({
+      signals: second.patch.signals,
+      axis_scores: await axesOf(ctx),
+      planDraft: [],
+    });
+    const fifth = await runStep(
+      5,
+      ctx,
+      stored,
+      deps({ callModel: vi.fn(async () => reply(model)) }),
+    );
+    if (!fifth.ok) throw new Error(JSON.stringify(fifth.issues));
+    stored = { ...stored, ...fifth.patch } as StoredOutputs;
+    const r = await runStep(8, ctx, stored, deps({ carried: [] }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item).toMatchObject({
+      status: "ok",
+      format: "diagram",
+      formula: expect.stringContaining("%"),
+      evidence_ids: ["a1", "a2", "a3"],
+      body: { total: 3, linked: ["a1", "a2", "a3"] },
+    });
   });
 
   it("검증에 실패하면 issues 를 그대로 돌려준다", async () => {
@@ -882,19 +1002,17 @@ describe("활동 id 별칭 응답", () => {
     expect(r.output.match?.aligned[0]?.evidenceIds).toEqual([U[2]]);
   });
 
-  it("5단계는 별칭 근거로 통과하고 연계 활동은 활동 id 다", async () => {
-    const { computeStep5 } = await import("./compute.js");
-    const { expectedFormula } = computeStep5(ctx, sigs as never);
+  it("5단계는 모델이 1-9 만 보내도 통과하고 앱 1-10 의 근거는 활동 id 다", async () => {
     const { seen, callModel } = capture(
       JSON.stringify({
-        formula: expectedFormula,
         sections: [
-          { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
           {
-            id: "1-10",
+            id: "1-9",
             status: "ok",
-            evidence_ids: ["a1", "a2"],
-            body: { linked: ["a1"] },
+            body: {
+              rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }],
+            },
+            evidence_ids: [],
           },
         ],
       }),
@@ -905,7 +1023,7 @@ describe("활동 id 별칭 응답", () => {
     const item = (r.patch.sections as SectionItem[]).find(
       (x) => x.id === "1-10",
     );
-    expect(item?.evidence_ids).toEqual([U[0], U[1]]);
+    expect(item?.evidence_ids).toEqual(U);
   });
 
   it("6단계는 별칭 근거로 통과한다", async () => {

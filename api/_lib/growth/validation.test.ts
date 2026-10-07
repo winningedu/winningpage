@@ -69,50 +69,9 @@ describe("collectText / validateStep 1~4단계", () => {
   });
 });
 
-describe("validateStep 5단계(계산식)", () => {
-  const codes = (p: unknown) =>
-    validateStep(5, p, ctx).issues.map((i) => i.code);
-
-  test("formula 가 없으면 missing_formula", () => {
-    expect(codes({ score: 80 })).toContain("missing_formula");
-  });
-
-  test("formula 에 나눗셈 기호와 % 가 모두 있으면 통과", () => {
-    expect(codes({ formula: "(일치 4 ÷ 전체 5) × 100 = 80%" })).toEqual([]);
-    expect(codes({ formula: "4 / 5 = 80%" })).toEqual([]);
-  });
-
-  test("formula 에 나눗셈 기호나 % 가 없으면 invalid_formula", () => {
-    expect(codes({ formula: "4 나누기 5 = 80%" })).toContain("invalid_formula");
-    expect(codes({ formula: "4 ÷ 5 = 0.8" })).toContain("invalid_formula");
-  });
-});
-
-describe("validateStep 5단계(기대 계산식 일치)", () => {
-  const f = "(일치 4 ÷ 전체 5) × 100 = 80%";
-  const run = (formula: string, expectedFormula?: string) =>
-    validateStep(
-      5,
-      { formula },
-      {
-        ...ctx,
-        ...(expectedFormula === undefined ? {} : { expectedFormula }),
-      },
-    );
-
-  test("공백 차이만 있으면 통과", () => {
-    expect(run("(일치 4÷전체 5)×100=80%", f).issues).toEqual([]);
-  });
-
-  test("값이 다르면 formula_mismatch 와 formula 경로", () => {
-    const hit = run("(일치 3 ÷ 전체 5) × 100 = 60%", f).issues.find(
-      (i) => i.code === "formula_mismatch",
-    );
-    expect(hit?.path).toBe("formula");
-  });
-
-  test("expectedFormula 가 없으면 일치 검사를 생략한다", () => {
-    expect(run("4 / 5 = 80%").issues).toEqual([]);
+describe("validateStep 5단계", () => {
+  test("모델은 계산식을 쓰지 않으므로 formula 가 없어도 문제가 아니다", () => {
+    expect(validateStep(5, { sections: [] }, ctx).issues).toEqual([]);
   });
 });
 
