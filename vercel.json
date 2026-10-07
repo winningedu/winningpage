@@ -57,6 +57,10 @@
     {
       "path": "/api/cron/inquiry-archive",
       "schedule": "20 19 * * *"
+    },
+    {
+      "path": "/api/cron/ai-telemetry-cleanup",
+      "schedule": "30 19 * * *"
     }
   ]
 }
