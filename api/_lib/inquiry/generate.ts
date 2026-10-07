@@ -3,6 +3,7 @@
 // 결과는 GenerationOutcome 으로 돌려준다. 응답 매핑은 generationErrorOf 와 호출 핸들러가 한다.
 // mode 별 규칙(프롬프트 조립, 검증, 저장)은 spec 으로 주입받는다.
 
+import { createAiTrace } from "../aiTelemetry/trace.js";
 import type { callStructured } from "../gemini.js";
 import {
   DeadlineExceeded,
@@ -204,6 +205,15 @@ export async function runGeneration<TParsed, TSaved>(
     };
   }
 
+  // 모델 호출 기록은 어떤 경로로 끝나도 응답 직전에 한 번 내보낸다.
+  const trace = createAiTrace({
+    service: "inquiry",
+    feature: mode,
+    targetKind: "inquiry_session",
+    targetId: sessionId,
+    profileId: userId,
+  });
+
   const left = (): number =>
     GENERATION_BUDGET_MS - (Date.now() - deps.startedAt);
 
@@ -211,11 +221,13 @@ export async function runGeneration<TParsed, TSaved>(
   const callOnce = async (
     bundle: PromptBundle,
     lastIssues: ValidationIssue[],
+    reason: string | null,
   ): Promise<CallResult<TParsed>> => {
     const remaining = left();
     if (remaining <= 0) {
       return { ok: false, failure: "timeout", issues: lastIssues };
     }
+    trace.beginAttempt(reason);
     let reply: { text: string; finishReason: string | null };
     try {
       reply = await withinBudget(
@@ -225,6 +237,7 @@ export async function runGeneration<TParsed, TSaved>(
             responseSchema: bundle.responseSchema,
             maxOutputTokens: bundle.maxOutputTokens,
             abortSignal,
+            telemetry: trace,
           }),
         remaining,
       );
@@ -243,6 +256,10 @@ export async function runGeneration<TParsed, TSaved>(
     }
     // 잘린 응답은 우연히 파싱돼도 뒷부분이 비어 있을 수 있어 쓰지 않는다.
     if (reply.finishReason === "MAX_TOKENS") {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: ["truncated"],
+      });
       return {
         ok: false,
         failure: "retry",
@@ -254,6 +271,10 @@ export async function runGeneration<TParsed, TSaved>(
     }
     const parsed = parseJsonResponse(reply.text);
     if (!parsed.ok) {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: [parsed.issue.code],
+      });
       return {
         ok: false,
         failure: "retry",
@@ -263,6 +284,10 @@ export async function runGeneration<TParsed, TSaved>(
     }
     const verdict = spec.validate(parsed.value);
     if (!verdict.ok) {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: verdict.issues.map((i) => i.code),
+      });
       return {
         ok: false,
         failure: "retry",
@@ -270,6 +295,7 @@ export async function runGeneration<TParsed, TSaved>(
         issues: verdict.issues,
       };
     }
+    trace.annotateLastCall({ validation: "ok" });
     return { ok: true, value: verdict.value };
   };
 
@@ -316,12 +342,15 @@ export async function runGeneration<TParsed, TSaved>(
   // 이 아래에서 던지면 선점한 mode 를 실패로 닫고 다시 던진다(running 이 stale 까지 남지 않게).
   try {
     let extraAttempts = 0;
-    let result = await callOnce(spec.prompt, []);
+    let result = await callOnce(spec.prompt, [], null);
     if (!result.ok && result.failure === "retry") {
       extraAttempts = 1;
       result = await callOnce(
         spec.retryPrompt(result.issues, result.truncated),
         result.issues,
+        result.truncated
+          ? "truncated"
+          : result.issues.map((i) => i.code).join(",") || null,
       );
     }
     const settled = settle(result);
@@ -375,6 +404,8 @@ export async function runGeneration<TParsed, TSaved>(
       console.error("inquiry 실패 기록 중 오류(무시):", inner);
     }
     throw e;
+  } finally {
+    await trace.flush(db);
   }
 }
 

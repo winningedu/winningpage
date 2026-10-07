@@ -3,6 +3,7 @@
 // api/_lib/growth/report/runStep.ts 와 advance.ts 를 같은 모양으로 옮긴 것이다.
 // HTTP 를 모르고, 결과는 Outcome 으로 돌려준다. 응답 매핑은 outcomeToHttp 가 맡는다.
 
+import { type AiTrace, createAiTrace } from "../aiTelemetry/trace.js";
 import type { callStructured } from "../gemini.js";
 import type { Db } from "./db.js";
 import {
@@ -120,6 +121,7 @@ async function modelLoop<T>(
   step: ModelStepKey,
   deps: ModelStepDeps,
   spec: StepSpec<T>,
+  trace: AiTrace,
 ): Promise<LoopResult<T>> {
   let retryNotes: string[] = [];
   let issues: ValidationIssue[] = [];
@@ -135,6 +137,9 @@ async function modelLoop<T>(
       failure = "timeout";
       break;
     }
+    trace.beginAttempt(
+      attempt === 0 ? null : issues.map((i) => i.code).join(",") || null,
+    );
     const bundle = spec.build(retryNotes);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), remaining);
@@ -146,6 +151,7 @@ async function modelLoop<T>(
         responseSchema: bundle.responseSchema as never,
         maxOutputTokens: bundle.maxOutputTokens,
         abortSignal: controller.signal,
+        telemetry: trace,
       });
     } catch (e) {
       if (controller.signal.aborted) {
@@ -164,6 +170,10 @@ async function modelLoop<T>(
 
     const parsed = parseModelJson(reply.text, reply.finishReason);
     if (!parsed.ok) {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: [parsed.issue.code],
+      });
       failure = "validation";
       issues = [parsed.issue];
       retryNotes = buildRetryNotes(issues);
@@ -171,6 +181,10 @@ async function modelLoop<T>(
     }
     const verdict = spec.validate(parsed.value);
     if (!verdict.ok) {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: verdict.issues.map((i) => i.code),
+      });
       failure = "validation";
       issues = verdict.issues;
       retryNotes = buildRetryNotes(issues);
@@ -178,11 +192,16 @@ async function modelLoop<T>(
     }
     const soft = verdict.softIssues ?? [];
     if (soft.length > 0 && attempt === 0) {
+      trace.annotateLastCall({
+        validation: "failed",
+        issueCodes: soft.map((i) => i.code),
+      });
       held = verdict;
       issues = soft;
       retryNotes = buildRetryNotes(soft);
       continue;
     }
+    trace.annotateLastCall({ validation: "ok" });
     return { ok: true, value: verdict, tries };
   }
 
@@ -216,9 +235,18 @@ export async function runModelStep<T>(
     return { kind: "exhausted", terminal: true };
   }
 
+  // 모델 호출 기록은 어떤 경로로 끝나도 응답 직전에 한 번 내보낸다.
+  const trace = createAiTrace({
+    service: "selfeval",
+    feature: step,
+    targetKind: "selfeval_session",
+    targetId: session.id,
+    profileId: userId,
+  });
+
   // 여기서 던지면 선점한 running 이 stale 시간까지 남아 재요청이 막히므로 실패로 닫는다.
   try {
-    const loop = await modelLoop(step, deps, spec);
+    const loop = await modelLoop(step, deps, spec, trace);
     const extraAttempts = Math.max(loop.tries - 1, 0);
     const attempts = claim.attempts + extraAttempts;
 
@@ -270,6 +298,8 @@ export async function runModelStep<T>(
       attempts: claim.attempts,
       terminal: false,
     };
+  } finally {
+    await trace.flush(db);
   }
 }
 

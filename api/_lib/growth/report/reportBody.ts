@@ -1,5 +1,6 @@
 // api/growth/report 의 순수 보조: 바디 검증, 응답과 오류 조립, 종결 판정, 모델 어댑터.
 
+import type { AiTrace } from "../../aiTelemetry/trace.js";
 import type { ValidationIssue } from "../validation.js";
 import type { PromptBundle } from "./prompts.js";
 import type { RunStepDeps, StoredOutputs } from "./runStep.js";
@@ -165,6 +166,7 @@ type CallStructured = (
     maxOutputTokens: number;
     temperature: number;
     abortSignal: AbortSignal;
+    telemetry?: AiTrace;
   },
 ) => Promise<{ text: string; finishReason: string | null }>;
 
@@ -174,6 +176,7 @@ export const REPORT_MODEL_TEMPERATURE = 0.2;
 /** gemini callStructured 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
 export function callModelWith(
   callStructured: CallStructured,
+  telemetry?: AiTrace,
 ): RunStepDeps["callModel"] {
   return (bundle, signal) =>
     callStructured(bundle.system, bundle.user, {
@@ -182,6 +185,7 @@ export function callModelWith(
       maxOutputTokens: bundle.maxOutputTokens,
       temperature: REPORT_MODEL_TEMPERATURE,
       abortSignal: signal,
+      ...(telemetry !== undefined && { telemetry }),
     });
 }
 

@@ -1,5 +1,6 @@
 // 추출 요청의 다운로드, 원문 해석, 모델 호출을 하나의 시간 예산 안에서 수행한다.
 
+import type { AiTrace } from "../../aiTelemetry/trace.js";
 import { callText, callVision } from "../../gemini.js";
 import type { Db, UploadClaim } from "./collectDb.js";
 import {
@@ -46,6 +47,7 @@ export async function runExtraction(
   row: UploadClaim & { grade_label: string; semester: number },
   path: string,
   startedAt: number,
+  telemetry?: AiTrace,
 ): Promise<Extraction> {
   const left = () => remainingBudgetMs(startedAt, Date.now());
   try {
@@ -92,6 +94,7 @@ export async function runExtraction(
           responseSchema: EXTRACTION_RESPONSE_SCHEMA,
           maxOutputTokens: EXTRACTION_MAX_OUTPUT_TOKENS,
           abortSignal,
+          ...(telemetry !== undefined && { telemetry }),
         };
         return mode === "text"
           ? callText(prompt.system, prompt.user, options)
@@ -102,7 +105,16 @@ export async function runExtraction(
               options,
             );
       }, left());
-      return { kind: "parsed", parse: parseExtractionResponse(raw) };
+      const parse = parseExtractionResponse(raw);
+      telemetry?.annotateLastCall(
+        parse.ok
+          ? { validation: "ok" }
+          : {
+              validation: "failed",
+              issueCodes: [parse.reason || "parse_failed"],
+            },
+      );
+      return { kind: "parsed", parse };
     } catch (e) {
       if (e instanceof DeadlineExceeded) throw e;
       console.error("growth/collect 모델 호출 실패:", e);

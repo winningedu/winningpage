@@ -646,3 +646,127 @@ describe("runGeneration 재요청 중 오류", () => {
     );
   });
 });
+
+describe("runGeneration 계기판 기록", () => {
+  type Row = Record<string, unknown>;
+  const makeTelemetryDb = () => {
+    const insert = vi.fn(async (_rows: unknown) => ({ error: null }));
+    return {
+      db: { from: vi.fn(() => ({ insert })) } as never,
+      insert,
+      rows: () => (insert.mock.calls[0]?.[0] ?? []) as Row[],
+    };
+  };
+  // 실제 callStructured 처럼 호출마다 telemetry 에 한 건 기록하는 모의 모델.
+  const recording = (replies: ReturnType<typeof reply>[]) => {
+    const queue = [...replies];
+    return vi.fn(
+      async (
+        _s: string,
+        _u: string,
+        options: {
+          telemetry?: {
+            recordCall: (e: {
+              kind: "generate";
+              model: string;
+              startedAt: number;
+              latencyMs: number;
+              transportAttempt: number;
+              status: "ok";
+            }) => void;
+          };
+        },
+      ) => {
+        options.telemetry?.recordCall({
+          kind: "generate",
+          model: "m",
+          startedAt: 0,
+          latencyMs: 1,
+          transportAttempt: 1,
+          status: "ok",
+        });
+        const next = queue.shift();
+        if (!next) throw new Error("응답 소진");
+        return next;
+      },
+    );
+  };
+
+  it("재요청 경로는 1회차 failed, 2회차 ok 로 남기고 한 번만 내보낸다", async () => {
+    const t = makeTelemetryDb();
+    const callStructured = recording([reply('{"bad":1}'), reply('{"n":2}')]);
+    const out = await runGeneration(
+      t.db,
+      "u1",
+      "s1",
+      makeSpec(),
+      makeDeps({ callStructured: callStructured as never }),
+    );
+    expect(out.kind).toBe("ok");
+    expect(t.insert).toHaveBeenCalledTimes(1);
+    expect(t.rows()).toMatchObject([
+      {
+        service: "inquiry",
+        feature: "topic_recommendation",
+        target_kind: "inquiry_session",
+        profile_id: "u1",
+        attempt: 1,
+        retry_reason: null,
+        validation: "failed",
+        issue_codes: ["bad"],
+      },
+      { attempt: 2, retry_reason: "bad", validation: "ok" },
+    ]);
+  });
+
+  it("잘림 재요청은 사유가 truncated 이고 1회차는 failed truncated 다", async () => {
+    const t = makeTelemetryDb();
+    const callStructured = recording([
+      reply('{"n":1}', "MAX_TOKENS"),
+      reply('{"n":2}'),
+    ]);
+    await runGeneration(
+      t.db,
+      "u1",
+      "s1",
+      makeSpec(),
+      makeDeps({ callStructured: callStructured as never }),
+    );
+    expect(t.rows()).toMatchObject([
+      { validation: "failed", issue_codes: ["truncated"], retry_reason: null },
+      { retry_reason: "truncated", validation: "ok" },
+    ]);
+  });
+
+  it("JSON 이 아닌 응답은 파싱 문제 코드로 표시한다", async () => {
+    const t = makeTelemetryDb();
+    const callStructured = recording([reply("not json"), reply('{"n":2}')]);
+    await runGeneration(
+      t.db,
+      "u1",
+      "s1",
+      makeSpec(),
+      makeDeps({ callStructured: callStructured as never }),
+    );
+    expect(t.rows()[0]).toMatchObject({
+      validation: "failed",
+      issue_codes: ["invalid_json"],
+    });
+  });
+
+  it("저장이 던져 예외로 끝나도 한 번 내보내고 예외를 던진다", async () => {
+    const t = makeTelemetryDb();
+    const callStructured = recording([reply('{"n":1}')]);
+    mocks.finishGeneration.mockRejectedValueOnce(new Error("x"));
+    await expect(
+      runGeneration(
+        t.db,
+        "u1",
+        "s1",
+        makeSpec(),
+        makeDeps({ callStructured: callStructured as never }),
+      ),
+    ).rejects.toThrow("x");
+    expect(t.insert).toHaveBeenCalledTimes(1);
+  });
+});

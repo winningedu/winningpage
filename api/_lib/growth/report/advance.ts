@@ -1,6 +1,7 @@
 // 성장설계 리포트 한 단계 진행 서비스. api/growth/report 핸들러와 크론(growth-resume)이 함께 쓴다.
 // HTTP 를 모른다. 결과는 AdvanceOutcome 으로 돌려주고 응답 매핑은 호출자가 한다.
 
+import { createAiTrace } from "../../aiTelemetry/trace.js";
 import type { callStructured } from "../../gemini.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
 import type { Db } from "../intake/collectDb.js";
@@ -154,6 +155,16 @@ export async function advanceStep(
     };
   }
 
+  // 모델 호출 기록은 어떤 경로로 끝나도 응답 직전에 한 번 내보낸다.
+  const trace = createAiTrace({
+    service: "growth",
+    feature: "report_step",
+    step: String(step),
+    targetKind: "growth_report",
+    targetId: reportId,
+    profileId: userId,
+  });
+
   // 이 아래에서 던지면 선점한 단계를 실패로 닫고 다시 던진다.
   try {
     let context: Awaited<ReturnType<typeof loadContextInputs>>;
@@ -184,7 +195,8 @@ export async function advanceStep(
         ? await loadCarried(db, userId, await loadPreviousReportId(db, userId))
         : undefined;
     const result = await runStep(step, context, toStoredOutputs(row), {
-      callModel: callModelWith(deps.callStructured),
+      callModel: callModelWith(deps.callStructured, trace),
+      telemetry: trace,
       now: deps.now,
       budgetMs: STEP_BUDGET_MS - (Date.now() - deps.startedAt),
       ...(carried !== undefined && { carried }),
@@ -332,5 +344,7 @@ export async function advanceStep(
       console.error("growth/report 실패 기록 중 오류(무시):", inner);
     }
     throw e;
+  } finally {
+    await trace.flush(db);
   }
 }

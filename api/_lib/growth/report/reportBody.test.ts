@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createAiTrace } from "../../aiTelemetry/trace.js";
 import { MAX_MODEL_ATTEMPTS_PER_STEP } from "../validation.js";
 import {
   callModelWith,
@@ -210,6 +211,31 @@ describe("callModelWith", () => {
       },
     ]);
     expect(REPORT_MODEL_TEMPERATURE).toBe(0.2);
+  });
+});
+
+describe("callModelWith 계기판", () => {
+  it("telemetry 를 callStructured 옵션에 실어 넘긴다", async () => {
+    const calls: unknown[][] = [];
+    const callStructured = async (...args: unknown[]) => {
+      calls.push(args);
+      return { text: "{}", finishReason: "STOP" };
+    };
+    const telemetry = createAiTrace({
+      service: "growth",
+      feature: "report_step",
+    });
+    await callModelWith(callStructured, telemetry)(
+      {
+        system: "S",
+        user: "U",
+        responseSchema: {} as never,
+        maxOutputTokens: 10,
+      },
+      new AbortController().signal,
+    );
+    const options = (calls[0]?.[2] ?? {}) as { telemetry?: unknown };
+    expect(options.telemetry).toBe(telemetry);
   });
 });
 
