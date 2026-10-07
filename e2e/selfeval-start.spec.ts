@@ -1,6 +1,11 @@
-import { discardOpenSession, expect, test } from "./fixtures/selfeval";
+import {
+  discardOpenSession,
+  expect,
+  readQuotaRemaining,
+  test,
+} from "./fixtures/selfeval";
 
-// 시작 화면: 머리, 통계 3칸, 하단 고지, 사이드바 메뉴와 진행단계, 새 자기평가서 버튼.
+// 시작 화면: 머리, 통계 칸, 하단 고지, 사이드바 메뉴와 진행단계, 새 자기평가서 버튼.
 test.describe("자기평가서 시작 화면", () => {
   test("진입 정보와 고지, 사이드바가 보인다", async ({
     studentPage: page,
@@ -14,10 +19,11 @@ test.describe("자기평가서 시작 화면", () => {
       page.getByRole("heading", { name: "위닝 자기평가서" }),
     ).toBeVisible();
 
-    // 통계 3칸
-    await expect(
-      page.getByText("이용 가능 횟수", { exact: true }),
-    ).toBeVisible();
+    // 통계 칸. 무제한 이용권(quotaRemaining null)이면 이용 가능 횟수 칸은 그리지 않는다.
+    const quota = await readQuotaRemaining(request, token);
+    await expect(page.getByText("이용 가능 횟수", { exact: true })).toHaveCount(
+      quota === null ? 0 : 1,
+    );
     await expect(page.getByText("저장된 활동", { exact: true })).toBeVisible();
     await expect(
       page.getByText("작성 중인 자기평가서", { exact: true }),

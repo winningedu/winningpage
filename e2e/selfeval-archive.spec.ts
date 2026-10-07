@@ -1,6 +1,6 @@
 import { discardOpenSession, expect, test } from "./fixtures/selfeval";
 
-// 보관함: 상태 필터와 완료 세션 다시 보기. 로컬에 완료 세션이 2건 이상 있어야 한다.
+// 보관함: 상태 필터와 완료 세션 다시 보기. 계정에 완료 세션이 1건 이상 있어야 한다.
 test.describe("자기평가서 보관함", () => {
   test("완료로 거르면 완료 행만 남고 다시 보기가 저장 완료 화면을 연다", async ({
     studentPage: page,
@@ -22,10 +22,7 @@ test.describe("자기평가서 보관함", () => {
       }),
     });
     const count = await rows.count();
-    expect(
-      count,
-      "로컬 완료 세션이 2건 이상이어야 한다",
-    ).toBeGreaterThanOrEqual(2);
+    expect(count, "완료 세션이 1건 이상이어야 한다").toBeGreaterThanOrEqual(1);
     for (let i = 0; i < count; i += 1) {
       await expect(rows.nth(i)).toContainText("완료");
       await expect(

@@ -75,6 +75,46 @@ export async function countCompletedSessions(): Promise<number> {
   return res.count ?? 0;
 }
 
+/**
+ * 가장 최근 확정 세션의 과목과 보관함 표시 점수(소수 한 자리). 확정 세션이 없으면 오류.
+ * 보관함 스펙이 로컬 시드 값 대신 계정에 실제로 있는 확정 세션을 쓰게 한다.
+ */
+export async function latestCompletedSession(): Promise<{
+  subject: string;
+  score: string;
+}> {
+  const profileId = await resolveStudentProfileId();
+  const session = check(
+    "최근 확정 세션 조회",
+    await serviceRoleClient()
+      .from("inquiry_sessions")
+      .select("subject, latest_evaluation_id")
+      .eq("profile_id", profileId)
+      .eq("status", "completed")
+      .not("latest_evaluation_id", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ).data;
+  if (!session) {
+    throw new Error(
+      "확정된 심화탐구 세션이 있어야 한다(E2E_INQUIRY_FULL=1 완주 스펙을 먼저 돌린다).",
+    );
+  }
+  const report = check(
+    "평가 리포트 점수 조회",
+    await serviceRoleClient()
+      .from("inquiry_reports")
+      .select("score")
+      .eq("id", session.latest_evaluation_id as string)
+      .single(),
+  ).data;
+  return {
+    subject: session.subject as string,
+    score: Number(report.score).toFixed(1),
+  };
+}
+
 /** 심화탐구가 적립한 활동 기록 수. */
 export async function countDeepDeposits(): Promise<number> {
   const profileId = await resolveStudentProfileId();
