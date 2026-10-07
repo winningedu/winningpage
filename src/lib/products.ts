@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
 const PRODUCT_COLUMNS =
-  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, tenant_id, sale_ends_at";
+  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, is_orderable, tenant_id, sale_ends_at";
 
 type ProductRow = {
   id: string;
@@ -21,6 +21,9 @@ type ProductRow = {
   badge?: string | null;
   is_recommended?: boolean | null;
   is_active?: boolean;
+  // false 여도 카탈로그에는 보이되 셀프서브 결제는 불가(supabase/migrations/
+  // 20260825000000_products_is_orderable.sql).
+  is_orderable?: boolean | null;
   // 소속 한정 상품 축(2026-09-01, supabase/migrations/20260901050440. tenant_id
   // FK로 전환됨). tenant_id 가 있으면 fn_matched_tenant_ids 로 얻은 목록에
   // 포함될 때만, sale_ends_at 이 있으면 그 시각 이전일 때만 노출한다 —
@@ -36,6 +39,7 @@ export type ServiceProduct = {
   price: number | null | undefined;
   badge: string | null | undefined;
   recommended: boolean;
+  isOrderable: boolean;
   tenantId: string | null | undefined;
   saleEndsAt: string | null | undefined;
 };
@@ -73,6 +77,7 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
       price: r.price,
       badge: r.badge,
       recommended: !!r.is_recommended,
+      isOrderable: r.is_orderable === true,
       tenantId: r.tenant_id,
       saleEndsAt: r.sale_ends_at,
     });

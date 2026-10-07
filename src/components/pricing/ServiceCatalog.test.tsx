@@ -20,6 +20,7 @@ function product(id: string, name: string): ServiceProduct {
     price: 9000,
     badge: null,
     recommended: false,
+    isOrderable: true,
     tenantId: null,
     saleEndsAt: null,
   };
