@@ -9,7 +9,12 @@ const { rows } = vi.hoisted(() => ({
 vi.mock("./supabase", () => ({
   supabase: {
     from: () => {
-      const builder: Promise<unknown> & Record<string, unknown> = Object.assign(
+      type Builder = Promise<unknown> & {
+        select: () => Builder;
+        eq: () => Builder;
+        order: () => Builder;
+      };
+      const builder: Builder = Object.assign(
         Promise.resolve({ data: rows.current, error: null }),
         {
           select: () => builder,

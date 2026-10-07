@@ -86,15 +86,15 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
 }
 
 // products 테이블에서 활성 상품을 조회해 서비스별로 그룹핑한 배열을 반환한다.
-// serviceKey를 넘기면 해당 서비스 상품만 조회한다. orderableOnly가 true면
-// is_orderable=true 인 것만 추가로 걸러 셀프서브 결제 카탈로그(ParentCheckout.tsx,
-// StudentEnrollmentRequest.tsx)에서 쓴다 — 예전엔 화면마다 ALLOWED_SERVICE_KEYS
-// 하드코딩 상수로 중복 유지하다 드리프트로 결제 차단 버그가 났다(is_orderable
-// 컬럼 도입 배경, supabase/migrations/20260825000000). 조회 실패 시 예외를 던진다
-// (호출부인 useProducts가 error 상태로 변환한다) — 조용히 빈 배열을 반환하지 않는다.
+// serviceKey를 넘기면 해당 서비스 상품만 조회한다. is_orderable=false 상품도 함께
+// 돌려주고 각 상품의 isOrderable 로 구분한다 — 결제 카탈로그(ParentCheckout.tsx,
+// StudentEnrollmentRequest.tsx)는 카드를 보이되 선택만 막는다(예전엔 화면마다
+// ALLOWED_SERVICE_KEYS 하드코딩 상수로 중복 유지하다 드리프트로 결제 차단 버그가
+// 났다 — is_orderable 컬럼 도입 배경, supabase/migrations/20260825000000). 조회
+// 실패 시 예외를 던진다(호출부인 useProducts가 error 상태로 변환한다) — 조용히
+// 빈 배열을 반환하지 않는다.
 async function fetchProducts(
   serviceKey?: string | null,
-  orderableOnly?: boolean,
 ): Promise<ServiceGroup[]> {
   let query = supabase
     .from("products")
@@ -104,7 +104,6 @@ async function fetchProducts(
     .order("sort_order", { ascending: true });
 
   if (serviceKey) query = query.eq("service_key", serviceKey);
-  if (orderableOnly) query = query.eq("is_orderable", true);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -112,16 +111,12 @@ async function fetchProducts(
 }
 
 // products 조회 훅. serviceKey를 넘기면 해당 서비스 상품만 조회한다(전체가 필요하면
-// 인자 없이 호출). opts.orderableOnly=true면 is_orderable=true 인 상품만 돌려준다
-// (위 fetchProducts 주석 참고). 반환: { services, loading, error, refetch }
+// 인자 없이 호출). 주문 불가 상품도 isOrderable=false 로 포함된다(위 fetchProducts
+// 주석 참고). 반환: { services, loading, error, refetch }
 // - services: 서비스별 그룹 배열(빈 배열이면 로딩/에러가 아닌 이상 "조회된 상품 없음"을 뜻함)
 // - error: 조회 실패 시 Error 객체, 정상이면 null
 // - refetch: 실패/빈 결과 시 재시도용
-export function useProducts(
-  serviceKey?: string | null,
-  opts?: { orderableOnly?: boolean },
-) {
-  const orderableOnly = opts?.orderableOnly ?? false;
+export function useProducts(serviceKey?: string | null) {
   const [services, setServices] = useState<ServiceGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -134,7 +129,7 @@ export function useProducts(
     setError(null);
     (async () => {
       try {
-        const grouped = await fetchProducts(serviceKey, orderableOnly);
+        const grouped = await fetchProducts(serviceKey);
         if (!alive) return;
         setServices(grouped);
       } catch (err) {
@@ -148,7 +143,7 @@ export function useProducts(
     return () => {
       alive = false;
     };
-  }, [serviceKey, orderableOnly, reloadToken]);
+  }, [serviceKey, reloadToken]);
 
   const refetch = useCallback(() => setReloadToken((t) => t + 1), []);
 

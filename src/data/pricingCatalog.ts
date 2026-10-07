@@ -17,6 +17,13 @@
 export const SINGLE_SELECT_NOTICE =
   "한 서비스 내에서는 하나의 플랜만 선택할 수 있어요";
 
+// 서비스별 추가 안내문(키 = products.service_key) — ServiceCatalog serviceNotices 로
+// 넘긴다. 콜멘토는 고객사 가격표(2026-10-07)에 따라 2026년 말부터 제공 예정이라
+// 카탈로그에는 보이되 선택·결제는 막는다(products.is_orderable=false).
+export const SERVICE_NOTICES: Record<string, string> = {
+  mentor: "위닝 콜멘토 서비스는 2026년 말부터 제공될 예정입니다.",
+};
+
 export function formatKRW(value: unknown) {
   return `${Number(value || 0).toLocaleString("ko-KR")}원`;
 }
