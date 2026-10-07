@@ -1,3 +1,4 @@
+import { resolveStudentProfileId } from "./fixtures/env";
 import {
   api,
   confirmAllFeelings,
@@ -9,7 +10,6 @@ import {
   insertPendingPlanItem,
   openNewSession,
   PLAN_ITEM_TITLE,
-  QA_STUDENT_PROFILE_ID,
   readQuotaRemaining,
   resetManualActivityRecords,
   saveFinal,
@@ -23,7 +23,7 @@ import {
 } from "./fixtures/selfeval";
 
 // 모델을 부르는 완주 경로. E2E_SELFEVAL_FULL=1 일 때만 돈다(수 분, 이용 횟수 소모).
-// 전제: 로컬 스택, 완료된 성장설계 리포트 1건(연동 스펙), 학생 QA 계정.
+// 전제: 로컬 스택 또는 dev 프리뷰(env 계약은 fixtures/selfeval.ts 머리말), 완료된 성장설계 리포트 1건(연동 스펙), 학생 QA 계정.
 test.describe("자기평가서 모델 포함 완주", () => {
   test.skip(!process.env.E2E_SELFEVAL_FULL, "E2E_SELFEVAL_FULL=1 일 때만 실행");
   test.setTimeout(600_000);
@@ -37,7 +37,6 @@ test.describe("자기평가서 모델 포함 완주", () => {
     await discardOpenSession(request, token);
     const quotaBefore = await readQuotaRemaining(request, token);
     const completedBefore = await countCompleted(request, token);
-    expect(quotaBefore).not.toBeNull();
 
     await openNewSession(page);
     await submitBasics(page, { growth: false });
@@ -99,7 +98,12 @@ test.describe("자기평가서 모델 포함 완주", () => {
 
     // 이용 횟수는 생성 성공에서 1회 차감된다.
     const quotaAfter = await readQuotaRemaining(request, token);
-    expect(quotaAfter).toBe((quotaBefore ?? 0) - 1);
+    if (quotaBefore === null) {
+      // 무제한 이용권(dev QA 계정)은 잔여가 계속 null 이다.
+      expect(quotaAfter).toBeNull();
+    } else {
+      expect(quotaAfter).toBe(quotaBefore - 1);
+    }
 
     // 보관함에 완료 행이 하나 늘었다.
     await page.getByRole("button", { name: "보관함으로" }).click();
@@ -197,7 +201,7 @@ test.describe("자기평가서 모델 포함 완주", () => {
         .eq("id", itemId)
         .single();
       expect(item.error).toBeNull();
-      expect(item.data?.profile_id).toBe(QA_STUDENT_PROFILE_ID);
+      expect(item.data?.profile_id).toBe(await resolveStudentProfileId());
       expect(item.data?.status).toBe("done");
       expect(item.data?.done_source_program).toBe("self");
     } finally {

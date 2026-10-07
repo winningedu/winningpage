@@ -25,8 +25,8 @@ const GUARDED = [
 ] as const;
 
 test.describe("심화탐구 단계 가드", () => {
-  test.beforeAll(() => {
-    deleteOpenSessions();
+  test.beforeAll(async () => {
+    await deleteOpenSessions();
   });
 
   for (const { path, title, back } of GUARDED) {

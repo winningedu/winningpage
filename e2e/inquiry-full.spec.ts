@@ -1,13 +1,18 @@
 import {
   addOneline,
+  archiveOpenSessions,
+  countCompletedSessions,
+  countDeepDeposits,
   deleteOpenSessions,
+  deletePlanItemsByTitle,
   expect,
   fillBasicInfo,
   gotoInfo,
   INQUIRY_FULL,
+  insertPendingPlanItem,
+  latestCompletedGrowthReportId,
   type Page,
-  psql,
-  QA_PROFILE_ID,
+  readPlanItemByTitle,
   SAMPLE_INFO,
   SAMPLE_ONELINE,
   test,
@@ -31,22 +36,6 @@ const SECTIONS: Record<string, string> = {
   VII: "남은 질문은 품종과 체중에 따라 같은 지수에서 반응이 어떻게 달라지는가다. 다음에는 측정 위치를 고정하고 품종별로 나눠 기록할 것이다. 생명과학 수행평가에서 체온 조절 단원과 이어 확인하려 한다.",
   VIII: "기상청 기상자료개방포털 시간별 기온 습도 자료, 2026년 7월 기준\n농촌진흥청 가축사육기상정보시스템 온습도지수 산출식 안내, 2025년 기준",
 };
-
-function completedCount(): number {
-  return Number(
-    psql(
-      `select count(*) from inquiry_sessions where profile_id = '${QA_PROFILE_ID}' and status = 'completed'`,
-    ),
-  );
-}
-
-function depositCount(): number {
-  return Number(
-    psql(
-      `select count(*) from activity_records where profile_id = '${QA_PROFILE_ID}' and source_program = 'deep'`,
-    ),
-  );
-}
 
 /** 정보 입력이 끝난 화면에서 추천받기부터 확정 적립 결과 카드까지 간다. */
 async function recommendToFinalize(page: Page) {
@@ -124,21 +113,19 @@ test.describe("심화탐구 모델 완주", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(8 * 60_000);
 
-  test.beforeAll(() => {
-    deleteOpenSessions();
-    psql(
-      `delete from growth_plan_items where profile_id = '${QA_PROFILE_ID}' and title = '${PLAN_TITLE}'`,
-    );
+  test.beforeAll(async () => {
+    await deleteOpenSessions();
+    await deletePlanItemsByTitle(PLAN_TITLE);
   });
-  test.afterAll(() => {
-    deleteOpenSessions();
+  test.afterAll(async () => {
+    await deleteOpenSessions();
   });
 
   test("단독 완주: 한 줄 자산에서 확정 적립까지", async ({
     studentPage: page,
   }) => {
-    const completedBefore = completedCount();
-    const depositsBefore = depositCount();
+    const completedBefore = await countCompletedSessions();
+    const depositsBefore = await countDeepDeposits();
 
     await gotoInfo(page);
     await fillBasicInfo(page, SAMPLE_INFO);
@@ -149,8 +136,8 @@ test.describe("심화탐구 모델 완주", () => {
       result.getByText("성장설계 실행계획 과제를 완료로 알렸어요"),
     ).toHaveCount(0);
 
-    expect(completedCount()).toBe(completedBefore + 1);
-    expect(depositCount()).toBe(depositsBefore + 1);
+    expect(await countCompletedSessions()).toBe(completedBefore + 1);
+    expect(await countDeepDeposits()).toBe(depositsBefore + 1);
 
     // 보관함에 확정 행이 하나 늘었다.
     await result.getByRole("link", { name: "보관함으로" }).click();
@@ -165,7 +152,7 @@ test.describe("심화탐구 모델 완주", () => {
   test("콜드 스타트: 활동 0건이면 관심 기반 예비 주제와 확인 질문 3개가 나온다", async ({
     studentPage: page,
   }) => {
-    deleteOpenSessions();
+    await deleteOpenSessions();
     await gotoInfo(page);
     await fillBasicInfo(page, SAMPLE_INFO);
     await page.getByRole("button", { name: "주제 3개 추천받기" }).click();
@@ -184,22 +171,16 @@ test.describe("심화탐구 모델 완주", () => {
     ).toBeVisible();
 
     // 다음 스펙에 영향이 없게 이 세션을 보관 처리한다.
-    psql(
-      `update inquiry_sessions set status = 'archived' where profile_id = '${QA_PROFILE_ID}' and status in ('draft','in_progress')`,
-    );
+    await archiveOpenSessions();
   });
 
   test("연동 완주: 성장설계 실행계획 과제를 골라 끝내면 과제가 완료로 알려진다", async ({
     studentPage: page,
   }) => {
-    deleteOpenSessions();
-    const reportId = psql(
-      `select id from growth_reports where profile_id = '${QA_PROFILE_ID}' and status = 'completed' order by created_at desc limit 1`,
-    );
+    await deleteOpenSessions();
+    const reportId = await latestCompletedGrowthReportId();
     expect(reportId, "완료된 성장설계 회차가 있어야 한다").not.toBe("");
-    psql(
-      `insert into growth_plan_items (report_id, profile_id, program, title, priority, period, sort_order, status) values ('${reportId}', '${QA_PROFILE_ID}', 'deep', '${PLAN_TITLE}', 'recommended', 'semester', 99, 'pending')`,
-    );
+    await insertPendingPlanItem(reportId, PLAN_TITLE);
 
     await gotoInfo(page);
     const group = page.getByRole("radiogroup", { name: "이번에 이어갈 과제" });
@@ -214,9 +195,7 @@ test.describe("심화탐구 모델 완주", () => {
       result.getByText("성장설계 실행계획 과제를 완료로 알렸어요"),
     ).toBeVisible();
 
-    const item = psql(
-      `select status, done_source_program from growth_plan_items where profile_id = '${QA_PROFILE_ID}' and title = '${PLAN_TITLE}'`,
-    );
-    expect(item).toBe("done|deep");
+    const item = await readPlanItemByTitle(PLAN_TITLE);
+    expect(item).toEqual({ status: "done", done_source_program: "deep" });
   });
 });

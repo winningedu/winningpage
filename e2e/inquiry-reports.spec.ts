@@ -6,8 +6,8 @@ const SEED_SUBJECT = "생명과학I";
 const SEED_SCORE = "87.5";
 
 test.describe("심화탐구 보관함", () => {
-  test.beforeAll(() => {
-    deleteOpenSessions();
+  test.beforeAll(async () => {
+    await deleteOpenSessions();
   });
 
   test("확정 세션이 목록에 과목, 점수, 상태와 함께 보인다", async ({

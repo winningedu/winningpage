@@ -5,8 +5,8 @@ import {
   fillBasicInfo,
   gotoInfo,
   INQUIRY_FULL,
-  psql,
-  QA_PROFILE_ID,
+  readOpenSessionAssets,
+  readOpenSessionBasics,
   SAMPLE_INFO,
   SAMPLE_ONELINE,
   test,
@@ -21,12 +21,12 @@ test.describe("심화탐구 세션 생성과 재진입", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(INQUIRY_FULL ? 5 * 60_000 : 60_000);
 
-  test.beforeAll(() => {
-    deleteOpenSessions();
+  test.beforeAll(async () => {
+    await deleteOpenSessions();
   });
-  test.afterAll(() => {
+  test.afterAll(async () => {
     // 다음 스펙이 열린 세션 없는 상태에서 시작하도록 되돌린다.
-    deleteOpenSessions();
+    await deleteOpenSessions();
   });
 
   test("한 줄과 기억 자산으로 추천을 누르면 세션이 만들어지고 주제 추천 화면으로 간다", async ({
@@ -63,14 +63,16 @@ test.describe("심화탐구 세션 생성과 재진입", () => {
     }
 
     // 세션 행에 폼 값이 복사되고 자산이 신뢰도와 함께 저장된다.
-    const session = psql(
-      `select grade_label, semester, career, subject from inquiry_sessions where profile_id = '${QA_PROFILE_ID}' and status in ('draft','in_progress')`,
-    );
-    expect(session).toBe("고2|2|수의예과|생명과학I");
-    const assets = psql(
-      `select a.kind, a.reliability from inquiry_assets a join inquiry_sessions s on s.id = a.session_id where s.profile_id = '${QA_PROFILE_ID}' and s.status in ('draft','in_progress') order by a.position`,
-    );
-    expect(assets).toBe("interview|B\noneline|C");
+    expect(await readOpenSessionBasics()).toEqual({
+      grade_label: "고2",
+      semester: 2,
+      career: "수의예과",
+      subject: "생명과학I",
+    });
+    expect(await readOpenSessionAssets()).toEqual([
+      { kind: "interview", reliability: "B" },
+      { kind: "oneline", reliability: "C" },
+    ]);
   });
 
   test("열린 세션이 있는 채로 /app/inquiry 에 다시 오면 저장된 정보와 자산이 복원된다", async ({

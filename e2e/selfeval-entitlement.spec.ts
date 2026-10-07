@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { API_BASE, getStudentToken } from "./fixtures/selfeval";
+import { apiBase } from "./fixtures/env";
+import { getStudentToken } from "./fixtures/selfeval";
 
 // 접근 차단: 토큰 없는 API 는 401, 비로그인 화면 진입은 /login. 깨진 JSON 응답은 기록만 한다.
 test.describe("자기평가서 접근 차단", () => {
   test("토큰 없는 /api/selfeval/reports 는 401", async ({ request }) => {
-    const res = await request.get(`${API_BASE}/reports`);
+    const res = await request.get(`${apiBase()}/selfeval/reports`);
     expect(res.status()).toBe(401);
   });
 
@@ -18,7 +19,7 @@ test.describe("자기평가서 접근 차단", () => {
     request,
   }, testInfo) => {
     const token = await getStudentToken(request);
-    const res = await request.fetch(`${API_BASE}/session`, {
+    const res = await request.fetch(`${apiBase()}/selfeval/session`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
