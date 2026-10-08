@@ -187,6 +187,13 @@ describe("callModelWith", () => {
         user: "U",
         responseSchema: schema as never,
         maxOutputTokens: 1234,
+        callInfo: {
+          step: 3,
+          kind: "step",
+          sectionId: null,
+          batchIndex: null,
+          attempt: 0,
+        },
       },
       signal,
     );

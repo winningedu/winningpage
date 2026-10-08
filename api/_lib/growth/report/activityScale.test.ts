@@ -139,7 +139,7 @@ const emptyStored = (): StoredOutputs => ({
 const ko = (n: number): string => "탐구가 이어진다 ".repeat(n).slice(0, n);
 
 /**
- * 본문 길이. 분량 원칙의 상한(prose 350자, list 5개 120자, table 8행 80자)을 모두 채우면
+ * 본문 길이. 분량 원칙의 상한(prose 350자, list 5개 120자, 표는 섹션별 행 수와 칸 60자)을 모두 채우면
  * 활동 수와 무관하게 4, 7단계만으로 한도를 넘는다. 실측 정상 출력에 맞춰
  * 원칙 안의 중간 길이로 쓰고, 활동 수에 따라 늘어나는 것은 근거 나열뿐이게 한다.
  */
@@ -150,6 +150,8 @@ const LEN = {
   rows: 4,
   rowText: 45,
   rowLabel: 25,
+  /** 표 섹션 계약의 칸 길이 상한(한 문장 60자). */
+  cell: 60,
   axisText: 120,
   match: 3,
   matchText: 80,
@@ -171,6 +173,15 @@ type WorstInput = {
   only?: CallKindInfo;
   /** 참이면 표 본문을 분량 원칙 최대(8행, 80자)로 쓰고 근거를 전부 나열한다. 한 섹션 호출을 한도 밖으로 보내는 모델이다. */
   maximal?: boolean;
+};
+
+/** 표 섹션 계약의 행 수. 여기 없는 표 섹션은 LEN.rows 행이다. */
+const TABLE_ROWS: Record<string, number> = {
+  "1-6": 3,
+  "1-7": 3,
+  "2-6": 5,
+  "3-5": 5,
+  "3-7": 3,
 };
 
 type CallKindInfo =
@@ -229,10 +240,10 @@ function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
       }
       if (def.id === "3-5") {
         return {
-          rows: Array.from({ length: LEN.rows }, () => ({
+          rows: Array.from({ length: TABLE_ROWS["3-5"] ?? LEN.rows }, () => ({
             subject: ko(LEN.rowLabel),
-            direction: ko(LEN.rowText),
-            record_to_leave: ko(LEN.rowText),
+            direction: ko(LEN.cell),
+            record_to_leave: ko(LEN.cell),
             evidence_ids: w.ids,
           })),
         };
@@ -241,6 +252,14 @@ function bodyFor(def: { id: string; format: string }, w: WorstInput): unknown {
         return {
           rows: Array.from({ length: 8 }, () =>
             entry({ label: ko(80), value: ko(80) }),
+          ),
+        };
+      }
+      const contracted = TABLE_ROWS[def.id];
+      if (contracted !== undefined) {
+        return {
+          rows: Array.from({ length: contracted }, () =>
+            entry({ value: ko(LEN.cell) }),
           ),
         };
       }
@@ -350,6 +369,8 @@ type CallLog = {
   /** single 은 1, 3, 5단계의 단일 호출이다. */
   kind: "single" | "section" | "match" | "planDraft";
   sectionId: string | null;
+  /** 표 형식 섹션 호출이면 참. */
+  table: boolean;
   tokens: number;
   limit: number;
   cut: boolean;
@@ -468,6 +489,9 @@ async function runAllSteps(n: number, options: RunOptions = {}) {
         step,
         kind: only ? only.kind : "single",
         sectionId: only?.kind === "section" ? only.id : null,
+        table:
+          only?.kind === "section" &&
+          SECTION_REGISTRY.find((d) => d.id === only.id)?.format === "table",
         tokens,
         limit: bundle.maxOutputTokens,
         cut,
@@ -505,7 +529,7 @@ const maxByKind = (
 ): Record<string, { tokens: number; limit: number }> => {
   const out: Record<string, { tokens: number; limit: number }> = {};
   for (const c of calls) {
-    const key = `${c.step}단계${KIND_LABEL[c.kind]}`;
+    const key = `${c.step}단계${c.table ? " 표 섹션" : KIND_LABEL[c.kind]}`;
     const prev = out[key];
     out[key] = {
       tokens: Math.max(prev?.tokens ?? 0, c.tokens),
@@ -540,9 +564,10 @@ describe("활동 수별 출력 한도", () => {
       expect(count(6, "section")).toBe(10);
       expect(count(7, "section")).toBe(9);
       expect(count(7, "planDraft")).toBe(1);
-      // 호출별 한도는 종류별 상수다.
+      // 호출별 한도는 종류별 상수다. 표 형식 섹션만 1024, 나머지 섹션은 1536 이다.
       for (const c of calls.filter((x) => x.kind === "section"))
-        expect(c.limit).toBe(1536);
+        expect(c.limit).toBe(c.table ? 1024 : 1536);
+      expect(calls.some((c) => c.table)).toBe(true);
       for (const c of calls.filter((x) => x.kind === "match"))
         expect(c.limit).toBe(1536);
       for (const c of calls.filter((x) => x.kind === "planDraft"))

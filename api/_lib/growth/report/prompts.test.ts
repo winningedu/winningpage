@@ -12,6 +12,7 @@ import {
   type StepCall,
   stepCalls,
   stepSectionIds,
+  TABLE_SECTION_CALL_MAX_OUTPUT_TOKENS,
   validateStepOutput,
 } from "./prompts.js";
 import type {
@@ -980,7 +981,7 @@ describe("buildStepPrompt", () => {
       expect(b.system).toContain("분량 원칙");
       expect(b.system).toContain("350자 이내");
       expect(b.system).toContain("120자 이내");
-      expect(b.system).toContain("8행 이내");
+      expect(b.system).toContain("안내한 행 수");
       expect(b.system).toContain("160자 이내");
       expect(b.system).toContain("연달아");
     }
@@ -2008,5 +2009,155 @@ describe("호출 범위 파싱과 검증", () => {
     );
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(r.output.sections?.map((s) => s.id)).toEqual(["2-1"]);
+  });
+});
+
+describe("표 섹션 칸 계약", () => {
+  const ctx = makeContext();
+  const consistency = {
+    percent: 33.3,
+    linked: 1,
+    total: 3,
+    formula: "식",
+    verdict: "splitting" as const,
+    verdictLabel: "갈리는 중",
+    criteria: "기준",
+    smallSample: true,
+  };
+  const prior = {
+    signals: [],
+    narrative: validNarrative() as never,
+    match: { aligned: [], conflicting: [] },
+    consistency,
+    axes: [],
+  };
+  const sectionPrompt = (step: 4 | 6 | 7, id: string) =>
+    buildStepPrompt(step, {
+      context: ctx,
+      prior,
+      call: { kind: "section", id },
+    });
+
+  // 표 섹션별 단계, 행 수 안내, 짧은 예시 행의 칸 이름
+  const SPECS = [
+    { step: 4, id: "1-6", rows: "3행", cell: "label 은" },
+    { step: 4, id: "1-7", rows: "3행", cell: "label 은" },
+    { step: 6, id: "2-6", rows: "최대 5행", cell: "label 은" },
+    { step: 7, id: "3-5", rows: "최대 5행", cell: "subject 는" },
+    { step: 7, id: "3-7", rows: "3행", cell: "label 은" },
+  ] as const;
+
+  it.each(SPECS)("$id 지시에 행 수 $rows, 60자 규칙, 예시 행이 있다", (s) => {
+    const b = sectionPrompt(s.step, s.id);
+    expect(b.user).toContain(s.rows);
+    expect(b.user).toContain("60자 이내");
+    expect(b.user).toContain("예시 행");
+    expect(b.user).toContain(s.cell);
+  });
+
+  it("공통 규칙은 표 칸을 한 문장 60자 이내, 줄바꿈과 괄호 부연 없이 쓰게 한다", () => {
+    const b = sectionPrompt(4, "1-6");
+    expect(b.system).toContain("안내한 행 수");
+    expect(b.system).toContain("한 문장 60자 이내");
+    expect(b.system).toContain("줄바꿈과 괄호 부연 없이");
+    expect(b.system).not.toContain("8행 이내");
+  });
+
+  it("표 섹션 안내문과 예시 행에 금지 문자가 없다", () => {
+    const FORBIDDEN = /[\u2014\u2013\u00b7\u318d\u2190-\u21ff]/;
+    for (const s of SPECS)
+      expect(sectionPrompt(s.step, s.id).user).not.toMatch(FORBIDDEN);
+  });
+
+  it("표 형식 섹션 호출은 한도 1024, 나머지 섹션 호출은 1536 이다", () => {
+    expect(TABLE_SECTION_CALL_MAX_OUTPUT_TOKENS).toBe(1024);
+    for (const s of SPECS)
+      expect(sectionPrompt(s.step, s.id).maxOutputTokens).toBe(1024);
+    expect(sectionPrompt(6, "2-1").maxOutputTokens).toBe(1024);
+    expect(sectionPrompt(4, "1-2").maxOutputTokens).toBe(1536);
+    expect(sectionPrompt(4, "1-11").maxOutputTokens).toBe(1536);
+    expect(sectionPrompt(7, "3-11").maxOutputTokens).toBe(1536);
+    expect(sectionPrompt(7, "3-2").maxOutputTokens).toBe(1536);
+  });
+});
+
+describe("표 칸 길이 검증", () => {
+  const ctx = makeContext();
+  const tableSection = (id: string, row: Record<string, unknown>) =>
+    ({
+      id,
+      title: "t",
+      format: "table",
+      badge: "fact",
+      status: "ok",
+      evidence_ids: ["a1"],
+      body: { rows: [{ evidence_ids: ["a1"], ...row }] },
+    }) as never;
+  const check = (
+    step: 4 | 6 | 7,
+    id: string,
+    row: Record<string, unknown>,
+    call: StepCall | null = { kind: "section", id },
+  ) =>
+    validateStepOutput(
+      step,
+      { step, sections: [tableSection(id, row)] },
+      ctx,
+      call ? { call } : {},
+    ).issues;
+
+  it("표 섹션 호출의 칸이 121자면 table_cell_too_long 이고 path 는 섹션 id 다", () => {
+    const issues = check(4, "1-6", { label: "성향", value: "가".repeat(121) });
+    const hit = issues.filter((i) => i.code === "table_cell_too_long");
+    expect(hit).toHaveLength(1);
+    expect(hit[0]?.path).toBe("1-6");
+  });
+
+  it("120자 칸은 통과한다", () => {
+    expect(check(4, "1-6", { label: "성향", value: "가".repeat(120) })).toEqual(
+      [],
+    );
+  });
+
+  it("subject, direction, record_to_leave 칸도 같은 기준으로 검사한다", () => {
+    for (const key of ["subject", "direction", "record_to_leave"]) {
+      const codes = check(7, "3-5", { [key]: "가".repeat(121) }).map(
+        (i) => i.code,
+      );
+      expect(codes, key).toContain("table_cell_too_long");
+    }
+  });
+
+  it("호출 범위가 없는 단계 전체 검증은 칸 길이를 보지 않는다(앱 행 보호)", () => {
+    const codes = check(
+      6,
+      "2-1",
+      { label: "근거 활동", value: "가".repeat(200) },
+      null,
+    ).map((i) => i.code);
+    expect(codes).not.toContain("table_cell_too_long");
+  });
+
+  it("표가 아닌 섹션 호출은 칸 길이를 보지 않는다", () => {
+    const issues = validateStepOutput(
+      4,
+      {
+        step: 4,
+        sections: [
+          {
+            id: "1-11",
+            title: "t",
+            format: "prose",
+            badge: "fact",
+            status: "ok",
+            evidence_ids: ["a1"],
+            body: { text: "가".repeat(200) },
+          },
+        ] as never,
+      },
+      ctx,
+      { call: { kind: "section", id: "1-11" } },
+    ).issues;
+    expect(issues.map((i) => i.code)).not.toContain("table_cell_too_long");
   });
 });

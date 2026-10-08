@@ -170,15 +170,20 @@ async function run(
   respond: (
     b: Bundle,
   ) => ReturnType<typeof ok> | Promise<ReturnType<typeof ok>>,
+  ctx: ReportContext = context,
 ) {
   const bundles: Bundle[] = [];
   const callModel = vi.fn(async (b: Bundle) => {
     bundles.push(b);
     return respond(b);
   });
-  const r = await runStep(step, context, storedFor(step), baseDeps(callModel));
+  const r = await runStep(step, ctx, storedFor(step), baseDeps(callModel));
   return { r, bundles, callModel };
 }
+
+/** 표 형식 섹션 호출은 1024, 다른 섹션 호출은 1536 이다. */
+const sectionLimit = (id: string | undefined): number =>
+  SECTION_REGISTRY.find((d) => d.id === id)?.format === "table" ? 1024 : 1536;
 
 const sectionBundles = (bundles: Bundle[]) =>
   bundles.filter((b) => sectionIdOf(b.user) !== undefined);
@@ -203,7 +208,7 @@ describe("4단계 섹션별 호출", () => {
         expect(b.user).not.toContain(`"id": "${other}"`);
       expect(b.user).toContain("이 id 하나만 쓴다");
       expect(b.system).not.toContain(MATCH_MARK);
-      expect(b.maxOutputTokens).toBe(1536);
+      expect(b.maxOutputTokens).toBe(sectionLimit(sectionIdOf(b.user)));
     }
     const match = otherBundles(bundles);
     expect(match).toHaveLength(1);
@@ -234,7 +239,7 @@ describe("6단계 섹션별 호출", () => {
     for (const b of bundles) {
       expect(b.system).not.toContain(PLAN_MARK);
       expect(b.system).not.toContain(MATCH_MARK);
-      expect(b.maxOutputTokens).toBe(1536);
+      expect(b.maxOutputTokens).toBe(sectionLimit(sectionIdOf(b.user)));
     }
     const out = r.output.sections ?? [];
     expect(out.map((s) => s.id)).toEqual(stepSectionIds(6, context));
@@ -298,6 +303,70 @@ describe("6단계 섹션별 호출", () => {
   });
 });
 
+const longCellAnswer = (b: Bundle, len: number) => {
+  const id = sectionIdOf(b.user);
+  return ok({
+    sections: [
+      {
+        id,
+        status: "ok",
+        evidence_ids: ["a1"],
+        body: {
+          rows: [
+            { label: "과학", value: "가".repeat(len), evidence_ids: ["a1"] },
+          ],
+        },
+      },
+    ],
+  });
+};
+
+describe("표 칸 길이 재요청", () => {
+  it("칸이 121자인 표 섹션은 60자 메모와 함께 재요청되고, 짧아지면 단계가 성공한다", async () => {
+    let tries = 0;
+    const { r, bundles } = await run(6, (b) => {
+      if (sectionIdOf(b.user) !== "2-6") return ok(answer(b));
+      tries++;
+      return longCellAnswer(b, tries === 1 ? 121 : 40);
+    });
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.extraAttempts).toBe(1);
+    const mine = bundles.filter((b) => sectionIdOf(b.user) === "2-6");
+    expect(mine).toHaveLength(2);
+    expect(mine[0]?.user).not.toContain("이전 응답의 문제");
+    expect(mine[1]?.user).toContain("이전 응답의 문제");
+    expect(mine[1]?.user).toContain(
+      "각 칸을 한 문장 60자 이내로, 줄바꿈과 괄호 부연 없이",
+    );
+  });
+
+  it("재요청도 121자면 table_cell_too_long 으로 단계가 실패한다", async () => {
+    const { r } = await run(6, (b) =>
+      sectionIdOf(b.user) === "2-6" ? longCellAnswer(b, 121) : ok(answer(b)),
+    );
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.issues.map((i) => i.code)).toEqual(["table_cell_too_long"]);
+  });
+
+  it("앱이 만든 근거 활동 행이 120자를 넘어도 6단계는 통과한다", async () => {
+    const longTopic = "아주 긴 탐구 주제 이름 ".repeat(8).trim();
+    const longContext: ReportContext = {
+      ...context,
+      activities: activities.map((a) => ({ ...a, topic: longTopic })),
+    };
+    const { r } = await run(6, (b) => ok(answer(b)), longContext);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const body = r.output.sections?.find((s) => s.id === "2-1")?.body as
+      | { rows: { label: string; value: string }[] }
+      | undefined;
+    const rows = body?.rows ?? [];
+    expect(
+      rows.find((x) => x.label === "근거 활동")?.value.length,
+    ).toBeGreaterThan(120);
+  });
+});
+
 describe("7단계 섹션별 호출", () => {
   it("섹션마다 1호출과 planDraft 1호출을 부르고 종류별 지시가 섞이지 않는다", async () => {
     const { r, bundles } = await run(7, (b) => ok(answer(b)));
@@ -307,7 +376,7 @@ describe("7단계 섹션별 호출", () => {
     for (const b of sectionBundles(bundles)) {
       expect(b.system).not.toContain(PLAN_MARK);
       expect(b.system).toContain(SECTION7_MARK);
-      expect(b.maxOutputTokens).toBe(1536);
+      expect(b.maxOutputTokens).toBe(sectionLimit(sectionIdOf(b.user)));
     }
     const plan = otherBundles(bundles);
     expect(plan).toHaveLength(1);
@@ -346,6 +415,57 @@ describe("7단계 섹션별 호출", () => {
       stepSectionIds(7, context).length,
     );
     expect(otherBundles(bundles)[1]?.user).toContain("이전 응답의 문제");
+  });
+});
+
+describe("번들 호출 정보(callInfo)", () => {
+  const infoOf = (b: Bundle) => b.callInfo;
+
+  it("4단계는 섹션 id, match 종류를 싣고 시도 번호는 0이다", async () => {
+    const { bundles } = await run(4, (b) => ok(answer(b)));
+    const sections = stepSectionIds(4, context).map((id) => ({
+      step: 4,
+      kind: "section",
+      sectionId: id,
+      batchIndex: null,
+      attempt: 0,
+    }));
+    expect(bundles.map(infoOf)).toEqual([
+      ...sections,
+      { step: 4, kind: "match", sectionId: null, batchIndex: null, attempt: 0 },
+    ]);
+  });
+
+  it("6단계는 부르는 섹션 id 를, 7단계는 섹션 id 와 planDraft 종류를 싣는다", async () => {
+    const six = await run(6, (b) => ok(answer(b)));
+    expect(six.bundles.map((b) => infoOf(b)?.sectionId)).toEqual(STEP6_CALLED);
+    expect(six.bundles.every((b) => infoOf(b)?.step === 6)).toBe(true);
+    const seven = await run(7, (b) => ok(answer(b)));
+    expect(infoOf(seven.bundles.at(-1) as Bundle)).toEqual({
+      step: 7,
+      kind: "planDraft",
+      sectionId: null,
+      batchIndex: null,
+      attempt: 0,
+    });
+    expect(infoOf(seven.bundles[0] as Bundle)).toMatchObject({
+      step: 7,
+      kind: "section",
+      sectionId: "3-2",
+    });
+  });
+
+  it("같은 요청 안 재요청은 시도 번호가 1이다", async () => {
+    let cut = false;
+    const { bundles } = await run(6, (b) => {
+      if (!cut && sectionIdOf(b.user) === "2-6") {
+        cut = true;
+        return { text: '{"sections":[', finishReason: "MAX_TOKENS" };
+      }
+      return ok(answer(b));
+    });
+    const mine = bundles.filter((b) => infoOf(b)?.sectionId === "2-6");
+    expect(mine.map((b) => infoOf(b)?.attempt)).toEqual([0, 1]);
   });
 });
 

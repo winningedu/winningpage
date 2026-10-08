@@ -283,6 +283,10 @@ describe("3단계 모델 호출", () => {
       .mockResolvedValueOnce(reply("not json"))
       .mockResolvedValueOnce(reply(narrativeJson()));
     const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(callModel.mock.calls.map((c) => c[0].callInfo)).toEqual([
+      { step: 3, kind: "step", sectionId: null, batchIndex: null, attempt: 0 },
+      { step: 3, kind: "step", sectionId: null, batchIndex: null, attempt: 1 },
+    ]);
     expect(r).toMatchObject({ ok: true, extraAttempts: 1 });
     expect(callModel).toHaveBeenCalledTimes(2);
     expect(callModel.mock.calls[0]?.[0].user).not.toContain("이전 응답의 문제");
@@ -1222,6 +1226,32 @@ describe("1단계 묶음 호출", () => {
       if (r.ok) expect(r.extraAttempts).toBe(0);
     },
   );
+
+  it("번들 callInfo 에 묶음 번호(0부터)와 시도 번호를 싣는다", async () => {
+    let truncatedOnce = false;
+    const infos: unknown[] = [];
+    const callModel = vi.fn(async (b: { user: string; callInfo?: unknown }) => {
+      infos.push(b.callInfo);
+      if (!truncatedOnce && b.user.includes('"a16"')) {
+        truncatedOnce = true;
+        return reply('{"signals":[', "MAX_TOKENS");
+      }
+      return answer(b.user);
+    });
+    await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    const batch = (batchIndex: number, attempt: number) => ({
+      step: 1,
+      kind: "batch",
+      sectionId: null,
+      batchIndex,
+      attempt,
+    });
+    expect(infos).toHaveLength(4);
+    expect(infos).toContainEqual(batch(0, 0));
+    expect(infos).toContainEqual(batch(1, 0));
+    expect(infos).toContainEqual(batch(1, 1));
+    expect(infos).toContainEqual(batch(2, 0));
+  });
 
   it("활동 15건 이하는 호출 1회다", async () => {
     const callModel = vi.fn(async (b: { user: string }) => answer(b.user));
