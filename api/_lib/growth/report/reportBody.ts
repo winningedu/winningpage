@@ -2,7 +2,7 @@
 
 import type { AiTrace } from "../../aiTelemetry/trace.js";
 import type { ValidationIssue } from "../validation.js";
-import type { PromptBundle } from "./prompts.js";
+import type { CallInfo, PromptBundle } from "./prompts.js";
 import type { RunStepDeps, StoredOutputs } from "./runStep.js";
 import {
   isExhausted,
@@ -173,20 +173,56 @@ type CallStructured = (
 /** 성장설계 리포트 모델 온도. 실측에서 0.35 는 반복 루프가 22회 중 9회, 0.2 는 21회 중 4회였다. */
 export const REPORT_MODEL_TEMPERATURE = 0.2;
 
-/** gemini callStructured 를 runStep 의 callModel 계약으로 맞추는 어댑터. */
+/** 계기판 행의 call_key. 한 단계 안 동시 호출을 구분한다. */
+function callKeyOf(info: CallInfo): string {
+  switch (info.kind) {
+    case "batch":
+      return `batch:${info.batchIndex ?? 0}`;
+    case "section":
+      return `section:${info.sectionId ?? ""}`;
+    default:
+      return info.kind;
+  }
+}
+
+/**
+ * gemini callStructured 를 runStep 의 callModel 계약으로 맞추는 어댑터.
+ * telemetry 가 있으면 호출마다 callInfo 로 자식 핸들을 만들어 넘긴다. 동시에 도는 호출의
+ * 행과 검증 결과가 서로 섞이지 않게 annotate 도 그 자식에 묶어 돌려준다.
+ */
 export function callModelWith(
   callStructured: CallStructured,
   telemetry?: AiTrace,
 ): RunStepDeps["callModel"] {
-  return (bundle, signal) =>
-    callStructured(bundle.system, bundle.user, {
+  return async (bundle, signal, meta) => {
+    const info = bundle.callInfo;
+    const child = telemetry?.fork({
+      step: String(info.step),
+      callKey: callKeyOf(info),
+      attempt: info.attempt + 1,
+      retryReason: info.attempt === 1 ? (meta?.retryReason ?? null) : null,
+    });
+    const reply = await callStructured(bundle.system, bundle.user, {
       responseMimeType: "application/json",
       responseSchema: bundle.responseSchema,
       maxOutputTokens: bundle.maxOutputTokens,
       temperature: REPORT_MODEL_TEMPERATURE,
       abortSignal: signal,
-      ...(telemetry !== undefined && { telemetry }),
+      ...(child !== undefined && { telemetry: child }),
     });
+    if (child === undefined) return reply;
+    return {
+      ...reply,
+      annotate: (a) => {
+        // 기록은 부가 기능이라 표시 실패가 생성 결과를 바꾸지 않게 삼킨다.
+        try {
+          child.annotateLastCall(a);
+        } catch (e) {
+          console.warn("[ai-telemetry] 검증 결과 표시 실패:", e);
+        }
+      },
+    };
+  };
 }
 
 /** 차감 판단에 쓰는 행 필드. */

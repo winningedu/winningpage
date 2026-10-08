@@ -10,6 +10,7 @@ const row: CallRow = {
   service: "growth",
   feature: "report",
   step: "3",
+  call_key: "section:2-1",
   target_kind: "report",
   target_id: "r1",
   profile_id: "p1",
@@ -45,6 +46,7 @@ describe("toCallListItem", () => {
       service: "growth",
       feature: "report",
       step: "3",
+      callKey: "section:2-1",
       targetKind: "report",
       targetId: "r1",
       profileId: "p1",
@@ -70,5 +72,10 @@ describe("toCallListItem", () => {
     expect(toCallListItem({ ...row, issue_codes: null }).issueCodes).toEqual(
       [],
     );
+  });
+
+  it("call_key 가 없는 이전 행은 callKey null", () => {
+    const { call_key: _omit, ...old } = row;
+    expect(toCallListItem(old as CallRow).callKey).toBeNull();
   });
 });

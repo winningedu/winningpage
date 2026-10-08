@@ -40,6 +40,8 @@ export type CallItem = {
   service: string;
   feature: string;
   step: string | null;
+  /** 한 단계 안 병렬 호출 구분 키(예 batch:0, section:2-1). 없으면 null. */
+  callKey: string | null;
   targetKind: string | null;
   targetId: string | null;
   profileId: string | null;

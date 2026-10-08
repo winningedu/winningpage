@@ -553,6 +553,7 @@ function CallsPanel({
               <Th>서비스</Th>
               <Th>기능</Th>
               <Th>단계</Th>
+              <Th>호출</Th>
               <Th>모델</Th>
               <Th>시도</Th>
               <Th>전송 시도</Th>
@@ -568,7 +569,7 @@ function CallsPanel({
           <tbody>
             {data.items.length === 0 ? (
               <tr>
-                <td colSpan={14} className="py-12 text-center text-gray-400">
+                <td colSpan={15} className="py-12 text-center text-gray-400">
                   조회된 호출이 없습니다.
                 </td>
               </tr>
@@ -583,6 +584,7 @@ function CallsPanel({
                   <td className="px-3 py-3">{serviceLabel(row.service)}</td>
                   <td className="px-3 py-3">{row.feature}</td>
                   <td className="px-3 py-3">{row.step ?? ""}</td>
+                  <td className="px-3 py-3">{row.callKey ?? ""}</td>
                   <td className="px-3 py-3">{row.model}</td>
                   <td className="px-3 py-3">{row.attempt}</td>
                   <td className="px-3 py-3">{row.transportAttempt ?? ""}</td>
@@ -645,6 +647,7 @@ function CallDetailDialog({
   const fields: [string, string][] = row
     ? [
         ["traceId", row.traceId ?? ""],
+        ["callKey", row.callKey ?? ""],
         ["targetKind", row.targetKind ?? ""],
         ["targetId", row.targetId ?? ""],
         ["profileId", row.profileId ?? ""],

@@ -900,6 +900,7 @@ export type Database = {
         Row: {
           attempt: number;
           cached_tokens: number | null;
+          call_key: string | null;
           created_at: string;
           error_code: string | null;
           error_message: string | null;
@@ -933,6 +934,7 @@ export type Database = {
         Insert: {
           attempt?: number;
           cached_tokens?: number | null;
+          call_key?: string | null;
           created_at?: string;
           error_code?: string | null;
           error_message?: string | null;
@@ -965,6 +967,7 @@ export type Database = {
         Update: {
           attempt?: number;
           cached_tokens?: number | null;
+          call_key?: string | null;
           created_at?: string;
           error_code?: string | null;
           error_message?: string | null;

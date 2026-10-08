@@ -196,7 +196,6 @@ export async function advanceStep(
         : undefined;
     const result = await runStep(step, context, toStoredOutputs(row), {
       callModel: callModelWith(deps.callStructured, trace),
-      telemetry: trace,
       now: deps.now,
       budgetMs: STEP_BUDGET_MS - (Date.now() - deps.startedAt),
       ...(carried !== undefined && { carried }),

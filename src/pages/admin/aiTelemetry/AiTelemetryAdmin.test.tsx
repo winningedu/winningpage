@@ -82,4 +82,62 @@ describe("AiTelemetryAdmin", () => {
       "view=calls",
     );
   });
+
+  test("호출 목록은 호출 키 열을 그리고 상세에도 보여준다", async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(summaryResult(true));
+    vi.mocked(api.fetchCalls).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "c1",
+            createdAt: "2026-10-07T01:00:00Z",
+            startedAt: "2026-10-07T01:00:00Z",
+            traceId: "t1",
+            kind: "generate",
+            service: "growth",
+            feature: "report_step",
+            step: "6",
+            callKey: "section:2-1",
+            targetKind: null,
+            targetId: null,
+            profileId: null,
+            model: "gemini-2.5-flash",
+            promptVersion: null,
+            attempt: 2,
+            retryReason: "truncated",
+            transportAttempt: 1,
+            status: "ok",
+            errorCode: null,
+            errorMessage: null,
+            finishReason: "STOP",
+            tokens: {
+              prompt: 10,
+              output: 5,
+              cached: null,
+              thoughts: null,
+              total: 15,
+            },
+            inputChars: null,
+            outputChars: null,
+            latencyMs: 100,
+            validation: "ok",
+            issueCodes: [],
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      },
+    });
+    render(<AiTelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    await screen.findByText("1,234");
+    fireEvent.click(screen.getByRole("button", { name: "호출 목록" }));
+    expect(await screen.findByText("section:2-1")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "호출" })).toBeTruthy();
+    fireEvent.click(screen.getByText("section:2-1"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("callKey");
+    expect(dialog.textContent).toContain("section:2-1");
+  });
 });

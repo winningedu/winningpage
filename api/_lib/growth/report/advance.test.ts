@@ -39,6 +39,7 @@ vi.mock("../../serviceAccess.js", () => ({
 
 import { advanceStep } from "./advance.js";
 import type { ReportDbRow } from "./reportDb.js";
+import type { RunStepDeps } from "./runStep.js";
 import { emptyStepRecord } from "./stepState.js";
 import type { StepNumber } from "./types.js";
 
@@ -409,28 +410,54 @@ describe("advanceStep 실패와 종결", () => {
 });
 
 describe("advanceStep 계기판 기록", () => {
-  const recordOne = (d: { telemetry?: { recordCall: (e: unknown) => void } }) =>
-    d.telemetry?.recordCall({
-      kind: "generate",
-      model: "m",
-      startedAt: 0,
-      latencyMs: 1,
-      transportAttempt: 1,
-      status: "ok",
-    });
+  /** 받은 자식 핸들에 행 하나를 기록하는 가짜 callStructured. */
+  const tracedDeps = {
+    ...deps,
+    callStructured: (async (
+      _system: string,
+      _user: unknown,
+      options: { telemetry?: { recordCall: (e: unknown) => void } } = {},
+    ) => {
+      options.telemetry?.recordCall({
+        kind: "generate",
+        model: "m",
+        startedAt: 0,
+        latencyMs: 1,
+        transportAttempt: 1,
+        status: "ok",
+      });
+      return { text: "{}", finishReason: "STOP" };
+    }) as unknown as typeof deps.callStructured,
+  };
+  const bundle = {
+    system: "S",
+    user: "U",
+    responseSchema: {} as never,
+    maxOutputTokens: 10,
+    callInfo: {
+      step: 3 as const,
+      kind: "step" as const,
+      sectionId: null,
+      batchIndex: null,
+      attempt: 0 as const,
+    },
+  };
+  const callOnce = (d: RunStepDeps) =>
+    d.callModel(bundle, new AbortController().signal);
   const makeDb = () => {
     const insert = vi.fn(async (_rows: unknown) => ({ error: null }));
     const from = vi.fn(() => ({ insert }));
     return { db: { from } as never, insert, from };
   };
 
-  it("runStep 에 telemetry 를 넘기고 성공 뒤 한 번 내보낸다", async () => {
+  it("runStep 에는 계기판 필드 없이 callModel 만 넘기고 그 호출 행을 성공 뒤 한 번 내보낸다", async () => {
     const t = makeDb();
     mocks.runStep.mockImplementation(async (_s, _c, _o, d) => {
-      recordOne(d);
+      expect("telemetry" in d).toBe(false);
+      await callOnce(d);
       return okResult;
     });
-    await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, deps);
+    await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, tracedDeps);
     expect(t.from).toHaveBeenCalledWith("ai_model_calls");
     expect(t.insert).toHaveBeenCalledTimes(1);
     const rows = t.insert.mock.calls[0]?.[0] as Record<string, unknown>[];
@@ -438,6 +465,8 @@ describe("advanceStep 계기판 기록", () => {
       service: "growth",
       feature: "report_step",
       step: "3",
+      call_key: "step",
+      attempt: 1,
       target_kind: "growth_report",
       profile_id: "u",
     });
@@ -446,21 +475,21 @@ describe("advanceStep 계기판 기록", () => {
   it("실패 결과에도 한 번 내보낸다", async () => {
     const t = makeDb();
     mocks.runStep.mockImplementation(async (_s, _c, _o, d) => {
-      recordOne(d);
+      await callOnce(d);
       return failResult("validation");
     });
-    await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, deps);
+    await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, tracedDeps);
     expect(t.insert).toHaveBeenCalledTimes(1);
   });
 
   it("실행 중 예외로 끝나도 한 번 내보내고 예외는 그대로 던진다", async () => {
     const t = makeDb();
     mocks.runStep.mockImplementation(async (_s, _c, _o, d) => {
-      recordOne(d);
+      await callOnce(d);
       throw new Error("x");
     });
     await expect(
-      advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, deps),
+      advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 3, tracedDeps),
     ).rejects.toThrow("x");
     expect(t.insert).toHaveBeenCalledTimes(1);
   });

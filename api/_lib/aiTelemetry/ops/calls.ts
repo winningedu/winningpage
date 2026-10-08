@@ -13,6 +13,8 @@ export type CallListItem = {
   service: string;
   feature: string;
   step: string | null;
+  /** 한 단계 안 병렬 호출 구분 키. 병렬 호출이 없는 서비스와 이전 행은 null. */
+  callKey: string | null;
   targetKind: string | null;
   targetId: string | null;
   profileId: string | null;
@@ -49,6 +51,8 @@ export function toCallListItem(row: CallRow): CallListItem {
     service: row.service,
     feature: row.feature,
     step: row.step,
+    // 컬럼 추가 전 스키마로 읽은 행에는 call_key 가 없다.
+    callKey: row.call_key ?? null,
     targetKind: row.target_kind,
     targetId: row.target_id,
     profileId: row.profile_id,

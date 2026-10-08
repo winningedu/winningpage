@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { type AiTrace, createAiTrace } from "../../aiTelemetry/trace.js";
 import {
   expectedSectionIds,
   NO_DATA_TEXT,
   type SectionItem,
 } from "../sections.js";
 import { validateStep } from "../validation.js";
-import { stepSectionIds } from "./prompts.js";
+import { buildStepPrompt, stepSectionIds } from "./prompts.js";
+import { callModelWith } from "./reportBody.js";
 import {
   type RunStepDeps,
   readStored,
@@ -291,6 +293,33 @@ describe("3단계 모델 호출", () => {
     expect(callModel).toHaveBeenCalledTimes(2);
     expect(callModel.mock.calls[0]?.[0].user).not.toContain("이전 응답의 문제");
     expect(callModel.mock.calls[1]?.[0].user).toContain("이전 응답의 문제");
+  });
+
+  it("재요청에 직전 문제 코드를 사유로 넘기고 결과마다 annotate 를 부른다", async () => {
+    const annotate = vi.fn();
+    const callModel = vi
+      .fn<RunStepDeps["callModel"]>()
+      .mockResolvedValueOnce({ ...reply("{", "MAX_TOKENS"), annotate })
+      .mockResolvedValueOnce({ ...reply("not json"), annotate });
+    const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(r).toMatchObject({ ok: false, failure: "validation" });
+    expect(callModel.mock.calls[0]?.[2]?.retryReason ?? null).toBeNull();
+    expect(callModel.mock.calls[1]?.[2]).toEqual({ retryReason: "truncated" });
+    expect(annotate.mock.calls).toEqual([
+      [{ validation: "failed", issueCodes: ["truncated"] }],
+      [{ validation: "failed", issueCodes: ["invalid_json"] }],
+    ]);
+  });
+
+  it("검증까지 통과한 호출은 annotate ok 를 받는다", async () => {
+    const annotate = vi.fn();
+    const callModel = vi.fn(async () => ({
+      ...reply(narrativeJson()),
+      annotate,
+    }));
+    const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(r.ok).toBe(true);
+    expect(annotate.mock.calls).toEqual([[{ validation: "ok" }]]);
   });
 
   it("두 번 실패하면 validation 과 extraAttempts 1", async () => {
@@ -1336,5 +1365,265 @@ describe("1단계 묶음 호출", () => {
     if (!r.ok) expect(r.failure).toBe("timeout");
     // 예산이 끝난 뒤에는 남은 묶음을 띄우지 않는다.
     expect(callModel.mock.calls.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("병렬 호출 계기판 기록", () => {
+  type Options = {
+    maxOutputTokens: number;
+    abortSignal: AbortSignal;
+    telemetry?: AiTrace;
+  };
+  type Responder = (
+    user: string,
+    retry: boolean,
+  ) => { text: string; finishReason: string; delayMs: number };
+
+  /** 호출마다 지연을 다르게 주고, 받은 자식 핸들에 응답 값으로 행을 직접 기록하는 가짜 callStructured. */
+  const fakeCallStructured =
+    (respond: Responder) =>
+    async (_system: string, user: string, options: Options) => {
+      const retry = user.includes("이전 응답의 문제");
+      const r = respond(user, retry);
+      await new Promise((resolve) => setTimeout(resolve, r.delayMs));
+      options.telemetry?.recordCall({
+        kind: "generate",
+        model: "gemini-fake",
+        startedAt: 1_700_000_000_000,
+        latencyMs: r.delayMs,
+        transportAttempt: 1,
+        status: "ok",
+        finishReason: r.finishReason,
+        usage: {
+          outputTokens:
+            r.finishReason === "MAX_TOKENS" ? options.maxOutputTokens : 100,
+        },
+      });
+      return { text: r.text, finishReason: r.finishReason };
+    };
+
+  const runBoth = async (
+    step: 1 | 4,
+    ctx: ReportContext,
+    stored: StoredOutputs,
+    respond: Responder,
+  ) => {
+    const trace = createAiTrace({
+      service: "growth",
+      feature: "report_step",
+      step: String(step),
+    });
+    const withTrace = await runStep(
+      step,
+      ctx,
+      stored,
+      deps({
+        callModel: callModelWith(fakeCallStructured(respond) as never, trace),
+      }),
+    );
+    const without = await runStep(
+      step,
+      ctx,
+      stored,
+      deps({ callModel: callModelWith(fakeCallStructured(respond) as never) }),
+    );
+    return { trace, withTrace, without };
+  };
+
+  const rowsOf = (trace: AiTrace) =>
+    [...trace.calls]
+      .map((r) => ({
+        step: r.step,
+        callKey: r.call_key,
+        attempt: r.attempt,
+        retryReason: r.retry_reason,
+        finishReason: r.finish_reason,
+        outputTokens: r.output_tokens,
+        validation: r.validation,
+        issueCodes: r.issue_codes,
+      }))
+      .sort((a, b) =>
+        `${a.callKey}:${a.attempt}`.localeCompare(`${b.callKey}:${b.attempt}`),
+      );
+
+  it("1단계 활동 30건(묶음 2개)은 호출마다 행 하나와 그 호출의 결과를 남긴다", async () => {
+    const activities = Array.from({ length: 30 }, (_, i) =>
+      activity(`act-${String(i + 1).padStart(3, "0")}`),
+    );
+    const ctx = makeContext({
+      activities,
+      evidenceIds: activities.map((a) => a.id),
+    });
+    const respond: Responder = (user, retry) => {
+      const aliases = [...user.matchAll(/"id": "(a\d+)"/g)].map(
+        (m) => m[1] ?? "",
+      );
+      const second = aliases.includes("a16");
+      if (second && !retry)
+        return { text: '{"signals":[', finishReason: "MAX_TOKENS", delayMs: 1 };
+      return {
+        text: JSON.stringify({
+          signals: aliases.map((alias) => ({
+            activityId: alias,
+            axes: ["A"],
+            method: "실험",
+            keywords: ["열"],
+            summary: `요약 ${alias}`,
+          })),
+        }),
+        finishReason: "STOP",
+        // 첫 묶음을 가장 늦게 끝내 완료 순서를 섞는다.
+        delayMs: second ? 2 : 15,
+      };
+    };
+    const { trace, withTrace, without } = await runBoth(
+      1,
+      ctx,
+      emptyStored(),
+      respond,
+    );
+    expect(withTrace.ok).toBe(true);
+    expect(withTrace).toEqual(without);
+    const maxTokens = buildStepPrompt(1, {
+      context: ctx,
+      prior: {},
+      batch: activities.slice(15),
+      batchIndex: 1,
+    }).maxOutputTokens;
+    expect(rowsOf(trace)).toEqual([
+      {
+        step: "1",
+        callKey: "batch:0",
+        attempt: 1,
+        retryReason: null,
+        finishReason: "STOP",
+        outputTokens: 100,
+        validation: "ok",
+        issueCodes: null,
+      },
+      {
+        step: "1",
+        callKey: "batch:1",
+        attempt: 1,
+        retryReason: null,
+        finishReason: "MAX_TOKENS",
+        outputTokens: maxTokens,
+        validation: "failed",
+        issueCodes: ["truncated"],
+      },
+      {
+        step: "1",
+        callKey: "batch:1",
+        attempt: 2,
+        retryReason: "truncated",
+        finishReason: "STOP",
+        outputTokens: 100,
+        validation: "ok",
+        issueCodes: null,
+      },
+    ]);
+  });
+
+  it("4단계 섹션과 match 호출은 각자 call_key 행에 자기 검증 결과를 남긴다", async () => {
+    const ctx = makeContext();
+    const stored = emptyStored({
+      signals: {
+        byActivity: ctx.activities.map((a) => ({
+          activityId: a.id,
+          axes: ["A"],
+          linkage: [],
+          keywords: [],
+          method: null,
+          summary: "s",
+        })),
+      },
+      narrative_theme: "열 흐름",
+      grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+    });
+    const ids = stepSectionIds(4, ctx);
+    expect(ids.length).toBeGreaterThan(1);
+    const [badId, cutId] = ids;
+    const respond: Responder = (user, retry) => {
+      const id = /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(
+        user,
+      )?.[1];
+      if (!id)
+        return {
+          text: JSON.stringify({
+            match: {
+              aligned: [{ text: "일치", evidenceIds: ["a1"] }],
+              conflicting: [],
+            },
+          }),
+          finishReason: "STOP",
+          delayMs: 1,
+        };
+      if (id === badId && !retry)
+        return { text: "not json", finishReason: "STOP", delayMs: 12 };
+      if (id === cutId && !retry)
+        return { text: "{", finishReason: "MAX_TOKENS", delayMs: 3 };
+      return {
+        text: JSON.stringify({
+          sections: [{ id, status: "no_data", evidence_ids: [] }],
+        }),
+        finishReason: "STOP",
+        delayMs: 20 - ids.indexOf(id) * 2,
+      };
+    };
+    const { trace, withTrace, without } = await runBoth(
+      4,
+      ctx,
+      stored,
+      respond,
+    );
+    if (!withTrace.ok) throw new Error(JSON.stringify(withTrace.issues));
+    expect(withTrace).toEqual(without);
+
+    const rows = rowsOf(trace);
+    expect(rows).toHaveLength(ids.length + 1 + 2);
+    expect(rows.every((r) => r.step === "4")).toBe(true);
+    const keyed = (key: string, attempt: number) =>
+      rows.find((r) => r.callKey === key && r.attempt === attempt);
+    expect(keyed("match", 1)).toMatchObject({
+      validation: "ok",
+      retryReason: null,
+    });
+    expect(keyed(`section:${badId}`, 1)).toMatchObject({
+      validation: "failed",
+      issueCodes: ["invalid_json"],
+      finishReason: "STOP",
+    });
+    expect(keyed(`section:${badId}`, 2)).toMatchObject({
+      validation: "ok",
+      retryReason: "invalid_json",
+    });
+    const cutMax = buildStepPrompt(4, {
+      context: ctx,
+      prior: {
+        signals: [],
+        narrative: {
+          theme: "열 흐름",
+          subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+        },
+      },
+      call: { kind: "section", id: cutId ?? "" },
+    }).maxOutputTokens;
+    expect(keyed(`section:${cutId}`, 1)).toMatchObject({
+      validation: "failed",
+      issueCodes: ["truncated"],
+      finishReason: "MAX_TOKENS",
+      outputTokens: cutMax,
+    });
+    expect(keyed(`section:${cutId}`, 2)).toMatchObject({
+      validation: "ok",
+      retryReason: "truncated",
+      finishReason: "STOP",
+      outputTokens: 100,
+    });
+    for (const id of ids.slice(2))
+      expect(keyed(`section:${id}`, 1)).toMatchObject({
+        validation: "ok",
+        issueCodes: null,
+      });
   });
 });

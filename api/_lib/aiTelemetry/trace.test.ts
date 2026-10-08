@@ -197,3 +197,100 @@ describe("flush", () => {
     warn.mockRestore();
   });
 });
+
+describe("fork", () => {
+  it("자식 행은 부모 행 목록에 들어가고 meta 의 step, call_key, attempt, retry_reason 을 쓴다", () => {
+    const trace = createAiTrace(CTX, { randomUUID: () => "trace-fixed" });
+    const a = trace.fork({ step: "1", callKey: "batch:0", attempt: 1 });
+    const b = trace.fork({
+      step: "1",
+      callKey: "batch:1",
+      attempt: 2,
+      retryReason: "truncated",
+    });
+    b.recordCall(OK_CALL);
+    a.recordCall(OK_CALL);
+    expect(trace.calls).toHaveLength(2);
+    expect(trace.calls[0]).toMatchObject({
+      trace_id: "trace-fixed",
+      service: "growth",
+      feature: "design_report",
+      profile_id: "p-1",
+      step: "1",
+      call_key: "batch:1",
+      attempt: 2,
+      retry_reason: "truncated",
+    });
+    expect(trace.calls[1]).toMatchObject({
+      step: "1",
+      call_key: "batch:0",
+      attempt: 1,
+      retry_reason: null,
+    });
+  });
+
+  it("섞여 기록돼도 자식의 annotateLastCall 은 자기 마지막 행에만 붙는다", () => {
+    const trace = createAiTrace(CTX);
+    const a = trace.fork({ callKey: "section:2-1", attempt: 1 });
+    const b = trace.fork({ callKey: "section:2-2", attempt: 1 });
+    a.recordCall({ ...OK_CALL, finishReason: "STOP" });
+    b.recordCall({ ...OK_CALL, finishReason: "MAX_TOKENS" });
+    a.recordCall({ ...OK_CALL, kind: "embed" });
+    a.annotateLastCall({ validation: "ok" });
+    b.annotateLastCall({ validation: "failed", issueCodes: ["truncated"] });
+    const byKey = (key: string) =>
+      trace.calls.filter((r) => r.call_key === key && r.kind === "generate");
+    expect(byKey("section:2-1")[0]).toMatchObject({
+      finish_reason: "STOP",
+      validation: "ok",
+      issue_codes: null,
+    });
+    expect(byKey("section:2-2")[0]).toMatchObject({
+      finish_reason: "MAX_TOKENS",
+      validation: "failed",
+      issue_codes: ["truncated"],
+    });
+    expect(trace.calls.find((r) => r.kind === "embed")?.validation).toBeNull();
+  });
+
+  it("부모 flush 한 번에 자식 행이 모두 나가고 자식 flush 는 아무것도 내보내지 않는다", async () => {
+    const trace = createAiTrace(CTX);
+    const a = trace.fork({ callKey: "batch:0", attempt: 1 });
+    const b = trace.fork({ callKey: "batch:1", attempt: 1 });
+    a.recordCall(OK_CALL);
+    b.recordCall(OK_CALL);
+    trace.recordCall(OK_CALL);
+    const { db, insert } = mockDb();
+    await expect(a.flush(db)).resolves.toEqual({
+      ok: true,
+      calls: 0,
+      searches: 0,
+    });
+    expect(insert).not.toHaveBeenCalled();
+    b.recordCall(OK_CALL);
+    const result = await trace.flush(db);
+    expect(result).toEqual({ ok: true, calls: 4, searches: 0 });
+    expect(insert).toHaveBeenCalledTimes(1);
+    const rows = (insert.mock.calls[0] as unknown[] | undefined)?.[0] as {
+      call_key: string | null;
+    }[];
+    expect(rows.map((r) => r.call_key)).toEqual([
+      "batch:0",
+      "batch:1",
+      null,
+      "batch:1",
+    ]);
+  });
+
+  it("meta 에 attempt 가 없으면 첫 기록이 attempt 1 이고 step 은 부모 것을 물려받는다", () => {
+    const trace = createAiTrace(CTX);
+    const child = trace.fork({ callKey: "step" });
+    child.recordCall(OK_CALL);
+    expect(trace.calls[0]).toMatchObject({
+      step: "3",
+      call_key: "step",
+      attempt: 1,
+      retry_reason: null,
+    });
+  });
+});
