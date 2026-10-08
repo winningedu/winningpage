@@ -2161,3 +2161,202 @@ describe("표 칸 길이 검증", () => {
     expect(issues.map((i) => i.code)).not.toContain("table_cell_too_long");
   });
 });
+
+// biome-ignore lint/suspicious/noExplicitAny: 스키마 트리를 느슨하게 읽는다.
+type Loose = any;
+
+describe("형식별 엄격한 섹션 호출 스키마", () => {
+  const ctx = makeContext();
+  const prior = {
+    signals: [],
+    narrative: validNarrative() as never,
+    match: { aligned: [], conflicting: [] },
+    consistency: {
+      percent: 33.3,
+      linked: 1,
+      total: 3,
+      formula: "식",
+      verdict: "splitting" as const,
+      verdictLabel: "갈리는 중",
+      criteria: "기준",
+      smallSample: true,
+    },
+    axes: [],
+  };
+  const call = (step: 4 | 6 | 7, id: string) =>
+    buildStepPrompt(step, {
+      context: ctx,
+      prior,
+      call: { kind: "section", id },
+    });
+  // sections.items 객체 스키마를 꺼낸다.
+  const sectionObj = (step: 4 | 6 | 7, id: string) =>
+    (
+      call(step, id).responseSchema as unknown as {
+        properties: { sections: { items: Record<string, unknown> } };
+      }
+    ).properties.sections.items as {
+      required: string[];
+      propertyOrdering: string[];
+      properties: Record<string, Loose>;
+    };
+
+  it("공통 섹션 객체는 id, status, evidence_ids 가 필수이고 순서를 지정한다", () => {
+    const o = sectionObj(4, "1-6");
+    expect(o.required).toEqual(["id", "status", "evidence_ids"]);
+    expect(o.propertyOrdering).toEqual([
+      "id",
+      "status",
+      "evidence_ids",
+      "body",
+      "no_data_reason",
+    ]);
+    expect(o.properties.status.enum).toEqual(["ok", "no_data"]);
+  });
+
+  it("표 섹션 1-6 은 rows 만 필수이고 행은 label, value, evidence_ids 가 필수다", () => {
+    const body = sectionObj(4, "1-6").properties.body;
+    expect(body.required).toEqual(["rows"]);
+    expect(Object.keys(body.properties)).toEqual(["rows"]);
+    expect(body.properties.rows.items.required).toEqual([
+      "label",
+      "value",
+      "evidence_ids",
+    ]);
+    expect(body.properties.rows.items.propertyOrdering).toEqual([
+      "label",
+      "value",
+      "evidence_ids",
+    ]);
+  });
+
+  it("표 섹션 3-5 의 행은 subject, direction, record_to_leave, evidence_ids 가 필수다", () => {
+    const row = sectionObj(7, "3-5").properties.body.properties.rows.items;
+    const keys = ["subject", "direction", "record_to_leave", "evidence_ids"];
+    expect(row.required).toEqual(keys);
+    expect(row.propertyOrdering).toEqual(keys);
+  });
+
+  it("축 섹션 2-1 도 label, value, evidence_ids 행 표 스키마다", () => {
+    const body = sectionObj(6, "2-1").properties.body;
+    expect(body.required).toEqual(["rows"]);
+    expect(body.properties.rows.items.required).toEqual([
+      "label",
+      "value",
+      "evidence_ids",
+    ]);
+  });
+
+  it("prose 섹션 1-11 은 text 만 필수다", () => {
+    const body = sectionObj(4, "1-11").properties.body;
+    expect(body.required).toEqual(["text"]);
+    expect(Object.keys(body.properties)).toEqual(["text"]);
+  });
+
+  it("list 섹션 3-11 은 items 가 필수이고 항목은 text, evidence_ids 가 필수다", () => {
+    const body = sectionObj(7, "3-11").properties.body;
+    expect(body.required).toEqual(["items"]);
+    expect(body.properties.items.items.required).toEqual([
+      "text",
+      "evidence_ids",
+    ]);
+    expect(body.properties.items.items.propertyOrdering).toEqual([
+      "text",
+      "evidence_ids",
+    ]);
+  });
+
+  it("3단계 1-8 은 list, 5단계 1-9 는 label, value 표 스키마를 쓴다", () => {
+    const s3 = (
+      buildStepPrompt(3, { context: ctx, prior }).responseSchema as Loose
+    ).properties.sections.items.properties.body;
+    expect(s3.required).toEqual(["items"]);
+    const s5 = (
+      buildStepPrompt(5, { context: ctx, prior }).responseSchema as Loose
+    ).properties.sections.items.properties.body;
+    expect(s5.properties.rows.items.required).toEqual([
+      "label",
+      "value",
+      "evidence_ids",
+    ]);
+  });
+
+  it("match 항목은 text, evidenceIds 필수와 순서, planDraft 는 순서를 지정한다", () => {
+    const m = (
+      buildStepPrompt(4, { context: ctx, prior, call: { kind: "match" } })
+        .responseSchema as Loose
+    ).properties.match.properties.aligned.items;
+    expect(m.required).toEqual(["text", "evidenceIds"]);
+    expect(m.propertyOrdering).toEqual(["text", "evidenceIds"]);
+    const p = (
+      buildStepPrompt(7, { context: ctx, prior, call: { kind: "planDraft" } })
+        .responseSchema as Loose
+    ).properties.planDraft.items;
+    expect(p.propertyOrdering).toEqual([
+      "program",
+      "title",
+      "description",
+      "priority",
+      "period",
+      "periodLabel",
+      "axis",
+      "category",
+    ]);
+  });
+
+  it("스키마에는 maxItems, maxLength 가 없다", () => {
+    for (const [step, id] of [
+      [4, "1-6"],
+      [7, "3-5"],
+      [4, "1-11"],
+      [7, "3-11"],
+      [6, "2-1"],
+    ] as const) {
+      const text = JSON.stringify(call(step, id).responseSchema);
+      expect(text).not.toContain("maxItems");
+      expect(text).not.toContain("maxLength");
+    }
+  });
+
+  it("일반 섹션 호출 user 끝에 근거 1~3개 지시가 있고 1-2 와 축 섹션에는 없다", () => {
+    const LINE = "evidence_ids 에 근거 활동 1~3개를 단다";
+    for (const [step, id] of [
+      [4, "1-6"],
+      [4, "1-11"],
+      [6, "2-6"],
+      [7, "3-4"],
+      [7, "3-11"],
+    ] as const)
+      expect(call(step, id).user).toContain(LINE);
+    for (const [step, id] of [
+      [4, "1-2"],
+      [6, "2-1"],
+      [6, "2-5"],
+    ] as const)
+      expect(call(step, id).user).not.toContain(LINE);
+  });
+});
+
+describe("새 스키마 응답 파싱", () => {
+  const ctx = makeContext();
+  const parse = (step: 4 | 7, id: string, body: unknown) => {
+    const r = parseStepResponse(
+      step,
+      JSON.stringify({
+        sections: [{ id, status: "ok", evidence_ids: ["a1"], body }],
+      }),
+      ctx,
+      { call: { kind: "section", id } },
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    return r.output.sections?.[0]?.body;
+  };
+
+  it("body.text, body.items, body.rows 를 받는다", () => {
+    expect(parse(4, "1-11", { text: "정체성" })).toBe("정체성");
+    const items = [{ text: "활동", evidence_ids: ["a1"] }];
+    expect(parse(7, "3-11", { items })).toEqual(items);
+    const rows = [{ label: "과학", value: "역할", evidence_ids: ["a1"] }];
+    expect(parse(4, "1-6", { rows })).toEqual({ rows });
+  });
+});
