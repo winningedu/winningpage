@@ -353,7 +353,10 @@ describe("표 칸 길이 재요청", () => {
     const longTopic = "아주 긴 탐구 주제 이름 ".repeat(8).trim();
     const longContext: ReportContext = {
       ...context,
-      activities: activities.map((a) => ({ ...a, topic: longTopic })),
+      activities: activities.map((a) => ({
+        ...a,
+        topic: `${longTopic} ${a.id}`,
+      })),
     };
     const { r } = await run(6, (b) => ok(answer(b)), longContext);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));

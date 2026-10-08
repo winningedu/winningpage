@@ -1283,6 +1283,51 @@ describe("축 섹션 앱 행 조립", () => {
     });
   });
 
+  const dupRow = (topics: string[]) => {
+    const list = topics.map((t, i) => activity(`d${i + 1}`, { topic: t }));
+    const sections = [
+      okSection("2-1", { format: "table", body: { rows: [] } }),
+    ] as never;
+    const out = normalizeAxisSections(
+      sections,
+      [
+        axisEval(
+          "A",
+          list.length,
+          list.map((a) => a.id),
+        ),
+      ],
+      list.map((a) => a.id),
+      list,
+    );
+    return rowsOf(out)[1];
+  };
+
+  it("같은 topic 은 한 번만 쓰고 다른 topic 으로 3개를 채우며 보인 topic 의 중복 활동은 외 건수에서 뺀다", () => {
+    expect(dupRow(["X", "X", "X", "X", "X", " Y ", "Z"])).toMatchObject({
+      value: "X, Y, Z",
+      evidence_ids: ["d1", "d6", "d7"],
+    });
+    expect(dupRow(["X", "X", "Y", "X", "Z", "W", "Y"])).toMatchObject({
+      value: "X, Y, Z 외 1건",
+      evidence_ids: ["d1", "d3", "d5"],
+    });
+  });
+
+  it("같은 topic 만 4건이면 topic 하나만 보이고 외 가 붙지 않는다", () => {
+    expect(dupRow(["X", "X", "X", "X"])).toMatchObject({
+      value: "X",
+      evidence_ids: ["d1"],
+    });
+  });
+
+  it("서로 다른 topic 5건이면 앞 3개와 외 2건이다", () => {
+    expect(dupRow(["A1", "B1", "C1", "D1", "E1"])).toMatchObject({
+      value: "A1, B1, C1 외 2건",
+      evidence_ids: ["d1", "d2", "d3"],
+    });
+  });
+
   it("쓸 topic 이 하나도 없으면 근거 활동 행을 만들지 않는다", () => {
     const sections = [
       okSection("2-1", { format: "table", body: { rows: [] } }),
