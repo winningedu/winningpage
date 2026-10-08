@@ -4,6 +4,7 @@
 import { escapeIlike } from "@/components/growth/survey/surveySearch";
 import { supabase } from "@/lib/supabase";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import type { ApiResult } from "../apiResult";
 import type {
   EvalParams,
   ExpectedResource,
@@ -13,10 +14,6 @@ import type {
   SweepGrid,
   SweepItem,
 } from "./form";
-
-export type ApiResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; message: string };
 
 export type PerQueryResult = {
   queryId: string;

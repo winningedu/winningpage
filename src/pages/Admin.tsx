@@ -3344,7 +3344,8 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
   // 지식 DB 행 버튼 "검토 완료". last_reviewed_at 한 컬럼만 고치므로 임베딩은 다시 만들지
   // 않는다. 쓰기 권한은 기존 is_admin 정책(winning_assessment_knowledge_admin_all)이다.
-  async function markReviewed(row) {
+  async function markReviewed(row: { id?: unknown }) {
+    if (typeof row.id !== "string") return;
     const { error } = await supabase
       .from(config.table)
       .update({ last_reviewed_at: new Date().toISOString() })

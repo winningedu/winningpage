@@ -4,7 +4,7 @@
 // 기본은 학생 요청의 1차 경로인 하이브리드(뜻 검색과 단어 검색 결합)이고, 폴백 경로인
 // 벡터 검색으로 바꿔 비교할 수 있다.
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import type { SearchPreviewMode } from "../../../../../api/_lib/knowledge/preview.js";
 import { postSearchPreview, type SearchPreviewResult } from "../api";
+import SearchResultTable from "./SearchResultTable";
 
 const BUTTON_CLASS =
   "h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50";
@@ -36,10 +37,6 @@ const MODE_DESCRIPTIONS: Record<SearchPreviewMode, string> = {
   vector:
     "하이브리드가 실패할 때 쓰는 폴백 경로입니다. threshold 아래 카드도 함께 보여 줍니다. 실제 주입은 threshold 를 넘은 카드 중 앞에서부터 개수와 글자 상한까지입니다.",
 };
-
-function formatRank(rank: number | null | undefined): string {
-  return typeof rank === "number" ? String(rank) : "없음";
-}
 
 type PreviewConfig = {
   title: string;
@@ -84,30 +81,22 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
   async function runSearch() {
     setBusy(true);
     setMessage("");
-    try {
-      setResult(
-        await postSearchPreview({
-          knowledgeType,
-          ...form,
-          includeOtherSubjects,
-          mode,
-        }),
-      );
-    } catch (error) {
+    const response = await postSearchPreview({
+      knowledgeType,
+      ...form,
+      includeOtherSubjects,
+      mode,
+    });
+    setBusy(false);
+    if (!response.ok) {
       setResult(null);
-      setMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
+      setMessage(response.message);
+      return;
     }
+    setResult(response.data);
   }
 
   const isHybridResult = result?.mode === "hybrid";
-  // 벡터 결과만 유사도 내림차순이라 threshold 경계선이 한 줄로 그어진다.
-  const boundary =
-    result && !isHybridResult
-      ? result.items.findIndex((item) => !item.passesThreshold)
-      : -1;
-  const columnCount = isHybridResult ? 9 : 7;
 
   return (
     <div className="mb-6 flex items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
@@ -246,82 +235,7 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
                   단어 질의: {result.keywordQuery || "없음(뜻 검색만 반영)"}
                 </p>
               )}
-              <table className="w-full text-left">
-                <thead className="sticky top-0 bg-gray-50">
-                  <tr>
-                    <th className="w-[3rem] px-2 py-1">순위</th>
-                    <th className="px-2 py-1">자료명</th>
-                    <th className="w-[5rem] px-2 py-1">학년</th>
-                    <th className="w-[6rem] px-2 py-1">교과군</th>
-                    <th className="w-[6rem] px-2 py-1">유사도</th>
-                    {isHybridResult && (
-                      <>
-                        <th className="w-[7rem] px-2 py-1">뜻, 단어 순위</th>
-                        <th className="w-[6rem] px-2 py-1">RRF 점수</th>
-                      </>
-                    )}
-                    <th className="w-[6rem] px-2 py-1">threshold</th>
-                    <th className="w-[6rem] px-2 py-1">실제 주입</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.items.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={columnCount}
-                        className="px-2 py-6 text-center"
-                      >
-                        검색된 카드가 없습니다. 임베딩이 끝난 사용 중 카드만
-                        검색됩니다.
-                      </td>
-                    </tr>
-                  )}
-                  {result.items.map((item, index) => (
-                    <Fragment key={item.id}>
-                      {index === boundary && (
-                        <tr className="border-t-2 border-red-400">
-                          <td
-                            colSpan={columnCount}
-                            className="bg-red-50 px-2 py-1 font-black text-red-600"
-                          >
-                            여기부터 threshold 미달
-                          </td>
-                        </tr>
-                      )}
-                      <tr
-                        className={`border-t border-gray-100 ${(isHybridResult ? item.wouldBeInjected : item.passesThreshold) ? "" : "text-gray-400"}`}
-                      >
-                        <td className="px-2 py-1">{item.rank}</td>
-                        <td className="px-2 py-1">{item.title}</td>
-                        <td className="px-2 py-1">{item.grade}</td>
-                        <td className="px-2 py-1">{item.subject}</td>
-                        <td className="px-2 py-1 tabular-nums">
-                          {item.similarity.toFixed(4)}
-                        </td>
-                        {isHybridResult && (
-                          <>
-                            <td className="px-2 py-1 tabular-nums">
-                              {formatRank(item.semanticRank)},{" "}
-                              {formatRank(item.keywordRank)}
-                            </td>
-                            <td className="px-2 py-1 tabular-nums">
-                              {typeof item.rrfScore === "number"
-                                ? item.rrfScore.toFixed(5)
-                                : ""}
-                            </td>
-                          </>
-                        )}
-                        <td className="px-2 py-1">
-                          {item.passesThreshold ? "통과" : "미달"}
-                        </td>
-                        <td className="px-2 py-1 font-bold">
-                          {item.wouldBeInjected ? "주입" : "제외"}
-                        </td>
-                      </tr>
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
+              <SearchResultTable result={result} />
             </div>
           )}
         </DialogContent>
