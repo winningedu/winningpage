@@ -194,10 +194,10 @@ describe("consistency", () => {
     expect(list[0]).toEqual({ id: "1", signals: [] });
   });
 
-  it("computeStep5 는 formula 를 그대로 꺼낸다", () => {
+  it("computeStep5 는 일관성 결과를 돌려준다", () => {
     const r = computeStep5(context, signals);
     expect(r.consistency.total).toBe(3);
-    expect(r.expectedFormula).toBe(r.consistency.formula);
+    expect(r.consistency.formula).toContain("%");
   });
 });
 

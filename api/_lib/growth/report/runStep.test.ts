@@ -5,6 +5,7 @@ import {
   type SectionItem,
 } from "../sections.js";
 import { validateStep } from "../validation.js";
+import { stepSectionIds } from "./prompts.js";
 import {
   type RunStepDeps,
   readStored,
@@ -282,6 +283,10 @@ describe("3단계 모델 호출", () => {
       .mockResolvedValueOnce(reply("not json"))
       .mockResolvedValueOnce(reply(narrativeJson()));
     const r = await runStep(3, makeContext(), withSignals, deps({ callModel }));
+    expect(callModel.mock.calls.map((c) => c[0].callInfo)).toEqual([
+      { step: 3, kind: "step", sectionId: null, batchIndex: null, attempt: 0 },
+      { step: 3, kind: "step", sectionId: null, batchIndex: null, attempt: 1 },
+    ]);
     expect(r).toMatchObject({ ok: true, extraAttempts: 1 });
     expect(callModel).toHaveBeenCalledTimes(2);
     expect(callModel.mock.calls[0]?.[0].user).not.toContain("이전 응답의 문제");
@@ -449,48 +454,111 @@ describe("5단계 모델 호출", () => {
       summary: "s",
     },
   ];
-  it("1-10 본문의 계산 필드는 모델 값이 아니라 앱 값으로 덮는다", async () => {
+  const only19 = JSON.stringify({
+    sections: [
+      {
+        id: "1-9",
+        status: "ok",
+        body: { rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }] },
+        evidence_ids: [],
+      },
+    ],
+  });
+  const run5 = (
+    ctx: ReturnType<typeof makeContext>,
+    text: string,
+    signals = sigs,
+  ) =>
+    runStep(
+      5,
+      ctx,
+      emptyStored({ signals: { byActivity: signals } }),
+      deps({ callModel: vi.fn(async () => reply(text)) }),
+    );
+
+  it("모델이 1-9 만 보내도 통과하고 앱이 1-10 을 만들어 붙인다", async () => {
     const ctx = makeContext();
     const { computeStep5 } = await import("./compute.js");
-    const { consistency, expectedFormula } = computeStep5(ctx, sigs as never);
+    const { consistency } = computeStep5(ctx, sigs as never);
+    const r = await run5(ctx, only19);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const sections = r.patch.sections as SectionItem[];
+    expect(sections.map((x) => x.id)).toEqual(["1-9", "1-10"]);
+    const item = sections.find((x) => x.id === "1-10");
+    expect(item).toMatchObject({
+      title: "방향 진단",
+      format: "diagram",
+      badge: "fact",
+      status: "ok",
+      formula: consistency.formula,
+      evidence_ids: ["a1", "a2", "a3"],
+      body: {
+        percent: consistency.percent,
+        formula: consistency.formula,
+        verdictLabel: consistency.verdictLabel,
+        linked: ["a1", "a2", "a3"],
+        total: consistency.total,
+        smallSample: consistency.smallSample,
+        criteria: consistency.criteria,
+      },
+    });
+    expect(r.patch.consistency).toEqual(consistency);
+    // 1-9 행 근거는 앱이 그 학기 활동으로 채운다.
+    const nine = sections.find((x) => x.id === "1-9");
+    expect(nine?.body).toMatchObject({
+      rows: [{ evidence_ids: ["a1", "a2", "a3"] }],
+    });
+  });
+
+  it("모델이 1-10 을 써 보내도 무시하고 앱 값을 쓴다", async () => {
+    const ctx = makeContext();
+    const { computeStep5 } = await import("./compute.js");
+    const { consistency } = computeStep5(ctx, sigs as never);
     const model = JSON.stringify({
-      formula: expectedFormula,
+      formula: "엉터리",
       sections: [
-        { id: "1-9", status: "ok", body: { rows: [] }, evidence_ids: ["a1"] },
+        ...JSON.parse(only19).sections,
         {
           id: "1-10",
           status: "ok",
           evidence_ids: ["a1"],
+          formula: "엉터리",
           body: {
             percent: 1,
             verdictLabel: "엉터리",
             linked: 99,
-            total: 7,
             text: "해석",
           },
         },
       ],
     });
-    const r = await runStep(
-      5,
-      ctx,
-      emptyStored({ signals: { byActivity: sigs } }),
-      deps({ callModel: vi.fn(async () => reply(model)) }),
-    );
+    const r = await run5(ctx, model);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     const item = (r.patch.sections as SectionItem[]).find(
       (x) => x.id === "1-10",
     );
-    expect(item?.body).toMatchObject({
+    expect(item?.formula).toBe(consistency.formula);
+    expect(item?.body).toEqual({
       percent: consistency.percent,
       formula: consistency.formula,
       verdictLabel: consistency.verdictLabel,
+      linked: ["a1", "a2", "a3"],
       total: consistency.total,
       smallSample: consistency.smallSample,
       criteria: consistency.criteria,
-      linked: ["a1", "a2", "a3"],
-      text: "해석",
     });
+  });
+
+  it("연계가 0건이면 분모 활동 전부를 1-10 근거로 둔다", async () => {
+    const ctx = makeContext();
+    const unlinked = sigs.map((x) => ({ ...x, axes: [] }));
+    const r = await run5(ctx, only19, unlinked);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item?.body).toMatchObject({ linked: [] });
+    expect(item?.evidence_ids).toEqual(["a1", "a2", "a3"]);
   });
 });
 
@@ -530,10 +598,14 @@ describe("6단계 축 섹션 정규화", () => {
           ? { rows: [] }
           : {};
 
-  it("근거 없는 축을 ok 로 쓰거나 빠뜨려도 앱이 no_data 로 정규화해 한 번에 통과한다", async () => {
+  it("근거 없는 축은 모델을 부르지 않고 앱이 no_data 로 확정해 한 번에 통과한다", async () => {
     const { computeStep6 } = await import("./compute.js");
     const { SECTION_REGISTRY } = await import("../sections.js");
-    const ctx = makeContext();
+    const ctx = makeContext({
+      activities: ["a1", "a2", "a3"].map((id) =>
+        activity(id, { gradeLabel: "고2" }),
+      ),
+    });
     const axes = computeStep6(ctx, sigs as never);
     const label = (a: string) => axes.find((x) => x.axis === a)?.verdictLabel;
     const axisRow = (a: string) => ({
@@ -552,18 +624,34 @@ describe("6단계 축 섹션 정규화", () => {
     const sections = [
       mk("2-1", { evidence_ids: [], body: axisRow("A") }),
       mk("2-3", { evidence_ids: ["a3"], body: axisRow("C") }),
-      mk("2-5", { evidence_ids: [], body: axisRow("E") }),
       ...["2-6", "2-7", "2-8", "2-9", "2-10"].map((id) => mk(id, {})),
     ];
-    const callModel = vi.fn(async () => reply(JSON.stringify({ sections })));
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      const id = /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(
+        bundle.user,
+      )?.[1];
+      return reply(
+        JSON.stringify({ sections: sections.filter((x) => x.id === id) }),
+      );
+    });
     const r = await runStep(
       6,
       ctx,
-      { ...emptyStored({ signals: { byActivity: sigs } }) },
+      {
+        ...emptyStored({
+          signals: {
+            byActivity: sigs,
+            match: { aligned: [], conflicting: [] },
+          },
+          narrative_theme: "열 흐름",
+          grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+        }),
+      },
       deps({ callModel }),
     );
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
-    expect(callModel).toHaveBeenCalledTimes(1);
+    // 근거 활동이 있는 A, C 축 섹션과 축이 아닌 5개 섹션만 부른다.
+    expect(callModel).toHaveBeenCalledTimes(7);
     const out = r.output.sections ?? [];
     const byId = (id: string) => out.find((x) => x.id === id);
     expect(byId("2-1")?.evidence_ids.sort()).toEqual(
@@ -627,6 +715,63 @@ describe("8단계", () => {
     expect(r.completion?.profile.profile_id).toBe("p1");
     expect(r.completion?.planRows).toEqual([]);
     expect(r.patch.sections).toBe(r.completion?.sections);
+  });
+
+  it("5단계가 만든 1-10 을 8단계 조립이 그대로 받아 저장 patch 에 싣는다", async () => {
+    const { ctx: base } = ready();
+    const ctx = makeContext({
+      expectedSectionIds: [...base.expectedSectionIds, "1-9", "1-10"],
+    });
+    const sigs = ctx.activities.map((a) => ({
+      activityId: a.id,
+      axes: ["A"],
+      linkage: [],
+      keywords: [],
+      method: null,
+      summary: "s",
+    }));
+    const model = JSON.stringify({
+      sections: [
+        {
+          id: "1-9",
+          status: "ok",
+          body: { rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }] },
+          evidence_ids: [],
+        },
+      ],
+    });
+    const second = await runStep(
+      2,
+      ctx,
+      emptyStored({ signals: { byActivity: sigs } }),
+      deps(),
+    );
+    if (!second.ok) throw new Error("step2");
+    let stored = emptyStored({
+      signals: second.patch.signals,
+      axis_scores: await axesOf(ctx),
+      planDraft: [],
+    });
+    const fifth = await runStep(
+      5,
+      ctx,
+      stored,
+      deps({ callModel: vi.fn(async () => reply(model)) }),
+    );
+    if (!fifth.ok) throw new Error(JSON.stringify(fifth.issues));
+    stored = { ...stored, ...fifth.patch } as StoredOutputs;
+    const r = await runStep(8, ctx, stored, deps({ carried: [] }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item).toMatchObject({
+      status: "ok",
+      format: "diagram",
+      formula: expect.stringContaining("%"),
+      evidence_ids: ["a1", "a2", "a3"],
+      body: { total: 3, linked: ["a1", "a2", "a3"] },
+    });
   });
 
   it("검증에 실패하면 issues 를 그대로 돌려준다", async () => {
@@ -764,3 +909,432 @@ async function axesOf(ctx: ReportContext) {
   const { computeStep6 } = await import("./compute.js");
   return computeStep6(ctx, []);
 }
+
+describe("활동 id 별칭 응답", () => {
+  const U = [
+    "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333",
+  ];
+  const uuidPattern =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+  const activities = U.map((id, i) => activity(id, { text: `본문 ${i + 1}` }));
+  const ctx = makeContext({ activities, evidenceIds: U });
+  const sigs = U.map((id, i) => ({
+    activityId: id,
+    axes: [i === 2 ? "C" : "A"],
+    linkage: [],
+    keywords: [],
+    method: null,
+    summary: "s",
+  }));
+  const withSigs = (over: Partial<StoredOutputs> = {}) =>
+    emptyStored({
+      signals: { byActivity: sigs },
+      narrative_theme: "열 흐름",
+      grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+      ...over,
+    });
+  /** 섹션 호출이면 그 섹션 하나만 담은 응답을 낸다. 아니면 full 을 그대로 낸다. */
+  const perCall = (
+    sections: { id: string }[],
+    otherwise: Record<string, unknown> = {},
+  ) =>
+    capturePer((user) => {
+      const id = /작성할 항목[^\n]*\n\[\s*\{\s*"id": "([\d-]+)"/.exec(
+        user,
+      )?.[1];
+      return id
+        ? JSON.stringify({ sections: sections.filter((x) => x.id === id) })
+        : JSON.stringify(otherwise);
+    });
+  const capturePer = (respond: (user: string) => string) => {
+    const seen: string[] = [];
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      seen.push(bundle.user);
+      return reply(respond(bundle.user));
+    });
+    return { seen, callModel };
+  };
+  const bodyOf = (format: string) =>
+    format === "prose"
+      ? "본문"
+      : format === "list"
+        ? []
+        : format === "table"
+          ? { rows: [] }
+          : {};
+  const sectionsFor = async (
+    step: 6 | 7,
+    over: (id: string) => Record<string, unknown> = () => ({}),
+  ) => {
+    const { SECTION_REGISTRY } = await import("../sections.js");
+    return stepSectionIds(step, ctx).map((id) => {
+      const def = SECTION_REGISTRY.find((d) => d.id === id);
+      return {
+        id,
+        status: "ok",
+        evidence_ids: ["a1"],
+        body: bodyOf(def?.format ?? "prose"),
+        ...over(id),
+      };
+    });
+  };
+  const capture = (text: string) => {
+    const seen: string[] = [];
+    const callModel = vi.fn(async (bundle: { user: string }) => {
+      seen.push(bundle.user);
+      return reply(text);
+    });
+    return { seen, callModel };
+  };
+
+  it("1단계는 별칭으로 답한 신호를 활동 id 로 저장한다", async () => {
+    const { seen, callModel } = capture(
+      JSON.stringify({
+        signals: [
+          {
+            activityId: "a2",
+            axes: ["B"],
+            method: "실험",
+            keywords: ["열"],
+            summary: "요약",
+          },
+        ],
+      }),
+    );
+    const r = await runStep(1, ctx, emptyStored(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const by = (
+      r.patch.signals as {
+        byActivity: { activityId: string; axes: string[] }[];
+      }
+    ).byActivity;
+    expect(by.map((s) => s.activityId)).toEqual(U);
+    expect(by[1]?.axes).toEqual(["B"]);
+  });
+
+  it("3단계는 별칭 근거를 활동 id 로 저장한다", async () => {
+    const { seen, callModel } = capture(
+      narrativeJson([
+        sec8({
+          evidence_ids: ["a2"],
+          body: [{ text: "a1 반복", evidence_ids: ["a1"] }],
+        }),
+      ]),
+    );
+    const r = await runStep(3, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const s = (r.patch.sections as SectionItem[]).find((x) => x.id === "1-8");
+    expect(s?.evidence_ids).toEqual([U[1]]);
+  });
+
+  it("4단계는 별칭 match 를 활동 id 로 저장한다", async () => {
+    const sections = stepSectionIds(4, ctx).map((id) => ({
+      id,
+      status: "no_data",
+      evidence_ids: [],
+    }));
+    const { seen, callModel } = perCall(sections, {
+      match: {
+        aligned: [{ text: "일치", evidenceIds: ["a3"] }],
+        conflicting: [],
+      },
+    });
+    const r = await runStep(4, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    expect(r.output.match?.aligned[0]?.evidenceIds).toEqual([U[2]]);
+  });
+
+  it("5단계는 모델이 1-9 만 보내도 통과하고 앱 1-10 의 근거는 활동 id 다", async () => {
+    const { seen, callModel } = capture(
+      JSON.stringify({
+        sections: [
+          {
+            id: "1-9",
+            status: "ok",
+            body: {
+              rows: [{ label: "고1-1", value: "연계", evidence_ids: [] }],
+            },
+            evidence_ids: [],
+          },
+        ],
+      }),
+    );
+    const r = await runStep(5, ctx, withSigs(), deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const item = (r.patch.sections as SectionItem[]).find(
+      (x) => x.id === "1-10",
+    );
+    expect(item?.evidence_ids).toEqual(U);
+  });
+
+  it("6단계는 별칭 근거로 통과한다", async () => {
+    const { computeStep6 } = await import("./compute.js");
+    const axes = computeStep6(ctx, sigs as never);
+    const label = (a: string) => axes.find((x) => x.axis === a)?.verdictLabel;
+    const axisRows = (id: string) => {
+      const a = { "2-1": "A", "2-2": "B", "2-3": "C", "2-4": "D", "2-5": "E" }[
+        id
+      ];
+      return a ? { body: { rows: [{ label: "판정", value: label(a) }] } } : {};
+    };
+    const sections = await sectionsFor(6, (id) => ({
+      evidence_ids: id === "2-3" ? ["a3"] : ["a1"],
+      ...axisRows(id),
+    }));
+    const { seen, callModel } = perCall(sections);
+    const r = await runStep(
+      6,
+      ctx,
+      withSigs({
+        signals: {
+          byActivity: sigs,
+          match: { aligned: [], conflicting: [] },
+        },
+      }),
+      deps({ callModel }),
+    );
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    const out = r.output.sections ?? [];
+    expect(out.find((x) => x.id === "2-1")?.evidence_ids.sort()).toEqual(
+      axes.find((x) => x.axis === "A")?.activityIds.sort(),
+    );
+  });
+
+  it("7단계는 설문 대조의 활동 id 를 별칭으로 싣고 별칭 근거로 통과한다", async () => {
+    const { computeStep5, computeStep6 } = await import("./compute.js");
+    const { consistency } = computeStep5(ctx, sigs as never);
+    const axes = computeStep6(ctx, sigs as never);
+    const stored = withSigs({
+      signals: {
+        byActivity: sigs,
+        match: {
+          aligned: [{ text: "일치", evidenceIds: [U[1]] }],
+          conflicting: [],
+        },
+      },
+      narrative_theme: "열과 에너지 흐름",
+      grade_subthemes: [{ grade: "고1", stage: "seed", text: "기초" }],
+      consistency,
+      axis_scores: axes,
+    });
+    const sections = await sectionsFor(7);
+    const plan = [
+      {
+        program: "deep",
+        title: "탐구 방향 정하기",
+        description: "방향과 조건만 정한다",
+        priority: "required",
+        axis: "C",
+        category: null,
+        period: "semester",
+        periodLabel: "2학기",
+        deadline: null,
+      },
+    ];
+    const { seen, callModel } = capture(
+      JSON.stringify({ sections, planDraft: plan }),
+    );
+    const r = await runStep(7, ctx, stored, deps({ callModel }));
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(seen[0]).not.toMatch(uuidPattern);
+    expect(seen[0]).toMatch(/"evidenceIds": \[\s*"a2"\s*\]/);
+    expect(r.output.sections?.[0]?.evidence_ids).toEqual([U[0]]);
+  });
+
+  it("모르는 별칭만 쓰면 3단계는 unknown_evidence 로 두 번 실패한다", async () => {
+    const { callModel } = capture(
+      narrativeJson([
+        sec8({
+          evidence_ids: ["a99"],
+          body: [{ text: "x", evidence_ids: ["a99"] }],
+        }),
+      ]),
+    );
+    const r = await runStep(3, ctx, withSigs(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.issues.map((i) => i.code)).toContain("unknown_evidence");
+  });
+});
+
+describe("1단계 묶음 호출", () => {
+  const many = (n: number) => {
+    const activities = Array.from({ length: n }, (_, i) =>
+      activity(`act-${String(i + 1).padStart(3, "0")}`),
+    );
+    return makeContext({
+      activities,
+      evidenceIds: activities.map((a) => a.id),
+    });
+  };
+  /** 프롬프트에 실린 활동 별칭을 읽어 그 활동들의 신호로 답한다. */
+  const aliasesIn = (user: string): string[] =>
+    [...user.matchAll(/"id": "(a\d+)"/g)].map((m) => m[1] ?? "");
+  const answer = (user: string): ModelReply =>
+    reply(
+      JSON.stringify({
+        signals: aliasesIn(user).map((alias) => ({
+          activityId: alias,
+          axes: ["A"],
+          method: "실험",
+          keywords: ["열"],
+          summary: `요약 ${alias}`,
+        })),
+      }),
+    );
+  const byActivityOf = (r: Awaited<ReturnType<typeof runStep>>) => {
+    if (!r.ok) throw new Error(JSON.stringify(r));
+    return (r.patch.signals as { byActivity: { activityId: string }[] })
+      .byActivity;
+  };
+
+  it.each([
+    [16, [15, 1]],
+    [37, [15, 15, 7]],
+    [60, [15, 15, 15, 15]],
+  ])(
+    "활동 %i건은 묶음 %j 로 나눠 부르고 별칭은 전체 기준이며 순서대로 합친다",
+    async (n, sizes) => {
+      const ctx = many(n);
+      const seen: string[] = [];
+      const callModel = vi.fn(async (bundle: { user: string }) => {
+        seen.push(bundle.user);
+        return answer(bundle.user);
+      });
+      const r = await runStep(1, ctx, emptyStored(), deps({ callModel }));
+      expect(callModel).toHaveBeenCalledTimes(sizes.length);
+      let start = 0;
+      for (const size of sizes) {
+        const prompt = seen.find((u) => u.includes(`"a${start + 1}"`));
+        if (!prompt) throw new Error(`a${start + 1} 묶음 없음`);
+        expect(aliasesIn(prompt)).toEqual(
+          Array.from({ length: size }, (_, i) => `a${start + i + 1}`),
+        );
+        start += size;
+      }
+      const by = byActivityOf(r);
+      expect(by.map((s) => s.activityId)).toEqual(
+        ctx.activities.map((a) => a.id),
+      );
+      if (r.ok) expect(r.extraAttempts).toBe(0);
+    },
+  );
+
+  it("번들 callInfo 에 묶음 번호(0부터)와 시도 번호를 싣는다", async () => {
+    let truncatedOnce = false;
+    const infos: unknown[] = [];
+    const callModel = vi.fn(async (b: { user: string; callInfo?: unknown }) => {
+      infos.push(b.callInfo);
+      if (!truncatedOnce && b.user.includes('"a16"')) {
+        truncatedOnce = true;
+        return reply('{"signals":[', "MAX_TOKENS");
+      }
+      return answer(b.user);
+    });
+    await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    const batch = (batchIndex: number, attempt: number) => ({
+      step: 1,
+      kind: "batch",
+      sectionId: null,
+      batchIndex,
+      attempt,
+    });
+    expect(infos).toHaveLength(4);
+    expect(infos).toContainEqual(batch(0, 0));
+    expect(infos).toContainEqual(batch(1, 0));
+    expect(infos).toContainEqual(batch(1, 1));
+    expect(infos).toContainEqual(batch(2, 0));
+  });
+
+  it("활동 15건 이하는 호출 1회다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => answer(b.user));
+    const r = await runStep(1, many(15), emptyStored(), deps({ callModel }));
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(byActivityOf(r)).toHaveLength(15);
+  });
+
+  it("활동 100건(7묶음)에서도 동시에 진행 중인 호출은 6을 넘지 않는다", async () => {
+    let running = 0;
+    let peak = 0;
+    const callModel = vi.fn(async (b: { user: string }) => {
+      running += 1;
+      peak = Math.max(peak, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(100), emptyStored(), deps({ callModel }));
+    expect(callModel).toHaveBeenCalledTimes(7);
+    expect(peak).toBe(6);
+    expect(byActivityOf(r)).toHaveLength(100);
+  });
+
+  it("한 묶음의 첫 응답이 잘리면 재요청해 성공하고 extraAttempts 는 1이다", async () => {
+    let truncatedOnce = false;
+    const callModel = vi.fn(async (b: { user: string }) => {
+      if (!truncatedOnce && b.user.includes('"a16"')) {
+        truncatedOnce = true;
+        return reply('{"signals":[', "MAX_TOKENS");
+      }
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(byActivityOf(r)).toHaveLength(37);
+    expect(callModel).toHaveBeenCalledTimes(4);
+    if (r.ok) expect(r.extraAttempts).toBe(1);
+  });
+
+  it("한 묶음이 두 번 다 실패하면 단계가 실패하고 patch 도 없다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) =>
+      b.user.includes('"a16"')
+        ? reply('{"signals":[', "MAX_TOKENS")
+        : answer(b.user),
+    );
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.failure).toBe("validation");
+    expect(r.extraAttempts).toBe(1);
+    expect(r.issues.map((i) => i.code)).toEqual(["truncated"]);
+    expect("patch" in r).toBe(false);
+  });
+
+  it("upstream 오류 묶음이 섞이면 failure 는 upstream 이다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => {
+      if (b.user.includes('"a1"')) throw new Error("boom");
+      if (b.user.includes('"a16"')) return reply('{"signals":[', "MAX_TOKENS");
+      return answer(b.user);
+    });
+    const r = await runStep(1, many(37), emptyStored(), deps({ callModel }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.failure).toBe("upstream");
+  });
+
+  it("단계 예산이 끝나면 timeout 이다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return answer(b.user);
+    });
+    const r = await runStep(
+      1,
+      many(100),
+      emptyStored(),
+      deps({
+        callModel,
+        budgetMs: 20,
+        now: () => new Date().toISOString(),
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.failure).toBe("timeout");
+    // 예산이 끝난 뒤에는 남은 묶음을 띄우지 않는다.
+    expect(callModel.mock.calls.length).toBeLessThanOrEqual(6);
+  });
+});

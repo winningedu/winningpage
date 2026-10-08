@@ -144,11 +144,11 @@ export function consistencyActivities(
 export function computeStep5(
   context: ReportContext,
   signals: ActivitySignal[],
-): { consistency: ConsistencyResult; expectedFormula: string } {
+): { consistency: ConsistencyResult } {
   const consistency = computeConsistency(
     consistencyActivities(context, signals),
   );
-  return { consistency, expectedFormula: consistency.formula };
+  return { consistency };
 }
 
 // ---------------------------------------------------------------------------
