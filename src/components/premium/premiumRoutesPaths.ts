@@ -21,3 +21,20 @@ export const PREMIUM_RETURNING_STUDENT_PATH = `${PREMIUM_PROGRAM_PATH_PREFIX}/re
 // MentorHero.jsx MENTOR_FORM_ANCHOR_ID는 같은 페이지 내 앵커라 다른 패턴).
 export const PREMIUM_APPLY_PATH = "/premium-apply";
 export const PREMIUM_APPLY_FORM_ANCHOR_ID = "premium-apply-form";
+
+// 프리미엄 소속 경로 판정 — 프리미엄을 숨기는 사이트(site.features.premium=false)가
+// 메뉴 항목·서비스 카드 링크를 거를 때 쓴다. 프로그램 랜딩(/page/premium/*)과 상담 신청
+// (/premium-apply, 구 /page/premium-apply)이 대상이다. 쿼리・해시는 무시한다.
+const PREMIUM_APPLY_LEGACY_PATH = "/page/premium-apply";
+
+export function isPremiumLink(to: string | null | undefined): boolean {
+  const path = String(to ?? "")
+    .trim()
+    .split(/[?#]/)[0];
+  return (
+    path === PREMIUM_PROGRAM_PATH_PREFIX ||
+    path?.startsWith(`${PREMIUM_PROGRAM_PATH_PREFIX}/`) === true ||
+    path === PREMIUM_APPLY_PATH ||
+    path === PREMIUM_APPLY_LEGACY_PATH
+  );
+}
