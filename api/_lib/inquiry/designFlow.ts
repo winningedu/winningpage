@@ -1,7 +1,7 @@
 // 설계 리포트 흐름의 판단 부분(개발계획 §2 12, 13, 15, 16, 부록 B 2번). DB 와 모델을 모르는 순수 함수다.
 // 주제 선택 검증, 멱등과 잠금 판정, 프롬프트 입력 조립, 응답의 서버 고정값 덮어쓰기를 맡는다.
 
-import { PERFORMANCE_MODEL } from "../gemini.js";
+import { PERFORMANCE_MODEL } from "../ai/gemini.js";
 import type { HandoffView, SessionInfo } from "./bootstrap.js";
 import { NEEDS_CHECK } from "./constants.js";
 import { gateFailure, type PrecheckResult } from "./generate.js";

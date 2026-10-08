@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { MAX_MODEL_ATTEMPTS_PER_STEP } from "../validation.js";
+import type { PromptBundle } from "./prompts.js";
 import {
   callModelWith,
   chargeGate,
@@ -210,6 +212,135 @@ describe("callModelWith", () => {
       },
     ]);
     expect(REPORT_MODEL_TEMPERATURE).toBe(0.2);
+  });
+});
+
+describe("callModelWith 계기판", () => {
+  const OK_CALL = {
+    kind: "generate" as const,
+    model: "gemini-2.5-flash",
+    startedAt: 1_700_000_000_000,
+    latencyMs: 10,
+    transportAttempt: 1,
+    status: "ok" as const,
+  };
+  type Options = {
+    telemetry?: ReturnType<typeof createAiTrace>;
+    temperature?: number;
+    responseSchema?: unknown;
+    maxOutputTokens?: number;
+  };
+  const bundleOf = (
+    info: Partial<PromptBundle["callInfo"]> & {
+      kind: PromptBundle["callInfo"]["kind"];
+    },
+    schema: unknown = { type: "object" },
+  ): PromptBundle => ({
+    system: "S",
+    user: "U",
+    responseSchema: schema as never,
+    maxOutputTokens: 4321,
+    callInfo: {
+      step: 4,
+      sectionId: null,
+      batchIndex: null,
+      attempt: 0,
+      ...info,
+    },
+  });
+
+  it("callInfo 마다 다른 callKey 의 자식 핸들을 만들어 넘긴다", async () => {
+    const telemetry = createAiTrace({
+      service: "growth",
+      feature: "report_step",
+      step: "9",
+    });
+    const seen: Options[] = [];
+    const callStructured = async (_s: string, _u: string, o: Options) => {
+      seen.push(o);
+      o.telemetry?.recordCall(OK_CALL);
+      return { text: "{}", finishReason: "STOP" };
+    };
+    const call = callModelWith(callStructured as never, telemetry);
+    const signal = new AbortController().signal;
+    await call(bundleOf({ step: 1, kind: "batch", batchIndex: 2 }), signal);
+    await call(bundleOf({ kind: "section", sectionId: "2-1" }), signal);
+    await call(bundleOf({ kind: "match" }), signal);
+    await call(bundleOf({ step: 7, kind: "planDraft" }), signal);
+    await call(bundleOf({ step: 3, kind: "step" }), signal);
+    expect(telemetry.calls.map((r) => [r.step, r.call_key, r.attempt])).toEqual(
+      [
+        ["1", "batch:2", 1],
+        ["4", "section:2-1", 1],
+        ["4", "match", 1],
+        ["7", "planDraft", 1],
+        ["3", "step", 1],
+      ],
+    );
+    for (const o of seen) {
+      expect(o.telemetry).not.toBe(telemetry);
+      expect(o.temperature).toBe(0.2);
+      expect(o.maxOutputTokens).toBe(4321);
+    }
+  });
+
+  it("옵션의 스키마와 출력 한도는 bundle 값 그대로다", async () => {
+    const telemetry = createAiTrace({ service: "growth", feature: "f" });
+    const seen: Options[] = [];
+    const callStructured = async (_s: string, _u: string, o: Options) => {
+      seen.push(o);
+      return { text: "{}", finishReason: "STOP" };
+    };
+    const schema = { type: "object", properties: { a: { type: "string" } } };
+    await callModelWith(callStructured as never, telemetry)(
+      bundleOf({ kind: "section", sectionId: "1-1" }, schema),
+      new AbortController().signal,
+    );
+    expect(seen[0]?.responseSchema).toBe(schema);
+  });
+
+  it("재요청(attempt 1)은 attempt 2 와 넘겨받은 재요청 사유를, 첫 호출은 사유 null 을 기록한다", async () => {
+    const telemetry = createAiTrace({ service: "growth", feature: "f" });
+    const callStructured = async (_s: string, _u: string, o: Options) => {
+      o.telemetry?.recordCall(OK_CALL);
+      return { text: "{}", finishReason: "STOP" };
+    };
+    const call = callModelWith(callStructured as never, telemetry);
+    const signal = new AbortController().signal;
+    await call(bundleOf({ kind: "match" }), signal, { retryReason: "x" });
+    await call(bundleOf({ kind: "match", attempt: 1 }), signal, {
+      retryReason: "truncated,missing_section",
+    });
+    expect(telemetry.calls.map((r) => [r.attempt, r.retry_reason])).toEqual([
+      [1, null],
+      [2, "truncated,missing_section"],
+    ]);
+  });
+
+  it("돌려준 annotate 는 그 호출의 행에만 검증 결과를 붙인다", async () => {
+    const telemetry = createAiTrace({ service: "growth", feature: "f" });
+    const callStructured = async (_s: string, _u: string, o: Options) => {
+      o.telemetry?.recordCall(OK_CALL);
+      return { text: "{}", finishReason: "STOP" };
+    };
+    const call = callModelWith(callStructured as never, telemetry);
+    const signal = new AbortController().signal;
+    const first = await call(
+      bundleOf({ kind: "section", sectionId: "2-1" }),
+      signal,
+    );
+    const second = await call(
+      bundleOf({ kind: "section", sectionId: "2-2" }),
+      signal,
+    );
+    second.annotate?.({ validation: "ok" });
+    first.annotate?.({ validation: "failed", issueCodes: ["bad"] });
+    expect(
+      telemetry.calls.map((r) => [r.call_key, r.validation, r.issue_codes]),
+    ).toEqual([
+      ["section:2-1", "failed", ["bad"]],
+      ["section:2-2", "ok", null],
+    ]);
   });
 });
 

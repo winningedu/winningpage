@@ -1,9 +1,15 @@
+import type { ComponentType } from "react";
+import { contentLengthHelp } from "@/pages/admin/knowledge/guide/contentLength";
+import WritingGuide from "@/pages/admin/knowledge/guide/WritingGuide";
+import { formatLastReviewed } from "@/pages/admin/knowledge/review/reviewCycle";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 
 interface WinningColumn {
   key: string;
   label: string;
   type?: "boolean" | "date";
+  // 표 셀 전용 렌더(AdminEngine column.render). CSV 는 type 으로만 포맷한다.
+  render?: (row: Record<string, unknown>) => string;
 }
 
 interface WinningField {
@@ -12,6 +18,8 @@ interface WinningField {
   type: "radioBoolean" | "select" | "text" | "textarea" | "number";
   required?: boolean;
   options?: FieldOption[];
+  // 폼 값에 따라 안내 문구만 바꾼다(AdminEngine field.resolve).
+  resolve?: (form: Record<string, unknown>) => { help: string };
 }
 
 interface WinningCrudConfig {
@@ -24,6 +32,16 @@ interface WinningCrudConfig {
   // 고정 저장하는 필드 — winning_assessment_knowledge_items 테이블을 4개
   // knowledge_type으로 나눠 쓰는 이 파일 전용 관용구다.
   fixedValues?: Record<string, unknown>;
+  // knowledgeBulk: 목록 상단에 엑셀 일괄 등록 패널(BulkPanel)을 켠다.
+  // fixedValues.knowledge_type 이 있는 지식 DB 메뉴에만 둔다.
+  knowledgeBulk?: boolean;
+  // knowledgeSearchPreview: 목록 상단에 검색 테스트(SearchPreview)를 켠다.
+  knowledgeSearchPreview?: boolean;
+  // knowledgeReview: 목록에 "검토 완료" 행 버튼과 "미검토만 보기" 필터를 켠다.
+  // 테이블에 last_reviewed_at 컬럼이 있는 지식 DB 메뉴에만 둔다.
+  knowledgeReview?: boolean;
+  // FormIntro: 편집 폼 필드 위에 그리는 안내. 지식 DB 메뉴는 작성 안내를 둔다.
+  FormIntro?: ComponentType;
   columns: WinningColumn[];
   fields: WinningField[];
   defaults: Record<string, unknown>;
@@ -39,6 +57,20 @@ interface WinningComingSoonConfig {
 
 type WinningConfig = WinningCrudConfig | WinningComingSoonConfig;
 
+// 지식 DB 두 메뉴의 "마지막 검토" 컬럼. 기록이 없는 행은 안내 문구를 보인다.
+const LAST_REVIEWED_COLUMN: WinningColumn = {
+  key: "last_reviewed_at",
+  label: "마지막 검토",
+  type: "date",
+  render: (row) =>
+    formatLastReviewed(row.last_reviewed_at as string | null | undefined),
+};
+
+// 지식 DB 내용 필드 옆 글자 수 안내.
+const contentHelp = (form: Record<string, unknown>) => ({
+  help: contentLengthHelp(form.content),
+});
+
 export const winningConfigs: Record<string, WinningConfig> = {
   winningSuhaengTopicDb: {
     title: "위닝 수행 주제 DB",
@@ -48,6 +80,10 @@ export const winningConfigs: Record<string, WinningConfig> = {
     order: "created_at",
     excel: true,
     fixedValues: { knowledge_type: "topic_pattern" },
+    knowledgeBulk: true,
+    knowledgeSearchPreview: true,
+    knowledgeReview: true,
+    FormIntro: WritingGuide,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },
@@ -56,6 +92,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
       { key: "source", label: "출처" },
       { key: "is_active", label: "사용", type: "boolean" },
       { key: "created_at", label: "등록일", type: "date" },
+      LAST_REVIEWED_COLUMN,
     ],
     fields: [
       {
@@ -100,6 +137,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
         label: "주제 추천 패턴 내용",
         type: "textarea",
         required: true,
+        resolve: contentHelp,
       },
       { key: "source", label: "출처", type: "text" },
       { key: "source_link", label: "출처 링크", type: "text" },
@@ -131,6 +169,10 @@ export const winningConfigs: Record<string, WinningConfig> = {
     order: "created_at",
     excel: true,
     fixedValues: { knowledge_type: "verified_resource" },
+    knowledgeBulk: true,
+    knowledgeSearchPreview: true,
+    knowledgeReview: true,
+    FormIntro: WritingGuide,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },
@@ -139,6 +181,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
       { key: "source", label: "저자·기관·링크·출처" },
       { key: "is_active", label: "사용", type: "boolean" },
       { key: "created_at", label: "등록일", type: "date" },
+      LAST_REVIEWED_COLUMN,
     ],
     fields: [
       {
@@ -183,6 +226,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
         label: "자료 핵심 내용 / 활용 방식 / 주의점",
         type: "textarea",
         required: true,
+        resolve: contentHelp,
       },
       {
         key: "source",

@@ -22,6 +22,7 @@
 // _lib/growth/intake 의 순수 함수(collectBody, extractOutcome, collectSummary)에서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { GrowthSettingError } from "../_lib/growth/intake/appSettings.js";
 import {
   type AggregateInput,
@@ -246,6 +247,13 @@ async function handleExtract(
   }
   const ext = ALLOWED_UPLOAD_MIME[row.mime_type];
   const path = ext ? uploadObjectPath(userId, row.id, ext) : null;
+  const trace = createAiTrace({
+    service: "growth",
+    feature: "extract",
+    targetKind: "growth_upload",
+    targetId: row.id,
+    profileId: userId,
+  });
   try {
     if (!path || row.grade_label == null || row.semester == null) {
       throw new Error(`growth_uploads 행이 올바르지 않습니다: ${row.id}`);
@@ -255,6 +263,7 @@ async function handleExtract(
       { ...row, grade_label: row.grade_label, semester: row.semester },
       path,
       startedAt,
+      trace,
     );
     if (extraction.kind === "parsed") {
       const body = await applyOutcome(
@@ -290,6 +299,7 @@ async function handleExtract(
     }).catch(() => undefined);
     throw e;
   } finally {
+    await trace.flush(db);
     // 원문 미보관: 성공, 실패, 예외 어느 경로든 객체를 지운다.
     if (path) {
       const { error: removeError } = await db.storage

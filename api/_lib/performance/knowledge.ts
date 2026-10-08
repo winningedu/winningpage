@@ -38,12 +38,14 @@
 // `source:'none'`이며, 이때 프롬프트에는 원문 그대로 `관련 위닝DB 항목 없음`이 들어간다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiTrace } from "../ai/telemetry/trace.js";
 import { createSupabaseAdmin } from "../supabaseAdmin.js";
 import { embedText } from "./embeddings.js";
+import { buildKnowledgeKeywordQuery } from "./knowledgeKeywords.js";
 import { NO_KNOWLEDGE_TEXT, NO_STUDENT_HISTORY_TEXT } from "./prompts.js";
 
 /** 위닝DB 지식 항목 행 — 이 파일이 실제로 읽는 필드만 담은 최소 형태. */
-type KnowledgeRow = {
+export type KnowledgeRow = {
   id?: string;
   knowledge_type?: string;
   grade?: string;
@@ -88,6 +90,26 @@ export const TOPIC_MAX_CHARS = 4500;
 
 /** 자료(설계 리포트) 호출부 주입 상한(§8.7 표). P10이 쓴다. */
 export const RESOURCE_MAX_CHARS = 8000;
+
+/** 주제 추천 호출부(recommend-topics.ts)가 프롬프트에 넣는 위닝DB 행 수 상한. */
+export const TOPIC_MAX_ITEMS = 6;
+
+/** 설계 리포트 호출부(design-report.ts)가 프롬프트에 넣는 위닝DB 행 수 상한. */
+export const RESOURCE_MAX_ITEMS = 8;
+
+/** 지식 유형별 벡터 검색 임계값. 학생 요청 경로와 관리자 검색 테스트가 함께 쓴다. */
+export function knowledgeMatchThreshold(knowledgeType: string): number {
+  return knowledgeType === "verified_resource"
+    ? RESOURCE_MATCH_THRESHOLD
+    : TOPIC_MATCH_THRESHOLD;
+}
+
+/** 벡터 검색 결과를 프롬프트 조각으로 만들 때 붙이는 라벨. */
+export function knowledgeVectorLabel(knowledgeType: string): string {
+  return knowledgeType === "verified_resource"
+    ? "전과목 유사도 기반 위닝 수행 자료 DB"
+    : "전과목 유사도 기반 위닝 수행 주제 DB";
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // normalizeSubject — 8교과군 정규화 사전 (원문 `dynamic-knowledge.js:5-65`)
@@ -255,7 +277,7 @@ ${row.content || ""}
  * 상한에 걸려 잘린 행을 함께 버리는 것이 중요하다 — 프롬프트에 내용이 들어가지 않은
  * 자료를 호출부가 "모델이 고를 수 있는 후보"로 제시하면, 모델은 제목만 보고 고르게 된다.
  */
-function packRows(
+export function packRows(
   rows: KnowledgeRow[],
   maxChars: number,
   label: string,
@@ -359,7 +381,7 @@ export function getBaseGradeForRpc(grade: unknown): string | null {
 // 남겼다. 주제 추천 경로에 필터를 걸지 않으면 0.50은 **튜닝된 그 조건 그대로** 유효하다.
 // 자료 경로(P10)는 필터가 붙으므로 그때 재측정 대상이 되며, 이 사실은 P10 착수 시점의
 // 알려진 부채다.
-function resolveFilterSubject({
+export function resolveFilterSubject({
   includeOtherSubjects,
   subject,
 }: {
@@ -391,28 +413,32 @@ type KnowledgeSearchResult = {
   text: string;
   hitCount: number;
   rows: KnowledgeRow[];
+  /** 계기판용: 검색이 돌려준 원 행 수(패킹 전). */
+  rawHits: number;
+  /** 계기판용: 첫 행의 유사도. 키워드 검색은 null. */
+  topScore: number | null;
+  /** 계기판용: 질의 임베딩에 걸린 시간(ms). 키워드 검색은 null. */
+  embedMs: number | null;
 };
 
 /**
- * 벡터 검색. 원문 `loadByVectorSearch`(`dynamic-knowledge.js:217-260`).
- * 질의문 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3 — 학생 과거 수행
- * 경로의 2000자와 다르다. 혼동 금지).
+ * 벡터 검색 질의문. 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3).
+ * 학생 요청 경로와 관리자 검색 테스트가 같은 문자열을 쓰도록 순수 함수로 둔다.
  */
-async function loadByVectorSearch(
-  db: SupabaseClient,
-  {
-    grade,
-    subject,
-    career,
-    selectedTopic,
-    assessmentInfo,
-    knowledgeType,
-    maxItems,
-    maxChars,
-    includeOtherSubjects,
-  }: KnowledgeSearchArgs,
-): Promise<KnowledgeSearchResult> {
-  const queryText = [
+export function buildKnowledgeQueryText({
+  grade,
+  subject,
+  career,
+  selectedTopic,
+  assessmentInfo,
+}: {
+  grade?: string | undefined;
+  subject?: string | undefined;
+  career?: string | undefined;
+  selectedTopic?: string | undefined;
+  assessmentInfo?: string | undefined;
+}): string {
+  return [
     `학년: ${grade || ""}`,
     `현재 과목: ${subject || ""}`,
     `정규화 과목군: ${normalizeSubject(subject)}`,
@@ -420,44 +446,137 @@ async function loadByVectorSearch(
     `선택 또는 이전 주제: ${selectedTopic || ""}`,
     `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2500)}`,
   ].join("\n");
+}
 
-  const queryEmbedding = await embedText(queryText);
+/**
+ * 하이브리드 RPC 의 단어 질의. 과목이 비면 normalizeSubject 의 기본값('국어')이 질의에
+ * 섞이지 않게 정규화 교과군도 비운다. 학생 요청 경로와 관리자 검색 테스트가 같이 쓴다.
+ */
+export function buildKnowledgeKeywordQueryFor({
+  subject,
+  career,
+  selectedTopic,
+}: {
+  subject?: string | undefined;
+  career?: string | undefined;
+  selectedTopic?: string | undefined;
+}): string {
+  return buildKnowledgeKeywordQuery({
+    subject,
+    normalizedSubject: subject ? normalizeSubject(subject) : "",
+    career,
+    selectedTopic,
+  });
+}
 
-  const { data, error } = await db.rpc("match_winning_suhaeng_all_subjects", {
-    query_embedding: queryEmbedding,
+/** 질의 임베딩과 그 소요 시간. 하이브리드와 벡터 경로가 한 번 만든 값을 같이 쓴다. */
+type QueryEmbedding = { embedding: number[]; embedMs: number };
+
+/**
+ * 질의문 임베딩. 질의문 6줄과 안내문 **2500자** 절단은 문자 단위 원문이다(§12.3).
+ * 학생 과거 수행 경로의 2000자와 다르므로 혼동하지 않는다.
+ */
+async function embedKnowledgeQuery(
+  args: KnowledgeSearchArgs,
+): Promise<QueryEmbedding> {
+  const queryText = buildKnowledgeQueryText(args);
+  const embedStartedAt = Date.now();
+  const embedding = await embedText(queryText);
+  return { embedding, embedMs: Date.now() - embedStartedAt };
+}
+
+/** 두 벡터 계열 RPC 가 같이 받는 필터 인자. */
+function knowledgeRpcFilterArgs({
+  grade,
+  subject,
+  knowledgeType,
+  maxItems,
+  includeOtherSubjects,
+}: KnowledgeSearchArgs) {
+  return {
     filter_knowledge_type: knowledgeType,
     filter_grade: getBaseGradeForRpc(grade),
     match_count: Math.max(maxItems * 2, 10),
-    match_threshold:
-      knowledgeType === "verified_resource"
-        ? RESOURCE_MATCH_THRESHOLD
-        : TOPIC_MATCH_THRESHOLD,
+    match_threshold: knowledgeMatchThreshold(knowledgeType),
     // includeOtherSubjects/subject는 falsy 취급이 undefined와 동일해 값 대체가 안전하다.
     filter_subject: resolveFilterSubject({
       includeOtherSubjects: Boolean(includeOtherSubjects),
       subject: subject ?? "",
     }),
-  });
+  };
+}
 
-  if (error) throw error;
+/**
+ * RPC 결과 행을 maxItems 로 자르고 packRows 로 채운다. 하이브리드와 벡터 경로가 같이 쓴다.
+ * topScore 는 행 중 유사도 최댓값이다. 하이브리드는 RRF 순서라 1위가 최댓값이 아닐 수 있다.
+ */
+function packSearchRows(
+  data: KnowledgeRow[] | null,
+  { knowledgeType, maxItems, maxChars }: KnowledgeSearchArgs,
+  embedMs: number,
+): KnowledgeSearchResult {
+  const all = data || [];
+  const rows = all.slice(0, maxItems);
+  const rawHits = all.length;
+  const similarities = all
+    .map((row) => row.similarity)
+    .filter((value): value is number => typeof value === "number");
+  const topScore = similarities.length ? Math.max(...similarities) : null;
 
-  const rows = (data || []).slice(0, maxItems);
+  if (!rows.length) {
+    return { text: "", hitCount: 0, rows: [], rawHits, topScore, embedMs };
+  }
 
-  if (!rows.length) return { text: "", hitCount: 0, rows: [] };
-
-  const label =
-    knowledgeType === "verified_resource"
-      ? "전과목 유사도 기반 위닝 수행 자료 DB"
-      : "전과목 유사도 기반 위닝 수행 주제 DB";
-
-  const packed = packRows(rows, maxChars, label);
+  const packed = packRows(rows, maxChars, knowledgeVectorLabel(knowledgeType));
 
   return {
     text: packed.map((entry) => entry.piece).join("\n\n"),
     hitCount: packed.length,
     // 프롬프트에 **실제로 들어간** 행만 돌려준다(packRows 주석 참조).
     rows: packed.map((entry) => entry.row),
+    rawHits,
+    topScore,
+    embedMs,
   };
+}
+
+/**
+ * 하이브리드 검색(1차 경로). 의미 순위와 PGroonga 단어 순위를 RPC 안에서 RRF 로 합친다.
+ * 필터와 threshold 는 벡터 경로와 같다. threshold 는 의미 쪽에만 걸리므로 단어로만 걸린
+ * 행은 유사도가 threshold 아래일 수 있고, 그 행도 실제 유사도와 함께 직렬화된다.
+ */
+async function loadByHybridSearch(
+  db: SupabaseClient,
+  args: KnowledgeSearchArgs,
+  query: QueryEmbedding,
+): Promise<KnowledgeSearchResult> {
+  const { data, error } = await db.rpc("match_winning_suhaeng_hybrid", {
+    query_embedding: query.embedding,
+    query_keywords: buildKnowledgeKeywordQueryFor(args),
+    ...knowledgeRpcFilterArgs(args),
+  });
+
+  if (error) throw error;
+
+  return packSearchRows(data, args, query.embedMs);
+}
+
+/**
+ * 벡터 검색(하이브리드 실패 시 2차 경로). 원문 `loadByVectorSearch`(`dynamic-knowledge.js:217-260`).
+ */
+async function loadByVectorSearch(
+  db: SupabaseClient,
+  args: KnowledgeSearchArgs,
+  query: QueryEmbedding,
+): Promise<KnowledgeSearchResult> {
+  const { data, error } = await db.rpc("match_winning_suhaeng_all_subjects", {
+    query_embedding: query.embedding,
+    ...knowledgeRpcFilterArgs(args),
+  });
+
+  if (error) throw error;
+
+  return packSearchRows(data, args, query.embedMs);
 }
 
 /**
@@ -556,7 +675,18 @@ async function loadByLegacyKeywordSearch(
     .slice(0, maxItems)
     .map((item) => item.row);
 
-  if (!scored.length) return { text: "", hitCount: 0, rows: [] };
+  const rawHits = (rows ?? []).length;
+
+  if (!scored.length) {
+    return {
+      text: "",
+      hitCount: 0,
+      rows: [],
+      rawHits,
+      topScore: null,
+      embedMs: null,
+    };
+  }
 
   const packed = packRows(scored, maxChars, "위닝DB 후보");
 
@@ -564,14 +694,21 @@ async function loadByLegacyKeywordSearch(
     text: packed.map((entry) => entry.piece).join("\n\n"),
     hitCount: packed.length,
     rows: packed.map((entry) => entry.row),
+    rawHits,
+    topScore: null,
+    embedMs: null,
   };
 }
 
 /**
  * 위닝DB 지식 검색 단일 진입점. 원문 `loadDynamicAssessmentKnowledge`(`:339-393`).
  *
+ * 경로는 3단이다. 1차는 하이브리드(match_winning_suhaeng_hybrid), 그것이 throw 하면
+ * 벡터(match_winning_suhaeng_all_subjects), 그것도 throw 하면 레거시 키워드 검색이다.
+ * 2단과 3단은 결과가 나와도 degraded 로 표시한다.
+ *
  * **폴백 발동 조건이 원문과 다르다.** 원문은 벡터 결과가 비기만 해도 키워드 검색으로
- * 떨어졌다(`if (vectorResult) return …` 이후 무조건 진행). 여기서는 **벡터 검색이
+ * 떨어졌다(`if (vectorResult) return …` 이후 무조건 진행). 여기서는 **앞 경로가
  * throw한 경우에만** 폴백한다 — 빈 결과는 정상적인 "관련 항목 없음"이기 때문이다
  * (§8.7 「제안(키워드 폴백 축소)」). 지금 dev 코퍼스가 0행이라 원문 동작을 그대로 두면
  * 매 요청마다 160행 스캔이 헛돈다.
@@ -596,6 +733,7 @@ export async function loadDynamicAssessmentKnowledge({
   maxItems = 6,
   maxChars = TOPIC_MAX_CHARS,
   includeOtherSubjects = true,
+  telemetry,
 }: {
   supabase?: SupabaseClient;
   grade?: string;
@@ -607,14 +745,17 @@ export async function loadDynamicAssessmentKnowledge({
   maxItems?: number;
   maxChars?: number;
   includeOtherSubjects?: boolean;
+  /** 계기판 기록 객체(선택). 검색 동작에는 영향이 없다. */
+  telemetry?: AiTrace;
 } = {}): Promise<{
   text: string;
-  source: "vector" | "keyword" | "none";
+  source: "hybrid" | "vector" | "keyword" | "none";
   hitCount: number;
   injectedChars: number;
   degraded: boolean;
   rows: KnowledgeRow[];
 }> {
+  const startedAt = Date.now();
   const db = supabase || createSupabaseAdmin();
   const knowledgeType =
     purpose === "resource" ? "verified_resource" : "topic_pattern";
@@ -631,28 +772,105 @@ export async function loadDynamicAssessmentKnowledge({
     includeOtherSubjects,
   };
 
-  try {
-    const vector = await loadByVectorSearch(db, args);
-
-    if (vector.hitCount) {
-      return {
-        text: vector.text,
-        source: "vector",
-        hitCount: vector.hitCount,
-        injectedChars: vector.text.length,
-        degraded: false,
-        rows: vector.rows,
-      };
+  // 세 반환 지점을 한 곳으로 모아 반환 직전에 한 번만 기록한다.
+  const finish = (
+    result: {
+      text: string;
+      source: "hybrid" | "vector" | "keyword" | "none";
+      hitCount: number;
+      injectedChars: number;
+      degraded: boolean;
+      rows: KnowledgeRow[];
+    },
+    meta: {
+      rawHits: number | null;
+      topScore: number | null;
+      embedMs: number | null;
+      status: "ok" | "error";
+      errorMessage?: string | null;
+    },
+  ) => {
+    try {
+      telemetry?.recordSearch({
+        kind: "knowledge",
+        knowledgeType,
+        threshold: knowledgeMatchThreshold(knowledgeType),
+        matchCountRequested: Math.max(maxItems * 2, 10),
+        rawHits: meta.rawHits,
+        packedHits: result.hitCount,
+        topScore: meta.topScore,
+        source: result.source,
+        degraded: result.degraded,
+        injectedChars: result.injectedChars,
+        embedMs: meta.embedMs,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        status: meta.status,
+        errorMessage: meta.errorMessage ?? null,
+        hitResourceIds: result.rows
+          .map((row) => row.id)
+          .filter((id): id is string => Boolean(id)),
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
     }
+    return result;
+  };
 
-    return {
-      text: NO_KNOWLEDGE_TEXT,
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: false,
-      rows: [],
-    };
+  // 검색 결과 하나를 반환값으로 바꾼다. 행이 없으면 NO_KNOWLEDGE_TEXT 와 source none 이다.
+  const finishSearch = (
+    search: KnowledgeSearchResult,
+    source: "hybrid" | "vector",
+    degraded: boolean,
+  ) =>
+    finish(
+      search.hitCount
+        ? {
+            text: search.text,
+            source,
+            hitCount: search.hitCount,
+            injectedChars: search.text.length,
+            degraded,
+            rows: search.rows,
+          }
+        : {
+            text: NO_KNOWLEDGE_TEXT,
+            source: "none",
+            hitCount: 0,
+            injectedChars: 0,
+            degraded,
+            rows: [],
+          },
+      {
+        rawHits: search.rawHits,
+        topScore: search.topScore,
+        embedMs: search.embedMs,
+        status: "ok",
+      },
+    );
+
+  // 질의 임베딩은 한 번만 만든다. 임베딩이 실패하면 두 벡터 계열 경로가 같은 오류로 떨어진다.
+  const queryEmbedding = embedKnowledgeQuery(args);
+  // 두 경로가 모두 throw 하는 경우에도 처리되지 않은 거부로 남지 않게 한다.
+  queryEmbedding.catch(() => {});
+
+  try {
+    return finishSearch(
+      await loadByHybridSearch(db, args, await queryEmbedding),
+      "hybrid",
+      false,
+    );
+  } catch (error) {
+    console.error("위닝DB 하이브리드 검색 실패, 벡터 검색으로 대체:", error);
+  }
+
+  try {
+    // 하이브리드가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
+    return finishSearch(
+      await loadByVectorSearch(db, args, await queryEmbedding),
+      "vector",
+      true,
+    );
   } catch (error) {
     console.error(
       "전과목 RAG 위닝DB 검색 실패, 기존 키워드 검색으로 대체:",
@@ -662,39 +880,60 @@ export async function loadDynamicAssessmentKnowledge({
 
   try {
     const keyword = await loadByLegacyKeywordSearch(db, args);
+    const meta = {
+      rawHits: keyword.rawHits,
+      topScore: keyword.topScore,
+      embedMs: keyword.embedMs,
+      status: "ok" as const,
+    };
 
     if (keyword.hitCount) {
-      return {
-        text: keyword.text,
-        source: "keyword",
-        hitCount: keyword.hitCount,
-        injectedChars: keyword.text.length,
-        // 벡터가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
-        degraded: true,
-        rows: keyword.rows,
-      };
+      return finish(
+        {
+          text: keyword.text,
+          source: "keyword",
+          hitCount: keyword.hitCount,
+          injectedChars: keyword.text.length,
+          // 벡터가 죽어서 여기까지 온 것 자체가 성능 저하다. 결과가 나와도 표시한다.
+          degraded: true,
+          rows: keyword.rows,
+        },
+        meta,
+      );
     }
 
-    return {
-      text: NO_KNOWLEDGE_TEXT,
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: true,
-      rows: [],
-    };
+    return finish(
+      {
+        text: NO_KNOWLEDGE_TEXT,
+        source: "none",
+        hitCount: 0,
+        injectedChars: 0,
+        degraded: true,
+        rows: [],
+      },
+      meta,
+    );
   } catch (error) {
     console.error("위닝DB 지식 조회 오류:", error);
 
     // 실패 문구를 프롬프트에 흘리지 않는다(§8.7 「제안(관측성)」).
-    return {
-      text: "",
-      source: "none",
-      hitCount: 0,
-      injectedChars: 0,
-      degraded: true,
-      rows: [],
-    };
+    return finish(
+      {
+        text: "",
+        source: "none",
+        hitCount: 0,
+        injectedChars: 0,
+        degraded: true,
+        rows: [],
+      },
+      {
+        rawHits: null,
+        topScore: null,
+        embedMs: null,
+        status: "error",
+        errorMessage: String((error as { message?: string })?.message ?? error),
+      },
+    );
   }
 }
 
@@ -715,6 +954,7 @@ type StudentSessionRow = {
   topic_title?: string;
   career_goal?: string;
   summary_text?: string;
+  similarity?: number;
 };
 
 /** 요약 압축. 원문 `reports.js:4-7`. */
@@ -747,6 +987,7 @@ export async function loadRelevantStudentSessions({
   assessmentInfo = "",
   matchCount = 8,
   matchThreshold = STUDENT_HISTORY_MATCH_THRESHOLD,
+  telemetry,
 }: {
   supabase?: SupabaseClient;
   profileId?: string;
@@ -757,6 +998,8 @@ export async function loadRelevantStudentSessions({
   assessmentInfo?: string;
   matchCount?: number;
   matchThreshold?: number;
+  /** 계기판 기록 객체(선택). 검색 동작에는 영향이 없다. */
+  telemetry?: AiTrace;
 } = {}): Promise<StudentSessionRow[]> {
   if (!profileId) {
     throw new Error(
@@ -765,6 +1008,38 @@ export async function loadRelevantStudentSessions({
   }
 
   const db = supabase || createSupabaseAdmin();
+  const startedAt = Date.now();
+
+  // 성공과 실패 어느 쪽이든 반환 직전에 한 번 기록한다. 기록 예외는 삼킨다.
+  const record = (meta: {
+    rawHits: number | null;
+    topScore: number | null;
+    embedMs: number | null;
+    status: "ok" | "error";
+    errorMessage?: string | null;
+  }) => {
+    try {
+      telemetry?.recordSearch({
+        kind: "student_history",
+        knowledgeType: null,
+        threshold: matchThreshold,
+        matchCountRequested: matchCount,
+        rawHits: meta.rawHits,
+        packedHits: meta.rawHits,
+        topScore: meta.topScore,
+        source: "vector",
+        degraded: meta.status === "error",
+        embedMs: meta.embedMs,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        status: meta.status,
+        errorMessage: meta.errorMessage ?? null,
+        hitResourceIds: null,
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
+    }
+  };
 
   try {
     const queryText = [
@@ -775,7 +1050,9 @@ export async function loadRelevantStudentSessions({
       `수행평가 안내문: ${String(assessmentInfo || "").slice(0, 2000)}`,
     ].join("\n");
 
+    const embedStartedAt = Date.now();
     const queryEmbedding = await embedText(queryText);
+    const embedMs = Date.now() - embedStartedAt;
 
     const { data, error } = await db.rpc("match_student_performance_sessions", {
       // pgvector 인자: 생성 타입이 확장 타입을 몰라 string으로 나오지만
@@ -789,9 +1066,22 @@ export async function loadRelevantStudentSessions({
 
     if (error) throw error;
 
+    record({
+      rawHits: (data || []).length,
+      topScore: data?.[0]?.similarity ?? null,
+      embedMs,
+      status: "ok",
+    });
     return data || [];
   } catch (error) {
     console.error("학생 과거 수행 RAG 검색 오류:", error);
+    record({
+      rawHits: null,
+      topScore: null,
+      embedMs: null,
+      status: "error",
+      errorMessage: String((error as { message?: string })?.message ?? error),
+    });
     return [];
   }
 }
