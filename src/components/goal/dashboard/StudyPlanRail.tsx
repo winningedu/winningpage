@@ -21,7 +21,7 @@ import {
 // 우측 레일 "OO요일 나의 학습 계획하기" 카드 — 데이터 유무에 따라 194↔342 가변(part-07 §272).
 // 절대 좌표 대신 flex column + gap 20px(부모 GoalDashboard 레일 스택)로 쌓는다.
 //
-// goal_plan_tasks 행(camelCase, api/_lib/goalRepo.js buildPlanTaskPayload) — goalApi.js 헤더 주석 참고.
+// goal_plan_tasks 행(camelCase, api/_lib/goal/repo.ts buildPlanTaskPayload), goalApi.js 헤더 주석 참고.
 // status가 단일 원본(QA 행305) — done은 하위 호환 파생값이라 이 컴포넌트는 읽지 않는다.
 type PlanTask = {
   id: number | string;

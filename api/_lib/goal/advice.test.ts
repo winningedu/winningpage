@@ -1,4 +1,4 @@
-// api/_lib/goalAdvice.ts 순수 함수 검증 — 로테이션 결정성, 프롬프트 조립, 컴플라이언스
+// api/_lib/goal/advice.ts 순수 함수 검증, 로테이션 결정성, 프롬프트 조립, 컴플라이언스
 // 후처리, 규칙 기반 폴백 shape. DB·Gemini 호출은 이 파일에 없으므로 전부 로컬에서
 // 돈다(grades.test.ts와 동일 방침 — 분리 가능한 순수 함수만 검증).
 
@@ -16,7 +16,7 @@ import {
   pickMajorTheme,
   pickPlanMode,
   postprocessAdviceText,
-} from "./goalAdvice.js";
+} from "./advice.js";
 
 function makeStudent(
   overrides: Partial<AdviceStudentContext> = {},

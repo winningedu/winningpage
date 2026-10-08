@@ -12,16 +12,16 @@
 // 집계 결과를 응답으로 돌려주고, 상세는 alimtalk_send_logs 에 남는다.
 //
 // 조회(오늘 기록이 있는 학생·계획·수신자)와 발송(sendAndLog)은
-// api/_lib/goalReportSend.ts 의 loadDailyReportInputs/sendDailyReport 로
+// api/_lib/goal/reportSend.ts 의 loadDailyReportInputs/sendDailyReport 로
 // 옮겼다 — 관리자 재발송(api/goal/admin/resend-report.ts)이 같은 함수를
 // 재사용한다. 조회는 학생 수와 무관하게 고정 횟수(배치)로 돈다 — 학생마다
 // 다시 조회하지 않는다.
 
-import { kstNow, toYmd } from "../_lib/goalReportNotify.js";
+import { kstNow, toYmd } from "../_lib/goal/reportNotify.js";
 import {
   loadDailyReportInputs,
   sendDailyReport,
-} from "../_lib/goalReportSend.js";
+} from "../_lib/goal/reportSend.js";
 import { defineHandler } from "../_lib/handler.js";
 
 export const config = { runtime: "nodejs", maxDuration: 300 };

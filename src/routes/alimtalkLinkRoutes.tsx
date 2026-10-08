@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 //   /services/goal/reports/monthly/{reportId}   →  /app/goal/reports/growth?period=monthly&at=…
 //
 //   실제(학부모, QA 시트 행210) — 알림톡은 학생이 아니라 approved 학부모에게만
-//   발송된다(api/_lib/goalReportNotify.ts resolveParentRecipients). 그래서
+//   발송된다(api/_lib/goal/reportNotify.ts resolveParentRecipients). 그래서
 //   버튼을 누르는 사람은 사실상 항상 학부모다. 로그인 사용자의 회원유형
 //   (useMemberType)으로 분기한다.
 //   /services/goal/reports/weekly/{reportId}    →  /mypage/children/{studentId}/report?period=weekly&at=…

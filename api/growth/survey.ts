@@ -16,7 +16,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
-import { fetchStudentRow } from "../_lib/goalRepo.js";
+import { fetchStudentRow } from "../_lib/goal/repo.js";
 import {
   GROWTH_SETTING_KEYS,
   GrowthSettingError,

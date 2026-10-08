@@ -29,9 +29,9 @@
 //   ALIGO_TEST_MODE      'true'면 알리고 테스트모드 — 과금·실발송 없음
 //   ALIGO_DRY_RUN        'true'면 알리고를 아예 호출하지 않음 (로컬 로직 검증용)
 
-import { outboundFetch } from "./outbound.js";
-import { maskPhone } from "./phoneCode.js";
-import { getEnv } from "./supabaseAdmin.js";
+import { outboundFetch } from "../outbound.js";
+import { maskPhone } from "../phoneCode.js";
+import { getEnv } from "../supabaseAdmin.js";
 
 const SMS_ENDPOINT = "https://apis.aligo.in/send/";
 const ALIMTALK_ENDPOINT = "https://kakaoapi.aligo.in/akv10/alimtalk/send/";
@@ -300,7 +300,7 @@ export type TemplateSendResult = SendResult & {
  * 나므로 축약 문구를 따로 두는 이유가 여기 있다.
  *
  * 발송 로그는 여기서 남기지 않는다 — 호출부가 profile_id·dedupe_key 같은 문맥을
- * 알고 있으므로 그쪽에서 alimtalk_send_logs 에 기록한다(api/_lib/alimtalkSend.ts).
+ * 알고 있으므로 그쪽에서 alimtalk_send_logs 에 기록한다(api/_lib/messaging/alimtalkSend.ts).
  */
 export async function sendTemplateMessage({
   phone,

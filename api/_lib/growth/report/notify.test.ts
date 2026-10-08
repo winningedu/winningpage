@@ -4,9 +4,11 @@ const mocks = vi.hoisted(() => ({
   sendAndLog: vi.fn(),
   resolveParentRecipients: vi.fn(),
 }));
-vi.mock("../../alimtalkSend.js", () => ({ sendAndLog: mocks.sendAndLog }));
-vi.mock("../../goalReportNotify.js", async (orig) => ({
-  ...(await orig<typeof import("../../goalReportNotify.js")>()),
+vi.mock("../../messaging/alimtalkSend.js", () => ({
+  sendAndLog: mocks.sendAndLog,
+}));
+vi.mock("../../goal/reportNotify.js", async (orig) => ({
+  ...(await orig<typeof import("../../goal/reportNotify.js")>()),
   resolveParentRecipients: mocks.resolveParentRecipients,
 }));
 

@@ -35,9 +35,9 @@
 //   405 { detail }   POST 아님
 //   500 { detail }   발송 실패·설정 누락
 
-import { sendPlainMessage } from "../_lib/aligo.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { sendPlainMessage } from "../_lib/messaging/aligo.js";
 
 export const config = { runtime: "nodejs" };
 

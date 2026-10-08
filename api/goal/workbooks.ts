@@ -3,11 +3,11 @@
 //
 // 목표관리 "나의 노력" 화면(과목별 문제집 진도)의 CRUD. student.js(조회형)와
 // intake.js(쓰기형) 두 파일의 게이트 관례를 한 파일 안에서 메서드별로 나눠 쓴다 —
-// GET은 미결제를 200 {allowed:false}로, 그 외는 403으로 돌려준다(goalRepo.js
+// GET은 미결제를 200 {allowed:false}로, 그 외는 403으로 돌려준다(api/_lib/goal/repo.ts
 // openGoalSession 주석 §9-1과 동일 규약). 계산 로직은 없다 — 소유자 판정과
-// status(reading/done) 재계산만 이 파일이 맡고 나머지는 goalRepo.js에 위임한다.
+// status(reading/done) 재계산만 이 파일이 맡고 나머지는 api/_lib/goal/repo.ts에 위임한다.
 //
-// 응답 필드는 카멜 케이스(goalRepo.js buildWorkbookPayload). subject는 한글 라벨이
+// 응답 필드는 카멜 케이스(api/_lib/goal/repo.ts buildWorkbookPayload). subject는 한글 라벨이
 // 아니라 id(korean/math/english/science/etc)다 — 표시 문자열 변환은
 // src/components/goal/subjectTokens.js가 프론트에서 담당한다.
 
@@ -24,7 +24,7 @@ import {
   openGoalSession,
   PAID_MESSAGE,
   updateWorkbookOwned,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };

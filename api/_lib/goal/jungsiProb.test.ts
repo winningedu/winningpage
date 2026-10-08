@@ -1,12 +1,12 @@
 // 정시 지연 재계산(lazy recalc) 회귀 테스트(행296·332, QA3 §9-5 결정3).
 // 순수 함수만 담은 모듈이라 DB/네트워크 없이 테스트한다.
 import { describe, expect, test } from "vitest";
-import { calcJeongsiProb } from "../../src/lib/goal/calc/jeongsi.js";
+import { calcJeongsiProb } from "../../../src/lib/goal/calc/jeongsi.js";
 import {
   computeJungsiRecalc,
   needsJungsiRecalcAttempt,
   resolveJungsiEffectiveGrade,
-} from "./goalJungsiProb.js";
+} from "./jungsiProb.js";
 
 describe("computeJungsiRecalc", () => {
   test("pipeline.ts:341-348 과 같은 원시 함수를 호출하므로 결과가 완전히 같다(패리티)", () => {

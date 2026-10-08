@@ -5,7 +5,7 @@ import {
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
-} from "./goalReportResendPolicy.js";
+} from "./reportResendPolicy.js";
 
 describe("dailyReportDispatchYmd", () => {
   test("일간 리포트는 그날 저녁(22:00 KST)에 나가므로 기준일 = periodKey 자신", () => {

@@ -238,7 +238,7 @@ export async function runWithCleanup<T>(
 }
 
 // 인스턴스 하나가 렌더 요청을 동시에 너무 많이 받으면 브라우저 프로세스가
-// 메모리 압박으로 죽는다 — reportPdfRender.ts가 이 세마포어로 동시 렌더 수를
+// 메모리 압박으로 죽는다, api/_lib/pdf/render.ts가 이 세마포어로 동시 렌더 수를
 // 제한한다. 순수 로직만 여기 둔다(브라우저 자체는 vitest로 검증할 수 없다).
 export interface Semaphore {
   /** 슬롯을 획득하면 release 함수를 담은 프라미스를 반환한다 — 슬롯이 꽉 찼으면
@@ -319,7 +319,7 @@ export function createSlidingWindowRateLimiter(
 }
 
 /** 큐 대기가 이 시간을 넘으면 acquireWithTimeout이 RenderQueueTimeoutError로
- * 거부한다 — reportPdfRender.ts가 503으로 변환한다. */
+ * 거부한다, api/_lib/pdf/render.ts가 503으로 변환한다. */
 export class RenderQueueTimeoutError extends Error {
   constructor() {
     super("PDF 생성이 혼잡합니다. 잠시 후 다시 시도해 주세요.");

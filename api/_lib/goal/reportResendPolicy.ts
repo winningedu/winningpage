@@ -4,7 +4,7 @@
 // 계산) 양쪽이 이 파일 하나를 그대로 가져다 쓴다.
 //
 // 의존이 0에 가까운 잎 모듈이다(addDaysYMD 하나만 쓴다 — 그 자체가 Date.UTC
-// 산술뿐인 순수 함수라 서버 전용 의존을 끌고 오지 않는다). api/_lib/goalReportSend.ts
+// 산술뿐인 순수 함수라 서버 전용 의존을 끌고 오지 않는다). api/_lib/goal/reportSend.ts
 // 처럼 sendAndLog(→ aligo.ts → undici)까지 딸려오는 모듈을 프론트 번들에
 // 끌고 오지 않기 위해 상수·기준일 계산만 따로 뗐다
 // (api/_lib/performance/submission-chars.ts와 같은 원칙).
@@ -18,7 +18,7 @@
 //             발송 자체가 안 일어났다).
 //   monthly — 그 달 마지막 날 밤(23:00 KST, api/cron/monthly-report.ts)에 나가므로
 //             기준일은 그 달의 마지막 날이다.
-import { addDaysYMD } from "../../src/lib/goal/calc/virtualDate.js";
+import { addDaysYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 
 export const MAX_RESEND_DAYS_AGO = 14;
 
