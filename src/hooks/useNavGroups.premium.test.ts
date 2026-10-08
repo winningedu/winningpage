@@ -1,4 +1,4 @@
-// removePremiumWhenHidden 회귀 테스트 — 스쿨멘토(site.features.premium=false)는
+// removePremiumWhenHidden 회귀 테스트 - 스쿨멘토(site.features.premium=false)는
 // 프리미엄 그룹과 이용신청의 '프리미엄 이용'(/premium-apply)을 메뉴에서 노출하지 않는다.
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,7 +47,7 @@ function buildGroups() {
   ];
 }
 
-describe("removePremiumWhenHidden — 프리미엄 노출(winning)", () => {
+describe("removePremiumWhenHidden - 프리미엄 노출(winning)", () => {
   it("메뉴 트리를 그대로 둔다", () => {
     siteState.premium = true;
     const groups = buildGroups();
@@ -56,7 +56,7 @@ describe("removePremiumWhenHidden — 프리미엄 노출(winning)", () => {
   });
 });
 
-describe("removePremiumWhenHidden — 프리미엄 숨김(schoolmentor)", () => {
+describe("removePremiumWhenHidden - 프리미엄 숨김(schoolmentor)", () => {
   it("프리미엄 그룹을 제거한다", () => {
     siteState.premium = false;
 
@@ -65,7 +65,7 @@ describe("removePremiumWhenHidden — 프리미엄 숨김(schoolmentor)", () => 
     expect(result.map((group) => group.title)).toEqual(["서비스", "이용신청"]);
   });
 
-  it("이용신청의 프리미엄 이용 항목(신·구 경로)을 제거하고 나머지는 유지한다", () => {
+  it("이용신청의 프리미엄 이용 항목(신구 경로)을 제거하고 나머지는 유지한다", () => {
     siteState.premium = false;
 
     const result = removePremiumWhenHidden(buildGroups());

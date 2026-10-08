@@ -1,4 +1,4 @@
-// 회사소개 페이지의 프리미엄 노출 게이트 — 프리미엄을 숨기는 사이트(스쿨멘토)는
+// 회사소개 페이지의 프리미엄 노출 게이트 - 프리미엄을 숨기는 사이트(스쿨멘토)는
 // 히어로 프리미엄 카드와 입시 컨설팅(프리미엄) 사업영역 카드를 렌더하지 않는다.
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -37,7 +37,7 @@ function renderPage() {
   );
 }
 
-describe("CompanyNews — 프리미엄 노출(winning)", () => {
+describe("CompanyNews - 프리미엄 노출(winning)", () => {
   test("프리미엄 히어로 카드와 입시 컨설팅 사업영역 카드를 렌더한다", () => {
     siteState.premium = true;
     renderPage();
@@ -50,7 +50,7 @@ describe("CompanyNews — 프리미엄 노출(winning)", () => {
   });
 });
 
-describe("CompanyNews — 프리미엄 숨김(schoolmentor)", () => {
+describe("CompanyNews - 프리미엄 숨김(schoolmentor)", () => {
   test("프리미엄 히어로 카드와 입시 컨설팅 사업영역 카드를 렌더하지 않는다", () => {
     siteState.premium = false;
     const { container } = renderPage();

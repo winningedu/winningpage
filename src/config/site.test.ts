@@ -99,7 +99,7 @@ describe("site — schoolmentor", () => {
   });
 });
 
-describe("site — 프리미엄 노출 플래그", () => {
+describe("site - 프리미엄 노출 플래그", () => {
   it("winning은 프리미엄을 노출한다", async () => {
     const { site } = await loadSite("winning");
 

@@ -1,4 +1,4 @@
-// 프리미엄 관련 라우트 전부에 requirePremiumAvailableMiddleware가 걸려 있는지 확인한다 —
+// 프리미엄 관련 라우트 전부에 requirePremiumAvailableMiddleware가 걸려 있는지 확인한다 -
 // 라우트가 추가될 때 게이트가 빠지면 스쿨멘토에서 직접 URL로 열리기 때문이다.
 import { describe, expect, it } from "vitest";
 import { requirePremiumAvailableMiddleware } from "@/lib/routeMiddleware";

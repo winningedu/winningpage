@@ -1,4 +1,4 @@
-// 푸터의 프리미엄 노출 게이트 — 푸터 메뉴 컬럼은 useNavGroups(실제 구현)를 공유하므로
+// 푸터의 프리미엄 노출 게이트 - 푸터 메뉴 컬럼은 useNavGroups(실제 구현)를 공유하므로
 // 프리미엄을 숨기는 사이트(스쿨멘토)는 프리미엄 컬럼과 '프리미엄 이용' 링크가 없어야 한다.
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
@@ -53,7 +53,7 @@ function renderFooter() {
   );
 }
 
-describe("SiteFooter — 프리미엄 노출(winning)", () => {
+describe("SiteFooter - 프리미엄 노출(winning)", () => {
   it("프리미엄 컬럼과 프리미엄 이용 링크를 렌더한다", () => {
     siteState.premium = true;
     renderFooter();
@@ -63,7 +63,7 @@ describe("SiteFooter — 프리미엄 노출(winning)", () => {
   });
 });
 
-describe("SiteFooter — 프리미엄 숨김(schoolmentor)", () => {
+describe("SiteFooter - 프리미엄 숨김(schoolmentor)", () => {
   it("프리미엄 컬럼과 프리미엄 링크를 렌더하지 않는다", () => {
     siteState.premium = false;
     const { container } = renderFooter();

@@ -1,4 +1,4 @@
-// 핵심 서비스 카드의 프리미엄 노출 게이트 — 프리미엄을 숨기는 사이트(스쿨멘토)는
+// 핵심 서비스 카드의 프리미엄 노출 게이트 - 프리미엄을 숨기는 사이트(스쿨멘토)는
 // is_premium 카드와 프리미엄 경로로 가는 카드를 렌더하지 않는다. 카드는 DB에서도
 // 오므로 렌더 단계에서 거른다.
 import "@testing-library/jest-dom/vitest";
@@ -59,7 +59,7 @@ function renderSection() {
   );
 }
 
-describe("ServicesSection — 프리미엄 노출(winning)", () => {
+describe("ServicesSection - 프리미엄 노출(winning)", () => {
   test("프리미엄 카드를 포함해 모두 렌더한다", () => {
     siteState.premium = true;
     renderSection();
@@ -68,7 +68,7 @@ describe("ServicesSection — 프리미엄 노출(winning)", () => {
   });
 });
 
-describe("ServicesSection — 프리미엄 숨김(schoolmentor)", () => {
+describe("ServicesSection - 프리미엄 숨김(schoolmentor)", () => {
   test("is_premium 카드와 프리미엄 경로 카드를 거르고 나머지만 렌더한다", () => {
     siteState.premium = false;
     renderSection();

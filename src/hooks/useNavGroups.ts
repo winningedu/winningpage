@@ -304,7 +304,7 @@ export function removeOnlineInquiryWithoutKakao(
 
 // 프리미엄을 숨기는 사이트(site.features.premium=false, 스쿨멘토)는 '프리미엄' 그룹과
 // 다른 그룹에 걸린 프리미엄 경로 항목('프리미엄 이용' 등)을 최종 메뉴 트리에서 제거한다.
-// removeOnlineInquiryWithoutKakao와 같은 이유로 최종 반환값에만 적용한다(캐시·DB 파생
+// removeOnlineInquiryWithoutKakao와 같은 이유로 최종 반환값에만 적용한다(캐시, DB 파생
 // 경로는 그대로 둔다).
 export function removePremiumWhenHidden(groups: NavGroup[]): NavGroup[] {
   if (site.features.premium) return groups;
