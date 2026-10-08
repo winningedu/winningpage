@@ -26,6 +26,8 @@
 // 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/eval/metrics.ts,
 // DB 와 임베딩 호출은 api/_lib/knowledge/eval/runner.ts.
 
+import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -38,8 +40,6 @@ import {
   runGoldenEval,
   runGoldenSweep,
 } from "../_lib/knowledge/eval/runner.js";
-import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 /** 조합 비교 시간 예산. maxDuration 60초 안에서 저장과 응답 시간을 남긴다. */
 const SWEEP_BUDGET_MS = 50_000;

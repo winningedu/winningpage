@@ -1,9 +1,9 @@
 // 성장설계 리포트 한 단계 진행 서비스. api/growth/report 핸들러와 크론(growth-resume)이 함께 쓴다.
 // HTTP 를 모른다. 결과는 AdvanceOutcome 으로 돌려주고 응답 매핑은 호출자가 한다.
 
-import type { callStructured } from "../../gemini.js";
+import type { callStructured } from "../../ai/gemini.js";
+import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
-import { createAiTrace } from "../../telemetry/trace.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import { notifyGrowthReportDone } from "./notify.js";

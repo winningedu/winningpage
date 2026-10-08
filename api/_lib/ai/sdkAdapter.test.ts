@@ -3,7 +3,7 @@ import {
   geminiSchemaToJsonSchema,
   toAiSdkCall,
   toGeminiResponse,
-} from "./aiSdkAdapter.js";
+} from "./sdkAdapter.js";
 
 describe("geminiSchemaToJsonSchema", () => {
   it("대문자 type 을 소문자로 바꾸고 propertyOrdering 순서로 properties 키를 다시 놓는다", () => {

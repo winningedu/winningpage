@@ -38,8 +38,8 @@
 // `source:'none'`이며, 이때 프롬프트에는 원문 그대로 `관련 위닝DB 항목 없음`이 들어간다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiTrace } from "../ai/telemetry/trace.js";
 import { createSupabaseAdmin } from "../supabaseAdmin.js";
-import type { AiTrace } from "../telemetry/trace.js";
 import { embedText } from "./embeddings.js";
 import { buildKnowledgeKeywordQuery } from "./knowledgeKeywords.js";
 import { NO_KNOWLEDGE_TEXT, NO_STUDENT_HISTORY_TEXT } from "./prompts.js";

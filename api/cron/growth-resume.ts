@@ -7,7 +7,7 @@
 //
 // 서비스 역할로 실행하므로 사용자 컨텍스트가 없다. userId 인자는 각 행의 profile_id 다.
 
-import { callStructured } from "../_lib/gemini.js";
+import { callStructured } from "../_lib/ai/gemini.js";
 import { advanceStep } from "../_lib/growth/report/advance.js";
 import {
   loadReportRow,

@@ -12,8 +12,8 @@
 // 그 사이 재평가로 search_text 가 바뀌었거나 크론이 먼저 처리했으면 0행이 갱신되고
 // superseded 로 건너뛴다.
 
+import type { AiTrace } from "../ai/telemetry/trace.js";
 import type { createSupabaseAdmin } from "../supabaseAdmin.js";
-import type { AiTrace } from "../telemetry/trace.js";
 import { embedText, getEmbeddingModel } from "./embeddings.js";
 
 const TABLE = "performance_session_vectors";

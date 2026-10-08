@@ -3,8 +3,8 @@
 // 순수 함수가 하고, 이 파일은 DB 와 임베딩 호출만 맡는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AiTrace } from "../../ai/telemetry/trace.js";
 import { embedText } from "../../performance/embeddings.js";
-import type { AiTrace } from "../../telemetry/trace.js";
 import type { BulkKnowledgeType } from "../dedupe.js";
 import {
   buildEvalQueryText,

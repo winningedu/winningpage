@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type AiTrace, createAiTrace } from "../../telemetry/trace.js";
+import { type AiTrace, createAiTrace } from "../../ai/telemetry/trace.js";
 import {
   expectedSectionIds,
   NO_DATA_TEXT,

@@ -8,24 +8,24 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateWithRetry } from "./gemini.js";
-import { ADVICE_RESPONSE_SCHEMA } from "./goalAdvice.js";
-import { EXTRACTION_RESPONSE_SCHEMA } from "./growth/intake/extraction.js";
-import { STEP_RESPONSE_SCHEMAS } from "./growth/report/prompts.js";
-import { RESPONSE_SCHEMAS } from "./inquiry/prompts.js";
+import { ADVICE_RESPONSE_SCHEMA } from "../goalAdvice.js";
+import { EXTRACTION_RESPONSE_SCHEMA } from "../growth/intake/extraction.js";
+import { STEP_RESPONSE_SCHEMAS } from "../growth/report/prompts.js";
+import { RESPONSE_SCHEMAS } from "../inquiry/prompts.js";
 import {
   DESIGN_GENERATION_DEFAULTS,
   DESIGN_REPORT_SCHEMA,
   EVALUATION_REPORT_SCHEMA,
   TOPIC_GENERATION_DEFAULTS,
   TOPIC_RECOMMENDATION_SCHEMA,
-} from "./performance/prompts.js";
+} from "../performance/prompts.js";
 import {
   buildAnalyzePrompt,
   buildVerifyPrompt,
   buildWritePrompt,
-} from "./selfeval/prompts.js";
-import { ANALYSIS_FIELDS } from "./selfeval/types.js";
+} from "../selfeval/prompts.js";
+import { ANALYSIS_FIELDS } from "../selfeval/types.js";
+import { generateWithRetry } from "./gemini.js";
 
 type Body = Record<string, unknown> & {
   contents?: Array<{ role?: string; parts: unknown[] }>;

@@ -22,6 +22,7 @@
 // _lib/growth/intake 의 순수 함수(collectBody, extractOutcome, collectSummary)에서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { GrowthSettingError } from "../_lib/growth/intake/appSettings.js";
 import {
   type AggregateInput,
@@ -56,7 +57,6 @@ import {
 } from "../_lib/growth/intake/extractRunner.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 function fail(
   res: VercelResponse,

@@ -68,7 +68,7 @@
 //    여기서는 `contents` 배열에 `inlineData`를 장수만큼 실어 한 번에 보낸다. 실패해도
 //    "일부만 분석된 상태"가 생기지 않는다(전부 done이거나 전부 failed).
 //    `maxOutputTokens`는 장수 비례다 — 외부 기본 2200은 1장 기준이라 그대로 두면 2장부터
-//    출력이 잘린다(§12.3 「비전 호출 파라미터」). 계산은 `api/_lib/performance/gemini.js`가
+//    출력이 잘린다(§12.3 「비전 호출 파라미터」). 계산은 `api/_lib/ai/gemini.ts`가
 //    `VISION_MAX_OUTPUT_TOKENS_PER_IMAGE × 장수`로 한다.
 //
 // ── 실행 시간 (형제 라우트와 동일 + 자체 마감 시한)
@@ -97,9 +97,14 @@
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
 import type { VercelResponse } from "@vercel/node";
+import { callVision, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
+import {
+  performanceTraceContext,
+  validationOf,
+} from "../_lib/ai/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { callVision, PERFORMANCE_MODEL } from "../_lib/performance/gemini.js";
 import {
   GUIDE_FREETEXT_MAX_LENGTH,
   isGuideFreetextTooLong,
@@ -114,11 +119,6 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import {
-  performanceTraceContext,
-  validationOf,
-} from "../_lib/telemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/telemetry/trace.js";
 import {
   ALLOWED_MIME_EXT,
   BUCKET,

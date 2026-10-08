@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAiTrace } from "../../telemetry/trace.js";
+import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { MAX_MODEL_ATTEMPTS_PER_STEP } from "../validation.js";
 import type { PromptBundle } from "./prompts.js";
 import {

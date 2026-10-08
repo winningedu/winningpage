@@ -3,7 +3,7 @@
 
 import { randomUUID as nodeRandomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../../../src/types/database.types.js";
+import type { Database } from "../../../../src/types/database.types.js";
 
 export type AiService =
   | "performance"

@@ -1,6 +1,6 @@
 // 관리자 자료 인용 현황(view=citations)의 행 변환과 정렬.
 
-import type { Database } from "../../../../src/types/database.types.js";
+import type { Database } from "../../../../../src/types/database.types.js";
 
 export type CitationRow =
   Database["public"]["Functions"]["fn_ai_telemetry_citations"]["Returns"][number];

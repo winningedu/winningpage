@@ -4,9 +4,9 @@ const gemini = vi.hoisted(() => ({
   callText: vi.fn(),
   callVision: vi.fn(),
 }));
-vi.mock("../../gemini.js", () => gemini);
+vi.mock("../../ai/gemini.js", () => gemini);
 
-import { createAiTrace } from "../../telemetry/trace.js";
+import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { runExtraction } from "./extractRunner.js";
 
 const okJson = JSON.stringify({

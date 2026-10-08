@@ -85,13 +85,16 @@
 //   전량을 폐기로 지정). 이 파일의 유일한 파싱은 `JSON.parse` 한 줄이다.
 
 import type { VercelResponse } from "@vercel/node";
-import { scheduleAfterResponse } from "../_lib/afterResponse.js";
+import { generateWithRetry, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
+import {
+  performanceTraceContext,
+  retryReasonOf,
+  validationOf,
+} from "../_lib/ai/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import {
-  generateWithRetry,
-  PERFORMANCE_MODEL,
-} from "../_lib/performance/gemini.js";
+import { scheduleAfterResponse } from "../_lib/performance/afterResponse.js";
 import {
   guideTextFromSession,
   inferGuideStructure,
@@ -128,12 +131,6 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import {
-  performanceTraceContext,
-  retryReasonOf,
-  validationOf,
-} from "../_lib/telemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 const SERVICE_KEY = "suhaeng";
 

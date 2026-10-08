@@ -2,7 +2,7 @@
 // 순수 함수만 둔다. 모델 호출과 저장은 호출자가 맡는다.
 // 프롬프트 문자열에는 금지 문자(em dash, en dash, 가운뎃점, 화살표)와 마크다운 기호를 쓰지 않는다.
 // 모델이 그대로 따라 쓰기 때문이다.
-import type { callText } from "../gemini.js";
+import type { callText } from "../ai/gemini.js";
 import {
   CHECKLIST,
   CORE_ERRORS,

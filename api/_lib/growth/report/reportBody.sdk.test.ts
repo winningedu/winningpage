@@ -6,9 +6,9 @@
 // 그 호출의 행에 남는지를 본다.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { geminiSchemaToJsonSchema } from "../../aiSdkAdapter.js";
-import { callStructured } from "../../gemini.js";
-import { createAiTrace } from "../../telemetry/trace.js";
+import { callStructured } from "../../ai/gemini.js";
+import { geminiSchemaToJsonSchema } from "../../ai/sdkAdapter.js";
+import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { computeStep5, computeStep6 } from "./compute.js";
 import { buildStepPrompt, type PromptBundle } from "./prompts.js";
 import { callModelWith, REPORT_MODEL_TEMPERATURE } from "./reportBody.js";

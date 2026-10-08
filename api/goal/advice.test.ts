@@ -8,9 +8,9 @@
 import { describe, expect, test, vi } from "vitest";
 
 const gemini = vi.hoisted(() => ({ callText: vi.fn() }));
-vi.mock("../_lib/gemini.js", () => gemini);
+vi.mock("../_lib/ai/gemini.js", () => gemini);
 
-import { createAiTrace } from "../_lib/telemetry/trace.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import {
   buildRecentUsedText,
   buildTomorrowPlanItems,

@@ -3,8 +3,8 @@
 // api/_lib/growth/report/runStep.ts 와 advance.ts 를 같은 모양으로 옮긴 것이다.
 // HTTP 를 모르고, 결과는 Outcome 으로 돌려준다. 응답 매핑은 outcomeToHttp 가 맡는다.
 
-import type { callStructured } from "../gemini.js";
-import { type AiTrace, createAiTrace } from "../telemetry/trace.js";
+import type { callStructured } from "../ai/gemini.js";
+import { type AiTrace, createAiTrace } from "../ai/telemetry/trace.js";
 import type { Db } from "./db.js";
 import {
   claimStep,

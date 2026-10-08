@@ -23,6 +23,8 @@
 //
 // 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/preview.ts.
 
+import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -32,8 +34,6 @@ import {
 } from "../_lib/knowledge/preview.js";
 import { embedText } from "../_lib/performance/embeddings.js";
 import { buildKnowledgeQueryText } from "../_lib/performance/knowledge.js";
-import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 export default defineHandler({
   methods: ["POST"],

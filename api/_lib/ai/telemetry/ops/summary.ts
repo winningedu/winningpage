@@ -1,7 +1,7 @@
 // 일별 요약 RPC 결과를 (일자, 서비스) 단위로 합산하고 전체 합계를 낸다.
 // 금액은 모델별 단가표로 계산하며, 단가 없는 모델이 하나라도 있으면 그 묶음의 금액은 null 이다.
 
-import type { Database } from "../../../../src/types/database.types.js";
+import type { Database } from "../../../../../src/types/database.types.js";
 import { estimateCostUsd, type PricingTable } from "../pricing.js";
 
 export type DailySummaryRow =

@@ -1,6 +1,6 @@
 // 관리자 AI 호출 목록(view=calls)의 행 변환. 조회와 필터 체인은 핸들러가 한다.
 
-import type { Database } from "../../../../src/types/database.types.js";
+import type { Database } from "../../../../../src/types/database.types.js";
 
 export type CallRow = Database["public"]["Tables"]["ai_model_calls"]["Row"];
 

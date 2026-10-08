@@ -26,6 +26,8 @@
 //   405 { detail }        POST 아님.
 //   500 { detail }        임베딩 실패, 서버 설정 누락 등.
 
+import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
+import { type AiTrace, createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import {
   buildKnowledgeSearchText,
@@ -34,8 +36,6 @@ import {
   getEmbeddingModel,
 } from "../_lib/performance/embeddings.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
-import { type AiTrace, createAiTrace } from "../_lib/telemetry/trace.js";
 
 const KNOWLEDGE_TABLE = "winning_assessment_knowledge_items";
 

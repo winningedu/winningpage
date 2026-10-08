@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAiTrace } from "../telemetry/trace.js";
+import { createAiTrace } from "../ai/telemetry/trace.js";
 import { embedText } from "./embeddings.js";
 
 // 실제로 나가는 Gemini REST 임베딩 요청을 가로챈다.

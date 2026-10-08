@@ -68,14 +68,14 @@ import {
   type GeminiSchema,
   toAiSdkCall,
   toGeminiResponse,
-} from "./aiSdkAdapter.js";
+} from "./sdkAdapter.js";
 import type { AiTrace } from "./telemetry/trace.js";
 
 export type {
   GeminiContents,
   GeminiGenerateRequest,
   GeminiGenerateResponse,
-} from "./aiSdkAdapter.js";
+} from "./sdkAdapter.js";
 
 /** 외부 `_lib/config.js:30`의 `MODEL` 상수와 같은 값. 이름은 수행평가 이식 당시 그대로 유지한다(호출부 무수정 원칙). */
 export const PERFORMANCE_MODEL = "gemini-2.5-flash";
