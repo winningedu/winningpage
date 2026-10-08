@@ -225,6 +225,11 @@ export function buildRetryNote(issues: ValidationIssue[]): string[] {
       "이전 응답이 출력 한도를 넘어 잘렸다. 모든 항목의 글 길이를 절반 이하로 줄이고, 같은 뜻의 문장을 반복하지 않는다. 항목 수는 안내한 범위를 지킨다.",
     );
   }
+  if (issues.some((i) => i.code === "table_cell_too_long")) {
+    notes.push(
+      "표의 칸이 너무 길었다. 각 칸을 한 문장 60자 이내로, 줄바꿈과 괄호 부연 없이 쓴다. 같은 뜻의 문장을 이어 붙이지 않는다.",
+    );
+  }
   return notes;
 }
 

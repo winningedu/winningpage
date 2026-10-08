@@ -208,7 +208,12 @@ async function callWithRetry(
         failure: "timeout",
       };
     }
-    const bundle = buildStepPrompt(step, input, retryNotes);
+    const bundle = buildStepPrompt(
+      step,
+      input,
+      retryNotes,
+      attempt === 0 ? 0 : 1,
+    );
     let reply: { text: string; finishReason: string | null };
     try {
       reply = await withinBudget(
@@ -343,10 +348,10 @@ async function readActivitiesInBatches(
   const r = await runCalls(
     1,
     batches.map(
-      (batch) => (startedAt: number) =>
+      (batch, batchIndex) => (startedAt: number) =>
         callWithRetry(
           1,
-          { context, prior: {}, batch },
+          { context, prior: {}, batch, batchIndex },
           deps,
           {},
           {},

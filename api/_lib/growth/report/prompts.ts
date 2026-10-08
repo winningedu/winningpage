@@ -65,6 +65,11 @@ export const STEP_MAX_OUTPUT_TOKENS: Record<1 | 3 | 5, number> = {
  * 일반 본문에서 나는 반복 루프를 낮은 한도로 일찍 끊어 재요청하게 한다.
  */
 export const SECTION_CALL_MAX_OUTPUT_TOKENS = 1536;
+/**
+ * 표 형식 섹션 호출의 최대 출력 토큰. 표 섹션의 반복 루프는 칸 하나가 끝없는 문단이 되는 형태라 일반 섹션보다 한도를 낮게 둔다.
+ * 5행에 칸 60자면 정상 응답은 약 400토큰이고, 루프는 1024토큰 한도에서 약 4초 안에 잘려 재요청할 예산이 남는다.
+ */
+export const TABLE_SECTION_CALL_MAX_OUTPUT_TOKENS = 1024;
 /** 4단계 match 호출의 최대 출력 토큰. aligned, conflicting 각 text 120자 이내 목록이라 섹션 호출과 같게 둔다. */
 export const MATCH_CALL_MAX_OUTPUT_TOKENS = 1536;
 /** 7단계 planDraft 호출의 최대 출력 토큰. 필수 3건, 권장 3건(항목당 약 250토큰)의 약 1.3배다. */
@@ -289,10 +294,32 @@ const CALL_RESPONSE_SCHEMAS = {
   },
 } as Record<StepCall["kind"], ResponseSchema>;
 
-const CALL_MAX_OUTPUT_TOKENS: Record<StepCall["kind"], number> = {
-  section: SECTION_CALL_MAX_OUTPUT_TOKENS,
-  match: MATCH_CALL_MAX_OUTPUT_TOKENS,
-  planDraft: PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS,
+/** 호출 하나의 최대 출력 토큰. 섹션 호출은 표 형식이면 표 한도, 아니면 섹션 한도다. */
+function callMaxOutputTokens(call: StepCall): number {
+  switch (call.kind) {
+    case "section":
+      return SECTION_REGISTRY.find((d) => d.id === call.id)?.format === "table"
+        ? TABLE_SECTION_CALL_MAX_OUTPUT_TOKENS
+        : SECTION_CALL_MAX_OUTPUT_TOKENS;
+    case "match":
+      return MATCH_CALL_MAX_OUTPUT_TOKENS;
+    case "planDraft":
+      return PLAN_DRAFT_CALL_MAX_OUTPUT_TOKENS;
+  }
+}
+
+/**
+ * 모델 호출 하나가 무엇인지 알리는 정보. 호출 기록(계기판)을 붙일 때 읽는다.
+ * kind 는 1단계 묶음 batch, 4, 6, 7단계 섹션 section, match, planDraft, 나뉘지 않은 3, 5단계 step 이다.
+ * sectionId 는 section 호출에서만, batchIndex(0부터)는 batch 호출에서만 값이 있다.
+ * attempt 는 첫 호출 0, 같은 요청 안 재요청 1이다.
+ */
+export type CallInfo = {
+  step: ModelStep;
+  kind: "batch" | "section" | "match" | "planDraft" | "step";
+  sectionId: string | null;
+  batchIndex: number | null;
+  attempt: 0 | 1;
 };
 
 export type PromptBundle = {
@@ -300,6 +327,7 @@ export type PromptBundle = {
   user: string;
   responseSchema: ResponseSchema;
   maxOutputTokens: number;
+  callInfo: CallInfo;
 };
 
 export type StepPromptInput = {
@@ -309,6 +337,8 @@ export type StepPromptInput = {
    * 별칭은 묶음과 상관없이 전체 context 기준으로 유지한다.
    */
   batch?: ReportContext["activities"];
+  /** 1단계 묶음 번호(0부터). 호출 정보에만 쓴다. */
+  batchIndex?: number;
   /** 4, 6, 7단계에서 이 호출이 만들 것. 이 단계들은 필수다. */
   call?: StepCall;
   prior: {
@@ -343,7 +373,7 @@ const COMMON_RULES = [
   "분량 원칙",
   "- prose 항목의 body.text 는 2~4문장, 350자 이내로 쓴다.",
   "- list 항목의 body.items 는 3~5개, 항목당 120자 이내로 쓴다.",
-  "- table 항목의 body.rows 는 8행 이내, label 과 value 는 각각 80자 이내로 쓴다.",
+  "- table 항목의 body.rows 는 항목마다 안내한 행 수만 쓰고, 칸(label, value, subject, direction, record_to_leave)은 각각 한 문장 60자 이내(항목 안내에서 길이를 따로 정하면 그 길이)로 줄바꿈과 괄호 부연 없이 쓴다.",
   "- narrative 의 theme 은 60자 이내, subthemes 의 text 는 120자 이내로 쓴다. match 의 각 text 는 120자 이내로 쓴다. planDraft 의 title 은 40자 이내, description 은 160자 이내로 쓴다.",
   "- 같은 문장이나 같은 뜻의 문장을 되풀이하지 않는다. 또한 으로 시작하는 문장을 연달아 쓰지 않는다. 할 말이 없으면 짧게 끝낸다.",
 ].join("\n");
@@ -354,9 +384,9 @@ const SECTION_SPECS: Record<string, string> = {
   "1-2":
     "설문의 진로 답에서 학생이 말한 장기 목표를 서술한다. 진로 답이 비어 있으면 no_data 로 둔다. 이 항목은 활동 근거 없이 쓴다. evidence_ids 는 비워 둔다.",
   "1-6":
-    "활동에서 드러난 지적 성향을 rows 로 쓴다. 행마다 label, value, evidence_ids 를 단다.",
+    "활동에서 드러난 지적 성향을 rows 로 쓴다. rows 는 정확히 3행이다. 행마다 label(성향 이름, 12자 이내), value(그 성향을 보여 주는 명사형이나 짧은 평서문 한 문장), evidence_ids 를 단다. 칸마다 60자 이내, 줄바꿈과 괄호 부연 없이 쓴다. 예시 행: label 은 관찰 중심, value 는 현상을 먼저 살피고 원인을 묻는다.",
   "1-7":
-    "활동에서 드러난 선호 탐구 방식을 rows 로 쓴다. 행마다 label, value, evidence_ids 를 단다.",
+    "활동에서 드러난 선호 탐구 방식을 rows 로 쓴다. rows 는 정확히 3행이다. 행마다 label(탐구 방식 이름, 12자 이내), value(그 방식이 드러난 모습을 담은 명사형이나 짧은 평서문 한 문장), evidence_ids 를 단다. 칸마다 60자 이내, 줄바꿈과 괄호 부연 없이 쓴다. 예시 행: label 은 실험 설계, value 는 가설을 세우고 조건을 바꿔 확인한다.",
   "1-11": "활동과 설문 답을 함께 읽어 현재 핵심 정체성을 서술한다.",
   "1-9":
     "rows 에 분석 범위의 학기별 연계 여부를 쓴다. label 은 학기 키(예: 고1-1), value 는 연계, 단절, 자료 없음 중 하나다. evidence_ids 는 앱이 채우니 비워 둔다.",
@@ -367,7 +397,7 @@ const SECTION_SPECS: Record<string, string> = {
   "2-4": "2-1 과 같은 구성으로 쓴다.",
   "2-5": "2-1 과 같은 구성으로 쓴다.",
   "2-6":
-    "교과별 역할을 rows 로 쓴다. label 은 과목, value 는 그 과목 활동이 맡은 역할, evidence_ids 를 단다.",
+    "교과별 역할을 rows 로 쓴다. rows 는 과목 수만큼, 최대 5행이다. 행마다 label(과목), value(그 과목 활동이 맡은 역할을 담은 명사형이나 짧은 평서문 한 문장), evidence_ids 를 단다. 칸마다 60자 이내, 줄바꿈과 괄호 부연 없이 쓴다. 예시 행: label 은 과학, value 는 탐구의 기초 개념을 쌓는 역할을 맡는다.",
   "2-7":
     "자율 및 자치 활동의 의미를 서술한다. 해당 활동이 없으면 no_data 로 둔다.",
   "2-8": "동아리 활동의 의미를 서술한다. 해당 활동이 없으면 no_data 로 둔다.",
@@ -378,10 +408,10 @@ const SECTION_SPECS: Record<string, string> = {
   "3-3": "2학년에서 보완할 방향을 서술한다.",
   "3-4": "3학년 콘셉트를 서술한다.",
   "3-5":
-    "rows 에 과목별 빌드업 지도를 쓴다. 행마다 subject, direction, record_to_leave, evidence_ids 를 단다. 과목별 방향은 새로 제안하는 것이므로 제안으로 표시된다.",
+    "rows 에 과목별 빌드업 지도를 쓴다. rows 는 과목 수만큼, 최대 5행이다. 행마다 subject(과목), direction(앞으로 쌓을 방향 한 문장), record_to_leave(남기면 좋은 기록 한 문장), evidence_ids 를 단다. 칸마다 60자 이내, 줄바꿈과 괄호 부연 없이 쓴다. 과목별 방향은 새로 제안하는 것이므로 제안으로 표시된다. 예시 행: subject 는 과학, direction 은 실험 결과를 비교하는 탐구로 넓힌다, record_to_leave 는 비교 기준과 결론이 드러나는 기록을 남긴다.",
   "3-6": "자율 및 동아리 활동의 발전 방향을 서술한다.",
   "3-7":
-    "진로활동을 구체화하는 방향을 rows 로 쓴다. 행마다 label, value, evidence_ids 를 단다.",
+    "진로활동을 구체화하는 방향을 rows 로 쓴다. rows 는 정확히 3행이다. 행마다 label(방향 이름, 12자 이내), value(그 방향의 실행 내용을 담은 명사형이나 짧은 평서문 한 문장), evidence_ids 를 단다. 칸마다 60자 이내, 줄바꿈과 괄호 부연 없이 쓴다. 예시 행: label 은 직무 탐색, value 는 관심 분야 종사자의 하루를 조사해 정리한다.",
   "3-11": "반드시 필요한 다음 활동을 items 로 쓴다.",
   "3-12": "있으면 좋은 활동을 items 로 쓴다.",
   "3-13": "피해야 할 반복을 items 로 쓴다.",
@@ -648,12 +678,24 @@ export function buildStepPrompt(
   step: ModelStep,
   input: StepPromptInput,
   retryNotes: string[] = [],
+  attempt: 0 | 1 = 0,
 ): PromptBundle {
   const retry =
     retryNotes.length > 0
       ? `\n\n[이전 응답의 문제]\n${retryNotes.map((n) => `- ${n}`).join("\n")}`
       : "";
   const user = `${stepUser(step, input)}${retry}`;
+  const info = (
+    kind: CallInfo["kind"],
+    over: Partial<CallInfo> = {},
+  ): CallInfo => ({
+    step,
+    kind,
+    sectionId: null,
+    batchIndex: null,
+    attempt,
+    ...over,
+  });
   if (step === 4 || step === 6 || step === 7) {
     const call = input.call;
     if (!call)
@@ -662,7 +704,11 @@ export function buildStepPrompt(
       system: `${COMMON_RULES}\n\n${callRules(step, call)}`,
       user,
       responseSchema: CALL_RESPONSE_SCHEMAS[call.kind],
-      maxOutputTokens: CALL_MAX_OUTPUT_TOKENS[call.kind],
+      maxOutputTokens: callMaxOutputTokens(call),
+      callInfo: info(
+        call.kind,
+        call.kind === "section" ? { sectionId: call.id } : {},
+      ),
     };
   }
   return {
@@ -670,6 +716,10 @@ export function buildStepPrompt(
     user,
     responseSchema: STEP_RESPONSE_SCHEMAS[step],
     maxOutputTokens: STEP_MAX_OUTPUT_TOKENS[step],
+    callInfo:
+      step === 1
+        ? info("batch", { batchIndex: input.batchIndex ?? 0 })
+        : info("step"),
   };
 }
 
@@ -1281,6 +1331,44 @@ function checkVerdictLabels(
   return issues;
 }
 
+/** 표 칸 하나의 글자 수 상한. 안내(60자)의 두 배이며, 넘으면 반복 루프로 본다. */
+const TABLE_CELL_MAX_LENGTH = 120;
+
+const TABLE_CELL_KEYS = [
+  "label",
+  "value",
+  "subject",
+  "direction",
+  "record_to_leave",
+] as const;
+
+/** 표 섹션의 칸이 상한을 넘은 곳마다 이슈를 낸다. 섹션 하나에 이슈는 한 번만 낸다. */
+function checkTableCells(sections: SectionItem[]): ValidationIssue[] {
+  return sections.flatMap((s) => {
+    if (s.format !== "table" || !isRecord(s.body)) return [];
+    const rows = Array.isArray(s.body.rows) ? s.body.rows : [];
+    // 6단계 축 섹션은 파싱이 앱 행을 이미 붙였으므로 앱 행은 모델이 쓴 칸이 아니라서 뺀다.
+    const tooLong = rows.some(
+      (r) =>
+        isRecord(r) &&
+        !APP_AXIS_ROW_LABELS.includes(String(r.label)) &&
+        TABLE_CELL_KEYS.some((k) => {
+          const v = r[k];
+          return typeof v === "string" && v.length > TABLE_CELL_MAX_LENGTH;
+        }),
+    );
+    return tooLong
+      ? [
+          {
+            code: "table_cell_too_long",
+            message: `항목 "${s.id}" 의 표 칸이 ${TABLE_CELL_MAX_LENGTH}자를 넘었습니다.`,
+            path: s.id,
+          },
+        ]
+      : [];
+  });
+}
+
 function matchEvidenceIds(match: MatchSignals): string[] {
   return [...match.aligned, ...match.conflicting].flatMap((m) => m.evidenceIds);
 }
@@ -1349,6 +1437,8 @@ export function validateStepOutput(
       });
     }
   }
+  // 칸 길이는 섹션 호출에서 모델이 쓴 칸만 본다(단계 전체 검증에는 앱이 만든 값이 섞인다).
+  if (extra.call?.kind === "section") issues.push(...checkTableCells(sections));
   if (step === 6 && extra.axes)
     issues.push(...checkVerdictLabels(sections, extra.axes));
   if (checksPlan) issues.push(...checkPlanDraft(output.planDraft ?? []));
