@@ -156,50 +156,93 @@ const SIGNALS_SCHEMA = {
   required: ["signals"],
 } as const;
 
-const rowSchema = {
-  type: "object",
-  properties: {
-    label: { type: "string" },
-    value: { type: "string" },
-    subject: { type: "string" },
-    direction: { type: "string" },
-    record_to_leave: { type: "string" },
-    evidence_ids: strings,
-  },
-} as const;
+// 엄격한 스키마를 쓰는 이유: 선택 필드뿐인 표 행에서 모델이 칸을 닫지 못하고 한도까지 반복한 실측이 있다.
+// 필수 필드와 propertyOrdering 으로 행의 칸 순서를 고정해 반복을 끊는다.
+const ROW_FIELDS = ["label", "value", "evidence_ids"] as const;
+const BUILDUP_ROW_FIELDS = [
+  "subject",
+  "direction",
+  "record_to_leave",
+  "evidence_ids",
+] as const;
 
-// 섹션 본문은 형식마다 모양이 달라 한 객체에 필드를 모두 열어 둔다.
-// prose 는 text, list 는 items, table 은 rows, diagram 은 나머지 필드를 쓴다.
-const bodySchema = {
-  type: "object",
-  properties: {
-    text: { type: "string" },
-    items: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: { text: { type: "string" }, evidence_ids: strings },
-        required: ["text", "evidence_ids"],
-      },
-    },
-    rows: { type: "array", items: rowSchema },
-  },
-} as const;
-
-const sectionsSchema = {
-  type: "array",
-  items: {
+function strictObject(fields: readonly string[]) {
+  return {
     type: "object",
-    properties: {
-      id: { type: "string" },
-      status: { type: "string", enum: ["ok", "no_data"] },
-      body: bodySchema,
-      evidence_ids: strings,
-      no_data_reason: { type: "string" },
+    properties: Object.fromEntries(
+      fields.map((f) => [
+        f,
+        f === "evidence_ids" ? strings : { type: "string" },
+      ]),
+    ),
+    required: [...fields],
+    propertyOrdering: [...fields],
+  } as const;
+}
+
+/** 형식별 본문 스키마. table 은 rows, prose 는 text, list 는 items 만 필수다. */
+function bodySchemaFor(format: string, id: string) {
+  switch (format) {
+    case "table":
+      return {
+        type: "object",
+        properties: {
+          rows: {
+            type: "array",
+            items: strictObject(id === "3-5" ? BUILDUP_ROW_FIELDS : ROW_FIELDS),
+          },
+        },
+        required: ["rows"],
+      } as const;
+    case "prose":
+      return {
+        type: "object",
+        properties: { text: { type: "string" } },
+        required: ["text"],
+      } as const;
+    case "list":
+      return {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: strictObject(["text", "evidence_ids"]),
+          },
+        },
+        required: ["items"],
+      } as const;
+    default:
+      throw new Error(
+        `항목 "${id}" 의 형식(${format})은 섹션 호출 스키마가 없습니다.`,
+      );
+  }
+}
+
+/** 섹션 id 의 형식에 맞춘 sections 배열 스키마. */
+function sectionsSchemaFor(id: string) {
+  const format = SECTION_REGISTRY.find((d) => d.id === id)?.format ?? "";
+  return {
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        status: { type: "string", enum: ["ok", "no_data"] },
+        evidence_ids: strings,
+        body: bodySchemaFor(format, id),
+        no_data_reason: { type: "string" },
+      },
+      required: ["id", "status", "evidence_ids"],
+      propertyOrdering: [
+        "id",
+        "status",
+        "evidence_ids",
+        "body",
+        "no_data_reason",
+      ],
     },
-    required: ["id", "status", "evidence_ids"],
-  },
-} as const;
+  } as const;
+}
 
 const narrativeSchema = {
   type: "object",
@@ -231,6 +274,7 @@ const matchListSchema = {
     type: "object",
     properties: { text: { type: "string" }, evidenceIds: strings },
     required: ["text", "evidenceIds"],
+    propertyOrdering: ["text", "evidenceIds"],
   },
 } as const;
 
@@ -252,6 +296,16 @@ const planDraftSchema = {
       category: { type: "string" },
     },
     required: ["program", "title", "priority", "period"],
+    propertyOrdering: [
+      "program",
+      "title",
+      "description",
+      "priority",
+      "period",
+      "periodLabel",
+      "axis",
+      "category",
+    ],
   },
 } as const;
 
@@ -265,34 +319,42 @@ export const STEP_RESPONSE_SCHEMAS = {
   1: SIGNALS_SCHEMA,
   3: {
     type: "object",
-    properties: { narrative: narrativeSchema, sections: sectionsSchema },
+    properties: {
+      narrative: narrativeSchema,
+      sections: sectionsSchemaFor("1-8"),
+    },
     required: ["narrative", "sections"],
   },
   5: {
     type: "object",
-    properties: { sections: sectionsSchema },
+    properties: { sections: sectionsSchemaFor("1-9") },
     required: ["sections"],
   },
 } as Record<1 | 3 | 5, ResponseSchema>;
 
-/** 나눈 호출 종류별 응답 스키마. 섹션 호출은 { sections }(항목 1개는 프롬프트로 지시, 스키마에 maxItems 는 쓰지 않는다), match 와 planDraft 호출은 그 필드 하나만 받는다. */
-const CALL_RESPONSE_SCHEMAS = {
-  section: {
-    type: "object",
-    properties: { sections: sectionsSchema },
-    required: ["sections"],
-  },
-  match: {
-    type: "object",
-    properties: { match: matchSchema },
-    required: ["match"],
-  },
-  planDraft: {
-    type: "object",
-    properties: { planDraft: planDraftSchema },
-    required: ["planDraft"],
-  },
-} as Record<StepCall["kind"], ResponseSchema>;
+/** 나눈 호출 종류별 응답 스키마. 섹션 호출은 그 섹션 형식의 { sections }(항목 1개는 프롬프트로 지시, 스키마에 maxItems 는 쓰지 않는다), match 와 planDraft 호출은 그 필드 하나만 받는다. */
+function callResponseSchema(call: StepCall): ResponseSchema {
+  switch (call.kind) {
+    case "section":
+      return {
+        type: "object",
+        properties: { sections: sectionsSchemaFor(call.id) },
+        required: ["sections"],
+      } as ResponseSchema;
+    case "match":
+      return {
+        type: "object",
+        properties: { match: matchSchema },
+        required: ["match"],
+      } as ResponseSchema;
+    case "planDraft":
+      return {
+        type: "object",
+        properties: { planDraft: planDraftSchema },
+        required: ["planDraft"],
+      } as ResponseSchema;
+  }
+}
 
 /** 호출 하나의 최대 출력 토큰. 섹션 호출은 표 형식이면 표 한도, 아니면 섹션 한도다. */
 function callMaxOutputTokens(call: StepCall): number {
@@ -438,7 +500,13 @@ function sectionGuide(
   const lead = onlyId
     ? "작성할 항목(이 id 하나만 쓴다)"
     : "작성할 항목(이 id 를 모두, 이 id 만 쓴다)";
-  return `${lead}:\n${json(rows)}`;
+  const evidenceLine =
+    onlyId &&
+    !EVIDENCE_EXEMPT_SECTION_IDS.includes(onlyId) &&
+    !AXIS_SECTION_IDS.includes(onlyId)
+      ? "\n이 항목은 evidence_ids 에 근거 활동 1~3개를 단다."
+      : "";
+  return `${lead}:\n${json(rows)}${evidenceLine}`;
 }
 
 function activityBrief(
@@ -703,7 +771,7 @@ export function buildStepPrompt(
     return {
       system: `${COMMON_RULES}\n\n${callRules(step, call)}`,
       user,
-      responseSchema: CALL_RESPONSE_SCHEMAS[call.kind],
+      responseSchema: callResponseSchema(call),
       maxOutputTokens: callMaxOutputTokens(call),
       callInfo: info(
         call.kind,
