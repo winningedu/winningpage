@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./knowledgeEvalsApi", () => ({
+vi.mock("./api", () => ({
   fetchRuns: vi.fn(),
   postRun: vi.fn(),
   postSweep: vi.fn(),
@@ -12,8 +12,8 @@ vi.mock("./knowledgeEvalsApi", () => ({
   fetchResourceTitles: vi.fn(),
 }));
 
-import KnowledgeEvalsAdmin from "./KnowledgeEvalsAdmin";
-import * as api from "./knowledgeEvalsApi";
+import * as api from "./api";
+import EvalsAdmin from "./EvalsAdmin";
 
 const prod = {
   matchThreshold: 0.5,
@@ -57,12 +57,10 @@ beforeEach(() => {
 });
 
 function renderAdmin() {
-  return render(
-    <KnowledgeEvalsAdmin config={{ title: "지식 검색 품질 평가" }} />,
-  );
+  return render(<EvalsAdmin config={{ title: "지식 검색 품질 평가" }} />);
 }
 
-describe("KnowledgeEvalsAdmin", () => {
+describe("EvalsAdmin", () => {
   test("안내 문구와 기준 문제집 질의 목록을 그린다", async () => {
     renderAdmin();
     expect(

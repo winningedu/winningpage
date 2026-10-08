@@ -1,5 +1,5 @@
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
-import type { PricingTableValue } from "./aiTelemetryPricingForm";
+import type { PricingTableValue } from "./pricingForm";
 
 export type SummaryItem = {
   day: string;

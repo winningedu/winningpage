@@ -1,7 +1,7 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 편집 폼 위의 접이식 작성 안내.
 // 검색 품질이 카드 문장에 좌우되므로 저장 전에 지킬 규칙을 짧게 보여 준다.
 
-import { RECOMMENDED_CONTENT_CHARS } from "./writingGuide";
+import { RECOMMENDED_CONTENT_CHARS } from "./contentLength";
 
 const GUIDE_ITEMS = [
   "카드 하나는 다른 카드 없이 읽혀도 뜻이 통하게 씁니다.",
@@ -13,7 +13,7 @@ const GUIDE_ITEMS = [
   "저장하면 검색용 벡터가 자동으로 다시 만들어집니다.",
 ];
 
-export default function KnowledgeWritingGuide() {
+export default function WritingGuide() {
   return (
     <details className="mb-4 border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm">
       <summary className="cursor-pointer font-black text-[#2348ff]">

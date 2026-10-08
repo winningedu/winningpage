@@ -5,7 +5,7 @@ import {
   buildDedupeItems,
   chunk,
   defaultSelection,
-} from "./knowledgeBulkPlan";
+} from "./plan";
 
 const row = (rowNo: number, id: string | null = null) => ({
   rowNo,

@@ -1,12 +1,12 @@
-// 지식 DB 엑셀 일괄 등록 화면의 판단 순수 함수. 컴포넌트(KnowledgeBulkPanel.tsx)는
+// 지식 DB 엑셀 일괄 등록 화면의 판단 순수 함수. 컴포넌트(BulkPanel.tsx)는
 // 상태와 호출 순서만 들고, 무엇을 반영할지는 여기서 정한다.
 
-import type { KnowledgeParseResult } from "@/lib/knowledgeBulkXlsx";
 import {
   type DedupeItem,
   type DedupeResult,
   KNOWLEDGE_TEXT_FIELDS,
-} from "../../../../api/_lib/knowledge/dedupe.js";
+} from "../../../../../api/_lib/knowledge/dedupe.js";
+import type { KnowledgeParseResult } from "./xlsx";
 
 /**
  * 중복 검사 뒤 기본 체크 상태. 정확 일치가 있는 행은 같은 자료를 두 번 넣는 것이라

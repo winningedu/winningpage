@@ -1,7 +1,7 @@
-// writingGuide.ts(지식 DB 작성 안내)의 순수 함수 테스트.
+// contentLength.ts(지식 DB 작성 안내)의 순수 함수 테스트.
 import { describe, expect, it } from "vitest";
 
-import { contentLengthHelp } from "./writingGuide";
+import { contentLengthHelp } from "./contentLength";
 
 describe("contentLengthHelp", () => {
   it("현재 글자 수와 권장 분량을 함께 보여 준다", () => {

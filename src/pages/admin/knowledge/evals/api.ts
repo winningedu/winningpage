@@ -12,7 +12,7 @@ import type {
   RunMetrics,
   SweepGrid,
   SweepItem,
-} from "./knowledgeEvalsForm";
+} from "./form";
 
 export type ApiResult<T> =
   | { ok: true; data: T }

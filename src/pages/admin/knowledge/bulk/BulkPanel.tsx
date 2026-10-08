@@ -1,7 +1,7 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 목록 상단의 엑셀 일괄 등록 패널.
 // 흐름: 내려받기 / 올리기, 파싱 미리보기 모달, 중복 검사(정확 일치는 기본 제외,
 // 근사 일치는 경고), 반영(api/admin/knowledge-bulk) 뒤 임베딩 backfill 을 embedded 가
-// 0 이 될 때까지 반복한다. 판단은 knowledgeBulkPlan.ts, 파싱은 knowledgeBulkXlsx.ts.
+// 0 이 될 때까지 반복한다. 판단은 plan.ts, 파싱은 xlsx.ts.
 
 import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -13,26 +13,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  exportKnowledgeRowsToXlsx,
-  type KnowledgeBulkField,
-  type KnowledgeParseResult,
-  parseKnowledgeRowsFromXlsx,
-} from "@/lib/knowledgeBulkXlsx";
-import { MAX_BULK_ROWS } from "../../../../api/_lib/knowledge/bulk.js";
-import type { DedupeResult } from "../../../../api/_lib/knowledge/dedupe.js";
-import { runBackfillUntilDone } from "./backfillLoop";
+import { MAX_BULK_ROWS } from "../../../../../api/_lib/knowledge/bulk.js";
+import type { DedupeResult } from "../../../../../api/_lib/knowledge/dedupe.js";
 import {
   postEmbedBackfill,
   postKnowledgeBulk,
   postKnowledgeDedupe,
-} from "./knowledgeBulkApi";
+} from "../api";
+import { runBackfillUntilDone } from "./backfillLoop";
 import {
   buildBulkRequests,
   buildDedupeItems,
   chunk,
   defaultSelection,
-} from "./knowledgeBulkPlan";
+} from "./plan";
+import {
+  exportKnowledgeRowsToXlsx,
+  type KnowledgeBulkField,
+  type KnowledgeParseResult,
+  parseKnowledgeRowsFromXlsx,
+} from "./xlsx";
 
 // 중복 검사는 행마다 임베딩을 1회 부른다. 서버 상한(200건)보다 작게 끊어 한 요청이
 // 함수 실행 상한(60초) 안에 끝나게 한다.
@@ -65,7 +65,7 @@ function triggerXlsxDownload(workbook: XLSX.WorkBook, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function KnowledgeBulkPanel({
+export default function BulkPanel({
   config,
   rows,
   onReload,

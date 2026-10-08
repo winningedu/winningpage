@@ -12,8 +12,8 @@ import type {
   SearchPreviewItem,
   SearchPreviewMode,
 } from "../../../../api/_lib/knowledge/preview.js";
-import type { BackfillRound } from "./backfillLoop";
-import type { BulkRequest } from "./knowledgeBulkPlan";
+import type { BackfillRound } from "./bulk/backfillLoop";
+import type { BulkRequest } from "./bulk/plan";
 
 async function postJson(
   url: string,
@@ -84,7 +84,7 @@ export async function postEmbedBackfill(): Promise<BackfillRound> {
   };
 }
 
-export type KnowledgeSearchPreviewResult = {
+export type SearchPreviewResult = {
   mode: SearchPreviewMode;
   threshold: number;
   queryText: string;
@@ -93,10 +93,10 @@ export type KnowledgeSearchPreviewResult = {
   items: SearchPreviewItem[];
 };
 
-export async function postKnowledgeSearchPreview(
+export async function postSearchPreview(
   body: Omit<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode"> &
     Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode">>,
-): Promise<KnowledgeSearchPreviewResult> {
+): Promise<SearchPreviewResult> {
   const { response, result } = await postJson(
     "/api/admin/knowledge-search",
     body,

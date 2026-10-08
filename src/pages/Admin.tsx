@@ -63,7 +63,6 @@ import {
   ADMIN_SECTION_KEYS,
   type AdminSectionKey,
 } from "./admin/adminSectionKeys";
-import AiTelemetryAdmin from "./admin/aiTelemetry/AiTelemetryAdmin";
 import { adminSettingsConfigs } from "./admin/configs/adminSettings";
 import { admissionConfigs } from "./admin/configs/admission";
 import { boardConfigs } from "./admin/configs/board";
@@ -79,15 +78,15 @@ import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
-import KnowledgeBulkPanel from "./admin/knowledge/KnowledgeBulkPanel";
-import KnowledgeSearchPreview from "./admin/knowledge/KnowledgeSearchPreview";
+import BulkPanel from "./admin/knowledge/bulk/BulkPanel";
+import EvalsAdmin from "./admin/knowledge/evals/EvalsAdmin";
 import {
   DEFAULT_REVIEW_STALE_MONTHS,
   isStaleReview,
   REVIEW_STALE_MONTH_OPTIONS,
   type ReviewStaleMonths,
-} from "./admin/knowledge/reviewCycle";
-import KnowledgeEvalsAdmin from "./admin/knowledgeEvals/KnowledgeEvalsAdmin";
+} from "./admin/knowledge/review/reviewCycle";
+import SearchPreview from "./admin/knowledge/search/SearchPreview";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import {
   AdminForm,
@@ -108,6 +107,7 @@ import {
   downloadCsvText,
   searchable,
 } from "./admin/shared/csvExport";
+import TelemetryAdmin from "./admin/telemetry/TelemetryAdmin";
 
 // CSV 청크 내보내기 1회 요청 크기. PostgREST 기본 응답 상한이 1,000행이라 이보다
 // 크게 잡아도 잘려 나온다 — 43k행이면 44회 왕복이다.
@@ -343,8 +343,8 @@ const CUSTOM_COMPONENT_REGISTRY = {
   tenants: TenantsAdmin,
   growthReports: GrowthReportsAdmin,
   selfevalSessions: SelfevalSessionsAdmin,
-  aiTelemetry: AiTelemetryAdmin,
-  knowledgeEvals: KnowledgeEvalsAdmin,
+  aiTelemetry: TelemetryAdmin,
+  knowledgeEvals: EvalsAdmin,
   inquirySessions: InquirySessionsAdmin,
 };
 
@@ -3784,16 +3784,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
             )}
 
             {config.knowledgeBulk && (
-              <KnowledgeBulkPanel
-                config={config}
-                rows={rows}
-                onReload={loadRows}
-              />
+              <BulkPanel config={config} rows={rows} onReload={loadRows} />
             )}
 
-            {config.knowledgeSearchPreview && (
-              <KnowledgeSearchPreview config={config} />
-            )}
+            {config.knowledgeSearchPreview && <SearchPreview config={config} />}
 
             {loading ? (
               <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">

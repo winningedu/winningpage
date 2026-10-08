@@ -6,7 +6,7 @@ import {
   toGoldenRow,
   toParamOverrides,
   toSweepGrid,
-} from "./knowledgeEvalsForm";
+} from "./form";
 
 describe("toParamOverrides", () => {
   test("채운 칸만 숫자로 바꾸고 빈 칸은 빼서 운영값을 쓰게 한다", () => {

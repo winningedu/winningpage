@@ -1,4 +1,4 @@
-// knowledgeBulkXlsx.ts(위닝 수행 주제 DB, 자료 DB 엑셀 왕복)의 순수 함수 테스트.
+// xlsx.ts(위닝 수행 주제 DB, 자료 DB 엑셀 왕복)의 순수 함수 테스트.
 // DB 는 쓰지 않는다. 메뉴 config 와 같은 모양의 최소 필드 목록을 픽스처로 쓴다.
 
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import {
   exportKnowledgeRowsToXlsx,
   parseKnowledgeRowsFromXlsx,
-} from "./knowledgeBulkXlsx.ts";
+} from "./xlsx.ts";
 
 const FIELDS = [
   {

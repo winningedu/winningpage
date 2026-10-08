@@ -7,7 +7,7 @@ import {
   buildSummarySearch,
   createInitialQuery,
   defaultRange,
-} from "./aiTelemetryQuery";
+} from "./query";
 
 const NOW = new Date("2026-10-06T16:00:00Z");
 

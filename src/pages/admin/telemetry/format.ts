@@ -45,3 +45,10 @@ export function formatDate(iso: string | null): string {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("ko-KR");
 }
+
+// 값이 없는 칸에 보여 주는 문구.
+export const NO_DATA = "자료 없음";
+
+export function formatNullableInt(value: number | null): string {
+  return value === null ? "" : formatInt(value);
+}

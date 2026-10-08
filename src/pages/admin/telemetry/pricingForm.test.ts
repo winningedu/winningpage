@@ -5,7 +5,7 @@ import {
   MODEL_PLACEHOLDERS,
   type PricingRow,
   toPricingBody,
-} from "./aiTelemetryPricingForm";
+} from "./pricingForm";
 
 const row = (over: Partial<PricingRow>): PricingRow => ({
   ...emptyPricingRow(),

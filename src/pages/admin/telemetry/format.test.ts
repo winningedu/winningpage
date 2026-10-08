@@ -9,7 +9,7 @@ import {
   SERVICE_OPTIONS,
   STATUS_OPTIONS,
   serviceLabel,
-} from "./aiTelemetryFormat";
+} from "./format";
 
 describe("formatUsd", () => {
   test("소수 4자리로 표시하고 null 이면 빈 문자열이다", () => {

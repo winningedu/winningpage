@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
-import KnowledgeWritingGuide from "@/pages/admin/knowledge/KnowledgeWritingGuide";
-import { formatLastReviewed } from "@/pages/admin/knowledge/reviewCycle";
-import { contentLengthHelp } from "@/pages/admin/knowledge/writingGuide";
+import { contentLengthHelp } from "@/pages/admin/knowledge/guide/contentLength";
+import WritingGuide from "@/pages/admin/knowledge/guide/WritingGuide";
+import { formatLastReviewed } from "@/pages/admin/knowledge/review/reviewCycle";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 
 interface WinningColumn {
@@ -32,10 +32,10 @@ interface WinningCrudConfig {
   // 고정 저장하는 필드 — winning_assessment_knowledge_items 테이블을 4개
   // knowledge_type으로 나눠 쓰는 이 파일 전용 관용구다.
   fixedValues?: Record<string, unknown>;
-  // knowledgeBulk: 목록 상단에 엑셀 일괄 등록 패널(KnowledgeBulkPanel)을 켠다.
+  // knowledgeBulk: 목록 상단에 엑셀 일괄 등록 패널(BulkPanel)을 켠다.
   // fixedValues.knowledge_type 이 있는 지식 DB 메뉴에만 둔다.
   knowledgeBulk?: boolean;
-  // knowledgeSearchPreview: 목록 상단에 검색 테스트(KnowledgeSearchPreview)를 켠다.
+  // knowledgeSearchPreview: 목록 상단에 검색 테스트(SearchPreview)를 켠다.
   knowledgeSearchPreview?: boolean;
   // knowledgeReview: 목록에 "검토 완료" 행 버튼과 "미검토만 보기" 필터를 켠다.
   // 테이블에 last_reviewed_at 컬럼이 있는 지식 DB 메뉴에만 둔다.
@@ -83,7 +83,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
     knowledgeBulk: true,
     knowledgeSearchPreview: true,
     knowledgeReview: true,
-    FormIntro: KnowledgeWritingGuide,
+    FormIntro: WritingGuide,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },
@@ -172,7 +172,7 @@ export const winningConfigs: Record<string, WinningConfig> = {
     knowledgeBulk: true,
     knowledgeSearchPreview: true,
     knowledgeReview: true,
-    FormIntro: KnowledgeWritingGuide,
+    FormIntro: WritingGuide,
     columns: [
       { key: "grade", label: "학년" },
       { key: "subject", label: "교과군" },

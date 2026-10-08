@@ -13,11 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { SearchPreviewMode } from "../../../../api/_lib/knowledge/preview.js";
-import {
-  type KnowledgeSearchPreviewResult,
-  postKnowledgeSearchPreview,
-} from "./knowledgeBulkApi";
+import type { SearchPreviewMode } from "../../../../../api/_lib/knowledge/preview.js";
+import { postSearchPreview, type SearchPreviewResult } from "../api";
 
 const BUTTON_CLASS =
   "h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50";
@@ -65,11 +62,7 @@ const EMPTY_FORM: PreviewForm = {
   assessmentInfo: "",
 };
 
-export default function KnowledgeSearchPreview({
-  config,
-}: {
-  config: PreviewConfig;
-}) {
+export default function SearchPreview({ config }: { config: PreviewConfig }) {
   const knowledgeType = String(config.fixedValues.knowledge_type) as
     | "topic_pattern"
     | "verified_resource";
@@ -82,9 +75,7 @@ export default function KnowledgeSearchPreview({
   const [mode, setMode] = useState<SearchPreviewMode>("hybrid");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<KnowledgeSearchPreviewResult | null>(
-    null,
-  );
+  const [result, setResult] = useState<SearchPreviewResult | null>(null);
 
   function change(key: keyof PreviewForm, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -95,7 +86,7 @@ export default function KnowledgeSearchPreview({
     setMessage("");
     try {
       setResult(
-        await postKnowledgeSearchPreview({
+        await postSearchPreview({
           knowledgeType,
           ...form,
           includeOtherSubjects,

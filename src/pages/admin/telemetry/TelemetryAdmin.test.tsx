@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./aiTelemetryApi", () => ({
+vi.mock("./api", () => ({
   fetchSummary: vi.fn(),
   fetchCalls: vi.fn(),
   fetchCitations: vi.fn(),
@@ -9,8 +9,8 @@ vi.mock("./aiTelemetryApi", () => ({
   putPricing: vi.fn(),
 }));
 
-import AiTelemetryAdmin from "./AiTelemetryAdmin";
-import * as api from "./aiTelemetryApi";
+import * as api from "./api";
+import TelemetryAdmin from "./TelemetryAdmin";
 
 const totals = {
   calls: 1234,
@@ -47,10 +47,10 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-describe("AiTelemetryAdmin", () => {
+describe("TelemetryAdmin", () => {
   test("요약 탭은 totals 카드를 그린다", async () => {
     vi.mocked(api.fetchSummary).mockResolvedValue(summaryResult(true));
-    render(<AiTelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     expect(await screen.findByText("1,234")).toBeTruthy();
     expect(screen.getByText("2.8%")).toBeTruthy();
     expect(screen.getByText("41.5%")).toBeTruthy();
@@ -60,7 +60,7 @@ describe("AiTelemetryAdmin", () => {
 
   test("단가가 설정되지 않았으면 안내 띠를 보여준다", async () => {
     vi.mocked(api.fetchSummary).mockResolvedValue(summaryResult(false));
-    render(<AiTelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     expect(
       await screen.findByText(
         "단가가 없어 금액은 비워 둡니다. 단가 탭에서 입력하세요.",
@@ -74,7 +74,7 @@ describe("AiTelemetryAdmin", () => {
       ok: true,
       data: { items: [], total: 0, page: 1, pageSize: 20 },
     });
-    render(<AiTelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     await screen.findByText("1,234");
     fireEvent.click(screen.getByRole("button", { name: "호출 목록" }));
     await waitFor(() => expect(api.fetchCalls).toHaveBeenCalled());
@@ -130,7 +130,7 @@ describe("AiTelemetryAdmin", () => {
         pageSize: 20,
       },
     });
-    render(<AiTelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     await screen.findByText("1,234");
     fireEvent.click(screen.getByRole("button", { name: "호출 목록" }));
     expect(await screen.findByText("section:2-1")).toBeTruthy();

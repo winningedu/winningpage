@@ -1,4 +1,4 @@
-// 지식 검색 품질 평가 화면의 입력 변환과 표 계산. 화면 컴포넌트는 KnowledgeEvalsAdmin.tsx.
+// 지식 검색 품질 평가 화면의 입력 변환과 표 계산. 화면 컴포넌트는 EvalsAdmin.tsx.
 
 /** 서버 EvalParams 와 같은 키. */
 export type EvalParamKey =

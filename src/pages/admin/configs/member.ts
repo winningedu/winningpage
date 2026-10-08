@@ -95,7 +95,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
 
   // AI 호출 계기판(aiTelemetry): 모델 호출 요약, 호출 목록, 자료 인용, 단가 설정.
   // 데이터는 /api/admin/ai-telemetry 가 합성해 내려주므로 제네릭 CRUD 가 아니라
-  // custom 컴포넌트(src/pages/admin/aiTelemetry/AiTelemetryAdmin.tsx)가 전부 그린다.
+  // custom 컴포넌트(src/pages/admin/telemetry/TelemetryAdmin.tsx)가 전부 그린다.
   aiTelemetry: {
     title: "AI 호출 계기판",
     table: "ai_model_calls",
@@ -112,7 +112,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
 
   // 지식 검색 품질 평가(knowledgeEvals): 기준 문제집, 평가 실행과 조합 비교, 실행 이력.
   // 문제집은 custom 컴포넌트가 클라이언트 Supabase 로 직접 읽고 쓰고, 실행은
-  // /api/admin/knowledge-eval 이 한다(src/pages/admin/knowledgeEvals/KnowledgeEvalsAdmin.tsx).
+  // /api/admin/knowledge-eval 이 한다(src/pages/admin/knowledge/evals/EvalsAdmin.tsx).
   knowledgeEvals: {
     title: "지식 검색 품질 평가",
     table: "knowledge_golden_queries",
