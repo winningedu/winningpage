@@ -13,7 +13,7 @@
 import * as XLSX from "xlsx";
 
 // 서버 정확 일치와 같은 정규화 규칙을 쓰려고 잎 모듈을 그대로 가져온다.
-import { contentHash } from "../../api/_lib/performance/knowledgeDedupe.js";
+import { contentHash } from "../../api/_lib/knowledge/dedupe.js";
 
 export const KNOWLEDGE_BULK_ID_HEADER = "id";
 const SHEET_NAME = "지식DB";

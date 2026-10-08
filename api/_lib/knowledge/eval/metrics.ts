@@ -1,5 +1,5 @@
 // 지식 검색 품질 평가(골든셋)의 판단 순수 함수. 핸들러는 api/admin/knowledge-eval.ts 이고,
-// DB 와 임베딩을 부르는 러너는 retrievalEvalRunner.ts 다.
+// DB 와 임베딩을 부르는 러너는 runner.ts 다.
 //
 // 운영 검색 상수와 학생 요청 경로는 바꾸지 않는다. 평가 실행만 파라미터를 덮어쓴다.
 
@@ -11,11 +11,8 @@ import {
   RESOURCE_MAX_ITEMS,
   resolveFilterSubject,
   TOPIC_MAX_ITEMS,
-} from "./knowledge.js";
-import {
-  type BulkKnowledgeType,
-  isBulkKnowledgeType,
-} from "./knowledgeDedupe.js";
+} from "../../performance/knowledge.js";
+import { type BulkKnowledgeType, isBulkKnowledgeType } from "../dedupe.js";
 
 /** 기대 id 별 반환 목록 안의 순위(1부터). 반환 목록에 없으면 null 이다. */
 export function rankOf(

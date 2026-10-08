@@ -86,12 +86,6 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { scheduleAfterResponse } from "../_lib/afterResponse.js";
-import {
-  performanceTraceContext,
-  retryReasonOf,
-  validationOf,
-} from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -134,6 +128,12 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import {
+  performanceTraceContext,
+  retryReasonOf,
+  validationOf,
+} from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 const SERVICE_KEY = "suhaeng";
 

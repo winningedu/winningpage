@@ -1,6 +1,6 @@
 // api/growth/report 의 순수 보조: 바디 검증, 응답과 오류 조립, 종결 판정, 모델 어댑터.
 
-import type { AiTrace } from "../../aiTelemetry/trace.js";
+import type { AiTrace } from "../../telemetry/trace.js";
 import type { ValidationIssue } from "../validation.js";
 import type { CallInfo, PromptBundle } from "./prompts.js";
 import type { RunStepDeps, StoredOutputs } from "./runStep.js";

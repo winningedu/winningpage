@@ -1,11 +1,11 @@
 // 지식 검색 품질 평가 러너. 문제집을 읽고, 질의마다 임베딩을 한 번 만들고, 조합마다 RPC 를
-// 다시 불러 채점한 뒤 knowledge_eval_runs 에 저장한다. 판단과 채점은 retrievalEval.ts 의
+// 다시 불러 채점한 뒤 knowledge_eval_runs 에 저장한다. 판단과 채점은 metrics.ts 의
 // 순수 함수가 하고, 이 파일은 DB 와 임베딩 호출만 맡는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AiTrace } from "../aiTelemetry/trace.js";
-import { embedText } from "./embeddings.js";
-import type { BulkKnowledgeType } from "./knowledgeDedupe.js";
+import { embedText } from "../../performance/embeddings.js";
+import type { AiTrace } from "../../telemetry/trace.js";
+import type { BulkKnowledgeType } from "../dedupe.js";
 import {
   buildEvalQueryText,
   buildEvalRpc,
@@ -17,7 +17,7 @@ import {
   type PerQueryResult,
   type RunMetrics,
   scoreCombos,
-} from "./retrievalEval.js";
+} from "./metrics.js";
 
 /** 한 번의 평가에 쓰는 활성 질의 수 상한. */
 export const GOLDEN_QUERY_LIMIT = 100;

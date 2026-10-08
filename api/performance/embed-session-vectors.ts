@@ -49,14 +49,14 @@
 //   행별로 try/catch를 감싸 실패를 격리한다. 실패 기록(`embedding_status='error'`)
 //   자체가 또 실패해도 로그만 남기고 원래 루프는 계속 돈다.
 
-import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
-import { type AiTrace, createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import {
   embedText,
   getEmbeddingModel,
 } from "../_lib/performance/embeddings.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
+import { type AiTrace, createAiTrace } from "../_lib/telemetry/trace.js";
 
 const TABLE = "performance_session_vectors";
 

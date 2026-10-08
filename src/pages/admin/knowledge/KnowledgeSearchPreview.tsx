@@ -1,6 +1,6 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 목록 상단의 검색 테스트.
 // 학생 요청과 같은 조건으로 검색을 돌려, 어떤 카드가 몇 위로 잡히고 threshold 를
-// 넘는지, 실제 프롬프트에 들어가는지를 보여 준다. 판단은 서버(searchPreview.ts)가 한다.
+// 넘는지, 실제 프롬프트에 들어가는지를 보여 준다. 판단은 서버(api/_lib/knowledge/preview.ts)가 한다.
 // 기본은 학생 요청의 1차 경로인 하이브리드(뜻 검색과 단어 검색 결합)이고, 폴백 경로인
 // 벡터 검색으로 바꿔 비교할 수 있다.
 
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { SearchPreviewMode } from "../../../../api/_lib/performance/searchPreview.js";
+import type { SearchPreviewMode } from "../../../../api/_lib/knowledge/preview.js";
 import {
   type KnowledgeSearchPreviewResult,
   postKnowledgeSearchPreview,

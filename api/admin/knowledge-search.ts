@@ -1,4 +1,4 @@
-// POST /api/performance/admin-knowledge-search
+// POST /api/admin/knowledge-search
 // Authorization: Bearer <supabase access token>   (관리자)
 //
 // 수행평가 지식 DB 검색 테스트. 학생 요청 경로(knowledge.ts)와 같은 질의문, 학년 필터,
@@ -21,19 +21,19 @@
 //   keywordQuery 는 hybrid 일 때 RPC 에 넘긴 단어 질의, vector 일 때 null.
 // 오류(coded): 400 INVALID_BODY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
-// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/performance/searchPreview.ts.
+// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/preview.ts.
 
-import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { embedText } from "../_lib/performance/embeddings.js";
-import { buildKnowledgeQueryText } from "../_lib/performance/knowledge.js";
 import {
   buildSearchPreviewItems,
   buildSearchPreviewRpc,
   validateSearchPreviewBody,
-} from "../_lib/performance/searchPreview.js";
+} from "../_lib/knowledge/preview.js";
+import { embedText } from "../_lib/performance/embeddings.js";
+import { buildKnowledgeQueryText } from "../_lib/performance/knowledge.js";
+import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 export default defineHandler({
   methods: ["POST"],
@@ -45,7 +45,7 @@ export default defineHandler({
   unhandledMessage: "검색 테스트에 실패했습니다.",
   unhandledCode: "INTERNAL",
   unhandledExtra: { ok: false },
-  logLabel: "performance/admin-knowledge-search",
+  logLabel: "admin/knowledge-search",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
     const parsed = validateSearchPreviewBody(req.body);

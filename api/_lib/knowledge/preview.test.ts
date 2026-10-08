@@ -4,12 +4,12 @@ import {
   RESOURCE_MATCH_THRESHOLD,
   TOPIC_MATCH_THRESHOLD,
   TOPIC_MAX_CHARS,
-} from "./knowledge.js";
+} from "../performance/knowledge.js";
 import {
   buildSearchPreviewItems,
   buildSearchPreviewRpc,
   validateSearchPreviewBody,
-} from "./searchPreview.js";
+} from "./preview.js";
 
 function row(id: string, similarity: number, content = "내용") {
   return {

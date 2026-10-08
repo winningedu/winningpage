@@ -5,8 +5,8 @@
 //
 // 시각: 04:30 KST = 19:30 UTC (vercel.json crons "30 19 * * *").
 
-import { retentionCutoffIso } from "../_lib/aiTelemetry/retention.js";
 import { defineHandler } from "../_lib/handler.js";
+import { retentionCutoffIso } from "../_lib/telemetry/retention.js";
 
 export const config = { runtime: "nodejs" };
 

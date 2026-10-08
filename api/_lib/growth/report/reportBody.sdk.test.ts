@@ -7,8 +7,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { geminiSchemaToJsonSchema } from "../../aiSdkAdapter.js";
-import { createAiTrace } from "../../aiTelemetry/trace.js";
 import { callStructured } from "../../gemini.js";
+import { createAiTrace } from "../../telemetry/trace.js";
 import { computeStep5, computeStep6 } from "./compute.js";
 import { buildStepPrompt, type PromptBundle } from "./prompts.js";
 import { callModelWith, REPORT_MODEL_TEMPERATURE } from "./reportBody.js";

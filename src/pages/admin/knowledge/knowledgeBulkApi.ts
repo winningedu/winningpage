@@ -6,12 +6,12 @@ import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/admin
 import type {
   DedupeItem,
   DedupeResult,
-} from "../../../../api/_lib/performance/knowledgeDedupe.js";
+} from "../../../../api/_lib/knowledge/dedupe.js";
 import type {
   SearchPreviewBody,
   SearchPreviewItem,
   SearchPreviewMode,
-} from "../../../../api/_lib/performance/searchPreview.js";
+} from "../../../../api/_lib/knowledge/preview.js";
 import type { BackfillRound } from "./backfillLoop";
 import type { BulkRequest } from "./knowledgeBulkPlan";
 
@@ -48,10 +48,10 @@ export async function postKnowledgeDedupe(
   knowledgeType: string,
   items: DedupeItem[],
 ): Promise<DedupeResult[]> {
-  const { response, result } = await postJson(
-    "/api/performance/admin-knowledge-dedupe",
-    { knowledgeType, items },
-  );
+  const { response, result } = await postJson("/api/admin/knowledge-dedupe", {
+    knowledgeType,
+    items,
+  });
   if (!response.ok || !result?.ok)
     throw new Error(failureMessage(response, result));
   return result.results as DedupeResult[];
@@ -61,7 +61,7 @@ export async function postKnowledgeBulk(
   request: BulkRequest,
 ): Promise<{ inserted: number; updated: number; ids: string[] }> {
   const { response, result } = await postJson(
-    "/api/performance/admin-knowledge-bulk",
+    "/api/admin/knowledge-bulk",
     request,
   );
   if (!response.ok || !result?.ok)
@@ -98,7 +98,7 @@ export async function postKnowledgeSearchPreview(
     Partial<Pick<SearchPreviewBody, "includeOtherSubjects" | "limit" | "mode">>,
 ): Promise<KnowledgeSearchPreviewResult> {
   const { response, result } = await postJson(
-    "/api/performance/admin-knowledge-search",
+    "/api/admin/knowledge-search",
     body,
   );
   if (!response.ok || !result?.ok)

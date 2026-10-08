@@ -23,11 +23,9 @@
 // 오류(coded): 400 INVALID_BODY, INVALID_QUERY, NO_QUERIES, 401/403 인증,
 //   405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
-// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/performance/retrievalEval.ts,
-// DB 와 임베딩 호출은 api/_lib/performance/retrievalEvalRunner.ts.
+// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/eval/metrics.ts,
+// DB 와 임베딩 호출은 api/_lib/knowledge/eval/runner.ts.
 
-import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -35,11 +33,13 @@ import {
   parseEvalRequest,
   parseRunsQuery,
   productionEvalParams,
-} from "../_lib/performance/retrievalEval.js";
+} from "../_lib/knowledge/eval/metrics.js";
 import {
   runGoldenEval,
   runGoldenSweep,
-} from "../_lib/performance/retrievalEvalRunner.js";
+} from "../_lib/knowledge/eval/runner.js";
+import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 /** 조합 비교 시간 예산. maxDuration 60초 안에서 저장과 응답 시간을 남긴다. */
 const SWEEP_BUDGET_MS = 50_000;

@@ -1,7 +1,7 @@
 // 추출 요청의 다운로드, 원문 해석, 모델 호출을 하나의 시간 예산 안에서 수행한다.
 
-import type { AiTrace } from "../../aiTelemetry/trace.js";
 import { callText, callVision } from "../../gemini.js";
+import type { AiTrace } from "../../telemetry/trace.js";
 import type { Db, UploadClaim } from "./collectDb.js";
 import {
   buildExtractionPrompt,

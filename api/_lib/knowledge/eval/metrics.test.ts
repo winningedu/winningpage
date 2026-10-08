@@ -9,7 +9,7 @@ import {
   RESOURCE_MAX_ITEMS,
   TOPIC_MATCH_THRESHOLD,
   TOPIC_MAX_ITEMS,
-} from "./knowledge.js";
+} from "../../performance/knowledge.js";
 import {
   buildEvalParams,
   buildEvalQueryText,
@@ -25,7 +25,7 @@ import {
   recallAtK,
   scoreCombos,
   summarizeRun,
-} from "./retrievalEval.js";
+} from "./metrics.js";
 
 describe("rankOf", () => {
   test("기대 id 마다 반환 목록 안의 1부터 순위를 주고 없으면 null 이다", () => {
@@ -109,7 +109,7 @@ describe("하이브리드 운영값", () => {
     const sql = readFileSync(
       path.resolve(
         path.dirname(fileURLToPath(import.meta.url)),
-        "../../../supabase/migrations/20261007053142_knowledge_hybrid_search.sql",
+        "../../../../supabase/migrations/20261007053142_knowledge_hybrid_search.sql",
       ),
       "utf8",
     );

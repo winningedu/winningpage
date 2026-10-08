@@ -8,7 +8,7 @@ import {
   matchExactDuplicates,
   normalizeForHash,
   validateDedupeBody,
-} from "./knowledgeDedupe.js";
+} from "./dedupe.js";
 
 describe("normalizeForHash", () => {
   it("공백 차이, 대소문자, 전각 문자가 달라도 같은 문자열이 된다", () => {

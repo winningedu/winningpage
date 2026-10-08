@@ -1,4 +1,4 @@
-// POST /api/performance/admin-knowledge-bulk
+// POST /api/admin/knowledge-bulk
 // Authorization: Bearer <supabase access token>   (관리자)
 //
 // 수행평가 지식 DB 엑셀 일괄 반영. 신규는 insert, 수정은 id 로 update 한다.
@@ -13,11 +13,11 @@
 //
 // 단일 트랜잭션이 아니다. 신규 insert 는 한 요청이라 원자적이지만, 수정은 행마다
 // update 라 중간에 실패하면 앞의 행은 반영된 채로 남는다(입결정보 청크 반영과 같은 성질).
-// 핸들러 본문은 테스트하지 않는다. 판단과 변환은 api/_lib/performance/knowledgeBulk.ts.
+// 핸들러 본문은 테스트하지 않는다. 판단과 변환은 api/_lib/knowledge/bulk.ts.
 
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { validateBulkBody } from "../_lib/performance/knowledgeBulk.js";
+import { validateBulkBody } from "../_lib/knowledge/bulk.js";
 
 const KNOWLEDGE_TABLE = "winning_assessment_knowledge_items";
 
@@ -31,7 +31,7 @@ export default defineHandler({
   unhandledMessage: "엑셀 일괄 반영에 실패했습니다.",
   unhandledCode: "INTERNAL",
   unhandledExtra: { ok: false },
-  logLabel: "performance/admin-knowledge-bulk",
+  logLabel: "admin/knowledge-bulk",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
     const parsed = validateBulkBody(req.body);

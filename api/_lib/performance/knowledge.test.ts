@@ -9,7 +9,7 @@ vi.mock("../supabaseAdmin.js", () => ({
   createSupabaseAdmin: vi.fn(),
 }));
 
-import { createAiTrace } from "../aiTelemetry/trace.js";
+import { createAiTrace } from "../telemetry/trace.js";
 import {
   buildKnowledgeQueryText,
   loadDynamicAssessmentKnowledge,

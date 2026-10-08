@@ -3,12 +3,12 @@
 // 결과는 GenerationOutcome 으로 돌려준다. 응답 매핑은 generationErrorOf 와 호출 핸들러가 한다.
 // mode 별 규칙(프롬프트 조립, 검증, 저장)은 spec 으로 주입받는다.
 
-import { createAiTrace } from "../aiTelemetry/trace.js";
 import type { callStructured } from "../gemini.js";
 import {
   DeadlineExceeded,
   withinBudget,
 } from "../growth/intake/extractRunner.js";
+import { createAiTrace } from "../telemetry/trace.js";
 import { type Db, loadSession } from "./db.js";
 import {
   claimGeneration,

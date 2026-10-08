@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_BULK_ROWS, validateBulkBody } from "./knowledgeBulk.js";
+import { MAX_BULK_ROWS, validateBulkBody } from "./bulk.js";
 
 const ROW = {
   is_active: true,

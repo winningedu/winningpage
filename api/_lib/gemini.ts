@@ -69,7 +69,7 @@ import {
   toAiSdkCall,
   toGeminiResponse,
 } from "./aiSdkAdapter.js";
-import type { AiTrace } from "./aiTelemetry/trace.js";
+import type { AiTrace } from "./telemetry/trace.js";
 
 export type {
   GeminiContents,

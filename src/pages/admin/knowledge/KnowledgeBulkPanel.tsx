@@ -1,6 +1,6 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 목록 상단의 엑셀 일괄 등록 패널.
 // 흐름: 내려받기 / 올리기, 파싱 미리보기 모달, 중복 검사(정확 일치는 기본 제외,
-// 근사 일치는 경고), 반영(admin-knowledge-bulk) 뒤 임베딩 backfill 을 embedded 가
+// 근사 일치는 경고), 반영(api/admin/knowledge-bulk) 뒤 임베딩 backfill 을 embedded 가
 // 0 이 될 때까지 반복한다. 판단은 knowledgeBulkPlan.ts, 파싱은 knowledgeBulkXlsx.ts.
 
 import { useMemo, useRef, useState } from "react";
@@ -19,8 +19,8 @@ import {
   type KnowledgeParseResult,
   parseKnowledgeRowsFromXlsx,
 } from "@/lib/knowledgeBulkXlsx";
-import { MAX_BULK_ROWS } from "../../../../api/_lib/performance/knowledgeBulk.js";
-import type { DedupeResult } from "../../../../api/_lib/performance/knowledgeDedupe.js";
+import { MAX_BULK_ROWS } from "../../../../api/_lib/knowledge/bulk.js";
+import type { DedupeResult } from "../../../../api/_lib/knowledge/dedupe.js";
 import { runBackfillUntilDone } from "./backfillLoop";
 import {
   postEmbedBackfill,

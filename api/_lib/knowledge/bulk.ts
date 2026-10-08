@@ -1,5 +1,5 @@
 // 수행평가 지식 DB 엑셀 일괄 반영의 판단과 변환 순수 함수.
-// 라우트(api/performance/admin-knowledge-bulk.ts)는 이 결과를 그대로 DB 에 쓴다.
+// 라우트(api/admin/knowledge-bulk.ts)는 이 결과를 그대로 DB 에 쓴다.
 //
 // 규칙
 //   knowledge_type 은 파일 값과 무관하게 메뉴 고정값으로 덮는다(fixedValues 관용구).
@@ -7,10 +7,7 @@
 //   반영한 행은 embedding_status 를 pending 으로 돌려 다음 backfill 이 다시 태우게 한다.
 //   search_text 는 건드리지 않는다. 임베딩 단계가 새로 조립해 덮는다.
 
-import {
-  type BulkKnowledgeType,
-  isBulkKnowledgeType,
-} from "./knowledgeDedupe.js";
+import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
 
 /** 요청 한 번에 반영하는 신규와 수정 합계 상한. 클라이언트가 이 크기로 나눠 보낸다. */
 export const MAX_BULK_ROWS = 500;

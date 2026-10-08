@@ -17,26 +17,26 @@
 //   200 { ok, pricing, updatedAt }   pricing 은 모델명 별 단가표, 설정 전이면 {} 와 updatedAt null
 // 오류(coded): 400 INVALID_QUERY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
-// 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 판단과 변환은 api/_lib/aiTelemetry/ 아래.
+// 핸들러 본문은 DB 에 묶여 있어 단위 테스트하지 않는다. 판단과 변환은 api/_lib/telemetry/ 아래.
 
-import { toCallListItem } from "../_lib/aiTelemetry/ops/calls.js";
+import { defineHandler } from "../_lib/handler.js";
+import { sendError } from "../_lib/httpResponse.js";
+import { toCallListItem } from "../_lib/telemetry/ops/calls.js";
 import {
   sortCitations,
   toCitationItem,
-} from "../_lib/aiTelemetry/ops/citations.js";
+} from "../_lib/telemetry/ops/citations.js";
 import {
   parseCallsQuery,
   parseRange,
   parseServiceFilter,
   parseView,
-} from "../_lib/aiTelemetry/ops/query.js";
-import { aggregateDaily, totalsOf } from "../_lib/aiTelemetry/ops/summary.js";
+} from "../_lib/telemetry/ops/query.js";
+import { aggregateDaily, totalsOf } from "../_lib/telemetry/ops/summary.js";
 import {
   AI_MODEL_PRICING_SETTING_KEY,
   parsePricingTable,
-} from "../_lib/aiTelemetry/pricing.js";
-import { defineHandler } from "../_lib/handler.js";
-import { sendError } from "../_lib/httpResponse.js";
+} from "../_lib/telemetry/pricing.js";
 
 export default defineHandler({
   methods: ["GET"],

@@ -56,12 +56,6 @@
 //    `sessionId`와 `round`뿐이고 나머지는 전부 세션 행에서 읽는다.
 
 import type { VercelResponse } from "@vercel/node";
-import {
-  performanceTraceContext,
-  retryReasonOf,
-  validationOf,
-} from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import {
@@ -94,6 +88,12 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import {
+  performanceTraceContext,
+  retryReasonOf,
+  validationOf,
+} from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 const SERVICE_KEY = "suhaeng";
 

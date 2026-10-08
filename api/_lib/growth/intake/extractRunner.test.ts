@@ -6,7 +6,7 @@ const gemini = vi.hoisted(() => ({
 }));
 vi.mock("../../gemini.js", () => gemini);
 
-import { createAiTrace } from "../../aiTelemetry/trace.js";
+import { createAiTrace } from "../../telemetry/trace.js";
 import { runExtraction } from "./extractRunner.js";
 
 const okJson = JSON.stringify({

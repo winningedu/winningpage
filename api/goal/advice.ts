@@ -29,7 +29,6 @@ import {
 } from "../../src/lib/goal/report/aggregate.js";
 import { buildDirectionSummary } from "../../src/lib/goal/report/insights.js";
 import { WEEKDAY_LABELS } from "../../src/lib/goalPlanUtils.js";
-import { type AiTrace, createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { callText } from "../_lib/gemini.js";
 import {
   ADVICE_RESPONSE_SCHEMA,
@@ -58,6 +57,7 @@ import {
   upsertAdviceCache,
 } from "../_lib/goalRepo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { type AiTrace, createAiTrace } from "../_lib/telemetry/trace.js";
 
 export const config = { runtime: "nodejs" };
 

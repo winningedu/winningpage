@@ -1,5 +1,5 @@
 // 수행평가 지식 DB 중복 감지 순수 함수. 브라우저(엑셀 업로드 미리보기)와
-// 서버(api/performance/admin-knowledge-dedupe.ts)가 이 파일 하나를 같이 import 해
+// 서버(api/admin/knowledge-dedupe.ts)가 이 파일 하나를 같이 import 해
 // 정규화 규칙이 두 벌로 갈라지지 않게 한다. 그래서 node 전용 모듈을 쓰지 않는다.
 
 function normalizeText(value: string): string {

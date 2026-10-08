@@ -1,5 +1,5 @@
 // 관리자 지식 DB 검색 테스트의 판단 순수 함수. 핸들러는
-// api/performance/admin-knowledge-search.ts 이고, 질의문 조립과 패킹 규칙은
+// api/admin/knowledge-search.ts 이고, 질의문 조립과 패킹 규칙은
 // 학생 요청 경로(knowledge.ts)의 함수를 그대로 가져다 쓴다.
 
 import {
@@ -14,11 +14,8 @@ import {
   resolveFilterSubject,
   TOPIC_MAX_CHARS,
   TOPIC_MAX_ITEMS,
-} from "./knowledge.js";
-import {
-  type BulkKnowledgeType,
-  isBulkKnowledgeType,
-} from "./knowledgeDedupe.js";
+} from "../performance/knowledge.js";
+import { type BulkKnowledgeType, isBulkKnowledgeType } from "./dedupe.js";
 
 /** 검색 테스트가 한 번에 돌려주는 행 수 기본값. */
 export const SEARCH_PREVIEW_DEFAULT_LIMIT = 20;

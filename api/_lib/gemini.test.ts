@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAiTrace } from "./aiTelemetry/trace.js";
 import { callStructured, callVision, generateWithRetry } from "./gemini.js";
+import { createAiTrace } from "./telemetry/trace.js";
 
 // 실제로 나가는 Gemini REST 요청을 가로챈다. `@ai-sdk/google` 은 호출 시점의 전역 fetch 를 쓴다.
 const fetchMock = vi.fn();

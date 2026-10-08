@@ -33,7 +33,7 @@ import {
   type GoogleGenerativeAIProvider,
 } from "@ai-sdk/google";
 import { embed } from "ai";
-import type { AiTrace } from "../aiTelemetry/trace.js";
+import type { AiTrace } from "../telemetry/trace.js";
 
 /** 코퍼스에 이미 저장된 벡터를 만든 모델. 위 경고 참고. */
 export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2";

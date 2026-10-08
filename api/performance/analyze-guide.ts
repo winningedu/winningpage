@@ -97,11 +97,6 @@
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
 import type { VercelResponse } from "@vercel/node";
-import {
-  performanceTraceContext,
-  validationOf,
-} from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { callVision, PERFORMANCE_MODEL } from "../_lib/performance/gemini.js";
@@ -119,6 +114,11 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import {
+  performanceTraceContext,
+  validationOf,
+} from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 import {
   ALLOWED_MIME_EXT,
   BUCKET,

@@ -1,4 +1,4 @@
-// POST /api/performance/admin-knowledge-dedupe
+// POST /api/admin/knowledge-dedupe
 // Authorization: Bearer <supabase access token>   (관리자)
 //
 // 수행평가 지식 DB 엑셀 일괄 등록 전에 업로드 행이 기존 행과 겹치는지 2단계로 본다.
@@ -14,20 +14,20 @@
 // 오류(coded): 400 INVALID_BODY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
 // 임베딩 호출이 행당 1회라 60초 상한 안에 끝나도록 화면은 작은 묶음으로 나눠 부른다.
-// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/performance/knowledgeDedupe.ts.
+// 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/dedupe.ts.
 
-import { performanceTraceContext } from "../_lib/aiTelemetry/performanceContext.js";
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import {
+  detectKnowledgeDuplicates,
+  validateDedupeBody,
+} from "../_lib/knowledge/dedupe.js";
 import {
   buildKnowledgeSearchText,
   embedText,
 } from "../_lib/performance/embeddings.js";
-import {
-  detectKnowledgeDuplicates,
-  validateDedupeBody,
-} from "../_lib/performance/knowledgeDedupe.js";
+import { performanceTraceContext } from "../_lib/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 
 const KNOWLEDGE_TABLE = "winning_assessment_knowledge_items";
 
@@ -47,7 +47,7 @@ export default defineHandler({
   unhandledMessage: "중복 검사에 실패했습니다.",
   unhandledCode: "INTERNAL",
   unhandledExtra: { ok: false },
-  logLabel: "performance/admin-knowledge-dedupe",
+  logLabel: "admin/knowledge-dedupe",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
     const parsed = validateDedupeBody(req.body);

@@ -10,7 +10,7 @@ import { describe, expect, test, vi } from "vitest";
 const gemini = vi.hoisted(() => ({ callText: vi.fn() }));
 vi.mock("../_lib/gemini.js", () => gemini);
 
-import { createAiTrace } from "../_lib/aiTelemetry/trace.js";
+import { createAiTrace } from "../_lib/telemetry/trace.js";
 import {
   buildRecentUsedText,
   buildTomorrowPlanItems,

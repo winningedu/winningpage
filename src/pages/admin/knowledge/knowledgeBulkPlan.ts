@@ -6,7 +6,7 @@ import {
   type DedupeItem,
   type DedupeResult,
   KNOWLEDGE_TEXT_FIELDS,
-} from "../../../../api/_lib/performance/knowledgeDedupe.js";
+} from "../../../../api/_lib/knowledge/dedupe.js";
 
 /**
  * 중복 검사 뒤 기본 체크 상태. 정확 일치가 있는 행은 같은 자료를 두 번 넣는 것이라
@@ -41,7 +41,7 @@ export type BulkRequest = {
 };
 
 /**
- * 체크한 행으로 admin-knowledge-bulk 요청 본문 목록을 만든다. 신규와 수정을 합쳐
+ * 체크한 행으로 api/admin/knowledge-bulk 요청 본문 목록을 만든다. 신규와 수정을 합쳐
  * maxRows 씩 끊는다(서버 상한 MAX_BULK_ROWS 와 맞춘다).
  */
 export function buildBulkRequests(
