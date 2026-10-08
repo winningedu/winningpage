@@ -2,7 +2,7 @@
 //
 // 이 파일은 supabase 를 전혀 모른다 — 전부 행 배열(DB에서 이미 읽어 온 snake_case
 // 객체)과 원시 값(YMD 문자열 등)을 인자로 받아 숫자·구조를 계산만 한다. DB 조회는
-// api/_lib/goalRepo.js, DB 접속·라우팅은 api/goal/report.js 가 맡는다 — 그래야
+// api/_lib/goal/repo.ts, DB 접속, 라우팅은 api/goal/report.js 가 맡는다, 그래야
 // 이 파일을 supabase 없이 aggregate.test.ts 로 직접 테스트할 수 있다.
 //
 // 기간 경계는 순수 달력이다(팀장 확정, 변경 금지) — 주간 = 월~일, 월간 = 1일~말일.
@@ -323,7 +323,7 @@ export function computeCompletionScore({
  * 계획 과제 달성/미달성/미기록 집계(행305) — goal_plan_tasks.status 3종.
  * computeCompletionScore의 doneTasks/totalTasks는 이 결과의 done/total과
  * 그대로 호환된다(같은 done 판정 기준). status가 없거나(백필 전 행) 알 수
- * 없는 값이면 pending으로 방어한다(goalRepo.js normalizePlanTaskStatus와
+ * 없는 값이면 pending으로 방어한다(api/_lib/goal/repo.ts normalizePlanTaskStatus와
  * 동일 규칙 — 이 파일은 supabase를 모르므로 값만 다시 좁혀 쓴다).
  */
 export function summarizePlanTaskCompletion(tasks: { status?: unknown }[]): {

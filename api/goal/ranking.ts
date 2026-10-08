@@ -27,7 +27,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { kstYMD } from "../../src/lib/goal/calc/index.js";
-import { num, openGoalSession } from "../_lib/goalRepo.js";
+import { num, openGoalSession } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -36,8 +36,8 @@ const TABLE_RANKING_STUDENTS = "goal_students";
 const TABLE_RANKING_RECORDS = "goal_daily_records";
 const TABLE_PROFILES = "profiles";
 
-// goalRepo.js가 아직 .js(JSDoc 전용)라 세부 행 타입을 내보내지 않는다 — 이 파일
-// 로컬에서만 쓰는 최소 shape. Stage3(goalRepo.js 자체 전환)에서 정본을 옮긴다.
+// api/_lib/goal/repo.ts가 아직 .js(JSDoc 전용)라 세부 행 타입을 내보내지 않는다, 이 파일
+// 로컬에서만 쓰는 최소 shape. Stage3(api/_lib/goal/repo.ts 자체 전환)에서 정본을 옮긴다.
 type RankedRow = { profileId: string; name: string; hours: number };
 type RankedRowWithRank = RankedRow & { rank: number };
 
@@ -89,13 +89,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const { profileId, allowed } = session;
-    // openGoalSession(goalRepo.js, Stage3 대상)의 JSDoc은 supabaseAdmin을 약한
-    // `object`로만 선언한다 — 이 파일은 goalRepo.js 헬퍼를 거치지 않고 supabase
+    // openGoalSession(api/_lib/goal/repo.ts, Stage3 대상)의 JSDoc은 supabaseAdmin을 약한
+    // `object`로만 선언한다, 이 파일은 api/_lib/goal/repo.ts 헬퍼를 거치지 않고 supabase
     // 클라이언트를 직접 호출하는 유일한 goal/* 라우트라 실제 클라이언트 타입으로
-    // 되돌린다(createSupabaseAdmin()의 실제 반환 타입, goalRepo.js는 수정하지 않는다).
+    // 되돌린다(createSupabaseAdmin()의 실제 반환 타입, api/_lib/goal/repo.ts는 수정하지 않는다).
     const supabaseAdmin = session.supabaseAdmin as SupabaseClient;
 
-    // 조회형 규약 — 미결제는 에러가 아니다(goalRepo.js openGoalSession 주석과 동일).
+    // 조회형 규약, 미결제는 에러가 아니다(api/_lib/goal/repo.ts openGoalSession 주석과 동일).
     if (!allowed) {
       return res.status(200).json({ allowed: false });
     }

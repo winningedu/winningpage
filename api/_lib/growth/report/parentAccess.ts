@@ -1,5 +1,5 @@
 // 학부모가 자녀의 성장설계 리포트를 읽을 수 있는지 판단한다.
-// 연결 규칙은 목표관리 선례(api/_lib/goalReportNotify.ts, api/request-enrollment.ts)와 같다.
+// 연결 규칙은 목표관리 선례(api/_lib/goal/reportNotify.ts, api/request-enrollment.ts)와 같다.
 // parent_child_links 에서 status 가 approved 인 행만 연결로 본다. 새 규칙을 만들지 않는다.
 
 import type { Db } from "../intake/collectDb.js";

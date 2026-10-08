@@ -1,6 +1,6 @@
 // 학습 계획(주간 계획표 WeeklyPlan.jsx + 대시보드 StudyPlanRail.jsx) 공용 순수
 // 유틸리티 — 날짜·기간 계산과 모달 라벨 ↔ 값 변환. API 호출은 goalApi.js가,
-// 서버 검증·저장은 api/goal/plan-tasks.js·api/_lib/goalRepo.js가 담당한다.
+// 서버 검증, 저장은 api/goal/plan-tasks.js, api/_lib/goal/repo.ts가 담당한다.
 //
 // 날짜 계산은 실제 달력 기준이다(kstYMD/getMondayYMD/addDaysYMD, src/lib/goal/calc)
 // — goal_daily_records의 "가상 날짜"(actual_start_date + record_index)와 무관한

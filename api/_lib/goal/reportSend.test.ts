@@ -1,5 +1,5 @@
 // api/cron/daily-report.ts · weekly-report.ts · monthly-report.ts 의 인라인
-// dedupeKey·variables 조립 로직을 goalReportSend.ts 로 뽑아낸 리팩토링의 회귀
+// dedupeKey, variables 조립 로직을 api/_lib/goal/reportSend.ts 로 뽑아낸 리팩토링의 회귀
 // 고정 테스트다. 아래 리터럴 기대값은 리팩토링 *전* 크론 인라인 코드가 실제로
 // 만들던 문자열/객체를 그대로 옮긴 것이다 — 여기서 한 글자라도 달라지면
 // alimtalk_send_logs.dedupe_key 포맷이 바뀌어 크론이 중복 발송하거나 학부모
@@ -12,11 +12,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./alimtalkSend.js", () => ({
+vi.mock("../messaging/alimtalkSend.js", () => ({
   sendAndLog: vi.fn(),
 }));
 
-import { sendAndLog } from "./alimtalkSend.js";
+import { sendAndLog } from "../messaging/alimtalkSend.js";
 import {
   buildDailyReportDedupeKey,
   buildDailyReportVariables,
@@ -30,7 +30,7 @@ import {
   sendDailyReport,
   sendMonthlyReport,
   sendWeeklyReport,
-} from "./goalReportSend.js";
+} from "./reportSend.js";
 
 const sendAndLogMock = vi.mocked(sendAndLog);
 

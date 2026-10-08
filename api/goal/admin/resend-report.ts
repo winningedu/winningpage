@@ -7,7 +7,7 @@
 //
 // "2주 전까지는" — 고객사 의도는 "자동 발송된 지 2주 안이면 다시 보낼 수
 // 있다"다. 기준일은 기간 시작이 아니라 **그 기간이 실제로 자동 발송되는
-// 날짜**다(api/_lib/goalReportResendPolicy.ts): daily=그날 자신(22시 발송),
+// 날짜**다(api/_lib/goal/reportResendPolicy.ts): daily=그날 자신(22시 발송),
 // weekly=다음 월요일(그 주 리포트는 다음 주 월요일 08시에 나간다), monthly=그
 // 달 마지막 날(23시 발송). 오늘(KST) − 발송일 > 14 면 400, 발송일이 아직
 // 오지 않았으면(자동 발송 전) 400 — 이번 주 주간 리포트를 그 주 월요일이
@@ -19,7 +19,7 @@
 // "기록이 없어도 재발송은 허용"(안내 목적) 요구와도 자연히 맞는다.
 //
 // 조회·발송(기록 조회·변수 조립·sendAndLog)은 크론과 100% 같은 함수
-// (api/_lib/goalReportSend.ts)를 쓴다 — 여기서 다시 구현하지 않는다. studentIds를
+// (api/_lib/goal/reportSend.ts)를 쓴다, 여기서 다시 구현하지 않는다. studentIds를
 // [studentProfileId] 하나로 넘기면 그 학생 한 명분만 조회한다(기록이 없어도
 // 항목은 만들어진다 — "기록이 없어도 재발송 허용" 요구사항).
 
@@ -35,8 +35,8 @@ import {
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
-} from "../../_lib/goalReportResendPolicy.js";
-import type { ReportSendResult } from "../../_lib/goalReportSend.js";
+} from "../../_lib/goal/reportResendPolicy.js";
+import type { ReportSendResult } from "../../_lib/goal/reportSend.js";
 import {
   loadDailyReportInputs,
   loadMonthlyReportInputs,
@@ -44,7 +44,7 @@ import {
   sendDailyReport,
   sendMonthlyReport,
   sendWeeklyReport,
-} from "../../_lib/goalReportSend.js";
+} from "../../_lib/goal/reportSend.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { maskPhone } from "../../_lib/phoneCode.js";

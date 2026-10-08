@@ -3,8 +3,8 @@
 // api/goal/admin/resend-report.ts 의 validateResendPeriod 가 서버측 최종
 // 판정이다 — 여기서는 그 규칙을 미리 적용해 "눌러도 어차피 400 나는" 후보를
 // 아예 안 보여준다. 기준일(=그 기간이 실제로 자동 발송되는 날짜)과 14일 상수는
-// 의존이 0에 가까운 잎 모듈(api/_lib/goalReportResendPolicy.ts) 값을 그대로
-// 가져다 쓴다 — api/_lib/goalReportSend.ts를 직접 import하면 sendAndLog가
+// 의존이 0에 가까운 잎 모듈(api/_lib/goal/reportResendPolicy.ts) 값을 그대로
+// 가져다 쓴다, api/_lib/goal/reportSend.ts를 직접 import하면 sendAndLog가
 // 딸고 오는 aligo.ts(undici) 같은 서버 전용 의존까지 이 화면 번들에 끌려온다
 // (api/_lib/performance/submission-chars.ts와 같은 원칙).
 //
@@ -25,7 +25,7 @@ import {
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
-} from "../../../api/_lib/goalReportResendPolicy.js";
+} from "../../../api/_lib/goal/reportResendPolicy.js";
 
 export type ResendKind = "daily" | "weekly" | "monthly";
 

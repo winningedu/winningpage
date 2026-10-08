@@ -8,12 +8,12 @@
 // 환경변수 PUBLIC_SITE_URL 로 도메인을 받는다. 상수 폴백은 두지 않고, 값이 없으면
 // 잘못된 도메인 링크를 보내지 않도록 발송을 건너뛰고 console.warn 을 남긴다.
 
-import { sendAndLog } from "../../alimtalkSend.js";
 import {
   kstNow,
   resolveParentRecipients,
   toYmd,
-} from "../../goalReportNotify.js";
+} from "../../goal/reportNotify.js";
+import { sendAndLog } from "../../messaging/alimtalkSend.js";
 import { getEnv } from "../../supabaseAdmin.js";
 import { type Db, must } from "../intake/collectDb.js";
 

@@ -1,10 +1,10 @@
 // goal_plan_tasks 3상태(pending/done/fail) — 행305 회귀 테스트.
 //
-// normalizePlanTaskStatus/buildPlanTaskPayload는 goalRepo.ts의 계산 없는
+// normalizePlanTaskStatus/buildPlanTaskPayload는 api/_lib/goal/repo.ts의 계산 없는
 // 매핑 함수라 DB/네트워크 없이 순수 함수처럼 테스트할 수 있다(파일 헤더
 // "이 파일에는 계산 로직이 하나도 없다" 그대로).
 import { describe, expect, test } from "vitest";
-import { buildPlanTaskPayload, normalizePlanTaskStatus } from "./goalRepo.js";
+import { buildPlanTaskPayload, normalizePlanTaskStatus } from "./repo.js";
 
 describe("normalizePlanTaskStatus", () => {
   test("done/fail은 그대로 통과한다", () => {

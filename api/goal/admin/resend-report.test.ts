@@ -4,7 +4,7 @@
 // 만 로컬에서 검증한다).
 //
 // "2주 이내" 기준일은 기간 시작이 아니라 그 기간이 실제로 자동 발송되는 날짜다
-// (api/_lib/goalReportResendPolicy.ts) — daily=그날 자신, weekly=다음 월요일,
+// (api/_lib/goal/reportResendPolicy.ts), daily=그날 자신, weekly=다음 월요일,
 // monthly=그 달 마지막 날. 그래서 "이번 주"는 그 주의 월요일이 오기 전까지는
 // 절대 재발송 후보가 될 수 없다(자동 발송 자체가 아직 안 일어났다).
 

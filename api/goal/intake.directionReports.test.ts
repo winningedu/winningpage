@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveGoalDirectionReportMock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("../_lib/goalRepo.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../_lib/goalRepo.js")>();
+vi.mock("../_lib/goal/repo.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../_lib/goal/repo.js")>();
   return {
     ...actual,
     saveGoalDirectionReport: (...args: unknown[]) =>

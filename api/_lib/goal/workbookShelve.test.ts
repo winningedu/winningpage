@@ -6,7 +6,7 @@ import {
   buildWorkbookPayload,
   canShelveWorkbook,
   computeWorkbookStatus,
-} from "./goalRepo.js";
+} from "./repo.js";
 
 describe("computeWorkbookStatus", () => {
   test("현재 페이지가 전체 페이지에 못 미치면 reading이다", () => {

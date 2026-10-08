@@ -38,7 +38,7 @@
 //   어드민에서 수기 발송한다(크론 3종과 같은 규약).
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sendAndLog } from "./_lib/alimtalkSend.js";
+import { sendAndLog } from "./_lib/messaging/alimtalkSend.js";
 import { createSupabaseAdmin } from "./_lib/supabaseAdmin.js";
 
 export const config = { runtime: "nodejs" };

@@ -1,11 +1,8 @@
 // 계획↔문제집 연결(QA 행286-B) — buildPlanTaskPayload의 workbook 필드 매핑과
-// nextWorkbookPageAfterTaskDone(진도 전진 계산)은 goalRepo.ts의 계산 없는 순수
+// nextWorkbookPageAfterTaskDone(진도 전진 계산)은 api/_lib/goal/repo.ts의 계산 없는 순수
 // 함수라 DB/네트워크 없이 테스트할 수 있다(goalWorkbookShelve.test.ts와 동일 관례).
 import { describe, expect, test } from "vitest";
-import {
-  buildPlanTaskPayload,
-  nextWorkbookPageAfterTaskDone,
-} from "./goalRepo.js";
+import { buildPlanTaskPayload, nextWorkbookPageAfterTaskDone } from "./repo.js";
 
 describe("buildPlanTaskPayload — workbook 연결 필드", () => {
   const baseRow = {

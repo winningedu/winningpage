@@ -9,10 +9,10 @@ import GoalGradePyramid from "./GoalGradePyramid";
 // 고정하지 않고 min-height + 콘텐츠에 따라 자라도록 구현한다(고정 h 금지).
 //
 // 등급 피라미드(QA 행301) — grade/scaleMax가 둘 다 있을 때만 렌더한다(피라미드는 등급 기반이라
-// 정시 백분위만 있고 등급 환산이 안 되는 입력은 없다 — api/_lib/goalDirectionReport.ts가 항상
+// 정시 백분위만 있고 등급 환산이 안 되는 입력은 없다, api/_lib/goal/directionReport.ts가 항상
 // 등급도 함께 채운다).
 //
-// materials(추천 교재/자료) — D13 보류가 QA 행301에서 해제됐다(api/_lib/goalDirectionReport.ts
+// materials(추천 교재/자료), D13 보류가 QA 행301에서 해제됐다(api/_lib/goal/directionReport.ts
 // getBooks가 채운다). 여전히 선택 prop으로 남겨 빈 배열이면 그 섹션 자체를 렌더하지 않는다
 // (빈 타이틀+빈 wrap 잔여물 방지 — 원본 규칙 유지).
 type SubjectDirectionCardProps = {

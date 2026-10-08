@@ -209,7 +209,7 @@ const GOAL_STUDENT_FILTERS: { key: string; label: string }[] = [
   { key: "paused", label: "정지" },
 ];
 
-// 상세 상단 안내에 쓰는 컷 4종의 표시 순서/라벨. goalRepo.js:37 CUT_KEYS 와 같은 순서다.
+// 상세 상단 안내에 쓰는 컷 4종의 표시 순서/라벨. api/_lib/goal/repo.ts:37 CUT_KEYS 와 같은 순서다.
 const GOAL_CUT_SLOTS: GoalCutSlot[] = [
   {
     key: "idealNaesin",
@@ -403,7 +403,7 @@ function buildGoalRiskFlags(row: GoalListRow, todayYMD: string) {
 }
 
 // 온보딩 시점 컷 스냅샷 4칸 중 null 인 것 = 빠진 컷.
-// api/_lib/goalRepo.js:270-278 listMissingCuts 와 같은 규칙이지만 그 모듈은
+// api/_lib/goal/repo.ts:270-278 listMissingCuts 와 같은 규칙이지만 그 모듈은
 // service_role 클라이언트를 끌고 오므로(supabaseAdmin.js) 브라우저 번들로 import 하지 않는다.
 function listGoalMissingCutSlots(student: GoalStudentRow | null) {
   if (!student) return [];
@@ -1330,7 +1330,7 @@ export function GoalStudentDetail({
       setLogs(logRes.data || []);
 
       // ── 현재 컷 조회 (§4-3-C-3) ──────────────────────────────────────
-      // 술어는 goalRepo.fetchUniversityCut(api/_lib/goalRepo.js:156-171)과
+      // 술어는 goalRepo.fetchUniversityCut(api/_lib/goal/repo.ts:156-171)과
       // 글자 단위로 같아야 한다 — cut_type + university_name + department_name +
       // is_active=true + order('id') + limit(1). 하나라도 어긋나면 화면의 "현재 컷"과
       // 온보딩이 실제로 집어 갈 컷이 달라져 diff 표 자체가 거짓말이 된다.

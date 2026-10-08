@@ -15,7 +15,7 @@ import {
 } from "@/components/goal/onboarding/onboardingOptions";
 
 // QA B9(열공 타이머 과목 확장, 5종→8종)로 사회/한국사/제2외국어를 추가했다 — 코드값은
-// api/_lib/goalRepo.ts TIMER_SUBJECTS와 글자 단위로 같은 카탈로그 순서.
+// api/_lib/goal/repo.ts TIMER_SUBJECTS와 글자 단위로 같은 카탈로그 순서.
 export const TASK_SUBJECTS = [
   "국어",
   "수학",

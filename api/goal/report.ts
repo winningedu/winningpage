@@ -21,7 +21,7 @@
 // 도달하지 않는다).
 //
 // 집계 산술은 전부 src/lib/goal/report/aggregate.js(순수 함수, supabase 미의존)에
-// 있다 — 이 파일은 DB 조회(api/_lib/goalRepo.js) → aggregate.js 입력 조립 →
+// 있다, 이 파일은 DB 조회(api/_lib/goal/repo.ts), aggregate.js 입력 조립,
 // insights.js 자연어 슬롯 → UI가 기대하는 report 응답 모양(GrowthReportBody.jsx /
 // DirectionReportBody.jsx가 지금까지 goalReportMock.js에서 그대로 읽던 그 모양)으로
 // 되돌리는 배선만 한다.
@@ -65,7 +65,7 @@ import {
   buildSubjectShareTip,
   buildTimeSlotTip,
 } from "../../src/lib/goal/report/insights.js";
-import { buildGoalDirectionReport } from "../_lib/goalDirectionReport.js";
+import { buildGoalDirectionReport } from "../_lib/goal/directionReport.js";
 import {
   checkLinkedPair,
   fetchActiveCohortProfileIds,
@@ -82,7 +82,7 @@ import {
   narrowGoalSession,
   openGoalSession,
   saveGoalDirectionReport,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -428,7 +428,7 @@ async function buildGrowthReport({
 }
 
 // ---------------------------------------------------------------------------
-// 학습방향 리포트(내신/정시) — QA 행301. 저장·이력 기반(api/_lib/goalDirectionReport.ts
+// 학습방향 리포트(내신/정시), QA 행301. 저장, 이력 기반(api/_lib/goal/directionReport.ts
 // 빌더 + goal_direction_reports 테이블). 조회 때마다 즉석 계산만 하던 이전 구현을
 // 대체한다 — periodChips는 이제 회차 옵션이 아니라 저장된 리포트 목록(최신순),
 // activePeriod/조회 파라미터는 그 리포트의 id(reportId)다.

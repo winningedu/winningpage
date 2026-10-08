@@ -14,7 +14,7 @@ import { fetchGoalSchedules } from "@/lib/goalApi";
 // GET /api/goal/schedules 실데이터로 배선(중요일정 D 백엔드 배선 UoW) — mockSchedules는
 // 더 이상 쓰지 않는다.
 
-// api/_lib/goalRepo.js buildSchedulePayload() 반환 shape.
+// api/_lib/goal/repo.ts buildSchedulePayload() 반환 shape.
 type Schedule = {
   id: string | number;
   title: string;
