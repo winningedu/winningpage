@@ -1256,8 +1256,15 @@ function buildAxisAppRows(
       const topic = a.topic?.trim() ?? "";
       return topic === "" ? [] : [{ id: a.id, topic }];
     });
-  const shown = withTopic.slice(0, AXIS_TOPIC_LIMIT);
-  const rest = withTopic.length - shown.length;
+  // 같은 topic 은 처음 나온 활동 하나만 보이고, 서로 다른 topic 을 최대 3개 고른다.
+  const shown: { id: string; topic: string }[] = [];
+  for (const x of withTopic) {
+    if (shown.length >= AXIS_TOPIC_LIMIT) break;
+    if (!shown.some((y) => y.topic === x.topic)) shown.push(x);
+  }
+  // 외 N건 = topic 있는 활동 중 보인 topic 을 가진 활동(중복 포함)을 뺀 수.
+  const shownTopics = new Set(shown.map((x) => x.topic));
+  const rest = withTopic.filter((x) => !shownTopics.has(x.topic)).length;
   const rows: Record<string, unknown>[] = [
     { label: "판정", value: e.verdictLabel, evidence_ids: [] },
   ];
