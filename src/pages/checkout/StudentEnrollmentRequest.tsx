@@ -4,7 +4,7 @@ import successCheck from "@/assets/checkout/success-check-60.svg";
 import ConfirmModal from "@/components/checkout/ConfirmModal";
 import ServiceCatalog from "@/components/pricing/ServiceCatalog";
 import { useAuth } from "@/context/AuthProvider";
-import { formatKRW } from "@/data/pricingCatalog";
+import { formatKRW, SERVICE_NOTICES } from "@/data/pricingCatalog";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { getApprovedParentLink } from "@/lib/parentLink";
 import {
@@ -42,8 +42,9 @@ const BUSAN_9900_SERVICE_KEY = "special";
 //
 // 카탈로그 필터 — 예전엔 여기 ALLOWED_SERVICE_KEYS 하드코딩 상수를 뒀는데
 // ParentCheckout.tsx 가 같은 상수를 별도로 들고 있다 드리프트로 diagnose 가
-// 한쪽에서 빠지는 버그가 났다(결제 차단). 이제 useProducts(orderableOnly: true)로
-// DB 컬럼 products.is_orderable 을 정본으로 쓴다(supabase/migrations/20260825000000).
+// 한쪽에서 빠지는 버그가 났다(결제 차단). 이제 DB 컬럼 products.is_orderable 을
+// 정본으로 쓴다(supabase/migrations/20260825000000). 주문 불가 상품은 카탈로그에
+// 보이되 ServiceCatalog 가 선택을 막는다(콜멘토 제공 예정).
 
 // 그룹당 1개 선택 안내 — 시안 실측 문구(3921:7066, 목표관리·수행평가 섹션
 // 하단에만 있고 콜멘토엔 없다 — 아래 렌더 조건 `products.length > 1`이 이를
@@ -104,12 +105,7 @@ interface CompletedOrder {
 
 export default function StudentEnrollmentRequest() {
   const navigate = useNavigate();
-  const {
-    services: filteredServices,
-    loading,
-    error,
-    refetch,
-  } = useProducts(undefined, { orderableOnly: true });
+  const { services: filteredServices, loading, error, refetch } = useProducts();
 
   // org 한정 상품 노출 필터(2026-09-01) — 학생 본인 기준(fn_matched_tenant_ids 를
   // 인자 없이 호출 → 본인 + 연결된 학부모의 소속). 표시 전용, 정본은
@@ -195,7 +191,8 @@ export default function StudentEnrollmentRequest() {
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      if (!product) return;
+      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 요청과 합계에 넣지 않는다.
+      if (!product?.isOrderable) return;
       items.push({
         id: product.id,
         serviceKey: service.key,
@@ -416,6 +413,7 @@ export default function StudentEnrollmentRequest() {
               selected={selected}
               onToggle={toggle}
               planNotice={SINGLE_PLAN_NOTICE}
+              serviceNotices={SERVICE_NOTICES}
             />
           )}
         </div>

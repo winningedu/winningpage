@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import ServiceCatalog from "@/components/pricing/ServiceCatalog";
-import { formatKRW, SINGLE_SELECT_NOTICE } from "@/data/pricingCatalog";
+import {
+  formatKRW,
+  SERVICE_NOTICES,
+  SINGLE_SELECT_NOTICE,
+} from "@/data/pricingCatalog";
 import { saveCart } from "@/lib/cart";
 import {
   filterOrgProducts,
@@ -156,7 +160,8 @@ export default function PricingSelling({
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      if (!product) return;
+      // 주문 불가 상품은 어떤 경로로 selected 에 들어와도 장바구니와 합계에 넣지 않는다.
+      if (!product?.isOrderable) return;
       items.push({
         id: product.id,
         serviceKey: service.key,
@@ -299,6 +304,7 @@ export default function PricingSelling({
               onToggle={toggle}
               showDetailLinks
               planNotice={SINGLE_SELECT_NOTICE}
+              serviceNotices={SERVICE_NOTICES}
             />
           )}
 

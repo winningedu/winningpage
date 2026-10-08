@@ -23,6 +23,26 @@ const SERVICES: ServiceGroup[] = [
         price: 80000,
         badge: null,
         recommended: false,
+        isOrderable: true,
+        tenantId: null,
+        saleEndsAt: null,
+      },
+    ],
+  },
+  {
+    key: "mentor",
+    name: "위닝 콜멘토",
+    desc: "",
+    order: 1,
+    products: [
+      {
+        id: "mentor-1",
+        name: "[1회] 콜멘토",
+        listPrice: 50000,
+        price: 50000,
+        badge: null,
+        recommended: false,
+        isOrderable: false,
         tenantId: null,
         saleEndsAt: null,
       },
@@ -106,5 +126,23 @@ describe("PricingSelling parent viewer", () => {
     expect(
       screen.getAllByRole("button", { name: /결제하기/ }).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("PricingSelling 콜멘토 제공 예정", () => {
+  it("콜멘토는 안내 문구와 함께 보이지만 선택해도 결제하기 버튼이 생기지 않는다", () => {
+    renderPricing();
+
+    expect(
+      screen.getByText("위닝 콜멘토 서비스는 2026년 말부터 제공될 예정입니다."),
+    ).toBeInTheDocument();
+    const mentorRadio = screen.getByRole("radio", { name: /콜멘토/ });
+    expect(mentorRadio).toBeDisabled();
+
+    fireEvent.click(mentorRadio);
+
+    expect(
+      screen.queryByRole("button", { name: /결제하기/ }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ import checkboxSelected from "@/assets/checkout/checkbox-24-selected.svg";
 import sectionArrow from "@/assets/checkout/section-arrow-38.svg";
 import ConfirmModal from "@/components/checkout/ConfirmModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatKRW } from "@/data/pricingCatalog";
+import { formatKRW, SERVICE_NOTICES } from "@/data/pricingCatalog";
 import { useTermsDocs } from "@/hooks/useTermsDocs";
 import {
   filterOrgProducts,
@@ -384,15 +384,15 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
   const [payError, setPayError] = useState<string | null>(null);
 
   // 카탈로그 — 학생이 이미 고른 상품을 학부모가 바꿀 수 있게(StudentEnrollmentRequest.tsx
-  // 와 동일 패턴). orderableOnly=true 로 셀프서브 결제 카탈로그(products.is_orderable)만
-  // 받는다 — 예전 ALLOWED_SERVICE_KEYS 하드코딩 상수는 제거했다(드리프트로 diagnose
+  // 와 동일 패턴). is_orderable=false 상품(콜멘토 제공 예정 등)도 함께 받아 카드는
+  // 보이되 선택은 막는다(isOrderable), 예전 ALLOWED_SERVICE_KEYS 하드코딩 상수는 제거했다(드리프트로 diagnose
   // 누락 버그, is_orderable 컬럼 도입 배경). productsLoading/productsError 로 이름을
   // 바꿔 위 결제 loading state 와 충돌하지 않게 한다.
   const {
     services: filteredServices,
     loading: productsLoading,
     error: productsError,
-  } = useProducts(undefined, { orderableOnly: true });
+  } = useProducts();
   const hasNoServices = Boolean(productsError) || filteredServices.length === 0;
 
   // org 한정 상품 노출 필터(2026-09-01) — 학생 소속 기준(order.student_profile_id).
@@ -462,8 +462,14 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
     else return;
     e.preventDefault();
 
-    const nextIndex =
-      (currentIndex + delta + products.length) % products.length;
+    // 주문 불가 상품(isOrderable=false)은 선택도 포커스도 받지 못하므로 건너뛴다.
+    // 한 바퀴를 돌아도 주문 가능 상품이 없으면 아무것도 하지 않는다.
+    let nextIndex = currentIndex;
+    for (let step = 0; step < products.length; step += 1) {
+      nextIndex = (nextIndex + delta + products.length) % products.length;
+      if (products[nextIndex]?.isOrderable) break;
+      if (step === products.length - 1) return;
+    }
     const nextProduct = products[nextIndex];
     if (!nextProduct) return;
     setSelected((prev) => ({ ...prev, [serviceKey]: nextProduct.id }));
@@ -480,7 +486,9 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
       const pid = selected[service.key];
       if (!pid) return;
       const product = service.products.find((p) => p.id === pid);
-      if (!product) return;
+      // 주문 불가 상품은 원 주문 프리필로 selected 에 들어와도 결제 항목과 합계에
+      // 넣지 않는다(missingOrderItem 이 그 경우를 결제 차단으로 알린다).
+      if (!product?.isOrderable) return;
       items.push({
         id: product.id,
         serviceKey: service.key,
@@ -551,7 +559,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
     return orderItems.some(
       (item) =>
         !visibleServices.some((s) =>
-          s.products.some((p) => p.id === item.product_id),
+          s.products.some((p) => p.id === item.product_id && p.isOrderable),
         ),
     );
   }, [isResume, productsLoading, orgCodesLoaded, orderItems, visibleServices]);
@@ -1035,7 +1043,8 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
                           );
                           const isRovingTabStop = hasSelectionInGroup
                             ? isSelected
-                            : index === 0;
+                            : index ===
+                              service.products.findIndex((p) => p.isOrderable);
                           const discountPct = hasDiscount
                             ? Math.round(
                                 (1 -
@@ -1052,6 +1061,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
                               key={product.id}
                               role="radio"
                               aria-checked={isSelected}
+                              disabled={!product.isOrderable}
                               tabIndex={isRovingTabStop ? 0 : -1}
                               onClick={() => toggle(service.key, product.id)}
                               onKeyDown={(e) =>
@@ -1062,7 +1072,11 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
                                   index,
                                 )
                               }
-                              className="flex w-full items-center justify-between gap-4 rounded-2xl border border-line bg-white px-4 py-4 text-left transition hover:border-ink-sub"
+                              className={`flex w-full items-center justify-between gap-4 rounded-2xl border border-line bg-white px-4 py-4 text-left transition ${
+                                product.isOrderable
+                                  ? "hover:border-ink-sub"
+                                  : "cursor-not-allowed opacity-50"
+                              }`}
                             >
                               <span className="flex min-w-0 flex-1 items-center gap-3">
                                 <img
@@ -1110,6 +1124,11 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
                           );
                         })}
                       </div>
+                      {SERVICE_NOTICES[service.key] && (
+                        <p className="mt-3 text-[0.8125rem] font-medium leading-5 text-ink-sub">
+                          {SERVICE_NOTICES[service.key]}
+                        </p>
+                      )}
                     </div>
                   ))}
               </>
