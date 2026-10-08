@@ -99,6 +99,20 @@ describe("site — schoolmentor", () => {
   });
 });
 
+describe("site - 프리미엄 노출 플래그", () => {
+  it("winning은 프리미엄을 노출한다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.features.premium).toBe(true);
+  });
+
+  it("schoolmentor는 프리미엄을 노출하지 않는다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.features.premium).toBe(false);
+  });
+});
+
 describe("site — 잘못된 VITE_SITE", () => {
   it("winning/schoolmentor가 아니면 throw한다", async () => {
     vi.stubEnv("VITE_SITE", "tokyo");

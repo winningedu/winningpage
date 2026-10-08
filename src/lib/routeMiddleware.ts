@@ -212,6 +212,16 @@ export const requireOnlineInquiryAvailableMiddleware: MiddlewareFunction =
     }
   };
 
+// 2d) /page/premium/*, /premium-apply - 프리미엄을 숨기는 사이트(site.features.premium=
+// false, 스쿨멘토)는 메뉴, 카드에서 빼는 것에 더해 직접 URL 진입도 홈으로 되돌린다.
+// 2c와 같은 이유로 빌드타임 상수를 동기 판정한다.
+export const requirePremiumAvailableMiddleware: MiddlewareFunction =
+  async () => {
+    if (!site.features.premium) {
+      throw redirect("/");
+    }
+  };
+
 // 3) /app/goal/* — 로그인 + 이용권('goal') 확인(RequireGoalAccess.jsx의 1・2단계,
 // 즉 RequireEntitlement의 standalone 분기 이관). 두 라우트 그룹(온보딩 그룹 +
 // GoalAppLayout 대시보드 그룹) 모두에 건다 — 원본과 동일하게 온보딩 경로도
