@@ -11,8 +11,8 @@
 // 그대로 돌려준다. Gemini 실패/GEMINI_API_KEY 미설정이면 규칙 기반 폴백(origin:'rule')을
 // 같은 shape으로 만들어 캐시에 저장한다(문자열 상수 폴백 금지, [[no-fallback-constants]]).
 //
-// 프롬프트·후처리·규칙 폴백은 순수 함수(api/_lib/goalAdvice.ts)에 전부 위임한다 —
-// 이 파일은 세션 게이트 · DB 조회 · Gemini 호출 배선만 한다(goalRepo.ts 파일 헌장과
+// 프롬프트, 후처리, 규칙 폴백은 순수 함수(api/_lib/goal/advice.ts)에 전부 위임한다.
+// 이 파일은 세션 게이트, DB 조회, Gemini 호출 배선만 한다(api/_lib/goal/repo.ts 파일 헌장과
 // 동일 원칙, daily-record.ts 컨벤션 재사용).
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -40,7 +40,7 @@ import {
   pickAdviceTheme,
   pickMajorTheme,
   pickPlanMode,
-} from "../_lib/goalAdvice.js";
+} from "../_lib/goal/advice.js";
 import {
   DEFAULT_TIMER_SUBJECTS,
   fetchAdviceCache,
@@ -55,7 +55,7 @@ import {
   PAID_MESSAGE,
   SUBJECT_CODE_TO_LABEL,
   upsertAdviceCache,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -231,13 +231,13 @@ export function resolveDayNameKr(dayIndex: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// 프롬프트 입력 조립 — DB 행 → AdvicePromptInput(api/_lib/goalAdvice.ts 계약).
+// 프롬프트 입력 조립, DB 행을 AdvicePromptInput 으로(api/_lib/goal/advice.ts 계약).
 // ---------------------------------------------------------------------------
 async function buildPromptInput(
   supabaseAdmin: NonNullable<GoalSession["supabaseAdmin"]>,
   profileId: string,
   source: "intake" | "daily",
-  // biome-ignore lint/suspicious/noExplicitAny: goalRepo.ts Row(생성 타입 없음)와 동일 근거.
+  // biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts Row(생성 타입 없음)와 동일 근거.
   studentRow: any,
   submitCount: number,
   now: Date,

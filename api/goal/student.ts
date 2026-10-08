@@ -32,7 +32,7 @@ import {
   computeJungsiRecalc,
   needsJungsiRecalcAttempt,
   resolveJungsiEffectiveGrade,
-} from "../_lib/goalJungsiProb.js";
+} from "../_lib/goal/jungsiProb.js";
 import {
   buildAwaitingCutsPayload,
   buildStudentPayload,
@@ -46,7 +46,7 @@ import {
   num,
   openGoalSession,
   updateStudentJungsiProb,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 /**

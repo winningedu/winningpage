@@ -10,7 +10,7 @@ const REPORT_PDF_ENDPOINT = "/api/report-pdf";
 // urlencoded는 한글 등 non-ASCII를 %EA%B0... 식으로 약 3배 부풀린다. Vercel
 // 요청 상한은 4.5MB라, 인코딩 후 크기가 이보다 먼저 이 문턱을 넘으면 서버가
 // 413을 주기 전에 클라이언트에서 먼저 막는다(서버 MAX_HTML_BYTES 3MB는
-// 디코딩 후 html 필드만 기준이라 이 값과 다르다 — api/_lib/reportPdf.ts 참고).
+// 디코딩 후 html 필드만 기준이라 이 값과 다르다, api/_lib/pdf/report.ts 참고).
 const MAX_ENCODED_PAYLOAD_BYTES = 4 * 1024 * 1024;
 
 export interface DownloadReportPdfInput {

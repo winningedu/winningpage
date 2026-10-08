@@ -25,7 +25,7 @@ import {
   sanitizeFileName,
   sanitizePrintHtml,
   shouldIsolateContext,
-} from "./reportPdf.js";
+} from "./report.js";
 
 describe("isHtmlTooLarge", () => {
   it("3MB 이하 html은 false다", () => {

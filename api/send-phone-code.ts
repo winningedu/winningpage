@@ -17,9 +17,13 @@
 // duplicate_phone이 잡는다.
 
 import type { VercelResponse } from "@vercel/node";
-import { getChannel, isDryRun, sendVerificationCode } from "./_lib/aligo.js";
 import { defineHandler } from "./_lib/handler.js";
 import { sendError } from "./_lib/httpResponse.js";
+import {
+  getChannel,
+  isDryRun,
+  sendVerificationCode,
+} from "./_lib/messaging/aligo.js";
 import {
   CODE_TTL_SECONDS,
   COOLDOWN_SECONDS,

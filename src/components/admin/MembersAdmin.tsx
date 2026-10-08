@@ -28,7 +28,7 @@ import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 // 구현한다 — 나머지 셋은 선행 작업이 있다:
 //   · 상담          : 상담 원장 테이블이 아직 없다(수기 등록 화면).
 //   · 알림톡·문자   : 발송 로그 테이블 + aligo 다중 템플릿 일반화가 먼저다
-//                     (api/_lib/aligo.ts 는 인증번호 단일 템플릿 전용이고
+//                     (api/_lib/messaging/aligo.ts 는 인증번호 단일 템플릿 전용이고
 //                      발송 이력을 남기지 않는다).
 //   · 서비스이용내역: 기획자가 와이어프레임에 "어디서-누가-무슨 행동을 했는지
 //                     로직이 다 정해져야 한다"고 미확정으로 남겨둔 항목이다.
@@ -1265,7 +1265,7 @@ function PayPane({
 // 참조 HTML 의 "90byte 초과 시 자동으로 LMS(장문)로 전환됩니다" 안내가 그 얘기다.
 // ---------------------------------------------------------------------------
 
-/** EUC-KR 기준 바이트 — 한글/전각 2, 그 외 1. api/_lib/aligo.ts 의 규칙과 같다. */
+/** EUC-KR 기준 바이트, 한글/전각 2, 그 외 1. api/_lib/messaging/aligo.ts 의 규칙과 같다. */
 function smsBytes(text: string): number {
   let bytes = 0;
   for (const ch of text) bytes += ch.charCodeAt(0) > 0x7f ? 2 : 1;

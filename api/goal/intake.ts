@@ -50,7 +50,7 @@ import {
 } from "../../src/lib/goal/calc/index.js";
 import type { CutsInput } from "../../src/lib/goal/calc/pipeline.js";
 import type { DayPattern } from "../../src/lib/goal/calc/schedule.js";
-import { buildGoalDirectionReport } from "../_lib/goalDirectionReport.js";
+import { buildGoalDirectionReport } from "../_lib/goal/directionReport.js";
 
 import {
   appendProbabilityLog,
@@ -64,7 +64,7 @@ import {
   PAID_MESSAGE,
   saveGoalDirectionReport,
   upsertStudentRow,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -1362,7 +1362,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       school_type: schoolType,
       // '중3' 치환은 엔진 호출 전용이다(위 effectiveGrade 주석 참고) — DB·화면에는
       // 학생이 실제로 고른 학년을 남긴다. goal_students.grade 의 유일한 소비처는
-      // goalRepo.js:315 buildStudentPayload 의 profile.grade(표시용)뿐이라 계산에는
+      // api/_lib/goal/repo.ts:315 buildStudentPayload 의 profile.grade(표시용)뿐이라 계산에는
       // 영향이 없다(직접 grep 확인). 특례 식별자는 naesin_scores.priorNaesinGrade 로
       // 이미 행에 남아 있다.
       grade: inputGrade,
@@ -1447,7 +1447,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 10) 컷 누락 — 입력은 버리지 않고 422 로 알린다(§9-3).
     //     정시 컷 누락은 더 이상 422 사유가 아니다 — 수시 컷이 없을 때만 낸다.
-    //     fetchTargetCuts/CUT_KEYS(goalRepo.js)는 listMissingCuts(관리자의
+    //     fetchTargetCuts/CUT_KEYS(api/_lib/goal/repo.ts)는 listMissingCuts(관리자의
     //     "컷 만들기" 버튼) 등 범용 소비처가 있어 고치지 않고, 여기 호출부에서
     //     수시 2종만 걸러 응답한다(§7-1-A 1번).
     if (!hasSusiCuts) {

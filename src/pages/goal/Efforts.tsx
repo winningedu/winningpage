@@ -54,7 +54,7 @@ const SHELVE_ROW_EXIT_MS = 350;
 // 느린 프레임에서도 애니메이션 도중 클래스가 빠지지 않게 한다.
 const SHELVE_DROP_RESET_MS = 900;
 
-// api/_lib/goalRepo.js buildWorkbookPayload() 반환 shape.
+// api/_lib/goal/repo.ts buildWorkbookPayload() 반환 shape.
 type Workbook = {
   id: string | number;
   subject: string;
@@ -63,7 +63,7 @@ type Workbook = {
   // 필터링(subject/status)에만 쓰여 null이어도 안전하다.
   totalPages: number | null;
   currentPage: number | null;
-  // api/_lib/goalRepo.js computeWorkbookStatus() 반환값 그대로("in_progress"가 아니라
+  // api/_lib/goal/repo.ts computeWorkbookStatus() 반환값 그대로("in_progress"가 아니라
   // "reading" — 이전 주석이 실제 서버 값과 어긋나 있었다).
   status: "reading" | "done" | string;
   // "책장에 꽂기" 수동 전이(Figma 4026:6046) — null이면 status='done'이어도 아직

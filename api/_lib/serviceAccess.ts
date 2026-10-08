@@ -9,7 +9,7 @@
 // orders만 있고 program_access/enrollments가 없는 사용자, 혹은 그 반대인
 // 사용자가 생기면 양쪽 판정이 갈린다. 그래서 판정 로직은 여기 한 곳에만
 // 두고, api/create-service-ticket.js(SSO 티켓 발급), api/check-service-access.js
-// (클라이언트 조회용, 읽기 전용), api/_lib/goalRepo.js(목표관리 서버 라우트의
+// (클라이언트 조회용, 읽기 전용), api/_lib/goal/repo.ts(목표관리 서버 라우트의
 // 세션 게이트)가 함께 쓴다.
 //
 // target_url·SSO_SECRET·티켓 서명처럼 "티켓 발급" 전용 로직은 여기 없다.

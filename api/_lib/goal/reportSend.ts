@@ -22,8 +22,8 @@
 //   중복 발송된다. goalReportSend.test.ts 가 이 포맷을 리터럴 문자열로 고정한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CONDITION_LABELS, TASK_LABELS } from "../goal/daily-record.js";
-import { sendAndLog } from "./alimtalkSend.js";
+import { CONDITION_LABELS, TASK_LABELS } from "../../goal/daily-record.js";
+import { sendAndLog } from "../messaging/alimtalkSend.js";
 import {
   achievementRate,
   formatHours,
@@ -31,8 +31,8 @@ import {
   resolveParentRecipients,
   toYmd,
   weekOfMonth,
-} from "./goalReportNotify.js";
-import { MAX_RESEND_DAYS_AGO } from "./goalReportResendPolicy.js";
+} from "./reportNotify.js";
+import { MAX_RESEND_DAYS_AGO } from "./reportResendPolicy.js";
 
 export { MAX_RESEND_DAYS_AGO };
 

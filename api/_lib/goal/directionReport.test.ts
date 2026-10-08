@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { GRADE_PERCENTILE } from "../../src/lib/goal/calc/jeongsi.js";
-import type { SubjectGradeItem } from "./goalDirectionReport.js";
+import { GRADE_PERCENTILE } from "../../../src/lib/goal/calc/jeongsi.js";
+import type { SubjectGradeItem } from "./directionReport.js";
 import {
   buildGoalDirectionReport,
   decideStudentType,
   getBand,
   resolveJungsiSubjectAverage,
   resolveNaesinSubjectAverage,
-} from "./goalDirectionReport.js";
+} from "./directionReport.js";
 
 const subj = (key: string, grade: number | null): SubjectGradeItem => ({
   key,

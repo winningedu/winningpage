@@ -5,18 +5,18 @@
 // setInterval mock을 대체한다 — 원본 외부 앱(target)은 클라이언트가 계산한
 // 초를 그대로 서버가 저장하는 변조 가능 구조였다("클라이언트가 보낸 시간값은
 // 어떤 것도 신뢰·저장하지 않는다" 임무 지시 확정). started_at/ended_at/
-// duration_seconds 는 전부 api/_lib/goalRepo.js 의 서버 now() 계산이 정본이고,
+// duration_seconds 는 전부 api/_lib/goal/repo.ts 의 서버 now() 계산이 정본이고,
 // 이 파일은 그 결과를 카멜 케이스로 옮기기만 한다.
 //
 // ── 메서드가 GET/POST 둘 다인 이유 ────────────────────────────────────────
 // 조회(GET, 바디 없음)와 쓰기(POST, {action, ...})가 같은 리소스를 다루므로
 // api/goal/student.js·plan-tasks.js 관례를 따라 한 파일에 둔다. GET 미결제는
 // 200 {allowed:false}, POST 미결제는 403 PAID_MESSAGE — 조회형/쓰기형 규약이
-// 갈리는 이유는 api/_lib/goalRepo.js openGoalSession 주석 참고.
+// 갈리는 이유는 api/_lib/goal/repo.ts openGoalSession 주석 참고.
 //
 // ── 모든 진입점 공통 선행 reconcile ────────────────────────────────────────
 // GET·start·stop·heartbeat·setTarget·addSubject 전부 reconcileTimerState 를 먼저 거친다
-// (goalRepo.js) — (a) 자정을 넘겨 방치된 열린 세션을 날짜 경계마다 분할 마감
+// (api/_lib/goal/repo.ts), (a) 자정을 넘겨 방치된 열린 세션을 날짜 경계마다 분할 마감
 // (b) 하트비트가 5분 넘게 끊긴 열린 세션을 그 시각으로 강제 마감. 둘 다
 // 멱등이라 여러 진입점이 중복 호출해도 안전하다.
 
@@ -35,12 +35,12 @@ import {
   TIMER_SUBJECTS,
   touchTimerHeartbeat,
   upsertSubjectTarget,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-// goalRepo.js(.js, Stage3 대상)가 세부 세션 행 타입을 내보내지 않아 이 파일
+// api/_lib/goal/repo.ts(.js, Stage3 대상)가 세부 세션 행 타입을 내보내지 않아 이 파일
 // 로컬에서만 쓰는 최소 shape. subject/started_at만 이 파일이 실제로 읽는다.
 type TimerSessionRow = { subject: string; started_at: string } | null;
 

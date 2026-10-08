@@ -186,7 +186,7 @@ export const goalConfigs: {
         label: "대학명",
         type: "text",
         required: true,
-        help: "학생 온보딩에 그대로 노출되고, 확률 조회 키로도 쓰입니다(goalRepo.js fetchUniversityCut). 오타 1건이 그 조합의 온보딩을 전부 막습니다.",
+        help: "학생 온보딩에 그대로 노출되고, 확률 조회 키로도 쓰입니다(api/_lib/goal/repo.ts fetchUniversityCut). 오타 1건이 그 조합의 온보딩을 전부 막습니다.",
       },
       {
         key: "department_name",

@@ -28,7 +28,7 @@ import MyPageModalShell from "./MyPageModalShell";
 // body에 target:'guardian'을 함께 보낸다. 단계 흐름(auth → form → verify →
 // confirm → done)과 본인확인(비밀번호) 게이트는 target과 무관하게 동일하다.
 //
-// 인증 채널은 시안 문구 그대로 카카오톡이다 — api/_lib/aligo.js 기본 채널이
+// 인증 채널은 시안 문구 그대로 카카오톡이다, api/_lib/messaging/aligo.ts 기본 채널이
 // 알림톡(카카오)이라 문구와 실제 발송 채널이 일치한다.
 //
 // 완료 처리는 api/change-phone.js 서버 라우트를 거친다. phone_verifications 는

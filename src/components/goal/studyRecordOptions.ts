@@ -14,10 +14,10 @@
 // QA B9(2026-08-27)로 "4과목 고정"이 아니게 됐다 — 학생이 "+ 과목 추가"로 카탈로그
 // (TIMER_SUBJECT_CATALOG) 중에서 더 노출할 수 있다. 이 상수는 이제 "행이 없는 학생에게
 // 보여줄 기본값"만 의미하고, 실제 노출 목록은 GET /api/goal/timer의 visibleSubjects가
-// 정본이다(api/_lib/goalRepo.ts DEFAULT_TIMER_SUBJECTS와 글자 단위로 같다).
+// 정본이다(api/_lib/goal/repo.ts DEFAULT_TIMER_SUBJECTS와 글자 단위로 같다).
 export const DEFAULT_TIMER_SUBJECTS = ["math", "korean", "english", "science"];
 
-// "+ 과목 추가" 모달의 선택 카탈로그 8종(전체 표시 순서) — api/_lib/goalRepo.ts
+// "+ 과목 추가" 모달의 선택 카탈로그 8종(전체 표시 순서), api/_lib/goal/repo.ts
 // TIMER_SUBJECTS와 글자 단위로 같다. 'etc'(기타)도 카탈로그에 포함하되 다른 7종을 전부
 // 추가한 뒤에야 고를 여지가 남는다(자유 입력 없음, 설계 확정 옵션 A).
 export const TIMER_SUBJECT_CATALOG = [
