@@ -32,6 +32,7 @@ export type Database = {
           topic: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           concept?: string | null;
           confirmed_at?: string | null;
@@ -96,6 +97,7 @@ export type Database = {
           row_count: number | null;
           target_id: string | null;
         };
+        ComputedFields: never;
         Insert: {
           action: string;
           actor_email: string;
@@ -136,6 +138,7 @@ export type Database = {
           profile_id: string;
           resource_key: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           granted_by?: string | null;
@@ -193,6 +196,7 @@ export type Database = {
           status: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           activated_at?: string | null;
           created_at?: string;
@@ -248,6 +252,7 @@ export type Database = {
           label: string;
           sort_order: number;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           group_title: string;
@@ -272,6 +277,7 @@ export type Database = {
           resource_key: string;
           role_id: string;
         };
+        ComputedFields: never;
         Insert: {
           level: string;
           resource_key: string;
@@ -309,6 +315,7 @@ export type Database = {
           name: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           description?: string | null;
@@ -339,6 +346,7 @@ export type Database = {
           updated_at: string | null;
           year: number;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -372,6 +380,7 @@ export type Database = {
           sort_order: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           display_height_rem?: number | null;
@@ -433,6 +442,7 @@ export type Database = {
           university_name: string;
           university_short_name: string | null;
         };
+        ComputedFields: never;
         Insert: {
           apply_group?: string | null;
           created_at?: string | null;
@@ -522,6 +532,7 @@ export type Database = {
           title: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           attachments?: NonNullable<Json>;
           category: string;
@@ -594,6 +605,7 @@ export type Database = {
           variant_seq: number;
           waitlist_rank: string | null;
         };
+        ComputedFields: never;
         Insert: {
           admission_track: string;
           competition_rate?: number | null;
@@ -686,6 +698,7 @@ export type Database = {
           waitlist_rank: string | null;
           year: number;
         };
+        ComputedFields: never;
         Insert: {
           admission_type?: string | null;
           competition_rate?: number | null;
@@ -745,6 +758,7 @@ export type Database = {
           special_group: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -805,6 +819,7 @@ export type Database = {
           university_name: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           admission_year?: number;
           campus?: string | null;
@@ -881,6 +896,197 @@ export type Database = {
         };
         Relationships: [];
       };
+      ai_model_calls: {
+        Row: {
+          attempt: number;
+          cached_tokens: number | null;
+          call_key: string | null;
+          created_at: string;
+          error_code: string | null;
+          error_message: string | null;
+          feature: string;
+          finish_reason: string | null;
+          id: string;
+          input_chars: number | null;
+          issue_codes: string[] | null;
+          kind: string;
+          latency_ms: number;
+          model: string;
+          output_chars: number | null;
+          output_tokens: number | null;
+          profile_id: string | null;
+          prompt_tokens: number | null;
+          prompt_version: string | null;
+          retry_reason: string | null;
+          service: string;
+          started_at: string;
+          status: string;
+          step: string | null;
+          target_id: string | null;
+          target_kind: string | null;
+          thoughts_tokens: number | null;
+          total_tokens: number | null;
+          trace_id: string;
+          transport_attempt: number;
+          validation: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          attempt?: number;
+          cached_tokens?: number | null;
+          call_key?: string | null;
+          created_at?: string;
+          error_code?: string | null;
+          error_message?: string | null;
+          feature: string;
+          finish_reason?: string | null;
+          id?: string;
+          input_chars?: number | null;
+          issue_codes?: string[] | null;
+          kind: string;
+          latency_ms: number;
+          model: string;
+          output_chars?: number | null;
+          output_tokens?: number | null;
+          profile_id?: string | null;
+          prompt_tokens?: number | null;
+          prompt_version?: string | null;
+          retry_reason?: string | null;
+          service: string;
+          started_at: string;
+          status: string;
+          step?: string | null;
+          target_id?: string | null;
+          target_kind?: string | null;
+          thoughts_tokens?: number | null;
+          total_tokens?: number | null;
+          trace_id: string;
+          transport_attempt?: number;
+          validation?: string | null;
+        };
+        Update: {
+          attempt?: number;
+          cached_tokens?: number | null;
+          call_key?: string | null;
+          created_at?: string;
+          error_code?: string | null;
+          error_message?: string | null;
+          feature?: string;
+          finish_reason?: string | null;
+          id?: string;
+          input_chars?: number | null;
+          issue_codes?: string[] | null;
+          kind?: string;
+          latency_ms?: number;
+          model?: string;
+          output_chars?: number | null;
+          output_tokens?: number | null;
+          profile_id?: string | null;
+          prompt_tokens?: number | null;
+          prompt_version?: string | null;
+          retry_reason?: string | null;
+          service?: string;
+          started_at?: string;
+          status?: string;
+          step?: string | null;
+          target_id?: string | null;
+          target_kind?: string | null;
+          thoughts_tokens?: number | null;
+          total_tokens?: number | null;
+          trace_id?: string;
+          transport_attempt?: number;
+          validation?: string | null;
+        };
+        Relationships: [];
+      };
+      ai_retrieval_events: {
+        Row: {
+          cited_resource_ids: string[] | null;
+          created_at: string;
+          degraded: boolean;
+          embed_ms: number | null;
+          error_message: string | null;
+          feature: string;
+          hit_resource_ids: string[] | null;
+          id: string;
+          injected_chars: number | null;
+          kind: string;
+          knowledge_type: string | null;
+          latency_ms: number;
+          match_count_requested: number | null;
+          packed_hits: number | null;
+          profile_id: string | null;
+          raw_hits: number | null;
+          service: string;
+          source: string | null;
+          started_at: string;
+          status: string;
+          step: string | null;
+          target_id: string | null;
+          target_kind: string | null;
+          threshold: number | null;
+          top_score: number | null;
+          trace_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          cited_resource_ids?: string[] | null;
+          created_at?: string;
+          degraded?: boolean;
+          embed_ms?: number | null;
+          error_message?: string | null;
+          feature: string;
+          hit_resource_ids?: string[] | null;
+          id?: string;
+          injected_chars?: number | null;
+          kind: string;
+          knowledge_type?: string | null;
+          latency_ms: number;
+          match_count_requested?: number | null;
+          packed_hits?: number | null;
+          profile_id?: string | null;
+          raw_hits?: number | null;
+          service: string;
+          source?: string | null;
+          started_at: string;
+          status: string;
+          step?: string | null;
+          target_id?: string | null;
+          target_kind?: string | null;
+          threshold?: number | null;
+          top_score?: number | null;
+          trace_id: string;
+        };
+        Update: {
+          cited_resource_ids?: string[] | null;
+          created_at?: string;
+          degraded?: boolean;
+          embed_ms?: number | null;
+          error_message?: string | null;
+          feature?: string;
+          hit_resource_ids?: string[] | null;
+          id?: string;
+          injected_chars?: number | null;
+          kind?: string;
+          knowledge_type?: string | null;
+          latency_ms?: number;
+          match_count_requested?: number | null;
+          packed_hits?: number | null;
+          profile_id?: string | null;
+          raw_hits?: number | null;
+          service?: string;
+          source?: string | null;
+          started_at?: string;
+          status?: string;
+          step?: string | null;
+          target_id?: string | null;
+          target_kind?: string | null;
+          threshold?: number | null;
+          top_score?: number | null;
+          trace_id?: string;
+        };
+        Relationships: [];
+      };
       alimtalk_send_logs: {
         Row: {
           channel: string;
@@ -898,6 +1104,7 @@ export type Database = {
           subject: string | null;
           template_key: string;
         };
+        ComputedFields: never;
         Insert: {
           channel: string;
           dedupe_key?: string | null;
@@ -946,6 +1153,7 @@ export type Database = {
           updated_at: string;
           value: NonNullable<Json>;
         };
+        ComputedFields: never;
         Insert: {
           key: string;
           updated_at?: string;
@@ -973,6 +1181,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           button_link?: string | null;
           button_text?: string | null;
@@ -1011,6 +1220,7 @@ export type Database = {
           viewed_on: string;
           viewer_key: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           post_id: string;
@@ -1037,6 +1247,7 @@ export type Database = {
           session_quota: number | null;
           validity_days: number | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           duration_months?: number | null;
@@ -1090,6 +1301,7 @@ export type Database = {
           updated_at: string;
           view_count: number;
         };
+        ComputedFields: never;
         Insert: {
           attachments?: NonNullable<Json>;
           category?: string | null;
@@ -1137,6 +1349,7 @@ export type Database = {
           user_id: string;
           valid_until: string | null;
         };
+        ComputedFields: never;
         Insert: {
           coupon_id: string;
           granted_at?: string;
@@ -1185,6 +1398,7 @@ export type Database = {
           void_reason: string | null;
           voided_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           coupon_id: string;
           created_at?: string;
@@ -1248,6 +1462,7 @@ export type Database = {
           title: string;
           valid_until: string | null;
         };
+        ComputedFields: never;
         Insert: {
           code?: string | null;
           created_at?: string;
@@ -1306,6 +1521,7 @@ export type Database = {
           program_name: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           class_name?: string | null;
           created_at?: string | null;
@@ -1342,6 +1558,7 @@ export type Database = {
           total_sale_amount: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -1375,6 +1592,7 @@ export type Database = {
           profile_id: string;
           reason: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id: string;
@@ -1411,6 +1629,7 @@ export type Database = {
           schema_version: string;
           snapshot: NonNullable<Json>;
         };
+        ComputedFields: never;
         Insert: {
           attempt_id: string;
           created_at?: string;
@@ -1469,6 +1688,7 @@ export type Database = {
           term_name: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           application_status?: string | null;
           category_name?: string | null;
@@ -1542,6 +1762,7 @@ export type Database = {
           sort_order: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           answer?: string | null;
           category?: string;
@@ -1583,6 +1804,7 @@ export type Database = {
           updated_at: string | null;
           view_count: number;
         };
+        ComputedFields: never;
         Insert: {
           category?: string | null;
           content?: string | null;
@@ -1627,6 +1849,7 @@ export type Database = {
           profile_id: string;
           source: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           generated_for: string;
@@ -1687,6 +1910,7 @@ export type Database = {
           updated_at: string;
           virtual_day_index: number | null;
         };
+        ComputedFields: never;
         Insert: {
           achievement?: string;
           body_condition?: string;
@@ -1763,6 +1987,7 @@ export type Database = {
           source_label: string;
           source_type: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: number;
@@ -1811,6 +2036,7 @@ export type Database = {
           updated_at: string;
           written_at: string;
         };
+        ComputedFields: never;
         Insert: {
           body: string;
           created_at?: string;
@@ -1865,6 +2091,7 @@ export type Database = {
           updated_at: string;
           workbook_id: number | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           done?: boolean;
@@ -1933,6 +2160,7 @@ export type Database = {
           reason: string;
           source_record_id: number | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: number;
@@ -1990,6 +2218,7 @@ export type Database = {
           title: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           category: string;
           created_at?: string;
@@ -2067,6 +2296,7 @@ export type Database = {
           week_min: number;
           week_schedule_input: Json | null;
         };
+        ComputedFields: never;
         Insert: {
           actual_start_date?: string | null;
           base_ideal_jungsi?: number | null;
@@ -2155,6 +2385,7 @@ export type Database = {
           target_hours: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           profile_id: string;
@@ -2200,6 +2431,7 @@ export type Database = {
           subject: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           duration_seconds?: number | null;
@@ -2250,6 +2482,7 @@ export type Database = {
           sort_order: number;
           subject: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           profile_id: string;
@@ -2295,6 +2528,7 @@ export type Database = {
           university_name: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           avg_cut?: number | null;
           created_at?: string;
@@ -2340,6 +2574,7 @@ export type Database = {
           total_pages: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           current_page?: number;
@@ -2404,6 +2639,7 @@ export type Database = {
           title: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           axis?: string | null;
           carried_from_report_id?: string | null;
@@ -2480,6 +2716,7 @@ export type Database = {
           track: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           profile_id: string;
           survey_answers?: NonNullable<Json>;
@@ -2531,6 +2768,7 @@ export type Database = {
           track: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           activity_ids?: string[];
           axis_scores?: Json | null;
@@ -2616,6 +2854,7 @@ export type Database = {
           semester: number | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           byte_size: number;
           consent_at: string;
@@ -2670,6 +2909,7 @@ export type Database = {
           student_name: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           description?: string | null;
@@ -2716,6 +2956,7 @@ export type Database = {
           title_lines: Json | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           badge?: string | null;
           card_width?: number | null;
@@ -2769,6 +3010,7 @@ export type Database = {
           title: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           display_seconds?: number;
@@ -2833,6 +3075,7 @@ export type Database = {
           verified_at: string | null;
           web_transaction_id: string | null;
         };
+        ComputedFields: never;
         Insert: {
           auth_iterators?: number | null;
           auth_method?: string | null;
@@ -2907,6 +3150,7 @@ export type Database = {
           reliability: string;
           session_id: string;
         };
+        ComputedFields: never;
         Insert: {
           activity_record_id?: string | null;
           created_at?: string;
@@ -2972,6 +3216,7 @@ export type Database = {
           submission_id: string | null;
           topic_id: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -3058,6 +3303,7 @@ export type Database = {
           topic_round_count: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           career?: string | null;
           completed_at?: string | null;
@@ -3183,6 +3429,7 @@ export type Database = {
           submitted_at: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           char_counts: NonNullable<Json>;
           created_at?: string;
@@ -3240,6 +3487,7 @@ export type Database = {
           selected: boolean;
           session_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           detail: NonNullable<Json>;
@@ -3283,6 +3531,95 @@ export type Database = {
           },
         ];
       };
+      knowledge_eval_runs: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          knowledge_type: string;
+          metrics: NonNullable<Json>;
+          mode: string;
+          note: string | null;
+          params: NonNullable<Json>;
+          per_query: NonNullable<Json>;
+          query_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          knowledge_type: string;
+          metrics: NonNullable<Json>;
+          mode: string;
+          note?: string | null;
+          params: NonNullable<Json>;
+          per_query: NonNullable<Json>;
+          query_count: number;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          knowledge_type?: string;
+          metrics?: NonNullable<Json>;
+          mode?: string;
+          note?: string | null;
+          params?: NonNullable<Json>;
+          per_query?: NonNullable<Json>;
+          query_count?: number;
+        };
+        Relationships: [];
+      };
+      knowledge_golden_queries: {
+        Row: {
+          assessment_info: string | null;
+          career: string | null;
+          created_at: string;
+          created_by: string | null;
+          expected_resource_ids: string[];
+          grade: string;
+          id: string;
+          is_active: boolean;
+          knowledge_type: string;
+          note: string | null;
+          selected_topic: string | null;
+          subject: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          assessment_info?: string | null;
+          career?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expected_resource_ids: string[];
+          grade: string;
+          id?: string;
+          is_active?: boolean;
+          knowledge_type: string;
+          note?: string | null;
+          selected_topic?: string | null;
+          subject: string;
+          updated_at?: string;
+        };
+        Update: {
+          assessment_info?: string | null;
+          career?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expected_resource_ids?: string[];
+          grade?: string;
+          id?: string;
+          is_active?: boolean;
+          knowledge_type?: string;
+          note?: string | null;
+          selected_topic?: string | null;
+          subject?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       learning_diagnosis_options: {
         Row: {
           created_at: string | null;
@@ -3297,6 +3634,7 @@ export type Database = {
           sort_order: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -3361,6 +3699,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           badge?: string | null;
           created_at?: string | null;
@@ -3416,6 +3755,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           description?: string | null;
@@ -3451,6 +3791,7 @@ export type Database = {
           sort_order: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           copy_key: string;
           copy_value?: string;
@@ -3478,6 +3819,7 @@ export type Database = {
           id: string;
           request_ip: unknown;
         };
+        ComputedFields: never;
         Insert: {
           actor_id: string;
           code: string;
@@ -3541,6 +3883,7 @@ export type Database = {
           user_id: string | null;
           weekly_capacity: string;
         };
+        ComputedFields: never;
         Insert: {
           admission_history: string;
           admission_year: number;
@@ -3640,6 +3983,7 @@ export type Database = {
           sort_order: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           copy_key: string;
           copy_value?: string;
@@ -3669,6 +4013,7 @@ export type Database = {
           sort_order: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           answer?: string;
           created_at?: string;
@@ -3709,6 +4054,7 @@ export type Database = {
           updated_at: string | null;
           view_count: number;
         };
+        ComputedFields: never;
         Insert: {
           attachments?: NonNullable<Json>;
           category?: string | null;
@@ -3758,6 +4104,7 @@ export type Database = {
           quantity: number;
           service_key: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: never;
@@ -3823,6 +4170,7 @@ export type Database = {
           superseded_by_order_id: string | null;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           amount: number;
           approval_status?: string;
@@ -3926,6 +4274,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           body?: string | null;
           button_link?: string | null;
@@ -3977,6 +4326,7 @@ export type Database = {
           status: string;
           student_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -4025,6 +4375,7 @@ export type Database = {
           raw_payload: Json | null;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           amount?: number;
           created_at?: string | null;
@@ -4082,6 +4433,7 @@ export type Database = {
           session_id: string;
           storage_path: string | null;
         };
+        ComputedFields: never;
         Insert: {
           byte_size?: number | null;
           cleanup_attempts?: number;
@@ -4137,6 +4489,7 @@ export type Database = {
           session_id: string | null;
           source_kind: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           delta?: number;
@@ -4208,6 +4561,7 @@ export type Database = {
           seq: number;
           session_id: string;
         };
+        ComputedFields: never;
         Insert: {
           body?: string | null;
           created_at?: string;
@@ -4260,6 +4614,7 @@ export type Database = {
           topic_id: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -4340,6 +4695,7 @@ export type Database = {
           topic_title: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           career_goal?: string | null;
           content_hash?: string | null;
@@ -4433,6 +4789,7 @@ export type Database = {
           topic_attempt_count: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           career_goal?: string | null;
           completed_steps?: number[];
@@ -4521,6 +4878,7 @@ export type Database = {
           submitted_at: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           char_counts?: Json | null;
           created_at?: string;
@@ -4579,6 +4937,7 @@ export type Database = {
           tags: string[] | null;
           title: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           detail?: Json | null;
@@ -4634,6 +4993,7 @@ export type Database = {
           user_id: string | null;
           verified_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           attempt_count?: number;
           code_hash: string;
@@ -4678,6 +5038,7 @@ export type Database = {
           updated_at: string | null;
           url: string | null;
         };
+        ComputedFields: never;
         Insert: {
           content?: string | null;
           created_at?: string | null;
@@ -4718,6 +5079,7 @@ export type Database = {
           sort_order: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: number;
@@ -4747,6 +5109,7 @@ export type Database = {
           status: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           admin_note?: string;
           created_at?: string;
@@ -4798,6 +5161,7 @@ export type Database = {
           tenant_id: string | null;
           validity_days: number | null;
         };
+        ComputedFields: never;
         Insert: {
           badge?: string | null;
           created_at?: string;
@@ -4897,6 +5261,7 @@ export type Database = {
           updated_at: string | null;
           username: string | null;
         };
+        ComputedFields: never;
         Insert: {
           address?: string | null;
           address_detail?: string | null;
@@ -4992,6 +5357,7 @@ export type Database = {
           updated_at: string | null;
           user_id: string | null;
         };
+        ComputedFields: never;
         Insert: {
           access_expires_at?: string | null;
           access_started_at?: string | null;
@@ -5069,6 +5435,7 @@ export type Database = {
           updated_at: string;
           validity_days: number | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           expires_at?: string | null;
@@ -5174,6 +5541,7 @@ export type Database = {
           sort_order: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           description?: string | null;
@@ -5213,6 +5581,7 @@ export type Database = {
           sort_order: number | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           app_url?: string | null;
           created_at?: string | null;
@@ -5271,6 +5640,7 @@ export type Database = {
           user_id: string;
           within_withdrawal: boolean | null;
         };
+        ComputedFields: never;
         Insert: {
           admin_memo?: string | null;
           amount?: number;
@@ -5409,6 +5779,7 @@ export type Database = {
           status: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           class_name?: string | null;
           created_at?: string | null;
@@ -5451,6 +5822,7 @@ export type Database = {
           sort_order: number | null;
           student_name: string | null;
         };
+        ComputedFields: never;
         Insert: {
           content: string;
           created_at?: string | null;
@@ -5484,6 +5856,7 @@ export type Database = {
           sections: NonNullable<Json>;
           session_id: string;
         };
+        ComputedFields: never;
         Insert: {
           char_count?: Json | null;
           created_at?: string;
@@ -5539,6 +5912,7 @@ export type Database = {
           session_id: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           activity_record_id: string;
           analysis?: Json | null;
@@ -5620,6 +5994,7 @@ export type Database = {
           teacher_note: string | null;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           academic_year?: number | null;
           activity_name?: string | null;
@@ -5723,6 +6098,7 @@ export type Database = {
           sort_order: number | null;
           title: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           description?: string | null;
@@ -5757,6 +6133,7 @@ export type Database = {
           updated_at: string | null;
           year: number;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -5791,6 +6168,7 @@ export type Database = {
           updated_at: string | null;
           year: number;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -5832,6 +6210,7 @@ export type Database = {
           user_name: string | null;
           winning_user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           expires_at: string;
@@ -5868,6 +6247,7 @@ export type Database = {
           issued_at: string;
           student_id: string;
         };
+        ComputedFields: never;
         Insert: {
           code: string;
           created_at?: string;
@@ -5902,6 +6282,7 @@ export type Database = {
           updated_at: string;
           updated_by: string | null;
         };
+        ComputedFields: never;
         Insert: {
           admission_year?: number | null;
           career?: string | null;
@@ -5951,6 +6332,7 @@ export type Database = {
           id: number;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           attempted_at?: string;
           id?: number;
@@ -5975,6 +6357,7 @@ export type Database = {
           tier: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           code: string;
           created_at?: string;
@@ -6023,6 +6406,7 @@ export type Database = {
           title: string;
           version: string;
         };
+        ComputedFields: never;
         Insert: {
           audience?: string;
           code: string;
@@ -6068,6 +6452,7 @@ export type Database = {
           university_name: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           department_key?: string | null;
@@ -6106,6 +6491,7 @@ export type Database = {
           subtitle: string | null;
           track: string;
         };
+        ComputedFields: never;
         Insert: {
           count?: number | null;
           created_at?: string | null;
@@ -6145,6 +6531,7 @@ export type Database = {
           term_name: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           applicant_count?: number | null;
           capacity?: number | null;
@@ -6184,6 +6571,7 @@ export type Database = {
           term_id: string;
           user_id: string;
         };
+        ComputedFields: never;
         Insert: {
           agreed: boolean;
           agreed_at?: string;
@@ -6225,6 +6613,7 @@ export type Database = {
           is_active: boolean | null;
           keywords: string | null;
           knowledge_type: string;
+          last_reviewed_at: string | null;
           memo: string | null;
           rag_use: boolean | null;
           search_text: string | null;
@@ -6234,6 +6623,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           career_field?: string | null;
           content: string;
@@ -6248,6 +6638,7 @@ export type Database = {
           is_active?: boolean | null;
           keywords?: string | null;
           knowledge_type: string;
+          last_reviewed_at?: string | null;
           memo?: string | null;
           rag_use?: boolean | null;
           search_text?: string | null;
@@ -6271,6 +6662,7 @@ export type Database = {
           is_active?: boolean | null;
           keywords?: string | null;
           knowledge_type?: string;
+          last_reviewed_at?: string | null;
           memo?: string | null;
           rag_use?: boolean | null;
           search_text?: string | null;
@@ -6295,6 +6687,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           content?: string | null;
           created_at?: string | null;
@@ -6332,6 +6725,7 @@ export type Database = {
           title: string;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string | null;
           id?: string;
@@ -6368,6 +6762,7 @@ export type Database = {
           row_count: number | null;
           target_id: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       admin_enrollment_entries: {
@@ -6393,6 +6788,7 @@ export type Database = {
           student_name: string | null;
           term_name: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       admin_member_directory: {
@@ -6411,6 +6807,7 @@ export type Database = {
           role_name: string | null;
           status: string | null;
         };
+        ComputedFields: never;
         Relationships: [
           {
             foreignKeyName: "admin_members_invited_by_fkey";
@@ -6452,6 +6849,7 @@ export type Database = {
           student_name: string | null;
           tenant_name: string | null;
         };
+        ComputedFields: never;
         Relationships: [
           {
             foreignKeyName: "refund_requests_order_id_fkey";
@@ -6484,6 +6882,7 @@ export type Database = {
           student_name: string | null;
           student_profile_id: string | null;
         };
+        ComputedFields: never;
         Relationships: [
           {
             foreignKeyName: "order_items_order_id_fkey";
@@ -6508,6 +6907,7 @@ export type Database = {
           tracks: string[] | null;
           university_key: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       admission_result_university_index: {
@@ -6516,6 +6916,7 @@ export type Database = {
           university_key: string | null;
           university_name: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       admission_university_resource_index: {
@@ -6551,6 +6952,7 @@ export type Database = {
           university_key: string | null;
           university_name: string | null;
         };
+        ComputedFields: never;
         Insert: {
           admission_year?: number | null;
           campus?: string | null;
@@ -6636,6 +7038,7 @@ export type Database = {
           user_id: string | null;
           valid_until: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       goal_student_state: {
@@ -6658,6 +7061,7 @@ export type Database = {
           record_count: number | null;
           status: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       goal_university_options: {
@@ -6670,6 +7074,7 @@ export type Database = {
           university_key: string | null;
           university_name: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
       v_performance_saved_reports: {
@@ -6688,6 +7093,7 @@ export type Database = {
           topic_title: string | null;
           updated_at: string | null;
         };
+        ComputedFields: never;
         Relationships: [];
       };
     };
@@ -6858,6 +7264,38 @@ export type Database = {
       fn_agree_payment_terms: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
+      };
+      fn_ai_telemetry_citations: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          cited_count: number;
+          hit_count: number;
+          is_active: boolean;
+          knowledge_type: string;
+          last_cited_at: string;
+          last_hit_at: string;
+          resource_id: string;
+          title: string;
+        }[];
+      };
+      fn_ai_telemetry_daily_summary: {
+        Args: { p_from: string; p_service?: string; p_to: string };
+        Returns: {
+          avg_ms: number;
+          cached_tokens: number;
+          calls: number;
+          day: string;
+          error_calls: number;
+          model: string;
+          ok_calls: number;
+          output_tokens: number;
+          p50_ms: number;
+          p95_ms: number;
+          prompt_tokens: number;
+          retried_calls: number;
+          service: string;
+          thoughts_tokens: number;
+        }[];
       };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
@@ -7157,6 +7595,19 @@ export type Database = {
         Returns: boolean;
       };
       fn_is_super_admin: { Args: { p_profile_id?: string }; Returns: boolean };
+      fn_knowledge_near_duplicates: {
+        Args: {
+          filter_knowledge_type: string;
+          match_count: number;
+          min_similarity: number;
+          query_embedding: string;
+        };
+        Returns: {
+          id: string;
+          similarity: number;
+          title: string;
+        }[];
+      };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
       fn_mark_program_entry: {
         Args: { p_program_key: string };
@@ -7615,6 +8066,37 @@ export type Database = {
           id: string;
           knowledge_type: string;
           memo: string;
+          similarity: number;
+          source: string;
+          source_link: string;
+          subject: string;
+          title: string;
+        }[];
+      };
+      match_winning_suhaeng_hybrid: {
+        Args: {
+          filter_grade?: string;
+          filter_knowledge_type: string;
+          filter_subject?: string;
+          full_text_weight?: number;
+          match_count?: number;
+          match_threshold?: number;
+          query_embedding: string;
+          query_keywords: string;
+          rrf_k?: number;
+          semantic_weight?: number;
+        };
+        Returns: {
+          career_field: string;
+          content: string;
+          grade: string;
+          id: string;
+          keyword_rank: number;
+          keyword_score: number;
+          knowledge_type: string;
+          memo: string;
+          rrf_score: number;
+          semantic_rank: number;
           similarity: number;
           source: string;
           source_link: string;

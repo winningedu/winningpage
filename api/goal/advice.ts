@@ -29,7 +29,8 @@ import {
 } from "../../src/lib/goal/report/aggregate.js";
 import { buildDirectionSummary } from "../../src/lib/goal/report/insights.js";
 import { WEEKDAY_LABELS } from "../../src/lib/goalPlanUtils.js";
-import { callText } from "../_lib/gemini.js";
+import { callText } from "../_lib/ai/gemini.js";
+import { type AiTrace, createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import {
   ADVICE_RESPONSE_SCHEMA,
   type AdviceModelResult,
@@ -344,8 +345,9 @@ async function buildPromptInput(
 // ---------------------------------------------------------------------------
 // Gemini 호출 — 구조화 출력(responseSchema). 실패는 호출부가 규칙 폴백으로 흡수한다.
 // ---------------------------------------------------------------------------
-async function generateAdviceModelResult(
+export async function generateAdviceModelResult(
   prompt: string,
+  telemetry: AiTrace,
 ): Promise<AdviceModelResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ADVICE_TIMEOUT_MS);
@@ -357,16 +359,31 @@ async function generateAdviceModelResult(
       responseMimeType: "application/json",
       responseSchema: ADVICE_RESPONSE_SCHEMA,
       abortSignal: controller.signal,
+      telemetry,
     });
 
-    const parsed = JSON.parse(raw);
+    let parsed: ReturnType<typeof JSON.parse>;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      telemetry.annotateLastCall({
+        validation: "failed",
+        issueCodes: ["invalid_json"],
+      });
+      throw error;
+    }
     if (
       typeof parsed?.todayAdvice !== "string" ||
       typeof parsed?.tomorrowPlan !== "string" ||
       !Array.isArray(parsed?.majorTips)
     ) {
+      telemetry.annotateLastCall({
+        validation: "failed",
+        issueCodes: ["shape"],
+      });
       throw new Error("Gemini 응답이 예상 shape과 다릅니다.");
     }
+    telemetry.annotateLastCall({ validation: "ok" });
 
     return {
       todayAdvice: parsed.todayAdvice,
@@ -471,16 +488,26 @@ async function handlePost(
     now,
   );
 
+  const trace = createAiTrace({
+    service: "goal",
+    feature: "advice",
+    step: source,
+    targetKind: "profile",
+    targetId: profileId,
+    profileId,
+  });
   let origin: "ai" | "rule" = "ai";
   let modelResult: AdviceModelResult;
   try {
     const prompt = buildAdvicePrompt(input);
-    modelResult = await generateAdviceModelResult(prompt);
+    modelResult = await generateAdviceModelResult(prompt, trace);
   } catch (error) {
     console.warn("goal/advice Gemini 호출 실패, 규칙 기반으로 대체:", error);
     origin = "rule";
     modelResult = buildRuleFallback(input);
   }
+  // 모델 호출 기록은 성공이든 규칙 폴백이든 캐시 저장 전에 한 번 내보낸다.
+  await trace.flush(supabaseAdmin);
 
   const payload = buildAdvicePayload(input, modelResult, origin);
 

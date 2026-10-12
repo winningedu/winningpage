@@ -28,7 +28,12 @@
 // 차원 변경은 여기에 더해 컬럼 타입(`vector(768)`)과 HNSW 인덱스
 // (`winning_suhaeng_embedding_hnsw_idx`) 재생성까지 따라온다.
 
-import { GoogleGenAI } from "@google/genai";
+import {
+  createGoogleGenerativeAI,
+  type GoogleGenerativeAIProvider,
+} from "@ai-sdk/google";
+import { embed } from "ai";
+import type { AiTrace } from "../ai/telemetry/trace.js";
 
 /** 코퍼스에 이미 저장된 벡터를 만든 모델. 위 경고 참고. */
 export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2";
@@ -36,20 +41,21 @@ export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2";
 /** `vector(768)` 컬럼 타입과 일치해야 하는 출력 차원. 위 경고 참고. */
 export const DEFAULT_EMBEDDING_DIMENSION = 768;
 
-let geminiClient: GoogleGenAI | null = null;
+let googleProvider: GoogleGenerativeAIProvider | null = null;
 
-function getGeminiClient(): GoogleGenAI {
+/** 키를 호출 시점에 읽고 AI SDK Google 공급자를 처음 쓸 때 만든다. 키가 없으면 그 호출만 실패한다. */
+function getGoogleProvider(): GoogleGenerativeAIProvider {
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
 
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
   }
 
-  if (!geminiClient) {
-    geminiClient = new GoogleGenAI({ apiKey });
+  if (!googleProvider) {
+    googleProvider = createGoogleGenerativeAI({ apiKey });
   }
 
-  return geminiClient;
+  return googleProvider;
 }
 
 /** 지금 임베딩에 쓰는 모델 이름. 갱신 행의 `embedding_model` 컬럼에 그대로 기록한다. */
@@ -148,30 +154,85 @@ export function buildKnowledgeSearchText(item: KnowledgeSearchTextItem = {}) {
  * 저장하면 그 행은 영원히 검색에 잡히지 않으면서 `embedding_status='done'`으로
  * 보이기 때문에, 실패는 조용히 넘기지 않고 반드시 터뜨린다.
  */
-export async function embedText(text: string): Promise<number[]> {
+export async function embedText(
+  text: string,
+  telemetry?: AiTrace,
+): Promise<number[]> {
   const value = String(text || "").trim();
 
   if (!value) {
     throw new Error("임베딩할 텍스트가 비어 있습니다.");
   }
 
-  const ai = getGeminiClient();
+  const google = getGoogleProvider();
   const model = getEmbeddingModel();
   const outputDimensionality = getEmbeddingDimension();
+  const startedAt = Date.now();
 
-  const response = await ai.models.embedContent({
-    model,
-    contents: value,
-    config: { outputDimensionality },
-  });
+  // 기록 중 예외가 호출 흐름에 영향을 주지 않도록 삼킨다. 토큰 수는 응답에 없어 null 이다.
+  const record = (status: "ok" | "error", error?: unknown, code?: string) => {
+    if (!telemetry) return;
+    try {
+      const err = error as {
+        status?: unknown;
+        code?: unknown;
+        statusCode?: unknown;
+        message?: string;
+      };
+      telemetry.recordCall({
+        kind: "embed",
+        model,
+        startedAt,
+        latencyMs: Date.now() - startedAt,
+        transportAttempt: 1,
+        status,
+        errorCode:
+          status === "ok"
+            ? null
+            : (code ??
+              String(err?.status ?? err?.code ?? err?.statusCode ?? "unknown")),
+        errorMessage:
+          status === "ok" ? null : String(err?.message ?? error ?? ""),
+        inputChars: value.length,
+      });
+    } catch (recordError) {
+      console.warn("[ai-telemetry] 기록 실패:", recordError);
+    }
+  };
 
-  const embedding = response.embeddings?.[0]?.values;
-
-  if (!Array.isArray(embedding) || embedding.length === 0) {
-    throw new Error(
-      "Gemini embedding 생성 실패: embedding 값이 비어 있습니다.",
-    );
+  // 재시도는 호출부(백필 배치 등)의 몫이라 AI SDK 자체 재시도를 끈다. 입력 지시문(task)은
+  // 넣지 않는다. 넣으면 기존 코퍼스와 벡터 공간이 어긋나 전량 재임베딩이 필요하다.
+  let embedding: number[] | undefined;
+  try {
+    const result = await embed({
+      model: google.embeddingModel(model),
+      value,
+      maxRetries: 0,
+      providerOptions: { google: { outputDimensionality } },
+    });
+    embedding = result.embedding;
+  } catch (error) {
+    record("error", error);
+    throw error;
   }
 
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    const emptyError = new Error(
+      "Gemini embedding 생성 실패: embedding 값이 비어 있습니다.",
+    );
+    record("error", emptyError, "empty_embedding");
+    throw emptyError;
+  }
+
+  // 길이가 컬럼 차원과 다르면 저장 시점이 아니라 여기서 바로 막는다.
+  if (embedding.length !== outputDimensionality) {
+    const dimensionError = new Error(
+      `Gemini embedding 차원 불일치: ${outputDimensionality}차원을 기대했지만 ${embedding.length}차원이 왔습니다.`,
+    );
+    record("error", dimensionError, "dimension_mismatch");
+    throw dimensionError;
+  }
+
+  record("ok");
   return embedding;
 }

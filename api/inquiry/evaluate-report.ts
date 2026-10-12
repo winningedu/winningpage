@@ -20,7 +20,7 @@
 //
 // 핸들러 본문은 DB 와 모델에 묶여 단위 테스트하지 않는다. 판단은 _lib/inquiry/evaluateFlow.ts 에서 검증한다.
 
-import { callStructured, PERFORMANCE_MODEL } from "../_lib/gemini.js";
+import { callStructured, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {

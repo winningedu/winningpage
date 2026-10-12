@@ -56,18 +56,22 @@
 //    `sessionId`와 `round`뿐이고 나머지는 전부 세션 행에서 읽는다.
 
 import type { VercelResponse } from "@vercel/node";
+import { generateWithRetry, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
+import {
+  performanceTraceContext,
+  retryReasonOf,
+  validationOf,
+} from "../_lib/ai/telemetry/performanceContext.js";
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import {
-  generateWithRetry,
-  PERFORMANCE_MODEL,
-} from "../_lib/performance/gemini.js";
 import {
   formatRelevantStudentSessionsForPrompt,
   loadDynamicAssessmentKnowledge,
   loadRelevantStudentSessions,
   STUDENT_HISTORY_PROMPT_LIMIT,
   TOPIC_MAX_CHARS,
+  TOPIC_MAX_ITEMS,
 } from "../_lib/performance/knowledge.js";
 import {
   buildTopicExclusionBlock,
@@ -626,399 +630,433 @@ export default defineHandler({
         `주제 추천 시도 횟수 갱신 실패: ${attemptCounterError.message}`,
       );
 
-    const previousTopic =
-      String(sessionRow.previous_topic || "").trim() || NO_PREVIOUS_TOPIC_TEXT;
-    const gradeLabel = String(sessionRow.grade_label || "").trim();
-    const subject = String(sessionRow.subject || "").trim();
-    const career = String(sessionRow.career_goal || "").trim();
-
-    // ── RAG 질의문에 넣는 값은 **프롬프트와 같은 결합 규칙**을 쓴다 (§12.3 문자 단위 이식)
-    //    외부 앱은 결합 문자열 하나만 들고 다녔다 — 프론트가
-    //      `subject = `${group} / ${realSubject}``            (`suhaengpyeong/index.html:996`)
-    //      `gradeWithSemester = `${grade} ${semester}``       (`같은 파일 :1749`)
-    //    를 만들어 요청 바디에 실었고(`:1747-1748`), 서버는 **그 값을 프롬프트와 RAG에
-    //    똑같이** 넘겼다(`api/recommend-topics.js:83-92`(위닝DB) / `:94-104`(과거 수행) /
-    //    `:186-188`(프롬프트)). 즉 `현재 과목: 과학 / 고급 생명과학` · `학년: 고1 1학기`가
-    //    임베딩되는 것이 원문이다.
-    //
-    //    여기서는 §8.3 결정 ㄴ에 따라 컬럼을 분리 저장하므로(`grade_label`/`semester`,
-    //    `subject_group`/`subject`) 결합은 **사용 시점**에 한다. 프롬프트 쪽은 이미
-    //    `buildTopicRecommendationUser`가 `' / '`·`' '`로 결합하고 있으므로(prompts.js),
-    //    RAG에도 같은 값을 넘겨야 ⓐ 임베딩 문자열이 원문과 일치하고 ⓑ 같은 요청 안에서
-    //    프롬프트와 검색이 같은 과목 표기를 본다. 맨 과목명만 임베딩하면 질의문 템플릿만
-    //    원문이고 실제 벡터가 달라져, `knowledge.js`가 "튜닝된 그 조건 그대로"라고 못박은
-    //    threshold 0.50/0.48의 전제가 무너진다.
-    //
-    //    RPC 인자·정규화 결과는 바뀌지 않는다 — `getBaseGradeForRpc('고1 1학기') === '고1'`
-    //    (knowledge.js:270), `normalizeSubject('과학 / 고급 생명과학') === '과학'`(같은 파일
-    //    `:93`, 공백 제거 후 substring 매칭이라 결합형도 같은 교과군을 돌려준다).
-    //    바뀌는 것은 임베딩 입력 문자열뿐이다.
-    const ragSubject = [sessionRow.subject_group, subject]
-      .map((value) => String(value || "").trim())
-      .filter(Boolean)
-      .join(" / ");
-
-    const ragGrade = [gradeLabel, String(sessionRow.semester || "").trim()]
-      .filter(Boolean)
-      .join(" ");
-
-    // ── RAG 2소스. 둘 다 **프롬프트 보조 입력**이라 비어도 진행한다(dev 지식베이스가
-    //    0행이면 `관련 위닝DB 항목 없음`이 렌더되는 것이 정상이다).
-    //    `loadRelevantStudentSessions`는 내부에서 검색 실패를 빈 배열로 흡수하지만
-    //    `profileId` 누락은 프로그래밍 오류로 던지므로 여기서만 감싼다.
-    const knowledge = await loadDynamicAssessmentKnowledge({
-      supabase: supabaseAdmin,
-      grade: ragGrade,
-      subject: ragSubject,
-      career,
-      selectedTopic: previousTopic,
-      assessmentInfo: assessmentText,
-      purpose: "topic",
-      maxItems: 6,
-      maxChars: TOPIC_MAX_CHARS,
-      // 다른 과목 후보가 검색 결과에 들어와야 CROSS_SUBJECT_CONNECTION_GUIDE 11조와
-      // 「다른 과목 선배 데이터 활용 규칙」 5조가 사문이 되지 않는다(knowledge.js 주석).
-      includeOtherSubjects: true,
-    });
-
-    let studentSessions: Awaited<
-      ReturnType<typeof loadRelevantStudentSessions>
-    > = [];
-    try {
-      studentSessions = await loadRelevantStudentSessions({
-        supabase: supabaseAdmin,
+    // 계기판 기록. 모델과 RAG 를 부르는 구간 전체를 try/finally 로 감싸 어떤 경로로
+    // 빠져나가도 응답 직전에 한 번 내보낸다. 기록 실패는 요청에 영향을 주지 않는다.
+    const trace = createAiTrace(
+      performanceTraceContext({
+        feature: "recommend_topics",
+        sessionId: sessionRow.id,
         profileId: userId,
+        promptVersion: TOPIC_PROMPT_VERSION,
+        step: String(nextRound),
+      }),
+    );
+    try {
+      const previousTopic =
+        String(sessionRow.previous_topic || "").trim() ||
+        NO_PREVIOUS_TOPIC_TEXT;
+      const gradeLabel = String(sessionRow.grade_label || "").trim();
+      const subject = String(sessionRow.subject || "").trim();
+      const career = String(sessionRow.career_goal || "").trim();
+
+      // ── RAG 질의문에 넣는 값은 **프롬프트와 같은 결합 규칙**을 쓴다 (§12.3 문자 단위 이식)
+      //    외부 앱은 결합 문자열 하나만 들고 다녔다 — 프론트가
+      //      `subject = `${group} / ${realSubject}``            (`suhaengpyeong/index.html:996`)
+      //      `gradeWithSemester = `${grade} ${semester}``       (`같은 파일 :1749`)
+      //    를 만들어 요청 바디에 실었고(`:1747-1748`), 서버는 **그 값을 프롬프트와 RAG에
+      //    똑같이** 넘겼다(`api/recommend-topics.js:83-92`(위닝DB) / `:94-104`(과거 수행) /
+      //    `:186-188`(프롬프트)). 즉 `현재 과목: 과학 / 고급 생명과학` · `학년: 고1 1학기`가
+      //    임베딩되는 것이 원문이다.
+      //
+      //    여기서는 §8.3 결정 ㄴ에 따라 컬럼을 분리 저장하므로(`grade_label`/`semester`,
+      //    `subject_group`/`subject`) 결합은 **사용 시점**에 한다. 프롬프트 쪽은 이미
+      //    `buildTopicRecommendationUser`가 `' / '`·`' '`로 결합하고 있으므로(prompts.js),
+      //    RAG에도 같은 값을 넘겨야 ⓐ 임베딩 문자열이 원문과 일치하고 ⓑ 같은 요청 안에서
+      //    프롬프트와 검색이 같은 과목 표기를 본다. 맨 과목명만 임베딩하면 질의문 템플릿만
+      //    원문이고 실제 벡터가 달라져, `knowledge.js`가 "튜닝된 그 조건 그대로"라고 못박은
+      //    threshold 0.50/0.48의 전제가 무너진다.
+      //
+      //    RPC 인자·정규화 결과는 바뀌지 않는다 — `getBaseGradeForRpc('고1 1학기') === '고1'`
+      //    (knowledge.js:270), `normalizeSubject('과학 / 고급 생명과학') === '과학'`(같은 파일
+      //    `:93`, 공백 제거 후 substring 매칭이라 결합형도 같은 교과군을 돌려준다).
+      //    바뀌는 것은 임베딩 입력 문자열뿐이다.
+      const ragSubject = [sessionRow.subject_group, subject]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .join(" / ");
+
+      const ragGrade = [gradeLabel, String(sessionRow.semester || "").trim()]
+        .filter(Boolean)
+        .join(" ");
+
+      // ── RAG 2소스. 둘 다 **프롬프트 보조 입력**이라 비어도 진행한다(dev 지식베이스가
+      //    0행이면 `관련 위닝DB 항목 없음`이 렌더되는 것이 정상이다).
+      //    `loadRelevantStudentSessions`는 내부에서 검색 실패를 빈 배열로 흡수하지만
+      //    `profileId` 누락은 프로그래밍 오류로 던지므로 여기서만 감싼다.
+      const knowledge = await loadDynamicAssessmentKnowledge({
+        supabase: supabaseAdmin,
         grade: ragGrade,
         subject: ragSubject,
         career,
         selectedTopic: previousTopic,
         assessmentInfo: assessmentText,
+        purpose: "topic",
+        maxItems: TOPIC_MAX_ITEMS,
+        maxChars: TOPIC_MAX_CHARS,
+        // 다른 과목 후보가 검색 결과에 들어와야 CROSS_SUBJECT_CONNECTION_GUIDE 11조와
+        // 「다른 과목 선배 데이터 활용 규칙」 5조가 사문이 되지 않는다(knowledge.js 주석).
+        includeOtherSubjects: true,
+        telemetry: trace,
       });
-    } catch (historyError) {
-      console.error(
-        "performance/recommend-topics 과거 수행 RAG 실패(무시):",
-        historyError,
-      );
-    }
 
-    const system = buildTopicRecommendationSystem({
-      topicKnowledgeText: knowledge.text,
-      studentHistoryText: formatRelevantStudentSessionsForPrompt(
-        studentSessions.slice(0, STUDENT_HISTORY_PROMPT_LIMIT),
-        // **여기만 맨 `subject`다(결합값 금지).** 이 인자는 검색 질의문이 아니라
-        // `performance_session_vectors.subject`와의 **등가 비교** 대상이고
-        // (knowledge.js `sameSubject = r.subject === currentSubject`), 그 컬럼은
-        // `subject_group`과 별도로 맨 과목명을 담는다(sql/54 1-8). 결합값을 넘기면
-        // `현재 과목과의 관계: 같은 과목` 판정이 영구히 false가 된다.
-        subject,
-      ),
-    });
-
-    // ── 재추천이면 이전 라운드 주제명을 배제 블록으로 덧붙인다(§8.3 `round` 정의).
-    //    원문 작업 지시 8조는 손대지 않고 뒤에 블록만 붙인다 — round 1 프롬프트는
-    //    원문과 바이트 동일하다(prompts.js `buildTopicExclusionBlock` 주석).
-    const excludedTitles = Array.from(
-      new Set(
-        priorTopics
-          .map((row) => String(row.title || "").trim())
-          .filter(Boolean),
-      ),
-    );
-
-    // buildTopicRecommendationUser는 값을 `|| ""`로 다루므로 null→"" 치환은 결과에 영향 없다.
-    const baseUser = buildTopicRecommendationUser({
-      gradeLabel,
-      semester: sessionRow.semester || "",
-      schoolType: sessionRow.school_type || "",
-      subjectGroup: sessionRow.subject_group || "",
-      subject,
-      career,
-      previousTopic,
-      assessmentText,
-    });
-
-    const exclusionBlock = buildTopicExclusionBlock(excludedTitles);
-    const userMsg = exclusionBlock
-      ? `${baseUser}\n\n${exclusionBlock}`
-      : baseUser;
-
-    // ── 모델 호출. 실패 형태가 3가지라 각각 다르게 다룬다(§8.4 완화책 ⓑ·ⓒ·ⓓ):
-    //      ⓑ maxOutputTokens를 원문 4200에서 상향(prompts.js 근거 주석)
-    //      ⓒ finishReason === 'MAX_TOKENS' → **파싱을 시도하지 않고** 재시도
-    //      ⓓ 파싱 실패 시 모델 원문을 응답에 싣지 않는다(서버 로그에만 남긴다)
-    const abortController = new AbortController();
-    const abortTimer = setTimeout(
-      () => abortController.abort(),
-      MODEL_TIMEOUT_MS,
-    );
-
-    let validated: ModelTopic[] | null = null;
-    let lastFailure = "unknown";
-
-    try {
-      for (let attempt = 0; attempt <= STRUCTURE_RETRY; attempt++) {
-        const isRetry = attempt > 0;
-
-        let response: Awaited<ReturnType<typeof generateWithRetry>>;
-        try {
-          response = await generateWithRetry({
-            model: PERFORMANCE_MODEL,
-            contents: userMsg,
-            config: {
-              systemInstruction: system,
-              // 재시도는 원문 재시도와 같은 취지로 온도를 낮춘다
-              // (`suhaengpyeong/api/recommend-topics.js:221` — 0.25 → 0.2).
-              temperature: isRetry
-                ? 0.2
-                : TOPIC_GENERATION_DEFAULTS.temperature,
-              // 같은 상한으로 다시 부르면 같은 자리에서 다시 잘린다 → 올려서 재시도.
-              maxOutputTokens: isRetry
-                ? TOPIC_MAX_OUTPUT_TOKENS_RETRY
-                : TOPIC_GENERATION_DEFAULTS.maxOutputTokens,
-              thinkingConfig: { thinkingBudget: 0 },
-              responseMimeType: "application/json",
-              responseSchema: TOPIC_RECOMMENDATION_SCHEMA,
-              abortSignal: abortController.signal,
-            },
-          });
-        } catch (modelError) {
-          // 과부하 재시도(700ms×2^n, 2회)는 generateWithRetry가 이미 소진했다.
-          // 여기까지 오면 상류가 실제로 죽었거나 우리 시한이 끝난 것이다. **무차감**.
-          console.error(
-            "performance/recommend-topics 모델 호출 실패:",
-            modelError,
-          );
-          return fail(
-            res,
-            503,
-            "MODEL_UNAVAILABLE",
-            "주제를 추천하지 못했어요. 잠시 후 다시 시도해 주세요.",
-            {
-              charged: false,
-            },
-          );
-        }
-
-        const finishReason = response?.candidates?.[0]?.finishReason;
-
-        // ⓒ — 절단된 응답은 파싱하지 않는다. 결함 ①(숫자 리터럴 반복 루프)과
-        //      ②(무작위 중간 절단)의 공통 징후이며, 반쯤 온 JSON을 어떻게든 살리려는
-        //      시도가 곧 §8.4가 금지한 텍스트 수술이다.
-        if (finishReason === "MAX_TOKENS") {
-          lastFailure = "finish-reason:MAX_TOKENS";
-          console.warn(
-            `performance/recommend-topics MAX_TOKENS 절단 (attempt ${attempt + 1})`,
-          );
-          continue;
-        }
-
-        if (finishReason && finishReason !== "STOP") {
-          lastFailure = `finish-reason:${finishReason}`;
-          console.warn(
-            `performance/recommend-topics 비정상 종료 ${finishReason} (attempt ${attempt + 1})`,
-          );
-          continue;
-        }
-
-        const rawText = String(response?.text || "").trim();
-        if (!rawText) {
-          lastFailure = "empty-response";
-          continue;
-        }
-
-        let parsed: unknown;
-        try {
-          // 유일한 파싱이다. `responseMimeType:'application/json'`이 형식을 보장하므로
-          // 코드펜스 제거·헤더 보정 같은 전처리를 두지 않는다(§8.4).
-          parsed = JSON.parse(rawText);
-        } catch (parseError) {
-          lastFailure = "json-parse-failed";
-          // ⓓ — 원문은 서버 로그에만 남긴다. 응답 본문에는 싣지 않는다.
-          console.error(
-            "performance/recommend-topics JSON 파싱 실패:",
-            parseError?.message,
-            rawText.slice(0, 400),
-          );
-          continue;
-        }
-
-        const check = validateTopicsPayload(parsed);
-        if (!check.ok) {
-          // tsconfig가 strictNullChecks를 끄고 있어(strict:false) 이 boolean 판별
-          // 유니온이 `!check.ok`만으로는 좁혀지지 않는다(strict:true에서만 좁혀짐을
-          // 격리 재현으로 확인) — 그래서 여기서만 명시적으로 좁힌다.
-          const { reason } = check as { ok: false; reason: string };
-          lastFailure = `contract:${reason}`;
-          console.warn(
-            `performance/recommend-topics 계약 위반 ${reason} (attempt ${attempt + 1})`,
-          );
-          continue;
-        }
-
-        validated = check.topics;
-        break;
+      let studentSessions: Awaited<
+        ReturnType<typeof loadRelevantStudentSessions>
+      > = [];
+      try {
+        studentSessions = await loadRelevantStudentSessions({
+          supabase: supabaseAdmin,
+          profileId: userId,
+          grade: ragGrade,
+          subject: ragSubject,
+          career,
+          selectedTopic: previousTopic,
+          assessmentInfo: assessmentText,
+          telemetry: trace,
+        });
+      } catch (historyError) {
+        console.error(
+          "performance/recommend-topics 과거 수행 RAG 실패(무시):",
+          historyError,
+        );
       }
-    } finally {
-      clearTimeout(abortTimer);
-    }
 
-    if (!validated) {
-      // 재시도까지 실패. **무차감**이다(§8.4 「검증 실패 시 1회 재요청 후 실패 처리,
-      // 회차는 차감하지 않는다」). 사용자에게는 모델 원문 대신 안내만 준다(ⓓ).
-      console.error(
-        `performance/recommend-topics 계약 위반 확정: ${lastFailure}`,
-      );
-      return fail(
-        res,
-        422,
-        "MODEL_CONTRACT_VIOLATION",
-        "주제를 정리하지 못했어요. 다시 시도해 주세요.",
-        {
-          charged: false,
-        },
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // 여기부터가 차감 구간이다. 위에서 3건을 확보한 **뒤에만** 도달한다.
-    // ─────────────────────────────────────────────────────────────────
-    const { data: creditRaw, error: creditError } = await supabaseAdmin.rpc(
-      "consume_performance_credit",
-      {
-        p_session_id: sessionRow.id,
-        p_profile_id: userId,
-        p_reason: "recommend-topics:first-success",
-      },
-    );
-
-    if (creditError) {
-      // fail-closed(§9.3 5항) — 차감을 커밋하지 못했으면 산출물을 내보내지 않는다.
-      console.error("performance/recommend-topics 차감 RPC 실패:", creditError);
-      return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
-    }
-
-    const credit = creditRaw && typeof creditRaw === "object" ? creditRaw : {};
-    const creditStatus = String(credit.status || "");
-
-    if (creditStatus === "quota_exhausted") {
-      // §5.20 (B) 인라인 소진 카드가 이 응답을 받아 AiLoadingBubble을 대체한다.
-      // 표현은 사용량이 아니라 **잔여량** 기준이다(§9.3 「소진 응답 계약」).
-      return fail(
-        res,
-        409,
-        "QUOTA_EXHAUSTED",
-        "이용 가능한 횟수를 모두 사용했어요.",
-        {
-          quotaRemaining: 0,
-          planEndsAt: credit.plan_ends_at ?? null,
-          charged: false,
-        },
-      );
-    }
-
-    if (creditStatus === "no_entitlement") {
-      return fail(
-        res,
-        403,
-        "NO_ENTITLEMENT",
-        "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
-        {
-          charged: false,
-        },
-      );
-    }
-
-    if (creditStatus === "entitlement_expired") {
-      // RPC가 돌려주는 5번째 상태다(sql/54 (4) 단계 6). 이용권 기간 만료·환불·정지는
-      // "권한 없음"과 원인이 다르므로 코드를 갈라 §5.20이 다른 문구를 쓸 수 있게 한다.
-      return fail(
-        res,
-        403,
-        "ENTITLEMENT_EXPIRED",
-        "이용권 사용 기간이 끝났어요.",
-        {
-          planEndsAt: credit.plan_ends_at ?? null,
-          charged: false,
-        },
-      );
-    }
-
-    if (creditStatus === "session_not_found") {
-      return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
-        charged: false,
-      });
-    }
-
-    // `charged` = 이번 요청이 실제로 회차를 깎았는가.
-    // `already_charged`는 **재추천의 정상 경로**다(§9.3) — 같은 세션의 원장 행이 이미
-    // 있다는 뜻이고, 그 멱등성은 `performance_credit_ledger.session_id` UNIQUE가 보장한다.
-    if (creditStatus !== "charged" && creditStatus !== "already_charged") {
-      console.error(
-        "performance/recommend-topics 알 수 없는 차감 상태:",
-        creditStatus,
-      );
-      return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
-    }
-
-    const charged = credit.charged === true;
-    const quotaRemaining = credit.quota_remaining ?? null;
-
-    // ── 저장. 라운드당 3행이며 `(session_id, round, idx)` UNIQUE가 재시도로 인한
-    //    중복 저장을 막는다(sql/54 1-4).
-    const rows = validated.map((topic, index) => ({
-      session_id: sessionRow.id,
-      round: nextRound,
-      idx: index + 1,
-      title: String(topic.title || "").trim(),
-      subtitle: TOPIC_SUBTITLE,
-      tags: buildTags(sessionRow),
-      detail: buildDetail(topic),
-      selected: false,
-    }));
-
-    const { data: insertedRows, error: insertError } = await supabaseAdmin
-      .from("performance_topics")
-      .insert(rows)
-      .select("id,round,idx,title,subtitle,tags,detail,selected");
-
-    if (insertError) throw new Error(`주제 저장 실패: ${insertError.message}`);
-
-    const { error: sessionUpdateError } = await supabaseAdmin
-      .from("performance_sessions")
-      .update(stepPatch(sessionRow))
-      .eq("id", sessionRow.id);
-
-    // 진행 표시 갱신 실패로 이미 차감된 요청을 실패로 뒤집지 않는다. 주제는 저장됐고
-    // 재방문 시 `deriveResumeStep`(bootstrap.js)이 실제 데이터로 재개 지점을 다시
-    // 계산하고, 프론트 사이드바는 라이브 세션 상태에서 `deriveStepStates`(P13)가
-    // 다시 파생한다.
-    if (sessionUpdateError) {
-      console.error(
-        "performance/recommend-topics 세션 단계 갱신 실패(무시):",
-        sessionUpdateError,
-      );
-    }
-
-    res.status(200).json({
-      round: nextRound,
-      topics: (insertedRows || [])
-        .sort((a, b) => a.idx - b.idx)
-        .map(toClientTopic),
-      quotaRemaining,
-      charged,
-      maxRounds: MAX_ROUNDS,
-      promptVersion: TOPIC_PROMPT_VERSION,
-      model: PERFORMANCE_MODEL,
-      knowledge: {
-        source: knowledge.source,
-        hitCount: knowledge.hitCount,
-        degraded: knowledge.degraded,
-        studentHistoryCount: Math.min(
-          studentSessions.length,
-          STUDENT_HISTORY_PROMPT_LIMIT,
+      const system = buildTopicRecommendationSystem({
+        topicKnowledgeText: knowledge.text,
+        studentHistoryText: formatRelevantStudentSessionsForPrompt(
+          studentSessions.slice(0, STUDENT_HISTORY_PROMPT_LIMIT),
+          // **여기만 맨 `subject`다(결합값 금지).** 이 인자는 검색 질의문이 아니라
+          // `performance_session_vectors.subject`와의 **등가 비교** 대상이고
+          // (knowledge.js `sameSubject = r.subject === currentSubject`), 그 컬럼은
+          // `subject_group`과 별도로 맨 과목명을 담는다(sql/54 1-8). 결합값을 넘기면
+          // `현재 과목과의 관계: 같은 과목` 판정이 영구히 false가 된다.
+          subject,
         ),
-      },
-    });
+      });
+
+      // ── 재추천이면 이전 라운드 주제명을 배제 블록으로 덧붙인다(§8.3 `round` 정의).
+      //    원문 작업 지시 8조는 손대지 않고 뒤에 블록만 붙인다 — round 1 프롬프트는
+      //    원문과 바이트 동일하다(prompts.js `buildTopicExclusionBlock` 주석).
+      const excludedTitles = Array.from(
+        new Set(
+          priorTopics
+            .map((row) => String(row.title || "").trim())
+            .filter(Boolean),
+        ),
+      );
+
+      // buildTopicRecommendationUser는 값을 `|| ""`로 다루므로 null→"" 치환은 결과에 영향 없다.
+      const baseUser = buildTopicRecommendationUser({
+        gradeLabel,
+        semester: sessionRow.semester || "",
+        schoolType: sessionRow.school_type || "",
+        subjectGroup: sessionRow.subject_group || "",
+        subject,
+        career,
+        previousTopic,
+        assessmentText,
+      });
+
+      const exclusionBlock = buildTopicExclusionBlock(excludedTitles);
+      const userMsg = exclusionBlock
+        ? `${baseUser}\n\n${exclusionBlock}`
+        : baseUser;
+
+      // ── 모델 호출. 실패 형태가 3가지라 각각 다르게 다룬다(§8.4 완화책 ⓑ·ⓒ·ⓓ):
+      //      ⓑ maxOutputTokens를 원문 4200에서 상향(prompts.js 근거 주석)
+      //      ⓒ finishReason === 'MAX_TOKENS' → **파싱을 시도하지 않고** 재시도
+      //      ⓓ 파싱 실패 시 모델 원문을 응답에 싣지 않는다(서버 로그에만 남긴다)
+      const abortController = new AbortController();
+      const abortTimer = setTimeout(
+        () => abortController.abort(),
+        MODEL_TIMEOUT_MS,
+      );
+
+      let validated: ModelTopic[] | null = null;
+      let lastFailure = "unknown";
+
+      try {
+        for (let attempt = 0; attempt <= STRUCTURE_RETRY; attempt++) {
+          const isRetry = attempt > 0;
+          trace.beginAttempt(retryReasonOf(isRetry, lastFailure));
+
+          let response: Awaited<ReturnType<typeof generateWithRetry>>;
+          try {
+            response = await generateWithRetry(
+              {
+                model: PERFORMANCE_MODEL,
+                contents: userMsg,
+                config: {
+                  systemInstruction: system,
+                  // 재시도는 원문 재시도와 같은 취지로 온도를 낮춘다
+                  // (`suhaengpyeong/api/recommend-topics.js:221` — 0.25 → 0.2).
+                  temperature: isRetry
+                    ? 0.2
+                    : TOPIC_GENERATION_DEFAULTS.temperature,
+                  // 같은 상한으로 다시 부르면 같은 자리에서 다시 잘린다 → 올려서 재시도.
+                  maxOutputTokens: isRetry
+                    ? TOPIC_MAX_OUTPUT_TOKENS_RETRY
+                    : TOPIC_GENERATION_DEFAULTS.maxOutputTokens,
+                  thinkingConfig: { thinkingBudget: 0 },
+                  responseMimeType: "application/json",
+                  responseSchema: TOPIC_RECOMMENDATION_SCHEMA,
+                  abortSignal: abortController.signal,
+                },
+              },
+              2,
+              trace,
+            );
+          } catch (modelError) {
+            // 과부하 재시도(700ms×2^n, 2회)는 generateWithRetry가 이미 소진했다.
+            // 여기까지 오면 상류가 실제로 죽었거나 우리 시한이 끝난 것이다. **무차감**.
+            console.error(
+              "performance/recommend-topics 모델 호출 실패:",
+              modelError,
+            );
+            return fail(
+              res,
+              503,
+              "MODEL_UNAVAILABLE",
+              "주제를 추천하지 못했어요. 잠시 후 다시 시도해 주세요.",
+              {
+                charged: false,
+              },
+            );
+          }
+
+          const finishReason = response?.candidates?.[0]?.finishReason;
+
+          // ⓒ — 절단된 응답은 파싱하지 않는다. 결함 ①(숫자 리터럴 반복 루프)과
+          //      ②(무작위 중간 절단)의 공통 징후이며, 반쯤 온 JSON을 어떻게든 살리려는
+          //      시도가 곧 §8.4가 금지한 텍스트 수술이다.
+          if (finishReason === "MAX_TOKENS") {
+            lastFailure = "finish-reason:MAX_TOKENS";
+            console.warn(
+              `performance/recommend-topics MAX_TOKENS 절단 (attempt ${attempt + 1})`,
+            );
+            trace.annotateLastCall(validationOf(false, lastFailure));
+            continue;
+          }
+
+          if (finishReason && finishReason !== "STOP") {
+            lastFailure = `finish-reason:${finishReason}`;
+            console.warn(
+              `performance/recommend-topics 비정상 종료 ${finishReason} (attempt ${attempt + 1})`,
+            );
+            trace.annotateLastCall(validationOf(false, lastFailure));
+            continue;
+          }
+
+          const rawText = String(response?.text || "").trim();
+          if (!rawText) {
+            lastFailure = "empty-response";
+            trace.annotateLastCall(validationOf(false, lastFailure));
+            continue;
+          }
+
+          let parsed: unknown;
+          try {
+            // 유일한 파싱이다. `responseMimeType:'application/json'`이 형식을 보장하므로
+            // 코드펜스 제거·헤더 보정 같은 전처리를 두지 않는다(§8.4).
+            parsed = JSON.parse(rawText);
+          } catch (parseError) {
+            lastFailure = "json-parse-failed";
+            // ⓓ — 원문은 서버 로그에만 남긴다. 응답 본문에는 싣지 않는다.
+            console.error(
+              "performance/recommend-topics JSON 파싱 실패:",
+              parseError?.message,
+              rawText.slice(0, 400),
+            );
+            trace.annotateLastCall(validationOf(false, lastFailure));
+            continue;
+          }
+
+          const check = validateTopicsPayload(parsed);
+          if (!check.ok) {
+            // tsconfig가 strictNullChecks를 끄고 있어(strict:false) 이 boolean 판별
+            // 유니온이 `!check.ok`만으로는 좁혀지지 않는다(strict:true에서만 좁혀짐을
+            // 격리 재현으로 확인) — 그래서 여기서만 명시적으로 좁힌다.
+            const { reason } = check as { ok: false; reason: string };
+            lastFailure = `contract:${reason}`;
+            console.warn(
+              `performance/recommend-topics 계약 위반 ${reason} (attempt ${attempt + 1})`,
+            );
+            trace.annotateLastCall(validationOf(false, lastFailure));
+            continue;
+          }
+
+          validated = check.topics;
+          trace.annotateLastCall(validationOf(true, ""));
+          break;
+        }
+      } finally {
+        clearTimeout(abortTimer);
+      }
+
+      if (!validated) {
+        // 재시도까지 실패. **무차감**이다(§8.4 「검증 실패 시 1회 재요청 후 실패 처리,
+        // 회차는 차감하지 않는다」). 사용자에게는 모델 원문 대신 안내만 준다(ⓓ).
+        console.error(
+          `performance/recommend-topics 계약 위반 확정: ${lastFailure}`,
+        );
+        return fail(
+          res,
+          422,
+          "MODEL_CONTRACT_VIOLATION",
+          "주제를 정리하지 못했어요. 다시 시도해 주세요.",
+          {
+            charged: false,
+          },
+        );
+      }
+
+      // ─────────────────────────────────────────────────────────────────
+      // 여기부터가 차감 구간이다. 위에서 3건을 확보한 **뒤에만** 도달한다.
+      // ─────────────────────────────────────────────────────────────────
+      const { data: creditRaw, error: creditError } = await supabaseAdmin.rpc(
+        "consume_performance_credit",
+        {
+          p_session_id: sessionRow.id,
+          p_profile_id: userId,
+          p_reason: "recommend-topics:first-success",
+        },
+      );
+
+      if (creditError) {
+        // fail-closed(§9.3 5항) — 차감을 커밋하지 못했으면 산출물을 내보내지 않는다.
+        console.error(
+          "performance/recommend-topics 차감 RPC 실패:",
+          creditError,
+        );
+        return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
+      }
+
+      const credit =
+        creditRaw && typeof creditRaw === "object" ? creditRaw : {};
+      const creditStatus = String(credit.status || "");
+
+      if (creditStatus === "quota_exhausted") {
+        // §5.20 (B) 인라인 소진 카드가 이 응답을 받아 AiLoadingBubble을 대체한다.
+        // 표현은 사용량이 아니라 **잔여량** 기준이다(§9.3 「소진 응답 계약」).
+        return fail(
+          res,
+          409,
+          "QUOTA_EXHAUSTED",
+          "이용 가능한 횟수를 모두 사용했어요.",
+          {
+            quotaRemaining: 0,
+            planEndsAt: credit.plan_ends_at ?? null,
+            charged: false,
+          },
+        );
+      }
+
+      if (creditStatus === "no_entitlement") {
+        return fail(
+          res,
+          403,
+          "NO_ENTITLEMENT",
+          "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+          {
+            charged: false,
+          },
+        );
+      }
+
+      if (creditStatus === "entitlement_expired") {
+        // RPC가 돌려주는 5번째 상태다(sql/54 (4) 단계 6). 이용권 기간 만료·환불·정지는
+        // "권한 없음"과 원인이 다르므로 코드를 갈라 §5.20이 다른 문구를 쓸 수 있게 한다.
+        return fail(
+          res,
+          403,
+          "ENTITLEMENT_EXPIRED",
+          "이용권 사용 기간이 끝났어요.",
+          {
+            planEndsAt: credit.plan_ends_at ?? null,
+            charged: false,
+          },
+        );
+      }
+
+      if (creditStatus === "session_not_found") {
+        return fail(res, 403, "NOT_SESSION_OWNER", "세션을 찾을 수 없습니다.", {
+          charged: false,
+        });
+      }
+
+      // `charged` = 이번 요청이 실제로 회차를 깎았는가.
+      // `already_charged`는 **재추천의 정상 경로**다(§9.3) — 같은 세션의 원장 행이 이미
+      // 있다는 뜻이고, 그 멱등성은 `performance_credit_ledger.session_id` UNIQUE가 보장한다.
+      if (creditStatus !== "charged" && creditStatus !== "already_charged") {
+        console.error(
+          "performance/recommend-topics 알 수 없는 차감 상태:",
+          creditStatus,
+        );
+        return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
+      }
+
+      const charged = credit.charged === true;
+      const quotaRemaining = credit.quota_remaining ?? null;
+
+      // ── 저장. 라운드당 3행이며 `(session_id, round, idx)` UNIQUE가 재시도로 인한
+      //    중복 저장을 막는다(sql/54 1-4).
+      const rows = validated.map((topic, index) => ({
+        session_id: sessionRow.id,
+        round: nextRound,
+        idx: index + 1,
+        title: String(topic.title || "").trim(),
+        subtitle: TOPIC_SUBTITLE,
+        tags: buildTags(sessionRow),
+        detail: buildDetail(topic),
+        selected: false,
+      }));
+
+      const { data: insertedRows, error: insertError } = await supabaseAdmin
+        .from("performance_topics")
+        .insert(rows)
+        .select("id,round,idx,title,subtitle,tags,detail,selected");
+
+      if (insertError)
+        throw new Error(`주제 저장 실패: ${insertError.message}`);
+
+      const { error: sessionUpdateError } = await supabaseAdmin
+        .from("performance_sessions")
+        .update(stepPatch(sessionRow))
+        .eq("id", sessionRow.id);
+
+      // 진행 표시 갱신 실패로 이미 차감된 요청을 실패로 뒤집지 않는다. 주제는 저장됐고
+      // 재방문 시 `deriveResumeStep`(bootstrap.js)이 실제 데이터로 재개 지점을 다시
+      // 계산하고, 프론트 사이드바는 라이브 세션 상태에서 `deriveStepStates`(P13)가
+      // 다시 파생한다.
+      if (sessionUpdateError) {
+        console.error(
+          "performance/recommend-topics 세션 단계 갱신 실패(무시):",
+          sessionUpdateError,
+        );
+      }
+
+      res.status(200).json({
+        round: nextRound,
+        topics: (insertedRows || [])
+          .sort((a, b) => a.idx - b.idx)
+          .map(toClientTopic),
+        quotaRemaining,
+        charged,
+        maxRounds: MAX_ROUNDS,
+        promptVersion: TOPIC_PROMPT_VERSION,
+        model: PERFORMANCE_MODEL,
+        knowledge: {
+          source: knowledge.source,
+          hitCount: knowledge.hitCount,
+          degraded: knowledge.degraded,
+          studentHistoryCount: Math.min(
+            studentSessions.length,
+            STUDENT_HISTORY_PROMPT_LIMIT,
+          ),
+        },
+      });
+    } finally {
+      await trace.flush(supabaseAdmin);
+    }
   },
 });
 

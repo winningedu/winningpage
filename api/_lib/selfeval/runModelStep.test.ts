@@ -424,3 +424,133 @@ describe("outcomeToHttp", () => {
     });
   });
 });
+
+describe("계기판 기록", () => {
+  type Row = Record<string, unknown>;
+  const stop = (text: string) => ({ text, finishReason: "STOP" });
+  const soft = [{ code: "length_off_target", message: "분량" }];
+  const makeTelemetryDb = () => {
+    const insert = vi.fn(async (_rows: unknown) => ({ error: null }));
+    return {
+      db: { from: vi.fn(() => ({ insert })) } as never,
+      insert,
+      rows: () => (insert.mock.calls[0]?.[0] ?? []) as Row[],
+    };
+  };
+  // 실제 callStructured 처럼 호출마다 telemetry 에 한 건 기록한다.
+  const record = (options: {
+    telemetry?: { recordCall: (e: never) => void };
+  }) =>
+    options.telemetry?.recordCall({
+      kind: "generate",
+      model: "m",
+      startedAt: 0,
+      latencyMs: 1,
+      transportAttempt: 1,
+      status: "ok",
+    } as never);
+  const queueReplies = (
+    ...replies: { text: string; finishReason: string }[]
+  ) => {
+    const q = [...replies];
+    callStructured.mockImplementation(async (_s, _u, options) => {
+      record(options);
+      return q.shift();
+    });
+  };
+
+  it("잘림 재요청은 1회차 failed truncated, 2회차 ok 이고 한 번만 내보낸다", async () => {
+    const t = makeTelemetryDb();
+    queueReplies({ text: "{", finishReason: "MAX_TOKENS" }, stop('{"a":2}'));
+    await runModelStep(t.db, "u1", session, "write", deps(), {
+      build: () => bundle,
+      validate: okValidate,
+    });
+    expect(t.insert).toHaveBeenCalledTimes(1);
+    expect(t.rows()).toMatchObject([
+      {
+        service: "selfeval",
+        feature: "write",
+        target_kind: "selfeval_session",
+        profile_id: "u1",
+        attempt: 1,
+        retry_reason: null,
+        validation: "failed",
+        issue_codes: ["truncated"],
+      },
+      { attempt: 2, retry_reason: "truncated", validation: "ok" },
+    ]);
+  });
+
+  it("검증 실패는 issue 코드를 남기고 재요청 사유로 쓴다", async () => {
+    const t = makeTelemetryDb();
+    queueReplies(stop("{}"), stop("{}"));
+    const validate = vi
+      .fn()
+      .mockReturnValueOnce({
+        ok: false,
+        issues: [{ code: "missing_field", message: "m" }],
+      })
+      .mockReturnValueOnce(okValidate("v"));
+    await runModelStep(t.db, "u1", session, "write", deps(), {
+      build: () => bundle,
+      validate,
+    });
+    expect(t.rows()).toMatchObject([
+      { validation: "failed", issue_codes: ["missing_field"] },
+      { retry_reason: "missing_field", validation: "ok" },
+    ]);
+  });
+
+  it("soft 재요청 뒤 hard 실패로 첫 결과를 쓰면 마지막 시도는 failed 로 남긴다", async () => {
+    const t = makeTelemetryDb();
+    queueReplies(stop("{}"), stop("{}"));
+    const validate = vi
+      .fn()
+      .mockReturnValueOnce({ ...okValidate("first"), softIssues: soft })
+      .mockReturnValueOnce({
+        ok: false,
+        issues: [{ code: "missing_field", message: "m" }],
+      });
+    await runModelStep(t.db, "u1", session, "write", deps(), {
+      build: () => bundle,
+      validate,
+    });
+    expect(t.rows()).toMatchObject([
+      { validation: "failed", issue_codes: ["length_off_target"] },
+      {
+        retry_reason: "length_off_target",
+        validation: "failed",
+        issue_codes: ["missing_field"],
+      },
+    ]);
+  });
+
+  it("모델 호출 예외는 annotate 없이 한 번 내보낸다", async () => {
+    const t = makeTelemetryDb();
+    callStructured.mockImplementation(async (_s, _u, options) => {
+      record(options);
+      throw new Error("503");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await runModelStep(t.db, "u1", session, "write", deps(), {
+      build: () => bundle,
+      validate: okValidate,
+    });
+    expect(t.insert).toHaveBeenCalledTimes(1);
+    expect(t.rows()[0]?.validation).toBeNull();
+  });
+
+  it("검증 함수가 던져 fatal 로 끝나도 한 번 내보낸다", async () => {
+    const t = makeTelemetryDb();
+    queueReplies(stop("{}"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await runModelStep(t.db, "u1", session, "write", deps(), {
+      build: () => bundle,
+      validate: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(t.insert).toHaveBeenCalledTimes(1);
+  });
+});

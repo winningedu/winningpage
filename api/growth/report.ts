@@ -49,7 +49,7 @@
 // _lib/growth/report/advance 에, 판단 로직은 _lib/growth/report/reportBody 에 있고 거기서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
-import { callStructured } from "../_lib/gemini.js";
+import { callStructured } from "../_lib/ai/gemini.js";
 import {
   type AdvanceOutcome,
   advanceStep,

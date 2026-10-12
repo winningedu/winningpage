@@ -26,7 +26,7 @@
 // 핸들러는 바디 검증, 세션 조회, 입력 조립, runGeneration 호출, HTTP 매핑만 한다. 판단은
 // _lib/inquiry/designFlow.ts, 러너는 _lib/inquiry/generate.ts 에서 검증한다.
 
-import { callStructured } from "../_lib/gemini.js";
+import { callStructured } from "../_lib/ai/gemini.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {

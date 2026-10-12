@@ -1,7 +1,7 @@
 // 성장설계 리포트 모델 단계(1, 3, 4, 5, 6, 7)의 프롬프트 조립, 응답 파싱, 앱 검증.
 // 순수 함수만 둔다. 모델 호출과 저장은 호출자가 맡는다.
 
-import type { callText } from "../../gemini.js";
+import type { callText } from "../../ai/gemini.js";
 import {
   AXIS_NAMES,
   AXIS_TO_UNIVERSITY_FACTORS,

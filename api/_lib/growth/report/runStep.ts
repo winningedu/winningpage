@@ -61,12 +61,29 @@ export type StoredOutputs = {
   planDraft: unknown;
 };
 
+/** 호출 하나의 검증 결과. 계기판이 있으면 그 호출의 행에 붙인다. */
+export type CallAnnotation = {
+  validation: "ok" | "failed";
+  issueCodes?: string[];
+};
+
+export type ModelReply = {
+  text: string;
+  finishReason: string | null;
+  /** 계기판이 없으면 없다. */
+  annotate?: (a: CallAnnotation) => void;
+};
+
 export type RunStepDeps = {
-  /** finishReason 은 출력 한도 잘림(MAX_TOKENS)을 알아채는 데 쓴다. */
+  /**
+   * finishReason 은 출력 한도 잘림(MAX_TOKENS)을 알아채는 데 쓴다.
+   * meta.retryReason 은 재요청일 때 직전 문제 코드를 콤마로 이은 값이다.
+   */
   callModel: (
     bundle: PromptBundle,
     signal: AbortSignal,
-  ) => Promise<{ text: string; finishReason: string | null }>;
+    meta?: { retryReason?: string | null },
+  ) => Promise<ModelReply>;
   now: () => string;
   /** 이 요청에 남은 예산(ms). */
   budgetMs: number;
@@ -214,10 +231,16 @@ async function callWithRetry(
       retryNotes,
       attempt === 0 ? 0 : 1,
     );
-    let reply: { text: string; finishReason: string | null };
+    // 재요청이면 직전 문제 코드를 사유로 넘긴다. 계기판 행의 retry_reason 이 된다.
+    const retryReason =
+      attempt === 0 ? null : lastIssues.map((i) => i.code).join(",");
+    let reply: ModelReply;
     try {
       reply = await withinBudget(
-        (signal) => deps.callModel(bundle, signal),
+        (signal) =>
+          retryReason === null
+            ? deps.callModel(bundle, signal)
+            : deps.callModel(bundle, signal, { retryReason }),
         remaining,
       );
     } catch (e) {
@@ -252,11 +275,19 @@ async function callWithRetry(
         ...extra,
         ...(input.call ? { call: input.call } : {}),
       });
-      if (verdict.ok) return { ok: true, output, extraAttempts };
+      if (verdict.ok) {
+        reply.annotate?.({ validation: "ok" });
+        return { ok: true, output, extraAttempts };
+      }
       issues = verdict.issues;
     } else {
       issues = parsed.issues;
     }
+    // 시간 초과와 호출 오류는 위에서 돌아가므로 표시하지 않는다. 그 행은 error 로 남는다.
+    reply.annotate?.({
+      validation: "failed",
+      issueCodes: issues.map((i) => i.code),
+    });
     lastIssues = issues;
     retryNotes = buildRetryNote(issues);
   }
