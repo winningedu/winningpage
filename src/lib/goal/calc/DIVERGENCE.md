@@ -102,7 +102,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
   (엔진 내부용 리터럴이 실수로 영속 계층까지 새어나갔다). 그래도 팀장 지시에 따라
   같은 계열의 결함으로 등재하고 분류를 명시한다.
 - **영향 범위**: `goal_students.grade` 컬럼 값 하나. 소비처는
-  `api/_lib/goalRepo.js:315` `buildStudentPayload` 의 `profile.grade`(표시용) 가
+  `api/_lib/goal/repo.ts:315` `buildStudentPayload` 의 `profile.grade`(표시용) 가
   유일하다(grep 재확인 — 계산 로직 소비처 0건, 특례 식별자는 이미
   `naesin_scores.priorNaesinGrade` 로 행에 남아 있다). 계산 결과에는 영향이 없다.
 - **상태**: **수정함** (우리 쪽 표시 버그로 분류, 원본과의 이탈이 아님)

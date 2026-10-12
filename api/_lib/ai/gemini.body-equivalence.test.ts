@@ -8,7 +8,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ADVICE_RESPONSE_SCHEMA } from "../goalAdvice.js";
+import { ADVICE_RESPONSE_SCHEMA } from "../goal/advice.js";
 import { EXTRACTION_RESPONSE_SCHEMA } from "../growth/intake/extraction.js";
 import { STEP_RESPONSE_SCHEMAS } from "../growth/report/prompts.js";
 import { RESPONSE_SCHEMAS } from "../inquiry/prompts.js";

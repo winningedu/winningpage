@@ -49,7 +49,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GRADE_PERCENTILE } from "../../src/lib/goal/calc/jeongsi.js";
-import { buildGoalDirectionReport } from "../_lib/goalDirectionReport.js";
+import { buildGoalDirectionReport } from "../_lib/goal/directionReport.js";
 import {
   fetchStudentRow,
   narrowGoalSession,
@@ -57,14 +57,14 @@ import {
   PAID_MESSAGE,
   saveGoalDirectionReport,
   updateStudentGrades,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-// goalRepo.js(.js, Stage3 대상)의 openGoalSession 반환 shape은 JSDoc으로만 선언돼
+// api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape은 JSDoc으로만 선언돼
 // 있다 — handleGet/handlePost가 공유하는 세션 매개변수 타입을 그 함수에서 그대로
-// 추론해 재사용한다(중복 선언 없이 goalRepo.js JSDoc이 바뀌면 여기도 함께 따라간다).
+// 추론해 재사용한다(중복 선언 없이 api/_lib/goal/repo.ts JSDoc이 바뀌면 여기도 함께 따라간다).
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
 
 // QA 행290・291 재설계로 온보딩 입력 구조가 바뀐 것에 맞춰 성적관리 모달의 과목 구성도
@@ -358,7 +358,7 @@ async function handlePost(
 
   const record = validated.record;
 
-  // updateStudentGrades(goalRepo.js)는 구조분해 파라미터라 두 키를 모두 요구하는
+  // updateStudentGrades(api/_lib/goal/repo.ts)는 구조분해 파라미터라 두 키를 모두 요구하는
   // 타입으로 추론된다 — 안 바꾼 쪽은 undefined로 명시해 그 함수 내부의
   // `!== undefined` 판정(패치 생략)을 그대로 탄다(런타임 동작 동일).
   const patch: { naesin_scores: unknown; mock_exam_scores: unknown } = {
@@ -382,7 +382,7 @@ async function handlePost(
   // mockExamScores를 넘기지 않아 buildGoalDirectionReport가 레거시(4과목 flat)
   // 분기로만 해석하도록 강제한다 — 이 지점의 목적은 "방금 입력한 이 회차"의
   // 스냅샷이지, 학생의 현재 과목군 평균 집계(naesin_scores.groupAverages, 병렬
-  // 유닛 소유)가 아니기 때문이다(판단 지점, api/_lib/goalDirectionReport.ts
+  // 유닛 소유)가 아니기 때문이다(판단 지점, api/_lib/goal/directionReport.ts
   // resolveNaesinSubjectAverage/resolveJungsiSubjectAverage 헤더 주석 참고).
   const { payload, snapshot } = buildGoalDirectionReport({
     kind: type === "naesin" ? "naesin" : "jungsi",
@@ -463,7 +463,7 @@ async function handlePut(
     return res.status(400).json({ detail: "이미 사용 중인 회차 이름입니다." });
   }
 
-  // updateStudentGrades(goalRepo.ts) 구조분해 파라미터 관례 — handlePost 참고.
+  // updateStudentGrades(api/_lib/goal/repo.ts) 구조분해 파라미터 관례, handlePost 참고.
   const patch: { naesin_scores: unknown; mock_exam_scores: unknown } = {
     naesin_scores: undefined,
     mock_exam_scores: undefined,

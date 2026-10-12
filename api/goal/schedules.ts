@@ -9,7 +9,7 @@
 // sql/74_goal_schedules.sql 이 클라이언트 write 정책을 하나도 두지 않았으므로(RLS는
 // select own + admin all만) 쓰기는 이 파일(service_role)이 유일한 경로다. 그래서
 // update/delete는 반드시 profile_id를 같이 걸어 소유자 판정을 서버가 직접 강제한다
-// (goalRepo.js openGoalSession JSDoc 규약 1, updateSchedule/deleteSchedule 참고).
+// (api/_lib/goal/repo.ts openGoalSession JSDoc 규약 1, updateSchedule/deleteSchedule 참고).
 //
 // 게이트 순서는 daily-record.js와 동일하다 — 조회(GET)는 미결제를 200 {allowed:false}로,
 // 쓰기(POST/PUT/DELETE)는 403으로 알린다(§9-1). 온보딩 미완료(goal_students 행 없음)는
@@ -30,12 +30,12 @@ import {
   openGoalSession,
   PAID_MESSAGE,
   updateSchedule,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-// goalRepo.js(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
+// api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
 

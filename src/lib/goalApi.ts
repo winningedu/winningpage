@@ -15,7 +15,7 @@
 import { apiFetch, getAuthHeader } from "./apiFetch";
 
 // ---------------------------------------------------------------------------
-// 응답 payload 타입 — api/_lib/goalRepo.js buildXxxPayload()/api/goal/*.ts 응답 조립과
+// 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
 // 실제 select 컬럼(카멜 변환 후)에 맞춰 정의한다.
 // ---------------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ interface GoalProbabilityHistoryEntry {
   minJungsi: number | null;
 }
 
-/** GET /api/goal/student 200 본문(온보딩 완료 학생) — api/_lib/goalRepo.js buildStudentPayload(). */
+/** GET /api/goal/student 200 본문(온보딩 완료 학생), api/_lib/goal/repo.ts buildStudentPayload(). */
 export interface GoalStudentPayload {
   onboarded: true;
   status: string;
@@ -155,7 +155,7 @@ export interface GoalTomorrowTargets {
   minHours: number;
 }
 
-/** api/_lib/goalRepo.js buildSchedulePayload(). */
+/** api/_lib/goal/repo.ts buildSchedulePayload(). */
 interface GoalSchedule {
   id: number;
   title: string;
@@ -165,7 +165,7 @@ interface GoalSchedule {
 }
 
 /**
- * api/_lib/goalRepo.js buildPlanTaskPayload(). status가 단일 원본(QA 행305,
+ * api/_lib/goal/repo.ts buildPlanTaskPayload(). status가 단일 원본(QA 행305,
  * pending/done/fail) — done은 status에서 파생한 하위 호환 값이다.
  */
 export interface GoalPlanTask {
@@ -184,7 +184,7 @@ export interface GoalPlanTask {
   workbookTitle: string | null;
 }
 
-/** api/_lib/goalRepo.js buildWorkbookPayload(). */
+/** api/_lib/goal/repo.ts buildWorkbookPayload(). */
 interface GoalWorkbook {
   id: number;
   subject: string;
@@ -206,7 +206,7 @@ interface GoalTimerSummary {
   totalSeconds: number;
   targets: { subject: string; targetHours: number }[];
   // 학생이 타이머 화면에 노출 중인 과목 목록(정렬 순, QA B9 "+ 과목 추가"). 행이 없으면
-  // 서버가 기본 4과목을 돌려준다(api/_lib/goalRepo.ts DEFAULT_TIMER_SUBJECTS).
+  // 서버가 기본 4과목을 돌려준다(api/_lib/goal/repo.ts DEFAULT_TIMER_SUBJECTS).
   visibleSubjects: string[];
 }
 
@@ -267,7 +267,7 @@ async function parseJsonSafe(response: Response): Promise<any> {
 //       status는 서버 원문 문자열을 그대로 싣는다('awaiting_cuts').
 //
 //   { kind: 'onboarded', student }
-//     — 200 {onboarded:true, ...}. student는 api/_lib/goalRepo.js의
+//     200 {onboarded:true, ...}. student는 api/_lib/goal/repo.ts의
 //       buildStudentPayload() 반환 객체 전체를 그대로 담는다:
 //       { onboarded, status, profile:{name,schoolType,grade,schoolCutType},
 //         targets, scores, baseProbs, rates, cumulativeBonus, probs,
@@ -670,7 +670,7 @@ export async function submitDailyRecord(
 // ---------------------------------------------------------------------------
 // 문제집(goal_workbooks) — "나의 노력" 화면(Efforts.jsx) 전용 CRUD.
 // 4함수 모두 위 두 함수와 같은 규약을 따른다: 예외를 던지지 않고 discriminated
-// union으로 실패를 표현하며, 응답 본문은 api/_lib/goalRepo.js buildWorkbookPayload
+// union으로 실패를 표현하며, 응답 본문은 api/_lib/goal/repo.ts buildWorkbookPayload
 // 모양 그대로다({ id, subject, title, totalPages, currentPage, status }).
 //
 // 공통 kind:
@@ -815,7 +815,7 @@ export async function deleteGoalWorkbook(
 //   { kind: 'no-session' }             — 401.
 //   { kind: 'not-allowed' }            — 200 {allowed:false}. 이용권 없음.
 //   { kind: 'success', schedules }     — 200 {ok:true, schedules}. schedules는
-//                                         api/_lib/goalRepo.js buildSchedulePayload() 배열:
+//                                         api/_lib/goal/repo.ts buildSchedulePayload() 배열:
 //                                         [{id,title,category,dueDate,memo}].
 //   { kind: 'error' }                  — 그 외 전부(409 not_onboarded 포함, 판정 불가로
 //                                         접는다 — /app/goal/schedules는 RequireGoalAccess가
@@ -950,7 +950,7 @@ export async function deleteGoalSchedule({ id }: { id: number }) {
 // 네 함수 모두 fetchGoalStudent/submitGoalIntake와 같은 규약(예외를 던지지
 // 않고 discriminated union으로 반환, `kind` 필드로 분기)을 따른다.
 //
-// task shape(camelCase, api/_lib/goalRepo.js buildPlanTaskPayload와 동일):
+// task shape(camelCase, api/_lib/goal/repo.ts buildPlanTaskPayload와 동일):
 //   { id, planDate, title, subject, durationMinutes, done, sortOrder }
 //   subject는 한글 라벨('국어'/'수학'/'영어'/'탐구'/'기타') — 서버가 DB 코드와
 //   왕복 변환하므로 클라이언트는 항상 이 라벨만 다룬다(AddTaskModal 과목 칩과 동일).
@@ -1697,7 +1697,7 @@ export async function fetchGoalReport(
 
 // ---------------------------------------------------------------------------
 // GET/POST /api/goal/advice — QA 행295·306 AI 입시조언(intake) / 오늘의 조언·
-// 내일 계획(daily). 응답 shape은 api/_lib/goalAdvice.ts AdvicePayload와 같다.
+// 내일 계획(daily). 응답 shape은 api/_lib/goal/advice.ts AdvicePayload와 같다.
 // ---------------------------------------------------------------------------
 
 export interface GoalAdviceSection {

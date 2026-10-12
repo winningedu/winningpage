@@ -199,7 +199,8 @@ export function parseExtractionResponse(raw: string): ExtractionParse {
     if (v !== null && typeof v !== "string")
       return { ok: false, reason: `${f} 형식 오류` };
     const t = v === null ? "" : v.trim().slice(0, VALUE_LIMIT);
-    extracted[f] = t === "" ? null : t;
+    // 모델이 JSON null 대신 문자열 "null" 을 내는 경우가 있다
+    extracted[f] = t === "" || t.toLowerCase() === "null" ? null : t;
   }
   if (EXTRACTION_FIELDS.every((f) => extracted[f] === null)) {
     return { ok: false, reason: "추출된 항목 없음" };

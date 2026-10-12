@@ -22,9 +22,9 @@
 //
 // React·DOM·Supabase 의존 없는 순수 함수만 담는다.
 
-import { calcStudentBonusRates } from "../../src/lib/goal/calc/bonus.js";
-import { calcJeongsiProb } from "../../src/lib/goal/calc/jeongsi.js";
-import { num } from "./goalRepo.js";
+import { calcStudentBonusRates } from "../../../src/lib/goal/calc/bonus.js";
+import { calcJeongsiProb } from "../../../src/lib/goal/calc/jeongsi.js";
+import { num } from "./repo.js";
 
 export interface JungsiRecalcInput {
   // effectiveGrade — resolveJungsiEffectiveGrade() 로 구한 값을 넘긴다.

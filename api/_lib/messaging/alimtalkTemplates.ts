@@ -1,7 +1,7 @@
 // 알림톡 템플릿 레지스트리.
 //
 // 왜 필요한가
-//   api/_lib/aligo.ts 는 인증번호 하나만 보낼 수 있었다 — 템플릿 코드가
+//   api/_lib/messaging/aligo.ts 는 인증번호 하나만 보낼 수 있었다, 템플릿 코드가
 //   ALIGO_TEMPLATE_CODE 환경변수 **한 개**이고 본문도 buildAlimtalkMessage(code)
 //   로 하드코딩돼 있었다. 승인된 템플릿이 4종 더 늘어나면서 그 구조로는 못 얹는다.
 //

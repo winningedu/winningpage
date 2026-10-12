@@ -174,6 +174,39 @@ describe("parseExtractionResponse", () => {
     expect(r).toEqual({ ok: true, extracted: { ...full, limitation: null } });
   });
 
+  test('문자열 "null" 은 대소문자와 앞뒤 공백에 관계없이 null 로 다룬다', () => {
+    const r = parseExtractionResponse(
+      JSON.stringify({ ...full, topic: "null", limitation: " NULL " }),
+    );
+    expect(r).toEqual({
+      ok: true,
+      extracted: { ...full, topic: null, limitation: null },
+    });
+  });
+
+  test('네 항목이 모두 문자열 "null" 이면 추출된 항목 없음으로 실패', () => {
+    const raw = JSON.stringify({
+      topic: "null",
+      concept: "Null",
+      result: " NULL ",
+      limitation: "null",
+    });
+    expect(parseExtractionResponse(raw)).toEqual({
+      ok: false,
+      reason: "추출된 항목 없음",
+    });
+  });
+
+  test('"null" 단어를 포함한 실제 값은 그대로 둔다', () => {
+    const r = parseExtractionResponse(
+      JSON.stringify({ ...full, topic: "null hypothesis test" }),
+    );
+    expect(r).toEqual({
+      ok: true,
+      extracted: { ...full, topic: "null hypothesis test" },
+    });
+  });
+
   test("비JSON, 배열, 필드 누락, 전부 null 은 실패", () => {
     expect(parseExtractionResponse("not json").ok).toBe(false);
     expect(parseExtractionResponse("[]").ok).toBe(false);

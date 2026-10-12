@@ -19,14 +19,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest } from "@vercel/node";
-import { kstYMD } from "../../src/lib/goal/calc/virtualDate.js";
-import { resolveUser } from "./httpAuth.js";
+import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
+import { resolveUser } from "../httpAuth.js";
 import {
   clean,
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
-} from "./serviceAccess.js";
-import { createSupabaseAdmin } from "./supabaseAdmin.js";
+} from "../serviceAccess.js";
+import { createSupabaseAdmin } from "../supabaseAdmin.js";
 
 // DB 행은 Database 생성 타입이 없어 열 이름만 알 수 있고 값 타입은 신뢰할 수 없다
 // (numeric 이 문자열로 오는 드라이버 편차가 §"값 변환 헬퍼" 주석에 그대로 적혀 있다).
@@ -468,7 +468,7 @@ export async function fetchLatestDailyRecord(
 // ---------------------------------------------------------------------------
 // 성장/학습방향 리포트(#33/#34/#37/#38) 조회 — api/goal/report.js 전용.
 //
-// 이 절의 함수 이름은 병렬 브랜치(daily-record/timer/plan)의 goalRepo.js 헬퍼와
+// 이 절의 함수 이름은 병렬 브랜치(daily-record/timer/plan)의 api/_lib/goal/repo.ts 헬퍼와
 // 겹치지 않도록 전부 `*InRange` 접미사로 새로 지었다(dev 머지 시 union되도록).
 // 계산은 전혀 하지 않는다 — 행을 그대로 돌려주고, 합산·백분위 같은
 // 산술은 src/lib/goal/report/aggregate.js(순수 함수)가 한다(이 파일의 §1 헌장 유지).
@@ -1405,7 +1405,7 @@ export const TABLE_DIRECTION_REPORTS = "goal_direction_reports";
 /**
  * 리포트 1건 저장 — (profile_id, kind, source_type, source_label) 동일 행이 있으면
  * 덮어쓴다(마이그레이션 unique index goal_direction_reports_identity_key, upsert
- * onConflict 문자열도 그 인덱스 컬럼 순서와 같아야 한다). api/_lib/goalDirectionReport.ts
+ * onConflict 문자열도 그 인덱스 컬럼 순서와 같아야 한다). api/_lib/goal/directionReport.ts
  * buildGoalDirectionReport()의 반환값(payload/snapshot)을 그대로 옮겨 담는 얇은 어댑터.
  */
 export async function saveGoalDirectionReport(

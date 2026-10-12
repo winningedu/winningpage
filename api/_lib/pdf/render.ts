@@ -21,14 +21,14 @@ import {
   resolveLocalExecutablePath,
   runWithCleanup,
   shouldIsolateContext,
-} from "./reportPdf.js";
+} from "./report.js";
 
 // 브라우저 인스턴스는 모듈 스코프에 캐시한다 — 서버리스 웜 재사용 시 매 요청마다
 // 콜드 스타트(바이너리 인플레이트 + 프로세스 기동)를 반복하지 않기 위함이다.
 let browserPromise: Promise<Browser> | null = null;
 
 // 인스턴스 하나가 동시에 처리할 렌더 수를 제한한다 — 브라우저 프로세스가
-// 메모리 압박으로 죽는 것을 막는다(순수 로직은 reportPdf.ts에서 단위 테스트).
+// 메모리 압박으로 죽는 것을 막는다(순수 로직은 api/_lib/pdf/report.ts에서 단위 테스트).
 const renderSemaphore = createSemaphore(RENDER_CONCURRENCY_LIMIT);
 
 async function resolveExecutablePath(env: RuntimeEnv): Promise<string> {
@@ -86,7 +86,7 @@ async function getBrowser(env: RuntimeEnv): Promise<Browser> {
 
 export interface RenderReportPdfInput {
   html: string;
-  /** 요청 인터셉션 허용 오리진(SSRF 방지) — reportPdf.ts의 isAllowedBaseUrl로
+  /** 요청 인터셉션 허용 오리진(SSRF 방지), api/_lib/pdf/report.ts의 isAllowedBaseUrl로
    * 이미 검증된 값이어야 한다. */
   baseUrl: string;
   env: RuntimeEnv;
