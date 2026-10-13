@@ -28,6 +28,7 @@ vi.mock("@/components/goal/GoalPageHeader", () => ({
   default: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
+import { ToastProvider } from "@/context/ToastContext";
 import DesignPage from "./DesignPage";
 
 const SESSION = {
@@ -64,9 +65,11 @@ function setup() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <DesignPage />
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>
+          <DesignPage />
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

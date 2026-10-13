@@ -48,6 +48,7 @@ vi.mock("@/components/inquiry/evaluate/EvaluationBody", () => ({
   default: () => <div data-testid="evaluation-body" />,
 }));
 
+import { ToastProvider } from "@/context/ToastContext";
 import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
 import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
 import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
@@ -92,14 +93,16 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/app/inquiry/reports/s1"]}>
-        <Routes>
-          <Route
-            path="/app/inquiry/reports/:sessionId"
-            element={<ReportDetailPage />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/app/inquiry/reports/s1"]}>
+          <Routes>
+            <Route
+              path="/app/inquiry/reports/:sessionId"
+              element={<ReportDetailPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }

@@ -82,7 +82,9 @@ export type SplitStep = 4 | 6 | 7;
 
 /** 나눈 호출 하나가 만드는 것. 섹션 하나, 4단계 match, 7단계 planDraft 중 하나다. */
 export type StepCall =
-  { kind: "section"; id: string } | { kind: "match" } | { kind: "planDraft" };
+  | { kind: "section"; id: string }
+  | { kind: "match" }
+  | { kind: "planDraft" };
 
 const AXIS_LIST: readonly Axis[] = ["A", "B", "C", "D", "E"];
 const KEYWORD_LIMIT = 5;
@@ -794,7 +796,8 @@ export function buildStepPrompt(
 // ---------------------------------------------------------------------------
 
 export type ParseResult =
-  { ok: true; output: StepOutput } | { ok: false; issues: ValidationIssue[] };
+  | { ok: true; output: StepOutput }
+  | { ok: false; issues: ValidationIssue[] };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -1301,11 +1304,18 @@ export function normalizeAxisSections(
       continue;
     }
     const section = out[idx];
-    if (!section || section.status === "no_data") continue;
+    if (!section) continue;
     const body = isRecord(section.body) ? section.body : {};
+    // 앱 라벨 행은 금지 표현 검사에서 빠지므로, no_data 로 돌아온 섹션에서도 모델 행을 걷는다.
     const modelRows = (Array.isArray(body.rows) ? body.rows : []).filter(
       (r) => !(isRecord(r) && APP_AXIS_ROW_LABELS.includes(String(r.label))),
     );
+    if (section.status === "no_data") {
+      if (isRecord(section.body) && Array.isArray(section.body.rows)) {
+        out[idx] = { ...section, body: { ...body, rows: modelRows } };
+      }
+      continue;
+    }
     out[idx] = {
       ...section,
       evidence_ids: e.activityIds.filter((x) => known.has(x)),

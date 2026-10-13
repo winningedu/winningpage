@@ -50,9 +50,10 @@ export default function DesignDrawer({
         side="right"
         className={cn(
           "w-[48rem] overflow-y-auto p-6 data-[side=right]:sm:max-w-[48rem]",
-          // 비모달일 때는 사이트 헤더 아래에서 시작해 헤더의 버튼을 가리지 않는다.
+          // 비모달일 때는 사이트 헤더(4rem) 아래에서 시작해 헤더의 버튼을 가리지 않는다.
+          // 팝업은 body 로 포털돼 --header-height 변수가 닿지 않으므로 리터럴로 쓴다.
           wide &&
-            "data-[side=right]:top-(--header-height) data-[side=right]:h-[calc(100dvh-var(--header-height))] data-[side=right]:w-[28rem] data-[side=right]:sm:max-w-[28rem]",
+            "data-[side=right]:top-16 data-[side=right]:h-[calc(100dvh-4rem)] data-[side=right]:w-[28rem] data-[side=right]:sm:max-w-[28rem]",
         )}
       >
         <SheetHeader className="p-0">

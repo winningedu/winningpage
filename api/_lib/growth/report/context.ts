@@ -95,7 +95,7 @@ export type StudentProfileRow = {
 /** 설문 문항 key. 학과(q10)와 희망 대학(q11)은 survey.ts 의 SURVEY_QUESTIONS 정의를 따른다. */
 const SURVEY_DEPARTMENT_KEY = "q10";
 const SURVEY_UNIVERSITIES_KEY = "q11";
-const UNIVERSITY_TARGET_MAX = 2;
+export const UNIVERSITY_TARGET_MAX = 2;
 
 /** 설문 답은 문자열이거나 { name } 선택지다. 이름이 비면 null. */
 function pickName(value: unknown): string | null {
@@ -227,9 +227,19 @@ export function cutsFromAdmissionRows(
   });
 }
 
+const MIN_DEPARTMENT_STEM = 2;
+
+/** 근사 매칭용 학과 어간. 끝의 괄호 표기와 학과, 학부, 전공, 과 접미사를 떼고, 너무 짧으면 빈 문자열이다. */
+function departmentStem(key: string): string {
+  const stem = key
+    .replace(/\([^)]*\)$/, "")
+    .replace(/(학과|학부|전공|과)$/, "");
+  return stem.length >= MIN_DEPARTMENT_STEM ? stem : "";
+}
+
 /**
  * 희망 학과와 입결 학과의 매칭 3단.
- * (1) 정규화 완전 일치 exact, (2) 같은 대학 안 포함 매칭 후보가 하나뿐이면 approx, (3) 그 외 none.
+ * (1) 정규화 완전 일치 exact, (2) 같은 대학 안에서 접미사를 뗀 질의로 시작하는 후보가 하나뿐이면 approx, (3) 그 외 none.
  */
 function matchDepartment(
   target: string | null,
@@ -241,10 +251,14 @@ function matchDepartment(
     (c) => normalizeDepartmentKey(c.departmentName) === key,
   );
   if (exact) return { kind: "exact", match: exact };
-  const partial = candidates.filter((c) => {
-    const candidateKey = normalizeDepartmentKey(c.departmentName);
-    return candidateKey.includes(key) || key.includes(candidateKey);
-  });
+  // 후보가 질의로 시작할 때만 근사다. 질의가 후보에 끼어 있기만 하거나(의학, 치의학과) 질의가 더 긴 경우는 뺀다.
+  const stem = departmentStem(key);
+  const partial =
+    stem === ""
+      ? []
+      : candidates.filter((c) =>
+          normalizeDepartmentKey(c.departmentName).startsWith(stem),
+        );
   const only = partial.length === 1 ? partial[0] : undefined;
   return only ? { kind: "approx", match: only } : { kind: "none", match: null };
 }

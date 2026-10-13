@@ -152,7 +152,11 @@ export async function cleanupGrowthE2eData(): Promise<void> {
     }
     check(
       "E2E 회차 삭제",
-      await admin.from("growth_reports").delete().eq("id", report.id),
+      await admin
+        .from("growth_reports")
+        .delete()
+        .eq("id", report.id)
+        .eq("profile_id", profileId),
     );
   }
 
@@ -162,7 +166,8 @@ export async function cleanupGrowthE2eData(): Promise<void> {
       await admin
         .from("activity_records")
         .delete()
-        .in("id", [...e2eRecordIds]),
+        .in("id", [...e2eRecordIds])
+        .eq("profile_id", profileId),
     );
   }
 

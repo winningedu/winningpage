@@ -24,6 +24,7 @@ vi.mock("@/lib/supabase", () => {
     },
   };
 });
+
 import {
   buildSearchRows,
   escapeIlike,
@@ -127,7 +128,7 @@ describe("searchUniversities", () => {
     });
     expect(calls).toContainEqual({
       method: "ilike",
-      args: ["university_name", "%고려대%"],
+      args: ["university_key", "%고려대%"],
     });
   });
 

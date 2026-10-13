@@ -14,6 +14,7 @@ import {
   type PreviousReportRow,
   type ReportRow,
   type StudentProfileRow,
+  UNIVERSITY_TARGET_MAX,
   universityTargets,
 } from "./context.js";
 import {
@@ -98,9 +99,10 @@ export async function loadAdmissionRows(
   targets: ReturnType<typeof universityTargets>,
 ): Promise<AdmissionRow[]> {
   if (targets.every((t) => t.departmentName === null)) return [];
+  // 조회 대상 대학은 희망 대학 상한과 같게 자른다. 호출부가 더 넘겨도 읽는 양은 같다.
   const universityKeys = [
     ...new Set(targets.map((t) => normalizeUniversityKey(t.universityName))),
-  ];
+  ].slice(0, UNIVERSITY_TARGET_MAX);
   if (universityKeys.length === 0) return [];
   const rows: AdmissionRow[] = [];
   for (let page = 0; page < ADMISSION_PAGE_MAX; page += 1) {
@@ -119,6 +121,11 @@ export async function loadAdmissionRows(
     ) as unknown as AdmissionRow[];
     rows.push(...chunk);
     if (chunk.length < ADMISSION_PAGE_SIZE) break;
+    if (page === ADMISSION_PAGE_MAX - 1) {
+      console.warn(
+        `[growth/report] admission_results 가 ${ADMISSION_PAGE_MAX}페이지 상한에 닿아 일부 행을 읽지 않았습니다.`,
+      );
+    }
   }
   return rows;
 }

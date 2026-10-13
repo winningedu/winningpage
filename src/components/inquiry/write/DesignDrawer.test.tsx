@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { TopicView } from "@/lib/inquiry/types";
 import { makeDesign } from "../design/designFixture";
 import DesignDrawer from "./DesignDrawer";
@@ -28,5 +28,37 @@ describe("DesignDrawer", () => {
       />,
     );
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  describe("xl 이상 비모달", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    test("팝업은 body 로 포털돼도 헤더 높이 변수 없이 4rem 아래에서 시작한다", () => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn().mockImplementation((query: string) => ({
+          matches: true,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        })),
+      );
+      render(
+        <DesignDrawer
+          open
+          onOpenChange={vi.fn()}
+          design={makeDesign()}
+          topic={{ id: "t" } as TopicView}
+        />,
+      );
+      const popup = screen.getByRole("dialog", { name: "설계 리포트" });
+      expect(popup.className).toContain("data-[side=right]:top-16");
+      expect(popup.className).toContain(
+        "data-[side=right]:h-[calc(100dvh-4rem)]",
+      );
+      expect(popup.className).not.toContain("--header-height");
+    });
   });
 });

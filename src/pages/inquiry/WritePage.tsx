@@ -8,6 +8,7 @@ import {
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
+import { guardFor } from "@/components/inquiry/stepGuards";
 import GeneratingCard from "@/components/inquiry/topics/GeneratingCard";
 import { RUNNING_RETRY_MS } from "@/components/inquiry/topics/topicsLogic";
 import DesignDrawer, {
@@ -58,12 +59,29 @@ export default function WritePage() {
   // 상단 버튼과 하단 버튼이 같은 서랍 상태를 토글하도록 여기서 들고 있는다.
   const [drawerOpen, setDrawerOpen] = useState(false);
   const toggleDrawer = () => setDrawerOpen((open) => !open);
+  const { userId } = useSession();
+  const { session, isBootstrapLoading } = useInquiryShell();
+  const { data } = useQuery(
+    inquirySessionDetailQuery(userId, session?.id ?? null),
+  );
+  // 설계 리포트가 없으면 서랍에 보여 줄 것이 없다. 하단 버튼은 본문과 함께 사라지므로 상단만 막는다.
+  const reportReady =
+    !isBootstrapLoading &&
+    guardFor(4, session) === null &&
+    Boolean(data?.design && data.topic);
   return (
     <StepGate
       step={4}
       title="보고서 작성"
       subcopy="여덟 개 절을 써요. 설계 리포트가 요구한 요소가 들어갔는지 옆에서 바로 확인해요."
-      actions={<DesignReportButton onClick={toggleDrawer} />}
+      // 서랍이 열려 있는 동안 상단 버튼이 서랍에 가려지지 않게 본문과 같은 폭만큼 비운다.
+      headerWidthClassName={cn(
+        "max-w-goal-content",
+        drawerOpen && DRAWER_GUTTER_CLASS,
+      )}
+      actions={
+        <DesignReportButton onClick={toggleDrawer} disabled={!reportReady} />
+      }
     >
       <WriteContent
         drawerOpen={drawerOpen}
@@ -80,17 +98,34 @@ type DrawerControl = {
   onToggleDrawer: () => void;
 };
 
-function DesignReportButton({ onClick }: { onClick: () => void }) {
+const DISABLED_REASON_ID = "design-report-disabled-reason";
+
+function DesignReportButton({
+  onClick,
+  disabled = false,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="lg"
-      className="h-10 px-5 text-app-label"
-      onClick={onClick}
-    >
-      설계 리포트 보기
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-10 px-5 text-app-label"
+        disabled={disabled}
+        aria-describedby={disabled ? DISABLED_REASON_ID : undefined}
+        onClick={onClick}
+      >
+        설계 리포트 보기
+      </Button>
+      {disabled && (
+        <span id={DISABLED_REASON_ID} className="sr-only">
+          설계 리포트가 만들어지면 볼 수 있어요.
+        </span>
+      )}
+    </>
   );
 }
 

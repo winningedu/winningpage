@@ -1198,6 +1198,32 @@ describe("normalizeAxisSections", () => {
     expect(out[0]?.evidence_ids).toEqual(["a1", "a2"]);
   });
 
+  it("근거가 있는 축을 모델이 no_data 로 보내도 앱 라벨 행의 모델 문구는 걷어낸다", () => {
+    const sections = [
+      okSection("2-1", {
+        status: "no_data",
+        format: "table",
+        evidence_ids: [],
+        body: {
+          rows: [
+            { label: "판정", value: "합격 가능성이 높다", evidence_ids: [] },
+            { label: "해석", value: "활동이 이어졌어요", evidence_ids: [] },
+          ],
+        },
+      }),
+    ] as never;
+    const axes = [axisEval("A", 2, ["a1", "a2"])];
+    const out = normalizeAxisSections(sections, axes, known, acts);
+    expect(JSON.stringify(out)).not.toContain("합격 가능성");
+    expect(JSON.stringify(out)).toContain("활동이 이어졌어요");
+    const v = validateStepOutput(6, { step: 6, sections: out }, makeContext(), {
+      axes,
+    });
+    const codes = v.issues.map((i) => i.code);
+    expect(codes).toContain("axis_no_data_with_evidence");
+    expect(codes).not.toContain("forbidden_phrase");
+  });
+
   it("근거 활동이 0건인 축 섹션이 응답에 없으면 no_data 항목을 보강한다", () => {
     const sections = [okSection("2-1", { evidence_ids: ["a1"] })] as never;
     const out = normalizeAxisSections(

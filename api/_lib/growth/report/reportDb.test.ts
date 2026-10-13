@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Db } from "../intake/collectDb.js";
 import { ADMISSION_PAGE_SIZE, loadAdmissionRows } from "./reportDb.js";
 
@@ -88,5 +88,45 @@ describe("loadAdmissionRows", () => {
       [0, ADMISSION_PAGE_SIZE - 1],
       [ADMISSION_PAGE_SIZE, ADMISSION_PAGE_SIZE * 2 - 1],
     ]);
+  });
+
+  test("대학 키는 희망 대학 상한과 같게 2개까지만 보낸다", async () => {
+    const { db, calls } = fakeDb([[]]);
+    await loadAdmissionRows(db, targets("가대", "나대", "다대", "라대"));
+    const keyCall = calls.find(
+      (c) => c.method === "in" && c.args[0] === "university_key",
+    );
+    expect(keyCall?.args[1]).toEqual(["가대", "나대"]);
+  });
+
+  describe("페이지 상한", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const fullPage = Array.from({ length: ADMISSION_PAGE_SIZE }, () => ({
+      university_name: "가대",
+      department_name: "경영학과",
+      result_year: 2024,
+      main_track: null,
+      grade_50: 2,
+      grade_70: null,
+      screening_category: "일반",
+    }));
+
+    test("20페이지 상한에 닿으면 경고를 한 줄 남긴다", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { db } = fakeDb(Array.from({ length: 20 }, () => fullPage));
+      const rows = await loadAdmissionRows(db, targets("가대"));
+      expect(rows).toHaveLength(ADMISSION_PAGE_SIZE * 20);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    test("상한 전에 끝나면 경고하지 않는다", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { db } = fakeDb([fullPage, fullPage.slice(0, 1)]);
+      await loadAdmissionRows(db, targets("가대"));
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 });

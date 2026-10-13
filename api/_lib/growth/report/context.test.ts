@@ -510,6 +510,39 @@ describe("universitiesWithCuts: 학과 3단 매칭", () => {
     expect(u?.matchedDepartmentName).toBe("경영학과");
   });
 
+  test("질의가 후보 안에 끼어 있기만 한 학과는 근사로 보지 않는다", () => {
+    const medical = [
+      adm({ university_name: "가대", department_name: "치의학과" }),
+    ];
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "의학" }],
+      medical,
+    );
+    expect(u?.matchKind).toBe("none");
+    expect(u?.cuts).toEqual([]);
+  });
+
+  test("질의가 후보보다 길면 후보가 질의에 들어 있어도 none", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "법학과전공심화" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("none");
+  });
+
+  test("접미사를 뗀 시작 문자열이 같으면 근사로 본다", () => {
+    const medical = [
+      adm({ university_name: "가대", department_name: "의학과" }),
+      adm({ university_name: "가대", department_name: "치의학과" }),
+    ];
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "의학" }],
+      medical,
+    );
+    expect(u?.matchKind).toBe("approx");
+    expect(u?.matchedDepartmentName).toBe("의학과");
+  });
+
   test("후보가 둘 이상이면 none", () => {
     const [u] = universitiesWithCuts(
       [{ universityName: "가대", departmentName: "컴퓨터" }],
