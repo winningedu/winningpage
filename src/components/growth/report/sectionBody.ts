@@ -5,8 +5,8 @@
 import {
   isRecord,
   NO_DATA_TEXT,
-  STAGE_LABELS,
   type SectionView,
+  STAGE_LABELS,
 } from "./reportLogic";
 
 export type TableBody = {
