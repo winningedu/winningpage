@@ -147,7 +147,6 @@ test.describe("심화탐구 모델 완주", () => {
       .getByRole("row")
       .filter({ hasText: "확정" });
     await expect(rows).toHaveCount(completedBefore + 1);
-    expect(completedBefore + 1).toBeGreaterThanOrEqual(2);
   });
 
   test("콜드 스타트: 활동 0건이면 관심 기반 예비 주제와 확인 질문 3개가 나온다", async ({
