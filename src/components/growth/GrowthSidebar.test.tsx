@@ -133,3 +133,45 @@ describe("진행단계", () => {
     );
   });
 });
+
+describe("진행단계 두 그룹", () => {
+  function groupHtml(html: string, headingId: string) {
+    const start = html.indexOf(`id="${headingId}"`);
+    expect(start).toBeGreaterThan(-1);
+    return html.slice(start);
+  }
+
+  test("진행단계와 설계결과 두 제목을 그린다", () => {
+    const html = render();
+    expect(html).toContain(">진행단계<");
+    expect(html).toContain(">설계결과<");
+    expect(html.indexOf(">진행단계<")).toBeLessThan(html.indexOf(">설계결과<"));
+  });
+
+  test("진행단계에 4항목, 설계결과에 2항목이 나뉘고 번호는 1~6을 유지한다", () => {
+    const html = render();
+    const resultStart = html.indexOf('id="growth-result-heading"');
+    expect(resultStart).toBeGreaterThan(-1);
+    const stepsPart = html.slice(
+      html.indexOf('id="growth-steps-heading"'),
+      resultStart,
+    );
+    const resultPart = groupHtml(html, "growth-result-heading");
+    expect(stepsPart.match(/<li\b/g)).toHaveLength(4);
+    expect(resultPart.match(/<li\b/g)).toHaveLength(2);
+    expect(stepsPart).toContain(">시작<");
+    expect(stepsPart).toContain(">리포트 생성<");
+    expect(resultPart).toContain(">리포트<");
+    expect(resultPart).toContain(">실행계획<");
+    expect(resultPart).toContain(">5<");
+    expect(resultPart).toContain(">6<");
+  });
+
+  test("두 그룹 모두 같은 role 의 랜드마크이고 잠금 표시를 유지한다", () => {
+    const html = render();
+    expect(html.match(/role="region"/g)).toHaveLength(2);
+    expect(groupHtml(html, "growth-result-heading")).toContain(
+      "이전 단계를 마치면 열려요",
+    );
+  });
+});
