@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import playwrightConfig from "../../playwright.config";
+import { sharedQaAccountWarning } from "./marker";
 
 // E2E 픽스처 공용 env 계약. 로컬 스택과 dev 프리뷰 어디서나 같은 변수로 돌린다.
 // 값(키, 비밀번호)은 어디에도 출력하지 않는다.
@@ -10,7 +11,9 @@ import playwrightConfig from "../../playwright.config";
 // E2E_SUPABASE_URL, E2E_SUPABASE_ANON_KEY, E2E_SUPABASE_SERVICE_ROLE_KEY
 //                               셋 다 없으면 `supabase status -o env` 에서 읽는다. 일부만 있으면 오류.
 // E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD
-//                               QA 학생 계정. 없으면 오류.
+//                               E2E 학생 계정. 없으면 오류. E2E_STUDENT_EMAIL 은 전용 계정
+//                               (e2e-student@winning.test)을 쓰고 QA 계정(qa-student*)은 쓰지 않는다.
+//                               qa- 로 시작하는 이메일이면 경고만 출력하고 실행은 막지 않는다.
 
 /** API 루트(끝 슬래시 없음, "/api" 까지 포함). */
 export function apiBase(): string {
@@ -83,16 +86,28 @@ export function serviceRoleClient(): SupabaseClient {
   return cachedClient;
 }
 
-/** QA 학생 계정. 없으면 오류. */
+/** E2E 학생 계정. 없으면 오류. 공유 QA 계정이면 경고를 출력한다. */
 export function studentCredentials(): { email: string; password: string } {
   const email = process.env.E2E_STUDENT_EMAIL;
   const password = process.env.E2E_STUDENT_PASSWORD;
   if (!email || !password) {
     throw new Error(
-      "E2E_STUDENT_EMAIL / E2E_STUDENT_PASSWORD 환경변수가 없다. QA 학생 계정으로 채워서 실행할 것.",
+      "E2E_STUDENT_EMAIL / E2E_STUDENT_PASSWORD 환경변수가 없다. 전용 E2E 학생 계정으로 채워서 실행할 것.",
     );
   }
+  warnIfSharedQaAccount(email);
   return { email, password };
+}
+
+let warnedSharedQa = false;
+
+/** 공유 QA 계정(qa- 접두어)이면 한 번만 console.warn 한다. 실패시키지 않는다. */
+function warnIfSharedQaAccount(email: string) {
+  if (warnedSharedQa) return;
+  const message = sharedQaAccountWarning(email);
+  if (!message) return;
+  warnedSharedQa = true;
+  console.warn(message);
 }
 
 let cachedProfileId: Promise<string> | undefined;

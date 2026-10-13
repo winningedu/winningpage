@@ -38,7 +38,8 @@ export default mergeConfig(
         // Playwright 러너(e2e/, playwright.config.ts)다 — *.spec.ts 기본 패턴이
         // 겹쳐서 Vitest가 함께 주워가면 "test.describe() 여기서 호출 못 함" 에러로
         // 죽는다(두 러너의 test.describe 구현이 다르다).
-        "e2e/**",
+        // 픽스처 순수 함수의 단위 테스트(e2e/fixtures/*.test.ts)는 Vitest 대상이다.
+        "e2e/**/*.spec.ts",
       ],
       coverage: {
         provider: "v8",

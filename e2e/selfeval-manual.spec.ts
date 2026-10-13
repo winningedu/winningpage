@@ -2,6 +2,7 @@ import {
   createSession,
   discardOpenSession,
   expect,
+  MANUAL_ACTIVITY_NAME,
   test,
 } from "./fixtures/selfeval";
 
@@ -24,7 +25,7 @@ test.describe("자기평가서 직접 입력 활동", () => {
     if (!(await form.isVisible())) await open.click();
     await expect(form).toBeVisible();
 
-    await form.getByLabel("활동명").fill("버스 배차 간격 탐구");
+    await form.getByLabel("활동명").fill(MANUAL_ACTIVITY_NAME);
     await form.getByLabel("계기").fill("버스가 자주 늦어 분포가 궁금했다.");
     await form
       .getByLabel("결과와 근거")

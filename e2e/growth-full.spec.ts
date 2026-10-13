@@ -1,10 +1,15 @@
 import { expect, test } from "./fixtures/auth";
+import { cleanupGrowthE2eData } from "./fixtures/growth";
 
 // 8단계 모델 호출이 필요해 E2E_GROWTH_FULL=1 일 때만 돈다.
 // 전제: 이미 /app/growth/generate 로 들어간 회차가 있는 학생 계정.
 test.describe("성장설계 표준 성공 경로", () => {
   test.skip(!process.env.E2E_GROWTH_FULL, "E2E_GROWTH_FULL=1 일 때만 실행");
   test.setTimeout(8 * 60_000);
+  // 전제 회차를 직접 만들지 않으므로 시작 전에는 지우지 않고, 끝난 뒤 접두어 데이터만 정리한다.
+  test.afterAll(async () => {
+    await cleanupGrowthE2eData();
+  });
 
   test("생성 8단계 완료 후 리포트와 실행계획 체크", async ({
     browser,

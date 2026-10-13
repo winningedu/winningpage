@@ -15,6 +15,7 @@ import {
   studentCredentials,
   supabaseEnv,
 } from "./env";
+import { e2eText } from "./marker";
 
 export { expect } from "./auth";
 
@@ -137,13 +138,13 @@ export async function createSession(
   return id;
 }
 
-export const MANUAL_ACTIVITY_NAME = "버스 배차 간격 탐구";
+export const MANUAL_ACTIVITY_NAME = e2eText("버스 배차 간격 탐구");
 /** 판단 문장과 근거를 포함한 결과. 생성은 기록에 있는 내용만 쓰므로 검증의 판단 항목이 여기서 갈린다. */
 export const MANUAL_RESULT_WITH_JUDGMENT =
   "평균 배차 간격은 8.4분, 표준편차는 2.1분이었다. 표준편차가 평균의 4분의 1에 이르러 배차가 고르지 않다고 판단했고, 그 근거로 간격 40개의 도수분포표를 남겼다.";
 
 /** 연동 스펙이 후보 목록에서 고르는 기록의 활동명 머리. 실행마다 뒤에 시각을 붙여 유일하게 만든다. */
-export const LINKED_ACTIVITY_PREFIX = "버스 배차 간격 연동 탐구";
+export const LINKED_ACTIVITY_PREFIX = e2eText("버스 배차 간격 연동 탐구");
 
 /**
  * 이전 실행이 남긴 E2E 기록(직접 입력 초안, 연동용 초안, 자기평가서 확정본) 가운데 완료 세션이
@@ -337,7 +338,7 @@ export async function ensureSelfevalQuota(
   return readQuotaRemaining(request, token);
 }
 
-export const PLAN_ITEM_TITLE = "자기평가서 E2E 과제";
+export const PLAN_ITEM_TITLE = e2eText("자기평가서 과제");
 
 /** 최신 완료 성장설계 리포트에 program self pending 과제를 넣고 id 를 돌려준다. */
 export async function insertPendingPlanItem(
