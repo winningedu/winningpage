@@ -56,6 +56,7 @@
 //    `sessionId`와 `round`뿐이고 나머지는 전부 세션 행에서 읽는다.
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
 import {
   performanceTraceContext,
@@ -1055,7 +1056,7 @@ export default defineHandler({
         },
       });
     } finally {
-      await trace.flush(supabaseAdmin);
+      scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }
   },
 });

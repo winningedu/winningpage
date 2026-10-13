@@ -85,6 +85,7 @@
 //   전량을 폐기로 지정). 이 파일의 유일한 파싱은 `JSON.parse` 한 줄이다.
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
 import {
   performanceTraceContext,
@@ -94,7 +95,6 @@ import {
 import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { scheduleAfterResponse } from "../_lib/performance/afterResponse.js";
 import {
   guideTextFromSession,
   inferGuideStructure,
@@ -1142,7 +1142,7 @@ export default defineHandler({
           });
         }
       } finally {
-        await trace.flush(supabaseAdmin);
+        scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).

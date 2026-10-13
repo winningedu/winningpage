@@ -22,6 +22,7 @@
 // _lib/growth/intake 의 순수 함수(collectBody, extractOutcome, collectSummary)에서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { GrowthSettingError } from "../_lib/growth/intake/appSettings.js";
 import {
@@ -299,7 +300,7 @@ async function handleExtract(
     }).catch(() => undefined);
     throw e;
   } finally {
-    await trace.flush(db);
+    scheduleAfterResponse(() => trace.flush(db));
     // 원문 미보관: 성공, 실패, 예외 어느 경로든 객체를 지운다.
     if (path) {
       const { error: removeError } = await db.storage

@@ -16,6 +16,7 @@
 // 임베딩 호출이 행당 1회라 60초 상한 안에 끝나도록 화면은 작은 묶음으로 나눠 부른다.
 // 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/dedupe.ts.
 
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
@@ -94,7 +95,7 @@ export default defineHandler({
       });
       res.status(200).json({ ok: true, results });
     } finally {
-      await trace.flush(db);
+      scheduleAfterResponse(() => trace.flush(db));
     }
   },
 });
