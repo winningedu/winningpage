@@ -184,7 +184,7 @@ describe("collect", () => {
     const init = apiFetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(init.body))).toEqual({
       action: "upload-url",
-      upload,
+      ...upload,
     });
   });
 
