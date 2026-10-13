@@ -10,7 +10,9 @@ import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
 import GeneratingCard from "@/components/inquiry/topics/GeneratingCard";
 import { RUNNING_RETRY_MS } from "@/components/inquiry/topics/topicsLogic";
-import DesignDrawer from "@/components/inquiry/write/DesignDrawer";
+import DesignDrawer, {
+  DRAWER_GUTTER_CLASS,
+} from "@/components/inquiry/write/DesignDrawer";
 import EvaluateStatusCard from "@/components/inquiry/write/EvaluateStatusCard";
 import PlaceholderWarning from "@/components/inquiry/write/PlaceholderWarning";
 import SectionEditor from "@/components/inquiry/write/SectionEditor";
@@ -46,24 +48,53 @@ import type {
   SubmissionSections,
   TopicView,
 } from "@/lib/inquiry/types";
+import { cn } from "@/lib/utils";
 
 // 경로: /app/inquiry/write (화면 4, 보고서 작성)
 // 8절을 쓰고 60초마다(더티일 때만) 자동 저장한다. 제출은 저장 뒤 evaluateReport 를 부른다(부록 B 3, C).
 
 export default function WritePage() {
   useInquiryScreenStep(4);
+  // 상단 버튼과 하단 버튼이 같은 서랍 상태를 토글하도록 여기서 들고 있는다.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const toggleDrawer = () => setDrawerOpen((open) => !open);
   return (
     <StepGate
       step={4}
       title="보고서 작성"
       subcopy="여덟 개 절을 써요. 설계 리포트가 요구한 요소가 들어갔는지 옆에서 바로 확인해요."
+      actions={<DesignReportButton onClick={toggleDrawer} />}
     >
-      <WriteContent />
+      <WriteContent
+        drawerOpen={drawerOpen}
+        onDrawerOpenChange={setDrawerOpen}
+        onToggleDrawer={toggleDrawer}
+      />
     </StepGate>
   );
 }
 
-function WriteContent() {
+type DrawerControl = {
+  drawerOpen: boolean;
+  onDrawerOpenChange: (open: boolean) => void;
+  onToggleDrawer: () => void;
+};
+
+function DesignReportButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="lg"
+      className="h-10 px-5 text-app-label"
+      onClick={onClick}
+    >
+      설계 리포트 보기
+    </Button>
+  );
+}
+
+function WriteContent(drawer: DrawerControl) {
   const { userId } = useSession();
   const { session } = useInquiryShell();
   const { data, error, isPending } = useQuery(
@@ -100,6 +131,7 @@ function WriteContent() {
       design={data.design}
       topic={data.topic}
       initial={initialSections(data.submission)}
+      {...drawer}
     />
   );
 }
@@ -132,9 +164,17 @@ type FormProps = {
   design: DesignView;
   topic: TopicView;
   initial: SubmissionSections;
-};
+} & DrawerControl;
 
-function WriteForm({ session, design, topic, initial }: FormProps) {
+function WriteForm({
+  session,
+  design,
+  topic,
+  initial,
+  drawerOpen,
+  onDrawerOpenChange,
+  onToggleDrawer,
+}: FormProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userId } = useSession();
@@ -144,7 +184,6 @@ function WriteForm({ session, design, topic, initial }: FormProps) {
   const [sections, setSections] = useState<SubmissionSections>(initial);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [justSaved, setJustSaved] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>({ type: "idle" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [saving, setSaving] = useState(false);
@@ -299,7 +338,13 @@ function WriteForm({ session, design, topic, initial }: FormProps) {
   const emptyIds = notice?.type === "empty" ? notice.sections : [];
 
   return (
-    <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_19rem]">
+    <div
+      className={cn(
+        "grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_19rem]",
+        // xl 이상의 서랍은 폼 위에 겹쳐 뜨므로, 열려 있는 동안 서랍 폭만큼 비워 둔다.
+        drawerOpen && DRAWER_GUTTER_CLASS,
+      )}
+    >
       <div className="flex min-w-0 flex-col gap-4">
         <fieldset disabled={running} className="flex flex-col gap-4">
           <legend className="sr-only">보고서 8절</legend>
@@ -373,15 +418,7 @@ function WriteForm({ session, design, topic, initial }: FormProps) {
           <p role="status" className="text-app-caption text-ink-sub">
             {saveStatusText({ savedAt, justSaved })}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="h-10 px-5 text-app-label"
-            onClick={() => setDrawerOpen(true)}
-          >
-            설계 리포트 보기
-          </Button>
+          <DesignReportButton onClick={onToggleDrawer} />
           <Button
             type="button"
             variant="outline"
@@ -410,7 +447,7 @@ function WriteForm({ session, design, topic, initial }: FormProps) {
 
       <DesignDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={onDrawerOpenChange}
         design={design}
         topic={topic}
       />
