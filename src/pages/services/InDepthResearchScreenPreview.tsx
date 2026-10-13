@@ -103,8 +103,8 @@ export default function InDepthResearchScreenPreview() {
               className="flex h-6 items-center px-0.5"
             >
               <span
-                className={`h-[0.5625rem] rounded-full transition-all ${
-                  selected ? "w-[1.625rem] bg-primary" : "w-[0.5625rem] bg-line"
+                className={`h-3 rounded-full transition-all ${
+                  selected ? "w-8 bg-primary" : "w-3 bg-ink-natural"
                 }`}
               />
             </button>

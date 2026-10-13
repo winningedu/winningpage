@@ -18,6 +18,7 @@ import audienceData from "@/assets/services/research/audience-data.png";
 import audienceDesign from "@/assets/services/research/audience-design.png";
 import audienceReview from "@/assets/services/research/audience-review.png";
 import audienceTopic from "@/assets/services/research/audience-topic.png";
+import { SURVEY_QUESTION_COUNT } from "@/components/growth/survey/surveyLabels";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
@@ -48,7 +49,7 @@ const PROCESS_STEPS = [
   {
     title: "학생 조사",
     desc: [
-      "26문항, 약 10분.",
+      `${SURVEY_QUESTION_COUNT}문항, 약 10분.`,
       "진로・관심・경험과 희망 대학 두 곳을 학생이 직접 답합니다.",
     ],
   },
@@ -58,7 +59,10 @@ const PROCESS_STEPS = [
   },
   {
     title: "리포트 생성",
-    desc: ["약 3분.", "방향 일관성과 A~E 5축 진단을 담아 PDF로 제공합니다."],
+    desc: [
+      "약 3분.",
+      "학업역량부터 발전가능성까지 5축진단을 담아 PDF로 제공합니다.",
+    ],
   },
   {
     title: "실행계획",
@@ -97,7 +101,7 @@ const STAGE_CONTENT: Record<string, GrowthTabCard[]> = {
   ],
   "5축 진단": [
     {
-      title: "A~E 5축 판정",
+      title: "5축 판정(학생활동 평가법)",
       desc: "학년별 기준에 비춰 축마다 확인됨・주의・아직 없음으로 근거와 함께 판정합니다.",
       icon: iconTablet,
       example: "고2 기준 ・ D 공동체역량은 학급・학년 단위 기여 기록 1건 이상",
@@ -237,7 +241,7 @@ const OUTCOME_ITEMS = [
   },
   {
     icon: outcomeSettings,
-    label: "A~E 5축 진단표",
+    label: "5축 진단표",
     sub: "근거 활동・판정 기준 포함",
   },
   {
@@ -270,7 +274,7 @@ const PRINCIPLES = [
 const FAQ_ITEMS = [
   {
     q: "어떤 자료를 분석하나요?",
-    a: "학생이 위닝에서 직접 만든 활동 기록과 학생 조사(26문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.",
+    a: `학생이 위닝에서 직접 만든 활동 기록과 학생 조사(${SURVEY_QUESTION_COUNT}문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.`,
   },
   {
     q: "AI가 활동이나 글을 대신 만들어 주나요?",

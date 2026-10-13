@@ -58,6 +58,8 @@ export const SURVEY_LABELS: Readonly<Record<string, SurveyLabel>> = {
   },
 };
 
+export const SURVEY_QUESTION_COUNT = Object.keys(SURVEY_LABELS).length;
+
 export const SURVEY_COPY = {
   textPlaceholder: "답을 적어 주세요",
   shortAnswerHint: "조금 더 자세히 적으면 분석이 정확해져요",

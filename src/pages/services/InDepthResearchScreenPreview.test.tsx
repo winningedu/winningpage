@@ -153,4 +153,11 @@ describe("InDepthResearchScreenPreview", () => {
     advance(10000);
     expect(selectedLabels()).toEqual(["설계 리포트 화면 보기"]);
   });
+
+  test("비활성 점도 흰 배경과 구분되는 색과 충분한 크기를 쓴다", () => {
+    render(<InDepthResearchScreenPreview />);
+    const inactive = screen.getAllByRole("tab")[1]?.firstElementChild as HTMLElement;
+    expect(inactive.className).not.toContain("bg-line");
+    expect(inactive.className).toContain("h-3");
+  });
 });

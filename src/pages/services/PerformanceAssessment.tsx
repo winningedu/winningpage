@@ -1,6 +1,5 @@
 import type { MutableRefObject } from "react";
-import { useCallback, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import heroGrain from "@/assets/renewal/landing/hero-grain.png";
 import iconFolder from "@/assets/renewal/landing/icon-folder-v2.png";
 import iconLock from "@/assets/renewal/landing/icon-lock-v2.png";
@@ -27,7 +26,6 @@ import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
 import ServiceOutcomesPanel from "@/components/services/ServiceOutcomesPanel";
-import ServicePricingSection from "@/components/services/ServicePricingSection";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 import ServiceSection from "@/components/services/ServiceSection";
 import ServiceStepCards from "@/components/services/ServiceStepCards";
@@ -59,7 +57,7 @@ import { useInView } from "@/hooks/useInView";
 // (Audience・StageSummary)를 제거하고 전 구간 흰색으로 수렴시켰다. 배경 경계가 사라졌으니
 // "배경이 같으면 시안 갭 ×0.67" 정책이 전 경계에 적용되고, 밴드 경계라 예외적으로 pb 를
 // 직접 갖고 있던 두 섹션(Coaching・StageSummary)의 pb 는 제거해 뒤 섹션 pt 로 합친다.
-// 하단 여백은 마지막 섹션(Pricing)만 갖는다.
+// 하단 여백은 마지막 섹션(이용 방법 안내)만 갖는다.
 //
 //   Process pt         157px = 9.8125rem   (기존 유지)
 //   Coaching pt        149px = 9.3125rem   (기존 유지, pb 181px 제거)
@@ -68,12 +66,10 @@ import { useInView } from "@/hooks/useInView";
 //   Outcomes pt        161px = 10.0625rem  ← (StageSummary pb 120 + Outcomes pt 120) × 0.67
 //   Testimonials pt    160px = 10rem       (기존 유지)
 //   Faq pt             172px = 10.75rem    (기존 유지)
-//   Pricing pt         147px = 9.1875rem   (기존 유지) / pb 는 모바일 값만
+//   이용 방법 안내 pt  147px = 9.1875rem   (기존 유지) / pb 는 모바일 값만
 //
 // 브레이크포인트는 기준을 따라 md: → lg: 로 통일했다(768~1023px 구간 렌더가 바뀐다).
 //
-// [가격 정본] 가격은 Supabase `products` 테이블(service_key='suhaeng')에서 조회한다.
-// 정본은 DB이며 프론트에는 가격을 하드코딩하지 않는다.
 
 // 수행평가 진입 동선은 목표관리(GoalManagement.jsx)와 동일한 하드 전환 패턴을 따른다
 // (2026-08-13 사용자 확정 — 외부 앱은 실운영 서비스가 아니라 고객사 초안 프로토타입으로
@@ -87,11 +83,8 @@ import { useInView } from "@/hooks/useInView";
 // history.state에 남아 새로고침해도 사라지지 않는 문제가 있었다).
 const HERO_SERVICE = { name: "수행평가 서비스", to: "/app/performance" };
 
-// 가격 섹션 앵커 — RequireEntitlement의 forbidden 경로는 더 이상 이 페이지로 돌아오지
-// 않지만(위 주석 참고), QuotaExhaustedBanner/QuotaExhaustedCard(이미 이용권이 있는
-// 사용자의 회차 소진 안내)의 "이용권 구매하기" 링크가 여전히 `#pricing`으로 이 페이지에
-// 진입한다 — 그 계약을 아래 해시 스크롤 effect가 받는다.
-const PRICING_ANCHOR_ID = "pricing";
+// 이용 방법 안내 영상. 새 탭으로 연다.
+const GUIDE_VIDEO_URL = "https://www.youtube.com/watch?v=nloYdudqG-o";
 
 // desc는 시안(2393:12092) 원문 그대로 자동 줄바꿈이 아니라 "명시적 개행"이다.
 // 배열의 각 원소가 한 줄이며 ServiceProcessCards 가 <br />로 잇는다.
@@ -438,30 +431,6 @@ function HeroSection() {
 }
 
 export default function PerformanceAssessment() {
-  const location = useLocation();
-
-  // 해시(`#pricing`)로 도착해도 가격 섹션이 늘 로딩 분기일 수 있으므로 id는
-  // ServicePricingSection의 3분기 모두에 붙어 있다. 도착 오차는 scroll-mt-24가 흡수한다.
-  const scrollToPricing = useCallback(() => {
-    document
-      .getElementById(PRICING_ANCHOR_ID)
-      ?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, []);
-
-  // SPA 내부 이동은 해시를 브라우저가 처리해 주지 않는다 — App.jsx의 ScrollToTop은
-  // 해시가 있을 때 "최상단으로 이동"만 건너뛸 뿐, 앵커로 스크롤하는 코드는 저장소
-  // 어디에도 없다. 그래서 QuotaExhaustedBanner/Card가 보낸 `#pricing`을 여기서
-  // 직접 처리한다(RequireEntitlement의 forbidden 경로는 더 이상 이 해시를 쓰지
-  // 않는다 — 위 PRICING_ANCHOR_ID 주석 참고).
-  useEffect(() => {
-    if (location.hash !== `#${PRICING_ANCHOR_ID}`) return undefined;
-
-    // 레이아웃이 한 번 확정된 뒤에 이동한다(첫 프레임 좌표는 지연 로드 이미지 탓에
-    // 실제 위치와 다르다).
-    const frame = requestAnimationFrame(scrollToPricing);
-    return () => cancelAnimationFrame(frame);
-  }, [location.hash, scrollToPricing]);
-
   return (
     <main className="min-h-screen bg-white pt-16">
       <HeroSection />
@@ -524,19 +493,21 @@ export default function PerformanceAssessment() {
         <ServiceFaq items={FAQ_ITEMS} />
       </ServiceSection>
 
-      {/* 문구・금액・상품 데이터는 Supabase 원본 그대로다 — 이 전환에서 한 글자도 바꾸지 않았다. */}
-      {/* scroll-mt-24: fixed 헤더(h-16)에 앵커 상단이 가리지 않게 한다
-          (MentorApplyForm·BoardListPage와 같은 선례값). */}
-      <ServicePricingSection
-        id={PRICING_ANCHOR_ID}
-        serviceKey="suhaeng"
-        heading="위닝 수행평가 이용권 안내"
-        cta={{
-          label: "이용권 구매하러 가기",
-          to: "/pricing",
-        }}
-        className="scroll-mt-24 pb-20 sm:pb-24 lg:pb-28.25 lg:pt-36.75"
-      />
+      <ServiceSection
+        containerClassName="text-center"
+        className="pb-20 sm:pb-24 lg:pb-28.25 lg:pt-36.75"
+        heading="수행평가 이용 방법 안내"
+      >
+        <a
+          href={GUIDE_VIDEO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-8 inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[0.9375rem] bg-primary px-8 text-[0.9375rem] font-semibold text-white transition hover:bg-[#01498F] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:mt-12 lg:h-13 lg:w-75 lg:px-0"
+        >
+          수행평가 영상 보기
+          <span className="sr-only"> (새 창)</span>
+        </a>
+      </ServiceSection>
     </main>
   );
 }

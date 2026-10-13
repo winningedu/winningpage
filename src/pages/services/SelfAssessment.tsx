@@ -32,7 +32,6 @@ import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTabsPanel from "@/components/services/ServiceTabsPanel";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
 import { useInView } from "@/hooks/useInView";
-import SelfevalCtaBanner from "./selfevalLanding/SelfevalCtaBanner";
 import SelfevalScreenPreview from "./selfevalLanding/SelfevalScreenPreview";
 
 // 자기평가서 소개 랜딩(/services/self-assessment).
@@ -303,7 +302,7 @@ function HeroSection({ onCta }: { onCta: () => void }) {
 
       <div className="relative z-10 mx-auto flex w-full max-w-content flex-col items-center px-5 text-center sm:px-8">
         <p className="text-[1.25rem] font-normal leading-[1.6] text-accent sm:text-[1.375rem] md:text-[1.5rem]">
-          서류 작성 지원 프로그램
+          자기평가서 작성 지원 프로그램
         </p>
 
         <h1 className="mt-6 break-keep text-[1.75rem] font-semibold leading-[1.3] tracking-[-0.02em] text-[#0F172A] sm:text-[2.25rem] md:text-[2rem]">
@@ -311,7 +310,7 @@ function HeroSection({ onCta }: { onCta: () => void }) {
         </h1>
 
         <p className="mt-6 break-keep text-[1.125rem] font-medium leading-[1.6] text-ink sm:text-[1.25rem] md:text-[1.5rem]">
-          문항 핵심을 파악하고 나만의 강점을 구조화해, 학생이 스스로 완성하도록
+          문항 핵심을 파악하고 나만의 강점을 구조화, 학생이 스스로 완성하도록
           돕습니다
         </p>
 
@@ -426,11 +425,6 @@ export default function SelfAssessment() {
         <ServiceFaq items={FAQ_ITEMS} />
       </ServiceSection>
 
-      <SelfevalCtaBanner
-        title="나만의 강점을 더 빛나게 설계해보세요."
-        ctaLabel="무료 체험 시작"
-        onCta={handleCta}
-      />
     </main>
   );
 }

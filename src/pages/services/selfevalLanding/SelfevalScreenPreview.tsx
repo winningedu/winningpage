@@ -49,8 +49,8 @@ export default function SelfevalScreenPreview({
             aria-label={`${i + 1}번째 화면`}
             aria-pressed={i === activeIndex}
             onClick={() => setActiveIndex(i)}
-            className={`h-2.25 rounded-full transition-all ${
-              i === activeIndex ? "w-6.5 bg-primary" : "w-2.25 bg-line"
+            className={`h-3 rounded-full transition-all ${
+              i === activeIndex ? "w-8 bg-primary" : "w-3 bg-ink-natural"
             }`}
           />
         ))}

@@ -22,6 +22,7 @@ vi.mock("@/lib/demoAccess", () => ({
   getDemoAccessState: getDemoAccessStateMock,
 }));
 
+import { SURVEY_QUESTION_COUNT } from "@/components/growth/survey/surveyLabels";
 import GrowthDesign from "./GrowthDesign";
 
 function renderPage() {
@@ -151,5 +152,34 @@ describe("GrowthDesign 카드 섹션", () => {
     expect(screen.getByText("씨앗・개화・만개")).toBeInTheDocument();
     expect(screen.getByText("원칙 1")).toBeInTheDocument();
     expect(screen.getByText("근거 활동 연결")).toBeInTheDocument();
+  });
+});
+
+describe("GrowthDesign 카피", () => {
+  it("리포트 생성 단계는 5축 진단 PDF 제공 문구를 보여준다", () => {
+    renderPage();
+    expect(document.body.textContent).toContain(
+      "학업역량부터 발전가능성까지 5축진단을 담아 PDF로 제공합니다.",
+    );
+    expect(document.body.textContent).not.toContain("A~E 5축 진단을 담아");
+  });
+
+  it("A~E 접두어 없이 5축 판정과 5축 진단표로 표기한다", () => {
+    renderPage();
+    expect(screen.getByText("5축 진단표")).toBeInTheDocument();
+    expect(screen.queryByText("A~E 5축 진단표")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "5축 진단" }));
+    expect(screen.getByText("5축 판정(학생활동 평가법)")).toBeInTheDocument();
+    expect(screen.queryByText("A~E 5축 판정")).toBeNull();
+  });
+
+  it("학생 조사 문항 수는 설문 정의의 문항 수와 같다", () => {
+    renderPage();
+    const count = SURVEY_QUESTION_COUNT;
+    expect(document.body.textContent).toContain(`${count}문항, 약 10분.`);
+    fireEvent.click(screen.getByRole("button", { name: "어떤 자료를 분석하나요?" }));
+    expect(
+      screen.getByText(new RegExp(`학생 조사\\(${count}문항\\) 응답`)),
+    ).toBeInTheDocument();
   });
 });

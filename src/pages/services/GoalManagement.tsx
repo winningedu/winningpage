@@ -37,7 +37,6 @@ import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
 import ServiceOutcomesPanel from "@/components/services/ServiceOutcomesPanel";
-import ServicePricingSection from "@/components/services/ServicePricingSection";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 // 서비스 랜딩 4종 공통 컴포넌트 — 정본은 InDepthResearch.jsx(심화탐구)다.
 // 섹션 껍데기·카드 마크업·타이포는 전부 아래 컴포넌트가 소유하고, 이 파일에는
@@ -51,17 +50,14 @@ import { useInView } from "@/hooks/useInView";
 
 // 목표관리 서비스 랜딩 — /services/goal (구 경로 /page/services-goal)
 // Figma 시안(1889:6944, "목표관리" 프레임)에서 출발했으나, 레이아웃 정본은 시안이 아니라
-// 심화탐구(InDepthResearch.jsx)다. 섹션 껍데기·카드·탭·FAQ·가격은 전부
+// 심화탐구(InDepthResearch.jsx)다. 섹션 껍데기·카드·탭·FAQ는 전부
 // components/services/ 공통 컴포넌트로 수렴했고, 이 파일에는 데이터 배열과 이 페이지
 // 고유 섹션(HeroSection / PhoneReportSection)만 남는다.
-// 가격 섹션(ServicePricingSection)의 Supabase products 조회는 공용 로직 그대로 재사용한다.
-// 가격의 유일한 신뢰 소스는 Supabase이며 프론트 폴백은 없다.
 //
 // 목표관리 진입 동선(로그인 → 이용권 → 온보딩 → 대시보드)은 RequireGoalAccess가 소유한다
 // (src/components/goal/RequireGoalAccess.jsx). 히어로 CTA는 /app/goal로 단순 이동만 하고,
 // 실제 판정(로그인 여부・결제 여부・온보딩 완료 여부)은 전부 그 가드가 처리한다 — 여기서
 // openPaidServiceOrAlert 같은 판정 로직을 다시 호출하면 이중 판정이 된다.
-// (단, 가격 섹션의 "이용권 구매하기" 등 다른 CTA는 성격이 다른 구매 동선이라 그대로 둔다.)
 
 const HERO_SERVICE = { name: "목표관리 서비스", to: "/app/goal" };
 
@@ -746,7 +742,10 @@ function TestimonialsSection() {
 
 function FaqSection() {
   return (
-    <ServiceSection className="lg:pt-60.75" heading="자주 묻는 질문">
+    <ServiceSection
+      className="pb-20 sm:pb-24 lg:pb-27.5 lg:pt-60.75"
+      heading="자주 묻는 질문"
+    >
       <ServiceFaq items={FAQ_ITEMS} />
     </ServiceSection>
   );
@@ -764,15 +763,6 @@ export default function GoalManagement() {
       <PhoneReportSection />
       <TestimonialsSection />
       <FaqSection />
-      {/* 가격 섹션 — 상품명・금액・할인 배지는 전부 Supabase('goal') 원본 그대로이고,
-          안내문・CTA 라벨・로딩/에러 문구도 문자 단위로 보존된다. 여기서 넘기는 것은
-          레이아웃(섹션 패딩)과 헤딩・CTA 목적지뿐이다. */}
-      <ServicePricingSection
-        serviceKey="goal"
-        heading="목표관리 이용권 안내"
-        cta={{ label: "이용권 구매하러 가기", to: "/pricing" }}
-        className="pb-20 sm:pb-24 lg:pb-27.5 lg:pt-60.75"
-      />
     </main>
   );
 }

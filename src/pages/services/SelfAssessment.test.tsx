@@ -29,7 +29,7 @@ describe("SelfAssessment 소개 랜딩", () => {
     navigateMock.mockReset();
   });
 
-  it("섹션 헤딩 9개가 렌더된다", () => {
+  it("섹션 헤딩 8개가 렌더된다", () => {
     renderPage();
     const names: (string | RegExp)[] = [
       /4단계 프로세스/,
@@ -40,7 +40,6 @@ describe("SelfAssessment 소개 랜딩", () => {
       /정리됩니다/,
       "위닝 자기평가서",
       /모았습니다/,
-      "나만의 강점을 더 빛나게 설계해보세요.",
     ];
     for (const name of names) {
       expect(screen.getByRole("heading", { name })).toBeTruthy();
@@ -79,14 +78,35 @@ describe("SelfAssessment 소개 랜딩", () => {
     expect(dot.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("두 CTA 모두 /app/selfeval 로 이동한다", () => {
+  it("히어로 CTA 는 /app/selfeval 로 이동한다", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "지금 시작하기" }));
     expect(navigateMock).toHaveBeenLastCalledWith("/app/selfeval");
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "무료 체험 시작" }));
-    expect(navigateMock).toHaveBeenLastCalledWith("/app/selfeval");
-    expect(navigateMock).toHaveBeenCalledTimes(2);
+  it("하단 무료 체험 섹션과 버튼이 없다", () => {
+    renderPage();
+    expect(screen.queryByRole("button", { name: "무료 체험 시작" })).toBeNull();
+    expect(document.body.textContent).not.toContain("나만의 강점을 더 빛나게");
+  });
+
+  it("헤드 카피를 요청대로 보여준다", () => {
+    renderPage();
+    expect(
+      screen.getByText("자기평가서 작성 지원 프로그램"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/나만의 강점을 구조화, 학생이 스스로 완성하도록/),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("구조화해,");
+  });
+
+  it("미리보기 인디케이터는 비활성 점도 배경과 구분되는 색을 쓴다", () => {
+    renderPage();
+    const inactive = screen.getByRole("button", { name: "2번째 화면" });
+    expect(inactive.className).not.toContain("bg-line");
+    expect(inactive.className).toContain("h-3");
   });
 
   it("금지 문자가 본문에 없다", () => {

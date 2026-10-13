@@ -41,9 +41,9 @@ const INQUIRY_APP_ROUTE = "/app/inquiry";
 // 수치는 시안 실측값 그대로다(환산 없음).
 //   Hero 다음 Process        80  lg:pt-20
 //   Process 다음 Audience   160  lg:pt-40
-//   Audience 다음 FiveSteps 202  lg:pt-50.5
+//   Audience 다음 FiveSteps  80  lg:pt-20 (QA 3차 row4 로 줄임)
 //   FiveSteps 다음 Preview   80  lg:pt-20 (화면 미리보기 인스턴스 754:72387 상하 패딩 80/80)
-//   Preview 다음 Outcomes   172  미리보기 pb 80 + Outcomes lg:pt-43
+//   Preview 다음 Outcomes   160  미리보기 pb 80 + Outcomes lg:pt-20 (QA 3차 row4 로 줄임)
 //   Outcomes 다음 Testi     160  lg:pt-40
 //   Testi 다음 Faq          180  lg:pt-45
 //   Faq 다음 Footer         217  lg:pb-54.25 (유일한 배경 전환 경계)
@@ -276,7 +276,7 @@ function HeroSection() {
             시안 실측 eyebrow 색 #0B84FD는 dev 정본 accent 토큰과 정확히 일치.
             시안 weight는 500이지만 선례 3종이 전부 font-normal이라 선례를 따랐다. */}
         <p className="text-[1.25rem] font-normal leading-[1.6] text-accent sm:text-[1.375rem] md:text-[1.5rem]">
-          탐구 설계 프로그램
+          심화탐구 설계 프로그램
         </p>
 
         {/* max-w-160 제거, 시안 H1은 1443px 폭에 강제 개행 없는 1줄인데 40rem(640px)로
@@ -349,13 +349,13 @@ export default function InDepthResearch() {
           3열 폭 검산: (1100 − 30×2) / 3 = 346.7px, 시안 453×0.7644 = 346.3px ✓
           (섹션 C의 실 콘텐츠 박스는 프레임 1520이 아니라 카드 행 1439 = 453×3 + 40×2 이다.
            1520은 1920 안에서 좌240/우160 비대칭이라 오토레이아웃 잔재로 판정) */}
-      <ServiceSection className="lg:pt-50.5" heading="다섯 단계로 차근차근">
+      <ServiceSection className="lg:pt-20" heading="다섯 단계로 차근차근">
         <ServiceStepCards items={FIVE_STEPS} splitLastRow />
       </ServiceSection>
 
       {/* 화면 미리보기: 시안 ScreenPreview 인스턴스 754:72387 의 상하 패딩이 80/80 이고 앞
-          섹션(다섯 단계)은 하단 패딩 0 이라 pt 80 이다. 뒤 섹션(성과) 상단 172 는 기존
-          lg:pt-43 을 그대로 두고 이 섹션이 pb 80 을 가진다. 헤딩 2톤은 시안
+          섹션(다섯 단계)은 하단 패딩 0 이라 pt 80 이다. 뒤 섹션(성과)과의
+          간격은 이 섹션의 pb 80 과 성과 섹션 lg:pt-20 으로 만든다. 헤딩 2톤은 시안
           characterStyleOverrides 로 "확인하세요"만 네이비(#013262 = text-primary)다. */}
       <ServiceSection
         className="lg:pt-20 lg:pb-20"
@@ -371,7 +371,7 @@ export default function InDepthResearch() {
       {/* 성과, 시안은 헤더 좌단(x=82823)이 카드 좌단(x=82972.5)보다 149.5px 왼쪽에 매달려
           있으나, 바로 앞 섹션은 헤더/카드 좌단이 정확히 일치하므로 시안 결함으로 판단하고
           헤더 = 카드 = max-w-content 좌단 일치 + 패널 full-width 로 정규화했다. */}
-      <ServiceSection className="lg:pt-43" heading="심화탐구로 달라지는 것들">
+      <ServiceSection className="lg:pt-20" heading="심화탐구로 달라지는 것들">
         <ServiceOutcomesPanel items={OUTCOME_ITEMS} />
       </ServiceSection>
 
