@@ -107,7 +107,7 @@ function renderPage() {
   );
 }
 
-const SUBMIT = "확정하고 활동 기록에 적립";
+const SUBMIT = "확정하고 활동 기록에 저장";
 
 beforeEach(() => {
   stepMock.mockClear();
@@ -138,7 +138,7 @@ describe("FinalizePage 화면", () => {
       ),
     ).toBeVisible();
     expect(
-      await screen.findByRole("table", { name: "적립될 내용" }),
+      await screen.findByRole("table", { name: "저장될 내용" }),
     ).toBeVisible();
     expect(screen.getByRole("textbox", { name: "방법" })).toHaveValue(
       "방법 문단",
@@ -200,7 +200,7 @@ describe("FinalizePage 제출", () => {
     fireEvent.click(button);
     expect(finalizeMock).not.toHaveBeenCalled();
     expect(
-      screen.getAllByText("직접 적어 주세요. 비워 두면 적립할 수 없어요")
+      screen.getAllByText("직접 적어 주세요. 비워 두면 저장할 수 없어요")
         .length,
     ).toBeGreaterThan(0);
   });
@@ -282,7 +282,7 @@ describe("FinalizePage 제출", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: SUBMIT }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "적립하지 못했어요",
+      "저장하지 못했어요",
     );
     expect(screen.getByRole("button", { name: SUBMIT })).not.toHaveAttribute(
       "aria-disabled",
@@ -302,7 +302,7 @@ describe("FinalizePage 이미 완료된 세션", () => {
     });
     fetchDetailMock.mockResolvedValue(detail({}, done));
     renderPage();
-    expect(await screen.findByText(/활동 기록에 적립됐어요\./)).toBeVisible();
+    expect(await screen.findByText(/활동 기록에 저장됐어요\./)).toBeVisible();
     expect(
       screen.queryByRole("button", { name: SUBMIT }),
     ).not.toBeInTheDocument();
@@ -348,7 +348,7 @@ describe("FinalizePage 확정 직후 셸 재조회", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: SUBMIT }));
     expect(
-      await screen.findByRole("heading", { name: "적립을 마쳤어요" }),
+      await screen.findByRole("heading", { name: "저장을 마쳤어요" }),
     ).toBeVisible();
     await waitFor(() => expect(refetchMock).toHaveBeenCalled());
 
@@ -357,7 +357,7 @@ describe("FinalizePage 확정 직후 셸 재조회", () => {
     setShell({ isBootstrapLoading: false });
 
     expect(
-      screen.getByRole("heading", { name: "적립을 마쳤어요" }),
+      screen.getByRole("heading", { name: "저장을 마쳤어요" }),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "보관함으로" })).toBeVisible();
     expect(

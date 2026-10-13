@@ -53,7 +53,7 @@ test.describe("심화탐구 보관함", () => {
     await expect(page.getByText("조건에 맞는 심화탐구가 없어요")).toBeVisible();
   });
 
-  test("열기로 상세에 들어가면 설계, 평가 리포트와 확정 적립 내용 표가 보인다", async ({
+  test("열기로 상세에 들어가면 설계, 평가 리포트와 확정 저장 내용 표가 보인다", async ({
     studentPage: page,
   }) => {
     await page.goto("/app/inquiry/reports");
@@ -73,10 +73,10 @@ test.describe("심화탐구 보관함", () => {
       page.getByRole("heading", { name: "평가 리포트" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "확정 적립 내용" }),
+      page.getByRole("heading", { name: "확정 저장 내용" }),
     ).toBeVisible();
 
-    const fields = page.getByRole("table", { name: "확정 적립 내용" });
+    const fields = page.getByRole("table", { name: "확정 저장 내용" });
     for (const label of [
       "주제",
       "개념",

@@ -72,7 +72,7 @@ function EvaluateContent() {
           to={INQUIRY_PATHS.finalize}
           className={cn(buttonVariants(), "h-10 px-5")}
         >
-          확정하고 적립하기
+          확정하고 저장하기
         </Link>
       </div>
     </>

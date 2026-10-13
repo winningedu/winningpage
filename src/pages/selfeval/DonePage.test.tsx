@@ -134,7 +134,7 @@ beforeEach(() => {
 });
 
 describe("DonePage", () => {
-  test("6단계로 알리고 머리말과 적립 카드를 보인다", async () => {
+  test("6단계로 알리고 머리말과 저장 카드를 보인다", async () => {
     detailMock.mockResolvedValue(completed());
     renderPage();
     expect(stepMock).toHaveBeenCalledWith(6);
@@ -143,7 +143,7 @@ describe("DonePage", () => {
     ).toBeTruthy();
     expect(
       await screen.findByText(
-        "활동 기록 저장소에 7항목(주제, 개념, 방법, 결과, 한계, 수치, 자료명)으로 적립했습니다",
+        "활동 기록 저장소에 7항목(주제, 개념, 방법, 결과, 한계, 수치, 자료명)으로 저장했습니다",
       ),
     ).toBeTruthy();
   });

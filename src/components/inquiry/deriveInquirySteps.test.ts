@@ -47,7 +47,7 @@ describe("구성", () => {
       "설계 리포트",
       "보고서 작성",
       "평가 리포트",
-      "확정과 적립",
+      "확정과 저장",
     ]);
     expect(steps.map((s) => s.to)).toEqual([
       INQUIRY_PATHS.home,

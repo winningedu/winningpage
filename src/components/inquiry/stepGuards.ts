@@ -92,7 +92,7 @@ export function guardFor(
         : {
             title: "아직 확정할 평가가 없어요",
             description:
-              "평가 리포트가 나오면 여기에서 내용을 확인하고 활동 기록으로 적립해요. 5단계 평가 리포트로 돌아가세요.",
+              "평가 리포트가 나오면 여기에서 내용을 확인하고 활동 기록으로 저장해요. 5단계 평가 리포트로 돌아가세요.",
             backLabel: "평가 리포트로 돌아가기",
             backTo: INQUIRY_PATHS.evaluate,
           };

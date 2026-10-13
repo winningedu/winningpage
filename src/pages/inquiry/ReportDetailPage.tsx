@@ -161,7 +161,7 @@ export default function ReportDetailPage() {
           )}
         </Section>
         {final ? (
-          <Section id="inquiry-detail-final" title="확정 적립 내용">
+          <Section id="inquiry-detail-final" title="확정 저장 내용">
             <FinalFieldsTable fields={final} />
           </Section>
         ) : null}

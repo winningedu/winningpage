@@ -31,7 +31,7 @@ const TITLE = "이 탐구를 다음 탐구의 재료로";
 const SUBCOPY =
   "확정하면 이 심화탐구가 활동 기록에 쌓여요. 여기서 남긴 한계와 후속 탐구가 다음 심화탐구의 출발점이 돼요";
 const PRICING = "/pricing?service=inquiry";
-const BLOCKED_HINT = "비어 있는 항목을 채우면 적립할 수 있어요";
+const BLOCKED_HINT = "비어 있는 항목을 채우면 저장할 수 있어요";
 
 type SubmitError = {
   message: string;
@@ -48,7 +48,7 @@ function errorFor(result: {
     return {
       message:
         names.length > 0
-          ? `비어 있는 항목: ${names.join(", ")}. 채운 뒤 다시 적립해 주세요`
+          ? `비어 있는 항목: ${names.join(", ")}. 채운 뒤 다시 저장해 주세요`
           : "입력한 내용을 확인해 주세요",
     };
   }
@@ -60,11 +60,11 @@ function errorFor(result: {
   }
   if (result.status === 403 && result.code === "NO_ENTITLEMENT") {
     return {
-      message: "이용권이 있어야 적립할 수 있어요",
+      message: "이용권이 있어야 저장할 수 있어요",
       link: { to: PRICING, label: "이용권 보기" },
     };
   }
-  return { message: "적립하지 못했어요. 잠시 뒤 다시 시도해 주세요" };
+  return { message: "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요" };
 }
 
 function FinalizeForm({
@@ -142,15 +142,15 @@ function FinalizeForm({
             (!ready || submitting) && "cursor-not-allowed opacity-50",
           )}
         >
-          확정하고 활동 기록에 적립
+          확정하고 활동 기록에 저장
         </button>
       </div>
     </>
   );
 }
 
-// 가드를 통과한 뒤에만 그려 세션이 있을 때만 조회한다. 적립 완료 상태는 StepGate 바깥
-// (FinalizePage)이 들고 있다. 적립 직후 셸 재조회로 열린 세션이 사라져도 StepGate 가
+// 가드를 통과한 뒤에만 그려 세션이 있을 때만 조회한다. 저장 완료 상태는 StepGate 바깥
+// (FinalizePage)이 들고 있다. 저장 직후 셸 재조회로 열린 세션이 사라져도 StepGate 가
 // 이 컴포넌트를 언마운트하기 때문이다.
 function FinalizeContent({
   onDone,

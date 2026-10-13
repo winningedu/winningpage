@@ -102,7 +102,7 @@ describe("ReportDetailPage", () => {
   });
   afterEach(cleanup);
 
-  it("확정 세션은 주제 제목, 확정 일자 부제, 설계와 평가 전문, 적립 표를 그린다", async () => {
+  it("확정 세션은 주제 제목, 확정 일자 부제, 설계와 평가 전문, 저장 표를 그린다", async () => {
     fetchDetailMock.mockResolvedValue(detail());
     renderPage();
     expect(stepMock).toHaveBeenCalledWith(null);
@@ -122,11 +122,11 @@ describe("ReportDetailPage", () => {
     expect(screen.getByTestId("design-body")).toBeInTheDocument();
     expect(screen.getByTestId("evaluation-body")).toBeInTheDocument();
     expect(
-      screen.getByRole("table", { name: "확정 적립 내용" }),
+      screen.getByRole("table", { name: "확정 저장 내용" }),
     ).toBeInTheDocument();
   });
 
-  it("설계나 평가가 없으면 각각 안내를 그리고 적립 표는 생략한다", async () => {
+  it("설계나 평가가 없으면 각각 안내를 그리고 저장 표는 생략한다", async () => {
     fetchDetailMock.mockResolvedValue(
       detail({ design: null, evaluation: null, final: null }),
     );

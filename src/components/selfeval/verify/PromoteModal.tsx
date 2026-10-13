@@ -4,7 +4,7 @@ import { INPUT, TEXTAREA } from "@/components/selfeval/basics/BasicsFields";
 import { Input } from "@/components/ui/input";
 import type { PromoteForm } from "./promoteDraft";
 
-// 저장 확인 모달(시안 52, 명세 No.43, 63). 활동 기록 저장소에 적립할 7항목을 학생이 확인하고 고친다.
+// 저장 확인 모달(시안 52, 명세 No.43, 63). 활동 기록 저장소에 저장할 7항목을 학생이 확인하고 고친다.
 // 수치와 자료명은 한 줄에 하나씩 적는다.
 
 const FIELDS: {
@@ -46,7 +46,7 @@ export default function PromoteModal({
       open={open}
       onClose={onClose}
       title="이 내용으로 저장할까요?"
-      subtitle="활동 기록 저장소에 7항목으로 적립해요. 저장한 자기평가서는 잠겨서 더 고치지 않아요."
+      subtitle="활동 기록 저장소에 7항목으로 저장해요. 저장한 자기평가서는 잠겨서 더 고치지 않아요."
       submitLabel="확인하고 저장"
       submitDisabled={busy || form.topic.trim() === ""}
       onSubmit={() =>

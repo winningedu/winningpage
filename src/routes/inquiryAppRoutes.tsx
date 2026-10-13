@@ -77,7 +77,7 @@ const inquiryAppRoutes: RouteObject[] = [
                 path: "evaluate",
                 ...page(() => import("@/pages/inquiry/EvaluatePage")),
               },
-              // 6 확정과 적립
+              // 6 확정과 저장
               {
                 path: "finalize",
                 ...page(() => import("@/pages/inquiry/FinalizePage")),

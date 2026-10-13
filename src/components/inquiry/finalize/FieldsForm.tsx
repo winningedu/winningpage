@@ -83,7 +83,7 @@ export default function FieldsForm({
         추출 내용 확인과 수정
       </h2>
       <p className="mt-1 mb-4 text-app-label text-ink-sub">
-        보고서에서 뽑은 7항목이에요. 틀린 곳은 직접 고쳐서 적립할 수 있어요.
+        보고서에서 뽑은 7항목이에요. 틀린 곳은 직접 고쳐서 저장할 수 있어요.
       </p>
       <div className="flex flex-col gap-5">
         {FIELDS.map((f) => {
@@ -122,7 +122,7 @@ export default function FieldsForm({
               )}
               {invalid && (
                 <p className="text-app-caption text-error">
-                  직접 적어 주세요. 비워 두면 적립할 수 없어요
+                  직접 적어 주세요. 비워 두면 저장할 수 없어요
                 </p>
               )}
             </div>

@@ -1,13 +1,13 @@
 // POST /api/inquiry/finalize
 // Authorization: Bearer <access_token>
 //
-// 심화탐구 확정과 적립 엔드포인트(명세 No.103~106, 25, 111, 179, 180, 개발계획 부록 B 4번).
+// 심화탐구 확정과 저장 엔드포인트(명세 No.103~106, 25, 111, 179, 180, 개발계획 부록 B 4번).
 //   요청  { sessionId, fields: ActivityFields }   fields 7항목(텍스트 5개는 비어 있으면 안 된다)
 //   응답 200 { ok, status: "completed" | "already_completed", activityRecordId, finalReportId,
 //              replySent: boolean | null }
 //
 // 계약:
-//   - fn_inquiry_finalize 한 트랜잭션에서 세션 completed, 확정 리포트, 활동 기록 적립을 한다.
+//   - fn_inquiry_finalize 한 트랜잭션에서 세션 completed, 확정 리포트, 활동 기록 저장을 한다.
 //     같은 세션 재요청은 같은 결과(already_completed)를 돌려준다.
 //   - 세션에 성장설계 과제(plan_item_id)가 있으면 RPC 성공 뒤 같은 요청 안에서 과제 완료를 회신한다.
 //     성공이면 replySent true, 실패면 확정은 유지하고 reply_pending 을 세워 replySent false.

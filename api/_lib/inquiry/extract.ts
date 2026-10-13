@@ -1,4 +1,4 @@
-// 보고서 작성본에서 확정 적립 7항목을 뽑는다(명세 No.104, 173, 174, §6 6, 10). 순수 함수만 둔다.
+// 보고서 작성본에서 확정 저장 7항목을 뽑는다(명세 No.104, 173, 174, §6 6, 10). 순수 함수만 둔다.
 import { MAX_EXTRACTED_NUMBERS } from "./constants.js";
 import type { ActivityFields, SubmissionSections } from "./types.js";
 

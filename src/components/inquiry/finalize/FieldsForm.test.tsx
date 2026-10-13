@@ -47,7 +47,7 @@ describe("FieldsForm", () => {
     const input = screen.getByRole("textbox", { name: "한계" });
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(
-      screen.getByText("직접 적어 주세요. 비워 두면 적립할 수 없어요"),
+      screen.getByText("직접 적어 주세요. 비워 두면 저장할 수 없어요"),
     ).toBeVisible();
     expect(screen.getByRole("textbox", { name: "방법" })).not.toHaveAttribute(
       "aria-invalid",

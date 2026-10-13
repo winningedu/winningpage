@@ -106,7 +106,7 @@ describe("진행단계", () => {
       "설계 리포트",
       "보고서 작성",
       "평가 리포트",
-      "확정과 적립",
+      "확정과 저장",
     ].map((label) => html.indexOf(`>${label}<`, start));
     expect(order.every((i) => i > -1)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);

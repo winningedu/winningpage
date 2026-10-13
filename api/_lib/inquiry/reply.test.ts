@@ -77,7 +77,7 @@ describe("resendPendingReplies", () => {
     expect(clearReplyPending).not.toHaveBeenCalled();
   });
 
-  it("적립된 활동 기록이 아직 없으면 회신하지 않고 둔다", async () => {
+  it("저장된 활동 기록이 아직 없으면 회신하지 않고 둔다", async () => {
     loadReplyPendingSessions.mockResolvedValue([
       { id: "s1", plan_item_id: "p1" },
     ]);

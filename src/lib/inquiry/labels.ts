@@ -69,7 +69,7 @@ export const STEP_NAMES = [
   "설계 리포트",
   "보고서 작성",
   "평가 리포트",
-  "확정과 적립",
+  "확정과 저장",
 ] as const;
 
 export const ARCHIVE_LABEL = "보관함";

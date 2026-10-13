@@ -15,14 +15,14 @@ export default function ResultCard({
 }) {
   return (
     <section
-      aria-label="적립 결과"
+      aria-label="저장 결과"
       className="flex flex-col gap-3 rounded-xl border border-border bg-white p-6"
     >
       <h2 className="text-app-section font-bold text-ink-strong">
-        적립을 마쳤어요
+        저장을 마쳤어요
       </h2>
       <p role="status" className="text-app-body text-ink-strong">
-        활동 기록에 적립됐어요. 다음 심화탐구를 시작할 때 출발 활동으로 고를 수
+        활동 기록에 저장됐어요. 다음 심화탐구를 시작할 때 출발 활동으로 고를 수
         있어요
       </p>
       {replySent !== null && (

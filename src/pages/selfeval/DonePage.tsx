@@ -24,7 +24,7 @@ import type {
 const TITLE = "최종본을 저장했습니다";
 const PREVIEW_SENTENCES = 3;
 const STORED_TEXT =
-  "활동 기록 저장소에 7항목(주제, 개념, 방법, 결과, 한계, 수치, 자료명)으로 적립했습니다";
+  "활동 기록 저장소에 7항목(주제, 개념, 방법, 결과, 한계, 수치, 자료명)으로 저장했습니다";
 
 export default function DonePage() {
   useSelfevalScreenStep(6);

@@ -4,7 +4,7 @@
 /** 세션 상태(No.23). API 응답 status 와 다른 값이다. */
 export type SessionStatus = "draft" | "in_progress" | "completed" | "archived";
 
-/** 화면 단계 1~6(정보 입력, 주제 추천, 설계 리포트, 보고서 작성, 평가 리포트, 확정과 적립). */
+/** 화면 단계 1~6(정보 입력, 주제 추천, 설계 리포트, 보고서 작성, 평가 리포트, 확정과 저장). */
 export type ScreenStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** 고등학교 학년(No.27). */
@@ -258,7 +258,7 @@ export type EvaluationReport = {
   placeholders: Partial<Record<SectionId, number>>;
 };
 
-/** 확정 적립 7항목(No.104). */
+/** 확정 저장 7항목(No.104). */
 export type ActivityFields = {
   topic: string;
   concept: string;

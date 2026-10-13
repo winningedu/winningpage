@@ -14,11 +14,11 @@ function renderCard(replySent: boolean | null) {
 }
 
 describe("ResultCard", () => {
-  test("적립 완료 문구와 두 이동 버튼", () => {
+  test("저장 완료 문구와 두 이동 버튼", () => {
     renderCard(null);
     expect(
       screen.getByText(
-        "활동 기록에 적립됐어요. 다음 심화탐구를 시작할 때 출발 활동으로 고를 수 있어요",
+        "활동 기록에 저장됐어요. 다음 심화탐구를 시작할 때 출발 활동으로 고를 수 있어요",
       ),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "보관함으로" })).toHaveAttribute(

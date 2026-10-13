@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import type { VerificationSections } from "@/lib/selfeval/types";
 import { discriminationLabel } from "./verifyLogic";
@@ -28,11 +28,12 @@ export function MandatoryFixesCard({
   if (sections.mandatoryFixes.length === 0) return null;
   return (
     <section
-      className={`${CARD} border-error/40 bg-error/5`}
+      className={`${CARD} border-warning bg-surface-warning`}
       role="alert"
       aria-label="필수 수정"
     >
-      <h2 className={CARD_TITLE}>
+      <h2 className={`${CARD_TITLE} flex items-center gap-2`}>
+        <TriangleAlert aria-hidden="true" className="size-5 shrink-0" />
         필수 수정이 남아 있어 제출 가능으로 보지 않아요
       </h2>
       <ul className="mt-3 flex flex-col gap-3">

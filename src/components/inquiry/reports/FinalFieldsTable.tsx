@@ -29,7 +29,7 @@ function ListCell({ items }: { items: string[] }) {
   );
 }
 
-/** 확정 적립 7항목(No.104). 값이 없으면 "-". */
+/** 확정 저장 7항목(No.104). 값이 없으면 "-". */
 export default function FinalFieldsTable({
   fields,
 }: {
@@ -37,7 +37,7 @@ export default function FinalFieldsTable({
 }) {
   return (
     <Table>
-      <TableCaption className="sr-only">확정 적립 내용</TableCaption>
+      <TableCaption className="sr-only">확정 저장 내용</TableCaption>
       <TableBody>
         {TEXT_ROWS.map(({ label, key }) => {
           const value = fields[key] as string;
