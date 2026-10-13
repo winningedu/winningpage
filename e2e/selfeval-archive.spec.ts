@@ -1,6 +1,12 @@
-import { discardOpenSession, expect, test } from "./fixtures/selfeval";
+import {
+  countCompleted,
+  discardOpenSession,
+  expect,
+  test,
+} from "./fixtures/selfeval";
 
-// 보관함: 상태 필터와 완료 세션 다시 보기. 계정에 완료 세션이 1건 이상 있어야 한다.
+// 보관함: 상태 필터와 완료 세션 다시 보기. 완료 세션은 selfeval-full A 가 만든다.
+// 없으면 빈 상태 화면이라 필터가 없으므로 이유를 남기고 건너뛴다.
 test.describe("자기평가서 보관함", () => {
   test("완료로 거르면 완료 행만 남고 다시 보기가 저장 완료 화면을 연다", async ({
     studentPage: page,
@@ -8,6 +14,11 @@ test.describe("자기평가서 보관함", () => {
     token,
   }) => {
     await discardOpenSession(request, token);
+    const completed = await countCompleted(request, token);
+    test.skip(
+      completed === 0,
+      "완료 세션 없음. E2E_SELFEVAL_FULL=1 로 selfeval-full A 를 먼저 완주",
+    );
     await page.goto("/app/selfeval/archive");
 
     await expect(page.getByRole("heading", { name: "보관함" })).toBeVisible();
