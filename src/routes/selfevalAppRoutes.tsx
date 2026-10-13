@@ -2,8 +2,8 @@ import type { ComponentType } from "react";
 import type { RouteObject } from "react-router";
 import RequireEntitlement from "@/components/RequireEntitlement";
 import { SELFEVAL_BASE } from "@/components/selfeval/selfevalPaths";
-import { requireSelfevalAvailableMiddleware } from "@/lib/routeMiddleware";
 import { SessionProvider } from "@/context/SessionContext";
+import { requireSelfevalAvailableMiddleware } from "@/lib/routeMiddleware";
 
 // 자기평가서 학생 앱. 성장설계(growthAppRoutes)와 같은 규칙으로 SiteLayout 밖에 둔다.
 //
@@ -50,8 +50,9 @@ const selfevalAppRoutes: RouteObject[] = [
             // 루트("/")에 매칭된다). 세션 화면 경로는 SELFEVAL_PATHS 의 s/:sessionId/* 와 같다.
             path: SELFEVAL_BASE,
             lazy: async () => {
-              const { default: SelfevalAppLayout } =
-                await import("@/components/selfeval/SelfevalAppLayout");
+              const { default: SelfevalAppLayout } = await import(
+                "@/components/selfeval/SelfevalAppLayout"
+              );
               return { Component: SelfevalAppLayout };
             },
             HydrateFallback: SelfevalChunkLoadingFallback,

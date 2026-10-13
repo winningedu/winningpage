@@ -8,9 +8,9 @@ import {
   buildReportContext,
   careerChangedSincePrevious,
   cutsFromAdmissionRows,
-  universitiesWithCuts,
   type ReportRow,
   toContextActivity,
+  universitiesWithCuts,
   universityTargets,
 } from "./context.js";
 
