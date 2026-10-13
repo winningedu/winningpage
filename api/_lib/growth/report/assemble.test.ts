@@ -112,6 +112,28 @@ describe("assembleFinal", () => {
     );
     expect(r.ok).toBe(false);
   });
+
+  test("앱 섹션 본문의 금지 표현은 검사에서 제외한다", () => {
+    const r = assembleFinal(
+      ctx(),
+      [item("1-11")],
+      [item("1-2", { body: "희망 진로: 합격 예측 분석가" })],
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  test("모델 섹션 본문의 금지 표현은 섹션 id 와 함께 실패한다", () => {
+    const r = assembleFinal(
+      ctx(),
+      [item("1-11", { body: "합격 예측 결과" })],
+      [item("1-2")],
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.issues).toContainEqual(
+        expect.objectContaining({ code: "forbidden_phrase", path: "1-11" }),
+      );
+  });
 });
 
 function draft(

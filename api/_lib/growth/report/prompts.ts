@@ -19,6 +19,8 @@ import {
 import { capPlanItems } from "../tracks.js";
 import type { Axis } from "../types.js";
 import {
+  APP_AXIS_ROW_LABELS,
+  AXIS_SECTION_IDS,
   EVIDENCE_EXEMPT_SECTION_IDS,
   FORBIDDEN_PHRASES,
   type StepValidationResult,
@@ -80,9 +82,7 @@ export type SplitStep = 4 | 6 | 7;
 
 /** 나눈 호출 하나가 만드는 것. 섹션 하나, 4단계 match, 7단계 planDraft 중 하나다. */
 export type StepCall =
-  | { kind: "section"; id: string }
-  | { kind: "match" }
-  | { kind: "planDraft" };
+  { kind: "section"; id: string } | { kind: "match" } | { kind: "planDraft" };
 
 const AXIS_LIST: readonly Axis[] = ["A", "B", "C", "D", "E"];
 const KEYWORD_LIMIT = 5;
@@ -576,8 +576,6 @@ const STEP_RULES: Record<1 | 3 | 5, string> = {
   ].join("\n"),
 };
 
-const AXIS_SECTION_IDS: readonly string[] = ["2-1", "2-2", "2-3", "2-4", "2-5"];
-
 /** 나눈 호출의 단계 규칙. 그 호출 종류에 해당하는 지시만 담는다. */
 function callRules(step: SplitStep, call: StepCall): string {
   if (call.kind === "match") {
@@ -796,8 +794,7 @@ export function buildStepPrompt(
 // ---------------------------------------------------------------------------
 
 export type ParseResult =
-  | { ok: true; output: StepOutput }
-  | { ok: false; issues: ValidationIssue[] };
+  { ok: true; output: StepOutput } | { ok: false; issues: ValidationIssue[] };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -1237,9 +1234,6 @@ function axisNoDataSection(id: string): SectionItem {
     no_data_reason: AXIS_NO_DATA_REASON,
   };
 }
-
-/** 앱이 만드는 축 섹션 행의 라벨. 모델이 같은 라벨로 쓴 행은 버린다. */
-const APP_AXIS_ROW_LABELS = ["판정", "근거 활동", "대학 평가요소 대응"];
 
 /** 근거 활동 행에 보여줄 topic 수. 근거 id 도 같은 건수만 단다. */
 const AXIS_TOPIC_LIMIT = 3;

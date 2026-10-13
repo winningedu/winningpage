@@ -49,6 +49,18 @@ describe("findForbidden / canRetry / isSoftOnly", () => {
     expect(findForbidden("깨끗한 글")).toEqual([]);
   });
 
+  it("예측 단독은 통과하고 합격 결합형은 걸린다", () => {
+    expect(findForbidden("수요 예측 모델 만들기")).toEqual([]);
+    for (const t of [
+      "합격 예측",
+      "합격예측",
+      "합격을 예측한다",
+      "합격 가능성 예측",
+      "합격 가능성을 예측",
+    ])
+      expect(findForbidden(t).length).toBeGreaterThan(0);
+  });
+
   it("이슈가 있어야 재요청하고 soft 만 있으면 isSoftOnly 다", () => {
     expect(canRetry([])).toBe(false);
     expect(canRetry([{ code: "paragraph_count", message: "x" }])).toBe(true);

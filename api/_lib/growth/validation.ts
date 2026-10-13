@@ -9,7 +9,10 @@ export const FORBIDDEN_PHRASES: readonly string[] = [
   "합격률",
   "합격 확률",
   "합격할 수",
-  "예측",
+  "합격 예측",
+  "합격을 예측",
+  "합격 가능성 예측",
+  "합격 가능성을 예측",
   "예상 합격",
   "안정권",
   "소신권",
@@ -36,8 +39,8 @@ const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
 /**
  * 텍스트에서 발견된 금지 표현(중복 제거). 입력과 사전 항목 모두 공백을 제거해 비교하고,
  * 발견 목록은 사전 원문으로 돌려준다.
- * 앱이 붙이는 고지 문구(ADMISSION_DISCLAIMER 등)도 8단계 조립 뒤 같은 검사를 받는다.
- * 그래서 고정 문구는 이 사전의 어떤 항목도 포함하지 않게 쓴다.
+ * 8단계는 앱이 조립한 섹션(고지 문구 포함)을 검사에서 제외한다(skipTextSectionIds).
+ * 그래서 고정 문구가 사전과 충돌하지 않음은 appSectionsForbidden 단위 테스트가 지킨다.
  */
 export function findForbiddenPhrases(text: string): string[] {
   const compact = stripSpaces(text);
@@ -61,6 +64,8 @@ export type ValidationContext = {
   topicPatterns?: RegExp[];
   /** 6~8단계: 주어지면 evidence_ids 가 모두 이 목록 안에 있어야 한다. */
   knownEvidenceIds?: string[];
+  /** 금지 표현 검사에서 통째로 뺄 섹션 id. 앱이 만든 섹션(8단계 조립분)을 넘긴다. */
+  skipTextSectionIds?: string[];
 };
 export type StepNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -74,6 +79,58 @@ export function collectText(value: unknown): string {
       .join("\n");
   }
   return "";
+}
+
+/** 6단계에서 앱이 만드는 축 섹션 id. */
+export const AXIS_SECTION_IDS: readonly string[] = [
+  "2-1",
+  "2-2",
+  "2-3",
+  "2-4",
+  "2-5",
+];
+
+/** 앱이 만드는 축 섹션 행의 라벨. 모델이 같은 라벨로 쓴 행은 버리고, 금지 표현 검사도 건너뛴다. */
+export const APP_AXIS_ROW_LABELS: readonly string[] = [
+  "판정",
+  "근거 활동",
+  "대학 평가요소 대응",
+];
+
+type CheckedText = { path?: string; text: string };
+
+const isRecordLike = (v: unknown): v is Record<string, unknown> =>
+  v !== null && typeof v === "object" && !Array.isArray(v);
+
+// 축 섹션이면 앱 행(라벨로 식별)을 뺀 사본을 돌려준다.
+function withoutAppRows(section: Record<string, unknown>): unknown {
+  if (!AXIS_SECTION_IDS.includes(String(section.id))) return section;
+  const body = section.body;
+  if (!isRecordLike(body) || !Array.isArray(body.rows)) return section;
+  const rows = body.rows.filter(
+    (r) => !(isRecordLike(r) && APP_AXIS_ROW_LABELS.includes(String(r.label))),
+  );
+  return { ...section, body: { ...body, rows } };
+}
+
+/** 금지 표현 검사 대상 텍스트. 섹션 단위로 모으고 앱이 만든 텍스트는 뺀다. */
+function collectCheckedTexts(
+  payload: Record<string, unknown>,
+  skipIds: readonly string[],
+): CheckedText[] {
+  const { sections, ...rest } = payload;
+  const out: CheckedText[] = [{ text: collectText(rest) }];
+  if (sections === undefined) return out;
+  if (!Array.isArray(sections)) return [{ text: collectText(payload) }];
+  for (const s of sections) {
+    if (!isRecordLike(s) || typeof s.id !== "string") {
+      out.push({ text: collectText(s) });
+      continue;
+    }
+    if (skipIds.includes(s.id)) continue;
+    out.push({ path: s.id, text: collectText(withoutAppRows(s)) });
+  }
+  return out;
 }
 
 /** 단계별 응답 검증. 모든 단계에 금지 표현 검사를 적용한다. */
@@ -95,11 +152,18 @@ export function validateStep(
       ],
     };
   }
-  for (const phrase of findForbiddenPhrases(collectText(payload))) {
-    issues.push({
-      code: "forbidden_phrase",
-      message: `금지 표현 "${phrase}" 이(가) 포함되어 있습니다.`,
-    });
+  const skipIds = context.skipTextSectionIds ?? [];
+  for (const { path, text } of collectCheckedTexts(
+    payload as Record<string, unknown>,
+    skipIds,
+  )) {
+    for (const phrase of findForbiddenPhrases(text)) {
+      issues.push({
+        code: "forbidden_phrase",
+        message: `금지 표현 "${phrase}" 이(가) 포함되어 있습니다.`,
+        ...(path ? { path } : {}),
+      });
+    }
   }
   if (step === 6 || step === 7 || step === 8) {
     const drafts = readSections(payload);

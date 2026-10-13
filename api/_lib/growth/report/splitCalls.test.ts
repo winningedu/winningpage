@@ -361,12 +361,26 @@ describe("표 칸 길이 재요청", () => {
     const { r } = await run(6, (b) => ok(answer(b)), longContext);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     const body = r.output.sections?.find((s) => s.id === "2-1")?.body as
-      | { rows: { label: string; value: string }[] }
-      | undefined;
+      { rows: { label: string; value: string }[] } | undefined;
     const rows = body?.rows ?? [];
     expect(
       rows.find((x) => x.label === "근거 활동")?.value.length,
     ).toBeGreaterThan(120);
+  });
+});
+
+describe("6단계 앱 행의 금지 표현", () => {
+  it("활동 topic 에 합격 예측이 있어도 앱 근거 활동 행은 검사하지 않는다", async () => {
+    const forbiddenContext: ReportContext = {
+      ...context,
+      activities: activities.map((a) => ({
+        ...a,
+        topic: `합격 예측 모델 ${a.id}`,
+      })),
+    };
+    const { r } = await run(6, (b) => ok(answer(b)), forbiddenContext);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.ok).toBe(true);
   });
 });
 
