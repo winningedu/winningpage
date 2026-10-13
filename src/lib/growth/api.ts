@@ -138,7 +138,7 @@ export function collectCommit(body: CollectAggregateRequest) {
 export function collectUploadUrl(upload: UploadRequest) {
   return request<UploadUrlResult>(`${BASE}/collect`, {
     method: "POST",
-    body: { action: "upload-url", upload },
+    body: { action: "upload-url", ...upload },
   });
 }
 
