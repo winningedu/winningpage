@@ -91,7 +91,9 @@ describe("CompanyNews - 숨김 프로그램", () => {
     expect(container.querySelector('a[href="/services/growth"]')).toBeNull();
     expect(screen.queryByText(PLATFORM_DESC)).not.toBeInTheDocument();
     expect(
-      screen.getByText("학습진단, 목표관리, 수행평가, 콜멘토, 자기평가, 심화탐구"),
+      screen.getByText(
+        "학습진단, 목표관리, 수행평가, 콜멘토, 자기평가, 심화탐구",
+      ),
     ).toBeInTheDocument();
     siteState.hidden = [];
   });

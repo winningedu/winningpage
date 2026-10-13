@@ -177,7 +177,9 @@ describe("GrowthDesign 카피", () => {
     renderPage();
     const count = SURVEY_QUESTION_COUNT;
     expect(document.body.textContent).toContain(`${count}문항, 약 10분.`);
-    fireEvent.click(screen.getByRole("button", { name: "어떤 자료를 분석하나요?" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "어떤 자료를 분석하나요?" }),
+    );
     expect(
       screen.getByText(new RegExp(`학생 조사\\(${count}문항\\) 응답`)),
     ).toBeInTheDocument();

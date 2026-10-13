@@ -12,7 +12,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { GrowthStep, GrowthStepKey, GrowthStepStatus } from "./deriveGrowthSteps";
+import type {
+  GrowthStep,
+  GrowthStepKey,
+  GrowthStepStatus,
+} from "./deriveGrowthSteps";
 import { GROWTH_PATHS } from "./growthPaths";
 
 // 성장설계 앱 좌측 고정 사이드바. 상단 학생 표시, 메뉴 2항목, 진행단계 4스텝과 설계결과 2스텝으로 구성한다.

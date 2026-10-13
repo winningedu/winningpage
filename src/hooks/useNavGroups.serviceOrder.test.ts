@@ -48,7 +48,9 @@ function serviceGroup(labels: string[]) {
   };
 }
 
-function labelsOf(groups: ReturnType<typeof injectGrowthAndArrangeServiceItems>) {
+function labelsOf(
+  groups: ReturnType<typeof injectGrowthAndArrangeServiceItems>,
+) {
   return groups.find((g) => g.title === "서비스")?.items.map((i) => i.label);
 }
 
@@ -63,9 +65,9 @@ describe("injectGrowthAndArrangeServiceItems", () => {
       "학습진단",
     ];
 
-    expect(labelsOf(injectGrowthAndArrangeServiceItems([serviceGroup(shuffled)]))).toEqual(
-      CANONICAL,
-    );
+    expect(
+      labelsOf(injectGrowthAndArrangeServiceItems([serviceGroup(shuffled)])),
+    ).toEqual(CANONICAL);
   });
 
   it("이미 성장설계가 있어도 중복 없이 정본 순서를 유지한다", () => {
@@ -102,9 +104,12 @@ describe("injectGrowthAndArrangeServiceItems", () => {
       ],
     };
 
-    expect(
-      labelsOf(injectGrowthAndArrangeServiceItems([renamed])),
-    ).toEqual(["골 매니지먼트", "성장설계", "자기평가 서비스", "콜 멘토"]);
+    expect(labelsOf(injectGrowthAndArrangeServiceItems([renamed]))).toEqual([
+      "골 매니지먼트",
+      "성장설계",
+      "자기평가 서비스",
+      "콜 멘토",
+    ]);
   });
 
   it("서비스 외 그룹은 건드리지 않는다", () => {
@@ -114,9 +119,9 @@ describe("injectGrowthAndArrangeServiceItems", () => {
       items: [item("서비스요금"), item("멘토신청")],
     };
 
-    expect(injectGrowthAndArrangeServiceItems([serviceGroup(["콜멘토"]), other])[1]).toEqual(
-      other,
-    );
+    expect(
+      injectGrowthAndArrangeServiceItems([serviceGroup(["콜멘토"]), other])[1],
+    ).toEqual(other);
   });
 });
 
@@ -124,7 +129,9 @@ describe("composeFinalNavGroups", () => {
   it("성장설계를 숨기면 주입된 성장설계도 최종 결과에서 빠진다", () => {
     siteState.hidden = ["growth"];
 
-    const result = composeFinalNavGroups([serviceGroup(["목표관리", "콜멘토"])]);
+    const result = composeFinalNavGroups([
+      serviceGroup(["목표관리", "콜멘토"]),
+    ]);
 
     expect(labelsOf(result)).toEqual(["목표관리", "콜멘토"]);
     siteState.hidden = [];
@@ -133,7 +140,9 @@ describe("composeFinalNavGroups", () => {
   it("숨김 목록이 비면 성장설계가 정본 위치에 들어간다", () => {
     siteState.hidden = [];
 
-    const result = composeFinalNavGroups([serviceGroup(["콜멘토", "목표관리"])]);
+    const result = composeFinalNavGroups([
+      serviceGroup(["콜멘토", "목표관리"]),
+    ]);
 
     expect(labelsOf(result)).toContain("성장설계");
   });

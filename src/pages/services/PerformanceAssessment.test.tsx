@@ -15,7 +15,10 @@ describe("PerformanceAssessment 이용 방법 안내", () => {
   it("하단 섹션 제목이 수행평가 이용 방법 안내이고 가격 내용이 없다", () => {
     renderPage();
     expect(
-      screen.getByRole("heading", { level: 2, name: "수행평가 이용 방법 안내" }),
+      screen.getByRole("heading", {
+        level: 2,
+        name: "수행평가 이용 방법 안내",
+      }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/이용권 ?안내/)).toBeNull();
     expect(screen.queryByText("이용권 구매하러 가기")).toBeNull();

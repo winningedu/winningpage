@@ -17,8 +17,9 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
-const { requireOnlineInquiryAvailableMiddleware } =
-  await import("./routeMiddleware");
+const { requireOnlineInquiryAvailableMiddleware } = await import(
+  "./routeMiddleware"
+);
 
 describe("requireOnlineInquiryAvailableMiddleware — kakaoChannelUrl 있음(winning)", () => {
   it("통과한다(redirect하지 않는다)", async () => {

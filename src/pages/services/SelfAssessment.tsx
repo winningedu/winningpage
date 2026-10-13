@@ -424,7 +424,6 @@ export default function SelfAssessment() {
       >
         <ServiceFaq items={FAQ_ITEMS} />
       </ServiceSection>
-
     </main>
   );
 }

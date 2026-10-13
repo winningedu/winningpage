@@ -73,8 +73,9 @@ const performanceAppRoutes: RouteObject[] = [
           //   · P7~ STEP2 이후(§5.6~§5.17) · P12 저장 리포트(§5.18~§5.19)
           {
             lazy: async () => {
-              const { default: PerformanceAppLayout } =
-                await import("@/components/performance/PerformanceAppLayout");
+              const { default: PerformanceAppLayout } = await import(
+                "@/components/performance/PerformanceAppLayout"
+              );
               return { Component: PerformanceAppLayout };
             },
             HydrateFallback: PerformanceChunkLoadingFallback,
@@ -82,8 +83,9 @@ const performanceAppRoutes: RouteObject[] = [
               {
                 path: "/app/performance",
                 lazy: async () => {
-                  const { default: PerformanceChatPage } =
-                    await import("@/pages/performance/PerformanceChatPage");
+                  const { default: PerformanceChatPage } = await import(
+                    "@/pages/performance/PerformanceChatPage"
+                  );
                   return { Component: PerformanceChatPage };
                 },
               },
@@ -92,16 +94,18 @@ const performanceAppRoutes: RouteObject[] = [
               {
                 path: "/app/performance/reports",
                 lazy: async () => {
-                  const { default: PerformanceReportsPage } =
-                    await import("@/pages/performance/PerformanceReportsPage");
+                  const { default: PerformanceReportsPage } = await import(
+                    "@/pages/performance/PerformanceReportsPage"
+                  );
                   return { Component: PerformanceReportsPage };
                 },
               },
               {
                 path: "/app/performance/reports/:sessionId",
                 lazy: async () => {
-                  const { default: PerformanceReportsPage } =
-                    await import("@/pages/performance/PerformanceReportsPage");
+                  const { default: PerformanceReportsPage } = await import(
+                    "@/pages/performance/PerformanceReportsPage"
+                  );
                   return { Component: PerformanceReportsPage };
                 },
               },
@@ -111,8 +115,9 @@ const performanceAppRoutes: RouteObject[] = [
               {
                 path: "/app/performance/:sessionId",
                 lazy: async () => {
-                  const { default: PerformanceChatPage } =
-                    await import("@/pages/performance/PerformanceChatPage");
+                  const { default: PerformanceChatPage } = await import(
+                    "@/pages/performance/PerformanceChatPage"
+                  );
                   return { Component: PerformanceChatPage };
                 },
               },

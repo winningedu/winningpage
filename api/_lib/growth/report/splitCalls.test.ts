@@ -361,7 +361,8 @@ describe("표 칸 길이 재요청", () => {
     const { r } = await run(6, (b) => ok(answer(b)), longContext);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     const body = r.output.sections?.find((s) => s.id === "2-1")?.body as
-      { rows: { label: string; value: string }[] } | undefined;
+      | { rows: { label: string; value: string }[] }
+      | undefined;
     const rows = body?.rows ?? [];
     expect(
       rows.find((x) => x.label === "근거 활동")?.value.length,

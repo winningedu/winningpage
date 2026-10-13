@@ -10,9 +10,7 @@ describe("GoalManagement 소개 랜딩", () => {
         <GoalManagement />
       </MemoryRouter>,
     );
-    expect(
-      screen.queryByRole("heading", { name: /이용권 ?안내/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: /이용권 ?안내/ })).toBeNull();
     expect(screen.queryByText("이용권 구매하러 가기")).toBeNull();
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
   });
