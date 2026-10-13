@@ -4,6 +4,7 @@
 //
 // 브랜드 데이터 자체의 정본은 sites.ts(순수 데이터, env 비의존 — vite.config.js도
 // 같은 데이터를 쓴다)다. 이 파일은 런타임에 VITE_SITE로 그중 하나를 고르기만 한다.
+import { parseHiddenPrograms } from "@/config/programs";
 import { SITES, type SiteConfig, type SiteKey } from "@/config/sites";
 
 export type { SiteConfig, SiteKey };
@@ -15,5 +16,20 @@ function resolveSiteKey(value: string | undefined): SiteKey {
   );
 }
 
-export const site: SiteConfig =
-  SITES[resolveSiteKey(import.meta.env.VITE_SITE)];
+const baseSite = SITES[resolveSiteKey(import.meta.env.VITE_SITE)];
+
+// 숨길 신규 서비스는 배포 환경별로 다르므로(Production에서만 숨김) 빌드타임 env로 덮어쓴다.
+// 값이 비어 있으면 sites.ts의 기본값(빈 배열, 전부 노출)을 그대로 쓴다.
+const hiddenPrograms = parseHiddenPrograms(
+  import.meta.env.VITE_HIDDEN_PROGRAMS,
+);
+
+export const site: SiteConfig = {
+  ...baseSite,
+  features: {
+    ...baseSite.features,
+    hiddenPrograms: hiddenPrograms.length
+      ? hiddenPrograms
+      : baseSite.features.hiddenPrograms,
+  },
+};

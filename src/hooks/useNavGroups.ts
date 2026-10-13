@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { isPremiumLink } from "@/components/premium/premiumRoutesPaths";
+import { isHiddenProgramLink } from "@/config/programs";
 import { site } from "@/config/site";
 import {
   FALLBACK_NAV_GROUPS,
@@ -318,6 +319,18 @@ export function removePremiumWhenHidden(groups: NavGroup[]): NavGroup[] {
     }));
 }
 
+// site.features.hiddenPrograms에 든 신규 서비스(성장설계, 자기평가, 심화탐구)의 메뉴 항목을
+// 최종 메뉴 트리에서 제거한다. removePremiumWhenHidden과 같은 이유로 최종 반환값에만 적용한다.
+export function removeHiddenProgramsFromNav(groups: NavGroup[]): NavGroup[] {
+  const hidden = site.features.hiddenPrograms;
+  if (hidden.length === 0) return groups;
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !isHiddenProgramLink(item.to, hidden)),
+  }));
+}
+
 // 캐시에 저장된 라벨도 normalizeMenuLabel을 다시 태운다 키 bump(v8)로 기존 캐시는 비워지지만,
 // 캐시가 쓰이는 다른 경로(직접 조작 등)에서도 구 라벨이 새어 나오지 않도록 하는 안전망이다.
 function normalizeCachedGroups(groups: NavGroup[]): NavGroup[] {
@@ -513,9 +526,11 @@ export function useNavGroups() {
   // 적용한다 위 arrangeServiceItems/replacePremiumNavGroup/
   // removeOnlineInquiryWithoutKakao 주석 참고. 서로 다른 그룹·항목을 다루므로 적용
   // 순서는 결과에 영향 없다.
-  return removePremiumWhenHidden(
-    removeOnlineInquiryWithoutKakao(
-      replacePremiumNavGroup(arrangeServiceItems(navGroups)),
+  return removeHiddenProgramsFromNav(
+    removePremiumWhenHidden(
+      removeOnlineInquiryWithoutKakao(
+        replacePremiumNavGroup(arrangeServiceItems(navGroups)),
+      ),
     ),
   );
 }

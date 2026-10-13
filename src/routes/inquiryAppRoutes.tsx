@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { RouteObject } from "react-router";
 import { INQUIRY_BASE } from "@/components/inquiry/inquiryPaths";
 import RequireEntitlement from "@/components/RequireEntitlement";
+import { requireInquiryAvailableMiddleware } from "@/lib/routeMiddleware";
 import { SessionProvider } from "@/context/SessionContext";
 
 // 심화탐구 학생 앱(inquiry). 성장설계 growthAppRoutes.tsx 와 같은 구조로 SiteLayout 밖에 둔다.
@@ -27,6 +28,8 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
 
 const inquiryAppRoutes: RouteObject[] = [
   {
+    // 숨긴 프로그램은 직접 URL 진입도 홈으로 되돌린다(site.features.hiddenPrograms).
+    middleware: [requireInquiryAvailableMiddleware],
     Component: () => <SessionProvider serviceKey="inquiry" />,
     children: [
       {
@@ -45,9 +48,8 @@ const inquiryAppRoutes: RouteObject[] = [
             // 셸 라우트가 /app/inquiry 를 소유하고 자식은 상대 경로다(index 가 루트에 매칭되는 것을 막는다).
             path: INQUIRY_BASE,
             lazy: async () => {
-              const { default: InquiryAppLayout } = await import(
-                "@/components/inquiry/InquiryAppLayout"
-              );
+              const { default: InquiryAppLayout } =
+                await import("@/components/inquiry/InquiryAppLayout");
               return { Component: InquiryAppLayout };
             },
             HydrateFallback: InquiryChunkLoadingFallback,

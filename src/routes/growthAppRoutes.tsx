@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { RouteObject } from "react-router";
 import { GROWTH_BASE } from "@/components/growth/growthPaths";
 import RequireEntitlement from "@/components/RequireEntitlement";
+import { requireGrowthAvailableMiddleware } from "@/lib/routeMiddleware";
 import { SessionProvider } from "@/context/SessionContext";
 
 // 성장설계 학생 앱(growth), 수행평가, 목표관리와 같은 규칙으로 SiteLayout 밖에 둔다.
@@ -30,6 +31,8 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
 
 const growthAppRoutes: RouteObject[] = [
   {
+    // 숨긴 프로그램은 직접 URL 진입도 홈으로 되돌린다(site.features.hiddenPrograms).
+    middleware: [requireGrowthAvailableMiddleware],
     Component: () => <SessionProvider serviceKey="growth" />,
     children: [
       {
@@ -49,9 +52,8 @@ const growthAppRoutes: RouteObject[] = [
             // 루트("/")에 매칭돼 버리므로(수행평가는 자식에 절대 경로를 써서 피했다) 셸에 경로를 단다.
             path: GROWTH_BASE,
             lazy: async () => {
-              const { default: GrowthAppLayout } = await import(
-                "@/components/growth/GrowthAppLayout"
-              );
+              const { default: GrowthAppLayout } =
+                await import("@/components/growth/GrowthAppLayout");
               return { Component: GrowthAppLayout };
             },
             HydrateFallback: GrowthChunkLoadingFallback,

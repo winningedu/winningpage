@@ -137,9 +137,8 @@ vi.mock("@/lib/supabase", () => ({
 
 describe("GoalReportRedirect 자녀 선택 화면", () => {
   it("자녀가 2명이면 이름 링크 2개를 그리고 period·at을 쿼리로 유지한다", async () => {
-    const { default: alimtalkLinkRoutes } = await import(
-      "./alimtalkLinkRoutes"
-    );
+    const { default: alimtalkLinkRoutes } =
+      await import("./alimtalkLinkRoutes");
     const { createMemoryRouter, RouterProvider } = await import("react-router");
 
     const router = createMemoryRouter(alimtalkLinkRoutes, {

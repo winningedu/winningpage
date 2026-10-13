@@ -113,6 +113,31 @@ describe("site - 프리미엄 노출 플래그", () => {
   });
 });
 
+describe("site - 숨길 프로그램 플래그", () => {
+  it("env가 없으면 기본값은 빈 배열이다(두 사이트 모두)", async () => {
+    vi.stubEnv("VITE_HIDDEN_PROGRAMS", "");
+
+    expect((await loadSite("winning")).site.features.hiddenPrograms).toEqual(
+      [],
+    );
+    expect(
+      (await loadSite("schoolmentor")).site.features.hiddenPrograms,
+    ).toEqual([]);
+  });
+
+  it("VITE_HIDDEN_PROGRAMS 쉼표 목록으로 덮어쓴다(공백, 모르는 키 무시)", async () => {
+    vi.stubEnv("VITE_HIDDEN_PROGRAMS", " growth, nope ,inquiry");
+
+    expect((await loadSite("winning")).site.features.hiddenPrograms).toEqual([
+      "growth",
+      "inquiry",
+    ]);
+    expect(
+      (await loadSite("schoolmentor")).site.features.hiddenPrograms,
+    ).toEqual(["growth", "inquiry"]);
+  });
+});
+
 describe("site — 잘못된 VITE_SITE", () => {
   it("winning/schoolmentor가 아니면 throw한다", async () => {
     vi.stubEnv("VITE_SITE", "tokyo");
