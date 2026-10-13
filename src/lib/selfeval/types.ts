@@ -83,7 +83,7 @@ export type GrowthStage = "seed" | "flower" | "bloom";
 
 export const GROWTH_STAGE_LABELS: Record<GrowthStage, string> = {
   seed: "씨앗",
-  flower: "꽃",
+  flower: "개화",
   bloom: "만개",
 };
 

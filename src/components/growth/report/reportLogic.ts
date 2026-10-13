@@ -126,9 +126,9 @@ export function groupSectionsByPart(sections: SectionView[]): SectionGroup[] {
 
 // ── 서사, 한눈에, 제외 안내 ─────────────────────────────────────────────
 
-const STAGE_LABELS: Record<string, string> = {
+export const STAGE_LABELS: Record<string, string> = {
   seed: "씨앗",
-  flower: "꽃",
+  flower: "개화",
   bloom: "만개",
 };
 

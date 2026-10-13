@@ -78,9 +78,9 @@ const STAGE_CONTENT: Record<string, GrowthTabCard[]> = {
   "활동 방향": [
     {
       title: "대주제와 학년별 소주제",
-      desc: "진로・탐구 성향・기록에서 대주제 한 문장을 뽑고, 1학년 씨앗・2학년 꽃・3학년 만개로 나눕니다.",
+      desc: "진로・탐구 성향・기록에서 대주제 한 문장을 뽑고, 1학년 씨앗・2학년 개화・3학년 만개로 나눕니다.",
       icon: iconLightbulb,
-      example: "2학년 꽃 ・ 내가 만든 숫자가 믿을 만한지 따지기",
+      example: "2학년 개화 ・ 내가 만든 숫자가 믿을 만한지 따지기",
     },
     {
       title: "방향 일관성",
@@ -233,7 +233,7 @@ const OUTCOME_ITEMS = [
   {
     icon: outcomeFolder,
     label: "대주제・학년별 로드맵",
-    sub: "씨앗・꽃・만개",
+    sub: "씨앗・개화・만개",
   },
   {
     icon: outcomeSettings,
@@ -298,7 +298,7 @@ const NOTE_LINES = [
 const ANIMATION_IN_VIEW_MARGIN = "0px 0px 200px 0px";
 
 const HERO_REPORT_ALT =
-  "성장설계 리포트 화면. 좌측 진행단계 메뉴, 이 학생의 대주제와 학년별 씨앗, 꽃, 만개 소주제, 한눈에 지표 카드를 보여준다";
+  "성장설계 리포트 화면. 좌측 진행단계 메뉴, 이 학생의 대주제와 학년별 씨앗, 개화, 만개 소주제, 한눈에 지표 카드를 보여준다";
 
 function HeroSection() {
   const [auraRef, auraInView] = useInView(ANIMATION_IN_VIEW_MARGIN) as [

@@ -475,7 +475,7 @@ describe("growthBannerView", () => {
   test("대주제, 단계 라벨, 소주제 칩, 발행일을 만든다", () => {
     expect(growthBannerView(handoff())).toEqual({
       theme: "남이 준 자료를 쓰는 사람에서 직접 검증하는 사람으로",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       chips: ["고1 관심을 찾는다", "고2 과목에서 진로로"],
       issuedLabel: "2026.09.14",
       notices: [],

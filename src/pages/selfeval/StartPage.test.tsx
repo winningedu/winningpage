@@ -41,7 +41,7 @@ const GROWTH = {
   stale: false,
   banner: {
     theme: "자료를 직접 만들고 검증하는 사람",
-    stageLabel: "꽃",
+    stageLabel: "개화",
     currentSubtheme: "내가 만든 숫자가 말을 만든다",
     weakAxisNames: ["탐구 깊이"],
     issuedAt: "2026-09-14T00:00:00Z",
@@ -204,7 +204,7 @@ describe("성장설계 배너", () => {
     renderPage();
     expect(screen.getByText("성장설계 방향")).toBeTruthy();
     expect(screen.getByText("자료를 직접 만들고 검증하는 사람")).toBeTruthy();
-    expect(screen.getByText("꽃")).toBeTruthy();
+    expect(screen.getByText("개화")).toBeTruthy();
     expect(screen.getByText("내가 만든 숫자가 말을 만든다")).toBeTruthy();
     expect(screen.getByText("부족 축 탐구 깊이")).toBeTruthy();
     expect(screen.getByText(/2026년 9월 14일/)).toBeTruthy();

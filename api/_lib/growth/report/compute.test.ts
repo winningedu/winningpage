@@ -508,7 +508,7 @@ describe("appSections 자료 없음 분기", () => {
     expect(body.theme).toBe(narrative.theme);
     expect(body.subthemes.map((s) => s.stageLabel)).toEqual([
       "씨앗",
-      "꽃",
+      "개화",
       "만개",
     ]);
   });

@@ -40,7 +40,7 @@ export const SOURCE_STATUS_LABELS = {
 
 export const STAGE_LABELS: Record<Stage, string> = {
   seed: "씨앗",
-  flower: "꽃",
+  flower: "개화",
   bloom: "만개",
 };
 

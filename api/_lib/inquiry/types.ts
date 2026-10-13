@@ -12,7 +12,7 @@ export type GradeLabel = "고1" | "고2" | "고3";
 
 export type Semester = 1 | 2;
 
-/** 학년 단계(No.44). 씨앗, 꽃, 만개. growth_reports.stage 와 같은 값. */
+/** 학년 단계(No.44). 씨앗, 개화, 만개. growth_reports.stage 와 같은 값. */
 export type Stage = "seed" | "flower" | "bloom";
 
 /** 연계 유형 4종(No.5). 후속, 전이, 비판, 확장. */

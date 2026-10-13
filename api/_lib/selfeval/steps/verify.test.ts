@@ -230,7 +230,7 @@ describe("buildVerifyInput", () => {
       [],
     );
     expect(input.growth).toEqual({
-      stageLabel: "꽃",
+      stageLabel: "개화",
       currentSubtheme: "데이터로 말하기",
     });
   });

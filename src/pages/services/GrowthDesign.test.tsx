@@ -107,7 +107,7 @@ describe("GrowthDesign 단계 탭", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(5);
     expect(screen.getByText("대주제와 학년별 소주제")).toBeInTheDocument();
     expect(
-      screen.getByText("2학년 꽃 ・ 내가 만든 숫자가 믿을 만한지 따지기"),
+      screen.getByText("2학년 개화 ・ 내가 만든 숫자가 믿을 만한지 따지기"),
     ).toBeInTheDocument();
 
     const noExampleCard = screen.getByText("반복된 문제의식").parentElement;
@@ -148,7 +148,7 @@ describe("GrowthDesign 카드 섹션", () => {
     expect(screen.getByText("중3")).toBeInTheDocument();
     expect(screen.getByText("고등학교 3년을 미리 설계")).toBeInTheDocument();
     expect(screen.getByText("대주제・학년별 로드맵")).toBeInTheDocument();
-    expect(screen.getByText("씨앗・꽃・만개")).toBeInTheDocument();
+    expect(screen.getByText("씨앗・개화・만개")).toBeInTheDocument();
     expect(screen.getByText("원칙 1")).toBeInTheDocument();
     expect(screen.getByText("근거 활동 연결")).toBeInTheDocument();
   });

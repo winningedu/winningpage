@@ -243,4 +243,17 @@ describe("normalizeBody", () => {
       subthemes: [{ grade: "고1", stageLabel: "씨앗", text: "t1" }],
     });
   });
+
+  it("3-1 저장된 옛 라벨은 stage 키로 현재 라벨을 다시 매핑한다", () => {
+    const b = view("3-1", "diagram", {
+      theme: "대주제",
+      subthemes: [
+        { grade: "고2", stage: "flower", stageLabel: "꽃", text: "t2" },
+      ],
+    });
+    expect(b).toMatchObject({
+      kind: "growthFlow",
+      subthemes: [{ grade: "고2", stageLabel: "개화", text: "t2" }],
+    });
+  });
 });

@@ -32,7 +32,7 @@ function detail(over: Record<string, unknown> = {}): ReportDetail {
         theme: "대주제 문장",
         subthemes: [
           { grade: "고1", stage: "seed", text: "씨앗 문장" },
-          { grade: "고2", stage: "flower", text: "꽃 문장" },
+          { grade: "고2", stage: "flower", text: "개화 문장" },
           { grade: "고3", stage: "bloom", text: "만개 문장" },
         ],
       },
@@ -66,12 +66,12 @@ describe("ReportBody", () => {
     expect(screen.getByText("자료 없음")).toBeInTheDocument();
   });
 
-  it("대주제와 학년별 씨앗 꽃 만개를 보여 준다", () => {
+  it("대주제와 학년별 씨앗 개화 만개를 보여 준다", () => {
     render(<ReportBody detail={detail()} />);
     const card = screen.getByLabelText("이 학생의 대주제");
     expect(within(card).getByText("대주제 문장")).toBeInTheDocument();
     expect(within(card).getByText("1학년 씨앗")).toBeInTheDocument();
-    expect(within(card).getByText("2학년 꽃")).toBeInTheDocument();
+    expect(within(card).getByText("2학년 개화")).toBeInTheDocument();
     expect(within(card).getByText("3학년 만개")).toBeInTheDocument();
   });
 

@@ -43,7 +43,7 @@ export function makeDesign(over: Partial<DesignView> = {}): DesignView {
       fit: "match",
       fitLabel: "맞음",
       fitReason: null,
-      stageLabel: "고2 꽃 단계",
+      stageLabel: "고2 개화 단계",
       planItemTitle: null,
     },
     reliability: "A",

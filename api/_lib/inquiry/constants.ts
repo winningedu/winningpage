@@ -172,7 +172,7 @@ export const STAGE_BY_GRADE: Record<GradeLabel, Stage> = {
 
 export const STAGE_LABELS: Record<Stage, string> = {
   seed: "씨앗",
-  flower: "꽃",
+  flower: "개화",
   bloom: "만개",
 };
 

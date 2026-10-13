@@ -265,7 +265,7 @@ describe("buildDesignInput", () => {
       },
       planItemId: "p1",
     });
-    expect(input.handoff).toEqual({ stageLabel: "꽃", planItemTitle: "과제1" });
+    expect(input.handoff).toEqual({ stageLabel: "개화", planItemTitle: "과제1" });
   });
 });
 

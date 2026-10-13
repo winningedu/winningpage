@@ -2,7 +2,12 @@
 // 느슨한 타입 가드만 쓴다. 모양이 맞지 않으면 { kind: "empty" } 로 두고 값을 지어내지 않는다.
 // 모양의 출처: api/_lib/growth/report/compute.ts(앱 섹션), prompts.ts(모델 섹션).
 
-import { isRecord, NO_DATA_TEXT, type SectionView } from "./reportLogic";
+import {
+  isRecord,
+  NO_DATA_TEXT,
+  STAGE_LABELS,
+  type SectionView,
+} from "./reportLogic";
 
 export type TableBody = {
   kind: "table";
@@ -227,9 +232,10 @@ function diagram(
       if (!isRecord(s)) return [];
       const grade = str(s.grade);
       const text = str(s.text);
-      return grade && text
-        ? [{ grade, stageLabel: str(s.stageLabel) ?? "", text }]
-        : [];
+      // 저장된 라벨은 옛 표기일 수 있어 stage 키가 있으면 현재 라벨로 다시 매핑한다.
+      const stageLabel =
+        STAGE_LABELS[str(s.stage) ?? ""] ?? str(s.stageLabel) ?? "";
+      return grade && text ? [{ grade, stageLabel, text }] : [];
     });
     return { kind: "growthFlow", theme, subthemes };
   }
