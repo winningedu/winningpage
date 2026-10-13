@@ -167,6 +167,20 @@ describe("진행단계 두 그룹", () => {
     expect(resultPart).toContain(">6<");
   });
 
+  test("그룹은 배열 위치가 아니라 단계 키로 나뉜다", () => {
+    const html = render({ steps: [...STEPS].reverse() });
+    const resultStart = html.indexOf('id="growth-result-heading"');
+    const stepsPart = html.slice(
+      html.indexOf('id="growth-steps-heading"'),
+      resultStart,
+    );
+    const resultPart = groupHtml(html, "growth-result-heading");
+    expect(stepsPart.match(/<li\b/g)).toHaveLength(4);
+    expect(resultPart.match(/<li\b/g)).toHaveLength(2);
+    expect(resultPart).toContain(">실행계획<");
+    expect(stepsPart).not.toContain(">실행계획<");
+  });
+
   test("두 그룹 모두 같은 role 의 랜드마크이고 잠금 표시를 유지한다", () => {
     const html = render();
     expect(html.match(/role="region"/g)).toHaveLength(2);

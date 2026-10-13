@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { GrowthStep, GrowthStepStatus } from "./deriveGrowthSteps";
+import type { GrowthStep, GrowthStepKey, GrowthStepStatus } from "./deriveGrowthSteps";
 import { GROWTH_PATHS } from "./growthPaths";
 
 // 성장설계 앱 좌측 고정 사이드바. 상단 학생 표시, 메뉴 2항목, 진행단계 4스텝과 설계결과 2스텝으로 구성한다.
@@ -81,8 +81,9 @@ function CheckIcon() {
   );
 }
 
-// 진행단계 그룹은 앞 4단계(시작, 학생 조사, 활동 선택, 리포트 생성), 나머지는 설계결과 그룹이다.
-const PROGRESS_STEP_COUNT = 4;
+// 진행단계 그룹은 시작, 학생 조사, 활동 선택, 리포트 생성이고, 리포트와 실행계획은 설계결과 그룹이다.
+// 배열 위치가 아니라 단계 키로 나눠 단계 추가나 순서 변경에 흔들리지 않게 한다.
+const RESULT_STEP_KEYS: readonly GrowthStepKey[] = ["report", "plan"];
 
 type StepEntry = { step: GrowthStep; number: number };
 
@@ -183,6 +184,12 @@ export default function GrowthSidebar({
   const isReportsList = normalized === GROWTH_PATHS.reports;
   // 번호는 두 그룹에 걸쳐 전체 index 로 1~6 을 유지한다.
   const entries = steps.map((step, index) => ({ step, number: index + 1 }));
+  const resultEntries = entries.filter(({ step }) =>
+    RESULT_STEP_KEYS.includes(step.key),
+  );
+  const progressEntries = entries.filter(
+    ({ step }) => !RESULT_STEP_KEYS.includes(step.key),
+  );
 
   return (
     <AppShellSidebar aria-label="성장설계 사이드바">
@@ -242,13 +249,13 @@ export default function GrowthSidebar({
           <StepGroup
             headingId="growth-steps-heading"
             title="진행단계"
-            entries={entries.slice(0, PROGRESS_STEP_COUNT)}
+            entries={progressEntries}
             onNavigate={() => setOpenMobile(false)}
           />
           <StepGroup
             headingId="growth-result-heading"
             title="설계결과"
-            entries={entries.slice(PROGRESS_STEP_COUNT)}
+            entries={resultEntries}
             onNavigate={() => setOpenMobile(false)}
           />
         </ScrollArea>

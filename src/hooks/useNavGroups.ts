@@ -32,19 +32,19 @@ interface PageContentRow {
 }
 
 // v4 트리(FALLBACK_NAV_GROUPS 구 버전) 캐시가 남아있지 않도록 신 트리(2016:1796) 전용 키로 교체.
-// v3: 콜멘토 링크가 /page/services-content → /services/callmentor 로 바뀌어(callmentor-spec.md)
+// v3: 콜멘토 링크가 /page/services-content 에서 /services/callmentor 로 바뀌어(callmentor-spec.md)
 // 구 캐시에 남은 사용자에게도 즉시 새 경로가 보이도록 키 버전을 올린다.
-// v4: 교육칼럼이 /gallery → /info/column 으로 이관(edu-column-renewal-spec.md) 구 캐시에 남은
+// v4: 교육칼럼이 /gallery 에서 /info/column 으로 이관되었다(edu-column-renewal-spec.md). 구 캐시에 남은
 // '교육컬럼'/'/gallery' 잔존을 차단하기 위해 다시 bump.
 // v5: DB page_contents.menu_label에 '교육컬럼'(오타) 이 저장돼 헤더/푸터에 그대로 노출되던 문제.
 // normalizeMenuLabel로 런타임 상시 치환하도록 고쳤지만, 이미 오타를 캐싱한 사용자에게도 즉시
 // 반영되도록 키 버전을 한 번 더 bump한다.
-// v6: 무료진단 → 학습진단 DB 마이그레이션(테이블 rename + program_categories/page_contents/banners
+// v6: 무료진단에서 학습진단으로 바뀐 DB 마이그레이션(테이블 rename + program_categories/page_contents/banners
 // 데이터 값 일괄 치환). 코드측 안전망이던 PROMOTED_PATH_ROUTES의 '/free-diagnosis' 매핑과
 // navigation.js의 SERVICE_NAME_OVERRIDES를 제거했다. App.jsx에 영구 리다이렉트가 추가돼 구
 // 링크('/free-diagnosis')가 죽지는 않지만, 캐싱된 구 라벨('무료진단')이 화면에 그대로 노출되는
 // 것을 막고 리다이렉트 한 홉을 절약하기 위해 키를 bump한다.
-// v7: 학습진단 URL 통일 규칙 이관(2026-08-10) 소개 페이지가 '/learning-diagnosis'에서
+// v7: 학습진단 URL 통일 규칙 이관(2026-08-10)으로 소개 페이지가 '/learning-diagnosis'에서
 // '/services/learning-diagnosis'로 옮겨졌다. 캐시에 구 경로('/learning-diagnosis')가 남아있는
 // 사용자에게도 즉시 신 경로가 보이도록(그리고 ensureLearningDiagnosisInService가 구 경로를
 // 걸러내지 못해 중복 노출되는 것을 막기 위해) 키를 다시 bump한다.
@@ -52,10 +52,10 @@ interface PageContentRow {
 // 않아, '수시정시합격' 치환(위 normalizeMenuLabel v7 변경) 이전에 캐싱된 재방문자에게 구
 // 라벨이 그대로 남아 있었다. 캐시 read 경로에도 normalizeMenuLabel을 적용했지만, 이미 저장된
 // 캐시는 즉시 갱신되지 않으므로 키를 한 번 더 bump해 강제로 다시 채운다.
-// v9: 프리미엄 DB 완전 분리(premium-db-decouple) '프리미엄' 메뉴 그룹이 DB(page_contents)
+// v9: 프리미엄 DB 완전 분리(premium-db-decouple)로 '프리미엄' 메뉴 그룹이 DB(page_contents)
 // 소유에서 코드(PREMIUM_NAV_GROUP) 소유로 바뀌었다. replacePremiumNavGroup은 최종 반환값에만
 // 적용되므로 캐시 자체는 여전히 구 DB 파생 트리를 담을 수 있지만, 그 캐시에 구 '프리미엄'
-// 그룹이 남아 있어도 항상 교체되므로(멱등) 기존 캐시를 지울 필요는 원래 없다 다만 CMS
+// 그룹이 남아 있어도 항상 교체되므로(멱등) 기존 캐시를 지울 필요는 원래 없다. 다만 CMS
 // 프리미엄 행 삭제(20260824000007) 이후에도 예전 캐시가 이번 마이그레이션 이전 라벨/순서를
 // 잠깐 보여줄 수 있어 다른 버전들과 동일하게 안전하게 bump해 둔다.
 const HEADER_NAV_CACHE_KEY =
@@ -101,7 +101,7 @@ function resolveMenuLink(slug: unknown) {
   return `/page/${value}`;
 }
 
-// 승격된 서비스 페이지 슬러그 → 신규 전용 라우트 매핑 (premium-apply 전례와 동일 취지의
+// 승격된 서비스 페이지 슬러그를 신규 전용 라우트로 옮기는 매핑 (premium-apply 전례와 동일 취지의
 // 일반화 이 worktree엔 그 커밋이 없어 매핑 자체를 여기 새로 둔다).
 // DB(page_contents)가 구 슬러그(/page/services-goal 등)를 계속 갖고 있어도 헤더 메가메뉴・
 // 푸터・캐시가 항상 신규 라우트를 가리키도록 이 훅에서 일괄 치환한다. GNB DB 값 자체를
@@ -122,7 +122,7 @@ const PROMOTED_SLUG_ROUTES: Record<string, string> = {
   gallery: "/info/column",
 };
 
-// 절대경로 구 라우트 → 신 라우트 매핑 (PROMOTED_SLUG_ROUTES는 `/page/<slug>` 패턴만 커버하므로,
+// 절대경로 구 라우트를 신 라우트로 옮기는 매핑 (PROMOTED_SLUG_ROUTES는 `/page/<slug>` 패턴만 커버하므로,
 // DB slug가 선행 슬래시 절대경로(`/gallery`)로 저장된 경우를 별도로 대비한다).
 const PROMOTED_PATH_ROUTES: Record<string, string> = {
   "/gallery": "/info/column",
@@ -167,24 +167,24 @@ function ensureLearningDiagnosisInService(groups: NavGroup[]): NavGroup[] {
       // ('무료진단' / '/free-diagnosis', '학습진단' / '/learning-diagnosis')을 모두 걸러낸 뒤,
       // 아래에서 '학습진단' 항목을 항상 맨 앞에 한 번만 주입한다.
       //
-      // 리터럴이 3종(신 경로 1 + 구 경로 2)인 이유 학습진단 URL 통일 규칙 이관(2026-08-10)으로
-      // 소개 페이지가 '/learning-diagnosis' → '/services/learning-diagnosis'로 한 번 더
+      // 리터럴이 3종(신 경로 1 + 구 경로 2)인 이유는 이렇다. 학습진단 URL 통일 규칙 이관(2026-08-10)으로
+      // 소개 페이지가 '/learning-diagnosis' 에서 '/services/learning-diagnosis'로 한 번 더
       // 이동했다. 그 결과 '/learning-diagnosis'가 (구 무료진단 리터럴 '/free-diagnosis'와
       // 마찬가지로) "구 경로"가 됐지만, 아래 이유로 여전히 지우면 안 된다.
       //
-      // 신 경로 리터럴은 필수다  
+      // 신 경로 리터럴은 필수다.
       // (a) 멱등성: 이 함수가 주입한 항목이 캐시(localStorage)에 저장됐다가 다음 렌더에서
       //     readCachedNavGroups를 통해 다시 들어올 때 재주입되는 것을 막는다. 안 걸러내면
       //     캐시를 거친 두 번째 렌더부터 메뉴에 항목이 두 번 나온다.
       // (b) DB(page_contents)를 신 경로로 마이그레이션한 뒤 DB 항목과 코드 주입 항목이
       //     중복되지 않도록.
       //
-      // 구 리터럴 2종도 남긴다(제거 안 함) dev DB는 이번에 마이그레이션되지만 운영 DB는
+      // 구 리터럴 2종도 남긴다(제거 안 함). dev DB는 이번에 마이그레이션되지만 운영 DB는
       // 나중에 dump 재이관으로 처리되는 별도 일정이고, 그 사이 운영 page_contents에는
       // '무료진단'/'/free-diagnosis' 또는 '학습진단'/'/learning-diagnosis'(43번 마이그레이션 이후
       // 값) 항목이 그대로 남아 있을 수 있다. 캐시 키를 v7로 bump했어도 DB가 계속 구 값을
       // 내려주면 소용이 없다. 구 리터럴을 지우면 그 항목이 필터를 통과해 코드가 주입하는
-      // '학습진단'과 나란히 메뉴에 중복 노출된다(링크 자체는 App.jsx의 '/free-diagnosis'·
+      // '학습진단'과 나란히 메뉴에 중복 노출된다(링크 자체는 App.jsx의 '/free-diagnosis'와
       // '/learning-diagnosis' 리다이렉트로 살아 있지만, 같은 메뉴가 두 번 보이는 건 그대로
       // 버그). 몇 줄 비용으로 그 창을 막을 수 있어 유지가 이득이다. 운영 DB까지 신 경로로
       // 이관이 끝나면 구 리터럴들은 제거해도 된다.
@@ -210,16 +210,17 @@ function ensureLearningDiagnosisInService(groups: NavGroup[]): NavGroup[] {
   });
 }
 
-// '서비스' 그룹 항목의 코드 정본 순서. DB sort_order 가 섞여 와도 이 배열이 우선하고,
-// 배열에 없는 항목은 기존 순서대로 뒤에 둔다. 헤더, 푸터, 드로어가 이 훅을 공유한다.
+// '서비스' 그룹 항목의 코드 정본 순서(링크 경로 기준). 라벨은 DB에서 바뀔 수 있어 경로로 맞춘다.
+// DB sort_order 가 섞여 와도 이 배열이 우선하고, 배열에 없는 항목은 기존 순서대로 뒤에 둔다.
+// 헤더, 푸터, 드로어가 이 훅을 공유한다.
 const SERVICE_ITEM_ORDER = [
-  "학습진단",
-  "목표관리",
-  "성장설계",
-  "수행평가",
-  "심화탐구",
-  "자기평가",
-  "콜멘토",
+  "/services/learning-diagnosis",
+  "/services/goal",
+  "/services/growth",
+  "/services/performance",
+  "/services/research",
+  "/services/self-assessment",
+  "/services/callmentor",
 ];
 
 // '성장설계'(/services/growth)는 코드 소유 랜딩(GrowthDesign)이지만 page_contents(DB) 메뉴에
@@ -227,7 +228,9 @@ const SERVICE_ITEM_ORDER = [
 // 재정렬하므로 위치는 정본 배열이 정한다. 이 훅의 최종 반환값에만 적용하고
 // readCachedNavGroups/buildNavGroups(캐시, DB 경로)에는 섞지 않는다. DB 등록 뒤에는
 // 주입만 제거하면 된다. 재계산돼도 중복되지 않도록 기존 항목을 먼저 제거한다.
-export function arrangeServiceItems(groups: NavGroup[]): NavGroup[] {
+export function injectGrowthAndArrangeServiceItems(
+  groups: NavGroup[],
+): NavGroup[] {
   const source = Array.isArray(groups) ? groups : [];
   const growthLink = "/services/growth";
 
@@ -243,9 +246,8 @@ export function arrangeServiceItems(groups: NavGroup[]): NavGroup[] {
     ];
 
     const rank = (item: NavItem) => {
-      const index = SERVICE_ITEM_ORDER.indexOf(
-        cleanText(item?.label).replace(/\s+/g, ""),
-      );
+      const path = cleanText(item?.to).split(/[?#]/)[0] ?? "";
+      const index = SERVICE_ITEM_ORDER.indexOf(path);
       return index === -1 ? SERVICE_ITEM_ORDER.length : index;
     };
 
@@ -258,7 +260,7 @@ export function arrangeServiceItems(groups: NavGroup[]): NavGroup[] {
 }
 
 // '프리미엄' 그룹을 DB(page_contents) 파생 트리에서 항상 PREMIUM_NAV_GROUP(코드 소유)으로
-// 교체한다 arrangeServiceItems와 같은 이유로 최종 반환값에만 적용한다(캐시, DB
+// 교체한다. injectGrowthAndArrangeServiceItems와 같은 이유로 최종 반환값에만 적용한다(캐시, DB
 // 파생 경로에는 섞지 않음, 멱등성은 title '프리미엄'을 먼저 제거한 뒤 다시 삽입해 보장).
 // page_contents에 프리미엄 프로그램 행이 남아 있어도(마이그레이션 전 과도기) 무시하고 이
 // 상수로 덮어쓴다. 삽입 위치는 MENU_GROUP_ORDER 기준(프리미엄=2) 필터링된 목록에서 order가
@@ -285,11 +287,11 @@ function replacePremiumNavGroup(groups: NavGroup[]): NavGroup[] {
   return next;
 }
 
-// "온라인문의"(→ /online-inquiry, navigation.ts 코드 정의)는 카카오톡 채널 상담
+// "온라인문의"(링크 /online-inquiry, navigation.ts 코드 정의)는 카카오톡 채널 상담
 // 랜딩(OnlineInquiry.tsx)으로 연결된다. site.company.kakaoChannelUrl이 없는
 // 사이트(스쿨멘토)는 그 랜딩이 안내 문구만 남는 죽은 페이지가 되므로, 최종 메뉴
-// 트리에서 이 항목 자체를 제거한다 arrangeServiceItems/
-// replacePremiumNavGroup과 같은 이유로 최종 반환값에만 적용한다(캐시·DB 파생
+// 트리에서 이 항목 자체를 제거한다. injectGrowthAndArrangeServiceItems/
+// replacePremiumNavGroup과 같은 이유로 최종 반환값에만 적용한다(캐시, DB 파생
 // 경로는 그대로 둔다).
 export function removeOnlineInquiryWithoutKakao(
   groups: NavGroup[],
@@ -393,10 +395,10 @@ function buildNavGroups(rows: PageContentRow[] | null): NavGroup[] {
     const isCompanyIntro = slug === "company-intro";
     // 콜멘토 랜딩 신설(docs/callmentor-spec.md) DB page_contents의 구 슬러그
     // 'services-content'가 아직 남아 있어도 신규 라우트로 보낸다(DB 레코드 정리는 별도, 이번
-    // 범위 제외). App.jsx의 `/page/services-content` → `/services/callmentor` 리다이렉트와 세트.
+    // 범위 제외). App.jsx의 `/page/services-content` 에서 `/services/callmentor` 로 가는 리다이렉트와 세트.
     const isCallMentor = slug === "services-content";
     // 라벨은 DB menu_label을 그대로 쓰되(강제 치환 제거), CompanyNews/콜멘토 페이지가 소비하는
-    // slug → 전용 라우트 매핑만 유지한다.
+    // slug 에서 전용 라우트로 가는 매핑만 유지한다.
     const itemLink = isCompanyIntro
       ? "/company-news"
       : isCallMentor
@@ -455,8 +457,22 @@ function buildNavGroups(rows: PageContentRow[] | null): NavGroup[] {
   return applyPromotedSlugRoutes(ensureLearningDiagnosisInService(groups));
 }
 
-// 헤더 메가메뉴·푸터가 공유하는 내비게이션 그룹 훅.
-// page_contents(DB) → 캐시(HEADER_NAV_CACHE_KEY) → FALLBACK_NAV_GROUPS 순으로 소스를 결정하고,
+// 캐시/DB 파생 트리에서 최종 메뉴 트리를 만든다. '서비스' 정렬과 '성장설계' 주입, '프리미엄' 그룹
+// 교체, '온라인문의' 제거, 프리미엄 제거, 숨김 프로그램 제거는 여기(최종 반환값)에만 적용한다.
+// 숨김 프로그램 제거는 반드시 성장설계 주입 뒤에 돌아야 한다. 먼저 돌면 주입된 성장설계가
+// 숨김 사이트에서도 다시 나타난다.
+export function composeFinalNavGroups(navGroups: NavGroup[]): NavGroup[] {
+  return removeHiddenProgramsFromNav(
+    removePremiumWhenHidden(
+      removeOnlineInquiryWithoutKakao(
+        replacePremiumNavGroup(injectGrowthAndArrangeServiceItems(navGroups)),
+      ),
+    ),
+  );
+}
+
+// 헤더 메가메뉴와 푸터가 공유하는 내비게이션 그룹 훅.
+// page_contents(DB), 캐시(HEADER_NAV_CACHE_KEY), FALLBACK_NAV_GROUPS 순으로 소스를 결정하고,
 // postgres_changes realtime 구독으로 변경을 즉시 반영한다.
 export function useNavGroups() {
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -522,15 +538,5 @@ export function useNavGroups() {
     };
   }, [instanceId]);
 
-  // '서비스' 항목 정렬과 '성장설계' 주입・'프리미엄' 그룹 교체・'온라인문의'・프리미엄 제거는 여기(최종 반환값)에만
-  // 적용한다 위 arrangeServiceItems/replacePremiumNavGroup/
-  // removeOnlineInquiryWithoutKakao 주석 참고. 서로 다른 그룹·항목을 다루므로 적용
-  // 순서는 결과에 영향 없다.
-  return removeHiddenProgramsFromNav(
-    removePremiumWhenHidden(
-      removeOnlineInquiryWithoutKakao(
-        replacePremiumNavGroup(arrangeServiceItems(navGroups)),
-      ),
-    ),
-  );
+  return composeFinalNavGroups(navGroups);
 }

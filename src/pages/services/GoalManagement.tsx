@@ -50,7 +50,7 @@ import { useInView } from "@/hooks/useInView";
 
 // 목표관리 서비스 랜딩 — /services/goal (구 경로 /page/services-goal)
 // Figma 시안(1889:6944, "목표관리" 프레임)에서 출발했으나, 레이아웃 정본은 시안이 아니라
-// 심화탐구(InDepthResearch.jsx)다. 섹션 껍데기·카드·탭·FAQ는 전부
+// 심화탐구(InDepthResearch.jsx)다. 섹션 껍데기, 카드, 탭, FAQ는 전부
 // components/services/ 공통 컴포넌트로 수렴했고, 이 파일에는 데이터 배열과 이 페이지
 // 고유 섹션(HeroSection / PhoneReportSection)만 남는다.
 //
