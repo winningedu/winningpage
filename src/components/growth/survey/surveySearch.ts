@@ -1,6 +1,7 @@
 // 학생 조사의 학과, 대학 검색.
-// 검색 소스는 admission_results(is_active=true)의 department_name, university_name 이다.
+// 검색 소스는 admission_result_department_index, admission_result_university_index 뷰다.
 // 순수 함수(결과 분기, 중복 제거, 선택 규칙)와 supabase 조회를 한 파일에 둔다.
+import { normalizeUniversityKey } from "../../../../api/_lib/growth/report/admissionCut";
 import type { SurveyPick } from "@/lib/growth/api";
 import { supabase } from "@/lib/supabase";
 import { UNIVERSITY_MAX } from "./surveyState";
@@ -68,32 +69,46 @@ export function toggleOption(
     : [...list, option];
 }
 
-type SearchColumn = "department_name" | "university_name";
+type SearchSource = {
+  view:
+    "admission_result_department_index" | "admission_result_university_index";
+  column: "department_name" | "university_name";
+};
 
-async function searchColumn(
-  column: SearchColumn,
+const DEPARTMENT_SOURCE: SearchSource = {
+  view: "admission_result_department_index",
+  column: "department_name",
+};
+const UNIVERSITY_SOURCE: SearchSource = {
+  view: "admission_result_university_index",
+  column: "university_name",
+};
+
+// 색인 뷰가 (대학, 학과) 단위로 이미 distinct 라서 원본 테이블보다 적은 행으로 충분하다.
+// 서로 다른 대학의 같은 학과명이 겹칠 수 있어 buildSearchRows 로 한 번 더 걷는다.
+async function searchView(
+  { view, column }: SearchSource,
   term: string,
 ): Promise<string[]> {
-  const trimmed = term.trim();
-  if (trimmed === "") return [];
+  if (term === "") return [];
   const { data, error } = await supabase
-    .from("admission_results")
+    .from(view)
     .select(column)
-    .eq("is_active", true)
-    .ilike(column, `%${escapeIlike(trimmed)}%`)
+    .ilike(column, `%${escapeIlike(term)}%`)
     .order(column, { ascending: true })
     .limit(SEARCH_ROW_LIMIT);
   if (error) {
     console.error("[growth/survey] 검색 실패:", error);
     return [];
   }
-  const rows = (data as unknown as Record<SearchColumn, string | null>[]).map(
-    (row) => ({ name: row[column] }),
+  const rows = (data as unknown as Record<string, string | null>[]).map(
+    (row) => ({ name: row[column] ?? null }),
   );
   return buildSearchRows(rows).slice(0, SEARCH_RESULT_MAX);
 }
 
 export const searchDepartments = (term: string) =>
-  searchColumn("department_name", term);
+  searchView(DEPARTMENT_SOURCE, term.trim());
+/** DB 대학명은 "고려대" 같은 축약형이라 "고려대학교" 입력도 정규화해서 찾는다. */
 export const searchUniversities = (term: string) =>
-  searchColumn("university_name", term);
+  searchView(UNIVERSITY_SOURCE, normalizeUniversityKey(term));

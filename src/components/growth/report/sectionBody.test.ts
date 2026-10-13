@@ -128,6 +128,24 @@ describe("normalizeBody", () => {
     });
   });
 
+  it("1-14 근사 매칭 행은 대학 칸에 근사 매칭 표시를 붙인다", () => {
+    const b = view("1-14", "table", {
+      rows: [
+        {
+          university: "가대 법학과",
+          approx: true,
+          matchNote: "근사 매칭",
+          latest: 2.31,
+          diffText: "0.16 여유",
+          status: "within",
+        },
+      ],
+    });
+    expect(b).toMatchObject({
+      rows: [["가대 법학과 (근사 매칭)", "2.31", "0.16 여유", "여유"]],
+    });
+  });
+
   it("3-10 은 status unreachable 을 표시한다", () => {
     const b = view("3-10", "table", {
       status: "unreachable",

@@ -8,6 +8,7 @@ import {
   buildReportContext,
   careerChangedSincePrevious,
   cutsFromAdmissionRows,
+  universitiesWithCuts,
   type ReportRow,
   toContextActivity,
   universityTargets,
@@ -78,10 +79,10 @@ describe("toContextActivity", () => {
 });
 
 describe("universityTargets", () => {
-  test("프로필 희망 대학이 설문보다 우선하고 학과를 붙인다", () => {
+  test("프로필 희망 대학과 설문 q11 을 합집합으로 모으고 중복은 정규화 기준으로 버린다", () => {
     const targets = universityTargets(
-      { q10: { name: "법학과" }, q11: [{ name: "설문대" }] },
-      { department: "경영학과", universities: ["가대", "나대"] },
+      { q11: [{ name: "나대" }, { name: "가대학교" }] },
+      { department: "경영학과", universities: ["가대"] },
     );
     expect(targets).toEqual([
       { universityName: "가대", departmentName: "경영학과" },
@@ -89,7 +90,15 @@ describe("universityTargets", () => {
     ]);
   });
 
-  test("프로필에 대학이 없으면 설문 문항을 쓰고 중복과 3번째 이후는 버린다", () => {
+  test("합집합은 최대 2개까지만 남긴다", () => {
+    const targets = universityTargets(
+      { q11: [{ name: "다대" }, "라대"] },
+      { department: null, universities: ["가대", "나대"] },
+    );
+    expect(targets.map((t) => t.universityName)).toEqual(["가대", "나대"]);
+  });
+
+  test("프로필에 대학이 없으면 설문 문항만 쓴다", () => {
     const targets = universityTargets(
       {
         q10: { name: "법학과" },
@@ -101,6 +110,22 @@ describe("universityTargets", () => {
       { universityName: "가대", departmentName: "법학과" },
       { universityName: "나대", departmentName: "법학과" },
     ]);
+  });
+
+  test("설문 q10 의 검색 선택값이 프로필 학과보다 우선한다", () => {
+    const targets = universityTargets(
+      { q10: { name: "법학과", source: "search" }, q11: ["가대"] },
+      { department: "경영학과", universities: [] },
+    );
+    expect(targets[0]?.departmentName).toBe("법학과");
+  });
+
+  test("q10 이 직접 입력이면 프로필 학과를 쓴다", () => {
+    const targets = universityTargets(
+      { q10: { name: "법학과", source: "manual" }, q11: ["가대"] },
+      { department: "경영학과", universities: [] },
+    );
+    expect(targets[0]?.departmentName).toBe("경영학과");
   });
 
   test("대학도 학과도 없으면 빈 배열, 학과만 없으면 null", () => {
@@ -117,7 +142,9 @@ function adm(over: Partial<AdmissionRow> = {}): AdmissionRow {
     department_name: "경영학과",
     result_year: 2025,
     main_track: "종합",
-    grade_avg: 3.0,
+    grade_50: 3.0,
+    grade_70: null,
+    screening_category: "일반",
     ...over,
   };
 }
@@ -125,10 +152,10 @@ function adm(over: Partial<AdmissionRow> = {}): AdmissionRow {
 describe("cutsFromAdmissionRows", () => {
   test("대학, 학과별로 최근 2개년만 오래된 순으로 접는다", () => {
     const out = cutsFromAdmissionRows([
-      adm({ result_year: 2022, grade_avg: 2.0 }),
-      adm({ result_year: 2024, grade_avg: 3.1 }),
-      adm({ result_year: 2023, grade_avg: 3.2 }),
-      adm({ university_name: "나대", result_year: 2024, grade_avg: 4.0 }),
+      adm({ result_year: 2022, grade_50: 2.0 }),
+      adm({ result_year: 2024, grade_50: 3.1 }),
+      adm({ result_year: 2023, grade_50: 3.2 }),
+      adm({ university_name: "나대", result_year: 2024, grade_50: 4.0 }),
     ]);
     expect(out).toEqual([
       {
@@ -149,11 +176,11 @@ describe("cutsFromAdmissionRows", () => {
 
   test("같은 연도는 종합 계열 전형을 우선하고 없으면 전체 중 최소 등급을 고른다", () => {
     const out = cutsFromAdmissionRows([
-      adm({ result_year: 2024, main_track: "교과", grade_avg: 2.0 }),
-      adm({ result_year: 2024, main_track: "종합", grade_avg: 3.5 }),
-      adm({ result_year: 2024, main_track: "종합", grade_avg: 3.1 }),
-      adm({ result_year: 2023, main_track: "교과", grade_avg: 2.8 }),
-      adm({ result_year: 2023, main_track: "논술", grade_avg: 2.5 }),
+      adm({ result_year: 2024, main_track: "교과", grade_50: 2.0 }),
+      adm({ result_year: 2024, main_track: "종합", grade_50: 3.5 }),
+      adm({ result_year: 2024, main_track: "종합", grade_50: 3.1 }),
+      adm({ result_year: 2023, main_track: "교과", grade_50: 2.8 }),
+      adm({ result_year: 2023, main_track: "논술", grade_50: 2.5 }),
     ]);
     expect(out[0]?.cuts).toEqual([
       { year: 2023, grade: 2.5 },
@@ -161,15 +188,36 @@ describe("cutsFromAdmissionRows", () => {
     ]);
   });
 
-  test("등급이 없는 연도는 grade null 로 남기고 지어내지 않는다", () => {
+  test("컷 값이 없는 행은 제외하고 지어내지 않는다", () => {
     const out = cutsFromAdmissionRows([
-      adm({ result_year: 2024, grade_avg: null }),
-      adm({ result_year: 2023, grade_avg: 3.3 }),
+      adm({ result_year: 2024, grade_50: null, grade_70: null }),
+      adm({ result_year: 2023, grade_50: 3.3 }),
     ]);
-    expect(out[0]?.cuts).toEqual([
-      { year: 2023, grade: 3.3 },
-      { year: 2024, grade: null },
+    expect(out[0]?.cuts).toEqual([{ year: 2023, grade: 3.3 }]);
+  });
+
+  test("grade_50 이 없으면 grade_70 을 쓴다", () => {
+    const out = cutsFromAdmissionRows([
+      adm({ result_year: 2024, grade_50: null, grade_70: 3.6 }),
     ]);
+    expect(out[0]?.cuts).toEqual([{ year: 2024, grade: 3.6 }]);
+  });
+
+  test("일반, 추천형이 아닌 전형 행은 걸러낸다", () => {
+    const out = cutsFromAdmissionRows([
+      adm({ result_year: 2024, screening_category: "지역인재", grade_50: 1.0 }),
+      adm({ result_year: 2024, screening_category: "추천형", grade_50: 2.9 }),
+    ]);
+    expect(out[0]?.cuts).toEqual([{ year: 2024, grade: 2.9 }]);
+  });
+
+  test("축약형과 정식 대학명 행을 같은 대학으로 묶는다", () => {
+    const out = cutsFromAdmissionRows([
+      adm({ university_name: "고려대", result_year: 2024 }),
+      adm({ university_name: "고려대학교", result_year: 2023 }),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.cuts.map((c) => c.year)).toEqual([2023, 2024]);
   });
 
   test("입결 행이 없으면 빈 배열", () => {
@@ -319,15 +367,23 @@ describe("buildReportContext: 성적, 대학, 이전 서사", () => {
     };
     const ctx = build({
       profile,
-      admissionRows: [adm({ result_year: 2024, grade_avg: 3.1 })],
+      admissionRows: [adm({ result_year: 2024, grade_50: 3.1 })],
     });
     expect(ctx.universities).toEqual([
       {
         universityName: "가대",
         departmentName: "경영학과",
+        matchKind: "exact",
+        matchedDepartmentName: "경영학과",
         cuts: [{ year: 2024, grade: 3.1 }],
       },
-      { universityName: "나대", departmentName: "경영학과", cuts: [] },
+      {
+        universityName: "나대",
+        departmentName: "경영학과",
+        matchKind: "none",
+        matchedDepartmentName: null,
+        cuts: [],
+      },
     ]);
   });
 
@@ -404,5 +460,79 @@ describe("careerChangedSincePrevious", () => {
 
   test("이전 회차가 없으면 변경 아님", () => {
     expect(careerChangedSincePrevious(build())).toBe(false);
+  });
+});
+
+describe("universitiesWithCuts: 학과 3단 매칭", () => {
+  const rows = [
+    adm({ university_name: "가대", department_name: "경영학과" }),
+    adm({ university_name: "가대", department_name: "컴퓨터공학부" }),
+    adm({ university_name: "가대", department_name: "컴퓨터과학부" }),
+    adm({ university_name: "가대", department_name: "법학과" }),
+    adm({ university_name: "나대", department_name: "경영학과" }),
+  ];
+
+  test("정규화 완전 일치는 exact", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "경영 학과" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("exact");
+    expect(u?.matchedDepartmentName).toBe("경영학과");
+    expect(u?.cuts).toEqual([{ year: 2025, grade: 3.0 }]);
+  });
+
+  test("정식 대학명 입력도 축약형 행과 연결된다", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대학교", departmentName: "경영학과" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("exact");
+    expect(u?.cuts).toHaveLength(1);
+  });
+
+  test("포함 후보가 대학 안에 하나뿐이면 approx", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "법학" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("approx");
+    expect(u?.matchedDepartmentName).toBe("법학과");
+    expect(u?.cuts).toHaveLength(1);
+  });
+
+  test("학과명이 후보를 포함하는 방향도 approx", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "경영학과(야간)" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("approx");
+    expect(u?.matchedDepartmentName).toBe("경영학과");
+  });
+
+  test("후보가 둘 이상이면 none", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: "컴퓨터" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("none");
+    expect(u?.cuts).toEqual([]);
+  });
+
+  test("다른 대학의 학과는 후보가 아니다", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "나대", departmentName: "법학" }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("none");
+  });
+
+  test("학과가 없으면 none", () => {
+    const [u] = universitiesWithCuts(
+      [{ universityName: "가대", departmentName: null }],
+      rows,
+    );
+    expect(u?.matchKind).toBe("none");
+    expect(u?.cuts).toEqual([]);
   });
 });

@@ -336,6 +336,9 @@ function section13(info: CurveInfo | null): SectionItem {
   });
 }
 
+/** 희망 학과와 입결 학과가 완전 일치가 아니라 포함 매칭으로 이어졌을 때 행에 붙이는 표시. */
+const APPROX_MATCH_NOTE = "근사 매칭";
+
 function section14(
   context: ReportContext,
   info: CurveInfo | null,
@@ -343,21 +346,24 @@ function section14(
   const estimate = info?.summary.estimate ?? null;
   const { universities } = context;
   const anyCut = universities.some((u) => u.cuts.some((c) => c.grade !== null));
-  if (universities.length === 0 || estimate === null || !anyCut) {
-    return noDataItem(
-      "1-14",
-      "희망 대학 입결이나 내부 추정 등급이 아직 없어요",
-    );
-  }
+  if (universities.length === 0) return noDataItem("1-14", "희망 대학 없음");
+  if (!anyCut) return noDataItem("1-14", "입결 자료 없음");
+  if (estimate === null) return noDataItem("1-14", "내부 추정 등급 없음");
   return okItem("1-14", [], {
     estimate,
     rows: universities.map((u) => {
       const cmp = compareWithAdmission({ estimate, cuts: u.cuts });
+      const approx = u.matchKind === "approx";
+      const departmentName = approx
+        ? u.matchedDepartmentName
+        : u.departmentName;
       return {
         university:
-          u.departmentName === null
+          departmentName === null
             ? u.universityName
-            : `${u.universityName} ${u.departmentName}`,
+            : `${u.universityName} ${departmentName}`,
+        approx,
+        matchNote: approx ? APPROX_MATCH_NOTE : null,
         byYear: cmp.byYear,
         latest: cmp.latest,
         diff: cmp.diff,

@@ -91,6 +91,13 @@ function cell(v: unknown): string | null {
   return null;
 }
 
+/** 1-14 대학 칸. 근사 매칭 행은 표시를 덧붙인다. */
+function universityCell(r: Record<string, unknown>): string {
+  const name = cell(r.university) ?? NO_DATA_TEXT;
+  const note = r.approx === true ? str(r.matchNote) : null;
+  return note === null ? name : `${name} (${note})`;
+}
+
 function rowsOf(
   body: Record<string, unknown>,
 ): Record<string, unknown>[] | null {
@@ -113,7 +120,7 @@ function tableBody(
       ...base,
       columns: ["대학", "최근 입결", "차이", "판정"],
       rows: rows.map((r) => [
-        cell(r.university) ?? NO_DATA_TEXT,
+        universityCell(r),
         cell(r.latest) ?? NO_DATA_TEXT,
         cell(r.diffText) ?? NO_DATA_TEXT,
         ADMISSION_STATUS_LABELS[String(r.status)] ?? NO_DATA_TEXT,

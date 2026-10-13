@@ -10,6 +10,11 @@ import { expectedSectionIds } from "../sections.js";
 import { careerChanged } from "../session.js";
 import { analysisRange, omittedSections } from "../tracks.js";
 import type { HighGrade, Track } from "../types.js";
+import {
+  admissionCutValue,
+  normalizeDepartmentKey,
+  normalizeUniversityKey,
+} from "./admissionCut.js";
 import type {
   ContextActivity,
   ContextGradeSemester,
@@ -105,10 +110,22 @@ function pickName(value: unknown): string | null {
   return name === "" ? null : name;
 }
 
+/** 설문 q10 이 검색 목록에서 고른 값이면 그 이름, 아니면 null. */
+function pickSearchedName(value: unknown): string | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { source?: unknown }).source === "search"
+  ) {
+    return pickName(value);
+  }
+  return null;
+}
+
 /**
- * 입결 조회 대상. 대학은 프로필 희망 대학이 우선이고 비어 있으면 설문 q11 을 쓴다.
- * 학과는 한 개뿐이라 대학마다 같은 학과를 붙인다(가정). 프로필 학과가 없으면 설문 q10.
- * 중복을 없애고 최대 2개.
+ * 입결 조회 대상. 대학은 프로필 희망 대학과 설문 q11 의 합집합이다(정규화 키 기준 중복 제거, 최대 2개).
+ * 학과는 한 개뿐이라 대학마다 같은 학과를 붙인다(가정).
+ * 설문 q10 이 검색에서 고른 값이면 그것을 우선하고, 아니면 프로필 학과, 그다음 직접 입력한 q10.
  */
 export function universityTargets(
   survey: Record<string, unknown>,
@@ -121,9 +138,18 @@ export function universityTargets(
   const fromSurvey = (Array.isArray(surveyValue) ? surveyValue : [])
     .map(pickName)
     .filter((n): n is string => n !== null);
-  const names = [...new Set(fromProfile.length > 0 ? fromProfile : fromSurvey)];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const name of [...fromProfile, ...fromSurvey]) {
+    const key = normalizeUniversityKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
   const departmentName =
-    pickName(profile?.department) ?? pickName(survey[SURVEY_DEPARTMENT_KEY]);
+    pickSearchedName(survey[SURVEY_DEPARTMENT_KEY]) ??
+    pickName(profile?.department) ??
+    pickName(survey[SURVEY_DEPARTMENT_KEY]);
   return names.slice(0, UNIVERSITY_TARGET_MAX).map((universityName) => ({
     universityName,
     departmentName,
@@ -136,7 +162,9 @@ export type AdmissionRow = {
   department_name: string;
   result_year: number;
   main_track: string | null;
-  grade_avg: number | null;
+  grade_50: number | null;
+  grade_70: number | null;
+  screening_category: string | null;
 };
 
 export type UniversityCuts = {
@@ -148,39 +176,46 @@ export type UniversityCuts = {
 const CUT_YEARS = 2;
 const COMPREHENSIVE_TRACK = "종합";
 
+type CutRow = AdmissionRow & { cut: number };
+
 /**
  * 같은 연도 여러 전형 중 하나를 고르는 가정: 학생부종합 계열(main_track 에 "종합" 포함)의
- * 등급이 있으면 그중 최소 grade_avg(숫자가 작을수록 좋은 성적), 없으면 전체 전형 중 최소 grade_avg.
- * 등급 값이 하나도 없으면 null 로 남긴다(지어내지 않음). 평균은 내지 않는다.
+ * 컷이 있으면 그중 최소값(숫자가 작을수록 좋은 성적), 없으면 전체 전형 중 최소값.
+ * 평균은 내지 않는다.
  */
-function pickYearGrade(rows: readonly AdmissionRow[]): number | null {
-  const graded = rows.filter(
-    (r): r is AdmissionRow & { grade_avg: number } => r.grade_avg !== null,
-  );
-  const comprehensive = graded.filter((r) =>
+function pickYearGrade(rows: readonly CutRow[]): number {
+  const comprehensive = rows.filter((r) =>
     r.main_track?.includes(COMPREHENSIVE_TRACK),
   );
-  const pool = comprehensive.length > 0 ? comprehensive : graded;
-  return pool.length === 0 ? null : Math.min(...pool.map((r) => r.grade_avg));
+  const pool = comprehensive.length > 0 ? comprehensive : rows;
+  return Math.min(...pool.map((r) => r.cut));
 }
 
-/** 입결 행을 대학, 학과별 최근 2개년({year, grade}, 오래된 연도부터)으로 접는다. */
+/**
+ * 입결 행을 대학, 학과별 최근 2개년({year, grade}, 오래된 연도부터)으로 접는다.
+ * 컷 값이 없거나 대상 전형이 아닌 행은 버린다(admissionCutValue). 대학은 정규화 키로 묶는다.
+ */
 export function cutsFromAdmissionRows(
   rows: readonly AdmissionRow[],
 ): UniversityCuts[] {
-  const groups = new Map<string, AdmissionRow[]>();
+  const groups = new Map<string, CutRow[]>();
   for (const row of rows) {
-    const key = JSON.stringify([row.university_name, row.department_name]);
+    const cut = admissionCutValue(row);
+    if (cut === null) continue;
+    const key = JSON.stringify([
+      normalizeUniversityKey(row.university_name),
+      row.department_name,
+    ]);
     const bucket = groups.get(key);
-    if (bucket) bucket.push(row);
-    else groups.set(key, [row]);
+    if (bucket) bucket.push({ ...row, cut });
+    else groups.set(key, [{ ...row, cut }]);
   }
   return [...groups.values()].map((group) => {
     const years = [...new Set(group.map((r) => r.result_year))]
       .sort((a, b) => b - a)
       .slice(0, CUT_YEARS)
       .sort((a, b) => a - b);
-    const first = group[0] as AdmissionRow;
+    const first = group[0] as CutRow;
     return {
       universityName: first.university_name,
       departmentName: first.department_name,
@@ -188,6 +223,52 @@ export function cutsFromAdmissionRows(
         year,
         grade: pickYearGrade(group.filter((r) => r.result_year === year)),
       })),
+    };
+  });
+}
+
+/**
+ * 희망 학과와 입결 학과의 매칭 3단.
+ * (1) 정규화 완전 일치 exact, (2) 같은 대학 안 포함 매칭 후보가 하나뿐이면 approx, (3) 그 외 none.
+ */
+function matchDepartment(
+  target: string | null,
+  candidates: readonly UniversityCuts[],
+): { kind: ContextUniversity["matchKind"]; match: UniversityCuts | null } {
+  if (target === null) return { kind: "none", match: null };
+  const key = normalizeDepartmentKey(target);
+  const exact = candidates.find(
+    (c) => normalizeDepartmentKey(c.departmentName) === key,
+  );
+  if (exact) return { kind: "exact", match: exact };
+  const partial = candidates.filter((c) => {
+    const candidateKey = normalizeDepartmentKey(c.departmentName);
+    return candidateKey.includes(key) || key.includes(candidateKey);
+  });
+  const only = partial.length === 1 ? partial[0] : undefined;
+  return only ? { kind: "approx", match: only } : { kind: "none", match: null };
+}
+
+/** 조회 대상마다 입결 행에서 학과를 찾아 컷을 붙인다. */
+export function universitiesWithCuts(
+  targets: ReturnType<typeof universityTargets>,
+  admissionRows: readonly AdmissionRow[],
+): ContextUniversity[] {
+  const cuts = cutsFromAdmissionRows(admissionRows);
+  return targets.map((t) => {
+    const universityKey = normalizeUniversityKey(t.universityName);
+    const { kind, match } = matchDepartment(
+      t.departmentName,
+      cuts.filter(
+        (c) => normalizeUniversityKey(c.universityName) === universityKey,
+      ),
+    );
+    return {
+      universityName: t.universityName,
+      departmentName: t.departmentName,
+      matchKind: kind,
+      matchedDepartmentName: match?.departmentName ?? null,
+      cuts: match?.cuts ?? [],
     };
   });
 }
@@ -239,23 +320,6 @@ const HIGH_GRADE_NUMBER: Record<HighGrade, 1 | 2 | 3> = {
 
 function isHighGrade(v: unknown): v is HighGrade {
   return v === "고1" || v === "고2" || v === "고3";
-}
-
-function universities(
-  targets: ReturnType<typeof universityTargets>,
-  admissionRows: readonly AdmissionRow[],
-): ContextUniversity[] {
-  const cuts = cutsFromAdmissionRows(admissionRows);
-  return targets.map((t) => ({
-    universityName: t.universityName,
-    departmentName: t.departmentName,
-    cuts:
-      cuts.find(
-        (c) =>
-          c.universityName === t.universityName &&
-          c.departmentName === t.departmentName,
-      )?.cuts ?? [],
-  }));
 }
 
 function previousNarrative(
@@ -353,7 +417,7 @@ export function buildReportContext(
       admissionYear: profile?.admission_year ?? null,
     },
     grades: parseGradeInputs(report.grade_inputs),
-    universities: universities(
+    universities: universitiesWithCuts(
       universityTargets(survey, profile),
       input.admissionRows,
     ),

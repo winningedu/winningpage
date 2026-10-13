@@ -1,9 +1,36 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const calls: { method: string; args: unknown[] }[] = [];
+let result: { data: unknown; error: unknown } = { data: [], error: null };
+
+vi.mock("@/lib/supabase", () => {
+  const chain: Record<string, unknown> = {};
+  for (const method of ["select", "ilike", "order"]) {
+    chain[method] = (...args: unknown[]) => {
+      calls.push({ method, args });
+      return chain;
+    };
+  }
+  chain.limit = (...args: unknown[]) => {
+    calls.push({ method: "limit", args });
+    return Promise.resolve(result);
+  };
+  return {
+    supabase: {
+      from: (table: string) => {
+        calls.push({ method: "from", args: [table] });
+        return chain;
+      },
+    },
+  };
+});
 import {
   buildSearchRows,
   escapeIlike,
   pushUniversity,
+  searchDepartments,
   searchOutcome,
+  searchUniversities,
   toggleOption,
 } from "./surveySearch";
 
@@ -75,5 +102,67 @@ describe("toggleOption", () => {
     expect(
       toggleOption(["글쓰기와 비평", "설계와 만들기"], "글쓰기와 비평"),
     ).toEqual(["설계와 만들기"]);
+  });
+});
+
+describe("searchUniversities", () => {
+  beforeEach(() => {
+    calls.length = 0;
+    result = { data: [], error: null };
+  });
+
+  test("입력을 정규화해 대학 색인 뷰에서 조회한다", async () => {
+    result = {
+      data: [
+        { university_name: "고려대" },
+        { university_name: "고려대(세종)" },
+      ],
+      error: null,
+    };
+    const names = await searchUniversities("고려대학교");
+    expect(names).toEqual(["고려대", "고려대(세종)"]);
+    expect(calls).toContainEqual({
+      method: "from",
+      args: ["admission_result_university_index"],
+    });
+    expect(calls).toContainEqual({
+      method: "ilike",
+      args: ["university_name", "%고려대%"],
+    });
+  });
+
+  test("조회 오류는 빈 목록으로 돌려준다", async () => {
+    result = { data: null, error: { message: "boom" } };
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await searchUniversities("고려")).toEqual([]);
+  });
+});
+
+describe("searchDepartments", () => {
+  beforeEach(() => {
+    calls.length = 0;
+    result = { data: [], error: null };
+  });
+
+  test("학과 색인 뷰에서 조회하고 중복 이름은 한 번만 보인다", async () => {
+    result = {
+      data: [
+        { department_name: "경영학과" },
+        { department_name: "경영학과" },
+        { department_name: "경영학부" },
+      ],
+      error: null,
+    };
+    const names = await searchDepartments("경영");
+    expect(names).toEqual(["경영학과", "경영학부"]);
+    expect(calls).toContainEqual({
+      method: "from",
+      args: ["admission_result_department_index"],
+    });
+    expect(calls).toContainEqual({
+      method: "ilike",
+      args: ["department_name", "%경영%"],
+    });
+    expect(calls).toContainEqual({ method: "limit", args: [400] });
   });
 });

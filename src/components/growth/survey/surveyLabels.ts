@@ -64,7 +64,8 @@ export const SURVEY_COPY = {
   departmentEmpty: "아직 고르지 않았어요",
   departmentPlaceholder: "학과 이름, 계열, 분야를 입력하세요",
   universitiesEmpty: "아직 고르지 않았어요",
-  universitiesPlaceholder: "대학 이름을 입력하세요. 두 곳까지 고를 수 있어요",
+  universitiesPlaceholder:
+    "대학 이름을 고려대처럼 줄여서 입력하세요. 두 곳까지 고를 수 있어요",
   noResult: "목록에 없어요. 직접 적어 주세요.",
   addCustomDepartment: "직접 적은 학과로 추가",
   addCustomUniversity: "직접 적은 대학으로 추가",
