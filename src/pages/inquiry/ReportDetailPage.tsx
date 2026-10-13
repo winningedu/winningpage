@@ -6,6 +6,7 @@ import DesignBody from "@/components/inquiry/design/DesignBody";
 import EvaluationBody from "@/components/inquiry/evaluate/EvaluationBody";
 import { useInquiryScreenStep } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
+import PdfSaveButton from "@/components/inquiry/PdfSaveButton";
 import FinalFieldsTable from "@/components/inquiry/reports/FinalFieldsTable";
 import LoadError, { errorCode } from "@/components/inquiry/reports/LoadError";
 import {
@@ -15,8 +16,10 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/context/SessionContext";
+import { buildInquiryPdfFileName } from "@/lib/inquiry/pdfFileName";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
 import type { SessionDetail } from "@/lib/inquiry/types";
+import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import { cn } from "@/lib/utils";
 
 const PAGE_TITLE = "심화탐구 기록";
@@ -78,6 +81,9 @@ export default function ReportDetailPage() {
   const { data, error, isError, refetch } = useQuery(
     inquirySessionDetailQuery(userId ?? null, sessionId ?? null),
   );
+  const pdf = useReportPdfSave(
+    buildInquiryPdfFileName("report", data?.topic?.detail?.title),
+  );
 
   if (isError && errorCode(error) === "SESSION_NOT_FOUND") {
     return (
@@ -134,6 +140,7 @@ export default function ReportDetailPage() {
         actions={
           <>
             <BackLink />
+            <PdfSaveButton onClick={pdf.save} isPreparing={pdf.isPreparing} />
             {canResume ? (
               <Link
                 to={resumePath(session.currentStep)}
@@ -145,26 +152,28 @@ export default function ReportDetailPage() {
           </>
         }
       />
-      <div className={cn(BODY, "flex flex-col gap-6")}>
-        <Section id="inquiry-detail-design" title="설계 리포트">
-          {design && topic ? (
-            <DesignBody design={design} topic={topic} compact />
-          ) : (
-            <Missing text="설계 리포트가 아직 없어요" />
-          )}
-        </Section>
-        <Section id="inquiry-detail-evaluation" title="평가 리포트">
-          {evaluation ? (
-            <EvaluationBody evaluation={evaluation} compact />
-          ) : (
-            <Missing text="평가 리포트가 아직 없어요" />
-          )}
-        </Section>
-        {final ? (
-          <Section id="inquiry-detail-final" title="확정 저장 내용">
-            <FinalFieldsTable fields={final} />
+      <div className={BODY}>
+        <div ref={pdf.contentRef} className="flex flex-col gap-6">
+          <Section id="inquiry-detail-design" title="설계 리포트">
+            {design && topic ? (
+              <DesignBody design={design} topic={topic} compact />
+            ) : (
+              <Missing text="설계 리포트가 아직 없어요" />
+            )}
           </Section>
-        ) : null}
+          <Section id="inquiry-detail-evaluation" title="평가 리포트">
+            {evaluation ? (
+              <EvaluationBody evaluation={evaluation} compact />
+            ) : (
+              <Missing text="평가 리포트가 아직 없어요" />
+            )}
+          </Section>
+          {final ? (
+            <Section id="inquiry-detail-final" title="확정 저장 내용">
+              <FinalFieldsTable fields={final} />
+            </Section>
+          ) : null}
+        </div>
       </div>
     </>
   );

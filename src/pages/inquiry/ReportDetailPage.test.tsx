@@ -1,6 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,6 +48,9 @@ vi.mock("@/components/inquiry/evaluate/EvaluationBody", () => ({
   default: () => <div data-testid="evaluation-body" />,
 }));
 
+import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
+import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
+import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
 import ReportDetailPage from "./ReportDetailPage";
 
 const topic = {
@@ -100,7 +109,10 @@ describe("ReportDetailPage", () => {
     fetchDetailMock.mockReset();
     stepMock.mockClear();
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
 
   it("확정 세션은 주제 제목, 확정 일자 부제, 설계와 평가 전문, 저장 표를 그린다", async () => {
     fetchDetailMock.mockResolvedValue(detail());
@@ -189,5 +201,34 @@ describe("ReportDetailPage", () => {
     fetchDetailMock.mockReturnValue(new Promise(() => {}));
     const { container } = renderPage();
     expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
+  });
+
+  it("PDF 저장을 누르면 설계와 평가 전문을 담아 주제 제목 파일명으로 서버 PDF를 요청한다", async () => {
+    vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+      true,
+    );
+    vi.spyOn(downloadReportPdfModule, "getReportAccessToken").mockResolvedValue(
+      "test-token",
+    );
+    const buildSpy = vi
+      .spyOn(buildPrintDocumentModule, "buildPrintDocument")
+      .mockReturnValue("<html>report</html>");
+    const downloadSpy = vi
+      .spyOn(downloadReportPdfModule, "downloadReportPdf")
+      .mockImplementation(() => {});
+    fetchDetailMock.mockResolvedValue(detail());
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "PDF 저장" }));
+
+    await waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+    const root = buildSpy.mock.calls[0]?.[0].root;
+    expect(root).toContainElement(screen.getByTestId("design-body"));
+    expect(root).toContainElement(screen.getByTestId("evaluation-body"));
+    expect(downloadSpy.mock.calls[0]?.[0]).toMatchObject({
+      html: "<html>report</html>",
+      filename: "심화탐구_보고서_효소 활성 탐구",
+      accessToken: "test-token",
+    });
   });
 });
