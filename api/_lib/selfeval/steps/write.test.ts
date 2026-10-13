@@ -247,7 +247,7 @@ describe("buildWriteInput", () => {
     );
     expect(r.ok && r.input.growth).toEqual({
       theme: "환경 데이터 탐구자",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       weakAxisGuidelines: ["수치를 더 넣기"],
     });
   });

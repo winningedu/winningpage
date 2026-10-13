@@ -292,7 +292,7 @@ describe("buildTopicsPrompt", () => {
       topicsInput({
         handoff: {
           theme: "데이터로 기후를 읽는 학생",
-          stageLabel: "꽃",
+          stageLabel: "개화",
           subthemeText: "과목에서 진로로",
           weakAxes: ["탐구 깊이"],
           planItemTitle: "통합과학 심화탐구",
@@ -427,7 +427,7 @@ describe("buildDesignPrompt", () => {
   it("성장설계 과제가 있으면 참고로 싣는다", () => {
     const r = buildDesignPrompt(
       designInput({
-        handoff: { stageLabel: "꽃", planItemTitle: "통합과학 심화탐구" },
+        handoff: { stageLabel: "개화", planItemTitle: "통합과학 심화탐구" },
       }),
     );
     expect(r.user).toContain("통합과학 심화탐구");

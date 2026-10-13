@@ -53,7 +53,7 @@ function report(over: Partial<PlanReportRow> = {}): PlanReportRow {
       { grade: "고1", stage: "seed", text: "관찰" },
       { grade: "고2", stage: "flower", text: "설계" },
     ],
-    stage: "꽃",
+    stage: "개화",
     consistency: null,
     axis_scores: null,
     sections: null,
@@ -319,7 +319,7 @@ describe("handoffFor", () => {
       program: "self",
       theme: "생명을 잇는 공학",
       currentGrade: "고2",
-      stage: "꽃",
+      stage: "개화",
       subtheme: "설계",
       condition: {
         title: "자기평가서 작성",
@@ -361,7 +361,7 @@ describe("buildPlanBody", () => {
     expect(body.issuedAt).toBe("2026-10-01T00:00:00Z");
     expect(body.track).toBe("고2");
     expect(body.theme).toBe("생명을 잇는 공학");
-    expect(body.stage).toBe("꽃");
+    expect(body.stage).toBe("개화");
     expect(body.currentGrade).toBe("고2");
     expect(body.subtheme).toBe("설계");
     expect(body.groups).toHaveLength(1);

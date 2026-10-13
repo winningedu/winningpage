@@ -26,6 +26,7 @@
 // 핸들러 본문은 테스트하지 않는다. 판단은 api/_lib/knowledge/eval/metrics.ts,
 // DB 와 임베딩 호출은 api/_lib/knowledge/eval/runner.ts.
 
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
 import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
@@ -156,7 +157,7 @@ export default defineHandler({
         items: outcome.items,
       });
     } finally {
-      await trace.flush(db);
+      scheduleAfterResponse(() => trace.flush(db));
     }
   },
 });

@@ -49,7 +49,15 @@ export function summarizeIssues(issues: unknown): string[] {
         }
       }
     }
-    if (text && text.trim() !== "") out.push(text.trim());
+    if (text && text.trim() !== "") {
+      const path =
+        typeof issue === "object" && issue !== null
+          ? (issue as Record<string, unknown>).path
+          : undefined;
+      const where =
+        typeof path === "string" && path !== "" ? `${path} 항목: ` : "";
+      out.push(`${where}${text.trim()}`);
+    }
     if (out.length === 3) break;
   }
   return out;

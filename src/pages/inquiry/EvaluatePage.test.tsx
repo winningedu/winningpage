@@ -116,7 +116,7 @@ describe("EvaluatePage", () => {
       screen.getByRole("link", { name: "작성 화면으로 돌아가기" }),
     ).toHaveAttribute("href", "/app/inquiry/write");
     expect(
-      screen.getByRole("link", { name: "확정하고 적립하기" }),
+      screen.getByRole("link", { name: "확정하고 저장하기" }),
     ).toHaveAttribute("href", "/app/inquiry/finalize");
   });
 

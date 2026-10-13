@@ -2,7 +2,12 @@
 // 느슨한 타입 가드만 쓴다. 모양이 맞지 않으면 { kind: "empty" } 로 두고 값을 지어내지 않는다.
 // 모양의 출처: api/_lib/growth/report/compute.ts(앱 섹션), prompts.ts(모델 섹션).
 
-import { isRecord, NO_DATA_TEXT, type SectionView } from "./reportLogic";
+import {
+  isRecord,
+  NO_DATA_TEXT,
+  type SectionView,
+  STAGE_LABELS,
+} from "./reportLogic";
 
 export type TableBody = {
   kind: "table";
@@ -86,6 +91,13 @@ function cell(v: unknown): string | null {
   return null;
 }
 
+/** 1-14 대학 칸. 근사 매칭 행은 표시를 덧붙인다. */
+function universityCell(r: Record<string, unknown>): string {
+  const name = cell(r.university) ?? NO_DATA_TEXT;
+  const note = r.approx === true ? str(r.matchNote) : null;
+  return note === null ? name : `${name} (${note})`;
+}
+
 function rowsOf(
   body: Record<string, unknown>,
 ): Record<string, unknown>[] | null {
@@ -108,7 +120,7 @@ function tableBody(
       ...base,
       columns: ["대학", "최근 입결", "차이", "판정"],
       rows: rows.map((r) => [
-        cell(r.university) ?? NO_DATA_TEXT,
+        universityCell(r),
         cell(r.latest) ?? NO_DATA_TEXT,
         cell(r.diffText) ?? NO_DATA_TEXT,
         ADMISSION_STATUS_LABELS[String(r.status)] ?? NO_DATA_TEXT,
@@ -227,9 +239,10 @@ function diagram(
       if (!isRecord(s)) return [];
       const grade = str(s.grade);
       const text = str(s.text);
-      return grade && text
-        ? [{ grade, stageLabel: str(s.stageLabel) ?? "", text }]
-        : [];
+      // 저장된 라벨은 옛 표기일 수 있어 stage 키가 있으면 현재 라벨로 다시 매핑한다.
+      const stageLabel =
+        STAGE_LABELS[str(s.stage) ?? ""] ?? str(s.stageLabel) ?? "";
+      return grade && text ? [{ grade, stageLabel, text }] : [];
     });
     return { kind: "growthFlow", theme, subthemes };
   }

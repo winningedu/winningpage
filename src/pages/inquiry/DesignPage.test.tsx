@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { makeDesign } from "@/components/inquiry/design/designFixture";
+import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
+import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
+import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
 
 const { shellMock, stepMock, detailMock } = vi.hoisted(() => ({
   shellMock: vi.fn(),
@@ -25,6 +28,7 @@ vi.mock("@/components/goal/GoalPageHeader", () => ({
   default: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
+import { ToastProvider } from "@/context/ToastContext";
 import DesignPage from "./DesignPage";
 
 const SESSION = {
@@ -61,12 +65,18 @@ function setup() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <DesignPage />
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>
+          <DesignPage />
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 beforeEach(() => {
   stepMock.mockClear();
@@ -121,5 +131,38 @@ describe("DesignPage", () => {
         screen.getByRole("link", { name: "주제 추천으로 돌아가기" }),
       ).toHaveAttribute("href", "/app/inquiry/topics"),
     );
+  });
+
+  test("PDF 저장을 누르면 설계 본문 HTML과 주제 제목 파일명으로 서버 PDF를 요청한다", async () => {
+    vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+      true,
+    );
+    vi.spyOn(downloadReportPdfModule, "getReportAccessToken").mockResolvedValue(
+      "test-token",
+    );
+    const buildSpy = vi
+      .spyOn(buildPrintDocumentModule, "buildPrintDocument")
+      .mockReturnValue("<html>design</html>");
+    const downloadSpy = vi
+      .spyOn(downloadReportPdfModule, "downloadReportPdf")
+      .mockImplementation(() => {});
+    detailMock.mockResolvedValue(
+      detail({ topic: { id: "t1", detail: { title: "효소 활성 탐구" } } }),
+    );
+    setup();
+
+    fireEvent.click(await screen.findByRole("button", { name: "PDF 저장" }));
+
+    await waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+    const built = buildSpy.mock.calls[0]?.[0];
+    expect(built?.root).toContainElement(
+      screen.getByRole("table", { name: "탐구 개요" }),
+    );
+    expect(built?.title).toBe("심화탐구_설계리포트_효소 활성 탐구");
+    expect(downloadSpy.mock.calls[0]?.[0]).toMatchObject({
+      html: "<html>design</html>",
+      filename: "심화탐구_설계리포트_효소 활성 탐구",
+      accessToken: "test-token",
+    });
   });
 });

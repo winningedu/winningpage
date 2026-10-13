@@ -115,11 +115,11 @@ export async function latestCompletedSession(): Promise<{
   };
 }
 
-/** 심화탐구가 적립한 활동 기록 수. */
+/** 심화탐구가 저장한 활동 기록 수. */
 export async function countDeepDeposits(): Promise<number> {
   const profileId = await resolveStudentProfileId();
   const res = check(
-    "적립 기록 수 조회",
+    "저장 기록 수 조회",
     await serviceRoleClient()
       .from("activity_records")
       .select("id", { count: "exact", head: true })

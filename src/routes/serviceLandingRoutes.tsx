@@ -1,5 +1,10 @@
 import type { RouteObject } from "react-router";
 import { Navigate } from "react-router";
+import {
+  requireGrowthAvailableMiddleware,
+  requireInquiryAvailableMiddleware,
+  requireSelfevalAvailableMiddleware,
+} from "@/lib/routeMiddleware";
 import Callmentor from "@/pages/services/Callmentor";
 import GoalManagement from "@/pages/services/GoalManagement";
 import GrowthDesign from "@/pages/services/GrowthDesign";
@@ -18,9 +23,21 @@ const serviceLandingRoutes: RouteObject[] = [
 
   { path: "/services/goal", Component: GoalManagement },
   { path: "/services/performance", Component: PerformanceAssessment },
-  { path: "/services/self-assessment", Component: SelfAssessment },
-  { path: "/services/research", Component: InDepthResearch },
-  { path: "/services/growth", Component: GrowthDesign },
+  {
+    path: "/services/self-assessment",
+    Component: SelfAssessment,
+    middleware: [requireSelfevalAvailableMiddleware],
+  },
+  {
+    path: "/services/research",
+    Component: InDepthResearch,
+    middleware: [requireInquiryAvailableMiddleware],
+  },
+  {
+    path: "/services/growth",
+    Component: GrowthDesign,
+    middleware: [requireGrowthAvailableMiddleware],
+  },
 
   // 구 경로(DB page_contents 미갱신 시 잔존) → 신규 라우트로 리다이렉트
   {

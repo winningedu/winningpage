@@ -9,7 +9,7 @@ import {
 } from "./stage.js";
 
 describe("stageOf (No.44)", () => {
-  it("학년을 씨앗, 꽃, 만개로 바꾼다", () => {
+  it("학년을 씨앗, 개화, 만개로 바꾼다", () => {
     expect(stageOf("고1")).toBe("seed");
     expect(stageOf("고2")).toBe("flower");
     expect(stageOf("고3")).toBe("bloom");
@@ -76,7 +76,7 @@ describe("gradeNote (No.46, 47)", () => {
 describe("stageLabel", () => {
   it("단계 라벨을 한국어로 돌려준다", () => {
     expect(stageLabel("seed")).toBe("씨앗");
-    expect(stageLabel("flower")).toBe("꽃");
+    expect(stageLabel("flower")).toBe("개화");
     expect(stageLabel("bloom")).toBe("만개");
   });
 });

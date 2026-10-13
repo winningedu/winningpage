@@ -67,7 +67,7 @@ const GROWTH = {
   stale: false,
   banner: {
     theme: "자료를 직접 만드는 사람",
-    stageLabel: "꽃",
+    stageLabel: "개화",
     currentSubtheme: null,
     weakAxisNames: [],
     issuedAt: "2026-09-14T00:00:00Z",

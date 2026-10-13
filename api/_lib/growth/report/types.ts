@@ -63,7 +63,11 @@ export type ContextGradeSemester = {
 export type ContextUniversity = {
   universityName: string;
   departmentName: string | null;
-  /** admission_results 에서 찾은 최근 2개년 컷(등급 평균). 없으면 빈 배열. */
+  /** 희망 학과와 입결 학과의 매칭 단계. approx 는 포함 매칭 후보가 하나뿐일 때의 근사다. */
+  matchKind: "exact" | "approx" | "none";
+  /** 매칭된 입결 학과명. none 이면 null. */
+  matchedDepartmentName: string | null;
+  /** admission_results 에서 찾은 최근 2개년 컷(일반, 추천형 전형의 grade_50, 없으면 grade_70). 없으면 빈 배열. */
   cuts: { year: number; grade: number | null }[];
 };
 

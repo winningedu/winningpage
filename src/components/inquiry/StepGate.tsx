@@ -13,6 +13,9 @@ type StepGateProps = {
   step: GuardedStep;
   title: string;
   subcopy?: string;
+  actions?: React.ReactNode;
+  /** 헤더 폭 클래스. 페이지가 본문 오른쪽을 비울 때 헤더 액션도 같은 여백 안에 두는 데 쓴다. */
+  headerWidthClassName?: string;
   children?: React.ReactNode;
 };
 
@@ -20,6 +23,8 @@ export default function StepGate({
   step,
   title,
   subcopy,
+  actions,
+  headerWidthClassName,
   children,
 }: StepGateProps) {
   const { session, isBootstrapLoading } = useInquiryShell();
@@ -27,7 +32,14 @@ export default function StepGate({
 
   return (
     <>
-      <GoalPageHeader title={title} subcopy={subcopy} />
+      <GoalPageHeader
+        title={title}
+        subcopy={subcopy}
+        actions={actions}
+        {...(headerWidthClassName !== undefined && {
+          maxWidthClassName: headerWidthClassName,
+        })}
+      />
       <div className={STEP_BODY_CLASS}>
         {isBootstrapLoading ? (
           <div role="status" aria-label="불러오는 중">

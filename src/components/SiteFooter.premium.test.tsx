@@ -18,6 +18,7 @@ vi.mock("@/config/site", () => ({
       address: "세종",
     },
     features: {
+      hiddenPrograms: [],
       get premium() {
         return siteState.premium;
       },

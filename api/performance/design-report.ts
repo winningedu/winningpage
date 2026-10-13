@@ -164,6 +164,7 @@
 //   `JSON.parse` 한 줄이고, 형식 강제는 `responseSchema`가 한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { generateWithRetry, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
 import {
   performanceTraceContext,
@@ -1577,7 +1578,7 @@ export default defineHandler({
           },
         });
       } finally {
-        await trace.flush(supabaseAdmin);
+        scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }
     } catch (error) {
       // 원 예외 메시지를 응답에 싣지 않는다(§8.6 공통 규약 「실패 응답」).

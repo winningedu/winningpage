@@ -13,10 +13,10 @@ export default function SummaryTable({ rows }: { rows: SummaryRow[] }) {
         id="finalize-summary"
         className="mb-4 text-app-section font-bold text-ink-strong"
       >
-        적립될 내용
+        저장될 내용
       </h2>
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table aria-label="적립될 내용" className="w-full border-collapse">
+        <table aria-label="저장될 내용" className="w-full border-collapse">
           <thead className="bg-surface-04">
             <tr>
               <th scope="col" className={cn(TH, "w-48 text-ink-sub")}>

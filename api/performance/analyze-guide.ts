@@ -97,6 +97,7 @@
 //    모델 호출이 재시도로 3번 나가도 마찬가지다(재시도는 gemini.js 계층 안, 차감은 밖).
 
 import type { VercelResponse } from "@vercel/node";
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { callVision, PERFORMANCE_MODEL } from "../_lib/ai/gemini.js";
 import {
   performanceTraceContext,
@@ -642,7 +643,7 @@ export default defineHandler({
         );
       } finally {
         clearTimeout(abortTimer);
-        await trace.flush(supabaseAdmin);
+        scheduleAfterResponse(() => trace.flush(supabaseAdmin));
       }
 
       const guideText = String(text || "").trim();

@@ -6,12 +6,15 @@ import {
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
+import PdfSaveButton from "@/components/inquiry/PdfSaveButton";
 import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/context/SessionContext";
+import { buildInquiryPdfFileName } from "@/lib/inquiry/pdfFileName";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
+import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 
 // 경로: /app/inquiry/design (화면 3, 설계 리포트)
 // 세션 상세(inquirySessionDetailQuery)에서 design 과 topic 을 읽어 DesignBody 로 그린다(계약: 부록 A, C).
@@ -34,6 +37,9 @@ function DesignContent() {
   const { session } = useInquiryShell();
   const { data, error, isPending } = useQuery(
     inquirySessionDetailQuery(userId, session?.id ?? null),
+  );
+  const pdf = useReportPdfSave(
+    buildInquiryPdfFileName("design", data?.topic?.detail?.title),
   );
 
   if (isPending) {
@@ -63,8 +69,11 @@ function DesignContent() {
 
   return (
     <>
-      <DesignBody design={data.design} topic={data.topic} />
-      <div className="flex justify-end">
+      <div ref={pdf.contentRef}>
+        <DesignBody design={data.design} topic={data.topic} />
+      </div>
+      <div className="flex justify-end gap-2">
+        <PdfSaveButton onClick={pdf.save} isPreparing={pdf.isPreparing} />
         <Link
           to={INQUIRY_PATHS.write}
           className={`${buttonVariants({ size: "lg" })} h-10 px-5 text-app-label`}

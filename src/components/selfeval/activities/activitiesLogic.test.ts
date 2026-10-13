@@ -301,7 +301,7 @@ describe("bannerFromSnapshot", () => {
   test("현재 학년 소주제와 단계 이름, 부족 축 이름을 배너 값으로 만든다", () => {
     expect(bannerFromSnapshot(snapshot, "고2")).toEqual({
       theme: "대주제",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       currentSubtheme: "2학년 소주제",
       weakAxisNames: ["탐구 깊이"],
       issuedAt: "2026-09-14T00:00:00Z",

@@ -82,6 +82,15 @@ describe("describeGeneration", () => {
     expect(d?.issues).toEqual(["근거 활동 누락"]);
   });
 
+  test("이슈에 path 가 있으면 어느 섹션인지 앞에 붙인다", () => {
+    expect(
+      summarizeIssues([
+        { message: "금지 표현 이(가) 포함되어 있습니다.", path: "2-1" },
+        { message: "path 없음" },
+      ]),
+    ).toEqual(["2-1 항목: 금지 표현 이(가) 포함되어 있습니다.", "path 없음"]);
+  });
+
   test("모델 실패와 네트워크 실패는 그 단계부터 다시 시도하게 한다", () => {
     for (const errorCode of [
       "MODEL_UPSTREAM_FAILED",

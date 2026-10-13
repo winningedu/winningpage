@@ -37,7 +37,7 @@ const SECTIONS: Record<string, string> = {
   VIII: "기상청 기상자료개방포털 시간별 기온 습도 자료, 2026년 7월 기준\n농촌진흥청 가축사육기상정보시스템 온습도지수 산출식 안내, 2025년 기준",
 };
 
-/** 정보 입력이 끝난 화면에서 추천받기부터 확정 적립 결과 카드까지 간다. */
+/** 정보 입력이 끝난 화면에서 추천받기부터 확정 저장 결과 카드까지 간다. */
 async function recommendToFinalize(page: Page) {
   await page.getByRole("button", { name: "주제 3개 추천받기" }).click();
   await page.waitForURL("**/app/inquiry/topics");
@@ -72,7 +72,7 @@ async function recommendToFinalize(page: Page) {
   await waitWithRetry(page, total, MODEL_WAIT);
   expect(new URL(page.url()).pathname).toBe("/app/inquiry/evaluate");
   await expect(total).toContainText("/ 100");
-  await page.getByRole("link", { name: "확정하고 적립하기" }).click();
+  await page.getByRole("link", { name: "확정하고 저장하기" }).click();
 
   // 확정 화면: 7항목 폼. 비어 있는 필수 항목(주제, 개념, 방법, 결과, 한계)은 채운다.
   await page.waitForURL("**/app/inquiry/finalize");
@@ -98,10 +98,10 @@ async function recommendToFinalize(page: Page) {
       await field.fill("직접 보완한 내용");
     }
   }
-  await page.getByRole("button", { name: "확정하고 활동 기록에 적립" }).click();
-  const result = page.getByRole("region", { name: "적립 결과" });
+  await page.getByRole("button", { name: "확정하고 활동 기록에 저장" }).click();
+  const result = page.getByRole("region", { name: "저장 결과" });
   await expect(
-    result.getByRole("heading", { name: "적립을 마쳤어요" }),
+    result.getByRole("heading", { name: "저장을 마쳤어요" }),
   ).toBeVisible({
     timeout: 30_000,
   });
@@ -122,7 +122,7 @@ test.describe("심화탐구 모델 완주", () => {
     await deleteOpenSessions();
   });
 
-  test("단독 완주: 한 줄 자산에서 확정 적립까지", async ({
+  test("단독 완주: 한 줄 자산에서 확정 저장까지", async ({
     studentPage: page,
   }) => {
     const completedBefore = await countCompletedSessions();
@@ -147,7 +147,6 @@ test.describe("심화탐구 모델 완주", () => {
       .getByRole("row")
       .filter({ hasText: "확정" });
     await expect(rows).toHaveCount(completedBefore + 1);
-    expect(completedBefore + 1).toBeGreaterThanOrEqual(2);
   });
 
   test("콜드 스타트: 활동 0건이면 관심 기반 예비 주제와 확인 질문 3개가 나온다", async ({

@@ -8,6 +8,7 @@ import {
   ensureSelfevalQuota,
   expect,
   insertPendingPlanItem,
+  MANUAL_ACTIVITY_NAME,
   openNewSession,
   PLAN_ITEM_TITLE,
   readQuotaRemaining,
@@ -40,7 +41,7 @@ test.describe("자기평가서 모델 포함 완주", () => {
 
     await openNewSession(page);
     await submitBasics(page, { growth: false });
-    await submitManualActivity(page, "버스 배차 간격 탐구");
+    await submitManualActivity(page, MANUAL_ACTIVITY_NAME);
 
     // 직접 입력 활동은 모델 없이 분석이 채워진다. 작성하기부터 모델 호출이다.
     await waitAnalysisReady(page);

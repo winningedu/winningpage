@@ -17,7 +17,7 @@ describe("FinalFieldsTable", () => {
   it("caption 과 7개 항목을 그린다", () => {
     render(<FinalFieldsTable fields={fields} />);
     expect(
-      screen.getByRole("table", { name: "확정 적립 내용" }),
+      screen.getByRole("table", { name: "확정 저장 내용" }),
     ).toBeInTheDocument();
     const names = screen.getAllByRole("rowheader").map((h) => h.textContent);
     expect(names).toEqual([

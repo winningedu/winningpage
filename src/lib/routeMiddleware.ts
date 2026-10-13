@@ -1,5 +1,6 @@
 import type { MiddlewareFunction } from "react-router";
 import { redirect } from "react-router";
+import type { GateableProgram } from "@/config/programs";
 import { site } from "@/config/site";
 import { ADMIN_SECTION_KEYS } from "@/pages/admin/adminSectionKeys";
 import {
@@ -221,6 +222,21 @@ export const requirePremiumAvailableMiddleware: MiddlewareFunction =
       throw redirect("/");
     }
   };
+
+// 2e) 성장설계, 자기평가, 심화탐구의 소개 페이지(/services/*)와 앱(/app/*) - site.features.
+// hiddenPrograms에 든 프로그램은 직접 URL 진입도 홈으로 되돌린다. 2d와 같은 이유로
+// 빌드타임 상수를 동기 판정한다. 서버 API는 건드리지 않는다(이용권이 방어한다).
+function createProgramGate(program: GateableProgram): MiddlewareFunction {
+  return async () => {
+    if (site.features.hiddenPrograms.includes(program)) {
+      throw redirect("/");
+    }
+  };
+}
+
+export const requireGrowthAvailableMiddleware = createProgramGate("growth");
+export const requireSelfevalAvailableMiddleware = createProgramGate("selfeval");
+export const requireInquiryAvailableMiddleware = createProgramGate("inquiry");
 
 // 3) /app/goal/* — 로그인 + 이용권('goal') 확인(RequireGoalAccess.jsx의 1・2단계,
 // 즉 RequireEntitlement의 standalone 분기 이관). 두 라우트 그룹(온보딩 그룹 +

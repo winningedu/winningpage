@@ -55,6 +55,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "가대",
         departmentName: "의예과",
+        matchKind: "exact",
+        matchedDepartmentName: "x",
         cuts: [
           { year: 2025, grade: 1.5 },
           { year: 2024, grade: 1.7 },
@@ -63,6 +65,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "나대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: 3 }],
       },
     ],
@@ -77,6 +81,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "가대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: 2 }],
       },
     ],
@@ -91,6 +97,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "가대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: null }],
       },
     ],
@@ -100,6 +108,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "가대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: 2 }],
       },
     ],
@@ -113,6 +123,8 @@ const cases: Record<string, Partial<ReportContext>> = {
       {
         universityName: "가대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: 1.2 }],
       },
     ],

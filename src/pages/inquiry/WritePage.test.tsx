@@ -38,7 +38,20 @@ vi.mock("@/components/inquiry/topics/topicsLogic", async (orig) => ({
   RUNNING_RETRY_MS: 0,
 }));
 vi.mock("@/components/goal/GoalPageHeader", () => ({
-  default: ({ title }: { title: string }) => <h1>{title}</h1>,
+  default: ({
+    title,
+    actions,
+    maxWidthClassName,
+  }: {
+    title: string;
+    actions?: React.ReactNode;
+    maxWidthClassName?: string;
+  }) => (
+    <header data-width-class={maxWidthClassName}>
+      <h1>{title}</h1>
+      {actions}
+    </header>
+  ),
 }));
 
 import WritePage from "./WritePage";
@@ -199,6 +212,45 @@ describe("WritePage 표시와 복원", () => {
   });
 });
 
+function designButtons() {
+  const [top, bottom] = screen.getAllByRole("button", {
+    name: "설계 리포트 보기",
+  });
+  if (!top || !bottom) throw new Error("설계 리포트 보기 버튼이 둘이 아니에요");
+  return { top, bottom };
+}
+
+describe("상단 설계 리포트 보기 버튼 가드", () => {
+  test("단계 가드가 막으면 비활성이고 사유를 aria-describedby 로 알린다", async () => {
+    shellMock.mockReturnValue({
+      session: { ...SESSION, designReportId: null },
+      isBootstrapLoading: false,
+      applyBootstrap: applyMock,
+      refetchBootstrap: vi.fn(),
+    });
+    detailMock.mockResolvedValue(detail(null));
+    setup();
+    const button = await screen.findByRole("button", {
+      name: "설계 리포트 보기",
+    });
+    expect(button).toBeDisabled();
+    const reasonId = button.getAttribute("aria-describedby");
+    expect(reasonId).toBeTruthy();
+    expect(document.getElementById(reasonId ?? "")).toHaveTextContent(
+      "설계 리포트가 만들어지면",
+    );
+  });
+
+  test("가드를 통과하면 활성이고 사유 연결이 없다", async () => {
+    detailMock.mockResolvedValue(detail(null));
+    setup();
+    await box(/Ⅰ/);
+    const { top } = designButtons();
+    expect(top).toBeEnabled();
+    expect(top).not.toHaveAttribute("aria-describedby");
+  });
+});
+
 describe("저장", () => {
   test("중간 저장은 8절을 보내고 마지막 저장 시각을 보여 준다", async () => {
     detailMock.mockResolvedValue(detail(null));
@@ -237,14 +289,81 @@ describe("저장", () => {
     expect(saveMock).toHaveBeenCalledTimes(1);
   });
 
-  test("설계 리포트 보기는 서랍을 연다", async () => {
+  test("설계 리포트 보기 버튼은 상단과 하단에 둘 있고 둘 다 서랍을 연다", async () => {
     detailMock.mockResolvedValue(detail(null));
     setup();
     await box(/Ⅰ/);
-    fireEvent.click(screen.getByRole("button", { name: "설계 리포트 보기" }));
-    expect(
-      await screen.findByRole("dialog", { name: "설계 리포트" }),
-    ).toBeVisible();
+    const { top, bottom } = designButtons();
+    expect(screen.getByRole("banner")).toContainElement(top);
+
+    for (const button of [top, bottom]) {
+      fireEvent.click(button);
+      expect(
+        await screen.findByRole("dialog", { name: "설계 리포트" }),
+      ).toBeVisible();
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+    }
+  });
+
+  describe("서랍 모드", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    function stubDesktop(matches: boolean) {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn().mockImplementation((query: string) => ({
+          matches,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        })),
+      );
+    }
+
+    test("xl 이상에서는 오버레이 없이 열려 작성 폼을 가리지 않는다", async () => {
+      stubDesktop(true);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      await box(/Ⅰ/);
+      fireEvent.click(designButtons().top);
+      expect(
+        await screen.findByRole("dialog", { name: "설계 리포트" }),
+      ).toBeVisible();
+      expect(document.querySelector("[data-slot=sheet-overlay]")).toBeNull();
+    });
+
+    test("서랍이 열린 동안 헤더 액션도 본문과 같은 오른쪽 여백 안에 둔다", async () => {
+      stubDesktop(true);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      await box(/Ⅰ/);
+      const banner = screen.getByRole("banner");
+      expect(banner.getAttribute("data-width-class") ?? "").not.toContain(
+        "xl:pr-[28rem]",
+      );
+      fireEvent.click(designButtons().top);
+      await screen.findByRole("dialog", { name: "설계 리포트" });
+      expect(banner.getAttribute("data-width-class")).toContain(
+        "xl:pr-[28rem]",
+      );
+    });
+
+    test("xl 미만에서는 기존대로 오버레이가 있는 modal 서랍이다", async () => {
+      stubDesktop(false);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      await box(/Ⅰ/);
+      fireEvent.click(designButtons().top);
+      await screen.findByRole("dialog", { name: "설계 리포트" });
+      expect(
+        document.querySelector("[data-slot=sheet-overlay]"),
+      ).not.toBeNull();
+    });
   });
 });
 

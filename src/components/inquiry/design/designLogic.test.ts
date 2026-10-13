@@ -64,7 +64,7 @@ describe("buildOverviewRows", () => {
     const row = buildOverviewRows(makeDesign()).at(-1);
     expect(row).toMatchObject({
       label: "학년 단계",
-      value: "고2 꽃 단계",
+      value: "고2 개화 단계",
       badge: "맞음",
       extra: null,
     });

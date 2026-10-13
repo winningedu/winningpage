@@ -47,6 +47,7 @@ export function assembleFinal(
     {
       expectedSectionIds: context.expectedSectionIds,
       knownEvidenceIds: context.evidenceIds,
+      skipTextSectionIds: appSections.map((s) => s.id),
     },
   );
   return result.ok

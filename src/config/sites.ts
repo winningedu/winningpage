@@ -1,6 +1,8 @@
 // 사이트별 브랜드 데이터의 정본 — env(import.meta.env.VITE_SITE)에 의존하지 않는
 // 순수 데이터만 담는다. vite.config.js(빌드타임, import.meta.env 사용 불가)와
 // site.ts(런타임, env로 하나를 고른다) 양쪽이 이 파일을 공유한다.
+import type { GateableProgram } from "./programs";
+
 export type SiteKey = "winning" | "schoolmentor";
 
 export interface SiteConfig {
@@ -13,6 +15,9 @@ export interface SiteConfig {
   features: {
     // 프리미엄(컨설팅 프로그램 6종 + 프리미엄 이용 신청)의 메뉴, 카드, 라우트 노출 여부.
     premium: boolean;
+    // 메뉴, 카드, 가격표, 라우트에서 숨길 신규 서비스(growth, selfeval, inquiry). 기본은 빈 배열(전부 노출).
+    // 배포 환경별로는 site.ts가 VITE_HIDDEN_PROGRAMS로 덮어쓴다.
+    hiddenPrograms: readonly GateableProgram[];
   };
   company: {
     name: string;
@@ -45,7 +50,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       svg: "/favicon.svg",
     },
     manifest: "/site.webmanifest",
-    features: { premium: true },
+    features: { premium: true, hiddenPrograms: [] },
     company: {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
@@ -74,7 +79,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/schoolmentor/favicon.ico",
     },
     manifest: "/schoolmentor/site.webmanifest",
-    features: { premium: false },
+    features: { premium: false, hiddenPrograms: [] },
     company: {
       name: "주식회사 위닝로직",
       ceo: "강원석",

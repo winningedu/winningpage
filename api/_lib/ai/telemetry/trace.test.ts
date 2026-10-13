@@ -187,6 +187,32 @@ describe("flush", () => {
     warn.mockRestore();
   });
 
+  it("두 테이블 insert 를 먼저 끝나기를 기다리지 않고 동시에 보낸다", async () => {
+    const trace = createAiTrace(CTX);
+    trace.recordCall(OK_CALL);
+    trace.recordSearch(SEARCH);
+    const { db, insert } = mockDb(() => new Promise(() => {}));
+    void trace.flush(db, { timeoutMs: 10 });
+    await Promise.resolve();
+    expect(insert).toHaveBeenCalledTimes(2);
+  });
+
+  it("한쪽 테이블 insert 가 reject 해도 다른 쪽 insert 는 그대로 나간다", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const trace = createAiTrace(CTX);
+    trace.recordCall(OK_CALL);
+    trace.recordSearch(SEARCH);
+    let n = 0;
+    const { db, insert } = mockDb(() =>
+      n++ === 0
+        ? Promise.reject(new Error("boom"))
+        : Promise.resolve({ error: null }),
+    );
+    await expect(trace.flush(db)).resolves.toMatchObject({ ok: false });
+    expect(insert).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
   it("끝나지 않는 insert 는 timeoutMs 뒤 ok false 로 돌려준다", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const trace = createAiTrace(CTX);

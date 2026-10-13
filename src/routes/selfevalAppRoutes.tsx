@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 import RequireEntitlement from "@/components/RequireEntitlement";
 import { SELFEVAL_BASE } from "@/components/selfeval/selfevalPaths";
 import { SessionProvider } from "@/context/SessionContext";
+import { requireSelfevalAvailableMiddleware } from "@/lib/routeMiddleware";
 
 // 자기평가서 학생 앱. 성장설계(growthAppRoutes)와 같은 규칙으로 SiteLayout 밖에 둔다.
 //
@@ -28,6 +29,8 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
 
 const selfevalAppRoutes: RouteObject[] = [
   {
+    // 숨긴 프로그램은 직접 URL 진입도 홈으로 되돌린다(site.features.hiddenPrograms).
+    middleware: [requireSelfevalAvailableMiddleware],
     Component: () => <SessionProvider serviceKey="selfeval" />,
     children: [
       {

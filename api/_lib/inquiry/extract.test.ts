@@ -1,4 +1,4 @@
-// 확정 적립 7항목 추출과 검증 테스트(명세 No.104, 173, 174).
+// 확정 저장 7항목 추출과 검증 테스트(명세 No.104, 173, 174).
 import { describe, expect, it } from "vitest";
 import { MAX_EXTRACTED_NUMBERS } from "./constants.js";
 import {

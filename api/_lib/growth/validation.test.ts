@@ -34,6 +34,98 @@ describe("findForbiddenPhrases", () => {
   });
 });
 
+describe("금지어 결합형", () => {
+  test("단독 예측은 걸리지 않는다", () => {
+    expect(findForbiddenPhrases("수요 예측 모델을 만들었다")).toEqual([]);
+  });
+
+  test.each([
+    "합격 예측",
+    "합격예측",
+    "합격을 예측한다",
+    "합격 가능성 예측",
+    "합격 가능성을 예측",
+  ])("합격 결합형 %s 는 걸린다", (text) => {
+    expect(findForbiddenPhrases(text).length).toBeGreaterThan(0);
+  });
+});
+
+describe("금지어 검사에서 앱이 만든 텍스트 제외", () => {
+  const axisSection = (rows: { label: string; value: string }[]) => ({
+    id: "2-1",
+    evidence_ids: ["a1"],
+    body: { rows },
+  });
+
+  test("2-x 의 앱 근거 활동 행은 금지어가 있어도 통과한다", () => {
+    const r = validateStep(
+      6,
+      {
+        sections: [
+          axisSection([
+            { label: "근거 활동", value: "합격 예측 모델 만들기" },
+            { label: "해석", value: "활동이 이어졌다" },
+          ]),
+        ],
+      },
+      ctx,
+    );
+    expect(r.issues.map((i) => i.code)).not.toContain("forbidden_phrase");
+  });
+
+  test("같은 섹션의 모델 행에 있으면 섹션 id 를 path 로 단다", () => {
+    const r = validateStep(
+      6,
+      {
+        sections: [
+          axisSection([
+            { label: "근거 활동", value: "합격 예측 모델" },
+            { label: "해석", value: "합격 예측에 가깝다" },
+          ]),
+        ],
+      },
+      ctx,
+    );
+    expect(r.issues).toContainEqual(
+      expect.objectContaining({ code: "forbidden_phrase", path: "2-1" }),
+    );
+  });
+
+  test("다른 섹션의 근거 활동 라벨 행은 계속 검사한다", () => {
+    const r = validateStep(
+      6,
+      {
+        sections: [
+          {
+            id: "3-2",
+            evidence_ids: ["a1"],
+            body: { rows: [{ label: "근거 활동", value: "합격 예측" }] },
+          },
+        ],
+      },
+      ctx,
+    );
+    expect(r.issues).toContainEqual(
+      expect.objectContaining({ code: "forbidden_phrase", path: "3-2" }),
+    );
+  });
+
+  test("skipTextSectionIds 의 섹션은 통째로 건너뛴다", () => {
+    const payload = {
+      sections: [
+        { id: "1-1", status: "ok", body: { rows: [{ value: "합격 예측" }] } },
+        { id: "3-2", evidence_ids: ["a1"], body: { text: "합격 예측" } },
+      ],
+    };
+    const r = validateStep(8, payload, {
+      ...ctx,
+      skipTextSectionIds: ["1-1"],
+    });
+    const forbidden = r.issues.filter((i) => i.code === "forbidden_phrase");
+    expect(forbidden.map((i) => i.path)).toEqual(["3-2"]);
+  });
+});
+
 describe("collectText / validateStep 1~4단계", () => {
   test("깊은 객체와 배열 안의 문자열을 모두 이어 붙인다", () => {
     const text = collectText({ a: ["x", { b: "y" }], n: 3 });
@@ -44,7 +136,7 @@ describe("collectText / validateStep 1~4단계", () => {
   test("깊은 객체 안 금지 표현은 forbidden_phrase 로 걸린다", () => {
     const r = validateStep(
       1,
-      { items: [{ note: { deep: "예측 결과" } }] },
+      { items: [{ note: { deep: "합격 예측 결과" } }] },
       ctx,
     );
     expect(r.ok).toBe(false);

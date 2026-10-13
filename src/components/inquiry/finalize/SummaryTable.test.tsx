@@ -18,7 +18,7 @@ test("항목과 내용을 표로 그리고 배지를 점수 행에 붙인다", (
       ]}
     />,
   );
-  const table = screen.getByRole("table", { name: "적립될 내용" });
+  const table = screen.getByRole("table", { name: "저장될 내용" });
   expect(within(table).getByRole("rowheader", { name: "주제" })).toBeVisible();
   expect(within(table).getByText("내 주제")).toBeVisible();
   expect(within(table).getByText("소규모 보완 후 제출 가능")).toBeVisible();

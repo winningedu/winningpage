@@ -14,6 +14,7 @@ import {
   isPremiumLink,
   PREMIUM_ADMISSION_A_PATH,
 } from "@/components/premium/premiumRoutesPaths";
+import { isHiddenProgramLink } from "@/config/programs";
 import { site } from "@/config/site";
 import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 import { withDedupedKeys } from "@/lib/reactKeys";
@@ -137,6 +138,25 @@ const HERO_CARDS = [
   },
 ];
 
+// 학습 플랫폼 사업영역 카드 설명에 나열하는 서비스. 숨김 프로그램은 설명에서도 뺀다.
+const PLATFORM_SERVICES = [
+  { title: "학습진단", route: "/services/learning-diagnosis" },
+  { title: "목표관리", route: "/services/goal" },
+  { title: "수행평가", route: "/services/performance" },
+  { title: "성장설계", route: "/services/growth" },
+  { title: "콜멘토", route: "/services/callmentor" },
+  { title: "자기평가", route: "/services/self-assessment" },
+  { title: "심화탐구", route: "/services/research" },
+];
+
+function platformServicesDesc() {
+  return PLATFORM_SERVICES.filter(
+    ({ route }) => !isHiddenProgramLink(route, site.features.hiddenPrograms),
+  )
+    .map(({ title }) => title)
+    .join(", ");
+}
+
 // -------------------------------------------------------------------------
 // 사업영역 카드 3장 (1882:19477)
 // -------------------------------------------------------------------------
@@ -145,7 +165,7 @@ const BUSINESS_CARDS = [
     key: "ai-platform",
     image: bizAiPlatform,
     title: "학습 플랫폼",
-    desc: "학습진단, 목표관리, 수행평가, 성장설계, 콜멘토, 자기평가, 심화탐구",
+    desc: null as string | null,
   },
   {
     key: "consulting",
@@ -360,7 +380,9 @@ function HeroSection({ page }: { page: IntroPage }) {
             768px 이상은 4열 × 2행으로 조기 전환해 타일이 과도하게 부풀지 않게 한다. */}
         <div className="grid w-full max-w-142.5 grid-cols-2 sm:grid-cols-4 lg:grid-rows-2">
           {HERO_CARDS.filter(
-            (card) => site.features.premium || !isPremiumLink(card.route),
+            (card) =>
+              (site.features.premium || !isPremiumLink(card.route)) &&
+              !isHiddenProgramLink(card.route, site.features.hiddenPrograms),
           ).map((card) => {
             const content = (
               <>
@@ -550,7 +572,7 @@ function BusinessSection() {
                 {card.title}
               </p>
               <p className="mt-7 whitespace-pre-line break-keep text-[0.9375rem] font-medium leading-[1.4] text-ink lg:text-[1.25rem]">
-                {card.desc}
+                {card.desc ?? platformServicesDesc()}
               </p>
             </div>
           ))}

@@ -66,7 +66,7 @@ const handoff = {
   program: "self",
   theme: "대주제",
   currentGrade: "고2",
-  stage: "꽃",
+  stage: "개화",
   subtheme: "소주제",
   condition: { title: "조건", description: null, axis: "D", category: null },
 };
@@ -92,7 +92,7 @@ function planBody(over: Record<string, unknown> = {}) {
       issuedAt: "2026-11-14T03:00:00Z",
       track: "고2",
       theme: "대주제",
-      stage: "꽃",
+      stage: "개화",
       currentGrade: "고2",
       subtheme: "소주제",
       groups: [{ period: "semester", label: "남은 학기", items }],

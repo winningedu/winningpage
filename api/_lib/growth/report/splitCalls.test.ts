@@ -370,6 +370,21 @@ describe("표 칸 길이 재요청", () => {
   });
 });
 
+describe("6단계 앱 행의 금지 표현", () => {
+  it("활동 topic 에 합격 예측이 있어도 앱 근거 활동 행은 검사하지 않는다", async () => {
+    const forbiddenContext: ReportContext = {
+      ...context,
+      activities: activities.map((a) => ({
+        ...a,
+        topic: `합격 예측 모델 ${a.id}`,
+      })),
+    };
+    const { r } = await run(6, (b) => ok(answer(b)), forbiddenContext);
+    if (!r.ok) throw new Error(JSON.stringify(r.issues));
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe("7단계 섹션별 호출", () => {
   it("섹션마다 1호출과 planDraft 1호출을 부르고 종류별 지시가 섞이지 않는다", async () => {
     const { r, bundles } = await run(7, (b) => ok(answer(b)));

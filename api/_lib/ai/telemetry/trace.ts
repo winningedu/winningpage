@@ -138,15 +138,18 @@ export function createAiTrace(
   const calls: ModelCallRow[] = [];
   const searches: RetrievalRow[] = [];
 
+  // 두 테이블 insert 를 동시에 보낸다. 한쪽이 느리거나 실패해도 다른 쪽은 그대로 나간다.
   async function insertAll(db: SupabaseClient<Database>) {
-    const failures: unknown[] = [];
-    if (calls.length > 0) {
-      const { error } = await db.from("ai_model_calls").insert(calls);
-      if (error) failures.push(error);
-    }
+    const pending: PromiseLike<{ error: unknown }>[] = [];
+    if (calls.length > 0) pending.push(db.from("ai_model_calls").insert(calls));
     if (searches.length > 0) {
-      const { error } = await db.from("ai_retrieval_events").insert(searches);
-      if (error) failures.push(error);
+      pending.push(db.from("ai_retrieval_events").insert(searches));
+    }
+    const settled = await Promise.allSettled(pending);
+    const failures: unknown[] = [];
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") failures.push(outcome.reason);
+      else if (outcome.value.error) failures.push(outcome.value.error);
     }
     return failures;
   }

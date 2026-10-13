@@ -226,7 +226,7 @@ describe("buildWritePrompt", () => {
       writeInput({
         growth: {
           theme: "수학적 모델링",
-          stageLabel: "꽃",
+          stageLabel: "개화",
           weakAxisGuidelines: ["실험 설계를 드러낸다"],
         },
       }),
@@ -288,7 +288,7 @@ describe("buildVerifyPrompt", () => {
     expect(without.user).not.toContain("부족 축을 이 글에서 채웠는가");
     const withG = buildVerifyPrompt({
       ...vin,
-      growth: { stageLabel: "꽃", currentSubtheme: "모델링" },
+      growth: { stageLabel: "개화", currentSubtheme: "모델링" },
     });
     expect(withG.user).toContain(
       "학년 단계에 맞게 출발점에서 도착점으로 나아갔는가",
@@ -309,7 +309,7 @@ describe("buildVerifyPrompt", () => {
   it("금지 문자가 없다", () => {
     const b = buildVerifyPrompt({
       ...vin,
-      growth: { stageLabel: "꽃", currentSubtheme: null },
+      growth: { stageLabel: "개화", currentSubtheme: null },
     });
     expect(FORBIDDEN_CHARS.test(b.system + b.user)).toBe(false);
   });

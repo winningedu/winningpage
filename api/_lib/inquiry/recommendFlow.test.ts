@@ -298,7 +298,7 @@ describe("buildTopicsInput", () => {
     });
     expect(input.handoff).toEqual({
       theme: "생명 윤리",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       subthemeText: "고2 소주제",
       weakAxes: ["B"],
       planItemTitle: "과제1",

@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 import { INQUIRY_BASE } from "@/components/inquiry/inquiryPaths";
 import RequireEntitlement from "@/components/RequireEntitlement";
 import { SessionProvider } from "@/context/SessionContext";
+import { requireInquiryAvailableMiddleware } from "@/lib/routeMiddleware";
 
 // 심화탐구 학생 앱(inquiry). 성장설계 growthAppRoutes.tsx 와 같은 구조로 SiteLayout 밖에 둔다.
 // `/services/research`(소개 랜딩)와는 별개 라우트다.
@@ -27,6 +28,8 @@ const page = (load: () => Promise<{ default: ComponentType }>) => ({
 
 const inquiryAppRoutes: RouteObject[] = [
   {
+    // 숨긴 프로그램은 직접 URL 진입도 홈으로 되돌린다(site.features.hiddenPrograms).
+    middleware: [requireInquiryAvailableMiddleware],
     Component: () => <SessionProvider serviceKey="inquiry" />,
     children: [
       {
@@ -77,7 +80,7 @@ const inquiryAppRoutes: RouteObject[] = [
                 path: "evaluate",
                 ...page(() => import("@/pages/inquiry/EvaluatePage")),
               },
-              // 6 확정과 적립
+              // 6 확정과 저장
               {
                 path: "finalize",
                 ...page(() => import("@/pages/inquiry/FinalizePage")),

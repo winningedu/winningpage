@@ -51,7 +51,7 @@ describe("analysisRange (No.50)", () => {
         "고3-2",
       ]);
       expect(r.description).toContain(
-        "씨앗, 꽃, 만개 로드맵 없이 진단만 나와요",
+        "씨앗, 개화, 만개 로드맵 없이 진단만 나와요",
       );
     },
   );

@@ -1,11 +1,20 @@
 import { expect, test } from "./fixtures/auth";
 import {
   answerFirstQuestion,
+  cleanupGrowthE2eData,
   ensureProfileSaved,
   goToCollectFromSurvey,
 } from "./fixtures/growth";
+import { e2eText } from "./fixtures/marker";
 
 test.describe("성장설계 학생 조사", () => {
+  test.beforeAll(async () => {
+    await cleanupGrowthE2eData();
+  });
+  test.afterAll(async () => {
+    await cleanupGrowthE2eData();
+  });
+
   test("답 자동 저장, 새로고침 복원, 활동 선택으로 이동", async ({
     browser,
     authStorageStatePath,
@@ -23,7 +32,7 @@ test.describe("성장설계 학생 조사", () => {
       page.getByRole("heading", { name: "학생 조사" }),
     ).toBeVisible();
 
-    const answer = `E2E 조사 답 ${Date.now()}`;
+    const answer = e2eText(`조사 답 ${Date.now()}`);
     await answerFirstQuestion(page, answer);
 
     // No.144: 새로고침 뒤에도 저장된 답이 복원된다.

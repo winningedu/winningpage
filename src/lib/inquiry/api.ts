@@ -173,7 +173,7 @@ export function evaluateReport(req: EvaluateRequest, ai = true) {
   });
 }
 
-/** 7항목 확정과 활동 기록 적립. 모델 호출이 없어 기본 타임아웃이다. */
+/** 7항목 확정과 활동 기록 저장. 모델 호출이 없어 기본 타임아웃이다. */
 export function finalizeSession(req: FinalizeRequest) {
   return request<FinalizeResponse>(`${BASE}/finalize`, {
     method: "POST",

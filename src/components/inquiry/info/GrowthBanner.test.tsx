@@ -71,7 +71,7 @@ describe("GrowthBanner", () => {
     expect(screen.getByText("직접 검증하는 사람으로")).toBeVisible();
     expect(screen.getByText("고2 과목에서 진로로")).toBeVisible();
     expect(screen.getByText(/2026\.09\.14/)).toBeVisible();
-    expect(screen.getByText("꽃")).toBeVisible();
+    expect(screen.getByText("개화")).toBeVisible();
   });
 
   test("과제 후보를 라디오로 보여 주고 선택값을 표시한다", () => {

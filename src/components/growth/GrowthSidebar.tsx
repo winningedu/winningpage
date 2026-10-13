@@ -12,10 +12,14 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { GrowthStep, GrowthStepStatus } from "./deriveGrowthSteps";
+import type {
+  GrowthStep,
+  GrowthStepKey,
+  GrowthStepStatus,
+} from "./deriveGrowthSteps";
 import { GROWTH_PATHS } from "./growthPaths";
 
-// 성장설계 앱 좌측 고정 사이드바. 상단 학생 표시, 메뉴 2항목, 진행단계 6스텝으로 구성한다.
+// 성장설계 앱 좌측 고정 사이드바. 상단 학생 표시, 메뉴 2항목, 진행단계 4스텝과 설계결과 2스텝으로 구성한다.
 // 수행평가 사이드바(PerformanceSidebar.tsx)와 같은 구조와 토큰을 쓴다(같은 AppShellSidebar 위).
 //
 // ⚠️ 표시 전용이다. 이름, 학년, 단계 상태는 계산하지 않고 prop 으로 받는다. 단계 상태는
@@ -81,6 +85,87 @@ function CheckIcon() {
   );
 }
 
+// 진행단계 그룹은 시작, 학생 조사, 활동 선택, 리포트 생성이고, 리포트와 실행계획은 설계결과 그룹이다.
+// 배열 위치가 아니라 단계 키로 나눠 단계 추가나 순서 변경에 흔들리지 않게 한다.
+const RESULT_STEP_KEYS: readonly GrowthStepKey[] = ["report", "plan"];
+
+type StepEntry = { step: GrowthStep; number: number };
+
+function StepGroup({
+  headingId,
+  title,
+  entries,
+  onNavigate,
+}: {
+  headingId: string;
+  title: string;
+  entries: StepEntry[];
+  onNavigate: () => void;
+}) {
+  return (
+    <SidebarGroup role="region" aria-labelledby={headingId} className="px-4">
+      <SidebarGroupLabel
+        id={headingId}
+        className="h-auto px-2 text-app-label font-medium text-ink-sub"
+      >
+        {title}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <ol className="flex flex-col gap-0.25">
+          {entries.map(({ step, number }) => {
+            const style = STEP_STATE_STYLES[step.status];
+            const content = (
+              <>
+                <span
+                  className={[
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                    "text-app-label font-medium leading-4.5",
+                    style.badge,
+                  ].join(" ")}
+                >
+                  {step.status === "done" ? <CheckIcon /> : number}
+                </span>
+                <span className={["text-app-label", style.label].join(" ")}>
+                  {step.label}
+                </span>
+                <span className="sr-only">{STEP_SR_LABEL[step.status]}</span>
+              </>
+            );
+            const rowClass = [
+              "flex h-9 items-center gap-4 rounded-md px-3",
+              style.pill ? "bg-sidebar-accent" : "",
+            ].join(" ");
+
+            // 이미 끝났거나 들어갈 수 있는 단계만 링크다. 현재와 잠긴 단계는 표시만 한다.
+            const linkable =
+              step.to !== null &&
+              (step.status === "done" || step.status === "upcoming");
+
+            return (
+              <li
+                key={step.key}
+                aria-current={step.status === "current" ? "step" : undefined}
+              >
+                {linkable ? (
+                  <Link
+                    to={step.to as string}
+                    className={`${rowClass} hover:bg-sidebar-accent/60`}
+                    onClick={onNavigate}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div className={rowClass}>{content}</div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 type GrowthSidebarProps = {
   /** 로그인 학생 이름. 없으면 이름 줄을 그리지 않는다. */
   studentName?: string | null;
@@ -101,6 +186,14 @@ export default function GrowthSidebar({
 
   const normalized = pathname.replace(/\/+$/, "");
   const isReportsList = normalized === GROWTH_PATHS.reports;
+  // 번호는 두 그룹에 걸쳐 전체 index 로 1~6 을 유지한다.
+  const entries = steps.map((step, index) => ({ step, number: index + 1 }));
+  const resultEntries = entries.filter(({ step }) =>
+    RESULT_STEP_KEYS.includes(step.key),
+  );
+  const progressEntries = entries.filter(
+    ({ step }) => !RESULT_STEP_KEYS.includes(step.key),
+  );
 
   return (
     <AppShellSidebar aria-label="성장설계 사이드바">
@@ -157,76 +250,18 @@ export default function GrowthSidebar({
             </SidebarGroupContent>
           </SidebarGroup>
 
-          <SidebarGroup
-            role="region"
-            aria-labelledby="growth-steps-heading"
-            className="px-4"
-          >
-            <SidebarGroupLabel
-              id="growth-steps-heading"
-              className="h-auto px-2 text-app-label font-medium text-ink-sub"
-            >
-              진행단계
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <ol className="flex flex-col gap-0.25">
-                {steps.map((step, index) => {
-                  const style = STEP_STATE_STYLES[step.status];
-                  const content = (
-                    <>
-                      <span
-                        className={[
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                          "text-app-label font-medium leading-4.5",
-                          style.badge,
-                        ].join(" ")}
-                      >
-                        {step.status === "done" ? <CheckIcon /> : index + 1}
-                      </span>
-                      <span
-                        className={["text-app-label", style.label].join(" ")}
-                      >
-                        {step.label}
-                      </span>
-                      <span className="sr-only">
-                        {STEP_SR_LABEL[step.status]}
-                      </span>
-                    </>
-                  );
-                  const rowClass = [
-                    "flex h-9 items-center gap-4 rounded-md px-3",
-                    style.pill ? "bg-sidebar-accent" : "",
-                  ].join(" ");
-
-                  // 이미 끝났거나 들어갈 수 있는 단계만 링크다. 현재와 잠긴 단계는 표시만 한다.
-                  const linkable =
-                    step.to !== null &&
-                    (step.status === "done" || step.status === "upcoming");
-
-                  return (
-                    <li
-                      key={step.key}
-                      aria-current={
-                        step.status === "current" ? "step" : undefined
-                      }
-                    >
-                      {linkable ? (
-                        <Link
-                          to={step.to as string}
-                          className={`${rowClass} hover:bg-sidebar-accent/60`}
-                          onClick={() => setOpenMobile(false)}
-                        >
-                          {content}
-                        </Link>
-                      ) : (
-                        <div className={rowClass}>{content}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <StepGroup
+            headingId="growth-steps-heading"
+            title="진행단계"
+            entries={progressEntries}
+            onNavigate={() => setOpenMobile(false)}
+          />
+          <StepGroup
+            headingId="growth-result-heading"
+            title="설계결과"
+            entries={resultEntries}
+            onNavigate={() => setOpenMobile(false)}
+          />
         </ScrollArea>
       </SidebarContent>
     </AppShellSidebar>

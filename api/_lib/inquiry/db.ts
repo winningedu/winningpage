@@ -515,7 +515,7 @@ export async function loadRecordsByIds(db: Db, userId: string, ids: string[]) {
   ) as RecordRow[];
 }
 
-/** 세션을 확정해 적립된 활동 기록(source_program deep, source_ref_id 세션 id). */
+/** 세션을 확정해 저장된 활동 기록(source_program deep, source_ref_id 세션 id). */
 export async function loadActivityRecordForSession(
   db: Db,
   userId: string,

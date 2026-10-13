@@ -236,10 +236,10 @@ export interface Narrative {
   previous?: { theme: string; issuedAt: string; reason: "career_change" };
 }
 
-/** 단계 라벨(No.52): 씨앗/꽃/만개. */
+/** 단계 라벨(No.52): 씨앗/개화/만개. */
 export const NARRATIVE_STAGE_LABELS: Record<NarrativeStage, string> = {
   seed: "씨앗",
-  flower: "꽃",
+  flower: "개화",
   bloom: "만개",
 };
 

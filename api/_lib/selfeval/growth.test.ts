@@ -206,7 +206,7 @@ describe("bannerSummary", () => {
   it("배너용 값을 만든다", () => {
     expect(bannerSummary(snap())).toEqual({
       theme: "통계로 사회 문제를 해석하는 학생",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       currentSubtheme: "통계 해석",
       weakAxisNames: ["교과 역량"],
       issuedAt: "2026-09-01T00:00:00Z",

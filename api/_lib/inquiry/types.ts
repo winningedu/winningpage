@@ -4,7 +4,7 @@
 /** 세션 상태(No.23). API 응답 status 와 다른 값이다. */
 export type SessionStatus = "draft" | "in_progress" | "completed" | "archived";
 
-/** 화면 단계 1~6(정보 입력, 주제 추천, 설계 리포트, 보고서 작성, 평가 리포트, 확정과 적립). */
+/** 화면 단계 1~6(정보 입력, 주제 추천, 설계 리포트, 보고서 작성, 평가 리포트, 확정과 저장). */
 export type ScreenStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** 고등학교 학년(No.27). */
@@ -12,7 +12,7 @@ export type GradeLabel = "고1" | "고2" | "고3";
 
 export type Semester = 1 | 2;
 
-/** 학년 단계(No.44). 씨앗, 꽃, 만개. growth_reports.stage 와 같은 값. */
+/** 학년 단계(No.44). 씨앗, 개화, 만개. growth_reports.stage 와 같은 값. */
 export type Stage = "seed" | "flower" | "bloom";
 
 /** 연계 유형 4종(No.5). 후속, 전이, 비판, 확장. */
@@ -258,7 +258,7 @@ export type EvaluationReport = {
   placeholders: Partial<Record<SectionId, number>>;
 };
 
-/** 확정 적립 7항목(No.104). */
+/** 확정 저장 7항목(No.104). */
 export type ActivityFields = {
   topic: string;
   concept: string;

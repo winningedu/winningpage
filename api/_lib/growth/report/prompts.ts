@@ -19,6 +19,8 @@ import {
 import { capPlanItems } from "../tracks.js";
 import type { Axis } from "../types.js";
 import {
+  APP_AXIS_ROW_LABELS,
+  AXIS_SECTION_IDS,
   EVIDENCE_EXEMPT_SECTION_IDS,
   FORBIDDEN_PHRASES,
   type StepValidationResult,
@@ -575,8 +577,6 @@ const STEP_RULES: Record<1 | 3 | 5, string> = {
     "연계 여부는 입력의 활동별 연계 신호를 따른다.",
   ].join("\n"),
 };
-
-const AXIS_SECTION_IDS: readonly string[] = ["2-1", "2-2", "2-3", "2-4", "2-5"];
 
 /** 나눈 호출의 단계 규칙. 그 호출 종류에 해당하는 지시만 담는다. */
 function callRules(step: SplitStep, call: StepCall): string {
@@ -1238,9 +1238,6 @@ function axisNoDataSection(id: string): SectionItem {
   };
 }
 
-/** 앱이 만드는 축 섹션 행의 라벨. 모델이 같은 라벨로 쓴 행은 버린다. */
-const APP_AXIS_ROW_LABELS = ["판정", "근거 활동", "대학 평가요소 대응"];
-
 /** 근거 활동 행에 보여줄 topic 수. 근거 id 도 같은 건수만 단다. */
 const AXIS_TOPIC_LIMIT = 3;
 
@@ -1307,11 +1304,18 @@ export function normalizeAxisSections(
       continue;
     }
     const section = out[idx];
-    if (!section || section.status === "no_data") continue;
+    if (!section) continue;
     const body = isRecord(section.body) ? section.body : {};
+    // 앱 라벨 행은 금지 표현 검사에서 빠지므로, no_data 로 돌아온 섹션에서도 모델 행을 걷는다.
     const modelRows = (Array.isArray(body.rows) ? body.rows : []).filter(
       (r) => !(isRecord(r) && APP_AXIS_ROW_LABELS.includes(String(r.label))),
     );
+    if (section.status === "no_data") {
+      if (isRecord(section.body) && Array.isArray(section.body.rows)) {
+        out[idx] = { ...section, body: { ...body, rows: modelRows } };
+      }
+      continue;
+    }
     out[idx] = {
       ...section,
       evidence_ids: e.activityIds.filter((x) => known.has(x)),

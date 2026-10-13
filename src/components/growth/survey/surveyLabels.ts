@@ -24,12 +24,18 @@ export const SURVEY_LABELS: Readonly<Record<string, SurveyLabel>> = {
     options: ["정해짐", "고민 중", "탐색 중"],
   },
   q6: { title: "관심 있는 분야는 무엇인가요?" },
-  q7: { title: "불편하거나 이상하다고 느낀 장면이 있나요?" },
+  q7: {
+    title:
+      "평소 SNS나 뉴스에서 접한 정보에서 불편하거나 이상하다고 느낀 사건이나 사실과 그 이유는 무엇인가요?",
+  },
   q8: { title: "성적과 별개로 더 배우고 싶은 과목은 무엇인가요?" },
   q9: { title: "그 관심은 어떻게 생겼나요?" },
   q10: { title: "희망 학과" },
   q11: { title: "희망 대학" },
-  q12: { title: "스스로 찾아본 것이 있나요?" },
+  q12: {
+    title:
+      "탐구활동 과제를 스스로 찾아본 것이 있나요? 있으면 내용을 적어 주세요",
+  },
   q13: {
     title: "해본 탐구 방식을 모두 고르세요",
     options: [
@@ -58,13 +64,16 @@ export const SURVEY_LABELS: Readonly<Record<string, SurveyLabel>> = {
   },
 };
 
+export const SURVEY_QUESTION_COUNT = Object.keys(SURVEY_LABELS).length;
+
 export const SURVEY_COPY = {
   textPlaceholder: "답을 적어 주세요",
   shortAnswerHint: "조금 더 자세히 적으면 분석이 정확해져요",
   departmentEmpty: "아직 고르지 않았어요",
   departmentPlaceholder: "학과 이름, 계열, 분야를 입력하세요",
   universitiesEmpty: "아직 고르지 않았어요",
-  universitiesPlaceholder: "대학 이름을 입력하세요. 두 곳까지 고를 수 있어요",
+  universitiesPlaceholder:
+    "대학 이름을 고려대처럼 줄여서 입력하세요. 두 곳까지 고를 수 있어요",
   noResult: "목록에 없어요. 직접 적어 주세요.",
   addCustomDepartment: "직접 적은 학과로 추가",
   addCustomUniversity: "직접 적은 대학으로 추가",

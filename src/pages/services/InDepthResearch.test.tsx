@@ -97,6 +97,22 @@ describe("InDepthResearch 랜딩 구성", () => {
     ]);
   });
 
+  it("eyebrow 를 심화탐구 설계 프로그램으로 보여준다", () => {
+    renderPage();
+    expect(screen.getByText("심화탐구 설계 프로그램")).toBeInTheDocument();
+  });
+
+  it("다섯 단계와 달라지는 것들 섹션의 상단 간격을 줄였다", () => {
+    renderPage();
+    for (const name of ["다섯 단계로 차근차근", "심화탐구로 달라지는 것들"]) {
+      const section = screen
+        .getByRole("heading", { level: 2, name })
+        .closest("section") as HTMLElement;
+      expect(section.className).toContain("lg:pt-20");
+      expect(section.className).not.toMatch(/lg:pt-(50\.5|43)/);
+    }
+  });
+
   it("히어로 목업에 주제 추천 화면 캡처가 들어간다", () => {
     renderPage();
     expect(screen.getByAltText("심화탐구 주제 추천 화면")).toBeInTheDocument();

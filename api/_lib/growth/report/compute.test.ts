@@ -20,6 +20,7 @@ import {
 import type {
   ActivitySignal,
   ContextActivity,
+  ContextUniversity,
   ReportContext,
 } from "./types.js";
 
@@ -244,6 +245,8 @@ describe("appSections 기본", () => {
         {
           universityName: "가대",
           departmentName: "의예과",
+          matchKind: "exact",
+          matchedDepartmentName: "x",
           cuts: [
             { year: 2025, grade: 1.5 },
             { year: 2024, grade: 1.7 },
@@ -366,9 +369,11 @@ describe("appSections 기본", () => {
   });
 
   it("1-1 희망 대학은 최대 2개", () => {
-    const u = (n: string) => ({
+    const u = (n: string): ContextUniversity => ({
       universityName: n,
       departmentName: "학과",
+      matchKind: "exact",
+      matchedDepartmentName: "x",
       cuts: [],
     });
     const context = ctx({ universities: [u("가"), u("나"), u("다")] });
@@ -427,6 +432,8 @@ describe("appSections 자료 없음 분기", () => {
         {
           universityName: "가대",
           departmentName: null,
+          matchKind: "none",
+          matchedDepartmentName: null,
           cuts: [{ year: 2025, grade: 2 }],
         },
       ],
@@ -476,7 +483,13 @@ describe("appSections 자료 없음 분기", () => {
         note: null,
       },
       universities: [
-        { universityName: "가대", departmentName: null, cuts: [] },
+        {
+          universityName: "가대",
+          departmentName: null,
+          matchKind: "none",
+          matchedDepartmentName: null,
+          cuts: [],
+        },
       ],
     });
     expect(
@@ -508,7 +521,7 @@ describe("appSections 자료 없음 분기", () => {
     expect(body.theme).toBe(narrative.theme);
     expect(body.subthemes.map((s) => s.stageLabel)).toEqual([
       "씨앗",
-      "꽃",
+      "개화",
       "만개",
     ]);
   });
@@ -530,6 +543,8 @@ describe("appSections 성적 계열", () => {
       {
         universityName: "가대",
         departmentName: "의예과",
+        matchKind: "exact",
+        matchedDepartmentName: "x",
         cuts: [
           { year: 2025, grade: 2.0 },
           { year: 2024, grade: 2.4 },
@@ -538,6 +553,8 @@ describe("appSections 성적 계열", () => {
       {
         universityName: "나대",
         departmentName: null,
+        matchKind: "none",
+        matchedDepartmentName: null,
         cuts: [{ year: 2025, grade: 1.8 }],
       },
     ],
@@ -584,5 +601,75 @@ describe("appSections 성적 계열", () => {
     expect(body.rows.map((r) => r.key)).toEqual(["고2-2", "고3-1", "고3-2"]);
     // (1.8 * 6 - 8) / 3
     expect(body.requiredAverage).toBe(0.93);
+  });
+});
+
+describe("appSections 1-14 근사 매칭과 자료 없음 사유", () => {
+  const grades = {
+    system: "nine" as const,
+    semesters: [
+      { key: "고1-1" as const, average: 3, source: "direct" as const },
+      { key: "고1-2" as const, average: 3, source: "direct" as const },
+      { key: "고2-1" as const, average: 2, source: "direct" as const },
+    ],
+    note: null,
+  };
+  const uni = (over: Partial<ContextUniversity>): ContextUniversity => ({
+    universityName: "가대",
+    departmentName: "법학",
+    matchKind: "exact",
+    matchedDepartmentName: "법학",
+    cuts: [{ year: 2025, grade: 2.0 }],
+    ...over,
+  });
+  type Row = { university: string; approx: boolean; matchNote: string | null };
+  const rowsOf = (universities: ContextUniversity[]): Row[] => {
+    const context = ctx({ activities: [act("a")], grades, universities });
+    const item = find(appSections(context, emptyOutputs(context)), "1-14");
+    return (item.body as { rows: Row[] }).rows;
+  };
+  const reasonOf = (
+    universities: ContextUniversity[],
+    g: typeof grades | null = grades,
+  ) => {
+    const context = ctx({
+      activities: [act("a")],
+      ...(g ? { grades: g } : {}),
+      universities,
+    });
+    return find(appSections(context, emptyOutputs(context)), "1-14")
+      .no_data_reason;
+  };
+
+  it("approx 행은 근사 매칭 표시와 매칭된 학과명을 단다", () => {
+    const [row] = rowsOf([
+      uni({ matchKind: "approx", matchedDepartmentName: "법학과" }),
+    ]);
+    expect(row?.approx).toBe(true);
+    expect(row?.matchNote).toBe("근사 매칭");
+    expect(row?.university).toBe("가대 법학과");
+  });
+
+  it("exact 행은 근사 표시가 없다", () => {
+    const [row] = rowsOf([uni({})]);
+    expect(row?.approx).toBe(false);
+    expect(row?.matchNote).toBeNull();
+    expect(row?.university).toBe("가대 법학");
+  });
+
+  it("희망 대학이 없으면 사유는 희망 대학 없음", () => {
+    expect(reasonOf([])).toBe("희망 대학 없음");
+  });
+
+  it("컷이 모두 비면 사유는 입결 자료 없음", () => {
+    expect(
+      reasonOf([
+        uni({ matchKind: "none", matchedDepartmentName: null, cuts: [] }),
+      ]),
+    ).toBe("입결 자료 없음");
+  });
+
+  it("추정 등급이 없으면 사유는 내부 추정 등급 없음", () => {
+    expect(reasonOf([uni({})], null)).toBe("내부 추정 등급 없음");
   });
 });

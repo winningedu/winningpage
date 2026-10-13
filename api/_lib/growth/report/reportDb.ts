@@ -2,6 +2,10 @@
 
 import { type Db, must, mustHave } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
+import {
+  CUT_SCREENING_CATEGORIES,
+  normalizeUniversityKey,
+} from "./admissionCut.js";
 import type { CarriedItem, CompletionPayload } from "./assemble.js";
 import {
   type ActivityRecordRow,
@@ -10,6 +14,7 @@ import {
   type PreviousReportRow,
   type ReportRow,
   type StudentProfileRow,
+  UNIVERSITY_TARGET_MAX,
   universityTargets,
 } from "./context.js";
 import {
@@ -79,6 +84,52 @@ export async function loadPreviousReportId(
   return (await loadPreviousCompleted(db, userId))?.id ?? null;
 }
 
+const ADMISSION_COLUMNS =
+  "university_name, department_name, result_year, main_track, grade_50, grade_70, screening_category";
+/** PostgREST 기본 응답 상한(1000행)에 맞춘 페이지 크기. */
+export const ADMISSION_PAGE_SIZE = 1000;
+const ADMISSION_PAGE_MAX = 20;
+
+/**
+ * 희망 대학의 입결 행. 대학은 정규화 키(university_key)로 찾고 학과 매칭은 context 가 한다.
+ * 컷 규칙(일반, 추천형 전형에 grade_50 또는 grade_70 이 있는 행)에 맞는 행만 읽는다.
+ */
+export async function loadAdmissionRows(
+  db: Db,
+  targets: ReturnType<typeof universityTargets>,
+): Promise<AdmissionRow[]> {
+  if (targets.every((t) => t.departmentName === null)) return [];
+  // 조회 대상 대학은 희망 대학 상한과 같게 자른다. 호출부가 더 넘겨도 읽는 양은 같다.
+  const universityKeys = [
+    ...new Set(targets.map((t) => normalizeUniversityKey(t.universityName))),
+  ].slice(0, UNIVERSITY_TARGET_MAX);
+  if (universityKeys.length === 0) return [];
+  const rows: AdmissionRow[] = [];
+  for (let page = 0; page < ADMISSION_PAGE_MAX; page += 1) {
+    const from = page * ADMISSION_PAGE_SIZE;
+    const chunk = must(
+      await db
+        .from("admission_results")
+        .select(ADMISSION_COLUMNS)
+        .in("university_key", universityKeys)
+        .in("screening_category", [...CUT_SCREENING_CATEGORIES])
+        .eq("is_active", true)
+        .or("grade_50.not.is.null,grade_70.not.is.null")
+        .order("id", { ascending: true })
+        .range(from, from + ADMISSION_PAGE_SIZE - 1),
+      "admission_results 조회 실패",
+    ) as unknown as AdmissionRow[];
+    rows.push(...chunk);
+    if (chunk.length < ADMISSION_PAGE_SIZE) break;
+    if (page === ADMISSION_PAGE_MAX - 1) {
+      console.warn(
+        `[growth/report] admission_results 가 ${ADMISSION_PAGE_MAX}페이지 상한에 닿아 일부 행을 읽지 않았습니다.`,
+      );
+    }
+  }
+  return rows;
+}
+
 export async function loadContextInputs(
   db: Db,
   userId: string,
@@ -114,28 +165,7 @@ export async function loadContextInputs(
       ? (row.survey_answers as Record<string, unknown>)
       : {};
   const targets = universityTargets(survey, profile);
-  const universityNames = targets.map((t) => t.universityName);
-  const departmentNames = [
-    ...new Set(
-      targets
-        .map((t) => t.departmentName)
-        .filter((n): n is string => n !== null),
-    ),
-  ];
-  const admissionRows =
-    universityNames.length === 0 || departmentNames.length === 0
-      ? []
-      : (must(
-          await db
-            .from("admission_results")
-            .select(
-              "university_name, department_name, result_year, main_track, grade_avg",
-            )
-            .in("university_name", universityNames)
-            .in("department_name", departmentNames)
-            .eq("is_active", true),
-          "admission_results 조회 실패",
-        ) as AdmissionRow[]);
+  const admissionRows = await loadAdmissionRows(db, targets);
 
   const prev = await loadPreviousCompleted(db, userId);
   const previousReport: PreviousReportRow | null = prev

@@ -286,7 +286,7 @@ describe("toDesignView", () => {
     primaryAsset: toAssetView(baseAsset, new Map([["r1", "미생물 배양"]])),
     reliability: "A" as const,
     planItemTitle: null,
-    stageLabel: "꽃",
+    stageLabel: "개화",
     ...over,
   });
 
@@ -315,7 +315,7 @@ describe("toDesignView", () => {
       fit: "off",
       fitLabel: "어긋남",
       fitReason: "학년과 어긋남",
-      stageLabel: "꽃",
+      stageLabel: "개화",
       planItemTitle: null,
     });
   });

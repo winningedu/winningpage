@@ -26,6 +26,7 @@
 //   405 { detail }        POST 아님.
 //   500 { detail }        임베딩 실패, 서버 설정 누락 등.
 
+import { scheduleAfterResponse } from "../_lib/afterResponse.js";
 import { performanceTraceContext } from "../_lib/ai/telemetry/performanceContext.js";
 import { type AiTrace, createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import { defineHandler } from "../_lib/handler.js";
@@ -396,7 +397,7 @@ export default defineHandler({
       console.error("admin-embed error:", error);
       res.status(500).json({ detail: errorMessage(error) });
     } finally {
-      await trace.flush(supabaseAdmin);
+      scheduleAfterResponse(() => trace.flush(supabaseAdmin));
     }
   },
 });

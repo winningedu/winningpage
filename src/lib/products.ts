@@ -3,6 +3,7 @@
 // 프론트에 있으면 안 된다"). 조회 실패 시에도 임의의 가격을 지어내지 말고
 // 호출부가 loading/error 상태를 그대로 사용자에게 안내해야 한다.
 import { useCallback, useEffect, useState } from "react";
+import { site } from "@/config/site";
 import { supabase } from "./supabase";
 
 const PRODUCT_COLUMNS =
@@ -55,7 +56,11 @@ export type ServiceGroup = {
 // Supabase products 행 → 서비스별 그룹 구조로 변환
 function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
   const map = new Map<string, ServiceGroup>();
+  // site.features.hiddenPrograms에 든 신규 서비스(service_key가 program key와 같다)는
+  // 가격표, 신청, 결제 카탈로그 어디에도 나오지 않게 여기서 한 번에 뺀다.
+  const hidden: readonly string[] = site.features.hiddenPrograms;
   (rows || []).forEach((r) => {
+    if (hidden.includes(r.service_key)) return;
     if (!map.has(r.service_key)) {
       map.set(r.service_key, {
         key: r.service_key,
