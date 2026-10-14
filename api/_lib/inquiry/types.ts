@@ -12,6 +12,18 @@ export type GradeLabel = "고1" | "고2" | "고3";
 
 export type Semester = 1 | 2;
 
+/** 제출 영역. subject 는 교과, 나머지는 창의적 체험활동 영역. 자기평가와 같은 네 값을 이 도메인이 따로 가진다. */
+export type Area = "subject" | "autonomy" | "club" | "career";
+
+export const AREAS: readonly Area[] = ["subject", "autonomy", "club", "career"];
+
+export const AREA_LABELS: Record<Area, string> = {
+  subject: "교과",
+  autonomy: "자율",
+  club: "동아리",
+  career: "진로",
+};
+
 /** 학년 단계(No.44). 씨앗, 개화, 만개. growth_reports.stage 와 같은 값. */
 export type Stage = "seed" | "flower" | "bloom";
 

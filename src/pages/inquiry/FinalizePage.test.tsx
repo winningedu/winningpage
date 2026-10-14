@@ -59,7 +59,9 @@ function preview(over: Record<string, unknown> = {}) {
   return {
     summary: {
       topic: "내 주제",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       linkage: "출발 활동 (후속형)",
       concepts: ["온습도지수"],
       limitation: "표본이 적어요",

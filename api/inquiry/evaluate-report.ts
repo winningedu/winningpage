@@ -138,7 +138,9 @@ export default defineHandler({
 
     const promptInput = buildPromptInput({
       grade,
+      area: session.area,
       subject: session.subject,
+      activityName: session.activity_name,
       topic: {
         title: detail.title,
         question: detail.question,

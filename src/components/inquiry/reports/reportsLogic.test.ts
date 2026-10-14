@@ -18,6 +18,8 @@ function list(over: Partial<ReportsList> = {}): ReportsList {
         sessionId: "s1",
         completedAt: "2026-09-30T15:30:00.000Z",
         subject: "생명과학",
+        area: "subject",
+        activityName: null,
         topicTitle: "효소 활성 탐구",
         linkKind: "followup",
         score: 82,
@@ -27,6 +29,8 @@ function list(over: Partial<ReportsList> = {}): ReportsList {
         sessionId: "s2",
         completedAt: "2026-09-10T00:00:00.000Z",
         subject: "수학",
+        area: "subject",
+        activityName: null,
         topicTitle: "미분 응용",
         linkKind: "transfer",
         score: 71.26,
@@ -59,6 +63,54 @@ describe("resumePath", () => {
   });
 });
 
+describe("buildReportRows 제출 영역", () => {
+  const club = {
+    area: "club" as const,
+    subject: null,
+    activityName: "천문 동아리",
+  };
+
+  it("교과가 아닌 행은 과목 칸에 영역 라벨과 활동명을 싣는다", () => {
+    const base = list();
+    const rows = buildReportRows({
+      ...base,
+      items: [{ ...(base.items[0] as ReportsList["items"][number]), ...club }],
+      open: null,
+      archived: [],
+    });
+    expect(rows[0]?.subject).toBe("동아리 / 천문 동아리");
+  });
+
+  it("활동명이 없으면 영역 라벨만 싣고 열린 행과 보관 행도 같다", () => {
+    const base = list();
+    const rows = buildReportRows({
+      ...base,
+      items: [],
+      open: {
+        sessionId: "o1",
+        currentStep: 2,
+        area: "career",
+        subject: null,
+        activityName: null,
+        topicTitle: null,
+        lastActivityAt: "2026-10-01T00:00:00.000Z",
+      },
+      archived: [
+        {
+          sessionId: "a1",
+          area: "autonomy",
+          subject: null,
+          activityName: "학급 회의",
+          topicTitle: null,
+          lastActivityAt: "2026-10-01T00:00:00.000Z",
+          terminal: null,
+        },
+      ],
+    });
+    expect(rows.map((r) => r.subject)).toEqual(["진로", "자율 / 학급 회의"]);
+  });
+});
+
 describe("buildReportRows", () => {
   it("확정 행은 연계 방식 라벨, 소수 첫째 자리 점수, 열기 동작을 가진다", () => {
     const rows = buildReportRows(list());
@@ -85,6 +137,8 @@ describe("buildReportRows", () => {
           sessionId: "o1",
           currentStep: 4,
           subject: "물리",
+          area: "subject",
+          activityName: null,
           topicTitle: null,
           lastActivityAt: "2026-10-05T00:00:00.000Z",
         },
@@ -110,6 +164,8 @@ describe("buildReportRows", () => {
           {
             sessionId: "a1",
             subject: "화학",
+            area: "subject",
+            activityName: null,
             topicTitle: "산화",
             lastActivityAt: "2026-08-01T00:00:00.000Z",
             terminal: null,
@@ -117,6 +173,8 @@ describe("buildReportRows", () => {
           {
             sessionId: "a2",
             subject: "화학",
+            area: "subject",
+            activityName: null,
             topicTitle: null,
             lastActivityAt: "2026-08-02T00:00:00.000Z",
             terminal: { reason: "attempts", mode: "design" },
@@ -143,6 +201,8 @@ describe("필터", () => {
         sessionId: "o1",
         currentStep: 2,
         subject: "수학",
+        area: "subject",
+        activityName: null,
         topicTitle: null,
         lastActivityAt: "2026-10-05T00:00:00.000Z",
       },
@@ -177,6 +237,8 @@ describe("필터", () => {
           {
             sessionId: "a2",
             subject: "화학",
+            area: "subject",
+            activityName: null,
             topicTitle: null,
             lastActivityAt: "2026-08-02T00:00:00.000Z",
             terminal: { reason: "x", mode: "design" },

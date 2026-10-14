@@ -26,6 +26,14 @@ function renderTable(rows: ReportRow[]) {
   );
 }
 
+describe("ReportsTable 과목 칸", () => {
+  it("교과가 아닌 행은 영역 라벨과 활동명을 그대로 보여 준다", () => {
+    renderTable([{ ...base, subject: "자율 / 학급 회의" }]);
+    const row = screen.getByRole("row", { name: /미분 응용/ });
+    expect(within(row).getByText("자율 / 학급 회의")).toBeInTheDocument();
+  });
+});
+
 describe("ReportsTable", () => {
   it("caption 과 영역 열 없는 6개 열 머리글을 그린다", () => {
     renderTable([base]);

@@ -71,7 +71,9 @@ function session(overrides: Partial<SessionView> = {}): SessionView {
     gradeLabel: "고2",
     semester: 2,
     career: "수의예과",
+    area: "subject",
     subject: "생명과학",
+    activityName: null,
     designReportId: null,
     planItemId: null,
     ...overrides,
@@ -270,7 +272,9 @@ describe("InfoPage 제출", () => {
         gradeLabel: "고2",
         semester: 2,
         career: "수의예과",
+        area: "subject",
         subject: "생명과학",
+        activityName: null,
       },
     });
     expect(h.postAssets).toHaveBeenCalledWith({
@@ -282,6 +286,60 @@ describe("InfoPage 제출", () => {
     expect(h.navigate).toHaveBeenCalledWith("/app/inquiry/topics", {
       state: { startRecommend: true },
     });
+  });
+
+  test("자율을 고르면 과목명 없이 활동명을 선택으로 보내고 비워도 제출된다", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "자율" }));
+    expect(screen.queryByLabelText(/과목명/)).toBeNull();
+    addOneline();
+    fireEvent.click(SUBMIT());
+    await waitFor(() => expect(h.navigate).toHaveBeenCalled());
+    expect(h.postSession).toHaveBeenCalledWith({
+      action: "create",
+      info: {
+        gradeLabel: "고2",
+        semester: 2,
+        career: "수의예과",
+        area: "autonomy",
+        subject: null,
+        activityName: null,
+      },
+    });
+  });
+
+  test("활동명을 적으면 trim 해서 보낸다", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "동아리" }));
+    fireEvent.change(screen.getByLabelText(/활동명/), {
+      target: { value: " 천문 동아리 " },
+    });
+    addOneline();
+    fireEvent.click(SUBMIT());
+    await waitFor(() => expect(h.navigate).toHaveBeenCalled());
+    expect(h.postSession).toHaveBeenCalledWith({
+      action: "create",
+      info: expect.objectContaining({
+        area: "club",
+        subject: null,
+        activityName: "천문 동아리",
+      }),
+    });
+  });
+
+  test("열린 세션이 교과가 아니면 영역과 활동명이 복원된다", () => {
+    setShell(
+      bootstrap({
+        session: session({
+          area: "career",
+          subject: null,
+          activityName: "직업 체험",
+        }),
+      }),
+    );
+    renderPage();
+    expect(screen.getByRole("radio", { name: "진로" })).toBeChecked();
+    expect(screen.getByLabelText(/활동명/)).toHaveValue("직업 체험");
   });
 
   test("활동 0건 확인 뒤 예비 주제로 추천받기를 누르면 빈 자산으로 진행한다", async () => {

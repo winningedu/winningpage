@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, expectTypeOf, test } from "vitest";
+import * as serverTypes from "../../../api/_lib/inquiry/types";
 import type {
   ActivityFields,
   EvaluateRequest,
@@ -16,6 +17,7 @@ import type {
   SessionView,
   TopicView,
 } from "./types";
+import { AREA_LABELS, AREAS } from "./types";
 
 const SERVER = resolve(process.cwd(), "api/_lib/inquiry/types.ts");
 const CLIENT = resolve(process.cwd(), "src/lib/inquiry/types.ts");
@@ -34,6 +36,7 @@ const MIRRORED_UNIONS = [
   "ScreenStep",
   "GradeLabel",
   "Semester",
+  "Area",
   "Stage",
   "LinkKind",
   "LinkageType",
@@ -121,5 +124,18 @@ describe("P4 계약 타입", () => {
     >();
     expectTypeOf<GenerationFailureExtra>().toHaveProperty("attempts");
     expectTypeOf<SessionRequest>().toMatchTypeOf<{ action: string }>();
+  });
+});
+
+describe("제출 영역 상수", () => {
+  test("AREAS 와 AREA_LABELS 는 서버와 같다", () => {
+    expect(AREAS).toEqual(serverTypes.AREAS);
+    expect(AREA_LABELS).toEqual(serverTypes.AREA_LABELS);
+    expect(AREA_LABELS).toEqual({
+      subject: "교과",
+      autonomy: "자율",
+      club: "동아리",
+      career: "진로",
+    });
   });
 });

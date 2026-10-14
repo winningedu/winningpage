@@ -13,6 +13,18 @@ export type GradeLabel = "고1" | "고2" | "고3";
 
 export type Semester = 1 | 2;
 
+/** 제출 영역. subject 는 교과, 나머지는 창의적 체험활동 영역. 자기평가와 같은 네 값을 이 도메인이 따로 가진다. */
+export type Area = "subject" | "autonomy" | "club" | "career";
+
+export const AREAS: readonly Area[] = ["subject", "autonomy", "club", "career"];
+
+export const AREA_LABELS: Record<Area, string> = {
+  subject: "교과",
+  autonomy: "자율",
+  club: "동아리",
+  career: "진로",
+};
+
 /** 학년 단계(No.44). 씨앗, 개화, 만개. growth_reports.stage 와 같은 값. */
 export type Stage = "seed" | "flower" | "bloom";
 
@@ -320,7 +332,11 @@ export type SessionView = {
   gradeLabel: GradeLabel | null;
   semester: Semester | null;
   career: string | null;
+  area: Area;
+  /** 교과일 때만 값이 있다. */
   subject: string | null;
+  /** 교과가 아닐 때만 값이 있고 비어 있을 수 있다. */
+  activityName: string | null;
   growthReportId: string | null;
   planItemId: string | null;
   replyPending: boolean;
@@ -432,7 +448,9 @@ export type EvaluationView = EvaluationReport & {
 export type FinalizePreview = {
   summary: {
     topic: string;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     /** 출발 활동 요약과 연계 유형 라벨. */
     linkage: string;
     concepts: string[];
@@ -452,7 +470,9 @@ export type SessionInfo = {
   gradeLabel: GradeLabel;
   semester: Semester;
   career: string;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
 };
 
 export type SessionRequest =
@@ -509,7 +529,9 @@ export type ReportsList = {
   items: {
     sessionId: string;
     completedAt: string;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     topicTitle: string;
     linkKind: LinkKind;
     score: number;
@@ -518,13 +540,17 @@ export type ReportsList = {
   open: {
     sessionId: string;
     currentStep: ScreenStep;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     topicTitle: string | null;
     lastActivityAt: string;
   } | null;
   archived: {
     sessionId: string;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     topicTitle: string | null;
     lastActivityAt: string;
     terminal: { reason: string; mode: string } | null;

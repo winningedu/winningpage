@@ -13,7 +13,9 @@ const row = {
   grade_label: "고2",
   semester: 1,
   career: "의사",
-  subject: "물리",
+  area: "subject" as const,
+  subject: "물리" as string | null,
+  activity_name: null as string | null,
   growth_report_id: "g1",
   plan_item_id: "i1",
   selected_topic_id: "t1",
@@ -66,10 +68,26 @@ describe("planRecovery", () => {
       grade_label: "고2",
       semester: 1,
       career: "의사",
+      area: "subject",
       subject: "물리",
+      activity_name: null,
       growth_report_id: "g1",
       plan_item_id: "i1",
       last_activity_at: NOW,
+    });
+  });
+
+  it("교과가 아닌 세션은 영역과 활동명을 그대로 복구한다", () => {
+    const r = planRecovery(
+      { ...row, area: "club", subject: null, activity_name: "과학반" },
+      assets,
+      NOW,
+    );
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.session).toMatchObject({
+      area: "club",
+      subject: null,
+      activity_name: "과학반",
     });
   });
 

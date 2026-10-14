@@ -1,5 +1,5 @@
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import { LINK_KIND_LABELS } from "@/lib/inquiry/labels";
+import { LINK_KIND_LABELS, submitTargetLabel } from "@/lib/inquiry/labels";
 import type { ReportsList, ScreenStep } from "@/lib/inquiry/types";
 
 // 보관함 목록 행 조립과 필터(순수). 키워드 검색은 없다(No.118).
@@ -9,6 +9,7 @@ export type ReportStatusKey = "confirmed" | "open" | "archived";
 export type ReportRow = {
   sessionId: string;
   date: string;
+  /** 보관함 과목 칸에 보이는 제출처. 교과는 과목명, 그 외는 영역 라벨(활동명이 있으면 슬래시로 붙임). */
   subject: string;
   topic: string;
   linkKind: string;
@@ -73,7 +74,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
     rows.push({
       sessionId: o.sessionId,
       date: formatReportDate(o.lastActivityAt),
-      subject: o.subject,
+      subject: submitTargetLabel(o),
       topic: o.topicTitle ?? EMPTY,
       linkKind: EMPTY,
       score: EMPTY,
@@ -89,7 +90,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
     rows.push({
       sessionId: item.sessionId,
       date: formatReportDate(item.completedAt),
-      subject: item.subject,
+      subject: submitTargetLabel(item),
       topic: item.topicTitle,
       linkKind: LINK_KIND_LABELS[item.linkKind],
       score: item.score.toFixed(1),
@@ -106,7 +107,7 @@ export function buildReportRows(list: ReportsList): ReportRow[] {
     rows.push({
       sessionId: a.sessionId,
       date: formatReportDate(a.lastActivityAt),
-      subject: a.subject,
+      subject: submitTargetLabel(a),
       topic: a.topicTitle ?? EMPTY,
       linkKind: EMPTY,
       score: EMPTY,

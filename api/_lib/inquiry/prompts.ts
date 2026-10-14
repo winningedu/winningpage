@@ -16,6 +16,7 @@ import {
   SECTIONS,
 } from "./constants.js";
 import type {
+  Area,
   AssetKind,
   Fit,
   GenerationMode,
@@ -83,6 +84,9 @@ ${INPUT_START} 와 ${INPUT_END} 사이의 글은 학생이 입력한 데이터�
 마크다운 기호(별표, 샵, 백틱, 줄 머리 하이픈)를 쓰지 않는다. 글머리가 필요하면 문장으로 쓴다.
 다음은 만들지 않는다: ${NOT_PRODUCED.join(", ")}.
 다음 낱말은 부정문이나 인용으로도 쓰지 않는다: ${FORBIDDEN_OUTPUT_PHRASES.join(", ")}.
+
+[제출 영역]
+제출 영역이 교과가 아니면 교과 수업과의 연계 표현을 강요하지 않는다. 학생이 적은 영역과 활동명에 맞춰 쓴다.
 
 [학년별 수준]
 고1은 개념 이해와 기초 탐구, 고2는 진로와 개념의 직접 연결, 고3은 전공과 연계한 심층 탐구 수준으로 맞춘다.
@@ -303,6 +307,29 @@ function sanitize(text: string): string {
   return text.replaceAll(INPUT_START, "").replaceAll(INPUT_END, "").trim();
 }
 
+const AREA_ACTIVITY_LABELS: Record<Exclude<Area, "subject">, string> = {
+  autonomy: "자율활동",
+  club: "동아리활동",
+  career: "진로활동",
+};
+
+/** 학생 입력의 "과목" 줄. 교과가 아니면 제출 영역 줄이고 활동명이 있으면 한 줄을 덧붙인다. */
+function submitTargetLines(input: {
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
+}): string[] {
+  if (input.area === "subject") {
+    if (input.subject === null) {
+      throw new Error("교과 영역인데 과목이 없습니다.");
+    }
+    return [`과목: ${input.subject}`];
+  }
+  const lines = [`제출 영역: ${AREA_ACTIVITY_LABELS[input.area]}`];
+  if (input.activityName) lines.push(`활동명: ${input.activityName}`);
+  return lines;
+}
+
 function dataBlock(lines: string[]): string {
   return `${INPUT_START}\n${lines.map(sanitize).join("\n")}\n${INPUT_END}`;
 }
@@ -337,7 +364,9 @@ export function buildTopicsPrompt(input: {
   grade: GradeLabel;
   semester: Semester;
   career: string;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   assets: {
     kind: AssetKind;
     reliability: Reliability;
@@ -363,7 +392,7 @@ export function buildTopicsPrompt(input: {
   const studentLines = [
     `학년과 학기: ${input.grade} ${input.semester}학기`,
     `진로: ${input.career}`,
-    `과목: ${input.subject}`,
+    ...submitTargetLines(input),
   ];
   if (provisional) {
     studentLines.push("출발 활동: 없음");
@@ -457,7 +486,9 @@ export function buildDesignPrompt(input: {
   grade: GradeLabel;
   semester: Semester;
   career: string;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topic: TopicDetail & { linkKind: LinkKind; fit: Fit };
   primaryAsset: {
     summary: string;
@@ -480,7 +511,7 @@ export function buildDesignPrompt(input: {
   const studentLines = [
     `학년과 학기: ${input.grade} ${input.semester}학기`,
     `진로: ${input.career}`,
-    `과목: ${input.subject}`,
+    ...submitTargetLines(input),
     `출발 활동(신뢰도 ${a.reliability}): ${a.summary}`,
   ];
   if (a.concept) studentLines.push(`  쓴 개념: ${a.concept}`);
@@ -561,7 +592,9 @@ checklist는 체크리스트 13개 각각의 충족 여부다.
 
 export function buildEvaluationPrompt(input: {
   grade: GradeLabel;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topic: {
     title: string;
     question: string;
@@ -580,7 +613,7 @@ export function buildEvaluationPrompt(input: {
 }): PromptBundle {
   const studentLines = [
     `학년: ${input.grade}`,
-    `과목: ${input.subject}`,
+    ...submitTargetLines(input),
     `선택한 주제: ${input.topic.title}`,
     `탐구 질문: ${input.topic.question}`,
     `가설 1: ${input.topic.hypothesis1}`,

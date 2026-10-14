@@ -34,7 +34,9 @@ const sessionRow = (over: Partial<SessionRow> = {}): SessionRow => ({
   grade_label: "고2",
   semester: 1,
   career: "의사",
+  area: "subject",
   subject: "생명과학",
+  activity_name: null,
   growth_report_id: null,
   plan_item_id: null,
   reply_pending: false,
@@ -63,7 +65,9 @@ describe("toSessionView", () => {
       gradeLabel: "고2",
       semester: 1,
       career: "의사",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       growthReportId: null,
       planItemId: null,
       replyPending: false,
@@ -410,7 +414,9 @@ describe("buildFinalizePreview", () => {
   );
   const base = {
     topic: toTopicView(designTopic()),
+    area: "subject" as const,
     subject: "생명과학",
+    activityName: null,
     primaryAsset: toAssetView(baseAsset, new Map([["r1", "미생물 배양"]])),
     evaluation,
     planItemTitle: null,
@@ -429,7 +435,9 @@ describe("buildFinalizePreview", () => {
     });
     expect(preview.summary).toEqual({
       topic: "제목",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       linkage: "미생물 배양 (후속형)",
       concepts: ["삼투압", "확산"],
       limitation: "한계가 있다.",
@@ -494,12 +502,42 @@ describe("보관함 목록 항목", () => {
     expect(item).toEqual({
       sessionId: "s1",
       completedAt: "2026-10-05T00:00:00.000Z",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       topicTitle: "제목",
       linkKind: "followup",
       score: 91,
       label: "ready_with_minor_edits",
     });
+  });
+
+  it("교과가 아닌 세션은 영역과 활동명을 싣고 과목은 null 이다", () => {
+    const row = sessionRow({
+      status: "completed",
+      completed_at: "2026-10-05T00:00:00.000Z",
+      area: "club",
+      subject: null,
+      activity_name: "과학반",
+    });
+    expect(toReportsListItem(row, topic, evalRow)).toMatchObject({
+      area: "club",
+      subject: null,
+      activityName: "과학반",
+    });
+    expect(toOpenItem(row, 1, null)).toMatchObject({
+      area: "club",
+      subject: null,
+      activityName: "과학반",
+    });
+    expect(toArchivedItem(row, null)).toMatchObject({
+      area: "club",
+      subject: null,
+      activityName: "과학반",
+    });
+    expect(
+      toSessionView(row, { hasTopics: false, hasSubmissionDraft: false }),
+    ).toMatchObject({ area: "club", subject: null, activityName: "과학반" });
   });
 
   it("주제나 평가가 없으면 null 을 돌려 호출부가 거른다", () => {
@@ -515,7 +553,9 @@ describe("보관함 목록 항목", () => {
     expect(toOpenItem(sessionRow(), 2, "제목")).toEqual({
       sessionId: "s1",
       currentStep: 2,
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       topicTitle: "제목",
       lastActivityAt: "2026-10-01T00:00:00.000Z",
     });
@@ -534,7 +574,9 @@ describe("보관함 목록 항목", () => {
       ),
     ).toEqual({
       sessionId: "s1",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       topicTitle: null,
       lastActivityAt: "2026-10-01T00:00:00.000Z",
       terminal: { reason: "attempts", mode: "design_report" },

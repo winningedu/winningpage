@@ -26,6 +26,7 @@ import {
 } from "./submission.js";
 import type {
   ActivityFields,
+  Area,
   AssetKind,
   DesignReport,
   EvaluationReport,
@@ -51,7 +52,9 @@ export type SessionRow = {
   grade_label: string | null;
   semester: number | null;
   career: string | null;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activity_name: string | null;
   growth_report_id: string | null;
   plan_item_id: string | null;
   reply_pending: boolean;
@@ -73,7 +76,9 @@ export type SessionView = {
   gradeLabel: string | null;
   semester: number | null;
   career: string | null;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   growthReportId: string | null;
   planItemId: string | null;
   replyPending: boolean;
@@ -107,7 +112,9 @@ export function toSessionView(
     gradeLabel: row.grade_label,
     semester: row.semester,
     career: row.career,
+    area: row.area,
     subject: row.subject,
+    activityName: row.activity_name,
     growthReportId: row.growth_report_id,
     planItemId: row.plan_item_id,
     replyPending: row.reply_pending,
@@ -361,7 +368,9 @@ export function toEvaluationView(
 export type FinalizePreview = {
   summary: {
     topic: string;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     /** 출발 활동 요약과 연계 유형 라벨. */
     linkage: string;
     concepts: string[];
@@ -377,7 +386,9 @@ export type FinalizePreview = {
 /** 확정 화면 미리보기. 7항목은 작성본에서 뽑고 빈 항목은 missing 으로 알린다. */
 export function buildFinalizePreview(input: {
   topic: TopicView;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   primaryAsset: AssetView | null;
   evaluation: EvaluationView;
   planItemTitle: string | null;
@@ -394,7 +405,9 @@ export function buildFinalizePreview(input: {
   return {
     summary: {
       topic: topic.detail.title,
+      area: input.area,
       subject: input.subject,
+      activityName: input.activityName,
       linkage: `${start} (${LINK_KIND_LABELS[topic.linkKind]})`,
       concepts: input.concepts,
       limitation: fields.limitation,
@@ -410,7 +423,9 @@ export function buildFinalizePreview(input: {
 export type ReportsListItem = {
   sessionId: string;
   completedAt: string;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topicTitle: string;
   linkKind: LinkKind;
   score: number;
@@ -429,7 +444,9 @@ export function toReportsListItem(
   return {
     sessionId: session.id,
     completedAt: session.completed_at,
+    area: session.area,
     subject: session.subject,
+    activityName: session.activity_name,
     topicTitle: view.detail.title,
     linkKind: view.linkKind,
     score: evaluation.score ?? body.total,
@@ -440,7 +457,9 @@ export function toReportsListItem(
 export type OpenItem = {
   sessionId: string;
   currentStep: ScreenStep;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topicTitle: string | null;
   lastActivityAt: string;
 };
@@ -453,7 +472,9 @@ export function toOpenItem(
   return {
     sessionId: session.id,
     currentStep,
+    area: session.area,
     subject: session.subject,
+    activityName: session.activity_name,
     topicTitle,
     lastActivityAt: session.last_activity_at,
   };
@@ -461,7 +482,9 @@ export function toOpenItem(
 
 export type ArchivedItem = {
   sessionId: string;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topicTitle: string | null;
   lastActivityAt: string;
   terminal: { reason: string; mode: string } | null;
@@ -474,7 +497,9 @@ export function toArchivedItem(
   const { terminal } = parseGenerationState(session.generation_state);
   return {
     sessionId: session.id,
+    area: session.area,
     subject: session.subject,
+    activityName: session.activity_name,
     topicTitle,
     lastActivityAt: session.last_activity_at,
     terminal: terminal

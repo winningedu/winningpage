@@ -3278,6 +3278,8 @@ export type Database = {
       };
       inquiry_sessions: {
         Row: {
+          activity_name: string | null;
+          area: string;
           career: string | null;
           completed_at: string | null;
           created_at: string;
@@ -3299,12 +3301,14 @@ export type Database = {
           selected_topic_id: string | null;
           semester: number | null;
           status: string;
-          subject: string;
+          subject: string | null;
           topic_round_count: number;
           updated_at: string;
         };
         ComputedFields: never;
         Insert: {
+          activity_name?: string | null;
+          area?: string;
           career?: string | null;
           completed_at?: string | null;
           created_at?: string;
@@ -3326,11 +3330,13 @@ export type Database = {
           selected_topic_id?: string | null;
           semester?: number | null;
           status?: string;
-          subject: string;
+          subject?: string | null;
           topic_round_count?: number;
           updated_at?: string;
         };
         Update: {
+          activity_name?: string | null;
+          area?: string;
           career?: string | null;
           completed_at?: string | null;
           created_at?: string;
@@ -3352,7 +3358,7 @@ export type Database = {
           selected_topic_id?: string | null;
           semester?: number | null;
           status?: string;
-          subject?: string;
+          subject?: string | null;
           topic_round_count?: number;
           updated_at?: string;
         };

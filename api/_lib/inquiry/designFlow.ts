@@ -141,7 +141,9 @@ export function buildDesignInput(args: {
     grade: args.info.gradeLabel,
     semester: args.info.semester,
     career: args.info.career,
+    area: args.info.area,
     subject: args.info.subject,
+    activityName: args.info.activityName,
     topic: {
       ...args.topic.detail,
       linkKind: args.topic.linkKind,

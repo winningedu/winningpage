@@ -22,7 +22,9 @@ function sessionRow(over: Partial<SessionRow> = {}): SessionRow {
     grade_label: "고2",
     semester: 1,
     career: "의사",
+    area: "subject",
     subject: "생명과학",
+    activity_name: null,
     growth_report_id: null,
     plan_item_id: null,
     reply_pending: false,
@@ -160,6 +162,12 @@ describe("precheckDesign", () => {
     });
   });
 
+  it("교과가 아닌 세션은 과목이 없어도 통과한다", () => {
+    expect(
+      precheckDesign(sessionRow({ area: "career", subject: null }), TID),
+    ).toMatchObject({ ok: true, info: { area: "career", subject: null } });
+  });
+
   it("닫힌 세션이면 막는다", () => {
     expect(
       precheckDesign(sessionRow({ status: "completed" }), TID),
@@ -182,7 +190,9 @@ describe("buildDesignInput", () => {
     gradeLabel: "고2" as const,
     semester: 1 as const,
     career: "의사",
+    area: "subject" as const,
     subject: "생명과학",
+    activityName: null,
   };
 
   it("기본 출발 활동(position 최소)의 신뢰도와 재료를 쓴다", () => {
@@ -217,6 +227,27 @@ describe("buildDesignInput", () => {
     });
     expect(input.grade).toBe("고2");
     expect(input.handoff).toBeNull();
+  });
+
+  it("제출 영역과 활동명을 프롬프트 입력에 그대로 싣는다", () => {
+    const input = buildDesignInput({
+      info: {
+        ...info,
+        area: "autonomy",
+        subject: null,
+        activityName: "학급 회의",
+      },
+      topic,
+      assets: [asset()],
+      records: [record],
+      handoff: null,
+      planItemId: null,
+    });
+    expect(input).toMatchObject({
+      area: "autonomy",
+      subject: null,
+      activityName: "학급 회의",
+    });
   });
 
   it("기본 활동을 뺀 나머지 출발 활동을 position 순서로 넘기고 요약 없는 활동은 뺀다", () => {

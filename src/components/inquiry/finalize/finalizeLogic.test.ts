@@ -13,7 +13,9 @@ function preview(over: Partial<FinalizePreview> = {}): FinalizePreview {
   return {
     summary: {
       topic: "축종별 스트레스지수 기준은 실제 폭염 피해와 일치하는가",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       linkage: "여름철 팬팅 탐구 (비판형)",
       concepts: ["온습도지수", "폐사율"],
       limitation: "표본이 적어요",
@@ -34,6 +36,23 @@ function preview(over: Partial<FinalizePreview> = {}): FinalizePreview {
     ...over,
   };
 }
+
+describe("buildSummaryRows 영역", () => {
+  test("교과는 교과와 과목명, 그 외는 영역 라벨과 활동명을 보여 준다", () => {
+    const base = preview();
+    const area = (over: Partial<FinalizePreview["summary"]>) =>
+      buildSummaryRows({ ...base, summary: { ...base.summary, ...over } }).find(
+        (r) => r.key === "area",
+      )?.value;
+    expect(area({})).toBe("교과, 생명과학");
+    expect(
+      area({ area: "club", subject: null, activityName: "천문 동아리" }),
+    ).toBe("동아리, 천문 동아리");
+    expect(area({ area: "career", subject: null, activityName: null })).toBe(
+      "진로",
+    );
+  });
+});
 
 describe("buildSummaryRows", () => {
   test("6항목을 순서대로 만든다", () => {

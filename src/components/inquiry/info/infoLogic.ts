@@ -3,6 +3,7 @@
 import { GENERIC_ERROR_MESSAGE } from "@/lib/inquiry/apiResult";
 import { STAGE_LABELS } from "@/lib/inquiry/labels";
 import type {
+  Area,
   AssetInput,
   AssetView,
   GradeLabel,
@@ -23,7 +24,9 @@ export type InfoForm = {
   gradeLabel: GradeLabel | null;
   semester: Semester | null;
   career: string;
+  area: Area;
   subject: string;
+  activityName: string;
 };
 
 export type InfoFormErrors = Partial<Record<keyof InfoForm, string>>;
@@ -40,15 +43,19 @@ function textError(value: string, emptyMessage: string): string | null {
   return null;
 }
 
-/** 진로, 과목명 필수(No.147, 148). 값은 trim 해서 돌려준다. */
+/** 진로 필수, 교과면 과목명 필수(No.147, 148). 교과가 아니면 활동명은 선택이다. 값은 trim 해서 돌려준다. */
 export function validateInfoForm(form: InfoForm): InfoValidation {
   const errors: InfoFormErrors = {};
   if (form.gradeLabel === null) errors.gradeLabel = "학년을 선택해 주세요.";
   if (form.semester === null) errors.semester = "학기를 선택해 주세요.";
   const careerError = textError(form.career, "희망 진로를 적어 주세요.");
   if (careerError) errors.career = careerError;
-  const subjectError = textError(form.subject, "과목명을 적어 주세요.");
-  if (subjectError) errors.subject = subjectError;
+  if (form.area === "subject") {
+    const subjectError = textError(form.subject, "과목명을 적어 주세요.");
+    if (subjectError) errors.subject = subjectError;
+  } else if (form.activityName.trim().length > FIELD_MAX_CHARS) {
+    errors.activityName = `${FIELD_MAX_CHARS}자 안으로 적어 주세요.`;
+  }
 
   if (
     Object.keys(errors).length > 0 ||
@@ -63,7 +70,10 @@ export function validateInfoForm(form: InfoForm): InfoValidation {
       gradeLabel: form.gradeLabel,
       semester: form.semester,
       career: form.career.trim(),
-      subject: form.subject.trim(),
+      area: form.area,
+      subject: form.area === "subject" ? form.subject.trim() : null,
+      activityName:
+        form.area === "subject" ? null : form.activityName.trim() || null,
     },
   };
 }
@@ -75,7 +85,7 @@ export function initialForm({
 }: {
   session: Pick<
     SessionView,
-    "gradeLabel" | "semester" | "career" | "subject"
+    "gradeLabel" | "semester" | "career" | "area" | "subject" | "activityName"
   > | null;
   profile: {
     gradeLabel: GradeLabel | null;
@@ -87,7 +97,9 @@ export function initialForm({
     gradeLabel: session?.gradeLabel ?? profile?.gradeLabel ?? null,
     semester: session?.semester ?? profile?.semester ?? null,
     career: session?.career ?? profile?.career ?? "",
+    area: session?.area ?? "subject",
     subject: session?.subject ?? "",
+    activityName: session?.activityName ?? "",
   };
 }
 
@@ -293,6 +305,7 @@ const isBlank = (value: string | null | undefined): boolean =>
 export function localWarnings(
   list: LocalAsset[],
   records: RecordCandidate[],
+  area: Area,
 ): string[] {
   const byId = new Map(records.map((r) => [r.id, r]));
   const selected: RecordCandidate[] = [];
@@ -303,6 +316,7 @@ export function localWarnings(
   }
   const warnings: string[] = [];
   if (
+    area === "subject" &&
     selected.length > 0 &&
     !selected.some((r) => r.subjectGroup === SUBJECT_GROUP)
   ) {
@@ -397,14 +411,19 @@ export type SubmitDecision =
   | { kind: "proceed"; createSession: boolean };
 
 function sameInfo(
-  session: Pick<SessionView, "gradeLabel" | "semester" | "career" | "subject">,
+  session: Pick<
+    SessionView,
+    "gradeLabel" | "semester" | "career" | "area" | "subject" | "activityName"
+  >,
   info: SessionInfo,
 ): boolean {
   return (
     session.gradeLabel === info.gradeLabel &&
     session.semester === info.semester &&
     session.career === info.career &&
-    session.subject === info.subject
+    session.area === info.area &&
+    session.subject === info.subject &&
+    session.activityName === info.activityName
   );
 }
 

@@ -2,11 +2,12 @@
 //
 // 복구는 새 세션을 만든다. 종결된 원본(archived + generation_state.terminal)은 건드리지 않고
 // generation_state.recoveredTo 에 새 세션 id 만 남긴다. 새 세션은 draft, current_step 1 이다.
-// 정보 입력 값(학년, 학기, 진로, 과목, 성장설계 연결)과 자산만 복사하고 주제, 설계, 작성본은
+// 정보 입력 값(학년, 학기, 진로, 제출 영역, 과목, 활동명, 성장설계 연결)과 자산만 복사하고 주제, 설계, 작성본은
 // 복사하지 않는다(주제 추천부터 다시).
 //
 // 차감: 원본은 종결 때 차감이 되돌려졌다. 새 세션은 ledger_id 가 없는 draft 라 첫 주제 추천
 // 성공 시점에 다시 차감된다. 복구 자체는 차감하지 않는다.
+import type { Area } from "../types.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,7 +31,9 @@ export type RecoverSourceRow = {
   grade_label: string | null;
   semester: number | null;
   career: string | null;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activity_name: string | null;
   growth_report_id: string | null;
   plan_item_id: string | null;
   generation_state: unknown;
@@ -53,7 +56,9 @@ export type NewSessionRow = {
   grade_label: string | null;
   semester: number | null;
   career: string | null;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activity_name: string | null;
   growth_report_id: string | null;
   plan_item_id: string | null;
   last_activity_at: string;
@@ -96,7 +101,9 @@ export function planRecovery(
       grade_label: row.grade_label,
       semester: row.semester,
       career: row.career,
+      area: row.area,
       subject: row.subject,
+      activity_name: row.activity_name,
       growth_report_id: row.growth_report_id,
       plan_item_id: row.plan_item_id,
       last_activity_at: nowIso,

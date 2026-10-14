@@ -1,6 +1,7 @@
 // 화면 라벨 상수. 값은 api/_lib/inquiry/constants.ts 의 같은 이름 상수와 글자 그대로 같다.
 // src 에서 api/ 를 import 하지 않으므로 복사해 두고, labels.test.ts 가 서버 상수와 대조한다.
 // 서버 쪽 문구를 바꾸면 이 파일도 같이 바꾼다(테스트가 어긋남을 잡는다).
+
 import type {
   CoreErrorId,
   Fit,
@@ -11,6 +12,7 @@ import type {
   Stage,
   SubmissionLabel,
 } from "./types";
+import { AREA_LABELS, type Area } from "./types";
 
 export const LINK_KIND_LABELS: Record<LinkKind, string> = {
   followup: "후속형",
@@ -18,6 +20,17 @@ export const LINK_KIND_LABELS: Record<LinkKind, string> = {
   critique: "비판형",
   extension: "확장형",
 };
+
+/** 보관함 등 한 칸에 제출처를 보일 때 쓴다. 교과는 과목명, 그 외는 영역 라벨이고 활동명이 있으면 슬래시로 붙인다. */
+export function submitTargetLabel(target: {
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
+}): string {
+  if (target.area === "subject") return target.subject ?? "";
+  const label = AREA_LABELS[target.area];
+  return target.activityName ? `${label} / ${target.activityName}` : label;
+}
 
 export const FIT_LABELS: Record<Fit, string> = {
   match: "맞음",
