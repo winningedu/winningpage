@@ -176,14 +176,18 @@ export function pickPlanItem(candidates: GrowthPlanItemRef[]): PlanPick {
   return { mode: "choose", items: candidates };
 }
 
-/** 성장설계 방향 문장에 이 과목이 전혀 안 나오고 연결된 계획 항목도 없으면 불일치(§2 27). */
+/**
+ * 성장설계 방향 문장에 이 과목(비교과는 활동명)이 전혀 안 나오고 연결된 계획 항목도 없으면 불일치(§2 27).
+ * 비교과는 과목이 없으므로 영역 라벨 대신 활동명으로만 비교한다.
+ */
 export function directionMismatch(
   snapshot: GrowthSnapshot,
   ctx: MatchCtx,
   planCandidates: GrowthPlanItemRef[],
 ): boolean {
   if (planCandidates.length > 0) return false;
-  const keys = extractKeywords(ctx.subject ?? AREA_LABELS[ctx.area]);
+  const target = ctx.area === "subject" ? ctx.subject : ctx.activityName;
+  const keys = extractKeywords(target ?? "");
   // 비교할 낱말이 없으면 불일치라고 단정하지 않는다.
   if (keys.length === 0) return false;
   const direction = [

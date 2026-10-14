@@ -191,14 +191,27 @@ describe("directionMismatch", () => {
   it("계획 후보가 있으면 false", () => {
     expect(directionMismatch(snap(), ctx, [item()])).toBe(false);
   });
-  it("과목이 없으면 영역 라벨로 본다", () => {
-    expect(
-      directionMismatch(
-        snap({ narrativeTheme: "동아리 리더십" }),
-        { area: "club", subject: null, activityName: null },
-        [],
-      ),
-    ).toBe(false);
+  describe.each([
+    ["autonomy", "자율"],
+    ["club", "동아리"],
+    ["career", "진로"],
+  ] as const)("비교과 %s 영역(%s)", (area) => {
+    const base = { area, subject: null };
+    it("활동명이 없으면 영역 라벨로 비교하지 않고 false", () => {
+      expect(
+        directionMismatch(snap(), { ...base, activityName: null }, []),
+      ).toBe(false);
+    });
+    it("활동명 낱말이 방향 문장에 있으면 false", () => {
+      expect(
+        directionMismatch(snap(), { ...base, activityName: "통계 탐구반" }, []),
+      ).toBe(false);
+    });
+    it("활동명 낱말이 방향에 없고 계획 항목도 없으면 true", () => {
+      expect(
+        directionMismatch(snap(), { ...base, activityName: "로봇 제작" }, []),
+      ).toBe(true);
+    });
   });
 });
 

@@ -465,6 +465,21 @@ describe("방향 어긋남과 과제", () => {
     ).toBeNull();
   });
 
+  test("비교과 영역이면 경고 카드가 이번 활동 기준으로 안내한다", async () => {
+    detailMock.mockResolvedValue(
+      sessionDetail({ area: "club", subject: null, activityName: "코딩반" }),
+    );
+    pickListMock.mockResolvedValue(
+      pickResponse({ direction: { mismatch: true } }),
+    );
+    renderPage();
+    await ready();
+    expect(
+      screen.getByText("성장설계 방향이 이번 활동과 어긋나요"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/이번 과목/)).toBeNull();
+  });
+
   test("방향 해제는 세션의 연동을 끄고 목록을 다시 불러온다", async () => {
     pickListMock.mockResolvedValue(
       pickResponse({ direction: { mismatch: true } }),
