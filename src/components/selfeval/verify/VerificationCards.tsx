@@ -1,5 +1,6 @@
 import { Check, TriangleAlert } from "lucide-react";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
+import { Button } from "@/components/ui/button";
 import type { VerificationSections } from "@/lib/selfeval/types";
 import { discriminationLabel } from "./verifyLogic";
 
@@ -22,8 +23,13 @@ function PassMark({ pass }: { pass: boolean }) {
 
 export function MandatoryFixesCard({
   sections,
+  pendingSentences,
+  onEdit,
 }: {
   sections: VerificationSections;
+  /** 아직 확인하지 않은 느낌 문장 본문. 비어 있으면 목록을 그리지 않는다. */
+  pendingSentences: string[];
+  onEdit: () => void;
 }) {
   if (sections.mandatoryFixes.length === 0) return null;
   return (
@@ -46,9 +52,28 @@ export function MandatoryFixesCard({
                 걸린 표현: {sections.clicheHits.join(", ")}
               </p>
             )}
+            {fix.key === "pending_feelings" && pendingSentences.length > 0 && (
+              <ul
+                aria-label="확인이 필요한 문장"
+                className="mt-1 flex list-disc flex-col gap-0.5 pl-5 text-ink-sub"
+              >
+                {pendingSentences.map((text) => (
+                  <li key={text}>{text}</li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
       </ul>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="mt-4 h-10 text-app-label font-medium"
+        onClick={onEdit}
+      >
+        작성 화면에서 고치기
+      </Button>
     </section>
   );
 }
