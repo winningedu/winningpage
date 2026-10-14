@@ -192,10 +192,10 @@ describe("directionMismatch", () => {
     expect(directionMismatch(snap(), ctx, [item()])).toBe(false);
   });
   describe.each([
-    ["autonomy", "자율"],
-    ["club", "동아리"],
-    ["career", "진로"],
-  ] as const)("비교과 %s 영역(%s)", (area) => {
+    { area: "autonomy", label: "자율" },
+    { area: "club", label: "동아리" },
+    { area: "career", label: "진로" },
+  ] as const)("비교과 $area 영역($label)", ({ area }) => {
     const base = { area, subject: null };
     it("활동명이 없으면 영역 라벨로 비교하지 않고 false", () => {
       expect(
