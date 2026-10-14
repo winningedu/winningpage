@@ -80,7 +80,11 @@ export default function WritePage() {
         drawerOpen && DRAWER_GUTTER_CLASS,
       )}
       actions={
-        <DesignReportButton onClick={toggleDrawer} disabled={!reportReady} />
+        <DesignReportButton
+          onClick={toggleDrawer}
+          expanded={drawerOpen}
+          disabled={!reportReady}
+        />
       }
     >
       <WriteContent
@@ -98,13 +102,20 @@ type DrawerControl = {
   onToggleDrawer: () => void;
 };
 
+// 서랍(28rem)은 화면 오른쪽에 붙고 본문 안쪽 오른쪽 패딩(3rem)이 이미 비어 있다.
+// 그래서 폼이 비울 폭은 25rem 이고, 컨테이너(83.75rem) 오른쪽 바깥 여백이 있으면 그만큼 더 줄인다.
+const FORM_DRAWER_GUTTER_CLASS =
+  "xl:pr-[max(0rem,calc(25rem-max(0rem,100vw-101.75rem)))]";
+
 const DISABLED_REASON_ID = "design-report-disabled-reason";
 
 function DesignReportButton({
   onClick,
+  expanded,
   disabled = false,
 }: {
   onClick: () => void;
+  expanded: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -115,6 +126,7 @@ function DesignReportButton({
         size="lg"
         className="h-10 px-5 text-app-label"
         disabled={disabled}
+        aria-expanded={expanded}
         aria-describedby={disabled ? DISABLED_REASON_ID : undefined}
         onClick={onClick}
       >
@@ -375,9 +387,11 @@ function WriteForm({
   return (
     <div
       className={cn(
-        "grid grid-cols-1 items-start gap-6 xl:grid-cols-[1fr_19rem]",
-        // xl 이상의 서랍은 폼 위에 겹쳐 뜨므로, 열려 있는 동안 서랍 폭만큼 비워 둔다.
-        drawerOpen && DRAWER_GUTTER_CLASS,
+        "grid grid-cols-1 items-start gap-6",
+        // 서랍이 열린 동안에는 xl 에서도 도우미 열을 접어 작성 칸이 좁아지지 않게 한다.
+        drawerOpen
+          ? cn("xl:grid-cols-1", FORM_DRAWER_GUTTER_CLASS)
+          : "xl:grid-cols-[1fr_19rem]",
       )}
     >
       <div className="flex min-w-0 flex-col gap-4">
@@ -453,7 +467,7 @@ function WriteForm({
           <p role="status" className="text-app-caption text-ink-sub">
             {saveStatusText({ savedAt, justSaved })}
           </p>
-          <DesignReportButton onClick={onToggleDrawer} />
+          <DesignReportButton onClick={onToggleDrawer} expanded={drawerOpen} />
           <Button
             type="button"
             variant="outline"
@@ -476,7 +490,10 @@ function WriteForm({
         </div>
       </div>
 
-      <aside aria-label="작성 도우미" className="xl:sticky xl:top-4">
+      <aside
+        aria-label="작성 도우미"
+        className={cn("xl:sticky xl:top-4", drawerOpen && "xl:hidden")}
+      >
         <SidePanels design={design} />
       </aside>
 
