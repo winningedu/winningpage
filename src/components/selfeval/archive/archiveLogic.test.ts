@@ -50,12 +50,19 @@ describe("sessionState", () => {
 });
 
 describe("archiveTitle", () => {
-  test("과목, 없으면 활동명, 둘 다 없으면 이름 없이 자기평가서만", () => {
+  test("과목, 없으면 활동명, 둘 다 없으면 영역 라벨로 만든다", () => {
     expect(archiveTitle(item())).toBe("수학 자기평가서");
-    expect(archiveTitle(item({ subject: null }))).toBe("설문 분석 자기평가서");
-    expect(archiveTitle(item({ subject: null, activityName: null }))).toBe(
-      "자기평가서",
+    expect(archiveTitle(item({ subject: null, area: "club" }))).toBe(
+      "설문 분석 자기평가서",
     );
+    expect(
+      archiveTitle(
+        item({ subject: null, activityName: null, area: "autonomy" }),
+      ),
+    ).toBe("자율 자기평가서");
+    expect(
+      archiveTitle(item({ subject: null, activityName: " ", area: "career" })),
+    ).toBe("진로 자기평가서");
   });
 });
 

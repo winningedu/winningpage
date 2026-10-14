@@ -32,9 +32,10 @@ export function sessionState(item: SessionListItem): SessionState {
 }
 
 export function archiveTitle(
-  item: Pick<SessionListItem, "subject" | "activityName">,
+  item: Pick<SessionListItem, "subject" | "activityName" | "area">,
 ): string {
-  const name = item.subject?.trim() || item.activityName?.trim() || "";
+  const areaLabel = item.area ? AREA_LABELS[item.area] : "";
+  const name = item.subject?.trim() || item.activityName?.trim() || areaLabel;
   return name === "" ? "자기평가서" : `${name} 자기평가서`;
 }
 

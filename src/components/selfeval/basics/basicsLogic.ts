@@ -127,10 +127,8 @@ export function validateBasics(form: BasicsForm): BasicsErrors {
   }
   if (form.gradeLabel === "") errors.gradeLabel = "학년을 선택해 주세요.";
   if (form.semester === "") errors.semester = "학기를 선택해 주세요.";
-  if (form.area === "subject") {
-    if (form.subject.trim() === "") errors.subject = "과목명을 입력해 주세요.";
-  } else if (form.activityName.trim() === "") {
-    errors.activityName = "활동명을 입력해 주세요.";
+  if (form.area === "subject" && form.subject.trim() === "") {
+    errors.subject = "과목명을 입력해 주세요.";
   }
   if (form.schoolPrompt.trim() === "") {
     errors.schoolPrompt = "학교에서 받은 문항을 입력해 주세요.";

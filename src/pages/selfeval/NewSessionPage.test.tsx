@@ -218,7 +218,7 @@ describe("NewSessionPage 화면", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "동아리" }));
     expect(screen.queryByLabelText("과목명")).toBeNull();
-    expect(screen.getByLabelText("활동명")).toBeTruthy();
+    expect(screen.getByLabelText("활동명 (선택)")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "동아리" })
@@ -257,14 +257,19 @@ describe("검증", () => {
     expect(saveProfileMock).not.toHaveBeenCalled();
   });
 
-  test("창체 영역은 활동명이 비면 활동명 오류를 보인다", () => {
+  test("창체 영역은 활동명이 비어도 오류 없이 생성을 요청한다", async () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "자율" }));
     fireEvent.change(screen.getByLabelText("학교 문항 전문"), {
       target: { value: "문항" },
     });
     submit();
-    expect(screen.getByText("활동명을 입력해 주세요.")).toBeTruthy();
+    expect(screen.queryByText("활동명을 입력해 주세요.")).toBeNull();
+    await waitFor(() => expect(createMock).toHaveBeenCalled());
+    expect(createMock.mock.calls[0]?.[0]).toMatchObject({
+      area: "autonomy",
+      activityName: null,
+    });
   });
 });
 

@@ -163,7 +163,7 @@ export default function BasicsForm({
             ) : (
               <Field
                 id={id("activity")}
-                label="활동명"
+                label="활동명 (선택)"
                 error={errors.activityName}
               >
                 <Input
