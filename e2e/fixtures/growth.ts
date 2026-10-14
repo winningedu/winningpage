@@ -161,14 +161,48 @@ export async function cleanupGrowthE2eData(): Promise<void> {
   }
 
   if (e2eRecordIds.size > 0) {
-    check(
-      "E2E 활동 기록 삭제",
+    // 자기평가서 세션 연결(selfeval_session_activities)은 on delete restrict 라 먼저 끊는다.
+    // 완료 세션이 참조하는 기록은 보관함 다시 보기가 쓰므로 남긴다.
+    const unfinished = check(
+      "미완 자기평가 세션 조회",
       await admin
-        .from("activity_records")
-        .delete()
-        .in("id", [...e2eRecordIds])
-        .eq("profile_id", profileId),
+        .from("selfeval_sessions")
+        .select("id")
+        .eq("profile_id", profileId)
+        .neq("status", "completed"),
+    ).data;
+    const unfinishedIds = (unfinished ?? []).map((s) => s.id as string);
+    if (unfinishedIds.length > 0) {
+      check(
+        "미완 세션 활동 연결 해제",
+        await admin
+          .from("selfeval_session_activities")
+          .delete()
+          .in("activity_record_id", [...e2eRecordIds])
+          .in("session_id", unfinishedIds),
+      );
+    }
+    const stillUsed = check(
+      "완료 세션 활동 연결 조회",
+      await admin
+        .from("selfeval_session_activities")
+        .select("activity_record_id")
+        .in("activity_record_id", [...e2eRecordIds]),
+    ).data;
+    const keep = new Set(
+      (stillUsed ?? []).map((r) => r.activity_record_id as string),
     );
+    const removable = [...e2eRecordIds].filter((id) => !keep.has(id));
+    if (removable.length > 0) {
+      check(
+        "E2E 활동 기록 삭제",
+        await admin
+          .from("activity_records")
+          .delete()
+          .in("id", removable)
+          .eq("profile_id", profileId),
+      );
+    }
   }
 
   const growth = check(
