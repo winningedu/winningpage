@@ -112,13 +112,20 @@ async function applyCreate(
       );
       return null;
     }
-    if (decision.kind === "reuse") {
-      if (decision.clearAssets) {
-        await replaceAssets(db, userId, decision.sessionId, []);
-      }
-      return updateSessionInfo(db, userId, decision.sessionId, info, nowIso);
+    if (decision.kind === "reuse" && decision.clearAssets) {
+      await replaceAssets(db, userId, decision.sessionId, []);
     }
     const latest = pickLatestCompleted(await loadGrowthReports(db, userId));
+    if (decision.kind === "reuse") {
+      return updateSessionInfo(
+        db,
+        userId,
+        decision.sessionId,
+        info,
+        latest?.id ?? null,
+        nowIso,
+      );
+    }
     const created = await createSession(
       db,
       userId,

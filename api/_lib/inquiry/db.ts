@@ -113,6 +113,7 @@ export async function updateSessionInfo(
   userId: string,
   sessionId: string,
   info: SessionInfo,
+  growthReportId: string | null,
   nowIso: string,
 ) {
   return mustHave(
@@ -124,6 +125,7 @@ export async function updateSessionInfo(
           semester: info.semester,
           career: info.career,
           subject: info.subject,
+          growth_report_id: growthReportId,
           last_activity_at: nowIso,
         })
         .eq("id", sessionId)

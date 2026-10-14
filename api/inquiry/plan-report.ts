@@ -209,13 +209,11 @@ export default defineHandler({
         userId,
         assets.flatMap((a) => (a.activityRecordId ? [a.activityRecordId] : [])),
       ),
-      row.growth_report_id
-        ? loadHandoffView(db, userId, {
-            grade: info.gradeLabel,
-            subject: info.subject,
-            nowIso,
-          })
-        : Promise.resolve(null),
+      loadHandoffView(db, userId, {
+        grade: info.gradeLabel,
+        subject: info.subject,
+        nowIso,
+      }),
     ]);
     const base = buildDesignInput({
       info,
