@@ -189,12 +189,8 @@ function parsePartial(
 }
 
 function crossCheck(input: Partial<SessionInput>): Fail | null {
-  if (input.area === "subject") {
-    if (!input.subject) {
-      return fail("SUBJECT_REQUIRED", "과목을 입력해 주세요.");
-    }
-  } else if (!input.activityName) {
-    return fail("ACTIVITY_NAME_REQUIRED", "활동명을 입력해 주세요.");
+  if (input.area === "subject" && !input.subject) {
+    return fail("SUBJECT_REQUIRED", "과목을 입력해 주세요.");
   }
   return null;
 }

@@ -149,6 +149,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
   const locked = pick.currentStep >= 3;
   const growthApplied = pick.growthApplied;
   const snapshot = growthApplied ? session.growthSnapshot : null;
+  const target = session.area === "subject" ? "이번 과목" : "이번 활동";
 
   const showManual =
     manualOpen ??
@@ -235,7 +236,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
     await afterConfirm();
   }
 
-  // 방향이 이번 과목과 어긋날 때 방향을 풀고 추천을 다시 받는다(시안 25).
+  // 방향이 이번 과목이나 활동과 어긋날 때 방향을 풀고 추천을 다시 받는다(시안 25).
   async function releaseDirection() {
     if (busy) return;
     setBusy(true);
@@ -280,11 +281,11 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
         {pick.direction?.mismatch && !directionDismissed && (
           <section className={`${CARD} bg-surface-04`}>
             <p className="text-app-card-title font-bold text-ink-strong">
-              성장설계 방향이 이번 과목과 어긋나요
+              성장설계 방향이 {target}과 어긋나요
             </p>
             <p className="mt-1 text-app-label text-ink-sub">
-              방향을 그대로 쓰면 추천 활동이 이번 과목과 덜 맞을 수 있어요.
-              방향을 풀면 이번 과목 기준으로 다시 추천해요.
+              방향을 그대로 쓰면 추천 활동이 {target}과 덜 맞을 수 있어요.
+              방향을 풀면 {target} 기준으로 다시 추천해요.
             </p>
             <div className="mt-4 flex gap-2">
               <Button

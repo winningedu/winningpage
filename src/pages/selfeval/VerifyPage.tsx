@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { coreActivity } from "@/components/selfeval/analysis/analysisLogic";
-import { paragraphTexts } from "@/components/selfeval/result/resultLogic";
+import {
+  paragraphTexts,
+  pendingFeelings,
+} from "@/components/selfeval/result/resultLogic";
 import StepFlowNotice from "@/components/selfeval/result/StepFlowNotice";
 import { useStepFlow } from "@/components/selfeval/result/useStepFlow";
 import {
@@ -126,6 +129,11 @@ function VerifyBody({
   const currentText = detail.current
     ? paragraphTexts(detail.current.sections as GenerationSections).join("\n\n")
     : null;
+  const pendingSentences = detail.current
+    ? pendingFeelings(detail.current.sections as GenerationSections).map(
+        (x) => x.text,
+      )
+    : [];
 
   function reverify() {
     setOverride(null);
@@ -212,14 +220,20 @@ function VerifyBody({
         ) : null}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
           <div className="flex min-w-0 flex-col gap-4">
-            <MandatoryFixesCard sections={sections} />
+            <MandatoryFixesCard
+              sections={sections}
+              pendingSentences={pendingSentences}
+              onEdit={() => navigate(SELFEVAL_PATHS.result(sessionId))}
+            />
             <ScoreItemCards sections={sections} />
             <FormatCard sections={sections} />
             <GrowthFitCard sections={sections} />
             <ExcludedCard sections={sections} />
             <ImprovementsCard sections={sections} />
           </div>
-          <div className="flex flex-col gap-4">
+          {/* top-35(8.75rem) = 공통 헤더 4rem + 접힌 GoalPageHeader 3.75rem + 여백 1rem.
+              max-h 는 top 에 아래 여백 1rem 을 더한 9.75rem 을 뺀다. */}
+          <div className="flex flex-col gap-4 lg:sticky lg:top-35 lg:max-h-[calc(100dvh-9.75rem)] lg:self-start lg:overflow-y-auto">
             <SummaryCard summary={summary} />
             <WorkCard
               charged={verified?.charged ?? null}

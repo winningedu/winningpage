@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { sourceLabelOrNull } from "@/components/selfeval/activities/activitiesLogic";
 import type { RecordCandidate } from "@/lib/inquiry/types";
 import { filterRecords, recordPeriod, subjectChips } from "./infoLogic";
 import { PILL_OFF, PILL_ON } from "./styles";
@@ -58,6 +59,7 @@ export default function RecordPicker({
           const checked = selectedIds.has(record.id);
           const inputId = `${base}-${record.id}`;
           const period = recordPeriod(record);
+          const source = sourceLabelOrNull(record.sourceProgram);
           return (
             <li
               key={record.id}
@@ -80,6 +82,7 @@ export default function RecordPicker({
                 className="min-w-0 flex-1 cursor-pointer"
               >
                 <span className="flex flex-wrap gap-1.5">
+                  {source && <span className={TAG}>{source}</span>}
                   {record.subject && (
                     <span className={TAG}>{record.subject}</span>
                   )}

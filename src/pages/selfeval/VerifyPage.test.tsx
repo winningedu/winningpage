@@ -338,6 +338,34 @@ describe("VerifyPage 요약과 필수 수정", () => {
     ).toBe(true);
   });
 
+  test("미확인 문장 필수 수정은 본문의 미확인 문장을 카드에 싣고 버튼으로 작성 결과 화면에 간다", async () => {
+    detailMock.mockResolvedValue(
+      verified(
+        makeVerification({
+          submittable: false,
+          mandatoryFixes: [
+            {
+              key: "pending_feelings",
+              message: "확인이 필요한 문장이 남아 있어요",
+              detail: null,
+            },
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    const card = await screen.findByRole("alert", { name: "필수 수정" });
+    const list = within(card).getByRole("list", {
+      name: "확인이 필요한 문장",
+    });
+    expect(within(list).getByText("뿌듯했어요.")).toBeTruthy();
+    expect(within(list).queryByText("배차표 자료를 비교했어요.")).toBeNull();
+    fireEvent.click(
+      within(card).getByRole("button", { name: "작성 화면에서 고치기" }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/result");
+  });
+
   test("이번 작업 카드에 남은 횟수, 방향, 사용한 활동을 보인다", async () => {
     detailMock.mockResolvedValue(verified());
     verifyMock.mockResolvedValue(verifyOk());
@@ -349,6 +377,22 @@ describe("VerifyPage 요약과 필수 수정", () => {
     expect(within(panel).getByText("방향 없이 진행")).toBeTruthy();
     expect(within(panel).getByText("핵심 버스 배차 분석")).toBeTruthy();
     expect(within(panel).getByText("보조 표본조사 설계")).toBeTruthy();
+  });
+
+  test("우측 컬럼 3장은 lg 이상에서 스크롤을 따라오는 하나의 sticky 래퍼에 담긴다", async () => {
+    detailMock.mockResolvedValue(verified());
+    verifyMock.mockResolvedValue(verifyOk());
+    renderPage();
+    const work = await screen.findByRole("complementary", {
+      name: "이번 작업",
+    });
+    const column = work.parentElement as HTMLElement;
+    expect(column.className).toContain("lg:sticky");
+    expect(column.className).toContain("lg:self-start");
+    expect(column.className).toContain("lg:top-35");
+    expect(column.className).toContain("lg:overflow-y-auto");
+    expect(column.className).toContain("lg:max-h-[calc(100dvh-9.75rem)]");
+    expect(within(column).getAllByRole("complementary").length).toBe(3);
   });
 });
 

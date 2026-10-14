@@ -353,6 +353,67 @@ describe("저장", () => {
       );
     });
 
+    test("서랍이 열린 동안 xl 에서 본문은 1열이고 작성 도우미는 숨는다", async () => {
+      stubDesktop(true);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      await box(/Ⅰ/);
+      const helper = screen.getByRole("complementary", { name: "작성 도우미" });
+      const grid = helper.parentElement;
+      expect(grid).not.toBeNull();
+      expect(grid?.className).toContain("xl:grid-cols-[1fr_19rem]");
+      expect(helper.className).not.toContain("xl:hidden");
+
+      fireEvent.click(designButtons().top);
+      await screen.findByRole("dialog", { name: "설계 리포트" });
+      expect(grid?.className).toContain("xl:grid-cols-1");
+      expect(grid?.className).not.toContain("xl:grid-cols-[1fr_19rem]");
+      expect(helper.className).toContain("xl:hidden");
+    });
+
+    test("서랍을 닫으면 2열 배치와 작성 도우미가 돌아오고 입력은 유지된다", async () => {
+      stubDesktop(true);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      const first = await box(/Ⅰ/);
+      fireEvent.change(first, { target: { value: "유지될 내용" } });
+      const helper = screen.getByRole("complementary", { name: "작성 도우미" });
+      const grid = helper.parentElement;
+
+      fireEvent.click(designButtons().bottom);
+      await screen.findByRole("dialog", { name: "설계 리포트" });
+      fireEvent.click(designButtons().bottom);
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(grid?.className).toContain("xl:grid-cols-[1fr_19rem]");
+      expect(grid?.className).not.toContain("xl:pr-");
+      expect(helper.className).not.toContain("xl:hidden");
+      expect(await box(/Ⅰ/)).toHaveValue("유지될 내용");
+    });
+
+    test("설계 리포트 보기 버튼 둘 다 서랍 상태를 aria-expanded 로 알린다", async () => {
+      stubDesktop(true);
+      detailMock.mockResolvedValue(detail(null));
+      setup();
+      await box(/Ⅰ/);
+      const { top, bottom } = designButtons();
+      expect(top).toHaveAttribute("aria-expanded", "false");
+      expect(bottom).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(top);
+      await screen.findByRole("dialog", { name: "설계 리포트" });
+      expect(top).toHaveAttribute("aria-expanded", "true");
+      expect(bottom).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(bottom);
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(top).toHaveAttribute("aria-expanded", "false");
+      expect(bottom).toHaveAttribute("aria-expanded", "false");
+    });
+
     test("xl 미만에서는 기존대로 오버레이가 있는 modal 서랍이다", async () => {
       stubDesktop(false);
       detailMock.mockResolvedValue(detail(null));

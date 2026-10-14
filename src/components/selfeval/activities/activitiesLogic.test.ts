@@ -12,6 +12,7 @@ import {
   formatDotDate,
   initialSelection,
   sourceLabel,
+  sourceLabelOrNull,
   summarizeResult,
   toggleSelection,
 } from "./activitiesLogic";
@@ -277,6 +278,12 @@ describe("sourceLabel", () => {
     expect(sourceLabel("manual")).toBe("직접 입력");
     expect(sourceLabel("upload")).toBe("업로드");
     expect(sourceLabel("self")).toBe("위닝 자기평가서");
+  });
+
+  test("sourceLabelOrNull 은 표에 없는 값에 null 을 준다", () => {
+    expect(sourceLabelOrNull("deep")).toBe("위닝 심화탐구");
+    expect(sourceLabelOrNull("legacy")).toBeNull();
+    expect(sourceLabelOrNull("toString")).toBeNull();
   });
 });
 

@@ -126,13 +126,11 @@ export default defineHandler({
         assets.flatMap((a) => (a.activityRecordId ? [a.activityRecordId] : [])),
       ),
       loadAllTopics(db, userId, sessionId),
-      row.growth_report_id
-        ? loadHandoffView(db, userId, {
-            grade: info.gradeLabel,
-            subject: info.subject,
-            nowIso,
-          })
-        : Promise.resolve(null),
+      loadHandoffView(db, userId, {
+        grade: info.gradeLabel,
+        subject: info.subject,
+        nowIso,
+      }),
     ]);
     const excludedTitles = previous.map(
       (t) => (t.detail as { title: string }).title,

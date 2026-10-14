@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { ApiResult } from "@/lib/inquiry/api";
 import type { SubmissionSections, SubmissionView } from "@/lib/inquiry/types";
+import { makeDesign } from "../design/designFixture";
 import {
   AUTOSAVE_MS,
   buildSectionRows,
@@ -51,7 +52,7 @@ describe("initialSections", () => {
 
 describe("buildSectionRows", () => {
   test("글자 수와 권장 분량 문구, 부족분", () => {
-    const rows = buildSectionRows({ ...EMPTY, I: long(120) });
+    const rows = buildSectionRows({ ...EMPTY, I: long(120) }, makeDesign());
     const first = rows[0];
     expect(first).toMatchObject({
       id: "I",
@@ -64,19 +65,35 @@ describe("buildSectionRows", () => {
     });
   });
   test("권장을 채우면 부족하지 않다", () => {
-    const rows = buildSectionRows({ ...EMPTY, II: long(150) });
+    const rows = buildSectionRows({ ...EMPTY, II: long(150) }, makeDesign());
     expect(rows[1]).toMatchObject({ shortage: 0, short: false });
   });
   test("Ⅷ절은 분량 제한 없음이고 부족분이 없다", () => {
-    const last = buildSectionRows(EMPTY)[7];
+    const last = buildSectionRows(EMPTY, makeDesign())[7];
     expect(last).toMatchObject({
       counter: "0자 / 분량 제한 없음",
       shortage: null,
       short: false,
     });
   });
+  test("설계 리포트의 같은 절 role 과 tip 을 행에 합친다", () => {
+    const rows = buildSectionRows(EMPTY, makeDesign());
+    expect(rows[0]).toMatchObject({ role: "I절의 역할", tip: "I 작성 요령" });
+    expect(rows[7]).toMatchObject({
+      role: "VIII절의 역할",
+      tip: "VIII 작성 요령",
+    });
+  });
+  test("설계 리포트에 없는 절은 role 과 tip 이 빈 문자열이다", () => {
+    const design = makeDesign();
+    design.sections = design.sections.filter((s) => s.id !== "III");
+    const rows = buildSectionRows(EMPTY, design);
+    expect(rows[2]).toMatchObject({ role: "", tip: "" });
+  });
   test("앞뒤 공백은 세지 않는다", () => {
-    expect(buildSectionRows({ ...EMPTY, I: "  가나  " })[0]?.count).toBe(2);
+    expect(
+      buildSectionRows({ ...EMPTY, I: "  가나  " }, makeDesign())[0]?.count,
+    ).toBe(2);
   });
 });
 

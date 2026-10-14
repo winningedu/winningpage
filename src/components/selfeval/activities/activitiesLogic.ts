@@ -176,6 +176,12 @@ export const sourceLabel = (
   source: ActivityRecordLike["sourceProgram"],
 ): string => SOURCE_LABELS[source];
 
+/** 서버가 준 문자열 출처를 그대로 받는다. 표에 없는 값은 null. */
+export const sourceLabelOrNull = (source: string): string | null =>
+  Object.hasOwn(SOURCE_LABELS, source)
+    ? SOURCE_LABELS[source as ActivityRecordLike["sourceProgram"]]
+    : null;
+
 /**
  * 세션이 고정한 성장설계 스냅샷에서 방향 배너 값을 만든다(서버 bannerSummary 와 같은 규칙).
  * 현재 학년 소주제가 먼저이고 학년을 모르면 단계가 같은 소주제, 그것도 없으면 가장 높은 학년이다.

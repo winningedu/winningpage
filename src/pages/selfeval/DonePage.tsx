@@ -22,7 +22,6 @@ import type {
 // 하단 고지는 SelfevalAppLayout 이 그린다.
 
 const TITLE = "최종본을 저장했습니다";
-const PREVIEW_SENTENCES = 3;
 const STORED_TEXT =
   "활동 기록 저장소에 7항목(주제, 개념, 방법, 결과, 한계, 수치, 자료명)으로 저장했습니다";
 
@@ -100,13 +99,6 @@ function DoneBody({
 
   const sections = final.sections as GenerationSections;
   const texts = paragraphTexts(sections);
-  // 미리보기는 앞 몇 문장만 잘라 보여 준다. 전체는 복사로 가져간다.
-  const preview = sections.paragraphs
-    .flatMap((p) => p.sentences)
-    .slice(0, PREVIEW_SENTENCES)
-    .map((s) => s.text)
-    .join(" ");
-
   const planTitle =
     session.planItemId && session.growthSnapshot
       ? (session.growthSnapshot.planItems.find(
@@ -152,16 +144,25 @@ function DoneBody({
                 </p>
               )}
             </section>
-            <section className={CARD} aria-label="본문 미리보기">
+            <section className={CARD} aria-label="최종 본문">
               <div className="flex items-center justify-between gap-2">
                 <h2 className={CARD_TITLE}>{title}</h2>
                 <span className="rounded-full bg-surface-04 px-2.5 py-0.5 text-app-caption font-semibold text-ink-sub">
                   잠금
                 </span>
               </div>
-              <p className="mt-3 text-app-body leading-[1.9] text-ink-strong">
-                {preview}
-              </p>
+              <div className="mt-3 flex select-text flex-col gap-4">
+                {texts.map((text, i) => (
+                  // 문단은 순서가 곧 정체성이고 재정렬되지 않는다.
+                  <p
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 읽기 전용 고정 목록
+                    key={i}
+                    className="text-app-body leading-[1.9] text-ink-strong"
+                  >
+                    {text}
+                  </p>
+                ))}
+              </div>
             </section>
             <div className="flex justify-end gap-3">
               <Button
