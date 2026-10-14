@@ -1,14 +1,21 @@
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import { Button } from "@/components/ui/button";
 import type { SessionActivityView } from "@/lib/selfeval/types";
-import type { VerificationSummary } from "./verifyLogic";
+import { saveBadge, type VerificationSummary } from "./verifyLogic";
 
 // 검증 화면 우측 세 카드(시안 43, 52): 검증 요약, 이번 작업, 저장.
+
+const BADGE_TONE = {
+  ok: "bg-emerald-100 text-emerald-800",
+  warning: "bg-surface-warning text-ink-strong",
+  error: "bg-error/10 text-error",
+} as const;
 
 const ROW =
   "flex items-center justify-between gap-2 text-app-label text-ink-strong";
 
 export function SummaryCard({ summary }: { summary: VerificationSummary }) {
+  const badge = saveBadge(summary);
   return (
     <aside className={CARD} aria-label="검증 요약">
       <h2 className={CARD_TITLE}>검증 요약</h2>
@@ -16,15 +23,11 @@ export function SummaryCard({ summary }: { summary: VerificationSummary }) {
         <p className="text-app-stat font-bold text-ink-strong">
           {summary.total} / 100
         </p>
-        {summary.submittable ? (
-          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-app-caption font-semibold text-emerald-800">
-            제출 가능
-          </span>
-        ) : (
-          <span className="rounded-full bg-error/10 px-2.5 py-0.5 text-app-caption font-semibold text-error">
-            필수 수정 {summary.mandatoryCount}건
-          </span>
-        )}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-app-caption font-semibold ${BADGE_TONE[badge.tone]}`}
+        >
+          {badge.label}
+        </span>
       </div>
       <ul className="mt-4 flex flex-col gap-1.5">
         <li className={ROW}>전체 항목 {summary.totalChecks}</li>
@@ -80,20 +83,13 @@ export function WorkCard({ charged, quota, direction, activities }: WorkProps) {
 }
 
 type SaveProps = {
-  submittable: boolean;
   busy: boolean;
   onSave: () => void;
   onCopy: () => void;
   onBack: () => void;
 };
 
-export function SaveCard({
-  submittable,
-  busy,
-  onSave,
-  onCopy,
-  onBack,
-}: SaveProps) {
+export function SaveCard({ busy, onSave, onCopy, onBack }: SaveProps) {
   return (
     <aside className={CARD} aria-label="저장">
       <h2 className={CARD_TITLE}>저장</h2>
@@ -102,16 +98,11 @@ export function SaveCard({
           type="button"
           size="lg"
           className="h-10 text-app-label font-semibold"
-          disabled={!submittable || busy}
+          disabled={busy}
           onClick={onSave}
         >
           최종본으로 저장
         </Button>
-        {!submittable && (
-          <p className="text-app-caption text-ink-sub">
-            필수 수정이 남아 있어 저장할 수 없어요
-          </p>
-        )}
         <Button
           type="button"
           variant="outline"

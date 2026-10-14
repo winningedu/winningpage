@@ -290,14 +290,14 @@ describe("VerifyPage 결과 카드", () => {
 });
 
 describe("VerifyPage 요약과 필수 수정", () => {
-  test("검증 요약에 점수, 제출 가능, 통과와 확인 필요 수, 고지를 보인다", async () => {
+  test("검증 요약에 점수, 확인 필요 배지, 통과와 확인 필요 수, 고지를 보인다", async () => {
     detailMock.mockResolvedValue(verified());
     renderPage();
     const panel = await screen.findByRole("complementary", {
       name: "검증 요약",
     });
     expect(within(panel).getByText("72 / 100")).toBeTruthy();
-    expect(within(panel).getByText("제출 가능")).toBeTruthy();
+    expect(within(panel).getByText("아직 수정이 덜 된 항목 1건")).toBeTruthy();
     expect(within(panel).getByText("전체 항목 2")).toBeTruthy();
     expect(within(panel).getByText("통과 1")).toBeTruthy();
     expect(within(panel).getByText("확인 필요 1")).toBeTruthy();
@@ -308,7 +308,7 @@ describe("VerifyPage 요약과 필수 수정", () => {
     ).toBeTruthy();
   });
 
-  test("필수 수정이 있으면 경고 카드, 상투어 나열, 저장 비활성이 된다", async () => {
+  test("필수 수정이 있으면 경고 카드, 상투어 나열, 빨간 배지가 보이고 저장은 활성이다", async () => {
     detailMock.mockResolvedValue(
       verified(
         makeVerification({
@@ -335,7 +335,48 @@ describe("VerifyPage 요약과 필수 수정", () => {
           name: "최종본으로 저장",
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      screen.queryByText("필수 수정이 남아 있어 저장할 수 없어요"),
+    ).toBeNull();
+  });
+
+  test("필수 수정 없이 확인 필요만 있으면 노란 배지이고 초록 제출 가능은 없다", async () => {
+    detailMock.mockResolvedValue(verified());
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "검증 요약",
+    });
+    const badge = within(panel).getByText("아직 수정이 덜 된 항목 1건");
+    expect(badge.className).toContain("bg-surface-warning");
+    expect(badge.className).toContain("text-ink-strong");
+    expect(within(panel).queryByText("제출 가능")).toBeNull();
+  });
+
+  test("필수 수정도 확인 필요도 없으면 초록 제출 가능이다", async () => {
+    detailMock.mockResolvedValue(
+      verified(
+        makeVerification({
+          items: [
+            {
+              key: "judgment",
+              label: "판단과 근거",
+              max: 15,
+              discrimination: 70,
+              score: 15,
+              checks: [{ text: "판단 문장이 있어요", pass: true }],
+            },
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "검증 요약",
+    });
+    expect(within(panel).getByText("제출 가능").className).toContain(
+      "bg-emerald-100",
+    );
   });
 
   test("미확인 문장 필수 수정은 본문의 미확인 문장을 카드에 싣고 버튼으로 작성 결과 화면에 간다", async () => {
@@ -434,6 +475,7 @@ describe("VerifyPage 저장", () => {
           numbers: ["평균 12분이었다."],
         }),
         undefined,
+        false,
       ),
     );
     await waitFor(() =>
@@ -493,7 +535,96 @@ describe("VerifyPage 저장", () => {
       within(dialog).getByRole("button", { name: "확인하고 저장" }),
     );
     await waitFor(() =>
-      expect(finalizeMock).toHaveBeenCalledWith("s1", expect.anything(), true),
+      expect(finalizeMock).toHaveBeenCalledWith(
+        "s1",
+        expect.anything(),
+        true,
+        false,
+      ),
+    );
+  });
+
+  test("필수 수정이 있으면 저장 모달에 경고와 남은 목록이 나오고 그래도 저장하면 플래그를 보낸다", async () => {
+    detailMock.mockResolvedValue(
+      verified(
+        makeVerification({
+          submittable: false,
+          mandatoryFixes: [
+            { key: "cliche", message: "상투어를 줄여 주세요", detail: null },
+            {
+              key: "judgment_low",
+              message: "판단을 보강해 주세요",
+              detail: null,
+            },
+          ],
+        }),
+      ),
+    );
+    finalizeMock.mockResolvedValue({
+      kind: "ok",
+      data: {
+        ok: true,
+        activityRecordId: "ar1",
+        finalRevision: 1,
+        reply: { status: "skipped" },
+        currentStep: 6,
+      },
+    });
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종본으로 저장" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const alert = within(dialog).getByRole("alert");
+    expect(
+      within(alert).getByText("필수 수정 2건이 남아 있어요. 정말 저장할까요?"),
+    ).toBeTruthy();
+    expect(within(alert).getByText("상투어를 줄여 주세요")).toBeTruthy();
+    expect(within(alert).getByText("판단을 보강해 주세요")).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", { name: "확인하고 저장" }),
+    ).toBeNull();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "그래도 저장" }),
+    );
+    await waitFor(() =>
+      expect(finalizeMock).toHaveBeenCalledWith(
+        "s1",
+        expect.anything(),
+        undefined,
+        true,
+      ),
+    );
+  });
+
+  test("확인 필요만 있으면 저장 모달에 경고가 없고 플래그 없이 저장한다", async () => {
+    detailMock.mockResolvedValue(verified());
+    finalizeMock.mockResolvedValue({
+      kind: "ok",
+      data: {
+        ok: true,
+        activityRecordId: "ar1",
+        finalRevision: 1,
+        reply: { status: "skipped" },
+        currentStep: 6,
+      },
+    });
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종본으로 저장" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "확인하고 저장" }),
+    );
+    await waitFor(() =>
+      expect(finalizeMock).toHaveBeenCalledWith(
+        "s1",
+        expect.anything(),
+        undefined,
+        false,
+      ),
     );
   });
 
@@ -535,7 +666,7 @@ describe("VerifyPage 저장", () => {
     );
     await waitFor(() =>
       expect(toastMock.error).toHaveBeenCalledWith(
-        "필수 수정이 남아 있어 저장할 수 없어요. 작성 화면에서 고쳐 주세요.",
+        "필수 수정이 남아 있어요. 저장 모달에서 확인하고 다시 저장해 주세요.",
       ),
     );
   });

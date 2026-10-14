@@ -15,6 +15,8 @@ export type FinalizeBody = {
   sessionId: string;
   promoted: PromotedRecord;
   fulfillsPlanItem: boolean;
+  /** 필수 수정이 남은 채 저장하겠다고 학생이 경고를 확인했는지. */
+  acknowledgeMandatory: boolean;
 };
 
 export type FinalizeBodyError = {
@@ -67,6 +69,10 @@ export function validateFinalizeBody(
   if (typeof fulfills !== "boolean") {
     return invalid("fulfillsPlanItem 은 true 또는 false 여야 해요.");
   }
+  const acknowledge = body.acknowledgeMandatory ?? false;
+  if (typeof acknowledge !== "boolean") {
+    return invalid("acknowledgeMandatory 는 true 또는 false 여야 해요.");
+  }
   const promoted = readPromoted(body.promoted);
   if (promoted === null) {
     return {
@@ -77,7 +83,12 @@ export function validateFinalizeBody(
   }
   return {
     ok: true,
-    body: { sessionId: body.sessionId, promoted, fulfillsPlanItem: fulfills },
+    body: {
+      sessionId: body.sessionId,
+      promoted,
+      fulfillsPlanItem: fulfills,
+      acknowledgeMandatory: acknowledge,
+    },
   };
 }
 
@@ -98,6 +109,7 @@ export type FinalizeBlock =
 export function canFinalize(
   session: Pick<SessionRow, "current_step">,
   reports: ReportRow[],
+  acknowledgeMandatory = false,
 ): { ok: true } | { ok: false; code: FinalizeBlock } {
   if (
     !guardStep(session.current_step as SessionRow["current_step"], "finalize")
@@ -118,7 +130,7 @@ export function canFinalize(
     return { ok: false, code: "VERIFICATION_STALE" };
   }
   const sections = verification.sections as Partial<VerificationSections>;
-  if (sections.submittable !== true) {
+  if (sections.submittable !== true && !acknowledgeMandatory) {
     return { ok: false, code: "NOT_SUBMITTABLE" };
   }
   return { ok: true };
@@ -127,7 +139,7 @@ export function canFinalize(
 const BLOCK_MESSAGES: Record<Exclude<FinalizeBlock, "STEP_ORDER">, string> = {
   VERIFICATION_MISSING: "검증을 먼저 해 주세요.",
   VERIFICATION_STALE: "검증 뒤에 본문이 바뀌었어요. 다시 검증해 주세요.",
-  NOT_SUBMITTABLE: "필수 수정이 남아 있어 저장할 수 없어요.",
+  NOT_SUBMITTABLE: "필수 수정이 남아 있어요. 확인 후 다시 저장해 주세요.",
 };
 
 // ---------------------------------------------------------------------------
@@ -244,7 +256,7 @@ export async function runFinalize(
 ): Promise<SimpleOutcome<FinalizeResult>> {
   // 완료된 세션의 재요청은 RPC 가 멱등으로 처리하므로 사전 조건을 다시 보지 않는다.
   if (session.status !== "completed") {
-    const can = canFinalize(session, reports);
+    const can = canFinalize(session, reports, body.acknowledgeMandatory);
     if (!can.ok) {
       if (can.code === "STEP_ORDER") {
         return { kind: "order", currentStep: session.current_step };

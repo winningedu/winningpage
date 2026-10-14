@@ -66,7 +66,12 @@ describe("validateFinalizeBody", () => {
   it("승격 7항목이 있으면 통과하고 fulfillsPlanItem 기본값은 true 다", () => {
     expect(validateFinalizeBody({ sessionId: sid, promoted })).toEqual({
       ok: true,
-      body: { sessionId: sid, promoted, fulfillsPlanItem: true },
+      body: {
+        sessionId: sid,
+        promoted,
+        fulfillsPlanItem: true,
+        acknowledgeMandatory: false,
+      },
     });
   });
 
@@ -77,6 +82,27 @@ describe("validateFinalizeBody", () => {
       fulfillsPlanItem: false,
     });
     expect(r.ok && r.body.fulfillsPlanItem).toBe(false);
+  });
+
+  it("acknowledgeMandatory 를 주면 본문에 실리고 기본값은 false 다", () => {
+    const r = validateFinalizeBody({
+      sessionId: sid,
+      promoted,
+      acknowledgeMandatory: true,
+    });
+    expect(r.ok && r.body.acknowledgeMandatory).toBe(true);
+    const d = validateFinalizeBody({ sessionId: sid, promoted });
+    expect(d.ok && d.body.acknowledgeMandatory).toBe(false);
+  });
+
+  it("acknowledgeMandatory 가 boolean 이 아니면 INVALID_BODY 다", () => {
+    expect(
+      validateFinalizeBody({
+        sessionId: sid,
+        promoted,
+        acknowledgeMandatory: "yes",
+      }),
+    ).toMatchObject({ ok: false, code: "INVALID_BODY" });
   });
 
   it("topic 이 비어 있으면 PROMOTED_INVALID 다", () => {
@@ -172,6 +198,34 @@ describe("canFinalize", () => {
     });
   });
 
+  it("필수 수정이 남아도 acknowledgeMandatory 가 true 면 통과한다", () => {
+    expect(canFinalize(session(), [gen, ver(false)], true)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("acknowledgeMandatory 가 있어도 VERIFICATION_STALE 은 막는다", () => {
+    const edited = report({
+      id: "e",
+      report_type: "edited",
+      created_at: "2026-10-06T00:20:00Z",
+    });
+    expect(canFinalize(session(), [gen, ver(false), edited], true)).toEqual({
+      ok: false,
+      code: "VERIFICATION_STALE",
+    });
+  });
+
+  it("acknowledgeMandatory 가 있어도 VERIFICATION_MISSING 과 STEP_ORDER 는 막는다", () => {
+    expect(canFinalize(session(), [gen], true)).toEqual({
+      ok: false,
+      code: "VERIFICATION_MISSING",
+    });
+    expect(
+      canFinalize(session({ current_step: 4 }), [gen, ver(false)], true),
+    ).toEqual({ ok: false, code: "STEP_ORDER" });
+  });
+
   it("검증 뒤 변경이 없고 제출 가능이면 통과한다", () => {
     expect(canFinalize(session(), [gen, ver()])).toEqual({ ok: true });
   });
@@ -182,7 +236,12 @@ describe("runFinalize", () => {
     complete: mocks.complete as never,
     now: () => "2026-10-06T01:00:00.000Z",
   });
-  const body = { sessionId: sid, promoted, fulfillsPlanItem: true };
+  const body = {
+    sessionId: sid,
+    promoted,
+    fulfillsPlanItem: true,
+    acknowledgeMandatory: false,
+  };
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -204,6 +263,36 @@ describe("runFinalize", () => {
       code: "VERIFICATION_MISSING",
     });
     expect(mocks.finalizeSession).not.toHaveBeenCalled();
+  });
+
+  it("필수 수정이 남은 검증은 플래그가 없으면 NOT_SUBMITTABLE 로 거절한다", async () => {
+    const out = await runFinalize(
+      db,
+      "u1",
+      session(),
+      [gen, ver(false)],
+      body,
+      deps(),
+    );
+    expect(out).toMatchObject({
+      kind: "rejected",
+      status: 409,
+      code: "NOT_SUBMITTABLE",
+    });
+    expect(mocks.finalizeSession).not.toHaveBeenCalled();
+  });
+
+  it("필수 수정이 남아도 acknowledgeMandatory 가 true 면 저장한다", async () => {
+    const out = await runFinalize(
+      db,
+      "u1",
+      session(),
+      [gen, ver(false)],
+      { ...body, acknowledgeMandatory: true },
+      deps(),
+    );
+    expect(out).toMatchObject({ kind: "done" });
+    expect(mocks.finalizeSession).toHaveBeenCalledTimes(1);
   });
 
   it("단계 부족은 order 로 돌려준다", async () => {
