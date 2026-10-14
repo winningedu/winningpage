@@ -148,15 +148,27 @@ describe("DonePage", () => {
     ).toBeTruthy();
   });
 
-  test("본문 미리보기는 제목, 잠금 배지, 앞 세 문장만 보인다", async () => {
+  test("본문 문단 전체가 순서대로 렌더된다", async () => {
     detailMock.mockResolvedValue(completed());
     renderPage();
     expect(await screen.findByText("수학 자기평가서")).toBeTruthy();
     expect(screen.getByText("잠금")).toBeTruthy();
-    const preview = screen.getByLabelText("본문 미리보기");
-    expect(preview.textContent).toContain("배차표 자료를 비교했어요.");
-    expect(preview.textContent).toContain("세 번째 문장이에요.");
-    expect(preview.textContent).not.toContain("네 번째 문장이에요.");
+    const body = screen.getByLabelText("최종 본문");
+    const paragraphs = Array.from(body.querySelectorAll("p")).map(
+      (p) => p.textContent,
+    );
+    expect(paragraphs).toEqual([
+      "배차표 자료를 비교했어요. 두 번째 문장이에요. 세 번째 문장이에요. 네 번째 문장이에요.",
+      "뿌듯했어요.",
+    ]);
+  });
+
+  test("4문장 이상이어도 잘리지 않는다", async () => {
+    detailMock.mockResolvedValue(completed());
+    renderPage();
+    const body = await screen.findByLabelText("최종 본문");
+    expect(body.textContent).toContain("네 번째 문장이에요.");
+    expect(body.textContent).toContain("뿌듯했어요.");
   });
 
   test("우측 요약에 점수, 제출 가능, 저장일, 글자 수, 활동 수를 보인다", async () => {
