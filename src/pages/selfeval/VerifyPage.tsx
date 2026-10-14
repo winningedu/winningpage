@@ -118,6 +118,7 @@ function VerifyBody({
           | undefined)
       : undefined) ??
     null;
+  const mandatoryCount = sections?.mandatoryFixes.length ?? 0;
 
   const core = coreActivity(activities);
   const planItem =
@@ -147,7 +148,12 @@ function VerifyBody({
   ) {
     if (busy) return;
     setBusy(true);
-    const result = await finalizeSession(sessionId, toPromoted(form), fulfills);
+    const result = await finalizeSession(
+      sessionId,
+      toPromoted(form),
+      fulfills,
+      mandatoryCount > 0,
+    );
     setBusy(false);
     if (result.kind === "ok") {
       await queryClient.invalidateQueries({
@@ -167,7 +173,7 @@ function VerifyBody({
     setPromoteOpen(false);
     if (code === "NOT_SUBMITTABLE") {
       toast.error(
-        "필수 수정이 남아 있어 저장할 수 없어요. 작성 화면에서 고쳐 주세요.",
+        "필수 수정이 남아 있어요. 저장 모달에서 확인하고 다시 저장해 주세요.",
       );
       return;
     }
@@ -253,7 +259,6 @@ function VerifyBody({
               activities={activities}
             />
             <SaveCard
-              submittable={summary.submittable}
               busy={busy}
               onSave={() => setPromoteOpen(true)}
               onCopy={() => void copyAll()}
@@ -268,6 +273,7 @@ function VerifyBody({
           busy={busy}
           initial={buildPromoteDraft(core, session.activityName)}
           planItemTitle={planItem?.title ?? null}
+          mandatoryFixes={sections.mandatoryFixes}
           onClose={() => setPromoteOpen(false)}
           onSubmit={(form, fulfills) => void finalize(form, fulfills)}
         />

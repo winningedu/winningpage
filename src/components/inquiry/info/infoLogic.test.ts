@@ -11,6 +11,7 @@ import {
   decideSubmit,
   filterRecords,
   fromAssetViews,
+  groupRecordsByGrade,
   growthBannerView,
   initialForm,
   initialPlanItemId,
@@ -391,6 +392,44 @@ describe("과목 버튼과 필터", () => {
 
   test("과목이 없는 기록은 미분류 칩에 속한다", () => {
     expect(filterRecords(list, "미분류").map((r) => r.id)).toEqual(["r3"]);
+  });
+});
+
+describe("groupRecordsByGrade", () => {
+  test("고3, 고2, 고1, 학년 없음 순으로 묶고 그룹 안 순서는 입력 순서를 지킨다", () => {
+    const groups = groupRecordsByGrade([
+      record({ id: "a", gradeLabel: null }),
+      record({ id: "b", gradeLabel: "고1" }),
+      record({ id: "c", gradeLabel: "고3" }),
+      record({ id: "d", gradeLabel: "고1" }),
+      record({ id: "e", gradeLabel: "고2" }),
+    ]);
+    expect(
+      groups.map((g) => [g.gradeLabel, g.records.map((r) => r.id)]),
+    ).toEqual([
+      ["고3", ["c"]],
+      ["고2", ["e"]],
+      ["고1", ["b", "d"]],
+      [null, ["a"]],
+    ]);
+  });
+
+  test("기록이 없는 그룹은 반환하지 않는다", () => {
+    const groups = groupRecordsByGrade([
+      record({ id: "a", gradeLabel: "고2" }),
+    ]);
+    expect(groups.map((g) => g.gradeLabel)).toEqual(["고2"]);
+    expect(groupRecordsByGrade([])).toEqual([]);
+  });
+
+  test("고1, 고2, 고3 이 아닌 학년 문자열은 학년 없음 그룹으로 보낸다", () => {
+    const groups = groupRecordsByGrade([
+      record({ id: "a", gradeLabel: "중3" }),
+      record({ id: "b", gradeLabel: null }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.gradeLabel).toBeNull();
+    expect(groups[0]?.records.map((r) => r.id)).toEqual(["a", "b"]);
   });
 });
 

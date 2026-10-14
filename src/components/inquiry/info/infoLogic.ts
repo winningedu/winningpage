@@ -264,6 +264,25 @@ export function filterRecords(
   return records.filter((r) => (r.subject?.trim() || UNCLASSIFIED) === subject);
 }
 
+export type RecordGroup = {
+  gradeLabel: GradeLabel | null;
+  records: RecordCandidate[];
+};
+
+const GRADE_ORDER: readonly GradeLabel[] = ["고3", "고2", "고1"];
+
+/** 학년별로 묶는다(고3, 고2, 고1, 학년 없음). 그룹 안 순서는 입력 순서, 빈 그룹은 만들지 않는다. */
+export function groupRecordsByGrade(records: RecordCandidate[]): RecordGroup[] {
+  const known = (r: RecordCandidate): GradeLabel | null =>
+    GRADE_ORDER.find((g) => g === r.gradeLabel) ?? null;
+  return [...GRADE_ORDER, null]
+    .map((gradeLabel) => ({
+      gradeLabel,
+      records: records.filter((r) => known(r) === gradeLabel),
+    }))
+    .filter((group) => group.records.length > 0);
+}
+
 // ── 경고(No.41, 42) ─────────────────────────────────────────────────────
 // 서버 assets.ts assetWarnings 와 같은 규칙이다(infoLogic.test.ts 가 같은 입력으로 대조한다).
 

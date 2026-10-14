@@ -392,7 +392,7 @@ export function buildTopicsPrompt(input: {
     );
   } else {
     parts.push(
-      "[확인 질문]\nfollowUpQuestions는 빈 배열로 둔다. 기본 출발 활동에서 이어지는 주제로 쓴다.",
+      "[확인 질문]\nfollowUpQuestions는 빈 배열로 둔다. 선택한 출발 활동을 모두 반영해 이어지는 주제로 쓴다. 기본 출발 활동을 중심에 두되 다른 출발 활동과의 연결도 path와 근거에 드러낸다.",
     );
   }
   const kindLines = [`권장 유형: ${kindNames(input.recommendedKinds)}`];
@@ -465,6 +465,13 @@ export function buildDesignPrompt(input: {
     limitation: string | null;
     reliability: Reliability;
   };
+  otherAssets: {
+    kind: AssetKind;
+    reliability: Reliability;
+    summary: string;
+    concept: string | null;
+    limitation: string | null;
+  }[];
   handoff: { stageLabel: string | null; planItemTitle: string | null } | null;
   retryNotes: string[];
 }): PromptBundle {
@@ -478,6 +485,13 @@ export function buildDesignPrompt(input: {
   ];
   if (a.concept) studentLines.push(`  쓴 개념: ${a.concept}`);
   if (a.limitation) studentLines.push(`  남은 한계: ${a.limitation}`);
+  input.otherAssets.forEach((o, i) => {
+    studentLines.push(
+      `그 밖의 출발 활동 ${i + 1}(${ASSET_KIND_LABELS[o.kind]}, 신뢰도 ${o.reliability}): ${o.summary}`,
+    );
+    if (o.concept) studentLines.push(`  쓴 개념: ${o.concept}`);
+    if (o.limitation) studentLines.push(`  남은 한계: ${o.limitation}`);
+  });
   studentLines.push(
     `선택한 주제: ${t.title}`,
     `연계 유형: ${LINK_KIND_LABELS[t.linkKind]}`,
@@ -494,6 +508,11 @@ export function buildDesignPrompt(input: {
     dataBlock(studentLines),
     `[절별 지시]\n${SECTION_IDS.map((id) => `절 ${id}: ${SECTION_GUIDES[id]}`).join("\n")}`,
   ];
+  if (input.otherAssets.length > 0) {
+    parts.push(
+      "[그 밖의 출발 활동]\n학생이 출발 활동을 여러 개 골랐다. I절과 경로 서술에서 기본 출발 활동을 중심으로 하되 그 밖의 출발 활동도 연결해 쓴다.",
+    );
+  }
   if (a.reliability !== "A") {
     parts.push(
       `[신뢰도 ${a.reliability} 지시]\n출발 활동 내용은 학생의 기억이나 한 줄 입력에서 왔다. I절 must 의 한 항목은 반드시 다음 문장을 글자 그대로 넣는다: "${RELIABILITY_REQUIRED_SENTENCE}". 출발 활동에서 아직 다루지 못한 부분을 학생이 스스로 밝히게 하는 뜻이다. I절 어디에도 "${RELIABILITY_PHRASE.forbidden}"는 표현과 그 변형을 쓰지 않는다.`,

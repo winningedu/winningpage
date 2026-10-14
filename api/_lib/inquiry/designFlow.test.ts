@@ -219,6 +219,74 @@ describe("buildDesignInput", () => {
     expect(input.handoff).toBeNull();
   });
 
+  it("기본 활동을 뺀 나머지 출발 활동을 position 순서로 넘기고 요약 없는 활동은 뺀다", () => {
+    const input = buildDesignInput({
+      info,
+      topic,
+      assets: [
+        asset({
+          id: "a3",
+          position: 2,
+          reliability: "B",
+          kind: "oneline",
+          activityRecordId: null,
+          summary: "세 번째 활동",
+        }),
+        asset({
+          id: "a2",
+          position: 1,
+          reliability: "C",
+          kind: "oneline",
+          activityRecordId: null,
+          summary: "  ",
+        }),
+        asset({
+          id: "a4",
+          position: 3,
+          reliability: "C",
+          kind: "oneline",
+          activityRecordId: null,
+          summary: "네 번째 활동",
+        }),
+        asset(),
+      ],
+      records: [record],
+      handoff: null,
+      planItemId: null,
+    });
+    expect(input.primaryAsset.summary).toBe("효소 활성 실험");
+    expect(input.otherAssets).toEqual([
+      {
+        kind: "oneline",
+        reliability: "B",
+        summary: "세 번째 활동",
+        concept: null,
+        limitation: null,
+      },
+      {
+        kind: "oneline",
+        reliability: "C",
+        summary: "네 번째 활동",
+        concept: null,
+        limitation: null,
+      },
+    ]);
+  });
+
+  it("출발 활동이 하나이거나 없으면 그 밖의 출발 활동은 비어 있다", () => {
+    const base = {
+      info,
+      topic,
+      records: [record],
+      handoff: null,
+      planItemId: null,
+    };
+    expect(
+      buildDesignInput({ ...base, assets: [asset()] }).otherAssets,
+    ).toEqual([]);
+    expect(buildDesignInput({ ...base, assets: [] }).otherAssets).toEqual([]);
+  });
+
   it("자산이 없으면 신뢰도 C 이고 출발 활동 요약은 주제 경로의 from 이다", () => {
     const input = buildDesignInput({
       info,

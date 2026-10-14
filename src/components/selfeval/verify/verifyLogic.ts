@@ -36,3 +36,19 @@ export function summarizeVerification(
     sentenceCount: sections.sentenceCount,
   };
 }
+
+export type SaveBadge = { tone: "ok" | "warning" | "error"; label: string };
+
+/** 검증 요약 카드 배지. 빨간 필수 수정이 우선이고, 노란 확인 필요는 저장을 막지 않는다. */
+export function saveBadge(summary: VerificationSummary): SaveBadge {
+  if (summary.mandatoryCount > 0) {
+    return { tone: "error", label: `필수 수정 ${summary.mandatoryCount}건` };
+  }
+  if (summary.needChecks > 0) {
+    return {
+      tone: "warning",
+      label: `아직 수정이 덜 된 항목 ${summary.needChecks}건`,
+    };
+  }
+  return { tone: "ok", label: "제출 가능" };
+}

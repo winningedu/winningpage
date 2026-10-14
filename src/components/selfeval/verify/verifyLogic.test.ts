@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { VerificationSections } from "@/lib/selfeval/types";
-import { discriminationLabel, summarizeVerification } from "./verifyLogic";
+import {
+  discriminationLabel,
+  saveBadge,
+  summarizeVerification,
+} from "./verifyLogic";
 
 const sections = (over: Partial<VerificationSections> = {}) =>
   ({
@@ -66,6 +70,47 @@ describe("summarizeVerification", () => {
       clicheDensity: 0.4,
       numberCount: 3,
       sentenceCount: 9,
+    });
+  });
+});
+
+describe("saveBadge", () => {
+  test("필수 수정이 있으면 빨간 필수 수정 N건이다", () => {
+    const summary = summarizeVerification(
+      sections({
+        mandatoryFixes: [{ key: "cliche", message: "m", detail: null }],
+        submittable: false,
+      }),
+    );
+    expect(saveBadge(summary)).toEqual({
+      tone: "error",
+      label: "필수 수정 1건",
+    });
+  });
+
+  test("필수 수정이 없고 확인 필요만 있으면 노란 배지다", () => {
+    expect(saveBadge(summarizeVerification(sections()))).toEqual({
+      tone: "warning",
+      label: "아직 수정이 덜 된 항목 1건",
+    });
+  });
+
+  test("둘 다 없으면 초록 제출 가능이다", () => {
+    const all = sections({
+      items: [
+        {
+          key: "next",
+          label: "다음 단계",
+          max: 5,
+          discrimination: null,
+          score: 5,
+          checks: [{ text: "c", pass: true }],
+        },
+      ],
+    } as never);
+    expect(saveBadge(summarizeVerification(all))).toEqual({
+      tone: "ok",
+      label: "제출 가능",
     });
   });
 });

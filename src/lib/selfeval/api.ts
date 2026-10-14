@@ -233,6 +233,7 @@ export function finalizeSession(
   sessionId: string,
   promoted: PromotedRecord,
   fulfillsPlanItem?: boolean,
+  acknowledgeMandatory?: boolean,
 ) {
   return request<FinalizeResponse>(`${BASE}/finalize`, {
     method: "POST",
@@ -240,6 +241,7 @@ export function finalizeSession(
       sessionId,
       promoted,
       ...(fulfillsPlanItem === undefined ? {} : { fulfillsPlanItem }),
+      ...(acknowledgeMandatory === true ? { acknowledgeMandatory } : {}),
     },
   });
 }

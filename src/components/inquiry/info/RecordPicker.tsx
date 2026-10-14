@@ -1,7 +1,12 @@
 import { useId, useState } from "react";
 import { sourceLabelOrNull } from "@/components/selfeval/activities/activitiesLogic";
 import type { RecordCandidate } from "@/lib/inquiry/types";
-import { filterRecords, recordPeriod, subjectChips } from "./infoLogic";
+import {
+  filterRecords,
+  groupRecordsByGrade,
+  recordPeriod,
+  subjectChips,
+} from "./infoLogic";
 import { PILL_OFF, PILL_ON } from "./styles";
 
 type RecordPickerProps = {
@@ -14,6 +19,9 @@ type RecordPickerProps = {
 
 const TAG =
   "rounded-full bg-surface-04 px-2.5 py-0.5 text-app-caption text-ink-sub";
+
+// 학년 값이 없는 기록 묶음의 이름표. 대체 값이 아니라 값 없음을 가리키는 표시다.
+const NO_GRADE_HEADING = "학년 미지정";
 
 // 위닝 기록에서 불러오기: 과목 버튼(전체 포함, 건수) + 체크 목록(No.36, 37).
 // 기록이 0건이면 비활성 안내만 그린다(No.144).
@@ -36,7 +44,7 @@ export default function RecordPicker({
   }
 
   const chips = subjectChips(subjectCounts);
-  const visible = filterRecords(records, subject);
+  const groups = groupRecordsByGrade(filterRecords(records, subject));
 
   return (
     <div>
@@ -54,60 +62,67 @@ export default function RecordPicker({
         ))}
       </div>
 
-      <ul className="mt-3 flex flex-col gap-2">
-        {visible.map((record) => {
-          const checked = selectedIds.has(record.id);
-          const inputId = `${base}-${record.id}`;
-          const period = recordPeriod(record);
-          const source = sourceLabelOrNull(record.sourceProgram);
-          return (
-            <li
-              key={record.id}
-              className={`flex gap-3 rounded-lg border px-4 py-3 ${
-                checked
-                  ? "border-accent bg-surface-04"
-                  : "border-line/60 bg-white"
-              }`}
-            >
-              <input
-                id={inputId}
-                type="checkbox"
-                checked={checked}
-                disabled={disabled}
-                onChange={() => onToggle(record)}
-                className="mt-1 size-4 shrink-0 accent-accent"
-              />
-              <label
-                htmlFor={inputId}
-                className="min-w-0 flex-1 cursor-pointer"
-              >
-                <span className="flex flex-wrap gap-1.5">
-                  {source && <span className={TAG}>{source}</span>}
-                  {record.subject && (
-                    <span className={TAG}>{record.subject}</span>
-                  )}
-                  {period && <span className={TAG}>{period}</span>}
-                </span>
-                {record.topic && (
-                  <span className="mt-1.5 block text-app-label font-semibold text-ink-strong">
-                    {record.topic}
-                  </span>
-                )}
-                {record.concept && (
-                  <span className="mt-1 block text-app-caption text-ink-sub">
-                    개념과 도구: {record.concept}
-                  </span>
-                )}
-                {record.limitation && (
-                  <span className="mt-0.5 block text-app-caption text-ink-sub">
-                    확인하지 않고 넘어간 것: {record.limitation}
-                  </span>
-                )}
-              </label>
-            </li>
-          );
-        })}
-      </ul>
+      {groups.map((group) => (
+        <section key={group.gradeLabel ?? "none"} className="mt-4">
+          <h3 className="text-app-label font-semibold text-ink-sub">
+            {group.gradeLabel ?? NO_GRADE_HEADING}
+          </h3>
+          <ul className="mt-2 flex flex-col gap-2">
+            {group.records.map((record) => {
+              const checked = selectedIds.has(record.id);
+              const inputId = `${base}-${record.id}`;
+              const period = recordPeriod(record);
+              const source = sourceLabelOrNull(record.sourceProgram);
+              return (
+                <li
+                  key={record.id}
+                  className={`flex gap-3 rounded-lg border px-4 py-3 ${
+                    checked
+                      ? "border-accent bg-surface-04"
+                      : "border-line/60 bg-white"
+                  }`}
+                >
+                  <input
+                    id={inputId}
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => onToggle(record)}
+                    className="mt-1 size-4 shrink-0 accent-accent"
+                  />
+                  <label
+                    htmlFor={inputId}
+                    className="min-w-0 flex-1 cursor-pointer"
+                  >
+                    <span className="flex flex-wrap gap-1.5">
+                      {source && <span className={TAG}>{source}</span>}
+                      {record.subject && (
+                        <span className={TAG}>{record.subject}</span>
+                      )}
+                      {period && <span className={TAG}>{period}</span>}
+                    </span>
+                    {record.topic && (
+                      <span className="mt-1.5 block text-app-label font-semibold text-ink-strong">
+                        {record.topic}
+                      </span>
+                    )}
+                    {record.concept && (
+                      <span className="mt-1 block text-app-caption text-ink-sub">
+                        개념과 도구: {record.concept}
+                      </span>
+                    )}
+                    {record.limitation && (
+                      <span className="mt-0.5 block text-app-caption text-ink-sub">
+                        확인하지 않고 넘어간 것: {record.limitation}
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

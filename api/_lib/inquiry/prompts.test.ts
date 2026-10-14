@@ -251,6 +251,21 @@ describe("buildTopicsPrompt", () => {
     expect(r.user).toContain("followUpQuestions는 빈 배열");
   });
 
+  it("추천 지시는 선택한 출발 활동을 모두 반영하고 기본 활동을 중심에 둔다", () => {
+    const r = buildTopicsPrompt(
+      topicsInput({
+        assets: [asset, { ...asset, summary: "미생물 배양 실험" }],
+      }),
+    );
+    expect(r.user).toContain(
+      "선택한 출발 활동을 모두 반영해 이어지는 주제로 쓴다",
+    );
+    expect(r.user).toContain("기본 출발 활동을 중심에 두되");
+    expect(r.user).toContain("path와 근거에 드러낸다");
+    expect(r.user).not.toContain("기본 출발 활동에서 이어지는 주제로 쓴다");
+    expect(r.user).toContain("미생물 배양 실험");
+  });
+
   it("자산이 0건이면 예비 주제 지시와 확인 질문 3개를 요구한다(No.146)", () => {
     const r = buildTopicsPrompt(
       topicsInput({ assets: [], primaryAssetIndex: 0 }),
@@ -368,6 +383,7 @@ function designInput(over: Partial<DesignInput> = {}): DesignInput {
       limitation: "표본이 한 도시뿐이었다",
       reliability: "A",
     },
+    otherAssets: [],
     handoff: null,
     retryNotes: [],
     ...over,
@@ -375,6 +391,59 @@ function designInput(over: Partial<DesignInput> = {}): DesignInput {
 }
 
 describe("buildDesignPrompt", () => {
+  it("그 밖의 출발 활동이 있으면 절을 만들어 각 활동 요약과 연결 지시를 넣는다", () => {
+    const r = buildDesignPrompt(
+      designInput({
+        otherAssets: [
+          {
+            kind: "oneline",
+            reliability: "C",
+            summary: "미생물 배양 실험",
+            concept: null,
+            limitation: "기억에 의존",
+          },
+          {
+            kind: "record",
+            reliability: "B",
+            summary: "도시 녹지 비율 조사",
+            concept: "표본 추출",
+            limitation: null,
+          },
+        ],
+      }),
+    );
+    expect(r.user).toContain("[그 밖의 출발 활동]");
+    expect(r.user).toContain("미생물 배양 실험");
+    expect(r.user).toContain("도시 녹지 비율 조사");
+    expect(r.user).toContain("쓴 개념: 표본 추출");
+    expect(r.user).toContain("남은 한계: 기억에 의존");
+    expect(r.user).toContain(
+      "I절과 경로 서술에서 기본 출발 활동을 중심으로 하되 그 밖의 출발 활동도 연결해 쓴다",
+    );
+  });
+
+  it("그 밖의 출발 활동이 없으면 절을 넣지 않는다", () => {
+    const r = buildDesignPrompt(designInput());
+    expect(r.user).not.toContain("그 밖의 출발 활동");
+  });
+
+  it("그 밖의 출발 활동이 있어도 신뢰도 지시는 기본 출발 활동 기준이다", () => {
+    const r = buildDesignPrompt(
+      designInput({
+        otherAssets: [
+          {
+            kind: "oneline",
+            reliability: "C",
+            summary: "한 줄 활동",
+            concept: null,
+            limitation: null,
+          },
+        ],
+      }),
+    );
+    expect(r.user).not.toContain("[신뢰도");
+  });
+
   it("공통 규칙, 데이터 블록, 토큰 상한, 스키마를 갖춘다", () => {
     const r = buildDesignPrompt(designInput());
     expect(r.system).toContain(COMMON_RULES);

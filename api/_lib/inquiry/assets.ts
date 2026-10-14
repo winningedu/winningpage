@@ -86,22 +86,14 @@ function recordTime(record: RecordCandidate): number {
   return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
-/** 출발 활동 후보 정렬(No.36). planned 제외, 세션 과목 먼저, 최신순, 20건. */
+/** 출발 활동 후보 정렬(No.36). planned 제외, 최신순, 20건. */
 export function sortRecordCandidates(
   records: RecordCandidate[],
-  subject: string | null,
 ): RecordCandidate[] {
-  const wanted = subject?.trim() || null;
-  const sameSubject = (r: RecordCandidate): boolean =>
-    wanted !== null && r.subject?.trim() === wanted;
-
   return records
     .filter((r) => r.status !== "planned")
     .map((record, index) => ({ record, index }))
     .sort((a, b) => {
-      const subjectGap =
-        Number(sameSubject(b.record)) - Number(sameSubject(a.record));
-      if (subjectGap !== 0) return subjectGap;
       const timeA = recordTime(a.record);
       const timeB = recordTime(b.record);
       if (timeA !== timeB) return timeB > timeA ? 1 : -1;
