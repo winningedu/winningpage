@@ -1,7 +1,7 @@
 import type { SectionId } from "@/lib/inquiry/types";
 import type { SectionRow } from "./writeLogic";
 
-// 보고서 작성 절 하나(No.71, 72). 번호와 제목, 안내 한 줄, 입력란, 글자 수 카운터를 그린다.
+// 보고서 작성 절 하나(No.71, 72). 번호와 제목, 절 역할과 작성 요령, 입력란, 글자 수 카운터를 그린다.
 type Props = {
   row: SectionRow;
   value: string;
@@ -17,7 +17,8 @@ export default function SectionEditor({
   invalid = false,
 }: Props) {
   const inputId = `inquiry-section-${row.id}`;
-  const hintId = `${inputId}-hint`;
+  const guideId = `${inputId}-guide`;
+  const hasGuide = row.role !== "" || row.tip !== "";
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
@@ -36,12 +37,19 @@ export default function SectionEditor({
           )}
         </span>
       </div>
-      <p id={hintId} className="text-app-caption text-ink-sub">
-        {row.hint}
-      </p>
+      {hasGuide && (
+        <div id={guideId} className="flex flex-col gap-0.5">
+          {row.role !== "" && (
+            <p className="text-app-caption text-ink-sub">{row.role}</p>
+          )}
+          {row.tip !== "" && (
+            <p className="text-app-caption text-ink-sub">{row.tip}</p>
+          )}
+        </div>
+      )}
       <textarea
         id={inputId}
-        aria-describedby={hintId}
+        aria-describedby={hasGuide ? guideId : undefined}
         aria-invalid={invalid ? true : undefined}
         value={value}
         placeholder="입력"

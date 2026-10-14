@@ -13,6 +13,7 @@ import {
   shortageOf,
 } from "@/lib/inquiry/submission";
 import type {
+  DesignView,
   SectionId,
   SubmissionSections,
   SubmissionView,
@@ -52,12 +53,20 @@ export type SectionRow = SectionMeta & {
   /** 권장 대비 부족한 글자 수. 권장이 없으면 null. */
   shortage: number | null;
   short: boolean;
+  /** 설계 리포트의 절 역할 한 문장. 리포트에 없으면 빈 문자열. */
+  role: string;
+  /** 설계 리포트의 작성 요령 한 줄. 리포트에 없으면 빈 문자열. */
+  tip: string;
 };
 
-export function buildSectionRows(sections: SubmissionSections): SectionRow[] {
+export function buildSectionRows(
+  sections: SubmissionSections,
+  design: Pick<DesignView, "sections">,
+): SectionRow[] {
   const counts = countChars(sections);
   return SECTIONS.map((meta) => {
     const count = counts[meta.id];
+    const plan = design.sections.find((p) => p.id === meta.id);
     const shortage = shortageOf(meta.id, count);
     return {
       ...meta,
@@ -68,6 +77,8 @@ export function buildSectionRows(sections: SubmissionSections): SectionRow[] {
           : `${count}자 / 권장 ${meta.recommendedChars}자 이상`,
       shortage,
       short: shortage !== null && shortage > 0,
+      role: plan?.role ?? "",
+      tip: plan?.tip ?? "",
     };
   });
 }

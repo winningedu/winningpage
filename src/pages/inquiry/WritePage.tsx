@@ -367,7 +367,7 @@ function WriteForm({
     await runEvaluate();
   }
 
-  const rows = buildSectionRows(sections);
+  const rows = buildSectionRows(sections, design);
   const placeholders = countPlaceholders(sections);
   const running = phase.type === "running";
   const emptyIds = notice?.type === "empty" ? notice.sections : [];

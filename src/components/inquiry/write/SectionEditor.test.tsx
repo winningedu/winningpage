@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
+import { makeDesign } from "../design/designFixture";
 import SectionEditor from "./SectionEditor";
 import { buildSectionRows } from "./writeLogic";
 
@@ -14,25 +15,44 @@ const EMPTY = {
   VIII: "",
 };
 
-function row(id: number, text = "") {
+function row(id: number, text = "", design = makeDesign()) {
   const sections = { ...EMPTY };
   const key = Object.keys(EMPTY)[id] as keyof typeof EMPTY;
   sections[key] = text;
-  return buildSectionRows(sections)[id];
+  return buildSectionRows(sections, design)[id];
 }
 
 describe("SectionEditor", () => {
-  test("번호 제목 라벨이 textarea 와 연결되고 hint 와 카운터가 보인다", () => {
+  test("번호 제목 라벨이 textarea 와 연결되고 role, tip, 카운터가 보인다", () => {
     const r = row(0, "가".repeat(120));
     if (!r) throw new Error("row");
     render(
       <SectionEditor row={r} value={"가".repeat(120)} onChange={vi.fn()} />,
     );
     expect(screen.getByRole("textbox", { name: /Ⅰ.*탐구 동기/ })).toBeVisible();
+    expect(screen.getByText("I절의 역할")).toBeVisible();
+    expect(screen.getByText("I 작성 요령")).toBeVisible();
     expect(
-      screen.getByText("출발 활동, 무엇이 걸렸는가, 왜 지금 이 질문인가"),
-    ).toBeVisible();
+      screen.queryByText("출발 활동, 무엇이 걸렸는가, 왜 지금 이 질문인가"),
+    ).toBeNull();
     expect(screen.getByText("120자 / 권장 300자 이상")).toBeVisible();
+  });
+
+  test("role 이나 tip 이 빈 문자열이면 그 줄을 그리지 않는다", () => {
+    const design = makeDesign();
+    design.sections = design.sections.map((s) =>
+      s.id === "I" ? { ...s, role: "", tip: "" } : s,
+    );
+    const r = row(0, "", design);
+    if (!r) throw new Error("row");
+    const { container } = render(
+      <SectionEditor row={r} value="" onChange={vi.fn()} />,
+    );
+    expect(screen.queryByText("I절의 역할")).toBeNull();
+    expect(screen.queryByText("I 작성 요령")).toBeNull();
+    expect(
+      container.querySelector("textarea")?.hasAttribute("aria-describedby"),
+    ).toBe(false);
   });
 
   test("부족하면 부족분을 강조해 알린다", () => {
