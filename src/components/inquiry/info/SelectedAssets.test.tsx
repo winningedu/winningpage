@@ -39,6 +39,15 @@ describe("SelectedAssets", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  test("선택한 활동을 모두 반영하고 맨 위 활동이 중심이라고 안내한다", () => {
+    setup([REC, ONE]);
+    expect(
+      screen.getByText(
+        "선택한 활동을 모두 반영해요. 맨 위 활동이 중심이 되고 순서는 위아래로 바꿀 수 있어요.",
+      ),
+    ).toBeVisible();
+  });
+
   test("첫 항목에만 출발 활동 표시를 붙인다", () => {
     setup([REC, ONE]);
     const rows = screen.getAllByRole("listitem");

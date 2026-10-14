@@ -13,6 +13,7 @@ import type { buildDesignPrompt } from "./prompts.js";
 import {
   assetMaterial,
   gateSessionOf,
+  hasSummary,
   promptHandoff,
   readSessionInfo,
 } from "./recommendFlow.js";
@@ -115,7 +116,7 @@ export function precheckDesign(
 type DesignPromptInput = Parameters<typeof buildDesignPrompt>[0];
 
 /**
- * buildDesignPrompt 입력(재요청 문구 제외)을 조립한다. 출발 활동은 기본 자산이고 신뢰도도 그 값이다.
+ * buildDesignPrompt 입력(재요청 문구 제외)을 조립한다. 기본 출발 활동은 primaryAsset 이고 신뢰도도 그 값이다. 나머지 출발 활동은 otherAssets 로 넘긴다.
  * 자산이 없으면 신뢰도 C 로 보고 요약은 주제의 경로 출발점(관심 기반)을 쓴다.
  */
 export function buildDesignInput(args: {
@@ -153,6 +154,15 @@ export function buildDesignInput(args: {
         : { concept: null, limitation: null }),
       reliability: primary?.reliability ?? "C",
     },
+    otherAssets: args.assets
+      .filter((a) => a !== primary && hasSummary(a))
+      .sort((a, b) => a.position - b.position)
+      .map((a) => ({
+        kind: a.kind,
+        reliability: a.reliability,
+        summary: a.summary ?? "",
+        ...assetMaterial(a, recordById),
+      })),
     handoff: handoff
       ? {
           stageLabel: handoff.stageLabel,

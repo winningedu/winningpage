@@ -112,7 +112,7 @@ export function precheckTopics(
   return { ok: true, round: round.round, info };
 }
 
-const hasSummary = (a: AssetView): boolean =>
+export const hasSummary = (a: AssetView): boolean =>
   a.summary !== null && a.summary.trim() !== "";
 
 /** 쓸 수 있는 자산(요약이 있는 것)이 없으면 예비 주제다(No.4, §2 5). */

@@ -23,7 +23,8 @@ export default function SelectedAssets({
   return (
     <section aria-label="고른 활동">
       <p className={CARD_HINT}>
-        맨 위 활동에서 출발해요. 순서는 위아래로 바꿀 수 있어요.
+        선택한 활동을 모두 반영해요. 맨 위 활동이 중심이 되고 순서는 위아래로
+        바꿀 수 있어요.
       </p>
       <ul className="mt-2 flex flex-col gap-2">
         {items.map((item, index) => (
