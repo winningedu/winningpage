@@ -215,7 +215,7 @@ export default defineHandler({
         subject: row?.subject ?? "",
         nowIso,
       }),
-      records: sortRecordCandidates(records, row?.subject ?? null),
+      records: sortRecordCandidates(records),
       subjectCounts: subjectCounts(records),
       assets: parts?.assets ?? [],
       topics: parts?.topics ?? [],

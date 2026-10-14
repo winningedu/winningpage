@@ -133,4 +133,49 @@ describe("RecordPicker", () => {
       expect(screen.queryByText(/위닝|직접 입력|업로드|function/)).toBeNull();
     },
   );
+
+  describe("학년별 묶음", () => {
+    const GRADED = [
+      record({ id: "g1", gradeLabel: "고1", topic: "일학년 주제" }),
+      record({ id: "g3", gradeLabel: "고3", topic: "삼학년 주제" }),
+      record({ id: "gn", gradeLabel: null, topic: "학년없음 주제" }),
+      record({ id: "g2", gradeLabel: "고2", topic: "이학년 주제" }),
+    ];
+
+    test("소제목을 고3, 고2, 고1, 학년 미지정 순으로 그린다", () => {
+      setup(GRADED);
+      const headings = screen
+        .getAllByRole("heading", { level: 3 })
+        .map((h) => h.textContent);
+      expect(headings).toEqual(["고3", "고2", "고1", "학년 미지정"]);
+    });
+
+    test("각 기록은 자기 학년 소제목 아래에 있다", () => {
+      setup(GRADED);
+      const group = screen
+        .getByRole("heading", { name: "고2" })
+        .closest("section") as HTMLElement;
+      expect(group).toHaveTextContent("이학년 주제");
+      expect(group).not.toHaveTextContent("삼학년 주제");
+    });
+
+    test("기록이 없는 학년은 소제목도 그리지 않는다", () => {
+      setup([record({ id: "only", gradeLabel: "고2" })]);
+      expect(
+        screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+      ).toEqual(["고2"]);
+      expect(screen.queryByText("학년 미지정")).toBeNull();
+    });
+
+    test("과목 칩으로 거른 뒤 남은 기록만 학년별로 묶는다", () => {
+      setup([
+        record({ id: "a", gradeLabel: "고3", subject: "생명과학" }),
+        record({ id: "b", gradeLabel: "고2", subject: "진로활동" }),
+      ]);
+      fireEvent.click(screen.getByRole("button", { name: "진로활동 1" }));
+      expect(
+        screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+      ).toEqual(["고2"]);
+    });
+  });
 });

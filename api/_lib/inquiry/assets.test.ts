@@ -173,58 +173,33 @@ describe("assetWarnings (No.41, 42)", () => {
 
 describe("sortRecordCandidates (No.36)", () => {
   it("planned 는 제외한다", () => {
-    const out = sortRecordCandidates(
-      [rec({ id: "a", status: "planned" }), rec({ id: "b" })],
-      null,
-    );
+    const out = sortRecordCandidates([
+      rec({ id: "a", status: "planned" }),
+      rec({ id: "b" }),
+    ]);
     expect(out.map((r) => r.id)).toEqual(["b"]);
   });
 
-  it("세션 과목과 같은 subject 가 먼저, 공백은 무시한다", () => {
-    const out = sortRecordCandidates(
-      [
-        rec({ id: "a", subject: "국어", createdAt: "2026-03-01T00:00:00Z" }),
-        rec({ id: "b", subject: " 수학 ", createdAt: "2026-01-01T00:00:00Z" }),
-      ],
-      "수학",
-    );
-    expect(out.map((r) => r.id)).toEqual(["b", "a"]);
+  it("과목과 상관없이 최신순만 남는다", () => {
+    const out = sortRecordCandidates([
+      rec({ id: "a", subject: "국어", createdAt: "2026-03-01T00:00:00Z" }),
+      rec({ id: "b", subject: " 수학 ", createdAt: "2026-01-01T00:00:00Z" }),
+      rec({ id: "c", subject: null, createdAt: "2026-02-01T00:00:00Z" }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["a", "c", "b"]);
   });
 
-  it("같은 그룹 안에서는 confirmedAt 이 있으면 그것, 없으면 createdAt 내림차순", () => {
-    const out = sortRecordCandidates(
-      [
-        rec({ id: "old", createdAt: "2026-01-01T00:00:00Z" }),
-        rec({
-          id: "confirmed",
-          confirmedAt: "2026-05-01T00:00:00Z",
-          createdAt: "2026-01-02T00:00:00Z",
-        }),
-        rec({ id: "new", createdAt: "2026-03-01T00:00:00Z" }),
-      ],
-      null,
-    );
+  it("confirmedAt 이 있으면 그것, 없으면 createdAt 내림차순", () => {
+    const out = sortRecordCandidates([
+      rec({ id: "old", createdAt: "2026-01-01T00:00:00Z" }),
+      rec({
+        id: "confirmed",
+        confirmedAt: "2026-05-01T00:00:00Z",
+        createdAt: "2026-01-02T00:00:00Z",
+      }),
+      rec({ id: "new", createdAt: "2026-03-01T00:00:00Z" }),
+    ]);
     expect(out.map((r) => r.id)).toEqual(["confirmed", "new", "old"]);
-  });
-
-  it("과목이 null 이면 과목 우선 없이 날짜순", () => {
-    const out = sortRecordCandidates(
-      [
-        rec({ id: "a", subject: null, createdAt: "2026-02-01T00:00:00Z" }),
-        rec({ id: "b", subject: "수학", createdAt: "2026-01-01T00:00:00Z" }),
-      ],
-      "수학",
-    );
-    expect(out.map((r) => r.id)).toEqual(["b", "a"]);
-    expect(
-      sortRecordCandidates(
-        [
-          rec({ id: "a", subject: null, createdAt: "2026-02-01T00:00:00Z" }),
-          rec({ id: "b", subject: "수학", createdAt: "2026-01-01T00:00:00Z" }),
-        ],
-        null,
-      ).map((r) => r.id),
-    ).toEqual(["a", "b"]);
   });
 
   it("최대 20건으로 자르고 원본을 바꾸지 않는다", () => {
@@ -235,14 +210,14 @@ describe("sortRecordCandidates (No.36)", () => {
       }),
     );
     const copy = [...records];
-    const out = sortRecordCandidates(records, null);
+    const out = sortRecordCandidates(records);
     expect(out).toHaveLength(MAX_RECORD_CANDIDATES);
     expect(out[0]?.id).toBe(`r${MAX_RECORD_CANDIDATES + 4}`);
     expect(records).toEqual(copy);
   });
 
   it("빈 배열은 빈 배열", () => {
-    expect(sortRecordCandidates([], "수학")).toEqual([]);
+    expect(sortRecordCandidates([])).toEqual([]);
   });
 });
 
