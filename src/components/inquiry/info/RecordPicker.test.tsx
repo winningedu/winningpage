@@ -112,4 +112,25 @@ describe("RecordPicker", () => {
     );
     expect(onToggle).toHaveBeenCalledWith(RECORDS[1]);
   });
+
+  test.each([
+    ["performance", "위닝 수행평가"],
+    ["deep", "위닝 심화탐구"],
+    ["self", "위닝 자기평가서"],
+    ["manual", "직접 입력"],
+    ["upload", "업로드"],
+  ])("출처 %s 는 %s 라벨로 표시한다", (sourceProgram, label) => {
+    setup([record({ id: "x1", sourceProgram })]);
+    expect(screen.getByText(label)).toBeVisible();
+  });
+
+  test.each(["legacy", "toString", ""])(
+    "알 수 없는 출처 '%s' 는 출처 태그를 그리지 않는다",
+    (sourceProgram) => {
+      setup([record({ id: "x1", sourceProgram })]);
+      expect(screen.getByText("생명과학")).toBeVisible();
+      expect(screen.getByText("2026-05")).toBeVisible();
+      expect(screen.queryByText(/위닝|직접 입력|업로드|function/)).toBeNull();
+    },
+  );
 });
