@@ -26,7 +26,7 @@ import {
 } from "../_lib/inquiry/ops/list.js";
 
 const SESSION_COLUMNS =
-  "id, profile_id, status, current_step, subject, selected_topic_id, completed_at, last_activity_at, ledger_id, ledger_reversed_at, generation_state, evaluation_count, topic_round_count";
+  "id, profile_id, status, current_step, area, subject, activity_name, selected_topic_id, completed_at, last_activity_at, ledger_id, ledger_reversed_at, generation_state, evaluation_count, topic_round_count";
 
 // 검색어에 맞는 프로필 id 상한. 넘으면 검색어를 좁혀 달라는 뜻이라 초과분은 버린다.
 const MAX_SEARCH_PROFILES = 500;

@@ -2,6 +2,7 @@
 import { MAX_RECORD_CANDIDATES, ONELINE_MAX_CHARS } from "./constants.js";
 import { validateInterview } from "./gaps.js";
 import type {
+  Area,
   AssetInput,
   AssetKind,
   RecordCandidate,
@@ -53,12 +54,14 @@ const isBlank = (value: string | null | undefined): boolean =>
 
 /**
  * 선택한 record 자산에 대한 경고 코드(중복 없음).
- * NO_SUBJECT_ASSET: 교과가 아닌 것만 있다(No.42). record 가 없으면 교과 여부를 알 수 없어 경고하지 않는다.
+ * NO_SUBJECT_ASSET: 제출 영역이 교과인데 교과가 아닌 것만 있다(No.42). 다른 영역은 교과 활동을 요구하지 않아 경고하지 않는다.
+ * record 가 없으면 교과 여부를 알 수 없어 경고하지 않는다.
  * LINK_MATERIAL_LACKING: concept 와 limitation 이 둘 다 빈 record 가 있다(No.41).
  */
 export function assetWarnings(
   items: AssetInput[],
   records: RecordCandidate[],
+  area: Area,
 ): string[] {
   const byId = new Map(records.map((r) => [r.id, r]));
   const selected: RecordCandidate[] = [];
@@ -70,6 +73,7 @@ export function assetWarnings(
 
   const warnings: string[] = [];
   if (
+    area === "subject" &&
     selected.length > 0 &&
     !selected.some((r) => r.subjectGroup === SUBJECT_GROUP)
   ) {

@@ -7,7 +7,9 @@ const FORM: InfoForm = {
   gradeLabel: "고2",
   semester: 2,
   career: "수의예과",
+  area: "subject",
   subject: "생명과학",
+  activityName: "",
 };
 
 function setup(overrides: Partial<Parameters<typeof BasicInfoCard>[0]> = {}) {
@@ -24,6 +26,56 @@ function setup(overrides: Partial<Parameters<typeof BasicInfoCard>[0]> = {}) {
   );
   return onChange;
 }
+
+describe("BasicInfoCard 제출 영역", () => {
+  test("영역 pill 4개를 그리고 선택값을 표시한다", () => {
+    setup();
+    expect(screen.getByRole("radio", { name: "교과" })).toBeChecked();
+    for (const name of ["자율", "동아리", "진로"]) {
+      expect(screen.getByRole("radio", { name })).not.toBeChecked();
+    }
+  });
+
+  test("영역을 고르면 onChange 로 알린다", () => {
+    const onChange = setup();
+    fireEvent.click(screen.getByRole("radio", { name: "동아리" }));
+    expect(onChange).toHaveBeenCalledWith({ area: "club" });
+  });
+
+  test("교과가 아니면 과목명 칸이 활동명 선택 칸으로 바뀐다", () => {
+    setup({ form: { ...FORM, area: "autonomy", activityName: "학급 회의" } });
+    expect(screen.queryByLabelText(/과목명/)).not.toBeInTheDocument();
+    const activity = screen.getByLabelText(/활동명/);
+    expect(activity).toHaveValue("학급 회의");
+    expect(screen.getByText("선택")).toBeVisible();
+    expect(screen.getAllByText("필수")).toHaveLength(1);
+  });
+
+  test("활동명을 입력하면 onChange 로 알린다", () => {
+    const onChange = setup({ form: { ...FORM, area: "career" } });
+    fireEvent.change(screen.getByLabelText(/활동명/), {
+      target: { value: "직업 체험" },
+    });
+    expect(onChange).toHaveBeenCalledWith({ activityName: "직업 체험" });
+  });
+
+  test("활동명 오류는 입력 아래에 안내한다", () => {
+    setup({
+      form: { ...FORM, area: "club" },
+      errors: { activityName: "80자 안으로 적어 주세요." },
+    });
+    expect(screen.getByText("80자 안으로 적어 주세요.")).toBeVisible();
+    expect(screen.getByLabelText(/활동명/)).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+
+  test("disabled 면 영역 pill 도 잠긴다", () => {
+    setup({ disabled: true });
+    expect(screen.getByRole("radio", { name: "자율" })).toBeDisabled();
+  });
+});
 
 describe("BasicInfoCard", () => {
   test("학년 3개와 학기 2개 pill 을 그리고 선택값을 표시한다", () => {

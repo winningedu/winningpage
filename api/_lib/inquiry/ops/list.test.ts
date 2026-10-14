@@ -63,7 +63,9 @@ describe("toSessionListItem", () => {
     profile_id: "p1",
     status: "archived",
     current_step: 3,
-    subject: "물리",
+    area: "subject" as const,
+    subject: "물리" as string | null,
+    activity_name: null as string | null,
     selected_topic_id: "t1",
     completed_at: null,
     last_activity_at: "2026-10-01T00:00:00Z",
@@ -82,6 +84,21 @@ describe("toSessionListItem", () => {
     evaluation_count: 1,
     topic_round_count: 2,
   };
+
+  it("교과가 아니면 과목 칸에 영역 라벨과 활동명을 보여 준다", () => {
+    const club = toSessionListItem(
+      { ...row, area: "club", subject: null, activity_name: "과학반" },
+      undefined,
+      null,
+    );
+    expect(club.subject).toBe("동아리 / 과학반");
+    const bare = toSessionListItem(
+      { ...row, area: "career", subject: null, activity_name: null },
+      undefined,
+      null,
+    );
+    expect(bare.subject).toBe("진로");
+  });
 
   it("프로필, 선택 주제 제목과 합쳐 응답 모양으로 바꾼다", () => {
     const item = toSessionListItem(

@@ -2,6 +2,7 @@
 // 쿼리 파싱, ilike 이스케이프, 행 변환만 둔다. DB 호출은 핸들러가 한다.
 
 import { type GenerationState, parseGenerationState } from "../session.js";
+import { AREA_LABELS, type Area } from "../types.js";
 
 export const SESSION_STATUSES = [
   "draft",
@@ -66,12 +67,25 @@ export function escapeIlike(input: string): string {
   return input.replace(/[,()]/g, "").replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+/** 관리자 목록의 과목 칸. 교과는 과목명, 그 외는 영역 라벨이고 활동명이 있으면 뒤에 붙인다. */
+function submitTargetLabel(row: {
+  area: Area;
+  subject: string | null;
+  activity_name: string | null;
+}): string {
+  if (row.area === "subject") return row.subject ?? "";
+  const label = AREA_LABELS[row.area];
+  return row.activity_name ? `${label} / ${row.activity_name}` : label;
+}
+
 export type SessionListRow = {
   id: string;
   profile_id: string;
   status: string;
   current_step: number;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activity_name: string | null;
   selected_topic_id: string | null;
   completed_at: string | null;
   last_activity_at: string;
@@ -116,7 +130,7 @@ export function toSessionListItem(
     email: profile?.email ?? null,
     status: row.status,
     currentStep: row.current_step,
-    subject: row.subject,
+    subject: submitTargetLabel(row),
     topicTitle,
     completedAt: row.completed_at,
     lastActivityAt: row.last_activity_at,

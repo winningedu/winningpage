@@ -206,7 +206,9 @@ async function handleDetail(
       if (topic) {
         finalizePreview = buildFinalizePreview({
           topic,
+          area: row.area,
           subject: row.subject,
+          activityName: row.activity_name,
           primaryAsset: primary,
           evaluation,
           planItemTitle: planItem?.title ?? null,
@@ -234,7 +236,7 @@ async function handleDetail(
     final: finalReport ? (finalReport.sections as ActivityFields) : null,
     handoff: await loadHandoffView(db, userId, {
       grade: row.grade_label,
-      subject: row.subject,
+      target: row,
       nowIso,
     }),
   });

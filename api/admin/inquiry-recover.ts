@@ -27,7 +27,7 @@ import {
 const PG_UNIQUE_VIOLATION = "23505";
 
 const SOURCE_COLUMNS =
-  "id, profile_id, status, grade_label, semester, career, subject, growth_report_id, plan_item_id, generation_state";
+  "id, profile_id, status, grade_label, semester, career, area, subject, activity_name, growth_report_id, plan_item_id, generation_state";
 const ASSET_COLUMNS =
   "kind, reliability, position, activity_record_id, interview_answers, gaps, oneline_text";
 

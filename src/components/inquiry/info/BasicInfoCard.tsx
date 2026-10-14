@@ -1,6 +1,11 @@
 import { useId } from "react";
 import { Input } from "@/components/ui/input";
-import type { GradeLabel, Semester } from "@/lib/inquiry/types";
+import {
+  AREA_LABELS,
+  AREAS,
+  type GradeLabel,
+  type Semester,
+} from "@/lib/inquiry/types";
 import type { InfoForm, InfoFormErrors } from "./infoLogic";
 import {
   CARD,
@@ -26,7 +31,7 @@ type BasicInfoCardProps = {
   onChange: (patch: Partial<InfoForm>) => void;
 };
 
-// 기본 정보 카드: 학년 3, 학기 2 pill, 희망 진로, 과목명(교과 고정, 과목명 필수 입력만). 학교 유형은 묻지 않는다.
+// 기본 정보 카드: 학년 3, 학기 2, 제출 영역 4 pill, 희망 진로, 교과면 과목명(필수) 아니면 활동명(선택). 학교 유형은 묻지 않는다.
 export default function BasicInfoCard({
   form,
   errors,
@@ -88,6 +93,22 @@ export default function BasicInfoCard({
             </p>
           )}
         </fieldset>
+
+        <fieldset className="min-w-0">
+          <legend className={FIELD_LABEL}>제출 영역</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {AREAS.map((area) => (
+              <PillRadio
+                key={area}
+                name={id("area")}
+                label={AREA_LABELS[area]}
+                checked={form.area === area}
+                disabled={disabled}
+                onSelect={() => onChange({ area })}
+              />
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
@@ -116,34 +137,66 @@ export default function BasicInfoCard({
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor={id("subject")}
-            className={`${FIELD_LABEL} flex items-center gap-2`}
-          >
-            과목명
-            <span className={REQUIRED_BADGE}>필수</span>
-          </label>
-          <Input
-            id={id("subject")}
-            className={INPUT_CLASS}
-            value={form.subject}
-            disabled={disabled}
-            aria-invalid={errors.subject ? true : undefined}
-            aria-describedby={`${id("subject-help")}${errors.subject ? ` ${id("subject-error")}` : ""}`}
-            placeholder="예: 생명과학"
-            onChange={(e) => onChange({ subject: e.target.value })}
-          />
-          <p id={id("subject-help")} className="text-app-caption text-ink-sub">
-            교과군과 과목명이 다르면 교과군, 과목명으로 적어요. 예: 과학,
-            고급생명과학
-          </p>
-          {errors.subject && (
-            <p id={id("subject-error")} role="alert" className={FIELD_ERROR}>
-              {errors.subject}
+        {form.area === "subject" ? (
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={id("subject")}
+              className={`${FIELD_LABEL} flex items-center gap-2`}
+            >
+              과목명
+              <span className={REQUIRED_BADGE}>필수</span>
+            </label>
+            <Input
+              id={id("subject")}
+              className={INPUT_CLASS}
+              value={form.subject}
+              disabled={disabled}
+              aria-invalid={errors.subject ? true : undefined}
+              aria-describedby={`${id("subject-help")}${errors.subject ? ` ${id("subject-error")}` : ""}`}
+              placeholder="예: 생명과학"
+              onChange={(e) => onChange({ subject: e.target.value })}
+            />
+            <p
+              id={id("subject-help")}
+              className="text-app-caption text-ink-sub"
+            >
+              교과군과 과목명이 다르면 교과군, 과목명으로 적어요. 예: 과학,
+              고급생명과학
             </p>
-          )}
-        </div>
+            {errors.subject && (
+              <p id={id("subject-error")} role="alert" className={FIELD_ERROR}>
+                {errors.subject}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={id("activity")}
+              className={`${FIELD_LABEL} flex items-center gap-2`}
+            >
+              활동명
+              <span className={REQUIRED_BADGE}>선택</span>
+            </label>
+            <Input
+              id={id("activity")}
+              className={INPUT_CLASS}
+              value={form.activityName}
+              disabled={disabled}
+              aria-invalid={errors.activityName ? true : undefined}
+              aria-describedby={
+                errors.activityName ? id("activity-error") : undefined
+              }
+              placeholder="예: 천문 동아리 별자리 관측"
+              onChange={(e) => onChange({ activityName: e.target.value })}
+            />
+            {errors.activityName && (
+              <p id={id("activity-error")} role="alert" className={FIELD_ERROR}>
+                {errors.activityName}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {gradeNote && (

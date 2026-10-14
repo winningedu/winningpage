@@ -21,7 +21,9 @@ function sessionRow(over: Partial<SessionRow> = {}): SessionRow {
     grade_label: "고2",
     semester: 1,
     career: "의사",
+    area: "subject",
     subject: "생명과학",
+    activity_name: null,
     growth_report_id: null,
     plan_item_id: null,
     reply_pending: false,
@@ -110,8 +112,30 @@ describe("precheckTopics", () => {
         gradeLabel: "고2",
         semester: 1,
         career: "의사",
+        area: "subject",
         subject: "생명과학",
+        activityName: null,
       },
+    });
+  });
+
+  it("교과가 아닌 세션은 과목 없이도 활동명과 함께 정보를 돌려준다", () => {
+    const r = precheckTopics(
+      sessionRow({ area: "club", subject: null, activity_name: "과학반" }),
+    );
+    expect(r).toMatchObject({
+      ok: true,
+      info: { area: "club", subject: null, activityName: "과학반" },
+    });
+    expect(
+      precheckTopics(sessionRow({ area: "autonomy", subject: null })),
+    ).toMatchObject({ ok: true, info: { activityName: null } });
+  });
+
+  it("교과인데 과목이 비어 있으면 STEP_ORDER 409", () => {
+    expect(precheckTopics(sessionRow({ subject: null }))).toMatchObject({
+      ok: false,
+      code: "STEP_ORDER",
     });
   });
 
@@ -156,7 +180,9 @@ describe("buildTopicsInput", () => {
     gradeLabel: "고2" as const,
     semester: 1 as const,
     career: "의사",
+    area: "subject" as const,
     subject: "생명과학",
+    activityName: null,
   };
 
   it("record 자산은 기록의 개념과 한계를, 학년 규칙은 STAGE_LINK_RULES 를 쓴다", () => {
@@ -173,7 +199,9 @@ describe("buildTopicsInput", () => {
       grade: "고2",
       semester: 1,
       career: "의사",
+      area: "subject",
       subject: "생명과학",
+      activityName: null,
       primaryAssetIndex: 0,
       excludedTitles: ["이전 제목"],
       seedTopic: "효소",

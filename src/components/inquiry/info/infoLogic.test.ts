@@ -55,8 +55,11 @@ describe("validateInfoForm", () => {
     gradeLabel: "고2" as const,
     semester: 2 as const,
     career: "수의예과",
+    area: "subject" as const,
     subject: "생명과학",
+    activityName: "",
   };
+  const validValue = { ...valid, subject: "생명과학", activityName: null };
 
   test("모두 채우면 trim 한 값을 돌려준다", () => {
     expect(
@@ -65,7 +68,61 @@ describe("validateInfoForm", () => {
         career: " 수의예과 ",
         subject: " 생명과학 ",
       }),
-    ).toEqual({ ok: true, value: valid });
+    ).toEqual({ ok: true, value: validValue });
+  });
+
+  test("교과가 아니면 과목명 없이 통과하고 남은 과목명은 버린다", () => {
+    expect(
+      validateInfoForm({
+        ...valid,
+        area: "autonomy",
+        subject: "남은 값",
+        activityName: "",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { ...validValue, area: "autonomy", subject: null },
+    });
+  });
+
+  test("교과가 아니면 활동명은 선택이고 적으면 trim 해서 돌려준다", () => {
+    const result = validateInfoForm({
+      ...valid,
+      area: "club",
+      subject: "",
+      activityName: " 천문 동아리 ",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        ...validValue,
+        area: "club",
+        subject: null,
+        activityName: "천문 동아리",
+      },
+    });
+  });
+
+  test("교과가 아니면 활동명이 80자를 넘을 때만 안내한다", () => {
+    expect(
+      validateInfoForm({
+        ...valid,
+        area: "career",
+        subject: "",
+        activityName: "가".repeat(81),
+      }),
+    ).toEqual({
+      ok: false,
+      errors: { activityName: "80자 안으로 적어 주세요." },
+    });
+  });
+
+  test("교과이면 활동명은 보지 않고 버린다", () => {
+    const result = validateInfoForm({
+      ...valid,
+      activityName: "가".repeat(200),
+    });
+    expect(result).toEqual({ ok: true, value: validValue });
   });
 
   test("진로가 비면 필드 안내를 돌려준다(No.147)", () => {
@@ -100,7 +157,9 @@ describe("validateInfoForm", () => {
       gradeLabel: null,
       semester: null,
       career: "",
+      area: "subject",
       subject: "",
+      activityName: "",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -122,7 +181,9 @@ function session(overrides: Partial<SessionView> = {}): SessionView {
     gradeLabel: "고2",
     semester: 2,
     career: "수의예과",
+    area: "subject",
     subject: "생명과학",
+    activityName: null,
     growthReportId: null,
     planItemId: null,
     replyPending: false,
@@ -175,8 +236,23 @@ describe("initialForm", () => {
       gradeLabel: "고3",
       semester: 2,
       career: "교사",
+      area: "subject",
       subject: "생명과학",
+      activityName: "",
     });
+  });
+
+  test("교과가 아닌 세션은 영역과 활동명을 그대로 채운다", () => {
+    expect(
+      initialForm({
+        session: session({
+          area: "club",
+          subject: null,
+          activityName: "천문 동아리",
+        }),
+        profile: null,
+      }),
+    ).toMatchObject({ area: "club", subject: "", activityName: "천문 동아리" });
   });
 
   test("세션이 없으면 프로필 값을 쓰고 과목명은 비운다", () => {
@@ -185,7 +261,14 @@ describe("initialForm", () => {
         session: null,
         profile: { gradeLabel: "고1", semester: 1, career: "의사" },
       }),
-    ).toEqual({ gradeLabel: "고1", semester: 1, career: "의사", subject: "" });
+    ).toEqual({
+      gradeLabel: "고1",
+      semester: 1,
+      career: "의사",
+      area: "subject",
+      subject: "",
+      activityName: "",
+    });
   });
 
   test("둘 다 없으면 전부 비어 있다", () => {
@@ -193,7 +276,9 @@ describe("initialForm", () => {
       gradeLabel: null,
       semester: null,
       career: "",
+      area: "subject",
       subject: "",
+      activityName: "",
     });
   });
 });
@@ -446,15 +531,30 @@ describe("경고", () => {
         const found = records.find((r) => r.id === id) as RecordCandidate;
         return recordAsset(found);
       });
-      expect(localWarnings(assets, records)).toEqual(
-        serverAssets.assetWarnings(toAssetInputs(assets), records),
-      );
+      for (const area of ["subject", "autonomy"] as const) {
+        expect(localWarnings(assets, records, area)).toEqual(
+          serverAssets.assetWarnings(toAssetInputs(assets), records, area),
+        );
+      }
+    }
+  });
+
+  test("교과가 아닌 영역에서는 NO_SUBJECT_ASSET 을 내지 않는다", () => {
+    const only = [recordAsset(records[1] as RecordCandidate)];
+    for (const area of ["autonomy", "club", "career"] as const) {
+      expect(localWarnings(only, records, area)).toEqual([
+        "LINK_MATERIAL_LACKING",
+      ]);
     }
   });
 
   test("교과가 아닌 기록만 고르면 NO_SUBJECT_ASSET 과 LINK_MATERIAL_LACKING 이 함께 나온다", () => {
     expect(
-      localWarnings([recordAsset(records[1] as RecordCandidate)], records),
+      localWarnings(
+        [recordAsset(records[1] as RecordCandidate)],
+        records,
+        "subject",
+      ),
     ).toEqual(["NO_SUBJECT_ASSET", "LINK_MATERIAL_LACKING"]);
   });
 
@@ -610,7 +710,9 @@ describe("decideSubmit", () => {
     gradeLabel: "고2" as const,
     semester: 2 as const,
     career: "수의예과",
-    subject: "생명과학",
+    area: "subject" as const,
+    subject: "생명과학" as string | null,
+    activityName: null as string | null,
   };
 
   test("설계 리포트가 있는 세션은 잠겨 있다", () => {
@@ -674,6 +776,7 @@ describe("decideSubmit", () => {
       { semester: 1 as const },
       { career: "교사" },
       { subject: "화학" },
+      { area: "club" as const, subject: null, activityName: "천문 동아리" },
     ]) {
       expect(
         decideSubmit({

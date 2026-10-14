@@ -36,7 +36,9 @@ import ReportsPage from "./ReportsPage";
 const item = (id: string, subject: string) => ({
   sessionId: id,
   completedAt: "2026-09-30T00:00:00.000Z",
+  area: "subject",
   subject,
+  activityName: null,
   topicTitle: `${subject} 주제`,
   linkKind: "followup",
   score: 80,

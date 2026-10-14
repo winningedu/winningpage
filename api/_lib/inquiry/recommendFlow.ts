@@ -66,11 +66,27 @@ export function readSessionInfo(row: SessionRow): SessionInfo | null {
   const semester =
     row.semester === 1 || row.semester === 2 ? row.semester : null;
   const career = row.career?.trim() ?? "";
-  const subject = row.subject.trim();
-  if (!gradeLabel || semester === null || career === "" || subject === "") {
-    return null;
+  if (!gradeLabel || semester === null || career === "") return null;
+  if (row.area === "subject") {
+    const subject = row.subject?.trim() ?? "";
+    if (subject === "") return null;
+    return {
+      gradeLabel,
+      semester,
+      career,
+      area: row.area,
+      subject,
+      activityName: null,
+    };
   }
-  return { gradeLabel, semester, career, subject };
+  return {
+    gradeLabel,
+    semester,
+    career,
+    area: row.area,
+    subject: null,
+    activityName: row.activity_name?.trim() || null,
+  };
 }
 
 export function gateSessionOf(row: SessionRow) {
@@ -184,7 +200,9 @@ export function buildTopicsInput(args: {
     grade: args.info.gradeLabel,
     semester: args.info.semester,
     career: args.info.career,
+    area: args.info.area,
     subject: args.info.subject,
+    activityName: args.info.activityName,
     assets: sorted.map((a) => ({
       kind: a.kind,
       reliability: a.reliability,

@@ -211,7 +211,7 @@ export default defineHandler({
       ),
       loadHandoffView(db, userId, {
         grade: info.gradeLabel,
-        subject: info.subject,
+        target: info,
         nowIso,
       }),
     ]);

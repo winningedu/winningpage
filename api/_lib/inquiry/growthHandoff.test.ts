@@ -151,6 +151,11 @@ describe("matchPlanItems (§1 과제 매칭, No.111)", () => {
       "2",
     ]);
   });
+  it("과목이 없으면(교과 외 영역) 후보만 주고 자동 선택하지 않는다", () => {
+    const r = matchPlanItems(items, null);
+    expect(r.candidates.map((i) => i.id)).toEqual(["1", "2"]);
+    expect(r.autoSelected).toBeNull();
+  });
   it("과목명이 title 에 정확히 1건 포함되면 자동 선택한다", () => {
     expect(matchPlanItems(items, "수학").autoSelected?.id).toBe("1");
   });

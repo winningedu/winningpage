@@ -67,7 +67,9 @@ test.describe("심화탐구 세션 생성과 재진입", () => {
       grade_label: "고2",
       semester: 2,
       career: "수의예과",
+      area: "subject",
       subject: "생명과학I",
+      activity_name: null,
     });
     expect(await readOpenSessionAssets()).toEqual([
       { kind: "interview", reliability: "B" },

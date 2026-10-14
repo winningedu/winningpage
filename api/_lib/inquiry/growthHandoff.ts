@@ -100,13 +100,13 @@ function squash(s: string | null): string {
 /** deep, pending 항목이 후보. 과목명이 title 또는 category 에 든 항목이 정확히 1건이면 자동 선택(No.111). */
 export function matchPlanItems(
   items: PlanItemRow[],
-  subject: string,
+  subject: string | null,
 ): { candidates: PlanItemRow[]; autoSelected: PlanItemRow | null } {
   const candidates = items.filter(
     (i) => i.program === "deep" && i.status === "pending",
   );
   const key = squash(subject);
-  if (key === "") return { candidates, autoSelected: null };
+  if (subject === null || key === "") return { candidates, autoSelected: null };
   const hits = candidates.filter(
     (i) => squash(i.title).includes(key) || squash(i.category).includes(key),
   );
@@ -120,7 +120,7 @@ export function buildHandoff(input: {
   report: GrowthReportRow;
   planItems: PlanItemRow[];
   sessionGrade: GradeLabel;
-  subject: string;
+  subject: string | null;
   nowIso: string;
 }): GrowthHandoff & { autoSelectedPlanItemId: string | null } {
   const { report } = input;

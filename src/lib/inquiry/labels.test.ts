@@ -140,3 +140,32 @@ describe("평가 리포트 라벨(P6b)", () => {
     }
   });
 });
+
+describe("제출 영역 라벨", () => {
+  test("교과면 과목명을 그대로 보여 준다", () => {
+    expect(
+      labels.submitTargetLabel({
+        area: "subject",
+        subject: "생명과학",
+        activityName: null,
+      }),
+    ).toBe("생명과학");
+  });
+
+  test("교과가 아니면 영역 라벨이고 활동명이 있으면 슬래시로 붙인다", () => {
+    expect(
+      labels.submitTargetLabel({
+        area: "autonomy",
+        subject: null,
+        activityName: null,
+      }),
+    ).toBe("자율");
+    expect(
+      labels.submitTargetLabel({
+        area: "club",
+        subject: null,
+        activityName: "천문 동아리",
+      }),
+    ).toBe("동아리 / 천문 동아리");
+  });
+});

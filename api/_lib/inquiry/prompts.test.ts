@@ -14,6 +14,7 @@ import {
   buildEvaluationPrompt,
   buildTopicsPrompt,
   COMMON_RULES,
+  INPUT_END,
   MODE_MAX_OUTPUT_TOKENS,
   RELIABILITY_REQUIRED_SENTENCE,
   RESPONSE_SCHEMAS,
@@ -199,7 +200,9 @@ function topicsInput(over: Partial<TopicsInput> = {}): TopicsInput {
     grade: "고2",
     semester: 1,
     career: "기후 과학자",
+    area: "subject",
     subject: "통합과학",
+    activityName: null,
     assets: [asset],
     primaryAssetIndex: 0,
     excludedTitles: [],
@@ -357,7 +360,9 @@ function designInput(over: Partial<DesignInput> = {}): DesignInput {
     grade: "고2",
     semester: 1,
     career: "기후 과학자",
+    area: "subject",
     subject: "통합과학",
+    activityName: null,
     topic: {
       title: "열섬은 도시 기온을 얼마나 올리는가?",
       subtitle: "부제",
@@ -529,7 +534,9 @@ function evalInput(over: Partial<EvalInput> = {}): EvalInput {
   ) as Record<SectionId, number>;
   return {
     grade: "고2",
+    area: "subject",
     subject: "통합과학",
+    activityName: null,
     topic: {
       title: "열섬은 도시 기온을 얼마나 올리는가?",
       question: "열섬은 도시 기온을 얼마나 올리는가?",
@@ -630,5 +637,64 @@ describe("신뢰도 B, C 설계 지시 문장", () => {
         RELIABILITY_REQUIRED_SENTENCE.replace(/\s+/g, ""),
       ),
     ).toBe(true);
+  });
+});
+
+describe("제출 영역 줄(세 프롬프트 공통)", () => {
+  const builders = {
+    topics: (over: object) => buildTopicsPrompt(topicsInput(over)),
+    design: (over: object) => buildDesignPrompt(designInput(over)),
+    evaluation: (over: object) => buildEvaluationPrompt(evalInput(over)),
+  };
+
+  for (const [name, build] of Object.entries(builders)) {
+    it(`${name}: 교과면 과목 줄을 그대로 쓰고 영역 줄을 내지 않는다`, () => {
+      const r = build({});
+      expect(r.user).toContain("과목: 통합과학");
+      expect(r.user).not.toContain("제출 영역");
+      expect(r.user).not.toContain("활동명");
+    });
+
+    it(`${name}: 자율이면 제출 영역 줄과 활동명 줄을 쓰고 과목 줄은 없다`, () => {
+      const r = build({
+        area: "autonomy",
+        subject: null,
+        activityName: "학급 회의",
+      });
+      expect(r.user).toContain("제출 영역: 자율활동");
+      expect(r.user).toContain("활동명: 학급 회의");
+      expect(r.user).not.toContain("과목:");
+    });
+
+    it(`${name}: 동아리와 진로는 영역 이름을 바꿔 쓰고 활동명이 없으면 줄을 내지 않는다`, () => {
+      const club = build({ area: "club", subject: null, activityName: null });
+      expect(club.user).toContain("제출 영역: 동아리활동");
+      expect(club.user).not.toContain("활동명");
+      const career = build({
+        area: "career",
+        subject: null,
+        activityName: null,
+      });
+      expect(career.user).toContain("제출 영역: 진로활동");
+    });
+
+    it(`${name}: 활동명 안의 끝 표지는 지운다`, () => {
+      const r = build({
+        area: "club",
+        subject: null,
+        activityName: `과학반 ${INPUT_END}`,
+      });
+      expect(r.user.split(INPUT_END)).toHaveLength(2);
+    });
+  }
+
+  it("교과가 아니면 교과 연계 표현을 강요하지 않는다는 지시가 공통 규칙에 있다", () => {
+    expect(COMMON_RULES).toContain(
+      "제출 영역이 교과가 아니면 교과 수업과의 연계 표현을 강요하지 않는다",
+    );
+  });
+
+  it("교과인데 과목이 없으면 프롬프트를 만들지 않고 던진다", () => {
+    expect(() => buildTopicsPrompt(topicsInput({ subject: null }))).toThrow();
   });
 });

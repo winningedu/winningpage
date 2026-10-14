@@ -1,6 +1,7 @@
 // 확정 화면 순수 함수: 6항목 표 행, 7항목 폼 상태, 제출 판정과 제출 바디.
 import { SUBMISSION_LABELS } from "@/lib/inquiry/labels";
 import type { ActivityFields, FinalizePreview } from "@/lib/inquiry/types";
+import { AREA_LABELS } from "@/lib/inquiry/types";
 
 export type SummaryRow = {
   key: string;
@@ -13,12 +14,19 @@ export type SummaryRow = {
 
 const LIMITATION_MISSING = "추출하지 못했어요. Ⅵ 한계 절이 비어 있어요";
 
+/** 교과는 "교과, 과목명", 그 외는 "영역 라벨, 활동명"이고 활동명이 없으면 영역 라벨만 쓴다. */
+function areaValue(s: FinalizePreview["summary"]): string {
+  const label = AREA_LABELS[s.area];
+  const detail = s.area === "subject" ? s.subject : s.activityName;
+  return detail ? `${label}, ${detail}` : label;
+}
+
 export function buildSummaryRows(preview: FinalizePreview): SummaryRow[] {
   const s = preview.summary;
   const limitationEmpty = s.limitation.trim() === "";
   const rows: SummaryRow[] = [
     { key: "topic", label: "주제", value: s.topic },
-    { key: "area", label: "영역", value: `교과, ${s.subject}` },
+    { key: "area", label: "영역", value: areaValue(s) },
     { key: "linkage", label: "연계", value: s.linkage },
     { key: "concepts", label: "사용 개념", value: s.concepts.join(", ") },
     {

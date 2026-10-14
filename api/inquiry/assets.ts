@@ -137,6 +137,7 @@ export default defineHandler({
       warnings: assetWarnings(
         items,
         [...usable.values()].map(toRecordCandidate),
+        session.area,
       ),
       planItemId,
     });

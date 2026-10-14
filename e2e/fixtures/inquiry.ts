@@ -88,7 +88,7 @@ export async function latestCompletedSession(): Promise<{
     "최근 확정 세션 조회",
     await serviceRoleClient()
       .from("inquiry_sessions")
-      .select("subject, latest_evaluation_id")
+      .select("area, subject, activity_name, latest_evaluation_id")
       .eq("profile_id", profileId)
       .eq("status", "completed")
       .not("latest_evaluation_id", "is", null)
@@ -109,8 +109,20 @@ export async function latestCompletedSession(): Promise<{
       .eq("id", session.latest_evaluation_id as string)
       .single(),
   ).data;
+  // 보관함 과목 칸과 같은 글자: 교과는 과목명, 그 외는 영역 라벨(활동명이 있으면 "라벨 / 활동명").
+  const areaLabels: Record<string, string> = {
+    autonomy: "자율",
+    club: "동아리",
+    career: "진로",
+  };
+  const subject =
+    session.area === "subject"
+      ? (session.subject as string)
+      : [areaLabels[session.area as string], session.activity_name]
+          .filter(Boolean)
+          .join(" / ");
   return {
-    subject: session.subject as string,
+    subject,
     score: Number(report.score).toFixed(1),
   };
 }
@@ -216,14 +228,16 @@ export async function readOpenSessionBasics(): Promise<{
   grade_label: string;
   semester: number;
   career: string;
-  subject: string;
+  area: string;
+  subject: string | null;
+  activity_name: string | null;
 }> {
   const profileId = await resolveStudentProfileId();
   const res = check(
     "열린 세션 값 조회",
     await serviceRoleClient()
       .from("inquiry_sessions")
-      .select("grade_label, semester, career, subject")
+      .select("grade_label, semester, career, area, subject, activity_name")
       .eq("profile_id", profileId)
       .in("status", OPEN_STATUSES)
       .single(),
@@ -232,7 +246,9 @@ export async function readOpenSessionBasics(): Promise<{
     grade_label: string;
     semester: number;
     career: string;
-    subject: string;
+    area: string;
+    subject: string | null;
+    activity_name: string | null;
   };
 }
 

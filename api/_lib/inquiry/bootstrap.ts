@@ -6,7 +6,13 @@ import {
   pickLatestCompleted,
 } from "./growthHandoff.js";
 import { canStartNewSession } from "./session.js";
-import type { GradeLabel, GrowthHandoff, Semester } from "./types.js";
+import {
+  AREAS,
+  type Area,
+  type GradeLabel,
+  type GrowthHandoff,
+  type Semester,
+} from "./types.js";
 
 const GRADE_LABELS: readonly GradeLabel[] = ["고1", "고2", "고3"];
 const MAX_TEXT_CHARS = 80;
@@ -22,7 +28,11 @@ export type SessionInfo = {
   gradeLabel: GradeLabel;
   semester: Semester;
   career: string;
-  subject: string;
+  area: Area;
+  /** 교과일 때만 값이 있다. */
+  subject: string | null;
+  /** 교과가 아닐 때만 값이 있고 비워도 된다. */
+  activityName: string | null;
 };
 
 export type SessionBody =
@@ -66,13 +76,48 @@ export function validateSessionBody(
   if (career === null) {
     return { ok: false, reason: "진로는 1자 이상 80자 이하로 적어 주세요." };
   }
-  const subject = cleanText(raw.subject);
-  if (subject === null) {
-    return { ok: false, reason: "과목은 1자 이상 80자 이하로 적어 주세요." };
+  // 배포 직후 옛 번들은 area 없이 보낸다. 누락과 null 은 교과로 보고 값이 있는데 틀리면 거절한다.
+  const area =
+    raw.area === undefined || raw.area === null
+      ? "subject"
+      : AREAS.find((a) => a === raw.area);
+  if (!area) {
+    return {
+      ok: false,
+      reason: "제출 영역은 교과, 자율, 동아리, 진로 중 하나여야 해요.",
+    };
+  }
+  if (area === "subject") {
+    const subject = cleanText(raw.subject);
+    if (subject === null) {
+      return { ok: false, reason: "과목은 1자 이상 80자 이하로 적어 주세요." };
+    }
+    return {
+      ok: true,
+      body: {
+        action: "create",
+        info: {
+          gradeLabel,
+          semester,
+          career,
+          area,
+          subject,
+          activityName: null,
+        },
+      },
+    };
+  }
+  const rawName = typeof raw.activityName === "string" ? raw.activityName : "";
+  const activityName = rawName.trim() === "" ? null : cleanText(rawName);
+  if (rawName.trim() !== "" && activityName === null) {
+    return { ok: false, reason: "활동명은 80자 이하로 적어 주세요." };
   }
   return {
     ok: true,
-    body: { action: "create", info: { gradeLabel, semester, career, subject } },
+    body: {
+      action: "create",
+      info: { gradeLabel, semester, career, area, subject: null, activityName },
+    },
   };
 }
 
@@ -84,13 +129,15 @@ export type CreateDecision =
 
 /**
  * create 요청의 처리 방식(부록 A 1번). 열린 세션이 있으면 설계 전까지 info 만 갱신한다.
- * 자산이 이미 있고 과목이 바뀌면 자산을 비운다. 없으면 잔여 회차로 새로 만들 수 있는지 본다.
+ * 자산이 이미 있고 제출 영역, 과목, 활동명 중 하나라도 바뀌면 자산을 비운다. 없으면 잔여 회차로 새로 만들 수 있는지 본다.
  */
 export function decideCreate(input: {
   openSession: {
     id: string;
     designReportId: string | null;
-    subject: string;
+    area: Area;
+    subject: string | null;
+    activityName: string | null;
     assetCount: number;
   } | null;
   quotaRemaining: number | null;
@@ -104,7 +151,9 @@ export function decideCreate(input: {
       sessionId: openSession.id,
       clearAssets:
         openSession.assetCount > 0 &&
-        openSession.subject !== input.info.subject,
+        (openSession.area !== input.info.area ||
+          openSession.subject !== input.info.subject ||
+          openSession.activityName !== input.info.activityName),
     };
   }
   const gate = canStartNewSession({
@@ -121,12 +170,14 @@ export type HandoffView = GrowthHandoff & {
 /**
  * 최신 완료 성장설계 회차의 수신 8종(부록 A 1번). 완료 회차가 없거나 학년을 알 수 없으면 null 이다.
  * 학년이 없으면 단계 불일치를 계산할 수 없어 폴백 값을 만들지 않고 비운다.
+ * 과제 자동 선택은 과목 매칭이라 영역이 교과일 때만 시도한다.
  */
 export function buildHandoffForSession(input: {
   reports: GrowthReportRow[];
   planItems: PlanItemRow[];
   sessionGrade: GradeLabel | null;
-  subject: string;
+  /** 세션의 제출 영역과 과목. 세션이 없으면 null. */
+  target: { area: Area; subject: string | null } | null;
   nowIso: string;
 }): HandoffView | null {
   if (!input.sessionGrade) return null;
@@ -136,7 +187,7 @@ export function buildHandoffForSession(input: {
     report,
     planItems: input.planItems,
     sessionGrade: input.sessionGrade,
-    subject: input.subject,
+    subject: input.target?.area === "subject" ? input.target.subject : null,
     nowIso: input.nowIso,
   });
 }

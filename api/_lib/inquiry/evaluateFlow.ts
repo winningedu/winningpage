@@ -16,6 +16,7 @@ import {
   stripPlaceholders,
 } from "./submission.js";
 import type {
+  Area,
   EvaluationReport,
   GradeLabel,
   LinkageType,
@@ -113,7 +114,9 @@ type PromptInput = Omit<
 /** buildEvaluationPrompt 입력(재요청 메모 제외). 모델에는 자리표시자를 지운 본문을 넘긴다(No.78). */
 export function buildPromptInput(input: {
   grade: GradeLabel;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   topic: PromptInput["topic"];
   design: { sections: SectionPlan[] };
   sections: SubmissionSections;
@@ -122,7 +125,9 @@ export function buildPromptInput(input: {
 }): PromptInput {
   return {
     grade: input.grade,
+    area: input.area,
     subject: input.subject,
+    activityName: input.activityName,
     topic: input.topic,
     design: {
       sections: input.design.sections.map((s) => ({ id: s.id, must: s.must })),

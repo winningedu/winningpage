@@ -7,12 +7,15 @@ import {
   validateSessionBody,
 } from "./bootstrap.js";
 import type { GrowthReportRow, PlanItemRow } from "./growthHandoff.js";
+import type { Area } from "./types.js";
 
 const info = {
   gradeLabel: "고2",
   semester: 1,
   career: "의사",
+  area: "subject",
   subject: "생명과학",
+  activityName: null,
 };
 
 describe("validateSessionBody", () => {
@@ -64,7 +67,7 @@ describe("validateSessionBody", () => {
     ).toBe(true);
   });
 
-  it("career 와 subject 는 trim 뒤 1자 이상 80자 이하다", () => {
+  it("career 와 교과의 subject 는 trim 뒤 1자 이상 80자 이하다", () => {
     for (const key of ["career", "subject"] as const) {
       for (const value of ["", "   ", "가".repeat(81), 3, null]) {
         expect(
@@ -83,6 +86,86 @@ describe("validateSessionBody", () => {
     }
   });
 
+  it("영역은 교과, 자율, 동아리, 진로 네 값만 허용한다", () => {
+    for (const area of ["", "etc", 1, false]) {
+      expect(
+        validateSessionBody({ action: "create", info: { ...info, area } }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("영역이 없거나 null 이면 교과로 보고 통과한다", () => {
+    for (const area of [undefined, null]) {
+      const { area: _omit, ...rest } = info;
+      const result = validateSessionBody({
+        action: "create",
+        info: { ...rest, ...(area === null ? { area } : {}) },
+      });
+      expect(result).toEqual({ ok: true, body: { action: "create", info } });
+    }
+  });
+
+  it("교과인데 과목이 없으면 거절하고 활동명은 버린다", () => {
+    expect(
+      validateSessionBody({
+        action: "create",
+        info: { ...info, subject: "  " },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateSessionBody({
+        action: "create",
+        info: { ...info, subject: null },
+      }).ok,
+    ).toBe(false);
+    const result = validateSessionBody({
+      action: "create",
+      info: { ...info, activityName: "학급 회의" },
+    });
+    expect(result).toEqual({ ok: true, body: { action: "create", info } });
+  });
+
+  it("자율, 동아리, 진로는 활동명이 없어도 통과하고 과목은 버린다", () => {
+    for (const area of ["autonomy", "club", "career"]) {
+      const result = validateSessionBody({
+        action: "create",
+        info: { ...info, area, subject: "생명과학", activityName: "  " },
+      });
+      expect(result).toEqual({
+        ok: true,
+        body: {
+          action: "create",
+          info: { ...info, area, subject: null, activityName: null },
+        },
+      });
+    }
+  });
+
+  it("자율 활동명은 trim 해 돌려주고 80자를 넘으면 거절한다", () => {
+    const ok = validateSessionBody({
+      action: "create",
+      info: { ...info, area: "club", subject: null, activityName: " 과학반 " },
+    });
+    expect(ok).toEqual({
+      ok: true,
+      body: {
+        action: "create",
+        info: { ...info, area: "club", subject: null, activityName: "과학반" },
+      },
+    });
+    expect(
+      validateSessionBody({
+        action: "create",
+        info: {
+          ...info,
+          area: "club",
+          subject: null,
+          activityName: "가".repeat(81),
+        },
+      }).ok,
+    ).toBe(false);
+  });
+
   it("거절 사유는 문장으로 준다", () => {
     const result = validateSessionBody({
       action: "create",
@@ -94,11 +177,18 @@ describe("validateSessionBody", () => {
 });
 
 describe("decideCreate", () => {
-  const typed = { ...info, gradeLabel: "고2" as const, semester: 1 as const };
+  const typed = {
+    ...info,
+    gradeLabel: "고2" as const,
+    semester: 1 as const,
+    area: "subject" as const,
+  };
   const open = (over = {}) => ({
     id: "s1",
     designReportId: null,
-    subject: "생명과학",
+    area: "subject" as const,
+    subject: "생명과학" as string | null,
+    activityName: null as string | null,
     assetCount: 0,
     ...over,
   });
@@ -170,6 +260,57 @@ describe("decideCreate", () => {
   });
 });
 
+describe("decideCreate 제출 영역", () => {
+  const typed = {
+    gradeLabel: "고2" as const,
+    semester: 1 as const,
+    career: "의사",
+    area: "subject" as const,
+    subject: "생명과학" as string | null,
+    activityName: null as string | null,
+  };
+  const open = (over = {}) => ({
+    id: "s1",
+    designReportId: null,
+    area: "subject" as const,
+    subject: "생명과학" as string | null,
+    activityName: null as string | null,
+    assetCount: 2,
+    ...over,
+  });
+  const decide = (o = {}, i = {}) =>
+    decideCreate({
+      openSession: open(o),
+      quotaRemaining: 1,
+      info: { ...typed, ...i },
+    });
+
+  it("영역이 바뀌면 자산을 비운다", () => {
+    expect(
+      decide({}, { area: "club", subject: null, activityName: "과학반" }),
+    ).toMatchObject({ clearAssets: true });
+  });
+
+  it("같은 영역에서 활동명이 바뀌면 자산을 비운다", () => {
+    const club = { area: "club" as const, subject: null };
+    expect(
+      decide(
+        { ...club, activityName: "과학반" },
+        { ...club, activityName: "독서반" },
+      ),
+    ).toMatchObject({ clearAssets: true });
+  });
+
+  it("영역과 활동명이 그대로면 자산을 남긴다", () => {
+    const club = {
+      area: "club" as const,
+      subject: null,
+      activityName: "과학반",
+    };
+    expect(decide(club, club)).toMatchObject({ clearAssets: false });
+  });
+});
+
 describe("buildHandoffForSession", () => {
   const report = (over: Partial<GrowthReportRow> = {}): GrowthReportRow => ({
     id: "g1",
@@ -196,7 +337,10 @@ describe("buildHandoffForSession", () => {
     reports: [report()],
     planItems: [item()],
     sessionGrade: "고2" as const,
-    subject: "생명과학",
+    target: { area: "subject", subject: "생명과학" } as {
+      area: Area;
+      subject: string | null;
+    } | null,
     nowIso: "2026-10-06T00:00:00.000Z",
   };
 
@@ -215,6 +359,20 @@ describe("buildHandoffForSession", () => {
       }),
     ).toBeNull();
     expect(buildHandoffForSession({ ...base, reports: [] })).toBeNull();
+  });
+
+  it("교과가 아니면 과목이 남아 있어도 과제 자동 선택을 하지 않는다", () => {
+    for (const area of ["autonomy", "club", "career"] as const) {
+      const handoff = buildHandoffForSession({
+        ...base,
+        target: { area, subject: "생명과학" },
+      });
+      expect(handoff?.autoSelectedPlanItemId).toBeNull();
+      expect(handoff?.planItems).toHaveLength(1);
+    }
+    expect(
+      buildHandoffForSession({ ...base, target: null })?.autoSelectedPlanItemId,
+    ).toBeNull();
   });
 
   it("학년을 알 수 없으면 null 이다", () => {

@@ -135,7 +135,9 @@ describe("buildPromptInput", () => {
   if (!pre.ok) throw new Error("precheck");
   const base = buildPromptInput({
     grade: "고2",
+    area: "subject",
     subject: "물리",
+    activityName: null,
     topic,
     design,
     sections,
@@ -149,6 +151,25 @@ describe("buildPromptInput", () => {
     expect(base.placeholders).toEqual({ I: 1 });
   });
 
+  it("제출 영역과 활동명을 그대로 넘긴다", () => {
+    const club = buildPromptInput({
+      grade: "고2",
+      area: "club",
+      subject: null,
+      activityName: "과학반",
+      topic,
+      design,
+      sections,
+      check: pre.check,
+      linkageType: "direct",
+    });
+    expect(club).toMatchObject({
+      area: "club",
+      subject: null,
+      activityName: "과학반",
+    });
+  });
+
   it("설계의 must 와 체크리스트 id 13개를 넘긴다", () => {
     expect(base.design.sections[0]).toEqual({ id: "I", must: ["I 필수"] });
     expect(base.design.checklistIds).toEqual(CHECKLIST.map((c) => c.id));
@@ -158,7 +179,9 @@ describe("buildPromptInput", () => {
     expect(base.isProvisional).toBe(false);
     const prov = buildPromptInput({
       grade: "고2",
+      area: "subject",
       subject: "물리",
+      activityName: null,
       topic,
       design,
       sections,

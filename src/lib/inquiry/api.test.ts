@@ -115,7 +115,9 @@ describe("postSession", () => {
           gradeLabel: "고2",
           semester: 1,
           career: "의사",
+          area: "subject",
           subject: "생명",
+          activityName: null,
         },
       }),
     ).toEqual({

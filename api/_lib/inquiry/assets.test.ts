@@ -1,14 +1,14 @@
 // 자산 신뢰도, 입력 검증, 경고, 출발 활동 후보 정렬 테스트(명세 No.31, 36~43).
 import { describe, expect, it } from "vitest";
 import {
-  assetWarnings,
+  assetWarnings as assetWarningsFor,
   reliabilityOf,
   sortRecordCandidates,
   subjectCounts,
   validateAssetInputs,
 } from "./assets.js";
 import { MAX_RECORD_CANDIDATES, ONELINE_MAX_CHARS } from "./constants.js";
-import type { AssetInput, RecordCandidate } from "./types.js";
+import type { Area, AssetInput, RecordCandidate } from "./types.js";
 
 function rec(over: Partial<RecordCandidate> & { id: string }): RecordCandidate {
   return {
@@ -26,6 +26,12 @@ function rec(over: Partial<RecordCandidate> & { id: string }): RecordCandidate {
     ...over,
   };
 }
+
+const assetWarnings = (
+  items: AssetInput[],
+  records: RecordCandidate[],
+  area: Area = "subject",
+) => assetWarningsFor(items, records, area);
 
 describe("reliabilityOf (No.38)", () => {
   it("record A, interview B, oneline C", () => {
@@ -130,6 +136,22 @@ describe("assetWarnings (No.41, 42)", () => {
     ];
     expect(assetWarnings([recordItem("b"), recordItem("c")], records)).toEqual([
       "NO_SUBJECT_ASSET",
+    ]);
+  });
+
+  it("교과가 아닌 영역이면 교과 record 가 없어도 NO_SUBJECT_ASSET 을 내지 않는다", () => {
+    const records = [rec({ id: "b", subjectGroup: "자율" })];
+    for (const area of ["autonomy", "club", "career"] as const) {
+      expect(assetWarnings([recordItem("b")], records, area)).toEqual([]);
+    }
+  });
+
+  it("교과가 아닌 영역에서도 연계 재료 부족은 알린다", () => {
+    const records = [
+      rec({ id: "b", subjectGroup: "자율", concept: null, limitation: null }),
+    ];
+    expect(assetWarnings([recordItem("b")], records, "autonomy")).toEqual([
+      "LINK_MATERIAL_LACKING",
     ]);
   });
 

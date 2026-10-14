@@ -3,7 +3,7 @@
 //
 // 심화탐구 세션 부트스트랩 엔드포인트(명세 No.20, 21, 118, 개발계획 부록 A 1번).
 //   요청  { action: "resume" } 또는
-//         { action: "create", info: { gradeLabel, semester, career, subject } }
+//         { action: "create", info: { gradeLabel, semester, career, area, subject, activityName } }
 //   응답 200 { ok, session: SessionView|null, profile: { gradeLabel, semester, career }|null,
 //             quota: QuotaView, handoff: HandoffView|null, records: RecordCandidate[],
 //             subjectCounts, assets: AssetView[], topics: TopicView[], gradeNote: string|null,
@@ -54,12 +54,15 @@ import {
 import { pickLatestCompleted } from "../_lib/inquiry/growthHandoff.js";
 import { resendPendingReplies } from "../_lib/inquiry/reply.js";
 import { gradeNote } from "../_lib/inquiry/stage.js";
+import type { Area } from "../_lib/inquiry/types.js";
 import { type SessionRow, toRecordCandidate } from "../_lib/inquiry/views.js";
 
 type OpenInfo = {
   id: string;
   designReportId: string | null;
-  subject: string;
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
   assetCount: number;
 };
 
@@ -72,7 +75,9 @@ async function describeOpen(
   return {
     id: open.id,
     designReportId: open.design_report_id,
+    area: open.area,
     subject: open.subject,
+    activityName: open.activity_name,
     assetCount: (await loadAssets(db, userId, open.id)).length,
   };
 }
@@ -212,7 +217,7 @@ export default defineHandler({
       },
       handoff: await loadHandoffView(db, userId, {
         grade,
-        subject: row?.subject ?? "",
+        target: row,
         nowIso,
       }),
       records: sortRecordCandidates(records),

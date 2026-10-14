@@ -37,7 +37,7 @@ export function mustHave<T>(value: T, what: string): NonNullable<T> {
 }
 
 const SESSION_COLUMNS =
-  "id, status, grade_label, semester, career, subject, growth_report_id, plan_item_id, reply_pending, selected_topic_id, design_report_id, latest_evaluation_id, final_report_id, generation_state, topic_round_count, evaluation_count, last_activity_at, completed_at";
+  "id, status, grade_label, semester, career, area, subject, activity_name, growth_report_id, plan_item_id, reply_pending, selected_topic_id, design_report_id, latest_evaluation_id, final_report_id, generation_state, topic_round_count, evaluation_count, last_activity_at, completed_at";
 const ASSET_COLUMNS =
   "id, kind, reliability, position, activity_record_id, interview_answers, gaps, oneline_text";
 const TOPIC_COLUMNS =
@@ -97,7 +97,9 @@ export async function createSession(
       grade_label: info.gradeLabel,
       semester: info.semester,
       career: info.career,
+      area: info.area,
       subject: info.subject,
+      activity_name: info.activityName,
       growth_report_id: growthReportId,
       last_activity_at: nowIso,
     })
@@ -124,7 +126,9 @@ export async function updateSessionInfo(
           grade_label: info.gradeLabel,
           semester: info.semester,
           career: info.career,
+          area: info.area,
           subject: info.subject,
+          activity_name: info.activityName,
           growth_report_id: growthReportId,
           last_activity_at: nowIso,
         })

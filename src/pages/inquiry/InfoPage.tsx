@@ -148,7 +148,9 @@ function InfoBody({ bootstrap }: { bootstrap: SessionResponse }) {
       a.input.kind === "record" ? [a.input.activityRecordId] : [],
     ),
   );
-  const warnings = warningMessages(localWarnings(assets, bootstrap.records));
+  const warnings = warningMessages(
+    localWarnings(assets, bootstrap.records, form.area),
+  );
 
   async function submit(emptyConfirmed: boolean) {
     const validation = validateInfoForm(form);

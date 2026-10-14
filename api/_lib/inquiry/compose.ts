@@ -25,6 +25,7 @@ import {
   loadRecordsByIds,
 } from "./db.js";
 import { pickLatestCompleted } from "./growthHandoff.js";
+import type { Area } from "./types.js";
 import {
   type AssetView,
   type SessionRow,
@@ -86,7 +87,11 @@ export async function readInquiryQuota(
 export async function loadHandoffView(
   db: Db,
   userId: string,
-  input: { grade: string | null; subject: string; nowIso: string },
+  input: {
+    grade: string | null;
+    target: { area: Area; subject: string | null } | null;
+    nowIso: string;
+  },
 ): Promise<HandoffView | null> {
   const reports = await loadGrowthReports(db, userId);
   const latest = pickLatestCompleted(reports);
@@ -95,7 +100,7 @@ export async function loadHandoffView(
     reports,
     planItems: await loadPendingDeepPlanItems(db, userId, latest.id),
     sessionGrade: asGradeLabel(input.grade),
-    subject: input.subject,
+    target: input.target,
     nowIso: input.nowIso,
   });
 }
