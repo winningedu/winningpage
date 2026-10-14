@@ -219,7 +219,9 @@ function VerifyBody({
             <ExcludedCard sections={sections} />
             <ImprovementsCard sections={sections} />
           </div>
-          <div className="flex flex-col gap-4">
+          {/* top-35(8.75rem) = 공통 헤더 4rem + 접힌 GoalPageHeader 3.75rem + 여백 1rem.
+              max-h 는 top 에 아래 여백 1rem 을 더한 9.75rem 을 뺀다. */}
+          <div className="flex flex-col gap-4 lg:sticky lg:top-35 lg:max-h-[calc(100dvh-9.75rem)] lg:self-start lg:overflow-y-auto">
             <SummaryCard summary={summary} />
             <WorkCard
               charged={verified?.charged ?? null}

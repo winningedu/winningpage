@@ -350,6 +350,22 @@ describe("VerifyPage 요약과 필수 수정", () => {
     expect(within(panel).getByText("핵심 버스 배차 분석")).toBeTruthy();
     expect(within(panel).getByText("보조 표본조사 설계")).toBeTruthy();
   });
+
+  test("우측 컬럼 3장은 lg 이상에서 스크롤을 따라오는 하나의 sticky 래퍼에 담긴다", async () => {
+    detailMock.mockResolvedValue(verified());
+    verifyMock.mockResolvedValue(verifyOk());
+    renderPage();
+    const work = await screen.findByRole("complementary", {
+      name: "이번 작업",
+    });
+    const column = work.parentElement as HTMLElement;
+    expect(column.className).toContain("lg:sticky");
+    expect(column.className).toContain("lg:self-start");
+    expect(column.className).toContain("lg:top-35");
+    expect(column.className).toContain("lg:overflow-y-auto");
+    expect(column.className).toContain("lg:max-h-[calc(100dvh-9.75rem)]");
+    expect(within(column).getAllByRole("complementary").length).toBe(3);
+  });
 });
 
 describe("VerifyPage 저장", () => {
