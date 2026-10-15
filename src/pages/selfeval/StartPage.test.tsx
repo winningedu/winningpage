@@ -290,7 +290,19 @@ describe("행동 줄", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+    expect(screen.queryByRole("button", { name: "추가 횟수 구매" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "이용권 보러 가기" }));
+    expect(navigateMock).toHaveBeenCalledWith("/pricing?service=selfeval");
+  });
+
+  test("남은 횟수가 있어도 추가 횟수 구매가 이용권 안내로 이동한다", () => {
+    setQuota(7, 10);
+    setShell();
+    renderPage();
+    expect(
+      screen.queryByRole("button", { name: "이용권 보러 가기" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "추가 횟수 구매" }));
     expect(navigateMock).toHaveBeenCalledWith("/pricing?service=selfeval");
   });
 
