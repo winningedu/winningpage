@@ -173,7 +173,7 @@ describe("GrowthDesign 카피", () => {
     expect(screen.queryByText("A~E 5축 판정")).toBeNull();
   });
 
-  it("학생 조사 문항 수는 설문 정의의 문항 수와 같다", () => {
+  it("학생 설문 문항 수는 설문 정의의 문항 수와 같다", () => {
     renderPage();
     const count = SURVEY_QUESTION_COUNT;
     expect(document.body.textContent).toContain(`${count}문항, 약 10분.`);
@@ -181,7 +181,16 @@ describe("GrowthDesign 카피", () => {
       screen.getByRole("button", { name: "어떤 자료를 분석하나요?" }),
     );
     expect(
-      screen.getByText(new RegExp(`학생 조사\\(${count}문항\\) 응답`)),
+      screen.getByText(new RegExp(`학생 설문\\(${count}문항\\) 응답`)),
     ).toBeInTheDocument();
+  });
+
+  it("소개페이지에는 학생 조사 표기가 남지 않는다", () => {
+    renderPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: "어떤 자료를 분석하나요?" }),
+    );
+    expect(document.body.textContent).not.toContain("학생 조사");
+    expect(document.body.textContent).toContain("학생 설문");
   });
 });
