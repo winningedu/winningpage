@@ -10,7 +10,7 @@
 -- 함수 시그니처와 권한(create or replace 는 기존 grant 유지)은 바꾸지 않는다.
 
 alter table public.products
-  add column addon_only boolean not null default false;
+  add column if not exists addon_only boolean not null default false;
 
 comment on column public.products.addon_only is
   '추가 이용권 여부. true 면 해당 program_key 의 살아있는 부여가 있는 학생만 주문할 수 있고(WC067) 수량 1~10 을 허용한다(WC068). false 는 수량 1 고정.';
@@ -356,7 +356,7 @@ end;
 $$;
 
 comment on function public.fn_grant_program_access_for_order(text, uuid, timestamp with time zone, boolean) is
-  '주문 하나에 대해 이용 권한을 부여한다(sql/69 재작성 + 20260901001438 유효기간 + 20260901 부산캠퍼스 번들). product_id 가 bundle_items 에 행을 가진 라인은 그 행별로 program_access_grants 를 부여한다(program_key/duration_months/session_quota/validity_days 는 bundle_items 값, paid_amount 는 list_price 비율 안분 + program_key 오름차순 마지막 행 잔차 흡수) — 없으면 기존 스칼라 경로(products.program_key/duration_months/session_quota) 그대로. 멱등 가드(already_granted)·복구 가드(revoked_not_restored)는 (order_item_id, program_key) 단위로 판정해 번들 2·3번째 권한이 첫 권한 존재만으로 skip 되지 않게 한다(단일 상품 경로는 program_key 가 하나뿐이라 의미 동일, 동작 불변). 기간(duration_months)이 없는 상품은 validity_days(1회권 30일 등)를 expires_at = starts_at + N일 로 환산한다. 그 외(R2c 상태 가드·R7 원장 기반 restore_revoked·라인별 skipped·WC010~012·체이닝·suspended 판정)는 이전 정본과 동일. 추가: 회차권(session_quota 있고 duration_months 없는 단일 상품)은 quantity > 1 을 허용해 granted_sessions = session_quota × quantity 로 부여하고, 그 밖의 quantity > 1 은 unsupported_quantity 로 건너뛴다. addon_only 상품은 기존 부여 만료 뒤로 미루지 않고 결제일(KST 자정)에 시작한다.';
+  '주문 하나에 대해 이용 권한을 부여한다(sql/69 재작성 + 20260901001438 유효기간 + 20260901 부산캠퍼스 번들). product_id 가 bundle_items 에 행을 가진 라인은 그 행별로 program_access_grants 를 부여한다(program_key/duration_months/session_quota/validity_days 는 bundle_items 값, paid_amount 는 list_price 비율 안분 + program_key 오름차순 마지막 행 잔차 흡수), 없으면 기존 스칼라 경로(products.program_key/duration_months/session_quota) 그대로. 멱등 가드(already_granted), 복구 가드(revoked_not_restored)는 (order_item_id, program_key) 단위로 판정해 번들 2, 3번째 권한이 첫 권한 존재만으로 skip 되지 않게 한다(단일 상품 경로는 program_key 가 하나뿐이라 의미 동일, 동작 불변). 기간(duration_months)이 없는 상품은 validity_days(1회권 30일 등)를 expires_at = starts_at + N일 로 환산한다. 그 외(R2c 상태 가드, R7 원장 기반 restore_revoked, 라인별 skipped, WC010~012, 체이닝, suspended 판정)는 이전 정본과 동일. 추가: 회차권(session_quota 있고 duration_months 없는 단일 상품)은 quantity > 1 을 허용해 granted_sessions = session_quota × quantity 로 부여하고, 그 밖의 quantity > 1 은 unsupported_quantity 로 건너뛴다. addon_only 상품은 기존 부여 만료 뒤로 미루지 않고 결제일(KST 자정)에 시작한다.';
 
 create or replace function public.fn_request_enrollment(
   p_order_id text,
@@ -492,7 +492,7 @@ end;
 $$;
 
 comment on function public.fn_request_enrollment(text, uuid, uuid, text, text, jsonb, integer, integer) is
-  '학생이 수강신청(주문)을 생성한다(sql/76 — WC043 중복 열린 요청 차단 제거, 2026-09-01 org 한정 상품 서버 검증). 한 학생이 승인 대기 요청을 여러 건 가질 수 있다. 동시 이중 신청 방지는 학생 축 advisory lock(salt 101)이 계속 담당한다. p_items 의 product_id 가 org_code/sale_ends_at 을 가진 상품이면 소속 불일치(WC064)·판매 마감(WC065)·학생당 1회 구매 제한 초과(WC066)를 여기서 재검증한다(클라이언트가 넘긴 p_items 를 신뢰하지 않는다). 나머지 가드(쌍 필수 WC019·동일인 금지 WC020·링크 검증 WC042·0원 이하 WC001)는 sql/71 원문과 동일하다. auth.uid() 는 참조하지 않는다 — 신뢰 경계는 호출자(api/request-enrollment.js)다. 2026-09-22 org_code text 비교를 tenant_id 비교로 전환. 추가 이용권: addon_only 상품은 같은 program_key 의 살아있는 부여가 없으면 WC067, 수량은 addon_only 1~10 / 그 외 정확히 1 이며 위반하면 WC068.';
+  '학생이 수강신청(주문)을 생성한다(sql/76, WC043 중복 열린 요청 차단 제거, 2026-09-01 org 한정 상품 서버 검증). 한 학생이 승인 대기 요청을 여러 건 가질 수 있다. 동시 이중 신청 방지는 학생 축 advisory lock(salt 101)이 계속 담당한다. p_items 의 product_id 가 org_code/sale_ends_at 을 가진 상품이면 소속 불일치(WC064), 판매 마감(WC065), 학생당 1회 구매 제한 초과(WC066)를 여기서 재검증한다(클라이언트가 넘긴 p_items 를 신뢰하지 않는다). 나머지 가드(쌍 필수 WC019, 동일인 금지 WC020, 링크 검증 WC042, 0원 이하 WC001)는 sql/71 원문과 동일하다. auth.uid() 는 참조하지 않는다, 신뢰 경계는 호출자(api/request-enrollment.js)다. 2026-09-22 org_code text 비교를 tenant_id 비교로 전환. 추가 이용권: addon_only 상품은 같은 program_key 의 살아있는 부여가 없으면 WC067, 수량은 addon_only 1~10 / 그 외 정확히 1 이며 위반하면 WC068.';
 
 create or replace function public.fn_parent_create_enrollment(
   p_original_order_id text,
@@ -691,4 +691,4 @@ end;
 $$;
 
 comment on function public.fn_parent_create_enrollment(text, jsonb) is
-  '학부모가 학생의 미응답 수강신청 요청(status=pending, approval_status=requested)을 자신이 고른 상품 구성으로 대체해 즉시 approved 상태의 새 주문을 만든다(sql/85 + 20260825 is_orderable 게이트 + 2026-09-01 org 한정 상품 서버 검증). 호출자는 그 주문의 parent_profile_id 여야 하고(WC052) 원래 요청이 여전히 미응답이어야 한다(WC053). fn_is_linked_pair 로 쌍을 재검증한다(WC055, sql/71 WC042 와 동일 헬퍼). 선택 상품은 is_active=true 이고 is_orderable=true 인 것만 허용하며 하나라도 비활성/주문불가/존재하지 않으면 거부한다(WC056). org_code/sale_ends_at 을 가진 상품이면 소속 불일치(WC064)·판매 마감(WC065)·학생당 1회 구매 제한 초과(WC066)를 재검증한다. discount_amount 가 음수면 WC001 로 거부한다(orders_discount_amount_check 사전 방어). 대표 상품명(order_name)은 카탈로그 정렬(service_sort_order, sort_order)로 결정적으로 고른다. 새 주문은 쿠폰을 받지 않는다(coupon_id NULL, 범위 밖). 원래 주문은 approval_status=superseded·status=canceled·superseded_by_order_id=새 주문 id 로 종결된다 — reject_reason 은 세팅하지 않는다(orders_reject_reason_pairing_check 상 NULL 유지 필요), responded_at 은 함께 세팅한다(orders_responded_at_pairing_check 상 필수). 같은 학생의 다른 열린 요청(sql/76 이 허용하는, 다른 서비스에 걸친 동시 pending/requested 요청) 중 이번에 선택된 상품과 service_key 가 겹치는 것도 함께 superseded 처리해 나중에 독립 승인될 때 같은 서비스가 중복 결제되는 것을 막는다. 2026-09-22 org_code text 비교를 tenant_id 비교로 전환. 추가 이용권: 선택 상품에 addon_only 가 하나라도 있으면 WC067 로 거부한다(추가 이용권은 학생 요청을 그대로 승인하는 경로로만 결제).';
+  '학부모가 학생의 미응답 수강신청 요청(status=pending, approval_status=requested)을 자신이 고른 상품 구성으로 대체해 즉시 approved 상태의 새 주문을 만든다(sql/85 + 20260825 is_orderable 게이트 + 2026-09-01 org 한정 상품 서버 검증). 호출자는 그 주문의 parent_profile_id 여야 하고(WC052) 원래 요청이 여전히 미응답이어야 한다(WC053). fn_is_linked_pair 로 쌍을 재검증한다(WC055, sql/71 WC042 와 동일 헬퍼). 선택 상품은 is_active=true 이고 is_orderable=true 인 것만 허용하며 하나라도 비활성/주문불가/존재하지 않으면 거부한다(WC056). org_code/sale_ends_at 을 가진 상품이면 소속 불일치(WC064), 판매 마감(WC065), 학생당 1회 구매 제한 초과(WC066)를 재검증한다. discount_amount 가 음수면 WC001 로 거부한다(orders_discount_amount_check 사전 방어). 대표 상품명(order_name)은 카탈로그 정렬(service_sort_order, sort_order)로 결정적으로 고른다. 새 주문은 쿠폰을 받지 않는다(coupon_id NULL, 범위 밖). 원래 주문은 approval_status=superseded, status=canceled, superseded_by_order_id=새 주문 id 로 종결된다, reject_reason 은 세팅하지 않는다(orders_reject_reason_pairing_check 상 NULL 유지 필요), responded_at 은 함께 세팅한다(orders_responded_at_pairing_check 상 필수). 같은 학생의 다른 열린 요청(sql/76 이 허용하는, 다른 서비스에 걸친 동시 pending/requested 요청) 중 이번에 선택된 상품과 service_key 가 겹치는 것도 함께 superseded 처리해 나중에 독립 승인될 때 같은 서비스가 중복 결제되는 것을 막는다. 2026-09-22 org_code text 비교를 tenant_id 비교로 전환. 추가 이용권: 선택 상품에 addon_only 가 하나라도 있으면 WC067 로 거부한다(추가 이용권은 학생 요청을 그대로 승인하는 경로로만 결제).';
