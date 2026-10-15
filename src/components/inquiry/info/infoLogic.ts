@@ -1,5 +1,6 @@
 // 정보 입력 화면(1단계)의 순수 로직. 화면 컴포넌트는 이 파일의 결과만 그린다.
 // 계약: docs/deep-inquiry-dev-plan.md 부록 A(session, assets), 부록 C, §0-3.
+
 import { GENERIC_ERROR_MESSAGE } from "@/lib/inquiry/apiResult";
 import { STAGE_LABELS } from "@/lib/inquiry/labels";
 import type {
@@ -15,6 +16,7 @@ import type {
   SessionInfo,
   SessionView,
 } from "@/lib/inquiry/types";
+import { SUBJECT_GROUP } from "../../../../api/_lib/activityGroup.js";
 
 // ── 기본 정보 폼 ──────────────────────────────────────────────────────
 
@@ -298,7 +300,6 @@ export function groupRecordsByGrade(records: RecordCandidate[]): RecordGroup[] {
 // ── 경고(No.41, 42) ─────────────────────────────────────────────────────
 // 서버 assets.ts assetWarnings 와 같은 규칙이다(infoLogic.test.ts 가 같은 입력으로 대조한다).
 
-const SUBJECT_GROUP = "교과";
 const isBlank = (value: string | null | undefined): boolean =>
   value == null || value.trim() === "";
 

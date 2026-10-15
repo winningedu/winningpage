@@ -141,6 +141,24 @@ describe("classify", () => {
     });
   });
 
+  it("교과 구분값 교과는 과목명으로 풀어 과목군 건수를 센다", () => {
+    const c = classify(
+      ctx({
+        activities: [
+          act("1", { subjectGroup: "교과", subject: "수학" }),
+          act("2", { subjectGroup: "교과", subject: "수학" }),
+          act("3", { subjectGroup: "교과", subject: "영어" }),
+          act("4", { subjectGroup: "동아리", subject: "로봇부" }),
+        ],
+      }),
+    );
+    expect(c.bySubjectGroup).toEqual([
+      { subjectGroup: "수학", count: 2 },
+      { subjectGroup: "동아리", count: 1 },
+      { subjectGroup: "영어", count: 1 },
+    ]);
+  });
+
   it("범위 밖 학기만 outOfRangeIds, null 은 범위 안으로 본다", () => {
     const c = classify(
       ctx({

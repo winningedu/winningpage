@@ -1,5 +1,6 @@
 // 성장설계 자료 수집 요약(순수 함수). 시안 활동 선택 화면과 명세 No.37~51, No.121 을 따른다.
 
+import { EXTRACURRICULAR_GROUPS } from "../../activityGroup.js";
 import { deriveGradeSystem, semesterAverages } from "../gradeSystem.js";
 import { semesterSubjectsFromNaesin } from "../prefill.js";
 import {
@@ -80,9 +81,7 @@ export function countBySemester(rows: readonly ActivityRow[]): {
 /** 창체로 보는 교과군 접두어. 정확히 "창체" 이거나 아래 접두어로 시작하면 창체다. */
 export const EXTRACURRICULAR_GROUP_PREFIXES = [
   "창체",
-  "자율",
-  "동아리",
-  "진로",
+  ...EXTRACURRICULAR_GROUPS,
   "봉사",
 ] as const;
 

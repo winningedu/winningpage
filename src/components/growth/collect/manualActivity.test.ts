@@ -97,7 +97,8 @@ describe("저장과 삭제", () => {
       status: "draft",
       grade_label: "고1",
       semester: 2,
-      subject_group: "통합사회",
+      subject_group: "교과",
+      subject: "통합사회",
       topic: "도시 열섬 현상",
       concept: null,
       method: null,
@@ -105,6 +106,16 @@ describe("저장과 삭제", () => {
       limitation: null,
     });
     expect(result).toEqual({ ok: true });
+  });
+
+  test("동아리처럼 영역으로 적으면 영역 값으로 넣고 subject 는 null", async () => {
+    insertMock.mockResolvedValue({ error: null });
+    const v = validateManualForm({ ...filled, subjectGroup: "동아리 활동" });
+    if (!v.ok) throw new Error("검증 실패");
+    await insertManualActivity("u1", v.value);
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ subject_group: "동아리", subject: null }),
+    );
   });
 
   test("저장 실패는 화면용 문구로 돌려준다", async () => {

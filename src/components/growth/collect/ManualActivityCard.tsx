@@ -2,6 +2,7 @@ import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ActivityView } from "@/lib/growth/api";
+import { activityGroupLabel } from "../../../../api/_lib/activityGroup.js";
 import { CollectSection, NoticeBox } from "./CollectSection";
 import {
   deleteManualActivity,
@@ -211,7 +212,7 @@ export function ManualActivityCard({
                   a.gradeLabel && a.semester
                     ? `${a.gradeLabel[1]}학년 ${a.semester}학기`
                     : null,
-                  a.subjectGroup,
+                  activityGroupLabel(a.subjectGroup, a.subject),
                   a.topic,
                 ]
                   .filter(Boolean)

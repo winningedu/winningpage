@@ -1,8 +1,10 @@
 // 활동 직접 입력(시안 646:3001, 명세 No.41). 본인 manual 행은 RLS 로 insert, update, delete 가 허용된다
 // (supabase/migrations/20261006035047_activity_records.sql). source_program manual 은 status 가
 // planned 또는 draft 여야 해서 draft 로 넣는다. 집계와 판정은 서버 summary 가 다시 계산한다.
+
 import type { HighGrade } from "@/lib/growth/api";
 import { supabase } from "@/lib/supabase";
+import { normalizeActivityGroup } from "../../../../api/_lib/activityGroup.js";
 
 export const GRADE_OPTIONS: readonly HighGrade[] = ["고1", "고2", "고3"];
 export const SEMESTER_OPTIONS = ["1", "2"] as const;
@@ -108,13 +110,22 @@ export async function insertManualActivity(
   profileId: string,
   value: ManualValue,
 ): Promise<MutationResult> {
+  // 과목 또는 영역 입력은 교과, 자율, 동아리, 진로 네 값으로 정규화해 넣는다.
+  const group = normalizeActivityGroup(value.subjectGroup);
+  if (!group) {
+    return {
+      ok: false,
+      message: "활동을 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    };
+  }
   const { error } = await supabase.from("activity_records").insert({
     profile_id: profileId,
     source_program: "manual",
     status: "draft",
     grade_label: value.gradeLabel,
     semester: value.semester,
-    subject_group: value.subjectGroup,
+    subject_group: group.subjectGroup,
+    subject: group.subject,
     topic: value.topic,
     concept: value.concept,
     method: value.method,

@@ -2,6 +2,7 @@
 // 2단계 분류, 5단계 일관성 입력과 계산, 6단계 5축 평가, 8단계 데이터 섹션, 한눈에 카드 입력.
 // 순수 함수만 담는다. DB 와 시계에 의존하지 않는다.
 
+import { activityGroupLabel } from "../../activityGroup.js";
 import {
   AXES,
   type AxisEvaluation,
@@ -68,8 +69,10 @@ export function classify(context: ReportContext): Classification {
 
   const bySubject = new Map<string, number>();
   for (const a of activities) {
-    if (a.subjectGroup === null) continue;
-    bySubject.set(a.subjectGroup, (bySubject.get(a.subjectGroup) ?? 0) + 1);
+    // 교과는 과목명으로 풀어서 센다. 그대로 두면 모든 교과가 한 칸에 모인다.
+    const label = activityGroupLabel(a.subjectGroup, a.subject);
+    if (label === null) continue;
+    bySubject.set(label, (bySubject.get(label) ?? 0) + 1);
   }
 
   return {
@@ -453,7 +456,7 @@ export function appSections(
                 id: a.id,
                 gradeLabel: a.gradeLabel,
                 semester: a.semester,
-                subjectGroup: a.subjectGroup,
+                subjectGroup: activityGroupLabel(a.subjectGroup, a.subject),
                 topic: a.topic,
                 axes: axesById.get(a.id) ?? [],
               })),

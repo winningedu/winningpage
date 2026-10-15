@@ -227,7 +227,7 @@ export async function resetManualActivityRecords(
       status: "draft",
       grade_label: "고2",
       semester: 2,
-      subject_group: "확률과 통계",
+      subject_group: "교과",
       subject: "확률과 통계",
       topic,
       concept:
