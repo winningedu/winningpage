@@ -46,6 +46,12 @@ describe("SelfAssessment 소개 랜딩", () => {
     }
   });
 
+  it("다섯 단계 카드에 테두리가 있다", () => {
+    renderPage();
+    const card = screen.getByText("문항 해석").parentElement;
+    expect(card?.className).toContain("border border-line");
+  });
+
   it("탭을 전환하면 해당 영역 카드가 보인다", () => {
     renderPage();
     expect(screen.getByText("문항 의도 파악")).toBeTruthy();

@@ -385,7 +385,7 @@ export default function SelfAssessment() {
           </>
         }
       >
-        <ServiceStepCards items={FIVE_STEPS} splitLastRow />
+        <ServiceStepCards items={FIVE_STEPS} splitLastRow bordered />
       </ServiceSection>
 
       <ServiceSection

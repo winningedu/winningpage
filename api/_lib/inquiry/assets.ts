@@ -1,4 +1,5 @@
 // 세션 자산 규칙(명세 No.31, 36~43). DB 없이 입력과 후보 목록만 다루는 순수 함수다.
+import { SUBJECT_GROUP } from "../activityGroup.js";
 import { MAX_RECORD_CANDIDATES, ONELINE_MAX_CHARS } from "./constants.js";
 import { validateInterview } from "./gaps.js";
 import type {
@@ -9,8 +10,6 @@ import type {
   Reliability,
 } from "./types.js";
 
-/** 교과 활동 구분값. activity_records.subject_group 의 고정 문자열. */
-const SUBJECT_GROUP = "교과";
 const UNCLASSIFIED = "미분류";
 
 const RELIABILITY: Record<AssetKind, Reliability> = {

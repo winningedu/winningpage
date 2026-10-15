@@ -122,16 +122,25 @@ describe("assetWarnings (No.41, 42)", () => {
   it("교과 record 가 하나라도 있으면 NO_SUBJECT_ASSET 이 없다", () => {
     const records = [
       rec({ id: "a", subjectGroup: "교과" }),
-      rec({ id: "b", subjectGroup: "창체" }),
+      rec({ id: "b", subjectGroup: "자율" }),
     ];
     expect(assetWarnings([recordItem("a"), recordItem("b")], records)).toEqual(
       [],
     );
   });
 
+  it("자기평가와 직접 입력의 교과 기록(교과 + 과목명)도 교과 활동으로 본다", () => {
+    const records = [
+      rec({ id: "s", sourceProgram: "self", subjectGroup: "교과" }),
+      rec({ id: "m", sourceProgram: "manual", subjectGroup: "교과" }),
+    ];
+    expect(assetWarnings([recordItem("s")], records)).toEqual([]);
+    expect(assetWarnings([recordItem("m")], records)).toEqual([]);
+  });
+
   it("교과가 아닌 record 만 있으면 NO_SUBJECT_ASSET", () => {
     const records = [
-      rec({ id: "b", subjectGroup: "창체" }),
+      rec({ id: "b", subjectGroup: "자율" }),
       rec({ id: "c", subjectGroup: null }),
     ];
     expect(assetWarnings([recordItem("b"), recordItem("c")], records)).toEqual([
@@ -158,7 +167,7 @@ describe("assetWarnings (No.41, 42)", () => {
   it("선택하지 않은 record 는 보지 않는다", () => {
     const records = [
       rec({ id: "a", subjectGroup: "교과" }),
-      rec({ id: "b", subjectGroup: "창체" }),
+      rec({ id: "b", subjectGroup: "자율" }),
     ];
     expect(assetWarnings([recordItem("b")], records)).toEqual([
       "NO_SUBJECT_ASSET",
@@ -179,8 +188,8 @@ describe("assetWarnings (No.41, 42)", () => {
 
   it("두 경고가 함께 나오고 중복이 없다", () => {
     const records = [
-      rec({ id: "a", subjectGroup: "창체", concept: null, limitation: null }),
-      rec({ id: "b", subjectGroup: "창체", concept: "", limitation: "" }),
+      rec({ id: "a", subjectGroup: "자율", concept: null, limitation: null }),
+      rec({ id: "b", subjectGroup: "자율", concept: "", limitation: "" }),
     ];
     expect(assetWarnings([recordItem("a"), recordItem("b")], records)).toEqual([
       "NO_SUBJECT_ASSET",

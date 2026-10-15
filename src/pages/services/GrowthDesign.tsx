@@ -47,7 +47,7 @@ const GROWTH_APP_ROUTE = "/app/growth";
 // 첫 문장(소요 시간)만 줄을 나누고 나머지는 break-keep 자연 줄바꿈에 맡긴다.
 const PROCESS_STEPS = [
   {
-    title: "학생 조사",
+    title: "학생 설문",
     desc: [
       `${SURVEY_QUESTION_COUNT}문항, 약 10분.`,
       "진로・관심・경험과 희망 대학 두 곳을 학생이 직접 답합니다.",
@@ -274,7 +274,7 @@ const PRINCIPLES = [
 const FAQ_ITEMS = [
   {
     q: "어떤 자료를 분석하나요?",
-    a: `학생이 위닝에서 직접 만든 활동 기록과 학생 조사(${SURVEY_QUESTION_COUNT}문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.`,
+    a: `학생이 위닝에서 직접 만든 활동 기록과 학생 설문(${SURVEY_QUESTION_COUNT}문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.`,
   },
   {
     q: "AI가 활동이나 글을 대신 만들어 주나요?",
@@ -369,7 +369,7 @@ function HeroSection() {
         </h1>
 
         <p className="mt-6 break-keep text-[1.125rem] font-medium leading-[1.6] text-ink sm:text-[1.25rem] md:text-[1.5rem]">
-          활동 기록과 학생 조사를 함께 읽고, 대주제와 남은 학기의 실행계획을
+          활동 기록과 학생 설문을 함께 읽고, 대주제와 남은 학기의 실행계획을
           학생과 함께 세웁니다
         </p>
 
