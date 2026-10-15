@@ -11,13 +11,17 @@ import {
   INQUIRY_FULL,
   insertPendingPlanItem,
   latestCompletedGrowthReportId,
+  openSessionId,
   type Page,
+  readDeepRecordBySession,
   readPlanItemByTitle,
   SAMPLE_INFO,
   SAMPLE_ONELINE,
+  submitTargetText,
   test,
   waitWithRetry,
 } from "./fixtures/inquiry";
+import { e2eText } from "./fixtures/marker";
 
 // 모델을 부르는 완주 스펙. E2E_INQUIRY_FULL=1 일 때만 돈다(호출당 비용과 시간이 든다).
 // 검증 실패 재요청(No.143 6)은 단위 테스트가 덮으므로 E2E 에서 뺀다.
@@ -37,10 +41,54 @@ const SECTIONS: Record<string, string> = {
   VIII: "기상청 기상자료개방포털 시간별 기온 습도 자료, 2026년 7월 기준\n농촌진흥청 가축사육기상정보시스템 온습도지수 산출식 안내, 2025년 기준",
 };
 
+type FlowHooks = {
+  /** 추천 화면에 들어온 직후. 세션이 만들어진 뒤라 id 를 잡아 두는 데 쓴다(확정하면 열린 세션이 사라진다). */
+  onTopics?: () => Promise<void>;
+  /** 작성 화면에 들어온 직후, 8절을 채우기 전. */
+  onWrite?: () => Promise<void>;
+};
+
+/**
+ * 작성 화면의 설계 리포트 서랍 폭. 80rem(1280px) 이상은 오른쪽 고정 패널 28rem(448px),
+ * 그 미만은 Sheet 48rem(768px). 끝나면 viewport 를 원래대로 돌린다.
+ */
+async function expectDesignDrawerWidths(page: Page) {
+  const original = page.viewportSize();
+  const cases = [
+    { width: 1280, height: 900, expected: 448 },
+    { width: 1920, height: 1080, expected: 448 },
+    { width: 1024, height: 900, expected: 768 },
+  ];
+  // 상단과 하단에 같은 이름의 버튼이 있어 첫 번째(상단)를 쓴다.
+  const trigger = page
+    .getByRole("button", { name: "설계 리포트 보기" })
+    .first();
+  const panel = page.getByRole("dialog", { name: "설계 리포트" });
+  try {
+    for (const { width, height, expected } of cases) {
+      await page.setViewportSize({ width, height });
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await trigger.click();
+      await expect(panel).toBeVisible();
+      const box = await panel.boundingBox();
+      expect(box, `${width}px 에서 패널 위치`).not.toBeNull();
+      expect(
+        Math.abs((box?.width ?? 0) - expected),
+        `${width}px 패널 폭 ${box?.width}`,
+      ).toBeLessThanOrEqual(2);
+      await page.keyboard.press("Escape");
+      await expect(panel).toBeHidden();
+    }
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
+}
+
 /** 정보 입력이 끝난 화면에서 추천받기부터 확정 저장 결과 카드까지 간다. */
-async function recommendToFinalize(page: Page) {
+async function recommendToFinalize(page: Page, hooks: FlowHooks = {}) {
   await page.getByRole("button", { name: "주제 3개 추천받기" }).click();
   await page.waitForURL("**/app/inquiry/topics");
+  await hooks.onTopics?.();
 
   // 추천 결과, 첫 카드를 확정한다.
   const firstConfirm = page
@@ -62,6 +110,7 @@ async function recommendToFinalize(page: Page) {
 
   // 작성 화면: 8절을 채우고 제출한다.
   await page.waitForURL("**/app/inquiry/write");
+  await hooks.onWrite?.();
   for (const [id, text] of Object.entries(SECTIONS)) {
     await page.locator(`#inquiry-section-${id}`).fill(text);
   }
@@ -131,7 +180,9 @@ test.describe("심화탐구 모델 완주", () => {
     await gotoInfo(page);
     await fillBasicInfo(page, SAMPLE_INFO);
     await addOneline(page, SAMPLE_ONELINE);
-    const result = await recommendToFinalize(page);
+    const result = await recommendToFinalize(page, {
+      onWrite: () => expectDesignDrawerWidths(page),
+    });
     // 과제를 고르지 않았으므로 성장설계 회신 문구는 없다.
     await expect(
       result.getByText("성장설계 실행계획 과제를 완료로 알렸어요"),
@@ -147,6 +198,48 @@ test.describe("심화탐구 모델 완주", () => {
       .getByRole("row")
       .filter({ hasText: "확정" });
     await expect(rows).toHaveCount(completedBefore + 1);
+  });
+
+  test("동아리활동 완주: 활동명을 적어 확정하면 활동 기록 구분과 보관함 과목 칸이 영역을 따른다", async ({
+    studentPage: page,
+  }) => {
+    await deleteOpenSessions();
+    const activityName = e2eText("천문 동아리 별자리 관측");
+    let sessionId = "";
+
+    await gotoInfo(page);
+    await fillBasicInfo(page, {
+      ...SAMPLE_INFO,
+      area: "club",
+      activityName,
+    });
+    await addOneline(page, SAMPLE_ONELINE);
+    const result = await recommendToFinalize(page, {
+      onTopics: async () => {
+        const id = await openSessionId();
+        if (!id) throw new Error("추천 화면에서 열린 세션이 있어야 한다");
+        sessionId = id;
+      },
+    });
+
+    // fn_inquiry_finalize: 동아리는 구분이 '동아리', subject 는 활동명.
+    const record = await readDeepRecordBySession(sessionId);
+    expect(record).toEqual({ subject_group: "동아리", subject: activityName });
+
+    // 보관함 과목 칸은 "라벨 / 활동명" 으로 보인다.
+    const cellText = submitTargetText({
+      area: "club",
+      subject: null,
+      activityName,
+    });
+    expect(cellText).toBe(`동아리 / ${activityName}`);
+    await result.getByRole("link", { name: "보관함으로" }).click();
+    const row = page
+      .getByRole("table", { name: "심화탐구 보관함 목록" })
+      .getByRole("row")
+      .filter({ hasText: cellText });
+    await expect(row.first()).toBeVisible();
+    await expect(row.first().getByRole("cell", { name: "확정" })).toBeVisible();
   });
 
   test("콜드 스타트: 활동 0건이면 관심 기반 예비 주제와 확인 질문 3개가 나온다", async ({
