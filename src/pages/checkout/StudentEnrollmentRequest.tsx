@@ -6,6 +6,7 @@ import ServiceCatalog from "@/components/pricing/ServiceCatalog";
 import { useAuth } from "@/context/AuthProvider";
 import { formatKRW, SERVICE_NOTICES } from "@/data/pricingCatalog";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
+import { fetchEntitlement } from "@/lib/entitlement";
 import { getApprovedParentLink } from "@/lib/parentLink";
 import {
   filterOrgProducts,
@@ -13,6 +14,7 @@ import {
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
+import AddonSection from "./AddonSection";
 
 // 부산캠퍼스 특가(2026-09-01, supabase/migrations/20260901050445) 학생당 1회
 // 구매 제한 — 서버는 WC066 으로 이미 막지만(fn_request_enrollment), UX상
@@ -46,6 +48,12 @@ const BUSAN_9900_SERVICE_KEY = "special";
 // 정본으로 쓴다(supabase/migrations/20260825000000). 주문 불가 상품은 카탈로그에
 // 보이되 ServiceCatalog 가 선택을 막는다(콜멘토 제공 예정).
 
+// row23 추가 이용권: products.addon_only 상품은 카탈로그 라디오와 따로 이 화면
+// 아래쪽 AddonSection 에서 수량(1~10)으로 고른다. 마운트 시 addon 의 서비스별로
+// check-service-access 를 물어 이용권이 있는(allowed) 서비스의 addon 만 보인다
+// (조회 실패는 그 서비스 비노출로 흡수). 요청 body 에는 { id, quantity } 로 담고
+// 합계에 가산한다. 서버(fn_request_enrollment WC067/WC068)가 정본이다.
+
 // 그룹당 1개 선택 안내 — 시안 실측 문구(3921:7066, 목표관리·수행평가 섹션
 // 하단에만 있고 콜멘토엔 없다 — 아래 렌더 조건 `products.length > 1`이 이를
 // 자연스럽게 처리한다). src/data/pricingCatalog.js 의 SINGLE_SELECT_NOTICE 와
@@ -73,6 +81,13 @@ const FAIL_MODAL_BODY = (
 const GENERIC_SUBMIT_FAIL = {
   title: "결제요청에 실패했습니다.",
   body: "잠시 후 다시 시도해 주세요.",
+};
+
+// 이용권이 없는 서비스의 추가 이용권을 요청한 경우(409 addon_requires_live_grant).
+// 신규 문구(사용자 승인 대기).
+const ADDON_REQUIRES_GRANT_FAIL = {
+  title: GENERIC_SUBMIT_FAIL.title,
+  body: "이용 중인 서비스의 추가 이용권만 요청할 수 있어요.",
 };
 
 // WC043(fn_request_enrollment 의 중복 open 요청 게이트, sql/71) 응답 —
@@ -105,7 +120,13 @@ interface CompletedOrder {
 
 export default function StudentEnrollmentRequest() {
   const navigate = useNavigate();
-  const { services: filteredServices, loading, error, refetch } = useProducts();
+  const {
+    services: filteredServices,
+    addons,
+    loading,
+    error,
+    refetch,
+  } = useProducts();
 
   // org 한정 상품 노출 필터(2026-09-01) — 학생 본인 기준(fn_matched_tenant_ids 를
   // 인자 없이 호출 → 본인 + 연결된 학부모의 소속). 표시 전용, 정본은
@@ -160,6 +181,48 @@ export default function StudentEnrollmentRequest() {
     [orgFilteredServices, hasPurchasedBusan9900],
   );
 
+  // 이용권을 보유한 서비스의 addon 만 노출한다. 판정 불가(null)와 실패는 비노출.
+  const [liveServiceKeys, setLiveServiceKeys] = useState<string[]>([]);
+  const [addonQuantities, setAddonQuantities] = useState<
+    Record<string, number>
+  >({});
+  useEffect(() => {
+    if (!user) return undefined;
+    let alive = true;
+    const keys = Array.from(new Set(addons.map((a) => a.serviceKey)));
+    (async () => {
+      const results = await Promise.all(
+        keys.map(async (key) => {
+          try {
+            return (await fetchEntitlement(key)).allowed === true ? key : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!alive) return;
+      setLiveServiceKeys(results.filter((k): k is string => k !== null));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user, addons]);
+  const liveAddons = useMemo(
+    () =>
+      addons.filter(
+        (a) => a.isOrderable && liveServiceKeys.includes(a.serviceKey),
+      ),
+    [addons, liveServiceKeys],
+  );
+  const addonItems = liveAddons
+    .filter((a) => (addonQuantities[a.id] ?? 0) >= 1)
+    .map((a) => ({
+      id: a.id,
+      quantity: addonQuantities[a.id] ?? 0,
+      listPrice: a.listPrice ?? 0,
+      price: a.price ?? 0,
+    }));
+
   const [submitting, setSubmitting] = useState(false);
   const [showFailModal, setShowFailModal] = useState(false);
   // { title, body } | null — 학부모 미연결 이외의 서버 제출 실패(일반 오류/중복 요청).
@@ -207,14 +270,19 @@ export default function StudentEnrollmentRequest() {
     return items;
   }, [visibleServices, selected]);
 
-  const listTotal = selectedItems.reduce(
-    (s, i) => s + Number(i.listPrice || i.price || 0),
-    0,
-  );
-  const subtotal = selectedItems.reduce((s, i) => s + Number(i.price || 0), 0);
+  const listTotal =
+    selectedItems.reduce((s, i) => s + Number(i.listPrice || i.price || 0), 0) +
+    addonItems.reduce(
+      (s, i) => s + Number(i.listPrice || i.price || 0) * i.quantity,
+      0,
+    );
+  const subtotal =
+    selectedItems.reduce((s, i) => s + Number(i.price || 0), 0) +
+    addonItems.reduce((s, i) => s + Number(i.price || 0) * i.quantity, 0);
   const discountTotal = listTotal - subtotal;
 
-  const canSubmit = selectedItems.length > 0 && !submitting;
+  const hasSelection = selectedItems.length > 0 || addonItems.length > 0;
+  const canSubmit = hasSelection && !submitting;
 
   async function handleSubmit() {
     if (!canSubmit || !user) return;
@@ -255,7 +323,10 @@ export default function StudentEnrollmentRequest() {
           // id 만 보낸다 — parentProfileId·금액류는 서버가 신뢰하지 않고 무시한다
           // (api/request-enrollment.js 신뢰 경계 주석 참고).
           body: JSON.stringify({
-            items: selectedItems.map((i) => ({ id: i.id })),
+            items: [
+              ...selectedItems.map((i) => ({ id: i.id })),
+              ...addonItems.map((i) => ({ id: i.id, quantity: i.quantity })),
+            ],
           }),
         });
         payload = await response.json();
@@ -267,6 +338,10 @@ export default function StudentEnrollmentRequest() {
       if (!response.ok) {
         if (payload?.error === "no_linked_parent") {
           setShowFailModal(true);
+          return;
+        }
+        if (payload?.error === "addon_requires_live_grant") {
+          setSubmitError(ADDON_REQUIRES_GRANT_FAIL);
           return;
         }
         if (payload?.error === "duplicate_open_request") {
@@ -416,13 +491,26 @@ export default function StudentEnrollmentRequest() {
               serviceNotices={SERVICE_NOTICES}
             />
           )}
+
+          {!loading && !error && liveAddons.length > 0 && (
+            <AddonSection
+              addons={liveAddons}
+              quantities={addonQuantities}
+              onChange={(productId, quantity) =>
+                setAddonQuantities((prev) => ({
+                  ...prev,
+                  [productId]: quantity,
+                }))
+              }
+            />
+          )}
         </div>
       </main>
 
       {/* 하단 고정 요약 + CTA — 시안 노드 없음(선택 화면 하단 요약은 이 화면
           범위 밖). 기존 구현의 톤(ParentCheckout.jsx 결제 금액 섹션과 동일한
           판매가/할인/총액 dl + 버튼)을 유지한다. */}
-      {selectedItems.length > 0 && (
+      {hasSelection && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white shadow-[0_-0.375rem_1.5rem_rgba(13,27,42,0.08)]">
           <div className="mx-auto flex w-full max-w-content flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <dl className="flex items-center gap-6 text-[0.875rem] font-medium leading-5 text-ink">
