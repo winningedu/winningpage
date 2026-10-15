@@ -13,9 +13,15 @@ import {
   formatReportDate,
   resumePath,
 } from "@/components/inquiry/reports/reportsLogic";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/context/SessionContext";
+import { useToast } from "@/context/ToastContext";
+import { copyTextWithToast } from "@/lib/clipboard";
+import {
+  submissionBodyEntries,
+  submissionCopyText,
+} from "@/lib/inquiry/copyText";
 import { buildInquiryPdfFileName } from "@/lib/inquiry/pdfFileName";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
 import type { SessionDetail } from "@/lib/inquiry/types";
@@ -77,6 +83,7 @@ function subcopyFor(session: SessionDetail["session"]): string {
 export default function ReportDetailPage() {
   useInquiryScreenStep(null);
   const { userId } = useSession();
+  const toast = useToast();
   const { sessionId } = useParams();
   const { data, error, isError, refetch } = useQuery(
     inquirySessionDetailQuery(userId ?? null, sessionId ?? null),
@@ -128,7 +135,15 @@ export default function ReportDetailPage() {
     );
   }
 
-  const { session, topic, design, evaluation, final } = data;
+  const { session, topic, design, evaluation, final, submission } = data;
+  // 확정한 작성본이 있을 때만 복사할 수 있다. 작성 중인 초안은 복사 대상이 아니다.
+  const finalSections =
+    session.status === "completed" && submission ? submission.sections : null;
+  const bodyEntries = finalSections ? submissionBodyEntries(finalSections) : [];
+  const copyBody =
+    finalSections && bodyEntries.length > 0
+      ? submissionCopyText(finalSections)
+      : null;
   const canResume =
     session.status === "draft" || session.status === "in_progress";
 
@@ -173,7 +188,42 @@ export default function ReportDetailPage() {
               <FinalFieldsTable fields={final} />
             </Section>
           ) : null}
+          {copyBody !== null ? (
+            <section
+              aria-label="최종 본문"
+              className="flex flex-col gap-4 rounded-xl border border-border bg-white p-6"
+            >
+              <h2 className="text-app-card-title font-bold text-ink-strong">
+                최종 본문
+              </h2>
+              <div className="flex select-text flex-col gap-5">
+                {bodyEntries.map((entry) => (
+                  <div key={entry.id} className="flex flex-col gap-1">
+                    <h3 className="text-app-body font-semibold text-ink-strong">
+                      {entry.heading}
+                    </h3>
+                    <p className="whitespace-pre-wrap text-app-body leading-[1.9] text-ink-strong">
+                      {entry.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
+        {copyBody !== null ? (
+          <div className="mt-4 flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-10 px-5 text-app-label font-medium"
+              onClick={() => void copyTextWithToast(copyBody, toast)}
+            >
+              전체 복사
+            </Button>
+          </div>
+        ) : null}
       </div>
     </>
   );
