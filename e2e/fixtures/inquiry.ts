@@ -33,6 +33,28 @@ function check<T extends { error: { message: string } | null }>(
   return res;
 }
 
+/** 제출 영역 값. src/lib/inquiry/types.ts 의 Area 와 같다. */
+export type Area = "subject" | "autonomy" | "club" | "career";
+
+/** 제출 영역 pill 라벨. src/lib/inquiry/types.ts 의 AREA_LABELS 와 글자가 같다. */
+export const AREA_LABELS: Record<Area, string> = {
+  subject: "교과",
+  autonomy: "자율",
+  club: "동아리",
+  career: "진로",
+};
+
+/** 보관함 과목 칸에 보이는 글자. 교과는 과목명, 그 외는 영역 라벨이고 활동명이 있으면 "라벨 / 활동명". */
+export function submitTargetText(target: {
+  area: Area;
+  subject: string | null;
+  activityName: string | null;
+}): string {
+  if (target.area === "subject") return target.subject ?? "";
+  const label = AREA_LABELS[target.area];
+  return target.activityName ? `${label} / ${target.activityName}` : label;
+}
+
 const OPEN_STATUSES = ["draft", "in_progress"];
 
 /** 열린(draft, in_progress) 세션을 지운다. 자산, 주제는 FK 로 같이 지워진다. */
@@ -110,17 +132,11 @@ export async function latestCompletedSession(): Promise<{
       .single(),
   ).data;
   // 보관함 과목 칸과 같은 글자: 교과는 과목명, 그 외는 영역 라벨(활동명이 있으면 "라벨 / 활동명").
-  const areaLabels: Record<string, string> = {
-    autonomy: "자율",
-    club: "동아리",
-    career: "진로",
-  };
-  const subject =
-    session.area === "subject"
-      ? (session.subject as string)
-      : [areaLabels[session.area as string], session.activity_name]
-          .filter(Boolean)
-          .join(" / ");
+  const subject = submitTargetText({
+    area: session.area as Area,
+    subject: session.subject as string | null,
+    activityName: session.activity_name as string | null,
+  });
   return {
     subject,
     score: Number(report.score).toFixed(1),
@@ -207,8 +223,8 @@ export async function readPlanItemByTitle(
   return res.data as { status: string; done_source_program: string | null };
 }
 
-/** 열린 세션 한 건의 id. 없으면 null. */
-async function openSessionId(): Promise<string | null> {
+/** 열린 세션 한 건의 id. 없으면 null. 확정하면 status 가 바뀌므로 확정 전에 잡아 둔다. */
+export async function openSessionId(): Promise<string | null> {
   const profileId = await resolveStudentProfileId();
   const res = check(
     "열린 세션 조회",
@@ -267,6 +283,85 @@ export async function readOpenSessionAssets(): Promise<
       .order("position", { ascending: true }),
   );
   return (res.data ?? []) as { kind: string; reliability: string }[];
+}
+
+/** 확정으로 적립된 심화탐구 활동 기록(source_program deep, source_ref_id 세션 id)의 구분과 과목. */
+export async function readDeepRecordBySession(sessionId: string): Promise<{
+  subject_group: string | null;
+  subject: string | null;
+}> {
+  const profileId = await resolveStudentProfileId();
+  const res = check(
+    "확정 활동 기록 조회",
+    await serviceRoleClient()
+      .from("activity_records")
+      .select("subject_group, subject")
+      .eq("profile_id", profileId)
+      .eq("source_program", "deep")
+      .eq("source_ref_id", sessionId)
+      .single(),
+  );
+  return res.data as { subject_group: string | null; subject: string | null };
+}
+
+/**
+ * 직접 입력(manual, draft) 활동 기록을 시드한다. topic 은 호출부가 e2eText 로 접두어를 붙여 준다.
+ * 학년 값이 null 이면 학년 미지정 기록이다. 만든 행 id 를 돌려준다.
+ */
+export async function insertManualRecords(
+  rows: { gradeLabel: "고1" | "고2" | "고3" | null; topic: string }[],
+): Promise<string[]> {
+  const profileId = await resolveStudentProfileId();
+  const res = check(
+    "활동 기록 시드",
+    await serviceRoleClient()
+      .from("activity_records")
+      .insert(
+        rows.map((row) => ({
+          profile_id: profileId,
+          source_program: "manual",
+          status: "draft",
+          grade_label: row.gradeLabel,
+          semester: 2,
+          subject_group: "교과",
+          subject: "생명과학I",
+          topic: row.topic,
+          concept: "시드 개념",
+          limitation: "시드 한계",
+          numbers: [],
+          sources: [],
+        })),
+      )
+      .select("id"),
+  );
+  return ((res.data ?? []) as { id: string }[]).map((row) => row.id);
+}
+
+/** 내 활동 기록 가운데 id 가 일치하는 것을 지운다. */
+export async function deleteActivityRecords(ids: string[]) {
+  if (ids.length === 0) return;
+  const profileId = await resolveStudentProfileId();
+  check(
+    "활동 기록 삭제",
+    await serviceRoleClient()
+      .from("activity_records")
+      .delete()
+      .eq("profile_id", profileId)
+      .in("id", ids),
+  );
+}
+
+/** 이전 실행이 남긴 시드 기록(topic 이 prefix 로 시작)을 지운다. */
+export async function deleteActivityRecordsByTopicPrefix(prefix: string) {
+  const profileId = await resolveStudentProfileId();
+  check(
+    "시드 활동 기록 정리",
+    await serviceRoleClient()
+      .from("activity_records")
+      .delete()
+      .eq("profile_id", profileId)
+      .like("topic", `${prefix}%`),
+  );
 }
 
 /** 가입 트리거가 만든 profiles 행을 약관 동의 완료 학생 계정으로 맞춘다. */
@@ -336,6 +431,10 @@ export type BasicInfo = {
   semester: 1 | 2;
   career: string;
   subject: string;
+  /** 제출 영역. 없으면 교과(기본 선택)를 그대로 둔다. */
+  area?: Area;
+  /** 교과가 아닌 영역의 활동명(선택 입력). 없으면 비워 둔다. 교과면 쓰지 않는다. */
+  activityName?: string;
 };
 
 /** 기본 정보 카드를 채운다. 학년, 학기는 pill 라디오라 label 문구로 고른다. */
@@ -353,7 +452,21 @@ export async function fillBasicInfo(page: Page, info: BasicInfo) {
     page.getByRole("radio", { name: `${info.semester}학기` }),
   ).toBeChecked();
   await page.getByLabel(/^희망 진로/).fill(info.career);
-  await page.getByLabel(/^과목명/).fill(info.subject);
+  const area = info.area ?? "subject";
+  if (area === "subject") {
+    await page.getByLabel(/^과목명/).fill(info.subject);
+    return;
+  }
+  await page
+    .getByRole("group", { name: "제출 영역" })
+    .getByText(AREA_LABELS[area], { exact: true })
+    .click();
+  await expect(
+    page.getByRole("radio", { name: AREA_LABELS[area], exact: true }),
+  ).toBeChecked();
+  if (info.activityName !== undefined) {
+    await page.getByLabel(/^활동명/).fill(info.activityName);
+  }
 }
 
 /** 주제 한 줄을 추가한다(추가 버튼). */

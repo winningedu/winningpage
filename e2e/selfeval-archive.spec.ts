@@ -2,6 +2,7 @@ import {
   countCompleted,
   discardOpenSession,
   expect,
+  expectDoneBodyCopy,
   test,
 } from "./fixtures/selfeval";
 
@@ -46,6 +47,7 @@ test.describe("자기평가서 보관함", () => {
     await expect(
       page.getByRole("heading", { name: "최종본을 저장했습니다" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "전체 복사" })).toBeVisible();
+    // 보관함에서 연 완료 화면도 같은 본문과 복사 동작을 가진다.
+    await expectDoneBodyCopy(page);
   });
 });

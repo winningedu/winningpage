@@ -404,8 +404,10 @@ export const test = authTest.extend<{ studentPage: Page; token: string }>({
     await use(await getStudentToken(request));
   },
   studentPage: async ({ browser, authStorageStatePath }, use, testInfo) => {
+    // 완료 화면의 "전체 복사" 가 클립보드에 쓰고 테스트가 읽어 확인하므로 권한을 준다(chromium).
     const context = await browser.newContext({
       storageState: authStorageStatePath,
+      permissions: ["clipboard-read", "clipboard-write"],
     });
     const page = await context.newPage();
     await use(page);
@@ -553,16 +555,46 @@ export async function confirmAllFeelings(page: Page) {
   }
 }
 
+/** 검증 요약 카드(aside "검증 요약") 안 저장 배지. 필수 수정 N건, 아직 수정이 덜 된 항목 N건, 제출 가능 중 하나다. */
+export function verifySaveBadge(page: Page): Locator {
+  return page
+    .getByRole("complementary", { name: "검증 요약" })
+    .getByText(/^(필수 수정 \d+건|아직 수정이 덜 된 항목 \d+건|제출 가능)$/);
+}
+
+/** 저장 가능한 배지(제출 가능 또는 아직 수정이 덜 된 항목)인지 단언한다. 필수 수정이면 실패한다. */
+export async function expectSubmittableBadge(page: Page) {
+  await pwExpect(verifySaveBadge(page)).toHaveText(
+    /^(아직 수정이 덜 된 항목 \d+건|제출 가능)$/,
+  );
+}
+
 /**
  * 검증 결과를 기다리고 저장 가능할 때까지 최대 3번 돌린다.
- * 필수 수정이 남으면 작성 화면으로 돌아가 느낌 문장을 확인하고 다시 검증한다.
+ * 최종본으로 저장 버튼은 필수 수정이 남아도 눌리므로 버튼 상태가 아니라 검증 요약 배지로 판단한다.
+ * 배지가 "필수 수정" 이면 저장 모달에 경고가 뜨는지 확인한 뒤 닫고, 작성 화면으로 돌아가 느낌 문장을
+ * 확인하고 다시 검증한다.
  */
 export async function verifyUntilSubmittable(page: Page) {
-  const save = page.getByRole("button", { name: "최종본으로 저장" });
+  const badge = verifySaveBadge(page);
   let lastFixes = "";
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await waitVisibleWithRetry(page, save, /^다시 검증하기/);
-    if (await save.isEnabled()) return;
+    await waitVisibleWithRetry(page, badge, /^다시 검증하기/);
+    const label = (await badge.innerText()).trim();
+    if (!label.startsWith("필수 수정")) return;
+
+    // 이 단언은 검증에서 필수 수정이 실제로 나왔을 때만 돈다. 모델 결과에 따라 한 번도 안 돌 수 있다.
+    await page.getByRole("button", { name: "최종본으로 저장" }).click();
+    const modal = page.getByRole("dialog");
+    await pwExpect(modal.getByRole("alert")).toContainText(
+      /필수 수정 \d+건이 남아 있어요\. 정말 저장할까요\?/,
+    );
+    await pwExpect(
+      modal.getByRole("button", { name: "그래도 저장" }),
+    ).toBeVisible();
+    await modal.getByRole("button", { name: "닫기" }).click();
+    await pwExpect(modal).toBeHidden();
+
     const fixes = page.getByRole("alert", { name: "필수 수정" });
     lastFixes = (await fixes.count()) > 0 ? await fixes.innerText() : "(없음)";
     await page.getByRole("button", { name: "작성 화면으로" }).click();
@@ -574,17 +606,83 @@ export async function verifyUntilSubmittable(page: Page) {
   throw new Error(`필수 수정이 풀리지 않았다: ${lastFixes}`);
 }
 
-/** 저장 확인 모달에서 확인하고 저장해 완료 화면까지 간다. */
+/**
+ * 검증 화면 오른쪽 열이 스크롤을 따라온다(lg:sticky lg:top-35, 8.75rem = 140px).
+ * 1440x900 에서 window 를 스크롤해도 aside "검증 요약" 의 y 가 더 움직이지 않고 sticky 위치에 머문다.
+ * 문서가 스크롤할 만큼 길지 않으면 확인할 수 없어 건너뛴다.
+ */
+export async function expectVerifySummarySticky(page: Page) {
+  const original = page.viewportSize();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  try {
+    const summary = page.getByRole("complementary", { name: "검증 요약" });
+    await pwExpect(summary).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight,
+    );
+    if (overflow <= 700) {
+      authTest.info().annotations.push({
+        type: "sticky 건너뜀",
+        description: `문서가 viewport 보다 ${overflow}px 만 길어 스크롤 확인 불가`,
+      });
+      return;
+    }
+    const yAt = async (scrollTo: number) => {
+      await page.evaluate((y) => window.scrollTo(0, y), scrollTo);
+      await pwExpect
+        .poll(() => page.evaluate(() => Math.round(window.scrollY)))
+        .toBeGreaterThanOrEqual(scrollTo - 1);
+      const box = await summary.boundingBox();
+      if (!box) throw new Error("검증 요약 위치를 읽지 못했다");
+      return box.y;
+    };
+    const stuck = await yAt(600);
+    const stuckFurther = await yAt(700);
+    // 스크롤을 더 해도 y 가 같고, top-35(140px) 근처에 붙어 있다.
+    pwExpect(Math.abs(stuck - stuckFurther)).toBeLessThanOrEqual(1);
+    pwExpect(Math.abs(stuck - 140)).toBeLessThanOrEqual(2);
+    await page.evaluate(() => window.scrollTo(0, 0));
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
+}
+
+/** 저장 확인 모달에서 확인하고 저장해 완료 화면까지 간다. 필수 수정이 없는 저장 전제다. */
 export async function saveFinal(page: Page) {
+  // 필수 수정이 남지 않은 상태라 모달 경고가 없고 제출 버튼이 "확인하고 저장" 이다.
+  await expectSubmittableBadge(page);
   await page.getByRole("button", { name: "최종본으로 저장" }).click();
   await pwExpect(page.getByText("이 내용으로 저장할까요?")).toBeVisible();
-  await page.getByRole("button", { name: "확인하고 저장" }).click();
+  const modal = page.getByRole("dialog");
+  await pwExpect(modal.getByRole("alert")).toHaveCount(0);
+  await pwExpect(
+    modal.getByRole("button", { name: "그래도 저장" }),
+  ).toHaveCount(0);
+  await modal.getByRole("button", { name: "확인하고 저장" }).click();
   await page.waitForURL(/\/app\/selfeval\/s\/[^/]+\/done/, {
     timeout: 60_000,
   });
   await pwExpect(
     page.getByRole("heading", { name: "최종본을 저장했습니다" }),
   ).toBeVisible();
+}
+
+/**
+ * 완료 화면(저장 직후, 보관함 다시 보기 공통)의 본문 복사. "최종 본문" 영역에 글자가 있고
+ * "전체 복사" 를 누르면 "복사했어요" 토스트가 뜨며 클립보드에 본문이 들어간다.
+ */
+export async function expectDoneBodyCopy(page: Page) {
+  const body = page.getByRole("region", { name: "최종 본문" });
+  await pwExpect(body).toBeVisible();
+  const shown = (await body.innerText()).trim();
+  pwExpect(shown.length).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "전체 복사" }).click();
+  await pwExpect(page.getByText("복사했어요", { exact: true })).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  pwExpect(copied.trim().length).toBeGreaterThan(0);
+  // 복사한 본문의 앞부분이 화면 본문에 그대로 있다.
+  pwExpect(shown).toContain(copied.trim().slice(0, 20));
 }
 
 /** 완료된 세션 수(API 기준). */

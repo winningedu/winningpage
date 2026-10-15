@@ -7,6 +7,9 @@ import {
   discardOpenSession,
   ensureSelfevalQuota,
   expect,
+  expectDoneBodyCopy,
+  expectSubmittableBadge,
+  expectVerifySummarySticky,
   insertPendingPlanItem,
   MANUAL_ACTIVITY_NAME,
   openNewSession,
@@ -94,8 +97,9 @@ test.describe("자기평가서 모델 포함 완주", () => {
     await page.getByRole("button", { name: "검증하기" }).click();
     await page.waitForURL(/\/verify$/);
     await verifyUntilSubmittable(page);
+    await expectVerifySummarySticky(page);
     await saveFinal(page);
-    await expect(page.getByRole("button", { name: "전체 복사" })).toBeVisible();
+    await expectDoneBodyCopy(page);
 
     // 이용 횟수는 생성 성공에서 1회 차감된다.
     const quotaAfter = await readQuotaRemaining(request, token);
@@ -182,8 +186,13 @@ test.describe("자기평가서 모델 포함 완주", () => {
       await page.waitForURL(/\/verify$/);
       await verifyUntilSubmittable(page);
 
+      // 필수 수정이 남지 않은 상태라 배지는 저장 가능이고 모달 제출 버튼은 "확인하고 저장" 이다.
+      await expectSubmittableBadge(page);
       await page.getByRole("button", { name: "최종본으로 저장" }).click();
       await expect(page.getByText("이 내용으로 저장할까요?")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "그래도 저장" }),
+      ).toHaveCount(0);
       const fulfills = page.getByRole("checkbox", {
         name: new RegExp(`${PLAN_ITEM_TITLE}.*완료 처리해요`),
       });
