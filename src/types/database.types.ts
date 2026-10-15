@@ -5144,6 +5144,7 @@ export type Database = {
       };
       products: {
         Row: {
+          addon_only: boolean;
           badge: string | null;
           created_at: string;
           duration_months: number | null;
@@ -5169,6 +5170,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          addon_only?: boolean;
           badge?: string | null;
           created_at?: string;
           duration_months?: number | null;
@@ -5193,6 +5195,7 @@ export type Database = {
           validity_days?: number | null;
         };
         Update: {
+          addon_only?: boolean;
           badge?: string | null;
           created_at?: string;
           duration_months?: number | null;
