@@ -11,6 +11,7 @@ import SessionDetailGate, {
 import { SELFEVAL_PATHS } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/context/ToastContext";
+import { copyTextWithToast } from "@/lib/clipboard";
 import type {
   FinalizeReply,
   GenerationSections,
@@ -112,15 +113,6 @@ function DoneBody({
   const title = archiveTitle(session);
   const saved = session.completedAt ? formatDotDate(session.completedAt) : null;
 
-  async function copyAll() {
-    try {
-      await navigator.clipboard.writeText(texts.join("\n\n"));
-      toast.success("복사했어요");
-    } catch {
-      toast.error("복사하지 못했어요. 직접 선택해서 복사해 주세요.");
-    }
-  }
-
   return (
     <>
       <GoalPageHeader
@@ -170,7 +162,9 @@ function DoneBody({
                 variant="outline"
                 size="lg"
                 className="h-10 px-5 text-app-label font-medium"
-                onClick={() => void copyAll()}
+                onClick={() =>
+                  void copyTextWithToast(texts.join("\n\n"), toast)
+                }
               >
                 전체 복사
               </Button>

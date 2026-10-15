@@ -18,6 +18,8 @@ import EvaluationReportModal, {
   type EvaluationReport,
 } from "@/components/performance/step5/EvaluationReportModal";
 import { useSession } from "@/context/SessionContext";
+import { useToast } from "@/context/ToastContext";
+import { copyTextWithToast, elementPlainText } from "@/lib/clipboard";
 import {
   fetchSavedReportDetail,
   fetchSavedReportsList,
@@ -167,6 +169,9 @@ function FinalReportModal({
   const isOpen = open && Boolean(report);
   const visibleSections = report ? getVisibleSections(report.sections) : [];
   const hasContent = visibleSections.length > 0;
+  const toast = useToast();
+  // 보고 있는 최종 제출본 표면 하나의 글만 복사한다. 본문은 HTML 마크업이라 DOM 에서 읽는다.
+  const surfaceRef = useRef<HTMLDivElement>(null);
 
   return (
     <ReportModalShell
@@ -187,6 +192,19 @@ function FinalReportModal({
           </button>
           <button
             type="button"
+            onClick={() =>
+              void copyTextWithToast(
+                elementPlainText(surfaceRef.current),
+                toast,
+              )
+            }
+            disabled={!hasContent}
+            className={REPORT_MODAL_FOOTER_BUTTON.secondary}
+          >
+            전체 복사
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className={REPORT_MODAL_FOOTER_BUTTON.primary}
           >
@@ -196,9 +214,11 @@ function FinalReportModal({
       )}
     >
       {hasContent ? (
-        <PerformanceReportSurface>
-          <SectionedReportView sections={visibleSections} />
-        </PerformanceReportSurface>
+        <div ref={surfaceRef}>
+          <PerformanceReportSurface>
+            <SectionedReportView sections={visibleSections} />
+          </PerformanceReportSurface>
+        </div>
       ) : (
         <p className="text-app-card-title font-medium leading-5.25 text-ink-sub">
           최종 제출본 내용을 불러오지 못했어요. 창을 닫고 다시 시도해 주세요.
