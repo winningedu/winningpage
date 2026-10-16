@@ -9,7 +9,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdmissionSurface from "@/components/admission/AdmissionSurface";
 import AdmissionSectionEditModal from "@/components/admission/editor/AdmissionSectionEditModal";
@@ -186,6 +186,8 @@ export type AdminConfig<T extends AdminRow = AdminRow> = {
   listSummaryKey?: string;
   hideRowEdit?: boolean;
   showMetaEdit?: boolean;
+  // 행 관리 열에 "검토 완료" 버튼을 둔다. 지식 DB 메뉴(last_reviewed_at)에만 켠다.
+  knowledgeReview?: boolean;
   excel?: boolean;
   // 목록 툴바의 「초기화」(재조회) 버튼을 숨긴다. 검색어를 지우는 버튼으로 오해돼
   // 입력 중이던 조건이 날아간다는 지적이 있어 섹션별로 끌 수 있게 했다 (QA 272).
@@ -207,6 +209,8 @@ export type AdminConfig<T extends AdminRow = AdminRow> = {
   validate?: (form: T, row?: T | null) => string | null | undefined | void;
   previewTitleKey?: string;
   previewLabel?: string;
+  // 편집 폼 제목 아래, 필드 위에 그리는 안내 컴포넌트(예: 지식 DB 작성 안내).
+  FormIntro?: ComponentType;
   FormPreview?: (props: {
     form: T;
     onPatch: (patch: Partial<T>) => void;
@@ -1064,6 +1068,8 @@ export function AdminForm<T extends AdminRow = AdminRow>({
           </p>
         )}
 
+        {config.FormIntro && <config.FormIntro />}
+
         {/* 2단계(2026-08-06): 표 표면 스타일을 공개 모달과 공유 — field.group이
           있는 config(현재 admissionGuidelines뿐)에서만 렌더한다. showSectionTitle/
           showChangeNoColumn 둘 다 어드민 전용 값 — 절 제목 노출, 전년도와 차이점
@@ -1512,6 +1518,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
   onCompleteRefund,
   onOpenSection,
   onOpenMetaEdit,
+  onMarkReviewed,
 }: {
   config: AdminConfigInput<T>;
   rows: T[];
@@ -1526,6 +1533,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
   onCompleteRefund?: (row: T) => void;
   onOpenSection?: (row: T, sectionKey: SectionKey) => void;
   onOpenMetaEdit?: (row: T) => void;
+  onMarkReviewed?: (row: T) => void;
 }) {
   // config prop 경계는 AdminForm과 동일한 이유로 느슨하다(AdminConfigInput
   // 주석 참고) — 본문은 AdminConfig<T>로 캐스팅해 다룬다.
@@ -1835,6 +1843,17 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                           className="text-gray-500 hover:text-red-600"
                         >
                           <Trash2 size={17} />
+                        </button>
+                      )}
+
+                      {config.knowledgeReview && (
+                        <button
+                          type="button"
+                          onClick={() => onMarkReviewed?.(row)}
+                          title="이 카드를 오늘 검토한 것으로 표시합니다."
+                          className="whitespace-nowrap text-xs font-bold text-gray-500 hover:text-blue-600"
+                        >
+                          검토 완료
                         </button>
                       )}
 

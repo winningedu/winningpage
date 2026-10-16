@@ -49,17 +49,10 @@ function injectFragmentNavFix(html: string) {
 // 고객사 HTML 목업을 iframe 전체 뷰포트로 띄운다. 콘텐츠 높이로 늘려 내부 스크롤을 없애면
 // 원본의 position:sticky 헤더와 window.scrollTo(0,0) 스텝 이동, @media(max-width:900px)가
 // 의도대로 걸리지 않는다 — iframe이 자체 뷰포트를 가져야 한다.
-// demoKeyOverride — /services/growth처럼 :demoKey 파라미터가 없는 고정 라우트에서 특정 데모를
-// 강제 지정할 때 쓴다(growth-intro의 /services/growth 승격).
-type DemoFrameProps = {
-  demoKeyOverride?: string;
-};
-
-export default function DemoFrame({ demoKeyOverride }: DemoFrameProps = {}) {
+export default function DemoFrame() {
   const { demoKey: paramKey } = useParams();
-  // paramKey가 없는 라우트(:demoKey 미사용)에서도 인덱스 조회가 undefined 키로 들어가지 않도록
-  // 빈 문자열로 정규화한다 — DEMO_REGISTRY[""]는 이전과 동일하게 undefined다.
-  const demo = DEMO_REGISTRY[demoKeyOverride || paramKey || ""];
+  // :demoKey 라우트만 쓰지만 파라미터 타입이 optional이라 빈 문자열로 정규화한다.
+  const demo = DEMO_REGISTRY[paramKey || ""];
 
   // HTML이 최대 69KB라 렌더마다 문자열을 새로 만들지 않도록 메모이즈한다.
   const html = useMemo(

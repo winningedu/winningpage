@@ -41,6 +41,26 @@
     {
       "path": "/api/cron/monthly-report",
       "schedule": "0 23 28-31 * *"
+    },
+    {
+      "path": "/api/cron/growth-archive",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/growth-resume",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/selfeval-archive",
+      "schedule": "10 19 * * *"
+    },
+    {
+      "path": "/api/cron/inquiry-archive",
+      "schedule": "20 19 * * *"
+    },
+    {
+      "path": "/api/cron/ai-telemetry-cleanup",
+      "schedule": "30 19 * * *"
     }
   ]
 }

@@ -275,18 +275,17 @@ export function buildTopicRecommendationSystem({
   topicKnowledgeText?: string;
   studentHistoryText?: string;
 } = {}) {
+  // 블록 순서는 캐시 할인 조건에 맞춘다. 요청마다 같은 고정 블록(핵심 원칙, 역할, 연계
+  // 기준, 활용 규칙, 교육과정 규칙, 출력 규칙)을 앞에 모으고, 검색 결과가 들어가는 가변
+  // 블록 2개를 맨 뒤에 둔다. 모델 입력은 앞부분이 직전 요청과 같을 때 그 부분이 캐시로
+  // 과금되므로 고정 블록이 가변 블록 뒤에 있으면 할인을 받지 못한다. 고정 블록 가운데
+  // 가변 블록을 "위"나 "아래"로 가리키는 문장은 없어서 지시문을 따로 옮기지 않았다.
   return `
 ${CORE_PRINCIPLES}
 
 당신은 고등학교 수행평가 주제 추천 전문가입니다.
 이 단계에서는 주제 추천용 데이터만 사용합니다.
 자료 추천용 데이터나 평가용 데이터는 사용하지 않습니다.
-
-[홈페이지 위닝 수행 주제 DB]
-${topicKnowledgeText || NO_KNOWLEDGE_TEXT}
-
-[학생 과거 수행 RAG]
-${studentHistoryText || NO_STUDENT_HISTORY_TEXT}
 
 [다른 과목 연계 판단 기준]
 ${CROSS_SUBJECT_CONNECTION_GUIDE}
@@ -314,6 +313,12 @@ ${CROSS_SUBJECT_CONNECTION_GUIDE}
 3. 주제명은 반드시 수행평가에서 실제로 탐구할 수 있는 구체적인 한국어 주제명으로 작성한다.
 4. 안내문에 없는 질문을 만들어내지 않는다.
 5. 학생이 그대로 제출할 수 있는 완성문을 작성하지 않는다.
+
+[홈페이지 위닝 수행 주제 DB]
+${topicKnowledgeText || NO_KNOWLEDGE_TEXT}
+
+[학생 과거 수행 RAG]
+${studentHistoryText || NO_STUDENT_HISTORY_TEXT}
 `.trim();
 }
 
@@ -531,8 +536,10 @@ export const TOPIC_MAX_OUTPUT_TOKENS_RETRY = 8192;
 /**
  * 주제 추천 프롬프트 버전. `performance_reports.prompt_version`에 기록한다(§8.3).
  * 위 ⓐ/ⓑ/ⓒ 경계 중 **어느 한 줄이라도** 바뀌면 이 값을 올린다.
+ * topic-v2 는 topic-v1 과 문구가 같고, 캐시 할인을 위해 고정 블록을 앞으로 가변 블록을
+ * 뒤로 옮긴 판이다.
  */
-export const TOPIC_PROMPT_VERSION = "topic-v1";
+export const TOPIC_PROMPT_VERSION = "topic-v2";
 
 // ─────────────────────────────────────────────────────────────────────
 // 설계 리포트 (P10)
@@ -671,12 +678,17 @@ export const NO_ASSESSMENT_INFO_TEXT = "안내문 정보 없음";
  * 두 버전의 **유일한 차이**는 `CORE_PRINCIPLES` + 연결 문장 블록의 유무다. 그래야 A/B가
  * 단일 변수 비교가 된다 — `buildDesignReportSystem`은 v2 = `CORE + BRIDGE + '\n\n' + v1`을
  * 보장하고, `api/_lib/performance/prompts.test.ts`(옛 scripts/verify-performance-prompt-parity.mjs)가 `endsWith`로 그 관계를 검증한다.
+ *
+ * design-v3, design-v4 는 각각 design-v1, design-v2 와 문구가 같고, 캐시 할인을 위해 고정
+ * 블록을 앞으로 가변 블록을 뒤로 옮긴 판이다. A/B 두 갈래 구조는 그대로 두고 두 값을 함께
+ * 올렸다. 옛 순서로 되돌리는 스위치는 두지 않는다(되돌림은 git revert 로 한다). 그래서
+ * 환경변수에 옛 값 design-v1 이 남아 있으면 알 수 없는 값으로 보고 기본값(design-v4)을 쓴다.
  */
 export const DESIGN_PROMPT_VERSIONS = Object.freeze({
   /** `CORE_PRINCIPLES` 미주입 — 외부 앱 동작 재현본. **A/B 검증 전용.** */
-  WITHOUT_CORE: "design-v1",
+  WITHOUT_CORE: "design-v3",
   /** `CORE_PRINCIPLES` 주입 — ~~Q83~~ 결정 정본. */
-  WITH_CORE: "design-v2",
+  WITH_CORE: "design-v4",
 });
 
 /** 기본값 = 주입본 고정(~~Q83~~). */
@@ -696,16 +708,16 @@ export const DESIGN_PROMPT_VERSION_ENV = "PERFORMANCE_DESIGN_PROMPT_VERSION";
  *
  * **클라이언트는 이 값을 바꿀 수 없다.** 엔드포인트는 요청 body를 보지 않고 이 함수를
  * 호출해야 하며, 그래서 인자가 `env` 하나뿐이다(요청 객체를 받지 않는 시그니처 자체가
- * 계약이다). `design-v1`은 정확히 그 문자열이 환경변수에 들어 있을 때만 선택되고,
- * 오타·빈 값·알 수 없는 값은 전부 기본값(`design-v2`)으로 떨어진다 — 스위치가 잘못
+ * 계약이다). `design-v3`은 정확히 그 문자열이 환경변수에 들어 있을 때만 선택되고,
+ * 오타, 빈 값, 알 수 없는 값은 전부 기본값(`design-v4`)으로 떨어진다. 스위치가 잘못
  * 설정돼도 **주입본이 기본**이라는 ~~Q83~~ 결정이 깨지지 않는다.
  *
  * @param {Record<string, string|undefined>} [env]
- * @returns {'design-v1'|'design-v2'}
+ * @returns {'design-v3'|'design-v4'}
  */
 export function resolveDesignPromptVersion(
   env: Record<string, string | undefined> = process.env,
-): "design-v1" | "design-v2" {
+): "design-v3" | "design-v4" {
   const raw = String(env?.[DESIGN_PROMPT_VERSION_ENV] || "").trim();
 
   return raw === DESIGN_PROMPT_VERSIONS.WITHOUT_CORE
@@ -968,7 +980,7 @@ export function buildAllowedResourceList(
  * 빌드한다.
  *
  * @param {object} params
- * @param {'design-v1'|'design-v2'} [params.promptVersion] `resolveDesignPromptVersion()`
+ * @param {'design-v3'|'design-v4'} [params.promptVersion] `resolveDesignPromptVersion()`
  *   결과를 넘겨라. 알 수 없는 값은 기본값(주입본)으로 떨어진다.
  * @param {string} [params.structureType] `inferAssessmentStructure().type` (원문 `:403`)
  * @param {string} [params.structureReason] 같은 함수의 `reason` (원문 `:404`)
@@ -1002,6 +1014,16 @@ export function buildDesignReportSystem({
     DESIGN_WRITING_BRANCHES[branchKey] || DESIGN_WRITING_BRANCHES.report;
 
   // ⓐ 원문 본문. v1은 이것 그대로이고, v2는 이 앞에 두 블록이 더 붙을 뿐이다.
+  //
+  // 블록 순서는 캐시 할인 조건에 맞춘다. 문구는 그대로 두고 순서만 다음처럼 바꿨다.
+  //   고정: 역할, 목표, 중요 원칙, 출력 방식부터 학생 작성 체크리스트까지의 섹션 뼈대
+  //   준고정: 작성 구조 설계 + 분기 본문. 분기가 3가지뿐이라 고정 묶음 바로 뒤에 둔다.
+  //   가변: 안내문 구조 판정, 자료 DB, 허용 자료 목록, 주의 문단, 학생 과거 수행 RAG
+  // `주의:` 문단은 고정 문자열이지만 `위 [사용 허용 자료명 목록]`을 가리키므로 그 목록
+  // 바로 뒤에 붙여 함께 옮겼다. 떼어 앞으로 보내면 "위"가 틀린 말이 된다. 중요 원칙 8조의
+  // `아래 위닝 수행 자료 DB`는 자료 DB 블록이 여전히 아래에 있어 참이다. 섹션 뼈대 안에서
+  // 작성 구조 설계가 체크리스트 뒤로 갔지만 섹션 순서는 응답 스키마가 정하므로 출력 순서는
+  // 바뀌지 않는다.
   const body = `
 당신은 고등학생 수행평가 설계 리포트 작성 전문가입니다.
 
@@ -1026,23 +1048,6 @@ export function buildDesignReportSystem({
 14. 출력에 *, **, ## 같은 마크다운 기호를 쓰지 않는다.
 15. 학생 과거 수행 기록을 참고하여 이미 사용한 주제와 자료는 그대로 반복하지 않는다.
 16. 과거 수행과 유사한 흐름이 있으면 이번 선택 주제에 맞게 심화·확장 방향으로 재구성한다.
-
-[안내문 구조 판정]
-- 판정 유형: ${String(structureType || "").trim() || UNKNOWN_FIELD_TEXT}
-- 판정 근거: ${String(structureReason || "").trim() || UNKNOWN_FIELD_TEXT}
-- 우선 작성 틀:
-${String(writingFrame || "").trim() || UNKNOWN_FIELD_TEXT}
-
-[홈페이지 위닝 수행 자료 DB]
-${String(resourceKnowledgeText || "").trim() || NO_RESOURCE_KNOWLEDGE_TEXT}
-
-[사용 허용 자료명 목록]
-${buildAllowedResourceList(allowedResources)}
-
-주의: chosen_resources 필드에는 위 [사용 허용 자료명 목록]에 있는 자료 id만 쓸 수 있다. 목록이 '없음'이면 id를 만들지 말고 chosen_resources를 빈 배열로 두며, 학생용 표현으로 자료 확인이 필요하다고만 정리하라. 학생에게 보이는 출력에는 DB, 내부 자료, RAG, 검증 자료 부족이라는 표현을 쓰지 마라.
-
-[학생 과거 수행 RAG]
-${String(studentHistoryText || "").trim() || NO_STUDENT_HISTORY_TEXT}
 
 출력 방식:
 안내문이 문항별 답변형이면 문항별 작성 방향을 제시하고, 보고서형이면 서론/본론/결론 흐름을 제시하라.
@@ -1069,15 +1074,32 @@ ${String(studentHistoryText || "").trim() || NO_STUDENT_HISTORY_TEXT}
 - 교과 개념을 드러내는 방식:
 - 학생의 해석이 꼭 들어가야 하는 부분:
 
-작성 구조 설계
-${branchText}
-
 학생 작성 체크리스트
 - 체크 1:
 - 체크 2:
 - 체크 3:
 - 체크 4:
 - 체크 5:
+
+작성 구조 설계
+${branchText}
+
+[안내문 구조 판정]
+- 판정 유형: ${String(structureType || "").trim() || UNKNOWN_FIELD_TEXT}
+- 판정 근거: ${String(structureReason || "").trim() || UNKNOWN_FIELD_TEXT}
+- 우선 작성 틀:
+${String(writingFrame || "").trim() || UNKNOWN_FIELD_TEXT}
+
+[홈페이지 위닝 수행 자료 DB]
+${String(resourceKnowledgeText || "").trim() || NO_RESOURCE_KNOWLEDGE_TEXT}
+
+[사용 허용 자료명 목록]
+${buildAllowedResourceList(allowedResources)}
+
+주의: chosen_resources 필드에는 위 [사용 허용 자료명 목록]에 있는 자료 id만 쓸 수 있다. 목록이 '없음'이면 id를 만들지 말고 chosen_resources를 빈 배열로 두며, 학생용 표현으로 자료 확인이 필요하다고만 정리하라. 학생에게 보이는 출력에는 DB, 내부 자료, RAG, 검증 자료 부족이라는 표현을 쓰지 마라.
+
+[학생 과거 수행 RAG]
+${String(studentHistoryText || "").trim() || NO_STUDENT_HISTORY_TEXT}
 `.trim();
 
   if (promptVersion === DESIGN_PROMPT_VERSIONS.WITHOUT_CORE) return body;
@@ -1719,6 +1741,10 @@ export function buildEvaluationSystem({
     writingFrame,
   });
 
+  // 캐시 할인을 위한 블록 재배치는 이 함수에 적용하지 않는다. 가변 블록인 연결 블록의
+  // 고정 규칙이 `아래 평가 형식`과 `위 제출 형식`을 함께 가리키므로, 고정 블록인 평가 형식을
+  // 연결 블록 앞으로 옮기면 `아래`가 틀린 말이 된다. 연결 블록은 판정 값과 규칙을 한 문단으로
+  // 조립하므로 규칙만 떼어 옮길 수도 없다. 그래서 순서와 EVALUATION_PROMPT_VERSION 을 둔다.
   return `${CORE_PRINCIPLES}\n\n${head}\n\n${bridge}\n\n${format}`;
 }
 

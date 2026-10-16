@@ -59,6 +59,74 @@ interface MemberCustomConfig {
 type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
+  // 성장설계 회차 운영(growthReports): 회차 목록, 상세, 실패 회차 복구, 이용권 부여.
+  // 데이터는 /api/admin/growth-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
+  // custom 컴포넌트(src/pages/admin/growth/GrowthReportsAdmin.tsx)가 전부 그린다.
+  growthReports: {
+    title: "성장설계 회차",
+    table: "growth_reports",
+    searchPlaceholder: "이름 또는 이메일 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "growthReports",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
+    ],
+  },
+
+  // 자기평가서 세션 운영(selfevalSessions): 세션 목록, 상세, 실패 세션 복구, 이용권 부여.
+  // 데이터는 /api/admin/selfeval-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
+  // custom 컴포넌트(src/pages/admin/selfeval/SelfevalSessionsAdmin.tsx)가 전부 그린다.
+  selfevalSessions: {
+    title: "자기평가서 세션",
+    table: "selfeval_sessions",
+    searchPlaceholder: "이름, 이메일 또는 과목 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "selfevalSessions",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
+    ],
+  },
+
+  // AI 호출 계기판(aiTelemetry): 모델 호출 요약, 호출 목록, 자료 인용, 단가 설정.
+  // 데이터는 /api/admin/ai-telemetry 가 합성해 내려주므로 제네릭 CRUD 가 아니라
+  // custom 컴포넌트(src/pages/admin/telemetry/TelemetryAdmin.tsx)가 전부 그린다.
+  aiTelemetry: {
+    title: "AI 호출 계기판",
+    table: "ai_model_calls",
+    searchPlaceholder: "",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "aiTelemetry",
+    columns: [
+      { key: "service", label: "서비스" },
+      { key: "model", label: "모델" },
+    ],
+  },
+
+  // 지식 검색 품질 평가(knowledgeEvals): 기준 문제집, 평가 실행과 조합 비교, 실행 이력.
+  // 문제집은 custom 컴포넌트가 클라이언트 Supabase 로 직접 읽고 쓰고, 실행은
+  // /api/admin/knowledge-eval 이 한다(src/pages/admin/knowledge/evals/EvalsAdmin.tsx).
+  knowledgeEvals: {
+    title: "지식 검색 품질 평가",
+    table: "knowledge_golden_queries",
+    searchPlaceholder: "",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "knowledgeEvals",
+    columns: [
+      { key: "grade", label: "학년" },
+      { key: "subject", label: "과목" },
+    ],
+  },
+
   // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·
@@ -256,6 +324,21 @@ export const memberConfigs: Record<string, MemberConfig> = {
         label: "상태",
         options: MENTOR_APPLICATION_STATUS_OPTIONS,
       },
+    ],
+  },
+  // 심화탐구 세션 운영(inquirySessions): 세션 목록, 생성 상태 상세, 실패 세션 복구, 이용권 부여.
+  // custom 컴포넌트(src/pages/admin/inquiry/InquirySessionsAdmin.tsx)가 전부 그린다.
+  inquirySessions: {
+    title: "심화탐구 세션",
+    table: "inquiry_sessions",
+    searchPlaceholder: "이름 또는 이메일 검색",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "inquirySessions",
+    columns: [
+      { key: "studentName", label: "학생" },
+      { key: "status", label: "상태" },
     ],
   },
 };

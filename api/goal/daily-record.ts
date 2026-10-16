@@ -46,12 +46,12 @@ import {
   openGoalSession,
   PAID_MESSAGE,
   upsertDailyRecord,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-// goalRepo.js(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
+// api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
 
@@ -251,12 +251,12 @@ async function requireActiveStudent(
   return { row };
 }
 
-// fetchTodayRecord/fetchStudentStateRow(goalRepo.js, Stage3 대상)는 JSDoc
+// fetchTodayRecord/fetchStudentStateRow(api/_lib/goal/repo.ts, Stage3 대상)는 JSDoc
 // @returns 타입 없이 raw DB row(any)를 그대로 돌려준다 — 이 두 빌더의 인자만
-// any로 받는다(goalRepo.js 자체는 수정하지 않는다).
+// any로 받는다(api/_lib/goal/repo.ts 자체는 수정하지 않는다).
 
 /** DB 행(snake) → API 응답 record 블록(camel). GET/POST 응답이 완전히 같은 모양을 쓴다. */
-// biome-ignore lint/suspicious/noExplicitAny: goalRepo.js fetchTodayRecord가 타입을 내보내지 않는다(Stage3 대상).
+// biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchTodayRecord가 타입을 내보내지 않는다(Stage3 대상).
 function buildRecordPayload(row: any) {
   if (!row) return null;
   return {
@@ -270,7 +270,7 @@ function buildRecordPayload(row: any) {
   };
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: goalRepo.js fetchStudentStateRow가 타입을 내보내지 않는다(Stage3 대상).
+// biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchStudentStateRow가 타입을 내보내지 않는다(Stage3 대상).
 function buildProbsPayload(stateRow: any) {
   const state = stateRow || {};
   return {
@@ -289,7 +289,7 @@ function buildProbsPayload(stateRow: any) {
  * study_schedule이 나중에 바뀌어도 그날 산출 근거가 그대로 재현된다
  * (target_ideal_hours 컬럼 코멘트와 동일 이유).
  */
-// biome-ignore lint/suspicious/noExplicitAny: goalRepo.js fetchTodayRecord/fetchLatestDailyRecord가 타입을 내보내지 않는다(Stage3 대상).
+// biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchTodayRecord/fetchLatestDailyRecord가 타입을 내보내지 않는다(Stage3 대상).
 export function buildSummaryPayload(row: any) {
   if (!row) return null;
 
@@ -326,7 +326,7 @@ export function buildSummaryPayload(row: any) {
  * 스케줄이 없으면 0/0(Dashboard.tsx resolveDaySchedule의 폴백과 동일 규칙).
  */
 export function buildTomorrowTargets(
-  // biome-ignore lint/suspicious/noExplicitAny: goalRepo.js fetchStudentRow가 타입을 내보내지 않는다(Stage3 대상).
+  // biome-ignore lint/suspicious/noExplicitAny: api/_lib/goal/repo.ts fetchStudentRow가 타입을 내보내지 않는다(Stage3 대상).
   student: any,
   recordDate: string,
   now: Date,
@@ -598,7 +598,7 @@ async function handlePost(
 
   // ── 수식 v2 — rate 는 온보딩 시 1회 산출된 값(goal_students.rate_*). 정시 컷이
   // 없어 null 인 학생은 0 취급(그 목표엔 애초에 게이지가 없다, jungsiAvailable=false
-  // 와 동일한 판정 — goalRepo.js buildStudentPayload 참고).
+  // 와 동일한 판정, api/_lib/goal/repo.ts buildStudentPayload 참고).
   const delta = calculateDailyBonusV2({
     idealSusiRate: num(student.rate_ideal_susi) ?? 0,
     idealJungsiRate: num(student.rate_ideal_jungsi) ?? 0,

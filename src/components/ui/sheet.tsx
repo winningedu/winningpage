@@ -1,11 +1,27 @@
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+// nonModal 일 때 SheetContent 가 오버레이를 건너뛰도록 Root 에서 내려준다.
+const NonModalContext = React.createContext(false);
+
+// nonModal: 켜면 오버레이와 포커스 트랩이 없고 바깥 클릭과 포커스 이탈로 닫히지 않는다.
+// ESC 와 닫기 버튼으로만 닫힌다. 기본값(꺼짐)은 기존 modal 동작 그대로다.
+function Sheet({
+  nonModal = false,
+  ...props
+}: SheetPrimitive.Root.Props & { nonModal?: boolean }) {
+  return (
+    <NonModalContext.Provider value={nonModal}>
+      <SheetPrimitive.Root
+        data-slot="sheet"
+        {...(nonModal ? { modal: false, disablePointerDismissal: true } : {})}
+        {...props}
+      />
+    </NonModalContext.Provider>
+  );
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
@@ -45,9 +61,10 @@ function SheetContent({
   showCloseButton?: boolean;
   overlayClassName?: string;
 }) {
+  const nonModal = React.useContext(NonModalContext);
   return (
     <SheetPortal>
-      <SheetOverlay className={overlayClassName} />
+      {!nonModal && <SheetOverlay className={overlayClassName} />}
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}

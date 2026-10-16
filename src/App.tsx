@@ -22,10 +22,13 @@ import diagnosisRoutes from "./routes/diagnosisRoutes";
 import dynamicPageRoutes from "./routes/dynamicPageRoutes";
 import goalAppRoutes from "./routes/goalAppRoutes";
 import goalOnboardingRoutes from "./routes/goalOnboardingRoutes";
+import growthAppRoutes from "./routes/growthAppRoutes";
 import homeRoutes from "./routes/homeRoutes";
+import inquiryAppRoutes from "./routes/inquiryAppRoutes";
 import mypageRoutes from "./routes/mypageRoutes";
 import performanceAppRoutes from "./routes/performanceAppRoutes";
 import premiumRoutes from "./routes/premiumRoutes";
+import selfevalAppRoutes from "./routes/selfevalAppRoutes";
 import serviceLandingRoutes from "./routes/serviceLandingRoutes";
 import standaloneRoutes from "./routes/standaloneRoutes";
 import termsRoutes from "./routes/termsRoutes";
@@ -104,6 +107,13 @@ const routes: RouteObject[] = [
 
       // 수행평가 학생 앱 — SessionProvider/RequireEntitlement 셸. SiteLayout 밖.
       ...performanceAppRoutes,
+
+      // 성장설계 학생 앱: SessionProvider/RequireEntitlement 셸. SiteLayout 밖.
+      ...growthAppRoutes,
+      // 자기평가서 학생 앱: 성장설계와 같은 셸 구조. SiteLayout 밖.
+      ...selfevalAppRoutes,
+      // 심화탐구 학생 앱: 성장설계와 같은 셸 구조. SiteLayout 밖.
+      ...inquiryAppRoutes,
 
       // 알림톡 승인 링크 → 실제 라우트 리다이렉트. SiteLayout 밖에 둔다 —
       // 헤더·푸터를 그렸다가 곧바로 이동하면 한 프레임 깜빡인다.

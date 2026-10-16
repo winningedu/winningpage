@@ -34,9 +34,16 @@ type StepItem = { title: string; desc: string };
 // 목표관리 4개 서비스 랜딩이 공용으로 쓰는 컴포넌트라 전부 같이 바뀐다.
 const STEP_CARD_CLASS = "rounded-xl bg-surface-footer px-6 pb-7.5 pt-8.5";
 
-function StepCard({ item }: { item: StepItem }) {
+// bordered 카드 클래스. 배경을 짙게 하면 설명 글씨(#767676) 대비가 4.5 아래로 떨어지므로
+// 배경은 두고 ServiceOutcomesPanel 과 같은 테두리 문법으로 경계를 준다. 리터럴 lookup.
+const STEP_CARD_BORDER_CLASS: Record<"true" | "false", string> = {
+  true: `${STEP_CARD_CLASS} border border-line`,
+  false: STEP_CARD_CLASS,
+};
+
+function StepCard({ item, bordered }: { item: StepItem; bordered: boolean }) {
   return (
-    <div className={STEP_CARD_CLASS}>
+    <div className={STEP_CARD_BORDER_CLASS[bordered ? "true" : "false"]}>
       <p className={CARD_TITLE_CLASS}>{item.title}</p>
       <p className={`mt-3.75 ${CARD_DESC_MUTED_CLASS}`}>{item.desc}</p>
     </div>
@@ -47,12 +54,14 @@ type ServiceStepCardsProps = {
   items: StepItem[];
   columns?: 3 | 4;
   splitLastRow?: boolean;
+  bordered?: boolean;
 };
 
 export default function ServiceStepCards({
   items,
   columns = 3,
   splitLastRow = false,
+  bordered = false,
 }: ServiceStepCardsProps) {
   const firstRow = splitLastRow ? items.slice(0, columns) : items;
   const secondRow = splitLastRow ? items.slice(columns) : [];
@@ -63,7 +72,7 @@ export default function ServiceStepCards({
         className={`mt-10 grid grid-cols-1 gap-5 sm:mt-12 sm:grid-cols-2 lg:mt-perf-inset ${STEP_COLS[columns]} lg:gap-7.5`}
       >
         {firstRow.map((item) => (
-          <StepCard key={item.title} item={item} />
+          <StepCard key={item.title} item={item} bordered={bordered} />
         ))}
       </div>
       {secondRow.length > 0 && (
@@ -71,7 +80,7 @@ export default function ServiceStepCards({
         // 폭 검산: (724 − 30) / 2 = 347px ✓ (1행 카드폭 346.7과 일치)
         <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:mx-auto lg:mt-7.5 lg:max-w-181 lg:gap-7.5">
           {secondRow.map((item) => (
-            <StepCard key={item.title} item={item} />
+            <StepCard key={item.title} item={item} bordered={bordered} />
           ))}
         </div>
       )}

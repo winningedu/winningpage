@@ -37,12 +37,12 @@ import {
   SUBJECT_LABEL_TO_CODE,
   updatePlanTask,
   updateWorkbookOwned,
-} from "../_lib/goalRepo.js";
+} from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-// goalRepo.js(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
+// api/_lib/goal/repo.ts(.js, Stage3 대상)의 openGoalSession 반환 shape을 그 함수 자체에서
 // 추론해 재사용한다(중복 선언 없이 JSDoc이 바뀌면 여기도 함께 따라간다).
 type GoalSession = Awaited<ReturnType<typeof openGoalSession>>;
 

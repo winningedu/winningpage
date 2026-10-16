@@ -135,6 +135,22 @@ const PROGRAM_KEY_META: Record<string, ProgramKeyMeta> = {
     // (performanceAppRoutes.tsx).
     route: "/app/performance",
   },
+  growth: {
+    serviceName: "위닝 성장설계",
+    category: "duration",
+    route: "/app/growth",
+  },
+  // 회차제 상품이라 수행평가(suhaeng)와 같은 duration 으로 둔다.
+  selfeval: {
+    serviceName: "위닝 자기평가서",
+    category: "duration",
+    route: "/app/selfeval",
+  },
+  inquiry: {
+    serviceName: "위닝 심화탐구",
+    category: "duration",
+    route: "/app/inquiry",
+  },
   mentor: {
     serviceName: "위닝 콜멘토",
     category: "session",

@@ -49,7 +49,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // HIGHLIGHT_AUTO_DISMISS_MS(2초)보다 길게 둔다 — 이동 직후 읽을 시간이 필요하다.
 const SAVED_RECORD_BANNER_MS = 4000;
 
-// QA 행295·306 — AI 조언(GET /api/goal/advice, api/_lib/goalAdvice.ts)이 실제로 배선됐다
+// QA 행295, 306, AI 조언(GET /api/goal/advice, api/_lib/goal/advice.ts)이 실제로 배선됐다
 // (이전 주석 "이식 대상이 아니다"는 규칙 기반 3요소로 대체하기로 한 결정이었으나
 // 2026-09-02 팀장 지시로 번복됐다 — qa3-held-high-design.md §6 결정⑥). 웰컴 카드
 // headline은 여전히 규칙 기반(buildTodayHeadline)이 기본값이고, intake 조언이 있을 때만
@@ -57,7 +57,7 @@ const SAVED_RECORD_BANNER_MS = 4000;
 // 본문은 advice.sections/majorTips를 그대로 그린다 — "AI 입시 분석 조언" 뱃지는
 // DashboardPageHeader의 adviceType prop으로 origin==='ai'일 때만 뜬다(원본 실제 AI 생성
 // 여부와 UI 뱃지가 이제 일치한다). 컴플라이언스 필터(반드시/100%/보장/낙인 문구 금지)는
-// 서버(api/_lib/goalAdvice.ts postprocessAdviceText)가 적용한다 — 이 파일은 규칙 기반
+// 서버(api/_lib/goal/advice.ts postprocessAdviceText)가 적용한다, 이 파일은 규칙 기반
 // 폴백(buildTodayHeadline/buildTomorrowPlan)에서 학생명만 넣지 않으면 된다(사이드바가
 // 이미 표기).
 
@@ -102,7 +102,7 @@ export function buildTodayHeadline(
 
 // ---------------------------------------------------------------------------
 // GET /api/goal/student → 4개 실데이터 카드(TargetUniversityRail/MockExamCard/
-// NaesinCard/TodayGoalCard) prop 매핑. api/_lib/goalRepo.js buildStudentPayload()
+// NaesinCard/TodayGoalCard) prop 매핑. api/_lib/goal/repo.ts buildStudentPayload()
 // 반환 shape을 기준으로 한다(임무 지시 "서버 계약" 절 그대로, 코드로 재확인 완료).
 //
 // 확률 스케일 확인: src/lib/goal/calc/pipeline.test.js가 idealSusi===100(포화)을
@@ -111,7 +111,7 @@ export function buildTodayHeadline(
 // "반올림"뿐이다(소수점 노출 방지, 표시 목적).
 // ---------------------------------------------------------------------------
 
-// api/_lib/goalRepo.js buildStudentPayload() 반환 shape 중 이 페이지가 실제로 읽는 필드만.
+// api/_lib/goal/repo.ts buildStudentPayload() 반환 shape 중 이 페이지가 실제로 읽는 필드만.
 type GoalStudent = {
   jungsiAvailable: boolean;
   targets: {
@@ -232,7 +232,7 @@ function mapTodayGoal(
     lowerGoalRate: rateOf(daySchedule.min),
     // QA 행304 — 카드가 달성률 %만 보여주고 실제 이상/최소 목표 "시간(h)"이 어디에도
     // 안 보였다. daySchedule은 이미 서버가 온보딩 때 요일별로 계산해 저장한 값이라
-    // (api/goal/intake.ts buildWeeklySchedule → study_schedule 컬럼, goalRepo.js
+    // (api/goal/intake.ts buildWeeklySchedule 이 채우는 study_schedule 컬럼, api/_lib/goal/repo.ts
     // buildStudentPayload가 weeklySchedule로 내려준다) 그대로 넘긴다 — 새로 계산하지 않는다.
     upperTargetHours: daySchedule.ideal,
     lowerTargetHours: daySchedule.min,
@@ -700,7 +700,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* AchievementChart: goal_probability_logs 실이력(probabilityHistory, §goalRepo.js
+              {/* AchievementChart: goal_probability_logs 실이력(probabilityHistory, §api/_lib/goal/repo.ts
                 buildStudentPayload) — 4계열(이상/최소 × 수시/정시) 라인 차트. */}
               <AchievementChart data={student.probabilityHistory} />
 

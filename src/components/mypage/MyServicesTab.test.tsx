@@ -138,3 +138,94 @@ describe("MyServicesTab — 무료 진단 합성 카드", () => {
     expect(screen.queryByText("무료 1회")).not.toBeInTheDocument();
   });
 });
+
+describe("MyServicesTab 성장설계 항목", () => {
+  afterEach(() => {
+    state.grants = [];
+    state.ledger = [];
+    mockFetchLatestDiagnosisReport.mockReset();
+  });
+
+  it("growth grant 는 서비스명을 그대로 보여 주고 /app/growth 로 연결한다", async () => {
+    state.grants = [
+      {
+        id: "grant-growth",
+        program_key: "growth",
+        granted_sessions: null,
+        granted_months: 6,
+        starts_at: "2026-01-01T00:00:00Z",
+        expires_at: "2099-01-01T00:00:00Z",
+        first_accessed_at: "2026-01-02T00:00:00Z",
+      },
+    ];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByText("위닝 성장설계")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: /프로그램 가기/ })).toHaveAttribute(
+      "href",
+      "/app/growth",
+    );
+  });
+
+  it("selfeval grant 는 위닝 자기평가서 이름으로 /app/selfeval 에 연결한다", async () => {
+    state.grants = [
+      {
+        id: "grant-selfeval",
+        program_key: "selfeval",
+        granted_sessions: 3,
+        granted_months: null,
+        starts_at: "2026-01-01T00:00:00Z",
+        expires_at: "2099-01-01T00:00:00Z",
+        first_accessed_at: "2026-01-02T00:00:00Z",
+      },
+    ];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByText("위닝 자기평가서")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: /프로그램 가기/ })).toHaveAttribute(
+      "href",
+      "/app/selfeval",
+    );
+  });
+});
+
+describe("MyServicesTab 심화탐구 항목", () => {
+  afterEach(() => {
+    state.grants = [];
+    state.ledger = [];
+    mockFetchLatestDiagnosisReport.mockReset();
+  });
+
+  it("inquiry grant 는 위닝 심화탐구로 보여 주고 /app/inquiry 로 연결한다", async () => {
+    state.grants = [
+      {
+        id: "grant-inquiry",
+        program_key: "inquiry",
+        granted_sessions: null,
+        granted_months: 6,
+        starts_at: "2026-01-01T00:00:00Z",
+        expires_at: "2099-01-01T00:00:00Z",
+        first_accessed_at: "2026-01-02T00:00:00Z",
+      },
+    ];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByText("위닝 심화탐구")).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("link", { name: /프로그램 가기/ })).toHaveAttribute(
+      "href",
+      "/app/inquiry",
+    );
+  });
+});

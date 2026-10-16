@@ -60,8 +60,8 @@ const DESCRIPTION =
 const PURCHASE_LABEL = "이용권 구매하기";
 const LATER_LABEL = "나중에 하기";
 
-/** §5.20 CTA 목적지. 랜딩 가격 섹션(§13)이다. */
-const PURCHASE_TO = "/services/performance#pricing";
+/** §5.20 CTA 목적지. 이용요금 페이지다. */
+const PURCHASE_TO = "/pricing";
 
 /** 새 창 이동을 라벨에도 알린다(시각적 표시가 없는 링크라 접근성 이름으로만 전달된다). */
 const PURCHASE_ARIA_LABEL = `${PURCHASE_LABEL} (새 창)`;

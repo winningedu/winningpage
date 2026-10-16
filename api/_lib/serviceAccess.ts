@@ -9,7 +9,7 @@
 // orders만 있고 program_access/enrollments가 없는 사용자, 혹은 그 반대인
 // 사용자가 생기면 양쪽 판정이 갈린다. 그래서 판정 로직은 여기 한 곳에만
 // 두고, api/create-service-ticket.js(SSO 티켓 발급), api/check-service-access.js
-// (클라이언트 조회용, 읽기 전용), api/_lib/goalRepo.js(목표관리 서버 라우트의
+// (클라이언트 조회용, 읽기 전용), api/_lib/goal/repo.ts(목표관리 서버 라우트의
 // 세션 게이트)가 함께 쓴다.
 //
 // target_url·SSO_SECRET·티켓 서명처럼 "티켓 발급" 전용 로직은 여기 없다.
@@ -74,6 +74,27 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     service_name: "학습진단 서비스",
     payment_keywords: ["진단", "학습진단"],
     program_keys: ["diagnose"],
+  },
+  // 성장설계. programs.program_key 'growth'(20261006035354) 와 consume_growth_credit 의 c_program_key 와 같은 값.
+  growth: {
+    service_key: "growth",
+    service_name: "위닝 성장설계",
+    payment_keywords: ["성장설계"],
+    program_keys: ["growth"],
+  },
+  // 자기평가서. programs.program_key 'selfeval' 과 consume_selfeval_credit 의 c_program_key 와 같은 값.
+  selfeval: {
+    service_key: "selfeval",
+    service_name: "위닝 자기평가서",
+    payment_keywords: ["자기평가서"],
+    program_keys: ["selfeval"],
+  },
+  // 심화탐구. programs.program_key 'inquiry'(20261006111510) 와 consume_inquiry_credit 의 c_program_key 와 같은 값.
+  inquiry: {
+    service_key: "inquiry",
+    service_name: "위닝 심화탐구",
+    payment_keywords: ["심화탐구", "심화 탐구"],
+    program_keys: ["inquiry"],
   },
 };
 

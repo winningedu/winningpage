@@ -30,8 +30,8 @@ const MESSAGE =
   "이용 가능한 횟수를 모두 사용했어요. 이용권을 추가하면 새 수행평가를 시작할 수 있습니다.";
 const CTA_LABEL = "이용권 구매하기";
 
-/** §5.20 CTA 목적지. 랜딩 가격 섹션(§13)이다. QuotaExhaustedCard와 동일. */
-const PURCHASE_TO = "/services/performance#pricing";
+/** §5.20 CTA 목적지. 이용요금 페이지다. QuotaExhaustedCard와 동일. */
+const PURCHASE_TO = "/pricing";
 
 export default function QuotaExhaustedBanner() {
   return (

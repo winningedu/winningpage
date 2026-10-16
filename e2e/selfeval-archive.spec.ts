@@ -1,0 +1,53 @@
+import {
+  countCompleted,
+  discardOpenSession,
+  expect,
+  expectDoneBodyCopy,
+  test,
+} from "./fixtures/selfeval";
+
+// 보관함: 상태 필터와 완료 세션 다시 보기. 완료 세션은 selfeval-full A 가 만든다.
+// 없으면 빈 상태 화면이라 필터가 없으므로 이유를 남기고 건너뛴다.
+test.describe("자기평가서 보관함", () => {
+  test("완료로 거르면 완료 행만 남고 다시 보기가 저장 완료 화면을 연다", async ({
+    studentPage: page,
+    request,
+    token,
+  }) => {
+    await discardOpenSession(request, token);
+    const completed = await countCompleted(request, token);
+    test.skip(
+      completed === 0,
+      "완료 세션 없음. E2E_SELFEVAL_FULL=1 로 selfeval-full A 를 먼저 완주",
+    );
+    await page.goto("/app/selfeval/archive");
+
+    await expect(page.getByRole("heading", { name: "보관함" })).toBeVisible();
+    const state = page.getByLabel("상태");
+    await expect(state).toBeVisible();
+
+    await state.selectOption({ label: "완료" });
+
+    const rows = page.getByRole("listitem").filter({
+      has: page.getByRole("button", {
+        name: /다시 보기|이어서 작성하기|새로 시작하기/,
+      }),
+    });
+    const count = await rows.count();
+    expect(count, "완료 세션이 1건 이상이어야 한다").toBeGreaterThanOrEqual(1);
+    for (let i = 0; i < count; i += 1) {
+      await expect(rows.nth(i)).toContainText("완료");
+      await expect(
+        rows.nth(i).getByRole("button", { name: "다시 보기" }),
+      ).toBeVisible();
+    }
+
+    await rows.first().getByRole("button", { name: "다시 보기" }).click();
+    await page.waitForURL(/\/app\/selfeval\/s\/[^/]+\/done/);
+    await expect(
+      page.getByRole("heading", { name: "최종본을 저장했습니다" }),
+    ).toBeVisible();
+    // 보관함에서 연 완료 화면도 같은 본문과 복사 동작을 가진다.
+    await expectDoneBodyCopy(page);
+  });
+});

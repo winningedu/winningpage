@@ -5,10 +5,16 @@
 // 로컬 스택 QA로 확인한다(daily-record.ts 등 같은 컨벤션의 다른 goal 라우트도 핸들러
 // 단위 테스트 파일이 없다).
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+const gemini = vi.hoisted(() => ({ callText: vi.fn() }));
+vi.mock("../_lib/ai/gemini.js", () => gemini);
+
+import { createAiTrace } from "../_lib/ai/telemetry/trace.js";
 import {
   buildRecentUsedText,
   buildTomorrowPlanItems,
+  generateAdviceModelResult,
   isValidAdviceSource,
   resolveDayNameKr,
 } from "./advice.js";
@@ -111,5 +117,33 @@ describe("resolveDayNameKr — getDayIndexFromYMDServer(0~6, 월~일) → 한글
   test("범위 밖 인덱스는 방어적으로 '내일'을 쓴다", () => {
     expect(resolveDayNameKr(7)).toBe("내일");
     expect(resolveDayNameKr(-1)).toBe("내일");
+  });
+});
+
+describe("generateAdviceModelResult 계기판 기록", () => {
+  const okReply = JSON.stringify({
+    todayAdvice: "a",
+    tomorrowPlan: "b",
+    majorTips: [],
+  });
+
+  test("callText 옵션에 telemetry 를 싣고 성공이면 ok 로 표시한다", async () => {
+    const trace = createAiTrace({ service: "goal", feature: "advice" });
+    const annotate = vi.spyOn(trace, "annotateLastCall");
+    gemini.callText.mockResolvedValue(okReply);
+    await generateAdviceModelResult("p", trace);
+    expect(gemini.callText.mock.calls[0]?.[2].telemetry).toBe(trace);
+    expect(annotate).toHaveBeenCalledWith({ validation: "ok" });
+  });
+
+  test("shape 이 다르면 failed shape 로 표시하고 던진다", async () => {
+    const trace = createAiTrace({ service: "goal", feature: "advice" });
+    const annotate = vi.spyOn(trace, "annotateLastCall");
+    gemini.callText.mockResolvedValue(JSON.stringify({ todayAdvice: 1 }));
+    await expect(generateAdviceModelResult("p", trace)).rejects.toThrow();
+    expect(annotate).toHaveBeenCalledWith({
+      validation: "failed",
+      issueCodes: ["shape"],
+    });
   });
 });

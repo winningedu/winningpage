@@ -35,7 +35,7 @@ export function resolveSubjectId(key?: string | null) {
   return SUBJECT_ID_BY_NAME[key] ?? "etc";
 }
 
-// id → 한글 라벨. api/_lib/goalRepo.js SUBJECT_CODE_TO_LABEL과 글자 단위로 같다
+// id 별 한글 라벨. api/_lib/goal/repo.ts SUBJECT_CODE_TO_LABEL과 글자 단위로 같다
 // (서버 파일은 클라이언트 번들에 끌어올 수 없어 — service_role 키를 물고 있는
 // supabaseAdmin.js를 재수출하게 된다 — 여기 별도로 둔다).
 const SUBJECT_LABELS = {

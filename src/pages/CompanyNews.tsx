@@ -10,7 +10,12 @@ import partnerChloeWinningArt from "@/assets/company/partner-chloe-winning-art.p
 import partnerJungsangLanguage from "@/assets/company/partner-jungsang-language.png";
 import partnerJungsangMath from "@/assets/company/partner-jungsang-math.png";
 import SafeHtml from "@/components/admission/SafeHtml";
-import { PREMIUM_ADMISSION_A_PATH } from "@/components/premium/premiumRoutesPaths";
+import {
+  isPremiumLink,
+  PREMIUM_ADMISSION_A_PATH,
+} from "@/components/premium/premiumRoutesPaths";
+import { isHiddenProgramLink } from "@/config/programs";
+import { site } from "@/config/site";
 import { alertServiceNotReady } from "@/lib/paidServiceAccess";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
@@ -45,9 +50,7 @@ type Attachment = string | { name?: string; url?: string };
 // 카드 타이틀 weight 는 시안이 Bold/Regular 혼용(학습진단·수시카드·프리미엄만 Bold)인데 확대
 // 렌더로도 구분이 안 되는 시안 실수로 판단해 전 카드 font-bold 로 통일했다.
 // 카드는 사용자 확정으로 6→8장으로 확장했다(수시카드는 코드 정본 서비스가 아니라 제외,
-// 성장설계·자기평가·심화탐구를 새로 추가). "성장설계"는 /services/growth가 아직 코드 정본
-// 랜딩이 없어(useNavGroups.ts 고객사 목업 데모 주석 참고) 다른 카드처럼 Link 로 보내지 않고,
-// 서비스 준비중 alert(alertServiceNotReady)로 안내한다 — 회사소식 상세 CTA와 동일한 처리다.
+// 성장설계, 자기평가, 심화탐구를 새로 추가).
 // 목표관리 카드 설명 텍스트만 시안 실측이 #ffffff 로 다른 카드(배경색의 밝은 틴트)와 규칙이
 // 다르다(시안 결함으로 추정) — 카피가 아닌 색 값 판단은 임의 확정하지 않고 실측값을
 // 보수적으로 유지했다. 카드 설명 텍스트의 opacity는 WCAG AA(4.5:1) 검증 결과 0.7에서 기존
@@ -95,7 +98,7 @@ const HERO_CARDS = [
     title: "성장설계",
     desc: ["나만의 강점을 찾는", "성장 로드맵 설계"],
     best: false,
-    route: null, // /services/growth는 아직 코드 정본 랜딩이 없다(useNavGroups.ts 고객사 목업 데모 주석 참고) — 준비중 alert 처리
+    route: "/services/growth",
   },
   {
     key: "self",
@@ -135,6 +138,25 @@ const HERO_CARDS = [
   },
 ];
 
+// 학습 플랫폼 사업영역 카드 설명에 나열하는 서비스. 숨김 프로그램은 설명에서도 뺀다.
+const PLATFORM_SERVICES = [
+  { title: "학습진단", route: "/services/learning-diagnosis" },
+  { title: "목표관리", route: "/services/goal" },
+  { title: "수행평가", route: "/services/performance" },
+  { title: "성장설계", route: "/services/growth" },
+  { title: "콜멘토", route: "/services/callmentor" },
+  { title: "자기평가", route: "/services/self-assessment" },
+  { title: "심화탐구", route: "/services/research" },
+];
+
+function platformServicesDesc() {
+  return PLATFORM_SERVICES.filter(
+    ({ route }) => !isHiddenProgramLink(route, site.features.hiddenPrograms),
+  )
+    .map(({ title }) => title)
+    .join(", ");
+}
+
 // -------------------------------------------------------------------------
 // 사업영역 카드 3장 (1882:19477)
 // -------------------------------------------------------------------------
@@ -143,10 +165,11 @@ const BUSINESS_CARDS = [
     key: "ai-platform",
     image: bizAiPlatform,
     title: "학습 플랫폼",
-    desc: "학습진단, 목표관리, 수행평가, 성장설계, 콜멘토, 자기평가, 심화탐구",
+    desc: null as string | null,
   },
   {
     key: "consulting",
+    premiumOnly: true,
     image: bizConsulting,
     title: "입시 컨설팅 서비스",
     desc: "멘토기반 프리미엄 컨설팅, 소수 원장 프리미엄 컨설팅",
@@ -356,7 +379,11 @@ function HeroSection({ page }: { page: IntroPage }) {
             gap 0(맞닿는 타일이 시안 핵심 구성) 유지. 모바일은 2열 × 4행,
             768px 이상은 4열 × 2행으로 조기 전환해 타일이 과도하게 부풀지 않게 한다. */}
         <div className="grid w-full max-w-142.5 grid-cols-2 sm:grid-cols-4 lg:grid-rows-2">
-          {HERO_CARDS.map((card) => {
+          {HERO_CARDS.filter(
+            (card) =>
+              (site.features.premium || !isPremiumLink(card.route)) &&
+              !isHiddenProgramLink(card.route, site.features.hiddenPrograms),
+          ).map((card) => {
             const content = (
               <>
                 {card.best && (
@@ -526,7 +553,9 @@ function BusinessSection() {
             카드폭 비율 0.937로 환산해야 한다). 768~1023 구간은 sm:grid-cols-2로
             채워 카드 한 장이 컨테이너 전폭을 차지해 여백만 남는 것을 막는다. */}
         <div className="mt-10 grid grid-cols-1 gap-5 sm:mt-12 sm:grid-cols-2 lg:mt-16.75 lg:grid-cols-3 lg:gap-7.5">
-          {BUSINESS_CARDS.map((card) => (
+          {BUSINESS_CARDS.filter(
+            (card) => site.features.premium || !card.premiumOnly,
+          ).map((card) => (
             <div
               key={card.key}
               className="flex flex-col rounded-perf-modal bg-white px-6 pb-8 pt-7 shadow-[0_0.125rem_0.25rem_0.125rem_rgba(215,215,215,0.25)] lg:rounded-3xl lg:px-10 lg:pb-12 lg:pt-10.5"
@@ -543,7 +572,7 @@ function BusinessSection() {
                 {card.title}
               </p>
               <p className="mt-7 whitespace-pre-line break-keep text-[0.9375rem] font-medium leading-[1.4] text-ink lg:text-[1.25rem]">
-                {card.desc}
+                {card.desc ?? platformServicesDesc()}
               </p>
             </div>
           ))}

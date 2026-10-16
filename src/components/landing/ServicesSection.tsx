@@ -1,4 +1,7 @@
 import { useMemo } from "react";
+import { isPremiumLink } from "@/components/premium/premiumRoutesPaths";
+import { isHiddenProgramLink } from "@/config/programs";
+import { site } from "@/config/site";
 import ServiceCard, { type Service } from "./services/ServiceCard";
 
 type ServicesSectionProps = {
@@ -11,13 +14,26 @@ type ServicesSectionProps = {
  * - 카드 자체(텍스트/일러스트 조립, 링크 해석)는 services/ServiceCard 에 위임한다.
  * - 노출 개수는 DB(program_categories 활성 행)가 정한다 — 6개 상한(0729 시안의 3×2 그리드
  *   기준)은 QA 2026-08-25 로 제거했다. 7개 이상이면 3열 그리드가 자연히 다음 행으로 흘러간다.
+ * - 프리미엄을 숨기는 사이트(site.features.premium=false, 스쿨멘토)는 is_premium 카드와
+ *   프리미엄 경로로 가는 카드를 렌더 단계에서 거른다(카드는 DB에서 오므로 데이터로는 못 막는다).
+ * - site.features.hiddenPrograms에 든 신규 서비스(성장설계, 자기평가, 심화탐구)로 가는 카드도 같은 방식으로 거른다.
  */
 export default function ServicesSection({
   services = [],
 }: ServicesSectionProps) {
   const visibleServices = useMemo(
     () =>
-      [...services].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+      services
+        .filter(
+          (service) =>
+            site.features.premium ||
+            !(service.is_premium || isPremiumLink(service.link)),
+        )
+        .filter(
+          (service) =>
+            !isHiddenProgramLink(service.link, site.features.hiddenPrograms),
+        )
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
     [services],
   );
 

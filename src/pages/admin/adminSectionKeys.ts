@@ -33,6 +33,10 @@ export const ADMIN_SECTION_KEYS = [
   "learningDiagnosisV2SurveyCopy",
   "goalUniversityCuts",
   "goalStudents",
+  "growthReports",
+  "selfevalSessions",
+  "aiTelemetry",
+  "knowledgeEvals",
   // 서비스 관리 — 프리미엄
   "premiumBookPages",
   "premiumConsults",
@@ -42,6 +46,8 @@ export const ADMIN_SECTION_KEYS = [
   "mentorApplyCopy",
   // 서비스 관리 — 위닝 DB
   "winningBaseData",
+  // 서비스 관리, 심화탐구
+  "inquirySessions",
   "winningDbInputs",
   "winningSuhaengTopicDb",
   "winningSuhaengResourceDb",

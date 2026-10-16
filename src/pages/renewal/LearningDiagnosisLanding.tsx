@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import type { CSSProperties, MutableRefObject } from "react";
 import { Link } from "react-router";
 import benefitStrengthTable from "@/assets/renewal/landing/benefit-strength-table.png";
@@ -16,6 +17,9 @@ import { useInView } from "@/hooks/useInView";
 
 const CTA_LINK_CLASS =
   "inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] px-8 text-base font-semibold text-white transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]";
+
+// 학습진단 안내 영상. 새 탭으로 연다.
+const GUIDE_VIDEO_URL = "https://www.youtube.com/watch?v=zEGJwwNdqbc";
 
 // STEP 라벨은 데이터에 두지 않는다 — ServiceProcessCards 가 index 로 생성한다.
 const STEPS = [
@@ -270,16 +274,16 @@ function HeroSection() {
           지금 시작하기
         </Link>
 
-        {/* Figma 2181:10898 — 흩뿌림 합성 1장(heroReportPages)을 걷어내고 A4 페이지 2장을
+        {/* Figma 2181:10898. 흩뿌림 합성 1장(heroReportPages)을 걷어내고 A4 페이지 2장을
             나란히 평면 배치한다. 시안 실측(1600폭 프레임 기준): 페이지 각 326.5×462,
-            간격 36px(2.25rem), 두 장 합계 폭 690px(43.125rem) — 컨테이너 max-w를 그 값으로
+            간격 36px(2.25rem), 두 장 합계 폭 690px(43.125rem). 컨테이너 max-w를 그 값으로
             고정한다. 페이지 top=398/히어로 높이 750이라 페이지 하단 110px가 히어로 아래에서
             잘려 나가는데(다음 섹션에 가려지는 게 아니라 히어로 프레임 자체의 클리핑),
             섹션에 이미 overflow-hidden이 있으므로 이 wrapper에는 desktop 전용으로
             max-h(462−110=352px=22rem)+overflow-hidden만 얹어 재현한다. 모바일은 클리핑 없이
             전체 노출(작은 화면에서 페이지 하단이 잘리면 내용을 못 읽는다).
-            items-start 가 필수다 — flex 기본 stretch 는 img 높이를 max-h(352px)에 맞춰
-            눌러 버려 object-cover 가 페이지 상단(제목·학생 정보)을 잘라냈다(2026-09-07 실측).
+            items-start 가 필수다. flex 기본 stretch 는 img 높이를 max-h(352px)에 맞춰
+            눌러 버려 object-cover 가 페이지 상단(제목, 학생 정보)을 잘라냈다(2026-09-07 실측).
             상단 정렬로 img 가 aspect 높이(462px)를 유지하고 wrapper 가 하단만 클리핑한다. */}
         <div className="relative z-10 mx-auto mt-8 flex w-full max-w-172.5 items-start justify-center gap-4 sm:mt-10 md:mt-12.25 lg:gap-9 lg:max-h-88 lg:overflow-hidden">
           <img
@@ -596,12 +600,24 @@ function BottomCta() {
           지금 바로 학습진단을 경험해보세요
         </h2>
 
-        <Link
-          to="/app/learning-diagnosis/survey"
-          className={`${CTA_LINK_CLASS} bg-primary shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] hover:bg-[#01498F] focus-visible:ring-white`}
-        >
-          학습진단 시작하기 →
-        </Link>
+        <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:justify-center sm:gap-6">
+          <Link
+            to="/app/learning-diagnosis/survey"
+            className={`${CTA_LINK_CLASS} gap-2 bg-primary shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] hover:bg-[#01498F] focus-visible:ring-white`}
+          >
+            학습진단 시작하기
+            <ArrowRight aria-hidden="true" className="h-5 w-5" />
+          </Link>
+          <a
+            href={GUIDE_VIDEO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${CTA_LINK_CLASS} border border-white bg-transparent hover:bg-white/10 focus-visible:ring-white`}
+          >
+            학습진단 영상 보기
+            <span className="sr-only"> (새 창)</span>
+          </a>
+        </div>
       </div>
     </section>
   );

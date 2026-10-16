@@ -8,6 +8,7 @@ import {
   PREMIUM_RETURNING_STUDENT_PATH,
   PREMIUM_SPECIAL_HIGHSCHOOL_PATH,
 } from "@/components/premium/premiumRoutesPaths";
+import { requirePremiumAvailableMiddleware } from "@/lib/routeMiddleware";
 import AdmissionConsultingA from "@/pages/premium/AdmissionConsultingA";
 import AdmissionConsultingS from "@/pages/premium/AdmissionConsultingS";
 import GlobalUniversityConsulting from "@/pages/premium/GlobalUniversityConsulting";
@@ -22,25 +23,44 @@ import SpecialHighschoolAdmission from "@/pages/premium/SpecialHighschoolAdmissi
 // 코드 라우트가 전담하고, catch-all(/page/premium/:program → DynamicPage)은 더 이상 없다.
 // (구 페이지_contents 프리미엄 행은 20260824000007에서 삭제.) 구 /page/premium-* 경로는 코드
 // 라우트・DB 행 모두 없음 → catch-all(dynamicPageRoutes)에서 자연 404.
+// 프리미엄을 숨기는 사이트(스쿨멘토)는 requirePremiumAvailableMiddleware가 홈으로 되돌린다.
+const premiumGuard = [requirePremiumAvailableMiddleware];
+
 const premiumRoutes: RouteObject[] = [
-  { path: PREMIUM_ADMISSION_A_PATH, Component: AdmissionConsultingA },
-  { path: PREMIUM_ADMISSION_S_PATH, Component: AdmissionConsultingS },
-  { path: PREMIUM_GRADUATE_SCHOOL_PATH, Component: GraduateSchoolAdmission },
+  {
+    path: PREMIUM_ADMISSION_A_PATH,
+    Component: AdmissionConsultingA,
+    middleware: premiumGuard,
+  },
+  {
+    path: PREMIUM_ADMISSION_S_PATH,
+    Component: AdmissionConsultingS,
+    middleware: premiumGuard,
+  },
+  {
+    path: PREMIUM_GRADUATE_SCHOOL_PATH,
+    Component: GraduateSchoolAdmission,
+    middleware: premiumGuard,
+  },
   {
     path: PREMIUM_GLOBAL_UNIVERSITY_PATH,
     Component: GlobalUniversityConsulting,
+    middleware: premiumGuard,
   },
   {
     path: PREMIUM_SPECIAL_HIGHSCHOOL_PATH,
     Component: SpecialHighschoolAdmission,
+    middleware: premiumGuard,
   },
   {
     path: PREMIUM_INTERNATIONAL_SCHOOL_PATH,
     Component: InternationalSchool,
+    middleware: premiumGuard,
   },
   {
     path: PREMIUM_RETURNING_STUDENT_PATH,
     Component: ReturningStudentAdmission,
+    middleware: premiumGuard,
   },
 ];
 
