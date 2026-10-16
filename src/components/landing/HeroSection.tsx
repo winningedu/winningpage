@@ -24,17 +24,13 @@ function secondsToMs(value: number | null | undefined): number | null {
 /**
  * 히어로 좌/우 캐러셀 공용 로직 — 각 캐러셀은 독립된 훅 인스턴스를 사용하므로
  * 타이머/일시정지/스와이프 상태가 서로 간섭하지 않는다.
- * - 자동 전환: setTimeout 체인 (슬라이드별 intervals[activeIndex]), hover/focus/pointerdown 일시정지, reducedMotion 시 비활성
+ * - 자동 전환: setTimeout 체인 (슬라이드별 intervals[activeIndex]), hover/focus/pointerdown 일시정지
  * - 포인터 스와이프 + 트랙패드 휠 좌우 이동, 드래그 직후 링크 클릭 방지
  * - pointerPaused 고착 방지 window 폴백 리스너
  *
  * @param intervals 슬라이드별 자동 전환 간격 (ms) — index는 activeIndex와 대응 (banners.display_seconds → secondsToMs)
  */
-function useHeroCarousel(
-  slideCount: number,
-  reducedMotion: boolean,
-  intervals: Array<number | null>,
-) {
+function useHeroCarousel(slideCount: number, intervals: Array<number | null>) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [hoverPaused, setHoverPaused] = useState(false);
   const [focusPaused, setFocusPaused] = useState(false);
@@ -62,14 +58,14 @@ function useHeroCarousel(
   // 자동 전환: setTimeout 체인 (activeIndex 변경 시 자동 리셋, 다음 지속 시간은
   // intervals[activeIndex] — 배너별 display_seconds)
   useEffect(() => {
-    if (slideCount <= 1 || isPaused || reducedMotion) return undefined;
+    if (slideCount <= 1 || isPaused) return undefined;
     const duration = intervalsRef.current[activeIndex] ?? null;
     if (duration === null) return undefined;
     const timer = setTimeout(() => {
       setActiveIndex((prev) => (prev + 1) % slideCount);
     }, duration);
     return () => clearTimeout(timer);
-  }, [slideCount, isPaused, reducedMotion, activeIndex]);
+  }, [slideCount, isPaused, activeIndex]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -216,8 +212,7 @@ type HeroSectionProps = {
  *   체인) + 하단 중앙 pill 인디케이터 + 포인터 스와이프/트랙패드 휠 좌우 이동 (화살표 없음).
  *   1건뿐이면 pill·자동 전환 없이 고정
  * - 좌/우 캐러셀은 useHeroCarousel 훅의 독립 인스턴스를 사용해 타이머가 서로 간섭하지 않는다.
- * - hover/focus/pointerdown 일시정지, prefers-reduced-motion 시 자동 전환 비활성(컴포넌트
- *   레벨에서 1회 감지 후 좌/우 훅에 공유 전달)
+ * - hover/focus/pointerdown 일시정지. 자동 전환은 prefers-reduced-motion 과 무관하게 항상 동작
  */
 export default function HeroSection({
   banners = [],
@@ -230,30 +225,15 @@ export default function HeroSection({
   );
   const rightSlideCount = rightSlides.length;
 
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  // prefers-reduced-motion 감지 (change 리스너 포함) — 좌/우 캐러셀 공용, 컴포넌트 레벨 1회만 감지
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mql.matches);
-    const onChange = (event: MediaQueryListEvent) =>
-      setReducedMotion(event.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
   // leftSlides/rightSlides는 매 렌더 새로 .filter()된 배열이라 아래 map 결과도 매번 새
   // 참조가 되지만, useHeroCarousel은 intervals를 ref로만 추적해 자동 전환 타이머를
   // 리셋시키지 않으므로 여기서 별도 메모이제이션은 필요 없다.
   const leftCarousel = useHeroCarousel(
     leftSlideCount,
-    reducedMotion,
     leftSlides.map((s) => secondsToMs(s.display_seconds)),
   );
   const rightCarousel = useHeroCarousel(
     rightSlideCount,
-    reducedMotion,
     rightSlides.map((s) => secondsToMs(s.display_seconds)),
   );
 
