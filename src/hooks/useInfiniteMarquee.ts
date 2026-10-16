@@ -11,7 +11,7 @@ const MIN_REPEAT_COUNT = 3; // 최소 반복 카피 수 (기존 Home.jsx 3배 �
  * - 아이템 N배 반복(기본 3배) + 실측 주기(인접 카피 offsetLeft 차) 기준 normalize
  * - rAF로 scrollLeft += delta * speed (delta는 frame당 최대 50ms 캡)
  * - 초기 중앙 사이클 배치 + resize 재배치
- * - prefers-reduced-motion 시 자동 스크롤 정지 (change 리스너 포함, 스와이프는 허용)
+ * - prefers-reduced-motion 설정과 무관하게 항상 자동 스크롤 (hover/drag/touch 시에만 일시정지)
  *
  * 반복 카피 수 자동 보정:
  * - 한 사이클 폭(cycleWidth)이 컨테이너 폭 대비 좁으면 3카피만으로는
@@ -161,13 +161,6 @@ export function useInfiniteMarquee({
   useEffect(() => {
     if (!enabled) return undefined;
 
-    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    let reducedMotion = Boolean(mediaQuery?.matches);
-    const handleMotionChange = (event) => {
-      reducedMotion = event.matches;
-    };
-    mediaQuery?.addEventListener?.("change", handleMotionChange);
-
     let previousTime = performance.now();
 
     const animate = (currentTime) => {
@@ -176,10 +169,7 @@ export function useInfiniteMarquee({
       previousTime = currentTime;
 
       const isPaused =
-        reducedMotion ||
-        hoveringRef.current ||
-        draggingRef.current ||
-        touchActiveRef.current;
+        hoveringRef.current || draggingRef.current || touchActiveRef.current;
 
       if (container) {
         if (!isPaused) {
@@ -211,7 +201,6 @@ export function useInfiniteMarquee({
 
     return () => {
       window.cancelAnimationFrame(animationFrameRef.current);
-      mediaQuery?.removeEventListener?.("change", handleMotionChange);
     };
   }, [enabled]);
 
