@@ -45,8 +45,10 @@ import type {
 // 생성중과 생성 결과 화면(시안 35~42, 명세 No.44~52, 117~121). 경로: /app/selfeval/s/:sessionId/result
 //   ?generate=1  분석 확인에서 넘어온 진입. 진입 즉시 작성본을 만든다.
 // 생성 리포트가 없으면 쿼리가 없어도 만든다. 하단 고지는 SelfevalAppLayout 이 그린다.
+// row23 고객사 요청: 추가 횟수 구매 버튼은 남은 횟수와 무관하게 상시 노출한다.
 
 const TITLE = "자기평가서가 완성됐습니다";
+const PRICING = "/pricing?service=selfeval";
 const CHIP =
   "rounded-full bg-surface-04 px-3 py-1 text-app-caption font-semibold text-ink-strong";
 
@@ -331,6 +333,15 @@ function ResultBody({
                     onClick={() => navigate(SELFEVAL_PATHS.verify(sessionId))}
                   >
                     검증하기
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-10 px-5 text-app-label font-medium"
+                    onClick={() => navigate(PRICING)}
+                  >
+                    추가 횟수 구매
                   </Button>
                 </div>
                 {regenerationsLeft <= 0 && (

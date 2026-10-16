@@ -25,6 +25,7 @@ import type { EntryResponse } from "@/lib/selfeval/types";
 // 자기평가서 시작 화면(시안 01~06, 명세 No.14, 15, 70, 71, 101~103). 경로: /app/selfeval
 // 단계 알림(useSelfevalScreenStep)은 사이드바 진행단계가 의존한다.
 // 하단 고지 4줄은 SelfevalAppLayout 이 그린다(여기서 또 그리지 않는다).
+// row23 고객사 요청: 추가 횟수 구매 버튼은 남은 횟수와 무관하게 상시 노출한다(0회는 이용권 보러 가기가 대신한다).
 const BODY = "flex w-full max-w-goal-content flex-col gap-4 px-4 pb-6 md:px-12";
 const PRICING = "/pricing?service=selfeval";
 
@@ -136,6 +137,17 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
       )}
 
       <div className="flex justify-end gap-3">
+        {start.mode !== "quota_zero" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="h-10 px-5 text-app-label font-medium"
+            onClick={() => navigate(PRICING)}
+          >
+            추가 횟수 구매
+          </Button>
+        )}
         {start.mode === "resume" && (
           <>
             <Button

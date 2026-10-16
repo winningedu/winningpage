@@ -12,6 +12,11 @@
 // 필요 환경변수:
 //   WINNING_SUPABASE_URL / SUPABASE_URL / VITE_SUPABASE_URL
 //   WINNING_SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE_KEY
+//
+// 수량 계약: body.items[] 는 { id, quantity? } 이고 quantity 는 정수(생략 시 1)다.
+// 추가 이용권(products.addon_only)만 1~10 을 허용하고 일반 상품은 1 고정이다.
+// 같은 상품 id 를 두 번 보내면 거부한다. 여기서의 검증은 UX 용 선제 거부이고
+// 정본은 fn_request_enrollment 의 WC067(살아있는 부여 없음)과 WC068(수량 위반)이다.
 
 import crypto from "node:crypto";
 import { defineHandler } from "./_lib/handler.js";
@@ -27,7 +32,12 @@ type ProductRow = {
   price: number | null;
   is_active: boolean;
   is_orderable: boolean;
+  addon_only: boolean;
+  program_key: string | null;
 };
+
+const INVALID_QUANTITY_MESSAGE = "결제 수량이 올바르지 않습니다.";
+const ADDON_MAX_QUANTITY = 10;
 
 function clean(value: unknown) {
   return String(value || "").trim();
@@ -55,12 +65,27 @@ export default defineHandler({
       const body = req.body || {};
       const rawItems = Array.isArray(body.items) ? body.items : [];
 
-      const productIds = [
-        ...new Set(rawItems.map((it) => clean(it?.id)).filter(Boolean)),
-      ];
-      if (productIds.length === 0) {
+      const requested = rawItems
+        .map((it): { id: string; quantity: number } => ({
+          id: clean(it?.id),
+          quantity: it?.quantity ?? 1,
+        }))
+        .filter((it) => it.id);
+      if (requested.length === 0) {
         return void res.status(400).json({ error: "선택된 상품이 없습니다." });
       }
+      if (requested.some((it) => !Number.isInteger(it.quantity))) {
+        return void res.status(400).json({ error: INVALID_QUANTITY_MESSAGE });
+      }
+      const productIds = [...new Set(requested.map((it) => it.id))];
+      if (productIds.length !== requested.length) {
+        return void res
+          .status(400)
+          .json({ error: "중복된 상품이 포함되어 있습니다." });
+      }
+      const quantityById = new Map<string, number>(
+        requested.map((it) => [it.id, it.quantity]),
+      );
 
       const supabaseAdmin = ctx.supabaseAdmin;
 
@@ -128,7 +153,7 @@ export default defineHandler({
       const { data: products, error: productError } = await supabaseAdmin
         .from("products")
         .select(
-          "id, slug, service_key, name, list_price, price, is_active, is_orderable",
+          "id, slug, service_key, name, list_price, price, is_active, is_orderable, addon_only, program_key",
         )
         .in("id", productIds)
         .eq("is_active", true)
@@ -146,11 +171,23 @@ export default defineHandler({
           .json({ error: "판매 중이 아닌 상품이 포함되어 있습니다." });
       }
 
+      const quantityOf = (p: ProductRow) => quantityById.get(p.id) ?? 1;
+      const validQuantity = (p: ProductRow) =>
+        p.addon_only
+          ? quantityOf(p) >= 1 && quantityOf(p) <= ADDON_MAX_QUANTITY
+          : quantityOf(p) === 1;
+      if (!products.every(validQuantity)) {
+        return void res.status(400).json({ error: INVALID_QUANTITY_MESSAGE });
+      }
+
       const listTotal = products.reduce(
-        (s, p) => s + Number(p.list_price || p.price || 0),
+        (s, p) => s + Number(p.list_price || p.price || 0) * quantityOf(p),
         0,
       );
-      const subtotal = products.reduce((s, p) => s + Number(p.price || 0), 0);
+      const subtotal = products.reduce(
+        (s, p) => s + Number(p.price || 0) * quantityOf(p),
+        0,
+      );
 
       const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
       const orderName = buildOrderName(products);
@@ -173,7 +210,7 @@ export default defineHandler({
             name: p.name,
             list_price: Number(p.list_price || p.price || 0),
             price: Number(p.price || 0),
-            quantity: 1,
+            quantity: quantityOf(p),
           })),
           p_list_amount: listTotal,
           p_subtotal: subtotal,
@@ -194,6 +231,14 @@ export default defineHandler({
           return void res
             .status(400)
             .json({ error: "결제 금액이 올바르지 않습니다." });
+        }
+        if (rpcError.code === "WC067") {
+          return void res
+            .status(409)
+            .json({ error: "addon_requires_live_grant" });
+        }
+        if (rpcError.code === "WC068") {
+          return void res.status(400).json({ error: INVALID_QUANTITY_MESSAGE });
         }
         // WC064~066 은 20260901050440 이 fn_request_enrollment 에 추가하는 org
         // 한정 상품(부산캠퍼스 특가 등) 검증 게이트다 — 정본은 DB 함수이고, UI 단에서

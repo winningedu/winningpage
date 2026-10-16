@@ -963,20 +963,20 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
                               {item.name}
                             </p>
                             {/* ⚠ 신규 카피 — 승인 필요. 약관 제33조의2 ③ 1·2호 —
-                                구성 서비스별 정가·수량 표시. 수량은 화면에 존재하는
-                                order_items에 quantity 개념이 없어 항상 1이다. */}
+                                구성 서비스별 정가와 수량 표시(order_items.quantity). */}
                             <p className="mt-1 text-[0.75rem] font-normal leading-[1.4] text-ink-sub">
-                              정가 {formatKRW(item.list_price)} · 수량 1
+                              정가 {formatKRW(item.list_price)}, 수량{" "}
+                              {item.quantity}
                             </p>
                           </div>
                           <div className="flex shrink-0 flex-col items-end">
                             {hasDiscount && (
                               <span className="text-[0.75rem] font-medium leading-5 tracking-[-0.02em] text-line line-through">
-                                {formatKRW(item.list_price)}
+                                {formatKRW(item.list_price * item.quantity)}
                               </span>
                             )}
                             <span className="text-[0.8125rem] font-medium leading-5 tracking-[-0.02em] text-ink">
-                              {formatKRW(item.price)}
+                              {formatKRW(item.price * item.quantity)}
                             </span>
                           </div>
                         </div>

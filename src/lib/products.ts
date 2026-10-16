@@ -7,7 +7,7 @@ import { site } from "@/config/site";
 import { supabase } from "./supabase";
 
 const PRODUCT_COLUMNS =
-  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, is_orderable, tenant_id, sale_ends_at";
+  "id, service_key, service_name, service_desc, service_sort_order, sort_order, name, list_price, price, badge, is_recommended, is_active, is_orderable, tenant_id, sale_ends_at, addon_only";
 
 type ProductRow = {
   id: string;
@@ -31,6 +31,9 @@ type ProductRow = {
   // filterOrgProducts 가 이 두 컬럼을 쓴다.
   tenant_id?: string | null;
   sale_ends_at?: string | null;
+  // true 면 이용 중인 서비스에만 붙는 추가 이용권(row23). 서비스 카탈로그에는
+  // 넣지 않고 addons 로 따로 돌려준다.
+  addon_only?: boolean | null;
 };
 
 export type ServiceProduct = {
@@ -45,6 +48,11 @@ export type ServiceProduct = {
   saleEndsAt: string | null | undefined;
 };
 
+export type AddonProduct = ServiceProduct & {
+  serviceKey: string;
+  serviceName: string;
+};
+
 export type ServiceGroup = {
   key: string;
   name: string;
@@ -54,13 +62,36 @@ export type ServiceGroup = {
 };
 
 // Supabase products 행 → 서비스별 그룹 구조로 변환
-function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
+function groupProducts(rows: ProductRow[] | null | undefined): {
+  services: ServiceGroup[];
+  addons: AddonProduct[];
+} {
+  const addons: AddonProduct[] = [];
   const map = new Map<string, ServiceGroup>();
   // site.features.hiddenPrograms에 든 신규 서비스(service_key가 program key와 같다)는
   // 가격표, 신청, 결제 카탈로그 어디에도 나오지 않게 여기서 한 번에 뺀다.
   const hidden: readonly string[] = site.features.hiddenPrograms;
   (rows || []).forEach((r) => {
     if (hidden.includes(r.service_key)) return;
+    const product: ServiceProduct = {
+      id: r.id,
+      name: r.name,
+      listPrice: r.list_price,
+      price: r.price,
+      badge: r.badge,
+      recommended: !!r.is_recommended,
+      isOrderable: r.is_orderable === true,
+      tenantId: r.tenant_id,
+      saleEndsAt: r.sale_ends_at,
+    };
+    if (r.addon_only === true) {
+      addons.push({
+        ...product,
+        serviceKey: r.service_key,
+        serviceName: r.service_name,
+      });
+      return;
+    }
     if (!map.has(r.service_key)) {
       map.set(r.service_key, {
         key: r.service_key,
@@ -75,19 +106,12 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
         products: [],
       });
     }
-    map.get(r.service_key)?.products.push({
-      id: r.id,
-      name: r.name,
-      listPrice: r.list_price,
-      price: r.price,
-      badge: r.badge,
-      recommended: !!r.is_recommended,
-      isOrderable: r.is_orderable === true,
-      tenantId: r.tenant_id,
-      saleEndsAt: r.sale_ends_at,
-    });
+    map.get(r.service_key)?.products.push(product);
   });
-  return Array.from(map.values()).sort((a, b) => a.order - b.order);
+  return {
+    services: Array.from(map.values()).sort((a, b) => a.order - b.order),
+    addons,
+  };
 }
 
 // products 테이블에서 활성 상품을 조회해 서비스별로 그룹핑한 배열을 반환한다.
@@ -100,7 +124,7 @@ function groupProducts(rows: ProductRow[] | null | undefined): ServiceGroup[] {
 // 빈 배열을 반환하지 않는다.
 async function fetchProducts(
   serviceKey?: string | null,
-): Promise<ServiceGroup[]> {
+): Promise<{ services: ServiceGroup[]; addons: AddonProduct[] }> {
   let query = supabase
     .from("products")
     .select(PRODUCT_COLUMNS)
@@ -117,12 +141,14 @@ async function fetchProducts(
 
 // products 조회 훅. serviceKey를 넘기면 해당 서비스 상품만 조회한다(전체가 필요하면
 // 인자 없이 호출). 주문 불가 상품도 isOrderable=false 로 포함된다(위 fetchProducts
-// 주석 참고). 반환: { services, loading, error, refetch }
+// 주석 참고). 반환: { services, addons, loading, error, refetch }
+// - addons: addon_only 상품(추가 이용권). 이용권 보유 판정은 호출부 몫이다.
 // - services: 서비스별 그룹 배열(빈 배열이면 로딩/에러가 아닌 이상 "조회된 상품 없음"을 뜻함)
 // - error: 조회 실패 시 Error 객체, 정상이면 null
 // - refetch: 실패/빈 결과 시 재시도용
 export function useProducts(serviceKey?: string | null) {
   const [services, setServices] = useState<ServiceGroup[]>([]);
+  const [addons, setAddons] = useState<AddonProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -136,7 +162,8 @@ export function useProducts(serviceKey?: string | null) {
       try {
         const grouped = await fetchProducts(serviceKey);
         if (!alive) return;
-        setServices(grouped);
+        setServices(grouped.services);
+        setAddons(grouped.addons);
       } catch (err) {
         if (!alive) return;
         console.warn("products 조회 실패:", err?.message || err);
@@ -152,7 +179,7 @@ export function useProducts(serviceKey?: string | null) {
 
   const refetch = useCallback(() => setReloadToken((t) => t + 1), []);
 
-  return { services, loading, error, refetch };
+  return { services, addons, loading, error, refetch };
 }
 
 // fn_matched_tenant_ids(2026-09-01, supabase/migrations/20260901050440. tenant

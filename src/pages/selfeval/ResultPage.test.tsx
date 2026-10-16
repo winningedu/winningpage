@@ -370,4 +370,13 @@ describe("ResultPage 버튼", () => {
     fireEvent.click(await screen.findByRole("button", { name: "검증하기" }));
     expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/verify");
   });
+
+  test("추가 횟수 구매는 이용권 안내로 이동한다", async () => {
+    detailMock.mockResolvedValue(withReport());
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "추가 횟수 구매" }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith("/pricing?service=selfeval");
+  });
 });

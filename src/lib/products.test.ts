@@ -56,3 +56,31 @@ describe("useProducts isOrderable 매핑", () => {
     expect(products.map((p) => p.isOrderable)).toEqual([false, false]);
   });
 });
+
+describe("useProducts 추가 이용권 분리", () => {
+  it("addon_only 행은 services 에서 빼고 addons 에 서비스 정보와 함께 싣는다", async () => {
+    rows.current = [
+      row("a", true),
+      {
+        id: "x",
+        service_key: "suhaeng",
+        service_name: "위닝 수행평가",
+        name: "[추가 1회] 위닝 수행평가",
+        price: 2000,
+        list_price: 2000,
+        is_orderable: true,
+        addon_only: true,
+      },
+    ];
+    const { result } = renderHook(() => useProducts());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.services.map((s) => s.key)).toEqual(["mentor"]);
+    expect(result.current.addons).toHaveLength(1);
+    expect(result.current.addons[0]).toMatchObject({
+      id: "x",
+      serviceKey: "suhaeng",
+      serviceName: "위닝 수행평가",
+      price: 2000,
+    });
+  });
+});
