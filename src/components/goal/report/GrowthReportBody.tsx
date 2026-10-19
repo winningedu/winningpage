@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
-import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,

@@ -9,15 +9,15 @@ import {
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import PdfSaveButton from "@/components/report/PdfSaveButton";
-import ReportCoverPage from "@/components/report/ReportCoverPage";
-import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import FinalFieldsTable from "@/components/inquiry/reports/FinalFieldsTable";
 import LoadError, { errorCode } from "@/components/inquiry/reports/LoadError";
 import {
   formatReportDate,
   resumePath,
 } from "@/components/inquiry/reports/reportsLogic";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";

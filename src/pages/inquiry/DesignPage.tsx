@@ -6,11 +6,11 @@ import {
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import PdfSaveButton from "@/components/report/PdfSaveButton";
-import ReportCoverPage from "@/components/report/ReportCoverPage";
-import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
