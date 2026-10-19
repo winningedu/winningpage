@@ -29,7 +29,7 @@ export function deriveGrowthReportStudentName(
     : null;
 }
 
-// 표지 학년 — 이름과 같은 캐시에서 원본("고2" 등)을 그대로 꺼낸다. 표기 변환은 표지 쪽 몫이다.
+// 표지 학년: 이름과 같은 캐시에서 원본("고2" 등)을 그대로 꺼낸다. 표기 변환은 표지 쪽 몫이다.
 export function deriveGrowthReportStudentGrade(
   goalStudentResult: FetchGoalStudentResult | undefined,
 ): string | null {
