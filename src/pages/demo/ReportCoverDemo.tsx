@@ -16,6 +16,7 @@ import ReportCoverPage, {
   type ReportCoverFlowPrintMode,
   type ReportCoverPageVariant,
 } from "@/components/report/ReportCoverPage";
+import { ToastProvider } from "@/context/ToastContext";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -50,7 +51,17 @@ const DEMO_PREVIEW_CSS = `
   }
 `;
 
+// 앱 루트에는 ToastProvider 가 없다(서비스별 레이아웃이 각자 둔다). useReportPdfSave 가
+// useToast 를 쓰므로 데모 페이지가 직접 감싼다.
 export default function ReportCoverDemo() {
+  return (
+    <ToastProvider>
+      <ReportCoverDemoBody />
+    </ToastProvider>
+  );
+}
+
+function ReportCoverDemoBody() {
   const [kind, setKind] = useState<ReportCoverKind>("diagnosis");
   const [variant, setVariant] = useState<ReportCoverPageVariant>("flow");
   const [flowPrintMode, setFlowPrintMode] =

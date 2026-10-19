@@ -8,7 +8,6 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "@/context/ToastContext";
 import { getReportAccessToken } from "@/lib/report/downloadReportPdf";
 import demoRoutes from "@/routes/demoRoutes";
 import ReportCoverDemo from "./ReportCoverDemo";
@@ -19,11 +18,8 @@ vi.mock("@/lib/report/downloadReportPdf", () => ({
 }));
 
 function renderDemo() {
-  return render(
-    <ToastProvider>
-      <ReportCoverDemo />
-    </ToastProvider>,
-  );
+  // 앱 루트에 ToastProvider 가 없으므로 바깥 provider 없이 그린다.
+  return render(<ReportCoverDemo />);
 }
 
 afterEach(() => {
@@ -32,6 +28,10 @@ afterEach(() => {
 });
 
 describe("ReportCoverDemo", () => {
+  it("바깥 ToastProvider 없이 그려도 던지지 않는다", () => {
+    expect(() => renderDemo()).not.toThrow();
+  });
+
   it("기본 종류(학습진단) 표지를 렌더한다", () => {
     renderDemo();
 
@@ -164,5 +164,20 @@ describe("ReportCoverDemo", () => {
     expect(demoRoutes.map((route) => route.path)).toContain(
       "/demo/report-cover",
     );
+  });
+
+  it("a4 방식에서만 학습진단 인쇄 페이지 규칙을 마운트한다", () => {
+    const { container } = renderDemo();
+    const hasPageRule = () =>
+      Array.from(container.querySelectorAll("style")).some((node) =>
+        (node.textContent ?? "").includes("font-size: 3mm"),
+      );
+    expect(hasPageRule()).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("방식"), {
+      target: { value: "a4" },
+    });
+
+    expect(hasPageRule()).toBe(true);
   });
 });
