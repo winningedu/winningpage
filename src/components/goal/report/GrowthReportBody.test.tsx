@@ -5,6 +5,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { site } from "@/config/site";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
 
 /** heading을 아예 생략한(=undefined 아님, 키 자체가 없는) 리포트. exactOptionalPropertyTypes
@@ -65,7 +66,7 @@ describe("GrowthReportBody — 표지", () => {
     );
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("주간 성장 리포트");
+    expect(cover).toHaveTextContent(`${site.brandName} 주간 성장 리포트`);
   });
 
   it("studentName prop과 admission.upper.university를 표지에 반영한다", () => {

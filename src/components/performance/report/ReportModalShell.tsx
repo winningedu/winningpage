@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import { site } from "@/config/site";
 import {
   Dialog,
   DialogContent,
@@ -210,7 +211,7 @@ export default function ReportModalShell({
           <div className="hidden print:block">
             <ReportCoverPage
               kind="performance"
-              title={title}
+              title={`${site.brandName}\n${title}`}
               infoItems={[
                 { label: "학생명", value: studentName },
                 { label: "학년", value: formatGradeLabel(studentGrade) },

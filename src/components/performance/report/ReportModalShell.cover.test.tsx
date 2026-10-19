@@ -4,6 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { site } from "@/config/site";
 import ReportModalShell from "./ReportModalShell";
 
 const noop = () => {};
@@ -23,7 +24,7 @@ describe("ReportModalShell — 표지", () => {
     );
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("평가 리포트");
+    expect(cover).toHaveTextContent(`${site.brandName} 평가 리포트`);
     expect(within(cover).getByTestId("cover-info")).toHaveTextContent(
       "학생명김민준",
     );

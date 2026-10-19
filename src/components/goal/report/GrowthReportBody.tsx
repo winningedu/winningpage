@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { site } from "@/config/site";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
@@ -249,7 +250,7 @@ export default function GrowthReportBody({
         {report.heading ? (
           <ReportCoverPage
             kind={period === "monthly" ? "goalMonthly" : "goalWeekly"}
-            title={report.heading}
+            title={`${site.brandName}\n${report.heading}`}
             infoItems={[
               { label: "학생명", value: studentName },
               { label: "학년", value: formatGradeLabel(studentGrade) },
