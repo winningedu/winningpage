@@ -3,7 +3,7 @@
 // 형태로 합쳐진 문자열, aggregate.ts computeAdmissionDelta 참고)를 목표로 쓰고, 학생
 // 이름은 호출부(ChildReport.tsx 등)가 studentName prop으로 내려준다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
 
@@ -79,8 +79,23 @@ describe("GrowthReportBody — 표지", () => {
     );
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("김민준 학생");
-    expect(cover).toHaveTextContent("서울대학교 컴퓨터공학과");
+    const info = within(cover).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명김민준");
+    expect(info).toHaveTextContent("목표서울대학교 컴퓨터공학과");
+  });
+
+  it("월간이면 월간 프리셋(다음 달 전략 항목)을 쓴다", () => {
+    render(
+      <GrowthReportBody
+        period="monthly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+      />,
+    );
+
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(within(cover).getAllByTestId("cover-area")).toHaveLength(4);
+    expect(cover).toHaveTextContent("다음 달 전략");
   });
 
   // QA — heading이 없을 때 빈 문자열 폴백("")을 표지 title로 넘기면 빈 <h1>이

@@ -359,7 +359,10 @@ describe("표지(ReportModalShell 공용 컴포넌트)로의 studentName 전달"
       />,
     );
 
-    const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("김민준 학생");
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학생명");
+    expect(info).toHaveTextContent("김민준");
   });
 });

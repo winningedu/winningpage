@@ -161,8 +161,8 @@ export default function GrowthReportBody({
   // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
   // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
   // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
-  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 targetUniversity로
-  // 재사용한다 — 별도로 학과만 떼어낼 필드가 없어 targetMajor는 쓰지 않는다.
+  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 정보 줄 "목표" 칸에
+  // 재사용한다.
   const coverTargetUniversity = admission.upper.university || undefined;
 
   // PDF 저장(QA 행319) — 수행평가 리포트 모달과 같은 react-to-print(iframe 격리) 패턴을
@@ -244,13 +244,13 @@ export default function GrowthReportBody({
             없으면 렌더 안 함 원칙). */}
         {report.heading ? (
           <ReportCoverPage
-            serviceLabel="목표관리"
+            kind={period === "monthly" ? "goalMonthly" : "goalWeekly"}
             title={report.heading}
-            {...(studentName ? { studentName } : {})}
-            {...(coverTargetUniversity
-              ? { targetUniversity: coverTargetUniversity }
-              : {})}
-            {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
+            infoItems={[
+              { label: "학생명", value: studentName },
+              { label: "목표", value: coverTargetUniversity },
+              { label: "기간", value: report.periodLabel },
+            ]}
           />
         ) : null}
 

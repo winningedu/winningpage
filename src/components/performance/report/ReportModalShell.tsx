@@ -189,12 +189,12 @@ export default function ReportModalShell({
               ("print:block hidden 류" 결정). variant="flow"의 인쇄 전용 규칙이 한
               페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
               페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
-              없어 targetMajor/targetUniversity는 넘기지 않는다. */}
+              없어 정보 줄은 학생명만 넘긴다. */}
           <div className="hidden print:block">
             <ReportCoverPage
-              serviceLabel="수행평가"
+              kind="performance"
               title={title}
-              {...(studentName ? { studentName } : {})}
+              infoItems={[{ label: "학생명", value: studentName }]}
             />
           </div>
 

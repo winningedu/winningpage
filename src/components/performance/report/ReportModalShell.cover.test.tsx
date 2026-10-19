@@ -2,7 +2,7 @@
 // (ReportCoverPage)를 인쇄 전용으로 붙인다. 화면 모달에는 보이지 않는다
 // ("print:block hidden 류" 결정).
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ReportModalShell from "./ReportModalShell";
 
@@ -24,7 +24,9 @@ describe("ReportModalShell — 표지", () => {
 
     const cover = screen.getByLabelText(/리포트 표지/);
     expect(cover).toHaveTextContent("평가 리포트");
-    expect(cover).toHaveTextContent("김민준 학생");
+    expect(within(cover).getByTestId("cover-info")).toHaveTextContent(
+      "학생명김민준",
+    );
   });
 
   it("표지는 화면에서 숨기고 인쇄에서만 보인다", () => {

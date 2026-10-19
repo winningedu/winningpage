@@ -185,22 +185,16 @@ export default function DiagnosisReportView({
             유지한다("기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게 안정적인
             번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
             치수를 그대로 쓰고, `.fd-report-sheet + .fd-report-sheet` 인접 형제 규칙이
-            표지→1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 목표
-            대학은 이 리포트 데이터에 없어(학습진단은 희망 진로/학과만 수집) 전달하지
-            않는다. */}
+            표지→1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 학년
+            칸은 이 리포트 데이터에 학년이 연결되기 전까지 넘기지 않는다. */}
         <ReportCoverPage
           variant="a4"
-          serviceLabel="학습진단"
-          title={`${site.brandName} 학습진단 리포트`}
-          {...(resolvedStudentName !== null
-            ? { studentName: resolvedStudentName }
-            : {})}
-          {...(data.student?.desiredMajorRaw
-            ? { targetMajor: data.student.desiredMajorRaw }
-            : {})}
-          {...(data.student?.diagnosedAtRaw
-            ? { dateLabel: data.student.diagnosedAtRaw }
-            : {})}
+          kind="diagnosis"
+          title={`${site.brandName}\n학습진단 리포트`}
+          infoItems={[
+            { label: "학생명", value: resolvedStudentName },
+            { label: "진단일", value: data.student?.diagnosedAtRaw },
+          ]}
         />
 
         {/* exactOptionalPropertyTypes 대응 — undefined면 키 자체를 생략(ReportSincerityBanner 미수정 범위). */}
