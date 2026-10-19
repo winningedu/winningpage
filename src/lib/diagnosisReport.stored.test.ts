@@ -1,7 +1,7 @@
 // 저장된 리포트(diagnosis_reports.payload) 열람 보정 - gradeRaw 도입 전에 저장된 행은
 // payload.student.gradeRaw 가 없어 표지 학년 칸이 비므로, 행의 snapshot 에서 되찾는다.
 import { describe, expect, test } from "vitest";
-import { withStoredGradeRaw } from "@/lib/diagnosisReport.ts";
+import { withStoredGradeRaw } from "@/lib/diagnosisReport";
 
 const snapshot = {
   profile: { name: null, gradeLevel: "H1", schoolType: null },
