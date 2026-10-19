@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { site } from "@/config/site";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
@@ -185,14 +186,14 @@ export default function DiagnosisReportView({
             유지한다("기존 표기 규칙을 읽고 결정" — 표지 유무와 무관하게 안정적인
             번호를 유지하는 쪽을 택했다). variant="a4"라 `.fd-report-sheet`
             치수를 그대로 쓰고, `.fd-report-sheet + .fd-report-sheet` 인접 형제 규칙이
-            표지와 1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). 학년
-            칸은 이 리포트 데이터에 학년이 연결되기 전까지 넘기지 않는다. */}
+            표지와 1페이지 사이 인쇄 개행도 자동으로 처리한다(report-print.css). */}
         <ReportCoverPage
           variant="a4"
           kind="diagnosis"
           title={`${site.brandName}\n학습진단 리포트`}
           infoItems={[
             { label: "학생명", value: resolvedStudentName },
+            { label: "학년", value: formatGradeLabel(data.student?.gradeRaw) },
             { label: "진단일", value: data.student?.diagnosedAtRaw },
           ]}
         />

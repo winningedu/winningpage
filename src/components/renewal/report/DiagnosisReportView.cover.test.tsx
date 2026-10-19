@@ -47,4 +47,26 @@ describe("DiagnosisReportView — 표지", () => {
     expect(cover).not.toHaveTextContent("미입력");
     expect(cover).not.toHaveTextContent("학생명");
   });
+
+  it("표지 정보 줄에 학년을 표기용 문구로 반영한다", () => {
+    const data = buildReportFromInput(
+      makeInput({ profile: { name: null, gradeLevel: "H2", schoolType: null } }),
+    ) as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+  });
+
+  it("학년이 없으면 표지에 학년 칸을 렌더하지 않는다", () => {
+    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} studentName="김민준" />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).not.toHaveTextContent("학년");
+  });
 });
