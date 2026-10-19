@@ -6,19 +6,31 @@ import {
   type ReportCoverKind,
 } from "@/components/report/coverPresets";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
-import { buildCoverFixture } from "./reportCoverFixtures";
+import {
+  buildCoverFixture,
+  type CoverFixtureOptions,
+} from "./reportCoverFixtures";
 
 const KINDS = Object.keys(REPORT_COVER_PRESETS) as ReportCoverKind[];
 
+const OPTION_TOGGLES: { key: keyof CoverFixtureOptions; label: string }[] = [
+  { key: "dropName", label: "학생명 빼기" },
+  { key: "dropGrade", label: "학년 빼기" },
+  { key: "dropDate", label: "날짜 빼기" },
+  { key: "longName", label: "긴 이름" },
+  { key: "longTitle", label: "긴 제목" },
+];
+
 export default function ReportCoverDemo() {
   const [kind, setKind] = useState<ReportCoverKind>("diagnosis");
-  const { title, infoItems } = buildCoverFixture(kind, {
+  const [options, setOptions] = useState<CoverFixtureOptions>({
     dropName: false,
     dropGrade: false,
     dropDate: false,
     longName: false,
     longTitle: false,
   });
+  const { title, infoItems } = buildCoverFixture(kind, options);
 
   return (
     <div className="flex min-h-screen gap-4 bg-neutral-100 p-4">
@@ -36,6 +48,18 @@ export default function ReportCoverDemo() {
             ))}
           </select>
         </label>
+        {OPTION_TOGGLES.map(({ key, label }) => (
+          <label key={key} className="mt-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={options[key]}
+              onChange={(e) =>
+                setOptions((prev) => ({ ...prev, [key]: e.target.checked }))
+              }
+            />
+            {label}
+          </label>
+        ))}
       </aside>
       <main className="min-w-0 flex-1">
         <ReportCoverPage kind={kind} title={title} infoItems={infoItems} />
