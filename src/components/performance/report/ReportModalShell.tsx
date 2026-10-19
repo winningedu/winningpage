@@ -1,9 +1,9 @@
 import type { ReactNode, RefObject } from "react";
 import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
-import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
-import { site } from "@/config/site";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -107,16 +108,6 @@ type ReportModalShellProps = {
   /** 닫힘 시 포커스 목적지. 자동으로 여는 호출부가 트리거를 특정할 수 없을 때만 넘긴다. */
   finalFocus?: RefObject<HTMLElement | null>;
 };
-
-/** 표지 날짜 표기 `2026.10.16`. 값이 없거나 날짜가 아니면 null. */
-function formatCoverDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}.${month}.${day}`;
-}
 
 export default function ReportModalShell({
   open,

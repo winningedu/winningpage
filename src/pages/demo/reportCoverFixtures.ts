@@ -32,7 +32,7 @@ const SAMPLES: Record<ReportCoverKind, CoverSample> = {
   growth: {
     title: `${site.brandName}\n성장설계 리포트`,
     grade: "고2",
-    date: { label: "발행일", value: "2026년 10월 14일" },
+    date: { label: "발행일", value: "2026.10.14" },
   },
   performance: {
     title: `${site.brandName}\n통합 설계 리포트`,

@@ -10,9 +10,10 @@ import ReportBody from "@/components/growth/report/ReportBody";
 import { normalizeNarrative } from "@/components/growth/report/reportLogic";
 import { growthReportDetailQuery } from "@/components/growth/report/reportQuery";
 import { formatKoreanDate } from "@/components/growth/reports/reportsLogic";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import PdfSaveButton from "@/components/report/PdfSaveButton";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
-import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
@@ -113,7 +114,10 @@ export default function ReportPage() {
                 infoItems={[
                   { label: "학생명", value: studentName },
                   { label: "학년", value: formatGradeLabel(gradeLabel) },
-                  { label: "발행일", value: issued },
+                  {
+                    label: "발행일",
+                    value: formatCoverDate(report?.issuedAt) ?? "",
+                  },
                 ]}
               />
               <ReportBody detail={data} />

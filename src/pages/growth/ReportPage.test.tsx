@@ -214,7 +214,7 @@ describe("ReportPage", () => {
     expect(built?.title).toBe("성장설계_리포트_대주제 문장");
     expect(cover).toHaveTextContent("김윙");
     expect(cover).toHaveTextContent("고등학교 2학년");
-    expect(cover).toHaveTextContent("2026년 11월 14일");
+    expect(cover).toHaveTextContent("2026.11.14");
   });
 
   it("리포트를 불러오기 전에는 PDF 저장 버튼이 없다", async () => {
