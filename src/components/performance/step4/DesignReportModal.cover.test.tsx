@@ -31,7 +31,12 @@ describe("DesignReportModal - 표지", () => {
 
   it("studentGrade가 없으면 학년 칸이 없다", () => {
     render(
-      <DesignReportModal open report={report} studentName="김민준" onClose={noop} />,
+      <DesignReportModal
+        open
+        report={report}
+        studentName="김민준"
+        onClose={noop}
+      />,
     );
 
     const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
