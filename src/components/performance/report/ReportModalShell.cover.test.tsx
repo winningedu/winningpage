@@ -29,6 +29,49 @@ describe("ReportModalShell — 표지", () => {
     );
   });
 
+  it("studentGrade와 savedAt을 학년, 저장일 칸으로 반영한다", () => {
+    render(
+      <ReportModalShell
+        open
+        title="평가 리포트"
+        studentName="김민준"
+        studentGrade="고2"
+        savedAt="2026-10-16T03:00:00Z"
+        scrollLabel="본문"
+        onClose={noop}
+      >
+        본문
+      </ReportModalShell>,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+    expect(info).toHaveTextContent("저장일2026.10.16");
+  });
+
+  it("학년과 저장일이 없으면 그 칸을 렌더하지 않는다", () => {
+    render(
+      <ReportModalShell
+        open
+        title="평가 리포트"
+        studentName="김민준"
+        savedAt="날짜아님"
+        scrollLabel="본문"
+        onClose={noop}
+      >
+        본문
+      </ReportModalShell>,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).not.toHaveTextContent("학년");
+    expect(info).not.toHaveTextContent("저장일");
+  });
+
   it("표지는 화면에서 숨기고 인쇄에서만 보인다", () => {
     render(
       <ReportModalShell
