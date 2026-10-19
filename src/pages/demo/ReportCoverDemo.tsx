@@ -5,7 +5,7 @@
 // 한계: DiagnosisReportView 의 DIAGNOSIS_REPORT_PAGE_RULE(@page A4 여백 0, 인쇄 시
 // html font-size 3mm)는 export 되지 않아 여기서 마운트하지 않는다. a4 방식의 인쇄 폭은
 // 그 규칙이 없으면 실제 리포트와 다를 수 있다.
-import { useState } from "react";
+import { type DragEvent, useEffect, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
 import {
@@ -16,12 +16,19 @@ import ReportCoverPage, {
   type ReportCoverFlowPrintMode,
   type ReportCoverPageVariant,
 } from "@/components/report/ReportCoverPage";
+import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
+import {
+  downloadReportPdf,
+  getReportAccessToken,
+} from "@/lib/report/downloadReportPdf";
+import { REPORT_PRINT_PAGE_BASE_STYLE } from "@/lib/report/printPageStyle";
 import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import {
   buildCoverFixture,
   type CoverFixtureOptions,
 } from "./reportCoverFixtures";
 
+const FILE_NAME = "report-cover-demo";
 const KINDS = Object.keys(REPORT_COVER_PRESETS) as ReportCoverKind[];
 const SCALES = [50, 75, 100] as const;
 
@@ -58,9 +65,48 @@ export default function ReportCoverDemo() {
     longTitle: false,
   });
   const { title, infoItems } = buildCoverFixture(kind, options);
-  const { contentRef, save, isPreparing } =
-    useReportPdfSave("report-cover-demo");
+  const { contentRef, save, isPreparing } = useReportPdfSave(FILE_NAME);
   const isA4 = variant === "a4";
+
+  // 파일83 겹침 이미지는 저장하지 않는다. URL 이 바뀌거나 화면을 떠나면 해제한다.
+  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
+  const [overlayOpacity, setOverlayOpacity] = useState(50);
+  useEffect(() => {
+    if (!overlayUrl) return;
+    return () => URL.revokeObjectURL(overlayUrl);
+  }, [overlayUrl]);
+  const loadOverlay = (file: File | undefined) => {
+    if (file) setOverlayUrl(URL.createObjectURL(file));
+  };
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    loadOverlay(event.dataTransfer.files[0]);
+  };
+
+  // useReportPdfSave 의 서버 분기와 같은 호출을 직접 한다. 실패는 화면에 보인다.
+  const [serverError, setServerError] = useState<string | null>(null);
+  const saveByServer = async () => {
+    setServerError(null);
+    try {
+      const accessToken = await getReportAccessToken();
+      if (!accessToken) {
+        setServerError("로그인이 필요해요. 로그인한 뒤 다시 눌러 주세요.");
+        return;
+      }
+      const root = contentRef.current;
+      if (!root) return;
+      const html = buildPrintDocument({
+        root,
+        title: FILE_NAME,
+        extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
+      });
+      downloadReportPdf({ html, filename: FILE_NAME, accessToken });
+    } catch (error) {
+      setServerError(
+        error instanceof Error ? error.message : "서버 PDF를 만들지 못했어요.",
+      );
+    }
+  };
 
   return (
     <div className="flex min-h-screen gap-4 bg-neutral-100 p-4 text-sm">
@@ -147,6 +193,36 @@ export default function ReportCoverDemo() {
         >
           PDF 저장
         </button>
+        <button
+          type="button"
+          className="rounded border border-neutral-400 bg-white px-2 py-1"
+          onClick={() => void saveByServer()}
+        >
+          서버 PDF
+        </button>
+        {serverError && (
+          <p role="alert" className="text-red-600">
+            {serverError}
+          </p>
+        )}
+        <label className="flex flex-col">
+          파일83 이미지
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => loadOverlay(e.target.files?.[0])}
+          />
+        </label>
+        <label className="flex flex-col">
+          겹침 투명도
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={overlayOpacity}
+            onChange={(e) => setOverlayOpacity(Number(e.target.value))}
+          />
+        </label>
       </aside>
 
       <main className="min-w-0 flex-1 overflow-auto">
@@ -154,6 +230,8 @@ export default function ReportCoverDemo() {
           data-testid="cover-preview"
           className="rcd-stage relative"
           style={{ width: isA4 ? "70rem" : "50rem", zoom: scale / 100 }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
         >
           <div
             ref={contentRef}
@@ -180,6 +258,14 @@ export default function ReportCoverDemo() {
               </section>
             )}
           </div>
+          {overlayUrl && (
+            <img
+              src={overlayUrl}
+              alt="파일83 겹침"
+              className="pointer-events-none absolute inset-x-0 top-0 w-full"
+              style={{ opacity: overlayOpacity / 100 }}
+            />
+          )}
         </div>
       </main>
     </div>

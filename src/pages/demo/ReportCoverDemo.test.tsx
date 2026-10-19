@@ -1,9 +1,21 @@
 // 리포트 표지 실측 데모 - 표지를 로컬에서 반복 실측하는 개발 전용 화면.
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/context/ToastContext";
+import { getReportAccessToken } from "@/lib/report/downloadReportPdf";
 import ReportCoverDemo from "./ReportCoverDemo";
+
+vi.mock("@/lib/report/downloadReportPdf", () => ({
+  downloadReportPdf: vi.fn(),
+  getReportAccessToken: vi.fn(),
+}));
 
 function renderDemo() {
   return render(
@@ -12,6 +24,11 @@ function renderDemo() {
     </ToastProvider>,
   );
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("ReportCoverDemo", () => {
   it("기본 종류(학습진단) 표지를 렌더한다", () => {
@@ -84,6 +101,61 @@ describe("ReportCoverDemo", () => {
 
     expect(screen.getByTestId("print-root")).not.toContainElement(
       screen.getByLabelText("종류"),
+    );
+  });
+
+  it("서버 PDF 는 로그인 세션이 없으면 화면에 실패 메시지를 보인다", async () => {
+    vi.mocked(getReportAccessToken).mockResolvedValue(null);
+    renderDemo();
+
+    fireEvent.click(screen.getByRole("button", { name: "서버 PDF" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("로그인");
+  });
+
+  it("파일83 이미지를 고르면 미리보기에 겹치고 투명도를 조절하며 언마운트 때 해제한다", () => {
+    const createObjectURL = vi.fn(() => "blob:file83");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const { unmount } = renderDemo();
+    expect(screen.queryByAltText("파일83 겹침")).not.toBeInTheDocument();
+
+    const file = new File(["x"], "file83.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("파일83 이미지"), {
+      target: { files: [file] },
+    });
+
+    const overlay = screen.getByAltText("파일83 겹침");
+    expect(overlay).toHaveAttribute("src", "blob:file83");
+    expect(screen.getByTestId("cover-preview")).toContainElement(overlay);
+    expect(screen.getByTestId("print-root")).not.toContainElement(overlay);
+
+    fireEvent.change(screen.getByLabelText("겹침 투명도"), {
+      target: { value: "30" },
+    });
+    expect(overlay).toHaveStyle({ opacity: "0.3" });
+
+    unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:file83");
+  });
+
+  it("미리보기에 이미지를 끌어다 놓아도 겹침이 생긴다", async () => {
+    vi.stubGlobal("URL", {
+      createObjectURL: () => "blob:dropped",
+      revokeObjectURL: vi.fn(),
+    });
+    renderDemo();
+
+    const file = new File(["x"], "file83.png", { type: "image/png" });
+    fireEvent.drop(screen.getByTestId("cover-preview"), {
+      dataTransfer: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByAltText("파일83 겹침")).toHaveAttribute(
+        "src",
+        "blob:dropped",
+      ),
     );
   });
 });
