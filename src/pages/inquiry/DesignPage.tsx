@@ -7,10 +7,13 @@ import {
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { buildInquiryPdfFileName } from "@/lib/inquiry/pdfFileName";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
@@ -34,7 +37,7 @@ export default function DesignPage() {
 
 function DesignContent() {
   const { userId } = useSession();
-  const { session } = useInquiryShell();
+  const { session, studentName } = useInquiryShell();
   const { data, error, isPending } = useQuery(
     inquirySessionDetailQuery(userId, session?.id ?? null),
   );
@@ -70,6 +73,14 @@ function DesignContent() {
   return (
     <>
       <div ref={pdf.contentRef}>
+        <ReportCoverPage
+          kind="inquiryDesign"
+          title={`${site.brandName}\n심화탐구 설계 리포트`}
+          infoItems={[
+            { label: "학생명", value: studentName },
+            { label: "학년", value: formatGradeLabel(data.session.gradeLabel) },
+          ]}
+        />
         <DesignBody design={data.design} topic={data.topic} />
       </div>
       <div className="flex justify-end gap-2">

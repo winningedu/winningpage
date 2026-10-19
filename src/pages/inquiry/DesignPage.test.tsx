@@ -44,7 +44,7 @@ function detail(over: Record<string, unknown> = {}) {
     kind: "ok",
     data: {
       ok: true,
-      session: SESSION,
+      session: { ...SESSION, gradeLabel: "고2" },
       assets: [],
       topics: [],
       topic: { id: "t1" },
@@ -149,6 +149,11 @@ describe("DesignPage", () => {
     detailMock.mockResolvedValue(
       detail({ topic: { id: "t1", detail: { title: "효소 활성 탐구" } } }),
     );
+    shellMock.mockReturnValue({
+      session: SESSION,
+      studentName: "김학생",
+      isBootstrapLoading: false,
+    });
     setup();
 
     fireEvent.click(await screen.findByRole("button", { name: "PDF 저장" }));
@@ -158,6 +163,11 @@ describe("DesignPage", () => {
     expect(built?.root).toContainElement(
       screen.getByRole("table", { name: "탐구 개요" }),
     );
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(built?.root).toContainElement(cover);
+    expect(built?.root.firstElementChild).toBe(cover);
+    expect(cover).toHaveTextContent("김학생");
+    expect(cover).toHaveTextContent("고등학교 2학년");
     expect(built?.title).toBe("심화탐구_설계리포트_효소 활성 탐구");
     expect(downloadSpy.mock.calls[0]?.[0]).toMatchObject({
       html: "<html>design</html>",
