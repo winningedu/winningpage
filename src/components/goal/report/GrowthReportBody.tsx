@@ -163,13 +163,6 @@ export default function GrowthReportBody({
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
 
-  // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
-  // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
-  // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
-  // 담아 두므로(목표관리 "이상 목표" 대학과 학과) 그 값을 그대로 정보 줄 "목표" 칸에
-  // 재사용한다.
-  const coverTargetUniversity = admission.upper.university || undefined;
-
   // PDF 저장(QA 행319) — 수행평가 리포트 모달과 같은 react-to-print(iframe 격리) 패턴을
   // 재사용한다(`ReportModalShell.tsx`). 이 페이지는 모달이 아니라 전체 페이지라 딤·포털이
   // 필요 없고, 인쇄 대상만 `contentRef`로 감싼다 — 탭/버튼 툴바는 그 밖에 두어 인쇄에서
@@ -254,7 +247,6 @@ export default function GrowthReportBody({
             infoItems={[
               { label: "학생명", value: studentName },
               { label: "학년", value: formatGradeLabel(studentGrade) },
-              { label: "목표", value: coverTargetUniversity },
               { label: "기간", value: report.periodLabel },
             ]}
           />

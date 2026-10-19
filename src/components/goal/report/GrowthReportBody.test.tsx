@@ -69,7 +69,7 @@ describe("GrowthReportBody — 표지", () => {
     expect(cover).toHaveTextContent(`${site.brandName} 주간 성장 리포트`);
   });
 
-  it("studentName prop과 admission.upper.university를 표지에 반영한다", () => {
+  it("studentName prop을 표지에 반영하고 목표 칸은 두지 않는다", () => {
     render(
       <GrowthReportBody
         period="weekly"
@@ -82,10 +82,11 @@ describe("GrowthReportBody — 표지", () => {
     const cover = screen.getByLabelText(/리포트 표지/);
     const info = within(cover).getByTestId("cover-info");
     expect(info).toHaveTextContent("학생명김민준");
-    expect(info).toHaveTextContent("목표서울대학교 컴퓨터공학과");
+    expect(info).not.toHaveTextContent("목표");
+    expect(info).not.toHaveTextContent("서울대학교");
   });
 
-  it("studentGrade prop을 표지용 학년 표기로 바꿔 학생명, 학년, 목표, 기간 순으로 표지에 반영한다", () => {
+  it("studentGrade prop을 표지용 학년 표기로 바꿔 학생명, 학년, 기간 3칸 순으로 표지에 반영한다", () => {
     render(
       <GrowthReportBody
         period="weekly"
@@ -102,8 +103,9 @@ describe("GrowthReportBody — 표지", () => {
     expect(info).toHaveTextContent("학년고등학교 2학년");
     const text = info.textContent ?? "";
     expect(text.indexOf("학생명")).toBeLessThan(text.indexOf("학년"));
-    expect(text.indexOf("학년")).toBeLessThan(text.indexOf("목표"));
-    expect(text.indexOf("목표")).toBeLessThan(text.indexOf("기간"));
+    expect(text.indexOf("학년")).toBeLessThan(text.indexOf("기간"));
+    expect(info.children).toHaveLength(3);
+    expect(info).not.toHaveTextContent("목표");
   });
 
   it("studentGrade가 없으면 학년 칸을 렌더하지 않는다", () => {
