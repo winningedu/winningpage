@@ -120,7 +120,7 @@ function ReportCoverDemoBody() {
       const html = buildPrintDocument({
         root,
         title: FILE_NAME,
-        extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
+        ...(isA4 ? {} : { extraCss: REPORT_PRINT_PAGE_BASE_STYLE }),
       });
       downloadReportPdf({ html, filename: FILE_NAME, accessToken });
     } catch (error) {
