@@ -171,30 +171,17 @@ describe("ReportCoverPage", () => {
     expect(root.className).toContain("print:block");
   });
 
-  it("flow 는 인쇄에서 한 페이지로 끊고 fit 은 230mm 높이 안에 A4 비율로 맞춘다", () => {
+  it("flow 는 첫 페이지 여백을 없애고 A4 전체 한 장으로 끊는다", () => {
     const { container } = render(
       <ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />,
     );
 
     const style = getStyleText(container);
-    expect(style).toContain("break-after: page");
-    expect(style).toContain("230mm * 2382 / 3369");
-  });
-
-  it("flowPrintMode='fullBleed' 는 첫 페이지 여백을 없애고 A4 전체를 채운다", () => {
-    const { container } = render(
-      <ReportCoverPage
-        kind="diagnosis"
-        title="제목"
-        infoItems={[]}
-        flowPrintMode="fullBleed"
-      />,
-    );
-
-    const style = getStyleText(container);
-    expect(style).toContain("@page :first");
+    expect(style).toMatch(/@page :first\s*\{\s*margin:\s*0/);
     expect(style).toContain("width: 210mm");
+    expect(style).toContain("height: 297mm");
     expect(style).toContain("break-after: page");
+    expect(style).not.toContain("230mm");
   });
 
   it("className 을 루트에 합친다", () => {

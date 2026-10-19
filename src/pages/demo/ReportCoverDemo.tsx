@@ -13,7 +13,6 @@ import {
   type ReportCoverKind,
 } from "@/components/report/coverPresets";
 import ReportCoverPage, {
-  type ReportCoverFlowPrintMode,
   type ReportCoverPageVariant,
 } from "@/components/report/ReportCoverPage";
 import { ToastProvider } from "@/context/ToastContext";
@@ -75,8 +74,6 @@ export default function ReportCoverDemo() {
 function ReportCoverDemoBody() {
   const [kind, setKind] = useState<ReportCoverKind>("diagnosis");
   const [variant, setVariant] = useState<ReportCoverPageVariant>("flow");
-  const [flowPrintMode, setFlowPrintMode] =
-    useState<ReportCoverFlowPrintMode>("fit");
   const [withDummyBody, setWithDummyBody] = useState(false);
   const [scale, setScale] = useState<PreviewScale>("fit");
   const [options, setOptions] = useState<CoverFixtureOptions>({
@@ -158,19 +155,6 @@ function ReportCoverDemoBody() {
           >
             <option value="flow">flow</option>
             <option value="a4">a4</option>
-          </select>
-        </label>
-        <label className="flex flex-col">
-          flow 인쇄 방식
-          <select
-            value={flowPrintMode}
-            disabled={isA4}
-            onChange={(e) =>
-              setFlowPrintMode(e.target.value as ReportCoverFlowPrintMode)
-            }
-          >
-            <option value="fit">fit</option>
-            <option value="fullBleed">fullBleed</option>
           </select>
         </label>
         {OPTION_TOGGLES.map(({ key, label }) => (
@@ -276,7 +260,6 @@ function ReportCoverDemoBody() {
               title={title}
               infoItems={infoItems}
               variant={variant}
-              flowPrintMode={flowPrintMode}
             />
             {withDummyBody && (
               <section

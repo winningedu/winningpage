@@ -12,14 +12,13 @@
 // report-print.css 의 `.fd-report-sheet` 인쇄 패딩이 비율 상자를 깨므로 아래 인쇄 규칙으로 덮는다.
 //
 // variant="flow"(기본) - react-to-print 문서 흐름 리포트 전용. 화면에서는 숨기고 인쇄에서만
-// 한 페이지로 나온다. 고정 높이 250mm 이상이면 Chromium 이 박스를 두 페이지로 쪼개는
-// 버그(QA t11 실측)가 있어, fit 은 230mm 높이 안에 A4 비율로 맞춘다.
+// 첫 페이지 여백을 없애 A4 전체(210mm x 297mm) 한 장으로 나온다. 실측으로 표지가
+// 정확히 1페이지이고 이어지는 내용이 2페이지에서 시작함을 확인했다.
 import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { REPORT_COVER_PRESETS, type ReportCoverKind } from "./coverPresets";
 
 export type ReportCoverPageVariant = "a4" | "flow";
-export type ReportCoverFlowPrintMode = "fullBleed" | "fit";
 
 export type ReportCoverInfoItem = {
   label: string;
@@ -32,7 +31,6 @@ export type ReportCoverPageProps = {
   title: string;
   infoItems: readonly ReportCoverInfoItem[];
   variant?: ReportCoverPageVariant;
-  flowPrintMode?: ReportCoverFlowPrintMode;
   className?: string;
 };
 
@@ -61,18 +59,7 @@ const A4_PRINT_RULE = `
   }
 `;
 
-const FLOW_FIT_PRINT_RULE = `
-  @media print {
-    .fd-report-cover-flow {
-      width: calc(230mm * 2382 / 3369);
-      margin: 0 auto;
-      break-after: page;
-      page-break-after: always;
-    }
-  }
-`;
-
-const FLOW_FULL_BLEED_PRINT_RULE = `
+const FLOW_PRINT_RULE = `
   @page :first { margin: 0; }
   @media print {
     .fd-report-cover-flow {
@@ -90,17 +77,12 @@ export default function ReportCoverPage({
   title,
   infoItems,
   variant = "flow",
-  flowPrintMode = "fit",
   className,
 }: ReportCoverPageProps) {
   const preset = REPORT_COVER_PRESETS[kind];
   const isA4 = variant === "a4";
   const filledItems = infoItems.filter(({ value }) => value?.trim());
-  const printRule = isA4
-    ? A4_PRINT_RULE
-    : flowPrintMode === "fullBleed"
-      ? FLOW_FULL_BLEED_PRINT_RULE
-      : FLOW_FIT_PRINT_RULE;
+  const printRule = isA4 ? A4_PRINT_RULE : FLOW_PRINT_RULE;
 
   return (
     <section
