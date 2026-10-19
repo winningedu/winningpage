@@ -1,5 +1,6 @@
 // 직접 입력 활동(명세 No.26, No.112, §2 13). 학생이 폼으로 쓴 값을 activity_records 행과 11항목 분석으로 바꾼다.
 
+import { normalizeActivityGroup } from "../activityGroup.js";
 import { extractNumbers } from "./text.js";
 import {
   ANALYSIS_FIELDS,
@@ -73,14 +74,15 @@ export function manualToRecordInsert(
   input: ManualInput,
   profileId: string,
 ): ManualRecordInsert {
+  const group = normalizeActivityGroup(input.subjectOrArea);
   return {
     profile_id: profileId,
     source_program: "manual",
     status: "draft",
     grade_label: input.gradeLabel,
     semester: input.semester,
-    subject_group: orNull(input.subjectOrArea),
-    subject: orNull(input.subjectOrArea),
+    subject_group: group?.subjectGroup ?? null,
+    subject: group?.subject ?? null,
     topic: orNull(input.activityName),
     concept: orNull(input.concept),
     method: orNull(input.method),

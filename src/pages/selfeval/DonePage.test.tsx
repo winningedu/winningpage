@@ -311,7 +311,7 @@ describe("DonePage", () => {
     expect(first.textContent).toContain("수학 자기평가서");
     expect(first.textContent).toContain("김하나");
     expect(first.textContent).toContain("고등학교 2학년");
-    expect(first.textContent).toContain("2026.10.02");
+    expect(first.textContent).toContain("2026. 10. 02");
     expect(root.textContent).toContain("네 번째 문장이에요.");
     expect(within(root).queryByText("검증 요약")).toBeNull();
     expect(root.textContent).not.toContain("제출 가능");

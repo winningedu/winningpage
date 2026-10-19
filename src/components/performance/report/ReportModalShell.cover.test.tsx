@@ -49,7 +49,7 @@ describe("ReportModalShell — 표지", () => {
       "cover-info",
     );
     expect(info).toHaveTextContent("학년고등학교 2학년");
-    expect(info).toHaveTextContent("저장일2026.10.16");
+    expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 
   it("학년과 저장일이 없으면 그 칸을 렌더하지 않는다", () => {

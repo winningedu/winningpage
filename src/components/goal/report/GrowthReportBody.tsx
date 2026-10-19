@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
+import { formatCoverPeriod } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
@@ -247,7 +248,11 @@ export default function GrowthReportBody({
             infoItems={[
               { label: "학생명", value: studentName },
               { label: "학년", value: formatGradeLabel(studentGrade) },
-              { label: "기간", value: report.periodLabel },
+              {
+                label: "기간",
+                value: formatCoverPeriod(report.periodLabel),
+                compact: true,
+              },
             ]}
           />
         ) : null}

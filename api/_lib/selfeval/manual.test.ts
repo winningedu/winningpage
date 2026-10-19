@@ -48,7 +48,7 @@ describe("manualToRecordInsert", () => {
       status: "draft",
       grade_label: "고2",
       semester: 1,
-      subject_group: "수학",
+      subject_group: "교과",
       subject: "수학",
       topic: "교내 통계 프로젝트",
       concept: "표본 추출",
@@ -58,6 +58,22 @@ describe("manualToRecordInsert", () => {
       sources: [],
     });
     expect(row.numbers).toEqual(["30명", "18명"]);
+  });
+  it("과목명 입력은 교과 구분과 과목명으로 저장한다", () => {
+    const row = manualToRecordInsert(
+      input({ subjectOrArea: "확률과 통계" }),
+      "p1",
+    );
+    expect(row.subject_group).toBe("교과");
+    expect(row.subject).toBe("확률과 통계");
+  });
+  it("영역 입력은 영역 구분만 저장하고 과목은 비운다", () => {
+    const row = manualToRecordInsert(
+      input({ subjectOrArea: "동아리 활동" }),
+      "p1",
+    );
+    expect(row.subject_group).toBe("동아리");
+    expect(row.subject).toBeNull();
   });
   it("빈 문자열은 null 로 바꾼다", () => {
     const row = manualToRecordInsert(

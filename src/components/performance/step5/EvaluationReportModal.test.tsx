@@ -381,6 +381,6 @@ describe("표지(ReportModalShell 공용 컴포넌트)로의 studentName 전달"
       "cover-info",
     );
     expect(info).toHaveTextContent("학년고등학교 1학년");
-    expect(info).toHaveTextContent("저장일2026.10.16");
+    expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 });

@@ -336,7 +336,7 @@ describe("ReportDetailPage", () => {
     expect(cover).toHaveTextContent("김학생");
     expect(cover).toHaveTextContent("고등학교 2학년");
     expect(cover).toHaveTextContent("확정일");
-    expect(cover).toHaveTextContent("2026.10.01");
+    expect(cover).toHaveTextContent("2026. 10. 01");
   });
 
   it("확정 전 세션 표지는 심화탐구 기록 제목이고 확정일이 없다", async () => {

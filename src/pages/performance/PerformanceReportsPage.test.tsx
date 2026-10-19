@@ -127,6 +127,6 @@ describe("PerformanceReportsPage 최종 제출본 표지", () => {
     const info = within(cover).getByTestId("cover-info");
     expect(info).toHaveTextContent("학생명김민준");
     expect(info).toHaveTextContent("학년고등학교 2학년");
-    expect(info).toHaveTextContent("저장일2026.10.16");
+    expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 });

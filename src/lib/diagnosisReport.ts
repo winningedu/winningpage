@@ -1011,7 +1011,7 @@ export function buildReport(input: any, ctx: BuildReportCtx = {}) {
       // F-14 확정(2026-08-11) — 축약 라벨을 쓴다. 원문 라벨은 w-50 안에서 2줄로 접힌다.
       gradeTrend: orMissing(formatGradeTrend(safeInput.gradeTrend)),
       diagnosedAt: orMissing(formatDiagnosedAt(safeInput.meta?.diagnosedAt)),
-      diagnosedAtRaw: formatDiagnosedAt(safeInput.meta?.diagnosedAt),
+      diagnosedAtRaw: safeInput.meta?.diagnosedAt || null,
     },
 
     // §5.2 name 결측 폴백 — '{name} 학생의 주요 학습 특성'에서 접두를 제거한 축약형.

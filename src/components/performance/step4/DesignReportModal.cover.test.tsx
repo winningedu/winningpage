@@ -26,7 +26,7 @@ describe("DesignReportModal - 표지", () => {
       "cover-info",
     );
     expect(info).toHaveTextContent("학년고등학교 3학년");
-    expect(info).toHaveTextContent("저장일2026.10.16");
+    expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 
   it("studentGrade가 없으면 학년 칸이 없다", () => {
