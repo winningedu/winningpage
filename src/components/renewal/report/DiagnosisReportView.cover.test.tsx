@@ -3,7 +3,7 @@
 // 결정).
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import DiagnosisReportView, {
@@ -11,6 +11,10 @@ import DiagnosisReportView, {
 } from "./DiagnosisReportView";
 
 describe("DiagnosisReportView — 표지", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("A4 시트 스택의 첫 자식으로 표지를 렌더한다", () => {
     const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
     const { container } = render(<DiagnosisReportView data={data} />);
@@ -41,6 +45,33 @@ describe("DiagnosisReportView — 표지", () => {
     expect(info).toHaveTextContent("학생명김민준");
     expect(info).toHaveTextContent("진단일2026. 10. 16");
     expect(info).not.toHaveTextContent("컴퓨터공학과");
+  });
+
+  it("저장된 예전 형식(YYYY.MM.DD) 진단일은 Date 파싱 없이 표지 날짜로 바꾼다 (Safari 는 이 형식을 Invalid Date 로 읽는다)", () => {
+    const RealDate = Date;
+    class SafariDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        const [value] = args;
+        super(
+          typeof value === "string" && /^\d{4}\.\d{2}\.\d{2}$/.test(value)
+            ? Number.NaN
+            : (value as never),
+          ...(args.slice(1) as []),
+        );
+      }
+    }
+    vi.stubGlobal("Date", SafariDate);
+    const built = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = {
+      ...built,
+      student: { ...built.student, diagnosedAtRaw: "2026.10.08" },
+    } as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("진단일2026. 10. 08");
   });
 
   it("학생 이름이 없으면 표지에 '미입력'을 찍지 않고 학생명 칸을 렌더하지 않는다", () => {

@@ -77,6 +77,16 @@ type DiagnosisReportViewProps = {
 };
 
 /**
+ * 표지 진단일. 이미 저장된 payload 의 diagnosedAtRaw 는 예전 formatDiagnosedAt 출력('2026.10.08')이고,
+ * 새로 만든 payload 는 원본 ISO 다. 예전 형식은 Safari 가 Invalid Date 로 읽으므로 Date 를 거치지 않고 분해한다.
+ */
+function formatDiagnosedCoverDate(raw: string | null | undefined) {
+  const legacy = raw?.match(/^(\d{4})\.(\d{2})\.(\d{2})$/);
+  if (legacy) return `${legacy[1]}. ${legacy[2]}. ${legacy[3]}`;
+  return formatCoverDate(raw);
+}
+
+/**
  * 학습진단 리포트 본문 — A4 시트 2장(ReportPageOne·Two) + 화면 전용 부록
  * (ReportScreenExtras) + 인쇄/PDF 버튼 + 모바일 안내 카드.
  *
@@ -197,7 +207,7 @@ export default function DiagnosisReportView({
             { label: "학년", value: formatGradeLabel(data.student?.gradeRaw) },
             {
               label: "진단일",
-              value: formatCoverDate(data.student?.diagnosedAtRaw),
+              value: formatDiagnosedCoverDate(data.student?.diagnosedAtRaw),
             },
           ]}
         />
