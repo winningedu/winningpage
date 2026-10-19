@@ -8,11 +8,7 @@ import {
 } from "@/lib/selfeval/types";
 
 export type SessionState =
-  | "writing"
-  | "completed"
-  | "expired"
-  | "terminal"
-  | "discarded";
+  "writing" | "completed" | "expired" | "terminal" | "discarded";
 
 export const STATE_LABELS: Record<SessionState, string> = {
   writing: "작성 중",
@@ -31,11 +27,18 @@ export function sessionState(item: SessionListItem): SessionState {
   return "writing";
 }
 
-export function archiveTitle(
+/** 과목, 없으면 활동명, 없으면 영역 라벨. 모두 없으면 빈 문자열. */
+export function archiveName(
   item: Pick<SessionListItem, "subject" | "activityName" | "area">,
 ): string {
   const areaLabel = item.area ? AREA_LABELS[item.area] : "";
-  const name = item.subject?.trim() || item.activityName?.trim() || areaLabel;
+  return item.subject?.trim() || item.activityName?.trim() || areaLabel;
+}
+
+export function archiveTitle(
+  item: Pick<SessionListItem, "subject" | "activityName" | "area">,
+): string {
+  const name = archiveName(item);
   return name === "" ? "자기평가서" : `${name} 자기평가서`;
 }
 

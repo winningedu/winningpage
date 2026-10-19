@@ -3,9 +3,7 @@ import { buildSelfevalPdfFileName } from "./pdfFileName";
 
 describe("buildSelfevalPdfFileName", () => {
   it("자기평가서 뒤에 제목을 이어 붙인다", () => {
-    expect(buildSelfevalPdfFileName("수학 자기평가서")).toBe(
-      "자기평가서_수학 자기평가서",
-    );
+    expect(buildSelfevalPdfFileName("확통")).toBe("자기평가서_확통");
   });
 
   it("파일명에 쓸 수 없는 문자는 공백으로 바꾼다", () => {

@@ -3,6 +3,7 @@ import type { SessionListItem } from "@/lib/selfeval/types";
 import {
   archivedSessions,
   archiveOptions,
+  archiveName,
   archiveTitle,
   filterSessions,
   rowAction,
@@ -46,6 +47,23 @@ describe("sessionState", () => {
       "discarded",
     );
     expect(STATE_LABELS.discarded).toBe("파기");
+  });
+});
+
+describe("archiveName", () => {
+  test("과목, 없으면 활동명, 없으면 영역 라벨, 모두 없으면 빈 문자열", () => {
+    expect(archiveName(item())).toBe("수학");
+    expect(archiveName(item({ subject: null, area: "club" }))).toBe(
+      "설문 분석",
+    );
+    expect(
+      archiveName(
+        item({ subject: null, activityName: null, area: "autonomy" }),
+      ),
+    ).toBe("자율");
+    expect(
+      archiveName(item({ subject: null, activityName: null, area: null })),
+    ).toBe("");
   });
 });
 

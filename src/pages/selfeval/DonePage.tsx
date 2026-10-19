@@ -5,7 +5,10 @@ import PdfSaveButton from "@/components/report/PdfSaveButton";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { formatDotDate } from "@/components/selfeval/activities/activitiesLogic";
-import { archiveTitle } from "@/components/selfeval/archive/archiveLogic";
+import {
+  archiveName,
+  archiveTitle,
+} from "@/components/selfeval/archive/archiveLogic";
 import { paragraphTexts } from "@/components/selfeval/result/resultLogic";
 import {
   useSelfevalScreenStep,
@@ -83,7 +86,7 @@ function DoneBody({
   const { studentName } = useSelfevalShell();
   const { session, activities } = detail;
   const final = detail.reports.final;
-  const pdf = useReportPdfSave(buildSelfevalPdfFileName(archiveTitle(session)));
+  const pdf = useReportPdfSave(buildSelfevalPdfFileName(archiveName(session)));
 
   if (session.status !== "completed" || !final) {
     return (
