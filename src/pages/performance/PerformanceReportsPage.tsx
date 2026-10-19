@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import SelectField from "@/components/auth/SelectField";
@@ -24,6 +25,7 @@ import {
   fetchSavedReportDetail,
   fetchSavedReportsList,
 } from "@/lib/performance/reports";
+import { performanceBootstrapQueryOptions } from "@/lib/queryClient";
 
 // 저장 리포트(P12) 목록/상세 화면 — docs/수행평가-상세-명세.md §5.18(`3754:3121` 목록)/
 // §5.19(`3754:3077` 빈 상태)/§10.2 P12/§11.1 Q65(라우트 채택).
@@ -82,7 +84,11 @@ type SavedReportListItem = {
 
 /** `design`/`final` 필드 공통 모양 — `SectionedReportView`가 그대로 받는 `sections` 배열에
  * 상세 조회 전용 `reportId`(재조회 없이 뷰어를 열 때 넘기는 식별자)가 곁들여진다. */
-type SectionsReport = { sections: ReportSection[]; reportId?: string };
+type SectionsReport = {
+  sections: ReportSection[];
+  reportId?: string;
+  updatedAt?: string | null;
+};
 
 /** 상세 조회의 `evaluation` 필드 — `EvaluationReport`에 같은 `reportId`가 곁들여진다. */
 type EvaluationDetailReport = EvaluationReport & { reportId?: string };
@@ -112,6 +118,8 @@ type ViewerState = {
   type: ArtifactType;
   sessionId: string;
   topicTitle?: string | undefined;
+  /** 리포트가 속한 세션의 학년 원본(상세 조회 `session.gradeLabel`). 표지 학년 칸. */
+  gradeLabel?: string | null;
   report: SectionsReport | EvaluationReport | null;
   loading: boolean;
   error: string | null;
@@ -153,6 +161,9 @@ type FinalReportModalProps = {
    * (`{sections, submissionId, ...}`) 그대로다 — 재사용 판단은 파일 상단 주석 참고. */
   report?: SectionsReport | null;
   topicTitle?: string | undefined;
+  studentName?: string | null;
+  /** 리포트가 속한 세션의 학년 원본("고2" 등). 표지 학년 칸. */
+  studentGrade?: string | null;
   onClose: () => void;
 };
 
@@ -164,6 +175,8 @@ function FinalReportModal({
   open,
   report,
   topicTitle,
+  studentName,
+  studentGrade,
   onClose,
 }: FinalReportModalProps) {
   const isOpen = open && Boolean(report);
@@ -179,6 +192,9 @@ function FinalReportModal({
       title="최종 제출본"
       {...(topicTitle !== undefined ? { subtitle: topicTitle } : {})}
       scrollLabel="최종 제출본 본문"
+      {...(studentName != null ? { studentName } : {})}
+      {...(studentGrade != null ? { studentGrade } : {})}
+      {...(report?.updatedAt != null ? { savedAt: report.updatedAt } : {})}
       onClose={onClose}
       footer={({ print }) => (
         <>
@@ -274,8 +290,13 @@ function ViewerStatusOverlay({
 
 export default function PerformanceReportsPage() {
   const { sessionId: routeSessionId } = useParams();
-  const { session } = useSession();
+  const { session, userId } = useSession();
   const accessToken = session?.access_token || null;
+  // 표지 학생명: 셸(PerformanceAppLayout)이 이미 구독하는 bootstrap 캐시를 재구독한다.
+  const { data: bootstrap } = useQuery(
+    performanceBootstrapQueryOptions(userId, accessToken),
+  );
+  const studentName = bootstrap?.profile.name ?? null;
 
   const isDetailMode = Boolean(routeSessionId);
 
@@ -430,6 +451,7 @@ export default function PerformanceReportsPage() {
       type,
       sessionId,
       topicTitle,
+      gradeLabel: null,
       report: null,
       loading: true,
       error: null,
@@ -448,6 +470,7 @@ export default function PerformanceReportsPage() {
         type,
         sessionId,
         topicTitle,
+        gradeLabel: data?.session?.gradeLabel ?? null,
         report: data?.[type] || null,
         loading: false,
         error: null,
@@ -559,6 +582,8 @@ export default function PerformanceReportsPage() {
               : null
           }
           topicTitle={viewer?.topicTitle}
+          studentName={studentName}
+          studentGrade={viewer?.gradeLabel ?? null}
           onClose={closeViewer}
         />
         <EvaluationReportModal
@@ -569,6 +594,8 @@ export default function PerformanceReportsPage() {
               : null
           }
           topicTitle={viewer?.topicTitle}
+          studentName={studentName}
+          studentGrade={viewer?.gradeLabel ?? null}
           onClose={closeViewer}
         />
         <FinalReportModal
@@ -579,6 +606,8 @@ export default function PerformanceReportsPage() {
               : null
           }
           topicTitle={viewer?.topicTitle}
+          studentName={studentName}
+          studentGrade={viewer?.gradeLabel ?? null}
           onClose={closeViewer}
         />
         <ViewerStatusOverlay
@@ -716,6 +745,8 @@ export default function PerformanceReportsPage() {
             : null
         }
         topicTitle={viewer?.topicTitle}
+        studentName={studentName}
+        studentGrade={viewer?.gradeLabel ?? null}
         onClose={closeViewer}
       />
       <EvaluationReportModal
@@ -726,6 +757,8 @@ export default function PerformanceReportsPage() {
             : null
         }
         topicTitle={viewer?.topicTitle}
+        studentName={studentName}
+        studentGrade={viewer?.gradeLabel ?? null}
         onClose={closeViewer}
       />
       <FinalReportModal
@@ -736,6 +769,8 @@ export default function PerformanceReportsPage() {
             : null
         }
         topicTitle={viewer?.topicTitle}
+        studentName={studentName}
+        studentGrade={viewer?.gradeLabel ?? null}
         onClose={closeViewer}
       />
       <ViewerStatusOverlay

@@ -1,10 +1,12 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,7 +18,7 @@ vi.mock("@/lib/performance/reports", () => ({
   fetchSavedReportDetail: detailMock,
 }));
 vi.mock("@/context/SessionContext", () => ({
-  useSession: () => ({ session: { access_token: "token" } }),
+  useSession: () => ({ session: { access_token: "token" }, userId: "u1" }),
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
@@ -24,11 +26,16 @@ import PerformanceReportsPage from "./PerformanceReportsPage";
 
 function detail() {
   return {
-    session: { sessionId: "s1", topicTitle: "기후 변화 탐구" },
+    session: {
+      sessionId: "s1",
+      topicTitle: "기후 변화 탐구",
+      gradeLabel: "고2",
+    },
     design: null,
     evaluation: null,
     final: {
       reportId: "f1",
+      updatedAt: "2026-10-16T03:00:00Z",
       sections: [
         { id: "intro", label: "서론", text: "서론 본문 문장이다." },
         { id: "body", label: "본론", text: "본론 본문 문장이다." },
@@ -38,17 +45,26 @@ function detail() {
 }
 
 function renderPage() {
+  // 셸(PerformanceAppLayout)이 채워 두는 bootstrap 캐시를 그대로 시드한다.
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(["performance", "bootstrap", "u1"], {
+    profile: { name: "김민준", schoolType: null },
+    lastSession: null,
+    latestDraft: null,
+  });
   return render(
-    <ToastProvider>
-      <MemoryRouter initialEntries={["/app/performance/reports/s1"]}>
-        <Routes>
-          <Route
-            path="/app/performance/reports/:sessionId"
-            element={<PerformanceReportsPage />}
-          />
-        </Routes>
-      </MemoryRouter>
-    </ToastProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/app/performance/reports/s1"]}>
+          <Routes>
+            <Route
+              path="/app/performance/reports/:sessionId"
+              element={<PerformanceReportsPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -90,5 +106,27 @@ describe("PerformanceReportsPage 최종 제출본 전체 복사", () => {
         "복사하지 못했어요. 직접 선택해서 복사해 주세요.",
       ),
     ).toBeVisible();
+  });
+});
+
+describe("PerformanceReportsPage 최종 제출본 표지", () => {
+  beforeEach(() => {
+    detailMock.mockReset();
+    detailMock.mockResolvedValue(detail());
+  });
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("학생명, 학년, 저장일을 표지에 채운다", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /최종 제출본/ }));
+
+    const cover = await screen.findByLabelText(/리포트 표지/);
+    const info = within(cover).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명김민준");
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+    expect(info).toHaveTextContent("저장일2026.10.16");
   });
 });

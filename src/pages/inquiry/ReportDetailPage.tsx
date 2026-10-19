@@ -4,17 +4,23 @@ import { Link, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import DesignBody from "@/components/inquiry/design/DesignBody";
 import EvaluationBody from "@/components/inquiry/evaluate/EvaluationBody";
-import { useInquiryScreenStep } from "@/components/inquiry/InquiryShellContext";
+import {
+  useInquiryScreenStep,
+  useInquiryShell,
+} from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import PdfSaveButton from "@/components/inquiry/PdfSaveButton";
 import FinalFieldsTable from "@/components/inquiry/reports/FinalFieldsTable";
 import LoadError, { errorCode } from "@/components/inquiry/reports/LoadError";
 import {
   formatReportDate,
   resumePath,
 } from "@/components/inquiry/reports/reportsLogic";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { copyTextWithToast } from "@/lib/clipboard";
@@ -83,6 +89,7 @@ function subcopyFor(session: SessionDetail["session"]): string {
 export default function ReportDetailPage() {
   useInquiryScreenStep(null);
   const { userId } = useSession();
+  const { studentName } = useInquiryShell();
   const toast = useToast();
   const { sessionId } = useParams();
   const { data, error, isError, refetch } = useQuery(
@@ -136,9 +143,9 @@ export default function ReportDetailPage() {
   }
 
   const { session, topic, design, evaluation, final, submission } = data;
+  const isCompleted = session.status === "completed";
   // 확정한 작성본이 있을 때만 복사할 수 있다. 작성 중인 초안은 복사 대상이 아니다.
-  const finalSections =
-    session.status === "completed" && submission ? submission.sections : null;
+  const finalSections = isCompleted && submission ? submission.sections : null;
   const bodyEntries = finalSections ? submissionBodyEntries(finalSections) : [];
   const copyBody =
     finalSections && bodyEntries.length > 0
@@ -169,6 +176,25 @@ export default function ReportDetailPage() {
       />
       <div className={BODY}>
         <div ref={pdf.contentRef} className="flex flex-col gap-6">
+          <ReportCoverPage
+            kind={isCompleted ? "inquiryFinal" : "inquiryRecord"}
+            title={`${site.brandName}\n${isCompleted ? "최종 심화탐구 리포트" : "심화탐구 기록"}`}
+            infoItems={[
+              { label: "학생명", value: studentName },
+              {
+                label: "학년",
+                value: formatGradeLabel(session.gradeLabel),
+              },
+              ...(isCompleted && session.completedAt
+                ? [
+                    {
+                      label: "확정일",
+                      value: formatReportDate(session.completedAt),
+                    },
+                  ]
+                : []),
+            ]}
+          />
           <Section id="inquiry-detail-design" title="설계 리포트">
             {design && topic ? (
               <DesignBody design={design} topic={topic} compact />

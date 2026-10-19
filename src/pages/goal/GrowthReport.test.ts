@@ -5,7 +5,10 @@
 // 검증한다.
 import { describe, expect, it } from "vitest";
 import type { FetchGoalStudentResult } from "@/lib/goalApi";
-import { deriveGrowthReportStudentName } from "./GrowthReport";
+import {
+  deriveGrowthReportStudentGrade,
+  deriveGrowthReportStudentName,
+} from "./GrowthReport";
 
 describe("deriveGrowthReportStudentName", () => {
   it("kind:'onboarded'면 profile.name을 반환한다", () => {
@@ -72,5 +75,24 @@ describe("deriveGrowthReportStudentName", () => {
   it("onboarded가 아니면 null을 반환한다(자리를 지어내지 않는다)", () => {
     expect(deriveGrowthReportStudentName({ kind: "not-onboarded" })).toBeNull();
     expect(deriveGrowthReportStudentName(undefined)).toBeNull();
+  });
+});
+
+describe("deriveGrowthReportStudentGrade", () => {
+  it("kind:'onboarded'면 profile.grade 원본을 반환한다", () => {
+    const result = {
+      kind: "onboarded",
+      student: { profile: { name: "김민준", grade: "고2" } },
+      // biome-ignore lint/suspicious/noExplicitAny: profile 외 필드는 픽스처 부담을 줄이려 any로 넓힌다.
+    } as any as FetchGoalStudentResult;
+
+    expect(deriveGrowthReportStudentGrade(result)).toBe("고2");
+  });
+
+  it("onboarded가 아니면 null을 반환한다", () => {
+    expect(
+      deriveGrowthReportStudentGrade({ kind: "not-onboarded" }),
+    ).toBeNull();
+    expect(deriveGrowthReportStudentGrade(undefined)).toBeNull();
   });
 });

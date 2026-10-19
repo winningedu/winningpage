@@ -1,6 +1,8 @@
 import type { ReactNode, RefObject } from "react";
 import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import {
   Dialog,
@@ -11,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -92,6 +95,10 @@ type ReportModalShellProps = {
    * (호출부 DesignReportModal/EvaluationReportModal이 이미 받는 studentName을
    * 그대로 넘긴다). */
   studentName?: string | null;
+  /** 리포트가 속한 세션의 학년 원본("고2" 등, 표지 학년 칸). 없으면 그 칸이 빠진다. */
+  studentGrade?: string | null;
+  /** 리포트 저장 시각 ISO(표지 저장일 칸). 없거나 날짜가 아니면 그 칸이 빠진다. */
+  savedAt?: string | null;
   /** 본문(폭 70.5rem 래퍼 안에 들어간다). */
   children: ReactNode;
   /** 푸터 우측 정렬 버튼 그룹. 함수형이면 `ctx.print`를 받는다. */
@@ -109,6 +116,8 @@ export default function ReportModalShell({
   documentTitle,
   scrollLabel,
   studentName,
+  studentGrade,
+  savedAt,
   children,
   footer,
   onClose,
@@ -189,12 +198,16 @@ export default function ReportModalShell({
               ("print:block hidden 류" 결정). variant="flow"의 인쇄 전용 규칙이 한
               페이지를 채우고 break-after:page로 본문(헤더+스크롤 영역)을 다음
               페이지에서 시작시킨다. 이 도메인(수행평가)엔 "목표 대학/학과" 개념이
-              없어 targetMajor/targetUniversity는 넘기지 않는다. */}
+              없어 정보 줄은 학생명, 학년, 저장일만 넘긴다. */}
           <div className="hidden print:block">
             <ReportCoverPage
-              serviceLabel="수행평가"
-              title={title}
-              {...(studentName ? { studentName } : {})}
+              kind="performance"
+              title={`${site.brandName}\n${title}`}
+              infoItems={[
+                { label: "학생명", value: studentName },
+                { label: "학년", value: formatGradeLabel(studentGrade) },
+                { label: "저장일", value: formatCoverDate(savedAt) },
+              ]}
             />
           </div>
 

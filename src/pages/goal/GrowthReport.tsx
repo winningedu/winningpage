@@ -29,6 +29,15 @@ export function deriveGrowthReportStudentName(
     : null;
 }
 
+// 표지 학년: 이름과 같은 캐시에서 원본("고2" 등)을 그대로 꺼낸다. 표기 변환은 표지 쪽 몫이다.
+export function deriveGrowthReportStudentGrade(
+  goalStudentResult: FetchGoalStudentResult | undefined,
+): string | null {
+  return goalStudentResult?.kind === "onboarded"
+    ? goalStudentResult.student.profile.grade
+    : null;
+}
+
 type GoalReportResult =
   | { kind: "success"; report: GrowthReportData }
   | { kind: "awaiting-cuts" }
@@ -62,6 +71,7 @@ export default function GrowthReport() {
   const { userId } = useAuth();
   const { data: goalStudentResult } = useQuery(goalStudentQueryOptions(userId));
   const studentName = deriveGrowthReportStudentName(goalStudentResult);
+  const studentGrade = deriveGrowthReportStudentGrade(goalStudentResult);
 
   // fetchGoalReport() 결과를 discriminated union 그대로 보관한다(재가공하지 않는다 —
   // goalApi.js의 kind 계약을 이 컴포넌트가 다시 해석하는 지점을 하나로 좁혀 둔다).
@@ -114,6 +124,7 @@ export default function GrowthReport() {
       onPeriodChange={handlePeriodChange}
       report={result.report}
       studentName={studentName}
+      studentGrade={studentGrade}
     />
   );
 }

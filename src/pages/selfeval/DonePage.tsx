@@ -1,17 +1,29 @@
 import { useLocation, useNavigate, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { formatDotDate } from "@/components/selfeval/activities/activitiesLogic";
-import { archiveTitle } from "@/components/selfeval/archive/archiveLogic";
+import {
+  archiveName,
+  archiveTitle,
+} from "@/components/selfeval/archive/archiveLogic";
 import { paragraphTexts } from "@/components/selfeval/result/resultLogic";
-import { useSelfevalScreenStep } from "@/components/selfeval/SelfevalShellContext";
+import {
+  useSelfevalScreenStep,
+  useSelfevalShell,
+} from "@/components/selfeval/SelfevalShellContext";
 import SessionDetailGate, {
   PAGE_BODY,
 } from "@/components/selfeval/SessionDetailGate";
 import { SELFEVAL_PATHS } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import { useToast } from "@/context/ToastContext";
 import { copyTextWithToast } from "@/lib/clipboard";
+import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
+import { buildSelfevalPdfFileName } from "@/lib/selfeval/pdfFileName";
 import type {
   FinalizeReply,
   GenerationSections,
@@ -71,8 +83,10 @@ function DoneBody({
   const navigate = useNavigate();
   const toast = useToast();
   const location = useLocation();
+  const { studentName } = useSelfevalShell();
   const { session, activities } = detail;
   const final = detail.reports.final;
+  const pdf = useReportPdfSave(buildSelfevalPdfFileName(archiveName(session)));
 
   if (session.status !== "completed" || !final) {
     return (
@@ -136,26 +150,40 @@ function DoneBody({
                 </p>
               )}
             </section>
-            <section className={CARD} aria-label="최종 본문">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className={CARD_TITLE}>{title}</h2>
-                <span className="rounded-full bg-surface-04 px-2.5 py-0.5 text-app-caption font-semibold text-ink-sub">
-                  잠금
-                </span>
-              </div>
-              <div className="mt-3 flex select-text flex-col gap-4">
-                {texts.map((text, i) => (
-                  // 문단은 순서가 곧 정체성이고 재정렬되지 않는다.
-                  <p
-                    // biome-ignore lint/suspicious/noArrayIndexKey: 읽기 전용 고정 목록
-                    key={i}
-                    className="text-app-body leading-[1.9] text-ink-strong"
-                  >
-                    {text}
-                  </p>
-                ))}
-              </div>
-            </section>
+            <div ref={pdf.contentRef}>
+              <ReportCoverPage
+                kind="selfeval"
+                title={`${site.brandName}\n${title}`}
+                infoItems={[
+                  { label: "학생명", value: studentName },
+                  {
+                    label: "학년",
+                    value: formatGradeLabel(session.gradeLabel),
+                  },
+                  { label: "저장일", value: saved },
+                ]}
+              />
+              <section className={CARD} aria-label="최종 본문">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className={CARD_TITLE}>{title}</h2>
+                  <span className="rounded-full bg-surface-04 px-2.5 py-0.5 text-app-caption font-semibold text-ink-sub print:hidden">
+                    잠금
+                  </span>
+                </div>
+                <div className="mt-3 flex select-text flex-col gap-4">
+                  {texts.map((text, i) => (
+                    // 문단은 순서가 곧 정체성이고 재정렬되지 않는다.
+                    <p
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 읽기 전용 고정 목록
+                      key={i}
+                      className="text-app-body leading-[1.9] text-ink-strong print:text-black"
+                    >
+                      {text}
+                    </p>
+                  ))}
+                </div>
+              </section>
+            </div>
             <div className="flex justify-end gap-3">
               <Button
                 type="button"
@@ -168,6 +196,7 @@ function DoneBody({
               >
                 전체 복사
               </Button>
+              <PdfSaveButton onClick={pdf.save} isPreparing={pdf.isPreparing} />
               <Button
                 type="button"
                 size="lg"

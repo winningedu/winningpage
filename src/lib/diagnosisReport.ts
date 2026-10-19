@@ -935,6 +935,25 @@ function buildNotices(
  * 4. 조립
  * ================================================================== */
 
+/** 표지 학년 칸용 원본 라벨. 입력에 학년이 없으면 null. */
+function gradeRawOf(input: DiagnosisInputLike): string | null {
+  return optionLabelOf("q1", input.profile?.gradeLevel) ?? null;
+}
+
+/**
+ * 저장된 리포트 payload 에 student.gradeRaw 가 없으면(도입 전 저장분) 행의 snapshot 에서
+ * 같은 규칙으로 채운다. 학년을 되찾지 못하면 payload 를 건드리지 않는다.
+ */
+export function withStoredGradeRaw<T>(payload: T, snapshot: unknown): T {
+  const data = payload as { student?: { gradeRaw?: string | null } } | null;
+  if (!data?.student || data.student.gradeRaw != null) return payload;
+  const gradeRaw = gradeRawOf(
+    snapshot && typeof snapshot === "object" ? snapshot : {},
+  );
+  if (gradeRaw == null) return payload;
+  return { ...data, student: { ...data.student, gradeRaw } } as T;
+}
+
 /**
  * DiagnosisInput → ReportData (§7.1 · §7.2 · §7.4.3).
  *
@@ -987,6 +1006,7 @@ export function buildReport(input: any, ctx: BuildReportCtx = {}) {
       // 표지는 값이 없으면 그 줄 자체를 지워야 해서(no-fallback-constants) 별도로
       // null 그대로 내려보낸다.
       desiredMajorRaw: safeInput.goal?.targetMajor ?? null,
+      gradeRaw: gradeRawOf(safeInput),
       gpa: formatGpa(safeInput.gradeSystem, safeInput.scores?.naesinOverall),
       // F-14 확정(2026-08-11) — 축약 라벨을 쓴다. 원문 라벨은 w-50 안에서 2줄로 접힌다.
       gradeTrend: orMissing(formatGradeTrend(safeInput.gradeTrend)),

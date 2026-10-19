@@ -1,13 +1,23 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchDetailMock, stepMock, shellState } = vi.hoisted(() => ({
   fetchDetailMock: vi.fn(),
   stepMock: vi.fn(),
-  shellState: { latestCompletedReportId: "r1" as string | null },
+  shellState: {
+    latestCompletedReportId: "r1" as string | null,
+    studentName: "김윙" as string | null,
+    gradeLabel: "고2" as string | null,
+  },
 }));
 
 vi.mock("@/lib/growth/api", () => ({
@@ -24,6 +34,10 @@ vi.mock("@/components/growth/GrowthShellContext", () => ({
   useGrowthShell: () => shellState,
 }));
 
+import { ToastProvider } from "@/context/ToastContext";
+import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
+import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
+import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
 import ReportPage from "./ReportPage";
 
 function ok(report: Record<string, unknown> = {}) {
@@ -63,16 +77,18 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/app/growth/reports/r1"]}>
-        <Routes>
-          <Route
-            path="/app/growth/reports/:reportId"
-            element={<ReportPage />}
-          />
-          <Route path="/app/growth/generate" element={<p>생성 화면</p>} />
-          <Route path="/app/growth/reports" element={<p>목록 화면</p>} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/app/growth/reports/r1"]}>
+          <Routes>
+            <Route
+              path="/app/growth/reports/:reportId"
+              element={<ReportPage />}
+            />
+            <Route path="/app/growth/generate" element={<p>생성 화면</p>} />
+            <Route path="/app/growth/reports" element={<p>목록 화면</p>} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }
@@ -168,5 +184,42 @@ describe("ReportPage", () => {
     expect(screen.getAllByRole("link", { name: "실행계획 보기" })).toHaveLength(
       2,
     );
+  });
+
+  it("PDF 저장을 누르면 표지와 리포트 본문을 대주제 파일명으로 서버 PDF 요청한다", async () => {
+    vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+      true,
+    );
+    vi.spyOn(downloadReportPdfModule, "getReportAccessToken").mockResolvedValue(
+      "test-token",
+    );
+    const buildSpy = vi
+      .spyOn(buildPrintDocumentModule, "buildPrintDocument")
+      .mockReturnValue("<html>growth</html>");
+    const downloadSpy = vi
+      .spyOn(downloadReportPdfModule, "downloadReportPdf")
+      .mockImplementation(() => {});
+    fetchDetailMock.mockResolvedValue(ok());
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "PDF 저장" }));
+
+    await waitFor(() => expect(downloadSpy).toHaveBeenCalledTimes(1));
+    const built = buildSpy.mock.calls[0]?.[0];
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(built?.root.firstElementChild).toBe(cover);
+    expect(built?.root).toContainElement(
+      screen.getByLabelText("이 학생의 대주제"),
+    );
+    expect(built?.title).toBe("성장설계_리포트_대주제 문장");
+    expect(cover).toHaveTextContent("김윙");
+    expect(cover).toHaveTextContent("고등학교 2학년");
+    expect(cover).toHaveTextContent("2026.11.14");
+  });
+
+  it("리포트를 불러오기 전에는 PDF 저장 버튼이 없다", async () => {
+    fetchDetailMock.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.queryByRole("button", { name: "PDF 저장" })).toBeNull();
   });
 });

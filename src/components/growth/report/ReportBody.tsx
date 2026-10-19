@@ -14,7 +14,8 @@ import {
 import SectionBodyView from "./SectionBodyView";
 import { normalizeBody } from "./sectionBody";
 
-const CARD = "rounded-xl border border-border bg-white p-6";
+const CARD =
+  "rounded-xl border border-border bg-white p-6 print:break-inside-avoid";
 
 function SectionCard({ section }: { section: SectionView }) {
   return (
