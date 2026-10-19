@@ -223,6 +223,6 @@ describe("ReportCoverPage", () => {
 
     const root = screen.getByLabelText("심화탐구 리포트 표지");
     expect(within(root).getByRole("heading")).toBeInTheDocument();
-    expect(root.textContent).not.toMatch(/[—–·]/);
+    expect(root.textContent).not.toMatch(new RegExp("[\\u2014\\u2013\\u00B7]"));
   });
 });

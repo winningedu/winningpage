@@ -161,7 +161,7 @@ export default function GrowthReportBody({
   // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
   // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
   // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
-  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 정보 줄 "목표" 칸에
+  // 담아 두므로(목표관리 "이상 목표" 대학과 학과) 그 값을 그대로 정보 줄 "목표" 칸에
   // 재사용한다.
   const coverTargetUniversity = admission.upper.university || undefined;
 

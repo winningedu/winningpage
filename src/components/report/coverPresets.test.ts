@@ -14,7 +14,7 @@ const KINDS: ReportCoverKind[] = [
 ];
 
 // U+2014, U+2013, U+00B7, U+2192
-const BANNED = /[—–·→]/;
+const BANNED = new RegExp("[\\u2014\\u2013\\u00B7\\u2192]");
 
 describe("REPORT_COVER_PRESETS", () => {
   it.each(KINDS)("%s 프리셋은 모든 필드를 갖는다", (kind) => {
