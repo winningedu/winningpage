@@ -10,6 +10,7 @@ export type ReportCoverKind =
   | "performance"
   | "inquiryDesign"
   | "inquiryFinal"
+  | "inquiryRecord"
   | "selfeval";
 
 export type ReportCoverPreset = {
@@ -129,6 +130,18 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
       ],
       areas: ["설계 리포트", "평가 리포트", "확정 저장 내용", "최종 본문"],
       dateLabel: "확정일",
+      disclaimer: `본 리포트는 출발 활동과 학생이 작성한 보고서를 바탕으로 하여 ${site.brandName} 심화탐구 결과에 대하여 작성한 내용입니다.`,
+    },
+    inquiryRecord: {
+      serviceLabel: "심화탐구",
+      englishLabel: "IN-DEPTH RESEARCH RECORD",
+      areasHeading: "REPORT CONTENTS",
+      subtitle: [
+        "설계와 평가를 한 번에 모아",
+        "지금까지 진행한 심화탐구를 정리합니다.",
+      ],
+      areas: ["설계 리포트", "평가 리포트", "확정 저장 내용"],
+      dateLabel: null,
       disclaimer: `본 리포트는 출발 활동과 학생이 작성한 보고서를 바탕으로 하여 ${site.brandName} 심화탐구 결과에 대하여 작성한 내용입니다.`,
     },
     selfeval: {

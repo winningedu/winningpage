@@ -10,6 +10,7 @@ const KINDS: ReportCoverKind[] = [
   "performance",
   "inquiryDesign",
   "inquiryFinal",
+  "inquiryRecord",
   "selfeval",
 ];
 
@@ -44,6 +45,13 @@ describe("REPORT_COVER_PRESETS", () => {
     expect(REPORT_COVER_PRESETS.inquiryDesign.dateLabel).toBeNull();
   });
 
+  it("inquiryRecord 는 확정 전 기록용이라 날짜 라벨과 최종 본문 항목이 없다", () => {
+    const { dateLabel, areas } = REPORT_COVER_PRESETS.inquiryRecord;
+
+    expect(dateLabel).toBeNull();
+    expect(areas).toEqual(["설계 리포트", "평가 리포트", "확정 저장 내용"]);
+  });
+
   it.each(KINDS)("%s 문구에 금지 문자가 없다", (kind) => {
     const preset = REPORT_COVER_PRESETS[kind];
     const texts = [
@@ -59,12 +67,15 @@ describe("REPORT_COVER_PRESETS", () => {
     for (const text of texts) expect(text).not.toMatch(BANNED);
   });
 
-  it.each(["growth", "inquiryDesign", "inquiryFinal", "selfeval"] as const)(
-    "%s 고지에는 생활기록부가 없다",
-    (kind) => {
-      expect(REPORT_COVER_PRESETS[kind].disclaimer).not.toContain("생활기록부");
-    },
-  );
+  it.each([
+    "growth",
+    "inquiryDesign",
+    "inquiryFinal",
+    "inquiryRecord",
+    "selfeval",
+  ] as const)("%s 고지에는 생활기록부가 없다", (kind) => {
+    expect(REPORT_COVER_PRESETS[kind].disclaimer).not.toContain("생활기록부");
+  });
 
   it.each(KINDS)("%s 고지에 site.brandName 이 들어 있다", (kind) => {
     expect(REPORT_COVER_PRESETS[kind].disclaimer).toContain(site.brandName);
