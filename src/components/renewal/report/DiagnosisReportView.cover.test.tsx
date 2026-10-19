@@ -26,15 +26,20 @@ describe("DiagnosisReportView — 표지", () => {
 
   it("표지 정보 줄에 학생명과 진단일을 반영하고 희망 학과는 넣지 않는다", () => {
     const data = buildReportFromInput(
-      makeInput({ goal: { targetMajor: "컴퓨터공학과" } }),
+      makeInput({
+        goal: { targetMajor: "컴퓨터공학과" },
+        meta: {
+          schemaVersion: "test",
+          diagnosedAt: "2026-10-15T16:00:00.000Z",
+        },
+      }),
     ) as DiagnosisReportData;
-    data.student.diagnosedAtRaw = "2026.10.16";
     render(<DiagnosisReportView data={data} studentName="김민준" />);
 
     const cover = screen.getByLabelText(/리포트 표지/);
     const info = within(cover).getByTestId("cover-info");
     expect(info).toHaveTextContent("학생명김민준");
-    expect(info).toHaveTextContent("진단일2026.10.16");
+    expect(info).toHaveTextContent("진단일2026. 10. 16");
     expect(info).not.toHaveTextContent("컴퓨터공학과");
   });
 

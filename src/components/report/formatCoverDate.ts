@@ -13,3 +13,14 @@ export function formatCoverDate(iso: string | null | undefined): string | null {
     parts.find((p) => p.type === type)?.value ?? "";
   return `${pick("year")}. ${pick("month")}. ${pick("day")}`;
 }
+
+/** 기간 라벨 `2026-10-19 ~ 2026-10-25` 를 `2026. 10. 19 ~ 2026. 10. 25` 로. 두 날짜로 읽을 수 없으면 null. */
+export function formatCoverPeriod(
+  label: string | null | undefined,
+): string | null {
+  const [start, end, ...rest] = (label ?? "").split(" ~ ");
+  if (rest.length > 0) return null;
+  const from = formatCoverDate(start);
+  const to = formatCoverDate(end);
+  return from && to ? `${from} ~ ${to}` : null;
+}

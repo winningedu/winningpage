@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { useRef, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
@@ -194,7 +195,10 @@ export default function DiagnosisReportView({
           infoItems={[
             { label: "학생명", value: resolvedStudentName },
             { label: "학년", value: formatGradeLabel(data.student?.gradeRaw) },
-            { label: "진단일", value: data.student?.diagnosedAtRaw },
+            {
+              label: "진단일",
+              value: formatCoverDate(data.student?.diagnosedAtRaw),
+            },
           ]}
         />
 

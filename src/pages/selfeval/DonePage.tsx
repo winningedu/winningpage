@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import PdfSaveButton from "@/components/report/PdfSaveButton";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
@@ -160,7 +161,10 @@ function DoneBody({
                     label: "학년",
                     value: formatGradeLabel(session.gradeLabel),
                   },
-                  { label: "저장일", value: saved },
+                  {
+                    label: "저장일",
+                    value: formatCoverDate(session.completedAt),
+                  },
                 ]}
               />
               <section className={CARD} aria-label="최종 본문">

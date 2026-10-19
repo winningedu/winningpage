@@ -15,6 +15,7 @@ import {
   formatReportDate,
   resumePath,
 } from "@/components/inquiry/reports/reportsLogic";
+import { formatCoverDate } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import PdfSaveButton from "@/components/report/PdfSaveButton";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
@@ -189,7 +190,7 @@ export default function ReportDetailPage() {
                 ? [
                     {
                       label: "확정일",
-                      value: formatReportDate(session.completedAt),
+                      value: formatCoverDate(session.completedAt),
                     },
                   ]
                 : []),

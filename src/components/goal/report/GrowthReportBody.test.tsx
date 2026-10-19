@@ -20,7 +20,7 @@ function makeReportWithoutHeading(
 function makeReport(overrides: Partial<GrowthReport> = {}): GrowthReport {
   return {
     heading: "주간 성장 리포트",
-    periodLabel: "2026.09.15 ~ 09.21",
+    periodLabel: "2026-09-15 ~ 2026-09-21",
     hero: { narrative: "이번 주도 수고했어요.", kpis: [] },
     overview: {
       achievement: { rows: [] },
@@ -106,6 +106,24 @@ describe("GrowthReportBody — 표지", () => {
     expect(text.indexOf("학년")).toBeLessThan(text.indexOf("기간"));
     expect(info.children).toHaveLength(3);
     expect(info).not.toHaveTextContent("목표");
+  });
+
+  it("표지 기간은 시안 날짜 형식으로 쓰고 본문 기간 표기는 그대로 둔다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+        studentGrade="고2"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("기간2026. 09. 15 ~ 2026. 09. 21");
+    expect(screen.getByText("2026-09-15 ~ 2026-09-21")).toBeInTheDocument();
   });
 
   it("studentGrade가 없으면 학년 칸을 렌더하지 않는다", () => {
