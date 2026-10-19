@@ -228,7 +228,7 @@ export default function ReportCoverDemo() {
       <main className="min-w-0 flex-1 overflow-auto">
         <div
           data-testid="cover-preview"
-          role="group"
+          role="region"
           aria-label="표지 미리보기"
           className="rcd-stage relative"
           style={{ width: isA4 ? "70rem" : "50rem", zoom: scale / 100 }}
