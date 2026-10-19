@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthProvider";
 // 저장 키·스키마 검증은 storage 모듈이 소유한다 — 저장 주체(설문 CTA)와 읽기 주체(이 페이지)가
 // 다른 파일이라 리터럴을 양쪽에 두면 조용히 갈라진다.
 import { loadDiagnosisInput } from "@/lib/diagnosisInputStorage";
+import { withStoredGradeRaw } from "@/lib/diagnosisReport";
 import { ensureDiagnosisReportSaved } from "@/lib/diagnosisReportApi";
 import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { fetchDiagnosisReport } from "@/lib/diagnosisReportQueries";
@@ -107,7 +108,13 @@ export default function FreeDiagnosisReport() {
     setDbReport(undefined);
     fetchDiagnosisReport(attemptId).then((row) => {
       if (!alive) return;
-      setDbReport(row ? { payload: row.payload } : null);
+      setDbReport(
+        row
+          ? {
+              payload: withStoredGradeRaw(row.payload, row.snapshot) as Json,
+            }
+          : null,
+      );
     });
     return () => {
       alive = false;

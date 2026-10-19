@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import DiagnosisReportView, {
   type DiagnosisReportData,
 } from "@/components/renewal/report/DiagnosisReportView";
+import { withStoredGradeRaw } from "@/lib/diagnosisReport";
 import { fetchDiagnosisReport } from "@/lib/diagnosisReportQueries";
 import { supabase } from "@/lib/supabase";
 
@@ -80,7 +81,7 @@ export default function ChildDiagnosisReport() {
       // profile_id가 이 화면의 자녀와 다르면(권한 판정 위 주석 참고) 없음으로 취급한다.
       setReport(
         row && row.profile_id === child.student_profile_id
-          ? { payload: row.payload }
+          ? { payload: withStoredGradeRaw(row.payload, row.snapshot) }
           : null,
       );
     });
