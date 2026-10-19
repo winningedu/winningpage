@@ -39,7 +39,7 @@ const PDF_TITLE_RESTORE_FALLBACK_MS = 5000;
 // report-print.css의 `header, footer` 태그 셀렉터는 SiteLayout 밖 화면(목표관리
 // GoalPageHeader 등 중첩된 시맨틱 <header>)까지 전부 잡는 과대 셀렉터였다 — `#root >`로
 // 좁혀 SiteLayout이 실제로 렌더하는 두 요소만 겨냥한다.
-export const DIAGNOSIS_REPORT_PAGE_RULE = `
+const DIAGNOSIS_REPORT_PAGE_RULE = `
   @media print {
     @page {
       size: A4 portrait;

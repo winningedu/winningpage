@@ -4,10 +4,7 @@ import demoRoutes from "./demoRoutes";
 
 describe("demoRoutes", () => {
   test("경로는 /demo 와 /demo/:demoKey 두 개뿐이고 /services/growth 는 없다", () => {
-    // /demo/report-cover 는 DEV 전용 실측 데모라 비교에서 뺀다
-    expect(
-      demoRoutes.map((r) => r.path).filter((p) => p !== "/demo/report-cover"),
-    ).toEqual(["/demo", "/demo/:demoKey"]);
+    expect(demoRoutes.map((r) => r.path)).toEqual(["/demo", "/demo/:demoKey"]);
   });
 
   test.each(["/demo", "/demo/:demoKey"])(
