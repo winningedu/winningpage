@@ -12,11 +12,4 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:5303",
     viewport: { width: 1440, height: 900 },
   },
-  expect: {
-    toHaveScreenshot: {
-      animations: "disabled",
-      maxDiffPixelRatio: 0.002,
-    },
-  },
-  snapshotPathTemplate: "e2e/__screenshots__/{testFilePath}/{arg}{ext}",
 });
