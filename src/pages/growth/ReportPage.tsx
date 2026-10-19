@@ -10,10 +10,16 @@ import ReportBody from "@/components/growth/report/ReportBody";
 import { normalizeNarrative } from "@/components/growth/report/reportLogic";
 import { growthReportDetailQuery } from "@/components/growth/report/reportQuery";
 import { formatKoreanDate } from "@/components/growth/reports/reportsLogic";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
+import { buildGrowthPdfFileName } from "@/lib/growth/pdfFileName";
 import { GrowthApiError } from "@/lib/growth/queries";
+import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_TITLE = "성장설계 리포트";
@@ -23,13 +29,17 @@ export default function ReportPage() {
   useGrowthScreenStep(5);
   const { userId } = useSession();
   const { reportId } = useParams();
-  const { latestCompletedReportId } = useGrowthShell();
+  const { latestCompletedReportId, studentName, gradeLabel } = useGrowthShell();
   // 실행계획은 최신 완료 회차 것만 있다. 최신을 아직 모르면(null) 숨기지 않는다.
   const isOlderReport =
     latestCompletedReportId !== null && latestCompletedReportId !== reportId;
   const { data, error, isError, refetch } = useQuery(
     growthReportDetailQuery(userId ?? null, reportId),
   );
+
+  const report = data?.report;
+  const theme = normalizeNarrative(report?.narrative)?.theme;
+  const pdf = useReportPdfSave(buildGrowthPdfFileName(theme));
 
   if (error instanceof GrowthApiError && error.result.kind === "error") {
     if (error.result.code === "REPORT_NOT_COMPLETED")
@@ -38,7 +48,6 @@ export default function ReportPage() {
       return <Navigate to={GROWTH_PATHS.reports} replace />;
   }
 
-  const report = data?.report;
   const issued = report ? formatKoreanDate(report.issuedAt) : "";
   const subcopy = [
     issued ? `${issued} 발행` : "",
@@ -50,10 +59,13 @@ export default function ReportPage() {
   return (
     <>
       <GoalPageHeader
-        title={normalizeNarrative(report?.narrative)?.theme ?? DEFAULT_TITLE}
+        title={theme ?? DEFAULT_TITLE}
         subcopy={subcopy || undefined}
         actions={
           <>
+            {data && (
+              <PdfSaveButton onClick={pdf.save} isPreparing={pdf.isPreparing} />
+            )}
             <Link
               to={GROWTH_PATHS.reports}
               className={cn(
@@ -94,7 +106,18 @@ export default function ReportPage() {
           </div>
         ) : (
           <>
-            <ReportBody detail={data} />
+            <div ref={pdf.contentRef}>
+              <ReportCoverPage
+                kind="growth"
+                title={`${site.brandName}\n성장설계 리포트`}
+                infoItems={[
+                  { label: "학생명", value: studentName },
+                  { label: "학년", value: formatGradeLabel(gradeLabel) },
+                  { label: "발행일", value: issued },
+                ]}
+              />
+              <ReportBody detail={data} />
+            </div>
             <div className="mt-8 flex justify-center">
               {isOlderReport ? (
                 <p className="text-app-label text-ink-sub">
