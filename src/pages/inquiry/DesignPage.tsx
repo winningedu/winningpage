@@ -6,7 +6,7 @@ import {
   useInquiryShell,
 } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import PdfSaveButton from "@/components/inquiry/PdfSaveButton";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
 import StepGate from "@/components/inquiry/StepGate";
 import StepGuardCard from "@/components/inquiry/StepGuardCard";
 import { buttonVariants } from "@/components/ui/button";

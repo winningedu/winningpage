@@ -6,7 +6,7 @@ import DesignBody from "@/components/inquiry/design/DesignBody";
 import EvaluationBody from "@/components/inquiry/evaluate/EvaluationBody";
 import { useInquiryScreenStep } from "@/components/inquiry/InquiryShellContext";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
-import PdfSaveButton from "@/components/inquiry/PdfSaveButton";
+import PdfSaveButton from "@/components/report/PdfSaveButton";
 import FinalFieldsTable from "@/components/inquiry/reports/FinalFieldsTable";
 import LoadError, { errorCode } from "@/components/inquiry/reports/LoadError";
 import {
