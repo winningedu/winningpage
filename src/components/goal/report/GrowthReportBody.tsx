@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -124,6 +125,8 @@ type GrowthReportBodyProps = {
    * 학생 이름이 내려오지 않아 생략한다 — 값이 없으면 표지에서 그 줄이 통째로 빠진다
    * (폴백 문구를 지어내지 않는다). */
   studentName?: string | null;
+  /** 학생 프로필 학년 원본("고2" 등). 값이 없으면 표지에서 학년 칸이 빠진다. */
+  studentGrade?: string | null;
 };
 
 // 성장 리포트 본문(#33 주간 / #34 월간) — parent-view-spec.md §1-3/§4 원칙에 따라 셸과 완전히
@@ -154,6 +157,7 @@ export default function GrowthReportBody({
   onPeriodChange,
   report,
   studentName,
+  studentGrade,
 }: GrowthReportBodyProps) {
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
@@ -248,6 +252,7 @@ export default function GrowthReportBody({
             title={report.heading}
             infoItems={[
               { label: "학생명", value: studentName },
+              { label: "학년", value: formatGradeLabel(studentGrade) },
               { label: "목표", value: coverTargetUniversity },
               { label: "기간", value: report.periodLabel },
             ]}

@@ -84,6 +84,43 @@ describe("GrowthReportBody — 표지", () => {
     expect(info).toHaveTextContent("목표서울대학교 컴퓨터공학과");
   });
 
+  it("studentGrade prop을 표지용 학년 표기로 바꿔 학생명, 학년, 목표, 기간 순으로 표지에 반영한다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+        studentGrade="고2"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+    const text = info.textContent ?? "";
+    expect(text.indexOf("학생명")).toBeLessThan(text.indexOf("학년"));
+    expect(text.indexOf("학년")).toBeLessThan(text.indexOf("목표"));
+    expect(text.indexOf("목표")).toBeLessThan(text.indexOf("기간"));
+  });
+
+  it("studentGrade가 없으면 학년 칸을 렌더하지 않는다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).not.toHaveTextContent("학년");
+  });
+
   it("월간이면 월간 프리셋(다음 달 전략 항목)을 쓴다", () => {
     render(
       <GrowthReportBody
