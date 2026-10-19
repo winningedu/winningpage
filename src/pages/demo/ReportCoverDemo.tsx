@@ -1,13 +1,13 @@
 // 리포트 표지 실측 데모(개발 전용, /demo/report-cover). 표지를 로컬에서 반복 실측하는
 // 화면이라 디자인 대상이 아니다. 좌측 조작 패널은 인쇄 영역(print-root) 밖에 둔다.
 //
-// 인쇄 규칙을 실제와 맞추려고 학습진단 리포트와 같은 report-print.css 를 가져온다.
-// 한계: DiagnosisReportView 의 DIAGNOSIS_REPORT_PAGE_RULE(@page A4 여백 0, 인쇄 시
-// html font-size 3mm)는 export 되지 않아 여기서 마운트하지 않는다. a4 방식의 인쇄 폭은
-// 그 규칙이 없으면 실제 리포트와 다를 수 있다.
+// 인쇄 규칙을 실제와 맞추려고 학습진단 리포트와 같은 report-print.css 를 가져오고,
+// a4 방식일 때는 DiagnosisReportView 의 DIAGNOSIS_REPORT_PAGE_RULE(@page A4 여백 0,
+// 인쇄 시 html font-size 3mm)도 함께 마운트한다.
 import { type DragEvent, useEffect, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
+import { DIAGNOSIS_REPORT_PAGE_RULE } from "@/components/renewal/report/DiagnosisReportView";
 import {
   REPORT_COVER_PRESETS,
   type ReportCoverKind,
@@ -122,6 +122,7 @@ function ReportCoverDemoBody() {
   return (
     <div className="flex min-h-screen gap-4 bg-neutral-100 p-4 text-sm">
       <style>{DEMO_PREVIEW_CSS}</style>
+      {isA4 && <style>{DIAGNOSIS_REPORT_PAGE_RULE}</style>}
       <aside className="flex w-64 shrink-0 flex-col gap-2">
         <label className="flex flex-col">
           종류
