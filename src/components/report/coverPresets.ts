@@ -19,8 +19,6 @@ export type ReportCoverPreset = {
   areasHeading: string;
   subtitle: readonly [string, string];
   areas: readonly string[];
-  /** 정보 줄 세 번째 칸 라벨. 날짜 없는 리포트는 null. */
-  dateLabel: string | null;
   disclaimer: string;
 };
 
@@ -42,7 +40,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "취약 유형 진단",
         "맞춤 학습 처방",
       ],
-      dateLabel: "진단일",
       disclaimer: `본 리포트는 학생의 사전설문을 바탕으로 하여 ${site.brandName} 학습진단 결과에 대하여 작성한 내용입니다.`,
     },
     goalWeekly: {
@@ -54,7 +51,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "데이터로 읽는 이번 주의 성장 흐름.",
       ],
       areas: ["한눈에 보기", "실행 분석", "성과의 변화"],
-      dateLabel: "기간",
       disclaimer: GOAL_DISCLAIMER,
     },
     goalMonthly: {
@@ -66,7 +62,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "데이터로 읽는 이번 달의 성장 흐름.",
       ],
       areas: ["한눈에 보기", "실행 분석", "성과의 변화", "다음 달 전략"],
-      dateLabel: "기간",
       disclaimer: GOAL_DISCLAIMER,
     },
     growth: {
@@ -83,7 +78,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "5축 역량 진단",
         "남은 기간 설계",
       ],
-      dateLabel: "발행일",
       disclaimer: `본 리포트는 학생 조사와 저장된 활동 기록을 바탕으로 하여 ${site.brandName} 성장설계 결과에 대하여 작성한 내용입니다.`,
     },
     performance: {
@@ -100,7 +94,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "작성 구조 설계",
         "평가 기준 점검",
       ],
-      dateLabel: "저장일",
       disclaimer: `본 리포트는 학교 수행평가 안내문과 학생 입력을 바탕으로 하여 ${site.brandName} 수행평가 결과에 대하여 작성한 내용입니다.`,
     },
     inquiryDesign: {
@@ -117,7 +110,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "자료 확보 계획",
         "평가 기준 미리 보기",
       ],
-      dateLabel: null,
       disclaimer: `본 리포트는 출발 활동과 학생 입력을 바탕으로 하여 ${site.brandName} 심화탐구 결과에 대하여 작성한 내용입니다.`,
     },
     inquiryFinal: {
@@ -129,7 +121,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "학생이 직접 완성한 심화탐구의 전 과정.",
       ],
       areas: ["설계 리포트", "평가 리포트", "확정 저장 내용", "최종 본문"],
-      dateLabel: "확정일",
       disclaimer: `본 리포트는 출발 활동과 학생이 작성한 보고서를 바탕으로 하여 ${site.brandName} 심화탐구 결과에 대하여 작성한 내용입니다.`,
     },
     inquiryRecord: {
@@ -141,7 +132,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "지금까지 진행한 심화탐구를 정리합니다.",
       ],
       areas: ["설계 리포트", "평가 리포트", "확정 저장 내용"],
-      dateLabel: null,
       disclaimer: `본 리포트는 출발 활동과 학생이 작성한 보고서를 바탕으로 하여 ${site.brandName} 심화탐구 결과에 대하여 작성한 내용입니다.`,
     },
     selfeval: {
@@ -158,7 +148,6 @@ export const REPORT_COVER_PRESETS: Record<ReportCoverKind, ReportCoverPreset> =
         "결과와 판단",
         "정리와 다음 단계",
       ],
-      dateLabel: "저장일",
       disclaimer: `본 자기평가서는 학생이 선택한 활동 기록과 입력 내용을 바탕으로 하여 ${site.brandName} 자기평가 결과에 대하여 작성한 내용입니다.`,
     },
   };

@@ -41,14 +41,9 @@ describe("REPORT_COVER_PRESETS", () => {
     expect(REPORT_COVER_PRESETS.goalMonthly.areas).toHaveLength(4);
   });
 
-  it("inquiryDesign 은 날짜 라벨이 없다", () => {
-    expect(REPORT_COVER_PRESETS.inquiryDesign.dateLabel).toBeNull();
-  });
+  it("inquiryRecord 는 확정 전 기록용이라 최종 본문 항목이 없다", () => {
+    const { areas } = REPORT_COVER_PRESETS.inquiryRecord;
 
-  it("inquiryRecord 는 확정 전 기록용이라 날짜 라벨과 최종 본문 항목이 없다", () => {
-    const { dateLabel, areas } = REPORT_COVER_PRESETS.inquiryRecord;
-
-    expect(dateLabel).toBeNull();
     expect(areas).toEqual(["설계 리포트", "평가 리포트", "확정 저장 내용"]);
   });
 
@@ -60,7 +55,6 @@ describe("REPORT_COVER_PRESETS", () => {
       preset.areasHeading,
       ...preset.subtitle,
       ...preset.areas,
-      preset.dateLabel ?? "",
       preset.disclaimer,
     ];
 
