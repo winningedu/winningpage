@@ -8,7 +8,11 @@ import {
 } from "@/lib/selfeval/types";
 
 export type SessionState =
-  "writing" | "completed" | "expired" | "terminal" | "discarded";
+  | "writing"
+  | "completed"
+  | "expired"
+  | "terminal"
+  | "discarded";
 
 export const STATE_LABELS: Record<SessionState, string> = {
   writing: "작성 중",
