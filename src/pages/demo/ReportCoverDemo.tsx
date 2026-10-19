@@ -32,6 +32,7 @@ import {
 const FILE_NAME = "report-cover-demo";
 const KINDS = Object.keys(REPORT_COVER_PRESETS) as ReportCoverKind[];
 const SCALES = [50, 75, 100] as const;
+type PreviewScale = "fit" | (typeof SCALES)[number];
 
 const OPTION_TOGGLES: { key: keyof CoverFixtureOptions; label: string }[] = [
   { key: "dropName", label: "학생명 빼기" },
@@ -44,8 +45,18 @@ const OPTION_TOGGLES: { key: keyof CoverFixtureOptions; label: string }[] = [
 // flow 표지는 화면에서 숨김(print 전용)이라 데모 미리보기에서만 보이게 덮는다.
 // a4 시트는 report-responsive.css 가 화면 폭으로 축소하므로 배율을 1로 고정해
 // 겹침 이미지와 맞춘다.
+//
+// 화면 맞춤(rcd-fit): 표지 한 장이 뷰포트 높이에서 위아래 4vh 를 뺀 높이에 꼭 맞게
+// 무대 폭을 A4 비율(2382/3369)로 정한다. 표지는 cqw 단위라 폭만 정하면 된다.
+// a4 시트의 고정 폭 70rem 은 무대 폭 100% 로 덮는다. 겹침 이미지는 무대 폭 100% 이므로
+// 표지와 같은 상자에 놓인다.
 const DEMO_PREVIEW_CSS = `
   @media screen {
+    .rcd-fit {
+      width: calc((100vh - 8vh) * 2382 / 3369);
+      margin: 4vh auto;
+    }
+    .rcd-fit .fd-report-sheet { width: 100% !important; }
     .rcd-stage .fd-report-cover-flow { display: block !important; }
     .rcd-stage .fd-report-sheet { --fd-sheet-scale: 1; }
   }
@@ -67,7 +78,7 @@ function ReportCoverDemoBody() {
   const [flowPrintMode, setFlowPrintMode] =
     useState<ReportCoverFlowPrintMode>("fit");
   const [withDummyBody, setWithDummyBody] = useState(false);
-  const [scale, setScale] = useState<(typeof SCALES)[number]>(100);
+  const [scale, setScale] = useState<PreviewScale>("fit");
   const [options, setOptions] = useState<CoverFixtureOptions>({
     dropName: false,
     dropGrade: false,
@@ -120,10 +131,10 @@ function ReportCoverDemoBody() {
   };
 
   return (
-    <div className="flex min-h-screen gap-4 bg-neutral-100 p-4 text-sm">
+    <div className="flex min-h-screen gap-4 bg-neutral-100 px-4 text-sm">
       <style>{DEMO_PREVIEW_CSS}</style>
       {isA4 && <style>{DIAGNOSIS_REPORT_PAGE_RULE}</style>}
-      <aside className="flex w-64 shrink-0 flex-col gap-2">
+      <aside className="flex w-64 shrink-0 flex-col gap-2 py-4">
         <label className="flex flex-col">
           종류
           <select
@@ -187,9 +198,14 @@ function ReportCoverDemoBody() {
           <select
             value={scale}
             onChange={(e) =>
-              setScale(Number(e.target.value) as (typeof SCALES)[number])
+              setScale(
+                e.target.value === "fit"
+                  ? "fit"
+                  : (Number(e.target.value) as PreviewScale),
+              )
             }
           >
+            <option value="fit">화면 맞춤</option>
             {SCALES.map((value) => (
               <option key={value} value={value}>
                 {value}%
@@ -241,8 +257,12 @@ function ReportCoverDemoBody() {
         <section
           data-testid="cover-preview"
           aria-label="표지 미리보기"
-          className="rcd-stage relative"
-          style={{ width: isA4 ? "70rem" : "50rem", zoom: scale / 100 }}
+          className={`rcd-stage relative ${scale === "fit" ? "rcd-fit" : ""}`}
+          style={
+            scale === "fit"
+              ? undefined
+              : { width: isA4 ? "70rem" : "50rem", zoom: scale / 100 }
+          }
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
@@ -263,8 +283,8 @@ function ReportCoverDemoBody() {
                 data-testid="dummy-body"
                 className={
                   isA4
-                    ? "fd-report-sheet h-[99rem] w-[70rem] bg-white"
-                    : "h-[60rem] bg-white"
+                    ? "fd-report-sheet aspect-[2382/3369] w-[70rem] bg-white"
+                    : "aspect-[2382/3369] w-full bg-white"
                 }
               >
                 더미 본문

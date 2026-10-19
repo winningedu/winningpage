@@ -180,4 +180,26 @@ describe("ReportCoverDemo", () => {
 
     expect(hasPageRule()).toBe(true);
   });
+
+  it("미리보기 배율 기본값은 화면 맞춤이고 무대에 맞춤 클래스가 걸린다", () => {
+    renderDemo();
+
+    expect(screen.getByLabelText("미리보기 배율")).toHaveValue("fit");
+    expect(
+      screen.getByRole("option", { name: "화면 맞춤" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("cover-preview")).toHaveClass("rcd-fit");
+  });
+
+  it("고정 배율을 고르면 맞춤 클래스가 빠지고 zoom 이 걸린다", () => {
+    renderDemo();
+
+    fireEvent.change(screen.getByLabelText("미리보기 배율"), {
+      target: { value: "75" },
+    });
+
+    const preview = screen.getByTestId("cover-preview");
+    expect(preview).not.toHaveClass("rcd-fit");
+    expect(preview.style.zoom).toBe("0.75");
+  });
 });
