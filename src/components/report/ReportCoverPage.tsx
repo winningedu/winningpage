@@ -63,6 +63,7 @@ const FLOW_PRINT_RULE = `
   @page :first { margin: 0; }
   @media print {
     .fd-report-cover-flow {
+      /* mm 는 rem 규칙의 의도된 예외다. 인쇄 페이지가 물리 크기 A4 이므로 */
       width: 210mm;
       height: 297mm;
       margin: 0;
