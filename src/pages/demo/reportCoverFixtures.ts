@@ -52,6 +52,11 @@ const SAMPLES: Record<ReportCoverKind, CoverSample> = {
     grade: "고2",
     date: "2026.10.16",
   },
+  inquiryRecord: {
+    title: `${site.brandName}\n심화탐구 기록`,
+    grade: "고2",
+    date: "2026.10.16",
+  },
   selfeval: {
     title: `${site.brandName}\n수학 자기평가서`,
     grade: "고2",
