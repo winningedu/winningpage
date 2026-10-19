@@ -23,6 +23,8 @@ export type ReportCoverPageVariant = "a4" | "flow";
 export type ReportCoverInfoItem = {
   label: string;
   value: string | null | undefined;
+  /** 값이 길어 한 칸(약 25cqw)에 기본 글자 크기로 안 들어갈 때 줄이고 줄바꿈을 막는다. */
+  compact?: boolean;
 };
 
 export type ReportCoverPageProps = {
@@ -196,7 +198,14 @@ export default function ReportCoverPage({
               <p className="text-[1.3cqw] leading-[2cqw] text-[#7a8aa0]">
                 {item.label}
               </p>
-              <p className="mt-[0.7cqw] text-[2.1cqw] font-bold leading-[3cqw] text-[#0b2545]">
+              <p
+                className={cn(
+                  "mt-[0.7cqw] font-bold leading-[3cqw] text-[#0b2545]",
+                  item.compact
+                    ? "text-[1.8cqw] whitespace-nowrap"
+                    : "text-[2.1cqw]",
+                )}
+              >
                 {item.value}
               </p>
             </div>

@@ -92,6 +92,27 @@ describe("ReportCoverPage", () => {
     expect(screen.getByText("2026. 10. 16")).toBeInTheDocument();
   });
 
+  it("compact 칸의 값은 작은 글자로 한 줄에 그린다", () => {
+    render(
+      <ReportCoverPage
+        kind="goalWeekly"
+        title="제목"
+        infoItems={[
+          { label: "학생명", value: "김민준" },
+          {
+            label: "기간",
+            value: "2026. 10. 19 ~ 2026. 10. 25",
+            compact: true,
+          },
+        ]}
+      />,
+    );
+
+    const period = screen.getByText("2026. 10. 19 ~ 2026. 10. 25");
+    expect(period).toHaveClass("text-[1.8cqw]", "whitespace-nowrap");
+    expect(screen.getByText("김민준")).not.toHaveClass("whitespace-nowrap");
+  });
+
   it("값이 공백뿐이거나 undefined 인 칸은 렌더하지 않는다", () => {
     render(
       <ReportCoverPage
@@ -210,6 +231,6 @@ describe("ReportCoverPage", () => {
 
     const root = screen.getByLabelText("심화탐구 리포트 표지");
     expect(within(root).getByRole("heading")).toBeInTheDocument();
-    expect(root.textContent).not.toMatch(new RegExp("[\\u2014\\u2013\\u00B7]"));
+    expect(root.textContent).not.toMatch(/[\u2014\u2013\u00B7]/);
   });
 });

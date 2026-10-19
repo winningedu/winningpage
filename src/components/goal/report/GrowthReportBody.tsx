@@ -248,7 +248,11 @@ export default function GrowthReportBody({
             infoItems={[
               { label: "학생명", value: studentName },
               { label: "학년", value: formatGradeLabel(studentGrade) },
-              { label: "기간", value: formatCoverPeriod(report.periodLabel) },
+              {
+                label: "기간",
+                value: formatCoverPeriod(report.periodLabel),
+                compact: true,
+              },
             ]}
           />
         ) : null}
