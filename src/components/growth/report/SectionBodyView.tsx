@@ -160,7 +160,7 @@ export default function SectionBodyView({ body }: { body: BodyView }) {
       );
     case "table":
       return (
-        <div>
+        <div className="print:[&_[data-overlayscrollbars-viewport]]:overflow-visible!">
           {body.unreachable && (
             <p
               role="note"
@@ -210,7 +210,7 @@ export default function SectionBodyView({ body }: { body: BodyView }) {
       return <Curve body={body} />;
     case "activityMap":
       return (
-        <ol className="flex gap-4 overflow-x-auto pb-2">
+        <ol className="flex gap-4 overflow-x-auto pb-2 print:flex-wrap print:overflow-visible">
           {body.semesters.map((s) => (
             <li
               key={s.label}

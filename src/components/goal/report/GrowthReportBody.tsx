@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import GoalTabs from "@/components/goal/GoalTabs";
+import { formatCoverPeriod } from "@/components/report/formatCoverDate";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
+import { site } from "@/config/site";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -124,6 +127,8 @@ type GrowthReportBodyProps = {
    * 학생 이름이 내려오지 않아 생략한다 — 값이 없으면 표지에서 그 줄이 통째로 빠진다
    * (폴백 문구를 지어내지 않는다). */
   studentName?: string | null;
+  /** 학생 프로필 학년 원본("고2" 등). 값이 없으면 표지에서 학년 칸이 빠진다. */
+  studentGrade?: string | null;
 };
 
 // 성장 리포트 본문(#33 주간 / #34 월간) — parent-view-spec.md §1-3/§4 원칙에 따라 셸과 완전히
@@ -154,16 +159,10 @@ export default function GrowthReportBody({
   onPeriodChange,
   report,
   studentName,
+  studentGrade,
 }: GrowthReportBodyProps) {
   const { overview, execution, outcome, strategy, mentorComment, admission } =
     report;
-
-  // 표지(QA 2차 시트 행37·51) 목표 대학/학과 — 이 리포트는 별도 "목표 대학" 필드를
-  // 내려주지 않는다. aggregate.ts computeAdmissionDelta가 이미
-  // `[대학, 학과].filter(Boolean).join(" ")`로 합쳐 admission.upper.university에
-  // 담아 두므로(목표관리 "이상 목표" 대학·학과) 그 값을 그대로 targetUniversity로
-  // 재사용한다 — 별도로 학과만 떼어낼 필드가 없어 targetMajor는 쓰지 않는다.
-  const coverTargetUniversity = admission.upper.university || undefined;
 
   // PDF 저장(QA 행319) — 수행평가 리포트 모달과 같은 react-to-print(iframe 격리) 패턴을
   // 재사용한다(`ReportModalShell.tsx`). 이 페이지는 모달이 아니라 전체 페이지라 딤·포털이
@@ -244,13 +243,17 @@ export default function GrowthReportBody({
             없으면 렌더 안 함 원칙). */}
         {report.heading ? (
           <ReportCoverPage
-            serviceLabel="목표관리"
-            title={report.heading}
-            {...(studentName ? { studentName } : {})}
-            {...(coverTargetUniversity
-              ? { targetUniversity: coverTargetUniversity }
-              : {})}
-            {...(report.periodLabel ? { dateLabel: report.periodLabel } : {})}
+            kind={period === "monthly" ? "goalMonthly" : "goalWeekly"}
+            title={`${site.brandName}\n${report.heading}`}
+            infoItems={[
+              { label: "학생명", value: studentName },
+              { label: "학년", value: formatGradeLabel(studentGrade) },
+              {
+                label: "기간",
+                value: formatCoverPeriod(report.periodLabel),
+                compact: true,
+              },
+            ]}
           />
         ) : null}
 

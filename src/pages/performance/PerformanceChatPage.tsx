@@ -2485,6 +2485,7 @@ export default function PerformanceChatPage() {
         report={designReport}
         topicTitle={confirmedTopic?.title ?? undefined}
         studentName={profileName}
+        studentGrade={createdSession?.gradeLabel ?? null}
         onClose={handleCloseDesignModal}
       />
       <EvaluationReportModal
@@ -2492,6 +2493,7 @@ export default function PerformanceChatPage() {
         report={evaluationReport}
         topicTitle={confirmedTopic?.title ?? undefined}
         studentName={profileName}
+        studentGrade={createdSession?.gradeLabel ?? null}
         onClose={handleCloseEvaluationModal}
       />
     </div>

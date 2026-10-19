@@ -1,201 +1,236 @@
-// 리포트 공용 표지 — QA 2차 시트 행37·51("최종 리포트에 표지를 붙여 달라", 고객사
-// "매우중요"). 세 리포트(학습진단·목표관리 성장·수행평가)가 공유하는 프레젠테이션
-// 컴포넌트다. 값이 없는 항목은 렌더하지 않는다(폴백 문구를 지어내지 않는다).
+// 리포트 공용 표지 - QA3 시트 행55, 56. 문구는 coverPresets 가 정하고, 이 컴포넌트는
+// 프리셋과 정보 줄 값을 파일83 배치로 그린다. 값이 없는 칸은 렌더하지 않는다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import ReportCoverPage from "./ReportCoverPage";
 
-// flow 표지가 인쇄에서 한 페이지를 넘지 않도록 상한을 두는 인쇄 규칙 검사(QA t11
-// 커버픽스 — flow 표지가 react-to-print 실측에서 두 페이지를 차지하던 버그).
-function getFlowPrintStyle(container: HTMLElement) {
-  const styleTag = container.querySelector("style");
-  return styleTag?.textContent ?? "";
+function getStyleText(container: HTMLElement) {
+  return container.querySelector("style")?.textContent ?? "";
 }
 
 describe("ReportCoverPage", () => {
-  it("title을 렌더한다", () => {
+  it("프리셋 서비스 라벨로 aria-label 을 만든다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
+
+    expect(screen.getByLabelText("학습진단 리포트 표지")).toBeInTheDocument();
+  });
+
+  it("title 을 렌더한다", () => {
     render(
       <ReportCoverPage
-        serviceLabel="학습진단"
-        title="위닝에듀 학습진단 리포트"
+        kind="diagnosis"
+        title={"위닝에듀\n학습진단 리포트"}
+        infoItems={[]}
       />,
     );
 
-    expect(screen.getByText("위닝에듀 학습진단 리포트")).toBeInTheDocument();
+    expect(screen.getByRole("heading").textContent).toBe(
+      "위닝에듀\n학습진단 리포트",
+    );
   });
 
-  it("serviceLabel을 렌더한다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+  it("프리셋의 영문 라벨, 부제 2줄, 머리글을 렌더한다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
 
-    expect(screen.getByText("학습진단")).toBeInTheDocument();
+    expect(screen.getByText("LEARNING DIAGNOSIS REPORT")).toBeInTheDocument();
+    expect(
+      screen.getByText("학습 성향부터 영역별 성취도, 맞춤 학습 처방까지"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("데이터로 읽는 우리 자녀의 현재와 다음 단계."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("DIAGNOSIS AREAS")).toBeInTheDocument();
   });
 
-  it("studentName이 없으면 이름 줄을 렌더하지 않는다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+  it("프리셋 항목 수만큼 번호 목록을 렌더한다", () => {
+    const { rerender } = render(
+      <ReportCoverPage kind="goalWeekly" title="제목" infoItems={[]} />,
+    );
+    expect(screen.getAllByTestId("cover-area")).toHaveLength(3);
 
-    expect(screen.queryByText(/학생$/)).not.toBeInTheDocument();
+    rerender(
+      <ReportCoverPage kind="goalMonthly" title="제목" infoItems={[]} />,
+    );
+    const areas = screen.getAllByTestId("cover-area");
+    expect(areas).toHaveLength(4);
+    expect(areas[3]).toHaveTextContent("04");
+    expect(areas[3]).toHaveTextContent("다음 달 전략");
   });
 
-  it("studentName이 있으면 'OOO 학생'을 렌더한다", () => {
+  it("계단 6단을 01부터 06까지 순서대로 렌더한다", () => {
+    render(<ReportCoverPage kind="selfeval" title="제목" infoItems={[]} />);
+
+    const steps = screen.getAllByTestId("cover-step");
+    expect(steps.map((step) => step.textContent)).toEqual([
+      "01학습진단",
+      "02목표관리",
+      "03성장설계",
+      "04수행평가",
+      "05심화탐구",
+      "06자기평가",
+    ]);
+  });
+
+  it("정보 줄은 값이 있는 칸만 라벨과 값으로 렌더한다", () => {
     render(
       <ReportCoverPage
-        serviceLabel="학습진단"
+        kind="diagnosis"
         title="제목"
-        studentName="김민준"
+        infoItems={[
+          { label: "학생명", value: "김민준" },
+          { label: "학년", value: null },
+          { label: "진단일", value: "2026. 10. 16" },
+        ]}
       />,
     );
 
-    expect(screen.getByText("김민준 학생")).toBeInTheDocument();
+    expect(screen.getByText("학생명")).toBeInTheDocument();
+    expect(screen.getByText("김민준")).toBeInTheDocument();
+    expect(screen.queryByText("학년")).not.toBeInTheDocument();
+    expect(screen.getByText("진단일")).toBeInTheDocument();
+    expect(screen.getByText("2026. 10. 16")).toBeInTheDocument();
   });
 
-  it("targetMajor·targetUniversity가 모두 없으면 목표 줄을 렌더하지 않는다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
-
-    expect(screen.queryByText(/목표/)).not.toBeInTheDocument();
-  });
-
-  it("targetUniversity·targetMajor를 모두 주면 한 줄로 합쳐 렌더한다", () => {
+  it("compact 칸의 값은 작은 글자로 한 줄에 그린다", () => {
     render(
       <ReportCoverPage
-        serviceLabel="학습진단"
+        kind="goalWeekly"
         title="제목"
-        targetUniversity="서울대학교"
-        targetMajor="컴퓨터공학과"
+        infoItems={[
+          { label: "학생명", value: "김민준" },
+          {
+            label: "기간",
+            value: "2026. 10. 19 ~ 2026. 10. 25",
+            compact: true,
+          },
+        ]}
       />,
     );
+
+    const period = screen.getByText("2026. 10. 19 ~ 2026. 10. 25");
+    expect(period).toHaveClass("text-[1.8cqw]", "whitespace-nowrap");
+    expect(screen.getByText("김민준")).not.toHaveClass("whitespace-nowrap");
+  });
+
+  it("값이 공백뿐이거나 undefined 인 칸은 렌더하지 않는다", () => {
+    render(
+      <ReportCoverPage
+        kind="diagnosis"
+        title="제목"
+        infoItems={[
+          { label: "학생명", value: "  " },
+          { label: "학년", value: undefined },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText("학생명")).not.toBeInTheDocument();
+    expect(screen.queryByText("학년")).not.toBeInTheDocument();
+  });
+
+  it("정보 값이 전부 비면 정보 줄 자체를 렌더하지 않는다", () => {
+    render(
+      <ReportCoverPage
+        kind="inquiryDesign"
+        title="제목"
+        infoItems={[{ label: "학생명", value: null }]}
+      />,
+    );
+
+    expect(screen.queryByTestId("cover-info")).not.toBeInTheDocument();
+  });
+
+  it("고지 문구와 학생 전용 표기를 렌더한다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
 
     expect(
-      screen.getByText("목표 서울대학교 컴퓨터공학과"),
+      screen.getByText(/위닝에듀 학습진단 결과에 대하여 작성한 내용입니다/),
     ).toBeInTheDocument();
+    expect(screen.getByText("위닝에듀 학생 전용")).toBeInTheDocument();
   });
 
-  it("targetMajor만 있으면 그 값만으로 목표 줄을 렌더한다", () => {
-    render(
-      <ReportCoverPage
-        serviceLabel="학습진단"
-        title="제목"
-        targetMajor="컴퓨터공학과"
-      />,
+  it("사이트 로고를 site.brandName 을 alt 로 렌더한다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
+
+    expect(screen.getByAltText("위닝에듀")).toHaveAttribute(
+      "src",
+      "/images/winning-logo-horizontal.svg",
     );
-
-    expect(screen.getByText("목표 컴퓨터공학과")).toBeInTheDocument();
   });
 
-  it("dateLabel이 없으면 렌더하지 않는다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+  it("표지 루트는 컨테이너 쿼리 단위를 쓰도록 inline-size 컨테이너다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
 
-    expect(screen.queryByText("2026.09.10")).not.toBeInTheDocument();
-  });
-
-  it("dateLabel이 있으면 렌더한다", () => {
-    render(
-      <ReportCoverPage
-        serviceLabel="학습진단"
-        title="제목"
-        dateLabel="2026.09.10"
-      />,
+    expect(screen.getByLabelText("학습진단 리포트 표지").className).toContain(
+      "[container-type:inline-size]",
     );
-
-    expect(screen.getByText("2026.09.10")).toBeInTheDocument();
   });
 
-  it("사이트 로고를 site.brandName을 alt로 렌더한다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
-
-    const logo = screen.getByAltText("위닝에듀");
-    expect(logo).toHaveAttribute("src", "/images/winning-logo-horizontal.svg");
-  });
-
-  it("variant='a4'면 fd-report-sheet 클래스를 붙인다(인쇄 페이지 나눔 계약)", () => {
-    render(
-      <ReportCoverPage serviceLabel="학습진단" title="제목" variant="a4" />,
+  it("variant='a4' 는 fd-report-sheet 클래스를 붙이고 인쇄 규칙으로 시트 패딩을 덮는다", () => {
+    const { container } = render(
+      <ReportCoverPage
+        kind="diagnosis"
+        title="제목"
+        infoItems={[]}
+        variant="a4"
+      />,
     );
 
     expect(screen.getByLabelText("학습진단 리포트 표지").className).toContain(
       "fd-report-sheet",
     );
+    expect(getStyleText(container)).toContain("padding: 0 !important");
   });
 
-  it("기본(variant 생략)이면 fd-report-sheet 클래스를 붙이지 않는다", () => {
-    render(<ReportCoverPage serviceLabel="학습진단" title="제목" />);
+  it("기본(flow)은 fd-report-sheet 를 붙이지 않고 화면에서 숨긴다", () => {
+    render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
 
-    expect(
-      screen.getByLabelText("학습진단 리포트 표지").className,
-    ).not.toContain("fd-report-sheet");
+    const root = screen.getByLabelText("학습진단 리포트 표지");
+    expect(root.className).not.toContain("fd-report-sheet");
+    expect(root.className).toContain("hidden");
+    expect(root.className).toContain("print:block");
   });
 
-  it("flow 변형은 인쇄에서 높이를 고정하고 넘치는 내용을 자른다", () => {
-    // 267mm(= A4 - @page 15mm*2 여백) 그대로 쓰면 Chromium 인쇄 엔진이 해당 박스를
-    // 두 페이지로 쪼개는 실제 버그가 있다(QA t11 실측 — react-to-print PDF에서
-    // height:250mm 이상 + break-after:page 조합마다 재현, 249mm 이하는 재현 안 됨).
-    // 여유를 두고 230mm로 고정한다.
+  it("flow 는 첫 페이지 여백을 없애고 A4 전체 한 장으로 끊는다", () => {
     const { container } = render(
-      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+      <ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />,
     );
 
-    const printStyle = getFlowPrintStyle(container);
-    expect(printStyle).toContain("height: 230mm");
-    expect(printStyle).toContain("max-height: 230mm");
-    expect(printStyle).toContain("overflow: hidden");
-    expect(printStyle).toContain("break-after: page");
+    const style = getStyleText(container);
+    expect(style).toMatch(/@page :first\s*\{\s*margin:\s*0/);
+    expect(style).toContain("width: 210mm");
+    expect(style).toContain("height: 297mm");
+    expect(style).toContain("break-after: page");
+    expect(style).not.toContain("230mm");
   });
 
-  it("일러스트 SVG는 영역 안에 들어오도록 preserveAspectRatio를 meet으로 맞춘다", () => {
-    const { container } = render(
-      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
-    );
-
-    const svg = container.querySelector("svg");
-    expect(svg).toHaveAttribute("preserveAspectRatio", "xMaxYMax meet");
-  });
-
-  it("표지 푸터는 report-print.css의 전역 footer 태그 인쇄 숨김 규칙에 걸리지 않는다", () => {
-    // 2026-09-23 QA 행72로 SiteLayout 헤더·푸터 인쇄 숨김 규칙이 `#root > header,
-    // #root > footer`(DiagnosisReportView.tsx)로 좁혀져 더 이상 문서 전체의 <footer>를
-    // 잡지 않는다. 이 테스트는 회귀 방지용으로 남긴다 — <footer> 대신 <div>를 계속 쓴다.
-    const { container } = render(
-      <ReportCoverPage
-        serviceLabel="학습진단"
-        title="제목"
-        studentName="김민준"
-      />,
-    );
-
-    expect(container.querySelector("footer")).not.toBeInTheDocument();
-    expect(
-      screen.getByText("김민준 학생").closest(".fd-report-cover-footer"),
-    ).not.toBeNull();
-  });
-
-  it("좁은 화면에서 푸터 텍스트가 한 글자씩 세로로 안 깨지게 nowrap을 건다", () => {
-    // 모바일 폭(320px급)에서 로고 img가 폭을 차지해 텍스트 컬럼이 shrink되며 글자
-    // 단위로 줄바꿈되던 버그(QA t11 실측, m-growth.png) — 학생명·기간 줄에 줄바꿈
-    // 금지를 걸어 한 줄을 유지시킨다.
+  it("className 을 루트에 합친다", () => {
     render(
       <ReportCoverPage
-        serviceLabel="학습진단"
+        kind="diagnosis"
         title="제목"
-        studentName="부산학생1"
-        dateLabel="2026-09-21 ~ 2026-09-27"
+        infoItems={[]}
+        className="custom-cover"
       />,
     );
 
-    expect(screen.getByText("부산학생1 학생").className).toContain(
-      "whitespace-nowrap",
-    );
-    expect(screen.getByText("2026-09-21 ~ 2026-09-27").className).toContain(
-      "whitespace-nowrap",
+    expect(screen.getByLabelText("학습진단 리포트 표지").className).toContain(
+      "custom-cover",
     );
   });
 
-  it("좁은 화면에서는 푸터를 세로로 쌓고, sm 이상에서 가로 정렬로 돌아간다", () => {
-    const { container } = render(
-      <ReportCoverPage serviceLabel="학습진단" title="제목" />,
+  it("렌더 텍스트에 em dash, en dash, 가운뎃점이 없다", () => {
+    render(
+      <ReportCoverPage
+        kind="inquiryFinal"
+        title="제목"
+        infoItems={[{ label: "학생명", value: "김민준" }]}
+      />,
     );
 
-    const footer = container.querySelector(".fd-report-cover-footer");
-    expect(footer?.className).toContain("flex-col");
-    expect(footer?.className).toContain("sm:flex-row");
+    const root = screen.getByLabelText("심화탐구 리포트 표지");
+    expect(within(root).getByRole("heading")).toBeInTheDocument();
+    expect(root.textContent).not.toMatch(/[\u2014\u2013\u00B7]/);
   });
 });

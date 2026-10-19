@@ -3,8 +3,9 @@
 // 형태로 합쳐진 문자열, aggregate.ts computeAdmissionDelta 참고)를 목표로 쓰고, 학생
 // 이름은 호출부(ChildReport.tsx 등)가 studentName prop으로 내려준다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { site } from "@/config/site";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
 
 /** heading을 아예 생략한(=undefined 아님, 키 자체가 없는) 리포트. exactOptionalPropertyTypes
@@ -19,7 +20,7 @@ function makeReportWithoutHeading(
 function makeReport(overrides: Partial<GrowthReport> = {}): GrowthReport {
   return {
     heading: "주간 성장 리포트",
-    periodLabel: "2026.09.15 ~ 09.21",
+    periodLabel: "2026-09-15 ~ 2026-09-21",
     hero: { narrative: "이번 주도 수고했어요.", kpis: [] },
     overview: {
       achievement: { rows: [] },
@@ -65,10 +66,10 @@ describe("GrowthReportBody — 표지", () => {
     );
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("주간 성장 리포트");
+    expect(cover).toHaveTextContent(`${site.brandName} 주간 성장 리포트`);
   });
 
-  it("studentName prop과 admission.upper.university를 표지에 반영한다", () => {
+  it("studentName prop을 표지에 반영하고 목표 칸은 두지 않는다", () => {
     render(
       <GrowthReportBody
         period="weekly"
@@ -79,8 +80,80 @@ describe("GrowthReportBody — 표지", () => {
     );
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("김민준 학생");
-    expect(cover).toHaveTextContent("서울대학교 컴퓨터공학과");
+    const info = within(cover).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명김민준");
+    expect(info).not.toHaveTextContent("목표");
+    expect(info).not.toHaveTextContent("서울대학교");
+  });
+
+  it("studentGrade prop을 표지용 학년 표기로 바꿔 학생명, 학년, 기간 3칸 순으로 표지에 반영한다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+        studentGrade="고2"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+    const text = info.textContent ?? "";
+    expect(text.indexOf("학생명")).toBeLessThan(text.indexOf("학년"));
+    expect(text.indexOf("학년")).toBeLessThan(text.indexOf("기간"));
+    expect(info.children).toHaveLength(3);
+    expect(info).not.toHaveTextContent("목표");
+  });
+
+  it("표지 기간은 시안 날짜 형식으로 쓰고 본문 기간 표기는 그대로 둔다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+        studentGrade="고2"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("기간2026. 09. 15 ~ 2026. 09. 21");
+    expect(screen.getByText("2026-09-15 ~ 2026-09-21")).toBeInTheDocument();
+  });
+
+  it("studentGrade가 없으면 학년 칸을 렌더하지 않는다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+        studentName="김민준"
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).not.toHaveTextContent("학년");
+  });
+
+  it("월간이면 월간 프리셋(다음 달 전략 항목)을 쓴다", () => {
+    render(
+      <GrowthReportBody
+        period="monthly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+      />,
+    );
+
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(within(cover).getAllByTestId("cover-area")).toHaveLength(4);
+    expect(cover).toHaveTextContent("다음 달 전략");
   });
 
   // QA — heading이 없을 때 빈 문자열 폴백("")을 표지 title로 넘기면 빈 <h1>이

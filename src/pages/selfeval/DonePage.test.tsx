@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { useRef } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -15,15 +16,23 @@ import {
   makeSections,
 } from "./testFixtures";
 
-const { stepMock, shellMock, navigateMock, detailMock, toastMock } = vi.hoisted(
-  () => ({
-    stepMock: vi.fn(),
-    shellMock: vi.fn(),
-    navigateMock: vi.fn(),
-    detailMock: vi.fn(),
-    toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
-  }),
-);
+const {
+  stepMock,
+  shellMock,
+  navigateMock,
+  detailMock,
+  toastMock,
+  pdfSaveMock,
+  pdfRoots,
+} = vi.hoisted(() => ({
+  stepMock: vi.fn(),
+  shellMock: vi.fn(),
+  navigateMock: vi.fn(),
+  detailMock: vi.fn(),
+  toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+  pdfSaveMock: vi.fn(),
+  pdfRoots: [] as (HTMLElement | null)[],
+}));
 
 vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
   useSelfevalShell: shellMock,
@@ -37,6 +46,19 @@ vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
 }));
 vi.mock("@/context/ToastContext", () => ({ useToast: () => toastMock }));
+vi.mock("@/lib/report/useReportPdfSave", () => ({
+  useReportPdfSave: () => {
+    const contentRef = useRef<HTMLDivElement>(null);
+    return {
+      contentRef,
+      isPreparing: false,
+      save: () => {
+        pdfRoots.push(contentRef.current);
+        pdfSaveMock();
+      },
+    };
+  },
+}));
 vi.mock("react-router", async (orig) => ({
   ...(await orig<typeof import("react-router")>()),
   useNavigate: () => navigateMock,
@@ -130,7 +152,8 @@ function completed(session: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  shellMock.mockReturnValue({ refetchEntry: vi.fn() });
+  pdfRoots.length = 0;
+  shellMock.mockReturnValue({ refetchEntry: vi.fn(), studentName: "김하나" });
 });
 
 describe("DonePage", () => {
@@ -262,5 +285,35 @@ describe("DonePage", () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "검증 화면으로" }));
     expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/verify");
+  });
+
+  test("저장 완료 화면에는 PDF 저장 버튼이 있고 미저장 세션에는 없다", async () => {
+    detailMock.mockResolvedValue(completed());
+    const view = renderPage();
+    expect(
+      await screen.findByRole("button", { name: "PDF 저장" }),
+    ).toBeTruthy();
+    view.unmount();
+    detailMock.mockResolvedValue(makeDetail({ session: { currentStep: 5 } }));
+    renderPage();
+    await screen.findByText("아직 최종본으로 저장하지 않았어요");
+    expect(screen.queryByRole("button", { name: "PDF 저장" })).toBeNull();
+  });
+
+  test("PDF 저장은 표지로 시작하고 최종 본문만 담은 요소를 인쇄한다", async () => {
+    detailMock.mockResolvedValue(completed({ gradeLabel: "고2" }));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "PDF 저장" }));
+    expect(pdfSaveMock).toHaveBeenCalledTimes(1);
+    const root = pdfRoots[0] as HTMLElement;
+    const first = root.firstElementChild as HTMLElement;
+    expect(first.getAttribute("aria-label")).toMatch(/리포트 표지/);
+    expect(first.textContent).toContain("수학 자기평가서");
+    expect(first.textContent).toContain("김하나");
+    expect(first.textContent).toContain("고등학교 2학년");
+    expect(first.textContent).toContain("2026. 10. 02");
+    expect(root.textContent).toContain("네 번째 문장이에요.");
+    expect(within(root).queryByText("검증 요약")).toBeNull();
+    expect(root.textContent).not.toContain("제출 가능");
   });
 });

@@ -24,6 +24,7 @@ vi.mock("@/context/SessionContext", () => ({
 }));
 vi.mock("@/components/inquiry/InquiryShellContext", () => ({
   useInquiryScreenStep: stepMock,
+  useInquiryShell: () => ({ studentName: "김학생" }),
 }));
 vi.mock("@/components/goal/GoalPageHeader", () => ({
   default: ({
@@ -70,6 +71,7 @@ function detail(over: Record<string, unknown> = {}) {
         status: "completed",
         currentStep: 6,
         completedAt: "2026-09-30T15:30:00.000Z",
+        gradeLabel: "고2",
       },
       topic,
       design: { overview: {} },
@@ -315,10 +317,46 @@ describe("ReportDetailPage", () => {
     const root = buildSpy.mock.calls[0]?.[0].root;
     expect(root).toContainElement(screen.getByTestId("design-body"));
     expect(root).toContainElement(screen.getByTestId("evaluation-body"));
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(root).toContainElement(cover);
+    expect(root?.firstElementChild).toBe(cover);
     expect(downloadSpy.mock.calls[0]?.[0]).toMatchObject({
       html: "<html>report</html>",
       filename: "심화탐구_보고서_효소 활성 탐구",
       accessToken: "test-token",
     });
+  });
+
+  it("확정 세션 표지는 최종 리포트 제목과 학생명, 학년, 확정일을 담는다", async () => {
+    fetchDetailMock.mockResolvedValue(detail());
+    renderPage();
+
+    const cover = await screen.findByLabelText(/리포트 표지/);
+    expect(cover).toHaveTextContent("최종 심화탐구 리포트");
+    expect(cover).toHaveTextContent("김학생");
+    expect(cover).toHaveTextContent("고등학교 2학년");
+    expect(cover).toHaveTextContent("확정일");
+    expect(cover).toHaveTextContent("2026. 10. 01");
+  });
+
+  it("확정 전 세션 표지는 심화탐구 기록 제목이고 확정일이 없다", async () => {
+    fetchDetailMock.mockResolvedValue(
+      detail({
+        session: {
+          id: "s1",
+          status: "in_progress",
+          currentStep: 4,
+          completedAt: null,
+          gradeLabel: "고2",
+        },
+        final: null,
+      }),
+    );
+    renderPage();
+
+    const cover = await screen.findByLabelText(/리포트 표지/);
+    expect(cover).toHaveTextContent("심화탐구 기록");
+    expect(cover).not.toHaveTextContent("최종 심화탐구 리포트");
+    expect(cover).not.toHaveTextContent("확정일");
   });
 });

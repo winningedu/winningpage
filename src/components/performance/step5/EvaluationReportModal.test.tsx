@@ -359,7 +359,28 @@ describe("표지(ReportModalShell 공용 컴포넌트)로의 studentName 전달"
       />,
     );
 
-    const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("김민준 학생");
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학생명");
+    expect(info).toHaveTextContent("김민준");
+  });
+
+  test("studentGrade와 report.updatedAt을 표지 학년, 저장일에 반영한다", () => {
+    render(
+      <EvaluationReportModal
+        open
+        report={{ ...buildReport(), updatedAt: "2026-10-16T03:00:00Z" }}
+        studentName="김민준"
+        studentGrade="고1"
+        onClose={noop}
+      />,
+    );
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 1학년");
+    expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 });

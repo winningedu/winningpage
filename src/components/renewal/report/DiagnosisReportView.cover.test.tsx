@@ -2,8 +2,8 @@
 // 화면·인쇄 모두 A4 시트 스택의 첫 자식이어야 한다("표지는 화면·인쇄 모두 첫 시트로"
 // 결정).
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import DiagnosisReportView, {
@@ -11,6 +11,10 @@ import DiagnosisReportView, {
 } from "./DiagnosisReportView";
 
 describe("DiagnosisReportView — 표지", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("A4 시트 스택의 첫 자식으로 표지를 렌더한다", () => {
     const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
     const { container } = render(<DiagnosisReportView data={data} />);
@@ -24,26 +28,83 @@ describe("DiagnosisReportView — 표지", () => {
     );
   });
 
-  it("표지에 studentName·목표(전공)·진단 완료일을 반영한다", () => {
+  it("표지 정보 줄에 학생명과 진단일을 반영하고 희망 학과는 넣지 않는다", () => {
     const data = buildReportFromInput(
-      makeInput({ goal: { targetMajor: "컴퓨터공학과" } }),
+      makeInput({
+        goal: { targetMajor: "컴퓨터공학과" },
+        meta: {
+          schemaVersion: "test",
+          diagnosedAt: "2026-10-15T16:00:00.000Z",
+        },
+      }),
     ) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} studentName="김민준" />);
 
     const cover = screen.getByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("김민준 학생");
-    expect(cover).toHaveTextContent("컴퓨터공학과");
+    const info = within(cover).getByTestId("cover-info");
+    expect(info).toHaveTextContent("학생명김민준");
+    expect(info).toHaveTextContent("진단일2026. 10. 16");
+    expect(info).not.toHaveTextContent("컴퓨터공학과");
   });
 
-  it("설문에 희망 학과가 없으면 표지에 '미입력'을 찍지 않고 목표 줄 자체를 렌더하지 않는다", () => {
-    // makeInput() 기본값은 goal.targetMajor: null — StudentInfoBlock의 desiredMajor는
-    // orMissing()이 "미입력"으로 채우지만, 표지는 그 표시용 폴백을 그대로 받으면 안 된다
-    // (no-fallback-constants 원칙).
+  it("저장된 예전 형식(YYYY.MM.DD) 진단일은 Date 파싱 없이 표지 날짜로 바꾼다 (Safari 는 이 형식을 Invalid Date 로 읽는다)", () => {
+    const RealDate = Date;
+    class SafariDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        const [value] = args;
+        super(
+          typeof value === "string" && /^\d{4}\.\d{2}\.\d{2}$/.test(value)
+            ? Number.NaN
+            : (value as never),
+          ...(args.slice(1) as []),
+        );
+      }
+    }
+    vi.stubGlobal("Date", SafariDate);
+    const built = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = {
+      ...built,
+      student: { ...built.student, diagnosedAtRaw: "2026.10.08" },
+    } as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("진단일2026. 10. 08");
+  });
+
+  it("학생 이름이 없으면 표지에 '미입력'을 찍지 않고 학생명 칸을 렌더하지 않는다", () => {
+    // 표지는 표시용 폴백("미입력")을 그대로 받으면 안 된다(no-fallback-constants 원칙).
     const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 
     const cover = screen.getByLabelText(/리포트 표지/);
     expect(cover).not.toHaveTextContent("미입력");
-    expect(cover.textContent).not.toMatch(/목표/);
+    expect(cover).not.toHaveTextContent("학생명");
+  });
+
+  it("표지 정보 줄에 학년을 표기용 문구로 반영한다", () => {
+    const data = buildReportFromInput(
+      makeInput({
+        profile: { name: null, gradeLevel: "H2", schoolType: null },
+      }),
+    ) as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).toHaveTextContent("학년고등학교 2학년");
+  });
+
+  it("학년이 없으면 표지에 학년 칸을 렌더하지 않는다", () => {
+    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    render(<DiagnosisReportView data={data} studentName="김민준" />);
+
+    const info = within(screen.getByLabelText(/리포트 표지/)).getByTestId(
+      "cover-info",
+    );
+    expect(info).not.toHaveTextContent("학년");
   });
 });
