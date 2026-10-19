@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import type { SessionListItem } from "@/lib/selfeval/types";
 import {
   archivedSessions,
-  archiveOptions,
   archiveName,
+  archiveOptions,
   archiveTitle,
   filterSessions,
   rowAction,

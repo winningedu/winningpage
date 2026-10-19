@@ -2,8 +2,8 @@ import type { ComponentProps } from "react";
 import { useRef, useState } from "react";
 import "@/styles/report-print.css";
 import "@/styles/report-responsive.css";
-import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
+import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {

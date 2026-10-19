@@ -50,7 +50,9 @@ describe("DiagnosisReportView — 표지", () => {
 
   it("표지 정보 줄에 학년을 표기용 문구로 반영한다", () => {
     const data = buildReportFromInput(
-      makeInput({ profile: { name: null, gradeLevel: "H2", schoolType: null } }),
+      makeInput({
+        profile: { name: null, gradeLevel: "H2", schoolType: null },
+      }),
     ) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 

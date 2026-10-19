@@ -1,9 +1,9 @@
 import { useLocation, useNavigate, useParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
+import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import PdfSaveButton from "@/components/report/PdfSaveButton";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
-import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import { formatDotDate } from "@/components/selfeval/activities/activitiesLogic";
 import {
   archiveName,
