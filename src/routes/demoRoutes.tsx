@@ -40,6 +40,22 @@ const demoRoutes: RouteObject[] = [
     HydrateFallback: DemoChunkLoadingFallback,
     ErrorBoundary: AdminAccessBoundary,
   },
+  // 표지 실측 데모는 개발 전용이다. import.meta.env.DEV 분기 안에서만 lazy import 해
+  // 프로덕션 번들에서 청크째 빠진다. 고객사 목업이 아니라 admin 가드를 두지 않는다.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: "/demo/report-cover",
+          lazy: async () => {
+            const { default: ReportCoverDemo } = await import(
+              "@/pages/demo/ReportCoverDemo"
+            );
+            return { Component: ReportCoverDemo };
+          },
+          HydrateFallback: DemoChunkLoadingFallback,
+        } satisfies RouteObject,
+      ]
+    : []),
 ];
 
 export default demoRoutes;

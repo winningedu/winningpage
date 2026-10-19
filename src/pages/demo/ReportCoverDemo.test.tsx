@@ -10,6 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/context/ToastContext";
 import { getReportAccessToken } from "@/lib/report/downloadReportPdf";
+import demoRoutes from "@/routes/demoRoutes";
 import ReportCoverDemo from "./ReportCoverDemo";
 
 vi.mock("@/lib/report/downloadReportPdf", () => ({
@@ -156,6 +157,12 @@ describe("ReportCoverDemo", () => {
         "src",
         "blob:dropped",
       ),
+    );
+  });
+
+  it("DEV 에서는 /demo/report-cover 라우트가 목록에 있다", () => {
+    expect(demoRoutes.map((route) => route.path)).toContain(
+      "/demo/report-cover",
     );
   });
 });
