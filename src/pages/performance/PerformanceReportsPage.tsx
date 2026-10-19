@@ -292,7 +292,7 @@ export default function PerformanceReportsPage() {
   const { sessionId: routeSessionId } = useParams();
   const { session, userId } = useSession();
   const accessToken = session?.access_token || null;
-  // 표지 학생명 - 셸(PerformanceAppLayout)이 이미 구독하는 bootstrap 캐시를 재구독한다.
+  // 표지 학생명: 셸(PerformanceAppLayout)이 이미 구독하는 bootstrap 캐시를 재구독한다.
   const { data: bootstrap } = useQuery(
     performanceBootstrapQueryOptions(userId, accessToken),
   );
