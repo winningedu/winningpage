@@ -944,17 +944,14 @@ function gradeRawOf(input: DiagnosisInputLike): string | null {
  * 저장된 리포트 payload 에 student.gradeRaw 가 없으면(도입 전 저장분) 행의 snapshot 에서
  * 같은 규칙으로 채운다. 학년을 되찾지 못하면 payload 를 건드리지 않는다.
  */
-export function withStoredGradeRaw(
-  payload: unknown,
-  snapshot: unknown,
-): unknown {
+export function withStoredGradeRaw<T>(payload: T, snapshot: unknown): T {
   const data = payload as { student?: { gradeRaw?: string | null } } | null;
   if (!data?.student || data.student.gradeRaw != null) return payload;
   const gradeRaw = gradeRawOf(
     snapshot && typeof snapshot === "object" ? snapshot : {},
   );
   if (gradeRaw == null) return payload;
-  return { ...data, student: { ...data.student, gradeRaw } };
+  return { ...data, student: { ...data.student, gradeRaw } } as T;
 }
 
 /**

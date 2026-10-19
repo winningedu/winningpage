@@ -111,7 +111,7 @@ export default function FreeDiagnosisReport() {
       setDbReport(
         row
           ? {
-              payload: withStoredGradeRaw(row.payload, row.snapshot) as Json,
+              payload: withStoredGradeRaw(row.payload, row.snapshot),
             }
           : null,
       );
