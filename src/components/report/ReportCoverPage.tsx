@@ -1,199 +1,234 @@
-// 리포트 공용 표지 — QA 2차 시트 행37·51("최종 리포트에 표지를 붙여 달라", 고객사
-// "매우중요"). 학습진단(A4 시트)·목표관리 성장 리포트(react-to-print 문서 흐름)·
-// 수행평가 리포트(react-to-print 모달, 인쇄 전용)가 이 컴포넌트 하나를 공유한다.
+// 리포트 공용 표지 - QA3 시트 행55, 56 (고객사 파일83 디자인). 리포트 7종이 이 컴포넌트
+// 하나를 공유하고, 문구는 coverPresets 가, 정보 줄 값은 호출부가 정한다.
 //
-// 고객사 참고 샘플(경쟁사 리로스쿨)은 구성만 참조하고 그대로 베끼지 않는다(지시 원문
-// "샘플은 참조만, 동일하게 만들면 안 된다") — 3D 오브젝트 일러스트 대신 브랜드 색
-// 추상 기하 도형(원·회전 사각형·곡선)을 쓴다. 외부 이미지 파일을 추가하지 않고 인라인
-// SVG로만 그린다(요구사항 — 새 에셋 없음).
+// 크기는 전부 컨테이너 쿼리 비율 단위(cqw)다. 표지 루트가 inline-size 컨테이너이고
+// 파일83 폭 2382px = 100cqw 로 환산했다. 어떤 폭에서도 같은 비율로 그려진다.
+// 색 상수는 표지 전용이라 이 파일 안에만 둔다.
 //
-// 값이 없는 항목은 렌더하지 않는다(폴백 상수 금지 — no-fallback-constants) — 학생 이름·
-// 목표대학·목표학과·날짜는 전부 선택 prop이고, 없으면 그 줄 자체가 빠진다.
+// 값이 없는 정보 칸은 렌더하지 않는다(폴백 상수 금지). 전부 비면 정보 줄 자체가 빠진다.
 //
-// variant="a4" — 학습진단 리포트 전용. `fd-report-sheet` 치수 클래스를 그대로 재사용해
-// 시트 1·2와 같은 크기로 렌더하고, `report-print.css`의 `.fd-report-sheet + .fd-report-sheet`
-// 인접 형제 규칙이 표지→1페이지 사이에도 그대로 걸려 인쇄 시 페이지가 나뉜다(별도 훅 불필요).
-// 이 표지는 페이지 번호를 갖지 않는다 — "N페이지 / 총페이지" 표기에서 제외한다(호출부
-// DiagnosisReportView.tsx 주석 참고).
+// variant="a4" - 학습진단 전용. `fd-report-sheet` 클래스로 시트 스택에 놓이고(화면에도
+// 보인다), `.fd-report-sheet + .fd-report-sheet` 규칙이 표지 다음 시트의 개행을 맡는다.
+// report-print.css 의 `.fd-report-sheet` 인쇄 패딩이 비율 상자를 깨므로 아래 인쇄 규칙으로 덮는다.
 //
-// variant="flow"(기본) — 목표관리 성장 리포트·수행평가 리포트 전용. A4 고정 치수 계약이
-// 없는 두 화면(react-to-print 문서 흐름 인쇄)에 맞춰 화면에서는 카드형 높이로, 인쇄에서만
-// 한 페이지를 채우고 `break-after: page`로 다음 내용과 분리한다.
-
+// variant="flow"(기본) - react-to-print 문서 흐름 리포트 전용. 화면에서는 숨기고 인쇄에서만
+// 한 페이지로 나온다. 고정 높이 250mm 이상이면 Chromium 이 박스를 두 페이지로 쪼개는
+// 버그(QA t11 실측)가 있어, fit 은 230mm 높이 안에 A4 비율로 맞춘다.
 import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
+import { REPORT_COVER_PRESETS, type ReportCoverKind } from "./coverPresets";
 
 export type ReportCoverPageVariant = "a4" | "flow";
+export type ReportCoverFlowPrintMode = "fullBleed" | "fit";
+
+export type ReportCoverInfoItem = {
+  label: string;
+  value: string | null | undefined;
+};
 
 export type ReportCoverPageProps = {
-  /** 표지 상단 라벨(예: "학습진단", "월간 성장 리포트"). */
-  serviceLabel: string;
-  /** 큰 제목. 2~3줄 분량을 가정하고 폭을 제한한다. */
+  kind: ReportCoverKind;
+  /** 2줄 제목. 줄바꿈 문자로 두 줄을 나눈다. */
   title: string;
-  studentName?: string | null;
-  targetMajor?: string | null;
-  targetUniversity?: string | null;
-  dateLabel?: string | null;
+  infoItems: readonly ReportCoverInfoItem[];
   variant?: ReportCoverPageVariant;
+  flowPrintMode?: ReportCoverFlowPrintMode;
   className?: string;
 };
 
-// A4 시트 치수 — ReportSheetA4.tsx의 `.fd-report-sheet` 클래스와 완전히 동일한 값을
-// 재사용한다(표지도 시트 1·2와 같은 크기여야 한다는 요구사항). `relative flex flex-col`을
-// 더해 자식 요소(라벨→제목→목표줄→일러스트 영역→푸터)를 세로로 쌓고 푸터를 `mt-auto`로
-// 바닥에 고정한다 — `min-height`만으로는 퍼센트 높이 자식이 안 늘어나지만, flex 정렬
-// 속성(`margin-top:auto`)은 컨테이너의 `min-height`를 그대로 반영해 동작한다.
+// 계단 6단 - 크림 판 하단에 붙고 좌에서 우로 높아진다. height 는 cqw.
+const STEPS = [
+  { label: "학습진단", bg: "#1d2a6b", fg: "#ffffff", height: 7.6 },
+  { label: "목표관리", bg: "#4cd9a0", fg: "#0b2545", height: 10.65 },
+  { label: "성장설계", bg: "#fdd443", fg: "#0b2545", height: 13.7 },
+  { label: "수행평가", bg: "#ffa030", fg: "#0b2545", height: 16.75 },
+  { label: "심화탐구", bg: "#ff6b4e", fg: "#ffffff", height: 19.8 },
+  { label: "자기평가", bg: "#7b6cf0", fg: "#ffffff", height: 22.85 },
+] as const;
+
 const A4_SHEET_CLASS =
-  "fd-report-sheet relative flex w-full min-w-0 shrink-0 flex-col overflow-hidden break-keep rounded-2xl bg-white p-6 shadow-[0_0_1.25rem_rgba(0,0,0,0.06)] lg:w-280 lg:min-h-[99.0588rem] lg:rounded-none lg:p-perf-inset";
+  "fd-report-sheet fd-report-cover-a4 w-full shrink-0 rounded-2xl shadow-[0_0_1.25rem_rgba(0,0,0,0.06)] lg:w-280";
+const FLOW_SHEET_CLASS = "fd-report-cover-flow hidden print:block";
 
-// flow 변형 — 화면에서는 카드 하나 분량(모달·목표관리 화면 스케일과 어울리는 rem 값),
-// 인쇄에서는 아래 FLOW_COVER_PRINT_RULE이 한 페이지(A4 - @page 15mm×2 여백)를 채운다.
-const FLOW_SHEET_CLASS =
-  "fd-report-cover-flow relative flex w-full flex-col overflow-hidden rounded-2xl bg-white p-10 shadow-[0_0_1.25rem_rgba(0,0,0,0.06)] lg:min-h-[30rem] lg:p-16";
+// a4: report-print.css 의 `.fd-report-sheet` 인쇄 규칙(패딩, overflow visible)보다 셀렉터를
+// 한 단계 높여 덮는다. 폭 70rem 은 그 파일 값 그대로 쓴다.
+const A4_PRINT_RULE = `
+  @media print {
+    .fd-report-sheet.fd-report-cover-a4 {
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+  }
+`;
 
-// react-to-print(iframe 격리) 두 화면(목표관리 성장 리포트·수행평가 리포트 모달)이 공유하는
-// 베이스(`REPORT_PRINT_PAGE_BASE_STYLE`, `@page 15mm`)를 전제로 한 페이지 안쪽 여유
-// (297mm - 15mm*2 = 267mm)를 채운다. `height`+`max-height`+`overflow: hidden`으로 상한을
-// 고정해 내부 컨텐츠(일러스트+푸터)가 넘쳐도 두 번째 페이지로 흘러넘치지 않게 막는다
-// (QA t11 실측 — min-height만으로는 상한이 없어 flex-1 일러스트가 페이지를 두 장 차지했다).
-//
-// 267mm 그대로 쓰지 않고 230mm로 여유를 둔 이유(QA t11 2차 실측, react-to-print로 뽑은
-// 실제 PDF를 pdftoppm으로 페이지별 렌더링해 확인) — height가 250mm 이상이면(249mm는
-// 재현 안 됨) `break-after: page`와 맞물려 Chromium 인쇄 엔진이 이 박스를 두 페이지로
-// 쪼개는 버그가 재현된다(일러스트 max-height·SVG absolute 여부와 무관, 박스 자체의 고정
-// height 값에만 좌우됨). 이 파일 밖(report-print.css)은 손댈 수 없어 임계값 아래로 여유
-// (250mm - 230mm = 20mm)를 두는 쪽으로 우회한다.
-//
-// 화면 패딩(`lg:p-16`)은 `@page 15mm` 여백과 이중이 되지 않도록 인쇄에서 줄이고, 카드형
-// 그림자·둥근 모서리도 인쇄에서 제거한다. `break-after: page`로 다음 내용(본문 첫 섹션)을
-// 항상 새 페이지에서 시작시킨다 — 화면 클래스(`lg:min-h-[30rem]`)에는 영향을 주지 않도록
-// `@media print` 안에서만 선언한다(PerformanceReportSurface.tsx의 인쇄 전용 `<style>` 관례).
-const FLOW_COVER_PRINT_RULE = `
+const FLOW_FIT_PRINT_RULE = `
   @media print {
     .fd-report-cover-flow {
-      height: 230mm;
-      max-height: 230mm;
-      overflow: hidden;
-      box-sizing: border-box;
-      padding: 8mm;
-      box-shadow: none;
-      border-radius: 0;
+      width: calc(230mm * 2382 / 3369);
+      margin: 0 auto;
       break-after: page;
       page-break-after: always;
     }
+  }
+`;
 
-    .fd-report-cover-flow .fd-report-cover-illustration {
-      max-height: 120mm;
+const FLOW_FULL_BLEED_PRINT_RULE = `
+  @page :first { margin: 0; }
+  @media print {
+    .fd-report-cover-flow {
+      width: 210mm;
+      height: 297mm;
+      margin: 0;
+      break-after: page;
+      page-break-after: always;
     }
   }
 `;
 
 export default function ReportCoverPage({
-  serviceLabel,
+  kind,
   title,
-  studentName,
-  targetMajor,
-  targetUniversity,
-  dateLabel,
+  infoItems,
   variant = "flow",
+  flowPrintMode = "fit",
   className,
 }: ReportCoverPageProps) {
-  const targetLine = [targetUniversity, targetMajor]
-    .filter((value): value is string => Boolean(value))
-    .join(" ");
+  const preset = REPORT_COVER_PRESETS[kind];
   const isA4 = variant === "a4";
+  const filledItems = infoItems.filter(({ value }) => value?.trim());
+  const printRule = isA4
+    ? A4_PRINT_RULE
+    : flowPrintMode === "fullBleed"
+      ? FLOW_FULL_BLEED_PRINT_RULE
+      : FLOW_FIT_PRINT_RULE;
 
   return (
     <section
-      aria-label={`${serviceLabel} 리포트 표지`}
-      className={cn(isA4 ? A4_SHEET_CLASS : FLOW_SHEET_CLASS, className)}
-    >
-      {!isA4 && <style>{FLOW_COVER_PRINT_RULE}</style>}
-
-      <p className="text-base font-semibold text-accent">{serviceLabel}</p>
-
-      <h1 className="mt-4 max-w-125 break-keep text-[1.75rem] font-bold leading-[1.35] text-primary lg:mt-6 lg:max-w-150 lg:text-[2.25rem]">
-        {title}
-      </h1>
-
-      {targetLine && (
-        <p className="mt-4 break-keep text-base font-medium leading-[1.4] text-ink-sub lg:mt-5">
-          목표 {targetLine}
-        </p>
+      aria-label={`${preset.serviceLabel} 리포트 표지`}
+      className={cn(
+        "relative aspect-[2382/3369] overflow-hidden bg-white break-keep [container-type:inline-size] print:[print-color-adjust:exact]",
+        isA4 ? A4_SHEET_CLASS : FLOW_SHEET_CLASS,
+        className,
       )}
+    >
+      <style>{printRule}</style>
 
-      {/* 일러스트 영역 — flex-1로 남는 세로 공간을 차지하되 max-height 상한을 둔다
-          (QA t11 실측 — 상한이 없으면 flex-1 영역이 인쇄에서 267mm 상한을 넘겨 표지가
-          두 페이지로 흘러넘쳤다). 도형은 그 영역의 우하단에 배치한다(고객사 참고 샘플의
-          "우하단 3D 오브젝트" 구성만 참조, 실제 도형은 3D 오브젝트가 아닌 추상 기하 구성). */}
-      <div className="fd-report-cover-illustration relative mt-8 min-h-30 flex-1 lg:mt-12 lg:min-h-50 lg:max-h-80">
-        <CoverIllustration />
-      </div>
+      {/* 장식 원과 회전 사각형 */}
+      <div
+        aria-hidden="true"
+        className="absolute left-[54%] aspect-square w-[66cqw] rounded-full bg-[#f1f5fa]"
+        style={{ top: "calc(7% - 33cqw)" }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute left-[83.3%] top-[16%] size-[13.5cqw] -translate-x-1/2 -translate-y-1/2 rotate-20 rounded-[2.8cqw] bg-[#e3eaf3]"
+      />
 
-      {/* 2026-09-23 QA 행72로 SiteLayout 헤더·푸터 인쇄 숨김 규칙이 `#root > header,
-          #root > footer`로 좁혀져(DiagnosisReportView.tsx의 DIAGNOSIS_REPORT_PAGE_RULE)
-          더 이상 태그 셀렉터로 문서 전체의 <footer>를 잡지 않는다. 이 표지의 푸터는
-          #root의 직계 자식이 아니라 그 규칙에 걸리지 않지만, <div>는 그대로 둔다(굳이
-          <footer>로 되돌릴 이유가 없다). */}
-      {/* 모바일 폭(320px급)에서는 로고와 텍스트를 나란히 두면 텍스트 컬럼이 shrink되며
-          글자 단위로 줄바꿈됐다(QA t11 실측, m-growth.png) — 기본은 세로로 쌓고
-          sm 이상에서만 가로 정렬로 돌아간다. 텍스트 줄에는 whitespace-nowrap을 걸어
-          같은 이유로 줄 중간이 깨지지 않게 한다. */}
-      <div className="fd-report-cover-footer mt-auto flex flex-col items-start gap-3 pt-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="absolute inset-x-[8.1%] top-[4.7%] flex h-[3.4cqw] items-center justify-between">
         <img
           src={site.logo.horizontal}
           alt={site.brandName}
-          className="h-5.5 w-auto shrink-0 object-contain lg:h-6.5"
+          className="h-full w-auto"
         />
-        {(studentName || dateLabel) && (
-          <div className="flex flex-col items-start gap-1 text-left text-sm text-ink-sub sm:items-end sm:text-right">
-            {studentName && (
-              <p className="whitespace-nowrap font-medium">
-                {studentName} 학생
+        <p className="text-[1.3cqw] uppercase tracking-[0.2em] text-[#7a8aa0]">
+          {preset.englishLabel}
+        </p>
+      </div>
+
+      <div className="absolute inset-x-[8.1%] top-[14.7%]">
+        <p className="flex items-center gap-[1.3cqw] text-[1.7cqw] font-semibold leading-[2.6cqw] text-[#1e6fd9]">
+          <span
+            aria-hidden="true"
+            className="h-[0.14cqw] w-[3cqw] bg-[#1e6fd9]"
+          />
+          {preset.serviceLabel}
+        </p>
+      </div>
+
+      <h1 className="absolute inset-x-[8.1%] top-[18.3%] whitespace-pre-line text-[7cqw] font-extrabold leading-[1.2] tracking-[-0.03em] text-[#0b2545]">
+        {title}
+      </h1>
+
+      <div className="absolute inset-x-[8.1%] top-[31.5%] text-[1.85cqw] leading-[1.65] text-[#5a6b82]">
+        <p>{preset.subtitle[0]}</p>
+        <p>{preset.subtitle[1]}</p>
+      </div>
+
+      {/* 남색 패널 - 좌측 항목 목록과 우측 크림 판의 계단 */}
+      <div className="absolute inset-x-[8.1%] top-[40.2%] h-[22.1%] rounded-[3cqw] bg-[#0b2545]">
+        <p className="absolute left-[4.2cqw] top-[3.3cqw] text-[1.3cqw] uppercase leading-[1.4cqw] tracking-[0.2em] text-[#8fb8f0]">
+          {preset.areasHeading}
+        </p>
+        <ol className="absolute bottom-[2.5cqw] left-[4.2cqw]">
+          {preset.areas.map((area, index) => (
+            <li
+              key={area}
+              data-testid="cover-area"
+              className="flex h-[3.75cqw] items-center gap-[1.4cqw]"
+            >
+              <span className="text-[1.6cqw] text-[#8fb8f0]">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="text-[2cqw] font-bold text-white">{area}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="absolute inset-y-[1.8cqw] left-[29.6cqw] right-[1.8cqw] overflow-hidden rounded-[2.2cqw] bg-[#f3efe7]">
+          <ol className="absolute inset-x-[1.77cqw] bottom-0 flex items-end gap-[0.5cqw]">
+            {STEPS.map((step, index) => (
+              <li
+                key={step.label}
+                data-testid="cover-step"
+                className="flex-1 rounded-t-[1.2cqw] px-[0.85cqw] pt-[1.1cqw] text-[1.4cqw] font-bold leading-[1.7cqw]"
+                style={{
+                  height: `${step.height}cqw`,
+                  backgroundColor: step.bg,
+                  color: step.fg,
+                }}
+              >
+                <span className="block">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="block">{step.label}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+
+      {filledItems.length > 0 && (
+        <div
+          data-testid="cover-info"
+          className="absolute inset-x-[8.1%] top-[78.3%] flex min-h-[7cqw] border-t-[0.14cqw] border-[#0b2545]"
+        >
+          {filledItems.map((item, index) => (
+            <div
+              key={item.label}
+              className={cn(
+                "min-w-0 flex-1 pt-[1.8cqw]",
+                index > 0 && "border-l-[0.07cqw] border-[#e3eaf3] pl-[2.3cqw]",
+              )}
+            >
+              <p className="text-[1.3cqw] leading-[2cqw] text-[#7a8aa0]">
+                {item.label}
               </p>
-            )}
-            {dateLabel && <p className="whitespace-nowrap">{dateLabel}</p>}
-          </div>
-        )}
+              <p className="mt-[0.7cqw] text-[2.1cqw] font-bold leading-[3cqw] text-[#0b2545]">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="absolute inset-x-[8.1%] top-[92.8%] flex items-center justify-between gap-[2cqw] border-t-[0.07cqw] border-[#e3eaf3] pt-[2.2cqw]">
+        <p className="min-w-0 text-[1.2cqw] leading-[2cqw] text-[#7a8aa0]">
+          {preset.disclaimer}
+        </p>
+        <p className="shrink-0 whitespace-nowrap text-[1.4cqw] font-semibold leading-[2cqw] text-[#c47a3a]">
+          {site.brandName} 학생 전용
+        </p>
       </div>
     </section>
-  );
-}
-
-// 추상 기하 일러스트 — 브랜드 primary(#013262) 계열 + accent(#0b84fd) 반투명 도형
-// 조합(원·회전 사각형·곡선). `preserveAspectRatio="xMaxYMax meet"`로 우하단 기준 정렬하되
-// 영역을 넘지 않게 축소한다(`slice`는 영역을 꽉 채우려고 무한히 커져 QA t11 실측에서
-// 인쇄 페이지 상한을 넘겼다). viewBox 내부 좌표는 report-print.css 상단 주석이 명시한
-// 예외(SVG viewBox는 컨테이너 종속 좌표라 rem 제약 대상이 아니다)에 해당한다.
-function CoverIllustration() {
-  return (
-    <svg
-      role="presentation"
-      aria-hidden="true"
-      viewBox="0 0 400 260"
-      preserveAspectRatio="xMaxYMax meet"
-      className="absolute inset-0 h-full w-full print:[print-color-adjust:exact]"
-    >
-      <circle cx="330" cy="190" r="120" fill="#013262" opacity="0.08" />
-      <circle cx="250" cy="230" r="60" fill="#0b84fd" opacity="0.12" />
-      <rect
-        x="290"
-        y="90"
-        width="90"
-        height="90"
-        rx="16"
-        fill="#013262"
-        opacity="0.1"
-        transform="rotate(18 335 135)"
-      />
-      <path
-        d="M180 260 C 230 200, 300 210, 400 150"
-        stroke="#0b84fd"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.35"
-      />
-    </svg>
   );
 }
