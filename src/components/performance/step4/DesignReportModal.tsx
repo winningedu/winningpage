@@ -44,6 +44,8 @@ type DesignReportSection = {
 
 export type DesignReport = {
   sections: DesignReportSection[];
+  /** 리포트 저장 시각 ISO(서버 응답). 표지 저장일 칸에 쓴다. */
+  updatedAt?: string | null;
 };
 
 type DesignReportModalProps = {
@@ -54,6 +56,8 @@ type DesignReportModalProps = {
   topicTitle?: string | undefined;
   /** 로그인 학생 이름. PDF 파일명 둘째 조각(QA 행354). 없으면 그 조각만 빠진다. */
   studentName?: string | null;
+  /** 리포트가 속한 세션의 학년 원본("고2" 등). 표지 학년 칸. 없으면 그 칸이 빠진다. */
+  studentGrade?: string | null;
   /** ESC·딤 클릭·`창 닫고 작성하기` 공통 핸들러. */
   onClose: () => void;
 };
@@ -63,6 +67,7 @@ export default function DesignReportModal({
   report,
   topicTitle,
   studentName,
+  studentGrade,
   onClose,
 }: DesignReportModalProps) {
   // `open`과 `report`를 한 표현식에서 파생시킨다 — 훅 입력과 렌더 조건이 갈리면
@@ -88,6 +93,10 @@ export default function DesignReportModal({
       })}
       scrollLabel="설계 리포트 본문"
       {...(studentName !== undefined ? { studentName } : {})}
+      {...(studentGrade !== undefined ? { studentGrade } : {})}
+      {...(report?.updatedAt !== undefined
+        ? { savedAt: report.updatedAt }
+        : {})}
       onClose={onClose}
       footer={({ print }) => (
         <>
