@@ -5,7 +5,8 @@ const BOX_HEIGHT = 18.67;
 const LINE_HEIGHT = 1.2;
 // keep-all 줄바꿈으로 줄 끝이 비는 몫
 const LINE_FILL = 0.85;
-const CANDIDATE_SIZES = [7, 6.2, 5.4, 4.7, 4.1, 3.6, 3.2] as const;
+const CANDIDATE_SIZES = [7, 6.2, 5.4, 4.7, 4.1, 3.6, 3.2];
+const MIN_SIZE = 3.2;
 
 const UPPERCASE = /[A-Z]/;
 const LOWERCASE_OR_DIGIT = /[a-z0-9]/;
@@ -42,5 +43,5 @@ export function coverTitleFontSize(title: string): number {
   const fitting = CANDIDATE_SIZES.find(
     (size) => coverTitleLineCount(title, size) <= coverTitleMaxLines(size),
   );
-  return fitting ?? CANDIDATE_SIZES[CANDIDATE_SIZES.length - 1];
+  return fitting ?? MIN_SIZE;
 }
