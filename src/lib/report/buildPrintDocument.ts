@@ -6,6 +6,8 @@
 // 만든다. <script>는 어떤 경우에도 포함하지 않는다(서버가 html을 그대로 렌더할
 // 뿐 실행 컨텍스트를 신뢰하지 않는다 — api/report-pdf.ts도 setJavaScriptEnabled(false)로
 // 같은 경계를 한 번 더 강제한다).
+import { readSheetCss } from "./inlineDocumentCss";
+
 export interface BuildPrintDocumentInput {
   root: HTMLElement;
   title: string;
@@ -59,6 +61,10 @@ export function buildPrintDocument({
     ),
   ).map((node) => {
     if (node.tagName === "LINK") {
+      // 배포로 해시 URL이 404가 돼도 깨지지 않도록 로드된 규칙을 인라인한다.
+      const css = readSheetCss((node as HTMLLinkElement).sheet);
+      if (css !== null) return `<style>${css}</style>`;
+      // 규칙을 읽을 수 없는 시트(교차 출처)만 <link>로 남긴다.
       // .href는 document.baseURI 기준으로 이미 절대 URL을 반환한다.
       return `<link rel="stylesheet" href="${escapeHtml((node as HTMLLinkElement).href)}">`;
     }

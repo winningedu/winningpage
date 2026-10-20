@@ -2,13 +2,21 @@ import { act, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { tokenMock, downloadMock, serverMock } = vi.hoisted(() => ({
-  tokenMock: vi.fn(),
-  downloadMock: vi.fn(),
-  serverMock: vi.fn(),
-}));
+const { tokenMock, downloadMock, serverMock, printMock, printOptions } =
+  vi.hoisted(() => ({
+    tokenMock: vi.fn(),
+    downloadMock: vi.fn(),
+    serverMock: vi.fn(),
+    printMock: vi.fn(),
+    printOptions: { current: null as Record<string, unknown> | null },
+  }));
 
-vi.mock("react-to-print", () => ({ useReactToPrint: () => vi.fn() }));
+vi.mock("react-to-print", () => ({
+  useReactToPrint: (options: Record<string, unknown>) => {
+    printOptions.current = options;
+    return printMock;
+  },
+}));
 vi.mock("./downloadReportPdf", () => ({
   getReportAccessToken: tokenMock,
   downloadReportPdf: downloadMock,
@@ -19,6 +27,7 @@ vi.mock("./buildPrintDocument", () => ({
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { useReportPdfSave } from "./useReportPdfSave";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -38,9 +47,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  document.head.innerHTML = "";
   vi.restoreAllMocks();
   vi.useRealTimers();
-  for (const m of [tokenMock, downloadMock, serverMock]) m.mockReset();
+  for (const m of [tokenMock, downloadMock, serverMock, printMock])
+    m.mockReset();
 });
 
 describe("useReportPdfSave 서버 PDF 경로", () => {
@@ -76,5 +87,59 @@ describe("useReportPdfSave 서버 PDF 경로", () => {
     clear.mockClear();
     unmount();
     expect(clear).toHaveBeenCalled();
+  });
+});
+
+describe("useReportPdfSave 데스크톱 인쇄 경로", () => {
+  const INJECTED = "style[data-report-print-css]";
+
+  test("전역 스타일 복사를 끄고 pageStyle은 베이스 인쇄 스타일만 넘긴다", () => {
+    serverMock.mockReturnValue(false);
+    setup();
+    expect(printOptions.current?.ignoreGlobalStyles).toBe(true);
+    expect(printOptions.current?.pageStyle).toBe(REPORT_PRINT_PAGE_BASE_STYLE);
+  });
+
+  test("클릭 시점의 문서 CSS를 <style>로 콘텐츠에 심은 뒤 인쇄하고 베이스 스타일을 맨 끝에 둔다", () => {
+    serverMock.mockReturnValue(false);
+    const { result } = setup();
+    // 마운트 뒤에 늘어난 시트도 클릭 시점에는 포함돼야 한다.
+    const style = document.createElement("style");
+    style.textContent = ".late { color: red; }";
+    document.head.appendChild(style);
+    const root = result.current.contentRef.current as HTMLElement;
+    let injected: string | undefined;
+    printMock.mockImplementation(() => {
+      injected = root.querySelector(INJECTED)?.textContent ?? undefined;
+    });
+
+    act(() => {
+      result.current.save();
+    });
+
+    expect(printMock).toHaveBeenCalledTimes(1);
+    expect(injected).toContain(".late");
+    expect(injected?.endsWith(REPORT_PRINT_PAGE_BASE_STYLE)).toBe(true);
+  });
+
+  test("onAfterPrint과 onPrintError에서 심은 <style>을 걷어내고, 두 번 눌러도 하나만 남는다", () => {
+    serverMock.mockReturnValue(false);
+    const { result } = setup();
+    const root = result.current.contentRef.current as HTMLElement;
+
+    act(() => {
+      result.current.save();
+      result.current.save();
+    });
+    expect(root.querySelectorAll(INJECTED)).toHaveLength(1);
+
+    (printOptions.current?.onAfterPrint as (() => void) | undefined)?.();
+    expect(root.querySelector(INJECTED)).toBeNull();
+
+    act(() => {
+      result.current.save();
+    });
+    (printOptions.current?.onPrintError as (() => void) | undefined)?.();
+    expect(root.querySelector(INJECTED)).toBeNull();
   });
 });
