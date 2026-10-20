@@ -31,10 +31,14 @@ describe("buildPrintDocument", () => {
     );
   });
 
-  it("현재 문서의 <link rel=stylesheet> href를 절대 URL로, <style> 텍스트를 그대로 head에 모은다", () => {
+  it("읽을 수 있는 <link> 스타일시트는 URL 대신 규칙 텍스트를 <style>로 인라인하고, <style> 텍스트는 그대로 모은다", () => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "/assets/index.css";
+    // jsdom은 <link> 시트를 내려받지 않으므로 이미 로드된 시트를 흉내 낸다.
+    Object.defineProperty(link, "sheet", {
+      value: { cssRules: [{ cssText: ".link { color: blue; }" }] },
+    });
     document.head.appendChild(link);
 
     const style = document.createElement("style");
@@ -44,10 +48,32 @@ describe("buildPrintDocument", () => {
     const root = document.createElement("main");
     const html = buildPrintDocument({ root, title: "리포트" });
 
-    expect(html).toContain(
-      `<link rel="stylesheet" href="${window.location.origin}/assets/index.css">`,
-    );
+    expect(html).toContain("<style>.link { color: blue; }</style>");
+    expect(html).not.toContain('<link rel="stylesheet"');
     expect(html).toContain("<style>.x { color: red; }</style>");
+  });
+
+  it("규칙을 읽을 수 없는 <link>(교차 출처)는 그 시트만 <link> 태그로 남긴다", () => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/assets/cross.css";
+    Object.defineProperty(link, "sheet", {
+      value: {
+        get cssRules(): never {
+          throw new DOMException("blocked", "SecurityError");
+        },
+      },
+    });
+    document.head.appendChild(link);
+
+    const html = buildPrintDocument({
+      root: document.createElement("main"),
+      title: "리포트",
+    });
+
+    expect(html).toContain(
+      `<link rel="stylesheet" href="${window.location.origin}/assets/cross.css">`,
+    );
   });
 
   it("<base href>를 origin으로, <html> class/lang/data-* 속성을 그대로 복사한다", () => {
