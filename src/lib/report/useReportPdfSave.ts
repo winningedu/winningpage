@@ -1,7 +1,7 @@
 // 리포트 화면의 "PDF 저장" 공통 동작. 데스크톱은 react-to-print(iframe 인쇄),
 // 모바일과 인앱 브라우저는 api/report-pdf.ts 서버 렌더 경로로 보낸다.
 // 인쇄 대상은 반환하는 contentRef 를 단 요소 하나다. 버튼과 툴바는 그 밖에 둔다.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { useToast } from "@/context/ToastContext";
 import { buildPrintDocument } from "./buildPrintDocument";
@@ -11,21 +11,15 @@ import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { shouldUseServerPdf } from "./shouldUseServerPdf";
 
 export function useReportPdfSave(fileName: string) {
-  // React Compiler 가 document.styleSheets.length 읽기를 한 번만 하도록 굳히지 않게 한다.
-  "use no memo";
   const contentRef = useRef<HTMLDivElement>(null);
   // react-to-print 는 <link> URL 을 iframe 에 다시 받게 하는데, 배포로 해시가 바뀌면
   // 404 라 스타일 없이 인쇄된다. 전역 스타일 복사를 끄고 로드된 CSS 를 직접 넘긴다.
-  // 옵션은 렌더 시점에 고정된다. 전체 규칙 직렬화가 비싸므로 시트 개수가 바뀔 때만
-  // 다시 읽는다(lazy 청크가 시트를 더하면 개수가 바뀐다). 베이스 인쇄 스타일은
-  // 이기도록 맨 끝에 둔다.
-  const sheetCount = document.styleSheets.length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 개수가 바뀔 때만 다시 읽는다.
-  const documentCss = useMemo(() => inlineDocumentCss(document), [sheetCount]);
+  // 옵션은 렌더 시점에 고정되므로 메모하지 않고 렌더마다 읽어 늦게 로드된 시트도 담는다.
+  // 베이스 인쇄 스타일은 이기도록 맨 끝에 둔다.
   const print = useReactToPrint({
     contentRef,
     ignoreGlobalStyles: true,
-    pageStyle: `${documentCss}\n${REPORT_PRINT_PAGE_BASE_STYLE}`,
+    pageStyle: `${inlineDocumentCss(document)}\n${REPORT_PRINT_PAGE_BASE_STYLE}`,
     documentTitle: fileName,
   });
   const [isPreparing, setIsPreparing] = useState(false);
