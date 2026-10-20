@@ -179,7 +179,10 @@ export default function ReportDetailPage() {
         <div ref={pdf.contentRef} className="flex flex-col gap-6">
           <ReportCoverPage
             kind={isCompleted ? "inquiryFinal" : "inquiryRecord"}
-            title={`${site.brandName}\n${isCompleted ? "최종 심화탐구 리포트" : "심화탐구 기록"}`}
+            title={
+              topic?.detail.title?.trim() ||
+              `${site.brandName}\n${isCompleted ? "최종 심화탐구 리포트" : "심화탐구 기록"}`
+            }
             infoItems={[
               { label: "학생명", value: studentName },
               {

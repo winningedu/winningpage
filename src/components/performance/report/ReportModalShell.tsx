@@ -202,7 +202,7 @@ export default function ReportModalShell({
           <div className="hidden print:block">
             <ReportCoverPage
               kind="performance"
-              title={`${site.brandName}\n${title}`}
+              title={subtitle?.trim() || `${site.brandName}\n${title}`}
               infoItems={[
                 { label: "학생명", value: studentName },
                 { label: "학년", value: formatGradeLabel(studentGrade) },

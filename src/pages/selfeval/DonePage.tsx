@@ -20,7 +20,6 @@ import SessionDetailGate, {
 } from "@/components/selfeval/SessionDetailGate";
 import { SELFEVAL_PATHS } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
-import { site } from "@/config/site";
 import { useToast } from "@/context/ToastContext";
 import { copyTextWithToast } from "@/lib/clipboard";
 import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
@@ -154,7 +153,7 @@ function DoneBody({
             <div ref={pdf.contentRef}>
               <ReportCoverPage
                 kind="selfeval"
-                title={`${site.brandName}\n${title}`}
+                title={title}
                 infoItems={[
                   { label: "학생명", value: studentName },
                   {
