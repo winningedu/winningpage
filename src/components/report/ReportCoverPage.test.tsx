@@ -30,6 +30,25 @@ describe("ReportCoverPage", () => {
     );
   });
 
+  it("짧은 제목은 7cqw, 긴 제목은 7cqw 미만 글자 크기로 그린다", () => {
+    const { rerender } = render(
+      <ReportCoverPage kind="performance" title="확률과 통계" infoItems={[]} />,
+    );
+    expect(screen.getByRole("heading")).toHaveStyle({ fontSize: "7cqw" });
+
+    rerender(
+      <ReportCoverPage
+        kind="performance"
+        title="정수론 기반의 오류 정정 코드(ECC) 원리 분석 및 데이터 통신에서의 활용"
+        infoItems={[]}
+      />,
+    );
+    const fontSize = Number.parseFloat(
+      screen.getByRole("heading").style.fontSize,
+    );
+    expect(fontSize).toBeLessThan(7);
+  });
+
   it("프리셋의 영문 라벨, 부제 2줄, 머리글을 렌더한다", () => {
     render(<ReportCoverPage kind="diagnosis" title="제목" infoItems={[]} />);
 

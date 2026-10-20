@@ -124,9 +124,13 @@ describe("ReportDetailPage", () => {
     fetchDetailMock.mockResolvedValue(detail());
     renderPage();
     expect(stepMock).toHaveBeenCalledWith(null);
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "효소 활성 탐구" }),
-    ).toBeVisible();
+    // 페이지 머리글과 표지가 같은 주제 제목 h1 을 하나씩 가진다.
+    const headings = await screen.findAllByRole("heading", {
+      level: 1,
+      name: "효소 활성 탐구",
+    });
+    expect(headings).toHaveLength(2);
+    expect(headings[0]).toBeVisible();
     expect(fetchDetailMock).toHaveBeenCalledWith("s1");
     expect(
       screen.getByText(
@@ -235,14 +239,20 @@ describe("ReportDetailPage", () => {
   it("작성본이 없으면 최종 본문 영역을 그리지 않는다", async () => {
     fetchDetailMock.mockResolvedValue(detail({ submission: null }));
     renderPage();
-    await screen.findByRole("heading", { level: 1, name: "효소 활성 탐구" });
+    await screen.findAllByRole("heading", {
+      level: 1,
+      name: "효소 활성 탐구",
+    });
     expect(screen.queryByRole("region", { name: "최종 본문" })).toBeNull();
   });
 
   it("작성본이 없으면 전체 복사 버튼을 그리지 않는다", async () => {
     fetchDetailMock.mockResolvedValue(detail({ submission: null }));
     renderPage();
-    await screen.findByRole("heading", { level: 1, name: "효소 활성 탐구" });
+    await screen.findAllByRole("heading", {
+      level: 1,
+      name: "효소 활성 탐구",
+    });
     expect(screen.queryByRole("button", { name: "전체 복사" })).toBeNull();
   });
 
@@ -332,14 +342,16 @@ describe("ReportDetailPage", () => {
     renderPage();
 
     const cover = await screen.findByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("최종 심화탐구 리포트");
+    expect(within(cover).getByRole("heading", { level: 1 }).textContent).toBe(
+      "효소 활성 탐구",
+    );
     expect(cover).toHaveTextContent("김학생");
     expect(cover).toHaveTextContent("고등학교 2학년");
     expect(cover).toHaveTextContent("확정일");
     expect(cover).toHaveTextContent("2026. 10. 01");
   });
 
-  it("확정 전 세션 표지는 심화탐구 기록 제목이고 확정일이 없다", async () => {
+  it("확정 전 세션 표지도 주제 제목이고 확정일이 없다", async () => {
     fetchDetailMock.mockResolvedValue(
       detail({
         session: {
@@ -355,8 +367,9 @@ describe("ReportDetailPage", () => {
     renderPage();
 
     const cover = await screen.findByLabelText(/리포트 표지/);
-    expect(cover).toHaveTextContent("심화탐구 기록");
-    expect(cover).not.toHaveTextContent("최종 심화탐구 리포트");
+    expect(within(cover).getByRole("heading", { level: 1 }).textContent).toBe(
+      "효소 활성 탐구",
+    );
     expect(cover).not.toHaveTextContent("확정일");
   });
 });

@@ -30,6 +30,26 @@ describe("ReportModalShell — 표지", () => {
     );
   });
 
+  it("확정 주제명(subtitle)이 있으면 표지 제목은 그 주제명 하나다", () => {
+    render(
+      <ReportModalShell
+        open
+        title="평가 리포트"
+        subtitle="소금물 농도와 삼투압 실험"
+        studentName="김민준"
+        scrollLabel="본문"
+        onClose={noop}
+      >
+        본문
+      </ReportModalShell>,
+    );
+
+    const cover = screen.getByLabelText(/리포트 표지/);
+    expect(within(cover).getByRole("heading", { level: 1 }).textContent).toBe(
+      "소금물 농도와 삼투압 실험",
+    );
+  });
+
   it("studentGrade와 savedAt을 학년, 저장일 칸으로 반영한다", () => {
     render(
       <ReportModalShell

@@ -75,7 +75,10 @@ function DesignContent() {
       <div ref={pdf.contentRef}>
         <ReportCoverPage
           kind="inquiryDesign"
-          title={`${site.brandName}\n심화탐구 설계 리포트`}
+          title={
+            data.topic?.detail?.title?.trim() ||
+            `${site.brandName}\n심화탐구 설계 리포트`
+          }
           infoItems={[
             { label: "학생명", value: studentName },
             { label: "학년", value: formatGradeLabel(data.session.gradeLabel) },
