@@ -50,7 +50,8 @@ afterEach(() => {
   document.head.innerHTML = "";
   vi.restoreAllMocks();
   vi.useRealTimers();
-  for (const m of [tokenMock, downloadMock, serverMock, printMock]) m.mockReset();
+  for (const m of [tokenMock, downloadMock, serverMock, printMock])
+    m.mockReset();
 });
 
 describe("useReportPdfSave 서버 PDF 경로", () => {
