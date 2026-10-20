@@ -91,21 +91,55 @@ describe("useReportPdfSave 서버 PDF 경로", () => {
 });
 
 describe("useReportPdfSave 데스크톱 인쇄 경로", () => {
-  test("링크 URL 대신 로드된 문서 CSS를 pageStyle로 넘기고 베이스 인쇄 스타일을 맨 끝에 둔다", () => {
-    serverMock.mockReturnValue(false);
-    const style = document.createElement("style");
-    style.textContent = ".doc { color: red; }";
-    document.head.appendChild(style);
+  const INJECTED = "style[data-report-print-css]";
 
+  test("전역 스타일 복사를 끄고 pageStyle은 베이스 인쇄 스타일만 넘긴다", () => {
+    serverMock.mockReturnValue(false);
+    setup();
+    expect(printOptions.current?.ignoreGlobalStyles).toBe(true);
+    expect(printOptions.current?.pageStyle).toBe(REPORT_PRINT_PAGE_BASE_STYLE);
+  });
+
+  test("클릭 시점의 문서 CSS를 <style>로 콘텐츠에 심은 뒤 인쇄하고 베이스 스타일을 맨 끝에 둔다", () => {
+    serverMock.mockReturnValue(false);
     const { result } = setup();
+    // 마운트 뒤에 늘어난 시트도 클릭 시점에는 포함돼야 한다.
+    const style = document.createElement("style");
+    style.textContent = ".late { color: red; }";
+    document.head.appendChild(style);
+    const root = result.current.contentRef.current as HTMLElement;
+    let injected: string | undefined;
+    printMock.mockImplementation(() => {
+      injected = root.querySelector(INJECTED)?.textContent ?? undefined;
+    });
+
     act(() => {
       result.current.save();
     });
 
     expect(printMock).toHaveBeenCalledTimes(1);
-    expect(printOptions.current?.ignoreGlobalStyles).toBe(true);
-    const pageStyle = printOptions.current?.pageStyle as string;
-    expect(pageStyle).toContain(".doc");
-    expect(pageStyle.endsWith(REPORT_PRINT_PAGE_BASE_STYLE)).toBe(true);
+    expect(injected).toContain(".late");
+    expect(injected?.endsWith(REPORT_PRINT_PAGE_BASE_STYLE)).toBe(true);
+  });
+
+  test("onAfterPrint과 onPrintError에서 심은 <style>을 걷어내고, 두 번 눌러도 하나만 남는다", () => {
+    serverMock.mockReturnValue(false);
+    const { result } = setup();
+    const root = result.current.contentRef.current as HTMLElement;
+
+    act(() => {
+      result.current.save();
+      result.current.save();
+    });
+    expect(root.querySelectorAll(INJECTED)).toHaveLength(1);
+
+    (printOptions.current?.onAfterPrint as (() => void) | undefined)?.();
+    expect(root.querySelector(INJECTED)).toBeNull();
+
+    act(() => {
+      result.current.save();
+    });
+    (printOptions.current?.onPrintError as (() => void) | undefined)?.();
+    expect(root.querySelector(INJECTED)).toBeNull();
   });
 });

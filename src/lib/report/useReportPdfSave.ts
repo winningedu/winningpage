@@ -10,17 +10,23 @@ import { inlineDocumentCss } from "./inlineDocumentCss";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { shouldUseServerPdf } from "./shouldUseServerPdf";
 
+const INJECTED_CSS_SELECTOR = "style[data-report-print-css]";
+
 export function useReportPdfSave(fileName: string) {
   const contentRef = useRef<HTMLDivElement>(null);
   // react-to-print 는 <link> URL 을 iframe 에 다시 받게 하는데, 배포로 해시가 바뀌면
-  // 404 라 스타일 없이 인쇄된다. 전역 스타일 복사를 끄고 로드된 CSS 를 직접 넘긴다.
-  // 옵션은 렌더 시점에 고정되므로 메모하지 않고 렌더마다 읽어 늦게 로드된 시트도 담는다.
-  // 베이스 인쇄 스타일은 이기도록 맨 끝에 둔다.
+  // 404 라 스타일 없이 인쇄된다. 전역 스타일 복사를 끄고, 클릭 시점에 읽은 로드된 CSS 를
+  // 콘텐츠 안 <style> 로 심어 복제본에 실려 가게 한다(save 참고).
+  const removeInjectedCss = () => {
+    contentRef.current?.querySelector(INJECTED_CSS_SELECTOR)?.remove();
+  };
   const print = useReactToPrint({
     contentRef,
     ignoreGlobalStyles: true,
-    pageStyle: `${inlineDocumentCss(document)}\n${REPORT_PRINT_PAGE_BASE_STYLE}`,
+    pageStyle: REPORT_PRINT_PAGE_BASE_STYLE,
     documentTitle: fileName,
+    onAfterPrint: removeInjectedCss,
+    onPrintError: removeInjectedCss,
   });
   const [isPreparing, setIsPreparing] = useState(false);
   const toast = useToast();
@@ -40,11 +46,20 @@ export function useReportPdfSave(fileName: string) {
   );
 
   const save = () => {
+    const root = contentRef.current;
     if (!shouldUseServerPdf(window.navigator.userAgent)) {
+      if (!root) return;
+      // print() 는 동기로 콘텐츠를 복제하므로 그 전에 심은 <style> 이 복제본에 들어간다.
+      // 콘텐츠 안 <style> 은 iframe head 의 pageStyle 보다 뒤라서, 베이스 인쇄 스타일을
+      // 맨 끝에 다시 붙여 앱 CSS 의 @page 등에 덮이지 않게 한다.
+      removeInjectedCss();
+      const style = document.createElement("style");
+      style.setAttribute("data-report-print-css", "");
+      style.textContent = `${inlineDocumentCss(document)}\n${REPORT_PRINT_PAGE_BASE_STYLE}`;
+      root.prepend(style);
       print();
       return;
     }
-    const root = contentRef.current;
     if (!root) return;
     // 폼 제출(최상위 내비게이션)은 완료 이벤트가 없어 고정 타이머로 버튼을 복구한다.
     setIsPreparing(true);
