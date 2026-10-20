@@ -21,12 +21,17 @@ vi.mock("./downloadReportPdf", () => ({
   getReportAccessToken: tokenMock,
   downloadReportPdf: downloadMock,
 }));
+vi.mock("./inlineDocumentCss", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./inlineDocumentCss")>();
+  return { ...actual, inlineDocumentCss: vi.fn(actual.inlineDocumentCss) };
+});
 vi.mock("./shouldUseServerPdf", () => ({ shouldUseServerPdf: serverMock }));
 vi.mock("./buildPrintDocument", () => ({
   buildPrintDocument: () => "<html/>",
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { inlineDocumentCss } from "./inlineDocumentCss";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { useReportPdfSave } from "./useReportPdfSave";
 
@@ -107,5 +112,25 @@ describe("useReportPdfSave 데스크톱 인쇄 경로", () => {
     const pageStyle = printOptions.current?.pageStyle as string;
     expect(pageStyle).toContain(".doc");
     expect(pageStyle.endsWith(REPORT_PRINT_PAGE_BASE_STYLE)).toBe(true);
+  });
+
+  test("스타일시트 개수가 그대로면 렌더가 반복돼도 CSS를 다시 읽지 않고, 시트가 늘면 다시 읽는다", () => {
+    serverMock.mockReturnValue(false);
+    const readCss = vi.mocked(inlineDocumentCss);
+    readCss.mockClear();
+
+    const { rerender } = renderHook(() => useReportPdfSave("report"), {
+      wrapper,
+    });
+    rerender();
+    rerender();
+    expect(readCss).toHaveBeenCalledTimes(1);
+
+    const style = document.createElement("style");
+    style.textContent = ".lazy { color: blue; }";
+    document.head.appendChild(style);
+    rerender();
+    rerender();
+    expect(readCss).toHaveBeenCalledTimes(2);
   });
 });
