@@ -174,7 +174,7 @@ describe("DonePage", () => {
   test("본문 문단 전체가 순서대로 렌더된다", async () => {
     detailMock.mockResolvedValue(completed());
     renderPage();
-    expect(await screen.findByText("수학 자기평가서")).toBeTruthy();
+    expect(await screen.findAllByText("수학 자기평가서")).toHaveLength(2);
     expect(screen.getByText("잠금")).toBeTruthy();
     const body = screen.getByLabelText("최종 본문");
     const paragraphs = Array.from(body.querySelectorAll("p")).map(
@@ -236,7 +236,7 @@ describe("DonePage", () => {
     view.unmount();
     detailMock.mockResolvedValue(completed());
     renderPage({ reply: { status: "skipped" } });
-    await screen.findByText("수학 자기평가서");
+    await screen.findAllByText("수학 자기평가서");
     expect(screen.queryByText("과제는 완료로 보내지 않았어요")).toBeNull();
   });
 
@@ -308,7 +308,9 @@ describe("DonePage", () => {
     const root = pdfRoots[0] as HTMLElement;
     const first = root.firstElementChild as HTMLElement;
     expect(first.getAttribute("aria-label")).toMatch(/리포트 표지/);
-    expect(first.textContent).toContain("수학 자기평가서");
+    expect(within(first).getByRole("heading", { level: 1 }).textContent).toBe(
+      "수학 자기평가서",
+    );
     expect(first.textContent).toContain("김하나");
     expect(first.textContent).toContain("고등학교 2학년");
     expect(first.textContent).toContain("2026. 10. 02");

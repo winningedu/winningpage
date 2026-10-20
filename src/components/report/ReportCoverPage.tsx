@@ -5,6 +5,7 @@
 // 파일83 폭 2382px = 100cqw 로 환산했다. 어떤 폭에서도 같은 비율로 그려진다.
 // 색 상수는 표지 전용이라 이 파일 안에만 둔다.
 //
+// 수행평가, 심화탐구, 자기평가는 과제물 제목을 쓰고 긴 제목은 글자 크기를 줄여 다 보이게 한다(QA 파일91~95).
 // 값이 없는 정보 칸은 렌더하지 않는다(폴백 상수 금지). 전부 비면 정보 줄 자체가 빠진다.
 //
 // variant="a4" - 학습진단 전용. `fd-report-sheet` 클래스로 시트 스택에 놓이고(화면에도
@@ -17,6 +18,7 @@
 import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { REPORT_COVER_PRESETS, type ReportCoverKind } from "./coverPresets";
+import { coverTitleFontSize } from "./coverTitleSize";
 
 export type ReportCoverPageVariant = "a4" | "flow";
 
@@ -29,7 +31,7 @@ export type ReportCoverInfoItem = {
 
 export type ReportCoverPageProps = {
   kind: ReportCoverKind;
-  /** 2줄 제목. 줄바꿈 문자로 두 줄을 나눈다. */
+  /** 큰 제목. 줄바꿈 문자로 줄을 나누고, 길면 글자 크기가 coverTitleFontSize 로 줄어든다. */
   title: string;
   infoItems: readonly ReportCoverInfoItem[];
   variant?: ReportCoverPageVariant;
@@ -130,7 +132,10 @@ export default function ReportCoverPage({
         </p>
       </div>
 
-      <h1 className="absolute inset-x-[8.1%] top-[18.3%] whitespace-pre-line text-[7cqw] font-extrabold leading-[1.2] tracking-[-0.03em] text-[#0b2545]">
+      <h1
+        className="absolute inset-x-[8.1%] top-[18.3%] whitespace-pre-line font-extrabold leading-[1.2] tracking-[-0.03em] text-[#0b2545]"
+        style={{ fontSize: `${coverTitleFontSize(title)}cqw` }}
+      >
         {title}
       </h1>
 

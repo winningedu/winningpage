@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { makeDesign } from "@/components/inquiry/design/designFixture";
@@ -166,6 +172,9 @@ describe("DesignPage", () => {
     const cover = screen.getByLabelText(/리포트 표지/);
     expect(built?.root).toContainElement(cover);
     expect(built?.root.firstElementChild).toBe(cover);
+    expect(within(cover).getByRole("heading", { level: 1 }).textContent).toBe(
+      "효소 활성 탐구",
+    );
     expect(cover).toHaveTextContent("김학생");
     expect(cover).toHaveTextContent("고등학교 2학년");
     expect(built?.title).toBe("심화탐구_설계리포트_효소 활성 탐구");
