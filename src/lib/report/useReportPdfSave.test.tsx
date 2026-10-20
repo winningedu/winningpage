@@ -2,13 +2,21 @@ import { act, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const { tokenMock, downloadMock, serverMock } = vi.hoisted(() => ({
-  tokenMock: vi.fn(),
-  downloadMock: vi.fn(),
-  serverMock: vi.fn(),
-}));
+const { tokenMock, downloadMock, serverMock, printMock, printOptions } =
+  vi.hoisted(() => ({
+    tokenMock: vi.fn(),
+    downloadMock: vi.fn(),
+    serverMock: vi.fn(),
+    printMock: vi.fn(),
+    printOptions: { current: null as Record<string, unknown> | null },
+  }));
 
-vi.mock("react-to-print", () => ({ useReactToPrint: () => vi.fn() }));
+vi.mock("react-to-print", () => ({
+  useReactToPrint: (options: Record<string, unknown>) => {
+    printOptions.current = options;
+    return printMock;
+  },
+}));
 vi.mock("./downloadReportPdf", () => ({
   getReportAccessToken: tokenMock,
   downloadReportPdf: downloadMock,
@@ -19,6 +27,7 @@ vi.mock("./buildPrintDocument", () => ({
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { useReportPdfSave } from "./useReportPdfSave";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -38,9 +47,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  document.head.innerHTML = "";
   vi.restoreAllMocks();
   vi.useRealTimers();
-  for (const m of [tokenMock, downloadMock, serverMock]) m.mockReset();
+  for (const m of [tokenMock, downloadMock, serverMock, printMock]) m.mockReset();
 });
 
 describe("useReportPdfSave 서버 PDF 경로", () => {
@@ -76,5 +86,25 @@ describe("useReportPdfSave 서버 PDF 경로", () => {
     clear.mockClear();
     unmount();
     expect(clear).toHaveBeenCalled();
+  });
+});
+
+describe("useReportPdfSave 데스크톱 인쇄 경로", () => {
+  test("링크 URL 대신 로드된 문서 CSS를 pageStyle로 넘기고 베이스 인쇄 스타일을 맨 끝에 둔다", () => {
+    serverMock.mockReturnValue(false);
+    const style = document.createElement("style");
+    style.textContent = ".doc { color: red; }";
+    document.head.appendChild(style);
+
+    const { result } = setup();
+    act(() => {
+      result.current.save();
+    });
+
+    expect(printMock).toHaveBeenCalledTimes(1);
+    expect(printOptions.current?.ignoreGlobalStyles).toBe(true);
+    const pageStyle = printOptions.current?.pageStyle as string;
+    expect(pageStyle).toContain(".doc");
+    expect(pageStyle.endsWith(REPORT_PRINT_PAGE_BASE_STYLE)).toBe(true);
   });
 });
