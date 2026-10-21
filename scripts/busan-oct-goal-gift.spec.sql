@@ -119,7 +119,8 @@ begin
     student_profile_id, parent_profile_id,
     approval_status, requested_at, responded_at
   ) values (
-    p_order_id, p_parent, 'paid', p_order_id, v_p.list_price * p_qty, 0, v_p.price * p_qty,
+    p_order_id, p_parent, 'paid', p_order_id, v_p.list_price * p_qty,
+    (v_p.list_price - v_p.price) * p_qty, v_p.price * p_qty,
     'spec@test.local', p_paid_at, p_paid_at,
     p_student, p_parent,
     'approved', now(), now()
@@ -174,7 +175,58 @@ create temp table spec_lb as select * from pg_temp.mk_pair('lb');
 select pg_temp.mk_legacy_busan('spec-la', o_parent, o_student, '2026-10-05T03:00:00Z') from spec_la;
 select pg_temp.mk_legacy_busan('spec-lb', o_parent, o_student, '2026-09-10T03:00:00Z') from spec_lb;
 
--- 마이그레이션 적용(재실행 포함 멱등). 이 시점부터 새 구성·새 함수가 보인다.
+-- ---------------------------------------------------------------------
+-- 이전 형태 목표관리 픽스처: 상품(번들 없음), GC1 = 살아있는 3개월권, GC2 = 이미 만료
+--   spec-goal-scalar 는 증정 없는 기준 상품(환불 산정 비교용)이다. service_key 가
+--   goal 이 아니라 증정 구성 대상이 아니다.
+-- ---------------------------------------------------------------------
+insert into public.products
+  (service_key, service_name, service_desc, name, slug, program_key,
+   list_price, price, duration_months, is_recommended) values
+  ('goal', 'spec', '목표관리 설명.', 'spec goal 1m',  'goal-1m',  'target',  25000,  25000, 1,  false),
+  ('goal', 'spec', '목표관리 설명.', 'spec goal 3m',  'goal-3m',  'target',  75000,  67500, 3,  false),
+  ('goal', 'spec', '목표관리 설명.', 'spec goal 6m',  'goal-6m',  'target', 150000, 120000, 6,  false),
+  ('goal', 'spec', '목표관리 설명.', 'spec goal 12m', 'goal-12m', 'target', 300000, 180000, 12, true),
+  ('spec', 'spec', null,             'spec goal scalar', 'spec-goal-scalar', 'target', 75000, 67500, 3, false)
+on conflict (slug) do nothing;
+
+create function pg_temp.mk_legacy_goal(
+  p_order_id text, p_parent uuid, p_student uuid, p_slug text, p_start timestamptz
+) returns void
+language plpgsql as $$
+declare
+  v_p    public.products;
+  v_item bigint;
+begin
+  select * into v_p from public.products where slug = p_slug;
+  insert into public.orders (
+    id, user_id, status, order_name, list_amount, discount_amount, amount,
+    customer_email, paid_at, created_at,
+    student_profile_id, parent_profile_id,
+    approval_status, requested_at, responded_at
+  ) values (
+    p_order_id, p_parent, 'paid', p_order_id, v_p.list_price, v_p.list_price - v_p.price, v_p.price,
+    'spec@test.local', p_start, p_start,
+    p_student, p_parent, 'approved', p_start, p_start
+  );
+  insert into public.order_items (order_id, product_slug, service_key, name, list_price, price, quantity, product_id)
+  values (p_order_id, v_p.slug, v_p.service_key, v_p.name, v_p.list_price, v_p.price, 1, v_p.id)
+  returning id into v_item;
+  insert into public.program_access_grants (
+    profile_id, program_key, order_id, order_item_id, product_id, product_slug,
+    granted_by, granted_months, paid_amount, starts_at, expires_at
+  ) values (
+    p_student, 'target', p_order_id, v_item, v_p.id, v_p.slug, 'payment',
+    v_p.duration_months, v_p.price, p_start, public.fn_add_months_kst(p_start, v_p.duration_months));
+end $$;
+
+create temp table spec_gc1 as select * from pg_temp.mk_pair('gc1');
+create temp table spec_gc2 as select * from pg_temp.mk_pair('gc2');
+select pg_temp.mk_legacy_goal('spec-gc1', o_parent, o_student, 'goal-3m',
+  public.fn_kst_day_start(now()) - interval '10 days') from spec_gc1;
+select pg_temp.mk_legacy_goal('spec-gc2', o_parent, o_student, 'goal-1m', '2026-08-01T00:00:00Z') from spec_gc2;
+
+-- 마이그레이션 적용(재실행 포함 멱등). 이 시점부터 새 구성/새 함수가 보인다.
 \ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
 
 -- ---------------------------------------------------------------------
@@ -300,6 +352,187 @@ begin
     (select count(*) from public.program_access_grants where order_id = 'spec-lb'), 3);
 end $$;
 
-do $$ begin raise notice '=== busan-oct-goal-gift.spec: 부산 구간 통과 ==='; end $$;
+-- ---------------------------------------------------------------------
+-- G1 goal-3m 주문: 목표관리 3개월(전액) + 수행평가/심화탐구 3개월 6회(무상)
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+  g record;
+  v_target timestamptz;
+begin
+  select * into r from pg_temp.mk_pair('g1');
+  perform pg_temp.mk_paid_order('spec-g1', r.o_parent, r.o_student, 'goal-3m', 1, '2026-10-20T03:00:00Z');
+  perform pg_temp.expect_int('G1 부여 수',
+    (select count(*) from public.program_access_grants where order_id = 'spec-g1'), 3);
+  select * into g from public.program_access_grants where order_id = 'spec-g1' and program_key = 'target';
+  perform pg_temp.expect_int('G1 target 개월', g.granted_months, 3);
+  perform pg_temp.expect_int('G1 target paid_amount',
+    g.paid_amount, (select price from public.products where slug = 'goal-3m'));
+  v_target := g.expires_at;
+  for g in
+    select * from public.program_access_grants
+     where order_id = 'spec-g1' and program_key in ('suhaeng', 'inquiry')
+  loop
+    perform pg_temp.expect_int('G1 ' || g.program_key || ' 개월', g.granted_months, 3);
+    perform pg_temp.expect_int('G1 ' || g.program_key || ' 회차', g.granted_sessions, 6);
+    perform pg_temp.expect_int('G1 ' || g.program_key || ' paid_amount', g.paid_amount, 0);
+    perform pg_temp.expect_bool('G1 ' || g.program_key || ' 만료 = target 만료', g.expires_at = v_target, true);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------
+-- G2 기간별 증정 회차: 1개월 2회, 6개월 12회, 12개월 24회
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+  v_slug text;
+  v_months int;
+begin
+  foreach v_slug in array array['goal-1m', 'goal-6m', 'goal-12m'] loop
+    select * into r from pg_temp.mk_pair('g2' || v_slug);
+    perform pg_temp.mk_paid_order('spec-g2-' || v_slug, r.o_parent, r.o_student, v_slug, 1, '2026-10-20T03:00:00Z');
+    select duration_months into v_months from public.products where slug = v_slug;
+    perform pg_temp.expect_int('G2 ' || v_slug || ' suhaeng 회차',
+      (select granted_sessions from public.program_access_grants
+        where order_id = 'spec-g2-' || v_slug and program_key = 'suhaeng'), v_months * 2);
+    perform pg_temp.expect_int('G2 ' || v_slug || ' inquiry 회차',
+      (select granted_sessions from public.program_access_grants
+        where order_id = 'spec-g2-' || v_slug and program_key = 'inquiry'), v_months * 2);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------
+-- G3 환불 산정은 증정이 없는 기준 상품(spec-goal-scalar)과 같다
+--   같은 시각 결제, 같은 금액. 개시 전 / 개시 후 40일 / 만료 후 세 시점과
+--   order_item 지정(부분환불 경로)을 비교한다.
+-- ---------------------------------------------------------------------
+create function pg_temp.same_quote(t text, p_a text, p_b text, p_at timestamptz, p_parent_a uuid, p_parent_b uuid)
+returns void
+language plpgsql as $$
+declare
+  qa record;
+  qb record;
+begin
+  perform pg_temp.as_user(p_parent_a);
+  select * into qa from public.fn_refund_quote(p_a, null, false, p_at);
+  perform pg_temp.as_user(p_parent_b);
+  select * into qb from public.fn_refund_quote(p_b, null, false, p_at);
+  perform pg_temp.expect_int(t || ' refund_amount', qa.refund_amount, qb.refund_amount);
+  perform pg_temp.expect_int(t || ' fee_amount', qa.fee_amount, qb.fee_amount);
+  perform pg_temp.expect_text(t || ' policy_code', qa.policy_code, qb.policy_code);
+  perform pg_temp.expect_text(t || ' scope', qa.scope, qb.scope);
+  perform pg_temp.expect_int(t || ' lines 수', jsonb_array_length(qa.lines), jsonb_array_length(qb.lines));
+  perform pg_temp.expect_text(t || ' line policy_code',
+    qa.lines -> 0 ->> 'policy_code', qb.lines -> 0 ->> 'policy_code');
+  perform pg_temp.expect_text(t || ' line refund',
+    qa.lines -> 0 ->> 'refund', qb.lines -> 0 ->> 'refund');
+end $$;
+
+do $$
+declare
+  ra record;
+  rb record;
+  v_paid timestamptz := now();
+  v_item_a bigint;
+  v_item_b bigint;
+  qa record;
+  qb record;
+begin
+  select * into ra from pg_temp.mk_pair('g3a');
+  select * into rb from pg_temp.mk_pair('g3b');
+  perform pg_temp.mk_paid_order('spec-g3a', ra.o_parent, ra.o_student, 'goal-3m', 1, v_paid);
+  perform pg_temp.mk_paid_order('spec-g3b', rb.o_parent, rb.o_student, 'spec-goal-scalar', 1, v_paid);
+
+  perform pg_temp.same_quote('G3 개시 전', 'spec-g3a', 'spec-g3b', v_paid, ra.o_parent, rb.o_parent);
+
+  update public.program_access_grants
+     set first_accessed_at = v_paid
+   where order_id in ('spec-g3a', 'spec-g3b') and program_key = 'target';
+  perform pg_temp.same_quote('G3 개시 후 40일', 'spec-g3a', 'spec-g3b',
+    v_paid + interval '40 days', ra.o_parent, rb.o_parent);
+  perform pg_temp.same_quote('G3 만료 후', 'spec-g3a', 'spec-g3b',
+    v_paid + interval '200 days', ra.o_parent, rb.o_parent);
+
+  -- 부분환불 경로: order_item 을 직접 지정해도 같다.
+  select id into v_item_a from public.order_items where order_id = 'spec-g3a';
+  select id into v_item_b from public.order_items where order_id = 'spec-g3b';
+  perform pg_temp.as_user(ra.o_parent);
+  select refund_amount, scope into qa
+    from public.fn_refund_quote('spec-g3a', array[v_item_a], false, v_paid + interval '40 days');
+  perform pg_temp.as_user(rb.o_parent);
+  select refund_amount, scope into qb
+    from public.fn_refund_quote('spec-g3b', array[v_item_b], false, v_paid + interval '40 days');
+  perform pg_temp.expect_int('G3 item 지정 refund_amount', qa.refund_amount, qb.refund_amount);
+  perform pg_temp.expect_text('G3 item 지정 scope', qa.scope, 'order');
+end $$;
+
+-- ---------------------------------------------------------------------
+-- G4 추천 배지: goal-6m 해제, goal-12m 지정 / G5 설명 두 번째 문장
+-- ---------------------------------------------------------------------
+do $$
+begin
+  perform pg_temp.expect_bool('G4 goal-6m is_recommended',
+    (select is_recommended from public.products where slug = 'goal-6m'), true);
+  perform pg_temp.expect_bool('G4 goal-12m is_recommended',
+    (select is_recommended from public.products where slug = 'goal-12m'), false);
+  perform pg_temp.expect_text('G5 goal-3m 설명',
+    (select service_desc from public.products where slug = 'goal-3m'),
+    E'목표관리 설명.\n목표관리서비스를 이용하면 수행평가 월 2회권, 심화탐구 월 2회권을 함께 이용할 수 있습니다.');
+end $$;
+
+-- ---------------------------------------------------------------------
+-- G6 백필 C: 살아있는 목표관리 주문에 수행평가/심화탐구 증정 보충, 만료 주문은 제외
+-- ---------------------------------------------------------------------
+do $$
+declare
+  g record;
+  v_target timestamptz;
+begin
+  select expires_at into v_target
+    from public.program_access_grants where order_id = 'spec-gc1' and program_key = 'target';
+  perform pg_temp.expect_int('G6 GC1 부여 수',
+    (select count(*) from public.program_access_grants where order_id = 'spec-gc1'), 3);
+  for g in
+    select * from public.program_access_grants
+     where order_id = 'spec-gc1' and program_key in ('suhaeng', 'inquiry')
+  loop
+    perform pg_temp.expect_int('G6 ' || g.program_key || ' 회차', g.granted_sessions, 6);
+    perform pg_temp.expect_int('G6 ' || g.program_key || ' 개월', g.granted_months, 3);
+    perform pg_temp.expect_int('G6 ' || g.program_key || ' paid_amount', g.paid_amount, 0);
+    perform pg_temp.expect_bool('G6 ' || g.program_key || ' 시작 = 오늘 KST 자정',
+      g.starts_at = public.fn_kst_day_start(now()), true);
+    perform pg_temp.expect_bool('G6 ' || g.program_key || ' 만료 = target 만료', g.expires_at = v_target, true);
+  end loop;
+  perform pg_temp.expect_int('G6 GC2(만료) 부여 수',
+    (select count(*) from public.program_access_grants where order_id = 'spec-gc2'), 1);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- I1 재실행 멱등: 마이그레이션을 한 번 더 돌려도 부여 원장이 그대로다
+-- ---------------------------------------------------------------------
+create temp table spec_snap as
+  select order_id, program_key, expires_at, granted_sessions, paid_amount
+    from public.program_access_grants where order_id like 'spec-%';
+
+\ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
+
+do $$
+begin
+  perform pg_temp.expect_int('I1 행 수 동일',
+    (select count(*) from public.program_access_grants where order_id like 'spec-%'),
+    (select count(*) from spec_snap));
+  perform pg_temp.expect_int('I1 변경된 행 없음',
+    (select count(*) from (
+       select order_id, program_key, expires_at, granted_sessions, paid_amount
+         from public.program_access_grants where order_id like 'spec-%'
+       except select * from spec_snap) d), 0);
+  perform pg_temp.expect_int('I1 goal 설명 문장 중복 없음',
+    (select (length(service_desc) - length(replace(service_desc, '월 2회권', ''))) / length('월 2회권')
+       from public.products where slug = 'goal-3m'), 2);
+end $$;
+
+do $$ begin raise notice '=== busan-oct-goal-gift.spec: 전체 통과 ==='; end $$;
 
 rollback;
