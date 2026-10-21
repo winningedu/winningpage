@@ -1,0 +1,305 @@
+-- =====================================================================
+-- 부산캠퍼스 10월 연장 + 목표관리 증정 SQL 시나리오 스펙
+--
+-- 실행: 마이그레이션이 전부 적용된 스택에서
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/busan-oct-goal-gift.spec.sql
+--
+-- 전체가 한 트랜잭션이고 마지막에 ROLLBACK 한다. 어떤 데이터도 남기지
+-- 않는다. 단언 실패는 예외로 터져 psql 이 비정상 종료(ON_ERROR_STOP)한다.
+--
+-- 백필(A/B/C) 검증을 위해 "이전 형태" 주문을 직접 만든 뒤 마이그레이션
+-- 파일을 같은 트랜잭션 안에서 다시 실행(\ir)한다. 마이그레이션은 멱등이라
+-- 이미 적용된 DB 에서도 재실행이 안전하며, 재실행이 곧 멱등성 단언이다.
+-- 백필 B/C 는 now() 기준 "살아있는 부여"를 보므로 2026-11-30(KST) 이전에만
+-- 의미 있게 통과한다(10월 결제분 만료일이 그 날이다).
+-- =====================================================================
+begin;
+
+-- ---------------------------------------------------------------------
+-- 단언 및 픽스처 헬퍼(pg_temp, 세션 종료와 함께 소멸)
+-- ---------------------------------------------------------------------
+create function pg_temp.expect_int(t text, got bigint, want bigint) returns void
+language plpgsql as $$
+begin
+  if got is distinct from want then
+    raise exception '[FAIL] %: got %, want %', t, got, want;
+  end if;
+  raise notice '[PASS] % = %', t, want;
+end $$;
+
+create function pg_temp.expect_text(t text, got text, want text) returns void
+language plpgsql as $$
+begin
+  if got is distinct from want then
+    raise exception '[FAIL] %: got %, want %', t, got, want;
+  end if;
+  raise notice '[PASS] % = %', t, want;
+end $$;
+
+create function pg_temp.expect_bool(t text, got boolean, want boolean) returns void
+language plpgsql as $$
+begin
+  if got is distinct from want then
+    raise exception '[FAIL] %: got %, want %', t, got, want;
+  end if;
+  raise notice '[PASS] % = %', t, want;
+end $$;
+
+-- 주어진 SQL 이 want 로 지정한 SQLSTATE 로 실패하는지 단언한다.
+create function pg_temp.expect_error(t text, p_sql text, want text) returns void
+language plpgsql as $$
+declare
+  v_state text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate;
+    if v_state is distinct from want then
+      raise exception '[FAIL] %: sqlstate %, want %', t, v_state, want;
+    end if;
+    raise notice '[PASS] % = %', t, want;
+    return;
+  end;
+  raise exception '[FAIL] %: 예외가 나지 않았다, want %', t, want;
+end $$;
+
+create function pg_temp.as_user(p_uid uuid) returns void
+language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+end $$;
+
+create function pg_temp.mk_user(p_email text, p_role text, p_member_type text) returns uuid
+language plpgsql as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (
+    id, instance_id, aud, role, email, encrypted_password,
+    created_at, updated_at, raw_app_meta_data, raw_user_meta_data
+  ) values (
+    v_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    p_email, 'x', now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb
+  );
+  insert into public.profiles (id, name, role, member_type, email)
+  values (v_id, p_email, p_role, p_member_type, p_email)
+  on conflict (id) do update
+    set role = excluded.role, member_type = excluded.member_type, name = excluded.name;
+  return v_id;
+end $$;
+
+-- 학부모-학생 승인 링크.
+create function pg_temp.mk_pair(p_tag text, out o_parent uuid, out o_student uuid)
+language plpgsql as $$
+begin
+  o_parent  := pg_temp.mk_user(p_tag || '-p@t.local', 'user', 'parent');
+  o_student := pg_temp.mk_user(p_tag || '-s@t.local', 'user', 'student');
+  insert into public.parent_child_links (parent_id, student_id, status, responded_at)
+  values (o_parent, o_student, 'approved', now());
+end $$;
+
+-- 결제 완료 주문 1건(+부여). 운영과 같은 경로(fn_grant_program_access_for_order).
+-- p_paid_at 으로 결제 시각을 고정한다.
+create function pg_temp.mk_paid_order(
+  p_order_id text, p_parent uuid, p_student uuid, p_slug text, p_qty int,
+  p_paid_at timestamptz default now()
+) returns jsonb
+language plpgsql as $$
+declare
+  v_p public.products;
+begin
+  select * into v_p from public.products where slug = p_slug;
+  insert into public.orders (
+    id, user_id, status, order_name, list_amount, discount_amount, amount,
+    customer_email, paid_at, created_at,
+    student_profile_id, parent_profile_id,
+    approval_status, requested_at, responded_at
+  ) values (
+    p_order_id, p_parent, 'paid', p_order_id, v_p.list_price * p_qty, 0, v_p.price * p_qty,
+    'spec@test.local', p_paid_at, p_paid_at,
+    p_student, p_parent,
+    'approved', now(), now()
+  );
+  insert into public.order_items (order_id, product_slug, service_key, name, list_price, price, quantity, product_id)
+  values (p_order_id, v_p.slug, v_p.service_key, v_p.name, v_p.list_price, v_p.price, p_qty, v_p.id);
+  return public.fn_grant_program_access_for_order(p_order_id, p_parent, p_paid_at);
+end $$;
+
+
+-- 이전 형태(번들 3행) 부산 주문 1건을 부여까지 직접 만든다(백필 입력).
+create function pg_temp.mk_legacy_busan(
+  p_order_id text, p_parent uuid, p_student uuid, p_paid_at timestamptz
+) returns void
+language plpgsql as $$
+declare
+  v_p     public.products;
+  v_item  bigint;
+  v_start timestamptz := public.fn_kst_day_start(p_paid_at);
+begin
+  select * into v_p from public.products where slug = 'busan-9900';
+  insert into public.orders (
+    id, user_id, status, order_name, list_amount, discount_amount, amount,
+    customer_email, paid_at, created_at,
+    student_profile_id, parent_profile_id,
+    approval_status, requested_at, responded_at
+  ) values (
+    p_order_id, p_parent, 'paid', p_order_id, 9900, 0, 9900,
+    'spec@test.local', p_paid_at, p_paid_at,
+    p_student, p_parent, 'approved', p_paid_at, p_paid_at
+  );
+  insert into public.order_items (order_id, product_slug, service_key, name, list_price, price, quantity, product_id)
+  values (p_order_id, v_p.slug, v_p.service_key, v_p.name, 9900, 9900, 1, v_p.id)
+  returning id into v_item;
+  insert into public.program_access_grants (
+    profile_id, program_key, order_id, order_item_id, product_id, product_slug,
+    granted_by, granted_months, granted_sessions, paid_amount, starts_at, expires_at, validity_days
+  ) values
+    (p_student, 'diagnose', p_order_id, v_item, v_p.id, v_p.slug, 'payment',
+     null, 1, 2475, v_start, v_start + interval '30 days', 30),
+    (p_student, 'suhaeng', p_order_id, v_item, v_p.id, v_p.slug, 'payment',
+     1, 2, 1238, v_start, public.fn_add_months_kst(v_start, 1), null),
+    (p_student, 'target', p_order_id, v_item, v_p.id, v_p.slug, 'payment',
+     1, null, 6187, v_start, public.fn_add_months_kst(v_start, 1), null);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- 이전 형태 픽스처: LA = 10월 결제 + 아직 살아있음, LB = 9월 결제 + 이미 만료
+-- ---------------------------------------------------------------------
+create temp table spec_la as select * from pg_temp.mk_pair('la');
+create temp table spec_lb as select * from pg_temp.mk_pair('lb');
+select pg_temp.mk_legacy_busan('spec-la', o_parent, o_student, '2026-10-05T03:00:00Z') from spec_la;
+select pg_temp.mk_legacy_busan('spec-lb', o_parent, o_student, '2026-09-10T03:00:00Z') from spec_lb;
+
+-- 마이그레이션 적용(재실행 포함 멱등). 이 시점부터 새 구성·새 함수가 보인다.
+\ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
+
+-- ---------------------------------------------------------------------
+-- S1 부산 상품 구성 6항목, 상품명, 10월 특례 컬럼
+-- ---------------------------------------------------------------------
+do $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from public.products where slug = 'busan-9900';
+  perform pg_temp.expect_int('S1 bundle_items 행 수',
+    (select count(*) from public.bundle_items where product_id = v_id), 6);
+  perform pg_temp.expect_text('S1 구성',
+    (select string_agg(program_key || ':' || coalesce(duration_months::text, '-') || ':'
+                       || coalesce(session_quota::text, '-') || ':' || coalesce(validity_days::text, '-')
+                       || ':' || list_price, ',' order by program_key)
+       from public.bundle_items where product_id = v_id),
+    'diagnose:-:1:30:10000,growth:-:1:30:18000,inquiry:1:2:-:5000,selfeval:1:2:-:7500,suhaeng:1:2:-:5000,target:1:-:-:25000');
+  perform pg_temp.expect_text('S1 상품명',
+    (select name from public.products where slug = 'busan-9900'),
+    '9,900원 부산캠퍼스 특별할인 학습관리 서비스 (1개월 이용권)');
+  perform pg_temp.expect_text('S1 설명',
+    (select service_desc from public.products where slug = 'busan-9900'),
+    '위닝 부산캠퍼스 소속 회원 전용 특별할인 패키지입니다. 학습진단 1회, 목표관리 1개월, 성장설계 1회, 수행평가 2회, 심화탐구 2회, 자기평가 2회를 한 번의 결제로 이용할 수 있습니다.');
+end $$;
+
+-- ---------------------------------------------------------------------
+-- S2 10월 결제 주문: 6개 부여 전부 2026-11-30(KST) 까지, 금액 합 9900
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+begin
+  select * into r from pg_temp.mk_pair('s2');
+  perform pg_temp.mk_paid_order('spec-s2', r.o_parent, r.o_student, 'busan-9900', 1, '2026-10-20T03:00:00Z');
+  perform pg_temp.expect_int('S2 부여 수',
+    (select count(*) from public.program_access_grants where order_id = 'spec-s2'), 6);
+  perform pg_temp.expect_int('S2 만료일이 11/30 인 부여 수',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-s2' and expires_at = '2026-11-30T15:00:00Z'), 6);
+  perform pg_temp.expect_int('S2 paid_amount 합',
+    (select sum(paid_amount) from public.program_access_grants where order_id = 'spec-s2'), 9900);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- S3 11월 결제 주문: 일반 규칙(1개월 / 30일)
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+  v_start timestamptz := public.fn_kst_day_start('2026-11-03T03:00:00Z');
+begin
+  select * into r from pg_temp.mk_pair('s3');
+  perform pg_temp.mk_paid_order('spec-s3', r.o_parent, r.o_student, 'busan-9900', 1, '2026-11-03T03:00:00Z');
+  perform pg_temp.expect_bool('S3 target = 시작 + 1개월',
+    (select expires_at from public.program_access_grants where order_id = 'spec-s3' and program_key = 'target')
+      = public.fn_add_months_kst(v_start, 1), true);
+  perform pg_temp.expect_bool('S3 growth = 시작 + 30일',
+    (select expires_at from public.program_access_grants where order_id = 'spec-s3' and program_key = 'growth')
+      = v_start + interval '30 days', true);
+  perform pg_temp.expect_int('S3 11/30 로 끌어올려진 부여 없음',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-s3' and expires_at = '2026-11-30T15:00:00Z'), 0);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- S4 체이닝: 기존 부여가 더 늦게 끝나면 10월 특례가 그 만료를 줄이지 않는다
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+  v_prev timestamptz := '2027-01-31T15:00:00Z';
+begin
+  select * into r from pg_temp.mk_pair('s4');
+  insert into public.program_access_grants (
+    profile_id, program_key, granted_by, granted_months, paid_amount, starts_at, expires_at)
+  values (r.o_student, 'suhaeng', 'qa', 3, 0, '2026-10-31T15:00:00Z', v_prev);
+  perform pg_temp.mk_paid_order('spec-s4', r.o_parent, r.o_student, 'busan-9900', 1, '2026-10-20T03:00:00Z');
+  perform pg_temp.expect_bool('S4 suhaeng 만료가 줄지 않음(기존 만료 + 1개월)',
+    (select expires_at from public.program_access_grants where order_id = 'spec-s4' and program_key = 'suhaeng')
+      = public.fn_add_months_kst(v_prev, 1), true);
+  perform pg_temp.expect_int('S4 다른 5개는 11/30',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-s4' and program_key <> 'suhaeng' and expires_at = '2026-11-30T15:00:00Z'), 5);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- S5 백필 A: 10월 결제 이전 형태 주문의 3개 부여가 11/30 로 연장, 9월 결제분은 그대로
+-- ---------------------------------------------------------------------
+do $$
+begin
+  perform pg_temp.expect_int('S5 LA 기존 3개 11/30 연장',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-la' and expires_at = '2026-11-30T15:00:00Z'
+        and program_key in ('diagnose', 'suhaeng', 'target')), 3);
+  perform pg_temp.expect_int('S5 LB(9월 결제)는 연장 없음',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-lb' and expires_at = '2026-11-30T15:00:00Z'), 0);
+end $$;
+
+-- ---------------------------------------------------------------------
+-- S6 백필 B: 살아있는 이전 형태 주문에 growth 1 / inquiry 2 / selfeval 2 보충
+-- ---------------------------------------------------------------------
+do $$
+declare
+  g record;
+begin
+  perform pg_temp.expect_int('S6 LA 부여 수 6',
+    (select count(*) from public.program_access_grants where order_id = 'spec-la'), 6);
+  for g in
+    select * from public.program_access_grants
+     where order_id = 'spec-la' and program_key in ('growth', 'inquiry', 'selfeval')
+  loop
+    perform pg_temp.expect_int('S6 ' || g.program_key || ' 회차',
+      g.granted_sessions, case g.program_key when 'growth' then 1 else 2 end);
+    perform pg_temp.expect_int('S6 ' || g.program_key || ' paid_amount', g.paid_amount, 0);
+    perform pg_temp.expect_bool('S6 ' || g.program_key || ' 시작 = 오늘 KST 자정',
+      g.starts_at = public.fn_kst_day_start(now()), true);
+    perform pg_temp.expect_bool('S6 ' || g.program_key || ' 만료 = target 만료',
+      g.expires_at = '2026-11-30T15:00:00Z', true);
+  end loop;
+  perform pg_temp.expect_int('S6 LB(만료)는 보충 없음',
+    (select count(*) from public.program_access_grants where order_id = 'spec-lb'), 3);
+end $$;
+
+do $$ begin raise notice '=== busan-oct-goal-gift.spec: 부산 구간 통과 ==='; end $$;
+
+rollback;
