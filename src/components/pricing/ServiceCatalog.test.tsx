@@ -138,3 +138,14 @@ describe("ServiceCatalog 주문 불가 상품", () => {
     );
   });
 });
+
+describe("ServiceCatalog 서비스 설명", () => {
+  it("설명의 줄바꿈을 화면에서도 줄로 나눈다", () => {
+    const goal = {
+      ...group("goal", "위닝 목표관리", [product("g1", "목표 1개월")]),
+      desc: "첫 문장.\n둘째 문장.",
+    } as ServiceGroup;
+    renderCatalog([goal]);
+    expect(screen.getByText(/첫 문장\./)).toHaveClass("whitespace-pre-line");
+  });
+});

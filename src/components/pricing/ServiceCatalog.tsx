@@ -280,7 +280,7 @@ export default function ServiceCatalog({
             (위 주석의 390 4px 넘침 항목 참고 — 시각·레이아웃 영향 없음). */}
             {/* MyPage 수준 통일, 사용자 확정 2026-08-19(7f072f45) — 반응형 확대 제거. */}
             {service.desc && (
-              <p className="relative mb-6 text-[0.75rem] font-medium leading-4.25 text-ink-sub">
+              <p className="relative mb-6 whitespace-pre-line text-[0.75rem] font-medium leading-4.25 text-ink-sub">
                 {service.desc}
               </p>
             )}
