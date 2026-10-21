@@ -1,15 +1,16 @@
 -- =====================================================================
 -- 부산캠퍼스 10월 연장 + 목표관리 증정 SQL 시나리오 스펙
 --
--- 실행: 마이그레이션이 전부 적용된 스택에서
+-- 실행: 마이그레이션이 전부 적용된 스택에서(데이터 파일 적용 전후 상태를 모두 검증)
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/busan-oct-goal-gift.spec.sql
 --
 -- 전체가 한 트랜잭션이고 마지막에 ROLLBACK 한다. 어떤 데이터도 남기지
 -- 않는다. 단언 실패는 예외로 터져 psql 이 비정상 종료(ON_ERROR_STOP)한다.
 --
--- 백필(A/B/C) 검증을 위해 "이전 형태" 주문을 직접 만든 뒤 마이그레이션
--- 파일을 같은 트랜잭션 안에서 다시 실행(\ir)한다. 마이그레이션은 멱등이라
--- 이미 적용된 DB 에서도 재실행이 안전하며, 재실행이 곧 멱등성 단언이다.
+-- 백필 검증을 위해 "이전 형태" 주문을 직접 만든 뒤 마이그레이션 파일을 같은
+-- 트랜잭션 안에서 다시 실행(\ir)한다. 이어서 데이터 파일(scripts/busan-oct-
+-- goal-gift-data.sql, bundle_items + 백필 B/C)을 실행한다. 데이터 파일 실행 전
+-- (P*)과 후(S*, G*) 두 상태를 단언하고, 마지막에 둘을 다시 실행해 멱등을 본다.
 -- 백필 B/C 는 now() 기준 "살아있는 부여"를 보므로 2026-11-30(KST) 이전에만
 -- 의미 있게 통과한다(10월 결제분 만료일이 그 날이다).
 -- =====================================================================
@@ -229,6 +230,90 @@ select pg_temp.mk_legacy_goal('spec-gc2', o_parent, o_student, 'goal-1m', '2026-
 -- 마이그레이션 적용(재실행 포함 멱등). 이 시점부터 새 구성/새 함수가 보인다.
 \ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
 
+create function pg_temp.same_quote(t text, p_a text, p_b text, p_at timestamptz, p_parent_a uuid, p_parent_b uuid)
+returns void
+language plpgsql as $$
+declare
+  qa record;
+  qb record;
+begin
+  perform pg_temp.as_user(p_parent_a);
+  select * into qa from public.fn_refund_quote(p_a, null, false, p_at);
+  perform pg_temp.as_user(p_parent_b);
+  select * into qb from public.fn_refund_quote(p_b, null, false, p_at);
+  perform pg_temp.expect_int(t || ' refund_amount', qa.refund_amount, qb.refund_amount);
+  perform pg_temp.expect_int(t || ' fee_amount', qa.fee_amount, qb.fee_amount);
+  perform pg_temp.expect_text(t || ' policy_code', qa.policy_code, qb.policy_code);
+  perform pg_temp.expect_text(t || ' scope', qa.scope, qb.scope);
+  perform pg_temp.expect_int(t || ' lines 수', jsonb_array_length(qa.lines), jsonb_array_length(qb.lines));
+  perform pg_temp.expect_text(t || ' line policy_code',
+    qa.lines -> 0 ->> 'policy_code', qb.lines -> 0 ->> 'policy_code');
+  perform pg_temp.expect_text(t || ' line refund',
+    qa.lines -> 0 ->> 'refund', qb.lines -> 0 ->> 'refund');
+end $$;
+
+-- ---------------------------------------------------------------------
+-- P 데이터 파일 실행 전: 부산은 3항목 그대로 10월 하한만 적용, 목표관리는 기존 경로
+-- ---------------------------------------------------------------------
+do $$
+declare
+  r record;
+  ra record;
+  rb record;
+  v_paid timestamptz := now();
+begin
+  perform pg_temp.expect_int('P1 부산 bundle_items 행 수(전)',
+    (select count(*) from public.bundle_items bi join public.products p on p.id = bi.product_id
+      where p.slug = 'busan-9900'), 3);
+  perform pg_temp.expect_int('P1 goal 상품 bundle_items 행 수(전)',
+    (select count(*) from public.bundle_items bi join public.products p on p.id = bi.product_id
+      where p.service_key = 'goal'), 0);
+
+  select * into r from pg_temp.mk_pair('p2');
+  perform pg_temp.mk_paid_order('spec-p2', r.o_parent, r.o_student, 'busan-9900', 1, '2026-10-20T03:00:00Z');
+  perform pg_temp.expect_int('P2 10월 결제 부여 수(전)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-p2'), 3);
+  perform pg_temp.expect_int('P2 전부 11/30 만료(전)',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-p2' and expires_at = '2026-11-30T15:00:00Z'), 3);
+  perform pg_temp.expect_int('P2 paid_amount 합(전)',
+    (select sum(paid_amount) from public.program_access_grants where order_id = 'spec-p2'), 9900);
+
+  perform pg_temp.expect_int('P3 LA 기존 3개 11/30 연장(백필 A)(전)',
+    (select count(*) from public.program_access_grants
+      where order_id = 'spec-la' and expires_at = '2026-11-30T15:00:00Z'), 3);
+  perform pg_temp.expect_int('P3 LA 부여 수 3 유지(전)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-la'), 3);
+  perform pg_temp.expect_int('P3 GC1 부여 수 1 유지(전)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-gc1'), 1);
+
+  select * into r from pg_temp.mk_pair('p4');
+  perform pg_temp.mk_paid_order('spec-p4', r.o_parent, r.o_student, 'goal-3m', 1, '2026-10-20T03:00:00Z');
+  perform pg_temp.expect_int('P4 goal-3m 부여 수(전)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-p4'), 1);
+  perform pg_temp.expect_int('P4 target paid_amount(전)',
+    (select paid_amount from public.program_access_grants where order_id = 'spec-p4'),
+    (select price from public.products where slug = 'goal-3m'));
+
+  select * into ra from pg_temp.mk_pair('p5a');
+  select * into rb from pg_temp.mk_pair('p5b');
+  perform pg_temp.mk_paid_order('spec-p5a', ra.o_parent, ra.o_student, 'goal-3m', 1, v_paid);
+  perform pg_temp.mk_paid_order('spec-p5b', rb.o_parent, rb.o_student, 'spec-goal-scalar', 1, v_paid);
+  perform pg_temp.same_quote('P5 환불 산정(전)', 'spec-p5a', 'spec-p5b', v_paid, ra.o_parent, rb.o_parent);
+end $$;
+
+-- 데이터 파일 적용: 부산 6항목, 목표관리 증정 구성, 백필 B/C.
+\ir busan-oct-goal-gift-data.sql
+
+-- P6 백필 C 는 데이터 파일 실행 전에 만든 살아있는 목표관리 주문에도 증정을 보충한다.
+do $$
+begin
+  perform pg_temp.expect_int('P6 spec-p4 부여 수(후)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-p4'), 3);
+  perform pg_temp.expect_int('P6 spec-p2 부여 수(후)',
+    (select count(*) from public.program_access_grants where order_id = 'spec-p2'), 6);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- S1 부산 상품 구성 6항목, 상품명, 10월 특례 컬럼
 -- ---------------------------------------------------------------------
@@ -404,31 +489,10 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- G3 환불 산정은 증정이 없는 기준 상품(spec-goal-scalar)과 같다
+-- G3 환불 산정(데이터 파일 적용 후)은 증정이 없는 기준 상품(spec-goal-scalar)과 같다
 --   같은 시각 결제, 같은 금액. 개시 전 / 개시 후 40일 / 만료 후 세 시점과
 --   order_item 지정(부분환불 경로)을 비교한다.
 -- ---------------------------------------------------------------------
-create function pg_temp.same_quote(t text, p_a text, p_b text, p_at timestamptz, p_parent_a uuid, p_parent_b uuid)
-returns void
-language plpgsql as $$
-declare
-  qa record;
-  qb record;
-begin
-  perform pg_temp.as_user(p_parent_a);
-  select * into qa from public.fn_refund_quote(p_a, null, false, p_at);
-  perform pg_temp.as_user(p_parent_b);
-  select * into qb from public.fn_refund_quote(p_b, null, false, p_at);
-  perform pg_temp.expect_int(t || ' refund_amount', qa.refund_amount, qb.refund_amount);
-  perform pg_temp.expect_int(t || ' fee_amount', qa.fee_amount, qb.fee_amount);
-  perform pg_temp.expect_text(t || ' policy_code', qa.policy_code, qb.policy_code);
-  perform pg_temp.expect_text(t || ' scope', qa.scope, qb.scope);
-  perform pg_temp.expect_int(t || ' lines 수', jsonb_array_length(qa.lines), jsonb_array_length(qb.lines));
-  perform pg_temp.expect_text(t || ' line policy_code',
-    qa.lines -> 0 ->> 'policy_code', qb.lines -> 0 ->> 'policy_code');
-  perform pg_temp.expect_text(t || ' line refund',
-    qa.lines -> 0 ->> 'refund', qb.lines -> 0 ->> 'refund');
-end $$;
 
 do $$
 declare
@@ -510,13 +574,14 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------
--- I1 재실행 멱등: 마이그레이션을 한 번 더 돌려도 부여 원장이 그대로다
+-- I1 재실행 멱등: 마이그레이션과 데이터 파일을 한 번 더 돌려도 부여 원장이 그대로다
 -- ---------------------------------------------------------------------
 create temp table spec_snap as
   select order_id, program_key, expires_at, granted_sessions, paid_amount
     from public.program_access_grants where order_id like 'spec-%';
 
 \ir ../supabase/migrations/20261021014317_busan_oct_extension_goal_gift.sql
+\ir busan-oct-goal-gift-data.sql
 
 do $$
 begin
@@ -528,6 +593,9 @@ begin
        select order_id, program_key, expires_at, granted_sessions, paid_amount
          from public.program_access_grants where order_id like 'spec-%'
        except select * from spec_snap) d), 0);
+  perform pg_temp.expect_int('I1 bundle_items 행 수',
+    (select count(*) from public.bundle_items bi join public.products p on p.id = bi.product_id
+      where p.slug = 'busan-9900' or p.service_key = 'goal'), 6 + 3 * 4);
   perform pg_temp.expect_int('I1 goal 설명 문장 중복 없음',
     (select (length(service_desc) - length(replace(service_desc, '월 2회권', ''))) / length('월 2회권')
        from public.products where slug = 'goal-3m'), 2);
