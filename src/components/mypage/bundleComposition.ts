@@ -15,12 +15,23 @@ import { supabase } from "@/lib/supabase";
 const PROGRAM_KEY_LABELS: Record<string, string> = {
   diagnose: "학습진단서비스",
   target: "목표관리서비스",
+  growth: "성장설계서비스",
   suhaeng: "수행평가서비스",
+  inquiry: "심화탐구서비스",
+  selfeval: "자기평가서비스",
 };
 
 // 구성 라인 노출 순서 — 사용자 확정 카피(2026-09-01)로 list_price 정렬을
-// 버리고 diagnose → target → suhaeng 고정 순서를 쓴다.
-const PROGRAM_KEY_ORDER = ["diagnose", "target", "suhaeng"];
+// 버리고 고정 순서를 쓴다. 부산 번들 6항목 확대(2026-10)로 성장설계, 심화탐구,
+// 자기평가를 고객사 요청 문구 순서대로 더했다.
+const PROGRAM_KEY_ORDER = [
+  "diagnose",
+  "target",
+  "growth",
+  "suhaeng",
+  "inquiry",
+  "selfeval",
+];
 
 // 수량 표기 — 회차·기간을 동시에 가진 항목(예: 수행평가 2회+1개월)은
 // 기간을 표기하지 않고 "N회권"으로 합쳐 보여준다(사용자 확정 카피,

@@ -5148,6 +5148,8 @@ export type Database = {
           badge: string | null;
           created_at: string;
           duration_months: number | null;
+          grant_expires_floor_at: string | null;
+          grant_expires_floor_paid_before: string | null;
           id: string;
           is_active: boolean;
           is_orderable: boolean;
@@ -5174,6 +5176,8 @@ export type Database = {
           badge?: string | null;
           created_at?: string;
           duration_months?: number | null;
+          grant_expires_floor_at?: string | null;
+          grant_expires_floor_paid_before?: string | null;
           id?: string;
           is_active?: boolean;
           is_orderable?: boolean;
@@ -5199,6 +5203,8 @@ export type Database = {
           badge?: string | null;
           created_at?: string;
           duration_months?: number | null;
+          grant_expires_floor_at?: string | null;
+          grant_expires_floor_paid_before?: string | null;
           id?: string;
           is_active?: boolean;
           is_orderable?: boolean;
