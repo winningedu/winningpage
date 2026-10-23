@@ -74,7 +74,7 @@ const ADMIN_REL = "src/pages/admin/shared/AdminEngine.tsx";
 // 않았다"는 그대로 보존된다). "sql/<번호>..." 파일 존재 검증(구 체계 전제)은
 // baseline 안의 CREATE OR REPLACE VIEW 블록 존재 검증으로 치환한다.
 const ADMISSION_VIEW_NAME = "admission_university_resource_index";
-const BASELINE_SQL_REL = "supabase/migrations/20260821000000_baseline.sql";
+const MIGRATIONS_REL = "supabase/migrations";
 
 const read = (rel: string) =>
   fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
@@ -577,17 +577,26 @@ describe("대학명 → official_source_url 배선 검증", () => {
     // "이력이 append-only였다"가 아니라 그 이력이 남긴 결과 상태, 즉
     // "official_source_url이 select 목록 맨 뒤에 정확히 1개 있고 나머지는
     // 그 앞에서 중복 없이 온다"를 검증한다.
-    const baselineSql = read(BASELINE_SQL_REL);
+    // 마이그레이션 전체를 이름 순으로 이은 현재 스키마 원본.
+    const baselineSql = fs
+      .readdirSync(path.join(REPO_ROOT, MIGRATIONS_REL))
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .map((file) => read(`${MIGRATIONS_REL}/${file}`))
+      .join("\n");
     const viewNeedle = `CREATE OR REPLACE VIEW "public"."${ADMISSION_VIEW_NAME}"`;
     let pass = false;
     let detail: string;
     if (!baselineSql.includes(viewNeedle)) {
       detail = JSON.stringify({
-        expected: `${BASELINE_SQL_REL} 안에 ${viewNeedle} 존재`,
+        expected: `${MIGRATIONS_REL} 안에 ${viewNeedle} 존재`,
         found: false,
       });
     } else {
-      const items = selectItems(baselineSql, BASELINE_SQL_REL);
+      const items = selectItems(
+        baselineSql.slice(baselineSql.lastIndexOf(viewNeedle)),
+        MIGRATIONS_REL,
+      );
       const officialUrlIndexes = items
         .map((v, i) => (v === '"official_source_url"' ? i : -1))
         .filter((i) => i >= 0);
