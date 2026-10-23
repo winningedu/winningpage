@@ -177,7 +177,7 @@ describe("nullDanglingRefs", () => {
       program_key: "target",
     });
     expect(out[1].revoked_by).toBe("qa-1");
-    expect(rows[0].order_id).toBe("o-1");
+    expect(rows[0]?.order_id).toBe("o-1");
   });
 });
 
@@ -309,6 +309,6 @@ describe("detachPaymentGrants", () => {
       "qa",
     ]);
     expect(out[1].granted_by_actor).toBe("a-1");
-    expect(rows[0].granted_by).toBe("payment");
+    expect(rows[0]?.granted_by).toBe("payment");
   });
 });

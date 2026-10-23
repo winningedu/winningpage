@@ -7,6 +7,14 @@ const USER_ROOTS = new Set(["public.profiles", "auth.users"]);
 // 로그성 테이블) ③ 제외된 테이블을 참조하는 자식(부모 행이 없어 FK가 깨진다).
 // alwaysInclude는 ①②에 걸려도 포함하고 ③으로도 번지지 않는다.
 // fks: [{ child, parent }] - parent는 "public.x" 또는 "auth.users".
+/**
+ * @param {{
+ *   tables: string[],
+ *   fks: { child: string, parent: string }[],
+ *   runtimeTables?: string[],
+ *   alwaysInclude?: string[],
+ * }} args
+ */
 export function classifyTables({
   tables,
   fks,
