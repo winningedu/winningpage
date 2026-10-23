@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildInsertSql,
-  detachPaymentGrants,
   classifyTables,
+  detachPaymentGrants,
   filterLiveGrants,
   filterQaLinks,
   insertableColumns,
@@ -283,7 +283,12 @@ describe("buildInsertSql", () => {
 
   it("행이 없으면 빈 문자열을 돌려준다", () => {
     expect(
-      buildInsertSql({ schema: "public", table: "t", columns: ["a"], rows: [] }),
+      buildInsertSql({
+        schema: "public",
+        table: "t",
+        columns: ["a"],
+        rows: [],
+      }),
     ).toBe("");
   });
 });
@@ -296,7 +301,12 @@ describe("detachPaymentGrants", () => {
     const rows = [
       { id: 1, granted_by: "payment", granted_by_actor: null, order_id: null },
       { id: 2, granted_by: "admin", granted_by_actor: "a-1", order_id: null },
-      { id: 3, granted_by: "promotion", granted_by_actor: null, order_id: null },
+      {
+        id: 3,
+        granted_by: "promotion",
+        granted_by_actor: null,
+        order_id: null,
+      },
       { id: 4, granted_by: "qa", granted_by_actor: null, order_id: null },
     ];
 

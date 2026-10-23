@@ -146,7 +146,9 @@ export function refColumns(table, fks, excludedTables) {
 }
 
 export function insertableColumns(devCols, localCols) {
-  const local = new Set(localCols.filter((c) => !c.generated).map((c) => c.name));
+  const local = new Set(
+    localCols.filter((c) => !c.generated).map((c) => c.name),
+  );
   return devCols
     .filter((c) => !c.generated && local.has(c.name))
     .map((c) => c.name);

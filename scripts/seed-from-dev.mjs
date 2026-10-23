@@ -107,7 +107,10 @@ function loadDevProject() {
 }
 
 function localContainer() {
-  const toml = readFileSync(path.join(repoRoot, "supabase/config.toml"), "utf8");
+  const toml = readFileSync(
+    path.join(repoRoot, "supabase/config.toml"),
+    "utf8",
+  );
   const id = toml.match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
   if (!id) throw new Error("supabase/config.toml에서 project_id를 읽지 못함");
   return `supabase_db_${id}`;
@@ -118,7 +121,11 @@ function queryDev(ref, sql) {
   const out = execFileSync(
     "supabase",
     ["db", "query", "--linked", "--project-ref", ref, "-o", "json", sql],
-    { encoding: "utf8", maxBuffer: MAX_BUFFER, stdio: ["ignore", "pipe", "ignore"] },
+    {
+      encoding: "utf8",
+      maxBuffer: MAX_BUFFER,
+      stdio: ["ignore", "pipe", "ignore"],
+    },
   );
   return JSON.parse(out.slice(out.indexOf("{"))).rows;
 }
@@ -132,7 +139,20 @@ const devRows = (ref, select) => queryDev(ref, asJson(select))[0].j;
 function runLocal(container, sql, args = []) {
   return execFileSync(
     "docker",
-    ["exec", "-i", container, "psql", "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q", ...args],
+    [
+      "exec",
+      "-i",
+      container,
+      "psql",
+      "-U",
+      "supabase_admin",
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-q",
+      ...args,
+    ],
     { encoding: "utf8", maxBuffer: MAX_BUFFER, input: sql },
   );
 }
@@ -206,7 +226,9 @@ async function main() {
     alwaysInclude: ALWAYS_INCLUDE,
   });
   const { order, cyclic } = orderTables(included, fks);
-  console.log(`제외 ${excluded.length}개 (유저/런타임): ${excluded.join(", ")}`);
+  console.log(
+    `제외 ${excluded.length}개 (유저/런타임): ${excluded.join(", ")}`,
+  );
   console.log(`포함 ${included.length}개 (dev 100% 복사): ${order.join(", ")}`);
   if (cyclic.length) console.log(`순환 FK: ${cyclic.join(", ")}`);
   if (planOnly) return;
@@ -219,7 +241,10 @@ async function main() {
     if (!localCols.has(key))
       throw new Error(`로컬에 ${key} 테이블이 없음 - 마이그레이션이 최신인가?`);
     return insertableColumns(
-      (devCols.get(key) ?? []).map((c) => ({ name: c.name, generated: c.generated })),
+      (devCols.get(key) ?? []).map((c) => ({
+        name: c.name,
+        generated: c.generated,
+      })),
       localCols.get(key).map((c) => ({ name: c.name, generated: c.generated })),
     );
   };
@@ -269,12 +294,21 @@ async function main() {
       qaIds,
     );
   queueRows("public", "profiles", qaPart("profiles", inQa("id")));
-  queueRows("public", "admin_members", qaPart("admin_members", inQa("profile_id")));
+  queueRows(
+    "public",
+    "admin_members",
+    qaPart("admin_members", inQa("profile_id")),
+  );
   // 주문 참조를 비우면 CHECK pag_payment_*_pairing_check 가 granted_by='payment' 를 막아 'qa' 로 바꾼다.
   const grants = detachPaymentGrants(
     nullDanglingRefs(
       filterLiveGrants(
-        fetchTableRows(dev.ref, "public", "program_access_grants", inQa("profile_id")),
+        fetchTableRows(
+          dev.ref,
+          "public",
+          "program_access_grants",
+          inQa("profile_id"),
+        ),
         new Date(),
       ),
       refColumns("program_access_grants", fks, excludedSet),
@@ -287,7 +321,12 @@ async function main() {
     "parent_child_links",
     nullDanglingRefs(
       filterQaLinks(
-        fetchTableRows(dev.ref, "public", "parent_child_links", inQa("parent_id")),
+        fetchTableRows(
+          dev.ref,
+          "public",
+          "parent_child_links",
+          inQa("parent_id"),
+        ),
         qaIds,
       ),
       refColumns("parent_child_links", fks, excludedSet),

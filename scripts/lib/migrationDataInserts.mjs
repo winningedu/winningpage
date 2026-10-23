@@ -35,7 +35,10 @@ const NAME = String.raw`((?:"?[a-zA-Z_][a-zA-Z0-9_]*"?\.)?"?[a-zA-Z_][a-zA-Z0-9_
 // kind별 패턴. update는 DDL의 on update / for update / before update on 과
 // 구분하려고 "update <table> [alias] set" 꼴만 잡는다.
 const PATTERNS = [
-  ["insert", new RegExp(String.raw`\binsert\s+into\s+(?:only\s+)?${NAME}`, "gi")],
+  [
+    "insert",
+    new RegExp(String.raw`\binsert\s+into\s+(?:only\s+)?${NAME}`, "gi"),
+  ],
   [
     "update",
     new RegExp(
@@ -43,8 +46,14 @@ const PATTERNS = [
       "gi",
     ),
   ],
-  ["delete", new RegExp(String.raw`\bdelete\s+from\s+(?:only\s+)?${NAME}`, "gi")],
-  ["truncate", new RegExp(String.raw`\btruncate\s+(?:table\s+)?(?:only\s+)?${NAME}`, "gi")],
+  [
+    "delete",
+    new RegExp(String.raw`\bdelete\s+from\s+(?:only\s+)?${NAME}`, "gi"),
+  ],
+  [
+    "truncate",
+    new RegExp(String.raw`\btruncate\s+(?:table\s+)?(?:only\s+)?${NAME}`, "gi"),
+  ],
   ["merge", new RegExp(String.raw`\bmerge\s+into\s+(?:only\s+)?${NAME}`, "gi")],
   ["copy", new RegExp(String.raw`\bcopy\s+${NAME}[^;]*?\bfrom\b`, "gi")],
 ];
@@ -64,7 +73,12 @@ export function findDataStatements(sql) {
   for (const [kind, regex] of PATTERNS) {
     for (const match of stripped.matchAll(regex)) {
       const line = stripped.slice(0, match.index).split("\n").length;
-      found.push({ kind, table: normalizeTable(match[1]), line, index: match.index });
+      found.push({
+        kind,
+        table: normalizeTable(match[1]),
+        line,
+        index: match.index,
+      });
     }
   }
   return found
