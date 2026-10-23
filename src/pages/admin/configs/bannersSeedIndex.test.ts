@@ -19,36 +19,18 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 const MIGRATIONS = path.join(REPO_ROOT, "supabase/migrations");
 const INDEX_NAME = "banners_seed_unique_idx";
 
-function migrationsMentioning(needle: string): string[] {
-  return fs
+test("이 인덱스는 스키마에 존재하지 않는다", () => {
+  // 마이그레이션이 squash 되어 drop 문 자체가 사라졌다. drop 된 결과 상태,
+  // 즉 어떤 마이그레이션도 이 인덱스를 언급하지 않는 것을 잠근다.
+  const mentioning = fs
     .readdirSync(MIGRATIONS)
     .filter((file) => file.endsWith(".sql"))
     .sort()
     .filter((file) =>
-      fs.readFileSync(path.join(MIGRATIONS, file), "utf8").includes(needle),
+      fs.readFileSync(path.join(MIGRATIONS, file), "utf8").includes(INDEX_NAME),
     );
-}
 
-test("이 인덱스를 언급하는 마지막 마이그레이션은 drop 쪽이다", () => {
-  const files = migrationsMentioning(INDEX_NAME);
-
-  expect(files.length, "인덱스를 언급하는 마이그레이션이 없다").toBeGreaterThan(
-    0,
-  );
-
-  const last = files.at(-1) as string;
-  const sql = fs.readFileSync(path.join(MIGRATIONS, last), "utf8");
-  const statements = sql
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
-
-  expect(statements, `${last} 에 drop index 가 없다`).toMatch(
-    new RegExp(`drop index if exists public\\.${INDEX_NAME}`, "i"),
-  );
-  expect(statements, `${last} 이 인덱스를 다시 만든다`).not.toMatch(
-    /create\s+unique\s+index/i,
-  );
+  expect(mentioning, `${INDEX_NAME} 가 스키마에 있다`).toEqual([]);
 });
 
 test("배너 내용 전체를 묶는 유일성 인덱스를 새로 만들지 않는다", () => {

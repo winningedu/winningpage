@@ -467,21 +467,23 @@ test("합성: 위험 접두사 셀 전부 t='s'로 강제되고 수식(f) 없음
 // 새 export를 추가하지 않는다.
 
 async function getNotNullColumnsFromSchema(): Promise<string[]> {
-  const { readFile } = await import("node:fs/promises");
+  const { readFile, readdir } = await import("node:fs/promises");
   const { join } = await import("node:path");
-  const schemaPath = join(
-    process.cwd(),
-    "supabase",
-    "migrations",
-    "20260821000000_baseline.sql",
-  );
-  const sql = await readFile(schemaPath, "utf-8");
+  const migrationsDir = join(process.cwd(), "supabase", "migrations");
+  const files = (await readdir(migrationsDir))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+  const sql = (
+    await Promise.all(
+      files.map((file) => readFile(join(migrationsDir, file), "utf-8")),
+    )
+  ).join("\n");
   const startMarker =
     'CREATE TABLE IF NOT EXISTS "public"."admission_university_resources" (';
   const startIdx = sql.indexOf(startMarker);
   if (startIdx === -1) {
     throw new Error(
-      "baseline.sql에서 admission_university_resources 테이블 정의를 못 찾음",
+      "supabase/migrations에서 admission_university_resources 테이블 정의를 못 찾음",
     );
   }
   const afterStart = sql.slice(startIdx + startMarker.length);

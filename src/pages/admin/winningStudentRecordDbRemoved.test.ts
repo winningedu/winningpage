@@ -39,11 +39,10 @@ test("사이드바(Admin.tsx)·CONFIGS(configs/winning.ts) 어디에도 키와 �
   }
 });
 
-// 마이그레이션은 누적이라 과거 파일(20260822000010·20260823000002)에는 이 키를
-// insert 하는 줄이 그대로 남아 있다 — 지울 수 없고 지워서도 안 된다. 대신 이 키를
-// 언급하는 **마지막** 마이그레이션이 delete 여야 한다. 누군가 뒤에 다시 시드하면
-// 파일명 정렬상 그 파일이 마지막이 되므로 여기서 걸린다.
-test("이 키를 언급하는 마지막 마이그레이션은 admin_resources 에서 지우는 쪽이다", () => {
+// 권한 마스터(admin_resources)의 이 키는 데이터 행이라 스키마 원본(마이그레이션)에는
+// 이제 INSERT/DELETE 가 없다(데이터는 supabase/data/). 대신 어떤 마이그레이션도 이
+// 키를 언급하지 않아야 한다 — 누군가 마이그레이션으로 다시 시드하면 여기서 걸린다.
+test("어떤 마이그레이션도 이 키를 언급하지 않는다", () => {
   const dir = path.join(REPO_ROOT, "supabase/migrations");
   const mentioning = fs
     .readdirSync(dir)
@@ -51,22 +50,5 @@ test("이 키를 언급하는 마지막 마이그레이션은 admin_resources �
     .sort()
     .filter((f) => fs.readFileSync(path.join(dir, f), "utf8").includes(KEY));
 
-  expect(
-    mentioning.length,
-    "키를 언급하는 마이그레이션이 하나도 없다",
-  ).toBeGreaterThan(0);
-
-  const last = mentioning.at(-1) as string;
-  const sql = fs.readFileSync(path.join(dir, last), "utf8");
-  const statements = sql
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("--"))
-    .join("\n");
-
-  expect(statements, `${last} 에 delete 문이 없다`).toMatch(
-    /delete\s+from\s+public\.admin_resources[\s\S]*?winningStudentRecordDb/i,
-  );
-  expect(statements, `${last} 이 키를 다시 시드한다`).not.toMatch(
-    /insert\s+into\s+public\.admin_resources/i,
-  );
+  expect(mentioning, `${KEY} 를 언급하는 마이그레이션이 있다`).toEqual([]);
 });

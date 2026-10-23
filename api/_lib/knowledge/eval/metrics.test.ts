@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -106,19 +106,21 @@ describe("buildEvalParams", () => {
 
 describe("하이브리드 운영값", () => {
   test("하이브리드 RPC 마이그레이션의 기본값과 같다", () => {
-    const sql = readFileSync(
-      path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        "../../../../supabase/migrations/20261007053142_knowledge_hybrid_search.sql",
-      ),
-      "utf8",
+    const migrationsDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../../../supabase/migrations",
     );
-    expect(sql).toContain(`rrf_k integer default ${HYBRID_RRF_K}`);
+    const sql = readdirSync(migrationsDir)
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .map((file) => readFileSync(path.join(migrationsDir, file), "utf8"))
+      .join("\n");
+    expect(sql).toContain(`"rrf_k" integer DEFAULT ${HYBRID_RRF_K}`);
     expect(sql).toContain(
-      `full_text_weight double precision default ${HYBRID_FULL_TEXT_WEIGHT}`,
+      `"full_text_weight" double precision DEFAULT ${HYBRID_FULL_TEXT_WEIGHT}`,
     );
     expect(sql).toContain(
-      `semantic_weight double precision default ${HYBRID_SEMANTIC_WEIGHT}`,
+      `"semantic_weight" double precision DEFAULT ${HYBRID_SEMANTIC_WEIGHT}`,
     );
   });
 });

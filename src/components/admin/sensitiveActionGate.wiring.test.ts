@@ -93,19 +93,37 @@ test("게이트가 쓰는 resource_key 는 전부 실재하는 메뉴 키다", (
 });
 
 test("원장 마이그레이션은 쓰기·읽기만 열고 수정·삭제 정책은 만들지 않는다", () => {
-  const sql = read(
-    "supabase/migrations/20260831041800_admin_access_logs.sql",
-  ).toLowerCase();
+  const migrationsDir = path.join(REPO_ROOT, "supabase/migrations");
+  const sql = fs
+    .readdirSync(migrationsDir)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => read(`supabase/migrations/${file}`))
+    .join("\n")
+    .toLowerCase();
 
-  expect(sql).toContain("create table if not exists public.admin_access_logs");
-  expect(sql).toContain("enable row level security");
-  expect(sql).toContain("for insert to authenticated");
-  expect(sql).toContain("for select to authenticated");
+  // 이 테이블에 걸린 정책 문장만 모은다(다른 테이블의 update/delete 정책은 무관하다).
+  const policies = sql
+    .split(";\n")
+    .filter((statement) =>
+      /create policy [\s\S]*? on "public"\."admin_access_logs"/.test(statement),
+    )
+    .join("\n");
+
+  expect(sql).toContain(
+    'create table if not exists "public"."admin_access_logs"',
+  );
+  expect(sql).toContain(
+    'alter table "public"."admin_access_logs" enable row level security',
+  );
+  expect(policies).toContain('for insert to "authenticated"');
+  expect(policies).toContain('for select to "authenticated"');
 
   // 감사 기록은 적재 후 손댈 수 없어야 증거가 된다 — RLS 는 기본 거부라
   // update/delete 정책을 "만들지 않는 것"이 곧 차단이다.
-  expect(sql).not.toContain("for update");
-  expect(sql).not.toContain("for delete");
+  expect(policies).not.toContain("for update");
+  expect(policies).not.toContain("for delete");
+  expect(policies).not.toContain("for all");
 });
 
 test("열람 메뉴가 라우트·사이드바에 함께 등록돼 있다", () => {
