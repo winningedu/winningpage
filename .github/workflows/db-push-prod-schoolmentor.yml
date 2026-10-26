@@ -33,9 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # CLI 버전은 package-lock.json 의 supabase 에서 읽는다(로컬 npx supabase 와 같은 버전).
+      - uses: supabase/setup-cli@v3
+      - run: supabase --version
 
       # PROJECT_REF 미설정 상태로 link를 시도하면 조용히 엉뚱한(빈) ref로
       # 실패하거나 오해하기 쉬운 에러가 난다 — 여기서 먼저 명확히 막는다.
