@@ -25,6 +25,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import {
+  grantRevokeLines,
+  hasExecute,
+} from "../../supabase/grants/migrationGrants";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(CURRENT_DIR, "../..");
@@ -64,31 +68,6 @@ function extractStatement(source: string, needle: string): string {
   const end = source.indexOf(";", idx);
   if (end < 0) return "";
   return source.slice(idx, end + 1);
-}
-
-/** REVOKE/GRANT는 함수 정의와 멀리 떨어진 곳(baseline 권한 섹션, 이후 마이그레이션)에 있다.
- *  해당 함수가 들어간 REVOKE/GRANT 줄만 마이그레이션 순서대로 골라낸다(한 문장 한 줄). */
-function grantRevokeLines(fnName: string): string {
-  return BASELINE.split("\n")
-    .filter(
-      (line) =>
-        (line.includes(`"public"."${fnName}"`) ||
-          line.includes(`public.${fnName}(`)) &&
-        /^(REVOKE|GRANT)/i.test(line),
-    )
-    .join("\n");
-}
-
-/** 순서대로 적용한 뒤 role이 EXECUTE를 갖는가(마지막 문장이 이긴다). */
-function hasExecute(acl: string, role: string): boolean {
-  let granted = false;
-  for (const line of acl.split("\n")) {
-    const isGrant = /^GRANT/i.test(line);
-    const [, target = ""] = line.split(isGrant ? /\sTO\s/i : /\sFROM\s/i);
-    const roles = target.replace(/[";]/g, "").split(/\s*,\s*/);
-    if (roles.some((r) => r.trim().toLowerCase() === role)) granted = isGrant;
-  }
-  return granted;
 }
 
 const COMMIT_FN = extractBlock(
