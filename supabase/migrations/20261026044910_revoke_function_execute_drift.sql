@@ -119,3 +119,13 @@ revoke execute on function public.request_parent_link(text) from public, anon;
 grant execute on function public.request_parent_link(text) to authenticated, service_role;
 revoke execute on function public.revoke_parent_link(uuid) from public, anon;
 grant execute on function public.revoke_parent_link(uuid) to authenticated, service_role;
+
+-- 3) anon, authenticated, service_role 유지: 로그인 전 흐름과 공개 RLS 정책이 쓰는 함수, PUBLIC 만 회수
+revoke execute on function public.check_email_signup_state(text) from public;
+grant execute on function public.check_email_signup_state(text) to anon, authenticated, service_role;
+revoke execute on function public.increment_board_view(text, uuid) from public;
+grant execute on function public.increment_board_view(text, uuid) to anon, authenticated, service_role;
+revoke execute on function public.is_admin() from public;
+grant execute on function public.is_admin() to anon, authenticated, service_role;
+revoke execute on function public.is_winning_admin() from public;
+grant execute on function public.is_winning_admin() to anon, authenticated, service_role;

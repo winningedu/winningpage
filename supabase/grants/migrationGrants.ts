@@ -42,3 +42,11 @@ export function hasExecute(acl: string, role: string): boolean {
   }
   return granted;
 }
+
+/** Postgres 는 함수를 만들 때 PUBLIC 에 EXECUTE 를 주는데 GRANT 문으로는 드러나지 않는다.
+ *  그래서 PUBLIC 에서 회수하는 REVOKE 문이 있는지를 따로 본다. */
+export function revokesPublic(acl: string): boolean {
+  return acl
+    .split("\n")
+    .some((line) => /^REVOKE\b.*\sFROM\s.*\bPUBLIC\b/i.test(line));
+}
