@@ -13,10 +13,21 @@ import { expect, test } from "vitest";
 import { memberConfigs } from "./member";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
-const MIGRATION =
-  "supabase/migrations/20260831062100_enrollment_entries_union.sql";
+const MIGRATIONS = path.join(REPO_ROOT, "supabase/migrations");
 
-const sql = fs.readFileSync(path.join(REPO_ROOT, MIGRATION), "utf8");
+// 마이그레이션 전체를 이름 순으로 이은 현재 스키마 원본(squash 후에는 baseline 하나다).
+const schema = fs
+  .readdirSync(MIGRATIONS)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => fs.readFileSync(path.join(MIGRATIONS, file), "utf8"))
+  .join("\n");
+
+// 뷰의 가장 나중 정의 본문(CREATE 부터 첫 줄끝 세미콜론까지).
+const viewStart = schema.lastIndexOf(
+  'CREATE OR REPLACE VIEW "public"."admin_enrollment_entries"',
+);
+const sql = schema.slice(viewStart, schema.indexOf(";\n", viewStart));
 
 const enrollments = memberConfigs.enrollments as {
   table: string;
@@ -35,24 +46,18 @@ const enrollments = memberConfigs.enrollments as {
  * 별칭 목록으로는 파생 컬럼을 가려낼 수 없다.
  */
 function enrollmentTableColumns(): Set<string> {
-  const baseline = fs.readFileSync(
-    path.join(REPO_ROOT, "supabase/migrations/20260821000000_baseline.sql"),
-    "utf8",
-  );
-  const start = baseline.indexOf(
+  const start = schema.indexOf(
     'CREATE TABLE IF NOT EXISTS "public"."enrollments"',
   );
   const columns = new Set<string>();
 
   // CREATE TABLE 블록을 줄 단위로 훑는다. 줄머리 ");" 가 블록 끝이다.
-  for (const line of baseline.slice(start).split(/\r?\n/).slice(1)) {
+  for (const line of schema.slice(start).split(/\r?\n/).slice(1)) {
     if (line.startsWith(");")) break;
     const matched = line.match(/^\s+"([a-z_]+)"\s/);
     if (matched?.[1]) columns.add(matched[1]);
   }
 
-  // 20260831053500 이 나중에 추가한 컬럼.
-  columns.add("order_id");
   return columns;
 }
 
@@ -65,34 +70,27 @@ test("합집합 뷰에서 읽고, 화면은 읽기 전용이다", () => {
   expect(enrollments.noCreate).toBe(true);
 });
 
-test("뷰를 바꿀 때는 먼저 떨어뜨린다", () => {
-  // create or replace 는 컬럼을 빼거나 순서를 바꾸는 교체를 거부한다
-  // (42P16 cannot drop columns from view). 앞 뷰에 있던 profile_id ·
-  // application_status · updated_at · order_paid_at 이 여기서 사라지므로
-  // drop 이 먼저 와야 한다 — 실제로 이걸 빠뜨려 db-push 가 죽었다.
-  const dropAt = sql.indexOf(
-    "drop view if exists public.admin_enrollment_entries",
-  );
-  const createAt = sql.indexOf("create view public.admin_enrollment_entries");
-
-  expect(dropAt, "drop view 가 없다").toBeGreaterThan(-1);
-  expect(createAt, "create view 가 없다").toBeGreaterThan(-1);
-  expect(dropAt).toBeLessThan(createAt);
-  expect(sql, "create or replace 로는 이 교체가 안 된다").not.toContain(
-    "create or replace view public.admin_enrollment_entries",
+test("뷰가 스키마에 존재한다", () => {
+  // squash 후 스키마 원본은 pg_dump 형식이라 "drop 이 create 보다 먼저" 같은
+  // 마이그레이션 순서 검사는 의미가 없다. 뷰가 있다는 사실만 잠근다.
+  expect(viewStart, "admin_enrollment_entries 뷰가 없다").toBeGreaterThan(-1);
+  expect(sql).toMatch(
+    /^CREATE OR REPLACE VIEW "public"\."admin_enrollment_entries"/,
   );
 });
 
 test("뷰는 온라인 주문과 오프라인 장부를 union 한다", () => {
   expect(sql).toMatch(/union all/i);
-  expect(sql).toContain("public.order_items");
-  expect(sql).toContain("public.enrollments");
+  expect(sql).toContain('"public"."order_items"');
+  expect(sql).toContain('"public"."enrollments"');
 });
 
 test("결제가 성립한 주문만 싣는다", () => {
   // pending·failed·canceled 는 신청이 아니라 실패 이력이고, waiting_deposit 은
   // 가상계좌 미입금이라 돈이 안 들어온 건이다. 그걸 수강 신청으로 세면 안 된다.
-  expect(sql).toMatch(/o\.status in \('paid', 'refunded'\)/i);
+  expect(sql).toMatch(
+    /"o"\."status" = ANY \(ARRAY\['paid'::"text", 'refunded'::"text"\]\)/,
+  );
   expect(sql).not.toMatch(/'waiting_deposit'/);
 });
 
@@ -145,7 +143,9 @@ test("목록에 QA 272 가 요구한 세 항목이 있다", () => {
 });
 
 test("뷰는 security_invoker 로 만든다 (RLS 우회 방지)", () => {
-  expect(sql).toMatch(/with \(security_invoker = on\)/i);
+  expect(schema).toMatch(
+    /CREATE OR REPLACE VIEW "public"\."admin_enrollment_entries" WITH \("security_invoker"='on'\)/,
+  );
 });
 
 test("승인번호는 payment_key 로 대체하지 않는다", () => {

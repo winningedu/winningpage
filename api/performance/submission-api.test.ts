@@ -1,7 +1,7 @@
 // STEP5 제출·평가·확정 API 3종 계약 회귀 검증.
 //
 // `submission.ts` / `evaluate.ts` / `finalize.ts`와 (구 `sql/58`, 2026-08-21
-// `supabase/migrations/20260821000000_baseline.sql`로 흡수)은 명세서 §8.6
+// 스키마 전용 baseline `supabase/migrations/`로 흡수)은 명세서 §8.6
 // 엔드포인트 표 / §8.3 스키마 단정 / §9.3 회차 규칙 / §12.2·§12.4 이식 결정
 // 위에 서 있다. 이 계약들은 깨져도 코드가 그대로 돈다 — 차감 한 줄이
 // 들어와도, 게이트 순서가 뒤집혀도, 에러 코드가 하나 사라져도 테스트 없이는
@@ -15,8 +15,8 @@
 //   [6] 구 sql/58 불변식 — 부분 UNIQUE 2종 / rag_use 승격 2지점 / EXECUTE 회수 /
 //       멱등 분기(already_final · already_finalized_other)
 //
-// sql/ 디렉터리는 2026-08-21 전량 baseline.sql로 스쿼시됐다(수동 넘버링 폐기,
-// supabase/README.md). 아래 SQL58_* 상수는 baseline 전체가 아니라 구 sql/58이
+// sql/ 디렉터리는 2026-08-21 전량 supabase/migrations 로 스쿼시됐다(수동 넘버링 폐기,
+// supabase/README.md). 아래 SQL58 상수는 마이그레이션 전체가 아니라 구 sql/58이
 // 다루던 조각(performance_reports/performance_sessions 테이블, 부분 UNIQUE
 // 인덱스 2개, RPC 2개, 그 RPC들의 ACL)만 baseline에서 잘라 이어붙인 것이다 —
 // baseline 전체를 스코프로 쓰면 "sql/58 어디에도 X가 없다"류 부정 검증이 다른
@@ -36,7 +36,13 @@ const SUBMISSION_API = read("api/performance/submission.ts");
 const EVALUATE_API = read("api/performance/evaluate.ts");
 const FINALIZE_API = read("api/performance/finalize.ts");
 
-const BASELINE = read("supabase/migrations/20260821000000_baseline.sql");
+const MIGRATIONS_DIR = path.join(REPO_ROOT, "supabase/migrations");
+const BASELINE = fs
+  .readdirSync(MIGRATIONS_DIR)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => read(`supabase/migrations/${file}`))
+  .join("\n");
 
 /** `startNeedle`부터 `endNeedle`(포함) 직전까지의 첫 매치 구간을 잘라낸다. */
 function extractBlock(
@@ -60,16 +66,29 @@ function extractStatement(source: string, needle: string): string {
   return source.slice(idx, end + 1);
 }
 
-/** baseline은 REVOKE/GRANT를 함수 정의와 멀리 떨어진 권한 섹션에 몰아 둔다.
- *  해당 함수 시그니처가 들어간 REVOKE/GRANT 줄만 골라낸다. */
+/** REVOKE/GRANT는 함수 정의와 멀리 떨어진 곳(baseline 권한 섹션, 이후 마이그레이션)에 있다.
+ *  해당 함수가 들어간 REVOKE/GRANT 줄만 마이그레이션 순서대로 골라낸다(한 문장 한 줄). */
 function grantRevokeLines(fnName: string): string {
   return BASELINE.split("\n")
     .filter(
       (line) =>
-        line.includes(`"public"."${fnName}"`) &&
-        (line.startsWith("REVOKE") || line.startsWith("GRANT")),
+        (line.includes(`"public"."${fnName}"`) ||
+          line.includes(`public.${fnName}(`)) &&
+        /^(REVOKE|GRANT)/i.test(line),
     )
     .join("\n");
+}
+
+/** 순서대로 적용한 뒤 role이 EXECUTE를 갖는가(마지막 문장이 이긴다). */
+function hasExecute(acl: string, role: string): boolean {
+  let granted = false;
+  for (const line of acl.split("\n")) {
+    const isGrant = /^GRANT/i.test(line);
+    const [, target = ""] = line.split(isGrant ? /\sTO\s/i : /\sFROM\s/i);
+    const roles = target.replace(/[";]/g, "").split(/\s*,\s*/);
+    if (roles.some((r) => r.trim().toLowerCase() === role)) granted = isGrant;
+  }
+  return granted;
 }
 
 const COMMIT_FN = extractBlock(
@@ -461,19 +480,16 @@ describe("[6] 구 sql/58 스키마·RPC 불변식(baseline.sql)", () => {
     ).toBe(true);
   });
 
-  // baseline은 pg_dump ACL diff 형식이라 원본 sql/58의 명시적
-  // "revoke from public/anon/authenticated" 3연타가 아니라 "REVOKE ALL ...
-  // FROM PUBLIC" 1줄로 같은 효과(PUBLIC 전체에서 회수 → anon/authenticated도
-  // 포함)를 낸다. 명제는 그대로 "두 RPC 모두 EXECUTE가 PUBLIC에서 회수되고
-  // service_role에만 부여되며 anon/authenticated에는 없다"로 보존한다.
+  // baseline은 "REVOKE ALL ... FROM PUBLIC"과 anon/authenticated GRANT를 담고,
+  // 이후 마이그레이션이 anon/authenticated를 회수한다. 명제는 그대로 "최종적으로
+  // PUBLIC에서 회수되고 service_role에만 부여, anon/authenticated 없음"이다.
   test("두 RPC 모두 EXECUTE를 회수하고 service_role에만 부여(anon/authenticated 없음)", () => {
     for (const acl of [COMMIT_ACL, FINALIZE_ACL]) {
-      expect((acl.match(/^REVOKE ALL ON FUNCTION/gm) || []).length).toBe(1);
-      expect(acl.includes("FROM PUBLIC;")).toBe(true);
-      expect((acl.match(/^GRANT ALL ON FUNCTION/gm) || []).length).toBe(1);
-      expect(acl.includes('TO "service_role";')).toBe(true);
-      expect(acl.includes('TO "anon"')).toBe(false);
-      expect(acl.includes('TO "authenticated"')).toBe(false);
+      expect(/^REVOKE ALL ON FUNCTION.*FROM PUBLIC;/m.test(acl)).toBe(true);
+      expect(hasExecute(acl, "public")).toBe(false);
+      expect(hasExecute(acl, "service_role")).toBe(true);
+      expect(hasExecute(acl, "anon")).toBe(false);
+      expect(hasExecute(acl, "authenticated")).toBe(false);
     }
   });
 
@@ -525,7 +541,11 @@ describe("[6] 구 sql/58 스키마·RPC 불변식(baseline.sql)", () => {
   // 사실로 약화해서 남긴다.
   test("supabase/README.md가 baseline을 sql/ 스쿼시 스냅샷으로 문서화한다", () => {
     const supabaseReadme = read("supabase/README.md");
-    expect(supabaseReadme.includes("20260821000000_baseline.sql")).toBe(true);
+    expect(
+      supabaseReadme.includes(
+        "20261021014317_busan_oct_extension_goal_gift.sql",
+      ),
+    ).toBe(true);
     expect(supabaseReadme.includes("스쿼시")).toBe(true);
   });
 });

@@ -1,87 +1,92 @@
 // scripts/check-migration-data-inserts.mjs가 쓰는 순수 모듈. DB 접속 없음.
 //
-// 왜 — supabase/migrations/*.sql은 위닝에듀(W)·스쿨멘토(S) 두 운영 DB에 공통
-// 적용된다. 그런데 W 영업 데이터(상품·가격, 캠퍼스 테넌트, 약관 본문 등)를
-// 마이그레이션 안에서 insert한 파일들이 있어 새 DB(S)에 W 데이터가 그대로
-// 재현됐다. 마이그레이션은 앱 코드가 존재를 전제하는 "참조 데이터"
-// (ALLOWED_TABLES)에만 insert하도록 하고, 그 외 영업/콘텐츠 데이터는
-// 시드 스크립트(scripts/seed-prod-from-dev.mjs)·어드민으로 넣는다.
+// 규칙 — supabase/migrations/*.sql은 스키마(테이블, 컬럼, 제약, 인덱스,
+// 함수, 트리거, RLS 정책, 권한)만 담는다. 데이터 변경(INSERT, UPDATE,
+// DELETE, TRUNCATE, MERGE, COPY ... FROM)은 어떤 스키마의 어떤 테이블이든
+// 마이그레이션에 둘 수 없고, supabase CLI로 실행하는 데이터 SQL 파일로
+// 처리한다. 허용 목록과 예외 파일은 없다.
+
+// 지운 구간의 줄바꿈은 남겨 둬서 위반의 줄 번호가 원본과 어긋나지 않게 한다.
+function keepNewlines(text) {
+  return text.replace(/[^\n]/g, "");
+}
 
 function stripLineComments(sql) {
   return sql.replace(/--[^\n]*/g, "");
 }
 
-// create [or replace] function ... as $tag$ ... $tag$; 의 달러 인용 본문을
-// 제거한다. 함수 본문 안의 insert는 실행 시점 로직(예: 결제 승인 시 orders
-// insert)이라 마이그레이션 데이터 시딩이 아니다.
+// create [or replace] function/procedure ... as $tag$ ... $tag$; 의 달러
+// 인용 본문을 제거한다. 함수 본문 안의 데이터 문은 실행 시점 로직(예: 결제
+// 승인 시 orders insert)이라 마이그레이션이 직접 실행하는 데이터 변경이
+// 아니다.
 //
-// do $$ ... end $$; 블록은 여기서 제거하지 않는다 — DO 블록 안의 insert는
-// 마이그레이션이 직접 실행하는 데이터 시드이므로 검사 대상이다.
+// do $$ ... end $$; 블록은 여기서 제거하지 않는다 — DO 블록 안의 문은
+// 마이그레이션이 직접 실행하므로 검사 대상이다.
 export function stripFunctionBodies(sql) {
   const withoutComments = stripLineComments(sql);
   return withoutComments.replace(
-    /create\s+(?:or\s+replace\s+)?function\b[\s\S]*?\$([a-zA-Z_]*)\$[\s\S]*?\$\1\$/gi,
-    "",
+    /create\s+(?:or\s+replace\s+)?(?:function|procedure)\b[\s\S]*?\$([a-zA-Z_]*)\$[\s\S]*?\$\1\$/gi,
+    keepNewlines,
   );
 }
 
-// 함수 본문을 제거한 뒤 insert into [public.]<table> 패턴을 찾아 소문자
-// 테이블명 배열(중복 제거, 등장 순)을 돌려준다. public. 접두어는 떼어내고
-// (스키마 접두어 없는 것과 같은 값으로 취급), 다른 스키마(auth./storage.)는
-// 접두어를 붙인 그대로 반환한다.
-export function findInserts(sql) {
-  const stripped = stripFunctionBodies(sql);
-  const regex =
-    /insert\s+into\s+((?:[a-zA-Z_][a-zA-Z0-9_]*\.)?[a-zA-Z_][a-zA-Z0-9_]*)/gi;
+const NAME = String.raw`((?:"?[a-zA-Z_][a-zA-Z0-9_]*"?\.)?"?[a-zA-Z_][a-zA-Z0-9_]*"?)`;
 
-  const seen = new Set();
-  const result = [];
-  for (const match of stripped.matchAll(regex)) {
-    const raw = match[1].toLowerCase();
-    const dotIndex = raw.indexOf(".");
-    const table =
-      dotIndex !== -1 && raw.slice(0, dotIndex) === "public"
-        ? raw.slice(dotIndex + 1)
-        : raw;
-    if (!seen.has(table)) {
-      seen.add(table);
-      result.push(table);
-    }
-  }
-  return result;
-}
-
-// 앱 코드가 존재를 전제하는 참조 데이터 테이블 — 마이그레이션이 insert해도
-// 되는 유일한 목록. 새 참조 테이블이 생기면 이 배열에 추가한다.
-// storage.buckets는 데이터가 아니라 버킷 정의(인프라 설정)라 허용한다.
-export const ALLOWED_TABLES = [
-  "admin_resources",
-  "admin_roles",
-  "admin_role_permissions",
-  "app_settings",
-  "program_categories",
-  "programs",
-  "learning_diagnosis_v2_survey_copy",
-  "storage.buckets",
+// kind별 패턴. update는 DDL의 on update / for update / before update on 과
+// 구분하려고 "update <table> [alias] set" 꼴만 잡는다.
+const PATTERNS = [
+  [
+    "insert",
+    new RegExp(String.raw`\binsert\s+into\s+(?:only\s+)?${NAME}`, "gi"),
+  ],
+  [
+    "update",
+    new RegExp(
+      String.raw`(?<!\bon\s)(?<!\bfor\s)\bupdate\s+(?:only\s+)?${NAME}(?:\s+(?:as\s+)?[a-zA-Z_][a-zA-Z0-9_]*)?\s+set\b`,
+      "gi",
+    ),
+  ],
+  [
+    "delete",
+    new RegExp(String.raw`\bdelete\s+from\s+(?:only\s+)?${NAME}`, "gi"),
+  ],
+  [
+    "truncate",
+    new RegExp(String.raw`\btruncate\s+(?:table\s+)?(?:only\s+)?${NAME}`, "gi"),
+  ],
+  ["merge", new RegExp(String.raw`\bmerge\s+into\s+(?:only\s+)?${NAME}`, "gi")],
+  ["copy", new RegExp(String.raw`\bcopy\s+${NAME}[^;]*?\bfrom\b`, "gi")],
 ];
 
-// 이 값 미만(파일명 14자리 타임스탬프) 마이그레이션은 이 린트 도입 이전에
-// 이미 병합된 기존 파일이라 손대지 않고 검사에서 제외한다.
-export const BASELINE_CUTOFF = "20260923000000";
+// public. 접두어는 떼어내 스키마 접두어 없는 이름과 같은 값으로 취급하고,
+// 다른 스키마(auth./storage.)는 접두어를 붙인 그대로 둔다.
+function normalizeTable(raw) {
+  const name = raw.toLowerCase().replaceAll('"', "");
+  return name.startsWith("public.") ? name.slice("public.".length) : name;
+}
 
-// 마이그레이션 파일 하나를 검사한다. 파일명이 <14자리>_ 형식이 아니면
-// 컷오프로 건너뛸 근거가 없으므로 그대로 검사한다.
-export function checkMigrationFile(
-  fileName,
-  sql,
-  { allowed = ALLOWED_TABLES, cutoff = BASELINE_CUTOFF } = {},
-) {
-  const match = fileName.match(/^(\d{14})_/);
-  if (match && match[1] < cutoff) {
-    return { skipped: true, violations: [] };
+// 함수 본문을 제거한 뒤 데이터 문을 찾아 { kind, table, line } 배열로
+// 돌려준다(줄 번호 오름차순).
+export function findDataStatements(sql) {
+  const stripped = stripFunctionBodies(sql);
+  const found = [];
+  for (const [kind, regex] of PATTERNS) {
+    for (const match of stripped.matchAll(regex)) {
+      const line = stripped.slice(0, match.index).split("\n").length;
+      found.push({
+        kind,
+        table: normalizeTable(match[1]),
+        line,
+        index: match.index,
+      });
+    }
   }
+  return found
+    .sort((a, b) => a.index - b.index)
+    .map(({ kind, table, line }) => ({ kind, table, line }));
+}
 
-  const tables = findInserts(sql);
-  const violations = tables.filter((table) => !allowed.includes(table));
-  return { skipped: false, violations };
+// 마이그레이션 파일 하나를 검사한다. 모든 파일이 대상이다.
+export function checkMigrationFile(fileName, sql) {
+  return { violations: findDataStatements(sql) };
 }
