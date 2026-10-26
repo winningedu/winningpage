@@ -23,9 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # CLI 버전은 package-lock.json 의 supabase 에서 읽는다(로컬 npx supabase 와 같은 버전).
+      - uses: supabase/setup-cli@v3
+      - run: supabase --version
 
       - run: supabase link --project-ref "$PROJECT_REF"
 

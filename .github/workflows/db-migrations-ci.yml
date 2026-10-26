@@ -61,10 +61,11 @@ jobs:
         if: steps.changes.outputs.supabase == 'true'
         run: node scripts/check-migration-data-inserts.mjs
 
-      - uses: supabase/setup-cli@v1
+      # CLI 버전은 package-lock.json 의 supabase 에서 읽는다(로컬 npx supabase 와 같은 버전).
+      - uses: supabase/setup-cli@v3
         if: steps.changes.outputs.supabase == 'true'
-        with:
-          version: latest
+      - run: supabase --version
+        if: steps.changes.outputs.supabase == 'true'
 
       - name: Start local database and replay all migrations
         if: steps.changes.outputs.supabase == 'true'
@@ -73,6 +74,13 @@ jobs:
       - name: Reset — migrations + seed full replay
         if: steps.changes.outputs.supabase == 'true'
         run: supabase db reset
+
+      # 재생한 로컬 DB 의 실제 ACL 로 검사한다. allowlist 밖의 public SECURITY DEFINER 함수나
+      # uuid 인자를 받는 함수를 anon 이 실행할 수 있으면 실패한다. 새 함수는 default
+      # privileges 로 닫힌 채 시작하므로, 브라우저용 함수는 마이그레이션에 grant 를 써야 한다.
+      - name: Check anon function grants
+        if: steps.changes.outputs.supabase == 'true'
+        run: supabase db query --local -f scripts/check-function-grants.sql
 
       - name: Lint database schema
         if: steps.changes.outputs.supabase == 'true'
