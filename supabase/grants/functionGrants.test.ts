@@ -13,3 +13,19 @@ describe("서버 전용 함수는 service_role 만 실행한다", () => {
     expect(hasExecute(acl, "service_role")).toBe(true);
   });
 });
+
+describe("로그인한 브라우저가 부르는 함수는 authenticated 를 유지하고 anon 을 막는다", () => {
+  test.each([
+    "fn_complete_refund",
+    "fn_refund_quote",
+    "complete_signup_profile",
+    "fn_is_linked_pair",
+    "performance_owns_session",
+  ])("%s", (fn) => {
+    const acl = grantRevokeLines(fn);
+    expect(hasExecute(acl, "public")).toBe(false);
+    expect(hasExecute(acl, "anon")).toBe(false);
+    expect(hasExecute(acl, "authenticated")).toBe(true);
+    expect(hasExecute(acl, "service_role")).toBe(true);
+  });
+});
