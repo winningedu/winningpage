@@ -6767,13 +6767,13 @@ export type Database = {
     Views: {
       admin_access_log_entries: {
         Row: {
-          action: string | null;
-          actor_email: string | null;
+          action: string;
+          actor_email: string;
           actor_name: string | null;
-          created_at: string | null;
-          id: string | null;
-          reason: string | null;
-          resource_key: string | null;
+          created_at: string;
+          id: string;
+          reason: string;
+          resource_key: string;
           row_count: number | null;
           target_id: string | null;
         };
@@ -6810,17 +6810,17 @@ export type Database = {
         Row: {
           activated_at: string | null;
           department: string | null;
-          invited_at: string | null;
+          invited_at: string;
           invited_by: string | null;
           joined_at: string | null;
           member_email: string | null;
           member_name: string | null;
           member_phone: string | null;
-          profile_id: string | null;
+          profile_id: string;
           role_id: string | null;
           role_is_super: boolean | null;
           role_name: string | null;
-          status: string | null;
+          status: string;
         };
         ComputedFields: never;
         Relationships: [
@@ -6851,16 +6851,16 @@ export type Database = {
         Row: {
           admin_memo: string | null;
           completed_at: string | null;
-          id: number | null;
-          order_id: string | null;
+          id: number;
+          order_id: string;
           org_code: string | null;
           paid_amount: number | null;
           processed_by_name: string | null;
           program_name: string | null;
           reason: string | null;
-          refund_amount: number | null;
+          refund_amount: number;
           refund_method: string | null;
-          status: string | null;
+          status: string;
           student_name: string | null;
           tenant_name: string | null;
         };
@@ -6878,24 +6878,24 @@ export type Database = {
       admin_revenue_items: {
         Row: {
           discount_amount: number | null;
-          item_name: string | null;
+          item_name: string;
           list_amount: number | null;
           method: string | null;
           net_amount: number | null;
-          order_id: string | null;
-          order_item_id: number | null;
-          order_status: string | null;
+          order_id: string;
+          order_item_id: number;
+          order_status: string;
           paid_amount: number | null;
           paid_at: string | null;
           payer_email: string | null;
           payer_name: string | null;
-          payer_profile_id: string | null;
+          payer_profile_id: string;
           quantity: number | null;
           refunded_amount: number | null;
           revenue_status: string | null;
           service_key: string | null;
           student_name: string | null;
-          student_profile_id: string | null;
+          student_profile_id: string;
         };
         ComputedFields: never;
         Relationships: [
@@ -6917,10 +6917,10 @@ export type Database = {
       };
       admission_result_department_index: {
         Row: {
-          department_key: string | null;
+          department_key: string;
           department_name: string | null;
           tracks: string[] | null;
-          university_key: string | null;
+          university_key: string;
         };
         ComputedFields: never;
         Relationships: [];
@@ -6928,7 +6928,7 @@ export type Database = {
       admission_result_university_index: {
         Row: {
           dept_count: number | null;
-          university_key: string | null;
+          university_key: string;
           university_name: string | null;
         };
         ComputedFields: never;
@@ -6936,7 +6936,7 @@ export type Database = {
       };
       admission_university_resource_index: {
         Row: {
-          admission_year: number | null;
+          admission_year: number;
           campus: string | null;
           detail_status: string | null;
           has_exam_schedule: boolean | null;
@@ -6957,15 +6957,15 @@ export type Database = {
           has_selection_method: boolean | null;
           has_selection_method_html: boolean | null;
           has_selection_method_json: boolean | null;
-          id: string | null;
-          is_active: boolean | null;
+          id: string;
+          is_active: boolean;
           jungsi_guideline_url: string | null;
           matched_hwp_name: string | null;
           matched_text_name: string | null;
           official_source_url: string | null;
-          region: string | null;
-          university_key: string | null;
-          university_name: string | null;
+          region: string;
+          university_key: string;
+          university_name: string;
         };
         ComputedFields: never;
         Insert: {
@@ -7036,21 +7036,21 @@ export type Database = {
       };
       coupon_wallet_state: {
         Row: {
-          coupon_id: string | null;
-          discount_amount: number | null;
-          grant_type: string | null;
+          coupon_id: string;
+          discount_amount: number;
+          grant_type: string;
           grant_valid_until: string | null;
-          granted_at: string | null;
-          granted_by: string | null;
-          is_active: boolean | null;
+          granted_at: string;
+          granted_by: string;
+          is_active: boolean;
           max_uses_per_user: number | null;
-          min_amount: number | null;
+          min_amount: number;
           remaining_count: number | null;
           revoked_at: string | null;
-          slug: string | null;
-          title: string | null;
+          slug: string;
+          title: string;
           used_count: number | null;
-          user_id: string | null;
+          user_id: string;
           valid_until: string | null;
         };
         ComputedFields: never;
@@ -7072,22 +7072,22 @@ export type Database = {
           min_jungsi: number | null;
           min_susi: number | null;
           onboarded_at: string | null;
-          profile_id: string | null;
+          profile_id: string;
           record_count: number | null;
-          status: string | null;
+          status: string;
         };
         ComputedFields: never;
         Relationships: [];
       };
       goal_university_options: {
         Row: {
-          department_key: string | null;
-          department_name: string | null;
+          department_key: string;
+          department_name: string;
           has_jungsi: boolean | null;
           has_normal: boolean | null;
           has_special: boolean | null;
-          university_key: string | null;
-          university_name: string | null;
+          university_key: string;
+          university_name: string;
         };
         ComputedFields: never;
         Relationships: [];
@@ -7102,7 +7102,7 @@ export type Database = {
           has_design: boolean | null;
           has_evaluation: boolean | null;
           has_final: boolean | null;
-          session_id: string | null;
+          session_id: string;
           subject: string | null;
           subject_group: string | null;
           topic_title: string | null;
