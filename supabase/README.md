@@ -58,6 +58,15 @@ supabase db reset                # 로컬에서 재생 검증
 
 운영 시드 파일은 보관하지 않는다. 새 환경이 필요하면 그 시점에 원본 DB에서 덤프한다.
 
+### 함수 EXECUTE 권한
+
+- 새 public 함수는 anon, authenticated EXECUTE 없이 시작한다(default privileges 로 닫아 둠). service_role 기본 권한은 남아 있어 서버 전용 RPC 는 따로 grant 하지 않아도 된다.
+- 브라우저가 로그인 JWT 로 부르는 함수는 마이그레이션에 `grant execute on function ... to authenticated`를 쓴다. 로그인 전 흐름이 부를 때만 anon 도 준다.
+- RLS 정책이 쓰는 헬퍼 함수는 정책이 적용되는 모든 role 에 grant 가 필요하다. 정책이 `to authenticated`이면 authenticated, 공개 정책이면 anon 도 준다.
+- 서로 호출하는 SECURITY DEFINER 함수끼리는 호출자 권한이 아니라 소유자(postgres) 권한으로 실행되므로 내부 callee 에는 grant 가 필요 없다.
+- CI 의 `scripts/check-function-grants.sql`이 재생한 DB 에서 anon 이 SECURITY DEFINER 함수나 uuid 인자 함수를 실행할 수 있으면 실패한다. 허용 목록은 그 파일에 있다.
+- 권한 문장은 한 문장을 한 줄에 쓴다. `supabase/grants/functionGrants.test.ts`가 줄 단위로 최종 권한을 읽는다.
+
 ## 반영 경로 (수동 `supabase db push`와 SQL Editor 실행 금지)
 
 - PR: `db-migrations-ci.yml`이 로컬 스택 전체 재생 리허설 (`rehearse-migrations` check)
