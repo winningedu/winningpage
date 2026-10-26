@@ -61,10 +61,11 @@ jobs:
         if: steps.changes.outputs.supabase == 'true'
         run: node scripts/check-migration-data-inserts.mjs
 
-      - uses: supabase/setup-cli@v1
+      # CLI 버전은 package-lock.json 의 supabase 에서 읽는다(로컬 npx supabase 와 같은 버전).
+      - uses: supabase/setup-cli@v3
         if: steps.changes.outputs.supabase == 'true'
-        with:
-          version: latest
+      - run: supabase --version
+        if: steps.changes.outputs.supabase == 'true'
 
       - name: Start local database and replay all migrations
         if: steps.changes.outputs.supabase == 'true'
