@@ -2,7 +2,12 @@
 // 마이그레이션 텍스트를 순서대로 적용한 결과만 본다. 실DB 검증은
 // scripts/check-function-grants.sql 이 CI 에서 맡는다.
 import { describe, expect, test } from "vitest";
-import { grantRevokeLines, hasExecute, revokesPublic } from "./migrationGrants";
+import {
+  grantRevokeLines,
+  hasExecute,
+  MIGRATIONS_SQL,
+  revokesPublic,
+} from "./migrationGrants";
 
 describe("서버 전용 함수는 service_role 만 실행한다", () => {
   test.each(["fn_delete_account", "fn_finalize_paid_order"])("%s", (fn) => {
@@ -42,5 +47,21 @@ describe("로그인 전 흐름과 공개 RLS 정책이 쓰는 함수는 anon 을
     expect(hasExecute(acl, "anon")).toBe(true);
     expect(hasExecute(acl, "authenticated")).toBe(true);
     expect(hasExecute(acl, "service_role")).toBe(true);
+  });
+});
+
+describe("앞으로 만드는 함수는 닫힌 채로 시작한다", () => {
+  const flat = MIGRATIONS_SQL.replace(/\s+/g, " ").toLowerCase();
+
+  test("public 스키마 함수의 default privileges 에서 anon, authenticated 를 회수한다", () => {
+    expect(flat).toContain(
+      "alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;",
+    );
+  });
+
+  test("함수 default privileges 의 PUBLIC EXECUTE 를 회수한다", () => {
+    expect(flat).toContain(
+      "alter default privileges for role postgres revoke execute on functions from public;",
+    );
   });
 });

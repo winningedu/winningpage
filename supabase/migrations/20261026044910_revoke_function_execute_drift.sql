@@ -129,3 +129,10 @@ revoke execute on function public.is_admin() from public;
 grant execute on function public.is_admin() to anon, authenticated, service_role;
 revoke execute on function public.is_winning_admin() from public;
 grant execute on function public.is_winning_admin() to anon, authenticated, service_role;
+
+-- 4) 앞으로 만드는 함수의 기본 권한
+-- service_role 기본 부여는 그대로 둔다. 서버가 모든 함수를 service_role 로 부르므로
+-- 새 마이그레이션마다 service_role grant 를 따로 쓰지 않게 하려는 것이다.
+-- 브라우저가 부르는 함수는 마이그레이션에서 authenticated 에 명시적으로 grant 한다.
+alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;
+alter default privileges for role postgres revoke execute on functions from public;
