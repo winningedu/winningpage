@@ -28,7 +28,7 @@ import { describe, expect, test } from "vitest";
 import {
   grantRevokeLines,
   hasExecute,
-} from "../../supabase/grants/migrationGrants";
+} from "../../supabase/grants/migrationGrants.js";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(CURRENT_DIR, "../..");
