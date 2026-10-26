@@ -6,6 +6,7 @@ import {
   grantRevokeLines,
   hasExecute,
   MIGRATIONS_SQL,
+  revokesFrom,
   revokesPublic,
 } from "./migrationGrants";
 
@@ -47,6 +48,20 @@ describe("로그인 전 흐름과 공개 RLS 정책이 쓰는 함수는 anon 을
     expect(hasExecute(acl, "anon")).toBe(true);
     expect(hasExecute(acl, "authenticated")).toBe(true);
     expect(hasExecute(acl, "service_role")).toBe(true);
+  });
+});
+
+describe("baseline 재생으로 열린 서버, 로그인 전용 함수에서 anon 을 회수한다", () => {
+  test.each([
+    "consume_growth_credit",
+    "fn_admin_can",
+    "fn_growth_claim_step",
+    "fn_parent_create_enrollment",
+    "fn_respond_enrollment",
+  ])("%s", (fn) => {
+    const acl = grantRevokeLines(fn);
+    expect(revokesPublic(acl)).toBe(true);
+    expect(revokesFrom(acl, "anon")).toBe(true);
   });
 });
 

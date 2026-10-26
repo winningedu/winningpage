@@ -130,7 +130,48 @@ grant execute on function public.is_admin() to anon, authenticated, service_role
 revoke execute on function public.is_winning_admin() from public;
 grant execute on function public.is_winning_admin() to anon, authenticated, service_role;
 
--- 4) 앞으로 만드는 함수의 기본 권한
+-- 4) 위 목록 밖에서 baseline 재생으로 anon 이 열린 함수
+-- baseline 은 GRANT 문만 담아서 "anon 에서 회수된 상태"를 표현하지 못한다. 원격 DB 에서는 이미
+-- 닫혀 있어 아래 문장이 아무 일도 하지 않고, 새 로컬 DB 와 CI 재생에서만 anon 이 열려 있던 함수들이다.
+-- 모두 SECURITY DEFINER 이거나 uuid 인자를 받는다. authenticated 와 service_role 권한은 건드리지 않는다.
+revoke execute on function public.consume_growth_credit(uuid, uuid, text) from public, anon;
+revoke execute on function public.consume_inquiry_credit(uuid, uuid, text) from public, anon;
+revoke execute on function public.consume_selfeval_credit(uuid, uuid, text) from public, anon;
+revoke execute on function public.fn_activate_admin_member() from public, anon;
+revoke execute on function public.fn_admin_can(text, text) from public, anon;
+revoke execute on function public.fn_admin_effective_permissions(uuid) from public, anon;
+revoke execute on function public.fn_admin_set_profile_tenant(uuid, uuid) from public, anon;
+revoke execute on function public.fn_coupon_grant_valid_until(uuid, uuid) from public, anon;
+revoke execute on function public.fn_create_tenant(text, text, text, text) from public, anon;
+revoke execute on function public.fn_grant_coupon(uuid, uuid) from public, anon;
+revoke execute on function public.fn_grant_signup_coupons_for_user(uuid) from public, anon;
+revoke execute on function public.fn_growth_claim_step(uuid, uuid, smallint, integer) from public, anon;
+revoke execute on function public.fn_growth_commit_collect(uuid, uuid, text, jsonb, uuid[]) from public, anon;
+revoke execute on function public.fn_growth_complete_report(uuid, uuid, jsonb, jsonb, jsonb) from public, anon;
+revoke execute on function public.fn_growth_finish_step(uuid, uuid, smallint, boolean, jsonb, jsonb, integer) from public, anon;
+revoke execute on function public.fn_growth_merge_survey_answers(uuid, uuid, jsonb) from public, anon;
+revoke execute on function public.fn_growth_terminate_report(uuid, uuid, smallint, text) from public, anon;
+revoke execute on function public.fn_inquiry_claim_generation(uuid, uuid, text, integer) from public, anon;
+revoke execute on function public.fn_inquiry_finalize(uuid, uuid, jsonb) from public, anon;
+revoke execute on function public.fn_inquiry_finish_generation(uuid, uuid, text, boolean, jsonb, integer) from public, anon;
+revoke execute on function public.fn_inquiry_terminate_session(uuid, uuid, text, text) from public, anon;
+revoke execute on function public.fn_is_active_admin(uuid) from public, anon;
+revoke execute on function public.fn_is_super_admin(uuid) from public, anon;
+revoke execute on function public.fn_my_tenant() from public, anon;
+revoke execute on function public.fn_parent_create_enrollment(text, jsonb) from public, anon;
+revoke execute on function public.fn_resolve_tenant_code(text) from public, anon;
+revoke execute on function public.fn_respond_enrollment(text, boolean, text, uuid[]) from public, anon;
+revoke execute on function public.fn_selfeval_claim_step(uuid, uuid, text, integer) from public, anon;
+revoke execute on function public.fn_selfeval_finalize(uuid, uuid, jsonb, jsonb, jsonb, integer) from public, anon;
+revoke execute on function public.fn_selfeval_finish_step(uuid, uuid, text, boolean, jsonb, jsonb, integer) from public, anon;
+revoke execute on function public.fn_selfeval_terminate_session(uuid, uuid, text, text) from public, anon;
+revoke execute on function public.fn_set_my_tenant(text) from public, anon;
+revoke execute on function public.fn_tenant_matches(uuid, uuid, uuid) from public, anon;
+revoke execute on function public.reverse_growth_credit(uuid, uuid, text) from public, anon;
+revoke execute on function public.reverse_inquiry_credit(uuid, uuid, text) from public, anon;
+revoke execute on function public.reverse_selfeval_credit(uuid, uuid, text) from public, anon;
+
+-- 5) 앞으로 만드는 함수의 기본 권한
 -- service_role 기본 부여는 그대로 둔다. 서버가 모든 함수를 service_role 로 부르므로
 -- 새 마이그레이션마다 service_role grant 를 따로 쓰지 않게 하려는 것이다.
 -- 브라우저가 부르는 함수는 마이그레이션에서 authenticated 에 명시적으로 grant 한다.
