@@ -16,10 +16,21 @@ import { expect, test } from "vitest";
 import { revenueConfigs } from "./revenue";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
-const MIGRATION =
-  "supabase/migrations/20260831081100_refund_processing_record.sql";
+const MIGRATIONS = path.join(REPO_ROOT, "supabase/migrations");
 
-const sql = fs.readFileSync(path.join(REPO_ROOT, MIGRATION), "utf8");
+// 마이그레이션 전체를 이름 순으로 이은 현재 스키마 원본(squash 후에는 baseline 하나다).
+const sql = fs
+  .readdirSync(MIGRATIONS)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => fs.readFileSync(path.join(MIGRATIONS, file), "utf8"))
+  .join("\n");
+
+// 대장 뷰의 가장 나중 정의 본문(CREATE 부터 첫 줄끝 세미콜론까지).
+const viewStart = sql.lastIndexOf(
+  'CREATE OR REPLACE VIEW "public"."admin_refund_ledger"',
+);
+const viewBody = sql.slice(viewStart, sql.indexOf(";\n", viewStart));
 
 type LedgerConfig = {
   table: string;
@@ -83,8 +94,7 @@ test("환불방법은 완료 시점에 확정해 박는다 (뷰에서 유추하�
   expect(sql).toContain("'계좌이체'");
   expect(sql).toContain("'카드취소'");
   // 뷰는 이미 박힌 컬럼을 그대로 내보내야 한다 — case 문이 있으면 유추다.
-  const viewBody = sql.slice(sql.indexOf("create or replace view"));
-  expect(viewBody).toContain("r.refund_method");
+  expect(viewBody).toContain('"r"."refund_method"');
   expect(viewBody).not.toMatch(/case[\s\S]*계좌이체/);
 });
 
@@ -96,8 +106,8 @@ test("기존 완료 건을 소급해서 채우지 않는다", () => {
 });
 
 test("대장 뷰는 완료 건만 싣고 security_invoker 다", () => {
-  expect(sql).toMatch(/with \(security_invoker = on\)/i);
-  expect(sql).toMatch(/where r\.status = 'completed'/);
+  expect(viewBody).toContain(`WITH ("security_invoker"='on')`);
+  expect(viewBody).toMatch(/WHERE \("r"\."status" = 'completed'::"text"\)/);
 });
 
 test("QA 273 — 환불 신청 내역에 신청일과 처리일이 함께 있다", () => {

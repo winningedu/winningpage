@@ -1,239 +1,383 @@
 #!/usr/bin/env node
 
-// 로컬 Supabase 스택에 dev 데이터를 주입한다 (그때그때 추출 방식 — 커밋되는 시드 없음).
+// 로컬 Supabase 스택에 dev 데이터를 주입한다 (그때그때 추출 방식 - 커밋되는 시드 없음).
+// 마이그레이션은 스키마만 만들고, 로컬 데이터는 전부 이 스크립트가 dev에서 복사한다.
 //
 // 사용법:
-//   npm run db:reseed           (supabase db reset + 이 스크립트. 스택은 미리 기동)
-//   node scripts/seed-from-dev.mjs   (reset 없이 주입만)
+//   npm run db:reseed                (supabase db reset + 이 스크립트. 스택은 미리 기동)
+//   node scripts/seed-from-dev.mjs   (reset 없이 주입만. 이미 있는 행은 건너뜀)
+//   node scripts/seed-from-dev.mjs --plan   (분류 결과만 출력. dev 카탈로그만 읽고 로컬은 건드리지 않음)
 //
-// 필요: dev 접속 정보(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)를
-//   1순위 .env.seed.local  — dev 전용 파일(gitignore됨). .env.local을 로컬 스택
-//                            기본값으로 둔 채 재시드하려면 이 파일을 만들어 둔다.
-//   2순위 .env.local       — 원격 dev 블록이 활성일 때만 유효.
-// 로컬 접속 정보는 `supabase status`에서 자동으로 읽는다.
+// 복사 규칙 (분류는 실행 시점의 dev 카탈로그로 계산 - 허용 목록을 손으로 관리하지 않는다):
+//   - 유저/런타임 데이터는 복사하지 않는다: profiles/auth.users를 직접 참조하는 테이블,
+//     아래 RUNTIME_TABLES(FK 없는 로그성), 그리고 그 제외 테이블의 자식 테이블.
+//   - 나머지 public 테이블은 dev 데이터를 100% 복사한다. 새 테이블도 자동 포함된다.
+//   - QA 계정(auth.users.email 이 @winning.test 로 끝남)은 아래 항목만 복사한다:
+//     auth.users, auth.identities, profiles, admin_members, 살아있는 program_access_grants
+//     (주문 참조는 NULL), 양쪽이 모두 QA 인 parent_child_links. 부여를 넣은 뒤
+//     fn_sync_program_access_cache 로 program_access 캐시를 다시 만든다.
+//   - 스토리지 버킷 정의는 supabase/config.toml 이, 파일은 복사하지 않는다.
 //
-// 화이트리스트 테이블만 복사한다 — 유저 데이터(profiles/orders 등)는 절대 포함 금지.
+// 필요: dev 프로젝트 URL(SUPABASE_URL)을
+//   1순위 .env.seed.local  - dev 전용 파일(gitignore됨).
+//   2순위 .env.local       - 원격 dev 블록이 활성일 때만 유효.
+// dev 읽기는 로그인된 supabase CLI(`supabase db query --linked`)를 쓰므로 비밀키가 필요 없다.
+// 로컬 적재는 DB 컨테이너(supabase_db_<project_id>)에 docker exec psql 로 직접 연결한다.
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createClient } from "@supabase/supabase-js";
+import {
+  buildInsertSql,
+  classifyTables,
+  detachPaymentGrants,
+  filterLiveGrants,
+  filterQaLinks,
+  insertableColumns,
+  nullDanglingRefs,
+  orderTables,
+  refColumns,
+  syncTargets,
+} from "./lib/devCopy.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
 
-// FK 의존 순서 고려: 참조되는 쪽을 먼저.
-const TABLES = [
-  // 약관
-  "terms",
-  // 결제 카탈로그
-  "programs",
-  "products",
-  "coupons",
-  // 학습진단 카피
-  "learning_diagnosis_v2_survey_copy",
-  // 랜딩/메뉴
-  "page_contents",
-  "program_categories",
-  "banners",
-  "home_mentor_strategies",
-  "home_side_banners",
-  "popups",
-  "app_settings",
-  "university_acceptances",
-  // 콘텐츠 게시판
-  "faqs",
-  "galleries",
-  "notices",
-  "company_news",
-  "admission_posts",
-  "admission_acceptance_rates",
-  "admission_case_logos",
-  "special_highschool_acceptance_rates",
-  "special_highschool_cases",
-  // 멘토 지원 + 수행평가 마스터
-  // (performance_topics는 제외 — 2026-08-21 실측 결과 전 행이 performance_sessions
-  //  FK 종속 유저 데이터라 마스터가 아니다. RAG 코퍼스도 dev 0행.)
-  "mentor_apply_copy",
-  "mentor_apply_faqs",
-  // 목표관리 정시 컷 (약 13k행)
-  "goal_university_cuts",
-  // 프리미엄 북
-  "premium_book_pages",
+// profiles/auth.users FK 가 없어도 유저/런타임 성격이라 복사하지 않는 테이블.
+// dev 에 없는 이름은 무시된다.
+const RUNTIME_TABLES = [
+  "admin_access_logs",
+  "ai_model_calls",
+  "ai_retrieval_events",
+  "alimtalk_send_logs",
+  "board_views",
+  "daily_entries", // 이름/연락처
+  "daily_settlements", // 매출 정산
+  "identity_verifications",
+  "knowledge_eval_runs",
+  "link_code_lookups",
+  "phone_verifications",
+  "premium_consult_requests", // 상담 신청자 이름/연락처
+  "refunds", // 결제자 이름/금액
+  "sso_tickets",
+  "tenant_code_attempts",
 ];
 
-const PAGE = 1000;
+// 규칙상 제외되지만 유저 데이터가 아니라 설정이라 항상 포함한다.
+// tenants: 캠퍼스 마스터. created_by -> profiles 때문에 걸리지만 products/coupons/profiles
+// 가 tenant_id 로 참조하므로 없으면 상품 카탈로그와 QA 프로필이 깨진다.
+// created_by 는 복사 시 NULL 로 비운다(nullDanglingRefs).
+const ALWAYS_INCLUDE = ["tenants"];
 
-// PK가 id가 아닌 테이블 (upsert 충돌 기준).
-// terms는 마이그레이션이 같은 문서를 다른 id로 미리 시드하므로 id 대신
-// terms_code_version_key(code, version)를 충돌 축으로 쓴다 — 충돌 시 id까지
-// dev 값으로 맞춰진다.
-const PK_OVERRIDE = { app_settings: "key", terms: "code,version" };
+const QA_EMAIL_SQL = "lower(email) like '%@winning.test'";
+const PAGE = 2000;
+const MAX_BUFFER = 1024 * 1024 * 1024;
 
-function readEnvFile(name) {
-  const env = {};
+function readDevUrl(name) {
   let raw;
   try {
     raw = readFileSync(path.join(repoRoot, name), "utf8");
   } catch {
     return null;
   }
+  const env = {};
   for (const line of raw.split("\n")) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m) env[m[1]] = (m[2] ?? "").replace(/^["']|["']$/g, "");
   }
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  return url && key ? { url, key, source: name } : null;
+  return url ? { url, source: name } : null;
 }
 
-function loadDevEnv() {
-  // .env.seed.local(dev 전용)이 있으면 우선한다 — .env.local을 로컬 스택
-  // 기본값으로 유지한 채 재시드할 수 있게 한다.
-  const found = readEnvFile(".env.seed.local") ?? readEnvFile(".env.local");
+function loadDevProject() {
+  const found = readDevUrl(".env.seed.local") ?? readDevUrl(".env.local");
   if (!found)
+    throw new Error(".env.seed.local 또는 .env.local에 SUPABASE_URL 필요");
+  if (found.url.includes("127.0.0.1") || found.url.includes("localhost")) {
     throw new Error(
-      ".env.seed.local 또는 .env.local에 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 필요",
+      `${found.source}의 SUPABASE_URL이 로컬을 가리킴 - dev URL이어야 한다. ` +
+        "dev URL만 담은 .env.seed.local을 만들면 .env.local을 건드리지 않아도 된다.",
     );
-  return found;
-}
-
-function loadLocalEnv() {
-  const out = execSync("supabase status -o json", {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
-  const jsonStart = out.indexOf("{");
-  const status = JSON.parse(out.slice(jsonStart));
-  const url = status.API_URL;
-  const key = status.SERVICE_ROLE_KEY;
-  if (!url || !key)
-    throw new Error(
-      "supabase status에서 API_URL/SERVICE_ROLE_KEY를 읽지 못함 — 스택이 떠 있나?",
-    );
-  return { url, key };
-}
-
-async function fetchAll(client, table) {
-  const rows = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await client
-      .from(table)
-      .select("*")
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`${table} 읽기 실패: ${error.message}`);
-    rows.push(...data);
-    if (data.length < PAGE) break;
   }
-  return rows;
+  const ref = new URL(found.url).hostname.split(".")[0];
+  return { ref, source: found.source };
 }
 
-// terms는 마이그레이션이 활성 행을 미리 시드해 두 유니크에 동시에 걸린다
-// (2026-08-31 db reset 직후 실측): 같은 (code, version)이 다른 id로 존재하고,
-// "code당 활성 1행"(terms_active_code_key)도 dev 행 삽입을 막는다. 그래서
-// ① 로컬 활성을 전부 내리고 ② (code, version) 축으로 upsert한 뒤(id까지 dev
-// 값으로 수렴) ③ dev에 없는 잔여 행을 지운다 — 동의 이력이 참조하는 행은
-// FK(23503)가 막으므로 비활성 상태로 남겨 둔다.
-async function replaceTerms(client, rows) {
-  const { error: deactivateError } = await client
-    .from("terms")
-    .update({ is_active: false })
-    .eq("is_active", true);
-  if (deactivateError)
-    throw new Error(`terms 비활성화 실패: ${deactivateError.message}`);
-  await upsertAll(client, "terms", rows);
-  const devIds = rows.map((r) => r.id);
-  const { error: pruneError } = await client
-    .from("terms")
-    .delete()
-    .not("id", "in", `(${devIds.join(",")})`);
-  if (pruneError && pruneError.code !== "23503")
-    throw new Error(`terms 잔여 행 정리 실패: ${pruneError.message}`);
+function localContainer() {
+  const toml = readFileSync(
+    path.join(repoRoot, "supabase/config.toml"),
+    "utf8",
+  );
+  const id = toml.match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
+  if (!id) throw new Error("supabase/config.toml에서 project_id를 읽지 못함");
+  return `supabase_db_${id}`;
 }
 
-async function upsertAll(client, table, rows) {
-  for (let i = 0; i < rows.length; i += PAGE) {
-    const chunk = rows.slice(i, i + PAGE);
-    const { error } = await client
-      .from(table)
-      .upsert(chunk, { onConflict: PK_OVERRIDE[table] ?? "id" });
-    if (error) throw new Error(`${table} 쓰기 실패(${i}~): ${error.message}`);
+// dev: 읽기 전용. 결과는 json 컬럼 하나(j)로 받는다.
+function queryDev(ref, sql) {
+  const out = execFileSync(
+    "supabase",
+    ["db", "query", "--linked", "--project-ref", ref, "-o", "json", sql],
+    {
+      encoding: "utf8",
+      maxBuffer: MAX_BUFFER,
+      stdio: ["ignore", "pipe", "ignore"],
+    },
+  );
+  return JSON.parse(out.slice(out.indexOf("{"))).rows;
+}
+
+const asJson = (select) =>
+  `select coalesce(json_agg(t), '[]'::json) as j from (${select}) t`;
+
+const devRows = (ref, select) => queryDev(ref, asJson(select))[0].j;
+
+// 로컬: superuser(supabase_admin)로 스택의 DB 컨테이너에 직접 연결한다.
+function runLocal(container, sql, args = []) {
+  return execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      container,
+      "psql",
+      "-U",
+      "supabase_admin",
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-q",
+      ...args,
+    ],
+    { encoding: "utf8", maxBuffer: MAX_BUFFER, input: sql },
+  );
+}
+
+const localRows = (container, select) =>
+  JSON.parse(runLocal(container, asJson(select), ["-At"]).trim());
+
+const CATALOG_TABLES_SQL = `
+  select c.relname as name from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind in ('r', 'p') order by 1`;
+
+const CATALOG_FKS_SQL = `
+  select cl.relname as child,
+         pn.nspname || '.' || pcl.relname as parent,
+         (select array_agg(a.attname order by k.ord)
+            from unnest(c.conkey) with ordinality k(n, ord)
+            join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.n) as columns
+  from pg_constraint c
+  join pg_class cl on cl.oid = c.conrelid
+  join pg_namespace n on n.oid = cl.relnamespace
+  join pg_class pcl on pcl.oid = c.confrelid
+  join pg_namespace pn on pn.oid = pcl.relnamespace
+  where c.contype = 'f' and n.nspname = 'public'`;
+
+const CATALOG_COLUMNS_SQL = `
+  select n.nspname as schema, c.relname as "table", a.attname as name,
+         a.attgenerated <> '' as generated,
+         (a.attidentity <> '' or pg_get_serial_sequence(format('%I.%I', n.nspname, c.relname), a.attname) is not null) as serial
+  from pg_attribute a
+  join pg_class c on c.oid = a.attrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname in ('public', 'auth') and c.relkind in ('r', 'p')
+    and a.attnum > 0 and not a.attisdropped
+  order by n.nspname, c.relname, a.attnum`;
+
+function groupColumns(rows) {
+  const byTable = new Map();
+  for (const r of rows) {
+    const key = `${r.schema}.${r.table}`;
+    if (!byTable.has(key)) byTable.set(key, []);
+    byTable.get(key).push(r);
+  }
+  return byTable;
+}
+
+const lit = (v) => `'${String(v).replace(/'/g, "''")}'`;
+
+function fetchTableRows(ref, schema, table, where = "true") {
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = devRows(
+      ref,
+      `select * from ${schema}."${table}" where ${where} order by ctid limit ${PAGE} offset ${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
   }
 }
 
 async function main() {
-  const dev = loadDevEnv();
-  const local = loadLocalEnv();
-  if (dev.url.includes("127.0.0.1") || dev.url.includes("localhost")) {
-    throw new Error(
-      `${dev.source}의 SUPABASE_URL이 로컬을 가리킴 — dev URL이어야 한다. ` +
-        "dev 접속 정보만 담은 .env.seed.local을 만들면 .env.local을 건드리지 않아도 된다.",
-    );
-  }
+  const planOnly = process.argv.includes("--plan");
+  const dev = loadDevProject();
 
-  const devClient = createClient(dev.url, dev.key, {
-    auth: { persistSession: false },
+  const tables = devRows(dev.ref, CATALOG_TABLES_SQL).map((r) => r.name);
+  const fks = devRows(dev.ref, CATALOG_FKS_SQL);
+  const { included, excluded } = classifyTables({
+    tables,
+    fks,
+    runtimeTables: RUNTIME_TABLES,
+    alwaysInclude: ALWAYS_INCLUDE,
   });
-  const localClient = createClient(local.url, local.key, {
-    auth: { persistSession: false },
-  });
-
-  let ok = 0,
-    failed = [];
-  for (const table of TABLES) {
-    try {
-      const rows = await fetchAll(devClient, table);
-      if (table === "terms") await replaceTerms(localClient, rows);
-      else await upsertAll(localClient, table, rows);
-      console.log(`✓ ${table}: ${rows.length}행`);
-      ok++;
-    } catch (e) {
-      console.error(`✗ ${table}: ${e.message}`);
-      failed.push(table);
-    }
-  }
-  // seed.sql의 약관 동의 블록은 terms가 빈 시점에 돌아 0행이었을 수 있다 — 여기서 백필.
-  const QA_USER_IDS = [
-    "00000000-0000-4000-8000-000000000001",
-    "00000000-0000-4000-8000-000000000002",
-    "00000000-0000-4000-8000-000000000003",
-  ];
-  try {
-    const { data: requiredTerms, error } = await localClient
-      .from("terms")
-      .select("id")
-      .eq("is_required", true);
-    if (error) throw new Error(error.message);
-    // (user_id, term_id) unique 제약이 없어 upsert 불가 — 기존 행 제외하고 insert
-    const { data: existing, error: e1 } = await localClient
-      .from("user_term_agreements")
-      .select("user_id, term_id")
-      .in("user_id", QA_USER_IDS);
-    if (e1) throw new Error(e1.message);
-    const seen = new Set(existing.map((r) => `${r.user_id}:${r.term_id}`));
-    const agreements = QA_USER_IDS.flatMap((uid) =>
-      requiredTerms.map((t) => ({ user_id: uid, term_id: t.id, agreed: true })),
-    ).filter((r) => !seen.has(`${r.user_id}:${r.term_id}`));
-    if (agreements.length) {
-      const { error: e2 } = await localClient
-        .from("user_term_agreements")
-        .insert(agreements);
-      if (e2) throw new Error(e2.message);
-    }
-    console.log(
-      `✓ user_term_agreements 백필: 신규 ${agreements.length}행 (필수 약관 ${requiredTerms.length}종)`,
-    );
-  } catch (e) {
-    console.error(`✗ user_term_agreements 백필: ${e.message}`);
-  }
-
+  const { order, cyclic } = orderTables(included, fks);
   console.log(
-    `\n완료: ${ok}/${TABLES.length} 테이블${failed.length ? `, 실패: ${failed.join(", ")}` : ""}`,
+    `제외 ${excluded.length}개 (유저/런타임): ${excluded.join(", ")}`,
   );
-  if (failed.length) process.exit(1);
+  console.log(`포함 ${included.length}개 (dev 100% 복사): ${order.join(", ")}`);
+  if (cyclic.length) console.log(`순환 FK: ${cyclic.join(", ")}`);
+  if (planOnly) return;
+
+  const container = localContainer();
+  const devCols = groupColumns(devRows(dev.ref, CATALOG_COLUMNS_SQL));
+  const localCols = groupColumns(localRows(container, CATALOG_COLUMNS_SQL));
+  const colsFor = (schema, table) => {
+    const key = `${schema}.${table}`;
+    if (!localCols.has(key))
+      throw new Error(`로컬에 ${key} 테이블이 없음 - 마이그레이션이 최신인가?`);
+    return insertableColumns(
+      (devCols.get(key) ?? []).map((c) => ({
+        name: c.name,
+        generated: c.generated,
+      })),
+      localCols.get(key).map((c) => ({ name: c.name, generated: c.generated })),
+    );
+  };
+
+  const excludedSet = new Set(excluded);
+  const statements = [];
+  const loaded = [];
+  const queueRows = (schema, table, rows) => {
+    for (let i = 0; i < rows.length; i += PAGE) {
+      statements.push(
+        buildInsertSql({
+          schema,
+          table,
+          columns: colsFor(schema, table),
+          rows: rows.slice(i, i + PAGE),
+        }),
+      );
+    }
+    loaded.push({ schema, table, count: rows.length });
+  };
+
+  // 1) 비유저 테이블 - FK 순서대로
+  for (const table of order) {
+    const rows = nullDanglingRefs(
+      fetchTableRows(dev.ref, "public", table),
+      refColumns(table, fks, excludedSet),
+      new Set(),
+    );
+    queueRows("public", table, rows);
+  }
+
+  // 2) QA 계정 - auth 행은 비밀번호 해시까지 SQL 로 그대로 복사한다
+  const authUsers = fetchTableRows(dev.ref, "auth", "users", QA_EMAIL_SQL);
+  const qaIds = new Set(authUsers.map((u) => u.id));
+  const inQa = (col) =>
+    `${col} in (${[...qaIds].map(lit).join(", ") || "null"})`;
+  queueRows("auth", "users", authUsers);
+  queueRows(
+    "auth",
+    "identities",
+    fetchTableRows(dev.ref, "auth", "identities", inQa("user_id")),
+  );
+  const qaPart = (table, where) =>
+    nullDanglingRefs(
+      fetchTableRows(dev.ref, "public", table, where),
+      refColumns(table, fks, excludedSet),
+      qaIds,
+    );
+  queueRows("public", "profiles", qaPart("profiles", inQa("id")));
+  queueRows(
+    "public",
+    "admin_members",
+    qaPart("admin_members", inQa("profile_id")),
+  );
+  // 주문 참조를 비우면 CHECK pag_payment_*_pairing_check 가 granted_by='payment' 를 막아 'qa' 로 바꾼다.
+  const grants = detachPaymentGrants(
+    nullDanglingRefs(
+      filterLiveGrants(
+        fetchTableRows(
+          dev.ref,
+          "public",
+          "program_access_grants",
+          inQa("profile_id"),
+        ),
+        new Date(),
+      ),
+      refColumns("program_access_grants", fks, excludedSet),
+      qaIds,
+    ),
+  );
+  queueRows("public", "program_access_grants", grants);
+  queueRows(
+    "public",
+    "parent_child_links",
+    nullDanglingRefs(
+      filterQaLinks(
+        fetchTableRows(
+          dev.ref,
+          "public",
+          "parent_child_links",
+          inQa("parent_id"),
+        ),
+        qaIds,
+      ),
+      refColumns("parent_child_links", fks, excludedSet),
+      qaIds,
+    ),
+  );
+
+  // 3) 적재 - 순환 FK/트리거(handle_new_user 등)를 피하려고 replica 모드, 트랜잭션 안에서만
+  runLocal(
+    container,
+    [
+      "begin;",
+      "set local session_replication_role = replica;",
+      ...statements,
+      "commit;",
+    ].join("\n"),
+  );
+
+  // 4) identity/serial 시퀀스를 적재된 최댓값 뒤로 맞춘다
+  const seqSql = loaded.flatMap(({ schema, table }) =>
+    localCols
+      .get(`${schema}.${table}`)
+      .filter((c) => c.serial)
+      .map(
+        (c) =>
+          `select setval(pg_get_serial_sequence('"${schema}"."${table}"', '${c.name}'), coalesce(max("${c.name}"), 0) + 1, false) from "${schema}"."${table}";`,
+      ),
+  );
+  if (seqSql.length) runLocal(container, seqSql.join("\n"), ["-At"]);
+
+  // 5) program_access 캐시 재계산. 복사한 부여는 모두 살아있어 빈 상태 값(3번째 인자)은 쓰이지 않는다.
+  const targets = syncTargets(grants);
+  if (targets.length) {
+    runLocal(
+      container,
+      targets
+        .map(
+          (t) =>
+            `select public.fn_sync_program_access_cache(${lit(t.profile_id)}::uuid, ${lit(t.program_key)}, null);`,
+        )
+        .join("\n"),
+      ["-At"],
+    );
+  }
+
+  for (const { schema, table, count } of loaded) {
+    console.log(`✓ ${schema}.${table}: ${count}행`);
+  }
+  console.log(
+    `\n완료: ${loaded.length}개 테이블, QA 계정 ${qaIds.size}개, 캐시 재계산 ${targets.length}쌍`,
+  );
 }
 
 main().catch((e) => {

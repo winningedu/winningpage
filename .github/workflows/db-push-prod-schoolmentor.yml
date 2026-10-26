@@ -2,7 +2,7 @@
 # 배포 순서: 앱(Vercel)과 병렬로 돌므로 파괴적 변경은 expand-contract 2단계로 나눌 것.
 # db-push-prod.yml(위닝에듀)과 동일 스키마를 스쿨멘토 프로젝트에도 반영한다 —
 # 마이그레이션은 양쪽 DB에 동일 적용되는 게 전제(사이트별 값 차이는
-# app_settings 오버라이드로 scripts/seed-prod-from-dev.mjs --site 가 심는다).
+# 데이터라서 supabase/data/ SQL 로 DB마다 따로 넣는다).
 name: DB Push (prod, schoolmentor)
 
 on:

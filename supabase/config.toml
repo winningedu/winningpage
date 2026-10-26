@@ -65,7 +65,9 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-enabled = true
+# 꺼 둔다: 로컬 데이터(QA 계정 포함)는 npm run db:reseed 가 dev에서 복사한다.
+# seed.sql 의 고정 id/이메일 QA 계정은 dev QA 계정과 충돌해 제거했다.
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
@@ -117,12 +119,24 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-# Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+# 로컬 스토리지 버킷 - dev 의 storage.buckets 와 같은 값(파일은 복사하지 않는다).
+[storage.buckets.banners]
+public = true
+
+[storage.buckets.growth-uploads]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["application/pdf", "image/png", "image/jpeg", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+
+[storage.buckets.mentor-applications]
+public = false
+file_size_limit = "50MiB"
+allowed_mime_types = ["application/pdf", "image/png", "image/jpeg", "application/x-hwp", "application/haansofthwp", "application/vnd.hancom.hwp"]
+
+[storage.buckets.performance-guides]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
 
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
@@ -226,8 +240,8 @@ double_confirm_changes = true
 # 가입 이메일 인증(signupEmailAuth의 signUp→verifyOtp 시퀀스)을 로컬에서
 # 실제로 태우기 위해 켠다 — false면 signUp 즉시 confirmed 처리돼 OTP 메일이
 # 나가지 않아 가입 폼이 코드 입력 단계에서 영영 멈춘다(실동작 QA 2026-08-23).
-# 코드는 mailpit(54324)에서 확인한다. seed.sql QA 계정은 email_confirm을
-# 직접 세팅하므로 영향 없다.
+# 코드는 mailpit(54324)에서 확인한다. db:reseed 로 복사한 QA 계정은
+# 이미 confirmed 상태라 영향 없다.
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
