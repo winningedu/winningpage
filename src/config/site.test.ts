@@ -43,7 +43,7 @@ describe("site — winning", () => {
     expect(site.company.address).toBe(
       "(본점) 세종특별자치시 마음안1로 61, 404호",
     );
-    expect(site.company.patentNo).toBe("10-2024-0048889");
+    expect(site.company.patentNo).toBe("10-3038224-0000");
     expect(site.company.mailOrderNo).toBe("제2026-세종아름-0264호");
     expect(site.company.supportChannelLabel).toBe("카카오 채널 '위닝에듀'");
     expect(site.company.tel).toBe("010-3664-0081");

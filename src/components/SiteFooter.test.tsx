@@ -21,7 +21,7 @@ const siteState = vi.hoisted(() => ({
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-2024-0048889",
+      patentNo: "10-3038224-0000",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
@@ -123,7 +123,7 @@ describe("SiteFooter", () => {
     renderFooter();
     expect(
       screen.getByText(
-        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허출원: 10-2024-0048889 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
+        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허등록 : 10-3038224-0000 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
       ),
     ).toBeInTheDocument();
     expect(
@@ -165,7 +165,7 @@ describe("SiteFooter — 스쿨멘토 사이트", () => {
 
     expect(screen.getByText(/상호명: 주식회사 위닝로직/)).toBeInTheDocument();
     expect(screen.getByText(/783-81-04298/)).toBeInTheDocument();
-    expect(screen.queryByText(/특허출원/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/특허등록/)).not.toBeInTheDocument();
     expect(screen.queryByText(/통신판매업/)).not.toBeInTheDocument();
     expect(screen.queryByText(/온라인고객센터/)).not.toBeInTheDocument();
     expect(screen.queryByText(/카카오 채널/)).not.toBeInTheDocument();

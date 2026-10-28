@@ -21,7 +21,7 @@ const FOOTER_COLUMN_WIDTH_CLASS: Record<string, string> = {
 };
 const FOOTER_COLUMN_WIDTH_DEFAULT = "w-30";
 
-// 사업자 문구는 site.company의 선택 필드(특허출원·통신판매업·고객센터)가 없으면
+// 사업자 문구는 site.company의 선택 필드(특허등록·통신판매업·고객센터)가 없으면
 // 해당 조각 자체를 생략한다(값 없이 렌더하지 않는다는 원칙 — 스쿨멘토는 이 필드가
 // 아예 없다). 구분자 " | "가 빈 조각 자리에 남지 않도록 join 전에 필터링한다.
 function buildBizInfoLine(company: typeof site.company) {
@@ -29,7 +29,7 @@ function buildBizInfoLine(company: typeof site.company) {
     `상호명: ${company.name}`,
     `대표: ${company.ceo}`,
     `법인등록번호: ${company.corpRegNo}`,
-    company.patentNo ? `특허출원: ${company.patentNo}` : null,
+    company.patentNo ? `특허등록 : ${company.patentNo}` : null,
     `사업자 등록번호: ${company.bizRegNo}`,
     company.mailOrderNo ? `통신판매업 신고번호: ${company.mailOrderNo}` : null,
   ]

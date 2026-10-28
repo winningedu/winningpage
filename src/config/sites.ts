@@ -55,7 +55,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-2024-0048889",
+      patentNo: "10-3038224-0000",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
