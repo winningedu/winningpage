@@ -56,7 +56,7 @@ export default function ManualEntryCard({
         수 있어요.
       </p>
       <fieldset disabled={busy} className="mt-4 flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor={id("name")}
@@ -139,7 +139,7 @@ export default function ManualEntryCard({
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {MANUAL_TEXT_FIELDS.map(({ key, label }) => (
             <div key={key} className="flex flex-col gap-1.5">
               <label
