@@ -23,10 +23,13 @@ const HERO_BG = "/images/premium/hero-international-school.webp";
 const HERO_GLOW_CLASS = "bg-transparent";
 const HERO_TITLE_CLASS = "sr-only";
 const HERO_DESCRIPTION_CLASS = "sr-only";
-const HERO_EYEBROW_CLASS = "block";
-// 이미지 속 버튼은 클릭되지 않으므로 실제 링크는 키보드 포커스 때만 보이게 둔다.
-const HERO_CTA_CLASS =
-  "sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:bottom-6 focus-visible:left-5 focus-visible:rounded-sm focus-visible:bg-white focus-visible:px-6 focus-visible:py-3 focus-visible:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent";
+// 이미지에 그려진 버튼 영역(이미지 기준 %). md 이상에서 이 위치에 투명 링크를 덮는다.
+const HERO_CTA_OVERLAY = {
+  left: "12%",
+  top: "72.5%",
+  width: "15%",
+  height: "10.5%",
+};
 
 const EYEBROW_CLASS =
   "mb-3 break-keep text-center text-[0.875rem] font-semibold uppercase leading-[1.4] tracking-[0.08em] text-gold";
@@ -171,7 +174,7 @@ export default function InternationalSchool() {
         align="left"
         title={
           <>
-            <span className={HERO_EYEBROW_CLASS}>국제학교 학습관리 서비스</span>
+            <span>국제학교 학습관리 서비스</span>
             국내대학 진학,
             <br />
             제주에서도 가능합니다
@@ -183,7 +186,7 @@ export default function InternationalSchool() {
         glowClassName={HERO_GLOW_CLASS}
         titleClassName={HERO_TITLE_CLASS}
         descriptionClassName={HERO_DESCRIPTION_CLASS}
-        ctaClassName={HERO_CTA_CLASS}
+        ctaOverlay={HERO_CTA_OVERLAY}
       />
 
       <section className={`bg-white ${PREMIUM_SECTION_PADDING_CLASS}`}>

@@ -21,10 +21,21 @@ describe("InternationalSchool", () => {
       screen.getByRole("heading", { level: 1, name: /제주에서도 가능합니다/ }),
     ).toBeInTheDocument();
     expect(screen.getByText("국제학교 학습관리 서비스")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "상담 신청하기" })).toHaveAttribute(
-      "href",
-      "/premium-apply",
+  });
+
+  it("상담 신청 링크가 데스크톱 오버레이와 모바일 버튼으로 모두 존재한다", () => {
+    renderPage();
+    const links = screen.getAllByRole("link", { name: "상담 신청하기" });
+    expect(links).toHaveLength(2);
+    links.forEach((link) =>
+      expect(link).toHaveAttribute("href", "/premium-apply"),
     );
+    const overlay = links.find((l) => l.getAttribute("aria-label"));
+    const mobile = links.find((l) => !l.getAttribute("aria-label"));
+    expect(overlay).toHaveAttribute("aria-label", "상담 신청하기");
+    expect(overlay).toHaveClass("hidden", "md:block");
+    expect(overlay).toHaveStyle({ left: "12%", top: "72.5%" });
+    expect(mobile).toHaveClass("md:hidden");
   });
 
   it.each([
