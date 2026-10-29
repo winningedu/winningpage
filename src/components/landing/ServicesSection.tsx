@@ -42,7 +42,7 @@ export default function ServicesSection({
   return (
     <section aria-label="핵심 서비스" className="bg-white">
       {/* 섹션 상하 여백 — pt: 합격선배→서비스 갭 100px(6.25rem, lg), pb: 0(lg, 다음 섹션이 여백 담당) */}
-      <div className="mx-auto w-full max-w-content px-5 pb-10 pt-10 sm:px-8 lg:pb-0 lg:pt-25">
+      <div className="mx-auto w-full max-w-content px-5 pb-7 pt-7 sm:px-8 lg:pb-0 lg:pt-17">
         {/* 헤더 — 0729 시안 실측(px÷16=rem): 아이브로우 20px(1.25rem, accent, Regular),
             대제목 32px(2rem, lg). 대제목 자간 -0.04rem은 lg 폰트 2rem 기준 -0.02em과 동일 비율 */}
         <p className="text-[1.25rem] font-normal leading-[1.3] text-accent">
@@ -61,7 +61,7 @@ export default function ServicesSection({
             768~1023 구간은 1열로 유지해 모바일과 같은 넉넉한 카드 폭(텍스트 공간)을 확보한다.
             lg 3열: col gap 20px(1.25rem) / row gap 24px(1.5rem), 카드 352×180(그리드가 열 폭을
             자동 산출 — max-w-content(1164px) − px-8(2rem)×2 = 1100px, (1100−2×20)/3≈352px). */}
-        <ul className="mt-10 grid grid-cols-1 justify-items-center gap-6 lg:mt-9.75 lg:grid-cols-3 lg:justify-items-stretch lg:gap-x-5 lg:gap-y-6">
+        <ul className="mt-7 grid grid-cols-1 justify-items-center gap-6 lg:mt-7 lg:grid-cols-3 lg:justify-items-stretch lg:gap-x-5 lg:gap-y-6">
           {visibleServices.map((service) => (
             <li
               key={service.id}

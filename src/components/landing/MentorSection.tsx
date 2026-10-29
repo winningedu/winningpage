@@ -62,10 +62,10 @@ export default function MentorSection({
           ? `mx-auto w-full max-w-[120rem] ${className}`
           : isCallMentor
             ? "mx-auto w-full max-w-[120rem] bg-[#F4F4F6] pt-10 pb-16 sm:pt-12 sm:pb-20 lg:pt-10 lg:pb-30"
-            : "mx-auto w-full max-w-[120rem] bg-white pt-10 pb-0 lg:pt-30"
+            : "mx-auto w-full max-w-[120rem] bg-white pt-7 pb-0 lg:pt-20"
       }
     >
-      <div className="flex w-full flex-col gap-10">
+      <div className="flex w-full flex-col gap-7">
         {isPremium ? (
           headingSlot
         ) : (

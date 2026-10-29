@@ -85,10 +85,10 @@ export default function AcceptanceSection({
 
   return (
     <section aria-label="합격생" className="overflow-hidden bg-white">
-      <div className="pb-0 pt-10 sm:pt-16 lg:pt-30">
+      <div className="pb-0 pt-7 sm:pt-11 lg:pt-20">
         {/* 헤더 + 탭 */}
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.4] tracking-[-0.03rem] sm:text-[1.75rem] lg:text-[2rem] lg:tracking-[-0.04rem]">
+          <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.25] tracking-[-0.03rem] sm:text-[1.75rem] lg:text-[2rem] lg:tracking-[-0.04rem]">
             <span className="block text-primary">인서울부터 과기원까지</span>
             <span className="block text-ink">
               합격생 선배님들의 압도적 선택
@@ -98,7 +98,7 @@ export default function AcceptanceSection({
           <div
             role="tablist"
             aria-label="합격 계열 선택"
-            className="mt-10 flex items-center gap-6 sm:gap-10"
+            className="mt-6 flex items-center gap-6 sm:gap-10"
           >
             {TRACK_TABS.map((tab, tabIndex) => {
               const isActive = activeTrack === tab.key;
@@ -143,7 +143,7 @@ export default function AcceptanceSection({
           id="acceptance-panel"
           role="tabpanel"
           aria-labelledby={`acceptance-tab-${activeTrack}`}
-          className="mx-auto mt-10 w-full max-w-[120rem]"
+          className="mx-auto mt-6 w-full max-w-[120rem]"
           {...containerHandlers}
         >
           <div
