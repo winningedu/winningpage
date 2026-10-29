@@ -26,10 +26,25 @@ describe("SpecialHighschoolCaseCard 크림+골드 톤", () => {
     expect(label).toHaveClass("text-white");
   });
 
-  it("합격자/학교명 텍스트는 네이비다", () => {
+  it("학교명은 네이비다", () => {
     render(<SpecialHighschoolCaseCard row={row} />);
     expect(screen.getByText("서울과학고")).toHaveClass("text-navy-ink");
-    expect(screen.getByText("2025년 고입 합격자")).toHaveClass("text-navy-ink");
+  });
+
+  it("메타 1줄은 골드 브라운 semibold, 2줄 이름은 회갈색이다", () => {
+    render(<SpecialHighschoolCaseCard row={row} />);
+    const line1 = screen.getByText("2025년 고입 합격자");
+    expect(line1).toHaveClass("text-gold-text", "font-semibold");
+    const line2 = screen.getByText("김윈 (윈중)");
+    expect(line2).toHaveClass("text-taupe");
+    expect(line2).not.toHaveClass("font-semibold");
+  });
+
+  it("메타 색 토큰은 참조 이미지 실측값이다", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    expect(css).toContain("--color-gold-text: #9a6a00;");
+    expect(css).toContain("--color-taupe: #7c6c4d;");
+    expect(css).not.toContain("--color-cream-label");
   });
 
   it("골드 토큰은 참조 이미지 실측값이다", () => {

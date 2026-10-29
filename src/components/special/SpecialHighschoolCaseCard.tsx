@@ -97,7 +97,7 @@ export default function SpecialHighschoolCaseCard({
           style={{ top: "18.85%" }}
         >
           <p
-            className="text-navy-ink"
+            className="font-semibold text-gold-text"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",
@@ -106,7 +106,7 @@ export default function SpecialHighschoolCaseCard({
             {metaLine1}
           </p>
           <p
-            className="text-navy-ink"
+            className="text-taupe"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",
