@@ -203,4 +203,28 @@ describe("ServiceCreditAdjustAdmin", () => {
     const row = await screen.findByRole("button", { name: /총괄관리자/ });
     expect(within(row).getByText("관리자")).toBeTruthy();
   });
+  test("제목이 학생 검색 입력보다 앞에 온다", () => {
+    render(
+      <ServiceCreditAdjustAdmin config={{ title: "서비스이용횟수조정" }} />,
+    );
+    const heading = screen.getByRole("heading", {
+      level: 1,
+      name: "서비스이용횟수조정",
+    });
+    const input = screen.getByPlaceholderText("이름 또는 이메일");
+    expect(
+      heading.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test("제목 아래에 조정 즉시 반영 안내문을 보여준다", () => {
+    render(
+      <ServiceCreditAdjustAdmin config={{ title: "서비스이용횟수조정" }} />,
+    );
+    expect(
+      screen.getByText(
+        "이 메뉴에서 적용한 조정은 학생의 서비스 이용횟수에 즉시 반영됩니다.",
+      ),
+    ).toBeTruthy();
+  });
 });
