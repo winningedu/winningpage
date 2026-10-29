@@ -2,6 +2,7 @@
 // TargetUniversity.test.tsx와 같은 mock 패턴(모듈 경계 mock + 실제 QueryClient).
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Profile from "./Profile";
 
@@ -94,7 +95,9 @@ function renderPage() {
   const queryClient = new QueryClient();
   render(
     <QueryClientProvider client={queryClient}>
-      <Profile />
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -229,5 +232,47 @@ describe("Profile 모의고사 섹션", () => {
         }),
       );
     });
+  });
+});
+
+describe("Profile 목표 대학 카드", () => {
+  beforeEach(() => {
+    mockFetchGoalStudent.mockReset();
+    mockSubmitGoalIntakeUpdate.mockReset();
+  });
+
+  it("현재 목표 대학 요약과 변경 링크를 보여준다", async () => {
+    mockFetchGoalStudent.mockResolvedValue({
+      kind: "onboarded",
+      student: baseStudent(),
+    });
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: "목표 대학" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/서울대 경영학과/)).toBeInTheDocument();
+    expect(screen.getByText(/연세대 경영학과/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "변경" })).toHaveAttribute(
+      "href",
+      "/app/goal/target-university",
+    );
+  });
+
+  it("목표 대학 데이터가 없으면 안내 문구를 보여준다", async () => {
+    mockFetchGoalStudent.mockResolvedValue({
+      kind: "onboarded",
+      student: baseStudent({
+        targets: {
+          ideal: { university: "", department: "" },
+          min: { university: "", department: "" },
+        },
+      }),
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText("아직 설정하지 않았어요"),
+    ).toBeInTheDocument();
   });
 });
