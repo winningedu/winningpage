@@ -73,7 +73,7 @@ export function validateGrantBody(
 }
 
 /** 같은 날짜 n개월 뒤. 대상 달에 그 날이 없으면 말일로 맞춘다. */
-function addMonthsUtc(iso: string, months: number): string {
+export function addMonthsUtc(iso: string, months: number): string {
   const d = new Date(iso);
   const day = d.getUTCDate();
   d.setUTCDate(1);

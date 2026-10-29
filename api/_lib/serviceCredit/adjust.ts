@@ -7,11 +7,13 @@
 //   - delta < 0: performance_credit_ledger 에 source_kind='admin_adjustment' 소비 행을
 //     넣는다(DB 함수 fn_admin_deduct_service_credit, advisory 잠금 101 안에서).
 
+import { addMonthsUtc } from "../growth/ops/grant.js";
 import { SERVICE_CREDIT_PROGRAMS } from "./programs.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REASON_MIN_LENGTH = 2;
+const ADJUST_MEMO_PREFIX = "관리자 이용횟수 조정: ";
 
 export type AdjustBody = {
   profileId: string;
@@ -79,5 +81,48 @@ export function validateAdjustBody(
       months,
       reason,
     },
+  };
+}
+
+export type AdjustGrantRow = {
+  profile_id: string;
+  program_key: string;
+  granted_by: "admin";
+  granted_by_actor: string;
+  granted_sessions: number | null;
+  granted_months: number | null;
+  validity_days: null;
+  paid_amount: number;
+  starts_at: string;
+  expires_at: string | null;
+  memo: string;
+};
+
+/**
+ * delta > 0 의 부여 행. 제약(pag_entitlement_shape_check, pag_expiry_derivation_check):
+ * 기간형(target)은 granted_sessions 를 null 로 두고 granted_months 를 채운다. 회차형은
+ * granted_sessions=delta 이고 months 가 있을 때만 granted_months 와 expires_at 을 채운다.
+ */
+export function buildAdjustGrantRow(
+  body: AdjustBody,
+  actorId: string,
+  nowIso: string,
+): AdjustGrantRow {
+  const periodBased = SERVICE_CREDIT_PROGRAMS.some(
+    (p) => p.programKey === body.programKey && p.periodBased,
+  );
+  return {
+    profile_id: body.profileId,
+    program_key: body.programKey,
+    granted_by: "admin",
+    granted_by_actor: actorId,
+    granted_sessions: periodBased ? null : body.delta,
+    granted_months: body.months,
+    validity_days: null,
+    paid_amount: 0,
+    starts_at: nowIso,
+    expires_at:
+      body.months === null ? null : addMonthsUtc(nowIso, body.months),
+    memo: `${ADJUST_MEMO_PREFIX}${body.reason}`,
   };
 }

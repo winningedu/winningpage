@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateAdjustBody } from "./adjust.js";
+import { buildAdjustGrantRow, validateAdjustBody } from "./adjust.js";
 
 const PID = "123e4567-e89b-42d3-a456-426614174000";
 const base = {
@@ -71,5 +71,51 @@ describe("validateAdjustBody", () => {
     expect(validateAdjustBody({ ...base, delta: -1, months: 1 }).ok).toBe(
       false,
     );
+  });
+});
+
+describe("buildAdjustGrantRow", () => {
+  const NOW = "2026-10-29T00:00:00.000Z";
+  const ACTOR = "223e4567-e89b-42d3-a456-426614174000";
+  const body = {
+    profileId: PID,
+    programKey: "growth",
+    delta: 2,
+    months: null,
+    reason: "클레임 보상",
+  };
+
+  it("회차형 추가는 granted_sessions 만 채우고 기간은 무기한이다", () => {
+    expect(buildAdjustGrantRow(body, ACTOR, NOW)).toEqual({
+      profile_id: PID,
+      program_key: "growth",
+      granted_by: "admin",
+      granted_by_actor: ACTOR,
+      granted_sessions: 2,
+      granted_months: null,
+      validity_days: null,
+      paid_amount: 0,
+      starts_at: NOW,
+      expires_at: null,
+      memo: `관리자 이용횟수 조정: 클레임 보상`,
+    });
+  });
+
+  it("months 를 주면 granted_months 와 expires_at 을 채운다", () => {
+    const row = buildAdjustGrantRow({ ...body, months: 3 }, ACTOR, NOW);
+    expect(row.granted_sessions).toBe(2);
+    expect(row.granted_months).toBe(3);
+    expect(row.expires_at).toBe("2027-01-29T00:00:00.000Z");
+  });
+
+  it("기간형 target 은 granted_sessions 가 null 이다", () => {
+    const row = buildAdjustGrantRow(
+      { ...body, programKey: "target", delta: 1, months: 2 },
+      ACTOR,
+      NOW,
+    );
+    expect(row.granted_sessions).toBeNull();
+    expect(row.granted_months).toBe(2);
+    expect(row.expires_at).toBe("2026-12-29T00:00:00.000Z");
   });
 });
