@@ -175,8 +175,8 @@ describe("SiteFooter — 소셜 아이콘", () => {
   });
 
   it("URL이 없는 아이콘은 렌더하지 않는다", () => {
-    siteState.current.company.naverBlogUrl = undefined;
-    siteState.current.company.instagramUrl = undefined;
+    delete siteState.current.company.naverBlogUrl;
+    delete siteState.current.company.instagramUrl;
     renderFooter();
     const labels = getSocialLinks().map((l) => l.getAttribute("aria-label"));
     expect(labels).toEqual([
