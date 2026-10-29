@@ -39,7 +39,10 @@ describe("useHomeSectionCopy", () => {
     };
     const { result: hook } = renderHook(() => useHomeSectionCopy());
     await waitFor(() => expect(hook.current.acceptance).not.toBeNull());
-    expect(hook.current.acceptance).toEqual({ titleMain: "큰A", titleSub: "중A" });
+    expect(hook.current.acceptance).toEqual({
+      titleMain: "큰A",
+      titleSub: "중A",
+    });
     expect(hook.current.services).toEqual({
       eyebrow: "라벨",
       titleMain: "큰S",

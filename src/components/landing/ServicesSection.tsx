@@ -63,9 +63,7 @@ export default function ServicesSection({
         {titleMain && (
           <h2 className="mt-1.5 text-[1.53rem] font-semibold leading-[1.4] tracking-[-0.04rem] sm:text-[1.97rem] lg:text-[2rem]">
             <span className="block text-ink">{titleMain}</span>
-            {titleSub && (
-              <span className="block text-primary">{titleSub}</span>
-            )}
+            {titleSub && <span className="block text-primary">{titleSub}</span>}
           </h2>
         )}
 

@@ -41,8 +41,9 @@ describe("랜딩 섹션 간격", () => {
         />
       </MemoryRouter>,
     );
-    const wrapper = screen.getByRole("region", { name: "핵심 서비스" })
-      .firstElementChild;
+    const wrapper = screen.getByRole("region", {
+      name: "핵심 서비스",
+    }).firstElementChild;
     expect(wrapper).toHaveClass("lg:pt-17");
   });
 });
