@@ -76,10 +76,15 @@ function ReportCard({ item, index }: { item: ReportListItem; index: number }) {
   const plan = planAvailability(index);
   const issued = formatKoreanDate(item.issuedAt);
   return (
-    <li className={cn(CARD, "flex items-center justify-between gap-4")}>
+    <li
+      className={cn(
+        CARD,
+        "flex flex-col gap-4 md:flex-row md:items-center md:justify-between",
+      )}
+    >
       <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="text-app-card-title font-semibold text-ink-strong">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="break-keep text-app-card-title font-semibold text-ink-strong">
             {issued ? `${issued} 발행 리포트` : "발행 리포트"}
           </h3>
           {index === 0 ? (
@@ -97,24 +102,27 @@ function ReportCard({ item, index }: { item: ReportListItem; index: number }) {
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Link
-          to={GROWTH_PATHS.report(item.id)}
-          className={cn(buttonVariants(), "h-10 px-5 text-app-label")}
-        >
-          리포트 보기
-        </Link>
-        {plan.enabled && plan.href ? (
+      <div className="flex shrink-0 flex-col gap-2 md:flex-row md:items-center">
+        <div className="flex flex-wrap gap-2">
           <Link
-            to={plan.href}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "h-10 px-5 text-app-label",
-            )}
+            to={GROWTH_PATHS.report(item.id)}
+            className={cn(buttonVariants(), "h-10 px-5 text-app-label")}
           >
-            실행계획
+            리포트 보기
           </Link>
-        ) : (
+          {plan.enabled && plan.href ? (
+            <Link
+              to={plan.href}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-10 px-5 text-app-label",
+              )}
+            >
+              실행계획
+            </Link>
+          ) : null}
+        </div>
+        {plan.enabled && plan.href ? null : (
           <span
             title="실행계획은 가장 최근 리포트에서만 열 수 있어요"
             className="text-app-caption text-ink-sub"
