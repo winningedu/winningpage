@@ -83,7 +83,7 @@ export default function ReportBody({ detail, parentView = false }: Props) {
             {narrative.theme}
           </p>
           {narrative.subthemes.length > 0 && (
-            <ul className="mt-4 grid grid-cols-3 gap-3">
+            <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               {narrative.subthemes.map((s) => (
                 <li key={s.label} className="rounded-lg bg-surface-04 p-3">
                   <p className="text-app-label font-semibold text-ink-strong">
@@ -111,7 +111,7 @@ export default function ReportBody({ detail, parentView = false }: Props) {
           <h2 className="mb-3 text-app-section font-bold text-ink-strong">
             한눈에
           </h2>
-          <ul className="grid grid-cols-3 gap-3">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {overview.map((c) => (
               <li key={c.key} className={CARD}>
                 <p className="text-app-label text-ink-sub">{c.label}</p>

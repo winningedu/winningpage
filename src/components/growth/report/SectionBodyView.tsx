@@ -255,7 +255,7 @@ export default function SectionBodyView({ body }: { body: BodyView }) {
           <p className="mb-3 text-app-body font-semibold text-ink-strong">
             {body.theme}
           </p>
-          <ul className="grid grid-cols-3 gap-3">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {body.subthemes.map((s) => (
               <li key={s.grade} className="rounded-lg border border-border p-3">
                 <p className="text-app-label font-semibold text-ink-strong">

@@ -21,7 +21,7 @@ export default function ReportsPage() {
         title="지난 리포트"
         subcopy="발행한 리포트를 다시 열 수 있어요."
       />
-      <div className="mx-auto w-full max-w-[83.75rem] px-12 pb-12">
+      <div className="mx-auto w-full max-w-[83.75rem] px-4 pb-12 md:px-12">
         {isError ? (
           <div
             role="alert"

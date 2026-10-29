@@ -69,7 +69,7 @@ export default function BasicsForm({
   const targetEmpty = form.targetChars.trim() === "";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_20rem] items-start gap-4">
+    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-4">
         <section className={CARD_BOX} aria-labelledby={id("scope-title")}>
           <h2 id={id("scope-title")} className={CARD_HEADING}>
@@ -81,7 +81,7 @@ export default function BasicsForm({
             </p>
           )}
           <fieldset disabled={disabled} className="mt-4 flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Field id={id("year")} label="학년도" error={errors.academicYear}>
                 <select
                   id={id("year")}
@@ -209,7 +209,7 @@ export default function BasicsForm({
                 onChange={(e) => onChange({ teacherNote: e.target.value })}
               />
             </Field>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field
                 id={id("target")}
                 label="목표 글자 수"

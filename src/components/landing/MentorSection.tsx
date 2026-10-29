@@ -25,6 +25,16 @@ type MentorSectionProps = {
   headingSlot?: ReactNode;
   /** premium 전용 섹션 클래스(배경·세로 패딩). 기본/콜멘토는 고정 클래스라 무시된다. */
   className?: string;
+  /** default variant 헤딩(DB). 없으면 라벨과 h2를 렌더하지 않는다. callmentor는 무시하고 고정 문구를 쓴다. */
+  eyebrow?: string;
+  titleMain?: string;
+  titleSub?: string;
+};
+
+const CALLMENTOR_COPY = {
+  eyebrow: "멘토스 소개",
+  titleMain: "위닝과 함께 합격한 선배에게",
+  titleSub: "멘토 상담을 받아보세요",
 };
 
 export default function MentorSection({
@@ -32,8 +42,14 @@ export default function MentorSection({
   variant = "default",
   headingSlot,
   className = "",
+  eyebrow,
+  titleMain,
+  titleSub,
 }: MentorSectionProps) {
   const isCallMentor = variant === "callmentor";
+  const copy = isCallMentor
+    ? CALLMENTOR_COPY
+    : { eyebrow, titleMain, titleSub };
   const isPremium = variant === "premium";
   // QA 행221: 메인랜딩(default variant) 마퀴만 좌→우로 천천히 흐르도록 조정.
   // callmentor/premium은 기존 방향·속도(훅 기본값) 유지.
@@ -62,29 +78,40 @@ export default function MentorSection({
           ? `mx-auto w-full max-w-[120rem] ${className}`
           : isCallMentor
             ? "mx-auto w-full max-w-[120rem] bg-[#F4F4F6] pt-10 pb-16 sm:pt-12 sm:pb-20 lg:pt-10 lg:pb-30"
-            : "mx-auto w-full max-w-[120rem] bg-white pt-10 pb-0 lg:pt-30"
+            : "mx-auto w-full max-w-[120rem] bg-white pt-7 pb-0 lg:pt-20"
       }
     >
-      <div className="flex w-full flex-col gap-10">
+      <div className="flex w-full flex-col gap-7">
         {isPremium ? (
           headingSlot
         ) : (
           <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-            <p
-              className={`text-[1.25rem] font-normal leading-[1.3] ${isCallMentor ? "text-gold" : "text-accent"}`}
-            >
-              멘토스 소개
-            </p>
-            <h2 className="mt-2 break-keep text-left text-[2rem] font-semibold leading-[1.4] tracking-[-0.05rem]">
-              <span className={isCallMentor ? "text-gold" : "text-primary"}>
-                위닝과 함께 합격한 선배에게{" "}
-              </span>
-              <span
-                className={isCallMentor ? "text-[#0F172A]" : "text-[#808080]"}
+            {copy.eyebrow && (
+              <p
+                className={`text-[1.25rem] font-normal leading-[1.3] ${isCallMentor ? "text-gold" : "text-accent"}`}
               >
-                멘토 상담을 받아보세요
-              </span>
-            </h2>
+                {copy.eyebrow}
+              </p>
+            )}
+            {copy.titleMain && (
+              <h2 className="mt-2 break-keep text-left text-[2rem] font-semibold leading-[1.4] tracking-[-0.05rem]">
+                <span className={isCallMentor ? "text-gold" : "text-primary"}>
+                  {copy.titleMain}
+                </span>
+                {copy.titleSub && (
+                  <>
+                    {" "}
+                    <span
+                      className={
+                        isCallMentor ? "text-[#0F172A]" : "text-[#808080]"
+                      }
+                    >
+                      {copy.titleSub}
+                    </span>
+                  </>
+                )}
+              </h2>
+            )}
           </div>
         )}
 

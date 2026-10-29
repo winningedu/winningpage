@@ -28,7 +28,7 @@ export default function PlanPage() {
         title="실행계획"
         subcopy="리포트 3부의 활동을 시기별로 놓았어요. 하면 체크하세요."
       />
-      <div className="mx-auto w-full max-w-[83.75rem] px-12 pb-12">
+      <div className="mx-auto w-full max-w-[83.75rem] px-4 pb-12 md:px-12">
         {notFound ? (
           <div className="flex flex-col items-start gap-3 rounded-xl border border-border bg-white p-6">
             <p className="text-app-body text-ink-strong">

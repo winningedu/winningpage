@@ -279,7 +279,7 @@ function InfoBody({ bootstrap }: { bootstrap: SessionResponse }) {
         </p>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)_17rem] items-start gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="flex flex-col gap-4">
           <BasicInfoCard
             form={form}

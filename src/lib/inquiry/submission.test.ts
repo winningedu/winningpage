@@ -57,6 +57,16 @@ describe("서버 상수와 같은 값", () => {
   });
 });
 
+describe("절 작성 예시", () => {
+  test("8절 모두 60~150자 예시가 있다", () => {
+    expect(client.SECTIONS).toHaveLength(8);
+    for (const s of client.SECTIONS) {
+      expect(s.example.length, s.id).toBeGreaterThanOrEqual(60);
+      expect(s.example.length, s.id).toBeLessThanOrEqual(150);
+    }
+  });
+});
+
 describe("서버 submission.ts 와 같은 입출력", () => {
   test.each(SAMPLES.map((s, i) => [i, s] as const))(
     "표본 %i 의 모든 함수 결과가 같다",

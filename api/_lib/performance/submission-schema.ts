@@ -151,6 +151,8 @@ export type SubmissionField = {
   key: string;
   label: string;
   helper: string;
+  /** 학생이 따라 쓸 수 있는 가상 작성 예시(2~3줄). 이전 배포본이 저장한 값에는 없을 수 있어 빈 문자열이다. */
+  example: string;
   required: boolean;
 };
 
@@ -167,12 +169,17 @@ export function makeSubmissionField(
   label: string,
   helper: string,
   required = true,
+  example = "",
 ): SubmissionField {
-  return { key, label, helper, required };
+  return { key, label, helper, example, required };
 }
 
+/** 문항형은 문항 문구가 안내문마다 달라 필드별 예시를 쓸 수 없다. 모든 문항에 같은 답변 예시를 보여준다. */
+const QUESTION_EXAMPLE =
+  "[예시] 제가 고른 주제는 급식 잔반 줄이기입니다. 학교 잔반량이 하루 120kg이라는 자료를 보고 문제라고 느꼈고, 이를 줄일 방법을 찾고 싶었기 때문입니다.";
+
 /**
- * 기본 보고서형 — `index.html:2063-2074` 원문 이식.
+ * 기본 보고서형, `index.html:2063-2074` 원문 이식.
  *
  * 8종 중 마지막 폴백이자, `normalizeSubmissionSchema`가 깨진 입력에 돌려주는 값이다.
  * `label`/`notice`/필드 3개의 라벨·헬퍼는 §5.14 시안 카드 본문 실측과 바이트 일치한다.
@@ -189,18 +196,21 @@ export function defaultSubmissionSchema(): SubmissionSchema {
         "서론",
         "문제의식, 주제 선정 이유, 탐구 목적을 중심으로 작성하세요.",
         true,
+        "[예시] 미세먼지 농도가 높은 날 기침 환자가 늘었다는 뉴스를 보고, 농도와 호흡기 질환의 관계가 궁금해져 이 주제를 골랐습니다. 이를 수치로 확인해 보는 것이 목적입니다.",
       ),
       makeSubmissionField(
         "body",
         "본론",
         "교과 개념, 자료 분석, 사례 적용, 자신의 해석을 충분히 담아 작성하세요.",
         true,
+        "[예시] 환경부 통계에서 월별 미세먼지 농도와 병원 호흡기 환자 수를 표로 비교했습니다. 농도가 높은 달에 환자 수도 늘었고, 이는 상관관계 개념으로 해석할 수 있었습니다.",
       ),
       makeSubmissionField(
         "conclusion",
         "결론",
         "탐구 결과 정리, 느낀 점, 진로 연계, 후속 탐구 방향을 정리하세요.",
         true,
+        "[예시] 농도가 오르면 환자가 늘어나는 경향을 확인했습니다. 다만 계절 요인은 따지지 못해, 다음에는 같은 기온대의 달만 골라 다시 비교해 보고 싶습니다.",
       ),
     ],
   };
@@ -235,6 +245,7 @@ export function inferLengthBasedSchema(raw = ""): SubmissionSchema | null {
         "주제 선정 이유",
         "안내문에서 요구한 주제 선정 이유와 교과·진로 연결성을 먼저 정리하세요.",
         true,
+        "[예시] 수업에서 배운 삼투 현상이 김장 절임 과정과 같다는 것을 알고, 일상 속 과학이 궁금해져 이 주제를 정했습니다. 생명과학 진로와도 이어집니다.",
       ),
     );
   }
@@ -245,6 +256,7 @@ export function inferLengthBasedSchema(raw = ""): SubmissionSchema | null {
         "탐구 내용",
         "안내문이 요구한 분량 조건을 확인하고, 교과 개념·자료 근거·분석 과정을 중심으로 작성하세요.",
         true,
+        "[예시] 소금 농도를 3단계로 달리해 배추를 절이고 시간별 무게 변화를 쟀습니다. 농도가 높을수록 빨리 줄었고, 이는 삼투압 차이로 설명할 수 있었습니다.",
       ),
     );
   }
@@ -255,6 +267,7 @@ export function inferLengthBasedSchema(raw = ""): SubmissionSchema | null {
         "배우고 느낀 점",
         "새롭게 알게 된 점, 기존 생각과 달라진 점, 진로 또는 후속 탐구 방향을 정리하세요.",
         true,
+        "[예시] 교과서 그림으로만 알던 삼투를 직접 확인해 이해가 깊어졌습니다. 앞으로는 설탕 농도에서도 같은 결과가 나오는지 확인해 보고 싶습니다.",
       ),
     );
   }
@@ -265,6 +278,7 @@ export function inferLengthBasedSchema(raw = ""): SubmissionSchema | null {
         "참고자료 및 출처",
         "실제로 활용한 자료명과 출처 링크를 정확히 적으세요. 확인되지 않은 자료는 쓰지 마세요.",
         true,
+        "[예시] 교육부, 고등학교 생명과학Ⅰ 교과서, 2023. 농촌진흥청 누리집 배추 절임 기준 자료(https://www.rda.go.kr), 2024년 3월 12일 확인.",
       ),
     );
   }
@@ -314,7 +328,13 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
       fields: questions
         .slice(0, MAX_QUESTION_FIELDS)
         .map((q) =>
-          makeSubmissionField(`question_${q.no}`, `문항 ${q.no}`, q.text, true),
+          makeSubmissionField(
+            `question_${q.no}`,
+            `문항 ${q.no}`,
+            q.text,
+            true,
+            QUESTION_EXAMPLE,
+          ),
         ),
     };
   }
@@ -335,24 +355,28 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
           "제작 의도",
           "왜 이 주제를 카드뉴스/홍보물로 전달하려는지 작성하세요.",
           true,
+          "[예시] 학교 급식 잔반이 많다는 점을 알리고 싶어 카드뉴스를 만들었습니다. 같은 학교 친구들이 잔반 줄이기를 실천하도록 돕는 것이 목적입니다.",
         ),
         makeSubmissionField(
           "card_plan",
           "카드별 구성",
           "카드 1, 카드 2처럼 화면별 핵심 문구와 들어갈 자료를 정리하세요.",
           true,
+          "[예시] 카드 1: 하루 잔반 120kg, 표지 문구와 급식판 사진. 카드 2: 잔반 처리 비용 그래프. 카드 3: 잔반 줄이는 방법 세 가지를 넣습니다.",
         ),
         makeSubmissionField(
           "evidence",
           "근거 자료 및 교과 연결",
           "안내문 조건, 교과 개념, 활용 자료의 근거를 연결하세요.",
           true,
+          "[예시] 사회 교과의 자원 배분 개념을 바탕으로 음식물 쓰레기가 비용을 늘린다고 설명합니다. 근거는 학교 영양사 선생님께 받은 월별 잔반량 자료입니다.",
         ),
         makeSubmissionField(
           "message",
           "마무리 메시지",
           "독자가 얻어야 할 핵심 의미와 후속 행동을 정리하세요.",
           true,
+          "[예시] 한 끼 남기지 않기가 모이면 큰 변화가 됩니다. 독자는 먹을 만큼만 받기를 실천하고, 학급 잔반 줄이기 캠페인에 참여하면 좋겠습니다.",
         ),
       ],
     };
@@ -371,24 +395,28 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
           "발표 도입",
           "인사, 주제 소개, 문제의식, 발표 순서를 간단히 작성하세요.",
           true,
+          "[예시] 안녕하세요, 2학년 3반 김하나입니다. 오늘은 우리 동네 버스 배차 간격이 길다는 문제의식에서 시작한 조사 결과를 세 부분으로 발표하겠습니다.",
         ),
         makeSubmissionField(
           "main_flow",
           "발표 핵심 내용",
           "슬라이드 순서에 맞춰 핵심 개념, 자료, 분석 내용을 정리하세요.",
           true,
+          "[예시] 슬라이드 2는 노선별 배차 간격 표, 슬라이드 3은 승객 설문 그래프, 슬라이드 4는 두 자료를 합친 분석입니다. 수학 통계 개념을 사용했습니다.",
         ),
         makeSubmissionField(
           "script_point",
           "대본 포인트",
           "말로 설명해야 할 연결 문장과 강조할 표현을 작성하세요.",
           true,
+          "[예시] 그래프로 넘어갈 때는 이제 설문 결과를 보겠습니다라고 연결합니다. 평균 대기 시간 18분이라는 수치는 천천히 또박또박 강조합니다.",
         ),
         makeSubmissionField(
           "closing",
           "발표 마무리",
           "결론, 느낀 점, 진로 또는 후속 탐구 방향을 정리하세요.",
           true,
+          "[예시] 배차 간격을 10분으로 줄이면 대기 시간이 절반이 됩니다. 조사하며 데이터로 설득하는 법을 배웠고, 교통 정책 분야를 더 공부하고 싶습니다.",
         ),
       ],
     };
@@ -407,24 +435,28 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
           "문제 제기",
           "사회적·학문적 쟁점, 주제의 필요성, 관점을 제시하세요.",
           true,
+          "[예시] 교실에서 스마트폰을 전면 금지하는 것이 옳은가라는 논쟁이 계속되고 있습니다. 학습 집중과 자율성이 부딪히는 문제여서 짚어 볼 필요가 있습니다.",
         ),
         makeSubmissionField(
           "argument",
           "핵심 주장",
           "자신의 중심 주장을 한 방향으로 분명히 정리하세요.",
           true,
+          "[예시] 저는 수업 중에는 보관하고 쉬는 시간에는 사용하도록 하는 부분 허용이 가장 알맞다고 주장합니다. 집중과 자율을 함께 지킬 수 있기 때문입니다.",
         ),
         makeSubmissionField(
           "grounds",
           "근거 및 분석",
           "자료, 교과 개념, 사례를 바탕으로 주장을 뒷받침하세요.",
           true,
+          "[예시] 사회 교과의 기본권 개념에 따라 자율권은 보장되어야 합니다. 또 국내 설문에서 수업 중 사용 학생의 집중도가 낮았다는 결과가 이를 뒷받침합니다.",
         ),
         makeSubmissionField(
           "proposal",
           "결론 및 제언",
           "주장의 의미, 한계, 후속 탐구 또는 실천 방향을 제시하세요.",
           true,
+          "[예시] 부분 허용은 규칙 지키기를 전제로 하므로 감독 부담이 한계입니다. 학생회가 규칙을 직접 정하는 방안을 시범 운영해 보자고 제안합니다.",
         ),
       ],
     };
@@ -444,24 +476,28 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
           "자료 선택 이유",
           "도서/자료를 선택한 이유와 주제와의 관련성을 작성하세요.",
           true,
+          "[예시] 『코스모스』를 선택한 이유는 물리 수업에서 배운 별의 탄생을 더 넓게 이해하고 싶었기 때문입니다. 천문학자라는 제 진로와도 관련이 깊습니다.",
         ),
         makeSubmissionField(
           "summary",
           "핵심 내용 요약",
           "자료의 핵심 내용을 과도하게 베끼지 말고 자신의 말로 정리하세요.",
           true,
+          "[예시] 저자는 우주가 오래된 시간 속에서 천천히 만들어졌다고 설명합니다. 별의 재료가 우리 몸의 원소와 같다는 대목이 핵심이라고 이해했습니다.",
         ),
         makeSubmissionField(
           "analysis",
           "교과 개념 및 진로 연결 분석",
           "수업 개념, 진로 관심, 새롭게 알게 된 점을 연결하세요.",
           true,
+          "[예시] 수업에서 배운 핵융합 개념이 책의 별 이야기와 연결됩니다. 책 덕분에 원소의 기원이 별이라는 점을 알게 되어 천문학 진로가 더 구체적으로 그려졌습니다.",
         ),
         makeSubmissionField(
           "reflection",
           "느낀 점 및 확장 질문",
           "탐구 후 달라진 생각과 다음에 확인하고 싶은 질문을 정리하세요.",
           true,
+          "[예시] 우주를 알수록 지구가 특별해 보였습니다. 다음에는 별이 죽을 때 어떤 원소가 만들어지는지, 어디서 확인할 수 있는지 알아보고 싶습니다.",
         ),
       ],
     };
@@ -480,24 +516,28 @@ export function inferSubmissionSchema(assessmentInfo = ""): SubmissionSchema {
           "서론",
           "탐구 동기, 문제의식, 주제 선정 이유를 작성하세요.",
           true,
+          "[예시] 체육 시간에 맥박이 빨리 뛰는 정도가 친구마다 달랐습니다. 운동 강도와 심박수의 관계가 궁금해 이 탐구를 시작했습니다. 이를 직접 재 보기로 했습니다.",
         ),
         makeSubmissionField(
           "concept",
           "교과 개념 정리",
           "수행평가와 연결되는 교과 개념을 먼저 정리하세요.",
           true,
+          "[예시] 심박수는 1분 동안 심장이 뛰는 횟수입니다. 운동하면 근육이 산소를 더 필요로 해 심박수가 오른다는 보건 교과 개념을 먼저 정리했습니다.",
         ),
         makeSubmissionField(
           "analysis",
           "자료·사례 분석",
           "자료 근거, 실험/조사 과정, 분석 결과, 자신의 해석을 작성하세요.",
           true,
+          "[예시] 제자리 걷기, 가볍게 뛰기, 전력 달리기 후 심박수를 3회씩 쟀습니다. 평균이 각각 85, 120, 160회였고, 강도와 심박수는 비례한다고 해석했습니다.",
         ),
         makeSubmissionField(
           "conclusion",
           "결론",
           "탐구 결과, 느낀 점, 진로 또는 후속 탐구 방향을 작성하세요.",
           true,
+          "[예시] 운동 강도가 커질수록 심박수가 오르는 것을 확인했습니다. 측정 인원이 5명뿐이라 한계가 있어, 다음에는 학년 전체로 넓혀 보고 싶습니다.",
         ),
       ],
     };
@@ -549,9 +589,40 @@ export type StoredSubmissionSchema = {
     key?: string;
     label?: string;
     helper?: string;
+    example?: string;
     required?: boolean;
   }[];
 };
+
+/** 유형별 기본 스키마를 만드는 대표 안내문. 필드를 가장 많이 내는 문구를 써서 모든 key의 example을 얻는다. */
+const REPRESENTATIVE_GUIDES = [
+  "선정 이유, 탐구 내용, 배우고 느낀 점, 참고문헌을 쓴다. 1000자 이상",
+  "카드뉴스를 제작한다.",
+  "발표 PPT를 만든다.",
+  "칼럼을 쓴다.",
+  "독서 서평을 쓴다.",
+  "탐구 보고서를 쓴다.",
+  "",
+];
+
+let defaultExamples: Map<string, string> | null = null;
+
+/** 저장본에 example이 없을 때 같은 type, 같은 key의 기본 example을 돌려준다. 문항형은 공용 문항 example. */
+function fallbackExample(type: string | undefined, key: string): string {
+  if (type === "question_based" && /^question_\d+/.test(key)) {
+    return QUESTION_EXAMPLE;
+  }
+  if (!defaultExamples) {
+    defaultExamples = new Map();
+    for (const guide of REPRESENTATIVE_GUIDES) {
+      const base = inferSubmissionSchema(guide);
+      for (const f of base.fields) {
+        defaultExamples.set(`${base.type}:${f.key}`, f.example);
+      }
+    }
+  }
+  return defaultExamples.get(`${type}:${key}`) ?? "";
+}
 
 export function normalizeSubmissionSchema(
   schema?: StoredSubmissionSchema | null,
@@ -565,14 +636,16 @@ export function normalizeSubmissionSchema(
     type: schema.type || "custom",
     label: schema.label || "맞춤 제출형",
     notice: schema.notice || "안내문 분석 결과에 맞춰 제출 항목을 제시합니다.",
-    fields: schema.fields.map((f, idx) =>
-      makeSubmissionField(
-        uniqueFieldKey(seenKeys, f.key || `field_${idx + 1}`),
+    fields: schema.fields.map((f, idx) => {
+      const key = uniqueFieldKey(seenKeys, f.key || `field_${idx + 1}`);
+      return makeSubmissionField(
+        key,
         f.label || `항목 ${idx + 1}`,
         f.helper || "",
         f.required !== false,
-      ),
-    ),
+        f.example || fallbackExample(schema.type, f.key || ""),
+      );
+    }),
   };
 }
 

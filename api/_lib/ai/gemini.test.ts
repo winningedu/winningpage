@@ -294,6 +294,21 @@ describe("callStructured 전달", () => {
 });
 
 describe("callVision 전달", () => {
+  it("PDF는 application/pdf mimeType 그대로 inlineData 파트로 보낸다", async () => {
+    fetchMock.mockResolvedValueOnce(okResponse());
+    await callVision(
+      "시스템",
+      [{ data: Buffer.from("%PDF-1.4"), mimeType: "application/pdf" }],
+      "읽어 주세요",
+    );
+    expect(sentBody().contents[0].parts[0]).toEqual({
+      inlineData: {
+        mimeType: "application/pdf",
+        data: Buffer.from("%PDF-1.4").toString("base64"),
+      },
+    });
+  });
+
   it("이미지 2장과 프롬프트를 한 요청의 파트 순서 그대로 보내고 장수 비례 상한을 싣는다", async () => {
     fetchMock.mockResolvedValueOnce(okResponse());
     await callVision(

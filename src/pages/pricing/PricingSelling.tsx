@@ -120,6 +120,7 @@ export default function PricingSelling({
         .from("coupons")
         .select("id, title, valid_until")
         .eq("is_active", true)
+        .eq("grant_on_signup", false)
         .order("min_amount", { ascending: true });
       if (!alive) return;
       if (couponError) {

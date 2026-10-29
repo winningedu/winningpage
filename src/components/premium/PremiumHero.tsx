@@ -31,6 +31,9 @@ type PremiumHeroProps = {
   ctaClassName?: string;
   /** 기본 "center". "left"는 해외명문대 시안 전용 좌측정렬 레이아웃. */
   align?: "center" | "left";
+  /** 배너 이미지에 버튼이 그려진 페이지 전용. 이미지 비율(1920:772)을 고정하고 그려진 버튼 위치
+   * (이미지 기준 %)에 투명 링크를 덮는다. md 미만은 이미지 아래에 코드 CTA 버튼을 보인다. */
+  ctaOverlay?: { left: string; top: string; width: string; height: string };
 };
 
 const DEFAULT_TITLE_CLASS =
@@ -50,8 +53,41 @@ export default function PremiumHero({
   descriptionClassName,
   ctaClassName,
   align = "center",
+  ctaOverlay,
 }: PremiumHeroProps) {
   const isLeft = align === "left";
+
+  if (ctaOverlay) {
+    return (
+      <section className="w-full">
+        <div className="relative md:aspect-[1920/772]">
+          <img
+            src={bgSrc}
+            alt=""
+            fetchPriority="high"
+            className="block h-auto w-full md:h-full md:object-fill"
+          />
+          <h1 className={titleClassName ?? DEFAULT_TITLE_CLASS}>{title}</h1>
+          <p className={descriptionClassName ?? DEFAULT_DESCRIPTION_CLASS}>
+            {description}
+          </p>
+          <Link
+            to={cta.to}
+            aria-label={cta.label}
+            style={ctaOverlay}
+            className="absolute hidden rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:block"
+          >
+            <span className="sr-only">{cta.label}</span>
+          </Link>
+        </div>
+        <div className="mx-auto w-full max-w-content px-5 pb-8 sm:px-8 md:hidden">
+          <Link to={cta.to} className={`${DEFAULT_CTA_CLASS} md:hidden`}>
+            {cta.label}
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

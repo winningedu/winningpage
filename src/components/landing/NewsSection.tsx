@@ -184,7 +184,7 @@ export default function NewsSection({
   return (
     <section
       aria-label={`${site.brandName} 소식`}
-      className="w-full bg-white pt-12 pb-12 md:pt-30 md:pb-30"
+      className="w-full bg-white pt-8 pb-8 md:pt-20 md:pb-20"
     >
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <h2 className="text-center text-[1.75rem] font-semibold leading-[1.4] tracking-[-0.04rem] text-ink sm:text-[2rem]">

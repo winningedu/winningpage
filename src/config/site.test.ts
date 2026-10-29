@@ -50,6 +50,11 @@ describe("site — winning", () => {
     expect(site.company.centerTel).toBe("051-902-0080");
     expect(site.company.kakao).toBe("winningedu_official");
     expect(site.company.kakaoChannelUrl).toBe("https://pf.kakao.com/_EfjwX");
+    expect(site.company.naverBlogUrl).toBe("https://blog.naver.com/winningedu");
+    expect(site.company.youtubeUrl).toBe("https://www.youtube.com/@winningedu");
+    expect(site.company.instagramUrl).toBe(
+      "https://www.youtube.com/shorts/rdZ2COapC90",
+    );
   });
 });
 
@@ -96,6 +101,9 @@ describe("site — schoolmentor", () => {
     expect(site.company.centerTel).toBeUndefined();
     expect(site.company.kakao).toBeUndefined();
     expect(site.company.kakaoChannelUrl).toBeUndefined();
+    expect(site.company.naverBlogUrl).toBeUndefined();
+    expect(site.company.youtubeUrl).toBeUndefined();
+    expect(site.company.instagramUrl).toBeUndefined();
   });
 });
 

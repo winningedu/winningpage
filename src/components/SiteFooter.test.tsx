@@ -26,6 +26,10 @@ const siteState = vi.hoisted(() => ({
       mailOrderNo: "제2026-세종아름-0264호",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
       supportChannelLabel: "카카오 채널 '위닝에듀'",
+      kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
+      naverBlogUrl: "https://blog.naver.com/winningedu",
+      youtubeUrl: "https://www.youtube.com/@winningedu",
+      instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
     },
   } as MockSite,
 }));
@@ -134,6 +138,56 @@ describe("SiteFooter", () => {
   });
 });
 
+const SOCIAL_LABELS = [
+  "카카오톡 채널",
+  "네이버 블로그",
+  "유튜브",
+  "인스타그램",
+];
+
+function getSocialLinks() {
+  return screen
+    .queryAllByRole("link")
+    .filter((link) =>
+      SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
+    );
+}
+
+describe("SiteFooter, 소셜 아이콘", () => {
+  it("카카오, 네이버, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
+    renderFooter();
+    // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.
+    const links = getSocialLinks();
+    expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
+      ...SOCIAL_LABELS,
+      ...SOCIAL_LABELS,
+    ]);
+    expect(links.slice(0, 4).map((l) => l.getAttribute("href"))).toEqual([
+      "https://pf.kakao.com/_EfjwX",
+      "https://blog.naver.com/winningedu",
+      "https://www.youtube.com/@winningedu",
+      "https://www.youtube.com/shorts/rdZ2COapC90",
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  });
+
+  it("URL이 없는 아이콘은 렌더하지 않는다", () => {
+    delete siteState.current.company.naverBlogUrl;
+    delete siteState.current.company.instagramUrl;
+    renderFooter();
+    const labels = getSocialLinks().map((l) => l.getAttribute("aria-label"));
+    expect(labels).toEqual([
+      "카카오톡 채널",
+      "유튜브",
+      "카카오톡 채널",
+      "유튜브",
+    ]);
+  });
+});
+
 describe("SiteFooter — 스쿨멘토 사이트", () => {
   it("로고 alt·src가 스쿨멘토 정본이고, 선택 필드가 없으면 해당 문구가 보이지 않는다", () => {
     siteState.current = {
@@ -169,5 +223,6 @@ describe("SiteFooter — 스쿨멘토 사이트", () => {
     expect(screen.queryByText(/통신판매업/)).not.toBeInTheDocument();
     expect(screen.queryByText(/온라인고객센터/)).not.toBeInTheDocument();
     expect(screen.queryByText(/카카오 채널/)).not.toBeInTheDocument();
+    expect(getSocialLinks()).toHaveLength(0);
   });
 });

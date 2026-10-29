@@ -6,6 +6,7 @@ import bizAiPlatform from "@/assets/company/biz-ai-platform.png";
 import bizConsulting from "@/assets/company/biz-consulting.png";
 import bizNetwork from "@/assets/company/biz-network.png";
 import missionBg from "@/assets/company/mission-bg.jpg";
+import partnerCecAcademy from "@/assets/company/partner-cec-academy.png";
 import partnerChloeWinningArt from "@/assets/company/partner-chloe-winning-art.png";
 import partnerJungsangLanguage from "@/assets/company/partner-jungsang-language.png";
 import partnerJungsangMath from "@/assets/company/partner-jungsang-math.png";
@@ -13,6 +14,7 @@ import SafeHtml from "@/components/admission/SafeHtml";
 import {
   isPremiumLink,
   PREMIUM_ADMISSION_A_PATH,
+  PREMIUM_GLOBAL_UNIVERSITY_PATH,
 } from "@/components/premium/premiumRoutesPaths";
 import { isHiddenProgramLink } from "@/config/programs";
 import { site } from "@/config/site";
@@ -285,6 +287,30 @@ const PARTNER_CARDS = [
     links: [{ label: "정관점", href: "https://naver.me/5UEceSEF" }],
     logo: partnerChloeWinningArt,
     logoWidth: "w-[8.35rem]",
+  },
+  {
+    // QA3 행66, 5번째 카드. 링크는 외부(href, 새 창)와 사이트 내부(to, react-router Link)로 나뉜다.
+    key: "cec-academy",
+    title: "CEC Academy",
+    subtitle: "(영국소재) 영국대학 입시의 명문 아카데미",
+    brand: "CEC Academy",
+    links: [
+      {
+        label: "런던센터",
+        href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("CEC Academy London, 151 High Street, New Malden, London, Surrey, KT3 4BH")}`,
+      },
+      {
+        label: "캠브리지센터",
+        href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("Cambridge Edu Centre, First & Second Floors, 85 Regent Street, Cambridge, CB2 1AW")}`,
+      },
+      {
+        label: "해외명문대 진학컨설팅",
+        to: PREMIUM_GLOBAL_UNIVERSITY_PATH,
+        premium: true,
+      },
+    ],
+    logo: partnerCecAcademy,
+    logoWidth: "w-[6.5rem]",
   },
 ];
 // "바로가기" 5개 링크는 네이버 지도 단축링크(naver.me)를 실제 목적지로 받았다 — 전부 외부 새 탭
@@ -680,48 +706,63 @@ function PartnerCard({ partner }: { partner: PartnerCardData }) {
           className="mt-4.25 block h-0.25 w-full bg-line"
         />
         <div className="mt-4.5 flex flex-col gap-3">
-          {partner.links.map((link) => {
-            const linkClassName =
-              "flex items-center justify-between text-left text-[0.8125rem] font-medium leading-[1.3] text-ink hover:text-primary sm:text-[0.875rem]";
-            const linkContent = (
-              <>
-                <span>{link.label}</span>
-                <span className="inline-flex items-center gap-1 border-b border-ink">
-                  바로가기
-                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </span>
-              </>
-            );
+          {partner.links
+            .filter((link) => site.features.premium || !("premium" in link))
+            .map((link) => {
+              const linkClassName =
+                "flex items-center justify-between text-left text-[0.8125rem] font-medium leading-[1.3] text-ink hover:text-primary sm:text-[0.875rem]";
+              const linkContent = (
+                <>
+                  <span>{link.label}</span>
+                  <span className="inline-flex items-center gap-1 border-b border-ink">
+                    바로가기
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                </>
+              );
 
-            // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백 — 지금 5개는 전부
-            // href가 있어 이 분기를 타지 않는다.
-            if (!link.href) {
+              if ("to" in link) {
+                return (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    aria-label={`${partner.brand} ${link.label} 바로가기`}
+                    className={linkClassName}
+                  >
+                    {linkContent}
+                  </Link>
+                );
+              }
+
+              // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백, 지금 5개는 전부
+              // href가 있어 이 분기를 타지 않는다.
+              if (!link.href) {
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    onClick={alertServiceNotReady}
+                    className={linkClassName}
+                  >
+                    {linkContent}
+                  </button>
+                );
+              }
+
               return (
-                <button
+                <a
                   key={link.label}
-                  type="button"
-                  onClick={alertServiceNotReady}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${partner.brand} ${link.label} 바로가기 (새 창에서 열림)`}
                   className={linkClassName}
                 >
                   {linkContent}
-                </button>
+                  <span className="sr-only"> (새 창에서 열림)</span>
+                </a>
               );
-            }
-
-            return (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${partner.brand} ${link.label} 바로가기 (새 창에서 열림)`}
-                className={linkClassName}
-              >
-                {linkContent}
-                <span className="sr-only"> (새 창에서 열림)</span>
-              </a>
-            );
-          })}
+            })}
         </div>
       </div>
       <img

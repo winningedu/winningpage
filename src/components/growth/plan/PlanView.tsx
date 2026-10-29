@@ -97,7 +97,7 @@ export default function PlanView({
         </div>
       </section>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_21rem] items-start gap-6">
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="flex flex-col gap-6">
           {carried ? (
             <section aria-label="이월 과제" className={cn(CARD, "p-6")}>

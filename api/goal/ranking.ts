@@ -27,6 +27,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { kstYMD } from "../../src/lib/goal/calc/index.js";
+import { isRankingVisible } from "../_lib/goal/rankingVisibility.js";
 import { num, openGoalSession } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -119,6 +120,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (activeError) throw activeError;
     if (recordError) throw recordError;
 
+    // QA 행71, 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
+    if (!isRankingVisible((activeRows || []).length)) {
+      return res
+        .status(200)
+        .json({ ok: true, date: today, visible: false, top: [], me: null });
+    }
+
     const activeIds = new Set((activeRows || []).map((row) => row.profile_id));
 
     // profile_id → 오늘 제출된 모든 기록의 study_hours 합.
@@ -168,7 +176,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? { rank: meRow.rank, name: meRow.name, hours: meRow.hours }
       : null;
 
-    return res.status(200).json({ ok: true, date: today, top, me });
+    return res
+      .status(200)
+      .json({ ok: true, date: today, visible: true, top, me });
   } catch (error) {
     console.error("goal/ranking error:", error);
     return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");

@@ -58,7 +58,10 @@ export default function TopicCard({
       </h3>
       <p className="mt-1 text-app-label text-ink-sub">{detail.subtitle}</p>
 
-      <ol aria-label="탐구 경로" className="mt-4 grid grid-cols-3 gap-6">
+      <ol
+        aria-label="탐구 경로"
+        className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3"
+      >
         <PathCell label="출발 활동" text={detail.path.from} />
         <PathCell
           label={LINK_KIND_LABELS[topic.linkKind]}
@@ -162,7 +165,7 @@ function PathCell({
 
 function DetailRow({ title, body }: { title: string; body: string }) {
   return (
-    <div className="grid grid-cols-[9rem_1fr] gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-[9rem_1fr]">
       <dt className="text-ink-sub">{title}</dt>
       <dd className="text-ink-strong">{body}</dd>
     </div>

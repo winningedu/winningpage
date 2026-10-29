@@ -87,7 +87,9 @@ import {
   type ReviewStaleMonths,
 } from "./admin/knowledge/review/reviewCycle";
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
+import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
+import ServiceCreditAdjustAdmin from "./admin/service-credit/ServiceCreditAdjustAdmin";
 import {
   AdminForm,
   type AdminRow,
@@ -205,6 +207,11 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       {
         key: "knowledgeEvals",
         label: "지식 검색 품질 평가",
+        section: "서비스",
+      },
+      {
+        key: "serviceCreditAdjust",
+        label: "서비스이용횟수조정",
         section: "서비스",
       },
       {
@@ -345,6 +352,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   selfevalSessions: SelfevalSessionsAdmin,
   aiTelemetry: TelemetryAdmin,
   knowledgeEvals: EvalsAdmin,
+  serviceCreditAdjust: ServiceCreditAdjustAdmin,
   inquirySessions: InquirySessionsAdmin,
 };
 
@@ -358,6 +366,9 @@ const LIST_SUMMARY_REGISTRY = {
   admissionResultsListSummary: AdmissionResultsListSummary,
   acceptanceRateSummary: AcceptanceRateSummary,
   goalCutsListSummary: GoalCutsListSummary,
+  acceptanceCopyPanel: AcceptanceCopyPanel,
+  servicesCopyPanel: ServicesCopyPanel,
+  mentorCopyPanel: MentorCopyPanel,
 };
 
 const _OPTION_EMPTY = {
@@ -2761,6 +2772,20 @@ function GoalCutsListSummary({ onReload, mutationSeq }) {
       <GoalCutsBulkXlsxPanel onReload={handleReload} />
     </div>
   );
+}
+
+// LIST_SUMMARY_REGISTRY 의 랜딩 섹션 제목 패널 3종. 레지스트리가 모듈 초기화 시점에
+// 평가하므로 GoalCutsListSummary 와 같이 **function 선언문**이어야 한다(TDZ).
+function AcceptanceCopyPanel() {
+  return <SectionCopyPanel sectionKey="acceptance" />;
+}
+
+function ServicesCopyPanel() {
+  return <SectionCopyPanel sectionKey="services" />;
+}
+
+function MentorCopyPanel() {
+  return <SectionCopyPanel sectionKey="mentor" />;
 }
 
 function AcceptanceRateSummary({ rows }) {

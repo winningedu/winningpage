@@ -22,11 +22,13 @@ vi.mock("@/lib/products", () => ({
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: () => ({
-      select: () => ({
-        eq: () => ({
+      select: () => {
+        const chain = (): object => ({
+          eq: chain,
           order: () => Promise.resolve({ data: [], error: null }),
-        }),
-      }),
+        });
+        return chain();
+      },
     }),
     auth: {
       getSession: () => Promise.resolve({ data: { session: null } }),

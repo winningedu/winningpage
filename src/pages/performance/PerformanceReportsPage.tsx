@@ -25,6 +25,7 @@ import {
   fetchSavedReportDetail,
   fetchSavedReportsList,
 } from "@/lib/performance/reports";
+import { resumeCtaFor } from "@/lib/performance/resumeCta";
 import { performanceBootstrapQueryOptions } from "@/lib/queryClient";
 
 // 저장 리포트(P12) 목록/상세 화면 — docs/수행평가-상세-명세.md §5.18(`3754:3121` 목록)/
@@ -494,6 +495,8 @@ export default function PerformanceReportsPage() {
     setViewer(null);
   }
 
+  const resumeCta = detail ? resumeCtaFor(detail) : null;
+
   if (isDetailMode) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto pb-14">
@@ -571,6 +574,15 @@ export default function PerformanceReportsPage() {
                 }
               />
             </div>
+
+            {resumeCta && (
+              <Link
+                to={`/app/performance/${routeSessionId}`}
+                className="mt-6 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-app-card-title font-semibold leading-5 text-white transition hover:bg-primary/90"
+              >
+                {resumeCta}
+              </Link>
+            )}
           </div>
         )}
 

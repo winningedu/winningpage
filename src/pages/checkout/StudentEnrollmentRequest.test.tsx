@@ -114,6 +114,23 @@ describe("StudentEnrollmentRequest 추가 이용권", () => {
     expect(body.items).toEqual([{ id: "suhaeng-extra", quantity: 2 }]);
   });
 
+  it("서비스를 고르면 하단 바 결제 요청 버튼 옆에 부모 결제 안내글이 보인다", async () => {
+    render(<StudentEnrollmentRequest />);
+    expect(
+      screen.queryByText(/회원연결된 부모님이 결제를 완료하여야/),
+    ).toBeNull();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "위닝 수행평가 추가 수량 늘리기",
+      }),
+    );
+    const notice = screen.getByText(
+      "결제요청을 하고 회원연결된 부모님이 결제를 완료하여야 서비스를 이용할 수 있습니다",
+    );
+    const button = screen.getByRole("button", { name: "결제 요청" });
+    expect(button.parentElement?.contains(notice)).toBe(true);
+  });
+
   it("이용권 없음 응답이면 안내 문구를 모달로 보인다", async () => {
     mocks.apiFetch.mockResolvedValue({
       ok: false,

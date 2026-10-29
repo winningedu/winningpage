@@ -218,7 +218,8 @@ export default function GrowthReportBody({
           value={period}
           onChange={onPeriodChange}
           ariaLabel="리포트 기간"
-          gap="1.875rem"
+          gap="0.5rem"
+          variant="boxed"
         />
         <button
           type="button"

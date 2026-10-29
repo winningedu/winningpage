@@ -326,6 +326,18 @@ export const memberConfigs: Record<string, MemberConfig> = {
       },
     ],
   },
+  // 서비스이용횟수조정(serviceCreditAdjust): 고객별 6개 서비스 이용횟수를 수기로 추가하거나 차감한다.
+  // custom 컴포넌트(src/pages/admin/service-credit/ServiceCreditAdjustAdmin.tsx)가 전부 그린다.
+  serviceCreditAdjust: {
+    title: "서비스이용횟수조정",
+    table: "program_access_grants",
+    searchPlaceholder: "",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "serviceCreditAdjust",
+    columns: [{ key: "program_key", label: "서비스" }],
+  },
   // 심화탐구 세션 운영(inquirySessions): 세션 목록, 생성 상태 상세, 실패 세션 복구, 이용권 부여.
   // custom 컴포넌트(src/pages/admin/inquiry/InquirySessionsAdmin.tsx)가 전부 그린다.
   inquirySessions: {

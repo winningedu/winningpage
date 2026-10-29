@@ -157,6 +157,14 @@ describe("InfoPage 화면 상태", () => {
     ).toBeVisible();
   });
 
+  test("이용 안내 레일은 모바일에서 본문 아래 1열로 쌓이고 md부터 옆에 놓인다", () => {
+    setShell(bootstrap());
+    renderPage();
+    const grid = screen.getByLabelText("이용 안내").parentElement;
+    expect(grid?.className).toContain("grid-cols-1");
+    expect(grid?.className).toContain("md:grid-cols-[minmax(0,1fr)_17rem]");
+  });
+
   test("부트스트랩 로딩 중에는 로딩 표시를 그린다", () => {
     setShell(null, { isBootstrapLoading: true });
     renderPage();

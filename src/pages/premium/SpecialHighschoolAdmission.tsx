@@ -57,7 +57,7 @@ const SCHOOL_TYPE_CARDS = [
   },
   {
     number: "05",
-    title: "학습 코칭",
+    title: "실전 코칭",
     bullets: [
       "모든 결과물(탐구가이드· 수행평가 코칭안 등)은 대표원장이 최종 검수 후 전달됩니다",
     ],

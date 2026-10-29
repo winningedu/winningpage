@@ -87,7 +87,7 @@ export default function ReportPage() {
           </>
         }
       />
-      <div className="mx-auto w-full max-w-[83.75rem] px-12 pb-12">
+      <div className="mx-auto w-full max-w-[83.75rem] px-4 pb-12 md:px-12">
         {isError ? (
           <div
             role="alert"

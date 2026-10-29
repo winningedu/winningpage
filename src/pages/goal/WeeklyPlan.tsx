@@ -2,6 +2,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import GoalCard from "@/components/goal/GoalCard";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
+import {
+  pickWeekdayDates,
+  WEEKDAY_REPEAT_SCHEDULE,
+} from "@/components/goal/goalFormOptions";
 import AddTaskModal from "@/components/goal/modals/AddTaskModal";
 import WeekdayPlanBoard from "@/components/goal/plan/WeekdayPlanBoard";
 import {
@@ -93,6 +97,7 @@ export default function WeeklyPlan() {
     taskText,
     duration,
     schedule,
+    weekdays,
     workbookId,
     pageFrom,
     pageTo,
@@ -101,13 +106,20 @@ export default function WeeklyPlan() {
     taskText: string;
     duration: string;
     schedule: string;
+    weekdays?: number[];
     workbookId?: number;
     pageFrom?: number;
     pageTo?: number;
   }) {
     // handleAddTask가 모달을 열기 전에 selectedDate를 항상 먼저 채운다("오늘만" 제출은
     // 이 흐름을 통해서만 도달한다).
-    const targetDates = schedule === "오늘만" ? [selectedDate!] : weekDates;
+    // "선택요일반복"은 표시 중인 주 중 고른 요일의 날짜만 만든다(미래 주 생성 없음).
+    const targetDates =
+      schedule === "오늘만"
+        ? [selectedDate!]
+        : schedule === WEEKDAY_REPEAT_SCHEDULE
+          ? pickWeekdayDates(weekDates, weekdays ?? [])
+          : weekDates;
     const durationMinutes = durationLabelToMinutes(duration);
     // 문제집 연결 과제는 여러 날짜로 못 펼치게 AddTaskModal이 이미 막지만(문제집
     // 연결 시 일정 select 자체를 비활성), API에도 같은 신호를 실어 보내 서버가
