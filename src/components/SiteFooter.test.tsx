@@ -174,6 +174,23 @@ describe("SiteFooter, 소셜 아이콘", () => {
     }
   });
 
+  it("각 링크는 브랜드 컬러 원형 배지다", () => {
+    renderFooter();
+    const byLabel = (label: string) =>
+      screen.getAllByRole("link", { name: label })[0] as HTMLElement;
+    const kakao = byLabel("카카오톡 채널");
+    const naver = byLabel("네이버 블로그");
+    const youtube = byLabel("유튜브");
+    const instagram = byLabel("인스타그램");
+    for (const link of [kakao, naver, youtube, instagram]) {
+      expect(link).toHaveClass("size-8", "rounded-full");
+    }
+    expect(kakao.className).toContain("bg-[#fee500]");
+    expect(naver.className).toContain("bg-[#03c75a]");
+    expect(youtube.className).toContain("bg-[#ff0000]");
+    expect(instagram.style.background).toContain("linear-gradient");
+  });
+
   it("URL이 없는 아이콘은 렌더하지 않는다", () => {
     delete siteState.current.company.naverBlogUrl;
     delete siteState.current.company.instagramUrl;
