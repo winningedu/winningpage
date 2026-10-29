@@ -55,6 +55,24 @@ describe("SectionEditor", () => {
     ).toBe(false);
   });
 
+  test("작성 예시를 입력칸 위 박스로 보여주고 값이 있어도 유지하며 placeholder 로 쓰지 않는다", () => {
+    const r = row(0);
+    if (!r) throw new Error("row");
+    const { rerender } = render(
+      <SectionEditor row={r} value="" onChange={vi.fn()} />,
+    );
+    const box = screen.getByText(r.example, { exact: false });
+    const textarea = screen.getByRole("textbox");
+    expect(box).toBeVisible();
+    expect(screen.getByText("예시")).toBeVisible();
+    expect(textarea).toHaveAttribute("placeholder", "입력");
+    expect(
+      box.compareDocumentPosition(textarea) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    rerender(<SectionEditor row={r} value="작성함" onChange={vi.fn()} />);
+    expect(screen.getByText(r.example, { exact: false })).toBeVisible();
+  });
+
   test("부족하면 부족분을 강조해 알린다", () => {
     const r = row(0, "가".repeat(120));
     if (!r) throw new Error("row");
