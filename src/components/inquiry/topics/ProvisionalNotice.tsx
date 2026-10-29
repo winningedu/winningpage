@@ -21,7 +21,7 @@ export default function ProvisionalNotice({ questions, onGoInfo }: Props) {
           <p className="mt-3 text-app-caption text-ink-sub">
             이전에 한 활동이 있다면 아래 질문을 떠올려 보세요.
           </p>
-          <ul className="mt-2 grid grid-cols-3 gap-3">
+          <ul className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
             {questions.map((q) => (
               <li
                 key={q}

@@ -111,7 +111,7 @@ export default function BasicInfoCard({
         </fieldset>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor={id("career")}
