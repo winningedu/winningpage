@@ -19,7 +19,9 @@ vi.mock("@/lib/goalApi", () => ({
 }));
 
 function renderModal(onSubmit = vi.fn().mockResolvedValue(undefined)) {
-  render(<AddTaskModal open onClose={vi.fn()} day="월요일" onSubmit={onSubmit} />);
+  render(
+    <AddTaskModal open onClose={vi.fn()} day="월요일" onSubmit={onSubmit} />,
+  );
   fireEvent.click(screen.getByRole("radio", { name: "수학" }));
   fireEvent.change(screen.getByLabelText("할 일", { exact: false }), {
     target: { value: "미적분" },

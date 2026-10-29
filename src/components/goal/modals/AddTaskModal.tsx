@@ -291,7 +291,7 @@ export default function AddTaskModal({
 
       {isWeekdayRepeat && (
         <div>
-          <div role="group" aria-label="반복 요일" className="flex gap-1.5">
+          <div className="flex gap-1.5">
             {WEEKDAY_CHIP_LABELS.map((label, index) => {
               const selected = weekdays.includes(index);
               return (
