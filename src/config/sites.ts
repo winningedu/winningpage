@@ -32,6 +32,10 @@ export interface SiteConfig {
     centerTel?: string;
     kakao?: string;
     kakaoChannelUrl?: string;
+    // 푸터 소셜 아이콘 URL. 값이 있는 것만 푸터에 렌더한다.
+    naverBlogUrl?: string;
+    youtubeUrl?: string;
+    instagramUrl?: string;
   };
 }
 
@@ -63,6 +67,10 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       centerTel: "051-902-0080",
       kakao: "winningedu_official",
       kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
+      naverBlogUrl: "https://blog.naver.com/winningedu",
+      youtubeUrl: "https://www.youtube.com/@winningedu",
+      // 고객 지시: 인스타그램 주소가 전달되기 전까지 임시로 유튜브 쇼츠 주소를 쓴다.
+      instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
       supportChannelLabel: "카카오 채널 '위닝에듀'",
     },
   },
