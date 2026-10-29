@@ -73,6 +73,20 @@ describe("SectionEditor", () => {
     expect(screen.getByText(r.example, { exact: false })).toBeVisible();
   });
 
+  test("과거 저장 예시의 [예시] 접두는 화면에 나오지 않는다", () => {
+    const r = row(0);
+    if (!r) throw new Error("row");
+    const { container } = render(
+      <SectionEditor
+        row={{ ...r, example: `[예시] ${r.example}` }}
+        value=""
+        onChange={vi.fn()}
+      />,
+    );
+    expect(container).not.toHaveTextContent("[예시]");
+    expect(screen.getByText(r.example, { exact: false })).toBeVisible();
+  });
+
   test("부족하면 부족분을 강조해 알린다", () => {
     const r = row(0, "가".repeat(120));
     if (!r) throw new Error("row");
