@@ -4,6 +4,8 @@ import {
   TASK_DURATIONS,
   TASK_SCHEDULES,
   TASK_SUBJECTS,
+  WEEKDAY_CHIP_LABELS,
+  WEEKDAY_REPEAT_SCHEDULE,
 } from "@/components/goal/goalFormOptions";
 import ModalField from "@/components/goal/ModalField";
 import SegmentedChipGroup from "@/components/goal/SegmentedChipGroup";
@@ -54,6 +56,8 @@ type AddTaskModalSubmitPayload = {
   taskText: string;
   duration: string;
   schedule: string;
+  // "선택요일반복"일 때만 실린다 — 고른 요일 인덱스(월=0 ~ 일=6, 오름차순).
+  weekdays?: number[];
   // 문제집 연결(QA 행286-B, 선택) — 연결 안 하면 셋 다 없다. workbookId만 있고
   // 페이지가 없으면 페이지 없이 연결만, 셋 다 있으면 페이지 범위까지 연결한다
   // (api/goal/plan-tasks.ts validateWorkbookLinkFields와 같은 규약).
@@ -94,6 +98,7 @@ export default function AddTaskModal({
   const [taskText, setTaskText] = useState("");
   const [duration, setDuration] = useState(DEFAULT_DURATION);
   const [schedule, setSchedule] = useState(DEFAULT_SCHEDULE);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // 문제집 연결(QA 행286-B, 선택) — workbookId는 select value라 문자열("" = 연결 안
@@ -164,8 +169,12 @@ export default function AddTaskModal({
     ? [{ value: "오늘만", label: "선택한 날짜에만" }]
     : SCHEDULE_OPTIONS;
 
+  const isWeekdayRepeat = schedule === WEEKDAY_REPEAT_SCHEDULE;
+  const weekdaysInvalid = isWeekdayRepeat && weekdays.length === 0;
+
   const canSubmit =
     Boolean(subject) &&
+    !weekdaysInvalid &&
     taskText.trim().length > 0 &&
     !submitting &&
     !pageRangeInvalid;
@@ -175,6 +184,7 @@ export default function AddTaskModal({
     setTaskText("");
     setDuration(DEFAULT_DURATION);
     setSchedule(DEFAULT_SCHEDULE);
+    setWeekdays([]);
     setSubmitting(false);
     setWorkbookId("");
     setPageFrom("");
@@ -192,6 +202,7 @@ export default function AddTaskModal({
       taskText,
       duration,
       schedule,
+      ...(isWeekdayRepeat ? { weekdays } : {}),
       ...(selectedWorkbook
         ? {
             workbookId: selectedWorkbook.id,
@@ -277,6 +288,45 @@ export default function AddTaskModal({
             : {})}
         />
       </div>
+
+      {isWeekdayRepeat && (
+        <div>
+          <div role="group" aria-label="반복 요일" className="flex gap-1.5">
+            {WEEKDAY_CHIP_LABELS.map((label, index) => {
+              const selected = weekdays.includes(index);
+              return (
+                // biome-ignore lint/a11y/useSemanticElements: SegmentedChipGroup과 같은 칩 버튼 톤을 쓰는 다중선택이라 button + role="checkbox"로 둔다.
+                <button
+                  key={label}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={selected}
+                  onClick={() =>
+                    setWeekdays((prev) =>
+                      (prev.includes(index)
+                        ? prev.filter((day) => day !== index)
+                        : [...prev, index]
+                      ).sort((a, b) => a - b),
+                    )
+                  }
+                  className={`h-9.75 min-w-0 flex-1 rounded-lg border text-app-label font-medium transition-colors ${
+                    selected
+                      ? "border-accent bg-surface-03 font-bold text-accent"
+                      : "border-[#E3E3E3] bg-white text-ink-sub"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {weekdaysInvalid && (
+            <p className="mt-1.5 text-app-label text-error">
+              요일을 1개 이상 선택해 주세요
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 문제집 연결(선택, QA 행286-B) — "나의 노력"에 등록된 읽는 중인 문제집만
           고를 수 있다(완독한 책은 진도를 더 전진시킬 이유가 없어 목록에서 뺀다).
