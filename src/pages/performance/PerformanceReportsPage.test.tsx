@@ -130,3 +130,47 @@ describe("PerformanceReportsPage 최종 제출본 표지", () => {
     expect(info).toHaveTextContent("저장일2026. 10. 16");
   });
 });
+
+describe("PerformanceReportsPage 상세 이어쓰기 CTA", () => {
+  beforeEach(() => {
+    detailMock.mockReset();
+  });
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("설계 리포트만 있으면 이어서 작성하기 링크가 세션 딥링크를 가리킨다", async () => {
+    detailMock.mockResolvedValue({
+      ...detail(),
+      design: { reportId: "d1", updatedAt: "2026-10-16T03:00:00Z" },
+      final: null,
+    });
+    renderPage();
+
+    const link = await screen.findByRole("link", { name: "이어서 작성하기" });
+    expect(link).toHaveAttribute("href", "/app/performance/s1");
+  });
+
+  it("평가 리포트까지 있으면 최종 제출본 작성하기 링크를 보인다", async () => {
+    detailMock.mockResolvedValue({
+      ...detail(),
+      design: { reportId: "d1" },
+      evaluation: { reportId: "e1" },
+      final: null,
+    });
+    renderPage();
+
+    const link = await screen.findByRole("link", {
+      name: "최종 제출본 작성하기",
+    });
+    expect(link).toHaveAttribute("href", "/app/performance/s1");
+  });
+
+  it("최종 제출본이 있으면 CTA가 없다", async () => {
+    detailMock.mockResolvedValue({ ...detail(), design: { reportId: "d1" } });
+    renderPage();
+
+    await screen.findByRole("button", { name: /최종 제출본/ });
+    expect(screen.queryByRole("link", { name: /작성하기/ })).toBeNull();
+  });
+});
