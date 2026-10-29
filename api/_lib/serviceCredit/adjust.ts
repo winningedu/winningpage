@@ -36,7 +36,8 @@ export function validateAdjustBody(
   const program = SERVICE_CREDIT_PROGRAMS.find(
     (p) => p.programKey === b.programKey,
   );
-  if (!program) return { ok: false, reason: "programKey 가 올바르지 않습니다." };
+  if (!program)
+    return { ok: false, reason: "programKey 가 올바르지 않습니다." };
 
   if (
     typeof b.delta !== "number" ||
@@ -121,8 +122,58 @@ export function buildAdjustGrantRow(
     validity_days: null,
     paid_amount: 0,
     starts_at: nowIso,
-    expires_at:
-      body.months === null ? null : addMonthsUtc(nowIso, body.months),
+    expires_at: body.months === null ? null : addMonthsUtc(nowIso, body.months),
     memo: `${ADJUST_MEMO_PREFIX}${body.reason}`,
+  };
+}
+
+export type CreditSummary = {
+  liveCount: number;
+  quotaTotal: number | null;
+  quotaUsed: number;
+};
+
+export type DeductionCheck =
+  | { ok: true }
+  | {
+      ok: false;
+      code: "NO_ENTITLEMENT" | "UNLIMITED_SESSIONS" | "INSUFFICIENT_CREDIT";
+      message: string;
+    };
+
+/** 차감 전 잔여 확인. 최종 판정은 DB 함수가 잠금 안에서 다시 한다. */
+export function checkDeduction(
+  summary: CreditSummary,
+  amount: number,
+): DeductionCheck {
+  if (summary.liveCount === 0)
+    return {
+      ok: false,
+      code: "NO_ENTITLEMENT",
+      message: "차감할 이용권이 없습니다.",
+    };
+  if (summary.quotaTotal === null)
+    return {
+      ok: false,
+      code: "UNLIMITED_SESSIONS",
+      message: "회차 무제한 이용권은 차감할 수 없습니다.",
+    };
+  const remaining = Math.max(summary.quotaTotal - summary.quotaUsed, 0);
+  if (amount > remaining)
+    return {
+      ok: false,
+      code: "INSUFFICIENT_CREDIT",
+      message: `잔여 ${remaining}회보다 많이 차감할 수 없습니다.`,
+    };
+  return { ok: true };
+}
+
+/** 원장에는 행위자 컬럼이 없어 사유에 행위자 id 를 붙여 남긴다. */
+export function buildDeductArgs(body: AdjustBody, actorId: string) {
+  return {
+    p_profile_id: body.profileId,
+    p_program_key: body.programKey,
+    p_amount: -body.delta,
+    p_reason: `관리자 이용횟수 조정(${actorId}): ${body.reason}`,
   };
 }

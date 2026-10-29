@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildAdjustGrantRow, validateAdjustBody } from "./adjust.js";
+import {
+  buildAdjustGrantRow,
+  buildDeductArgs,
+  checkDeduction,
+  validateAdjustBody,
+} from "./adjust.js";
 
 const PID = "123e4567-e89b-42d3-a456-426614174000";
 const base = {
@@ -117,5 +122,58 @@ describe("buildAdjustGrantRow", () => {
     expect(row.granted_sessions).toBeNull();
     expect(row.granted_months).toBe(2);
     expect(row.expires_at).toBe("2026-12-29T00:00:00.000Z");
+  });
+});
+
+describe("checkDeduction", () => {
+  it("잔여 이하의 차감은 허용한다", () => {
+    expect(
+      checkDeduction({ liveCount: 1, quotaTotal: 5, quotaUsed: 2 }, 3),
+    ).toEqual({
+      ok: true,
+    });
+  });
+
+  it("잔여보다 많이 차감하면 거부한다", () => {
+    const r = checkDeduction({ liveCount: 1, quotaTotal: 5, quotaUsed: 2 }, 4);
+    expect(r).toMatchObject({ ok: false, code: "INSUFFICIENT_CREDIT" });
+  });
+
+  it("살아있는 이용권이 없으면 거부한다", () => {
+    const r = checkDeduction(
+      { liveCount: 0, quotaTotal: null, quotaUsed: 0 },
+      1,
+    );
+    expect(r).toMatchObject({ ok: false, code: "NO_ENTITLEMENT" });
+  });
+
+  it("회차 무제한 이용권은 차감할 수 없다", () => {
+    const r = checkDeduction(
+      { liveCount: 1, quotaTotal: null, quotaUsed: 0 },
+      1,
+    );
+    expect(r).toMatchObject({ ok: false, code: "UNLIMITED_SESSIONS" });
+  });
+});
+
+describe("buildDeductArgs", () => {
+  it("차감 RPC 인자는 양수 수량과 행위자가 붙은 사유다", () => {
+    expect(
+      buildDeductArgs(
+        {
+          profileId: PID,
+          programKey: "growth",
+          delta: -2,
+          months: null,
+          reason: "실수 복구",
+        },
+        "actor-1",
+      ),
+    ).toEqual({
+      p_profile_id: PID,
+      p_program_key: "growth",
+      p_amount: 2,
+      p_reason: "관리자 이용횟수 조정(actor-1): 실수 복구",
+    });
   });
 });
