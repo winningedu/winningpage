@@ -601,6 +601,10 @@ export default function Dashboard() {
   // 그린다.
   const displayedAdvice =
     goalAdviceData?.daily ?? goalAdviceData?.intake ?? null;
+  // QA 행70 — 오늘 행이 없으면 서버가 가장 최근 행을 준다. 표시 중인 조언의 생성일.
+  const displayedAdviceFor = goalAdviceData?.daily
+    ? goalAdviceData.dailyFor
+    : (goalAdviceData?.intakeFor ?? null);
 
   // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, intake 조언이 오늘
   // 이미 생성돼 있으면 그 probabilitySummary로 교체한다(팀장 지시, AI가 실제로 만든
@@ -676,6 +680,7 @@ export default function Dashboard() {
                           }
                         : null
                     }
+                    generatedFor={displayedAdviceFor}
                   />
                 </div>
                 <div className="min-w-0 flex-1">
