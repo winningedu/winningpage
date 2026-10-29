@@ -628,8 +628,8 @@ export default function Dashboard() {
     : (goalAdviceData?.intakeFor ?? null);
 
   // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, 오늘 생성된 intake
-  // 조언만 그 probabilitySummary로 교체한다(과거 intake는 pickWelcomeHeadline이 걸러낸다,팀장 지시, AI가 실제로 만든
-  // "최초 진단" 맥락 문장을 우선한다). badge는 DashboardPageHeader가 adviceType prop으로
+  // 조언만 그 probabilitySummary로 교체한다(AI가 실제로 만든 "최초 진단" 맥락 문장을
+  // 우선한다). 과거 intake는 pickWelcomeHeadline이 걸러낸다. badge는 DashboardPageHeader가 adviceType prop으로
   // 자체 렌더한다 — origin이 'ai'일 때만 "AI 입시 분석 조언", 그 외(rule/로딩 중)는
   // 기존 "일일 분석 조언" 변형을 그대로 쓴다(뱃지 문구 자체는 UI가 이미 갖고 있던 것).
   const advice = {
