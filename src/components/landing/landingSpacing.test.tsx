@@ -11,6 +11,8 @@ describe("랜딩 섹션 간격", () => {
     render(
       <MemoryRouter>
         <AcceptanceSection
+          titleMain="큰제목"
+          titleSub="중제목"
           universities={[
             { id: "u-1", name: "서울대학교", track: "general", sort_order: 1 },
           ]}

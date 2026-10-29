@@ -25,6 +25,10 @@ type University = {
 
 type AcceptanceSectionProps = {
   universities?: University[];
+  /** 큰제목(h2 첫 줄). 제목 props가 없으면 h2를 렌더하지 않는다. */
+  titleMain?: string;
+  /** 중제목(h2 둘째 줄). */
+  titleSub?: string;
 };
 
 /**
@@ -36,6 +40,8 @@ type AcceptanceSectionProps = {
  */
 export default function AcceptanceSection({
   universities = [],
+  titleMain,
+  titleSub,
 }: AcceptanceSectionProps) {
   const trackCounts = useMemo(
     () => ({
@@ -88,12 +94,12 @@ export default function AcceptanceSection({
       <div className="pb-0 pt-7 sm:pt-11 lg:pt-20">
         {/* 헤더 + 탭 */}
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.25] tracking-[-0.03rem] sm:text-[1.75rem] lg:text-[2rem] lg:tracking-[-0.04rem]">
-            <span className="block text-primary">인서울부터 과기원까지</span>
-            <span className="block text-ink">
-              합격생 선배님들의 압도적 선택
-            </span>
-          </h2>
+          {titleMain && (
+            <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.25] tracking-[-0.03rem] sm:text-[1.75rem] lg:text-[2rem] lg:tracking-[-0.04rem]">
+              <span className="block text-primary">{titleMain}</span>
+              {titleSub && <span className="block text-ink">{titleSub}</span>}
+            </h2>
+          )}
 
           <div
             role="tablist"
