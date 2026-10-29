@@ -12,6 +12,10 @@ import { SERVICE_CREDIT_PROGRAMS } from "./programs.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value.trim());
+}
+
 const REASON_MIN_LENGTH = 2;
 const ADJUST_MEMO_PREFIX = "관리자 이용횟수 조정: ";
 
