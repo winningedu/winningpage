@@ -13,6 +13,7 @@ export type StudentRow = {
   id: string;
   name: string | null;
   email: string | null;
+  isAdmin?: boolean;
 };
 
 export type ServiceCreditRow = {
@@ -44,12 +45,18 @@ export async function searchStudents(
   if (!q) return { ok: true, data: [] };
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email")
-    .eq("member_type", "student")
+    .select("id, name, email, role")
+    .or("member_type.eq.student,role.eq.admin")
     .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
     .limit(STUDENT_SEARCH_LIMIT);
   if (error) return { ok: false, message: "학생 조회에 실패했습니다." };
-  return { ok: true, data: data ?? [] };
+  return {
+    ok: true,
+    data: (data ?? []).map(({ role, ...row }) => ({
+      ...row,
+      isAdmin: role === "admin",
+    })),
+  };
 }
 
 async function call<T>(

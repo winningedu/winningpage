@@ -180,4 +180,27 @@ describe("ServiceCreditAdjustAdmin", () => {
       await screen.findByText("잔여 3회보다 많이 차감할 수 없습니다."),
     ).toBeTruthy();
   });
+
+  test("관리자 계정이 검색되면 결과 행에 관리자 배지를 보여준다", async () => {
+    vi.mocked(api.searchStudents).mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: PID,
+          name: "총괄관리자",
+          email: "admin@example.com",
+          isAdmin: true,
+        },
+      ],
+    });
+    render(
+      <ServiceCreditAdjustAdmin config={{ title: "서비스이용횟수조정" }} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("이름 또는 이메일"), {
+      target: { value: "총괄" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    const row = await screen.findByRole("button", { name: /총괄관리자/ });
+    expect(within(row).getByText("관리자")).toBeTruthy();
+  });
 });

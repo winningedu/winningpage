@@ -282,6 +282,11 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
                   }`}
                 >
                   {s.name || "(이름 없음)"} ({s.email || "-"})
+                  {s.isAdmin && (
+                    <span className="ml-2 bg-[#F6EFE2] px-1.5 py-0.5 text-xs font-black">
+                      관리자
+                    </span>
+                  )}
                 </button>
               </li>
             ))}
