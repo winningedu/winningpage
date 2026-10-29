@@ -8,6 +8,7 @@ import {
   IMAGE_ACCEPT_ATTR,
   isAllowedImageFile,
   isHeicFile,
+  isPdfFile,
   MAX_FILE_BYTES,
   MAX_PHOTOS,
   MAX_TOTAL_BYTES,
@@ -53,12 +54,12 @@ import PhotoThumb from "./PhotoThumb";
 
 const TITLE = "수행평가 안내문 업로드";
 const DESCRIPTION =
-  "PNG, JPG 파일을 여러 장 올릴 수 있어요. 안내문이 없으면 아래 버튼으로 직접 입력하세요.";
+  "PNG, JPG, PDF 파일을 여러 장 올릴 수 있어요. 안내문이 없으면 아래 버튼으로 직접 입력하세요.";
 
 const TOO_MANY_MESSAGE = `안내문 사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`;
 const FILE_TOO_LARGE_MESSAGE = "사진 한 장은 10MB까지 올릴 수 있어요.";
 const TOTAL_TOO_LARGE_MESSAGE = "사진 전체 용량은 25MB까지 올릴 수 있어요.";
-const UNSUPPORTED_MESSAGE = "PNG, JPG, WEBP 이미지만 올릴 수 있어요.";
+const UNSUPPORTED_MESSAGE = "PNG, JPG, WEBP 이미지 또는 PDF만 올릴 수 있어요.";
 const PREPARE_FAILED_MESSAGE =
   "사진을 읽지 못했어요. 다른 파일로 다시 시도해 주세요.";
 
@@ -231,6 +232,7 @@ export default function GuideUploadCard({
             key={photo.id}
             src={photo.url}
             alt={`첨부한 안내문 사진 ${index + 1}`}
+            {...(isPdfFile(photo.file) ? { pdfName: photo.file.name } : {})}
             {...(locked ? {} : { onRemove: () => handleRemove(photo.id) })}
           />
         ))}
