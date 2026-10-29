@@ -567,11 +567,11 @@ export default function Home() {
           />
         )}
 
+        {services.length > 0 && <ServicesSection services={services} />}
+
         {universities.length > 0 && (
           <AcceptanceSection universities={universities} />
         )}
-
-        {services.length > 0 && <ServicesSection services={services} />}
 
         {mentors.length > 0 && <MentorSection mentors={mentors} />}
 
