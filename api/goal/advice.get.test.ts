@@ -87,4 +87,20 @@ describe("GET /api/goal/advice", () => {
     expect(body.intakeFor).toBe(kstYMD(new Date()));
     expect(body.dailyFor).toBeNull();
   });
+
+  it("intake 행만 있어도 생성·저장 없이 그 행의 payload를 그대로 돌려준다", async () => {
+    const payload = { todayAdvice: "저장된 조언" };
+    fetchLatestAdviceCacheMock.mockImplementation(
+      async (_db: unknown, _id: string, source: string) =>
+        source === "intake" ? { payload, generated_for: "2026-10-28" } : null,
+    );
+
+    const body = await callGet();
+
+    expect(upsertAdviceCacheMock).not.toHaveBeenCalled();
+    expect(callTextMock).not.toHaveBeenCalled();
+    expect(body.intake).toBe(payload);
+    expect(body.intakeFor).toBe("2026-10-28");
+    expect(body.daily).toBeNull();
+  });
 });
