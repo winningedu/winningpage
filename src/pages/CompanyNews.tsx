@@ -303,7 +303,11 @@ const PARTNER_CARDS = [
         label: "캠브리지센터",
         href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("Cambridge Edu Centre, First & Second Floors, 85 Regent Street, Cambridge, CB2 1AW")}`,
       },
-      { label: "해외명문대 진학컨설팅", to: PREMIUM_GLOBAL_UNIVERSITY_PATH },
+      {
+        label: "해외명문대 진학컨설팅",
+        to: PREMIUM_GLOBAL_UNIVERSITY_PATH,
+        premium: true,
+      },
     ],
     logo: partnerCecAcademy,
     logoWidth: "w-[6.5rem]",
@@ -702,61 +706,63 @@ function PartnerCard({ partner }: { partner: PartnerCardData }) {
           className="mt-4.25 block h-0.25 w-full bg-line"
         />
         <div className="mt-4.5 flex flex-col gap-3">
-          {partner.links.map((link) => {
-            const linkClassName =
-              "flex items-center justify-between text-left text-[0.8125rem] font-medium leading-[1.3] text-ink hover:text-primary sm:text-[0.875rem]";
-            const linkContent = (
-              <>
-                <span>{link.label}</span>
-                <span className="inline-flex items-center gap-1 border-b border-ink">
-                  바로가기
-                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                </span>
-              </>
-            );
+          {partner.links
+            .filter((link) => site.features.premium || !("premium" in link))
+            .map((link) => {
+              const linkClassName =
+                "flex items-center justify-between text-left text-[0.8125rem] font-medium leading-[1.3] text-ink hover:text-primary sm:text-[0.875rem]";
+              const linkContent = (
+                <>
+                  <span>{link.label}</span>
+                  <span className="inline-flex items-center gap-1 border-b border-ink">
+                    바로가기
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                </>
+              );
 
-            if ("to" in link) {
+              if ("to" in link) {
+                return (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    aria-label={`${partner.brand} ${link.label} 바로가기`}
+                    className={linkClassName}
+                  >
+                    {linkContent}
+                  </Link>
+                );
+              }
+
+              // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백 — 지금 5개는 전부
+              // href가 있어 이 분기를 타지 않는다.
+              if (!link.href) {
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    onClick={alertServiceNotReady}
+                    className={linkClassName}
+                  >
+                    {linkContent}
+                  </button>
+                );
+              }
+
               return (
-                <Link
+                <a
                   key={link.label}
-                  to={link.to}
-                  aria-label={`${partner.brand} ${link.label} 바로가기`}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${partner.brand} ${link.label} 바로가기 (새 창에서 열림)`}
                   className={linkClassName}
                 >
                   {linkContent}
-                </Link>
+                  <span className="sr-only"> (새 창에서 열림)</span>
+                </a>
               );
-            }
-
-            // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백 — 지금 5개는 전부
-            // href가 있어 이 분기를 타지 않는다.
-            if (!link.href) {
-              return (
-                <button
-                  key={link.label}
-                  type="button"
-                  onClick={alertServiceNotReady}
-                  className={linkClassName}
-                >
-                  {linkContent}
-                </button>
-              );
-            }
-
-            return (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${partner.brand} ${link.label} 바로가기 (새 창에서 열림)`}
-                className={linkClassName}
-              >
-                {linkContent}
-                <span className="sr-only"> (새 창에서 열림)</span>
-              </a>
-            );
-          })}
+            })}
         </div>
       </div>
       <img

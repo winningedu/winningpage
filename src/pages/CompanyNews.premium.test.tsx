@@ -66,6 +66,19 @@ describe("CompanyNews - 프리미엄 숨김(schoolmentor)", () => {
     expect(container.querySelector('a[href^="/page/premium"]')).toBeNull();
     expect(screen.getByText("성장설계")).toBeInTheDocument();
   });
+
+  test("CEC 카드는 있고 해외명문대 진학컨설팅 링크는 없다", () => {
+    siteState.premium = false;
+    renderPage();
+
+    expect(screen.getByText("CEC Academy")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /CEC Academy 런던센터/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /해외명문대 진학컨설팅/ }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("CompanyNews - 숨김 프로그램", () => {
