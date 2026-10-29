@@ -1,4 +1,4 @@
-import { ChevronRight, Link as LinkIcon, Share2 } from "lucide-react";
+import { ChevronRight, ExternalLink, Link as LinkIcon, Share2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import ColumnBody, { hasBlockContent } from "@/components/column/ColumnBody";
@@ -54,6 +54,7 @@ export default function ColumnDetail() {
   const coverUrl = post ? getCoverUrl(post) : "";
   const remainingImages = post ? normalizeImageUrls(post).slice(1) : [];
   const hasBlocks = hasBlockContent(post);
+  const linkUrl = typeof post?.link_url === "string" ? post.link_url : "";
 
   const relatedRows = useMemo(() => {
     if (!post) return [];
@@ -185,9 +186,24 @@ export default function ColumnDetail() {
 
       <section>
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+          {linkUrl && (
+            <a
+              href={linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-16 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-semibold text-white md:mt-24"
+            >
+              바로가기
+              <ExternalLink size={16} aria-hidden="true" />
+            </a>
+          )}
           <ColumnBody
             post={post}
-            className={`mt-16 ${coverUrl ? "md:mt-24" : "md:mt-23.75"}`}
+            className={
+              linkUrl
+                ? "mt-8"
+                : `mt-16 ${coverUrl ? "md:mt-24" : "md:mt-23.75"}`
+            }
           />
 
           {remainingImages.length > 0 && !hasBlocks && (
