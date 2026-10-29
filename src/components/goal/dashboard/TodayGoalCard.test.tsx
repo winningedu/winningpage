@@ -31,4 +31,12 @@ describe("TodayGoalCard 달성률 행 반응형 레이아웃", () => {
     const hours = screen.getByText("2.0h / 5.0h");
     expect(hours.parentElement).toHaveClass("basis-full", "md:basis-auto");
   });
+
+  test("카드 루트의 고정 높이는 md 이상에서만 적용한다", () => {
+    const { container } = render(<TodayGoalCard data={data as never} />);
+
+    const card = container.firstElementChild;
+    expect(card).toHaveClass("md:h-102.25");
+    expect(card).not.toHaveClass("h-102.25");
+  });
 });

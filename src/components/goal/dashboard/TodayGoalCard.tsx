@@ -173,7 +173,7 @@ export default function TodayGoalCard({ data, onSaved }: TodayGoalCardProps) {
   return (
     <GoalCard
       tone="neutral"
-      className="flex h-102.25 flex-col gap-6 px-8 py-7.5"
+      className="flex flex-col gap-6 px-8 py-7.5 md:h-102.25"
     >
       <div>
         <h2 className="text-app-section font-bold text-ink-strong">
