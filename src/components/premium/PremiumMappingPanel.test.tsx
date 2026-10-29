@@ -35,6 +35,27 @@ describe("PremiumMappingPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("행마다 좌에서 우로 가는 화살표 아이콘을 aria-hidden 으로 렌더한다", () => {
+    const { container } = render(
+      <PremiumMappingPanel
+        title="t"
+        fromLabel="a"
+        toLabel="b"
+        rows={ROWS}
+        footer="f"
+      />,
+    );
+    const bodyRows = within(screen.getByRole("table"))
+      .getAllByRole("row")
+      .slice(1);
+    for (const row of bodyRows) {
+      const icons = row.querySelectorAll("svg");
+      expect(icons).toHaveLength(1);
+      expect(icons[0]).toHaveAttribute("aria-hidden", "true");
+    }
+    expect(container.querySelectorAll("tbody svg")).toHaveLength(ROWS.length);
+  });
+
   it("행이 없으면 아무것도 렌더하지 않는다", () => {
     const { container } = render(
       <PremiumMappingPanel
