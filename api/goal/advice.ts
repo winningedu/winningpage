@@ -4,7 +4,9 @@
 // 두 트리거를 하나의 엔드포인트가 `source`로 구분한다(설계 §6):
 //   POST { source: 'intake' }  — 온보딩 완료 직후 1회(Onboarding.tsx handleFinish 성공 후).
 //   POST { source: 'daily'  }  — "오늘의 공부 기록" 저장 성공 직후(DailyRecord.tsx).
-//   GET                        — 대시보드 로드 시 오늘자 캐시(두 소스) 조회, 없으면 null.
+//   GET                        — 대시보드 로드 시 캐시(두 소스) 조회. 둘 다 없으면 intake를
+//                                즉석 생성해 캐시한다(QA 행70 항시 표시, 조언 기능 이전 온보딩 학생 백필).
+//                                한 번 생성되면 캐시라 이후 GET은 Gemini를 부르지 않는다.
 //
 // 캐시(goal_advice_cache, profile_id×source×generated_for(KST 날짜) UNIQUE)가 곧
 // 레이트리밋이다 — 같은 날 재요청은 Gemini를 다시 부르지 않고 저장된 payload를
@@ -404,7 +406,66 @@ export async function generateAdviceModelResult(
 }
 
 // ---------------------------------------------------------------------------
-// GET — 오늘자 캐시(두 소스) 조회. 없으면 null(생성은 POST 전용).
+// 생성 + 캐시 저장 — POST(캐시 미스)와 GET(캐시 전무 백필)이 공유한다.
+// ---------------------------------------------------------------------------
+async function generateAndCacheAdvice(
+  supabaseAdmin: NonNullable<GoalSession["supabaseAdmin"]>,
+  profileId: string,
+  source: "intake" | "daily",
+  // biome-ignore lint/suspicious/noExplicitAny: buildPromptInput의 studentRow와 동일 근거.
+  studentRow: any,
+  now: Date,
+) {
+  const todayYmd = kstYMD(now);
+  const stateRow = await fetchStudentStateRow(supabaseAdmin, profileId);
+  const submitCount = num(stateRow?.record_count) ?? 0;
+
+  const input = await buildPromptInput(
+    supabaseAdmin,
+    profileId,
+    source,
+    studentRow,
+    submitCount,
+    now,
+  );
+
+  const trace = createAiTrace({
+    service: "goal",
+    feature: "advice",
+    step: source,
+    targetKind: "profile",
+    targetId: profileId,
+    profileId,
+  });
+  let origin: "ai" | "rule" = "ai";
+  let modelResult: AdviceModelResult;
+  try {
+    const prompt = buildAdvicePrompt(input);
+    modelResult = await generateAdviceModelResult(prompt, trace);
+  } catch (error) {
+    console.warn("goal/advice Gemini 호출 실패, 규칙 기반으로 대체:", error);
+    origin = "rule";
+    modelResult = buildRuleFallback(input);
+  }
+  // 모델 호출 기록은 성공이든 규칙 폴백이든 캐시 저장 전에 한 번 내보낸다.
+  await trace.flush(supabaseAdmin);
+
+  const payload = buildAdvicePayload(input, modelResult, origin);
+
+  await upsertAdviceCache(supabaseAdmin, {
+    profile_id: profileId,
+    source,
+    generated_for: todayYmd,
+    origin,
+    payload,
+  });
+
+  return payload;
+}
+
+// ---------------------------------------------------------------------------
+// GET — 캐시(두 소스) 조회. 둘 다 없으면 intake 즉석 생성(QA 행70 항시 표시,
+// 조언 기능 이전 온보딩 학생 백필). 한 번 생성되면 캐시라 이후 GET은 Gemini를 안 부른다.
 // ---------------------------------------------------------------------------
 async function handleGet(
   _req: VercelRequest,
@@ -427,6 +488,25 @@ async function handleGet(
     fetchLatestAdviceCache(supabaseAdmin, profileId, "intake", todayYmd),
     fetchLatestAdviceCache(supabaseAdmin, profileId, "daily", todayYmd),
   ]);
+
+  // 두 소스 모두 행이 없으면(조언 기능 이전 온보딩 학생) intake 조언을 즉석 생성한다.
+  if (!intakeRow && !dailyRow) {
+    const now = new Date();
+    const payload = await generateAndCacheAdvice(
+      supabaseAdmin,
+      profileId,
+      "intake",
+      gate.row,
+      now,
+    );
+    return res.status(200).json({
+      ok: true,
+      intake: payload,
+      daily: null,
+      intakeFor: kstYMD(now),
+      dailyFor: null,
+    });
+  }
 
   // 오늘 행이 없으면 가장 최근 행이 온다(QA 행70), 클라이언트가 날짜 라벨을 달 수 있게
   // generated_for를 함께 내려준다.
@@ -481,48 +561,13 @@ async function handlePost(
     return res.status(200).json({ ok: true, ...cached.payload });
   }
 
-  const stateRow = await fetchStudentStateRow(supabaseAdmin, profileId);
-  const submitCount = num(stateRow?.record_count) ?? 0;
-
-  const input = await buildPromptInput(
+  const payload = await generateAndCacheAdvice(
     supabaseAdmin,
     profileId,
     source,
     gate.row,
-    submitCount,
     now,
   );
-
-  const trace = createAiTrace({
-    service: "goal",
-    feature: "advice",
-    step: source,
-    targetKind: "profile",
-    targetId: profileId,
-    profileId,
-  });
-  let origin: "ai" | "rule" = "ai";
-  let modelResult: AdviceModelResult;
-  try {
-    const prompt = buildAdvicePrompt(input);
-    modelResult = await generateAdviceModelResult(prompt, trace);
-  } catch (error) {
-    console.warn("goal/advice Gemini 호출 실패, 규칙 기반으로 대체:", error);
-    origin = "rule";
-    modelResult = buildRuleFallback(input);
-  }
-  // 모델 호출 기록은 성공이든 규칙 폴백이든 캐시 저장 전에 한 번 내보낸다.
-  await trace.flush(supabaseAdmin);
-
-  const payload = buildAdvicePayload(input, modelResult, origin);
-
-  await upsertAdviceCache(supabaseAdmin, {
-    profile_id: profileId,
-    source,
-    generated_for: todayYmd,
-    origin,
-    payload,
-  });
 
   return res.status(200).json({ ok: true, ...payload });
 }
