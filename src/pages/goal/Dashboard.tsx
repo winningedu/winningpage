@@ -100,6 +100,21 @@ export function buildTodayHeadline(
   return `오늘 달성률 ${rate}% (목표 대비) · 오늘 목표까지 ${formatHoursLabel(remaining)} 남았어요.`;
 }
 
+/**
+ * 웰컴 카드 headline 선택. GET /api/goal/advice 는 오늘 행이 없으면 가장 최근 intake 를
+ * 돌려주므로(QA 행70), intake.probabilitySummary 는 intakeFor 가 오늘(KST)일 때만
+ * 규칙 기반 헤드라인보다 우선한다. 그 외에는 규칙 기반 헤드라인이다.
+ */
+export function pickWelcomeHeadline(args: {
+  summary: string | null | undefined;
+  intakeFor: string | null | undefined;
+  today: string;
+  ruleHeadline: string;
+}): string {
+  const { summary, intakeFor, today, ruleHeadline } = args;
+  return summary && intakeFor === today ? summary : ruleHeadline;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/goal/student → 4개 실데이터 카드(TargetUniversityRail/MockExamCard/
 // NaesinCard/TodayGoalCard) prop 매핑. api/_lib/goal/repo.ts buildStudentPayload()
@@ -161,6 +176,7 @@ type DailyRecordResult = FetchTodayGoalRecordResult;
 type RankingResult =
   | {
       kind: "ok";
+      visible: boolean;
       top: Array<{ rank: number; name: string; hours: number }>;
       me: { rank: number; name: string; hours: number } | null;
     }
@@ -312,6 +328,11 @@ function mapMockExam(student: GoalStudent) {
     // advice 키 자체를 생략한다 — MockExamCard가 이 필드가 없으면 "학습 조언" 블록을
     // 렌더하지 않는다(no-fallback-constants, dday 키 생략과 동일 패턴).
   };
+}
+
+// QA 행71, 서버가 visible:false(활성 학생 수 미달)를 주면 순위 레일 자체를 그리지 않는다.
+export function shouldShowRankingRail(rankingResult: RankingResult | null) {
+  return !(rankingResult?.kind === "ok" && !rankingResult.visible);
 }
 
 // GET /api/goal/ranking 결과(kind:'ok') → RankingRail이 그리는 행 배열.
@@ -601,16 +622,26 @@ export default function Dashboard() {
   // 그린다.
   const displayedAdvice =
     goalAdviceData?.daily ?? goalAdviceData?.intake ?? null;
+  // QA 행70, 오늘 행이 없으면 서버가 가장 최근 행을 준다. 표시 중인 조언의 생성일.
+  const displayedAdviceFor = goalAdviceData?.daily
+    ? goalAdviceData.dailyFor
+    : (goalAdviceData?.intakeFor ?? null);
 
-  // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, intake 조언이 오늘
-  // 이미 생성돼 있으면 그 probabilitySummary로 교체한다(팀장 지시, AI가 실제로 만든
-  // "최초 진단" 맥락 문장을 우선한다). badge는 DashboardPageHeader가 adviceType prop으로
+  // 웰컴 카드, headline은 기본 규칙 기반(buildTodayHeadline)이고, 오늘 생성된 intake
+  // 조언만 그 probabilitySummary로 교체한다(AI가 실제로 만든 "최초 진단" 맥락 문장을
+  // 우선한다). 과거 intake는 pickWelcomeHeadline이 걸러낸다. badge는 DashboardPageHeader가 adviceType prop으로
   // 자체 렌더한다 — origin이 'ai'일 때만 "AI 입시 분석 조언", 그 외(rule/로딩 중)는
   // 기존 "일일 분석 조언" 변형을 그대로 쓴다(뱃지 문구 자체는 UI가 이미 갖고 있던 것).
   const advice = {
-    headline:
-      goalAdviceData?.intake?.probabilitySummary ??
-      buildTodayHeadline(todayDaySchedule.ideal, todayGoalData.studyHours),
+    headline: pickWelcomeHeadline({
+      summary: goalAdviceData?.intake?.probabilitySummary,
+      intakeFor: goalAdviceData?.intakeFor,
+      today: kstYMD(new Date()),
+      ruleHeadline: buildTodayHeadline(
+        todayDaySchedule.ideal,
+        todayGoalData.studyHours,
+      ),
+    }),
     adviceType: (displayedAdvice?.origin === "ai" ? "ai" : "daily") as
       | "ai"
       | "daily",
@@ -676,6 +707,7 @@ export default function Dashboard() {
                           }
                         : null
                     }
+                    generatedFor={displayedAdviceFor}
                   />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -720,7 +752,9 @@ export default function Dashboard() {
               <StudyPlanRail />
               {/* ScheduleRail: GET /api/goal/schedules 실데이터, 가까운 순 3건(mapNearestSchedules). */}
               <ScheduleRail schedules={mapNearestSchedules(schedules)} />
-              <RankingRail ranking={mapRankingRows(rankingResult)} />
+              {shouldShowRankingRail(rankingResult) && (
+                <RankingRail ranking={mapRankingRows(rankingResult)} />
+              )}
             </div>
           </div>
         </div>

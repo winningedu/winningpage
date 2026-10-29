@@ -36,7 +36,25 @@ export const TASK_DURATIONS = [
   "3시간",
 ];
 
-export const TASK_SCHEDULES = ["오늘만", "이번 주만", "매주 반복"];
+export const WEEKDAY_REPEAT_SCHEDULE = "선택요일반복";
+
+export const TASK_SCHEDULES = [
+  "오늘만",
+  "이번 주만",
+  "매주 반복",
+  WEEKDAY_REPEAT_SCHEDULE,
+];
+
+// 주 안의 요일 칩 라벨(월=0 ~ 일=6, getWeekDates 순서와 동일).
+export const WEEKDAY_CHIP_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+
+// "선택요일반복": 이번 주 7일(weekDates, 월~일) 중 고른 요일 인덱스의 날짜만 주 순서로 돌려준다.
+export function pickWeekdayDates(
+  weekDates: string[],
+  weekdays: number[],
+): string[] {
+  return weekDates.filter((_, index) => weekdays.includes(index));
+}
 
 // QA 행291 재설계(팀장 지시 항목10) — 연도 기반 라벨("2026년 10월 모의고사", 최신 4건
 // 고정)에서 MOCK_FLOW(고1~고3 전 시퀀스, 고3 5・7모 포함 14건)로 바꾼다. 성적관리는

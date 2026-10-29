@@ -1,7 +1,8 @@
+import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 // 활동 매핑 패널 - 국제학교에서 하는 활동이 국내대학 제출용 생활기록부의 어느 항목으로
-// 옮겨지는지 두 열 표로 보여 준다. 화살표 기호 대신 열 머리글로 방향을 설명한다.
+// 옮겨지는지 세 열 표(항목, 화살표 아이콘, 항목)로 보여 준다. 열 머리글과 함께 행마다 화살표 아이콘으로 방향을 나타낸다.
 // 헤딩은 페이지가 감싼다. rows 가 비어 있으면 렌더하지 않는다.
 type MappingRow = { from: string; to: string };
 
@@ -36,6 +37,9 @@ export default function PremiumMappingPanel({
             >
               {fromLabel}
             </th>
+            <th scope="col" className="w-0 px-0 py-3">
+              <span className="sr-only">변환</span>
+            </th>
             <th
               scope="col"
               className="w-1/2 break-keep py-3 pl-3 text-[0.8125rem] font-medium leading-[1.4] text-ink-natural"
@@ -49,6 +53,13 @@ export default function PremiumMappingPanel({
             <tr key={row.from} className="border-b border-line last:border-b-0">
               <td className="break-keep py-4 pr-3 text-[0.9375rem] font-medium leading-[1.5] text-ink-strong">
                 {row.from}
+              </td>
+              <td className="w-0 whitespace-nowrap px-0 py-4 text-gold">
+                <ArrowRight
+                  className="size-4"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
               </td>
               <td className="break-keep py-4 pl-3 text-[0.9375rem] font-semibold leading-[1.5] text-primary">
                 {row.to}

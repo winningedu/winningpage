@@ -1,4 +1,5 @@
-import { Eye } from "lucide-react";
+import { ExternalLink, Eye } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import {
   ALL_CATEGORY,
@@ -61,6 +62,43 @@ function MetaRow({
   );
 }
 
+// link_url이 있으면 상세 대신 외부 주소로 새 창 이동, 없으면 내부 상세 Link.
+function CardLink({
+  column,
+  className,
+  children,
+}: {
+  column: ColumnLike;
+  className: string;
+  children: ReactNode;
+}) {
+  const linkUrl = typeof column.link_url === "string" ? column.link_url : "";
+
+  if (linkUrl) {
+    return (
+      <a
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {children}
+        <ExternalLink
+          size={16}
+          aria-hidden="true"
+          className="absolute right-3 top-3 text-white drop-shadow"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <Link to={`/info/column/${column.id}`} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 type ColumnCardProps = {
   column: ColumnLike;
   variant?: "grid" | "heroLarge" | "heroSmall";
@@ -76,7 +114,7 @@ export default function ColumnCard({
 
   if (variant === "heroLarge") {
     return (
-      <Link to={`/info/column/${column.id}`} className="group block flex-1">
+      <CardLink column={column} className="group relative block flex-1">
         <div className="relative w-full overflow-hidden rounded-[1.375rem]">
           <Thumbnail
             url={thumbnail}
@@ -96,15 +134,15 @@ export default function ColumnCard({
           </h3>
           <MetaRow column={column} className="mt-2" />
         </div>
-      </Link>
+      </CardLink>
     );
   }
 
   if (variant === "heroSmall") {
     return (
-      <Link
-        to={`/info/column/${column.id}`}
-        className="group flex items-start gap-4 sm:gap-5"
+      <CardLink
+        column={column}
+        className="group relative flex items-start gap-4 sm:gap-5"
       >
         <Thumbnail
           url={thumbnail}
@@ -123,12 +161,12 @@ export default function ColumnCard({
           </h3>
           <MetaRow column={column} />
         </div>
-      </Link>
+      </CardLink>
     );
   }
 
   return (
-    <Link to={`/info/column/${column.id}`} className="group block">
+    <CardLink column={column} className="group relative block">
       <Thumbnail
         url={thumbnail}
         title={column.title}
@@ -141,6 +179,6 @@ export default function ColumnCard({
         </h3>
         <MetaRow column={column} className="mt-2" />
       </div>
-    </Link>
+    </CardLink>
   );
 }

@@ -43,13 +43,18 @@ describe("site — winning", () => {
     expect(site.company.address).toBe(
       "(본점) 세종특별자치시 마음안1로 61, 404호",
     );
-    expect(site.company.patentNo).toBe("10-2024-0048889");
+    expect(site.company.patentNo).toBe("10-3038224-0000");
     expect(site.company.mailOrderNo).toBe("제2026-세종아름-0264호");
     expect(site.company.supportChannelLabel).toBe("카카오 채널 '위닝에듀'");
     expect(site.company.tel).toBe("010-3664-0081");
     expect(site.company.centerTel).toBe("051-902-0080");
     expect(site.company.kakao).toBe("winningedu_official");
     expect(site.company.kakaoChannelUrl).toBe("https://pf.kakao.com/_EfjwX");
+    expect(site.company.naverBlogUrl).toBe("https://blog.naver.com/winningedu");
+    expect(site.company.youtubeUrl).toBe("https://www.youtube.com/@winningedu");
+    expect(site.company.instagramUrl).toBe(
+      "https://www.youtube.com/shorts/rdZ2COapC90",
+    );
   });
 });
 
@@ -96,6 +101,9 @@ describe("site — schoolmentor", () => {
     expect(site.company.centerTel).toBeUndefined();
     expect(site.company.kakao).toBeUndefined();
     expect(site.company.kakaoChannelUrl).toBeUndefined();
+    expect(site.company.naverBlogUrl).toBeUndefined();
+    expect(site.company.youtubeUrl).toBeUndefined();
+    expect(site.company.instagramUrl).toBeUndefined();
   });
 });
 

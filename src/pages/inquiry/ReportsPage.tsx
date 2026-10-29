@@ -40,7 +40,7 @@ export default function ReportsPage() {
         title="심화탐구 보관함"
         subcopy="지금까지 만든 심화탐구 리포트를 모았어요"
       />
-      <div className="mx-auto w-full max-w-[83.75rem] px-12 pb-12">
+      <div className="mx-auto w-full max-w-[83.75rem] px-4 pb-12 md:px-12">
         {isError ? (
           <LoadError
             error={error}

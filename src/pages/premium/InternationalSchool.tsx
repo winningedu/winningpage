@@ -16,19 +16,20 @@ import {
 // 헤더/푸터는 SiteLayout이 렌더한다(개별 import 안 함). 탭바와 SEO meta 는 두지 않는다.
 // 카피는 고객 제공 원문을 옮기되, 가운뎃점과 화살표는 쉼표와 말로 풀었다.
 
-// 전용 히어로 사진(1415x971). 인물이 가로 중앙에 있어 기본 object-position 으로도
-// 모바일 세로 크롭에서 얼굴이 잘리지 않는다.
+// 전용 히어로 배너(1920x772). 제목, 부제, 버튼이 이미지 안에 이미 그려져 있어 코드 텍스트가
+// 이미지 글자와 겹치지 않도록 시각적으로 숨기고(sr-only) 스크린리더와 SEO용 h1 만 남긴다.
+// 검정 그라데이션 오버레이는 이미지 색을 흐리므로 투명으로 둔다.
 const HERO_BG = "/images/premium/hero-international-school.webp";
-const HERO_GLOW_CLASS =
-  "bg-gradient-to-r from-black/75 via-black/45 to-transparent";
-const HERO_TITLE_CLASS =
-  "break-keep text-[1.75rem] font-bold leading-[1.4] tracking-[-0.02em] text-white sm:text-[2rem]";
-const HERO_DESCRIPTION_CLASS =
-  "mt-4 break-keep text-[1rem] font-medium leading-[1.6] text-white/90 sm:text-[1.125rem] lg:text-[1.25rem]";
-const HERO_EYEBROW_CLASS =
-  "mb-2 block text-[1rem] font-semibold tracking-[0.04em] text-gold sm:text-[1.125rem]";
-const HERO_CTA_CLASS =
-  "mt-8 inline-flex items-center justify-center rounded-sm bg-white px-[3rem] py-[1.25rem] text-[1.125rem] font-semibold text-primary transition-colors hover:bg-white/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none";
+const HERO_GLOW_CLASS = "bg-transparent";
+const HERO_TITLE_CLASS = "sr-only";
+const HERO_DESCRIPTION_CLASS = "sr-only";
+// 이미지에 그려진 버튼 영역(이미지 기준 %). md 이상에서 이 위치에 투명 링크를 덮는다.
+const HERO_CTA_OVERLAY = {
+  left: "12%",
+  top: "72.5%",
+  width: "15%",
+  height: "10.5%",
+};
 
 const EYEBROW_CLASS =
   "mb-3 break-keep text-center text-[0.875rem] font-semibold uppercase leading-[1.4] tracking-[0.08em] text-gold";
@@ -135,8 +136,6 @@ const VENN_RIGHT = {
 
 const CONSULTING_CALLOUT =
   "'위닝'은 수행평가부터 면접까지, 끝까지 완성한다는 뜻입니다.";
-const CONSULTING_FOOTNOTE =
-  "본 서비스는 생활기록부 설계와 코칭을 제공하며, 진학과 합격을 보장하지 않습니다.";
 
 const PLAN_STEPS = [
   {
@@ -175,7 +174,7 @@ export default function InternationalSchool() {
         align="left"
         title={
           <>
-            <span className={HERO_EYEBROW_CLASS}>국제학교 학습관리 서비스</span>
+            <span>국제학교 학습관리 서비스</span>
             국내대학 진학,
             <br />
             제주에서도 가능합니다
@@ -187,7 +186,7 @@ export default function InternationalSchool() {
         glowClassName={HERO_GLOW_CLASS}
         titleClassName={HERO_TITLE_CLASS}
         descriptionClassName={HERO_DESCRIPTION_CLASS}
-        ctaClassName={HERO_CTA_CLASS}
+        ctaOverlay={HERO_CTA_OVERLAY}
       />
 
       <section className={`bg-white ${PREMIUM_SECTION_PADDING_CLASS}`}>
@@ -334,19 +333,13 @@ export default function InternationalSchool() {
               ))}
             </ol>
           </div>
-
-          <p
-            className={`mt-6 break-keep text-right text-[0.75rem] leading-[1.6] ${PREMIUM_NATURAL_TEXT_CLASS}`}
-          >
-            {CONSULTING_FOOTNOTE}
-          </p>
         </div>
       </section>
 
       <section className={`bg-white ${PREMIUM_SECTION_PADDING_CLASS}`}>
         <div className={`${PREMIUM_CONTAINER_CLASS} text-center`}>
           <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.4] tracking-[-0.02em] text-ink-strong sm:text-[2rem]">
-            국내대학 진학, 위닝에듀 제주센터와 함께하세요
+            국내대학 진학, 위닝에듀 제주캠퍼스와 함께하세요
           </h2>
           <a
             href={MAP_URL}
@@ -354,7 +347,7 @@ export default function InternationalSchool() {
             rel="noopener noreferrer"
             className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-[3.75rem] py-[1.25rem] text-[1.125rem] font-semibold leading-[1.4] text-white transition hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none"
           >
-            제주센터 위치 보기
+            제주캠퍼스 위치 보기
             <span className="sr-only"> (새 창에서 열림)</span>
           </a>
         </div>

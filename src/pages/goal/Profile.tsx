@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
 import GoalCard from "@/components/goal/GoalCard";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { NAESIN_SUBJECT_GROUPS } from "@/components/goal/onboarding/onboardingOptions";
@@ -370,6 +371,11 @@ export default function Profile() {
     setErrorMessage(updateErrorMessage(submitResult));
   }
 
+  const targetSummaries = [
+    { label: "이상 목표", ...student.targets.ideal },
+    { label: "최소 목표", ...student.targets.min },
+  ].filter((target) => target.university);
+
   const naesinCanSave = naesinDraft
     ? isNaesinInputValid(wireGrade, naesinDraft)
     : false;
@@ -384,6 +390,34 @@ export default function Profile() {
         subcopy="학생 정보와 목표 설정을 관리합니다."
       />
       <div className="max-w-goal-content flex flex-col gap-5 px-4 pb-24 md:px-12">
+        <GoalCard tone="neutral" className="flex flex-col gap-4 px-8 py-7">
+          <div className="flex items-center justify-between">
+            <h3 className="text-app-card-title font-bold text-ink-strong">
+              목표 대학
+            </h3>
+            <Link
+              to="/app/goal/target-university"
+              className="flex h-8.5 items-center rounded-lg border border-line px-4 text-app-label font-medium text-ink-strong transition-colors hover:bg-surface-04"
+            >
+              변경
+            </Link>
+          </div>
+          {targetSummaries.length > 0 ? (
+            targetSummaries.map((target) => (
+              <p
+                key={target.label}
+                className="text-app-body leading-[1.4] text-ink-sub"
+              >
+                {target.label}: {target.university} {target.department}
+              </p>
+            ))
+          ) : (
+            <p className="text-app-body leading-[1.4] text-ink-sub">
+              아직 설정하지 않았어요
+            </p>
+          )}
+        </GoalCard>
+
         <GoalCard tone="neutral" className="flex flex-col gap-4 px-8 py-7">
           <div className="flex items-center justify-between">
             <h3 className="text-app-card-title font-bold text-ink-strong">

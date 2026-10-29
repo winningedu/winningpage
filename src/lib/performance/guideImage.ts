@@ -27,7 +27,15 @@
 //      일부 스캐너 출력은 실제로 정사각이므로 예외로 빼고 디코더 보정에 맡긴다.
 //    · JPEG이 아닌 입력(PNG/WEBP)은 EXIF 방향 태그가 사실상 쓰이지 않아 검사하지 않는다.
 
-const ALLOWED_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const PDF_MIME_TYPE = "application/pdf";
+
+// PDF는 이미지가 아니지만 같은 업로드 경로를 탄다. 리사이즈, EXIF 처리는 건너뛴다.
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  PDF_MIME_TYPE,
+];
 
 // §8.8 「HEIC」 — 외부 앱은 `accept="image/*"`(suhaengpyeong/index.html:1540)라 HEIC가
 // 파일 선택기에 그대로 노출됐다. 목록을 좁혀 애초에 고를 수 없게 한다.
@@ -57,6 +65,10 @@ export function isAllowedImageFile(file: File | null | undefined) {
   return ALLOWED_IMAGE_MIME_TYPES.includes(
     String(file?.type || "").toLowerCase(),
   );
+}
+
+export function isPdfFile(file: File | null | undefined) {
+  return String(file?.type || "").toLowerCase() === PDF_MIME_TYPE;
 }
 
 type JpegMeta = {
@@ -258,6 +270,7 @@ export async function prepareGuideImage(file: File): Promise<File> {
   if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType)) {
     throw new Error("지원하지 않는 이미지 형식입니다.");
   }
+  if (mimeType === PDF_MIME_TYPE) return file;
 
   const meta =
     mimeType === "image/jpeg"

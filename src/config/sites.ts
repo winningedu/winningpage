@@ -32,6 +32,10 @@ export interface SiteConfig {
     centerTel?: string;
     kakao?: string;
     kakaoChannelUrl?: string;
+    // 푸터 소셜 아이콘 URL. 값이 있는 것만 푸터에 렌더한다.
+    naverBlogUrl?: string;
+    youtubeUrl?: string;
+    instagramUrl?: string;
   };
 }
 
@@ -55,7 +59,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-2024-0048889",
+      patentNo: "10-3038224-0000",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
@@ -63,6 +67,10 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       centerTel: "051-902-0080",
       kakao: "winningedu_official",
       kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
+      naverBlogUrl: "https://blog.naver.com/winningedu",
+      youtubeUrl: "https://www.youtube.com/@winningedu",
+      // 고객 지시: 인스타그램 주소가 전달되기 전까지 임시로 유튜브 쇼츠 주소를 쓴다.
+      instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
       supportChannelLabel: "카카오 채널 '위닝에듀'",
     },
   },

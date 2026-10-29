@@ -1133,6 +1133,8 @@ export type FetchGoalRankingResult =
   | {
       kind: "ok";
       date: string;
+      /** false면 활성 학생 수 미달(QA 행71)이라 순위 카드를 그리지 않는다. */
+      visible: boolean;
       top: GoalRankingEntry[];
       me: GoalRankingEntry | null;
     };
@@ -1167,6 +1169,7 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
     return {
       kind: "ok",
       date: body.date,
+      visible: body.visible !== false,
       top: body.top || [],
       me: body.me || null,
     };
@@ -1726,10 +1729,13 @@ export type FetchGoalAdviceResult =
       kind: "success";
       intake: GoalAdvicePayload | null;
       daily: GoalAdvicePayload | null;
+      /** 각 조언의 생성일(YYYY-MM-DD, KST). 오늘 것이 없으면 가장 최근 행의 날짜다. */
+      intakeFor: string | null;
+      dailyFor: string | null;
     }
   | { kind: "error" };
 
-/** GET /api/goal/advice — 오늘자 캐시(두 소스) 조회. 생성은 하지 않는다(POST 전용). */
+/** GET /api/goal/advice, 오늘자(없으면 가장 최근) 캐시(두 소스) 조회. 생성은 하지 않는다(POST 전용). */
 export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };
@@ -1762,6 +1768,8 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
       kind: "success",
       intake: body.intake ?? null,
       daily: body.daily ?? null,
+      intakeFor: body.intakeFor ?? null,
+      dailyFor: body.dailyFor ?? null,
     };
   }
 

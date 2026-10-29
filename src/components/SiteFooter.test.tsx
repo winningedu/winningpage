@@ -21,11 +21,15 @@ const siteState = vi.hoisted(() => ({
       name: "주식회사 위닝에듀",
       ceo: "강원석",
       corpRegNo: "180111-0161411",
-      patentNo: "10-2024-0048889",
+      patentNo: "10-3038224-0000",
       bizRegNo: "266-88-03449",
       mailOrderNo: "제2026-세종아름-0264호",
       address: "(본점) 세종특별자치시 마음안1로 61, 404호",
       supportChannelLabel: "카카오 채널 '위닝에듀'",
+      kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
+      naverBlogUrl: "https://blog.naver.com/winningedu",
+      youtubeUrl: "https://www.youtube.com/@winningedu",
+      instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
     },
   } as MockSite,
 }));
@@ -123,7 +127,7 @@ describe("SiteFooter", () => {
     renderFooter();
     expect(
       screen.getByText(
-        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허출원: 10-2024-0048889 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
+        "상호명: 주식회사 위닝에듀 | 대표: 강원석 | 법인등록번호: 180111-0161411 | 특허등록 : 10-3038224-0000 | 사업자 등록번호: 266-88-03449 | 통신판매업 신고번호: 제2026-세종아름-0264호",
       ),
     ).toBeInTheDocument();
     expect(
@@ -131,6 +135,73 @@ describe("SiteFooter", () => {
         "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+const SOCIAL_LABELS = [
+  "카카오톡 채널",
+  "네이버 블로그",
+  "유튜브",
+  "인스타그램",
+];
+
+function getSocialLinks() {
+  return screen
+    .queryAllByRole("link")
+    .filter((link) =>
+      SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
+    );
+}
+
+describe("SiteFooter, 소셜 아이콘", () => {
+  it("카카오, 네이버, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
+    renderFooter();
+    // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.
+    const links = getSocialLinks();
+    expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
+      ...SOCIAL_LABELS,
+      ...SOCIAL_LABELS,
+    ]);
+    expect(links.slice(0, 4).map((l) => l.getAttribute("href"))).toEqual([
+      "https://pf.kakao.com/_EfjwX",
+      "https://blog.naver.com/winningedu",
+      "https://www.youtube.com/@winningedu",
+      "https://www.youtube.com/shorts/rdZ2COapC90",
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  });
+
+  it("각 링크는 브랜드 컬러 원형 배지다", () => {
+    renderFooter();
+    const byLabel = (label: string) =>
+      screen.getAllByRole("link", { name: label })[0] as HTMLElement;
+    const kakao = byLabel("카카오톡 채널");
+    const naver = byLabel("네이버 블로그");
+    const youtube = byLabel("유튜브");
+    const instagram = byLabel("인스타그램");
+    for (const link of [kakao, naver, youtube, instagram]) {
+      expect(link).toHaveClass("size-8", "rounded-full");
+    }
+    expect(kakao.className).toContain("bg-[#fee500]");
+    expect(naver.className).toContain("bg-[#03c75a]");
+    expect(youtube.className).toContain("bg-[#ff0000]");
+    expect(instagram.style.background).toContain("linear-gradient");
+  });
+
+  it("URL이 없는 아이콘은 렌더하지 않는다", () => {
+    delete siteState.current.company.naverBlogUrl;
+    delete siteState.current.company.instagramUrl;
+    renderFooter();
+    const labels = getSocialLinks().map((l) => l.getAttribute("aria-label"));
+    expect(labels).toEqual([
+      "카카오톡 채널",
+      "유튜브",
+      "카카오톡 채널",
+      "유튜브",
+    ]);
   });
 });
 
@@ -165,9 +236,10 @@ describe("SiteFooter — 스쿨멘토 사이트", () => {
 
     expect(screen.getByText(/상호명: 주식회사 위닝로직/)).toBeInTheDocument();
     expect(screen.getByText(/783-81-04298/)).toBeInTheDocument();
-    expect(screen.queryByText(/특허출원/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/특허등록/)).not.toBeInTheDocument();
     expect(screen.queryByText(/통신판매업/)).not.toBeInTheDocument();
     expect(screen.queryByText(/온라인고객센터/)).not.toBeInTheDocument();
     expect(screen.queryByText(/카카오 채널/)).not.toBeInTheDocument();
+    expect(getSocialLinks()).toHaveLength(0);
   });
 });

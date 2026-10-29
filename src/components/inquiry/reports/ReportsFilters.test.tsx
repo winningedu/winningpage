@@ -39,4 +39,21 @@ describe("ReportsFilters", () => {
     expect(onSubject).toHaveBeenCalledWith("수학");
     expect(onStatus).toHaveBeenCalledWith("confirmed");
   });
+
+  it("모바일은 라벨이 select 위에 쌓이고 라벨이 줄바꿈되지 않는다", () => {
+    const { container } = render(
+      <ReportsFilters
+        subjects={["전체", "수학"]}
+        subject="전체"
+        status="all"
+        onSubjectChange={() => {}}
+        onStatusChange={() => {}}
+      />,
+    );
+    expect(container.firstElementChild).toHaveClass("grid", "grid-cols-2");
+    for (const name of ["과목", "상태"]) {
+      expect(screen.getByText(name)).toHaveClass("whitespace-nowrap");
+      expect(screen.getByLabelText(name).parentElement).toHaveClass("flex-col");
+    }
+  });
 });

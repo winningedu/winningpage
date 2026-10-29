@@ -126,6 +126,7 @@ import {
   MAX_ATTACHMENTS,
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
+  UNSUPPORTED_MIME_MESSAGE,
 } from "./upload-url.js";
 
 const SERVICE_KEY = "suhaeng";
@@ -509,16 +510,10 @@ export default defineHandler({
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
 
         return badMime.length
-          ? fail(
-              res,
-              415,
-              "UNSUPPORTED_MIME",
-              "PNG, JPG, WEBP 이미지만 올릴 수 있어요.",
-              {
-                allowed: Object.keys(ALLOWED_MIME_EXT),
-                charged: false,
-              },
-            )
+          ? fail(res, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
+              allowed: Object.keys(ALLOWED_MIME_EXT),
+              charged: false,
+            })
           : fail(
               res,
               413,

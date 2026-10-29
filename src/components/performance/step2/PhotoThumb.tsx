@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 
 // 첨부된 사진 썸네일 — docs/수행평가-상세-명세.md §5.7(`3754:3315`) 실측.
 //
@@ -23,16 +23,36 @@ type PhotoThumbProps = {
   alt?: string;
   /** 생략하면 삭제 버튼을 그리지 않는다(업로드 중 등). */
   onRemove?: () => void;
+  /** 주면 이미지 대신 PDF 아이콘과 이 파일명을 보여준다(PDF는 `<img>`로 그릴 수 없다). */
+  pdfName?: string;
 };
 
 export default function PhotoThumb({
   src,
   alt = "첨부한 안내문 사진",
   onRemove,
+  pdfName,
 }: PhotoThumbProps) {
   return (
     <div className="relative h-25 w-22.5 shrink-0 overflow-hidden rounded-lg border border-performance-line bg-performance-bubble">
-      <img src={src} alt={alt} className="h-full w-full object-cover" />
+      {pdfName ? (
+        <div
+          role="img"
+          aria-label={alt}
+          className="flex h-full w-full flex-col items-center justify-center gap-1 px-1"
+        >
+          <FileText
+            data-testid="pdf-thumb-icon"
+            className="h-8 w-8 text-ink-sub"
+            aria-hidden="true"
+          />
+          <span className="w-full break-all text-center text-app-caption text-ink-sub line-clamp-2">
+            {pdfName}
+          </span>
+        </div>
+      ) : (
+        <img src={src} alt={alt} className="h-full w-full object-cover" />
+      )}
 
       {onRemove && (
         <button

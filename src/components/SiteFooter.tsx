@@ -1,4 +1,7 @@
+import { Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
+import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverIcon from "@/components/icons/NaverIcon";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
 
@@ -21,7 +24,7 @@ const FOOTER_COLUMN_WIDTH_CLASS: Record<string, string> = {
 };
 const FOOTER_COLUMN_WIDTH_DEFAULT = "w-30";
 
-// 사업자 문구는 site.company의 선택 필드(특허출원·통신판매업·고객센터)가 없으면
+// 사업자 문구는 site.company의 선택 필드(특허등록·통신판매업·고객센터)가 없으면
 // 해당 조각 자체를 생략한다(값 없이 렌더하지 않는다는 원칙 — 스쿨멘토는 이 필드가
 // 아예 없다). 구분자 " | "가 빈 조각 자리에 남지 않도록 join 전에 필터링한다.
 function buildBizInfoLine(company: typeof site.company) {
@@ -29,7 +32,7 @@ function buildBizInfoLine(company: typeof site.company) {
     `상호명: ${company.name}`,
     `대표: ${company.ceo}`,
     `법인등록번호: ${company.corpRegNo}`,
-    company.patentNo ? `특허출원: ${company.patentNo}` : null,
+    company.patentNo ? `특허등록 : ${company.patentNo}` : null,
     `사업자 등록번호: ${company.bizRegNo}`,
     company.mailOrderNo ? `통신판매업 신고번호: ${company.mailOrderNo}` : null,
   ]
@@ -46,6 +49,59 @@ function buildAddressLine(company: typeof site.company) {
   ]
     .filter(Boolean)
     .join(" | ");
+}
+
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버, 유튜브, 인스타그램). URL이 설정에 없으면 그
+// 아이콘은 렌더하지 않는다.
+function SocialLinks({ company }: { company: typeof site.company }) {
+  const items = [
+    {
+      label: "카카오톡 채널",
+      href: company.kakaoChannelUrl,
+      Icon: KakaoIcon,
+      badgeClassName: "bg-[#fee500] text-[#191919]",
+    },
+    {
+      label: "네이버 블로그",
+      href: company.naverBlogUrl,
+      Icon: NaverIcon,
+      badgeClassName: "bg-[#03c75a] text-white",
+    },
+    {
+      label: "유튜브",
+      href: company.youtubeUrl,
+      Icon: Youtube,
+      badgeClassName: "bg-[#ff0000] text-white",
+    },
+    {
+      label: "인스타그램",
+      href: company.instagramUrl,
+      Icon: Instagram,
+      badgeClassName: "text-white",
+      style: {
+        background:
+          "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
+      },
+    },
+  ].filter((item) => item.href);
+
+  return (
+    <div className="flex items-center gap-4">
+      {items.map(({ label, href, Icon, badgeClassName, style }) => (
+        <a
+          key={label}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          style={style}
+          className={`inline-flex size-8 items-center justify-center rounded-full transition hover:opacity-90 ${badgeClassName}`}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 export default function SiteFooter() {
@@ -66,6 +122,8 @@ export default function SiteFooter() {
               className="h-25 w-auto object-contain"
             />
           </Link>
+
+          <SocialLinks company={site.company} />
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
             {navGroups.map((group) => (
@@ -105,32 +163,35 @@ export default function SiteFooter() {
             />
           </Link>
 
-          <div className="flex gap-12.5">
-            {navGroups.map((group) => (
-              <nav
-                key={group.title}
-                className={`shrink-0 ${FOOTER_COLUMN_WIDTH_CLASS[group.title] ?? FOOTER_COLUMN_WIDTH_DEFAULT}`}
-              >
-                {/* 시안 2207:13215은 "고객안내" 컬럼만 타이틀↔리스트 gap이 10px(나머지는
-                    20px)인데, 5컬럼 중 1개만 다른 것은 시안 결함으로 판단해 전 컬럼
-                    20px(1.25rem)로 통일한다. */}
-                <p className="mb-5 text-sm font-medium text-[#808080]">
-                  {group.title}
-                </p>
-                <ul className="space-y-3">
-                  {group.items.map((item) => (
-                    <li key={`${group.title}-${item.label}`}>
-                      <Link
-                        to={item.to}
-                        className="inline-block break-keep text-sm font-medium text-ink transition hover:text-primary"
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            ))}
+          <div className="flex flex-col items-end gap-10">
+            <SocialLinks company={site.company} />
+            <div className="flex gap-12.5">
+              {navGroups.map((group) => (
+                <nav
+                  key={group.title}
+                  className={`shrink-0 ${FOOTER_COLUMN_WIDTH_CLASS[group.title] ?? FOOTER_COLUMN_WIDTH_DEFAULT}`}
+                >
+                  {/* 시안 2207:13215은 "고객안내" 컬럼만 타이틀과 리스트 gap이 10px(나머지는
+                      20px)인데, 5컬럼 중 1개만 다른 것은 시안 결함으로 판단해 전 컬럼
+                      20px(1.25rem)로 통일한다. */}
+                  <p className="mb-5 text-sm font-medium text-[#808080]">
+                    {group.title}
+                  </p>
+                  <ul className="space-y-3">
+                    {group.items.map((item) => (
+                      <li key={`${group.title}-${item.label}`}>
+                        <Link
+                          to={item.to}
+                          className="inline-block break-keep text-sm font-medium text-ink transition hover:text-primary"
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ))}
+            </div>
           </div>
         </div>
       </div>

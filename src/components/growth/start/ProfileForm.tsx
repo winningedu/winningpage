@@ -79,7 +79,7 @@ export default function ProfileForm({
       }}
       noValidate
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field id={id("type")} label="학교 유형">
           <select
             id={id("type")}
@@ -141,7 +141,7 @@ export default function ProfileForm({
         입학 연도로 등급 체계(5등급제 또는 9등급제)를 정해요.
       </p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field id={id("career")} label="희망 진로">
           <Input
             id={id("career")}

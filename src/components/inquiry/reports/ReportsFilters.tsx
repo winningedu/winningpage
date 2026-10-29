@@ -10,7 +10,7 @@ type Props = {
 };
 
 const SELECT =
-  "h-10 min-w-[10rem] rounded-lg border border-border bg-white px-3 text-app-label text-ink-strong";
+  "h-10 w-full min-w-0 rounded-lg border border-border bg-white px-3 text-app-label text-ink-strong md:w-auto md:min-w-[10rem]";
 
 export default function ReportsFilters({
   subjects,
@@ -22,11 +22,11 @@ export default function ReportsFilters({
   const subjectId = useId();
   const statusId = useId();
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex items-center gap-2">
+    <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-4">
+      <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
         <label
           htmlFor={subjectId}
-          className="text-app-label font-semibold text-ink-sub"
+          className="whitespace-nowrap text-app-label font-semibold text-ink-sub"
         >
           과목
         </label>
@@ -43,10 +43,10 @@ export default function ReportsFilters({
           ))}
         </select>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
         <label
           htmlFor={statusId}
-          className="text-app-label font-semibold text-ink-sub"
+          className="whitespace-nowrap text-app-label font-semibold text-ink-sub"
         >
           상태
         </label>

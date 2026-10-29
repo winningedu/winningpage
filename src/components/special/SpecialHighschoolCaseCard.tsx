@@ -25,7 +25,7 @@ export default function SpecialHighschoolCaseCard({
       : row?.student_name || "";
 
   return (
-    <article className="relative mx-auto aspect-[344/242.38] w-full max-w-88 overflow-hidden bg-[#E9F4FF]">
+    <article className="relative mx-auto aspect-[344/242.38] w-full max-w-88 overflow-hidden bg-[#EAF3FF]">
       {/* 오른쪽 바깥 그림자(선택 폴리시) */}
       <div
         aria-hidden="true"
@@ -48,14 +48,13 @@ export default function SpecialHighschoolCaseCard({
           right: "8%",
           top: "17.99%",
           height: "36.76%",
-          transform: "rotate(-2.6deg)",
         }}
       />
 
       {/* 중간 네이비 시트 */}
       <div
         aria-hidden="true"
-        className="absolute rounded-t-sm bg-primary"
+        className="absolute rounded-t-sm bg-gold-light"
         style={{
           left: "36.2%",
           right: "18.3%",
@@ -67,7 +66,7 @@ export default function SpecialHighschoolCaseCard({
       {/* 폴더 탭 */}
       <div
         aria-hidden="true"
-        className="absolute rounded-tl-[0.3rem] bg-[#001B36]"
+        className="absolute rounded-tl-[0.3rem] bg-gold-tab"
         style={{
           left: "8.43%",
           width: "34.7%",
@@ -76,11 +75,10 @@ export default function SpecialHighschoolCaseCard({
         }}
       >
         <span
-          className="flex h-full items-center pl-[0.28rem]"
+          className="flex h-full items-center pl-[0.28rem] text-white"
           style={{
             fontSize: "0.70625rem",
             lineHeight: "0.90875rem",
-            color: "#808D9B",
           }}
         >
           Success Case
@@ -89,7 +87,7 @@ export default function SpecialHighschoolCaseCard({
 
       {/* 폴더 본체 */}
       <div
-        className="absolute bottom-0 overflow-hidden rounded-tr-[0.4rem] bg-[#001B36]"
+        className="absolute bottom-0 overflow-hidden rounded-tr-[0.4rem] bg-cream"
         style={{ left: "8.43%", width: "79.94%", top: "32.7%" }}
       >
         {/* 메타 2줄 — 폴더 본체 높이 기준 18.85% 아래 */}
@@ -98,19 +96,19 @@ export default function SpecialHighschoolCaseCard({
           style={{ top: "18.85%" }}
         >
           <p
+            className="font-semibold text-gold-text"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",
-              color: "#9FA9B3",
             }}
           >
             {metaLine1}
           </p>
           <p
+            className="text-taupe"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",
-              color: "#9FA9B3",
             }}
           >
             {metaLine2}
@@ -119,7 +117,7 @@ export default function SpecialHighschoolCaseCard({
 
         {/* 학교명 — 폴더 본체 높이 기준 44.57% 아래 */}
         <p
-          className="absolute inset-x-0 break-keep px-2 text-center font-bold text-white"
+          className="absolute inset-x-0 break-keep px-2 text-center font-bold text-navy-ink"
           style={{
             fontSize: "1.81875rem",
             lineHeight: "2.375rem",

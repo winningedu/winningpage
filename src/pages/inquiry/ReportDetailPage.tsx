@@ -36,7 +36,7 @@ import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import { cn } from "@/lib/utils";
 
 const PAGE_TITLE = "심화탐구 기록";
-const BODY = "mx-auto w-full max-w-[83.75rem] px-12 pb-12";
+const BODY = "mx-auto w-full max-w-[83.75rem] px-4 pb-12 md:px-12";
 const BUTTON = "h-10 px-5 text-app-label";
 
 function BackLink() {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthProvider";
+import { resolvePublicMemberType } from "@/lib/memberAccess";
 import { supabase } from "@/lib/supabase";
 
 // Header.jsx(:151 근방)가 profiles 를 조회하는 것과 같은 컬럼 세트.
@@ -81,7 +82,13 @@ export function useMemberType() {
       }
 
       setUserId(authUserId);
-      setMemberType(String(profile?.member_type || "").toLowerCase());
+      // 관리자는 학생과 같은 경로로 통과시킨다(memberAccess.ts).
+      setMemberType(
+        resolvePublicMemberType({
+          memberType: String(profile?.member_type || "").toLowerCase(),
+          role: profile?.role ?? null,
+        }),
+      );
       setLoading(false);
     })();
 

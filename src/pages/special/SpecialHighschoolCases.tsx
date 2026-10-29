@@ -93,9 +93,15 @@ export default function SpecialHighschoolCases() {
             {SPECIAL_HS_DESCRIPTION}
           </p>
 
-          <div className="mt-9 flex items-center gap-4 sm:mt-11" role="tablist">
+          <div
+            className="mt-9 flex items-center gap-3 overflow-x-auto [scrollbar-width:none] sm:mt-11 sm:gap-4 [&::-webkit-scrollbar]:hidden"
+            role="tablist"
+          >
             {visibleTabs.map((item, index) => (
-              <div key={item.key} className="flex items-center gap-4">
+              <div
+                key={item.key}
+                className="flex shrink-0 items-center gap-3 sm:gap-4"
+              >
                 {index > 0 && (
                   <span className="h-6 w-px bg-line" aria-hidden="true" />
                 )}
@@ -106,7 +112,7 @@ export default function SpecialHighschoolCases() {
                   aria-selected={tab === item.key}
                   aria-controls={TABPANEL_ID}
                   onClick={() => setTab(item.key)}
-                  className={`text-2xl font-semibold leading-[1.3] tracking-[-0.02em] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                  className={`whitespace-nowrap text-lg font-semibold leading-[1.3] sm:text-2xl tracking-[-0.02em] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     tab === item.key ? "text-ink" : "text-line"
                   }`}
                 >

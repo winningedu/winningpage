@@ -164,6 +164,37 @@ describe("8종 동적 렌더 — §6.1 「4필드 고정이 아니다」", () =>
       );
       expect(counterMissing.map((t) => t.name)).toEqual([]);
     });
+
+    test("과거 저장 스키마의 [예시] 접두는 화면에 나오지 않는다", () => {
+      const legacy = {
+        ...schema,
+        fields: schema.fields.map((f) => ({
+          ...f,
+          example: `[예시] ${f.example}`,
+        })),
+      };
+      const html = render({ schema: legacy });
+      expect(html).not.toContain("[예시]");
+      for (const f of schema.fields) expect(html).toContain(f.example);
+    });
+
+    test("작성 예시가 입력칸 위에 박스로 보이고 placeholder로는 쓰이지 않는다", () => {
+      const filled = render({
+        schema,
+        value: Object.fromEntries(schema.fields.map((f) => [f.key, "작성함"])),
+      });
+      for (const field of schema.fields) {
+        const placeholders = textareas.map((t) => t.placeholder);
+        expect(placeholders).not.toContain(field.example);
+        for (const h of [html, filled]) {
+          const at = h.indexOf(field.example);
+          expect(at, `${field.key} 예시 노출`).toBeGreaterThan(-1);
+          const nameAt = h.indexOf(`name="${field.key}"`);
+          expect(at, `${field.key} 예시는 입력칸 위`).toBeLessThan(nameAt);
+        }
+      }
+      expect(html).toContain("예시</");
+    });
   });
 });
 

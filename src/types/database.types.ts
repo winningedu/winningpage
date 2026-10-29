@@ -1798,6 +1798,7 @@ export type Database = {
           image_urls: NonNullable<Json>;
           is_active: boolean | null;
           is_featured: boolean;
+          link_url: string | null;
           published_at: string | null;
           sort_order: number | null;
           title: string;
@@ -1815,6 +1816,7 @@ export type Database = {
           image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
+          link_url?: string | null;
           published_at?: string | null;
           sort_order?: number | null;
           title?: string;
@@ -1831,6 +1833,7 @@ export type Database = {
           image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
+          link_url?: string | null;
           published_at?: string | null;
           sort_order?: number | null;
           title?: string;
@@ -2989,6 +2992,31 @@ export type Database = {
           sort_order?: number;
           title?: string;
           title_lines?: Json | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      home_section_copy: {
+        Row: {
+          eyebrow: string | null;
+          section_key: string;
+          title_main: string;
+          title_sub: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          eyebrow?: string | null;
+          section_key: string;
+          title_main: string;
+          title_sub?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          eyebrow?: string | null;
+          section_key?: string;
+          title_main?: string;
+          title_sub?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -7220,6 +7248,15 @@ export type Database = {
       fn_admin_can: {
         Args: { p_need?: string; p_resource: string };
         Returns: boolean;
+      };
+      fn_admin_deduct_service_credit: {
+        Args: {
+          p_amount: number;
+          p_profile_id: string;
+          p_program_key: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       fn_admin_effective_permissions: {
         Args: { p_profile_id: string };

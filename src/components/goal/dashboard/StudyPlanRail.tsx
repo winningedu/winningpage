@@ -3,6 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 import GoalCard from "@/components/goal/GoalCard";
 import GoalChecklistRow from "@/components/goal/GoalChecklistRow";
 import GoalEmptyState from "@/components/goal/GoalEmptyState";
+import {
+  pickWeekdayDates,
+  WEEKDAY_REPEAT_SCHEDULE,
+} from "@/components/goal/goalFormOptions";
 import AddTaskModal from "@/components/goal/modals/AddTaskModal";
 import {
   createGoalPlanTask,
@@ -112,6 +116,7 @@ export default function StudyPlanRail() {
     taskText,
     duration,
     schedule,
+    weekdays,
     workbookId,
     pageFrom,
     pageTo,
@@ -120,11 +125,18 @@ export default function StudyPlanRail() {
     taskText: string;
     duration: string;
     schedule: string;
+    weekdays?: number[];
     workbookId?: number;
     pageFrom?: number;
     pageTo?: number;
   }) {
-    const targetDates = schedule === "오늘만" ? [today] : getWeekDates(0);
+    // "선택요일반복"은 이번 주 중 고른 요일의 날짜만 만든다(미래 주 생성 없음).
+    const targetDates =
+      schedule === "오늘만"
+        ? [today]
+        : schedule === WEEKDAY_REPEAT_SCHEDULE
+          ? pickWeekdayDates(getWeekDates(0), weekdays ?? [])
+          : getWeekDates(0);
     const durationMinutes = durationLabelToMinutes(duration);
     // 문제집 연결 과제는 여러 날짜로 못 펼치게 AddTaskModal이 이미 막지만(문제집
     // 연결 시 일정 select 자체를 비활성), API에도 같은 신호를 실어 보내 서버가

@@ -132,7 +132,7 @@ const PHOTO_STEPS = [
   },
   {
     image: "/images/premium/step-4-review.webp",
-    label: "미술활동보고서 구성 지도",
+    label: "활동보고서 구성 지도",
   },
 ];
 

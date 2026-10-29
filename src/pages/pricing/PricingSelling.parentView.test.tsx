@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { ServiceGroup } from "@/lib/products";
@@ -61,20 +61,25 @@ vi.mock("@/lib/products", () => ({
   filterOrgProducts: (services: ServiceGroup[]) => services,
 }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          order: () => Promise.resolve({ data: [], error: null }),
-        }),
-      }),
-    }),
-    auth: {
-      getSession: () => Promise.resolve({ data: { session: null } }),
+const couponEqCalls = vi.hoisted(() => [] as Array<[string, unknown]>);
+
+vi.mock("@/lib/supabase", () => {
+  const query = {
+    eq: (column: string, value: unknown) => {
+      couponEqCalls.push([column, value]);
+      return query;
     },
-  },
-}));
+    order: () => Promise.resolve({ data: [], error: null }),
+  };
+  return {
+    supabase: {
+      from: () => ({ select: () => query }),
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: null } }),
+      },
+    },
+  };
+});
 
 const mockNavigate = vi.fn();
 vi.mock("react-router", async (importOriginal) => {
@@ -144,5 +149,15 @@ describe("PricingSelling 콜멘토 제공 예정", () => {
     expect(
       screen.queryByRole("button", { name: /결제하기/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("PricingSelling 쿠폰 안내", () => {
+  it("회원가입 축하 쿠폰(grant_on_signup)은 조회에서 제외한다", async () => {
+    renderPricing();
+
+    await waitFor(() =>
+      expect(couponEqCalls).toContainEqual(["grant_on_signup", false]),
+    );
   });
 });

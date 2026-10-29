@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTodayHeadline } from "./Dashboard";
+import { buildTodayHeadline, pickWelcomeHeadline } from "./Dashboard";
 
 // QA 행304 — "오늘의 조언"에 "오늘 달성률 N% (목표 대비)"가 없었다. 규칙 기반 문구
 // 확장 회귀 테스트(LLM 아님).
@@ -39,5 +39,53 @@ describe("buildTodayHeadline", () => {
     expect(buildTodayHeadline(2, 3)).toBe(
       "오늘 달성률 100% (목표 대비) · 오늘 목표를 지켰어요! 이 페이스를 이어가 봐요.",
     );
+  });
+});
+
+describe("pickWelcomeHeadline", () => {
+  const rule = "규칙 기반 문구";
+
+  it("intakeFor가 오늘(KST)이면 intake 문구를 우선한다", () => {
+    expect(
+      pickWelcomeHeadline({
+        summary: "intake 문구",
+        intakeFor: "2026-10-29",
+        today: "2026-10-29",
+        ruleHeadline: rule,
+      }),
+    ).toBe("intake 문구");
+  });
+
+  it("intakeFor가 어제면 규칙 기반 헤드라인을 쓴다", () => {
+    expect(
+      pickWelcomeHeadline({
+        summary: "intake 문구",
+        intakeFor: "2026-10-28",
+        today: "2026-10-29",
+        ruleHeadline: rule,
+      }),
+    ).toBe(rule);
+  });
+
+  it("intakeFor가 없으면 규칙 기반 헤드라인을 쓴다", () => {
+    expect(
+      pickWelcomeHeadline({
+        summary: "intake 문구",
+        intakeFor: null,
+        today: "2026-10-29",
+        ruleHeadline: rule,
+      }),
+    ).toBe(rule);
+  });
+
+  it("오늘 intake라도 summary가 없으면 규칙 기반 헤드라인을 쓴다", () => {
+    expect(
+      pickWelcomeHeadline({
+        summary: undefined,
+        intakeFor: "2026-10-29",
+        today: "2026-10-29",
+        ruleHeadline: rule,
+      }),
+    ).toBe(rule);
   });
 });

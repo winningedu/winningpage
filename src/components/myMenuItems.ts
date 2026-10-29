@@ -41,7 +41,7 @@ export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
     case "parent":
       return [MY_PAGE, MY_CHILDREN, MY_PAYMENTS, MY_PROFILE];
     case "admin":
-      return [MY_PAGE, ADMIN_MENU, MY_PROFILE];
+      return [MY_PAGE, MY_SERVICES, MY_PAYMENTS, ADMIN_MENU, MY_PROFILE];
     default:
       return [MY_PAGE, MY_SERVICES, MY_PAYMENTS, MY_PROFILE];
   }
