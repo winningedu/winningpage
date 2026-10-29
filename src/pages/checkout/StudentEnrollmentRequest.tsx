@@ -527,6 +527,10 @@ export default function StudentEnrollmentRequest() {
                 </dd>
               </div>
             </dl>
+            <p className="text-[0.75rem] leading-4 text-ink-sub sm:ml-auto sm:text-right">
+              결제요청을 하고 회원연결된 부모님이 결제를 완료하여야 서비스를 이용할 수
+              있습니다
+            </p>
             <button
               type="button"
               onClick={handleSubmit}
