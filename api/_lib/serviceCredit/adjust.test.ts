@@ -3,6 +3,7 @@ import {
   buildAdjustGrantRow,
   buildDeductArgs,
   checkDeduction,
+  isAdjustableProfile,
   validateAdjustBody,
 } from "./adjust.js";
 
@@ -175,5 +176,25 @@ describe("buildDeductArgs", () => {
       p_amount: 2,
       p_reason: "관리자 이용횟수 조정(actor-1): 실수 복구",
     });
+  });
+});
+
+describe("isAdjustableProfile", () => {
+  it("학생 회원은 조정 대상이다", () => {
+    expect(isAdjustableProfile({ member_type: "student", role: null })).toBe(
+      true,
+    );
+  });
+
+  it("관리자 계정은 member_type 과 무관하게 조정 대상이다", () => {
+    expect(isAdjustableProfile({ member_type: null, role: "admin" })).toBe(
+      true,
+    );
+  });
+
+  it("학부모 회원은 조정 대상이 아니다", () => {
+    expect(isAdjustableProfile({ member_type: "parent", role: null })).toBe(
+      false,
+    );
   });
 });

@@ -19,6 +19,17 @@ export function isUuid(value: string): boolean {
 const REASON_MIN_LENGTH = 2;
 const ADJUST_MEMO_PREFIX = "관리자 이용횟수 조정: ";
 
+// 조정 대상: 학생 회원 또는 관리자 계정(총괄 admin 이 전체 서비스를 이용한다).
+export function isAdjustableProfile(profile: {
+  member_type?: string | null;
+  role?: string | null;
+}): boolean {
+  return (
+    profile.member_type === "student" ||
+    (profile.role ?? "").trim().toLowerCase() === "admin"
+  );
+}
+
 export type AdjustBody = {
   profileId: string;
   programKey: string;

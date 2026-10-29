@@ -20,6 +20,7 @@ import {
   buildAdjustGrantRow,
   buildDeductArgs,
   checkDeduction,
+  isAdjustableProfile,
   validateAdjustBody,
 } from "../_lib/serviceCredit/adjust.js";
 import { readServiceCredit } from "../_lib/serviceCredit/summary.js";
@@ -57,7 +58,7 @@ export default defineHandler({
 
     const { data: profile, error: profileError } = await db
       .from("profiles")
-      .select("id, member_type")
+      .select("id, member_type, role")
       .eq("id", body.profileId)
       .maybeSingle();
     if (profileError)
@@ -73,12 +74,12 @@ export default defineHandler({
       );
       return;
     }
-    if (profile.member_type !== "student") {
+    if (!isAdjustableProfile(profile)) {
       sendError(
         res,
         "coded",
         400,
-        "학생 회원에게만 조정할 수 있습니다.",
+        "학생 또는 관리자 계정에만 조정할 수 있습니다.",
         "NOT_STUDENT",
         { ok: false },
       );
