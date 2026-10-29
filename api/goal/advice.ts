@@ -428,7 +428,7 @@ async function handleGet(
     fetchLatestAdviceCache(supabaseAdmin, profileId, "daily", todayYmd),
   ]);
 
-  // 오늘 행이 없으면 가장 최근 행이 온다(QA 행70) — 클라이언트가 날짜 라벨을 달 수 있게
+  // 오늘 행이 없으면 가장 최근 행이 온다(QA 행70), 클라이언트가 날짜 라벨을 달 수 있게
   // generated_for를 함께 내려준다.
   return res.status(200).json({
     ok: true,

@@ -56,7 +56,7 @@ type AddTaskModalSubmitPayload = {
   taskText: string;
   duration: string;
   schedule: string;
-  // "선택요일반복"일 때만 실린다 — 고른 요일 인덱스(월=0 ~ 일=6, 오름차순).
+  // "선택요일반복"일 때만 실린다, 고른 요일 인덱스(월=0 ~ 일=6, 오름차순).
   weekdays?: number[];
   // 문제집 연결(QA 행286-B, 선택) — 연결 안 하면 셋 다 없다. workbookId만 있고
   // 페이지가 없으면 페이지 없이 연결만, 셋 다 있으면 페이지 범위까지 연결한다

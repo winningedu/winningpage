@@ -285,7 +285,7 @@ export default function Home() {
   const mentors = LANDING_PREVIEW
     ? (landingPreview.mentors as NormalizedMentor[])
     : fetchedMentors;
-  // 섹션 제목(큰제목/중제목/라벨)은 home_section_copy 행이 정본 — 행이 없으면 제목을 렌더하지 않는다.
+  // 섹션 제목(큰제목/중제목/라벨)은 home_section_copy 행이 정본, 행이 없으면 제목을 렌더하지 않는다.
   const sectionCopy = useHomeSectionCopy();
   // 공지사항 섹션(회사소식/공지사항)은 실 Supabase DB 연동 완료 — 프리뷰 대상 아님.
   const [companyNews, setCompanyNews] = useState<NewsItem[]>([]);

@@ -1735,7 +1735,7 @@ export type FetchGoalAdviceResult =
     }
   | { kind: "error" };
 
-/** GET /api/goal/advice — 오늘자(없으면 가장 최근) 캐시(두 소스) 조회. 생성은 하지 않는다(POST 전용). */
+/** GET /api/goal/advice, 오늘자(없으면 가장 최근) 캐시(두 소스) 조회. 생성은 하지 않는다(POST 전용). */
 export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
   const authHeader = await getAuthHeader();
   if (!authHeader) return { kind: "no-session" };

@@ -183,7 +183,7 @@ describe("GrowthReportBody — 표지", () => {
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 
-  // QA3 행69 — 주간/월간 선택이 밑줄/글자색만 달라 약해 박스형 탭으로 그린다.
+  // QA3 행69, 주간/월간 선택이 밑줄/글자색만 달라 약해 박스형 탭으로 그린다.
   it("주간/월간 선택을 박스형 탭으로 그린다", () => {
     render(
       <GrowthReportBody

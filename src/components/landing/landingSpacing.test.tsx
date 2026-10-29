@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import AcceptanceSection from "./AcceptanceSection";
 import ServicesSection from "./ServicesSection";
 
-// QA3 행67 — 랜딩 섹션 간격·행간 축소. 핵심 클래스만 확인한다.
+// QA3 행67, 랜딩 섹션 간격, 행간 축소. 핵심 클래스만 확인한다.
 describe("랜딩 섹션 간격", () => {
   test("합격생 섹션 제목 행간이 leading-[1.25]로 좁혀진다", () => {
     render(

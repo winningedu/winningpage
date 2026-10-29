@@ -1,4 +1,4 @@
-// fetchLatestAdviceCache — 오늘 행 우선, 없으면 가장 최근 행, 없으면 null(QA 행70).
+// fetchLatestAdviceCache, 오늘 행 우선, 없으면 가장 최근 행, 없으면 null(QA 행70).
 // supabase 쿼리 빌더 대신 같은 체인(eq/lte/order/limit/maybeSingle)을 구현한 인메모리 가짜를 쓴다.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, test } from "vitest";

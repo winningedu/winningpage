@@ -1882,7 +1882,7 @@ export async function fetchAdviceCache(
 }
 
 /**
- * GET 조회용(QA 행70) — 오늘 행이 있으면 그것을, 없으면 그 학생의 가장 최근 generated_for 행을
+ * GET 조회용(QA 행70), 오늘 행이 있으면 그것을, 없으면 그 학생의 가장 최근 generated_for 행을
  * 돌려준다(generated_for desc 1건이라 오늘 행이 자연히 우선). 없으면 null. 생성(POST)의 캐시
  * 히트 판정은 오늘 행만 봐야 하므로 fetchAdviceCache를 그대로 쓴다.
  */

@@ -289,7 +289,7 @@ const PARTNER_CARDS = [
     logoWidth: "w-[8.35rem]",
   },
   {
-    // QA3 행66 — 5번째 카드. 링크는 외부(href, 새 창)와 사이트 내부(to, react-router Link)로 나뉜다.
+    // QA3 행66, 5번째 카드. 링크는 외부(href, 새 창)와 사이트 내부(to, react-router Link)로 나뉜다.
     key: "cec-academy",
     title: "CEC Academy",
     subtitle: "(영국소재) 영국대학 입시의 명문 아카데미",
@@ -734,7 +734,7 @@ function PartnerCard({ partner }: { partner: PartnerCardData }) {
                 );
               }
 
-              // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백 — 지금 5개는 전부
+              // href 없는 데이터가 다시 들어올 경우를 위한 방어적 폴백, 지금 5개는 전부
               // href가 있어 이 분기를 타지 않는다.
               if (!link.href) {
                 return (

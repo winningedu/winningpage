@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (activeError) throw activeError;
     if (recordError) throw recordError;
 
-    // QA 행71 — 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
+    // QA 행71, 활성 학생이 기준 미만이면 순위 목록 없이 visible:false만 돌려준다.
     if (!isRankingVisible((activeRows || []).length)) {
       return res
         .status(200)

@@ -330,7 +330,7 @@ function mapMockExam(student: GoalStudent) {
   };
 }
 
-// QA 행71 — 서버가 visible:false(활성 학생 수 미달)를 주면 순위 레일 자체를 그리지 않는다.
+// QA 행71, 서버가 visible:false(활성 학생 수 미달)를 주면 순위 레일 자체를 그리지 않는다.
 export function shouldShowRankingRail(rankingResult: RankingResult | null) {
   return !(rankingResult?.kind === "ok" && !rankingResult.visible);
 }
@@ -622,12 +622,12 @@ export default function Dashboard() {
   // 그린다.
   const displayedAdvice =
     goalAdviceData?.daily ?? goalAdviceData?.intake ?? null;
-  // QA 행70 — 오늘 행이 없으면 서버가 가장 최근 행을 준다. 표시 중인 조언의 생성일.
+  // QA 행70, 오늘 행이 없으면 서버가 가장 최근 행을 준다. 표시 중인 조언의 생성일.
   const displayedAdviceFor = goalAdviceData?.daily
     ? goalAdviceData.dailyFor
     : (goalAdviceData?.intakeFor ?? null);
 
-  // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, 오늘 생성된 intake
+  // 웰컴 카드, headline은 기본 규칙 기반(buildTodayHeadline)이고, 오늘 생성된 intake
   // 조언만 그 probabilitySummary로 교체한다(AI가 실제로 만든 "최초 진단" 맥락 문장을
   // 우선한다). 과거 intake는 pickWelcomeHeadline이 걸러낸다. badge는 DashboardPageHeader가 adviceType prop으로
   // 자체 렌더한다 — origin이 'ai'일 때만 "AI 입시 분석 조언", 그 외(rule/로딩 중)는

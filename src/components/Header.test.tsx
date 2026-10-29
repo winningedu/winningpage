@@ -362,7 +362,7 @@ describe("Header — MY 컬럼 역할별 항목(§6-3, buildMyMenu 단일 소스
     expect(screen.queryByText("나의 서비스")).not.toBeInTheDocument();
   });
 
-  it("관리자는 MY페이지·나의 서비스·관리자 메뉴·내 정보 수정을 본다", async () => {
+  it("관리자는 MY페이지, 나의 서비스, 관리자 메뉴, 내 정보 수정을 본다", async () => {
     mockProfileRow = {
       id: "u3",
       email: "admin@test.com",

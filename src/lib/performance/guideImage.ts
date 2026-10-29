@@ -29,7 +29,7 @@
 
 const PDF_MIME_TYPE = "application/pdf";
 
-// PDF는 이미지가 아니지만 같은 업로드 경로를 탄다. 리사이즈·EXIF 처리는 건너뛴다.
+// PDF는 이미지가 아니지만 같은 업로드 경로를 탄다. 리사이즈, EXIF 처리는 건너뛴다.
 const ALLOWED_IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",

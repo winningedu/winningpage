@@ -153,7 +153,7 @@ function getSocialLinks() {
     );
 }
 
-describe("SiteFooter — 소셜 아이콘", () => {
+describe("SiteFooter, 소셜 아이콘", () => {
   it("카카오, 네이버, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
     renderFooter();
     // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.

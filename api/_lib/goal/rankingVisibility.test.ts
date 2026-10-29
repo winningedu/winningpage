@@ -1,4 +1,4 @@
-// QA 행71 — 활성 학생이 RANKING_MIN_STUDENTS(200) 미만이면 순위 카드를 숨긴다.
+// QA 행71, 활성 학생이 RANKING_MIN_STUDENTS(200) 미만이면 순위 카드를 숨긴다.
 import { describe, expect, test } from "vitest";
 import { isRankingVisible, RANKING_MIN_STUDENTS } from "./rankingVisibility.js";
 

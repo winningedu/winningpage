@@ -84,7 +84,7 @@ const SERVICE_KEY = "suhaeng";
 
 export const BUCKET = "performance-guides";
 
-// §8.8 「허용 형식」 — PNG / JPG·JPEG / WEBP / PDF. 버킷의 allowed_mime_types와 같은 집합이다
+// §8.8 「허용 형식」, PNG / JPG, JPEG / WEBP / PDF. 버킷의 allowed_mime_types와 같은 집합이다
 // (sql/54_performance_app.sql (6)). HEIC/HEIF는 여기에 없으므로 415로 떨어진다.
 export const ALLOWED_MIME_EXT: Record<string, string> = {
   "image/png": "png",

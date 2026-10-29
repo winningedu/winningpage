@@ -146,7 +146,7 @@ export default function SiteFooter() {
                   key={group.title}
                   className={`shrink-0 ${FOOTER_COLUMN_WIDTH_CLASS[group.title] ?? FOOTER_COLUMN_WIDTH_DEFAULT}`}
                 >
-                  {/* 시안 2207:13215은 "고객안내" 컬럼만 타이틀↔리스트 gap이 10px(나머지는
+                  {/* 시안 2207:13215은 "고객안내" 컬럼만 타이틀과 리스트 gap이 10px(나머지는
                       20px)인데, 5컬럼 중 1개만 다른 것은 시안 결함으로 판단해 전 컬럼
                       20px(1.25rem)로 통일한다. */}
                   <p className="mb-5 text-sm font-medium text-[#808080]">
