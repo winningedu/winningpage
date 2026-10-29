@@ -1882,6 +1882,31 @@ export async function fetchAdviceCache(
 }
 
 /**
+ * GET 조회용(QA 행70) — 오늘 행이 있으면 그것을, 없으면 그 학생의 가장 최근 generated_for 행을
+ * 돌려준다(generated_for desc 1건이라 오늘 행이 자연히 우선). 없으면 null. 생성(POST)의 캐시
+ * 히트 판정은 오늘 행만 봐야 하므로 fetchAdviceCache를 그대로 쓴다.
+ */
+export async function fetchLatestAdviceCache(
+  supabaseAdmin: SupabaseClient,
+  profileId: string,
+  source: AdviceCacheSource,
+  generatedFor: string,
+): Promise<Row | null> {
+  const { data, error } = await supabaseAdmin
+    .from(TABLE_ADVICE_CACHE)
+    .select("*")
+    .eq("profile_id", profileId)
+    .eq("source", source)
+    .lte("generated_for", generatedFor)
+    .order("generated_for", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+/**
  * upsert — (profile_id, source, generated_for) UNIQUE라 재시도·재제출은 같은 하루 값을
  * 덮어쓴다(goal_daily_records upsert와 동일 정책). 레이트리밋은 이 캐시 자체다 — 호출부가
  * fetchAdviceCache로 먼저 확인해 캐시 히트면 Gemini를 아예 부르지 않는다.
