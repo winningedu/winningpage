@@ -78,7 +78,6 @@ import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
-import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import BulkPanel from "./admin/knowledge/bulk/BulkPanel";
 import EvalsAdmin from "./admin/knowledge/evals/EvalsAdmin";
 import {
@@ -88,6 +87,7 @@ import {
   type ReviewStaleMonths,
 } from "./admin/knowledge/review/reviewCycle";
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
+import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import ServiceCreditAdjustAdmin from "./admin/serviceCredit/ServiceCreditAdjustAdmin";
 import {

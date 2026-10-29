@@ -27,9 +27,9 @@ describe("InternationalSchool", () => {
     renderPage();
     const links = screen.getAllByRole("link", { name: "상담 신청하기" });
     expect(links).toHaveLength(2);
-    links.forEach((link) =>
-      expect(link).toHaveAttribute("href", "/premium-apply"),
-    );
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", "/premium-apply");
+    }
     const overlay = links.find((l) => l.getAttribute("aria-label"));
     const mobile = links.find((l) => !l.getAttribute("aria-label"));
     expect(overlay).toHaveAttribute("aria-label", "상담 신청하기");
