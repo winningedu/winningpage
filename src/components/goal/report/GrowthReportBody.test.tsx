@@ -182,4 +182,22 @@ describe("GrowthReportBody — 표지", () => {
 
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
+
+  // QA3 행69 — 주간/월간 선택이 밑줄/글자색만 달라 약해 박스형 탭으로 그린다.
+  it("주간/월간 선택을 박스형 탭으로 그린다", () => {
+    render(
+      <GrowthReportBody
+        period="weekly"
+        onPeriodChange={() => {}}
+        report={makeReport()}
+      />,
+    );
+
+    const tablist = screen.getByRole("tablist", { name: "리포트 기간" });
+    const weekly = within(tablist).getByRole("tab", { name: "주간" });
+    const monthly = within(tablist).getByRole("tab", { name: "월간" });
+    expect(weekly).toHaveAttribute("aria-selected", "true");
+    expect(weekly).toHaveClass("border", "rounded-lg", "border-accent");
+    expect(monthly).toHaveClass("border", "rounded-lg", "border-[#E3E3E3]");
+  });
 });
