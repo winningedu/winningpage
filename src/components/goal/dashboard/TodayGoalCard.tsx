@@ -61,7 +61,7 @@ function GoalRateRow({
           fillClassName={fillClassName}
           className="flex-1"
         />
-        {/* QA 행304 — 달성률 %만으로는 실제 몇 시간을 채웠는지/목표가 몇 시간인지 알 수
+        {/* QA 행304, 달성률 %만으로는 실제 몇 시간을 채웠는지/목표가 몇 시간인지 알 수
             없었다. "달성 h / 목표 h"를 %와 함께 보여준다. */}
         <span className="shrink-0 whitespace-nowrap text-right text-app-label text-ink-sub md:w-24">
           {formatHours(achievedHours)}h / {formatHours(targetHours)}h
