@@ -6,6 +6,12 @@ import ServiceCard, { type Service } from "./services/ServiceCard";
 
 type ServicesSectionProps = {
   services?: Service[];
+  /** 작은 라벨. */
+  eyebrow?: string;
+  /** 큰제목(h2 첫 줄). */
+  titleMain?: string;
+  /** 중제목(h2 둘째 줄). */
+  titleSub?: string;
 };
 
 /**
@@ -20,6 +26,9 @@ type ServicesSectionProps = {
  */
 export default function ServicesSection({
   services = [],
+  eyebrow,
+  titleMain,
+  titleSub,
 }: ServicesSectionProps) {
   const visibleServices = useMemo(
     () =>
@@ -45,16 +54,20 @@ export default function ServicesSection({
       <div className="mx-auto w-full max-w-content px-5 pb-7 pt-7 sm:px-8 lg:pb-0 lg:pt-17">
         {/* 헤더 — 0729 시안 실측(px÷16=rem): 아이브로우 20px(1.25rem, accent, Regular),
             대제목 32px(2rem, lg). 대제목 자간 -0.04rem은 lg 폰트 2rem 기준 -0.02em과 동일 비율 */}
-        <p className="text-[1.25rem] font-normal leading-[1.3] text-accent">
-          핵심 서비스
-        </p>
+        {eyebrow && (
+          <p className="text-[1.25rem] font-normal leading-[1.3] text-accent">
+            {eyebrow}
+          </p>
+        )}
         {/* 대제목 2톤 — 시안: 1행 #525252, 2행 #013262. 모바일/sm은 lg 축소 비율(32/36.64≈0.8734)로 비례 축소 */}
-        <h2 className="mt-1.5 text-[1.53rem] font-semibold leading-[1.4] tracking-[-0.04rem] sm:text-[1.97rem] lg:text-[2rem]">
-          <span className="block text-ink">진학의 순간들을</span>
-          <span className="block text-primary">
-            막막하지 않도록. 필요한 만큼만.
-          </span>
-        </h2>
+        {titleMain && (
+          <h2 className="mt-1.5 text-[1.53rem] font-semibold leading-[1.4] tracking-[-0.04rem] sm:text-[1.97rem] lg:text-[2rem]">
+            <span className="block text-ink">{titleMain}</span>
+            {titleSub && (
+              <span className="block text-primary">{titleSub}</span>
+            )}
+          </h2>
+        )}
 
         {/* 3열×3행 카드 그리드(9카드 기본, 모바일+태블릿 1열 → lg 3열, Figma 4885:18474와 동일)
             — md(768px)에서 2열로 전환하면 카드 폭이 좁아져 설명 줄바꿈이 깨진다(태블릿 실측).
