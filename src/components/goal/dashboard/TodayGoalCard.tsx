@@ -44,25 +44,30 @@ function GoalRateRow({
   targetHours,
 }: GoalRateRowProps) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 md:flex-nowrap">
       <span
         aria-hidden="true"
         className={`h-2 w-2 shrink-0 rounded-full ${dotClassName}`}
       />
-      <span className="w-38 shrink-0 text-app-label text-ink">{label}</span>
-      <GoalProgressBar
-        value={value}
-        max={100}
-        thickness="0.75rem"
-        fillClassName={fillClassName}
-        className="flex-1"
-      />
-      {/* QA 행304 — 달성률 %만으로는 실제 몇 시간을 채웠는지/목표가 몇 시간인지 알 수
-          없었다. "달성 h / 목표 h"를 %와 함께 보여준다. */}
-      <span className="w-24 shrink-0 whitespace-nowrap text-right text-app-label text-ink-sub">
-        {formatHours(achievedHours)}h / {formatHours(targetHours)}h
+      <span className="flex-1 text-app-label text-ink md:w-38 md:flex-none md:shrink-0">
+        {label}
       </span>
-      <span className="w-12 shrink-0 text-right text-app-body font-bold leading-[1.4] text-ink-strong">
+      {/* md 미만: 퍼센트가 1줄 오른쪽 끝, 진행바+시간이 2줄(order-last). md 이상: DOM 순서대로 한 줄. */}
+      <div className="order-last flex basis-full items-center gap-3 md:order-none md:flex-1 md:basis-auto">
+        <GoalProgressBar
+          value={value}
+          max={100}
+          thickness="0.75rem"
+          fillClassName={fillClassName}
+          className="flex-1"
+        />
+        {/* QA 행304 — 달성률 %만으로는 실제 몇 시간을 채웠는지/목표가 몇 시간인지 알 수
+            없었다. "달성 h / 목표 h"를 %와 함께 보여준다. */}
+        <span className="shrink-0 whitespace-nowrap text-right text-app-label text-ink-sub md:w-24">
+          {formatHours(achievedHours)}h / {formatHours(targetHours)}h
+        </span>
+      </div>
+      <span className="shrink-0 text-right text-app-body font-bold leading-[1.4] text-ink-strong md:w-12">
         {value}%
       </span>
     </div>
