@@ -89,7 +89,7 @@ import {
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
 import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
-import ServiceCreditAdjustAdmin from "./admin/serviceCredit/ServiceCreditAdjustAdmin";
+import ServiceCreditAdjustAdmin from "./admin/service-credit/ServiceCreditAdjustAdmin";
 import {
   AdminForm,
   type AdminRow,

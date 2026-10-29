@@ -7,12 +7,12 @@
 // 응답 200 { ok, items: ServiceCreditRow[] }
 // 오류(coded): 400 INVALID_QUERY, 401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
-// 핸들러 본문은 테스트하지 않는다. 조립은 api/_lib/serviceCredit/summary.ts.
+// 핸들러 본문은 테스트하지 않는다. 조립은 api/_lib/service-credit/summary.ts.
 
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { isUuid } from "../_lib/serviceCredit/adjust.js";
-import { readServiceCredits } from "../_lib/serviceCredit/summary.js";
+import { isUuid } from "../_lib/service-credit/adjust.js";
+import { readServiceCredits } from "../_lib/service-credit/summary.js";
 
 export default defineHandler({
   methods: ["GET"],

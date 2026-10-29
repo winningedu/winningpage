@@ -2,7 +2,7 @@
 // Authorization: Bearer <supabase access token>   (관리자)
 //
 // 고객별 서비스 이용횟수를 수기로 추가(delta > 0)하거나 차감(delta < 0)한다.
-// 원장은 DELETE 하지 않으므로 set 이 아니라 새 행으로만 남긴다(규칙: api/_lib/serviceCredit/adjust.ts).
+// 원장은 DELETE 하지 않으므로 set 이 아니라 새 행으로만 남긴다(규칙: api/_lib/service-credit/adjust.ts).
 //   - 추가: program_access_grants admin 부여 행
 //   - 차감: fn_admin_deduct_service_credit (advisory 101 잠금 안에서 원장 적재)
 // 처리 뒤 fn_sync_program_access_cache 로 program_access 캐시를 맞춘다.
@@ -12,7 +12,7 @@
 //   409 NO_ENTITLEMENT / UNLIMITED_SESSIONS / INSUFFICIENT_CREDIT,
 //   401/403 인증, 405 METHOD_NOT_ALLOWED, 500 INTERNAL
 //
-// 핸들러 본문은 테스트하지 않는다. 판단과 조립은 api/_lib/serviceCredit/.
+// 핸들러 본문은 테스트하지 않는다. 판단과 조립은 api/_lib/service-credit/.
 
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
@@ -22,8 +22,8 @@ import {
   checkDeduction,
   isAdjustableProfile,
   validateAdjustBody,
-} from "../_lib/serviceCredit/adjust.js";
-import { readServiceCredit } from "../_lib/serviceCredit/summary.js";
+} from "../_lib/service-credit/adjust.js";
+import { readServiceCredit } from "../_lib/service-credit/summary.js";
 
 const DEDUCT_STATUS_MESSAGES: Record<string, string> = {
   no_entitlement: "차감할 이용권이 없습니다.",

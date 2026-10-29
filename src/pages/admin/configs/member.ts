@@ -327,7 +327,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
     ],
   },
   // 서비스이용횟수조정(serviceCreditAdjust): 고객별 6개 서비스 이용횟수를 수기로 추가하거나 차감한다.
-  // custom 컴포넌트(src/pages/admin/serviceCredit/ServiceCreditAdjustAdmin.tsx)가 전부 그린다.
+  // custom 컴포넌트(src/pages/admin/service-credit/ServiceCreditAdjustAdmin.tsx)가 전부 그린다.
   serviceCreditAdjust: {
     title: "서비스이용횟수조정",
     table: "program_access_grants",
