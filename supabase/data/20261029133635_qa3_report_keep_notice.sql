@@ -12,3 +12,7 @@ set service_desc = replace(
 )
 where slug in ('diagnose-1', 'growth-1')
   and service_desc like '%이용 리포트는 회원정보에%';
+
+-- 실행 기록
+-- 2026-10-29 dev gjowqdiopinhixfivnkx: 이전 문구 행 실행 전 2행(diagnose-1, growth-1), 실행 후 0행, 새 문구 행 2행. 재실행 변경 없음.
+-- Winning prod: 미실행(dev 검증 후 main 배포 시 실행).

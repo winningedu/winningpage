@@ -9,3 +9,7 @@ values
   ('services', '핵심 서비스', '진학의 순간들을', '막막하지 않도록. 필요한 만큼만.'),
   ('mentor', '멘토스 소개', '위닝과 함께 합격한 선배에게', '멘토 상담을 받아보세요')
 on conflict (section_key) do nothing;
+
+-- 실행 기록
+-- 2026-10-29 dev gjowqdiopinhixfivnkx: 실행 전 0행, 실행 후 3행(acceptance, services, mentor). 재실행 변경 없음.
+-- Winning prod, Schoolmentor prod: 미실행(dev 검증 후 main 배포 시 실행).

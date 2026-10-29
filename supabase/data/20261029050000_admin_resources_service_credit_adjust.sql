@@ -6,3 +6,7 @@
 insert into public.admin_resources (key, group_title, label, sort_order, is_active)
 values ('serviceCreditAdjust', '서비스 관리', '서비스이용횟수조정', 602, true)
 on conflict (key) do nothing;
+
+-- 실행 기록
+-- 2026-10-29 dev gjowqdiopinhixfivnkx: key serviceCreditAdjust 실행 전 0행, 실행 후 1행. 재실행 변경 없음.
+-- Winning prod, Schoolmentor prod: 미실행(dev 검증 후 main 배포 시 실행).

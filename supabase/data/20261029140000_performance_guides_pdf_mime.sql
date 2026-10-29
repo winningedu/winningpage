@@ -7,3 +7,7 @@ set allowed_mime_types = array_append(allowed_mime_types, 'application/pdf')
 where id = 'performance-guides'
   and allowed_mime_types is not null
   and not ('application/pdf' = any (allowed_mime_types));
+
+-- 실행 기록
+-- 2026-10-29 dev gjowqdiopinhixfivnkx: 실행 전 image/png,image/jpeg,image/webp. 실행 후 application/pdf 추가. 재실행 변경 없음.
+-- Winning prod, Schoolmentor prod: 미실행(dev 검증 후 main 배포 시 실행).
