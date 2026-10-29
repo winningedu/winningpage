@@ -67,6 +67,8 @@ interface MainCrudConfig {
   rowCapWarning?: boolean;
   retentionNotice?: string;
   guideText?: string;
+  // 목록 위 패널 슬롯 키(Admin.tsx LIST_SUMMARY_REGISTRY 조회).
+  listSummaryKey?: string;
   // 엑셀 다운로드 버튼 노출(Admin.tsx 렌더부 config.excel 판정).
   excel?: boolean;
   // 개인정보 반출 게이트 대상(AdminConfig.sensitiveDownload 와 같은 뜻).
@@ -278,6 +280,7 @@ export const mainConfigs: Record<string, MainConfig> = {
   universityAcceptances: {
     title: "합격생 대학 관리",
     table: "university_acceptances",
+    listSummaryKey: "acceptanceCopyPanel",
     searchPlaceholder: "대학명을 검색하세요",
     order: "sort_order",
     homepage: true,
@@ -340,6 +343,7 @@ export const mainConfigs: Record<string, MainConfig> = {
   programCategories: {
     title: "핵심 서비스",
     table: "program_categories",
+    listSummaryKey: "servicesCopyPanel",
     searchPlaceholder: "핵심 서비스명을 검색하세요",
     order: "sort_order",
     homepage: true,
@@ -418,6 +422,7 @@ export const mainConfigs: Record<string, MainConfig> = {
   mentorStrategies: {
     title: "멘토 성공전략 카드",
     table: "home_mentor_strategies",
+    listSummaryKey: "mentorCopyPanel",
     searchPlaceholder: "멘토 이름·배지를 검색하세요",
     order: "sort_order",
     homepage: true,

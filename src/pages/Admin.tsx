@@ -78,6 +78,7 @@ import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
+import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import BulkPanel from "./admin/knowledge/bulk/BulkPanel";
 import EvalsAdmin from "./admin/knowledge/evals/EvalsAdmin";
 import {
@@ -358,6 +359,9 @@ const LIST_SUMMARY_REGISTRY = {
   admissionResultsListSummary: AdmissionResultsListSummary,
   acceptanceRateSummary: AcceptanceRateSummary,
   goalCutsListSummary: GoalCutsListSummary,
+  acceptanceCopyPanel: AcceptanceCopyPanel,
+  servicesCopyPanel: ServicesCopyPanel,
+  mentorCopyPanel: MentorCopyPanel,
 };
 
 const _OPTION_EMPTY = {
@@ -2761,6 +2765,20 @@ function GoalCutsListSummary({ onReload, mutationSeq }) {
       <GoalCutsBulkXlsxPanel onReload={handleReload} />
     </div>
   );
+}
+
+// LIST_SUMMARY_REGISTRY 의 랜딩 섹션 제목 패널 3종. 레지스트리가 모듈 초기화 시점에
+// 평가하므로 GoalCutsListSummary 와 같이 **function 선언문**이어야 한다(TDZ).
+function AcceptanceCopyPanel() {
+  return <SectionCopyPanel sectionKey="acceptance" />;
+}
+
+function ServicesCopyPanel() {
+  return <SectionCopyPanel sectionKey="services" />;
+}
+
+function MentorCopyPanel() {
+  return <SectionCopyPanel sectionKey="mentor" />;
 }
 
 function AcceptanceRateSummary({ rows }) {
