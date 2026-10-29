@@ -100,6 +100,21 @@ export function buildTodayHeadline(
   return `오늘 달성률 ${rate}% (목표 대비) · 오늘 목표까지 ${formatHoursLabel(remaining)} 남았어요.`;
 }
 
+/**
+ * 웰컴 카드 headline 선택. GET /api/goal/advice 는 오늘 행이 없으면 가장 최근 intake 를
+ * 돌려주므로(QA 행70), intake.probabilitySummary 는 intakeFor 가 오늘(KST)일 때만
+ * 규칙 기반 헤드라인보다 우선한다. 그 외에는 규칙 기반 헤드라인이다.
+ */
+export function pickWelcomeHeadline(args: {
+  summary: string | null | undefined;
+  intakeFor: string | null | undefined;
+  today: string;
+  ruleHeadline: string;
+}): string {
+  const { summary, intakeFor, today, ruleHeadline } = args;
+  return summary && intakeFor === today ? summary : ruleHeadline;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/goal/student → 4개 실데이터 카드(TargetUniversityRail/MockExamCard/
 // NaesinCard/TodayGoalCard) prop 매핑. api/_lib/goal/repo.ts buildStudentPayload()
@@ -612,15 +627,21 @@ export default function Dashboard() {
     ? goalAdviceData.dailyFor
     : (goalAdviceData?.intakeFor ?? null);
 
-  // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, intake 조언이 오늘
-  // 이미 생성돼 있으면 그 probabilitySummary로 교체한다(팀장 지시, AI가 실제로 만든
+  // 웰컴 카드 — headline은 기본 규칙 기반(buildTodayHeadline)이고, 오늘 생성된 intake
+  // 조언만 그 probabilitySummary로 교체한다(과거 intake는 pickWelcomeHeadline이 걸러낸다,팀장 지시, AI가 실제로 만든
   // "최초 진단" 맥락 문장을 우선한다). badge는 DashboardPageHeader가 adviceType prop으로
   // 자체 렌더한다 — origin이 'ai'일 때만 "AI 입시 분석 조언", 그 외(rule/로딩 중)는
   // 기존 "일일 분석 조언" 변형을 그대로 쓴다(뱃지 문구 자체는 UI가 이미 갖고 있던 것).
   const advice = {
-    headline:
-      goalAdviceData?.intake?.probabilitySummary ??
-      buildTodayHeadline(todayDaySchedule.ideal, todayGoalData.studyHours),
+    headline: pickWelcomeHeadline({
+      summary: goalAdviceData?.intake?.probabilitySummary,
+      intakeFor: goalAdviceData?.intakeFor,
+      today: kstYMD(new Date()),
+      ruleHeadline: buildTodayHeadline(
+        todayDaySchedule.ideal,
+        todayGoalData.studyHours,
+      ),
+    }),
     adviceType: (displayedAdvice?.origin === "ai" ? "ai" : "daily") as
       | "ai"
       | "daily",
