@@ -11,3 +11,7 @@ set is_active = false
 where title = 'test'
   and grant_on_signup = false
   and is_active = true;
+
+-- 실행 기록
+-- 2026-10-29 dev gjowqdiopinhixfivnkx: title='test' 활성 행 실행 전 1행(474518e3), 실행 후 0행(is_active=false). 재실행 변경 없음.
+-- Schoolmentor prod aalujumpwlnwlemnqrus: 미실행(main 배포 시 실행). Winning prod: 해당 행 없음.
