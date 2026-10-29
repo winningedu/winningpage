@@ -203,6 +203,16 @@ describe("NewSessionPage 화면", () => {
     expect(screen.queryByText(/처음 오셨네요/)).toBeNull();
   });
 
+  test("작성 범위 셀렉트는 모바일에서 1열이고 md부터 3열이다", () => {
+    renderPage();
+    const grid = screen.getByLabelText("학년도").closest(".grid");
+    expect(grid?.className).toContain("grid-cols-1");
+    expect(grid?.className).toContain("md:grid-cols-3");
+    const rail = grid?.closest("fieldset")?.closest(".grid");
+    expect(rail?.className).toContain("grid-cols-1");
+    expect(rail?.className).toContain("md:grid-cols-[minmax(0,1fr)_20rem]");
+  });
+
   test("프로필이 없으면 비운 채 안내를 보여 준다", () => {
     setShell(makeEntry({ profile: null }));
     renderPage();
