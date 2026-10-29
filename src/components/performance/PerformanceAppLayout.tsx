@@ -17,6 +17,7 @@ import { pickKnownSchoolType } from "@/lib/performance/schoolType";
 import { performanceBootstrapQueryOptions } from "@/lib/queryClient";
 import PerformanceSidebar from "./PerformanceSidebar";
 import QuotaExhaustedBanner from "./quota/QuotaExhaustedBanner";
+import { useCondensedByScrollTop } from "./useCondensedByScrollTop";
 
 // 수행평가 학생 앱 셸 — docs/수행평가-상세-명세.md §3.1(전체 골격) / §3.5(헤더).
 //
@@ -83,6 +84,7 @@ function PerformanceShellContent() {
   const { data: bootstrap } = useQuery(
     performanceBootstrapQueryOptions(userId, accessToken),
   );
+  const { isCondensed, onScrollCapture } = useCondensedByScrollTop();
   const schoolType = pickKnownSchoolType(bootstrap?.profile.schoolType);
   // 학년 우선순위(PerformanceShellContext.tsx 주석) — 라이브 세션(이번 방문 STEP1
   // 입력값)이 bootstrap의 마지막 스냅샷보다 항상 우선한다. 채팅 페이지 밖(저장
@@ -126,7 +128,11 @@ function PerformanceShellContent() {
             않게 하는 안전 여백일 뿐이다. */}
           <SidebarInset className="h-[calc(100svh-var(--header-height))] min-w-0 overflow-hidden">
             <AppShellSidebarTrigger />
-            <div className="group/canvas relative flex min-h-0 flex-1 flex-col overflow-hidden px-4 md:pl-perf-inset md:pr-perf-inset">
+            <div
+              className="group/canvas relative flex min-h-0 flex-1 flex-col overflow-hidden px-4 md:pl-perf-inset md:pr-perf-inset"
+              data-condensed={isCondensed}
+              onScrollCapture={onScrollCapture}
+            >
               <RouteLoadingOverlay />
               <div className="flex min-h-0 w-full max-w-perf-content flex-1 flex-col">
                 {/* 회차 소진 배너(§5.20 (A), P15 [FIX]) — 페이지 타이틀 위, 캔버스 최상단.
@@ -140,13 +146,13 @@ function PerformanceShellContent() {
                 {/* 페이지 타이틀 — 공유 타입 스케일 `text-app-title`(목표관리 페이지 헤더와 동일).
                   TODO(P6): §3.5 제안의 `통합 설계 리포트` 보조 버튼(설계 리포트 생성 이후에만 노출)은
                   §11 Q7 미결이라 아직 만들지 않는다. */}
-                {/* 타이틀 띠 — 접힘 규칙(2026-09-06, M3/iOS large-title 관례): 채팅 타임라인이
-                    뷰포트를 넘겨 위로 스크롤할 내용이 생기면(`MessageScroller` 루트의
-                    `data-scrollable`에 `start` 단어 포함 — 값은 공백 구분 목록이라 `~=`로 매칭) 상하 1rem으로 접히고 제목은 섹션 크기로
-                    내려간다. 짧은 대화(속성 없음)·맨 위로 되돌린 상태(end)는 펼침 2rem/1.5rem.
-                    상태 소스는 라이브러리 공식 data 속성이고 JS 리스너·리렌더가 없다. */}
-                <div className="shrink-0 pb-6 pt-8 transition-[padding] duration-200 motion-reduce:transition-none group-has-[[data-scrollable~=start]]/canvas:py-4">
-                  <h1 className="text-app-title font-semibold tracking-[-0.02rem] text-ink-strong transition-[font-size] duration-200 motion-reduce:transition-none group-has-[[data-scrollable~=start]]/canvas:text-app-section">
+                {/* 타이틀 띠 — 접힘 규칙(QA3 행81 개정): 채팅 뷰포트의 scrollTop이 접힘 임계
+                    이상이면 상하 1rem으로 접히고 제목은 섹션 크기로 내려간다. 펼침은 더 작은
+                    임계 이하일 때만(히스테리시스, useCondensedByScrollTop.ts). 컨테이너 넘침
+                    여부(`data-scrollable`)로는 판정하지 않는다 — 접힘이 넘침을 없애 펼침을
+                    부르는 피드백 루프로 화면이 떨렸다. */}
+                <div className="shrink-0 pb-6 pt-8 transition-[padding] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:py-4">
+                  <h1 className="text-app-title font-semibold tracking-[-0.02rem] text-ink-strong transition-[font-size] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:text-app-section">
                     위닝 수행평가 서비스
                   </h1>
                 </div>
