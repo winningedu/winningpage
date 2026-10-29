@@ -55,24 +55,49 @@ function buildAddressLine(company: typeof site.company) {
 // 아이콘은 렌더하지 않는다.
 function SocialLinks({ company }: { company: typeof site.company }) {
   const items = [
-    { label: "카카오톡 채널", href: company.kakaoChannelUrl, Icon: KakaoIcon },
-    { label: "네이버 블로그", href: company.naverBlogUrl, Icon: NaverIcon },
-    { label: "유튜브", href: company.youtubeUrl, Icon: Youtube },
-    { label: "인스타그램", href: company.instagramUrl, Icon: Instagram },
+    {
+      label: "카카오톡 채널",
+      href: company.kakaoChannelUrl,
+      Icon: KakaoIcon,
+      badgeClassName: "bg-[#fee500] text-[#191919]",
+    },
+    {
+      label: "네이버 블로그",
+      href: company.naverBlogUrl,
+      Icon: NaverIcon,
+      badgeClassName: "bg-[#03c75a] text-white",
+    },
+    {
+      label: "유튜브",
+      href: company.youtubeUrl,
+      Icon: Youtube,
+      badgeClassName: "bg-[#ff0000] text-white",
+    },
+    {
+      label: "인스타그램",
+      href: company.instagramUrl,
+      Icon: Instagram,
+      badgeClassName: "text-white",
+      style: {
+        background:
+          "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
+      },
+    },
   ].filter((item) => item.href);
 
   return (
     <div className="flex items-center gap-4">
-      {items.map(({ label, href, Icon }) => (
+      {items.map(({ label, href, Icon, badgeClassName, style }) => (
         <a
           key={label}
           href={href}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={label}
-          className="text-ink-natural transition hover:text-ink"
+          style={style}
+          className={`inline-flex size-8 items-center justify-center rounded-full transition hover:opacity-90 ${badgeClassName}`}
         >
-          <Icon className="size-6" aria-hidden="true" />
+          <Icon className="size-4" aria-hidden="true" />
         </a>
       ))}
     </div>

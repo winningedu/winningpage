@@ -48,7 +48,6 @@ export default function SpecialHighschoolCaseCard({
           right: "8%",
           top: "17.99%",
           height: "36.76%",
-          transform: "rotate(-2.6deg)",
         }}
       />
 
@@ -76,7 +75,7 @@ export default function SpecialHighschoolCaseCard({
         }}
       >
         <span
-          className="flex h-full items-center pl-[0.28rem] text-cream-label"
+          className="flex h-full items-center pl-[0.28rem] text-white"
           style={{
             fontSize: "0.70625rem",
             lineHeight: "0.90875rem",
@@ -97,7 +96,7 @@ export default function SpecialHighschoolCaseCard({
           style={{ top: "18.85%" }}
         >
           <p
-            className="text-navy-ink"
+            className="font-semibold text-gold-text"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",
@@ -106,7 +105,7 @@ export default function SpecialHighschoolCaseCard({
             {metaLine1}
           </p>
           <p
-            className="text-navy-ink"
+            className="text-taupe"
             style={{
               fontSize: "0.70625rem",
               lineHeight: "0.90875rem",

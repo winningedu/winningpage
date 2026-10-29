@@ -185,4 +185,35 @@ describe("ReportsPage", () => {
     );
     expect(fetchReportsMock).toHaveBeenCalledTimes(2);
   });
+
+  it("발행 리포트 카드는 모바일에서 세로로 쌓고 md 이상에서 가로로 놓는다", async () => {
+    fetchReportsMock.mockResolvedValue(
+      base({
+        items: [
+          completed("old", "2026-03-10T00:00:00.000Z"),
+          completed("new", "2026-11-14T00:00:00.000Z"),
+        ],
+      }),
+    );
+    renderPage();
+    const [latestLink, oldLink] = await screen.findAllByRole("link", {
+      name: "리포트 보기",
+    });
+    if (!latestLink || !oldLink)
+      throw new Error("리포트 보기 링크가 2개 필요해요");
+    const card = screen.getAllByRole("listitem")[0];
+    expect(card).toHaveClass("flex-col", "md:flex-row", "md:justify-between");
+
+    const buttonRow = latestLink.parentElement as HTMLElement;
+    expect(buttonRow).not.toBe(card);
+    expect(buttonRow).toHaveClass("flex", "flex-wrap", "gap-2");
+
+    const title = screen.getByText("2026년 11월 14일 발행 리포트");
+    expect(title).toHaveClass("break-keep");
+    expect(title.parentElement).toHaveClass("flex-wrap");
+
+    const lock = screen.getByText("최신 회차에서만 열 수 있어요");
+    expect(buttonRow.contains(lock)).toBe(false);
+    expect(oldLink.closest("li")).toContainElement(lock);
+  });
 });

@@ -70,10 +70,10 @@ describe("ReportsTable", () => {
         to: "/app/inquiry/write",
       },
     ]);
-    expect(screen.getByRole("link", { name: "이어서 하기" })).toHaveAttribute(
-      "href",
-      "/app/inquiry/write",
-    );
+    const table = screen.getByRole("table");
+    expect(
+      within(table).getByRole("link", { name: "이어서 하기" }),
+    ).toHaveAttribute("href", "/app/inquiry/write");
   });
 
   it("보관 행은 링크 없이 안내문을 그린다", () => {
@@ -87,8 +87,9 @@ describe("ReportsTable", () => {
         note: "기간이 지나 만료돼 이어서 할 수 없어요",
       },
     ]);
-    expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByText(/이어서 할 수 없어요/)).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(within(table).queryByRole("link")).toBeNull();
+    expect(within(table).getByText(/이어서 할 수 없어요/)).toBeInTheDocument();
   });
 
   it("행이 없으면 조건 안내를 그린다", () => {
@@ -96,5 +97,43 @@ describe("ReportsTable", () => {
     expect(
       screen.getByText("조건에 맞는 심화탐구가 없어요"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("ReportsTable 모바일 카드", () => {
+  it("md 미만은 카드 목록에 주제와 일자, 과목을 그린다", () => {
+    renderTable([base]);
+    const list = screen.getByRole("list", { name: /보관함/ });
+    expect(list.parentElement).toHaveClass("md:hidden");
+    const card = within(list).getByRole("listitem");
+    expect(within(card).getByText("미분 응용")).toHaveClass("font-semibold");
+    expect(within(card).getByText("2026.10.01, 수학")).toBeInTheDocument();
+    expect(within(card).getByText("확정")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "열기" })).toHaveAttribute(
+      "href",
+      "/app/inquiry/reports/s1",
+    );
+  });
+
+  it("보관 행 카드는 링크 없이 안내문을 그린다", () => {
+    renderTable([
+      {
+        ...base,
+        statusKey: "archived",
+        statusLabel: "만료",
+        actionLabel: null,
+        to: null,
+        note: "기간이 지나 만료돼 이어서 할 수 없어요",
+      },
+    ]);
+    const card = within(screen.getByRole("list")).getByRole("listitem");
+    expect(within(card).queryByRole("link")).toBeNull();
+    expect(within(card).getByText(/이어서 할 수 없어요/)).toBeInTheDocument();
+  });
+
+  it("표는 hidden md:block 래퍼 안에 있다", () => {
+    renderTable([base]);
+    const wrapper = screen.getByRole("table").closest(".md\\:block");
+    expect(wrapper).toHaveClass("hidden");
   });
 });

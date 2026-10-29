@@ -202,7 +202,7 @@ const SubmissionField = memo(function SubmissionField({
       {field.example && (
         <p className="rounded-lg bg-surface-muted px-3 py-2 text-app-caption text-ink-sub">
           <span className="mr-1.5 font-semibold text-ink">예시</span>
-          {field.example}
+          {field.example.replace(/^\[예시\]\s*/, "")}
         </p>
       )}
 

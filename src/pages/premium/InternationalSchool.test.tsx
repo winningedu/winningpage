@@ -23,6 +23,15 @@ describe("InternationalSchool", () => {
     expect(screen.getByText("국제학교 학습관리 서비스")).toBeInTheDocument();
   });
 
+  it("모바일 CTA는 배너 속 버튼과 같은 골드 소형 버튼이다", () => {
+    renderPage();
+    const mobile = screen
+      .getAllByRole("link", { name: "상담 신청하기" })
+      .find((l) => !l.getAttribute("aria-label"));
+    expect(mobile).toHaveClass("md:hidden", "bg-[#f5b041]", "text-[#102a54]");
+    expect(mobile).not.toHaveClass("bg-ink-strong");
+  });
+
   it("상담 신청 링크가 데스크톱 오버레이와 모바일 버튼으로 모두 존재한다", () => {
     renderPage();
     const links = screen.getAllByRole("link", { name: "상담 신청하기" });
