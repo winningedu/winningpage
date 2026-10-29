@@ -53,3 +53,35 @@ describe("세션 어댑터", () => {
     );
   });
 });
+
+describe("작성 예시(example)", () => {
+  const GUIDES = [
+    "",
+    "탐구 내용과 배우고 느낀 점을 쓰고 주제 선정 이유와 참고 문헌을 적는다. 1000자 이상",
+    "카드뉴스를 제작한다.",
+    "발표 PPT를 만든다.",
+    "칼럼을 쓴다.",
+    "독서 서평을 쓴다.",
+    "탐구 보고서를 쓴다.",
+    "질문 1: 주제를 고른 이유는 무엇인가요?",
+  ];
+
+  test("모든 유형의 모든 필드에 60~150자 예시가 있다", () => {
+    const schemas = GUIDES.map((g) => ported.inferSubmissionSchema(g));
+    expect(new Set(schemas.map((s) => s.type)).size).toBe(GUIDES.length);
+    for (const schema of schemas) {
+      for (const f of schema.fields) {
+        const where = `${schema.type}/${f.key}`;
+        expect(f.example.length, where).toBeGreaterThanOrEqual(60);
+        expect(f.example.length, where).toBeLessThanOrEqual(150);
+      }
+    }
+  });
+
+  test("정규화는 저장된 example을 보존한다", () => {
+    const r = ported.normalizeSubmissionSchema({
+      fields: [{ key: "a", label: "A", helper: "h", example: "예시 문장" }],
+    });
+    expect(r.fields[0]?.example).toBe("예시 문장");
+  });
+});
