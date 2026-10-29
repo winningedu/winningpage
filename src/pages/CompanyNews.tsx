@@ -309,6 +309,7 @@ const PARTNER_CARDS = [
         premium: true,
       },
     ],
+    // 로고 에셋은 CEC Academy 공식 사이트(camedu.net) 브랜드마크 원본에 시안 문구를 조합한 것(QA3 dev E2E 잔여, 시안 파일104는 231x47 저해상도).
     logo: partnerCecAcademy,
     logoWidth: "w-[6.5rem]",
   },
