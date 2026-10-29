@@ -7249,6 +7249,15 @@ export type Database = {
         Args: { p_need?: string; p_resource: string };
         Returns: boolean;
       };
+      fn_admin_deduct_service_credit: {
+        Args: {
+          p_amount: number;
+          p_profile_id: string;
+          p_program_key: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       fn_admin_effective_permissions: {
         Args: { p_profile_id: string };
         Returns: {

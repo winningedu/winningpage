@@ -89,6 +89,7 @@ import {
 } from "./admin/knowledge/review/reviewCycle";
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
+import ServiceCreditAdjustAdmin from "./admin/serviceCredit/ServiceCreditAdjustAdmin";
 import {
   AdminForm,
   type AdminRow,
@@ -206,6 +207,11 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       {
         key: "knowledgeEvals",
         label: "지식 검색 품질 평가",
+        section: "서비스",
+      },
+      {
+        key: "serviceCreditAdjust",
+        label: "서비스이용횟수조정",
         section: "서비스",
       },
       {
@@ -346,6 +352,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   selfevalSessions: SelfevalSessionsAdmin,
   aiTelemetry: TelemetryAdmin,
   knowledgeEvals: EvalsAdmin,
+  serviceCreditAdjust: ServiceCreditAdjustAdmin,
   inquirySessions: InquirySessionsAdmin,
 };
 
