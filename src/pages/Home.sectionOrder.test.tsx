@@ -16,6 +16,20 @@ const rowsByTable: Record<string, unknown[]> = {
       sort_order: 1,
     },
   ],
+  home_section_copy: [
+    {
+      section_key: "acceptance",
+      eyebrow: null,
+      title_main: "DB큰제목",
+      title_sub: "DB중제목",
+    },
+    {
+      section_key: "services",
+      eyebrow: "DB라벨",
+      title_main: "DB서비스큰제목",
+      title_sub: null,
+    },
+  ],
   university_acceptances: [
     { id: "u-1", name: "서울대학교", track: "general", sort_order: 1 },
   ],
@@ -53,5 +67,19 @@ describe("Home 섹션 순서", () => {
       services.compareDocumentPosition(acceptance) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  test("섹션 제목은 home_section_copy 행으로 렌더하고 행이 없으면 렌더하지 않는다", async () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("DB큰제목")).toBeInTheDocument();
+    expect(screen.getByText("DB중제목")).toBeInTheDocument();
+    expect(screen.getByText("DB라벨")).toBeInTheDocument();
+    expect(screen.getByText("DB서비스큰제목")).toBeInTheDocument();
+    expect(screen.queryByText("진학의 순간들을")).toBeNull();
+    expect(screen.queryByText("인서울부터 과기원까지")).toBeNull();
   });
 });
