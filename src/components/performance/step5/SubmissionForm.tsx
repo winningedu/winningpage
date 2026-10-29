@@ -136,6 +136,7 @@ type SubmissionField = {
   key: string;
   label: string;
   helper?: string;
+  example?: string;
   required?: boolean;
 };
 
@@ -195,6 +196,15 @@ const SubmissionField = memo(function SubmissionField({
           <span> (선택)</span>
         )}
       </label>
+
+      {/* 작성 예시. placeholder는 대비가 AA 미달이고 값이 차면 사라지므로, 입력칸 위에
+          항상 보이는 박스로 둔다. `<label>`이 아니라 `<p>`다(라벨은 필드당 1개). */}
+      {field.example && (
+        <p className="rounded-lg bg-surface-muted px-3 py-2 text-app-caption text-ink-sub">
+          <span className="mr-1.5 font-semibold text-ink">예시</span>
+          {field.example}
+        </p>
+      )}
 
       {/* §5.14: 46.375rem×10rem 고정 + 내부 스크롤(자동 확장 미채택). r0.5rem,
           fill `#f8f7f5`, stroke `#d9d9d9`, 값 0.875rem/1.125rem w500 `#525252`. */}
