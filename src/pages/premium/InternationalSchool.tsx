@@ -135,8 +135,6 @@ const VENN_RIGHT = {
 
 const CONSULTING_CALLOUT =
   "'위닝'은 수행평가부터 면접까지, 끝까지 완성한다는 뜻입니다.";
-const CONSULTING_FOOTNOTE =
-  "본 서비스는 생활기록부 설계와 코칭을 제공하며, 진학과 합격을 보장하지 않습니다.";
 
 const PLAN_STEPS = [
   {
@@ -334,19 +332,13 @@ export default function InternationalSchool() {
               ))}
             </ol>
           </div>
-
-          <p
-            className={`mt-6 break-keep text-right text-[0.75rem] leading-[1.6] ${PREMIUM_NATURAL_TEXT_CLASS}`}
-          >
-            {CONSULTING_FOOTNOTE}
-          </p>
         </div>
       </section>
 
       <section className={`bg-white ${PREMIUM_SECTION_PADDING_CLASS}`}>
         <div className={`${PREMIUM_CONTAINER_CLASS} text-center`}>
           <h2 className="break-keep text-[1.5rem] font-semibold leading-[1.4] tracking-[-0.02em] text-ink-strong sm:text-[2rem]">
-            국내대학 진학, 위닝에듀 제주센터와 함께하세요
+            국내대학 진학, 위닝에듀 제주캠퍼스와 함께하세요
           </h2>
           <a
             href={MAP_URL}
@@ -354,7 +346,7 @@ export default function InternationalSchool() {
             rel="noopener noreferrer"
             className="mt-8 inline-flex items-center justify-center rounded-full bg-primary px-[3.75rem] py-[1.25rem] text-[1.125rem] font-semibold leading-[1.4] text-white transition hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none"
           >
-            제주센터 위치 보기
+            제주캠퍼스 위치 보기
             <span className="sr-only"> (새 창에서 열림)</span>
           </a>
         </div>

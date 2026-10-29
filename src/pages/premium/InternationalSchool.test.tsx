@@ -32,7 +32,7 @@ describe("InternationalSchool", () => {
     "제주국제학교 학생의 국내대학 진학, 왜 어려운가요?",
     "제주 국제학교 학생을 위한 국내대학 맞춤 프로그램",
     "국제학교 학생의 국내대학 진학 맞춤 컨설팅",
-    "국내대학 진학, 위닝에듀 제주센터와 함께하세요",
+    "국내대학 진학, 위닝에듀 제주캠퍼스와 함께하세요",
   ])("h2 섹션 제목 %s 을 렌더한다", (name) => {
     renderPage();
     expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
@@ -77,16 +77,21 @@ describe("InternationalSchool", () => {
     expect(screen.getByText("학종 면접 대비")).toBeInTheDocument();
   });
 
-  it("컨설팅 섹션 하단에 보장하지 않는다는 각주가 있다", () => {
-    renderPage();
-    expect(
-      screen.getByText(/진학과 합격을 보장하지 않습니다/),
-    ).toBeInTheDocument();
+  it("생활기록부 설계 각주 문단은 렌더하지 않는다", () => {
+    const { container } = renderPage();
+    expect(container.textContent ?? "").not.toContain("생활기록부 설계");
+  });
+
+  it("제주센터 표기 없이 제주캠퍼스만 2곳에 쓴다", () => {
+    const { container } = renderPage();
+    const text = container.textContent ?? "";
+    expect(text).not.toContain("제주센터");
+    expect(text.match(/제주캠퍼스/g)).toHaveLength(2);
   });
 
   it("지도 링크는 새 창 외부 링크 속성과 스크린리더 안내를 가진다", () => {
     renderPage();
-    const link = screen.getByRole("link", { name: /제주센터 위치 보기/ });
+    const link = screen.getByRole("link", { name: /제주캠퍼스 위치 보기/ });
     expect(link).toHaveAttribute(
       "href",
       "https://map.naver.com/v5/entry/place/1834412694",
