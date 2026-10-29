@@ -2993,6 +2993,31 @@ export type Database = {
         };
         Relationships: [];
       };
+      home_section_copy: {
+        Row: {
+          eyebrow: string | null;
+          section_key: string;
+          title_main: string;
+          title_sub: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          eyebrow?: string | null;
+          section_key: string;
+          title_main: string;
+          title_sub?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          eyebrow?: string | null;
+          section_key?: string;
+          title_main?: string;
+          title_sub?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       home_side_banners: {
         Row: {
           created_at: string;
