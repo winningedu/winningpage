@@ -245,6 +245,10 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
   return (
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
+        <h1 className="text-xl font-black">{config.title}</h1>
+        <p className="mb-4 mt-2 rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+          이 메뉴에서 적용한 조정은 학생의 서비스 이용횟수에 즉시 반영됩니다.
+        </p>
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
@@ -263,7 +267,6 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
           </div>
           <ActionButton type="submit">검색</ActionButton>
         </form>
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
 
         {results && (
           <ul className="mt-4 max-h-[14rem] divide-y divide-gray-200 overflow-auto border border-gray-200">
