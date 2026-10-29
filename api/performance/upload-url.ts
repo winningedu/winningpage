@@ -84,13 +84,17 @@ const SERVICE_KEY = "suhaeng";
 
 export const BUCKET = "performance-guides";
 
-// §8.8 「허용 형식」 — PNG / JPG·JPEG / WEBP. 버킷의 allowed_mime_types와 같은 집합이다
+// §8.8 「허용 형식」 — PNG / JPG·JPEG / WEBP / PDF. 버킷의 allowed_mime_types와 같은 집합이다
 // (sql/54_performance_app.sql (6)). HEIC/HEIF는 여기에 없으므로 415로 떨어진다.
 export const ALLOWED_MIME_EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
+  "application/pdf": "pdf",
 };
+
+export const UNSUPPORTED_MIME_MESSAGE =
+  "PNG, JPG, WEBP 이미지 또는 PDF만 올릴 수 있어요.";
 
 export const MAX_ATTACHMENTS = 5; // §8.8 「최대 장수 5장 — 서버에서 강제」
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -179,7 +183,7 @@ export default defineHandler({
         res,
         415,
         "UNSUPPORTED_MIME",
-        "PNG, JPG, WEBP 이미지만 올릴 수 있어요.",
+        UNSUPPORTED_MIME_MESSAGE,
         {
           allowed: Object.keys(ALLOWED_MIME_EXT),
         },
