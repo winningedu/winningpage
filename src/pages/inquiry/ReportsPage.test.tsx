@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -100,18 +101,21 @@ describe("ReportsPage", () => {
     ).toBeVisible();
   });
 
-  it("행을 표로 그리고 과목 필터로 거른다", async () => {
+  it("행을 카드와 표로 그리고 과목 필터로 거른다", async () => {
     fetchReportsMock.mockResolvedValue(
       ok({ items: [item("s1", "수학"), item("s2", "물리")] }),
     );
     renderPage();
-    expect(await screen.findByText("수학 주제")).toBeVisible();
-    expect(screen.getByText("물리 주제")).toBeVisible();
+    const list = await screen.findByRole("list", { name: /보관함/ });
+    expect(within(list).getByText("수학 주제")).toBeVisible();
+    expect(within(list).getByText("물리 주제")).toBeVisible();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("수학 주제")).toBeVisible();
     fireEvent.change(screen.getByLabelText("과목"), {
       target: { value: "물리" },
     });
-    expect(screen.queryByText("수학 주제")).toBeNull();
-    expect(screen.getByText("물리 주제")).toBeVisible();
+    expect(screen.queryAllByText("수학 주제")).toHaveLength(0);
+    expect(screen.getAllByText("물리 주제")).toHaveLength(2);
   });
 
   it("일반 오류는 문구와 다시 시도 버튼을 그린다", async () => {

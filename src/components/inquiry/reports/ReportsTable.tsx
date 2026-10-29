@@ -23,40 +23,24 @@ export default function ReportsTable({ rows }: { rows: ReportRow[] }) {
     );
   }
   return (
-    <div className="rounded-xl border border-border bg-white">
-      <Table>
-        <TableCaption className="sr-only">심화탐구 보관함 목록</TableCaption>
-        <TableHeader>
-          <TableRow>
-            {HEADS.map((h) => (
-              <TableHead key={h} className="text-app-label text-ink-sub">
-                {h}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <>
+      <div className="md:hidden">
+        <ul aria-label="심화탐구 보관함 목록" className="flex flex-col gap-3">
           {rows.map((row) => (
-            <TableRow key={`${row.statusKey}-${row.sessionId}`}>
-              <TableCell className="text-app-body text-ink-strong">
-                {row.date}
-              </TableCell>
-              <TableCell className="text-app-body text-ink-strong">
-                {row.subject}
-              </TableCell>
-              <TableCell className="text-app-body font-semibold text-ink-strong">
+            <li
+              key={`${row.statusKey}-${row.sessionId}`}
+              className="flex flex-col gap-2 rounded-xl border border-border bg-white p-4"
+            >
+              <p className="break-keep text-app-body font-semibold text-ink-strong">
                 {row.topic}
-              </TableCell>
-              <TableCell className="text-app-body text-ink-strong">
-                {row.linkKind}
-              </TableCell>
-              <TableCell className="text-app-body text-ink-strong">
-                {row.score}
-              </TableCell>
-              <TableCell className="text-app-body text-ink-strong">
-                {row.statusLabel}
-              </TableCell>
-              <TableCell>
+              </p>
+              <p className="text-app-caption text-ink-sub">
+                {row.date}, {row.subject}
+              </p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-app-label text-ink-strong">
+                  {row.statusLabel}
+                </span>
                 {row.to && row.actionLabel ? (
                   <Link
                     to={row.to}
@@ -71,15 +55,73 @@ export default function ReportsTable({ rows }: { rows: ReportRow[] }) {
                     {row.actionLabel}
                   </Link>
                 ) : (
-                  <span className="text-app-caption text-ink-sub">
+                  <span className="text-right text-app-caption text-ink-sub">
                     {row.note}
                   </span>
                 )}
-              </TableCell>
-            </TableRow>
+              </div>
+            </li>
           ))}
-        </TableBody>
-      </Table>
-    </div>
+        </ul>
+      </div>
+      <div className="hidden rounded-xl border border-border bg-white md:block">
+        <Table>
+          <TableCaption className="sr-only">심화탐구 보관함 목록</TableCaption>
+          <TableHeader>
+            <TableRow>
+              {HEADS.map((h) => (
+                <TableHead key={h} className="text-app-label text-ink-sub">
+                  {h}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={`${row.statusKey}-${row.sessionId}`}>
+                <TableCell className="text-app-body text-ink-strong">
+                  {row.date}
+                </TableCell>
+                <TableCell className="text-app-body text-ink-strong">
+                  {row.subject}
+                </TableCell>
+                <TableCell className="text-app-body font-semibold text-ink-strong">
+                  {row.topic}
+                </TableCell>
+                <TableCell className="text-app-body text-ink-strong">
+                  {row.linkKind}
+                </TableCell>
+                <TableCell className="text-app-body text-ink-strong">
+                  {row.score}
+                </TableCell>
+                <TableCell className="text-app-body text-ink-strong">
+                  {row.statusLabel}
+                </TableCell>
+                <TableCell>
+                  {row.to && row.actionLabel ? (
+                    <Link
+                      to={row.to}
+                      className={cn(
+                        buttonVariants({
+                          variant:
+                            row.statusKey === "open" ? "default" : "outline",
+                        }),
+                        "h-9 px-4 text-app-label",
+                      )}
+                    >
+                      {row.actionLabel}
+                    </Link>
+                  ) : (
+                    <span className="text-app-caption text-ink-sub">
+                      {row.note}
+                    </span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
