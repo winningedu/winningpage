@@ -76,7 +76,7 @@ export default function SpecialHighschoolCaseCard({
         }}
       >
         <span
-          className="flex h-full items-center pl-[0.28rem] text-cream-label"
+          className="flex h-full items-center pl-[0.28rem] text-white"
           style={{
             fontSize: "0.70625rem",
             lineHeight: "0.90875rem",
