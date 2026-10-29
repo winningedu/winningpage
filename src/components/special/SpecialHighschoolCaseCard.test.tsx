@@ -52,4 +52,11 @@ describe("SpecialHighschoolCaseCard 크림+골드 톤", () => {
     expect(css).toContain("--color-gold-tab: #e3a008;");
     expect(css).toContain("--color-gold-light: #f2c75c;");
   });
+
+  it("흰 종이 시트는 회전하지 않는다", () => {
+    const { container } = render(<SpecialHighschoolCaseCard row={row} />);
+    const sheet = container.querySelector(".bg-white") as HTMLElement;
+    expect(sheet).not.toBeNull();
+    expect(sheet.style.transform).toBe("");
+  });
 });

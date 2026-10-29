@@ -48,7 +48,6 @@ export default function SpecialHighschoolCaseCard({
           right: "8%",
           top: "17.99%",
           height: "36.76%",
-          transform: "rotate(-2.6deg)",
         }}
       />
 
