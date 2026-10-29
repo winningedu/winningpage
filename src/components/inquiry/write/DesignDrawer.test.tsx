@@ -18,6 +18,21 @@ describe("DesignDrawer", () => {
     expect(screen.getByRole("table", { name: "탐구 개요" })).toBeVisible();
   });
 
+  test("모바일에서는 화면 폭을 채우고 48rem을 넘지 않는다", () => {
+    render(
+      <DesignDrawer
+        open
+        onOpenChange={vi.fn()}
+        design={makeDesign()}
+        topic={{ id: "t" } as TopicView}
+      />,
+    );
+    const popup = screen.getByRole("dialog", { name: "설계 리포트" });
+    expect(popup.className).toContain("w-full");
+    expect(popup.className).toContain("max-w-[48rem]");
+    expect(popup.className.split(" ")).not.toContain("w-[48rem]");
+  });
+
   test("닫혀 있으면 그리지 않는다", () => {
     render(
       <DesignDrawer
