@@ -50,7 +50,7 @@ export default function ServicesSection({
 
   return (
     <section aria-label="핵심 서비스" className="bg-white">
-      {/* 섹션 상하 여백 — pt: 합격선배→서비스 갭 100px(6.25rem, lg), pb: 0(lg, 다음 섹션이 여백 담당) */}
+      {/* 섹션 상하 여백: 히어로 바로 아래 첫 섹션이라 pt는 lg에서 4.25rem, pb: 0(lg, 다음 섹션이 여백 담당) */}
       <div className="mx-auto w-full max-w-content px-5 pb-7 pt-7 sm:px-8 lg:pb-0 lg:pt-17">
         {/* 헤더 — 0729 시안 실측(px÷16=rem): 아이브로우 20px(1.25rem, accent, Regular),
             대제목 32px(2rem, lg). 대제목 자간 -0.04rem은 lg 폰트 2rem 기준 -0.02em과 동일 비율 */}
