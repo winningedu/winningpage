@@ -1,4 +1,4 @@
-// GET /api/goal/advice 핸들러 테스트 — QA 3차 행70("오늘의 조언을 항시 표시").
+// GET /api/goal/advice 핸들러 테스트, QA 3차 행70("오늘의 조언을 항시 표시").
 // 조언 기능 이전에 온보딩한 학생은 캐시 행이 없어 빈 상태만 보였다. GET이 두 소스 모두
 // 비어 있을 때 intake 조언을 즉석 생성해 캐시하는지 고정한다. Gemini(callText)는 실패시켜
 // 규칙 기반 폴백 경로로 돌린다.
@@ -69,7 +69,7 @@ describe("GET /api/goal/advice", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
-  it("캐시가 intake·daily 모두 없으면 Gemini 실패 시 규칙 폴백으로 intake를 즉석 생성해 저장한다", async () => {
+  it("캐시가 intake와 daily 모두 없으면 Gemini 실패 시 규칙 폴백으로 intake를 즉석 생성해 저장한다", async () => {
     fetchLatestAdviceCacheMock.mockResolvedValue(null);
 
     const body = await callGet();
@@ -88,7 +88,7 @@ describe("GET /api/goal/advice", () => {
     expect(body.dailyFor).toBeNull();
   });
 
-  it("intake 행만 있어도 생성·저장 없이 그 행의 payload를 그대로 돌려준다", async () => {
+  it("intake 행만 있어도 생성과 저장 없이 그 행의 payload를 그대로 돌려준다", async () => {
     const payload = { todayAdvice: "저장된 조언" };
     fetchLatestAdviceCacheMock.mockImplementation(
       async (_db: unknown, _id: string, source: string) =>

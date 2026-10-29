@@ -4,7 +4,7 @@
 // 두 트리거를 하나의 엔드포인트가 `source`로 구분한다(설계 §6):
 //   POST { source: 'intake' }  — 온보딩 완료 직후 1회(Onboarding.tsx handleFinish 성공 후).
 //   POST { source: 'daily'  }  — "오늘의 공부 기록" 저장 성공 직후(DailyRecord.tsx).
-//   GET                        — 대시보드 로드 시 캐시(두 소스) 조회. 둘 다 없으면 intake를
+//   GET                        : 대시보드 로드 시 캐시(두 소스) 조회. 둘 다 없으면 intake를
 //                                즉석 생성해 캐시한다(QA 행70 항시 표시, 조언 기능 이전 온보딩 학생 백필).
 //                                한 번 생성되면 캐시라 이후 GET은 Gemini를 부르지 않는다.
 //
@@ -406,7 +406,7 @@ export async function generateAdviceModelResult(
 }
 
 // ---------------------------------------------------------------------------
-// 생성 + 캐시 저장 — POST(캐시 미스)와 GET(캐시 전무 백필)이 공유한다.
+// 생성 + 캐시 저장. POST(캐시 미스)와 GET(캐시 전무 백필)이 공유한다.
 // ---------------------------------------------------------------------------
 async function generateAndCacheAdvice(
   supabaseAdmin: NonNullable<GoalSession["supabaseAdmin"]>,
@@ -464,7 +464,7 @@ async function generateAndCacheAdvice(
 }
 
 // ---------------------------------------------------------------------------
-// GET — 캐시(두 소스) 조회. 둘 다 없으면 intake 즉석 생성(QA 행70 항시 표시,
+// GET: 캐시(두 소스) 조회. 둘 다 없으면 intake 즉석 생성(QA 행70 항시 표시,
 // 조언 기능 이전 온보딩 학생 백필). 한 번 생성되면 캐시라 이후 GET은 Gemini를 안 부른다.
 // ---------------------------------------------------------------------------
 async function handleGet(
