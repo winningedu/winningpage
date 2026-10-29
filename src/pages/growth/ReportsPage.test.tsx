@@ -199,6 +199,8 @@ describe("ReportsPage", () => {
     const [latestLink, oldLink] = await screen.findAllByRole("link", {
       name: "리포트 보기",
     });
+    if (!latestLink || !oldLink)
+      throw new Error("리포트 보기 링크가 2개 필요해요");
     const card = screen.getAllByRole("listitem")[0];
     expect(card).toHaveClass("flex-col", "md:flex-row", "md:justify-between");
 
