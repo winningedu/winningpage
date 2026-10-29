@@ -1133,6 +1133,8 @@ export type FetchGoalRankingResult =
   | {
       kind: "ok";
       date: string;
+      /** false면 활성 학생 수 미달(QA 행71)이라 순위 카드를 그리지 않는다. */
+      visible: boolean;
       top: GoalRankingEntry[];
       me: GoalRankingEntry | null;
     };
@@ -1167,6 +1169,7 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
     return {
       kind: "ok",
       date: body.date,
+      visible: body.visible !== false,
       top: body.top || [],
       me: body.me || null,
     };

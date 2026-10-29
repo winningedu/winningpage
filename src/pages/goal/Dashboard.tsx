@@ -161,6 +161,7 @@ type DailyRecordResult = FetchTodayGoalRecordResult;
 type RankingResult =
   | {
       kind: "ok";
+      visible: boolean;
       top: Array<{ rank: number; name: string; hours: number }>;
       me: { rank: number; name: string; hours: number } | null;
     }
@@ -312,6 +313,11 @@ function mapMockExam(student: GoalStudent) {
     // advice 키 자체를 생략한다 — MockExamCard가 이 필드가 없으면 "학습 조언" 블록을
     // 렌더하지 않는다(no-fallback-constants, dday 키 생략과 동일 패턴).
   };
+}
+
+// QA 행71 — 서버가 visible:false(활성 학생 수 미달)를 주면 순위 레일 자체를 그리지 않는다.
+export function shouldShowRankingRail(rankingResult: RankingResult | null) {
+  return !(rankingResult?.kind === "ok" && !rankingResult.visible);
 }
 
 // GET /api/goal/ranking 결과(kind:'ok') → RankingRail이 그리는 행 배열.
@@ -725,7 +731,9 @@ export default function Dashboard() {
               <StudyPlanRail />
               {/* ScheduleRail: GET /api/goal/schedules 실데이터, 가까운 순 3건(mapNearestSchedules). */}
               <ScheduleRail schedules={mapNearestSchedules(schedules)} />
-              <RankingRail ranking={mapRankingRows(rankingResult)} />
+              {shouldShowRankingRail(rankingResult) && (
+                <RankingRail ranking={mapRankingRows(rankingResult)} />
+              )}
             </div>
           </div>
         </div>
