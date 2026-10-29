@@ -84,4 +84,39 @@ describe("작성 예시(example)", () => {
     });
     expect(r.fields[0]?.example).toBe("예시 문장");
   });
+
+  test("example 없는 저장 스키마를 normalize하면 기본 example이 채워진다", () => {
+    const base = ported.inferSubmissionSchema("카드뉴스를 제작한다.");
+    const stored = {
+      type: base.type,
+      fields: base.fields.map(({ example: _e, ...rest }) => rest),
+    };
+    const r = ported.normalizeSubmissionSchema(stored);
+    expect(r.fields.map((f) => f.example)).toEqual(
+      base.fields.map((f) => f.example),
+    );
+    expect(r.fields[0]?.example).not.toBe("");
+
+    const q = ported.normalizeSubmissionSchema({
+      type: "question_based",
+      fields: [{ key: "question_7", label: "문항 7", helper: "h" }],
+    });
+    expect(q.fields[0]?.example).not.toBe("");
+  });
+
+  test("저장된 example이 있으면 덮어쓰지 않는다", () => {
+    const r = ported.normalizeSubmissionSchema({
+      type: "basic_report",
+      fields: [{ key: "intro", label: "서론", helper: "h", example: "내 예시" }],
+    });
+    expect(r.fields[0]?.example).toBe("내 예시");
+  });
+
+  test("알 수 없는 key면 비운다", () => {
+    const r = ported.normalizeSubmissionSchema({
+      type: "basic_report",
+      fields: [{ key: "nope", label: "X", helper: "h" }],
+    });
+    expect(r.fields[0]?.example).toBe("");
+  });
 });

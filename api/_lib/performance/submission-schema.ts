@@ -594,6 +594,36 @@ export type StoredSubmissionSchema = {
   }[];
 };
 
+/** 유형별 기본 스키마를 만드는 대표 안내문. 필드를 가장 많이 내는 문구를 써서 모든 key의 example을 얻는다. */
+const REPRESENTATIVE_GUIDES = [
+  "선정 이유, 탐구 내용, 배우고 느낀 점, 참고문헌을 쓴다. 1000자 이상",
+  "카드뉴스를 제작한다.",
+  "발표 PPT를 만든다.",
+  "칼럼을 쓴다.",
+  "독서 서평을 쓴다.",
+  "탐구 보고서를 쓴다.",
+  "",
+];
+
+let defaultExamples: Map<string, string> | null = null;
+
+/** 저장본에 example이 없을 때 같은 type, 같은 key의 기본 example을 돌려준다. 문항형은 공용 문항 example. */
+function fallbackExample(type: string | undefined, key: string): string {
+  if (type === "question_based" && /^question_\d+/.test(key)) {
+    return QUESTION_EXAMPLE;
+  }
+  if (!defaultExamples) {
+    defaultExamples = new Map();
+    for (const guide of REPRESENTATIVE_GUIDES) {
+      const base = inferSubmissionSchema(guide);
+      for (const f of base.fields) {
+        defaultExamples.set(`${base.type}:${f.key}`, f.example);
+      }
+    }
+  }
+  return defaultExamples.get(`${type}:${key}`) ?? "";
+}
+
 export function normalizeSubmissionSchema(
   schema?: StoredSubmissionSchema | null,
 ): SubmissionSchema {
@@ -606,15 +636,16 @@ export function normalizeSubmissionSchema(
     type: schema.type || "custom",
     label: schema.label || "맞춤 제출형",
     notice: schema.notice || "안내문 분석 결과에 맞춰 제출 항목을 제시합니다.",
-    fields: schema.fields.map((f, idx) =>
-      makeSubmissionField(
-        uniqueFieldKey(seenKeys, f.key || `field_${idx + 1}`),
+    fields: schema.fields.map((f, idx) => {
+      const key = uniqueFieldKey(seenKeys, f.key || `field_${idx + 1}`);
+      return makeSubmissionField(
+        key,
         f.label || `항목 ${idx + 1}`,
         f.helper || "",
         f.required !== false,
-        f.example || "",
-      ),
-    ),
+        f.example || fallbackExample(schema.type, f.key || ""),
+      );
+    }),
   };
 }
 
