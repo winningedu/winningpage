@@ -16,19 +16,17 @@ import {
 // 헤더/푸터는 SiteLayout이 렌더한다(개별 import 안 함). 탭바와 SEO meta 는 두지 않는다.
 // 카피는 고객 제공 원문을 옮기되, 가운뎃점과 화살표는 쉼표와 말로 풀었다.
 
-// 전용 히어로 사진(1415x971). 인물이 가로 중앙에 있어 기본 object-position 으로도
-// 모바일 세로 크롭에서 얼굴이 잘리지 않는다.
+// 전용 히어로 배너(1920x772). 제목, 부제, 버튼이 이미지 안에 이미 그려져 있어 코드 텍스트가
+// 이미지 글자와 겹치지 않도록 시각적으로 숨기고(sr-only) 스크린리더와 SEO용 h1 만 남긴다.
+// 검정 그라데이션 오버레이는 이미지 색을 흐리므로 투명으로 둔다.
 const HERO_BG = "/images/premium/hero-international-school.webp";
-const HERO_GLOW_CLASS =
-  "bg-gradient-to-r from-black/75 via-black/45 to-transparent";
-const HERO_TITLE_CLASS =
-  "break-keep text-[1.75rem] font-bold leading-[1.4] tracking-[-0.02em] text-white sm:text-[2rem]";
-const HERO_DESCRIPTION_CLASS =
-  "mt-4 break-keep text-[1rem] font-medium leading-[1.6] text-white/90 sm:text-[1.125rem] lg:text-[1.25rem]";
-const HERO_EYEBROW_CLASS =
-  "mb-2 block text-[1rem] font-semibold tracking-[0.04em] text-gold sm:text-[1.125rem]";
+const HERO_GLOW_CLASS = "bg-transparent";
+const HERO_TITLE_CLASS = "sr-only";
+const HERO_DESCRIPTION_CLASS = "sr-only";
+const HERO_EYEBROW_CLASS = "block";
+// 이미지 속 버튼은 클릭되지 않으므로 실제 링크는 키보드 포커스 때만 보이게 둔다.
 const HERO_CTA_CLASS =
-  "mt-8 inline-flex items-center justify-center rounded-sm bg-white px-[3rem] py-[1.25rem] text-[1.125rem] font-semibold text-primary transition-colors hover:bg-white/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 motion-reduce:transition-none";
+  "sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:bottom-6 focus-visible:left-5 focus-visible:rounded-sm focus-visible:bg-white focus-visible:px-6 focus-visible:py-3 focus-visible:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent";
 
 const EYEBROW_CLASS =
   "mb-3 break-keep text-center text-[0.875rem] font-semibold uppercase leading-[1.4] tracking-[0.08em] text-gold";
