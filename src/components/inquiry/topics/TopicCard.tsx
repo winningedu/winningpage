@@ -58,7 +58,10 @@ export default function TopicCard({
       </h3>
       <p className="mt-1 text-app-label text-ink-sub">{detail.subtitle}</p>
 
-      <ol aria-label="탐구 경로" className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <ol
+        aria-label="탐구 경로"
+        className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-3"
+      >
         <PathCell label="출발 활동" text={detail.path.from} />
         <PathCell
           label={LINK_KIND_LABELS[topic.linkKind]}
