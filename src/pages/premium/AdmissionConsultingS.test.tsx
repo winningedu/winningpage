@@ -11,7 +11,9 @@ describe("AdmissionConsultingS", () => {
         <AdmissionConsultingS />
       </MemoryRouter>,
     );
-    expect(screen.getAllByText("활동보고서 구성 지도").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("활동보고서 구성 지도").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.queryByText(/미술활동보고서 구성/)).not.toBeInTheDocument();
   });
 });

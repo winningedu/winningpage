@@ -35,7 +35,9 @@ describe("galleries link_url 필드", () => {
     expect(keys[at + 1]).toBe("link_url");
     const field = galleries.fields[at + 1]!;
     expect(field.label).toBe("연결주소");
-    expect(field.placeholder).toBe("https:// 로 시작하는 주소 또는 유튜브 링크");
+    expect(field.placeholder).toBe(
+      "https:// 로 시작하는 주소 또는 유튜브 링크",
+    );
   });
 });
 

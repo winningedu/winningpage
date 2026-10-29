@@ -179,15 +179,9 @@ export default defineHandler({
     //    §8.8 지정 문구로 막지만, 파일 선택기 필터를 우회한 경우 이 검사가 정본이다.
     const ext = ALLOWED_MIME_EXT[mimeType];
     if (!ext) {
-      return fail(
-        res,
-        415,
-        "UNSUPPORTED_MIME",
-        UNSUPPORTED_MIME_MESSAGE,
-        {
-          allowed: Object.keys(ALLOWED_MIME_EXT),
-        },
-      );
+      return fail(res, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
+        allowed: Object.keys(ALLOWED_MIME_EXT),
+      });
     }
 
     if (

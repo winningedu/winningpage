@@ -1,4 +1,9 @@
-import { ChevronRight, ExternalLink, Link as LinkIcon, Share2 } from "lucide-react";
+import {
+  ChevronRight,
+  ExternalLink,
+  Link as LinkIcon,
+  Share2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import ColumnBody, { hasBlockContent } from "@/components/column/ColumnBody";

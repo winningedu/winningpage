@@ -4,7 +4,11 @@ import { resumeCtaFor } from "./resumeCta";
 describe("resumeCtaFor", () => {
   it("설계 리포트만 있으면 이어서 작성하기", () => {
     expect(
-      resumeCtaFor({ design: { reportId: "d" }, evaluation: null, final: null }),
+      resumeCtaFor({
+        design: { reportId: "d" },
+        evaluation: null,
+        final: null,
+      }),
     ).toBe("이어서 작성하기");
   });
 

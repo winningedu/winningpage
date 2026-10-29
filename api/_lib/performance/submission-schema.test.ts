@@ -107,7 +107,9 @@ describe("작성 예시(example)", () => {
   test("저장된 example이 있으면 덮어쓰지 않는다", () => {
     const r = ported.normalizeSubmissionSchema({
       type: "basic_report",
-      fields: [{ key: "intro", label: "서론", helper: "h", example: "내 예시" }],
+      fields: [
+        { key: "intro", label: "서론", helper: "h", example: "내 예시" },
+      ],
     });
     expect(r.fields[0]?.example).toBe("내 예시");
   });

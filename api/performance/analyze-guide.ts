@@ -510,16 +510,10 @@ export default defineHandler({
         await markAttachmentsFailed(supabaseAdmin, analyzedIds);
 
         return badMime.length
-          ? fail(
-              res,
-              415,
-              "UNSUPPORTED_MIME",
-              UNSUPPORTED_MIME_MESSAGE,
-              {
-                allowed: Object.keys(ALLOWED_MIME_EXT),
-                charged: false,
-              },
-            )
+          ? fail(res, 415, "UNSUPPORTED_MIME", UNSUPPORTED_MIME_MESSAGE, {
+              allowed: Object.keys(ALLOWED_MIME_EXT),
+              charged: false,
+            })
           : fail(
               res,
               413,

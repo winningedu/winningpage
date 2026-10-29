@@ -176,7 +176,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? { rank: meRow.rank, name: meRow.name, hours: meRow.hours }
       : null;
 
-    return res.status(200).json({ ok: true, date: today, visible: true, top, me });
+    return res
+      .status(200)
+      .json({ ok: true, date: today, visible: true, top, me });
   } catch (error) {
     console.error("goal/ranking error:", error);
     return sendError(res, "detail", 500, "처리 중 오류가 발생했습니다.");
