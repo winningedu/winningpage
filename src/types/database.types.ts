@@ -1798,6 +1798,7 @@ export type Database = {
           image_urls: NonNullable<Json>;
           is_active: boolean | null;
           is_featured: boolean;
+          link_url: string | null;
           published_at: string | null;
           sort_order: number | null;
           title: string;
@@ -1815,6 +1816,7 @@ export type Database = {
           image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
+          link_url?: string | null;
           published_at?: string | null;
           sort_order?: number | null;
           title?: string;
@@ -1831,6 +1833,7 @@ export type Database = {
           image_urls?: NonNullable<Json>;
           is_active?: boolean | null;
           is_featured?: boolean;
+          link_url?: string | null;
           published_at?: string | null;
           sort_order?: number | null;
           title?: string;

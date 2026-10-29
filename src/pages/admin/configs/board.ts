@@ -32,6 +32,7 @@ interface BoardField {
   folder?: string;
   compress?: boolean;
   imageSpec?: BoardImageSpec;
+  placeholder?: string;
 }
 
 interface BoardCrudConfig {
@@ -50,6 +51,7 @@ interface BoardCrudConfig {
   defaults: Record<string, unknown>;
   rowToForm?: (row: Record<string, unknown>) => Record<string, unknown>;
   formToPayload?: (form: Record<string, unknown>) => Record<string, unknown>;
+  validate?: (form: Record<string, unknown>) => string | null;
 }
 
 // learningDiagnosis: custom:true 도메인 컴포넌트(LearningDiagnosisAdmin, 다른 배치 소유)
@@ -234,6 +236,12 @@ export const boardConfigs: Record<string, BoardConfig> = {
       },
       { key: "image_urls", label: "이미지", type: "multiImage" },
       {
+        key: "link_url",
+        label: "연결주소",
+        type: "text",
+        placeholder: "https:// 로 시작하는 주소 또는 유튜브 링크",
+      },
+      {
         key: "category",
         label: "카테고리",
         type: "select",
@@ -261,6 +269,14 @@ export const boardConfigs: Record<string, BoardConfig> = {
       category: "학습관리 방법",
       is_featured: false,
     },
+    // 연결주소는 비어 있거나 http(s):// 로 시작해야 한다(javascript: 등 차단).
+    validate: (form) => {
+      const linkUrl = String(form.link_url ?? "").trim();
+      if (linkUrl && !/^https?:\/\//i.test(linkUrl)) {
+        return "연결주소는 http:// 또는 https:// 로 시작해야 합니다.";
+      }
+      return null;
+    },
     // ref pull(blockEditor)은 form.__blocks_<key>에 임시로 실린다 — 정본(content_json)과
     // 평문 미러(content)로 분리해 저장하고 임시 키는 페이로드에서 제거한다.
     formToPayload: (form) => {
@@ -268,6 +284,7 @@ export const boardConfigs: Record<string, BoardConfig> = {
       const blocks = (__blocks_content as unknown[]) || [];
       return {
         ...rest,
+        link_url: String(rest.link_url ?? "").trim() || null,
         content_json: { v: 1, editor: "blocknote@0.52.1", blocks },
         content: blocksToPlainText(blocks),
       };
