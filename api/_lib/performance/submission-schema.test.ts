@@ -66,6 +66,14 @@ describe("작성 예시(example)", () => {
     "질문 1: 주제를 고른 이유는 무엇인가요?",
   ];
 
+  test("모든 필드 예시는 [예시]로 시작하지 않는다", () => {
+    for (const g of GUIDES) {
+      for (const f of ported.inferSubmissionSchema(g).fields) {
+        expect(f.example.startsWith("[예시]"), f.key).toBe(false);
+      }
+    }
+  });
+
   test("모든 유형의 모든 필드에 60~150자 예시가 있다", () => {
     const schemas = GUIDES.map((g) => ported.inferSubmissionSchema(g));
     expect(new Set(schemas.map((s) => s.type)).size).toBe(GUIDES.length);

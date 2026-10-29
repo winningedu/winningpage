@@ -65,6 +65,12 @@ describe("절 작성 예시", () => {
       expect(s.example.length, s.id).toBeLessThanOrEqual(150);
     }
   });
+
+  test("화면 라벨 칩이 이미 있으므로 클라이언트와 서버 예시는 [예시]로 시작하지 않는다", () => {
+    for (const s of [...client.SECTIONS, ...serverConstants.SECTIONS]) {
+      expect(s.example.startsWith("[예시]"), s.id).toBe(false);
+    }
+  });
 });
 
 describe("서버 submission.ts 와 같은 입출력", () => {
