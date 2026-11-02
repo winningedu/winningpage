@@ -53,7 +53,7 @@ describe("site — winning", () => {
     expect(site.company.naverBlogUrl).toBe("https://blog.naver.com/winningedu");
     expect(site.company.youtubeUrl).toBe("https://www.youtube.com/@winningedu");
     expect(site.company.instagramUrl).toBe(
-      "https://www.youtube.com/shorts/rdZ2COapC90",
+      "https://www.instagram.com/winningedu.official/",
     );
   });
 });
