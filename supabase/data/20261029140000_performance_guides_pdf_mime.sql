@@ -10,4 +10,5 @@ where id = 'performance-guides'
 
 -- 실행 기록
 -- 2026-10-29 dev gjowqdiopinhixfivnkx: 실행 전 image/png,image/jpeg,image/webp. 실행 후 application/pdf 추가. 재실행 변경 없음.
--- Winning prod, Schoolmentor prod: 미실행(dev 검증 후 main 배포 시 실행).
+-- 2026-10-29 Winning prod ykrpjcsubmbenfcnwlzd: 실행 전 image/png,image/jpeg,image/webp. 실행 후 application/pdf 추가. 재실행 변경 없음.
+-- 2026-10-29 Schoolmentor prod aalujumpwlnwlemnqrus: 버킷 allowed_mime_types가 null(제한 없음)이라 0행, 변경 없음.
