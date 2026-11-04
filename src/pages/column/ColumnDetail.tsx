@@ -18,11 +18,13 @@ import {
   getCoverUrl,
   normalizeImageUrls,
 } from "./columnData";
+import { useColumnCategories } from "./useColumnCategories";
 
 const RELATED_PAGE_SIZE = 4;
 
 export default function ColumnDetail() {
   const { id } = useParams();
+  const categories = useColumnCategories();
   const [post, setPost] = useState<ColumnRow | null>(null);
   const [relatedPool, setRelatedPool] = useState<ColumnRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,15 +66,17 @@ export default function ColumnDetail() {
   const relatedRows = useMemo(() => {
     if (!post) return [];
 
-    const categoryLabel = getCategoryLabel(post);
+    const categoryLabel = getCategoryLabel(post, categories);
     const pool = relatedPool.filter((row) => row.id !== post.id);
     const sameCategory =
       categoryLabel !== ALL_CATEGORY
-        ? pool.filter((row) => getCategoryLabel(row) === categoryLabel)
+        ? pool.filter(
+            (row) => getCategoryLabel(row, categories) === categoryLabel,
+          )
         : pool;
 
     return sameCategory.length > 0 ? sameCategory : pool;
-  }, [post, relatedPool]);
+  }, [post, relatedPool, categories]);
 
   const visibleRelated = relatedRows.slice(
     relatedStart,
@@ -238,7 +242,12 @@ export default function ColumnDetail() {
             <div className="relative mt-10">
               <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">
                 {visibleRelated.map((row) => (
-                  <ColumnCard key={row.id} column={row} variant="grid" />
+                  <ColumnCard
+                    key={row.id}
+                    column={row}
+                    categories={categories}
+                    variant="grid"
+                  />
                 ))}
               </div>
 
