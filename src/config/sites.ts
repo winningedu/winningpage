@@ -18,6 +18,8 @@ export interface SiteConfig {
     // 메뉴, 카드, 가격표, 라우트에서 숨길 신규 서비스(growth, selfeval, inquiry). 기본은 빈 배열(전부 노출).
     // 배포 환경별로는 site.ts가 VITE_HIDDEN_PROGRAMS로 덮어쓴다.
     hiddenPrograms: readonly GateableProgram[];
+    // 홈 배너(큰 배너/작은 배너)가 노출 대상 없이 0건일 때 영역을 숨기지 않고 '배너가 없습니다' 안내를 보여줄지(기획 #26).
+    bannerEmptyNotice: boolean;
   };
   company: {
     name: string;
@@ -54,7 +56,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       svg: "/favicon.svg",
     },
     manifest: "/site.webmanifest",
-    features: { premium: true, hiddenPrograms: [] },
+    features: {
+      premium: true,
+      hiddenPrograms: [],
+      bannerEmptyNotice: false,
+    },
     company: {
       name: "주식회사 위닝에듀",
       ceo: "강원석",
@@ -87,7 +93,11 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/schoolmentor/favicon.ico",
     },
     manifest: "/schoolmentor/site.webmanifest",
-    features: { premium: false, hiddenPrograms: [] },
+    features: {
+      premium: false,
+      hiddenPrograms: [],
+      bannerEmptyNotice: true,
+    },
     company: {
       name: "주식회사 위닝로직",
       ceo: "강원석",

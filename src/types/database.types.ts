@@ -1172,12 +1172,15 @@ export type Database = {
           button_text: string | null;
           created_at: string | null;
           display_seconds: number;
+          end_date: string | null;
           highlight: string | null;
           id: number;
           image_url: string | null;
           is_active: boolean | null;
           sort_order: number | null;
+          start_date: string | null;
           subtitle: string | null;
+          tenant_id: string | null;
           title: string;
           updated_at: string | null;
         };
@@ -1187,12 +1190,15 @@ export type Database = {
           button_text?: string | null;
           created_at?: string | null;
           display_seconds?: number;
+          end_date?: string | null;
           highlight?: string | null;
           id?: number;
           image_url?: string | null;
           is_active?: boolean | null;
           sort_order?: number | null;
+          start_date?: string | null;
           subtitle?: string | null;
+          tenant_id?: string | null;
           title: string;
           updated_at?: string | null;
         };
@@ -1201,16 +1207,27 @@ export type Database = {
           button_text?: string | null;
           created_at?: string | null;
           display_seconds?: number;
+          end_date?: string | null;
           highlight?: string | null;
           id?: number;
           image_url?: string | null;
           is_active?: boolean | null;
           sort_order?: number | null;
+          start_date?: string | null;
           subtitle?: string | null;
+          tenant_id?: string | null;
           title?: string;
           updated_at?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "banners_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       board_views: {
         Row: {
@@ -3035,6 +3052,7 @@ export type Database = {
           sort_order: number;
           start_date: string | null;
           subtitle: string | null;
+          tenant_id: string | null;
           title: string;
           updated_at: string;
         };
@@ -3052,6 +3070,7 @@ export type Database = {
           sort_order?: number;
           start_date?: string | null;
           subtitle?: string | null;
+          tenant_id?: string | null;
           title: string;
           updated_at?: string;
         };
@@ -3068,10 +3087,19 @@ export type Database = {
           sort_order?: number;
           start_date?: string | null;
           subtitle?: string | null;
+          tenant_id?: string | null;
           title?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "home_side_banners_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       identity_verifications: {
         Row: {

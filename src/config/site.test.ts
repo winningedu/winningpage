@@ -123,6 +123,20 @@ describe("site - 프리미엄 노출 플래그", () => {
   });
 });
 
+describe("site - 배너 빈 상태 안내 플래그", () => {
+  it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.features.bannerEmptyNotice).toBe(false);
+  });
+
+  it("schoolmentor는 배너가 없으면 안내 문구를 보여준다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.features.bannerEmptyNotice).toBe(true);
+  });
+});
+
 describe("site - 숨길 프로그램 플래그", () => {
   it("env가 없으면 기본값은 빈 배열이다(두 사이트 모두)", async () => {
     vi.stubEnv("VITE_HIDDEN_PROGRAMS", "");
