@@ -110,6 +110,11 @@ export type AdminField<T extends AdminRow = AdminRow> = {
   type?: AdminFieldType;
   required?: boolean;
   options?: AdminOption[];
+  // select 선택지를 폼이 열릴 때 불러와야 하는 필드(예: tenants). 불러온 값이 options 를
+  // 대체하고, 실패하면 빈 선택지로 둔다(저장된 값 자체는 건드리지 않는다).
+  loadOptions?: () => Promise<AdminOption[]>;
+  // select 의 빈 값(value="") 항목 문구. 생략하면 "선택".
+  emptyLabel?: string;
   rows?: number;
   placeholder?: string;
   min?: number;
@@ -287,7 +292,7 @@ function AdminInput({
         disabled={disabled}
         className={base}
       >
-        <option value="">선택</option>
+        <option value="">{field.emptyLabel ?? "선택"}</option>
         {(field.options || []).map((option) => {
           const optionValue = optionValueOf(option);
           const optionLabel = optionLabelOf(option);
@@ -673,6 +678,28 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     } as T;
   });
   const [dirty, setDirty] = useState(false);
+  // field.loadOptions 가 있는 select 의 불러온 선택지(key 별).
+  const [loadedOptions, setLoadedOptions] = useState<
+    Record<string, AdminOption[]>
+  >({});
+  useEffect(() => {
+    let alive = true;
+    for (const field of config.fields || []) {
+      const { loadOptions } = field;
+      if (!loadOptions) continue;
+      loadOptions()
+        .then((options) => {
+          if (alive)
+            setLoadedOptions((prev) => ({ ...prev, [field.key]: options }));
+        })
+        .catch((error) => {
+          console.warn(`${field.key} 선택지 조회 실패:`, error);
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [config.fields]);
   // 열려 있는 카테고리 편집 다이얼로그의 섹션 키(field.group 있는 config,
   // 현재는 admissionGuidelines 뿐). null이면 닫힘 — 한 번에 최대 1개.
   //
@@ -1084,9 +1111,12 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
           <div className="min-w-0 flex-1 bg-white shadow-sm">
             {buildFieldRenderItems(
-              (config.fields || config.columns).filter(
-                (field) => !field.showIf || field.showIf(form),
-              ),
+              (config.fields || config.columns)
+                .filter((field) => !field.showIf || field.showIf(form))
+                .map((field) => {
+                  const options = loadedOptions[field.key];
+                  return options ? { ...field, options } : field;
+                }),
               form,
             ).map((item) => {
               if (item.type === "header") {

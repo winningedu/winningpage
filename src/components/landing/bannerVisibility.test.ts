@@ -63,8 +63,7 @@ describe("filterBannersByTarget", () => {
   });
 
   test("tenant_id 키가 없는 행은 공통으로 본다", () => {
-    expect(filterBannersByTarget([{ id: "legacy" }], [])).toEqual([
-      { id: "legacy" },
-    ]);
+    const legacy: { id: string; tenant_id?: string | null } = { id: "legacy" };
+    expect(filterBannersByTarget([legacy], [])).toEqual([legacy]);
   });
 });

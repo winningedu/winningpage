@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
+import { bannerFormToPayload, loadTenantOptions } from "./bannersForm";
 import {
   MentorCardFormPreview,
   mentorFormToPayload,
@@ -45,6 +46,8 @@ interface MainField {
     | "select"
     | "multiImage";
   required?: boolean;
+  loadOptions?: () => Promise<FieldOption[]>;
+  emptyLabel?: string;
   readOnly?: boolean;
   help?: string;
   hideUrlInput?: boolean;
@@ -158,6 +161,7 @@ export const mainConfigs: Record<string, MainConfig> = {
     order: "sort_order",
     homepage: true,
     guideText: `활성 배너가 sort_order 순으로 캐러셀 자동 전환되며, 각 배너의 노출 시간(초)만큼 머뭅니다. 969×429px 통이미지(헤드라인·버튼 텍스트 포함)를 업로드하세요. 이동 URL을 입력하면 배너 전체가 클릭됩니다. 형식: JPG 또는 PNG / 2MB 이하`,
+    formToPayload: bannerFormToPayload,
     columns: [
       { key: "image_url", label: "이미지", type: "image" },
       { key: "title", label: "제목" },
@@ -185,6 +189,16 @@ export const mainConfigs: Record<string, MainConfig> = {
         imageSpec: { width: 969, height: 429, maxMB: 2 },
         folder: "landing/hero",
         cacheControl: "31536000, immutable",
+      },
+      { key: "start_date", label: "노출 시작일", type: "date" },
+      { key: "end_date", label: "노출 종료일", type: "date" },
+      {
+        key: "tenant_id",
+        label: "노출 대상",
+        type: "select",
+        emptyLabel: "공통",
+        loadOptions: loadTenantOptions,
+        help: "공통은 모두에게 노출하고, 기관을 고르면 그 기관 소속 회원에게만 노출합니다.",
       },
       { key: "sort_order", label: "순서", type: "number" },
       {
@@ -214,6 +228,7 @@ export const mainConfigs: Record<string, MainConfig> = {
     order: "sort_order",
     homepage: true,
     guideText: `PC 권장: 321px × 429px / 형식: PNG / 2MB 이하 / 여러 장 등록 시 각 배너의 노출 시간(초)만큼 머문 뒤 자동 전환되며 이미지 하단 인디케이터로 이동할 수 있습니다`,
+    formToPayload: bannerFormToPayload,
     columns: [
       { key: "image_url", label: "PC 이미지", type: "image" },
       { key: "title", label: "제목" },
@@ -254,6 +269,14 @@ export const mainConfigs: Record<string, MainConfig> = {
       },
       { key: "start_date", label: "노출 시작일", type: "date" },
       { key: "end_date", label: "노출 종료일", type: "date" },
+      {
+        key: "tenant_id",
+        label: "노출 대상",
+        type: "select",
+        emptyLabel: "공통",
+        loadOptions: loadTenantOptions,
+        help: "공통은 모두에게 노출하고, 기관을 고르면 그 기관 소속 회원에게만 노출합니다.",
+      },
       { key: "sort_order", label: "순서", type: "number" },
       {
         key: "display_seconds",
