@@ -1,6 +1,7 @@
 import { FAQ_CATEGORIES } from "@/data/faqCategories";
 import { blocksToPlainText } from "@/lib/blockToPlainText";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
+import { fetchColumnCategories } from "@/pages/column/columnData";
 
 interface BoardColumn {
   key: string;
@@ -28,6 +29,7 @@ interface BoardField {
   required?: boolean;
   readOnly?: boolean;
   options?: FieldOption[];
+  loadOptions?: () => Promise<FieldOption[]>;
   accept?: string;
   folder?: string;
   compress?: boolean;
@@ -245,16 +247,7 @@ export const boardConfigs: Record<string, BoardConfig> = {
         key: "category",
         label: "카테고리",
         type: "select",
-        // = columnData.js COLUMN_CATEGORIES
-        options: [
-          "학습관리 방법",
-          "수시 및 정시 전략",
-          "특목고 입학",
-          "해외 및 대학원",
-          "입시제도 변화",
-          "대학 입시 제로",
-          "학생부•수행평가•세특",
-        ],
+        loadOptions: fetchColumnCategories,
       },
       { key: "is_featured", label: "이번주 인기 노출", type: "radioBoolean" },
       // 조회수 강제 조정 예외 통로 — notices 설정의 동일 필드 주석 참고.
@@ -288,6 +281,34 @@ export const boardConfigs: Record<string, BoardConfig> = {
         content_json: { v: 1, editor: "blocknote@0.52.1", blocks },
         content: blocksToPlainText(blocks),
       };
+    },
+  },
+
+  columnCategories: {
+    title: "칼럼 카테고리",
+    table: "column_categories",
+    searchPlaceholder: "카테고리 이름을 검색하세요",
+    order: "sort_order",
+    guideText: `교육칼럼 목록의 카테고리 칩입니다. 노출 중인 항목만 순서 값이 작은 것부터 '전체' 뒤에 나옵니다. 이름을 바꾸면 그 이름을 쓰던 칼럼도 함께 바뀌고, 삭제하거나 숨기면 칼럼은 '전체'에서만 보입니다.`,
+    columns: [
+      { key: "label", label: "이름" },
+      { key: "sort_order", label: "순서" },
+      { key: "is_active", label: "노출", type: "boolean" },
+    ],
+    fields: [
+      {
+        key: "is_active",
+        label: "노출 여부",
+        type: "radioBoolean",
+        required: true,
+      },
+      { key: "label", label: "이름", type: "text", required: true },
+      { key: "sort_order", label: "순서", type: "number" },
+    ],
+    defaults: {
+      is_active: true,
+      label: "",
+      sort_order: 0,
     },
   },
 

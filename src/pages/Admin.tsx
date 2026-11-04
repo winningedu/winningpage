@@ -169,6 +169,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       { key: "admissionResults", label: "입결정보" },
       { key: "trendingDepartments", label: "지금 뜨고 있는 학과" },
       { key: "galleries", label: "교육칼럼" },
+      { key: "columnCategories", label: "칼럼 카테고리" },
     ],
   },
   {
