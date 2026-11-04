@@ -68,3 +68,11 @@ describe("banners 어드민: 노출 대상", () => {
     expect(payload).toMatchObject({ tenant_id: "t-1" });
   });
 });
+
+describe("banners 어드민: 미리보기", () => {
+  test("두 배너 모두 폼 옆에 FormPreview 를 단다", () => {
+    for (const key of BANNER_KEYS) {
+      expect(typeof configs[key]?.FormPreview).toBe("function");
+    }
+  });
+});
