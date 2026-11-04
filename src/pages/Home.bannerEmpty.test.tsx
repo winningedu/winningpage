@@ -78,4 +78,76 @@ describe("Home 배너 빈 상태 안내", () => {
     expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
     expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
   });
+
+  test("작은 배너만 있으면 큰 배너 영역에만 안내 문구를 보여준다", async () => {
+    state.rows.home_side_banners = [
+      { id: "s1", title: "작은배너", image_url: "/side.png" },
+    ];
+    renderHome();
+
+    const main = await screen.findByRole("region", { name: "메인 배너" });
+    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(await screen.findByAltText("작은배너")).toBeInTheDocument();
+    expect(screen.getAllByText("배너가 없습니다")).toHaveLength(1);
+  });
+
+  test("큰 배너만 있으면 작은 배너 영역에만 안내 문구를 보여준다", async () => {
+    state.rows.banners = [{ id: 1, title: "큰배너", image_url: "/main.png" }];
+    renderHome();
+
+    const side = await screen.findByRole("region", { name: "이벤트 배너" });
+    expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(await screen.findByAltText("큰배너")).toBeInTheDocument();
+    expect(screen.getAllByText("배너가 없습니다")).toHaveLength(1);
+  });
+
+  test("노출 기간이 지났거나 특정 기관 전용인 배너만 남으면 안내 문구를 보여준다", async () => {
+    state.rows.banners = [
+      {
+        id: 1,
+        title: "기간 지난 배너",
+        image_url: "/old.png",
+        end_date: "2000-01-01",
+      },
+      {
+        id: 2,
+        title: "기관 전용 배너",
+        image_url: "/tenant.png",
+        tenant_id: "t-1",
+      },
+    ];
+    renderHome();
+
+    const main = await screen.findByRole("region", { name: "메인 배너" });
+    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(screen.queryByAltText("기간 지난 배너")).toBeNull();
+    expect(screen.queryByAltText("기관 전용 배너")).toBeNull();
+  });
+
+  test("조회가 끝나기 전에는 안내 문구를 보여주지 않는다", async () => {
+    let release = () => {};
+    state.held.banners = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderHome();
+
+    // 작은 배너 조회는 이미 끝났으므로 그 영역은 안내가 뜨고, 큰 배너는 아직 비어 있다.
+    const side = await screen.findByRole("region", { name: "이벤트 배너" });
+    expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "메인 배너" })).toBeNull();
+
+    release();
+    const main = await screen.findByRole("region", { name: "메인 배너" });
+    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+  });
+
+  test("안내 스위치가 꺼진 사이트(위닝)는 배너가 없으면 영역을 렌더하지 않는다", async () => {
+    state.notice = false;
+    renderHome();
+
+    expect(await screen.findByText("등록된 공지사항이 없습니다.")).toBeTruthy();
+    expect(screen.queryByText("배너가 없습니다")).toBeNull();
+    expect(screen.queryByRole("region", { name: "메인 배너" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "이벤트 배너" })).toBeNull();
+  });
 });
