@@ -199,7 +199,13 @@ type SideBanner = {
 type HeroSectionProps = {
   banners?: MainBanner[];
   sideBanners?: SideBanner[];
+  // 해당 영역에 보여줄 배너가 0건일 때 영역을 숨기지 않고 안내 문구를 보여준다(기획 #26).
+  // 조회가 끝난 뒤에만 켜는 책임은 호출부에 있다.
+  showMainEmptyNotice?: boolean;
+  showSideEmptyNotice?: boolean;
 };
+
+const EMPTY_BANNER_NOTICE = "배너가 없습니다";
 
 /**
  * 히어로 섹션 (명세 3.1)
@@ -217,6 +223,8 @@ type HeroSectionProps = {
 export default function HeroSection({
   banners = [],
   sideBanners = [],
+  showMainEmptyNotice = false,
+  showSideEmptyNotice = false,
 }: HeroSectionProps) {
   const leftSlides = banners.filter((item) => item.image_url);
   const leftSlideCount = leftSlides.length;
@@ -237,7 +245,17 @@ export default function HeroSection({
     rightSlides.map((s) => secondsToMs(s.display_seconds)),
   );
 
-  if (leftSlideCount === 0 && rightSlideCount === 0) return null;
+  const showLeftEmpty = leftSlideCount === 0 && showMainEmptyNotice;
+  const showRightEmpty = rightSlideCount === 0 && showSideEmptyNotice;
+
+  if (
+    leftSlideCount === 0 &&
+    rightSlideCount === 0 &&
+    !showLeftEmpty &&
+    !showRightEmpty
+  ) {
+    return null;
+  }
 
   return (
     <section aria-label="메인 히어로" className="w-full">
@@ -245,6 +263,17 @@ export default function HeroSection({
           좌 73.89%(813.28/1100.6) + 우 24.47%(269.32/1100.6)
           lg 상단 패딩: 헤더 하단→배너 120px→7.5rem. pb는 0 — 다음 섹션 pt에서 갭 처리(섹션 수직 리듬 규칙) */}
       <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-center lg:gap-4.5 lg:pb-0 lg:pt-30">
+        {showLeftEmpty && (
+          <div className="flex w-full flex-col items-center lg:basis-[73.89%] lg:grow lg:shrink-0">
+            <section
+              aria-label="메인 배너"
+              className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-969/429"
+            >
+              {EMPTY_BANNER_NOTICE}
+            </section>
+          </div>
+        )}
+
         {/* 좌측 캐러셀 969×429 + 카드 바깥 하단 인디케이터 */}
         {leftSlideCount > 0 && (
           <div className="flex w-full flex-col items-center lg:basis-[73.89%] lg:grow lg:shrink-0">
@@ -357,6 +386,17 @@ export default function HeroSection({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {showRightEmpty && (
+          <div className="flex w-full max-w-80.25 flex-col items-center md:max-w-104 lg:max-w-none lg:basis-[24.47%] lg:grow lg:shrink-0">
+            <section
+              aria-label="이벤트 배너"
+              className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-321/429"
+            >
+              {EMPTY_BANNER_NOTICE}
+            </section>
           </div>
         )}
 

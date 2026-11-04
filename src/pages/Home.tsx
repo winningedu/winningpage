@@ -9,6 +9,7 @@ import ServicesSection from "@/components/landing/ServicesSection";
 import { useHomeSectionCopy } from "@/components/landing/useHomeSectionCopy";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import * as landingPreview from "@/data/landingPreview";
 import type { NormalizedMentor } from "@/hooks/useHomeMentors";
 import { useHomeMentors } from "@/hooks/useHomeMentors";
@@ -279,7 +280,11 @@ export default function Home() {
       : [],
   );
   // 노출 대상 판정용 소속 기관 목록. 비로그인과 rpc 실패는 빈 목록이라 공통 배너만 남는다.
-  const { ids: matchedTenantIds } = useMatchedTenantIds();
+  const { ids: matchedTenantIds, loaded: tenantsLoaded } =
+    useMatchedTenantIds();
+  // 빈 상태 안내는 조회가 끝난 뒤에만 보여준다(로딩 중 깜빡임 방지). 두 영역은 따로 판정한다.
+  const [bannersLoaded, setBannersLoaded] = useState(LANDING_PREVIEW);
+  const [sideBannersLoaded, setSideBannersLoaded] = useState(LANDING_PREVIEW);
   const banners = useMemo(
     () => selectVisibleBanners(fetchedBanners, todayKstYmd(), matchedTenantIds),
     [fetchedBanners, matchedTenantIds],
@@ -329,6 +334,7 @@ export default function Home() {
       if (error) {
         console.error("배너 조회 오류:", error);
         setBanners([]);
+        setBannersLoaded(true);
         return;
       }
 
@@ -344,6 +350,7 @@ export default function Home() {
         // 문자열로 맞춘다.
         .map((item) => ({ ...item, id: String(item.id) }));
       setBanners(normalized);
+      setBannersLoaded(true);
     }
 
     fetchBanners();
@@ -457,6 +464,7 @@ export default function Home() {
         );
         setSideBanners(visible);
       }
+      setSideBannersLoaded(true);
 
       if (universityResult.error) {
         // 테이블 미생성/조회 실패 시 섹션 미렌더 fallback
@@ -548,6 +556,17 @@ export default function Home() {
     };
   }, [banners]);
 
+  const showMainEmptyNotice =
+    site.features.bannerEmptyNotice &&
+    bannersLoaded &&
+    tenantsLoaded &&
+    banners.length === 0;
+  const showSideEmptyNotice =
+    site.features.bannerEmptyNotice &&
+    sideBannersLoaded &&
+    tenantsLoaded &&
+    sideBanners.length === 0;
+
   function closePopup(id: string) {
     setPopups((prev) => prev.filter((popup) => popup.id !== id));
   }
@@ -575,8 +594,13 @@ export default function Home() {
           heroReady ? "opacity-100" : "opacity-0"
         }`}
       >
-        {(banners.length > 0 || sideBanners.length > 0) && (
+        {(banners.length > 0 ||
+          sideBanners.length > 0 ||
+          showMainEmptyNotice ||
+          showSideEmptyNotice) && (
           <HeroSection
+            showMainEmptyNotice={showMainEmptyNotice}
+            showSideEmptyNotice={showSideEmptyNotice}
             // HeroSection.MainBanner.button_link/sort_order는 exactOptionalPropertyTypes
             // 하에서 null도, 명시적 undefined 값도 못 받는 optional 필드(생략만 허용)라
             // 값이 있을 때만 키를 스프레드한다(state 자체는 DB 값 그대로 유지). sort_order는
