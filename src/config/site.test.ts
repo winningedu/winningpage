@@ -51,7 +51,9 @@ describe("site — winning", () => {
     expect(site.company.kakao).toBe("winningedu_official");
     expect(site.company.kakaoChannelUrl).toBe("https://pf.kakao.com/_EfjwX");
     expect(site.company.naverBlogUrl).toBe("https://blog.naver.com/winningedu");
-    expect(site.company.youtubeUrl).toBe("https://www.youtube.com/@winningedu");
+    expect(site.company.youtubeUrl).toBe(
+      "https://www.youtube.com/@winningedu-100",
+    );
     expect(site.company.instagramUrl).toBe(
       "https://www.instagram.com/winningedu.official/",
     );
