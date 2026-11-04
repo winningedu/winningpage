@@ -1300,6 +1300,31 @@ export type Database = {
           },
         ];
       };
+      column_categories: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          label: string;
+          sort_order: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          label: string;
+          sort_order?: number;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          label?: string;
+          sort_order?: number;
+        };
+        Relationships: [];
+      };
       company_news: {
         Row: {
           attachments: NonNullable<Json>;
