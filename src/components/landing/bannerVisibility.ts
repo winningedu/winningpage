@@ -1,4 +1,4 @@
-// 홈 배너(banners, home_side_banners) 노출 판정. 두 테이블이 같은 규칙을 쓴다.
+// 홈 배너(banners, home_side_banners) 노출 판정. 두 테이블이 같은 규칙을 쓴다(각각 따로 판정).
 
 interface BannerPeriod {
   start_date?: string | null;
@@ -17,15 +17,20 @@ interface BannerTarget {
   tenant_id?: string | null;
 }
 
-// 노출 대상 판정. tenant_id 가 없으면 공통 배너라 모두에게, 있으면 matchedTenantIds 에
-// 든 기관 소속만 본다(filterOrgProducts 와 같은 규칙, 표시 전용). 비로그인과 rpc 실패는
-// 호출부(useMatchedTenantIds)가 빈 목록으로 확정하므로 공통 배너만 남는다.
-export function filterBannersByTarget<T extends BannerTarget>(
+// 노출 판정. 기간 밖 배너를 먼저 걸러낸 뒤 대상을 정한다(기획 #26, 대체 방식).
+// 내 기관(matchedTenantIds) 배너가 1개 이상이면 그 배너만, 없으면 공통(tenant_id 없음)
+// 배너를 보여준다. 비로그인과 rpc 실패는 호출부(useMatchedTenantIds)가 빈 목록으로
+// 확정하므로 공통 배너만 남는다. 표시 전용이며 정본 접근 제어가 아니다.
+export function selectVisibleBanners<T extends BannerTarget & BannerPeriod>(
   banners: T[],
+  today: string,
   matchedTenantIds: string[],
 ): T[] {
   const matched = new Set(matchedTenantIds);
-  return banners.filter(
-    (banner) => !banner.tenant_id || matched.has(banner.tenant_id),
+  const active = banners.filter((banner) => isBannerInPeriod(banner, today));
+  const mine = active.filter(
+    (banner) => banner.tenant_id && matched.has(banner.tenant_id),
   );
+  if (mine.length > 0) return mine;
+  return active.filter((banner) => !banner.tenant_id);
 }
