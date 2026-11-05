@@ -29,6 +29,8 @@ export interface KitState {
     values: Record<string, unknown>;
     filters: Record<string, unknown>;
   }[];
+  /** delete() 를 건 테이블과 필터. */
+  deletes: { table: string; filters: Record<string, unknown> }[];
   /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
   orders: { table: string; column: string }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
@@ -88,6 +90,7 @@ export function createKitState(): KitState {
     insertError: null,
     insertErrors: {},
     updates: [],
+    deletes: [],
     orders: [],
     events,
     auth: {
@@ -160,6 +163,11 @@ export function createFakeAdmin(state: KitState) {
       chain.update = (values: Record<string, unknown>) => {
         state.events.push(`update:${table}`);
         state.updates.push({ table, values, filters });
+        return chain;
+      };
+      chain.delete = () => {
+        state.events.push(`delete:${table}`);
+        state.deletes.push({ table, filters });
         return chain;
       };
       chain.insert = (row: Record<string, unknown>) => {
