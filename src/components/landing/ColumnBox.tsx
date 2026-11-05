@@ -96,3 +96,17 @@ export function ColumnBoxItem({
     </li>
   );
 }
+
+/** 불러오는 중 박스(W1 loading): 같은 크기, 썸네일과 제목, 메타 자리에 막대. */
+export function ColumnBoxSkeleton(): ReactNode {
+  return (
+    <div
+      data-testid="column-box-skeleton"
+      className={`${BOX_CLASS} h-[16.33rem]`}
+    >
+      <div className="aspect-8/5 w-full rounded-[0.625rem] bg-column-thumb" />
+      <div className="h-4 w-[12.5rem] rounded-sm bg-surface-muted" />
+      <div className="mt-auto h-3 w-[5.625rem] rounded-sm bg-surface-muted" />
+    </div>
+  );
+}

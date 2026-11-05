@@ -109,3 +109,31 @@ describe("ColumnNewsSection 박스", () => {
     );
   });
 });
+
+describe("ColumnNewsSection 상태", () => {
+  test("글이 하나도 없으면 안내 문구를 보여준다", () => {
+    renderSection({ boxes: [] });
+    expect(screen.getByText("작성된 글이 없어요")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem")).toBeNull();
+  });
+
+  test("불러오지 못하면 이 영역에만 오류 안내를 보여주고 제목은 남긴다", () => {
+    renderSection({ status: "error", boxes: [] });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "글을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요",
+    );
+    expect(
+      screen.getByRole("heading", { name: "칼럼-교육청소식" }),
+    ).toBeInTheDocument();
+  });
+
+  test("불러오는 중에는 같은 크기의 빈 박스 4개를 busy 상태로 보여준다", () => {
+    renderSection({ status: "loading", boxes: [] });
+    const region = screen.getByRole("region", { name: "칼럼-교육청소식" });
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(within(region).getAllByTestId("column-box-skeleton")).toHaveLength(
+      4,
+    );
+    expect(screen.queryByText("작성된 글이 없어요")).toBeNull();
+  });
+});
