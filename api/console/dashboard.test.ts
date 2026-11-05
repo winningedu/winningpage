@@ -153,4 +153,64 @@ describe("GET /api/console/dashboard", () => {
       ],
     });
   });
+  test("a homeroom is counted over the classes assigned to them only", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-3"],
+    });
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect((r.body as { usage: unknown }).usage).toEqual({
+      usingCount: 2,
+      totalCount: 3,
+    });
+  });
+
+  test("a homeroom asking for a class they do not teach gets 404", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-3"],
+    });
+    const r = await get({ classId: "c-5" });
+
+    expect(r.status).toBe(404);
+  });
+
+  test("classId, grade and groupId narrow the scope", async () => {
+    const byClass = await get({ classId: "c-5" });
+    expect((byClass.body as { usage: unknown }).usage).toEqual({
+      usingCount: 1,
+      totalCount: 1,
+    });
+    const byGrade = await get({ grade: "고1" });
+    expect((byGrade.body as { usage: unknown }).usage).toEqual({
+      usingCount: 1,
+      totalCount: 1,
+    });
+    const byGroup = await get({ grade: "고1", groupId: "g-1" });
+    expect((byGroup.body as { usage: unknown }).usage).toEqual({
+      usingCount: 1,
+      totalCount: 1,
+    });
+    const noMatch = await get({ grade: "고2", groupId: "g-1" });
+    expect((noMatch.body as { usage: unknown }).usage).toEqual({
+      usingCount: 0,
+      totalCount: 0,
+    });
+  });
+
+  test("a scope with no goal students has a null average and zero buckets", async () => {
+    const r = await get({ classId: "c-5" });
+    expect((r.body as { goal: unknown }).goal).toEqual({
+      userCount: 0,
+      average: null,
+      buckets: { low: 0, mid: 0, high: 0 },
+    });
+  });
+
+  test("an unknown grade is a 400", async () => {
+    const r = await get({ grade: "고9" });
+    expect(r.status).toBe(400);
+  });
 });
