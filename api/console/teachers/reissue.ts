@@ -26,6 +26,11 @@ const REISSUE_REFUSALS = {
     "이미 비밀번호를 설정한 계정은 임시 비밀번호를 다시 발급할 수 없습니다.",
     "PASSWORD_ALREADY_SET",
   ],
+  busy: [
+    409,
+    "같은 계정의 임시 비밀번호를 다시 발급하고 있습니다. 잠시 뒤 다시 시도해 주세요.",
+    "IN_PROGRESS",
+  ],
   send_not_failed: [
     409,
     "마지막 발송이 실패한 경우에만 다시 발급할 수 있습니다.",

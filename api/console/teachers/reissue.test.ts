@@ -65,9 +65,11 @@ describe("POST /api/console/teachers/reissue", () => {
     expect(
       kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),
     ).toEqual([
+      "rpc:fn_teacher_reissue_claim",
       "rpc:fn_teacher_attach_account",
       "insert:admin_access_logs",
       "auth:updateUserById",
+      "rpc:fn_teacher_reissue_release",
     ]);
     expect(kit.state.inserts[0]?.row).toMatchObject({
       action: "account_reissue",
@@ -78,6 +80,69 @@ describe("POST /api/console/teachers/reissue", () => {
     });
     expect(JSON.stringify(kit.state.inserts)).not.toContain(password);
   });
+
+  test("다른 요청이 재발급을 맡았으면 409 IN_PROGRESS 이고 해시도 Auth 비밀번호도 바꾸지 않는다", async () => {
+    kit.state.rpc.fn_teacher_reissue_claim = () => ({
+      data: "busy",
+      error: null,
+    });
+
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "IN_PROGRESS" } });
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_attach_account");
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_reissue_release");
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("claim 은 교사 id 와 기관 id 로 잡는다", async () => {
+    let claimArgs: Record<string, unknown> = {};
+    kit.state.rpc.fn_teacher_reissue_claim = (args) => {
+      claimArgs = args;
+      return { data: "claimed", error: null };
+    };
+
+    await post({ teacherId: "teacher-1" });
+
+    expect(claimArgs).toEqual({
+      p_teacher_id: "teacher-1",
+      p_tenant: "tenant-1",
+    });
+  });
+
+  test("Auth 비밀번호 교체가 실패해도 claim 을 놓아 같은 요청을 바로 다시 보낼 수 있다", async () => {
+    kit.state.auth.updateUserById.mockResolvedValue({
+      data: null,
+      error: { status: 500 },
+    });
+
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(502);
+    expect(kit.state.events.at(-1)).toBe("rpc:fn_teacher_reissue_release");
+  });
+
+  test.each([
+    ["WC089", "ACCOUNT_MISMATCH"],
+    ["WC090", "PASSWORD_ALREADY_SET"],
+  ])(
+    "claim 이 %s 로 거부하면 409 %s 이고 아무것도 바꾸지 않는다",
+    async (sqlstate, code) => {
+      kit.state.rpc.fn_teacher_reissue_claim = () => ({
+        data: null,
+        error: { code: sqlstate },
+      });
+
+      const r = await post({ teacherId: "teacher-1" });
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_attach_account");
+      expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    },
+  );
 
   test("발송 기록이 아직 없으면 마지막 발송이 성공한 것이 아니므로 재발급할 수 있다", async () => {
     kit.state.rows.alimtalk_send_logs = () => [];

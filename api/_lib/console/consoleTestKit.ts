@@ -94,7 +94,11 @@ export function createFakeAdmin(state: KitState) {
         return Promise.resolve({ data: [state.actor], error: null });
       }
       const handler = state.rpc[name];
-      if (!handler && name === "fn_teacher_issue_claim") {
+      if (
+        !handler &&
+        (name === "fn_teacher_issue_claim" ||
+          name === "fn_teacher_reissue_claim")
+      ) {
         return Promise.resolve({ data: "claimed", error: null });
       }
       // 교사 로그인 아이디의 인증 이메일(attemptLogin 이 부른다).
