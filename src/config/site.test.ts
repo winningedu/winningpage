@@ -144,10 +144,10 @@ describe("site - 서버 로그인 플래그", () => {
     expect(site.features.serverLogin).toBe(false);
   });
 
-  it("schoolmentor는 서버 로그인(/api/auth/login)을 쓴다", async () => {
+  it("schoolmentor는 운영 준비(시크릿 키, 전달 IP 설정, W2 라우트)가 끝나기 전까지 서버 로그인을 끈다", async () => {
     const { site } = await loadSite("schoolmentor");
 
-    expect(site.features.serverLogin).toBe(true);
+    expect(site.features.serverLogin).toBe(false);
   });
 });
 

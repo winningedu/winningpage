@@ -104,7 +104,8 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       premium: false,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
-      serverLogin: true,
+      // 운영 선행 조건(시크릿 키 env, Sb-Forwarded-For 설정)과 W2 라우트가 갖춰질 때까지 끈다.
+      serverLogin: false,
     },
     company: {
       name: "주식회사 위닝로직",
