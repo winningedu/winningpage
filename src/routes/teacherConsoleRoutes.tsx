@@ -11,6 +11,7 @@ import ImportSetupPage from "@/pages/console/import-setup/ImportSetupPage";
 import MyPage from "@/pages/console/MyPage";
 import OrgInfoPage from "@/pages/console/OrgInfoPage";
 import ProxySelectPage from "@/pages/console/proxy-select/ProxySelectPage";
+import ServiceStatusPage from "@/pages/console/service-status/ServiceStatusPage";
 import StudentHistoryPage from "@/pages/console/student-history/StudentHistoryPage";
 import StudentListPage from "@/pages/console/students/StudentListPage";
 import TeacherAccountsPage from "@/pages/console/teachers/TeacherAccountsPage";
@@ -45,6 +46,10 @@ const teacherConsoleRoutes: RouteObject[] = [
               { path: "teachers/excel", Component: TeacherExcelPage },
               { path: "accounts", Component: TeacherAccountsPage },
               { path: "enrollment", Component: EnrollmentPage },
+              {
+                path: "service-status/:service?",
+                Component: ServiceStatusPage,
+              },
               { path: "*", Component: ConsolePlaceholder },
             ],
           },
