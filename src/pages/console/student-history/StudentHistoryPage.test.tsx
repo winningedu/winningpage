@@ -1093,6 +1093,41 @@ describe("W13b 학생 정보 직접 변경", () => {
     expect(calls.some((c) => c.key === PATCH)).toBe(false);
   });
 
+  it("번호를 고치지 않았으면 저장된 번호가 1부터 99 밖이어도 막지 않고 그대로 보낸다", async () => {
+    const { calls, dialog } = await openDirect({
+      [STUDENTS_URL]: {
+        body: studentsBody([
+          student(1, {
+            enrollment: {
+              grade: "고2",
+              groupId: null,
+              classId: "c3",
+              className: "3",
+              number: 120,
+              version: 4,
+            },
+          }),
+          student(2),
+        ]),
+      },
+    });
+    fireEvent.change(within(dialog).getByLabelText("새 반"), {
+      target: { value: "c5" },
+    });
+
+    fireEvent.click(saveButton(dialog));
+
+    await vi.waitFor(() =>
+      expect(calls.find((c) => c.key === PATCH)?.body).toMatchObject({
+        classId: "c5",
+        number: 120,
+      }),
+    );
+    expect(
+      within(dialog).queryByText("번호는 1부터 99까지 숫자로 적어 주세요"),
+    ).toBeNull();
+  });
+
   it("번호 뒤에 붙은 번은 떼고 숫자만 보낸다", async () => {
     const { calls, dialog } = await openDirect();
     setNumber(dialog, "7번");

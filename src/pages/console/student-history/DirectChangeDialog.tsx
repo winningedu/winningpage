@@ -127,7 +127,9 @@ export default function DirectChangeDialog({
     applyYear !== currentYear;
 
   const save = async () => {
-    const parsedNumber = parseNumber(number);
+    // 번호 칸을 고치지 않았으면 저장된 번호를 그대로 두고, 고친 입력만 검사한다.
+    const edited = number.trim() !== initial.number;
+    const parsedNumber = edited ? parseNumber(number) : enrollment.number;
     if (parsedNumber === undefined) {
       setNumberError(NUMBER_INVALID_MESSAGE);
       return;
