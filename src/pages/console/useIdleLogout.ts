@@ -17,9 +17,8 @@ export function useIdleLogout() {
     const start = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        void supabase.auth.signOut({ scope: "local" }).finally(() => {
-          navigate("/login", { replace: true });
-        });
+        const toLogin = () => navigate("/login", { replace: true });
+        void supabase.auth.signOut({ scope: "local" }).then(toLogin, toLogin);
       }, IDLE_LOGOUT_MS);
     };
     start();

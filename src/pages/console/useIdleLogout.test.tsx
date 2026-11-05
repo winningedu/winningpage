@@ -63,4 +63,36 @@ describe("useIdleLogout", () => {
       expect(mocks.signOut).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("언마운트하면 타이머와 입력 리스너를 걷어 로그아웃하지 않는다", async () => {
+    const { unmount } = renderHook(() => useIdleLogout());
+    unmount();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS * 2);
+    });
+
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
+
+  it("이 기기 세션만 끝내도록 local scope 로 signOut 한다", async () => {
+    renderHook(() => useIdleLogout());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS);
+    });
+
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("signOut 이 실패해도 로그인 화면으로 이동한다", async () => {
+    mocks.signOut.mockRejectedValue(new Error("network"));
+    renderHook(() => useIdleLogout());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS);
+    });
+
+    expect(mocks.navigate).toHaveBeenCalledWith("/login", { replace: true });
+  });
 });
