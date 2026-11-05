@@ -78,6 +78,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function fillAndSubmit(identifier = "kim01", password = "pw1234") {
+  fireEvent.change(screen.getByPlaceholderText("아이디를 입력해 주세요."), {
+    target: { value: identifier },
+  });
+  fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
+    target: { value: password },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+}
+
+const OK_BODY = {
+  session: { access_token: "at", refresh_token: "rt", expires_at: 99 },
+  mustChangePassword: false,
+};
+
 describe("Login - 스쿨멘토 서버 로그인", () => {
   it("아이디 입력창(text)에 서버 로그인을 보내고 세션을 심은 뒤 이동한다", async () => {
     mockFetch.mockResolvedValue(
@@ -109,5 +124,35 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       refresh_token: "rt",
     });
     expect(mockSignInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("서버가 준 실패 문구를 그대로 보여 주고 세션을 심지 않는다", async () => {
+    const message = "아이디 또는 비밀번호가 올바르지 않습니다. (실패 2/5회)";
+    mockFetch.mockResolvedValue(
+      jsonResponse(401, { error: { code: "INVALID", message }, failCount: 2 }),
+    );
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(mockSetSession).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("mustChangePassword 면 첫 비밀번호 설정 화면으로 이동한다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...OK_BODY, mustChangePassword: true }),
+    );
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    expect(
+      await screen.findByText("첫 비밀번호 설정 화면"),
+    ).toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

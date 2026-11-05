@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   AuthLayout,
   AuthTitle,
@@ -34,11 +34,19 @@ function safeRedirect(value: string | null) {
 
 const LOGIN_TIMEOUT_MS = 12000;
 
+// W2(첫 비밀번호 설정) 화면 경로. 설계 문서가 경로를 정하지 않아 여기서 정한다.
+const FIRST_PASSWORD_PATH = "/teacher/first-password";
+
 const SERVER_LOGIN_FALLBACK_MESSAGE = "잠시 후 다시 시도해 주세요.";
 
 // 스쿨멘토 서버 로그인(POST /api/auth/login) 응답. 실패 문구는 서버가 정한 그대로 보여 준다.
 type ServerLoginResult =
-  | { ok: true; accessToken: string; refreshToken: string }
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string;
+      mustChangePassword: boolean;
+    }
   | { ok: false; message: string };
 
 async function postServerLogin(
@@ -63,11 +71,13 @@ async function postServerLogin(
     ok: true,
     accessToken: body.session.access_token,
     refreshToken: body.session.refresh_token,
+    mustChangePassword: body.mustChangePassword === true,
   };
 }
 
 export default function Login() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const redirectTo = safeRedirect(params.get("redirect"));
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
   // 회원가입 안내 문단을 숨긴다(Header.tsx와 동일 원칙).
@@ -131,6 +141,10 @@ export default function Login() {
         }
 
         setLoading(false);
+        if (result.mustChangePassword) {
+          navigate(FIRST_PASSWORD_PATH, { replace: true });
+          return;
+        }
         window.location.replace(redirectTo);
         return;
       }
