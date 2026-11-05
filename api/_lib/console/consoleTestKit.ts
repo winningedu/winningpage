@@ -38,6 +38,7 @@ export interface KitState {
   auth: {
     createUser: ReturnType<typeof vi.fn>;
     listUsers: ReturnType<typeof vi.fn>;
+    getUserById: ReturnType<typeof vi.fn>;
     updateUserById: ReturnType<typeof vi.fn>;
     deleteUser: ReturnType<typeof vi.fn>;
   };
@@ -96,6 +97,7 @@ export function createKitState(): KitState {
     auth: {
       createUser: ok("createUser"),
       listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+      getUserById: vi.fn(async () => ({ data: { user: null }, error: null })),
       updateUserById: ok("updateUserById"),
       deleteUser: ok("deleteUser"),
     },

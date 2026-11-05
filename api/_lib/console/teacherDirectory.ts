@@ -28,6 +28,7 @@ export interface DirectoryTeacher {
   status: "active" | "inactive";
   loginId: string | null;
   hasAccount: boolean;
+  profileId: string | null;
   passwordSet: boolean;
   /** 학년, 그룹, 반 순. */
   classes: DirectoryClass[];
@@ -144,6 +145,7 @@ export async function loadTeacherDirectory(
       status: t.status,
       loginId: t.login_id,
       hasAccount: t.profile_id !== null,
+      profileId: t.profile_id,
       passwordSet: Boolean(t.password_set_at),
       classes: assignments
         .filter((a) => a.teacher_id === t.id && classById.has(a.class_id))

@@ -181,6 +181,30 @@ describe("GET /api/console/teachers/accounts", () => {
     expect(body.items[2]).toMatchObject({ status: "inactive" });
   });
 
+  test("최근 로그인은 Auth 의 마지막 로그인 시각이고 한 번도 없거나 읽지 못하면 null 이다", async () => {
+    kit.state.auth.getUserById.mockImplementation(async (id: string) => {
+      if (id === "p-park") {
+        return {
+          data: { user: { last_sign_in_at: "2026-11-03T08:15:00Z" } },
+          error: null,
+        };
+      }
+      if (id === "p-free")
+        return { data: { user: null }, error: { message: "x" } };
+      return { data: { user: { last_sign_in_at: null } }, error: null };
+    });
+
+    const r = await get();
+
+    const body = r.body as { items: Record<string, unknown>[] };
+    expect(body.items.map((i) => [i.id, i.lastLoginAt])).toEqual([
+      ["t-choi", null],
+      ["t-park", "2026-11-03T08:15:00Z"],
+      ["t-free", null],
+    ]);
+    expect(kit.state.auth.getUserById).toHaveBeenCalledTimes(3);
+  });
+
   test("담임은 403 이다", async () => {
     kit.state.actor = { ...kit.state.actor, kind: "homeroom" };
 
