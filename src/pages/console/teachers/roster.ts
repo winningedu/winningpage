@@ -48,3 +48,23 @@ export function classText(c: {
 }): string {
   return `${gradeGroupLabel(c.grade, c.groupName)} ${c.name}반`;
 }
+
+/** W16 계정 목록 한 줄(GET /api/console/teachers/accounts). */
+export interface AccountItem {
+  id: string;
+  name: string;
+  role: "homeroom" | "school_admin";
+  phoneLast4: string;
+  loginId: string;
+  status: "active" | "inactive";
+  passwordSet: boolean;
+  classes: {
+    id: string;
+    grade: string;
+    groupId: string | null;
+    groupName: string | null;
+    name: string;
+    isPrimary: boolean;
+    activeStudents: number;
+  }[];
+}
