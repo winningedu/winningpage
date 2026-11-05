@@ -24,6 +24,8 @@ export interface SiteConfig {
     bannerEmptyNotice: boolean;
     // 로그인을 서버(POST /api/auth/login, 아이디 로그인과 실패 잠금)로 처리할지. false면 클라이언트가 signInWithPassword 를 직접 부른다.
     serverLogin: boolean;
+    // B2B 메뉴 트리(목표성장서비스, 수행심화서비스, 입시정보, 고객안내)를 fallback으로 쓸지. false면 위닝 트리.
+    b2bMenu: boolean;
   };
   company: {
     name: string;
@@ -67,6 +69,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       hiddenPrograms: [],
       bannerEmptyNotice: false,
       serverLogin: false,
+      b2bMenu: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -108,6 +111,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       bannerEmptyNotice: true,
       // 운영 선행 조건(시크릿 키 env, Sb-Forwarded-For 설정)과 W2 라우트가 갖춰질 때까지 끈다.
       serverLogin: false,
+      b2bMenu: true,
     },
     company: {
       name: "주식회사 위닝로직",

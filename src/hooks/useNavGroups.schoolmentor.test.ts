@@ -70,3 +70,65 @@ describe("ensureLearningDiagnosisInService - 스쿨멘토 그룹", () => {
     expect(result[1]?.items.map((i) => i.label)).toEqual(["수행평가"]);
   });
 });
+
+describe("getFallbackNavGroups", () => {
+  it("스쿨멘토는 확정 메뉴 이름의 fallback 트리를 쓰고 위닝 항목을 담지 않는다", async () => {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: {
+        company: { kakaoChannelUrl: "https://pf.kakao.com/x" },
+        features: { premium: false, hiddenPrograms: [], b2bMenu: true },
+      },
+    }));
+    const { getFallbackNavGroups } = await import("./useNavGroups");
+
+    const groups = getFallbackNavGroups();
+    const labels = (title: string) =>
+      groups.find((g) => g.title === title)?.items.map((i) => i.label);
+
+    expect(groups.map((g) => g.title)).toEqual([
+      "목표성장서비스",
+      "수행심화서비스",
+      "입시정보",
+      "고객안내",
+    ]);
+    expect(labels("목표성장서비스")).toEqual([
+      "학습진단",
+      "목표관리",
+      "성장설계",
+    ]);
+    expect(labels("수행심화서비스")).toEqual([
+      "수행평가",
+      "심화탐구",
+      "자기평가",
+    ]);
+    expect(labels("입시정보")).toEqual([
+      "대입모집요강",
+      "입결정보",
+      "칼럼-교육청소식",
+    ]);
+    expect(labels("고객안내")).toEqual([
+      "공지-회사소개",
+      "교육-정보안내",
+      "자주하는 질문",
+      "온라인문의",
+    ]);
+    const links = groups.flatMap((g) => g.items.map((i) => i.to));
+    expect(links).not.toContain("/services/callmentor");
+    expect(links).not.toContain("/pricing");
+  });
+
+  it("위닝은 기존 FALLBACK_NAV_GROUPS를 그대로 쓴다", async () => {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: {
+        company: { kakaoChannelUrl: "https://pf.kakao.com/x" },
+        features: { premium: true, hiddenPrograms: [] },
+      },
+    }));
+    const { getFallbackNavGroups } = await import("./useNavGroups");
+    const { FALLBACK_NAV_GROUPS } = await import("@/data/navigation");
+
+    expect(getFallbackNavGroups()).toBe(FALLBACK_NAV_GROUPS);
+  });
+});

@@ -156,6 +156,48 @@ export const FALLBACK_NAV_GROUPS = [
   },
 ];
 
+// 스쿨멘토 fallback 메뉴 트리(DB 캐시도 조회 결과도 없을 때의 첫 그림). 2026-11-05 확정 메뉴 이름.
+// 이용신청 그룹은 이용안내 화면이 생길 때까지 도착지가 없어 넣지 않는다.
+export const SCHOOLMENTOR_FALLBACK_NAV_GROUPS = [
+  {
+    title: "목표성장서비스",
+    to: "/services/learning-diagnosis",
+    items: [
+      { label: "학습진단", to: "/services/learning-diagnosis", sortOrder: 1 },
+      { label: "목표관리", to: "/services/goal", sortOrder: 2 },
+      { label: "성장설계", to: "/services/growth", sortOrder: 3 },
+    ],
+  },
+  {
+    title: "수행심화서비스",
+    to: "/services/performance",
+    items: [
+      { label: "수행평가", to: "/services/performance", sortOrder: 1 },
+      { label: "심화탐구", to: "/services/research", sortOrder: 2 },
+      { label: "자기평가", to: "/services/self-assessment", sortOrder: 3 },
+    ],
+  },
+  {
+    title: "입시정보",
+    to: "/admission/guidelines",
+    items: [
+      { label: "대입모집요강", to: "/admission/guidelines", sortOrder: 1 },
+      { label: "입결정보", to: "/admission/results", sortOrder: 2 },
+      { label: "칼럼-교육청소식", to: "/info/column", sortOrder: 3 },
+    ],
+  },
+  {
+    title: "고객안내",
+    to: "/company-news",
+    items: [
+      { label: "공지-회사소개", to: "/company-news", sortOrder: 1 },
+      { label: "교육-정보안내", to: "/events", sortOrder: 2 },
+      { label: "자주하는 질문", to: "/faq", sortOrder: 3 },
+      { label: "온라인문의", to: "/online-inquiry", sortOrder: 4 },
+    ],
+  },
+];
+
 // program_categories(DB) 서비스명 → 서비스 6종 정본 라우트. ServicesSection 카드 클릭 링크가
 // DB link 컬럼에 죽은 값(레거시 '/services' 스텁 등)을 담고 있을 때의 이름 기반 안전망.
 // FALLBACK_NAV_GROUPS의 '서비스' 그룹 라벨・경로와 동일한 소스오브트루스로 유지할 것.

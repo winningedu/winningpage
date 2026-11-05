@@ -6,6 +6,7 @@ import {
   FALLBACK_NAV_GROUPS,
   MENU_GROUP_ORDER,
   PREMIUM_NAV_GROUP,
+  SCHOOLMENTOR_FALLBACK_NAV_GROUPS,
 } from "@/data/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -481,6 +482,12 @@ export function composeFinalNavGroups(navGroups: NavGroup[]): NavGroup[] {
   );
 }
 
+export function getFallbackNavGroups(): NavGroup[] {
+  return site.features.b2bMenu
+    ? SCHOOLMENTOR_FALLBACK_NAV_GROUPS
+    : FALLBACK_NAV_GROUPS;
+}
+
 // 헤더 메가메뉴와 푸터가 공유하는 내비게이션 그룹 훅.
 // page_contents(DB), 캐시(HEADER_NAV_CACHE_KEY), FALLBACK_NAV_GROUPS 순으로 소스를 결정하고,
 // postgres_changes realtime 구독으로 변경을 즉시 반영한다.
@@ -489,7 +496,7 @@ export function useNavGroups() {
   const [navGroups, setNavGroups] = useState(() => {
     return applyPromotedSlugRoutes(
       ensureLearningDiagnosisInService(
-        readCachedNavGroups() || FALLBACK_NAV_GROUPS,
+        readCachedNavGroups() || getFallbackNavGroups(),
       ),
     );
   });
