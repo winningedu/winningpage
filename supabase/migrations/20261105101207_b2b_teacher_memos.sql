@@ -1,0 +1,95 @@
+-- B2B 기반 13: 교사 메모(W9 개인종합코칭). 스키마만 바꾼다(새 테이블 1개, 정리 함수 교체).
+-- 학생과 학부모에게는 보이지 않는다(교 #61, 결정 3): RLS 를 켜고 정책 없이 anon, authenticated 권한을 모두 회수하고
+-- service_role 만 읽고 쓴다. 열람 범위(작성자와 학생의 현재 담임, 학교 관리자는 자기 메모만)는 콘솔 라우트가 정한다.
+-- 작성자는 계정이 지워져도 남도록 teachers 행을 가리키되 지우지 못하게 막는다(사 #141, teachers 는 삭제 표시만 한다).
+-- 삭제는 작성자 본인만 화면에서 숨기는 것이라 hidden_at 만 채우고 행은 남긴다(교 #61, 결정 3).
+-- request_id 는 같은 작성자의 같은 저장 요청이 두 번 와도 한 줄만 남기는 키다.
+
+create table public.teacher_memos (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants (id) on delete cascade,
+  student_id uuid not null references public.profiles (id) on delete cascade,
+  author_teacher_id uuid not null references public.teachers (id) on delete restrict,
+  body text not null check (btrim(body) <> '' and char_length(body) <= 2000),
+  request_id uuid not null,
+  created_at timestamptz not null default now(),
+  hidden_at timestamptz,
+  constraint teacher_memos_author_request_key unique (author_teacher_id, request_id)
+);
+
+create index teacher_memos_student_created_idx
+  on public.teacher_memos (tenant_id, student_id, created_at desc);
+
+alter table public.teacher_memos enable row level security;
+revoke all on table public.teacher_memos from anon, authenticated;
+grant all on table public.teacher_memos to service_role;
+
+comment on table public.teacher_memos is '교사 메모. 학생과 학부모에게 보이지 않는다. 졸업 1년 뒤 fn_purge_b2b_retention 이 지운다(결정 36).';
+comment on column public.teacher_memos.hidden_at is '작성자가 삭제한 시각. 값이 있으면 목록에서 빼지만 작성자와 시각은 남긴다.';
+comment on column public.teacher_memos.request_id is '저장 요청 키(클라이언트가 만든 uuid). 같은 작성자의 같은 키는 한 줄만 남는다.';
+
+-- 보관 기간 정리 함수에 메모를 더한다(20261105052237 의 자리표시 주석). 반환 열이 늘어 함수를 새로 만든다.
+-- 메모: 졸업한 지 1년이 지난 학생(졸업 학적의 graduated_at 기준, 지금 재학 중인 학적이 없는 학생)의 메모를 지운다(결정 36).
+-- 학적과 변경 이력은 그대로 졸업 2년이다. 학적을 지우기 전에 메모를 먼저 지워야 졸업 시각을 읽을 수 있다.
+drop function public.fn_purge_b2b_retention();
+
+create function public.fn_purge_b2b_retention()
+returns table (
+  enrollment_changes_deleted bigint,
+  enrollments_deleted bigint,
+  access_logs_deleted bigint,
+  memos_deleted bigint
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_students uuid[];
+  v_memo_students uuid[];
+  v_changes bigint;
+  v_enrollments bigint;
+  v_logs bigint;
+  v_memos bigint;
+begin
+  select coalesce(array_agg(distinct e.student_id), '{}')
+    into v_memo_students
+    from public.student_enrollments e
+   where e.status = 'graduated'
+     and e.graduated_at < now() - interval '1 year'
+     and not exists (
+       select 1 from public.student_enrollments a
+        where a.student_id = e.student_id and a.status = 'active'
+     );
+
+  delete from public.teacher_memos m where m.student_id = any (v_memo_students);
+  get diagnostics v_memos = row_count;
+
+  select coalesce(array_agg(distinct e.student_id), '{}')
+    into v_students
+    from public.student_enrollments e
+   where e.status = 'graduated'
+     and e.graduated_at < now() - interval '2 years'
+     and not exists (
+       select 1 from public.student_enrollments a
+        where a.student_id = e.student_id and a.status = 'active'
+     );
+
+  delete from public.enrollment_changes c where c.student_id = any (v_students);
+  get diagnostics v_changes = row_count;
+
+  delete from public.student_enrollments e where e.student_id = any (v_students);
+  get diagnostics v_enrollments = row_count;
+
+  delete from public.admin_access_logs l
+   where l.actor_kind is not null
+     and ((l.action = 'member_purge' and l.created_at < now() - interval '1 year')
+       or (l.action <> 'member_purge' and l.created_at < now() - interval '2 years'));
+  get diagnostics v_logs = row_count;
+
+  return query select v_changes, v_enrollments, v_logs, v_memos;
+end;
+$$;
+
+revoke all on function public.fn_purge_b2b_retention() from public, anon, authenticated;
+grant execute on function public.fn_purge_b2b_retention() to service_role;
