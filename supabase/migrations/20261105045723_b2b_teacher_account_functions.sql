@@ -50,7 +50,8 @@ begin
          temp_password_hash = p_temp_hash,
          temp_password_issued_at = now(),
          must_change_password = true,
-         issue_claimed_at = null
+         -- 재발급(계정이 이미 붙은 교사)은 Auth 비밀번호를 바꿀 때까지 fn_teacher_reissue_claim 을 유지한다.
+         issue_claimed_at = case when v_t.profile_id is null then null else v_t.issue_claimed_at end
    where id = p_teacher_id;
 end;
 $$;
@@ -276,3 +277,51 @@ $$;
 
 revoke all on function public.fn_teacher_issue_claim(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.fn_teacher_issue_claim(uuid, uuid) to service_role;
+
+-- 임시 비밀번호 재발급을 한 요청에만 허용한다. 해시 저장(DB)과 Auth 비밀번호 교체 사이에 다른 재발급이 끼면
+-- 두 값이 서로 다른 비밀번호를 가리키게 되므로, claim 을 잡은 요청만 두 단계를 모두 한다.
+-- 계정이 없으면 WC089, 비밀번호 설정이 끝났으면 WC090, 다른 기관이거나 없으면 WC088(p_tenant 는 필수).
+-- 2분 안에 다른 요청이 얻었으면 'busy'. claim 은 fn_teacher_reissue_release 가 놓고, 끊긴 시도의 claim 은 2분 뒤 다시 얻는다.
+-- fn_teacher_attach_account 는 계정이 이미 붙은 교사의 claim 을 지우지 않는다.
+create function public.fn_teacher_reissue_claim(p_teacher_id uuid, p_tenant uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+begin
+  select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
+  if not found or p_tenant is null or v_t.tenant_id <> p_tenant then
+    raise exception 'teacher not found' using errcode = 'WC088';
+  end if;
+  if v_t.profile_id is null then
+    raise exception 'teacher has no account' using errcode = 'WC089';
+  end if;
+  if v_t.password_set_at is not null then
+    raise exception 'password already set' using errcode = 'WC090';
+  end if;
+  if v_t.issue_claimed_at is not null and v_t.issue_claimed_at > now() - interval '2 minutes' then
+    return 'busy';
+  end if;
+  update public.teachers set issue_claimed_at = now() where id = p_teacher_id;
+  return 'claimed';
+end;
+$$;
+
+revoke all on function public.fn_teacher_reissue_claim(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_reissue_claim(uuid, uuid) to service_role;
+
+-- 재발급이 끝났거나 실패했을 때 claim 을 놓는다(같은 요청을 바로 다시 보낼 수 있게).
+create function public.fn_teacher_reissue_release(p_teacher_id uuid)
+returns void
+language sql
+security definer
+set search_path = public, pg_temp
+as $$
+  update public.teachers set issue_claimed_at = null where id = p_teacher_id and issue_claimed_at is not null
+$$;
+
+revoke all on function public.fn_teacher_reissue_release(uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_reissue_release(uuid) to service_role;

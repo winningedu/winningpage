@@ -177,6 +177,39 @@ select pg_temp.expect_bool('claim: attach 가 claim 을 지운다',
   (select issue_claimed_at is null from public.teachers where id = (select id from t1 where k = 'c1')), true);
 
 -- ---------------------------------------------------------------------
+-- fn_teacher_reissue_claim, fn_teacher_reissue_release: 임시 비밀번호 재발급을 한 요청에만 허용한다
+-- (두 재발급이 DB 해시와 Auth 비밀번호를 서로 다르게 남기지 않게). attach 는 계정이 이미 붙은 교사의 claim 을 지우지 않는다.
+-- ---------------------------------------------------------------------
+select pg_temp.expect_text('reissue claim: 계정이 있고 비밀번호 미설정이면 첫 요청이 얻는다',
+  public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'claimed');
+select pg_temp.expect_text('reissue claim: 이미 얻은 동안 두 번째 요청은 busy',
+  public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'busy');
+select public.fn_teacher_attach_account(
+  (select id from t1 where k = 'h1'), (select id from au where k = 'h1'),
+  (select login_id from public.teachers where id = (select id from t1 where k = 'h1')), 'scrypt$hash3');
+select pg_temp.expect_bool('reissue claim: 재발급 attach 는 claim 을 지우지 않는다(Auth 교체가 끝날 때까지 유지)',
+  (select issue_claimed_at is not null from public.teachers where id = (select id from t1 where k = 'h1')), true);
+select pg_temp.expect_text('reissue claim: attach 뒤에도 다른 요청은 busy',
+  public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'busy');
+select public.fn_teacher_reissue_release((select id from t1 where k = 'h1'));
+select pg_temp.expect_text('reissue release: 놓으면 다시 얻을 수 있다',
+  public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'claimed');
+update public.teachers set issue_claimed_at = now() - interval '3 minutes' where id = (select id from t1 where k = 'h1');
+select pg_temp.expect_text('reissue claim: 끊긴 시도의 오래된 claim 은 다시 얻을 수 있다',
+  public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'claimed');
+select public.fn_teacher_reissue_release((select id from t1 where k = 'h1'));
+insert into t1 values ('r1', pg_temp.reg('ta', '무계정교사', '01070000021', 'homeroom'));
+select pg_temp.expect_error('reissue claim: 계정이 없으면 WC089',
+  $$select public.fn_teacher_reissue_claim((select id from t1 where k = 'r1'), pg_temp.fx('ta'))$$, 'WC089');
+select public.fn_teacher_password_set((select id from t1 where k = 'c1'));
+select pg_temp.expect_error('reissue claim: 비밀번호 설정이 끝났으면 WC090',
+  $$select public.fn_teacher_reissue_claim((select id from t1 where k = 'c1'), pg_temp.fx('ta'))$$, 'WC090');
+select pg_temp.expect_error('reissue claim: 다른 기관 기준이면 WC088',
+  $$select public.fn_teacher_reissue_claim((select id from t1 where k = 'h1'), pg_temp.fx('tb'))$$, 'WC088');
+select pg_temp.expect_error('reissue claim: 없는 교사는 WC088',
+  $$select public.fn_teacher_reissue_claim(gen_random_uuid(), pg_temp.fx('ta'))$$, 'WC088');
+
+-- ---------------------------------------------------------------------
 -- fn_auth_user_id_by_email: 이메일로 Auth 사용자 id 를 찾는다(listUsers 훑기 대신)
 -- ---------------------------------------------------------------------
 select pg_temp.expect_uuid('이메일로 id 를 돌려준다(대소문자 무시)',
@@ -336,6 +369,10 @@ select pg_temp.expect_error('authenticated 는 fn_teacher_set_status 실행 불�
   $$select public.fn_teacher_set_status(null, 'inactive', null, null)$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_teacher_issue_claim 실행 불가',
   $$select public.fn_teacher_issue_claim(gen_random_uuid(), gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_teacher_reissue_claim 실행 불가',
+  $$select public.fn_teacher_reissue_claim(gen_random_uuid(), gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_teacher_reissue_release 실행 불가',
+  $$select public.fn_teacher_reissue_release(gen_random_uuid())$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_auth_user_id_by_email 실행 불가',
   $$select public.fn_auth_user_id_by_email('a@b.c')$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_teacher_password_set 실행 불가',

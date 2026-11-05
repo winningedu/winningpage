@@ -9069,6 +9069,14 @@ export type Database = {
           verdict: string;
         }[];
       };
+      fn_teacher_reissue_claim: {
+        Args: { p_teacher_id: string; p_tenant: string };
+        Returns: string;
+      };
+      fn_teacher_reissue_release: {
+        Args: { p_teacher_id: string };
+        Returns: undefined;
+      };
       fn_teacher_set_status: {
         Args: {
           p_actor: string;
