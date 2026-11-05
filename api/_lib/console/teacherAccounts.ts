@@ -3,6 +3,8 @@
 
 import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { SYNTHETIC_DOMAIN } from "../auth/login.js";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -83,4 +85,58 @@ export async function verifyTempPassword(
   } catch {
     return false;
   }
+}
+
+/** 로그인 아이디의 Auth 이메일(설계 P1). 화면에 보이지 않고 입력으로도 받지 않는다. */
+export function syntheticEmail(loginId: string): string {
+  return `${loginId.toLowerCase()}@${SYNTHETIC_DOMAIN}`;
+}
+
+const LIST_PAGE_SIZE = 1000;
+
+// createUser 가 email_exists 로 실패했을 때만 쓴다(발급 도중 끊긴 뒤 재시도). Auth 에는 이메일 단건 조회가 없어 훑는다.
+async function findAuthUserIdByEmail(
+  admin: SupabaseClient,
+  email: string,
+): Promise<string | null> {
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: LIST_PAGE_SIZE,
+    });
+    if (error) throw new Error("teacher auth user lookup failed");
+    const found = data.users.find((u) => u.email?.toLowerCase() === email);
+    if (found) return found.id;
+    if (data.users.length === 0) return null;
+  }
+}
+
+/**
+ * 합성 이메일로 확인된 Auth 사용자를 만든다. 같은 로그인 아이디는 같은 이메일이라 재시도해도 하나뿐이다.
+ * 이미 있으면(앞선 시도가 DB 연결 전에 끊김) 그 사용자의 비밀번호를 이번 임시 비밀번호로 맞춰 돌려준다.
+ */
+export async function ensureAuthUser(
+  admin: SupabaseClient,
+  loginId: string,
+  tempPassword: string,
+): Promise<string> {
+  const email = syntheticEmail(loginId);
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+  });
+  if (!error && data.user) return data.user.id;
+  if (error?.code !== "email_exists") {
+    throw new Error("teacher auth user create failed");
+  }
+
+  const existingId = await findAuthUserIdByEmail(admin, email);
+  if (!existingId) throw new Error("teacher auth user create failed");
+  const { error: updateError } = await admin.auth.admin.updateUserById(
+    existingId,
+    { password: tempPassword },
+  );
+  if (updateError) throw new Error("teacher auth user password sync failed");
+  return existingId;
 }
