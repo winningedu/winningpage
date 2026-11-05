@@ -22,6 +22,8 @@ export interface SiteConfig {
     hiddenPrograms: readonly GateableProgram[];
     // 홈 배너(큰 배너/작은 배너)가 노출 대상 없이 0건일 때 영역을 숨기지 않고 '배너가 없습니다' 안내를 보여줄지(기획 #26).
     bannerEmptyNotice: boolean;
+    // 로그인을 서버(POST /api/auth/login, 아이디 로그인과 실패 잠금)로 처리할지. false면 클라이언트가 signInWithPassword 를 직접 부른다.
+    serverLogin: boolean;
   };
   company: {
     name: string;
@@ -63,6 +65,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       premium: true,
       hiddenPrograms: [],
       bannerEmptyNotice: false,
+      serverLogin: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -101,6 +104,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       premium: false,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
+      serverLogin: true,
     },
     company: {
       name: "주식회사 위닝로직",

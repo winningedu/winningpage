@@ -137,6 +137,20 @@ describe("site - 배너 빈 상태 안내 플래그", () => {
   });
 });
 
+describe("site - 서버 로그인 플래그", () => {
+  it("winning은 클라이언트에서 직접 로그인한다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.features.serverLogin).toBe(false);
+  });
+
+  it("schoolmentor는 서버 로그인(/api/auth/login)을 쓴다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.features.serverLogin).toBe(true);
+  });
+});
+
 describe("site - 숨길 프로그램 플래그", () => {
   it("env가 없으면 기본값은 빈 배열이다(두 사이트 모두)", async () => {
     vi.stubEnv("VITE_HIDDEN_PROGRAMS", "");
