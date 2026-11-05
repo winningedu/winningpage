@@ -3,6 +3,7 @@
 // 본사 관리자가 기관 콘솔을 대행하는 8시간 세션을 연다(설계 5.2절, D10).
 // 권한: 로그인 + HQ 권한 teacherConsoleProxy edit (fn_admin_effective_permissions).
 
+import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -55,5 +56,41 @@ export default defineHandler({
       );
       return;
     }
+
+    const { data: sessionId, error: startError } = await ctx.supabaseAdmin.rpc(
+      "fn_proxy_start",
+      {
+        p_admin: ctx.userId,
+        p_tenant: body.tenantId,
+        p_reason: body.reason,
+      },
+    );
+    if (startError || typeof sessionId !== "string") {
+      throw new Error("fn_proxy_start failed");
+    }
+
+    await writeConsoleAuditLog(
+      {
+        supabaseAdmin: ctx.supabaseAdmin,
+        userId: ctx.userId,
+        user: ctx.user,
+        console: {
+          kind: "hq_proxy",
+          tenantId: body.tenantId,
+          teacherId: null,
+          classIds: [],
+          proxySessionId: sessionId,
+          mustChangePassword: false,
+          loginId: null,
+        },
+      },
+      {
+        action: "proxy_start",
+        resourceKey: "teacherConsoleProxy",
+        reason: body.reason,
+      },
+    );
+
+    res.status(200).json({ ok: true, sessionId });
   },
 });

@@ -113,4 +113,30 @@ describe("POST /api/console/proxy/start", () => {
       expect.anything(),
     );
   });
+
+  test("세션을 열고 id 를 돌려주며 proxy_start 감사 로그에 대행 세션을 싣는다", async () => {
+    const r = await start(VALID);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, sessionId: "session-1" });
+    expect(state.rpc).toHaveBeenCalledWith("fn_proxy_start", {
+      p_admin: "admin-1",
+      p_tenant: "tenant-1",
+      p_reason: "roster_proxy",
+    });
+    expect(state.inserts).toHaveLength(1);
+    expect(state.inserts[0]).toMatchObject({
+      table: "admin_access_logs",
+      row: {
+        profile_id: "admin-1",
+        actor_email: "hq@example.com",
+        tenant_id: "tenant-1",
+        actor_kind: "hq_proxy",
+        proxy_session_id: "session-1",
+        action: "proxy_start",
+        resource_key: "teacherConsoleProxy",
+        reason: "roster_proxy",
+      },
+    });
+  });
 });
