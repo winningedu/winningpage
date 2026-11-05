@@ -4,6 +4,7 @@
 // (begin/end rpc, profiles 조회)는 createSupabaseAdmin 모킹으로, GoTrue 비밀번호
 // 로그인은 @supabase/supabase-js 의 createClient 모킹으로 바꿔 끼운다.
 
+import { createHash } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -12,9 +13,9 @@ const state = vi.hoisted(() => ({
     data: [{ outcome: "proceed", attempt_no: 1, retry_after_s: 0 }],
     error: null,
   } as { data: unknown; error: unknown },
-  profile: null as Record<string, unknown> | null,
+  resolvedEmail: null as string | null,
   teacher: null as Record<string, unknown> | null,
-  profileError: null as unknown,
+  resolveError: null as unknown,
   signIn: vi.fn(),
   rpc: vi.fn(),
   createClient: vi.fn(),
@@ -27,8 +28,8 @@ vi.mock("../_lib/supabaseAdmin.js", () => {
       chain[method] = () => chain;
     }
     chain.maybeSingle = async () => ({
-      data: name === "profiles" ? state.profile : state.teacher,
-      error: name === "profiles" ? state.profileError : null,
+      data: name === "teachers" ? state.teacher : null,
+      error: null,
     });
     return chain;
   };
@@ -42,6 +43,12 @@ vi.mock("../_lib/supabaseAdmin.js", () => {
       from: table,
       rpc: (...args: unknown[]) => {
         state.rpc(...args);
+        if (args[0] === "fn_login_resolve_email") {
+          return Promise.resolve({
+            data: state.resolvedEmail,
+            error: state.resolveError,
+          });
+        }
         return Promise.resolve(
           args[0] === "fn_login_attempt_begin"
             ? state.beginResult
@@ -92,6 +99,12 @@ async function login(
   return captured;
 }
 
+const DECOY_EMAIL = "login-decoy-00000000@teacher.schoolmentor.kr";
+
+function sha256Param(value: string): string {
+  return `\\x${createHash("sha256").update(value).digest("hex")}`;
+}
+
 const INVALID_CREDENTIALS = {
   data: { session: null, user: null },
   error: {
@@ -109,9 +122,9 @@ beforeEach(() => {
     data: [{ outcome: "proceed", attempt_no: 1, retry_after_s: 0 }],
     error: null,
   };
-  state.profile = null;
+  state.resolvedEmail = null;
   state.teacher = null;
-  state.profileError = null;
+  state.resolveError = null;
   state.signIn.mockResolvedValue(INVALID_CREDENTIALS);
 });
 
@@ -139,7 +152,7 @@ describe("POST /api/auth/login", () => {
   });
 
   test("성공하면 세션과 mustChangePassword 를 주고 end(success)를 부르며 첫 x-forwarded-for 를 Sb-Forwarded-For 로 보낸다", async () => {
-    state.profile = { member_type: "teacher", email: null, username: "kim01" };
+    state.resolvedEmail = "kim01@teacher.schoolmentor.kr";
     state.teacher = { must_change_password: true };
     state.signIn.mockResolvedValue({
       data: {
@@ -163,6 +176,9 @@ describe("POST /api/auth/login", () => {
     expect(r.body).toEqual({
       session: { access_token: "at", refresh_token: "rt", expires_at: 1234 },
       mustChangePassword: true,
+    });
+    expect(state.rpc).toHaveBeenCalledWith("fn_login_resolve_email", {
+      p_username: "kim01",
     });
     expect(state.signIn).toHaveBeenCalledWith({
       email: "kim01@teacher.schoolmentor.kr",
@@ -199,7 +215,10 @@ describe("POST /api/auth/login", () => {
     });
     expect(r.headers["Retry-After"]).toBe("301");
     expect(state.signIn).not.toHaveBeenCalled();
-    expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(state.rpc).not.toHaveBeenCalledWith(
+      "fn_login_attempt_end",
+      expect.anything(),
+    );
   });
 
   test.each([
@@ -260,11 +279,7 @@ describe("POST /api/auth/login", () => {
   });
 
   test("@ 없는 학생 아이디는 profiles.username 으로 찾은 이메일로 보낸다", async () => {
-    state.profile = {
-      member_type: "student",
-      email: "stu@example.com",
-      username: "stu01",
-    };
+    state.resolvedEmail = "stu@example.com";
 
     await login({ identifier: "STU01", password: "pw" });
 
@@ -274,7 +289,7 @@ describe("POST /api/auth/login", () => {
     });
   });
 
-  test("합성 도메인으로 끝나는 식별자는 모르는 아이디로 보고 GoTrue 를 부르지 않되 실패로 센다", async () => {
+  test("합성 도메인으로 끝나는 식별자는 모르는 아이디로 보고 실패로 세되 GoTrue 에는 고정된 없는 주소로 한 번 묻는다", async () => {
     const r = await login({
       identifier: "kim01@teacher.schoolmentor.kr",
       password: "pw",
@@ -288,17 +303,56 @@ describe("POST /api/auth/login", () => {
       },
       failCount: 1,
     });
-    expect(state.signIn).not.toHaveBeenCalled();
+    expect(state.signIn).toHaveBeenCalledTimes(1);
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: DECOY_EMAIL,
+      password: "pw",
+    });
     expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
       p_hash: expect.any(String),
       p_outcome: "invalid",
     });
   });
 
+  test("모르는 아이디도 알려진 아이디와 같이 GoTrue 를 한 번 부른다(응답 시간 평준화)", async () => {
+    state.resolvedEmail = null;
+    await login({ identifier: "nobody", password: "pw" });
+    expect(state.signIn).toHaveBeenCalledTimes(1);
+    expect(state.signIn).toHaveBeenLastCalledWith({
+      email: DECOY_EMAIL,
+      password: "pw",
+    });
+
+    state.resolvedEmail = "kim01@teacher.schoolmentor.kr";
+    await login({ identifier: "kim01", password: "pw" });
+    expect(state.signIn).toHaveBeenCalledTimes(2);
+    expect(state.signIn).toHaveBeenLastCalledWith({
+      email: "kim01@teacher.schoolmentor.kr",
+      password: "pw",
+    });
+  });
+
+  test("고정된 없는 주소가 성공으로 돌아와도 로그인시키지 않는다", async () => {
+    state.signIn.mockResolvedValue({
+      data: {
+        user: { id: "ghost" },
+        session: { access_token: "at", refresh_token: "rt", expires_at: 1 },
+      },
+      error: null,
+    });
+
+    const r = await login({
+      identifier: "kim01@teacher.schoolmentor.kr",
+      password: "pw",
+    });
+
+    expect(r.status).toBe(401);
+  });
+
   test("없는 아이디와 틀린 비밀번호는 상태와 본문이 같다", async () => {
-    state.profile = null;
+    state.resolvedEmail = null;
     const unknown = await login({ identifier: "nobody", password: "pw" });
-    state.profile = { member_type: "teacher", email: null, username: "kim01" };
+    state.resolvedEmail = "kim01@teacher.schoolmentor.kr";
     const wrong = await login({ identifier: "kim01", password: "bad" });
 
     expect(unknown.status).toBe(wrong.status);
@@ -314,6 +368,28 @@ describe("POST /api/auth/login", () => {
       .map((c) => (c[1] as { p_hash: string }).p_hash);
     expect(hashes[0]).toMatch(/^\\x[0-9a-f]{64}$/);
     expect(hashes[0]).toBe(hashes[1]);
+  });
+
+  test("아이디와 그 계정의 이메일은 같은 잠금 열쇠를 쓴다(10번 추측 방지)", async () => {
+    state.resolvedEmail = "stu@example.com";
+    await login({ identifier: "STU01", password: "pw" });
+    state.resolvedEmail = null;
+    await login({ identifier: " Stu@Example.com ", password: "pw" });
+
+    const hashes = state.rpc.mock.calls
+      .filter((c) => c[0] === "fn_login_attempt_begin")
+      .map((c) => (c[1] as { p_hash: string }).p_hash);
+    expect(hashes[0]).toBe(sha256Param("stu@example.com"));
+    expect(hashes[1]).toBe(hashes[0]);
+  });
+
+  test("계정이 없는 아이디는 식별자 자체를 열쇠로 쓴다", async () => {
+    state.resolvedEmail = null;
+    await login({ identifier: " Nobody ", password: "pw" });
+
+    expect(state.rpc).toHaveBeenCalledWith("fn_login_attempt_begin", {
+      p_hash: sha256Param("nobody"),
+    });
   });
 
   test("5번째 실패는 429 LOCKED 로 잠금 문구를 준다", async () => {
@@ -344,18 +420,17 @@ describe("POST /api/auth/login", () => {
     expect(state.signIn).not.toHaveBeenCalled();
   });
 
-  test("프로필 조회가 실패하면 503 RETRY 이고 end(error)로 취소한다", async () => {
-    state.profileError = { code: "XX000" };
+  test("이메일 조회가 실패하면 503 RETRY 이고 시도를 세지 않으며 GoTrue 도 부르지 않는다", async () => {
+    state.resolveError = { code: "XX000" };
 
     const r = await login({ identifier: "kim01", password: "pw" });
 
     expect(r.status).toBe(503);
     expect(state.signIn).not.toHaveBeenCalled();
-    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-      p_hash: expect.any(String),
-      p_outcome: "error",
-      p_attempt_no: 1,
-    });
+    expect(state.rpc).not.toHaveBeenCalledWith(
+      "fn_login_attempt_begin",
+      expect.anything(),
+    );
   });
 
   test.each([

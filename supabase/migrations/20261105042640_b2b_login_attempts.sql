@@ -92,3 +92,26 @@ revoke all on function public.fn_login_attempt_begin(bytea) from public, anon, a
 grant execute on function public.fn_login_attempt_begin(bytea) to service_role;
 revoke all on function public.fn_login_attempt_end(bytea, text, smallint) from public, anon, authenticated;
 grant execute on function public.fn_login_attempt_end(bytea, text, smallint) to service_role;
+
+-- 로그인 식별자(아이디)로 인증 이메일을 정한다. lower(btrim(username)) 비교라 profiles_username_unique_idx 를 탄다.
+-- 교사는 아이디의 합성 이메일, 그 밖의 계정은 profiles.email(없으면 합성 이메일). 계정이 없으면 null.
+-- 합성 도메인(teacher.schoolmentor.kr)은 api/_lib/auth/login.ts 의 SYNTHETIC_DOMAIN 과 같아야 한다.
+create function public.fn_login_resolve_email(p_username text)
+returns text
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select case
+           when p.member_type = 'teacher' then lower(btrim(p.username)) || '@teacher.schoolmentor.kr'
+           else coalesce(nullif(btrim(p.email), ''), lower(btrim(p.username)) || '@teacher.schoolmentor.kr')
+         end
+    from public.profiles p
+   where p.username is not null
+     and btrim(p.username) <> ''
+     and lower(btrim(p.username)) = lower(btrim(p_username))
+$$;
+
+revoke all on function public.fn_login_resolve_email(text) from public, anon, authenticated;
+grant execute on function public.fn_login_resolve_email(text) to service_role;

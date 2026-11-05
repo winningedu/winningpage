@@ -168,6 +168,30 @@ select pg_temp.expect_text('오래된 행은 정리된다', pg_temp.row_s('u2'),
 select pg_temp.expect_text('최근 행은 남는다', pg_temp.row_s('u4'), '1:false');
 
 -- ---------------------------------------------------------------------
+-- fn_login_resolve_email: lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
+-- ---------------------------------------------------------------------
+create function pg_temp.mk_profile(p_username text, p_member_type text, p_email text) returns void
+language plpgsql as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, aud, role) values (v_id, 'au-' || v_id || '@example.com', 'authenticated', 'authenticated');
+  insert into public.profiles (id, role, member_type, username, email, name)
+  values (v_id, 'user', p_member_type, p_username, p_email, 'x');
+end $$;
+select pg_temp.mk_profile('Kim01', 'teacher', null);
+select pg_temp.mk_profile('stu01', 'student', 'stu@example.com');
+select pg_temp.mk_profile('stu02', 'student', null);
+select pg_temp.expect_text('교사는 합성 이메일(소문자)',
+  public.fn_login_resolve_email('kim01'), 'kim01@teacher.schoolmentor.kr');
+select pg_temp.expect_text('대소문자와 앞뒤 공백을 무시한다',
+  public.fn_login_resolve_email('  KIM01 '), 'kim01@teacher.schoolmentor.kr');
+select pg_temp.expect_text('이메일이 있는 학생은 그 이메일', public.fn_login_resolve_email('STU01'), 'stu@example.com');
+select pg_temp.expect_text('이메일이 없는 학생은 합성 이메일', public.fn_login_resolve_email('stu02'), 'stu02@teacher.schoolmentor.kr');
+select pg_temp.expect_bool('없는 아이디는 null', public.fn_login_resolve_email('nobody-here') is null, true);
+select pg_temp.expect_bool('빈 문자열은 null', public.fn_login_resolve_email('  ') is null, true);
+
+-- ---------------------------------------------------------------------
 -- 클라이언트 role 은 테이블을 읽을 수 없고 함수를 실행할 수 없다
 -- ---------------------------------------------------------------------
 grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
@@ -178,6 +202,8 @@ select pg_temp.expect_error('anon 은 begin 실행 불가',
   $$select * from public.fn_login_attempt_begin('\x00'::bytea)$$, '42501');
 select pg_temp.expect_error('anon 은 end 실행 불가',
   $$select public.fn_login_attempt_end('\x00'::bytea, 'success')$$, '42501');
+select pg_temp.expect_error('anon 은 fn_login_resolve_email 실행 불가',
+  $$select public.fn_login_resolve_email('kim01')$$, '42501');
 reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 login_attempts 조회 불가',
@@ -186,6 +212,8 @@ select pg_temp.expect_error('authenticated 는 begin 실행 불가',
   $$select * from public.fn_login_attempt_begin('\x00'::bytea)$$, '42501');
 select pg_temp.expect_error('authenticated 는 end 실행 불가',
   $$select public.fn_login_attempt_end('\x00'::bytea, 'success')$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_login_resolve_email 실행 불가',
+  $$select public.fn_login_resolve_email('kim01')$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-login-attempts.spec: 전체 통과 ==='; end $$;

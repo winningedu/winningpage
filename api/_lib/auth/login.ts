@@ -113,8 +113,13 @@ function hashParam(normalized: string): string {
   return `\\x${createHash("sha256").update(normalized).digest("hex")}`;
 }
 
-// 인증에 쓸 이메일을 정한다. null 이면 모르는 식별자(GoTrue 를 부르지 않는다).
-// P1/P2: 합성 이메일은 입력으로 받지 않고, @ 없는 식별자는 profiles.username 으로 찾는다.
+// 존재하지 않는 계정을 흉내 내는 고정 주소. 모르는 식별자에도 GoTrue 를 한 번 불러 응답 시간을 맞춘다.
+// 로그인 아이디는 기관 코드 8자 + 무작위 6자라 이 주소와 겹칠 수 없다. 결과는 성공이어도 쓰지 않는다.
+export const DECOY_EMAIL = `login-decoy-00000000@${SYNTHETIC_DOMAIN}`;
+
+// 인증에 쓸 이메일을 정한다. null 이면 모르는 식별자(고정된 없는 주소로 묻는다).
+// P1/P2: 합성 이메일은 입력으로 받지 않고, @ 없는 식별자는 fn_login_resolve_email(lower(btrim(username)),
+// profiles_username_unique_idx)로 찾는다.
 async function resolveAuthEmail(
   admin: SupabaseClient,
   identifier: string,
@@ -126,18 +131,14 @@ async function resolveAuthEmail(
     };
   }
 
-  const pattern = identifier.replace(/[\\%_]/g, (c) => `\\${c}`);
-  const { data, error } = await admin
-    .from("profiles")
-    .select("member_type, email, username")
-    .ilike("username", pattern)
-    .maybeSingle();
+  const { data, error } = await admin.rpc("fn_login_resolve_email", {
+    p_username: identifier,
+  });
   if (error) return { email: null, failed: true };
-
-  const synthetic = `${identifier}@${SYNTHETIC_DOMAIN}`;
-  if (data?.member_type === "teacher")
-    return { email: synthetic, failed: false };
-  return { email: data?.email || synthetic, failed: false };
+  return {
+    email: typeof data === "string" && data ? data : null,
+    failed: false,
+  };
 }
 
 export async function attemptLogin(
@@ -145,7 +146,13 @@ export async function attemptLogin(
   input: LoginInput,
 ): Promise<LoginResult> {
   const identifier = normalizeIdentifier(input.identifier);
-  const hash = hashParam(identifier);
+
+  // 먼저 계정을 정한다. 잠금 열쇠는 계정의 인증 이메일이다. 아이디와 이메일 두 가지로 입력해도 같은 열쇠를 쓰므로
+  // 추측 횟수가 두 배가 되지 않는다. 계정을 모르는 식별자는 식별자 자체가 열쇠다(응답은 아는 계정과 같다).
+  const resolved = await resolveAuthEmail(admin, identifier);
+  if (resolved.failed) return RETRY_FAILURE;
+  const email = resolved.email;
+  const hash = hashParam(email ?? identifier);
 
   const { data, error: beginError } = await admin.rpc(
     "fn_login_attempt_begin",
@@ -168,25 +175,17 @@ export async function attemptLogin(
     };
   }
 
-  const resolved = await resolveAuthEmail(admin, identifier);
-  if (resolved.failed) {
-    await admin.rpc("fn_login_attempt_end", {
-      p_hash: hash,
-      p_outcome: "error",
-      p_attempt_no: begin.attempt_no,
-    });
-    return RETRY_FAILURE;
-  }
-  const email = resolved.email;
-
   let signed: Awaited<ReturnType<LoginInput["signIn"]>>["data"];
   let error: Awaited<ReturnType<LoginInput["signIn"]>>["error"];
   try {
-    if (email === null) {
+    ({ data: signed, error } = await input.signIn(
+      email ?? DECOY_EMAIL,
+      input.password,
+    ));
+    if (email === null && !error) {
+      // 없는 주소는 성공해도 인정하지 않는다.
       signed = { user: null, session: null };
       error = { status: 400 };
-    } else {
-      ({ data: signed, error } = await input.signIn(email, input.password));
     }
   } catch {
     error = {};
