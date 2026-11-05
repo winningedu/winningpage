@@ -155,6 +155,46 @@ describe("GET /api/console/students/history", () => {
     ]);
   });
 
+  test("same masked names in one class get a trailing star, another class does not", async () => {
+    const extra = [
+      row({
+        id: "e9",
+        student_id: "s9",
+        grade: "고2",
+        class_id: "c-A",
+        number: 9,
+      }),
+      row({
+        id: "e10",
+        student_id: "s10",
+        grade: "고1",
+        class_id: "c-G",
+        number: 2,
+      }),
+    ];
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows([...ENROLLMENTS, ...extra], f);
+    const baseProfiles = kit.state.rows.profiles;
+    kit.state.rows.profiles = (f) => [
+      ...(baseProfiles?.(f) as { id: string; name: string }[]),
+      ...matchRows(
+        [
+          { id: "s9", name: "김지늘" },
+          { id: "s10", name: "김가늘" },
+        ],
+        f,
+      ),
+    ];
+
+    const r = await get();
+
+    const name = (id: string) =>
+      (r.body as { items: Item[] }).items.find((i) => i.studentId === id)?.name;
+    expect(name("s1")).toBe("김*늘*");
+    expect(name("s9")).toBe("김*늘*");
+    expect(name("s10")).toBe("김*늘");
+  });
+
   test("an item carries the current grade and group, the class history newest first, the service count and the enrollment with its version", async () => {
     const r = await get();
     const s1 = (r.body as { items: { studentId: string }[] }).items.find(
