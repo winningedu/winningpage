@@ -4,7 +4,10 @@ import { describe, expect, test } from "vitest";
 import {
   executionVerdict,
   type GoalDay,
+  learningVerdict,
+  linkageVerdict,
   summarizeGoalWeek,
+  urgencyOf,
 } from "./coaching.js";
 
 // 오늘(11.02 월)부터 거꾸로 7일. 월~토는 목표 있는 날, 일요일(11.01)은 목표 없음.
@@ -118,5 +121,72 @@ describe("executionVerdict (문구표 r2~r8, first match wins)", () => {
     expect(executionVerdict({ usesGoal: true, week: week(6, 4, 72) })).toEqual({
       level: "caution",
     });
+  });
+});
+
+// 학습진단 12영역 점수. 가장 낮은 영역 하나로 긴급도를 정한다.
+const areas = (lowest: number) => ({
+  GOAL: 80,
+  PLAN: lowest,
+  EXEC: 75,
+  TIME: 72,
+  FEEDBACK: 70,
+  STABILITY: 90,
+  SUBJECT: 80,
+  PERFORM: 80,
+  INQUIRY: 80,
+  ACTIVITY: 80,
+  RECORD: 80,
+  STRATEGY: 80,
+});
+
+describe("urgencyOf (결정 3, 36: 가장 낮은 영역, 기준 45, 60, 70)", () => {
+  test.each([
+    [44, "very_high"],
+    [45, "high"],
+    [59, "high"],
+    [60, "normal"],
+    [69, "normal"],
+    [70, "low"],
+  ] as const)("the lowest area %i is %s", (lowest, level) => {
+    expect(urgencyOf(areas(lowest))).toBe(level);
+  });
+});
+
+describe("learningVerdict (문구표 r9~r12)", () => {
+  const input = (lowest: number, executionAvg: number) => ({
+    areas: areas(lowest),
+    executionAvg,
+  });
+
+  test("no diagnosis means no data", () => {
+    expect(learningVerdict(null)).toEqual({ level: "no_data" });
+  });
+
+  test("urgency high or the execution average under 50 is a risk", () => {
+    expect(learningVerdict(input(59, 80)).level).toBe("risk");
+    expect(learningVerdict(input(44, 80)).level).toBe("risk");
+    expect(learningVerdict(input(65, 49.9)).level).toBe("risk");
+  });
+
+  test("an execution average of 75 or more is good", () => {
+    expect(learningVerdict(input(65, 75)).level).toBe("good");
+  });
+
+  test("anything else is caution (the example student: lowest 60, average 62)", () => {
+    expect(learningVerdict(input(60, 62)).level).toBe("caution");
+    expect(learningVerdict(input(65, 74.9)).level).toBe("caution");
+  });
+});
+
+describe("linkageVerdict (문구표 r13~r16, 진로 연결도)", () => {
+  test.each([
+    [null, "no_data"],
+    [70, "good"],
+    [69.9, "caution"],
+    [50, "caution"],
+    [49.9, "risk"],
+  ] as const)("career link score %s is %s", (score, level) => {
+    expect(linkageVerdict(score).level).toBe(level);
   });
 });

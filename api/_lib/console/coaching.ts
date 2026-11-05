@@ -69,3 +69,65 @@ export function executionVerdict(input: ExecutionInput): Verdict {
   if (achievementPct >= 70 && metDays >= setDays - 1) return { level: "good" };
   return { level: "caution" };
 }
+
+// 학습진단 영역 코드. 앞 6개가 1쪽(학습 실행 역량), 뒤 6개가 2쪽(준비도)이다.
+export const EXECUTION_AREAS = [
+  "GOAL",
+  "PLAN",
+  "EXEC",
+  "TIME",
+  "FEEDBACK",
+  "STABILITY",
+] as const;
+export const READINESS_AREAS = [
+  "SUBJECT",
+  "PERFORM",
+  "INQUIRY",
+  "ACTIVITY",
+  "RECORD",
+  "STRATEGY",
+] as const;
+export type AreaCode =
+  | (typeof EXECUTION_AREAS)[number]
+  | (typeof READINESS_AREAS)[number];
+export type AreaScores = Record<AreaCode, number>;
+
+export type Urgency = "low" | "normal" | "high" | "very_high";
+
+/** 긴급도 4단계(결정 3, 36). 12개 영역 중 가장 낮은 점수가 45 미만 매우 높음, 60 미만 높음, 70 미만 보통. */
+export function urgencyOf(areas: AreaScores): Urgency {
+  const lowest = Math.min(...Object.values(areas));
+  if (lowest < 45) return "very_high";
+  if (lowest < 60) return "high";
+  if (lowest < 70) return "normal";
+  return "low";
+}
+
+export interface LearningInput {
+  areas: AreaScores;
+  /** 학습 실행 역량: 1쪽 6영역 평균. */
+  executionAvg: number;
+}
+
+/** 판정 축 ② 학습역량(문구표 r9~r12). 긴급도 높음은 높음과 매우 높음이다. */
+export function learningVerdict(input: LearningInput | null): Verdict {
+  if (!input) return { level: "no_data" };
+  const urgency = urgencyOf(input.areas);
+  if (
+    urgency === "high" ||
+    urgency === "very_high" ||
+    input.executionAvg < 50
+  ) {
+    return { level: "risk" };
+  }
+  if (input.executionAvg >= 75) return { level: "good" };
+  return { level: "caution" };
+}
+
+/** 판정 축 ③ 연계(문구표 r13~r16). 6축의 진로 연결도 점수를 그대로 쓴다. */
+export function linkageVerdict(careerLinkScore: number | null): Verdict {
+  if (careerLinkScore === null) return { level: "no_data" };
+  if (careerLinkScore >= 70) return { level: "good" };
+  if (careerLinkScore >= 50) return { level: "caution" };
+  return { level: "risk" };
+}
