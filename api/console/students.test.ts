@@ -178,6 +178,7 @@ describe("GET /api/console/students", () => {
       serviceCount: 3,
       urgency: null,
       weeklyGoalRate: 0,
+      weeklyGoalLevel: "low",
       specialReasons: [],
       canEdit: false,
       enrollmentVersion: 3,
@@ -363,6 +364,14 @@ describe("GET /api/console/students", () => {
       new Date(`${today}T00:00:00Z`).getUTCDay() === 0 ? 0 : 43,
     );
     expect(rate("s2")).toBeNull();
+    const level = (id: string) =>
+      (
+        items(r).find((i) => i.studentId === id) as unknown as {
+          weeklyGoalLevel: string | null;
+        }
+      ).weeklyGoalLevel;
+    expect(level("s1")).toBe(rate("s1") === 0 ? "low" : "mid");
+    expect(level("s2")).toBeNull();
   });
 });
 

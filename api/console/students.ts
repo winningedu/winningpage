@@ -14,6 +14,7 @@ import {
 } from "../_lib/console/directory.js";
 import {
   type DailyGoalRow,
+  rateBucket,
   weeklyDates,
   weeklyRate,
 } from "../_lib/console/goalRate.js";
@@ -74,6 +75,9 @@ async function loadWeeklyRates(
     [...byStudent].map(([id, rows]) => [id, Math.round(weeklyRate(rows))]),
   );
 }
+
+const weeklyGoalLevel = (rate: number | undefined) =>
+  rate === undefined ? null : rateBucket(rate);
 
 /** 특이학생으로 지정된 학생 id(기관 전체). */
 async function loadFlagged(
@@ -301,6 +305,7 @@ export default defineHandler({
           serviceCount: used.length,
           urgency: extras.urgency.get(e.student_id) ?? null,
           weeklyGoalRate: extras.rates.get(e.student_id) ?? null,
+          weeklyGoalLevel: weeklyGoalLevel(extras.rates.get(e.student_id)),
           specialReasons: extras.reasonsOf(e.student_id),
           canEdit: actor.kind === "homeroom",
           enrollmentVersion: e.version,
