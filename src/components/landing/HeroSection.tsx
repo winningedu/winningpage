@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { resolvePromotedSlugLink } from "@/hooks/useNavGroups";
+import AreaNotice from "./AreaNotice";
 
 /** 스와이프 판정 최소 이동 거리 (px) */
 const SWIPE_THRESHOLD = 40;
@@ -206,6 +207,9 @@ type HeroSectionProps = {
   // 스쿨멘토(결정 21): 큰, 작은 배너가 같은 순번으로 함께 넘어가고 점은 작은 배너 아래 한 줄만 둔다.
   // 점 개수와 타이머는 큰 배너가 정하고 작은 배너는 순번을 자기 장수로 나눈 나머지로 돌린다.
   syncedSlides?: boolean;
+  // 영역별 조회 상태(스쿨멘토). 배너가 0건일 때 loading은 빈 박스, error는 오류 안내를 슬롯에 보인다.
+  mainStatus?: "loading" | "ready" | "error";
+  sideStatus?: "loading" | "ready" | "error";
 };
 
 const EMPTY_BANNER_NOTICE = "배너가 없어요";
@@ -229,6 +233,8 @@ export default function HeroSection({
   showMainEmptyNotice = false,
   showSideEmptyNotice = false,
   syncedSlides = false,
+  mainStatus = "ready",
+  sideStatus = "ready",
 }: HeroSectionProps) {
   const leftSlides = banners.filter((item) => item.image_url);
   const leftSlideCount = leftSlides.length;
@@ -264,16 +270,45 @@ export default function HeroSection({
       : 0
     : ownRightCarousel.activeIndex;
 
-  const showLeftEmpty = leftSlideCount === 0 && showMainEmptyNotice;
-  const showRightEmpty = rightSlideCount === 0 && showSideEmptyNotice;
+  // 슬라이드가 0건인 슬롯의 상태: loading, error는 조회 상태가 정하고 empty는 호출부 스위치가 정한다.
+  function placeholderKind(
+    slideCount: number,
+    status: "loading" | "ready" | "error",
+    showEmpty: boolean,
+  ) {
+    if (slideCount > 0) return null;
+    if (status !== "ready") return status;
+    return showEmpty ? "empty" : null;
+  }
+  const leftPlaceholder = placeholderKind(
+    leftSlideCount,
+    mainStatus,
+    showMainEmptyNotice,
+  );
+  const rightPlaceholder = placeholderKind(
+    rightSlideCount,
+    sideStatus,
+    showSideEmptyNotice,
+  );
 
   if (
     leftSlideCount === 0 &&
     rightSlideCount === 0 &&
-    !showLeftEmpty &&
-    !showRightEmpty
+    !leftPlaceholder &&
+    !rightPlaceholder
   ) {
     return null;
+  }
+
+  function placeholderContent(
+    kind: "loading" | "error" | "empty",
+  ): React.ReactNode {
+    if (kind === "error") {
+      return (
+        <AreaNotice message="배너를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요" />
+      );
+    }
+    return kind === "empty" ? EMPTY_BANNER_NOTICE : null;
   }
 
   return (
@@ -282,13 +317,14 @@ export default function HeroSection({
           좌 73.89%(813.28/1100.6) + 우 24.47%(269.32/1100.6)
           lg 상단 패딩: 헤더 하단→배너 120px→7.5rem. pb는 0 — 다음 섹션 pt에서 갭 처리(섹션 수직 리듬 규칙) */}
       <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-center lg:gap-4.5 lg:pb-0 lg:pt-30">
-        {showLeftEmpty && (
+        {leftPlaceholder && (
           <div className="flex w-full flex-col items-center lg:basis-[73.89%] lg:grow lg:shrink-0">
             <section
               aria-label="메인 배너"
+              aria-busy={leftPlaceholder === "loading" || undefined}
               className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-969/429"
             >
-              {EMPTY_BANNER_NOTICE}
+              {placeholderContent(leftPlaceholder)}
             </section>
           </div>
         )}
@@ -408,14 +444,25 @@ export default function HeroSection({
           </div>
         )}
 
-        {showRightEmpty && (
+        {rightPlaceholder && (
           <div className="flex w-full max-w-80.25 flex-col items-center md:max-w-104 lg:max-w-none lg:basis-[24.47%] lg:grow lg:shrink-0">
             <section
               aria-label="이벤트 배너"
+              aria-busy={rightPlaceholder === "loading" || undefined}
               className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-321/429"
             >
-              {EMPTY_BANNER_NOTICE}
+              {placeholderContent(rightPlaceholder)}
             </section>
+            {syncedSlides && (
+              <div
+                data-testid="hero-dots-placeholder"
+                aria-hidden="true"
+                className="mt-3 flex items-center gap-2.5 opacity-0 lg:mt-[1.83rem]"
+              >
+                <span className="h-3 w-3 rounded-full bg-primary" />
+                <span className="h-3 w-3 rounded-full bg-[#D9D9D9]" />
+              </div>
+            )}
           </div>
         )}
 
