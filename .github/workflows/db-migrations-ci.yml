@@ -75,6 +75,18 @@ jobs:
         if: steps.changes.outputs.supabase == 'true'
         run: supabase db reset
 
+      # B2B SQL 스펙을 재생한 로컬 DB 에서 모두 돌린다(같은 잡이라 스택을 다시 띄우지 않는다).
+      # 각 스펙은 한 트랜잭션이고 마지막에 ROLLBACK 하며, 단언이 실패하면 psql 이 비정상 종료한다.
+      - name: Run B2B SQL specs
+        if: steps.changes.outputs.supabase == 'true'
+        run: |
+          db_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          for f in scripts/b2b-*.spec.sql; do
+            echo "::group::$f"
+            psql "$db_url" -v ON_ERROR_STOP=1 -f "$f"
+            echo "::endgroup::"
+          done
+
       # 재생한 로컬 DB 의 실제 ACL 로 검사한다. allowlist 밖의 public SECURITY DEFINER 함수나
       # uuid 인자를 받는 함수를 anon 이 실행할 수 있으면 실패한다. 새 함수는 default
       # privileges 로 닫힌 채 시작하므로, 브라우저용 함수는 마이그레이션에 grant 를 써야 한다.
