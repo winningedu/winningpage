@@ -6881,11 +6881,14 @@ export type Database = {
         Row: {
           account_count: number;
           actor_profile_id: string | null;
+          chunk_index: number;
+          claimed_at: string;
           created_at: string;
           created_count: number;
           error_count: number;
           finished_at: string | null;
           id: string;
+          payload_hash: string;
           proxy_session_id: string | null;
           request_id: string;
           row_results: NonNullable<Json>;
@@ -6897,11 +6900,14 @@ export type Database = {
         Insert: {
           account_count?: number;
           actor_profile_id?: string | null;
+          chunk_index: number;
+          claimed_at?: string;
           created_at?: string;
           created_count?: number;
           error_count?: number;
           finished_at?: string | null;
           id?: string;
+          payload_hash: string;
           proxy_session_id?: string | null;
           request_id: string;
           row_results?: NonNullable<Json>;
@@ -6912,11 +6918,14 @@ export type Database = {
         Update: {
           account_count?: number;
           actor_profile_id?: string | null;
+          chunk_index?: number;
+          claimed_at?: string;
           created_at?: string;
           created_count?: number;
           error_count?: number;
           finished_at?: string | null;
           id?: string;
+          payload_hash?: string;
           proxy_session_id?: string | null;
           request_id?: string;
           row_results?: NonNullable<Json>;
@@ -9001,6 +9010,21 @@ export type Database = {
           p_temp_hash: string;
         };
         Returns: undefined;
+      };
+      fn_teacher_import_chunk_claim: {
+        Args: {
+          p_actor: string;
+          p_chunk_index: number;
+          p_payload_hash: string;
+          p_proxy_session: string;
+          p_request_id: string;
+          p_tenant: string;
+          p_total_rows: number;
+        };
+        Returns: {
+          outcome: string;
+          run_id: string;
+        }[];
       };
       fn_teacher_import_move_class: {
         Args: { p_class_id: string; p_teacher_id: string };

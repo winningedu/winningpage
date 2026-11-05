@@ -39,7 +39,7 @@ const row = (over: Partial<Row> = {}): Row => ({
 });
 
 const run = (rows: Row[], over: Record<string, unknown> = {}) =>
-  post({ requestId: REQUEST_ID, mode: "skip", rows, ...over });
+  post({ requestId: REQUEST_ID, chunkIndex: 1, mode: "skip", rows, ...over });
 
 interface Body {
   ok: boolean;
@@ -58,6 +58,15 @@ interface Body {
 }
 
 const registerCalls: Record<string, unknown>[] = [];
+const claimCalls: Record<string, unknown>[] = [];
+
+/** 청크 멱등 키 판정(fn_teacher_import_chunk_claim)이 돌려줄 outcome 을 정한다. */
+function claimOutcome(outcome: string) {
+  kit.state.rpc.fn_teacher_import_chunk_claim = (args) => {
+    claimCalls.push(args);
+    return { data: [{ outcome, run_id: "run-1" }], error: null };
+  };
+}
 
 /** 기관에 이미 있는 교사. 전화번호 조회에는 이 목록을, 등록 뒤 한 건 조회에는 계정 없는 행을 돌려준다. */
 function existingTeachers(list: Record<string, unknown>[]) {
@@ -74,6 +83,8 @@ function existingTeachers(list: Record<string, unknown>[]) {
 beforeEach(() => {
   kit.state = createKitState();
   registerCalls.length = 0;
+  claimCalls.length = 0;
+  claimOutcome("claimed");
   kit.state.rpc.fn_teacher_register = (args) => {
     registerCalls.push(args);
     return {
@@ -457,16 +468,18 @@ describe("POST /api/console/teachers/import", () => {
       const r = await run([row(), row({ phone: "", name: "가" })]);
 
       expect(r.status).toBe(200);
-      const runInsert = kit.state.inserts.find(
-        (i) => i.table === "teacher_import_runs",
-      );
-      expect(runInsert?.row).toMatchObject({
-        tenant_id: "tenant-1",
-        request_id: REQUEST_ID,
-        actor_profile_id: "profile-1",
-        total_rows: 2,
-      });
-      const insertedId = (runInsert?.row as { id: string } | undefined)?.id;
+      expect(claimCalls).toEqual([
+        {
+          p_tenant: "tenant-1",
+          p_request_id: REQUEST_ID,
+          p_chunk_index: 1,
+          p_payload_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          p_actor: "profile-1",
+          p_proxy_session: null,
+          p_total_rows: 2,
+        },
+      ]);
+      const insertedId = "run-1";
       expect(kit.state.updates).toHaveLength(1);
       expect(kit.state.updates[0]).toMatchObject({
         table: "teacher_import_runs",
@@ -525,7 +538,7 @@ describe("POST /api/console/teachers/import", () => {
     });
 
     test("같은 requestId 로 이미 끝난 실행이면 새로 만들지 않고 저장된 결과를 돌려준다(임시 비밀번호는 없다)", async () => {
-      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
+      claimOutcome("replay");
       kit.state.rows.teacher_import_runs = () => FINISHED_RUN;
 
       const r = await run([row(), row({ phone: "" })]);
@@ -552,11 +565,7 @@ describe("POST /api/console/teachers/import", () => {
     });
 
     test("다른 기관의 requestId 와 겹치면 409 REQUEST_ID_IN_USE 이고 아무것도 만들지 않는다", async () => {
-      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
-      kit.state.rows.teacher_import_runs = () => ({
-        ...FINISHED_RUN,
-        tenant_id: "tenant-2",
-      });
+      claimOutcome("other_tenant");
 
       const r = await run([row()]);
 
@@ -566,11 +575,7 @@ describe("POST /api/console/teachers/import", () => {
     });
 
     test("끝나지 않은 같은 실행은 이어서 처리해 마무리한다", async () => {
-      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
-      kit.state.rows.teacher_import_runs = () => ({
-        ...FINISHED_RUN,
-        finished_at: null,
-      });
+      claimOutcome("resumed");
 
       const r = await run([row()]);
 
@@ -581,9 +586,64 @@ describe("POST /api/console/teachers/import", () => {
       expect(kit.state.updates[0]?.filters).toEqual({ id: "run-1" });
     });
 
+    test("같은 키에 다른 내용이면 400 IDEMPOTENCY_KEY_MISMATCH 이고 아무것도 만들지 않는다", async () => {
+      claimOutcome("mismatch");
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({
+        error: { code: "IDEMPOTENCY_KEY_MISMATCH" },
+      });
+      expect(registerCalls).toHaveLength(0);
+      expect(kit.state.updates).toHaveLength(0);
+    });
+
+    test("다른 요청이 처리 중인 청크는 409 IN_PROGRESS 이고 등록하지 않는다", async () => {
+      claimOutcome("in_progress");
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code: "IN_PROGRESS" } });
+      expect(registerCalls).toHaveLength(0);
+      expect(kit.state.updates).toHaveLength(0);
+    });
+
+    test("청크 1, 2, 3 은 한 requestId 아래 각각 키(requestId, chunkIndex)로 처리한다", async () => {
+      for (const chunkIndex of [1, 2, 3]) {
+        const r = await run([row({ phone: `010-0000-000${chunkIndex}` })], {
+          chunkIndex,
+        });
+        expect(r.status).toBe(200);
+      }
+
+      expect(claimCalls.map((c) => [c.p_request_id, c.p_chunk_index])).toEqual([
+        [REQUEST_ID, 1],
+        [REQUEST_ID, 2],
+        [REQUEST_ID, 3],
+      ]);
+      expect(registerCalls).toHaveLength(3);
+    });
+
+    test("해시는 같은 내용이면 같고 행이나 적용 방식이 다르면 달라진다", async () => {
+      await run([row()]);
+      await run([row()]);
+      await run([row({ name: "이교사" })]);
+      await run([row()], { mode: "overwrite" });
+
+      const [a, b, c, d] = claimCalls.map((x) => x.p_payload_hash);
+      expect(a).toBe(b);
+      expect(c).not.toBe(a);
+      expect(d).not.toBe(a);
+    });
+
     test("실행 기록을 만들지 못하면 500 이고 등록하지 않는다", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
-      kit.state.insertErrors.teacher_import_runs = { code: "XX000" };
+      kit.state.rpc.fn_teacher_import_chunk_claim = () => ({
+        data: null,
+        error: { code: "XX000" },
+      });
 
       const r = await run([row()]);
 
@@ -595,6 +655,8 @@ describe("POST /api/console/teachers/import", () => {
   describe("요청 검증과 권한", () => {
     test.each([
       ["requestId 가 uuid 가 아님", { requestId: "abc" }],
+      ["chunkIndex 가 없음", { chunkIndex: undefined }],
+      ["chunkIndex 가 0", { chunkIndex: 0 }],
       ["mode 가 없음", { mode: undefined }],
       ["행이 없음", { rows: [] }],
       [

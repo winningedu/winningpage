@@ -72,21 +72,67 @@ insert into fx select 'tb', id from public.tenants where code = 'JRBBBBBB';
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
 -- ---------------------------------------------------------------------
--- 실행 기록: request_id 는 유일하고 건수는 음수가 될 수 없다
+-- 실행 기록: (request_id, chunk_index) 가 유일하고 건수는 음수가 될 수 없다
 -- ---------------------------------------------------------------------
 select pg_temp.expect_ok('실행 기록 insert',
-  $$insert into public.teacher_import_runs (id, tenant_id, request_id, total_rows)
-    values (gen_random_uuid(), pg_temp.fx('ta'), '11111111-1111-4111-8111-111111111111', 3)$$);
-select pg_temp.expect_error('같은 request_id 는 23505',
-  $$insert into public.teacher_import_runs (id, tenant_id, request_id, total_rows)
-    values (gen_random_uuid(), pg_temp.fx('tb'), '11111111-1111-4111-8111-111111111111', 1)$$, '23505');
+  $$insert into public.teacher_import_runs (id, tenant_id, request_id, chunk_index, payload_hash, total_rows)
+    values (gen_random_uuid(), pg_temp.fx('ta'), '11111111-1111-4111-8111-111111111111', 1, 'h1', 3)$$);
+select pg_temp.expect_error('같은 (request_id, chunk_index) 는 23505',
+  $$insert into public.teacher_import_runs (id, tenant_id, request_id, chunk_index, payload_hash, total_rows)
+    values (gen_random_uuid(), pg_temp.fx('tb'), '11111111-1111-4111-8111-111111111111', 1, 'h1', 1)$$, '23505');
+select pg_temp.expect_ok('같은 request_id 의 다른 chunk_index 는 허용',
+  $$insert into public.teacher_import_runs (id, tenant_id, request_id, chunk_index, payload_hash, total_rows)
+    values (gen_random_uuid(), pg_temp.fx('ta'), '11111111-1111-4111-8111-111111111111', 2, 'h2', 1)$$);
 select pg_temp.expect_error('음수 건수는 23514',
-  $$insert into public.teacher_import_runs (id, tenant_id, request_id, total_rows, created_count)
-    values (gen_random_uuid(), pg_temp.fx('ta'), '22222222-2222-4222-8222-222222222222', 1, -1)$$, '23514');
+  $$insert into public.teacher_import_runs (id, tenant_id, request_id, chunk_index, payload_hash, total_rows, created_count)
+    values (gen_random_uuid(), pg_temp.fx('ta'), '22222222-2222-4222-8222-222222222222', 1, 'h', 1, -1)$$, '23514');
+select pg_temp.expect_error('chunk_index 0 은 23514',
+  $$insert into public.teacher_import_runs (id, tenant_id, request_id, chunk_index, payload_hash, total_rows)
+    values (gen_random_uuid(), pg_temp.fx('ta'), '22222222-2222-4222-8222-222222222222', 0, 'h', 1)$$, '23514');
 select pg_temp.expect_text('기본값: 완료 전 finished_at 은 null',
   (select (finished_at is null)::text || '/' || row_results::text || '/' || error_count
-     from public.teacher_import_runs where request_id = '11111111-1111-4111-8111-111111111111'),
+     from public.teacher_import_runs where request_id = '11111111-1111-4111-8111-111111111111' and chunk_index = 1),
   'true/[]/0');
+
+-- ---------------------------------------------------------------------
+-- fn_teacher_import_chunk_claim: 청크 단위 멱등 키
+-- ---------------------------------------------------------------------
+create function pg_temp.claim(p_tenant text, p_req text, p_chunk int, p_hash text) returns text
+language sql as $$
+  select outcome from public.fn_teacher_import_chunk_claim(
+    pg_temp.fx(p_tenant), p_req::uuid, p_chunk, p_hash, null, null, 20)
+$$;
+
+select pg_temp.expect_text('청크 1 첫 요청은 claimed',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 1, 'ha'), 'claimed');
+select pg_temp.expect_text('청크 2 첫 요청은 claimed',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 2, 'hb'), 'claimed');
+select pg_temp.expect_text('청크 3 첫 요청은 claimed',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 3, 'hc'), 'claimed');
+select pg_temp.expect_int('한 request_id 아래 청크 3개',
+  (select count(*) from public.teacher_import_runs where request_id = '33333333-3333-4333-8333-333333333333'), 3);
+select pg_temp.expect_text('끝나지 않은 청크를 바로 다시 보내면 in_progress',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 1, 'ha'), 'in_progress');
+select pg_temp.expect_text('같은 키에 다른 해시는 끝나기 전에도 mismatch',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 1, 'other'), 'mismatch');
+
+update public.teacher_import_runs set finished_at = now()
+ where request_id = '33333333-3333-4333-8333-333333333333' and chunk_index = 1;
+select pg_temp.expect_text('끝난 청크에 같은 해시는 replay',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 1, 'ha'), 'replay');
+select pg_temp.expect_text('끝난 청크에 다른 해시는 mismatch',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 1, 'other'), 'mismatch');
+select pg_temp.expect_text('다른 기관이 쓴 request_id 는 other_tenant',
+  pg_temp.claim('tb', '33333333-3333-4333-8333-333333333333', 1, 'ha'), 'other_tenant');
+
+update public.teacher_import_runs set claimed_at = now() - interval '61 seconds'
+ where request_id = '33333333-3333-4333-8333-333333333333' and chunk_index = 2;
+select pg_temp.expect_text('60초가 지난 미완료 청크는 resumed',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 2, 'hb'), 'resumed');
+select pg_temp.expect_text('이어받은 직후 두 번째 이어받기는 in_progress',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 2, 'hb'), 'in_progress');
+select pg_temp.expect_text('청크 3 은 60초 전이라 in_progress',
+  pg_temp.claim('ta', '33333333-3333-4333-8333-333333333333', 3, 'hc'), 'in_progress');
 
 -- ---------------------------------------------------------------------
 -- fn_teacher_import_move_class: 담임 덮어쓰기
@@ -141,6 +187,8 @@ grant execute on function pg_temp.expect_error(text, text, text) to anon, authen
 set local role anon;
 select pg_temp.expect_error('anon 은 실행 기록 조회 불가',
   $$select count(*) from public.teacher_import_runs$$, '42501');
+select pg_temp.expect_error('anon 은 fn_teacher_import_chunk_claim 실행 불가',
+  $$select public.fn_teacher_import_chunk_claim(null, null, 1, 'h', null, null, 1)$$, '42501');
 select pg_temp.expect_error('anon 은 fn_teacher_import_move_class 실행 불가',
   $$select public.fn_teacher_import_move_class(null, null)$$, '42501');
 reset role;

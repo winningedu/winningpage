@@ -1,7 +1,7 @@
 // 교사 엑셀 일괄 등록(W15) 도우미. 행 판정은 서버가 다시 계산하고, 등록은 T13 의 등록 경로를 그대로 쓴다.
 // 임시 비밀번호는 응답에 한 번만 싣고 저장하거나 로그에 남기지 않는다. 실행 기록에는 행 번호와 판정 코드만 둔다.
 
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 import {
@@ -28,14 +28,20 @@ export interface ImportRowInput {
 
 export interface ImportRequest {
   requestId: string;
+  /** 한 가져오기를 나눈 청크의 순번(1부터). 멱등 키는 (requestId, chunkIndex). */
+  chunkIndex: number;
   mode: "overwrite" | "skip";
   rows: ImportRowInput[];
 }
 
 /** 요청 본문 검증. 모양이 틀리면 null. 행 내용의 옳고 그름은 판정이 맡는다. */
 export function parseImportBody(body: unknown): ImportRequest | null {
-  const { requestId, mode, rows } = (body ?? {}) as Record<string, unknown>;
+  const { requestId, chunkIndex, mode, rows } = (body ?? {}) as Record<
+    string,
+    unknown
+  >;
   if (typeof requestId !== "string" || !UUID_RE.test(requestId)) return null;
+  if (!Number.isInteger(chunkIndex) || (chunkIndex as number) < 1) return null;
   if (mode !== "overwrite" && mode !== "skip") return null;
   if (
     !Array.isArray(rows) ||
@@ -56,7 +62,7 @@ export function parseImportBody(body: unknown): ImportRequest | null {
       className: text(raw.className),
     });
   }
-  return { requestId, mode, rows: parsed };
+  return { requestId, chunkIndex: chunkIndex as number, mode, rows: parsed };
 }
 
 export type ImportVerdict =
@@ -411,12 +417,22 @@ function replayOf(run: StoredRun): ImportOutcome {
 
 export type ImportResult =
   | { status: "ok"; outcome: ImportOutcome }
-  | { status: "request_id_in_use" };
+  | { status: "request_id_in_use" }
+  | { status: "key_mismatch" }
+  | { status: "in_progress" };
+
+/** 청크 본문(적용 방식과 행)의 해시. parseImportBody 가 키 순서를 고정하므로 같은 내용이면 같다. */
+function payloadHashOf(request: ImportRequest): string {
+  return createHash("sha256")
+    .update(JSON.stringify({ mode: request.mode, rows: request.rows }))
+    .digest("hex");
+}
 
 /**
- * requestId 로 실행 기록을 먼저 잡는다(unique). 이미 있으면 끝난 실행은 저장된 결과를 돌려주고, 끝나지 않은 실행은
- * 이어서 처리한다(행마다 다시 판정하므로 이미 반영된 행은 동일이 된다). 다른 기관의 requestId 면 request_id_in_use.
- * 순서: 실행 기록 -> 행 판정 -> 등록(T13 경로) -> 감사 로그 -> 실행 기록 완료.
+ * (requestId, chunkIndex) 키를 fn_teacher_import_chunk_claim 으로 잡는다. 끝난 청크는 저장된 결과를 돌려주고,
+ * 해시가 다르면 key_mismatch, 60초 안에 처리 중이면 in_progress, 다른 기관의 requestId 면 request_id_in_use 다.
+ * 60초가 지난 미완료 청크는 행 잠금 아래 한 요청만 이어받는다(행마다 다시 판정하므로 이미 반영된 행은 동일이 된다).
+ * 순서: 키 선점 -> 행 판정 -> 등록(T13 경로) -> 감사 로그 -> 실행 기록 완료.
  */
 export async function runTeacherImport(
   ctx: ConsoleAuditCtx,
@@ -424,34 +440,36 @@ export async function runTeacherImport(
 ): Promise<ImportResult> {
   const admin = ctx.supabaseAdmin;
   const tenantId = ctx.console.tenantId;
-  let runId: string = randomUUID();
-  const { error: insertError } = await admin
-    .from("teacher_import_runs")
-    .insert({
-      id: runId,
-      tenant_id: tenantId,
-      request_id: request.requestId,
-      actor_profile_id: ctx.userId ?? null,
-      proxy_session_id: ctx.console.proxySessionId,
-      total_rows: request.rows.length,
-    });
-  if (insertError) {
-    if (insertError.code !== "23505")
-      throw new RpcError("teacher_import_runs insert", insertError.code);
+  const { data: claimed, error: claimError } = await admin.rpc(
+    "fn_teacher_import_chunk_claim",
+    {
+      p_tenant: tenantId,
+      p_request_id: request.requestId,
+      p_chunk_index: request.chunkIndex,
+      p_payload_hash: payloadHashOf(request),
+      p_actor: ctx.userId ?? null,
+      p_proxy_session: ctx.console.proxySessionId,
+      p_total_rows: request.rows.length,
+    },
+  );
+  const claim = (claimed as { outcome: string; run_id: string }[] | null)?.[0];
+  if (claimError || !claim)
+    throw new RpcError("fn_teacher_import_chunk_claim", claimError?.code);
+  const runId = claim.run_id;
+  if (claim.outcome === "other_tenant") return { status: "request_id_in_use" };
+  if (claim.outcome === "mismatch") return { status: "key_mismatch" };
+  if (claim.outcome === "in_progress") return { status: "in_progress" };
+  if (claim.outcome === "replay") {
     const { data, error } = await admin
       .from("teacher_import_runs")
       .select(
         "id, tenant_id, finished_at, total_rows, created_count, updated_count, account_count, error_count, row_results",
       )
-      .eq("request_id", request.requestId)
+      .eq("id", runId)
       .maybeSingle();
-    const existing = data as StoredRun | null;
-    if (error || !existing)
+    if (error || !data)
       throw new RpcError("teacher_import_runs read", error?.code);
-    if (existing.tenant_id !== tenantId) return { status: "request_id_in_use" };
-    if (existing.finished_at)
-      return { status: "ok", outcome: replayOf(existing) };
-    runId = existing.id;
+    return { status: "ok", outcome: replayOf(data as StoredRun) };
   }
 
   const rowGrades = request.rows
