@@ -16,6 +16,13 @@ const state = vi.hoisted(() => ({
 vi.mock("@/config/site", () => ({
   site: {
     company: {},
+    news: {
+      maxRows: 5,
+      companyTitle: "회사소식",
+      noticeTitle: "공지사항",
+      companyEmpty: "등록된 회사소식이 없습니다.",
+      noticeEmpty: "등록된 공지사항이 없습니다.",
+    },
     features: {
       premium: false,
       hiddenPrograms: [],

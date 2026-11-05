@@ -37,8 +37,6 @@ type NewsItem = {
   is_pinned?: boolean | null;
 };
 
-const MAX_ROWS = 5;
-
 // 시안(Figma 1907:14893) 배지 3색 → 공통 Chip 의 tone 토큰 매핑.
 // 색 hex 는 전부 src/components/Chip.jsx 가 소유한다(TONE_STYLES).
 //
@@ -178,8 +176,10 @@ export default function NewsSection({
   companyNews = [],
   notices = [],
 }: NewsSectionProps) {
-  const newsRows = companyNews.slice(0, MAX_ROWS);
-  const noticeRows = notices.slice(0, MAX_ROWS);
+  const { maxRows, companyTitle, noticeTitle, companyEmpty, noticeEmpty } =
+    site.news;
+  const newsRows = companyNews.slice(0, maxRows);
+  const noticeRows = notices.slice(0, maxRows);
 
   return (
     <section
@@ -195,9 +195,9 @@ export default function NewsSection({
           {/* 좌: 회사소식 */}
           <div>
             <ColumnHeader
-              title="회사소식"
+              title={companyTitle}
               moreLink="/company-news/list"
-              moreLabel="회사소식 더보기"
+              moreLabel={`${companyTitle} 더보기`}
             />
             {newsRows.length > 0 ? (
               <ul className="mt-6 space-y-6">
@@ -207,7 +207,7 @@ export default function NewsSection({
               </ul>
             ) : (
               <EmptyRows
-                message="등록된 회사소식이 없습니다."
+                message={companyEmpty}
                 className="mt-6 h-16 md:h-31.5"
               />
             )}
@@ -216,9 +216,9 @@ export default function NewsSection({
           {/* 우: 공지사항 */}
           <div>
             <ColumnHeader
-              title="공지사항"
+              title={noticeTitle}
               moreLink="/events"
-              moreLabel="공지사항 더보기"
+              moreLabel={`${noticeTitle} 더보기`}
             />
             {noticeRows.length > 0 ? (
               <ul className="mt-6 space-y-6">
@@ -228,7 +228,7 @@ export default function NewsSection({
               </ul>
             ) : (
               <EmptyRows
-                message="등록된 공지사항이 없습니다."
+                message={noticeEmpty}
                 className="mt-6 h-16 md:h-31.5"
               />
             )}
