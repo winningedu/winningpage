@@ -17,7 +17,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-import { weeklyDates } from "../_lib/console/goalRate.js";
+import { weekWindows } from "../_lib/console/goalRate.js";
 import handler from "./students.js";
 
 const get = (query: Record<string, string> = {}) =>
@@ -177,8 +177,8 @@ describe("GET /api/console/students", () => {
       },
       serviceCount: 3,
       urgency: null,
-      weeklyGoalRate: 0,
-      weeklyGoalLevel: "low",
+      weeklyGoalRate: null,
+      weeklyGoalLevel: null,
       specialReasons: [],
       canEdit: false,
       enrollmentVersion: 3,
@@ -336,42 +336,66 @@ describe("GET /api/console/students", () => {
     ]);
   });
 
-  test("weeklyGoalRate is the rounded weekly rate for goal users and null for the others", async () => {
-    const today = weeklyDates().at(-1);
+  test("weeklyGoalRate is the rounded rate over the 7 days before today for goal users, null for the others and for goal users with no target", async () => {
+    const day = weekWindows().thisWeek.find(
+      (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+    );
     kit.state.rows.goal_daily_records = (f) =>
       matchRows(
         [
           {
             profile_id: "s1",
-            record_date: today,
+            record_date: day,
             study_hours: 3,
             target_ideal_hours: 7,
+            target_min_hours: 4,
+          },
+        ],
+        f,
+      );
+    const read = (r: { body: unknown }, id: string) =>
+      items(r).find((i) => i.studentId === id) as unknown as {
+        weeklyGoalRate: number | null;
+        weeklyGoalLevel: string | null;
+      };
+
+    const r = await get();
+
+    expect(read(r, "s1")).toMatchObject({
+      weeklyGoalRate: 43,
+      weeklyGoalLevel: "mid",
+    });
+    expect(read(r, "s2")).toMatchObject({
+      weeklyGoalRate: null,
+      weeklyGoalLevel: null,
+    });
+  });
+
+  test("a target day with no record counts as 0 hours using the student's plan", async () => {
+    kit.state.rows.goal_students = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            study_schedule: {
+              monday: { ideal: 5, min: 3 },
+              tuesday: { ideal: 5, min: 3 },
+              wednesday: { ideal: 5, min: 3 },
+              thursday: { ideal: 5, min: 3 },
+              friday: { ideal: 5, min: 3 },
+              saturday: { ideal: 5, min: 3 },
+            },
           },
         ],
         f,
       );
 
     const r = await get();
-    const rate = (id: string) =>
-      (
-        items(r).find((i) => i.studentId === id) as unknown as {
-          weeklyGoalRate: number | null;
-        }
-      ).weeklyGoalRate;
 
-    // 일요일에는 목표 없이 학습시간만 더해지므로 일요일이면 목표가 있는 날이 없어 0 이다.
-    expect(rate("s1")).toBe(
-      new Date(`${today}T00:00:00Z`).getUTCDay() === 0 ? 0 : 43,
-    );
-    expect(rate("s2")).toBeNull();
-    const level = (id: string) =>
-      (
-        items(r).find((i) => i.studentId === id) as unknown as {
-          weeklyGoalLevel: string | null;
-        }
-      ).weeklyGoalLevel;
-    expect(level("s1")).toBe(rate("s1") === 0 ? "low" : "mid");
-    expect(level("s2")).toBeNull();
+    expect(items(r).find((i) => i.studentId === "s1")).toMatchObject({
+      weeklyGoalRate: 0,
+      weeklyGoalLevel: "low",
+    });
   });
 });
 
@@ -416,20 +440,22 @@ describe("GET /api/console/students special students", () => {
   });
 
   test("the low rate reason applies only when the tenant sets a threshold", async () => {
-    const today = weeklyDates().at(-1);
+    const day = weekWindows().thisWeek.find(
+      (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+    );
     kit.state.rows.goal_daily_records = (f) =>
       matchRows(
         [
           {
             profile_id: "s1",
-            record_date: today,
+            record_date: day,
             study_hours: 1,
             target_ideal_hours: 10,
+            target_min_hours: 5,
           },
         ],
         f,
       );
-    const sunday = new Date(`${today}T00:00:00Z`).getUTCDay() === 0;
 
     const without = await get();
     expect(
@@ -446,7 +472,7 @@ describe("GET /api/console/students special students", () => {
     expect(withThreshold.body).toMatchObject({ specialExecRatePct: 40 });
     expect(
       special(withThreshold).find((i) => i.studentId === "s1")?.specialReasons,
-    ).toEqual(sunday ? ["urgency"] : ["low_rate", "urgency"]);
+    ).toEqual(["low_rate", "urgency"]);
   });
 
   test("the special filter combines with a service tab", async () => {
