@@ -75,6 +75,91 @@ comment on table public.tenant_service_settings is '기관별 서비스 제공 �
 comment on table public.student_usage_overrides is '학생별 월, 학기 횟수 조정. null 은 기관 설정을 따른다.';
 comment on table public.tenant_usage_events is '기관 학생의 서비스 사용 기록. 1회는 과제 1개. 클라이언트 접근 없음(학생은 fn_my_usage_state).';
 
+-- 설정 변경 이력(사 #164, #166): 기관 서비스 설정, 학생별 조정, 기관 계약 컬럼이 바뀌면 변경자(auth.uid()), 일시, 이전 값을
+-- admin_access_logs(action settings_change)에 남긴다. 값이 실제로 바뀐 컬럼만 meta.before, meta.after 에 담는다.
+-- 로그인 없이(service_role 데이터 작업) 바꾸면 행위자는 actor_login_id 'system' 이다.
+-- 트리거는 함수 소유자 권한으로 로그를 넣는다. 이 파일의 마지막에 붙인 트리거는 기존 테이블 동작을 바꾸지 않는다.
+create function public.fn_log_settings_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_email text;
+  v_old jsonb := case when tg_op = 'INSERT' then null else to_jsonb(old) end;
+  v_new jsonb := case when tg_op = 'DELETE' then null else to_jsonb(new) end;
+  v_row jsonb;
+  v_cols text[];
+  v_before jsonb := '{}'::jsonb;
+  v_after jsonb := '{}'::jsonb;
+  v_col text;
+  v_tenant uuid;
+  v_target uuid;
+  v_meta jsonb;
+begin
+  v_row := coalesce(v_new, v_old);
+  v_cols := case tg_table_name
+    when 'tenant_service_settings' then array['enabled', 'starts_on', 'ends_on', 'monthly_limit', 'term_limit']
+    when 'student_usage_overrides' then array['monthly_limit', 'term_limit']
+    else array['contract_start_date', 'contract_end_date', 'term_months', 'grace_ends_on', 'mou_status']
+  end;
+
+  foreach v_col in array v_cols loop
+    if (v_old ->> v_col) is distinct from (v_new ->> v_col) then
+      v_before := v_before || jsonb_build_object(v_col, v_old -> v_col);
+      v_after := v_after || jsonb_build_object(v_col, v_new -> v_col);
+    end if;
+  end loop;
+  if v_before = '{}'::jsonb and v_after = '{}'::jsonb then
+    return coalesce(new, old);
+  end if;
+
+  if tg_table_name = 'student_usage_overrides' then
+    v_target := (v_row ->> 'profile_id')::uuid;
+    select p.tenant_id into v_tenant from public.profiles p where p.id = v_target;
+    v_meta := jsonb_build_object('program_key', v_row ->> 'program_key');
+  elsif tg_table_name = 'tenant_service_settings' then
+    v_target := (v_row ->> 'tenant_id')::uuid;
+    v_tenant := v_target;
+    v_meta := jsonb_build_object('program_key', v_row ->> 'program_key');
+  else
+    v_target := (v_row ->> 'id')::uuid;
+    v_tenant := v_target;
+    v_meta := '{}'::jsonb;
+  end if;
+  -- 기관이 지워지는 중(cascade)이면 외래키를 걸 수 없으니 기관 칸을 비운다.
+  select t.id into v_tenant from public.tenants t where t.id = v_tenant;
+
+  if v_uid is not null then
+    select p.email into v_email from public.profiles p where p.id = v_uid;
+    v_email := coalesce(v_email, v_uid::text);
+  end if;
+
+  insert into public.admin_access_logs (
+    profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, target_id, meta, created_at
+  ) values (
+    v_uid, v_email, case when v_uid is null then 'system' end, 'hq', 'settings_change', tg_table_name,
+    v_tenant, v_target, v_meta || jsonb_build_object('before', v_before, 'after', v_after),
+    clock_timestamp()
+  );
+  return coalesce(new, old);
+end;
+$$;
+
+revoke all on function public.fn_log_settings_change() from public, anon, authenticated;
+
+create trigger trg_tenant_service_settings_history
+  after insert or update or delete on public.tenant_service_settings
+  for each row execute function public.fn_log_settings_change();
+create trigger trg_student_usage_overrides_history
+  after insert or update or delete on public.student_usage_overrides
+  for each row execute function public.fn_log_settings_change();
+create trigger trg_tenants_contract_history
+  after update of contract_start_date, contract_end_date, term_months, grace_ends_on, mou_status on public.tenants
+  for each row execute function public.fn_log_settings_change();
+
 -- 학생의 한 서비스 사용 상태. 한도는 학생별 조정이 있으면 그 값, 없으면 기관 설정이다.
 -- 기간(period): 서비스의 starts_on/ends_on, 없으면 기관의 계약 시작일과 종료일(둘 다 포함, KST 날짜).
 -- 월은 KST 달력 월(1일에 초기화). 학기는 기준일(서비스 starts_on, 없으면 계약 시작일)부터 term_months 개월씩
