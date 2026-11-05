@@ -138,7 +138,7 @@ function classKeyOf(grade: string, groupId: string | null, name: string) {
 }
 
 /** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
-function normalizeClassName(orgType: string, raw: string): string {
+export function normalizeClassName(orgType: string, raw: string): string {
   return orgType === "학교"
     ? raw.replace(/\D/g, "").replace(/^0+/, "")
     : raw.replace(/\s/g, "");
