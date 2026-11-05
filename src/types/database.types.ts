@@ -88,37 +88,55 @@ export type Database = {
       admin_access_logs: {
         Row: {
           action: string;
-          actor_email: string;
+          actor_email: string | null;
+          actor_kind: string | null;
+          actor_login_id: string | null;
           created_at: string;
           id: string;
+          meta: NonNullable<Json>;
           profile_id: string | null;
-          reason: string;
+          proxy_session_id: string | null;
+          reason: string | null;
           resource_key: string;
           row_count: number | null;
           target_id: string | null;
+          teacher_id: string | null;
+          tenant_id: string | null;
         };
         ComputedFields: never;
         Insert: {
           action: string;
-          actor_email: string;
+          actor_email?: string | null;
+          actor_kind?: string | null;
+          actor_login_id?: string | null;
           created_at?: string;
           id?: string;
+          meta?: NonNullable<Json>;
           profile_id?: string | null;
-          reason: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
           resource_key: string;
           row_count?: number | null;
           target_id?: string | null;
+          teacher_id?: string | null;
+          tenant_id?: string | null;
         };
         Update: {
           action?: string;
-          actor_email?: string;
+          actor_email?: string | null;
+          actor_kind?: string | null;
+          actor_login_id?: string | null;
           created_at?: string;
           id?: string;
+          meta?: NonNullable<Json>;
           profile_id?: string | null;
-          reason?: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
           resource_key?: string;
           row_count?: number | null;
           target_id?: string | null;
+          teacher_id?: string | null;
+          tenant_id?: string | null;
         };
         Relationships: [
           {
@@ -126,6 +144,20 @@ export type Database = {
             columns: ["profile_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_access_logs_teacher_id_fkey";
+            columns: ["teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_access_logs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];
@@ -7126,14 +7158,18 @@ export type Database = {
       admin_access_log_entries: {
         Row: {
           action: string;
-          actor_email: string;
+          actor_email: string | null;
+          actor_kind: string | null;
+          actor_login_id: string | null;
           actor_name: string | null;
           created_at: string;
           id: string;
-          reason: string;
+          is_proxy: boolean | null;
+          reason: string | null;
           resource_key: string;
           row_count: number | null;
           target_id: string | null;
+          tenant_code: string | null;
         };
         ComputedFields: never;
         Relationships: [];
