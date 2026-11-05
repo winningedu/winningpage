@@ -94,8 +94,11 @@ export default defineHandler({
 
     const today = kstYMD();
     const goal = await loadGoalStatus(admin, goalStudents);
-    // 기록과 목표가 없는 학생은 달성율 0 으로 센다.
-    const rates = goalStudents.map((id) => goal.get(id)?.weeklyRate ?? 0);
+    // 목표 설정일이 없어 달성율이 없는 학생은 평균과 구간에서 뺀다(결정 62).
+    const rates = goalStudents.flatMap((id) => {
+      const rate = goal.get(id)?.weeklyRate;
+      return rate === null || rate === undefined ? [] : [rate];
+    });
     const buckets = { low: 0, mid: 0, high: 0 };
     for (const rate of rates) buckets[rateBucket(rate)] += 1;
 

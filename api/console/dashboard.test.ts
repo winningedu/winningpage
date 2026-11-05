@@ -142,7 +142,8 @@ describe("GET /api/console/dashboard", () => {
     expect(r.body).toEqual({
       asOf: "2026-11-04",
       usage: { usingCount: 4, totalCount: 5 },
-      goal: { userCount: 3, average: 53, buckets: { low: 1, mid: 1, high: 1 } },
+      // s2 는 목표 설정일이 없어 달성율이 없으므로 평균과 구간에서 빠진다(결정 62). 이용자 수에는 든다.
+      goal: { userCount: 3, average: 80, buckets: { low: 0, mid: 1, high: 1 } },
       services: [
         { key: "diagnosis", count: 3 },
         { key: "goal", count: 3 },
@@ -165,11 +166,11 @@ describe("GET /api/console/dashboard", () => {
         f,
       );
     const r = await get({ classId: "c-3" });
-    // s1 5/5 = 100, s2 와 s8 은 목표 없음 0, 목표관리 학생은 s1, s2
+    // s1 5/5 = 100, s2 는 목표 설정일이 없어 평균과 구간에서 빠진다. 목표관리 학생은 s1, s2
     expect((r.body as { goal: unknown }).goal).toEqual({
       userCount: 2,
-      average: 50,
-      buckets: { low: 1, mid: 0, high: 1 },
+      average: 100,
+      buckets: { low: 0, mid: 0, high: 1 },
     });
   });
 
