@@ -12,12 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
-import { useMobileLayout } from "../useMobileLayout";
 import DirectChangeDialog from "./DirectChangeDialog";
 import { slotLabel } from "./format";
 import HistoryDialog from "./HistoryDialog";
@@ -68,7 +68,7 @@ const groupOf = (item: StudentItem) =>
 
 export default function StudentListTab() {
   const { me } = useConsoleMe();
-  const mobile = useMobileLayout();
+  const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = {

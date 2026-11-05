@@ -78,6 +78,8 @@ beforeEach(() => {
   });
 });
 function useMobileScreen() {
+  // useIsMobile 은 innerWidth 로 가른다(768 미만)
+  window.innerWidth = 500;
   window.matchMedia = ((query: string) => ({
     matches: true,
     media: query,
@@ -87,6 +89,7 @@ function useMobileScreen() {
 }
 
 afterEach(() => {
+  window.innerWidth = 1024;
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,

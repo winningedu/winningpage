@@ -12,11 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
-import { useMobileLayout } from "../useMobileLayout";
 import { slotLabel } from "./format";
 import HistoryDialog from "./HistoryDialog";
 import NameCell from "./NameCell";
@@ -97,7 +97,7 @@ function GraduateFilters({
 }
 
 export default function GraduatesTab() {
-  const mobile = useMobileLayout();
+  const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlYear = searchParams.get("year") ?? "";

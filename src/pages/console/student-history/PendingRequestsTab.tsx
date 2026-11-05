@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import Chip from "../Chip";
@@ -22,7 +23,6 @@ import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
-import { useMobileLayout } from "../useMobileLayout";
 import { type Slot, slotLabel } from "./format";
 import NameCell from "./NameCell";
 import RejectDialog from "./RejectDialog";
@@ -63,7 +63,7 @@ export default function PendingRequestsTab() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<PendingRequest | null>(null);
-  const mobile = useMobileLayout();
+  const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
   const list = usePagedList<PendingRequest>(
     "/api/console/enrollment-requests",
