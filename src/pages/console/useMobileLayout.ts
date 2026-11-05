@@ -1,8 +1,8 @@
-// 768 미만(결정 43)이면 true. 첫 렌더부터 맞아야 데스크톱 목록을 한 번 더 부르지 않는다.
+// 768 미만(결정 43, Tailwind md 의 48rem)이면 true. 첫 렌더부터 맞아야 데스크톱 목록을 한 번 더 부르지 않는다.
 
 import { useEffect, useState } from "react";
 
-const QUERY = "(max-width: 767px)";
+const QUERY = "(max-width: 47.99rem)";
 
 export function useMobileLayout(): boolean {
   const [mobile, setMobile] = useState(() => window.matchMedia(QUERY).matches);
