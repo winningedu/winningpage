@@ -2,7 +2,9 @@
 // DB 가 기준이고 Auth 는 커밋 뒤에 따라간다. Auth 호출이 실패해도 DB 는 되돌리지 않으며, 같은 요청을 다시 보내 마무리한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { RpcError } from "./teacherAccounts.js";
+import type { VercelResponse } from "@vercel/node";
+import { sendError } from "../httpResponse.js";
+import { RpcError, sendTeacherDbError } from "./teacherAccounts.js";
 
 export interface ScopedTeacher {
   id: string;
@@ -59,5 +61,27 @@ export async function setAuthBan(
   const { error } = await admin.auth.admin.updateUserById(profileId, {
     ban_duration: status === "inactive" ? BAN_DURATION : "none",
   });
-  if (error) throw new RpcError("auth ban sync", undefined);
+  if (error) throw new AuthSyncError("ban");
+}
+
+/** DB 는 이미 커밋됐지만 Auth 쪽 반영이 끝나지 않았다. 같은 요청을 다시 보내면 마무리된다. */
+export class AuthSyncError extends Error {
+  constructor(operation: string) {
+    super(`auth ${operation} sync failed`);
+  }
+}
+
+/** 교사 관리 라우트의 예상된 실패(DB 규칙 위반, Auth 동기화 실패)를 응답으로 바꾼다. 그 밖의 에러는 false. */
+export function sendTeacherError(res: VercelResponse, error: unknown): boolean {
+  if (error instanceof AuthSyncError) {
+    sendError(
+      res,
+      "coded",
+      502,
+      "변경은 저장됐지만 로그인 계정 반영을 마치지 못했습니다. 같은 요청을 다시 보내 주세요.",
+      "AUTH_SYNC_FAILED",
+    );
+    return true;
+  }
+  return sendTeacherDbError(res, error);
 }

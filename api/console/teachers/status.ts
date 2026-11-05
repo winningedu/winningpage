@@ -11,6 +11,7 @@ import {
 } from "../../_lib/console/teacherAccounts.js";
 import {
   loadTeachersInScope,
+  sendTeacherError,
   setAuthBan,
 } from "../../_lib/console/teacherManage.js";
 import { defineHandler } from "../../_lib/handler.js";
@@ -57,29 +58,34 @@ export default defineHandler({
       return;
     }
 
-    const { data: profileId, error } = await ctx.supabaseAdmin.rpc(
-      "fn_teacher_set_status",
-      { p_teacher_id: teacherId, p_status: status, p_actor: ctx.userId },
-    );
-    if (error) throw new RpcError("fn_teacher_set_status", error.code);
+    try {
+      const { data: profileId, error } = await ctx.supabaseAdmin.rpc(
+        "fn_teacher_set_status",
+        { p_teacher_id: teacherId, p_status: status, p_actor: ctx.userId },
+      );
+      if (error) throw new RpcError("fn_teacher_set_status", error.code);
 
-    await writeConsoleAuditLog(
-      {
-        supabaseAdmin: ctx.supabaseAdmin,
-        userId: ctx.userId,
-        user: ctx.user,
-        console: actor,
-      },
-      {
-        action: "account_status",
-        resourceKey: TEACHERS_RESOURCE_KEY,
-        targetId: teacherId,
-        meta: { status },
-      },
-    );
+      await writeConsoleAuditLog(
+        {
+          supabaseAdmin: ctx.supabaseAdmin,
+          userId: ctx.userId,
+          user: ctx.user,
+          console: actor,
+        },
+        {
+          action: "account_status",
+          resourceKey: TEACHERS_RESOURCE_KEY,
+          targetId: teacherId,
+          meta: { status },
+        },
+      );
 
-    if (typeof profileId === "string") {
-      await setAuthBan(ctx.supabaseAdmin, profileId, status);
+      if (typeof profileId === "string") {
+        await setAuthBan(ctx.supabaseAdmin, profileId, status);
+      }
+    } catch (error) {
+      if (sendTeacherError(res, error)) return;
+      throw error;
     }
     res.status(200).json({ ok: true });
   },

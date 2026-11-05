@@ -285,6 +285,32 @@ const DB_ERRORS: Record<
     code: "TENANT_NOT_FOUND",
     message: "기관을 찾을 수 없습니다.",
   },
+  WC076: {
+    status: 409,
+    code: "LAST_SCHOOL_ADMIN",
+    message:
+      "학교 관리자가 1명뿐이라 바꿀 수 없습니다. 다른 관리자를 먼저 지정해 주세요.",
+  },
+  WC088: {
+    status: 404,
+    code: "NOT_FOUND",
+    message: "대상을 찾을 수 없습니다.",
+  },
+  WC091: {
+    status: 409,
+    code: "SELF_CHANGE",
+    message: "본인 계정의 상태는 바꿀 수 없습니다.",
+  },
+  WC092: {
+    status: 409,
+    code: "LAST_CLASS_REQUIRED",
+    message: "담임 선생님은 담당 학급이 하나 이상 있어야 합니다.",
+  },
+  WC093: {
+    status: 400,
+    code: "PRIMARY_NOT_ASSIGNED",
+    message: "주담당으로 지정할 학급이 배정되어 있지 않습니다.",
+  },
   "23505": {
     status: 409,
     code: "CLASS_TAKEN",
