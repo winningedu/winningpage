@@ -78,6 +78,8 @@ $$;
 
 -- 콘솔 요청의 행위자. 항상 한 행을 돌려주고 kind 가 'none' 이면 콘솔 권한이 없다.
 -- 교사(활성, 삭제되지 않음)가 먼저, 아니면 관리자의 활성 대행 세션. 담당 학급은 기관의 올해 학급만.
+-- 대행은 지금도 teacherConsoleProxy 의 edit 권한이 있어야 한다(fn_admin_effective_permissions).
+-- 권한을 거두면 세션이 남아 있어도 다음 요청부터 none 이다.
 create function public.fn_console_actor(p_profile_id uuid)
 returns table (
   kind text,
@@ -115,7 +117,10 @@ begin
   select s.* into v_session
     from public.proxy_sessions s
     join public.profiles p on p.id = s.admin_profile_id and p.role = 'admin'
-   where s.admin_profile_id = p_profile_id and s.ended_at is null and s.expires_at > now();
+   where s.admin_profile_id = p_profile_id and s.ended_at is null and s.expires_at > now()
+     and exists (
+       select 1 from public.fn_admin_effective_permissions(p_profile_id) ep
+        where ep.resource_key = 'teacherConsoleProxy' and ep.level = 'edit');
 
   if found then
     return query select

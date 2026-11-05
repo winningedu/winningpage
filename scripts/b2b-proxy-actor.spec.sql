@@ -94,6 +94,22 @@ insert into fx values
   ('plain', pg_temp.mk_user('t10-plain@t.local', 'user'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
+-- 대행 권한: 리소스 teacherConsoleProxy 의 edit. 리소스 행은 data SQL 이 만들므로 스펙에서 만든다.
+insert into public.admin_resources (key, group_title, label, sort_order, is_active)
+  values ('teacherConsoleProxy', '서비스 관리', '교사 콘솔 대리 접속', 603, true)
+  on conflict (key) do nothing;
+create function pg_temp.set_proxy_perm(p_profile uuid, p_level text) returns void language plpgsql as $$
+begin
+  insert into public.admin_members (profile_id, status) values (p_profile, 'active')
+    on conflict (profile_id) do update set status = 'active';
+  delete from public.admin_member_permissions where profile_id = p_profile and resource_key = 'teacherConsoleProxy';
+  if p_level is not null then
+    insert into public.admin_member_permissions (profile_id, resource_key, level)
+      values (p_profile, 'teacherConsoleProxy', p_level);
+  end if;
+end $$;
+select pg_temp.set_proxy_perm(pg_temp.fx('admin1'), 'edit');
+
 -- 행위자를 "kind/기관코드/교사있음/반수/대행있음/비번변경" 문자열로 본다.
 create function pg_temp.actor_s(p_profile uuid) returns text language sql as $$
   select a.kind || '/' || coalesce((select code from public.tenants where id = a.tenant_id), '-')
@@ -120,6 +136,15 @@ select pg_temp.expect_int('열린 세션은 관리자당 하나',
   (select count(*) from public.proxy_sessions
     where admin_profile_id = pg_temp.fx('admin1') and ended_at is null), 1);
 select pg_temp.expect_text('새 세션 기관으로 바뀐다',
+  pg_temp.actor_s(pg_temp.fx('admin1')), 'hq_proxy/T7BBBBBB/false/0/true/false');
+
+-- 권한을 거두면 열린 세션이 있어도 곧바로 대행이 아니다(세션 만료를 기다리지 않는다)
+select pg_temp.set_proxy_perm(pg_temp.fx('admin1'), 'view');
+select pg_temp.expect_text('edit 권한이 view 로 내려가면 none', pg_temp.actor_s(pg_temp.fx('admin1')), 'none/-/false/0/false/-');
+select pg_temp.set_proxy_perm(pg_temp.fx('admin1'), null);
+select pg_temp.expect_text('권한이 없으면 none', pg_temp.actor_s(pg_temp.fx('admin1')), 'none/-/false/0/false/-');
+select pg_temp.set_proxy_perm(pg_temp.fx('admin1'), 'edit');
+select pg_temp.expect_text('권한을 되돌리면 같은 세션이 다시 hq_proxy',
   pg_temp.actor_s(pg_temp.fx('admin1')), 'hq_proxy/T7BBBBBB/false/0/true/false');
 
 -- 만료된 세션은 행위자 없음, 다음 start 가 expired 로 닫는다

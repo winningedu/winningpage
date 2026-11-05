@@ -327,6 +327,13 @@ select pg_temp.expect_error('update: kind 는 세 가지만(rollover 거부)',
 
 -- 대행 중인 본사 관리자가 고치면 이력에 세션이 남는다
 update public.profiles set role = 'admin' where id = pg_temp.fx('actor');
+-- 대행은 teacherConsoleProxy edit 권한이 있어야 한다.
+insert into public.admin_resources (key, group_title, label, sort_order, is_active)
+  values ('teacherConsoleProxy', '서비스 관리', '교사 콘솔 대리 접속', 603, true)
+  on conflict (key) do nothing;
+insert into public.admin_members (profile_id, status) values (pg_temp.fx('actor'), 'active');
+insert into public.admin_member_permissions (profile_id, resource_key, level)
+  values (pg_temp.fx('actor'), 'teacherConsoleProxy', 'edit');
 select public.fn_proxy_start(pg_temp.fx('actor'), pg_temp.fx('ta'), 'roster_proxy');
 select pg_temp.expect_text('update: 대행 중 수정', pg_temp.upd('s2', 2, '고1', 'a2', 4, 'admin_direct', 'number_change'), '3');
 select pg_temp.expect_bool('update: 대행 세션 id 가 이력에 남는다',

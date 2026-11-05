@@ -270,6 +270,13 @@ select pg_temp.enroll('s6', null, null);
 insert into rq values ('s6', pg_temp.req('s6', '고1', null, '3', 2));
 select pg_temp.expect_error('approver: 대행 시작 전 본사 관리자는 승인 불가(WC084)',
   $$select pg_temp.decide((select v from rq where k = 's6'), true, 'hq')$$, 'WC084');
+-- 대행은 teacherConsoleProxy edit 권한이 있어야 한다.
+insert into public.admin_resources (key, group_title, label, sort_order, is_active)
+  values ('teacherConsoleProxy', '서비스 관리', '교사 콘솔 대리 접속', 603, true)
+  on conflict (key) do nothing;
+insert into public.admin_members (profile_id, status) values (pg_temp.fx('hq'), 'active');
+insert into public.admin_member_permissions (profile_id, resource_key, level)
+  values (pg_temp.fx('hq'), 'teacherConsoleProxy', 'edit');
 select public.fn_proxy_start(pg_temp.fx('hq'), pg_temp.fx('ta'), 'roster_proxy');
 select pg_temp.expect_text('approver: 대행 중 본사 관리자가 승인', pg_temp.decide((select v from rq where k = 's6'), true, 'hq'), 'applied');
 select pg_temp.expect_bool('decide: 대행 세션이 신청 행에 남는다',
