@@ -370,6 +370,79 @@ describe("ImportSetupPage 미리보기", () => {
   });
 });
 
+/** 미리보기 응답을 release 를 부를 때까지 붙잡아 둔다. */
+function holdPreview() {
+  const original = globalThis.fetch;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await original(input, init);
+      if (String(input).endsWith("rollover/preview")) await gate;
+      return res;
+    }),
+  );
+  return release;
+}
+
+describe("ImportSetupPage 미리보기 중 입력", () => {
+  it("응답을 기다리는 동안 입력칸과 미리보기 버튼을 막는다", async () => {
+    stubImport({
+      extra: {
+        "POST /api/console/school-year/rollover/preview": { body: PREVIEW },
+      },
+    });
+    const release = holdPreview();
+    renderRoutes(routes, "/teacher/import");
+    const textarea = (await screen.findByPlaceholderText(
+      "변경할 명단을 붙여넣으세요",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "김하늘" } });
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+
+    await waitFor(() => expect(textarea.disabled).toBe(true));
+    release();
+    expect(await screen.findByText("김*늘")).toBeTruthy();
+    expect(textarea.disabled).toBe(false);
+  });
+
+  it("요청한 뒤 명단이 바뀌었으면 늦게 온 응답을 버린다", async () => {
+    stubImport({
+      extra: {
+        "POST /api/console/school-year/rollover/preview": { body: PREVIEW },
+      },
+    });
+    const release = holdPreview();
+    renderRoutes(routes, "/teacher/import");
+    const textarea = (await screen.findByPlaceholderText(
+      "변경할 명단을 붙여넣으세요",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "김하늘" } });
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+    await waitFor(() => expect(textarea.disabled).toBe(true));
+
+    fireEvent.change(screen.getByLabelText("명단 엑셀 파일"), {
+      target: {
+        files: [
+          xlsxFile([
+            ["이름", "학년", "반", "번호"],
+            ["홍길동", "1학년", "4", "7"],
+          ]),
+        ],
+      },
+    });
+    await waitFor(() => expect(textarea.value).toContain("홍길동"));
+    release();
+
+    await waitFor(() => expect(textarea.disabled).toBe(false));
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("button", { name: "적용" })).toBeNull();
+  });
+});
+
 describe("ImportSetupPage 미리보기 실패", () => {
   it("서버가 거절하면 서버 문구를 토스트로 보이고 표를 그리지 않는다", async () => {
     await previewIt({

@@ -1,6 +1,6 @@
 // W11 ③ 학년그룹 일괄 변경. 붙여넣은 명단을 미리보기하고 적용한다(W11a).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorMessage } from "../api";
@@ -81,6 +81,10 @@ export default function RolloverSection({
   const [year, setYear] = useState<SchoolYear | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
+  // 응답이 올 때 지금 입력칸과 같은 명단인지 비교하려고 최신 text 를 들고 있는다.
+  const textRef = useRef(text);
+  textRef.current = text;
+
   // 명단이 바뀌면 낡은 미리보기는 적용할 수 없다.
   // biome-ignore lint/correctness/useExhaustiveDependencies: text 가 바뀔 때만 비운다
   useEffect(() => setPreview(null), [text]);
@@ -101,12 +105,15 @@ export default function RolloverSection({
 
   const runPreview = async () => {
     if (!year) return;
+    const requested = text;
     setPreviewing(true);
     try {
       const res = await consoleRequest(
         "/api/console/school-year/rollover/preview",
-        { method: "POST", body: { toYear: year.toYear, text } },
+        { method: "POST", body: { toYear: year.toYear, text: requested } },
       );
+      // 기다리는 사이 ① 올리기로 명단이 바뀌었으면 낡은 응답은 버린다.
+      if (requested !== textRef.current) return;
       if (res.status !== 200) {
         toast.show({
           tone: "Error",
@@ -175,12 +182,12 @@ export default function RolloverSection({
       {target && <p className="text-app-body text-ink-sub">{target}</p>}
       <textarea
         value={text}
-        disabled={locked}
+        disabled={locked || previewing}
         placeholder="변경할 명단을 붙여넣으세요"
         onChange={(e) => onTextChange(e.target.value)}
         className={cn(
           "h-40 w-full resize-none rounded-lg border border-line bg-background p-4 text-app-label text-ink-strong placeholder:text-neutral-400",
-          locked && "opacity-40",
+          (locked || previewing) && "opacity-40",
         )}
       />
       <div className="flex">
