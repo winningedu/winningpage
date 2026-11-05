@@ -70,6 +70,24 @@ afterEach(() => {
 });
 
 describe("POST /api/console/change-password", () => {
+  test("새 비밀번호가 현재 비밀번호와 같으면 400 PASSWORD_SAME_AS_CURRENT 이고 로그인 시도와 변경을 하지 않는다", async () => {
+    const r = await post({
+      currentPassword: "SamePass123",
+      newPassword: "SamePass123",
+    });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      error: {
+        code: "PASSWORD_SAME_AS_CURRENT",
+        message: "현재 비밀번호와 다른 비밀번호를 입력해 주세요.",
+      },
+    });
+    expect(kit.signIn).not.toHaveBeenCalled();
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    expect(kit.state.events).not.toContain("rpc:fn_login_attempt_begin");
+  });
+
   test("Auth 비밀번호를 바꾼 뒤 변경 시각 rpc 에 교사와 기관을 함께 넘기고 감사 로그보다 먼저 부른다", async () => {
     const calls: Record<string, unknown>[] = [];
     kit.state.rpc.fn_teacher_password_set = (args) => {
