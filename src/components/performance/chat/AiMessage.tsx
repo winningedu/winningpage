@@ -6,6 +6,7 @@ import {
   MessageContent,
   MessageHeader,
 } from "@/components/ui/message";
+import { siteWording } from "@/config/wording";
 import AiAvatar from "./AiAvatar";
 
 type AiMessageProps = {
@@ -59,7 +60,7 @@ type AiMessageProps = {
 // 카드(폼·업로드 슬롯·리포트 요약)는 `children`으로 받아 같은 컬럼 안, 말풍선 바로 아래에
 // 놓는다. 카드 자체의 마크업·상태는 `ChatTimeline`과 그 하위 `InlineCard`가 책임진다.
 export default function AiMessage({
-  label = "위닝 수행평가 서포터",
+  label = siteWording("위닝 수행평가 서포터"),
   body,
   children,
   bubbleMaxWidthClassName = "max-w-perf-bubble",

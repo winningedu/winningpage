@@ -44,3 +44,26 @@ describe("고지 문구 - 스쿨멘토", () => {
     expect(REPORT_NOTICES).toContain(line);
   });
 });
+
+describe("서비스 이름 라벨 - 스쿨멘토", () => {
+  it("성장설계 계획 화면은 자기평가서, 심화탐구 이름에 '위닝 '을 붙이지 않는다", async () => {
+    const { PROGRAM_LABELS, handoffButtonLabel } = await loadAsSchoolmentor<
+      typeof import("@/components/growth/plan/planLogic")
+    >("@/components/growth/plan/planLogic");
+
+    expect(PROGRAM_LABELS.self).toBe("자기평가서");
+    expect(PROGRAM_LABELS.deep).toBe("심화탐구");
+    expect(handoffButtonLabel("self")).toBe("자기평가서에서 하기");
+    expect(handoffButtonLabel("deep")).toBe("심화탐구에서 하기");
+  });
+
+  it("자기평가 활동 출처 이름에 '위닝 '을 붙이지 않는다", async () => {
+    const { sourceLabel } = await loadAsSchoolmentor<
+      typeof import("@/components/selfeval/activities/activitiesLogic")
+    >("@/components/selfeval/activities/activitiesLogic");
+
+    expect(sourceLabel("performance")).toBe("수행평가");
+    expect(sourceLabel("deep")).toBe("심화탐구");
+    expect(sourceLabel("self")).toBe("자기평가서");
+  });
+});

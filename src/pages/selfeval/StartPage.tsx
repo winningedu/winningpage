@@ -17,6 +17,7 @@ import {
 } from "@/components/selfeval/start/startLogic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { siteWording } from "@/config/wording";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { discardSession } from "@/lib/selfeval/api";
@@ -36,7 +37,7 @@ export default function StartPage() {
   return (
     <>
       <GoalPageHeader
-        title="위닝 자기평가서"
+        title={siteWording("위닝 자기평가서")}
         subcopy="기록에서 고르고, 쓰고, 검증하는 자기평가서 작성 도구입니다"
       />
       {entry ? (

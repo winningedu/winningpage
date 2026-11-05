@@ -8,6 +8,7 @@ import {
   MessageContent,
   MessageHeader,
 } from "@/components/ui/message";
+import { siteWording } from "@/config/wording";
 import AiAvatar from "./AiAvatar";
 
 type AiLoadingBubbleProps = HTMLAttributes<HTMLDivElement> & {
@@ -73,7 +74,7 @@ const AiLoadingBubble = forwardRef<HTMLDivElement, AiLoadingBubbleProps>(
     {
       title,
       subtitle,
-      label = "위닝 수행평가 서포터",
+      label = siteWording("위닝 수행평가 서포터"),
       className = "",
       ...rest
     },

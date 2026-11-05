@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Link } from "react-router";
 import { GROWTH_PATHS } from "@/components/growth/growthPaths";
+import { siteWording } from "@/config/wording";
 import type { HandoffView } from "@/lib/inquiry/types";
 import { growthBannerView } from "./infoLogic";
 
@@ -32,7 +33,8 @@ export default function GrowthBanner({
     >
       {view.issuedLabel && (
         <p className="text-app-caption text-white/80">
-          위닝 성장설계 리포트 {view.issuedLabel}에서 불러왔어요
+          {siteWording("위닝 성장설계 리포트")} {view.issuedLabel}에서
+          불러왔어요
         </p>
       )}
       {view.theme && (

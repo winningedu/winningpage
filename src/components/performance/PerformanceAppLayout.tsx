@@ -7,6 +7,7 @@ import {
 import Header from "@/components/Header";
 import RouteLoadingOverlay from "@/components/ui/RouteLoadingOverlay";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 import {
   PerformanceShellProvider,
   usePerformanceShell,
@@ -153,7 +154,7 @@ function PerformanceShellContent() {
                     부르는 피드백 루프로 화면이 떨렸다. */}
                 <div className="shrink-0 pb-6 pt-8 transition-[padding] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:py-4">
                   <h1 className="text-app-title font-semibold tracking-[-0.02rem] text-ink-strong transition-[font-size] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:text-app-section">
-                    위닝 수행평가 서비스
+                    {siteWording("위닝 수행평가 서비스")}
                   </h1>
                 </div>
 
