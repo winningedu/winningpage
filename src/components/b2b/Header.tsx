@@ -68,13 +68,14 @@ export default function Header() {
             className="h-5.5 w-[9.675rem] object-contain desktop:w-[9.881rem]"
           />
         </Link>
-        {account.status === "student" && account.orgName && (
-          <span
-            className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
-          >
-            {account.orgName}
-          </span>
-        )}
+        {(account.status === "student" || account.status === "teacher") &&
+          account.orgName && (
+            <span
+              className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
+            >
+              {account.orgName}
+            </span>
+          )}
 
         <div
           className="absolute top-0 hidden h-full items-center desktop:flex"
@@ -128,6 +129,26 @@ export default function Header() {
                 {account.name} 님
                 {account.memberLabel && ` ${account.memberLabel}`}
                 <ChevronRight size={24} className="size-6" />
+              </Link>
+              <button
+                type="button"
+                className={`${ACCOUNT_PILL} bg-white text-b2b-account`}
+              >
+                로그아웃
+              </button>
+            </div>
+          )}
+          {account.status === "teacher" && (
+            <div className="hidden items-center gap-3 desktop:flex">
+              <span className="whitespace-nowrap py-1.5 text-sm font-medium text-primary">
+                {account.name} 선생님
+                {account.roleLabel && ` ${account.roleLabel}`}
+              </span>
+              <Link
+                to="/teacher/dashboard"
+                className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
+              >
+                관리 화면
               </Link>
               <button
                 type="button"

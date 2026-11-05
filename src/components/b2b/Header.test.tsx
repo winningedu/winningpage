@@ -31,6 +31,12 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
+const mockApiFetch = vi.fn();
+vi.mock("@/lib/apiFetch", () => ({
+  getAuthHeader: async () => ({ Authorization: "Bearer t" }),
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+}));
+
 vi.mock("@/hooks/useSignupEnabled", () => ({
   useSignupEnabled: () => true,
 }));
@@ -132,6 +138,48 @@ describe("b2b Header 학생 상태", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "로그인" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("b2b Header 선생님 상태", () => {
+  it("이름과 역할, 학교 칩, 관리 화면 링크, 로그아웃을 보여 주고 D-day와 마이페이지는 없다", async () => {
+    mockProfileRow = {
+      id: "u2",
+      email: "t@test.com",
+      name: "박지훈",
+      member_type: "teacher",
+      role: "user",
+    };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        teacher: { name: "박지훈", role: "homeroom" },
+        tenant: { name: "한빛고등학교" },
+      }),
+    });
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u2", email: "t@test.com" } },
+      user: { id: "u2", email: "t@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+
+    expect(
+      await screen.findByText("박지훈 선생님 담임교사"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
+      "href",
+      "/teacher/dashboard",
+    );
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /마이페이지/ }),
     ).not.toBeInTheDocument();
   });
 });
