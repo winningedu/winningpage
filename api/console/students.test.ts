@@ -196,4 +196,43 @@ describe("GET /api/console/students", () => {
       items(r).every((i) => (i as { canEdit?: boolean }).canEdit === true),
     ).toBe(true);
   });
+
+  test("grade, groupId, classId and q narrow the list while scopeTotal stays the unfiltered count", async () => {
+    const byGrade = await get({ grade: "고1" });
+    expect(ids(byGrade)).toEqual(["s3"]);
+    expect(byGrade.body).toMatchObject({ total: 1, scopeTotal: 4 });
+    expect(ids(await get({ groupId: "g-1" }))).toEqual(["s3"]);
+    expect(ids(await get({ classId: "c-A" }))).toEqual(["s2", "s1"]);
+    expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
+  });
+
+  test("tab narrows to students who used that service, and none lists students with no service", async () => {
+    expect(ids(await get({ tab: "growth" }))).toEqual(["s1"]);
+    expect(ids(await get({ tab: "inquiry" }))).toEqual(["s2"]);
+    expect(ids(await get({ tab: "none" }))).toEqual(["s3", "s4"]);
+    expect(ids(await get({ tab: "all" }))).toHaveLength(4);
+  });
+
+  test("an unknown tab is a 400", async () => {
+    expect((await get({ tab: "nope" })).status).toBe(400);
+  });
+
+  test("a homeroom asking for another teacher's class gets 404", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+
+    expect((await get({ classId: "c-G" })).status).toBe(404);
+  });
+
+  test("pageSize and page slice the list", async () => {
+    const r = await get({ pageSize: "3", page: "2" });
+    expect(ids(r)).toEqual(["s4"]);
+    expect(r.body).toMatchObject({ total: 4, page: 2, pageSize: 3 });
+  });
+
+  test("a malformed page is a 400", async () => {
+    expect((await get({ page: "x" })).status).toBe(400);
+  });
 });

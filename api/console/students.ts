@@ -14,10 +14,11 @@ import {
 } from "../_lib/console/directory.js";
 import { displayNameFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
-import { scopeQuery } from "../_lib/console/scope.js";
+import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
+  type ServiceKey,
 } from "../_lib/console/serviceUsage.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
@@ -30,6 +31,14 @@ interface EnrollmentRow {
   class_id: string | null;
   number: number | null;
   version: number;
+}
+
+// tab 값: 전체, 서비스 하나를 쓴 학생, 서비스를 하나도 안 쓴 학생(none).
+const TABS: readonly string[] = ["all", "none", ...SERVICE_KEYS];
+
+function queryValue(raw: string | string[] | undefined): string | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value === undefined || value === "" ? undefined : value;
 }
 
 const COLUMNS = "student_id, grade, class_id, number, version";
@@ -59,15 +68,13 @@ async function loadProfiles(
     ),
   );
   return new Map(
-    pages
-      .flat()
-      .map((p) => [
-        p.id,
-        {
-          name: p.name ?? "",
-          joinedAt: p.created_at ? kstDate(p.created_at) : null,
-        },
-      ]),
+    pages.flat().map((p) => [
+      p.id,
+      {
+        name: p.name ?? "",
+        joinedAt: p.created_at ? kstDate(p.created_at) : null,
+      },
+    ]),
   );
 }
 
@@ -91,6 +98,26 @@ export default defineHandler({
       return;
     }
 
+    const tab = queryValue(req.query.tab) ?? "all";
+    if (!TABS.includes(tab)) {
+      sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
+      return;
+    }
+    const grade = queryValue(req.query.grade);
+    const groupId = queryValue(req.query.groupId);
+    const classId = queryValue(req.query.classId);
+    const q = queryValue(req.query.q)?.trim().toLowerCase();
+    // 담임이 담당 밖 학급을 지정하면 그 학급이 있는지 알려 주지 않는다.
+    if (
+      classId &&
+      !requireInScope(res, "coded", actor, {
+        tenantId: actor.tenantId,
+        classId,
+      })
+    ) {
+      return;
+    }
+
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
     const [current, classes] = await Promise.all([
       readAll<EnrollmentRow>(admin, "student_enrollments", COLUMNS, (query) =>
@@ -106,7 +133,19 @@ export default defineHandler({
     );
     const classOf = (e: EnrollmentRow) =>
       e.class_id ? classes.get(e.class_id) : undefined;
-    const matches = [...current];
+    const matches = current
+      .filter((e) => !grade || e.grade === grade)
+      .filter((e) => !classId || e.class_id === classId)
+      .filter(
+        (e) =>
+          !groupId ||
+          (e.class_id !== null && classes.get(e.class_id)?.groupId === groupId),
+      )
+      .filter(
+        (e) =>
+          !q ||
+          (profiles.get(e.student_id)?.name ?? "").toLowerCase().includes(q),
+      );
     matches.sort(
       (a, b) =>
         gradeRank(a.grade) - gradeRank(b.grade) ||
@@ -119,11 +158,29 @@ export default defineHandler({
         a.student_id.localeCompare(b.student_id),
     );
 
-    const paged = paginate(matches, pageQuery);
-    const services = await loadServiceUsage(
-      admin,
-      paged.items.map((e) => e.student_id),
-    );
+    // 서비스 탭은 쪽을 나누기 전에 걸러야 하므로 그때만 모든 후보의 이용 서비스를 읽는다.
+    let services = new Map<string, ServiceKey[]>();
+    const usedOf = (id: string) => services.get(id) ?? [];
+    let listed = matches;
+    if (tab !== "all") {
+      services = await loadServiceUsage(
+        admin,
+        matches.map((e) => e.student_id),
+      );
+      listed = matches.filter((e) => {
+        const used = usedOf(e.student_id);
+        return tab === "none"
+          ? used.length === 0
+          : used.includes(tab as ServiceKey);
+      });
+    }
+    const paged = paginate(listed, pageQuery);
+    if (tab === "all") {
+      services = await loadServiceUsage(
+        admin,
+        paged.items.map((e) => e.student_id),
+      );
+    }
     res.status(200).json({
       total: paged.total,
       scopeTotal: current.length,
@@ -132,7 +189,7 @@ export default defineHandler({
       orgType,
       rows: paged.items.map((e) => {
         const cls = classOf(e);
-        const used = services.get(e.student_id) ?? [];
+        const used = usedOf(e.student_id);
         return {
           studentId: e.student_id,
           displayName: displayNameFor(
