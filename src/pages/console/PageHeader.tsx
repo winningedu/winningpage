@@ -16,6 +16,8 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
   /** 휴대폰(768 미만)에서만 보이는 PC 전용 안내 줄. */
   notice?: string;
+  /** 화면이 정하는 빵부스러기. 없으면 역할에 따른 기본 위치를 쓴다. */
+  breadcrumb?: string[];
 }
 
 function crumbsFor(me: ConsoleMe): string[] {
@@ -33,9 +35,10 @@ export default function PageHeader({
   asOf,
   actions,
   notice,
+  breadcrumb,
 }: PageHeaderProps) {
   const { me } = useConsoleMe();
-  const crumbs = crumbsFor(me);
+  const crumbs = breadcrumb ?? crumbsFor(me);
   return (
     <header className="flex max-w-content flex-col gap-4 px-4 pt-6 pb-6 md:px-8 md:pt-10 lg:px-12 lg:pt-14 lg:pb-10">
       <div className="flex items-start gap-4">

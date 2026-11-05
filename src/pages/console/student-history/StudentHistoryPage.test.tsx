@@ -686,6 +686,59 @@ const historyBody = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+describe("W13 빵부스러기", () => {
+  const crumbs = () =>
+    within(screen.getByRole("navigation", { name: "현재 위치" }))
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+
+  it("학생 조회 탭은 고른 학년과 반을 따라간다", async () => {
+    stubStudents(
+      {
+        "GET /api/console/students/history?grade=%EA%B3%A02&classId=c5&page=1":
+          { body: studentsBody([student(2)]) },
+      },
+      adminMe,
+    );
+    renderRoutes(
+      routes,
+      "/teacher/student-history?tab=students&grade=고2&classId=c5",
+    );
+
+    await screen.findByText("검색 결과 1명");
+    expect(crumbs()).toEqual(["한빛고등학교", "2학년", "5반"]);
+  });
+
+  it("학생 조회 탭에서 필터가 없으면 역할별 기본 빵부스러기다", async () => {
+    stubStudents({}, adminMe);
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    await screen.findByText("검색 결과 2명");
+    expect(crumbs()).toEqual(["한빛고등학교", "전체"]);
+  });
+
+  it("졸업생 탭은 졸업 학년도를 따라간다", async () => {
+    stubPage(
+      {
+        "GET /api/console/graduates?year=2025&page=1": {
+          body: {
+            years: [2025],
+            total: 0,
+            page: 1,
+            pageCount: 0,
+            items: [],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates&year=2025");
+
+    await screen.findByText("검색 결과 0명");
+    expect(crumbs()).toEqual(["한빛고등학교", "졸업생", "2025학년도"]);
+  });
+});
+
 describe("W13a 학년도별 이력 창", () => {
   const openHistory = async (name = "김서연") => {
     await screen.findByText("검색 결과 2명");
