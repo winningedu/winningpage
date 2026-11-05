@@ -26,6 +26,7 @@ const TEACHERS = [
     id: "t-park",
     tenant_id: T,
     name: "박지훈",
+    phone: "01012345678",
     role: "homeroom",
     status: "active",
     login_id: "SM26HB83K7MPQ2",
@@ -36,6 +37,7 @@ const TEACHERS = [
     id: "t-lee",
     tenant_id: T,
     name: "이수민",
+    phone: "01012341234",
     role: "homeroom",
     status: "active",
     login_id: "SM26HB83W5ZQ7H",
@@ -46,6 +48,7 @@ const TEACHERS = [
     id: "t-choi",
     tenant_id: T,
     name: "최민정",
+    phone: "01099995678",
     role: "school_admin",
     status: "active",
     login_id: "SM26HB83R4TXW9",
@@ -56,6 +59,7 @@ const TEACHERS = [
     id: "t-gone",
     tenant_id: T,
     name: "삭제된선생",
+    phone: "01000000000",
     role: "homeroom",
     status: "active",
     login_id: null,
@@ -66,6 +70,7 @@ const TEACHERS = [
     id: "t-free",
     tenant_id: T,
     name: "한반없음",
+    phone: "01077770000",
     role: "homeroom",
     status: "inactive",
     login_id: "SM26HB83F1FREE",
@@ -157,6 +162,12 @@ describe("GET /api/console/teachers/accounts", () => {
       status: "active",
       classes: [],
     });
+    expect(body.items[0]).not.toHaveProperty("phone");
+    expect(body.items.map((i) => i.phoneLast4)).toEqual([
+      "5678",
+      "5678",
+      "0000",
+    ]);
     expect(body.items[1]).toMatchObject({
       name: "박지훈",
       role: "homeroom",

@@ -1,7 +1,8 @@
 // GET /api/console/teachers/accounts?page=
 //
 // 교사 계정 목록(W16, 교 #126). 계정이 있는 교사만(미발급은 W14와 W16b), 학교 관리자 먼저, 이어서 학년과 반 순이다.
-// 비밀번호는 보내지 않는다(화면은 가림 표시). passwordSet 은 임시 비밀번호 재발급 가능 여부(결정 16)에 쓴다.
+// 비밀번호는 보내지 않는다(화면은 가림 표시). passwordSet 은 임시 비밀번호 재발급 가능 여부(결정 16)에,
+// phoneLast4 는 재발급 안내 파일(교 #125)에 쓴다. 전화번호 전체는 싣지 않는다.
 // 권한: 학교 관리자 또는 본사 대행.
 
 import { paginate, parsePageQuery } from "../../_lib/console/paging.js";
@@ -53,6 +54,7 @@ export default defineHandler({
         id: t.id,
         name: t.name,
         role: t.role,
+        phoneLast4: t.phone.slice(-4),
         loginId: t.loginId,
         status: t.status,
         passwordSet: t.passwordSet,
