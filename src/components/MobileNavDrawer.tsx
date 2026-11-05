@@ -40,7 +40,39 @@ type MobileNavDrawerProps = {
   // 아래 옵션은 스쿨멘토(b2b) 전용이다. 위닝은 넘기지 않아 기존 그대로 그려진다.
   // 비로그인 하단의 회원가입 자리를 대신하는 링크(선생님 로그인).
   guestSecondary?: { label: string; href: string };
+  // 로그인 하단 MY 목록에서 뺄 항목 라벨(신청 내역 등).
+  hideMenuItems?: string[];
+  // 헤드 둘째 줄에 보여 줄 소속 기관 칩.
+  orgName?: string;
 };
+
+function LoggedInHead({
+  csatDDay,
+  name,
+  orgName,
+}: {
+  csatDDay: string;
+  name: string;
+  orgName?: string;
+}) {
+  const row = (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
+        {csatDDay}
+      </span>
+      <span className="text-sm font-medium text-[#1e293b]">{name}</span>
+    </div>
+  );
+  if (!orgName) return row;
+  return (
+    <div className="flex flex-col gap-2">
+      {row}
+      <span className="w-fit rounded-sm bg-surface-muted px-2.5 py-1 text-xs text-ink-strong">
+        {orgName}
+      </span>
+    </div>
+  );
+}
 
 // 헤더 햄버거(전체메뉴) 버튼으로 여는 전체화면 드로어. 모바일 전용이 아니라 데스크톱에서도
 // nav 5개 메뉴와 병행 노출된다(전체메뉴 버튼 클릭 시 뷰포트 무관하게 항상 열린다).
@@ -72,6 +104,8 @@ export default function MobileNavDrawer({
   triggerRef,
   activeGroupTitle = null,
   guestSecondary,
+  hideMenuItems = [],
+  orgName,
 }: MobileNavDrawerProps) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { pathname } = useLocation();
@@ -111,14 +145,11 @@ export default function MobileNavDrawer({
           </SheetTitle>
 
           {shouldShowLoggedInHeader ? (
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
-                {csatDDay}
-              </span>
-              <span className="text-sm font-medium text-[#1e293b]">
-                {displayName}님{memberLabel ? ` ${memberLabel}` : ""}
-              </span>
-            </div>
+            <LoggedInHead
+              csatDDay={csatDDay}
+              name={`${displayName}님${memberLabel ? ` ${memberLabel}` : ""}`}
+              orgName={orgName}
+            />
           ) : (
             <span className="text-lg font-semibold text-primary">메뉴</span>
           )}
@@ -231,16 +262,18 @@ export default function MobileNavDrawer({
             <>
               {/* 역할별 단일 소스(myMenuItems.buildMyMenu) — 관리자도 별도 버튼 없이
                   이 목록의 "관리자 메뉴" 항목으로 진입한다. */}
-              {buildMyMenu(myMenuRole).map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  onClick={onClose}
-                  className="flex items-center gap-3 whitespace-nowrap px-4 py-3 text-base font-medium text-ink-header transition hover:text-primary"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {buildMyMenu(myMenuRole)
+                .filter((item) => !hideMenuItems.includes(item.label))
+                .map((item) => (
+                  <Link
+                    key={item.label}
+                    to={item.to}
+                    onClick={onClose}
+                    className="flex items-center gap-3 whitespace-nowrap px-4 py-3 text-base font-medium text-ink-header transition hover:text-primary"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
 
               <Button
                 type="button"

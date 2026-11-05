@@ -248,3 +248,19 @@ describe("MobileNavDrawer B2B 변형 게스트", () => {
     expect(screen.queryByText("회원가입")).not.toBeInTheDocument();
   });
 });
+
+describe("MobileNavDrawer B2B 변형 학생", () => {
+  it("hideMenuItems에 든 MY 항목은 빼고, orgName은 학교 칩으로 보여준다", () => {
+    renderDrawer({
+      myMenuRole: "student",
+      hideMenuItems: ["신청 내역"],
+      orgName: "세종고등학교",
+    });
+
+    expect(
+      screen.queryByRole("link", { name: "신청 내역" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "MY페이지" })).toBeInTheDocument();
+    expect(screen.getByText("세종고등학교")).toBeInTheDocument();
+  });
+});
