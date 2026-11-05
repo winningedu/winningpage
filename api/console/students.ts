@@ -12,6 +12,11 @@ import {
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
+import {
+  type DailyGoalRow,
+  weeklyDates,
+  weeklyRate,
+} from "../_lib/console/goalRate.js";
 import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
@@ -45,6 +50,45 @@ function queryValue(raw: string | string[] | undefined): string | undefined {
 const COLUMNS = "student_id, grade, class_id, number, version";
 
 const PROFILE_CHUNK = 100;
+
+/** 이번 주 달성율(반올림한 %). 이번 주 기록이 없는 학생도 목표 사용자면 0 으로 들어간다(대시보드와 같은 규칙). */
+async function loadWeeklyRates(
+  admin: SupabaseClient,
+  goalStudentIds: string[],
+): Promise<Map<string, number>> {
+  const dates = weeklyDates();
+  const byStudent = new Map<string, DailyGoalRow[]>(
+    goalStudentIds.map((id) => [id, []]),
+  );
+  for (let i = 0; i < goalStudentIds.length; i += PROFILE_CHUNK) {
+    const chunk = goalStudentIds.slice(i, i + PROFILE_CHUNK);
+    const rows = await readAll<DailyGoalRow & { profile_id: string }>(
+      admin,
+      "goal_daily_records",
+      "profile_id, record_date, study_hours, target_ideal_hours",
+      (q) => q.in("profile_id", chunk).in("record_date", dates),
+    );
+    for (const r of rows) byStudent.get(r.profile_id)?.push(r);
+  }
+  return new Map(
+    [...byStudent].map(([id, rows]) => [id, Math.round(weeklyRate(rows))]),
+  );
+}
+
+/** 특이학생으로 지정된 학생 id(기관 전체). */
+async function loadFlagged(
+  admin: SupabaseClient,
+  tenantId: string,
+): Promise<Set<string>> {
+  const rows = await readAll<{ student_id: string }>(
+    admin,
+    "student_flags",
+    "student_id",
+    (q) => q.eq("tenant_id", tenantId),
+    "student_id",
+  );
+  return new Set(rows.map((r) => r.student_id));
+}
 const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
 
 const kstDate = (iso: string) => KST_DATE.format(new Date(iso));
@@ -104,6 +148,7 @@ export default defineHandler({
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
+    const special = queryValue(req.query.special) === "1";
     const grade = queryValue(req.query.grade);
     const groupId = queryValue(req.query.groupId);
     const classId = queryValue(req.query.classId);
@@ -120,6 +165,14 @@ export default defineHandler({
     }
 
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
+    const { data: threshold, error: thresholdError } = await admin
+      .from("tenants")
+      .select("special_exec_rate_pct")
+      .eq("id", actor.tenantId)
+      .maybeSingle();
+    if (thresholdError) throw new Error("tenant threshold lookup failed");
+    const execRatePct =
+      (threshold?.special_exec_rate_pct as number | null | undefined) ?? null;
     const [current, classes] = await Promise.all([
       readAll<EnrollmentRow>(admin, "student_enrollments", COLUMNS, (query) =>
         scopeQuery(query, actor, { classColumn: "class_id" })
@@ -167,15 +220,20 @@ export default defineHandler({
         a.student_id.localeCompare(b.student_id),
     );
 
-    // 서비스 탭은 쪽을 나누기 전에 걸러야 하므로 그때만 모든 후보의 이용 서비스를 읽는다.
-    let services = new Map<string, ServiceKey[]>();
+    // 서비스 탭과 특이학생 거르기는 쪽을 나누기 전에 해야 하므로 그때는 모든 후보를 읽고,
+    // 아니면 보이는 쪽만 읽는다.
+    const services = new Map<string, ServiceKey[]>();
     const usedOf = (id: string) => services.get(id) ?? [];
+    const ensureServices = async (ids: string[]) => {
+      const missing = ids.filter((id) => !services.has(id));
+      if (missing.length === 0) return;
+      for (const [id, used] of await loadServiceUsage(admin, missing)) {
+        services.set(id, used);
+      }
+    };
     let listed = matches;
     if (tab !== "all") {
-      services = await loadServiceUsage(
-        admin,
-        matches.map((e) => e.student_id),
-      );
+      await ensureServices(matches.map((e) => e.student_id));
       listed = matches.filter((e) => {
         const used = usedOf(e.student_id);
         return tab === "none"
@@ -183,23 +241,46 @@ export default defineHandler({
           : used.includes(tab as ServiceKey);
       });
     }
-    const paged = paginate(listed, pageQuery);
-    const urgency = await loadUrgency(
-      admin,
-      paged.items.map((e) => e.student_id),
-    );
-    if (tab === "all") {
-      services = await loadServiceUsage(
-        admin,
-        paged.items.map((e) => e.student_id),
-      );
+
+    const extrasOf = async (rows: EnrollmentRow[]) => {
+      const ids = rows.map((e) => e.student_id);
+      await ensureServices(ids);
+      const [urgency, rates, flagged] = await Promise.all([
+        loadUrgency(admin, ids),
+        loadWeeklyRates(
+          admin,
+          ids.filter((id) => usedOf(id).includes("goal")),
+        ),
+        loadFlagged(admin, actor.tenantId),
+      ]);
+      const reasonsOf = (id: string): string[] => {
+        const rate = rates.get(id);
+        const level = urgency.get(id);
+        return [
+          ...(execRatePct !== null && rate !== undefined && rate < execRatePct
+            ? ["low_rate"]
+            : []),
+          ...(level === "high" || level === "very_high" ? ["urgency"] : []),
+          ...(flagged.has(id) ? ["manual"] : []),
+        ];
+      };
+      return { urgency, rates, reasonsOf };
+    };
+    let extras: Awaited<ReturnType<typeof extrasOf>>;
+    if (special) {
+      extras = await extrasOf(listed);
+      listed = listed.filter((e) => extras.reasonsOf(e.student_id).length > 0);
     }
+    const paged = paginate(listed, pageQuery);
+    if (!special) extras = await extrasOf(paged.items);
+    await ensureServices(paged.items.map((e) => e.student_id));
     res.status(200).json({
       total: paged.total,
       scopeTotal: current.length,
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
+      specialExecRatePct: execRatePct,
       pageCount: paged.pageCount,
       items: paged.items.map((e) => {
         const cls = classOf(e);
@@ -218,7 +299,9 @@ export default defineHandler({
             SERVICE_KEYS.map((key) => [key, used.includes(key)]),
           ),
           serviceCount: used.length,
-          urgency: urgency.get(e.student_id) ?? null,
+          urgency: extras.urgency.get(e.student_id) ?? null,
+          weeklyGoalRate: extras.rates.get(e.student_id) ?? null,
+          specialReasons: extras.reasonsOf(e.student_id),
           canEdit: actor.kind === "homeroom",
           enrollmentVersion: e.version,
         };

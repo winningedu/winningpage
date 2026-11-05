@@ -17,6 +17,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { weeklyDates } from "../_lib/console/goalRate.js";
 import handler from "./students.js";
 
 const get = (query: Record<string, string> = {}) =>
@@ -119,6 +120,8 @@ beforeEach(() => {
   kit.state.rows.inquiry_sessions = (f) =>
     matchRows([{ id: "i1", profile_id: "s2" }], f);
   kit.state.rows.diagnosis_reports = () => [];
+  kit.state.rows.goal_daily_records = () => [];
+  kit.state.rows.student_flags = () => [];
 });
 
 type Item = { studentId: string; displayName: string };
@@ -174,6 +177,8 @@ describe("GET /api/console/students", () => {
       },
       serviceCount: 3,
       urgency: null,
+      weeklyGoalRate: 0,
+      specialReasons: [],
       canEdit: false,
       enrollmentVersion: 3,
     });
@@ -328,5 +333,118 @@ describe("GET /api/console/students", () => {
       "김하늘",
       "김하늘",
     ]);
+  });
+
+  test("weeklyGoalRate is the rounded weekly rate for goal users and null for the others", async () => {
+    const today = weeklyDates().at(-1);
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            record_date: today,
+            study_hours: 3,
+            target_ideal_hours: 7,
+          },
+        ],
+        f,
+      );
+
+    const r = await get();
+    const rate = (id: string) =>
+      (
+        items(r).find((i) => i.studentId === id) as unknown as {
+          weeklyGoalRate: number | null;
+        }
+      ).weeklyGoalRate;
+
+    // 일요일에는 목표 없이 학습시간만 더해지므로 일요일이면 목표가 있는 날이 없어 0 이다.
+    expect(rate("s1")).toBe(
+      new Date(`${today}T00:00:00Z`).getUTCDay() === 0 ? 0 : 43,
+    );
+    expect(rate("s2")).toBeNull();
+  });
+});
+
+describe("GET /api/console/students special students", () => {
+  const report = (profile: string, score: number) => ({
+    attempt_id: `a-${profile}`,
+    profile_id: profile,
+    diagnosed_at: "2026-06-01T00:00:00Z",
+    payload: { areaDetails: { page1: [{ score }], page2: [] } },
+  });
+  type Special = { studentId: string; specialReasons: string[] };
+  const special = (r: { body: unknown }) =>
+    (r.body as { items: Special[] }).items;
+
+  beforeEach(() => {
+    // s1 긴급도 높음, s2 수동 지정, s3 달성율 기준 미만(목표 사용자)
+    kit.state.rows.diagnosis_reports = (f) =>
+      matchRows([report("s1", 50), report("s2", 90)], f);
+    kit.state.rows.student_flags = (f) =>
+      matchRows([{ student_id: "s2", tenant_id: "tenant-1" }], f);
+  });
+
+  test("each row lists its special reasons: manual flag and urgency high or above", async () => {
+    const r = await get();
+    const byId = (id: string) =>
+      special(r).find((i) => i.studentId === id)?.specialReasons;
+
+    expect(byId("s1")).toEqual(["urgency"]);
+    expect(byId("s2")).toEqual(["manual"]);
+    expect(byId("s3")).toEqual([]);
+  });
+
+  test("special=1 keeps only students with a reason and total counts them", async () => {
+    const r = await get({ special: "1" });
+
+    expect(
+      special(r)
+        .map((i) => i.studentId)
+        .sort(),
+    ).toEqual(["s1", "s2"]);
+    expect(r.body).toMatchObject({ total: 2, scopeTotal: 4 });
+  });
+
+  test("the low rate reason applies only when the tenant sets a threshold", async () => {
+    const today = weeklyDates().at(-1);
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            record_date: today,
+            study_hours: 1,
+            target_ideal_hours: 10,
+          },
+        ],
+        f,
+      );
+    const sunday = new Date(`${today}T00:00:00Z`).getUTCDay() === 0;
+
+    const without = await get();
+    expect(
+      special(without).find((i) => i.studentId === "s1")?.specialReasons,
+    ).toEqual(["urgency"]);
+    expect(without.body).toMatchObject({ specialExecRatePct: null });
+
+    kit.state.rows.tenants = () => ({
+      school_year: 2026,
+      org_type: "학원",
+      special_exec_rate_pct: 40,
+    });
+    const withThreshold = await get();
+    expect(withThreshold.body).toMatchObject({ specialExecRatePct: 40 });
+    expect(
+      special(withThreshold).find((i) => i.studentId === "s1")?.specialReasons,
+    ).toEqual(sunday ? ["urgency"] : ["low_rate", "urgency"]);
+  });
+
+  test("the special filter combines with a service tab", async () => {
+    expect(
+      special(await get({ special: "1", tab: "growth" })).map(
+        (i) => i.studentId,
+      ),
+    ).toEqual(["s1"]);
   });
 });
