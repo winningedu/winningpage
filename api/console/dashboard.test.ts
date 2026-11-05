@@ -142,7 +142,7 @@ describe("GET /api/console/dashboard", () => {
     expect(r.body).toEqual({
       asOf: "2026-11-04",
       usage: { usingCount: 4, totalCount: 5 },
-      goal: { userCount: 3, average: 60, buckets: { low: 1, mid: 1, high: 1 } },
+      goal: { userCount: 3, average: 53, buckets: { low: 1, mid: 1, high: 1 } },
       services: [
         { key: "diagnosis", count: 3 },
         { key: "goal", count: 3 },
@@ -153,6 +153,26 @@ describe("GET /api/console/dashboard", () => {
       ],
     });
   });
+  test("weekly goal rate uses the 7 days ending yesterday (KST), not Monday to today", async () => {
+    // 오늘 11-04 의 오늘 기록은 빼고, 10-28 ~ 11-03 만 센다.
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          daily("s1", "2026-11-04", 100, 5),
+          daily("s1", "2026-10-28", 5, 5),
+          daily("s1", "2026-10-27", 100, 5),
+        ],
+        f,
+      );
+    const r = await get({ classId: "c-3" });
+    // s1 5/5 = 100, s2 와 s8 은 목표 없음 0, 목표관리 학생은 s1, s2
+    expect((r.body as { goal: unknown }).goal).toEqual({
+      userCount: 2,
+      average: 50,
+      buckets: { low: 1, mid: 0, high: 1 },
+    });
+  });
+
   test("a homeroom is counted over the classes assigned to them only", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",

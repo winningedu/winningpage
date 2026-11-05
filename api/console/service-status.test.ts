@@ -300,7 +300,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     ).toMatchObject({ urgency: "low", diagnosedAt: "2026-05-01" });
   });
 
-  test("goal tab: weekly rate over the last 7 days, minimum-goal days, streak and the ideal and minimum targets with probabilities", async () => {
+  test("goal tab: weekly rate over the 7 days ending yesterday (a target day with no record counts 0 hours, Sunday only adds to the numerator), minimum-goal days, streak and the ideal and minimum targets with probabilities", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-05T03:00:00Z"));
     kit.state.rows.goal_students = (f) =>
@@ -308,7 +308,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
         [
           {
             profile_id: "s1",
-            week_ideal: 10,
+            study_schedule: { thursday: { ideal: 4, min: 2 } },
             ideal_university: "가나대",
             ideal_department: "경영학과",
             min_university: "다라대",
@@ -316,7 +316,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
           },
           {
             profile_id: "s2",
-            week_ideal: 0,
+            study_schedule: {},
             ideal_university: "",
             ideal_department: "",
             min_university: "",
@@ -333,19 +333,26 @@ describe("GET /api/console/service-status (diagnosis)", () => {
         ],
         f,
       );
-    const record = (date: string, hours: number, min: number) => ({
+    const record = (
+      date: string,
+      hours: number,
+      ideal: number,
+      min: number,
+    ) => ({
       profile_id: "s1",
       record_date: date,
       study_hours: hours,
+      target_ideal_hours: ideal,
       target_min_hours: min,
     });
     kit.state.rows.goal_daily_records = (f) =>
       matchRows(
         [
-          record("2026-11-05", 3, 2),
-          record("2026-11-04", 5, 2),
-          record("2026-11-03", 1, 2),
-          record("2026-10-01", 9, 2),
+          record("2026-11-05", 3, 5, 2),
+          record("2026-11-04", 5, 5, 2),
+          record("2026-11-03", 1, 5, 2),
+          record("2026-11-01", 2, 0, 0),
+          record("2026-10-01", 9, 5, 2),
         ],
         f,
       );
@@ -356,8 +363,9 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     ).items;
     expect(items.map((i) => i.studentId)).toEqual(["s1", "s2"]);
     expect(items[0]?.detail).toEqual({
-      weeklyRate: 90,
-      minMetDays: 2,
+      // 목표일 10-29(기록 없음 0시간, 4), 11-03(1, 5), 11-04(5, 5) 와 일요일 2시간: (6 + 2) / 14
+      weeklyRate: 57,
+      minMetDays: 1,
       minSetDays: 3,
       streakDays: 3,
       ideal: { university: "가나대", department: "경영학과", probability: 34 },

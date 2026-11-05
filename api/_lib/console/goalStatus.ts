@@ -1,10 +1,17 @@
-// 목표관리 현황(W7 목표 실행률 평균, W8 목표관리 탭). 주간 값의 기록 창은 오늘(KST)을 포함한 최근 7일이다.
+// 목표관리 현황(W5 달성율 3단계, W7 목표 실행률 평균, W8 목표관리 탭). 주간 값은 goalRate.ts 한 곳의 계산을 쓴다
+// (오늘을 뺀 최근 7일, 결정 59).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
+import {
+  buildGoalDays,
+  type GoalRecord,
+  type GoalSchedule,
+  summarizeGoalWeek,
+  weekWindows,
+} from "./goalRate.js";
 
 const ID_CHUNK = 100;
-const WINDOW_DAYS = 7;
 // 연속 기록을 세려고 거슬러 읽는 일수.
 const STREAK_LOOKBACK_DAYS = 365;
 
@@ -43,22 +50,19 @@ function chunked(ids: string[]): string[][] {
 
 interface StudentRow {
   profile_id: string;
-  week_ideal: number;
+  study_schedule: GoalSchedule | null;
   ideal_university: string;
   ideal_department: string;
   min_university: string;
   min_department: string;
 }
 
-interface RecordRow {
+interface RecordRow extends GoalRecord {
   profile_id: string;
-  record_date: string;
-  study_hours: number;
-  target_min_hours: number;
 }
 
 const COLUMNS =
-  "profile_id, week_ideal, ideal_university, ideal_department, min_university, min_department";
+  "profile_id, study_schedule, ideal_university, ideal_department, min_university, min_department";
 
 function target(
   university: string,
@@ -93,7 +97,8 @@ export async function loadGoalStatus(
   now: Date = new Date(),
   options: { streak?: boolean } = {},
 ): Promise<Map<string, GoalStatus>> {
-  const windowStart = kstDateOffset(now, WINDOW_DAYS - 1);
+  const thisWeek = weekWindows(kstDateOffset(now, 0)).thisWeek;
+  const windowStart = thisWeek[0] ?? kstDateOffset(now, 7);
   const readFrom = options.streak
     ? kstDateOffset(now, STREAK_LOOKBACK_DAYS)
     : windowStart;
@@ -110,7 +115,7 @@ export async function loadGoalStatus(
       readAll<RecordRow>(
         admin,
         "goal_daily_records",
-        "profile_id, record_date, study_hours, target_min_hours",
+        "profile_id, record_date, study_hours, target_ideal_hours, target_min_hours",
         (q) => q.in("profile_id", chunk).gte("record_date", readFrom),
       ),
       options.streak
@@ -135,17 +140,14 @@ export async function loadGoalStatus(
 
     for (const s of students) {
       const mine = recordsOf.get(s.profile_id) ?? [];
-      const week = mine.filter((r) => r.record_date >= windowStart);
-      const weekHours = week.reduce((sum, r) => sum + Number(r.study_hours), 0);
-      const weekTarget = Number(s.week_ideal);
-      const minSet = week.filter((r) => Number(r.target_min_hours) > 0);
+      const week = summarizeGoalWeek(
+        buildGoalDays(thisWeek, mine, s.study_schedule),
+      );
       result.set(s.profile_id, {
         weeklyRate:
-          weekTarget > 0 ? Math.round((weekHours / weekTarget) * 100) : null,
-        minMetDays: minSet.filter(
-          (r) => Number(r.study_hours) >= Number(r.target_min_hours),
-        ).length,
-        minSetDays: minSet.length,
+          week.achievementPct === null ? null : Math.round(week.achievementPct),
+        minMetDays: week.metDays,
+        minSetDays: week.setDays,
         streakDays: options.streak
           ? streakOf(new Set(mine.map((r) => r.record_date)), now)
           : 0,

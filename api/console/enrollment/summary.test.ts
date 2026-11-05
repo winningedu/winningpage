@@ -115,33 +115,26 @@ beforeEach(() => {
       f,
     );
   kit.state.rows.goal_student_state = () => [];
+  const rec = (
+    profile_id: string,
+    record_date: string,
+    study_hours: number,
+  ) => ({
+    profile_id,
+    record_date,
+    study_hours,
+    target_ideal_hours: 5,
+    target_min_hours: 2,
+  });
   kit.state.rows.goal_daily_records = (f) =>
     matchRows(
       [
-        {
-          profile_id: "s1",
-          record_date: "2026-11-04",
-          study_hours: 5,
-          target_min_hours: 2,
-        },
-        {
-          profile_id: "s1",
-          record_date: "2026-11-05",
-          study_hours: 3,
-          target_min_hours: 2,
-        },
-        {
-          profile_id: "s1",
-          record_date: "2026-10-01",
-          study_hours: 100,
-          target_min_hours: 2,
-        },
-        {
-          profile_id: "s2",
-          record_date: "2026-11-05",
-          study_hours: 2,
-          target_min_hours: 2,
-        },
+        rec("s1", "2026-11-04", 5),
+        rec("s1", "2026-11-03", 3),
+        rec("s1", "2026-11-05", 100),
+        rec("s1", "2026-10-01", 100),
+        rec("s2", "2026-11-04", 1),
+        rec("s2", "2026-11-03", 1),
       ],
       f,
     );
@@ -177,7 +170,7 @@ describe("GET /api/console/enrollment/summary", () => {
     ]);
   });
 
-  test("class goal rate is the mean of members' weekly achievement over the last 7 days (KST), null when nobody uses goal", async () => {
+  test("class goal rate is the mean of members' weekly achievement over the 7 days ending yesterday (KST), null when nobody uses goal", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-05T03:00:00Z"));
 
@@ -186,7 +179,7 @@ describe("GET /api/console/enrollment/summary", () => {
     const body = res.body as {
       classes: { classId: string; goalRateAvg: number | null }[];
     };
-    // s1 (5+3)/10 = 80%, s2 2/10 = 20%
+    // s1 (5+3)/10 = 80%, s2 2/10 = 20%, 오늘(11-05) 기록은 세지 않는다
     expect(body.classes.find((c) => c.classId === "c-1")?.goalRateAvg).toBe(50);
     expect(
       body.classes.find((c) => c.classId === "c-2")?.goalRateAvg,
