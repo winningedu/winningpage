@@ -1,5 +1,6 @@
 // W13 학생조회-변경-이력. 탭과 필터 상태는 쿼리스트링에 둔다(새로 고침과 뒤로 가기가 이어지게).
 
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { gradeLabel } from "../classLabel";
 import PageHeader from "../PageHeader";
@@ -22,6 +23,7 @@ export default function StudentHistoryPage() {
   const requested = params.get("tab");
   const tab = tabs.find((t) => t.key === requested)?.key ?? "pending";
   const classes = useClasses();
+  const [defaultYear, setDefaultYear] = useState<number | null>(null);
 
   // 필터를 건 학생 조회와 졸업생 탭은 지금 보는 범위를 빵부스러기로 보인다. 그 밖에는 기본 위치다.
   let breadcrumb: string[] | undefined;
@@ -37,7 +39,7 @@ export default function StudentHistoryPage() {
         ...(className ? [`${className}반`] : []),
       ];
   } else if (tab === "graduates") {
-    const year = params.get("year");
+    const year = params.get("year") ?? defaultYear;
     breadcrumb = [me.tenant.name, "졸업생", ...(year ? [`${year}학년도`] : [])];
   }
 
@@ -56,7 +58,7 @@ export default function StudentHistoryPage() {
       <div className="px-4 pb-24 md:px-8 lg:px-12">
         {tab === "pending" && <PendingRequestsTab />}
         {tab === "students" && <StudentListTab />}
-        {tab === "graduates" && <GraduatesTab />}
+        {tab === "graduates" && <GraduatesTab onYear={setDefaultYear} />}
       </div>
     </>
   );

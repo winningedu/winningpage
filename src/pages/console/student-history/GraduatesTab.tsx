@@ -1,6 +1,6 @@
 // W13 졸업생 탭(관리자). 졸업 학년도를 고르지 않고 들어오면 서버가 가장 최근 졸업 학년도로 응답한다.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +96,12 @@ function GraduateFilters({
   );
 }
 
-export default function GraduatesTab() {
+interface GraduatesTabProps {
+  /** 서버가 쓴 졸업 학년도(졸업생이 없으면 null). 화면 머리의 빵부스러기에 쓴다. */
+  onYear: (year: number | null) => void;
+}
+
+export default function GraduatesTab({ onYear }: GraduatesTabProps) {
   const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,6 +112,11 @@ export default function GraduatesTab() {
     GraduateItem,
     { year: number | null; years: number[] }
   >("/api/console/graduates", { year: urlYear, q }, page, mobile);
+
+  const serverYear = list.data?.year;
+  useEffect(() => {
+    if (serverYear !== undefined) onYear(serverYear);
+  }, [serverYear, onYear]);
 
   if (list.isError)
     return <Notice tone="Danger">졸업생 목록을 불러오지 못했어요</Notice>;

@@ -823,6 +823,52 @@ describe("W13 빵부스러기", () => {
     expect(crumbs()).toEqual(["한빛고등학교", "전체"]);
   });
 
+  it("졸업생 탭에 학년도가 주소에 없으면 서버가 쓴 학년도를 보인다", async () => {
+    stubPage(
+      {
+        "GET /api/console/graduates?page=1": {
+          body: {
+            year: 2025,
+            years: [2025, 2024],
+            total: 0,
+            page: 1,
+            pageCount: 0,
+            items: [],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    await screen.findByText("검색 결과 0명");
+    await vi.waitFor(() =>
+      expect(crumbs()).toEqual(["한빛고등학교", "졸업생", "2025학년도"]),
+    );
+  });
+
+  it("졸업생이 없어 서버 학년도가 null 이면 학년도 없이 보인다", async () => {
+    stubPage(
+      {
+        "GET /api/console/graduates?page=1": {
+          body: {
+            year: null,
+            years: [],
+            total: 0,
+            page: 1,
+            pageCount: 0,
+            items: [],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    await screen.findByText("검색 결과 0명");
+    expect(crumbs()).toEqual(["한빛고등학교", "졸업생"]);
+  });
+
   it("졸업생 탭은 졸업 학년도를 따라간다", async () => {
     stubPage(
       {
