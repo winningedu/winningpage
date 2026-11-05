@@ -165,7 +165,9 @@ create trigger trg_tenants_contract_history
 -- 월은 KST 달력 월(1일에 초기화). 학기는 기준일(서비스 starts_on, 없으면 계약 시작일)부터 term_months 개월씩
 -- fn_add_months_kst 로 나눈 구간이다. 기준일이 없거나 term_months 가 없으면 기준일부터 하나의 학기로 본다.
 -- 체험 기간이어도 학기 한도는 줄이지 않는다(설정 값 그대로).
--- deny_reason: disabled(설정 없음, 꺼짐, 기관 없음), outside_period, term_cap, month_cap. 허용이면 null.
+-- deny_reason: disabled(설정 없음, 꺼짐, 기관 없음), outside_period, grace, term_cap, month_cap. 허용이면 null.
+-- grace: 기관 계약이 끝난 뒤 유예 안(사 #160, 결정 r15). 서비스는 막히지만 정보는 아직 지우지 않는 기간이다.
+-- 유예 종료일은 tenants.grace_ends_on, 없으면 계약 종료일 + app_settings.contract_grace_days(숫자 데이터, 없으면 유예 없음).
 -- 한도를 사용량 아래로 낮추면 남은 횟수는 0 으로 보인다.
 create function public.fn_tenant_usage_state(p_profile uuid, p_program_key text)
 returns table (
@@ -206,6 +208,7 @@ declare
   v_mlimit integer;
   v_tlimit integer;
   v_reason text;
+  v_grace_end date;
 begin
   v_month_end := public.fn_add_months_kst(v_month_start, 1);
 
@@ -221,6 +224,16 @@ begin
   v_tlimit := coalesce(v_ovr.term_limit, v_set.term_limit);
   v_starts := coalesce(v_set.starts_on, v_tenant.contract_start_date);
   v_ends := coalesce(v_set.ends_on, v_tenant.contract_end_date);
+
+  -- 유예 종료일: 계약이 끝났을 때만 의미가 있다.
+  if v_tenant.contract_end_date is not null and v_today > v_tenant.contract_end_date then
+    v_grace_end := coalesce(
+      v_tenant.grace_ends_on,
+      v_tenant.contract_end_date + (
+        select case when jsonb_typeof(a.value) = 'number' then (a.value #>> '{}')::integer end
+          from public.app_settings a where a.key = 'contract_grace_days')
+    );
+  end if;
 
   -- 학기 구간
   v_anchor := v_starts;
@@ -249,8 +262,9 @@ begin
 
   v_reason := case
     when v_tenant.id is null or v_set.tenant_id is null or not v_set.enabled then 'disabled'
-    when (v_starts is not null and v_today < v_starts) or (v_ends is not null and v_today > v_ends)
-      then 'outside_period'
+    when v_starts is not null and v_today < v_starts then 'outside_period'
+    when v_ends is not null and v_today > v_ends
+      then case when v_grace_end is not null and v_today <= v_grace_end then 'grace' else 'outside_period' end
     when v_tlimit is not null and v_tused >= v_tlimit then 'term_cap'
     when v_mlimit is not null and v_mused >= v_mlimit then 'month_cap'
   end;

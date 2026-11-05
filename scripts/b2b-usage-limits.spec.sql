@@ -242,6 +242,32 @@ select pg_temp.expect_text('period: 서비스 기간이 없으면 기관 계약�
 select pg_temp.mk_tenant('ended', 'RTKKKKKK', pg_temp.today() - 100, 6::smallint, pg_temp.today() - 1);
 select pg_temp.setting('ended', 'inquiry', 5, null);
 select pg_temp.expect_text('outside_period: 기관 계약 종료 후', pg_temp.use('ended', 'inquiry', 'inquiry_session'), 'outside_period');
+-- 유예기간(사 #160, 결정 r15): 계약 종료 뒤 유예 종료일(없으면 종료일 + app_settings.contract_grace_days) 까지는 grace
+update public.tenants set grace_ends_on = pg_temp.today() + 5 where id = pg_temp.fx('t_ended');
+select pg_temp.expect_text('grace: 유예 종료일 안이면 grace(아직 막힘, 삭제 전)',
+  pg_temp.use('ended', 'inquiry', 'inquiry_session'), 'grace');
+select pg_temp.expect_bool('grace: 상태 조회는 허용하지 않는다',
+  (select not allowed and deny_reason = 'grace' from public.fn_tenant_usage_state(pg_temp.fx('ended'), 'inquiry')), true);
+update public.tenants set grace_ends_on = pg_temp.today() - 1 where id = pg_temp.fx('t_ended');
+select pg_temp.expect_text('grace: 유예 종료일이 지났으면 outside_period',
+  pg_temp.use('ended', 'inquiry', 'inquiry_session'), 'outside_period');
+update public.tenants set grace_ends_on = null where id = pg_temp.fx('t_ended');
+insert into public.app_settings (key, value) values ('contract_grace_days', '30'::jsonb)
+  on conflict (key) do update set value = '30'::jsonb;
+select pg_temp.mk_tenant('ended2', 'RTQQQQQQ', pg_temp.today() - 100, 6::smallint, pg_temp.today() - 10);
+select pg_temp.setting('ended2', 'inquiry', 5, null);
+select pg_temp.expect_text('grace: 유예 종료일이 없으면 종료일 + 공통 일수(30)까지 grace',
+  pg_temp.use('ended2', 'inquiry', 'inquiry_session'), 'grace');
+select pg_temp.mk_tenant('ended3', 'RTPPPPPP', pg_temp.today() - 100, 6::smallint, pg_temp.today() - 40);
+select pg_temp.setting('ended3', 'inquiry', 5, null);
+select pg_temp.expect_text('grace: 종료일 + 30일을 넘기면 outside_period',
+  pg_temp.use('ended3', 'inquiry', 'inquiry_session'), 'outside_period');
+update public.tenants set grace_ends_on = pg_temp.today() + 3 where id = pg_temp.fx('t_ended3');
+select pg_temp.expect_text('grace: 기관별 유예 종료일이 공통 일수보다 우선한다',
+  pg_temp.use('ended3', 'inquiry', 'inquiry_session'), 'grace');
+select pg_temp.expect_text('grace: 계약 진행 중인 기관은 유예와 무관하다',
+  (select coalesce(deny_reason, '-') from public.fn_tenant_usage_state(pg_temp.fx('off'), 'inquiry')), 'month_cap');
+delete from public.app_settings where key = 'contract_grace_days';
 insert into fx values ('loose', pg_temp.mk_user('t22-loose@t.local'));
 select pg_temp.expect_text('disabled: 소속 기관이 없는 학생', pg_temp.use('loose', 'inquiry', 'inquiry_session'), 'disabled');
 
