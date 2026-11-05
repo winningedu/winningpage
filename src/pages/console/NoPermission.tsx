@@ -2,7 +2,7 @@
 
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { CONSOLE_BASE } from "../menu";
+import { CONSOLE_BASE } from "./menu";
 
 export default function NoPermission() {
   const navigate = useNavigate();
