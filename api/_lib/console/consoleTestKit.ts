@@ -2,6 +2,7 @@
 // 라우트가 부르는 rpc, 테이블 조회, 감사 로그 insert, Auth Admin 호출을 한 곳에서 흉내 내고
 // 호출 순서(events)를 남겨 "DB 커밋 뒤에 Auth" 같은 순서 계약을 검증하게 한다.
 
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { vi } from "vitest";
 
 type Result = { data?: unknown; error?: unknown };
@@ -115,4 +116,41 @@ export function createFakeAdmin(state: KitState) {
       return chain;
     },
   };
+}
+
+export interface Captured {
+  status: number;
+  body: unknown;
+  headers: Record<string, string>;
+}
+
+/** defineHandler 가 돌려준 핸들러를 Bearer 토큰 요청으로 한 번 부르고 응답을 모은다. */
+export async function callHandler(
+  handler: (req: VercelRequest, res: VercelResponse) => Promise<void>,
+  body: unknown,
+  method = "POST",
+): Promise<Captured> {
+  const captured: Captured = { status: 0, body: undefined, headers: {} };
+  const res = {
+    setHeader: (key: string, value: string) => {
+      captured.headers[key] = value;
+    },
+    status(code: number) {
+      captured.status = code;
+      return res;
+    },
+    json(payload: unknown) {
+      captured.body = payload;
+      return res;
+    },
+  } as unknown as VercelResponse;
+  await handler(
+    {
+      method,
+      headers: { authorization: "Bearer token" },
+      body,
+    } as unknown as VercelRequest,
+    res,
+  );
+  return captured;
 }

@@ -327,3 +327,54 @@ export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
   }
   return { name: name.trim(), phone: digits, classes: parsed };
 }
+
+export type IssueExistingResult =
+  | { status: "not_found" }
+  | { status: "account_exists" }
+  | { status: "issued"; loginId: string; issued: IssuedAccount };
+
+/**
+ * 이미 등록된 교사(계정 없음)에게 계정을 발급한다(W16b). 다른 기관이거나 삭제된 교사는 not_found 로
+ * 존재 여부를 숨기고, 계정이 이미 있으면 account_exists(재발급은 별도 라우트)다.
+ */
+export async function issueAccountForExistingTeacher(
+  ctx: ConsoleAuditCtx,
+  teacherId: string,
+): Promise<IssueExistingResult> {
+  const admin = ctx.supabaseAdmin;
+  const { data: teacher, error } = await admin
+    .from("teachers")
+    .select("tenant_id, login_id, profile_id, deleted_at")
+    .eq("id", teacherId)
+    .maybeSingle();
+  if (error) throw new RpcError("teacher read", error.code);
+  if (
+    !teacher ||
+    teacher.deleted_at ||
+    teacher.tenant_id !== ctx.console.tenantId ||
+    !teacher.login_id
+  ) {
+    return { status: "not_found" };
+  }
+  if (teacher.profile_id) return { status: "account_exists" };
+
+  const issued = await issueTeacherAccount(admin, teacherId, teacher.login_id);
+  await writeConsoleAuditLog(ctx, {
+    action: "account_issue",
+    resourceKey: TEACHERS_RESOURCE_KEY,
+    targetId: teacherId,
+    meta: { loginId: teacher.login_id, sendDedupeKey: issued.dedupeKey },
+  });
+  return { status: "issued", loginId: teacher.login_id, issued };
+}
+
+/** 등록 응답 본문. 임시 비밀번호는 이번에 새로 발급한 경우에만 싣는다. */
+export function registerResponseBody(result: RegisterResult) {
+  return {
+    ok: true,
+    teacherId: result.teacherId,
+    loginId: result.loginId,
+    verdict: result.verdict,
+    ...(result.issued ? { tempPassword: result.issued.tempPassword } : {}),
+  };
+}

@@ -6,6 +6,7 @@
 
 import {
   parseRegisterBody,
+  registerResponseBody,
   registerTeacherWithAccount,
   sendTeacherDbError,
 } from "../../_lib/console/teacherAccounts.js";
@@ -55,12 +56,6 @@ export default defineHandler({
       throw error;
     }
 
-    res.status(200).json({
-      ok: true,
-      teacherId: result.teacherId,
-      loginId: result.loginId,
-      verdict: result.verdict,
-      ...(result.issued ? { tempPassword: result.issued.tempPassword } : {}),
-    });
+    res.status(200).json(registerResponseBody(result));
   },
 });
