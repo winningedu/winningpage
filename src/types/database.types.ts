@@ -6877,6 +6877,77 @@ export type Database = {
           },
         ];
       };
+      teacher_import_runs: {
+        Row: {
+          account_count: number;
+          actor_profile_id: string | null;
+          created_at: string;
+          created_count: number;
+          error_count: number;
+          finished_at: string | null;
+          id: string;
+          proxy_session_id: string | null;
+          request_id: string;
+          row_results: NonNullable<Json>;
+          tenant_id: string;
+          total_rows: number;
+          updated_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_count?: number;
+          actor_profile_id?: string | null;
+          created_at?: string;
+          created_count?: number;
+          error_count?: number;
+          finished_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id: string;
+          row_results?: NonNullable<Json>;
+          tenant_id: string;
+          total_rows?: number;
+          updated_count?: number;
+        };
+        Update: {
+          account_count?: number;
+          actor_profile_id?: string | null;
+          created_at?: string;
+          created_count?: number;
+          error_count?: number;
+          finished_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id?: string;
+          row_results?: NonNullable<Json>;
+          tenant_id?: string;
+          total_rows?: number;
+          updated_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_import_runs_actor_profile_id_fkey";
+            columns: ["actor_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_import_runs_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_import_runs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       teachers: {
         Row: {
           created_at: string;
@@ -8909,6 +8980,10 @@ export type Database = {
           p_teacher_id: string;
           p_temp_hash: string;
         };
+        Returns: undefined;
+      };
+      fn_teacher_import_move_class: {
+        Args: { p_class_id: string; p_teacher_id: string };
         Returns: undefined;
       };
       fn_teacher_password_set: {
