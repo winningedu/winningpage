@@ -5,6 +5,7 @@ import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SYNTHETIC_DOMAIN } from "../auth/login.js";
+import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -189,5 +190,81 @@ export async function issueTeacherAccount(
     profileId,
     tempPassword,
     dedupeKey: `teacherIssue:${teacherId}:${data.temp_password_issued_at}`,
+  };
+}
+
+export const TEACHERS_RESOURCE_KEY = "console.teachers";
+
+export interface RegisterInput {
+  tenantId: string;
+  name: string;
+  /** 숫자만(01012345678). */
+  phone: string;
+  role: "homeroom" | "school_admin";
+  classes: { grade: string; name: string; group_id?: string | undefined }[];
+}
+
+export interface RegisterResult {
+  teacherId: string;
+  loginId: string;
+  verdict: string;
+  /** 이번 호출에서 계정을 새로 만들었거나 임시 비밀번호를 다시 준 경우에만 있다. */
+  issued: IssuedAccount | null;
+}
+
+/**
+ * 등록(같은 사람이면 학급만 추가 또는 승격) 뒤 계정이 없으면 발급하고 감사 로그를 남긴다.
+ * 순서: DB 등록(한 트랜잭션) -> Auth 사용자 -> attach -> 감사 로그. 계정이 이미 있는 같은 사람은 계정을 건드리지 않는다.
+ * 감사 로그 적재가 실패하면 예외가 나므로 남기지 못한 발급은 성공으로 끝나지 않는다.
+ */
+export async function registerTeacherWithAccount(
+  ctx: ConsoleAuditCtx,
+  input: RegisterInput,
+): Promise<RegisterResult> {
+  const admin = ctx.supabaseAdmin;
+  const { data, error } = await admin.rpc("fn_teacher_register", {
+    p_tenant_id: input.tenantId,
+    p_name: input.name,
+    p_phone: input.phone,
+    p_role: input.role,
+    p_classes: input.classes,
+    p_actor: ctx.userId ?? null,
+  });
+  const registered = (
+    data as { teacher_id: string; verdict: string }[] | null
+  )?.[0];
+  if (error || !registered)
+    throw new RpcError("fn_teacher_register", error?.code);
+
+  const { data: teacher, error: readError } = await admin
+    .from("teachers")
+    .select("login_id, profile_id")
+    .eq("id", registered.teacher_id)
+    .maybeSingle();
+  if (readError || !teacher?.login_id) {
+    throw new RpcError("teacher read", readError?.code);
+  }
+
+  const issued = teacher.profile_id
+    ? null
+    : await issueTeacherAccount(admin, registered.teacher_id, teacher.login_id);
+
+  await writeConsoleAuditLog(ctx, {
+    action: issued ? "account_issue" : "update",
+    resourceKey: TEACHERS_RESOURCE_KEY,
+    targetId: registered.teacher_id,
+    meta: {
+      verdict: registered.verdict,
+      loginId: teacher.login_id,
+      role: input.role,
+      ...(issued ? { sendDedupeKey: issued.dedupeKey } : {}),
+    },
+  });
+
+  return {
+    teacherId: registered.teacher_id,
+    loginId: teacher.login_id,
+    verdict: registered.verdict,
+    issued,
   };
 }
