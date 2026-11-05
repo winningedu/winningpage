@@ -201,4 +201,13 @@ describe("GET /api/console/enrollment/summary", () => {
 
     expect((await get()).status).toBe(403);
   });
+
+  test("asOf is today's date in KST", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-05T16:00:00Z"));
+
+    const res = await get();
+
+    expect((res.body as { asOf: string }).asOf).toBe("2026-11-06");
+  });
 });

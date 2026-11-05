@@ -11,7 +11,10 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
-import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
+import {
+  kstDateOffset,
+  loadGoalStatus,
+} from "../../_lib/console/goalStatus.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -126,6 +129,6 @@ export default defineHandler({
         };
       });
 
-    res.status(200).json({ classes: rows });
+    res.status(200).json({ asOf: kstDateOffset(new Date(), 0), classes: rows });
   },
 });
