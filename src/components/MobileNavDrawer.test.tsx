@@ -228,3 +228,23 @@ describe("MobileNavDrawer — 게스트(비로그인)", () => {
     }
   });
 });
+
+describe("MobileNavDrawer B2B 변형 게스트", () => {
+  it("guestSecondary가 있으면 회원가입 대신 그 링크를 보여준다", () => {
+    renderDrawer({
+      shouldShowLoggedInHeader: false,
+      isLoggedIn: false,
+      guestSecondary: { label: "선생님", href: "/login" },
+    });
+
+    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.getByRole("link", { name: "선생님" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.queryByText("회원가입")).not.toBeInTheDocument();
+  });
+});

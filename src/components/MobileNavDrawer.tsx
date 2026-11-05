@@ -37,6 +37,9 @@ type MobileNavDrawerProps = {
   // 현재 경로가 속한 nav 그룹 타이틀 — Header의 activePathTitle(정확 일치 → 첫 세그먼트
   // 2단계 판정)을 그대로 받아 데스크톱 nav와 활성 표시 기준을 일치시킨다.
   activeGroupTitle?: string | null;
+  // 아래 옵션은 스쿨멘토(b2b) 전용이다. 위닝은 넘기지 않아 기존 그대로 그려진다.
+  // 비로그인 하단의 회원가입 자리를 대신하는 링크(선생님 로그인).
+  guestSecondary?: { label: string; href: string };
 };
 
 // 헤더 햄버거(전체메뉴) 버튼으로 여는 전체화면 드로어. 모바일 전용이 아니라 데스크톱에서도
@@ -68,6 +71,7 @@ export default function MobileNavDrawer({
   onLogout,
   triggerRef,
   activeGroupTitle = null,
+  guestSecondary,
 }: MobileNavDrawerProps) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { pathname } = useLocation();
@@ -272,13 +276,22 @@ export default function MobileNavDrawer({
                 로그인
               </Button>
 
-              {signupEnabled && (
+              {guestSecondary ? (
                 <Button
-                  render={<Link to="/signup" onClick={onClose} />}
-                  className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
+                  render={<Link to={guestSecondary.href} onClick={onClose} />}
+                  className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3.25 text-base font-medium text-drawer-on-primary hover:bg-[#012347]"
                 >
-                  회원가입
+                  {guestSecondary.label}
                 </Button>
+              ) : (
+                signupEnabled && (
+                  <Button
+                    render={<Link to="/signup" onClick={onClose} />}
+                    className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
+                  >
+                    회원가입
+                  </Button>
+                )
               )}
             </div>
           )}
