@@ -132,3 +132,44 @@ describe("getFallbackNavGroups", () => {
     expect(getFallbackNavGroups()).toBe(FALLBACK_NAV_GROUPS);
   });
 });
+
+describe("removeCallmentorWhenHidden", () => {
+  const groups = [
+    group("서비스", [
+      ["수행평가", "/services/performance"],
+      ["콜멘토", "/services/callmentor"],
+    ]),
+  ];
+
+  async function load(callmentor: boolean) {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: {
+        company: { kakaoChannelUrl: "https://pf.kakao.com/x" },
+        features: { premium: true, hiddenPrograms: [], callmentor },
+      },
+    }));
+    return import("./useNavGroups");
+  }
+
+  it("콜멘토를 닫는 사이트는 최종 메뉴에서 콜멘토 항목을 뺀다", async () => {
+    const { composeFinalNavGroups } = await load(false);
+
+    const labels = composeFinalNavGroups(groups).flatMap((g) =>
+      g.items.map((i) => i.label),
+    );
+
+    expect(labels).not.toContain("콜멘토");
+    expect(labels).toContain("수행평가");
+  });
+
+  it("콜멘토를 여는 사이트는 그대로 둔다", async () => {
+    const { composeFinalNavGroups } = await load(true);
+
+    const labels = composeFinalNavGroups(groups).flatMap((g) =>
+      g.items.map((i) => i.label),
+    );
+
+    expect(labels).toContain("콜멘토");
+  });
+});

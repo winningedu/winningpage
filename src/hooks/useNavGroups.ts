@@ -332,6 +332,19 @@ export function removePremiumWhenHidden(groups: NavGroup[]): NavGroup[] {
     }));
 }
 
+// 콜멘토를 닫는 사이트(site.features.callmentor=false, 스쿨멘토)는 콜멘토 메뉴 항목을 최종 메뉴
+// 트리에서 제거한다. removePremiumWhenHidden과 같은 이유로 최종 반환값에만 적용한다.
+export function removeCallmentorWhenHidden(groups: NavGroup[]): NavGroup[] {
+  if (site.features.callmentor) return groups;
+
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => cleanText(item.to).split(/[?#]/)[0] !== "/services/callmentor",
+    ),
+  }));
+}
+
 // site.features.hiddenPrograms에 든 신규 서비스(성장설계, 자기평가, 심화탐구)의 메뉴 항목을
 // 최종 메뉴 트리에서 제거한다. removePremiumWhenHidden과 같은 이유로 최종 반환값에만 적용한다.
 export function removeHiddenProgramsFromNav(groups: NavGroup[]): NavGroup[] {
@@ -474,9 +487,11 @@ function buildNavGroups(rows: PageContentRow[] | null): NavGroup[] {
 // 숨김 사이트에서도 다시 나타난다.
 export function composeFinalNavGroups(navGroups: NavGroup[]): NavGroup[] {
   return removeHiddenProgramsFromNav(
-    removePremiumWhenHidden(
-      removeOnlineInquiryWithoutKakao(
-        replacePremiumNavGroup(injectGrowthAndArrangeServiceItems(navGroups)),
+    removeCallmentorWhenHidden(
+      removePremiumWhenHidden(
+        removeOnlineInquiryWithoutKakao(
+          replacePremiumNavGroup(injectGrowthAndArrangeServiceItems(navGroups)),
+        ),
       ),
     ),
   );

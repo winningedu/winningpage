@@ -6,6 +6,7 @@ vi.mock("@/config/site", () => ({
     company: { kakaoChannelUrl: "https://pf.kakao.com/x" },
     features: {
       premium: true,
+      callmentor: true,
       get hiddenPrograms() {
         return siteState.hidden;
       },
