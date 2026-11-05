@@ -6504,6 +6504,134 @@ export type Database = {
           },
         ];
       };
+      teacher_class_assignments: {
+        Row: {
+          class_id: string;
+          created_at: string;
+          created_by: string | null;
+          is_primary: boolean;
+          teacher_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          is_primary?: boolean;
+          teacher_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          class_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          is_primary?: boolean;
+          teacher_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_class_assignments_class_id_tenant_id_fkey";
+            columns: ["class_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "teacher_class_assignments_teacher_id_tenant_id_fkey";
+            columns: ["teacher_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id", "tenant_id"];
+          },
+        ];
+      };
+      teachers: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          email: string | null;
+          id: string;
+          landline: string | null;
+          login_id: string | null;
+          must_change_password: boolean;
+          name: string;
+          password_set_at: string | null;
+          phone: string;
+          position: string | null;
+          profile_id: string | null;
+          role: string;
+          status: string;
+          temp_password_hash: string | null;
+          temp_password_issued_at: string | null;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          email?: string | null;
+          id?: string;
+          landline?: string | null;
+          login_id?: string | null;
+          must_change_password?: boolean;
+          name: string;
+          password_set_at?: string | null;
+          phone: string;
+          position?: string | null;
+          profile_id?: string | null;
+          role: string;
+          status?: string;
+          temp_password_hash?: string | null;
+          temp_password_issued_at?: string | null;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          email?: string | null;
+          id?: string;
+          landline?: string | null;
+          login_id?: string | null;
+          must_change_password?: boolean;
+          name?: string;
+          password_set_at?: string | null;
+          phone?: string;
+          position?: string | null;
+          profile_id?: string | null;
+          role?: string;
+          status?: string;
+          temp_password_hash?: string | null;
+          temp_password_issued_at?: string | null;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teachers_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teachers_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_code_attempts: {
         Row: {
           attempted_at: string;
@@ -7719,6 +7847,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_generate_teacher_login_id: {
+        Args: { p_tenant_id: string };
+        Returns: string;
+      };
       fn_generate_tenant_code: {
         Args: Record<PropertyKey, never>;
         Returns: string;
@@ -8215,6 +8347,20 @@ export type Database = {
           p_program_key: string;
         };
         Returns: Json;
+      };
+      fn_teacher_register: {
+        Args: {
+          p_actor: string;
+          p_classes: Json;
+          p_name: string;
+          p_phone: string;
+          p_role: string;
+          p_tenant_id: string;
+        };
+        Returns: {
+          teacher_id: string;
+          verdict: string;
+        }[];
       };
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };
