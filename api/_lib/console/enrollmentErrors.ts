@@ -2,8 +2,11 @@
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { sendError } from "../httpResponse.js";
+import type { ConsoleActor } from "./actor.js";
+import { maskName } from "./maskName.js";
 
 interface Mapped {
   status: number;
@@ -36,7 +39,7 @@ const MAPPED: Record<string, Mapped> = {
   WC080: {
     status: 400,
     code: "GROUP_NOT_REGISTERED",
-    message: "등록되지 않은 학년그룹이에요.",
+    message: "등록되지 않은 그룹이에요.",
   },
   WC081: { status: 404, code: "NOT_FOUND", message: "학적을 찾을 수 없어요." },
   WC082: {
@@ -62,12 +65,12 @@ const MAPPED: Record<string, Mapped> = {
   WC086: {
     status: 409,
     code: "GROUP_HAS_STUDENTS",
-    message: "재학생이 있는 학년그룹은 삭제할 수 없어요.",
+    message: "재학생이 있는 그룹은 삭제할 수 없어요.",
   },
   WC087: {
     status: 404,
     code: "NOT_FOUND",
-    message: "학년그룹을 찾을 수 없어요.",
+    message: "그룹을 찾을 수 없어요.",
   },
   WC094: {
     status: 403,
@@ -80,23 +83,62 @@ const MAPPED: Record<string, Mapped> = {
   "23514": INVALID_CLASS,
 };
 
-/** 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다. */
+export interface OccupantSlot {
+  grade: string | null;
+  className: string | null;
+  number: number | null;
+}
+
+/** WC077 응답에 실을 점유 학생 정보. slot 은 막힌 학급과 번호, maskName 이면 이름을 가린다. */
+export interface OccupantContext {
+  slot: OccupantSlot;
+  maskName: boolean;
+}
+
+/**
+ * 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다.
+ * WC077 의 DETAIL 은 그 번호를 쓰는 학생 이름이다(교 #200). occupant 를 넘긴 호출만 응답에 싣고,
+ * 담임 이외에는 가린 이름을 쓴다(결정 30). 넘기지 않으면 이름은 응답에 나가지 않는다.
+ */
 export function sendEnrollmentRpcError(
   res: VercelResponse,
   error: { code?: string; details?: string | null } | null | undefined,
+  occupant?: OccupantContext,
 ): boolean {
   const mapped = error?.code ? MAPPED[error.code] : undefined;
   if (!mapped) return false;
-  // WC077 의 DETAIL 은 그 번호를 쓰는 학생 이름이다(교 #200).
-  const studentName =
-    error?.code === "WC077" && error.details ? error.details : undefined;
-  sendError(
-    res,
-    "coded",
-    mapped.status,
-    mapped.message,
-    mapped.code,
-    studentName ? { studentName } : undefined,
-  );
+  const holder = error?.details || null;
+  const extra =
+    error?.code === "WC077" && occupant
+      ? {
+          occupant: {
+            ...occupant.slot,
+            displayName:
+              holder && occupant.maskName ? maskName(holder) : holder,
+          },
+        }
+      : undefined;
+  sendError(res, "coded", mapped.status, mapped.message, mapped.code, extra);
   return true;
+}
+
+/** WC077 응답용: 막힌 학급의 학년과 이름을 읽어 점유 정보의 자리를 만든다. 학급이 없으면 undefined. */
+export async function loadOccupantContext(
+  admin: SupabaseClient,
+  actor: ConsoleActor,
+  classId: string | null,
+  number: number | null,
+): Promise<OccupantContext | undefined> {
+  if (!classId) return undefined;
+  const { data, error } = await admin
+    .from("classes")
+    .select("grade, name")
+    .eq("id", classId)
+    .eq("tenant_id", actor.tenantId)
+    .maybeSingle();
+  if (error || !data) return undefined;
+  return {
+    slot: { grade: data.grade, className: data.name, number },
+    maskName: actor.kind !== "homeroom",
+  };
 }

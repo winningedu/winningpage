@@ -67,6 +67,17 @@ export default defineHandler({
       return;
     }
 
+    if (newPassword === currentPassword) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "현재 비밀번호와 다른 비밀번호를 입력해 주세요.",
+        "PASSWORD_SAME_AS_CURRENT",
+      );
+      return;
+    }
+
     const admin = ctx.supabaseAdmin;
     const authClient = createLoginAuthClient(getClientIp(req));
     const login = await attemptLogin(admin, {

@@ -40,6 +40,15 @@ beforeEach(() => {
     code: "SCHOOL001",
     name: "한빛중학교",
   });
+  kit.state.rows.teacher_class_assignments = () => [
+    { class_id: "class-1", is_primary: true },
+    { class_id: "class-2", is_primary: false },
+  ];
+  kit.state.rows.classes = () => [
+    { id: "class-2", grade: "고2", name: "5", group_id: null },
+    { id: "class-1", grade: "고2", name: "3", group_id: "group-1" },
+  ];
+  kit.state.rows.class_groups = () => [{ id: "group-1", name: "A그룹" }];
   kit.state.rows.proxy_sessions = () => ({
     id: "session-1",
     expires_at: "2026-11-06T09:00:00Z",
@@ -65,10 +74,42 @@ describe("GET /api/console/me", () => {
         role: "homeroom",
       },
       classIds: ["class-1", "class-2"],
+      classes: [
+        {
+          id: "class-2",
+          grade: "고2",
+          name: "5",
+          group: null,
+          isPrimary: false,
+        },
+        {
+          id: "class-1",
+          grade: "고2",
+          name: "3",
+          group: "A그룹",
+          isPrimary: true,
+        },
+      ],
       proxySession: null,
       mustChangePassword: false,
     });
     expect(r.headers["Cache-Control"]).toBe("no-store");
+  });
+
+  test("학교 전체 관리자는 담당 학급 목록이 비어 있고 학급을 조회하지 않는다", async () => {
+    kit.state.actor = {
+      ...kit.state.actor,
+      kind: "school_admin",
+      class_ids: [],
+    };
+    kit.state.rows.classes = () => {
+      throw new Error("classes must not be read");
+    };
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ classes: [] });
   });
 
   test("본사 대행 세션이면 교사 없이 대행 세션 id, 기관명, 만료 시각을 돌려준다", async () => {

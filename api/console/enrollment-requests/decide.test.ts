@@ -9,6 +9,7 @@ type Row = Record<string, unknown>;
 const state = vi.hoisted(() => ({
   actor: {} as Record<string, unknown>,
   changes: [] as Row[],
+  tables: {} as Record<string, Row[]>,
   decideResult: { data: "applied", error: null } as {
     data: unknown;
     error: unknown;
@@ -53,7 +54,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
                   null)
                 : table === "teachers"
                   ? { login_id: "SM123456" }
-                  : null,
+                  : ((state.tables[table] ?? []).find((r) =>
+                      filters.every((f) => f(r)),
+                    ) ?? null),
             error: null,
           }),
         insert: (row: Row) => {
@@ -110,9 +113,29 @@ function decideCall() {
 beforeEach(() => {
   state.actor = HOMEROOM;
   state.changes = [
-    { id: "chg-1", tenant_id: "tenant-1", student_id: "student-1" },
+    {
+      id: "chg-1",
+      tenant_id: "tenant-1",
+      student_id: "student-1",
+      to_grade: "고2",
+      to_class_id: "class-A",
+      to_number: 7,
+    },
     { id: "chg-other", tenant_id: "tenant-2", student_id: "student-9" },
   ];
+  state.tables = {
+    classes: [
+      {
+        id: "class-A",
+        tenant_id: "tenant-1",
+        grade: "고2",
+        group_id: "group-1",
+        name: "3",
+      },
+    ],
+    class_groups: [{ id: "group-1", tenant_id: "tenant-1", name: "A레벨" }],
+    profiles: [{ id: "student-1", name: "김하늘" }],
+  };
   state.decideResult = { data: "applied", error: null };
   state.logError = null;
   state.rpcCalls = [];
@@ -125,7 +148,12 @@ describe("POST /api/console/enrollment-requests/decide", () => {
 
     expect(result).toEqual({
       status: 200,
-      body: { ok: true, status: "applied" },
+      body: {
+        ok: true,
+        status: "applied",
+        studentName: "김하늘",
+        to: { grade: "고2", groupName: "A레벨", className: "3", number: 7 },
+      },
     });
     expect(decideCall()?.args).toEqual({
       p_change_id: "chg-1",
@@ -145,6 +173,35 @@ describe("POST /api/console/enrollment-requests/decide", () => {
     });
   });
 
+  test("a school admin gets the student name masked for the toast", async () => {
+    state.actor = { ...HOMEROOM, kind: "school_admin", class_ids: [] };
+
+    const result = await post({ changeId: "chg-1", approve: true });
+
+    expect(result.body).toMatchObject({ studentName: "김*늘" });
+  });
+
+  test("a taken number returns the holder of the number the request wanted, masked for a school admin (decision 30)", async () => {
+    state.decideResult = {
+      data: null,
+      error: { code: "WC077", details: "윤하린" },
+    };
+    const holder = { grade: "고2", className: "3", number: 7 };
+
+    expect(await post({ changeId: "chg-1", approve: true })).toMatchObject({
+      status: 409,
+      body: {
+        error: { code: "NUMBER_TAKEN" },
+        occupant: { ...holder, displayName: "윤하린" },
+      },
+    });
+
+    state.actor = { ...HOMEROOM, kind: "school_admin", class_ids: [] };
+    expect(await post({ changeId: "chg-1", approve: true })).toMatchObject({
+      body: { occupant: { ...holder, displayName: "윤*린" } },
+    });
+  });
+
   test("reject passes the reason through and logs it", async () => {
     state.decideResult = { data: "rejected", error: null };
 
@@ -154,7 +211,7 @@ describe("POST /api/console/enrollment-requests/decide", () => {
       rejectReason: "번호가 맞지 않아요",
     });
 
-    expect(result.body).toEqual({ ok: true, status: "rejected" });
+    expect(result.body).toMatchObject({ ok: true, status: "rejected" });
     expect(decideCall()?.args.p_reject_reason).toBe("번호가 맞지 않아요");
     expect(
       state.inserts.find((i) => i.table === "admin_access_logs")?.row,

@@ -1,4 +1,4 @@
-// POST /api/console/groups 계약 검증. 학년그룹 만들기는 학교 관리자만, 기관은 행위자에서 정한다.
+// POST /api/console/groups 계약 검증. 그룹 만들기는 학교 관리자만, 기관은 행위자에서 정한다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -128,7 +128,9 @@ describe("POST /api/console/groups", () => {
     state.insertError = { code: "23505" };
     expect(await post({ name: "A그룹" })).toMatchObject({
       status: 409,
-      body: { error: { code: "GROUP_EXISTS" } },
+      body: {
+        error: { code: "GROUP_EXISTS", message: "이미 있는 그룹 이름이에요." },
+      },
     });
     expect(state.inserts.map((i) => i.table)).toEqual(["class_groups"]);
   });
@@ -140,7 +142,12 @@ describe("POST /api/console/groups", () => {
   ])("a %s name is a 400", async (_n, body) => {
     expect(await post(body)).toMatchObject({
       status: 400,
-      body: { error: { code: "BAD_REQUEST" } },
+      body: {
+        error: {
+          code: "BAD_REQUEST",
+          message: "그룹 이름을 입력해 주세요.",
+        },
+      },
     });
     expect(state.inserts).toEqual([]);
   });

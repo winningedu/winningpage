@@ -29,6 +29,8 @@ export interface KitState {
     values: Record<string, unknown>;
     filters: Record<string, unknown>;
   }[];
+  /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
+  orders: { table: string; column: string }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
   events: string[];
   auth: {
@@ -37,6 +39,23 @@ export interface KitState {
     updateUserById: ReturnType<typeof vi.fn>;
     deleteUser: ReturnType<typeof vi.fn>;
   };
+}
+
+/**
+ * 읽기 라우트 테스트용. 라우트가 건 eq, in 필터를 메모리 행에 그대로 적용한다
+ * (eq 는 문자열 비교, in 은 포함 여부). kit.rows.테이블 = (f) => matchRows(ROWS, f) 로 쓴다.
+ */
+export function matchRows<R extends Record<string, unknown>>(
+  rows: R[],
+  filters: Record<string, unknown>,
+): R[] {
+  return rows.filter((row) =>
+    Object.entries(filters).every(([col, want]) =>
+      Array.isArray(want)
+        ? want.includes(row[col])
+        : String(row[col]) === String(want),
+    ),
+  );
 }
 
 export function schoolAdminActor(
@@ -69,6 +88,7 @@ export function createKitState(): KitState {
     insertError: null,
     insertErrors: {},
     updates: [],
+    orders: [],
     events,
     auth: {
       createUser: ok("createUser"),
@@ -128,8 +148,12 @@ export function createFakeAdmin(state: KitState) {
         filters[col] = values;
         return chain;
       };
-      for (const m of ["like", "order", "limit", "ilike"])
+      for (const m of ["like", "limit", "ilike", "range"])
         chain[m] = () => chain;
+      chain.order = (column: string) => {
+        state.orders.push({ table, column });
+        return chain;
+      };
       chain.maybeSingle = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());

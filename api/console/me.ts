@@ -53,6 +53,56 @@ export default defineHandler({
       };
     }
 
+    const classes: {
+      id: string;
+      grade: string;
+      name: string;
+      group: string | null;
+      isPrimary: boolean;
+    }[] = [];
+    if (actor.teacherId && actor.classIds.length > 0) {
+      const { data: assignments, error: assignmentError } = await admin
+        .from("teacher_class_assignments")
+        .select("class_id, is_primary")
+        .eq("teacher_id", actor.teacherId)
+        .in("class_id", actor.classIds);
+      if (assignmentError)
+        throw new RpcError("assignment read", assignmentError.code);
+      const primaryById = new Map(
+        (assignments ?? []).map((a) => [a.class_id, a.is_primary]),
+      );
+      const { data: rows, error: classError } = await admin
+        .from("classes")
+        .select("id, grade, name, group_id")
+        .in("id", actor.classIds)
+        .order("grade")
+        .order("name");
+      if (classError) throw new RpcError("classes read", classError.code);
+      const groupIds = [
+        ...new Set(
+          (rows ?? []).flatMap((r) => (r.group_id ? [r.group_id] : [])),
+        ),
+      ];
+      const groupNames = new Map<string, string>();
+      if (groupIds.length > 0) {
+        const { data: groups, error: groupError } = await admin
+          .from("class_groups")
+          .select("id, name")
+          .in("id", groupIds);
+        if (groupError) throw new RpcError("groups read", groupError.code);
+        for (const g of groups ?? []) groupNames.set(g.id, g.name);
+      }
+      for (const row of rows ?? []) {
+        classes.push({
+          id: row.id,
+          grade: row.grade,
+          name: row.name,
+          group: row.group_id ? (groupNames.get(row.group_id) ?? null) : null,
+          isPrimary: primaryById.get(row.id) === true,
+        });
+      }
+    }
+
     let proxySession: {
       id: string;
       tenantName: string;
@@ -77,6 +127,7 @@ export default defineHandler({
       tenant: { id: tenant.id, code: tenant.code, name: tenant.name },
       teacher,
       classIds: actor.classIds,
+      classes,
       proxySession,
       mustChangePassword: actor.mustChangePassword,
     });

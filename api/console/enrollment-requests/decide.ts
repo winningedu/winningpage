@@ -3,9 +3,16 @@
 // 학생의 학적 변경 신청을 승인하거나 거절한다(W13, W13c).
 // 승인자 판정(도착 학급 담임, 담임이 없으면 학교 관리자나 본사 대행), version 검사, 적용은
 // fn_decide_enrollment_change 가 한 트랜잭션으로 처리한다. 다른 기관의 신청 id 는 404 로 숨긴다.
+// 응답에는 토스트용 { studentName, to } 를 싣는다(이름은 담임만 실명). 번호 중복(409 NUMBER_TAKEN)에는
+// 그 번호를 쓰는 학생(occupant)을 싣는다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
-import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
+import { loadSlotLabel } from "../../_lib/console/directory.js";
+import {
+  loadOccupantContext,
+  sendEnrollmentRpcError,
+} from "../../_lib/console/enrollmentErrors.js";
+import { displayNameFor } from "../../_lib/console/maskName.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -44,7 +51,7 @@ export default defineHandler({
 
     const { data: change, error: lookupError } = await ctx.supabaseAdmin
       .from("enrollment_changes")
-      .select("id, student_id")
+      .select("id, student_id, to_grade, to_class_id, to_number")
       .eq("id", body.changeId)
       .eq("tenant_id", actor.tenantId)
       .maybeSingle();
@@ -60,6 +67,19 @@ export default defineHandler({
       return;
     }
 
+    // 토스트에 쓸 학생 이름과 요청한 자리. 적용 뒤에 읽다가 실패하면 처리된 신청이 실패로 보이므로 먼저 읽는다.
+    const { data: student, error: studentError } = await ctx.supabaseAdmin
+      .from("profiles")
+      .select("name")
+      .eq("id", change.student_id)
+      .maybeSingle();
+    if (studentError) throw new Error("student lookup failed");
+    const to = await loadSlotLabel(ctx.supabaseAdmin, actor.tenantId, {
+      grade: change.to_grade,
+      classId: change.to_class_id,
+      number: change.to_number,
+    });
+
     const { data: status, error } = await ctx.supabaseAdmin.rpc(
       "fn_decide_enrollment_change",
       {
@@ -70,7 +90,16 @@ export default defineHandler({
       },
     );
     if (error) {
-      if (sendEnrollmentRpcError(res, error)) return;
+      const occupant =
+        error.code === "WC077"
+          ? await loadOccupantContext(
+              ctx.supabaseAdmin,
+              actor,
+              change.to_class_id,
+              change.to_number,
+            )
+          : undefined;
+      if (sendEnrollmentRpcError(res, error, occupant)) return;
       throw new Error("fn_decide_enrollment_change failed");
     }
     if (typeof status !== "string") {
@@ -88,6 +117,11 @@ export default defineHandler({
       },
     );
 
-    res.status(200).json({ ok: true, status });
+    res.status(200).json({
+      ok: true,
+      status,
+      studentName: displayNameFor(actor, student?.name ?? ""),
+      to,
+    });
   },
 });
