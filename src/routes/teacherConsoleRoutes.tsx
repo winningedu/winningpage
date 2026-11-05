@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router";
 import AssignPoolPage from "@/pages/console/assign-pool/AssignPoolPage";
+import AdmissionCoachingPage from "@/pages/console/admission-coaching/AdmissionCoachingPage";
 import ConsoleGate from "@/pages/console/ConsoleGate";
 import ConsoleHeaderFrame from "@/pages/console/ConsoleHeaderFrame";
 import ConsoleLayout from "@/pages/console/ConsoleLayout";
@@ -46,6 +47,10 @@ const teacherConsoleRoutes: RouteObject[] = [
               { path: "teachers/excel", Component: TeacherExcelPage },
               { path: "accounts", Component: TeacherAccountsPage },
               { path: "enrollment", Component: EnrollmentPage },
+              {
+                path: "admission-coaching",
+                Component: AdmissionCoachingPage,
+              },
               {
                 path: "service-status/:service?",
                 Component: ServiceStatusPage,
