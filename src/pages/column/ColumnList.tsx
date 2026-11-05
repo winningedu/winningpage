@@ -2,6 +2,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import CategoryChips from "@/components/column/CategoryChips";
 import ColumnCard from "@/components/column/ColumnCard";
+import { site } from "@/config/site";
 import {
   ALL_CATEGORY,
   type ColumnRow,
@@ -81,7 +82,7 @@ export default function ColumnList() {
       <section className="pb-20 pt-16 sm:pb-24 sm:pt-20 md:pt-40">
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
           <h1 className="break-keep text-center text-2xl sm:text-[2.25rem] font-semibold leading-[1.3] tracking-[-0.02em] text-ink">
-            교육칼럼
+            {site.columnTitle}
           </h1>
 
           <div className="mt-8">
@@ -136,7 +137,7 @@ export default function ColumnList() {
               </div>
             ) : visibleRows.length === 0 ? (
               <div className="py-24 text-center text-sm font-bold text-gray-400">
-                등록된 교육칼럼이 없습니다.
+                등록된 {site.columnTitle}이 없습니다.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">
