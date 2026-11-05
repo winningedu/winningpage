@@ -40,6 +40,7 @@ const ACTOR_KIND: Record<ConsoleActorKind, string> = {
   homeroom: "teacher",
   school_admin: "school_admin",
   hq_proxy: "hq_proxy",
+  hq: "hq",
 };
 
 // 비밀번호 키는 값이 무엇이든 중첩까지 모두 버린다.
@@ -62,7 +63,10 @@ export async function writeConsoleAuditLog(
   const actor = ctx.console;
   const { error } = await ctx.supabaseAdmin.from("admin_access_logs").insert({
     profile_id: ctx.userId ?? null,
-    actor_email: actor.kind === "hq_proxy" ? (ctx.user?.email ?? null) : null,
+    actor_email:
+      actor.kind === "hq_proxy" || actor.kind === "hq"
+        ? (ctx.user?.email ?? null)
+        : null,
     tenant_id: actor.tenantId,
     actor_kind: ACTOR_KIND[actor.kind],
     actor_login_id: actor.loginId,

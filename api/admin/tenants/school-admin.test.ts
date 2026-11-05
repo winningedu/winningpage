@@ -98,7 +98,7 @@ describe("POST /api/admin/tenants/school-admin", () => {
       profile_id: "hq-1",
       actor_email: "hq@example.com",
       tenant_id: "tenant-7",
-      actor_kind: "hq_proxy",
+      actor_kind: "hq",
       proxy_session_id: null,
       action: "account_issue",
       target_id: "teacher-9",

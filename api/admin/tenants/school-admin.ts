@@ -61,7 +61,7 @@ export default defineHandler({
           user: ctx.user,
           // 대행 세션 없이 본사 관리자가 직접 하는 일이라 proxySessionId 는 비어 있다.
           console: {
-            kind: "hq_proxy",
+            kind: "hq",
             tenantId,
             teacherId: null,
             classIds: [],

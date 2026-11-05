@@ -2,7 +2,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type ConsoleActorKind = "homeroom" | "school_admin" | "hq_proxy";
+// hq 는 대행 세션 없이 본사 관리자가 직접 하는 일(fn_console_actor 는 돌려주지 않고 감사 로그에만 쓴다).
+export type ConsoleActorKind = "homeroom" | "school_admin" | "hq_proxy" | "hq";
 
 export interface ConsoleActor {
   kind: ConsoleActorKind;

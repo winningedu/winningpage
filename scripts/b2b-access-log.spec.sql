@@ -105,6 +105,8 @@ select pg_temp.expect_ok('교사 행: 사유 null, 로그인 아이디, 소속, 
   $$select pg_temp.log_row('view', null, null, 'teacher', 'T8AAAAAAAAAAAA', true, true)$$);
 select pg_temp.expect_error('actor_kind 목록 밖 거부',
   $$select pg_temp.log_row('view', null, null, 'principal', 'T8AAAAAAAAAAAA')$$, '23514');
+select pg_temp.expect_ok('hq 행: 본사 직접 작업은 actor_kind hq 로 남는다',
+  $$select pg_temp.log_row('account_issue', 'hq@example.com', null, 'hq', null, true)$$);
 select pg_temp.expect_ok('hq_proxy 행: 이메일과 로그인 아이디 중 하나만 있어도 통과',
   $$select pg_temp.log_row('proxy_start', 'hq@example.com', null, 'hq_proxy', null, true)$$);
 
@@ -142,6 +144,38 @@ select pg_temp.expect_text('뷰: 기존 본사 행은 새 컬럼이 비어 있�
   (select coalesce(tenant_code, '-') || '/' || coalesce(actor_kind, '-') || '/' || is_proxy
      from public.admin_access_log_entries where reason = '정산 확인'),
   '-/-/false');
+
+select pg_temp.expect_text('뷰: hq 행은 대행이 아니다',
+  (select is_proxy::text from public.admin_access_log_entries where actor_kind = 'hq'), 'false');
+
+-- 위닝 관리자의 본인 insert 정책: 예전 본사 행만 넣을 수 있고 콘솔 행은 위조할 수 없다
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, created_at, updated_at,
+    raw_app_meta_data, raw_user_meta_data)
+  values ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', 't8-admin@t.local', 'x', now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb);
+insert into public.profiles (id, name, role, email)
+  values ('00000000-0000-0000-0000-0000000000a8', 't8-admin', 'admin', 't8-admin@t.local')
+  on conflict (id) do update set role = 'admin';
+grant execute on function pg_temp.expect_ok(text, text) to authenticated;
+grant execute on function pg_temp.expect_error(text, text, text) to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a8', true);
+select pg_temp.expect_ok('self insert: 예전 본사 행은 통과',
+  $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, reason)
+    values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'download', 'members', '정산')$$);
+select pg_temp.expect_error('self insert: actor_kind 를 채운 행은 RLS 거부',
+  $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, actor_kind)
+    values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'view', 'members', 'teacher')$$, '42501');
+select pg_temp.expect_error('self insert: 교사 id 를 채운 행은 RLS 거부',
+  $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, reason, teacher_id)
+    values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'download', 'members', '정산',
+      gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('self insert: 기관 id 를 채운 행은 RLS 거부',
+  $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, reason, tenant_id)
+    values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'download', 'members', '정산',
+      gen_random_uuid())$$, '42501');
+reset role;
 
 -- 기존 RLS 는 그대로: 일반 로그인 사용자는 로그를 읽을 수 없다
 grant execute on function pg_temp.expect_int(text, bigint, bigint) to authenticated;
