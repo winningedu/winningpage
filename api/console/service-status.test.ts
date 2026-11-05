@@ -236,7 +236,7 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     kit.state.actor = schoolAdminActor();
 
     const byClass = await get({ classId: "c-B" });
-    const byName = await get({ q: "서연" });
+    const byName = await get({ q: "김서연" });
 
     expect((byClass.body as { total: number }).total).toBe(1);
     expect(
@@ -244,6 +244,19 @@ describe("GET /api/console/service-status (diagnosis)", () => {
         (i) => i.studentId,
       ),
     ).toEqual(["s1"]);
+  });
+
+  test("a non-homeroom actor's q matches only the exact full name (decision 61), a homeroom keeps the partial match", async () => {
+    const total = async () =>
+      ((await get({ q: "서연" })).body as { total: number }).total;
+
+    kit.state.actor = schoolAdminActor();
+    expect(await total()).toBe(0);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    expect(await total()).toBe(1);
   });
 
   test("pages the list and reports the page count", async () => {

@@ -21,7 +21,7 @@ import {
   rateBucket,
   weekWindows,
 } from "../_lib/console/goalRate.js";
-import { displayNamesFor } from "../_lib/console/maskName.js";
+import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
@@ -227,7 +227,7 @@ export default defineHandler({
       .filter(
         (e) =>
           !q ||
-          (profiles.get(e.student_id)?.name ?? "").toLowerCase().includes(q),
+          nameMatchesQuery(actor, profiles.get(e.student_id)?.name ?? "", q),
       );
     matches.sort(
       (a, b) =>

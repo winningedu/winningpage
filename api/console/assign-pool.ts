@@ -2,7 +2,7 @@
 //
 // W12 미배정 목록. 올해 재학 중이면서 학년이나 학급이 비어 있는 학생을 학교 관리자와 본사 대행에게 준다.
 // 이름은 서버에서 가린다. 동명 재학생(같은 기관, 같은 실명, 올해 학급이 있는 학생)은 번호 중복을 피해 배치하도록
-// 함께 준다. q 는 실명 부분 일치다. 배치 쓰기는 PATCH /api/console/students/enrollment 가 한다.
+// 함께 준다. q 는 성과 이름 전체 일치다(결정 61). 배치 쓰기는 PATCH /api/console/students/enrollment 가 한다.
 
 import {
   gradeRank,
@@ -11,7 +11,7 @@ import {
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
-import { displayNamesFor } from "../_lib/console/maskName.js";
+import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import {
   loadServiceUsage,
@@ -80,7 +80,7 @@ export default defineHandler({
     const pool = current
       .filter((e) => e.grade === null || e.class_id === null)
       .filter((e) => !grade || e.grade === grade)
-      .filter((e) => !q || nameOf(e.student_id).toLowerCase().includes(q));
+      .filter((e) => !q || nameMatchesQuery(actor, nameOf(e.student_id), q));
     pool.sort(
       (a, b) =>
         gradeRank(a.grade) - gradeRank(b.grade) ||

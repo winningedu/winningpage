@@ -2,11 +2,11 @@
 //
 // W8 서비스별 현황표. 고른 서비스를 쓰는 학생만(교 #41) 현재 학년도 학년, 반, 번호 순으로 나눠 준다.
 // 담임은 담당 학급만, 학교 관리자와 본사 대행은 전교를 본다. 이름은 담임만 실명이고 그 밖에는 서버에서 가린다.
-// q 는 실명 부분 일치다. 서비스별 열 값(detail)은 쪽에 보이는 학생만 읽는다. asOf 는 집계 기준일(KST)이다.
+// q 는 담임만 실명 부분 일치, 그 밖에는 성과 이름 전체 일치다(결정 61). 서비스별 열 값(detail)은 쪽에 보이는 학생만 읽는다. asOf 는 집계 기준일(KST)이다.
 
 import { loadProfileNames, loadTenant } from "../_lib/console/directory.js";
 import { kstDateOffset } from "../_lib/console/goalStatus.js";
-import { displayNamesFor } from "../_lib/console/maskName.js";
+import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { loadServiceDetail } from "../_lib/console/serviceStatus.js";
 import {
@@ -73,7 +73,7 @@ export default defineHandler({
     const matches = students
       .filter((s) => usage.get(s.studentId)?.includes(service as ServiceKey))
       .filter(
-        (s) => !q || (names.get(s.studentId) ?? "").toLowerCase().includes(q),
+        (s) => !q || nameMatchesQuery(actor, names.get(s.studentId) ?? "", q),
       );
 
     const paged = paginate(matches, pageQuery);

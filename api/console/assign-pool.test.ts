@@ -131,7 +131,7 @@ describe("GET /api/console/assign-pool", () => {
   });
 
   test("a pool student carries the same-name enrolled students with their slot and used service count", async () => {
-    const r = await get({ q: "하늘" });
+    const r = await get({ q: "김하늘" });
     const p1 = (
       r.body as {
         items: {
@@ -175,6 +175,11 @@ describe("GET /api/console/assign-pool", () => {
     expect(ids(await get({ grade: "고2" }))).toEqual(["p2"]);
     const none = await get({ q: "없는이름" });
     expect(none.body).toMatchObject({ total: 0, items: [] });
+  });
+
+  test("q matches only the exact full name (decision 61)", async () => {
+    expect(ids(await get({ q: "하늘" }))).toEqual([]);
+    expect(ids(await get({ q: "김하늘" }))).toEqual(["p1"]);
   });
 
   test("a homeroom teacher is refused", async () => {

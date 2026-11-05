@@ -19,6 +19,19 @@ export function displayNameFor(
 }
 
 /**
+ * 이름 검색(결정 61). 담임은 부분 일치, 그 밖의 행위자는 가린 이름의 글자를 맞혀 보지 못하게
+ * 성과 이름 전체가 같을 때만 찾는다. q 는 앞뒤 공백을 자르고 소문자로 바꾼 값이다.
+ */
+export function nameMatchesQuery(
+  actor: { kind: ConsoleActorKind },
+  name: string,
+  q: string,
+): boolean {
+  const lower = name.toLowerCase();
+  return actor.kind === "homeroom" ? lower.includes(q) : lower === q;
+}
+
+/**
  * 목록 전체의 표시 이름. 담임 이외는 가리고, 같은 묶음(학급)에서 가린 이름이 같은 학생끼리는
  * 구분되게 끝에 `*` 를 붙인다(교 #233, 결정 5와 6). 묶음이 다르면 겹쳐도 붙이지 않는다.
  */

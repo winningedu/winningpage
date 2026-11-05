@@ -159,12 +159,22 @@ describe("GET /api/console/coaching/students", () => {
   });
 
   test("q matches the real name on the server before the name is masked", async () => {
-    const body = (await get({ q: "서준" })).body as Body;
+    const body = (await get({ q: "이서준" })).body as Body;
     expect(body.students.map((s) => [s.studentId, s.name])).toEqual([
       ["s3", "이*준"],
     ]);
     const none = (await get({ q: "없는이름" })).body as Body;
     expect(none).toEqual({ students: [], defaultStudentId: null });
+  });
+
+  test("a non-homeroom actor's q matches only the exact full name, a homeroom keeps the partial match (decision 61)", async () => {
+    expect(((await get({ q: "서준" })).body as Body).students).toEqual([]);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-B"],
+    });
+    const body = (await get({ q: "서준" })).body as Body;
+    expect(body.students.map((s) => s.studentId)).toEqual(["s3"]);
   });
 
   test("q does not widen the scope of a homeroom", async () => {

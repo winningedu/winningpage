@@ -215,6 +215,16 @@ describe("GET /api/console/students", () => {
     expect(byGrade.body).toMatchObject({ total: 1, scopeTotal: 4 });
     expect(ids(await get({ groupId: "g-1" }))).toEqual(["s3"]);
     expect(ids(await get({ classId: "c-A" }))).toEqual(["s2", "s1"]);
+    expect(ids(await get({ q: "윤하린" }))).toEqual(["s2"]);
+  });
+
+  test("a non-homeroom actor's q matches only the exact full name (decision 61), a homeroom keeps the partial match", async () => {
+    expect(ids(await get({ q: "하린" }))).toEqual([]);
+    expect(ids(await get({ q: "윤하" }))).toEqual([]);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
     expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
   });
 
