@@ -1,7 +1,9 @@
 // W10 입시 상담코칭. 교사 콘솔 /teacher/admission-coaching. 중3, 고3 학생만 보이고(교 #48, #215)
 // 담당 학급에 3학년이 없으면 안내만 보인다(교 #148). 코칭 버튼은 그 학생의 개인종합코칭으로 간다.
-// 상담 상태와 변경 일자는 counsel_statuses 테이블이 없어 그리지 않는다. 필터와 쪽은 쿼리스트링에 둔다.
+// 상담 상태는 4가지 중 하나를 눌러 정하고(교 #51, 결정 2) 바로 보이게 한 뒤 저장하며, 저장하지 못하면 되돌리고 토스트로 알린다.
+// 필터와 쪽은 쿼리스트링에 둔다.
 
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,8 +15,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { kstYMD } from "@/lib/goal/calc/index.js";
+import { consoleRequest } from "../api";
 import Chip from "../Chip";
 import EmptyMessage from "../EmptyMessage";
+import { dotDate } from "../enrollment/format";
 import LoadMore from "../LoadMore";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
@@ -25,8 +30,10 @@ import NameCell from "../student-history/NameCell";
 import { useClasses } from "../student-history/useClasses";
 import { usePagedList } from "../student-history/usePagedList";
 import { filterKey, usePageParam } from "../student-history/usePageParam";
+import { useToast } from "../Toast";
 import { useConsoleMe } from "../useConsoleMe";
 import AdmissionFilters from "./AdmissionFilters";
+import StatusToggle, { type CounselStatus } from "./StatusToggle";
 
 const PAGE_SIZE = 50;
 const ADMISSION_GRADES = ["중3", "고3"];
@@ -49,7 +56,15 @@ interface AdmissionItem {
   minTarget: Target | null;
   execScore: number | null;
   urgency: string | null;
+  counselStatus: CounselStatus;
+  counselChangedAt: string | null;
 }
+
+const SAVE_FAILED = "상담 상태를 저장하지 못했어요. 다시 시도해 주세요";
+
+/** 변경 일자는 KST 날짜로 "2026.10.28", 없으면 "-". */
+const changedDate = (iso: string | null) =>
+  iso ? dotDate(kstYMD(new Date(iso))) : "-";
 
 /** "3학년/3반", 그룹이 있으면 "3학년-A레벨/3반". 중3 은 "중3" 으로 가린다. */
 function slot(item: AdmissionItem) {
@@ -99,6 +114,52 @@ export default function AdmissionCoachingPage() {
     "3학년",
     ...(className ? [`${className}반`] : []),
   ];
+  const toast = useToast();
+  // 저장 전후에 목록을 다시 읽지 않고 고른 값을 바로 보이려고 학생별로 덮어쓴다.
+  const [edits, setEdits] = useState<
+    Record<string, { status: CounselStatus; changedAt: string | null }>
+  >({});
+  const [saving, setSaving] = useState<Set<string>>(new Set());
+  const counselOf = (item: AdmissionItem) =>
+    edits[item.studentId] ?? {
+      status: item.counselStatus,
+      changedAt: item.counselChangedAt,
+    };
+  const changeStatus = async (item: AdmissionItem, status: CounselStatus) => {
+    const before = counselOf(item);
+    setEdits((e) => ({
+      ...e,
+      [item.studentId]: { status, changedAt: before.changedAt },
+    }));
+    setSaving((s) => new Set(s).add(item.studentId));
+    const res = await consoleRequest("/api/console/counsel-status", {
+      method: "PUT",
+      body: { studentId: item.studentId, status },
+    });
+    setSaving((s) => {
+      const next = new Set(s);
+      next.delete(item.studentId);
+      return next;
+    });
+    if (res.status === 200) {
+      const saved = res.body as { changedAt: string | null };
+      setEdits((e) => ({
+        ...e,
+        [item.studentId]: { status, changedAt: saved.changedAt },
+      }));
+      return;
+    }
+    setEdits((e) => ({ ...e, [item.studentId]: before }));
+    toast.show({ tone: "Error", message: SAVE_FAILED });
+  };
+  const statusToggle = (item: AdmissionItem) => (
+    <StatusToggle
+      label={`${item.name} 상담 상태`}
+      value={counselOf(item).status}
+      disabled={saving.has(item.studentId)}
+      onChange={(status) => void changeStatus(item, status)}
+    />
+  );
   const openCoaching = (item: AdmissionItem) =>
     navigate(`${CONSOLE_BASE}/coaching?studentId=${item.studentId}`);
 
@@ -166,12 +227,22 @@ export default function AdmissionCoachingPage() {
                           : `${item.execScore}점`
                       }
                     />
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="shrink-0 text-app-caption text-ink-sub">
+                        상담 상태
+                      </span>
+                      {statusToggle(item)}
+                    </div>
+                    <Row
+                      label="변경 일자"
+                      value={changedDate(counselOf(item).changedAt)}
+                    />
                     <CoachButton onClick={() => openCoaching(item)} full />
                   </article>
                 ))}
               </div>
             ) : (
-              <Table className="min-w-[51rem]">
+              <Table className="min-w-[66.375rem]">
                 <TableHeader>
                   <TableRow>
                     {[
@@ -181,6 +252,8 @@ export default function AdmissionCoachingPage() {
                       "최소 목표대학",
                       "학습 실행 역량",
                       "학습진단 긴급도",
+                      "상담 상태",
+                      "변경 일자",
                       "코칭",
                     ].map((label) => (
                       <TableHead
@@ -214,6 +287,10 @@ export default function AdmissionCoachingPage() {
                       </TableCell>
                       <TableCell>
                         <Urgency value={item.urgency} />
+                      </TableCell>
+                      <TableCell>{statusToggle(item)}</TableCell>
+                      <TableCell className="text-app-label text-ink">
+                        {changedDate(counselOf(item).changedAt)}
                       </TableCell>
                       <TableCell>
                         <CoachButton onClick={() => openCoaching(item)} />

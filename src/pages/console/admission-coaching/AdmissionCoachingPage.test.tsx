@@ -1,5 +1,5 @@
 // W10 입시 상담코칭. 중3, 고3 학생 표, 학년그룹과 그룹과 반 조회, 코칭 이동, 3학년이 없는 상태를 검증한다.
-// 상담 상태와 변경 일자 열은 counsel_statuses 테이블이 없어 그리지 않는다.
+// 상담 상태 4가지 고르기와 변경 일자(교 #51, 결정 2)도 검증한다.
 
 import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,6 +69,8 @@ const student = (
   minTarget: null,
   execScore: null,
   urgency: null,
+  counselStatus: "unset",
+  counselChangedAt: null,
   ...over,
 });
 
@@ -89,6 +91,8 @@ const LIST = body([
     minTarget: { university: "다라대", department: "경영학과" },
     execScore: 62,
     urgency: "mid",
+    counselStatus: "needed",
+    counselChangedAt: "2026-10-28T03:00:00Z",
   }),
   student(2, "한예준"),
 ]);
@@ -160,6 +164,8 @@ describe("W10 입시 상담코칭", () => {
       "최소 목표대학",
       "학습 실행 역량",
       "학습진단 긴급도",
+      "상담 상태",
+      "변경 일자",
       "코칭",
     ]);
 
@@ -169,11 +175,27 @@ describe("W10 입시 상담코칭", () => {
     expect(within(first).getByText("다라대 경영학과")).toBeTruthy();
     expect(within(first).getByText("62점")).toBeTruthy();
     expect(within(first).getByText("보통")).toBeTruthy();
+    expect(
+      within(first)
+        .getAllByRole("radio")
+        .map((r) => [r.textContent, r.getAttribute("aria-checked")]),
+    ).toEqual([
+      ["미지정", "false"],
+      ["상담예정", "false"],
+      ["상담완료", "false"],
+      ["상담필요", "true"],
+    ]);
+    expect(within(first).getByText("2026.10.28")).toBeTruthy();
 
     const empty = screen.getByRole("row", { name: /한예준/ });
     expect(within(empty).getAllByText("미가입")).toHaveLength(2);
     expect(within(empty).getByText("미진단")).toBeTruthy();
-    expect(within(empty).getByText("-")).toBeTruthy();
+    expect(within(empty).getAllByText("-")).toHaveLength(2);
+    expect(
+      within(empty)
+        .getByRole("radio", { name: "미지정" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("관리자는 가린 이름과 3학년만 조회 칸, 학교 이름과 3학년 경로를 본다", async () => {
@@ -249,6 +271,65 @@ describe("W10 입시 상담코칭", () => {
     ).toBe("한빛고등학교3학년4반");
   });
 
+  it("상담 상태를 누르면 바로 바뀌고 저장한 변경 일자가 보인다", async () => {
+    const calls = stubPage({
+      "PUT /api/console/counsel-status": {
+        body: {
+          ok: true,
+          status: "scheduled",
+          changedAt: "2026-11-04T15:30:00Z",
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/admission-coaching");
+    const row = await screen.findByRole("row", { name: /한예준/ });
+
+    fireEvent.click(within(row).getByRole("radio", { name: "상담예정" }));
+
+    // 2026-11-04T15:30Z 는 KST 11월 5일
+    expect(await within(row).findByText("2026.11.05")).toBeTruthy();
+    expect(
+      within(row)
+        .getByRole("radio", { name: "상담예정" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      calls.find((c) => c.key === "PUT /api/console/counsel-status")?.body,
+    ).toEqual({ studentId: "s2", status: "scheduled" });
+  });
+
+  it("이미 눌린 상담 상태를 다시 눌러도 저장하지 않는다", async () => {
+    const calls = stubPage();
+    renderRoutes(routes, "/teacher/admission-coaching");
+    const row = await screen.findByRole("row", { name: /정민서/ });
+
+    fireEvent.click(within(row).getByRole("radio", { name: "상담필요" }));
+
+    expect(calls.some((c) => c.key.startsWith("PUT"))).toBe(false);
+  });
+
+  it("저장하지 못하면 이전 상태로 되돌리고 토스트로 알린다", async () => {
+    stubPage({
+      "PUT /api/console/counsel-status": { status: 500, body: {} },
+    });
+    renderRoutes(routes, "/teacher/admission-coaching");
+    const row = await screen.findByRole("row", { name: /정민서/ });
+
+    fireEvent.click(within(row).getByRole("radio", { name: "상담완료" }));
+
+    expect(
+      await screen.findByText(
+        "상담 상태를 저장하지 못했어요. 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(row)
+        .getByRole("radio", { name: "상담필요" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(within(row).getByText("2026.10.28")).toBeTruthy();
+  });
+
   it("코칭 버튼은 그 학생의 개인종합코칭으로 간다", async () => {
     stubPage();
     const { router } = renderRoutes(routes, "/teacher/admission-coaching");
@@ -277,6 +358,12 @@ describe("W10 입시 상담코칭", () => {
     const card = screen.getByRole("article");
     expect(within(card).getByText("가나대 경영학과")).toBeTruthy();
     expect(within(card).getByText("62점")).toBeTruthy();
+    expect(
+      within(card)
+        .getByRole("radio", { name: "상담필요" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(within(card).getByText("2026.10.28")).toBeTruthy();
     expect(screen.getByText("1 / 2명")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
