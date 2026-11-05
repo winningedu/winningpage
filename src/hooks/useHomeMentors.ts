@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 
 // home_mentor_strategies row → MentorSection/MentorCard 정규화 (Home.tsx에서 추출).
@@ -67,6 +68,10 @@ export function normalizeMentorRow(row: MentorRow): NormalizedMentor {
  */
 export function useHomeMentors({ enabled = true }: { enabled?: boolean } = {}) {
   const [mentors, setMentors] = useState<NormalizedMentor[]>([]);
+  // loading은 조회 중, error는 조회 실패(스쿨멘토 홈이 영역 오류 안내를 보이는 데 쓴다).
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    enabled ? "loading" : "ready",
+  );
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -77,7 +82,10 @@ export function useHomeMentors({ enabled = true }: { enabled?: boolean } = {}) {
       const { data, error } = await supabase
         .from("home_mentor_strategies")
         .select(
-          "id, mentor_name, badge, title_lines, photo_url, photo_layout, card_width, sort_order",
+          // 동의 확인 칸은 스쿨멘토만 읽는다(결정 25). 위닝 쿼리는 그대로 둔다.
+          site.features.b2bMenu
+            ? "id, mentor_name, badge, title_lines, photo_url, photo_layout, card_width, sort_order, consent_confirmed"
+            : "id, mentor_name, badge, title_lines, photo_url, photo_layout, card_width, sort_order",
         )
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
@@ -87,10 +95,19 @@ export function useHomeMentors({ enabled = true }: { enabled?: boolean } = {}) {
       if (error) {
         console.error("멘토 조회 오류:", error);
         setMentors([]);
+        setStatus("error");
         return;
       }
 
-      setMentors(((data || []) as MentorRow[]).map(normalizeMentorRow));
+      // 컬럼 목록이 사이트별로 달라 select 타입 추론이 막힌다. 행 모양은 MentorRow가 정본이다.
+      const rows = (data || []) as unknown as MentorRow[];
+      setMentors(
+        (site.features.b2bMenu
+          ? rows.filter((row) => row.consent_confirmed === true)
+          : rows
+        ).map(normalizeMentorRow),
+      );
+      setStatus("ready");
     }
 
     fetchMentors();
@@ -100,5 +117,5 @@ export function useHomeMentors({ enabled = true }: { enabled?: boolean } = {}) {
     };
   }, [enabled]);
 
-  return { mentors };
+  return { mentors, status };
 }
