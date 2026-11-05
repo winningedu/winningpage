@@ -29,18 +29,21 @@ const ENROLLMENTS = [
     tenant_id: "tenant-1",
     student_id: "s1",
     school_year: 2026,
+    status: "active",
     class_id: "c-A",
   },
   {
     tenant_id: "tenant-1",
     student_id: "s2",
     school_year: 2026,
+    status: "active",
     class_id: "c-B",
   },
   {
     tenant_id: "tenant-2",
     student_id: "s3",
     school_year: 2026,
+    status: "active",
     class_id: "c-X",
   },
 ];
@@ -62,15 +65,18 @@ describe("POST /api/console/students/flag", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ ok: true, flagged: true });
-    expect(kit.state.inserts[0]).toEqual({
-      table: "student_flags",
-      row: {
-        student_id: "s1",
-        tenant_id: "tenant-1",
-        flagged_teacher_id: "teacher-1",
+    expect(kit.state.upserts).toEqual([
+      {
+        table: "student_flags",
+        row: {
+          student_id: "s1",
+          tenant_id: "tenant-1",
+          flagged_teacher_id: "teacher-1",
+        },
+        onConflict: "tenant_id,student_id",
       },
-    });
-    expect(kit.state.inserts[1]).toMatchObject({
+    ]);
+    expect(kit.state.inserts[0]).toMatchObject({
       table: "admin_access_logs",
       row: {
         action: "update",
@@ -81,19 +87,25 @@ describe("POST /api/console/students/flag", () => {
     });
   });
 
-  test("flagging again is the same success because a student has one flag", async () => {
+  test("a duplicate error is never swallowed because the key holds the tenant and a clash would hide another tenant's row", async () => {
     kit.state.insertErrors.student_flags = { code: "23505" };
 
-    const r = await call("POST");
+    expect((await call("POST")).status).toBe(500);
+  });
 
-    expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true, flagged: true });
+  test("a student who left the current school year is 404", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows([{ ...ENROLLMENTS[0], status: "graduated" }], f);
+
+    expect((await call("POST")).status).toBe(404);
+    expect(kit.state.upserts).toEqual([]);
   });
 
   test("a student of another class, another tenant or nobody is 404 and writes nothing", async () => {
     expect((await call("POST", "s2")).status).toBe(404);
     expect((await call("POST", "s3")).status).toBe(404);
     expect((await call("POST", "nobody")).status).toBe(404);
+    expect(kit.state.upserts).toEqual([]);
     expect(kit.state.inserts).toEqual([]);
   });
 
@@ -126,7 +138,7 @@ describe("DELETE /api/console/students/flag", () => {
     expect(kit.state.deletes).toEqual([
       {
         table: "student_flags",
-        filters: { student_id: "s1", tenant_id: "tenant-1" },
+        filters: { tenant_id: "tenant-1", student_id: "s1" },
       },
     ]);
     expect(kit.state.inserts[0]).toMatchObject({
