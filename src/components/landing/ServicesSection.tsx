@@ -54,7 +54,7 @@ export default function ServicesSection({
       <div className="mx-auto w-full max-w-content px-5 pb-7 pt-7 sm:px-8 lg:pb-0 lg:pt-17">
         {/* 헤더 — 0729 시안 실측(px÷16=rem): 아이브로우 20px(1.25rem, accent, Regular),
             대제목 32px(2rem, lg). 대제목 자간 -0.04rem은 lg 폰트 2rem 기준 -0.02em과 동일 비율 */}
-        {eyebrow && (
+        {eyebrow && !site.features.b2bMenu && (
           <p className="text-[1.25rem] font-normal leading-[1.3] text-accent">
             {eyebrow}
           </p>
@@ -83,7 +83,10 @@ export default function ServicesSection({
               // 의도보다 작아졌다).
               className="w-full max-w-[28.0938rem] @container lg:max-w-none"
             >
-              <ServiceCard service={service} />
+              <ServiceCard
+                service={service}
+                variant={site.features.b2bMenu ? "b2b" : "default"}
+              />
             </li>
           ))}
         </ul>
