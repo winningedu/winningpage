@@ -103,7 +103,7 @@ beforeEach(() => {
         { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
         { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
         { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
-        { id: "s4", name: "이도윤", created_at: "2026-03-05T01:00:00Z" },
+        { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
       ],
       f,
     );
@@ -144,8 +144,56 @@ describe("GET /api/console/students", () => {
       pageSize: 50,
       orgType: "학원",
     });
-    expect(items(r).every((i) => (i as { canEdit?: boolean }).canEdit)).toBe(
+    expect(items(r).some((i) => (i as { canEdit?: boolean }).canEdit)).toBe(
       false,
     );
+  });
+
+  test("a row carries the join date, the used services in order with their count, and the enrollment slot", async () => {
+    const r = await get();
+    const s1 = items(r).find((i) => i.studentId === "s1");
+    const s3 = items(r).find((i) => i.studentId === "s3");
+
+    expect(s1).toEqual({
+      studentId: "s1",
+      displayName: "김*늘",
+      joinedAt: "2026-03-02",
+      grade: "고2",
+      groupName: null,
+      className: "3",
+      number: 7,
+      services: {
+        diagnosis: true,
+        goal: true,
+        growth: true,
+        performance: false,
+        selfeval: false,
+        inquiry: false,
+      },
+      serviceCount: 3,
+      urgency: null,
+      canEdit: false,
+      enrollmentVersion: 3,
+    });
+    expect(s3).toMatchObject({ groupName: "A레벨", serviceCount: 0 });
+    // 협정 세계시 16시는 한국 시각으로 다음 날이다.
+    expect(items(r).find((i) => i.studentId === "s4")).toMatchObject({
+      joinedAt: "2026-03-06",
+    });
+  });
+
+  test("a homeroom sees only students of own classes, with real names, and can edit them", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+
+    const r = await get();
+
+    expect(ids(r)).toEqual(["s2", "s1"]);
+    expect(items(r).map((i) => i.displayName)).toEqual(["윤하린", "김하늘"]);
+    expect(
+      items(r).every((i) => (i as { canEdit?: boolean }).canEdit === true),
+    ).toBe(true);
   });
 });

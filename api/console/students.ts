@@ -4,17 +4,21 @@
 // 담임은 담당 학급 학생만 실명으로, 학교 관리자와 본사 대행은 전교를 가린 이름으로 본다(서버가 가린다).
 // scopeTotal 은 필터 없이 범위 안의 학생 수라 "학생 없음"과 "조건에 맞는 학생 없음"을 가른다.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   compareClassName,
   gradeRank,
   loadClassIndex,
-  loadProfileNames,
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
 import { displayNameFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { scopeQuery } from "../_lib/console/scope.js";
+import {
+  loadServiceUsage,
+  SERVICE_KEYS,
+} from "../_lib/console/serviceUsage.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -29,6 +33,43 @@ interface EnrollmentRow {
 }
 
 const COLUMNS = "student_id, grade, class_id, number, version";
+
+const PROFILE_CHUNK = 100;
+const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
+
+const kstDate = (iso: string) => KST_DATE.format(new Date(iso));
+
+/** 이름과 가입일(KST 날짜). in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
+async function loadProfiles(
+  admin: SupabaseClient,
+  ids: string[],
+): Promise<Map<string, { name: string; joinedAt: string | null }>> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += PROFILE_CHUNK) {
+    chunks.push(ids.slice(i, i + PROFILE_CHUNK));
+  }
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      readAll<{ id: string; name: string | null; created_at: string | null }>(
+        admin,
+        "profiles",
+        "id, name, created_at",
+        (q) => q.in("id", chunk),
+      ),
+    ),
+  );
+  return new Map(
+    pages
+      .flat()
+      .map((p) => [
+        p.id,
+        {
+          name: p.name ?? "",
+          joinedAt: p.created_at ? kstDate(p.created_at) : null,
+        },
+      ]),
+  );
+}
 
 export default defineHandler({
   methods: ["GET"],
@@ -59,7 +100,7 @@ export default defineHandler({
       ),
       loadClassIndex(admin, actor.tenantId),
     ]);
-    const names = await loadProfileNames(
+    const profiles = await loadProfiles(
       admin,
       current.map((e) => e.student_id),
     );
@@ -79,6 +120,10 @@ export default defineHandler({
     );
 
     const paged = paginate(matches, pageQuery);
+    const services = await loadServiceUsage(
+      admin,
+      paged.items.map((e) => e.student_id),
+    );
     res.status(200).json({
       total: paged.total,
       scopeTotal: current.length,
@@ -87,13 +132,23 @@ export default defineHandler({
       orgType,
       rows: paged.items.map((e) => {
         const cls = classOf(e);
+        const used = services.get(e.student_id) ?? [];
         return {
           studentId: e.student_id,
-          displayName: displayNameFor(actor, names.get(e.student_id) ?? ""),
+          displayName: displayNameFor(
+            actor,
+            profiles.get(e.student_id)?.name ?? "",
+          ),
+          joinedAt: profiles.get(e.student_id)?.joinedAt ?? null,
           grade: e.grade,
           groupName: cls?.groupName ?? null,
           className: cls?.name ?? null,
           number: e.number,
+          services: Object.fromEntries(
+            SERVICE_KEYS.map((key) => [key, used.includes(key)]),
+          ),
+          serviceCount: used.length,
+          urgency: null,
           canEdit: actor.kind === "homeroom",
           enrollmentVersion: e.version,
         };
