@@ -649,6 +649,8 @@ describe("W9 기관 관리자", () => {
     fireEvent.change(screen.getByLabelText("이름 검색"), {
       target: { value: "서준" },
     });
+    expect(calls.some((c) => c.key.includes("?q="))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
 
     await waitFor(() => {
       const names = within(screen.getByLabelText("이름") as HTMLElement)
@@ -659,6 +661,32 @@ describe("W9 기관 관리자", () => {
     expect(
       calls.some((c) => c.key.includes(`?q=${encodeURIComponent("서준")}`)),
     ).toBe(true);
+  });
+
+  it("이름 검색은 Enter 로도 보내고 글자마다 보내지 않는다", async () => {
+    const calls = stubPage(
+      {
+        [`GET /api/console/coaching/students?q=${encodeURIComponent("이서준")}`]:
+          { body: { students: [STUDENTS[1]], defaultStudentId: "s2" } },
+      },
+      adminMe,
+    );
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+    await screen.findByText("2학년 3반 1번");
+    const field = screen.getByLabelText("이름 검색");
+    fireEvent.change(field, { target: { value: "이서" } });
+    fireEvent.change(field, { target: { value: "이서준" } });
+    expect(calls.some((c) => c.key.includes("?q="))).toBe(false);
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key.includes("?q=")).map((c) => c.key),
+      ).toEqual([
+        `GET /api/console/coaching/students?q=${encodeURIComponent("이서준")}`,
+      ]),
+    );
   });
 
   it("담임에게는 이름 검색이 없다", async () => {

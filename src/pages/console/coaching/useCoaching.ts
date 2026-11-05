@@ -10,7 +10,7 @@ import type {
   StudentList,
 } from "./types";
 
-/** q 가 있으면 서버가 실명 부분 일치로 거른 목록이다(학교 관리자 이름 검색). */
+/** q 가 있으면 서버가 실명으로 거른 목록이다(학교 관리자 이름 검색, 성과 이름 전체 일치). */
 export function useCoachingStudents(q = "") {
   return useQuery({
     queryKey: ["console", "coaching", "students", q],

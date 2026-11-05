@@ -49,7 +49,7 @@ function StudentPicker({
   selected,
   admin,
   q,
-  onQ,
+  onSearch,
   onPick,
 }: {
   students: PickerStudent[];
@@ -57,10 +57,12 @@ function StudentPicker({
   found: PickerStudent[];
   selected: PickerStudent | undefined;
   admin: boolean;
+  /** 보낸 검색어. */
   q: string;
-  onQ: (q: string) => void;
+  onSearch: (q: string) => void;
   onPick: (id: string) => void;
 }) {
+  const [draft, setDraft] = useState(q);
   const grades = GRADE_ORDER.filter((g) => students.some((s) => s.grade === g));
   const classes = new Map<string, PickerStudent>();
   for (const s of students) {
@@ -106,13 +108,23 @@ function StudentPicker({
         onChange={onPick}
       />
       {admin && (
-        <Input
-          aria-label="이름 검색"
-          placeholder="이름 검색"
-          value={q}
-          onChange={(e) => onQ(e.target.value)}
-          className="h-10 w-[16.25rem]"
-        />
+        <>
+          <Input
+            aria-label="이름 검색"
+            placeholder="이름 검색"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSearch(draft.trim())}
+            className="h-10 w-[16.25rem]"
+          />
+          <Button
+            type="button"
+            onClick={() => onSearch(draft.trim())}
+            className="h-10 rounded-lg px-5 text-app-label font-semibold"
+          >
+            검색
+          </Button>
+        </>
       )}
     </div>
   );
@@ -323,6 +335,7 @@ export default function CoachingPage() {
   const { me } = useConsoleMe();
   const admin = me.kind !== "homeroom";
   const [params, setParams] = useSearchParams();
+  // 이름 검색은 검색을 누르거나 Enter 를 칠 때만 보낸다(결정 61). 입력 중인 글은 StudentPicker 가 가진다.
   const [q, setQ] = useState("");
   const list = useCoachingStudents();
   const search = useCoachingStudents(admin ? q : "");
@@ -378,7 +391,7 @@ export default function CoachingPage() {
               selected={selected}
               admin={admin}
               q={q}
-              onQ={setQ}
+              onSearch={setQ}
               onPick={pick}
             />
           )}
