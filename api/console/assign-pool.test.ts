@@ -110,7 +110,7 @@ beforeEach(() => {
 
 type PoolRow = { studentId: string };
 const ids = (r: { body: unknown }) =>
-  (r.body as { rows: PoolRow[] }).rows.map((i) => i.studentId);
+  (r.body as { items: PoolRow[] }).items.map((i) => i.studentId);
 
 describe("GET /api/console/assign-pool", () => {
   test("lists current active students with no grade or no class, masked, with their version", async () => {
@@ -120,7 +120,7 @@ describe("GET /api/console/assign-pool", () => {
     expect(ids(r).sort()).toEqual(["p1", "p2", "p3"]);
     expect(r.body).toMatchObject({ total: 3, page: 1, pageSize: 50 });
     expect(
-      (r.body as { rows: { studentId: string }[] }).rows.find(
+      (r.body as { items: { studentId: string }[] }).items.find(
         (i) => i.studentId === "p1",
       ),
     ).toMatchObject({
@@ -134,13 +134,13 @@ describe("GET /api/console/assign-pool", () => {
     const r = await get({ q: "하늘" });
     const p1 = (
       r.body as {
-        rows: {
+        items: {
           studentId: string;
           sameNameCount: number;
           sameNameEnrolled: unknown[];
         }[];
       }
-    ).rows[0];
+    ).items[0];
 
     expect(p1?.studentId).toBe("p1");
     expect(p1?.sameNameCount).toBe(2);
@@ -167,14 +167,14 @@ describe("GET /api/console/assign-pool", () => {
   test("a student with no same-name enrolled student has count 0", async () => {
     const r = await get({ q: "노윤서" });
     expect(r.body).toMatchObject({
-      rows: [{ studentId: "p2", sameNameCount: 0, sameNameEnrolled: [] }],
+      items: [{ studentId: "p2", sameNameCount: 0, sameNameEnrolled: [] }],
     });
   });
 
   test("grade and q narrow the list, an empty pool is total 0", async () => {
     expect(ids(await get({ grade: "고2" }))).toEqual(["p2"]);
     const none = await get({ q: "없는이름" });
-    expect(none.body).toMatchObject({ total: 0, rows: [] });
+    expect(none.body).toMatchObject({ total: 0, items: [] });
   });
 
   test("a homeroom teacher is refused", async () => {

@@ -122,7 +122,7 @@ beforeEach(() => {
 });
 
 type Item = { studentId: string; displayName: string };
-const items = (r: { body: unknown }) => (r.body as { rows: Item[] }).rows;
+const items = (r: { body: unknown }) => (r.body as { items: Item[] }).items;
 const ids = (r: { body: unknown }) => items(r).map((i) => i.studentId);
 
 describe("GET /api/console/students", () => {
@@ -229,7 +229,12 @@ describe("GET /api/console/students", () => {
   test("pageSize and page slice the list", async () => {
     const r = await get({ pageSize: "3", page: "2" });
     expect(ids(r)).toEqual(["s4"]);
-    expect(r.body).toMatchObject({ total: 4, page: 2, pageSize: 3 });
+    expect(r.body).toMatchObject({
+      total: 4,
+      page: 2,
+      pageSize: 3,
+      pageCount: 2,
+    });
   });
 
   test("a malformed page is a 400", async () => {

@@ -192,7 +192,8 @@ export default defineHandler({
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
-      rows: paged.items.map((e) => {
+      pageCount: paged.pageCount,
+      items: paged.items.map((e) => {
         const cls = classOf(e);
         const used = usedOf(e.student_id);
         return {

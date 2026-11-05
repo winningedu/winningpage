@@ -107,7 +107,8 @@ export default defineHandler({
       total: paged.total,
       page: paged.page,
       pageSize: pageQuery.pageSize,
-      rows: paged.items.map((e) => {
+      pageCount: paged.pageCount,
+      items: paged.items.map((e) => {
         const sameName = sameNameOf(e.student_id);
         return {
           studentId: e.student_id,
