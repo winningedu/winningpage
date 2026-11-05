@@ -1,7 +1,7 @@
 // POST /api/console/first-password  { password }
 //
 // 첫 비밀번호 설정(W2, 교 #16, 사 #130). 임시 비밀번호 상태의 교사 본인만 쓸 수 있다.
-// 순서: 규칙 검사 -> Auth 비밀번호 교체 -> DB 임시 상태 해제 -> 감사 로그.
+// 순서: 규칙 검사 -> Auth 비밀번호 교체 -> 다른 세션 로그아웃 -> DB 임시 상태 해제 -> 감사 로그.
 // 다른 라우트와 달리 Auth 를 먼저 바꾼다. 반대로 하면 DB 만 해제되고 Auth 교체가 실패했을 때
 // 임시 비밀번호가 변경 강제 없이 계속 유효해진다. 이 순서면 실패해도 변경 강제가 남아 같은 요청을 다시 보내면 된다.
 // 권한: 로그인한 교사(임시 비밀번호 상태 허용, allowMustChange).
@@ -101,6 +101,14 @@ export default defineHandler({
         { password },
       );
       if (authError) throw new AuthSyncError("password");
+
+      // 임시 비밀번호로 연 이 세션만 남기고 다른 세션은 끝낸다. DB 임시 상태 해제보다 먼저 해서
+      // 실패해도 변경 강제가 남아 같은 요청을 다시 보내면 된다.
+      const { error: signOutError } = await admin.auth.admin.signOut(
+        ctx.token as string,
+        "others",
+      );
+      if (signOutError) throw new AuthSyncError("signOut");
 
       const { error } = await admin.rpc("fn_teacher_password_set", {
         p_teacher_id: actor.teacherId,

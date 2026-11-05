@@ -2,7 +2,7 @@
 //
 // 로그인한 교사의 비밀번호 변경(W18a, 교 #208, 설계 P9). 현재 비밀번호 확인은 로그인과 같은 잠금 흐름
 // (attemptLogin)을 거쳐 틀리면 실패 횟수에 들어가고 5회째에 10분 잠긴다. 맞으면 Auth 비밀번호를 바꾸고
-// 새 비밀번호로 만든 세션을 돌려준다(클라이언트가 setSession). 비밀번호는 저장하거나 로그에 남기지 않는다.
+// 새 비밀번호로 만든 세션을 돌려주고(클라이언트가 setSession) 그 세션 외의 세션은 모두 끝낸다. 비밀번호는 저장하거나 로그에 남기지 않는다.
 // 권한: 로그인한 교사(임시 비밀번호 상태는 first-password 를 쓴다).
 
 import { attemptLogin, createLoginAuthClient } from "../_lib/auth/login.js";
@@ -115,6 +115,12 @@ export default defineHandler({
       password: newPassword,
     });
     if (error || !data.session) throw new Error("session after change failed");
+    // 새 세션만 남긴다. 이전 기기 세션과 현재 비밀번호 확인용 세션은 여기서 끝낸다.
+    const { error: signOutError } = await admin.auth.admin.signOut(
+      data.session.access_token,
+      "others",
+    );
+    if (signOutError) throw new Error("sign out others failed");
     res.status(200).json({
       ok: true,
       session: {

@@ -11,6 +11,7 @@ import {
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   signIn: vi.fn(),
+  signOut: vi.fn(),
 }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
@@ -57,6 +58,11 @@ beforeEach(() => {
     data: { user: { id: "profile-1" }, session: SESSION },
     error: null,
   });
+  kit.signOut = vi.fn(async () => {
+    kit.state.events.push("auth:signOut");
+    return { error: null };
+  });
+  (kit.state.auth as Record<string, unknown>).signOut = kit.signOut;
 });
 
 afterEach(() => {
@@ -91,6 +97,34 @@ describe("POST /api/console/change-password", () => {
     const logged = JSON.stringify(kit.state.inserts);
     expect(logged).not.toContain("OldPass123");
     expect(logged).not.toContain("NewPass456");
+  });
+
+  test("비밀번호를 바꾼 뒤 새 세션만 남기고 나머지(이전 기기, 확인용 세션)를 모두 로그아웃시킨다", async () => {
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(200);
+    expect(kit.signOut).toHaveBeenCalledTimes(1);
+    expect(kit.signOut).toHaveBeenCalledWith(SESSION.access_token, "others");
+    const events = kit.state.events.filter((e) => e !== "rpc:fn_console_actor");
+    expect(events.indexOf("auth:signOut")).toBeGreaterThan(
+      events.indexOf("auth:updateUserById"),
+    );
+  });
+
+  test("다른 세션 로그아웃에 실패하면 새 세션을 돌려주지 않고 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.signOut.mockResolvedValue({ error: { message: "x" } });
+
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toContain(SESSION.refresh_token);
   });
 
   test("현재 비밀번호가 틀리면 로그인과 같은 401 INVALID 이고 실패 횟수가 늘며 비밀번호를 바꾸지 않는다", async () => {

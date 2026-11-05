@@ -9,7 +9,10 @@ import {
 } from "../_lib/console/consoleTestKit.js";
 import { hashTempPassword } from "../_lib/console/teacherAccounts.js";
 
-const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+const kit = vi.hoisted(() => ({
+  state: null as unknown as KitState,
+  signOut: vi.fn(),
+}));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
   isSupabaseConfigError: () => false,
@@ -30,6 +33,11 @@ beforeEach(async () => {
     proxy_session_id: null,
     must_change_password: true,
   };
+  kit.signOut = vi.fn(async () => {
+    kit.state.events.push("auth:signOut");
+    return { error: null };
+  });
+  (kit.state.auth as Record<string, unknown>).signOut = kit.signOut;
   const hash = await hashTempPassword("Temp#1234x");
   kit.state.rows.teachers = () => ({
     login_id: "ABCD2345XY7Z9K",
@@ -59,6 +67,7 @@ describe("POST /api/console/first-password", () => {
       kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),
     ).toEqual([
       "auth:updateUserById",
+      "auth:signOut",
       "rpc:fn_teacher_password_set",
       "insert:admin_access_logs",
     ]);
@@ -70,6 +79,22 @@ describe("POST /api/console/first-password", () => {
     for (const spy of logs) {
       expect(JSON.stringify(spy.mock.calls)).not.toContain("NewPass123");
     }
+  });
+
+  test("임시 비밀번호로 연 현재 세션만 남기고 다른 세션은 로그아웃시킨다", async () => {
+    await post({ password: "NewPass123" });
+
+    expect(kit.signOut).toHaveBeenCalledWith("token", "others");
+  });
+
+  test("다른 세션 로그아웃에 실패하면 502 이고 임시 상태를 풀지 않아 같은 요청을 다시 보낼 수 있다", async () => {
+    kit.signOut.mockResolvedValue({ error: { message: "x" } });
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ error: { code: "AUTH_SYNC_FAILED" } });
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
   });
 
   test.each([
