@@ -4,7 +4,8 @@
 // 비밀번호나 토큰은 로그에 남기지 않는다.
 
 import { createHash } from "node:crypto";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getEnv } from "../supabaseAdmin.js";
 
 export const SYNTHETIC_DOMAIN = "teacher.schoolmentor.kr";
 export const MAX_FAILS = 5;
@@ -71,6 +72,18 @@ export interface LoginInput {
     };
     error: { status?: number | undefined } | null;
   }>;
+}
+
+/** GoTrue 비밀번호 로그인용 서버 클라이언트. 요청자 IP 를 Sb-Forwarded-For 로 넘겨 인증 서버의 IP 제한이 사용자별로 걸리게 한다. */
+export function createLoginAuthClient(ip: string | null | undefined) {
+  return createClient(
+    getEnv("WINNING_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL"),
+    getEnv("SUPABASE_SECRET_KEY"),
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: ip ? { "Sb-Forwarded-For": ip } : {} },
+    },
+  );
 }
 
 export const MAX_IDENTIFIER_LENGTH = 100;

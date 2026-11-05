@@ -111,7 +111,8 @@ export function createFakeAdmin(state: KitState) {
         filters[col] = values;
         return chain;
       };
-      for (const m of ["like", "order", "limit"]) chain[m] = () => chain;
+      for (const m of ["like", "order", "limit", "ilike"])
+        chain[m] = () => chain;
       chain.maybeSingle = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());
