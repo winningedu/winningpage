@@ -10,6 +10,7 @@ import { consoleRequest } from "./api";
 import ConsoleBar from "./ConsoleBar";
 import ConsoleNav from "./ConsoleNav";
 import { CONSOLE_BASE, canOpen, findMenuItem } from "./menu";
+import NoPermission from "./NoPermission";
 import ProxyBanner from "./ProxyBanner";
 import { useToast } from "./Toast";
 import { useConsoleMe } from "./useConsoleMe";
@@ -58,7 +59,8 @@ export default function ConsoleLayout() {
   }, [expiresAt, navigate]);
 
   const item = findMenuItem(pathname);
-  if (item && !canOpen(item, me.kind)) {
+  const blocked = item !== null && !canOpen(item, me.kind);
+  if (blocked && !item.noPermissionView) {
     return <Navigate to={CONSOLE_BASE} replace />;
   }
 
@@ -107,7 +109,7 @@ export default function ConsoleLayout() {
             onOpenMenu={() => setDrawerOpen(true)}
           />
           <main className="pb-12 lg:pb-24">
-            <Outlet />
+            {blocked ? <NoPermission /> : <Outlet />}
           </main>
         </div>
       </div>

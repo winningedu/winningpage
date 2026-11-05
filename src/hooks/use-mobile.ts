@@ -3,8 +3,9 @@ import * as React from "react";
 const MOBILE_BREAKPOINT = 768;
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
-    undefined,
+  // 첫 그림부터 창 너비를 따라, 휴대폰이 데스크톱 값으로 시작해 목록을 요청하지 않게 한다.
+  const [isMobile, setIsMobile] = React.useState(
+    () => window.innerWidth < MOBILE_BREAKPOINT,
   );
 
   React.useEffect(() => {
@@ -17,5 +18,5 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  return !!isMobile;
+  return isMobile;
 }

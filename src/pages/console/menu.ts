@@ -4,6 +4,8 @@ export interface MenuItem {
   label: string;
   to: string;
   adminOnly?: boolean;
+  /** 담임이 열면 이동시키지 않고 권한 없음 화면을 보이는 항목. */
+  noPermissionView?: boolean;
   /** 승인 대기 건수 배지를 붙이는 항목. */
   badge?: boolean;
 }
@@ -45,6 +47,7 @@ export const menuGroups: MenuGroup[] = [
         label: "학생불러오기-일괄설정",
         to: `${CONSOLE_BASE}/import`,
         adminOnly: true,
+        noPermissionView: true,
       },
       {
         label: "미배정 목록",

@@ -1,8 +1,24 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import PerformanceAppLayout from "./PerformanceAppLayout";
 
+const siteState = vi.hoisted(() => ({ b2bMenu: false }));
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get b2bMenu() {
+          return siteState.b2bMenu;
+        },
+      },
+    },
+  };
+});
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({ data: undefined }),
 }));
@@ -15,7 +31,12 @@ vi.mock("@/components/app-shell/AppShellSidebar", () => ({
   ),
   AppShellSidebarTrigger: () => null,
 }));
-vi.mock("@/components/Header", () => ({ default: () => null }));
+vi.mock("@/components/Header", () => ({
+  default: () => <header data-testid="site-header" />,
+}));
+vi.mock("@/components/b2b/Header", () => ({
+  default: () => <header data-testid="b2b-header" />,
+}));
 vi.mock("@/components/ui/RouteLoadingOverlay", () => ({
   default: () => null,
 }));
@@ -56,6 +77,25 @@ function scrollTo(top: number) {
 
 const titleBand = () =>
   screen.getByRole("heading", { level: 1 }).closest("[data-condensed]");
+
+afterEach(() => {
+  siteState.b2bMenu = false;
+});
+
+describe("PerformanceAppLayout header", () => {
+  test("b2bMenu 사이트는 B2B 헤더를 그린다", () => {
+    siteState.b2bMenu = true;
+    render(<PerformanceAppLayout />);
+    expect(screen.getByTestId("b2b-header")).toBeInTheDocument();
+    expect(screen.queryByTestId("site-header")).not.toBeInTheDocument();
+  });
+
+  test("위닝은 기존 헤더를 그대로 그린다", () => {
+    render(<PerformanceAppLayout />);
+    expect(screen.getByTestId("site-header")).toBeInTheDocument();
+    expect(screen.queryByTestId("b2b-header")).not.toBeInTheDocument();
+  });
+});
 
 describe("PerformanceAppLayout title condensing", () => {
   test("condenses by scrollTop and stays condensed while the container grows", () => {

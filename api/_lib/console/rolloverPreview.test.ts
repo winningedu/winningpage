@@ -243,4 +243,23 @@ describe("evaluateRolloverPreview", () => {
 
     expect(r.summary).toEqual({ graduate: 1, promote: 2, waiting: 1 });
   });
+
+  test("students missing from the pasted list still count as promoted or graduating, and the unlisted promoted ones wait for a class", () => {
+    const listed = student({ studentId: "s1", name: "김하늘" });
+    const unlisted = student({ studentId: "s2", name: "이도윤" });
+    const unlistedSenior = student({
+      studentId: "s3",
+      name: "박서준",
+      grade: "고3",
+    });
+
+    const r = run("김하늘,1학년,,4,7,2학년,,3,8", [
+      listed,
+      unlisted,
+      unlistedSenior,
+    ]);
+
+    expect(r.applyRows).toHaveLength(1);
+    expect(r.summary).toEqual({ graduate: 1, promote: 2, waiting: 1 });
+  });
 });
