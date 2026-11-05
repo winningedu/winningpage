@@ -179,4 +179,65 @@ describe("W7 이용현황", () => {
       screen.getByText("집계 기준: 2학년 1반, 2026.11.05 기준"),
     ).toBeTruthy();
   });
+
+  it("학원은 학년그룹을 학년 칸에 같이 적고 집계 기준을 학원 전체로 쓴다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          asOf: "2026-11-05",
+          orgType: "학원",
+          classes: [
+            classRow({ groupName: "A레벨", homeroomName: "서지안" }),
+            classRow({
+              classId: "c9",
+              groupName: null,
+              className: "1",
+              homeroomName: "이가은",
+            }),
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    expect(
+      await screen.findByText("집계 기준: 학원 전체, 2026.11.05 기준"),
+    ).toBeTruthy();
+    const academy = screen.getByRole("row", { name: /서지안/ });
+    expect(within(academy).getByText("1학년-A레벨")).toBeTruthy();
+    const plain = screen.getByRole("row", { name: /이가은/ });
+    expect(within(plain).getByText("1학년")).toBeTruthy();
+  });
+
+  it("조회 범위에 학생이 없으면 표 자리에 안내를 보이고 0명으로 요약한다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [
+            classRow({
+              total: 0,
+              joined: 0,
+              capacity: null,
+              services: services([0, 0, 0, 0, 0, 0]),
+              goalRateAvg: null,
+            }),
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    expect(
+      await screen.findByText(
+        "조회 범위에 학생이 없어요. 학년그룹이나 반을 바꿔 보세요",
+      ),
+    ).toBeTruthy();
+    const donut = screen.getByRole("region", { name: "서비스 이용 학생" });
+    expect(within(donut).getByText("0 / 0명")).toBeTruthy();
+    expect(screen.queryByRole("row", { name: /김담임/ })).toBeNull();
+    expect(screen.getByText("총 1개 학급")).toBeTruthy();
+  });
 });

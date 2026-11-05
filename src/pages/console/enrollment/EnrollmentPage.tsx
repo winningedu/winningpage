@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { consoleRequest } from "../api";
 import { gradeLabel } from "../classLabel";
+import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
@@ -88,7 +89,15 @@ export default function EnrollmentPage() {
                 onChange={setClassId}
               />
             </div>
-            <ClassTable rows={rows} />
+            <section className="flex flex-col">
+              <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
+                {`총 ${rows.length}개 학급`}
+              </h2>
+              <ClassTable rows={totals.total === 0 ? [] : rows} />
+              {totals.total === 0 && (
+                <EmptyMessage body="조회 범위에 학생이 없어요. 학년그룹이나 반을 바꿔 보세요" />
+              )}
+            </section>
           </>
         )}
       </div>
