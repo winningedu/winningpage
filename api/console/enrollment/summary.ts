@@ -40,7 +40,7 @@ export default defineHandler({
   unhandledCode: "INTERNAL",
   logLabel: "[console/enrollment/summary]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res, ctx) => {
+  handler: async (_req, res, ctx) => {
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
