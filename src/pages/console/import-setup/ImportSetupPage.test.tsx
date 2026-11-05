@@ -501,7 +501,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
           body: {
             ok: true,
             graduated: 150,
-            promoted: 297,
+            promoted: 300,
             skipped: 2,
             assigned: 297,
           },
@@ -514,7 +514,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(
       await screen.findByText(
-        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 5명은 미배정 목록에서 확인해 주세요",
+        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요",
       ),
     ).toBeTruthy();
     expect(
@@ -536,7 +536,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     ).toBe(true);
   });
 
-  it("응답의 세 숫자가 모두 0이면 이미 실행한 것으로 보고 성공 토스트 없이 안내만 보인다", async () => {
+  it("응답의 졸업과 진급이 모두 0이면 이미 실행한 것으로 보고 성공 토스트 없이 안내만 보인다", async () => {
     let rolledOver = false;
     await previewIt({
       "GET /api/console/school-year": () => ({
@@ -545,7 +545,13 @@ describe("ImportSetupPage W11a 적용 확인", () => {
       "POST /api/console/school-year/rollover": () => {
         rolledOver = true;
         return {
-          body: { ok: true, graduated: 0, promoted: 0, skipped: 0 },
+          body: {
+            ok: true,
+            graduated: 0,
+            promoted: 0,
+            skipped: 2,
+            assigned: 0,
+          },
         };
       },
     });

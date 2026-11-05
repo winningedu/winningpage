@@ -147,16 +147,16 @@ export default function RolloverSection({
       const done = res.body as {
         graduated: number;
         promoted: number;
-        skipped: number;
+        assigned: number;
       };
       setConfirming(false);
       setPreview(null);
       await load();
-      // 세 숫자가 모두 0이면 이미 실행한 학년도다. 안내는 ③ 의 이미 실행 안내가 맡는다(결정 58).
-      if (done.graduated + done.promoted + done.skipped === 0) return;
+      // 졸업과 진급이 모두 0이면 이미 실행한 학년도다. 안내는 ③ 의 이미 실행 안내가 맡는다(결정 58).
+      if (done.graduated + done.promoted === 0) return;
       toast.show({
         tone: "Success",
-        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.promoted}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${current.summary.waiting + done.skipped}명은 미배정 목록에서 확인해 주세요`,
+        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요`,
       });
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
