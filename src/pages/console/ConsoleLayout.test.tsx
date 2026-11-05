@@ -254,6 +254,18 @@ describe("ConsoleLayout 본사 대행 띠", () => {
   });
 });
 
+describe("ConsoleLayout 대행 만료 타이머 한계", () => {
+  it("만료가 타이머 최대 지연(약 24.8일)보다 멀어도 바로 이동하지 않는다", async () => {
+    stubApi({ "GET /api/console/me": { body: proxyMe }, ...countOk });
+
+    const { router } = renderRoutes(routes, "/teacher/students");
+    await screen.findByText("본사 대행 중: 한빛고등학교");
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(router.state.location.pathname).toBe("/teacher/students");
+  });
+});
+
 describe("ConsoleLayout 토스트와 준비 중 화면", () => {
   it("토스트를 3초 보여 주고 사라진다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe }, ...countOk });

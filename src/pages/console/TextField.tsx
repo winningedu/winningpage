@@ -9,7 +9,7 @@ interface TextFieldProps
   label: string;
   error?: string | null | undefined;
   /** 입력 칸 모양을 상태별로 덮어쓴다(읽기 전용, 잠금 등). */
-  inputClassName?: string;
+  inputClassName?: string | undefined;
 }
 
 export default function TextField({

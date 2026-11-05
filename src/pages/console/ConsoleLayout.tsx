@@ -16,6 +16,7 @@ import { useConsoleMe } from "./useConsoleMe";
 import { useIdleLogout } from "./useIdleLogout";
 
 export const PENDING_COUNT_KEY = ["console", "pending-count"] as const;
+const MAX_TIMER_MS = 2 ** 31 - 1;
 const PROXY_PICK_PATH = `${CONSOLE_BASE}/proxy`;
 
 async function fetchPendingCount(): Promise<number> {
@@ -45,9 +46,13 @@ export default function ConsoleLayout() {
   const expiresAt = me.proxySession?.expiresAt;
   useEffect(() => {
     if (!expiresAt) return;
+    const expiry = new Date(expiresAt).getTime();
     const timer = window.setTimeout(
-      () => navigate(PROXY_PICK_PATH, { replace: true }),
-      Math.max(new Date(expiresAt).getTime() - Date.now(), 0),
+      () => {
+        // 타이머 최대 지연을 넘는 만료는 일찍 깨어날 수 있어 시각을 다시 확인한다.
+        if (Date.now() >= expiry) navigate(PROXY_PICK_PATH, { replace: true });
+      },
+      Math.min(Math.max(expiry - Date.now(), 0), MAX_TIMER_MS),
     );
     return () => window.clearTimeout(timer);
   }, [expiresAt, navigate]);
