@@ -157,6 +157,7 @@ export async function callHandler(
   handler: (req: VercelRequest, res: VercelResponse) => Promise<void>,
   body: unknown,
   method = "POST",
+  query: Record<string, string> = {},
 ): Promise<Captured> {
   const captured: Captured = { status: 0, body: undefined, headers: {} };
   const res = {
@@ -176,6 +177,7 @@ export async function callHandler(
     {
       method,
       headers: { authorization: "Bearer token" },
+      query,
       body,
     } as unknown as VercelRequest,
     res,

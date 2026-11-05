@@ -21,6 +21,23 @@ export async function hasAdminEditPermission(
   );
 }
 
+/** 읽기 권한: view 이상(view 또는 edit). none 이거나 행이 없으면 거부한다. */
+export async function hasAdminViewPermission(
+  admin: SupabaseClient,
+  profileId: string,
+  resourceKey: string,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("fn_admin_effective_permissions", {
+    p_profile_id: profileId,
+  });
+  if (error) throw new Error("admin permission lookup failed");
+  return ((data ?? []) as { resource_key?: string; level?: string }[]).some(
+    (row) =>
+      row.resource_key === resourceKey &&
+      (row.level === "view" || row.level === "edit"),
+  );
+}
+
 export function hasProxyEditPermission(
   admin: SupabaseClient,
   profileId: string,
