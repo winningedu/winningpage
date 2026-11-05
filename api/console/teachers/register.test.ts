@@ -190,6 +190,33 @@ describe("POST /api/console/teachers/register", () => {
     expect(kit.state.auth.createUser).not.toHaveBeenCalled();
   });
 
+  test("PHONE_IN_USE 응답에는 그 번호를 쓰는 기존 교사의 로그인 아이디를 싣는다(같은 기관만)", async () => {
+    kit.state.rpc.fn_teacher_register = () => ({
+      data: null,
+      error: { code: "WC075" },
+    });
+    const queried: Record<string, unknown>[] = [];
+    kit.state.rows.teachers = (filters) => {
+      queried.push({ ...filters });
+      return [
+        { login_id: "SM26HB83K7MPQ2", deleted_at: "2026-10-01T00:00:00Z" },
+        { login_id: "SM26HB83K7MPQ3", deleted_at: null },
+      ];
+    };
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      error: { code: "PHONE_IN_USE" },
+      existingLoginId: "SM26HB83K7MPQ3",
+    });
+    expect(queried.at(-1)).toMatchObject({
+      tenant_id: "tenant-1",
+      phone: "01012345678",
+    });
+  });
+
   test("다른 교사가 이미 담임인 학급이면 409 CLASS_TAKEN", async () => {
     kit.state.rpc.fn_teacher_register = () => ({
       data: null,

@@ -6,6 +6,7 @@
 
 import {
   parseRegisterBody,
+  RpcError,
   registerResponseBody,
   registerTeacherWithAccount,
   sendTeacherDbError,
@@ -52,6 +53,30 @@ export default defineHandler({
         { tenantId: actor.tenantId, role: "homeroom", ...body },
       );
     } catch (error) {
+      // 전화번호가 다른 이름의 선생님과 겹치면 그 선생님의 아이디를 함께 알린다(W14b error, 사 #124).
+      // 이 라우트는 학교 관리자 전용이고 같은 기관의 교사만 찾으므로 다른 기관 정보는 새지 않는다.
+      if (error instanceof RpcError && error.code === "WC075") {
+        const { data } = await ctx.supabaseAdmin
+          .from("teachers")
+          .select("login_id, deleted_at")
+          .eq("tenant_id", actor.tenantId)
+          .eq("phone", body.phone);
+        const existing = (
+          (data ?? []) as {
+            login_id: string | null;
+            deleted_at: string | null;
+          }[]
+        ).find((t) => !t.deleted_at && t.login_id);
+        sendError(
+          res,
+          "coded",
+          409,
+          "다른 이름의 선생님이 이미 쓰는 전화번호입니다.",
+          "PHONE_IN_USE",
+          existing ? { existingLoginId: existing.login_id } : undefined,
+        );
+        return;
+      }
       if (sendTeacherDbError(res, error)) return;
       throw error;
     }
