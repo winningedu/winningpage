@@ -8681,6 +8681,14 @@ export type Database = {
         Args: { p_admin: string; p_reason: string; p_tenant: string };
         Returns: string;
       };
+      fn_purge_b2b_retention: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          access_logs_deleted: number;
+          enrollment_changes_deleted: number;
+          enrollments_deleted: number;
+        }[];
+      };
       fn_refund_completed_amount: {
         Args: { p_order_id: string };
         Returns: number;
