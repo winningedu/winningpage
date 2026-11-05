@@ -1,5 +1,5 @@
 -- B2B 기반 12: 보관 기간 정리 함수. 스키마만 바꾼다(새 함수 2개, service_role 전용). 테이블과 기존 함수는 건드리지 않는다.
--- 크론 라우트(/api/cron/b2b-retention-purge)가 하루 한 번 부른다. 지운 행 수를 돌려준다.
+-- 크론 라우트(/api/cron/b2b-retention-purge)가 fn_purge_b2b_retention 을 하루 한 번 부른다. 지운 행 수를 돌려준다.
 --
 -- 졸업 2년: 졸업한 지 2년이 지난 학생(졸업 학적의 graduated_at 기준)의 학적 변경 이력(enrollment_changes)과
 -- 학적(student_enrollments, 모든 학년도)을 지운다. 지금 재학 중인 학적이 있는 학생은 건드리지 않는다.
@@ -51,7 +51,9 @@ $$;
 revoke all on function public.fn_purge_b2b_retention() from public, anon, authenticated;
 grant execute on function public.fn_purge_b2b_retention() to service_role;
 
--- 계약 종료 회원 익명화(사 #162, #176, 사 결정 r16 ① ⑤, 설계 P23). 크론이 fn_purge_b2b_retention 뒤에 하루 한 번 부른다.
+-- 계약 종료 회원 익명화(사 #162, #176, 사 결정 r16 ① ⑤, 설계 P23). 크론은 부르지 않는다. 본사 관리자가 수동으로 실행한다(POST /api/admin/tenants/member-purge, 사 #162, #176).
+-- p_tenant 를 주면 그 기관만, 유예 종료일이 지났을 때만 처리한다(안 지났으면 not_yet = true 와 유예 종료일만 돌려준다).
+-- p_actor_profile, p_actor_email 을 주면 member_purge 로그의 실행자가 그 본사 관리자다. 없으면 시스템 아이디로 남긴다.
 -- 대상: 계약 종료일이 있는 기관 중 유예 종료일이 지난 기관의 학생(member_type = student).
 -- 유예 종료일은 tenants.grace_ends_on, 없으면 계약 종료일 + app_settings.contract_grace_days(숫자, 사 결정 r15)다.
 -- 둘 다 없으면 지우지 않는다(fn_tenant_usage_state 는 유예가 없으면 바로 막지만, 정보 삭제는 유예가 정해진 기관만 한다).
@@ -62,11 +64,17 @@ grant execute on function public.fn_purge_b2b_retention() to service_role;
 -- 기관마다 한 번, 처리한 학생이 있으면 member_purge 접근 로그를 한 줄 남긴다. 이름과 연락처는 넣지 않는다(사 #177).
 -- 행은 SKIP LOCKED 로 잠가 두 실행이 겹쳐도 같은 학생을 두 번 처리하지 않는다.
 -- 유료 전환 신청 표(#167)와 보호 해제 뒤 30일 재기산(#176-q1)은 결제가 열릴 때 함께 만든다.
-create function public.fn_anonymize_expired_b2b_members()
+create function public.fn_anonymize_expired_b2b_members(
+  p_tenant uuid default null,
+  p_actor_profile uuid default null,
+  p_actor_email text default null
+)
 returns table (
   tenants_processed bigint,
   members_anonymized bigint,
-  members_protected bigint
+  members_protected bigint,
+  grace_end date,
+  not_yet boolean
 )
 language plpgsql
 security definer
@@ -82,6 +90,8 @@ declare
   v_tenants bigint := 0;
   v_members bigint := 0;
   v_excluded bigint := 0;
+  v_grace date;
+  v_not_yet boolean := false;
 begin
   select case when jsonb_typeof(a.value) = 'number' then (a.value #>> '{}')::integer end
     into v_default_days
@@ -91,7 +101,8 @@ begin
     select t.id, t.contract_end_date,
            coalesce(t.grace_ends_on, t.contract_end_date + v_default_days) as grace_end
       from public.tenants t
-     where t.contract_end_date is not null
+     where (p_tenant is null or t.id = p_tenant)
+       and t.contract_end_date is not null
        and v_today > coalesce(t.grace_ends_on, t.contract_end_date + v_default_days)
      order by t.id
   loop
@@ -122,8 +133,10 @@ begin
       into v_ids, v_protected;
 
     if cardinality(v_ids) > 0 then
-      insert into public.admin_access_logs (actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
-      values ('system:b2b-retention-purge', 'hq', 'member_purge', 'tenants', v_tenant.id, cardinality(v_ids),
+      insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
+      values (p_actor_profile, p_actor_email,
+        case when p_actor_profile is null then 'system:b2b-retention-purge' end,
+        'hq', 'member_purge', 'tenants', v_tenant.id, cardinality(v_ids),
         jsonb_build_object(
           'contract_end_date', v_tenant.contract_end_date,
           'grace_ends_on', v_tenant.grace_end,
@@ -136,9 +149,15 @@ begin
     end if;
   end loop;
 
-  return query select v_tenants, v_members, v_excluded;
+  if p_tenant is not null then
+    select coalesce(t.grace_ends_on, t.contract_end_date + v_default_days)
+      into v_grace from public.tenants t where t.id = p_tenant and t.contract_end_date is not null;
+    v_not_yet := v_grace is null or v_today <= v_grace;
+  end if;
+
+  return query select v_tenants, v_members, v_excluded, v_grace, v_not_yet;
 end;
 $$;
 
-revoke all on function public.fn_anonymize_expired_b2b_members() from public, anon, authenticated;
-grant execute on function public.fn_anonymize_expired_b2b_members() to service_role;
+revoke all on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text) to service_role;

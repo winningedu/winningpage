@@ -8166,10 +8166,16 @@ export type Database = {
         }[];
       };
       fn_anonymize_expired_b2b_members: {
-        Args: Record<PropertyKey, never>;
+        Args: {
+          p_actor_email?: string;
+          p_actor_profile?: string;
+          p_tenant?: string;
+        };
         Returns: {
+          grace_end: string;
           members_anonymized: number;
           members_protected: number;
+          not_yet: boolean;
           tenants_processed: number;
         }[];
       };

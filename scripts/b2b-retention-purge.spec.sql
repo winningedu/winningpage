@@ -298,6 +298,35 @@ select pg_temp.expect_text('종료 10일 뒤(유예 30일 안) 기관은 여전�
 select pg_temp.expect_text('기관별 유예 종료일이 공통 일수보다 우선한다', pg_temp.pname('e1'), '홍길동e1');
 delete from public.app_settings where key = 'contract_grace_days';
 
+-- 본사 수동 실행: 기관 하나만, 유예가 끝난 경우에만, 실행자는 본사 관리자다(사 #162, #176).
+select pg_temp.mk_tenant('manA', 'RPMMAAAA', pg_temp.today() - 50, pg_temp.today() - 5);   -- 유예 지남
+select pg_temp.mk_tenant('manB', 'RPMMBBBB', pg_temp.today() - 50, pg_temp.today() - 5);   -- 유예 지남(다른 기관)
+select pg_temp.mk_tenant('manC', 'RPMMCCCC', pg_temp.today() - 10, pg_temp.today() + 20);  -- 유예 안
+select pg_temp.mk_member('ma1', 'manA', 'student', 11);
+select pg_temp.mk_member('mb1', 'manB', 'student', 12);
+select pg_temp.mk_member('mc1', 'manC', 'student', 13);
+create temp table man_not_yet as
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manC'), pg_temp.fx('m_t1'), 'hq@example.com');
+select pg_temp.expect_bool('유예 안 기관을 지정하면 not_yet 과 유예 종료일을 돌려주고 아무것도 지우지 않는다',
+  (select not_yet and grace_end = pg_temp.today() + 20 and members_anonymized = 0 from man_not_yet), true);
+select pg_temp.expect_text('유예 안 기관의 학생은 그대로', pg_temp.pname('mc1'), '홍길동mc1');
+select pg_temp.expect_int('유예 안 기관은 로그도 남지 않는다',
+  (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_manC')), 0);
+
+create temp table man_ok as
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manA'), pg_temp.fx('m_t1'), 'hq@example.com');
+select pg_temp.expect_bool('지정한 기관은 처리되고 not_yet 이 아니다',
+  (select not not_yet and members_anonymized = 1 and members_protected = 0 and tenants_processed = 1 from man_ok), true);
+select pg_temp.expect_text('지정한 기관의 학생은 익명화된다', pg_temp.pname('ma1'), '삭제된 학생');
+select pg_temp.expect_text('유예가 지났어도 지정하지 않은 다른 기관은 그대로', pg_temp.pname('mb1'), '홍길동mb1');
+select pg_temp.expect_bool('로그의 실행자는 본사 관리자(프로필, 이메일)이고 시스템 아이디가 아니다',
+  (select l.actor_kind = 'hq' and l.profile_id = pg_temp.fx('m_t1') and l.actor_email = 'hq@example.com'
+      and l.actor_login_id is null
+     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_manA')), true);
+select pg_temp.expect_bool('실행자를 주지 않은 전체 실행은 시스템 아이디로 남는다',
+  (select l.actor_login_id = 'system:b2b-retention-purge' and l.profile_id is null
+     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
+
 -- ---------------------------------------------------------------------
 -- 클라이언트 role 차단
 -- ---------------------------------------------------------------------
