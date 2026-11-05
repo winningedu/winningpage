@@ -250,3 +250,120 @@ describe("W6 학생 관리 상태", () => {
     ).toBeTruthy();
   });
 });
+
+describe("W6 학생 관리 역할과 조회", () => {
+  it("학년 변경 바로가기는 W13 으로 보낸다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/students");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "학년 변경 바로가기" }),
+    );
+
+    expect(await screen.findByText("학년 변경 화면")).toBeTruthy();
+  });
+
+  it("담임이 여러 반을 맡으면 반 칸에서 맡은 반을 고르고, 검색하면 그 반으로 조회한다", async () => {
+    const calls = stubPage({
+      [`GET /api/console/students?grade=${GRADE2}&classId=c5&page=1`]: {
+        body: listBody([student(2, { className: "5" })]),
+      },
+    });
+    renderRoutes(routes, "/teacher/students");
+    await screen.findByText("김서연");
+
+    const select = screen.getByLabelText("반") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual([
+      "전체",
+      "3반 (주)",
+      "5반",
+    ]);
+    fireEvent.change(select, { target: { value: "c5" } });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("이서준")).toBeTruthy();
+    expect(calls.map((c) => c.key)).toContain(
+      `GET /api/console/students?grade=${GRADE2}&classId=c5&page=1`,
+    );
+  });
+
+  it("서비스 탭을 누르면 그 서비스를 쓴 학생만 요청한다", async () => {
+    const calls = stubPage({
+      [`GET /api/console/students?tab=growth&grade=${GRADE2}&classId=c3&page=1`]:
+        { body: listBody([student(1)]) },
+    });
+    renderRoutes(routes, "/teacher/students");
+    await screen.findByText("김서연");
+
+    fireEvent.click(screen.getByRole("tab", { name: "성장설계" }));
+
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        `GET /api/console/students?tab=growth&grade=${GRADE2}&classId=c3&page=1`,
+      ),
+    );
+  });
+
+  it("학교 관리자는 전교를 보고 편집하기 없이, 반은 학년을 고른 뒤에만 열린다", async () => {
+    stubPage(
+      {
+        "GET /api/console/students?page=1": {
+          body: listBody([student(1, { displayName: "김*연" })], {
+            scopeTotal: 450,
+          }),
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    expect(await screen.findByText("김*연")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "편집하기" })).toBeNull();
+    const select = screen.getByLabelText("반") as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect(screen.getByText("학년그룹을 먼저 골라요")).toBeTruthy();
+    expect(screen.queryByLabelText("그룹")).toBeNull();
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "고2" },
+    });
+    expect((screen.getByLabelText("반") as HTMLSelectElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it("학원은 그룹 칸이 더해지고 학년 칸에 그룹이 붙는다", async () => {
+    stubPage(
+      {
+        "GET /api/console/students?page=1": {
+          body: listBody(
+            [student(1, { grade: "고1", groupName: "A레벨", className: "1" })],
+            { orgType: "학원" },
+          ),
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    expect(await screen.findByText("1학년-A레벨 1반")).toBeTruthy();
+    expect(screen.getByLabelText("그룹")).toBeTruthy();
+  });
+});
+
+describe("W6 학생 관리 휴대폰", () => {
+  afterEach(() => {
+    window.innerWidth = 1024;
+  });
+
+  it("표 대신 카드로 보이고 이름 아래에 학년 반 번호와 긴급도 라벨이 붙는다", async () => {
+    window.innerWidth = 500;
+    stubPage();
+    renderRoutes(routes, "/teacher/students");
+
+    expect(await screen.findByText("김서연")).toBeTruthy();
+    expect(screen.queryByRole("columnheader")).toBeNull();
+    expect(screen.getByText("2학년 3반 1번")).toBeTruthy();
+    expect(screen.getAllByText("학습진단 긴급도").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "편집하기" })).toHaveLength(2);
+  });
+});
