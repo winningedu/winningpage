@@ -12,6 +12,9 @@ import {
 } from "./directory.js";
 import { scopeQuery } from "./scope.js";
 
+/** 입시를 앞둔 학년(W10 대상). */
+export const ADMISSION_GRADES = ["중3", "고3"] as const;
+
 export interface ScopedStudent {
   studentId: string;
   grade: string;

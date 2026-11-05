@@ -15,13 +15,14 @@ import { loadGoalStatus } from "../_lib/console/goalStatus.js";
 import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { scopeQuery } from "../_lib/console/scope.js";
-import { loadScopedStudents } from "../_lib/console/studentScope.js";
+import {
+  ADMISSION_GRADES,
+  loadScopedStudents,
+} from "../_lib/console/studentScope.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-const ADMISSION_GRADES = ["중3", "고3"] as const;
 
 function queryValue(raw: string | string[] | undefined): string | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;

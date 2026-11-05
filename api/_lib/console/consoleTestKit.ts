@@ -21,6 +21,12 @@ export interface KitState {
   /** select().eq()/in()/maybeSingle() 가 돌려줄 값. 필터는 컬럼별 값(배열 가능). */
   rows: Record<string, (filters: Record<string, unknown>) => unknown>;
   inserts: { table: string; row: Record<string, unknown> }[];
+  /** upsert() 로 쓴 행과 충돌 열. 에러는 insertErrors 를 따른다. */
+  upserts: {
+    table: string;
+    row: Record<string, unknown>;
+    onConflict: string | undefined;
+  }[];
   insertError: unknown;
   /** 테이블별 insert 에러. 있으면 insertError 보다 먼저 쓴다. */
   insertErrors: Record<string, unknown>;
@@ -91,6 +97,7 @@ export function createKitState(): KitState {
     rpc: {},
     rows: {},
     inserts: [],
+    upserts: [],
     insertError: null,
     insertErrors: {},
     updates: [],
@@ -178,6 +185,14 @@ export function createFakeAdmin(state: KitState) {
         state.events.push(`delete:${table}`);
         state.deletes.push({ table, filters });
         return chain;
+      };
+      chain.upsert = (
+        row: Record<string, unknown>,
+        options?: { onConflict?: string },
+      ) => {
+        state.events.push(`upsert:${table}`);
+        state.upserts.push({ table, row, onConflict: options?.onConflict });
+        return Promise.resolve({ error: state.insertErrors[table] ?? null });
       };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
