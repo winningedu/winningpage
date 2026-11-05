@@ -136,6 +136,9 @@ select pg_temp.log('view', interval '1 year 6 months');
 select pg_temp.log('member_purge', interval '13 months');
 select pg_temp.log('member_purge', interval '6 months');
 select pg_temp.log('view', interval '1 day');
+-- 본사 행(actor_kind 없음)은 이 함수의 대상이 아니다. 3년 지나도 남는다.
+insert into public.admin_access_logs (actor_email, action, resource_key, reason, created_at)
+  values ('t23-hq@t.local', 'download', 't23.hq', 't23 legacy hq', now() - interval '3 years');
 
 create temp table purge_result as select * from public.fn_purge_b2b_retention();
 
@@ -174,6 +177,9 @@ select pg_temp.expect_int('1년 6개월 된 view 보존', pg_temp.logs_n('view',
 select pg_temp.expect_int('최근 view 보존', pg_temp.logs_n('view', interval '0', interval '2 days'), 1);
 select pg_temp.expect_int('13개월 된 member_purge 삭제', pg_temp.logs_n('member_purge', interval '1 year', interval '100 years'), 0);
 select pg_temp.expect_int('6개월 된 member_purge 보존', pg_temp.logs_n('member_purge', interval '0', interval '1 year'), 1);
+
+select pg_temp.expect_int('옛 본사 행은 3년이 지나도 보존',
+  (select count(*) from public.admin_access_logs where resource_key = 't23.hq' and actor_kind is null), 1);
 
 -- 반환 건수는 지운 행 수 이상이다(로컬 DB 에 다른 행이 있을 수 있다).
 select pg_temp.expect_bool('반환 건수',

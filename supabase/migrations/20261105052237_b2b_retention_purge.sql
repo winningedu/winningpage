@@ -3,7 +3,8 @@
 --
 -- 졸업 2년: 졸업한 지 2년이 지난 학생(졸업 학적의 graduated_at 기준)의 학적 변경 이력(enrollment_changes)과
 -- 학적(student_enrollments, 모든 학년도)을 지운다. 지금 재학 중인 학적이 있는 학생은 건드리지 않는다.
--- 접근 로그: 2년이 지난 행을 지우되 member_purge 행은 1년이 지나면 지운다.
+-- 접근 로그: B2B 행(actor_kind 있음)만 대상이다. 2년이 지난 행을 지우되 member_purge 행은 1년이 지나면 지운다.
+-- 본사 행(actor_kind 없음)은 기존 위닝 본사 감사 기록이라 건드리지 않는다.
 -- 선생님 메모(teacher_memos)는 아직 없는 테이블이라 여기서 다루지 않는다. 메모를 만드는 마이그레이션이 이 함수에 더한다.
 create function public.fn_purge_b2b_retention()
 returns table (
@@ -38,8 +39,9 @@ begin
   get diagnostics v_enrollments = row_count;
 
   delete from public.admin_access_logs l
-   where (l.action = 'member_purge' and l.created_at < now() - interval '1 year')
-      or (l.action <> 'member_purge' and l.created_at < now() - interval '2 years');
+   where l.actor_kind is not null
+     and ((l.action = 'member_purge' and l.created_at < now() - interval '1 year')
+       or (l.action <> 'member_purge' and l.created_at < now() - interval '2 years'));
   get diagnostics v_logs = row_count;
 
   return query select v_changes, v_enrollments, v_logs;
