@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import ColumnBody, { hasBlockContent } from "@/components/column/ColumnBody";
 import ColumnCard from "@/components/column/ColumnCard";
+import { site } from "@/config/site";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import {
   ALL_CATEGORY,
@@ -119,7 +120,7 @@ export default function ColumnDetail() {
             to="/info/column"
             className="mt-8 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-white"
           >
-            교육칼럼 홈으로
+            {site.columnTitle} 홈으로
           </Link>
         </div>
       </main>
@@ -132,7 +133,7 @@ export default function ColumnDetail() {
         to="/info/column"
         className="w-fit text-base font-semibold leading-[1.4] tracking-[-0.02em] text-accent"
       >
-        교육칼럼
+        {site.columnTitle}
       </Link>
 
       <div className="flex items-start justify-between gap-6">
