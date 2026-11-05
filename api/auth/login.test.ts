@@ -199,4 +199,51 @@ describe("POST /api/auth/login", () => {
     expect(state.signIn).not.toHaveBeenCalled();
     expect(state.rpc).toHaveBeenCalledTimes(1);
   });
+
+  test.each([
+    ["GoTrue 429", { status: 429, code: "over_request_rate_limit" }],
+    ["GoTrue 5xx", { status: 502, code: "unexpected_failure" }],
+    ["네트워크 오류", { status: 0, name: "AuthRetryableFetchError" }],
+  ])(
+    "%s 는 503 RETRY 를 주고 end(error)로 이번 시도를 취소한다",
+    async (_name, error) => {
+      state.signIn.mockResolvedValue({
+        data: { session: null, user: null },
+        error,
+      });
+
+      const r = await login({ identifier: "kim01", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(r.body).toEqual({
+        error: { code: "RETRY", message: "잠시 후 다시 시도해 주세요." },
+      });
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: expect.any(String),
+        p_outcome: "error",
+      });
+    },
+  );
+
+  test("차단된 계정(user_banned)은 INVALID 로 매핑되고 실패로 센다", async () => {
+    state.signIn.mockResolvedValue({
+      data: { session: null, user: null },
+      error: { status: 403, code: "user_banned", message: "User is banned" },
+    });
+
+    const r = await login({ identifier: "kim01", password: "pw" });
+
+    expect(r.status).toBe(401);
+    expect(r.body).toEqual({
+      error: {
+        code: "INVALID",
+        message: "아이디 또는 비밀번호가 올바르지 않습니다. (실패 1/5회)",
+      },
+      failCount: 1,
+    });
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+      p_hash: expect.any(String),
+      p_outcome: "invalid",
+    });
+  });
 });

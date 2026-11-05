@@ -21,6 +21,22 @@ export function lockedMessage(retryAfterSeconds: number): string {
   return `로그인에 ${MAX_FAILS}회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 ${Math.ceil(retryAfterSeconds / 60)}분 후에 다시 시도해 주세요.`;
 }
 
+export const RETRY_CODE = "RETRY";
+export const RETRY_MESSAGE = "잠시 후 다시 시도해 주세요.";
+
+const RETRY_FAILURE = {
+  ok: false,
+  status: 503,
+  code: RETRY_CODE,
+  message: RETRY_MESSAGE,
+} as const;
+
+// 인증 서버 쪽 사정(429, 5xx, 네트워크)이면 비밀번호가 틀린 것이 아니다.
+function isServerSideError(error: { status?: number | undefined }): boolean {
+  const status = error.status;
+  return !status || status === 429 || status >= 500;
+}
+
 export type LoginFailure = {
   ok: false;
   status: number;
@@ -89,7 +105,14 @@ export async function attemptLogin(
   }
 
   const email = `${identifier}@${SYNTHETIC_DOMAIN}`;
-  const { data: signed, error } = await input.signIn(email, input.password);
+  let signed: Awaited<ReturnType<LoginInput["signIn"]>>["data"];
+  let error: Awaited<ReturnType<LoginInput["signIn"]>>["error"];
+  try {
+    ({ data: signed, error } = await input.signIn(email, input.password));
+  } catch {
+    error = {};
+    signed = { user: null, session: null };
+  }
 
   if (!error && signed.session && signed.user) {
     await admin.rpc("fn_login_attempt_end", {
@@ -110,6 +133,14 @@ export async function attemptLogin(
       },
       mustChangePassword: teacher?.must_change_password ?? false,
     };
+  }
+
+  if (error && isServerSideError(error)) {
+    await admin.rpc("fn_login_attempt_end", {
+      p_hash: hash,
+      p_outcome: "error",
+    });
+    return RETRY_FAILURE;
   }
 
   await admin.rpc("fn_login_attempt_end", {
