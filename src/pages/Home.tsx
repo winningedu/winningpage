@@ -625,7 +625,7 @@ export default function Home() {
           <ServicesSection services={services} {...sectionCopy.services} />
         )}
 
-        {universities.length > 0 && (
+        {!site.features.b2bMenu && universities.length > 0 && (
           <AcceptanceSection
             universities={universities}
             {...sectionCopy.acceptance}
