@@ -263,6 +263,38 @@ describe("PATCH /api/console/students/enrollment", () => {
     });
   });
 
+  test("applyYear other than the current or next school year is a 400 before the RPC", async () => {
+    state.actor = SCHOOL_ADMIN;
+    for (const applyYear of [2025, 2028]) {
+      expect(
+        await patch({ ...BODY, studentId: "student-2", applyYear }),
+      ).toEqual({
+        status: 400,
+        body: {
+          error: { code: "BAD_REQUEST", message: "입력 값을 확인해 주세요." },
+        },
+      });
+    }
+    expect(updateCall()).toBeUndefined();
+  });
+
+  test("next year without an enrollment row still reaches the RPC, which creates it", async () => {
+    state.actor = SCHOOL_ADMIN;
+
+    const result = await patch({
+      ...BODY,
+      studentId: "student-2",
+      applyYear: 2027,
+      expectedVersion: 0,
+    });
+
+    expect(result.status).toBe(200);
+    expect(updateCall()?.args).toMatchObject({
+      p_apply_year: 2027,
+      p_kind: "admin_direct",
+    });
+  });
+
   test("version conflict and number taken are 409 and nothing is logged", async () => {
     state.updateResult = { data: null, error: { code: "WC078" } };
     expect(await patch(BODY)).toMatchObject({

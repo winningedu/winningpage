@@ -103,15 +103,18 @@ export default defineHandler({
       return;
     }
 
-    let year = edit.applyYear;
-    if (year === null) {
-      const { data: tenant, error: tenantError } = await ctx.supabaseAdmin
-        .from("tenants")
-        .select("school_year")
-        .eq("id", actor.tenantId)
-        .maybeSingle();
-      if (tenantError || !tenant) throw new Error("tenant lookup failed");
-      year = tenant.school_year as number;
+    const { data: tenant, error: tenantError } = await ctx.supabaseAdmin
+      .from("tenants")
+      .select("school_year")
+      .eq("id", actor.tenantId)
+      .maybeSingle();
+    if (tenantError || !tenant) throw new Error("tenant lookup failed");
+    const currentYear = tenant.school_year as number;
+    // P16: 올해와 다음 해만 고친다. 지난 학년도와 먼 미래는 막는다.
+    const year = edit.applyYear ?? currentYear;
+    if (year !== currentYear && year !== currentYear + 1) {
+      sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
+      return;
     }
 
     const { data: current, error: lookupError } = await scopeQuery(
@@ -124,7 +127,10 @@ export default defineHandler({
       { classColumn: "class_id" },
     ).maybeSingle();
     if (lookupError) throw new Error("enrollment lookup failed");
+    // 다음 해 행이 없으면 RPC 가 만든다(올해 학적과 담당 학급은 RPC 가 잠금 아래에서 확인한다).
+    const creatingNextYear = !current && year === currentYear + 1;
     if (
+      !creatingNextYear &&
       !requireInScope(res, "coded", actor, {
         tenantId: (current?.tenant_id as string | undefined) ?? null,
         classId: (current?.class_id as string | null | undefined) ?? null,
@@ -136,7 +142,7 @@ export default defineHandler({
     const kind =
       actor.kind === "homeroom"
         ? "homeroom_edit"
-        : current?.class_id
+        : current?.class_id || creatingNextYear
           ? "admin_direct"
           : "pool_assign";
 

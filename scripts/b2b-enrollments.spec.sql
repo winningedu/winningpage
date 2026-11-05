@@ -318,9 +318,28 @@ select pg_temp.expect_text('update: admin_direct 이력', pg_temp.chg_s('s3', 'a
 select pg_temp.expect_text('update: 학급을 비우는 pool_assign 도 가능(학급 null, 번호 null)',
   pg_temp.upd('s3', 2, '고2', null, null, 'pool_assign', 'transfer'), '3');
 
--- 올해가 아닌 학년도 행의 학년 변경은 student_profiles 를 건드리지 않는다
-select pg_temp.expect_text('update: 작년 학적 수정', pg_temp.upd('s1', 1, '고2', null, null, 'admin_direct', 'correction', pg_temp.year() - 1), '2');
-select pg_temp.expect_text('update: 작년 행은 student_profiles.grade 를 바꾸지 않는다', pg_temp.sp_grade('s1'), '고1');
+-- 학년도는 올해 또는 다음 해만 고칠 수 있다(P16)
+select pg_temp.expect_error('update: 작년 학년도는 거부(22023)',
+  $$select pg_temp.upd('s1', 1, '고2', null, null, 'admin_direct', 'correction', pg_temp.year() - 1)$$, '22023');
+select pg_temp.expect_error('update: 내후년 학년도는 거부(22023)',
+  $$select pg_temp.upd('s1', 1, '고2', null, null, 'admin_direct', 'correction', pg_temp.year() + 2)$$, '22023');
+-- 다음 해 행이 없으면 만든다(올해 학적이 있는 학생만, version 은 비교하지 않는다)
+select pg_temp.expect_text('update: 다음 해 행이 없으면 새로 만든다',
+  pg_temp.upd('s1', 0, '고2', null, null, 'admin_direct', 'promotion', pg_temp.year() + 1), '1');
+select pg_temp.expect_text('update: 만든 행의 학년도와 학년',
+  (select school_year - pg_temp.year() || '/' || grade || '/' || status from public.student_enrollments
+    where student_id = pg_temp.fx('s1') and school_year = pg_temp.year() + 1), '1/고2/active');
+select pg_temp.expect_text('update: 다음 해 행은 student_profiles.grade 를 바꾸지 않는다', pg_temp.sp_grade('s1'), '고1');
+select pg_temp.expect_text('update: 올해 행은 그대로', pg_temp.enr_s('s1'), '고1/1/1/v1');
+select pg_temp.expect_int('update: 다음 해 행 생성도 이력이 남는다',
+  (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s1') and kind = 'admin_direct'
+     and school_year = pg_temp.year() + 1 and to_grade = '고2' and from_grade is null), 1);
+select pg_temp.expect_text('update: 이미 있는 다음 해 행은 version 을 비교해 고친다',
+  pg_temp.upd('s1', 1, '고3', null, null, 'admin_direct', 'correction', pg_temp.year() + 1), '2');
+select pg_temp.expect_error('update: 올해 학적이 없는 학생의 다음 해 행은 만들 수 없다(WC081)',
+  $$select pg_temp.upd('actor', 0, '고2', null, null, 'admin_direct', 'promotion', pg_temp.year() + 1)$$, 'WC081');
+select pg_temp.expect_error('update: 다른 기관 기준이면 다음 해 행도 만들 수 없다(WC081)',
+  $$select pg_temp.upd('s2', 0, '고2', null, null, 'admin_direct', 'promotion', pg_temp.year() + 1, 'tb')$$, 'WC081');
 
 select pg_temp.expect_error('update: 학적 없음(WC081)',
   $$select pg_temp.upd('actor', 1, '고1', null, null)$$, 'WC081');
