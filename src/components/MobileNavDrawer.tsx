@@ -44,6 +44,8 @@ type MobileNavDrawerProps = {
   hideMenuItems?: string[] | undefined;
   // 헤드 둘째 줄에 보여 줄 소속 기관 칩.
   orgName?: string | undefined;
+  // "b2b"는 흐린 배경, 새 그림자, 항상 켜진 닫기 버튼 배경을 쓴다.
+  variant?: "b2b" | undefined;
   // 선생님 계정이면 D-day와 학생용 MY 목록 대신 이름과 관리 화면 링크를 보여 준다.
   teacher?:
     | { name: string; roleLabel: string; consoleHref: string }
@@ -113,7 +115,9 @@ export default function MobileNavDrawer({
   hideMenuItems = [],
   orgName,
   teacher,
+  variant,
 }: MobileNavDrawerProps) {
+  const isB2b = variant === "b2b";
   const myItems = teacher
     ? [{ label: "관리 화면", to: teacher.consoleHref }]
     : buildMyMenu(myMenuRole).filter(
@@ -146,8 +150,16 @@ export default function MobileNavDrawer({
         showCloseButton={false}
         finalFocus={triggerRef}
         aria-modal="true"
-        overlayClassName="bg-black/40 duration-100"
-        className="z-60 gap-0 rounded-none border-none bg-white p-0 shadow-[-18px_0_45px_rgba(13,27,42,0.14)] outline-none transition-transform duration-300 ease-(--ease-out-quart) motion-reduce:transition-none motion-reduce:duration-0 data-open:translate-x-0 data-closed:translate-x-full data-starting-style:opacity-100 data-ending-style:opacity-100 data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85vw] data-[side=right]:max-w-88 data-[side=right]:border-l-0 data-[side=right]:data-starting-style:translate-x-full data-[side=right]:data-ending-style:translate-x-full data-[side=right]:sm:max-w-88"
+        overlayClassName={
+          isB2b
+            ? "bg-overlay backdrop-blur-xs duration-100"
+            : "bg-black/40 duration-100"
+        }
+        className={`z-60 gap-0 rounded-none border-none bg-white p-0 ${
+          isB2b
+            ? "shadow-panel-strong"
+            : "shadow-[-18px_0_45px_rgba(13,27,42,0.14)]"
+        } outline-none transition-transform duration-300 ease-(--ease-out-quart) motion-reduce:transition-none motion-reduce:duration-0 data-open:translate-x-0 data-closed:translate-x-full data-starting-style:opacity-100 data-ending-style:opacity-100 data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85vw] data-[side=right]:max-w-88 data-[side=right]:border-l-0 data-[side=right]:data-starting-style:translate-x-full data-[side=right]:data-ending-style:translate-x-full data-[side=right]:sm:max-w-88`}
       >
         <SheetHeader className="shrink-0 flex-row items-center justify-between gap-0 space-y-0 border-b border-[#eeeeee] px-6 py-5">
           <SheetTitle className="sr-only">
@@ -176,7 +188,9 @@ export default function MobileNavDrawer({
               <Button
                 variant="ghost"
                 size="icon-lg"
-                className="size-11 shrink-0 rounded-lg text-[#1e293b] hover:bg-[#f5f8fb] hover:text-[#1e293b]"
+                className={`size-11 shrink-0 rounded-lg text-[#1e293b] hover:bg-[#f5f8fb] hover:text-[#1e293b] ${
+                  isB2b ? "bg-drawer-close-bg" : ""
+                }`}
               />
             }
           >

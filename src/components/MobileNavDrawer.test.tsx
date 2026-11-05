@@ -293,3 +293,23 @@ describe("MobileNavDrawer B2B 변형 선생님", () => {
     expect(onLogout).toHaveBeenCalled();
   });
 });
+
+describe("MobileNavDrawer B2B 변형 모양", () => {
+  it("variant b2b는 흐림 있는 오버레이와 항상 보이는 닫기 배경을 쓰고, 기본은 그대로다", () => {
+    const { unmount } = renderDrawer({ variant: "b2b" });
+
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toHaveClass(
+      "bg-overlay",
+      "backdrop-blur-xs",
+    );
+    expect(screen.getByRole("button", { name: "메뉴 닫기" })).toHaveClass(
+      "bg-drawer-close-bg",
+    );
+    unmount();
+
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "메뉴 닫기" })).not.toHaveClass(
+      "bg-drawer-close-bg",
+    );
+  });
+});

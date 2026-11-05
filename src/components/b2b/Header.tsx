@@ -190,6 +190,7 @@ export default function Header() {
         csatDDay={account.status === "student" ? account.csatDDay : ""}
         onLogout={signOutB2B}
         triggerRef={hamburgerRef}
+        variant="b2b"
         guestSecondary={{ label: "선생님", href: "/login" }}
         hideMenuItems={["신청 내역"]}
         orgName={loggedIn ? (account.orgName ?? undefined) : undefined}
