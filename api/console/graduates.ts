@@ -1,7 +1,8 @@
 // GET /api/console/graduates?year=&q=&page=&pageSize=
 //
 // W13 졸업생 탭. 학교 관리자와 본사 대행만. 졸업한 지 2년 안의 학생만 보이고(결정 9, fn_purge_b2b_retention 과
-// 같은 기준) 최근 졸업 학년도부터 보여준다. years 는 필터와 상관없이 보이는 졸업 학년도 전부다.
+// 같은 기준). year 가 없으면 최근 졸업 학년도를 쓰고 응답의 year 에 쓴 학년도를 담는다(졸업생이 없으면 null).
+// years 는 필터와 상관없이 보이는 졸업 학년도 전부다.
 // 졸업 학년도는 졸업 학적 행의 학년도다. 이름은 서버에서 가리고 q 는 실명 부분 일치다.
 
 import {
@@ -52,7 +53,7 @@ export default defineHandler({
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
-    const year = rawYear ? Number(rawYear) : undefined;
+    const requestedYear = rawYear ? Number(rawYear) : undefined;
     const q = queryValue(req.query.q)?.trim().toLowerCase();
 
     const cutoff = new Date();
@@ -78,12 +79,15 @@ export default defineHandler({
       (a, b) => b - a,
     );
 
+    // year 가 없으면 가장 최근 졸업 학년도를 쓰고, 어느 학년도를 썼는지 응답에 담는다.
+    const year = requestedYear ?? years[0];
+
     const names = await loadProfileNames(
       admin,
       graduates.map((g) => g.student_id),
     );
     const shown = graduates
-      .filter((g) => year === undefined || g.school_year === year)
+      .filter((g) => g.school_year === year)
       .filter(
         (g) => !q || (names.get(g.student_id) ?? "").toLowerCase().includes(q),
       )
@@ -102,6 +106,7 @@ export default defineHandler({
       (classId ? classes.get(classId)?.name : undefined) ?? null;
 
     res.status(200).json({
+      year: year ?? null,
       years,
       ...paged,
       items: paged.items.map((g) => ({

@@ -58,6 +58,7 @@ beforeEach(() => {
     matchRows(
       [
         graduate("g1", "s1", 2025, "2026-03-02T01:00:00Z"),
+        graduate("g6", "s6", 2025, "2026-03-02T01:00:00Z", { number: 6 }),
         graduate("g2", "s2", 2024, "2025-03-02T01:00:00Z", { number: 2 }),
         graduate("g-old", "s3", 2023, "2024-03-02T01:00:00Z"),
         graduate("g-x", "s4", 2025, "2026-03-02T01:00:00Z", {
@@ -118,6 +119,7 @@ beforeEach(() => {
         { id: "s1", name: "김서연" },
         { id: "s2", name: "윤하린" },
         { id: "s3", name: "박서준" },
+        { id: "s6", name: "정하윤" },
       ],
       f,
     );
@@ -132,12 +134,13 @@ const ids = (r: { body: unknown }) =>
   (r.body as { items: Item[] }).items.map((i) => i.studentId);
 
 describe("GET /api/console/graduates", () => {
-  test("lists graduates of the last two years, newest year first, with the graduation years to filter by", async () => {
+  test("without year it lists the newest graduation year and says which year it used, years list all", async () => {
     const r = await get();
 
     expect(r.status).toBe(200);
-    expect(ids(r)).toEqual(["s1", "s2"]);
+    expect(ids(r)).toEqual(["s1", "s6"]);
     expect(r.body).toMatchObject({
+      year: 2025,
       years: [2025, 2024],
       total: 2,
       page: 1,
@@ -163,14 +166,14 @@ describe("GET /api/console/graduates", () => {
   test("year narrows to one graduation year and q matches the real name, years still list all", async () => {
     const byYear = await get({ year: "2024" });
     expect(ids(byYear)).toEqual(["s2"]);
-    expect(byYear.body).toMatchObject({ years: [2025, 2024] });
+    expect(byYear.body).toMatchObject({ year: 2024, years: [2025, 2024] });
 
-    expect(ids(await get({ q: "하린" }))).toEqual(["s2"]);
+    expect(ids(await get({ year: "2024", q: "하린" }))).toEqual(["s2"]);
   });
 
   test("pageSize and page slice the list", async () => {
     const r = await get({ pageSize: "1", page: "2" });
-    expect(ids(r)).toEqual(["s2"]);
+    expect(ids(r)).toEqual(["s6"]);
     expect(r.body).toMatchObject({ total: 2, pageCount: 2 });
   });
 
@@ -180,6 +183,14 @@ describe("GET /api/console/graduates", () => {
       class_ids: ["c-3"],
     });
     expect((await get()).status).toBe(403);
+  });
+
+  test("with no graduates at all, year is null and the list is empty", async () => {
+    kit.state.rows.student_enrollments = () => [];
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ year: null, years: [], total: 0 });
   });
 
   test("a malformed year is a 400", async () => {
