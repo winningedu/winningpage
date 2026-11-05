@@ -70,6 +70,7 @@ export default defineHandler({
       const { data, error } = await admin.rpc("fn_teacher_soft_delete", {
         p_teacher_ids: ids,
         p_actor: ctx.userId,
+        p_tenant: actor.tenantId,
       });
       if (error) throw new RpcError("fn_teacher_soft_delete", error.code);
       const rows = (data ?? []) as DeletedRow[];

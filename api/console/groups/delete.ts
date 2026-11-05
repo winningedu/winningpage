@@ -45,6 +45,7 @@ export default defineHandler({
     const { error } = await ctx.supabaseAdmin.rpc("fn_group_soft_delete", {
       p_group: groupId,
       p_actor: ctx.userId as string,
+      p_tenant: actor.tenantId,
     });
     if (error) {
       if (sendEnrollmentRpcError(res, error)) return;

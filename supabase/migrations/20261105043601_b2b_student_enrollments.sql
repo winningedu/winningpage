@@ -185,6 +185,8 @@ $$;
 -- p_apply_year 가 null 이면 기관의 올해. 올해 행의 학년이 바뀌면 student_profiles.grade 도 맞춘다.
 -- 적용 이력을 enrollment_changes 에 남기고, 행위자가 대행 중인 본사 관리자거나 교사면
 -- 대행 세션과 교사 id 도 같이 남긴다.
+-- 기관 범위: 행을 잠근 뒤 p_tenant 가 학적의 기관과 다르면 WC081(다른 기관의 학생은 없는 것처럼 숨긴다).
+-- p_allowed_class_ids 가 null 이 아니면(담임) 학적의 현재 학급이 그 목록에 있어야 하고, 아니면 WC081 이다.
 create function public.fn_enrollment_update(
   p_student uuid,
   p_expected_version integer,
@@ -194,7 +196,9 @@ create function public.fn_enrollment_update(
   p_kind text,
   p_reason text,
   p_apply_year integer,
-  p_actor uuid
+  p_actor uuid,
+  p_tenant uuid,
+  p_allowed_class_ids uuid[] default null
 )
 returns table (enrollment_id uuid, version integer)
 language plpgsql
@@ -217,9 +221,12 @@ begin
   select e.* into v_old
     from public.student_enrollments e
     join public.tenants t on t.id = e.tenant_id
-   where e.student_id = p_student and e.school_year = coalesce(p_apply_year, t.school_year)
+   where e.student_id = p_student and e.tenant_id = p_tenant
+     and e.school_year = coalesce(p_apply_year, t.school_year)
      for update of e;
-  if not found then
+  if not found
+     or (p_allowed_class_ids is not null
+         and (v_old.class_id is null or v_old.class_id <> all (p_allowed_class_ids))) then
     raise exception 'enrollment not found' using errcode = 'WC081';
   end if;
   select t.school_year into v_current_year from public.tenants t where t.id = v_old.tenant_id;
@@ -264,7 +271,7 @@ $$;
 
 revoke all on function public.fn_enrollment_join(uuid, uuid, text, text, text, smallint) from public, anon, authenticated;
 grant execute on function public.fn_enrollment_join(uuid, uuid, text, text, text, smallint) to service_role;
-revoke all on function public.fn_enrollment_update(uuid, integer, text, uuid, smallint, text, text, integer, uuid)
+revoke all on function public.fn_enrollment_update(uuid, integer, text, uuid, smallint, text, text, integer, uuid, uuid, uuid[])
   from public, anon, authenticated;
-grant execute on function public.fn_enrollment_update(uuid, integer, text, uuid, smallint, text, text, integer, uuid)
+grant execute on function public.fn_enrollment_update(uuid, integer, text, uuid, smallint, text, text, integer, uuid, uuid, uuid[])
   to service_role;

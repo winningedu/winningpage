@@ -61,6 +61,7 @@ describe("POST /api/console/teachers/delete", () => {
     expect(args).toEqual({
       p_teacher_ids: ["t1", "t2"],
       p_actor: "profile-1",
+      p_tenant: "tenant-1",
     });
     expect(
       kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),

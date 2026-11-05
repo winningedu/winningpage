@@ -190,6 +190,8 @@ describe("PATCH /api/console/students/enrollment", () => {
       p_reason: "class_change",
       p_apply_year: null,
       p_actor: "user-1",
+      p_tenant: "tenant-1",
+      p_allowed_class_ids: ["class-A"],
     });
     const log = state.inserts.find((i) => i.table === "admin_access_logs")?.row;
     expect(log).toMatchObject({
@@ -222,6 +224,10 @@ describe("PATCH /api/console/students/enrollment", () => {
 
     expect((await patch({ ...BODY, studentId: "student-2" })).status).toBe(200);
     expect(updateCall()?.args.p_kind).toBe("admin_direct");
+    expect(updateCall()?.args).toMatchObject({
+      p_tenant: "tenant-1",
+      p_allowed_class_ids: null,
+    });
 
     state.rpcCalls = [];
     expect(

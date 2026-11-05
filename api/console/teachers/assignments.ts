@@ -77,6 +77,7 @@ export default defineHandler({
         p_add: add,
         p_remove_class_ids: removeClassIds,
         p_primary: primary,
+        p_tenant: actor.tenantId,
       });
       if (error) throw new RpcError("fn_assignment_set", error.code);
 

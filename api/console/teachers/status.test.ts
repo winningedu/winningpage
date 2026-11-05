@@ -19,6 +19,8 @@ import handler from "./status.js";
 
 const post = (body: unknown) => callHandler(handler, body);
 
+let setStatusArgs: Record<string, unknown> = {};
+
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.rows.teachers = (filters) =>
@@ -32,10 +34,10 @@ beforeEach(() => {
           },
         ]
       : [];
-  kit.state.rpc.fn_teacher_set_status = () => ({
-    data: "profile-t1",
-    error: null,
-  });
+  kit.state.rpc.fn_teacher_set_status = (a) => {
+    setStatusArgs = a;
+    return { data: "profile-t1", error: null };
+  };
 });
 
 afterEach(() => {
@@ -55,6 +57,12 @@ describe("POST /api/console/teachers/status", () => {
       "insert:admin_access_logs",
       "auth:updateUserById",
     ]);
+    expect(setStatusArgs).toEqual({
+      p_teacher_id: "teacher-1",
+      p_status: "inactive",
+      p_actor: "profile-1",
+      p_tenant: "tenant-1",
+    });
     expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("profile-t1", {
       ban_duration: "876000h",
     });

@@ -61,7 +61,12 @@ export default defineHandler({
     try {
       const { data: profileId, error } = await ctx.supabaseAdmin.rpc(
         "fn_teacher_set_status",
-        { p_teacher_id: teacherId, p_status: status, p_actor: ctx.userId },
+        {
+          p_teacher_id: teacherId,
+          p_status: status,
+          p_actor: ctx.userId,
+          p_tenant: actor.tenantId,
+        },
       );
       if (error) throw new RpcError("fn_teacher_set_status", error.code);
 

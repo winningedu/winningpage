@@ -279,12 +279,14 @@ select pg_temp.expect_error('join: 등록되지 않은 그룹 거부(WC080)',
 -- fn_enrollment_update: 버전 검사, 번호 유일, 학년 동기화, 이력
 -- ---------------------------------------------------------------------
 create function pg_temp.upd(p_student text, p_version integer, p_grade text, p_class text, p_number integer,
-  p_kind text default 'homeroom_edit', p_reason text default 'class_change', p_year integer default null)
+  p_kind text default 'homeroom_edit', p_reason text default 'class_change', p_year integer default null,
+  p_tenant text default 'ta', p_allowed text[] default null)
 returns text language sql as $$
   select u.version::text from public.fn_enrollment_update(
     pg_temp.fx(p_student), p_version, p_grade,
     case when p_class is not null then pg_temp.cls(p_class) end, p_number::smallint,
-    p_kind, p_reason, p_year, pg_temp.fx('actor')) u
+    p_kind, p_reason, p_year, pg_temp.fx('actor'), pg_temp.fx(p_tenant),
+    case when p_allowed is not null then (select array_agg(pg_temp.cls(k)) from unnest(p_allowed) k) end) u
 $$;
 
 -- s2 는 a1 반 번호 없음(version 1)
@@ -325,6 +327,17 @@ select pg_temp.expect_error('update: 학적 없음(WC081)',
 select pg_temp.expect_error('update: kind 는 세 가지만(rollover 거부)',
   $$select pg_temp.upd('s2', 2, '고1', 'a2', 3, 'rollover', 'promotion')$$, '22023');
 
+-- 기관 범위: 다른 기관의 학생은 없는 것처럼 WC081, 담임이면 현재 학급이 담당 학급 목록에 있어야 한다
+select pg_temp.expect_error('update: 다른 기관 기준이면 학적 없음(WC081)',
+  $$select pg_temp.upd('s2', 2, '고1', 'a2', 9, 'admin_direct', 'correction', null, 'tb')$$, 'WC081');
+select pg_temp.expect_text('update: 기관이 달라 거부되면 그대로', pg_temp.enr_s('s2'), '고1/2/3/v2');
+select pg_temp.expect_error('update: 담당 학급이 아니면 학적 없음(WC081)',
+  $$select pg_temp.upd('s2', 2, '고1', 'a2', 9, 'homeroom_edit', 'correction', null, 'ta', array['a1'])$$, 'WC081');
+select pg_temp.expect_error('update: 학급 없는 학생은 담임 범위가 아니다(WC081)',
+  $$select pg_temp.upd('s4', 1, '고1', 'a2', 9, 'homeroom_edit', 'correction', null, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_text('update: 담당 학급이면 수정된다',
+  pg_temp.upd('s2', 2, '고1', 'a2', 3, 'homeroom_edit', 'number_change', null, 'ta', array['a2']), '3');
+
 -- 대행 중인 본사 관리자가 고치면 이력에 세션이 남는다
 update public.profiles set role = 'admin' where id = pg_temp.fx('actor');
 -- 대행은 teacherConsoleProxy edit 권한이 있어야 한다.
@@ -335,7 +348,7 @@ insert into public.admin_members (profile_id, status) values (pg_temp.fx('actor'
 insert into public.admin_member_permissions (profile_id, resource_key, level)
   values (pg_temp.fx('actor'), 'teacherConsoleProxy', 'edit');
 select public.fn_proxy_start(pg_temp.fx('actor'), pg_temp.fx('ta'), 'roster_proxy');
-select pg_temp.expect_text('update: 대행 중 수정', pg_temp.upd('s2', 2, '고1', 'a2', 4, 'admin_direct', 'number_change'), '3');
+select pg_temp.expect_text('update: 대행 중 수정', pg_temp.upd('s2', 3, '고1', 'a2', 4, 'admin_direct', 'number_change'), '4');
 select pg_temp.expect_bool('update: 대행 세션 id 가 이력에 남는다',
   (select proxy_session_id is not null from public.enrollment_changes
     where student_id = pg_temp.fx('s2') and kind = 'admin_direct'), true);
@@ -346,13 +359,13 @@ set local role anon;
 select pg_temp.expect_error('anon 은 fn_enrollment_join 실행 불가',
   $$select * from public.fn_enrollment_join(gen_random_uuid(), gen_random_uuid(), '고1', null, null, null)$$, '42501');
 select pg_temp.expect_error('anon 은 fn_enrollment_update 실행 불가',
-  $$select * from public.fn_enrollment_update(gen_random_uuid(), 1, null, null, null, 'admin_direct', null, null, gen_random_uuid())$$, '42501');
+  $$select * from public.fn_enrollment_update(gen_random_uuid(), 1, null, null, null, 'admin_direct', null, null, gen_random_uuid(), gen_random_uuid(), null)$$, '42501');
 reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 fn_enrollment_join 실행 불가',
   $$select * from public.fn_enrollment_join(gen_random_uuid(), gen_random_uuid(), '고1', null, null, null)$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_enrollment_update 실행 불가',
-  $$select * from public.fn_enrollment_update(gen_random_uuid(), 1, null, null, null, 'admin_direct', null, null, gen_random_uuid())$$, '42501');
+  $$select * from public.fn_enrollment_update(gen_random_uuid(), 1, null, null, null, 'admin_direct', null, null, gen_random_uuid(), gen_random_uuid(), null)$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-enrollments.spec: 전체 통과 ==='; end $$;

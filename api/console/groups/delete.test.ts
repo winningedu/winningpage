@@ -118,6 +118,7 @@ describe("POST /api/console/groups/delete", () => {
     expect(deleteCall()?.args).toEqual({
       p_group: "group-1",
       p_actor: "user-1",
+      p_tenant: "tenant-1",
     });
     expect(
       state.inserts.find((i) => i.table === "admin_access_logs")?.row,

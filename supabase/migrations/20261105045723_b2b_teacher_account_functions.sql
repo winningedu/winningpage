@@ -2,6 +2,9 @@
 -- 스키마만 바꾼다(새 함수 5개, service_role 전용). 테이블과 기존 함수는 건드리지 않는다.
 -- Auth 사용자 생성, 정지, 삭제는 DB 밖(API)에서 커밋 뒤에 한다. 이 함수들은 DB 쪽 상태만 확정한다.
 --
+-- 기관 범위: 상태 변경, 삭제, 담당 학급 변경은 p_tenant 를 받아 행을 잠근 뒤 교사의 기관과 다르면 WC088(없는 것처럼 숨긴다).
+-- fn_teacher_password_set 의 p_tenant 는 선택이며 주면 같은 검사를 한다.
+--
 -- 에러 코드(WC088 부터): WC088 교사 없음 또는 삭제됨, WC089 계정 또는 로그인 아이디 불일치,
 -- WC090 비밀번호 설정이 끝난 계정에는 임시 비밀번호를 다시 줄 수 없음, WC091 본인 상태 변경 불가,
 -- WC092 담임의 마지막 학급 제거 불가, WC093 주담당으로 지정할 학급이 배정되어 있지 않음.
@@ -56,7 +59,7 @@ grant execute on function public.fn_teacher_attach_account(uuid, uuid, text, tex
 
 -- 첫 비밀번호 설정(또는 변경)이 끝났음을 기록한다: 임시 해시와 변경 필요 상태를 지우고 password_set_at 을 남긴다.
 -- 비밀번호 자체는 Auth 가 가지므로 여기 오지 않는다. 계정이 없는 교사는 WC089.
-create function public.fn_teacher_password_set(p_teacher_id uuid)
+create function public.fn_teacher_password_set(p_teacher_id uuid, p_tenant uuid default null)
 returns void
 language plpgsql
 security definer
@@ -66,7 +69,7 @@ declare
   v_t public.teachers;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found then
+  if not found or (p_tenant is not null and v_t.tenant_id <> p_tenant) then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   if v_t.profile_id is null then
@@ -79,13 +82,13 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_teacher_password_set(uuid) from public, anon, authenticated;
-grant execute on function public.fn_teacher_password_set(uuid) to service_role;
+revoke all on function public.fn_teacher_password_set(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_password_set(uuid, uuid) to service_role;
 
 -- 활성 또는 비활성으로 바꾸고 Auth 정지나 해제에 쓸 profile id 를 돌려준다(계정이 없으면 null).
 -- 본인은 바꿀 수 없다(WC091, p_actor 는 요청자의 profile id). 마지막 학교 관리자는 트리거가 WC076 으로 막는다.
 -- 상태가 이미 같으면 그대로 두고 같은 값을 돌려주므로 Auth 정지 재시도에도 쓴다.
-create function public.fn_teacher_set_status(p_teacher_id uuid, p_status text, p_actor uuid)
+create function public.fn_teacher_set_status(p_teacher_id uuid, p_status text, p_actor uuid, p_tenant uuid)
 returns uuid
 language plpgsql
 security definer
@@ -95,7 +98,7 @@ declare
   v_t public.teachers;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found then
+  if not found or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   if p_actor is not null and v_t.profile_id = p_actor then
@@ -107,14 +110,15 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_teacher_set_status(uuid, text, uuid) from public, anon, authenticated;
-grant execute on function public.fn_teacher_set_status(uuid, text, uuid) to service_role;
+revoke all on function public.fn_teacher_set_status(uuid, text, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_set_status(uuid, text, uuid, uuid) to service_role;
 
 -- 교사를 soft delete 하고 담당 학급을 모두 지운다. 교사마다 (id, Auth 삭제에 쓸 profile id, 담당 학급의 재학생 수)를 돌려준다.
 -- 재학생 기록은 건드리지 않는다. login_id 는 행에 남아 다시 쓰이지 않는다(teachers_login_id_idx, is_username_available).
 -- 이미 삭제된 교사는 profile id 와 0명을 다시 돌려줘 Auth 삭제 재시도에 쓸 수 있다. 없는 id 는 행이 없다.
--- 마지막 학교 관리자는 트리거가 WC076 으로 막고 호출 전체가 취소된다. 호출자가 기관 범위를 먼저 확인한다.
-create function public.fn_teacher_soft_delete(p_teacher_ids uuid[], p_actor uuid)
+-- 마지막 학교 관리자는 트리거가 WC076 으로 막고 호출 전체가 취소된다.
+-- 행을 잠근 뒤 다른 기관의 교사가 하나라도 있으면 WC088 이고 호출 전체가 취소된다.
+create function public.fn_teacher_soft_delete(p_teacher_ids uuid[], p_actor uuid, p_tenant uuid)
 returns table (teacher_id uuid, profile_id uuid, active_students bigint)
 language plpgsql
 security definer
@@ -127,6 +131,9 @@ begin
   for v_t in
     select * from public.teachers t where t.id = any (p_teacher_ids) order by t.id for update
   loop
+    if v_t.tenant_id <> p_tenant then
+      raise exception 'teacher not found' using errcode = 'WC088';
+    end if;
     if v_t.deleted_at is not null then
       return query select v_t.id, v_t.profile_id, 0::bigint;
       continue;
@@ -145,8 +152,8 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_teacher_soft_delete(uuid[], uuid) from public, anon, authenticated;
-grant execute on function public.fn_teacher_soft_delete(uuid[], uuid) to service_role;
+revoke all on function public.fn_teacher_soft_delete(uuid[], uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_soft_delete(uuid[], uuid, uuid) to service_role;
 
 -- 담당 학급 변경: 더하고, 지우고, 주담당을 정한다(한 트랜잭션).
 -- p_add: fn_teacher_register 의 p_classes 와 같은 모양. 다른 교사가 이미 담임이면 23505 로 호출 전체가 취소된다.
@@ -156,7 +163,8 @@ create function public.fn_assignment_set(
   p_teacher_id uuid,
   p_add jsonb,
   p_remove_class_ids uuid[],
-  p_primary uuid
+  p_primary uuid,
+  p_tenant uuid
 )
 returns void
 language plpgsql
@@ -172,7 +180,7 @@ declare
   v_left integer;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found then
+  if not found or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   select school_year into v_year from public.tenants where id = v_t.tenant_id;
@@ -219,5 +227,5 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid) from public, anon, authenticated;
-grant execute on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid) to service_role;
+revoke all on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid, uuid) to service_role;

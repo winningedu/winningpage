@@ -152,6 +152,8 @@ export default defineHandler({
         p_reason: edit.reason,
         p_apply_year: edit.applyYear,
         p_actor: ctx.userId,
+        p_tenant: actor.tenantId,
+        p_allowed_class_ids: actor.kind === "homeroom" ? actor.classIds : null,
       },
     );
     if (error) {

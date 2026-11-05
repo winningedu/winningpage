@@ -286,7 +286,7 @@ select pg_temp.expect_bool('decide: 대행 세션이 신청 행에 남는다',
 -- 그 사이 학적이 바뀌었으면(version 이동) 승인 실패, 신청은 pending 으로 남는다
 insert into rq values ('s4', pg_temp.req('s4', '고1', null, '1', 9));
 select public.fn_enrollment_update(pg_temp.fx('s4'), 1, '고1', pg_temp.cid('ta', '고1', '2'), 4::smallint,
-  'admin_direct', 'number_change', null, pg_temp.fx('adm'));
+  'admin_direct', 'number_change', null, pg_temp.fx('adm'), pg_temp.fx('ta'));
 select pg_temp.expect_error('decide: 신청 뒤 학적 version 이 바뀌면 승인 실패(WC078)',
   $$select pg_temp.decide((select v from rq where k = 's4'), true, 'hr1')$$, 'WC078');
 select pg_temp.expect_text('decide: 충돌이면 신청은 pending, 학적은 그대로',

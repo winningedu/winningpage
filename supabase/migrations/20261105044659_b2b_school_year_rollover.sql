@@ -137,7 +137,8 @@ grant execute on function public.fn_school_year_rollover(uuid, integer, jsonb, u
 -- 졸업생과 지난 학년도 학급의 학생은 막지 않는다. 이미 삭제된 그룹은 그대로 돌려보내고(멱등),
 -- 그룹이 없으면 WC087. 그룹 행을 잠가 같은 그룹의 동시 삭제를 순서대로 처리한다.
 -- p_actor 는 호출 규약(콘솔 감사 기록은 API 가 남긴다)이라 이 함수는 쓰지 않는다.
-create function public.fn_group_soft_delete(p_group uuid, p_actor uuid)
+-- 기관 범위: 그룹을 잠근 뒤 p_tenant 와 다른 기관의 그룹이면 없는 것처럼 WC087 이다.
+create function public.fn_group_soft_delete(p_group uuid, p_actor uuid, p_tenant uuid)
 returns void
 language plpgsql
 security definer
@@ -149,7 +150,7 @@ declare
   v_active integer;
 begin
   select * into v_group from public.class_groups g where g.id = p_group for update;
-  if not found then
+  if not found or v_group.tenant_id <> p_tenant then
     raise exception 'class group not found' using errcode = 'WC087';
   end if;
   if v_group.deleted_at is not null then
@@ -169,5 +170,5 @@ begin
 end;
 $$;
 
-revoke all on function public.fn_group_soft_delete(uuid, uuid) from public, anon, authenticated;
-grant execute on function public.fn_group_soft_delete(uuid, uuid) to service_role;
+revoke all on function public.fn_group_soft_delete(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_group_soft_delete(uuid, uuid, uuid) to service_role;

@@ -57,6 +57,7 @@ describe("POST /api/console/teachers/assignments", () => {
       p_add: [{ grade: "고1", name: "3반", group_id: "group-1" }],
       p_remove_class_ids: ["class-9"],
       p_primary: "class-2",
+      p_tenant: "tenant-1",
     });
     expect(kit.state.inserts[0]?.row).toMatchObject({
       action: "update",

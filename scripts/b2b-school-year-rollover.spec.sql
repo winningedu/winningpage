@@ -246,25 +246,29 @@ select pg_temp.enroll_group('q2', '내신반', 'graduated');
 select pg_temp.enroll_group('q3', '지난반', 'active', -1);
 
 select pg_temp.expect_error('group delete: 올해 학급에 재학생이 있으면 WC086',
-  $$select public.fn_group_soft_delete(pg_temp.gid('수능반'), pg_temp.fx('actor'))$$, 'WC086');
+  $$select public.fn_group_soft_delete(pg_temp.gid('수능반'), pg_temp.fx('actor'), pg_temp.fx('te'))$$, 'WC086');
 select pg_temp.expect_bool('group delete: 막히면 그룹은 그대로',
   (select deleted_at is null from public.class_groups where id = pg_temp.gid('수능반')), true);
+select pg_temp.expect_error('group delete: 다른 기관 기준이면 WC087',
+  $$select public.fn_group_soft_delete(pg_temp.gid('빈반'), pg_temp.fx('actor'), pg_temp.fx('ta'))$$, 'WC087');
+select pg_temp.expect_bool('group delete: 다른 기관 기준으로 막히면 그룹은 그대로',
+  (select deleted_at is null from public.class_groups where id = pg_temp.gid('빈반')), true);
 select pg_temp.expect_ok('group delete: 학생이 없는 그룹은 삭제',
-  $$select public.fn_group_soft_delete(pg_temp.gid('빈반'), pg_temp.fx('actor'))$$);
+  $$select public.fn_group_soft_delete(pg_temp.gid('빈반'), pg_temp.fx('actor'), pg_temp.fx('te'))$$);
 select pg_temp.expect_ok('group delete: 졸업생만 있는 그룹은 삭제',
-  $$select public.fn_group_soft_delete(pg_temp.gid('내신반'), pg_temp.fx('actor'))$$);
+  $$select public.fn_group_soft_delete(pg_temp.gid('내신반'), pg_temp.fx('actor'), pg_temp.fx('te'))$$);
 select pg_temp.expect_ok('group delete: 지난 학년도 학급의 재학생은 막지 않는다',
-  $$select public.fn_group_soft_delete(pg_temp.gid('지난반'), pg_temp.fx('actor'))$$);
+  $$select public.fn_group_soft_delete(pg_temp.gid('지난반'), pg_temp.fx('actor'), pg_temp.fx('te'))$$);
 select pg_temp.expect_int('group delete: 삭제된 그룹은 deleted_at 이 남는다',
   (select count(*) from public.class_groups where tenant_id = pg_temp.fx('te') and deleted_at is not null), 3);
 select pg_temp.expect_ok('group delete: 이미 삭제된 그룹을 다시 지워도 오류 없음',
   $$select public.fn_group_soft_delete(
       (select id from public.class_groups where tenant_id = pg_temp.fx('te') and name = '빈반' and deleted_at is not null),
-      pg_temp.fx('actor'))$$);
+      pg_temp.fx('actor'), pg_temp.fx('te'))$$);
 select pg_temp.expect_ok('group delete: 삭제된 그룹 이름은 다시 만들 수 있다',
   $$insert into public.class_groups (tenant_id, name) values (pg_temp.fx('te'), '빈반')$$);
 select pg_temp.expect_error('group delete: 없는 그룹은 WC087',
-  $$select public.fn_group_soft_delete(gen_random_uuid(), pg_temp.fx('actor'))$$, 'WC087');
+  $$select public.fn_group_soft_delete(gen_random_uuid(), pg_temp.fx('actor'), pg_temp.fx('te'))$$, 'WC087');
 
 -- 함수 권한: service_role 만
 grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
@@ -272,13 +276,13 @@ set local role anon;
 select pg_temp.expect_error('anon 은 fn_school_year_rollover 실행 불가',
   $$select * from public.fn_school_year_rollover(gen_random_uuid(), 2030, '[]', gen_random_uuid())$$, '42501');
 select pg_temp.expect_error('anon 은 fn_group_soft_delete 실행 불가',
-  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid())$$, '42501');
+  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid(), null)$$, '42501');
 reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 fn_school_year_rollover 실행 불가',
   $$select * from public.fn_school_year_rollover(gen_random_uuid(), 2030, '[]', gen_random_uuid())$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_group_soft_delete 실행 불가',
-  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid())$$, '42501');
+  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid(), null)$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-school-year-rollover.spec: 전체 통과 ==='; end $$;
