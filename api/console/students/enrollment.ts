@@ -18,6 +18,7 @@ import { sendError } from "../../_lib/httpResponse.js";
 export const config = { runtime: "nodejs" };
 
 const REASONS = [
+  "auto",
   "promotion",
   "class_change",
   "number_change",

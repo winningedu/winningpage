@@ -204,6 +204,13 @@ describe("PATCH /api/console/students/enrollment", () => {
     });
   });
 
+  test("reason auto is accepted and passed to the RPC (decision 31)", async () => {
+    const result = await patch({ ...BODY, reason: "auto" });
+
+    expect(result.status).toBe(200);
+    expect(updateCall()?.args.p_reason).toBe("auto");
+  });
+
   test("homeroom cannot edit a student outside own classes, other tenant, or the pool (404, no RPC, no log)", async () => {
     for (const studentId of ["student-2", "student-3", "student-4", "ghost"]) {
       state.rpcCalls = [];
