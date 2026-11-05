@@ -1,6 +1,7 @@
 // 빵부스러기, 제목, 부제, 기준 시각, 우측 동작, 휴대폰 안내 줄(결정 43)을 가진 화면 머리.
 
 import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { ConsoleMe } from "./api";
 import { gradeLabel, primaryClass } from "./classLabel";
 import { useConsoleMe } from "./useConsoleMe";
@@ -8,6 +9,8 @@ import { useConsoleMe } from "./useConsoleMe";
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  /** 휴대폰(768 미만)에서 부제 대신 보이는 글. 없으면 같은 부제를 쓴다. */
+  mobileSubtitle?: string;
   asOf?: string;
   /** 768 이상에서만 보이는 동작(휴대폰에서는 숨긴다). */
   actions?: React.ReactNode;
@@ -26,6 +29,7 @@ function crumbsFor(me: ConsoleMe): string[] {
 export default function PageHeader({
   title,
   subtitle,
+  mobileSubtitle,
   asOf,
   actions,
   notice,
@@ -66,7 +70,21 @@ export default function PageHeader({
             </ol>
           </nav>
           <h1 className="text-app-title font-bold text-ink-strong">{title}</h1>
-          {subtitle && <p className="text-app-body text-ink-sub">{subtitle}</p>}
+          {subtitle && (
+            <p
+              className={cn(
+                "text-app-body text-ink-sub",
+                mobileSubtitle && "max-md:hidden",
+              )}
+            >
+              {subtitle}
+            </p>
+          )}
+          {mobileSubtitle && (
+            <p className="text-app-body text-ink-sub md:hidden">
+              {mobileSubtitle}
+            </p>
+          )}
           {asOf && <p className="text-app-caption text-ink-sub">{asOf}</p>}
         </div>
         {actions && <div className="ml-auto max-md:hidden">{actions}</div>}
