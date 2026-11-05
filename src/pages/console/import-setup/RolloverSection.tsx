@@ -8,6 +8,9 @@ import { gradeLabel } from "../classLabel";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
+import RolloverConfirmDialog, {
+  type RolloverSummary,
+} from "./RolloverConfirmDialog";
 import RolloverPreviewTable, {
   type PreviewRow,
   RESULT_LEGEND,
@@ -45,6 +48,19 @@ function targetLine(year: SchoolYear): string | null {
   return parts.length > 0 ? `진급 대상: ${parts.join(", ")}` : null;
 }
 
+interface ApplyRow {
+  studentId: string;
+  groupId: string | null;
+  className: string;
+  number: number | null;
+}
+
+interface Preview {
+  rows: PreviewRow[];
+  applyRows: ApplyRow[];
+  summary: RolloverSummary;
+}
+
 interface RolloverSectionProps {
   text: string;
   onTextChange: (text: string) => void;
@@ -55,10 +71,16 @@ export default function RolloverSection({
   onTextChange,
 }: RolloverSectionProps) {
   const toast = useToast();
-  const [rows, setRows] = useState<PreviewRow[] | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [year, setYear] = useState<SchoolYear | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+
+  // 명단이 바뀌면 낡은 미리보기는 적용할 수 없다.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: text 가 바뀔 때만 비운다
+  useEffect(() => setPreview(null), [text]);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -74,7 +96,7 @@ export default function RolloverSection({
     void load();
   }, [load]);
 
-  const preview = async () => {
+  const runPreview = async () => {
     if (!year) return;
     setPreviewing(true);
     try {
@@ -89,11 +111,41 @@ export default function RolloverSection({
         });
         return;
       }
-      setRows((res.body as { rows: PreviewRow[] }).rows);
+      setPreview(res.body as Preview);
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
     } finally {
       setPreviewing(false);
+    }
+  };
+
+  const apply = async (current: Preview) => {
+    if (!year) return;
+    setApplying(true);
+    try {
+      const res = await consoleRequest("/api/console/school-year/rollover", {
+        method: "POST",
+        body: { toYear: year.toYear, rows: current.applyRows },
+      });
+      if (res.status !== 200) {
+        toast.show({
+          tone: "Error",
+          message: errorMessage(res.body) ?? SAVE_FAILED_MESSAGE,
+        });
+        return;
+      }
+      const done = res.body as { graduated: number; promoted: number };
+      setConfirming(false);
+      setPreview(null);
+      await load();
+      toast.show({
+        tone: "Success",
+        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.promoted}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${current.summary.waiting}명은 미배정 목록에서 확인해 주세요`,
+      });
+    } catch {
+      toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -131,21 +183,22 @@ export default function RolloverSection({
         <Button
           type="button"
           disabled={locked || !year || previewing || text.trim() === ""}
-          onClick={() => void preview()}
+          onClick={() => void runPreview()}
           className="h-11 rounded-lg px-5 text-app-label font-semibold max-md:w-full md:h-10"
         >
           미리보기
         </Button>
       </div>
-      {rows && (
+      {preview && (
         <>
-          <RolloverPreviewTable rows={rows} />
+          <RolloverPreviewTable rows={preview.rows} />
           <div className="flex items-center gap-4">
             <p className="flex-1 text-app-label text-ink-sub">
               {RESULT_LEGEND}
             </p>
             <Button
               type="button"
+              onClick={() => setConfirming(true)}
               className="h-11 rounded-lg px-5 text-app-label font-semibold md:h-10"
             >
               적용
@@ -157,6 +210,15 @@ export default function RolloverSection({
         <Notice tone="Info">
           이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요
         </Notice>
+      )}
+      {preview && (
+        <RolloverConfirmDialog
+          open={confirming}
+          summary={preview.summary}
+          applying={applying}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => void apply(preview)}
+        />
       )}
     </section>
   );

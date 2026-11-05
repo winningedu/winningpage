@@ -362,3 +362,131 @@ describe("ImportSetupPage 미리보기", () => {
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
   });
 });
+
+describe("ImportSetupPage 미리보기 실패", () => {
+  it("서버가 거절하면 서버 문구를 토스트로 보이고 표를 그리지 않는다", async () => {
+    await previewIt({
+      "POST /api/console/school-year/rollover/preview": {
+        status: 400,
+        body: {
+          error: { code: "BAD_REQUEST", message: "입력 값을 확인해 주세요." },
+        },
+      },
+    });
+
+    expect(await screen.findByText("입력 값을 확인해 주세요.")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
+describe("ImportSetupPage W11a 적용 확인", () => {
+  it("적용을 누르면 요약을 보이고 취소하면 요청 없이 닫는다", async () => {
+    const calls = await previewIt();
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    expect(
+      await screen.findByText("학년그룹 일괄 변경을 적용할까요?"),
+    ).toBeTruthy();
+    expect(screen.getByText("졸업 처리 대상")).toBeTruthy();
+    expect(screen.getByText("150명")).toBeTruthy();
+    expect(screen.getByText("학년 +1 대상")).toBeTruthy();
+    expect(screen.getByText("300명")).toBeTruthy();
+    expect(
+      screen.getByText("반 배정 대기(명단에 없거나 반과 번호를 비운 학생)"),
+    ).toBeTruthy();
+    expect(screen.getByText("3명")).toBeTruthy();
+    expect(
+      screen.getByText("한 학년도에 한 번만 실행할 수 있어요"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    await waitFor(() =>
+      expect(screen.queryByText("학년그룹 일괄 변경을 적용할까요?")).toBeNull(),
+    );
+    expect(screen.getByRole("table")).toBeTruthy();
+    expect(
+      calls.some((c) => c.key === "POST /api/console/school-year/rollover"),
+    ).toBe(false);
+  });
+
+  it("확인하면 미리보기 줄을 보내 적용하고, 완료 토스트와 이미 실행 상태로 바뀐다", async () => {
+    let rolledOver = false;
+    const calls = await previewIt({
+      "GET /api/console/school-year": () => ({
+        body: { ...YEAR, rolledOver },
+      }),
+      "POST /api/console/school-year/rollover": () => {
+        rolledOver = true;
+        return {
+          body: {
+            ok: true,
+            graduated: 150,
+            promoted: 297,
+            skipped: 3,
+            assigned: 297,
+          },
+        };
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText(
+        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      calls.find((c) => c.key === "POST /api/console/school-year/rollover")
+        ?.body,
+    ).toEqual({
+      toYear: 2027,
+      rows: [{ studentId: "s1", groupId: null, className: "3", number: 8 }],
+    });
+    expect(
+      await screen.findByText(
+        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("적용이 실패하면 창을 열어 둔 채 서버 문구를 토스트로 보인다", async () => {
+    await previewIt({
+      "POST /api/console/school-year/rollover": {
+        status: 409,
+        body: {
+          error: { code: "NUMBER_TAKEN", message: "이미 사용 중인 번호예요." },
+        },
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    expect(await screen.findByText("이미 사용 중인 번호예요.")).toBeTruthy();
+    expect(screen.getByText("학년그룹 일괄 변경을 적용할까요?")).toBeTruthy();
+  });
+});
+
+describe("ImportSetupPage 입력을 고친 뒤", () => {
+  it("미리보기 뒤에 명단을 고치면 낡은 표와 적용 버튼을 치운다", async () => {
+    await previewIt();
+    await screen.findByText("김*늘");
+
+    fireEvent.change(
+      screen.getByPlaceholderText("변경할 명단을 붙여넣으세요"),
+      {
+        target: { value: "다른 명단" },
+      },
+    );
+
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("button", { name: "적용" })).toBeNull();
+  });
+});
