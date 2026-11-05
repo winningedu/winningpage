@@ -25,3 +25,10 @@ update public.page_contents
    set menu_label = '칼럼-교육청소식'
  where slug = '/gallery'
    and menu_label is distinct from '칼럼-교육청소식';
+
+-- 실행 기록
+-- 2026-11-05 Schoolmentor prod (aalujumpwlnwlemnqrus)
+--   실행 전: company-intro '회사소개', /events '공지사항', /gallery '교육컬럼' (대상 3행)
+--   실행 후: company-intro '공지-회사소개', /events '교육-정보안내', /gallery '칼럼-교육청소식' (3행 변경)
+--   재실행: 변경 없음
+-- dev, Winning prod: 실행하지 않음 (위닝에듀 메뉴)
