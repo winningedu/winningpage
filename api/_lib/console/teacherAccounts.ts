@@ -280,6 +280,11 @@ const DB_ERRORS: Record<
     code: "PHONE_IN_USE",
     message: "다른 이름의 선생님이 이미 쓰는 전화번호입니다.",
   },
+  P0002: {
+    status: 404,
+    code: "TENANT_NOT_FOUND",
+    message: "기관을 찾을 수 없습니다.",
+  },
   "23505": {
     status: 409,
     code: "CLASS_TAKEN",
