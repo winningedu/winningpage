@@ -188,6 +188,9 @@ select pg_temp.expect_text('대소문자와 앞뒤 공백을 무시한다',
   public.fn_login_resolve_email('  KIM01 '), 'kim01@teacher.schoolmentor.kr');
 select pg_temp.expect_text('이메일이 있는 학생은 그 이메일', public.fn_login_resolve_email('STU01'), 'stu@example.com');
 select pg_temp.expect_text('이메일이 없는 학생은 합성 이메일', public.fn_login_resolve_email('stu02'), 'stu02@teacher.schoolmentor.kr');
+select pg_temp.mk_profile('stu03', 'student', ' Stu03@Example.COM ');
+select pg_temp.expect_text('이메일은 소문자와 앞뒤 공백 제거로 돌려준다(식별자 경로와 같은 잠금 키)',
+  public.fn_login_resolve_email('stu03'), 'stu03@example.com');
 select pg_temp.expect_bool('없는 아이디는 null', public.fn_login_resolve_email('nobody-here') is null, true);
 select pg_temp.expect_bool('빈 문자열은 null', public.fn_login_resolve_email('  ') is null, true);
 

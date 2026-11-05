@@ -94,7 +94,8 @@ revoke all on function public.fn_login_attempt_end(bytea, text, smallint) from p
 grant execute on function public.fn_login_attempt_end(bytea, text, smallint) to service_role;
 
 -- 로그인 식별자(아이디)로 인증 이메일을 정한다. lower(btrim(username)) 비교라 profiles_username_unique_idx 를 탄다.
--- 교사는 아이디의 합성 이메일, 그 밖의 계정은 profiles.email(없으면 합성 이메일). 계정이 없으면 null.
+-- 교사는 아이디의 합성 이메일, 그 밖의 계정은 profiles.email(없으면 합성 이메일). 이메일은 lower(btrim()) 로 돌려줘
+-- 잠금 키가 식별자 경로와 같다. 계정이 없으면 null.
 -- 합성 도메인(teacher.schoolmentor.kr)은 api/_lib/auth/login.ts 의 SYNTHETIC_DOMAIN 과 같아야 한다.
 create function public.fn_login_resolve_email(p_username text)
 returns text
@@ -105,7 +106,7 @@ set search_path = public, pg_temp
 as $$
   select case
            when p.member_type = 'teacher' then lower(btrim(p.username)) || '@teacher.schoolmentor.kr'
-           else coalesce(nullif(btrim(p.email), ''), lower(btrim(p.username)) || '@teacher.schoolmentor.kr')
+           else coalesce(nullif(lower(btrim(p.email)), ''), lower(btrim(p.username)) || '@teacher.schoolmentor.kr')
          end
     from public.profiles p
    where p.username is not null
