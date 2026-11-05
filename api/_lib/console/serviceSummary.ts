@@ -2,6 +2,7 @@
 // 수행평가의 "피드백 대기"처럼 저장된 자료가 없는 항목은 싣지 않는다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { summarizeReport } from "./diagnosisStatus.js";
 import { type ReadQuery, readAll } from "./directory.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
@@ -34,16 +35,9 @@ function sessionCounts(rows: SessionRow[]): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-function readiness(payload: unknown): string | null {
-  const page2 = (
-    payload as { areaDetails?: { page2?: { score?: unknown }[] } } | null
-  )?.areaDetails?.page2;
-  const scores = (page2 ?? [])
-    .map((a) => a.score)
-    .filter((s): s is number => typeof s === "number");
-  if (scores.length === 0) return null;
-  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
-  return `학교생활 준비도 ${Math.round(mean)}`;
+function readiness(payload: unknown, diagnosedAt: string): string | null {
+  const avg = summarizeReport(payload, diagnosedAt).readinessAvg;
+  return avg === null ? null : `학교생활 준비도 ${avg}`;
 }
 
 export async function loadServiceSummaries(
@@ -110,7 +104,9 @@ export async function loadServiceSummaries(
   const newestInquiry = latest(inquiry);
 
   return {
-    diagnosis: newestReport ? readiness(newestReport.payload) : null,
+    diagnosis: newestReport
+      ? readiness(newestReport.payload, newestReport.diagnosed_at)
+      : null,
     goal: goalText || null,
     growth: theme ? `대주제 "${theme}"` : null,
     performance: sessionCounts(performance),

@@ -292,9 +292,12 @@ describe("GET /api/console/students/detail", () => {
         profile_id: "s1",
         diagnosed_at: "2026-06-01T00:00:00Z",
         payload: {
-          areaDetails: {
-            page1: [{ score: 10 }],
-            page2: [{ score: 70 }, { score: 72 }],
+          learningAxes: [{ name: "축1", score: 10, status: "낮음" }],
+          readiness: {
+            areas: [
+              { name: "영역1", score: 70, status: "높음" },
+              { name: "영역2", score: 72, status: "높음" },
+            ],
           },
         },
       },
