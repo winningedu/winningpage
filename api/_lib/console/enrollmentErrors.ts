@@ -36,7 +36,7 @@ const MAPPED: Record<string, Mapped> = {
   WC080: {
     status: 400,
     code: "GROUP_NOT_REGISTERED",
-    message: "등록되지 않은 학년그룹이에요.",
+    message: "등록되지 않은 그룹이에요.",
   },
   WC081: { status: 404, code: "NOT_FOUND", message: "학적을 찾을 수 없어요." },
   WC082: {
@@ -62,12 +62,12 @@ const MAPPED: Record<string, Mapped> = {
   WC086: {
     status: 409,
     code: "GROUP_HAS_STUDENTS",
-    message: "재학생이 있는 학년그룹은 삭제할 수 없어요.",
+    message: "재학생이 있는 그룹은 삭제할 수 없어요.",
   },
   WC087: {
     status: 404,
     code: "NOT_FOUND",
-    message: "학년그룹을 찾을 수 없어요.",
+    message: "그룹을 찾을 수 없어요.",
   },
   WC094: {
     status: 403,

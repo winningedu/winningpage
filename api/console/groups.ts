@@ -1,6 +1,6 @@
 // POST /api/console/groups  { name }
 //
-// 학년그룹 만들기(W11). 학교 관리자와 본사 대행만, 기관은 행위자에서 정한다.
+// 그룹 만들기(W11). 학교 관리자와 본사 대행만, 기관은 행위자에서 정한다.
 // 같은 이름(대소문자 무시, 삭제된 그룹 제외)은 유일 인덱스가 막아 409 로 답한다.
 
 import { writeConsoleAuditLog } from "../_lib/console/audit.js";
@@ -15,7 +15,7 @@ export default defineHandler({
   consoleRole: "schoolAdmin",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학년그룹을 만들지 못했습니다.",
+  unhandledMessage: "그룹을 만들지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/groups]",
   headers: { "Cache-Control": "no-store" },
@@ -25,13 +25,7 @@ export default defineHandler({
     const { name: rawName } = (req.body ?? {}) as Record<string, unknown>;
     const name = typeof rawName === "string" ? rawName.trim() : "";
     if (name === "") {
-      sendError(
-        res,
-        "coded",
-        400,
-        "학년그룹 이름을 입력해 주세요.",
-        "BAD_REQUEST",
-      );
+      sendError(res, "coded", 400, "그룹 이름을 입력해 주세요.", "BAD_REQUEST");
       return;
     }
 
@@ -45,7 +39,7 @@ export default defineHandler({
         res,
         "coded",
         409,
-        "이미 있는 학년그룹 이름이에요.",
+        "이미 있는 그룹 이름이에요.",
         "GROUP_EXISTS",
       );
       return;

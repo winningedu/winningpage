@@ -135,7 +135,9 @@ describe("POST /api/console/groups/delete", () => {
     for (const groupId of ["group-x", "ghost"]) {
       expect(await post({ groupId })).toMatchObject({
         status: 404,
-        body: { error: { code: "NOT_FOUND" } },
+        body: {
+          error: { code: "NOT_FOUND", message: "그룹을 찾을 수 없어요." },
+        },
       });
     }
     expect(deleteCall()).toBeUndefined();

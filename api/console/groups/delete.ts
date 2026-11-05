@@ -1,6 +1,6 @@
 // POST /api/console/groups/delete  { groupId }
 //
-// 학년그룹 삭제(W11, soft delete). 학교 관리자와 본사 대행만.
+// 그룹 삭제(W11, soft delete). 학교 관리자와 본사 대행만.
 // 올해 학급에 재학생이 있으면 fn_group_soft_delete 가 WC086 으로 막는다. 다른 기관의 그룹 id 는 404 로 숨긴다.
 // 이미 삭제된 그룹을 다시 지워도 DB 가 그대로 돌려보내므로 멱등이다.
 
@@ -17,7 +17,7 @@ export default defineHandler({
   consoleRole: "schoolAdmin",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학년그룹을 삭제하지 못했습니다.",
+  unhandledMessage: "그룹을 삭제하지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/groups/delete]",
   headers: { "Cache-Control": "no-store" },
@@ -38,7 +38,7 @@ export default defineHandler({
       .maybeSingle();
     if (lookupError) throw new Error("class group lookup failed");
     if (!group) {
-      sendError(res, "coded", 404, "학년그룹을 찾을 수 없어요.", "NOT_FOUND");
+      sendError(res, "coded", 404, "그룹을 찾을 수 없어요.", "NOT_FOUND");
       return;
     }
 
