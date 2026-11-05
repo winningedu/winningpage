@@ -63,7 +63,18 @@ export type ImportVerdict =
   | "group_not_registered"
   | "class_duplicate"
   | "phone_conflict"
+  | "same_name_other"
+  | "shared_login"
+  | "same"
+  | "changed"
   | "new";
+
+const ERROR_VERDICTS: ImportVerdict[] = [
+  "format_error",
+  "group_not_registered",
+  "class_duplicate",
+  "phone_conflict",
+];
 
 export interface ImportRowResult {
   index: number;
@@ -103,6 +114,14 @@ interface JudgeContext {
   orgType: string;
   groups: Map<string, string>;
   teachersByPhone: Map<string, ExistingTeacher>;
+  /** 이름이 같은 기존 교사들의 전화번호. */
+  phonesByName: Map<string, Set<string>>;
+  classIdByKey: Map<string, string>;
+  holderByClassId: Map<string, ExistingTeacher>;
+}
+
+function classKeyOf(grade: string, groupId: string | null, name: string) {
+  return `${grade}|${groupId ?? ""}|${name.toLowerCase()}`;
 }
 
 /** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
@@ -124,12 +143,15 @@ interface PreparedRow {
   className: string;
   groupId: string | null;
   classKey: string | null;
+  classId: string | null;
 }
 
 async function loadJudgeContext(
   admin: SupabaseClient,
   tenantId: string,
   phones: string[],
+  names: string[],
+  grades: string[],
 ): Promise<JudgeContext> {
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
@@ -152,6 +174,69 @@ async function loadJudgeContext(
     .in("phone", phones);
   if (teacherError) throw new RpcError("teachers read", teacherError.code);
 
+  const { data: sameNames, error: nameError } = await admin
+    .from("teachers")
+    .select("id, name, phone, deleted_at")
+    .eq("tenant_id", tenantId)
+    .in("name", names);
+  if (nameError) throw new RpcError("teachers read", nameError.code);
+
+  const classIdByKey = new Map<string, string>();
+  const holderByClassId = new Map<string, ExistingTeacher>();
+  if (grades.length > 0) {
+    const { data: classes, error: classError } = await admin
+      .from("classes")
+      .select("id, grade, group_id, name")
+      .eq("tenant_id", tenantId)
+      .eq("school_year", tenant.school_year)
+      .in("grade", grades);
+    if (classError) throw new RpcError("classes read", classError.code);
+    for (const c of (classes ?? []) as {
+      id: string;
+      grade: string;
+      group_id: string | null;
+      name: string;
+    }[]) {
+      classIdByKey.set(classKeyOf(c.grade, c.group_id, c.name), c.id);
+    }
+
+    const classIds = [...classIdByKey.values()];
+    if (classIds.length > 0) {
+      const { data: assignments, error: assignError } = await admin
+        .from("teacher_class_assignments")
+        .select("teacher_id, class_id")
+        .in("class_id", classIds);
+      if (assignError) throw new RpcError("assignments read", assignError.code);
+      const teacherByClass = new Map(
+        ((assignments ?? []) as { teacher_id: string; class_id: string }[]).map(
+          (a) => [a.class_id, a.teacher_id],
+        ),
+      );
+      const { data: holders, error: holderError } = await admin
+        .from("teachers")
+        .select("id, name, phone, deleted_at")
+        .in("id", [...new Set(teacherByClass.values())]);
+      if (holderError) throw new RpcError("teachers read", holderError.code);
+      const holderById = new Map(
+        ((holders ?? []) as ExistingTeacher[]).map((t) => [t.id, t]),
+      );
+      for (const [classId, teacherId] of teacherByClass) {
+        const holder = holderById.get(teacherId);
+        if (holder) holderByClassId.set(classId, holder);
+      }
+    }
+  }
+
+  const phonesByName = new Map<string, Set<string>>();
+  for (const t of ((sameNames ?? []) as ExistingTeacher[]).filter(
+    (t) => !t.deleted_at,
+  )) {
+    phonesByName.set(
+      t.name,
+      (phonesByName.get(t.name) ?? new Set()).add(t.phone),
+    );
+  }
+
   return {
     orgType: tenant.org_type as string,
     groups: new Map(
@@ -170,6 +255,9 @@ async function loadJudgeContext(
         .filter((t) => !t.deleted_at)
         .map((t) => [t.phone, t]),
     ),
+    phonesByName,
+    classIdByKey,
+    holderByClassId,
   };
 }
 
@@ -196,6 +284,7 @@ function judgeRows(
       className,
       groupId: null,
       classKey: null,
+      classId: null,
     };
     prepared.push(row);
 
@@ -238,7 +327,8 @@ function judgeRows(
     if (earlierName === undefined) firstNameByPhone.set(phone, name);
 
     if (hasClass) {
-      row.classKey = `${grade}|${row.groupId ?? ""}|${normalizedClass.toLowerCase()}`;
+      row.classKey = classKeyOf(grade, row.groupId, normalizedClass);
+      row.classId = context.classIdByKey.get(row.classKey) ?? null;
     }
     verdicts.push("new");
   }
@@ -248,6 +338,40 @@ function judgeRows(
     if (verdicts[row.index] !== "new" || !row.classKey) continue;
     if (seen.has(row.classKey)) verdicts[row.index] = "class_duplicate";
     else seen.add(row.classKey);
+  }
+
+  const personCount = new Map<string, number>();
+  const phonesByName = new Map<string, Set<string>>();
+  for (const [name, phones] of context.phonesByName) {
+    phonesByName.set(name, new Set(phones));
+  }
+  for (const row of prepared) {
+    if (verdicts[row.index] !== "new") continue;
+    const key = `${row.name}|${row.phone}`;
+    personCount.set(key, (personCount.get(key) ?? 0) + 1);
+    phonesByName.set(
+      row.name,
+      (phonesByName.get(row.name) ?? new Set()).add(row.phone),
+    );
+  }
+
+  for (const row of prepared) {
+    if (verdicts[row.index] !== "new") continue;
+    const holder = row.classId
+      ? context.holderByClassId.get(row.classId)
+      : null;
+    if (holder) {
+      verdicts[row.index] =
+        holder.name === row.name && holder.phone === row.phone
+          ? "same"
+          : "changed";
+    } else if (!row.classKey && context.teachersByPhone.has(row.phone)) {
+      verdicts[row.index] = "same";
+    } else if ((phonesByName.get(row.name)?.size ?? 0) > 1) {
+      verdicts[row.index] = "same_name_other";
+    } else if ((personCount.get(`${row.name}|${row.phone}`) ?? 0) > 1) {
+      verdicts[row.index] = "shared_login";
+    }
   }
   return { prepared, verdicts };
 }
@@ -272,17 +396,26 @@ export async function runTeacherImport(
   if (insertError)
     throw new RpcError("teacher_import_runs insert", insertError.code);
 
+  const rowGrades = request.rows
+    .map((r) => r.grade.trim())
+    .filter((g) => GRADES.includes(g));
   const context = await loadJudgeContext(
     admin,
     tenantId,
     request.rows.map((r) => normalizePhone(r.phone)),
+    request.rows.map((r) => r.name.trim()).filter((n) => n !== ""),
+    [...new Set(rowGrades)],
   );
   const { prepared, verdicts } = judgeRows(request.rows, context);
 
   const rows: ImportRowResult[] = verdicts.map((verdict, index) => ({
     index,
     verdict,
-    applied: verdict === "new",
+    applied:
+      verdict === "new" ||
+      verdict === "same_name_other" ||
+      verdict === "shared_login" ||
+      (verdict === "changed" && request.mode === "overwrite"),
   }));
 
   // 같은 사람(이름과 전화번호)의 행은 한 번의 등록으로 묶어 아이디 하나를 공통으로 쓴다.
@@ -298,7 +431,7 @@ export async function runTeacherImport(
   for (const personRows of persons.values()) {
     const first = personRows[0] as PreparedRow;
     const classes: RegisterInput["classes"] = personRows
-      .filter((r) => r.classKey)
+      .filter((r) => r.classKey && verdicts[r.index] !== "changed")
       .map((r) => ({
         grade: r.grade,
         name: r.className,
@@ -319,19 +452,27 @@ export async function runTeacherImport(
         rowIndexes: personRows.map((r) => r.index),
       });
     }
+    for (const r of personRows) {
+      if (verdicts[r.index] !== "changed" || !r.classId) continue;
+      const { error } = await admin.rpc("fn_teacher_import_move_class", {
+        p_class_id: r.classId,
+        p_teacher_id: result.teacherId,
+      });
+      if (error) throw new RpcError("fn_teacher_import_move_class", error.code);
+    }
   }
 
-  const errors = rows.filter((r) => !r.applied).length;
+  const changed = rows.filter((r) => r.verdict === "changed");
   return {
     runId,
     replayed: false,
     counts: {
       total: rows.length,
       created,
-      updated: 0,
+      updated: changed.filter((r) => r.applied).length,
       accounts: accounts.length,
-      errors,
-      skipped: 0,
+      errors: rows.filter((r) => ERROR_VERDICTS.includes(r.verdict)).length,
+      skipped: changed.filter((r) => !r.applied).length,
     },
     rows,
     accounts,
