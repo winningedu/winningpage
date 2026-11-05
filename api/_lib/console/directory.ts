@@ -12,6 +12,7 @@ export interface ReadQuery<Row>
   }> {
   eq(column: string, value: string | number): ReadQuery<Row>;
   in(column: string, values: string[]): ReadQuery<Row>;
+  gte(column: string, value: string | number): ReadQuery<Row>;
   order(column: string): ReadQuery<Row>;
   range(from: number, to: number): ReadQuery<Row>;
 }

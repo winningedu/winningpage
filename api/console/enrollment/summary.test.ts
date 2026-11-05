@@ -1,6 +1,6 @@
 // GET /api/console/enrollment/summary 계약 검증(W7 이용현황). 학교 관리자 전용, 반별 총원과 서비스별 이용 인원.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -107,8 +107,47 @@ beforeEach(() => {
       f,
     );
   kit.state.rows.goal_students = (f) =>
-    matchRows([{ profile_id: "s1" }, { profile_id: "s2" }], f);
+    matchRows(
+      [
+        { profile_id: "s1", week_ideal: 10 },
+        { profile_id: "s2", week_ideal: 10 },
+      ],
+      f,
+    );
+  kit.state.rows.goal_student_state = () => [];
+  kit.state.rows.goal_daily_records = (f) =>
+    matchRows(
+      [
+        {
+          profile_id: "s1",
+          record_date: "2026-11-04",
+          study_hours: 5,
+          target_min_hours: 2,
+        },
+        {
+          profile_id: "s1",
+          record_date: "2026-11-05",
+          study_hours: 3,
+          target_min_hours: 2,
+        },
+        {
+          profile_id: "s1",
+          record_date: "2026-10-01",
+          study_hours: 100,
+          target_min_hours: 2,
+        },
+        {
+          profile_id: "s2",
+          record_date: "2026-11-05",
+          study_hours: 2,
+          target_min_hours: 2,
+        },
+      ],
+      f,
+    );
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("GET /api/console/enrollment/summary", () => {
   test("school admin gets per-class totals, capacity and per-service counts for this year's active students", async () => {
@@ -136,5 +175,21 @@ describe("GET /api/console/enrollment/summary", () => {
         joined: 1,
       }),
     ]);
+  });
+
+  test("class goal rate is the mean of members' weekly achievement over the last 7 days (KST), null when nobody uses goal", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-05T03:00:00Z"));
+
+    const res = await get();
+
+    const body = res.body as {
+      classes: { classId: string; goalRateAvg: number | null }[];
+    };
+    // s1 (5+3)/10 = 80%, s2 2/10 = 20%
+    expect(body.classes.find((c) => c.classId === "c-1")?.goalRateAvg).toBe(50);
+    expect(
+      body.classes.find((c) => c.classId === "c-2")?.goalRateAvg,
+    ).toBeNull();
   });
 });

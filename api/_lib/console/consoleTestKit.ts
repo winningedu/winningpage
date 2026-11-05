@@ -53,11 +53,14 @@ export function matchRows<R extends Record<string, unknown>>(
   filters: Record<string, unknown>,
 ): R[] {
   return rows.filter((row) =>
-    Object.entries(filters).every(([col, want]) =>
-      Array.isArray(want)
+    Object.entries(filters).every(([col, want]) => {
+      // gte(col, v) 는 "col>=" 키로 담긴다. 날짜 문자열은 사전순 비교로 충분하다.
+      if (col.endsWith(">="))
+        return String(row[col.slice(0, -2)]) >= String(want);
+      return Array.isArray(want)
         ? want.includes(row[col])
-        : String(row[col]) === String(want),
-    ),
+        : String(row[col]) === String(want);
+    }),
   );
 }
 
@@ -151,6 +154,10 @@ export function createFakeAdmin(state: KitState) {
       };
       chain.in = (col: string, values: unknown[]) => {
         filters[col] = values;
+        return chain;
+      };
+      chain.gte = (col: string, value: unknown) => {
+        filters[`${col}>=`] = value;
         return chain;
       };
       for (const m of ["like", "limit", "ilike", "range"])

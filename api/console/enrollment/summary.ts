@@ -10,6 +10,7 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
+import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -23,6 +24,14 @@ export const config = { runtime: "nodejs" };
 function queryValue(raw: string | string[] | undefined): string | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return value === undefined || value === "" ? undefined : value;
+}
+
+/** null 을 뺀 값들의 반올림 평균. 값이 없으면 null. */
+function average(values: (number | null)[]): number | null {
+  const present = values.filter((v) => v !== null);
+  return present.length === 0
+    ? null
+    : Math.round(present.reduce((a, b) => a + b, 0) / present.length);
 }
 
 export default defineHandler({
@@ -73,6 +82,11 @@ export default defineHandler({
       students.map((s) => s.studentId),
     );
 
+    const goal = await loadGoalStatus(
+      admin,
+      students.map((s) => s.studentId),
+    );
+
     const capacityOf = new Map(capacities.map((c) => [c.id, c.capacity]));
     const teacherName = new Map(teachers.map((t) => [t.id, t.name]));
     const homeroomOf = new Map(
@@ -115,6 +129,9 @@ export default defineHandler({
           capacity: capacityOf.get(cls.id) ?? null,
           joined,
           services,
+          goalRateAvg: average(
+            members.map((s) => goal.get(s.studentId)?.weeklyRate ?? null),
+          ),
         };
       });
 
