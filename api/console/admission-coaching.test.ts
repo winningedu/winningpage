@@ -1,5 +1,5 @@
 // GET /api/console/admission-coaching 계약 검증(W10 입시 상담코칭). 중3, 고3 학생만, 담임은 담당 학급의 실명, 관리자는 전교의 가린 이름.
-// 상담 상태와 변경 일자는 counsel_statuses 테이블이 없어 읽지 않는다.
+// 상담 상태와 변경 일자는 counsel_statuses 에서 읽는다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -118,6 +118,18 @@ beforeEach(() => {
       ],
       f,
     );
+  kit.state.rows.counsel_statuses = (f) =>
+    matchRows(
+      [
+        {
+          student_id: "s1",
+          tenant_id: "tenant-1",
+          status: "needed",
+          changed_at: "2026-10-28T03:00:00Z",
+        },
+      ],
+      f,
+    );
   kit.state.rows.goal_student_state = () => [];
   kit.state.rows.goal_daily_records = () => [];
   kit.state.rows.diagnosis_reports = (f) =>
@@ -156,6 +168,8 @@ describe("GET /api/console/admission-coaching", () => {
         minTarget: { university: "다라대", department: "경영학과" },
         execScore: 73,
         urgency: "mid",
+        counselStatus: "needed",
+        counselChangedAt: "2026-10-28T03:00:00Z",
       },
       {
         studentId: "s2",
@@ -168,6 +182,8 @@ describe("GET /api/console/admission-coaching", () => {
         minTarget: null,
         execScore: null,
         urgency: null,
+        counselStatus: "unset",
+        counselChangedAt: null,
       },
     ]);
   });
