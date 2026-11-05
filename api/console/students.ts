@@ -14,13 +14,8 @@ import {
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
-import {
-  type GoalRecord,
-  type GoalSchedule,
-  goalWeeks,
-  rateBucket,
-  weekWindows,
-} from "../_lib/console/goalRate.js";
+import { rateBucket } from "../_lib/console/goalRate.js";
+import { loadGoalStatus } from "../_lib/console/goalStatus.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { queryValue } from "../_lib/console/query.js";
@@ -55,38 +50,12 @@ async function loadWeeklyRates(
   admin: SupabaseClient,
   goalStudentIds: string[],
 ): Promise<Map<string, number>> {
-  const today = kstYMD();
-  const dates = weekWindows(today).thisWeek;
-  const rates = new Map<string, number>();
-  for (let i = 0; i < goalStudentIds.length; i += PROFILE_CHUNK) {
-    const chunk = goalStudentIds.slice(i, i + PROFILE_CHUNK);
-    const [records, students] = await Promise.all([
-      readAll<GoalRecord & { profile_id: string }>(
-        admin,
-        "goal_daily_records",
-        "profile_id, record_date, study_hours, target_ideal_hours, target_min_hours",
-        (q) => q.in("profile_id", chunk).in("record_date", dates),
-      ),
-      readAll<{ profile_id: string; study_schedule: GoalSchedule | null }>(
-        admin,
-        "goal_students",
-        "profile_id, study_schedule",
-        (q) => q.in("profile_id", chunk),
-        "profile_id",
-      ),
-    ]);
-    for (const student of students) {
-      const { thisWeek } = goalWeeks(
-        today,
-        records.filter((r) => r.profile_id === student.profile_id),
-        student.study_schedule,
-      );
-      if (thisWeek.achievementPct !== null) {
-        rates.set(student.profile_id, Math.round(thisWeek.achievementPct));
-      }
-    }
-  }
-  return rates;
+  const status = await loadGoalStatus(admin, goalStudentIds);
+  return new Map(
+    [...status].flatMap(([id, g]) =>
+      g.weeklyRate === null ? [] : [[id, g.weeklyRate] as const],
+    ),
+  );
 }
 
 const weeklyGoalLevel = (rate: number | undefined) =>
@@ -106,10 +75,6 @@ async function loadFlagged(
   );
   return new Set(rows.map((r) => r.student_id));
 }
-const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
-
-const kstDate = (iso: string) => KST_DATE.format(new Date(iso));
-
 /** 이름과 가입일(KST 날짜). in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
 async function loadProfiles(
   admin: SupabaseClient,
@@ -134,7 +99,7 @@ async function loadProfiles(
       p.id,
       {
         name: p.name ?? "",
-        joinedAt: p.created_at ? kstDate(p.created_at) : null,
+        joinedAt: p.created_at ? kstYMD(new Date(p.created_at)) : null,
       },
     ]),
   );
