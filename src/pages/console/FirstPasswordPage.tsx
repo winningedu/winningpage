@@ -72,7 +72,7 @@ export default function FirstPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 pt-16 pb-12">
+    <div className="flex min-h-screen items-center justify-center px-4 pb-12">
       <form
         noValidate
         onSubmit={(e) => {

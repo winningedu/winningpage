@@ -31,6 +31,7 @@ import premiumRoutes from "./routes/premiumRoutes";
 import selfevalAppRoutes from "./routes/selfevalAppRoutes";
 import serviceLandingRoutes from "./routes/serviceLandingRoutes";
 import standaloneRoutes from "./routes/standaloneRoutes";
+import teacherConsoleRoutes from "./routes/teacherConsoleRoutes";
 import termsRoutes from "./routes/termsRoutes";
 
 // 라우트 이동 시 페이지 최상단으로 스크롤 (해시 앵커 이동은 예외)
@@ -122,6 +123,9 @@ const routes: RouteObject[] = [
       ...alimtalkLinkRoutes,
 
       ...standaloneRoutes,
+
+      // 교사 콘솔(/teacher): 헤더만 있고 푸터가 없는 별도 셸. SiteLayout 밖.
+      ...teacherConsoleRoutes,
 
       ...adminRoutes,
 

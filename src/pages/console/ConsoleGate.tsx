@@ -22,7 +22,7 @@ function GateMessage({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 pt-16 text-center">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
       <h1 className="text-app-section font-bold text-ink-strong">{title}</h1>
       {children}
     </div>
