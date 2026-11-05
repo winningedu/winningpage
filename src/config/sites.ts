@@ -11,6 +11,8 @@ export interface SiteConfig {
   logo: { horizontal: string; stacked: string };
   favicon: { png96: string; appleTouch: string; ico: string; svg?: string };
   manifest: string;
+  // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
+  columnTitle: string;
   // 사이트별 기능 노출 스위치 - 화면마다 사이트 키를 비교하지 않고 이 값 하나로 판정한다.
   features: {
     // 프리미엄(컨설팅 프로그램 6종 + 프리미엄 이용 신청)의 메뉴, 카드, 라우트 노출 여부.
@@ -56,6 +58,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       svg: "/favicon.svg",
     },
     manifest: "/site.webmanifest",
+    columnTitle: "교육칼럼",
     features: {
       premium: true,
       hiddenPrograms: [],
@@ -93,6 +96,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/schoolmentor/favicon.ico",
     },
     manifest: "/schoolmentor/site.webmanifest",
+    columnTitle: "칼럼-교육청소식",
     features: {
       premium: false,
       hiddenPrograms: [],
