@@ -11,10 +11,8 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
-import {
-  kstDateOffset,
-  loadGoalStatus,
-} from "../../_lib/console/goalStatus.js";
+import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
+import { kstDateOffset } from "../../_lib/console/kstDate.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,

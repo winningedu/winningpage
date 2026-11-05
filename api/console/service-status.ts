@@ -5,7 +5,7 @@
 // q 는 담임만 실명 부분 일치, 그 밖에는 성과 이름 전체 일치다(결정 61). 서비스별 열 값(detail)은 쪽에 보이는 학생만 읽는다. asOf 는 집계 기준일(KST)이다.
 
 import { loadProfileNames, loadTenant } from "../_lib/console/directory.js";
-import { kstDateOffset } from "../_lib/console/goalStatus.js";
+import { kstDateOffset } from "../_lib/console/kstDate.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { loadServiceDetail } from "../_lib/console/serviceStatus.js";

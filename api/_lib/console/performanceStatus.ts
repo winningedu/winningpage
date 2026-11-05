@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
-import { kstDateOffset } from "./goalStatus.js";
+import { kstDateOffset } from "./kstDate.js";
 
 export const PERFORMANCE_STEPS = [
   "기본 정보",

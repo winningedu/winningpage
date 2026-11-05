@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
-import { kstDateOffset } from "./goalStatus.js";
+import { kstDateOffset } from "./kstDate.js";
 
 export type Urgency = "very_high" | "high" | "mid" | "low";
 

@@ -10,6 +10,7 @@ import {
   summarizeGoalWeek,
   weekWindows,
 } from "./goalRate.js";
+import { kstDateOffset } from "./kstDate.js";
 
 const ID_CHUNK = 100;
 // 연속 기록을 세려고 거슬러 읽는 일수.
@@ -32,12 +33,6 @@ export interface GoalStatus {
   streakDays: number;
   ideal: Target | null;
   min: Target | null;
-}
-
-/** KST 날짜(YYYY-MM-DD)에서 days 일 전. */
-export function kstDateOffset(now: Date, days: number): string {
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000 - days * 86_400_000);
-  return kst.toISOString().slice(0, 10);
 }
 
 function chunked(ids: string[]): string[][] {
