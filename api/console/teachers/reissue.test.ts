@@ -131,6 +131,25 @@ describe("POST /api/console/teachers/reissue", () => {
     expect(JSON.stringify(r.body)).not.toContain("tempPassword");
   });
 
+  test.each([
+    ["WC089", "ACCOUNT_MISMATCH"],
+    ["WC090", "PASSWORD_ALREADY_SET"],
+  ])(
+    "attach 가 %s 로 거부하면 409 %s 이고 Auth 비밀번호를 바꾸지 않는다",
+    async (sqlstate, code) => {
+      kit.state.rpc.fn_teacher_attach_account = () => ({
+        data: null,
+        error: { code: sqlstate },
+      });
+
+      const r = await post({ teacherId: "teacher-1" });
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    },
+  );
+
   test("교사 누락은 400, 담임은 403", async () => {
     expect((await post({})).status).toBe(400);
 

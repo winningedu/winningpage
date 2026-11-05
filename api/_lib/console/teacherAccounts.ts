@@ -303,6 +303,18 @@ const DB_ERRORS: Record<
     code: "NOT_FOUND",
     message: "대상을 찾을 수 없습니다.",
   },
+  WC089: {
+    status: 409,
+    code: "ACCOUNT_MISMATCH",
+    message:
+      "선생님 계정 정보가 맞지 않습니다. 새로 고침한 뒤 다시 시도해 주세요.",
+  },
+  WC090: {
+    status: 409,
+    code: "PASSWORD_ALREADY_SET",
+    message:
+      "이미 비밀번호를 설정한 계정이라 임시 비밀번호를 다시 줄 수 없습니다.",
+  },
   WC091: {
     status: 409,
     code: "SELF_CHANGE",
