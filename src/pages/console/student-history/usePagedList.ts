@@ -30,13 +30,14 @@ export function listUrl(
   return `${path}?${query}`;
 }
 
-async function fetchPage<T>(url: string): Promise<Paged<T>> {
+async function fetchPage<P>(url: string): Promise<P> {
   const res = await consoleRequest(url);
   if (res.status !== 200) throw new Error(`${url} ${res.status}`);
-  return res.body as Paged<T>;
+  return res.body as P;
 }
 
-export function usePagedList<T>(
+// X 는 목록과 함께 오는 덧붙은 값(졸업생의 years)이다.
+export function usePagedList<T, X extends object = object>(
   path: string,
   params: Record<string, string | undefined>,
   page: number,
@@ -44,14 +45,15 @@ export function usePagedList<T>(
 ) {
   const single = useQuery({
     queryKey: [...HISTORY_KEY, listUrl(path, params, page)],
-    queryFn: () => fetchPage<T>(listUrl(path, params, page)),
+    queryFn: () => fetchPage<Paged<T> & X>(listUrl(path, params, page)),
     retry: false,
     placeholderData: keepPreviousData,
     enabled: !mobile,
   });
   const more = useInfiniteQuery({
     queryKey: [...HISTORY_KEY, "more", listUrl(path, params, 1)],
-    queryFn: ({ pageParam }) => fetchPage<T>(listUrl(path, params, pageParam)),
+    queryFn: ({ pageParam }) =>
+      fetchPage<Paged<T> & X>(listUrl(path, params, pageParam)),
     initialPageParam: 1,
     getNextPageParam: (last) =>
       last.page < last.pageCount ? last.page + 1 : undefined,
@@ -59,7 +61,7 @@ export function usePagedList<T>(
     enabled: mobile,
   });
   const last = more.data?.pages.at(-1);
-  const data: Paged<T> | undefined = mobile
+  const data: (Paged<T> & X) | undefined = mobile
     ? last && {
         ...last,
         items: more.data?.pages.flatMap((p) => p.items) ?? [],

@@ -57,12 +57,15 @@ async function fetchHistory(studentId: string): Promise<Loaded> {
 interface HistoryDialogProps {
   studentId: string;
   listName: string;
+  /** 졸업생이면 코칭을 막는다(현재 담임이 없다). 안내 문구는 없다. */
+  graduate?: boolean;
   onClose: () => void;
 }
 
 export default function HistoryDialog({
   studentId,
   listName,
+  graduate = false,
   onClose,
 }: HistoryDialogProps) {
   const navigate = useNavigate();
@@ -148,7 +151,7 @@ export default function HistoryDialog({
           </Button>
           <Button
             type="button"
-            disabled={!detail || noPermission}
+            disabled={!detail || noPermission || graduate}
             onClick={() =>
               navigate(`${CONSOLE_BASE}/coaching?studentId=${studentId}`)
             }

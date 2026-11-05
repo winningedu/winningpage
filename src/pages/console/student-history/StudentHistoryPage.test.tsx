@@ -1056,3 +1056,211 @@ describe("W13 학생 조회 휴대폰", () => {
     );
   });
 });
+
+const graduate = (n: number) => ({
+  studentId: `s${n}`,
+  name: n === 1 ? "한예준" : "오하은",
+  graduatedYear: 2025,
+  last: { grade: "고3", className: "1", number: n },
+  history: [
+    { schoolYear: 2025, grade: "고3", className: "1" },
+    { schoolYear: 2024, grade: "고2", className: "2" },
+  ],
+});
+
+describe("W13 졸업생 탭", () => {
+  const gradUrl = (pairs: string[][]) =>
+    `GET /api/console/graduates?${new URLSearchParams(pairs)}`;
+  const FIRST = gradUrl([["page", "1"]]);
+  const BY_2025 = gradUrl([
+    ["year", "2025"],
+    ["page", "1"],
+  ]);
+  const YEARS = [2025, 2024];
+  const gradBody = (items: unknown[], total = items.length, years = YEARS) => ({
+    years,
+    total,
+    page: 1,
+    pageCount: Math.ceil(total / 50),
+    items,
+  });
+
+  it("가장 최근 졸업 학년도를 골라 졸업생과 보관 안내를 보여 준다", async () => {
+    const calls = stubPage(
+      {
+        [FIRST]: { body: gradBody([]) },
+        [BY_2025]: { body: gradBody([graduate(1), graduate(2)], 150) },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    expect(await screen.findByText("검색 결과 150명")).toBeTruthy();
+    expect(calls.some((c) => c.key === BY_2025)).toBe(true);
+    const year = (await screen.findByLabelText(
+      "졸업 학년도",
+    )) as HTMLSelectElement;
+    expect(year.value).toBe("2025");
+    expect(
+      Array.from(year.querySelectorAll("option")).map((o) => o.textContent),
+    ).toEqual(["2025학년도", "2024학년도"]);
+    for (const head of [
+      "이름",
+      "졸업 학년도",
+      "마지막 학년그룹/반/번호",
+      "학년그룹/반 이력",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
+    }
+    const r = row("한예준");
+    expect(within(r).getByText("2025학년도")).toBeTruthy();
+    expect(within(r).getByText("3학년 1반 1번")).toBeTruthy();
+    expect(within(r).getByText("2025 3학년 1반 / 2024 2학년 2반")).toBeTruthy();
+    expect(within(r).getByRole("button", { name: "이력 보기" })).toBeTruthy();
+    expect(
+      screen.getByText(
+        "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("1 / 3 페이지, 1~50번째")).toBeTruthy();
+  });
+
+  it("졸업생이 없으면 머리와 각주만 보인다", async () => {
+    stubPage({ [FIRST]: { body: gradBody([], 0, []) } }, adminMe);
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    expect(await screen.findByText("검색 결과 0명")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "이력 보기" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
+  });
+
+  it("학년도와 이름으로 다시 검색한다", async () => {
+    const BY_2024_Q = gradUrl([
+      ["year", "2024"],
+      ["q", "하은"],
+      ["page", "1"],
+    ]);
+    stubPage(
+      {
+        [FIRST]: { body: gradBody([]) },
+        [BY_2025]: { body: gradBody([graduate(1)]) },
+        [BY_2024_Q]: { body: gradBody([graduate(2)]) },
+      },
+      adminMe,
+    );
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=graduates",
+    );
+    const year = (await screen.findByLabelText(
+      "졸업 학년도",
+    )) as HTMLSelectElement;
+    await screen.findByText("한예준");
+
+    fireEvent.change(year, { target: { value: "2024" } });
+    fireEvent.change(screen.getByPlaceholderText("이름 검색"), {
+      target: { value: "하은" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("오하은")).toBeTruthy();
+    expect(router.state.location.search).toBe(
+      `?${new URLSearchParams([
+        ["tab", "graduates"],
+        ["year", "2024"],
+        ["q", "하은"],
+      ])}`,
+    );
+  });
+
+  it("이력 보기는 이력 창을 열고 코칭은 막는다", async () => {
+    stubPage(
+      {
+        [FIRST]: { body: gradBody([]) },
+        [BY_2025]: { body: gradBody([graduate(1)]) },
+        [HISTORY_DIALOG]: { body: historyBody({ name: "한예준" }) },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+    await screen.findByText("한예준");
+
+    fireEvent.click(screen.getByRole("button", { name: "이력 보기" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("2025")).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "코칭",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(within(dialog).queryByText(/열람할 권한이 없습니다/)).toBeNull();
+  });
+
+  it("담임은 졸업생 주소로 들어와도 승인 대기 탭이 열린다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    expect(await screen.findByText("승인 대기 2건")).toBeTruthy();
+  });
+
+  it("탭을 누르면 그 탭의 쿼리스트링으로 바뀐다", async () => {
+    stubPage(
+      {
+        [FIRST]: { body: gradBody([]) },
+        [BY_2025]: { body: gradBody([graduate(1)]) },
+      },
+      adminMe,
+    );
+    const { router } = renderRoutes(routes, "/teacher/student-history");
+    await screen.findByText("승인 대기 2건");
+
+    fireEvent.click(screen.getByRole("tab", { name: "졸업생" }));
+
+    expect(await screen.findByText("한예준")).toBeTruthy();
+    expect(router.state.location.search).toBe("?tab=graduates&year=2025");
+  });
+});
+
+describe("W13 졸업생 휴대폰", () => {
+  it("카드에 마지막 학급과 졸업 학년도를 보이고 이력 보기 버튼이 있다", async () => {
+    useMobileScreen();
+    const url = (pairs: string[][]) =>
+      `GET /api/console/graduates?${new URLSearchParams(pairs)}`;
+    stubPage(
+      {
+        [url([["page", "1"]])]: {
+          body: { years: [2025], total: 0, page: 1, pageCount: 0, items: [] },
+        },
+        [url([
+          ["year", "2025"],
+          ["page", "1"],
+        ])]: {
+          body: {
+            years: [2025],
+            total: 3,
+            page: 1,
+            pageCount: 1,
+            items: [graduate(1)],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    expect(await screen.findByText("한예준")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("마지막 학급 3학년 1반 1번")).toBeTruthy();
+    expect(screen.getByText("졸업 학년도", { selector: "span" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "이력 보기" })).toBeTruthy();
+    expect(screen.getByText("1 / 3명")).toBeTruthy();
+  });
+});

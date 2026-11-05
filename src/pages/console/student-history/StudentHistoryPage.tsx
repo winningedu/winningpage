@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import PageHeader from "../PageHeader";
 import Tabs from "../Tabs";
 import { useConsoleMe } from "../useConsoleMe";
+import GraduatesTab from "./GraduatesTab";
 import PendingRequestsTab from "./PendingRequestsTab";
 import StudentListTab from "./StudentListTab";
 
@@ -33,6 +34,7 @@ export default function StudentHistoryPage() {
       <div className="px-4 pb-24 md:px-8 lg:px-12">
         {tab === "pending" && <PendingRequestsTab />}
         {tab === "students" && <StudentListTab />}
+        {tab === "graduates" && <GraduatesTab />}
       </div>
     </>
   );
