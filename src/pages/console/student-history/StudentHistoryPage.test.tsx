@@ -568,3 +568,92 @@ describe("W13 학생 조회와 이력 탭", () => {
     expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
   });
 });
+
+describe("W13 학생 조회 필터", () => {
+  const query = (pairs: string[][]) =>
+    `GET /api/console/students/history?${new URLSearchParams(pairs)}`;
+  const select = (label: string) =>
+    screen.findByLabelText(label) as Promise<HTMLSelectElement>;
+
+  it("학년그룹을 고르기 전에는 반을 막고, 검색을 누르면 조건대로 다시 불러온다", async () => {
+    const FILTERED = query([
+      ["grade", "고2"],
+      ["classId", "c5"],
+      ["q", "도윤"],
+      ["page", "1"],
+    ]);
+    const calls = stubStudents({
+      [FILTERED]: { body: studentsBody([student(2)]) },
+    });
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=students",
+    );
+    const grade = await select("학년그룹");
+    const klassSelect = await select("반");
+    expect(klassSelect.disabled).toBe(true);
+    expect(
+      within(grade)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["전체", "1학년", "2학년"]);
+
+    fireEvent.change(grade, { target: { value: "고2" } });
+    expect(klassSelect.disabled).toBe(false);
+    expect(
+      within(klassSelect)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["전체", "3반", "5반"]);
+    fireEvent.change(klassSelect, { target: { value: "c5" } });
+    fireEvent.change(screen.getByPlaceholderText("이름 검색"), {
+      target: { value: "도윤" },
+    });
+    expect(calls.some((c) => c.key === FILTERED)).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(await screen.findByText("검색 결과 1명")).toBeTruthy();
+    expect(screen.queryByText("김서연")).toBeNull();
+    expect(router.state.location.search).toBe(
+      `?${new URLSearchParams([
+        ["tab", "students"],
+        ["grade", "고2"],
+        ["classId", "c5"],
+        ["q", "도윤"],
+      ])}`,
+    );
+  });
+
+  it("학년그룹을 바꾸면 고른 반을 비우고 그룹은 그 학년의 것만 보인다", async () => {
+    stubStudents({
+      [CLASSES]: {
+        body: {
+          classes: [
+            klass("c3", "고2", "3"),
+            klass("c9", "고1", "9", { id: "g1", name: "A레벨" }),
+          ],
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    const grade = await select("학년그룹");
+    const group = await select("그룹");
+    const klassSelect = await select("반");
+    expect(
+      within(group)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["전체", "A레벨"]);
+
+    fireEvent.change(grade, { target: { value: "고2" } });
+    expect(
+      within(group)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["전체"]);
+    fireEvent.change(klassSelect, { target: { value: "c3" } });
+    fireEvent.change(grade, { target: { value: "고1" } });
+
+    expect(klassSelect.value).toBe("");
+  });
+});

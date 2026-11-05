@@ -1,5 +1,6 @@
 // W13 학생 조회와 이력 탭. 담임은 담당 학급만, 관리자는 전교를 보며(서버가 범위와 이름 가림을 정한다) 관리자만 직접 변경한다.
 
+import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -15,6 +16,8 @@ import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
 import { slotLabel } from "./format";
 import NameCell from "./NameCell";
+import StudentFilters from "./StudentFilters";
+import { useClasses } from "./useClasses";
 import { usePagedList } from "./usePagedList";
 import { usePageParam } from "./usePageParam";
 
@@ -52,18 +55,36 @@ const historyLabel = (item: StudentItem) =>
 export default function StudentListTab() {
   const { me } = useConsoleMe();
   const [page, setPage] = usePageParam();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = {
+    grade: searchParams.get("grade") ?? "",
+    groupId: searchParams.get("groupId") ?? "",
+    classId: searchParams.get("classId") ?? "",
+    q: searchParams.get("q") ?? "",
+  };
+  const classes = useClasses();
   const list = usePagedList<StudentItem>(
     "/api/console/students/history",
-    {},
+    filters,
     page,
     false,
   );
   const admin = me.kind !== "homeroom";
   if (list.isError)
     return <Notice tone="Danger">학생 목록을 불러오지 못했어요</Notice>;
-  if (!list.data) return null;
+  if (!list.data || !classes.data) return null;
   return (
     <section className="flex flex-col">
+      <StudentFilters
+        classes={classes.data}
+        initial={filters}
+        onSearch={(values) =>
+          setSearchParams({
+            tab: "students",
+            ...Object.fromEntries(Object.entries(values).filter(([, v]) => v)),
+          })
+        }
+      />
       <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
         {`검색 결과 ${list.data.total}명`}
       </h2>

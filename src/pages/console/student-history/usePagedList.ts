@@ -1,7 +1,11 @@
 // W13 목록 조회. 쿼리 값이 있는 것만 순서대로 붙이고 page 를 마지막에 붙인다.
 // 휴대폰은 쪽을 이어 붙이고(더 보기), 그 밖에는 page 한 쪽만 읽는다.
 
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import { consoleRequest } from "../api";
 
 export const HISTORY_KEY = ["console", "student-history"] as const;
@@ -42,6 +46,7 @@ export function usePagedList<T>(
     queryKey: [...HISTORY_KEY, listUrl(path, params, page)],
     queryFn: () => fetchPage<T>(listUrl(path, params, page)),
     retry: false,
+    placeholderData: keepPreviousData,
     enabled: !mobile,
   });
   const more = useInfiniteQuery({
