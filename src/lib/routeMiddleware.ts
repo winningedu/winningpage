@@ -223,6 +223,15 @@ export const requirePremiumAvailableMiddleware: MiddlewareFunction =
     }
   };
 
+// 2d-2) /services/callmentor - 콜멘토를 닫는 사이트(site.features.callmentor=false, 스쿨멘토)는
+// 직접 URL 진입도 홈으로 되돌린다. 2d와 같은 이유로 빌드타임 상수를 동기 판정한다.
+export const requireCallmentorAvailableMiddleware: MiddlewareFunction =
+  async () => {
+    if (!site.features.callmentor) {
+      throw redirect("/");
+    }
+  };
+
 // 2e) 성장설계, 자기평가, 심화탐구의 소개 페이지(/services/*)와 앱(/app/*) - site.features.
 // hiddenPrograms에 든 프로그램은 직접 URL 진입도 홈으로 되돌린다. 2d와 같은 이유로
 // 빌드타임 상수를 동기 판정한다. 서버 API는 건드리지 않는다(이용권이 방어한다).
