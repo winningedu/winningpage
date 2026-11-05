@@ -132,6 +132,22 @@ describe("GET /api/console/coaching/students", () => {
     });
   });
 
+  test("masked names that collide inside one class get a trailing star, other classes do not (#233)", async () => {
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s1", name: "김서연" },
+          { id: "s2", name: "김하연" },
+          { id: "s3", name: "김도연" },
+        ],
+        f,
+      );
+    const body = (await get()).body as Body;
+    expect(
+      Object.fromEntries(body.students.map((s) => [s.studentId, s.name])),
+    ).toEqual({ s1: "김*연*", s2: "김*연*", s3: "김*연" });
+  });
+
   test("a homeroom gets only the own classes with real names", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",

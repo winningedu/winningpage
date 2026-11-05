@@ -14,7 +14,7 @@ import {
   readAll,
 } from "../../_lib/console/directory.js";
 import {
-  displayNameFor,
+  displayNamesFor,
   nameMatchesQuery,
 } from "../../_lib/console/maskName.js";
 import { scopeQuery } from "../../_lib/console/scope.js";
@@ -87,11 +87,20 @@ export default defineHandler({
         a.student_id.localeCompare(b.student_id),
     );
 
+    // 같은 학급에서 가린 이름이 겹치면 구분되게 끝에 * 를 붙인다(교 #233).
+    const shownNames = displayNamesFor(
+      actor,
+      enrollments.map((e) => ({
+        id: e.student_id,
+        group: e.class_id,
+        name: names.get(e.student_id) ?? "",
+      })),
+    );
     const students = enrollments.map((e) => {
       const used = usage.get(e.student_id) ?? [];
       return {
         studentId: e.student_id,
-        name: displayNameFor(actor, names.get(e.student_id) ?? ""),
+        name: shownNames.get(e.student_id) ?? "",
         grade: e.grade,
         groupId: classOf(e)?.groupId ?? null,
         groupName: classOf(e)?.groupName ?? null,
