@@ -8658,6 +8658,20 @@ export type Database = {
         Returns: Json;
       };
       fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
+      fn_school_year_rollover: {
+        Args: {
+          p_actor: string;
+          p_rows: Json;
+          p_tenant: string;
+          p_to_year: number;
+        };
+        Returns: {
+          assigned_count: number;
+          graduated_count: number;
+          promoted_count: number;
+          skipped_count: number;
+        }[];
+      };
       fn_selfeval_claim_step: {
         Args: {
           p_profile_id: string;
