@@ -184,6 +184,97 @@ const coaching = (over: Partial<Coaching> = {}): Coaching => ({
       evidence: [],
     },
   ],
+  text: {
+    priorityTask: "경영학과와의 연결이 약합니다.",
+    points: [
+      "학습 실행력 67점, 원인 학습진단 학습 실행 역량 62점: 월간 계획을 주간, 일간으로 분해",
+    ],
+    gradeInputCheck: null,
+    competencyGap:
+      "대입 평가 관점 보완 역량: 탐구역량 56점, 가장 낮은 근거 성장설계 탐구와 자기주도성 판정 37점",
+    strengths: ["성장설계 키워드(도시 재생, 탄소 중립)가 정리되어 있음"],
+    weaknesses: ["목표시간 달성율 72%, 최소 충족 4/6일: 계획 조정 필요"],
+    careerPlan: [
+      {
+        label: "우선 2주",
+        items: [
+          "다음 수행평가 주제를 경영학과와 연결",
+          "수행평가 '통계로 본 우리 동네'(수학) 피드백 반영 후 재제출",
+        ],
+      },
+      { label: "이번 학기", items: ["연결된 활동을 성장설계 스토리에 반영"] },
+      { label: "다음 학기", items: ["진로 연결도 70점 이상"] },
+    ],
+    studyMethods: ["공부량이 적은 요일에 최소 목표시간 알림 설정"],
+    goalOpinion: {
+      summary:
+        "목표시간 달성율 72%, 지난주보다 8%p 상승, 최소 목표시간 충족 4/6일입니다.",
+      details: {
+        recordFlow:
+          "최소 목표시간 충족 지난주 3일, 이번 주 4/6일, 연속 기록 1일.",
+        weekdayPattern:
+          "최소 목표시간을 못 지킨 날: 목요일(10/29), 토요일(10/31).",
+        distractions: "학생이 기록한 방해 요인: 스마트폰 3회, 컨디션 1회.",
+        questions: ["토요일 학습 시작 시각을 미리 정해 두기"],
+      },
+    },
+  },
+  serviceCards: [
+    {
+      service: "diagnosis",
+      name: "학습진단",
+      state: "using",
+      chip: "진단 완료",
+      tone: "neutral",
+      value: "긴급도 보통",
+      detail: "학습 실행 역량 62점",
+    },
+    {
+      service: "goal",
+      name: "목표관리",
+      state: "using",
+      chip: "주의",
+      tone: "warning",
+      value: "달성율 72%",
+      detail: "최소 목표시간 충족 4일 / 목표 설정 6일",
+    },
+    {
+      service: "growth",
+      name: "성장설계",
+      state: "not_joined",
+      chip: "서비스 이용 전",
+      tone: "neutral",
+      value: "",
+      detail: "",
+    },
+    {
+      service: "performance",
+      name: "수행평가",
+      state: "using",
+      chip: "피드백 대기",
+      tone: "warning",
+      value: "제출 3건",
+      detail: "피드백 대기 1건",
+    },
+    {
+      service: "selfeval",
+      name: "자기평가",
+      state: "using",
+      chip: "이용 중",
+      tone: "neutral",
+      value: "검증 전",
+      detail: "",
+    },
+    {
+      service: "inquiry",
+      name: "심화탐구",
+      state: "using",
+      chip: "이용 중",
+      tone: "neutral",
+      value: "주제 탐색중",
+      detail: "",
+    },
+  ],
   ...over,
 });
 
@@ -308,6 +399,100 @@ describe("W9 개인종합코칭 기본", () => {
   });
 });
 
+describe("W9 문구 칸", () => {
+  it("우선 과제, 상담 포인트, 강점과 보완, 진로계획, 학습방법을 보여 준다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(
+      await screen.findByText("경영학과와의 연결이 약합니다."),
+    ).toBeTruthy();
+    expect(screen.getByText(/학습 실행력 67점, 원인 학습진단/)).toBeTruthy();
+    expect(
+      screen.getByText(/대입 평가 관점 보완 역량: 탐구역량 56점/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "점수는 서비스 내부 기준이며 대학 평가, 합격 예측이 아닙니다",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/성장설계 키워드\(도시 재생/)).toBeTruthy();
+    expect(
+      screen.getByText(/목표시간 달성율 72%, 최소 충족 4\/6일/),
+    ).toBeTruthy();
+    const plan = screen.getByRole("list", { name: "향후 진로계획" });
+    expect(within(plan).getByText("우선 2주")).toBeTruthy();
+    expect(
+      within(plan).getByText(
+        "다음 수행평가 주제를 경영학과와 연결, 수행평가 '통계로 본 우리 동네'(수학) 피드백 반영 후 재제출",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("공부량이 적은 요일에 최소 목표시간 알림 설정"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "서비스 이용 데이터로 자동 구성한 상담 참고안이며 교사 판단으로 보완.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("학교생활기록부 기재 문구가 아닙니다"),
+    ).toBeTruthy();
+  });
+
+  it("서비스별 요약 카드와 목표관리 상담 의견을 보여 주고 이용 전 카드는 상세 버튼이 없다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(await screen.findByText("서비스별 요약")).toBeTruthy();
+    expect(screen.getByText("달성율 72%")).toBeTruthy();
+    expect(screen.getByText("제출 3건")).toBeTruthy();
+    expect(screen.getByText("피드백 대기")).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: "상세 창 열기" }),
+    ).toHaveLength(5);
+    expect(screen.getByText("목표관리 상담 의견")).toBeTruthy();
+    expect(
+      screen.getByText("학생이 기록한 방해 요인: 스마트폰 3회, 컨디션 1회."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("토요일 학습 시작 시각을 미리 정해 두기"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("문구가 비어 있는 칸은 그리지 않는다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          text: {
+            ...coaching().text,
+            priorityTask: null,
+            careerPlan: null,
+            goalOpinion: null,
+            points: [],
+            competencyGap: null,
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+    await screen.findByText(/6축 중 4축 산출/);
+
+    expect(screen.queryByText("우선 과제")).toBeNull();
+    expect(screen.queryByRole("list", { name: "향후 진로계획" })).toBeNull();
+    expect(screen.queryByText("목표관리 상담 의견")).toBeNull();
+    expect(screen.queryByText("종합 진단 상담 포인트")).toBeNull();
+  });
+});
+
 describe("W9 일부 서비스만 이용", () => {
   it("쓰지 않는 서비스는 이용 전으로, 목표를 못 읽으면 목표 칩을 숨긴다", async () => {
     stubPage({
@@ -333,7 +518,7 @@ describe("W9 일부 서비스만 이용", () => {
 
     expect(await screen.findByText("학습진단 이용 전")).toBeTruthy();
     expect(screen.getByText("목표관리 이용 전")).toBeTruthy();
-    expect(screen.getByText("성장설계")).toBeTruthy();
+    expect(screen.getAllByText("성장설계").length).toBeGreaterThan(0);
     expect(screen.queryByText(/이상 가나대/)).toBeNull();
     expect(screen.getByText("이용 서비스 2/6")).toBeTruthy();
   });

@@ -62,6 +62,18 @@ const DATA = {
       evidence: [],
     },
   ],
+  text: {
+    priorityTask: null,
+    points: [],
+    gradeInputCheck: null,
+    competencyGap: null,
+    strengths: ["성장설계 키워드가 정리되어 있음"],
+    weaknesses: ["연결 부족"],
+    careerPlan: null,
+    studyMethods: [],
+    goalOpinion: null,
+  },
+  serviceCards: [],
 } as unknown as Coaching;
 
 const print = vi.fn();
@@ -93,6 +105,7 @@ describe("W9c 코칭 PDF", () => {
     expect(container.querySelectorAll(".coaching__print")).toHaveLength(1);
     expect(container.querySelectorAll(".coaching__print-p2")).toHaveLength(1);
     expect(screen.getByText("대학 평가 5대 역량")).toBeTruthy();
+    expect(screen.getByText("성장설계 키워드가 정리되어 있음")).toBeTruthy();
     expect(screen.queryByText("교사 메모")).toBeNull();
     expect(print).toHaveBeenCalledTimes(1);
   });

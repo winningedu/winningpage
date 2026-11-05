@@ -11,6 +11,7 @@ import {
   StudentCard,
   SummaryCallout,
 } from "./CoachingPage";
+import { Narrative } from "./CoachingSections";
 import { useCoaching } from "./useCoaching";
 
 const PRINT_RULE = `
@@ -48,6 +49,7 @@ export default function CoachingPrintPage() {
       </section>
       <section className="coaching__print-p2 flex flex-col gap-6">
         <AxisPanel data={data} />
+        <Narrative data={data} />
       </section>
     </div>
   );

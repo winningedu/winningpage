@@ -13,6 +13,7 @@ import FilterSelect from "../FilterSelect";
 import PageHeader from "../PageHeader";
 import { useConsoleMe } from "../useConsoleMe";
 import CoachingRadar, { axisStatusText } from "./CoachingRadar";
+import { GoalOpinionCard, Narrative, ServiceCards } from "./CoachingSections";
 import type { Coaching, PickerStudent, ServiceKey, Signal } from "./types";
 import { useCoaching, useCoachingStudents } from "./useCoaching";
 
@@ -185,9 +186,19 @@ export function StudentCard({ data }: { data: Coaching }) {
 
 export function SummaryCallout({ data }: { data: Coaching }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-surface-info px-5 py-4">
-      <p className="text-app-label font-semibold text-primary">한줄 진단</p>
-      <p className="text-app-body text-ink-strong">{data.summary}</p>
+    <div className="flex flex-col gap-3 rounded-xl bg-surface-info px-5 py-4">
+      <div className="flex flex-col gap-1">
+        <p className="text-app-label font-semibold text-primary">한줄 진단</p>
+        <p className="text-app-body text-ink-strong">{data.summary}</p>
+      </div>
+      {data.text.priorityTask && (
+        <div className="flex flex-col gap-1 border-t border-line pt-3">
+          <p className="text-app-label font-semibold text-primary">우선 과제</p>
+          <p className="text-app-body text-ink-strong">
+            {data.text.priorityTask}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -287,6 +298,7 @@ function DiagnosisCard({ data }: { data: Coaching }) {
         <CompetencyList data={data} />
         <AxisPanel data={data} />
       </div>
+      <Narrative data={data} />
     </section>
   );
 }
@@ -374,6 +386,11 @@ export default function CoachingPage() {
             <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:px-12">
               <StudentCard data={coaching.data} />
               <DiagnosisCard data={coaching.data} />
+              <ServiceCards
+                cards={coaching.data.serviceCards}
+                onOpen={() => {}}
+              />
+              <GoalOpinionCard data={coaching.data} />
             </div>
           )}
         </>

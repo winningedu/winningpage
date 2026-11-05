@@ -78,4 +78,38 @@ export interface Coaching {
     weakest: { name: string; score: number } | null;
   };
   competencies: Competency[];
+  text: CoachingText;
+  serviceCards: ServiceCard[];
+}
+
+export interface GoalOpinion {
+  summary: string;
+  details: {
+    recordFlow: string;
+    weekdayPattern: string;
+    distractions: string;
+    questions: string[];
+  } | null;
+}
+
+export interface CoachingText {
+  priorityTask: string | null;
+  points: string[];
+  gradeInputCheck: string | null;
+  competencyGap: string | null;
+  strengths: string[];
+  weaknesses: string[];
+  careerPlan: { label: string; items: string[] }[] | null;
+  studyMethods: string[];
+  goalOpinion: GoalOpinion | null;
+}
+
+export interface ServiceCard {
+  service: ServiceKey;
+  name: string;
+  state: "using" | "not_joined" | "no_goal";
+  chip: string;
+  tone: "neutral" | "success" | "warning";
+  value: string;
+  detail: string;
 }
