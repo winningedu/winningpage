@@ -24,16 +24,20 @@ export function readQuery<Row>(
   return admin.from(table).select(columns) as unknown as ReadQuery<Row>;
 }
 
-/** 조건을 건 쿼리를 id 순으로 끝까지 읽는다(쪽마다 순서가 같아야 행이 빠지거나 겹치지 않는다). */
+/**
+ * 조건을 건 쿼리를 orderBy(기본 id) 순으로 끝까지 읽는다. 쪽마다 순서가 같아야 행이 빠지거나 겹치지 않으니
+ * id 열이 없는 테이블은 유일한 열을 넘긴다.
+ */
 export function readAll<Row>(
   admin: SupabaseClient,
   table: string,
   columns: string,
   where: (query: ReadQuery<Row>) => ReadQuery<Row>,
+  orderBy = "id",
 ): Promise<Row[]> {
   return fetchAllRows<Row>((from, to) =>
     where(readQuery<Row>(admin, table, columns))
-      .order("id")
+      .order(orderBy)
       .range(from, to),
   );
 }
@@ -80,6 +84,7 @@ export async function loadHomeroomClassIds(
     "teacher_class_assignments",
     "class_id",
     (q) => q.eq("tenant_id", tenantId),
+    "class_id",
   );
   return new Set(rows.map((r) => r.class_id));
 }

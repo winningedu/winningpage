@@ -29,6 +29,8 @@ export interface KitState {
     values: Record<string, unknown>;
     filters: Record<string, unknown>;
   }[];
+  /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
+  orders: { table: string; column: string }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
   events: string[];
   auth: {
@@ -86,6 +88,7 @@ export function createKitState(): KitState {
     insertError: null,
     insertErrors: {},
     updates: [],
+    orders: [],
     events,
     auth: {
       createUser: ok("createUser"),
@@ -145,8 +148,12 @@ export function createFakeAdmin(state: KitState) {
         filters[col] = values;
         return chain;
       };
-      for (const m of ["like", "order", "limit", "ilike", "range"])
+      for (const m of ["like", "limit", "ilike", "range"])
         chain[m] = () => chain;
+      chain.order = (column: string) => {
+        state.orders.push({ table, column });
+        return chain;
+      };
       chain.maybeSingle = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());

@@ -111,6 +111,14 @@ describe("GET /api/console/classes", () => {
     });
   });
 
+  test("every full read is ordered by a column its table has (assignments have no id column)", async () => {
+    await get();
+    expect(kit.state.orders).toContainEqual({
+      table: "teacher_class_assignments",
+      column: "class_id",
+    });
+  });
+
   test("year selects another school year", async () => {
     const r = await get({ year: "2025" });
     expect(
