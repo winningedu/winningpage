@@ -493,6 +493,31 @@ describe("W9 문구 칸", () => {
   });
 });
 
+describe("W9 교사 메모", () => {
+  it("학생 옆에 메모 패널을 두고 그 학생의 메모를 읽는다", async () => {
+    stubPage({
+      "GET /api/console/memos?studentId=s1": {
+        body: {
+          memos: [
+            {
+              id: "m1",
+              body: "진로 상담 필요",
+              createdAt: "2026-10-28T01:00:00Z",
+              authorName: "박지훈",
+              canDelete: true,
+            },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(await screen.findByText("진로 상담 필요")).toBeTruthy();
+    expect(screen.getByLabelText("메모")).toBeTruthy();
+  });
+});
+
 describe("W9 일부 서비스만 이용", () => {
   it("쓰지 않는 서비스는 이용 전으로, 목표를 못 읽으면 목표 칩을 숨긴다", async () => {
     stubPage({

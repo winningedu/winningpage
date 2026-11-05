@@ -14,6 +14,7 @@ import PageHeader from "../PageHeader";
 import { useConsoleMe } from "../useConsoleMe";
 import CoachingRadar, { axisStatusText } from "./CoachingRadar";
 import { GoalOpinionCard, Narrative, ServiceCards } from "./CoachingSections";
+import MemoPanel from "./MemoPanel";
 import type { Coaching, PickerStudent, ServiceKey, Signal } from "./types";
 import { useCoaching, useCoachingStudents } from "./useCoaching";
 
@@ -308,7 +309,7 @@ function Skeleton() {
     <div
       role="status"
       aria-label="코칭 불러오는 중"
-      className="flex animate-pulse flex-col gap-6 px-4 pb-24 md:px-8 lg:px-12"
+      className="flex min-w-0 flex-1 animate-pulse flex-col gap-6"
     >
       {["h-[11.625rem]", "h-[40rem]"].map((h) => (
         <div key={h} className={cn("rounded-2xl bg-neutral-200", h)} />
@@ -376,21 +377,27 @@ export default function CoachingPage() {
               onPick={pick}
             />
           )}
-          {(list.isPending || coaching.isPending) && !list.isError && (
-            <Skeleton />
-          )}
+          {list.isPending && <Skeleton />}
           {(list.isError || coaching.isError) && (
             <EmptyMessage body="개인종합코칭을 불러오지 못했어요" />
           )}
-          {coaching.data && (
-            <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:px-12">
-              <StudentCard data={coaching.data} />
-              <DiagnosisCard data={coaching.data} />
-              <ServiceCards
-                cards={coaching.data.serviceCards}
-                onOpen={() => {}}
-              />
-              <GoalOpinionCard data={coaching.data} />
+          {studentId && (
+            <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:flex-row lg:items-start lg:px-12">
+              <div className="order-first lg:order-last">
+                <MemoPanel studentId={studentId} admin={admin} />
+              </div>
+              {coaching.isPending && !coaching.isError && <Skeleton />}
+              {coaching.data && (
+                <div className="flex min-w-0 flex-1 flex-col gap-6">
+                  <StudentCard data={coaching.data} />
+                  <DiagnosisCard data={coaching.data} />
+                  <ServiceCards
+                    cards={coaching.data.serviceCards}
+                    onOpen={() => {}}
+                  />
+                  <GoalOpinionCard data={coaching.data} />
+                </div>
+              )}
             </div>
           )}
         </>
