@@ -47,23 +47,14 @@ async function get(authorization?: string, method = "GET"): Promise<Captured> {
 beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "cron-secret");
   state.rpc.mockReset();
-  state.rpc.mockImplementation(async (name: string) => ({
-    data:
-      name === "fn_anonymize_expired_b2b_members"
-        ? [
-            {
-              tenants_processed: 1,
-              members_anonymized: 5,
-              members_protected: 2,
-            },
-          ]
-        : [
-            {
-              enrollment_changes_deleted: 4,
-              enrollments_deleted: 3,
-              access_logs_deleted: 7,
-            },
-          ],
+  state.rpc.mockImplementation(async () => ({
+    data: [
+      {
+        enrollment_changes_deleted: 4,
+        enrollments_deleted: 3,
+        access_logs_deleted: 7,
+      },
+    ],
     error: null,
   }));
 });
@@ -85,12 +76,10 @@ describe("GET /api/cron/b2b-retention-purge", () => {
       enrollmentChangesDeleted: 4,
       enrollmentsDeleted: 3,
       accessLogsDeleted: 7,
-      membersAnonymized: 5,
-      membersProtected: 2,
     });
+    // 계약 종료 회원 삭제는 본사가 수동으로 한다(사 #162, #176). 크론은 익명화 함수를 부르지 않는다.
     expect(state.rpc.mock.calls.map((c) => c[0])).toEqual([
       "fn_purge_b2b_retention",
-      "fn_anonymize_expired_b2b_members",
     ]);
   });
 
@@ -125,28 +114,6 @@ describe("GET /api/cron/b2b-retention-purge", () => {
   test("정리 함수가 실패하면 500 이다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     state.rpc.mockResolvedValue({ data: null, error: { code: "XX000" } });
-
-    const r = await get("Bearer cron-secret");
-
-    expect(r.status).toBe(500);
-  });
-
-  test("익명화 함수가 실패하면 500 이다", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    state.rpc.mockImplementation(async (name: string) =>
-      name === "fn_anonymize_expired_b2b_members"
-        ? { data: null, error: { code: "XX000" } }
-        : {
-            data: [
-              {
-                enrollment_changes_deleted: 0,
-                enrollments_deleted: 0,
-                access_logs_deleted: 0,
-              },
-            ],
-            error: null,
-          },
-    );
 
     const r = await get("Bearer cron-secret");
 
