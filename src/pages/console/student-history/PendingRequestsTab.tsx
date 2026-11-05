@@ -11,16 +11,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import Chip from "../Chip";
 import { PENDING_COUNT_KEY } from "../ConsoleLayout";
 import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
+import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
+import { useMobileLayout } from "../useMobileLayout";
 import { type Slot, slotLabel } from "./format";
+import NameCell from "./NameCell";
 import RejectDialog from "./RejectDialog";
 import { HISTORY_KEY, usePagedList } from "./usePagedList";
 import { usePageParam } from "./usePageParam";
@@ -59,11 +63,13 @@ export default function PendingRequestsTab() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<PendingRequest | null>(null);
+  const mobile = useMobileLayout();
   const [page, setPage] = usePageParam();
   const list = usePagedList<PendingRequest>(
     "/api/console/enrollment-requests",
     {},
     page,
+    mobile,
   );
 
   const refresh = () =>
@@ -142,6 +148,30 @@ export default function PendingRequestsTab() {
     return null;
   };
 
+  const actions = (item: PendingRequest, size: string) => (
+    <>
+      <Button
+        type="button"
+        disabled={busyId !== null}
+        onClick={() => void approve(item)}
+        className={cn(size, "rounded-lg px-3 text-sm font-medium")}
+      >
+        승인
+      </Button>
+      <Button
+        type="button"
+        disabled={busyId !== null}
+        onClick={() => setRejecting(item)}
+        className={cn(
+          size,
+          "rounded-lg bg-surface-muted px-4 text-app-label font-semibold text-ink-strong hover:bg-surface-muted",
+        )}
+      >
+        거절
+      </Button>
+    </>
+  );
+
   if (list.isError)
     return <Notice tone="Danger">신청 목록을 불러오지 못했어요</Notice>;
   if (!list.data) return null;
@@ -151,61 +181,88 @@ export default function PendingRequestsTab() {
       <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
         {`승인 대기 ${list.data.total}건`}
       </h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>학생명</TableHead>
-            <TableHead>기존 학년그룹/반/번호</TableHead>
-            <TableHead>요청한 학년그룹/반/번호</TableHead>
-            <TableHead>처리</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      {mobile ? (
+        <div className="flex flex-col">
           {list.data.items.map((item) => (
-            <TableRow key={item.changeId}>
-              <TableCell>{item.studentName}</TableCell>
-              <TableCell>{slotLabel(item.from)}</TableCell>
-              <TableCell>
-                <span className="flex items-center gap-2">
+            <div
+              key={item.changeId}
+              className="flex flex-col gap-3 border-b border-line pt-4 pb-4"
+            >
+              <NameCell name={item.studentName} />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-app-caption text-ink-sub">
+                  기존 학년그룹/반/번호
+                </span>
+                <span className="text-app-label font-semibold text-ink">
+                  {slotLabel(item.from)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-app-caption text-ink-sub">
+                  요청한 학년그룹/반/번호
+                </span>
+                <span className="flex items-center gap-2 text-app-label font-semibold text-ink">
                   {slotLabel(item.to)}
                   <Chip tone="Neutral">신청 중</Chip>
                 </span>
-              </TableCell>
-              <TableCell>
-                <span className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    disabled={busyId !== null}
-                    onClick={() => void approve(item)}
-                    className="h-8 rounded-lg px-3 text-sm font-medium"
-                  >
-                    승인
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={busyId !== null}
-                    onClick={() => setRejecting(item)}
-                    className="h-8 rounded-lg bg-surface-muted px-4 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-                  >
-                    거절
-                  </Button>
-                </span>
-              </TableCell>
-            </TableRow>
+              </div>
+              <div className="flex gap-2">{actions(item, "h-11 flex-1")}</div>
+            </div>
           ))}
-        </TableBody>
-      </Table>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>학생명</TableHead>
+              <TableHead>기존 학년그룹/반/번호</TableHead>
+              <TableHead>요청한 학년그룹/반/번호</TableHead>
+              <TableHead>처리</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.data.items.map((item) => (
+              <TableRow key={item.changeId}>
+                <TableCell>
+                  <NameCell name={item.studentName} />
+                </TableCell>
+                <TableCell>{slotLabel(item.from)}</TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-2">
+                    {slotLabel(item.to)}
+                    <Chip tone="Neutral">신청 중</Chip>
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="flex justify-end gap-2">
+                    {actions(item, "h-8")}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
       {list.data.items.length === 0 && (
         <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요" />
       )}
-      {list.data.pageCount > 0 && (
-        <Pagination
-          page={list.data.page}
-          pageCount={list.data.pageCount}
+      {mobile ? (
+        <LoadMore
+          shown={list.data.items.length}
           total={list.data.total}
-          pageSize={PAGE_SIZE}
-          onChange={setPage}
+          unit="건"
+          onMore={list.fetchMore}
         />
+      ) : (
+        list.data.pageCount > 0 && (
+          <Pagination
+            page={list.data.page}
+            pageCount={list.data.pageCount}
+            total={list.data.total}
+            pageSize={PAGE_SIZE}
+            onChange={setPage}
+          />
+        )
       )}
       {list.data.items
         .filter((item) => item.gradeChanges)

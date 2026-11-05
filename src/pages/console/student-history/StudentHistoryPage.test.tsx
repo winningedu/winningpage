@@ -77,7 +77,22 @@ beforeEach(() => {
     data: { session: { user: { id: "u" }, access_token: "tok" } },
   });
 });
+function useMobileScreen() {
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+}
+
 afterEach(() => {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -402,5 +417,34 @@ describe("W13 승인 대기 쪽 나누기와 안내", () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/^정도윤: 학년이/)).toBeNull();
+  });
+});
+
+describe("W13 승인 대기 휴대폰", () => {
+  it("표 대신 카드로 보이고 더 보기로 다음 쪽을 이어 붙인다", async () => {
+    useMobileScreen();
+    const PAGE2 = "GET /api/console/enrollment-requests?page=2";
+    stubPage({
+      [PENDING_URL]: {
+        body: { total: 2, page: 1, pageCount: 2, items: [request(1)] },
+      },
+      [PAGE2]: {
+        body: { total: 2, page: 2, pageCount: 2, items: [request(2)] },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+
+    expect(await screen.findByText("김서연")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("기존 학년그룹/반/번호")).toBeTruthy();
+    expect(screen.getByText("2학년 3반 12번")).toBeTruthy();
+    expect(screen.getByText("1 / 2건")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
+
+    expect(await screen.findByText("정도윤")).toBeTruthy();
+    expect(screen.getByText("김서연")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
   });
 });
