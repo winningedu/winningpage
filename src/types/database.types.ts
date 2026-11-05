@@ -1828,6 +1828,122 @@ export type Database = {
           },
         ];
       };
+      enrollment_changes: {
+        Row: {
+          base_version: number | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decided_teacher_id: string | null;
+          from_class_id: string | null;
+          from_grade: string | null;
+          from_number: number | null;
+          id: string;
+          kind: string;
+          proxy_session_id: string | null;
+          reason: string | null;
+          reject_reason: string | null;
+          requested_by: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          to_class_id: string | null;
+          to_grade: string | null;
+          to_number: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          base_version?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decided_teacher_id?: string | null;
+          from_class_id?: string | null;
+          from_grade?: string | null;
+          from_number?: number | null;
+          id?: string;
+          kind: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
+          reject_reason?: string | null;
+          requested_by?: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          to_class_id?: string | null;
+          to_grade?: string | null;
+          to_number?: number | null;
+        };
+        Update: {
+          base_version?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decided_teacher_id?: string | null;
+          from_class_id?: string | null;
+          from_grade?: string | null;
+          from_number?: number | null;
+          id?: string;
+          kind?: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
+          reject_reason?: string | null;
+          requested_by?: string | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+          to_class_id?: string | null;
+          to_grade?: string | null;
+          to_number?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_changes_decided_teacher_id_fkey";
+            columns: ["decided_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_from_class_id_fkey";
+            columns: ["from_class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_to_class_id_fkey";
+            columns: ["to_class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       enrollments: {
         Row: {
           application_status: string | null;
@@ -6525,6 +6641,74 @@ export type Database = {
         };
         Relationships: [];
       };
+      student_enrollments: {
+        Row: {
+          class_id: string | null;
+          grade: string | null;
+          graduated_at: string | null;
+          id: string;
+          number: number | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_id?: string | null;
+          grade?: string | null;
+          graduated_at?: string | null;
+          id?: string;
+          number?: number | null;
+          school_year: number;
+          status?: string;
+          student_id: string;
+          tenant_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Update: {
+          class_id?: string | null;
+          grade?: string | null;
+          graduated_at?: string | null;
+          id?: string;
+          number?: number | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_enrollments_class_id_tenant_id_school_year_grade_fkey";
+            columns: ["class_id", "tenant_id", "school_year", "grade"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id", "tenant_id", "school_year", "grade"];
+          },
+          {
+            foreignKeyName: "student_enrollments_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_enrollments_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       student_link_codes: {
         Row: {
           code: string;
@@ -7958,6 +8142,38 @@ export type Database = {
         };
       };
       fn_delete_account: { Args: { p_user_id: string }; Returns: string };
+      fn_enrollment_join: {
+        Args: {
+          p_class_name: string;
+          p_grade: string;
+          p_group_name: string;
+          p_number: number;
+          p_student: string;
+          p_tenant: string;
+        };
+        Returns: {
+          class_id: string;
+          enrollment_id: string;
+          version: number;
+        }[];
+      };
+      fn_enrollment_update: {
+        Args: {
+          p_actor: string;
+          p_apply_year: number;
+          p_expected_version: number;
+          p_kind: string;
+          p_reason: string;
+          p_student: string;
+          p_to_class_id: string;
+          p_to_grade: string;
+          p_to_number: number;
+        };
+        Returns: {
+          enrollment_id: string;
+          version: number;
+        }[];
+      };
       fn_finalize_paid_order: {
         Args: {
           p_confirm_amount?: number;
