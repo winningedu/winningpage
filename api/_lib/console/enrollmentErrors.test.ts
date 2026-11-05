@@ -4,7 +4,7 @@ import type { VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
 import { sendEnrollmentRpcError } from "./enrollmentErrors.js";
 
-function run(error: unknown) {
+function run(error: { code?: string } | null) {
   const captured: { status: number; body: unknown } = {
     status: 0,
     body: undefined,
