@@ -96,3 +96,71 @@ export function gradeRank(grade: string | null): number {
 export function compareClassName(a: string, b: string): number {
   return a.localeCompare(b, "ko", { numeric: true });
 }
+
+export interface ClassInfo {
+  id: string;
+  schoolYear: number;
+  grade: string;
+  groupId: string | null;
+  groupName: string | null;
+  name: string;
+}
+
+/** 기관의 모든 학년도 학급을 id 로 찾게 모은다(이력은 지난 학년도 학급도 가리킨다). */
+export async function loadClassIndex(
+  admin: SupabaseClient,
+  tenantId: string,
+): Promise<Map<string, ClassInfo>> {
+  const [classes, groupNames] = await Promise.all([
+    readAll<{
+      id: string;
+      school_year: number;
+      grade: string;
+      group_id: string | null;
+      name: string;
+    }>(admin, "classes", "id, school_year, grade, group_id, name", (q) =>
+      q.eq("tenant_id", tenantId),
+    ),
+    loadGroupNames(admin, tenantId),
+  ]);
+  return new Map(
+    classes.map((c) => [
+      c.id,
+      {
+        id: c.id,
+        schoolYear: c.school_year,
+        grade: c.grade,
+        groupId: c.group_id,
+        groupName: c.group_id ? (groupNames.get(c.group_id) ?? null) : null,
+        name: c.name,
+      },
+    ]),
+  );
+}
+
+const PROFILE_CHUNK = 100;
+
+/** 학생 이름. in 목록이 URL 한도를 넘지 않게 100명씩 나눠 읽는다. */
+export async function loadProfileNames(
+  admin: SupabaseClient,
+  ids: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(ids)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += PROFILE_CHUNK) {
+    chunks.push(unique.slice(i, i + PROFILE_CHUNK));
+  }
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      readAll<{ id: string; name: string | null }>(
+        admin,
+        "profiles",
+        "id, name",
+        (q) => q.in("id", chunk),
+      ),
+    ),
+  );
+  return new Map(
+    pages.flat().map((p) => [p.id, p.name ?? ""] as [string, string]),
+  );
+}
