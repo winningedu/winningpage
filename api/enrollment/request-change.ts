@@ -20,6 +20,12 @@ interface ChangeRequest {
   number: number | null;
 }
 
+// 비운 학급은 지금 값을 유지한다는 뜻이다. 빈 문자열은 null 과 같게 보낸다.
+function blankToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 function parseBody(body: unknown): ChangeRequest | null {
   const { grade, groupName, className, number } = (body ?? {}) as Record<
     string,
@@ -40,8 +46,8 @@ function parseBody(body: unknown): ChangeRequest | null {
   }
   const parsed: ChangeRequest = {
     grade: (grade as string | null | undefined) ?? null,
-    groupName: (groupName as string | null | undefined) ?? null,
-    className: (className as string | null | undefined) ?? null,
+    groupName: blankToNull(groupName as string | null | undefined),
+    className: blankToNull(className as string | null | undefined),
     number: (number as number | null | undefined) ?? null,
   };
   const changesNothing = Object.values(parsed).every(

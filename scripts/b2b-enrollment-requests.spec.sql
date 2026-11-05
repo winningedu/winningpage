@@ -98,7 +98,8 @@ insert into fx values
   ('s5', pg_temp.mk_user('t19-s5@t.local')), ('s6', pg_temp.mk_user('t19-s6@t.local')),
   ('hr1', pg_temp.mk_user('t19-hr1@t.local')), ('hr2', pg_temp.mk_user('t19-hr2@t.local')),
   ('hrb', pg_temp.mk_user('t19-hrb@t.local')), ('adm', pg_temp.mk_user('t19-adm@t.local')),
-  ('hq', pg_temp.mk_user('t19-hq@t.local', 'admin'));
+  ('hq', pg_temp.mk_user('t19-hq@t.local', 'admin')),
+  ('s7', pg_temp.mk_user('t19-s7@t.local'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 create function pg_temp.year() returns integer language sql as $$
   select school_year from public.tenants where code = 'R9AAAAAA'
@@ -130,6 +131,7 @@ begin
   values (pg_temp.fx('ta'), pg_temp.fx(p_student), pg_temp.year(), p_grade,
     case when p_class is not null then pg_temp.cid('ta', p_grade, p_class) end, p_number);
 end $$;
+select pg_temp.enroll('s7', '2', 20);
 select pg_temp.enroll('s1', '1', 1);
 select pg_temp.enroll('s2', '1', 2);
 select pg_temp.enroll('s3', '1', 3);
@@ -166,6 +168,11 @@ select pg_temp.expect_text('request: 신청 시점의 이전 값이 담긴다',
   (select from_class_id = pg_temp.cid('ta', '고1', '1') and from_number = 1 and requested_by = pg_temp.fx('s1')
      and school_year = pg_temp.year() and tenant_id = pg_temp.fx('ta') and to_class_id = pg_temp.cid('ta', '고1', '2')
      from public.enrollment_changes where id = (select v from rq where k = 's1'))::text, 'true');
+-- 번호만 바꾸는 신청: 학급과 학년은 지금 값을 그대로 쓴다(null 로 지우지 않는다).
+insert into rq values ('s7', pg_temp.req('s7', null, null, null, 21));
+select pg_temp.expect_text('request: 번호만 신청하면 학급을 유지한다',
+  (select (to_class_id = pg_temp.cid('ta', '고1', '2') and to_grade = '고1')::text
+     from public.enrollment_changes where id = (select v from rq where k = 's7')), 'true');
 select pg_temp.expect_error('request: 두 번째 열린 신청 거부(WC082)',
   $$select pg_temp.req('s1', '고1', null, '3', 6)$$, 'WC082');
 select pg_temp.expect_int('request: 거부되면 신청은 하나뿐',
@@ -189,6 +196,9 @@ returns text language sql as $$
   select public.fn_decide_enrollment_change(p_change, p_approve, p_reason, pg_temp.fx(p_actor))
 $$;
 
+select pg_temp.expect_text('decide: 번호만 신청을 승인해도 학급은 그대로',
+  pg_temp.decide((select v from rq where k = 's7'), true, 'hr2'), 'applied');
+select pg_temp.expect_text('decide: 번호만 바뀐다', pg_temp.enr_s('s7'), '고1/2/21/v2');
 -- s1 은 2반으로 신청했고 2반 담임은 hr2
 select pg_temp.expect_text('decide: 도착 학급 담임이 승인하면 applied',
   pg_temp.decide((select v from rq where k = 's1'), true, 'hr2'), 'applied');

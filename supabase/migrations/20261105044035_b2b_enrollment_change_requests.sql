@@ -6,7 +6,8 @@
 
 -- 학생 본인(auth.uid())의 신청. 올해 학적이 있는 재학생만, 학생당 열린 신청은 하나(WC082).
 -- 그룹 이름은 대소문자와 앞뒤 공백을 무시하고 찾고 없으면 WC080. 학급은 fn_class_ensure 로 필요할 때 만든다.
--- 학년을 비우면 지금 학년을 쓴다. 번호 중복은 승인할 때 검사한다.
+-- 학년을 비우면 지금 학년을 쓴다. 학급과 번호를 비우면 지금 값을 유지한다(학년이 그대로일 때만 학급을 유지한다,
+-- 학급은 학년에 속하므로). 번호 중복은 승인할 때 검사한다.
 -- 신청 시점의 학적 version 을 base_version 으로 남겨 승인 때 충돌을 알아챈다.
 create function public.fn_request_enrollment_change(
   p_to_grade text,
@@ -53,6 +54,8 @@ begin
 
   if nullif(btrim(p_to_class_name), '') is not null then
     v_class := public.fn_class_ensure(v_enr.tenant_id, v_enr.school_year, v_grade, v_group, p_to_class_name);
+  elsif v_grade is not distinct from v_enr.grade then
+    v_class := v_enr.class_id;
   end if;
 
   begin
@@ -62,7 +65,7 @@ begin
       base_version, requested_by
     ) values (
       v_enr.tenant_id, v_uid, v_enr.school_year, 'request', 'pending',
-      v_enr.grade, v_enr.class_id, v_enr.number, v_grade, v_class, p_to_number,
+      v_enr.grade, v_enr.class_id, v_enr.number, v_grade, v_class, coalesce(p_to_number, v_enr.number),
       v_enr.version, v_uid
     )
     returning id into v_id;

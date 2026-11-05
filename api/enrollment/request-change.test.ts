@@ -108,6 +108,17 @@ describe("POST /api/enrollment/request-change", () => {
     });
   });
 
+  test("blank group and class names go as null so the current class is kept", async () => {
+    await post({ groupName: " ", className: "", number: 7 });
+
+    expect(state.userRpc[0]?.args).toEqual({
+      p_to_grade: null,
+      p_to_group_name: null,
+      p_to_class_name: null,
+      p_to_number: 7,
+    });
+  });
+
   test.each([
     ["WC082", 409, "REQUEST_PENDING"],
     ["WC081", 404, "NOT_FOUND"],
