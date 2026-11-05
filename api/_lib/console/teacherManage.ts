@@ -64,6 +64,17 @@ export async function setAuthBan(
   if (error) throw new AuthSyncError("ban");
 }
 
+/** Auth 사용자를 지운다. 이미 없으면(재시도) 성공으로 본다. 실패하면 예외. */
+export async function deleteAuthUser(
+  admin: SupabaseClient,
+  profileId: string,
+): Promise<void> {
+  const { error } = await admin.auth.admin.deleteUser(profileId);
+  if (error && error.code !== "user_not_found") {
+    throw new AuthSyncError("delete");
+  }
+}
+
 /** DB 는 이미 커밋됐지만 Auth 쪽 반영이 끝나지 않았다. 같은 요청을 다시 보내면 마무리된다. */
 export class AuthSyncError extends Error {
   constructor(operation: string) {
