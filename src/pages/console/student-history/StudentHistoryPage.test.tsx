@@ -903,6 +903,32 @@ describe("W13b 학생 정보 직접 변경", () => {
     );
   });
 
+  it("번호가 숫자가 아니거나 범위 밖이면 서버에 보내지 않고 칸 아래에 안내한다", async () => {
+    const { calls, dialog } = await openDirect();
+
+    for (const bad of ["7a", "0", "100", "1.5"]) {
+      setNumber(dialog, bad);
+      fireEvent.click(saveButton(dialog));
+      expect(
+        await within(dialog).findByText(
+          "번호는 1부터 99까지 숫자로 적어 주세요",
+        ),
+      ).toBeTruthy();
+    }
+    expect(calls.some((c) => c.key === PATCH)).toBe(false);
+  });
+
+  it("번호 뒤에 붙은 번은 떼고 숫자만 보낸다", async () => {
+    const { calls, dialog } = await openDirect();
+    setNumber(dialog, "7번");
+    fireEvent.click(saveButton(dialog));
+    await vi.waitFor(() =>
+      expect(calls.find((c) => c.key === PATCH)?.body).toMatchObject({
+        number: 7,
+      }),
+    );
+  });
+
   it("번호가 이미 쓰이면 새 번호 칸 아래에 쓰는 학생을 보이고 값은 그대로 둔다", async () => {
     const { dialog } = await openDirect({
       [PATCH]: {

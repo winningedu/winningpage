@@ -25,6 +25,7 @@ const REASONS = [
 ] as const;
 
 const CONFLICT_MESSAGE = "다른 분이 먼저 바꿨어요. 새로 고침해 주세요";
+const NUMBER_INVALID_MESSAGE = "번호는 1부터 99까지 숫자로 적어 주세요";
 const NONE = { value: "", label: "선택" };
 
 interface DirectChangeDialogProps {
@@ -33,6 +34,15 @@ interface DirectChangeDialogProps {
   /** 다른 분이 먼저 바꿨을 때. 목록을 다시 불러와 student 의 version 이 새로 오게 한다. */
   onConflict: () => void;
   onClose: () => void;
+}
+
+// 비우면 번호를 지우는 것(null)이고, 적었으면 1부터 99까지 정수(끝의 "번"은 뗀다)만 받는다. 그 밖은 undefined.
+function parseNumber(input: string): number | null | undefined {
+  const text = input.trim().replace(/번$/, "").trim();
+  if (text === "") return null;
+  if (!/^\d{1,2}$/.test(text)) return undefined;
+  const value = Number(text);
+  return value >= 1 ? value : undefined;
 }
 
 function numberTakenMessage(body: unknown): string {
@@ -117,6 +127,11 @@ export default function DirectChangeDialog({
     applyYear !== currentYear;
 
   const save = async () => {
+    const parsedNumber = parseNumber(number);
+    if (parsedNumber === undefined) {
+      setNumberError(NUMBER_INVALID_MESSAGE);
+      return;
+    }
     setSaving(true);
     setNumberError(null);
     setNotice(null);
@@ -128,7 +143,7 @@ export default function DirectChangeDialog({
           expectedVersion: enrollment.version,
           grade: grade || null,
           classId: classId || null,
-          number: number.trim() === "" ? null : Number(number),
+          number: parsedNumber,
           reason: reason || null,
           applyYear,
         },
