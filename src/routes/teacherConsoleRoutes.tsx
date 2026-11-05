@@ -7,6 +7,7 @@ import ConsoleLayout from "@/pages/console/ConsoleLayout";
 import ConsolePlaceholder from "@/pages/console/ConsolePlaceholder";
 import DashboardPage from "@/pages/console/dashboard/DashboardPage";
 import EnrollmentPage from "@/pages/console/enrollment/EnrollmentPage";
+import CoachingPage from "@/pages/console/coaching/CoachingPage";
 import FirstPasswordPage from "@/pages/console/FirstPasswordPage";
 import ImportSetupPage from "@/pages/console/import-setup/ImportSetupPage";
 import MyPage from "@/pages/console/MyPage";
@@ -38,6 +39,7 @@ const teacherConsoleRoutes: RouteObject[] = [
             children: [
               { index: true, Component: DashboardPage },
               { path: "my", Component: MyPage },
+              { path: "coaching", Component: CoachingPage },
               { path: "org-info", Component: OrgInfoPage },
               { path: "import", Component: ImportSetupPage },
               { path: "students", Component: StudentListPage },
