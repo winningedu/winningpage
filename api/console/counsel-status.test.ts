@@ -58,10 +58,7 @@ beforeEach(() => {
     name: id,
   });
   kit.state.rows.classes = (f) =>
-    matchRows(
-      [cls("c-3", "고3"), cls("c-4", "고3"), cls("c-x", "고3")],
-      f,
-    );
+    matchRows([cls("c-3", "고3"), cls("c-4", "고3"), cls("c-x", "고3")], f);
   kit.state.rows.class_groups = () => [];
   kit.state.rows.counsel_statuses = () => [];
 });
@@ -93,5 +90,79 @@ describe("PUT /api/console/counsel-status", () => {
         meta: { from: "unset", to: "scheduled" },
       },
     });
+  });
+
+  test("sending the same status again writes no row, keeps the change date and leaves an unchanged audit record", async () => {
+    kit.state.rows.counsel_statuses = () => [
+      { status: "done", changed_at: "2026-11-01T00:00:00Z" },
+    ];
+
+    const r = await put({ studentId: "s1", status: "done" });
+
+    expect(r.body).toEqual({
+      ok: true,
+      status: "done",
+      changedAt: "2026-11-01T00:00:00Z",
+    });
+    expect(kit.state.upserts).toEqual([]);
+    expect(kit.state.inserts).toHaveLength(1);
+    expect(kit.state.inserts[0]).toMatchObject({
+      row: { meta: { from: "done", to: "done", unchanged: true } },
+    });
+  });
+
+  test("setting unset on a student who never had a status writes no row", async () => {
+    const r = await put({ studentId: "s1", status: "unset" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, status: "unset", changedAt: null });
+    expect(kit.state.upserts).toEqual([]);
+  });
+
+  test("changing from another status records the previous one in the audit meta", async () => {
+    kit.state.rows.counsel_statuses = () => [
+      { status: "scheduled", changed_at: "2026-11-01T00:00:00Z" },
+    ];
+
+    const r = await put({ studentId: "s1", status: "needed" });
+
+    expect(r.status).toBe(200);
+    expect(kit.state.upserts).toHaveLength(1);
+    expect(kit.state.inserts[0]).toMatchObject({
+      row: { meta: { from: "scheduled", to: "needed" } },
+    });
+  });
+
+  test("a student of another class, another tenant, not in grade 3 or nobody is 404 and writes nothing", async () => {
+    for (const studentId of ["s2", "s3", "s4", "nobody"]) {
+      expect((await put({ studentId, status: "done" })).status).toBe(404);
+    }
+    expect(kit.state.upserts).toEqual([]);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("a school admin sets any grade-3 student of the tenant", async () => {
+    kit.state.actor = schoolAdminActor();
+
+    expect((await put({ studentId: "s2", status: "done" })).status).toBe(200);
+  });
+
+  test("an unknown status or a missing student id is 400", async () => {
+    expect((await put({ studentId: "s1", status: "later" })).status).toBe(400);
+    expect((await put({ studentId: "s1" })).status).toBe(400);
+    expect((await put({ status: "done" })).status).toBe(400);
+    expect((await put({ studentId: "", status: "done" })).status).toBe(400);
+  });
+
+  test("a failing audit write or database write fails the request", async () => {
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+    expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
+
+    kit.state.insertErrors = { counsel_statuses: { message: "down" } };
+    expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
+  });
+
+  test("other methods are refused", async () => {
+    expect((await callHandler(handler, {}, "POST")).status).toBe(405);
   });
 });
