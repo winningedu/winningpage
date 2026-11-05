@@ -15,12 +15,19 @@ export function invalidMessage(failCount: number): string {
   return `아이디 또는 비밀번호가 올바르지 않습니다. (실패 ${failCount}/${MAX_FAILS}회)`;
 }
 
+export const LOCKED_CODE = "LOCKED";
+
+export function lockedMessage(retryAfterSeconds: number): string {
+  return `로그인에 ${MAX_FAILS}회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 ${Math.ceil(retryAfterSeconds / 60)}분 후에 다시 시도해 주세요.`;
+}
+
 export type LoginFailure = {
   ok: false;
   status: number;
   code: string;
   message: string;
   extra?: Record<string, unknown>;
+  retryAfterSeconds?: number;
 };
 
 export type LoginSuccess = {
@@ -46,7 +53,7 @@ export interface LoginInput {
         expires_at?: number;
       } | null;
     };
-    error: { status?: number } | null;
+    error: { status?: number | undefined } | null;
   }>;
 }
 
@@ -67,7 +74,19 @@ export async function attemptLogin(
   const hash = hashParam(identifier);
 
   const { data } = await admin.rpc("fn_login_attempt_begin", { p_hash: hash });
-  const begin = (data as { attempt_no: number }[])[0]!;
+  const begin = (
+    data as { outcome: string; attempt_no: number; retry_after_s: number }[]
+  )[0] as { outcome: string; attempt_no: number; retry_after_s: number };
+
+  if (begin.outcome === "locked") {
+    return {
+      ok: false,
+      status: 429,
+      code: LOCKED_CODE,
+      message: lockedMessage(begin.retry_after_s),
+      retryAfterSeconds: begin.retry_after_s,
+    };
+  }
 
   const email = `${identifier}@${SYNTHETIC_DOMAIN}`;
   const { data: signed, error } = await input.signIn(email, input.password);

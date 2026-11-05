@@ -50,6 +50,9 @@ export default defineHandler({
         mustChangePassword: result.mustChangePassword,
       });
     } else {
+      if (result.retryAfterSeconds !== undefined) {
+        res.setHeader("Retry-After", String(result.retryAfterSeconds));
+      }
       sendError(
         res,
         "coded",

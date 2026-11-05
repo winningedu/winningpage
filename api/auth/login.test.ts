@@ -178,4 +178,25 @@ describe("POST /api/auth/login", () => {
       }),
     );
   });
+
+  test("잠금 중이면 429 LOCKED 와 남은 분(올림)을 주고 GoTrue 와 end 를 부르지 않는다", async () => {
+    state.beginResult = {
+      data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 301 }],
+      error: null,
+    };
+
+    const r = await login({ identifier: "kim01", password: "pw" });
+
+    expect(r.status).toBe(429);
+    expect(r.body).toEqual({
+      error: {
+        code: "LOCKED",
+        message:
+          "로그인에 5회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 6분 후에 다시 시도해 주세요.",
+      },
+    });
+    expect(r.headers["Retry-After"]).toBe("301");
+    expect(state.signIn).not.toHaveBeenCalled();
+    expect(state.rpc).toHaveBeenCalledTimes(1);
+  });
 });
