@@ -164,3 +164,45 @@ export async function loadProfileNames(
     pages.flat().map((p) => [p.id, p.name ?? ""] as [string, string]),
   );
 }
+
+export interface SlotLabel {
+  grade: string | null;
+  groupName: string | null;
+  className: string | null;
+  number: number | null;
+}
+
+/** 학급 하나의 표기(그룹, 반 이름)를 읽어 학년, 번호와 묶는다. 학급이 없으면 그룹과 반은 null. */
+export async function loadSlotLabel(
+  admin: SupabaseClient,
+  tenantId: string,
+  slot: { grade: string | null; classId: string | null; number: number | null },
+): Promise<SlotLabel> {
+  const label: SlotLabel = {
+    grade: slot.grade,
+    groupName: null,
+    className: null,
+    number: slot.number,
+  };
+  if (!slot.classId) return label;
+  const { data: cls, error } = await admin
+    .from("classes")
+    .select("group_id, name")
+    .eq("id", slot.classId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (error) throw new Error("class lookup failed");
+  if (!cls) return label;
+  label.className = cls.name;
+  if (cls.group_id) {
+    const { data: group, error: groupError } = await admin
+      .from("class_groups")
+      .select("name")
+      .eq("id", cls.group_id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (groupError) throw new Error("class group lookup failed");
+    label.groupName = group?.name ?? null;
+  }
+  return label;
+}
