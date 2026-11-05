@@ -37,7 +37,8 @@ comment on column public.teacher_memos.request_id is '저장 요청 키(클라�
 -- 보관 기간 정리 함수에 메모, 특이학생 지정, 상담 상태를 더한다(20261105052237 의 자리표시 주석). 반환 열이 늘어 함수를 새로 만든다.
 -- 메모(결정 36, 64): 기관과 학생 한 쌍마다 그 기관의 마지막 졸업일(graduated_at 의 최댓값)이 1년 지났고 그 기관에 재학 중인 학적이 없을 때 지운다.
 -- 다른 기관의 학적은 보지 않는다. 학적을 지우기 전에 메모를 먼저 지워야 졸업 시각을 읽을 수 있다.
--- 학적과 변경 이력은 그대로 졸업 2년이고, 특이학생 지정과 상담 상태는 학적과 같은 학생을 같이 지운다(결정 64).
+-- 학적과 변경 이력은 그대로 졸업 2년이고, 특이학생 지정과 상담 상태는 학적과 같은 기관과 학생 한 쌍을 같이 지운다(결정 64).
+-- 학적 쪽도 기관과 학생 한 쌍마다 그 기관의 마지막 졸업일이 2년 지났고 그 기관에 재학 중인 학적이 없을 때만 그 기관의 행을 지운다.
 -- 상담 상태 테이블은 다음 마이그레이션(b2b_counsel_statuses)에서 만든다. plpgsql 본문은 실행할 때 테이블을 찾는다.
 drop function public.fn_purge_b2b_retention();
 
@@ -55,6 +56,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_tenants uuid[];
   v_students uuid[];
   v_changes bigint;
   v_enrollments bigint;
@@ -78,26 +80,34 @@ begin
    where m.tenant_id = g.tenant_id and m.student_id = g.student_id;
   get diagnostics v_memos = row_count;
 
-  select coalesce(array_agg(distinct e.student_id), '{}')
-    into v_students
-    from public.student_enrollments e
-   where e.status = 'graduated'
-     and e.graduated_at < now() - interval '2 years'
-     and not exists (
-       select 1 from public.student_enrollments a
-        where a.student_id = e.student_id and a.status = 'active'
-     );
+  select coalesce(array_agg(g.tenant_id), '{}'), coalesce(array_agg(g.student_id), '{}')
+    into v_tenants, v_students
+    from (
+      select e.tenant_id, e.student_id
+        from public.student_enrollments e
+       where e.status = 'graduated'
+       group by e.tenant_id, e.student_id
+      having max(e.graduated_at) < now() - interval '2 years'
+         and not exists (
+           select 1 from public.student_enrollments a
+            where a.tenant_id = e.tenant_id and a.student_id = e.student_id and a.status = 'active'
+         )
+    ) g;
 
-  delete from public.student_flags f where f.student_id = any (v_students);
+  delete from public.student_flags f
+   where (f.tenant_id, f.student_id) in (select * from unnest(v_tenants, v_students));
   get diagnostics v_flags = row_count;
 
-  delete from public.counsel_statuses c where c.student_id = any (v_students);
+  delete from public.counsel_statuses c
+   where (c.tenant_id, c.student_id) in (select * from unnest(v_tenants, v_students));
   get diagnostics v_counsel = row_count;
 
-  delete from public.enrollment_changes c where c.student_id = any (v_students);
+  delete from public.enrollment_changes c
+   where (c.tenant_id, c.student_id) in (select * from unnest(v_tenants, v_students));
   get diagnostics v_changes = row_count;
 
-  delete from public.student_enrollments e where e.student_id = any (v_students);
+  delete from public.student_enrollments e
+   where (e.tenant_id, e.student_id) in (select * from unnest(v_tenants, v_students));
   get diagnostics v_enrollments = row_count;
 
   delete from public.admin_access_logs l
