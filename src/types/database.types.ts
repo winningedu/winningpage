@@ -8924,6 +8924,14 @@ export type Database = {
         Args: { p_actor: string; p_status: string; p_teacher_id: string };
         Returns: string;
       };
+      fn_teacher_soft_delete: {
+        Args: { p_actor: string; p_teacher_ids: string[] };
+        Returns: {
+          active_students: number;
+          profile_id: string;
+          teacher_id: string;
+        }[];
+      };
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };
         Returns: boolean;

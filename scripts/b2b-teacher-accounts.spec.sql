@@ -191,6 +191,49 @@ insert into t1 values ('adm2', pg_temp.reg('ta', '관리자둘', '01070000004', 
 select pg_temp.expect_ok('관리자가 둘이면 하나는 비활성화 가능',
   $$select public.fn_teacher_set_status((select id from t1 where k = 'adm'), 'inactive', null)$$);
 
+-- ---------------------------------------------------------------------
+-- fn_teacher_soft_delete
+-- ---------------------------------------------------------------------
+create function pg_temp.mk_student(p_class_name text, p_number int) returns uuid
+language plpgsql as $$
+declare
+  v_id uuid := pg_temp.mk_auth('st-' || gen_random_uuid() || '@example.com');
+  v_t public.tenants;
+begin
+  select * into v_t from public.tenants where id = pg_temp.fx('ta');
+  insert into public.profiles (id, role, member_type, tenant_id, name) values (v_id, 'user', 'student', v_t.id, '학생');
+  insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number)
+  select v_t.id, v_id, c.school_year, c.grade, c.id, p_number
+    from public.classes c
+   where c.tenant_id = v_t.id and c.school_year = v_t.school_year and c.grade = '고1' and c.name = p_class_name;
+  return v_id;
+end $$;
+select pg_temp.mk_student('1', 1);
+select pg_temp.mk_student('1', 2);
+
+create temp table del (teacher_id uuid, profile_id uuid, active_students bigint);
+insert into del select * from public.fn_teacher_soft_delete(array[(select id from t1 where k = 'h1')], null);
+select pg_temp.expect_int('삭제는 담당 학급의 재학생 수를 돌려준다', (select active_students from del), 2);
+select pg_temp.expect_uuid('삭제는 Auth 삭제에 쓸 profile id 를 돌려준다',
+  (select profile_id from del), (select id from au where k = 'h1'));
+select pg_temp.expect_bool('삭제된 교사는 deleted_at 이 있고 로그인 아이디를 유지한다',
+  (select deleted_at is not null and login_id is not null from public.teachers where id = (select id from t1 where k = 'h1')), true);
+select pg_temp.expect_int('삭제는 담당 학급을 모두 지운다',
+  (select count(*) from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'h1')), 0);
+select pg_temp.expect_int('재학생 기록은 그대로다',
+  (select count(*) from public.student_enrollments where tenant_id = pg_temp.fx('ta')), 2);
+select pg_temp.expect_bool('삭제된 교사의 로그인 아이디는 사용 불가로 남는다',
+  public.is_username_available((select login_id from public.teachers where id = (select id from t1 where k = 'h1'))), false);
+select pg_temp.expect_int('같은 호출을 다시 해도(Auth 삭제 재시도) 같은 profile id 가 나오고 재학생은 0',
+  (select count(*) from public.fn_teacher_soft_delete(array[(select id from t1 where k = 'h1')], null)
+    where profile_id = (select id from au where k = 'h1') and active_students = 0), 1);
+select pg_temp.expect_ok('삭제된 교사의 전화번호는 다시 등록할 수 있다',
+  $$select pg_temp.reg('ta', '계정교사', '01070000001', 'homeroom')$$);
+select pg_temp.expect_error('마지막 학교 관리자 삭제는 WC076 이고 같은 호출의 다른 교사도 지워지지 않는다',
+  $$select * from public.fn_teacher_soft_delete(array[pg_temp.reg('ta', '담임셋', '01070000005', 'homeroom'), (select id from t1 where k = 'adm2')], null)$$, 'WC076');
+select pg_temp.expect_int('실패한 삭제는 아무도 지우지 않는다',
+  (select count(*) from public.teachers where phone = '01070000005' and deleted_at is not null), 0);
+
 -- @@SEGMENTS@@
 
 do $$ begin raise notice '=== b2b-teacher-accounts.spec: 전체 통과 ==='; end $$;

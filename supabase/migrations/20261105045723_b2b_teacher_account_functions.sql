@@ -109,3 +109,41 @@ $$;
 
 revoke all on function public.fn_teacher_set_status(uuid, text, uuid) from public, anon, authenticated;
 grant execute on function public.fn_teacher_set_status(uuid, text, uuid) to service_role;
+
+-- 교사를 soft delete 하고 담당 학급을 모두 지운다. 교사마다 (id, Auth 삭제에 쓸 profile id, 담당 학급의 재학생 수)를 돌려준다.
+-- 재학생 기록은 건드리지 않는다. login_id 는 행에 남아 다시 쓰이지 않는다(teachers_login_id_idx, is_username_available).
+-- 이미 삭제된 교사는 profile id 와 0명을 다시 돌려줘 Auth 삭제 재시도에 쓸 수 있다. 없는 id 는 행이 없다.
+-- 마지막 학교 관리자는 트리거가 WC076 으로 막고 호출 전체가 취소된다. 호출자가 기관 범위를 먼저 확인한다.
+create function public.fn_teacher_soft_delete(p_teacher_ids uuid[], p_actor uuid)
+returns table (teacher_id uuid, profile_id uuid, active_students bigint)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+  v_count bigint;
+begin
+  for v_t in
+    select * from public.teachers t where t.id = any (p_teacher_ids) order by t.id for update
+  loop
+    if v_t.deleted_at is not null then
+      return query select v_t.id, v_t.profile_id, 0::bigint;
+      continue;
+    end if;
+
+    select count(*) into v_count
+      from public.student_enrollments e
+      join public.teacher_class_assignments a on a.class_id = e.class_id
+     where a.teacher_id = v_t.id and e.status = 'active';
+
+    update public.teachers set deleted_at = now(), deleted_by = p_actor where id = v_t.id;
+    delete from public.teacher_class_assignments a where a.teacher_id = v_t.id;
+
+    return query select v_t.id, v_t.profile_id, v_count;
+  end loop;
+end;
+$$;
+
+revoke all on function public.fn_teacher_soft_delete(uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_soft_delete(uuid[], uuid) to service_role;
