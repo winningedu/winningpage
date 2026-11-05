@@ -367,3 +367,112 @@ describe("W6 학생 관리 휴대폰", () => {
     expect(screen.getAllByRole("button", { name: "편집하기" })).toHaveLength(2);
   });
 });
+
+const detail = {
+  studentId: "s1",
+  name: "김서연",
+  joinedAt: "2026-03-02",
+  enrollment: { grade: "고2", groupName: null, className: "3", number: 1 },
+  history: [
+    {
+      schoolYear: 2026,
+      grade: "고2",
+      groupName: null,
+      className: "3",
+      number: 1,
+    },
+    {
+      schoolYear: 2025,
+      grade: "고1",
+      groupName: null,
+      className: "5",
+      number: 4,
+    },
+  ],
+  services: { ...allServices, inquiry: false },
+  usage: [
+    ["diagnosis", null, null, null],
+    ["goal", null, null, null],
+    ["growth", null, null, null],
+    ["performance", 0, null, 21],
+    ["selfeval", null, null, null],
+    ["inquiry", 0, 3, null],
+  ].map(([key, used, monthRemaining, termRemaining]) => ({
+    key,
+    monthUsed: used,
+    monthLimit: monthRemaining,
+    monthRemaining,
+    termUsed: null,
+    termLimit: termRemaining,
+    termRemaining,
+  })),
+};
+const DETAIL_URL = "GET /api/console/students/detail?studentId=s1";
+
+describe("W6a 학생 상세", () => {
+  it("이름을 누르면 실명 제목과 학년반 이력, 서비스 이용, 사용 횟수를 창으로 보여 준다", async () => {
+    stubPage({ [DETAIL_URL]: { body: detail } });
+    renderRoutes(routes, "/teacher/students");
+
+    fireEvent.click(await screen.findByText("김서연"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByRole("heading", { name: "김서연" }),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("2학년 3반 1번")).toBeTruthy();
+    const history = within(dialog)
+      .getByText("2025")
+      .closest("tr") as HTMLElement;
+    expect(within(history).getByText("1학년")).toBeTruthy();
+    expect(within(history).getByText("5반")).toBeTruthy();
+    expect(within(history).getByText("4번")).toBeTruthy();
+    const inquiry = within(dialog)
+      .getAllByText("심화탐구")
+      .map((e) => e.closest("tr") as HTMLElement);
+    expect(within(inquiry[0] as HTMLElement).getByText("이용 전")).toBeTruthy();
+    const usage = inquiry[1] as HTMLElement;
+    expect(within(usage).getByText("3")).toBeTruthy();
+    expect(within(usage).getByText("해당 없음")).toBeTruthy();
+    const perf = within(dialog)
+      .getAllByText("수행평가")[1]
+      ?.closest("tr") as HTMLElement;
+    expect(within(perf).getByText("21")).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "이번 달 남은 횟수는 매월 1일에, 학기 남은 횟수는 학기가 바뀔 때 새로 채워져요. 횟수는 본사에서 정하고 여기서는 볼 수만 있어요.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("닫기는 창을 닫고 개인종합코칭으로는 그 학생의 W9 로 보낸다", async () => {
+    stubPage({ [DETAIL_URL]: { body: detail } });
+    renderRoutes(routes, "/teacher/students");
+    fireEvent.click(await screen.findByText("김서연"));
+    const dialog = await screen.findByRole("dialog");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "닫기" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(screen.getByText("김서연"));
+    const again = await screen.findByRole("dialog");
+    const coaching = within(again).getByRole("button", {
+      name: "개인종합코칭으로",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(coaching.disabled).toBe(false));
+    fireEvent.click(coaching);
+
+    expect(await screen.findByText("코칭 화면")).toBeTruthy();
+  });
+
+  it("상세를 읽지 못하면 오류 안내를 보인다", async () => {
+    stubPage({ [DETAIL_URL]: { status: 404, body: {} } });
+    renderRoutes(routes, "/teacher/students");
+
+    fireEvent.click(await screen.findByText("김서연"));
+
+    expect(
+      await screen.findByText("학생 정보를 불러오지 못했어요"),
+    ).toBeTruthy();
+  });
+});

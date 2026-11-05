@@ -19,6 +19,7 @@ import { filterKey, usePageParam } from "../student-history/usePageParam";
 import Tabs from "../Tabs";
 import { useConsoleMe } from "../useConsoleMe";
 import StudentCards from "./StudentCards";
+import StudentDetailDialog from "./StudentDetailDialog";
 import StudentFilterBar, { type StudentFilterValues } from "./StudentFilterBar";
 import StudentTable from "./StudentTable";
 import { SERVICES } from "./services";
@@ -91,7 +92,7 @@ export default function StudentListPage() {
     page,
     mobile,
   );
-  const [, setOpenedId] = useState<string | null>(null);
+  const [openedId, setOpenedId] = useState<string | null>(null);
   const [, setEditId] = useState<string | null>(null);
 
   const apply = (values: StudentFilterValues, nextTab: string) =>
@@ -205,6 +206,12 @@ export default function StudentListPage() {
           </>
         )}
       </section>
+      {openedId && (
+        <StudentDetailDialog
+          studentId={openedId}
+          onClose={() => setOpenedId(null)}
+        />
+      )}
     </>
   );
 }
