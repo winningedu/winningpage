@@ -19,6 +19,7 @@ import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
 import { type Slot, slotLabel } from "./format";
+import RejectDialog from "./RejectDialog";
 import { HISTORY_KEY, usePagedList } from "./usePagedList";
 
 interface PendingRequest {
@@ -53,6 +54,7 @@ export default function PendingRequestsTab() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<PendingRequest | null>(null);
   const list = usePagedList<PendingRequest>(
     "/api/console/enrollment-requests",
     {},
@@ -95,6 +97,46 @@ export default function PendingRequestsTab() {
     setBusyId(null);
   };
 
+  // 거절 확정. 처리됐거나 이미 바뀐 신청이면 창을 닫고, 사유 문제와 그 밖의 오류는 창에 남긴다.
+  const reject = async (
+    item: PendingRequest,
+    reason: string,
+  ): Promise<"blank" | string | null> => {
+    setNotice(null);
+    try {
+      const res = await consoleRequest(
+        "/api/console/enrollment-requests/decide",
+        {
+          method: "POST",
+          body: {
+            changeId: item.changeId,
+            approve: false,
+            rejectReason: reason,
+          },
+        },
+      );
+      const code = errorCode(res.body);
+      if (res.status === 200) {
+        const { studentName } = res.body as { studentName: string };
+        toast.show({
+          tone: "Success",
+          message: `${studentName} 학생의 변경을 거절했어요`,
+        });
+      } else if (code === "REJECT_REASON_REQUIRED") {
+        return "blank";
+      } else if (code === "VERSION_CONFLICT" || code === "REQUEST_NOT_FOUND") {
+        setNotice(CONFLICT_MESSAGE);
+      } else {
+        return errorMessage(res.body) ?? SAVE_FAILED_MESSAGE;
+      }
+    } catch {
+      return SAVE_FAILED_MESSAGE;
+    }
+    setRejecting(null);
+    await refresh();
+    return null;
+  };
+
   if (list.isError)
     return <Notice tone="Danger">신청 목록을 불러오지 못했어요</Notice>;
   if (!list.data) return null;
@@ -132,7 +174,13 @@ export default function PendingRequestsTab() {
                 >
                   승인
                 </button>
-                <button type="button">거절</button>
+                <button
+                  type="button"
+                  disabled={busyId !== null}
+                  onClick={() => setRejecting(item)}
+                >
+                  거절
+                </button>
               </TableCell>
             </TableRow>
           ))}
@@ -140,6 +188,12 @@ export default function PendingRequestsTab() {
       </Table>
       {list.data.items.length === 0 && (
         <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요" />
+      )}
+      {rejecting && (
+        <RejectDialog
+          onConfirm={(reason) => reject(rejecting, reason)}
+          onClose={() => setRejecting(null)}
+        />
       )}
     </section>
   );

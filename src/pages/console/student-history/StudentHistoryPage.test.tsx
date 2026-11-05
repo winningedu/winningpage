@@ -248,3 +248,116 @@ describe("W13 승인 오류", () => {
     );
   });
 });
+
+const REASON_PLACEHOLDER = "거절 사유를 입력해요";
+const openReject = async (name = "김서연") => {
+  await screen.findByText("승인 대기 2건");
+  fireEvent.click(within(row(name)).getByRole("button", { name: "거절" }));
+  return screen.findByRole("dialog", { name: "거절 사유" });
+};
+
+describe("W13c 거절 사유", () => {
+  it("사유가 비어 있으면 서버에 보내지 않고 안내와 함께 확정을 막는다", async () => {
+    const calls = stubPage();
+    renderRoutes(routes, "/teacher/student-history");
+    const dialog = await openReject();
+    expect(
+      within(dialog).getByText("사유는 학생에게 알림으로 가요"),
+    ).toBeTruthy();
+    const box = within(dialog).getByPlaceholderText(REASON_PLACEHOLDER);
+    expect(box.getAttribute("maxlength")).toBe("200");
+
+    fireEvent.change(box, { target: { value: "   " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "거절 확정" }));
+
+    expect(
+      within(dialog).getByText("사유를 적어야 거절할 수 있어요"),
+    ).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "거절 확정",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(calls.some((c) => c.key === DECIDE)).toBe(false);
+
+    fireEvent.change(box, { target: { value: "번호 확인" } });
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "거절 확정",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      within(dialog).queryByText("사유를 적어야 거절할 수 있어요"),
+    ).toBeNull();
+  });
+});
+
+describe("W13c 거절 확정", () => {
+  const confirm = (dialog: HTMLElement, text: string) => {
+    fireEvent.change(within(dialog).getByPlaceholderText(REASON_PLACEHOLDER), {
+      target: { value: text },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "거절 확정" }));
+  };
+
+  it("앞뒤 공백을 뺀 사유를 보내고 창을 닫고 알림을 띄운다", async () => {
+    const calls = stubPage({
+      [DECIDE]: {
+        body: { ok: true, status: "rejected", studentName: "김서연", to: {} },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+    const dialog = await openReject();
+
+    confirm(dialog, "  7번은 비어 있지 않아요  ");
+
+    expect(
+      await screen.findByText("김서연 학생의 변경을 거절했어요"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.find((c) => c.key === DECIDE)?.body).toEqual({
+      changeId: "ch1",
+      approve: false,
+      rejectReason: "7번은 비어 있지 않아요",
+    });
+  });
+
+  it("이미 처리된 신청이면 창을 닫고 안내를 보인다", async () => {
+    stubPage({
+      [DECIDE]: {
+        status: 404,
+        body: { error: { code: "REQUEST_NOT_FOUND", message: "없어요" } },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+    const dialog = await openReject();
+
+    confirm(dialog, "사유");
+
+    expect(
+      await screen.findByText("다른 분이 먼저 바꿨어요. 새로 고침해 주세요"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("서버가 사유를 비었다고 하면 확정을 막는 상태가 된다", async () => {
+    stubPage({
+      [DECIDE]: {
+        status: 400,
+        body: { error: { code: "REJECT_REASON_REQUIRED", message: "x" } },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+    const dialog = await openReject();
+
+    confirm(dialog, "사유");
+
+    expect(
+      await within(dialog).findByText("사유를 적어야 거절할 수 있어요"),
+    ).toBeTruthy();
+  });
+});
