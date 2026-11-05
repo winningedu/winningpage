@@ -6,6 +6,8 @@ import {
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { consoleRequest } from "../api";
 
 export const HISTORY_KEY = ["console", "student-history"] as const;
@@ -60,6 +62,22 @@ export function usePagedList<T, X extends object = object>(
     retry: false,
     enabled: mobile,
   });
+  const [, setSearchParams] = useSearchParams();
+  // 마지막 쪽의 마지막 행을 처리해 page 가 pageCount 를 넘으면 마지막 쪽으로 당긴다.
+  const singleData = single.data;
+  useEffect(() => {
+    if (mobile || !singleData) return;
+    if (singleData.pageCount >= 1 && singleData.page > singleData.pageCount) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("page", String(singleData.pageCount));
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [mobile, singleData, setSearchParams]);
   const last = more.data?.pages.at(-1);
   const data: (Paged<T> & X) | undefined = mobile
     ? last && {

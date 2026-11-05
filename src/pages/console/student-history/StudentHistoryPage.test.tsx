@@ -403,6 +403,21 @@ describe("W13 승인 대기 쪽 나누기와 안내", () => {
     expect(router.state.location.search).toBe("?page=2");
   });
 
+  it("마지막 쪽의 마지막 행을 처리해 쪽이 모자라면 마지막 쪽으로 당겨 보인다", async () => {
+    const PAGE2 = "GET /api/console/enrollment-requests?page=2";
+    stubPage({
+      [PENDING_URL]: {
+        body: { total: 1, page: 1, pageCount: 1, items: [request(2)] },
+      },
+      [PAGE2]: { body: { total: 1, page: 2, pageCount: 1, items: [] } },
+    });
+    const { router } = renderRoutes(routes, "/teacher/student-history?page=2");
+
+    expect(await screen.findByText("정도윤")).toBeTruthy();
+    expect(screen.queryByText("2 / 1 페이지, 51~50번째")).toBeNull();
+    expect(router.state.location.search).toBe("?page=1");
+  });
+
   it("학년이 바뀌는 신청마다 한 줄씩 안내한다", async () => {
     stubPage({
       [PENDING_URL]: {
