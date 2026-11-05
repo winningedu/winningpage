@@ -551,7 +551,7 @@ describe("ImportSetupPage ① 명단 엑셀 올리기", () => {
             "변경할 명단을 붙여넣으세요",
           ) as HTMLTextAreaElement
         ).value,
-      ).toBe("홍길동,1학년,,4,7,,,,"),
+      ).toBe("홍길동\t1학년\t\t4\t7\t\t\t\t"),
     );
   });
 
@@ -582,7 +582,7 @@ describe("ImportSetupPage ① 명단 엑셀 올리기", () => {
             "변경할 명단을 붙여넣으세요",
           ) as HTMLTextAreaElement
         ).value,
-      ).toBe("김하늘,2학년,,3,12,,,,"),
+      ).toBe("김하늘\t2학년\t\t3\t12\t\t\t\t"),
     );
   });
 
