@@ -2,18 +2,21 @@
 // POST /api/console/memos { studentId, body, requestId }   메모 저장
 //
 // 열람: 담임은 담당 학급 학생의 메모를 모두(숨긴 것 제외, 최신순), 학교 관리자는 자기 메모만 본다(교 #61).
-// 학생과 학부모에게는 이 라우트도 테이블도 열려 있지 않다. 본사 대행은 작성자가 없어 목록이 비고 저장할 수 없다.
-// 저장: 같은 작성자의 같은 requestId 는 한 줄만 남는다(UNIQUE). 같은 내용이면 저장된 메모를 그대로 돌려주고
-// 감사 로그는 더하지 않으며, 내용이 다르면 400 IDEMPOTENCY_KEY_MISMATCH 다. 범위 밖 학생은 404.
+// 본사 대행은 학교 관리자처럼 같은 대행 세션에서 쓴 메모만 본다(결정 63). 열 때마다 열람 기록을 남기고(결정 66)
+// 남기지 못하면 500 이다. 학생과 학부모에게는 이 라우트도 테이블도 열려 있지 않다.
+// 저장: 작성자는 교사이고 본사 대행 중이면 대행 세션이다(결정 63). 같은 작성자의 같은 requestId 는 한 줄만 남는다(UNIQUE).
+// 같은 내용이면 저장된 메모를 그대로 돌려주고 감사 로그는 더하지 않으며, 내용이 다르면 400 IDEMPOTENCY_KEY_MISMATCH 다. 범위 밖 학생은 404.
 
 import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import { readAll } from "../_lib/console/directory.js";
 import { loadScopedEnrollment } from "../_lib/console/studentScope.js";
 import {
+  isMemoAuthor,
   loadAuthorNames,
   MEMO_COLUMNS,
   MEMO_MAX_LENGTH,
   type MemoRow,
+  memoAuthorOf,
   toMemoItem,
   UUID_RE,
 } from "../_lib/console/teacherMemos.js";
@@ -54,17 +57,16 @@ export default defineHandler({
       );
       const visible = rows
         .filter((r) => r.hidden_at === null)
-        .filter(
-          (r) =>
-            actor.kind === "homeroom" ||
-            (actor.teacherId !== null &&
-              r.author_teacher_id === actor.teacherId),
-        )
+        .filter((r) => actor.kind === "homeroom" || isMemoAuthor(r, actor))
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
       const names = await loadAuthorNames(
         admin,
         actor.tenantId,
         visible.map((r) => r.author_teacher_id),
+      );
+      await writeConsoleAuditLog(
+        { ...ctx, console: actor },
+        { action: "view", resourceKey: "teacherMemoList", targetId: studentId },
       );
       res
         .status(200)
@@ -87,7 +89,8 @@ export default defineHandler({
     ) {
       return badRequest();
     }
-    if (actor.teacherId === null) {
+    const author = memoAuthorOf(actor);
+    if (!author) {
       sendError(res, "coded", 403, "메모를 쓸 수 없습니다.", "FORBIDDEN");
       return;
     }
@@ -96,7 +99,7 @@ export default defineHandler({
     const { error } = await admin.from("teacher_memos").insert({
       tenant_id: actor.tenantId,
       student_id: studentId,
-      author_teacher_id: actor.teacherId,
+      [author.column]: author.id,
       body: text,
       request_id: requestId,
     });
@@ -110,7 +113,7 @@ export default defineHandler({
       (q) =>
         q
           .eq("tenant_id", actor.tenantId)
-          .eq("author_teacher_id", actor.teacherId as string)
+          .eq(author.column, author.id)
           .eq("request_id", requestId),
     );
     if (!saved) throw new Error("memo read back failed");

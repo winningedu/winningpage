@@ -26,6 +26,7 @@ const row = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
   student_id: "s1",
   author_teacher_id: "t-home",
+  proxy_session_id: null,
   hidden_at: null,
   ...over,
 });
@@ -44,6 +45,7 @@ beforeEach(() => {
         row({ id: "m2", author_teacher_id: "t-admin" }),
         row({ id: "m3", hidden_at: "2026-10-30T00:00:00Z" }),
         row({ id: "m9", tenant_id: "tenant-2" }),
+        row({ id: "m5", author_teacher_id: null, proxy_session_id: "ps1" }),
       ],
       f,
     );
@@ -88,13 +90,40 @@ describe("POST /api/console/memos/hide", () => {
     expect(kit.state.inserts).toEqual([]);
   });
 
-  test("a bad body is 400 and a proxy session is 403", async () => {
+  test("a bad body is 400", async () => {
     expect((await post({})).status).toBe(400);
+  });
+
+  test("a proxy session hides a memo written in the same proxy session and nothing else", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "hq_proxy",
       teacher_id: null,
       proxy_session_id: "ps1",
     });
+
+    expect((await post({ memoId: "m1" })).status).toBe(403);
+    expect(kit.state.updates).toEqual([]);
+
+    expect((await post({ memoId: "m5" })).status).toBe(200);
+    expect(kit.state.updates[0]).toMatchObject({
+      table: "teacher_memos",
+      filters: { id: "m5", proxy_session_id: "ps1" },
+    });
+  });
+
+  test("a teacher cannot hide a memo written by a proxy session, and another proxy session cannot either", async () => {
+    expect((await post({ memoId: "m5" })).status).toBe(403);
+    kit.state.actor = schoolAdminActor({
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "ps2",
+    });
+    expect((await post({ memoId: "m5" })).status).toBe(403);
+    expect(kit.state.updates).toEqual([]);
+  });
+
+  test("an actor with neither a teacher nor a proxy session is 403", async () => {
+    kit.state.actor = schoolAdminActor({ teacher_id: null });
     expect((await post({ memoId: "m1" })).status).toBe(403);
   });
 });

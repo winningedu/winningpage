@@ -1,11 +1,16 @@
 // POST /api/console/memos/hide { memoId }
 //
 // W9d 메모 삭제. 작성자만 자기 메모를 화면에서 숨긴다(hidden_at). 행과 작성자, 시각은 남는다(교 #61, 결정 3).
-// 다른 교사의 메모는 403, 없거나 다른 기관의 메모는 404. 이미 숨긴 메모는 아무것도 바꾸지 않고 성공이다.
+// 작성자는 같은 교사이거나 같은 본사 대행 세션이다(결정 63). 다른 작성자의 메모는 403, 없거나 다른 기관의 메모는 404. 이미 숨긴 메모는 아무것도 바꾸지 않고 성공이다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { readAll } from "../../_lib/console/directory.js";
-import { MEMO_COLUMNS, type MemoRow } from "../../_lib/console/teacherMemos.js";
+import {
+  isMemoAuthor,
+  MEMO_COLUMNS,
+  type MemoRow,
+  memoAuthorOf,
+} from "../../_lib/console/teacherMemos.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -30,7 +35,8 @@ export default defineHandler({
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
-    if (actor.teacherId === null) {
+    const author = memoAuthorOf(actor);
+    if (!author) {
       sendError(res, "coded", 403, "메모를 지울 수 없습니다.", "FORBIDDEN");
       return;
     }
@@ -45,7 +51,7 @@ export default defineHandler({
       sendError(res, "coded", 404, "메모를 찾을 수 없습니다.", "NOT_FOUND");
       return;
     }
-    if (memo.author_teacher_id !== actor.teacherId) {
+    if (!isMemoAuthor(memo, actor)) {
       sendError(
         res,
         "coded",
@@ -64,7 +70,7 @@ export default defineHandler({
       .from("teacher_memos")
       .update({ hidden_at: new Date().toISOString() })
       .eq("id", memoId)
-      .eq("author_teacher_id", actor.teacherId);
+      .eq(author.column, author.id);
     if (error) throw new Error("memo hide failed");
 
     await writeConsoleAuditLog(

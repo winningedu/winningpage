@@ -30,6 +30,7 @@ const memo = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
   student_id: "s1",
   author_teacher_id: "t-home",
+  proxy_session_id: null,
   body: "진로 상담 필요",
   request_id: REQUEST_ID,
   created_at: "2026-10-28T01:00:00Z",
@@ -47,6 +48,20 @@ const MEMOS = [
   }),
   memo({ id: "m3", body: "지운 메모", hidden_at: "2026-10-30T00:00:00Z" }),
   memo({ id: "m4", student_id: "s2", body: "다른 학생" }),
+  memo({
+    id: "m5",
+    author_teacher_id: null,
+    proxy_session_id: "ps1",
+    body: "본사 대행 입력",
+    created_at: "2026-10-20T01:00:00Z",
+  }),
+  memo({
+    id: "m6",
+    author_teacher_id: null,
+    proxy_session_id: "ps2",
+    body: "다른 대행 세션 입력",
+    created_at: "2026-10-21T01:00:00Z",
+  }),
 ];
 
 const homeroom = () =>
@@ -113,11 +128,52 @@ describe("GET /api/console/memos", () => {
         canDelete: true,
       }),
       expect.objectContaining({
+        id: "m6",
+        canDelete: false,
+      }),
+      expect.objectContaining({
+        id: "m5",
+        canDelete: false,
+      }),
+      expect.objectContaining({
         id: "m2",
         authorName: "최민정",
         canDelete: false,
       }),
     ]);
+  });
+
+  test("opening the list leaves a view audit record and a failing audit write fails the request", async () => {
+    const r = await get();
+    expect(r.status).toBe(200);
+    expect(kit.state.inserts).toHaveLength(1);
+    expect(kit.state.inserts[0]).toMatchObject({
+      table: "admin_access_logs",
+      row: {
+        action: "view",
+        resource_key: "teacherMemoList",
+        target_id: "s1",
+      },
+    });
+
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+    expect((await get()).status).toBe(500);
+  });
+
+  test("a rejected list request leaves no view audit record", async () => {
+    await get({ studentId: "s2" });
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("a proxy session sees memos like a school admin, only those written in the same proxy session, and may delete them", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "ps1",
+    });
+    const memos = ((await get()).body as { memos: Item[] }).memos;
+    expect(memos.map((m) => [m.id, m.canDelete])).toEqual([["m5", true]]);
+    expect(memos[0]?.authorName).toBe("본사 대행");
   });
 
   test("a school admin sees only the own memos", async () => {
@@ -192,12 +248,49 @@ describe("POST /api/console/memos", () => {
     expect(kit.state.inserts).toEqual([]);
   });
 
-  test("a proxy session has no author, so it cannot write", async () => {
+  test("a proxy session writes the memo with the proxy session as author and no teacher", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "hq_proxy",
       teacher_id: null,
       proxy_session_id: "ps1",
     });
+    kit.state.rows.teacher_memos = (f) =>
+      matchRows(
+        [
+          memo({
+            id: "new",
+            author_teacher_id: null,
+            proxy_session_id: "ps1",
+            body: "오늘 상담 내용",
+          }),
+        ],
+        f,
+      );
+
+    const r = await post(body());
+
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.inserts.find((i) => i.table === "teacher_memos")?.row,
+    ).toEqual({
+      tenant_id: "tenant-1",
+      student_id: "s1",
+      proxy_session_id: "ps1",
+      body: "오늘 상담 내용",
+      request_id: REQUEST_ID,
+    });
+    expect((r.body as { memo: Item }).memo).toMatchObject({
+      id: "new",
+      authorName: "본사 대행",
+      canDelete: true,
+    });
+    expect(
+      kit.state.inserts.filter((i) => i.table === "admin_access_logs"),
+    ).toHaveLength(1);
+  });
+
+  test("an actor with neither a teacher nor a proxy session cannot write", async () => {
+    kit.state.actor = schoolAdminActor({ teacher_id: null });
     expect((await post(body())).status).toBe(403);
     expect(kit.state.inserts).toEqual([]);
   });
