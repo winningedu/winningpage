@@ -6,7 +6,9 @@ export interface StudentRow {
   displayName: string;
   joinedAt: string | null;
   grade: string | null;
+  groupId: string | null;
   groupName: string | null;
+  classId: string | null;
   className: string | null;
   number: number | null;
   services: Record<ServiceKey, boolean>;
