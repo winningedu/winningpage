@@ -23,6 +23,7 @@ export default function GroupManager() {
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState<Group | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const blocked = target !== null && target.studentCount > 0;
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -145,11 +146,13 @@ export default function GroupManager() {
           {target && (
             <>
               <DialogTitle className="text-app-dialog-title font-semibold tracking-[-0.02em] text-ink-strong">
-                {target.name} 그룹을 삭제할까요?
+                {target.name}{" "}
+                {blocked ? "그룹을 지울 수 없어요" : "그룹을 삭제할까요?"}
               </DialogTitle>
               <p className="text-app-body text-ink-strong">
-                소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집,
-                담당학급배정, 필터의 보기에서 빠져요
+                {blocked
+                  ? `소속 학생이 ${target.studentCount}명 있어 지울 수 없어요. 학생정보편집에서 학생의 그룹을 먼저 바꿔 주세요`
+                  : "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당학급배정, 필터의 보기에서 빠져요"}
               </p>
               <div className="flex justify-end gap-2">
                 <Button
@@ -162,9 +165,9 @@ export default function GroupManager() {
                 </Button>
                 <Button
                   type="button"
-                  disabled={deleting}
+                  disabled={deleting || blocked}
                   onClick={() => void remove(target)}
-                  className="h-10 rounded-lg bg-error px-5 text-app-label font-semibold text-primary-foreground"
+                  className="h-10 rounded-lg bg-error px-5 text-app-label font-semibold text-primary-foreground disabled:opacity-40"
                 >
                   삭제
                 </Button>

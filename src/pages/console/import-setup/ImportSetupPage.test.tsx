@@ -185,3 +185,28 @@ describe("ImportSetupPage 그룹 삭제", () => {
     ).toEqual({ groupId: "g2" });
   });
 });
+
+describe("ImportSetupPage 그룹 삭제 막힘", () => {
+  it("소속 학생이 있으면 이유를 알리고 삭제 버튼을 막으며 취소로 닫는다", async () => {
+    const calls = stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    fireEvent.click(await screen.findByRole("button", { name: "A레벨 삭제" }));
+    expect(await screen.findByText("A레벨 그룹을 지울 수 없어요")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "소속 학생이 26명 있어 지울 수 없어요. 학생정보편집에서 학생의 그룹을 먼저 바꿔 주세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "삭제" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    await waitFor(() =>
+      expect(screen.queryByText("A레벨 그룹을 지울 수 없어요")).toBeNull(),
+    );
+    expect(calls.some((c) => c.key.includes("groups/delete"))).toBe(false);
+  });
+});
