@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
-import { EMPTY_ROSTER_MESSAGE, readRosterLines } from "./rosterFile";
+import {
+  EMPTY_ROSTER_MESSAGE,
+  readRosterLines,
+  TOO_LARGE_ROSTER_MESSAGE,
+} from "./rosterFile";
 
 function xlsxFile(...sheets: string[][][]): File {
   const workbook = XLSX.utils.book_new();
@@ -69,5 +73,36 @@ describe("readRosterLines", () => {
   it("엑셀이 아닌 파일도 같은 안내 문구로 실패한다", async () => {
     const file = new File(["not an excel"], "a.xlsx");
     await expect(readRosterLines(file)).rejects.toThrow(EMPTY_ROSTER_MESSAGE);
+  });
+
+  it("2MB를 넘는 파일은 읽지 않고 너무 크다는 문구로 실패한다", async () => {
+    const file = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.xlsx");
+    await expect(readRosterLines(file)).rejects.toThrow(
+      TOO_LARGE_ROSTER_MESSAGE,
+    );
+  });
+
+  it("데이터가 2,000줄을 넘으면 너무 크다는 문구로 실패한다", async () => {
+    const rows = Array.from({ length: 2001 }, (_, i) => [
+      `학생${i}`,
+      "1학년",
+      "4",
+      "7",
+    ]);
+    const file = xlsxFile([["이름", "학년", "반", "번호"], ...rows]);
+    await expect(readRosterLines(file)).rejects.toThrow(
+      TOO_LARGE_ROSTER_MESSAGE,
+    );
+  });
+
+  it("데이터가 2,000줄이면 그대로 읽는다", async () => {
+    const rows = Array.from({ length: 2000 }, (_, i) => [
+      `학생${i}`,
+      "1학년",
+      "4",
+      "7",
+    ]);
+    const file = xlsxFile([["이름", "학년", "반", "번호"], ...rows]);
+    expect((await readRosterLines(file)).split("\n")).toHaveLength(2000);
   });
 });
