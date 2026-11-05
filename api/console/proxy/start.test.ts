@@ -152,4 +152,15 @@ describe("POST /api/console/proxy/start", () => {
     expect(r.body).toMatchObject({ error: { code: "TENANT_NOT_FOUND" } });
     expect(state.inserts).toHaveLength(0);
   });
+
+  test("감사 로그를 남기지 못하면 성공으로 끝나지 않고 500 이다", async () => {
+    state.logError = { message: "insert failed" };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await start(VALID);
+
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ error: { code: "INTERNAL" } });
+    errorSpy.mockRestore();
+  });
 });

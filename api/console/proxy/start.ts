@@ -4,6 +4,10 @@
 // 권한: 로그인 + HQ 권한 teacherConsoleProxy edit (fn_admin_effective_permissions).
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
+import {
+  hasProxyEditPermission,
+  PROXY_RESOURCE_KEY,
+} from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -31,20 +35,12 @@ export default defineHandler({
   logLabel: "[console/proxy/start]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
-    const { data: perms, error: permError } = await ctx.supabaseAdmin.rpc(
-      "fn_admin_effective_permissions",
-      { p_profile_id: ctx.userId },
-    );
-    if (permError) throw new Error("admin permission lookup failed");
-    const canProxy = (perms ?? []).some(
-      (row: { resource_key?: string; level?: string }) =>
-        row.resource_key === "teacherConsoleProxy" && row.level === "edit",
-    );
-    if (!canProxy) {
+    if (
+      !(await hasProxyEditPermission(ctx.supabaseAdmin, ctx.userId as string))
+    ) {
       sendError(res, "coded", 403, "대행 권한이 없습니다.", "FORBIDDEN");
       return;
     }
-
     const body = parseBody(req.body);
     if (!body) {
       sendError(
@@ -96,7 +92,7 @@ export default defineHandler({
       },
       {
         action: "proxy_start",
-        resourceKey: "teacherConsoleProxy",
+        resourceKey: PROXY_RESOURCE_KEY,
         reason: body.reason,
       },
     );
