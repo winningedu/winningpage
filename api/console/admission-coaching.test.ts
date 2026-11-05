@@ -186,6 +186,25 @@ describe("GET /api/console/admission-coaching", () => {
     ]);
   });
 
+  test("same masked names in one class get a trailing star, even when they sit on different pages", async () => {
+    kit.state.actor = schoolAdminActor();
+    const baseProfiles = kit.state.rows.profiles;
+    kit.state.rows.profiles = (f) =>
+      ((baseProfiles?.(f) ?? []) as { id: string; name: string }[]).map(
+        (p) => ({
+          ...p,
+          name: p.id === "s2" ? "정하서" : p.name,
+        }),
+      );
+    // s1 정민서와 s2 정하서는 둘 다 정*서, 고3 3반 한 학급이다.
+
+    const res = await get({ pageSize: "1", page: "2" });
+
+    expect(
+      (res.body as { items: { name: string }[] }).items.map((i) => i.name),
+    ).toEqual(["정*서*"]);
+  });
+
   test("a homeroom teacher without a grade-3 class gets an empty list and hasGrade3InScope false", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",

@@ -6,7 +6,7 @@
 
 import { loadProfileNames, loadTenant } from "../_lib/console/directory.js";
 import { kstDateOffset } from "../_lib/console/goalStatus.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { loadServiceDetail } from "../_lib/console/serviceStatus.js";
 import {
@@ -61,6 +61,15 @@ export default defineHandler({
       loadProfileNames(admin, ids),
       loadServiceUsage(admin, ids),
     ]);
+    // 같은 학급에서 가린 이름이 겹치면 구분되게 한다. 쪽과 서비스 필터에 상관없이 학급 전체로 센다.
+    const shownNames = displayNamesFor(
+      actor,
+      students.map((s) => ({
+        id: s.studentId,
+        group: s.classId,
+        name: names.get(s.studentId) ?? "",
+      })),
+    );
     const matches = students
       .filter((s) => usage.get(s.studentId)?.includes(service as ServiceKey))
       .filter(
@@ -80,7 +89,7 @@ export default defineHandler({
       orgType,
       items: paged.items.map((s) => ({
         studentId: s.studentId,
-        name: displayNameFor(actor, names.get(s.studentId) ?? ""),
+        name: shownNames.get(s.studentId) ?? "",
         grade: s.grade,
         groupName: s.groupName,
         className: s.className,

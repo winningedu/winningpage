@@ -12,7 +12,7 @@ import {
   readAll,
 } from "../_lib/console/directory.js";
 import { loadGoalStatus } from "../_lib/console/goalStatus.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { scopeQuery } from "../_lib/console/scope.js";
 import { loadScopedStudents } from "../_lib/console/studentScope.js";
@@ -79,10 +79,23 @@ export default defineHandler({
     const paged = paginate(students, pageQuery);
     const ids = paged.items.map((s) => s.studentId);
     const [names, goal, diagnosis] = await Promise.all([
-      loadProfileNames(admin, ids),
+      // 이름은 쪽과 상관없이 같은 학급의 겹침을 알려고 범위 전체를 읽는다.
+      loadProfileNames(
+        admin,
+        students.map((s) => s.studentId),
+      ),
       loadGoalStatus(admin, ids, new Date(), { streak: true }),
       loadDiagnosisStatus(admin, ids),
     ]);
+
+    const shownNames = displayNamesFor(
+      actor,
+      students.map((s) => ({
+        id: s.studentId,
+        group: s.classId,
+        name: names.get(s.studentId) ?? "",
+      })),
+    );
 
     res.status(200).json({
       ...paged,
@@ -92,7 +105,7 @@ export default defineHandler({
         const d = diagnosis.get(s.studentId);
         return {
           studentId: s.studentId,
-          name: displayNameFor(actor, names.get(s.studentId) ?? ""),
+          name: shownNames.get(s.studentId) ?? "",
           grade: s.grade,
           groupName: s.groupName,
           className: s.className,

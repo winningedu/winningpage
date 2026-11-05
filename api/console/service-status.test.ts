@@ -206,6 +206,32 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     ]);
   });
 
+  test("same masked names in one class get a trailing star, another class does not", async () => {
+    kit.state.actor = schoolAdminActor();
+    const baseProfiles = kit.state.rows.profiles;
+    const renamed: Record<string, string> = {
+      s2: "김하연",
+      s4: "김가연",
+    };
+    kit.state.rows.profiles = (f) =>
+      ((baseProfiles?.(f) ?? []) as { id: string; name: string }[]).map(
+        (p) => ({
+          ...p,
+          name: renamed[p.id] ?? p.name,
+        }),
+      );
+
+    const res = await get();
+
+    const items = (res.body as { items: { name: string; className: string }[] })
+      .items;
+    expect(items.map((i) => [i.name, i.className])).toEqual([
+      ["김*연*", "3"],
+      ["김*연*", "3"],
+      ["김*연", "4"],
+    ]);
+  });
+
   test("classId and q narrow the list; q matches the real name", async () => {
     kit.state.actor = schoolAdminActor();
 
