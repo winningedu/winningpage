@@ -147,6 +147,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "admin_access_logs_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "admin_access_logs_teacher_id_fkey";
             columns: ["teacher_id"];
             isOneToOne: false;
@@ -5836,6 +5843,55 @@ export type Database = {
         };
         Relationships: [];
       };
+      proxy_sessions: {
+        Row: {
+          admin_profile_id: string;
+          end_reason: string | null;
+          ended_at: string | null;
+          expires_at: string;
+          id: string;
+          reason: string;
+          started_at: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_profile_id: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          expires_at: string;
+          id?: string;
+          reason: string;
+          started_at?: string;
+          tenant_id: string;
+        };
+        Update: {
+          admin_profile_id?: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          reason?: string;
+          started_at?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "proxy_sessions_admin_profile_id_fkey";
+            columns: ["admin_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "proxy_sessions_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       refund_requests: {
         Row: {
           admin_memo: string | null;
@@ -7769,6 +7825,17 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_console_actor: {
+        Args: { p_profile_id: string };
+        Returns: {
+          class_ids: string[];
+          kind: string;
+          must_change_password: boolean;
+          proxy_session_id: string;
+          teacher_id: string;
+          tenant_id: string;
+        }[];
+      };
       fn_coupon_by_code:
         | {
             Args: {
@@ -8148,6 +8215,11 @@ export type Database = {
           unlimited_period: boolean;
           unlimited_sessions: boolean;
         }[];
+      };
+      fn_proxy_end: { Args: { p_admin: string }; Returns: string };
+      fn_proxy_start: {
+        Args: { p_admin: string; p_reason: string; p_tenant: string };
+        Returns: string;
       };
       fn_refund_completed_amount: {
         Args: { p_order_id: string };
