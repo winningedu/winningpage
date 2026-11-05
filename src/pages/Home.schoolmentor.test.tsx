@@ -1,6 +1,6 @@
 // 스쿨멘토 홈 구성(W1): 합격생 섹션은 디자인에 없어 렌더하지 않고, 위닝은 지금 그대로다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -13,6 +13,7 @@ vi.mock("@/config/site", () => ({
   site: {
     brandName: "스쿨멘토",
     columnTitle: "칼럼-교육청소식",
+    logo: { horizontal: "/images/schoolmentor-logo.png" },
     company: {},
     news: {
       maxRows: 4,
@@ -77,6 +78,23 @@ beforeEach(() => {
         sort_order: 1,
       },
     ],
+    galleries: [
+      { id: "g1", title: "칼럼 하나", created_at: "2026-10-05T00:00:00Z" },
+      {
+        id: "g2",
+        title: "교육청 소식 글",
+        category: "교육청소식",
+        created_at: "2026-10-06T00:00:00Z",
+      },
+      {
+        id: "g3",
+        title: "영상 하나",
+        link_url: "https://youtu.be/abcDEF12345",
+        created_at: "2026-10-04T00:00:00Z",
+      },
+      { id: "g4", title: "넷", created_at: "2026-10-03T00:00:00Z" },
+      { id: "g5", title: "다섯", created_at: "2026-10-02T00:00:00Z" },
+    ],
     university_acceptances: [
       { id: "u-1", name: "서울대학교", track: "general", sort_order: 1 },
     ],
@@ -98,5 +116,40 @@ describe("Home 스쿨멘토 구성", () => {
     expect(
       await screen.findByRole("region", { name: "합격생" }),
     ).toBeInTheDocument();
+  });
+
+  test("서비스, 새로운 소식, 칼럼-교육청소식 순서로 그린다", async () => {
+    renderHome();
+    const services = await screen.findByRole("region", { name: "핵심 서비스" });
+    const news = screen.getByRole("region", { name: "스쿨멘토 소식" });
+    const column = await screen.findByRole("region", {
+      name: "칼럼-교육청소식",
+    });
+    const follows = (a: HTMLElement, b: HTMLElement) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(services, news)).toBe(true);
+    expect(follows(news, column)).toBe(true);
+  });
+
+  test("칼럼 섹션은 교육청소식을 빼고 4개 박스만 보여준다", async () => {
+    renderHome();
+    const column = await screen.findByRole("region", {
+      name: "칼럼-교육청소식",
+    });
+    await within(column).findByText("칼럼 하나");
+    expect(within(column).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(column).queryByText("교육청 소식 글")).toBeNull();
+    expect(
+      within(column).getByRole("button", { name: "영상 하나 영상 재생" }),
+    ).toBeInTheDocument();
+  });
+
+  test("위닝 홈에는 칼럼 섹션이 없다", async () => {
+    state.b2b = false;
+    renderHome();
+    await screen.findByRole("region", { name: "핵심 서비스" });
+    expect(
+      screen.queryByRole("region", { name: "칼럼-교육청소식" }),
+    ).toBeNull();
   });
 });

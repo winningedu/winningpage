@@ -2,10 +2,12 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AcceptanceSection from "@/components/landing/AcceptanceSection";
 import { selectVisibleBanners } from "@/components/landing/bannerVisibility";
+import ColumnNewsSection from "@/components/landing/ColumnNewsSection";
 import HeroSection from "@/components/landing/HeroSection";
 import MentorSection from "@/components/landing/MentorSection";
 import NewsSection from "@/components/landing/NewsSection";
 import ServicesSection from "@/components/landing/ServicesSection";
+import { useHomeColumns } from "@/components/landing/useHomeColumns";
 import { useHomeSectionCopy } from "@/components/landing/useHomeSectionCopy";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -310,6 +312,8 @@ export default function Home() {
     : fetchedMentors;
   // 섹션 제목(큰제목/중제목/라벨)은 home_section_copy 행이 정본, 행이 없으면 제목을 렌더하지 않는다.
   const sectionCopy = useHomeSectionCopy();
+  // 칼럼-교육청소식 섹션은 스쿨멘토 전용이라 위닝은 조회하지 않는다.
+  const homeColumns = useHomeColumns({ enabled: site.features.b2bMenu });
   // 공지사항 섹션(회사소식/공지사항)은 실 Supabase DB 연동 완료 — 프리뷰 대상 아님.
   const [companyNews, setCompanyNews] = useState<NewsItem[]>([]);
   const [notices, setNotices] = useState<NewsItem[]>([]);
@@ -638,6 +642,13 @@ export default function Home() {
 
         {/* 공지사항 섹션: 실 DB(company_news/notices) 기준 — 0건이어도 항상 렌더, 컬럼별 빈 상태 문구 표시 */}
         <NewsSection companyNews={companyNews} notices={notices} />
+
+        {site.features.b2bMenu && (
+          <ColumnNewsSection
+            status={homeColumns.status}
+            boxes={homeColumns.boxes}
+          />
+        )}
       </main>
     </>
   );
