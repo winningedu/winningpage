@@ -78,4 +78,63 @@ describe("POST /api/console/teachers/reissue", () => {
     });
     expect(JSON.stringify(kit.state.inserts)).not.toContain(password);
   });
+
+  test("발송 기록이 아직 없으면 마지막 발송이 성공한 것이 아니므로 재발급할 수 있다", async () => {
+    kit.state.rows.alimtalk_send_logs = () => [];
+
+    expect((await post({ teacherId: "teacher-1" })).status).toBe(200);
+  });
+
+  test.each([
+    [
+      "비밀번호 설정이 끝난 계정",
+      { password_set_at: "2026-11-05T07:00:00Z" },
+      "PASSWORD_ALREADY_SET",
+    ],
+    ["계정이 없는 교사", { profile_id: null }, "NO_ACCOUNT"],
+    ["다른 기관 교사", { tenant_id: "tenant-2" }, "NOT_FOUND"],
+    ["삭제된 교사", { deleted_at: "2026-11-01" }, "NOT_FOUND"],
+  ])(
+    "%s 는 409 또는 404 이고 아무것도 바꾸지 않는다",
+    async (_label, over, code) => {
+      kit.state.rows.teachers = () => ({ ...TEACHER, ...over });
+
+      const r = await post({ teacherId: "teacher-1" });
+
+      expect([404, 409]).toContain(r.status);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_attach_account");
+      expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    },
+  );
+
+  test("마지막 발송이 성공했으면 409 SEND_NOT_FAILED", async () => {
+    kit.state.rows.alimtalk_send_logs = () => [{ status: "sent" }];
+
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "SEND_NOT_FAILED" } });
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+  });
+
+  test("Auth 비밀번호 교체가 실패하면 502 AUTH_SYNC_FAILED 이고 평문을 돌려주지 않는다", async () => {
+    kit.state.auth.updateUserById.mockResolvedValue({
+      data: null,
+      error: { status: 500 },
+    });
+
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ error: { code: "AUTH_SYNC_FAILED" } });
+    expect(JSON.stringify(r.body)).not.toContain("tempPassword");
+  });
+
+  test("교사 누락은 400, 담임은 403", async () => {
+    expect((await post({})).status).toBe(400);
+
+    kit.state.actor = { ...kit.state.actor, kind: "homeroom" };
+    expect((await post({ teacherId: "teacher-1" })).status).toBe(403);
+  });
 });
