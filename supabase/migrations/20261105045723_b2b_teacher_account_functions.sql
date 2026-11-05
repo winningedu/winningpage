@@ -3,7 +3,7 @@
 -- Auth 사용자 생성, 정지, 삭제는 DB 밖(API)에서 커밋 뒤에 한다. 이 함수들은 DB 쪽 상태만 확정한다.
 --
 -- 기관 범위: 상태 변경, 삭제, 담당 학급 변경은 p_tenant 를 받아 행을 잠근 뒤 교사의 기관과 다르면 WC088(없는 것처럼 숨긴다).
--- fn_teacher_password_set 의 p_tenant 는 선택이며 주면 같은 검사를 한다.
+-- p_tenant 는 모두 필수다. null 이면 기관 비교가 통과되지 않도록 WC088 로 거부한다.
 --
 -- 에러 코드(WC088 부터): WC088 교사 없음 또는 삭제됨, WC089 계정 또는 로그인 아이디 불일치,
 -- WC090 비밀번호 설정이 끝난 계정에는 임시 비밀번호를 다시 줄 수 없음, WC091 본인 상태 변경 불가,
@@ -61,7 +61,7 @@ grant execute on function public.fn_teacher_attach_account(uuid, uuid, text, tex
 
 -- 첫 비밀번호 설정(또는 변경)이 끝났음을 기록한다: 임시 해시와 변경 필요 상태를 지우고 password_set_at 을 남긴다.
 -- 비밀번호 자체는 Auth 가 가지므로 여기 오지 않는다. 계정이 없는 교사는 WC089.
-create function public.fn_teacher_password_set(p_teacher_id uuid, p_tenant uuid default null)
+create function public.fn_teacher_password_set(p_teacher_id uuid, p_tenant uuid)
 returns void
 language plpgsql
 security definer
@@ -71,7 +71,7 @@ declare
   v_t public.teachers;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found or (p_tenant is not null and v_t.tenant_id <> p_tenant) then
+  if not found or p_tenant is null or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   if v_t.profile_id is null then
@@ -100,7 +100,7 @@ declare
   v_t public.teachers;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found or v_t.tenant_id <> p_tenant then
+  if not found or p_tenant is null or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   if p_actor is not null and v_t.profile_id = p_actor then
@@ -133,7 +133,7 @@ begin
   for v_t in
     select * from public.teachers t where t.id = any (p_teacher_ids) order by t.id for update
   loop
-    if v_t.tenant_id <> p_tenant then
+    if p_tenant is null or v_t.tenant_id <> p_tenant then
       raise exception 'teacher not found' using errcode = 'WC088';
     end if;
     if v_t.deleted_at is not null then
@@ -182,7 +182,7 @@ declare
   v_left integer;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found or v_t.tenant_id <> p_tenant then
+  if not found or p_tenant is null or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   select school_year into v_year from public.tenants where id = v_t.tenant_id;
@@ -261,7 +261,7 @@ declare
   v_t public.teachers;
 begin
   select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
-  if not found or v_t.tenant_id <> p_tenant then
+  if not found or p_tenant is null or v_t.tenant_id <> p_tenant then
     raise exception 'teacher not found' using errcode = 'WC088';
   end if;
   if v_t.profile_id is not null then

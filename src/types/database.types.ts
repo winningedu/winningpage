@@ -9049,7 +9049,7 @@ export type Database = {
         Returns: string;
       };
       fn_teacher_password_set: {
-        Args: { p_teacher_id: string; p_tenant?: string };
+        Args: { p_teacher_id: string; p_tenant: string };
         Returns: undefined;
       };
       fn_teacher_register: {

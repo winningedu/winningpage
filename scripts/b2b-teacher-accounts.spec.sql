@@ -201,7 +201,7 @@ select public.fn_teacher_reissue_release((select id from t1 where k = 'h1'));
 insert into t1 values ('r1', pg_temp.reg('ta', '무계정교사', '01070000021', 'homeroom'));
 select pg_temp.expect_error('reissue claim: 계정이 없으면 WC089',
   $$select public.fn_teacher_reissue_claim((select id from t1 where k = 'r1'), pg_temp.fx('ta'))$$, 'WC089');
-select public.fn_teacher_password_set((select id from t1 where k = 'c1'));
+select public.fn_teacher_password_set((select id from t1 where k = 'c1'), pg_temp.fx('ta'));
 select pg_temp.expect_error('reissue claim: 비밀번호 설정이 끝났으면 WC090',
   $$select public.fn_teacher_reissue_claim((select id from t1 where k = 'c1'), pg_temp.fx('ta'))$$, 'WC090');
 select pg_temp.expect_error('reissue claim: 다른 기관 기준이면 WC088',
@@ -220,7 +220,7 @@ select pg_temp.expect_bool('없는 이메일은 null', public.fn_auth_user_id_by
 -- ---------------------------------------------------------------------
 -- fn_teacher_password_set
 -- ---------------------------------------------------------------------
-select public.fn_teacher_password_set((select id from t1 where k = 'h1'));
+select public.fn_teacher_password_set((select id from t1 where k = 'h1'), pg_temp.fx('ta'));
 select pg_temp.expect_bool('password_set 은 임시 해시와 변경 필요 상태를 지우고 설정 시각을 남긴다',
   (select temp_password_hash is null and not must_change_password and password_set_at is not null
      from public.teachers where id = (select id from t1 where k = 'h1')), true);
@@ -228,9 +228,9 @@ select pg_temp.expect_error('비밀번호 설정 뒤에는 attach(재발급)가 
   $$select public.fn_teacher_attach_account((select id from t1 where k = 'h1'), (select id from au where k = 'h1'),
     (select login_id from public.teachers where id = (select id from t1 where k = 'h1')), 'x')$$, 'WC090');
 select pg_temp.expect_error('계정이 없는 교사의 password_set 은 WC089',
-  $$select public.fn_teacher_password_set(pg_temp.reg('ta', '계정없음', '01070000002', 'homeroom'))$$, 'WC089');
+  $$select public.fn_teacher_password_set(pg_temp.reg('ta', '계정없음', '01070000002', 'homeroom'), pg_temp.fx('ta'))$$, 'WC089');
 select pg_temp.expect_error('없는 교사의 password_set 은 WC088',
-  $$select public.fn_teacher_password_set(gen_random_uuid())$$, 'WC088');
+  $$select public.fn_teacher_password_set(gen_random_uuid(), pg_temp.fx('ta'))$$, 'WC088');
 
 -- ---------------------------------------------------------------------
 -- fn_teacher_set_status
@@ -352,6 +352,20 @@ select pg_temp.expect_error('다른 기관 기준 assignment_set 은 WC088',
 select pg_temp.expect_error('다른 기관 기준 password_set 은 WC088',
   $$select public.fn_teacher_password_set((select id from t1 where k = 'a1'), pg_temp.fx('tb'))$$, 'WC088');
 
+-- p_tenant 는 필수다: null 이면 기관 비교가 통과되지 않도록 WC088 로 거부한다
+select pg_temp.expect_error('null p_tenant: fn_teacher_password_set 은 WC088',
+  $$select public.fn_teacher_password_set((select id from t1 where k = 'a1'), null)$$, 'WC088');
+select pg_temp.expect_error('null p_tenant: fn_teacher_set_status 는 WC088',
+  $$select public.fn_teacher_set_status((select id from t1 where k = 'a1'), 'inactive', null, null)$$, 'WC088');
+select pg_temp.expect_error('null p_tenant: fn_teacher_soft_delete 는 WC088',
+  $$select * from public.fn_teacher_soft_delete(array[(select id from t1 where k = 'a1')], null, null)$$, 'WC088');
+select pg_temp.expect_error('null p_tenant: fn_assignment_set 은 WC088',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[]'::jsonb, '{}', null, null)$$, 'WC088');
+select pg_temp.expect_error('null p_tenant: fn_teacher_issue_claim 은 WC088',
+  $$select public.fn_teacher_issue_claim((select id from t1 where k = 'r1'), null)$$, 'WC088');
+select pg_temp.expect_int('null p_tenant 로 거부돼도 교사는 삭제되지 않는다',
+  (select count(*) from public.teachers where id = (select id from t1 where k = 'a1') and deleted_at is null), 1);
+
 -- ---------------------------------------------------------------------
 -- 클라이언트 role 차단
 -- ---------------------------------------------------------------------
@@ -376,7 +390,7 @@ select pg_temp.expect_error('authenticated 는 fn_teacher_reissue_release 실행
 select pg_temp.expect_error('authenticated 는 fn_auth_user_id_by_email 실행 불가',
   $$select public.fn_auth_user_id_by_email('a@b.c')$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_teacher_password_set 실행 불가',
-  $$select public.fn_teacher_password_set(null)$$, '42501');
+  $$select public.fn_teacher_password_set(null, null)$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-teacher-accounts.spec: 전체 통과 ==='; end $$;
