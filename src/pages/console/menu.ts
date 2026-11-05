@@ -11,6 +11,8 @@ export interface MenuItem {
 export interface MenuGroup {
   label: string;
   adminOnly?: boolean;
+  /** 본사 대행 중에는 숨긴다(결정 48). */
+  hiddenForProxy?: boolean;
   items: MenuItem[];
 }
 
@@ -68,13 +70,18 @@ export const menuGroups: MenuGroup[] = [
   },
   {
     label: "마이페이지(내 정보 및 설정)",
+    hiddenForProxy: true,
     items: [{ label: "마이페이지", to: `${CONSOLE_BASE}/my` }],
   },
 ];
 
-export function menuFor(isAdminMenu: boolean): MenuGroup[] {
+export function menuFor(kind: string): MenuGroup[] {
+  const isAdminMenu = usesAdminMenu(kind);
+  const proxy = kind === "hq_proxy";
   return menuGroups
-    .filter((g) => isAdminMenu || !g.adminOnly)
+    .filter(
+      (g) => (isAdminMenu || !g.adminOnly) && !(proxy && g.hiddenForProxy),
+    )
     .map((g) => ({
       ...g,
       items: g.items.filter((i) => isAdminMenu || !i.adminOnly),

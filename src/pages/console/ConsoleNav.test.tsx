@@ -92,6 +92,9 @@ describe("ConsoleNav 학교 전체 관리자와 본사 대행", () => {
     expect(screen.getByText("본사 직원")).toBeTruthy();
     expect(screen.getByText("본사 대행")).toBeTruthy();
     expect(screen.queryByText(/아이디/)).toBeNull();
+    // 결정 48: 본사 대행 중에는 마이페이지 메뉴를 숨긴다.
+    expect(screen.queryByRole("link", { name: "마이페이지" })).toBeNull();
+    expect(screen.queryByText("마이페이지(내 정보 및 설정)")).toBeNull();
   });
 });
 

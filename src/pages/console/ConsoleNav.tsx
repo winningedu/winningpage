@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import type { ConsoleMe } from "./api";
 import Chip from "./Chip";
 import { classLabel, primaryClass } from "./classLabel";
-import { findMenuItem, menuFor, usesAdminMenu } from "./menu";
+import { findMenuItem, menuFor } from "./menu";
 
 interface ConsoleNavProps {
   me: ConsoleMe;
@@ -62,7 +62,7 @@ export default function ConsoleNav({
   activePath,
   onNavigate,
 }: ConsoleNavProps) {
-  const groups = menuFor(usesAdminMenu(me.kind));
+  const groups = menuFor(me.kind);
   const active = findMenuItem(activePath);
   return (
     <div className="flex flex-col gap-6">
