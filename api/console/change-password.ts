@@ -8,6 +8,8 @@
 import { attemptLogin, createLoginAuthClient } from "../_lib/auth/login.js";
 import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import {
+  checkNewPassword,
+  PASSWORD_RULE_MESSAGES,
   syntheticEmail,
   TEACHERS_RESOURCE_KEY,
 } from "../_lib/console/teacherAccounts.js";
@@ -49,6 +51,18 @@ export default defineHandler({
       typeof newPassword !== "string"
     ) {
       sendError(res, "coded", 400, "비밀번호를 입력해 주세요.", "BAD_REQUEST");
+      return;
+    }
+
+    const violation = checkNewPassword(newPassword);
+    if (violation) {
+      sendError(
+        res,
+        "coded",
+        400,
+        PASSWORD_RULE_MESSAGES[violation],
+        violation,
+      );
       return;
     }
 

@@ -92,4 +92,97 @@ describe("POST /api/console/change-password", () => {
     expect(logged).not.toContain("OldPass123");
     expect(logged).not.toContain("NewPass456");
   });
+
+  test("현재 비밀번호가 틀리면 로그인과 같은 401 INVALID 이고 실패 횟수가 늘며 비밀번호를 바꾸지 않는다", async () => {
+    kit.signIn.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { status: 400 },
+    });
+    kit.state.rpc.fn_login_attempt_begin = () => ({
+      data: [{ outcome: "proceed", attempt_no: 2, retry_after_s: 0 }],
+      error: null,
+    });
+    const ended: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_login_attempt_end = (args) => {
+      ended.push(args);
+      return { data: null, error: null };
+    };
+
+    const r = await post({
+      currentPassword: "Wrong1234",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(401);
+    expect(r.body).toMatchObject({
+      error: { code: "INVALID" },
+      failCount: 2,
+    });
+    expect(ended).toHaveLength(1);
+    expect(ended[0]).toMatchObject({ p_outcome: "invalid" });
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("잠긴 상태면 429 LOCKED 와 Retry-After 이고 GoTrue 를 부르지 않는다", async () => {
+    kit.state.rpc.fn_login_attempt_begin = () => ({
+      data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 540 }],
+      error: null,
+    });
+
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(429);
+    expect(r.body).toMatchObject({ error: { code: "LOCKED" } });
+    expect(r.headers["Retry-After"]).toBe("540");
+    expect(kit.signIn).not.toHaveBeenCalled();
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["8자 미만", "Ab1xyz", "PASSWORD_TOO_SHORT"],
+    ["숫자 없음", "Abcdefghij", "PASSWORD_NO_DIGIT"],
+    ["영문자 없음", "1234567890", "PASSWORD_NO_LETTER"],
+  ])(
+    "새 비밀번호가 %s 이면 400 이고 현재 비밀번호 확인(잠금 횟수)을 쓰지 않는다",
+    async (_label, newPassword, code) => {
+      const r = await post({ currentPassword: "OldPass123", newPassword });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.events).not.toContain("rpc:fn_login_attempt_begin");
+    },
+  );
+
+  test("본사 대행(교사 아님)은 403 FORBIDDEN", async () => {
+    kit.state.actor = {
+      ...kit.state.actor,
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "session-1",
+    };
+
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  test("임시 비밀번호 상태의 계정은 403 MUST_CHANGE_PASSWORD(첫 비밀번호 라우트를 써야 한다)", async () => {
+    kit.state.actor = { ...kit.state.actor, must_change_password: true };
+
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "MUST_CHANGE_PASSWORD" } });
+  });
 });
