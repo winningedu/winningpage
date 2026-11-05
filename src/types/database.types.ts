@@ -6956,6 +6956,7 @@ export type Database = {
           deleted_by: string | null;
           email: string | null;
           id: string;
+          issue_claimed_at: string | null;
           landline: string | null;
           login_id: string | null;
           must_change_password: boolean;
@@ -6979,6 +6980,7 @@ export type Database = {
           deleted_by?: string | null;
           email?: string | null;
           id?: string;
+          issue_claimed_at?: string | null;
           landline?: string | null;
           login_id?: string | null;
           must_change_password?: boolean;
@@ -7001,6 +7003,7 @@ export type Database = {
           deleted_by?: string | null;
           email?: string | null;
           id?: string;
+          issue_claimed_at?: string | null;
           landline?: string | null;
           login_id?: string | null;
           must_change_password?: boolean;
@@ -8159,9 +8162,11 @@ export type Database = {
           p_primary: string;
           p_remove_class_ids: string[];
           p_teacher_id: string;
+          p_tenant: string;
         };
         Returns: undefined;
       };
+      fn_auth_user_id_by_email: { Args: { p_email: string }; Returns: string };
       fn_class_ensure: {
         Args: {
           p_grade: string;
@@ -8385,11 +8390,13 @@ export type Database = {
       fn_enrollment_update: {
         Args: {
           p_actor: string;
+          p_allowed_class_ids?: string[];
           p_apply_year: number;
           p_expected_version: number;
           p_kind: string;
           p_reason: string;
           p_student: string;
+          p_tenant: string;
           p_to_class_id: string;
           p_to_grade: string;
           p_to_number: number;
@@ -8458,7 +8465,7 @@ export type Database = {
         Returns: number;
       };
       fn_group_soft_delete: {
-        Args: { p_actor: string; p_group: string };
+        Args: { p_actor: string; p_group: string; p_tenant: string };
         Returns: undefined;
       };
       fn_growth_claim_step: {
@@ -8580,6 +8587,7 @@ export type Database = {
         Args: { p_attempt_no?: number; p_hash: string; p_outcome: string };
         Returns: undefined;
       };
+      fn_login_resolve_email: { Args: { p_username: string }; Returns: string };
       fn_mark_program_entry: {
         Args: { p_program_key: string };
         Returns: undefined;
@@ -8688,6 +8696,10 @@ export type Database = {
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
         }[];
+      };
+      fn_raise_number_taken: {
+        Args: { p_class: string; p_number: number };
+        Returns: undefined;
       };
       fn_refund_completed_amount: {
         Args: { p_order_id: string };
@@ -8994,16 +9006,23 @@ export type Database = {
         Args: { p_class_id: string; p_teacher_id: string };
         Returns: undefined;
       };
+      fn_teacher_issue_claim: {
+        Args: { p_teacher_id: string; p_tenant: string };
+        Returns: string;
+      };
       fn_teacher_password_set: {
-        Args: { p_teacher_id: string };
+        Args: { p_teacher_id: string; p_tenant?: string };
         Returns: undefined;
       };
       fn_teacher_register: {
         Args: {
           p_actor: string;
           p_classes: Json;
+          p_email?: string;
+          p_landline?: string;
           p_name: string;
           p_phone: string;
+          p_position?: string;
           p_role: string;
           p_tenant_id: string;
         };
@@ -9013,11 +9032,16 @@ export type Database = {
         }[];
       };
       fn_teacher_set_status: {
-        Args: { p_actor: string; p_status: string; p_teacher_id: string };
+        Args: {
+          p_actor: string;
+          p_status: string;
+          p_teacher_id: string;
+          p_tenant: string;
+        };
         Returns: string;
       };
       fn_teacher_soft_delete: {
-        Args: { p_actor: string; p_teacher_ids: string[] };
+        Args: { p_actor: string; p_teacher_ids: string[]; p_tenant: string };
         Returns: {
           active_students: number;
           profile_id: string;
