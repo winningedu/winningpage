@@ -113,4 +113,17 @@ describe("readRosterLines", () => {
     ]);
     expect(await readRosterLines(file)).toBe("홍, 길동\t1학년\t\t4\t7\t\t\t\t");
   });
+
+  it("엑셀, csv 가 아닌 확장자는 읽지 않고 같은 안내 문구로 실패한다", async () => {
+    const file = new File(
+      [
+        await xlsxFile([
+          ["이름", "학년", "반", "번호"],
+          ["홍길동", "1학년", "4", "7"],
+        ]).arrayBuffer(),
+      ],
+      "photo.png",
+    );
+    await expect(readRosterLines(file)).rejects.toThrow(EMPTY_ROSTER_MESSAGE);
+  });
 });

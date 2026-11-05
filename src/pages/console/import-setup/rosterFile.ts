@@ -9,11 +9,14 @@ export const TOO_LARGE_ROSTER_MESSAGE =
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_DATA_ROWS = 2000;
+const ACCEPTED_FILE = /\.(xlsx|xls|csv)$/i;
 
 const ROSTER_WIDTH = 4;
 const BULK_WIDTH = 9;
 
 export async function readRosterLines(file: File): Promise<string> {
+  // 끌어다 놓기는 accept 를 거치지 않으므로 확장자를 여기서 다시 거른다.
+  if (!ACCEPTED_FILE.test(file.name)) throw new Error(EMPTY_ROSTER_MESSAGE);
   // 신뢰할 수 없는 파일이라 읽기 전에 크기부터 막는다(결정 56).
   if (file.size > MAX_FILE_BYTES) throw new Error(TOO_LARGE_ROSTER_MESSAGE);
   let grid: string[][];
