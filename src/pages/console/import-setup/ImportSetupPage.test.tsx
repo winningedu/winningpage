@@ -707,6 +707,26 @@ describe("ImportSetupPage ① 명단 엑셀 올리기", () => {
   });
 });
 
+describe("ImportSetupPage 휴대폰", () => {
+  const desktopWidth = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = desktopWidth;
+  });
+
+  it("768 미만에서는 ① 과 ③ 을 그리지 않고 학년도 정보도 요청하지 않는다", async () => {
+    window.innerWidth = 500;
+    const calls = stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    expect(await screen.findByText("A레벨")).toBeTruthy();
+    expect(screen.queryByText("① 명단 엑셀 올리기")).toBeNull();
+    expect(screen.queryByText("③ 학년그룹 일괄 변경")).toBeNull();
+    expect(
+      calls.some((c) => c.key === "GET /api/console/school-year"),
+    ).toBe(false);
+  });
+});
+
 describe("ImportSetupPage 권한 없음", () => {
   it("담임이 열면 리다이렉트 없이 안내를 보이고 학생 관리로 보낸다", async () => {
     stubApi({
