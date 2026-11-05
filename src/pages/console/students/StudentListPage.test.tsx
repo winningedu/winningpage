@@ -65,6 +65,8 @@ const student = (n: number, over: Record<string, unknown> = {}) => ({
   services: n === 1 ? allServices : noServices,
   serviceCount: n === 1 ? 6 : 0,
   urgency: n === 1 ? "mid" : null,
+  groupId: null,
+  classId: "c3",
   canEdit: true,
   enrollmentVersion: 1,
   ...over,
@@ -72,6 +74,14 @@ const student = (n: number, over: Record<string, unknown> = {}) => ({
 
 const classes = {
   classes: [
+    {
+      id: "c1",
+      grade: "고3",
+      groupId: null,
+      groupName: null,
+      name: "1",
+      hasHomeroom: false,
+    },
     {
       id: "c3",
       grade: "고2",
@@ -474,5 +484,184 @@ describe("W6a 학생 상세", () => {
     expect(
       await screen.findByText("학생 정보를 불러오지 못했어요"),
     ).toBeTruthy();
+  });
+});
+
+const PATCH_URL = "PATCH /api/console/students/enrollment";
+
+async function openEdit() {
+  renderRoutes(routes, "/teacher/students");
+  const row = (await screen.findByText("김서연")).closest("tr") as HTMLElement;
+  fireEvent.click(within(row).getByRole("button", { name: "편집하기" }));
+  return await screen.findByRole("dialog");
+}
+
+describe("W6b 학생 정보 편집", () => {
+  it("현재 값이 채워진 네 칸을 보이고, 바꾸지 않으면 저장할 수 없으며 안내문은 없다", async () => {
+    stubPage();
+    const dialog = await openEdit();
+
+    expect(
+      within(dialog).getByRole("heading", { name: "학생 정보 편집" }),
+    ).toBeTruthy();
+    expect(
+      (within(dialog).getByLabelText("학년") as HTMLSelectElement).value,
+    ).toBe("고2");
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("c3");
+    expect(
+      (within(dialog).getByLabelText("번호") as HTMLInputElement).value,
+    ).toBe("1");
+    expect(
+      within(dialog).getByLabelText(
+        "그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)",
+      ),
+    ).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(within(dialog).queryByText(/알림이 가요/)).toBeNull();
+  });
+
+  it("반과 번호를 바꿔 저장하면 현재 버전으로 PATCH 하고 닫은 뒤 알림을 보이고 목록을 다시 읽는다", async () => {
+    const calls = stubPage({
+      [PATCH_URL]: { body: { ok: true, enrollmentId: "e1", version: 2 } },
+    });
+    const dialog = await openEdit();
+
+    fireEvent.change(within(dialog).getByLabelText("반"), {
+      target: { value: "c5" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("번호"), {
+      target: { value: "12" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("김서연 학생 정보를 바꿨어요")).toBeTruthy();
+    expect(calls.find((c) => c.key === PATCH_URL)?.body).toEqual({
+      studentId: "s1",
+      expectedVersion: 1,
+      grade: "고2",
+      classId: "c5",
+      number: 12,
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      calls.filter((c) => c.key === LIST_URL).length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("학년을 바꾸면 D-day 와 내신 기준 안내가 더해지고 저장은 막히지 않는다", async () => {
+    stubPage();
+    const dialog = await openEdit();
+
+    fireEvent.change(within(dialog).getByLabelText("학년"), {
+      target: { value: "고3" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("반"), {
+      target: { value: "c1" },
+    });
+
+    expect(
+      within(dialog).getByText(
+        "학년이 바뀌면 목표관리 D-day와 내신 기준이 바뀌어요",
+      ),
+    ).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
+  it("담임이 없는 반을 고르면 안내만 더하고 저장은 막히지 않는다", async () => {
+    stubPage();
+    const dialog = await openEdit();
+
+    fireEvent.change(within(dialog).getByLabelText("학년"), {
+      target: { value: "고3" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("반"), {
+      target: { value: "c1" },
+    });
+
+    expect(
+      within(dialog).getByText(
+        "옮길 반에는 담임이 없어요. 안내만 하고 그대로 반영해요",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("번호가 이미 쓰이면 그 번호를 쓰는 학생 이름과 고치는 법을 번호 칸 아래에 보인다", async () => {
+    stubPage({
+      [PATCH_URL]: {
+        status: 409,
+        body: {
+          error: { code: "NUMBER_TAKEN", message: "이미 사용 중인 번호예요." },
+          occupant: {
+            grade: "고2",
+            className: "3",
+            number: 2,
+            displayName: "이서준",
+          },
+        },
+      },
+    });
+    const dialog = await openEdit();
+
+    fireEvent.change(within(dialog).getByLabelText("번호"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    expect(
+      await within(dialog).findByText(
+        "이미 사용 중인 번호예요(2학년 3반 2번, 이서준). 다른 번호를 골라 주세요",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("다른 분이 먼저 바꿨으면 새로 고침 안내를 보이고 창은 열어 둔다", async () => {
+    stubPage({
+      [PATCH_URL]: {
+        status: 409,
+        body: {
+          error: {
+            code: "VERSION_CONFLICT",
+            message: "다른 분이 먼저 바꿨어요. 새로 고침해 주세요.",
+          },
+        },
+      },
+    });
+    const dialog = await openEdit();
+    fireEvent.change(within(dialog).getByLabelText("번호"), {
+      target: { value: "9" },
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    expect(
+      await within(dialog).findByText(
+        "다른 분이 먼저 바꿨어요. 새로 고침해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("취소는 저장하지 않고 창을 닫는다", async () => {
+    const calls = stubPage();
+    const dialog = await openEdit();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.some((c) => c.key === PATCH_URL)).toBe(false);
   });
 });

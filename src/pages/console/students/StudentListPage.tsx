@@ -20,6 +20,7 @@ import Tabs from "../Tabs";
 import { useConsoleMe } from "../useConsoleMe";
 import StudentCards from "./StudentCards";
 import StudentDetailDialog from "./StudentDetailDialog";
+import StudentEditDialog from "./StudentEditDialog";
 import StudentFilterBar, { type StudentFilterValues } from "./StudentFilterBar";
 import StudentTable from "./StudentTable";
 import { SERVICES } from "./services";
@@ -93,7 +94,7 @@ export default function StudentListPage() {
     mobile,
   );
   const [openedId, setOpenedId] = useState<string | null>(null);
-  const [, setEditId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const apply = (values: StudentFilterValues, nextTab: string) =>
     setSearchParams({
@@ -113,6 +114,7 @@ export default function StudentListPage() {
       ]
     : undefined;
   const data = list.data;
+  const editing = data?.items.find((r) => r.studentId === editId);
   const academy = data?.orgType !== null && data?.orgType !== "학교";
 
   return (
@@ -206,6 +208,13 @@ export default function StudentListPage() {
           </>
         )}
       </section>
+      {editing && classes.data && (
+        <StudentEditDialog
+          student={editing}
+          classes={classes.data}
+          onClose={() => setEditId(null)}
+        />
+      )}
       {openedId && (
         <StudentDetailDialog
           studentId={openedId}
