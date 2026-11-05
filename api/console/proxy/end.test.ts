@@ -95,4 +95,46 @@ describe("POST /api/console/proxy/end", () => {
       expect.anything(),
     );
   });
+
+  test("열린 세션을 닫고 proxy_end 감사 로그에 닫은 세션을 싣는다", async () => {
+    const r = await end();
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, ended: true, sessionId: "session-1" });
+    expect(state.rpc).toHaveBeenCalledWith("fn_proxy_end", {
+      p_admin: "admin-1",
+    });
+    expect(state.inserts).toHaveLength(1);
+    expect(state.inserts[0]).toMatchObject({
+      table: "admin_access_logs",
+      row: {
+        profile_id: "admin-1",
+        tenant_id: "tenant-1",
+        actor_kind: "hq_proxy",
+        proxy_session_id: "session-1",
+        action: "proxy_end",
+        resource_key: "teacherConsoleProxy",
+      },
+    });
+  });
+
+  test("열린 세션이 없으면 200 ended false 이고 로그를 남기지 않는다", async () => {
+    state.endResult = { data: null, error: null };
+
+    const r = await end();
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, ended: false });
+    expect(state.inserts).toHaveLength(0);
+  });
+
+  test("감사 로그를 남기지 못하면 성공으로 끝나지 않고 500 이다", async () => {
+    state.logError = { message: "insert failed" };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await end();
+
+    expect(r.status).toBe(500);
+    errorSpy.mockRestore();
+  });
 });
