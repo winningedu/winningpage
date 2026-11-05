@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Chip from "../Chip";
+import EmptyMessage from "../EmptyMessage";
 import Notice from "../Notice";
 import { type Slot, slotLabel } from "./format";
 import { usePagedList } from "./usePagedList";
@@ -64,6 +65,9 @@ export default function PendingRequestsTab() {
           ))}
         </TableBody>
       </Table>
+      {list.data.items.length === 0 && (
+        <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요" />
+      )}
     </section>
   );
 }

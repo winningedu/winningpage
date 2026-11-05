@@ -117,3 +117,20 @@ describe("W13 승인 대기 탭", () => {
     expect(screen.queryByRole("tab", { name: "졸업생" })).toBeNull();
   });
 });
+
+describe("W13 승인 대기 빈 상태", () => {
+  it("승인 대기가 없으면 머리와 안내 문장만 보인다", async () => {
+    stubPage({ [PENDING_URL]: { body: pendingBody([]) } });
+
+    renderRoutes(routes, "/teacher/student-history");
+
+    expect(await screen.findByText("승인 대기 0건")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "학생명" })).toBeTruthy();
+    expect(screen.queryByText(/\d+ \/ \d+ 페이지/)).toBeNull();
+  });
+});
