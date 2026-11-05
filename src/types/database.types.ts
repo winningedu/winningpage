@@ -1505,6 +1505,7 @@ export type Database = {
         Row: {
           changed_at: string;
           changed_by: string | null;
+          school_year: number;
           status: string;
           student_id: string;
           tenant_id: string;
@@ -1513,6 +1514,7 @@ export type Database = {
         Insert: {
           changed_at?: string;
           changed_by?: string | null;
+          school_year: number;
           status: string;
           student_id: string;
           tenant_id: string;
@@ -1520,6 +1522,7 @@ export type Database = {
         Update: {
           changed_at?: string;
           changed_by?: string | null;
+          school_year?: number;
           status?: string;
           student_id?: string;
           tenant_id?: string;
@@ -1535,7 +1538,7 @@ export type Database = {
           {
             foreignKeyName: "counsel_statuses_student_id_fkey";
             columns: ["student_id"];
-            isOneToOne: true;
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -6793,7 +6796,7 @@ export type Database = {
           {
             foreignKeyName: "student_flags_student_id_fkey";
             columns: ["student_id"];
-            isOneToOne: true;
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -7056,32 +7059,35 @@ export type Database = {
       };
       teacher_memos: {
         Row: {
-          author_teacher_id: string;
+          author_teacher_id: string | null;
           body: string;
           created_at: string;
           hidden_at: string | null;
           id: string;
+          proxy_session_id: string | null;
           request_id: string;
           student_id: string;
           tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
-          author_teacher_id: string;
+          author_teacher_id?: string | null;
           body: string;
           created_at?: string;
           hidden_at?: string | null;
           id?: string;
+          proxy_session_id?: string | null;
           request_id: string;
           student_id: string;
           tenant_id: string;
         };
         Update: {
-          author_teacher_id?: string;
+          author_teacher_id?: string | null;
           body?: string;
           created_at?: string;
           hidden_at?: string | null;
           id?: string;
+          proxy_session_id?: string | null;
           request_id?: string;
           student_id?: string;
           tenant_id?: string;
@@ -7092,6 +7098,13 @@ export type Database = {
             columns: ["author_teacher_id"];
             isOneToOne: false;
             referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
             referencedColumns: ["id"];
           },
           {
@@ -8873,9 +8886,11 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: {
           access_logs_deleted: number;
+          counsel_statuses_deleted: number;
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
           memos_deleted: number;
+          student_flags_deleted: number;
         }[];
       };
       fn_raise_number_taken: {
@@ -9148,6 +9163,20 @@ export type Database = {
           p_step: string;
         };
         Returns: Json;
+      };
+      fn_set_counsel_status: {
+        Args: {
+          p_changed_by: string;
+          p_school_year: number;
+          p_status: string;
+          p_student_id: string;
+          p_tenant_id: string;
+        };
+        Returns: {
+          current_status: string;
+          previous_status: string;
+          status_changed_at: string;
+        }[];
       };
       fn_set_my_tenant: {
         Args: { p_code: string };
