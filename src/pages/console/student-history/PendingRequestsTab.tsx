@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -16,11 +17,13 @@ import { PENDING_COUNT_KEY } from "../ConsoleLayout";
 import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import Notice from "../Notice";
+import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
 import { type Slot, slotLabel } from "./format";
 import RejectDialog from "./RejectDialog";
 import { HISTORY_KEY, usePagedList } from "./usePagedList";
+import { usePageParam } from "./usePageParam";
 
 interface PendingRequest {
   changeId: string;
@@ -31,6 +34,7 @@ interface PendingRequest {
   gradeChanges: boolean;
 }
 
+const PAGE_SIZE = 50;
 const CONFLICT_MESSAGE = "다른 분이 먼저 바꿨어요. 새로 고침해 주세요";
 
 // 서버가 번호를 쓰는 학생(occupant)을 실어 보낸다. 가린 이름 여부는 서버가 정한다.
@@ -55,10 +59,11 @@ export default function PendingRequestsTab() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<PendingRequest | null>(null);
+  const [page, setPage] = usePageParam();
   const list = usePagedList<PendingRequest>(
     "/api/console/enrollment-requests",
     {},
-    1,
+    page,
   );
 
   const refresh = () =>
@@ -167,20 +172,24 @@ export default function PendingRequestsTab() {
                 </span>
               </TableCell>
               <TableCell>
-                <button
-                  type="button"
-                  disabled={busyId !== null}
-                  onClick={() => void approve(item)}
-                >
-                  승인
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId !== null}
-                  onClick={() => setRejecting(item)}
-                >
-                  거절
-                </button>
+                <span className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    disabled={busyId !== null}
+                    onClick={() => void approve(item)}
+                    className="h-8 rounded-lg px-3 text-sm font-medium"
+                  >
+                    승인
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={busyId !== null}
+                    onClick={() => setRejecting(item)}
+                    className="h-8 rounded-lg bg-surface-muted px-4 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                  >
+                    거절
+                  </Button>
+                </span>
               </TableCell>
             </TableRow>
           ))}
@@ -189,6 +198,22 @@ export default function PendingRequestsTab() {
       {list.data.items.length === 0 && (
         <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요" />
       )}
+      {list.data.pageCount > 0 && (
+        <Pagination
+          page={list.data.page}
+          pageCount={list.data.pageCount}
+          total={list.data.total}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
+      )}
+      {list.data.items
+        .filter((item) => item.gradeChanges)
+        .map((item) => (
+          <p key={item.changeId} className="text-app-body text-ink-sub">
+            {`${item.studentName}: 학년이 바뀌면 목표관리 D-day와 내신 기준이 바뀌어요`}
+          </p>
+        ))}
       {rejecting && (
         <RejectDialog
           onConfirm={(reason) => reject(rejecting, reason)}

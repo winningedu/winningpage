@@ -361,3 +361,46 @@ describe("W13c 거절 확정", () => {
     ).toBeTruthy();
   });
 });
+
+describe("W13 승인 대기 쪽 나누기와 안내", () => {
+  it("쪽 표시와 다음 쪽 이동을 쿼리스트링에 둔다", async () => {
+    const PAGE2 = "GET /api/console/enrollment-requests?page=2";
+    stubPage({
+      [PENDING_URL]: {
+        body: { total: 120, page: 1, pageCount: 3, items: [request(1)] },
+      },
+      [PAGE2]: {
+        body: { total: 120, page: 2, pageCount: 3, items: [request(2)] },
+      },
+    });
+    const { router } = renderRoutes(routes, "/teacher/student-history");
+    expect(await screen.findByText("1 / 3 페이지, 1~50번째")).toBeTruthy();
+    expect(screen.getByText("승인 대기 120건")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "이전" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    expect(await screen.findByText("2 / 3 페이지, 51~100번째")).toBeTruthy();
+    expect(screen.getByText("정도윤")).toBeTruthy();
+    expect(router.state.location.search).toBe("?page=2");
+  });
+
+  it("학년이 바뀌는 신청마다 한 줄씩 안내한다", async () => {
+    stubPage({
+      [PENDING_URL]: {
+        body: pendingBody([request(1, { gradeChanges: true }), request(2)]),
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+
+    expect(
+      await screen.findByText(
+        "김서연: 학년이 바뀌면 목표관리 D-day와 내신 기준이 바뀌어요",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/^정도윤: 학년이/)).toBeNull();
+  });
+});
