@@ -2,6 +2,8 @@
 
 import { describe, expect, test } from "vitest";
 import {
+  type CoachingMetrics,
+  computeAxes,
   executionVerdict,
   type GoalDay,
   learningVerdict,
@@ -188,5 +190,154 @@ describe("linkageVerdict (문구표 r13~r16, 진로 연결도)", () => {
     [49.9, "risk"],
   ] as const)("career link score %s is %s", (score, level) => {
     expect(linkageVerdict(score).level).toBe(level);
+  });
+});
+
+const NONE_USED = {
+  diagnosis: false,
+  goal: false,
+  growth: false,
+  performance: false,
+  selfeval: false,
+  inquiry: false,
+};
+
+// 여섯 서비스를 모두 쓰는 학생(김서연 예시 값). 학습 실행 역량 62, 달성율 72, 충족 4/6.
+const metrics = (over: Partial<CoachingMetrics> = {}): CoachingMetrics => ({
+  used: {
+    diagnosis: true,
+    goal: true,
+    growth: true,
+    performance: true,
+    selfeval: true,
+    inquiry: true,
+  },
+  diagnosis: {
+    areas: {
+      ...areas(60),
+      GOAL: 62,
+      PLAN: 60,
+      EXEC: 62,
+      TIME: 62,
+      FEEDBACK: 64,
+      STABILITY: 62,
+      ACTIVITY: 76,
+      STRATEGY: 78,
+      SUBJECT: 74,
+    },
+    trend: "up",
+  },
+  goal: {
+    week: { setDays: 6, metDays: 4, achievementPct: 72 },
+    naesinChangeScore: null,
+    mockChangeScore: null,
+  },
+  growth: {
+    axes: { A: null, B: null, C: null, D: null, E: null },
+    curve: null,
+  },
+  performance: { avgScore: 73, tasks: 3, feedbackDone: 3 },
+  inquiry: { topicFit: "normal", reportScore: null },
+  selfeval: { verifyScore: null },
+  ...over,
+});
+
+describe("computeAxes (연결표 r2~r19, 결정 4: 자료 없는 지표는 분모에서 뺀다)", () => {
+  const byKey = (m: CoachingMetrics) =>
+    Object.fromEntries(computeAxes(m).axes.map((a) => [a.key, a]));
+
+  test("axis 1 averages the diagnosis execution score, the achievement and the minimum met rate", () => {
+    // (62 + 72 + 4/6x100) / 3 = 66.9
+    expect(byKey(metrics()).execution).toMatchObject({
+      score: 67,
+      status: "scored",
+    });
+  });
+
+  test("an achievement above 100 counts as 100 in the score", () => {
+    const m = metrics({
+      goal: {
+        week: { setDays: 6, metDays: 6, achievementPct: 130 },
+        naesinChangeScore: null,
+        mockChangeScore: null,
+      },
+    });
+    // (62 + 100 + 100) / 3 = 87.3
+    expect(byKey(m).execution?.score).toBe(87);
+  });
+
+  test("axis 2 uses only the indicators that have data (strategy and subject management)", () => {
+    // (78 + 74) / 2 = 76
+    expect(byKey(metrics()).readiness?.score).toBe(76);
+  });
+
+  test("axis 4 averages the feedback score, the feedback done rate and the diagnosis performance score", () => {
+    // 평가 점수 73, 피드백 완료율 3/3 = 100, 수행 대응 80 -> 84.3
+    expect(byKey(metrics()).performance?.score).toBe(84);
+  });
+
+  test("an axis without any data on its services is not used and names the missing services", () => {
+    const m = metrics({
+      used: { ...NONE_USED, growth: true, performance: true },
+      diagnosis: null,
+      goal: null,
+      inquiry: null,
+      selfeval: null,
+    });
+    expect(byKey(m).execution).toMatchObject({
+      score: null,
+      status: "not_used",
+      missingServices: ["학습진단", "목표관리"],
+    });
+  });
+
+  test("axes 5 and 6 are before evaluation while the main service is in use without a result", () => {
+    const axes = byKey(metrics());
+    expect(axes.inquiry).toMatchObject({ score: null, status: "before_eval" });
+    expect(axes.selfAssessment).toMatchObject({
+      score: null,
+      status: "before_eval",
+    });
+  });
+
+  test("axes 5 and 6 are scored once the main service has its result", () => {
+    const m = metrics({
+      inquiry: { topicFit: "fit", reportScore: 80 },
+      selfeval: { verifyScore: 90 },
+    });
+    expect(byKey(m).inquiry?.score).toBe(80);
+    // 검증 결과 90 과 학습진단 기록 정리 80 의 평균
+    expect(byKey(m).selfAssessment?.score).toBe(85);
+  });
+
+  test("axis 5 is not used when the inquiry service is not used, even with a diagnosis score", () => {
+    const m = metrics({
+      used: { ...metrics().used, inquiry: false },
+      inquiry: null,
+    });
+    expect(byKey(m).inquiry).toMatchObject({
+      status: "not_used",
+      missingServices: ["심화탐구"],
+    });
+  });
+
+  test("the topic fit categories become 100, 50 and 0 (결정 4)", () => {
+    const withFit = (topicFit: "fit" | "normal" | "off") =>
+      byKey(metrics({ inquiry: { topicFit, reportScore: null } })).careerLink;
+    // 연계 축은 주제 적합도와 학습진단 활동 연계(76)의 평균
+    expect(withFit("fit")?.score).toBe(88);
+    expect(withFit("normal")?.score).toBe(63);
+    expect(withFit("off")?.score).toBe(38);
+  });
+
+  test("the strongest and weakest axes follow the radar order on ties and name the weakest indicator", () => {
+    const { strongest, weakest } = computeAxes(metrics());
+    // 점수: 실행 67, 준비도 76, 연계 63, 수행평가 84
+    expect(strongest).toMatchObject({ key: "performance", score: 84 });
+    expect(weakest).toMatchObject({
+      key: "careerLink",
+      score: 63,
+      cause: { service: "심화탐구", name: "주제 적합도", score: 50 },
+    });
   });
 });
