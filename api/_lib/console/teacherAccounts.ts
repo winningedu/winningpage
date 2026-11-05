@@ -5,7 +5,7 @@ import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
-import { SYNTHETIC_DOMAIN } from "../auth/login.js";
+import { MAX_PASSWORD_LENGTH, SYNTHETIC_DOMAIN } from "../auth/login.js";
 import { sendError } from "../httpResponse.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 
@@ -424,4 +424,28 @@ export function registerResponseBody(result: RegisterResult) {
     verdict: result.verdict,
     ...(result.issued ? { tempPassword: result.issued.tempPassword } : {}),
   };
+}
+
+export type PasswordRuleViolation =
+  | "PASSWORD_TOO_SHORT"
+  | "PASSWORD_TOO_LONG"
+  | "PASSWORD_NO_LETTER"
+  | "PASSWORD_NO_DIGIT";
+
+export const PASSWORD_RULE_MESSAGES: Record<PasswordRuleViolation, string> = {
+  PASSWORD_TOO_SHORT: "비밀번호는 8자 이상이어야 합니다.",
+  PASSWORD_TOO_LONG: "비밀번호가 너무 깁니다.",
+  PASSWORD_NO_LETTER: "비밀번호에 영문자를 포함해 주세요.",
+  PASSWORD_NO_DIGIT: "비밀번호에 숫자를 포함해 주세요.",
+};
+
+/** W2 규칙: 8자 이상, 영문자와 숫자를 모두 포함. 위반이 없으면 null. */
+export function checkNewPassword(
+  password: string,
+): PasswordRuleViolation | null {
+  if (password.length < 8) return "PASSWORD_TOO_SHORT";
+  if (password.length > MAX_PASSWORD_LENGTH) return "PASSWORD_TOO_LONG";
+  if (!/[A-Za-z]/.test(password)) return "PASSWORD_NO_LETTER";
+  if (!/[0-9]/.test(password)) return "PASSWORD_NO_DIGIT";
+  return null;
 }

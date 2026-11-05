@@ -71,4 +71,64 @@ describe("POST /api/console/first-password", () => {
       expect(JSON.stringify(spy.mock.calls)).not.toContain("NewPass123");
     }
   });
+
+  test.each([
+    ["8자 미만", "Ab1xyz", "PASSWORD_TOO_SHORT"],
+    ["숫자 없음", "Abcdefghij", "PASSWORD_NO_DIGIT"],
+    ["영문자 없음", "1234567890", "PASSWORD_NO_LETTER"],
+    ["임시 비밀번호와 같음", "Temp#1234x", "PASSWORD_SAME_AS_TEMP"],
+  ])(
+    "%s 이면 400 %s 이고 Auth 와 DB 를 바꾸지 않는다",
+    async (_label, password, code) => {
+      const r = await post({ password });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
+    },
+  );
+
+  test("비밀번호가 없거나 문자열이 아니면 400 BAD_REQUEST", async () => {
+    expect((await post({})).status).toBe(400);
+    expect((await post({ password: 12345678 })).status).toBe(400);
+  });
+
+  test("임시 비밀번호 상태가 아닌 교사는 409 NOT_REQUIRED", async () => {
+    kit.state.actor = { ...kit.state.actor, must_change_password: false };
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "NOT_REQUIRED" } });
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+  });
+
+  test("본사 대행(교사 아님)은 403 FORBIDDEN", async () => {
+    kit.state.actor = {
+      ...kit.state.actor,
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "session-1",
+      must_change_password: false,
+    };
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+  });
+
+  test("Auth 교체가 실패하면 502 이고 DB 임시 상태는 그대로다", async () => {
+    kit.state.auth.updateUserById.mockResolvedValue({
+      data: null,
+      error: { status: 500 },
+    });
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(502);
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
 });

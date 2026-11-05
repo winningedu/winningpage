@@ -8,14 +8,18 @@
 
 import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import {
+  checkNewPassword,
+  PASSWORD_RULE_MESSAGES,
   RpcError,
   TEACHERS_RESOURCE_KEY,
+  verifyTempPassword,
 } from "../_lib/console/teacherAccounts.js";
 import {
   AuthSyncError,
   sendTeacherError,
 } from "../_lib/console/teacherManage.js";
 import { defineHandler } from "../_lib/handler.js";
+import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -30,10 +34,66 @@ export default defineHandler({
   logLabel: "[console/first-password]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
-    const { password } = (req.body ?? {}) as { password: string };
     const actor = ctx.console;
-    if (!actor?.teacherId) throw new Error("console actor missing");
+    if (!actor) throw new Error("console actor missing");
+    if (!actor.teacherId) {
+      sendError(
+        res,
+        "coded",
+        403,
+        "선생님 계정만 사용할 수 있습니다.",
+        "FORBIDDEN",
+      );
+      return;
+    }
+    if (!actor.mustChangePassword) {
+      sendError(
+        res,
+        "coded",
+        409,
+        "이미 비밀번호를 설정한 계정입니다.",
+        "NOT_REQUIRED",
+      );
+      return;
+    }
+    const { password } = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof password !== "string") {
+      sendError(res, "coded", 400, "비밀번호를 입력해 주세요.", "BAD_REQUEST");
+      return;
+    }
+    const violation = checkNewPassword(password);
+    if (violation) {
+      sendError(
+        res,
+        "coded",
+        400,
+        PASSWORD_RULE_MESSAGES[violation],
+        violation,
+      );
+      return;
+    }
     const admin = ctx.supabaseAdmin;
+
+    const { data: teacher, error: readError } = await admin
+      .from("teachers")
+      .select("temp_password_hash")
+      .eq("id", actor.teacherId)
+      .maybeSingle();
+    if (readError || !teacher)
+      throw new RpcError("teacher read", readError?.code);
+    if (
+      teacher.temp_password_hash &&
+      (await verifyTempPassword(password, teacher.temp_password_hash))
+    ) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "임시 비밀번호와 다른 비밀번호를 입력해 주세요.",
+        "PASSWORD_SAME_AS_TEMP",
+      );
+      return;
+    }
 
     try {
       const { error: authError } = await admin.auth.admin.updateUserById(
