@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import { getCoverUrl } from "@/pages/column/columnData";
 import { isEmptyDocument } from "./BlockEditor";
 
@@ -33,7 +34,7 @@ export default function ColumnPreviewModal({
   open,
   onClose,
   post,
-  label = "교육칼럼",
+  label = site.columnTitle,
 }: ColumnPreviewModalProps) {
   if (!open) return null;
 
