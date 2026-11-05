@@ -12,7 +12,7 @@ import {
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
@@ -132,6 +132,14 @@ export default defineHandler({
       admin,
       current.map((e) => e.student_id),
     );
+    const shownNames = displayNamesFor(
+      actor,
+      current.map((e) => ({
+        id: e.student_id,
+        group: e.class_id,
+        name: profiles.get(e.student_id)?.name ?? "",
+      })),
+    );
     const classOf = (e: EnrollmentRow) =>
       e.class_id ? classes.get(e.class_id) : undefined;
     const matches = current
@@ -198,10 +206,7 @@ export default defineHandler({
         const used = usedOf(e.student_id);
         return {
           studentId: e.student_id,
-          displayName: displayNameFor(
-            actor,
-            profiles.get(e.student_id)?.name ?? "",
-          ),
+          displayName: shownNames.get(e.student_id) ?? "",
           joinedAt: profiles.get(e.student_id)?.joinedAt ?? null,
           grade: e.grade,
           groupId: cls?.groupId ?? null,

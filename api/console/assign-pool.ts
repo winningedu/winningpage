@@ -11,7 +11,7 @@ import {
   loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import {
   loadServiceUsage,
@@ -88,6 +88,15 @@ export default defineHandler({
         a.student_id.localeCompare(b.student_id),
     );
 
+    // 미배정 학생은 한 묶음이다. 가린 이름이 같으면 구분되게 한다.
+    const shownNames = displayNamesFor(
+      actor,
+      pool.map((e) => ({
+        id: e.student_id,
+        group: null,
+        name: nameOf(e.student_id),
+      })),
+    );
     const paged = paginate(pool, pageQuery);
     const sameNameOf = (id: string) =>
       enrolled.filter(
@@ -112,7 +121,7 @@ export default defineHandler({
         const sameName = sameNameOf(e.student_id);
         return {
           studentId: e.student_id,
-          name: displayNameFor(actor, nameOf(e.student_id)),
+          name: shownNames.get(e.student_id) ?? "",
           enrollmentVersion: e.version,
           grade: e.grade,
           sameNameCount: sameName.length,

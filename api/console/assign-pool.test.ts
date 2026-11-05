@@ -192,4 +192,23 @@ describe("GET /api/console/assign-pool", () => {
     expect(r.body).toMatchObject({ total: 3, page: 2, pageSize: 2 });
     expect((await get({ page: "x" })).status).toBe(400);
   });
+
+  test("pool students whose masked names match get a trailing star", async () => {
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "p1", name: "김하늘" },
+          { id: "p2", name: "김하늘" },
+          { id: "p3", name: "전지윤" },
+        ],
+        f,
+      );
+
+    const r = await get();
+    const names = (
+      r.body as { items: { studentId: string; name: string }[] }
+    ).items.map((i) => i.name);
+
+    expect(names.sort()).toEqual(["김*늘*", "김*늘*", "전*윤"]);
+  });
 });

@@ -298,4 +298,35 @@ describe("GET /api/console/students", () => {
       (items(r)[0] as unknown as { urgency: string | null }).urgency,
     ).toBeNull();
   });
+
+  test("students of one class whose masked names match get a trailing star, a homeroom sees real names", async () => {
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s1", name: "김하늘", created_at: null },
+          { id: "s2", name: "김하늘", created_at: null },
+          { id: "s3", name: "박서준", created_at: null },
+          { id: "s4", name: "김하늘", created_at: null },
+        ],
+        f,
+      );
+
+    const admin = await get();
+    const byId = (id: string) =>
+      items(admin).find((i) => i.studentId === id)?.displayName;
+
+    // s1 과 s2 는 같은 반(c-A), s4 는 반 없음이라 겹치지 않는다.
+    expect(byId("s1")).toBe("김*늘*");
+    expect(byId("s2")).toBe("김*늘*");
+    expect(byId("s4")).toBe("김*늘");
+    expect(byId("s3")).toBe("박*준");
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    expect(items(await get()).map((i) => i.displayName)).toEqual([
+      "김하늘",
+      "김하늘",
+    ]);
+  });
 });
