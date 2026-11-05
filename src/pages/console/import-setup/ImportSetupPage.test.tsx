@@ -502,7 +502,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
             ok: true,
             graduated: 150,
             promoted: 297,
-            skipped: 3,
+            skipped: 2,
             assigned: 297,
           },
         };
@@ -514,7 +514,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(
       await screen.findByText(
-        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요",
+        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 5명은 미배정 목록에서 확인해 주세요",
       ),
     ).toBeTruthy();
     expect(
@@ -534,6 +534,32 @@ describe("ImportSetupPage W11a 적용 확인", () => {
       (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("응답의 세 숫자가 모두 0이면 이미 실행한 것으로 보고 성공 토스트 없이 안내만 보인다", async () => {
+    let rolledOver = false;
+    await previewIt({
+      "GET /api/console/school-year": () => ({
+        body: { ...YEAR, rolledOver },
+      }),
+      "POST /api/console/school-year/rollover": () => {
+        rolledOver = true;
+        return {
+          body: { ok: true, graduated: 0, promoted: 0, skipped: 0 },
+        };
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    expect(
+      await screen.findByText(
+        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/학년그룹 일괄 변경을 적용했어요/)).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("적용이 실패하면 창을 열어 둔 채 서버 문구를 토스트로 보인다", async () => {
