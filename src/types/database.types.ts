@@ -1501,6 +1501,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      counsel_statuses: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "counsel_statuses_changed_by_fkey";
+            columns: ["changed_by"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       coupon_grants: {
         Row: {
           coupon_id: string;
@@ -6715,6 +6762,50 @@ export type Database = {
           },
         ];
       };
+      student_flags: {
+        Row: {
+          created_at: string;
+          flagged_teacher_id: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_flags_flagged_teacher_id_fkey";
+            columns: ["flagged_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       student_link_codes: {
         Row: {
           code: string;
@@ -6963,6 +7054,62 @@ export type Database = {
           },
         ];
       };
+      teacher_memos: {
+        Row: {
+          author_teacher_id: string;
+          body: string;
+          created_at: string;
+          hidden_at: string | null;
+          id: string;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_teacher_id: string;
+          body: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          author_teacher_id?: string;
+          body?: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          request_id?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_memos_author_teacher_id_fkey";
+            columns: ["author_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       teachers: {
         Row: {
           created_at: string;
@@ -7184,6 +7331,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year: number;
+          special_exec_rate_pct: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;
@@ -7211,6 +7359,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year?: number;
+          special_exec_rate_pct?: number | null;
           term_months?: number | null;
           tier: string;
           updated_at?: string;
@@ -7237,6 +7386,7 @@ export type Database = {
           org_type?: string;
           region?: string;
           school_year?: number;
+          special_exec_rate_pct?: number | null;
           term_months?: number | null;
           tier?: string;
           updated_at?: string;
@@ -8380,6 +8530,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year: number;
+          special_exec_rate_pct: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;
@@ -8724,6 +8875,7 @@ export type Database = {
           access_logs_deleted: number;
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
+          memos_deleted: number;
         }[];
       };
       fn_raise_number_taken: {
