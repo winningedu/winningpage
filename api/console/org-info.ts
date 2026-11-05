@@ -13,7 +13,7 @@ import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-export const ORG_INFO_RESOURCE_KEY = "console.org-info";
+const ORG_INFO_RESOURCE_KEY = "console.org-info";
 
 const MAX_LENGTH = 200;
 const PHONE = /^[0-9-]+$/;
