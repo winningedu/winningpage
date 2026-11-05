@@ -812,36 +812,6 @@ describe("W13a 학년도별 이력 창", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("서버가 403 을 주면 권한 안내를 보이고 코칭을 막는다(목록의 이름을 제목에 쓴다)", async () => {
-    stubStudents({
-      [HISTORY_DIALOG]: {
-        status: 403,
-        body: { error: { code: "FORBIDDEN", message: "x" } },
-      },
-    });
-    renderRoutes(routes, "/teacher/student-history?tab=students");
-    const dialog = await openHistory();
-
-    expect(
-      await within(dialog).findByText(
-        "이 학생의 코칭 화면을 열람할 권한이 없습니다.",
-      ),
-    ).toBeTruthy();
-    expect(
-      within(dialog).getByText(
-        "현재 담임교사와 학교 전체 관리자만 열람할 수 있습니다.",
-      ),
-    ).toBeTruthy();
-    expect(within(dialog).getByText("김서연 학년도별 이력")).toBeTruthy();
-    expect(
-      (
-        within(dialog).getByRole("button", {
-          name: "코칭",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
-  });
-
   it("코칭을 열 수 없는 학생이면 이력과 함께 권한 안내를 보인다", async () => {
     stubStudents({
       [HISTORY_DIALOG]: { body: historyBody({ canOpenCoaching: false }) },

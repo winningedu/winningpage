@@ -1,5 +1,6 @@
-// W13a 학년도별 이력 창. 서버가 403 을 주거나 코칭을 열 수 없는 학생이면 안내를 보이고 코칭을 막는다(결정 35).
-// 제목의 이름은 서버가 준 그대로이고, 아직 못 받았거나 403 이면 목록에서 본 이름을 쓴다.
+// W13a 학년도별 이력 창. 코칭을 열 수 없는 학생(canOpenCoaching false)이면 안내를 보이고 코칭을 막는다(결정 35).
+// 범위 밖 학생은 서버가 404 를 주므로(결정 55) 불러오기 실패로 다룬다.
+// 제목의 이름은 서버가 준 그대로이고, 아직 못 받았거나 못 불러왔으면 목록에서 본 이름을 쓴다.
 
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
@@ -43,13 +44,10 @@ interface EnrollmentHistory {
   canOpenCoaching: boolean;
 }
 
-type Loaded = EnrollmentHistory | "forbidden";
-
-async function fetchHistory(studentId: string): Promise<Loaded> {
+async function fetchHistory(studentId: string): Promise<EnrollmentHistory> {
   const res = await consoleRequest(
     `/api/console/students/enrollment-history?studentId=${encodeURIComponent(studentId)}`,
   );
-  if (res.status === 403) return "forbidden";
   if (res.status !== 200) throw new Error(`enrollment-history ${res.status}`);
   return res.body as EnrollmentHistory;
 }
@@ -75,10 +73,8 @@ export default function HistoryDialog({
     retry: false,
     gcTime: 0,
   });
-  const data = history.data;
-  const detail = data && data !== "forbidden" ? data : null;
-  const noPermission =
-    data === "forbidden" || detail?.canOpenCoaching === false;
+  const detail = history.data;
+  const noPermission = detail?.canOpenCoaching === false;
   const services = detail
     ? SERVICES.filter(([key]) => detail.linkedServices.includes(key)).map(
         ([, label]) => label,
