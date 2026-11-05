@@ -132,3 +132,42 @@ $$;
 
 revoke all on function public.fn_school_year_rollover(uuid, integer, jsonb, uuid) from public, anon, authenticated;
 grant execute on function public.fn_school_year_rollover(uuid, integer, jsonb, uuid) to service_role;
+
+-- 그룹 삭제(soft). 기관의 올해 학급 중 이 그룹의 학급에 재학생이 있으면 WC086(재학생 수는 DETAIL).
+-- 졸업생과 지난 학년도 학급의 학생은 막지 않는다. 이미 삭제된 그룹은 그대로 돌려보내고(멱등),
+-- 그룹이 없으면 WC087. 그룹 행을 잠가 같은 그룹의 동시 삭제를 순서대로 처리한다.
+-- p_actor 는 호출 규약(콘솔 감사 기록은 API 가 남긴다)이라 이 함수는 쓰지 않는다.
+create function public.fn_group_soft_delete(p_group uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+#variable_conflict use_column
+declare
+  v_group public.class_groups;
+  v_active integer;
+begin
+  select * into v_group from public.class_groups g where g.id = p_group for update;
+  if not found then
+    raise exception 'class group not found' using errcode = 'WC087';
+  end if;
+  if v_group.deleted_at is not null then
+    return;
+  end if;
+
+  select count(*) into v_active
+    from public.student_enrollments e
+    join public.classes c on c.id = e.class_id
+    join public.tenants t on t.id = c.tenant_id and t.school_year = c.school_year
+   where c.group_id = p_group and e.status = 'active';
+  if v_active > 0 then
+    raise exception 'class group still has active students' using errcode = 'WC086', detail = v_active::text;
+  end if;
+
+  update public.class_groups g set deleted_at = now() where g.id = p_group;
+end;
+$$;
+
+revoke all on function public.fn_group_soft_delete(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_group_soft_delete(uuid, uuid) to service_role;

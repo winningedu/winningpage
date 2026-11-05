@@ -8241,6 +8241,10 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: number;
       };
+      fn_group_soft_delete: {
+        Args: { p_actor: string; p_group: string };
+        Returns: undefined;
+      };
       fn_growth_claim_step: {
         Args: {
           p_profile_id: string;

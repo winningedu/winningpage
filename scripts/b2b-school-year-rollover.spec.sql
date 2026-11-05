@@ -217,6 +217,70 @@ select pg_temp.expect_text('rollover: 열린 신청은 사유와 함께 거절�
   (select status || '/' || (reject_reason is not null) || '/' || (decided_by = pg_temp.fx('actor'))
      from public.enrollment_changes where student_id = pg_temp.fx('req') and kind = 'request'), 'rejected/true/true');
 
+-- ---------------------------------------------------------------------
+-- fn_group_soft_delete: 올해 학급에 재학생이 있으면 막는다
+-- ---------------------------------------------------------------------
+insert into public.tenants (code, name, region, org_type, tier) values ('RQEEEEEE', 't20-e', '서울', '사기업', 'B');
+insert into fx select 'te', id from public.tenants where code = 'RQEEEEEE';
+insert into fx values
+  ('q1', pg_temp.mk_user('t20-q1@t.local')), ('q2', pg_temp.mk_user('t20-q2@t.local')),
+  ('q3', pg_temp.mk_user('t20-q3@t.local'));
+insert into public.class_groups (tenant_id, name) values
+  (pg_temp.fx('te'), '수능반'), (pg_temp.fx('te'), '내신반'), (pg_temp.fx('te'), '빈반'), (pg_temp.fx('te'), '지난반');
+create function pg_temp.gid(p_name text) returns uuid language sql as $$
+  select id from public.class_groups where tenant_id = pg_temp.fx('te') and name = p_name and deleted_at is null
+$$;
+-- 학생 한 명을 그룹의 학급에 넣는다(p_year_shift 로 지난 학년도 학급도 만든다)
+create function pg_temp.enroll_group(p_student text, p_group text, p_status text, p_year_shift integer default 0)
+returns void language plpgsql as $$
+declare
+  v_year integer := pg_temp.year('te') + p_year_shift;
+  v_class uuid := public.fn_class_ensure(pg_temp.fx('te'), v_year, '고1', pg_temp.gid(p_group), 'A1');
+begin
+  insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, status, graduated_at)
+  values (pg_temp.fx('te'), pg_temp.fx(p_student), v_year, '고1', v_class, p_status,
+    case when p_status = 'graduated' then now() end);
+end $$;
+select pg_temp.enroll_group('q1', '수능반', 'active');
+select pg_temp.enroll_group('q2', '내신반', 'graduated');
+select pg_temp.enroll_group('q3', '지난반', 'active', -1);
+
+select pg_temp.expect_error('group delete: 올해 학급에 재학생이 있으면 WC086',
+  $$select public.fn_group_soft_delete(pg_temp.gid('수능반'), pg_temp.fx('actor'))$$, 'WC086');
+select pg_temp.expect_bool('group delete: 막히면 그룹은 그대로',
+  (select deleted_at is null from public.class_groups where id = pg_temp.gid('수능반')), true);
+select pg_temp.expect_ok('group delete: 학생이 없는 그룹은 삭제',
+  $$select public.fn_group_soft_delete(pg_temp.gid('빈반'), pg_temp.fx('actor'))$$);
+select pg_temp.expect_ok('group delete: 졸업생만 있는 그룹은 삭제',
+  $$select public.fn_group_soft_delete(pg_temp.gid('내신반'), pg_temp.fx('actor'))$$);
+select pg_temp.expect_ok('group delete: 지난 학년도 학급의 재학생은 막지 않는다',
+  $$select public.fn_group_soft_delete(pg_temp.gid('지난반'), pg_temp.fx('actor'))$$);
+select pg_temp.expect_int('group delete: 삭제된 그룹은 deleted_at 이 남는다',
+  (select count(*) from public.class_groups where tenant_id = pg_temp.fx('te') and deleted_at is not null), 3);
+select pg_temp.expect_ok('group delete: 이미 삭제된 그룹을 다시 지워도 오류 없음',
+  $$select public.fn_group_soft_delete(
+      (select id from public.class_groups where tenant_id = pg_temp.fx('te') and name = '빈반' and deleted_at is not null),
+      pg_temp.fx('actor'))$$);
+select pg_temp.expect_ok('group delete: 삭제된 그룹 이름은 다시 만들 수 있다',
+  $$insert into public.class_groups (tenant_id, name) values (pg_temp.fx('te'), '빈반')$$);
+select pg_temp.expect_error('group delete: 없는 그룹은 WC087',
+  $$select public.fn_group_soft_delete(gen_random_uuid(), pg_temp.fx('actor'))$$, 'WC087');
+
+-- 함수 권한: service_role 만
+grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
+set local role anon;
+select pg_temp.expect_error('anon 은 fn_school_year_rollover 실행 불가',
+  $$select * from public.fn_school_year_rollover(gen_random_uuid(), 2030, '[]', gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('anon 은 fn_group_soft_delete 실행 불가',
+  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid())$$, '42501');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error('authenticated 는 fn_school_year_rollover 실행 불가',
+  $$select * from public.fn_school_year_rollover(gen_random_uuid(), 2030, '[]', gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_group_soft_delete 실행 불가',
+  $$select public.fn_group_soft_delete(gen_random_uuid(), gen_random_uuid())$$, '42501');
+reset role;
+
 do $$ begin raise notice '=== b2b-school-year-rollover.spec: 전체 통과 ==='; end $$;
 
 rollback;
