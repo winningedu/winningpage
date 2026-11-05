@@ -215,6 +215,10 @@ export interface RegisterInput {
   phone: string;
   role: "homeroom" | "school_admin";
   classes: { grade: string; name: string; group_id?: string | undefined }[];
+  /** 학교 관리자 발급 항목(사 #159-q3). 값이 있는 칸만 저장한다. */
+  position?: string | undefined;
+  email?: string | undefined;
+  landline?: string | undefined;
 }
 
 export interface RegisterResult {
@@ -242,6 +246,9 @@ export async function registerTeacherWithAccount(
     p_role: input.role,
     p_classes: input.classes,
     p_actor: ctx.userId ?? null,
+    ...(input.position !== undefined ? { p_position: input.position } : {}),
+    ...(input.email !== undefined ? { p_email: input.email } : {}),
+    ...(input.landline !== undefined ? { p_landline: input.landline } : {}),
   });
   const registered = (
     data as { teacher_id: string; verdict: string }[] | null

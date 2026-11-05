@@ -1,4 +1,4 @@
-// POST /api/admin/tenants/school-admin  { tenantId, name, phone }
+// POST /api/admin/tenants/school-admin  { tenantId, name, phone, position?, email?, landline? }
 //
 // 본사가 기관 관리 화면에서 학교 관리자를 발급한다(사 #132, #159, D9). 같은 사람(기관, 이름, 전화번호)이
 // 이미 담임이면 그 행을 학교 관리자로 승격한다. 임시 비밀번호는 응답에 한 번만 싣는다.
@@ -17,6 +17,48 @@ import { sendError } from "../../_lib/httpResponse.js";
 export const config = { runtime: "nodejs" };
 
 const TENANTS_RESOURCE_KEY = "tenants";
+const MAX_POSITION_LENGTH = 50;
+const MAX_EMAIL_LENGTH = 254;
+
+interface AdminProfileFields {
+  position?: string;
+  email?: string;
+  landline?: string;
+}
+
+/** 직책, 담당 이메일, 일반전화(사 #159-q3). 모두 선택이고 잘못된 값이면 null. 전화는 숫자만으로 정규화한다. */
+function parseProfileFields(body: unknown): AdminProfileFields | null {
+  const { position, email, landline } = (body ?? {}) as Record<string, unknown>;
+  const fields: AdminProfileFields = {};
+  if (position !== undefined && position !== null) {
+    if (typeof position !== "string") return null;
+    const trimmed = position.trim();
+    if (trimmed.length > MAX_POSITION_LENGTH) return null;
+    if (trimmed) fields.position = trimmed;
+  }
+  if (email !== undefined && email !== null) {
+    if (typeof email !== "string") return null;
+    const normalized = email.trim().toLowerCase();
+    if (normalized) {
+      if (
+        normalized.length > MAX_EMAIL_LENGTH ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+      ) {
+        return null;
+      }
+      fields.email = normalized;
+    }
+  }
+  if (landline !== undefined && landline !== null) {
+    if (typeof landline !== "string") return null;
+    const digits = landline.replace(/\D/g, "");
+    if (digits) {
+      if (!/^0[0-9]{8,10}$/.test(digits)) return null;
+      fields.landline = digits;
+    }
+  }
+  return fields;
+}
 
 export default defineHandler({
   methods: ["POST"],
@@ -42,12 +84,18 @@ export default defineHandler({
 
     const tenantId = (req.body as { tenantId?: unknown } | undefined)?.tenantId;
     const body = parseRegisterBody(req.body);
-    if (!body || typeof tenantId !== "string" || tenantId === "") {
+    const profileFields = parseProfileFields(req.body);
+    if (
+      !body ||
+      !profileFields ||
+      typeof tenantId !== "string" ||
+      tenantId === ""
+    ) {
       sendError(
         res,
         "coded",
         400,
-        "기관, 이름, 전화번호를 확인해 주세요.",
+        "기관, 이름, 전화번호, 직책, 이메일, 일반전화를 확인해 주세요.",
         "BAD_REQUEST",
       );
       return;
@@ -76,6 +124,7 @@ export default defineHandler({
           name: body.name,
           phone: body.phone,
           classes: [],
+          ...profileFields,
         },
       );
       res.status(200).json(registerResponseBody(result));

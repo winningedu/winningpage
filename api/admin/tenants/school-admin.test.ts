@@ -108,6 +108,61 @@ describe("POST /api/admin/tenants/school-admin", () => {
     );
   });
 
+  test("직책, 담당 이메일, 일반전화를 등록 함수에 넘긴다(숫자만으로 정규화)", async () => {
+    let registerArgs: Record<string, unknown> = {};
+    kit.state.rpc.fn_teacher_register = (args) => {
+      registerArgs = args;
+      return {
+        data: [{ teacher_id: "teacher-9", verdict: "created" }],
+        error: null,
+      };
+    };
+
+    const r = await post({
+      ...VALID,
+      position: " 교감 ",
+      email: "Admin@School.kr",
+      landline: "02-123-4567",
+    });
+
+    expect(r.status).toBe(200);
+    expect(registerArgs).toMatchObject({
+      p_position: "교감",
+      p_email: "admin@school.kr",
+      p_landline: "021234567",
+    });
+  });
+
+  test("직책, 이메일, 일반전화를 생략하면 등록 함수 인자에 넣지 않는다", async () => {
+    let registerArgs: Record<string, unknown> = {};
+    kit.state.rpc.fn_teacher_register = (args) => {
+      registerArgs = args;
+      return {
+        data: [{ teacher_id: "teacher-9", verdict: "created" }],
+        error: null,
+      };
+    };
+
+    await post(VALID);
+
+    expect(registerArgs).not.toHaveProperty("p_position");
+    expect(registerArgs).not.toHaveProperty("p_email");
+    expect(registerArgs).not.toHaveProperty("p_landline");
+  });
+
+  test.each([
+    ["이메일 형식 오류", { email: "not-an-email" }],
+    ["일반전화 형식 오류", { landline: "123" }],
+    ["직책이 문자열이 아님", { position: 3 }],
+    ["직책이 너무 김", { position: "가".repeat(51) }],
+  ])("%s 는 400 이고 아무것도 만들지 않는다", async (_label, extra) => {
+    const r = await post({ ...VALID, ...extra });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
+  });
+
   test("같은 사람이 이미 담임이면 승격하고 감사 로그에 promoted 가 남는다", async () => {
     kit.state.rpc.fn_teacher_register = () => ({
       data: [{ teacher_id: "teacher-9", verdict: "promoted" }],

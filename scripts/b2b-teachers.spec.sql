@@ -295,6 +295,25 @@ select pg_temp.expect_text('이름 앞뒤 공백 무시', (select verdict from r
 select pg_temp.expect_text('담임으로 다시 등록해도 관리자를 강등하지 않는다',
   (select role from public.teachers where id = (select teacher_id from reg where k = 'r1')), 'school_admin');
 
+-- 직책, 담당 이메일, 일반전화(사 #159-q3): 등록할 때 같이 저장하고, 같은 사람을 다시 등록할 때 값이 있으면 고친다
+insert into reg
+  select 'r6', teacher_id, verdict from public.fn_teacher_register(
+    pg_temp.fx('ta'), '관리자둘', '01066660010', 'school_admin', '[]'::jsonb, null,
+    '교감', 'admin2@school.kr', '0212345678');
+select pg_temp.expect_text('등록 시 직책, 이메일, 일반전화가 저장된다',
+  (select position || '/' || email || '/' || landline from public.teachers where id = (select teacher_id from reg where k = 'r6')),
+  '교감/admin2@school.kr/0212345678');
+select pg_temp.expect_text('값 없이 다시 등록해도 저장된 값은 그대로다',
+  (select position || '/' || email || '/' || landline from public.fn_teacher_register(
+      pg_temp.fx('ta'), '관리자둘', '01066660010', 'school_admin', '[]'::jsonb, null) r
+    join public.teachers t on t.id = r.teacher_id),
+  '교감/admin2@school.kr/0212345678');
+select * from public.fn_teacher_register(
+  pg_temp.fx('ta'), '관리자둘', '01066660010', 'school_admin', '[]'::jsonb, null, '교장', null, null);
+select pg_temp.expect_text('값을 주고 다시 등록하면 그 값만 고친다',
+  (select position || '/' || email || '/' || landline from public.teachers where id = (select teacher_id from reg where k = 'r6')),
+  '교장/admin2@school.kr/0212345678');
+
 -- ---------------------------------------------------------------------
 -- 클라이언트 role 차단
 -- ---------------------------------------------------------------------

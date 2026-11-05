@@ -185,13 +185,18 @@ $$;
 -- 같은 사람에게 학교 관리자를 발급하면 그 행을 승격한다(id 와 로그인 아이디 유지, 강등은 하지 않는다).
 -- p_classes: [{ "grade": "고1", "name": "3반", "group_id": null, "school_year": 생략하면 기관 현재 학년도 }]
 -- 학급은 fn_class_ensure 로 만들고, 다른 교사가 이미 담임이면 23505 로 함수 전체가 취소된다.
+-- p_position, p_email, p_landline(직책, 담당 이메일, 일반전화)은 선택이다. 값이 있으면 새 행에 저장하고
+-- 같은 사람을 다시 등록할 때도 값이 있는 칸만 고친다(사 #159-q3).
 create function public.fn_teacher_register(
   p_tenant_id uuid,
   p_name text,
   p_phone text,
   p_role text,
   p_classes jsonb,
-  p_actor uuid
+  p_actor uuid,
+  p_position text default null,
+  p_email text default null,
+  p_landline text default null
 )
 returns table (teacher_id uuid, verdict text)
 language plpgsql
@@ -227,10 +232,20 @@ begin
       v_verdict := 'classes_added';
     end if;
   else
-    insert into public.teachers (tenant_id, name, phone, role, login_id, created_by)
-    values (p_tenant_id, v_name, p_phone, p_role, public.fn_generate_teacher_login_id(p_tenant_id), p_actor)
+    insert into public.teachers (tenant_id, name, phone, role, login_id, created_by, position, email, landline)
+    values (p_tenant_id, v_name, p_phone, p_role, public.fn_generate_teacher_login_id(p_tenant_id), p_actor,
+      nullif(btrim(p_position), ''), nullif(btrim(p_email), ''), nullif(btrim(p_landline), ''))
     returning * into v_t;
     v_verdict := 'created';
+  end if;
+
+  if v_verdict <> 'created' and (p_position is not null or p_email is not null or p_landline is not null) then
+    update public.teachers t
+       set position = coalesce(nullif(btrim(p_position), ''), t.position),
+           email = coalesce(nullif(btrim(p_email), ''), t.email),
+           landline = coalesce(nullif(btrim(p_landline), ''), t.landline)
+     where t.id = v_t.id
+    returning * into v_t;
   end if;
 
   for v_row in select * from jsonb_array_elements(coalesce(p_classes, '[]'::jsonb)) loop
@@ -277,5 +292,7 @@ $$;
 
 revoke all on function public.fn_generate_teacher_login_id(uuid) from public, anon, authenticated;
 grant execute on function public.fn_generate_teacher_login_id(uuid) to service_role;
-revoke all on function public.fn_teacher_register(uuid, text, text, text, jsonb, uuid) from public, anon, authenticated;
-grant execute on function public.fn_teacher_register(uuid, text, text, text, jsonb, uuid) to service_role;
+revoke all on function public.fn_teacher_register(uuid, text, text, text, jsonb, uuid, text, text, text)
+  from public, anon, authenticated;
+grant execute on function public.fn_teacher_register(uuid, text, text, text, jsonb, uuid, text, text, text)
+  to service_role;
