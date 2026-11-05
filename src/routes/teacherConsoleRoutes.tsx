@@ -8,6 +8,7 @@ import ConsolePlaceholder from "@/pages/console/ConsolePlaceholder";
 import DashboardPage from "@/pages/console/dashboard/DashboardPage";
 import EnrollmentPage from "@/pages/console/enrollment/EnrollmentPage";
 import CoachingPage from "@/pages/console/coaching/CoachingPage";
+import CoachingPrintPage from "@/pages/console/coaching/CoachingPrintPage";
 import FirstPasswordPage from "@/pages/console/FirstPasswordPage";
 import ImportSetupPage from "@/pages/console/import-setup/ImportSetupPage";
 import MyPage from "@/pages/console/MyPage";
@@ -34,6 +35,8 @@ const teacherConsoleRoutes: RouteObject[] = [
         children: [
           { path: "first-password", Component: FirstPasswordPage },
           { path: "proxy", Component: ProxySelectPage },
+          // W9c 인쇄 창은 사이드바 셸 밖이다
+          { path: "coaching/print", Component: CoachingPrintPage },
           {
             Component: ConsoleLayout,
             children: [

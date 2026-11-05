@@ -113,7 +113,7 @@ function StudentPicker({
   );
 }
 
-function StudentCard({ data }: { data: Coaching }) {
+export function StudentCard({ data }: { data: Coaching }) {
   const { student } = data;
   const signal = SIGNAL[data.signal];
   const meta = [
@@ -181,8 +181,95 @@ function StudentCard({ data }: { data: Coaching }) {
   );
 }
 
-function DiagnosisCard({ data }: { data: Coaching }) {
+export function SummaryCallout({ data }: { data: Coaching }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-surface-info px-5 py-4">
+      <p className="text-app-label font-semibold text-primary">한줄 진단</p>
+      <p className="text-app-body text-ink-strong">{data.summary}</p>
+    </div>
+  );
+}
+
+export function CompetencyList({ data }: { data: Coaching }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h3 className="text-app-label font-semibold text-ink-strong">
+        대학 평가 5대 역량
+      </h3>
+      <ul aria-label="대학 평가 5대 역량" className="flex flex-col gap-3">
+        {data.competencies.map((c) => (
+          <li key={c.key} className="flex flex-col gap-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-app-label font-semibold text-ink-strong">
+                {c.name}
+              </span>
+              <span className="text-app-label font-bold text-ink-strong">
+                {c.score !== null
+                  ? `${c.score}점`
+                  : (c.fallback ?? "자료 없음")}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-surface-muted">
+              <div
+                className="h-2 rounded-full bg-primary"
+                style={{ width: `${c.score ?? 0}%` }}
+              />
+            </div>
+            <span className="text-app-caption text-ink-sub">
+              근거 {c.basisUsed}/{c.basisTotal}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function AxisPanel({ data }: { data: Coaching }) {
   const { strongest, weakest } = data.highlights;
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <h3 className="self-start text-app-label font-semibold text-ink-strong">
+        6축 종합 진단
+      </h3>
+      <CoachingRadar axes={data.axes} />
+      <ul aria-label="6축 종합 진단" className="grid w-full gap-2">
+        {data.axes.map((a) => (
+          <li
+            key={a.key}
+            className={cn(
+              "flex items-baseline justify-between gap-2 text-app-label",
+              a.status === "scored" ? "text-ink-strong" : "text-ink-sub",
+            )}
+          >
+            <span>{a.name}</span>
+            <span className="font-semibold">{axisStatusText(a)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl className="grid w-full gap-1 text-app-label">
+        {strongest && (
+          <div className="flex gap-2">
+            <dt className="text-ink-sub">최대장점</dt>
+            <dd className="font-semibold text-ink-strong">
+              {strongest.name} {strongest.score}점
+            </dd>
+          </div>
+        )}
+        {weakest && (
+          <div className="flex gap-2">
+            <dt className="text-ink-sub">가장 시급한 축</dt>
+            <dd className="font-semibold text-ink-strong">
+              {weakest.name} {weakest.score}점
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+function DiagnosisCard({ data }: { data: Coaching }) {
   return (
     <section className={CARD} aria-label="6종 서비스 종합 진단">
       <div className="flex flex-wrap items-center gap-3">
@@ -193,79 +280,10 @@ function DiagnosisCard({ data }: { data: Coaching }) {
           유형 {data.coachingType.code} {data.coachingType.name}
         </Chip>
       </div>
-      <div className="flex flex-col gap-2 rounded-xl bg-surface-info px-5 py-4">
-        <p className="text-app-label font-semibold text-primary">한줄 진단</p>
-        <p className="text-app-body text-ink-strong">{data.summary}</p>
-      </div>
+      <SummaryCallout data={data} />
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="flex flex-col gap-3">
-          <h3 className="text-app-label font-semibold text-ink-strong">
-            대학 평가 5대 역량
-          </h3>
-          <ul aria-label="대학 평가 5대 역량" className="flex flex-col gap-3">
-            {data.competencies.map((c) => (
-              <li key={c.key} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-app-label font-semibold text-ink-strong">
-                    {c.name}
-                  </span>
-                  <span className="text-app-label font-bold text-ink-strong">
-                    {c.score !== null
-                      ? `${c.score}점`
-                      : (c.fallback ?? "자료 없음")}
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-surface-muted">
-                  <div
-                    className="h-2 rounded-full bg-primary"
-                    style={{ width: `${c.score ?? 0}%` }}
-                  />
-                </div>
-                <span className="text-app-caption text-ink-sub">
-                  근거 {c.basisUsed}/{c.basisTotal}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex flex-col items-center gap-3">
-          <h3 className="self-start text-app-label font-semibold text-ink-strong">
-            6축 종합 진단
-          </h3>
-          <CoachingRadar axes={data.axes} />
-          <ul aria-label="6축 종합 진단" className="grid w-full gap-2">
-            {data.axes.map((a) => (
-              <li
-                key={a.key}
-                className={cn(
-                  "flex items-baseline justify-between gap-2 text-app-label",
-                  a.status === "scored" ? "text-ink-strong" : "text-ink-sub",
-                )}
-              >
-                <span>{a.name}</span>
-                <span className="font-semibold">{axisStatusText(a)}</span>
-              </li>
-            ))}
-          </ul>
-          <dl className="grid w-full gap-1 text-app-label">
-            {strongest && (
-              <div className="flex gap-2">
-                <dt className="text-ink-sub">최대장점</dt>
-                <dd className="font-semibold text-ink-strong">
-                  {strongest.name} {strongest.score}점
-                </dd>
-              </div>
-            )}
-            {weakest && (
-              <div className="flex gap-2">
-                <dt className="text-ink-sub">가장 시급한 축</dt>
-                <dd className="font-semibold text-ink-strong">
-                  {weakest.name} {weakest.score}점
-                </dd>
-              </div>
-            )}
-          </dl>
-        </div>
+        <CompetencyList data={data} />
+        <AxisPanel data={data} />
       </div>
     </section>
   );
