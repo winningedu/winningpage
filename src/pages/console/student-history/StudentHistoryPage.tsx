@@ -20,7 +20,7 @@ export default function StudentHistoryPage() {
     ...(admin ? [{ key: "graduates", label: "졸업생" }] : []),
   ];
   const requested = params.get("tab");
-  const tab = tabs.some((t) => t.key === requested) ? requested : "pending";
+  const tab = tabs.find((t) => t.key === requested)?.key ?? "pending";
   const classes = useClasses();
 
   // 필터를 건 학생 조회와 졸업생 탭은 지금 보는 범위를 빵부스러기로 보인다. 그 밖에는 기본 위치다.
@@ -45,12 +45,12 @@ export default function StudentHistoryPage() {
     <>
       <PageHeader
         title="학생조회-변경-이력"
-        breadcrumb={breadcrumb}
+        {...(breadcrumb && { breadcrumb })}
         subtitle="승인 대기 요청을 처리하고 학생의 학년그룹과 반 이력을 확인합니다"
       />
       <Tabs
         items={tabs}
-        value={tab ?? "pending"}
+        value={tab}
         onChange={(key) => setParams({ tab: key })}
       />
       <div className="px-4 pb-24 md:px-8 lg:px-12">
