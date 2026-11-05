@@ -2,7 +2,7 @@
 // 지표(metrics), 표(table), 상담 포인트(points)만 쓰고, 없는 자료는 그 칸을 만들지 않는다.
 
 import { AXIS_NAMES } from "../growth/axes.js";
-import type { GoalDay } from "./coaching.js";
+import type { GoalDay } from "./goalRate.js";
 import {
   EXECUTION_AREAS,
   indicatorsOf,

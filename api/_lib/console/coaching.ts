@@ -1,46 +1,8 @@
 // 코칭 판정 엔진(W9). 서비스 자료를 받아 판정, 6축 점수, 5대 역량, 종합 신호를 만드는 순수 함수 모음.
 // 문구표(코칭 판정 문구표)와 6축 역량 연결표의 행을 그대로 옮긴다. 자료가 없는 지표는 분모에서 뺀다(결정 4).
 
+import type { GoalWeek } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
-
-export type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-
-/** 하루 기록. 시간 단위는 시간(소수 가능). 목표가 없는 날은 ideal 0. */
-export interface GoalDay {
-  date: string;
-  weekday: Weekday;
-  ideal: number;
-  min: number;
-  actual: number;
-}
-
-export interface GoalWeek {
-  setDays: number;
-  metDays: number;
-  achievementPct: number | null;
-}
-
-/**
- * 최근 7일 요약(연결표 r3, r4). 목표 설정일은 월~토 중 이상 목표가 있는 날이고 일요일은 넣지 않는다.
- * 달성율 = (설정일 실제 합 + 일요일 실제) ÷ 설정일 이상 목표 합 x 100, 화면 값은 100 을 넘을 수 있다.
- */
-export function summarizeGoalWeek(days: GoalDay[]): GoalWeek {
-  const setDays = days.filter((d) => d.weekday !== "sun" && d.ideal > 0);
-  if (setDays.length === 0) {
-    return { setDays: 0, metDays: 0, achievementPct: null };
-  }
-  const idealSum = setDays.reduce((sum, d) => sum + d.ideal, 0);
-  const actualSum =
-    setDays.reduce((sum, d) => sum + d.actual, 0) +
-    days
-      .filter((d) => d.weekday === "sun")
-      .reduce((sum, d) => sum + d.actual, 0);
-  return {
-    setDays: setDays.length,
-    metDays: setDays.filter((d) => d.actual >= d.min).length,
-    achievementPct: (actualSum / idealSum) * 100,
-  };
-}
 
 export type VerdictLevel = "good" | "caution" | "risk" | "no_data";
 
@@ -90,8 +52,7 @@ export const READINESS_AREAS = [
   "STRATEGY",
 ] as const;
 export type AreaCode =
-  | (typeof EXECUTION_AREAS)[number]
-  | (typeof READINESS_AREAS)[number];
+  (typeof EXECUTION_AREAS)[number] | (typeof READINESS_AREAS)[number];
 export type AreaScores = Record<AreaCode, number>;
 
 export type Urgency = "low" | "normal" | "high" | "very_high";
@@ -174,12 +135,7 @@ export interface CoachingMetrics {
 }
 
 export type ServiceLabel =
-  | "학습진단"
-  | "목표관리"
-  | "성장설계"
-  | "수행평가"
-  | "자기평가"
-  | "심화탐구";
+  "학습진단" | "목표관리" | "성장설계" | "수행평가" | "자기평가" | "심화탐구";
 
 export interface Indicator {
   service: ServiceLabel;
@@ -468,11 +424,7 @@ export function computeAxes(m: CoachingMetrics): AxesResult {
 // ---- 5대 역량 ----------------------------------------------------------------------------------
 
 export type CompetencyKey =
-  | "academic"
-  | "career"
-  | "inquiry"
-  | "community"
-  | "potential";
+  "academic" | "career" | "inquiry" | "community" | "potential";
 
 const COMPETENCY_DEFS: {
   key: CompetencyKey;

@@ -10,62 +10,16 @@ import {
   computeAxes,
   computeCompetencies,
   executionVerdict,
-  type GoalDay,
   type Indicator,
   learningVerdict,
   linkageVerdict,
   mockChangeScore,
   naesinChangeScore,
   signalOf,
-  summarizeGoalWeek,
   summaryLine,
   urgencyOf,
   type VerdictLevel,
 } from "./coaching.js";
-
-// 오늘(11.02 월)부터 거꾸로 7일. 월~토는 목표 있는 날, 일요일(11.01)은 목표 없음.
-const day = (
-  date: string,
-  weekday: GoalDay["weekday"],
-  ideal: number,
-  min: number,
-  actual: number,
-): GoalDay => ({ date, weekday, ideal, min, actual });
-
-const THIS_WEEK: GoalDay[] = [
-  day("11.02", "mon", 5, 3, 5),
-  day("11.01", "sun", 0, 0, 0),
-  day("10.31", "sat", 5, 3, 2),
-  day("10.30", "fri", 5, 3, 4),
-  day("10.29", "thu", 5, 3, 2),
-  day("10.28", "wed", 5, 3, 5.5),
-  day("10.27", "tue", 5, 3, 3),
-];
-
-describe("summarizeGoalWeek", () => {
-  test("counts the target days, the met days and the weekly achievement with Sunday actual added (연결표 r3, r4)", () => {
-    const week = summarizeGoalWeek(THIS_WEEK);
-    expect(week.setDays).toBe(6);
-    expect(week.metDays).toBe(4);
-    // (5+2+4+2+5.5+3 + 일요일 0) / 30 = 21.5 / 30
-    expect(week.achievementPct).toBeCloseTo(71.67, 1);
-  });
-
-  test("Sunday actual hours raise the achievement but Sunday is never a target day", () => {
-    const week = summarizeGoalWeek(
-      THIS_WEEK.map((d) => (d.weekday === "sun" ? { ...d, actual: 1.5 } : d)),
-    );
-    expect(week.setDays).toBe(6);
-    expect(week.achievementPct).toBeCloseTo(76.67, 1);
-  });
-
-  test("a week without any target day has no achievement", () => {
-    const week = summarizeGoalWeek(
-      THIS_WEEK.map((d) => ({ ...d, ideal: 0, min: 0 })),
-    );
-    expect(week).toEqual({ setDays: 0, metDays: 0, achievementPct: null });
-  });
-});
 
 describe("executionVerdict (문구표 r2~r8, first match wins)", () => {
   const week = (setDays: number, metDays: number, achievementPct: number) => ({

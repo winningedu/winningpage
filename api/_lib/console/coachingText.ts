@@ -10,8 +10,6 @@ import {
   type CoachingMetrics,
   type Competency,
   EXECUTION_AREAS,
-  type GoalDay,
-  type GoalWeek,
   hasFinalConsonant,
   type IndicatorKey,
   indicatorsOf,
@@ -19,6 +17,7 @@ import {
   urgencyOf,
   type Verdicts,
 } from "./coaching.js";
+import type { GoalDay, GoalWeek } from "./goalRate.js";
 
 export const AREA_NAME: Record<AreaCode, string> = {
   GOAL: "목표 설정",
@@ -1067,12 +1066,7 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
 
 export interface ServiceCard {
   service:
-    | "diagnosis"
-    | "goal"
-    | "growth"
-    | "performance"
-    | "selfeval"
-    | "inquiry";
+    "diagnosis" | "goal" | "growth" | "performance" | "selfeval" | "inquiry";
   name: string;
   state: "using" | "not_joined" | "no_goal";
   chip: string;

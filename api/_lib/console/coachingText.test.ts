@@ -8,12 +8,11 @@ import {
   computeAxes,
   computeCompetencies,
   executionVerdict,
-  type GoalDay,
   learningVerdict,
   linkageVerdict,
   signalOf,
-  summarizeGoalWeek,
 } from "./coaching.js";
+import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 import {
   buildCoachingText,
   careerPlan,

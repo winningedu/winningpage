@@ -2,22 +2,28 @@
 // 자료 출처가 없는 지표(접속 기록, 내신과 모의고사 변화 등)는 읽지 않고 비워 둔다(결정 4).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { kstYMD } from "../../../src/lib/goal/calc/index.js";
 import { deriveGradeSystem } from "../../../src/lib/goal/report/aggregate.js";
 import {
   type AreaScores,
   type CoachingMetrics,
   type DiagnosisTrend,
-  type GoalDay,
   type GradeCurve,
   type GrowthAxisKey,
   type GrowthAxisState,
   mockChangeScore,
   naesinChangeScore,
-  summarizeGoalWeek,
   type TopicFit,
-  type Weekday,
 } from "./coaching.js";
 import { readAll } from "./directory.js";
+import {
+  buildGoalDays,
+  type GoalDay,
+  type GoalRecord,
+  type GoalSchedule,
+  summarizeGoalWeek,
+  weekWindows,
+} from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
@@ -49,17 +55,6 @@ const FIT_BY_LABEL: Record<string, TopicFit> = {
   어긋남: "off",
 };
 
-const WEEKDAYS: Weekday[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const SCHEDULE_KEYS: Record<Weekday, string> = {
-  mon: "monday",
-  tue: "tuesday",
-  wed: "wednesday",
-  thu: "thursday",
-  fri: "friday",
-  sat: "saturday",
-  sun: "sunday",
-};
-
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const toNumber = (v: unknown): number => {
@@ -72,53 +67,8 @@ const lastBy = <T>(rows: T[], key: (row: T) => string): T | undefined =>
     undefined,
   );
 
-/** 오늘(한국 날짜)부터 거꾸로 n일의 날짜 문자열. */
-export function recentDates(n: number, now = new Date()): string[] {
-  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
-  return Array.from({ length: n }, (_, i) =>
-    new Date(kst.getTime() - i * 86400 * 1000).toISOString().slice(0, 10),
-  );
-}
-
-const weekdayOf = (date: string): Weekday =>
-  WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] as Weekday;
-
-interface DailyRecord {
+interface DailyRecord extends GoalRecord {
   reasons?: unknown;
-  record_date: string;
-  record_index: number;
-  target_ideal_hours: number;
-  target_min_hours: number;
-  study_hours: number;
-}
-
-/** 날짜마다 실제 시간은 합하고, 목표는 그날 마지막 기록의 것을 쓴다. 기록 없는 날은 요일 계획을 쓴다. */
-export function goalDaysOf(
-  records: DailyRecord[],
-  schedule: unknown,
-  dates: string[],
-): GoalDay[] {
-  return dates.map((date) => {
-    const weekday = weekdayOf(date);
-    const ofDate = records.filter((r) => r.record_date === date);
-    const target = ofDate.reduce<DailyRecord | undefined>(
-      (best, r) => (!best || r.record_index > best.record_index ? r : best),
-      undefined,
-    );
-    const planned =
-      isRecord(schedule) && isRecord(schedule[SCHEDULE_KEYS[weekday]])
-        ? (schedule[SCHEDULE_KEYS[weekday]] as Record<string, unknown>)
-        : null;
-    return {
-      date,
-      weekday,
-      ideal: target
-        ? toNumber(target.target_ideal_hours)
-        : toNumber(planned?.ideal),
-      min: target ? toNumber(target.target_min_hours) : toNumber(planned?.min),
-      actual: ofDate.reduce((sum, r) => sum + toNumber(r.study_hours), 0),
-    };
-  });
 }
 
 function diagnosisFrom(
@@ -312,7 +262,7 @@ export async function loadCoachingData(
         ? readAll<DailyRecord>(
             admin,
             "goal_daily_records",
-            "record_date, record_index, target_ideal_hours, target_min_hours, study_hours, reasons",
+            "record_date, target_ideal_hours, target_min_hours, study_hours, reasons",
             (q) => q.eq("profile_id", studentId),
           )
         : ([] as DailyRecord[]),
@@ -369,14 +319,23 @@ export async function loadCoachingData(
     ]);
 
   const goal = goalStudent[0];
-  const dates = recentDates(14, now);
-  const days = goalDaysOf(records, goal?.study_schedule, dates.slice(0, 7));
+  const today = kstYMD(now);
+  const windows = weekWindows(today);
+  const schedule = isRecord(goal?.study_schedule)
+    ? (goal?.study_schedule as GoalSchedule)
+    : null;
+  // 표와 문구는 최근 날짜부터 읽으므로 뒤집어 둔다.
+  const days = buildGoalDays(windows.thisWeek, records, schedule).reverse();
   const week = summarizeGoalWeek(days);
-  const lastDays = goalDaysOf(records, goal?.study_schedule, dates.slice(7));
+  const lastDays = buildGoalDays(
+    windows.previousWeek,
+    records,
+    schedule,
+  ).reverse();
   const lastWeek = summarizeGoalWeek(lastDays);
-  const sinceWeek = dates.slice(0, 7);
+  const sinceWeek = windows.thisWeek;
   const grade = goal?.grade ?? null;
-  const system = deriveGradeSystem(grade, dates[0] as string);
+  const system = deriveGradeSystem(grade, today);
 
   const sessionIds = perf.map((s) => s.id);
   const perfReports = sessionIds.length
