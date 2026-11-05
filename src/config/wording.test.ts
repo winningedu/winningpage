@@ -33,6 +33,12 @@ describe("siteWording - 접두어를 빼는 사이트(schoolmentor)", () => {
     ).toBe("평가는 서비스 내부 기준이에요. 합격 가능성을 예측하지 않아요.");
   });
 
+  it("'진행단계'는 '진행 단계'가 된다(결정 14)", async () => {
+    const { siteWording } = await loadWording(true);
+
+    expect(siteWording("진행단계")).toBe("진행 단계");
+  });
+
   it("브랜드 이름 '위닝에듀'와 다른 문장은 그대로 둔다", async () => {
     const { siteWording } = await loadWording(true);
 
@@ -44,8 +50,8 @@ describe("siteWording - 접두어를 유지하는 사이트(winning)", () => {
   it("문구를 그대로 돌려준다", async () => {
     const { siteWording } = await loadWording(false);
 
-    expect(siteWording("위닝 수행평가, 위닝 내부 기준")).toBe(
-      "위닝 수행평가, 위닝 내부 기준",
+    expect(siteWording("위닝 수행평가, 위닝 내부 기준, 진행단계")).toBe(
+      "위닝 수행평가, 위닝 내부 기준, 진행단계",
     );
   });
 });

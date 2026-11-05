@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 
 // 수행평가 앱 좌측 고정 사이드바 — docs/수행평가-상세-명세.md §3.2(블록 실측) / §3.3(진행단계
 // 상태 머신) / §3.4(메뉴 라벨 정본). 프로필 · 메뉴 · 진행단계 3블록으로 구성된다.
@@ -230,7 +231,7 @@ export default function PerformanceSidebar({
               id="perf-steps-heading"
               className="h-auto px-2 text-app-label font-medium text-ink-sub"
             >
-              진행단계
+              {siteWording("진행단계")}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <ol className="flex flex-col gap-0.25">
