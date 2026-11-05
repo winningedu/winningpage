@@ -392,6 +392,13 @@ select pg_temp.expect_error('update: 학급 없는 학생은 담임 범위가 �
   $$select pg_temp.upd('s4', 1, '고1', 'a2', 9, 'homeroom_edit', 'correction', null, 'ta', array['a2'])$$, 'WC081');
 select pg_temp.expect_text('update: 담당 학급이면 수정된다',
   pg_temp.upd('s2', 2, '고1', 'a2', 3, 'homeroom_edit', 'number_change', null, 'ta', array['a2']), '3');
+select pg_temp.expect_error('update: 담임이 다른 교사의 학급으로 옮기면 거부된다(WC081)',
+  $$select pg_temp.upd('s2', 3, '고1', 'a1', 9, 'homeroom_edit', 'class_change', null, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_text('update: 거부되면 학적은 그대로', pg_temp.enr_s('s2'), '고1/2/3/v3');
+select pg_temp.expect_error('update: 담임이 다음 해 행을 다른 교사의 학급으로 만들면 거부된다(WC081)',
+  $$select pg_temp.upd('s2', 0, '고2', 'a1', 9, 'homeroom_edit', 'promotion', pg_temp.year() + 1, 'ta', array['a2'])$$, 'WC081');
+select pg_temp.expect_text('update: 담임이 담당하는 다른 학급으로는 옮긴다',
+  pg_temp.upd('s2', 3, '고1', 'a1', 9, 'homeroom_edit', 'class_change', null, 'ta', array['a1', 'a2']), '4');
 
 -- 대행 중인 본사 관리자가 고치면 이력에 세션이 남는다
 update public.profiles set role = 'admin' where id = pg_temp.fx('actor');
@@ -403,7 +410,7 @@ insert into public.admin_members (profile_id, status) values (pg_temp.fx('actor'
 insert into public.admin_member_permissions (profile_id, resource_key, level)
   values (pg_temp.fx('actor'), 'teacherConsoleProxy', 'edit');
 select public.fn_proxy_start(pg_temp.fx('actor'), pg_temp.fx('ta'), 'roster_proxy');
-select pg_temp.expect_text('update: 대행 중 수정', pg_temp.upd('s2', 3, '고1', 'a2', 4, 'admin_direct', 'number_change'), '4');
+select pg_temp.expect_text('update: 대행 중 수정', pg_temp.upd('s2', 4, '고1', 'a2', 4, 'admin_direct', 'number_change'), '5');
 select pg_temp.expect_bool('update: 대행 세션 id 가 이력에 남는다',
   (select proxy_session_id is not null from public.enrollment_changes
     where student_id = pg_temp.fx('s2') and kind = 'admin_direct'), true);

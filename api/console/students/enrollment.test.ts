@@ -103,7 +103,7 @@ const HOMEROOM = {
   kind: "homeroom",
   tenant_id: "tenant-1",
   teacher_id: "teacher-1",
-  class_ids: ["class-A"],
+  class_ids: ["class-A", "class-B"],
   proxy_session_id: null,
   must_change_password: false,
 };
@@ -191,7 +191,7 @@ describe("PATCH /api/console/students/enrollment", () => {
       p_apply_year: null,
       p_actor: "user-1",
       p_tenant: "tenant-1",
-      p_allowed_class_ids: ["class-A"],
+      p_allowed_class_ids: ["class-A", "class-B"],
     });
     const log = state.inserts.find((i) => i.table === "admin_access_logs")?.row;
     expect(log).toMatchObject({
@@ -216,6 +216,19 @@ describe("PATCH /api/console/students/enrollment", () => {
       });
       expect(updateCall()).toBeUndefined();
     }
+    expect(state.inserts).toEqual([]);
+  });
+
+  test("homeroom cannot move a student into a class outside own classes (404, no RPC, no log)", async () => {
+    const result = await patch({ ...BODY, classId: "class-Z" });
+
+    expect(result).toEqual({
+      status: 404,
+      body: {
+        error: { code: "NOT_FOUND", message: "대상을 찾을 수 없습니다." },
+      },
+    });
+    expect(updateCall()).toBeUndefined();
     expect(state.inserts).toEqual([]);
   });
 

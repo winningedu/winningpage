@@ -217,7 +217,8 @@ $$;
 -- 적용 이력을 enrollment_changes 에 남기고, 행위자가 대행 중인 본사 관리자거나 교사면
 -- 대행 세션과 교사 id 도 같이 남긴다.
 -- 기관 범위: 행을 잠근 뒤 p_tenant 가 학적의 기관과 다르면 WC081(다른 기관의 학생은 없는 것처럼 숨긴다).
--- p_allowed_class_ids 가 null 이 아니면(담임) 학적의 현재 학급이 그 목록에 있어야 하고, 아니면 WC081 이다.
+-- p_allowed_class_ids 가 null 이 아니면(담임) 학적의 현재 학급과 옮겨 갈 학급(null 이 아니면)이 모두
+-- 그 목록에 있어야 하고, 아니면 WC081 이다.
 create function public.fn_enrollment_update(
   p_student uuid,
   p_expected_version integer,
@@ -249,6 +250,12 @@ declare
 begin
   if p_kind is null or p_kind not in ('homeroom_edit', 'admin_direct', 'pool_assign') then
     raise exception 'invalid enrollment update kind' using errcode = 'invalid_parameter_value';
+  end if;
+
+  -- 담임은 학급을 담당 학급 안으로만 옮긴다(다른 교사의 학급으로 보내는 길을 막는다).
+  if p_allowed_class_ids is not null and p_to_class_id is not null
+     and p_to_class_id <> all (p_allowed_class_ids) then
+    raise exception 'enrollment not found' using errcode = 'WC081';
   end if;
 
   -- 기관 행을 공유 잠금으로 읽어 학년도 넘기기와 겹치지 않게 한다.

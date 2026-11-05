@@ -2,7 +2,7 @@
 //   { studentId, expectedVersion, grade, classId, number, reason?, applyYear? }
 //
 // 학적(학년, 학급, 번호) 수정. 담임은 담당 학급 학생만(W6b), 학교 관리자와 본사 대행은 기관 전체(W12, W13b).
-// 범위 밖 학생은 404 로 숨긴다. 학급이 비어 있는 학생(풀)은 담임 범위가 아니라 관리자만 배정한다.
+// 범위 밖 학생과 담당 밖 학급으로의 이동은 404 로 숨긴다. 학급이 비어 있는 학생(풀)은 담임 범위가 아니라 관리자만 배정한다.
 // 이력과 version 검사는 fn_enrollment_update 가 한 트랜잭션으로 처리한다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
@@ -128,6 +128,17 @@ export default defineHandler({
       !requireInScope(res, "coded", actor, {
         tenantId: (current?.tenant_id as string | undefined) ?? null,
         classId: (current?.class_id as string | null | undefined) ?? null,
+      })
+    ) {
+      return;
+    }
+
+    // 담임은 담당 학급 안으로만 옮긴다. 다른 교사의 학급은 없는 것처럼 404 로 숨긴다(RPC 도 한 번 더 막는다).
+    if (
+      edit.classId !== null &&
+      !requireInScope(res, "coded", actor, {
+        tenantId: actor.tenantId,
+        classId: edit.classId,
       })
     ) {
       return;
