@@ -1,0 +1,99 @@
+// W6 표(데스크톱과 태블릿). 태블릿은 표가 좁아 가로로 밀어 본다(이름 칸은 고정).
+
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import NameCell from "../student-history/NameCell";
+import ServiceIcons from "./ServiceIcons";
+import { gradeClassOf, joinedLabel, numberOf } from "./studentLabel";
+import type { StudentRow } from "./types";
+import UrgencyChip from "./UrgencyChip";
+
+interface StudentTableProps {
+  rows: StudentRow[];
+  academy: boolean;
+  showEdit: boolean;
+  onOpen: (studentId: string) => void;
+  onEdit: (studentId: string) => void;
+}
+
+export default function StudentTable({
+  rows,
+  academy,
+  showEdit,
+  onOpen,
+  onEdit,
+}: StudentTableProps) {
+  return (
+    // 태블릿에서 표가 가로로 밀리므로 키보드로도 닿게 한다(빌드 로그 구현 메모).
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 키보드 초점을 받아야 한다.
+    <section aria-label="학생 목록" tabIndex={0} className="overflow-x-auto">
+      <Table className="min-w-[64.25rem]">
+        <TableHeader>
+          <TableRow>
+            <TableHead>학습진단 긴급도</TableHead>
+            <TableHead>이름 (가입일)</TableHead>
+            <TableHead>학년그룹/반/번호</TableHead>
+            <TableHead>이용서비스</TableHead>
+            {showEdit && <TableHead />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.studentId}>
+              <TableCell>
+                <UrgencyChip level={row.urgency} />
+              </TableCell>
+              <TableCell className="sticky left-0 bg-background">
+                <button
+                  type="button"
+                  onClick={() => onOpen(row.studentId)}
+                  title={row.displayName}
+                  className="flex flex-col items-start gap-0.5 text-left"
+                >
+                  <NameCell name={row.displayName} />
+                  <span className="pl-11 text-app-caption text-ink-sub">
+                    {joinedLabel(row.joinedAt)}
+                  </span>
+                </button>
+              </TableCell>
+              <TableCell>
+                <span className="flex items-center gap-2 text-app-label text-ink">
+                  <span>{gradeClassOf(row, academy)}</span>
+                  <span aria-hidden className="h-3 w-px bg-border" />
+                  <span>{numberOf(row)}</span>
+                </span>
+              </TableCell>
+              <TableCell>
+                <ServiceIcons
+                  services={row.services}
+                  count={row.serviceCount}
+                />
+              </TableCell>
+              {showEdit && (
+                <TableCell className="text-right">
+                  {row.canEdit && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => onEdit(row.studentId)}
+                      className="h-8 rounded-lg bg-surface-muted px-3 text-sm font-medium text-primary"
+                    >
+                      편집하기
+                    </Button>
+                  )}
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
