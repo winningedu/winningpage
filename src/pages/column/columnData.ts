@@ -1,18 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-// 시안(hsokTD6OilcNEXyCR24sn4, 1882:7837/8153) 원문 그대로 — 오탈자·구분자(U+2022) 임의 수정 금지.
-// Admin.jsx select options는 이 배열과 자 단위로 동일해야 함 (edu-column-renewal-spec §4-5).
 export const ALL_CATEGORY = "전체";
-
-export const COLUMN_CATEGORIES = [
-  "학습관리 방법",
-  "수시 및 정시 전략",
-  "특목고 입학",
-  "해외 및 대학원",
-  "입시제도 변화",
-  "대학 입시 제로", // 시안 원문 그대로 — '입시 정보' 오타 의심이나 임의 수정 금지
-  "학생부•수행평가•세특", // 가운뎃점 U+2022 BULLET
-];
 
 export type ColumnRow = {
   id: string | number;
@@ -103,15 +91,35 @@ export function getViewCount(
 }
 
 /**
- * category가 COLUMN_CATEGORIES에 속하지 않으면 '전체' 취급(필터 미노출·뱃지/칩 미렌더 판단은 호출부 몫).
+ * category가 categories(column_categories의 활성 label)에 속하지 않으면 '전체' 취급(필터 미노출·뱃지/칩 미렌더 판단은 호출부 몫).
  */
 export function getCategoryLabel(
   row: ColumnRowLike | null | undefined,
+  categories: string[],
 ): string {
   const value = row?.category;
-  return COLUMN_CATEGORIES.includes(value as string)
+  return categories.includes(value as string)
     ? (value as string)
     : ALL_CATEGORY;
+}
+
+/**
+ * 칩 목록 — 활성 행만 sort_order, label 순. 실패하면 빈 배열(전체 칩만 노출).
+ */
+export async function fetchColumnCategories(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("column_categories")
+    .select("label")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("label", { ascending: true });
+
+  if (error) {
+    console.error("교육칼럼 카테고리 조회 실패:", error);
+    return [];
+  }
+
+  return (data || []).map((row) => row.label);
 }
 
 /**

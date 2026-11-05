@@ -11,6 +11,7 @@ vi.mock("./columnData", async (importOriginal) => {
     ...actual,
     fetchColumnById: (...args: unknown[]) => fetchColumnById(...args),
     fetchActiveColumns: async () => [],
+    fetchColumnCategories: async () => [],
   };
 });
 vi.mock("@/components/column/ColumnBody", () => ({

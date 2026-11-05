@@ -14,6 +14,7 @@ function renderCard(
     <MemoryRouter>
       <ColumnCard
         variant={variant}
+        categories={[]}
         column={{ id: "7", title: "칼럼 제목", link_url: linkUrl }}
       />
     </MemoryRouter>,
@@ -40,6 +41,7 @@ describe.each(VARIANTS)("ColumnCard %s", (variant) => {
       <MemoryRouter>
         <ColumnCard
           variant={variant}
+          categories={[]}
           column={{ id: "7", title: "t", link_url: "https://a.com" }}
         />
       </MemoryRouter>,
@@ -50,9 +52,37 @@ describe.each(VARIANTS)("ColumnCard %s", (variant) => {
   it("link_url이 없으면 외부링크 표시가 없다", () => {
     const { container } = render(
       <MemoryRouter>
-        <ColumnCard variant={variant} column={{ id: "7", title: "t" }} />
+        <ColumnCard
+          variant={variant}
+          categories={[]}
+          column={{ id: "7", title: "t" }}
+        />
       </MemoryRouter>,
     );
     expect(container.querySelector("svg.lucide-external-link")).toBeNull();
+  });
+});
+
+describe("ColumnCard 카테고리 뱃지", () => {
+  function renderWith(categories: string[]) {
+    render(
+      <MemoryRouter>
+        <ColumnCard
+          variant="heroLarge"
+          categories={categories}
+          column={{ id: "7", title: "t", category: "교육청소식" }}
+        />
+      </MemoryRouter>,
+    );
+  }
+
+  it("category가 활성 목록에 있으면 뱃지를 보여준다", () => {
+    renderWith(["교육청소식"]);
+    expect(screen.getByText("교육청소식")).toBeInTheDocument();
+  });
+
+  it("category가 목록에 없으면 뱃지를 숨긴다", () => {
+    renderWith([]);
+    expect(screen.queryByText("교육청소식")).toBeNull();
   });
 });
