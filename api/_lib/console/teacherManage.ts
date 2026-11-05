@@ -4,7 +4,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { sendError } from "../httpResponse.js";
-import { RpcError, sendTeacherDbError } from "./teacherAccounts.js";
+import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
+import {
+  generateTempPassword,
+  hashTempPassword,
+  RpcError,
+  readIssueDedupeKey,
+  sendTeacherDbError,
+  TEACHERS_RESOURCE_KEY,
+} from "./teacherAccounts.js";
 
 export interface ScopedTeacher {
   id: string;
@@ -95,4 +103,73 @@ export function sendTeacherError(res: VercelResponse, error: unknown): boolean {
     return true;
   }
   return sendTeacherDbError(res, error);
+}
+
+export type ReissueResult =
+  | { status: "not_found" | "no_account" | "password_set" | "send_not_failed" }
+  | { status: "reissued"; tempPassword: string };
+
+/**
+ * 비밀번호 설정 전 계정의 임시 비밀번호를 다시 만든다(사 #148). 마지막 발송이 실패한 경우에만 허용한다.
+ * 순서: 새 해시 저장(DB) -> 감사 로그 -> Auth 비밀번호 교체. Auth 가 바뀌기 전까지 옛 임시 비밀번호가 남으므로
+ * 실패(AuthSyncError)하면 같은 요청을 다시 보낸다. 발송 상태는 alimtalk_send_logs 의 열쇠(teacherIssue:교사id:)로 읽는다.
+ */
+export async function reissueTeacherAccount(
+  ctx: ConsoleAuditCtx,
+  teacherId: string,
+): Promise<ReissueResult> {
+  const admin = ctx.supabaseAdmin;
+  const { data: teacher, error } = await admin
+    .from("teachers")
+    .select("tenant_id, login_id, profile_id, password_set_at, deleted_at")
+    .eq("id", teacherId)
+    .maybeSingle();
+  if (error) throw new RpcError("teacher read", error.code);
+  if (
+    !teacher ||
+    teacher.deleted_at ||
+    teacher.tenant_id !== ctx.console.tenantId
+  ) {
+    return { status: "not_found" };
+  }
+  if (!teacher.profile_id || !teacher.login_id) return { status: "no_account" };
+  if (teacher.password_set_at) return { status: "password_set" };
+
+  const { data: logs, error: logError } = await admin
+    .from("alimtalk_send_logs")
+    .select("status")
+    .like("dedupe_key", `teacherIssue:${teacherId}:%`)
+    .order("id", { ascending: false })
+    .limit(1);
+  if (logError) throw new RpcError("alimtalk log read", logError.code);
+  if ((logs as { status: string }[] | null)?.[0]?.status === "sent") {
+    return { status: "send_not_failed" };
+  }
+
+  const tempPassword = generateTempPassword();
+  const { error: attachError } = await admin.rpc("fn_teacher_attach_account", {
+    p_teacher_id: teacherId,
+    p_profile_id: teacher.profile_id,
+    p_login_id: teacher.login_id,
+    p_temp_hash: await hashTempPassword(tempPassword),
+  });
+  if (attachError)
+    throw new RpcError("fn_teacher_attach_account", attachError.code);
+
+  await writeConsoleAuditLog(ctx, {
+    action: "account_reissue",
+    resourceKey: TEACHERS_RESOURCE_KEY,
+    targetId: teacherId,
+    meta: {
+      loginId: teacher.login_id,
+      sendDedupeKey: await readIssueDedupeKey(admin, teacherId),
+    },
+  });
+
+  const { error: authError } = await admin.auth.admin.updateUserById(
+    teacher.profile_id,
+    { password: tempPassword },
+  );
+  if (authError) throw new AuthSyncError("password");
+  return { status: "reissued", tempPassword };
 }

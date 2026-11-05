@@ -181,18 +181,25 @@ export async function issueTeacherAccount(
   });
   if (error) throw new RpcError("fn_teacher_attach_account", error.code);
 
-  const { data, error: readError } = await admin
+  return {
+    profileId,
+    tempPassword,
+    dedupeKey: await readIssueDedupeKey(admin, teacherId),
+  };
+}
+
+/** 방금 attach 한 임시 비밀번호 발급 시각으로 발송 중복 방지 열쇠를 만든다. */
+export async function readIssueDedupeKey(
+  admin: SupabaseClient,
+  teacherId: string,
+): Promise<string> {
+  const { data, error } = await admin
     .from("teachers")
     .select("temp_password_issued_at")
     .eq("id", teacherId)
     .maybeSingle();
-  if (readError || !data)
-    throw new RpcError("teacher issued_at read", readError?.code);
-  return {
-    profileId,
-    tempPassword,
-    dedupeKey: `teacherIssue:${teacherId}:${data.temp_password_issued_at}`,
-  };
+  if (error || !data) throw new RpcError("teacher issued_at read", error?.code);
+  return `teacherIssue:${teacherId}:${data.temp_password_issued_at}`;
 }
 
 export const TEACHERS_RESOURCE_KEY = "console.teachers";
