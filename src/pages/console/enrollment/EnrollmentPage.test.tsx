@@ -240,4 +240,102 @@ describe("W7 이용현황", () => {
     expect(screen.queryByRole("row", { name: /김담임/ })).toBeNull();
     expect(screen.getByText("총 1개 학급")).toBeTruthy();
   });
+
+  it("정원 입력에서 바꾼 반만 저장하고, 저장하면 알림을 보이고 입력을 닫고 다시 읽는다", async () => {
+    let summaryCalls = 0;
+    const calls = stubPage({
+      [SUMMARY_URL]: () => {
+        summaryCalls += 1;
+        return { body: SCHOOL };
+      },
+      "PATCH /api/console/classes/capacity": {
+        body: { ok: true, updated: 1 },
+      },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+    fireEvent.click(await screen.findByRole("button", { name: "정원 입력" }));
+
+    expect(screen.queryByRole("button", { name: "정원 입력" })).toBeNull();
+    expect(
+      screen.getByText(
+        "정원을 넣지 않은 반은 가입자 수만 보여요. 가입률은 정원을 넣은 반만 계산해요",
+      ),
+    ).toBeTruthy();
+    expect((screen.getByLabelText("1반 정원") as HTMLInputElement).value).toBe(
+      "32",
+    );
+    expect((screen.getByLabelText("2반 정원") as HTMLInputElement).value).toBe(
+      "",
+    );
+
+    fireEvent.change(screen.getByLabelText("2반 정원"), {
+      target: { value: "33" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("정원을 저장했어요")).toBeTruthy();
+    expect(
+      calls.find((c) => c.key === "PATCH /api/console/classes/capacity")?.body,
+    ).toEqual({ items: [{ classId: "c2", capacity: 33 }] });
+    await waitFor(() => expect(summaryCalls).toBe(2));
+    expect(screen.getByRole("button", { name: "정원 입력" })).toBeTruthy();
+    expect(screen.queryByLabelText("2반 정원")).toBeNull();
+  });
+
+  it("비운 칸은 정원 없음으로 보내고, 취소하면 아무것도 보내지 않는다", async () => {
+    const calls = stubPage({
+      "PATCH /api/console/classes/capacity": {
+        body: { ok: true, updated: 1 },
+      },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+    fireEvent.click(await screen.findByRole("button", { name: "정원 입력" }));
+    fireEvent.change(screen.getByLabelText("1반 정원"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await screen.findByText("정원을 저장했어요");
+    expect(
+      calls.find((c) => c.key === "PATCH /api/console/classes/capacity")?.body,
+    ).toEqual({ items: [{ classId: "c1", capacity: null }] });
+
+    fireEvent.click(screen.getByRole("button", { name: "정원 입력" }));
+    fireEvent.change(screen.getByLabelText("1반 정원"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(screen.queryByLabelText("1반 정원")).toBeNull();
+    expect(
+      calls.filter((c) => c.key === "PATCH /api/console/classes/capacity"),
+    ).toHaveLength(1);
+  });
+
+  it("정원이 숫자가 아니거나 1 미만이면 저장 버튼이 막히고, 저장에 실패하면 입력을 둔 채 오류 알림을 보인다", async () => {
+    stubPage({
+      "PATCH /api/console/classes/capacity": { status: 500, body: {} },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+    fireEvent.click(await screen.findByRole("button", { name: "정원 입력" }));
+
+    fireEvent.change(screen.getByLabelText("1반 정원"), {
+      target: { value: "0" },
+    });
+    expect(
+      (screen.getByRole("button", { name: "저장" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("1반 정원"), {
+      target: { value: "40" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(
+      await screen.findByText("정원을 저장하지 못했어요. 다시 시도해 주세요"),
+    ).toBeTruthy();
+    expect((screen.getByLabelText("1반 정원") as HTMLInputElement).value).toBe(
+      "40",
+    );
+  });
 });

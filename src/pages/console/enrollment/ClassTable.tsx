@@ -12,9 +12,14 @@ import { type ClassRow, gradeGroupLabel, percent, SERVICES } from "./format";
 
 interface Props {
   rows: ClassRow[];
+  /** 정원 입력 중이면 정원 칸이 입력 칸이다(값은 입력한 글 그대로). */
+  edit?: {
+    values: Record<string, string>;
+    onChange: (id: string, v: string) => void;
+  };
 }
 
-export default function ClassTable({ rows }: Props) {
+export default function ClassTable({ rows, edit }: Props) {
   return (
     <Table className="min-w-[56rem]">
       <TableHeader>
@@ -54,9 +59,24 @@ export default function ClassTable({ rows }: Props) {
             </TableCell>
             <TableCell className="text-app-label text-ink">{`${r.className}반`}</TableCell>
             <TableCell className="text-right text-app-label text-ink">
-              {r.capacity === null
-                ? `${r.total}`
-                : `${r.total} / ${r.capacity}`}
+              {edit ? (
+                <span className="inline-flex items-center justify-end gap-1">
+                  {`${r.total} /`}
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    aria-label={`${r.className}반 정원`}
+                    value={edit.values[r.classId] ?? ""}
+                    onChange={(e) => edit.onChange(r.classId, e.target.value)}
+                    className="h-8 w-16 rounded-lg border border-line px-2 text-right text-app-label"
+                  />
+                </span>
+              ) : r.capacity === null ? (
+                `${r.total}`
+              ) : (
+                `${r.total} / ${r.capacity}`
+              )}
             </TableCell>
             <TableCell className="text-right text-app-label text-ink">
               {`${r.joined} / ${r.total}`}
