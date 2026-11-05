@@ -20,6 +20,7 @@ import {
   SERVICE_KEYS,
   type ServiceKey,
 } from "../_lib/console/serviceUsage.js";
+import { loadUrgency } from "../_lib/console/urgency.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -175,6 +176,10 @@ export default defineHandler({
       });
     }
     const paged = paginate(listed, pageQuery);
+    const urgency = await loadUrgency(
+      admin,
+      paged.items.map((e) => e.student_id),
+    );
     if (tab === "all") {
       services = await loadServiceUsage(
         admin,
@@ -205,7 +210,7 @@ export default defineHandler({
             SERVICE_KEYS.map((key) => [key, used.includes(key)]),
           ),
           serviceCount: used.length,
-          urgency: null,
+          urgency: urgency.get(e.student_id) ?? null,
           canEdit: actor.kind === "homeroom",
           enrollmentVersion: e.version,
         };

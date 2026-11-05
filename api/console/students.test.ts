@@ -235,4 +235,52 @@ describe("GET /api/console/students", () => {
   test("a malformed page is a 400", async () => {
     expect((await get({ page: "x" })).status).toBe(400);
   });
+
+  test("urgency comes from the lowest of the 12 area scores in the latest stored report (under 45 very high, 60 high, 70 mid, else low)", async () => {
+    const report = (
+      attempt: string,
+      profile: string,
+      diagnosedAt: string,
+      p1: number[],
+      p2: number[],
+    ) => ({
+      attempt_id: attempt,
+      profile_id: profile,
+      diagnosed_at: diagnosedAt,
+      payload: {
+        areaDetails: {
+          page1: p1.map((score) => ({ score })),
+          page2: p2.map((score) => ({ score })),
+        },
+      },
+    });
+    kit.state.rows.diagnosis_reports = (f) =>
+      matchRows(
+        [
+          // s1 의 옛 리포트는 매우 높음이었으나 최신(낮음)이 이긴다.
+          report("a1", "s1", "2026-01-01T00:00:00Z", [30, 90], [80]),
+          report("a2", "s1", "2026-06-01T00:00:00Z", [75, 90], [80]),
+          report("a3", "s2", "2026-06-01T00:00:00Z", [90], [44, 99]),
+          report("a4", "s3", "2026-06-01T00:00:00Z", [90], [59]),
+          report("a5", "s4", "2026-06-01T00:00:00Z", [90], [69]),
+        ],
+        f,
+      );
+
+    const r = await get();
+    const urgency = (id: string) =>
+      (items(r).find((i) => i.studentId === id) as { urgency: string }).urgency;
+
+    expect(urgency("s1")).toBe("low");
+    expect(urgency("s2")).toBe("very_high");
+    expect(urgency("s3")).toBe("high");
+    expect(urgency("s4")).toBe("mid");
+  });
+
+  test("a student without a report has no urgency", async () => {
+    const r = await get();
+    expect(
+      (items(r)[0] as unknown as { urgency: string | null }).urgency,
+    ).toBeNull();
+  });
 });
