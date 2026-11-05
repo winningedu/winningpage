@@ -246,4 +246,89 @@ describe("POST /api/auth/login", () => {
       p_outcome: "invalid",
     });
   });
+
+  test("@ 가 들어 있으면 이메일로 그대로 GoTrue 에 보낸다", async () => {
+    await login({ identifier: " Parent@Example.com ", password: "pw" });
+
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: "parent@example.com",
+      password: "pw",
+    });
+  });
+
+  test("@ 없는 학생 아이디는 profiles.username 으로 찾은 이메일로 보낸다", async () => {
+    state.profile = {
+      member_type: "student",
+      email: "stu@example.com",
+      username: "stu01",
+    };
+
+    await login({ identifier: "STU01", password: "pw" });
+
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: "stu@example.com",
+      password: "pw",
+    });
+  });
+
+  test("합성 도메인으로 끝나는 식별자는 모르는 아이디로 보고 GoTrue 를 부르지 않되 실패로 센다", async () => {
+    const r = await login({
+      identifier: "kim01@teacher.schoolmentor.kr",
+      password: "pw",
+    });
+
+    expect(r.status).toBe(401);
+    expect(r.body).toEqual({
+      error: {
+        code: "INVALID",
+        message: "아이디 또는 비밀번호가 올바르지 않습니다. (실패 1/5회)",
+      },
+      failCount: 1,
+    });
+    expect(state.signIn).not.toHaveBeenCalled();
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+      p_hash: expect.any(String),
+      p_outcome: "invalid",
+    });
+  });
+
+  test("없는 아이디와 틀린 비밀번호는 상태와 본문이 같다", async () => {
+    state.profile = null;
+    const unknown = await login({ identifier: "nobody", password: "pw" });
+    state.profile = { member_type: "teacher", email: null, username: "kim01" };
+    const wrong = await login({ identifier: "kim01", password: "bad" });
+
+    expect(unknown.status).toBe(wrong.status);
+    expect(unknown.body).toEqual(wrong.body);
+  });
+
+  test("식별자는 trim 과 소문자로 정규화한 값으로 해시한다", async () => {
+    await login({ identifier: " KIM01 ", password: "pw" });
+    await login({ identifier: "kim01", password: "pw" });
+
+    const hashes = state.rpc.mock.calls
+      .filter((c) => c[0] === "fn_login_attempt_begin")
+      .map((c) => (c[1] as { p_hash: string }).p_hash);
+    expect(hashes[0]).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(hashes[0]).toBe(hashes[1]);
+  });
+
+  test("5번째 실패는 429 LOCKED 로 잠금 문구를 준다", async () => {
+    state.beginResult = {
+      data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+      error: null,
+    };
+
+    const r = await login({ identifier: "kim01", password: "bad" });
+
+    expect(r.status).toBe(429);
+    expect(r.body).toEqual({
+      error: {
+        code: "LOCKED",
+        message:
+          "로그인에 5회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 10분 후에 다시 시도해 주세요.",
+      },
+    });
+    expect(r.headers["Retry-After"]).toBe("600");
+  });
 });

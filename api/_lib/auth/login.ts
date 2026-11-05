@@ -82,6 +82,33 @@ function hashParam(normalized: string): string {
   return `\\x${createHash("sha256").update(normalized).digest("hex")}`;
 }
 
+// 인증에 쓸 이메일을 정한다. null 이면 모르는 식별자(GoTrue 를 부르지 않는다).
+// P1/P2: 합성 이메일은 입력으로 받지 않고, @ 없는 식별자는 profiles.username 으로 찾는다.
+async function resolveAuthEmail(
+  admin: SupabaseClient,
+  identifier: string,
+): Promise<{ email: string | null; failed: boolean }> {
+  if (identifier.includes("@")) {
+    return {
+      email: identifier.endsWith(`@${SYNTHETIC_DOMAIN}`) ? null : identifier,
+      failed: false,
+    };
+  }
+
+  const pattern = identifier.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data, error } = await admin
+    .from("profiles")
+    .select("member_type, email, username")
+    .ilike("username", pattern)
+    .maybeSingle();
+  if (error) return { email: null, failed: true };
+
+  const synthetic = `${identifier}@${SYNTHETIC_DOMAIN}`;
+  if (data?.member_type === "teacher")
+    return { email: synthetic, failed: false };
+  return { email: data?.email || synthetic, failed: false };
+}
+
 export async function attemptLogin(
   admin: SupabaseClient,
   input: LoginInput,
@@ -104,11 +131,25 @@ export async function attemptLogin(
     };
   }
 
-  const email = `${identifier}@${SYNTHETIC_DOMAIN}`;
+  const resolved = await resolveAuthEmail(admin, identifier);
+  if (resolved.failed) {
+    await admin.rpc("fn_login_attempt_end", {
+      p_hash: hash,
+      p_outcome: "error",
+    });
+    return RETRY_FAILURE;
+  }
+  const email = resolved.email;
+
   let signed: Awaited<ReturnType<LoginInput["signIn"]>>["data"];
   let error: Awaited<ReturnType<LoginInput["signIn"]>>["error"];
   try {
-    ({ data: signed, error } = await input.signIn(email, input.password));
+    if (email === null) {
+      signed = { user: null, session: null };
+      error = { status: 400 };
+    } else {
+      ({ data: signed, error } = await input.signIn(email, input.password));
+    }
   } catch {
     error = {};
     signed = { user: null, session: null };
@@ -147,6 +188,16 @@ export async function attemptLogin(
     p_hash: hash,
     p_outcome: "invalid",
   });
+  // 5번째 실패는 begin 이 이미 10분 잠금을 걸었다.
+  if (begin.attempt_no >= MAX_FAILS) {
+    return {
+      ok: false,
+      status: 429,
+      code: LOCKED_CODE,
+      message: lockedMessage(begin.retry_after_s),
+      retryAfterSeconds: begin.retry_after_s,
+    };
+  }
   return {
     ok: false,
     status: 401,
