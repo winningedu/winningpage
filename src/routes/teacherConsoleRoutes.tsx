@@ -12,6 +12,9 @@ import OrgInfoPage from "@/pages/console/OrgInfoPage";
 import ProxySelectPage from "@/pages/console/proxy-select/ProxySelectPage";
 import StudentHistoryPage from "@/pages/console/student-history/StudentHistoryPage";
 import StudentListPage from "@/pages/console/students/StudentListPage";
+import TeacherAccountsPage from "@/pages/console/teachers/TeacherAccountsPage";
+import TeacherExcelPage from "@/pages/console/teachers/TeacherExcelPage";
+import TeacherRosterPage from "@/pages/console/teachers/TeacherRosterPage";
 
 // 교사 콘솔(/teacher). SiteLayout 밖이라 푸터가 없고 헤더만 ConsoleHeaderFrame 이 그린다.
 // 입구 가드(ConsoleGate)가 로그인, 콘솔 권한, 임시 비밀번호 상태를 가른다.
@@ -37,6 +40,9 @@ const teacherConsoleRoutes: RouteObject[] = [
               { path: "students", Component: StudentListPage },
               { path: "unassigned", Component: AssignPoolPage },
               { path: "student-history", Component: StudentHistoryPage },
+              { path: "teachers", Component: TeacherRosterPage },
+              { path: "teachers/excel", Component: TeacherExcelPage },
+              { path: "accounts", Component: TeacherAccountsPage },
               { path: "*", Component: ConsolePlaceholder },
             ],
           },
