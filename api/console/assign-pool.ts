@@ -13,6 +13,7 @@ import {
 } from "../_lib/console/directory.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { queryValue } from "../_lib/console/query.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -31,11 +32,6 @@ interface EnrollmentRow {
 }
 
 const COLUMNS = "student_id, grade, class_id, number, version";
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === undefined || value === "" ? undefined : value;
-}
 
 export default defineHandler({
   methods: ["GET"],

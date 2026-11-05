@@ -10,6 +10,7 @@ import { loadTenant, readAll } from "../_lib/console/directory.js";
 import { isEnrollmentGrade } from "../_lib/console/enrollmentInput.js";
 import { rateBucket } from "../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../_lib/console/goalStatus.js";
+import { queryValue } from "../_lib/console/query.js";
 import { scopeQuery } from "../_lib/console/scope.js";
 import {
   loadServiceUsage,
@@ -19,10 +20,6 @@ import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  return Array.isArray(raw) ? raw[0] : raw;
-}
 
 export default defineHandler({
   methods: ["GET"],

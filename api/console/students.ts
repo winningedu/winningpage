@@ -23,6 +23,7 @@ import {
 } from "../_lib/console/goalRate.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { queryValue } from "../_lib/console/query.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
   loadServiceUsage,
@@ -44,11 +45,6 @@ interface EnrollmentRow {
 
 // tab 값: 전체, 서비스 하나를 쓴 학생, 서비스를 하나도 안 쓴 학생(none).
 const TABS: readonly string[] = ["all", "none", ...SERVICE_KEYS];
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === undefined || value === "" ? undefined : value;
-}
 
 const COLUMNS = "student_id, grade, class_id, number, version";
 

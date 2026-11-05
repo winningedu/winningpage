@@ -8,6 +8,7 @@ import { loadProfileNames, loadTenant } from "../_lib/console/directory.js";
 import { kstDateOffset } from "../_lib/console/kstDate.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { queryValue } from "../_lib/console/query.js";
 import { loadServiceDetail } from "../_lib/console/serviceStatus.js";
 import {
   loadServiceUsage,
@@ -19,11 +20,6 @@ import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === undefined || value === "" ? undefined : value;
-}
 
 export default defineHandler({
   methods: ["GET"],
