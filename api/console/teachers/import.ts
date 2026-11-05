@@ -5,8 +5,12 @@
 // 권한: 학교 관리자 또는 본사 대행.
 
 import { sendTeacherDbError } from "../../_lib/console/teacherAccounts.js";
-import { runTeacherImport } from "../../_lib/console/teacherImport.js";
+import {
+  parseImportBody,
+  runTeacherImport,
+} from "../../_lib/console/teacherImport.js";
 import { defineHandler } from "../../_lib/handler.js";
+import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -23,7 +27,17 @@ export default defineHandler({
   handler: async (req, res, ctx) => {
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
-    const body = req.body as { requestId: string; mode: "skip"; rows: never[] };
+    const body = parseImportBody(req.body);
+    if (!body) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "요청 번호, 적용 방식, 행(최대 20개)을 확인해 주세요.",
+        "BAD_REQUEST",
+      );
+      return;
+    }
 
     try {
       const outcome = await runTeacherImport(
