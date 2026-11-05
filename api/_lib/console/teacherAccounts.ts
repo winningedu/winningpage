@@ -336,17 +336,14 @@ export interface ParsedRegisterBody {
   classes: RegisterInput["classes"];
 }
 
-/** 이름, 전화번호(숫자만으로 정규화, 01 로 시작 10 또는 11자리), 학급 목록(생략 가능)을 검증한다. */
-export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
-  const { name, phone, classes } = (body ?? {}) as Record<string, unknown>;
-  if (typeof name !== "string" || name.trim() === "") return null;
-  if (typeof phone !== "string") return null;
-  const digits = phone.replace(/\D/g, "");
-  if (!/^01[0-9]{8,9}$/.test(digits)) return null;
-  if (classes !== undefined && !Array.isArray(classes)) return null;
-
+/** 학급 목록(생략하면 빈 목록). 배열이 아니거나 학년, 이름이 비면 null. */
+export function parseClassRows(
+  classes: unknown,
+): RegisterInput["classes"] | null {
+  if (classes === undefined) return [];
+  if (!Array.isArray(classes)) return null;
   const parsed: RegisterInput["classes"] = [];
-  for (const row of (classes ?? []) as Record<string, unknown>[]) {
+  for (const row of classes as Record<string, unknown>[]) {
     if (typeof row?.grade !== "string" || typeof row?.name !== "string")
       return null;
     if (row.grade === "" || row.name.trim() === "") return null;
@@ -356,6 +353,18 @@ export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
       ...(typeof row.groupId === "string" ? { group_id: row.groupId } : {}),
     });
   }
+  return parsed;
+}
+
+/** 이름, 전화번호(숫자만으로 정규화, 01 로 시작 10 또는 11자리), 학급 목록(생략 가능)을 검증한다. */
+export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
+  const { name, phone, classes } = (body ?? {}) as Record<string, unknown>;
+  if (typeof name !== "string" || name.trim() === "") return null;
+  if (typeof phone !== "string") return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!/^01[0-9]{8,9}$/.test(digits)) return null;
+  const parsed = parseClassRows(classes);
+  if (!parsed) return null;
   return { name: name.trim(), phone: digits, classes: parsed };
 }
 
