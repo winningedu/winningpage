@@ -4,20 +4,8 @@
 // 담임은 현재 담당 학급의 학생만, 학교 관리자와 본사 대행은 기관 전체를 본다. 범위 밖과 졸업생은 404.
 // 이름은 담임만 실명이고 그 밖에는 서버에서 가린다. 자료가 없는 지표는 판정에서 빠진다(결정 4).
 
-import {
-  coachingTypeOf,
-  computeAxes,
-  computeCompetencies,
-  executionVerdict,
-  indicatorsOf,
-  learningVerdict,
-  linkageVerdict,
-  signalOf,
-  summaryLine,
-  urgencyOf,
-} from "../_lib/console/coaching.js";
-import { loadCoachingData } from "../_lib/console/coachingData.js";
-import { buildCoachingText } from "../_lib/console/coachingText.js";
+import { summaryLine, urgencyOf } from "../_lib/console/coaching.js";
+import { buildCoaching } from "../_lib/console/coachingBuild.js";
 import {
   loadClassIndex,
   loadProfileNames,
@@ -90,53 +78,18 @@ export default defineHandler({
         )
       : [];
 
-    const data = await loadCoachingData(admin, studentId, used);
-    const { metrics, targets } = data;
-    const axesResult = computeAxes(metrics);
-    const careerLink = axesResult.axes.find((a) => a.key === "careerLink");
-    const week = metrics.goal?.week;
-    const verdicts = {
-      execution: executionVerdict({
-        usesGoal: metrics.used.goal,
-        ...(week ? { week } : {}),
-      }),
-      learning: learningVerdict(
-        metrics.diagnosis
-          ? {
-              areas: metrics.diagnosis.areas,
-              executionAvg: indicatorsOf(metrics).dxExecution.score as number,
-            }
-          : null,
-      ),
-      linkage: linkageVerdict(careerLink?.score ?? null),
-    };
-    const { signal, subLine } = signalOf(verdicts, axesResult.axes);
-
-    const type = coachingTypeOf({
-      verdicts,
-      axes: axesResult.axes,
-      achievementPct: week?.achievementPct ?? null,
-      usesInquiry: metrics.used.inquiry,
-    });
-    const competencies = computeCompetencies(metrics);
-    const text = buildCoachingText({
-      grade: data.grade ?? enrollment.grade,
-      month: Number(
-        new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 7),
-      ),
-      department:
-        targets?.ideal?.department || targets?.min?.department || null,
-      metrics,
-      axes: axesResult,
-      competencies,
+    const built = await buildCoaching(admin, studentId, used, enrollment.grade);
+    const {
+      data: { metrics, targets },
+      axesResult,
       verdicts,
       type,
-      goal: data.goalFacts,
-      pendingPerformance: data.pendingPerformance,
-      inquiryTopic: data.inquiryTopic,
-      growthKeywords: data.growthKeywords,
-      gradeCheck: null,
-    });
+      competencies,
+      text,
+      signal,
+      subLine,
+      week,
+    } = built;
     const { serviceCards, ...rest } = text;
 
     res.status(200).json({

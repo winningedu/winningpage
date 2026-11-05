@@ -248,6 +248,12 @@ function narrativeKeywords(
 }
 
 export interface CoachingData {
+  performanceTasks: {
+    title: string | null;
+    subject: string | null;
+    done: boolean;
+    score: number | null;
+  }[];
   goalFacts: import("./coachingText.js").GoalFacts | null;
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
@@ -397,7 +403,7 @@ export async function loadCoachingData(
       )
     : [];
   const pendingSessions = perf.filter((s) => !doneSessions.includes(s.id));
-  const topicIds = pendingSessions
+  const topicIds = perf
     .map((s) => s.selected_topic_id)
     .filter((id): id is string => typeof id === "string");
   const performanceTopics = topicIds.length
@@ -473,6 +479,7 @@ export async function loadCoachingData(
       ? {
           week,
           lastWeek: lastWeek.setDays > 0 ? lastWeek : null,
+          previousDays: lastDays,
           days,
           streak: streakOf(days),
           // 접속 기록의 출처가 없다.
@@ -483,6 +490,14 @@ export async function loadCoachingData(
           lastWeekAvgActual: avgActual(lastDays),
         }
       : null,
+    performanceTasks: perf.map((s) => ({
+      title:
+        performanceTopics.find((t) => t.id === s.selected_topic_id)?.title ??
+        null,
+      subject: s.subject,
+      done: doneSessions.includes(s.id),
+      score: perfReports.find((r) => r.session_id === s.id)?.score ?? null,
+    })),
     pendingPerformance: pendingSessions.map((s) => ({
       title:
         performanceTopics.find((t) => t.id === s.selected_topic_id)?.title ??

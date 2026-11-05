@@ -141,6 +141,8 @@ export function areaState(code: AreaCode, score: number): string {
 export interface GoalFacts {
   week: GoalWeek;
   lastWeek: GoalWeek | null;
+  /** 지난주 7일(서비스 상세의 14일 표용), 최근 날짜부터. */
+  previousDays?: GoalDay[];
   /** 최근 7일, 최근 날짜부터. date 는 YYYY-MM-DD. */
   days: GoalDay[];
   /** 최근 목표일부터 거꾸로 이어진 최소 목표 충족일 수. */
