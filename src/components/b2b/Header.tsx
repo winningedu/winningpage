@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
+import MobileNavDrawer from "../MobileNavDrawer";
 import MegaPanel from "./MegaPanel";
 import { NAV_LEFT, PILL_GAP, PILL_W } from "./navGrid";
 import { signOutB2B, useB2BAccount } from "./useB2BAccount";
@@ -18,6 +19,9 @@ export default function Header() {
   const account = useB2BAccount();
   // 하위 항목이 없는 그룹은 알약과 패널 컬럼에서 뺀다(결정 19).
   const groups = useNavGroups().filter((group) => group.items.length > 0);
+  const loggedIn = account.status === "student" || account.status === "teacher";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
   const [openTitle, setOpenTitle] = useState<string | null>(null);
   const closeTimer = useRef<number | null>(null);
 
@@ -161,7 +165,11 @@ export default function Header() {
             </div>
           )}
           <button
+            ref={hamburgerRef}
             type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-expanded={drawerOpen}
+            aria-controls="mobile-nav-drawer"
             aria-label="전체 메뉴 열기"
             className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-1/2 after:content-['']"
           >
@@ -169,6 +177,32 @@ export default function Header() {
           </button>
         </div>
       </div>
+
+      <MobileNavDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        navGroups={groups}
+        shouldShowLoggedInHeader={loggedIn}
+        isLoggedIn={loggedIn}
+        displayName={loggedIn ? account.name : ""}
+        memberLabel={account.status === "student" ? account.memberLabel : ""}
+        myMenuRole="student"
+        csatDDay={account.status === "student" ? account.csatDDay : ""}
+        onLogout={signOutB2B}
+        triggerRef={hamburgerRef}
+        guestSecondary={{ label: "선생님", href: "/login" }}
+        hideMenuItems={["신청 내역"]}
+        orgName={loggedIn ? (account.orgName ?? undefined) : undefined}
+        teacher={
+          account.status === "teacher"
+            ? {
+                name: account.name,
+                roleLabel: account.roleLabel,
+                consoleHref: "/teacher/dashboard",
+              }
+            : undefined
+        }
+      />
 
       <div className="absolute left-0 top-full hidden w-full desktop:block">
         <MegaPanel

@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import Header from "./Header";
@@ -215,5 +221,20 @@ describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
     await waitFor(() =>
       expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" }),
     );
+  });
+});
+
+describe("b2b Header 드로어 연결", () => {
+  it("게스트가 햄버거를 누르면 드로어 하단에 로그인과 선생님이 있고 회원가입은 없다", async () => {
+    mockUseAuth.mockReturnValue({ session: null, user: null, isReady: true });
+    renderHeader();
+
+    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+
+    const drawer = await screen.findByRole("dialog");
+    expect(
+      within(drawer).getByRole("link", { name: "선생님" }),
+    ).toHaveAttribute("href", "/login");
+    expect(within(drawer).queryByText("회원가입")).not.toBeInTheDocument();
   });
 });
