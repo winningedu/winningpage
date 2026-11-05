@@ -17,6 +17,8 @@ export interface SiteConfig {
   features: {
     // 프리미엄(컨설팅 프로그램 6종 + 프리미엄 이용 신청)의 메뉴, 카드, 라우트 노출 여부.
     premium: boolean;
+    // 콜멘토(메뉴, 라우트, 서비스 항목) 노출 여부.
+    callmentor: boolean;
     // 메뉴, 카드, 가격표, 라우트에서 숨길 신규 서비스(growth, selfeval, inquiry). 기본은 빈 배열(전부 노출).
     // 배포 환경별로는 site.ts가 VITE_HIDDEN_PROGRAMS로 덮어쓴다.
     hiddenPrograms: readonly GateableProgram[];
@@ -66,6 +68,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     columnTitle: "교육칼럼",
     features: {
       premium: true,
+      callmentor: true,
       hiddenPrograms: [],
       bannerEmptyNotice: false,
       serverLogin: false,
@@ -107,6 +110,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     columnTitle: "칼럼-교육청소식",
     features: {
       premium: false,
+      callmentor: false,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
       // 운영 선행 조건(시크릿 키 env, Sb-Forwarded-For 설정)과 W2 라우트가 갖춰질 때까지 끈다.
