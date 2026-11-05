@@ -1366,6 +1366,26 @@ describe("1단계 묶음 호출", () => {
     // 예산이 끝난 뒤에는 남은 묶음을 띄우지 않는다.
     expect(callModel.mock.calls.length).toBeLessThanOrEqual(6);
   });
+
+  it("시계가 멈춰 있어도 묶음 하나가 시간 초과되면 남은 묶음을 띄우지 않는다", async () => {
+    const callModel = vi.fn(async (b: { user: string }) => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return answer(b.user);
+    });
+    const r = await runStep(
+      1,
+      many(100),
+      emptyStored(),
+      deps({
+        callModel,
+        budgetMs: 20,
+        now: () => "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.failure).toBe("timeout");
+    expect(callModel.mock.calls.length).toBeLessThanOrEqual(6);
+  });
 });
 
 describe("병렬 호출 계기판 기록", () => {

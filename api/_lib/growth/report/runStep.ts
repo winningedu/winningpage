@@ -326,12 +326,17 @@ async function runCalls(
   const stepStartedAt = Date.parse(deps.now());
   const outcomes: ModelCallOutcome[] = new Array(jobs.length);
   let next = 0;
+  // 타이머가 벽시계보다 먼저 울릴 수 있어 시간 초과가 한 번 나면 새 호출을 더 띄우지 않는다.
+  // 시작하지 않은 호출 자리는 비워 두며 some, filter 는 빈 자리를 건너뛴다.
+  let timedOut = false;
   const worker = async (): Promise<void> => {
-    while (next < jobs.length) {
+    while (!timedOut && next < jobs.length) {
       const index = next++;
       const job = jobs[index];
       if (!job) return;
-      outcomes[index] = await job(stepStartedAt);
+      const outcome = await job(stepStartedAt);
+      outcomes[index] = outcome;
+      if (!outcome.ok && outcome.failure === "timeout") timedOut = true;
     }
   };
   await Promise.all(
