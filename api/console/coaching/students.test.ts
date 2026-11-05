@@ -19,7 +19,8 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 
 import handler from "./students.js";
 
-const get = () => callHandler(handler, undefined, "GET");
+const get = (query: Record<string, string> = {}) =>
+  callHandler(handler, undefined, "GET", query);
 
 const row = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
@@ -155,5 +156,23 @@ describe("GET /api/console/coaching/students", () => {
     });
     const body = (await get()).body as Body;
     expect(body).toEqual({ students: [], defaultStudentId: null });
+  });
+
+  test("q matches the real name on the server before the name is masked", async () => {
+    const body = (await get({ q: "서준" })).body as Body;
+    expect(body.students.map((s) => [s.studentId, s.name])).toEqual([
+      ["s3", "이*준"],
+    ]);
+    const none = (await get({ q: "없는이름" })).body as Body;
+    expect(none).toEqual({ students: [], defaultStudentId: null });
+  });
+
+  test("q does not widen the scope of a homeroom", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-B"],
+    });
+    const body = (await get({ q: "서연" })).body as Body;
+    expect(body.students).toEqual([]);
   });
 });

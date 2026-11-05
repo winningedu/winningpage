@@ -397,8 +397,19 @@ describe("W9 고를 학생 없음, 불러오는 중, 오류", () => {
 });
 
 describe("W9 기관 관리자", () => {
-  it("이름 검색으로 학생 목록을 좁힌다", async () => {
-    stubPage({}, adminMe);
+  it("이름 검색은 서버가 실명으로 거른 목록을 이름 칸에 보인다", async () => {
+    const calls = stubPage(
+      {
+        [`GET /api/console/coaching/students?q=${encodeURIComponent("서준")}`]:
+          {
+            body: {
+              students: [STUDENTS[1]],
+              defaultStudentId: "s2",
+            },
+          },
+      },
+      adminMe,
+    );
 
     renderRoutes(routes, "/teacher/coaching?studentId=s1");
     await screen.findByText("2학년 3반 1번");
@@ -406,10 +417,15 @@ describe("W9 기관 관리자", () => {
       target: { value: "서준" },
     });
 
-    const names = within(screen.getByLabelText("이름") as HTMLElement)
-      .getAllByRole("option")
-      .map((o) => o.textContent);
-    expect(names).toEqual(["이서준"]);
+    await waitFor(() => {
+      const names = within(screen.getByLabelText("이름") as HTMLElement)
+        .getAllByRole("option")
+        .map((o) => o.textContent);
+      expect(names).toEqual(["이서준"]);
+    });
+    expect(
+      calls.some((c) => c.key.includes(`?q=${encodeURIComponent("서준")}`)),
+    ).toBe(true);
   });
 
   it("담임에게는 이름 검색이 없다", async () => {

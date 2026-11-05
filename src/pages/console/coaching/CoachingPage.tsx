@@ -42,6 +42,7 @@ const classLabelOf = (s: PickerStudent) =>
 
 function StudentPicker({
   students,
+  found,
   selected,
   admin,
   q,
@@ -49,6 +50,8 @@ function StudentPicker({
   onPick,
 }: {
   students: PickerStudent[];
+  /** 이름 검색 결과(서버가 실명으로 거른다). */
+  found: PickerStudent[];
   selected: PickerStudent | undefined;
   admin: boolean;
   q: string;
@@ -62,12 +65,11 @@ function StudentPicker({
       classes.set(s.classId, s);
     }
   }
-  const names = students.filter(
-    (s) =>
-      s.classId === selected?.classId &&
-      s.grade === selected?.grade &&
-      (!q || s.name.includes(q)),
-  );
+  const names = q
+    ? found
+    : students.filter(
+        (s) => s.classId === selected?.classId && s.grade === selected?.grade,
+      );
   const firstOf = (match: (s: PickerStudent) => boolean) =>
     students.find(match)?.studentId;
 
@@ -309,6 +311,7 @@ export default function CoachingPage() {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState("");
   const list = useCoachingStudents();
+  const search = useCoachingStudents(admin ? q : "");
   const studentId =
     params.get("studentId") ?? list.data?.defaultStudentId ?? null;
   const coaching = useCoaching(studentId);
@@ -353,6 +356,7 @@ export default function CoachingPage() {
           {list.isSuccess && (
             <StudentPicker
               students={students}
+              found={search.data?.students ?? []}
               selected={selected}
               admin={admin}
               q={q}

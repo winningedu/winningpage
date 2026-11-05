@@ -4,11 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { consoleRequest } from "../api";
 import type { Coaching, StudentList } from "./types";
 
-export function useCoachingStudents() {
+/** q 가 있으면 서버가 실명 부분 일치로 거른 목록이다(학교 관리자 이름 검색). */
+export function useCoachingStudents(q = "") {
   return useQuery({
-    queryKey: ["console", "coaching", "students"],
+    queryKey: ["console", "coaching", "students", q],
     queryFn: async () => {
-      const res = await consoleRequest("/api/console/coaching/students");
+      const res = await consoleRequest(
+        `/api/console/coaching/students${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+      );
       if (res.status !== 200)
         throw new Error(`coaching students ${res.status}`);
       return res.body as StudentList;
