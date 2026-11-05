@@ -10,6 +10,7 @@ import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import {
   checkNewPassword,
   PASSWORD_RULE_MESSAGES,
+  RpcError,
   syntheticEmail,
   TEACHERS_RESOURCE_KEY,
 } from "../_lib/console/teacherAccounts.js";
@@ -94,6 +95,13 @@ export default defineHandler({
       { password: newPassword },
     );
     if (updateError) throw new Error("password update failed");
+
+    const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
+      p_teacher_id: actor.teacherId,
+      p_tenant: actor.tenantId,
+    });
+    if (stampError)
+      throw new RpcError("fn_teacher_password_set", stampError.code);
 
     await writeConsoleAuditLog(
       {

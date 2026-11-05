@@ -70,6 +70,31 @@ afterEach(() => {
 });
 
 describe("POST /api/console/change-password", () => {
+  test("Auth 비밀번호를 바꾼 뒤 변경 시각 rpc 에 교사와 기관을 함께 넘기고 감사 로그보다 먼저 부른다", async () => {
+    const calls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_teacher_password_set = (args) => {
+      calls.push(args);
+      return { data: null, error: null };
+    };
+
+    const r = await post({
+      currentPassword: "OldPass123",
+      newPassword: "NewPass456",
+    });
+
+    expect(r.status).toBe(200);
+    expect(calls).toEqual([
+      { p_teacher_id: "teacher-1", p_tenant: "tenant-1" },
+    ]);
+    const events = kit.state.events;
+    expect(events.indexOf("rpc:fn_teacher_password_set")).toBeGreaterThan(
+      events.indexOf("auth:updateUserById"),
+    );
+    expect(events.indexOf("rpc:fn_teacher_password_set")).toBeLessThan(
+      events.indexOf("insert:admin_access_logs"),
+    );
+  });
+
   test("현재 비밀번호를 확인하고 Auth 비밀번호를 바꾼 뒤 새 비밀번호로 만든 세션을 돌려준다", async () => {
     const r = await post({
       currentPassword: "OldPass123",

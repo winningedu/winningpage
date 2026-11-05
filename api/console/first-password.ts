@@ -112,6 +112,7 @@ export default defineHandler({
 
       const { error } = await admin.rpc("fn_teacher_password_set", {
         p_teacher_id: actor.teacherId,
+        p_tenant: actor.tenantId,
       });
       if (error) throw new RpcError("fn_teacher_password_set", error.code);
 

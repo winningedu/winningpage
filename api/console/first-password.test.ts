@@ -50,6 +50,21 @@ afterEach(() => {
 });
 
 describe("POST /api/console/first-password", () => {
+  test("임시 상태 해제 rpc 에 교사와 기관을 함께 넘긴다", async () => {
+    const calls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_teacher_password_set = (args) => {
+      calls.push(args);
+      return { data: null, error: null };
+    };
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(200);
+    expect(calls).toEqual([
+      { p_teacher_id: "teacher-1", p_tenant: "tenant-1" },
+    ]);
+  });
+
   test("임시 비밀번호 상태의 교사가 규칙에 맞는 비밀번호를 정하면 Auth 를 바꾸고 임시 상태를 지우고 감사 로그를 남긴다", async () => {
     const logs = [
       vi.spyOn(console, "log").mockImplementation(() => {}),
