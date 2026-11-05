@@ -27,7 +27,7 @@ import AssignDialog from "./AssignDialog";
 import IssueDialog from "./IssueDialog";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
-import { type AccountItem, classText } from "./roster";
+import { type AccountItem, classText, lastLoginText } from "./roster";
 import TeacherDialog from "./TeacherDialog";
 
 const PAGE_SIZE = 50;
@@ -170,6 +170,9 @@ export default function TeacherAccountsPage() {
                     </span>
                     <span className="text-app-label text-ink">{t.loginId}</span>
                     <span className="text-app-label text-ink-sub">••••••</span>
+                    <span className="text-app-label text-ink-sub">
+                      {`최근 로그인 ${lastLoginText(t.lastLoginAt)}`}
+                    </span>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -201,6 +204,7 @@ export default function TeacherAccountsPage() {
                     <TableHead>아이디</TableHead>
                     <TableHead>비밀번호</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead className="text-right">최근 로그인</TableHead>
                     <TableHead>관리</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -223,6 +227,9 @@ export default function TeacherAccountsPage() {
                             {t.status === "active" ? "비활성화" : "활성화"}
                           </Button>
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {lastLoginText(t.lastLoginAt)}
                       </TableCell>
                       <TableCell>
                         <span className="flex gap-2">

@@ -33,6 +33,7 @@ const teacher = (over: Partial<AccountItem> = {}): AccountItem => ({
   name: "박지훈",
   role: "homeroom",
   phoneLast4: "5678",
+  lastLoginAt: null,
   loginId: "SM26HB83K7MPQ2",
   status: "active",
   passwordSet: true,

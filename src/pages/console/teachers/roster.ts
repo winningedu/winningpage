@@ -55,6 +55,8 @@ export interface AccountItem {
   name: string;
   role: "homeroom" | "school_admin";
   phoneLast4: string;
+  /** Auth 의 마지막 로그인 시각(ISO). 없거나 읽지 못하면 null. */
+  lastLoginAt: string | null;
   loginId: string;
   status: "active" | "inactive";
   passwordSet: boolean;
@@ -67,4 +69,12 @@ export interface AccountItem {
     isPrimary: boolean;
     activeStudents: number;
   }[];
+}
+
+/** 최근 로그인 표기 "11/03 08:15"(기기의 시간대). 값이 없으면 "-". */
+export function lastLoginText(iso: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(d.getMonth() + 1)}/${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
 }

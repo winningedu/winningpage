@@ -62,6 +62,7 @@ const ITEMS = [
     name: "박지훈",
     role: "homeroom",
     phoneLast4: "5678",
+    lastLoginAt: "2026-11-03T08:15:00",
     loginId: "SM26HB83K7MPQ2",
     status: "active",
     passwordSet: true,
@@ -157,6 +158,11 @@ describe("W16 목록", () => {
     expect(within(park).getByText("활성")).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText("비활성")).toBeTruthy();
     expect(screen.queryByText("Ab3!xYz9Qk")).toBeNull();
+    expect(
+      screen.getByRole("columnheader", { name: "최근 로그인" }),
+    ).toBeTruthy();
+    expect(within(park).getByText("11/03 08:15")).toBeTruthy();
+    expect(within(rows[0] as HTMLElement).getByText("-")).toBeTruthy();
   });
 });
 
