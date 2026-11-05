@@ -185,6 +185,21 @@ describe("POST /api/console/teachers/register", () => {
     expect(r.body).toMatchObject({ error: { code: "CLASS_TAKEN" } });
   });
 
+  test.each(["22023", "23514"])(
+    "학급 이름이나 학년이 올바르지 않아 DB 가 %s 로 막으면 400 INVALID_CLASS",
+    async (dbCode) => {
+      kit.state.rpc.fn_teacher_register = () => ({
+        data: null,
+        error: { code: dbCode },
+      });
+
+      const r = await post(VALID);
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ error: { code: "INVALID_CLASS" } });
+    },
+  );
+
   test.each([
     ["이름 누락", { ...VALID, name: " " }],
     ["전화번호 형식 오류", { ...VALID, phone: "02-123-4567" }],

@@ -5,13 +5,15 @@
 // 열린 신청은 학생당 하나이고, 승인은 콘솔의 decide 라우트가 한다.
 
 import { sendEnrollmentRpcError } from "../_lib/console/enrollmentErrors.js";
+import {
+  isEnrollmentGrade,
+  isEnrollmentNumber,
+} from "../_lib/console/enrollmentInput.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { createSupabaseUserClient } from "../_lib/supabaseUser.js";
 
 export const config = { runtime: "nodejs" };
-
-const GRADES = ["중1", "중2", "중3", "고1", "고2", "고3"] as const;
 
 interface ChangeRequest {
   grade: string | null;
@@ -31,19 +33,10 @@ function parseBody(body: unknown): ChangeRequest | null {
     string,
     unknown
   >;
-  if (grade != null && !GRADES.some((g) => g === grade)) return null;
+  if (grade != null && !isEnrollmentGrade(grade)) return null;
   if (groupName != null && typeof groupName !== "string") return null;
   if (className != null && typeof className !== "string") return null;
-  if (
-    number != null &&
-    !(
-      Number.isInteger(number) &&
-      (number as number) >= 1 &&
-      (number as number) <= 99
-    )
-  ) {
-    return null;
-  }
+  if (number != null && !isEnrollmentNumber(number)) return null;
   const parsed: ChangeRequest = {
     grade: (grade as string | null | undefined) ?? null,
     groupName: blankToNull(groupName as string | null | undefined),

@@ -1,4 +1,4 @@
-// 학적 RPC(WC077 에서 WC087, WC094, 외래키 23503)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
@@ -10,6 +10,12 @@ interface Mapped {
   code: string;
   message: string;
 }
+
+const INVALID_CLASS: Mapped = {
+  status: 400,
+  code: "INVALID_CLASS",
+  message: "학년, 학급 정보를 확인해 주세요.",
+};
 
 const MAPPED: Record<string, Mapped> = {
   WC077: {
@@ -68,11 +74,10 @@ const MAPPED: Record<string, Mapped> = {
     code: "NOT_STUDENT",
     message: "학생 계정만 쓸 수 있어요.",
   },
-  "23503": {
-    status: 400,
-    code: "INVALID_CLASS",
-    message: "학년, 학급 정보를 확인해 주세요.",
-  },
+  "23503": INVALID_CLASS,
+  // 학급 이름 정규화(22023)와 학년, 번호 CHECK(23514)
+  "22023": INVALID_CLASS,
+  "23514": INVALID_CLASS,
 };
 
 /** 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다. */

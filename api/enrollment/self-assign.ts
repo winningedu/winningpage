@@ -5,12 +5,14 @@
 // 넘기고 본문의 id 는 쓰지 않는다. 이미 학급이 있으면 DB 가 막는다(WC079).
 
 import { sendEnrollmentRpcError } from "../_lib/console/enrollmentErrors.js";
+import {
+  isEnrollmentGrade,
+  isEnrollmentNumber,
+} from "../_lib/console/enrollmentInput.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-const GRADES = ["중1", "중2", "중3", "고1", "고2", "고3"] as const;
 
 interface SelfAssign {
   grade: string;
@@ -24,19 +26,10 @@ function parseBody(body: unknown): SelfAssign | null {
     string,
     unknown
   >;
-  if (!GRADES.some((g) => g === grade)) return null;
+  if (!isEnrollmentGrade(grade)) return null;
   if (typeof className !== "string" || className.trim() === "") return null;
   if (groupName != null && typeof groupName !== "string") return null;
-  if (
-    number != null &&
-    !(
-      Number.isInteger(number) &&
-      (number as number) >= 1 &&
-      (number as number) <= 99
-    )
-  ) {
-    return null;
-  }
+  if (number != null && !isEnrollmentNumber(number)) return null;
   return {
     grade: grade as string,
     groupName: (groupName as string | null | undefined) ?? null,

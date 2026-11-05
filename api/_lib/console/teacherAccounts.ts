@@ -330,6 +330,17 @@ const DB_ERRORS: Record<
     code: "PRIMARY_NOT_ASSIGNED",
     message: "주담당으로 지정할 학급이 배정되어 있지 않습니다.",
   },
+  // 학급 이름 정규화(22023)와 학년 CHECK(23514)
+  "22023": {
+    status: 400,
+    code: "INVALID_CLASS",
+    message: "학년, 학급 정보를 확인해 주세요.",
+  },
+  "23514": {
+    status: 400,
+    code: "INVALID_CLASS",
+    message: "학년, 학급 정보를 확인해 주세요.",
+  },
   "23505": {
     status: 409,
     code: "CLASS_TAKEN",

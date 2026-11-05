@@ -55,6 +55,8 @@ describe("sendEnrollmentRpcError", () => {
     ["WC087", 404, "NOT_FOUND", "학년그룹을 찾을 수 없어요."],
     ["WC094", 403, "NOT_STUDENT", "학생 계정만 쓸 수 있어요."],
     ["23503", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
+    ["22023", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
+    ["23514", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
   ])("%s maps to %i %s", (pgCode, status, code, message) => {
     const result = run({ code: pgCode });
     expect(result).toMatchObject({

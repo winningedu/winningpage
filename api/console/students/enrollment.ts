@@ -7,13 +7,16 @@
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
+import {
+  isEnrollmentGrade,
+  isEnrollmentNumber,
+} from "../../_lib/console/enrollmentInput.js";
 import { requireInScope, scopeQuery } from "../../_lib/console/scope.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-const GRADES = ["중1", "중2", "중3", "고1", "고2", "고3"] as const;
 const REASONS = [
   "promotion",
   "class_change",
@@ -59,19 +62,10 @@ function parseBody(body: unknown): EnrollmentEdit | null {
   if (grade === undefined || classId === undefined || number === undefined) {
     return null;
   }
-  if (grade !== null && !GRADES.some((g) => g === grade)) return null;
+  if (grade !== null && !isEnrollmentGrade(grade)) return null;
   if (classId !== null && (typeof classId !== "string" || classId === ""))
     return null;
-  if (
-    number !== null &&
-    !(
-      Number.isInteger(number) &&
-      (number as number) >= 1 &&
-      (number as number) <= 99
-    )
-  ) {
-    return null;
-  }
+  if (number !== null && !isEnrollmentNumber(number)) return null;
   if (reason != null && !REASONS.some((r) => r === reason)) return null;
   if (applyYear != null && !Number.isInteger(applyYear)) return null;
   return {
