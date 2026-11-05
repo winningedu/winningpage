@@ -1017,3 +1017,42 @@ describe("W13b 학생 정보 직접 변경", () => {
     );
   });
 });
+
+describe("W13 학생 조회 휴대폰", () => {
+  it("카드로 보이고 더 보기로 다음 쪽을 이어 붙이며 관리자는 카드마다 직접 변경이 있다", async () => {
+    useMobileScreen();
+    const PAGE2 = "GET /api/console/students/history?page=2";
+    stubStudents(
+      {
+        [STUDENTS_URL]: {
+          body: { total: 2, page: 1, pageCount: 2, items: [student(1)] },
+        },
+        [PAGE2]: {
+          body: { total: 2, page: 2, pageCount: 2, items: [student(2)] },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    expect(await screen.findByText("김서연")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("이용 서비스 수")).toBeTruthy();
+    expect(screen.getByText("학년그룹/반 이력")).toBeTruthy();
+    expect(screen.getByText("6/6")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "직접 변경" })).toHaveLength(
+      1,
+    );
+    expect(screen.getByText("1 / 2명")).toBeTruthy();
+    expect(
+      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
+
+    expect(await screen.findByText("정도윤")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "직접 변경" })).toHaveLength(
+      2,
+    );
+  });
+});

@@ -13,9 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import EmptyMessage from "../EmptyMessage";
+import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
+import { useMobileLayout } from "../useMobileLayout";
 import DirectChangeDialog from "./DirectChangeDialog";
 import { slotLabel } from "./format";
 import HistoryDialog from "./HistoryDialog";
@@ -56,8 +58,17 @@ const historyLabel = (item: StudentItem) =>
     .map((h) => `${h.schoolYear} ${slotLabel({ ...h, number: null })}`)
     .join(" / ");
 
+const groupOf = (item: StudentItem) =>
+  slotLabel({
+    grade: item.grade,
+    groupName: item.groupName,
+    className: null,
+    number: null,
+  });
+
 export default function StudentListTab() {
   const { me } = useConsoleMe();
+  const mobile = useMobileLayout();
   const [page, setPage] = usePageParam();
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = {
@@ -74,7 +85,7 @@ export default function StudentListTab() {
     "/api/console/students/history",
     filters,
     page,
-    false,
+    mobile,
   );
   const admin = me.kind !== "homeroom";
   const direct = list.data?.items.find((i) => i.studentId === directId);
@@ -97,68 +108,119 @@ export default function StudentListTab() {
       <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
         {`검색 결과 ${list.data.total}명`}
       </h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>이름</TableHead>
-            <TableHead>학년그룹</TableHead>
-            <TableHead>학년그룹/반 이력</TableHead>
-            <TableHead>이용 서비스 수</TableHead>
-            {admin && <TableHead />}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      {mobile ? (
+        <div className="flex flex-col">
           {list.data.items.map((item) => (
-            <TableRow
+            <div
               key={item.studentId}
-              onClick={() => setOpened(item)}
-              className="cursor-pointer"
+              className="flex flex-col gap-3 border-b border-line pt-4 pb-4"
             >
-              <TableCell>
-                <button type="button" className="text-left">
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOpened(item)}
+                  className="flex flex-col gap-1 text-left"
+                >
                   <NameCell name={item.name} />
+                  <span className="text-app-caption text-ink-sub">
+                    {groupOf(item)}
+                  </span>
                 </button>
-              </TableCell>
-              <TableCell>
-                {slotLabel({
-                  grade: item.grade,
-                  groupName: item.groupName,
-                  className: null,
-                  number: null,
-                })}
-              </TableCell>
-              <TableCell>{historyLabel(item)}</TableCell>
-              <TableCell>{`${item.servicesUsed}/${item.servicesTotal}`}</TableCell>
+                <span className="flex flex-col items-end gap-1">
+                  <span className="text-app-caption text-ink-sub">
+                    이용 서비스 수
+                  </span>
+                  <span className="text-app-label font-semibold text-ink">
+                    {`${item.servicesUsed}/${item.servicesTotal}`}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="shrink-0 text-app-caption text-ink-sub">
+                  학년그룹/반 이력
+                </span>
+                <span className="text-right text-app-label font-semibold text-ink">
+                  {historyLabel(item)}
+                </span>
+              </div>
               {admin && (
-                <TableCell>
-                  <Button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDirectId(item.studentId);
-                    }}
-                    className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
-                  >
-                    직접 변경
-                  </Button>
-                </TableCell>
+                <Button
+                  type="button"
+                  onClick={() => setDirectId(item.studentId)}
+                  className="h-11 w-full rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                >
+                  직접 변경
+                </Button>
               )}
-            </TableRow>
+            </div>
           ))}
-        </TableBody>
-      </Table>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>이름</TableHead>
+              <TableHead>학년그룹</TableHead>
+              <TableHead>학년그룹/반 이력</TableHead>
+              <TableHead>이용 서비스 수</TableHead>
+              {admin && <TableHead />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.data.items.map((item) => (
+              <TableRow
+                key={item.studentId}
+                onClick={() => setOpened(item)}
+                className="cursor-pointer"
+              >
+                <TableCell>
+                  <button type="button" className="text-left">
+                    <NameCell name={item.name} />
+                  </button>
+                </TableCell>
+                <TableCell>{groupOf(item)}</TableCell>
+                <TableCell>{historyLabel(item)}</TableCell>
+                <TableCell>{`${item.servicesUsed}/${item.servicesTotal}`}</TableCell>
+                {admin && (
+                  <TableCell>
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDirectId(item.studentId);
+                      }}
+                      className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                    >
+                      직접 변경
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
       {list.data.items.length === 0 && (
         <EmptyMessage body="찾는 학생이 없어요. 이름이나 학년그룹, 반을 바꿔 보세요" />
       )}
       <p className="pt-3 text-app-caption text-ink-sub">{FOOTNOTE}</p>
-      {list.data.pageCount > 0 && (
-        <Pagination
-          page={list.data.page}
-          pageCount={list.data.pageCount}
+      {mobile ? (
+        <LoadMore
+          shown={list.data.items.length}
           total={list.data.total}
-          pageSize={PAGE_SIZE}
-          onChange={setPage}
+          unit="명"
+          onMore={list.fetchMore}
         />
+      ) : (
+        list.data.pageCount > 0 && (
+          <Pagination
+            page={list.data.page}
+            pageCount={list.data.pageCount}
+            total={list.data.total}
+            pageSize={PAGE_SIZE}
+            onChange={setPage}
+          />
+        )
       )}
       {direct && (
         <DirectChangeDialog
