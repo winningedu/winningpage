@@ -159,6 +159,7 @@ describe("W14b 결과 상태", () => {
             code: "PHONE_IN_USE",
             message: "다른 이름의 선생님이 이미 쓰는 전화번호입니다.",
           },
+          existingLoginId: "SM26HB83K7MPQ2",
         },
       },
     });
@@ -170,7 +171,9 @@ describe("W14b 결과 상태", () => {
     fireEvent.click(screen.getByRole("button", { name: "등록" }));
 
     expect(
-      await screen.findByText("다른 이름의 선생님이 이미 쓰는 전화번호입니다."),
+      await screen.findByText(
+        "다른 이름의 선생님이 이미 쓰는 전화번호입니다. 기존 아이디는 SM26HB83K7MPQ2 예요",
+      ),
     ).toBeTruthy();
     expect((screen.getByLabelText("이름") as HTMLInputElement).value).toBe(
       "한소율",

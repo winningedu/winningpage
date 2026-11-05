@@ -77,7 +77,14 @@ export default function RegisterDialog({
     setBusy(false);
     const body = res.body as RegisterResponse | null;
     if (res.status !== 200 || !body) {
-      setError(errorMessage(res.body) ?? FAILED_MESSAGE);
+      const message = errorMessage(res.body) ?? FAILED_MESSAGE;
+      const existing = (res.body as { existingLoginId?: unknown } | null)
+        ?.existingLoginId;
+      setError(
+        typeof existing === "string"
+          ? `${message} 기존 아이디는 ${existing} 예요`
+          : message,
+      );
       return;
     }
     onDone();
