@@ -7,6 +7,7 @@ import {
   TextField,
   TextLinkButton,
 } from "@/components/auth";
+import { site } from "@/config/site";
 import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +33,38 @@ function safeRedirect(value: string | null) {
 }
 
 const LOGIN_TIMEOUT_MS = 12000;
+
+const SERVER_LOGIN_FALLBACK_MESSAGE = "잠시 후 다시 시도해 주세요.";
+
+// 스쿨멘토 서버 로그인(POST /api/auth/login) 응답. 실패 문구는 서버가 정한 그대로 보여 준다.
+type ServerLoginResult =
+  | { ok: true; accessToken: string; refreshToken: string }
+  | { ok: false; message: string };
+
+async function postServerLogin(
+  identifier: string,
+  password: string,
+): Promise<ServerLoginResult> {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok || !body?.session) {
+    return {
+      ok: false,
+      message: body?.error?.message || SERVER_LOGIN_FALLBACK_MESSAGE,
+    };
+  }
+
+  return {
+    ok: true,
+    accessToken: body.session.access_token,
+    refreshToken: body.session.refresh_token,
+  };
+}
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -70,6 +103,38 @@ export default function Login() {
     setMessage("");
 
     try {
+      if (site.features.serverLogin) {
+        const result = await Promise.race([
+          postServerLogin(email, password),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(
+              () => reject(new Error("login_timeout")),
+              LOGIN_TIMEOUT_MS,
+            );
+          }),
+        ]);
+
+        if (!result.ok) {
+          setMessage(result.message);
+          setLoading(false);
+          return;
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: result.accessToken,
+          refresh_token: result.refreshToken,
+        });
+        if (sessionError) {
+          setMessage(SERVER_LOGIN_FALLBACK_MESSAGE);
+          setLoading(false);
+          return;
+        }
+
+        setLoading(false);
+        window.location.replace(redirectTo);
+        return;
+      }
+
       const normalizedEmail = email.trim().toLowerCase();
 
       const loginPromise = supabase.auth.signInWithPassword({
@@ -162,12 +227,16 @@ export default function Login() {
       >
         <TextField
           id="login-email"
-          name="email"
-          type="email"
+          name={site.features.serverLogin ? "username" : "email"}
+          type={site.features.serverLogin ? "text" : "email"}
           value={email}
           onChange={setEmail}
-          placeholder="이메일을 입력해 주세요."
-          autoComplete="email"
+          placeholder={
+            site.features.serverLogin
+              ? "아이디를 입력해 주세요."
+              : "이메일을 입력해 주세요."
+          }
+          autoComplete={site.features.serverLogin ? "username" : "email"}
           required
         />
 
