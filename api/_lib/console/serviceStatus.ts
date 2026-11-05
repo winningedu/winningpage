@@ -3,7 +3,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadDiagnosisStatus } from "./diagnosisStatus.js";
 import { loadGoalStatus } from "./goalStatus.js";
+import { loadGrowthStatus } from "./growthStatus.js";
+import { loadPerformanceStatus } from "./performanceStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
+import { loadInquiryStatus, loadSelfevalStatus } from "./sessionStatus.js";
 
 export async function loadServiceDetail(
   admin: SupabaseClient,
@@ -15,7 +18,13 @@ export async function loadServiceDetail(
       return loadDiagnosisStatus(admin, studentIds);
     case "goal":
       return loadGoalStatus(admin, studentIds, new Date(), { streak: true });
-    default:
-      return new Map();
+    case "growth":
+      return loadGrowthStatus(admin, studentIds);
+    case "performance":
+      return loadPerformanceStatus(admin, studentIds);
+    case "selfeval":
+      return loadSelfevalStatus(admin, studentIds);
+    case "inquiry":
+      return loadInquiryStatus(admin, studentIds);
   }
 }

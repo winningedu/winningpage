@@ -372,4 +372,219 @@ describe("GET /api/console/service-status (diagnosis)", () => {
       min: null,
     });
   });
+
+  test("growth tab: the latest report's story theme and the story count per grade", async () => {
+    kit.state.rows.growth_profiles = (f) =>
+      matchRows([{ profile_id: "s1" }, { profile_id: "s2" }], f);
+    kit.state.rows.growth_reports = (f) =>
+      matchRows(
+        [
+          {
+            id: "g1",
+            profile_id: "s1",
+            updated_at: "2026-09-01T00:00:00Z",
+            narrative_theme: "옛 주제",
+            grade_subthemes: [{ grade: "고1", text: "a" }],
+          },
+          {
+            id: "g2",
+            profile_id: "s1",
+            updated_at: "2026-10-01T00:00:00Z",
+            narrative_theme: "진로 탐색",
+            grade_subthemes: [
+              { grade: "고1", text: "x" },
+              { grade: "고2", text: "y" },
+              { grade: "고2", text: "z" },
+              { text: "no grade" },
+            ],
+          },
+        ],
+        f,
+      );
+
+    const res = await get({ service: "growth" });
+
+    const items = (
+      res.body as { items: { studentId: string; detail: unknown }[] }
+    ).items;
+    expect(items.map((i) => i.studentId)).toEqual(["s1", "s2"]);
+    expect(items[0]?.detail).toEqual({
+      storyTheme: "진로 탐색",
+      storiesByGrade: [
+        { grade: "고1", count: 1 },
+        { grade: "고2", count: 2 },
+      ],
+    });
+    expect(items[1]?.detail).toBeNull();
+  });
+
+  test("performance tab: current step of the latest session, submitted count, feedback of the latest submission and its date", async () => {
+    kit.state.rows.performance_sessions = (f) =>
+      matchRows(
+        [
+          {
+            id: "p1",
+            profile_id: "s1",
+            current_step: 2,
+            updated_at: "2026-09-01T00:00:00Z",
+          },
+          {
+            id: "p2",
+            profile_id: "s1",
+            current_step: 4,
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+          {
+            id: "p3",
+            profile_id: "s2",
+            current_step: 1,
+            updated_at: "2026-10-02T00:00:00Z",
+          },
+        ],
+        f,
+      );
+    kit.state.rows.performance_submissions = (f) =>
+      matchRows(
+        [
+          { id: "u1", session_id: "p1", submitted_at: "2026-09-02T00:00:00Z" },
+          { id: "u2", session_id: "p2", submitted_at: "2026-10-20T01:00:00Z" },
+          { id: "u3", session_id: "p2", submitted_at: null },
+        ],
+        f,
+      );
+    kit.state.rows.performance_reports = (f) =>
+      matchRows(
+        [
+          { id: "r1", session_id: "p2", report_type: "evaluation" },
+          { id: "r2", session_id: "p1", report_type: "design" },
+        ],
+        f,
+      );
+
+    const res = await get({ service: "performance" });
+
+    const items = (
+      res.body as { items: { studentId: string; detail: unknown }[] }
+    ).items;
+    expect(items.map((i) => i.studentId)).toEqual(["s1", "s2"]);
+    expect(items[0]?.detail).toEqual({
+      step: 4,
+      stage: "설계 리포트",
+      submissionCount: 2,
+      feedback: "done",
+      lastSubmittedAt: "2026-10-20",
+    });
+    expect(items[1]?.detail).toEqual({
+      step: 1,
+      stage: "기본 정보",
+      submissionCount: 0,
+      feedback: null,
+      lastSubmittedAt: null,
+    });
+  });
+
+  test("performance tab: a latest submission without an evaluation report is waiting", async () => {
+    kit.state.rows.performance_sessions = (f) =>
+      matchRows(
+        [
+          {
+            id: "p1",
+            profile_id: "s1",
+            current_step: 5,
+            updated_at: "2026-09-01T00:00:00Z",
+          },
+        ],
+        f,
+      );
+    kit.state.rows.performance_submissions = (f) =>
+      matchRows(
+        [{ id: "u1", session_id: "p1", submitted_at: "2026-09-02T00:00:00Z" }],
+        f,
+      );
+
+    const res = await get({ service: "performance" });
+
+    expect(
+      (res.body as { items: { detail: { feedback: string } }[] }).items[0]
+        ?.detail.feedback,
+    ).toBe("waiting");
+  });
+
+  test("selfeval tab: the first unfinished step of the latest session and the finished-step progress", async () => {
+    kit.state.rows.selfeval_sessions = (f) =>
+      matchRows(
+        [
+          {
+            id: "e1",
+            profile_id: "s1",
+            status: "draft",
+            current_step: 9,
+            updated_at: "2026-09-01T00:00:00Z",
+          },
+          {
+            id: "e2",
+            profile_id: "s1",
+            status: "in_progress",
+            current_step: 2,
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+          {
+            id: "e3",
+            profile_id: "s2",
+            status: "completed",
+            current_step: 6,
+            updated_at: "2026-10-02T00:00:00Z",
+          },
+        ],
+        f,
+      );
+
+    const res = await get({ service: "selfeval" });
+
+    const items = (res.body as { items: { detail: unknown }[] }).items;
+    expect(items[0]?.detail).toEqual({ stage: "분석 확인", progressPct: 50 });
+    expect(items[1]?.detail).toEqual({
+      stage: "검증과 저장",
+      progressPct: 100,
+    });
+  });
+
+  test("inquiry tab: the current step name, whether a topic is confirmed, and progress", async () => {
+    kit.state.rows.inquiry_sessions = (f) =>
+      matchRows(
+        [
+          {
+            id: "i1",
+            profile_id: "s1",
+            status: "in_progress",
+            current_step: 4,
+            selected_topic_id: "t1",
+            updated_at: "2026-10-01T00:00:00Z",
+          },
+          {
+            id: "i2",
+            profile_id: "s2",
+            status: "in_progress",
+            current_step: 2,
+            selected_topic_id: null,
+            updated_at: "2026-10-02T00:00:00Z",
+          },
+        ],
+        f,
+      );
+
+    const res = await get({ service: "inquiry" });
+
+    const items = (res.body as { items: { detail: unknown }[] }).items;
+    expect(items[0]?.detail).toEqual({
+      stage: "보고서 작성",
+      topicConfirmed: true,
+      progressPct: 50,
+    });
+    expect(items[1]?.detail).toEqual({
+      stage: "주제 추천",
+      topicConfirmed: false,
+      progressPct: 17,
+    });
+  });
 });
