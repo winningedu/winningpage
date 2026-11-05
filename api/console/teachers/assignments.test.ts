@@ -65,4 +65,64 @@ describe("POST /api/console/teachers/assignments", () => {
       meta: { added: 1, removed: 1, primaryClassId: "class-2" },
     });
   });
+
+  test.each([
+    ["담임의 마지막 학급 제거", "WC092", 409, "LAST_CLASS_REQUIRED"],
+    ["다른 교사가 이미 담임인 학급", "23505", 409, "CLASS_TAKEN"],
+    ["배정되지 않은 주담당", "WC093", 400, "PRIMARY_NOT_ASSIGNED"],
+  ])(
+    "%s 는 %s 로 막혀 %i %s 응답이고 감사 로그를 남기지 않는다",
+    async (_label, dbCode, status, code) => {
+      kit.state.rpc.fn_assignment_set = () => ({
+        data: null,
+        error: { code: dbCode },
+      });
+
+      const r = await post({
+        teacherId: "teacher-1",
+        removeClassIds: ["class-1"],
+      });
+
+      expect(r.status).toBe(status);
+      expect(r.body).toMatchObject({ error: { code } });
+      expect(kit.state.inserts).toHaveLength(0);
+    },
+  );
+
+  test("다른 기관 교사는 404", async () => {
+    kit.state.rows.teachers = () => [
+      {
+        id: "teacher-1",
+        tenant_id: "tenant-2",
+        profile_id: null,
+        deleted_at: null,
+      },
+    ];
+
+    const r = await post({ teacherId: "teacher-1", add: [] });
+
+    expect(r.status).toBe(404);
+    expect(kit.state.events).not.toContain("rpc:fn_assignment_set");
+  });
+
+  test.each([
+    ["교사 누락", { add: [] }],
+    ["add 가 배열이 아님", { teacherId: "teacher-1", add: "3반" }],
+    [
+      "removeClassIds 가 문자열 배열이 아님",
+      { teacherId: "teacher-1", removeClassIds: [1] },
+    ],
+    [
+      "primaryClassId 가 문자열이 아님",
+      { teacherId: "teacher-1", primaryClassId: 5 },
+    ],
+  ])("%s 이면 400", async (_label, body) => {
+    expect((await post(body)).status).toBe(400);
+  });
+
+  test("담임은 403 이다", async () => {
+    kit.state.actor = { ...kit.state.actor, kind: "homeroom" };
+
+    expect((await post({ teacherId: "teacher-1" })).status).toBe(403);
+  });
 });
