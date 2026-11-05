@@ -269,7 +269,11 @@ describe("GET /api/console/students", () => {
 
     const r = await get();
     const urgency = (id: string) =>
-      (items(r).find((i) => i.studentId === id) as { urgency: string }).urgency;
+      (
+        items(r).find((i) => i.studentId === id) as unknown as {
+          urgency: string;
+        }
+      ).urgency;
 
     expect(urgency("s1")).toBe("low");
     expect(urgency("s2")).toBe("very_high");

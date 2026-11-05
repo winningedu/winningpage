@@ -157,4 +157,83 @@ describe("GET /api/console/students/detail", () => {
       ],
     });
   });
+
+  test("opening a student writes a view record to the access log", async () => {
+    await get();
+
+    expect(kit.state.inserts).toEqual([
+      {
+        table: "admin_access_logs",
+        row: expect.objectContaining({
+          action: "view",
+          resource_key: "studentDetail",
+          target_id: "s1",
+          tenant_id: "tenant-1",
+        }),
+      },
+    ]);
+  });
+
+  test("a missing studentId is a 400 and writes no log", async () => {
+    expect((await get({})).status).toBe(400);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("an unknown student, another tenant's student and a homeroom's out-of-class student are 404 and not logged", async () => {
+    expect((await get({ studentId: "nobody" })).status).toBe(404);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    expect((await get({ studentId: "s2" })).status).toBe(404);
+    expect((await get({ studentId: "s1" })).status).toBe(200);
+    expect(kit.state.inserts).toHaveLength(1);
+  });
+
+  test("a failing log write fails the request instead of opening the student unrecorded", async () => {
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+
+    expect((await get()).status).toBe(500);
+  });
+
+  test("services list the six keys in order with whether the student used them", async () => {
+    const r = await get();
+
+    expect((r.body as { services: unknown }).services).toEqual({
+      diagnosis: true,
+      goal: false,
+      growth: false,
+      performance: false,
+      selfeval: false,
+      inquiry: false,
+    });
+  });
+
+  test("usage reports month and term counts per service from the tenant usage state, null where there is no limit", async () => {
+    const r = await get();
+    const usage = (r.body as { usage: { key: string }[] }).usage;
+
+    expect(usage.map((u) => u.key)).toEqual([
+      "diagnosis",
+      "goal",
+      "growth",
+      "performance",
+      "selfeval",
+      "inquiry",
+    ]);
+    expect(usage.find((u) => u.key === "performance")).toEqual({
+      key: "performance",
+      monthUsed: 1,
+      monthLimit: null,
+      monthRemaining: null,
+      termUsed: 4,
+      termLimit: 25,
+      termRemaining: 21,
+    });
+    expect(usage.find((u) => u.key === "inquiry")).toMatchObject({
+      monthLimit: 3,
+      monthRemaining: 3,
+      termLimit: null,
+    });
+  });
 });

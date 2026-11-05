@@ -10,6 +10,11 @@ import {
   readAll,
 } from "../../_lib/console/directory.js";
 import { isInScope } from "../../_lib/console/scope.js";
+import {
+  loadServiceUsage,
+  SERVICE_KEYS,
+  type ServiceKey,
+} from "../../_lib/console/serviceUsage.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -20,6 +25,25 @@ interface EnrollmentRow {
   grade: string | null;
   class_id: string | null;
   number: number | null;
+}
+
+// 서비스 키와 이용 한도 테이블의 program_key 가 다른 서비스.
+const PROGRAM_KEY: Record<ServiceKey, string> = {
+  diagnosis: "diagnose",
+  goal: "target",
+  growth: "growth",
+  performance: "suhaeng",
+  selfeval: "selfeval",
+  inquiry: "inquiry",
+};
+
+interface UsageStateRow {
+  month_used: number | null;
+  month_limit: number | null;
+  month_remaining: number | null;
+  term_used: number | null;
+  term_limit: number | null;
+  term_remaining: number | null;
 }
 
 const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
@@ -62,13 +86,24 @@ export default defineHandler({
       return;
     }
 
-    const [classes, profiles] = await Promise.all([
+    const [classes, profiles, used, usageStates] = await Promise.all([
       loadClassIndex(admin, actor.tenantId),
       readAll<{ name: string | null; created_at: string | null }>(
         admin,
         "profiles",
         "name, created_at",
         (q) => q.eq("id", studentId),
+      ),
+      loadServiceUsage(admin, [studentId]),
+      Promise.all(
+        SERVICE_KEYS.map(async (key) => {
+          const { data, error } = await admin.rpc("fn_tenant_usage_state", {
+            p_profile: studentId,
+            p_program_key: PROGRAM_KEY[key],
+          });
+          if (error) throw new Error("usage state lookup failed");
+          return (data as UsageStateRow[] | null)?.[0];
+        }),
       ),
     ]);
     const profile = profiles[0];
@@ -97,6 +132,24 @@ export default defineHandler({
       history: [...rows]
         .sort((a, b) => b.school_year - a.school_year)
         .map((r) => ({ schoolYear: r.school_year, ...slotOf(r) })),
+      services: Object.fromEntries(
+        SERVICE_KEYS.map((key) => [
+          key,
+          (used.get(studentId) ?? []).includes(key),
+        ]),
+      ),
+      usage: SERVICE_KEYS.map((key, i) => {
+        const state = usageStates[i];
+        return {
+          key,
+          monthUsed: state?.month_used ?? null,
+          monthLimit: state?.month_limit ?? null,
+          monthRemaining: state?.month_remaining ?? null,
+          termUsed: state?.term_used ?? null,
+          termLimit: state?.term_limit ?? null,
+          termRemaining: state?.term_remaining ?? null,
+        };
+      }),
     });
   },
 });
