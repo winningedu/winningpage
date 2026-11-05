@@ -192,4 +192,20 @@ describe("GET /api/console/enrollment/summary", () => {
       body.classes.find((c) => c.classId === "c-2")?.goalRateAvg,
     ).toBeNull();
   });
+
+  test("a homeroom teacher is refused (403)", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-1"],
+    });
+
+    expect((await get()).status).toBe(403);
+  });
+
+  test("classId narrows the rows to that class", async () => {
+    const res = await get({ classId: "c-2" });
+
+    const body = res.body as { classes: { classId: string }[] };
+    expect(body.classes.map((c) => c.classId)).toEqual(["c-2"]);
+  });
 });
