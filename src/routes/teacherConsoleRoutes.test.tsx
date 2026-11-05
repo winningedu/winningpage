@@ -105,11 +105,11 @@ describe("teacherConsoleRoutes", () => {
   it("아직 없는 콘솔 화면은 준비 중 화면으로 연결한다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe }, ...count });
 
-    renderAt("/teacher/admission-coaching");
+    renderAt("/teacher/no-such-screen");
 
     expect(await screen.findByText("이 화면은 곧 열려요")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { level: 1, name: "입시 상담코칭" }),
+      screen.getByRole("heading", { level: 1, name: "준비 중인 화면" }),
     ).toBeTruthy();
   });
 
