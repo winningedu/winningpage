@@ -199,4 +199,28 @@ describe("Home 스쿨멘토 구성", () => {
       screen.getByRole("region", { name: "핵심 서비스" }),
     ).toBeInTheDocument();
   });
+
+  test("큰 배너 조회가 실패하면 큰 배너 자리에만 오류 안내를 보여준다", async () => {
+    state.failing = ["banners"];
+    state.rows.home_side_banners = [
+      { id: "s1", title: "이벤트 1", image_url: "/s1.png", sort_order: 1 },
+    ];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderHome();
+    const main = await screen.findByRole("region", { name: "메인 배너" });
+    await within(main).findByRole("alert");
+    expect(screen.getByAltText("이벤트 1")).toBeInTheDocument();
+  });
+
+  test("배너가 모두 없으면 두 자리에 안내를 보여주고 점 줄은 투명하게 둔다", async () => {
+    renderHome();
+    expect(await screen.findAllByText("배너가 없어요")).toHaveLength(2);
+    expect(screen.getByTestId("hero-dots-placeholder")).toBeInTheDocument();
+  });
+
+  test("본문을 투명하게 숨기지 않는다", async () => {
+    renderHome();
+    const main = await screen.findByRole("main");
+    expect(main).not.toHaveClass("opacity-0");
+  });
 });
