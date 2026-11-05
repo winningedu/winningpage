@@ -1,10 +1,12 @@
 // /teacher 아래 모든 화면의 입구(스펙 1.5 Boot). me 를 읽어 로그인, 콘솔 권한, 임시 비밀번호 상태를 가른다.
 // 임시 비밀번호 상태는 어느 콘솔 화면에서든 첫 비밀번호 화면으로 보내고, 아니면 그 화면에서 /teacher 로 돌려보낸다.
+// 콘솔 권한은 없지만 본사 대행 권한이 있는 관리자는 학교 고르기(W5a)로 보낸다.
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
+import { useProxyTenants } from "./proxy-select/useProxyTenants";
 import { ToastProvider } from "./Toast";
 import {
   CONSOLE_ME_KEY,
@@ -13,6 +15,7 @@ import {
 } from "./useConsoleMe";
 
 export const FIRST_PASSWORD_PATH = "/teacher/first-password";
+export const PROXY_SELECT_PATH = "/teacher/proxy";
 
 function GateMessage({
   title,
@@ -33,6 +36,8 @@ export default function ConsoleGate() {
   const query = useConsoleMeQuery();
   const queryClient = useQueryClient();
   const { pathname, search } = useLocation();
+  const noaccess = query.data?.state === "noaccess";
+  const proxyTenants = useProxyTenants({ enabled: noaccess });
   const value = useMemo(
     () =>
       query.data?.state === "ok"
@@ -63,7 +68,32 @@ export default function ConsoleGate() {
       />
     );
   }
-  if (query.data.state === "noaccess" || !value) {
+  if (noaccess) {
+    if (proxyTenants.isError) {
+      return (
+        <GateMessage title="정보를 불러오지 못했어요">
+          <Button onClick={() => void proxyTenants.refetch()}>다시 시도</Button>
+        </GateMessage>
+      );
+    }
+    if (proxyTenants.isPending) {
+      return <GateMessage title="불러오는 중이에요" />;
+    }
+    if (proxyTenants.data) {
+      if (pathname !== PROXY_SELECT_PATH) {
+        return <Navigate to={PROXY_SELECT_PATH} replace />;
+      }
+      // 대행을 시작하기 전의 본사 관리자는 me 가 없다. W5a 는 me 없이 그린다.
+      return (
+        <ConsoleMeContext.Provider value={null}>
+          <ToastProvider>
+            <Outlet />
+          </ToastProvider>
+        </ConsoleMeContext.Provider>
+      );
+    }
+  }
+  if (!value) {
     return (
       <GateMessage title="이용 권한이 없어요">
         <p className="text-app-body text-ink-sub">
