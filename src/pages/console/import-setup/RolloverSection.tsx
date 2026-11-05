@@ -64,11 +64,14 @@ interface Preview {
 interface RolloverSectionProps {
   text: string;
   onTextChange: (text: string) => void;
+  /** 이미 실행한 학년도인지 알린다(① 올리기를 같이 막는다). */
+  onLockedChange: (locked: boolean) => void;
 }
 
 export default function RolloverSection({
   text,
   onTextChange,
+  onLockedChange,
 }: RolloverSectionProps) {
   const toast = useToast();
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -150,6 +153,7 @@ export default function RolloverSection({
   };
 
   const locked = year?.rolledOver === true;
+  useEffect(() => onLockedChange(locked), [locked, onLockedChange]);
   const target = year ? targetLine(year) : null;
 
   return (

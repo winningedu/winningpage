@@ -14,6 +14,7 @@ import TemplateLink from "./TemplateLink";
 export default function ImportSetupPage() {
   const toast = useToast();
   const [text, setText] = useState("");
+  const [locked, setLocked] = useState(false);
 
   const readFile = async (file: File) => {
     try {
@@ -42,10 +43,15 @@ export default function ImportSetupPage() {
             </div>
             <Dropzone
               accept=".xlsx,.xls,.csv"
+              disabled={locked}
               onFile={(f) => void readFile(f)}
             />
           </section>
-          <RolloverSection text={text} onTextChange={setText} />
+          <RolloverSection
+            text={text}
+            onTextChange={setText}
+            onLockedChange={setLocked}
+          />
         </div>
         <GroupManager />
       </div>

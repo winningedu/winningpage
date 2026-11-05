@@ -12,7 +12,13 @@ vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 
 import ConsoleGate from "../ConsoleGate";
 import ConsoleLayout from "../ConsoleLayout";
-import { type ApiHandler, adminMe, renderRoutes, stubApi } from "../testUtils";
+import {
+  type ApiHandler,
+  adminMe,
+  homeroomMe,
+  renderRoutes,
+  stubApi,
+} from "../testUtils";
 import ImportSetupPage from "./ImportSetupPage";
 
 const routes = [
@@ -592,6 +598,83 @@ describe("ImportSetupPage ① 명단 엑셀 올리기", () => {
     });
 
     expect(await screen.findByText("엑셀에서 읽을 줄이 없어요")).toBeTruthy();
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "변경할 명단을 붙여넣으세요",
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toBe("");
+  });
+});
+
+describe("ImportSetupPage 권한 없음", () => {
+  it("담임이 열면 리다이렉트 없이 안내를 보이고 학생 관리로 보낸다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
+    });
+    const { router } = renderRoutes(
+      [
+        {
+          path: "/teacher",
+          Component: ConsoleGate,
+          children: [
+            {
+              Component: ConsoleLayout,
+              children: [
+                { path: "import", Component: ImportSetupPage },
+                { path: "students", Component: () => <p>학생 관리 화면</p> },
+              ],
+            },
+          ],
+        },
+      ],
+      "/teacher/import",
+    );
+
+    expect(
+      await screen.findByText("이 메뉴는 학교 전체 관리자만 쓸 수 있어요"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("담당 학급 관리는 학생 관리에서 할 수 있어요"),
+    ).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/teacher/import");
+    fireEvent.click(screen.getByRole("button", { name: "학생 관리로 가기" }));
+    expect(await screen.findByText("학생 관리 화면")).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/teacher/students");
+  });
+});
+
+describe("ImportSetupPage 이미 실행한 학년도의 ① 올리기", () => {
+  it("끌어다 놓기와 파일 선택을 막는다", async () => {
+    stubImport({ year: { rolledOver: true } });
+    renderRoutes(routes, "/teacher/import");
+
+    await screen.findByText(
+      "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
+    );
+    expect(
+      (screen.getByRole("button", { name: "파일 선택" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("명단 엑셀 파일") as HTMLInputElement).disabled,
+    ).toBe(true);
+    const zone = screen.getByText(
+      "엑셀 파일을 여기에 끌어다 놓거나 파일 선택을 누르세요",
+    ).parentElement as HTMLElement;
+    fireEvent.drop(zone, {
+      dataTransfer: {
+        files: [
+          xlsxFile([
+            ["이름", "학년", "반", "번호"],
+            ["김하늘", "2학년", "3", "12"],
+          ]),
+        ],
+      },
+    });
+    await new Promise((r) => setTimeout(r, 50));
     expect(
       (
         screen.getByPlaceholderText(
