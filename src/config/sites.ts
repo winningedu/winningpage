@@ -42,6 +42,7 @@ export interface SiteConfig {
     naverBlogUrl?: string;
     youtubeUrl?: string;
     instagramUrl?: string;
+    naverClipUrl?: string;
   };
 }
 
@@ -83,6 +84,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       youtubeUrl: "https://www.youtube.com/@winningedu-100",
       // 고객 지시: 인스타그램 주소가 전달되기 전까지 임시로 유튜브 쇼츠 주소를 쓴다.
       instagramUrl: "https://www.instagram.com/winningedu.official/",
+      naverClipUrl: "https://clip.naver.com/@winningedu",
       supportChannelLabel: "카카오 채널 '위닝에듀'",
     },
   },

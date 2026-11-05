@@ -30,6 +30,7 @@ const siteState = vi.hoisted(() => ({
       naverBlogUrl: "https://blog.naver.com/winningedu",
       youtubeUrl: "https://www.youtube.com/@winningedu",
       instagramUrl: "https://www.youtube.com/shorts/rdZ2COapC90",
+      naverClipUrl: "https://clip.naver.com/@winningedu",
     },
   } as MockSite,
 }));
@@ -141,6 +142,7 @@ describe("SiteFooter", () => {
 const SOCIAL_LABELS = [
   "카카오톡 채널",
   "네이버 블로그",
+  "네이버 클립",
   "유튜브",
   "인스타그램",
 ];
@@ -154,7 +156,7 @@ function getSocialLinks() {
 }
 
 describe("SiteFooter, 소셜 아이콘", () => {
-  it("카카오, 네이버, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
+  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
     renderFooter();
     // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.
     const links = getSocialLinks();
@@ -162,9 +164,10 @@ describe("SiteFooter, 소셜 아이콘", () => {
       ...SOCIAL_LABELS,
       ...SOCIAL_LABELS,
     ]);
-    expect(links.slice(0, 4).map((l) => l.getAttribute("href"))).toEqual([
+    expect(links.slice(0, 5).map((l) => l.getAttribute("href"))).toEqual([
       "https://pf.kakao.com/_EfjwX",
       "https://blog.naver.com/winningedu",
+      "https://clip.naver.com/@winningedu",
       "https://www.youtube.com/@winningedu",
       "https://www.youtube.com/shorts/rdZ2COapC90",
     ]);
@@ -182,18 +185,21 @@ describe("SiteFooter, 소셜 아이콘", () => {
     const naver = byLabel("네이버 블로그");
     const youtube = byLabel("유튜브");
     const instagram = byLabel("인스타그램");
-    for (const link of [kakao, naver, youtube, instagram]) {
+    const clip = byLabel("네이버 클립");
+    for (const link of [kakao, naver, youtube, instagram, clip]) {
       expect(link).toHaveClass("size-8", "rounded-full");
     }
     expect(kakao.className).toContain("bg-[#fee500]");
     expect(naver.className).toContain("bg-[#03c75a]");
     expect(youtube.className).toContain("bg-[#ff0000]");
     expect(instagram.style.background).toContain("linear-gradient");
+    expect(clip.className).toContain("bg-[#6f4dce]");
   });
 
   it("URL이 없는 아이콘은 렌더하지 않는다", () => {
     delete siteState.current.company.naverBlogUrl;
     delete siteState.current.company.instagramUrl;
+    delete siteState.current.company.naverClipUrl;
     renderFooter();
     const labels = getSocialLinks().map((l) => l.getAttribute("aria-label"));
     expect(labels).toEqual([

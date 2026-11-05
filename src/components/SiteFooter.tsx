@@ -1,6 +1,7 @@
 import { Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
 import KakaoIcon from "@/components/icons/KakaoIcon";
+import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
@@ -51,7 +52,7 @@ function buildAddressLine(company: typeof site.company) {
     .join(" | ");
 }
 
-// 소셜 아이콘: 순서 고정(카카오톡, 네이버, 유튜브, 인스타그램). URL이 설정에 없으면 그
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
 // 아이콘은 렌더하지 않는다.
 function SocialLinks({ company }: { company: typeof site.company }) {
   const items = [
@@ -66,6 +67,12 @@ function SocialLinks({ company }: { company: typeof site.company }) {
       href: company.naverBlogUrl,
       Icon: NaverIcon,
       badgeClassName: "bg-[#03c75a] text-white",
+    },
+    {
+      label: "네이버 클립",
+      href: company.naverClipUrl,
+      Icon: NaverClipIcon,
+      badgeClassName: "bg-[#6f4dce] text-[#adff5f]",
     },
     {
       label: "유튜브",
