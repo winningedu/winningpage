@@ -14,6 +14,8 @@ import {
   type Indicator,
   learningVerdict,
   linkageVerdict,
+  mockChangeScore,
+  naesinChangeScore,
   signalOf,
   summarizeGoalWeek,
   summaryLine,
@@ -734,5 +736,22 @@ describe("coachingTypeOf (문구표 r91 판정 순서)", () => {
     expect(coachingTypeOf(input({ ...base, usesInquiry: false })).code).toBe(
       "G2",
     );
+  });
+});
+
+describe("change scores (연결표 r41, r42)", () => {
+  test("the grade change is 50 plus the improvement times 40 on 5 grades and 20 on 9 grades, clamped to 0..100", () => {
+    expect(naesinChangeScore(3, 2, 5)).toBe(90);
+    expect(naesinChangeScore(3, 4, 5)).toBe(10);
+    expect(naesinChangeScore(3, 2, 9)).toBe(70);
+    expect(naesinChangeScore(5, 1, 5)).toBe(100);
+    expect(naesinChangeScore(1, 5, 5)).toBe(0);
+  });
+
+  test("the percentile change is 50 plus the change times 2.5, clamped to 0..100", () => {
+    expect(mockChangeScore(80, 84)).toBe(60);
+    expect(mockChangeScore(80, 78)).toBe(45);
+    expect(mockChangeScore(10, 90)).toBe(100);
+    expect(mockChangeScore(90, 10)).toBe(0);
   });
 });

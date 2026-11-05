@@ -757,3 +757,17 @@ export function coachingTypeOf(input: CoachingTypeInput) {
   if (verdicts.linkage.level === "no_data") return typeOf("F2");
   return typeOf(input.usesInquiry ? "G1" : "G2");
 }
+
+/** 입력 내신 변화 점수(연결표 r41). 직전 등급이 낮을수록(숫자가 클수록) 좋아진 것이다. 5등급제 x40, 9등급제 x20. */
+export function naesinChangeScore(
+  previous: number,
+  current: number,
+  system: 5 | 9,
+): number {
+  return clamp100(50 + (previous - current) * (system === 5 ? 40 : 20));
+}
+
+/** 입력 모의고사 백분위 변화 점수(연결표 r42). */
+export function mockChangeScore(previous: number, current: number): number {
+  return clamp100(50 + (current - previous) * 2.5);
+}
