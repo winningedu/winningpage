@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router";
+import AssignPoolPage from "@/pages/console/assign-pool/AssignPoolPage";
 import ConsoleGate from "@/pages/console/ConsoleGate";
 import ConsoleHeaderFrame from "@/pages/console/ConsoleHeaderFrame";
 import ConsoleLayout from "@/pages/console/ConsoleLayout";
@@ -34,6 +35,7 @@ const teacherConsoleRoutes: RouteObject[] = [
               { path: "org-info", Component: OrgInfoPage },
               { path: "import", Component: ImportSetupPage },
               { path: "students", Component: StudentListPage },
+              { path: "unassigned", Component: AssignPoolPage },
               { path: "student-history", Component: StudentHistoryPage },
               { path: "*", Component: ConsolePlaceholder },
             ],
