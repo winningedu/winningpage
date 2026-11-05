@@ -701,6 +701,94 @@ const historyBody = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+describe("W13 뒤로 가기와 필터", () => {
+  it("학생 조회에서 뒤로 가면 칸이 주소의 값으로 돌아온다", async () => {
+    stubStudents({
+      "GET /api/console/students/history?grade=%EA%B3%A02&page=1": {
+        body: studentsBody([student(1)]),
+      },
+      "GET /api/console/students/history?grade=%EA%B3%A01&q=%EB%8F%84&page=1": {
+        body: studentsBody([student(2)]),
+      },
+    });
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=students&grade=고2",
+    );
+    const grade = (await screen.findByLabelText(
+      "학년그룹",
+    )) as HTMLSelectElement;
+    await screen.findByText("검색 결과 1명");
+    fireEvent.change(grade, { target: { value: "고1" } });
+    fireEvent.change(screen.getByPlaceholderText("이름 검색"), {
+      target: { value: "도" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    await vi.waitFor(() =>
+      expect(router.state.location.search).toContain("grade=%EA%B3%A01"),
+    );
+
+    await router.navigate(-1);
+
+    await vi.waitFor(() =>
+      expect(
+        (screen.getByLabelText("학년그룹") as HTMLSelectElement).value,
+      ).toBe("고2"),
+    );
+    expect(
+      (screen.getByPlaceholderText("이름 검색") as HTMLInputElement).value,
+    ).toBe("");
+  });
+
+  it("졸업생에서 뒤로 가면 학년도와 이름 칸이 주소의 값으로 돌아온다", async () => {
+    const url = (pairs: string[][]) =>
+      `GET /api/console/graduates?${new URLSearchParams(pairs)}`;
+    const body = (year: number, items: unknown[]) => ({
+      year,
+      years: [2025, 2024],
+      total: items.length,
+      page: 1,
+      pageCount: 1,
+      items,
+    });
+    stubPage(
+      {
+        [url([["page", "1"]])]: { body: body(2025, [graduate(1)]) },
+        [url([
+          ["year", "2024"],
+          ["q", "하은"],
+          ["page", "1"],
+        ])]: { body: body(2024, [graduate(2)]) },
+      },
+      adminMe,
+    );
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=graduates",
+    );
+    const year = (await screen.findByLabelText(
+      "졸업 학년도",
+    )) as HTMLSelectElement;
+    await screen.findByText("한예준");
+    fireEvent.change(year, { target: { value: "2024" } });
+    fireEvent.change(screen.getByPlaceholderText("이름 검색"), {
+      target: { value: "하은" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    await screen.findByText("오하은");
+
+    await router.navigate(-1);
+
+    await screen.findByText("한예준");
+    expect(
+      (screen.getByLabelText("졸업 학년도") as HTMLSelectElement).value,
+    ).toBe("2025");
+    expect(
+      (screen.getByPlaceholderText("이름 검색") as HTMLInputElement).value,
+    ).toBe("");
+  });
+});
+
 describe("W13 빵부스러기", () => {
   const crumbs = () =>
     within(screen.getByRole("navigation", { name: "현재 위치" }))

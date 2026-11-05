@@ -25,7 +25,7 @@ import NameCell from "./NameCell";
 import StudentFilters from "./StudentFilters";
 import { useClasses } from "./useClasses";
 import { HISTORY_KEY, usePagedList } from "./usePagedList";
-import { usePageParam } from "./usePageParam";
+import { filterKey, usePageParam } from "./usePageParam";
 
 const PAGE_SIZE = 50;
 const FOOTNOTE = "담임은 현재 반만, 관리자는 전교가 보여요";
@@ -96,6 +96,7 @@ export default function StudentListTab() {
   return (
     <section className="flex flex-col">
       <StudentFilters
+        key={filterKey(searchParams)}
         classes={classes.data}
         initial={filters}
         onSearch={(values) =>

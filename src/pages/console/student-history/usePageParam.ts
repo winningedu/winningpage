@@ -14,3 +14,10 @@ export function usePageParam(): [number, (page: number) => void] {
     });
   return [page, setPage];
 }
+
+// 필터 칸을 주소에서 다시 채우는 key. page 는 빼서 쪽을 넘겨도 칸에 적던 값이 지워지지 않게 한다.
+export function filterKey(params: URLSearchParams): string {
+  const copy = new URLSearchParams(params);
+  copy.delete("page");
+  return copy.toString();
+}
