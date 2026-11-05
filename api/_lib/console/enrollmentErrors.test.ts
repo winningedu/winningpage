@@ -4,7 +4,17 @@ import type { VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
 import { sendEnrollmentRpcError } from "./enrollmentErrors.js";
 
-function run(error: { code?: string; details?: string | null } | null) {
+const SLOT = { grade: "고2", className: "3", number: 7 };
+
+function run(
+  error: { code?: string; details?: string | null } | null,
+  slot?: {
+    grade: string | null;
+    className: string | null;
+    number: number | null;
+  },
+  maskName = false,
+) {
   const captured: { status: number; body: unknown } = {
     status: 0,
     body: undefined,
@@ -19,7 +29,11 @@ function run(error: { code?: string; details?: string | null } | null) {
       return res;
     },
   } as unknown as VercelResponse;
-  const handled = sendEnrollmentRpcError(res, error);
+  const handled = sendEnrollmentRpcError(
+    res,
+    error,
+    slot && { slot, maskName },
+  );
   return { handled, ...captured };
 }
 
@@ -66,18 +80,38 @@ describe("sendEnrollmentRpcError", () => {
     });
   });
 
-  test("WC077 carries the name of the student who holds the number", () => {
-    expect(run({ code: "WC077", details: "홍길동" })).toMatchObject({
+  test("WC077 with a slot carries the holder with the real name for a homeroom", () => {
+    const result = run({ code: "WC077", details: "홍길동" }, SLOT);
+    expect(result).toMatchObject({
       status: 409,
       body: {
         error: { code: "NUMBER_TAKEN" },
-        studentName: "홍길동",
+        occupant: {
+          grade: "고2",
+          className: "3",
+          number: 7,
+          displayName: "홍길동",
+        },
       },
+    });
+    expect(result.body).not.toHaveProperty("studentName");
+  });
+
+  test("WC077 masks the holder name for anyone but a homeroom (decision 30)", () => {
+    const result = run({ code: "WC077", details: "홍길동" }, SLOT, true);
+    expect(result.body).toMatchObject({
+      occupant: { displayName: "홍*동" },
     });
   });
 
-  test("WC077 without a name has no studentName", () => {
-    const result = run({ code: "WC077", details: "" });
+  test("WC077 without a holder name has a null displayName", () => {
+    const result = run({ code: "WC077", details: "" }, SLOT);
+    expect(result.body).toMatchObject({ occupant: { displayName: null } });
+  });
+
+  test("WC077 without a slot never leaks the holder name", () => {
+    const result = run({ code: "WC077", details: "홍길동" });
+    expect(result.body).not.toHaveProperty("occupant");
     expect(result.body).not.toHaveProperty("studentName");
   });
 

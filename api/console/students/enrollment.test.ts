@@ -131,6 +131,9 @@ beforeEach(() => {
   state.actor = HOMEROOM;
   state.tables = {
     tenants: [{ id: "tenant-1", school_year: 2026 }],
+    classes: [
+      { id: "class-B", tenant_id: "tenant-1", grade: "고2", name: "3" },
+    ],
     teachers: [{ id: "teacher-1", login_id: "SM123456" }],
     student_enrollments: [
       {
@@ -328,6 +331,28 @@ describe("PATCH /api/console/students/enrollment", () => {
       body: { error: { code: "NUMBER_TAKEN" } },
     });
     expect(state.inserts).toEqual([]);
+  });
+
+  test("number taken returns the holder, real name for a homeroom and masked for a school admin (decision 30)", async () => {
+    state.updateResult = {
+      data: null,
+      error: { code: "WC077", details: "윤하린" },
+    };
+    const holder = { grade: "고2", className: "3", number: 7 };
+
+    expect(await patch(BODY)).toMatchObject({
+      status: 409,
+      body: {
+        error: { code: "NUMBER_TAKEN" },
+        occupant: { ...holder, displayName: "윤하린" },
+      },
+    });
+
+    state.actor = SCHOOL_ADMIN;
+    expect(await patch(BODY)).toMatchObject({
+      status: 409,
+      body: { occupant: { ...holder, displayName: "윤*린" } },
+    });
   });
 
   test("invalid class reference is 400 and an unknown RPC failure is 500", async () => {

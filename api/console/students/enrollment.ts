@@ -6,7 +6,10 @@
 // 이력과 version 검사는 fn_enrollment_update 가 한 트랜잭션으로 처리한다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
-import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
+import {
+  loadOccupantContext,
+  sendEnrollmentRpcError,
+} from "../../_lib/console/enrollmentErrors.js";
 import {
   isEnrollmentGrade,
   isEnrollmentNumber,
@@ -169,7 +172,16 @@ export default defineHandler({
       },
     );
     if (error) {
-      if (sendEnrollmentRpcError(res, error)) return;
+      const occupant =
+        error.code === "WC077"
+          ? await loadOccupantContext(
+              ctx.supabaseAdmin,
+              actor,
+              edit.classId,
+              edit.number,
+            )
+          : undefined;
+      if (sendEnrollmentRpcError(res, error, occupant)) return;
       throw new Error("fn_enrollment_update failed");
     }
     const row = (
