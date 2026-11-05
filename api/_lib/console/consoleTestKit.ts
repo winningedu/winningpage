@@ -39,6 +39,23 @@ export interface KitState {
   };
 }
 
+/**
+ * 읽기 라우트 테스트용. 라우트가 건 eq, in 필터를 메모리 행에 그대로 적용한다
+ * (eq 는 문자열 비교, in 은 포함 여부). kit.rows.테이블 = (f) => matchRows(ROWS, f) 로 쓴다.
+ */
+export function matchRows<R extends Record<string, unknown>>(
+  rows: R[],
+  filters: Record<string, unknown>,
+): R[] {
+  return rows.filter((row) =>
+    Object.entries(filters).every(([col, want]) =>
+      Array.isArray(want)
+        ? want.includes(row[col])
+        : String(row[col]) === String(want),
+    ),
+  );
+}
+
 export function schoolAdminActor(
   over: Partial<KitState["actor"]> = {},
 ): KitState["actor"] {
@@ -128,7 +145,7 @@ export function createFakeAdmin(state: KitState) {
         filters[col] = values;
         return chain;
       };
-      for (const m of ["like", "order", "limit", "ilike"])
+      for (const m of ["like", "order", "limit", "ilike", "range"])
         chain[m] = () => chain;
       chain.maybeSingle = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
