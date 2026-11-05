@@ -57,6 +57,9 @@ describe("site — winning", () => {
     expect(site.company.instagramUrl).toBe(
       "https://www.instagram.com/winningedu.official/",
     );
+    expect(site.company.naverClipUrl).toBe(
+      "https://clip.naver.com/@winningedu",
+    );
   });
 });
 
@@ -106,6 +109,7 @@ describe("site — schoolmentor", () => {
     expect(site.company.naverBlogUrl).toBeUndefined();
     expect(site.company.youtubeUrl).toBeUndefined();
     expect(site.company.instagramUrl).toBeUndefined();
+    expect(site.company.naverClipUrl).toBeUndefined();
   });
 });
 
