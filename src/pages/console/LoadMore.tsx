@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 interface LoadMoreProps {
   shown: number;
   total: number;
-  unit: "건" | "명";
+  unit: "건" | "명" | "반";
   onMore: () => void;
 }
 

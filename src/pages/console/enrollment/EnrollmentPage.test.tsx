@@ -110,7 +110,34 @@ beforeEach(() => {
   });
 });
 
+function useMobileScreen() {
+  // useIsMobile 은 innerWidth 로 가른다(768 미만)
+  window.innerWidth = 500;
+  window.matchMedia = ((query: string) => ({
+    matches: true,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+}
+
+const manyClasses = (n: number) =>
+  Array.from({ length: n }, (_, i) =>
+    classRow({
+      classId: `m${i}`,
+      className: `${i + 1}`,
+      homeroomName: `담임${i + 1}`,
+    }),
+  );
+
 afterEach(() => {
+  window.innerWidth = 1024;
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -410,5 +437,73 @@ describe("W7 이용현황", () => {
     expect(
       await screen.findByText("엑셀을 만들지 못했어요. 다시 시도해 주세요"),
     ).toBeTruthy();
+  });
+
+  it("표는 50개 반씩 쪽으로 나눈다", async () => {
+    stubPage({
+      [SUMMARY_URL]: { body: { ...SCHOOL, classes: manyClasses(51) } },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    expect(await screen.findByText("1 / 2 페이지, 1~50번째")).toBeTruthy();
+    expect(screen.queryByText("담임51")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    expect(screen.getByText("담임51")).toBeTruthy();
+    expect(screen.queryByText("담임1")).toBeNull();
+  });
+
+  it("휴대폰은 표 대신 반 카드를 그리고, 20개씩 더 보기로 잇는다", async () => {
+    useMobileScreen();
+    stubPage({
+      [SUMMARY_URL]: { body: { ...SCHOOL, classes: manyClasses(25) } },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    await screen.findByText("담임1");
+    expect(screen.queryByRole("table")).toBeNull();
+    const card = screen.getByRole("article", { name: "담임1" });
+    expect(within(card).getByText("1학년 1반")).toBeTruthy();
+    expect(within(card).getByText("28 / 30")).toBeTruthy();
+    expect(within(card).getByText("28명 (93%)")).toBeTruthy();
+    expect(screen.queryByText("담임21")).toBeNull();
+    expect(screen.getByText("20 / 25반")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
+
+    expect(screen.getByText("담임25")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
+  });
+
+  it("휴대폰에서는 엑셀 출력을 두지 않고 정원 입력은 본문에서 한다", async () => {
+    useMobileScreen();
+    stubPage();
+    renderRoutes(routes, "/teacher/enrollment");
+    await screen.findByText("김담임");
+    expect(screen.queryByRole("button", { name: "엑셀 출력" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "정원 입력" }));
+
+    expect(screen.getByLabelText("1반 정원")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "저장" })).toBeTruthy();
+  });
+
+  it("담임이 열면 대시보드로 돌려보낸다", async () => {
+    const calls = stubPage({}, homeroomMe);
+    renderRoutes(routes, "/teacher/enrollment");
+
+    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    expect(calls.some((c) => c.key === SUMMARY_URL)).toBe(false);
+  });
+
+  it("집계를 읽지 못하면 오류 안내만 보인다", async () => {
+    stubPage({ [SUMMARY_URL]: { status: 500, body: {} } });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    expect(
+      await screen.findByText("이용현황을 불러오지 못했어요"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "정원 입력" })).toBeNull();
   });
 });

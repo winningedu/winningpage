@@ -4,13 +4,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { consoleRequest } from "../api";
 import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
+import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
+import Pagination from "../Pagination";
 import { useToast } from "../Toast";
+import ClassCards from "./ClassCards";
 import ClassTable from "./ClassTable";
 import EnrollmentSummaryCards from "./EnrollmentSummaryCards";
 import { buildEnrollmentGrid, downloadEnrollmentXlsx } from "./exportGrid";
@@ -25,6 +29,8 @@ async function fetchSummary(): Promise<EnrollmentSummary> {
 }
 
 const MAX_CAPACITY = 32767;
+const PAGE_SIZE = 50;
+const MOBILE_STEP = 20;
 
 /** 입력한 글을 정원으로 읽는다. 빈 칸은 정원 없음(null), 1 이상의 정수가 아니면 null 이 아니라 읽기 실패다. */
 function parseCapacity(text: string): { ok: boolean; value: number | null } {
@@ -40,6 +46,9 @@ export default function EnrollmentPage() {
   const [editing, setEditing] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const mobile = useIsMobile();
+  const [page, setPage] = useState(1);
+  const [shown, setShown] = useState(MOBILE_STEP);
   const summary = useQuery({
     queryKey: SUMMARY_KEY,
     queryFn: fetchSummary,
@@ -61,6 +70,22 @@ export default function EnrollmentPage() {
       ? gradeLabel(grade)
       : wholeLabel;
   const grades = [...new Set(all.map((r) => r.grade))];
+
+  const empty = totals.total === 0;
+  const visible = empty
+    ? []
+    : mobile
+      ? rows.slice(0, shown)
+      : rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const editProp = editing
+    ? {
+        edit: {
+          values: edits,
+          onChange: (id: string, v: string) =>
+            setEdits((prev) => ({ ...prev, [id]: v })),
+        },
+      }
+    : {};
 
   const parsed = all.map((r) => ({
     row: r,
@@ -155,14 +180,16 @@ export default function EnrollmentPage() {
     </div>
   ) : (
     <div className="flex gap-2">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => void exportXlsx()}
-        className="h-10 rounded-lg px-4 text-app-label font-semibold"
-      >
-        엑셀 출력
-      </Button>
+      {!mobile && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void exportXlsx()}
+          className="h-10 rounded-lg px-4 text-app-label font-semibold"
+        >
+          엑셀 출력
+        </Button>
+      )}
       <Button
         type="button"
         variant="outline"
@@ -179,7 +206,7 @@ export default function EnrollmentPage() {
       <PageHeader
         title="이용현황"
         subtitle="학급별, 서비스별 이용 학생 수를 확인합니다"
-        {...(data && { actions })}
+        {...(data && !mobile && { actions })}
         {...(data && {
           asOf: `집계 기준: ${scopeLabel}, ${dotDate(data.asOf)} 기준`,
         })}
@@ -202,6 +229,8 @@ export default function EnrollmentPage() {
                 onChange={(next) => {
                   setGrade(next);
                   setClassId("");
+                  setPage(1);
+                  setShown(MOBILE_STEP);
                 }}
               />
               <FilterSelect
@@ -217,9 +246,14 @@ export default function EnrollmentPage() {
                       label: `${r.groupName ? `${r.groupName} ` : ""}${r.className}반`,
                     })),
                 ]}
-                onChange={setClassId}
+                onChange={(next) => {
+                  setClassId(next);
+                  setPage(1);
+                  setShown(MOBILE_STEP);
+                }}
               />
             </div>
+            {mobile && <div className="flex justify-end">{actions}</div>}
             <section className="flex flex-col">
               <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
                 {`총 ${rows.length}개 학급`}
@@ -230,19 +264,31 @@ export default function EnrollmentPage() {
                   반만 계산해요
                 </Notice>
               )}
-              <ClassTable
-                rows={totals.total === 0 ? [] : rows}
-                {...(editing && {
-                  edit: {
-                    values: edits,
-                    onChange: (id, v) =>
-                      setEdits((prev) => ({ ...prev, [id]: v })),
-                  },
-                })}
-              />
-              {totals.total === 0 && (
+              {mobile ? (
+                <ClassCards rows={visible} {...editProp} />
+              ) : (
+                <ClassTable rows={visible} {...editProp} />
+              )}
+              {empty && (
                 <EmptyMessage body="조회 범위에 학생이 없어요. 학년그룹이나 반을 바꿔 보세요" />
               )}
+              {!empty &&
+                (mobile ? (
+                  <LoadMore
+                    shown={Math.min(shown, rows.length)}
+                    total={rows.length}
+                    unit="반"
+                    onMore={() => setShown((n) => n + MOBILE_STEP)}
+                  />
+                ) : (
+                  <Pagination
+                    page={page}
+                    pageCount={Math.ceil(rows.length / PAGE_SIZE)}
+                    total={rows.length}
+                    pageSize={PAGE_SIZE}
+                    onChange={setPage}
+                  />
+                ))}
             </section>
           </>
         )}
