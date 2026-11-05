@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import Header from "./Header";
@@ -31,6 +31,7 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
+const mockSignOut = vi.fn(async () => ({ error: null }));
 const mockApiFetch = vi.fn();
 vi.mock("@/lib/apiFetch", () => ({
   getAuthHeader: async () => ({ Authorization: "Bearer t" }),
@@ -54,6 +55,7 @@ vi.mock("@/lib/supabase", () => ({
     }),
     rpc: async () => ({ data: mockTenantRows, error: null }),
     auth: {
+      signOut: (...args: unknown[]) => mockSignOut(...(args as [])),
       onAuthStateChange: () => ({
         data: { subscription: { unsubscribe: () => {} } },
       }),
@@ -181,5 +183,37 @@ describe("b2b Header 선생님 상태", () => {
     expect(
       screen.queryByRole("link", { name: /마이페이지/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
+  it("콘솔 조회가 403이면 학생 상태로 보이고, 로그아웃은 세션만 끊는다", async () => {
+    mockProfileRow = {
+      id: "u3",
+      email: "x@test.com",
+      name: "김교사",
+      member_type: "teacher",
+      role: "user",
+    };
+    mockTenantRows = [];
+    mockApiFetch.mockResolvedValue({ ok: false, status: 403 });
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u3", email: "x@test.com" } },
+      user: { id: "u3", email: "x@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+
+    expect(
+      await screen.findByRole("link", { name: "김교사 님 멘토회원" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "관리 화면" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
+    await waitFor(() =>
+      expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" }),
+    );
   });
 });

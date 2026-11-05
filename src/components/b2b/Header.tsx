@@ -5,7 +5,7 @@ import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
 import MegaPanel from "./MegaPanel";
 import { NAV_LEFT, PILL_GAP, PILL_W } from "./navGrid";
-import { useB2BAccount } from "./useB2BAccount";
+import { signOutB2B, useB2BAccount } from "./useB2BAccount";
 
 const CLOSE_DELAY_MS = 100;
 
@@ -132,6 +132,7 @@ export default function Header() {
               </Link>
               <button
                 type="button"
+                onClick={signOutB2B}
                 className={`${ACCOUNT_PILL} bg-white text-b2b-account`}
               >
                 로그아웃
@@ -152,6 +153,7 @@ export default function Header() {
               </Link>
               <button
                 type="button"
+                onClick={signOutB2B}
                 className={`${ACCOUNT_PILL} bg-white text-b2b-account`}
               >
                 로그아웃

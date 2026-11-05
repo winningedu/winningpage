@@ -99,3 +99,12 @@ export function useB2BAccount(): B2BAccount {
     ? { ...account, csatDDay: getCsatDay() }
     : account;
 }
+
+// 현재 페이지에 머문 채 세션만 끊는다. AuthProvider가 SIGNED_OUT을 받아 게스트로 돌아간다.
+export async function signOutB2B() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch (error) {
+    console.error("로그아웃 오류:", error);
+  }
+}
