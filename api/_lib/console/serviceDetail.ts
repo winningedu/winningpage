@@ -2,7 +2,6 @@
 // 지표(metrics), 표(table), 상담 포인트(points)만 쓰고, 없는 자료는 그 칸을 만들지 않는다.
 
 import { AXIS_NAMES } from "../growth/axes.js";
-import type { GoalDay } from "./goalRate.js";
 import {
   EXECUTION_AREAS,
   indicatorsOf,
@@ -11,6 +10,8 @@ import {
 } from "./coaching.js";
 import type { buildCoaching } from "./coachingBuild.js";
 import { AREA_NAME, areaState } from "./coachingText.js";
+import { URGENCY_LABEL } from "./diagnosisStatus.js";
+import type { GoalDay } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 export interface ServiceDetail {
@@ -32,12 +33,6 @@ const WEEKDAY = {
   sat: "토",
   sun: "일",
 } as const;
-const URGENCY = {
-  low: "낮음",
-  normal: "보통",
-  high: "높음",
-  very_high: "매우 높음",
-};
 const CURVE = {
   rising: "상승곡선",
   flat: "유지",
@@ -154,7 +149,7 @@ export function serviceDetail(
         ...base,
         title: "학습진단 상세",
         metrics: [
-          { label: "긴급도", value: URGENCY[urgencyOf(dx.areas)] },
+          { label: "긴급도", value: URGENCY_LABEL[urgencyOf(dx.areas)] },
           {
             label: "학습 실행 역량",
             value: `${Math.round(ind.dxExecution.score as number)}점`,

@@ -265,10 +265,8 @@ describe("GET /api/console/students", () => {
       profile_id: profile,
       diagnosed_at: diagnosedAt,
       payload: {
-        areaDetails: {
-          page1: p1.map((score) => ({ score })),
-          page2: p2.map((score) => ({ score })),
-        },
+        learningAxes: p1.map((score) => ({ name: "영역", score })),
+        readiness: { areas: p2.map((score) => ({ name: "영역", score })) },
       },
     });
     kit.state.rows.diagnosis_reports = (f) =>
@@ -404,7 +402,7 @@ describe("GET /api/console/students special students", () => {
     attempt_id: `a-${profile}`,
     profile_id: profile,
     diagnosed_at: "2026-06-01T00:00:00Z",
-    payload: { areaDetails: { page1: [{ score }], page2: [] } },
+    payload: { learningAxes: [{ name: "영역", score }] },
   });
   type Special = { studentId: string; specialReasons: string[] };
   const special = (r: { body: unknown }) =>

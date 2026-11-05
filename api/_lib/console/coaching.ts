@@ -1,6 +1,7 @@
 // 코칭 판정 엔진(W9). 서비스 자료를 받아 판정, 6축 점수, 5대 역량, 종합 신호를 만드는 순수 함수 모음.
 // 문구표(코칭 판정 문구표)와 6축 역량 연결표의 행을 그대로 옮긴다. 자료가 없는 지표는 분모에서 뺀다(결정 4).
 
+import { type Urgency, urgencyOfLowest } from "./diagnosisStatus.js";
 import type { GoalWeek } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
@@ -52,18 +53,13 @@ export const READINESS_AREAS = [
   "STRATEGY",
 ] as const;
 export type AreaCode =
-  (typeof EXECUTION_AREAS)[number] | (typeof READINESS_AREAS)[number];
+  | (typeof EXECUTION_AREAS)[number]
+  | (typeof READINESS_AREAS)[number];
 export type AreaScores = Record<AreaCode, number>;
 
-export type Urgency = "low" | "normal" | "high" | "very_high";
-
-/** 긴급도 4단계(결정 3, 36). 12개 영역 중 가장 낮은 점수가 45 미만 매우 높음, 60 미만 높음, 70 미만 보통. */
+/** 긴급도 4단계(결정 3, 36). 단계 기준은 diagnosisStatus.ts 한 곳이다. */
 export function urgencyOf(areas: AreaScores): Urgency {
-  const lowest = Math.min(...Object.values(areas));
-  if (lowest < 45) return "very_high";
-  if (lowest < 60) return "high";
-  if (lowest < 70) return "normal";
-  return "low";
+  return urgencyOfLowest(Math.min(...Object.values(areas)));
 }
 
 export interface LearningInput {
@@ -135,7 +131,12 @@ export interface CoachingMetrics {
 }
 
 export type ServiceLabel =
-  "학습진단" | "목표관리" | "성장설계" | "수행평가" | "자기평가" | "심화탐구";
+  | "학습진단"
+  | "목표관리"
+  | "성장설계"
+  | "수행평가"
+  | "자기평가"
+  | "심화탐구";
 
 export interface Indicator {
   service: ServiceLabel;
@@ -424,7 +425,11 @@ export function computeAxes(m: CoachingMetrics): AxesResult {
 // ---- 5대 역량 ----------------------------------------------------------------------------------
 
 export type CompetencyKey =
-  "academic" | "career" | "inquiry" | "community" | "potential";
+  | "academic"
+  | "career"
+  | "inquiry"
+  | "community"
+  | "potential";
 
 const COMPETENCY_DEFS: {
   key: CompetencyKey;

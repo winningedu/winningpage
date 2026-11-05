@@ -15,6 +15,7 @@ import {
   naesinChangeScore,
   type TopicFit,
 } from "./coaching.js";
+import { reportAreas } from "./diagnosisStatus.js";
 import { readAll } from "./directory.js";
 import {
   buildGoalDays,
@@ -76,19 +77,10 @@ function diagnosisFrom(
 ): CoachingMetrics["diagnosis"] {
   if (!report || !isRecord(report.payload)) return null;
   const areas: Partial<AreaScores> = {};
-  const readiness = report.payload.readiness;
-  const entries = [
-    ...(Array.isArray(report.payload.learningAxes)
-      ? report.payload.learningAxes
-      : []),
-    ...(isRecord(readiness) && Array.isArray(readiness.areas)
-      ? readiness.areas
-      : []),
-  ];
-  for (const entry of entries) {
-    if (!isRecord(entry) || typeof entry.name !== "string") continue;
+  const { page1, page2 } = reportAreas(report.payload);
+  for (const entry of [...page1, ...page2]) {
     const code = AREA_BY_LABEL[entry.name];
-    if (code && typeof entry.score === "number") areas[code] = entry.score;
+    if (code) areas[code] = entry.score;
   }
   if (Object.keys(AREA_BY_LABEL).length !== Object.keys(areas).length)
     return null;

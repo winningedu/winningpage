@@ -17,6 +17,7 @@ import {
   urgencyOf,
   type Verdicts,
 } from "./coaching.js";
+import { URGENCY_LABEL } from "./diagnosisStatus.js";
 import type { GoalDay, GoalWeek } from "./goalRate.js";
 
 export const AREA_NAME: Record<AreaCode, string> = {
@@ -110,12 +111,6 @@ export const STRATEGIES: Record<AreaCode, string[]> = {
   ],
 };
 
-const URGENCY_NAME = {
-  low: "낮음",
-  normal: "보통",
-  high: "높음",
-  very_high: "매우 높음",
-};
 const WEEKDAY_NAME = {
   mon: "월요일",
   tue: "화요일",
@@ -320,7 +315,7 @@ export function priorityTask(f: TextFacts): string | null {
     case "E1": {
       const low = lowestArea(f, [...EXECUTION_AREAS, ...READINESS_AREAS]);
       if (!low || !f.metrics.diagnosis) return null;
-      const urgency = URGENCY_NAME[urgencyOf(f.metrics.diagnosis.areas)];
+      const urgency = URGENCY_LABEL[urgencyOf(f.metrics.diagnosis.areas)];
       const page1 = (EXECUTION_AREAS as readonly string[]).includes(low.code);
       const state = page1
         ? areaState(low.code, low.score)
@@ -1066,7 +1061,12 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
 
 export interface ServiceCard {
   service:
-    "diagnosis" | "goal" | "growth" | "performance" | "selfeval" | "inquiry";
+    | "diagnosis"
+    | "goal"
+    | "growth"
+    | "performance"
+    | "selfeval"
+    | "inquiry";
   name: string;
   state: "using" | "not_joined" | "no_goal";
   chip: string;
@@ -1131,7 +1131,7 @@ export function serviceCards(f: TextFacts): ServiceCard[] {
   return [
     card("diagnosis", "학습진단", {
       chip: "진단 완료",
-      value: dx ? `긴급도 ${URGENCY_NAME[urgencyOf(dx.areas)]}` : "",
+      value: dx ? `긴급도 ${URGENCY_LABEL[urgencyOf(dx.areas)]}` : "",
       detail:
         dx && low && execAvg !== null && prep !== null
           ? `학습 실행 역량 ${execAvg}점, 학교생활 준비도 ${prep}점, 가장 시급한 영역 ${AREA_NAME[low.code]}(${low.score}점)`

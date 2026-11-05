@@ -112,8 +112,8 @@ describe("urgencyOf (결정 3, 36: 가장 낮은 영역, 기준 45, 60, 70)", ()
     [44, "very_high"],
     [45, "high"],
     [59, "high"],
-    [60, "normal"],
-    [69, "normal"],
+    [60, "mid"],
+    [69, "mid"],
     [70, "low"],
   ] as const)("the lowest area %i is %s", (lowest, level) => {
     expect(urgencyOf(areas(lowest))).toBe(level);

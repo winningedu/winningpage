@@ -22,7 +22,7 @@ export interface DiagnosisStatus {
 
 const ID_CHUNK = 100;
 
-interface Area {
+export interface Area {
   name: string;
   score: number;
   status: string;
@@ -45,6 +45,14 @@ const mean = (areas: Area[]) =>
     ? null
     : Math.round(areas.reduce((s, a) => s + a.score, 0) / areas.length);
 
+/** 긴급도 화면 문구. 모든 콘솔 화면이 이 한 곳의 이름을 쓴다. */
+export const URGENCY_LABEL: Record<Urgency, string> = {
+  low: "낮음",
+  mid: "보통",
+  high: "높음",
+  very_high: "매우 높음",
+};
+
 export function urgencyOfLowest(lowest: number): Urgency {
   if (lowest < 45) return "very_high";
   if (lowest < 60) return "high";
@@ -52,17 +60,27 @@ export function urgencyOfLowest(lowest: number): Urgency {
   return "low";
 }
 
+/** 리포트 본문의 1쪽(학습 실행 역량)과 2쪽(준비도) 영역. 점수를 읽는 곳은 여기 하나다. */
+export function reportAreas(payload: unknown): {
+  page1: Area[];
+  page2: Area[];
+} {
+  const body = (payload ?? {}) as {
+    learningAxes?: unknown;
+    readiness?: { areas?: unknown };
+  };
+  return {
+    page1: areasOf(body.learningAxes),
+    page2: areasOf(body.readiness?.areas),
+  };
+}
+
 /** 리포트 본문에서 현황 값을 뽑는다. 영역 점수가 하나도 없으면 값은 모두 null 이다. */
 export function summarizeReport(
   payload: unknown,
   diagnosedAt: string,
 ): DiagnosisStatus {
-  const body = (payload ?? {}) as {
-    learningAxes?: unknown;
-    readiness?: { areas?: unknown };
-  };
-  const page1 = areasOf(body.learningAxes);
-  const page2 = areasOf(body.readiness?.areas);
+  const { page1, page2 } = reportAreas(payload);
   const all = [...page1, ...page2];
   const weakest = page1.reduce<Area | null>(
     (low, a) => (low === null || a.score < low.score ? a : low),

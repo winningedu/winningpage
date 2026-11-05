@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { kstYMD } from "../../src/lib/goal/calc/index.js";
+import { loadDiagnosisStatus } from "../_lib/console/diagnosisStatus.js";
 import {
   compareClassName,
   gradeRank,
@@ -28,7 +29,6 @@ import {
   SERVICE_KEYS,
   type ServiceKey,
 } from "../_lib/console/serviceUsage.js";
-import { loadUrgency } from "../_lib/console/urgency.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -266,8 +266,8 @@ export default defineHandler({
     const extrasOf = async (rows: EnrollmentRow[]) => {
       const ids = rows.map((e) => e.student_id);
       await ensureServices(ids);
-      const [urgency, rates, flagged] = await Promise.all([
-        loadUrgency(admin, ids),
+      const [diagnosis, rates, flagged] = await Promise.all([
+        loadDiagnosisStatus(admin, ids),
         loadWeeklyRates(
           admin,
           ids.filter((id) => usedOf(id).includes("goal")),
@@ -276,7 +276,7 @@ export default defineHandler({
       ]);
       const reasonsOf = (id: string): string[] => {
         const rate = rates.get(id);
-        const level = urgency.get(id);
+        const level = diagnosis.get(id)?.urgency;
         return [
           ...(execRatePct !== null && rate !== undefined && rate < execRatePct
             ? ["low_rate"]
@@ -285,7 +285,7 @@ export default defineHandler({
           ...(flagged.has(id) ? ["manual"] : []),
         ];
       };
-      return { urgency, rates, reasonsOf };
+      return { diagnosis, rates, reasonsOf };
     };
     let extras: Awaited<ReturnType<typeof extrasOf>>;
     if (special) {
@@ -320,7 +320,7 @@ export default defineHandler({
             SERVICE_KEYS.map((key) => [key, used.includes(key)]),
           ),
           serviceCount: used.length,
-          urgency: extras.urgency.get(e.student_id) ?? null,
+          urgency: extras.diagnosis.get(e.student_id)?.urgency ?? null,
           weeklyGoalRate: extras.rates.get(e.student_id) ?? null,
           weeklyGoalLevel: weeklyGoalLevel(extras.rates.get(e.student_id)),
           specialReasons: extras.reasonsOf(e.student_id),
