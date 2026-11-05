@@ -93,7 +93,12 @@ export function usesAdminMenu(kind: string): boolean {
   return kind !== "homeroom";
 }
 
-const allItems = menuGroups.flatMap((g) => g.items);
+const allItems: MenuItem[] = menuGroups.flatMap((g) =>
+  g.items.map((i) => ({
+    ...i,
+    adminOnly: i.adminOnly || g.adminOnly === true,
+  })),
+);
 
 /** 경로에 맞는 항목. /teacher 는 정확히 일치, 나머지는 가장 긴 접두사. */
 export function findMenuItem(pathname: string): MenuItem | null {
@@ -106,4 +111,11 @@ export function findMenuItem(pathname: string): MenuItem | null {
     if (hit && (!best || item.to.length > best.to.length)) best = item;
   }
   return best;
+}
+
+/** 이 역할이 열 수 있는 화면인지. 담임은 관리자 전용, 본사 대행은 마이페이지를 열 수 없다. */
+export function canOpen(item: MenuItem, kind: string): boolean {
+  if (item.adminOnly && !usesAdminMenu(kind)) return false;
+  if (kind === "hq_proxy" && item.to === `${CONSOLE_BASE}/my`) return false;
+  return true;
 }

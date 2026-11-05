@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
+import { ToastProvider } from "./Toast";
 import {
   CONSOLE_ME_KEY,
   ConsoleMeContext,
@@ -83,7 +84,9 @@ export default function ConsoleGate() {
 
   return (
     <ConsoleMeContext.Provider value={value}>
-      <Outlet />
+      <ToastProvider>
+        <Outlet />
+      </ToastProvider>
     </ConsoleMeContext.Provider>
   );
 }
