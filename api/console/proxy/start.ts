@@ -65,6 +65,16 @@ export default defineHandler({
         p_reason: body.reason,
       },
     );
+    if (startError?.code === "23503") {
+      sendError(
+        res,
+        "coded",
+        404,
+        "기관을 찾을 수 없습니다.",
+        "TENANT_NOT_FOUND",
+      );
+      return;
+    }
     if (startError || typeof sessionId !== "string") {
       throw new Error("fn_proxy_start failed");
     }

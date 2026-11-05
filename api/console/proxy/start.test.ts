@@ -139,4 +139,17 @@ describe("POST /api/console/proxy/start", () => {
       },
     });
   });
+
+  test("없는 기관이면 404 TENANT_NOT_FOUND 이고 로그를 남기지 않는다", async () => {
+    state.startResult = {
+      data: null,
+      error: { code: "23503", message: "fk violation" },
+    };
+
+    const r = await start(VALID);
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ error: { code: "TENANT_NOT_FOUND" } });
+    expect(state.inserts).toHaveLength(0);
+  });
 });
