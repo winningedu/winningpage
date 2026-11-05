@@ -21,6 +21,7 @@ import { useReportGeneration } from "@/components/growth/generate/useReportGener
 import { GROWTH_PATHS } from "@/components/growth/growthPaths";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { siteWording } from "@/config/wording";
 import { fetchReports, type StepProgress } from "@/lib/growth/api";
 
 // 경로: /app/growth/generate
@@ -37,7 +38,7 @@ const CAUTIONS = [
   "이 진단은 위닝 내부 기준이에요. 합격 가능성이나 학교 평가를 예측하지 않아요.",
   "생활기록부 원문은 받지 않아요(초중등교육법 제25조의2).",
   "리포트 생성에 실패하면 이용권 차감은 자동으로 복구돼요.",
-];
+].map(siteWording);
 
 function emptyProgress(): StepProgress[] {
   return Array.from({ length: STEP_COUNT }, (_, i) => ({

@@ -2,6 +2,7 @@
 // src 에서 api/ 를 import 하지 않으므로 복사해 두고, labels.test.ts 가 서버 상수와 대조한다.
 // 서버 쪽 문구를 바꾸면 이 파일도 같이 바꾼다(테스트가 어긋남을 잡는다).
 
+import { siteWording } from "@/config/wording";
 import type {
   CoreErrorId,
   Fit,
@@ -92,7 +93,7 @@ export const NOTICES: readonly string[] = [
   "이 도구는 보고서를 대신 써 주지 않아요. 설계와 평가만 제공해요.",
   "평가는 위닝 내부 기준이에요. 학교 성적, 학생부 평가, 합격 가능성을 예측하지 않아요.",
   "생활기록부 원문은 받지 않아요(초중등교육법 제25조의2). 세특 문장도 만들지 않아요. 생성에 실패하면 차감된 이용 횟수는 자동으로 복구돼요.",
-];
+].map(siteWording);
 
 /** 연계 유형 한 줄 정의(연계 규칙 카드). 서버 LINK_KIND_DEFINITIONS 와 같다. */
 export const LINK_KIND_DEFINITIONS: Record<LinkKind, string> = {

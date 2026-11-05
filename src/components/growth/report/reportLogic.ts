@@ -2,6 +2,8 @@
 // 서버 레지스트리(api/_lib/growth/sections.ts)는 클라이언트 번들에 끌어오지 않고,
 // 라벨 문구만 같은 값으로 둔다. 섹션 항목이 title, format, badge 를 스스로 들고 온다.
 
+import { siteWording } from "@/config/wording";
+
 export type SectionFormat =
   | "table"
   | "prose"
@@ -228,7 +230,7 @@ export function omittedNotice(input: {
 export const REPORT_NOTICES = [
   "이 진단은 위닝 내부 기준이에요. 합격 가능성이나 학교 평가를 예측하지 않아요.",
   "생활기록부 원문은 받지 않아요(초중등교육법 제25조의2).",
-] as const;
+].map(siteWording);
 
 export const SMALL_SAMPLE_TEXT =
   "분석한 활동이 적어 수치는 냈지만 단정하지 않아요. 활동이 쌓이면 다시 봐야 해요.";
