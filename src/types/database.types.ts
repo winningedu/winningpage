@@ -8893,6 +8893,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_teacher_attach_account: {
+        Args: {
+          p_login_id: string;
+          p_profile_id: string;
+          p_teacher_id: string;
+          p_temp_hash: string;
+        };
+        Returns: undefined;
+      };
       fn_teacher_register: {
         Args: {
           p_actor: string;
