@@ -22,6 +22,8 @@ export interface KitState {
   rows: Record<string, (filters: Record<string, unknown>) => unknown>;
   inserts: { table: string; row: Record<string, unknown> }[];
   insertError: unknown;
+  /** 테이블별 insert 에러. 있으면 insertError 보다 먼저 쓴다. */
+  insertErrors: Record<string, unknown>;
   updates: {
     table: string;
     values: Record<string, unknown>;
@@ -65,6 +67,7 @@ export function createKitState(): KitState {
     rows: {},
     inserts: [],
     insertError: null,
+    insertErrors: {},
     updates: [],
     events,
     auth: {
@@ -124,7 +127,9 @@ export function createFakeAdmin(state: KitState) {
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
         state.inserts.push({ table, row });
-        return Promise.resolve({ error: state.insertError });
+        return Promise.resolve({
+          error: state.insertErrors[table] ?? state.insertError,
+        });
       };
       return chain;
     },
