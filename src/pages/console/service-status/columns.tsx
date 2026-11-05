@@ -14,7 +14,7 @@ export interface Column {
   render: (item: StatusItem) => React.ReactNode;
 }
 
-const URGENCY: Record<string, { label: string; tone: ChipTone }> = {
+export const URGENCY: Record<string, { label: string; tone: ChipTone }> = {
   low: { label: "낮음", tone: "Success" },
   mid: { label: "보통", tone: "Warning" },
   high: { label: "높음", tone: "Caution" },
