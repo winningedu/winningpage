@@ -87,6 +87,7 @@ create policy enrollment_changes_select_own on public.enrollment_changes
 comment on table public.student_enrollments is '학생의 학년도별 학적(학급, 번호, 졸업). version 은 동시 수정 감지용. 학생 본인은 읽기만 한다.';
 comment on table public.enrollment_changes is '학적 변경 신청과 적용 이력. status pending 은 kind request 만, 학생당 하나.';
 
+-- WC094: 학생(profiles.member_type = 'student')이 아닌 계정.
 -- 가입 또는 스스로 배정. 올해(기관의 school_year) 학적이 없으면 만들고(signup),
 -- 있는데 학급이 비어 있으면 학급과 번호를 채운다(self_assign). 이미 학급이 있으면 거부(WC079).
 -- 학급은 fn_class_ensure 로 필요할 때 만든다. 그룹 이름은 대소문자와 앞뒤 공백을 무시하고 찾고
@@ -115,7 +116,12 @@ declare
   v_kind text;
   v_constraint text;
 begin
-  select school_year into v_year from public.tenants where id = p_tenant;
+  if not exists (select 1 from public.profiles pr where pr.id = p_student and pr.member_type = 'student') then
+    raise exception 'not a student account' using errcode = 'WC094';
+  end if;
+
+  -- 기관 행을 공유 잠금으로 읽어 학년도 넘기기가 끝날 때까지 기다리고, 읽은 학년도가 도중에 바뀌지 않게 한다.
+  select school_year into v_year from public.tenants where id = p_tenant for share;
   if v_year is null then
     raise exception 'tenant not found' using errcode = 'no_data_found';
   end if;

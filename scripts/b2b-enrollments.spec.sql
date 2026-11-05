@@ -77,8 +77,8 @@ begin
     p_email, 'x', now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb
   );
-  insert into public.profiles (id, name, role, email)
-  values (v_id, p_email, 'user', p_email)
+  insert into public.profiles (id, name, role, email, member_type)
+  values (v_id, p_email, 'user', p_email, 'student')
   on conflict (id) do nothing;
   insert into public.student_profiles (profile_id, grade) values (v_id, '고1');
   return v_id;
@@ -251,6 +251,17 @@ select pg_temp.expect_error('join: 같은 번호 거부(WC077)',
 select pg_temp.expect_text('join: 거부되면 학적도 이력도 남지 않는다',
   (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s6'))::text
   || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s6')), '0:0');
+
+-- 학생이 아닌 계정(member_type 이 student 가 아님)은 가입도 배정도 못 한다(WC094)
+insert into fx values ('s8', pg_temp.mk_user('t9-s8@t.local'));
+update public.profiles set member_type = 'parent' where id = pg_temp.fx('s8');
+select pg_temp.expect_error('join: 학생이 아닌 계정은 거부(WC094)',
+  $$select * from public.fn_enrollment_join(pg_temp.fx('s8'), pg_temp.fx('ta'), '고1', null, '1', 20::smallint)$$, 'WC094');
+update public.profiles set member_type = null where id = pg_temp.fx('s8');
+select pg_temp.expect_error('join: member_type 이 비어 있어도 거부(WC094)',
+  $$select * from public.fn_enrollment_join(pg_temp.fx('s8'), pg_temp.fx('ta'), '고1', null, '1', 20::smallint)$$, 'WC094');
+select pg_temp.expect_int('join: 거부되면 학적이 없다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s8')), 0);
 
 -- 학급 없이 가입하고(풀), 나중에 스스로 배정
 select pg_temp.expect_ok('join: 학급 없이 가입',

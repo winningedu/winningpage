@@ -78,8 +78,8 @@ begin
     p_email, 'x', now(), now(),
     '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb
   );
-  insert into public.profiles (id, name, role, email)
-  values (v_id, p_email, p_role, p_email)
+  insert into public.profiles (id, name, role, email, member_type)
+  values (v_id, p_email, p_role, p_email, 'student')
   on conflict (id) do update set role = excluded.role;
   insert into public.student_profiles (profile_id, grade) values (v_id, '고1')
   on conflict (profile_id) do nothing;
@@ -173,6 +173,12 @@ insert into rq values ('s7', pg_temp.req('s7', null, null, null, 21));
 select pg_temp.expect_text('request: 번호만 신청하면 학급을 유지한다',
   (select (to_class_id = pg_temp.cid('ta', '고1', '2') and to_grade = '고1')::text
      from public.enrollment_changes where id = (select v from rq where k = 's7')), 'true');
+-- 학생이 아닌 계정은 신청할 수 없다(WC094)
+insert into fx values ('s8', pg_temp.mk_user('t19-s8@t.local'));
+select pg_temp.enroll('s8', '2', 30);
+update public.profiles set member_type = 'parent' where id = pg_temp.fx('s8');
+select pg_temp.expect_error('request: 학생이 아닌 계정은 거부(WC094)',
+  $$select pg_temp.req('s8', null, null, null, 31)$$, 'WC094');
 select pg_temp.expect_error('request: 두 번째 열린 신청 거부(WC082)',
   $$select pg_temp.req('s1', '고1', null, '3', 6)$$, 'WC082');
 select pg_temp.expect_int('request: 거부되면 신청은 하나뿐',

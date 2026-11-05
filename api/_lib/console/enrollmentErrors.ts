@@ -1,4 +1,4 @@
-// 학적 RPC(WC077 에서 WC087, 외래키 23503)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, 외래키 23503)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
@@ -62,6 +62,11 @@ const MAPPED: Record<string, Mapped> = {
     status: 404,
     code: "NOT_FOUND",
     message: "학년그룹을 찾을 수 없어요.",
+  },
+  WC094: {
+    status: 403,
+    code: "NOT_STUDENT",
+    message: "학생 계정만 쓸 수 있어요.",
   },
   "23503": {
     status: 400,

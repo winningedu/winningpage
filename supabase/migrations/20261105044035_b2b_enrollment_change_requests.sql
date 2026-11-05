@@ -2,7 +2,7 @@
 -- 새 함수만 더한다. 위닝 사이트 DB 동작은 바뀌지 않는다.
 --
 -- 에러 코드(9A 의 WC077 번호 사용 중, WC078 version 불일치, WC080 없는 그룹, WC081 학적 없음 에 이어서):
--- WC082 이미 열린 신청이 있음, WC083 신청이 없거나 이미 결정됨, WC084 승인자가 아님, WC085 거절 사유 없음.
+-- WC094 학생이 아닌 계정(9A 의 fn_enrollment_join 과 같다), WC082 이미 열린 신청이 있음, WC083 신청이 없거나 이미 결정됨, WC084 승인자가 아님, WC085 거절 사유 없음.
 
 -- 학생 본인(auth.uid())의 신청. 올해 학적이 있는 재학생만, 학생당 열린 신청은 하나(WC082).
 -- 그룹 이름은 대소문자와 앞뒤 공백을 무시하고 찾고 없으면 WC080. 학급은 fn_class_ensure 로 필요할 때 만든다.
@@ -32,6 +32,10 @@ declare
 begin
   if v_uid is null then
     raise exception 'authentication required' using errcode = '42501';
+  end if;
+
+  if not exists (select 1 from public.profiles pr where pr.id = v_uid and pr.member_type = 'student') then
+    raise exception 'not a student account' using errcode = 'WC094';
   end if;
 
   select e.* into v_enr
