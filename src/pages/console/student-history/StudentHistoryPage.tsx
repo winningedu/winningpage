@@ -5,6 +5,7 @@ import PageHeader from "../PageHeader";
 import Tabs from "../Tabs";
 import { useConsoleMe } from "../useConsoleMe";
 import PendingRequestsTab from "./PendingRequestsTab";
+import StudentListTab from "./StudentListTab";
 
 export default function StudentHistoryPage() {
   const { me } = useConsoleMe();
@@ -31,6 +32,7 @@ export default function StudentHistoryPage() {
       />
       <div className="px-4 pb-24 md:px-8 lg:px-12">
         {tab === "pending" && <PendingRequestsTab />}
+        {tab === "students" && <StudentListTab />}
       </div>
     </>
   );

@@ -448,3 +448,123 @@ describe("W13 승인 대기 휴대폰", () => {
     expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
   });
 });
+
+const student = (n: number, over: Record<string, unknown> = {}) => ({
+  studentId: `s${n}`,
+  name: n === 1 ? "김서연" : "정도윤",
+  grade: "고2",
+  groupName: null,
+  history: [
+    { schoolYear: 2026, grade: "고2", groupName: null, className: "3" },
+    { schoolYear: 2025, grade: "고1", groupName: null, className: "5" },
+  ],
+  servicesUsed: 6,
+  servicesTotal: 6,
+  enrollment: {
+    grade: "고2",
+    groupId: null,
+    classId: "c3",
+    className: "3",
+    number: n,
+    version: 4,
+  },
+  ...over,
+});
+
+const klass = (
+  id: string,
+  grade: string,
+  name: string,
+  group: { id: string; name: string } | null = null,
+) => ({
+  id,
+  grade,
+  groupId: group?.id ?? null,
+  groupName: group?.name ?? null,
+  name,
+  hasHomeroom: true,
+});
+
+const CLASSES = "GET /api/console/classes";
+const STUDENTS_URL = "GET /api/console/students/history?page=1";
+
+function studentsBody(items: unknown[], total = items.length) {
+  return { total, page: 1, pageCount: Math.ceil(total / 50), items };
+}
+
+function stubStudents(
+  routesOver: Record<string, ApiHandler> = {},
+  me: unknown = homeroomMe,
+) {
+  return stubPage(
+    {
+      [CLASSES]: {
+        body: {
+          classes: [
+            klass("c3", "고2", "3"),
+            klass("c5", "고2", "5"),
+            klass("c9", "고1", "9"),
+          ],
+        },
+      },
+      [STUDENTS_URL]: { body: studentsBody([student(1), student(2)]) },
+      ...routesOver,
+    },
+    me,
+  );
+}
+
+describe("W13 학생 조회와 이력 탭", () => {
+  it("학생마다 학년그룹, 학년도별 반 이력, 이용 서비스 수를 보여 준다", async () => {
+    stubStudents();
+
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    expect(await screen.findByText("검색 결과 2명")).toBeTruthy();
+    for (const head of [
+      "이름",
+      "학년그룹",
+      "학년그룹/반 이력",
+      "이용 서비스 수",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
+    }
+    const r = row("김서연");
+    expect(within(r).getByText("2학년")).toBeTruthy();
+    expect(within(r).getByText("2026 2학년 3반 / 2025 1학년 5반")).toBeTruthy();
+    expect(within(r).getByText("6/6")).toBeTruthy();
+    expect(
+      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "직접 변경" })).toBeNull();
+    expect(screen.getByText("1 / 1 페이지, 1~2번째")).toBeTruthy();
+  });
+
+  it("학교 관리자에게는 행마다 직접 변경 버튼이 있다", async () => {
+    stubStudents({}, adminMe);
+
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    await screen.findByText("검색 결과 2명");
+    expect(screen.getAllByRole("button", { name: "직접 변경" })).toHaveLength(
+      2,
+    );
+  });
+
+  it("학생이 없으면 안내만 보이고 쪽 이동은 없다", async () => {
+    stubStudents({ [STUDENTS_URL]: { body: studentsBody([]) } });
+
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    expect(await screen.findByText("검색 결과 0명")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "찾는 학생이 없어요. 이름이나 학년그룹, 반을 바꿔 보세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
+  });
+});
