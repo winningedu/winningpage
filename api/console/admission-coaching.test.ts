@@ -124,8 +124,17 @@ beforeEach(() => {
         {
           student_id: "s1",
           tenant_id: "tenant-1",
+          school_year: 2026,
           status: "needed",
           changed_at: "2026-10-28T03:00:00Z",
+        },
+        // 지난 학년도 상태는 보이지 않는다(결정 64, 학년도별로 처음 값에서 다시 시작).
+        {
+          student_id: "s2",
+          tenant_id: "tenant-1",
+          school_year: 2025,
+          status: "done",
+          changed_at: "2025-10-28T03:00:00Z",
         },
       ],
       f,

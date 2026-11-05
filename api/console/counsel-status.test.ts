@@ -31,7 +31,16 @@ const enrollment = (student_id: string, class_id: string, grade: string) => ({
   number: 1,
 });
 
+const setCalls: Record<string, unknown>[] = [];
+let setResult: Record<string, unknown>;
+
 beforeEach(() => {
+  setCalls.length = 0;
+  setResult = {
+    previous_status: "unset",
+    current_status: "scheduled",
+    status_changed_at: "2026-11-05T00:00:00Z",
+  };
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor({
     kind: "homeroom",
@@ -60,25 +69,29 @@ beforeEach(() => {
   kit.state.rows.classes = (f) =>
     matchRows([cls("c-3", "고3"), cls("c-4", "고3"), cls("c-x", "고3")], f);
   kit.state.rows.class_groups = () => [];
-  kit.state.rows.counsel_statuses = () => [];
+  kit.state.rpc.fn_set_counsel_status = (args) => {
+    setCalls.push(args);
+    return { data: [setResult], error: null };
+  };
 });
 
 describe("PUT /api/console/counsel-status", () => {
-  test("a homeroom sets the status of a grade-3 student of own class, the row and an audit record are written", async () => {
+  test("a homeroom sets the status of a grade-3 student of own class for the current school year and an audit record is written", async () => {
     const r = await put({ studentId: "s1", status: "scheduled" });
 
     expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ ok: true, status: "scheduled" });
-    expect(kit.state.upserts).toEqual([
+    expect(r.body).toEqual({
+      ok: true,
+      status: "scheduled",
+      changedAt: "2026-11-05T00:00:00Z",
+    });
+    expect(setCalls).toEqual([
       {
-        table: "counsel_statuses",
-        row: expect.objectContaining({
-          student_id: "s1",
-          tenant_id: "tenant-1",
-          status: "scheduled",
-          changed_by: "teacher-1",
-        }),
-        onConflict: "student_id",
+        p_tenant_id: "tenant-1",
+        p_student_id: "s1",
+        p_school_year: 2026,
+        p_status: "scheduled",
+        p_changed_by: "teacher-1",
       },
     ]);
     expect(kit.state.inserts[0]).toMatchObject({
@@ -92,10 +105,27 @@ describe("PUT /api/console/counsel-status", () => {
     });
   });
 
-  test("sending the same status again writes no row, keeps the change date and leaves an unchanged audit record", async () => {
-    kit.state.rows.counsel_statuses = () => [
-      { status: "done", changed_at: "2026-11-01T00:00:00Z" },
-    ];
+  test("the audit from value is the previous value the single database call reports, so a concurrent change is never misrecorded", async () => {
+    setResult = {
+      previous_status: "scheduled",
+      current_status: "needed",
+      status_changed_at: "2026-11-05T00:00:00Z",
+    };
+
+    const r = await put({ studentId: "s1", status: "needed" });
+
+    expect(r.status).toBe(200);
+    expect(kit.state.inserts[0]).toMatchObject({
+      row: { meta: { from: "scheduled", to: "needed" } },
+    });
+  });
+
+  test("sending the same status again keeps the change date and leaves an unchanged audit record", async () => {
+    setResult = {
+      previous_status: "done",
+      current_status: "done",
+      status_changed_at: "2026-11-01T00:00:00Z",
+    };
 
     const r = await put({ studentId: "s1", status: "done" });
 
@@ -104,40 +134,41 @@ describe("PUT /api/console/counsel-status", () => {
       status: "done",
       changedAt: "2026-11-01T00:00:00Z",
     });
-    expect(kit.state.upserts).toEqual([]);
     expect(kit.state.inserts).toHaveLength(1);
     expect(kit.state.inserts[0]).toMatchObject({
       row: { meta: { from: "done", to: "done", unchanged: true } },
     });
   });
 
-  test("setting unset on a student who never had a status writes no row", async () => {
+  test("setting unset on a student who never had a status reports a null change date", async () => {
+    setResult = {
+      previous_status: "unset",
+      current_status: "unset",
+      status_changed_at: null,
+    };
+
     const r = await put({ studentId: "s1", status: "unset" });
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({ ok: true, status: "unset", changedAt: null });
-    expect(kit.state.upserts).toEqual([]);
   });
 
-  test("changing from another status records the previous one in the audit meta", async () => {
-    kit.state.rows.counsel_statuses = () => [
-      { status: "scheduled", changed_at: "2026-11-01T00:00:00Z" },
-    ];
-
-    const r = await put({ studentId: "s1", status: "needed" });
-
-    expect(r.status).toBe(200);
-    expect(kit.state.upserts).toHaveLength(1);
-    expect(kit.state.inserts[0]).toMatchObject({
-      row: { meta: { from: "scheduled", to: "needed" } },
-    });
-  });
-
-  test("a student of another class, another tenant, not in grade 3 or nobody is 404 and writes nothing", async () => {
-    for (const studentId of ["s2", "s3", "s4", "nobody"]) {
+  test("a student of another class, another tenant, not in grade 3, out of the current year or nobody is 404 and writes nothing", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          enrollment("s1", "c-3", "고3"),
+          enrollment("s2", "c-4", "고3"),
+          enrollment("s3", "c-3", "고2"),
+          { ...enrollment("s4", "c-x", "고3"), tenant_id: "tenant-2" },
+          { ...enrollment("s5", "c-3", "고3"), status: "graduated" },
+        ],
+        f,
+      );
+    for (const studentId of ["s2", "s3", "s4", "s5", "nobody"]) {
       expect((await put({ studentId, status: "done" })).status).toBe(404);
     }
-    expect(kit.state.upserts).toEqual([]);
+    expect(setCalls).toEqual([]);
     expect(kit.state.inserts).toEqual([]);
   });
 
@@ -158,7 +189,11 @@ describe("PUT /api/console/counsel-status", () => {
     kit.state.insertErrors.admin_access_logs = { message: "down" };
     expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
 
-    kit.state.insertErrors = { counsel_statuses: { message: "down" } };
+    kit.state.insertErrors = {};
+    kit.state.rpc.fn_set_counsel_status = () => ({
+      data: null,
+      error: { message: "down" },
+    });
     expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
   });
 

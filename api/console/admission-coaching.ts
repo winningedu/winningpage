@@ -3,7 +3,7 @@
 // W10 입시 상담코칭. 입시를 앞둔 중3, 고3 학생만 현재 학년도 학년, 반, 번호 순으로 나눠 준다(교 #48, #215).
 // 담임은 담당 학급만, 학교 관리자와 본사 대행은 전교를 본다. 이름은 담임만 실명이고 그 밖에는 서버에서 가린다.
 // hasGrade3InScope 는 범위 안에 중3, 고3 학급이 하나라도 있는지다(없으면 화면이 안내만 보인다, 교 #148).
-// 상담 상태(counselStatus)는 counsel_statuses 행이 없으면 unset 이고 변경 일자(counselChangedAt)는 null 이다.
+// 상담 상태(counselStatus)는 현재 학년도 counsel_statuses 행이 없으면 unset 이고 변경 일자(counselChangedAt)는 null 이다.
 
 import { loadDiagnosisStatus } from "../_lib/console/diagnosisStatus.js";
 import {
@@ -91,7 +91,11 @@ export default defineHandler({
         admin,
         "counsel_statuses",
         "student_id, status, changed_at",
-        (q) => q.eq("tenant_id", actor.tenantId).in("student_id", ids),
+        (q) =>
+          q
+            .eq("tenant_id", actor.tenantId)
+            .eq("school_year", schoolYear)
+            .in("student_id", ids),
         "student_id",
       ),
     ]);
