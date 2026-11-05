@@ -1,8 +1,8 @@
 // W7 엑셀 출력 표(교 #40). 제목, 조회 조건, 서비스별 이용 인원, 반별 표와 합계 행만 담고 학생 이름은 담지 않는다.
 
+import { dotDate } from "../date";
 import {
   type ClassRow,
-  dotDate,
   gradeGroupLabel,
   percent,
   SERVICES,

@@ -2,7 +2,7 @@
 // 읽을 값이 없으면 칸을 비운다(기본값을 만들어 내지 않는다). 휴대폰 카드는 이름을 제목으로 쓰고 나머지 열을 줄로 쓴다.
 
 import Chip, { type ChipTone } from "../Chip";
-import { dotDate } from "../enrollment/format";
+import { dotDate } from "../date";
 import NameCell from "../NameCell";
 import type { StatusItem, TabKey } from "./tabs";
 
@@ -154,7 +154,8 @@ export const COLUMNS: Record<TabKey, Column[]> = {
       label: "학년별 스토리 수",
       render: (item) => {
         const by = get(item, "storiesByGrade") as
-          { grade: string; count: number }[] | undefined;
+          | { grade: string; count: number }[]
+          | undefined;
         if (!by) return null;
         const total = by.reduce((sum, g) => sum + g.count, 0);
         return `${total}개(${by.map((g) => `${g.grade.slice(1)}학년 ${g.count}`).join(", ")})`;

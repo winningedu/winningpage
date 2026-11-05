@@ -15,23 +15,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { kstYMD } from "@/lib/goal/calc/index.js";
 import { consoleRequest } from "../api";
 import Chip from "../Chip";
+import { kstDotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
-import { dotDate } from "../enrollment/format";
 import LoadMore from "../LoadMore";
 import { CONSOLE_BASE } from "../menu";
+import NameCell from "../NameCell";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { URGENCY } from "../service-status/columns";
-import NameCell from "../NameCell";
+import { useToast } from "../Toast";
 import { useClasses } from "../useClasses";
+import { useConsoleMe } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
-import { useToast } from "../Toast";
-import { useConsoleMe } from "../useConsoleMe";
 import AdmissionFilters from "./AdmissionFilters";
 import StatusToggle, { type CounselStatus } from "./StatusToggle";
 
@@ -63,8 +62,7 @@ interface AdmissionItem {
 const SAVE_FAILED = "상담 상태를 저장하지 못했어요. 다시 시도해 주세요";
 
 /** 변경 일자는 KST 날짜로 "2026.10.28", 없으면 "-". */
-const changedDate = (iso: string | null) =>
-  iso ? dotDate(kstYMD(new Date(iso))) : "-";
+const changedDate = (iso: string | null) => (iso ? kstDotDate(iso) : "-");
 
 /** "3학년/3반", 그룹이 있으면 "3학년-A레벨/3반". 중3 은 "중3" 으로 가린다. */
 function slot(item: AdmissionItem) {

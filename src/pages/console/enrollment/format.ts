@@ -46,9 +46,6 @@ export function gradeGroupLabel(row: Pick<ClassRow, "grade" | "groupName">) {
     : gradeLabel(row.grade);
 }
 
-/** 2026-11-05 를 2026.11.05 로. */
-export const dotDate = (ymd: string) => ymd.replaceAll("-", ".");
-
 export interface Totals {
   total: number;
   joined: number;

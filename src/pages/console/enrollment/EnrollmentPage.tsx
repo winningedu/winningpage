@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { consoleRequest } from "../api";
 import { gradeLabel } from "../classLabel";
+import { dotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
@@ -18,7 +19,7 @@ import ClassCards from "./ClassCards";
 import ClassTable from "./ClassTable";
 import EnrollmentSummaryCards from "./EnrollmentSummaryCards";
 import { buildEnrollmentGrid, downloadEnrollmentXlsx } from "./exportGrid";
-import { dotDate, type EnrollmentSummary, totalsOf } from "./format";
+import { type EnrollmentSummary, totalsOf } from "./format";
 
 const SUMMARY_KEY = ["console", "enrollment-summary"] as const;
 
