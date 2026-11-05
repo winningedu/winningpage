@@ -46,7 +46,7 @@ export type VerdictLevel = "good" | "caution" | "risk" | "no_data";
 
 export interface Verdict {
   level: VerdictLevel;
-  reason?: string;
+  reason?: string | undefined;
 }
 
 export interface ExecutionInput {
@@ -269,6 +269,11 @@ export function indicatorsOf(m: CoachingMetrics) {
       "최소 목표시간 충족률",
       week && week.setDays > 0 ? (week.metDays / week.setDays) * 100 : null,
     ),
+    // 자료 출처가 없는 지표(결정 4). 항상 비어 있어 평균에서 빠지고 근거 수의 분모에만 든다.
+    goalGap: make("목표관리", "이상 목표대학 격차 점수", null),
+    growthTalent: make("성장설계", "대학 인재상 일치도", null),
+    growthNear: make("성장설계", "대주제 근접 비율", null),
+    perfLink: make("수행평가", "전공 연결 비율", null),
     goalNaesinChange: make(
       "목표관리",
       "입력 내신 변화",
@@ -353,13 +358,13 @@ export const AXIS_DEFS: AxisDef[] = [
     key: "readiness",
     name: "목표대학 준비도",
     mainServices: main("goal", "growth"),
-    indicators: ["dxStrategy", "dxSubject"],
+    indicators: ["goalGap", "growthTalent", "dxStrategy", "dxSubject"],
   },
   {
     key: "careerLink",
     name: "진로 연결도",
     mainServices: main("growth", "performance", "inquiry"),
-    indicators: ["inquiryFit", "dxActivity"],
+    indicators: ["growthNear", "perfLink", "inquiryFit", "dxActivity"],
   },
   {
     key: "performance",
@@ -451,4 +456,304 @@ export function computeAxes(m: CoachingMetrics): AxesResult {
     strongest: pick((a, b) => a > b),
     weakest: pick((a, b) => a < b),
   };
+}
+
+// ---- 5대 역량 ----------------------------------------------------------------------------------
+
+export type CompetencyKey =
+  | "academic"
+  | "career"
+  | "inquiry"
+  | "community"
+  | "potential";
+
+const COMPETENCY_DEFS: {
+  key: CompetencyKey;
+  name: string;
+  indicators: IndicatorKey[];
+  /** 점수를 못 낼 때 화면에 대신 쓰는 말(연결표 r37-q1). */
+  fallback?: string;
+}[] = [
+  {
+    key: "academic",
+    name: "학업역량",
+    indicators: [
+      "dxExecution",
+      "dxSubject",
+      "goalAchievement",
+      "perfScore",
+      "growthA",
+    ],
+  },
+  {
+    key: "career",
+    name: "진로역량",
+    indicators: [
+      "growthB",
+      "growthTalent",
+      "growthNear",
+      "perfLink",
+      "dxStrategy",
+    ],
+  },
+  {
+    key: "inquiry",
+    name: "탐구역량",
+    indicators: ["growthC", "inquiryReport", "inquiryFit", "dxInquiry"],
+  },
+  {
+    key: "community",
+    name: "공동체역량",
+    indicators: ["growthD"],
+    fallback: "담임 관찰로 보완",
+  },
+  {
+    key: "potential",
+    name: "발전가능성",
+    indicators: [
+      "growthE",
+      "growthCurve",
+      "dxTrend",
+      "goalNaesinChange",
+      "goalMockChange",
+    ],
+  },
+];
+
+export interface Competency {
+  key: CompetencyKey;
+  name: string;
+  score: number | null;
+  basisUsed: number;
+  basisTotal: number;
+  /** 점수에 쓴 근거. "서비스 지표" 모양. */
+  evidence: string[];
+  fallback?: string;
+}
+
+/** 대학 평가 5대 역량(연결표 r23~r42). 근거 수는 쓴 지표 수와 전체 지표 수다. */
+export function computeCompetencies(m: CoachingMetrics): Competency[] {
+  const indicators = indicatorsOf(m);
+  return COMPETENCY_DEFS.map((def) => {
+    const have = def.indicators
+      .map((k) => indicators[k])
+      .filter((i) => i.score !== null);
+    const avg = average(have.map((i) => i.score));
+    return {
+      key: def.key,
+      name: def.name,
+      score: avg === null ? null : roundHalfUp(avg),
+      basisUsed: have.length,
+      basisTotal: def.indicators.length,
+      evidence: have.map((i) => `${i.service} ${i.name}`),
+      ...(avg === null && def.fallback ? { fallback: def.fallback } : {}),
+    };
+  });
+}
+
+// ---- 종합 신호와 문장 --------------------------------------------------------------------------
+
+export type Signal = "focus" | "caution" | "insufficient" | "stable";
+
+export interface Verdicts {
+  execution: Verdict;
+  learning: Verdict;
+  linkage: Verdict;
+}
+
+const VERDICT_LABEL: Record<VerdictLevel, string> = {
+  good: "양호",
+  caution: "주의",
+  risk: "위험",
+  no_data: "자료 없음",
+};
+
+/**
+ * 종합 코칭 신호(문구표 r17~r22). 심각 수 = (학습역량 위험이면 1) + 점수가 있는 축 중 50점 미만 축 수.
+ * 신호 아래 줄은 세 판정을 쉼표로 잇는다(결정 6).
+ */
+export function signalOf(
+  verdicts: Verdicts,
+  axes: { score: number | null }[],
+): { signal: Signal; subLine: string } {
+  const scores = axes
+    .map((a) => a.score)
+    .filter((s): s is number => s !== null);
+  const severe =
+    (verdicts.learning.level === "risk" ? 1 : 0) +
+    scores.filter((s) => s < 50).length;
+  const subLine = `실행 ${VERDICT_LABEL[verdicts.execution.level]}, 학습역량 ${VERDICT_LABEL[verdicts.learning.level]}, 연계 ${VERDICT_LABEL[verdicts.linkage.level]}`;
+  const signal = ((): Signal => {
+    if (verdicts.execution.level === "risk" || severe >= 2) return "focus";
+    if (
+      severe === 1 ||
+      verdicts.execution.level === "caution" ||
+      verdicts.learning.level === "caution" ||
+      scores.some((s) => s < 70)
+    ) {
+      return "caution";
+    }
+    if (
+      verdicts.learning.level === "no_data" ||
+      verdicts.execution.level === "no_data"
+    ) {
+      return "insufficient";
+    }
+    return "stable";
+  })();
+  return { signal, subLine };
+}
+
+/** 조사 은/는(문구표 r204). 한글은 받침 유무, 숫자 0, 1, 3, 6, 7, 8 로 끝나면 받침 있음. 따옴표와 괄호는 무시한다. */
+function topicParticle(word: string): "은" | "는" {
+  const last = [...word.replace(/["'()[\]“”‘’]/g, "")].pop() ?? "";
+  if (/[0-9]/.test(last)) return "013678".includes(last) ? "은" : "는";
+  const code = last.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) {
+    return (code - 0xac00) % 28 === 0 ? "는" : "은";
+  }
+  return "는";
+}
+
+/** 한줄 진단(문구표 r180~r183). 산출 축 수에 따라 세 문장 중 하나에 빈 축 문구가 붙는다. */
+export function summaryLine(result: AxesResult): string {
+  const scored = result.axes.filter((a) => a.status === "scored");
+  const unused = result.axes.filter((a) => a.status === "not_used");
+  const beforeEval = result.axes.filter((a) => a.status === "before_eval");
+  const { strongest, weakest } = result;
+  if (scored.length === 0 || !strongest || !weakest) {
+    return "6종 서비스 결과가 아직 없어 6축 종합 진단을 산출할 수 없습니다.";
+  }
+  const causeText = (a: AxisResult) =>
+    a.cause
+      ? `${a.cause.service} ${a.cause.name} ${roundHalfUp(a.cause.score as number)}점`
+      : "";
+
+  let head: string;
+  if (scored.length === 1) {
+    head = `6축 중 1축만 산출되었습니다(${weakest.name} ${weakest.score}점, 가장 낮은 근거 ${causeText(weakest)}).`;
+  } else {
+    const avg = roundHalfUp(average(scored.map((a) => a.score)) as number);
+    const level =
+      avg >= 70
+        ? "전반적으로 안정적입니다"
+        : avg >= 50
+          ? "보완이 필요한 축이 있습니다"
+          : "전반적인 보강이 필요합니다";
+    head = `6축 중 ${scored.length}축 산출, 평균 ${avg}점으로 ${level}. 가장 강한 축은 ${strongest.name}(${strongest.score}점), 가장 약한 축은 ${weakest.name}(${weakest.score}점, 원인 ${causeText(weakest)})입니다.`;
+  }
+
+  const names = (axes: AxisResult[]) => axes.map((a) => a.name).join(", ");
+  const parts = [head];
+  if (unused.length > 0) {
+    const services = [...new Set(unused.flatMap((a) => a.missingServices))];
+    parts.push(
+      `${names(unused)}${topicParticle(names(unused))} ${services.join(", ")} 결과가 없어 비어 있습니다.`,
+    );
+  }
+  if (beforeEval.length > 0) {
+    parts.push(
+      `${names(beforeEval)}${topicParticle(names(beforeEval))} 평가 결과가 나오기 전입니다.`,
+    );
+  }
+  return parts.join(" ");
+}
+
+// ---- 코칭 유형 ---------------------------------------------------------------------------------
+
+export type CoachingTypeCode =
+  | "C1"
+  | "C2"
+  | "C3"
+  | "E1"
+  | "D1"
+  | "D2"
+  | "E2"
+  | "K"
+  | "F1"
+  | "H"
+  | "I"
+  | "J"
+  | "A"
+  | "B"
+  | "F2"
+  | "G1"
+  | "G2";
+
+const TYPE_NAME: Record<CoachingTypeCode, string> = {
+  C1: "이탈 복귀",
+  C2: "최소선 회복",
+  C3: "목표 재설정",
+  E1: "기초 보강",
+  D1: "실행 부족",
+  D2: "실행 편차",
+  E2: "약점 보강",
+  K: "목표대학 격차",
+  F1: "연결 보강",
+  H: "수행평가 보완",
+  I: "탐구 보완",
+  J: "자기평가 보완",
+  A: "진단 필요",
+  B: "목표 설정 필요",
+  F2: "탐구 시작",
+  G1: "탐구 확장",
+  G2: "심화 도전",
+};
+
+const typeOf = (code: CoachingTypeCode) => ({ code, name: TYPE_NAME[code] });
+
+const WEAK_AXIS_TYPE: Record<
+  Exclude<AxisKey, "execution">,
+  CoachingTypeCode
+> = {
+  readiness: "K",
+  careerLink: "F1",
+  performance: "H",
+  inquiry: "I",
+  selfAssessment: "J",
+};
+
+export interface CoachingTypeInput {
+  verdicts: Verdicts;
+  axes: AxisResult[];
+  achievementPct: number | null;
+  usesInquiry: boolean;
+}
+
+/** 코칭 유형(문구표 r23~r90, 판정 순서 r91): 실행 위험, 학습역량 위험, 70점 미만 최저 축, 그 밖 순서. */
+export function coachingTypeOf(input: CoachingTypeInput) {
+  const { verdicts, axes, achievementPct } = input;
+  const executionType = (): CoachingTypeCode =>
+    (achievementPct ?? 100) < 70 ? "D1" : "D2";
+
+  // ① 실행 위험
+  if (verdicts.execution.level === "risk") {
+    if (verdicts.execution.reason === "미접속") return typeOf("C1");
+    if (verdicts.execution.reason === "최소 미충족") return typeOf("C2");
+    return typeOf("C3");
+  }
+  // ② 학습역량 위험
+  if (verdicts.learning.level === "risk") return typeOf("E1");
+  // ③ 70점 미만 최저 축(동점이면 레이더 순서, 미이용과 평가 전 축은 뺀다)
+  const under70 = axes.filter(
+    (a) => a.status === "scored" && (a.score as number) < 70,
+  );
+  const lowest = under70.reduce<AxisResult | null>(
+    (best, a) =>
+      best === null || (a.score as number) < (best.score as number) ? a : best,
+    null,
+  );
+  if (lowest) {
+    if (lowest.key !== "execution") return typeOf(WEAK_AXIS_TYPE[lowest.key]);
+    return lowest.cause?.service === "목표관리"
+      ? typeOf(executionType())
+      : typeOf("E2");
+  }
+  // ④ 70점 미만 축 없음
+  if (verdicts.learning.level === "no_data") return typeOf("A");
+  if (verdicts.execution.level === "no_data") return typeOf("B");
+  if (verdicts.execution.level === "caution") return typeOf(executionType());
+  if (verdicts.learning.level === "caution") return typeOf("E2");
+  if (verdicts.linkage.level === "no_data") return typeOf("F2");
+  return typeOf(input.usesInquiry ? "G1" : "G2");
 }

@@ -2,14 +2,23 @@
 
 import { describe, expect, test } from "vitest";
 import {
+  AXIS_DEFS,
+  type AxisKey,
+  type AxisResult,
   type CoachingMetrics,
+  coachingTypeOf,
   computeAxes,
+  computeCompetencies,
   executionVerdict,
   type GoalDay,
+  type Indicator,
   learningVerdict,
   linkageVerdict,
+  signalOf,
   summarizeGoalWeek,
+  summaryLine,
   urgencyOf,
+  type VerdictLevel,
 } from "./coaching.js";
 
 // 오늘(11.02 월)부터 거꾸로 7일. 월~토는 목표 있는 날, 일요일(11.01)은 목표 없음.
@@ -339,5 +348,391 @@ describe("computeAxes (연결표 r2~r19, 결정 4: 자료 없는 지표는 분�
       score: 63,
       cause: { service: "심화탐구", name: "주제 적합도", score: 50 },
     });
+  });
+});
+
+describe("computeCompetencies (연결표 r23~r42)", () => {
+  const byKey = (m: CoachingMetrics) =>
+    Object.fromEntries(computeCompetencies(m).map((c) => [c.key, c]));
+
+  test("the academic competency averages five indicators and reports the basis count", () => {
+    const academic = byKey(
+      metrics({
+        growth: {
+          axes: {
+            A: { verdict: "confirmed", count: 5, required: 5 },
+            B: null,
+            C: null,
+            D: null,
+            E: null,
+          },
+          curve: null,
+        },
+      }),
+    ).academic;
+    // 학습 실행 역량 62, 교과 관리 74, 달성율 72, 평가 점수 73, 성장설계 확인됨 85
+    expect(academic).toMatchObject({ score: 73, basisUsed: 5, basisTotal: 5 });
+    expect(academic?.evidence).toContain("성장설계 학업역량 판정");
+  });
+
+  test("a basis without data stays out of the average and the used count (결정 4)", () => {
+    const inquiry = byKey(metrics()).inquiry;
+    // 주제 적합도 50 과 학습진단 탐구 심화 80 만 있다. 성장설계 판정과 평가 점수는 없다
+    expect(inquiry).toMatchObject({ score: 65, basisUsed: 2, basisTotal: 4 });
+  });
+
+  test("a growth axis verdict in caution converts to 25 plus 60 times records over required (r27)", () => {
+    const m = metrics({
+      growth: {
+        axes: {
+          A: null,
+          B: null,
+          C: { verdict: "caution", count: 1, required: 2 },
+          D: null,
+          E: null,
+        },
+        curve: null,
+      },
+    });
+    // 25 + 60 x 1/2 = 55, 주제 적합도 50, 탐구 심화 80
+    expect(byKey(m).inquiry?.score).toBe(62);
+  });
+
+  test("an optional first-year career axis without a record is dropped (결정 4)", () => {
+    const m = metrics({
+      growth: {
+        axes: {
+          A: null,
+          B: { verdict: "none", count: 0, required: 1, optional: true },
+          C: null,
+          D: null,
+          E: null,
+        },
+        curve: null,
+      },
+    });
+    expect(byKey(m).career?.basisUsed).toBe(1);
+  });
+
+  test("the community competency has no score and says the homeroom teacher fills it in when growth has no verdict (r37)", () => {
+    expect(byKey(metrics()).community).toMatchObject({
+      score: null,
+      basisUsed: 0,
+      basisTotal: 1,
+      fallback: "담임 관찰로 보완",
+    });
+  });
+
+  test("the potential competency maps grade curves and diagnosis trends to scores (r39, r40)", () => {
+    const m = metrics({
+      growth: {
+        axes: { A: null, B: null, C: null, D: null, E: null },
+        curve: "falling",
+      },
+    });
+    // 성적 곡선 하향 25, 학습진단 성적 흐름 상승 80
+    expect(byKey(m).potential).toMatchObject({ score: 53, basisUsed: 2 });
+  });
+});
+
+describe("signalOf (문구표 r17~r22)", () => {
+  const axisScores = (...scores: (number | null)[]) =>
+    scores.map((score) => ({ score }));
+  const verdicts = (
+    execution: VerdictLevel,
+    learning: VerdictLevel,
+    linkage: VerdictLevel,
+  ) => ({
+    execution: { level: execution },
+    learning: { level: learning },
+    linkage: { level: linkage },
+  });
+
+  test("an execution risk is focus coaching", () => {
+    expect(
+      signalOf(verdicts("risk", "good", "good"), axisScores(90, 90)).signal,
+    ).toBe("focus");
+  });
+
+  test("two severe counts is focus coaching and a learning risk counts as one", () => {
+    expect(
+      signalOf(verdicts("good", "risk", "good"), axisScores(49, 90)).signal,
+    ).toBe("focus");
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(49, 40)).signal,
+    ).toBe("focus");
+  });
+
+  test("one severe count, an execution or learning caution, or any axis under 70 is caution", () => {
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(49, 90)).signal,
+    ).toBe("caution");
+    expect(
+      signalOf(verdicts("caution", "good", "good"), axisScores(90)).signal,
+    ).toBe("caution");
+    expect(
+      signalOf(verdicts("good", "caution", "good"), axisScores(90)).signal,
+    ).toBe("caution");
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(69.9, 90)).signal,
+    ).toBe("caution");
+  });
+
+  test("no diagnosis or no execution data is insufficient data", () => {
+    expect(
+      signalOf(verdicts("no_data", "good", "good"), axisScores(90)).signal,
+    ).toBe("insufficient");
+    expect(
+      signalOf(verdicts("good", "no_data", "good"), axisScores(90)).signal,
+    ).toBe("insufficient");
+  });
+
+  test("anything else is stable, and axes without a score are not counted", () => {
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(90, null)).signal,
+    ).toBe("stable");
+  });
+
+  test("the sub-line lists the three verdicts with commas (r22, 결정 6)", () => {
+    expect(
+      signalOf(verdicts("caution", "caution", "caution"), axisScores(60))
+        .subLine,
+    ).toBe("실행 주의, 학습역량 주의, 연계 주의");
+    expect(
+      signalOf(verdicts("no_data", "no_data", "risk"), axisScores(40)).subLine,
+    ).toBe("실행 자료 없음, 학습역량 자료 없음, 연계 위험");
+  });
+});
+
+describe("summaryLine (문구표 r180~r183, r204)", () => {
+  const axis = (
+    key: AxisKey,
+    name: string,
+    score: number | null,
+    status: "scored" | "not_used" | "before_eval",
+    extra: Partial<AxisResult> = {},
+  ): AxisResult => ({
+    key,
+    name,
+    score,
+    status,
+    missingServices: [],
+    cause: null,
+    ...extra,
+  });
+  const pick = (axes: AxisResult[]) => {
+    const scored = axes.filter((a) => a.status === "scored");
+    return {
+      axes,
+      strongest: scored.reduce((a, b) =>
+        (b.score as number) > (a.score as number) ? b : a,
+      ),
+      weakest: scored.reduce((a, b) =>
+        (b.score as number) < (a.score as number) ? b : a,
+      ),
+    };
+  };
+
+  test("with no scored axis the sentence says the diagnosis cannot be produced yet", () => {
+    expect(
+      summaryLine({
+        axes: [axis("execution", "학습 실행력", null, "not_used")],
+        strongest: null,
+        weakest: null,
+      }),
+    ).toBe("6종 서비스 결과가 아직 없어 6축 종합 진단을 산출할 수 없습니다.");
+  });
+
+  test("with one scored axis the sentence names the axis and its lowest basis", () => {
+    const cause = {
+      service: "학습진단",
+      name: "활동 연계",
+      score: 40,
+    } as const;
+    expect(
+      summaryLine(
+        pick([axis("careerLink", "진로 연결도", 40, "scored", { cause })]),
+      ),
+    ).toBe(
+      "6축 중 1축만 산출되었습니다(진로 연결도 40점, 가장 낮은 근거 학습진단 활동 연계 40점).",
+    );
+  });
+
+  test("with two or more axes the sentence gives the average level, the strongest and the weakest axis, then the empty axes", () => {
+    const cause = {
+      service: "수행평가",
+      name: "전공 연결 비율",
+      score: 33,
+    } as const;
+    const result = pick([
+      axis("execution", "학습 실행력", 67, "scored"),
+      axis("readiness", "목표대학 준비도", 76, "scored"),
+      axis("careerLink", "진로 연결도", 60, "scored", { cause }),
+      axis("performance", "수행평가 완성도", 73, "scored"),
+      axis("inquiry", "탐구 완성도", null, "before_eval"),
+      axis("selfAssessment", "자기평가 충실도", null, "before_eval"),
+    ]);
+    expect(summaryLine(result)).toBe(
+      "6축 중 4축 산출, 평균 69점으로 보완이 필요한 축이 있습니다. 가장 강한 축은 목표대학 준비도(76점), 가장 약한 축은 진로 연결도(60점, 원인 수행평가 전공 연결 비율 33점)입니다. 탐구 완성도, 자기평가 충실도는 평가 결과가 나오기 전입니다.",
+    );
+  });
+
+  test("the level words split at 70 and 50", () => {
+    const two = (a: number, b: number) =>
+      summaryLine(
+        pick([
+          axis("execution", "학습 실행력", a, "scored"),
+          axis("readiness", "목표대학 준비도", b, "scored"),
+        ]),
+      );
+    expect(two(70, 70)).toContain("평균 70점으로 전반적으로 안정적입니다");
+    expect(two(50, 50)).toContain("평균 50점으로 보완이 필요한 축이 있습니다");
+    expect(two(49, 49)).toContain("평균 49점으로 전반적인 보강이 필요합니다");
+  });
+
+  test("unused axes list their main services first and the particle follows the last syllable", () => {
+    const result = pick([
+      axis("readiness", "목표대학 준비도", 80, "scored"),
+      axis("careerLink", "진로 연결도", 70, "scored"),
+      axis("execution", "학습 실행력", null, "not_used", {
+        missingServices: ["학습진단", "목표관리"],
+      }),
+      axis("inquiry", "탐구 완성도", null, "not_used", {
+        missingServices: ["심화탐구"],
+      }),
+      axis("selfAssessment", "자기평가 충실도", null, "before_eval"),
+    ]);
+    expect(summaryLine(result)).toMatch(
+      / 학습 실행력, 탐구 완성도는 학습진단, 목표관리, 심화탐구 결과가 없어 비어 있습니다\. 자기평가 충실도는 평가 결과가 나오기 전입니다\.$/,
+    );
+  });
+});
+
+describe("coachingTypeOf (문구표 r91 판정 순서)", () => {
+  const axes = (scores: Partial<Record<AxisKey, number | null>>) =>
+    AXIS_DEFS.map((d) => ({
+      key: d.key,
+      name: d.name,
+      score: scores[d.key] ?? null,
+      status: (scores[d.key] ?? null) === null ? "not_used" : "scored",
+      missingServices: [],
+      cause: null,
+    })) as AxisResult[];
+  const input = (over: Partial<Parameters<typeof coachingTypeOf>[0]> = {}) => ({
+    verdicts: verdicts("good", "good", "good"),
+    axes: axes({ execution: 80, readiness: 80 }),
+    achievementPct: 80,
+    usesInquiry: true,
+    ...over,
+  });
+  const verdicts = (
+    execution: VerdictLevel,
+    learning: VerdictLevel,
+    linkage: VerdictLevel,
+    reason?: string,
+  ) => ({
+    execution: { level: execution, reason },
+    learning: { level: learning },
+    linkage: { level: linkage },
+  });
+
+  test("an execution risk is C1, C2 or C3 by its reason", () => {
+    const code = (reason: string) =>
+      coachingTypeOf(
+        input({ verdicts: verdicts("risk", "good", "good", reason) }),
+      ).code;
+    expect(code("미접속")).toBe("C1");
+    expect(code("최소 미충족")).toBe("C2");
+    expect(code("달성율 낮음")).toBe("C3");
+  });
+
+  test("a learning risk is E1", () => {
+    expect(
+      coachingTypeOf(input({ verdicts: verdicts("good", "risk", "good") })),
+    ).toEqual({ code: "E1", name: "기초 보강" });
+  });
+
+  test("the lowest axis under 70 decides the type, ties go to the radar order", () => {
+    const code = (scores: Partial<Record<AxisKey, number>>) =>
+      coachingTypeOf(input({ axes: axes(scores) })).code;
+    expect(code({ readiness: 60, careerLink: 90 })).toBe("K");
+    expect(code({ careerLink: 60 })).toBe("F1");
+    expect(code({ performance: 60 })).toBe("H");
+    expect(code({ inquiry: 60 })).toBe("I");
+    expect(code({ selfAssessment: 60 })).toBe("J");
+    expect(code({ readiness: 60, careerLink: 60 })).toBe("K");
+  });
+
+  test("the lowest axis being execution gives D1 or D2 by the achievement when the cause is a goal indicator, E2 for a diagnosis cause", () => {
+    const executionLowest = (cause: Indicator, achievementPct: number) =>
+      coachingTypeOf(
+        input({
+          axes: axes({ execution: 50 }).map((a) =>
+            a.key === "execution" ? { ...a, cause } : a,
+          ),
+          achievementPct,
+        }),
+      ).code;
+    const goalCause = {
+      service: "목표관리",
+      name: "목표시간 달성율",
+      score: 50,
+    } as const;
+    const diagCause = {
+      service: "학습진단",
+      name: "학습 실행 역량",
+      score: 50,
+    } as const;
+    expect(executionLowest(goalCause, 69)).toBe("D1");
+    expect(executionLowest(goalCause, 70)).toBe("D2");
+    expect(executionLowest(diagCause, 80)).toBe("E2");
+  });
+
+  test("with every axis at 70 or more the order is A, B, D, E2, F2, G1, G2", () => {
+    const base = {
+      axes: axes({ execution: 80, readiness: 80, careerLink: 80 }),
+    };
+    expect(
+      coachingTypeOf(
+        input({ ...base, verdicts: verdicts("good", "no_data", "good") }),
+      ).code,
+    ).toBe("A");
+    expect(
+      coachingTypeOf(
+        input({ ...base, verdicts: verdicts("no_data", "good", "good") }),
+      ).code,
+    ).toBe("B");
+    expect(
+      coachingTypeOf(
+        input({
+          ...base,
+          verdicts: verdicts("caution", "good", "good"),
+          achievementPct: 65,
+        }),
+      ).code,
+    ).toBe("D1");
+    expect(
+      coachingTypeOf(
+        input({
+          ...base,
+          verdicts: verdicts("caution", "good", "good"),
+          achievementPct: 72,
+        }),
+      ).code,
+    ).toBe("D2");
+    expect(
+      coachingTypeOf(
+        input({ ...base, verdicts: verdicts("good", "caution", "good") }),
+      ).code,
+    ).toBe("E2");
+    expect(
+      coachingTypeOf(
+        input({ ...base, verdicts: verdicts("good", "good", "no_data") }),
+      ).code,
+    ).toBe("F2");
+    expect(coachingTypeOf(input(base)).code).toBe("G1");
+    expect(coachingTypeOf(input({ ...base, usesInquiry: false })).code).toBe(
+      "G2",
+    );
   });
 });
