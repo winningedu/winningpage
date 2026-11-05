@@ -657,3 +657,142 @@ describe("W13 학생 조회 필터", () => {
     expect(klassSelect.value).toBe("");
   });
 });
+
+const HISTORY_DIALOG =
+  "GET /api/console/students/enrollment-history?studentId=s1";
+const historyBody = (over: Record<string, unknown> = {}) => ({
+  studentId: "s1",
+  name: "김서연",
+  linkedServices: ["goal", "diagnosis", "inquiry"],
+  years: [
+    {
+      schoolYear: 2026,
+      grade: "고2",
+      groupName: null,
+      className: "3",
+      number: 1,
+      current: true,
+    },
+    {
+      schoolYear: 2025,
+      grade: "고1",
+      groupName: "A레벨",
+      className: "5",
+      number: 12,
+      current: false,
+    },
+  ],
+  canOpenCoaching: true,
+  ...over,
+});
+
+describe("W13a 학년도별 이력 창", () => {
+  const openHistory = async (name = "김서연") => {
+    await screen.findByText("검색 결과 2명");
+    fireEvent.click(screen.getByText(name));
+    return screen.findByRole("dialog");
+  };
+
+  it("학년도별 학년그룹, 반, 번호와 연결된 서비스를 보이고 코칭으로 보낸다", async () => {
+    stubStudents({ [HISTORY_DIALOG]: { body: historyBody() } });
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=students",
+    );
+
+    const dialog = await openHistory();
+
+    expect(
+      await within(dialog).findByText("김서연 학년도별 이력"),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "연결된 서비스 데이터: 학습진단, 목표관리, 심화탐구(3/6). 학년이나 반이 바뀌어도 기록은 그대로 이어져요",
+      ),
+    ).toBeTruthy();
+    for (const head of ["학년도", "학년그룹, 그룹", "반", "번호"]) {
+      expect(
+        within(dialog).getByRole("columnheader", { name: head }),
+      ).toBeTruthy();
+    }
+    const current = within(dialog)
+      .getByText("2026")
+      .closest("tr") as HTMLElement;
+    expect(within(current).getByText("2학년, 그룹 없음")).toBeTruthy();
+    expect(within(current).getByText("3반")).toBeTruthy();
+    expect(within(current).getByText("1번")).toBeTruthy();
+    expect(within(current).getByText("현재")).toBeTruthy();
+    const past = within(dialog).getByText("2025").closest("tr") as HTMLElement;
+    expect(within(past).getByText("1학년, A레벨")).toBeTruthy();
+    expect(within(past).queryByText("현재")).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "코칭" }));
+
+    expect(await screen.findByText("코칭 화면")).toBeTruthy();
+    expect(router.state.location.pathname + router.state.location.search).toBe(
+      "/teacher/coaching?studentId=s1",
+    );
+  });
+
+  it("닫기를 누르면 창이 닫힌다", async () => {
+    stubStudents({ [HISTORY_DIALOG]: { body: historyBody() } });
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    const dialog = await openHistory();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "닫기" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("서버가 403 을 주면 권한 안내를 보이고 코칭을 막는다(목록의 이름을 제목에 쓴다)", async () => {
+    stubStudents({
+      [HISTORY_DIALOG]: {
+        status: 403,
+        body: { error: { code: "FORBIDDEN", message: "x" } },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    const dialog = await openHistory();
+
+    expect(
+      await within(dialog).findByText(
+        "이 학생의 코칭 화면을 열람할 권한이 없습니다.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "현재 담임교사와 학교 전체 관리자만 열람할 수 있습니다.",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("김서연 학년도별 이력")).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "코칭",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it("코칭을 열 수 없는 학생이면 이력과 함께 권한 안내를 보인다", async () => {
+    stubStudents({
+      [HISTORY_DIALOG]: { body: historyBody({ canOpenCoaching: false }) },
+    });
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    const dialog = await openHistory();
+
+    expect(
+      await within(dialog).findByText(
+        "이 학생의 코칭 화면을 열람할 권한이 없습니다.",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("2025")).toBeTruthy();
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "코칭",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+});

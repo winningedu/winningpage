@@ -1,5 +1,6 @@
 // W13 학생 조회와 이력 탭. 담임은 담당 학급만, 관리자는 전교를 보며(서버가 범위와 이름 가림을 정한다) 관리자만 직접 변경한다.
 
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
 import { slotLabel } from "./format";
+import HistoryDialog from "./HistoryDialog";
 import NameCell from "./NameCell";
 import StudentFilters from "./StudentFilters";
 import { useClasses } from "./useClasses";
@@ -62,6 +64,7 @@ export default function StudentListTab() {
     classId: searchParams.get("classId") ?? "",
     q: searchParams.get("q") ?? "",
   };
+  const [opened, setOpened] = useState<StudentItem | null>(null);
   const classes = useClasses();
   const list = usePagedList<StudentItem>(
     "/api/console/students/history",
@@ -100,9 +103,15 @@ export default function StudentListTab() {
         </TableHeader>
         <TableBody>
           {list.data.items.map((item) => (
-            <TableRow key={item.studentId}>
+            <TableRow
+              key={item.studentId}
+              onClick={() => setOpened(item)}
+              className="cursor-pointer"
+            >
               <TableCell>
-                <NameCell name={item.name} />
+                <button type="button" className="text-left">
+                  <NameCell name={item.name} />
+                </button>
               </TableCell>
               <TableCell>
                 {slotLabel({
@@ -139,6 +148,13 @@ export default function StudentListTab() {
           total={list.data.total}
           pageSize={PAGE_SIZE}
           onChange={setPage}
+        />
+      )}
+      {opened && (
+        <HistoryDialog
+          studentId={opened.studentId}
+          listName={opened.name}
+          onClose={() => setOpened(null)}
         />
       )}
     </section>
