@@ -53,3 +53,31 @@ $$;
 
 revoke all on function public.fn_teacher_attach_account(uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function public.fn_teacher_attach_account(uuid, uuid, text, text) to service_role;
+
+-- 첫 비밀번호 설정(또는 변경)이 끝났음을 기록한다: 임시 해시와 변경 필요 상태를 지우고 password_set_at 을 남긴다.
+-- 비밀번호 자체는 Auth 가 가지므로 여기 오지 않는다. 계정이 없는 교사는 WC089.
+create function public.fn_teacher_password_set(p_teacher_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+begin
+  select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
+  if not found then
+    raise exception 'teacher not found' using errcode = 'WC088';
+  end if;
+  if v_t.profile_id is null then
+    raise exception 'teacher has no account' using errcode = 'WC089';
+  end if;
+
+  update public.teachers
+     set temp_password_hash = null, must_change_password = false, password_set_at = now()
+   where id = p_teacher_id;
+end;
+$$;
+
+revoke all on function public.fn_teacher_password_set(uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_password_set(uuid) to service_role;

@@ -8902,6 +8902,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      fn_teacher_password_set: {
+        Args: { p_teacher_id: string };
+        Returns: undefined;
+      };
       fn_teacher_register: {
         Args: {
           p_actor: string;

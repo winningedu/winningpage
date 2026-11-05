@@ -143,6 +143,21 @@ select pg_temp.expect_error('이미 다른 계정이 붙은 교사에 다른 계
 select pg_temp.expect_error('없는 교사는 WC088',
   $$select public.fn_teacher_attach_account(gen_random_uuid(), (select id from au where k = 'h1'), 'TAAAAAAAZZZZZZ', 'x')$$, 'WC088');
 
+-- ---------------------------------------------------------------------
+-- fn_teacher_password_set
+-- ---------------------------------------------------------------------
+select public.fn_teacher_password_set((select id from t1 where k = 'h1'));
+select pg_temp.expect_bool('password_set 은 임시 해시와 변경 필요 상태를 지우고 설정 시각을 남긴다',
+  (select temp_password_hash is null and not must_change_password and password_set_at is not null
+     from public.teachers where id = (select id from t1 where k = 'h1')), true);
+select pg_temp.expect_error('비밀번호 설정 뒤에는 attach(재발급)가 WC090',
+  $$select public.fn_teacher_attach_account((select id from t1 where k = 'h1'), (select id from au where k = 'h1'),
+    (select login_id from public.teachers where id = (select id from t1 where k = 'h1')), 'x')$$, 'WC090');
+select pg_temp.expect_error('계정이 없는 교사의 password_set 은 WC089',
+  $$select public.fn_teacher_password_set(pg_temp.reg('ta', '계정없음', '01070000002', 'homeroom'))$$, 'WC089');
+select pg_temp.expect_error('없는 교사의 password_set 은 WC088',
+  $$select public.fn_teacher_password_set(gen_random_uuid())$$, 'WC088');
+
 -- @@SEGMENTS@@
 
 do $$ begin raise notice '=== b2b-teacher-accounts.spec: 전체 통과 ==='; end $$;
