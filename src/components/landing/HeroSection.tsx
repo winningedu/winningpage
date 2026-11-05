@@ -205,7 +205,7 @@ type HeroSectionProps = {
   showSideEmptyNotice?: boolean;
 };
 
-const EMPTY_BANNER_NOTICE = "배너가 없습니다";
+const EMPTY_BANNER_NOTICE = "배너가 없어요";
 
 /**
  * 히어로 섹션 (명세 3.1)

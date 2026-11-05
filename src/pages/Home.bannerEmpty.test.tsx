@@ -1,5 +1,5 @@
 // 홈 배너 빈 상태(기획 #26): 노출 기간과 대상을 거른 뒤 큰 배너/작은 배너가 0건이면
-// 스쿨멘토는 각 영역에 '배너가 없습니다'를 보여준다. 조회가 끝나기 전에는 보여주지 않고,
+// 스쿨멘토는 각 영역에 '배너가 없어요'를 보여준다. 조회가 끝나기 전에는 보여주지 않고,
 // 위닝처럼 안내 스위치가 꺼진 사이트는 기존대로 영역을 숨긴다.
 import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
@@ -82,8 +82,8 @@ describe("Home 배너 빈 상태 안내", () => {
 
     const main = await screen.findByRole("region", { name: "메인 배너" });
     const side = await screen.findByRole("region", { name: "이벤트 배너" });
-    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
-    expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(main).getByText("배너가 없어요")).toBeInTheDocument();
+    expect(within(side).getByText("배너가 없어요")).toBeInTheDocument();
   });
 
   test("작은 배너만 있으면 큰 배너 영역에만 안내 문구를 보여준다", async () => {
@@ -93,9 +93,9 @@ describe("Home 배너 빈 상태 안내", () => {
     renderHome();
 
     const main = await screen.findByRole("region", { name: "메인 배너" });
-    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(main).getByText("배너가 없어요")).toBeInTheDocument();
     expect(await screen.findByAltText("작은배너")).toBeInTheDocument();
-    expect(screen.getAllByText("배너가 없습니다")).toHaveLength(1);
+    expect(screen.getAllByText("배너가 없어요")).toHaveLength(1);
   });
 
   test("큰 배너만 있으면 작은 배너 영역에만 안내 문구를 보여준다", async () => {
@@ -103,9 +103,9 @@ describe("Home 배너 빈 상태 안내", () => {
     renderHome();
 
     const side = await screen.findByRole("region", { name: "이벤트 배너" });
-    expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(side).getByText("배너가 없어요")).toBeInTheDocument();
     expect(await screen.findByAltText("큰배너")).toBeInTheDocument();
-    expect(screen.getAllByText("배너가 없습니다")).toHaveLength(1);
+    expect(screen.getAllByText("배너가 없어요")).toHaveLength(1);
   });
 
   test("노출 기간이 지났거나 특정 기관 전용인 배너만 남으면 안내 문구를 보여준다", async () => {
@@ -126,7 +126,7 @@ describe("Home 배너 빈 상태 안내", () => {
     renderHome();
 
     const main = await screen.findByRole("region", { name: "메인 배너" });
-    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(main).getByText("배너가 없어요")).toBeInTheDocument();
     expect(screen.queryByAltText("기간 지난 배너")).toBeNull();
     expect(screen.queryByAltText("기관 전용 배너")).toBeNull();
   });
@@ -140,12 +140,12 @@ describe("Home 배너 빈 상태 안내", () => {
 
     // 작은 배너 조회는 이미 끝났으므로 그 영역은 안내가 뜨고, 큰 배너는 아직 비어 있다.
     const side = await screen.findByRole("region", { name: "이벤트 배너" });
-    expect(within(side).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(side).getByText("배너가 없어요")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "메인 배너" })).toBeNull();
 
     release();
     const main = await screen.findByRole("region", { name: "메인 배너" });
-    expect(within(main).getByText("배너가 없습니다")).toBeInTheDocument();
+    expect(within(main).getByText("배너가 없어요")).toBeInTheDocument();
   });
 
   test("안내 스위치가 꺼진 사이트(위닝)는 배너가 없으면 영역을 렌더하지 않는다", async () => {
@@ -153,7 +153,7 @@ describe("Home 배너 빈 상태 안내", () => {
     renderHome();
 
     expect(await screen.findByText("등록된 공지사항이 없습니다.")).toBeTruthy();
-    expect(screen.queryByText("배너가 없습니다")).toBeNull();
+    expect(screen.queryByText("배너가 없어요")).toBeNull();
     expect(screen.queryByRole("region", { name: "메인 배너" })).toBeNull();
     expect(screen.queryByRole("region", { name: "이벤트 배너" })).toBeNull();
   });
