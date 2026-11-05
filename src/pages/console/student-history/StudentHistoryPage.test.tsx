@@ -182,3 +182,69 @@ describe("W13 승인", () => {
     });
   });
 });
+
+describe("W13 승인 오류", () => {
+  it("번호가 이미 쓰이면 쓰는 학생을 안내 문구에 넣고 행은 남긴다", async () => {
+    stubPage(
+      {
+        [PENDING_URL]: {
+          body: pendingBody([request(1, { studentName: "김*연" })]),
+        },
+        [DECIDE]: {
+          status: 409,
+          body: {
+            error: {
+              code: "NUMBER_TAKEN",
+              message: "이미 사용 중인 번호예요.",
+            },
+            occupant: {
+              grade: "고2",
+              className: "3",
+              number: 7,
+              displayName: "윤*린",
+            },
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history");
+    await screen.findByText("승인 대기 1건");
+
+    fireEvent.click(within(row("김*연")).getByRole("button", { name: "승인" }));
+
+    expect(
+      await screen.findByText(
+        "이미 사용 중인 번호예요(2학년 3반 7번, 윤*린). 김*연 학생이 요청한 번호라 승인할 수 없어요. 거절 사유에 비어 있는 번호를 적어 다시 요청하게 해 주세요",
+      ),
+    ).toBeTruthy();
+    expect(row("김*연")).toBeTruthy();
+  });
+
+  it("다른 분이 먼저 처리했으면 안내를 보이고 목록을 다시 불러온다", async () => {
+    const calls = stubPage({
+      [DECIDE]: {
+        status: 409,
+        body: {
+          error: {
+            code: "VERSION_CONFLICT",
+            message: "다른 분이 먼저 바꿨어요. 새로 고침해 주세요.",
+          },
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+    await screen.findByText("승인 대기 2건");
+
+    fireEvent.click(
+      within(row("김서연")).getByRole("button", { name: "승인" }),
+    );
+
+    expect(
+      await screen.findByText("다른 분이 먼저 바꿨어요. 새로 고침해 주세요"),
+    ).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(calls.filter((c) => c.key === PENDING_URL)).toHaveLength(2),
+    );
+  });
+});
