@@ -75,14 +75,20 @@ create temp table fx (k text primary key, v uuid);
 insert into public.tenants (code, name, region, org_type, tier)
   values ('SFAAAAAA', 'sf-a', '서울', '학교', 'B');
 insert into fx select 'ta', id from public.tenants where code = 'SFAAAAAA';
+insert into public.tenants (code, name, region, org_type, tier)
+  values ('SFBBBBBB', 'sf-b', '서울', '학교', 'B');
+insert into fx select 'tb', id from public.tenants where code = 'SFBBBBBB';
 insert into fx values ('s1', pg_temp.mk_user('sf-s1@t.local'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
--- 학생당 한 행
+-- 기관과 학생당 한 행(결정 64): 같은 학생도 기관마다 따로 지정한다
 select pg_temp.expect_ok('지정 insert',
   $$insert into public.student_flags (student_id, tenant_id)
     values (pg_temp.fx('s1'), pg_temp.fx('ta'))$$);
-select pg_temp.expect_error('같은 학생을 두 번 지정하면 23505',
+select pg_temp.expect_ok('같은 학생을 다른 기관에서도 지정할 수 있다',
+  $$insert into public.student_flags (student_id, tenant_id)
+    values (pg_temp.fx('s1'), pg_temp.fx('tb'))$$);
+select pg_temp.expect_error('같은 기관에서 같은 학생을 두 번 지정하면 23505',
   $$insert into public.student_flags (student_id, tenant_id)
     values (pg_temp.fx('s1'), pg_temp.fx('ta'))$$, '23505');
 select pg_temp.expect_error('없는 학생은 23503',
@@ -109,7 +115,7 @@ select pg_temp.expect_bool('RLS 가 켜져 있다',
 
 -- 학생 프로필을 지우면 지정도 사라진다
 delete from public.profiles where id = pg_temp.fx('s1');
-select pg_temp.expect_int('프로필 삭제는 지정을 지운다',
+select pg_temp.expect_int('프로필 삭제는 모든 기관의 지정을 지운다',
   (select count(*) from public.student_flags where student_id = pg_temp.fx('s1')), 0);
 
 rollback;
