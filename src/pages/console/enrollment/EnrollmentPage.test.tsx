@@ -129,4 +129,54 @@ describe("W7 이용현황", () => {
     const second = screen.getByRole("row", { name: /담임 미배정/ });
     expect(within(second).getByText("31")).toBeTruthy();
   });
+
+  it("학년그룹을 고르면 요약과 표가 그 범위로 줄고, 반은 학년그룹을 고른 뒤에만 고를 수 있다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [
+            ...SCHOOL.classes,
+            classRow({
+              classId: "c3",
+              grade: "고2",
+              className: "1",
+              homeroomName: "유담임",
+              total: 20,
+              capacity: null,
+              joined: 10,
+              services: services([10, 0, 0, 0, 0, 0]),
+            }),
+          ],
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+    await screen.findByText("유담임");
+    const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
+    expect(classSelect.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "고2" },
+    });
+
+    expect(screen.queryByText("김담임")).toBeNull();
+    expect(screen.getByText("유담임")).toBeTruthy();
+    expect(
+      await screen.findByText("집계 기준: 2학년, 2026.11.05 기준"),
+    ).toBeTruthy();
+    const donut = screen.getByRole("region", { name: "서비스 이용 학생" });
+    expect(within(donut).getByText("10 / 20명")).toBeTruthy();
+    expect(classSelect.disabled).toBe(false);
+    expect(
+      within(classSelect)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["전체", "1반"]);
+
+    fireEvent.change(classSelect, { target: { value: "c3" } });
+    expect(
+      screen.getByText("집계 기준: 2학년 1반, 2026.11.05 기준"),
+    ).toBeTruthy();
+  });
 });

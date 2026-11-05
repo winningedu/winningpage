@@ -2,7 +2,10 @@
 // 학년, 반 조회는 서버가 준 전체 반 행을 화면에서 거른다(요약 합계도 보이는 행에서 낸다).
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { consoleRequest } from "../api";
+import { gradeLabel } from "../classLabel";
+import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import ClassTable from "./ClassTable";
@@ -23,10 +26,22 @@ export default function EnrollmentPage() {
     queryFn: fetchSummary,
     retry: false,
   });
+  const [grade, setGrade] = useState("");
+  const [classId, setClassId] = useState("");
   const data = summary.data;
-  const rows = data?.classes ?? [];
+  const all = data?.classes ?? [];
+  const rows = all.filter(
+    (r) => (!grade || r.grade === grade) && (!classId || r.classId === classId),
+  );
   const totals = totalsOf(rows);
-  const scopeLabel = data?.orgType === "학원" ? "학원 전체" : "학교 전체";
+  const picked = all.find((r) => r.classId === classId);
+  const wholeLabel = data?.orgType === "학원" ? "학원 전체" : "학교 전체";
+  const scopeLabel = picked
+    ? `${gradeLabel(picked.grade)} ${picked.className}반`
+    : grade
+      ? gradeLabel(grade)
+      : wholeLabel;
+  const grades = [...new Set(all.map((r) => r.grade))];
 
   return (
     <>
@@ -44,6 +59,35 @@ export default function EnrollmentPage() {
         {data && (
           <>
             <EnrollmentSummaryCards totals={totals} scopeLabel={scopeLabel} />
+            <div className="flex flex-wrap justify-end gap-2.5">
+              <FilterSelect
+                label="학년그룹"
+                value={grade}
+                options={[
+                  { value: "", label: "전체" },
+                  ...grades.map((g) => ({ value: g, label: gradeLabel(g) })),
+                ]}
+                onChange={(next) => {
+                  setGrade(next);
+                  setClassId("");
+                }}
+              />
+              <FilterSelect
+                label="반"
+                value={classId}
+                disabled={grade === ""}
+                options={[
+                  { value: "", label: "전체" },
+                  ...all
+                    .filter((r) => r.grade === grade)
+                    .map((r) => ({
+                      value: r.classId,
+                      label: `${r.groupName ? `${r.groupName} ` : ""}${r.className}반`,
+                    })),
+                ]}
+                onChange={setClassId}
+              />
+            </div>
             <ClassTable rows={rows} />
           </>
         )}
