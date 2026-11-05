@@ -40,7 +40,7 @@ export default defineHandler({
     }
 
     try {
-      const outcome = await runTeacherImport(
+      const result = await runTeacherImport(
         {
           supabaseAdmin: ctx.supabaseAdmin,
           userId: ctx.userId,
@@ -49,7 +49,17 @@ export default defineHandler({
         },
         body,
       );
-      res.status(200).json({ ok: true, ...outcome });
+      if (result.status === "request_id_in_use") {
+        sendError(
+          res,
+          "coded",
+          409,
+          "이미 다른 곳에서 쓴 요청 번호입니다. 새로 시도해 주세요.",
+          "REQUEST_ID_IN_USE",
+        );
+        return;
+      }
+      res.status(200).json({ ok: true, ...result.outcome });
     } catch (error) {
       if (sendTeacherDbError(res, error)) return;
       throw error;

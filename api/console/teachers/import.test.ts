@@ -44,6 +44,7 @@ const run = (rows: Row[], over: Record<string, unknown> = {}) =>
 interface Body {
   ok: boolean;
   replayed?: boolean;
+  runId?: string;
   counts: {
     total: number;
     created: number;
@@ -433,6 +434,211 @@ describe("POST /api/console/teachers/import", () => {
 
       expect(r.status).toBe(404);
       expect(r.body).toMatchObject({ error: { code: "NOT_FOUND" } });
+    });
+  });
+
+  describe("실행 기록과 멱등성", () => {
+    const FINISHED_RUN = {
+      id: "run-1",
+      tenant_id: "tenant-1",
+      finished_at: "2026-11-05T05:30:00Z",
+      total_rows: 2,
+      created_count: 1,
+      updated_count: 0,
+      account_count: 1,
+      error_count: 1,
+      row_results: [
+        { index: 0, verdict: "new", applied: true },
+        { index: 1, verdict: "format_error", applied: false },
+      ],
+    };
+
+    test("끝나면 건수와 행 판정(행 번호, 판정, 적용 여부만)을 실행 기록에 남기고 import 감사 로그를 남긴다", async () => {
+      const r = await run([row(), row({ phone: "", name: "가" })]);
+
+      expect(r.status).toBe(200);
+      const runInsert = kit.state.inserts.find(
+        (i) => i.table === "teacher_import_runs",
+      );
+      expect(runInsert?.row).toMatchObject({
+        tenant_id: "tenant-1",
+        request_id: REQUEST_ID,
+        actor_profile_id: "profile-1",
+        total_rows: 2,
+      });
+      const insertedId = (runInsert?.row as { id: string } | undefined)?.id;
+      expect(kit.state.updates).toHaveLength(1);
+      expect(kit.state.updates[0]).toMatchObject({
+        table: "teacher_import_runs",
+        values: {
+          created_count: 1,
+          updated_count: 0,
+          account_count: 1,
+          error_count: 1,
+          row_results: [
+            { index: 0, verdict: "new", applied: true },
+            { index: 1, verdict: "format_error", applied: false },
+          ],
+        },
+        filters: { id: insertedId },
+      });
+      expect(kit.state.updates[0]?.values.finished_at).toEqual(
+        expect.any(String),
+      );
+      const audit = kit.state.inserts.find(
+        (i) => i.row.action === "teacher_import",
+      );
+      expect(audit?.row).toMatchObject({
+        action: "teacher_import",
+        tenant_id: "tenant-1",
+        target_id: insertedId,
+        row_count: 2,
+        meta: { created: 1, updated: 0, accounts: 1, errors: 1, skipped: 0 },
+      });
+      expect(
+        kit.state.events.filter(
+          (e) => e === "insert:admin_access_logs" || e.startsWith("update:"),
+        ),
+      ).toEqual([
+        "insert:admin_access_logs",
+        "insert:admin_access_logs",
+        "update:teacher_import_runs",
+      ]);
+    });
+
+    test("임시 비밀번호는 실행 기록, 감사 로그, 콘솔 로그에 남지 않는다", async () => {
+      const logs = [
+        vi.spyOn(console, "log").mockImplementation(() => {}),
+        vi.spyOn(console, "error").mockImplementation(() => {}),
+        vi.spyOn(console, "warn").mockImplementation(() => {}),
+      ];
+
+      const r = await run([row()]);
+
+      const password = (r.body as Body).accounts[0]?.tempPassword as string;
+      expect(JSON.stringify(kit.state.inserts)).not.toContain(password);
+      expect(JSON.stringify(kit.state.updates)).not.toContain(password);
+      expect(JSON.stringify(kit.state.updates)).not.toContain("01011112222");
+      for (const spy of logs) {
+        expect(JSON.stringify(spy.mock.calls)).not.toContain(password);
+      }
+    });
+
+    test("같은 requestId 로 이미 끝난 실행이면 새로 만들지 않고 저장된 결과를 돌려준다(임시 비밀번호는 없다)", async () => {
+      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
+      kit.state.rows.teacher_import_runs = () => FINISHED_RUN;
+
+      const r = await run([row(), row({ phone: "" })]);
+
+      expect(r.status).toBe(200);
+      expect(r.body).toMatchObject({
+        ok: true,
+        replayed: true,
+        runId: "run-1",
+        counts: {
+          total: 2,
+          created: 1,
+          updated: 0,
+          accounts: 1,
+          errors: 1,
+          skipped: 0,
+        },
+        rows: FINISHED_RUN.row_results,
+        accounts: [],
+      });
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
+      expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+      expect(kit.state.updates).toHaveLength(0);
+    });
+
+    test("다른 기관의 requestId 와 겹치면 409 REQUEST_ID_IN_USE 이고 아무것도 만들지 않는다", async () => {
+      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
+      kit.state.rows.teacher_import_runs = () => ({
+        ...FINISHED_RUN,
+        tenant_id: "tenant-2",
+      });
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code: "REQUEST_ID_IN_USE" } });
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
+    });
+
+    test("끝나지 않은 같은 실행은 이어서 처리해 마무리한다", async () => {
+      kit.state.insertErrors.teacher_import_runs = { code: "23505" };
+      kit.state.rows.teacher_import_runs = () => ({
+        ...FINISHED_RUN,
+        finished_at: null,
+      });
+
+      const r = await run([row()]);
+
+      const body = r.body as Body;
+      expect(body.replayed).toBe(false);
+      expect(body.runId).toBe("run-1");
+      expect(registerCalls).toHaveLength(1);
+      expect(kit.state.updates[0]?.filters).toEqual({ id: "run-1" });
+    });
+
+    test("실행 기록을 만들지 못하면 500 이고 등록하지 않는다", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      kit.state.insertErrors.teacher_import_runs = { code: "XX000" };
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(500);
+      expect(registerCalls).toHaveLength(0);
+    });
+  });
+
+  describe("요청 검증과 권한", () => {
+    test.each([
+      ["requestId 가 uuid 가 아님", { requestId: "abc" }],
+      ["mode 가 없음", { mode: undefined }],
+      ["행이 없음", { rows: [] }],
+      [
+        "행이 20개를 넘음",
+        {
+          rows: Array.from({ length: 21 }, (_, i) =>
+            row({ phone: `0100000${String(i).padStart(4, "0")}` }),
+          ),
+        },
+      ],
+      ["행에 이름 필드가 없음", { rows: [{ phone: "01011112222" }] }],
+    ])("%s 이면 400 이고 아무것도 만들지 않는다", async (_label, over) => {
+      const r = await post({
+        requestId: REQUEST_ID,
+        mode: "skip",
+        rows: [row()],
+        ...over,
+      });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+      expect(kit.state.inserts).toHaveLength(0);
+    });
+
+    test("담임은 403 NOT_SCHOOL_ADMIN 이다", async () => {
+      kit.state.actor = { ...kit.state.actor, kind: "homeroom" };
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(403);
+      expect(r.body).toMatchObject({ error: { code: "NOT_SCHOOL_ADMIN" } });
+      expect(kit.state.inserts).toHaveLength(0);
+    });
+
+    test("교사 등록이 규칙 위반으로 거부되면 코드 붙은 응답이다", async () => {
+      kit.state.rpc.fn_teacher_register = () => ({
+        data: null,
+        error: { code: "23505" },
+      });
+
+      const r = await run([row()]);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code: "CLASS_TAKEN" } });
     });
   });
 });

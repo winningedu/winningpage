@@ -3,11 +3,12 @@
 
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ConsoleAuditCtx } from "./audit.js";
+import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 import {
   type RegisterInput,
   RpcError,
   registerTeacherWithAccount,
+  TEACHERS_RESOURCE_KEY,
 } from "./teacherAccounts.js";
 
 /** 클라이언트가 나눠 보내는 한 번의 행 수 상한(설계 R7). */
@@ -376,13 +377,54 @@ function judgeRows(
   return { prepared, verdicts };
 }
 
+interface StoredRun {
+  id: string;
+  tenant_id: string;
+  finished_at: string | null;
+  total_rows: number;
+  created_count: number;
+  updated_count: number;
+  account_count: number;
+  error_count: number;
+  row_results: ImportRowResult[];
+}
+
+/** 같은 기관의 끝난 실행이 있으면 저장된 결과. 임시 비밀번호는 저장하지 않으므로 accounts 는 비어 있다. */
+function replayOf(run: StoredRun): ImportOutcome {
+  return {
+    runId: run.id,
+    replayed: true,
+    counts: {
+      total: run.total_rows,
+      created: run.created_count,
+      updated: run.updated_count,
+      accounts: run.account_count,
+      errors: run.error_count,
+      skipped: run.row_results.filter(
+        (r) => r.verdict === "changed" && !r.applied,
+      ).length,
+    },
+    rows: run.row_results,
+    accounts: [],
+  };
+}
+
+export type ImportResult =
+  | { status: "ok"; outcome: ImportOutcome }
+  | { status: "request_id_in_use" };
+
+/**
+ * requestId 로 실행 기록을 먼저 잡는다(unique). 이미 있으면 끝난 실행은 저장된 결과를 돌려주고, 끝나지 않은 실행은
+ * 이어서 처리한다(행마다 다시 판정하므로 이미 반영된 행은 동일이 된다). 다른 기관의 requestId 면 request_id_in_use.
+ * 순서: 실행 기록 -> 행 판정 -> 등록(T13 경로) -> 감사 로그 -> 실행 기록 완료.
+ */
 export async function runTeacherImport(
   ctx: ConsoleAuditCtx,
   request: ImportRequest,
-): Promise<ImportOutcome> {
+): Promise<ImportResult> {
   const admin = ctx.supabaseAdmin;
   const tenantId = ctx.console.tenantId;
-  const runId = randomUUID();
+  let runId: string = randomUUID();
   const { error: insertError } = await admin
     .from("teacher_import_runs")
     .insert({
@@ -393,8 +435,24 @@ export async function runTeacherImport(
       proxy_session_id: ctx.console.proxySessionId,
       total_rows: request.rows.length,
     });
-  if (insertError)
-    throw new RpcError("teacher_import_runs insert", insertError.code);
+  if (insertError) {
+    if (insertError.code !== "23505")
+      throw new RpcError("teacher_import_runs insert", insertError.code);
+    const { data, error } = await admin
+      .from("teacher_import_runs")
+      .select(
+        "id, tenant_id, finished_at, total_rows, created_count, updated_count, account_count, error_count, row_results",
+      )
+      .eq("request_id", request.requestId)
+      .maybeSingle();
+    const existing = data as StoredRun | null;
+    if (error || !existing)
+      throw new RpcError("teacher_import_runs read", error?.code);
+    if (existing.tenant_id !== tenantId) return { status: "request_id_in_use" };
+    if (existing.finished_at)
+      return { status: "ok", outcome: replayOf(existing) };
+    runId = existing.id;
+  }
 
   const rowGrades = request.rows
     .map((r) => r.grade.trim())
@@ -463,18 +521,44 @@ export async function runTeacherImport(
   }
 
   const changed = rows.filter((r) => r.verdict === "changed");
-  return {
-    runId,
-    replayed: false,
-    counts: {
-      total: rows.length,
-      created,
-      updated: changed.filter((r) => r.applied).length,
-      accounts: accounts.length,
-      errors: rows.filter((r) => ERROR_VERDICTS.includes(r.verdict)).length,
-      skipped: changed.filter((r) => !r.applied).length,
+  const counts = {
+    total: rows.length,
+    created,
+    updated: changed.filter((r) => r.applied).length,
+    accounts: accounts.length,
+    errors: rows.filter((r) => ERROR_VERDICTS.includes(r.verdict)).length,
+    skipped: changed.filter((r) => !r.applied).length,
+  };
+
+  await writeConsoleAuditLog(ctx, {
+    action: "teacher_import",
+    resourceKey: TEACHERS_RESOURCE_KEY,
+    targetId: runId,
+    rowCount: counts.total,
+    meta: {
+      created: counts.created,
+      updated: counts.updated,
+      accounts: counts.accounts,
+      errors: counts.errors,
+      skipped: counts.skipped,
     },
-    rows,
-    accounts,
+  });
+  const { error: finishError } = await admin
+    .from("teacher_import_runs")
+    .update({
+      created_count: counts.created,
+      updated_count: counts.updated,
+      account_count: counts.accounts,
+      error_count: counts.errors,
+      row_results: rows,
+      finished_at: new Date().toISOString(),
+    })
+    .eq("id", runId);
+  if (finishError)
+    throw new RpcError("teacher_import_runs update", finishError.code);
+
+  return {
+    status: "ok",
+    outcome: { runId, replayed: false, counts, rows, accounts },
   };
 }
