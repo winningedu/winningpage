@@ -182,6 +182,38 @@ describe("DashboardPage", () => {
     expect(screen.queryByText(/^평균/)).toBeNull();
   });
 
+  it("관리자가 거른 반에 학생이 없을 때는 가입 안내를 보이지 않는다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: adminMe },
+      "GET /api/console/classes": { body: { classes: CLASSES } },
+      "GET /api/console/dashboard": { body: stats() },
+      "GET /api/console/dashboard?grade=%EA%B3%A02&classId=c5": {
+        body: stats({
+          usage: { usingCount: 0, totalCount: 0 },
+          goal: {
+            userCount: 0,
+            average: null,
+            buckets: { low: 0, mid: 0, high: 0 },
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher");
+    await screen.findByText("집계 기준: 전교, 2026.11.02 기준");
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "고2" },
+    });
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: "c5" } });
+    fireEvent.click(screen.getByRole("button", { name: "조회" }));
+
+    expect(
+      await screen.findByText("집계 기준: 2학년 5반, 2026.11.02 기준"),
+    ).toBeTruthy();
+    expect(screen.getByText("이용 학생 없음")).toBeTruthy();
+    expect(screen.queryByText(/학생들이 가입하면/)).toBeNull();
+  });
+
   it("집계를 불러오는 동안은 값 대신 뼈대를 보이고 끝나면 값으로 바뀐다", async () => {
     stubApi({
       "GET /api/console/me": { body: adminMe },

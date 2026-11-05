@@ -64,6 +64,10 @@ export default function DashboardPage() {
         ...(className ? [`${className}반`] : []),
       ]
     : [me.tenant.name, "전체"];
+  // 조회로 범위를 좁힌 경우에는 가입 안내가 맞지 않는다(그 반만 비어 있을 수 있다).
+  const filtered = (["grade", "groupId", "classId"] as const).some(
+    (key) => applied[key] !== initial[key],
+  );
   const loaded = stats.data && classes.data;
   const failed = stats.isError || classes.isError;
 
@@ -105,7 +109,7 @@ export default function DashboardPage() {
             </p>
           </Notice>
         )}
-        {loaded && stats.data.usage.totalCount === 0 && (
+        {loaded && stats.data.usage.totalCount === 0 && !filtered && (
           <Notice tone="Info">{NO_STUDENTS}</Notice>
         )}
         {!failed && (
