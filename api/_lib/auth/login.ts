@@ -160,6 +160,7 @@ export async function attemptLogin(
     await admin.rpc("fn_login_attempt_end", {
       p_hash: hash,
       p_outcome: "error",
+      p_attempt_no: begin.attempt_no,
     });
     return RETRY_FAILURE;
   }
@@ -204,6 +205,7 @@ export async function attemptLogin(
     await admin.rpc("fn_login_attempt_end", {
       p_hash: hash,
       p_outcome: "error",
+      p_attempt_no: begin.attempt_no,
     });
     return RETRY_FAILURE;
   }

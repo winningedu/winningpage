@@ -223,6 +223,7 @@ describe("POST /api/auth/login", () => {
       expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
         p_hash: expect.any(String),
         p_outcome: "error",
+        p_attempt_no: 1,
       });
     },
   );
@@ -353,6 +354,7 @@ describe("POST /api/auth/login", () => {
     expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
       p_hash: expect.any(String),
       p_outcome: "error",
+      p_attempt_no: 1,
     });
   });
 
