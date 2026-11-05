@@ -106,6 +106,18 @@ describe("readRosterLines", () => {
     expect((await readRosterLines(file)).split("\n")).toHaveLength(2000);
   });
 
+  it("빈 줄은 2,000줄 한도에 세지 않는다", async () => {
+    const rows = Array.from({ length: 2000 }, (_, i) => [
+      `학생${i}`,
+      "1학년",
+      "4",
+      "7",
+    ]);
+    const blanks = Array.from({ length: 50 }, () => ["", "", "", ""]);
+    const file = xlsxFile([["이름", "학년", "반", "번호"], ...blanks, ...rows]);
+    expect((await readRosterLines(file)).split("\n")).toHaveLength(2000);
+  });
+
   it("칸 안의 쉼표는 칸을 밀지 않고 그대로 남는다", async () => {
     const file = xlsxFile([
       ["이름", "학년", "반", "번호"],

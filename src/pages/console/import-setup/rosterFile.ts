@@ -9,6 +9,8 @@ export const TOO_LARGE_ROSTER_MESSAGE =
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_DATA_ROWS = 2000;
+// 빈 줄은 한도에 세지 않으므로 읽는 줄은 따로 막는다(압축을 푼 뒤 부풀어 오르는 파일 대비).
+const MAX_SCAN_ROWS = 10000;
 const ACCEPTED_FILE = /\.(xlsx|xls|csv)$/i;
 
 const ROSTER_WIDTH = 4;
@@ -24,10 +26,10 @@ export async function readRosterLines(file: File): Promise<string> {
   try {
     // 콘솔 첫 묶음에 들어가지 않도록 읽을 때만 불러온다.
     const XLSX = await import("xlsx");
-    // 머리글 한 줄과 데이터 MAX_DATA_ROWS 줄까지만 읽는다.
+    // 머리글 한 줄과 MAX_SCAN_ROWS 줄까지만 읽는다.
     const workbook = XLSX.read(await file.arrayBuffer(), {
       type: "array",
-      sheetRows: MAX_DATA_ROWS + 1,
+      sheetRows: MAX_SCAN_ROWS + 1,
     });
     const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
     if (!sheet) throw new Error(EMPTY_ROSTER_MESSAGE);
@@ -35,7 +37,7 @@ export async function readRosterLines(file: File): Promise<string> {
     const fullRef = sheet["!fullref"] ?? sheet["!ref"];
     tooLarge =
       fullRef !== undefined &&
-      XLSX.utils.decode_range(fullRef).e.r > MAX_DATA_ROWS;
+      XLSX.utils.decode_range(fullRef).e.r > MAX_SCAN_ROWS;
     grid = XLSX.utils
       .sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: "" })
       .map((row) => row.map((cell) => String(cell).trim()));
@@ -54,6 +56,7 @@ export async function readRosterLines(file: File): Promise<string> {
         : [row[0], row[1], "", row[2], row[3], "", "", "", ""],
     )
     .map((cells) => cells.map((c) => c ?? "").join("\t"));
+  if (lines.length > MAX_DATA_ROWS) throw new Error(TOO_LARGE_ROSTER_MESSAGE);
   if (width < ROSTER_WIDTH || lines.length === 0)
     throw new Error(EMPTY_ROSTER_MESSAGE);
   return lines.join("\n");
