@@ -167,7 +167,11 @@ export default function MemoPanel({
             id={fieldId}
             value={text}
             placeholder="오늘 상담 내용을 적어요"
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              // 내용이 바뀌면 다른 저장이므로 요청 번호를 새로 받는다(같은 번호에 다른 내용은 서버가 거부한다).
+              requestId.current = null;
+              setText(e.target.value);
+            }}
             className="h-[7.5rem] resize-none rounded-xl border border-line bg-background p-4 text-app-label text-ink-strong placeholder:text-ink-sub"
           />
           <p className="text-app-caption text-ink-sub">

@@ -396,7 +396,11 @@ export default function CoachingPage() {
           {studentId && (
             <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:flex-row lg:items-start lg:px-12">
               <div className="order-first lg:order-last">
-                <MemoPanel studentId={studentId} admin={admin} />
+                <MemoPanel
+                  key={studentId}
+                  studentId={studentId}
+                  admin={admin}
+                />
               </div>
               {coaching.isPending && !coaching.isError && <Skeleton />}
               {coaching.data && (

@@ -139,6 +139,41 @@ describe("교사 메모 패널", () => {
     );
   });
 
+  it("저장이 실패한 뒤 내용을 고쳐 다시 저장하면 새 요청 번호를 쓴다", async () => {
+    const calls = render({
+      "POST /api/console/memos": { status: 500, body: {} },
+    });
+    await screen.findByText("진로 상담 필요");
+    const field = screen.getByLabelText("메모");
+    const save = screen.getByRole("button", { name: "저장" });
+
+    fireEvent.change(field, { target: { value: "상담함" } });
+    fireEvent.click(save);
+    await screen.findByText("메모를 저장하지 못했어요");
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === "POST /api/console/memos"),
+      ).toHaveLength(2),
+    );
+    fireEvent.change(field, { target: { value: "상담함, 추가" } });
+    await waitFor(() =>
+      expect((save as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === "POST /api/console/memos"),
+      ).toHaveLength(3),
+    );
+
+    const ids = calls
+      .filter((c) => c.key === "POST /api/console/memos")
+      .map((c) => (c.body as { requestId: string }).requestId);
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
+
   it("메모가 없으면 빈 목록 안내를 보인다", async () => {
     render({ [LIST_URL]: { body: { memos: [] } } });
     expect(await screen.findByText("아직 메모가 없어요")).toBeTruthy();

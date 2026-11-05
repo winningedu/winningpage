@@ -375,6 +375,29 @@ describe("W9 개인종합코칭 기본", () => {
     ).toBe(true);
   });
 
+  it("학생을 바꾸면 쓰던 메모 입력은 이어지지 않는다", async () => {
+    stubPage({
+      "GET /api/console/memos?studentId=s1": { body: { memos: [] } },
+      "GET /api/console/memos?studentId=s2": { body: { memos: [] } },
+      "GET /api/console/coaching?studentId=s2": { body: coaching() },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+    await screen.findByText("2학년 3반 1번");
+    fireEvent.change(screen.getByLabelText("메모"), {
+      target: { value: "김서연 상담" },
+    });
+    fireEvent.change(screen.getByLabelText("이름"), {
+      target: { value: "s2" },
+    });
+
+    await waitFor(() =>
+      expect((screen.getByLabelText("메모") as HTMLTextAreaElement).value).toBe(
+        "",
+      ),
+    );
+  });
+
   it("반을 바꾸면 그 반의 첫 학생으로 간다", async () => {
     stubPage({
       "GET /api/console/coaching?studentId=s3": {
