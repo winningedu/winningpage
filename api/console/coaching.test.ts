@@ -220,6 +220,31 @@ describe("GET /api/console/coaching", () => {
     expect((await get({})).status).toBe(400);
   });
 
+  test("opening a student leaves a view audit record and a failing audit write fails the request", async () => {
+    const r = await get({ studentId: "s1" });
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.inserts.filter((i) => i.table === "admin_access_logs"),
+    ).toEqual([
+      {
+        table: "admin_access_logs",
+        row: expect.objectContaining({
+          action: "view",
+          resource_key: "coaching",
+          target_id: "s1",
+        }),
+      },
+    ]);
+
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+    expect((await get({ studentId: "s1" })).status).toBe(500);
+  });
+
+  test("a rejected request leaves no audit record", async () => {
+    await get({ studentId: "s9" });
+    expect(kit.state.inserts).toEqual([]);
+  });
+
   test("a student of another tenant, a graduate and an unknown id are 404", async () => {
     expect((await get({ studentId: "s9" })).status).toBe(404);
     expect((await get({ studentId: "s5" })).status).toBe(404);

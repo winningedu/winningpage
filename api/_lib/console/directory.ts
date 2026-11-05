@@ -90,6 +90,30 @@ export async function loadHomeroomClassIds(
   return new Set(rows.map((r) => r.class_id));
 }
 
+/** 학급의 담임 이름. 담임이 없거나 학급이 없으면 null. */
+export async function loadHomeroomName(
+  admin: SupabaseClient,
+  tenantId: string,
+  classId: string | null,
+): Promise<string | null> {
+  if (!classId) return null;
+  const [assignment] = await readAll<{ teacher_id: string }>(
+    admin,
+    "teacher_class_assignments",
+    "teacher_id",
+    (q) => q.eq("tenant_id", tenantId).eq("class_id", classId),
+    "teacher_id",
+  );
+  if (!assignment) return null;
+  const [teacher] = await readAll<{ name: string }>(
+    admin,
+    "teachers",
+    "name",
+    (q) => q.eq("tenant_id", tenantId).eq("id", assignment.teacher_id),
+  );
+  return teacher?.name ?? null;
+}
+
 /** 학년 순서(중1 부터 고3). 모르는 값은 뒤로. */
 export function gradeRank(grade: string | null): number {
   const index = (ENROLLMENT_GRADES as readonly (string | null)[]).indexOf(

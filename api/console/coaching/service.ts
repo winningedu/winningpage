@@ -3,7 +3,9 @@
 // W9a 서비스 상세 창. 서비스는 diagnosis, goal, growth, performance, selfeval, inquiry 중 하나다.
 // 범위는 코칭 조회와 같다(담임은 현재 담당 학급, 학교 관리자와 대행은 기관 전체, 범위 밖은 404).
 // 학생이 쓰지 않는 서비스는 404 SERVICE_NOT_USED 다(그 카드에는 상세 버튼이 없다).
+// 여는 일은 접근 로그에 남기고(결정 66) 남기지 못하면 500 이다.
 
+import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { buildCoaching } from "../../_lib/console/coachingBuild.js";
 import { serviceDetail } from "../../_lib/console/serviceDetail.js";
 import {
@@ -61,6 +63,15 @@ export default defineHandler({
       );
       return;
     }
+    await writeConsoleAuditLog(
+      { ...ctx, console: actor },
+      {
+        action: "view",
+        resourceKey: "coachingService",
+        targetId: studentId,
+        meta: { service },
+      },
+    );
     res.status(200).json({ detail });
   },
 });

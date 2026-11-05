@@ -2,14 +2,16 @@
 //
 // W9 개인종합코칭. 학생 한 명의 6종 서비스 자료를 코칭 판정 엔진(api/_lib/console/coaching.ts)에 넣은 결과.
 // 담임은 현재 담당 학급의 학생만, 학교 관리자와 본사 대행은 기관 전체를 본다. 범위 밖과 졸업생은 404.
+// 여는 일은 접근 로그에 남기고(결정 66) 남기지 못하면 500 이다.
 // 이름은 담임만 실명이고 그 밖에는 서버에서 가린다. 자료가 없는 지표는 판정에서 빠진다(결정 4).
 
+import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import { summaryLine, urgencyOf } from "../_lib/console/coaching.js";
 import { buildCoaching } from "../_lib/console/coachingBuild.js";
 import {
   loadClassIndex,
+  loadHomeroomName,
   loadProfileNames,
-  readAll,
 } from "../_lib/console/directory.js";
 import { displayNameFor } from "../_lib/console/maskName.js";
 import {
@@ -58,25 +60,11 @@ export default defineHandler({
       ? classes.get(enrollment.class_id)
       : undefined;
 
-    const homeroom = enrollment.class_id
-      ? await readAll<{ teacher_id: string }>(
-          admin,
-          "teacher_class_assignments",
-          "teacher_id",
-          (q) =>
-            q
-              .eq("tenant_id", actor.tenantId)
-              .eq("class_id", enrollment.class_id as string),
-          "teacher_id",
-        )
-      : [];
-    const teachers = homeroom[0]
-      ? await readAll<{ name: string }>(admin, "teachers", "name", (q) =>
-          q
-            .eq("tenant_id", actor.tenantId)
-            .eq("id", homeroom[0]?.teacher_id as string),
-        )
-      : [];
+    const homeroomName = await loadHomeroomName(
+      admin,
+      actor.tenantId,
+      enrollment.class_id,
+    );
 
     const built = await buildCoaching(admin, studentId, used, enrollment.grade);
     const {
@@ -92,6 +80,11 @@ export default defineHandler({
     } = built;
     const { serviceCards, ...rest } = text;
 
+    await writeConsoleAuditLog(
+      { ...ctx, console: actor },
+      { action: "view", resourceKey: "coaching", targetId: studentId },
+    );
+
     res.status(200).json({
       text: rest,
       serviceCards,
@@ -102,7 +95,7 @@ export default defineHandler({
         groupName: cls?.groupName ?? null,
         className: cls?.name ?? null,
         number: enrollment.number,
-        homeroomName: teachers[0]?.name ?? null,
+        homeroomName,
         servicesUsed: used.length,
         services: Object.fromEntries(
           SERVICE_KEYS.map((k) => [

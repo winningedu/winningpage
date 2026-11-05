@@ -6,6 +6,7 @@
 // 권한: 학교 관리자 또는 본사 대행. 다른 학생 이름은 가려서 보낸다(결정 8, 30).
 
 import {
+  loadHomeroomName,
   loadProfileNames,
   loadTenant,
   readAll,
@@ -77,14 +78,8 @@ export default defineHandler({
       return;
     }
 
-    const [assignments, enrollments] = await Promise.all([
-      readAll<{ teacher_id: string }>(
-        admin,
-        "teacher_class_assignments",
-        "teacher_id",
-        (q) => q.eq("tenant_id", actor.tenantId).eq("class_id", cls.id),
-        "teacher_id",
-      ),
+    const [homeroomName, enrollments] = await Promise.all([
+      loadHomeroomName(admin, actor.tenantId, cls.id),
       readAll<{ student_id: string; number: number | null }>(
         admin,
         "student_enrollments",
@@ -97,16 +92,6 @@ export default defineHandler({
             .eq("class_id", cls.id),
       ),
     ]);
-    const holderId = assignments[0]?.teacher_id;
-    const teacherRows = holderId
-      ? await readAll<{ id: string; name: string }>(
-          admin,
-          "teachers",
-          "id, name",
-          (q) => q.eq("tenant_id", actor.tenantId).eq("id", holderId),
-        )
-      : [];
-    const homeroomName = teacherRows[0]?.name ?? null;
 
     const names = await loadProfileNames(
       admin,

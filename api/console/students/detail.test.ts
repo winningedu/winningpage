@@ -194,6 +194,21 @@ describe("GET /api/console/students/detail", () => {
     expect(kit.state.inserts).toHaveLength(1);
   });
 
+  test("a student whose current school year row is not active (a graduate) is 404 and not logged", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        ENROLLMENTS.map((e) =>
+          e.student_id === "s1" && e.school_year === 2026
+            ? { ...e, status: "graduated" }
+            : e,
+        ),
+        f,
+      );
+
+    expect((await get()).status).toBe(404);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
   test("a failing log write fails the request instead of opening the student unrecorded", async () => {
     kit.state.insertErrors.admin_access_logs = { message: "down" };
 

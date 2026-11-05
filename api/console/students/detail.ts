@@ -3,20 +3,19 @@
 // W6a 학생 상세. 이름은 실명으로 보인다(목록에서만 가린다, 결정 35). 담임은 담당 학급 학생만 읽고
 // 범위 밖과 다른 기관의 학생은 404 로 숨긴다. 여는 일은 접근 로그에 남긴다(교 #36).
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import {
   loadClassIndex,
-  loadTenant,
+  loadHomeroomName,
   readAll,
 } from "../../_lib/console/directory.js";
-import { isInScope } from "../../_lib/console/scope.js";
 import { loadServiceSummaries } from "../../_lib/console/serviceSummary.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
   type ServiceKey,
 } from "../../_lib/console/serviceUsage.js";
+import { loadScopedEnrollment } from "../../_lib/console/studentScope.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -48,30 +47,6 @@ interface UsageStateRow {
   term_remaining: number | null;
 }
 
-/** 학급의 담임 이름. 담임이 없으면 null. */
-async function loadHomeroomName(
-  admin: SupabaseClient,
-  tenantId: string,
-  classId: string | null,
-): Promise<string | null> {
-  if (!classId) return null;
-  const [assignment] = await readAll<{ teacher_id: string }>(
-    admin,
-    "teacher_class_assignments",
-    "teacher_id",
-    (q) => q.eq("tenant_id", tenantId).eq("class_id", classId),
-    "class_id",
-  );
-  if (!assignment) return null;
-  const [teacher] = await readAll<{ name: string }>(
-    admin,
-    "teachers",
-    "name",
-    (q) => q.eq("tenant_id", tenantId).eq("id", assignment.teacher_id),
-  );
-  return teacher?.name ?? null;
-}
-
 const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
 
 export default defineHandler({
@@ -96,21 +71,14 @@ export default defineHandler({
       return;
     }
 
-    const { schoolYear } = await loadTenant(admin, actor.tenantId);
+    const current = await loadScopedEnrollment(admin, res, actor, studentId);
+    if (!current) return;
     const rows = await readAll<EnrollmentRow>(
       admin,
       "student_enrollments",
       "school_year, grade, class_id, number",
       (q) => q.eq("tenant_id", actor.tenantId).eq("student_id", studentId),
     );
-    const current = rows.find((r) => r.school_year === schoolYear);
-    if (
-      !current ||
-      !isInScope(actor, { tenantId: actor.tenantId, classId: current.class_id })
-    ) {
-      sendError(res, "coded", 404, "대상을 찾을 수 없습니다.", "NOT_FOUND");
-      return;
-    }
 
     const [
       classes,
@@ -150,7 +118,7 @@ export default defineHandler({
       loadHomeroomName(admin, actor.tenantId, current.class_id),
     ]);
     const profile = profiles[0];
-    const slotOf = (r: EnrollmentRow) => {
+    const slotOf = (r: Omit<EnrollmentRow, "school_year">) => {
       const cls = r.class_id ? classes.get(r.class_id) : undefined;
       return {
         grade: r.grade,

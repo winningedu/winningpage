@@ -218,6 +218,34 @@ describe("GET /api/console/coaching/service", () => {
     expect((await get({ service: "goal" })).status).toBe(400);
   });
 
+  test("opening a service detail leaves a view audit record, a failing audit write fails the request, and a rejected request leaves none", async () => {
+    const r = await get({ studentId: "s1", service: "goal" });
+    expect(r.status).toBe(200);
+    expect(
+      kit.state.inserts.filter((i) => i.table === "admin_access_logs"),
+    ).toEqual([
+      {
+        table: "admin_access_logs",
+        row: expect.objectContaining({
+          action: "view",
+          resource_key: "coachingService",
+          target_id: "s1",
+          meta: { service: "goal" },
+        }),
+      },
+    ]);
+
+    kit.state.inserts.length = 0;
+    expect((await get({ studentId: "s9", service: "goal" })).status).toBe(404);
+    expect((await get({ studentId: "s1", service: "growth" })).status).toBe(
+      404,
+    );
+    expect(kit.state.inserts).toEqual([]);
+
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+    expect((await get({ studentId: "s1", service: "goal" })).status).toBe(500);
+  });
+
   test("a student out of scope is 404, and so is a service the student does not use", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",
