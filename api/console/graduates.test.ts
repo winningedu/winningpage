@@ -166,7 +166,7 @@ describe("GET /api/console/graduates", () => {
   test("same masked names among graduates of one class get a trailing star", async () => {
     const baseEnrollments = kit.state.rows.student_enrollments;
     kit.state.rows.student_enrollments = (f) => [
-      ...(baseEnrollments?.(f) as unknown[]),
+      ...((baseEnrollments?.(f) ?? []) as unknown[]),
       ...matchRows(
         [
           graduate("g7", "s7", 2025, "2026-03-02T01:00:00Z", { number: 7 }),
@@ -180,7 +180,7 @@ describe("GET /api/console/graduates", () => {
     ];
     const baseProfiles = kit.state.rows.profiles;
     kit.state.rows.profiles = (f) => [
-      ...(baseProfiles?.(f) as unknown[]),
+      ...((baseProfiles?.(f) ?? []) as unknown[]),
       ...matchRows(
         [
           { id: "s7", name: "김하연" },

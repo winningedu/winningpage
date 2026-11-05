@@ -176,7 +176,7 @@ describe("GET /api/console/students/history", () => {
       matchRows([...ENROLLMENTS, ...extra], f);
     const baseProfiles = kit.state.rows.profiles;
     kit.state.rows.profiles = (f) => [
-      ...(baseProfiles?.(f) as { id: string; name: string }[]),
+      ...((baseProfiles?.(f) ?? []) as { id: string; name: string }[]),
       ...matchRows(
         [
           { id: "s9", name: "김지늘" },

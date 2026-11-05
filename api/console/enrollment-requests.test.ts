@@ -130,6 +130,44 @@ describe("GET /api/console/enrollment-requests", () => {
     });
   });
 
+  test("same masked names among requests into one class get a trailing star, another class does not", async () => {
+    kit.state.rows.enrollment_changes = (f) =>
+      matchRows(
+        [
+          ...CHANGES,
+          pending("dup", { student_id: "s-dup" }),
+          pending("dup-z", { student_id: "s-dup-z", to_class_id: "c-Z" }),
+        ],
+        f,
+      );
+    const baseProfiles = kit.state.rows.profiles;
+    kit.state.rows.profiles = (f) => [
+      ...((baseProfiles?.(f) ?? []) as unknown[]),
+      ...matchRows(
+        [
+          { id: "s-dup", name: "김지늘" },
+          { id: "s-dup-z", name: "김가늘" },
+        ],
+        f,
+      ),
+    ];
+
+    const all = await get({ pageSize: "10" });
+
+    const name = (id: string) =>
+      (all.body as { items: Item[] }).items.find((i) => i.changeId === id)
+        ?.studentName;
+    expect(name("late")).toBe("김*늘*");
+    expect(name("dup")).toBe("김*늘*");
+    expect(name("dup-z")).toBe("김*늘");
+    // 쪽에 한 줄만 보여도 다른 쪽에 있는 같은 학급의 겹침은 표시된다
+    const page = await get({ pageSize: "1", page: "2" });
+    expect(ids(page)).toEqual(["dup"]);
+    expect((page.body as { items: Item[] }).items[0]?.studentName).toBe(
+      "김*늘*",
+    );
+  });
+
   test("a homeroom sees only requests into own classes and real names", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",
