@@ -2,7 +2,7 @@
 // 휴대폰(768 미만)에서는 ① 명단 엑셀과 ③ 일괄 변경을 그리지 않고 그룹 관리만 보인다(결정 8).
 // ① 은 엑셀을 브라우저에서 읽어 ③ 입력칸에 줄로 채운다(결정 50). 맞춤은 ③ 미리보기가 한다.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import PageHeader from "../PageHeader";
 import { useToast } from "../Toast";
@@ -17,9 +17,6 @@ export default function ImportSetupPage() {
   const [text, setText] = useState("");
   const [locked, setLocked] = useState(false);
   const mobile = useIsMobile();
-  // useIsMobile 은 첫 그림에서 항상 false 라, 마운트 뒤 값이 정해진 다음에야 ① ③ 을 그린다.
-  const [measured, setMeasured] = useState(false);
-  useEffect(() => setMeasured(true), []);
 
   const readFile = async (file: File) => {
     try {
@@ -38,7 +35,7 @@ export default function ImportSetupPage() {
         notice="명단 엑셀 올리기와 학년그룹 일괄 변경은 PC나 태블릿에서 할 수 있어요"
       />
       <div className="flex max-w-content flex-col gap-5 px-4 md:px-8 lg:px-12">
-        {measured && !mobile && (
+        {!mobile && (
           <div className="flex flex-col gap-5">
             <section className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
