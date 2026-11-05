@@ -2,6 +2,7 @@
 
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as XLSX from "xlsx";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock("@/lib/supabase", () => ({
@@ -488,5 +489,115 @@ describe("ImportSetupPage 입력을 고친 뒤", () => {
 
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByRole("button", { name: "적용" })).toBeNull();
+  });
+});
+
+function xlsxFile(aoa: string[][]): File {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(aoa),
+    "Sheet1",
+  );
+  const data = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  return new File([data], "roster.xlsx");
+}
+
+describe("ImportSetupPage ① 명단 엑셀 올리기", () => {
+  it("안내 글, 파일 선택 버튼, 양식 링크를 보인다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    expect(await screen.findByText("① 명단 엑셀 올리기")).toBeTruthy();
+    expect(
+      screen.getByText("엑셀 파일을 여기에 끌어다 놓거나 파일 선택을 누르세요"),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "파일 선택" })).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("link", { name: "샘플 엑셀 양식" })
+        .map((l) => l.getAttribute("href")),
+    ).toContain("/templates/student-roster.xlsx");
+  });
+
+  it("고른 파일의 줄을 ③ 입력칸에 채운다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    const input = (await screen.findByLabelText(
+      "명단 엑셀 파일",
+    )) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: {
+        files: [
+          xlsxFile([
+            ["이름", "학년", "반", "번호"],
+            ["홍길동", "1학년", "4", "7"],
+          ]),
+        ],
+      },
+    });
+
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByPlaceholderText(
+            "변경할 명단을 붙여넣으세요",
+          ) as HTMLTextAreaElement
+        ).value,
+      ).toBe("홍길동,1학년,,4,7,,,,"),
+    );
+  });
+
+  it("끌어다 놓은 파일도 읽는다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    const zone = (
+      await screen.findByText(
+        "엑셀 파일을 여기에 끌어다 놓거나 파일 선택을 누르세요",
+      )
+    ).parentElement as HTMLElement;
+    fireEvent.drop(zone, {
+      dataTransfer: {
+        files: [
+          xlsxFile([
+            ["이름", "학년", "반", "번호"],
+            ["김하늘", "2학년", "3", "12"],
+          ]),
+        ],
+      },
+    });
+
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByPlaceholderText(
+            "변경할 명단을 붙여넣으세요",
+          ) as HTMLTextAreaElement
+        ).value,
+      ).toBe("김하늘,2학년,,3,12,,,,"),
+    );
+  });
+
+  it("읽을 줄이 없는 파일은 오류 토스트를 보이고 입력칸을 그대로 둔다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    const input = (await screen.findByLabelText(
+      "명단 엑셀 파일",
+    )) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [xlsxFile([["이름", "학년", "반", "번호"]])] },
+    });
+
+    expect(await screen.findByText("엑셀에서 읽을 줄이 없어요")).toBeTruthy();
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "변경할 명단을 붙여넣으세요",
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toBe("");
   });
 });

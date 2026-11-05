@@ -88,7 +88,7 @@ export default function GroupManager() {
   };
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-4 md:border-t md:border-line md:pt-8">
       <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink-strong">
         그룹(레벨) 관리
       </h2>

@@ -4,6 +4,7 @@ import ConsoleHeaderFrame from "@/pages/console/ConsoleHeaderFrame";
 import ConsoleLayout from "@/pages/console/ConsoleLayout";
 import ConsolePlaceholder from "@/pages/console/ConsolePlaceholder";
 import FirstPasswordPage from "@/pages/console/FirstPasswordPage";
+import ImportSetupPage from "@/pages/console/import-setup/ImportSetupPage";
 import MyPage from "@/pages/console/MyPage";
 import OrgInfoPage from "@/pages/console/OrgInfoPage";
 
@@ -26,6 +27,7 @@ const teacherConsoleRoutes: RouteObject[] = [
               { index: true, Component: ConsolePlaceholder },
               { path: "my", Component: MyPage },
               { path: "org-info", Component: OrgInfoPage },
+              { path: "import", Component: ImportSetupPage },
               { path: "*", Component: ConsolePlaceholder },
             ],
           },
