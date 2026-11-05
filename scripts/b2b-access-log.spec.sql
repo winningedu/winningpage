@@ -171,6 +171,9 @@ select pg_temp.expect_error('self insert: 교사 id 를 채운 행은 RLS 거부
   $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, reason, teacher_id)
     values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'download', 'members', '정산',
       gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('self insert: actor_login_id 를 채운 행은 RLS 거부',
+  $$insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, action, resource_key, reason)
+    values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'SM123456', 'download', 'members', '정산')$$, '42501');
 select pg_temp.expect_error('self insert: 기관 id 를 채운 행은 RLS 거부',
   $$insert into public.admin_access_logs (profile_id, actor_email, action, resource_key, reason, tenant_id)
     values ('00000000-0000-0000-0000-0000000000a8', 't8-admin@t.local', 'download', 'members', '정산',

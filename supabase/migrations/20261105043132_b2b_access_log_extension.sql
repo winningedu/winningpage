@@ -41,7 +41,7 @@ comment on column public.admin_access_logs.actor_kind is 'hq(본사 직접 작�
 comment on column public.admin_access_logs.actor_login_id is '교사 로그인 아이디 스냅샷. 계정이 지워져도 남는다.';
 comment on column public.admin_access_logs.meta is '변경 전후 값 등 부가 정보. 임시 비밀번호나 전화번호 원문은 넣지 않는다.';
 
--- 위닝 관리자가 브라우저에서 직접 넣는 예전 본사 행은 B2B 컬럼이 모두 비어 있어야 한다.
+-- 위닝 관리자가 브라우저에서 직접 넣는 예전 본사 행은 B2B 컬럼(로그인 아이디 포함)이 모두 비어 있어야 한다.
 -- 그렇지 않으면 본사 계정이 교사나 학교 관리자 이름으로 콘솔 행을 위조할 수 있다.
 drop policy "admin access log self insert" on public.admin_access_logs;
 create policy "admin access log self insert" on public.admin_access_logs
@@ -50,6 +50,7 @@ create policy "admin access log self insert" on public.admin_access_logs
     profile_id = auth.uid()
     and public.is_winning_admin()
     and actor_kind is null
+    and actor_login_id is null
     and teacher_id is null
     and proxy_session_id is null
     and tenant_id is null
