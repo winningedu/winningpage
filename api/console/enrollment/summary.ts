@@ -48,7 +48,7 @@ export default defineHandler({
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
 
-    const { schoolYear } = await loadTenant(admin, actor.tenantId);
+    const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
     const [students, classes, capacities, assignments, teachers] =
       await Promise.all([
         loadScopedStudents(admin, actor),
@@ -129,6 +129,8 @@ export default defineHandler({
         };
       });
 
-    res.status(200).json({ asOf: kstDateOffset(new Date(), 0), classes: rows });
+    res
+      .status(200)
+      .json({ asOf: kstDateOffset(new Date(), 0), orgType, classes: rows });
   },
 });

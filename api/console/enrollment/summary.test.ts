@@ -210,4 +210,10 @@ describe("GET /api/console/enrollment/summary", () => {
 
     expect((res.body as { asOf: string }).asOf).toBe("2026-11-06");
   });
+
+  test("orgType tells the screen whether the tenant is a school or an academy", async () => {
+    const res = await get();
+
+    expect((res.body as { orgType: string }).orgType).toBe("학교");
+  });
 });
