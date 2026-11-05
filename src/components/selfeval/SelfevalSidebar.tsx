@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 import type {
   SelfevalStepItem,
   SelfevalStepStatus,
@@ -166,7 +167,7 @@ export default function SelfevalSidebar({
               id="selfeval-steps-heading"
               className="h-auto px-2 text-app-label font-medium text-ink-sub"
             >
-              진행단계
+              {siteWording("진행단계")}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <ol className="flex flex-col gap-0.25">

@@ -67,6 +67,18 @@ interface BoardCustomConfig {
 
 type BoardConfig = BoardCrudConfig | BoardCustomConfig;
 
+// 영상 재생 시간 입력값: 비어 있으면 null, 1초 이상 24시간 미만 정수면 그 값, 아니면 NaN(검증 실패).
+// DB CHECK(galleries_video_duration_seconds_check)와 같은 범위다.
+function parseVideoDuration(value: unknown): number | null {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return null;
+  }
+  const seconds = Number(value);
+  return Number.isInteger(seconds) && seconds > 0 && seconds < 86400
+    ? seconds
+    : Number.NaN;
+}
+
 export const boardConfigs: Record<string, BoardConfig> = {
   notices: {
     title: "공지사항",
@@ -244,6 +256,12 @@ export const boardConfigs: Record<string, BoardConfig> = {
         placeholder: "https:// 로 시작하는 주소 또는 유튜브 링크",
       },
       {
+        key: "video_duration_seconds",
+        label: "영상 재생 시간(초)",
+        type: "number",
+        placeholder: "비우면 시간을 보이지 않음. 12분 40초는 760",
+      },
+      {
         key: "category",
         label: "카테고리",
         type: "select",
@@ -268,6 +286,10 @@ export const boardConfigs: Record<string, BoardConfig> = {
       if (linkUrl && !/^https?:\/\//i.test(linkUrl)) {
         return "연결주소는 http:// 또는 https:// 로 시작해야 합니다.";
       }
+      const duration = parseVideoDuration(form.video_duration_seconds);
+      if (Number.isNaN(duration)) {
+        return "영상 재생 시간은 1초 이상 24시간 미만의 정수(초)로 입력해 주세요.";
+      }
       return null;
     },
     // ref pull(blockEditor)은 form.__blocks_<key>에 임시로 실린다 — 정본(content_json)과
@@ -278,6 +300,7 @@ export const boardConfigs: Record<string, BoardConfig> = {
       return {
         ...rest,
         link_url: String(rest.link_url ?? "").trim() || null,
+        video_duration_seconds: parseVideoDuration(rest.video_duration_seconds),
         content_json: { v: 1, editor: "blocknote@0.52.1", blocks },
         content: blocksToPlainText(blocks),
       };

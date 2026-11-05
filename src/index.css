@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "overlayscrollbars/overlayscrollbars.css";
+@import "./styles/home-b2b.css";
 /*
   ---break---
 */
@@ -188,6 +189,21 @@
      쓴다 — ParentCheckout.tsx 등 다른 파일의 `desktop:`(90rem, 페이지 레이아웃 의미)은
      이 변경과 무관하게 그대로 둔다. */
   --breakpoint-nav: 80rem;
+
+  /* 스쿨멘토(b2b) 셸 토큰 - src/components/b2b, 위닝은 쓰지 않는다. */
+  --color-b2b-pill-bg: #eaf1ff;
+  --color-b2b-pill-line: #d6e2ff;
+  --color-b2b-pill-ink: #1f2b7b;
+  --color-b2b-account: #0f1f5c;
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-footer-b2b-bg: #0b1745;
+  --color-footer-b2b-link: #e6ecff;
+  --color-footer-b2b-line: #2d375f;
+  --color-footer-b2b-info: #b9c3e3;
+  --color-footer-b2b-copyright: #8f9cc8;
+  --color-drawer-close-bg: #f5f8fb;
+  --color-drawer-on-primary: #f5f5f5;
+  --shadow-panel-strong: 0 1.125rem 2.8125rem rgba(13, 27, 42, 0.15);
 
   --font-grace:
     GraceSerif, "Noto Serif KR", "Nanum Myeongjo", Batang, AppleMyungjo, serif;

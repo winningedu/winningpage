@@ -89,7 +89,7 @@ describe("site — schoolmentor", () => {
     expect(site.favicon.svg).toBeUndefined();
   });
 
-  it("company는 필수 필드만 있고 선택 필드(특허·통신판매업·고객센터·연락처)는 전부 없다", async () => {
+  it("company는 필수 필드만 있고 선택 필드(특허·통신판매업·고객센터·연락처, 카카오 채널 주소 제외)는 없다", async () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.company.name).toBe("주식회사 위닝로직");
@@ -105,7 +105,6 @@ describe("site — schoolmentor", () => {
     expect(site.company.tel).toBeUndefined();
     expect(site.company.centerTel).toBeUndefined();
     expect(site.company.kakao).toBeUndefined();
-    expect(site.company.kakaoChannelUrl).toBeUndefined();
     expect(site.company.naverBlogUrl).toBeUndefined();
     expect(site.company.youtubeUrl).toBeUndefined();
     expect(site.company.instagramUrl).toBeUndefined();
@@ -124,6 +123,26 @@ describe("site - 프리미엄 노출 플래그", () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.features.premium).toBe(false);
+  });
+});
+
+describe("site - 콜멘토 노출 플래그", () => {
+  it("winning은 콜멘토를 노출하고 schoolmentor는 닫는다", async () => {
+    expect((await loadSite("winning")).site.features.callmentor).toBe(true);
+    expect((await loadSite("schoolmentor")).site.features.callmentor).toBe(
+      false,
+    );
+  });
+});
+
+describe("site - 서비스 이름 '위닝 ' 접두어 제거 플래그", () => {
+  it("winning은 접두어를 유지하고 schoolmentor는 뺀다", async () => {
+    expect((await loadSite("winning")).site.features.stripWinningPrefix).toBe(
+      false,
+    );
+    expect(
+      (await loadSite("schoolmentor")).site.features.stripWinningPrefix,
+    ).toBe(true);
   });
 });
 
@@ -177,6 +196,18 @@ describe("site - 숨길 프로그램 플래그", () => {
     expect(
       (await loadSite("schoolmentor")).site.features.hiddenPrograms,
     ).toEqual(["growth", "inquiry"]);
+  });
+});
+
+describe("site - 카카오 채널 주소", () => {
+  it("스쿨멘토는 위닝과 같은 카카오 채널 주소를 써서 온라인문의 메뉴가 남는다", async () => {
+    const winning = (await loadSite("winning")).site;
+    const schoolmentor = (await loadSite("schoolmentor")).site;
+
+    expect(winning.company.kakaoChannelUrl).toBeTruthy();
+    expect(schoolmentor.company.kakaoChannelUrl).toBe(
+      winning.company.kakaoChannelUrl,
+    );
   });
 });
 

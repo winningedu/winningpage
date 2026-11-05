@@ -62,15 +62,31 @@ function resolveServiceLink(service: Service): string | null {
 // 카드 자체에 패딩이 있으면 cqw가 콘텐츠 박스 기준으로 잡혀 일러스트가 의도보다
 // 작아진다(2026-09-03 실측). hover 강조 배경은 시안 지정 토큰 bg-surface-03
 // (#e9f4ff, QA 행157) — 그 외 hover/focus 링·그림자는 시안에 없는 구현측 인터랙션.
-const CARD_CLASS =
+const CARD_BASE_CLASS =
   "group flex w-full flex-row items-center justify-between " +
-  "rounded-[1.55rem] bg-white pl-8 pr-[1.625rem] " +
-  "shadow-[0_0.2063rem_0.2063rem_rgba(128,128,128,0.3)] transition-[background-color,box-shadow] duration-200 " +
-  "[@media(hover:hover)]:hover:bg-surface-03 [@media(hover:hover)]:hover:shadow-[0_0.375rem_1rem_0.25rem_rgba(128,128,128,0.4)] " +
+  "bg-white pl-8 pr-[1.625rem] transition-[background-color,box-shadow] duration-200 " +
   "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 " +
   "lg:min-h-45";
 
-export default function ServiceCard({ service }: { service: Service }) {
+// 카드 면(모서리, 그림자, hover). 위닝은 위 설명 그대로이고, b2b(스쿨멘토, W1 시안)는
+// 모서리 1.125rem, 그림자 --shadow-card-b2b, hover 면 --color-surface-callout 이다.
+const CARD_SURFACE_CLASS = {
+  default:
+    "rounded-[1.55rem] shadow-[0_0.2063rem_0.2063rem_rgba(128,128,128,0.3)] " +
+    "[@media(hover:hover)]:hover:bg-surface-03 [@media(hover:hover)]:hover:shadow-[0_0.375rem_1rem_0.25rem_rgba(128,128,128,0.4)]",
+  b2b:
+    "rounded-b2b-card shadow-card-b2b " +
+    "[@media(hover:hover)]:hover:bg-surface-callout [@media(hover:hover)]:hover:shadow-card-hover",
+} as const;
+
+export default function ServiceCard({
+  service,
+  variant = "default",
+}: {
+  service: Service;
+  variant?: keyof typeof CARD_SURFACE_CLASS;
+}) {
+  const cardClass = `${CARD_BASE_CLASS} ${CARD_SURFACE_CLASS[variant]}`;
   const link = resolveServiceLink(service);
   const isExternal = link !== null && /^https?:\/\//i.test(link);
 
@@ -82,9 +98,9 @@ export default function ServiceCard({ service }: { service: Service }) {
   );
 
   // 링크가 없는 카드(어드민이 link 를 아직 안 채운 신규 서비스) — 클릭 영역 없이 카드만
-  // 보여준다. hover/focus 스타일은 링크형 카드와 같은 CARD_CLASS 를 쓰되 커서만 기본값.
+  // 보여준다. hover/focus 스타일은 링크형 카드와 같은 cardClass 를 쓰되 커서만 기본값.
   if (link === null) {
-    return <div className={`${CARD_CLASS} cursor-default`}>{content}</div>;
+    return <div className={`${cardClass} cursor-default`}>{content}</div>;
   }
 
   if (isExternal) {
@@ -94,7 +110,7 @@ export default function ServiceCard({ service }: { service: Service }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${service.name} 바로가기`}
-        className={CARD_CLASS}
+        className={cardClass}
       >
         {content}
       </a>
@@ -105,7 +121,7 @@ export default function ServiceCard({ service }: { service: Service }) {
     <Link
       to={link}
       aria-label={`${service.name} 바로가기`}
-      className={CARD_CLASS}
+      className={cardClass}
     >
       {content}
     </Link>

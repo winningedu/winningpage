@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 import type { InquiryStep, InquiryStepStatus } from "./deriveInquirySteps";
 import { INQUIRY_PATHS } from "./inquiryPaths";
 
@@ -168,7 +169,7 @@ export default function InquirySidebar({
               id="inquiry-steps-heading"
               className="h-auto px-2 text-app-label font-medium text-ink-sub"
             >
-              진행단계
+              {siteWording("진행단계")}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <ol className="flex flex-col gap-0.25">

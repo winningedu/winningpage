@@ -88,7 +88,7 @@ const MEGA_PROMO_GUEST = {
 const GREY_ZONE_W = "28rem";
 const GREY_ZONE_H = "28.9rem";
 
-function getCsatDay() {
+export function getCsatDay() {
   const now = new Date();
   const kstNow = new Date(
     now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
@@ -109,12 +109,12 @@ function getCsatDay() {
 // profiles 테이블 행 — 헤더가 실제로 읽는 컬럼만 좁혀서 둔다.
 // 생성 타입(Tables<"profiles">)에서 파생시켜 null 가능 여부가 실제 스키마와 어긋나지
 // 않게 한다(role만 NOT NULL이라 string, 나머지는 string | null).
-type Profile = Pick<
+export type Profile = Pick<
   Tables<"profiles">,
   "id" | "name" | "email" | "username" | "member_type" | "role"
 >;
 
-function getMemberLabel(profile: Profile | null) {
+export function getMemberLabel(profile: Profile | null) {
   const raw = cleanText(profile?.member_type).toLowerCase();
   const role = cleanText(profile?.role).toLowerCase();
 
@@ -260,7 +260,7 @@ async function queryProfileByUsername(
   return data || null;
 }
 
-async function fetchProfile(
+export async function fetchProfile(
   user: User | null | undefined,
 ): Promise<Profile | null> {
   if (!user) return null;

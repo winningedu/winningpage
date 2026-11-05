@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { siteWording } from "@/config/wording";
 import { useAuth } from "@/context/AuthProvider";
 import {
   checkDiagnosisAccess,
@@ -123,31 +124,31 @@ const DIAGNOSE_META: ProgramKeyMeta = {
 const PROGRAM_KEY_META: Record<string, ProgramKeyMeta> = {
   diagnose: DIAGNOSE_META,
   target: {
-    serviceName: "위닝 목표관리",
+    serviceName: siteWording("위닝 목표관리"),
     category: "duration",
     // 목표관리는 실제 앱(/app/goal) 진입이 가능하다(2026-08-10 확정).
     route: "/app/goal",
   },
   suhaeng: {
-    serviceName: "위닝 수행평가",
+    serviceName: siteWording("위닝 수행평가"),
     category: "duration",
     // 수행평가 하드 전환 완료 — /app/performance가 인덱스 경로
     // (performanceAppRoutes.tsx).
     route: "/app/performance",
   },
   growth: {
-    serviceName: "위닝 성장설계",
+    serviceName: siteWording("위닝 성장설계"),
     category: "duration",
     route: "/app/growth",
   },
   // 회차제 상품이라 수행평가(suhaeng)와 같은 duration 으로 둔다.
   selfeval: {
-    serviceName: "위닝 자기평가서",
+    serviceName: siteWording("위닝 자기평가서"),
     category: "duration",
     route: "/app/selfeval",
   },
   inquiry: {
-    serviceName: "위닝 심화탐구",
+    serviceName: siteWording("위닝 심화탐구"),
     category: "duration",
     route: "/app/inquiry",
   },

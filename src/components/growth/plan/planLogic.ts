@@ -1,3 +1,4 @@
+import { siteWording } from "@/config/wording";
 import type {
   PlanBody,
   PlanGroup,
@@ -23,8 +24,8 @@ export const AXIS_NAMES: Record<string, string> = {
 
 export const PROGRAM_LABELS: Record<PlanProgram, string> = {
   school: "학교",
-  self: "위닝 자기평가서",
-  deep: "위닝 심화탐구",
+  self: siteWording("위닝 자기평가서"),
+  deep: siteWording("위닝 심화탐구"),
 };
 
 export const PRIORITY_LABELS = {
@@ -213,8 +214,8 @@ export function doneBadge(item: PlanItemView): string | null {
 }
 
 export function handoffButtonLabel(program: PlanProgram): string | null {
-  if (program === "self") return "위닝 자기평가서에서 하기";
-  if (program === "deep") return "위닝 심화탐구에서 하기";
+  if (program === "self") return siteWording("위닝 자기평가서에서 하기");
+  if (program === "deep") return siteWording("위닝 심화탐구에서 하기");
   return null;
 }
 

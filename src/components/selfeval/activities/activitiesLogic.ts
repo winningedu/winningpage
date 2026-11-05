@@ -1,3 +1,4 @@
+import { siteWording } from "@/config/wording";
 import {
   type ActivityRecordLike,
   type CandidateRow,
@@ -165,11 +166,11 @@ export function formatDotDate(iso: string): string | null {
 }
 
 const SOURCE_LABELS: Record<ActivityRecordLike["sourceProgram"], string> = {
-  performance: "위닝 수행평가",
-  deep: "위닝 심화탐구",
+  performance: siteWording("위닝 수행평가"),
+  deep: siteWording("위닝 심화탐구"),
   manual: "직접 입력",
   upload: "업로드",
-  self: "위닝 자기평가서",
+  self: siteWording("위닝 자기평가서"),
 };
 
 export const sourceLabel = (

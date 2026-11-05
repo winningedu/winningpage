@@ -2082,6 +2082,7 @@ export type Database = {
           sort_order: number | null;
           title: string;
           updated_at: string | null;
+          video_duration_seconds: number | null;
           view_count: number;
         };
         ComputedFields: never;
@@ -2100,6 +2101,7 @@ export type Database = {
           sort_order?: number | null;
           title?: string;
           updated_at?: string | null;
+          video_duration_seconds?: number | null;
           view_count?: number;
         };
         Update: {
@@ -2117,6 +2119,7 @@ export type Database = {
           sort_order?: number | null;
           title?: string;
           updated_at?: string | null;
+          video_duration_seconds?: number | null;
           view_count?: number;
         };
         Relationships: [];
@@ -3224,6 +3227,7 @@ export type Database = {
         Row: {
           badge: string | null;
           card_width: number | null;
+          consent_confirmed: boolean;
           created_at: string;
           description: string | null;
           id: string;
@@ -3242,6 +3246,7 @@ export type Database = {
         Insert: {
           badge?: string | null;
           card_width?: number | null;
+          consent_confirmed?: boolean;
           created_at?: string;
           description?: string | null;
           id?: string;
@@ -3259,6 +3264,7 @@ export type Database = {
         Update: {
           badge?: string | null;
           card_width?: number | null;
+          consent_confirmed?: boolean;
           created_at?: string;
           description?: string | null;
           id?: string;

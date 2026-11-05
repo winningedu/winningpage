@@ -1,3 +1,4 @@
+import { siteWording } from "@/config/wording";
 import type { SourceCounts } from "@/lib/growth/api";
 import { CollectSection, CountRow, NoticeBox } from "./CollectSection";
 
@@ -17,9 +18,15 @@ export function SavedActivitiesCard({ bySource }: { bySource: SourceCounts }) {
         </div>
       )}
       <div>
-        <CountRow label="위닝 수행평가" count={bySource.performance} />
-        <CountRow label="위닝 자기평가서" count={bySource.self} />
-        <CountRow label="위닝 심화탐구" count={bySource.deep} />
+        <CountRow
+          label={siteWording("위닝 수행평가")}
+          count={bySource.performance}
+        />
+        <CountRow
+          label={siteWording("위닝 자기평가서")}
+          count={bySource.self}
+        />
+        <CountRow label={siteWording("위닝 심화탐구")} count={bySource.deep} />
         <CountRow label="직접 입력" count={bySource.manual} />
         <CountRow label="합계" count={bySource.total} strong />
       </div>

@@ -1,5 +1,6 @@
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import { Button } from "@/components/ui/button";
+import { siteWording } from "@/config/wording";
 import type { SessionActivityView } from "@/lib/selfeval/types";
 import { saveBadge, type VerificationSummary } from "./verifyLogic";
 
@@ -39,7 +40,9 @@ export function SummaryCard({ summary }: { summary: VerificationSummary }) {
         <li className={ROW}>문장 {summary.sentenceCount}개</li>
       </ul>
       <p className="mt-4 text-app-caption text-ink-sub">
-        이 점수는 학교 채점이나 학생부 평가 예측이 아니라 위닝 내부 기준입니다
+        {siteWording(
+          "이 점수는 학교 채점이나 학생부 평가 예측이 아니라 위닝 내부 기준입니다",
+        )}
       </p>
     </aside>
   );
