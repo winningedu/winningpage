@@ -2,8 +2,8 @@
 //
 // W7 정원 입력(사 #150). 학교 관리자와 본사 대행만. 현재 학년도 학급의 정원을 절대값으로 정한다(null 은 비움).
 // 값이 같은 학급은 쓰지 않아 같은 요청을 다시 보내도 결과가 같다. 학급 하나라도 범위 밖이면 아무것도 쓰지 않고 404.
-// 학급별 update 는 따로 커밋되므로 중간에 실패하면 일부만 반영될 수 있으나, 절대값이라 같은 요청을 다시 보내 마무리한다.
-// 접근 로그는 변경 뒤에 쓴다(결정 18).
+// 학급별 update 는 따로 커밋되므로 중간에 실패하면 일부만 반영될 수 있다. 그때는 저장된 학급의 접근 로그를 남긴 뒤 오류를 돌려주고(결정 67),
+// 절대값이라 같은 요청을 다시 보내 마무리한다. 접근 로그는 변경 뒤에 쓴다(결정 18).
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { loadTenant, readAll } from "../../_lib/console/directory.js";
@@ -85,25 +85,33 @@ export default defineHandler({
     }
 
     const changed = items.filter((i) => current.get(i.classId) !== i.capacity);
+    const saved: Item[] = [];
+    let failure: Error | null = null;
     for (const item of changed) {
       const { error } = await admin
         .from("classes")
         .update({ capacity: item.capacity })
         .eq("id", item.classId)
         .eq("tenant_id", actor.tenantId);
-      if (error) throw new Error("class capacity update failed");
+      if (error) {
+        failure = new Error("class capacity update failed");
+        break;
+      }
+      saved.push(item);
     }
-    if (changed.length > 0) {
+    // 일부만 저장돼도 저장된 학급은 기록을 남긴 뒤 오류를 돌려준다(결정 67). 다시 보내면 나머지가 들어간다.
+    if (saved.length > 0) {
       await writeConsoleAuditLog(
         { ...ctx, console: actor },
         {
           action: "update",
           resourceKey: "classCapacity",
-          rowCount: changed.length,
-          meta: { items: changed },
+          rowCount: saved.length,
+          meta: { items: saved },
         },
       );
     }
-    res.status(200).json({ ok: true, updated: changed.length });
+    if (failure) throw failure;
+    res.status(200).json({ ok: true, updated: saved.length });
   },
 });

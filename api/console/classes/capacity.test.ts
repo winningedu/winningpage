@@ -70,6 +70,45 @@ describe("PATCH /api/console/classes/capacity", () => {
     });
   });
 
+  test("when an update fails partway, the classes already saved are audited and then the error is returned (decision 67)", async () => {
+    kit.state.updateErrors.classes = (f) =>
+      f.id === "c-2" ? { message: "down" } : undefined;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await patch({
+      items: [
+        { classId: "c-1", capacity: null },
+        { classId: "c-2", capacity: 32 },
+      ],
+    });
+
+    expect(res.status).toBe(500);
+    expect(capacityUpdates().map((u) => u.filters.id)).toEqual(["c-1", "c-2"]);
+    expect(
+      kit.state.inserts.filter((i) => i.table === "admin_access_logs"),
+    ).toEqual([
+      {
+        table: "admin_access_logs",
+        row: expect.objectContaining({
+          action: "update",
+          resource_key: "classCapacity",
+          row_count: 1,
+          meta: { items: [{ classId: "c-1", capacity: null }] },
+        }),
+      },
+    ]);
+  });
+
+  test("when the first update fails nothing was saved, so no audit record is written", async () => {
+    kit.state.updateErrors.classes = () => ({ message: "down" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await patch({ items: [{ classId: "c-1", capacity: null }] });
+
+    expect(res.status).toBe(500);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
   test("replaying the same values writes nothing and logs nothing", async () => {
     const res = await patch({ items: [{ classId: "c-1", capacity: 30 }] });
 

@@ -35,6 +35,11 @@ export interface KitState {
     values: Record<string, unknown>;
     filters: Record<string, unknown>;
   }[];
+  /** 테이블별 update 에러. 필터를 받아 에러를 돌려주면 그 update 가 실패한다. */
+  updateErrors: Record<
+    string,
+    (filters: Record<string, unknown>) => unknown | undefined
+  >;
   /** delete() 를 건 테이블과 필터. */
   deletes: { table: string; filters: Record<string, unknown> }[];
   /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
@@ -107,6 +112,7 @@ export function createKitState(): KitState {
     insertError: null,
     insertErrors: {},
     updates: [],
+    updateErrors: {},
     deletes: [],
     orders: [],
     reads: [],
@@ -157,9 +163,16 @@ export function createFakeAdmin(state: KitState) {
     from: (table: string) => {
       const filters: Record<string, unknown> = {};
       const chain: Record<string, unknown> = {};
+      let updating = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
+        if (updating) {
+          return {
+            data: null,
+            error: state.updateErrors[table]?.(filters) ?? null,
+          };
+        }
         const data = state.rows[table]?.(filters) ?? null;
         // limit 을 건 읽기만 정렬과 자르기를 흉내 낸다(그 밖의 읽기는 픽스처 순서 그대로).
         if (!Array.isArray(data) || read.limit === undefined) {
@@ -207,6 +220,7 @@ export function createFakeAdmin(state: KitState) {
       chain.update = (values: Record<string, unknown>) => {
         state.events.push(`update:${table}`);
         state.updates.push({ table, values, filters });
+        updating = true;
         return chain;
       };
       chain.delete = () => {
