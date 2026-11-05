@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   b2b: true,
+  failing: [] as string[],
   mentorStatus: "ready" as "ready" | "error",
   rows: {} as Record<string, unknown[]>,
 }));
@@ -35,9 +36,15 @@ vi.mock("@/config/site", () => ({
 }));
 
 vi.mock("@/lib/supabase", () => {
-  const makeChain = (table: string): Promise<{ data: unknown; error: null }> =>
+  const makeChain = (
+    table: string,
+  ): Promise<{ data: unknown; error: unknown }> =>
     Object.assign(
-      Promise.resolve({ data: state.rows[table] ?? [], error: null }),
+      Promise.resolve(
+        state.failing.includes(table)
+          ? { data: null, error: { message: "boom" } }
+          : { data: state.rows[table] ?? [], error: null },
+      ),
       {
         select: () => makeChain(table),
         eq: () => makeChain(table),
@@ -71,6 +78,7 @@ function renderHome() {
 beforeEach(() => {
   state.b2b = true;
   state.mentorStatus = "ready";
+  state.failing = [];
   state.rows = {
     program_categories: [
       {
@@ -161,6 +169,32 @@ describe("Home 스쿨멘토 구성", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "선배 카드를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요",
     );
+    expect(
+      screen.getByRole("region", { name: "핵심 서비스" }),
+    ).toBeInTheDocument();
+  });
+
+  test("공지 조회만 실패하면 그 목록에만 오류 안내를 보여준다", async () => {
+    state.failing = ["notices"];
+    state.rows.company_news = [
+      { id: "n1", title: "회사 글", created_at: "2026-10-01T00:00:00Z" },
+    ];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderHome();
+    const news = await screen.findByRole("region", { name: "스쿨멘토 소식" });
+    await within(news).findByRole("alert");
+    expect(within(news).getByText("회사 글")).toBeInTheDocument();
+    expect(within(news).getAllByRole("alert")).toHaveLength(1);
+  });
+
+  test("칼럼 조회가 실패하면 칼럼 영역에만 오류 안내를 보여준다", async () => {
+    state.failing = ["galleries"];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderHome();
+    const column = await screen.findByRole("region", {
+      name: "칼럼-교육청소식",
+    });
+    await within(column).findByRole("alert");
     expect(
       screen.getByRole("region", { name: "핵심 서비스" }),
     ).toBeInTheDocument();

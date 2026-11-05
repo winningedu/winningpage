@@ -317,6 +317,11 @@ export default function Home() {
   // 공지사항 섹션(회사소식/공지사항)은 실 Supabase DB 연동 완료 — 프리뷰 대상 아님.
   const [companyNews, setCompanyNews] = useState<NewsItem[]>([]);
   const [notices, setNotices] = useState<NewsItem[]>([]);
+  // 목록별 조회 상태. 스쿨멘토 홈만 로딩, 오류를 화면에 보인다(NewsSection statuses).
+  const [newsStatuses, setNewsStatuses] = useState<{
+    company: "loading" | "ready" | "error";
+    notices: "loading" | "ready" | "error";
+  }>({ company: "loading", notices: "loading" });
 
   useEffect(() => {
     if (LANDING_PREVIEW) return undefined;
@@ -511,6 +516,11 @@ export default function Home() {
 
       if (!mounted) return;
 
+      setNewsStatuses({
+        company: companyResult.error ? "error" : "ready",
+        notices: noticeResult.error ? "error" : "ready",
+      });
+
       if (companyResult.error) {
         console.error("회사소식 조회 오류:", companyResult.error);
         setCompanyNews([]);
@@ -646,7 +656,11 @@ export default function Home() {
         )}
 
         {/* 공지사항 섹션: 실 DB(company_news/notices) 기준 — 0건이어도 항상 렌더, 컬럼별 빈 상태 문구 표시 */}
-        <NewsSection companyNews={companyNews} notices={notices} />
+        <NewsSection
+          companyNews={companyNews}
+          notices={notices}
+          {...(site.features.b2bMenu ? { statuses: newsStatuses } : {})}
+        />
 
         {site.features.b2bMenu && (
           <ColumnNewsSection
