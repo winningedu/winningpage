@@ -7,19 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import { gradeLabel } from "../classLabel";
-import FilterSelect from "../FilterSelect";
-import Notice from "../Notice";
-import { SAVE_FAILED_MESSAGE } from "../passwordRule";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
-import { CONSOLE_LIST_KEY } from "../usePagedList";
-import TextField from "../TextField";
-import { useToast } from "../Toast";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
   numberTakenMessage,
   parseNumber,
-} from "./enrollmentEdit";
+} from "../enrollmentEdit";
+import FilterSelect from "../FilterSelect";
+import Notice from "../Notice";
+import { SAVE_FAILED_MESSAGE } from "../passwordRule";
+import TextField from "../TextField";
+import { useToast } from "../Toast";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { StudentRow } from "./types";
 
 const GRADE_NOTICE = "학년이 바뀌면 목표관리 D-day와 내신 기준이 바뀌어요";

@@ -1,5 +1,5 @@
+import type { Urgency } from "../urgency";
 import type { ServiceKey } from "./services";
-import type { Urgency } from "./UrgencyChip";
 
 export interface StudentRow {
   studentId: string;

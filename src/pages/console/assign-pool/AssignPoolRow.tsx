@@ -10,17 +10,17 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import { gradeLabel } from "../classLabel";
-import { SAVE_FAILED_MESSAGE } from "../passwordRule";
-import NameCell from "../NameCell";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
-import { CONSOLE_LIST_KEY } from "../usePagedList";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
   numberTakenMessage,
   parseNumber,
-} from "../students/enrollmentEdit";
+} from "../enrollmentEdit";
+import NameCell from "../NameCell";
+import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { PoolStudent } from "./types";
 
 const ALREADY_ASSIGNED_MESSAGE = "이미 학급이 정해져 있어요.";

@@ -1,9 +1,10 @@
 // W8 서비스 탭마다의 열. 이름 열도 하나의 열이라 탭마다 위치가 다르다(학습진단은 긴급도 뒤).
 // 읽을 값이 없으면 칸을 비운다(기본값을 만들어 내지 않는다). 휴대폰 카드는 이름을 제목으로 쓰고 나머지 열을 줄로 쓴다.
 
-import Chip, { type ChipTone } from "../Chip";
+import Chip from "../Chip";
 import { dotDate } from "../date";
 import NameCell from "../NameCell";
+import { URGENCY } from "../urgency";
 import type { StatusItem, TabKey } from "./tabs";
 
 export interface Column {
@@ -13,13 +14,6 @@ export interface Column {
   isName?: boolean;
   render: (item: StatusItem) => React.ReactNode;
 }
-
-export const URGENCY: Record<string, { label: string; tone: ChipTone }> = {
-  low: { label: "낮음", tone: "Success" },
-  mid: { label: "보통", tone: "Warning" },
-  high: { label: "높음", tone: "Caution" },
-  very_high: { label: "매우 높음", tone: "Danger" },
-};
 
 const str = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
 const num = (v: unknown) => (typeof v === "number" ? v : null);
