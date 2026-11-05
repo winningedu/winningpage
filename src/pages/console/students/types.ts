@@ -14,11 +14,17 @@ export interface StudentRow {
   services: Record<ServiceKey, boolean>;
   serviceCount: number;
   urgency: Urgency | null;
+  weeklyGoalRate: number | null;
+  weeklyGoalLevel: "low" | "mid" | "high" | null;
+  specialReasons: SpecialReason[];
   canEdit: boolean;
   enrollmentVersion: number;
 }
 
+export type SpecialReason = "low_rate" | "urgency" | "manual";
+
 export interface StudentListExtra {
   scopeTotal: number;
   orgType: string | null;
+  specialExecRatePct: number | null;
 }

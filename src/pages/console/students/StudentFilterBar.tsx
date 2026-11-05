@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import {
@@ -27,6 +28,8 @@ interface StudentFilterBarProps {
   classNeedsGrade: boolean;
   showGroup: boolean;
   primaryClassId: string | null;
+  special: boolean;
+  onToggleSpecial: () => void;
   onSearch: (values: StudentFilterValues) => void;
 }
 
@@ -38,6 +41,8 @@ export default function StudentFilterBar({
   classNeedsGrade,
   showGroup,
   primaryClassId,
+  special,
+  onToggleSpecial,
   onSearch,
 }: StudentFilterBarProps) {
   const [values, setValues] = useState(initial);
@@ -108,6 +113,18 @@ export default function StudentFilterBar({
           검색
         </Button>
       </div>
+      <Button
+        type="button"
+        variant="outline"
+        aria-pressed={special}
+        onClick={onToggleSpecial}
+        className={cn(
+          "h-11 rounded-lg border-line px-5 text-app-label font-semibold text-primary md:h-10",
+          special && "bg-surface-info",
+        )}
+      >
+        특이학생만
+      </Button>
     </div>
   );
 }

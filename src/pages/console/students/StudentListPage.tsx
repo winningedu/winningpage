@@ -34,6 +34,8 @@ const TABS = [
 ];
 const SKELETON_ROWS = 8;
 
+const SPECIAL_CRITERIA =
+  "특이학생은 주간 목표시간 달성율이 기준에 못 미치거나, 학습진단 긴급도가 높음 이상이거나, 선생님이 직접 지정한 학생이에요";
 const NO_STUDENTS_MESSAGE =
   "연결된 학생이 없습니다. 학생들이 가입하면 자동으로 표시됩니다";
 const NO_MATCH_MESSAGE =
@@ -81,6 +83,7 @@ export default function StudentListPage() {
     classId: useDefault ? primary.id : (searchParams.get("classId") ?? ""),
     q: searchParams.get("q") ?? "",
   };
+  const special = searchParams.get("special") === "1";
   const list = usePagedList<StudentRow, StudentListExtra>(
     "/api/console/students",
     {
@@ -89,6 +92,7 @@ export default function StudentListPage() {
       groupId: filters.groupId,
       classId: filters.classId,
       q: filters.q,
+      special: special ? "1" : undefined,
     },
     page,
     mobile,
@@ -96,9 +100,14 @@ export default function StudentListPage() {
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const apply = (values: StudentFilterValues, nextTab: string) =>
+  const apply = (
+    values: StudentFilterValues,
+    nextTab: string,
+    nextSpecial = special,
+  ) =>
     setSearchParams({
       ...(nextTab !== "all" && { tab: nextTab }),
+      ...(nextSpecial && { special: "1" }),
       grade: values.grade,
       ...Object.fromEntries(
         Object.entries(values).filter(([k, v]) => k !== "grade" && v),
@@ -143,6 +152,8 @@ export default function StudentListPage() {
           classNeedsGrade={!homeroom}
           showGroup={academy}
           primaryClassId={primary?.id ?? null}
+          special={special}
+          onToggleSpecial={() => apply(filters, tab, !special)}
           onSearch={(values) => apply(values, tab)}
         />
       )}
@@ -160,6 +171,11 @@ export default function StudentListPage() {
         )}
         {data && (
           <>
+            {special && (
+              <p className="pb-2 text-app-caption text-ink-sub">
+                {SPECIAL_CRITERIA}
+              </p>
+            )}
             <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
               {`검색 결과 ${data.total}명`}
             </h2>
@@ -167,7 +183,11 @@ export default function StudentListPage() {
               <EmptyState
                 noStudents={data.scopeTotal === 0}
                 onClear={() =>
-                  apply({ grade: "", groupId: "", classId: "", q: "" }, "all")
+                  apply(
+                    { grade: "", groupId: "", classId: "", q: "" },
+                    "all",
+                    false,
+                  )
                 }
               />
             ) : mobile ? (
@@ -175,6 +195,8 @@ export default function StudentListPage() {
                 rows={data.items}
                 academy={academy}
                 showEdit={homeroom}
+                showReasons={special}
+                execRatePct={data.specialExecRatePct}
                 onOpen={setOpenedId}
                 onEdit={setEditId}
               />
@@ -183,6 +205,8 @@ export default function StudentListPage() {
                 rows={data.items}
                 academy={academy}
                 showEdit={homeroom}
+                showReasons={special}
+                execRatePct={data.specialExecRatePct}
                 onOpen={setOpenedId}
                 onEdit={setEditId}
               />

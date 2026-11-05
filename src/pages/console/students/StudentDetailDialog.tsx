@@ -1,7 +1,8 @@
 // W6a 학생 상세 창. 실명 제목, 학년과 반 이력, 서비스 이용, 월과 학기 사용 횟수를 읽기만 한다.
 // 여는 일은 서버가 접근 로그에 남긴다(교 #36). 범위 밖 학생은 서버가 404 를 주므로 불러오기 실패로 다룬다.
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ import { gradeLabel } from "../classLabel";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import { slotLabel } from "../student-history/format";
+import { HISTORY_KEY } from "../student-history/usePagedList";
 import { SERVICES, type ServiceKey } from "./services";
 
 interface Slot {
@@ -32,7 +34,9 @@ interface Slot {
 interface StudentDetail {
   studentId: string;
   name: string;
-  enrollment: Slot;
+  flagged: boolean;
+  enrollment: Slot & { homeroomName: string | null };
+  summaries: Record<ServiceKey, string | null>;
   history: (Slot & { schoolYear: number })[];
   services: Record<ServiceKey, boolean>;
   usage: {
@@ -89,7 +93,33 @@ export default function StudentDetailDialog({
     retry: false,
     gcTime: 0,
   });
+  const queryClient = useQueryClient();
   const detail = query.data;
+  const [flagOverride, setFlagOverride] = useState<boolean | null>(null);
+  const [flagging, setFlagging] = useState(false);
+  const [flagError, setFlagError] = useState(false);
+  const flagged = flagOverride ?? detail?.flagged ?? false;
+
+  const toggleFlag = async () => {
+    setFlagging(true);
+    setFlagError(false);
+    try {
+      const res = await consoleRequest(
+        flagged
+          ? `/api/console/students/flag?studentId=${encodeURIComponent(studentId)}`
+          : "/api/console/students/flag",
+        flagged
+          ? { method: "DELETE" }
+          : { method: "POST", body: { studentId } },
+      );
+      if (res.status !== 200) throw new Error(`flag ${res.status}`);
+      setFlagOverride(!flagged);
+      void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+    } catch {
+      setFlagError(true);
+    }
+    setFlagging(false);
+  };
   const usageOf = (key: ServiceKey) => detail?.usage.find((u) => u.key === key);
 
   return (
@@ -111,7 +141,13 @@ export default function StudentDetailDialog({
         {detail && (
           <>
             <p className="text-app-label text-ink-sub">
-              {slotLabel(detail.enrollment)}
+              {[
+                slotLabel(detail.enrollment),
+                detail.enrollment.homeroomName &&
+                  `담임 ${detail.enrollment.homeroomName}`,
+              ]
+                .filter(Boolean)
+                .join(", ")}
             </p>
             <Block title="학년, 반 이력">
               <Table>
@@ -170,7 +206,9 @@ export default function StudentDetailDialog({
                           !detail.services[key] && "text-neutral-400",
                         )}
                       >
-                        {detail.services[key] ? "이용 중" : "이용 전"}
+                        {detail.services[key]
+                          ? (detail.summaries[key] ?? "이용 중")
+                          : "이용 전"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,9 +252,21 @@ export default function StudentDetailDialog({
               <p className="text-app-caption text-ink-sub">{USAGE_CAPTION}</p>
             </Block>
             <Notice tone="Info">{LOG_NOTICE}</Notice>
+            {flagError && (
+              <Notice tone="Danger">특이학생 지정을 바꾸지 못했어요</Notice>
+            )}
           </>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!detail || flagging}
+            onClick={() => void toggleFlag()}
+            className="mr-auto h-10 rounded-lg border-line px-5 text-app-label font-semibold text-primary disabled:opacity-40"
+          >
+            {flagged ? "특이학생 해제" : "특이학생으로 지정"}
+          </Button>
           <Button
             type="button"
             variant="outline"

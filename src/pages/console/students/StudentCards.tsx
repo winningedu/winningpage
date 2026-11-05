@@ -2,7 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import NameCell from "../student-history/NameCell";
+import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
+import SpecialReasons from "./SpecialReasons";
 import { gradeClassOf, joinedLabel, numberOf } from "./studentLabel";
 import type { StudentRow } from "./types";
 import UrgencyChip from "./UrgencyChip";
@@ -11,6 +13,8 @@ interface StudentCardsProps {
   rows: StudentRow[];
   academy: boolean;
   showEdit: boolean;
+  showReasons: boolean;
+  execRatePct: number | null;
   onOpen: (studentId: string) => void;
   onEdit: (studentId: string) => void;
 }
@@ -19,6 +23,8 @@ export default function StudentCards({
   rows,
   academy,
   showEdit,
+  showReasons,
+  execRatePct,
   onOpen,
   onEdit,
 }: StudentCardsProps) {
@@ -51,9 +57,21 @@ export default function StudentCards({
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">
+            <span className="text-app-caption text-ink-sub">
+              주간 목표시간 달성율
+            </span>
+            <RateCell row={row} />
+          </div>
+          <div className="flex items-center justify-between gap-3">
             <span className="text-app-caption text-ink-sub">이용서비스</span>
             <ServiceIcons services={row.services} count={row.serviceCount} />
           </div>
+          {showReasons && (
+            <SpecialReasons
+              reasons={row.specialReasons}
+              execRatePct={execRatePct}
+            />
+          )}
           {showEdit && row.canEdit && (
             <Button
               type="button"

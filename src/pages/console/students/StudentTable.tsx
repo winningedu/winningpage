@@ -10,7 +10,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import NameCell from "../student-history/NameCell";
+import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
+import SpecialReasons from "./SpecialReasons";
 import { gradeClassOf, joinedLabel, numberOf } from "./studentLabel";
 import type { StudentRow } from "./types";
 import UrgencyChip from "./UrgencyChip";
@@ -19,6 +21,9 @@ interface StudentTableProps {
   rows: StudentRow[];
   academy: boolean;
   showEdit: boolean;
+  /** 특이학생만 보는 중이면 사유 열을 더한다. */
+  showReasons: boolean;
+  execRatePct: number | null;
   onOpen: (studentId: string) => void;
   onEdit: (studentId: string) => void;
 }
@@ -27,6 +32,8 @@ export default function StudentTable({
   rows,
   academy,
   showEdit,
+  showReasons,
+  execRatePct,
   onOpen,
   onEdit,
 }: StudentTableProps) {
@@ -40,7 +47,9 @@ export default function StudentTable({
             <TableHead>학습진단 긴급도</TableHead>
             <TableHead>이름 (가입일)</TableHead>
             <TableHead>학년그룹/반/번호</TableHead>
+            <TableHead>주간 목표시간 달성율</TableHead>
             <TableHead>이용서비스</TableHead>
+            {showReasons && <TableHead>특이 사유</TableHead>}
             {showEdit && <TableHead />}
           </TableRow>
         </TableHeader>
@@ -71,11 +80,22 @@ export default function StudentTable({
                 </span>
               </TableCell>
               <TableCell>
+                <RateCell row={row} />
+              </TableCell>
+              <TableCell>
                 <ServiceIcons
                   services={row.services}
                   count={row.serviceCount}
                 />
               </TableCell>
+              {showReasons && (
+                <TableCell>
+                  <SpecialReasons
+                    reasons={row.specialReasons}
+                    execRatePct={execRatePct}
+                  />
+                </TableCell>
+              )}
               {showEdit && (
                 <TableCell className="text-right">
                   {row.canEdit && (

@@ -65,6 +65,9 @@ const student = (n: number, over: Record<string, unknown> = {}) => ({
   services: n === 1 ? allServices : noServices,
   serviceCount: n === 1 ? 6 : 0,
   urgency: n === 1 ? "mid" : null,
+  weeklyGoalRate: n === 1 ? 72 : null,
+  weeklyGoalLevel: n === 1 ? "high" : null,
+  specialReasons: [] as string[],
   groupId: null,
   classId: "c3",
   canEdit: true,
@@ -174,6 +177,7 @@ describe("W6 학생 관리 default", () => {
       "학습진단 긴급도",
       "이름 (가입일)",
       "학년그룹/반/번호",
+      "주간 목표시간 달성율",
       "이용서비스",
     ]) {
       expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
@@ -183,11 +187,13 @@ describe("W6 학생 관리 default", () => {
     expect(within(row).getByText("2학년 3반")).toBeTruthy();
     expect(within(row).getByText("1번")).toBeTruthy();
     expect(within(row).getByText("보통")).toBeTruthy();
+    expect(within(row).getByText("72%")).toBeTruthy();
     expect(within(row).getByText("6/6")).toBeTruthy();
     expect(within(row).getByRole("button", { name: "편집하기" })).toBeTruthy();
     const second = screen.getByText("이서준").closest("tr") as HTMLElement;
     expect(within(second).getByText("번호 미입력")).toBeTruthy();
     expect(within(second).getByText("0/6")).toBeTruthy();
+    expect(within(second).getByTestId("rate-empty")).toBeTruthy();
   });
 });
 
@@ -382,7 +388,22 @@ const detail = {
   studentId: "s1",
   name: "김서연",
   joinedAt: "2026-03-02",
-  enrollment: { grade: "고2", groupName: null, className: "3", number: 1 },
+  flagged: false,
+  summaries: {
+    diagnosis: "학교생활 준비도 71",
+    goal: null,
+    growth: '대주제 "지속가능한 도시"',
+    performance: null,
+    selfeval: null,
+    inquiry: null,
+  },
+  enrollment: {
+    grade: "고2",
+    groupName: null,
+    className: "3",
+    number: 1,
+    homeroomName: "박지훈",
+  },
   history: [
     {
       schoolYear: 2026,
@@ -430,7 +451,9 @@ describe("W6a 학생 상세", () => {
     expect(
       await within(dialog).findByRole("heading", { name: "김서연" }),
     ).toBeTruthy();
-    expect(within(dialog).getByText("2학년 3반 1번")).toBeTruthy();
+    expect(within(dialog).getByText("2학년 3반 1번, 담임 박지훈")).toBeTruthy();
+    expect(within(dialog).getByText("학교생활 준비도 71")).toBeTruthy();
+    expect(within(dialog).getByText('대주제 "지속가능한 도시"')).toBeTruthy();
     const history = within(dialog)
       .getByText("2025")
       .closest("tr") as HTMLElement;
@@ -663,5 +686,99 @@ describe("W6b 학생 정보 편집", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(calls.some((c) => c.key === PATCH_URL)).toBe(false);
+  });
+});
+
+describe("W6 특이학생", () => {
+  const SPECIAL_URL = `GET /api/console/students?grade=${GRADE2}&classId=c3&special=1&page=1`;
+
+  it("특이학생만을 켜면 사유 열과 기준 문장이 더해진다", async () => {
+    stubPage({
+      [SPECIAL_URL]: {
+        body: listBody(
+          [
+            student(1, { specialReasons: ["low_rate", "urgency"] }),
+            student(2, { specialReasons: ["manual"] }),
+          ],
+          { scopeTotal: 28, specialExecRatePct: 40 },
+        ),
+      },
+    });
+    renderRoutes(routes, "/teacher/students");
+    const toggle = await screen.findByRole("button", { name: "특이학생만" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(toggle);
+
+    expect(
+      await screen.findByRole("columnheader", { name: "특이 사유" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("달성율 40% 미만")).toBeTruthy();
+    expect(screen.getByText("긴급도 높음 이상")).toBeTruthy();
+    expect(screen.getByText("직접 지정")).toBeTruthy();
+    expect(screen.getByText(/특이학생은/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "특이학생만" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("특이학생을 켜지 않으면 사유 열이 없다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/students");
+    await screen.findByText("김서연");
+
+    expect(
+      screen.queryByRole("columnheader", { name: "특이 사유" }),
+    ).toBeNull();
+  });
+
+  it("상세에서 특이학생으로 지정하면 서버에 알리고 버튼이 해제로 바뀐다", async () => {
+    let flagged = false;
+    const calls = stubPage({
+      [DETAIL_URL]: () => ({ body: { ...detail, flagged } }),
+      "POST /api/console/students/flag": () => {
+        flagged = true;
+        return { body: { ok: true, flagged: true } };
+      },
+    });
+    renderRoutes(routes, "/teacher/students");
+    fireEvent.click(await screen.findByText("김서연"));
+    const dialog = await screen.findByRole("dialog");
+    const button = await within(dialog).findByRole("button", {
+      name: "특이학생으로 지정",
+    });
+
+    fireEvent.click(button);
+
+    expect(
+      await within(dialog).findByRole("button", { name: "특이학생 해제" }),
+    ).toBeTruthy();
+    expect(
+      calls.find((c) => c.key === "POST /api/console/students/flag")?.body,
+    ).toEqual({ studentId: "s1" });
+  });
+
+  it("지정된 학생은 해제할 수 있다", async () => {
+    const calls = stubPage({
+      [DETAIL_URL]: { body: { ...detail, flagged: true } },
+      "DELETE /api/console/students/flag?studentId=s1": {
+        body: { ok: true, flagged: false },
+      },
+    });
+    renderRoutes(routes, "/teacher/students");
+    fireEvent.click(await screen.findByText("김서연"));
+    const dialog = await screen.findByRole("dialog");
+
+    fireEvent.click(
+      await within(dialog).findByRole("button", { name: "특이학생 해제" }),
+    );
+
+    await waitFor(() =>
+      expect(calls.map((c) => c.key)).toContain(
+        "DELETE /api/console/students/flag?studentId=s1",
+      ),
+    );
   });
 });
