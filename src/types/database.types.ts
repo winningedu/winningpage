@@ -1300,6 +1300,88 @@ export type Database = {
           },
         ];
       };
+      class_groups: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          name: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          name: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          name?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "class_groups_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      classes: {
+        Row: {
+          capacity: number | null;
+          created_at: string;
+          grade: string;
+          group_id: string | null;
+          id: string;
+          name: string;
+          school_year: number;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          capacity?: number | null;
+          created_at?: string;
+          grade: string;
+          group_id?: string | null;
+          id?: string;
+          name: string;
+          school_year: number;
+          tenant_id: string;
+        };
+        Update: {
+          capacity?: number | null;
+          created_at?: string;
+          grade?: string;
+          group_id?: string | null;
+          id?: string;
+          name?: string;
+          school_year?: number;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "classes_group_id_tenant_id_fkey";
+            columns: ["group_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "class_groups";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "classes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       column_categories: {
         Row: {
           created_at: string;
@@ -7447,6 +7529,16 @@ export type Database = {
           thoughts_tokens: number;
         }[];
       };
+      fn_class_ensure: {
+        Args: {
+          p_grade: string;
+          p_group_id: string;
+          p_raw_name: string;
+          p_school_year: number;
+          p_tenant_id: string;
+        };
+        Returns: string;
+      };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
         Returns: {
@@ -7792,6 +7884,10 @@ export type Database = {
           id: string;
           name: string;
         }[];
+      };
+      fn_normalize_class_name: {
+        Args: { p_org_type: string; p_raw: string };
+        Returns: string;
       };
       fn_normalize_tenant_code: { Args: { p: string }; Returns: string };
       fn_order_consumption_state: {
