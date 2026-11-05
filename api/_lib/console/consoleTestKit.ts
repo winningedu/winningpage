@@ -22,6 +22,11 @@ export interface KitState {
   rows: Record<string, (filters: Record<string, unknown>) => unknown>;
   inserts: { table: string; row: Record<string, unknown> }[];
   insertError: unknown;
+  updates: {
+    table: string;
+    values: Record<string, unknown>;
+    filters: Record<string, unknown>;
+  }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
   events: string[];
   auth: {
@@ -60,6 +65,7 @@ export function createKitState(): KitState {
     rows: {},
     inserts: [],
     insertError: null,
+    updates: [],
     events,
     auth: {
       createUser: ok("createUser"),
@@ -108,6 +114,11 @@ export function createFakeAdmin(state: KitState) {
       chain.maybeSingle = async () => result();
       // biome-ignore lint/suspicious/noThenProperty: Supabase 쿼리 빌더처럼 await 할 수 있어야 한다.
       chain.then = (resolve: (r: unknown) => unknown) => resolve(result());
+      chain.update = (values: Record<string, unknown>) => {
+        state.events.push(`update:${table}`);
+        state.updates.push({ table, values, filters });
+        return chain;
+      };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
         state.inserts.push({ table, row });
