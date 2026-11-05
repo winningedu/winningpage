@@ -1,0 +1,23 @@
+/* 스쿨멘토 홈(W1, W2) 전용 토큰. 위닝 화면은 이 토큰을 쓰지 않는다. 값은 시안 변수 그대로다.
+   b2b-account, b2b-pill-bg, overlay는 헤더 작업에서도 같은 값으로 선언될 수 있다(중복 선언은 무해). */
+@theme {
+  --color-b2b-pill-bg: #eaf1ff;
+  --color-b2b-account: #0f1f5c;
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-surface-callout: #f1f8ff;
+  --color-surface-danger: #ffd9d9;
+  --color-ink-danger: #991e1e;
+  --color-column-line: #e3e6ee;
+  --color-column-title: #1c2033;
+  --color-column-meta: #8a90a6;
+  --color-column-divider: #d6d9e2;
+  --color-column-thumb: rgba(127, 127, 127, 0.08);
+  --color-column-badge-line: #c9d8fb;
+  --color-column-play: rgba(15, 31, 92, 0.82);
+  --color-column-duration: rgba(0, 0, 0, 0.65);
+  --shadow-card-b2b: 0 0.25rem 1.125rem rgba(20, 28, 70, 0.08);
+  --shadow-card-hover: 0 0.3156rem 0.7213rem 0.1625rem
+    rgba(128, 128, 128, 0.365);
+  --shadow-popover: 0 0.5rem 1.5rem rgba(13, 27, 42, 0.16);
+  --radius-b2b-card: 1.125rem;
+}
