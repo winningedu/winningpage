@@ -13,6 +13,7 @@ import PageHeader from "../PageHeader";
 import { useToast } from "../Toast";
 import ClassTable from "./ClassTable";
 import EnrollmentSummaryCards from "./EnrollmentSummaryCards";
+import { buildEnrollmentGrid, downloadEnrollmentXlsx } from "./exportGrid";
 import { dotDate, type EnrollmentSummary, totalsOf } from "./format";
 
 const SUMMARY_KEY = ["console", "enrollment-summary"] as const;
@@ -104,6 +105,35 @@ export default function EnrollmentPage() {
     }
   };
 
+  // 출력 기록을 먼저 남긴 뒤에만 파일을 내려받는다(기록 없는 출력이 없게, 교 #227).
+  const exportXlsx = async () => {
+    if (!data) return;
+    try {
+      const res = await consoleRequest("/api/console/enrollment/export", {
+        method: "POST",
+        body: { classCount: rows.length },
+      });
+      if (res.status !== 200) throw new Error(`export log ${res.status}`);
+      await downloadEnrollmentXlsx(
+        buildEnrollmentGrid({
+          rows,
+          filter: {
+            grade: `학년그룹: ${grade ? gradeLabel(grade) : "전체"}`,
+            class: `반: ${picked ? `${picked.className}반` : "전체"}`,
+          },
+          asOf: data.asOf,
+          scopeLabel,
+        }),
+        data.asOf,
+      );
+    } catch {
+      toast.show({
+        tone: "Error",
+        message: "엑셀을 만들지 못했어요. 다시 시도해 주세요",
+      });
+    }
+  };
+
   const actions = editing ? (
     <div className="flex gap-2">
       <Button
@@ -124,14 +154,24 @@ export default function EnrollmentPage() {
       </Button>
     </div>
   ) : (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={startEdit}
-      className="h-10 rounded-lg px-4 text-app-label font-semibold"
-    >
-      정원 입력
-    </Button>
+    <div className="flex gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => void exportXlsx()}
+        className="h-10 rounded-lg px-4 text-app-label font-semibold"
+      >
+        엑셀 출력
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={startEdit}
+        className="h-10 rounded-lg px-4 text-app-label font-semibold"
+      >
+        정원 입력
+      </Button>
+    </div>
   );
 
   return (

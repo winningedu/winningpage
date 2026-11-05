@@ -3,9 +3,22 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  writeFile: vi.fn(),
+  aoaToSheet: vi.fn((grid: unknown) => ({ grid })),
+}));
 vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: mocks.getSession } },
+}));
+vi.mock("xlsx", () => ({
+  utils: {
+    book_new: () => ({ sheets: [] as unknown[] }),
+    aoa_to_sheet: mocks.aoaToSheet,
+    book_append_sheet: (book: { sheets: unknown[] }, sheet: unknown) =>
+      book.sheets.push(sheet),
+  },
+  writeFile: mocks.writeFile,
 }));
 vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 
@@ -337,5 +350,65 @@ describe("W7 이용현황", () => {
     expect((screen.getByLabelText("1반 정원") as HTMLInputElement).value).toBe(
       "40",
     );
+  });
+
+  it("엑셀 출력은 보이는 범위의 집계 표를 내려받고 출력 기록을 서버에 남긴다", async () => {
+    const calls = stubPage({
+      "POST /api/console/enrollment/export": { body: { ok: true } },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    fireEvent.click(await screen.findByRole("button", { name: "엑셀 출력" }));
+
+    await waitFor(() => expect(mocks.writeFile).toHaveBeenCalledTimes(1));
+    expect(mocks.writeFile.mock.calls[0]?.[1]).toBe(
+      "스쿨멘토_이용현황_20261105.xlsx",
+    );
+    const grid = mocks.aoaToSheet.mock.calls[0]?.[0] as unknown[][];
+    expect(grid[0]).toEqual(["이용현황"]);
+    expect(grid.some((r) => r[0] === "김담임" && r[3] === 30)).toBe(true);
+    expect(
+      calls.find((c) => c.key === "POST /api/console/enrollment/export")?.body,
+    ).toEqual({ classCount: 2 });
+  });
+
+  it("정원을 입력하는 동안에는 엑셀 출력 버튼을 숨긴다", async () => {
+    stubPage();
+    renderRoutes(routes, "/teacher/enrollment");
+    await screen.findByRole("button", { name: "엑셀 출력" });
+
+    fireEvent.click(screen.getByRole("button", { name: "정원 입력" }));
+
+    expect(screen.queryByRole("button", { name: "엑셀 출력" })).toBeNull();
+  });
+
+  it("출력 기록을 남기지 못하면 파일을 내려받지 않고 오류 알림을 보인다", async () => {
+    stubPage({
+      "POST /api/console/enrollment/export": { status: 500, body: {} },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    fireEvent.click(await screen.findByRole("button", { name: "엑셀 출력" }));
+
+    expect(
+      await screen.findByText("엑셀을 만들지 못했어요. 다시 시도해 주세요"),
+    ).toBeTruthy();
+    expect(mocks.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("파일을 만들다 실패해도 오류 알림을 보인다", async () => {
+    mocks.writeFile.mockImplementationOnce(() => {
+      throw new Error("write failed");
+    });
+    stubPage({
+      "POST /api/console/enrollment/export": { body: { ok: true } },
+    });
+    renderRoutes(routes, "/teacher/enrollment");
+
+    fireEvent.click(await screen.findByRole("button", { name: "엑셀 출력" }));
+
+    expect(
+      await screen.findByText("엑셀을 만들지 못했어요. 다시 시도해 주세요"),
+    ).toBeTruthy();
   });
 });
