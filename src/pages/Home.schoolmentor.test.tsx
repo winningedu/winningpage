@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   b2b: true,
+  mentorStatus: "ready" as "ready" | "error",
   rows: {} as Record<string, unknown[]>,
 }));
 
@@ -54,7 +55,7 @@ vi.mock("@/lib/supabase", () => {
 });
 
 vi.mock("@/hooks/useHomeMentors", () => ({
-  useHomeMentors: () => ({ mentors: [], status: "ready" }),
+  useHomeMentors: () => ({ mentors: [], status: state.mentorStatus }),
 }));
 
 const { default: Home } = await import("./Home");
@@ -69,6 +70,7 @@ function renderHome() {
 
 beforeEach(() => {
   state.b2b = true;
+  state.mentorStatus = "ready";
   state.rows = {
     program_categories: [
       {
@@ -151,5 +153,16 @@ describe("Home 스쿨멘토 구성", () => {
     expect(
       screen.queryByRole("region", { name: "칼럼-교육청소식" }),
     ).toBeNull();
+  });
+
+  test("선배 카드 조회가 실패하면 그 영역에만 오류 안내를 보여주고 다른 영역은 그대로다", async () => {
+    state.mentorStatus = "error";
+    renderHome();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "선배 카드를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요",
+    );
+    expect(
+      screen.getByRole("region", { name: "핵심 서비스" }),
+    ).toBeInTheDocument();
   });
 });

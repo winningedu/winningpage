@@ -304,7 +304,7 @@ export default function Home() {
   // 멘토 fetch+정규화는 useHomeMentors로 추출됨(프리미엄 랜딩 섹션 9와 공유) — LANDING_PREVIEW일
   // 때는 기존과 동일하게 정적 픽스처를 쓰고, 아니면 훅이 마운트 시 자체 fetch한다(enabled 가드로
   // LANDING_PREVIEW 중에는 fetch 자체를 건너뛰어 기존 동작과 100% 동일).
-  const { mentors: fetchedMentors } = useHomeMentors({
+  const { mentors: fetchedMentors, status: mentorsStatus } = useHomeMentors({
     enabled: !LANDING_PREVIEW,
   });
   const mentors = LANDING_PREVIEW
@@ -636,8 +636,13 @@ export default function Home() {
           />
         )}
 
-        {mentors.length > 0 && (
-          <MentorSection mentors={mentors} {...sectionCopy.mentor} />
+        {(mentors.length > 0 ||
+          (site.features.b2bMenu && mentorsStatus === "error")) && (
+          <MentorSection
+            mentors={mentors}
+            status={mentorsStatus === "error" ? "error" : "ready"}
+            {...sectionCopy.mentor}
+          />
         )}
 
         {/* 공지사항 섹션: 실 DB(company_news/notices) 기준 — 0건이어도 항상 렌더, 컬럼별 빈 상태 문구 표시 */}
