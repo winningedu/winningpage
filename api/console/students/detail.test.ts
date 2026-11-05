@@ -130,6 +130,10 @@ beforeEach(() => {
   kit.state.rows.performance_sessions = () => [];
   kit.state.rows.selfeval_sessions = () => [];
   kit.state.rows.inquiry_sessions = () => [];
+  kit.state.rows.diagnosis_reports = () => [];
+  kit.state.rows.student_flags = () => [];
+  kit.state.rows.teacher_class_assignments = () => [];
+  kit.state.rows.teachers = () => [];
   kit.state.rpc.fn_tenant_usage_state = (args) => ({
     data: [USAGE[String(args.p_program_key)] ?? { allowed: true }],
     error: null,
@@ -234,6 +238,119 @@ describe("GET /api/console/students/detail", () => {
       monthLimit: 3,
       monthRemaining: 3,
       termLimit: null,
+    });
+  });
+
+  test("the info line carries the homeroom teacher name of the current class", async () => {
+    kit.state.rows.teacher_class_assignments = (f) =>
+      matchRows(
+        [{ tenant_id: "tenant-1", class_id: "c-A", teacher_id: "t1" }],
+        f,
+      );
+    kit.state.rows.teachers = (f) =>
+      matchRows([{ id: "t1", tenant_id: "tenant-1", name: "박지훈" }], f);
+
+    expect(
+      (await get()).body as { enrollment: { homeroomName: string | null } },
+    ).toMatchObject({ enrollment: { homeroomName: "박지훈" } });
+    kit.state.rows.teacher_class_assignments = () => [];
+    expect((await get()).body).toMatchObject({
+      enrollment: { homeroomName: null },
+    });
+  });
+
+  test("flagged tells whether the student is a special student", async () => {
+    expect((await get()).body).toMatchObject({ flagged: false });
+    kit.state.rows.student_flags = (f) =>
+      matchRows([{ student_id: "s1", tenant_id: "tenant-1" }], f);
+
+    expect((await get()).body).toMatchObject({ flagged: true });
+  });
+
+  test("summaries describe each used service from its own records and are null for unused ones", async () => {
+    const mine =
+      (rows: Record<string, unknown>[]) => (f: Record<string, unknown>) =>
+        matchRows(rows, f);
+    kit.state.rows.diagnosis_reports = mine([
+      {
+        attempt_id: "a1",
+        profile_id: "s1",
+        diagnosed_at: "2026-06-01T00:00:00Z",
+        payload: {
+          areaDetails: {
+            page1: [{ score: 10 }],
+            page2: [{ score: 70 }, { score: 72 }],
+          },
+        },
+      },
+    ]);
+    kit.state.rows.goal_students = mine([
+      {
+        profile_id: "s1",
+        ideal_university: "가나대",
+        ideal_department: "경영학과",
+        min_university: "다라대",
+        min_department: "경영학과",
+      },
+    ]);
+    kit.state.rows.growth_reports = mine([
+      {
+        id: "g0",
+        profile_id: "s1",
+        narrative_theme: "옛 주제",
+        created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "g1",
+        profile_id: "s1",
+        narrative_theme: "지속가능한 도시",
+        created_at: "2026-05-01T00:00:00Z",
+      },
+    ]);
+    kit.state.rows.performance_sessions = mine([
+      { id: "p1", profile_id: "s1", status: "completed" },
+      { id: "p2", profile_id: "s1", status: "completed" },
+      { id: "p3", profile_id: "s1", status: "in_progress" },
+    ]);
+    kit.state.rows.selfeval_sessions = mine([
+      { id: "e1", profile_id: "s1", status: "completed" },
+    ]);
+    kit.state.rows.inquiry_sessions = mine([
+      {
+        id: "i1",
+        profile_id: "s1",
+        status: "completed",
+        created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "i2",
+        profile_id: "s1",
+        status: "in_progress",
+        created_at: "2026-04-01T00:00:00Z",
+      },
+    ]);
+
+    const r = await get();
+
+    expect((r.body as { summaries: unknown }).summaries).toEqual({
+      diagnosis: "학교생활 준비도 71",
+      goal: "이상 가나대 경영학과, 최소 다라대 경영학과",
+      growth: '대주제 "지속가능한 도시"',
+      performance: "제출 2건, 진행 중 1건",
+      selfeval: "제출 1건",
+      inquiry: "진행 중",
+    });
+  });
+
+  test("a service the student never used has no summary", async () => {
+    expect((await get()).body).toMatchObject({
+      summaries: {
+        goal: null,
+        growth: null,
+        performance: null,
+        selfeval: null,
+        inquiry: null,
+      },
     });
   });
 });

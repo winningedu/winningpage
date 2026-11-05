@@ -3,6 +3,7 @@
 // W6a 학생 상세. 이름은 실명으로 보인다(목록에서만 가린다, 결정 35). 담임은 담당 학급 학생만 읽고
 // 범위 밖과 다른 기관의 학생은 404 로 숨긴다. 여는 일은 접근 로그에 남긴다(교 #36).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import {
   loadClassIndex,
@@ -10,6 +11,7 @@ import {
   readAll,
 } from "../../_lib/console/directory.js";
 import { isInScope } from "../../_lib/console/scope.js";
+import { loadServiceSummaries } from "../../_lib/console/serviceSummary.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -44,6 +46,30 @@ interface UsageStateRow {
   term_used: number | null;
   term_limit: number | null;
   term_remaining: number | null;
+}
+
+/** 학급의 담임 이름. 담임이 없으면 null. */
+async function loadHomeroomName(
+  admin: SupabaseClient,
+  tenantId: string,
+  classId: string | null,
+): Promise<string | null> {
+  if (!classId) return null;
+  const [assignment] = await readAll<{ teacher_id: string }>(
+    admin,
+    "teacher_class_assignments",
+    "teacher_id",
+    (q) => q.eq("tenant_id", tenantId).eq("class_id", classId),
+    "class_id",
+  );
+  if (!assignment) return null;
+  const [teacher] = await readAll<{ name: string }>(
+    admin,
+    "teachers",
+    "name",
+    (q) => q.eq("tenant_id", tenantId).eq("id", assignment.teacher_id),
+  );
+  return teacher?.name ?? null;
 }
 
 const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
@@ -86,7 +112,15 @@ export default defineHandler({
       return;
     }
 
-    const [classes, profiles, used, usageStates] = await Promise.all([
+    const [
+      classes,
+      profiles,
+      used,
+      usageStates,
+      summaries,
+      flags,
+      homeroomName,
+    ] = await Promise.all([
       loadClassIndex(admin, actor.tenantId),
       readAll<{ name: string | null; created_at: string | null }>(
         admin,
@@ -105,6 +139,15 @@ export default defineHandler({
           return (data as UsageStateRow[] | null)?.[0];
         }),
       ),
+      loadServiceSummaries(admin, studentId),
+      readAll<{ student_id: string }>(
+        admin,
+        "student_flags",
+        "student_id",
+        (q) => q.eq("tenant_id", actor.tenantId).eq("student_id", studentId),
+        "student_id",
+      ),
+      loadHomeroomName(admin, actor.tenantId, current.class_id),
     ]);
     const profile = profiles[0];
     const slotOf = (r: EnrollmentRow) => {
@@ -128,7 +171,9 @@ export default defineHandler({
       joinedAt: profile?.created_at
         ? KST_DATE.format(new Date(profile.created_at))
         : null,
-      enrollment: slotOf(current),
+      flagged: flags.length > 0,
+      enrollment: { ...slotOf(current), homeroomName },
+      summaries,
       history: [...rows]
         .sort((a, b) => b.school_year - a.school_year)
         .map((r) => ({ schoolYear: r.school_year, ...slotOf(r) })),
