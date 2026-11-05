@@ -210,3 +210,67 @@ describe("ImportSetupPage 그룹 삭제 막힘", () => {
     expect(calls.some((c) => c.key.includes("groups/delete"))).toBe(false);
   });
 });
+
+describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
+  it("진급 대상 줄, 양식 내려받기, 빈 입력칸의 미리보기 막힘을 보여준다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    expect(await screen.findByText("③ 학년그룹 일괄 변경")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "진급 대상: 1학년 150명과 2학년 150명은 학년 +1, 3학년 150명은 졸업 처리",
+      ),
+    ).toBeTruthy();
+    const links = screen.getAllByRole("link", { name: "샘플 엑셀 양식" });
+    expect(links.map((l) => l.getAttribute("href"))).toContain(
+      "/templates/grade-bulk-change.xlsx",
+    );
+    expect(
+      screen.getByPlaceholderText("변경할 명단을 붙여넣으세요"),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("졸업 학년이 없으면 졸업 문구를 빼고 쓴다", async () => {
+    stubImport({
+      year: {
+        gradeCounts: [
+          { grade: "중1", count: 22 },
+          { grade: "중2", count: 22 },
+        ],
+        graduatingGrades: ["중3", "고3"],
+      },
+    });
+    renderRoutes(routes, "/teacher/import");
+
+    expect(
+      await screen.findByText("진급 대상: 1학년 22명과 2학년 22명은 학년 +1"),
+    ).toBeTruthy();
+  });
+
+  it("이미 실행한 학년도는 입력칸과 미리보기를 막고 안내를 보인다", async () => {
+    stubImport({ year: { rolledOver: true } });
+    renderRoutes(routes, "/teacher/import");
+
+    expect(
+      await screen.findByText(
+        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
+      ),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "변경할 명단을 붙여넣으세요",
+        ) as HTMLTextAreaElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+});
