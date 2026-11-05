@@ -121,7 +121,7 @@ select pg_temp.expect_text('invalid 는 그대로', pg_temp.row_s('u1'), '1:fals
 select pg_temp.begin_s('u1');
 select pg_temp.begin_s('u1');
 select pg_temp.expect_text('error 전 3회', pg_temp.row_s('u1'), '3:false');
-select public.fn_login_attempt_end(pg_temp.h('u1'), 'error');
+select public.fn_login_attempt_end(pg_temp.h('u1'), 'error', 3::smallint);
 select pg_temp.expect_text('error 는 1회 되돌림', pg_temp.row_s('u1'), '2:false');
 
 -- 5번째 시도가 인증 서버 오류로 끝나면 잠금도 되돌린다
@@ -130,16 +130,32 @@ select pg_temp.begin_s('u1');
 select pg_temp.expect_text('error 취소 뒤 다시 쌓아 4회', pg_temp.row_s('u1'), '4:false');
 select pg_temp.begin_s('u1');
 select pg_temp.expect_text('5회 잠금 상태', pg_temp.row_s('u1'), '5:true');
-select public.fn_login_attempt_end(pg_temp.h('u1'), 'error');
+select public.fn_login_attempt_end(pg_temp.h('u1'), 'error', 5::smallint);
 select pg_temp.expect_text('잠금을 만든 시도의 error 는 4회와 잠금 해제', pg_temp.row_s('u1'), '4:false');
 
 -- 없는 행이나 0회에서 error 는 아무 일도 없다
-select public.fn_login_attempt_end(pg_temp.h('nobody'), 'error');
+select public.fn_login_attempt_end(pg_temp.h('nobody'), 'error', 1::smallint);
 select pg_temp.expect_text('없는 행 error 는 무시', pg_temp.row_s('nobody'), 'none');
 select pg_temp.begin_s('u3');
-select public.fn_login_attempt_end(pg_temp.h('u3'), 'error');
-select public.fn_login_attempt_end(pg_temp.h('u3'), 'error');
-select pg_temp.expect_text('error 는 0 아래로 내려가지 않는다', pg_temp.row_s('u3'), '0:false');
+select public.fn_login_attempt_end(pg_temp.h('u3'), 'error', 1::smallint);
+select public.fn_login_attempt_end(pg_temp.h('u3'), 'error', 1::smallint);
+select pg_temp.expect_text('같은 시도의 error 를 두 번 불러도 한 번만 되돌린다', pg_temp.row_s('u3'), '0:false');
+
+-- 경쟁: 먼저 시작한 시도(4번째)의 error 가 늦게 도착해도 다른 시도(5번째)가 건 잠금을 풀지 못한다
+select pg_temp.begin_s('u5');
+select pg_temp.begin_s('u5');
+select pg_temp.begin_s('u5');
+select pg_temp.expect_text('경쟁: 4번째 시도', pg_temp.begin_s('u5'), 'proceed:4:0');
+select pg_temp.expect_text('경쟁: 5번째 시도가 잠금을 건다', pg_temp.begin_s('u5'), 'proceed:5:600');
+select public.fn_login_attempt_end(pg_temp.h('u5'), 'error', 4::smallint);
+select pg_temp.expect_text('경쟁: 늦은 4번째 error 는 잠금과 횟수를 건드리지 않는다', pg_temp.row_s('u5'), '5:true');
+select public.fn_login_attempt_end(pg_temp.h('u5'), 'error', 5::smallint);
+select pg_temp.expect_text('경쟁: 잠금을 만든 5번째의 error 는 해제한다', pg_temp.row_s('u5'), '4:false');
+
+-- 시도 번호 없는 error 는 아무것도 하지 않는다
+select pg_temp.begin_s('u6');
+select public.fn_login_attempt_end(pg_temp.h('u6'), 'error');
+select pg_temp.expect_text('시도 번호 없는 error 는 무시', pg_temp.row_s('u6'), '1:false');
 
 select pg_temp.expect_error('알 수 없는 outcome 거부',
   $$select public.fn_login_attempt_end(pg_temp.h('u1'), 'bogus')$$, '22023');

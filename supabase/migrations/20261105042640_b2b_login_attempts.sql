@@ -62,9 +62,12 @@ end;
 $$;
 
 -- success: 행 삭제(성공하면 초기화). invalid: 이미 센 시도라 아무것도 안 한다.
--- error: 인증 서버 오류(429, 5xx, 시간 초과)로 끝난 시도라 이번 시도를 취소한다
--- (횟수 1 감소, 잠금은 풀린다. 횟수가 5 미만이 되므로 잠금과 모순되지 않는다).
-create function public.fn_login_attempt_end(p_hash bytea, p_outcome text)
+-- error: 인증 서버 오류(429, 5xx, 시간 초과)로 끝난 시도라 이번 시도를 취소한다.
+-- begin 이 돌려준 attempt_no 를 같이 넘긴다. 그 시도가 아직 마지막 시도일 때만(attempt_no = 현재 횟수)
+-- 횟수를 1 줄이고, 잠금은 그 시도가 5번째로 직접 건 것일 때만 푼다.
+-- 먼저 시작한 시도의 error 가 늦게 도착해도 다른 시도가 건 잠금을 풀 수 없다.
+-- attempt_no 없이(null) 부르는 error 는 아무것도 하지 않는다.
+create function public.fn_login_attempt_end(p_hash bytea, p_outcome text, p_attempt_no smallint default null)
 returns void
 language plpgsql
 security definer
@@ -75,8 +78,10 @@ begin
     delete from public.login_attempts where identifier_hash = p_hash;
   elsif p_outcome = 'error' then
     update public.login_attempts
-       set failed_count = greatest(failed_count - 1, 0), locked_until = null, updated_at = now()
-     where identifier_hash = p_hash;
+       set failed_count = failed_count - 1,
+           locked_until = case when p_attempt_no = 5 then null else locked_until end,
+           updated_at = now()
+     where identifier_hash = p_hash and failed_count = p_attempt_no and failed_count > 0;
   elsif p_outcome <> 'invalid' then
     raise exception 'unknown login attempt outcome' using errcode = 'invalid_parameter_value';
   end if;
@@ -85,5 +90,5 @@ $$;
 
 revoke all on function public.fn_login_attempt_begin(bytea) from public, anon, authenticated;
 grant execute on function public.fn_login_attempt_begin(bytea) to service_role;
-revoke all on function public.fn_login_attempt_end(bytea, text) from public, anon, authenticated;
-grant execute on function public.fn_login_attempt_end(bytea, text) to service_role;
+revoke all on function public.fn_login_attempt_end(bytea, text, smallint) from public, anon, authenticated;
+grant execute on function public.fn_login_attempt_end(bytea, text, smallint) to service_role;

@@ -8029,7 +8029,7 @@ export type Database = {
         }[];
       };
       fn_login_attempt_end: {
-        Args: { p_hash: string; p_outcome: string };
+        Args: { p_attempt_no?: number; p_hash: string; p_outcome: string };
         Returns: undefined;
       };
       fn_mark_program_entry: {
