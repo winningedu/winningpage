@@ -1061,6 +1061,128 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
   };
 }
 
+// ---- 서비스별 요약 카드 --------------------------------------------------------------------
+
+export interface ServiceCard {
+  service:
+    | "diagnosis"
+    | "goal"
+    | "growth"
+    | "performance"
+    | "selfeval"
+    | "inquiry";
+  name: string;
+  state: "using" | "not_joined" | "no_goal";
+  chip: string;
+  tone: "neutral" | "success" | "warning";
+  value: string;
+  detail: string;
+}
+
+const FIT_NAME = { fit: "맞음", normal: "보통", off: "어긋남" } as const;
+
+/** 서비스별 요약 카드 6장(교 #62). 쓰지 않는 서비스는 "서비스 이용 전", 목표를 못 읽으면 "목표 미설정". */
+export function serviceCards(f: TextFacts): ServiceCard[] {
+  const m = f.metrics;
+  const card = (
+    service: ServiceCard["service"],
+    name: string,
+    over: Partial<ServiceCard> = {},
+  ): ServiceCard =>
+    m.used[service]
+      ? {
+          service,
+          name,
+          state: "using",
+          chip: "이용 중",
+          tone: "neutral",
+          value: "",
+          detail: "",
+          ...over,
+        }
+      : {
+          service,
+          name,
+          state: "not_joined",
+          chip: "서비스 이용 전",
+          tone: "neutral",
+          value: "",
+          detail: "",
+        };
+
+  const dx = m.diagnosis;
+  const low = lowestArea(f, EXECUTION_AREAS);
+  const prep = dx
+    ? Math.round(
+        READINESS_AREAS.reduce((s, c) => s + dx.areas[c], 0) /
+          READINESS_AREAS.length,
+      )
+    : null;
+  const execAvg = dx
+    ? Math.round(
+        EXECUTION_AREAS.reduce((s, c) => s + dx.areas[c], 0) /
+          EXECUTION_AREAS.length,
+      )
+    : null;
+  const week = f.goal?.week;
+  const level = f.verdicts.execution.level;
+  const pending = f.pendingPerformance.length;
+  const confirmed = m.growth
+    ? Object.values(m.growth.axes).filter((a) => a?.verdict === "confirmed")
+        .length
+    : 0;
+
+  return [
+    card("diagnosis", "학습진단", {
+      chip: "진단 완료",
+      value: dx ? `긴급도 ${URGENCY_NAME[urgencyOf(dx.areas)]}` : "",
+      detail:
+        dx && low && execAvg !== null && prep !== null
+          ? `학습 실행 역량 ${execAvg}점, 학교생활 준비도 ${prep}점, 가장 시급한 영역 ${AREA_NAME[low.code]}(${low.score}점)`
+          : "",
+    }),
+    week && week.setDays > 0 && f.goal
+      ? card("goal", "목표관리", {
+          chip:
+            level === "good" ? "양호" : level === "caution" ? "주의" : "위험",
+          tone: level === "good" ? "success" : "warning",
+          value: `달성율 ${pct(ach(f) ?? 0)}%`,
+          detail: `최소 목표시간 충족 ${week.metDays}일 / 목표 설정 ${week.setDays}일, 연속 기록 ${f.goal.streak}일`,
+        })
+      : m.used.goal
+        ? {
+            ...card("goal", "목표관리"),
+            state: "no_goal",
+            chip: "목표 미설정",
+            value: "목표 미설정",
+            detail: "하루 이상, 최소 목표시간 설정부터 안내하세요",
+          }
+        : card("goal", "목표관리"),
+    card("growth", "성장설계", {
+      value: f.growthKeywords[0] ?? "",
+      detail: m.growth ? `5개 축 중 ${confirmed}개 확인됨` : "",
+    }),
+    card("performance", "수행평가", {
+      chip: pending > 0 ? "피드백 대기" : "이용 중",
+      tone: pending > 0 ? "warning" : "neutral",
+      value: `제출 ${m.performance?.tasks ?? 0}건`,
+      detail: `피드백 대기 ${pending}건`,
+    }),
+    card("selfeval", "자기평가", {
+      value:
+        m.selfeval?.verifyScore != null
+          ? `검증 ${Math.round(m.selfeval.verifyScore)}점`
+          : "검증 전",
+    }),
+    card("inquiry", "심화탐구", {
+      value: f.inquiryTopic ?? "주제 탐색중",
+      detail: m.inquiry?.topicFit
+        ? `주제 적합도 ${FIT_NAME[m.inquiry.topicFit]}`
+        : "",
+    }),
+  ];
+}
+
 // ---- 한꺼번에 -----------------------------------------------------------------------------
 
 export function buildCoachingText(f: TextFacts) {
@@ -1074,5 +1196,6 @@ export function buildCoachingText(f: TextFacts) {
     careerPlan: careerPlan(f),
     studyMethods: studyMethods(f),
     goalOpinion: goalOpinion(f),
+    serviceCards: serviceCards(f),
   };
 }

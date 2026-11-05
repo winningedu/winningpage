@@ -2,6 +2,7 @@
 // 자료 출처가 없는 지표(접속 기록, 내신과 모의고사 변화 등)는 읽지 않고 비워 둔다(결정 4).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deriveGradeSystem } from "../../../src/lib/goal/report/aggregate.js";
 import {
   type AreaScores,
   type CoachingMetrics,
@@ -10,6 +11,8 @@ import {
   type GradeCurve,
   type GrowthAxisKey,
   type GrowthAxisState,
+  mockChangeScore,
+  naesinChangeScore,
   summarizeGoalWeek,
   type TopicFit,
   type Weekday,
@@ -81,6 +84,7 @@ const weekdayOf = (date: string): Weekday =>
   WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()] as Weekday;
 
 interface DailyRecord {
+  reasons?: unknown;
   record_date: string;
   record_index: number;
   target_ideal_hours: number;
@@ -191,7 +195,64 @@ function growthFrom(
   return { axes, curve };
 }
 
+/** 최근 목표일부터 거꾸로 이어진 최소 목표 충족일 수. */
+function streakOf(days: GoalDay[]): number {
+  let streak = 0;
+  for (const d of days.filter((x) => x.weekday !== "sun" && x.ideal > 0)) {
+    if (d.actual < d.min) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+function avgActual(days: GoalDay[]): number | null {
+  const set = days.filter((d) => d.weekday !== "sun" && d.ideal > 0);
+  return set.length ? set.reduce((s, d) => s + d.actual, 0) / set.length : null;
+}
+
+/** 성적 기록(records 배열)에서 직전과 최신 값을 읽어 변화 점수로 바꾼다. 둘 미만이면 null. */
+function changeOf(
+  scores: unknown,
+  toScore: (previous: number, current: number) => number,
+): number | null {
+  const list =
+    isRecord(scores) && Array.isArray(scores.records) ? scores.records : [];
+  const values = list
+    .filter(
+      (r) => isRecord(r) && r.none !== true && typeof r.value === "number",
+    )
+    .sort((a, b) =>
+      String(a.examDate ?? a.enteredAt ?? a.recordedAt ?? "").localeCompare(
+        String(b.examDate ?? b.enteredAt ?? b.recordedAt ?? ""),
+      ),
+    )
+    .map((r) => r.value as number);
+  if (values.length < 2) return null;
+  return toScore(
+    values[values.length - 2] as number,
+    values[values.length - 1] as number,
+  );
+}
+
+function topicTitle(detail: unknown): string | null {
+  return isRecord(detail) && typeof detail.title === "string"
+    ? detail.title
+    : null;
+}
+
+function narrativeKeywords(
+  reports: { created_at: string; narrative_theme?: string | null }[],
+): string[] {
+  const latest = lastBy(reports, (r) => r.created_at);
+  return latest?.narrative_theme ? [latest.narrative_theme] : [];
+}
+
 export interface CoachingData {
+  goalFacts: import("./coachingText.js").GoalFacts | null;
+  pendingPerformance: { title: string | null; subject: string | null }[];
+  inquiryTopic: string | null;
+  growthKeywords: string[];
+  grade: string | null;
   metrics: CoachingMetrics;
   targets: {
     ideal: { university: string; department: string } | null;
@@ -230,10 +291,13 @@ export async function loadCoachingData(
             min_university: string;
             min_department: string;
             study_schedule: unknown;
+            grade: string;
+            naesin_scores: unknown;
+            mock_exam_scores: unknown;
           }>(
             admin,
             "goal_students",
-            "ideal_university, ideal_department, min_university, min_department, study_schedule",
+            "ideal_university, ideal_department, min_university, min_department, study_schedule, grade, naesin_scores, mock_exam_scores",
             (q) => q.eq("profile_id", studentId),
             "profile_id",
           )
@@ -242,27 +306,39 @@ export async function loadCoachingData(
         ? readAll<DailyRecord>(
             admin,
             "goal_daily_records",
-            "record_date, record_index, target_ideal_hours, target_min_hours, study_hours",
+            "record_date, record_index, target_ideal_hours, target_min_hours, study_hours, reasons",
             (q) => q.eq("profile_id", studentId),
           )
-        : [],
+        : ([] as DailyRecord[]),
       uses("growth")
         ? readAll<{
             created_at: string;
             axis_scores: unknown;
             sections: unknown;
+            narrative_theme: string | null;
           }>(
             admin,
             "growth_reports",
-            "created_at, axis_scores, sections",
+            "created_at, axis_scores, sections, narrative_theme",
             (q) => q.eq("profile_id", studentId).eq("status", "completed"),
           )
         : [],
       uses("performance")
-        ? readAll<{ id: string }>(admin, "performance_sessions", "id", (q) =>
-            q.eq("profile_id", studentId),
+        ? readAll<{
+            id: string;
+            selected_topic_id: string | null;
+            subject: string | null;
+          }>(
+            admin,
+            "performance_sessions",
+            "id, selected_topic_id, subject",
+            (q) => q.eq("profile_id", studentId),
           )
-        : [],
+        : ([] as {
+            id: string;
+            selected_topic_id: string | null;
+            subject: string | null;
+          }[]),
       uses("inquiry")
         ? readAll<{
             created_at: string;
@@ -287,9 +363,14 @@ export async function loadCoachingData(
     ]);
 
   const goal = goalStudent[0];
-  const week = summarizeGoalWeek(
-    goalDaysOf(records, goal?.study_schedule, recentDates(7, now)),
-  );
+  const dates = recentDates(14, now);
+  const days = goalDaysOf(records, goal?.study_schedule, dates.slice(0, 7));
+  const week = summarizeGoalWeek(days);
+  const lastDays = goalDaysOf(records, goal?.study_schedule, dates.slice(7));
+  const lastWeek = summarizeGoalWeek(lastDays);
+  const sinceWeek = dates.slice(0, 7);
+  const grade = goal?.grade ?? null;
+  const system = deriveGradeSystem(grade, dates[0] as string);
 
   const sessionIds = perf.map((s) => s.id);
   const perfReports = sessionIds.length
@@ -308,8 +389,23 @@ export async function loadCoachingData(
 
   const session = lastBy(inquiry, (s) => s.created_at);
   const topics = session?.selected_topic_id
-    ? await readAll<{ fit: string }>(admin, "inquiry_topics", "fit", (q) =>
-        q.eq("id", session.selected_topic_id as string),
+    ? await readAll<{ fit: string; detail: unknown }>(
+        admin,
+        "inquiry_topics",
+        "fit, detail",
+        (q) => q.eq("id", session.selected_topic_id as string),
+      )
+    : [];
+  const pendingSessions = perf.filter((s) => !doneSessions.includes(s.id));
+  const topicIds = pendingSessions
+    .map((s) => s.selected_topic_id)
+    .filter((id): id is string => typeof id === "string");
+  const performanceTopics = topicIds.length
+    ? await readAll<{ id: string; title: string | null }>(
+        admin,
+        "performance_topics",
+        "id, title",
+        (q) => q.in("id", topicIds),
       )
     : [];
   const inquiryReports = session?.latest_evaluation_id
@@ -339,7 +435,13 @@ export async function loadCoachingData(
       used: usedMap,
       diagnosis: diagnosisFrom(lastBy(diagnosis, (r) => r.diagnosed_at)),
       goal: uses("goal")
-        ? { week, naesinChangeScore: null, mockChangeScore: null }
+        ? {
+            week,
+            naesinChangeScore: changeOf(goal?.naesin_scores, (prev, cur) =>
+              naesinChangeScore(prev, cur, system === "5등급제" ? 5 : 9),
+            ),
+            mockChangeScore: changeOf(goal?.mock_exam_scores, mockChangeScore),
+          }
         : null,
       growth: growthFrom(lastBy(growth, (r) => r.created_at)),
       performance: uses("performance")
@@ -367,6 +469,29 @@ export async function loadCoachingData(
           }
         : null,
     },
+    goalFacts: uses("goal")
+      ? {
+          week,
+          lastWeek: lastWeek.setDays > 0 ? lastWeek : null,
+          days,
+          streak: streakOf(days),
+          // 접속 기록의 출처가 없다.
+          daysSinceLastSeen: null,
+          reasons: records
+            .filter((r) => sinceWeek.includes(r.record_date))
+            .flatMap((r) => (Array.isArray(r.reasons) ? r.reasons : [])),
+          lastWeekAvgActual: avgActual(lastDays),
+        }
+      : null,
+    pendingPerformance: pendingSessions.map((s) => ({
+      title:
+        performanceTopics.find((t) => t.id === s.selected_topic_id)?.title ??
+        null,
+      subject: s.subject,
+    })),
+    inquiryTopic: topicTitle(topics[0]?.detail),
+    growthKeywords: narrativeKeywords(growth),
+    grade,
     targets: goal
       ? {
           ideal: goal.ideal_university

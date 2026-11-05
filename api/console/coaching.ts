@@ -17,6 +17,7 @@ import {
   urgencyOf,
 } from "../_lib/console/coaching.js";
 import { loadCoachingData } from "../_lib/console/coachingData.js";
+import { buildCoachingText } from "../_lib/console/coachingText.js";
 import {
   loadClassIndex,
   loadProfileNames,
@@ -120,7 +121,8 @@ export default defineHandler({
         )
       : [];
 
-    const { metrics, targets } = await loadCoachingData(admin, studentId, used);
+    const data = await loadCoachingData(admin, studentId, used);
+    const { metrics, targets } = data;
     const axesResult = computeAxes(metrics);
     const careerLink = axesResult.axes.find((a) => a.key === "careerLink");
     const week = metrics.goal?.week;
@@ -141,7 +143,36 @@ export default defineHandler({
     };
     const { signal, subLine } = signalOf(verdicts, axesResult.axes);
 
+    const type = coachingTypeOf({
+      verdicts,
+      axes: axesResult.axes,
+      achievementPct: week?.achievementPct ?? null,
+      usesInquiry: metrics.used.inquiry,
+    });
+    const competencies = computeCompetencies(metrics);
+    const text = buildCoachingText({
+      grade: data.grade ?? enrollment.grade,
+      month: Number(
+        new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 7),
+      ),
+      department:
+        targets?.ideal?.department || targets?.min?.department || null,
+      metrics,
+      axes: axesResult,
+      competencies,
+      verdicts,
+      type,
+      goal: data.goalFacts,
+      pendingPerformance: data.pendingPerformance,
+      inquiryTopic: data.inquiryTopic,
+      growthKeywords: data.growthKeywords,
+      gradeCheck: null,
+    });
+    const { serviceCards, ...rest } = text;
+
     res.status(200).json({
+      text: rest,
+      serviceCards,
       student: {
         id: studentId,
         name: displayNameFor(actor, names.get(studentId) ?? ""),
@@ -162,19 +193,14 @@ export default defineHandler({
       verdicts,
       signal,
       signalSubLine: subLine,
-      coachingType: coachingTypeOf({
-        verdicts,
-        axes: axesResult.axes,
-        achievementPct: week?.achievementPct ?? null,
-        usesInquiry: metrics.used.inquiry,
-      }),
+      coachingType: type,
       summary: summaryLine(axesResult),
       axes: axesResult.axes,
       highlights: {
         strongest: axesResult.strongest,
         weakest: axesResult.weakest,
       },
-      competencies: computeCompetencies(metrics),
+      competencies,
       goalWeek: week ?? null,
       diagnosisUrgency: metrics.diagnosis
         ? urgencyOf(metrics.diagnosis.areas)

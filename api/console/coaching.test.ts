@@ -342,4 +342,106 @@ describe("GET /api/console/coaching", () => {
       status: "scored",
     });
   });
+
+  test("the naesin and mock exam records become change scores for the potential competency (연결표 r41, r42)", async () => {
+    kit.state.rows.goal_students = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            grade: "고2",
+            ideal_university: "가나대",
+            ideal_department: "경영학과",
+            min_university: "다라대",
+            min_department: "경영학과",
+            naesin_scores: {
+              records: [
+                { term: "a", enteredAt: "2026-03-01", value: 3, none: false },
+                { term: "b", enteredAt: "2026-07-01", value: 2, none: false },
+              ],
+            },
+            mock_exam_scores: {
+              records: [
+                { term: "a", examDate: "2026-03-20", value: 80 },
+                { term: "b", examDate: "2026-06-20", value: 84 },
+              ],
+            },
+          },
+        ],
+        f,
+      );
+    const body = (await get()).body as Body;
+    const potential = body.competencies.find((c) => c.key === "potential");
+    // 5등급제(2028학년도 대입): 3 -> 2 는 90, 백분위 80 -> 84 는 60, 학습진단 성적 흐름 상승 80
+    expect(potential).toMatchObject({ score: 77, basisUsed: 3 });
+  });
+
+  test("the text sections come from the same data (보완, 목표관리 의견, 진로계획, 서비스 카드)", async () => {
+    kit.state.rows.performance_sessions = (f) =>
+      matchRows(
+        [
+          {
+            id: "p1",
+            profile_id: "s1",
+            selected_topic_id: null,
+            subject: "국어",
+          },
+          {
+            id: "p2",
+            profile_id: "s1",
+            selected_topic_id: "pt2",
+            subject: "수학",
+          },
+        ],
+        f,
+      );
+    kit.state.rows.performance_topics = (f) =>
+      matchRows([{ id: "pt2", title: "통계로 본 우리 동네" }], f);
+    kit.state.rows.inquiry_topics = (f) =>
+      matchRows(
+        [{ id: "it1", fit: "보통", detail: { title: "도시 열섬 완화 방안" } }],
+        f,
+      );
+    const body = (await get()).body as Body & {
+      text: {
+        weaknesses: string[];
+        studyMethods: string[];
+        careerPlan: { label: string; items: string[] }[];
+        goalOpinion: { summary: string; details: { distractions: string } };
+      };
+      serviceCards: {
+        service: string;
+        state: string;
+        chip: string;
+        value: string;
+      }[];
+    };
+    expect(body.text.weaknesses[0]).toBe(
+      "목표시간 달성율 72%, 최소 충족 4/6일: 계획 조정 필요",
+    );
+    expect(body.text.weaknesses).toHaveLength(3);
+    expect(body.text.careerPlan[0]?.items).toContain(
+      "수행평가 '통계로 본 우리 동네'(수학) 피드백 반영 후 재제출",
+    );
+    expect(body.text.studyMethods[2]).toBe(
+      "수학 수행평가 피드백을 다음 제출 전 체크리스트로 만들기",
+    );
+    expect(body.text.goalOpinion.summary).toContain("목표시간 달성율 72%");
+    const cards = Object.fromEntries(
+      body.serviceCards.map((c) => [c.service, c]),
+    );
+    expect(cards.diagnosis).toMatchObject({
+      state: "using",
+      chip: "진단 완료",
+    });
+    expect(cards.goal).toMatchObject({ state: "using", value: "달성율 72%" });
+    expect(cards.growth).toMatchObject({
+      state: "not_joined",
+      chip: "서비스 이용 전",
+    });
+    expect(cards.performance).toMatchObject({
+      value: "제출 2건",
+      chip: "피드백 대기",
+    });
+  });
 });

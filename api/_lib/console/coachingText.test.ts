@@ -749,6 +749,7 @@ describe("buildCoachingText", () => {
       "gradeInputCheck",
       "points",
       "priorityTask",
+      "serviceCards",
       "strengths",
       "studyMethods",
       "weaknesses",
