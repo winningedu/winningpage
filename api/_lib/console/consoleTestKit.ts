@@ -167,12 +167,10 @@ export function createFakeAdmin(state: KitState) {
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
-        if (updating) {
-          return {
-            data: null,
-            error: state.updateErrors[table]?.(filters) ?? null,
-          };
-        }
+        const updateError = updating
+          ? state.updateErrors[table]?.(filters)
+          : undefined;
+        if (updateError) return { data: null, error: updateError };
         const data = state.rows[table]?.(filters) ?? null;
         // limit 을 건 읽기만 정렬과 자르기를 흉내 낸다(그 밖의 읽기는 픽스처 순서 그대로).
         if (!Array.isArray(data) || read.limit === undefined) {
