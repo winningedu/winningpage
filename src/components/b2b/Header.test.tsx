@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import Header from "./Header";
@@ -14,6 +14,7 @@ vi.mock("@/hooks/useNavGroups", async (importOriginal) => {
         to: "/services",
         items: [{ label: "학습진단", to: "/services/learning-diagnosis" }],
       },
+      { title: "이용신청", to: "/apply", items: [] },
     ],
   };
 });
@@ -72,5 +73,29 @@ describe("b2b Header 게스트 상태", () => {
       "/login",
     );
     expect(screen.queryByText("회원가입")).not.toBeInTheDocument();
+  });
+});
+
+describe("b2b Header 메가 메뉴", () => {
+  it("하위 항목이 있는 그룹만 알약으로 보이고, 올리면 항목만 있는 패널이 열린다", () => {
+    mockUseAuth.mockReturnValue({ session: null, user: null, isReady: true });
+    renderHeader();
+
+    expect(screen.queryByText("이용신청")).not.toBeInTheDocument();
+    expect(screen.queryByText("학습진단")).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(
+      screen.getByRole("button", { name: "목표성장서비스" }),
+    );
+
+    expect(screen.getByRole("link", { name: "학습진단" })).toHaveAttribute(
+      "href",
+      "/services/learning-diagnosis",
+    );
+    expect(screen.queryByText("MY페이지")).not.toBeInTheDocument();
+    expect(screen.queryByText("로그인하기")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText("학습진단")).not.toBeInTheDocument();
   });
 });

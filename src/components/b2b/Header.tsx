@@ -1,7 +1,13 @@
 import { Menu } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
+import { useNavGroups } from "@/hooks/useNavGroups";
+import MegaPanel from "./MegaPanel";
+import { NAV_LEFT, PILL_GAP, PILL_W } from "./navGrid";
 import { useB2BAccount } from "./useB2BAccount";
+
+const CLOSE_DELAY_MS = 100;
 
 const ACCOUNT_PILL =
   "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-b2b-account px-3.5 text-sm font-bold tracking-[-0.01875rem]";
@@ -9,17 +15,81 @@ const ACCOUNT_PILL =
 // 스쿨멘토 전용 헤더(b2bMenu 사이트). 위닝은 기존 Header를 그대로 쓴다.
 export default function Header() {
   const account = useB2BAccount();
+  // 하위 항목이 없는 그룹은 알약과 패널 컬럼에서 뺀다(결정 19).
+  const groups = useNavGroups().filter((group) => group.items.length > 0);
+  const [openTitle, setOpenTitle] = useState<string | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(
+      () => setOpenTitle(null),
+      CLOSE_DELAY_MS,
+    );
+  };
+  const open = (title: string) => {
+    cancelClose();
+    setOpenTitle(title);
+  };
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (openTitle === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenTitle(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openTitle]);
 
   return (
-    <header className="fixed left-0 top-0 z-50 h-16 w-full border-b border-black/5 bg-white">
-      <div className="flex h-full items-center justify-between px-8">
+    // biome-ignore lint/a11y/noStaticElementInteractions: 마우스가 헤더와 패널 밖으로 나가면 메가 패널을 닫는 편의 동작이다. 항목은 키보드로도 열고 닫는다(알약 버튼, Esc).
+    <header
+      className="fixed left-0 top-0 z-50 h-16 w-full border-b border-black/5 bg-white"
+      onMouseEnter={cancelClose}
+      onMouseLeave={scheduleClose}
+    >
+      <div className="flex h-full items-center justify-between px-8 desktop:px-[clamp(2rem,6.25vw,7.5rem)]">
         <Link to="/" className="flex shrink-0 items-center">
           <img
             src={site.logo.horizontal}
             alt={site.brandName}
-            className="h-5.5 w-auto object-contain"
+            className="h-5.5 w-[9.675rem] object-contain desktop:w-[9.881rem]"
           />
         </Link>
+
+        <div
+          className="absolute top-0 hidden h-full items-center desktop:flex"
+          style={{ left: NAV_LEFT, gap: PILL_GAP }}
+        >
+          {groups.map((group) => (
+            <button
+              key={group.title}
+              type="button"
+              aria-expanded={openTitle === group.title}
+              onMouseEnter={() => open(group.title)}
+              onClick={() => open(group.title)}
+              className={`h-11 shrink-0 rounded-full border px-2 text-[0.9375rem] font-semibold tracking-[-0.01875rem] transition ${
+                openTitle === group.title
+                  ? "border-b2b-pill-ink bg-b2b-pill-ink text-white"
+                  : "border-b2b-pill-line bg-b2b-pill-bg text-b2b-pill-ink"
+              }`}
+              style={{ width: PILL_W }}
+            >
+              {group.title}
+            </button>
+          ))}
+        </div>
 
         <div className="flex shrink-0 items-center gap-3">
           {account.status === "guest" && (
@@ -41,11 +111,26 @@ export default function Header() {
           <button
             type="button"
             aria-label="전체 메뉴 열기"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary"
+            className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-1/2 after:content-['']"
           >
             <Menu size={18} className="size-[1.125rem]" />
           </button>
         </div>
+      </div>
+
+      <div className="absolute left-0 top-full hidden w-full desktop:block">
+        <MegaPanel
+          groups={groups}
+          openGroupTitle={openTitle}
+          onNavigate={() => setOpenTitle(null)}
+        />
+        {openTitle !== null && (
+          <div
+            aria-hidden="true"
+            className="h-screen bg-overlay"
+            onMouseEnter={scheduleClose}
+          />
+        )}
       </div>
     </header>
   );
