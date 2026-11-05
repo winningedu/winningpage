@@ -21,26 +21,18 @@ import { buildCoachingText } from "../_lib/console/coachingText.js";
 import {
   loadClassIndex,
   loadProfileNames,
-  loadTenant,
   readAll,
 } from "../_lib/console/directory.js";
 import { displayNameFor } from "../_lib/console/maskName.js";
-import { requireInScope } from "../_lib/console/scope.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
 } from "../_lib/console/serviceUsage.js";
+import { loadScopedEnrollment } from "../_lib/console/studentScope.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-interface EnrollmentRow {
-  student_id: string;
-  grade: string | null;
-  class_id: string | null;
-  number: number | null;
-}
 
 export default defineHandler({
   methods: ["GET"],
@@ -65,31 +57,8 @@ export default defineHandler({
     }
     const studentId = raw;
 
-    // 현재 학년도 재학생만 연다. 졸업생과 지난 담임의 옛 학급은 여기서 걸러진다.
-    const { schoolYear } = await loadTenant(admin, actor.tenantId);
-    const [enrollment] = await readAll<EnrollmentRow>(
-      admin,
-      "student_enrollments",
-      "student_id, grade, class_id, number",
-      (q) =>
-        q
-          .eq("tenant_id", actor.tenantId)
-          .eq("student_id", studentId)
-          .eq("school_year", schoolYear)
-          .eq("status", "active"),
-    );
-    if (
-      !enrollment ||
-      !requireInScope(res, "coded", actor, {
-        tenantId: actor.tenantId,
-        classId: enrollment.class_id,
-      })
-    ) {
-      if (!enrollment) {
-        sendError(res, "coded", 404, "대상을 찾을 수 없습니다.", "NOT_FOUND");
-      }
-      return;
-    }
+    const enrollment = await loadScopedEnrollment(admin, res, actor, studentId);
+    if (!enrollment) return;
 
     const [classes, names, usage] = await Promise.all([
       loadClassIndex(admin, actor.tenantId),
