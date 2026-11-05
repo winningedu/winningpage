@@ -68,4 +68,26 @@ describe("NewsSection - 스쿨멘토", () => {
 
     expect(screen.getAllByText("작성된 글이 없어요")).toHaveLength(2);
   });
+
+  test("한쪽 목록만 조회에 실패하면 그 목록에만 오류 안내를 보여준다", () => {
+    renderSection({
+      statuses: { company: "error", notices: "ready" },
+      notices: makeItems(2, "교육"),
+    });
+
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent(
+      "소식을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요",
+    );
+    expect(screen.getByText("교육 제목 1")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(2);
+  });
+
+  test("불러오는 중에는 목록마다 막대 4줄을 보여주고 빈 안내는 숨긴다", () => {
+    renderSection({ statuses: { company: "loading", notices: "ready" } });
+
+    expect(screen.getAllByTestId("news-row-skeleton")).toHaveLength(4);
+    expect(screen.getAllByText("작성된 글이 없어요")).toHaveLength(1);
+  });
 });
