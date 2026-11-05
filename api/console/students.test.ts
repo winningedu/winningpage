@@ -159,7 +159,9 @@ describe("GET /api/console/students", () => {
       displayName: "김*늘",
       joinedAt: "2026-03-02",
       grade: "고2",
+      groupId: null,
       groupName: null,
+      classId: "c-A",
       className: "3",
       number: 7,
       services: {
@@ -175,7 +177,11 @@ describe("GET /api/console/students", () => {
       canEdit: false,
       enrollmentVersion: 3,
     });
-    expect(s3).toMatchObject({ groupName: "A레벨", serviceCount: 0 });
+    expect(s3).toMatchObject({
+      groupId: "g-1",
+      groupName: "A레벨",
+      serviceCount: 0,
+    });
     // 협정 세계시 16시는 한국 시각으로 다음 날이다.
     expect(items(r).find((i) => i.studentId === "s4")).toMatchObject({
       joinedAt: "2026-03-06",

@@ -204,7 +204,9 @@ export default defineHandler({
           ),
           joinedAt: profiles.get(e.student_id)?.joinedAt ?? null,
           grade: e.grade,
+          groupId: cls?.groupId ?? null,
           groupName: cls?.groupName ?? null,
+          classId: e.class_id,
           className: cls?.name ?? null,
           number: e.number,
           services: Object.fromEntries(
