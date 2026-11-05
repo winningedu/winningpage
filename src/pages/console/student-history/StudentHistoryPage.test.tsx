@@ -796,3 +796,224 @@ describe("W13a 학년도별 이력 창", () => {
     ).toBe(true);
   });
 });
+
+const PATCH = "PATCH /api/console/students/enrollment";
+const SCHOOL_YEAR = "GET /api/console/school-year";
+
+describe("W13b 학생 정보 직접 변경", () => {
+  const openDirect = async (over: Record<string, ApiHandler> = {}) => {
+    const calls = stubStudents(
+      {
+        [SCHOOL_YEAR]: { body: { schoolYear: 2026 } },
+        [PATCH]: { body: { ok: true, enrollmentId: "e1", version: 5 } },
+        ...over,
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    await screen.findByText("검색 결과 2명");
+    fireEvent.click(
+      within(row("김서연")).getByRole("button", { name: "직접 변경" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "학생 정보 직접 변경",
+    });
+    await within(dialog).findByLabelText("새 번호");
+    return { calls, dialog };
+  };
+  const saveButton = (dialog: HTMLElement) =>
+    within(dialog).getByRole("button", { name: "저장" }) as HTMLButtonElement;
+  const setNumber = (dialog: HTMLElement, value: string) =>
+    fireEvent.change(within(dialog).getByLabelText("새 번호"), {
+      target: { value },
+    });
+  const setReason = (dialog: HTMLElement, value: string) =>
+    fireEvent.change(within(dialog).getByLabelText("사유"), {
+      target: { value },
+    });
+
+  it("지금 값을 채워 보이고 바뀐 것이 없으면 저장을 막는다", async () => {
+    const { dialog } = await openDirect();
+
+    expect(within(dialog).getByText("대상 학생: 김서연")).toBeTruthy();
+    expect(
+      within(dialog).getByText("지금 2학년 3반 1번, 그룹 없음"),
+    ).toBeTruthy();
+    expect(
+      (within(dialog).getByLabelText("새 학년그룹") as HTMLSelectElement).value,
+    ).toBe("고2");
+    expect(
+      (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
+    ).toBe("c3");
+    expect(
+      (within(dialog).getByLabelText("새 번호") as HTMLInputElement).value,
+    ).toBe("1");
+    expect(
+      (within(dialog).getByLabelText("적용 학년도") as HTMLSelectElement).value,
+    ).toBe("2026");
+    expect(
+      within(dialog).getByLabelText("적용 학년도").querySelectorAll("option")
+        .length,
+    ).toBe(2);
+    expect(
+      Array.from(
+        within(dialog).getByLabelText("사유").querySelectorAll("option"),
+      )
+        .map((o) => o.textContent)
+        .slice(1),
+    ).toEqual(["자동", "진급", "반 변경", "번호 변경", "전입과 전학", "정정"]);
+    expect(
+      within(dialog).getByText(
+        "사유: 자동, 진급, 반 변경, 번호 변경, 전입과 전학, 정정 중 선택",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "옮길 반에 담임이 없으면 안내만 하고 바로 반영해요",
+      ),
+    ).toBeTruthy();
+    expect(saveButton(dialog).disabled).toBe(true);
+
+    setNumber(dialog, "36");
+    expect(saveButton(dialog).disabled).toBe(false);
+    setNumber(dialog, "1");
+    expect(saveButton(dialog).disabled).toBe(true);
+  });
+
+  it("저장하면 바뀐 값과 사유를 보내고 닫은 뒤 목록을 다시 불러온다", async () => {
+    const { calls, dialog } = await openDirect();
+    setNumber(dialog, "36");
+    setReason(dialog, "number_change");
+
+    fireEvent.click(saveButton(dialog));
+
+    expect(await screen.findByText("김서연 학생 정보를 바꿨어요")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.find((c) => c.key === PATCH)?.body).toEqual({
+      studentId: "s1",
+      expectedVersion: 4,
+      grade: "고2",
+      classId: "c3",
+      number: 36,
+      reason: "number_change",
+      applyYear: 2026,
+    });
+    await vi.waitFor(() =>
+      expect(calls.filter((c) => c.key === STUDENTS_URL)).toHaveLength(2),
+    );
+  });
+
+  it("번호가 이미 쓰이면 새 번호 칸 아래에 쓰는 학생을 보이고 값은 그대로 둔다", async () => {
+    const { dialog } = await openDirect({
+      [PATCH]: {
+        status: 409,
+        body: {
+          error: { code: "NUMBER_TAKEN", message: "이미 사용 중인 번호예요." },
+          occupant: {
+            grade: "고2",
+            className: "3",
+            number: 7,
+            displayName: "윤*린",
+          },
+        },
+      },
+    });
+    setNumber(dialog, "7");
+
+    fireEvent.click(saveButton(dialog));
+
+    expect(
+      await within(dialog).findByText(
+        "이미 사용 중인 번호예요(2학년 3반 7번, 윤*린). 다른 번호를 골라 주세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      (within(dialog).getByLabelText("새 번호") as HTMLInputElement).value,
+    ).toBe("7");
+  });
+
+  it("다른 분이 먼저 바꿨으면 안내하고 목록을 다시 불러와 새 버전으로 저장한다", async () => {
+    let version = 4;
+    let patches = 0;
+    const { calls, dialog } = await openDirect({
+      [STUDENTS_URL]: () => {
+        const item = student(1);
+        item.enrollment.version = version;
+        return { body: studentsBody([item, student(2)]) };
+      },
+      [PATCH]: () => {
+        patches += 1;
+        if (patches === 1) {
+          version = 5;
+          return {
+            status: 409,
+            body: {
+              error: {
+                code: "VERSION_CONFLICT",
+                message: "다른 분이 먼저 바꿨어요. 새로 고침해 주세요.",
+              },
+            },
+          };
+        }
+        return { body: { ok: true, enrollmentId: "e1", version: 6 } };
+      },
+    });
+    setNumber(dialog, "36");
+
+    fireEvent.click(saveButton(dialog));
+
+    expect(
+      await within(dialog).findByText(
+        "다른 분이 먼저 바꿨어요. 새로 고침해 주세요",
+      ),
+    ).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(calls.filter((c) => c.key === STUDENTS_URL)).toHaveLength(2),
+    );
+    expect(
+      (within(dialog).getByLabelText("새 번호") as HTMLInputElement).value,
+    ).toBe("36");
+
+    fireEvent.click(saveButton(dialog));
+
+    await vi.waitFor(() =>
+      expect(calls.filter((c) => c.key === PATCH).at(-1)?.body).toMatchObject({
+        expectedVersion: 5,
+        number: 36,
+      }),
+    );
+  });
+
+  it("다음 학년도를 고르면 그 학년도의 학급으로 반을 다시 고르게 한다", async () => {
+    const { calls, dialog } = await openDirect({
+      "GET /api/console/classes?year=2027": {
+        body: { classes: [klass("n3", "고2", "3"), klass("n4", "고2", "4")] },
+      },
+    });
+
+    fireEvent.change(within(dialog).getByLabelText("적용 학년도"), {
+      target: { value: "2027" },
+    });
+
+    await vi.waitFor(() =>
+      expect(
+        Array.from(
+          within(dialog).getByLabelText("새 반").querySelectorAll("option"),
+        ).map((o) => o.textContent),
+      ).toEqual(["선택", "3반", "4반"]),
+    );
+    expect(saveButton(dialog).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("새 반"), {
+      target: { value: "n4" },
+    });
+    fireEvent.click(saveButton(dialog));
+
+    await vi.waitFor(() =>
+      expect(calls.find((c) => c.key === PATCH)?.body).toMatchObject({
+        classId: "n4",
+        applyYear: 2027,
+        number: 1,
+      }),
+    );
+  });
+});

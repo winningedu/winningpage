@@ -1,5 +1,6 @@
 // W13 학생 조회와 이력 탭. 담임은 담당 학급만, 관리자는 전교를 보며(서버가 범위와 이름 가림을 정한다) 관리자만 직접 변경한다.
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -15,12 +16,13 @@ import EmptyMessage from "../EmptyMessage";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
+import DirectChangeDialog from "./DirectChangeDialog";
 import { slotLabel } from "./format";
 import HistoryDialog from "./HistoryDialog";
 import NameCell from "./NameCell";
 import StudentFilters from "./StudentFilters";
 import { useClasses } from "./useClasses";
-import { usePagedList } from "./usePagedList";
+import { HISTORY_KEY, usePagedList } from "./usePagedList";
 import { usePageParam } from "./usePageParam";
 
 const PAGE_SIZE = 50;
@@ -64,7 +66,9 @@ export default function StudentListTab() {
     classId: searchParams.get("classId") ?? "",
     q: searchParams.get("q") ?? "",
   };
+  const queryClient = useQueryClient();
   const [opened, setOpened] = useState<StudentItem | null>(null);
+  const [directId, setDirectId] = useState<string | null>(null);
   const classes = useClasses();
   const list = usePagedList<StudentItem>(
     "/api/console/students/history",
@@ -73,6 +77,8 @@ export default function StudentListTab() {
     false,
   );
   const admin = me.kind !== "homeroom";
+  const direct = list.data?.items.find((i) => i.studentId === directId);
+
   if (list.isError)
     return <Notice tone="Danger">학생 목록을 불러오지 못했어요</Notice>;
   if (!list.data || !classes.data) return null;
@@ -127,6 +133,10 @@ export default function StudentListTab() {
                 <TableCell>
                   <Button
                     type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDirectId(item.studentId);
+                    }}
                     className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
                   >
                     직접 변경
@@ -148,6 +158,19 @@ export default function StudentListTab() {
           total={list.data.total}
           pageSize={PAGE_SIZE}
           onChange={setPage}
+        />
+      )}
+      {direct && (
+        <DirectChangeDialog
+          student={direct}
+          onSaved={() => {
+            setDirectId(null);
+            void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+          }}
+          onConflict={() =>
+            void queryClient.invalidateQueries({ queryKey: HISTORY_KEY })
+          }
+          onClose={() => setDirectId(null)}
         />
       )}
       {opened && (
