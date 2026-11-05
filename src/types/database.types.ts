@@ -8141,6 +8141,15 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_decide_enrollment_change: {
+        Args: {
+          p_actor: string;
+          p_approve: boolean;
+          p_change_id: string;
+          p_reject_reason: string;
+        };
+        Returns: string;
+      };
       fn_delete_account: { Args: { p_user_id: string }; Returns: string };
       fn_enrollment_join: {
         Args: {
@@ -8481,6 +8490,15 @@ export type Database = {
           discount_amount: number;
           order_id: string;
         }[];
+      };
+      fn_request_enrollment_change: {
+        Args: {
+          p_to_class_name: string;
+          p_to_grade: string;
+          p_to_group_name: string;
+          p_to_number: number;
+        };
+        Returns: string;
       };
       fn_request_refund: {
         Args: {
