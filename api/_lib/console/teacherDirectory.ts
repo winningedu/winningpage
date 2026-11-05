@@ -144,7 +144,7 @@ export async function loadTeacherDirectory(
       status: t.status,
       loginId: t.login_id,
       hasAccount: t.profile_id !== null,
-      passwordSet: t.password_set_at !== null,
+      passwordSet: Boolean(t.password_set_at),
       classes: assignments
         .filter((a) => a.teacher_id === t.id && classById.has(a.class_id))
         .map((a) => classById.get(a.class_id) as DirectoryClassRow)
