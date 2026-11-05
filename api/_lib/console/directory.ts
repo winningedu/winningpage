@@ -13,7 +13,8 @@ export interface ReadQuery<Row>
   eq(column: string, value: string | number): ReadQuery<Row>;
   in(column: string, values: string[]): ReadQuery<Row>;
   gte(column: string, value: string | number): ReadQuery<Row>;
-  order(column: string): ReadQuery<Row>;
+  order(column: string, options?: { ascending: boolean }): ReadQuery<Row>;
+  limit(count: number): ReadQuery<Row>;
   range(from: number, to: number): ReadQuery<Row>;
 }
 
@@ -41,6 +42,20 @@ export function readAll<Row>(
       .order(orderBy)
       .range(from, to),
   );
+}
+
+/** created_at 이 가장 늦은 한 행. 조건에 맞는 행을 전부 읽지 않고 DB 에서 한 행만 가져온다. */
+export async function readLatest<Row>(
+  admin: SupabaseClient,
+  table: string,
+  columns: string,
+  where: (query: ReadQuery<Row>) => ReadQuery<Row>,
+): Promise<Row | undefined> {
+  const { data, error } = await where(readQuery<Row>(admin, table, columns))
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`${table} latest read failed`);
+  return data?.[0];
 }
 
 export interface TenantInfo {

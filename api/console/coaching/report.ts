@@ -5,7 +5,7 @@
 // 범위는 코칭 조회와 같다. 목표관리는 저장된 리포트가 없어 404 NO_REPORT 다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
-import { readAll } from "../../_lib/console/directory.js";
+import { readAll, readLatest } from "../../_lib/console/directory.js";
 import {
   flattenText,
   type ReportSection,
@@ -34,12 +34,6 @@ const TITLE: Record<ServiceKey, string> = {
   inquiry: "심화탐구 리포트",
 };
 
-const latest = <T extends { created_at: string }>(rows: T[]): T | undefined =>
-  rows.reduce<T | undefined>(
-    (best, r) => (!best || r.created_at > best.created_at ? r : best),
-    undefined,
-  );
-
 async function loadReport(
   admin: Parameters<typeof readAll>[0],
   service: ServiceKey,
@@ -47,16 +41,13 @@ async function loadReport(
 ): Promise<{ summary: string; sections: ReportSection[] } | null> {
   switch (service) {
     case "diagnosis": {
-      const rows = await readAll<{ created_at: string; payload: unknown }>(
+      const row = await readLatest<{ payload: unknown }>(
         admin,
         "diagnosis_reports",
-        "created_at, payload",
+        "payload",
         (q) => q.eq("profile_id", studentId),
-        "attempt_id",
       );
-      const payload = latest(rows)?.payload as
-        | Record<string, unknown>
-        | undefined;
+      const payload = row?.payload as Record<string, unknown> | undefined;
       if (!payload) return null;
       const readiness = payload.readiness as
         | Record<string, unknown>
@@ -71,13 +62,12 @@ async function loadReport(
       return { summary: "", sections };
     }
     case "growth": {
-      const rows = await readAll<{ created_at: string; sections: unknown }>(
+      const row = await readLatest<{ sections: unknown }>(
         admin,
         "growth_reports",
-        "created_at, sections",
+        "sections",
         (q) => q.eq("profile_id", studentId).eq("status", "completed"),
       );
-      const row = latest(rows);
       return row
         ? { summary: "", sections: reportSections(row.sections) }
         : null;
@@ -91,38 +81,34 @@ async function loadReport(
       );
       const ids = sessions.map((s) => s.id);
       if (ids.length === 0) return null;
-      const rows = await readAll<{
-        created_at: string;
+      const row = await readLatest<{
         summary: string | null;
         sections: unknown;
-      }>(admin, "performance_reports", "created_at, summary, sections", (q) =>
+      }>(admin, "performance_reports", "summary, sections", (q) =>
         q.in("session_id", ids).eq("report_type", "evaluation"),
       );
-      const row = latest(rows);
       return row
         ? { summary: row.summary ?? "", sections: reportSections(row.sections) }
         : null;
     }
     case "inquiry": {
-      const rows = await readAll<{ created_at: string; sections: unknown }>(
+      const row = await readLatest<{ sections: unknown }>(
         admin,
         "inquiry_reports",
-        "created_at, sections",
+        "sections",
         (q) => q.eq("profile_id", studentId),
       );
-      const row = latest(rows);
       return row
         ? { summary: "", sections: reportSections(row.sections) }
         : null;
     }
     case "selfeval": {
-      const rows = await readAll<{ created_at: string; sections: unknown }>(
+      const row = await readLatest<{ sections: unknown }>(
         admin,
         "selfeval_reports",
-        "created_at, sections",
+        "sections",
         (q) => q.eq("profile_id", studentId),
       );
-      const row = latest(rows);
       return row
         ? { summary: "", sections: reportSections(row.sections) }
         : null;

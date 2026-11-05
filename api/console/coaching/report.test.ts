@@ -314,6 +314,48 @@ describe("GET /api/console/coaching/report", () => {
     expect(audits()).toEqual([]);
   });
 
+  test.each([
+    ["diagnosis", "diagnosis_reports"],
+    ["growth", "growth_reports"],
+    ["performance", "performance_reports"],
+    ["inquiry", "inquiry_reports"],
+    ["selfeval", "selfeval_reports"],
+  ])(
+    "%s: reads only the latest row of the report table, newest first, instead of every payload",
+    async (service, table) => {
+      kit.state.rows.growth_profiles = (f) =>
+        matchRows([{ profile_id: "s1" }], f);
+      kit.state.rows.selfeval_sessions = (f) =>
+        matchRows([{ id: "se1", profile_id: "s1" }], f);
+      const sections = [{ title: "요약", body: ["내용"], format: "text" }];
+      const row = {
+        id: "r1",
+        profile_id: "s1",
+        session_id: "p1",
+        attempt_id: "d1",
+        report_type: "evaluation",
+        status: "completed",
+        created_at: "2026-10-20",
+        payload: DIAGNOSIS_PAYLOAD,
+        summary: "",
+        sections,
+      };
+      kit.state.rows[table] = (f) => matchRows([row], f);
+
+      await get({ studentId: "s1", service });
+
+      // 서비스 사용 여부 판정이 읽는 행(growth_reports 의 profile_id)은 빼고 리포트 본문을 읽는 쪽만 본다.
+      const reads = kit.state.reads.filter(
+        (r) => r.table === table && r.limit !== undefined,
+      );
+      expect(reads).toHaveLength(1);
+      expect(reads[0]).toMatchObject({
+        orderBy: { column: "created_at", ascending: false },
+        limit: 1,
+      });
+    },
+  );
+
   test("a failed audit write is a 500, so a report is never shown unrecorded", async () => {
     kit.state.insertErrors.admin_access_logs = { code: "XX000" };
     kit.state.rows.diagnosis_reports = (f) =>
