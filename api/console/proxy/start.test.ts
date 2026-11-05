@@ -98,4 +98,19 @@ describe("POST /api/console/proxy/start", () => {
       expect.anything(),
     );
   });
+
+  test.each([
+    ["사유 누락", { tenantId: "tenant-1" }],
+    ["허용 밖 사유", { tenantId: "tenant-1", reason: "other" }],
+    ["기관 누락", { reason: "admin_absent" }],
+  ])("%s 이면 400 이고 세션을 열지 않는다", async (_label, body) => {
+    const r = await start(body);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(state.rpc).not.toHaveBeenCalledWith(
+      "fn_proxy_start",
+      expect.anything(),
+    );
+  });
 });
