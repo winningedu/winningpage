@@ -9,6 +9,8 @@
  *   시안에 맞춘다.
  */
 
+import { site } from "@/config/site";
+
 // MentorSection이 넘기는 mentor의 타입과 정확히 같은 모양으로 맞춘다(id + 인덱스 시그니처) —
 // 여기서 badge/title_lines/photo_url/photo 등을 구체적인 optional 필드로 미리 좁혀 선언하면,
 // MentorSection 쪽 `{ id; [key: string]: unknown }` 타입과 이름은 겹치되 값 타입이 달라(unknown
@@ -70,15 +72,20 @@ export default function MentorCard({
   isClone = false,
 }: MentorCardProps) {
   const fields = readMentorFields(mentor);
+  const hasPhoto = Boolean(fields.photo_url && fields.photo);
+  // 스쿨멘토는 사진이 없는 카드도 기본 이미지로 그린다(결정 25). 위닝은 그대로 사진이 없으면 카드를 건너뛴다.
+  const useDefaultImage = !hasPhoto && site.features.b2bMenu;
   const hasNewCard = Boolean(
-    fields.badge && fields.title_lines && fields.photo_url && fields.photo,
+    fields.badge && fields.title_lines && (hasPhoto || useDefaultImage),
   );
   if (!hasNewCard) return null;
 
   const { badge, title_lines, photo_url, photo, mentor_name, card_width } =
     fields;
-  const photoBox = photo as NonNullable<MentorFields["photo"]>;
   const titleLines = title_lines as string[];
+  const photoBox = hasPhoto
+    ? (photo as NonNullable<MentorFields["photo"]>)
+    : null;
 
   return (
     <li
@@ -114,32 +121,48 @@ export default function MentorCard({
           </p>
         ))}
       </div>
-      <div
-        className={`absolute ${photoBox.crop ? "overflow-hidden" : ""}`}
-        style={{
-          top: toRem(photoBox.top),
-          left: toRem(photoBox.left),
-          width: toRem(photoBox.width),
-          height: toRem(photoBox.height),
-        }}
-      >
-        <img
-          src={photo_url}
-          alt={`${mentor_name} 멘토`}
-          loading="lazy"
-          draggable="false"
-          className={
-            photoBox.crop
-              ? "absolute left-0 w-full object-cover"
-              : "h-full w-full object-cover"
-          }
-          style={
-            photoBox.crop
-              ? { top: photoBox.crop.top, height: photoBox.crop.height }
-              : undefined
-          }
-        />
-      </div>
+      {useDefaultImage ? (
+        <div
+          className="absolute inset-x-0 bottom-0 flex items-center justify-center bg-surface-muted"
+          style={{ height: "12.5375rem" }}
+        >
+          <img
+            src={site.logo.horizontal}
+            alt=""
+            draggable="false"
+            className="w-3/4 opacity-40"
+          />
+        </div>
+      ) : (
+        photoBox && (
+          <div
+            className={`absolute ${photoBox.crop ? "overflow-hidden" : ""}`}
+            style={{
+              top: toRem(photoBox.top),
+              left: toRem(photoBox.left),
+              width: toRem(photoBox.width),
+              height: toRem(photoBox.height),
+            }}
+          >
+            <img
+              src={photo_url}
+              alt={`${mentor_name} 멘토`}
+              loading="lazy"
+              draggable="false"
+              className={
+                photoBox.crop
+                  ? "absolute left-0 w-full object-cover"
+                  : "h-full w-full object-cover"
+              }
+              style={
+                photoBox.crop
+                  ? { top: photoBox.crop.top, height: photoBox.crop.height }
+                  : undefined
+              }
+            />
+          </div>
+        )
+      )}
     </li>
   );
 }
