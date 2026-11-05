@@ -203,6 +203,9 @@ type HeroSectionProps = {
   // 조회가 끝난 뒤에만 켜는 책임은 호출부에 있다.
   showMainEmptyNotice?: boolean;
   showSideEmptyNotice?: boolean;
+  // 스쿨멘토(결정 21): 큰, 작은 배너가 같은 순번으로 함께 넘어가고 점은 작은 배너 아래 한 줄만 둔다.
+  // 점 개수와 타이머는 큰 배너가 정하고 작은 배너는 순번을 자기 장수로 나눈 나머지로 돌린다.
+  syncedSlides?: boolean;
 };
 
 const EMPTY_BANNER_NOTICE = "배너가 없어요";
@@ -225,6 +228,7 @@ export default function HeroSection({
   sideBanners = [],
   showMainEmptyNotice = false,
   showSideEmptyNotice = false,
+  syncedSlides = false,
 }: HeroSectionProps) {
   const leftSlides = banners.filter((item) => item.image_url);
   const leftSlideCount = leftSlides.length;
@@ -236,14 +240,29 @@ export default function HeroSection({
   // leftSlides/rightSlides는 매 렌더 새로 .filter()된 배열이라 아래 map 결과도 매번 새
   // 참조가 되지만, useHeroCarousel은 intervals를 ref로만 추적해 자동 전환 타이머를
   // 리셋시키지 않으므로 여기서 별도 메모이제이션은 필요 없다.
+  // syncedSlides: 큰 배너가 순번과 타이머를 쥔다(큰 배너가 없으면 작은 배너가 쥔다). 작은 배너 훅은 꺼 둔다.
+  const sharedSlides = leftSlideCount > 0 ? leftSlides : rightSlides;
   const leftCarousel = useHeroCarousel(
-    leftSlideCount,
-    leftSlides.map((s) => secondsToMs(s.display_seconds)),
+    syncedSlides ? sharedSlides.length : leftSlideCount,
+    (syncedSlides ? sharedSlides : leftSlides).map((s) =>
+      secondsToMs(s.display_seconds),
+    ),
   );
-  const rightCarousel = useHeroCarousel(
-    rightSlideCount,
+  const ownRightCarousel = useHeroCarousel(
+    syncedSlides ? 0 : rightSlideCount,
     rightSlides.map((s) => secondsToMs(s.display_seconds)),
   );
+  const rightCarousel = syncedSlides ? leftCarousel : ownRightCarousel;
+  // 작은 배너 아래 점 줄: 위닝은 작은 배너 장수, 스쿨멘토는 큰 배너와 공유하는 장수.
+  const dotSlides = syncedSlides ? sharedSlides : rightSlides;
+  const dotActiveIndex = syncedSlides
+    ? leftCarousel.activeIndex
+    : ownRightCarousel.activeIndex;
+  const rightActiveIndex = syncedSlides
+    ? rightSlideCount > 0
+      ? leftCarousel.activeIndex % rightSlideCount
+      : 0
+    : ownRightCarousel.activeIndex;
 
   const showLeftEmpty = leftSlideCount === 0 && showMainEmptyNotice;
   const showRightEmpty = rightSlideCount === 0 && showSideEmptyNotice;
@@ -368,7 +387,7 @@ export default function HeroSection({
 
             {/* 페이지네이션 인디케이터 — 카드 바깥 아래, 카드 기준 가로 중앙 (2건 이상일 때만)
                 lg 배너→인디케이터 간격: 시안 35px×0.8347=29.21→1.83rem */}
-            {leftSlideCount > 1 && (
+            {!syncedSlides && leftSlideCount > 1 && (
               <div className="mt-3 flex items-center gap-2.5 hero-reveal-indicator lg:mt-[1.83rem]">
                 {leftSlides.map((banner, index) => (
                   <button
@@ -422,7 +441,7 @@ export default function HeroSection({
               <div
                 className="flex h-full transition-transform duration-500 ease-out motion-reduce:transition-none"
                 style={{
-                  transform: `translateX(-${rightCarousel.activeIndex * 100}%)`,
+                  transform: `translateX(-${rightActiveIndex * 100}%)`,
                 }}
               >
                 {rightSlides.map((slide, index) => {
@@ -449,7 +468,7 @@ export default function HeroSection({
                     <div
                       key={slide.id ?? index}
                       className="h-full w-full flex-none"
-                      aria-hidden={index !== rightCarousel.activeIndex}
+                      aria-hidden={index !== rightActiveIndex}
                     >
                       {slide.link_url ? (
                         <a
@@ -460,9 +479,7 @@ export default function HeroSection({
                               ? "noopener noreferrer"
                               : undefined
                           }
-                          tabIndex={
-                            index === rightCarousel.activeIndex ? 0 : -1
-                          }
+                          tabIndex={index === rightActiveIndex ? 0 : -1}
                           draggable="false"
                           onClick={rightCarousel.handleSlideClick}
                           className="block h-full w-full"
@@ -481,19 +498,17 @@ export default function HeroSection({
 
             {/* 페이지네이션 인디케이터 — 카드 바깥 아래, 카드 기준 가로 중앙 (2건 이상일 때만)
                 lg 배너→인디케이터 간격: 시안 35px×0.8347=29.21→1.83rem */}
-            {rightSlideCount > 1 && (
+            {dotSlides.length > 1 && (
               <div className="mt-3 flex items-center gap-2.5 hero-reveal-indicator lg:mt-[1.83rem]">
-                {rightSlides.map((slide, index) => (
+                {dotSlides.map((slide, index) => (
                   <button
                     key={slide.id ?? index}
                     type="button"
                     aria-label={`${index + 1}번째 배너로 이동`}
-                    aria-current={index === rightCarousel.activeIndex}
+                    aria-current={index === dotActiveIndex}
                     onClick={() => rightCarousel.goTo(index)}
                     className={`relative h-3 w-3 rounded-full transition-colors duration-300 after:absolute after:-inset-4 after:content-[''] ${
-                      index === rightCarousel.activeIndex
-                        ? "bg-primary"
-                        : "bg-[#D9D9D9]"
+                      index === dotActiveIndex ? "bg-primary" : "bg-[#D9D9D9]"
                     }`}
                   />
                 ))}
