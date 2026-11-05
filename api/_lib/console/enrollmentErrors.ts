@@ -78,10 +78,20 @@ const MAPPED: Record<string, Mapped> = {
 /** 알려진 코드면 응답을 보내고 true. 아니면 false 라서 호출부가 예외로 던진다. */
 export function sendEnrollmentRpcError(
   res: VercelResponse,
-  error: { code?: string } | null | undefined,
+  error: { code?: string; details?: string | null } | null | undefined,
 ): boolean {
   const mapped = error?.code ? MAPPED[error.code] : undefined;
   if (!mapped) return false;
-  sendError(res, "coded", mapped.status, mapped.message, mapped.code);
+  // WC077 의 DETAIL 은 그 번호를 쓰는 학생 이름이다(교 #200).
+  const studentName =
+    error?.code === "WC077" && error.details ? error.details : undefined;
+  sendError(
+    res,
+    "coded",
+    mapped.status,
+    mapped.message,
+    mapped.code,
+    studentName ? { studentName } : undefined,
+  );
   return true;
 }

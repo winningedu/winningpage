@@ -36,6 +36,26 @@ begin
   raise exception '[FAIL] %: 예외가 나지 않았다, want %', t, want;
 end $$;
 
+-- 주어진 SQL 이 want 로 실패하고 DETAIL 이 want_detail 인지 단언한다.
+create function pg_temp.expect_detail(t text, p_sql text, want text, want_detail text) returns void
+language plpgsql as $$
+declare
+  v_state text;
+  v_detail text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate, v_detail = pg_exception_detail;
+    if v_state is distinct from want or v_detail is distinct from want_detail then
+      raise exception '[FAIL] %: sqlstate %, detail %, want % / %', t, v_state, v_detail, want, want_detail;
+    end if;
+    raise notice '[PASS] % = % (%)', t, want, want_detail;
+    return;
+  end;
+  raise exception '[FAIL] %: 예외가 나지 않았다, want %', t, want;
+end $$;
+
 create function pg_temp.expect_text(t text, got text, want text) returns void
 language plpgsql as $$
 begin
@@ -248,6 +268,9 @@ select pg_temp.expect_text('join: signup applied auto 이력 1건', pg_temp.chg_
 
 select pg_temp.expect_error('join: 같은 번호 거부(WC077)',
   $$select * from public.fn_enrollment_join(pg_temp.fx('s6'), pg_temp.fx('ta'), '고2', null, '3', 7::smallint)$$, 'WC077');
+select pg_temp.expect_detail('join: 번호 중복 에러는 그 번호를 쓰는 학생 이름을 DETAIL 로 알려준다',
+  $$select * from public.fn_enrollment_join(pg_temp.fx('s6'), pg_temp.fx('ta'), '고2', null, '3', 7::smallint)$$,
+  'WC077', 't9-s5@t.local');
 select pg_temp.expect_text('join: 거부되면 학적도 이력도 남지 않는다',
   (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s6'))::text
   || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s6')), '0:0');
@@ -315,6 +338,8 @@ select pg_temp.expect_bool('update: 이력에 이전, 이후 값과 base_version
      from public.enrollment_changes where student_id = pg_temp.fx('s2') and kind = 'homeroom_edit'), true);
 select pg_temp.expect_error('update: 같은 반 같은 번호 거부(WC077)',
   $$select pg_temp.upd('s3', 1, '고1', 'a2', 3)$$, 'WC077');
+select pg_temp.expect_detail('update: 번호 중복 에러도 쓰는 학생 이름을 DETAIL 로 알려준다',
+  $$select pg_temp.upd('s3', 1, '고1', 'a2', 3)$$, 'WC077', 't9-s2@t.local');
 select pg_temp.expect_error('update: 다른 기관 학급 거부(FK)',
   $$select pg_temp.upd('s3', 1, '고1', 'b1', 3)$$, '23503');
 select pg_temp.expect_error('update: 학년과 맞지 않는 학급 거부(FK)',

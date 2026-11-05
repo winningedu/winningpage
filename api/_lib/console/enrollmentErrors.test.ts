@@ -4,7 +4,7 @@ import type { VercelResponse } from "@vercel/node";
 import { describe, expect, test } from "vitest";
 import { sendEnrollmentRpcError } from "./enrollmentErrors.js";
 
-function run(error: { code?: string } | null) {
+function run(error: { code?: string; details?: string | null } | null) {
   const captured: { status: number; body: unknown } = {
     status: 0,
     body: undefined,
@@ -62,6 +62,21 @@ describe("sendEnrollmentRpcError", () => {
       status,
       body: body(code, message),
     });
+  });
+
+  test("WC077 carries the name of the student who holds the number", () => {
+    expect(run({ code: "WC077", details: "홍길동" })).toMatchObject({
+      status: 409,
+      body: {
+        error: { code: "NUMBER_TAKEN" },
+        studentName: "홍길동",
+      },
+    });
+  });
+
+  test("WC077 without a name has no studentName", () => {
+    const result = run({ code: "WC077", details: "" });
+    expect(result.body).not.toHaveProperty("studentName");
   });
 
   test("unknown or missing errors are left to the caller", () => {

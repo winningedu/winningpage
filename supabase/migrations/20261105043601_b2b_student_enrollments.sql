@@ -87,6 +87,29 @@ create policy enrollment_changes_select_own on public.enrollment_changes
 comment on table public.student_enrollments is '학생의 학년도별 학적(학급, 번호, 졸업). version 은 동시 수정 감지용. 학생 본인은 읽기만 한다.';
 comment on table public.enrollment_changes is '학적 변경 신청과 적용 이력. status pending 은 kind request 만, 학생당 하나.';
 
+-- 번호 중복(WC077)을 던진다. 그 번호를 쓰는 학생의 이름을 DETAIL 로 실어 화면이 알려줄 수 있게 한다(교 #200).
+-- 이름이 없으면 DETAIL 은 빈 문자열이다. 학적 함수의 unique_violation 처리에서만 부른다.
+create function public.fn_raise_number_taken(p_class uuid, p_number smallint)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_name text;
+begin
+  select p.name into v_name
+    from public.student_enrollments e
+    join public.profiles p on p.id = e.student_id
+   where e.class_id = p_class and e.number = p_number
+   limit 1;
+  raise exception 'class number already taken' using errcode = 'WC077', detail = coalesce(v_name, '');
+end;
+$$;
+
+revoke all on function public.fn_raise_number_taken(uuid, smallint) from public, anon, authenticated;
+grant execute on function public.fn_raise_number_taken(uuid, smallint) to service_role;
+
 -- WC094: 학생(profiles.member_type = 'student')이 아닌 계정.
 -- 가입 또는 스스로 배정. 올해(기관의 school_year) 학적이 없으면 만들고(signup),
 -- 있는데 학급이 비어 있으면 학급과 번호를 채운다(self_assign). 이미 학급이 있으면 거부(WC079).
@@ -161,7 +184,7 @@ begin
   exception when unique_violation then
     get stacked diagnostics v_constraint = constraint_name;
     if v_constraint = 'student_enrollments_class_number_idx' then
-      raise exception 'class number already taken' using errcode = 'WC077';
+      perform public.fn_raise_number_taken(v_class, p_number);
     end if;
     raise exception 'enrollment already exists' using errcode = 'WC079';
   end;
@@ -258,7 +281,7 @@ begin
         exception when unique_violation then
           get stacked diagnostics v_constraint = constraint_name;
           if v_constraint = 'student_enrollments_class_number_idx' then
-            raise exception 'class number already taken' using errcode = 'WC077';
+            perform public.fn_raise_number_taken(p_to_class_id, p_to_number);
           end if;
           raise exception 'enrollment was changed by someone else' using errcode = 'WC078';
         end;
@@ -295,7 +318,7 @@ begin
   exception when unique_violation then
     get stacked diagnostics v_constraint = constraint_name;
     if v_constraint = 'student_enrollments_class_number_idx' then
-      raise exception 'class number already taken' using errcode = 'WC077';
+      perform public.fn_raise_number_taken(p_to_class_id, p_to_number);
     end if;
     raise;
   end;

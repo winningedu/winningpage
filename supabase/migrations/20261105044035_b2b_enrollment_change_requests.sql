@@ -156,7 +156,7 @@ begin
     exception when unique_violation then
       get stacked diagnostics v_constraint = constraint_name;
       if v_constraint = 'student_enrollments_class_number_idx' then
-        raise exception 'class number already taken' using errcode = 'WC077';
+        perform public.fn_raise_number_taken(v_chg.to_class_id, v_chg.to_number);
       end if;
       raise;
     end;

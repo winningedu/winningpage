@@ -219,6 +219,20 @@ select pg_temp.expect_text('decide: 신청 행이 결정 정보를 가진다',
 insert into rq values ('s2', pg_temp.req('s2', '고1', null, '2', 5));
 select pg_temp.expect_error('decide: 이미 쓰인 번호로 승인하면 WC077',
   $$select pg_temp.decide((select v from rq where k = 's2'), true, 'hr2')$$, 'WC077');
+do $$
+declare
+  v_detail text;
+begin
+  begin
+    perform pg_temp.decide((select v from rq where k = 's2'), true, 'hr2');
+  exception when sqlstate 'WC077' then
+    get stacked diagnostics v_detail = pg_exception_detail;
+  end;
+  if v_detail is distinct from 't19-s1@t.local' then
+    raise exception '[FAIL] decide: 번호 충돌 DETAIL 은 쓰는 학생 이름, got %', v_detail;
+  end if;
+  raise notice '[PASS] decide: 번호 충돌 DETAIL 은 쓰는 학생 이름';
+end $$;
 select pg_temp.expect_text('decide: 번호 충돌이면 신청은 pending, 학적은 그대로',
   (select status from public.enrollment_changes where id = (select v from rq where k = 's2'))
   || '/' || pg_temp.enr_s('s2'), 'pending/고1/1/2/v1');
