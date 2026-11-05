@@ -4,7 +4,9 @@
 import { randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { VercelResponse } from "@vercel/node";
 import { SYNTHETIC_DOMAIN } from "../auth/login.js";
+import { sendError } from "../httpResponse.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
 
 const scryptAsync = promisify(scrypt) as (
@@ -267,4 +269,61 @@ export async function registerTeacherWithAccount(
     verdict: registered.verdict,
     issued,
   };
+}
+
+const DB_ERRORS: Record<
+  string,
+  { status: number; code: string; message: string }
+> = {
+  WC075: {
+    status: 409,
+    code: "PHONE_IN_USE",
+    message: "다른 이름의 선생님이 이미 쓰는 전화번호입니다.",
+  },
+  "23505": {
+    status: 409,
+    code: "CLASS_TAKEN",
+    message: "다른 선생님이 이미 담임인 학급입니다.",
+  },
+};
+
+/** DB 함수가 규칙 위반으로 낸 에러면 코드별 응답을 보내고 true. 그 밖의 에러는 false(호출부가 다시 던진다). */
+export function sendTeacherDbError(
+  res: VercelResponse,
+  error: unknown,
+): boolean {
+  if (!(error instanceof RpcError) || !error.code) return false;
+  const mapped = DB_ERRORS[error.code];
+  if (!mapped) return false;
+  sendError(res, "coded", mapped.status, mapped.message, mapped.code);
+  return true;
+}
+
+export interface ParsedRegisterBody {
+  name: string;
+  phone: string;
+  classes: RegisterInput["classes"];
+}
+
+/** 이름, 전화번호(숫자만으로 정규화, 01 로 시작 10 또는 11자리), 학급 목록(생략 가능)을 검증한다. */
+export function parseRegisterBody(body: unknown): ParsedRegisterBody | null {
+  const { name, phone, classes } = (body ?? {}) as Record<string, unknown>;
+  if (typeof name !== "string" || name.trim() === "") return null;
+  if (typeof phone !== "string") return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!/^01[0-9]{8,9}$/.test(digits)) return null;
+  if (classes !== undefined && !Array.isArray(classes)) return null;
+
+  const parsed: RegisterInput["classes"] = [];
+  for (const row of (classes ?? []) as Record<string, unknown>[]) {
+    if (typeof row?.grade !== "string" || typeof row?.name !== "string")
+      return null;
+    if (row.grade === "" || row.name.trim() === "") return null;
+    parsed.push({
+      grade: row.grade,
+      name: row.name,
+      ...(typeof row.groupId === "string" ? { group_id: row.groupId } : {}),
+    });
+  }
+  return { name: name.trim(), phone: digits, classes: parsed };
 }

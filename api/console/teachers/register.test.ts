@@ -88,4 +88,132 @@ describe("POST /api/console/teachers/register", () => {
       email_confirm: true,
     });
   });
+
+  test("임시 비밀번호는 DB 인자, 감사 로그, 콘솔 로그에 평문으로 남지 않고 attach 에는 해시만 간다", async () => {
+    const logs = [
+      vi.spyOn(console, "log").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+    ];
+    let attachArgs: Record<string, unknown> = {};
+    kit.state.rpc.fn_teacher_attach_account = (args) => {
+      attachArgs = args;
+      return { data: null, error: null };
+    };
+
+    const r = await post(VALID);
+
+    const password = (r.body as { tempPassword: string }).tempPassword;
+    expect(JSON.stringify(attachArgs)).not.toContain(password);
+    expect(attachArgs.p_temp_hash).toMatch(/^scrypt\$/);
+    expect(JSON.stringify(kit.state.inserts)).not.toContain(password);
+    for (const spy of logs) {
+      expect(JSON.stringify(spy.mock.calls)).not.toContain(password);
+    }
+  });
+
+  test("DB 등록, Auth 사용자, attach, 감사 로그 순서로 처리하고 account_issue 를 남긴다", async () => {
+    await post(VALID);
+
+    expect(
+      kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),
+    ).toEqual([
+      "rpc:fn_teacher_register",
+      "auth:createUser",
+      "rpc:fn_teacher_attach_account",
+      "insert:admin_access_logs",
+    ]);
+    expect(kit.state.inserts[0]?.row).toMatchObject({
+      tenant_id: "tenant-1",
+      actor_kind: "school_admin",
+      action: "account_issue",
+      resource_key: "console.teachers",
+      target_id: "teacher-1",
+      meta: {
+        verdict: "created",
+        loginId: "ABCD2345XY7Z9K",
+        sendDedupeKey: "teacherIssue:teacher-1:2026-11-05T05:00:00Z",
+      },
+    });
+  });
+
+  test("계정이 이미 있는 같은 사람은 학급만 더하고 새 계정이나 임시 비밀번호를 만들지 않는다", async () => {
+    kit.state.rpc.fn_teacher_register = () => ({
+      data: [{ teacher_id: "teacher-1", verdict: "classes_added" }],
+      error: null,
+    });
+    kit.state.rows.teachers = () => ({
+      login_id: "ABCD2345XY7Z9K",
+      profile_id: "existing-profile",
+    });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      ok: true,
+      teacherId: "teacher-1",
+      loginId: "ABCD2345XY7Z9K",
+      verdict: "classes_added",
+    });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+    expect(kit.state.inserts[0]?.row).toMatchObject({ action: "update" });
+  });
+
+  test("전화번호가 다른 이름의 교사에게 쓰이면 409 PHONE_IN_USE 이고 계정을 만들지 않는다", async () => {
+    kit.state.rpc.fn_teacher_register = () => ({
+      data: null,
+      error: { code: "WC075" },
+    });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "PHONE_IN_USE" } });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("다른 교사가 이미 담임인 학급이면 409 CLASS_TAKEN", async () => {
+    kit.state.rpc.fn_teacher_register = () => ({
+      data: null,
+      error: { code: "23505" },
+    });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "CLASS_TAKEN" } });
+  });
+
+  test.each([
+    ["이름 누락", { ...VALID, name: " " }],
+    ["전화번호 형식 오류", { ...VALID, phone: "02-123-4567" }],
+    ["학급 배열이 아님", { ...VALID, classes: "3반" }],
+    ["학급에 학년 누락", { ...VALID, classes: [{ name: "3반" }] }],
+  ])("%s 이면 400 이고 아무것도 만들지 않는다", async (_label, body) => {
+    const r = await post(body);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_register");
+  });
+
+  test("담임은 403 NOT_SCHOOL_ADMIN 이다", async () => {
+    kit.state.actor = { ...kit.state.actor, kind: "homeroom" };
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "NOT_SCHOOL_ADMIN" } });
+  });
+
+  test("감사 로그를 남기지 못하면 성공으로 끝나지 않고 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.state.insertError = { code: "XX000" };
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toContain("tempPassword");
+  });
 });
