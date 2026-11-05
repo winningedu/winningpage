@@ -19,6 +19,8 @@ export interface SiteConfig {
     premium: boolean;
     // 콜멘토(메뉴, 라우트, 서비스 항목) 노출 여부.
     callmentor: boolean;
+    // 화면 문구의 '위닝 ' 서비스 이름 접두어('위닝 수행평가' 등)와 '위닝 내부 기준'을 뺄지(결정 2).
+    stripWinningPrefix: boolean;
     // 메뉴, 카드, 가격표, 라우트에서 숨길 신규 서비스(growth, selfeval, inquiry). 기본은 빈 배열(전부 노출).
     // 배포 환경별로는 site.ts가 VITE_HIDDEN_PROGRAMS로 덮어쓴다.
     hiddenPrograms: readonly GateableProgram[];
@@ -69,6 +71,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     features: {
       premium: true,
       callmentor: true,
+      stripWinningPrefix: false,
       hiddenPrograms: [],
       bannerEmptyNotice: false,
       serverLogin: false,
@@ -111,6 +114,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     features: {
       premium: false,
       callmentor: false,
+      stripWinningPrefix: true,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
       // 운영 선행 조건(시크릿 키 env, Sb-Forwarded-For 설정)과 W2 라우트가 갖춰질 때까지 끈다.

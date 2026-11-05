@@ -135,6 +135,17 @@ describe("site - 콜멘토 노출 플래그", () => {
   });
 });
 
+describe("site - 서비스 이름 '위닝 ' 접두어 제거 플래그", () => {
+  it("winning은 접두어를 유지하고 schoolmentor는 뺀다", async () => {
+    expect((await loadSite("winning")).site.features.stripWinningPrefix).toBe(
+      false,
+    );
+    expect(
+      (await loadSite("schoolmentor")).site.features.stripWinningPrefix,
+    ).toBe(true);
+  });
+});
+
 describe("site - 배너 빈 상태 안내 플래그", () => {
   it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
     const { site } = await loadSite("winning");
