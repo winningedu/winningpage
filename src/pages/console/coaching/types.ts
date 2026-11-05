@@ -113,3 +113,17 @@ export interface ServiceCard {
   value: string;
   detail: string;
 }
+
+export interface ServiceDetail {
+  service: ServiceKey;
+  title: string;
+  metrics: { label: string; value: string }[];
+  table: { heading: string; columns: string[]; rows: string[][] } | null;
+  points: string[];
+}
+
+export interface ReportView {
+  title: string;
+  summary: string;
+  sections: { title: string; text: string }[];
+}

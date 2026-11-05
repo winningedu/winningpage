@@ -2,7 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { consoleRequest } from "../api";
-import type { Coaching, StudentList } from "./types";
+import type {
+  Coaching,
+  ReportView,
+  ServiceDetail,
+  ServiceKey,
+  StudentList,
+} from "./types";
 
 /** q 가 있으면 서버가 실명 부분 일치로 거른 목록이다(학교 관리자 이름 검색). */
 export function useCoachingStudents(q = "") {
@@ -32,5 +38,38 @@ export function useCoaching(studentId: string | null) {
       return res.body as Coaching;
     },
     retry: false,
+  });
+}
+
+export function useServiceDetail(studentId: string, service: ServiceKey) {
+  return useQuery({
+    queryKey: ["console", "coaching", studentId, "service", service],
+    queryFn: async () => {
+      const res = await consoleRequest(
+        `/api/console/coaching/service?studentId=${encodeURIComponent(studentId)}&service=${service}`,
+      );
+      if (res.status !== 200) throw new Error(`service ${res.status}`);
+      return (res.body as { detail: ServiceDetail }).detail;
+    },
+    retry: false,
+  });
+}
+
+/** 리포트를 열 때마다 서버가 열람 로그를 남기므로 다시 읽어 오지 않고 캐시도 두지 않는다. */
+export function useReport(studentId: string, service: ServiceKey) {
+  return useQuery({
+    queryKey: ["console", "coaching", studentId, "report", service],
+    gcTime: 0,
+    staleTime: 0,
+    queryFn: async () => {
+      const res = await consoleRequest(
+        `/api/console/coaching/report?studentId=${encodeURIComponent(studentId)}&service=${service}`,
+      );
+      if (res.status === 404) return null;
+      if (res.status !== 200) throw new Error(`report ${res.status}`);
+      return res.body as ReportView;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

@@ -15,6 +15,7 @@ import { useConsoleMe } from "../useConsoleMe";
 import CoachingRadar, { axisStatusText } from "./CoachingRadar";
 import { GoalOpinionCard, Narrative, ServiceCards } from "./CoachingSections";
 import MemoPanel from "./MemoPanel";
+import ServiceWindow from "./ServiceWindow";
 import type { Coaching, PickerStudent, ServiceKey, Signal } from "./types";
 import { useCoaching, useCoachingStudents } from "./useCoaching";
 
@@ -329,7 +330,11 @@ export default function CoachingPage() {
     params.get("studentId") ?? list.data?.defaultStudentId ?? null;
   const coaching = useCoaching(studentId);
 
-  const pick = (id: string) => setParams({ studentId: id }, { replace: true });
+  const [windowService, setWindowService] = useState<ServiceKey | null>(null);
+  const pick = (id: string) => {
+    setWindowService(null);
+    setParams({ studentId: id }, { replace: true });
+  };
   useEffect(() => {
     if (!params.get("studentId") && list.data?.defaultStudentId) {
       setParams({ studentId: list.data.defaultStudentId }, { replace: true });
@@ -381,6 +386,13 @@ export default function CoachingPage() {
           {(list.isError || coaching.isError) && (
             <EmptyMessage body="개인종합코칭을 불러오지 못했어요" />
           )}
+          {studentId && windowService && (
+            <ServiceWindow
+              studentId={studentId}
+              service={windowService}
+              onClose={() => setWindowService(null)}
+            />
+          )}
           {studentId && (
             <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:flex-row lg:items-start lg:px-12">
               <div className="order-first lg:order-last">
@@ -393,7 +405,7 @@ export default function CoachingPage() {
                   <DiagnosisCard data={coaching.data} />
                   <ServiceCards
                     cards={coaching.data.serviceCards}
-                    onOpen={() => {}}
+                    onOpen={setWindowService}
                   />
                   <GoalOpinionCard data={coaching.data} />
                 </div>
