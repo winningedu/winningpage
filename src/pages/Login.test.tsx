@@ -155,4 +155,114 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
     ).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
   });
+
+  it("아이디 저장을 켜고 성공하면 아이디만 localStorage 에 남긴다", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, OK_BODY));
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fireEvent.click(screen.getByLabelText("아이디 저장"));
+    fillAndSubmit("kim01", "pw1234");
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    const stored = Object.keys(localStorage).map((k) => [
+      k,
+      localStorage.getItem(k),
+    ]);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.[1]).toBe("kim01");
+    expect(JSON.stringify(stored)).not.toContain("pw1234");
+  });
+
+  it("저장된 아이디는 다음 방문에 채워지고 체크가 켜져 있다", async () => {
+    localStorage.setItem("schoolmentor.savedLoginId", "kim01");
+    renderLogin();
+
+    expect(
+      await screen.findByPlaceholderText("아이디를 입력해 주세요."),
+    ).toHaveValue("kim01");
+    expect(screen.getByLabelText("아이디 저장")).toBeChecked();
+  });
+
+  it("체크를 끄고 성공하면 저장된 아이디를 지운다", async () => {
+    localStorage.setItem("schoolmentor.savedLoginId", "kim01");
+    mockFetch.mockResolvedValue(jsonResponse(200, OK_BODY));
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fireEvent.click(screen.getByLabelText("아이디 저장"));
+    fillAndSubmit("kim01", "pw1234");
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("localStorage 가 막혀 있어도 로그인은 진행된다", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, OK_BODY));
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fireEvent.click(screen.getByLabelText("아이디 저장"));
+    fillAndSubmit();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    vi.restoreAllMocks();
+  });
+});
+
+describe("Login - 위닝 클라이언트 직접 로그인(회귀)", () => {
+  beforeEach(() => {
+    state.serverLogin = false;
+  });
+
+  it("서버 로그인 대신 signInWithPassword 를 직접 부르고 이메일 문구를 유지한다", async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: { id: "u1" } },
+      error: null,
+    });
+    renderLogin();
+
+    const email = await screen.findByPlaceholderText("이메일을 입력해 주세요.");
+    expect(email).toHaveAttribute("type", "email");
+    expect(screen.queryByLabelText("아이디 저장")).not.toBeInTheDocument();
+    fireEvent.change(email, { target: { value: " Kim@Example.com " } });
+    fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
+      target: { value: "pw1234" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({
+      email: "kim@example.com",
+      password: "pw1234",
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("잘못된 자격 증명은 기존 이메일 문구로 보여 준다", async () => {
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Invalid login credentials" },
+    });
+    renderLogin();
+    await screen.findByPlaceholderText("이메일을 입력해 주세요.");
+
+    fireEvent.change(screen.getByPlaceholderText("이메일을 입력해 주세요."), {
+      target: { value: "kim@example.com" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
+      target: { value: "bad" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+
+    expect(
+      await screen.findByText("이메일 또는 비밀번호가 올바르지 않습니다."),
+    ).toBeInTheDocument();
+  });
 });
