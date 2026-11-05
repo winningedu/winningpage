@@ -1,6 +1,6 @@
-// W13 졸업생 탭(관리자). 졸업 학년도를 고르지 않고 들어오면 가장 최근 졸업 학년도로 연다.
+// W13 졸업생 탭(관리자). 졸업 학년도를 고르지 않고 들어오면 서버가 가장 최근 졸업 학년도로 응답한다.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,31 +61,16 @@ export default function GraduatesTab() {
   const [draftYear, setDraftYear] = useState<string | null>(null);
   const [draftQ, setDraftQ] = useState(q);
   const [opened, setOpened] = useState<GraduateItem | null>(null);
-  const list = usePagedList<GraduateItem, { years: number[] }>(
-    "/api/console/graduates",
-    { year: urlYear, q },
-    page,
-    mobile,
-  );
-
-  const latest = list.data?.years[0];
-  // 학년도를 안 골랐으면 가장 최근 학년도로 바꿔 다시 불러온다.
-  useEffect(() => {
-    if (urlYear || latest === undefined) return;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("year", String(latest));
-        return next;
-      },
-      { replace: true },
-    );
-  }, [urlYear, latest, setSearchParams]);
+  const list = usePagedList<
+    GraduateItem,
+    { year: number | null; years: number[] }
+  >("/api/console/graduates", { year: urlYear, q }, page, mobile);
 
   if (list.isError)
     return <Notice tone="Danger">졸업생 목록을 불러오지 못했어요</Notice>;
-  if (!list.data || (!urlYear && latest !== undefined)) return null;
-  const year = draftYear ?? urlYear;
+  if (!list.data) return null;
+  // 주소에 학년도가 없으면 서버가 쓴 최근 졸업 학년도다.
+  const year = draftYear ?? (urlYear || String(list.data.year ?? ""));
   return (
     <section className="flex flex-col">
       <div className="flex flex-wrap items-center gap-2.5 py-6">

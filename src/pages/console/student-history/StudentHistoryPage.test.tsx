@@ -1136,12 +1136,9 @@ describe("W13 졸업생 탭", () => {
   const gradUrl = (pairs: string[][]) =>
     `GET /api/console/graduates?${new URLSearchParams(pairs)}`;
   const FIRST = gradUrl([["page", "1"]]);
-  const BY_2025 = gradUrl([
-    ["year", "2025"],
-    ["page", "1"],
-  ]);
   const YEARS = [2025, 2024];
   const gradBody = (items: unknown[], total = items.length, years = YEARS) => ({
+    year: years[0] ?? null,
     years,
     total,
     page: 1,
@@ -1152,15 +1149,19 @@ describe("W13 졸업생 탭", () => {
   it("가장 최근 졸업 학년도를 골라 졸업생과 보관 안내를 보여 준다", async () => {
     const calls = stubPage(
       {
-        [FIRST]: { body: gradBody([]) },
-        [BY_2025]: { body: gradBody([graduate(1), graduate(2)], 150) },
+        [FIRST]: { body: gradBody([graduate(1), graduate(2)], 150) },
       },
       adminMe,
     );
-    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+    const { router } = renderRoutes(
+      routes,
+      "/teacher/student-history?tab=graduates",
+    );
 
     expect(await screen.findByText("검색 결과 150명")).toBeTruthy();
-    expect(calls.some((c) => c.key === BY_2025)).toBe(true);
+    // 학년도 없이 한 번만 부르고, 주소도 바꾸지 않는다
+    expect(calls.filter((c) => c.key.includes("/graduates"))).toHaveLength(1);
+    expect(router.state.location.search).toBe("?tab=graduates");
     const year = (await screen.findByLabelText(
       "졸업 학년도",
     )) as HTMLSelectElement;
@@ -1211,8 +1212,7 @@ describe("W13 졸업생 탭", () => {
     ]);
     stubPage(
       {
-        [FIRST]: { body: gradBody([]) },
-        [BY_2025]: { body: gradBody([graduate(1)]) },
+        [FIRST]: { body: gradBody([graduate(1)]) },
         [BY_2024_Q]: { body: gradBody([graduate(2)]) },
       },
       adminMe,
@@ -1245,8 +1245,7 @@ describe("W13 졸업생 탭", () => {
   it("이력 보기는 이력 창을 열고 코칭은 막는다", async () => {
     stubPage(
       {
-        [FIRST]: { body: gradBody([]) },
-        [BY_2025]: { body: gradBody([graduate(1)]) },
+        [FIRST]: { body: gradBody([graduate(1)]) },
         [HISTORY_DIALOG]: { body: historyBody({ name: "한예준" }) },
       },
       adminMe,
@@ -1278,8 +1277,7 @@ describe("W13 졸업생 탭", () => {
   it("탭을 누르면 그 탭의 쿼리스트링으로 바뀐다", async () => {
     stubPage(
       {
-        [FIRST]: { body: gradBody([]) },
-        [BY_2025]: { body: gradBody([graduate(1)]) },
+        [FIRST]: { body: gradBody([graduate(1)]) },
       },
       adminMe,
     );
@@ -1289,7 +1287,7 @@ describe("W13 졸업생 탭", () => {
     fireEvent.click(screen.getByRole("tab", { name: "졸업생" }));
 
     expect(await screen.findByText("한예준")).toBeTruthy();
-    expect(router.state.location.search).toBe("?tab=graduates&year=2025");
+    expect(router.state.location.search).toBe("?tab=graduates");
   });
 });
 
@@ -1301,13 +1299,8 @@ describe("W13 졸업생 휴대폰", () => {
     stubPage(
       {
         [url([["page", "1"]])]: {
-          body: { years: [2025], total: 0, page: 1, pageCount: 0, items: [] },
-        },
-        [url([
-          ["year", "2025"],
-          ["page", "1"],
-        ])]: {
           body: {
+            year: 2025,
             years: [2025],
             total: 3,
             page: 1,
