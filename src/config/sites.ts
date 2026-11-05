@@ -120,6 +120,8 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       bizRegNo: "783-81-04298",
       address:
         "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
+      // 결정 1(2026-11-05): 스쿨멘토도 위닝에듀 카카오 채널을 쓴다(온라인문의 메뉴 유지).
+      kakaoChannelUrl: "https://pf.kakao.com/_EfjwX",
     },
   },
 };
