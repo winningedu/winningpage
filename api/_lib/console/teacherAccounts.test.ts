@@ -6,6 +6,7 @@ import {
   ensureAuthUser,
   generateTempPassword,
   hashTempPassword,
+  issueTeacherAccount,
   verifyTempPassword,
 } from "./teacherAccounts.js";
 
@@ -106,5 +107,76 @@ describe("ensureAuthUser", () => {
     await expect(
       ensureAuthUser(admin, "ABCD2345XY7Z9K", "Pw1!abcdef"),
     ).rejects.toThrow("teacher auth user create failed");
+  });
+});
+
+describe("issueTeacherAccount", () => {
+  function fakeIssueClient() {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const createUser = vi
+      .fn()
+      .mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    const chain: Record<string, unknown> = {};
+    for (const m of ["select", "eq"]) chain[m] = () => chain;
+    chain.maybeSingle = async () => ({
+      data: { temp_password_issued_at: "2026-11-05T05:00:00Z" },
+      error: null,
+    });
+    return {
+      rpc,
+      createUser,
+      admin: {
+        rpc,
+        from: () => chain,
+        auth: { admin: { createUser } },
+      } as unknown as SupabaseClient,
+    };
+  }
+
+  test("Auth 사용자를 만든 뒤 scrypt 해시만 attach 에 넘기고 임시 비밀번호를 돌려준다", async () => {
+    const { admin, rpc, createUser } = fakeIssueClient();
+
+    const issued = await issueTeacherAccount(
+      admin,
+      "teacher-1",
+      "ABCD2345XY7Z9K",
+    );
+
+    const password = createUser.mock.calls[0]?.[0].password as string;
+    expect(issued.tempPassword).toBe(password);
+    expect(issued.profileId).toBe("user-1");
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [name, args] = rpc.mock.calls[0] as [string, Record<string, string>];
+    expect(name).toBe("fn_teacher_attach_account");
+    expect(args).toMatchObject({
+      p_teacher_id: "teacher-1",
+      p_profile_id: "user-1",
+      p_login_id: "ABCD2345XY7Z9K",
+    });
+    expect(args.p_temp_hash).toMatch(/^scrypt\$/);
+    expect(JSON.stringify(args)).not.toContain(password);
+  });
+
+  test("발송 중복 방지 열쇠는 교사 id 와 임시 비밀번호 발급 시각으로 만든다", async () => {
+    const { admin } = fakeIssueClient();
+
+    const issued = await issueTeacherAccount(
+      admin,
+      "teacher-1",
+      "ABCD2345XY7Z9K",
+    );
+
+    expect(issued.dedupeKey).toBe(
+      "teacherIssue:teacher-1:2026-11-05T05:00:00Z",
+    );
+  });
+
+  test("attach 가 실패하면 예외로 알린다", async () => {
+    const { admin, rpc } = fakeIssueClient();
+    rpc.mockResolvedValue({ data: null, error: { code: "WC089" } });
+
+    await expect(
+      issueTeacherAccount(admin, "teacher-1", "ABCD2345XY7Z9K"),
+    ).rejects.toMatchObject({ code: "WC089" });
   });
 });

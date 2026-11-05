@@ -140,3 +140,54 @@ export async function ensureAuthUser(
   if (updateError) throw new Error("teacher auth user password sync failed");
   return existingId;
 }
+
+/** DB 함수 실패. code 는 SQLSTATE(WC0xx, 23505 등)라 라우트가 코드별 응답으로 바꾼다. */
+export class RpcError extends Error {
+  constructor(
+    fn: string,
+    readonly code: string | undefined,
+  ) {
+    super(`${fn} failed`);
+  }
+}
+
+export interface IssuedAccount {
+  profileId: string;
+  /** 한 번만 돌려주고 저장하거나 로그에 남기지 않는다. */
+  tempPassword: string;
+  /** 알림톡 발송 중복 방지 열쇠(설계 5.2절 4번). */
+  dedupeKey: string;
+}
+
+/**
+ * 임시 비밀번호를 만들고 Auth 사용자(없으면 생성)를 연결한다. DB 행은 이미 있어야 하고(fn_teacher_register),
+ * Auth 쪽 호출은 DB 변경 뒤에 한다. 재시도해도 같은 합성 이메일이라 사용자가 둘이 되지 않는다.
+ */
+export async function issueTeacherAccount(
+  admin: SupabaseClient,
+  teacherId: string,
+  loginId: string,
+): Promise<IssuedAccount> {
+  const tempPassword = generateTempPassword();
+  const profileId = await ensureAuthUser(admin, loginId, tempPassword);
+  const { error } = await admin.rpc("fn_teacher_attach_account", {
+    p_teacher_id: teacherId,
+    p_profile_id: profileId,
+    p_login_id: loginId,
+    p_temp_hash: await hashTempPassword(tempPassword),
+  });
+  if (error) throw new RpcError("fn_teacher_attach_account", error.code);
+
+  const { data, error: readError } = await admin
+    .from("teachers")
+    .select("temp_password_issued_at")
+    .eq("id", teacherId)
+    .maybeSingle();
+  if (readError || !data)
+    throw new RpcError("teacher issued_at read", readError?.code);
+  return {
+    profileId,
+    tempPassword,
+    dedupeKey: `teacherIssue:${teacherId}:${data.temp_password_issued_at}`,
+  };
+}
