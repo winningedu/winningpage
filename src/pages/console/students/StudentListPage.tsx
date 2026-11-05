@@ -32,6 +32,34 @@ const TABS = [
 ];
 const SKELETON_ROWS = 8;
 
+const NO_STUDENTS_MESSAGE =
+  "연결된 학생이 없습니다. 학생들이 가입하면 자동으로 표시됩니다";
+const NO_MATCH_MESSAGE =
+  "조건에 맞는 학생이 없습니다. 필터 조건을 조정해 보세요.";
+
+function EmptyState({
+  noStudents,
+  onClear,
+}: {
+  noStudents: boolean;
+  onClear: () => void;
+}) {
+  if (noStudents) return <EmptyMessage body={NO_STUDENTS_MESSAGE} />;
+  return (
+    <div className="flex flex-col items-center gap-4 pb-12">
+      <EmptyMessage body={NO_MATCH_MESSAGE} />
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={onClear}
+        className="h-10 rounded-lg bg-surface-muted px-5 text-app-label font-semibold text-primary"
+      >
+        필터 지우기
+      </Button>
+    </div>
+  );
+}
+
 export default function StudentListPage() {
   const { me } = useConsoleMe();
   const navigate = useNavigate();
@@ -132,7 +160,14 @@ export default function StudentListPage() {
             <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
               {`검색 결과 ${data.total}명`}
             </h2>
-            {mobile ? (
+            {data.total === 0 ? (
+              <EmptyState
+                noStudents={data.scopeTotal === 0}
+                onClear={() =>
+                  apply({ grade: "", groupId: "", classId: "", q: "" }, "all")
+                }
+              />
+            ) : mobile ? (
               <StudentCards
                 rows={data.items}
                 academy={academy}

@@ -180,3 +180,73 @@ describe("W6 학생 관리 default", () => {
     expect(within(second).getByText("0/6")).toBeTruthy();
   });
 });
+
+describe("W6 학생 관리 상태", () => {
+  it("범위 안에 학생이 없으면 안내만 보이고 버튼은 없다", async () => {
+    stubPage({
+      [LIST_URL]: { body: listBody([], { scopeTotal: 0 }) },
+    });
+
+    renderRoutes(routes, "/teacher/students");
+
+    expect(
+      await screen.findByText(
+        "연결된 학생이 없습니다. 학생들이 가입하면 자동으로 표시됩니다",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "검색 결과 0명" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "필터 지우기" })).toBeNull();
+  });
+
+  it("조건에 맞는 학생이 없으면 안내와 필터 지우기를 보이고, 누르면 조건 없이 다시 조회한다", async () => {
+    const calls = stubPage({
+      [LIST_URL]: { body: listBody([], { scopeTotal: 28 }) },
+      "GET /api/console/students?page=1": {
+        body: listBody([student(1)], { scopeTotal: 28 }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/students");
+
+    expect(
+      await screen.findByText(
+        "조건에 맞는 학생이 없습니다. 필터 조건을 조정해 보세요.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "필터 지우기" }));
+
+    expect(await screen.findByText("김서연")).toBeTruthy();
+    expect(calls.map((c) => c.key)).toContain(
+      "GET /api/console/students?page=1",
+    );
+  });
+
+  it("불러오는 동안 제목과 필터는 남고 표 대신 자리표시가 보인다", async () => {
+    stubPage();
+    const respond = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes("/api/console/students")
+        ? new Promise<Response>(() => {})
+        : respond(input, init),
+    );
+
+    renderRoutes(routes, "/teacher/students");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "학생 관리" }),
+    ).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "검색" })).toBeTruthy();
+    expect(document.querySelector("[aria-busy='true']")).toBeTruthy();
+    expect(screen.queryByRole("columnheader")).toBeNull();
+  });
+
+  it("목록을 읽지 못하면 오류 안내를 보인다", async () => {
+    stubPage({ [LIST_URL]: { status: 500, body: {} } });
+
+    renderRoutes(routes, "/teacher/students");
+
+    expect(
+      await screen.findByText("학생 목록을 불러오지 못했어요"),
+    ).toBeTruthy();
+  });
+});
