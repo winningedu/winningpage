@@ -40,6 +40,14 @@ describe("displayNamesFor", () => {
     { id: "d", group: "c1", name: "박서준" },
   ];
 
+  test("the same student listed twice is not a clash", () => {
+    const names = displayNamesFor({ kind: "school_admin" }, [
+      { id: "a", group: "c1", name: "김하늘" },
+      { id: "a", group: "c1", name: "김하늘" },
+    ]);
+    expect(names.get("a")).toBe("김*늘");
+  });
+
   test("a homeroom sees real names unchanged", () => {
     const names = displayNamesFor({ kind: "homeroom" }, students);
     expect(names.get("b")).toBe("김하은");

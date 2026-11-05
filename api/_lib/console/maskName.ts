@@ -31,9 +31,13 @@ export function displayNamesFor(
   );
   if (actor.kind === "homeroom") return shown;
   const counts = new Map<string, number>();
+  const seen = new Set<string>();
   const keyOf = (s: { group: string | null }, name: string) =>
     `${s.group ?? ""}\u0000${name}`;
   for (const s of students) {
+    // 같은 학생이 여러 줄로 들어와도 한 명으로 센다.
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
     const key = keyOf(s, shown.get(s.id) ?? "");
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
