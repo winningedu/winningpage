@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   } as { data: unknown; error: unknown },
   profile: null as Record<string, unknown> | null,
   teacher: null as Record<string, unknown> | null,
+  profileError: null as unknown,
   signIn: vi.fn(),
   rpc: vi.fn(),
   createClient: vi.fn(),
@@ -27,7 +28,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => {
     }
     chain.maybeSingle = async () => ({
       data: name === "profiles" ? state.profile : state.teacher,
-      error: null,
+      error: name === "profiles" ? state.profileError : null,
     });
     return chain;
   };
@@ -110,6 +111,7 @@ beforeEach(() => {
   };
   state.profile = null;
   state.teacher = null;
+  state.profileError = null;
   state.signIn.mockResolvedValue(INVALID_CREDENTIALS);
 });
 
@@ -330,5 +332,42 @@ describe("POST /api/auth/login", () => {
       },
     });
     expect(r.headers["Retry-After"]).toBe("600");
+  });
+
+  test("begin 이 실패하면 503 RETRY 이고 GoTrue 를 부르지 않는다", async () => {
+    state.beginResult = { data: null, error: { code: "XX000" } };
+
+    const r = await login({ identifier: "kim01", password: "pw" });
+
+    expect(r.status).toBe(503);
+    expect(state.signIn).not.toHaveBeenCalled();
+  });
+
+  test("프로필 조회가 실패하면 503 RETRY 이고 end(error)로 취소한다", async () => {
+    state.profileError = { code: "XX000" };
+
+    const r = await login({ identifier: "kim01", password: "pw" });
+
+    expect(r.status).toBe(503);
+    expect(state.signIn).not.toHaveBeenCalled();
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+      p_hash: expect.any(String),
+      p_outcome: "error",
+    });
+  });
+
+  test.each([
+    ["본문 없음", undefined],
+    ["빈 아이디", { identifier: "  ", password: "pw" }],
+    ["빈 비밀번호", { identifier: "kim01", password: "" }],
+    ["문자열 아님", { identifier: 1, password: "pw" }],
+    ["너무 긴 아이디", { identifier: "a".repeat(101), password: "pw" }],
+    ["너무 긴 비밀번호", { identifier: "kim01", password: "p".repeat(257) }],
+  ])("%s 는 400 이고 시도를 세지 않는다", async (_name, body) => {
+    const r = await login(body);
+
+    expect(r.status).toBe(400);
+    expect(state.rpc).not.toHaveBeenCalled();
+    expect(state.signIn).not.toHaveBeenCalled();
   });
 });

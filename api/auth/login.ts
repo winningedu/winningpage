@@ -5,7 +5,7 @@
 // 설계: schoolmentor-notes/design-data-foundation.md 4절, 5.2절.
 
 import { createClient } from "@supabase/supabase-js";
-import { attemptLogin } from "../_lib/auth/login.js";
+import { attemptLogin, isValidLoginBody } from "../_lib/auth/login.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { getClientIp } from "../_lib/phoneCode.js";
@@ -23,10 +23,17 @@ export default defineHandler({
   logLabel: "[auth/login]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
-    const { identifier, password } = req.body as {
-      identifier: string;
-      password: string;
-    };
+    if (!isValidLoginBody(req.body)) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "아이디와 비밀번호를 입력해 주세요.",
+        "BAD_REQUEST",
+      );
+      return;
+    }
+    const { identifier, password } = req.body;
     const ip = getClientIp(req);
     const authClient = createClient(
       getEnv("WINNING_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL"),

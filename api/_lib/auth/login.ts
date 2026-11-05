@@ -73,6 +73,24 @@ export interface LoginInput {
   }>;
 }
 
+export const MAX_IDENTIFIER_LENGTH = 100;
+export const MAX_PASSWORD_LENGTH = 256;
+
+export function isValidLoginBody(
+  body: unknown,
+): body is { identifier: string; password: string } {
+  if (!body || typeof body !== "object") return false;
+  const { identifier, password } = body as Record<string, unknown>;
+  return (
+    typeof identifier === "string" &&
+    typeof password === "string" &&
+    identifier.trim().length > 0 &&
+    identifier.length <= MAX_IDENTIFIER_LENGTH &&
+    password.length > 0 &&
+    password.length <= MAX_PASSWORD_LENGTH
+  );
+}
+
 export function normalizeIdentifier(identifier: string): string {
   return identifier.trim().toLowerCase();
 }
@@ -116,10 +134,16 @@ export async function attemptLogin(
   const identifier = normalizeIdentifier(input.identifier);
   const hash = hashParam(identifier);
 
-  const { data } = await admin.rpc("fn_login_attempt_begin", { p_hash: hash });
+  const { data, error: beginError } = await admin.rpc(
+    "fn_login_attempt_begin",
+    { p_hash: hash },
+  );
   const begin = (
-    data as { outcome: string; attempt_no: number; retry_after_s: number }[]
-  )[0] as { outcome: string; attempt_no: number; retry_after_s: number };
+    data as
+      | { outcome: string; attempt_no: number; retry_after_s: number }[]
+      | null
+  )?.[0];
+  if (beginError || !begin) return RETRY_FAILURE;
 
   if (begin.outcome === "locked") {
     return {
