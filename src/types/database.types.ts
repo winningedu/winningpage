@@ -4007,6 +4007,28 @@ export type Database = {
         };
         Relationships: [];
       };
+      login_attempts: {
+        Row: {
+          failed_count: number;
+          identifier_hash: string;
+          locked_until: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          failed_count?: number;
+          identifier_hash: string;
+          locked_until?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          failed_count?: number;
+          identifier_hash?: string;
+          locked_until?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       mentor_applications: {
         Row: {
           admission_history: string;
@@ -7998,6 +8020,18 @@ export type Database = {
         }[];
       };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
+      fn_login_attempt_begin: {
+        Args: { p_hash: string };
+        Returns: {
+          attempt_no: number;
+          outcome: string;
+          retry_after_s: number;
+        }[];
+      };
+      fn_login_attempt_end: {
+        Args: { p_hash: string; p_outcome: string };
+        Returns: undefined;
+      };
       fn_mark_program_entry: {
         Args: { p_program_key: string };
         Returns: undefined;
