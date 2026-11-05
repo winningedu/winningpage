@@ -587,4 +587,13 @@ describe("GET /api/console/service-status (diagnosis)", () => {
       progressPct: 17,
     });
   });
+
+  test("asOf is today's date in KST and orgType tells school from academy", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-05T16:00:00Z"));
+
+    const res = await get();
+
+    expect(res.body).toMatchObject({ asOf: "2026-11-06", orgType: "학교" });
+  });
 });
