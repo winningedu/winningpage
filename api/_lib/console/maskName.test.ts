@@ -1,7 +1,7 @@
 // 콘솔 이름 가림 규칙 검증(결정 8, 27, 41: Figma 프레임 기준). 성 다음 한 글자만 가린다.
 
 import { describe, expect, test } from "vitest";
-import { maskName } from "./maskName.js";
+import { displayNameFor, maskName } from "./maskName.js";
 
 describe("maskName", () => {
   test.each([
@@ -20,5 +20,14 @@ describe("maskName", () => {
 
   test("surrogate pair characters count as one character", () => {
     expect(maskName("김𠮷늘")).toBe("김*늘");
+  });
+});
+
+describe("displayNameFor", () => {
+  test("a homeroom sees the real name and every other actor sees it masked", () => {
+    expect(displayNameFor({ kind: "homeroom" }, "김하늘")).toBe("김하늘");
+    for (const kind of ["school_admin", "hq_proxy", "hq"] as const) {
+      expect(displayNameFor({ kind }, "김하늘")).toBe("김*늘");
+    }
   });
 });
