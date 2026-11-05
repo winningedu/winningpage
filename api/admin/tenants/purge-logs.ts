@@ -1,6 +1,6 @@
 // GET /api/admin/tenants/purge-logs[?tenantId=]
 //
-// 본사가 계약 종료 회원 삭제 로그를 조회한다(사 #163, #177). 실행 일시, 실행자, 기관, 계약 종료일, 삭제 건수,
+// 본사가 계약 종료 회원 삭제 로그를 조회한다(사 #163, #177). 실행 일시, 실행자(로그인 아이디, 본사 실행이면 이메일), 기관, 계약 종료일, 삭제 건수,
 // 제외(유료 전환) 건수, 삭제한 회원번호 목록을 돌려주고 이름과 연락처는 담지 않는다. 1년이 지난 로그는
 // fn_purge_b2b_retention 이 지운다. 파일 내려받기는 화면이 이 목록으로 만든다.
 // 권한: 로그인 + HQ 권한 tenants view 이상(fn_admin_effective_permissions).
@@ -18,6 +18,7 @@ interface PurgeLogRow {
   id: string;
   created_at: string;
   actor_login_id: string | null;
+  actor_email: string | null;
   tenant_id: string | null;
   meta: {
     contract_end_date?: string;
@@ -53,7 +54,7 @@ export default defineHandler({
     let query = ctx.supabaseAdmin
       .from("admin_access_logs")
       .select(
-        "id, created_at, actor_login_id, tenant_id, meta, tenants(code, name)",
+        "id, created_at, actor_login_id, actor_email, tenant_id, meta, tenants(code, name)",
       )
       .eq("action", "member_purge");
     if (typeof tenantId === "string" && tenantId !== "") {
@@ -69,7 +70,7 @@ export default defineHandler({
       logs: ((data ?? []) as unknown as PurgeLogRow[]).map((row) => ({
         id: row.id,
         executedAt: row.created_at,
-        executedBy: row.actor_login_id,
+        executedBy: row.actor_login_id ?? row.actor_email,
         tenant: row.tenants
           ? {
               id: row.tenant_id,

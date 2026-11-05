@@ -25,6 +25,7 @@ const LOG_ROW = {
   id: "log-1",
   created_at: "2026-11-05T19:40:00Z",
   actor_login_id: "system:b2b-retention-purge",
+  actor_email: null,
   tenant_id: "tenant-7",
   row_count: 2,
   meta: {
@@ -96,6 +97,19 @@ describe("GET /api/admin/tenants/purge-logs", () => {
     });
     expect(filtersSeen[0]).toMatchObject({ action: "member_purge" });
     expect(r.headers["Cache-Control"]).toBe("no-store");
+  });
+
+  test("본사가 실행한 삭제는 로그인 아이디가 없어 실행자를 이메일로 보여 준다", async () => {
+    kit.state.rows.admin_access_logs = () => [
+      { ...LOG_ROW, actor_login_id: null, actor_email: "hq@example.com" },
+    ];
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect(
+      (r.body as { logs: { executedBy: string | null }[] }).logs[0]?.executedBy,
+    ).toBe("hq@example.com");
   });
 
   test("tenants edit 권한도 읽을 수 있다", async () => {
