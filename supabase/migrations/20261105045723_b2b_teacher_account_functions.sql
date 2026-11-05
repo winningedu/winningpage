@@ -81,3 +81,31 @@ $$;
 
 revoke all on function public.fn_teacher_password_set(uuid) from public, anon, authenticated;
 grant execute on function public.fn_teacher_password_set(uuid) to service_role;
+
+-- 활성 또는 비활성으로 바꾸고 Auth 정지나 해제에 쓸 profile id 를 돌려준다(계정이 없으면 null).
+-- 본인은 바꿀 수 없다(WC091, p_actor 는 요청자의 profile id). 마지막 학교 관리자는 트리거가 WC076 으로 막는다.
+-- 상태가 이미 같으면 그대로 두고 같은 값을 돌려주므로 Auth 정지 재시도에도 쓴다.
+create function public.fn_teacher_set_status(p_teacher_id uuid, p_status text, p_actor uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+begin
+  select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
+  if not found then
+    raise exception 'teacher not found' using errcode = 'WC088';
+  end if;
+  if p_actor is not null and v_t.profile_id = p_actor then
+    raise exception 'cannot change own status' using errcode = 'WC091';
+  end if;
+
+  update public.teachers set status = p_status where id = p_teacher_id and status is distinct from p_status;
+  return v_t.profile_id;
+end;
+$$;
+
+revoke all on function public.fn_teacher_set_status(uuid, text, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_set_status(uuid, text, uuid) to service_role;

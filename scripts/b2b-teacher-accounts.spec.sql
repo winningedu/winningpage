@@ -90,6 +90,15 @@ insert into fx values
   ('tb', pg_temp.mk_tenant2('TABBBBBB'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
+create function pg_temp.expect_uuid(t text, got uuid, want uuid) returns void
+language plpgsql as $$
+begin
+  if got is distinct from want then
+    raise exception '[FAIL] %: got %, want %', t, got, want;
+  end if;
+  raise notice '[PASS] % = %', t, want;
+end $$;
+
 -- 등록 헬퍼: fn_teacher_register 결과의 교사 id
 create function pg_temp.reg(p_tenant text, p_name text, p_phone text, p_role text, p_classes text default '[]')
 returns uuid language sql as $$
@@ -157,6 +166,30 @@ select pg_temp.expect_error('계정이 없는 교사의 password_set 은 WC089',
   $$select public.fn_teacher_password_set(pg_temp.reg('ta', '계정없음', '01070000002', 'homeroom'))$$, 'WC089');
 select pg_temp.expect_error('없는 교사의 password_set 은 WC088',
   $$select public.fn_teacher_password_set(gen_random_uuid())$$, 'WC088');
+
+-- ---------------------------------------------------------------------
+-- fn_teacher_set_status
+-- ---------------------------------------------------------------------
+select pg_temp.expect_error('본인 비활성화는 WC091',
+  $$select public.fn_teacher_set_status((select id from t1 where k = 'h1'), 'inactive', (select id from au where k = 'h1'))$$, 'WC091');
+select pg_temp.expect_uuid('비활성화는 Auth 정지에 쓸 profile id 를 돌려준다',
+  public.fn_teacher_set_status((select id from t1 where k = 'h1'), 'inactive', null), (select id from au where k = 'h1'));
+select pg_temp.expect_text('상태가 inactive 로 바뀐다',
+  (select status from public.teachers where id = (select id from t1 where k = 'h1')), 'inactive');
+select pg_temp.expect_uuid('다시 활성화',
+  public.fn_teacher_set_status((select id from t1 where k = 'h1'), 'active', null), (select id from au where k = 'h1'));
+select pg_temp.expect_text('상태가 active 로 돌아온다',
+  (select status from public.teachers where id = (select id from t1 where k = 'h1')), 'active');
+select pg_temp.expect_error('상태 값 오류는 check_violation',
+  $$select public.fn_teacher_set_status((select id from t1 where k = 'h1'), 'gone', null)$$, '23514');
+select pg_temp.expect_error('없는 교사는 WC088',
+  $$select public.fn_teacher_set_status(gen_random_uuid(), 'inactive', null)$$, 'WC088');
+insert into t1 values ('adm', pg_temp.reg('ta', '관리자', '01070000003', 'school_admin'));
+select pg_temp.expect_error('마지막 학교 관리자 비활성화는 WC076',
+  $$select public.fn_teacher_set_status((select id from t1 where k = 'adm'), 'inactive', null)$$, 'WC076');
+insert into t1 values ('adm2', pg_temp.reg('ta', '관리자둘', '01070000004', 'school_admin'));
+select pg_temp.expect_ok('관리자가 둘이면 하나는 비활성화 가능',
+  $$select public.fn_teacher_set_status((select id from t1 where k = 'adm'), 'inactive', null)$$);
 
 -- @@SEGMENTS@@
 

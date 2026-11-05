@@ -8920,6 +8920,10 @@ export type Database = {
           verdict: string;
         }[];
       };
+      fn_teacher_set_status: {
+        Args: { p_actor: string; p_status: string; p_teacher_id: string };
+        Returns: string;
+      };
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };
         Returns: boolean;
