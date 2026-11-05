@@ -190,6 +190,115 @@ select pg_temp.expect_int('재실행은 아무것도 지우지 않는다',
   (select enrollments_deleted + enrollment_changes_deleted + access_logs_deleted from public.fn_purge_b2b_retention()), 0);
 
 -- ---------------------------------------------------------------------
+-- fn_anonymize_expired_b2b_members: 계약 종료 + 유예 뒤 학생 개인정보 익명화 (사 #162, #176, 사 결정 r16)
+-- ---------------------------------------------------------------------
+create function pg_temp.today() returns date language sql as $$ select (now() at time zone 'Asia/Seoul')::date $$;
+
+create function pg_temp.mk_tenant(p_k text, p_code text, p_end date, p_grace date) returns void
+language plpgsql as $$
+begin
+  insert into public.tenants (code, name, region, org_type, tier, contract_start_date, contract_end_date, grace_ends_on)
+  values (p_code, 't23-' || p_k, '서울', '학교', 'B',
+    case when p_end is null then null else p_end - 200 end, p_end, p_grace);
+  insert into fx select 'ten_' || p_k, id from public.tenants where code = p_code;
+end $$;
+
+-- 학생 하나: 이름, 연락처, 생년월일 등 개인정보를 채워 둔다.
+create function pg_temp.mk_member(p_k text, p_tenant text, p_type text, p_n int) returns void
+language plpgsql as $$
+declare
+  v_id uuid := pg_temp.mk_user('t23-m-' || p_k || '@t.local');
+begin
+  insert into fx values ('m_' || p_k, v_id);
+  update public.profiles set
+    name = '홍길동' || p_k, phone = '0107000000' || p_n, username = 't23user' || p_k,
+    birth_date = date '2010-01-01', gender = '남', landline = '021234567' || p_n,
+    address = '서울시', address_detail = '101호', memo = '메모', guardian_phone = '0108000000' || p_n,
+    member_type = p_type, tenant_id = pg_temp.fx('ten_' || p_tenant), is_active = true
+   where id = v_id;
+end $$;
+
+select pg_temp.mk_tenant('ended', 'RPEEEEEE', pg_temp.today() - 40, pg_temp.today() - 10);   -- 유예 종료일이 지남
+select pg_temp.mk_tenant('ingrace', 'RPGGGGGG', pg_temp.today() - 10, null);                  -- 유예 안(공통 일수 쓸 때)
+select pg_temp.mk_tenant('explicit', 'RPXXXXXX', pg_temp.today() - 100, pg_temp.today() + 5); -- 기관별 유예 종료일이 미래
+select pg_temp.mk_tenant('nograce', 'RPNNNNNN', pg_temp.today() - 100, null);                 -- 유예 설정이 어디에도 없음
+select pg_temp.mk_tenant('nocontract', 'RPCCCCCC', null, null);                               -- 계약 칸이 비어 있음(위닝 기관)
+
+select pg_temp.mk_member('s1', 'ended', 'student', 1);
+select pg_temp.mk_member('s2paid', 'ended', 'student', 2);
+select pg_temp.mk_member('s3old', 'ended', 'student', 3);
+select pg_temp.mk_member('t1', 'ended', 'teacher', 4);
+select pg_temp.mk_member('p1', 'ended', 'parent', 5);
+select pg_temp.mk_member('g1', 'ingrace', 'student', 6);
+select pg_temp.mk_member('e1', 'explicit', 'student', 7);
+select pg_temp.mk_member('n1', 'nograce', 'student', 8);
+select pg_temp.mk_member('c1', 'nocontract', 'student', 9);
+
+-- 유료 전환: 지금 유효한 개인 유료 이용권이 있으면 보호한다. 만료됐거나 무료인 이용권은 보호하지 않는다.
+insert into public.programs (program_key, name) values ('t23_prog', 't23') on conflict (program_key) do nothing;
+insert into public.program_access_grants (profile_id, program_key, granted_by, granted_by_actor, granted_sessions, paid_amount, starts_at, expires_at, granted_months)
+select pg_temp.fx('m_s2paid'), 't23_prog', 'qa', null, 5, 10000, now() - interval '10 days', null, null;
+insert into public.program_access_grants (profile_id, program_key, granted_by, granted_by_actor, granted_sessions, paid_amount, starts_at, expires_at, granted_months)
+select pg_temp.fx('m_s3old'), 't23_prog', 'qa', null, 5, 10000, now() - interval '100 days', now() - interval '50 days', 1;
+
+create temp table anon_result as select * from public.fn_anonymize_expired_b2b_members();
+
+create function pg_temp.pname(p_k text) returns text language sql as $$ select name from public.profiles where id = pg_temp.fx('m_' || p_k) $$;
+create function pg_temp.banned(p_k text) returns boolean language sql as $$
+  select coalesce(banned_until > now() + interval '10 years', false) from auth.users where id = pg_temp.fx('m_' || p_k) $$;
+
+select pg_temp.expect_text('종료+유예 지난 기관의 학생 이름은 삭제된 학생', pg_temp.pname('s1'), '삭제된 학생');
+select pg_temp.expect_bool('학생 연락처와 개인정보가 비워진다',
+  (select phone is null and email is null and username is null and birth_date is null and gender is null
+      and landline is null and address is null and address_detail is null and memo is null
+      and guardian_phone is null and not is_active
+     from public.profiles where id = pg_temp.fx('m_s1')), true);
+select pg_temp.expect_bool('학생 Auth 계정은 정지된다', pg_temp.banned('s1'), true);
+select pg_temp.expect_bool('유효한 개인 유료 이용권이 있는 학생은 보호된다',
+  pg_temp.pname('s2paid') = '홍길동s2paid' and not pg_temp.banned('s2paid'), true);
+select pg_temp.expect_text('만료된 이용권만 있는 학생은 익명화된다', pg_temp.pname('s3old'), '삭제된 학생');
+select pg_temp.expect_text('교사 계정은 그대로 둔다', pg_temp.pname('t1'), '홍길동t1');
+select pg_temp.expect_text('학부모 계정은 그대로 둔다', pg_temp.pname('p1'), '홍길동p1');
+select pg_temp.expect_text('유예 종료일이 지나기 전 기관은 그대로 둔다(공통 일수 없음)', pg_temp.pname('g1'), '홍길동g1');
+select pg_temp.expect_text('기관별 유예 종료일이 미래면 그대로 둔다', pg_temp.pname('e1'), '홍길동e1');
+select pg_temp.expect_text('유예 설정이 없으면 지우지 않는다', pg_temp.pname('n1'), '홍길동n1');
+select pg_temp.expect_text('계약 칸이 비어 있는 기관(위닝)은 건드리지 않는다', pg_temp.pname('c1'), '홍길동c1');
+select pg_temp.expect_bool('반환: 처리 기관 1, 익명화 2, 보호 1',
+  (select tenants_processed = 1 and members_anonymized = 2 and members_protected = 1 from anon_result), true);
+
+-- 삭제 로그: 실행 일시, 실행자, 기관, 계약 종료일, 삭제 건수, 제외 건수, 회원번호 목록. 이름과 연락처는 없다.
+select pg_temp.expect_int('member_purge 로그는 기관당 한 줄',
+  (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 1);
+select pg_temp.expect_bool('로그에 건수, 계약 종료일, 회원번호 목록이 있다',
+  (select l.row_count = 2
+      and l.actor_kind is not null and l.actor_login_id is not null
+      and (l.meta ->> 'contract_end_date')::date = pg_temp.today() - 40
+      and (l.meta ->> 'deleted_count')::int = 2
+      and (l.meta ->> 'excluded_count')::int = 1
+      and l.meta -> 'member_ids' @> to_jsonb(pg_temp.fx('m_s1')::text)
+      and l.meta -> 'member_ids' @> to_jsonb(pg_temp.fx('m_s3old')::text)
+      and not (l.meta -> 'member_ids' @> to_jsonb(pg_temp.fx('m_s2paid')::text))
+     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
+select pg_temp.expect_bool('로그에 이름과 전화번호가 남지 않는다',
+  (select l.meta::text !~ '홍길동|0107' from public.admin_access_logs l
+    where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
+
+select pg_temp.expect_int('재실행은 아무것도 바꾸지 않고 로그도 더하지 않는다',
+  (select members_anonymized from public.fn_anonymize_expired_b2b_members()), 0);
+select pg_temp.expect_int('재실행 뒤에도 로그는 한 줄',
+  (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 1);
+
+-- 공통 유예 일수(app_settings.contract_grace_days = 30)를 두면 종료일 + 30일이 지난 기관이 대상이 된다.
+insert into public.app_settings (key, value) values ('contract_grace_days', '30'::jsonb)
+  on conflict (key) do update set value = '30'::jsonb;
+select pg_temp.expect_int('공통 일수 30: 종료 100일 뒤 기관이 처리된다',
+  (select members_anonymized from public.fn_anonymize_expired_b2b_members()), 1);
+select pg_temp.expect_text('공통 일수로 처리된 기관의 학생', pg_temp.pname('n1'), '삭제된 학생');
+select pg_temp.expect_text('종료 10일 뒤(유예 30일 안) 기관은 여전히 그대로', pg_temp.pname('g1'), '홍길동g1');
+select pg_temp.expect_text('기관별 유예 종료일이 공통 일수보다 우선한다', pg_temp.pname('e1'), '홍길동e1');
+delete from public.app_settings where key = 'contract_grace_days';
+
+-- ---------------------------------------------------------------------
 -- 클라이언트 role 차단
 -- ---------------------------------------------------------------------
 grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
@@ -200,6 +309,14 @@ reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 fn_purge_b2b_retention 실행 불가',
   $$select * from public.fn_purge_b2b_retention()$$, '42501');
+reset role;
+set local role anon;
+select pg_temp.expect_error('anon 은 fn_anonymize_expired_b2b_members 실행 불가',
+  $$select * from public.fn_anonymize_expired_b2b_members()$$, '42501');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error('authenticated 는 fn_anonymize_expired_b2b_members 실행 불가',
+  $$select * from public.fn_anonymize_expired_b2b_members()$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-retention-purge.spec: 전체 통과 ==='; end $$;

@@ -8165,6 +8165,14 @@ export type Database = {
           thoughts_tokens: number;
         }[];
       };
+      fn_anonymize_expired_b2b_members: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          members_anonymized: number;
+          members_protected: number;
+          tenants_processed: number;
+        }[];
+      };
       fn_assignment_set: {
         Args: {
           p_add: Json;
