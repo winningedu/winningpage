@@ -153,11 +153,18 @@ function applyPromotedSlugRoutes(groups: NavGroup[]): NavGroup[] {
   }));
 }
 
-function ensureLearningDiagnosisInService(groups: NavGroup[]): NavGroup[] {
+// 학습진단, 성장설계를 주입하는 그룹. 위닝은 '서비스' 한 그룹, 스쿨멘토는 '목표성장서비스'다.
+const GOAL_SERVICE_GROUPS = ["서비스", "목표성장서비스"];
+// 서비스 항목 정렬 대상 그룹. 스쿨멘토 '수행심화서비스'는 주입 없이 정렬만 한다.
+const SERVICE_GROUPS = [...GOAL_SERVICE_GROUPS, "수행심화서비스"];
+
+export function ensureLearningDiagnosisInService(
+  groups: NavGroup[],
+): NavGroup[] {
   const source = Array.isArray(groups) ? groups : [];
 
   return source.map((group) => {
-    if (cleanText(group?.title) !== "서비스") {
+    if (!GOAL_SERVICE_GROUPS.includes(cleanText(group?.title))) {
       return group;
     }
 
@@ -235,15 +242,18 @@ export function injectGrowthAndArrangeServiceItems(
   const growthLink = "/services/growth";
 
   return source.map((group) => {
-    if (cleanText(group?.title) !== "서비스") {
+    const title = cleanText(group?.title);
+    if (!SERVICE_GROUPS.includes(title)) {
       return group;
     }
 
     const items = Array.isArray(group.items) ? group.items : [];
-    const withGrowth = [
-      ...items.filter((item) => cleanText(item?.to) !== growthLink),
-      { label: "성장설계", to: growthLink, sortOrder: 0 },
-    ];
+    const withGrowth = GOAL_SERVICE_GROUPS.includes(title)
+      ? [
+          ...items.filter((item) => cleanText(item?.to) !== growthLink),
+          { label: "성장설계", to: growthLink, sortOrder: 0 },
+        ]
+      : items;
 
     const rank = (item: NavItem) => {
       const path = cleanText(item?.to).split(/[?#]/)[0] ?? "";
