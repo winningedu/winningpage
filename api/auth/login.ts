@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { attemptLogin } from "../_lib/auth/login.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { getClientIp } from "../_lib/phoneCode.js";
 import { getEnv } from "../_lib/supabaseAdmin.js";
 
 export const config = { runtime: "nodejs" };
@@ -26,10 +27,14 @@ export default defineHandler({
       identifier: string;
       password: string;
     };
+    const ip = getClientIp(req);
     const authClient = createClient(
       getEnv("WINNING_SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL"),
       getEnv("SUPABASE_SECRET_KEY"),
-      { auth: { persistSession: false, autoRefreshToken: false } },
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: ip ? { "Sb-Forwarded-For": ip } : {} },
+      },
     );
 
     const result = await attemptLogin(ctx.supabaseAdmin, {
@@ -39,7 +44,12 @@ export default defineHandler({
         authClient.auth.signInWithPassword({ email, password: pw }),
     });
 
-    if (!result.ok) {
+    if (result.ok) {
+      res.status(200).json({
+        session: result.session,
+        mustChangePassword: result.mustChangePassword,
+      });
+    } else {
       sendError(
         res,
         "coded",

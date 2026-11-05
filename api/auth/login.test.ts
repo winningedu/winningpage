@@ -135,4 +135,47 @@ describe("POST /api/auth/login", () => {
       p_outcome: "invalid",
     });
   });
+
+  test("성공하면 세션과 mustChangePassword 를 주고 end(success)를 부르며 첫 x-forwarded-for 를 Sb-Forwarded-For 로 보낸다", async () => {
+    state.profile = { member_type: "teacher", email: null, username: "kim01" };
+    state.teacher = { must_change_password: true };
+    state.signIn.mockResolvedValue({
+      data: {
+        user: { id: "u1" },
+        session: {
+          access_token: "at",
+          refresh_token: "rt",
+          expires_at: 1234,
+          user: { id: "u1" },
+        },
+      },
+      error: null,
+    });
+
+    const r = await login(
+      { identifier: " Kim01 ", password: "pw" },
+      { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
+    );
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      session: { access_token: "at", refresh_token: "rt", expires_at: 1234 },
+      mustChangePassword: true,
+    });
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: "kim01@teacher.schoolmentor.kr",
+      password: "pw",
+    });
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+      p_hash: expect.any(String),
+      p_outcome: "success",
+    });
+    expect(state.createClient).toHaveBeenCalledWith(
+      "http://127.0.0.1:54421",
+      "sb_secret_test",
+      expect.objectContaining({
+        global: { headers: { "Sb-Forwarded-For": "1.2.3.4" } },
+      }),
+    );
+  });
 });

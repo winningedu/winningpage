@@ -23,7 +23,13 @@ export type LoginFailure = {
   extra?: Record<string, unknown>;
 };
 
-export type LoginResult = { ok: true } | LoginFailure;
+export type LoginSuccess = {
+  ok: true;
+  session: { access_token: string; refresh_token: string; expires_at: number };
+  mustChangePassword: boolean;
+};
+
+export type LoginResult = LoginSuccess | LoginFailure;
 
 export interface LoginInput {
   identifier: string;
@@ -31,7 +37,17 @@ export interface LoginInput {
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{ error: { status?: number } | null }>;
+  ) => Promise<{
+    data: {
+      user: { id: string } | null;
+      session: {
+        access_token: string;
+        refresh_token: string;
+        expires_at?: number;
+      } | null;
+    };
+    error: { status?: number } | null;
+  }>;
 }
 
 export function normalizeIdentifier(identifier: string): string {
@@ -54,7 +70,28 @@ export async function attemptLogin(
   const begin = (data as { attempt_no: number }[])[0]!;
 
   const email = `${identifier}@${SYNTHETIC_DOMAIN}`;
-  await input.signIn(email, input.password);
+  const { data: signed, error } = await input.signIn(email, input.password);
+
+  if (!error && signed.session && signed.user) {
+    await admin.rpc("fn_login_attempt_end", {
+      p_hash: hash,
+      p_outcome: "success",
+    });
+    const { data: teacher } = await admin
+      .from("teachers")
+      .select("must_change_password")
+      .eq("profile_id", signed.user.id)
+      .maybeSingle();
+    return {
+      ok: true,
+      session: {
+        access_token: signed.session.access_token,
+        refresh_token: signed.session.refresh_token,
+        expires_at: signed.session.expires_at ?? 0,
+      },
+      mustChangePassword: teacher?.must_change_password ?? false,
+    };
+  }
 
   await admin.rpc("fn_login_attempt_end", {
     p_hash: hash,
