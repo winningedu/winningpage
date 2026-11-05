@@ -482,6 +482,12 @@ export const mainConfigs: Record<string, MainConfig> = {
         required: true,
       },
       {
+        key: "consent_confirmed",
+        label: "선배 동의 확인",
+        type: "radioBoolean",
+        help: "스쿨멘토 홈은 동의를 확인한 카드만 보여줍니다. 선배에게 노출 동의를 받은 뒤 '예'로 바꾸세요.",
+      },
+      {
         key: "mentor_name",
         label: "멘토 이름",
         type: "text",
@@ -556,6 +562,7 @@ export const mainConfigs: Record<string, MainConfig> = {
     ],
     defaults: {
       is_active: true,
+      consent_confirmed: false,
       mentor_name: "",
       badge: "",
       title_lines: "",
