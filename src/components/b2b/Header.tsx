@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
@@ -9,6 +9,7 @@ import { useB2BAccount } from "./useB2BAccount";
 
 const CLOSE_DELAY_MS = 100;
 
+const CHIP = "rounded-sm px-2.5 py-1 text-xs";
 const ACCOUNT_PILL =
   "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-b2b-account px-3.5 text-sm font-bold tracking-[-0.01875rem]";
 
@@ -67,6 +68,13 @@ export default function Header() {
             className="h-5.5 w-[9.675rem] object-contain desktop:w-[9.881rem]"
           />
         </Link>
+        {account.status === "student" && account.orgName && (
+          <span
+            className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
+          >
+            {account.orgName}
+          </span>
+        )}
 
         <div
           className="absolute top-0 hidden h-full items-center desktop:flex"
@@ -106,6 +114,27 @@ export default function Header() {
               >
                 선생님
               </Link>
+            </div>
+          )}
+          {account.status === "student" && (
+            <div className="hidden items-center gap-3 desktop:flex">
+              <span className={`${CHIP} bg-primary text-white`}>
+                {account.csatDDay}
+              </span>
+              <Link
+                to="/mypage"
+                className="flex items-center gap-2 whitespace-nowrap py-1.5 text-sm font-medium text-primary"
+              >
+                {account.name} 님
+                {account.memberLabel && ` ${account.memberLabel}`}
+                <ChevronRight size={24} className="size-6" />
+              </Link>
+              <button
+                type="button"
+                className={`${ACCOUNT_PILL} bg-white text-b2b-account`}
+              >
+                로그아웃
+              </button>
             </div>
           )}
           <button

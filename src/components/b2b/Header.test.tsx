@@ -35,14 +35,18 @@ vi.mock("@/hooks/useSignupEnabled", () => ({
   useSignupEnabled: () => true,
 }));
 
+let mockProfileRow: Record<string, unknown> | null = null;
+let mockTenantRows: { id: string; name: string }[] = [];
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: () => ({
       select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+        eq: () => ({
+          maybeSingle: async () => ({ data: mockProfileRow, error: null }),
+        }),
       }),
     }),
-    rpc: async () => ({ data: [], error: null }),
+    rpc: async () => ({ data: mockTenantRows, error: null }),
     auth: {
       onAuthStateChange: () => ({
         data: { subscription: { unsubscribe: () => {} } },
@@ -97,5 +101,37 @@ describe("b2b Header 메가 메뉴", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByText("학습진단")).not.toBeInTheDocument();
+  });
+});
+
+describe("b2b Header 학생 상태", () => {
+  it("이름 링크, 수능 D-day, 학교 칩, 로그아웃을 보여 주고 로그인 버튼은 없다", async () => {
+    mockProfileRow = {
+      id: "u1",
+      email: "s@test.com",
+      name: "홍길동",
+      member_type: "student",
+      role: "user",
+    };
+    mockTenantRows = [{ id: "t1", name: "세종고등학교" }];
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u1", email: "s@test.com" } },
+      user: { id: "u1", email: "s@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+
+    const nameLink = await screen.findByRole("link", {
+      name: "홍길동 님 학생회원",
+    });
+    expect(nameLink).toHaveAttribute("href", "/mypage");
+    expect(await screen.findByText("세종고등학교")).toBeInTheDocument();
+    expect(screen.getByText(/^수능 D/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "로그인" }),
+    ).not.toBeInTheDocument();
   });
 });
