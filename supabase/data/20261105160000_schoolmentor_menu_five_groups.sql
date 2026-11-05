@@ -89,7 +89,7 @@ update public.page_contents
        '/admission/susi-jungsi', 'admission-susi-jungsi',
        '/admission/special-highschool', 'admission-special-highschool-results',
        '/pricing', 'pricing',
-       'mentor-apply', '/mentor-apply'
+       'mentor-apply', '/mentor-apply', 'premium-apply'
      )
      or menu_label in (
        '콜멘토', '대입합격', '수시정시합격', '특목고합격', '서비스요금', '멘토신청', '교육청소식'
