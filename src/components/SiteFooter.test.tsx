@@ -142,9 +142,9 @@ describe("SiteFooter", () => {
 const SOCIAL_LABELS = [
   "카카오톡 채널",
   "네이버 블로그",
+  "네이버 클립",
   "유튜브",
   "인스타그램",
-  "네이버 클립",
 ];
 
 function getSocialLinks() {
@@ -156,7 +156,7 @@ function getSocialLinks() {
 }
 
 describe("SiteFooter, 소셜 아이콘", () => {
-  it("카카오, 네이버, 유튜브, 인스타그램, 네이버 클립 순서로 새 탭 링크를 렌더한다", () => {
+  it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
     renderFooter();
     // 모바일/데스크톱 레이아웃이 DOM에 둘 다 있으므로 한 벌씩 두 번 나온다.
     const links = getSocialLinks();
@@ -167,9 +167,9 @@ describe("SiteFooter, 소셜 아이콘", () => {
     expect(links.slice(0, 5).map((l) => l.getAttribute("href"))).toEqual([
       "https://pf.kakao.com/_EfjwX",
       "https://blog.naver.com/winningedu",
+      "https://clip.naver.com/@winningedu",
       "https://www.youtube.com/@winningedu",
       "https://www.youtube.com/shorts/rdZ2COapC90",
-      "https://clip.naver.com/@winningedu",
     ]);
     for (const link of links) {
       expect(link).toHaveAttribute("target", "_blank");

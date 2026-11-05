@@ -52,7 +52,7 @@ function buildAddressLine(company: typeof site.company) {
     .join(" | ");
 }
 
-// 소셜 아이콘: 순서 고정(카카오톡, 네이버, 유튜브, 인스타그램, 네이버 클립). URL이 설정에 없으면 그
+// 소셜 아이콘: 순서 고정(카카오톡, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램). URL이 설정에 없으면 그
 // 아이콘은 렌더하지 않는다.
 function SocialLinks({ company }: { company: typeof site.company }) {
   const items = [
@@ -69,6 +69,12 @@ function SocialLinks({ company }: { company: typeof site.company }) {
       badgeClassName: "bg-[#03c75a] text-white",
     },
     {
+      label: "네이버 클립",
+      href: company.naverClipUrl,
+      Icon: NaverClipIcon,
+      badgeClassName: "bg-[#6f4dce] text-[#adff5f]",
+    },
+    {
       label: "유튜브",
       href: company.youtubeUrl,
       Icon: Youtube,
@@ -83,12 +89,6 @@ function SocialLinks({ company }: { company: typeof site.company }) {
         background:
           "linear-gradient(45deg, #f9ce34 0%, #ee2a7b 50%, #6228d7 100%)",
       },
-    },
-    {
-      label: "네이버 클립",
-      href: company.naverClipUrl,
-      Icon: NaverClipIcon,
-      badgeClassName: "bg-[#6f4dce] text-[#adff5f]",
     },
   ].filter((item) => item.href);
 
