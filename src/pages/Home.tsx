@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { type MouseEvent, useEffect, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AcceptanceSection from "@/components/landing/AcceptanceSection";
+import { selectVisibleBanners } from "@/components/landing/bannerVisibility";
 import HeroSection from "@/components/landing/HeroSection";
 import MentorSection from "@/components/landing/MentorSection";
 import NewsSection from "@/components/landing/NewsSection";
@@ -8,9 +9,11 @@ import ServicesSection from "@/components/landing/ServicesSection";
 import { useHomeSectionCopy } from "@/components/landing/useHomeSectionCopy";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import * as landingPreview from "@/data/landingPreview";
 import type { NormalizedMentor } from "@/hooks/useHomeMentors";
 import { useHomeMentors } from "@/hooks/useHomeMentors";
+import { useMatchedTenantIds } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
 
 // 랜딩 콘텐츠(배너/대학/서비스/멘토): Supabase DB fetch 모드 (LANDING_PREVIEW=false).
@@ -35,6 +38,9 @@ type Banner = {
   sort_order?: number | null;
   is_active?: boolean | null;
   display_seconds?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  tenant_id?: string | null;
 };
 
 type SideBanner = {
@@ -46,6 +52,9 @@ type SideBanner = {
   link_url?: string;
   open_new_window?: boolean;
   sort_order?: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  tenant_id?: string | null;
 };
 
 type University = {
@@ -258,17 +267,32 @@ function HomePopupLayer({
 }
 
 export default function Home() {
-  const [banners, setBanners] = useState<Banner[]>(
+  const [fetchedBanners, setBanners] = useState<Banner[]>(
     LANDING_PREVIEW ? (landingPreview.banners as Banner[]) : [],
   );
   const [heroReady, setHeroReady] = useState(false);
   const [popups, setPopups] = useState<Popup[]>([]);
-  const [sideBanners, setSideBanners] = useState<SideBanner[]>(
+  const [fetchedSideBanners, setSideBanners] = useState<SideBanner[]>(
     // landingPreview 픽스처의 subtitle/link_url 등은 null 리터럴이라 SideBanner(undefined 허용)와
     // 구조적으로 충분히 겹치지 않는다 — 프리뷰 전용 데이터 캐스팅이라 unknown 경유로 좁힌다.
     LANDING_PREVIEW
       ? (landingPreview.sideBanners as unknown as SideBanner[])
       : [],
+  );
+  // 노출 대상 판정용 소속 기관 목록. 비로그인과 rpc 실패는 빈 목록이라 공통 배너만 남는다.
+  const { ids: matchedTenantIds, loaded: tenantsLoaded } =
+    useMatchedTenantIds();
+  // 빈 상태 안내는 조회가 끝난 뒤에만 보여준다(로딩 중 깜빡임 방지). 두 영역은 따로 판정한다.
+  const [bannersLoaded, setBannersLoaded] = useState(LANDING_PREVIEW);
+  const [sideBannersLoaded, setSideBannersLoaded] = useState(LANDING_PREVIEW);
+  const banners = useMemo(
+    () => selectVisibleBanners(fetchedBanners, todayKstYmd(), matchedTenantIds),
+    [fetchedBanners, matchedTenantIds],
+  );
+  const sideBanners = useMemo(
+    () =>
+      selectVisibleBanners(fetchedSideBanners, todayKstYmd(), matchedTenantIds),
+    [fetchedSideBanners, matchedTenantIds],
   );
   const [universities, setUniversities] = useState<University[]>(
     LANDING_PREVIEW ? (landingPreview.universities as University[]) : [],
@@ -300,7 +324,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from("banners")
         .select(
-          "id, title, highlight, image_url, button_text, button_link, sort_order, is_active, display_seconds",
+          "id, title, highlight, image_url, button_text, button_link, sort_order, is_active, display_seconds, start_date, end_date, tenant_id",
         )
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
@@ -310,6 +334,7 @@ export default function Home() {
       if (error) {
         console.error("배너 조회 오류:", error);
         setBanners([]);
+        setBannersLoaded(true);
         return;
       }
 
@@ -325,6 +350,7 @@ export default function Home() {
         // 문자열로 맞춘다.
         .map((item) => ({ ...item, id: String(item.id) }));
       setBanners(normalized);
+      setBannersLoaded(true);
     }
 
     fetchBanners();
@@ -438,6 +464,7 @@ export default function Home() {
         );
         setSideBanners(visible);
       }
+      setSideBannersLoaded(true);
 
       if (universityResult.error) {
         // 테이블 미생성/조회 실패 시 섹션 미렌더 fallback
@@ -529,6 +556,17 @@ export default function Home() {
     };
   }, [banners]);
 
+  const showMainEmptyNotice =
+    site.features.bannerEmptyNotice &&
+    bannersLoaded &&
+    tenantsLoaded &&
+    banners.length === 0;
+  const showSideEmptyNotice =
+    site.features.bannerEmptyNotice &&
+    sideBannersLoaded &&
+    tenantsLoaded &&
+    sideBanners.length === 0;
+
   function closePopup(id: string) {
     setPopups((prev) => prev.filter((popup) => popup.id !== id));
   }
@@ -556,16 +594,30 @@ export default function Home() {
           heroReady ? "opacity-100" : "opacity-0"
         }`}
       >
-        {(banners.length > 0 || sideBanners.length > 0) && (
+        {(banners.length > 0 ||
+          sideBanners.length > 0 ||
+          showMainEmptyNotice ||
+          showSideEmptyNotice) && (
           <HeroSection
+            showMainEmptyNotice={showMainEmptyNotice}
+            showSideEmptyNotice={showSideEmptyNotice}
             // HeroSection.MainBanner.button_link/sort_order는 exactOptionalPropertyTypes
             // 하에서 null도, 명시적 undefined 값도 못 받는 optional 필드(생략만 허용)라
             // 값이 있을 때만 키를 스프레드한다(state 자체는 DB 값 그대로 유지). sort_order는
             // HeroSection이 실제로 읽지 않는 필드라(정렬은 조회 쿼리가 이미 끝냄) 아예 뺀다.
-            banners={banners.map(({ button_link, sort_order: _s, ...b }) => ({
-              ...b,
-              ...(button_link ? { button_link } : {}),
-            }))}
+            banners={banners.map(
+              ({
+                button_link,
+                sort_order: _s,
+                start_date: _start,
+                end_date: _end,
+                tenant_id: _tenant,
+                ...b
+              }) => ({
+                ...b,
+                ...(button_link ? { button_link } : {}),
+              }),
+            )}
             sideBanners={sideBanners}
           />
         )}

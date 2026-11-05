@@ -47,7 +47,13 @@ vi.mock("@/lib/supabase", () => {
         limit: () => makeChain(table),
       },
     );
-  return { supabase: { from: (table: string) => makeChain(table) } };
+  return {
+    supabase: {
+      from: (table: string) => makeChain(table),
+      // useMatchedTenantIds 가 세션을 먼저 확인한다(비로그인이면 rpc 를 부르지 않는다).
+      auth: { getSession: async () => ({ data: { session: null } }) },
+    },
+  };
 });
 
 vi.mock("@/hooks/useHomeMentors", () => ({

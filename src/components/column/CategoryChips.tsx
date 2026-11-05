@@ -1,14 +1,14 @@
-import { ALL_CATEGORY, COLUMN_CATEGORIES } from "@/pages/column/columnData";
-
-const OPTIONS = [ALL_CATEGORY, ...COLUMN_CATEGORIES];
+import { ALL_CATEGORY } from "@/pages/column/columnData";
 
 type CategoryChipsProps = {
+  categories: string[];
   active?: string;
   onChange?: (value: string) => void;
   align?: "left" | "center";
 };
 
 export default function CategoryChips({
+  categories,
   active,
   onChange,
   align = "left",
@@ -19,7 +19,7 @@ export default function CategoryChips({
         align === "center" ? "justify-center" : "justify-start"
       }`}
     >
-      {OPTIONS.map((option) => {
+      {[ALL_CATEGORY, ...categories].map((option) => {
         const isActive = option === active;
 
         return (

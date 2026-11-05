@@ -101,15 +101,17 @@ function CardLink({
 
 type ColumnCardProps = {
   column: ColumnLike;
+  categories: string[];
   variant?: "grid" | "heroLarge" | "heroSmall";
 };
 
 export default function ColumnCard({
   column,
+  categories,
   variant = "grid",
 }: ColumnCardProps) {
   const thumbnail = getThumbnailUrl(column);
-  const categoryLabel = getCategoryLabel(column);
+  const categoryLabel = getCategoryLabel(column, categories);
   const hasCategory = categoryLabel !== ALL_CATEGORY;
 
   if (variant === "heroLarge") {

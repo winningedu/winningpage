@@ -10,12 +10,14 @@ import {
   getDisplayDate,
   getViewCount,
 } from "./columnData";
+import { useColumnCategories } from "./useColumnCategories";
 
 const SORT_LATEST = "최신순";
 const SORT_VIEWS = "조회순";
 
 export default function ColumnList() {
   const [rows, setRows] = useState<ColumnRow[]>([]);
+  const categories = useColumnCategories();
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(ALL_CATEGORY);
   const [sortKey, setSortKey] = useState(SORT_LATEST);
@@ -46,7 +48,9 @@ export default function ColumnList() {
     let result = rows;
 
     if (category !== ALL_CATEGORY) {
-      result = result.filter((row) => getCategoryLabel(row) === category);
+      result = result.filter(
+        (row) => getCategoryLabel(row, categories) === category,
+      );
     }
 
     const q = keyword.trim().toLowerCase();
@@ -70,7 +74,7 @@ export default function ColumnList() {
     }
 
     return sorted;
-  }, [rows, category, keyword, sortKey, hasViewCounts]);
+  }, [rows, category, categories, keyword, sortKey, hasViewCounts]);
 
   return (
     <main className="bg-white pt-16">
@@ -82,6 +86,7 @@ export default function ColumnList() {
 
           <div className="mt-8">
             <CategoryChips
+              categories={categories}
               active={category}
               onChange={setCategory}
               align="center"
@@ -136,7 +141,12 @@ export default function ColumnList() {
             ) : (
               <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">
                 {visibleRows.map((row) => (
-                  <ColumnCard key={row.id} column={row} variant="grid" />
+                  <ColumnCard
+                    key={row.id}
+                    column={row}
+                    categories={categories}
+                    variant="grid"
+                  />
                 ))}
               </div>
             )}

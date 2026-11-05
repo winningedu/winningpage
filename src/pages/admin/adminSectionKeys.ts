@@ -23,6 +23,7 @@ export const ADMIN_SECTION_KEYS = [
   "admissionResults",
   "trendingDepartments",
   "galleries",
+  "columnCategories",
   // 고객안내 관리
   "companyNews",
   "notices",
