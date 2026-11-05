@@ -6798,6 +6798,42 @@ export type Database = {
           },
         ];
       };
+      student_usage_overrides: {
+        Row: {
+          monthly_limit: number | null;
+          profile_id: string;
+          program_key: string;
+          term_limit: number | null;
+          updated_at: string;
+          updated_by: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          monthly_limit?: number | null;
+          profile_id: string;
+          program_key: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          monthly_limit?: number | null;
+          profile_id?: string;
+          program_key?: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_usage_overrides_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       teacher_class_assignments: {
         Row: {
           class_id: string;
@@ -6944,6 +6980,97 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      tenant_service_settings: {
+        Row: {
+          enabled: boolean;
+          ends_on: string | null;
+          monthly_limit: number | null;
+          program_key: string;
+          starts_on: string | null;
+          tenant_id: string;
+          term_limit: number | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          enabled?: boolean;
+          ends_on?: string | null;
+          monthly_limit?: number | null;
+          program_key: string;
+          starts_on?: string | null;
+          tenant_id: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          enabled?: boolean;
+          ends_on?: string | null;
+          monthly_limit?: number | null;
+          program_key?: string;
+          starts_on?: string | null;
+          tenant_id?: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_service_settings_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_usage_events: {
+        Row: {
+          id: string;
+          profile_id: string;
+          program_key: string;
+          source_id: string;
+          source_kind: string;
+          tenant_id: string;
+          used_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          profile_id: string;
+          program_key: string;
+          source_id: string;
+          source_kind: string;
+          tenant_id: string;
+          used_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          program_key?: string;
+          source_id?: string;
+          source_kind?: string;
+          tenant_id?: string;
+          used_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_usage_events_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tenant_usage_events_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tenants: {
         Row: {
@@ -8020,6 +8147,15 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      fn_consume_tenant_usage: {
+        Args: {
+          p_profile: string;
+          p_program_key: string;
+          p_source_id: string;
+          p_source_kind: string;
+        };
+        Returns: string;
+      };
       fn_coupon_by_code:
         | {
             Args: {
@@ -8381,6 +8517,21 @@ export type Database = {
         Returns: {
           id: string;
           name: string;
+        }[];
+      };
+      fn_my_usage_state: {
+        Args: { p_program_key: string };
+        Returns: {
+          allowed: boolean;
+          deny_reason: string;
+          month_limit: number;
+          month_remaining: number;
+          month_resets_on: string;
+          month_used: number;
+          term_limit: number;
+          term_remaining: number;
+          term_resets_on: string;
+          term_used: number;
         }[];
       };
       fn_normalize_class_name: {
@@ -8759,6 +8910,21 @@ export type Database = {
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };
         Returns: boolean;
+      };
+      fn_tenant_usage_state: {
+        Args: { p_profile: string; p_program_key: string };
+        Returns: {
+          allowed: boolean;
+          deny_reason: string;
+          month_limit: number;
+          month_remaining: number;
+          month_resets_on: string;
+          month_used: number;
+          term_limit: number;
+          term_remaining: number;
+          term_resets_on: string;
+          term_used: number;
+        }[];
       };
       fn_usable_coupons:
         | {
