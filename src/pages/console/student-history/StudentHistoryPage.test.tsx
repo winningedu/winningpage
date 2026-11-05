@@ -134,3 +134,51 @@ describe("W13 승인 대기 빈 상태", () => {
     expect(screen.queryByText(/\d+ \/ \d+ 페이지/)).toBeNull();
   });
 });
+
+const DECIDE = "POST /api/console/enrollment-requests/decide";
+const row = (name: string) =>
+  screen.getByText(name).closest("tr") as HTMLElement;
+const navLink = () =>
+  screen
+    .getAllByRole("link")
+    .find((a) => a.textContent?.startsWith("학생조회-변경-이력"));
+
+describe("W13 승인", () => {
+  it("승인하면 행이 사라지고 사이드바 배지와 알림이 바뀐다", async () => {
+    let approved = false;
+    const calls = stubPage({
+      "GET /api/console/enrollment-requests/count": () => ({
+        body: { count: approved ? 1 : 2 },
+      }),
+      [PENDING_URL]: () => ({
+        body: pendingBody(approved ? [request(2)] : [request(1), request(2)]),
+      }),
+      [DECIDE]: () => {
+        approved = true;
+        return {
+          body: { ok: true, status: "approved", studentName: "김서연", to: {} },
+        };
+      },
+    });
+    renderRoutes(routes, "/teacher/student-history");
+    await screen.findByText("승인 대기 2건");
+    expect(navLink()?.textContent).toBe("학생조회-변경-이력2");
+
+    fireEvent.click(
+      within(row("김서연")).getByRole("button", { name: "승인" }),
+    );
+
+    expect(
+      await screen.findByText("김서연 학생의 변경을 승인했어요"),
+    ).toBeTruthy();
+    expect(await screen.findByText("승인 대기 1건")).toBeTruthy();
+    expect(screen.queryByText("김서연", { selector: "td *, td" })).toBeNull();
+    await vi.waitFor(() =>
+      expect(navLink()?.textContent).toBe("학생조회-변경-이력1"),
+    );
+    expect(calls.find((c) => c.key === DECIDE)?.body).toEqual({
+      changeId: "ch1",
+      approve: true,
+    });
+  });
+});
