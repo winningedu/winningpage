@@ -397,6 +397,8 @@ export interface AxisResult {
   missingServices: ServiceLabel[];
   /** 점수를 만든 지표 중 가장 낮은 것(점수가 같으면 앞의 지표). */
   cause: Indicator | null;
+  /** cause 가 어느 지표인지(상담 문구를 고르는 키). */
+  causeKey?: IndicatorKey | null;
 }
 
 export interface AxesResult {
@@ -431,6 +433,10 @@ export function computeAxes(m: CoachingMetrics): AxesResult {
     if (have.length === 0) {
       return { ...base, score: null, status: "not_used" };
     }
+    const haveKeys = def.indicators.filter((k) => indicators[k].score !== null);
+    const lowestKey = haveKeys.reduce((a, b) =>
+      (indicators[b].score as number) < (indicators[a].score as number) ? b : a,
+    );
     const lowest = have.reduce((a, b) =>
       (b.score as number) < (a.score as number) ? b : a,
     );
@@ -440,6 +446,7 @@ export function computeAxes(m: CoachingMetrics): AxesResult {
       status: "scored",
       missingServices: [],
       cause: lowest,
+      causeKey: lowestKey,
     };
   });
   const scored = axes.filter((a) => a.status === "scored");
@@ -528,6 +535,8 @@ export interface Competency {
   basisTotal: number;
   /** 점수에 쓴 근거. "서비스 지표" 모양. */
   evidence: string[];
+  /** 점수를 만든 근거 중 가장 낮은 것(문구표 r179). */
+  lowest: Indicator | null;
   fallback?: string;
 }
 
@@ -546,6 +555,11 @@ export function computeCompetencies(m: CoachingMetrics): Competency[] {
       basisUsed: have.length,
       basisTotal: def.indicators.length,
       evidence: have.map((i) => `${i.service} ${i.name}`),
+      lowest: have.length
+        ? have.reduce((a, b) =>
+            (b.score as number) < (a.score as number) ? b : a,
+          )
+        : null,
       ...(avg === null && def.fallback ? { fallback: def.fallback } : {}),
     };
   });
@@ -604,15 +618,17 @@ export function signalOf(
   return { signal, subLine };
 }
 
-/** 조사 은/는(문구표 r204). 한글은 받침 유무, 숫자 0, 1, 3, 6, 7, 8 로 끝나면 받침 있음. 따옴표와 괄호는 무시한다. */
-function topicParticle(word: string): "은" | "는" {
+/** 앞 단어 끝 글자에 받침이 있는가(문구표 r204). 숫자 0, 1, 3, 6, 7, 8 은 받침 있음, 따옴표와 괄호는 무시한다. */
+export function hasFinalConsonant(word: string): boolean {
   const last = [...word.replace(/["'()[\]“”‘’]/g, "")].pop() ?? "";
-  if (/[0-9]/.test(last)) return "013678".includes(last) ? "은" : "는";
+  if (/[0-9]/.test(last)) return "013678".includes(last);
   const code = last.charCodeAt(0);
-  if (code >= 0xac00 && code <= 0xd7a3) {
-    return (code - 0xac00) % 28 === 0 ? "는" : "은";
-  }
-  return "는";
+  return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
+}
+
+/** 조사 은/는. */
+function topicParticle(word: string): "은" | "는" {
+  return hasFinalConsonant(word) ? "은" : "는";
 }
 
 /** 한줄 진단(문구표 r180~r183). 산출 축 수에 따라 세 문장 중 하나에 빈 축 문구가 붙는다. */
