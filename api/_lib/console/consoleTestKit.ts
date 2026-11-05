@@ -94,6 +94,16 @@ export function createFakeAdmin(state: KitState) {
         return Promise.resolve({ data: [state.actor], error: null });
       }
       const handler = state.rpc[name];
+      if (!handler && name === "fn_teacher_issue_claim") {
+        return Promise.resolve({ data: "claimed", error: null });
+      }
+      // 교사 로그인 아이디의 인증 이메일(attemptLogin 이 부른다).
+      if (!handler && name === "fn_login_resolve_email") {
+        return Promise.resolve({
+          data: `${String(args.p_username).toLowerCase()}@teacher.schoolmentor.kr`,
+          error: null,
+        });
+      }
       return Promise.resolve(
         handler ? handler(args) : { data: null, error: null },
       );

@@ -19,6 +19,8 @@ create table public.teachers (
   temp_password_hash text,
   temp_password_issued_at timestamptz,
   password_set_at timestamptz,
+  -- 계정 발급을 맡은 요청이 얻은 시각. 동시에 두 요청이 Auth 비밀번호를 덮어쓰지 않게 한다(fn_teacher_issue_claim).
+  issue_claimed_at timestamptz,
   position text,
   email text,
   landline text,

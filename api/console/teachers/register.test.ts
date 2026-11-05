@@ -119,6 +119,7 @@ describe("POST /api/console/teachers/register", () => {
       kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),
     ).toEqual([
       "rpc:fn_teacher_register",
+      "rpc:fn_teacher_issue_claim",
       "auth:createUser",
       "rpc:fn_teacher_attach_account",
       "insert:admin_access_logs",
@@ -157,6 +158,22 @@ describe("POST /api/console/teachers/register", () => {
       verdict: "classes_added",
     });
     expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+    expect(kit.state.inserts[0]?.row).toMatchObject({ action: "update" });
+  });
+
+  test("다른 요청이 이미 발급을 맡았으면(claim busy) Auth 와 비밀번호를 건드리지 않고 임시 비밀번호 없이 응답한다", async () => {
+    kit.state.rpc.fn_teacher_issue_claim = () => ({
+      data: "busy",
+      error: null,
+    });
+
+    const r = await post(VALID);
+
+    expect(r.status).toBe(200);
+    expect(r.body).not.toHaveProperty("tempPassword");
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_attach_account");
     expect(kit.state.inserts[0]?.row).toMatchObject({ action: "update" });
   });
 

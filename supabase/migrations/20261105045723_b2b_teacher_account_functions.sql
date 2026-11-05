@@ -49,7 +49,8 @@ begin
      set profile_id = p_profile_id,
          temp_password_hash = p_temp_hash,
          temp_password_issued_at = now(),
-         must_change_password = true
+         must_change_password = true,
+         issue_claimed_at = null
    where id = p_teacher_id;
 end;
 $$;
@@ -229,3 +230,49 @@ $$;
 
 revoke all on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid, uuid) from public, anon, authenticated;
 grant execute on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid, uuid) to service_role;
+
+-- 이메일로 Auth 사용자 id 를 찾는다. 발급 도중 끊긴 뒤 재시도(createUser 의 email_exists)에서 쓴다.
+-- GoTrue 는 이메일을 소문자로 저장하므로 입력만 소문자로 맞춰 users_email_partial_key 를 탄다.
+create function public.fn_auth_user_id_by_email(p_email text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth, pg_temp
+as $$
+  select u.id from auth.users u where u.email = lower(btrim(p_email)) limit 1
+$$;
+
+revoke all on function public.fn_auth_user_id_by_email(text) from public, anon, authenticated;
+grant execute on function public.fn_auth_user_id_by_email(text) to service_role;
+
+-- 계정 발급을 한 요청에만 허용한다. Auth 호출은 DB 밖이라 트랜잭션 잠금이 이어지지 않으므로 claim 시각으로 나눈다.
+-- 행을 잠그고 보아 한 번에 하나만 'claimed' 를 얻는다. 이미 계정이 붙었으면 'attached'(비밀번호를 다시 쓰지 않는다),
+-- 2분 안에 다른 요청이 얻었으면 'busy'. 끊긴 시도의 claim 은 2분 뒤 다시 얻을 수 있다(재시도).
+-- fn_teacher_attach_account 가 성공하면 claim 을 지운다. p_tenant 가 교사의 기관과 다르면 WC088.
+create function public.fn_teacher_issue_claim(p_teacher_id uuid, p_tenant uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+begin
+  select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
+  if not found or v_t.tenant_id <> p_tenant then
+    raise exception 'teacher not found' using errcode = 'WC088';
+  end if;
+  if v_t.profile_id is not null then
+    return 'attached';
+  end if;
+  if v_t.issue_claimed_at is not null and v_t.issue_claimed_at > now() - interval '2 minutes' then
+    return 'busy';
+  end if;
+  update public.teachers set issue_claimed_at = now() where id = p_teacher_id;
+  return 'claimed';
+end;
+$$;
+
+revoke all on function public.fn_teacher_issue_claim(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_teacher_issue_claim(uuid, uuid) to service_role;

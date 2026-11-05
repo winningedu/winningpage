@@ -43,20 +43,21 @@ describe("hashTempPassword", () => {
 
 function fakeAuthAdmin(opts: {
   createResult: { data: unknown; error: unknown };
-  pages?: { id: string; email: string }[][];
+  existingUserId?: string | null;
 }) {
   const createUser = vi.fn().mockResolvedValue(opts.createResult);
-  const pages = opts.pages ?? [];
-  const listUsers = vi.fn(async ({ page }: { page: number }) => ({
-    data: { users: pages[page - 1] ?? [] },
-    error: null,
-  }));
+  const listUsers = vi.fn();
   const updateUserById = vi.fn().mockResolvedValue({ data: {}, error: null });
+  const rpc = vi
+    .fn()
+    .mockResolvedValue({ data: opts.existingUserId ?? null, error: null });
   return {
     createUser,
     listUsers,
     updateUserById,
+    rpc,
     admin: {
+      rpc,
       auth: { admin: { createUser, listUsers, updateUserById } },
     } as unknown as SupabaseClient,
   };
@@ -79,21 +80,21 @@ describe("ensureAuthUser", () => {
   });
 
   test("이미 있는 합성 이메일(재시도)이면 그 사용자를 찾아 새 임시 비밀번호로 맞춘다", async () => {
-    const { admin, updateUserById, listUsers } = fakeAuthAdmin({
+    const { admin, updateUserById, listUsers, rpc } = fakeAuthAdmin({
       createResult: {
         data: { user: null },
         error: { status: 422, code: "email_exists" },
       },
-      pages: [
-        [{ id: "other", email: "x@example.com" }],
-        [{ id: "user-9", email: "abcd2345xy7z9k@teacher.schoolmentor.kr" }],
-      ],
+      existingUserId: "user-9",
     });
 
     const id = await ensureAuthUser(admin, "ABCD2345XY7Z9K", "Pw1!abcdef");
 
     expect(id).toBe("user-9");
-    expect(listUsers).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledWith("fn_auth_user_id_by_email", {
+      p_email: "abcd2345xy7z9k@teacher.schoolmentor.kr",
+    });
+    expect(listUsers).not.toHaveBeenCalled();
     expect(updateUserById).toHaveBeenCalledWith("user-9", {
       password: "Pw1!abcdef",
     });
@@ -112,7 +113,15 @@ describe("ensureAuthUser", () => {
 
 describe("issueTeacherAccount", () => {
   function fakeIssueClient() {
-    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const rpc = vi.fn(
+      async (
+        name: string,
+      ): Promise<{ data: string | null; error: { code: string } | null }> => ({
+        data: name === "fn_teacher_issue_claim" ? claim : null,
+        error: null,
+      }),
+    );
+    let claim = "claimed";
     const createUser = vi
       .fn()
       .mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
@@ -125,6 +134,9 @@ describe("issueTeacherAccount", () => {
     return {
       rpc,
       createUser,
+      setClaim: (value: string) => {
+        claim = value;
+      },
       admin: {
         rpc,
         from: () => chain,
@@ -140,13 +152,21 @@ describe("issueTeacherAccount", () => {
       admin,
       "teacher-1",
       "ABCD2345XY7Z9K",
+      "tenant-1",
     );
 
     const password = createUser.mock.calls[0]?.[0].password as string;
-    expect(issued.tempPassword).toBe(password);
-    expect(issued.profileId).toBe("user-1");
-    expect(rpc).toHaveBeenCalledTimes(1);
-    const [name, args] = rpc.mock.calls[0] as [string, Record<string, string>];
+    expect(issued?.tempPassword).toBe(password);
+    expect(issued?.profileId).toBe("user-1");
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0]).toEqual([
+      "fn_teacher_issue_claim",
+      { p_teacher_id: "teacher-1", p_tenant: "tenant-1" },
+    ]);
+    const [name, args] = rpc.mock.calls[1] as unknown as [
+      string,
+      Record<string, string>,
+    ];
     expect(name).toBe("fn_teacher_attach_account");
     expect(args).toMatchObject({
       p_teacher_id: "teacher-1",
@@ -157,6 +177,25 @@ describe("issueTeacherAccount", () => {
     expect(JSON.stringify(args)).not.toContain(password);
   });
 
+  test.each(["busy", "attached"])(
+    "claim 이 %s 이면 Auth 를 건드리지 않고 null 을 돌려준다(동시 요청의 비밀번호 덮어쓰기 방지)",
+    async (claimResult) => {
+      const { admin, rpc, createUser, setClaim } = fakeIssueClient();
+      setClaim(claimResult);
+
+      const issued = await issueTeacherAccount(
+        admin,
+        "teacher-1",
+        "ABCD2345XY7Z9K",
+        "tenant-1",
+      );
+
+      expect(issued).toBeNull();
+      expect(createUser).not.toHaveBeenCalled();
+      expect(rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test("발송 중복 방지 열쇠는 교사 id 와 임시 비밀번호 발급 시각으로 만든다", async () => {
     const { admin } = fakeIssueClient();
 
@@ -164,19 +203,24 @@ describe("issueTeacherAccount", () => {
       admin,
       "teacher-1",
       "ABCD2345XY7Z9K",
+      "tenant-1",
     );
 
-    expect(issued.dedupeKey).toBe(
+    expect(issued?.dedupeKey).toBe(
       "teacherIssue:teacher-1:2026-11-05T05:00:00Z",
     );
   });
 
   test("attach 가 실패하면 예외로 알린다", async () => {
     const { admin, rpc } = fakeIssueClient();
-    rpc.mockResolvedValue({ data: null, error: { code: "WC089" } });
+    rpc.mockImplementation(async (name: string) =>
+      name === "fn_teacher_issue_claim"
+        ? { data: "claimed", error: null }
+        : { data: null, error: { code: "WC089" } },
+    );
 
     await expect(
-      issueTeacherAccount(admin, "teacher-1", "ABCD2345XY7Z9K"),
+      issueTeacherAccount(admin, "teacher-1", "ABCD2345XY7Z9K", "tenant-1"),
     ).rejects.toMatchObject({ code: "WC089" });
   });
 });

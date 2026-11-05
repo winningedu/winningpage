@@ -66,6 +66,19 @@ describe("POST /api/console/teachers/issue", () => {
     );
   });
 
+  test("다른 요청이 이미 발급을 맡았으면 409 ACCOUNT_EXISTS 이고 Auth 를 건드리지 않는다", async () => {
+    kit.state.rpc.fn_teacher_issue_claim = () => ({
+      data: "busy",
+      error: null,
+    });
+
+    const r = await post({ teacherId: "teacher-1" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "ACCOUNT_EXISTS" } });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
   test("이미 계정이 있으면 409 ACCOUNT_EXISTS 이고 Auth 를 건드리지 않는다", async () => {
     kit.state.rows.teachers = () => ({
       tenant_id: "tenant-1",

@@ -122,7 +122,7 @@ end $$;
 create temp table t1 (k text primary key, id uuid);
 insert into t1 values ('h1', pg_temp.reg('ta', '계정교사', '01070000001', 'homeroom', '[{"grade":"고1","name":"1"}]'));
 create temp table au (k text primary key, id uuid);
-insert into au values ('h1', pg_temp.mk_auth((select login_id from public.teachers where id = (select id from t1 where k = 'h1')) || '@teacher.schoolmentor.kr'));
+insert into au values ('h1', pg_temp.mk_auth(lower((select login_id from public.teachers where id = (select id from t1 where k = 'h1')) || '@teacher.schoolmentor.kr')));
 
 select public.fn_teacher_attach_account(
   (select id from t1 where k = 'h1'), (select id from au where k = 'h1'),
@@ -151,6 +151,38 @@ select pg_temp.expect_error('이미 다른 계정이 붙은 교사에 다른 계
     (select login_id from public.teachers where id = (select id from t1 where k = 'h1')), 'x')$$, 'WC089');
 select pg_temp.expect_error('없는 교사는 WC088',
   $$select public.fn_teacher_attach_account(gen_random_uuid(), (select id from au where k = 'h1'), 'TAAAAAAAZZZZZZ', 'x')$$, 'WC088');
+
+-- ---------------------------------------------------------------------
+-- fn_teacher_issue_claim: 계정 발급을 한 요청에만 허용한다(동시 등록이 Auth 비밀번호를 서로 덮어쓰지 않게)
+-- ---------------------------------------------------------------------
+insert into t1 values ('c1', pg_temp.reg('ta', '발급교사', '01070000020', 'homeroom'));
+select pg_temp.expect_text('claim: 계정이 없으면 첫 요청이 얻는다',
+  public.fn_teacher_issue_claim((select id from t1 where k = 'c1'), pg_temp.fx('ta')), 'claimed');
+select pg_temp.expect_text('claim: 이미 얻은 동안 두 번째 요청은 busy',
+  public.fn_teacher_issue_claim((select id from t1 where k = 'c1'), pg_temp.fx('ta')), 'busy');
+update public.teachers set issue_claimed_at = now() - interval '3 minutes' where id = (select id from t1 where k = 'c1');
+select pg_temp.expect_text('claim: 끊긴 시도의 오래된 claim 은 다시 얻을 수 있다(재시도)',
+  public.fn_teacher_issue_claim((select id from t1 where k = 'c1'), pg_temp.fx('ta')), 'claimed');
+select pg_temp.expect_text('claim: 계정이 이미 붙은 교사는 attached(비밀번호를 건드리지 않는다)',
+  public.fn_teacher_issue_claim((select id from t1 where k = 'h1'), pg_temp.fx('ta')), 'attached');
+select pg_temp.expect_error('claim: 다른 기관 기준이면 WC088',
+  $$select public.fn_teacher_issue_claim((select id from t1 where k = 'c1'), pg_temp.fx('tb'))$$, 'WC088');
+select pg_temp.expect_error('claim: 없는 교사는 WC088',
+  $$select public.fn_teacher_issue_claim(gen_random_uuid(), pg_temp.fx('ta'))$$, 'WC088');
+insert into au values ('c1', pg_temp.mk_auth(lower((select login_id from public.teachers where id = (select id from t1 where k = 'c1')) || '@teacher.schoolmentor.kr')));
+select public.fn_teacher_attach_account(
+  (select id from t1 where k = 'c1'), (select id from au where k = 'c1'),
+  (select login_id from public.teachers where id = (select id from t1 where k = 'c1')), 'scrypt$c1');
+select pg_temp.expect_bool('claim: attach 가 claim 을 지운다',
+  (select issue_claimed_at is null from public.teachers where id = (select id from t1 where k = 'c1')), true);
+
+-- ---------------------------------------------------------------------
+-- fn_auth_user_id_by_email: 이메일로 Auth 사용자 id 를 찾는다(listUsers 훑기 대신)
+-- ---------------------------------------------------------------------
+select pg_temp.expect_uuid('이메일로 id 를 돌려준다(대소문자 무시)',
+  public.fn_auth_user_id_by_email(upper((select login_id from public.teachers where id = (select id from t1 where k = 'h1'))
+    || '@teacher.schoolmentor.kr')), (select id from au where k = 'h1'));
+select pg_temp.expect_bool('없는 이메일은 null', public.fn_auth_user_id_by_email('nobody@example.com') is null, true);
 
 -- ---------------------------------------------------------------------
 -- fn_teacher_password_set
@@ -302,6 +334,10 @@ select pg_temp.expect_error('authenticated 는 fn_teacher_soft_delete 실행 불
   $$select * from public.fn_teacher_soft_delete('{}', null, null)$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_teacher_set_status 실행 불가',
   $$select public.fn_teacher_set_status(null, 'inactive', null, null)$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_teacher_issue_claim 실행 불가',
+  $$select public.fn_teacher_issue_claim(gen_random_uuid(), gen_random_uuid())$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_auth_user_id_by_email 실행 불가',
+  $$select public.fn_auth_user_id_by_email('a@b.c')$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_teacher_password_set 실행 불가',
   $$select public.fn_teacher_password_set(null)$$, '42501');
 reset role;

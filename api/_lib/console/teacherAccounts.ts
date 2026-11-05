@@ -95,28 +95,22 @@ export function syntheticEmail(loginId: string): string {
   return `${loginId.toLowerCase()}@${SYNTHETIC_DOMAIN}`;
 }
 
-const LIST_PAGE_SIZE = 1000;
-
-// createUser 가 email_exists 로 실패했을 때만 쓴다(발급 도중 끊긴 뒤 재시도). Auth 에는 이메일 단건 조회가 없어 훑는다.
+// createUser 가 email_exists 로 실패했을 때만 쓴다(발급 도중 끊긴 뒤 재시도). 이메일 단건 조회는 DB 함수가 한다.
 async function findAuthUserIdByEmail(
   admin: SupabaseClient,
   email: string,
 ): Promise<string | null> {
-  for (let page = 1; ; page++) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: LIST_PAGE_SIZE,
-    });
-    if (error) throw new Error("teacher auth user lookup failed");
-    const found = data.users.find((u) => u.email?.toLowerCase() === email);
-    if (found) return found.id;
-    if (data.users.length === 0) return null;
-  }
+  const { data, error } = await admin.rpc("fn_auth_user_id_by_email", {
+    p_email: email,
+  });
+  if (error) throw new Error("teacher auth user lookup failed");
+  return typeof data === "string" ? data : null;
 }
 
 /**
  * 합성 이메일로 확인된 Auth 사용자를 만든다. 같은 로그인 아이디는 같은 이메일이라 재시도해도 하나뿐이다.
  * 이미 있으면(앞선 시도가 DB 연결 전에 끊김) 그 사용자의 비밀번호를 이번 임시 비밀번호로 맞춰 돌려준다.
+ * 호출자는 issueTeacherAccount 의 claim 으로 한 요청만 들어오게 한 뒤에 부른다(계정이 이미 붙었으면 부르지 않는다).
  */
 export async function ensureAuthUser(
   admin: SupabaseClient,
@@ -165,12 +159,22 @@ export interface IssuedAccount {
 /**
  * 임시 비밀번호를 만들고 Auth 사용자(없으면 생성)를 연결한다. DB 행은 이미 있어야 하고(fn_teacher_register),
  * Auth 쪽 호출은 DB 변경 뒤에 한다. 재시도해도 같은 합성 이메일이라 사용자가 둘이 되지 않는다.
+ * 먼저 fn_teacher_issue_claim 으로 교사 행을 잠가 발급을 한 요청에만 맡긴다. 계정이 이미 붙었거나(attached)
+ * 다른 요청이 맡은 중(busy)이면 Auth 비밀번호를 건드리지 않고 null 을 돌려준다.
  */
 export async function issueTeacherAccount(
   admin: SupabaseClient,
   teacherId: string,
   loginId: string,
-): Promise<IssuedAccount> {
+  tenantId: string,
+): Promise<IssuedAccount | null> {
+  const { data: claim, error: claimError } = await admin.rpc(
+    "fn_teacher_issue_claim",
+    { p_teacher_id: teacherId, p_tenant: tenantId },
+  );
+  if (claimError) throw new RpcError("fn_teacher_issue_claim", claimError.code);
+  if (claim !== "claimed") return null;
+
   const tempPassword = generateTempPassword();
   const profileId = await ensureAuthUser(admin, loginId, tempPassword);
   const { error } = await admin.rpc("fn_teacher_attach_account", {
@@ -256,7 +260,12 @@ export async function registerTeacherWithAccount(
 
   const issued = teacher.profile_id
     ? null
-    : await issueTeacherAccount(admin, registered.teacher_id, teacher.login_id);
+    : await issueTeacherAccount(
+        admin,
+        registered.teacher_id,
+        teacher.login_id,
+        input.tenantId,
+      );
 
   await writeConsoleAuditLog(ctx, {
     action: issued ? "account_issue" : "update",
@@ -428,7 +437,13 @@ export async function issueAccountForExistingTeacher(
   }
   if (teacher.profile_id) return { status: "account_exists" };
 
-  const issued = await issueTeacherAccount(admin, teacherId, teacher.login_id);
+  const issued = await issueTeacherAccount(
+    admin,
+    teacherId,
+    teacher.login_id,
+    ctx.console.tenantId,
+  );
+  if (!issued) return { status: "account_exists" };
   await writeConsoleAuditLog(ctx, {
     action: "account_issue",
     resourceKey: TEACHERS_RESOURCE_KEY,
