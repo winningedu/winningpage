@@ -1,7 +1,9 @@
 // W11 그룹(레벨) 관리. 등록된 그룹을 보여주고 추가, 삭제한다.
 
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorMessage } from "../api";
 import Chip from "../Chip";
 import Notice from "../Notice";
@@ -19,6 +21,8 @@ export default function GroupManager() {
   const toast = useToast();
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [target, setTarget] = useState<Group | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -59,6 +63,29 @@ export default function GroupManager() {
     }
   };
 
+  const remove = async (group: Group) => {
+    setDeleting(true);
+    try {
+      const res = await consoleRequest("/api/console/groups/delete", {
+        method: "POST",
+        body: { groupId: group.id },
+      });
+      if (res.status !== 200) {
+        toast.show({
+          tone: "Error",
+          message: errorMessage(res.body) ?? SAVE_FAILED_MESSAGE,
+        });
+        return;
+      }
+      setTarget(null);
+      await load();
+    } catch {
+      toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink-strong">
@@ -92,12 +119,60 @@ export default function GroupManager() {
             {groups.length === 0 ? "등록된 그룹: 없음" : "등록된 그룹"}
           </span>
           {groups.map((g) => (
-            <Chip key={g.id} tone="Neutral">
-              {g.name}
-            </Chip>
+            <span key={g.id} className="inline-flex items-center gap-0.5">
+              <Chip tone="Neutral">{g.name}</Chip>
+              <button
+                type="button"
+                aria-label={`${g.name} 삭제`}
+                onClick={() => setTarget(g)}
+                className="flex size-6 items-center justify-center text-ink-sub"
+              >
+                <X aria-hidden className="size-[0.875rem]" />
+              </button>
+            </span>
           ))}
         </div>
       )}
+      <Dialog
+        open={target !== null}
+        onOpenChange={(o) => !o && setTarget(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          overlayClassName="bg-black/40 supports-backdrop-filter:backdrop-blur-none"
+          className="gap-5 rounded-2xl px-5 pt-7 pb-6 shadow-popover ring-0 sm:max-w-[27.5rem]"
+        >
+          {target && (
+            <>
+              <DialogTitle className="text-app-dialog-title font-semibold tracking-[-0.02em] text-ink-strong">
+                {target.name} 그룹을 삭제할까요?
+              </DialogTitle>
+              <p className="text-app-body text-ink-strong">
+                소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집,
+                담당학급배정, 필터의 보기에서 빠져요
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTarget(null)}
+                  className="h-10 rounded-lg border-line px-5 text-app-label font-semibold text-primary"
+                >
+                  취소
+                </Button>
+                <Button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => void remove(target)}
+                  className="h-10 rounded-lg bg-error px-5 text-app-label font-semibold text-primary-foreground"
+                >
+                  삭제
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

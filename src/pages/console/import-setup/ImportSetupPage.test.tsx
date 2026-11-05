@@ -154,3 +154,34 @@ describe("ImportSetupPage 그룹 추가", () => {
     await waitFor(() => expect(input.value).toBe("A레벨"));
   });
 });
+
+describe("ImportSetupPage 그룹 삭제", () => {
+  it("소속 학생이 없는 그룹은 확인 창에서 삭제하고 목록에서 빠진다", async () => {
+    const groups = [...GROUPS];
+    const calls = stubApi({
+      "GET /api/console/me": { body: adminMe },
+      "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
+      "GET /api/console/school-year": { body: YEAR },
+      "GET /api/console/groups": () => ({ body: { groups } }),
+      "POST /api/console/groups/delete": () => {
+        groups.pop();
+        return { body: { ok: true } };
+      },
+    });
+    renderRoutes(routes, "/teacher/import");
+
+    fireEvent.click(await screen.findByRole("button", { name: "C레벨 삭제" }));
+    expect(await screen.findByText("C레벨 그룹을 삭제할까요?")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당학급배정, 필터의 보기에서 빠져요",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(screen.queryByText("C레벨")).toBeNull());
+    expect(
+      calls.find((c) => c.key === "POST /api/console/groups/delete")?.body,
+    ).toEqual({ groupId: "g2" });
+  });
+});
