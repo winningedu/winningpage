@@ -108,14 +108,13 @@ describe("POST /api/console/teachers/reissue", () => {
     },
   );
 
-  test("마지막 발송이 성공했으면 409 SEND_NOT_FAILED", async () => {
+  test("알림톡을 아직 연결하지 않았으므로 발송 기록과 상관없이 재발급한다(결정 16)", async () => {
     kit.state.rows.alimtalk_send_logs = () => [{ status: "sent" }];
 
     const r = await post({ teacherId: "teacher-1" });
 
-    expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: { code: "SEND_NOT_FAILED" } });
-    expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    expect(r.status).toBe(200);
+    expect(kit.state.auth.updateUserById).toHaveBeenCalled();
   });
 
   test("Auth 비밀번호 교체가 실패하면 502 AUTH_SYNC_FAILED 이고 평문을 돌려주지 않는다", async () => {
