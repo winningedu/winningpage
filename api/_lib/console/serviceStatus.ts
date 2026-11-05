@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadDiagnosisStatus } from "./diagnosisStatus.js";
+import { loadGoalStatus } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 export async function loadServiceDetail(
@@ -12,6 +13,8 @@ export async function loadServiceDetail(
   switch (service) {
     case "diagnosis":
       return loadDiagnosisStatus(admin, studentIds);
+    case "goal":
+      return loadGoalStatus(admin, studentIds, new Date(), { streak: true });
     default:
       return new Map();
   }

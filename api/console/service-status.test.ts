@@ -299,4 +299,77 @@ describe("GET /api/console/service-status (diagnosis)", () => {
       ).items[0]?.detail,
     ).toMatchObject({ urgency: "low", diagnosedAt: "2026-05-01" });
   });
+
+  test("goal tab: weekly rate over the last 7 days, minimum-goal days, streak and the ideal and minimum targets with probabilities", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-05T03:00:00Z"));
+    kit.state.rows.goal_students = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            week_ideal: 10,
+            ideal_university: "가나대",
+            ideal_department: "경영학과",
+            min_university: "다라대",
+            min_department: "경영학과",
+          },
+          {
+            profile_id: "s2",
+            week_ideal: 0,
+            ideal_university: "",
+            ideal_department: "",
+            min_university: "",
+            min_department: "",
+          },
+        ],
+        f,
+      );
+    kit.state.rows.goal_student_state = (f) =>
+      matchRows(
+        [
+          { profile_id: "s1", ideal_susi: 34.4, min_susi: 61.2 },
+          { profile_id: "s2", ideal_susi: null, min_susi: null },
+        ],
+        f,
+      );
+    const record = (date: string, hours: number, min: number) => ({
+      profile_id: "s1",
+      record_date: date,
+      study_hours: hours,
+      target_min_hours: min,
+    });
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          record("2026-11-05", 3, 2),
+          record("2026-11-04", 5, 2),
+          record("2026-11-03", 1, 2),
+          record("2026-10-01", 9, 2),
+        ],
+        f,
+      );
+    const res = await get({ service: "goal" });
+
+    const items = (
+      res.body as { items: { studentId: string; detail: unknown }[] }
+    ).items;
+    expect(items.map((i) => i.studentId)).toEqual(["s1", "s2"]);
+    expect(items[0]?.detail).toEqual({
+      weeklyRate: 90,
+      minMetDays: 2,
+      minSetDays: 3,
+      streakDays: 3,
+      ideal: { university: "가나대", department: "경영학과", probability: 34 },
+      min: { university: "다라대", department: "경영학과", probability: 61 },
+    });
+    expect(items[1]?.detail).toEqual({
+      weeklyRate: null,
+      minMetDays: 0,
+      minSetDays: 0,
+      streakDays: 0,
+      ideal: null,
+      min: null,
+    });
+  });
 });
