@@ -47,16 +47,25 @@ async function get(authorization?: string, method = "GET"): Promise<Captured> {
 beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "cron-secret");
   state.rpc.mockReset();
-  state.rpc.mockResolvedValue({
-    data: [
-      {
-        enrollment_changes_deleted: 4,
-        enrollments_deleted: 3,
-        access_logs_deleted: 7,
-      },
-    ],
+  state.rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === "fn_anonymize_expired_b2b_members"
+        ? [
+            {
+              tenants_processed: 1,
+              members_anonymized: 5,
+              members_protected: 2,
+            },
+          ]
+        : [
+            {
+              enrollment_changes_deleted: 4,
+              enrollments_deleted: 3,
+              access_logs_deleted: 7,
+            },
+          ],
     error: null,
-  });
+  }));
 });
 
 afterEach(() => {
@@ -76,9 +85,13 @@ describe("GET /api/cron/b2b-retention-purge", () => {
       enrollmentChangesDeleted: 4,
       enrollmentsDeleted: 3,
       accessLogsDeleted: 7,
+      membersAnonymized: 5,
+      membersProtected: 2,
     });
-    expect(state.rpc).toHaveBeenCalledTimes(1);
-    expect(state.rpc).toHaveBeenCalledWith("fn_purge_b2b_retention");
+    expect(state.rpc.mock.calls.map((c) => c[0])).toEqual([
+      "fn_purge_b2b_retention",
+      "fn_anonymize_expired_b2b_members",
+    ]);
   });
 
   test.each([
@@ -112,6 +125,28 @@ describe("GET /api/cron/b2b-retention-purge", () => {
   test("정리 함수가 실패하면 500 이다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     state.rpc.mockResolvedValue({ data: null, error: { code: "XX000" } });
+
+    const r = await get("Bearer cron-secret");
+
+    expect(r.status).toBe(500);
+  });
+
+  test("익명화 함수가 실패하면 500 이다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.rpc.mockImplementation(async (name: string) =>
+      name === "fn_anonymize_expired_b2b_members"
+        ? { data: null, error: { code: "XX000" } }
+        : {
+            data: [
+              {
+                enrollment_changes_deleted: 0,
+                enrollments_deleted: 0,
+                access_logs_deleted: 0,
+              },
+            ],
+            error: null,
+          },
+    );
 
     const r = await get("Bearer cron-secret");
 
