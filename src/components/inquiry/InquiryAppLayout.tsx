@@ -3,7 +3,7 @@ import {
   AppShellSidebarProvider,
   AppShellSidebarTrigger,
 } from "@/components/app-shell/AppShellSidebar";
-import Header from "@/components/Header";
+import SiteHeader from "@/components/SiteHeader";
 import RouteLoadingOverlay from "@/components/ui/RouteLoadingOverlay";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { ToastProvider } from "@/context/ToastContext";
@@ -45,7 +45,7 @@ function InquiryShellContent() {
 
   return (
     <>
-      <Header />
+      <SiteHeader />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           <InquirySidebar
