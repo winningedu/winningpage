@@ -721,9 +721,9 @@ describe("ImportSetupPage 휴대폰", () => {
     expect(await screen.findByText("A레벨")).toBeTruthy();
     expect(screen.queryByText("① 명단 엑셀 올리기")).toBeNull();
     expect(screen.queryByText("③ 학년그룹 일괄 변경")).toBeNull();
-    expect(
-      calls.some((c) => c.key === "GET /api/console/school-year"),
-    ).toBe(false);
+    expect(calls.some((c) => c.key === "GET /api/console/school-year")).toBe(
+      false,
+    );
   });
 });
 
@@ -773,10 +773,13 @@ describe("ImportSetupPage 이미 실행한 학년도의 ① 올리기", () => {
     await screen.findByText(
       "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
     );
-    expect(
-      (screen.getByRole("button", { name: "파일 선택" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    // 잠금은 ③ 이 알린 다음 한 번 더 그려져야 반영된다.
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "파일 선택" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true),
+    );
     expect(
       (screen.getByLabelText("명단 엑셀 파일") as HTMLInputElement).disabled,
     ).toBe(true);
