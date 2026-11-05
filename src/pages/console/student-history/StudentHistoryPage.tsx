@@ -9,7 +9,7 @@ import { useConsoleMe } from "../useConsoleMe";
 import GraduatesTab from "./GraduatesTab";
 import PendingRequestsTab from "./PendingRequestsTab";
 import StudentListTab from "./StudentListTab";
-import { useClasses } from "./useClasses";
+import { useClasses } from "../useClasses";
 
 export default function StudentHistoryPage() {
   const { me } = useConsoleMe();

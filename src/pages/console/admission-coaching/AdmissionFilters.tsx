@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import FilterSelect from "../FilterSelect";
-import {
-  type ClassOption,
-  classesOf,
-  groupsOf,
-} from "../student-history/useClasses";
+import { type ClassOption, classesOf, groupsOf } from "../useClasses";
 
 export interface AdmissionFilterValues {
   grade: string;

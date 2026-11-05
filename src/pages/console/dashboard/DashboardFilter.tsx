@@ -4,12 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import {
-  type ClassOption,
-  classesOf,
-  gradesOf,
-  groupsOf,
-} from "../student-history/useClasses";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
 import type { DashboardFilterValue } from "./useDashboard";
 
 interface DashboardFilterProps {

@@ -1,7 +1,7 @@
 // W6 휴대폰 카드 목록. 이름은 줄여 쓰지 않고 줄바꿈한다.
 
 import { Button } from "@/components/ui/button";
-import NameCell from "../student-history/NameCell";
+import NameCell from "../NameCell";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";

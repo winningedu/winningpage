@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import {
-  type ClassOption,
-  classesOf,
-  gradesOf,
-  groupsOf,
-} from "../student-history/useClasses";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
 
 export interface StudentFilterValues {
   grade: string;

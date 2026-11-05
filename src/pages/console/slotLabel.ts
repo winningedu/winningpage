@@ -1,6 +1,6 @@
 // W13 화면이 쓰는 자리 표기. "{학년} {반} {번호}번", 그룹이 있으면 "1학년-A레벨 1반"(교 #216).
 
-import { gradeLabel } from "../classLabel";
+import { gradeLabel } from "./classLabel";
 
 export interface Slot {
   grade: string | null;

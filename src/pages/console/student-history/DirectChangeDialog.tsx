@@ -13,7 +13,7 @@ import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import type { StudentItem } from "./StudentListTab";
-import { gradesOf, useClasses } from "./useClasses";
+import { gradesOf, useClasses } from "../useClasses";
 
 const REASONS = [
   ["auto", "자동"],

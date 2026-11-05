@@ -19,13 +19,13 @@ import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { useConsoleMe } from "../useConsoleMe";
 import DirectChangeDialog from "./DirectChangeDialog";
-import { slotLabel } from "./format";
+import { slotLabel } from "../slotLabel";
 import HistoryDialog from "./HistoryDialog";
-import NameCell from "./NameCell";
+import NameCell from "../NameCell";
 import StudentFilters from "./StudentFilters";
-import { useClasses } from "./useClasses";
-import { HISTORY_KEY, usePagedList } from "./usePagedList";
-import { filterKey, usePageParam } from "./usePageParam";
+import { useClasses } from "../useClasses";
+import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
+import { filterKey, usePageParam } from "../usePageParam";
 
 const PAGE_SIZE = 50;
 const FOOTNOTE = "담임은 현재 반만, 관리자는 전교가 보여요";
@@ -228,10 +228,10 @@ export default function StudentListTab() {
           student={direct}
           onSaved={() => {
             setDirectId(null);
-            void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+            void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
           }}
           onConflict={() =>
-            void queryClient.invalidateQueries({ queryKey: HISTORY_KEY })
+            void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY })
           }
           onClose={() => setDirectId(null)}
         />

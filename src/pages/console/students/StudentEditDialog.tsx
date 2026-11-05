@@ -10,13 +10,8 @@ import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
-import {
-  type ClassOption,
-  classesOf,
-  gradesOf,
-  groupsOf,
-} from "../student-history/useClasses";
-import { HISTORY_KEY } from "../student-history/usePagedList";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { CONSOLE_LIST_KEY } from "../usePagedList";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import {
@@ -93,14 +88,14 @@ export default function StudentEditDialog({
           tone: "Success",
           message: `${student.displayName} 학생 정보를 바꿨어요`,
         });
-        void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+        void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
         onClose();
         return;
       }
       if (code === "NUMBER_TAKEN") setNumberError(numberTakenMessage(res.body));
       else if (code === "VERSION_CONFLICT") {
         setNotice(CONFLICT_MESSAGE);
-        void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+        void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
       } else setNotice(errorMessage(res.body) ?? SAVE_FAILED_MESSAGE);
     } catch {
       setNotice(SAVE_FAILED_MESSAGE);

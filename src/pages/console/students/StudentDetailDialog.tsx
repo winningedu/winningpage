@@ -20,8 +20,8 @@ import { consoleRequest } from "../api";
 import { gradeLabel } from "../classLabel";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
-import { slotLabel } from "../student-history/format";
-import { HISTORY_KEY } from "../student-history/usePagedList";
+import { slotLabel } from "../slotLabel";
+import { CONSOLE_LIST_KEY } from "../usePagedList";
 import { SERVICES, type ServiceKey } from "./services";
 
 interface Slot {
@@ -114,7 +114,7 @@ export default function StudentDetailDialog({
       );
       if (res.status !== 200) throw new Error(`flag ${res.status}`);
       setFlagOverride(!flagged);
-      void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+      void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
     } catch {
       setFlagError(true);
     }

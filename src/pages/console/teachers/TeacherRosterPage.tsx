@@ -23,9 +23,9 @@ import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
-import { gradesOf, groupsOf, useClasses } from "../student-history/useClasses";
-import { HISTORY_KEY, usePagedList } from "../student-history/usePagedList";
-import { usePageParam } from "../student-history/usePageParam";
+import { gradesOf, groupsOf, useClasses } from "../useClasses";
+import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
+import { usePageParam } from "../usePageParam";
 import BulkDeleteDialog from "./BulkDeleteDialog";
 import ConnectPreviewPanel from "./ConnectPreviewPanel";
 import DeleteDialog from "./DeleteDialog";
@@ -111,7 +111,7 @@ export default function TeacherRosterPage() {
       ),
     );
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+    void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
     void queryClient.invalidateQueries({ queryKey: ["console", "teachers"] });
   };
   const closeAndRefresh = () => {

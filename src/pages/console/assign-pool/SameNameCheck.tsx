@@ -1,6 +1,6 @@
 // 선택한 미배정 학생의 동명 재학생 확인(번호 중복을 피해 배치하도록). 이름은 서버가 가린 그대로 쓴다.
 
-import { slotLabel } from "../student-history/format";
+import { slotLabel } from "../slotLabel";
 import type { PoolStudent } from "./types";
 
 export default function SameNameCheck({ student }: { student: PoolStudent }) {

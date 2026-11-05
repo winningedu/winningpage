@@ -1,7 +1,7 @@
 // 학급 목록(필터와 W13b 선택지). year 가 없으면 서버가 기관의 현재 학년도를 쓴다.
 
 import { useQuery } from "@tanstack/react-query";
-import { consoleRequest } from "../api";
+import { consoleRequest } from "./api";
 
 export interface ClassOption {
   id: string;

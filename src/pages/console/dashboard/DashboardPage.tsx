@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { gradeLabel, primaryClass } from "../classLabel";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
-import { useClasses } from "../student-history/useClasses";
+import { useClasses } from "../useClasses";
 import { useToast } from "../Toast";
 import { useConsoleMe } from "../useConsoleMe";
 import AchievementCard from "./AchievementCard";

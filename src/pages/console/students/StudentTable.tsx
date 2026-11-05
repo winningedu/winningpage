@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import NameCell from "../student-history/NameCell";
+import NameCell from "../NameCell";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";

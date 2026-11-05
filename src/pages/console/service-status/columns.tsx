@@ -3,7 +3,7 @@
 
 import Chip, { type ChipTone } from "../Chip";
 import { dotDate } from "../enrollment/format";
-import NameCell from "../student-history/NameCell";
+import NameCell from "../NameCell";
 import type { StatusItem, TabKey } from "./tabs";
 
 export interface Column {
@@ -154,8 +154,7 @@ export const COLUMNS: Record<TabKey, Column[]> = {
       label: "학년별 스토리 수",
       render: (item) => {
         const by = get(item, "storiesByGrade") as
-          | { grade: string; count: number }[]
-          | undefined;
+          { grade: string; count: number }[] | undefined;
         if (!by) return null;
         const total = by.reduce((sum, g) => sum + g.count, 0);
         return `${total}개(${by.map((g) => `${g.grade.slice(1)}학년 ${g.count}`).join(", ")})`;

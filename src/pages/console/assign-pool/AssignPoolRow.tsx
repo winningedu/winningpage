@@ -11,14 +11,9 @@ import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import { gradeLabel } from "../classLabel";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
-import NameCell from "../student-history/NameCell";
-import {
-  type ClassOption,
-  classesOf,
-  gradesOf,
-  groupsOf,
-} from "../student-history/useClasses";
-import { HISTORY_KEY } from "../student-history/usePagedList";
+import NameCell from "../NameCell";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { CONSOLE_LIST_KEY } from "../usePagedList";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
@@ -98,7 +93,7 @@ export default function AssignPoolRow({
 
   const target = classes.find((c) => c.id === classId);
   const refetch = () =>
-    void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+    void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
 
   const assign = async () => {
     const parsed = parseNumber(number);

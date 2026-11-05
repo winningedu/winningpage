@@ -21,8 +21,8 @@ import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
-import { HISTORY_KEY, usePagedList } from "../student-history/usePagedList";
-import { usePageParam } from "../student-history/usePageParam";
+import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
+import { usePageParam } from "../usePageParam";
 import AssignDialog from "./AssignDialog";
 import IssueDialog from "./IssueDialog";
 import IssuedPanel from "./IssuedPanel";
@@ -61,7 +61,7 @@ export default function TeacherAccountsPage() {
   const [reissued, setReissued] = useState<IssuedRow[] | null>(null);
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+    void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
     void queryClient.invalidateQueries({ queryKey: ["console", "teachers"] });
   };
 
