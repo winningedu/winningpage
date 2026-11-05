@@ -7,15 +7,28 @@ import { supabase } from "@/lib/supabase";
 
 export const IDLE_LOGOUT_MS = 30 * 60 * 1000;
 
+const ACTIVITY_EVENTS = ["click", "keydown"] as const;
+
 export function useIdleLogout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void supabase.auth.signOut().finally(() => {
-        navigate("/login", { replace: true });
-      });
-    }, IDLE_LOGOUT_MS);
-    return () => window.clearTimeout(timer);
+    let timer = 0;
+    const start = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void supabase.auth.signOut({ scope: "local" }).finally(() => {
+          navigate("/login", { replace: true });
+        });
+      }, IDLE_LOGOUT_MS);
+    };
+    start();
+    for (const type of ACTIVITY_EVENTS) document.addEventListener(type, start);
+    return () => {
+      window.clearTimeout(timer);
+      for (const type of ACTIVITY_EVENTS) {
+        document.removeEventListener(type, start);
+      }
+    };
   }, [navigate]);
 }

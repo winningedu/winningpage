@@ -40,4 +40,27 @@ describe("useIdleLogout", () => {
     expect(mocks.signOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith("/login", { replace: true });
   });
+
+  it.each(["click", "keydown"])(
+    "%s 입력이 있으면 타이머가 처음부터 다시 시작한다",
+    async (type) => {
+      renderHook(() => useIdleLogout());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS - 1000);
+      });
+      act(() => {
+        document.dispatchEvent(new Event(type, { bubbles: true }));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS - 1);
+      });
+      expect(mocks.signOut).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    },
+  );
 });
