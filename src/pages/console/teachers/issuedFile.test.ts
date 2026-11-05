@@ -37,7 +37,7 @@ describe("issuedSheet", () => {
 });
 
 describe("downloadIssuedFile", () => {
-  it("엑셀 파일을 만들어 한 번 내려받고 주소를 바로 푼다", async () => {
+  it("엑셀 파일을 만들어 한 번 내려받고 주소는 내려받기가 시작된 뒤에 푼다", async () => {
     const create = vi.fn(() => "blob:issued");
     const revoke = vi.fn();
     vi.stubGlobal("URL", { createObjectURL: create, revokeObjectURL: revoke });
@@ -45,7 +45,16 @@ describe("downloadIssuedFile", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => {});
 
-    await downloadIssuedFile(ROWS);
+    vi.useFakeTimers();
+    try {
+      await downloadIssuedFile(ROWS);
+
+      // 하나뿐인 임시 비밀번호 파일이라 click 직후에 풀면 내려받기가 끊길 수 있다.
+      expect(revoke).not.toHaveBeenCalled();
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(create).toHaveBeenCalledTimes(1);
     const blob = (create.mock.calls[0] as unknown as [Blob])[0];
