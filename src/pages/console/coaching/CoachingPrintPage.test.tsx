@@ -1,6 +1,6 @@
 // W9c 코칭 PDF. A4 두 쪽, 메모는 넣지 않고(결정 3), 자료를 읽은 뒤 인쇄 창을 한 번 연다.
 
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -94,9 +94,10 @@ const routes = [{ path: "/print", Component: CoachingPrintPage }];
 
 describe("W9c 코칭 PDF", () => {
   it("A4 두 쪽에 학생과 진단을 담고 메모는 넣지 않으며 인쇄 창을 한 번 연다", async () => {
-    stubApi({
+    const calls = stubApi({
       "GET /api/console/me": { body: homeroomMe },
       "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
     });
 
     const { container } = renderRoutes(routes, "/print?studentId=s1");
@@ -107,7 +108,25 @@ describe("W9c 코칭 PDF", () => {
     expect(screen.getByText("대학 평가 5대 역량")).toBeTruthy();
     expect(screen.getByText("성장설계 키워드가 정리되어 있음")).toBeTruthy();
     expect(screen.queryByText("교사 메모")).toBeNull();
-    expect(print).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+    expect(
+      calls.find((c) => c.key === "POST /api/console/coaching/print-log")?.body,
+    ).toEqual({
+      studentId: "s1",
+    });
+  });
+
+  it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { status: 500, body: {} },
+    });
+
+    renderRoutes(routes, "/print?studentId=s1");
+
+    expect(await screen.findByText("인쇄 기록을 남기지 못했어요")).toBeTruthy();
+    expect(print).not.toHaveBeenCalled();
   });
 
   it("자료를 읽지 못하면 인쇄 창을 열지 않는다", async () => {
