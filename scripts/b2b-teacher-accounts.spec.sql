@@ -234,7 +234,61 @@ select pg_temp.expect_error('마지막 학교 관리자 삭제는 WC076 이고 �
 select pg_temp.expect_int('실패한 삭제는 아무도 지우지 않는다',
   (select count(*) from public.teachers where phone = '01070000005' and deleted_at is not null), 0);
 
--- @@SEGMENTS@@
+-- ---------------------------------------------------------------------
+-- fn_assignment_set
+-- ---------------------------------------------------------------------
+insert into t1 values ('a1', pg_temp.reg('ta', '배정교사', '01070000010', 'homeroom', '[{"grade":"고2","name":"1"}]'));
+insert into t1 values ('a2', pg_temp.reg('ta', '다른교사', '01070000011', 'homeroom', '[{"grade":"고2","name":"2"}]'));
+create function pg_temp.cls(p_grade text, p_name text) returns uuid language sql as $$
+  select c.id from public.classes c join public.tenants t on t.id = c.tenant_id and t.school_year = c.school_year
+   where c.tenant_id = pg_temp.fx('ta') and c.grade = p_grade and c.name = p_name
+$$;
+
+select public.fn_assignment_set((select id from t1 where k = 'a1'), '[{"grade":"고2","name":"3반"}]'::jsonb, '{}', null);
+select pg_temp.expect_int('add 는 학급을 더한다(이름 정규화)',
+  (select count(*) from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'a1')), 2);
+select pg_temp.expect_ok('같은 학급을 다시 더해도 성공(중복 없음)',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[{"grade":"고2","name":"3"}]'::jsonb, '{}', null)$$);
+select pg_temp.expect_int('중복 add 는 늘지 않는다',
+  (select count(*) from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'a1')), 2);
+select pg_temp.expect_error('다른 교사가 이미 담임인 학급은 23505',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[{"grade":"고2","name":"2"}]'::jsonb, '{}', null)$$, '23505');
+select public.fn_assignment_set((select id from t1 where k = 'a1'), '[]'::jsonb, '{}', pg_temp.cls('고2', '3'));
+select pg_temp.expect_uuid('primary 지정은 그 학급 하나만 주담당으로 만든다',
+  (select class_id from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'a1') and is_primary),
+  pg_temp.cls('고2', '3'));
+select pg_temp.expect_error('배정되지 않은 학급을 주담당으로 지정하면 WC093',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[]'::jsonb, '{}', pg_temp.cls('고2', '2'))$$, 'WC093');
+select public.fn_assignment_set((select id from t1 where k = 'a1'), '[]'::jsonb, array[pg_temp.cls('고2', '3')], null);
+select pg_temp.expect_int('주담당 학급을 지워도 남은 학급이 주담당이 된다',
+  (select count(*) from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'a1') and is_primary), 1);
+select pg_temp.expect_error('담임의 마지막 학급 제거는 WC092',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[]'::jsonb, array[pg_temp.cls('고2', '1')], null)$$, 'WC092');
+select pg_temp.expect_ok('학급을 더하면서 마지막 학급을 바꾸는 것은 가능',
+  $$select public.fn_assignment_set((select id from t1 where k = 'a1'), '[{"grade":"고2","name":"5"}]'::jsonb, array[pg_temp.cls('고2', '1')], null)$$);
+select pg_temp.expect_int('교체 뒤에도 학급은 하나',
+  (select count(*) from public.teacher_class_assignments where teacher_id = (select id from t1 where k = 'a1')), 1);
+select pg_temp.expect_error('없는 교사는 WC088',
+  $$select public.fn_assignment_set(gen_random_uuid(), '[]'::jsonb, '{}', null)$$, 'WC088');
+
+-- ---------------------------------------------------------------------
+-- 클라이언트 role 차단
+-- ---------------------------------------------------------------------
+grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
+set local role anon;
+select pg_temp.expect_error('anon 은 fn_teacher_attach_account 실행 불가',
+  $$select public.fn_teacher_attach_account(null, null, 'x', 'x')$$, '42501');
+select pg_temp.expect_error('anon 은 fn_assignment_set 실행 불가',
+  $$select public.fn_assignment_set(null, '[]'::jsonb, '{}', null)$$, '42501');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error('authenticated 는 fn_teacher_soft_delete 실행 불가',
+  $$select * from public.fn_teacher_soft_delete('{}', null)$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_teacher_set_status 실행 불가',
+  $$select public.fn_teacher_set_status(null, 'inactive', null)$$, '42501');
+select pg_temp.expect_error('authenticated 는 fn_teacher_password_set 실행 불가',
+  $$select public.fn_teacher_password_set(null)$$, '42501');
+reset role;
 
 do $$ begin raise notice '=== b2b-teacher-accounts.spec: 전체 통과 ==='; end $$;
 

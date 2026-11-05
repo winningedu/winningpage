@@ -8082,6 +8082,15 @@ export type Database = {
           thoughts_tokens: number;
         }[];
       };
+      fn_assignment_set: {
+        Args: {
+          p_add: Json;
+          p_primary: string;
+          p_remove_class_ids: string[];
+          p_teacher_id: string;
+        };
+        Returns: undefined;
+      };
       fn_class_ensure: {
         Args: {
           p_grade: string;

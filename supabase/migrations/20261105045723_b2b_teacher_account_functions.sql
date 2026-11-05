@@ -147,3 +147,77 @@ $$;
 
 revoke all on function public.fn_teacher_soft_delete(uuid[], uuid) from public, anon, authenticated;
 grant execute on function public.fn_teacher_soft_delete(uuid[], uuid) to service_role;
+
+-- 담당 학급 변경: 더하고, 지우고, 주담당을 정한다(한 트랜잭션).
+-- p_add: fn_teacher_register 의 p_classes 와 같은 모양. 다른 교사가 이미 담임이면 23505 로 호출 전체가 취소된다.
+-- 담임은 학급을 지워서 0개가 되면 WC092(더하면서 바꾸는 것은 가능). p_primary 는 학급 id 이고 배정되어 있지 않으면 WC093.
+-- 주담당을 지우고 p_primary 가 없으면 남은 학급 중 먼저 배정된 학급이 주담당이 된다.
+create function public.fn_assignment_set(
+  p_teacher_id uuid,
+  p_add jsonb,
+  p_remove_class_ids uuid[],
+  p_primary uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_t public.teachers;
+  v_year integer;
+  v_row jsonb;
+  v_class uuid;
+  v_removed integer;
+  v_left integer;
+begin
+  select * into v_t from public.teachers where id = p_teacher_id and deleted_at is null for update;
+  if not found then
+    raise exception 'teacher not found' using errcode = 'WC088';
+  end if;
+  select school_year into v_year from public.tenants where id = v_t.tenant_id;
+
+  for v_row in select * from jsonb_array_elements(coalesce(p_add, '[]'::jsonb)) loop
+    v_class := public.fn_class_ensure(
+      v_t.tenant_id,
+      coalesce((v_row ->> 'school_year')::integer, v_year),
+      v_row ->> 'grade',
+      nullif(v_row ->> 'group_id', '')::uuid,
+      v_row ->> 'name'
+    );
+    insert into public.teacher_class_assignments (teacher_id, tenant_id, class_id, is_primary)
+    values (
+      v_t.id, v_t.tenant_id, v_class,
+      not exists (select 1 from public.teacher_class_assignments a where a.teacher_id = v_t.id and a.is_primary)
+    )
+    on conflict (teacher_id, class_id) do nothing;
+  end loop;
+
+  delete from public.teacher_class_assignments a
+   where a.teacher_id = v_t.id and a.class_id = any (coalesce(p_remove_class_ids, '{}'::uuid[]));
+  get diagnostics v_removed = row_count;
+
+  select count(*) into v_left from public.teacher_class_assignments a where a.teacher_id = v_t.id;
+  if v_t.role = 'homeroom' and v_removed > 0 and v_left = 0 then
+    raise exception 'cannot remove the last class of a homeroom teacher' using errcode = 'WC092';
+  end if;
+
+  if p_primary is not null then
+    if not exists (select 1 from public.teacher_class_assignments a where a.teacher_id = v_t.id and a.class_id = p_primary) then
+      raise exception 'primary class is not assigned' using errcode = 'WC093';
+    end if;
+    update public.teacher_class_assignments a set is_primary = false
+     where a.teacher_id = v_t.id and a.is_primary and a.class_id <> p_primary;
+    update public.teacher_class_assignments a set is_primary = true
+     where a.teacher_id = v_t.id and a.class_id = p_primary and not a.is_primary;
+  elsif v_left > 0 and not exists (select 1 from public.teacher_class_assignments a where a.teacher_id = v_t.id and a.is_primary) then
+    update public.teacher_class_assignments a set is_primary = true
+     where a.teacher_id = v_t.id
+       and a.class_id = (select b.class_id from public.teacher_class_assignments b
+                          where b.teacher_id = v_t.id order by b.created_at, b.class_id limit 1);
+  end if;
+end;
+$$;
+
+revoke all on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.fn_assignment_set(uuid, jsonb, uuid[], uuid) to service_role;
