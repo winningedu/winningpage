@@ -274,3 +274,91 @@ describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
     ).toBe(true);
   });
 });
+
+const PREVIEW = {
+  rows: [
+    {
+      line: 1,
+      displayName: "김*늘",
+      from: { grade: "고1", groupName: null, className: "4", number: 7 },
+      to: { grade: "고2", groupName: null, className: "3", number: 8 },
+      studentId: "s1",
+      result: "applied",
+    },
+    {
+      line: 2,
+      displayName: "이*수",
+      from: { grade: "고3", groupName: "A레벨", className: "1", number: null },
+      to: null,
+      studentId: "s2",
+      result: "graduating",
+    },
+    {
+      line: 3,
+      displayName: "박*준*",
+      from: null,
+      to: null,
+      studentId: null,
+      result: "same_name",
+    },
+    {
+      line: 4,
+      displayName: "최*민",
+      from: { grade: "고1", groupName: null, className: "2", number: 3 },
+      to: { grade: "고2", groupName: null, className: null, number: null },
+      studentId: "s4",
+      result: "check_target",
+    },
+  ],
+  applyRows: [{ studentId: "s1", groupId: null, className: "3", number: 8 }],
+  summary: { graduate: 150, promote: 300, waiting: 3 },
+};
+
+async function previewIt(extra: Record<string, ApiHandler> = {}) {
+  const calls = stubImport({
+    extra: {
+      "POST /api/console/school-year/rollover/preview": { body: PREVIEW },
+      ...extra,
+    },
+  });
+  renderRoutes(routes, "/teacher/import");
+  const textarea = (await screen.findByPlaceholderText(
+    "변경할 명단을 붙여넣으세요",
+  )) as HTMLTextAreaElement;
+  fireEvent.change(textarea, { target: { value: "김하늘,1학년,,4,7,,,3,8" } });
+  fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+  return calls;
+}
+
+describe("ImportSetupPage 미리보기", () => {
+  it("입력한 명단과 toYear 로 요청하고 줄마다 값과 결과를 표로 보인다", async () => {
+    const calls = await previewIt();
+
+    expect(await screen.findByText("김*늘")).toBeTruthy();
+    expect(calls.find((c) => c.key.endsWith("rollover/preview"))?.body).toEqual(
+      { toYear: 2027, text: "김하늘,1학년,,4,7,,,3,8" },
+    );
+    for (const header of [
+      "이름",
+      "기존 학년그룹, 그룹, 반, 번호",
+      "새 학년그룹, 그룹, 반, 번호",
+      "결과",
+    ]) {
+      expect(screen.getByRole("columnheader", { name: header })).toBeTruthy();
+    }
+    expect(screen.getByText("1학년, 없음, 4반, 7번")).toBeTruthy();
+    expect(screen.getByText("2학년, 없음, 3반, 8번")).toBeTruthy();
+    expect(screen.getByText("3학년, A레벨, 1반, 번호 미입력")).toBeTruthy();
+    expect(screen.getByText("박*준*")).toBeTruthy();
+    expect(screen.getByText("반영")).toBeTruthy();
+    expect(screen.getByText("3학년은 졸업 처리 대상")).toBeTruthy();
+    expect(screen.getByText("같은 이름이 2명 이상(사람이 확인)")).toBeTruthy();
+    expect(screen.getAllByText("새 반과 번호 확인").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "결과 종류: 반영, 현재 학생을 찾을 수 없음, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
+  });
+});

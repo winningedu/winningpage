@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { consoleRequest } from "../api";
+import { consoleRequest, errorMessage } from "../api";
 import { gradeLabel } from "../classLabel";
 import Notice from "../Notice";
+import { SAVE_FAILED_MESSAGE } from "../passwordRule";
+import { useToast } from "../Toast";
+import RolloverPreviewTable, {
+  type PreviewRow,
+  RESULT_LEGEND,
+} from "./RolloverPreviewTable";
 import TemplateLink from "./TemplateLink";
 
 interface SchoolYear {
@@ -48,6 +54,9 @@ export default function RolloverSection({
   text,
   onTextChange,
 }: RolloverSectionProps) {
+  const toast = useToast();
+  const [rows, setRows] = useState<PreviewRow[] | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [year, setYear] = useState<SchoolYear | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -64,6 +73,29 @@ export default function RolloverSection({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const preview = async () => {
+    if (!year) return;
+    setPreviewing(true);
+    try {
+      const res = await consoleRequest(
+        "/api/console/school-year/rollover/preview",
+        { method: "POST", body: { toYear: year.toYear, text } },
+      );
+      if (res.status !== 200) {
+        toast.show({
+          tone: "Error",
+          message: errorMessage(res.body) ?? SAVE_FAILED_MESSAGE,
+        });
+        return;
+      }
+      setRows((res.body as { rows: PreviewRow[] }).rows);
+    } catch {
+      toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   const locked = year?.rolledOver === true;
   const target = year ? targetLine(year) : null;
@@ -95,20 +127,37 @@ export default function RolloverSection({
           locked && "opacity-40",
         )}
       />
-      {locked && (
-        <Notice tone="Info">
-          이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요
-        </Notice>
-      )}
       <div className="flex">
         <Button
           type="button"
-          disabled={locked || text.trim() === ""}
+          disabled={locked || !year || previewing || text.trim() === ""}
+          onClick={() => void preview()}
           className="h-11 rounded-lg px-5 text-app-label font-semibold max-md:w-full md:h-10"
         >
           미리보기
         </Button>
       </div>
+      {rows && (
+        <>
+          <RolloverPreviewTable rows={rows} />
+          <div className="flex items-center gap-4">
+            <p className="flex-1 text-app-label text-ink-sub">
+              {RESULT_LEGEND}
+            </p>
+            <Button
+              type="button"
+              className="h-11 rounded-lg px-5 text-app-label font-semibold md:h-10"
+            >
+              적용
+            </Button>
+          </div>
+        </>
+      )}
+      {locked && (
+        <Notice tone="Info">
+          이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요
+        </Notice>
+      )}
     </section>
   );
 }
