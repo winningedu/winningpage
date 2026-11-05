@@ -264,3 +264,32 @@ describe("MobileNavDrawer B2B 변형 학생", () => {
     expect(screen.getByText("세종고등학교")).toBeInTheDocument();
   });
 });
+
+describe("MobileNavDrawer B2B 변형 선생님", () => {
+  it("이름과 기관 칩, 관리 화면 링크, 로그아웃만 보여주고 학생용 MY 항목과 D-day는 없다", () => {
+    const onLogout = vi.fn();
+    renderDrawer({
+      teacher: {
+        name: "박지훈",
+        roleLabel: "담임교사",
+        consoleHref: "/teacher/dashboard",
+      },
+      orgName: "한빛고등학교",
+      onLogout,
+    });
+
+    expect(screen.getAllByText("박지훈").length).toBeGreaterThan(0);
+    expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
+      "href",
+      "/teacher/dashboard",
+    );
+    expect(
+      screen.queryByRole("link", { name: "MY페이지" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("D-100")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
+    expect(onLogout).toHaveBeenCalled();
+  });
+});

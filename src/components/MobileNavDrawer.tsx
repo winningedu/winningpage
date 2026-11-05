@@ -39,11 +39,15 @@ type MobileNavDrawerProps = {
   activeGroupTitle?: string | null;
   // 아래 옵션은 스쿨멘토(b2b) 전용이다. 위닝은 넘기지 않아 기존 그대로 그려진다.
   // 비로그인 하단의 회원가입 자리를 대신하는 링크(선생님 로그인).
-  guestSecondary?: { label: string; href: string };
+  guestSecondary?: { label: string; href: string } | undefined;
   // 로그인 하단 MY 목록에서 뺄 항목 라벨(신청 내역 등).
-  hideMenuItems?: string[];
+  hideMenuItems?: string[] | undefined;
   // 헤드 둘째 줄에 보여 줄 소속 기관 칩.
-  orgName?: string;
+  orgName?: string | undefined;
+  // 선생님 계정이면 D-day와 학생용 MY 목록 대신 이름과 관리 화면 링크를 보여 준다.
+  teacher?:
+    | { name: string; roleLabel: string; consoleHref: string }
+    | undefined;
 };
 
 function LoggedInHead({
@@ -51,15 +55,17 @@ function LoggedInHead({
   name,
   orgName,
 }: {
-  csatDDay: string;
+  csatDDay?: string | undefined;
   name: string;
-  orgName?: string;
+  orgName?: string | undefined;
 }) {
   const row = (
     <div className="flex items-center gap-2 whitespace-nowrap">
-      <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
-        {csatDDay}
-      </span>
+      {csatDDay && (
+        <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
+          {csatDDay}
+        </span>
+      )}
       <span className="text-sm font-medium text-[#1e293b]">{name}</span>
     </div>
   );
@@ -106,7 +112,13 @@ export default function MobileNavDrawer({
   guestSecondary,
   hideMenuItems = [],
   orgName,
+  teacher,
 }: MobileNavDrawerProps) {
+  const myItems = teacher
+    ? [{ label: "관리 화면", to: teacher.consoleHref }]
+    : buildMyMenu(myMenuRole).filter(
+        (item) => !hideMenuItems.includes(item.label),
+      );
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { pathname } = useLocation();
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
@@ -146,8 +158,12 @@ export default function MobileNavDrawer({
 
           {shouldShowLoggedInHeader ? (
             <LoggedInHead
-              csatDDay={csatDDay}
-              name={`${displayName}님${memberLabel ? ` ${memberLabel}` : ""}`}
+              csatDDay={teacher ? undefined : csatDDay}
+              name={
+                teacher
+                  ? teacher.name
+                  : `${displayName}님${memberLabel ? ` ${memberLabel}` : ""}`
+              }
               orgName={orgName}
             />
           ) : (
@@ -262,18 +278,16 @@ export default function MobileNavDrawer({
             <>
               {/* 역할별 단일 소스(myMenuItems.buildMyMenu) — 관리자도 별도 버튼 없이
                   이 목록의 "관리자 메뉴" 항목으로 진입한다. */}
-              {buildMyMenu(myMenuRole)
-                .filter((item) => !hideMenuItems.includes(item.label))
-                .map((item) => (
-                  <Link
-                    key={item.label}
-                    to={item.to}
-                    onClick={onClose}
-                    className="flex items-center gap-3 whitespace-nowrap px-4 py-3 text-base font-medium text-ink-header transition hover:text-primary"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+              {myItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  onClick={onClose}
+                  className="flex items-center gap-3 whitespace-nowrap px-4 py-3 text-base font-medium text-ink-header transition hover:text-primary"
+                >
+                  {item.label}
+                </Link>
+              ))}
 
               <Button
                 type="button"
