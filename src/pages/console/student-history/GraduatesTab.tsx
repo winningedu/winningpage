@@ -15,13 +15,13 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
+import NameCell from "../NameCell";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { slotLabel } from "../slotLabel";
-import HistoryDialog from "./HistoryDialog";
-import NameCell from "../NameCell";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
+import HistoryDialog from "./HistoryDialog";
 
 const PAGE_SIZE = 50;
 const FOOTNOTE = "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.";

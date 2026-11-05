@@ -5,11 +5,11 @@ import { useSearchParams } from "react-router";
 import { gradeLabel } from "../classLabel";
 import PageHeader from "../PageHeader";
 import Tabs from "../Tabs";
+import { useClasses } from "../useClasses";
 import { useConsoleMe } from "../useConsoleMe";
 import GraduatesTab from "./GraduatesTab";
 import PendingRequestsTab from "./PendingRequestsTab";
 import StudentListTab from "./StudentListTab";
-import { useClasses } from "../useClasses";
 
 export default function StudentHistoryPage() {
   const { me } = useConsoleMe();

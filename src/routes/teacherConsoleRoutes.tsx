@@ -1,14 +1,14 @@
 import type { RouteObject } from "react-router";
-import AssignPoolPage from "@/pages/console/assign-pool/AssignPoolPage";
 import AdmissionCoachingPage from "@/pages/console/admission-coaching/AdmissionCoachingPage";
+import AssignPoolPage from "@/pages/console/assign-pool/AssignPoolPage";
 import ConsoleGate from "@/pages/console/ConsoleGate";
 import ConsoleHeaderFrame from "@/pages/console/ConsoleHeaderFrame";
 import ConsoleLayout from "@/pages/console/ConsoleLayout";
 import ConsolePlaceholder from "@/pages/console/ConsolePlaceholder";
-import DashboardPage from "@/pages/console/dashboard/DashboardPage";
-import EnrollmentPage from "@/pages/console/enrollment/EnrollmentPage";
 import CoachingPage from "@/pages/console/coaching/CoachingPage";
 import CoachingPrintPage from "@/pages/console/coaching/CoachingPrintPage";
+import DashboardPage from "@/pages/console/dashboard/DashboardPage";
+import EnrollmentPage from "@/pages/console/enrollment/EnrollmentPage";
 import FirstPasswordPage from "@/pages/console/FirstPasswordPage";
 import ImportSetupPage from "@/pages/console/import-setup/ImportSetupPage";
 import MyPage from "@/pages/console/MyPage";

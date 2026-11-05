@@ -19,15 +19,15 @@ import { PENDING_COUNT_KEY } from "../ConsoleLayout";
 import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
+import NameCell from "../NameCell";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
-import { useToast } from "../Toast";
 import { type Slot, slotLabel } from "../slotLabel";
-import NameCell from "../NameCell";
-import RejectDialog from "./RejectDialog";
+import { useToast } from "../Toast";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
+import RejectDialog from "./RejectDialog";
 
 interface PendingRequest {
   changeId: string;

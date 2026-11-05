@@ -12,7 +12,6 @@ import {
   linkageVerdict,
   signalOf,
 } from "./coaching.js";
-import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 import {
   buildCoachingText,
   careerPlan,
@@ -27,6 +26,7 @@ import {
   vsLastWeek,
   weaknesses,
 } from "./coachingText.js";
+import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 
 const day = (
   date: string,
