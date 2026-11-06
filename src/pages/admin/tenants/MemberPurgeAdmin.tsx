@@ -146,6 +146,11 @@ export default function MemberPurgeAdmin() {
           {`삭제 ${result.deleted}명, 제외(유료 전환) ${result.excluded}명, 제외(직접) ${result.skipped}명`}
         </div>
       )}
+      {result && result.notProcessed > 0 && (
+        <div className="mb-4 text-sm font-bold text-red-600">
+          {`처리하지 못한 학생 ${result.notProcessed}명, 잠시 뒤 다시 실행해 주세요`}
+        </div>
+      )}
       {confirming && (
         <div
           role="dialog"

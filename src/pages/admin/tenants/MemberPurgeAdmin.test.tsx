@@ -116,7 +116,7 @@ describe("MemberPurgeAdmin", () => {
   test("체크를 푼 학생은 보내지 않고, 기관 이름을 입력해야 삭제를 확정하며, 결과 건수를 보여 준다", async () => {
     vi.mocked(api.runMemberPurge).mockResolvedValue({
       ok: true,
-      data: { deleted: 1, excluded: 1, skipped: 1 },
+      data: { deleted: 1, excluded: 1, skipped: 1, notProcessed: 0 },
     });
     await openTenant();
     fireEvent.click(screen.getByLabelText("박*준 선택"));
@@ -153,6 +153,40 @@ describe("MemberPurgeAdmin", () => {
       await screen.findByText("삭제 1명, 제외(유료 전환) 1명, 제외(직접) 1명"),
     ).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("처리하지 못한 학생이 있으면 다시 실행해 달라는 안내를 보여 주고, 없으면 보여 주지 않는다", async () => {
+    vi.mocked(api.runMemberPurge).mockResolvedValueOnce({
+      ok: true,
+      data: { deleted: 1, excluded: 0, skipped: 0, notProcessed: 2 },
+    });
+    await openTenant();
+    fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛고" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    expect(
+      await screen.findByText(
+        "처리하지 못한 학생 2명, 잠시 뒤 다시 실행해 주세요",
+      ),
+    ).toBeTruthy();
+
+    vi.mocked(api.runMemberPurge).mockResolvedValueOnce({
+      ok: true,
+      data: { deleted: 1, excluded: 0, skipped: 0, notProcessed: 0 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+    dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛고" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    await screen.findByText("삭제 1명, 제외(유료 전환) 0명, 제외(직접) 0명");
+    expect(screen.queryByText(/처리하지 못한 학생/)).toBeNull();
   });
 
   test("삭제 가능일 전에는 삭제 실행 버튼이 막히고 D-day 안내가 보인다", async () => {
