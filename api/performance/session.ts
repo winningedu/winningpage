@@ -45,6 +45,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import { TOPIC_MAX_ROUNDS } from "../_lib/performance/topic-rounds.js";
 import {
   findProgramAccessRow,
@@ -272,16 +273,11 @@ async function findUnchargedSession(
   if (!rows.length) return null;
 
   const ids = rows.map((row) => row.id);
-  const { data: ledgerRows, error: ledgerError } = await supabaseAdmin
-    .from("performance_credit_ledger")
-    .select("session_id")
-    .eq("profile_id", userId)
-    .in("session_id", ids);
-
-  if (ledgerError)
-    throw new Error(`회차 원장 조회 실패: ${ledgerError.message}`);
-
-  const chargedIds = new Set((ledgerRows || []).map((row) => row.session_id));
+  const chargedIds = await chargedPerformanceSessionIds(
+    supabaseAdmin,
+    userId,
+    ids,
+  );
   return rows.find((row) => !chargedIds.has(row.id)) || null;
 }
 

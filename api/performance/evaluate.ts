@@ -124,6 +124,7 @@ import {
   checkSubmissionMinLength,
   resolveSessionSubmissionSchema,
 } from "../_lib/performance/submission-schema.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
@@ -589,15 +590,12 @@ export default defineHandler({
       // ── 게이트 ③ 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
       //    행 존재 = 차감 완료다(sql/54 1-7). 이 파일은 차감하지 않으므로 **읽기만** 한다.
       //    정상 흐름에서 제출본이 있는 세션은 반드시 차감을 거쳤다 — 방어선이다.
-      const { data: ledgerRow, error: ledgerError } = await supabaseAdmin
-        .from("performance_credit_ledger")
-        .select("id")
-        .eq("session_id", sessionRow.id)
-        .maybeSingle();
-
-      if (ledgerError)
-        throw new Error(`차감 원장 조회 실패: ${ledgerError.message}`);
-      if (!ledgerRow) {
+      const charged = await chargedPerformanceSessionIds(
+        supabaseAdmin,
+        userId,
+        [sessionRow.id],
+      );
+      if (!charged.has(sessionRow.id)) {
         return fail(
           res,
           409,

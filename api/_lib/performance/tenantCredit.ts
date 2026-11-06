@@ -74,3 +74,32 @@ export async function performanceCapDenial(
   const quota = readTenantQuota(await readTenantUsage(db, userId, PROGRAM_KEY));
   return { tenantReason: denied, planEndsAt: quota.planEndsAt };
 }
+
+/**
+ * 이미 센 세션 id 집합. 위닝은 performance_credit_ledger, 스쿨멘토는 원장이 없어
+ * tenant_usage_events 의 (performance_session, session id) 행이 "센 세션"의 정본이다.
+ */
+export async function chargedPerformanceSessionIds(
+  db: SupabaseClient,
+  userId: string,
+  sessionIds: string[],
+): Promise<Set<string>> {
+  if (!sessionIds.length) return new Set();
+  if (!isSchoolmentorSite()) {
+    const { data, error } = await db
+      .from("performance_credit_ledger")
+      .select("session_id")
+      .eq("profile_id", userId)
+      .in("session_id", sessionIds);
+    if (error) throw new Error(`회차 원장 조회 실패: ${error.message}`);
+    return new Set((data || []).map((row) => row.session_id as string));
+  }
+  const { data, error } = await db
+    .from("tenant_usage_events")
+    .select("source_id")
+    .eq("profile_id", userId)
+    .eq("source_kind", "performance_session")
+    .in("source_id", sessionIds);
+  if (error) throw new Error(`기관 사용 기록 조회 실패: ${error.message}`);
+  return new Set((data || []).map((row) => row.source_id as string));
+}

@@ -203,6 +203,7 @@ import {
   resolveDesignPromptVersion,
   resolveDesignWritingBranch,
 } from "../_lib/performance/prompts.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
@@ -1105,16 +1106,13 @@ export default defineHandler({
       //    (sql/54 1-7). 이 파일은 차감하지 않으므로 **읽기만** 한다.
       //    정상 흐름에서 주제가 있는 세션은 반드시 차감을 거쳤다(주제는 recommend-topics
       //    성공 경로에서만 저장된다) — 그래서 이건 통상 경로가 아니라 방어선이다.
-      const { data: ledgerRow, error: ledgerError } = await supabaseAdmin
-        .from("performance_credit_ledger")
-        .select("id")
-        .eq("session_id", sessionRow.id)
-        .maybeSingle();
+      const charged = await chargedPerformanceSessionIds(
+        supabaseAdmin,
+        userId,
+        [sessionRow.id],
+      );
 
-      if (ledgerError)
-        throw new Error(`차감 원장 조회 실패: ${ledgerError.message}`);
-
-      if (!ledgerRow) {
+      if (!charged.has(sessionRow.id)) {
         return fail(
           res,
           409,

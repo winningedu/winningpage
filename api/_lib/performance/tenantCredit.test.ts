@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  chargedPerformanceSessionIds,
   consumePerformanceCredit,
   performanceCapDenial,
 } from "./tenantCredit.js";
@@ -160,5 +161,78 @@ describe("performanceCapDenial", () => {
       state: row({ allowed: false, deny_reason: "grace" }),
     });
     expect(await performanceCapDenial(db, "u1", "s1")).toBeNull();
+  });
+});
+
+describe("chargedPerformanceSessionIds", () => {
+  function tableDb(tables: Record<string, Record<string, unknown>[]>) {
+    const tablesRead: string[] = [];
+    const from = (table: string) => {
+      tablesRead.push(table);
+      let rows = tables[table] ?? [];
+      const q: Record<string, unknown> = {};
+      q.select = () => q;
+      q.eq = (col: string, v: unknown) => {
+        rows = rows.filter((r) => r[col] === v);
+        return q;
+      };
+      q.in = (col: string, v: unknown[]) => {
+        rows = rows.filter((r) => v.includes(r[col]));
+        return Promise.resolve({ data: rows, error: null });
+      };
+      return q;
+    };
+    return { db: { from } as never, tablesRead };
+  }
+
+  it("스쿨멘토는 tenant_usage_events 의 performance_session 행으로 센 세션을 안다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, tablesRead } = tableDb({
+      tenant_usage_events: [
+        {
+          profile_id: "u1",
+          source_kind: "performance_session",
+          source_id: "s1",
+        },
+        {
+          profile_id: "u1",
+          source_kind: "growth_report",
+          source_id: "s2",
+        },
+        {
+          profile_id: "u2",
+          source_kind: "performance_session",
+          source_id: "s2",
+        },
+      ],
+      performance_credit_ledger: [{ profile_id: "u1", session_id: "s2" }],
+    });
+    const out = await chargedPerformanceSessionIds(db, "u1", ["s1", "s2"]);
+    expect([...out]).toEqual(["s1"]);
+    expect(tablesRead).toEqual(["tenant_usage_events"]);
+  });
+
+  it("위닝은 performance_credit_ledger 를 읽는다", async () => {
+    vi.stubEnv("SITE", "winning");
+    const { db, tablesRead } = tableDb({
+      tenant_usage_events: [
+        {
+          profile_id: "u1",
+          source_kind: "performance_session",
+          source_id: "s1",
+        },
+      ],
+      performance_credit_ledger: [{ profile_id: "u1", session_id: "s2" }],
+    });
+    const out = await chargedPerformanceSessionIds(db, "u1", ["s1", "s2"]);
+    expect([...out]).toEqual(["s2"]);
+    expect(tablesRead).toEqual(["performance_credit_ledger"]);
+  });
+
+  it("id 가 없으면 조회하지 않는다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, tablesRead } = tableDb({});
+    expect((await chargedPerformanceSessionIds(db, "u1", [])).size).toBe(0);
+    expect(tablesRead).toEqual([]);
   });
 });

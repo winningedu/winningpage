@@ -86,6 +86,7 @@ import {
   TOPIC_RECOMMENDATION_SCHEMA,
 } from "../_lib/performance/prompts.js";
 import {
+  chargedPerformanceSessionIds,
   consumePerformanceCredit,
   performanceCapDenial,
 } from "../_lib/performance/tenantCredit.js";
@@ -550,16 +551,9 @@ export default defineHandler({
 
     // 이 세션이 이미 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
     // 행 존재 = 차감 완료다(sql/54 1-7). 아래 두 게이트가 모두 이 값을 본다.
-    const { data: ledgerRow, error: ledgerLookupError } = await supabaseAdmin
-      .from("performance_credit_ledger")
-      .select("id")
-      .eq("session_id", sessionRow.id)
-      .maybeSingle();
-
-    if (ledgerLookupError)
-      throw new Error(`차감 원장 조회 실패: ${ledgerLookupError.message}`);
-
-    const alreadyCharged = Boolean(ledgerRow);
+    const alreadyCharged = (
+      await chargedPerformanceSessionIds(supabaseAdmin, userId, [sessionRow.id])
+    ).has(sessionRow.id);
 
     // ── 게이트 ① 회차 소진 **선차단**(비권위적)
     //    진입 게이트(위 `hasPaidServiceAccess`)는 보유 여부만 보고 잔여를 일부러 보지

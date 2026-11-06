@@ -75,6 +75,7 @@ import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { resolveSessionSubmissionSchema } from "../_lib/performance/submission-schema.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
@@ -193,21 +194,13 @@ async function resolveNextSession(
 
   const rows = candidates || [];
   if (rows.length) {
-    // PostgREST에 anti-join이 없어 후보를 먼저 뽑고 원장에 있는 id를 뺀다
+    // PostgREST에 anti-join이 없어 후보를 먼저 뽑고 센 세션 id를 뺀다
     // (`session.js findUnchargedSession` / `bootstrap.js`와 동일 패턴).
-    const { data: ledgerRows, error: ledgerError } = await supabaseAdmin
-      .from("performance_credit_ledger")
-      .select("session_id")
-      .eq("profile_id", userId)
-      .in(
-        "session_id",
-        rows.map((row) => row.id),
-      );
-
-    if (ledgerError)
-      throw new Error(`회차 원장 조회 실패: ${ledgerError.message}`);
-
-    const chargedIds = new Set((ledgerRows || []).map((row) => row.session_id));
+    const chargedIds = await chargedPerformanceSessionIds(
+      supabaseAdmin,
+      userId,
+      rows.map((row) => row.id),
+    );
     const reusable = rows.find((row) => !chargedIds.has(row.id));
 
     if (reusable) return { sessionId: reusable.id, created: false };

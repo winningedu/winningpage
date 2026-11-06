@@ -46,6 +46,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
@@ -310,12 +311,8 @@ export default defineHandler({
         .map((row) => row.selected_topic_id)
         .filter(Boolean);
 
-      const [ledgerResult, reportResult, topicResult] = await Promise.all([
-        supabaseAdmin
-          .from("performance_credit_ledger")
-          .select("session_id")
-          .eq("profile_id", userId)
-          .in("session_id", sessionIds),
+      const [chargedIds, reportResult, topicResult] = await Promise.all([
+        chargedPerformanceSessionIds(supabaseAdmin, userId, sessionIds),
         supabaseAdmin
           .from("performance_reports")
           .select("session_id, report_type")
@@ -328,15 +325,12 @@ export default defineHandler({
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      if (ledgerResult.error)
-        throw new Error(`회차 원장 조회 실패: ${ledgerResult.error.message}`);
       if (reportResult.error)
         throw new Error(`리포트 조회 실패: ${reportResult.error.message}`);
       if (topicResult.error)
         throw new Error(`주제 조회 실패: ${topicResult.error.message}`);
 
-      for (const row of ledgerResult.data || [])
-        chargedSessionIds.add(row.session_id);
+      for (const id of chargedIds) chargedSessionIds.add(id);
 
       for (const row of reportResult.data || []) {
         if (!reportTypesBySession.has(row.session_id))
