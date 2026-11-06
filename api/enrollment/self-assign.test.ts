@@ -2,7 +2,7 @@
 // fn_enrollment_join 은 service_role 전용이라 서버가 학생 id(토큰)와 기관(프로필)을 직접 정해 넘긴다. 본문의 id 는 쓰지 않는다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   profileTenant: "tenant-1" as string | null,
@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => ({
     auth: {
@@ -94,8 +95,11 @@ beforeEach(() => {
   state.catchAll = false;
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("POST /api/enrollment/self-assign", () => {
-  test("기타 소속은 서버가 거절하고 RPC 를 부르지 않는다", async () => {
+  test("스쿨멘토에서 기타 소속은 서버가 거절하고 RPC 를 부르지 않는다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
     state.catchAll = true;
     const result = await post(BODY);
     expect(result.status).toBe(403);
@@ -103,7 +107,16 @@ describe("POST /api/enrollment/self-assign", () => {
     expect(state.rpcCalls).toHaveLength(0);
   });
 
+  test("위닝은 기타 소속 표시가 있어도 거절하지 않고 가입시킨다", async () => {
+    vi.stubEnv("SITE", "winning");
+    state.catchAll = true;
+    const result = await post(BODY);
+    expect(result.status).toBe(200);
+    expect(state.rpcCalls).toHaveLength(1);
+  });
+
   test("joins as the token's student in the profile's tenant, ignoring ids in the body", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
     const result = await post({ ...BODY, studentId: "x", tenantId: "other" });
 
     expect(result).toEqual({

@@ -12,6 +12,7 @@ import {
 } from "../_lib/console/enrollmentInput.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -67,8 +68,9 @@ export default defineHandler({
       return;
     }
 
-    // 기타 소속은 학급을 직접 정하지 않는다(결정 77, 98.9). 화면만 숨기지 않고 서버도 막는다.
+    // 스쿨멘토에서 기타 소속은 학급을 직접 정하지 않는다(결정 77, 98.9). 화면만 숨기지 않고 서버도 막는다. 위닝은 그대로다.
     if (
+      isSchoolmentorSite() &&
       (await loadTenant(ctx.supabaseAdmin, profile.tenant_id as string))
         .isCatchAll
     ) {
