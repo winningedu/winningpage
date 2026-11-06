@@ -1,4 +1,6 @@
 import InlineCard from "@/components/performance/chat/InlineCard";
+import { site } from "@/config/site";
+import { type TenantBlockReason, tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 회차 소진 인라인 카드 (표면 B) — docs/수행평가-상세-명세.md §5.20 / §9.3 / §8.6.
 //
@@ -90,13 +92,27 @@ function formatPlanEndsAt(value?: string | null) {
 type QuotaExhaustedCardProps = {
   planEndsAt?: string | null;
   onDismiss?: () => void;
+  /** 스쿨멘토 기관 한도 사유. 사이트 스위치가 켜졌을 때만 쓴다. */
+  tenantReason?: TenantBlockReason | null;
 };
 
 export default function QuotaExhaustedCard({
   planEndsAt = null,
   onDismiss,
+  tenantReason = null,
 }: QuotaExhaustedCardProps) {
   const endsAtText = formatPlanEndsAt(planEndsAt);
+
+  // 스쿨멘토는 이용권을 사지 않는다(결정 99) — 기관 한도 문구만 보이고 구매 링크를 두지 않는다.
+  if (site.features.tenantServiceGate) {
+    return (
+      <InlineCard className="pb-6">
+        <p className="text-app-card-title font-semibold text-ink">
+          {tenantBlockMessage(tenantReason)}
+        </p>
+      </InlineCard>
+    );
+  }
 
   return (
     <InlineCard className="pb-6">
