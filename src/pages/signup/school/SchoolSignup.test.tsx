@@ -237,4 +237,40 @@ describe("3단계 학생 정보 칸", () => {
       screen.getByText("학년, 반, 번호는 선생님 화면의 학급 편성에 쓰여요."),
     ).toBeInTheDocument();
   });
+
+  it("학원 소속은 그룹 칸이 보인다", async () => {
+    await goToStudentInfo("학원");
+
+    expect(screen.getByLabelText("그룹(선택)")).toBeInTheDocument();
+    expect(screen.getByLabelText("반")).toBeInTheDocument();
+  });
+
+  it("기타 소속은 학년만 받고 그룹, 반, 번호를 숨긴다", () => {
+    renderSignup();
+    agreeRequiredTerms();
+    click("다음");
+    click("기타 소속으로 가입");
+
+    expect(screen.getByLabelText("학년")).toBeInTheDocument();
+    expect(screen.queryByLabelText("그룹(선택)")).toBeNull();
+    expect(screen.queryByLabelText("반")).toBeNull();
+    expect(screen.queryByLabelText("번호(선택)")).toBeNull();
+  });
+
+  it("학교의 반 칸은 숫자만 받는다", async () => {
+    await goToStudentInfo("학교");
+
+    type("반", "3반");
+
+    expect(screen.getByLabelText("반")).toHaveValue("3");
+  });
+
+  it("14세 미만이면 성별 칸을 숨긴다", async () => {
+    await goToStudentInfo("학교");
+
+    type("생년월일", "20180304");
+
+    expect(screen.queryByLabelText("성별")).toBeNull();
+  });
 });
+
