@@ -20,7 +20,7 @@ drop function public.fn_anonymize_expired_b2b_members(uuid, uuid, text);
 -- 보호: 지금 유효한 개인 유료 이용권(paid_amount > 0, 취소되지 않았고 만료 전)이 있는 학생.
 -- 익명화: 이름은 '삭제된 학생', 연락처와 생년월일 등은 NULL, is_active = false, Auth 계정은 정지한다.
 -- 학적, 서비스 기록, 리포트는 남긴다(결정 r16). 이름이 '삭제된 학생'인 프로필은 이미 처리된 것으로 본다(다시 하지 않는다).
--- 기관마다 한 번, 처리한 학생이 있으면 member_purge 접근 로그를 한 줄 남긴다. 이름과 연락처는 넣지 않는다(사 #177).
+-- 유예가 지난 기관을 처리하면 지운 학생이 0명이어도 member_purge 접근 로그를 한 줄 남긴다. 이름과 연락처는 넣지 않는다(사 #177).
 -- 행은 SKIP LOCKED 로 잠가 두 실행이 겹쳐도 같은 학생을 두 번 처리하지 않는다.
 -- p_targets 안에 있는 보호되지 않은 후보만 지운다(위 설명). 목록 밖 후보는 지우지 않고 센다.
 -- 유료 전환 신청 표(#167)와 보호 해제 뒤 30일 재기산(#176-q1)은 결제가 열릴 때 함께 만든다.
@@ -103,22 +103,21 @@ begin
 
     v_skipped_total := v_skipped_total + v_skipped;
 
-    if cardinality(v_ids) > 0 then
-      insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
-      values (p_actor_profile, p_actor_email,
-        case when p_actor_profile is null then 'system:b2b-retention-purge' end,
-        'hq', 'member_purge', 'tenants', v_tenant.id, cardinality(v_ids),
-        jsonb_build_object(
-          'contract_end_date', v_tenant.contract_end_date,
-          'grace_ends_on', v_tenant.grace_end,
-          'deleted_count', cardinality(v_ids),
-          'excluded_count', v_protected,
-          'skipped_count', v_skipped,
-          'member_ids', to_jsonb(v_ids)));
-      v_tenants := v_tenants + 1;
-      v_members := v_members + cardinality(v_ids);
-      v_excluded := v_excluded + v_protected;
-    end if;
+    -- 유예가 지난 기관이면 지운 학생이 0명이어도 실행 기록을 남긴다.
+    insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
+    values (p_actor_profile, p_actor_email,
+      case when p_actor_profile is null then 'system:b2b-retention-purge' end,
+      'hq', 'member_purge', 'tenants', v_tenant.id, cardinality(v_ids),
+      jsonb_build_object(
+        'contract_end_date', v_tenant.contract_end_date,
+        'grace_ends_on', v_tenant.grace_end,
+        'deleted_count', cardinality(v_ids),
+        'excluded_count', v_protected,
+        'skipped_count', v_skipped,
+        'member_ids', to_jsonb(v_ids)));
+    v_tenants := v_tenants + 1;
+    v_members := v_members + cardinality(v_ids);
+    v_excluded := v_excluded + v_protected;
   end loop;
 
   if p_tenant is not null then
