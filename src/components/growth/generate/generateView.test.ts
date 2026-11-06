@@ -27,6 +27,7 @@ function stateOf(patch: Partial<GenerationState>): GenerationState {
     issues: null,
     errorCode: null,
     errorMessage: null,
+    tenantReason: null,
     charged: null,
     completion: null,
     ...patch,

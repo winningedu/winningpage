@@ -292,6 +292,14 @@ describe("generationEngine", () => {
     }
   });
 
+  test("NO_ENTITLEMENT 응답의 기관 거부 사유를 상태에 남긴다", async () => {
+    const { engine, states } = setup([
+      errStep("NO_ENTITLEMENT", { tenantReason: "month_cap" }, 403),
+    ]);
+    await engine.start();
+    expect(states.at(-1)?.tenantReason).toBe("month_cap");
+  });
+
   test("STEP_ORDER 는 목록을 다시 읽어 첫 미완 단계부터 이어간다", async () => {
     const { engine, calls, fetchOpen, states } = setup(
       [errStep("STEP_ORDER"), okStep(4, { nextStep: null })],
