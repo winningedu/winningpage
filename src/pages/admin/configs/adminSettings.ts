@@ -1,3 +1,4 @@
+import { site } from "@/config/site";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,9 @@ interface AdminSettingsListConfig {
   order: string;
   readOnly: true;
   noCreate: true;
+  // 스쿨멘토(hqTenantAdmin)만 전용 컴포넌트로 바꾼다. 위닝은 둘 다 비워 둔 제네릭 목록이다.
+  custom?: true;
+  customComponentKey?: string;
   columns: AdminSettingsColumn[];
   fields: {
     key: string;
@@ -137,6 +141,9 @@ export const adminSettingsConfigs: Record<
     // 없어 어차피 어떤 경로로도 고쳐지지 않는다.
     readOnly: true,
     noCreate: true,
+    ...(site.features.hqTenantAdmin
+      ? { custom: true as const, customComponentKey: "adminAccessLogs" }
+      : {}),
     columns: [
       { key: "created_at", label: "일시", type: "datetime" },
       { key: "actor_name", label: "관리자" },

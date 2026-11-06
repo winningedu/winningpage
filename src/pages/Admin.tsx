@@ -58,6 +58,7 @@ import {
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
 import type { TablesInsert } from "@/types/database.types";
+import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
 import {
   ADMIN_DEFAULT_SECTION_KEY,
   ADMIN_SECTION_KEYS,
@@ -347,6 +348,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   members: MembersAdmin,
   adminMembers: AdminMembersAdmin,
   adminRoles: AdminRolesAdmin,
+  adminAccessLogs: AccessLogsAdmin,
   revenue: RevenueAdmin,
   tenants: TenantsAdmin,
   growthReports: GrowthReportsAdmin,

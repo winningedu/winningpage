@@ -1,8 +1,15 @@
 import { Download, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useState,
+} from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { tenantSaveErrorMessage } from "@/components/admin/tenantSaveError";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
@@ -15,6 +22,9 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import MoveStudentForm, {
+  type MoveTarget,
+} from "@/pages/admin/tenants/MoveStudentForm";
 
 // ---------------------------------------------------------------------------
 // 회원 관리(members) — 목록 + 고객 상세.
@@ -232,7 +242,14 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   // 소속(테넌트) 목록(2026-09-22) — 목록의 tenant_name 파생과 상세의 소속
   // 배정 드롭다운이 함께 쓴다. RLS 는 fn_admin_can('tenants','view') 라
   // 이 화면에 들어온 어드민이면 통과한다.
-  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [tenants, setTenants] = useState<
+    {
+      id: string;
+      name: string;
+      org_type: string | null;
+      is_catch_all: boolean;
+    }[]
+  >([]);
 
   const [selected, setSelected] = useState<ProfileRow | null>(null);
   const [tab, setTab] = useState<TabKey>("profile");
@@ -269,6 +286,8 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   // 직접 UPDATE 하면 fn_profiles_lock_tenant 트리거(WC070)가 막는다.
   const [tenantDraft, setTenantDraft] = useState("");
   const [savingTenant, setSavingTenant] = useState(false);
+  // 스쿨멘토 학생의 기관 이동 폼(사 결정 r4 4번). 열려 있으면 대상 기관을 담는다.
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
 
   async function loadRows() {
     setLoading(true);
@@ -315,7 +334,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     // 방식으로 한 번만 조회해 profiles.tenant_id → tenants.name 을 얹는다.
     const { data: tenantRows, error: tenantError } = await supabase
       .from("tenants")
-      .select("id, name")
+      .select("id, name, org_type, is_catch_all")
       .order("name");
 
     if (tenantError) {
@@ -452,6 +471,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setCategoryDraft(row.member_category || "");
     setGuardianPhoneDraft(row.guardian_phone || "");
     setTenantDraft(row.tenant_id || "");
+    setMoveTarget(null);
     loadDetail(row);
   }
 
@@ -624,9 +644,34 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   // 좁혀놔서(실제 SQL 시그니처는 nullable uuid) 그대로 두면 컴파일이 막힌다.
   async function saveTenant() {
     if (!selected || savingTenant) return;
-    setSavingTenant(true);
 
     const nextId = tenantDraft || null;
+
+    const isEnrollmentStudent =
+      site.features.studentEnrollment &&
+      String(selected.member_type || "") === "student";
+    // 스쿨멘토의 학생은 소속만 비우면 학적이 옛 기관에 남는다. 기타 기관으로 옮겨 학적을 정리한다.
+    if (isEnrollmentStudent && !nextId) {
+      alert("학생은 소속 없음으로 바꿀 수 없어요. 「기타」로 옮겨 주세요.");
+      return;
+    }
+
+    // 스쿨멘토의 학생은 소속만이 아니라 학적도 옮겨야 새 기관 콘솔에 보인다. 학년과 반을 받는 이동 폼으로 보낸다.
+    // 학생이 아니거나 위닝이면 아래 RPC 그대로다.
+    const target = nextId
+      ? tenants.find((tenant) => tenant.id === nextId)
+      : undefined;
+    if (isEnrollmentStudent && target && nextId !== selected.tenant_id) {
+      setMoveTarget({
+        id: target.id,
+        name: target.name,
+        orgType: target.org_type,
+        isCatchAll: target.is_catch_all,
+      });
+      return;
+    }
+
+    setSavingTenant(true);
     const { error } = await supabase.rpc("fn_admin_set_profile_tenant", {
       p_profile_id: selected.id,
       p_tenant_id: nextId as unknown as string,
@@ -653,6 +698,19 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       ),
     );
     alert("소속을 저장했습니다.");
+  }
+
+  // 이동 API 가 학적까지 옮긴 뒤 화면의 소속을 맞춘다. school_name 은 서버가 정하므로 목록을 다시 읽는다.
+  function onStudentMoved(target: MoveTarget) {
+    if (!selected) return;
+    setMoveTarget(null);
+    setSelected({
+      ...selected,
+      tenant_id: target.id,
+      tenant_name: target.name,
+    });
+    loadRows();
+    alert("학생을 옮겼습니다.");
   }
 
   // 결제 요약 3종 — 참조 HTML 의 "이번 달 결제 / 미납액 / 누적 결제액".
@@ -794,6 +852,20 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
             setTenantDraft={setTenantDraft}
             onSaveTenant={saveTenant}
             savingTenant={savingTenant}
+            moveForm={
+              moveTarget ? (
+                <MoveStudentForm
+                  key={moveTarget.id}
+                  profileId={selected.id}
+                  tenant={moveTarget}
+                  onMoved={() => onStudentMoved(moveTarget)}
+                  onCancel={() => {
+                    setMoveTarget(null);
+                    setTenantDraft(selected.tenant_id || "");
+                  }}
+                />
+              ) : null
+            }
           />
         ) : tab === "services" ? (
           <ServicesPane accesses={accesses} />
@@ -940,6 +1012,7 @@ function ProfilePane({
   setTenantDraft,
   onSaveTenant,
   savingTenant,
+  moveForm,
 }: {
   profile: ProfileRow;
   isParent: boolean;
@@ -960,6 +1033,7 @@ function ProfilePane({
   setTenantDraft: (value: string) => void;
   onSaveTenant: () => void;
   savingTenant: boolean;
+  moveForm: ReactNode;
 }) {
   const address = [profile.address, profile.address_detail]
     .filter(Boolean)
@@ -989,21 +1063,24 @@ function ProfilePane({
         <Row
           label="소속"
           value={
-            <div className="flex items-center gap-2">
-              <span className="max-w-[13.75rem]">
-                <Select value={tenantDraft} onChange={setTenantDraft}>
-                  <option value="">소속 없음</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </option>
-                  ))}
-                </Select>
-              </span>
-              <ActionButton onClick={onSaveTenant} disabled={savingTenant}>
-                {savingTenant ? "저장 중..." : "저장"}
-              </ActionButton>
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <span className="max-w-[13.75rem]">
+                  <Select value={tenantDraft} onChange={setTenantDraft}>
+                    <option value="">소속 없음</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </option>
+                    ))}
+                  </Select>
+                </span>
+                <ActionButton onClick={onSaveTenant} disabled={savingTenant}>
+                  {savingTenant ? "저장 중..." : "저장"}
+                </ActionButton>
+              </div>
+              {moveForm}
+            </>
           }
         />
         <Row label="가입일" value={formatDateTime(profile.created_at)} />
