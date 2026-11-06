@@ -205,7 +205,7 @@ export default function StudentUsageAdmin() {
                 <p className="text-sm font-black">{label}</p>
                 <p className="text-xs font-bold text-gray-600">
                   {`이번 달 사용 ${program.monthUsed} / 남은 ${program.monthRemaining ?? "무제한"}`}
-                  {" · "}
+                  {" / "}
                   {`학기 사용 ${program.termUsed} / 남은 ${program.termRemaining ?? "무제한"}`}
                 </p>
                 {!program.allowed && (
