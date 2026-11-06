@@ -91,6 +91,7 @@ describe("GET /api/admin/tenants/purge-logs", () => {
           contractEndDate: "2026-09-01",
           deletedCount: 2,
           excludedCount: 1,
+          skippedCount: 0,
           memberIds: ["m-1", "m-2"],
         },
       ],
@@ -110,6 +111,18 @@ describe("GET /api/admin/tenants/purge-logs", () => {
     expect(
       (r.body as { logs: { executedBy: string | null }[] }).logs[0]?.executedBy,
     ).toBe("hq@example.com");
+  });
+
+  test("직접 제외한 건수는 meta.skipped_count 에서 읽는다", async () => {
+    kit.state.rows.admin_access_logs = () => [
+      { ...LOG_ROW, meta: { ...LOG_ROW.meta, skipped_count: 3 } },
+    ];
+
+    const r = await get();
+
+    expect(
+      (r.body as { logs: { skippedCount: number }[] }).logs[0]?.skippedCount,
+    ).toBe(3);
   });
 
   test("tenants edit 권한도 읽을 수 있다", async () => {
