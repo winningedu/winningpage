@@ -174,6 +174,10 @@ declare
   v_failures integer;
   v_id uuid;
 begin
+  -- 같은 사용자의 동시 요청이 같은 실패 횟수를 보고 모두 통과하지 못하게 사용자별로 줄 세운다(트랜잭션이 끝나면 풀린다).
+  -- 이미 프로필 행을 잠근 이동 함수에서 불러도 같은 세션이라 막히지 않는다.
+  perform pg_advisory_xact_lock(hashtextextended(p_user::text, 68));
+
   delete from public.tenant_code_attempts a
    where a.user_id = p_user and a.attempted_at <= now() - interval '1 hour';
 
@@ -230,7 +234,7 @@ comment on function public.fn_catch_all_tenant_lookup(uuid, text) is '기타 소
 
 -- 6) 기타 소속 학생이 소속코드로 실제 기관으로 옮긴다. 한 트랜잭션이라 어느 단계든 예외로 끝나면 전부 되돌아간다.
 -- 순서: 프로필 행 잠금과 기타 확인(WC098), 코드 확인(WC068), 대상 기관 전화번호 유일성(WC096), 기타의 대기 신청 거절,
--- 기타 학적 행 삭제, 소속과 school_name 갱신, 대상 기관 학적 만들기(fn_enrollment_join: WC077, WC080, WC079, WC094).
+-- 기타 학적 행과 올해 학적 행 삭제, 소속과 school_name 갱신, 대상 기관 학적 만들기(fn_enrollment_join: WC077, WC080, WC079, WC094).
 -- 못 찾았거나 기타 자신의 코드면 0행이다(raise 하지 않아야 실패 기록이 남는다).
 -- 기타 소속 때의 기록(학적 변경 이력, 메모, 플래그, 상담 상태)은 기타 기관에 그대로 둔다. student_enrollments.id 를 가리키는 외래키는 없어
 -- 학적 행 삭제는 다른 테이블에 영향이 없다. 계약이 끝난 기관으로도 옮길 수 있다(가입과 같다, 서비스는 기간 사유로 막힌다).
@@ -286,10 +290,14 @@ begin
   end if;
 
   update public.enrollment_changes c
-     set status = 'rejected', reject_reason = '소속 변경', decided_at = now()
+     set status = 'rejected', reject_reason = '소속 변경', decided_by = p_user, decided_at = now()
    where c.student_id = p_user and c.tenant_id = v_from_tenant and c.status = 'pending';
 
-  delete from public.student_enrollments e where e.student_id = p_user and e.tenant_id = v_from_tenant;
+  -- 기타 기관의 학적 행과, 올해 학적 행이 다른 기관에 남은 경우(본사가 소속만 옮긴 학생)를 함께 지운다.
+  -- 학적은 (학생, 학년도)당 하나라 남겨 두면 fn_enrollment_join 이 그 행을 잡아 WC079 나 외래키 오류로 막힌다.
+  delete from public.student_enrollments e
+   where e.student_id = p_user
+     and (e.tenant_id = v_from_tenant or e.school_year = v_target.school_year);
 
   perform set_config('app.tenant_set_via_rpc', '1', true);
   begin
@@ -316,4 +324,4 @@ $$;
 revoke all on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) from public, anon, authenticated;
 grant execute on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) to service_role;
 
-comment on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) is '기타 소속 학생이 소속코드로 실제 기관으로 옮긴다(service_role 전용, 한 트랜잭션). 기타가 아니면 WC098, 시도 초과 WC068, 대상 기관 전화번호 중복 WC096, 번호 중복 WC077, 없는 그룹 WC080. 못 찾았거나 기타 코드면 0행. 기타의 대기 신청은 소속 변경 사유로 거절하고 기타 학적 행은 지운다.';
+comment on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) is '기타 소속 학생이 소속코드로 실제 기관으로 옮긴다(service_role 전용, 한 트랜잭션). 기타가 아니면 WC098, 시도 초과 WC068, 대상 기관 전화번호 중복 WC096, 번호 중복 WC077, 없는 그룹 WC080. 못 찾았거나 기타 코드면 0행. 기타의 대기 신청은 소속 변경 사유로 거절하고(결정자는 학생 본인) 기타 학적 행과 올해 학적 행은 기관에 상관없이 지운다.';

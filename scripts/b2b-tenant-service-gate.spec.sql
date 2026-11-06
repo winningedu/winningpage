@@ -225,6 +225,10 @@ select pg_temp.expect_text('join: 기타의 대기 신청은 소속 변경 사�
   (select c.status || ':' || c.reject_reason from public.enrollment_changes c
     where c.student_id = pg_temp.fx('cj1') and c.tenant_id = pg_temp.fx('t_etc') and c.kind = 'request'), 'rejected:소속 변경');
 
+select pg_temp.expect_text('join: 거절한 신청에 결정자로 학생 본인이 남는다',
+  (select (c.decided_by = pg_temp.fx('cj1'))::text from public.enrollment_changes c
+    where c.student_id = pg_temp.fx('cj1') and c.tenant_id = pg_temp.fx('t_etc') and c.kind = 'request'), 'true');
+
 -- 학원: 그룹을 받고 번호는 선택, school_name 은 비운다
 select pg_temp.mk_cj('cj2', '010-7000-0002');
 select pg_temp.expect_ok('join: 학원은 그룹을 주고 번호 없이 옮긴다', $$
@@ -237,6 +241,34 @@ select pg_temp.expect_text('join: 학원 학적은 그룹 학급이고 번호가
      from public.student_enrollments e join public.classes c on c.id = e.class_id
      join public.class_groups g on g.id = c.group_id
     where e.student_id = pg_temp.fx('cj2')), '심화반:-');
+
+-- 본사가 기관 이동으로 소속만 기타로 옮겨 올해 학적 행이 다른 기관(real)에 남은 학생. 반이 있어도 없어도 옮길 수 있다.
+create function pg_temp.mk_stale(p_key text, p_phone text, p_with_class boolean) returns void language plpgsql as $$
+declare
+  v_year smallint;
+  v_class uuid;
+begin
+  perform pg_temp.mk_cj(p_key, p_phone);
+  select school_year into v_year from public.tenants where id = pg_temp.fx('t_real');
+  if p_with_class then
+    v_class := public.fn_class_ensure(pg_temp.fx('t_real'), v_year, '고1', null, '1반');
+  end if;
+  update public.student_enrollments
+     set tenant_id = pg_temp.fx('t_real'), class_id = v_class, school_year = v_year
+   where student_id = pg_temp.fx(p_key);
+end $$;
+
+select pg_temp.mk_stale('st1', '010-7000-0011', true);
+select pg_temp.expect_ok('join: 올해 학적 행이 다른 기관에 반과 함께 남아 있어도 옮긴다',
+  format('select * from public.fn_catch_all_join_tenant(%L, %L, %L, null, %L, null)', pg_temp.fx('st1'), 'TGFFFFFF', '고2', '2반'));
+select pg_temp.expect_text('join: 남아 있던 다른 기관 학적은 지워지고 대상 기관에 하나만 있다',
+  (select count(*) filter (where tenant_id = pg_temp.fx('t_js'))::text || ':' || count(*) filter (where tenant_id <> pg_temp.fx('t_js'))::text
+     from public.student_enrollments where student_id = pg_temp.fx('st1')), '1:0');
+select pg_temp.mk_stale('st2', '010-7000-0012', false);
+select pg_temp.expect_ok('join: 올해 학적 행이 다른 기관에 반 없이 남아 있어도 옮긴다',
+  format('select * from public.fn_catch_all_join_tenant(%L, %L, %L, null, %L, null)', pg_temp.fx('st2'), 'TGFFFFFF', '고2', '2반'));
+select pg_temp.expect_int('join: 반 없이 남아 있던 다른 기관 학적도 지워진다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('st2') and tenant_id <> pg_temp.fx('t_js')), 0);
 
 -- ---------------------------------------------------------------------
 -- fn_catch_all_join_tenant: 실패는 아무것도 바꾸지 않는다
@@ -307,6 +339,16 @@ select pg_temp.expect_text('join: 옮긴 뒤 서비스는 outside_period 로 막
 -- ---------------------------------------------------------------------
 select pg_temp.expect_int('student_enrollments 를 참조하는 외래키가 없다',
   (select count(*) from pg_constraint where contype = 'f' and confrelid = 'public.student_enrollments'::regclass), 0);
+
+-- ---------------------------------------------------------------------
+-- 실패 횟수 제한은 사용자별 잠금 안에서 센다(동시 요청이 같은 횟수를 보고 모두 통과하지 못하게)
+-- 잠금은 트랜잭션이 끝날 때까지 잡혀 있으므로 호출 뒤 이 세션이 그 키의 어드바이저리 잠금을 쥐고 있어야 한다.
+-- ---------------------------------------------------------------------
+select public.fn_tenant_code_resolve_for(pg_temp.fx('real'), 'TGNOPE99');
+select pg_temp.expect_int('resolve_for: 사용자별 어드바이저리 잠금(68)을 쥔다',
+  (select count(*) from pg_locks l
+    where l.locktype = 'advisory' and l.pid = pg_backend_pid() and l.granted
+      and ((l.classid::bigint << 32) | l.objid::bigint) = hashtextextended(pg_temp.fx('real')::text, 68)), 1);
 
 -- ---------------------------------------------------------------------
 -- 권한: 새 함수는 service_role 만 부른다(anon, authenticated 는 42501)
