@@ -146,7 +146,7 @@ describe("[3] 차감 코드 부재", () => {
     },
   );
 
-  test("evaluate.ts — 센 세션은 읽기 전용 헬퍼로만 보고 원장에 쓰지 않는다", () => {
+  test("evaluate.ts: 센 세션은 읽기 전용 헬퍼로만 보고 원장에 쓰지 않는다", () => {
     expect(EVALUATE_API.includes("chargedPerformanceSessionIds(")).toBe(true);
     expect(
       /from\(["']performance_credit_ledger["']\)[\s\S]{0,120}\.(insert|update|upsert|delete)\(/.test(

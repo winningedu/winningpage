@@ -18,7 +18,7 @@
 //   → 400 INVALID_BODY
 //   → 401 UNAUTHENTICATED
 //   → 403 FORBIDDEN            — attemptId가 요청자 소유가 아님
-//   → 403 ATTEMPT_NOT_COUNTED  — 스쿨멘토에서 센 시도(kind tenant)가 아님
+//   403 ATTEMPT_NOT_COUNTED: 스쿨멘토에서 센 시도(kind tenant)가 아님
 //   → 404 ATTEMPT_NOT_FOUND    — attemptId가 diagnosis_attempts에 없음(소진 전 저장 시도 등)
 //   → 405 METHOD_NOT_ALLOWED
 //   → 413 PAYLOAD_TOO_LARGE
