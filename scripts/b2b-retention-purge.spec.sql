@@ -463,6 +463,10 @@ select pg_temp.expect_bool('다른 기관 학생과 교사의 Auth 계정은 정
 select pg_temp.expect_bool('고른 학생 Auth 계정만 정지된다', pg_temp.banned('g_a') and not pg_temp.banned('g_b'), true);
 select pg_temp.expect_bool('반환: 익명화 1, 보호 2, 직접 제외 2(g_b, g_new)',
   (select members_anonymized = 1 and members_protected = 2 and members_skipped = 2 from tgt_result), true);
+select pg_temp.expect_bool('다른 실행이 잠근 학생이 없으면 처리하지 못한 학생은 0이다(교사와 다른 기관 학생은 세지 않는다)',
+  (select not_processed = 0 from tgt_result)
+  and (select (l.meta ->> 'not_processed')::int = 0
+         from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_tg')), true);
 select pg_temp.expect_bool('로그에 직접 제외 건수와 회원번호가 남고 이름과 전화번호는 없다',
   (select (l.meta ->> 'skipped_count')::int = 2 and (l.meta ->> 'deleted_count')::int = 1
       and l.meta -> 'member_ids' = to_jsonb(array[pg_temp.fx('m_g_a')::text])
