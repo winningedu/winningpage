@@ -1,6 +1,7 @@
 import { Download, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
+import { tenantSaveErrorMessage } from "@/components/admin/tenantSaveError";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
@@ -634,7 +635,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingTenant(false);
 
     if (error) {
-      alert(`소속 저장 실패: ${error.message}`);
+      alert(tenantSaveErrorMessage(error));
       return;
     }
 

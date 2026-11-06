@@ -111,6 +111,8 @@ const RPC_ERRORS: [string, string][] = [
   ["duplicate_phone", DUPLICATE_PHONE_MESSAGE],
   // sql/40 [16]이 아직 적용되지 않은 환경에서는 unique 인덱스 위반 원문이 올라온다.
   ["profiles_phone_unique", DUPLICATE_PHONE_MESSAGE],
+  // 스쿨멘토 마이그레이션 이후 인덱스 이름(기관별 번호 유일).
+  ["profiles_tenant_phone_unique", DUPLICATE_PHONE_MESSAGE],
   // sql/40 [14] — 서버가 휴대폰 인증을 직접 확인한다. 프론트 가드를 우회했거나
   // 인증 후 30분이 지났거나, 이미 그 인증으로 가입한 경우다.
   [

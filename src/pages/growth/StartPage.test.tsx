@@ -13,6 +13,19 @@ const { shellMock, stepMock, navigateMock, saveMock, promoteMock, toastMock } =
     toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
   }));
 
+const siteState = vi.hoisted(() => ({ studentEnrollment: false }));
+
+// 학적 스위치만 테스트가 바꾼다. 나머지 사이트 설정은 그대로 쓴다.
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  const features = { ...actual.site.features };
+  Object.defineProperty(features, "studentEnrollment", {
+    get: () => siteState.studentEnrollment,
+    enumerable: true,
+  });
+  return { site: { ...actual.site, features } };
+});
+
 vi.mock("@/components/growth/GrowthShellContext", () => ({
   useGrowthShell: shellMock,
   useGrowthScreenStep: stepMock,
@@ -386,6 +399,14 @@ describe("StartPage 새 학년도 모달", () => {
     first.unmount();
     renderPage();
     expect(screen.queryByText(/올릴까요/)).toBeNull();
+  });
+
+  test("스쿨멘토는 학년을 학적이 정하므로 승급 제안 모달을 열지 않는다(사 #40)", () => {
+    siteState.studentEnrollment = true;
+    setShell({}, makeBootstrap({ promotion: promo }));
+    renderPage();
+    expect(screen.queryByText(/올릴까요/)).toBeNull();
+    siteState.studentEnrollment = false;
   });
 
   test("제안이 없으면 모달을 열지 않는다", () => {

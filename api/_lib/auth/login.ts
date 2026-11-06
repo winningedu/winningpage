@@ -51,6 +51,7 @@ export type LoginSuccess = {
   ok: true;
   session: { access_token: string; refresh_token: string; expires_at: number };
   mustChangePassword: boolean;
+  isTeacher: boolean;
 };
 
 export type LoginResult = LoginSuccess | LoginFailure;
@@ -210,6 +211,7 @@ export async function attemptLogin(
         expires_at: signed.session.expires_at ?? 0,
       },
       mustChangePassword: teacher?.must_change_password ?? false,
+      isTeacher: teacher != null,
     };
   }
 

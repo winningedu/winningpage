@@ -1,5 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
+import SelfAssignPrompt from "@/components/enrollment/SelfAssignPrompt";
+import { useMyEnrollment } from "@/components/enrollment/useMyEnrollment";
 import KakaoConsultButton from "@/components/mypage/KakaoConsultButton";
 import MyPageTabs from "@/components/mypage/MyPageTabs";
 import MyServicesTab from "@/components/mypage/MyServicesTab";
@@ -42,6 +44,8 @@ export default function MyPage() {
 
   const { user, profile, loading } = useMyPageProfile(navigate);
   const { orders, refunds, reload: reloadOrders } = useMyPageOrders(user);
+  // 스쿨멘토 학적. 입력 안내와 내 정보 행이 같이 쓴다. 위닝은 읽지 않는다.
+  const enrollment = useMyEnrollment();
 
   const memberType = cleanText(profile?.member_type).toLowerCase();
   const isParent = memberType === "parent";
@@ -94,6 +98,9 @@ export default function MyPage() {
           MY 페이지
         </h1>
 
+        {/* 스쿨멘토 학생의 올해 학급이 비어 있으면 입력 안내(사 #109). 위닝은 아무것도 그리지 않는다. */}
+        {!isParent && <SelfAssignPrompt {...enrollment} />}
+
         <div className="-mt-4.25">
           <MyPageTabs tabs={tabs} activeTab={activeTab} />
         </div>
@@ -124,7 +131,12 @@ export default function MyPage() {
           )}
 
           {activeTab === "profile" && (
-            <ProfileTab user={user} profile={profile} memberType={memberType} />
+            <ProfileTab
+              user={user}
+              profile={profile}
+              memberType={memberType}
+              enrollment={enrollment}
+            />
           )}
         </div>
       </div>

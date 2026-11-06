@@ -1,4 +1,6 @@
 import { useId, useState } from "react";
+import GradeLockNote from "@/components/enrollment/GradeLockNote";
+import { useGradeLock } from "@/components/enrollment/useGradeLock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -57,6 +59,8 @@ export default function ProfileForm({
   const [form, setForm] = useState<ProfileFormState>(() => toFormState(values));
   const [error, setError] = useState<string | null>(null);
   const id = (name: string) => `${base}-${name}`;
+  // 스쿨멘토는 학적에서 채워진 학년을 서비스 안에서 바꾸지 않는다(사 #40).
+  const gradeLocked = useGradeLock(form.grade);
   const set = (patch: Partial<ProfileFormState>) =>
     setForm((prev) => ({ ...prev, ...patch }));
 
@@ -111,6 +115,7 @@ export default function ProfileForm({
             id={id("grade")}
             className={SELECT}
             value={form.grade}
+            disabled={gradeLocked}
             onChange={(e) => set({ grade: e.target.value })}
           >
             <option value="">선택하세요</option>
@@ -120,6 +125,11 @@ export default function ProfileForm({
               </option>
             ))}
           </select>
+          {gradeLocked && (
+            <p className="text-app-caption text-ink-sub">
+              <GradeLockNote />
+            </p>
+          )}
         </Field>
         <Field id={id("semester")} label="학기">
           <select

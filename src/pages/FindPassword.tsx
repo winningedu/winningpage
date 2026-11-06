@@ -26,11 +26,13 @@ import { useNavigate } from "react-router";
 import {
   AuthLayout,
   AuthTitle,
+  ChoiceCard,
   InfoCard,
   PrimaryButton,
   TextField,
   TextLinkButton,
 } from "@/components/auth";
+import { site } from "@/config/site";
 import { useCooldown } from "@/hooks/useCooldown";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { isRateLimited, isServerFailure } from "@/lib/authErrors";
@@ -61,17 +63,43 @@ type PhoneResetResult =
       via: "phone" | "guardian_phone";
     }
   | { kind: "not_found" }
+  | {
+      kind: "choose_account";
+      accounts: {
+        accountId: string;
+        maskedId: string;
+        tenantName: string | null;
+      }[];
+    }
   | { kind: "multiple_accounts"; maskedEmails: string[]; message: string }
   | { kind: "error"; message: string };
 
-async function requestPhoneReset(phone: string): Promise<PhoneResetResult> {
+// 스쿨멘토는 소속이 다르면 같은 번호로 계정이 여러 개라 chooseAccount 를 보내 서버가
+// 계정 목록(409 choose_account)을 주게 한다. 위닝은 새 필드 없이 기존 요청 그대로다.
+async function requestPhoneReset(
+  phone: string,
+  accountId?: string,
+): Promise<PhoneResetResult> {
   try {
     const response = await fetch("/api/reset-password-by-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: normalizePhone(phone) }),
+      body: JSON.stringify({
+        phone: normalizePhone(phone),
+        ...(site.key === "schoolmentor" && {
+          chooseAccount: true,
+          ...(accountId && { accountId }),
+        }),
+      }),
     });
     const payload = await response.json();
+
+    if (response.status === 409 && payload?.code === "choose_account") {
+      return {
+        kind: "choose_account",
+        accounts: Array.isArray(payload.accounts) ? payload.accounts : [],
+      };
+    }
 
     if (response.status === 409 && payload?.reason === "multiple_accounts") {
       return {
@@ -305,6 +333,16 @@ export default function FindPassword() {
     };
   }, [phoneVerified, phone]);
 
+  function chooseAccount(accountId: string) {
+    setResetting(true);
+    setResetResult(null);
+
+    requestPhoneReset(phone, accountId).then((result) => {
+      setResetting(false);
+      setResetResult(result);
+    });
+  }
+
   async function handleCopyPassword() {
     if (resetResult?.kind !== "success") return;
 
@@ -464,6 +502,20 @@ export default function FindPassword() {
                   회원가입하러 가기
                 </TextLinkButton>
               )}
+            </div>
+          )}
+
+          {resetResult?.kind === "choose_account" && (
+            <div className="flex w-full flex-col items-center gap-4 md:flex-row md:flex-wrap md:justify-center">
+              {resetResult.accounts.map((account) => (
+                <ChoiceCard
+                  key={account.accountId}
+                  size="md"
+                  title={account.maskedId}
+                  description={account.tenantName}
+                  onClick={() => chooseAccount(account.accountId)}
+                />
+              ))}
             </div>
           )}
 

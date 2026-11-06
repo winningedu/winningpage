@@ -167,10 +167,10 @@ describe("site - 서버 로그인 플래그", () => {
     expect(site.features.serverLogin).toBe(false);
   });
 
-  it("schoolmentor는 운영 준비(시크릿 키, 전달 IP 설정, W2 라우트)가 끝나기 전까지 서버 로그인을 끈다", async () => {
+  it("schoolmentor는 서버 로그인을 쓴다", async () => {
     const { site } = await loadSite("schoolmentor");
 
-    expect(site.features.serverLogin).toBe(false);
+    expect(site.features.serverLogin).toBe(true);
   });
 });
 
@@ -217,5 +217,24 @@ describe("site — 잘못된 VITE_SITE", () => {
     vi.resetModules();
 
     await expect(import("./site")).rejects.toThrow(/VITE_SITE 누락\/오류/);
+  });
+});
+
+describe("site - 학교 학생 가입 플래그", () => {
+  it("winning은 기존 가입 흐름을 쓰고 schoolmentor는 학교 가입 흐름을 쓴다", async () => {
+    expect((await loadSite("winning")).site.features.schoolSignup).toBe(false);
+    expect((await loadSite("schoolmentor")).site.features.schoolSignup).toBe(
+      true,
+    );
+  });
+});
+
+describe("site - 학적 셀프서비스 스위치", () => {
+  it("스쿨멘토만 학적(학급 입력, 수정요청, 고유코드)을 마이페이지에 보인다", async () => {
+    const schoolmentor = await loadSite("schoolmentor");
+    expect(schoolmentor.site.features.studentEnrollment).toBe(true);
+
+    const winning = await loadSite("winning");
+    expect(winning.site.features.studentEnrollment).toBe(false);
   });
 });
