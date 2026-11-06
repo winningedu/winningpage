@@ -14,11 +14,27 @@ vi.mock("../_lib/goal/repo.js", async (importOriginal) => ({
 
 type Captured = { status: number; body: Record<string, unknown> };
 
+const LOADERS = {
+  advice: () => import("./advice.js"),
+  "daily-record": () => import("./daily-record.js"),
+  grades: () => import("./grades.js"),
+  "intake-update": () => import("./intake-update.js"),
+  intake: () => import("./intake.js"),
+  "plan-tasks": () => import("./plan-tasks.js"),
+  ranking: () => import("./ranking.js"),
+  report: () => import("./report.js"),
+  schedules: () => import("./schedules.js"),
+  student: () => import("./student.js"),
+  timer: () => import("./timer.js"),
+  workbooks: () => import("./workbooks.js"),
+} as const;
+type Route = keyof typeof LOADERS;
+
 async function call(
-  route: string,
+  route: Route,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
 ): Promise<Captured> {
-  const { default: handler } = (await import(`./${route}.js`)) as {
+  const { default: handler } = (await LOADERS[route]()) as {
     default: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
   };
   const captured: Captured = { status: 0, body: {} };
@@ -46,7 +62,7 @@ async function call(
   return captured;
 }
 
-const READS = [
+const READS: Route[] = [
   "advice",
   "daily-record",
   "grades",
@@ -58,7 +74,7 @@ const READS = [
   "timer",
   "workbooks",
 ];
-const WRITES = [
+const WRITES: readonly (readonly [Route, "POST"])[] = [
   ["advice", "POST"],
   ["daily-record", "POST"],
   ["grades", "POST"],
@@ -68,7 +84,7 @@ const WRITES = [
   ["schedules", "POST"],
   ["timer", "POST"],
   ["workbooks", "POST"],
-] as const;
+];
 
 beforeEach(() => {
   vi.unstubAllEnvs();
