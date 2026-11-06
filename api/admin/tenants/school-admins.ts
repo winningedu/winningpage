@@ -87,8 +87,7 @@ export default defineHandler({
         loginId: row.login_id,
         status: row.status,
         issuedAt: row.created_at,
-        canceledAt:
-          row.deleted_at ?? (row.status === "inactive" ? row.updated_at : null),
+        canceledAt: row.deleted_at,
       })),
     });
   },

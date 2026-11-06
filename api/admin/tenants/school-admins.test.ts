@@ -140,6 +140,28 @@ describe("GET /api/admin/tenants/school-admins", () => {
     });
   });
 
+  test("등록취소일은 deleted_at 에서만 오고 deleted_at 이 없는 inactive 는 null 이다", async () => {
+    kit.state.rows.teachers = (filters) =>
+      matchRows(
+        [
+          {
+            ...tenantRow("t-5", "tenant-7"),
+            role: "school_admin",
+            name: "비활성",
+            status: "inactive",
+            updated_at: "2026-11-02T00:00:00Z",
+            deleted_at: null,
+          },
+        ],
+        filters,
+      );
+
+    const r = await get({ tenantId: "tenant-7" });
+
+    const { admins } = r.body as { admins: Record<string, unknown>[] };
+    expect(admins[0]).toMatchObject({ id: "t-5", canceledAt: null });
+  });
+
   test("tenantId 가 없으면 400", async () => {
     const r = await get();
 
