@@ -40,6 +40,8 @@ export interface SiteConfig {
     b2bMenu: boolean;
     // 학생 가입을 소속 확인 5단계(학교 가입)로 받을지. false면 위닝 가입 흐름.
     schoolSignup: boolean;
+    // 마이페이지 학적(학급 직접 입력, 학년, 반, 번호 수정요청, 학생 고유코드)과 서비스 화면의 학년 고정(사 #40, #109, #110, #111).
+    studentEnrollment: boolean;
   };
   company: {
     name: string;
@@ -94,6 +96,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       serverLogin: false,
       b2bMenu: false,
       schoolSignup: false,
+      studentEnrollment: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -146,6 +149,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       serverLogin: true,
       b2bMenu: true,
       schoolSignup: true,
+      studentEnrollment: true,
     },
     company: {
       name: "주식회사 위닝로직",
