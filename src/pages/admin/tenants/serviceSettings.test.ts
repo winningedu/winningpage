@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   buildServiceRows,
   enableRow,
@@ -134,9 +134,13 @@ describe("enableRow", () => {
 });
 
 describe("settingPayload", () => {
+  afterEach(() => vi.useRealTimers());
+
   const base = rowOf(buildServiceRows([]), "diagnose");
 
-  test("빈 칸은 null, 숫자 칸은 정수로 바꾸고 updated_by 를 싣는다", () => {
+  test("빈 칸은 null, 숫자 칸은 정수로 바꾸고 updated_by 와 updated_at 을 싣는다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-06T01:02:03.000Z"));
     const row = {
       ...base,
       provided: true,
@@ -153,6 +157,7 @@ describe("settingPayload", () => {
       monthly_limit: 3,
       term_limit: null,
       updated_by: "user-1",
+      updated_at: "2026-11-06T01:02:03.000Z",
     });
   });
 

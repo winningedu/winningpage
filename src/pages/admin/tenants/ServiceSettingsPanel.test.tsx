@@ -149,6 +149,7 @@ describe("ServiceSettingsPanel", () => {
       monthly_limit: 2,
       term_limit: null,
       updated_by: "user-1",
+      updated_at: expect.any(String),
     });
     expect(db.upserts[0]?.options).toEqual({
       onConflict: "tenant_id,program_key",

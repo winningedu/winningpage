@@ -112,5 +112,6 @@ export function settingPayload(
     monthly_limit: numberOrNull(row.monthlyLimit),
     term_limit: numberOrNull(row.termLimit),
     updated_by: userId,
+    updated_at: new Date().toISOString(),
   };
 }
