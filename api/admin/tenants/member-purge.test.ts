@@ -27,7 +27,8 @@ const post = (body: unknown, method = "POST") =>
 
 const STUDENT_A = "a1111111-1111-4111-8111-111111111111";
 const STUDENT_B = "b2222222-2222-4222-8222-222222222222";
-const BODY = { tenantId: "tenant-7", targetIds: [STUDENT_A, STUDENT_B] };
+const TENANT = "c3333333-3333-4333-8333-333333333333";
+const BODY = { tenantId: TENANT, targetIds: [STUDENT_A, STUDENT_B] };
 
 const anonymizeArgs: Record<string, unknown>[] = [];
 
@@ -111,7 +112,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     expect(r.body).toEqual({ ok: true, deleted: 3, excluded: 1, skipped: 2 });
     expect(anonymizeArgs).toEqual([
       {
-        p_tenant: "tenant-7",
+        p_tenant: TENANT,
         p_actor_profile: "hq-1",
         p_actor_email: "hq@example.com",
         p_targets: [STUDENT_A, STUDENT_B],
@@ -123,6 +124,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     ["tenantId 없음", {}],
     ["빈 tenantId", { tenantId: "" }],
     ["문자열이 아닌 tenantId", { tenantId: 7 }],
+    ["uuid 가 아닌 tenantId", { tenantId: "tenant-7", targetIds: [STUDENT_A] }],
     ["본문 없음", undefined],
   ])("%s 이면 400 이고 아무것도 지우지 않는다", async (_label, body) => {
     const r = await post(body);
@@ -132,22 +134,19 @@ describe("POST /api/admin/tenants/member-purge", () => {
   });
 
   test.each([
-    ["targetIds 없음", { tenantId: "tenant-7" }],
-    ["빈 targetIds", { tenantId: "tenant-7", targetIds: [] }],
-    ["배열이 아닌 targetIds", { tenantId: "tenant-7", targetIds: STUDENT_A }],
+    ["targetIds 없음", { tenantId: TENANT }],
+    ["빈 targetIds", { tenantId: TENANT, targetIds: [] }],
+    ["배열이 아닌 targetIds", { tenantId: TENANT, targetIds: STUDENT_A }],
     [
       "uuid 가 아닌 항목",
-      { tenantId: "tenant-7", targetIds: [STUDENT_A, "not-a-uuid"] },
+      { tenantId: TENANT, targetIds: [STUDENT_A, "not-a-uuid"] },
     ],
-    ["문자열이 아닌 항목", { tenantId: "tenant-7", targetIds: [STUDENT_A, 7] }],
-    [
-      "중복된 항목",
-      { tenantId: "tenant-7", targetIds: [STUDENT_A, STUDENT_A] },
-    ],
+    ["문자열이 아닌 항목", { tenantId: TENANT, targetIds: [STUDENT_A, 7] }],
+    ["중복된 항목", { tenantId: TENANT, targetIds: [STUDENT_A, STUDENT_A] }],
     [
       "5,000개 초과",
       {
-        tenantId: "tenant-7",
+        tenantId: TENANT,
         targetIds: Array.from(
           { length: 5001 },
           (_, i) =>
@@ -169,7 +168,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       (_, i) => `a${String(i).padStart(7, "0")}-1111-4111-8111-111111111111`,
     );
 
-    const r = await post({ tenantId: "tenant-7", targetIds });
+    const r = await post({ tenantId: TENANT, targetIds });
 
     expect(r.status).toBe(200);
     expect(anonymizeArgs[0]?.p_targets).toHaveLength(5000);
@@ -185,7 +184,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
   });
 
   test("POST 이외의 메서드는 405 이다", async () => {
-    const r = await post({ tenantId: "tenant-7" }, "GET");
+    const r = await post({ tenantId: TENANT }, "GET");
 
     expect(r.status).toBe(405);
     expect(anonymizeArgs).toHaveLength(0);

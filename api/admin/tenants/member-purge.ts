@@ -58,7 +58,7 @@ export default defineHandler({
       | { tenantId?: unknown; targetIds?: unknown }
       | undefined;
     const tenantId = body?.tenantId;
-    if (typeof tenantId !== "string" || tenantId === "") {
+    if (typeof tenantId !== "string" || !isUuid(tenantId)) {
       sendError(res, "coded", 400, "기관을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
@@ -77,7 +77,7 @@ export default defineHandler({
     const { data, error } = await ctx.supabaseAdmin.rpc(
       "fn_anonymize_expired_b2b_members",
       {
-        p_tenant: tenantId,
+        p_tenant: tenantId.trim().toLowerCase(),
         p_actor_profile: userId,
         p_actor_email: ctx.user?.email ?? undefined,
         p_targets: targetIds,
