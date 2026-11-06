@@ -1,4 +1,4 @@
-// POST /api/send-phone-code  { phone, purpose? }
+// POST /api/send-phone-code  { phone, purpose?, tenant_code?, catch_all? }
 //
 // 휴대폰 인증번호를 발송하고 해시만 DB에 남긴다. 평문 코드는 어디에도 저장하지
 // 않으며 응답에도 포함하지 않는다.
@@ -15,6 +15,11 @@
 // 가입 목적 발송은 이미 가입에 쓰인 번호를 먼저 걸러낸다(reason:'phone_taken').
 // 최종 판정은 아니다 — 동시 가입 경합은 profiles의 unique 인덱스와 가입 RPC의
 // duplicate_phone이 잡는다.
+//
+// 스쿨멘토 가입(2026-11-06)은 번호 유일성이 기관 안에서만이다(profiles_tenant_phone_
+// unique_idx). purpose 'signup'에 tenant_code(소속코드) 또는 catch_all:true(기타 소속)를
+// 같이 보내면 그 기관 안에서만 중복을 본다. 위닝은 아무것도 보내지 않아 전체에서 본다.
+// 기관 id는 클라이언트에서 받지 않는다 — 코드를 서버가 fn_signup_tenant_lookup으로 푼다.
 
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler } from "./_lib/handler.js";
@@ -97,13 +102,17 @@ function toHyphenated(digits: string) {
 async function isPhoneTaken(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   phone: string,
+  tenantId?: string,
 ) {
-  const { data, error } = await supabase
+  let query = supabase
     .from("profiles")
     .select("id")
     .not("member_type", "is", null)
-    .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`)
-    .limit(1);
+    .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`);
+
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+
+  const { data, error } = await query.limit(1);
 
   // 조회가 실패했다고 발송까지 막으면 장애가 가입 전면 중단으로 번진다.
   // 최종 방어선은 DB의 unique 인덱스와 가입 RPC(duplicate_phone)다.
@@ -113,6 +122,54 @@ async function isPhoneTaken(
   }
 
   return Array.isArray(data) && data.length > 0;
+}
+
+type TenantScope =
+  | { kind: "global" }
+  | { kind: "tenant"; tenantId: string }
+  | { kind: "unknown" }
+  | { kind: "attempts_exceeded" };
+
+/**
+ * 가입 중복 검사 범위를 정한다. tenant_code는 fn_signup_tenant_lookup(IP당 실패 한도
+ * 포함)으로, catch_all은 is_catch_all 기관으로 푼다. 둘 다 없으면 전체(위닝)다.
+ */
+async function resolveTenantScope(
+  supabase: ReturnType<typeof createSupabaseAdmin>,
+  body: { tenant_code?: unknown; catch_all?: unknown } | undefined,
+  ip: string | null,
+): Promise<TenantScope> {
+  if (body?.catch_all === true) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("is_catch_all", true)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.id
+      ? { kind: "tenant", tenantId: data.id }
+      : { kind: "unknown" };
+  }
+
+  if (typeof body?.tenant_code === "string") {
+    const { data, error } = await supabase.rpc("fn_signup_tenant_lookup", {
+      p_code: body.tenant_code,
+      p_ip: ip ?? "",
+    });
+
+    if (error) {
+      if (error.code === "WC068") return { kind: "attempts_exceeded" };
+      throw error;
+    }
+
+    const tenant = Array.isArray(data) ? data[0] : null;
+    return tenant?.id
+      ? { kind: "tenant", tenantId: tenant.id }
+      : { kind: "unknown" };
+  }
+
+  return { kind: "global" };
 }
 
 const LIMIT_MESSAGES = {
@@ -163,9 +220,37 @@ export default defineHandler({
 
       // 한도 검사보다 먼저 본다. 어차피 가입할 수 없는 번호에 문자 요금과
       // 쿨타임을 쓸 이유가 없다.
+      const scope: TenantScope =
+        purpose === "signup"
+          ? await resolveTenantScope(supabase, req.body, ip)
+          : { kind: "global" };
+
+      if (scope.kind === "unknown") {
+        return fail(
+          res,
+          400,
+          "tenant_not_found",
+          "소속코드를 다시 확인해 주세요.",
+        );
+      }
+
+      if (scope.kind === "attempts_exceeded") {
+        res.setHeader("Retry-After", "3600");
+        return fail(
+          res,
+          429,
+          "tenant_code_attempts_exceeded",
+          LIMIT_MESSAGES.ip_hourly_limit,
+        );
+      }
+
       if (
         SIGNUP_PURPOSES.includes(purpose) &&
-        (await isPhoneTaken(supabase, phone))
+        (await isPhoneTaken(
+          supabase,
+          phone,
+          scope.kind === "tenant" ? scope.tenantId : undefined,
+        ))
       ) {
         return void res.status(409).json({
           ok: false,
