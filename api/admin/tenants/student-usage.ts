@@ -3,7 +3,8 @@
 // 본사가 서비스이용횟수조정 화면에서 학생 한 명의 6개 서비스 사용 상태를 본다(사 #166, 결정 r5, r6).
 // 상태는 fn_tenant_usage_state(service_role 전용)가 정본이고, 기관 설정과 학생별 조정은 입력칸을 채우도록
 // 원값 그대로 함께 돌려준다. 쓰기는 이 라우트가 아니라 브라우저 RLS 로 한다(변경 이력이 변경자를 남긴다).
-// 권한: 로그인 + HQ 권한 serviceCreditAdjust view 이상. 스쿨멘토 전용(위닝은 404).
+// 권한: 로그인 + HQ 권한 serviceCreditAdjust view 이상과 tenants view 이상(기관 설정은 RLS 가 tenants view 로 제한한다).
+// 스쿨멘토 전용(위닝은 404).
 
 import { hasAdminViewPermission } from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
@@ -14,7 +15,7 @@ import { isSchoolmentorSite } from "../../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
-const RESOURCE_KEY = "serviceCreditAdjust";
+const RESOURCE_KEYS = ["serviceCreditAdjust", "tenants"];
 
 interface UsageStateRow {
   allowed: boolean;
@@ -36,6 +37,15 @@ interface LimitRow {
   term_limit: number | null;
 }
 
+async function hasAllViewPermissions(
+  admin: Parameters<typeof hasAdminViewPermission>[0],
+  userId: string,
+) {
+  for (const key of RESOURCE_KEYS)
+    if (!(await hasAdminViewPermission(admin, userId, key))) return false;
+  return true;
+}
+
 export default defineHandler({
   methods: ["GET"],
   auth: "user",
@@ -51,11 +61,7 @@ export default defineHandler({
       return;
     }
     if (
-      !(await hasAdminViewPermission(
-        ctx.supabaseAdmin,
-        ctx.userId as string,
-        RESOURCE_KEY,
-      ))
+      !(await hasAllViewPermissions(ctx.supabaseAdmin, ctx.userId as string))
     ) {
       sendError(
         res,

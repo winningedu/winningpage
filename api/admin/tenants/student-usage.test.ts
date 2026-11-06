@@ -50,7 +50,10 @@ beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
-    data: [{ resource_key: "serviceCreditAdjust", level: "view" }],
+    data: [
+      { resource_key: "serviceCreditAdjust", level: "view" },
+      { resource_key: "tenants", level: "view" },
+    ],
     error: null,
   });
   kit.state.rpc.fn_tenant_usage_state = () => ({
@@ -101,7 +104,18 @@ describe("GET /api/admin/tenants/student-usage", () => {
     ["권한 없음", []],
     ["none", [{ resource_key: "serviceCreditAdjust", level: "none" }]],
     ["tenants view 만", [{ resource_key: "tenants", level: "view" }]],
-  ])("%s 이면 403 이고 사용 상태를 읽지 않는다", async (_label, perms) => {
+    [
+      "serviceCreditAdjust view 만(기관 설정은 tenants view 가 필요하다)",
+      [{ resource_key: "serviceCreditAdjust", level: "view" }],
+    ],
+    [
+      "tenants 가 none",
+      [
+        { resource_key: "serviceCreditAdjust", level: "edit" },
+        { resource_key: "tenants", level: "none" },
+      ],
+    ],
+  ])("%s 이면 403 이고 아무것도 읽지 않는다", async (_label, perms) => {
     kit.state.rpc.fn_admin_effective_permissions = () => ({
       data: perms,
       error: null,
@@ -111,6 +125,21 @@ describe("GET /api/admin/tenants/student-usage", () => {
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(kit.state.events).not.toContain("rpc:fn_tenant_usage_state");
+    expect(kit.state.reads).toHaveLength(0);
+  });
+
+  test("권한 조회가 아무것도 돌려주지 않으면 403 이고 아무것도 읽지 않는다", async () => {
+    kit.state.rpc.fn_admin_effective_permissions = () => ({
+      data: null,
+      error: null,
+    });
+
+    const r = await get({ profileId: STUDENT });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(kit.state.reads).toHaveLength(0);
     expect(kit.state.events).not.toContain("rpc:fn_tenant_usage_state");
   });
 
