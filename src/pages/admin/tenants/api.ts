@@ -135,6 +135,7 @@ export interface PurgeResult {
   deleted: number;
   excluded: number;
   skipped: number;
+  notProcessed: number;
 }
 
 export interface PurgeLogEntry {
