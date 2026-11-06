@@ -38,6 +38,15 @@ interface SignupFormData {
   gender: string;
   orgCode: string;
   parentBirthDate: string; // 'YYYYMMDD' 8자리
+  // 스쿨멘토 학교 가입(2026-11-06): 아이디 로그인, 학급 편성, 학부모 정보 칸.
+  username: string;
+  passwordConfirm: string;
+  grade: string;
+  groupName: string;
+  className: string;
+  classNumber: string;
+  guardianName: string;
+  guardianRelation: string;
 }
 
 interface SignupAgreements {
@@ -47,7 +56,21 @@ interface SignupAgreements {
   privacyOptional: boolean;
   marketing: boolean;
   ads: boolean;
+  dbTransfer: boolean; // 스쿨멘토: 서비스 전환 시 위닝에듀로 정보를 옮기는 것에 관한 안내
 }
+
+// 소속 확인 결과. isCatchAll이면 코드를 비운 '기타 소속'이라 id/name/orgType이 없다.
+export type SignupTenant =
+  | { isCatchAll: false; id: string; name: string; orgType: string }
+  | { isCatchAll: true };
+
+// 아이디 중복 확인 결과. 값을 고치면 버려야 하므로 확인한 아이디를 함께 둔다.
+interface UsernameCheck {
+  value: string;
+  available: boolean;
+}
+
+export type SchoolStep = 1 | 2 | 3 | 4 | 5;
 
 interface SignupVerification {
   phone: { requested: boolean; verified: boolean };
@@ -88,6 +111,9 @@ interface SignupState {
   linkCode: string | null;
   signupCompleted: boolean;
   parentSignupCompleted: boolean;
+  tenant: SignupTenant | null;
+  schoolStep: SchoolStep;
+  usernameCheck: UsernameCheck | null;
 }
 
 // 학생(9필드: 이름/전화/전화인증코드/이메일/이메일인증코드/비밀번호/지역/재학구분/학교명)과
@@ -110,6 +136,14 @@ const INITIAL_FORM_DATA: SignupFormData = {
   gender: "", // T8: 성별(학생·학부모 공통, 14세 미만은 PASS 값이 정본이라 입력칸 없음)
   orgCode: "", // T8: 소속코드(선택, 학생·학부모·14세 미만 공통)
   parentBirthDate: "", // T8: 학부모 생년월일 8자리(학생 birthDate와 별개)
+  username: "",
+  passwordConfirm: "",
+  grade: "",
+  groupName: "",
+  className: "",
+  classNumber: "",
+  guardianName: "",
+  guardianRelation: "",
 };
 
 // 학생 폼(C-1) 6항목 기준 — 학부모 폼(E-1)은 4항목(identityRequired/ads 미사용)만 쓰면 된다.
@@ -120,6 +154,7 @@ const INITIAL_AGREEMENTS: SignupAgreements = {
   privacyOptional: false, // 선택(레거시 호환용 — 시안엔 없으나 기존 스키마 대응)
   marketing: false, // 선택: 마케팅 목적의 개인정보 수집 및 이용
   ads: false, // 선택(학생만): 광고성 정보 수신 동의
+  dbTransfer: false, // 필수(스쿨멘토): DB 전환 안내
 };
 
 const INITIAL_VERIFICATION: SignupVerification = {
@@ -149,6 +184,9 @@ const INITIAL_STATE: SignupState = {
   linkCode: null, // 학생 가입 완료 후 발급되는 학부모 연동 코드(C-2)
   signupCompleted: false, // 가입 성공(complete_signup_profile RPC 성공) 직후 true — C-2 진입 가드용
   parentSignupCompleted: false, // 학부모 가입 성공 직후 true — signupCompleted와 동일 패턴의 학부모 온보딩 진입 가드용
+  tenant: null, // 스쿨멘토 가입 2단계 결과
+  schoolStep: 1, // 스쿨멘토 가입 현재 단계
+  usernameCheck: null,
 };
 
 // 만 나이 계산: 생일이 이미 지났으면 연도 차, 아직 안 지났으면 연도 차 - 1.
@@ -213,6 +251,7 @@ function readStoredFlow(): Partial<SignupState> | null {
 // 시에는 사용자가 다시 입력해야 하며, 이 필드들은 저장 대상에서 제외한다.
 const SENSITIVE_FORM_KEYS: (keyof SignupFormData)[] = [
   "password",
+  "passwordConfirm",
   "phoneCode",
   "emailCode",
 ];
@@ -300,6 +339,9 @@ interface SignupContextValue extends SignupState {
   setLinkCode: (linkCode: string | null) => void;
   setSignupCompleted: (signupCompleted: boolean) => void;
   setParentSignupCompleted: (parentSignupCompleted: boolean) => void;
+  setTenant: (tenant: SignupTenant | null) => void;
+  setSchoolStep: (schoolStep: SchoolStep) => void;
+  setUsernameCheck: (usernameCheck: UsernameCheck | null) => void;
   resetForMemberType: (memberType: MemberType) => void;
   resetSignup: () => void;
 }
@@ -388,6 +430,21 @@ export function SignupProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setTenant = useCallback((tenant: SignupTenant | null) => {
+    setState((prev) => ({ ...prev, tenant }));
+  }, []);
+
+  const setSchoolStep = useCallback((schoolStep: SchoolStep) => {
+    setState((prev) => ({ ...prev, schoolStep }));
+  }, []);
+
+  const setUsernameCheck = useCallback(
+    (usernameCheck: UsernameCheck | null) => {
+      setState((prev) => ({ ...prev, usernameCheck }));
+    },
+    [],
+  );
+
   // 유형 선택(학생/학부모)을 되돌아가 다시 고를 때, 이전 유형에서 입력하던 폼데이터/동의/
   // 인증/완료 플래그가 새 유형 흐름에 그대로 남아있으면 상태가 오염된다(예: 학부모로
   // 전환했는데 학생 인증 플래그가 verified로 남는 등). memberType 설정과 동시에 관련
@@ -402,6 +459,9 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       verification: INITIAL_VERIFICATION,
       signupCompleted: false,
       parentSignupCompleted: false,
+      tenant: null,
+      schoolStep: 1,
+      usernameCheck: null,
     }));
   }, []);
 
@@ -423,6 +483,9 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       setLinkCode,
       setSignupCompleted,
       setParentSignupCompleted,
+      setTenant,
+      setSchoolStep,
+      setUsernameCheck,
       resetForMemberType,
       resetSignup,
     }),
@@ -439,6 +502,9 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       setLinkCode,
       setAllAgreements,
       setBirthDate,
+      setTenant,
+      setSchoolStep,
+      setUsernameCheck,
       resetForMemberType,
     ],
   );
