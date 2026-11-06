@@ -30,6 +30,7 @@ import {
 } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -39,6 +40,7 @@ import {
 } from "@/lib/selfeval/api";
 import { selfevalSessionQuery } from "@/lib/selfeval/queries";
 import type { EntryResponse, SessionView } from "@/lib/selfeval/types";
+import { tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 자기평가서 기본 입력 화면(시안 07~13, 명세 No.20~25, 68, 70, 72, 74, 104~106). 경로: /app/selfeval/new
 //   ?sessionId=  이미 만든 세션의 기본 입력을 고친다(활동 선택 화면의 이전 버튼). 활동을 고르기 전에만 가능하다.
@@ -289,7 +291,7 @@ function BasicsBody({
           className="flex items-center justify-between gap-4 rounded-xl bg-surface-04 px-5 py-4 text-app-label text-ink-strong"
         >
           <span>{problemMessage(problem)}</span>
-          {problem.kind === "quota" && (
+          {problem.kind === "quota" && !site.features.tenantServiceGate && (
             <Link
               to="/pricing?service=selfeval"
               className="shrink-0 font-semibold text-accent underline underline-offset-2"
@@ -349,7 +351,10 @@ function safeSessionStorage(): Storage | null {
 function problemMessage(problem: Exclude<SubmitErrorView, { kind: "open" }>) {
   switch (problem.kind) {
     case "quota":
-      return QUOTA_MESSAGE;
+      // 스쿨멘토는 이용권이 아니라 기관 설정 사유를 보인다(결정 99).
+      return site.features.tenantServiceGate
+        ? tenantBlockMessage(problem.tenantReason)
+        : QUOTA_MESSAGE;
     case "locked":
       return LOCKED_MESSAGE;
     case "not_open":

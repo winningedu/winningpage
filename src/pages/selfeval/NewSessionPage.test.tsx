@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+
 const {
   shellMock,
   stepMock,
@@ -44,6 +46,21 @@ vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
 }));
 vi.mock("@/context/ToastContext", () => ({ useToast: () => toastMock }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("react-router", async (orig) => ({
   ...(await orig<typeof import("react-router")>()),
   useNavigate: () => navigateMock,
@@ -146,6 +163,7 @@ function submit() {
 }
 
 beforeEach(() => {
+  gateState.on = false;
   vi.clearAllMocks();
   refetchEntry.mockResolvedValue(undefined);
   saveProfileMock.mockResolvedValue({ ok: true });
@@ -464,6 +482,24 @@ describe("제출", () => {
         .getAttribute("href"),
     ).toBe("/pricing?service=selfeval");
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  test("스쿨멘토는 한도 소진 시 기관 문구만 보이고 이용권 링크가 없다", async () => {
+    gateState.on = true;
+    createMock.mockResolvedValue({
+      kind: "error",
+      status: 409,
+      code: "QUOTA_EXHAUSTED",
+      message: "소진",
+      extra: { tenantReason: "month_cap" },
+    });
+    renderPage();
+    fillRequired();
+    submit();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "이번 달 이용 횟수를 모두 썼어요. 다음 달 1일부터 다시 이용할 수 있어요.",
+    );
+    expect(screen.queryByRole("link", { name: "이용권 보러 가기" })).toBeNull();
   });
 
   test("서버 본문 오류는 문구를 그대로 보여 준다", async () => {
