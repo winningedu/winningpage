@@ -273,4 +273,32 @@ describe("POST /api/signup/school-student", () => {
     expect(r.status).toBe(500);
     expect(kit.signIn).not.toHaveBeenCalled();
   });
+
+  test.each([
+    [
+      "홍길동",
+      "NUMBER_TAKEN_SAME_NAME",
+      "이미 가입 내역이 있습니다. 재확인해 주세요",
+    ],
+    [
+      "김철수",
+      "NUMBER_TAKEN_OTHER",
+      "동일한 학년, 반, 번호의 학생이 이미 존재합니다. 학년, 반, 번호를 다시 확인해 주세요",
+    ],
+  ])(
+    "번호 중복(WC077)은 점유자 이름(%s)과 신청자 이름을 비교해 %s 로 나누고 이름을 응답에 싣지 않는다",
+    async (holder, code, message) => {
+      happyPath();
+      kit.state.rpc.fn_student_signup = () => ({
+        data: null,
+        error: { code: "WC077", message: "number_taken", details: holder },
+      });
+
+      const r = await post({ ...BODY, name: " 홍길동 " });
+
+      expect(r.status).toBe(409);
+      expect(r.body).toEqual({ code, message });
+      expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
+    },
+  );
 });

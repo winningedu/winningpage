@@ -9,6 +9,7 @@ import {
   createSignupAuthUser,
   discardSignupAuthUser,
 } from "../_lib/signup/authUser.js";
+import { mapSignupRpcError } from "../_lib/signup/errors.js";
 import { parseSchoolStudentBody } from "../_lib/signup/schoolStudent.js";
 import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { lookupSignupTenant } from "../_lib/signup/tenant.js";
@@ -109,7 +110,11 @@ export default defineHandler({
     );
     if (signupError) {
       if (created) await discardSignupAuthUser(ctx.supabaseAdmin, userId);
-      throw signupError;
+      const failure = mapSignupRpcError(signupError, input.name);
+      if (!failure) throw signupError;
+      const { status, ...body } = failure;
+      res.status(status).json(body);
+      return;
     }
 
     const { data: signed, error: signInError } = await createLoginAuthClient(
