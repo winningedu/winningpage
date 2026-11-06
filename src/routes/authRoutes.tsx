@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router";
 import { Outlet } from "react-router";
+import { site } from "@/config/site";
 import { SignupProvider } from "@/context/SignupContext";
 import { requireSignupEnabledMiddleware } from "@/lib/routeMiddleware";
 import FindAccount from "@/pages/FindAccount";
@@ -18,6 +19,7 @@ import ParentHome from "@/pages/signup/parent/ParentHome";
 import StudentBirth from "@/pages/signup/StudentBirth";
 import StudentComplete from "@/pages/signup/StudentComplete";
 import StudentForm from "@/pages/signup/StudentForm";
+import SchoolSignup from "@/pages/signup/school/SchoolSignup";
 import Under14Form from "@/pages/signup/Under14Form";
 import Under14Verify from "@/pages/signup/Under14Verify";
 
@@ -49,7 +51,11 @@ const authRoutes: RouteObject[] = [
     children: [
       { path: "/signup", Component: MemberType },
       { path: "/signup/student/birth", Component: StudentBirth },
-      { path: "/signup/student", Component: StudentForm },
+      // 스쿨멘토는 소속 확인 5단계 가입, 위닝은 기존 폼(features.schoolSignup).
+      {
+        path: "/signup/student",
+        Component: site.features.schoolSignup ? SchoolSignup : StudentForm,
+      },
       {
         path: "/signup/student/under14/verify",
         Component: Under14Verify,

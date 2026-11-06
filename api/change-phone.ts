@@ -28,8 +28,18 @@ import { defineHandler } from "./_lib/handler.js";
 import { sendError } from "./_lib/httpResponse.js";
 import { isValidMobile, normalizePhone } from "./_lib/phoneCode.js";
 import { getBearerToken } from "./_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
 
 export const config = { runtime: "nodejs" };
+
+/** 010-1234-5678 형태로 되돌린다. profiles.phone 은 입력 원문 표기가 섞여 있어 두 표기를 모두 대조한다. */
+function toHyphenated(digits: string) {
+  if (digits.length === 11)
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10)
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return digits;
+}
 
 function fail(
   res: VercelResponse,
@@ -123,6 +133,39 @@ export default defineHandler({
           reason: "not_verified",
           detail: "인증번호 확인을 먼저 완료해 주세요.",
         });
+      }
+
+      // 번호 유일 인덱스가 기관별로 바뀌어 DB 는 전역 중복을 더 막지 않는다. 직접 본다:
+      // 스쿨멘토는 같은 기관 안(소속 없음은 소속 없는 계정끼리, 인덱스와 같은 기준), 위닝은 전체.
+      if (target === "self") {
+        let owners = supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .not("member_type", "is", null)
+          .or(`phone.eq.${normalized},phone.eq.${toHyphenated(normalized)}`);
+
+        if (isSchoolmentorSite()) {
+          const { data: me, error: meError } = await supabaseAdmin
+            .from("profiles")
+            .select("tenant_id")
+            .eq("id", userId)
+            .maybeSingle();
+          if (meError) throw meError;
+          owners = me?.tenant_id
+            ? owners.eq("tenant_id", me.tenant_id)
+            : owners.is("tenant_id", null);
+        }
+
+        const { data: taken, error: takenError } = await owners;
+        if (takenError) throw takenError;
+        if ((taken ?? []).some((row) => row.id !== userId)) {
+          return fail(
+            res,
+            409,
+            "phone_taken",
+            "이미 사용 중인 휴대폰 번호입니다.",
+          );
+        }
       }
 
       // profiles.phone(또는 guardian_phone) 은 기존 인라인 편집(ProfileTab.jsx)과

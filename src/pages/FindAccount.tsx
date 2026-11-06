@@ -15,6 +15,7 @@ import {
   TextField,
   TextLinkButton,
 } from "@/components/auth";
+import { site } from "@/config/site";
 import { useCooldown } from "@/hooks/useCooldown";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import {
@@ -35,6 +36,7 @@ type LookupResult =
   | {
       kind: "found";
       maskedEmails: string[];
+      accounts: { maskedId: string; tenantName: string | null }[];
       via: "phone" | "guardian_phone";
     }
   | { kind: "not_found" }
@@ -67,6 +69,7 @@ async function fetchMaskedEmail(phone: string): Promise<LookupResult> {
     return {
       kind: "found",
       maskedEmails,
+      accounts: Array.isArray(payload.accounts) ? payload.accounts : [],
       via: payload.via === "guardian_phone" ? "guardian_phone" : "phone",
     };
   } catch {
@@ -77,7 +80,10 @@ async function fetchMaskedEmail(phone: string): Promise<LookupResult> {
   }
 }
 
+// 스쿨멘토는 아이디로 로그인하고 소속이 다른 계정이 같은 번호에 여러 개일 수 있어
+// 가린 아이디와 소속 이름을 보여준다(결정 80). 위닝은 가린 이메일 그대로다.
 export default function FindAccount() {
+  const showAccounts = site.key === "schoolmentor";
   const navigate = useNavigate();
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
   // 회원가입 안내 CTA를 숨긴다(Header.tsx와 동일 원칙).
@@ -201,7 +207,9 @@ export default function FindAccount() {
   return (
     <AuthLayout>
       <AuthTitle
-        line1="아이디(이메일)를 찾아드려요"
+        line1={
+          showAccounts ? "아이디를 찾아드려요" : "아이디(이메일)를 찾아드려요"
+        }
         line2="가입하신 휴대폰 번호로 인증해 주세요"
         line2Color="ink"
       />
@@ -257,18 +265,38 @@ export default function FindAccount() {
             {result.via === "guardian_phone" ? (
               <p>학부모 핸드폰으로 등록된 계정이에요.</p>
             ) : (
-              <p>해당 번호로 가입된 이메일이에요.</p>
+              <p>
+                {showAccounts
+                  ? "해당 번호로 가입된 아이디예요."
+                  : "해당 번호로 가입된 이메일이에요."}
+              </p>
             )}
             <ul className="mt-2 flex flex-col gap-1">
-              {result.maskedEmails.map((maskedEmail, index) => (
-                <li
-                  // biome-ignore lint/suspicious/noArrayIndexKey: 마스킹된 이메일이라 형제자매 계정끼리 동일 문자열일 수 있다 — 한 번의 조회 응답을 그대로 렌더하는 정적 목록이라 인덱스로 구분해도 안전하다.
-                  key={`${index}-${maskedEmail}`}
-                  className="text-lg font-semibold text-ink-title"
-                >
-                  {maskedEmail}
-                </li>
-              ))}
+              {showAccounts &&
+                result.accounts.map((account, index) => (
+                  <li
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 가려진 아이디가 같은 계정끼리 겹칠 수 있다 - 한 번의 조회 응답을 그대로 렌더하는 정적 목록이다.
+                    key={`${index}-${account.maskedId}`}
+                    className="text-lg font-semibold text-ink-title"
+                  >
+                    {account.maskedId}
+                    {account.tenantName && (
+                      <span className="ml-2 text-sm font-normal text-ink-sub">
+                        {account.tenantName}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              {!showAccounts &&
+                result.maskedEmails.map((maskedEmail, index) => (
+                  <li
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 마스킹된 이메일이라 형제자매 계정끼리 동일 문자열일 수 있다 — 한 번의 조회 응답을 그대로 렌더하는 정적 목록이라 인덱스로 구분해도 안전하다.
+                    key={`${index}-${maskedEmail}`}
+                    className="text-lg font-semibold text-ink-title"
+                  >
+                    {maskedEmail}
+                  </li>
+                ))}
             </ul>
           </InfoCard>
 
