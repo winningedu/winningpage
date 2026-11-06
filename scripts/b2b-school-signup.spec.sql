@@ -409,6 +409,46 @@ select pg_temp.expect_ok('학원 소속 가입', $$select pg_temp.go(35, jsonb_b
 select pg_temp.expect_text('학원 소속은 school_name 을 비운다',
   (select coalesce(school_name, '-') from public.profiles where email = 'go35@example.com'), '-');
 
+-- ---------------------------------------------------------------------
+-- 본인 번호 문자 인증: 가입 목적, 인증 완료, 10분 안, 한 번만 쓸 수 있다
+-- ---------------------------------------------------------------------
+select pg_temp.expect_msg('인증 없이는 가입할 수 없다', $$select pg_temp.go(40, '{}', false)$$, 'P0001', 'phone_not_verified');
+select pg_temp.expect_msg('번호가 비면 phone_required', $$select pg_temp.go(41, '{"phone": ""}', false)$$, 'P0001', 'phone_required');
+select pg_temp.expect_msg('다른 목적(find_account) 인증은 가입에 못 쓴다', $$
+  select pg_temp.verify('010-5042-0001', 'find_account');
+  select pg_temp.go(42, '{}', false)
+$$, 'P0001', 'phone_not_verified');
+select pg_temp.expect_msg('인증번호만 보내고 확인하지 않은 행은 못 쓴다', $$
+  insert into public.phone_verifications (phone, code_hash, purpose, expires_at)
+    values ('01050430001', 'x', 'signup', now() + interval '5 minutes');
+  select pg_temp.go(43, '{}', false)
+$$, 'P0001', 'phone_not_verified');
+select pg_temp.expect_msg('인증 후 10분이 지나면 못 쓴다', $$
+  insert into public.phone_verifications (phone, code_hash, purpose, verified_at, expires_at)
+    values ('01050440001', 'x', 'signup', now() - interval '11 minutes', now() + interval '5 minutes');
+  select pg_temp.go(44, '{}', false)
+$$, 'P0001', 'phone_not_verified');
+
+-- 같은 인증은 한 번만: 기관이 다르면 같은 번호도 가입할 수 있지만 인증은 다시 받아야 한다
+select pg_temp.expect_ok('기관 A 에서 번호 가입', $$select pg_temp.go(45, '{}')$$);
+select pg_temp.expect_msg('같은 인증을 기관 B 가입에 다시 쓸 수 없다', $$
+  select pg_temp.su(pg_temp.new_user('go45b@example.com'), jsonb_build_object(
+    'phone', '010-5045-0001', 'username', 'gouser45b', 'email', 'go45b@example.com',
+    'tenant_id', (select id from public.tenants where code = 'SB222222')))
+$$, 'P0001', 'phone_not_verified');
+select pg_temp.expect_ok('기관 B 는 새 인증을 받으면 같은 번호로 가입된다', $$
+  select pg_temp.verify('010-5045-0001');
+  select pg_temp.su(pg_temp.new_user('go45c@example.com'), jsonb_build_object(
+    'phone', '010-5045-0001', 'username', 'gouser45c', 'email', 'go45c@example.com',
+    'tenant_id', (select id from public.tenants where code = 'SB222222')))
+$$);
+
+select pg_temp.expect_ok('같은 번호로 새 인증이 있어도 같은 기관에는 한 번만(준비)', $$select pg_temp.verify('010-5045-0001')$$);
+select pg_temp.expect_error('같은 기관 같은 번호는 WC096', $$
+  select pg_temp.su(pg_temp.new_user('go45d@example.com'), jsonb_build_object(
+    'phone', '01050450001', 'username', 'gouser45d', 'email', 'go45d@example.com', 'number', 46))
+$$, 'WC096');
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;

@@ -184,6 +184,9 @@ begin
   end if;
 
   v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
+  if v_phone_digits = '' then
+    raise exception 'phone_required';
+  end if;
 
   -- 소속: 코드를 모르면 null 로 보내 기타 기관에 둔다. 기타 기관은 반과 번호를 받지 않는다(결정 r4).
   if p_tenant_id is null then
@@ -206,6 +209,21 @@ begin
    order by v.verified_at desc
    limit 1
      for update;
+
+  if v_pv_id is null then
+    raise exception 'phone_not_verified';
+  end if;
+
+  -- 번호 유일성은 기관 안에서만 본다(profiles_tenant_phone_unique_idx 와 같은 기준). 동시 가입은 아래 unique_violation 이 받는다.
+  if exists (
+    select 1 from public.profiles pr
+     where pr.id <> p_user_id
+       and pr.member_type is not null
+       and pr.tenant_id = v_tenant.id
+       and regexp_replace(coalesce(pr.phone, ''), '[^0-9]', '', 'g') = v_phone_digits
+  ) then
+    raise exception 'phone_taken' using errcode = 'WC096';
+  end if;
 
   perform set_config('app.tenant_set_via_rpc', '1', true);
 
