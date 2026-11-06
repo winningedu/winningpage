@@ -71,8 +71,8 @@ function kstDay(date: string, plusDays: number): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const moment = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(moment.getTime())) return null;
+  if (moment.toISOString().slice(0, 10) !== date) return null;
   moment.setUTCDate(moment.getUTCDate() + plusDays);
-  if (plusDays === 0 && moment.toISOString().slice(0, 10) !== date) return null;
   return `${moment.toISOString().slice(0, 10)}T00:00:00+09:00`;
 }
 
@@ -171,6 +171,7 @@ export default defineHandler({
     // 한 줄 더 읽어 다음 쪽이 있는지 안다.
     const { data, error: readError } = await query
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, offset + PAGE_SIZE);
     if (readError) throw new Error("access logs read failed");
     const all = (data ?? []) as unknown as LogRow[];

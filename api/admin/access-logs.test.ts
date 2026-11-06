@@ -175,6 +175,17 @@ describe("GET /api/admin/access-logs", () => {
     });
   });
 
+  test("같은 시각의 줄이 쪽 사이에서 겹치지 않도록 id 내림차순으로 한 번 더 정렬한다", async () => {
+    await get();
+
+    expect(
+      kit.state.orders.filter((o) => o.table === "admin_access_logs"),
+    ).toEqual([
+      { table: "admin_access_logs", column: "created_at" },
+      { table: "admin_access_logs", column: "id" },
+    ]);
+  });
+
   test("구분을 주면 그 구분의 동작만 읽는다", async () => {
     await get({ kind: "edit" });
 
@@ -189,6 +200,7 @@ describe("GET /api/admin/access-logs", () => {
     [{ kind: "nope" }],
     [{ from: "2026/11/01" }],
     [{ to: "내일" }],
+    [{ to: "2026-02-31" }],
     [{ page: "0" }],
     [{ page: "abc" }],
   ])("잘못된 조건 %j 은 400 이고 읽지 않는다", async (query) => {
