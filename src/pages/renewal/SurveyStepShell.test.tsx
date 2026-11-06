@@ -1,10 +1,17 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useOutletContext } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const gateState = vi.hoisted(() => ({ on: false }));
 const accessMock = vi.hoisted(() => vi.fn());
+const consumeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -23,7 +30,7 @@ vi.mock("@/config/site", async (orig) => {
 });
 vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
-  consumeDiagnosisAttempt: vi.fn(),
+  consumeDiagnosisAttempt: consumeMock,
 }));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
   fetchSurveyCopyOverrides: async () => new Map(),
@@ -45,7 +52,33 @@ const denied = (tenantReason: string | null) => ({
   quotaTotal: null,
   planEndsAt: null,
   tenantReason,
+  checkFailed: false,
 });
+
+function SubmitChild({ onResult }: { onResult: (v: unknown) => void }) {
+  const ctx = useOutletContext<{ submitDiagnosis: () => Promise<unknown> }>();
+  return (
+    <button
+      type="button"
+      onClick={async () => onResult(await ctx.submitDiagnosis())}
+    >
+      제출
+    </button>
+  );
+}
+
+function renderSubmit(onResult: (v: unknown) => void) {
+  return render(
+    <MemoryRouter initialEntries={["/survey"]}>
+      <Routes>
+        <Route path="/survey" element={<SurveyStepShell />}>
+          <Route index element={<SubmitChild onResult={onResult} />} />
+        </Route>
+        <Route path="/pricing" element={<p>결제 페이지</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
 
 function renderShell() {
   return render(
@@ -62,6 +95,7 @@ function renderShell() {
 
 beforeEach(() => {
   accessMock.mockReset();
+  consumeMock.mockReset();
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -98,5 +132,58 @@ describe("SurveyStepShell 진입 거부", () => {
         screen.getByRole("button", { name: "소속코드 입력" }),
       ).toBeInTheDocument(),
     );
+  });
+});
+
+describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
+  it("진입 판정을 못 받으면 제공하지 않는 서비스가 아니라 다시 시도 안내를 보인다", async () => {
+    gateState.on = true;
+    accessMock.mockResolvedValueOnce({
+      ...denied(null),
+      checkFailed: true,
+    });
+    renderShell();
+    expect(
+      await screen.findByText("이용 가능 여부를 확인하지 못했어요."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
+    ).not.toBeInTheDocument();
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByText("설문 화면")).toBeInTheDocument();
+  });
+
+  it("제출 소진 판정을 못 받으면 저장하지 않고 막는다", async () => {
+    gateState.on = true;
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+    consumeMock.mockResolvedValue({ outcome: "check-failed" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(window.alert).toHaveBeenCalled();
+    expect(screen.queryByText("결제 페이지")).not.toBeInTheDocument();
+  });
+
+  it("ATTEMPT_CONFLICT 는 서비스 막힘이 아니라 서버 메시지로 알린다", async () => {
+    gateState.on = true;
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+    consumeMock.mockResolvedValue({
+      outcome: "blocked",
+      code: "ATTEMPT_CONFLICT",
+      message: "이미 사용된 요청입니다. 다시 시도해 주세요.",
+      tenantReason: null,
+    });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(window.alert).toHaveBeenCalledWith(
+      "이미 사용된 요청입니다. 다시 시도해 주세요.",
+    );
+    expect(
+      screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
+    ).not.toBeInTheDocument();
   });
 });

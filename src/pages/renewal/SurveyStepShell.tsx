@@ -61,6 +61,8 @@ export default function SurveyStepShell() {
     reason: TenantBlockReason | null;
   } | null>(null);
   const [accessCheck, setAccessCheck] = useState(0);
+  // 스쿨멘토에서 진입 판정 자체를 못 받은 상태. 거부가 아니라 다시 시도하게 한다.
+  const [accessFailed, setAccessFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -79,6 +81,10 @@ export default function SurveyStepShell() {
     let alive = true;
     checkDiagnosisAccess().then((result) => {
       if (!alive) return;
+      if (result.checkFailed) {
+        setAccessFailed(true);
+        return;
+      }
       if (result.allowed) {
         // 무료 1회 사용자(부여된 이용권 없음)는 서버가 0행 UPDATE로 무해하게
         // 처리한다(fn_mark_program_entry는 program_access_grants 행이 있을 때만
@@ -151,8 +157,21 @@ export default function SurveyStepShell() {
     const consumeResult = await consumeDiagnosisAttempt(
       diagnosisAttemptIdRef.current,
     );
+    if (consumeResult.outcome === "check-failed") {
+      // 스쿨멘토는 소진 판정을 못 받으면 저장하지 않는다. 같은 attemptId 로 다시 시도하면 멱등이다.
+      window.alert(
+        "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+      );
+      return null;
+    }
     if (consumeResult.outcome === "blocked") {
       if (site.features.tenantServiceGate) {
+        // 충돌은 서비스 막힘이 아니다. 서버 메시지를 보이고 다음 시도에 새 attemptId 를 쓴다.
+        if (consumeResult.code === "ATTEMPT_CONFLICT") {
+          window.alert(consumeResult.message);
+          diagnosisAttemptIdRef.current = null;
+          return null;
+        }
         setTenantBlock({ reason: consumeResult.tenantReason });
         return null;
       }
@@ -220,6 +239,31 @@ export default function SurveyStepShell() {
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
   }, [answers, awaitCuts, navigate]);
+
+  if (accessFailed) {
+    return (
+      <main className="flex min-h-screen w-full items-center justify-center bg-[#FBFAFA] px-5 pt-16">
+        <div
+          role="status"
+          className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[#0D1B2A]/10 bg-white px-6 py-8 text-center"
+        >
+          <p className="text-sm font-extrabold text-[#0D1B2A]">
+            이용 가능 여부를 확인하지 못했어요.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setAccessFailed(false);
+              setAccessCheck((n) => n + 1);
+            }}
+            className="rounded-full bg-[#0D1B2A] px-5 py-2 text-xs font-extrabold text-white"
+          >
+            다시 시도
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (tenantBlock) {
     return (

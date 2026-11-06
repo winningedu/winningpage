@@ -9,7 +9,11 @@
  * 뒤늦게 잡는 쪽이 낫다는 정책이다. 반대로 서버가 **명시적으로** 거부한
  * 경우(이용권 없음/만료/회차 소진/attempt 충돌)는 절대 fail-open하지 않는다 —
  * 그건 판정이 됐다는 뜻이라 관대할 이유가 없다.
+ *
+ * 스쿨멘토(site.features.tenantServiceGate)는 기관 한도를 서버가 집행하므로 판정 불가를
+ * 열어 주지 않는다. 진입은 checkFailed, 제출은 check-failed 로 막고 다시 시도하게 한다.
  */
+import { site } from "@/config/site";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
@@ -21,17 +25,24 @@ export type DiagnosisAccessResult = {
   planEndsAt: string | null;
   /** 스쿨멘토 기관 거부 사유. 위닝 응답에는 없어 null 이다. */
   tenantReason: TenantBlockReason | null;
+  /** 스쿨멘토에서 판정을 못 받았다. 거부가 아니라 다시 시도해야 하는 상태다. */
+  checkFailed: boolean;
 };
 
-// 판정 불가(세션 없음/네트워크 실패/5xx) 시 반환값. allowed:true로 진입을 열어 준다.
-const ACCESS_FAIL_OPEN: DiagnosisAccessResult = {
-  allowed: true,
-  freeAvailable: null,
-  quotaRemaining: null,
-  quotaTotal: null,
-  planEndsAt: null,
-  tenantReason: null,
-};
+// 판정 불가(세션 없음/네트워크 실패/5xx) 시 반환값. 위닝은 allowed:true로 진입을 열어 주고
+// 스쿨멘토는 allowed:false 와 checkFailed 로 막는다.
+function accessUnverified(): DiagnosisAccessResult {
+  const closed = site.features.tenantServiceGate;
+  return {
+    allowed: !closed,
+    freeAvailable: null,
+    quotaRemaining: null,
+    quotaTotal: null,
+    planEndsAt: null,
+    tenantReason: null,
+    checkFailed: closed,
+  };
+}
 
 function normalizeQuota(value: unknown): number | null {
   return Number.isInteger(value) ? (value as number) : null;
@@ -48,7 +59,7 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
       console.warn(
         "[diagnosisAccess] 세션 토큰 없음 — fail-open으로 진입 허용",
       );
-      return ACCESS_FAIL_OPEN;
+      return accessUnverified();
     }
 
     const response = await apiFetch("/api/diagnosis/access", {
@@ -56,7 +67,9 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
       headers: authHeader,
     });
 
-    let result: Partial<Omit<DiagnosisAccessResult, "tenantReason">> & {
+    let result: Partial<
+      Omit<DiagnosisAccessResult, "tenantReason" | "checkFailed">
+    > & {
       detail?: string;
       tenantReason?: unknown;
     } = {};
@@ -72,7 +85,7 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
         response.status,
         result?.detail,
       );
-      return ACCESS_FAIL_OPEN;
+      return accessUnverified();
     }
 
     return {
@@ -83,13 +96,14 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
       quotaTotal: normalizeQuota(result.quotaTotal),
       planEndsAt: result.planEndsAt ?? null,
       tenantReason: parseTenantReason(result.tenantReason),
+      checkFailed: false,
     };
   } catch (error) {
     console.warn(
       "[diagnosisAccess] /api/diagnosis/access 호출 오류 — fail-open으로 진입 허용:",
       error,
     );
-    return ACCESS_FAIL_OPEN;
+    return accessUnverified();
   }
 }
 
@@ -111,7 +125,15 @@ export type DiagnosisConsumeResult =
       message: string;
       tenantReason: TenantBlockReason | null;
     }
-  | { outcome: "fail-open" };
+  | { outcome: "fail-open" }
+  | { outcome: "check-failed" };
+
+/** 소진 판정을 못 받았을 때. 위닝은 흘려보내고 스쿨멘토는 막는다. */
+function consumeUnverified(): DiagnosisConsumeResult {
+  return site.features.tenantServiceGate
+    ? { outcome: "check-failed" }
+    : { outcome: "fail-open" };
+}
 
 /**
  * 제출 소진. SurveyStepShell.submitDiagnosis가 리포트 정규화·저장 **직전**에
@@ -127,7 +149,7 @@ export async function consumeDiagnosisAttempt(
       console.warn(
         "[diagnosisAccess] consume 호출 시 세션 없음 — fail-open으로 제출 진행",
       );
-      return { outcome: "fail-open" };
+      return consumeUnverified();
     }
 
     const response = await apiFetch("/api/diagnosis/consume", {
@@ -172,12 +194,12 @@ export async function consumeDiagnosisAttempt(
       response.status,
       code,
     );
-    return { outcome: "fail-open" };
+    return consumeUnverified();
   } catch (error) {
     console.warn(
       "[diagnosisAccess] /api/diagnosis/consume 호출 오류 — fail-open으로 제출 진행:",
       error,
     );
-    return { outcome: "fail-open" };
+    return consumeUnverified();
   }
 }
