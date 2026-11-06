@@ -3,6 +3,8 @@
 import { useNavigate } from "react-router";
 import { AuthLayout } from "@/components/auth";
 import { type SchoolStep, useSignup } from "@/context/SignupContext";
+import StudentInfoStep from "./StudentInfoStep";
+import TenantStep from "./TenantStep";
 import TermsStep from "./TermsStep";
 
 const STEP_TITLES = [
@@ -39,6 +41,14 @@ export default function SchoolSignup() {
 
       {schoolStep === 1 && (
         <TermsStep onPrev={() => navigate("/signup")} onNext={() => goTo(2)} />
+      )}
+
+      {schoolStep === 2 && (
+        <TenantStep onPrev={() => goTo(1)} onNext={() => goTo(3)} />
+      )}
+
+      {schoolStep === 3 && (
+        <StudentInfoStep onPrev={() => goTo(2)} onNext={() => goTo(4)} />
       )}
     </AuthLayout>
   );
