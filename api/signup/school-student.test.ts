@@ -301,4 +301,52 @@ describe("POST /api/signup/school-student", () => {
       expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
     },
   );
+
+  test.each([
+    ["WC074", "signup_disabled", 403, "SIGNUP_CLOSED", undefined],
+    ["WC095", "username_taken", 409, "USERNAME_TAKEN", undefined],
+    ["WC096", "phone_taken", 409, "PHONE_TAKEN", undefined],
+    ["WC097", "tenant_not_found", 404, "TENANT_NOT_FOUND", undefined],
+    ["WC080", "group_not_registered", 400, "WC080", undefined],
+    ["P0001", "duplicate_email", 409, "EMAIL_TAKEN", undefined],
+    ["P0001", "already_signed_up", 409, "ALREADY_SIGNED_UP", undefined],
+    ["P0001", "phone_not_verified", 400, "PHONE_NOT_VERIFIED", undefined],
+    [
+      "P0001",
+      "guardian_phone_not_verified",
+      400,
+      "GUARDIAN_PHONE_NOT_VERIFIED",
+      undefined,
+    ],
+    ["P0001", "identity_not_verified", 400, "IDENTITY_REQUIRED", undefined],
+    ["P0001", "identity_purpose_mismatch", 400, "IDENTITY_REQUIRED", undefined],
+    ["P0001", "guardian_age", 400, "IDENTITY_REQUIRED", undefined],
+    ["P0001", "birth_date_required", 400, "VALIDATION", "birthDate"],
+    [
+      "P0001",
+      "guardian_consent_required",
+      400,
+      "VALIDATION",
+      "guardianConsent",
+    ],
+  ])(
+    "%s %s 는 %i %s 로 바꾸고 새로 만든 Auth 사용자를 지운다",
+    async (sqlstate, message, status, code, field) => {
+      happyPath();
+      kit.state.rpc.fn_student_signup = () => ({
+        data: null,
+        error: { code: sqlstate, message },
+      });
+
+      const r = await post(BODY);
+
+      expect(r.status).toBe(status);
+      expect(r.body).toMatchObject({ code });
+      expect((r.body as { message: string }).message).toEqual(
+        expect.any(String),
+      );
+      if (field) expect(r.body).toMatchObject({ field });
+      expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
+    },
+  );
 });
