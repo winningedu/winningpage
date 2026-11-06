@@ -16,6 +16,7 @@ import type {
   SessionInfo,
   SessionView,
 } from "@/lib/inquiry/types";
+import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 import { SUBJECT_GROUP } from "../../../../api/_lib/activityGroup.js";
 
 // ── 기본 정보 폼 ──────────────────────────────────────────────────────
@@ -460,8 +461,8 @@ export function recordPeriod(record: RecordCandidate): string | null {
 // ── 제출 오류 분기 ──────────────────────────────────────────────────────
 
 export type SubmitErrorView =
-  | { kind: "quota" }
-  | { kind: "entitlement" }
+  | { kind: "quota"; tenantReason: TenantBlockReason | null }
+  | { kind: "entitlement"; tenantReason: TenantBlockReason | null }
   | { kind: "locked"; text: string }
   | { kind: "message"; text: string };
 
@@ -474,18 +475,30 @@ const TIMEOUT_MESSAGE = "응답이 늦어지고 있어요. 잠시 뒤 다시 시
 export function submitErrorView(
   result:
     | { kind: "timeout" }
-    | { kind: "error"; status: number; code: string; message: string },
+    | {
+        kind: "error";
+        status: number;
+        code: string;
+        message: string;
+        extra?: Record<string, unknown> | undefined;
+      },
 ): SubmitErrorView {
   if (result.kind === "timeout")
     return { kind: "message", text: TIMEOUT_MESSAGE };
   if (result.status === 429 && result.code === "QUOTA_EXHAUSTED") {
-    return { kind: "quota" };
+    return {
+      kind: "quota",
+      tenantReason: parseTenantReason(result.extra?.tenantReason),
+    };
   }
   if (result.status === 409 && result.code === "SESSION_LOCKED") {
     return { kind: "locked", text: LOCKED_MESSAGE };
   }
   if (result.status === 403 && result.code === "NO_ENTITLEMENT") {
-    return { kind: "entitlement" };
+    return {
+      kind: "entitlement",
+      tenantReason: parseTenantReason(result.extra?.tenantReason),
+    };
   }
   if (result.status === 400 && result.message.trim() !== "") {
     return { kind: "message", text: result.message };

@@ -1,5 +1,7 @@
 import { Link } from "react-router";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { buttonVariants } from "@/components/ui/button";
+import { site } from "@/config/site";
 import type { SubmitErrorView } from "./infoLogic";
 
 const PRICING = "/pricing?service=inquiry";
@@ -8,6 +10,13 @@ const BOX =
 
 // 제출 실패 안내. 이용 횟수 소진(No.20), 이용권 없음, 잠김(409), 그 밖의 오류를 한 자리에서 그린다.
 export default function SubmitError({ error }: { error: SubmitErrorView }) {
+  // 스쿨멘토는 이용권을 사지 않는다(결정 99). 구매 링크 대신 기관 사유를 보인다.
+  if (
+    site.features.tenantServiceGate &&
+    (error.kind === "quota" || error.kind === "entitlement")
+  ) {
+    return <ServiceBlockedNotice reason={error.tenantReason} />;
+  }
   if (error.kind === "quota") {
     return (
       <section aria-labelledby="inquiry-submit-error" className={BOX}>
