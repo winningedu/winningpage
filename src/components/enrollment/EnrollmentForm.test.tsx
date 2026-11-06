@@ -108,6 +108,52 @@ describe("EnrollmentForm - 스스로 입력(self-assign)", () => {
   });
 });
 
+describe("EnrollmentForm - 실패와 입력 검사", () => {
+  it("요청이 예외로 끝나면 실패 문구를 보이고 버튼을 다시 누를 수 있다", async () => {
+    mockApiFetch.mockRejectedValue(new Error("network"));
+    render(
+      <EnrollmentForm
+        endpoint="self-assign"
+        orgType="학교"
+        initialGrade="고2"
+        submitLabel="저장"
+        onDone={vi.fn()}
+      />,
+    );
+
+    fill("고2", "3", "12");
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    );
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
+  });
+
+  it.each(["1e1", "12abc", "0x5", "-3", "1.5"])(
+    "번호 %s 는 숫자가 아니므로 보내지 않는다",
+    async (bad) => {
+      render(
+        <EnrollmentForm
+          endpoint="self-assign"
+          orgType="학교"
+          initialGrade="고2"
+          submitLabel="저장"
+          onDone={vi.fn()}
+        />,
+      );
+
+      fill("고2", "3", bad);
+      fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "번호는 숫자로 입력해 주세요.",
+      );
+      expect(mockApiFetch).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("EnrollmentForm - 그룹 칸", () => {
   it("학교가 아니면 그룹 칸이 보이고 입력한 그룹 이름을 함께 보낸다", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, { ok: true }));

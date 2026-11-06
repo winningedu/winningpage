@@ -1,5 +1,9 @@
 import { type FormEvent, useId, useState } from "react";
-import { type EnrollmentEndpoint, submitEnrollment } from "./api";
+import {
+  type EnrollmentEndpoint,
+  SUBMIT_FAILED,
+  submitEnrollment,
+} from "./api";
 
 // 학적 학년 값(student_enrollments.grade CHECK, api/_lib/console/enrollmentInput.ts 와 같다).
 const GRADES = ["중1", "중2", "중3", "고1", "고2", "고3"];
@@ -37,17 +41,26 @@ export default function EnrollmentForm({
       setErrorMsg("학년, 반, 번호를 모두 입력해 주세요.");
       return;
     }
+    if (!/^\d+$/.test(number.trim())) {
+      setErrorMsg("번호는 숫자로 입력해 주세요.");
+      return;
+    }
     setErrorMsg("");
     setSaving(true);
-    const result = await submitEnrollment(endpoint, {
-      grade,
-      ...(groupName.trim() && { groupName: groupName.trim() }),
-      className: className.trim(),
-      number: Number(number),
-    });
-    setSaving(false);
-    if (result.ok) onDone();
-    else setErrorMsg(result.message);
+    try {
+      const result = await submitEnrollment(endpoint, {
+        grade,
+        ...(groupName.trim() && { groupName: groupName.trim() }),
+        className: className.trim(),
+        number: Number(number.trim()),
+      });
+      if (result.ok) onDone();
+      else setErrorMsg(result.message);
+    } catch {
+      setErrorMsg(SUBMIT_FAILED);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

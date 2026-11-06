@@ -13,7 +13,7 @@ export interface EnrollmentInput {
 
 export type SubmitResult = { ok: true } | { ok: false; message: string };
 
-const SUBMIT_FAILED = "저장하지 못했어요. 잠시 후 다시 시도해 주세요.";
+export const SUBMIT_FAILED = "저장하지 못했어요. 잠시 후 다시 시도해 주세요.";
 
 export async function submitEnrollment(
   endpoint: EnrollmentEndpoint,
