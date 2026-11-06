@@ -98,6 +98,28 @@ export default defineHandler({
         });
       }
 
+      // 익명화로 profiles 행이 남으면 학적(student_enrollments)도 남아 교사 화면 통계에 들어온다(사 #112).
+      // 지우는 탈퇴는 profiles 외래키 cascade 가 학적을 같이 지운다. 재호출해도 같은 결과다.
+      if (mode !== "deleted") {
+        for (const table of ["student_enrollments", "enrollment_changes"]) {
+          const { error: enrollmentError } = await supabaseAdmin
+            .from(table)
+            .delete()
+            .eq("student_id", userId);
+          if (enrollmentError) {
+            console.error(
+              `[delete-account] ${table} 정리 실패:`,
+              enrollmentError,
+            );
+            return void res.status(500).json({
+              ok: false,
+              reason: "unknown",
+              detail: "탈퇴 처리 중 오류가 발생했습니다. 다시 시도해 주세요.",
+            });
+          }
+        }
+      }
+
       if (mode === "deleted") {
         const { error: authDeleteError } =
           await supabaseAdmin.auth.admin.deleteUser(userId);
