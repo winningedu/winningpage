@@ -96,6 +96,7 @@ export default defineHandler({
       });
     if (availableError) throw availableError;
     if (available !== true) {
+      auditLog({ outcome: "rejected", code: "USERNAME_TAKEN" });
       res.status(409).json({
         code: "USERNAME_TAKEN",
         message: "이미 사용 중인 아이디입니다.",
@@ -141,6 +142,7 @@ export default defineHandler({
           field: "password",
         });
       } else {
+        auditLog({ outcome: "rejected", code: "EMAIL_TAKEN" });
         res.status(409).json({
           code: "EMAIL_TAKEN",
           message: "이미 가입된 이메일입니다.",

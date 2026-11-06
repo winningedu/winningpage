@@ -503,4 +503,38 @@ describe("POST /api/signup/school-student", () => {
       expect(line).not.toContain(pii);
     }
   });
+
+  test.each([
+    [
+      "USERNAME_TAKEN",
+      () =>
+        (kit.state.rpc.is_username_available = () => ({
+          data: false,
+          error: null,
+        })),
+    ],
+    [
+      "EMAIL_TAKEN",
+      () =>
+        kit.state.auth.createUser.mockResolvedValue({
+          data: { user: null },
+          error: { code: "email_exists", status: 422 },
+        }),
+    ],
+  ])("%s 거절도 개인정보 없이 한 줄 로그로 남긴다", async (code, arrange) => {
+    happyPath();
+    arrange();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(409);
+    expect(info).toHaveBeenCalledTimes(1);
+    const line = String(info.mock.calls[0]?.[0]);
+    expect(line).toContain("outcome=rejected");
+    expect(line).toContain(`code=${code}`);
+    for (const pii of ["홍길동", "gildong", "student01", "1234"]) {
+      expect(line).not.toContain(pii);
+    }
+  });
 });
