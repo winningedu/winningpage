@@ -77,3 +77,40 @@ export function enableRow(
     termLimit: text(termLimit),
   };
 }
+
+const LIMIT_MESSAGE = "한도는 1 이상 32767 이하의 정수로 넣어 주세요.";
+const PERIOD_MESSAGE = "서비스 시작일은 종료일보다 늦을 수 없어요.";
+
+const isLimit = (value: string) =>
+  value === "" || (/^\d+$/.test(value) && +value >= 1 && +value <= 32767);
+
+/** DB 제약(smallint > 0, 기간 순서)과 같은 규칙을 저장 전에 알려 준다. 문제가 없으면 null. */
+export function validateServiceRow(row: ServiceRowForm): string | null {
+  if (!isLimit(row.monthlyLimit.trim()) || !isLimit(row.termLimit.trim()))
+    return LIMIT_MESSAGE;
+  if (row.startsOn && row.endsOn && row.startsOn > row.endsOn)
+    return PERIOD_MESSAGE;
+  return null;
+}
+
+const blankToNull = (value: string) => (value.trim() === "" ? null : value);
+const numberOrNull = (value: string) =>
+  value.trim() === "" ? null : Number(value);
+
+/** 한 행의 upsert 본문. 끄기는 enabled false 이고 행은 지우지 않는다(DELETE 권한이 없다). */
+export function settingPayload(
+  tenantId: string,
+  row: ServiceRowForm,
+  userId: string,
+) {
+  return {
+    tenant_id: tenantId,
+    program_key: row.programKey,
+    enabled: row.provided,
+    starts_on: blankToNull(row.startsOn),
+    ends_on: blankToNull(row.endsOn),
+    monthly_limit: numberOrNull(row.monthlyLimit),
+    term_limit: numberOrNull(row.termLimit),
+    updated_by: userId,
+  };
+}

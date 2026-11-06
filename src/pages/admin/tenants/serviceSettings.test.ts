@@ -5,7 +5,9 @@ import {
   type ProgramKey,
   SERVICE_PROGRAMS,
   type ServiceRowForm,
+  settingPayload,
   type UsageDefaults,
+  validateServiceRow,
 } from "./serviceSettings";
 
 const DEFAULTS: UsageDefaults = {
@@ -128,5 +130,64 @@ describe("enableRow", () => {
       provided: true,
       monthlyLimit: "5",
     });
+  });
+});
+
+describe("settingPayload", () => {
+  const base = rowOf(buildServiceRows([]), "diagnose");
+
+  test("빈 칸은 null, 숫자 칸은 정수로 바꾸고 updated_by 를 싣는다", () => {
+    const row = {
+      ...base,
+      provided: true,
+      startsOn: "2026-03-01",
+      monthlyLimit: "3",
+    };
+
+    expect(settingPayload("tenant-7", row, "user-1")).toEqual({
+      tenant_id: "tenant-7",
+      program_key: "diagnose",
+      enabled: true,
+      starts_on: "2026-03-01",
+      ends_on: null,
+      monthly_limit: 3,
+      term_limit: null,
+      updated_by: "user-1",
+    });
+  });
+
+  test("제공 안 함은 enabled false 로 보낸다(행을 지우지 않는다)", () => {
+    expect(settingPayload("tenant-7", base, "user-1").enabled).toBe(false);
+  });
+});
+
+describe("validateServiceRow", () => {
+  const base = { ...rowOf(buildServiceRows([]), "diagnose"), provided: true };
+
+  test("정상 값과 빈 한도는 통과한다", () => {
+    expect(validateServiceRow(base)).toBeNull();
+    expect(validateServiceRow({ ...base, monthlyLimit: "2" })).toBeNull();
+  });
+
+  test.each(["0", "-1", "1.5", "abc", "40000"])(
+    "한도 %s 는 거절한다",
+    (value) => {
+      expect(validateServiceRow({ ...base, monthlyLimit: value })).toBe(
+        "한도는 1 이상 32767 이하의 정수로 넣어 주세요.",
+      );
+      expect(validateServiceRow({ ...base, termLimit: value })).toBe(
+        "한도는 1 이상 32767 이하의 정수로 넣어 주세요.",
+      );
+    },
+  );
+
+  test("시작일이 종료일보다 늦으면 거절한다", () => {
+    expect(
+      validateServiceRow({
+        ...base,
+        startsOn: "2026-05-01",
+        endsOn: "2026-04-01",
+      }),
+    ).toBe("서비스 시작일은 종료일보다 늦을 수 없어요.");
   });
 });
