@@ -202,6 +202,109 @@ select pg_temp.expect_bool('service_role 은 fn_signup_tenant_lookup 실행 가�
   pg_temp.lookup_s('SA222222', '203.0.113.9') like '%:SA222222 기관:학교', true);
 reset role;
 
+-- ---------------------------------------------------------------------
+-- fn_student_signup: 가입 확정. 픽스처
+-- ---------------------------------------------------------------------
+insert into public.app_settings (key, value) values ('signup_enabled', 'true'::jsonb)
+  on conflict (key) do update set value = 'true'::jsonb;
+
+-- 약관은 데이터 SQL 로 들어가는 행이라 이 스펙이 직접 만든다(롤백된다).
+delete from public.user_term_agreements;
+delete from public.terms where code in ('student_service', 'student_privacy', 'student_db_transfer', 'student_marketing');
+insert into public.terms (code, version, audience, title, is_required, profile_column) values
+  ('student_service', 'T1', 'student', '이용약관', true, 'terms_service_agreed'),
+  ('student_privacy', 'T1', 'student', '개인정보', true, 'privacy_required_agreed'),
+  ('student_db_transfer', 'T1', 'student', 'DB 전환', true, null),
+  ('student_marketing', 'T1', 'student', '마케팅', false, 'marketing_agreed');
+
+-- handle_new_user 트리거가 만드는 상태(auth.users 와 빈 profiles 행)를 흉내 낸다.
+create function pg_temp.new_user(p_email text) returns uuid
+language plpgsql as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, aud, role) values (v_id, p_email, 'authenticated', 'authenticated');
+  insert into public.profiles (id, email, role) values (v_id, p_email, 'user');
+  return v_id;
+end $$;
+
+-- 문자 인증을 통과한 상태의 phone_verifications 행
+create function pg_temp.verify(p_phone text, p_purpose text default 'signup') returns void
+language plpgsql as $$
+begin
+  insert into public.phone_verifications (phone, code_hash, purpose, verified_at, expires_at)
+  values (regexp_replace(p_phone, '[^0-9]', '', 'g'), 'x', p_purpose, now(), now() + interval '10 minutes');
+end $$;
+
+-- 기본값으로 fn_student_signup 을 부른다. p 에 키가 있으면 그 값(JSON null 은 SQL null)으로 덮는다.
+create function pg_temp.su(p_user uuid, p jsonb default '{}') returns jsonb
+language plpgsql as $$
+begin
+  return public.fn_student_signup(
+    p_user_id => p_user,
+    p_username => case when p ? 'username' then p->>'username' else 'kimstu01' end,
+    p_name => case when p ? 'name' then p->>'name' else '김학생' end,
+    p_email => case when p ? 'email' then p->>'email' else 'Stu01@Example.com' end,
+    p_phone => case when p ? 'phone' then p->>'phone' else '010-4000-0001' end,
+    p_birth_date => case when p ? 'birth_date' then (p->>'birth_date')::date else date '2010-03-02' end,
+    p_gender => case when p ? 'gender' then p->>'gender' else '남' end,
+    p_tenant_id => case when p ? 'tenant_id' then (p->>'tenant_id')::uuid
+                        else (select id from public.tenants where code = 'SA222222') end,
+    p_grade => case when p ? 'grade' then p->>'grade' else '고1' end,
+    p_group_name => case when p ? 'group_name' then p->>'group_name' else null end,
+    p_class_name => case when p ? 'class_name' then p->>'class_name' else '3' end,
+    p_number => case when p ? 'number' then (p->>'number')::smallint else 7::smallint end,
+    p_guardian_name => case when p ? 'guardian_name' then p->>'guardian_name' else null end,
+    p_guardian_phone => case when p ? 'guardian_phone' then p->>'guardian_phone' else null end,
+    p_guardian_relation => case when p ? 'guardian_relation' then p->>'guardian_relation' else null end,
+    p_guardian_consent => case when p ? 'guardian_consent' then (p->>'guardian_consent')::boolean else false end,
+    p_identity_request_id => case when p ? 'identity_request_id' then p->>'identity_request_id' else null end,
+    p_agree_service => case when p ? 'agree_service' then (p->>'agree_service')::boolean else true end,
+    p_agree_privacy => case when p ? 'agree_privacy' then (p->>'agree_privacy')::boolean else true end,
+    p_agree_db_transfer => case when p ? 'agree_db_transfer' then (p->>'agree_db_transfer')::boolean else true end,
+    p_agree_marketing => case when p ? 'agree_marketing' then (p->>'agree_marketing')::boolean else false end
+  );
+end $$;
+
+-- ---------------------------------------------------------------------
+-- 14세 이상 학교 학생 가입이 프로필, 학년, 학적, 약관, 연결코드를 한 번에 만든다
+-- ---------------------------------------------------------------------
+select pg_temp.new_user('stu01@example.com') as uid \gset a_
+select pg_temp.verify('010-4000-0001');
+select pg_temp.su(:'a_uid'::uuid) as r \gset a_
+
+select pg_temp.expect_bool('가입 결과 ok', (:'a_r'::jsonb)->>'ok' = 'true', true);
+select pg_temp.expect_text('프로필: 학생, 아이디 소문자, 이메일 소문자',
+  (select member_type || ':' || username || ':' || email from public.profiles where id = :'a_uid'::uuid),
+  'student:kimstu01:stu01@example.com');
+select pg_temp.expect_text('프로필: 이름, 전화, 생일, 성별',
+  (select name || ':' || phone || ':' || birth_date || ':' || gender from public.profiles where id = :'a_uid'::uuid),
+  '김학생:010-4000-0001:2010-03-02:남');
+select pg_temp.expect_bool('프로필: 기관이 정해진다',
+  (select tenant_id = (select id from public.tenants where code = 'SA222222') from public.profiles where id = :'a_uid'::uuid), true);
+select pg_temp.expect_text('프로필: 학교 소속이면 school_name 이 기관명, 지역과 학교 유형은 비운다',
+  (select coalesce(school_name, '-') || ':' || coalesce(region, '-') || ':' || coalesce(school_type, '-') from public.profiles where id = :'a_uid'::uuid),
+  'SA222222 기관:-:-');
+select pg_temp.expect_text('프로필: 약관 동의 열',
+  (select terms_service_agreed || ':' || privacy_required_agreed || ':' || marketing_agreed from public.profiles where id = :'a_uid'::uuid),
+  'true:true:false');
+select pg_temp.expect_text('student_profiles 에 학년이 들어간다',
+  (select grade from public.student_profiles where profile_id = :'a_uid'::uuid), '고1');
+select pg_temp.expect_text('학적: 학년, 반, 번호',
+  (select e.grade || ':' || c.name || ':' || e.number from public.student_enrollments e
+     join public.classes c on c.id = e.class_id where e.student_id = :'a_uid'::uuid), '고1:3:7');
+select pg_temp.expect_int('학적 변경 이력 signup 1건',
+  (select count(*) from public.enrollment_changes where student_id = :'a_uid'::uuid and kind = 'signup'), 1);
+select pg_temp.expect_int('약관 동의 기록은 약관 4종 전부', (select count(*) from public.user_term_agreements where user_id = :'a_uid'::uuid), 4);
+select pg_temp.expect_text('약관 동의: DB 전환 true, 마케팅 false',
+  (select string_agg(t.code || '=' || a.agreed, ',' order by t.code) from public.user_term_agreements a
+     join public.terms t on t.id = a.term_id where a.user_id = :'a_uid'::uuid and t.code in ('student_db_transfer', 'student_marketing')),
+  'student_db_transfer=true,student_marketing=false');
+select pg_temp.expect_bool('연결코드 발급, 결과에 같은 코드',
+  (select code = (:'a_r'::jsonb)->>'link_code' from public.student_link_codes where student_id = :'a_uid'::uuid and is_active), true);
+select pg_temp.expect_int('문자 인증은 소비된다',
+  (select count(*) from public.phone_verifications where phone = '01040000001' and consumed_at is not null), 1);
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;

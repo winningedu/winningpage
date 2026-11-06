@@ -81,3 +81,117 @@ revoke all on function public.fn_signup_tenant_lookup(text, text) from public, a
 grant execute on function public.fn_signup_tenant_lookup(text, text) to service_role;
 
 comment on function public.fn_signup_tenant_lookup(text, text) is '계정 만들기 전 소속코드 조회(service_role 전용). ip 당 1시간 실패 10회면 WC068. 못 찾으면 실패 기록을 남기고 0행(raise 하지 않는다). ip 가 비면 22023.';
+
+-- 5) 스쿨멘토 학생 가입 확정. API 가 auth.admin.createUser 로 계정을 만든 뒤 한 트랜잭션으로 부른다.
+-- complete_signup_profile 과 달리 로그인 세션(auth.uid)이 필요 없고 위닝 전용 필수값(지역, 학교 유형)이 없다.
+-- 어느 단계든 예외로 끝나면 이 호출의 쓰기가 전부 롤백된다(문자 인증도 소비되지 않는다).
+create function public.fn_student_signup(
+  p_user_id uuid,
+  p_username text,
+  p_name text,
+  p_email text,
+  p_phone text,
+  p_birth_date date,
+  p_gender text,
+  p_tenant_id uuid,
+  p_grade text,
+  p_group_name text,
+  p_class_name text,
+  p_number smallint,
+  p_guardian_name text,
+  p_guardian_phone text,
+  p_guardian_relation text,
+  p_guardian_consent boolean,
+  p_identity_request_id text,
+  p_agree_service boolean,
+  p_agree_privacy boolean,
+  p_agree_db_transfer boolean,
+  p_agree_marketing boolean
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_username text := lower(btrim(coalesce(p_username, '')));
+  v_name text := btrim(coalesce(p_name, ''));
+  v_email text := lower(btrim(coalesce(p_email, '')));
+  v_phone text := btrim(coalesce(p_phone, ''));
+  v_phone_digits text;
+  v_tenant public.tenants;
+  v_pv_id uuid;
+  v_link_code text;
+begin
+  v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
+
+  select * into v_tenant from public.tenants t where t.id = p_tenant_id;
+
+  -- 본인 번호 문자 인증(가입 목적, 10분 안, 아직 안 쓴 것). 행 잠금 아래에서 소비한다.
+  select v.id into v_pv_id
+    from public.phone_verifications v
+   where v.phone = v_phone_digits
+     and v.purpose = 'signup'
+     and v.verified_at is not null
+     and v.consumed_at is null
+     and v.verified_at > now() - interval '10 minutes'
+   order by v.verified_at desc
+   limit 1
+     for update;
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+
+  insert into public.profiles (
+    id, name, username, phone, email, school_name, member_type, role,
+    terms_service_agreed, privacy_required_agreed, marketing_agreed,
+    birth_date, gender, tenant_id, updated_at
+  ) values (
+    p_user_id, v_name, v_username, v_phone, v_email,
+    case when v_tenant.org_type = '학교' then v_tenant.name end, 'student', 'user',
+    coalesce(p_agree_service, false), coalesce(p_agree_privacy, false), coalesce(p_agree_marketing, false),
+    p_birth_date, nullif(btrim(coalesce(p_gender, '')), ''), v_tenant.id, now()
+  )
+  on conflict (id) do update set
+    name = excluded.name, username = excluded.username, phone = excluded.phone, email = excluded.email,
+    school_name = excluded.school_name, member_type = excluded.member_type,
+    terms_service_agreed = excluded.terms_service_agreed,
+    privacy_required_agreed = excluded.privacy_required_agreed,
+    marketing_agreed = excluded.marketing_agreed,
+    birth_date = excluded.birth_date, gender = excluded.gender, tenant_id = excluded.tenant_id,
+    updated_at = now();
+
+  update public.phone_verifications set consumed_at = now() where id = v_pv_id and consumed_at is null;
+
+  insert into public.student_profiles (profile_id, grade) values (p_user_id, p_grade)
+  on conflict (profile_id) do update set grade = excluded.grade, updated_at = now();
+
+  insert into public.user_term_agreements (user_id, term_id, agreed)
+  select p_user_id, t.id,
+    case t.code
+      when 'student_service' then coalesce(p_agree_service, false)
+      when 'student_privacy' then coalesce(p_agree_privacy, false)
+      when 'student_db_transfer' then coalesce(p_agree_db_transfer, false)
+      when 'student_marketing' then coalesce(p_agree_marketing, false)
+    end
+    from public.terms t
+   where t.is_active
+     and t.code in ('student_service', 'student_privacy', 'student_db_transfer', 'student_marketing')
+  on conflict (user_id, term_id) do update set agreed = excluded.agreed, agreed_at = now();
+
+  v_link_code := public.issue_student_link_code(p_user_id);
+
+  perform public.fn_enrollment_join(p_user_id, v_tenant.id, p_grade, p_group_name, p_class_name, p_number);
+
+  return jsonb_build_object(
+    'ok', true,
+    'id', p_user_id,
+    'username', v_username,
+    'email', v_email,
+    'tenant_id', v_tenant.id,
+    'tenant_name', v_tenant.name,
+    'link_code', v_link_code
+  );
+end;
+$$;
+
+revoke all on function public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean) from public, anon, authenticated;
+grant execute on function public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean) to service_role;
