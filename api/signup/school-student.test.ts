@@ -360,10 +360,6 @@ describe("POST /api/signup/school-student", () => {
         data: { user: null },
         error: { code: "email_exists", status: 422 },
       });
-      kit.state.rpc.fn_auth_user_id_by_email = () => ({
-        data: "old-1",
-        error: null,
-      });
       kit.state.rows.profiles = () => profile;
     }
 
