@@ -53,6 +53,7 @@ function happyPath() {
   });
   kit.state.rpc.is_username_available = () => ({ data: true, error: null });
   kit.state.rpc.fn_student_signup = () => ({ data: SIGNUP_OK, error: null });
+  kit.state.rows.phone_verifications = () => [{ id: "pv-1" }];
   kit.signIn.mockResolvedValue({
     data: {
       user: { id: "auth-user-1" },
@@ -140,6 +141,53 @@ describe("POST /api/signup/school-student", () => {
       expect(kit.state.auth.createUser).not.toHaveBeenCalled();
     },
   );
+
+  test("본인 번호 인증이 없으면 400 PHONE_NOT_VERIFIED 이고 계정을 만들지 않는다", async () => {
+    happyPath();
+    kit.state.rows.phone_verifications = () => [];
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "PHONE_NOT_VERIFIED" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("인증은 가입 목적, 숫자만 번호, 10분 안의 것만 찾는다", async () => {
+    happyPath();
+    let seen: Record<string, unknown> = {};
+    kit.state.rows.phone_verifications = (filters) => {
+      seen = filters;
+      return [{ id: "pv-1" }];
+    };
+    const before = Date.now();
+
+    await post(BODY);
+
+    expect(seen).toMatchObject({ phone: "01012345678", purpose: "signup" });
+    const cutoff = new Date(String(seen["verified_at>="])).getTime();
+    expect(before - cutoff).toBeGreaterThanOrEqual(10 * 60 * 1000 - 1000);
+    expect(before - cutoff).toBeLessThanOrEqual(10 * 60 * 1000 + 5000);
+  });
+
+  test("본인 번호가 없는 가입(14세 미만)은 번호 인증을 조회하지 않는다", async () => {
+    happyPath();
+    const { phone, birthDate, gender, ...rest } = BODY;
+    void phone;
+    void birthDate;
+    void gender;
+
+    await post({
+      ...rest,
+      guardianPhone: "010-9999-0000",
+      guardianConsent: true,
+      identityRequestId: "req-1",
+    });
+
+    expect(
+      kit.state.reads.some((read) => read.table === "phone_verifications"),
+    ).toBe(false);
+  });
 
   test("14세 미만 본인확인 가입은 phone, birthDate, gender 없이도 형식 검사를 통과한다", async () => {
     const { phone, birthDate, gender, ...rest } = BODY;

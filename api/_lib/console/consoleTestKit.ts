@@ -202,7 +202,8 @@ export function createFakeAdmin(state: KitState) {
         filters[`${col}>=`] = value;
         return chain;
       };
-      for (const m of ["like", "ilike", "range"]) chain[m] = () => chain;
+      for (const m of ["like", "ilike", "range", "is", "not"])
+        chain[m] = () => chain;
       chain.limit = (count: number) => {
         read.limit = count;
         return chain;

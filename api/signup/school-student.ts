@@ -103,6 +103,31 @@ export default defineHandler({
       return;
     }
 
+    // 본인 번호 문자 인증을 가입 확정(fn_student_signup)과 같은 규칙으로 미리 본다(가입 목적, 10분 안,
+    // 아직 안 쓴 것). 없으면 Auth 사용자를 만들었다 지우지 않는다. 소비와 최종 판정은 DB 가 한다.
+    if (input.phone !== null) {
+      const { data: verified, error: verifiedError } = await ctx.supabaseAdmin
+        .from("phone_verifications")
+        .select("id")
+        .eq("phone", input.phone)
+        .eq("purpose", "signup")
+        .not("verified_at", "is", null)
+        .is("consumed_at", null)
+        .gte("verified_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+        .limit(1);
+      if (verifiedError) throw verifiedError;
+      if (!verified?.length) {
+        const failure = mapSignupRpcError(
+          { message: "phone_not_verified" },
+          input.name,
+        );
+        if (!failure) throw new Error("phone_not_verified mapping missing");
+        const { status, ...body } = failure;
+        res.status(status).json(body);
+        return;
+      }
+    }
+
     const authUser = await createSignupAuthUser(
       ctx.supabaseAdmin,
       input.email,
