@@ -10,4 +10,6 @@ values ('teacherConsoleProxy', '서비스 관리', '교사 콘솔 대리 접속'
 on conflict (key) do nothing;
 
 -- 실행 기록
--- (미실행) dev / Winning prod / Schoolmentor prod: 실행 후 이 줄에 날짜, 대상 DB, 전후 행 수를 적는다.
+-- 2026-11-06 dev gjowqdiopinhixfivnkx: 실행 전 teacherConsoleProxy 1행(이미 있음), 실행 후 1행, 재실행 변경 없음
+-- 2026-11-06 Winning prod ykrpjcsubmbenfcnwlzd: 실행 전 0행, 실행 후 1행, 재실행 변경 없음
+-- 2026-11-06 Schoolmentor prod aalujumpwlnwlemnqrus: 실행 전 0행, 실행 후 1행, 재실행 변경 없음
