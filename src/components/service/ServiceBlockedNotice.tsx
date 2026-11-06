@@ -15,7 +15,7 @@ export default function ServiceBlockedNotice({
   className = "",
 }: {
   reason: TenantBlockReason | null;
-  onJoined?: () => void;
+  onJoined?: (() => void) | undefined;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
