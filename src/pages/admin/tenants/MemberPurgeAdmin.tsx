@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
@@ -36,6 +36,8 @@ export default function MemberPurgeAdmin() {
   const [typedName, setTypedName] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PurgeResult | null>(null);
+  // 가장 최근에 미리보기를 요청한 기관. 늦게 도착한 옛 기관의 응답은 버린다.
+  const requestedTenant = useRef("");
 
   useEffect(() => {
     let active = true;
@@ -58,10 +60,12 @@ export default function MemberPurgeAdmin() {
   }, []);
 
   async function loadPreview(id: string) {
+    requestedTenant.current = id;
     setPreview(null);
     setSelected(new Set());
     if (!id) return;
     const loaded = await fetchMemberPurgePreview(id);
+    if (requestedTenant.current !== id) return;
     if (!loaded.ok) {
       setError(loaded.message);
       return;

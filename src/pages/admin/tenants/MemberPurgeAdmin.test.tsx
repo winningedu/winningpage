@@ -155,6 +155,37 @@ describe("MemberPurgeAdmin", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  test("먼저 고른 기관의 미리보기가 늦게 도착해도 지금 고른 기관의 목록을 덮어쓰지 않는다", async () => {
+    db.tenants = [TENANT, { ...TENANT, id: "tenant-8", name: "새빛고" }];
+    let resolveSlow: (value: ReturnType<typeof preview>) => void = () => {};
+    vi.mocked(api.fetchMemberPurgePreview).mockImplementation((id) =>
+      id === "tenant-7"
+        ? new Promise((resolve) => {
+            resolveSlow = resolve;
+          })
+        : Promise.resolve(
+            preview(-36, [
+              { ...STUDENTS[0], id: "s-9", name: "최*새", protected: false },
+            ]),
+          ),
+    );
+    render(<MemberPurgeAdmin />);
+    const select = await screen.findByLabelText("기관");
+    await screen.findByRole("option", { name: /새빛고/ });
+    fireEvent.change(select, { target: { value: "tenant-7" } });
+    fireEvent.change(select, { target: { value: "tenant-8" } });
+    await screen.findByText("최*새");
+
+    resolveSlow(preview(-36));
+    await waitFor(() =>
+      expect(api.fetchMemberPurgePreview).toHaveBeenCalledTimes(2),
+    );
+    await Promise.resolve();
+
+    expect(screen.getByText("최*새")).toBeTruthy();
+    expect(screen.queryByText("김*늘")).toBeNull();
+  });
+
   test("처리하지 못한 학생이 있으면 다시 실행해 달라는 안내를 보여 주고, 없으면 보여 주지 않는다", async () => {
     vi.mocked(api.runMemberPurge).mockResolvedValueOnce({
       ok: true,
