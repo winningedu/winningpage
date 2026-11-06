@@ -25,6 +25,7 @@
 //   모델 원문을 응답에 싣지 않으므로(`recommend-topics.js`의 `fail()`) 그대로 화면에 띄워도
 //   내부 정보가 새지 않는다. 서버 문구가 없을 때만 아래 폴백을 쓴다.
 
+import { parseTenantReason, type TenantBlockReason } from "../tenantBlock";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
 
 const NETWORK_ERROR =
@@ -61,6 +62,8 @@ class TopicRequestError extends Error {
   planEndsAt: string | null;
   round: number | null;
   maxRounds: number | null;
+  /** 스쿨멘토 기관 거부 사유. 위닝 응답에는 없어 null 이다. */
+  tenantReason: TenantBlockReason | null;
 
   constructor(
     code: string,
@@ -70,6 +73,7 @@ class TopicRequestError extends Error {
       planEndsAt?: string | null;
       round?: number | null;
       maxRounds?: number | null;
+      tenantReason?: unknown;
     } = {},
   ) {
     super(message);
@@ -80,6 +84,7 @@ class TopicRequestError extends Error {
     this.planEndsAt = extra.planEndsAt ?? null;
     this.round = extra.round ?? null;
     this.maxRounds = extra.maxRounds ?? null;
+    this.tenantReason = parseTenantReason(extra.tenantReason);
   }
 }
 
@@ -135,6 +140,7 @@ export async function recommendTopics({
         planEndsAt: data?.planEndsAt,
         round: data?.round,
         maxRounds: data?.maxRounds,
+        tenantReason: data?.tenantReason,
       },
     );
   }
