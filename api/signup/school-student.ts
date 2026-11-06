@@ -5,7 +5,10 @@
 import { createLoginAuthClient } from "../_lib/auth/login.js";
 import { defineHandler } from "../_lib/handler.js";
 import { getClientIp } from "../_lib/phoneCode.js";
-import { createSignupAuthUser } from "../_lib/signup/authUser.js";
+import {
+  createSignupAuthUser,
+  discardSignupAuthUser,
+} from "../_lib/signup/authUser.js";
 import { parseSchoolStudentBody } from "../_lib/signup/schoolStudent.js";
 import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { lookupSignupTenant } from "../_lib/signup/tenant.js";
@@ -72,7 +75,7 @@ export default defineHandler({
       }
     }
 
-    const { userId } = await createSignupAuthUser(
+    const { userId, created } = await createSignupAuthUser(
       ctx.supabaseAdmin,
       input.email,
       input.password,
@@ -104,7 +107,10 @@ export default defineHandler({
         p_agree_marketing: input.agreeMarketing,
       },
     );
-    if (signupError) throw signupError;
+    if (signupError) {
+      if (created) await discardSignupAuthUser(ctx.supabaseAdmin, userId);
+      throw signupError;
+    }
 
     const { data: signed, error: signInError } = await createLoginAuthClient(
       ip,

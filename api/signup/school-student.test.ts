@@ -254,4 +254,23 @@ describe("POST /api/signup/school-student", () => {
     expect(signupCalls[0]).toMatchObject({ p_tenant_id: null });
     expect(r.status).toBe(200);
   });
+
+  test("가입 확정이 실패하면 방금 만든 Auth 사용자를 지운다", async () => {
+    happyPath();
+    kit.state.rpc.fn_student_signup = () => ({
+      data: null,
+      error: { code: "XX000", message: "boom" },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const r = await post(BODY);
+
+    expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
+    expect(kit.state.events.slice(-2)).toEqual([
+      "rpc:fn_student_signup",
+      "auth:deleteUser",
+    ]);
+    expect(r.status).toBe(500);
+    expect(kit.signIn).not.toHaveBeenCalled();
+  });
 });
