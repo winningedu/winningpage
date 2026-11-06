@@ -161,7 +161,8 @@ export async function attemptLogin(
   );
   const begin = (
     data as
-      { outcome: string; attempt_no: number; retry_after_s: number }[] | null
+      | { outcome: string; attempt_no: number; retry_after_s: number }[]
+      | null
   )?.[0];
   if (beginError || !begin) return RETRY_FAILURE;
 
