@@ -73,10 +73,11 @@ export function tenantReasonOf(
 }
 
 /** 오류 응답 extra 에 펼치는 조각. 사유가 없으면 빈 객체라 위닝 응답은 바뀌지 않는다. */
-export function tenantReasonExtra(
-  reason: TenantDenyReason | null | undefined,
-): { tenantReason?: TenantDenyReason } {
-  return reason ? { tenantReason: reason } : {};
+export function tenantReasonExtra(reason: unknown): {
+  tenantReason?: TenantDenyReason;
+} {
+  const known = tenantReasonOf(typeof reason === "string" ? reason : null);
+  return known ? { tenantReason: known } : {};
 }
 
 const CAP_REASONS: ReadonlySet<string> = new Set(["month_cap", "term_cap"]);

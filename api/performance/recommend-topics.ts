@@ -85,6 +85,10 @@ import {
   TOPIC_PROMPT_VERSION,
   TOPIC_RECOMMENDATION_SCHEMA,
 } from "../_lib/performance/prompts.js";
+import {
+  consumePerformanceCredit,
+  performanceCapDenial,
+} from "../_lib/performance/tenantCredit.js";
 import { TOPIC_MAX_ROUNDS as MAX_ROUNDS } from "../_lib/performance/topic-rounds.js";
 import {
   findProgramAccessRow,
@@ -92,6 +96,8 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
@@ -342,18 +348,20 @@ export default defineHandler({
     // ── 이용권 재판정(§8.6 공통 규약). 클라이언트 가드 통과 여부를 신뢰하지 않는다.
     //    회차 **잔여**는 여기서 보지 않는다 — 잔여 판정과 차감은 RPC가 한 트랜잭션에서
     //    같이 해야 두 탭 경쟁에서 갈리지 않는다(§9.3 「멱등 차감」).
-    const { allowed: hasAccess } = await hasPaidServiceAccess(
-      supabaseAdmin,
-      userId,
-      // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-      SERVICE_CONFIGS[SERVICE_KEY]!,
-    );
+    const { allowed: hasAccess, reason: accessReason } =
+      await hasPaidServiceAccess(
+        supabaseAdmin,
+        userId,
+        // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+        SERVICE_CONFIGS[SERVICE_KEY]!,
+      );
     if (!hasAccess) {
       return fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+        tenantReasonExtra(accessReason),
       );
     }
 
@@ -569,7 +577,36 @@ export default defineHandler({
     //    **판정 권위는 그대로 RPC에 있다.** 여기서 TOCTOU로 새더라도 아래 차감 단계가
     //    최종적으로 막으므로 동시성 정합성은 손상되지 않는다. 조회 실패도 통과시킨다 —
     //    비권위적 최적화가 정상 경로를 죽이면 안 된다.
-    if (!alreadyCharged) {
+    // 스쿨멘토는 원장이 없어 위 alreadyCharged 가 늘 거짓이다. 대신 기관 한도에서 (performance_session,
+    // 세션 id)가 이미 센 세션인지 보고, 새 세션이 한도에 걸렸으면 모델 호출 전에 막는다.
+    if (isSchoolmentorSite()) {
+      try {
+        const capped = await performanceCapDenial(
+          supabaseAdmin,
+          userId,
+          sessionRow.id,
+        );
+        if (capped) {
+          return fail(
+            res,
+            409,
+            "QUOTA_EXHAUSTED",
+            "이용 가능한 횟수를 모두 사용했어요.",
+            {
+              quotaRemaining: 0,
+              planEndsAt: capped.planEndsAt,
+              charged: false,
+              tenantReason: capped.tenantReason,
+            },
+          );
+        }
+      } catch (quotaError) {
+        console.error(
+          "performance/recommend-topics 기관 소진 선차단 조회 실패(무시):",
+          quotaError,
+        );
+      }
+    } else if (!alreadyCharged) {
       try {
         const preQuota = await readQuotaSnapshot(
           supabaseAdmin,
@@ -913,14 +950,13 @@ export default defineHandler({
       // ─────────────────────────────────────────────────────────────────
       // 여기부터가 차감 구간이다. 위에서 3건을 확보한 **뒤에만** 도달한다.
       // ─────────────────────────────────────────────────────────────────
-      const { data: creditRaw, error: creditError } = await supabaseAdmin.rpc(
-        "consume_performance_credit",
-        {
-          p_session_id: sessionRow.id,
-          p_profile_id: userId,
-          p_reason: "recommend-topics:first-success",
-        },
-      );
+      const { data: creditRaw, error: creditError } =
+        await consumePerformanceCredit(
+          supabaseAdmin,
+          userId,
+          sessionRow.id,
+          "recommend-topics:first-success",
+        );
 
       if (creditError) {
         // fail-closed(§9.3 5항) — 차감을 커밋하지 못했으면 산출물을 내보내지 않는다.
@@ -931,8 +967,9 @@ export default defineHandler({
         return fail(res, 500, "INTERNAL", "주제 추천 처리에 실패했습니다.");
       }
 
-      const credit =
-        creditRaw && typeof creditRaw === "object" ? creditRaw : {};
+      const credit = (
+        creditRaw && typeof creditRaw === "object" ? creditRaw : {}
+      ) as Record<string, unknown>;
       const creditStatus = String(credit.status || "");
 
       if (creditStatus === "quota_exhausted") {
@@ -947,6 +984,7 @@ export default defineHandler({
             quotaRemaining: 0,
             planEndsAt: credit.plan_ends_at ?? null,
             charged: false,
+            ...tenantReasonExtra(credit.tenantReason),
           },
         );
       }
@@ -959,6 +997,7 @@ export default defineHandler({
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
           {
             charged: false,
+            ...tenantReasonExtra(credit.tenantReason),
           },
         );
       }
@@ -974,6 +1013,7 @@ export default defineHandler({
           {
             planEndsAt: credit.plan_ends_at ?? null,
             charged: false,
+            ...tenantReasonExtra(credit.tenantReason),
           },
         );
       }
