@@ -61,14 +61,19 @@ export function tenantFormFromRow(
 }
 
 /** 첫 위반 문구. 통과하면 null. */
+export const CONTRACT_ORDER_MESSAGE =
+  "계약 시작일은 종료일보다 늦을 수 없어요.";
+export const GRACE_ORDER_MESSAGE =
+  "유예 종료일은 계약 종료일과 같거나 그 뒤여야 해요.";
+
 export function validateTenantForm(values: TenantFormValues): string | null {
   if (!values.name.trim()) return "이름 항목을 입력해주세요.";
   const { contract_start_date: start, contract_end_date: end } = values;
   if (start && end && start > end) {
-    return "계약 시작일은 종료일보다 늦을 수 없어요.";
+    return CONTRACT_ORDER_MESSAGE;
   }
   if (end && values.grace_ends_on && values.grace_ends_on < end) {
-    return "유예 종료일은 계약 종료일과 같거나 그 뒤여야 해요.";
+    return GRACE_ORDER_MESSAGE;
   }
   if (values.term_months !== "" && !["3", "6"].includes(values.term_months)) {
     return "학기 길이는 3개월 또는 6개월이어야 해요.";

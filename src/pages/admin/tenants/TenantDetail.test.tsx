@@ -215,6 +215,30 @@ describe("TenantDetail 기관 정보 탭", () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 
+  test.each([
+    ["tenants_contract_order", "계약 시작일은 종료일보다 늦을 수 없어요."],
+    [
+      "tenants_grace_after_end",
+      "유예 종료일은 계약 종료일과 같거나 그 뒤여야 해요.",
+    ],
+  ])(
+    "DB 가 23514 %s 로 거절하면 클라이언트 검증과 같은 날짜 순서 문구를 보인다",
+    async (constraint, expected) => {
+      db.updateResult = {
+        data: null,
+        error: {
+          code: "23514",
+          message: `new row for relation "tenants" violates check constraint "${constraint}"`,
+        },
+      };
+      renderDetail();
+      await screen.findByDisplayValue("한빛고");
+      fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+      expect(await screen.findByText(expected)).toBeTruthy();
+    },
+  );
+
   test("DB 가 거절하면 그 문구를 보인다", async () => {
     db.updateResult = { data: null, error: { message: "check violation" } };
     renderDetail();

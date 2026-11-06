@@ -9,7 +9,9 @@ import {
 import SchoolAdminPanel from "./SchoolAdminPanel";
 import { mouLabel } from "./tenantContract";
 import {
+  CONTRACT_ORDER_MESSAGE,
   emptyTenantForm,
+  GRACE_ORDER_MESSAGE,
   type TenantFormValues,
   tenantFormFromRow,
   tenantPayload,
@@ -135,6 +137,16 @@ export default function TenantDetail({
     }
     setSaving(false);
     if (error) {
+      if (error.code === "23514") {
+        if (error.message.includes("tenants_contract_order")) {
+          setMessage(CONTRACT_ORDER_MESSAGE);
+          return;
+        }
+        if (error.message.includes("tenants_grace_after_end")) {
+          setMessage(GRACE_ORDER_MESSAGE);
+          return;
+        }
+      }
       setMessage(`저장 실패: ${error.message}`);
       return;
     }
