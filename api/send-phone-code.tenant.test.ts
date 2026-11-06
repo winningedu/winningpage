@@ -14,6 +14,7 @@ import {
 const state = vi.hoisted(() => ({ db: null as unknown }));
 
 vi.mock("./_lib/supabaseAdmin.js", () => ({
+  getEnv: (key: string) => process.env[key] ?? "",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => state.db,
 }));
@@ -36,6 +37,7 @@ const CATCH_ALL = "tenant-etc";
 let db: FakeDb;
 
 beforeEach(() => {
+  process.env.SITE = "schoolmentor";
   db = createFakeDb({
     tables: {
       tenants: [
@@ -62,14 +64,11 @@ beforeEach(() => {
   state.db = createFakeSupabase(db);
 });
 
-const send = (body: Record<string, unknown>) =>
-  callHandler(
-    handler as never,
-    { phone: "010-1234-5678", ...body },
-    {
-      "x-forwarded-for": "1.1.1.1",
-    },
-  );
+const send = (
+  body: Record<string, unknown>,
+  headers: Record<string, string> = { "x-forwarded-for": "1.1.1.1" },
+) =>
+  callHandler(handler as never, { phone: "010-1234-5678", ...body }, headers);
 
 describe("send-phone-code 기관별 중복", () => {
   test("tenant 정보가 없으면(위닝) 전체에서 번호를 본다", async () => {
@@ -127,5 +126,24 @@ describe("send-phone-code 기관별 중복", () => {
     const res = await send({ purpose: "signup", tenant_code: "AAAA" });
     expect(res.status).toBe(429);
     expect(res.body).toMatchObject({ reason: "tenant_code_attempts_exceeded" });
+  });
+
+  test("위닝 사이트는 tenant_code 와 catch_all 을 무시하고 전체에서 본다", async () => {
+    process.env.SITE = "winning";
+    db.tables.profiles![0]!.tenant_id = TENANT_B;
+
+    const byCode = await send({ purpose: "signup", tenant_code: "AAAA" });
+    const byCatchAll = await send({ purpose: "signup", catch_all: true });
+
+    expect(byCode.status).toBe(409);
+    expect(byCatchAll.status).toBe(409);
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
+  test("클라이언트 IP 를 알 수 없으면 400 이고 아무것도 조회하지 않는다", async () => {
+    const res = await send({ purpose: "signup", tenant_code: "AAAA" }, {});
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ reason: "client_ip_missing" });
+    expect(db.rpcCalls).toHaveLength(0);
   });
 });

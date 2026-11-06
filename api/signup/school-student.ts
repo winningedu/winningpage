@@ -42,6 +42,11 @@ export default defineHandler({
       res.status(404).json({ code: "NOT_FOUND" });
       return;
     }
+    const ip = getClientIp(req);
+    if (!ip) {
+      res.status(400).json({ code: "CLIENT_IP_MISSING" });
+      return;
+    }
     const parsed = parseSchoolStudentBody(req.body);
     if (!parsed.ok) {
       res.status(400).json({
@@ -52,7 +57,6 @@ export default defineHandler({
       return;
     }
     const input = parsed.value;
-    const ip = getClientIp(req);
 
     // 클라이언트가 보낸 기관 id 는 받지 않는다. 코드로 다시 찾는다(null 은 기타 소속).
     let tenant: { id: string; name: string; orgType: string } | null = null;

@@ -17,8 +17,8 @@
 // duplicate_phone이 잡는다.
 //
 // 스쿨멘토 가입(2026-11-06)은 번호 유일성이 기관 안에서만이다(profiles_tenant_phone_
-// unique_idx). purpose 'signup'에 tenant_code(소속코드) 또는 catch_all:true(기타 소속)를
-// 같이 보내면 그 기관 안에서만 중복을 본다. 위닝은 아무것도 보내지 않아 전체에서 본다.
+// unique_idx). 스쿨멘토에서 purpose 'signup'에 tenant_code(소속코드) 또는 catch_all:true(기타 소속)를
+// 같이 보내면 그 기관 안에서만 중복을 본다. 위닝은 보내도 무시하고 전체에서 본다.
 // 기관 id는 클라이언트에서 받지 않는다 — 코드를 서버가 fn_signup_tenant_lookup으로 푼다.
 
 import type { VercelResponse } from "@vercel/node";
@@ -40,6 +40,8 @@ import {
   maskPhone,
   normalizePhone,
 } from "./_lib/phoneCode.js";
+import { lookupSignupTenant } from "./_lib/signup/tenant.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
 import type { createSupabaseAdmin } from "./_lib/supabaseAdmin.js";
 
 // Fixie 프록시(undici ProxyAgent)를 쓰므로 Edge 런타임에서는 동작하지 않는다.
@@ -137,8 +139,11 @@ type TenantScope =
 async function resolveTenantScope(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   body: { tenant_code?: unknown; catch_all?: unknown } | undefined,
-  ip: string | null,
+  ip: string,
 ): Promise<TenantScope> {
+  // 기관별 범위는 스쿨멘토만 쓴다. 위닝은 보내도 무시하고 전체에서 본다.
+  if (!isSchoolmentorSite()) return { kind: "global" };
+
   if (body?.catch_all === true) {
     const { data, error } = await supabase
       .from("tenants")
@@ -153,19 +158,10 @@ async function resolveTenantScope(
   }
 
   if (typeof body?.tenant_code === "string") {
-    const { data, error } = await supabase.rpc("fn_signup_tenant_lookup", {
-      p_code: body.tenant_code,
-      p_ip: ip ?? "",
-    });
-
-    if (error) {
-      if (error.code === "WC068") return { kind: "attempts_exceeded" };
-      throw error;
-    }
-
-    const tenant = Array.isArray(data) ? data[0] : null;
-    return tenant?.id
-      ? { kind: "tenant", tenantId: tenant.id }
+    const found = await lookupSignupTenant(supabase, body.tenant_code, ip);
+    if (found.ok) return { kind: "tenant", tenantId: found.tenant.id };
+    return found.reason === "rate_limited"
+      ? { kind: "attempts_exceeded" }
       : { kind: "unknown" };
   }
 
@@ -214,6 +210,15 @@ export default defineHandler({
     }
 
     const ip = getClientIp(req);
+
+    if (!ip) {
+      return fail(
+        res,
+        400,
+        "client_ip_missing",
+        "요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
 
     try {
       const supabase = ctx.supabaseAdmin;

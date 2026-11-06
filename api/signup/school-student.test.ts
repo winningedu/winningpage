@@ -104,6 +104,16 @@ describe("POST /api/signup/school-student", () => {
     expect(kit.state.auth.createUser).not.toHaveBeenCalled();
   });
 
+  test("요청 IP 를 알 수 없으면 400 CLIENT_IP_MISSING 이고 계정을 만들지 않는다", async () => {
+    happyPath();
+
+    const r = await callSignup(handler, BODY, {});
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "CLIENT_IP_MISSING" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
   test.each([
     ["username", { username: "ab" }],
     ["password", { password: "abcdef" }],

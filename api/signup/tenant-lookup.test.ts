@@ -45,6 +45,17 @@ describe("POST /api/signup/tenant-lookup", () => {
     expect(lookup).not.toHaveBeenCalled();
   });
 
+  test("요청 IP 를 알 수 없으면 400 CLIENT_IP_MISSING 이고 조회하지 않는다", async () => {
+    const lookup = vi.fn();
+    kit.state.rpc.fn_signup_tenant_lookup = lookup;
+
+    const r = await callSignup(handler, { code: "ABC" }, {});
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "CLIENT_IP_MISSING" });
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
   test("코드와 요청 IP 로 조회하고 기관 정보를 돌려준다", async () => {
     const calls: Record<string, unknown>[] = [];
     kit.state.rpc.fn_signup_tenant_lookup = (args) => {

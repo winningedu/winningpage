@@ -25,16 +25,17 @@ export default defineHandler({
       res.status(404).json({ code: "NOT_FOUND" });
       return;
     }
+    const ip = getClientIp(req);
+    if (!ip) {
+      res.status(400).json({ code: "CLIENT_IP_MISSING" });
+      return;
+    }
     const { code } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof code !== "string" || !code.trim()) {
       res.status(400).json({ code: "VALIDATION" });
       return;
     }
-    const result = await lookupSignupTenant(
-      ctx.supabaseAdmin,
-      code.trim(),
-      getClientIp(req),
-    );
+    const result = await lookupSignupTenant(ctx.supabaseAdmin, code.trim(), ip);
     if (!result.ok) {
       if (result.reason === "rate_limited") {
         res.status(429).json({ code: "WC068" });

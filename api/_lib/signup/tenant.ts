@@ -16,12 +16,11 @@ export type TenantLookupResult =
 export async function lookupSignupTenant(
   admin: SupabaseClient,
   code: string,
-  ip: string | null,
+  ip: string,
 ): Promise<TenantLookupResult> {
-  // ip 가 비면 DB 가 22023 으로 거절한다. 빈 값으로 우회하지 못하게 그대로 던진다.
   const { data, error } = await admin.rpc("fn_signup_tenant_lookup", {
     p_code: code,
-    p_ip: ip as string,
+    p_ip: ip,
   });
   if (error?.code === "WC068") return { ok: false, reason: "rate_limited" };
   if (error) throw error;
