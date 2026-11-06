@@ -176,7 +176,14 @@ describe("MemberPurgeAdmin", () => {
           })
         : Promise.resolve(
             preview(-36, [
-              { ...STUDENTS[0], id: "s-9", name: "최*새", protected: false },
+              {
+                id: "s-9",
+                name: "최*새",
+                grade: "고1",
+                classLabel: null,
+                number: null,
+                protected: false,
+              },
             ]),
           ),
     );
