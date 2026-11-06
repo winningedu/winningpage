@@ -54,6 +54,24 @@ export const PROGRAM_KEY_BY_SERVICE: Record<string, string> = {
   inquiry: "inquiry",
 };
 
+const DENY_REASONS: ReadonlySet<string> = new Set([
+  "catch_all",
+  "disabled",
+  "outside_period",
+  "grace",
+  "month_cap",
+  "term_cap",
+]);
+
+/** 임의 사유 문자열에서 기관 거부 사유만 남긴다. 위닝의 period_expired 같은 값은 null 이다. */
+export function tenantReasonOf(
+  reason: string | null | undefined,
+): TenantDenyReason | null {
+  return reason && DENY_REASONS.has(reason)
+    ? (reason as TenantDenyReason)
+    : null;
+}
+
 const CAP_REASONS: ReadonlySet<string> = new Set(["month_cap", "term_cap"]);
 
 export async function readTenantUsage(

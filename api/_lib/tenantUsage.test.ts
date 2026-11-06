@@ -7,6 +7,7 @@ import {
   readTenantUsage,
   type TenantUsageState,
   tenantEntryAccess,
+  tenantReasonOf,
 } from "./tenantUsage.js";
 
 const row = (over: Record<string, unknown> = {}) => ({
@@ -241,4 +242,23 @@ describe("readTenantQuota", () => {
       readTenantQuota(state({ monthLimit: 4, monthRemaining: 4 })),
     ).toMatchObject({ quotaRemaining: 4, limitKind: "month" });
   });
+});
+
+describe("tenantReasonOf", () => {
+  it.each([
+    "catch_all",
+    "disabled",
+    "outside_period",
+    "grace",
+    "month_cap",
+    "term_cap",
+  ])("%s 는 그대로", (reason) => {
+    expect(tenantReasonOf(reason)).toBe(reason);
+  });
+  it.each([null, undefined, "period_expired", "none", "quota_exhausted"])(
+    "%s 는 null(위닝 사유는 내보내지 않는다)",
+    (reason) => {
+      expect(tenantReasonOf(reason)).toBeNull();
+    },
+  );
 });

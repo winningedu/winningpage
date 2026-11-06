@@ -1,5 +1,10 @@
 // api/growth/report 가 쓰는 얇은 DB 계층. 판단 로직은 reportBody, stepState, context 에 있다.
 
+import { isSchoolmentorSite } from "../../site.js";
+import {
+  consumeTenantUsage,
+  type TenantDenyReason,
+} from "../../tenantUsage.js";
 import { type Db, must, mustHave } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import {
@@ -293,7 +298,18 @@ export async function consumeCredit(
   db: Db,
   userId: string,
   reportId: string,
-): Promise<{ status: string; charged: boolean }> {
+): Promise<{
+  status: string;
+  charged: boolean;
+  tenantReason?: TenantDenyReason | null;
+}> {
+  // 스쿨멘토는 기관 한도에서 (growth_report, reportId) 당 한 번만 센다. 원장은 쓰지 않는다.
+  if (isSchoolmentorSite()) {
+    return consumeTenantUsage(db, userId, "growth", {
+      kind: "growth_report",
+      id: reportId,
+    });
+  }
   const raw = mustHave(
     must(
       await db.rpc("consume_growth_credit", {
@@ -315,6 +331,10 @@ export async function reverseCredit(
   userId: string,
   reportId: string,
 ): Promise<{ status: string; reversed: boolean }> {
+  // 스쿨멘토는 실패한 실행의 횟수를 돌려주지 않는다(결정 98.3).
+  if (isSchoolmentorSite()) {
+    return { status: "tenant_no_reversal", reversed: false };
+  }
   const raw = mustHave(
     must(
       await db.rpc("reverse_growth_credit", {
