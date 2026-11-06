@@ -7,6 +7,7 @@ import {
   RELIABILITY_NOTES,
   TOPIC_MAX_ROUNDS,
 } from "@/lib/inquiry/labels";
+import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 
 /** 재추천 상한. */
 export const MAX_RERECOMMENDS = TOPIC_MAX_ROUNDS - 1;
@@ -60,7 +61,7 @@ export type CallOutcome =
   | { type: "retry" }
   | { type: "failed"; attempts: number | null; issues: unknown[] }
   | { type: "terminal" }
-  | { type: "noEntitlement" }
+  | { type: "noEntitlement"; tenantReason: TenantBlockReason | null }
   | { type: "roundLimit" }
   | { type: "topicNotInRound" }
   | { type: "sessionLocked" }
@@ -96,7 +97,12 @@ export function classifyCall(
     const issues = Array.isArray(extra?.issues) ? extra.issues : [];
     return { type: "failed", attempts, issues };
   }
-  if (code === "NO_ENTITLEMENT") return { type: "noEntitlement" };
+  if (code === "NO_ENTITLEMENT") {
+    return {
+      type: "noEntitlement",
+      tenantReason: parseTenantReason(extra?.tenantReason),
+    };
+  }
   if (code === "ROUND_LIMIT") return { type: "roundLimit" };
   if (code === "TOPIC_NOT_IN_ROUND") return { type: "topicNotInRound" };
   if (code === "SESSION_LOCKED") return { type: "sessionLocked" };
