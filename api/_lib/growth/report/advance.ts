@@ -149,7 +149,8 @@ export async function advanceStep(
     };
   }
   let lateCharged = false;
-  if (gate === "late_charge") {
+  // 스쿨멘토는 선점에 성공한 뒤에 센다(아래). 위닝은 지금 순서 그대로다.
+  if (gate === "late_charge" && !isSchoolmentorSite()) {
     const c = await consumeCredit(db, userId, reportId);
     if (!(c.charged || c.status === "already_charged"))
       return {
@@ -189,7 +190,10 @@ export async function advanceStep(
     // 스쿨멘토는 모델을 부르기 전에 회차를 먼저 센다(결정 100). 선점이 거절된 요청은 시작하지 않았으므로
     // 선점에 성공한 뒤에 센다. 같은 회차는 멱등이라 이미 센 회차는 한도여도 이어서 하고, 동시에 여러 회차를
     // 시작해도 한도를 넘지 못한다. 실패한 실행은 돌려주지 않는다.
-    if (gate === "check_access" && isSchoolmentorSite()) {
+    if (
+      (gate === "check_access" || gate === "late_charge") &&
+      isSchoolmentorSite()
+    ) {
       const c = await consumeCredit(db, userId, reportId);
       if (!(c.charged || c.status === "already_charged")) {
         // 선점한 running 을 닫지 않으면 stale 시간까지 재요청이 막힌다.
