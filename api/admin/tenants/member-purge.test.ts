@@ -52,6 +52,7 @@ beforeEach(() => {
           grace_end: "2026-10-01",
           not_yet: false,
           members_skipped: 2,
+          not_processed: 1,
         },
       ],
       error: null,
@@ -109,7 +110,13 @@ describe("POST /api/admin/tenants/member-purge", () => {
     const r = await post(BODY);
 
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true, deleted: 3, excluded: 1, skipped: 2 });
+    expect(r.body).toEqual({
+      ok: true,
+      deleted: 3,
+      excluded: 1,
+      skipped: 2,
+      notProcessed: 1,
+    });
     expect(anonymizeArgs).toEqual([
       {
         p_tenant: TENANT,

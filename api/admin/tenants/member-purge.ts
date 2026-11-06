@@ -104,6 +104,7 @@ export default defineHandler({
       deleted: Number(result.members_anonymized),
       excluded: Number(result.members_protected),
       skipped: Number(result.members_skipped),
+      notProcessed: Number(result.not_processed),
     });
   },
 });

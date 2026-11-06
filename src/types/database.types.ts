@@ -8374,6 +8374,7 @@ export type Database = {
           members_anonymized: number;
           members_protected: number;
           members_skipped: number;
+          not_processed: number;
           not_yet: boolean;
           tenants_processed: number;
         }[];
