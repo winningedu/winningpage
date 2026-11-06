@@ -12,6 +12,9 @@ export const INFO_MESSAGES = {
   passwordRule: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
   passwordMismatch: "비밀번호가 서로 달라요.",
   invalidBirthDate: "올바른 생년월일을 입력해 주세요.",
+  under14Closed: "만 14세 이상만 가입할 수 있습니다.",
+  passGuide: "만 14세 미만은 법정대리인의 본인인증이 필요해요.",
+  passDone: "법정대리인 본인인증이 완료되었어요.",
 };
 
 export const USERNAME_MESSAGES = {

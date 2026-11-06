@@ -3,7 +3,13 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
 import { supabase } from "@/lib/supabase";
+import { runIdentityVerification } from "../identityVerification";
 import SchoolSignup from "./SchoolSignup";
+
+vi.mock("../identityVerification", () => ({
+  runIdentityVerification: vi.fn(),
+  fetchIdentityMobile: vi.fn(async () => ""),
+}));
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
@@ -508,5 +514,61 @@ describe("3단계 다음 버튼", () => {
     type("번호(선택)", "0");
 
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+});
+
+describe("3단계 만 14세 미만", () => {
+  async function fillUnder14Student() {
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: true,
+      error: null,
+    } as never);
+    type("이름", "김학생");
+    type("아이디", "mentor01");
+    click("중복 확인");
+    await screen.findByText("사용할 수 있는 아이디입니다.");
+    type("비밀번호", "abc123!");
+    type("비밀번호 확인", "abc123!");
+    type("이메일", "a@b.co");
+    type("생년월일", "20180304");
+    type("학년", "중1");
+    type("반", "3");
+  }
+
+  it("PASS 본인인증을 마치면 본인 휴대폰 없이도 다음으로 갈 수 있다", async () => {
+    vi.stubEnv("VITE_UNDER14_SIGNUP_ENABLED", "true");
+    vi.mocked(runIdentityVerification).mockResolvedValue({
+      ok: true,
+      requestId: "req-1",
+      isUnder14: true,
+      age: 8,
+      mobile: "01099998888",
+    });
+    await goToStudentInfo();
+    await fillUnder14Student();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+
+    click("PASS 간편 인증");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    expect(runIdentityVerification).toHaveBeenCalledWith({
+      purpose: "under14_guardian",
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("14세 미만 가입이 닫힌 배포에서는 안내하고 막는다", async () => {
+    vi.stubEnv("VITE_UNDER14_SIGNUP_ENABLED", "false");
+    await goToStudentInfo();
+    await fillUnder14Student();
+
+    expect(
+      screen.getByText("만 14세 이상만 가입할 수 있습니다."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "PASS 간편 인증" })).toBeNull();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+    vi.unstubAllEnvs();
   });
 });

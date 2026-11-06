@@ -1,8 +1,14 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
 // 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
 import { useState } from "react";
-import { AuthTitle, SelectField, TextField } from "@/components/auth";
+import {
+  AuthTitle,
+  PrimaryButton,
+  SelectField,
+  TextField,
+} from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
 import { checkUsernameAvailable } from "./api";
 import { INFO_MESSAGES, USERNAME_MESSAGES } from "./copy";
@@ -50,6 +56,40 @@ export default function StudentInfoStep({
     tenant && !tenant.isCatchAll ? { tenantId: tenant.id } : { catchAll: true };
 
   const [usernameError, setUsernameError] = useState("");
+  const [passVerifying, setPassVerifying] = useState(false);
+  const [passError, setPassError] = useState("");
+
+  // 14세 미만 가입은 배포마다 열고 닫는다(NICE 계약 선행). 렌더 시점에 읽는다.
+  const isUnder14Open = import.meta.env.VITE_UNDER14_SIGNUP_ENABLED === "true";
+  const isUnder14Blocked = isUnder14 === true && !isUnder14Open;
+  const needsPass = isUnder14 === true && isUnder14Open;
+
+  // 클릭 핸들러에서 곧장 불러야 팝업이 차단되지 않는다.
+  async function handlePass() {
+    if (passVerifying) return;
+
+    setPassVerifying(true);
+    setPassError("");
+    try {
+      const result = await runIdentityVerification({
+        purpose: "under14_guardian",
+      });
+
+      if (!result.ok) {
+        setPassError(result.message);
+        return;
+      }
+
+      updateVerification("pass", {
+        verified: true,
+        requestId: result.requestId,
+        verifiedAt: Date.now(),
+        mobile: result.mobile,
+      });
+    } finally {
+      setPassVerifying(false);
+    }
+  }
 
   // 확인한 아이디와 지금 아이디가 같을 때만 결과가 살아 있다(고치면 버려진다).
   const usernameResult =
@@ -83,16 +123,26 @@ export default function StudentInfoStep({
     formData.passwordConfirm !== "" &&
     formData.password !== formData.passwordConfirm;
   const birthDateInvalid = birthDate.length === 8 && isUnder14 === null;
+  const birthDateMessage = (() => {
+    if (birthDateInvalid) return INFO_MESSAGES.invalidBirthDate;
+    return isUnder14Blocked ? INFO_MESSAGES.under14Closed : "";
+  })();
 
   const isNumberOk =
     formData.classNumber === "" || isValidClassNumber(formData.classNumber);
+  // 14세 미만은 본인 번호가 선택이다. 적었다면 인증까지 마쳐야 한다(결정 72).
+  const isPhoneOk =
+    verification.phone.verified ||
+    (isUnder14 === true && formData.phone === "");
   const canProceed =
     formData.name.trim() !== "" &&
     usernameResult?.available === true &&
     isValidPassword(formData.password) &&
     !passwordMismatch &&
     formData.passwordConfirm !== "" &&
-    verification.phone.verified &&
+    isPhoneOk &&
+    !isUnder14Blocked &&
+    (!needsPass || verification.pass.verified) &&
     isValidEmail(formData.email) &&
     isUnder14 !== null &&
     (isUnder14 || formData.gender !== "") &&
@@ -167,7 +217,7 @@ export default function StudentInfoStep({
 
         <PhoneVerifyField
           idPrefix="school"
-          label="휴대폰번호"
+          label={isUnder14 === true ? "휴대폰번호(선택)" : "휴대폰번호"}
           codeLabel="휴대폰 인증번호"
           phone={formData.phone}
           onPhoneChange={(phone) => updateFormData({ phone })}
@@ -199,10 +249,28 @@ export default function StudentInfoStep({
           onChange={(value) =>
             setBirthDate(value.replace(/\D/g, "").slice(0, 8))
           }
-          helperText={birthDateInvalid ? INFO_MESSAGES.invalidBirthDate : ""}
-          status={birthDateInvalid ? "error" : "default"}
+          helperText={birthDateMessage}
+          status={birthDateMessage ? "error" : "default"}
           autoComplete="bday"
         />
+
+        {needsPass && (
+          <div className="flex flex-col gap-3 rounded-lg bg-surface-card p-5">
+            <p className="break-keep text-sm text-ink">
+              {INFO_MESSAGES.passGuide}
+            </p>
+            {verification.pass.verified ? (
+              <p className="text-sm font-medium text-accent">
+                {INFO_MESSAGES.passDone}
+              </p>
+            ) : (
+              <PrimaryButton onClick={handlePass} loading={passVerifying}>
+                PASS 간편 인증
+              </PrimaryButton>
+            )}
+            {passError && <p className="text-xs text-error">{passError}</p>}
+          </div>
+        )}
 
         {isUnder14 !== true && (
           <SelectField
