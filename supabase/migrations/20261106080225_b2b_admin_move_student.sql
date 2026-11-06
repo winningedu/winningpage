@@ -6,8 +6,8 @@ set local lock_timeout = '5s';
 -- fn_admin_set_profile_tenant 는 그대로 둔다(위닝은 바뀌지 않는다).
 --
 -- 순서: 프로필 행 잠금과 학생 확인(WC094), 대상 기관 확인(없으면 P0002, 같은 기관이면 WC099 새 코드),
--- 대상 기관 전화번호 유일성(WC096), 옛 기관의 대기 신청 거절(결정자는 실행한 본사 관리자),
--- 옛 기관 활성 학적 행과 올해 학적 행 삭제, 소속과 school_name 갱신,
+-- 대상 기관 전화번호 유일성(WC096), 학생의 모든 대기 신청 거절(결정자는 실행한 본사 관리자),
+-- 옛 기관 활성 학적 행과 올해 활성 학적 행 삭제, 그래도 다른 기관에 올해 학적이 남으면 WC100, 소속과 school_name 갱신,
 -- 대상 기관 학적 만들기(fn_enrollment_join: WC077, WC080, WC079, WC094).
 -- 반을 비우면 반 없는 학적 행이 생기고 학생이 마이페이지에서 반을 입력한다(결정 102.14).
 -- 졸업 학적 행과 옛 기관의 메모, 플래그, 이력은 옛 기관에 그대로 둔다(결정 102.15, 98.11).
@@ -43,7 +43,7 @@ begin
     raise exception 'not a student account' using errcode = 'WC094';
   end if;
 
-  select * into v_target from public.tenants t where t.id = p_tenant;
+  select * into v_target from public.tenants t where t.id = p_tenant for share;
   if not found then
     raise exception 'tenant_not_found' using errcode = 'P0002';
   end if;
@@ -63,7 +63,7 @@ begin
 
   update public.enrollment_changes c
      set status = 'rejected', reject_reason = '소속 변경', decided_by = p_actor, decided_at = now()
-   where c.student_id = p_student and c.tenant_id = v_from_tenant and c.status = 'pending';
+   where c.student_id = p_student and c.status = 'pending';
 
   -- 옛 기관의 활성 학적 행과, 올해 학적 행이 다른 기관에 남은 경우를 함께 지운다. 학적은 (학생, 학년도)당 하나라
   -- 남겨 두면 fn_enrollment_join 이 그 행을 잡아 WC079 나 외래키 오류로 막힌다. 졸업 행은 남긴다.
@@ -71,6 +71,17 @@ begin
    where e.student_id = p_student
      and e.status = 'active'
      and (e.tenant_id = v_from_tenant or e.school_year = v_target.school_year);
+
+  -- 지운 뒤에도 올해 학적 행이 다른 기관에 남아 있으면(졸업 행 등, 기관마다 학년도 전환 시점이 달랐던 경우)
+  -- fn_enrollment_join 이 그 행을 조용히 덮어쓰므로 막는다.
+  if exists (
+    select 1 from public.student_enrollments e
+     where e.student_id = p_student
+       and e.school_year = v_target.school_year
+       and e.tenant_id <> v_target.id
+  ) then
+    raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+  end if;
 
   perform set_config('app.tenant_set_via_rpc', '1', true);
   begin
@@ -97,4 +108,4 @@ $$;
 revoke all on function public.fn_admin_move_student_tenant(uuid, uuid, uuid, text, text, text, smallint) from public, anon, authenticated;
 grant execute on function public.fn_admin_move_student_tenant(uuid, uuid, uuid, text, text, text, smallint) to service_role;
 
-comment on function public.fn_admin_move_student_tenant(uuid, uuid, uuid, text, text, text, smallint) is '본사 관리자의 학생 기관 이동(service_role 전용, 한 트랜잭션). 학생이 아니면 WC094, 없는 기관 P0002, 같은 기관 WC099, 대상 기관 전화번호 중복 WC096, 번호 중복 WC077, 없는 그룹 WC080. 옛 기관의 대기 신청은 소속 변경 사유로 거절하고(결정자는 p_actor) 활성 학적 행과 올해 학적 행을 지운 뒤 대상 기관 학적을 만든다. 반은 비워도 된다. 졸업 학적과 옛 기관의 메모, 플래그, 이력은 그대로 둔다.';
+comment on function public.fn_admin_move_student_tenant(uuid, uuid, uuid, text, text, text, smallint) is '본사 관리자의 학생 기관 이동(service_role 전용, 한 트랜잭션). 학생이 아니면 WC094, 없는 기관 P0002, 같은 기관 WC099, 올해 학적이 다른 기관에 남음 WC100, 대상 기관 전화번호 중복 WC096, 번호 중복 WC077, 없는 그룹 WC080. 학생의 대기 신청은 어느 기관 것이든 소속 변경 사유로 거절하고(결정자는 p_actor) 활성 학적 행과 올해 학적 행을 지운 뒤 대상 기관 학적을 만든다. 반은 비워도 된다. 졸업 학적과 옛 기관의 메모, 플래그, 이력은 그대로 둔다.';

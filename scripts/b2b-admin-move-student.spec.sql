@@ -95,6 +95,7 @@ end $$;
 select pg_temp.mk_tenant('from', 'TMAAAAAA');
 select pg_temp.mk_tenant('to', 'TMBBBBBB');
 select pg_temp.mk_tenant('acad', 'TMCCCCCC', '기관');
+select pg_temp.mk_tenant('third', 'TMEEEEEE');
 select pg_temp.mk_tenant('etc', 'TMDDDDDD', '기타', true);
 insert into public.class_groups (tenant_id, name) values (pg_temp.fx('t_acad'), '심화반');
 
@@ -207,12 +208,40 @@ select pg_temp.expect_ok('기타로 반 없이 옮긴다', pg_temp.mv('s4', 'etc
 select pg_temp.expect_text('기타 소속이 되고 school_name 은 비어 있다',
   (select (tenant_id = pg_temp.fx('t_etc'))::text || ':' || coalesce(school_name, '-') from public.profiles where id = pg_temp.fx('s4')), 'true:-');
 
--- 다른 기관에 올해 학적이 남은 학생(본사가 소속만 옮긴 경우)도 옮긴다
+-- 제3 기관에 올해 활성 학적이 남은 학생(본사가 소속만 옮긴 경우)도 옮긴다. 그 행은 지워진다.
 select pg_temp.mk_stu('s5', '010-8000-0006');
+delete from public.student_enrollments where student_id = pg_temp.fx('s5') and status = 'active';
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, status)
+select pg_temp.fx('t_third'), pg_temp.fx('s5'), t.school_year, '고1', 'active' from public.tenants t where t.id = pg_temp.fx('t_acad');
+select pg_temp.expect_int('이동 전 제3 기관에 올해 활성 학적이 있다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s5') and tenant_id = pg_temp.fx('t_third') and status = 'active'), 1);
 select pg_temp.expect_ok('기관을 건너 옮겨도 학적은 하나만 남는다', pg_temp.mv('s5', 'acad', '고1', null, null, null));
+select pg_temp.expect_int('제3 기관의 활성 학적은 지워진다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s5') and tenant_id = pg_temp.fx('t_third')), 0);
 select pg_temp.expect_int('올해 활성 학적은 대상 기관 하나',
   (select count(*) from public.student_enrollments e join public.tenants t on t.id = e.tenant_id
     where e.student_id = pg_temp.fx('s5') and e.status = 'active' and e.school_year = t.school_year), 1);
+
+-- 대기 신청은 어느 기관에 있든 모두 거절한다(대기 신청은 학생당 하나)
+select pg_temp.mk_stu('s6', '010-8000-0007');
+update public.enrollment_changes set tenant_id = pg_temp.fx('t_third') where student_id = pg_temp.fx('s6') and status = 'pending';
+select pg_temp.expect_ok('제3 기관에 대기 신청이 있어도 옮긴다', pg_temp.mv('s6', 'to', '고1', null, null, null));
+select pg_temp.expect_text('제3 기관의 대기 신청도 소속 변경 사유로 rejected, 결정자는 실행자',
+  (select c.status || ':' || c.reject_reason || ':' || (c.decided_by = pg_temp.fx('actor'))::text
+     from public.enrollment_changes c where c.student_id = pg_temp.fx('s6') and c.tenant_id = pg_temp.fx('t_third') and c.kind = 'request'),
+  'rejected:소속 변경:true');
+
+-- 올해 학적이 다른 기관에 졸업으로 남은 학생은 막는다(기관마다 학년도 전환 시점이 달랐던 경우). 아무것도 바꾸지 않는다.
+select pg_temp.mk_stu('s7', '010-8000-0008');
+delete from public.student_enrollments where student_id = pg_temp.fx('s7') and status = 'active';
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, status, graduated_at)
+select pg_temp.fx('t_third'), pg_temp.fx('s7'), t.school_year, '고1', 'graduated', now() from public.tenants t where t.id = pg_temp.fx('t_to');
+select pg_temp.expect_error('올해 학적이 다른 기관에 남아 있으면 WC100', pg_temp.mv('s7', 'to', '고1', null, null, null), 'WC100');
+select pg_temp.expect_text('WC100 이면 소속, 대기 신청, 졸업 행이 그대로다',
+  (select (tenant_id = pg_temp.fx('t_from'))::text from public.profiles where id = pg_temp.fx('s7'))
+    || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s7') and status = 'pending')
+    || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s7') and tenant_id = pg_temp.fx('t_third') and status = 'graduated'),
+  'true:1:1');
 
 -- ---------------------------------------------------------------------
 -- 권한: service_role 전용
