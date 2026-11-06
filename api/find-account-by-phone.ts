@@ -20,6 +20,10 @@
 //   끝나면 consumed_at을 찍어 같은 인증으로 여러 번 조회하지 못하게 한다 — 그렇지
 //   않으면 재인증 없이 계정 조회를 무한 반복할 수 있다.
 //
+// accounts(2026-11-06, 스쿨멘토) — 같은 번호로 소속이 다른 계정이 여러 개일 수 있어
+// 아이디(앞 3글자만 보이고 나머지 *, 결정 80)와 소속 이름을 계정마다 같이 준다.
+// username이 없는 계정(위닝 이메일 가입)은 가릴 아이디가 없어 넣지 않는다.
+//
 // 계정 존재 여부를 노출하지 않는 원칙과의 관계
 //   다른 라우트들은 "이메일이 이미 가입돼 있다/없다"를 알려주지 않는다(계정 존재
 //   추측 방지). 여기서는 그 원칙이 그대로 적용되지 않는다 — 이 번호의 소유권을
@@ -69,6 +73,17 @@ function maskEmail(email: string): string {
 
   return `${maskedLocal}@${maskedDomain}${tld}`;
 }
+
+/** 앞 3글자만 남기고 나머지를 *로 가린다(결정 80). */
+function maskUsername(username: string): string {
+  return username.slice(0, 3) + "*".repeat(Math.max(username.length - 3, 0));
+}
+
+type ProfileMatch = {
+  email: string | null;
+  username: string | null;
+  tenants: { name: string } | null;
+};
 
 export default defineHandler({
   methods: ["POST"],
@@ -130,9 +145,10 @@ export default defineHandler({
 
       const { data: byPhone, error: byPhoneError } = await supabase
         .from("profiles")
-        .select("email")
+        .select("email, username, tenants(name)")
         .not("member_type", "is", null)
-        .or(`phone.eq.${phone},phone.eq.${hyphenated}`);
+        .or(`phone.eq.${phone},phone.eq.${hyphenated}`)
+        .returns<ProfileMatch[]>();
 
       if (byPhoneError) throw byPhoneError;
 
@@ -143,9 +159,10 @@ export default defineHandler({
         const { data: byGuardianPhone, error: byGuardianPhoneError } =
           await supabase
             .from("profiles")
-            .select("email")
+            .select("email, username, tenants(name)")
             .not("member_type", "is", null)
-            .or(`guardian_phone.eq.${phone},guardian_phone.eq.${hyphenated}`);
+            .or(`guardian_phone.eq.${phone},guardian_phone.eq.${hyphenated}`)
+            .returns<ProfileMatch[]>();
 
         if (byGuardianPhoneError) throw byGuardianPhoneError;
 
@@ -172,6 +189,12 @@ export default defineHandler({
         found: true,
         masked_email: maskedEmails[0],
         masked_emails: maskedEmails,
+        accounts: matches
+          .filter((row) => Boolean(row.username))
+          .map((row) => ({
+            maskedId: maskUsername(row.username as string),
+            tenantName: row.tenants?.name ?? null,
+          })),
         via,
       });
     } catch (error) {

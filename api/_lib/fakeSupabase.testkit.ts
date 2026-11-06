@@ -77,6 +77,9 @@ class Query {
     this.max = n;
     return this;
   }
+  returns() {
+    return this;
+  }
   maybeSingle() {
     this.single = true;
     return this;
