@@ -11,6 +11,7 @@ import {
 } from "../_lib/console/enrollmentInput.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { mapSignupRpcError } from "../_lib/signup/errors.js";
 import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
@@ -95,6 +96,23 @@ export default defineHandler({
       },
     );
     if (error) {
+      // 번호 중복은 가입 화면과 같은 문구를 쓴다. 신청자 이름과 같은지만 보고 점유 학생 이름은 싣지 않는다.
+      if (error.code === "WC077") {
+        const { data: me, error: meError } = await ctx.supabaseAdmin
+          .from("profiles")
+          .select("name")
+          .eq("id", studentId)
+          .maybeSingle();
+        if (meError) throw new Error("profile name lookup failed");
+        const taken = mapSignupRpcError(
+          error,
+          typeof me?.name === "string" ? me.name : "",
+        );
+        if (taken) {
+          sendError(res, "coded", taken.status, taken.message, taken.code);
+          return;
+        }
+      }
       if (sendEnrollmentRpcError(res, error)) return;
       throw new Error("fn_catch_all_join_tenant failed");
     }

@@ -122,7 +122,6 @@ describe("POST /api/enrollment/join-tenant", () => {
     ["WC098", 403, "NOT_CATCH_ALL"],
     ["WC068", 429, "TOO_MANY_ATTEMPTS"],
     ["WC096", 409, "PHONE_TAKEN"],
-    ["WC077", 409, "NUMBER_TAKEN"],
     ["WC080", 400, "GROUP_NOT_REGISTERED"],
     ["WC079", 409, "ALREADY_ASSIGNED"],
     ["WC094", 403, "NOT_STUDENT"],
@@ -141,6 +140,29 @@ describe("POST /api/enrollment/join-tenant", () => {
     // 번호를 쓰는 다른 학생의 이름은 응답에 싣지 않는다.
     expect(JSON.stringify(r.body)).not.toContain("홍길동");
   });
+
+  test.each([
+    ["홍길동", "NUMBER_TAKEN_SAME_NAME", "이미 가입 내역이 있습니다"],
+    ["김철수", "NUMBER_TAKEN_OTHER", "동일한 학년, 반, 번호의 학생이"],
+  ])(
+    "WC077 holder %s maps to 409 %s with the signup message",
+    async (holder, code, messagePart) => {
+      kit.state.rows.profiles = () => ({ name: "홍길동" });
+      kit.state.rpc.fn_catch_all_join_tenant = () => ({
+        data: null,
+        error: { code: "WC077", details: holder },
+      });
+
+      const r = await post(BODY);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code } });
+      const message = (r.body as { error: { message: string } }).error.message;
+      expect(message).toContain(messagePart);
+      // 번호를 쓰는 학생의 이름은 응답에 싣지 않는다.
+      expect(JSON.stringify(r.body)).not.toContain("김철수");
+    },
+  );
 
   test("an unknown RPC failure is 500", async () => {
     kit.state.rpc.fn_catch_all_join_tenant = () => ({
