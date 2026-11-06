@@ -1,3 +1,5 @@
+set local lock_timeout = '5s';
+
 -- 스쿨멘토 학생 가입(소속코드 가입, 계정 생성 전 소속 조회, 가입 확정 함수).
 -- 새 컬럼은 모두 NULL 허용이고 새 함수는 service_role 만 부르며 기존 가입 경로(complete_signup_profile)는 바꾸지 않는다.
 -- 위닝 사이트는 행을 쓰지 않으므로 동작이 그대로다.
