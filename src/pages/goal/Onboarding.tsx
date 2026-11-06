@@ -13,6 +13,7 @@ import Step4Naesin from "@/components/goal/onboarding/steps/Step4Naesin";
 import Step5MockExam from "@/components/goal/onboarding/steps/Step5MockExam";
 import Step6StudyHours from "@/components/goal/onboarding/steps/Step6StudyHours";
 import Step7DailySchedule from "@/components/goal/onboarding/steps/Step7DailySchedule";
+import { site } from "@/config/site";
 import {
   GoalOnboardingProvider,
   type MockRoundState,
@@ -21,6 +22,7 @@ import {
 } from "@/context/GoalOnboardingContext";
 import { generateGoalAdvice, submitGoalIntake } from "@/lib/goalApi";
 import { queryClient } from "@/lib/queryClient";
+import { tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 로컬 E2E 버그(팀장 지시) — GoalOnboardingContext는 naesin.exams/mockExam.rounds에
 // FLOW 전체 키(내신 12개・모의고사 14개)를 항상 빈 객체로 채워 들고 있다가(다른 시험/
@@ -259,6 +261,14 @@ function OnboardingWizard() {
     }
 
     if (result.kind === "not-allowed") {
+      // 스쿨멘토는 결제 페이지가 아니라 기관 설정 사유를 안내한다(결정 99).
+      if (site.features.tenantServiceGate) {
+        setSubmitError({
+          tone: "error",
+          message: tenantBlockMessage(result.tenantReason),
+        });
+        return;
+      }
       navigate("/pricing?service=goal");
       return;
     }
