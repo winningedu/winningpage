@@ -151,7 +151,7 @@ describe("POST /api/auth/login", () => {
     });
   });
 
-  test("성공하면 세션과 mustChangePassword 를 주고 end(success)를 부르며 첫 x-forwarded-for 를 Sb-Forwarded-For 로 보낸다", async () => {
+  test("성공하면 세션과 mustChangePassword, isTeacher 를 주고 end(success)를 부르며 첫 x-forwarded-for 를 Sb-Forwarded-For 로 보낸다", async () => {
     state.resolvedEmail = "kim01@teacher.schoolmentor.kr";
     state.teacher = { must_change_password: true };
     state.signIn.mockResolvedValue({
@@ -176,6 +176,7 @@ describe("POST /api/auth/login", () => {
     expect(r.body).toEqual({
       session: { access_token: "at", refresh_token: "rt", expires_at: 1234 },
       mustChangePassword: true,
+      isTeacher: true,
     });
     expect(state.rpc).toHaveBeenCalledWith("fn_login_resolve_email", {
       p_username: "kim01",
@@ -195,6 +196,26 @@ describe("POST /api/auth/login", () => {
         global: { headers: { "Sb-Forwarded-For": "1.2.3.4" } },
       }),
     );
+  });
+
+  test("교사 행이 없는 계정은 isTeacher false, mustChangePassword false 를 준다", async () => {
+    state.resolvedEmail = "stu@example.com";
+    state.teacher = null;
+    state.signIn.mockResolvedValue({
+      data: {
+        user: { id: "u2" },
+        session: { access_token: "at", refresh_token: "rt", expires_at: 1234 },
+      },
+      error: null,
+    });
+
+    const r = await login({ identifier: "stu01", password: "pw" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({
+      mustChangePassword: false,
+      isTeacher: false,
+    });
   });
 
   test("잠금 중이면 429 LOCKED 와 남은 분(올림)을 주고 GoTrue 와 end 를 부르지 않는다", async () => {

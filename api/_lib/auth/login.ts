@@ -51,6 +51,7 @@ export type LoginSuccess = {
   ok: true;
   session: { access_token: string; refresh_token: string; expires_at: number };
   mustChangePassword: boolean;
+  isTeacher: boolean;
 };
 
 export type LoginResult = LoginSuccess | LoginFailure;
@@ -160,8 +161,7 @@ export async function attemptLogin(
   );
   const begin = (
     data as
-      | { outcome: string; attempt_no: number; retry_after_s: number }[]
-      | null
+      { outcome: string; attempt_no: number; retry_after_s: number }[] | null
   )?.[0];
   if (beginError || !begin) return RETRY_FAILURE;
 
@@ -210,6 +210,7 @@ export async function attemptLogin(
         expires_at: signed.session.expires_at ?? 0,
       },
       mustChangePassword: teacher?.must_change_password ?? false,
+      isTeacher: teacher != null,
     };
   }
 

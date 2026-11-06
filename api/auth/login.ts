@@ -50,6 +50,7 @@ export default defineHandler({
       res.status(200).json({
         session: result.session,
         mustChangePassword: result.mustChangePassword,
+        isTeacher: result.isTeacher,
       });
     } else {
       if (result.retryAfterSeconds !== undefined) {
