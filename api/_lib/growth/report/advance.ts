@@ -5,11 +5,7 @@ import type { callStructured } from "../../ai/gemini.js";
 import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
 import { isSchoolmentorSite } from "../../site.js";
-import {
-  checkTenantStart,
-  type TenantDenyReason,
-  tenantReasonOf,
-} from "../../tenantUsage.js";
+import { type TenantDenyReason, tenantReasonOf } from "../../tenantUsage.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import { notifyGrowthReportDone } from "./notify.js";
@@ -128,6 +124,7 @@ export async function advanceStep(
 ): Promise<AdvanceOutcome> {
   const reportId = row.id;
   const gate = chargeGate(row, step);
+  let reservedCharge = false;
 
   // 선점 전에 막아야 거절된 요청이 시도 횟수를 올리지 않는다.
   if (gate === "check_access") {
@@ -142,15 +139,17 @@ export async function advanceStep(
         ...(tenantReason && { tenantReason }),
       };
     }
-    // 스쿨멘토는 새 회차를 시작하기 전에 한도까지 본다. 이미 센 회차는 한도여도 이어서 한다.
+    // 스쿨멘토는 모델을 부르기 전에 회차를 먼저 센다(결정 100). 같은 회차는 멱등이라 이미 센 회차는
+    // 한도여도 이어서 하고, 동시에 여러 회차를 시작해도 한도를 넘지 못한다. 실패한 실행은 돌려주지 않는다.
     if (isSchoolmentorSite()) {
-      const denied = await checkTenantStart(db, userId, "growth", {
-        kind: "growth_report",
-        id: reportId,
-      });
-      if (denied) {
-        return { kind: "no_entitlement", reason: denied, tenantReason: denied };
-      }
+      const c = await consumeCredit(db, userId, reportId);
+      if (!(c.charged || c.status === "already_charged"))
+        return {
+          kind: "no_entitlement",
+          reason: c.tenantReason ?? c.status,
+          ...(c.tenantReason && { tenantReason: c.tenantReason }),
+        };
+      reservedCharge = true;
     }
   }
   if (gate === "refuse_closed") {
@@ -161,7 +160,7 @@ export async function advanceStep(
       terminal: false,
     };
   }
-  let lateCharged = false;
+  let lateCharged = reservedCharge;
   if (gate === "late_charge") {
     const c = await consumeCredit(db, userId, reportId);
     if (!(c.charged || c.status === "already_charged"))
@@ -281,7 +280,7 @@ export async function advanceStep(
 
       // No.14: 첫 모델 호출 단계(1단계) 성공 시 차감. 거절돼도 진행은 막지 않는다.
       let charged: boolean | undefined = lateCharged ? true : undefined;
-      if (step === 1 && gate === "check_access") {
+      if (step === 1 && gate === "check_access" && !reservedCharge) {
         try {
           const c = await consumeCredit(db, userId, reportId);
           charged = c.charged || c.status === "already_charged";
