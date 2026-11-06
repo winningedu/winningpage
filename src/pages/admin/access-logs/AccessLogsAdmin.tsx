@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
+  ActionButton,
+  Field,
+  Select,
+  TextInput,
+} from "@/pages/admin/shared/formFields";
+import {
   type AccessLogFilter,
   type AccessLogPage,
   fetchAccessLogs,
@@ -33,7 +39,8 @@ const COLUMNS = [
 ];
 
 export default function AccessLogsAdmin() {
-  const [filter] = useState<AccessLogFilter>(EMPTY_FILTER);
+  const [filter, setFilter] = useState<AccessLogFilter>(EMPTY_FILTER);
+  const [draft, setDraft] = useState<AccessLogFilter>(EMPTY_FILTER);
   const [result, setResult] = useState<AccessLogPage | null>(null);
 
   useEffect(() => {
@@ -51,6 +58,53 @@ export default function AccessLogsAdmin() {
       <h1 className="mb-4 text-xl font-black text-[#111827]">
         개인정보 접근 로그
       </h1>
+      <form
+        className="mb-4 flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setFilter({ ...draft, page: 1 });
+        }}
+      >
+        <Field label="소속코드">
+          <TextInput
+            value={draft.tenantCode}
+            onChange={(tenantCode) => setDraft({ ...draft, tenantCode })}
+          />
+        </Field>
+        <Field label="시작일">
+          <input
+            type="date"
+            value={draft.from}
+            onChange={(event) =>
+              setDraft({ ...draft, from: event.target.value })
+            }
+            className="h-10 border border-gray-300 px-3 text-sm font-bold"
+          />
+        </Field>
+        <Field label="종료일">
+          <input
+            type="date"
+            value={draft.to}
+            onChange={(event) => setDraft({ ...draft, to: event.target.value })}
+            className="h-10 border border-gray-300 px-3 text-sm font-bold"
+          />
+        </Field>
+        <Field label="구분">
+          <Select
+            value={draft.kind}
+            onChange={(kind) =>
+              setDraft({ ...draft, kind: kind as AccessLogFilter["kind"] })
+            }
+          >
+            <option value="">전체</option>
+            <option value="view">조회</option>
+            <option value="edit">수정</option>
+            <option value="export">출력</option>
+            <option value="proxy">대행</option>
+          </Select>
+        </Field>
+        <ActionButton type="submit">조회</ActionButton>
+      </form>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[60rem] border-collapse text-sm">
           <thead>

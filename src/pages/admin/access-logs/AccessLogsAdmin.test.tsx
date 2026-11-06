@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("./api", () => ({ fetchAccessLogs: vi.fn() }));
@@ -65,6 +71,35 @@ describe("AccessLogsAdmin", () => {
         from: "",
         to: "",
         kind: "",
+        page: 1,
+      }),
+    );
+  });
+
+  test("소속코드, 기간, 구분을 골라 조회하면 그 조건으로 1쪽을 다시 읽는다", async () => {
+    render(<AccessLogsAdmin />);
+    await screen.findByText("박교사");
+
+    fireEvent.change(screen.getByLabelText("소속코드"), {
+      target: { value: "ABCD1234" },
+    });
+    fireEvent.change(screen.getByLabelText("시작일"), {
+      target: { value: "2026-11-01" },
+    });
+    fireEvent.change(screen.getByLabelText("종료일"), {
+      target: { value: "2026-11-05" },
+    });
+    fireEvent.change(screen.getByLabelText("구분"), {
+      target: { value: "edit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "조회" }));
+
+    await waitFor(() =>
+      expect(api.fetchAccessLogs).toHaveBeenLastCalledWith({
+        tenantCode: "ABCD1234",
+        from: "2026-11-01",
+        to: "2026-11-05",
+        kind: "edit",
         page: 1,
       }),
     );
