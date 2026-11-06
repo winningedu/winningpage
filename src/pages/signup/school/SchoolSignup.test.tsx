@@ -606,4 +606,62 @@ describe("4단계 학부모 정보", () => {
       purpose: "guardian_signup",
     });
   });
+
+  it("14세 미만은 건너뛸 수 없고, PASS 번호가 잠겨 있고, 수집 동의가 필요하다", async () => {
+    vi.stubEnv("VITE_UNDER14_SIGNUP_ENABLED", "true");
+    vi.mocked(runIdentityVerification).mockResolvedValue({
+      ok: true,
+      requestId: "req-1",
+      isUnder14: true,
+      age: 8,
+      mobile: "01099998888",
+    });
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: true,
+      error: null,
+    } as never);
+    await goToStudentInfo();
+    type("이름", "김학생");
+    type("아이디", "mentor01");
+    click("중복 확인");
+    await screen.findByText("사용할 수 있는 아이디입니다.");
+    type("비밀번호", "abc123!");
+    type("비밀번호 확인", "abc123!");
+    type("이메일", "a@b.co");
+    type("생년월일", "20180304");
+    type("학년", "중1");
+    type("반", "3");
+    click("PASS 간편 인증");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    click("다음");
+
+    expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
+    expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
+      "010-9999-8888",
+    );
+    expect(screen.getByLabelText("학부모 휴대폰번호")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+
+    check(/법정대리인 정보를 학부모 정보로 수집합니다/);
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeEnabled();
+    vi.unstubAllEnvs();
+  });
+
+  it("이전으로 돌아가도 입력한 값이 남는다", async () => {
+    await goToGuardian();
+    type("학부모 이름", "김부모");
+
+    click("이전");
+
+    expect(screen.getByLabelText("이름")).toHaveValue("김학생");
+    expect(screen.getByLabelText("아이디")).toHaveValue("mentor01");
+
+    click("다음");
+
+    expect(screen.getByLabelText("학부모 이름")).toHaveValue("김부모");
+  });
 });
+
