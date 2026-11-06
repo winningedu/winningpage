@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
+import SelfAssignPrompt from "@/components/enrollment/SelfAssignPrompt";
 import KakaoConsultButton from "@/components/mypage/KakaoConsultButton";
 import MyPageTabs from "@/components/mypage/MyPageTabs";
 import MyServicesTab from "@/components/mypage/MyServicesTab";
@@ -93,6 +94,9 @@ export default function MyPage() {
         <h1 className="text-[2rem] font-semibold leading-[1.3] tracking-[-0.02em] text-ink">
           MY 페이지
         </h1>
+
+        {/* 스쿨멘토 학생의 올해 학급이 비어 있으면 입력 안내(사 #109). 위닝은 아무것도 그리지 않는다. */}
+        {!isParent && <SelfAssignPrompt />}
 
         <div className="-mt-4.25">
           <MyPageTabs tabs={tabs} activeTab={activeTab} />

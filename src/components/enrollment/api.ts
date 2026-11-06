@@ -35,3 +35,25 @@ export async function submitEnrollment(
     message: typeof message === "string" ? message : SUBMIT_FAILED,
   };
 }
+
+export interface EnrollmentClass {
+  grade: string | null;
+  groupName: string | null;
+  className: string | null;
+  number: number | null;
+}
+
+export interface MyEnrollment {
+  orgType: string | null;
+  enrollment: (EnrollmentClass & { schoolYear: number }) | null;
+  pending: (EnrollmentClass & { createdAt: string }) | null;
+}
+
+/** 올해 학적과 열린 변경 신청. 불러오지 못하면 null(화면은 아무것도 그리지 않는다). */
+export async function fetchMyEnrollment(): Promise<MyEnrollment | null> {
+  const auth = await getAuthHeader();
+  if (!auth) return null;
+  const res = await apiFetch("/api/enrollment/me", { headers: auth });
+  if (!res.ok) return null;
+  return (await res.json().catch(() => null)) as MyEnrollment | null;
+}
