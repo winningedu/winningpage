@@ -28,6 +28,7 @@
 //   아니면 새로 만든다"가 자동으로 성립한다. `regenerate:true`는 재생성 예산(2회)을 태우는
 //   별개 행동이라 그 UI(§5.13에 없음)가 생길 때 함께 배선한다.
 
+import { entitlementDeniedMessage } from "../tenantBlock";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
 
 const NETWORK_ERROR =
@@ -138,7 +139,11 @@ export async function requestDesignReport({
     const code = data?.error?.code || "UNKNOWN";
     throw new DesignReportError(
       code,
-      data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+      entitlementDeniedMessage(
+        code,
+        data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+        data?.tenantReason,
+      ),
       {
         confirmedTopicId: data?.confirmedTopicId,
         generationCount: data?.generationCount,

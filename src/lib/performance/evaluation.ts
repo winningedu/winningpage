@@ -39,6 +39,7 @@
 //   `guideUpload.js`/`topics.js`/`designReport.js`가 이미 쓰는 규약이라 읽는 쪽이 출처를
 //   따지지 않아도 된다.
 
+import { entitlementDeniedMessage } from "../tenantBlock";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
 
 const NETWORK_ERROR =
@@ -154,7 +155,11 @@ async function postJson(
     const code = data?.error?.code || "UNKNOWN";
     throw new EvaluationRequestError(
       code,
-      data?.error?.message || fallbackMap[code] || genericMessage,
+      entitlementDeniedMessage(
+        code,
+        data?.error?.message || fallbackMap[code] || genericMessage,
+        data?.tenantReason,
+      ),
       {
         field: data?.field,
         limit: data?.limit,

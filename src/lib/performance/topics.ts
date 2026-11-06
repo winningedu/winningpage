@@ -25,7 +25,11 @@
 //   모델 원문을 응답에 싣지 않으므로(`recommend-topics.js`의 `fail()`) 그대로 화면에 띄워도
 //   내부 정보가 새지 않는다. 서버 문구가 없을 때만 아래 폴백을 쓴다.
 
-import { parseTenantReason, type TenantBlockReason } from "../tenantBlock";
+import {
+  entitlementDeniedMessage,
+  parseTenantReason,
+  type TenantBlockReason,
+} from "../tenantBlock";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "./apiClient";
 
 const NETWORK_ERROR =
@@ -134,7 +138,11 @@ export async function recommendTopics({
     const code = data?.error?.code || "UNKNOWN";
     throw new TopicRequestError(
       code,
-      data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+      entitlementDeniedMessage(
+        code,
+        data?.error?.message || FALLBACK_MESSAGE[code] || GENERIC_MESSAGE,
+        data?.tenantReason,
+      ),
       {
         quotaRemaining: data?.quotaRemaining,
         planEndsAt: data?.planEndsAt,

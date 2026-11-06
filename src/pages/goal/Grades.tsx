@@ -21,6 +21,7 @@ import {
   toTableRows,
 } from "@/lib/goalGrades";
 import { goalStudentQueryOptions } from "@/lib/queryClient";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // 성적 관리(#35) + 내신/모의고사 성적 추가 모달(#36, 4022:5216) — 실데이터 배선.
 //
@@ -168,7 +169,7 @@ export default function Grades() {
         result.kind === "validation-error"
           ? result.detail
           : result.kind === "not-allowed"
-            ? "이용권이 필요합니다."
+            ? goalNotAllowedMessage(result.tenantReason, "이용권이 필요합니다.")
             : "저장에 실패했습니다. 다시 시도해 주세요.";
       return { ok: false, detail };
     }
@@ -198,7 +199,7 @@ export default function Grades() {
         result.kind === "validation-error"
           ? result.detail
           : result.kind === "not-allowed"
-            ? "이용권이 필요합니다."
+            ? goalNotAllowedMessage(result.tenantReason, "이용권이 필요합니다.")
             : result.kind === "not-found"
               ? "이미 삭제된 회차입니다. 새로고침해 주세요."
               : "수정에 실패했습니다. 다시 시도해 주세요.";

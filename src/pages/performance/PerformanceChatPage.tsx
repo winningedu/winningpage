@@ -59,7 +59,10 @@ import {
   performanceBootstrapQueryOptions,
   queryClient,
 } from "@/lib/queryClient";
-import type { TenantBlockReason } from "@/lib/tenantBlock";
+import {
+  entitlementDeniedMessage,
+  type TenantBlockReason,
+} from "@/lib/tenantBlock";
 
 // STEP1~STEP5 채팅 화면 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) / §5.6(`3754:3261`) /
 // §5.7(`3754:3315`) / §5.8(`3754:3370`·`3754:3431`) / §5.9(`3754:3562`·`3754:3493`) /
@@ -1039,8 +1042,12 @@ export default function PerformanceChatPage() {
           setSubmitErrorCode("UNCHARGED_SESSION_EXISTS");
         } else {
           setSubmitError(
-            data?.error?.message ||
-              "세션을 생성하지 못했어요. 다시 시도해 주세요.",
+            entitlementDeniedMessage(
+              data?.error?.code,
+              data?.error?.message ||
+                "세션을 생성하지 못했어요. 다시 시도해 주세요.",
+              data?.tenantReason,
+            ),
           );
         }
         return;
