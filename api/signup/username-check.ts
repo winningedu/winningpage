@@ -7,8 +7,8 @@
 // 위닝 배포에서는 404.
 
 import { defineHandler } from "../_lib/handler.js";
-import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { normalizeUsername } from "../_lib/signup/username.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 

@@ -6,8 +6,8 @@
 
 import { defineHandler } from "../_lib/handler.js";
 import { getClientIp } from "../_lib/phoneCode.js";
-import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { lookupSignupTenant } from "../_lib/signup/tenant.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 

@@ -11,8 +11,8 @@ import {
 } from "../_lib/signup/authUser.js";
 import { mapSignupRpcError } from "../_lib/signup/errors.js";
 import { parseSchoolStudentBody } from "../_lib/signup/schoolStudent.js";
-import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { lookupSignupTenant } from "../_lib/signup/tenant.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
