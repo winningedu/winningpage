@@ -7,6 +7,7 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
@@ -543,6 +544,9 @@ export default function ProfileTab({
           )}
         </ProfileField>
       )}
+
+      {/* 학년, 반, 번호 — 스쿨멘토 학생 전용. 바로 고치지 않고 수정요청으로 담임 승인을 거친다(사 #110). */}
+      {!isParent && <ChangeRequestSection />}
 
       {/* 소속 — 학생 전용, 가입 시 안 넣은 경우 여기서 1회 입력한다(태스크5,
           2026-09-01, 2026-09-22 tenant 전환으로 fn_my_tenant/fn_set_my_tenant
