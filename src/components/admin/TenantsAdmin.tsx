@@ -99,7 +99,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   const [loading, setLoading] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
-  // app_settings.contract_grace_days — 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓴다.
+  // app_settings.contract_grace_days. 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓴다.
   const [graceDays, setGraceDays] = useState<number | null>(null);
 
   const [form, setForm] = useState<CreateForm>(() => emptyForm());
