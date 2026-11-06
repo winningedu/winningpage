@@ -206,10 +206,15 @@ describe("2단계 소속 확인", () => {
   });
 });
 
+const SEND_OK = { body: { ok: true, expires_in: 180, cooldown: 60 } };
+const VERIFY_OK = { body: { ok: true } };
+
 // 소속을 확인한 뒤 3단계까지 간다. orgType으로 학교와 학원을 가른다.
 async function goToStudentInfo(orgType = "학교") {
   mockApi({
     "/api/signup/tenant-lookup": { body: { ...TENANT, orgType } },
+    "/api/send-phone-code": SEND_OK,
+    "/api/verify-phone-code": VERIFY_OK,
   });
   renderSignup();
   agreeRequiredTerms();
@@ -438,5 +443,70 @@ describe("3단계 휴대폰 인증", () => {
 
     expect(screen.queryByText("전화번호 인증이 완료되었습니다.")).toBeNull();
     expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
+  });
+});
+
+// 3단계의 모든 필수 칸을 올바르게 채운다(14세 이상, 학교 소속).
+async function fillValidStudent() {
+  vi.mocked(supabase.rpc).mockResolvedValue({
+    data: true,
+    error: null,
+  } as never);
+  type("이름", "김학생");
+  type("아이디", "mentor01");
+  click("중복 확인");
+  await screen.findByText("사용할 수 있는 아이디입니다.");
+  type("비밀번호", "abc123!");
+  type("비밀번호 확인", "abc123!");
+  type("휴대폰번호", "01012345678");
+  click("인증번호 보내기");
+  await waitFor(() =>
+    expect(screen.getByLabelText("휴대폰 인증번호")).toBeEnabled(),
+  );
+  type("휴대폰 인증번호", "123456");
+  await screen.findByText("전화번호 인증이 완료되었습니다.");
+  type("이메일", "a@b.co");
+  type("생년월일", "20100304");
+  type("성별", "남");
+  type("학년", "중2");
+  type("반", "3");
+}
+
+describe("3단계 다음 버튼", () => {
+  it("필수 칸을 모두 올바르게 채워야 켜진다", async () => {
+    await goToStudentInfo();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+
+    await fillValidStudent();
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeEnabled();
+  });
+
+  it("비밀번호 확인이 다르면 알려 주고 막는다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+
+    type("비밀번호 확인", "abc123?");
+
+    expect(screen.getByText("비밀번호가 서로 달라요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("아이디를 확인한 뒤 고치면 다시 확인할 때까지 막는다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+
+    type("아이디", "mentor02");
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("번호는 1에서 99 사이가 아니면 막는다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+
+    type("번호(선택)", "0");
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
   });
 });

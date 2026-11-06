@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidClassNumber, isValidUsername } from "./rules";
+import { isValidClassNumber, isValidEmail, isValidUsername } from "./rules";
 
 describe("isValidUsername", () => {
   it("영문 소문자와 숫자 4자에서 20자를 받는다", () => {
@@ -27,5 +27,13 @@ describe("isValidClassNumber", () => {
     expect(isValidClassNumber("100")).toBe(false);
     expect(isValidClassNumber("1a")).toBe(false);
     expect(isValidClassNumber("")).toBe(false);
+  });
+});
+
+describe("isValidEmail", () => {
+  it("골뱅이와 점이 있는 주소만 받는다", () => {
+    expect(isValidEmail("a@b.co")).toBe(true);
+    expect(isValidEmail("a@b")).toBe(false);
+    expect(isValidEmail("a b@c.co")).toBe(false);
   });
 });

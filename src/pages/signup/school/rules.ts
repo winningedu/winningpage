@@ -13,3 +13,7 @@ export function isValidUsername(value: string) {
 export function isValidClassNumber(value: string) {
   return CLASS_NUMBER_PATTERN.test(value);
 }
+
+export function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}

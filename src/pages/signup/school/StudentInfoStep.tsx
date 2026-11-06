@@ -7,7 +7,12 @@ import { isValidPassword } from "../StudentForm";
 import { checkUsernameAvailable } from "./api";
 import { INFO_MESSAGES, USERNAME_MESSAGES } from "./copy";
 import PhoneVerifyField from "./PhoneVerifyField";
-import { ENROLLMENT_GRADES, isValidUsername } from "./rules";
+import {
+  ENROLLMENT_GRADES,
+  isValidClassNumber,
+  isValidEmail,
+  isValidUsername,
+} from "./rules";
 import StepActions from "./StepActions";
 
 const GENDER_OPTIONS = ["남", "여"];
@@ -78,6 +83,21 @@ export default function StudentInfoStep({
     formData.passwordConfirm !== "" &&
     formData.password !== formData.passwordConfirm;
   const birthDateInvalid = birthDate.length === 8 && isUnder14 === null;
+
+  const isNumberOk =
+    formData.classNumber === "" || isValidClassNumber(formData.classNumber);
+  const canProceed =
+    formData.name.trim() !== "" &&
+    usernameResult?.available === true &&
+    isValidPassword(formData.password) &&
+    !passwordMismatch &&
+    formData.passwordConfirm !== "" &&
+    verification.phone.verified &&
+    isValidEmail(formData.email) &&
+    isUnder14 !== null &&
+    (isUnder14 || formData.gender !== "") &&
+    formData.grade !== "" &&
+    (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
   function field(key: keyof typeof formData) {
     return (value: string) => updateFormData({ [key]: value });
@@ -257,7 +277,7 @@ export default function StudentInfoStep({
         )}
       </div>
 
-      <StepActions onPrev={onPrev} onNext={onNext} />
+      <StepActions onPrev={onPrev} onNext={onNext} nextDisabled={!canProceed} />
     </>
   );
 }
