@@ -192,7 +192,7 @@ async function findAllAccountsByPhone(
 ): Promise<ChooseCandidate[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, tenants(name)")
+    .select("id, email, username, tenants!profiles_tenant_id_fkey(name)")
     .not("member_type", "is", null)
     .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`)
     .order("created_at", { ascending: true })

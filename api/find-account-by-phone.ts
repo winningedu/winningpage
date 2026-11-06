@@ -145,7 +145,7 @@ export default defineHandler({
 
       const { data: byPhone, error: byPhoneError } = await supabase
         .from("profiles")
-        .select("email, username, tenants(name)")
+        .select("email, username, tenants!profiles_tenant_id_fkey(name)")
         .not("member_type", "is", null)
         .or(`phone.eq.${phone},phone.eq.${hyphenated}`)
         .returns<ProfileMatch[]>();
@@ -159,7 +159,7 @@ export default defineHandler({
         const { data: byGuardianPhone, error: byGuardianPhoneError } =
           await supabase
             .from("profiles")
-            .select("email, username, tenants(name)")
+            .select("email, username, tenants!profiles_tenant_id_fkey(name)")
             .not("member_type", "is", null)
             .or(`guardian_phone.eq.${phone},guardian_phone.eq.${hyphenated}`)
             .returns<ProfileMatch[]>();

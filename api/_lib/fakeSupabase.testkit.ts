@@ -1,7 +1,7 @@
 // 핸들러 테스트용 메모리 Supabase 가짜. 실제 쿼리 빌더처럼 필터를 적용해서,
 // 테스트가 "어떤 필터를 걸었는지"가 아니라 "그 결과 어떤 행이 보이는지"로
 // 동작을 검증하게 한다. 필요한 만큼만 지원한다(select, eq, is, not, or, order,
-// limit, maybeSingle, update, rpc, auth.admin.updateUserById, tenants(name) 임베드).
+// limit, maybeSingle, update, rpc, auth.admin.updateUserById, tenants!profiles_tenant_id_fkey(name) 임베드).
 
 type Row = Record<string, unknown>;
 type Filter = (row: Row) => boolean;
@@ -38,6 +38,7 @@ class Query {
   private single = false;
   private patch: Row | null = null;
   private embedTenant = false;
+  private ambiguousEmbed = false;
 
   constructor(
     private db: FakeDb,
@@ -45,7 +46,9 @@ class Query {
   ) {}
 
   select(cols = "*") {
-    this.embedTenant = /tenants\(/.test(cols);
+    // profiles 와 tenants 는 FK 가 둘이라 힌트 없는 임베드는 PostgREST 가 PGRST201 로 거부한다.
+    this.ambiguousEmbed = /tenants\(/.test(cols);
+    this.embedTenant = /tenants!profiles_tenant_id_fkey\(/.test(cols);
     return this;
   }
   update(patch: Row) {
@@ -86,6 +89,11 @@ class Query {
   }
 
   private run() {
+    if (this.ambiguousEmbed)
+      return {
+        data: null,
+        error: { code: "PGRST201", message: "tenants 임베드 관계가 모호함" },
+      };
     const all = this.db.tables[this.table] ?? [];
     let rows = all.filter((r) => this.filters.every((f) => f(r)));
     if (this.patch) {
