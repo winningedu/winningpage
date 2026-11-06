@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   runStep: vi.fn(),
   hasPaidServiceAccess: vi.fn(),
   notifyGrowthReportDone: vi.fn(),
+  isSchoolmentorSite: vi.fn(),
+  checkTenantStart: vi.fn(),
 }));
 vi.mock("./notify.js", () => ({
   notifyGrowthReportDone: mocks.notifyGrowthReportDone,
@@ -35,6 +37,14 @@ vi.mock("./runStep.js", () => ({ runStep: mocks.runStep }));
 vi.mock("../../serviceAccess.js", () => ({
   SERVICE_CONFIGS: { growth: { service_key: "growth" } },
   hasPaidServiceAccess: mocks.hasPaidServiceAccess,
+}));
+
+vi.mock("../../site.js", () => ({
+  isSchoolmentorSite: mocks.isSchoolmentorSite,
+}));
+vi.mock("../../tenantUsage.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tenantUsage.js")>()),
+  checkTenantStart: mocks.checkTenantStart,
 }));
 
 import { advanceStep } from "./advance.js";
@@ -78,6 +88,8 @@ function stateWith(step: StepNumber, attempts: number) {
 
 beforeEach(() => {
   for (const m of Object.values(mocks)) m.mockReset();
+  mocks.isSchoolmentorSite.mockReturnValue(false);
+  mocks.checkTenantStart.mockResolvedValue(null);
   mocks.hasPaidServiceAccess.mockResolvedValue({ allowed: true, reason: null });
   mocks.claimStep.mockResolvedValue({ kind: "claimed", attempts: 1 });
   mocks.loadContextInputs.mockResolvedValue({});
@@ -498,5 +510,86 @@ describe("advanceStep 계기판 기록", () => {
     const t = makeDb();
     await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 2, deps);
     expect(t.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("advanceStep 스쿨멘토 시작 확인", () => {
+  beforeEach(() => mocks.isSchoolmentorSite.mockReturnValue(true));
+
+  it("1단계는 growth_report 로 시작 확인을 하고 통과하면 진행한다", async () => {
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(mocks.checkTenantStart).toHaveBeenCalledWith(db, "u", "growth", {
+      kind: "growth_report",
+      id: "r1",
+    });
+    expect(out.kind).toBe("ok");
+  });
+
+  it("한도에 걸리면 선점 전에 tenantReason 을 달아 no_entitlement", async () => {
+    mocks.checkTenantStart.mockResolvedValue("month_cap");
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "month_cap",
+      tenantReason: "month_cap",
+    });
+    expect(mocks.claimStep).not.toHaveBeenCalled();
+  });
+
+  it("진입 게이트 거부 사유도 tenantReason 으로 싣는다", async () => {
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: false,
+      reason: "catch_all",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "catch_all",
+      tenantReason: "catch_all",
+    });
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
+  });
+
+  it("2단계 늦은 차감이 이미 센 회차면 진행한다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "already_charged",
+      charged: true,
+      tenantReason: null,
+    });
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 2 });
+    const out = await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(out).toMatchObject({ kind: "ok", charged: true });
+  });
+
+  it("2단계 늦은 차감 거절은 tenantReason 을 싣는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "quota_exhausted",
+      charged: false,
+      tenantReason: "term_cap",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "quota_exhausted",
+      tenantReason: "term_cap",
+    });
+  });
+});
+
+describe("advanceStep 위닝은 시작 확인을 하지 않는다", () => {
+  it("checkTenantStart 를 부르지 않고 거부 응답에 tenantReason 이 없다", async () => {
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: false,
+      reason: "period_expired",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({ kind: "no_entitlement", reason: "period_expired" });
+    expect(Object.keys(out)).not.toContain("tenantReason");
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: true,
+      reason: null,
+    });
+    await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
   });
 });

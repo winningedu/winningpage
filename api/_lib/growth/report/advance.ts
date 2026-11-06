@@ -4,6 +4,12 @@
 import type { callStructured } from "../../ai/gemini.js";
 import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
+import { isSchoolmentorSite } from "../../site.js";
+import {
+  checkTenantStart,
+  type TenantDenyReason,
+  tenantReasonOf,
+} from "../../tenantUsage.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import { notifyGrowthReportDone } from "./notify.js";
@@ -59,7 +65,12 @@ export type AdvanceOutcome =
       state: StepState;
       terminal: boolean;
     }
-  | { kind: "no_entitlement"; reason: string }
+  | {
+      kind: "no_entitlement";
+      reason: string;
+      /** 스쿨멘토에서만 있다(catch_all, disabled, outside_period, grace, month_cap, term_cap). */
+      tenantReason?: TenantDenyReason;
+    }
   | { kind: "context_error" }
   | { kind: "superseded" }
   | { kind: "not_ready" }
@@ -123,7 +134,24 @@ export async function advanceStep(
     const config = SERVICE_CONFIGS.growth;
     if (!config) throw new Error("SERVICE_CONFIGS.growth 가 없습니다.");
     const { allowed, reason } = await hasPaidServiceAccess(db, userId, config);
-    if (!allowed) return { kind: "no_entitlement", reason: reason ?? "none" };
+    if (!allowed) {
+      const tenantReason = tenantReasonOf(reason);
+      return {
+        kind: "no_entitlement",
+        reason: reason ?? "none",
+        ...(tenantReason && { tenantReason }),
+      };
+    }
+    // 스쿨멘토는 새 회차를 시작하기 전에 한도까지 본다. 이미 센 회차는 한도여도 이어서 한다.
+    if (isSchoolmentorSite()) {
+      const denied = await checkTenantStart(db, userId, "growth", {
+        kind: "growth_report",
+        id: reportId,
+      });
+      if (denied) {
+        return { kind: "no_entitlement", reason: denied, tenantReason: denied };
+      }
+    }
   }
   if (gate === "refuse_closed") {
     return {
@@ -137,7 +165,11 @@ export async function advanceStep(
   if (gate === "late_charge") {
     const c = await consumeCredit(db, userId, reportId);
     if (!(c.charged || c.status === "already_charged"))
-      return { kind: "no_entitlement", reason: c.status };
+      return {
+        kind: "no_entitlement",
+        reason: c.status,
+        ...(c.tenantReason && { tenantReason: c.tenantReason }),
+      };
     lateCharged = true;
   }
 

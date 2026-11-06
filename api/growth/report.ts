@@ -116,7 +116,15 @@ function respond(
       return;
     }
     case "no_entitlement":
-      fail(res, 403, "NO_ENTITLEMENT", "성장설계 이용권이 필요해요.");
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        "성장설계 이용권이 필요해요.",
+        outcome.tenantReason
+          ? { tenantReason: outcome.tenantReason }
+          : undefined,
+      );
       return;
     case "context_error":
       fail(res, 500, "CONTEXT_ERROR", "리포트 입력을 준비하지 못했어요.");
