@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deletionDdayText, mouLabel } from "./tenantContract";
+import { deletionDdayText, mouLabel, todayKst } from "./tenantContract";
 
 describe("mouLabel", () => {
   test("pending, signed, ended 를 협약 전, 협약 중, 협약 종료로 보인다", () => {
@@ -56,5 +56,15 @@ describe("deletionDdayText", () => {
         today: "2026-09-30",
       }),
     ).toBe("유예 종료일 미정");
+  });
+});
+
+describe("todayKst", () => {
+  test("UTC 15:00 이후는 KST 로 다음 날이다", () => {
+    expect(todayKst(new Date("2026-11-06T15:30:00Z"))).toBe("2026-11-07");
+  });
+
+  test("UTC 14:59 는 KST 로 같은 날이다", () => {
+    expect(todayKst(new Date("2026-11-06T14:59:00Z"))).toBe("2026-11-06");
   });
 });
