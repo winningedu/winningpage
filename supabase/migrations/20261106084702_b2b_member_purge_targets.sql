@@ -2,7 +2,7 @@ set local lock_timeout = '5s';
 
 -- 계약 종료 회원 삭제(5번 본사 관리 화면 PR 3, 결정 102). 스키마만 바꾼다. 인자 목록이 바뀌므로 옛 함수를 먼저 지운다.
 -- 1) fn_anonymize_expired_b2b_members 에 p_targets 를 더한다. 본사가 미리보기에서 고른 학생 번호만 지운다.
---    p_targets 가 null 이면 예전처럼 보호되지 않은 후보를 전부 지운다(크론이 아니라 수동 실행이라 본사 라우트는 항상 목록을 준다).
+--    p_tenant 와 p_targets 는 둘 다 필수다. null 이면 WC101 로 거절한다(목록이 없다고 전부 지우는 길은 없다. 크론이 부르지도 않는다).
 --    고른 학생이어도 실행 때 보호를 다시 보고, 미리보기 뒤에 들어온 학생은 목록에 없으니 지우지 않는다.
 --    목록에 없는 보호되지 않은 후보는 members_skipped 와 로그 meta.skipped_count 로 센다.
 -- 2) fn_member_purge_preview: 같은 후보 조건으로 학생 목록과 보호 표시를 돌려주는 읽기 전용 함수.
@@ -11,7 +11,7 @@ set local lock_timeout = '5s';
 drop function public.fn_anonymize_expired_b2b_members(uuid, uuid, text);
 
 -- 계약 종료 회원 익명화(사 #162, #176, 사 결정 r16 ① ⑤, 설계 P23). 크론은 부르지 않는다. 본사 관리자가 수동으로 실행한다(POST /api/admin/tenants/member-purge, 사 #162, #176).
--- p_tenant 를 주면 그 기관만, 유예 종료일이 지났을 때만 처리한다(안 지났으면 not_yet = true 와 유예 종료일만 돌려준다).
+-- p_tenant 로 준 그 기관만, 유예 종료일이 지났을 때만 처리한다(안 지났으면 not_yet = true 와 유예 종료일만 돌려준다).
 -- p_actor_profile, p_actor_email 을 주면 member_purge 로그의 실행자가 그 본사 관리자다. 없으면 시스템 아이디로 남긴다.
 -- 대상: 계약 종료일이 있는 기관 중 유예 종료일이 지난 기관의 학생(member_type = student).
 -- 유예 종료일은 tenants.grace_ends_on, 없으면 계약 종료일 + app_settings.contract_grace_days(숫자, 사 결정 r15)다.
@@ -22,7 +22,7 @@ drop function public.fn_anonymize_expired_b2b_members(uuid, uuid, text);
 -- 학적, 서비스 기록, 리포트는 남긴다(결정 r16). 이름이 '삭제된 학생'인 프로필은 이미 처리된 것으로 본다(다시 하지 않는다).
 -- 기관마다 한 번, 처리한 학생이 있으면 member_purge 접근 로그를 한 줄 남긴다. 이름과 연락처는 넣지 않는다(사 #177).
 -- 행은 SKIP LOCKED 로 잠가 두 실행이 겹쳐도 같은 학생을 두 번 처리하지 않는다.
--- p_targets 를 주면 그 안에 있는 보호되지 않은 후보만 지운다(위 설명). 목록 밖 후보는 지우지 않고 센다.
+-- p_targets 안에 있는 보호되지 않은 후보만 지운다(위 설명). 목록 밖 후보는 지우지 않고 센다.
 -- 유료 전환 신청 표(#167)와 보호 해제 뒤 30일 재기산(#176-q1)은 결제가 열릴 때 함께 만든다.
 create function public.fn_anonymize_expired_b2b_members(
   p_tenant uuid default null,
@@ -57,6 +57,10 @@ declare
   v_grace date;
   v_not_yet boolean := false;
 begin
+  if p_tenant is null or p_targets is null then
+    raise exception 'tenant_and_targets_required' using errcode = 'WC101';
+  end if;
+
   select case when jsonb_typeof(a.value) = 'number' then (a.value #>> '{}')::integer end
     into v_default_days
     from public.app_settings a where a.key = 'contract_grace_days';
@@ -65,7 +69,7 @@ begin
     select t.id, t.contract_end_date,
            coalesce(t.grace_ends_on, t.contract_end_date + v_default_days) as grace_end
       from public.tenants t
-     where (p_tenant is null or t.id = p_tenant)
+     where t.id = p_tenant
        and t.contract_end_date is not null
        and v_today > coalesce(t.grace_ends_on, t.contract_end_date + v_default_days)
      order by t.id
@@ -86,7 +90,7 @@ begin
          set name = c_name, phone = null, email = null, username = null, birth_date = null, gender = null,
              landline = null, address = null, address_detail = null, memo = null, guardian_phone = null,
              payment_terminal_id = null, is_active = false
-       where p.id in (select c.id from cand c where not c.protected and (p_targets is null or c.id = any (p_targets)))
+       where p.id in (select c.id from cand c where not c.protected and c.id = any (p_targets))
       returning p.id
     ), ban as (
       update auth.users u set banned_until = now() + interval '100 years'
@@ -94,7 +98,7 @@ begin
     )
     select coalesce((select array_agg(d.id order by d.id) from done d), '{}'),
            (select count(*) from cand c where c.protected),
-           (select count(*) from cand c where not c.protected and p_targets is not null and c.id <> all (p_targets))
+           (select count(*) from cand c where not c.protected and c.id <> all (p_targets))
       into v_ids, v_protected, v_skipped;
 
     v_skipped_total := v_skipped_total + v_skipped;
