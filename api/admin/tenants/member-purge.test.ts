@@ -131,6 +131,50 @@ describe("POST /api/admin/tenants/member-purge", () => {
     expect(anonymizeArgs).toHaveLength(0);
   });
 
+  test.each([
+    ["targetIds 없음", { tenantId: "tenant-7" }],
+    ["빈 targetIds", { tenantId: "tenant-7", targetIds: [] }],
+    ["배열이 아닌 targetIds", { tenantId: "tenant-7", targetIds: STUDENT_A }],
+    [
+      "uuid 가 아닌 항목",
+      { tenantId: "tenant-7", targetIds: [STUDENT_A, "not-a-uuid"] },
+    ],
+    ["문자열이 아닌 항목", { tenantId: "tenant-7", targetIds: [STUDENT_A, 7] }],
+    [
+      "중복된 항목",
+      { tenantId: "tenant-7", targetIds: [STUDENT_A, STUDENT_A] },
+    ],
+    [
+      "5,000개 초과",
+      {
+        tenantId: "tenant-7",
+        targetIds: Array.from(
+          { length: 5001 },
+          (_, i) =>
+            `a${String(i).padStart(7, "0")}-1111-4111-8111-111111111111`,
+        ),
+      },
+    ],
+  ])("%s 이면 400 이고 아무것도 지우지 않는다", async (_label, body) => {
+    const r = await post(body);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(anonymizeArgs).toHaveLength(0);
+  });
+
+  test("5,000개까지는 받는다", async () => {
+    const targetIds = Array.from(
+      { length: 5000 },
+      (_, i) => `a${String(i).padStart(7, "0")}-1111-4111-8111-111111111111`,
+    );
+
+    const r = await post({ tenantId: "tenant-7", targetIds });
+
+    expect(r.status).toBe(200);
+    expect(anonymizeArgs[0]?.p_targets).toHaveLength(5000);
+  });
+
   test("POST 이외의 메서드는 405 이다", async () => {
     const r = await post({ tenantId: "tenant-7" }, "GET");
 
