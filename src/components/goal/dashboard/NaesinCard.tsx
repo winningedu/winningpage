@@ -5,6 +5,7 @@ import GoalCardHeader from "@/components/goal/GoalCardHeader";
 import GoalStatChip from "@/components/goal/GoalStatChip";
 import AddNaesinGradeModal from "@/components/goal/modals/AddNaesinGradeModal";
 import { addGoalGrade } from "@/lib/goalApi";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 type NaesinCardData = {
   round: string;
@@ -49,7 +50,7 @@ export default function NaesinCard({ data }: NaesinCardProps) {
         result.kind === "validation-error"
           ? result.detail
           : result.kind === "not-allowed"
-            ? "이용권이 필요합니다."
+            ? goalNotAllowedMessage(result.tenantReason, "이용권이 필요합니다.")
             : "저장에 실패했습니다. 다시 시도해 주세요.";
       return { ok: false, detail };
     }
