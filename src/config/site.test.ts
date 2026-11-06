@@ -219,3 +219,12 @@ describe("site — 잘못된 VITE_SITE", () => {
     await expect(import("./site")).rejects.toThrow(/VITE_SITE 누락\/오류/);
   });
 });
+
+describe("site - 학교 학생 가입 플래그", () => {
+  it("winning은 기존 가입 흐름을 쓰고 schoolmentor는 학교 가입 흐름을 쓴다", async () => {
+    expect((await loadSite("winning")).site.features.schoolSignup).toBe(false);
+    expect((await loadSite("schoolmentor")).site.features.schoolSignup).toBe(
+      true,
+    );
+  });
+});

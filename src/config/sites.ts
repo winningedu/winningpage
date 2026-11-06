@@ -38,6 +38,8 @@ export interface SiteConfig {
     serverLogin: boolean;
     // B2B 메뉴 트리(목표성장서비스, 수행심화서비스, 입시정보, 고객안내)를 fallback으로 쓸지. false면 위닝 트리.
     b2bMenu: boolean;
+    // 학생 가입을 소속 확인 5단계(학교 가입)로 받을지. false면 위닝 가입 흐름.
+    schoolSignup: boolean;
   };
   company: {
     name: string;
@@ -91,6 +93,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       bannerEmptyNotice: false,
       serverLogin: false,
       b2bMenu: false,
+      schoolSignup: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -142,6 +145,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       // 스쿨멘토는 서버를 거쳐 로그인한다(아이디 또는 이메일, 실패 횟수 잠금).
       serverLogin: true,
       b2bMenu: true,
+      schoolSignup: true,
     },
     company: {
       name: "주식회사 위닝로직",
