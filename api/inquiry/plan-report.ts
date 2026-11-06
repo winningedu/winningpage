@@ -79,6 +79,7 @@ import {
   toDesignView,
   toTopicView,
 } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 async function designViewOf(
   db: Db,
@@ -184,7 +185,13 @@ export default defineHandler({
     if (decision.retryCharge) {
       const c = await consumeCredit(db, sessionId, userId);
       if (!(c.charged || c.status === "already_charged")) {
-        fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+        fail(
+          res,
+          403,
+          "NO_ENTITLEMENT",
+          NO_ENTITLEMENT_MESSAGE,
+          tenantReasonExtra(c.tenantReason),
+        );
         return;
       }
       await markSessionInProgress(db, userId, sessionId);

@@ -25,9 +25,9 @@ import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {
   fail,
-  hasInquiryAccess,
   loadSessionParts,
   NO_ENTITLEMENT_MESSAGE,
+  readInquiryAccess,
   SESSION_NOT_FOUND_MESSAGE,
 } from "../_lib/inquiry/compose.js";
 import {
@@ -61,6 +61,7 @@ import type {
   TopicDetail,
 } from "../_lib/inquiry/types.js";
 import { toEvaluationView, toSubmissionView } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export default defineHandler({
   methods: ["POST"],
@@ -84,8 +85,15 @@ export default defineHandler({
       return;
     }
     const { sessionId } = parsed;
-    if (!(await hasInquiryAccess(db, userId))) {
-      fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+    const access = await readInquiryAccess(db, userId);
+    if (!access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        NO_ENTITLEMENT_MESSAGE,
+        tenantReasonExtra(access.tenantReason),
+      );
       return;
     }
     const session = await loadSession(db, userId, sessionId);

@@ -6,6 +6,8 @@ const loadHandoffView = vi.fn();
 const loadSession = vi.fn();
 const buildTopicsInputSpy = vi.fn();
 const runGeneration = vi.fn();
+const readInquiryAccess = vi.fn();
+const failSpy = vi.fn();
 
 vi.mock("../_lib/handler.js", () => ({
   defineHandler: (opts: { handler: unknown }) => opts.handler,
@@ -13,8 +15,8 @@ vi.mock("../_lib/handler.js", () => ({
 }));
 vi.mock("../_lib/ai/gemini.js", () => ({ callStructured: vi.fn() }));
 vi.mock("../_lib/inquiry/compose.js", () => ({
-  fail: vi.fn(),
-  hasInquiryAccess: vi.fn(async () => true),
+  fail: (...a: unknown[]) => failSpy(...a),
+  readInquiryAccess: (...a: unknown[]) => readInquiryAccess(...a),
   loadAssetViews: vi.fn(async () => []),
   loadHandoffView: (...a: unknown[]) => loadHandoffView(...a),
   loadSessionParts: vi.fn(),
@@ -100,6 +102,7 @@ async function run() {
 beforeEach(() => {
   vi.clearAllMocks();
   loadSession.mockResolvedValue(sessionRow);
+  readInquiryAccess.mockResolvedValue({ allowed: true, tenantReason: null });
   runGeneration.mockResolvedValue({ kind: "validation_failed" });
 });
 
@@ -119,5 +122,41 @@ describe("recommend-topics 성장설계 수신값", () => {
     expect(buildTopicsInputSpy).toHaveBeenCalledWith(
       expect.objectContaining({ handoff: null }),
     );
+  });
+});
+
+describe("recommend-topics 이용 게이트", () => {
+  it("미차감 세션이 진입 거부되면 403 에 tenantReason 을 싣고 선점하지 않는다", async () => {
+    readInquiryAccess.mockResolvedValue({
+      allowed: false,
+      tenantReason: "outside_period",
+    });
+    await run();
+    expect(failSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      403,
+      "NO_ENTITLEMENT",
+      "x",
+      { tenantReason: "outside_period" },
+    );
+    expect(runGeneration).not.toHaveBeenCalled();
+  });
+
+  it("위닝 거부는 추가 필드 없이 같은 403 이다", async () => {
+    readInquiryAccess.mockResolvedValue({ allowed: false, tenantReason: null });
+    await run();
+    expect(failSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      403,
+      "NO_ENTITLEMENT",
+      "x",
+      {},
+    );
+  });
+
+  it("이미 차감된 세션은 이용권을 다시 보지 않는다", async () => {
+    loadSession.mockResolvedValue({ ...sessionRow, status: "in_progress" });
+    await run();
+    expect(readInquiryAccess).not.toHaveBeenCalled();
   });
 });
