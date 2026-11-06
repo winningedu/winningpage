@@ -6,3 +6,10 @@ export const TENANT_MESSAGES = {
   askCatchAll: "소속코드를 모르시나요? 담당 선생님께 먼저 확인해 주세요",
   tooMany: "소속코드 확인을 너무 많이 시도했어요. 잠시 후 다시 시도해 주세요.",
 };
+
+export const INFO_MESSAGES = {
+  classHint: "학년, 반, 번호는 선생님 화면의 학급 편성에 쓰여요.",
+  passwordRule: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
+  passwordMismatch: "비밀번호가 서로 달라요.",
+  invalidBirthDate: "올바른 생년월일을 입력해 주세요.",
+};

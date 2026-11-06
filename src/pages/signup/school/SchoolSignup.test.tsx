@@ -199,3 +199,42 @@ describe("2단계 소속 확인", () => {
     expect(screen.getByLabelText("소속코드")).toBeInTheDocument();
   });
 });
+
+// 소속을 확인한 뒤 3단계까지 간다. orgType으로 학교와 학원을 가른다.
+async function goToStudentInfo(orgType = "학교") {
+  mockApi({
+    "/api/signup/tenant-lookup": { body: { ...TENANT, orgType } },
+  });
+  renderSignup();
+  agreeRequiredTerms();
+  type("소속코드", "ABCDEFGH");
+  click("확인");
+  await screen.findByText("새빛중학교");
+  click("다음");
+}
+
+describe("3단계 학생 정보 칸", () => {
+  it("학교 소속은 학년, 반, 번호를 받고 그룹은 숨긴다", async () => {
+    await goToStudentInfo("학교");
+
+    for (const label of [
+      "이름",
+      "아이디",
+      "비밀번호",
+      "비밀번호 확인",
+      "휴대폰번호",
+      "이메일",
+      "생년월일",
+      "성별",
+      "학년",
+      "반",
+      "번호(선택)",
+    ]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByLabelText("그룹(선택)")).toBeNull();
+    expect(
+      screen.getByText("학년, 반, 번호는 선생님 화면의 학급 편성에 쓰여요."),
+    ).toBeInTheDocument();
+  });
+});
