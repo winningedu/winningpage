@@ -238,3 +238,12 @@ describe("site - 학적 셀프서비스 스위치", () => {
     expect(winning.site.features.studentEnrollment).toBe(false);
   });
 });
+
+describe("site - 본사 기관 관리 스위치", () => {
+  it("스쿨멘토만 본사 기관 관리 화면(기관 상세, 학교 관리자)을 연다", async () => {
+    expect((await loadSite("schoolmentor")).site.features.hqTenantAdmin).toBe(
+      true,
+    );
+    expect((await loadSite("winning")).site.features.hqTenantAdmin).toBe(false);
+  });
+});

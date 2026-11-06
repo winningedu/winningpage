@@ -44,6 +44,8 @@ export interface SiteConfig {
     schoolSignup: boolean;
     // 마이페이지 학적(학급 직접 입력, 학년, 반, 번호 수정요청, 학생 고유코드)과 서비스 화면의 학년 고정(사 #40, #109, #110, #111).
     studentEnrollment: boolean;
+    // 본사 관리자 화면의 기관 상세(기관 정보, 학교 관리자)와 목록 계약 열(5번 본사 관리 화면, 결정 102).
+    hqTenantAdmin: boolean;
   };
   company: {
     name: string;
@@ -100,6 +102,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       tenantServiceGate: false,
       schoolSignup: false,
       studentEnrollment: false,
+      hqTenantAdmin: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -154,6 +157,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       tenantServiceGate: true,
       schoolSignup: true,
       studentEnrollment: true,
+      hqTenantAdmin: true,
     },
     company: {
       name: "주식회사 위닝로직",
