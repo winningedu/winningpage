@@ -49,6 +49,7 @@ import type {
   SubmissionSections,
   TopicView,
 } from "@/lib/inquiry/types";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
 
 // 경로: /app/inquiry/write (화면 4, 보고서 작성)
@@ -188,7 +189,7 @@ type Phase =
   | { type: "running" }
   | { type: "failed"; attempts: number | null }
   | { type: "terminal" }
-  | { type: "noEntitlement" }
+  | { type: "noEntitlement"; tenantReason: TenantBlockReason | null }
   | { type: "reevaluationLimit" };
 
 type Notice =
@@ -327,9 +328,14 @@ function WriteForm({
           setPhase({ type: "failed", attempts: outcome.attempts });
           return;
         case "terminal":
-        case "noEntitlement":
         case "reevaluationLimit":
           setPhase({ type: outcome.type });
+          return;
+        case "noEntitlement":
+          setPhase({
+            type: "noEntitlement",
+            tenantReason: outcome.tenantReason,
+          });
           return;
         case "sectionEmpty":
           setNotice({
@@ -457,9 +463,13 @@ function WriteForm({
             onRetry={() => void runEvaluate()}
           />
         )}
-        {(phase.type === "terminal" ||
-          phase.type === "noEntitlement" ||
-          phase.type === "reevaluationLimit") && (
+        {phase.type === "noEntitlement" && (
+          <EvaluateStatusCard
+            variant="noEntitlement"
+            tenantReason={phase.tenantReason}
+          />
+        )}
+        {(phase.type === "terminal" || phase.type === "reevaluationLimit") && (
           <EvaluateStatusCard variant={phase.type} />
         )}
 

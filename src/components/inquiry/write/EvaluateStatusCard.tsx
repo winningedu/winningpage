@@ -1,7 +1,10 @@
 import { Link } from "react-router";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { site } from "@/config/site";
 import { MAX_MODEL_ATTEMPTS } from "@/lib/inquiry/labels";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 
 // 평가 호출이 끝나지 못했을 때의 안내 카드 4종(부록 C 오류 분기 공통).
 const CARD = "rounded-xl border border-line/60 bg-white px-6 py-6";
@@ -13,7 +16,7 @@ export const PRICING_PATH = "/pricing?service=inquiry";
 type Props =
   | { variant: "failed"; attempts: number | null; onRetry: () => void }
   | { variant: "terminal" }
-  | { variant: "noEntitlement" }
+  | { variant: "noEntitlement"; tenantReason?: TenantBlockReason | null }
   | { variant: "reevaluationLimit" };
 
 export default function EvaluateStatusCard(props: Props) {
@@ -57,6 +60,10 @@ export default function EvaluateStatusCard(props: Props) {
         </section>
       );
     case "noEntitlement":
+      // 스쿨멘토는 이용권을 사지 않는다(결정 99). 구매 링크 대신 기관 사유를 보인다.
+      if (site.features.tenantServiceGate) {
+        return <ServiceBlockedNotice reason={props.tenantReason ?? null} />;
+      }
       return (
         <section role="alert" className={CARD}>
           <p className={TITLE}>이용권이 필요해요</p>
