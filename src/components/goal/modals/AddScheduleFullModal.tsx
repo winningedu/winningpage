@@ -8,6 +8,7 @@ import {
   deleteGoalSchedule,
   updateGoalSchedule,
 } from "@/lib/goalApi";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // 중요일정 등록·수정 모달(624px 버전) — docs/figma-goal/part-14.md #40 (530×624 = 33.125rem ×
 // 39rem, **모달 정본** — 화면별 지침 §3 확정 사항). 대시보드 진입용 AddScheduleModal(#19,
@@ -149,7 +150,12 @@ export default function AddScheduleFullModal({
       return;
     }
     if (result.kind === "not-allowed") {
-      setErrorMessage("유료결제이후 이용해주세요!");
+      setErrorMessage(
+        goalNotAllowedMessage(
+          result.tenantReason,
+          "유료결제이후 이용해주세요!",
+        ),
+      );
       return;
     }
     setErrorMessage("저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
