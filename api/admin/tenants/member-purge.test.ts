@@ -175,6 +175,15 @@ describe("POST /api/admin/tenants/member-purge", () => {
     expect(anonymizeArgs[0]?.p_targets).toHaveLength(5000);
   });
 
+  test("스쿨멘토가 아닌 사이트에서는 404 이고 아무것도 지우지 않는다", async () => {
+    vi.stubEnv("SITE", "winning");
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(404);
+    expect(anonymizeArgs).toHaveLength(0);
+  });
+
   test("POST 이외의 메서드는 405 이다", async () => {
     const r = await post({ tenantId: "tenant-7" }, "GET");
 

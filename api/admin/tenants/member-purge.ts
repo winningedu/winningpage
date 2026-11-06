@@ -9,6 +9,7 @@ import { hasAdminEditPermission } from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { isUuid } from "../../_lib/service-credit/adjust.js";
+import { isSchoolmentorSite } from "../../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -37,6 +38,10 @@ export default defineHandler({
   logLabel: "[admin/tenants/member-purge]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
+    if (!isSchoolmentorSite()) {
+      sendError(res, "coded", 404, "찾을 수 없어요.", "NOT_FOUND");
+      return;
+    }
     const userId = ctx.userId as string;
     if (
       !(await hasAdminEditPermission(
