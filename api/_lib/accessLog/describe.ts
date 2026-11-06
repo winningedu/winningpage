@@ -38,7 +38,7 @@ const ACCESS_LOG_ACTIONS = [
 
 /** admin_access_logs.action 을 구분으로 묶는다. 모르는 동작은 조회로 본다. */
 export function kindOf(action: string): AccessLogKind {
-  if (action === "export") return "export";
+  if (action === "export" || action === "download") return "export";
   if (action.startsWith("proxy_")) return "proxy";
   if (
     action === "update" ||

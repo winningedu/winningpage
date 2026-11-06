@@ -196,6 +196,14 @@ describe("GET /api/admin/access-logs", () => {
     expect(actions).not.toContain("export");
   });
 
+  test("출력 구분은 export 와 download 동작을 읽는다", async () => {
+    await get({ kind: "export" });
+
+    const actions = logFilters[0]?.action as string[];
+    expect(actions).toEqual(expect.arrayContaining(["export", "download"]));
+    expect(actions).not.toContain("view");
+  });
+
   test.each([
     [{ kind: "nope" }],
     [{ from: "2026/11/01" }],

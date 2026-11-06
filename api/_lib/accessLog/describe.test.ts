@@ -39,7 +39,6 @@ describe("kindOf", () => {
   test.each([
     ["view", "조회"],
     ["report_view", "조회"],
-    ["download", "조회"],
     ["unmask", "조회"],
     ["update", "수정"],
     ["settings_change", "수정"],
@@ -48,6 +47,7 @@ describe("kindOf", () => {
     ["teacher_import", "수정"],
     ["member_purge", "수정"],
     ["export", "출력"],
+    ["download", "출력"],
     ["proxy_start", "대행"],
     ["proxy_end", "대행"],
   ])("%s 는 %s", (action, label) => {
