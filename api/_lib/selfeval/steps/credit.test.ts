@@ -90,24 +90,37 @@ describe("checkChargeGate", () => {
   });
 });
 
-describe("checkChargeGate 스쿨멘토", () => {
+describe("checkChargeGate 스쿨멘토는 모델 호출 전에 센다", () => {
   beforeEach(() => mocks.isSchoolmentorSite.mockReturnValue(true));
 
-  it("selfeval_session 단위로 시작 확인을 하고 통과하면 null 이다", async () => {
-    mocks.checkTenantStart.mockResolvedValue(null);
-    expect(await checkChargeGate(db, "u", row({}))).toBeNull();
-    expect(mocks.checkTenantStart).toHaveBeenCalledWith(db, "u", "selfeval", {
-      kind: "selfeval_session",
-      id: "s1",
-    });
-    expect(mocks.hasSelfevalAccess).not.toHaveBeenCalled();
-    expect(mocks.readSelfevalQuota).not.toHaveBeenCalled();
-  });
+  it.each(["charged", "already_charged"])(
+    "%s 이면 세션 단위로 센 뒤 통과(null)한다",
+    async (status) => {
+      mocks.consumeCredit.mockResolvedValue({
+        status,
+        charged: true,
+        tenantReason: null,
+      });
+      expect(await checkChargeGate(db, "u", row({}))).toBeNull();
+      expect(mocks.consumeCredit).toHaveBeenCalledWith(
+        db,
+        "u",
+        "s1",
+        "selfeval:reserve",
+      );
+      expect(mocks.hasSelfevalAccess).not.toHaveBeenCalled();
+      expect(mocks.readSelfevalQuota).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["month_cap", "term_cap"])(
     "새 세션이 %s 에 걸리면 quota_exhausted 와 tenantReason",
     async (reason) => {
-      mocks.checkTenantStart.mockResolvedValue(reason);
+      mocks.consumeCredit.mockResolvedValue({
+        status: "quota_exhausted",
+        charged: false,
+        tenantReason: reason,
+      });
       expect(await checkChargeGate(db, "u", row({}))).toEqual({
         kind: "quota_exhausted",
         tenantReason: reason,
@@ -115,16 +128,32 @@ describe("checkChargeGate 스쿨멘토", () => {
     },
   );
 
-  it.each(["catch_all", "disabled", "outside_period", "grace"])(
-    "%s 는 no_entitlement 와 tenantReason",
-    async (reason) => {
-      mocks.checkTenantStart.mockResolvedValue(reason);
-      expect(await checkChargeGate(db, "u", row({}))).toEqual({
-        kind: "no_entitlement",
-        tenantReason: reason,
-      });
-    },
-  );
+  it.each([
+    ["no_entitlement", "catch_all"],
+    ["no_entitlement", "disabled"],
+    ["entitlement_expired", "outside_period"],
+    ["entitlement_expired", "grace"],
+  ])("%s(%s) 는 no_entitlement 와 tenantReason", async (status, reason) => {
+    mocks.consumeCredit.mockResolvedValue({
+      status,
+      charged: false,
+      tenantReason: reason,
+    });
+    expect(await checkChargeGate(db, "u", row({}))).toEqual({
+      kind: "no_entitlement",
+      tenantReason: reason,
+    });
+  });
+
+  it("센 뒤에는 checkTenantStart 로 다시 읽지 않는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    await checkChargeGate(db, "u", row({}));
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkChargeGate 위닝은 시작 확인을 하지 않는다", () => {

@@ -3,7 +3,7 @@
 // 성장설계 api/_lib/growth/report/advance.ts 의 차감 처리와 같은 방침이다.
 
 import { isSchoolmentorSite } from "../../site.js";
-import { checkTenantStart } from "../../tenantUsage.js";
+import type { TenantDenyReason } from "../../tenantUsage.js";
 import { hasSelfevalAccess, readSelfevalQuota } from "../access.js";
 import { consumeCredit, type Db, reverseCredit } from "../db.js";
 import type { SessionRow } from "../rows.js";
@@ -33,17 +33,25 @@ export async function checkChargeGate(
   Outcome<never>,
   { kind: "no_entitlement" | "quota_exhausted" }
 > | null> {
-  // 스쿨멘토는 원장이 없어 needsCharge 가 늘 참이다. 기관 상태로 시작을 확인하되 이미 센 세션은
-  // 한도에서도 통과시킨다(checkTenantStart). 한도는 quota_exhausted, 그 밖은 no_entitlement 다.
+  // 스쿨멘토는 원장이 없어 needsCharge 가 늘 참이다. 모델을 부르기 전에 (selfeval_session, 세션 id)를
+  // 먼저 센다. 같은 세션은 멱등이라 재요청은 두 번 세지 않고, 동시에 여러 세션을 시작해도 한도를 넘지
+  // 못한다. 실패한 실행의 횟수는 돌려주지 않는다(결정 98.3, 100). 한도는 quota_exhausted, 그 밖은
+  // no_entitlement 다.
   if (isSchoolmentorSite()) {
-    const denied = await checkTenantStart(db, userId, "selfeval", {
-      kind: "selfeval_session",
-      id: session.id,
-    });
-    if (denied === null) return null;
-    return denied === "month_cap" || denied === "term_cap"
-      ? { kind: "quota_exhausted", tenantReason: denied }
-      : { kind: "no_entitlement", tenantReason: denied };
+    const r = (await consumeCredit(
+      db,
+      userId,
+      session.id,
+      "selfeval:reserve",
+    )) as {
+      status: string;
+      tenantReason: TenantDenyReason | null;
+    };
+    if (r.status === "charged" || r.status === "already_charged") return null;
+    const reason = r.tenantReason ? { tenantReason: r.tenantReason } : {};
+    return r.status === "quota_exhausted"
+      ? { kind: "quota_exhausted", ...reason }
+      : { kind: "no_entitlement", ...reason };
   }
   if (!needsCharge(session)) return null;
   if (!(await hasSelfevalAccess(db, userId))) return { kind: "no_entitlement" };
