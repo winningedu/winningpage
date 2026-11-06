@@ -207,6 +207,15 @@ describe("entryBody", () => {
     ).not.toContain("tenantReason");
   });
 
+  it("진입 거부 사유가 없으면 한도 소진 사유를 tenantReason 으로 싣는다", () => {
+    expect(
+      entryBody({ ...base, tenantReason: null, capReason: "month_cap" }),
+    ).toMatchObject({ tenantReason: "month_cap" });
+    expect(
+      entryBody({ ...base, tenantReason: "grace", capReason: "month_cap" }),
+    ).toMatchObject({ tenantReason: "grace" });
+  });
+
   it("열린 세션은 이어 쓸 화면 route 를 싣는다", () => {
     const body = entryBody({ ...base, open: listRow({ current_step: 4 }) });
     expect(body.openSession).toEqual({

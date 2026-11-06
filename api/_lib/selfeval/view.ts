@@ -87,6 +87,8 @@ export type EntryInput = {
   allowed: boolean;
   /** 스쿨멘토 기관 거부 사유. 위닝은 넘기지 않는다. */
   tenantReason?: string | null;
+  /** 남은 횟수가 0 인 기관 한도 사유(month_cap, term_cap). 진입 거부 사유가 없을 때 대신 싣는다. */
+  capReason?: string | null | undefined;
   activityCount: number;
   open: SessionListRow | null;
   growth: GrowthSnapshot | null;
@@ -116,7 +118,7 @@ export function entryBody(input: EntryInput) {
   return {
     quota: input.quota,
     allowed: input.allowed,
-    ...tenantReasonExtra(input.tenantReason),
+    ...tenantReasonExtra(input.tenantReason ?? input.capReason),
     activityCount: input.activityCount,
     openSession:
       open === null

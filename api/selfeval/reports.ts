@@ -99,6 +99,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
       quota,
       allowed: access.allowed,
       tenantReason: access.tenantReason,
+      capReason: quota.capReason,
       activityCount,
       open,
       growth,
