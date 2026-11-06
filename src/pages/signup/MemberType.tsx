@@ -14,6 +14,7 @@ import {
   ChoiceCard,
   TextLinkButton,
 } from "@/components/auth";
+import { site } from "@/config/site";
 import { useSignup } from "@/context/SignupContext";
 
 export default function MemberType() {
@@ -31,7 +32,12 @@ export default function MemberType() {
     resetForMemberType(memberType);
 
     if (memberType === "student") {
-      navigate("/signup/student/birth");
+      // 학교 가입은 생년월일을 학생 정보 단계에서 받는다.
+      navigate(
+        site.features.schoolSignup
+          ? "/signup/student"
+          : "/signup/student/birth",
+      );
     } else {
       navigate("/signup/parent");
     }
