@@ -45,6 +45,8 @@ export interface EnrollmentClass {
 
 export interface MyEnrollment {
   orgType: string | null;
+  /** 기타(catch-all) 소속이면 true. 소속코드로 기관을 옮기기 전이다(결정 96). */
+  isCatchAll?: boolean;
   enrollment: (EnrollmentClass & { schoolYear: number }) | null;
   pending: (EnrollmentClass & { createdAt: string }) | null;
 }

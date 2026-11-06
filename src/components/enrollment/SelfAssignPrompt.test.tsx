@@ -91,6 +91,16 @@ describe("SelfAssignPrompt", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("기타 소속 학생에게는 학급이 비어 있어도 숨긴다(결정 98.9)", async () => {
+    mockApiFetch.mockResolvedValue(
+      jsonResponse(200, { ...meBody(null, null), isCatchAll: true }),
+    );
+    const { container } = render(<Harness />);
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("학적 기능이 꺼진 사이트(위닝)는 조회도 하지 않는다", () => {
     state.studentEnrollment = false;
     const { container } = render(<Harness />);
