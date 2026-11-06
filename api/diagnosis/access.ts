@@ -30,6 +30,8 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
+import { readTenantQuota, readTenantUsage } from "../_lib/tenantUsage.js";
 
 const DIAGNOSE_CONFIG = SERVICE_CONFIGS.diagnose!;
 
@@ -41,6 +43,27 @@ export default defineHandler({
   logLabel: "diagnosis/access",
   handler: async (req, res, ctx) => {
     const userId = requireUserId(ctx);
+
+    // 스쿨멘토: 무료 1회 없이 기관 설정만 따른다. 이 라우트는 시작 지점이라 한도(month_cap,
+    // term_cap)도 여기서 막는다. tenantReason 은 거부 사유다(catch_all, disabled, outside_period,
+    // grace, month_cap, term_cap). 읽지 못하면 열지 않는다(500).
+    if (isSchoolmentorSite()) {
+      const tenant = await readTenantUsage(
+        ctx.supabaseAdmin,
+        userId,
+        "diagnose",
+      );
+      const quota = readTenantQuota(tenant);
+      res.status(200).json({
+        allowed: tenant.allowed,
+        freeAvailable: false,
+        quotaRemaining: quota.quotaRemaining,
+        quotaTotal: quota.quotaTotal,
+        planEndsAt: quota.planEndsAt,
+        tenantReason: tenant.denyReason,
+      });
+      return;
+    }
 
     // 무료 1회 판정 — diagnosis_attempts에 kind='free' 행이 있으면 이미 썼다는 뜻이다
     // (부분 유니크 인덱스가 프로필당 1행을 보장한다). service role로 직접 조회한다 —

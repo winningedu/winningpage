@@ -167,6 +167,16 @@ describe("classifyCall", () => {
     expect(classifyCall(err(0, "NETWORK"), 0).type).toBe("failed");
   });
 
+  test("이용권 없음은 스쿨멘토 기관 거부 사유를 싣는다", () => {
+    expect(
+      classifyCall(err(403, "NO_ENTITLEMENT", { tenantReason: "grace" }), 0),
+    ).toEqual({ type: "noEntitlement", tenantReason: "grace" });
+    expect(classifyCall(err(403, "NO_ENTITLEMENT"), 0)).toEqual({
+      type: "noEntitlement",
+      tenantReason: null,
+    });
+  });
+
   test("ATTEMPTS_EXHAUSTED 또는 extra.terminal 은 종결이다", () => {
     expect(classifyCall(err(409, "ATTEMPTS_EXHAUSTED"), 0)).toEqual({
       type: "terminal",

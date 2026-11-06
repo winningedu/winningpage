@@ -46,6 +46,7 @@ export function getMockPaidOrders(): MockPaidOrder[] {
 }
 
 import { apiFetch, getAuthHeader } from "./apiFetch";
+import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
 // 이용권 판정은 서버 한 곳(api/_lib/serviceAccess.js hasPaidServiceAccess, program_access +
 // admin_enrollments 조회)이 정본이다. 이 모듈은 그 판정을 다시 구현하지 않고
@@ -80,6 +81,10 @@ export type EntitlementResult = {
   quotaTotal: number | null;
   planEndsAt: string | null;
   planLabel: string | null;
+  /** 스쿨멘토 기관 거부 사유. 위닝 응답에는 없어 null 이다. */
+  tenantReason: TenantBlockReason | null;
+  /** 스쿨멘토 한도 종류(남은 횟수가 작은 쪽). 위닝은 null. */
+  limitKind: "month" | "term" | null;
 };
 
 // fetchEntitlement — hasEntitlement의 상위 집합. 판정(allowed)에 더해 회차·플랜
@@ -109,6 +114,8 @@ export async function fetchEntitlement(
     quotaTotal: null,
     planEndsAt: null,
     planLabel: null,
+    tenantReason: null,
+    limitKind: null,
   };
 
   // 로컬 QA 플래그. 서버를 부르지 않으므로 회차는 알 수 없다 → 무제한(null)로
@@ -138,6 +145,8 @@ export async function fetchEntitlement(
       quotaTotal?: number;
       planEndsAt?: string | null;
       planLabel?: string | null;
+      tenantReason?: unknown;
+      limitKind?: unknown;
       detail?: string;
     } = {};
     try {
@@ -163,6 +172,11 @@ export async function fetchEntitlement(
       quotaTotal: normalizeQuota(result?.quotaTotal),
       planEndsAt: result?.planEndsAt ?? null,
       planLabel: result?.planLabel ?? null,
+      tenantReason: parseTenantReason(result?.tenantReason),
+      limitKind:
+        result?.limitKind === "month" || result?.limitKind === "term"
+          ? result.limitKind
+          : null,
     };
   } catch (error) {
     console.error("[entitlement] check-service-access 호출 오류:", error);

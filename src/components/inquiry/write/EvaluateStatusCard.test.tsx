@@ -3,6 +3,23 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, test, vi } from "vitest";
 import EvaluateStatusCard from "./EvaluateStatusCard";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
+
 function renderCard(node: React.ReactNode) {
   return render(<MemoryRouter>{node}</MemoryRouter>);
 }
@@ -42,5 +59,22 @@ describe("EvaluateStatusCard", () => {
     expect(
       screen.getByRole("link", { name: "평가 리포트 보기" }),
     ).toHaveAttribute("href", "/app/inquiry/evaluate");
+  });
+
+  test("스쿨멘토의 이용권 없음 카드는 기관 사유만 보이고 링크가 없다", () => {
+    gateState.on = true;
+    renderCard(
+      <EvaluateStatusCard
+        variant="noEntitlement"
+        tenantReason="outside_period"
+      />,
+    );
+    expect(
+      screen.getByText(
+        "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
+    gateState.on = false;
   });
 });

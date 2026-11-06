@@ -84,6 +84,7 @@ import {
   saveGoalDirectionReport,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -604,7 +605,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 조회형 규약 — student.js와 동일하게 미결제는 에러가 아니다.
     if (!allowed) {
-      return res.status(200).json({ allowed: false });
+      return res.status(200).json({
+        allowed: false,
+        // 자녀 열람(학부모)의 판정은 요청자 사유가 아니라서 싣지 않는다.
+        ...(profileId === requesterId
+          ? tenantReasonExtra(session.tenantReason)
+          : {}),
+      });
     }
 
     const student = await fetchStudentRow(supabaseAdmin, profileId);

@@ -5,6 +5,14 @@ const mocks = vi.hoisted(() => ({
   readSelfevalQuota: vi.fn(),
   consumeCredit: vi.fn(),
   reverseCredit: vi.fn(),
+  isSchoolmentorSite: vi.fn(),
+  checkTenantStart: vi.fn(),
+}));
+vi.mock("../../site.js", () => ({
+  isSchoolmentorSite: mocks.isSchoolmentorSite,
+}));
+vi.mock("../../tenantUsage.js", () => ({
+  checkTenantStart: mocks.checkTenantStart,
 }));
 vi.mock("../access.js", () => ({
   hasSelfevalAccess: mocks.hasSelfevalAccess,
@@ -79,6 +87,83 @@ describe("checkChargeGate", () => {
     expect(await checkChargeGate(db, "u", row({}))).toBeNull();
     mocks.readSelfevalQuota.mockResolvedValue({ quotaRemaining: 2 });
     expect(await checkChargeGate(db, "u", row({}))).toBeNull();
+  });
+});
+
+describe("checkChargeGate 스쿨멘토는 모델 호출 전에 센다", () => {
+  beforeEach(() => mocks.isSchoolmentorSite.mockReturnValue(true));
+
+  it.each(["charged", "already_charged"])(
+    "%s 이면 세션 단위로 센 뒤 통과(null)한다",
+    async (status) => {
+      mocks.consumeCredit.mockResolvedValue({
+        status,
+        charged: true,
+        tenantReason: null,
+      });
+      expect(await checkChargeGate(db, "u", row({}))).toBeNull();
+      expect(mocks.consumeCredit).toHaveBeenCalledWith(
+        db,
+        "u",
+        "s1",
+        "selfeval:reserve",
+      );
+      expect(mocks.hasSelfevalAccess).not.toHaveBeenCalled();
+      expect(mocks.readSelfevalQuota).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["month_cap", "term_cap"])(
+    "새 세션이 %s 에 걸리면 quota_exhausted 와 tenantReason",
+    async (reason) => {
+      mocks.consumeCredit.mockResolvedValue({
+        status: "quota_exhausted",
+        charged: false,
+        tenantReason: reason,
+      });
+      expect(await checkChargeGate(db, "u", row({}))).toEqual({
+        kind: "quota_exhausted",
+        tenantReason: reason,
+      });
+    },
+  );
+
+  it.each([
+    ["no_entitlement", "catch_all"],
+    ["no_entitlement", "disabled"],
+    ["entitlement_expired", "outside_period"],
+    ["entitlement_expired", "grace"],
+  ])("%s(%s) 는 no_entitlement 와 tenantReason", async (status, reason) => {
+    mocks.consumeCredit.mockResolvedValue({
+      status,
+      charged: false,
+      tenantReason: reason,
+    });
+    expect(await checkChargeGate(db, "u", row({}))).toEqual({
+      kind: "no_entitlement",
+      tenantReason: reason,
+    });
+  });
+
+  it("센 뒤에는 checkTenantStart 로 다시 읽지 않는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    await checkChargeGate(db, "u", row({}));
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
+  });
+});
+
+describe("checkChargeGate 위닝은 시작 확인을 하지 않는다", () => {
+  it("checkTenantStart 를 부르지 않는다", async () => {
+    mocks.isSchoolmentorSite.mockReturnValue(false);
+    mocks.hasSelfevalAccess.mockResolvedValue(false);
+    expect(await checkChargeGate(db, "u", row({}))).toEqual({
+      kind: "no_entitlement",
+    });
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
   });
 });
 

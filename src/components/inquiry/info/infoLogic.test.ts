@@ -819,7 +819,23 @@ describe("submitErrorView", () => {
   test("429 QUOTA_EXHAUSTED 는 이용 횟수 소진 카드다(No.20)", () => {
     expect(submitErrorView(error(429, "QUOTA_EXHAUSTED"))).toEqual({
       kind: "quota",
+      tenantReason: null,
     });
+  });
+
+  test("스쿨멘토 응답의 기관 거부 사유를 quota 와 entitlement 에 싣는다", () => {
+    expect(
+      submitErrorView({
+        ...error(429, "QUOTA_EXHAUSTED"),
+        extra: { tenantReason: "month_cap" },
+      }),
+    ).toEqual({ kind: "quota", tenantReason: "month_cap" });
+    expect(
+      submitErrorView({
+        ...error(403, "NO_ENTITLEMENT"),
+        extra: { tenantReason: "catch_all" },
+      }),
+    ).toEqual({ kind: "entitlement", tenantReason: "catch_all" });
   });
 
   test("409 SESSION_LOCKED 는 잠김 안내 문장이다", () => {
@@ -832,6 +848,7 @@ describe("submitErrorView", () => {
   test("403 NO_ENTITLEMENT 는 이용권 안내다", () => {
     expect(submitErrorView(error(403, "NO_ENTITLEMENT"))).toEqual({
       kind: "entitlement",
+      tenantReason: null,
     });
   });
 

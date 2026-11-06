@@ -9,6 +9,23 @@ import Onboarding from "./Onboarding";
 // 안 뜨는 것처럼 보였던 문제 회귀 테스트. 실제로는 handleFinish가 이미 result.detail을
 // role="alert" 배너에 담아 렌더하고 있었다(§ 결론: 배너 자체는 정상 동작 — 이 테스트로
 // 고정한다). 7단계("다음")에서만 submitGoalIntake가 호출되므로 step-7로 진입해 검증한다.
+const gateState = vi.hoisted(() => ({ on: false }));
+
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("@/lib/goalApi", () => ({
   submitGoalIntake: vi.fn(),
   generateGoalAdvice: vi.fn(),
@@ -40,6 +57,7 @@ function renderOnboardingAtStep7() {
 
 describe("Onboarding — 제출 실패 안내", () => {
   beforeEach(() => {
+    gateState.on = false;
     window.sessionStorage.clear();
     vi.mocked(submitGoalIntake).mockReset();
     vi.mocked(generateGoalAdvice).mockReset();
@@ -76,5 +94,22 @@ describe("Onboarding — 제출 실패 안내", () => {
 
     const banner = await screen.findByText(/아직 준비 중이에요/);
     expect(banner).toBeInTheDocument();
+  });
+
+  it("스쿨멘토의 403 은 결제 이동 대신 기관 사유 배너를 보여준다", async () => {
+    gateState.on = true;
+    vi.mocked(submitGoalIntake).mockResolvedValue({
+      kind: "not-allowed",
+      tenantReason: "outside_period",
+    });
+    renderOnboardingAtStep7();
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    expect(
+      await screen.findByText(
+        "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+      ),
+    ).toBeInTheDocument();
   });
 });

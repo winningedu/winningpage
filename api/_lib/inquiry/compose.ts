@@ -10,6 +10,13 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../serviceAccess.js";
+import { isSchoolmentorSite } from "../site.js";
+import {
+  readTenantQuota,
+  readTenantUsage,
+  type TenantDenyReason,
+  tenantReasonOf,
+} from "../tenantUsage.js";
 import {
   asGradeLabel,
   buildHandoffForSession,
@@ -57,20 +64,41 @@ function inquiryConfig() {
   return config;
 }
 
+/** 진입 판정과 거부 사유. tenantReason 은 스쿨멘토에서만 채워진다. */
+export async function readInquiryAccess(
+  db: Db,
+  userId: string,
+): Promise<{ allowed: boolean; tenantReason: TenantDenyReason | null }> {
+  const { allowed, reason } = await hasPaidServiceAccess(
+    db,
+    userId,
+    inquiryConfig(),
+  );
+  return { allowed, tenantReason: tenantReasonOf(reason) };
+}
+
 export async function hasInquiryAccess(
   db: Db,
   userId: string,
 ): Promise<boolean> {
-  const { allowed } = await hasPaidServiceAccess(db, userId, inquiryConfig());
-  return allowed;
+  return (await readInquiryAccess(db, userId)).allowed;
 }
 
 /** 회차 정보는 안내용이라 못 읽어도 진입을 막지 않는다(growth/survey 와 같은 취급). */
 export async function readInquiryQuota(
   db: Db,
   userId: string,
-): Promise<QuotaSnapshot> {
+): Promise<QuotaSnapshot & { capReason?: "month_cap" | "term_cap" | null }> {
   let quota = await readQuotaSnapshot(db, userId, null);
+  // 스쿨멘토는 기관 한도에서 읽는다. capReason 은 남은 횟수가 0 일 때의 사유다.
+  if (isSchoolmentorSite()) {
+    try {
+      return readTenantQuota(await readTenantUsage(db, userId, "inquiry"));
+    } catch (quotaError) {
+      console.error("inquiry 기관 quota 조회 실패(무시):", quotaError);
+      return quota;
+    }
+  }
   try {
     quota = await readQuotaSnapshot(
       db,

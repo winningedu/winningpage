@@ -3,6 +3,8 @@ import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { SessionResponse, SessionView } from "@/lib/inquiry/types";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+
 const h = vi.hoisted(() => ({
   shell: {} as Record<string, unknown>,
   stepMock: vi.fn(),
@@ -14,6 +16,21 @@ const h = vi.hoisted(() => ({
   refetch: vi.fn(),
 }));
 
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("@/components/inquiry/InquiryShellContext", () => ({
   useInquiryShell: () => h.shell,
   useInquiryScreenStep: h.stepMock,
@@ -125,6 +142,7 @@ function addOneline(text = "여름철 산책 판단") {
 const SUBMIT = () => screen.getByRole("button", { name: "주제 3개 추천받기" });
 
 beforeEach(() => {
+  gateState.on = false;
   for (const mock of [
     h.stepMock,
     h.postSession,
@@ -182,6 +200,28 @@ describe("InfoPage 화면 상태", () => {
     expect(screen.getByText("정보를 불러오지 못했어요.")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(h.refetch).toHaveBeenCalled();
+  });
+
+  test("스쿨멘토의 부트스트랩 이용권 없음은 기관 사유만 보이고 이용권 링크가 없다", () => {
+    gateState.on = true;
+    setShell(null, {
+      bootstrapError: {
+        result: {
+          kind: "error",
+          status: 403,
+          code: "NO_ENTITLEMENT",
+          message: "x",
+          extra: { tenantReason: "grace" },
+        },
+      },
+    });
+    renderPage();
+    expect(
+      screen.getByText(
+        "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
   });
 
   test("프로필 값으로 폼이 채워진다", () => {

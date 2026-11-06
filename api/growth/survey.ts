@@ -46,6 +46,13 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
+import {
+  readTenantQuota,
+  readTenantUsage,
+  tenantEntryAccess,
+  tenantReasonExtra,
+} from "../_lib/tenantUsage.js";
 
 const REPORT_COLUMNS =
   "id,status,current_step,track,step_state,survey_answers,activity_ids,grade_inputs,ledger_id,ledger_reversed_at,model_attempt_count,issued_at,last_activity_at,created_at";
@@ -60,16 +67,30 @@ function fail(
   status: number,
   code: string,
   message: string,
+  extra: Record<string, unknown> = {},
 ) {
-  sendError(res, "coded", status, message, code, { ok: false });
+  sendError(res, "coded", status, message, code, { ok: false, ...extra });
 }
 
-async function readEntitlement(
+export async function readEntitlement(
   supabaseAdmin: Db,
   userId: string,
 ): Promise<SurveyEntitlement> {
   const config = SERVICE_CONFIGS.growth;
   if (!config) throw new Error("SERVICE_CONFIGS.growth 가 없습니다.");
+  // 스쿨멘토는 기관 설정과 기관 한도로 읽는다. tenantReason 은 한도 소진(month_cap, term_cap)도 담는다.
+  if (isSchoolmentorSite()) {
+    const tenant = await readTenantUsage(supabaseAdmin, userId, "growth");
+    const quota = readTenantQuota(tenant);
+    return {
+      hasAccess: tenantEntryAccess(tenant).allowed,
+      quotaTotal: quota.quotaTotal,
+      quotaRemaining: quota.quotaRemaining,
+      planEndsAt: quota.planEndsAt,
+      planLabel: quota.planLabel,
+      tenantReason: tenant.denyReason,
+    };
+  }
   const { allowed } = await hasPaidServiceAccess(supabaseAdmin, userId, config);
   // 회차 정보는 안내용이라 못 읽어도 진입을 막지 않는다(performance/bootstrap 과 같은 취급).
   let quota = await readQuotaSnapshot(supabaseAdmin, userId, null);
@@ -277,6 +298,7 @@ async function handlePost(
       403,
       "NO_ENTITLEMENT",
       "이용권이 없어요. 성장설계는 이용권 1회로 리포트 하나를 만들어요.",
+      tenantReasonExtra(entitlement.tenantReason),
     );
     return;
   }

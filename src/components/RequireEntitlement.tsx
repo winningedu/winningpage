@@ -1,10 +1,13 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { type Location, Navigate, Outlet, useLocation } from "react-router";
+import { site } from "@/config/site";
 import { useAuth } from "@/context/AuthProvider";
 import { useSessionOptional } from "@/context/SessionContext";
 import { markProgramEntry } from "@/lib/programEntry";
 import { entitlementQueryOptions, queryClient } from "@/lib/queryClient";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 import PerformanceSkeleton from "./performance/PerformanceSkeleton";
+import ServiceBlockedNotice from "./service/ServiceBlockedNotice";
 
 // 유료 서비스 진입 가드 — 명세서 §2.2의 4상태(`loading`/`guest`/`forbidden`/`ok`)
 // + 판정 불가 1상태(`check-failed`).
@@ -58,11 +61,14 @@ function useStandaloneEntitlement(
   serviceKey: string,
   disabled: boolean,
   retryToken: number,
-): GuardState {
+): { state: GuardState; tenantReason: TenantBlockReason | null } {
   // 세션은 AuthProvider(전역 단일 구독)에서 읽는다 — 이 훅이 따로 getSession()을
   // 부르지 않아도 된다(명세 B-3 §4, 왕복 1회 절감).
   const { userId, isReady: isAuthReady } = useAuth();
   const [state, setState] = useState<GuardState>("loading");
+  const [tenantReason, setTenantReason] = useState<TenantBlockReason | null>(
+    null,
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: TODO(useEffectEvent) retryToken은 effect 안에서 읽지 않는 재시도 트리거 전용 값이다.
   useEffect(() => {
@@ -93,10 +99,12 @@ function useStandaloneEntitlement(
       // 캐치하지 않으면 이 Promise가 reject된 채로 끝나 loading 상태에 고착된다
       // (리뷰 M2). try/catch로 잡아 check-failed로 매핑한다.
       try {
-        const { allowed } = await queryClient.ensureQueryData(
-          entitlementQueryOptions(serviceKey, userId),
-        );
+        const { allowed, tenantReason: reason } =
+          await queryClient.ensureQueryData(
+            entitlementQueryOptions(serviceKey, userId),
+          );
         if (!alive) return;
+        setTenantReason(reason);
 
         if (allowed === true) setState("ok");
         else setState("forbidden");
@@ -111,7 +119,7 @@ function useStandaloneEntitlement(
     };
   }, [serviceKey, disabled, retryToken, isAuthReady, userId]);
 
-  return state;
+  return { state, tenantReason };
 }
 
 type RequireEntitlementProps = {
@@ -154,12 +162,13 @@ export default function RequireEntitlement({
   // 키가 일치하는 컨텍스트만 채택한다(위 「데이터 출처 2경로」 ⚠️ 참고).
   const ctx = sessionCtx?.serviceKey === serviceKey ? sessionCtx : null;
 
-  const standaloneState = useStandaloneEntitlement(
+  const standalone = useStandaloneEntitlement(
     serviceKey,
     Boolean(ctx),
     retryToken,
   );
-  const status: GuardState = ctx ? ctx.guardState : standaloneState;
+  const status: GuardState = ctx ? ctx.guardState : standalone.state;
+  const tenantReason = ctx ? ctx.tenantReason : standalone.tenantReason;
 
   // 이용개시 시작 로그(programEntry.ts) — status가 "ok"로 전이하는 시점에만 기록한다.
   // 렌더 중 호출하지 않는 이유는 리렌더마다 새 Promise가 뜨는 걸 피하기 위함이고,
@@ -218,6 +227,19 @@ export default function RequireEntitlement({
         to={`/login?redirect=${encodeURIComponent(redirectPath)}`}
         replace
       />
+    );
+  }
+
+  if (status === "forbidden" && site.features.tenantServiceGate) {
+    // 스쿨멘토는 결제 페이지로 보내지 않고 기관 설정 사유를 그 자리에서 안내한다(결정 99).
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-[#0D1B2A]">
+        <ServiceBlockedNotice
+          reason={tenantReason}
+          onJoined={retry}
+          className="max-w-sm shadow-[0_18px_45px_rgba(13,27,42,0.10)]"
+        />
+      </main>
     );
   }
 

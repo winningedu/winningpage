@@ -45,6 +45,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import { TOPIC_MAX_ROUNDS } from "../_lib/performance/topic-rounds.js";
 import {
   findProgramAccessRow,
@@ -53,6 +54,7 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
@@ -271,16 +273,11 @@ async function findUnchargedSession(
   if (!rows.length) return null;
 
   const ids = rows.map((row) => row.id);
-  const { data: ledgerRows, error: ledgerError } = await supabaseAdmin
-    .from("performance_credit_ledger")
-    .select("session_id")
-    .eq("profile_id", userId)
-    .in("session_id", ids);
-
-  if (ledgerError)
-    throw new Error(`회차 원장 조회 실패: ${ledgerError.message}`);
-
-  const chargedIds = new Set((ledgerRows || []).map((row) => row.session_id));
+  const chargedIds = await chargedPerformanceSessionIds(
+    supabaseAdmin,
+    userId,
+    ids,
+  );
   return rows.find((row) => !chargedIds.has(row.id)) || null;
 }
 
@@ -301,17 +298,15 @@ export default defineHandler({
     const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
 
     // ── 이용권 재판정. §8.6 공통 규약 — 클라이언트 가드 통과 여부를 신뢰하지 않는다.
-    const { allowed: hasAccess } = await hasPaidServiceAccess(
-      supabaseAdmin,
-      userId,
-      serviceConfig,
-    );
+    const { allowed: hasAccess, reason: accessReason } =
+      await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
     if (!hasAccess) {
       return fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+        tenantReasonExtra(accessReason),
       );
     }
 

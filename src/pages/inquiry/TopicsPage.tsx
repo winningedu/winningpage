@@ -22,8 +22,10 @@ import {
   remainingRerecommends,
   shouldStartRecommend,
 } from "@/components/inquiry/topics/topicsLogic";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import {
   type ApiResult,
   createPlanReport,
@@ -31,6 +33,7 @@ import {
   type RecommendResponse,
   recommendTopics,
 } from "@/lib/inquiry/api";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 
 // 경로: /app/inquiry/topics (화면 2, 주제 추천)
 // 진입 시 location.state.startRecommend 가 참이거나 주제가 비어 있으면 추천을 부른다(부록 C).
@@ -46,7 +49,7 @@ type Phase =
   | { type: "running"; mode: Mode }
   | { type: "failed"; mode: Mode; attempts: number | null }
   | { type: "terminal" }
-  | { type: "noEntitlement" };
+  | { type: "noEntitlement"; tenantReason: TenantBlockReason | null };
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -135,7 +138,7 @@ function TopicsBody() {
     } else if (outcome.type === "terminal") {
       setPhase({ type: "terminal" });
     } else if (outcome.type === "noEntitlement") {
-      setPhase({ type: "noEntitlement" });
+      setPhase({ type: "noEntitlement", tenantReason: outcome.tenantReason });
     } else {
       setPhase({ type: "idle" });
     }
@@ -287,6 +290,8 @@ function TopicsBody() {
           onChangeStart={() => navigate(INQUIRY_PATHS.home)}
           onRestart={() => navigate(INQUIRY_PATHS.home)}
         />
+      ) : phase.type === "noEntitlement" && site.features.tenantServiceGate ? (
+        <ServiceBlockedNotice reason={phase.tenantReason} />
       ) : phase.type === "noEntitlement" ? (
         <section
           role="alert"

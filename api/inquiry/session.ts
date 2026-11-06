@@ -18,6 +18,7 @@
 //
 // 오류: INVALID_BODY 400, NO_ENTITLEMENT 403, SESSION_LOCKED 409, QUOTA_EXHAUSTED 429,
 //       METHOD_NOT_ALLOWED 405, INTERNAL 500.
+//   스쿨멘토는 403, 429 에 tenantReason(catch_all|disabled|outside_period|grace, 429 는 month_cap|term_cap)이 더 실린다.
 //
 // 핸들러 본문은 DB 에 묶여 단위 테스트하지 않는다. 판단은 _lib/inquiry/bootstrap.ts, views.ts,
 // reply.ts 의 순수 함수로 검증한다.
@@ -34,10 +35,10 @@ import {
 } from "../_lib/inquiry/bootstrap.js";
 import {
   fail,
-  hasInquiryAccess,
   loadHandoffView,
   loadSessionParts,
   NO_ENTITLEMENT_MESSAGE,
+  readInquiryAccess,
   readInquiryQuota,
 } from "../_lib/inquiry/compose.js";
 import {
@@ -56,6 +57,7 @@ import { resendPendingReplies } from "../_lib/inquiry/reply.js";
 import { gradeNote } from "../_lib/inquiry/stage.js";
 import type { Area } from "../_lib/inquiry/types.js";
 import { type SessionRow, toRecordCandidate } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 type OpenInfo = {
   id: string;
@@ -89,6 +91,7 @@ async function applyCreate(
   userId: string,
   info: SessionInfo,
   quotaRemaining: number | null,
+  capReason: "month_cap" | "term_cap" | null | undefined,
   nowIso: string,
 ): Promise<SessionRow | null> {
   // 동시 요청이 먼저 세션을 만들면 insert 가 null 을 돌려주므로 한 번 더 판단한다.
@@ -114,6 +117,7 @@ async function applyCreate(
         429,
         "QUOTA_EXHAUSTED",
         "남은 이용 횟수가 없어요. 이용권을 확인해 주세요.",
+        tenantReasonExtra(capReason),
       );
       return null;
     }
@@ -163,8 +167,15 @@ export default defineHandler({
       fail(res, 400, "INVALID_BODY", body.reason);
       return;
     }
-    if (!(await hasInquiryAccess(db, userId))) {
-      fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+    const access = await readInquiryAccess(db, userId);
+    if (!access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        NO_ENTITLEMENT_MESSAGE,
+        tenantReasonExtra(access.tenantReason),
+      );
       return;
     }
 
@@ -182,6 +193,7 @@ export default defineHandler({
         userId,
         body.body.info,
         quota.quotaRemaining,
+        quota.capReason,
         nowIso,
       );
       if (!row) return;

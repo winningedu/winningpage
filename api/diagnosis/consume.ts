@@ -19,6 +19,10 @@
 //   → 405 METHOD_NOT_ALLOWED
 //   → 409 QUOTA_EXHAUSTED / ATTEMPT_CONFLICT
 //   → 500 INTERNAL
+//   스쿨멘토(SITE=schoolmentor)는 fn_consume_tenant_diagnosis 로 기관 한도에서 센다. 코드는 같고
+//   403, 409 응답에 tenantReason(catch_all|disabled|outside_period|grace|month_cap|term_cap)이 더 실린다.
+//   catch_all, disabled 는 403 NO_ENTITLEMENT, outside_period, grace 는 403 ENTITLEMENT_EXPIRED,
+//   month_cap, term_cap 은 409 QUOTA_EXHAUSTED 다. 성공 status 는 charged 또는 already_recorded 다.
 //
 // ⚠️ RPC는 service_role 전용(SECURITY DEFINER, grant는 service_role에만)이라
 //    이 라우트가 유일한 소비 진입점이다 — 프런트가 diagnosis_attempts에 직접 쓸 방법이 없다.
@@ -32,6 +36,12 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
+import {
+  mapTenantConsumeResult,
+  readTenantQuota,
+  readTenantUsage,
+} from "../_lib/tenantUsage.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -69,6 +79,79 @@ export default defineHandler({
       typeof body.attemptId === "string" ? body.attemptId.trim() : "";
     if (!UUID_RE.test(attemptId)) {
       fail(res, 400, "INVALID_ATTEMPT_ID", "attemptId가 올바르지 않습니다.");
+      return;
+    }
+
+    // 스쿨멘토: 기관 한도에서 센다(무료 1회 없음). 결과를 아래 같은 응답 코드로 옮기고
+    // 거부 사유는 tenantReason(catch_all, disabled, outside_period, grace, month_cap, term_cap)에 둔다.
+    if (isSchoolmentorSite()) {
+      const { data: tenantResult, error: tenantError } =
+        await ctx.supabaseAdmin.rpc("fn_consume_tenant_diagnosis", {
+          p_attempt_id: attemptId,
+          p_profile: userId,
+        });
+      if (tenantError) {
+        console.error("diagnosis/consume 기관 RPC 실패:", tenantError);
+        fail(res, 500, "INTERNAL", "학습진단 제출 처리에 실패했습니다.");
+        return;
+      }
+      if (tenantResult === "attempt_conflict") {
+        fail(
+          res,
+          409,
+          "ATTEMPT_CONFLICT",
+          "이미 사용된 요청입니다. 다시 시도해 주세요.",
+        );
+        return;
+      }
+      const mapped = mapTenantConsumeResult(
+        tenantResult === "already_recorded" ? "already_consumed" : tenantResult,
+      );
+      const quota = readTenantQuota(
+        await readTenantUsage(ctx.supabaseAdmin, userId, "diagnose"),
+      );
+      const quotaFields = {
+        quotaRemaining: quota.quotaRemaining,
+        quotaTotal: quota.quotaTotal,
+        planEndsAt: quota.planEndsAt,
+      };
+      const tenantReason = mapped.tenantReason;
+      if (mapped.status === "charged") {
+        res.status(200).json({
+          ok: true,
+          status: "charged",
+          charged: true,
+          ...quotaFields,
+        });
+      } else if (mapped.status === "already_charged") {
+        res.status(200).json({
+          ok: true,
+          status: "already_recorded",
+          charged: false,
+          ...quotaFields,
+        });
+      } else if (mapped.status === "quota_exhausted") {
+        fail(
+          res,
+          409,
+          "QUOTA_EXHAUSTED",
+          "이용 가능한 횟수를 모두 사용했어요.",
+          { ...quotaFields, tenantReason },
+        );
+      } else if (mapped.status === "entitlement_expired") {
+        fail(res, 403, "ENTITLEMENT_EXPIRED", "이용권 사용 기간이 끝났어요.", {
+          planEndsAt: quotaFields.planEndsAt,
+          tenantReason,
+        });
+      } else {
+        fail(
+          res,
+          403,
+          "NO_ENTITLEMENT",
+          "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+          { tenantReason },
+        );
+      }
       return;
     }
 

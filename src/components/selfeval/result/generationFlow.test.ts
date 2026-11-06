@@ -121,6 +121,17 @@ describe("createStepFlow", () => {
     }
   });
 
+  test("blocked 응답의 기관 거부 사유를 상태에 남긴다", async () => {
+    const t = setup([
+      err("QUOTA_EXHAUSTED", { tenantReason: "term_cap" }, 409),
+    ]);
+    await t.flow.start();
+    expect(t.last()).toMatchObject({
+      phase: "blocked",
+      tenantReason: "term_cap",
+    });
+  });
+
   test("STEP_ORDER 는 서버가 알려 준 단계를 남기고 failed 로 멈춘다", async () => {
     const t = setup([err("STEP_ORDER", { currentStep: 3 })]);
     await t.flow.start();

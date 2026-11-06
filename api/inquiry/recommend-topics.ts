@@ -31,11 +31,11 @@ import { callStructured } from "../_lib/ai/gemini.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import {
   fail,
-  hasInquiryAccess,
   loadAssetViews,
   loadHandoffView,
   loadSessionParts,
   NO_ENTITLEMENT_MESSAGE,
+  readInquiryAccess,
   readInquiryQuota,
   SESSION_NOT_FOUND_MESSAGE,
 } from "../_lib/inquiry/compose.js";
@@ -66,6 +66,7 @@ import {
 import { gradeNote } from "../_lib/inquiry/stage.js";
 import { validateTopicsResponse } from "../_lib/inquiry/validation.js";
 import { type TopicRow, toTopicView } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const NOT_CHARGED_NOTE = " 이용 횟수는 차감되지 않았어요.";
 
@@ -112,8 +113,15 @@ export default defineHandler({
 
     // 미차감 세션은 선점 전에 이용권을 확인한다. 거절된 요청이 시도 횟수를 올리지 않는다.
     const uncharged = row.status === "draft";
-    if (uncharged && !(await hasInquiryAccess(db, userId))) {
-      fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+    const access = uncharged ? await readInquiryAccess(db, userId) : null;
+    if (access && !access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        NO_ENTITLEMENT_MESSAGE,
+        tenantReasonExtra(access.tenantReason),
+      );
       return;
     }
 

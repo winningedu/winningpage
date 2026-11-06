@@ -40,13 +40,16 @@ import SubmitError from "@/components/inquiry/info/SubmitError";
 import { CARD, CARD_HINT, CARD_TITLE } from "@/components/inquiry/info/styles";
 import Warnings from "@/components/inquiry/info/Warnings";
 import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { postAssets, postSession } from "@/lib/inquiry/api";
 import { clearGrowthHandoff, readGrowthHandoff } from "@/lib/inquiry/handoff";
 import { upsertStudentProfile } from "@/lib/inquiry/profile";
 import type { SessionResponse } from "@/lib/inquiry/types";
+import { parseTenantReason } from "@/lib/tenantBlock";
 
 // 정보 입력(1단계) 화면. 경로: /app/inquiry
 // 단계 알림(useInquiryScreenStep)은 사이드바 진행단계가 의존한다. 고지는 InquiryAppLayout 이 그린다.
@@ -78,7 +81,18 @@ export default function InfoPage() {
             정보를 불러오지 못했어요.
           </p>
           {bootstrapError?.result.kind === "error" &&
-            bootstrapError.result.code === "NO_ENTITLEMENT" && (
+            bootstrapError.result.code === "NO_ENTITLEMENT" &&
+            site.features.tenantServiceGate && (
+              <ServiceBlockedNotice
+                reason={parseTenantReason(
+                  bootstrapError.result.extra?.tenantReason,
+                )}
+                onJoined={() => void refetchBootstrap()}
+              />
+            )}
+          {bootstrapError?.result.kind === "error" &&
+            bootstrapError.result.code === "NO_ENTITLEMENT" &&
+            !site.features.tenantServiceGate && (
               <Link
                 to="/pricing?service=inquiry"
                 className={`${buttonVariants({ variant: "outline", size: "lg" })} h-10 w-fit px-5 text-app-label`}

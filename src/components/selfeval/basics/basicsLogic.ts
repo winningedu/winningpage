@@ -8,6 +8,7 @@ import type {
   TargetCharsMode,
 } from "@/lib/selfeval/types";
 import { DEFAULT_TARGET_CHARS } from "@/lib/selfeval/types";
+import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 
 // 기본 입력 화면 순수 로직(명세 No.20~25, 68, 72, 74). 폼 상태는 입력 칸 그대로의 문자열이고,
 // 검증을 통과한 뒤에만 buildCreateInput 으로 서버 바디 모양으로 바꾼다.
@@ -193,7 +194,7 @@ export type SubmitErrorView =
   /** 이미 작성 중인 세션이 있다. 이어서 쓰거나 파기하고 새로 만든다. */
   | { kind: "open"; openSessionId: string | null }
   /** 이용 횟수가 없거나 이용권이 없다. */
-  | { kind: "quota" }
+  | { kind: "quota"; tenantReason: TenantBlockReason | null }
   /** 활동을 고른 뒤라 기본 입력을 바꿀 수 없다. */
   | { kind: "locked" }
   /** 세션이 닫혔거나 없다. */
@@ -219,7 +220,10 @@ export function classifySubmitError(
     }
     case "QUOTA_EXHAUSTED":
     case "NO_ENTITLEMENT":
-      return { kind: "quota" };
+      return {
+        kind: "quota",
+        tenantReason: parseTenantReason(result.extra?.tenantReason),
+      };
     case "SESSION_LOCKED":
       return { kind: "locked" };
     case "SESSION_NOT_OPEN":

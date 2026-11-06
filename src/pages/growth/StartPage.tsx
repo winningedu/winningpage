@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
 import { siteWording } from "@/config/wording";
 import type { SurveyBootstrap } from "@/lib/growth/api";
+import { parseTenantReason } from "@/lib/tenantBlock";
 
 // 성장설계 시작 화면. 경로: /app/growth
 // 단계 알림(useGrowthScreenStep)은 사이드바 진행단계가 의존한다.
@@ -115,6 +116,8 @@ function StartBody({ bootstrap }: { bootstrap: SurveyBootstrap }) {
           navigate(openReport ? resumeTarget(openReport) : GROWTH_PATHS.survey)
         }
         onBuy={() => navigate("/pricing?service=growth")}
+        tenantReason={parseTenantReason(entitlement.tenantReason)}
+        onJoined={refetchBootstrap}
       />
     </div>
   );

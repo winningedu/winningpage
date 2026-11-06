@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   claimGeneration,
   consumeCredit,
@@ -329,5 +329,64 @@ describe("saveDesign", () => {
       saveDesign(db, "u1", "s1", "t1", designRow, "NOW"),
     ).rejects.toThrow("dup");
     expect(log.every((l) => l.table === "inquiry_reports")).toBe(true);
+  });
+});
+
+describe("consumeCredit, reverseCredit 사이트 분기", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("위닝은 consume_inquiry_credit 만 부른다", async () => {
+    vi.stubEnv("SITE", "winning");
+    const { db, rpc } = rpcDb({ status: "charged", charged: true });
+    await consumeCredit(db, "s", "u");
+    expect((rpc.mock.calls as unknown[][]).map((c) => c[0])).toEqual([
+      "consume_inquiry_credit",
+    ]);
+  });
+
+  it("스쿨멘토는 fn_consume_tenant_usage 로 inquiry_session 을 센다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, rpc } = rpcDb("consumed");
+    expect(await consumeCredit(db, "s", "u")).toEqual({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("fn_consume_tenant_usage", {
+      p_profile: "u",
+      p_program_key: "inquiry",
+      p_source_kind: "inquiry_session",
+      p_source_id: "s",
+    });
+  });
+
+  it("스쿨멘토에서 이미 센 세션은 already_charged", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db } = rpcDb("already_consumed");
+    expect(await consumeCredit(db, "s", "u")).toMatchObject({
+      status: "already_charged",
+      charged: true,
+    });
+  });
+
+  it("스쿨멘토에서 한도 거부는 quota_exhausted 와 tenantReason", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db } = rpcDb("month_cap");
+    expect(await consumeCredit(db, "s", "u")).toEqual({
+      status: "quota_exhausted",
+      charged: false,
+      tenantReason: "month_cap",
+    });
+  });
+
+  it("스쿨멘토는 되돌리지 않는다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, rpc } = rpcDb({ status: "reversed", reversed: true });
+    expect(await reverseCredit(db, "s", "u")).toEqual({
+      status: "tenant_no_reversal",
+      reversed: false,
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

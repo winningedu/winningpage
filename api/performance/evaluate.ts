@@ -124,6 +124,7 @@ import {
   checkSubmissionMinLength,
   resolveSessionSubmissionSchema,
 } from "../_lib/performance/submission-schema.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
@@ -131,6 +132,7 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
@@ -464,18 +466,20 @@ export default defineHandler({
     try {
       // ── 이용권 재판정(§8.6 공통 규약). 잔여 회차는 보지 않는다 — 이미 차감된 세션은
       //    소진·만료 뒤에도 계속 진행하는 것이 규정이다(§9.3 정정).
-      const { allowed: hasAccess } = await hasPaidServiceAccess(
-        supabaseAdmin,
-        userId,
-        // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-        SERVICE_CONFIGS[SERVICE_KEY]!,
-      );
+      const { allowed: hasAccess, reason: accessReason } =
+        await hasPaidServiceAccess(
+          supabaseAdmin,
+          userId,
+          // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+          SERVICE_CONFIGS[SERVICE_KEY]!,
+        );
       if (!hasAccess) {
         return fail(
           res,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+          tenantReasonExtra(accessReason),
         );
       }
 
@@ -586,15 +590,12 @@ export default defineHandler({
       // ── 게이트 ③ 차감된 세션인가. `performance_credit_ledger.session_id`가 UNIQUE라
       //    행 존재 = 차감 완료다(sql/54 1-7). 이 파일은 차감하지 않으므로 **읽기만** 한다.
       //    정상 흐름에서 제출본이 있는 세션은 반드시 차감을 거쳤다 — 방어선이다.
-      const { data: ledgerRow, error: ledgerError } = await supabaseAdmin
-        .from("performance_credit_ledger")
-        .select("id")
-        .eq("session_id", sessionRow.id)
-        .maybeSingle();
-
-      if (ledgerError)
-        throw new Error(`차감 원장 조회 실패: ${ledgerError.message}`);
-      if (!ledgerRow) {
+      const charged = await chargedPerformanceSessionIds(
+        supabaseAdmin,
+        userId,
+        [sessionRow.id],
+      );
+      if (!charged.has(sessionRow.id)) {
         return fail(
           res,
           409,

@@ -2,6 +2,8 @@
 // service_role 로 읽고 쓰므로 모든 쿼리에 profile_id 조건을 건다. 단위 테스트는 두지 않는다.
 
 import { type Db, must, mustHave } from "../growth/intake/collectDb.js";
+import { isSchoolmentorSite } from "../site.js";
+import { consumeTenantUsage } from "../tenantUsage.js";
 import {
   extractGrowthSnapshot,
   type GrowthReportRowLike,
@@ -466,6 +468,10 @@ export async function reverseCredit(
   sessionId: string,
   reason: string,
 ): Promise<unknown> {
+  // 스쿨멘토는 실패한 실행의 횟수를 돌려주지 않는다(결정 98.3).
+  if (isSchoolmentorSite()) {
+    return { status: "tenant_no_reversal", reversed: false };
+  }
   return rpcData(
     await db.rpc("reverse_selfeval_credit", {
       p_session_id: sessionId,
@@ -482,6 +488,13 @@ export async function consumeCredit(
   sessionId: string,
   reason: string,
 ): Promise<unknown> {
+  // 스쿨멘토는 기관 한도에서 (selfeval_session, sessionId) 당 한 번만 센다. 원장은 쓰지 않는다.
+  if (isSchoolmentorSite()) {
+    return consumeTenantUsage(db, userId, "selfeval", {
+      kind: "selfeval_session",
+      id: sessionId,
+    });
+  }
   return rpcData(
     await db.rpc("consume_selfeval_credit", {
       p_session_id: sessionId,

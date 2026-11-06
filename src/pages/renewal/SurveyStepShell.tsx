@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
+import { site } from "@/config/site";
 // QA 행348(2026-09-02) — q1(학년) 응답으로 q4(등급 체계)를 자동 결정한다(카드 자체는 화면에서 제거).
 import { getGradeSystemLabelForGradeLevel } from "@/data/renewalSurveyQuestions";
 // B-1(2026-08-11 확정) — q15 캐스케이드 fetch 상태(옵션 5벌 + loading + error)를 이 셸이 소유한다.
@@ -29,6 +31,7 @@ import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { fetchSurveyCopyOverrides } from "@/lib/diagnosisSurveyCopyOverrides";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { Json } from "@/types/database.types";
 // Q-01(2026-08-11 확정) — 제출 시점에 로그인 학생 이름을 조회한다. 비로그인·조회 실패는 null.
 import { fetchLoggedInStudentName } from "./diagnosisStudentName";
@@ -52,6 +55,15 @@ export default function SurveyStepShell() {
   // 공유하므로(새로고침 시 함께 소실 — 셸 상단 주석 참고) ref 하나로 충분하다.
   const diagnosisAttemptIdRef = useRef<string | null>(null);
 
+  // 스쿨멘토는 이용 거부를 결제 이동이 아니라 기관 사유 안내로 보인다(결정 99).
+  // accessCheck 는 소속코드 입력 뒤 진입 판정을 다시 돌리는 트리거다.
+  const [tenantBlock, setTenantBlock] = useState<{
+    reason: TenantBlockReason | null;
+  } | null>(null);
+  const [accessCheck, setAccessCheck] = useState(0);
+  // 스쿨멘토에서 진입 판정 자체를 못 받은 상태. 거부가 아니라 다시 시도하게 한다.
+  const [accessFailed, setAccessFailed] = useState(false);
+
   useEffect(() => {
     let alive = true;
     fetchSurveyCopyOverrides().then((map) => {
@@ -64,15 +76,24 @@ export default function SurveyStepShell() {
 
   // 진입 게이트 — 무료 1회 미사용이거나 이용권이 있으면 통과. 서버 판정 불가는
   // fail-open(진입 허용, checkDiagnosisAccess 내부 주석 참고).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: accessCheck 는 effect 안에서 읽지 않는 재판정 트리거 전용 값이다.
   useEffect(() => {
     let alive = true;
     checkDiagnosisAccess().then((result) => {
       if (!alive) return;
+      if (result.checkFailed) {
+        setAccessFailed(true);
+        return;
+      }
       if (result.allowed) {
         // 무료 1회 사용자(부여된 이용권 없음)는 서버가 0행 UPDATE로 무해하게
         // 처리한다(fn_mark_program_entry는 program_access_grants 행이 있을 때만
         // 기록한다 — programEntry.ts 상단 주석 참고).
         markProgramEntry("diagnose");
+        return;
+      }
+      if (site.features.tenantServiceGate) {
+        setTenantBlock({ reason: result.tenantReason });
         return;
       }
       // 카피 톤은 QA 행 27 안내문("회원가입을 하면 전문적인 학생 학습진단 리포트를
@@ -85,7 +106,7 @@ export default function SurveyStepShell() {
     return () => {
       alive = false;
     };
-  }, [navigate]);
+  }, [navigate, accessCheck]);
 
   // QA 행348(2026-09-02) — q4(등급 체계) 카드를 없애고 q1(학년) 응답으로 자동 결정한다.
   // q4 는 여전히 answers 맵에 라벨 문자열로 저장된다 — q6 입력 규격(GRADE_SYSTEM_INPUT_RULES)과
@@ -136,7 +157,24 @@ export default function SurveyStepShell() {
     const consumeResult = await consumeDiagnosisAttempt(
       diagnosisAttemptIdRef.current,
     );
+    if (consumeResult.outcome === "check-failed") {
+      // 스쿨멘토는 소진 판정을 못 받으면 저장하지 않는다. 같은 attemptId 로 다시 시도하면 멱등이다.
+      window.alert(
+        "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+      );
+      return null;
+    }
     if (consumeResult.outcome === "blocked") {
+      if (site.features.tenantServiceGate) {
+        // 충돌은 서비스 막힘이 아니다. 서버 메시지를 보이고 다음 시도에 새 attemptId 를 쓴다.
+        if (consumeResult.code === "ATTEMPT_CONFLICT") {
+          window.alert(consumeResult.message);
+          diagnosisAttemptIdRef.current = null;
+          return null;
+        }
+        setTenantBlock({ reason: consumeResult.tenantReason });
+        return null;
+      }
       // 이용권 계열 거부 3종은 사용자 입장에서 같은 상황(무료 1회 소진 + 쓸 수 있는
       // 이용권 없음)이라 같은 안내문으로 합친다 — 카피 톤은 진입 게이트와 동일(QA 행 27).
       // ATTEMPT_CONFLICT 등 나머지는 서버 메시지를 그대로 보여준다.
@@ -201,6 +239,46 @@ export default function SurveyStepShell() {
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
   }, [answers, awaitCuts, navigate]);
+
+  if (accessFailed) {
+    return (
+      <main className="flex min-h-screen w-full items-center justify-center bg-[#FBFAFA] px-5 pt-16">
+        <div
+          role="status"
+          className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-[#0D1B2A]/10 bg-white px-6 py-8 text-center"
+        >
+          <p className="text-sm font-extrabold text-[#0D1B2A]">
+            이용 가능 여부를 확인하지 못했어요.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setAccessFailed(false);
+              setAccessCheck((n) => n + 1);
+            }}
+            className="rounded-full bg-[#0D1B2A] px-5 py-2 text-xs font-extrabold text-white"
+          >
+            다시 시도
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (tenantBlock) {
+    return (
+      <main className="flex min-h-screen w-full items-center justify-center bg-[#FBFAFA] px-5 pt-16">
+        <ServiceBlockedNotice
+          reason={tenantBlock.reason}
+          onJoined={() => {
+            setTenantBlock(null);
+            setAccessCheck((n) => n + 1);
+          }}
+          className="max-w-sm"
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen w-full bg-[#FBFAFA] pt-16">

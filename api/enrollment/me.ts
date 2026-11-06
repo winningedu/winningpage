@@ -39,9 +39,13 @@ export default defineHandler({
     if (profileError) throw new Error("profile lookup failed");
     const tenantId = profile?.tenant_id as string | null | undefined;
     if (!tenantId) {
-      res
-        .status(200)
-        .json({ ok: true, orgType: null, enrollment: null, pending: null });
+      res.status(200).json({
+        ok: true,
+        orgType: null,
+        isCatchAll: false,
+        enrollment: null,
+        pending: null,
+      });
       return;
     }
 
@@ -74,6 +78,7 @@ export default defineHandler({
     res.status(200).json({
       ok: true,
       orgType: tenant.orgType,
+      isCatchAll: tenant.isCatchAll,
       enrollment: row
         ? {
             schoolYear: row.school_year,

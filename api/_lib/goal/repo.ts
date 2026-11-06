@@ -27,6 +27,7 @@ import {
   SERVICE_CONFIGS,
 } from "../serviceAccess.js";
 import { createSupabaseAdmin } from "../supabaseAdmin.js";
+import { type TenantDenyReason, tenantReasonOf } from "../tenantUsage.js";
 
 // DB 행은 Database 생성 타입이 없어 열 이름만 알 수 있고 값 타입은 신뢰할 수 없다
 // (numeric 이 문자열로 오는 드라이버 편차가 §"값 변환 헬퍼" 주석에 그대로 적혀 있다).
@@ -125,6 +126,8 @@ export type GoalSessionResult = {
   supabaseAdmin?: SupabaseClient;
   profileId?: string;
   allowed?: boolean;
+  /** 스쿨멘토 기관 거부 사유. 위닝은 null 이다. */
+  tenantReason?: TenantDenyReason | null;
 };
 
 /**
@@ -158,14 +161,19 @@ export async function openGoalSession(
   // 참고) — 이 함수의 반환 계약(allowed:boolean, 위 JSDoc)을 지키기 위해 여기서
   // 뽑아 쓴다. 객체를 그대로 내려보내면 호출부의 `if (!allowed)` 가 항상
   // false가 되어(객체는 always-truthy) 결제 게이트가 통째로 뚫린다.
-  const { allowed } = await hasPaidServiceAccess(
+  const { allowed, reason } = await hasPaidServiceAccess(
     supabaseAdmin,
     profileId,
     // biome-ignore lint/style/noNonNullAssertion: goal 키는 SERVICE_CONFIGS에 정적으로 정의돼 있음
     SERVICE_CONFIGS.goal!,
   );
 
-  return { supabaseAdmin, profileId, allowed };
+  return {
+    supabaseAdmin,
+    profileId,
+    allowed,
+    tenantReason: tenantReasonOf(reason),
+  };
 }
 
 /**

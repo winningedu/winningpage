@@ -1,4 +1,6 @@
+import { site } from "@/config/site";
 import type { StepProgress } from "@/lib/growth/api";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { GenerationState } from "./generationEngine";
 import { STEP_LABELS } from "./stepLabels";
 
@@ -169,6 +171,17 @@ export function describeGeneration(
       };
     }
   }
+}
+
+/** 스쿨멘토에서 이용 거부로 멈췄으면 기관 사유(결정 99). 구매 안내 대신 이 사유를 보여 준다. */
+export function tenantBlockOf(
+  state: GenerationState,
+): { reason: TenantBlockReason | null } | null {
+  if (!site.features.tenantServiceGate) return null;
+  if (state.phase !== "failed" || state.errorCode !== "NO_ENTITLEMENT") {
+    return null;
+  }
+  return { reason: state.tenantReason };
 }
 
 export function entitlementStatus(

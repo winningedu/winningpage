@@ -197,6 +197,25 @@ describe("entryBody", () => {
     });
   });
 
+  it("기관 거부 사유가 있으면 tenantReason 을 싣고, 없으면 키가 없다", () => {
+    expect(entryBody({ ...base, tenantReason: "term_cap" })).toMatchObject({
+      tenantReason: "term_cap",
+    });
+    expect(Object.keys(entryBody(base))).not.toContain("tenantReason");
+    expect(
+      Object.keys(entryBody({ ...base, tenantReason: null })),
+    ).not.toContain("tenantReason");
+  });
+
+  it("진입 거부 사유가 없으면 한도 소진 사유를 tenantReason 으로 싣는다", () => {
+    expect(
+      entryBody({ ...base, tenantReason: null, capReason: "month_cap" }),
+    ).toMatchObject({ tenantReason: "month_cap" });
+    expect(
+      entryBody({ ...base, tenantReason: "grace", capReason: "month_cap" }),
+    ).toMatchObject({ tenantReason: "grace" });
+  });
+
   it("열린 세션은 이어 쓸 화면 route 를 싣는다", () => {
     const body = entryBody({ ...base, open: listRow({ current_step: 4 }) });
     expect(body.openSession).toEqual({

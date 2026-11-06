@@ -5,6 +5,7 @@ import type {
   ReportsList,
   StepProgress,
 } from "@/lib/growth/api";
+import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 import { STEP_COUNT } from "./stepLabels";
 
 // 리포트 생성 루프(순수 상태 머신). React 와 타이머, 네트워크를 주입받아 테스트한다.
@@ -44,6 +45,8 @@ export type GenerationState = {
   /** 마지막 실패의 서버 코드. 네트워크는 NETWORK, 타임아웃은 TIMEOUT. */
   errorCode: string | null;
   errorMessage: string | null;
+  /** 마지막 실패 응답의 스쿨멘토 기관 거부 사유. 위닝은 null. */
+  tenantReason: TenantBlockReason | null;
   charged: boolean | null;
   completion: { issuedAt: string; planItemCount: number } | null;
 };
@@ -100,12 +103,16 @@ function readFailureExtra(extra: Record<string, unknown> | undefined): {
 
 function failureOf(result: ApiResult<ReportStepResponse>) {
   if (result.kind === "timeout") {
-    return { errorCode: "TIMEOUT", errorMessage: null };
+    return { errorCode: "TIMEOUT", errorMessage: null, tenantReason: null };
   }
   if (result.kind === "error") {
-    return { errorCode: result.code, errorMessage: result.message };
+    return {
+      errorCode: result.code,
+      errorMessage: result.message,
+      tenantReason: parseTenantReason(result.extra?.tenantReason),
+    };
   }
-  return { errorCode: null, errorMessage: null };
+  return { errorCode: null, errorMessage: null, tenantReason: null };
 }
 
 export function createGenerationEngine(deps: GenerationEngineDeps) {
@@ -121,6 +128,7 @@ export function createGenerationEngine(deps: GenerationEngineDeps) {
     issues: null,
     errorCode: null,
     errorMessage: null,
+    tenantReason: null,
     charged: null,
     completion: null,
   };
@@ -160,6 +168,7 @@ export function createGenerationEngine(deps: GenerationEngineDeps) {
           currentStep: step,
           errorCode: null,
           errorMessage: null,
+          tenantReason: null,
         });
         const result = await runStep({ reportId, step });
         if (disposed) return;

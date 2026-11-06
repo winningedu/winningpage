@@ -59,6 +59,8 @@ export type SurveyEntitlement = {
   quotaRemaining: number | null;
   planEndsAt: string | null;
   planLabel: string | null;
+  /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 month_cap, term_cap 포함), 허용이면 null. */
+  tenantReason?: string | null;
 };
 
 /** growth_reports 조회 행. 회차 시작 시각(created_at)까지 담는다. */

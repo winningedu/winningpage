@@ -8371,6 +8371,29 @@ export type Database = {
         Returns: undefined;
       };
       fn_auth_user_id_by_email: { Args: { p_email: string }; Returns: string };
+      fn_catch_all_join_tenant: {
+        Args: {
+          p_class_name: string;
+          p_code: string;
+          p_grade: string;
+          p_group_name: string;
+          p_number: number;
+          p_user: string;
+        };
+        Returns: {
+          enrollment_id: string;
+          tenant_id: string;
+          tenant_name: string;
+        }[];
+      };
+      fn_catch_all_tenant_lookup: {
+        Args: { p_code: string; p_user: string };
+        Returns: {
+          id: string;
+          name: string;
+          org_type: string;
+        }[];
+      };
       fn_class_ensure: {
         Args: {
           p_grade: string;
@@ -8435,6 +8458,10 @@ export type Database = {
           teacher_id: string;
           tenant_id: string;
         }[];
+      };
+      fn_consume_tenant_diagnosis: {
+        Args: { p_attempt_id: string; p_profile: string };
+        Returns: string;
       };
       fn_consume_tenant_usage: {
         Args: {
@@ -9326,6 +9353,10 @@ export type Database = {
           profile_id: string;
           teacher_id: string;
         }[];
+      };
+      fn_tenant_code_resolve_for: {
+        Args: { p_code: string; p_user: string };
+        Returns: string;
       };
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };

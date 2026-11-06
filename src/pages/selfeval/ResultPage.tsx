@@ -26,6 +26,7 @@ import SessionDetailGate, {
 } from "@/components/selfeval/SessionDetailGate";
 import { SELFEVAL_PATHS } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/growth/apiResult";
@@ -334,15 +335,17 @@ function ResultBody({
                   >
                     검증하기
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className="h-10 px-5 text-app-label font-medium"
-                    onClick={() => navigate(PRICING)}
-                  >
-                    추가 횟수 구매
-                  </Button>
+                  {!site.features.tenantServiceGate && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      className="h-10 px-5 text-app-label font-medium"
+                      onClick={() => navigate(PRICING)}
+                    >
+                      추가 횟수 구매
+                    </Button>
+                  )}
                 </div>
                 {regenerationsLeft <= 0 && (
                   <p className="text-app-caption text-ink-sub">

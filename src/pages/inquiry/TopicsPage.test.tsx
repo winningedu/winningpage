@@ -15,6 +15,22 @@ const { shellMock, recommendMock, planMock } = vi.hoisted(() => ({
   planMock: vi.fn(),
 }));
 
+const gateState = vi.hoisted(() => ({ on: false }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("@/components/inquiry/InquiryShellContext", () => ({
   useInquiryShell: shellMock,
   useInquiryScreenStep: vi.fn(),
@@ -233,6 +249,24 @@ describe("TopicsPage", () => {
     renderPage({ startRecommend: true });
     const link = await screen.findByRole("link", { name: "이용권 보기" });
     expect(link.getAttribute("href")).toBe("/pricing?service=inquiry");
+  });
+
+  test("스쿨멘토의 403 은 이용권 링크 없이 기관 사유를 보인다", async () => {
+    gateState.on = true;
+    shellMock.mockReturnValue(shell({ topics: [] }));
+    recommendMock.mockResolvedValue({
+      kind: "error",
+      status: 403,
+      code: "NO_ENTITLEMENT",
+      message: "m",
+      extra: { tenantReason: "disabled" },
+    });
+    renderPage({ startRecommend: true });
+    expect(
+      await screen.findByText("소속 기관에서 제공하지 않는 서비스예요."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
+    gateState.on = false;
   });
 
   test("GENERATION_RUNNING 은 3초 뒤 같은 요청을 다시 보낸다", async () => {

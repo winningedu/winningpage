@@ -232,10 +232,20 @@ describe("classifySubmitError", () => {
   test("이용 횟수 소진과 이용권 없음은 이용권 안내로 모은다", () => {
     expect(classifySubmitError(err(409, "QUOTA_EXHAUSTED"))).toEqual({
       kind: "quota",
+      tenantReason: null,
     });
     expect(classifySubmitError(err(403, "NO_ENTITLEMENT"))).toEqual({
       kind: "quota",
+      tenantReason: null,
     });
+  });
+
+  test("스쿨멘토 응답의 기관 거부 사유를 quota 에 싣는다", () => {
+    expect(
+      classifySubmitError(
+        err(409, "QUOTA_EXHAUSTED", { tenantReason: "term_cap" }),
+      ),
+    ).toEqual({ kind: "quota", tenantReason: "term_cap" });
   });
 
   test("분석 시작 뒤 수정은 locked, 세션이 닫혔으면 not_open 이다", () => {

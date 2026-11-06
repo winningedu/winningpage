@@ -25,8 +25,8 @@ import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { assetWarnings, validateAssetInputs } from "../_lib/inquiry/assets.js";
 import {
   fail,
-  hasInquiryAccess,
   NO_ENTITLEMENT_MESSAGE,
+  readInquiryAccess,
   SESSION_NOT_FOUND_MESSAGE,
 } from "../_lib/inquiry/compose.js";
 import {
@@ -40,6 +40,7 @@ import { toAssetRows, validateAssetsBody } from "../_lib/inquiry/requests.js";
 import { gateFor } from "../_lib/inquiry/session.js";
 import type { SessionStatus } from "../_lib/inquiry/types.js";
 import { toAssetView, toRecordCandidate } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const GATE_MESSAGES = {
   SESSION_NOT_OPEN: "이미 닫힌 세션이에요.",
@@ -68,8 +69,15 @@ export default defineHandler({
       return;
     }
     const { sessionId, items, planItemId } = parsed.body;
-    if (!(await hasInquiryAccess(db, userId))) {
-      fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+    const access = await readInquiryAccess(db, userId);
+    if (!access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        NO_ENTITLEMENT_MESSAGE,
+        tenantReasonExtra(access.tenantReason),
+      );
       return;
     }
 

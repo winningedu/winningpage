@@ -15,13 +15,16 @@ import {
   deriveStartMode,
   studentSummaryLine,
 } from "@/components/selfeval/start/startLogic";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { siteWording } from "@/config/wording";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { discardSession } from "@/lib/selfeval/api";
 import type { EntryResponse } from "@/lib/selfeval/types";
+import { parseTenantReason } from "@/lib/tenantBlock";
 
 // 자기평가서 시작 화면(시안 01~06, 명세 No.14, 15, 70, 71, 101~103). 경로: /app/selfeval
 // 단계 알림(useSelfevalScreenStep)은 사이드바 진행단계가 의존한다.
@@ -80,6 +83,8 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
 
   const start = deriveStartMode(entry, quotaRemaining);
   const { growth } = entry;
+  // 스쿨멘토는 이용권을 사지 않는다(결정 99). 구매 버튼과 링크를 숨기고 기관 사유를 보인다.
+  const tenantGate = site.features.tenantServiceGate;
 
   async function discardAndRestart(sessionId: string) {
     if (discarding) return;
@@ -114,7 +119,13 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
         openCount={entry.openSession ? 1 : 0}
       />
 
-      {start.mode === "quota_zero" && (
+      {start.mode === "quota_zero" && tenantGate && (
+        <ServiceBlockedNotice
+          reason={parseTenantReason(entry.tenantReason)}
+          onJoined={() => void refetchEntry()}
+        />
+      )}
+      {start.mode === "quota_zero" && !tenantGate && (
         <section className={`${CARD} bg-surface-04`}>
           <p className="text-app-card-title font-bold text-ink-strong">
             이용 가능 횟수가 없어요
@@ -138,7 +149,7 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
       )}
 
       <div className="flex justify-end gap-3">
-        {start.mode !== "quota_zero" && (
+        {start.mode !== "quota_zero" && !tenantGate && (
           <Button
             type="button"
             variant="outline"
@@ -201,14 +212,16 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
             >
               새 자기평가서 만들기
             </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="h-10 px-5 text-app-label font-semibold"
-              onClick={() => navigate(PRICING)}
-            >
-              이용권 보러 가기
-            </Button>
+            {!tenantGate && (
+              <Button
+                type="button"
+                size="lg"
+                className="h-10 px-5 text-app-label font-semibold"
+                onClick={() => navigate(PRICING)}
+              >
+                이용권 보러 가기
+              </Button>
+            )}
           </>
         )}
       </div>

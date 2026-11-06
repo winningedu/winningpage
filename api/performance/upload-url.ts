@@ -79,6 +79,7 @@ import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
@@ -145,18 +146,20 @@ export default defineHandler({
     const userId = requireUserId(ctx);
 
     // 이용권 재판정 — §8.6 공통 규약. 클라이언트 가드 통과 여부를 신뢰하지 않는다.
-    const { allowed: hasAccess } = await hasPaidServiceAccess(
-      supabaseAdmin,
-      userId,
-      // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-      SERVICE_CONFIGS[SERVICE_KEY]!,
-    );
+    const { allowed: hasAccess, reason: accessReason } =
+      await hasPaidServiceAccess(
+        supabaseAdmin,
+        userId,
+        // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+        SERVICE_CONFIGS[SERVICE_KEY]!,
+      );
     if (!hasAccess) {
       return fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+        tenantReasonExtra(accessReason),
       );
     }
 
