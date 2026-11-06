@@ -210,6 +210,7 @@ import {
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const SERVICE_KEY = "suhaeng";
 
@@ -923,18 +924,20 @@ export default defineHandler({
       //    잔여 회차는 보지 않는다 — 설계 리포트는 무차감이고(§9.3), 이미 차감된 세션은
       //    소진·만료 뒤에도 계속 진행하는 것이 규정이다(§9.3 정정 「막는 것은 새 세션
       //    시작뿐」). 여기서 잔여로 막으면 학생이 값을 지불한 세션이 중간에 끊긴다.
-      const { allowed: hasAccess } = await hasPaidServiceAccess(
-        supabaseAdmin,
-        userId,
-        // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
-        SERVICE_CONFIGS[SERVICE_KEY]!,
-      );
+      const { allowed: hasAccess, reason: accessReason } =
+        await hasPaidServiceAccess(
+          supabaseAdmin,
+          userId,
+          // SERVICE_KEY("suhaeng")는 SERVICE_CONFIGS에 항상 존재하는 상수 키.
+          SERVICE_CONFIGS[SERVICE_KEY]!,
+        );
       if (!hasAccess) {
         return fail(
           res,
           403,
           "NO_ENTITLEMENT",
           "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+          tenantReasonExtra(accessReason),
         );
       }
 
