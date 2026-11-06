@@ -18,14 +18,17 @@
 //   → 400 INVALID_BODY
 //   → 401 UNAUTHENTICATED
 //   → 403 FORBIDDEN            — attemptId가 요청자 소유가 아님
+//   403 ATTEMPT_NOT_COUNTED: 스쿨멘토에서 센 시도(kind tenant)가 아님
 //   → 404 ATTEMPT_NOT_FOUND    — attemptId가 diagnosis_attempts에 없음(소진 전 저장 시도 등)
 //   → 405 METHOD_NOT_ALLOWED
 //   → 413 PAYLOAD_TOO_LARGE
 //   → 500 INTERNAL
 
+import { isDeepStrictEqual } from "node:util";
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -117,6 +120,29 @@ export function exceedsPayloadLimit(body: DiagnosisReportBody): boolean {
   return bytes > MAX_PAYLOAD_BYTES;
 }
 
+// jsonb 는 키 순서를 바꾸고 timestamptz 는 표기를 바꿔 돌려주므로 값으로 비교한다.
+function sameReport(
+  saved: {
+    schema_version: string;
+    diagnosed_at: string;
+    snapshot: unknown;
+    payload: unknown;
+  },
+  sent: {
+    schema_version: string;
+    diagnosed_at: string;
+    snapshot: unknown;
+    payload: unknown;
+  },
+): boolean {
+  return (
+    saved.schema_version === sent.schema_version &&
+    Date.parse(saved.diagnosed_at) === Date.parse(sent.diagnosed_at) &&
+    isDeepStrictEqual(saved.snapshot, sent.snapshot) &&
+    isDeepStrictEqual(saved.payload, sent.payload)
+  );
+}
+
 export default defineHandler({
   methods: ["POST"],
   auth: "user",
@@ -148,7 +174,7 @@ export default defineHandler({
     // 행을 기록해 뒀어야 한다(소진 없이 저장을 시도하는 비정상 경로 차단).
     const { data: attemptRow, error: attemptError } = await ctx.supabaseAdmin
       .from("diagnosis_attempts")
-      .select("profile_id")
+      .select("profile_id, kind")
       .eq("id", body.attemptId)
       .maybeSingle();
 
@@ -168,19 +194,66 @@ export default defineHandler({
       return;
     }
 
+    // 스쿨멘토는 기관 한도를 서버가 집행한다. fn_consume_tenant_diagnosis 가 센 시도(kind tenant)가
+    // 아니면 저장하지 않는다. 한도 응답을 건너뛰거나 클라이언트가 실패를 흘려보내도 새 리포트가 생기지 않는다.
+    if (isSchoolmentorSite() && attemptRow.kind !== "tenant") {
+      fail(
+        res,
+        403,
+        "ATTEMPT_NOT_COUNTED",
+        "이용 횟수가 센 제출만 저장할 수 있습니다.",
+      );
+      return;
+    }
+
+    const row = {
+      attempt_id: body.attemptId,
+      profile_id: userId,
+      schema_version: body.schemaVersion,
+      diagnosed_at: body.diagnosedAt,
+      snapshot: body.snapshot,
+      payload: body.payload,
+    };
+
+    // 스쿨멘토는 센 시도 하나에 리포트 하나다. 이미 센 attemptId 를 다시 보내 다른 진단으로 덮어쓰지
+    // 못하게 upsert 대신 insert 한다. 같은 내용의 재전송(저장 성공 뒤 네트워크 재시도, 리포트 페이지의
+    // 재저장)은 저장된 것과 같으면 성공으로 받는다. 위닝은 upsert 그대로다.
+    if (isSchoolmentorSite()) {
+      const { error: insertError } = await ctx.supabaseAdmin
+        .from("diagnosis_reports")
+        .insert(row);
+      if (insertError?.code === "23505") {
+        const { data: saved, error: savedError } = await ctx.supabaseAdmin
+          .from("diagnosis_reports")
+          .select("schema_version, diagnosed_at, snapshot, payload")
+          .eq("attempt_id", body.attemptId)
+          .maybeSingle();
+        if (savedError || !saved) {
+          console.error("diagnosis/report 기존 리포트 조회 실패:", savedError);
+          fail(res, 500, "INTERNAL", "학습진단 리포트 저장에 실패했습니다.");
+          return;
+        }
+        if (!sameReport(saved, row)) {
+          fail(
+            res,
+            409,
+            "REPORT_ALREADY_SAVED",
+            "이 제출은 이미 리포트가 저장되어 있습니다.",
+          );
+          return;
+        }
+      } else if (insertError) {
+        console.error("diagnosis/report insert 실패:", insertError);
+        fail(res, 500, "INTERNAL", "학습진단 리포트 저장에 실패했습니다.");
+        return;
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     const { error: upsertError } = await ctx.supabaseAdmin
       .from("diagnosis_reports")
-      .upsert(
-        {
-          attempt_id: body.attemptId,
-          profile_id: userId,
-          schema_version: body.schemaVersion,
-          diagnosed_at: body.diagnosedAt,
-          snapshot: body.snapshot,
-          payload: body.payload,
-        },
-        { onConflict: "attempt_id" },
-      );
+      .upsert(row, { onConflict: "attempt_id" });
 
     if (upsertError) {
       console.error("diagnosis/report upsert 실패:", upsertError);

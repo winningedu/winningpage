@@ -46,12 +46,14 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { chargedPerformanceSessionIds } from "../_lib/performance/tenantCredit.js";
 import {
   findProgramAccessRow,
   hasPaidServiceAccess,
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "../_lib/serviceAccess.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 // 이용권 조회 키. 신규 자산은 performance 네이밍이지만 이 값은 운영 DB의
 // `program_access.program_key`와 `SERVICE_CONFIGS`에 이미 박혀 있어 개명
@@ -212,8 +214,9 @@ function fail(
   status: number,
   code: string,
   message: string,
+  extra?: Record<string, unknown>,
 ) {
-  sendError(res, "coded", status, message, code);
+  sendError(res, "coded", status, message, code, extra);
 }
 
 export default defineHandler({
@@ -235,17 +238,15 @@ export default defineHandler({
     const serviceConfig = SERVICE_CONFIGS[SERVICE_KEY]!;
 
     // ── 이용권 재판정. 클라이언트 가드 통과 여부는 신뢰하지 않는다(§8.6).
-    const { allowed: hasAccess } = await hasPaidServiceAccess(
-      supabaseAdmin,
-      userId,
-      serviceConfig,
-    );
+    const { allowed: hasAccess, reason: accessReason } =
+      await hasPaidServiceAccess(supabaseAdmin, userId, serviceConfig);
     if (!hasAccess) {
       return fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "유료 이용권을 결제하신 뒤 이용할 수 있습니다.",
+        tenantReasonExtra(accessReason),
       );
     }
 
@@ -310,12 +311,8 @@ export default defineHandler({
         .map((row) => row.selected_topic_id)
         .filter(Boolean);
 
-      const [ledgerResult, reportResult, topicResult] = await Promise.all([
-        supabaseAdmin
-          .from("performance_credit_ledger")
-          .select("session_id")
-          .eq("profile_id", userId)
-          .in("session_id", sessionIds),
+      const [chargedIds, reportResult, topicResult] = await Promise.all([
+        chargedPerformanceSessionIds(supabaseAdmin, userId, sessionIds),
         supabaseAdmin
           .from("performance_reports")
           .select("session_id, report_type")
@@ -328,15 +325,12 @@ export default defineHandler({
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      if (ledgerResult.error)
-        throw new Error(`회차 원장 조회 실패: ${ledgerResult.error.message}`);
       if (reportResult.error)
         throw new Error(`리포트 조회 실패: ${reportResult.error.message}`);
       if (topicResult.error)
         throw new Error(`주제 조회 실패: ${topicResult.error.message}`);
 
-      for (const row of ledgerResult.data || [])
-        chargedSessionIds.add(row.session_id);
+      for (const id of chargedIds) chargedSessionIds.add(id);
 
       for (const row of reportResult.data || []) {
         if (!reportTypesBySession.has(row.session_id))

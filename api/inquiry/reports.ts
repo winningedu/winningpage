@@ -34,10 +34,10 @@ import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { asGradeLabel } from "../_lib/inquiry/bootstrap.js";
 import {
   fail,
-  hasInquiryAccess,
   loadHandoffView,
   loadSessionParts,
   NO_ENTITLEMENT_MESSAGE,
+  readInquiryAccess,
   SESSION_NOT_FOUND_MESSAGE,
 } from "../_lib/inquiry/compose.js";
 import {
@@ -77,6 +77,7 @@ import {
   toSubmissionView,
   toTopicView,
 } from "../_lib/inquiry/views.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 async function handleList(res: VercelResponse, db: Db, userId: string) {
   const [completed, archived, openRow] = await Promise.all([
@@ -262,8 +263,15 @@ export default defineHandler({
       fail(res, 400, "INVALID_QUERY", query.reason);
       return;
     }
-    if (!(await hasInquiryAccess(db, userId))) {
-      fail(res, 403, "NO_ENTITLEMENT", NO_ENTITLEMENT_MESSAGE);
+    const access = await readInquiryAccess(db, userId);
+    if (!access.allowed) {
+      fail(
+        res,
+        403,
+        "NO_ENTITLEMENT",
+        NO_ENTITLEMENT_MESSAGE,
+        tenantReasonExtra(access.tenantReason),
+      );
       return;
     }
     if (query.sessionId === undefined) {

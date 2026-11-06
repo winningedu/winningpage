@@ -59,6 +59,7 @@ import {
   performanceBootstrapQueryOptions,
   queryClient,
 } from "@/lib/queryClient";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 
 // STEP1~STEP5 채팅 화면 — docs/수행평가-상세-명세.md §5.5(`3754:3206`) / §5.6(`3754:3261`) /
 // §5.7(`3754:3315`) / §5.8(`3754:3370`·`3754:3431`) / §5.9(`3754:3562`·`3754:3493`) /
@@ -558,6 +559,8 @@ export default function PerformanceChatPage() {
   const [topicRoundLimited, setTopicRoundLimited] = useState(false);
   const [topicError, setTopicError] = useState<string | null>(null);
   const [quotaPlanEndsAt, setQuotaPlanEndsAt] = useState<string | null>(null);
+  const [quotaTenantReason, setQuotaTenantReason] =
+    useState<TenantBlockReason | null>(null);
 
   // ── 주제 상세 모달(§5.11, P9). 열려 있는 주제 1건만 들고 있으면 된다 — 모달은
   //   `topicDetail`이 있을 때만 렌더한다.
@@ -1109,6 +1112,7 @@ export default function PerformanceChatPage() {
         // `already_charged`를 돌려주는 것이 정상이고(§9.3), 소진이 막는 것은 새 세션
         // 시작뿐이다(§5.20/Q54). 그래도 오면 소진 카드로 수렴시킨다.
         setQuotaPlanEndsAt(error.planEndsAt || null);
+        setQuotaTenantReason(error.tenantReason ?? null);
         setTopicPhase("quota");
         return;
       }
@@ -1661,6 +1665,7 @@ export default function PerformanceChatPage() {
     setTopicRoundLimited(false);
     setTopicError(null);
     setQuotaPlanEndsAt(null);
+    setQuotaTenantReason(null);
     setTopicDetail(null);
     setTopicsFocusPending(0);
 
@@ -2433,6 +2438,7 @@ export default function PerformanceChatPage() {
       children: (
         <QuotaExhaustedCard
           planEndsAt={quotaPlanEndsAt}
+          tenantReason={quotaTenantReason}
           onDismiss={handleQuotaDismiss}
         />
       ),

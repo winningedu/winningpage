@@ -11,6 +11,8 @@ import { useSyncExternalStore } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+
 const { shellMock, stepMock, fetchDetailMock, finalizeMock, refetchMock } =
   vi.hoisted(() => ({
     shellMock: vi.fn(),
@@ -20,6 +22,21 @@ const { shellMock, stepMock, fetchDetailMock, finalizeMock, refetchMock } =
     refetchMock: vi.fn(),
   }));
 
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("@/components/inquiry/InquiryShellContext", () => ({
   useInquiryShell: shellMock,
   useInquiryScreenStep: stepMock,
@@ -112,6 +129,7 @@ function renderPage() {
 const SUBMIT = "확정하고 활동 기록에 저장";
 
 beforeEach(() => {
+  gateState.on = false;
   stepMock.mockClear();
   fetchDetailMock.mockReset();
   finalizeMock.mockReset();
@@ -257,6 +275,25 @@ describe("FinalizePage 제출", () => {
     expect(
       await screen.findByRole("link", { name: "이용권 보기" }),
     ).toHaveAttribute("href", "/pricing?service=inquiry");
+  });
+
+  test("스쿨멘토의 403 NO_ENTITLEMENT 는 기관 사유만 보이고 링크가 없다", async () => {
+    gateState.on = true;
+    finalizeMock.mockResolvedValue({
+      kind: "error",
+      status: 403,
+      code: "NO_ENTITLEMENT",
+      message: "x",
+      extra: { tenantReason: "term_cap" },
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: SUBMIT }));
+    expect(
+      await screen.findByText(
+        "이번 학기 이용 횟수를 모두 썼어요. 선생님께 문의해 주세요.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
   });
 
   test("400 INVALID_BODY 는 비어 있는 항목 이름을 알린다", async () => {

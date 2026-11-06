@@ -3,6 +3,8 @@ import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { SelfevalApiError } from "@/lib/selfeval/queries";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+
 const {
   shellMock,
   stepMock,
@@ -24,6 +26,21 @@ vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
   useSelfevalScreenStep: stepMock,
 }));
 vi.mock("@/lib/selfeval/api", () => ({ discardSession: discardMock }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("@/context/SessionContext", () => ({ useSession: sessionMock }));
 vi.mock("@/context/ToastContext", () => ({ useToast: () => toastMock }));
 vi.mock("react-router", async (orig) => ({
@@ -109,6 +126,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  gateState.on = false;
   vi.clearAllMocks();
   refetchEntry.mockResolvedValue(undefined);
   setQuota();
@@ -316,5 +334,33 @@ describe("행동 줄", () => {
     expect(
       screen.queryByRole("button", { name: "새 자기평가서 만들기" }),
     ).toBeNull();
+  });
+});
+
+describe("StartPage 스쿨멘토 막힘", () => {
+  beforeEach(() => {
+    gateState.on = true;
+  });
+
+  test("한도를 다 쓰면 기관 한도 문구만 보이고 구매 버튼이 없다", () => {
+    setQuota(0, 10);
+    setShell({}, makeEntry({ tenantReason: "month_cap" }));
+    renderPage();
+    expect(
+      screen.getByText(
+        "이번 달 이용 횟수를 모두 썼어요. 다음 달 1일부터 다시 이용할 수 있어요.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "이용권 보러 가기" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "추가 횟수 구매" })).toBeNull();
+  });
+
+  test("남은 횟수가 있어도 추가 횟수 구매 버튼이 없다", () => {
+    setQuota(7, 10);
+    setShell();
+    renderPage();
+    expect(screen.queryByRole("button", { name: "추가 횟수 구매" })).toBeNull();
   });
 });

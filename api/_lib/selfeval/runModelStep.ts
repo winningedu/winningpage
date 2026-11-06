@@ -5,6 +5,7 @@
 
 import type { callStructured } from "../ai/gemini.js";
 import { type AiTrace, createAiTrace } from "../ai/telemetry/trace.js";
+import { type TenantDenyReason, tenantReasonExtra } from "../tenantUsage.js";
 import type { Db } from "./db.js";
 import {
   claimStep,
@@ -51,8 +52,8 @@ export type Outcome<T> =
       /** 이 실패 때문에 차감을 되돌렸는가(검증 단계만 쓴다). */
       reversed?: boolean;
     }
-  | { kind: "no_entitlement" }
-  | { kind: "quota_exhausted" }
+  | { kind: "no_entitlement"; tenantReason?: TenantDenyReason }
+  | { kind: "quota_exhausted"; tenantReason?: TenantDenyReason }
   | { kind: "regenerate_exhausted" }
   | {
       kind: "rejected";
@@ -398,14 +399,14 @@ export function outcomeToHttp(outcome: Outcome<unknown>): HttpMapping {
         status: 403,
         code: "NO_ENTITLEMENT",
         message: "자기평가서 이용권이 필요해요.",
-        extra: {},
+        extra: tenantReasonExtra(outcome.tenantReason),
       };
     case "quota_exhausted":
       return {
         status: 409,
         code: "QUOTA_EXHAUSTED",
         message: "남은 이용 횟수가 없어요. 이용권을 확인해 주세요.",
-        extra: {},
+        extra: tenantReasonExtra(outcome.tenantReason),
       };
     case "regenerate_exhausted":
       return {

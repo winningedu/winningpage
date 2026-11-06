@@ -42,7 +42,13 @@ vi.mock("@/lib/supabase", () => {
     supabase: {
       from: () => chain,
       rpc: async () => ({ data: null, error: null }),
-      auth: { getSession: async () => ({ data: { session: null } }) },
+      auth: {
+        getSession: async () => ({ data: { session: null } }),
+        // JoinTenantModal 이 불러오는 queryClient 가 모듈 로드 때 구독한다.
+        onAuthStateChange: () => ({
+          data: { subscription: { unsubscribe: () => {} } },
+        }),
+      },
     },
   };
 });

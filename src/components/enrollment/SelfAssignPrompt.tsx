@@ -3,6 +3,8 @@ import type { MyEnrollmentState } from "./useMyEnrollment";
 
 // 학년도 전환 뒤 반과 번호가 비워진 학생이 스스로 입력하게 하는 안내(사 #109). 마이페이지 위쪽에 둔다.
 export default function SelfAssignPrompt({ data, reload }: MyEnrollmentState) {
+  // 기타 소속은 소속코드를 넣어 기관을 옮길 때 반을 받는다(결정 98.9).
+  if (data?.isCatchAll) return null;
   if (!data?.enrollment || data.enrollment.className !== null) return null;
 
   return (

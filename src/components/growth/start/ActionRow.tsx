@@ -1,4 +1,7 @@
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { StartMode } from "./startLogic";
 
 type ActionRowProps = {
@@ -7,6 +10,10 @@ type ActionRowProps = {
   onViewReports: () => void;
   onPrimary: () => void;
   onBuy: () => void;
+  /** 스쿨멘토 기관 거부 사유. 사이트 스위치가 켜졌을 때만 쓴다. */
+  tenantReason?: TenantBlockReason | null;
+  /** 소속코드 입력을 마친 뒤 이용 가능 여부를 다시 읽는다. */
+  onJoined?: () => void;
 };
 
 export default function ActionRow({
@@ -15,10 +22,15 @@ export default function ActionRow({
   onViewReports,
   onPrimary,
   onBuy,
+  tenantReason = null,
+  onJoined,
 }: ActionRowProps) {
   return (
     <div className="flex flex-col gap-4">
-      {mode === "blocked" && (
+      {mode === "blocked" && site.features.tenantServiceGate && (
+        <ServiceBlockedNotice reason={tenantReason} onJoined={onJoined} />
+      )}
+      {mode === "blocked" && !site.features.tenantServiceGate && (
         <section className="rounded-xl border border-line/60 bg-surface-04 px-6 py-5">
           <p className="text-app-card-title font-bold text-ink-strong">
             이용권이 없어요

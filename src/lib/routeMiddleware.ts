@@ -15,6 +15,7 @@ import { entitlementQueryOptions, queryClient } from "./queryClient";
 import { getCached, setCached } from "./routeMiddlewareCache";
 import { resolveStaleWhileRevalidate } from "./staleWhileRevalidateQuery";
 import { supabase } from "./supabase";
+import type { TenantBlockReason } from "./tenantBlock";
 
 // 라우트 미들웨어(future.v8_middleware) 이관본 — 기존 ProtectedRoute.jsx /
 // ProtectedAdmin.jsx / RequireGoalAccess.jsx(+ RequireEntitlement.jsx의
@@ -48,6 +49,17 @@ export class RouteCheckFailedError extends Error {
   constructor(reason: "entitlement" | "onboarding") {
     super(`route-check-failed:${reason}`);
     this.name = "RouteCheckFailedError";
+    this.reason = reason;
+  }
+}
+
+/** 스쿨멘토 기관 설정으로 서비스가 막힘. ErrorBoundary가 잡아 사유 안내를 그린다(결정 99). */
+export class ServiceBlockedError extends Error {
+  reason: TenantBlockReason | null;
+
+  constructor(reason: TenantBlockReason | null) {
+    super(`service-blocked:${reason}`);
+    this.name = "ServiceBlockedError";
     this.reason = reason;
   }
 }
@@ -304,12 +316,14 @@ export const requireGoalAccessMiddleware: MiddlewareFunction = async ({
   // RouteCheckFailedError가 아니라서 GoalAccessBoundary가 못 잡고 다시 던진다.
   // 여기서 잡아 기존과 동일한 RouteCheckFailedError("entitlement")로 변환한다.
   let allowed: boolean;
+  let tenantReason: TenantBlockReason | null = null;
   try {
     const entitlement = await resolveStaleWhileRevalidate(
       queryClient,
       entitlementQueryOptions("goal", user.id),
     );
     allowed = entitlement.allowed === true;
+    tenantReason = entitlement.tenantReason;
   } catch {
     throw new RouteCheckFailedError("entitlement");
   }
@@ -321,6 +335,10 @@ export const requireGoalAccessMiddleware: MiddlewareFunction = async ({
     // 블로킹하면 안 됨 — markProgramEntry 상단 주석 참고).
     markProgramEntry("target");
     return;
+  }
+
+  if (site.features.tenantServiceGate) {
+    throw new ServiceBlockedError(tenantReason);
   }
 
   const redirectPath = currentPathWithQuery(request);

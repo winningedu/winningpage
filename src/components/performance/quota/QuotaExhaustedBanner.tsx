@@ -1,4 +1,6 @@
 import { Link } from "react-router";
+import { site } from "@/config/site";
+import { type TenantBlockReason, tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 회차 소진 안내 (표면 A) — 셸 상단 배너. docs/수행평가-상세-명세.md §5.20 (A) / §11.1 Q47.
 //
@@ -33,7 +35,26 @@ const CTA_LABEL = "이용권 구매하기";
 /** §5.20 CTA 목적지. 이용요금 페이지다. QuotaExhaustedCard와 동일. */
 const PURCHASE_TO = "/pricing";
 
-export default function QuotaExhaustedBanner() {
+export default function QuotaExhaustedBanner({
+  tenantReason = null,
+}: {
+  /** 스쿨멘토 기관 한도 사유. 사이트 스위치가 켜졌을 때만 쓴다. */
+  tenantReason?: TenantBlockReason | null;
+}) {
+  // 스쿨멘토는 이용권을 사지 않는다(결정 99). 기관 한도 문구만 보이고 구매 링크를 두지 않는다.
+  if (site.features.tenantServiceGate) {
+    return (
+      <div
+        role="status"
+        className="mb-6 flex min-h-12 w-full items-center rounded-xl bg-performance-tag px-6 py-3"
+      >
+        <p className="text-app-body font-medium leading-5.5 text-ink">
+          {tenantBlockMessage(tenantReason)}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
       role="status"

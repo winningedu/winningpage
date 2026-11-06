@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   runStep: vi.fn(),
   hasPaidServiceAccess: vi.fn(),
   notifyGrowthReportDone: vi.fn(),
+  isSchoolmentorSite: vi.fn(),
+  checkTenantStart: vi.fn(),
 }));
 vi.mock("./notify.js", () => ({
   notifyGrowthReportDone: mocks.notifyGrowthReportDone,
@@ -35,6 +37,14 @@ vi.mock("./runStep.js", () => ({ runStep: mocks.runStep }));
 vi.mock("../../serviceAccess.js", () => ({
   SERVICE_CONFIGS: { growth: { service_key: "growth" } },
   hasPaidServiceAccess: mocks.hasPaidServiceAccess,
+}));
+
+vi.mock("../../site.js", () => ({
+  isSchoolmentorSite: mocks.isSchoolmentorSite,
+}));
+vi.mock("../../tenantUsage.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tenantUsage.js")>()),
+  checkTenantStart: mocks.checkTenantStart,
 }));
 
 import { advanceStep } from "./advance.js";
@@ -78,6 +88,8 @@ function stateWith(step: StepNumber, attempts: number) {
 
 beforeEach(() => {
   for (const m of Object.values(mocks)) m.mockReset();
+  mocks.isSchoolmentorSite.mockReturnValue(false);
+  mocks.checkTenantStart.mockResolvedValue(null);
   mocks.hasPaidServiceAccess.mockResolvedValue({ allowed: true, reason: null });
   mocks.claimStep.mockResolvedValue({ kind: "claimed", attempts: 1 });
   mocks.loadContextInputs.mockResolvedValue({});
@@ -498,5 +510,132 @@ describe("advanceStep 계기판 기록", () => {
     const t = makeDb();
     await advanceStep(t.db, "u", makeRow({ ledger_id: "L1" }), 2, deps);
     expect(t.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("advanceStep 스쿨멘토 시작 확인", () => {
+  beforeEach(() => mocks.isSchoolmentorSite.mockReturnValue(true));
+
+  it("1단계는 모델 호출 전에 센 뒤 진행하고 성공 뒤 다시 세지 않는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(mocks.consumeCredit).toHaveBeenCalledTimes(1);
+    expect(mocks.consumeCredit).toHaveBeenCalledWith(db, "u", "r1");
+    expect(mocks.consumeCredit.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.runStep.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
+    expect(out).toMatchObject({ kind: "ok", charged: true });
+  });
+
+  it("한도에 걸리면 선점한 단계를 닫고 tenantReason 을 달아 no_entitlement", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "quota_exhausted",
+      charged: false,
+      tenantReason: "month_cap",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "month_cap",
+      tenantReason: "month_cap",
+    });
+    expect(mocks.finishStep).toHaveBeenCalledWith(
+      db,
+      "u",
+      "r1",
+      1,
+      false,
+      {},
+      expect.any(Array),
+      0,
+    );
+    expect(mocks.runStep).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["running", { kind: "running" }],
+    ["locked", { kind: "locked" }],
+    ["exhausted", { kind: "exhausted", attempts: 10 }],
+  ])("선점이 %s 로 거절되면 시작을 세지 않는다", async (_n, claim) => {
+    mocks.claimStep.mockResolvedValue(claim);
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out.kind).toBe("claim_error");
+    expect(mocks.consumeCredit).not.toHaveBeenCalled();
+  });
+
+  it("선점한 뒤에 세고 그 뒤에 모델을 부른다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    await advanceStep(db, "u", makeRow(), 1, deps);
+    const claimAt = mocks.claimStep.mock.invocationCallOrder[0] ?? 0;
+    const consumeAt = mocks.consumeCredit.mock.invocationCallOrder[0] ?? 0;
+    const runAt = mocks.runStep.mock.invocationCallOrder[0] ?? 0;
+    expect(claimAt).toBeLessThan(consumeAt);
+    expect(consumeAt).toBeLessThan(runAt);
+  });
+
+  it("진입 게이트 거부 사유도 tenantReason 으로 싣는다", async () => {
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: false,
+      reason: "catch_all",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "catch_all",
+      tenantReason: "catch_all",
+    });
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
+  });
+
+  it("2단계 늦은 차감이 이미 센 회차면 진행한다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "already_charged",
+      charged: true,
+      tenantReason: null,
+    });
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 2 });
+    const out = await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(out).toMatchObject({ kind: "ok", charged: true });
+  });
+
+  it("2단계 늦은 차감 거절은 tenantReason 을 싣는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "quota_exhausted",
+      charged: false,
+      tenantReason: "term_cap",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(out).toEqual({
+      kind: "no_entitlement",
+      reason: "quota_exhausted",
+      tenantReason: "term_cap",
+    });
+  });
+});
+
+describe("advanceStep 위닝은 시작 확인을 하지 않는다", () => {
+  it("checkTenantStart 를 부르지 않고 거부 응답에 tenantReason 이 없다", async () => {
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: false,
+      reason: "period_expired",
+    });
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out).toEqual({ kind: "no_entitlement", reason: "period_expired" });
+    expect(Object.keys(out)).not.toContain("tenantReason");
+    mocks.hasPaidServiceAccess.mockResolvedValue({
+      allowed: true,
+      reason: null,
+    });
+    await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
   });
 });

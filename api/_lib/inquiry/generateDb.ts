@@ -2,6 +2,8 @@
 // 판단은 generate.ts, recommendFlow.ts, designFlow.ts 의 순수 함수에 있고 여기엔 두지 않는다.
 // RPC 는 마이그레이션 20261006111506(차감, 되돌림), 20261006111507(선점, 종료, 종결)의 시그니처를 따른다.
 
+import { isSchoolmentorSite } from "../site.js";
+import { consumeTenantUsage, type TenantDenyReason } from "../tenantUsage.js";
 import { type Db, must, mustHave } from "./db.js";
 import { type ClaimResult, interpretClaim } from "./session.js";
 import type {
@@ -107,7 +109,18 @@ export async function consumeCredit(
   db: Db,
   sessionId: string,
   userId: string,
-): Promise<{ status: string; charged: boolean }> {
+): Promise<{
+  status: string;
+  charged: boolean;
+  tenantReason?: TenantDenyReason | null;
+}> {
+  // 스쿨멘토는 기관 한도에서 (inquiry_session, sessionId) 당 한 번만 센다. 원장은 쓰지 않는다.
+  if (isSchoolmentorSite()) {
+    return consumeTenantUsage(db, userId, "inquiry", {
+      kind: "inquiry_session",
+      id: sessionId,
+    });
+  }
   const raw = mustHave(
     must(
       await db.rpc("consume_inquiry_credit", {
@@ -131,6 +144,10 @@ export async function reverseCredit(
   sessionId: string,
   userId: string,
 ): Promise<{ status: string; reversed: boolean }> {
+  // 스쿨멘토는 실패한 실행의 횟수를 돌려주지 않는다(결정 98.3).
+  if (isSchoolmentorSite()) {
+    return { status: "tenant_no_reversal", reversed: false };
+  }
   const raw = mustHave(
     must(
       await db.rpc("reverse_inquiry_credit", {

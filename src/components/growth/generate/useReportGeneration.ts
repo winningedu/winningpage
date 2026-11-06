@@ -36,6 +36,7 @@ export function useReportGeneration({
     issues: null,
     errorCode: null,
     errorMessage: null,
+    tenantReason: null,
     charged: null,
     completion: null,
   }));

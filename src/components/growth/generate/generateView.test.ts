@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { StepProgress } from "@/lib/growth/api";
 import {
   completedCount,
@@ -6,8 +6,12 @@ import {
   entitlementStatus,
   stepBadge,
   summarizeIssues,
+  tenantBlockOf,
 } from "./generateView";
 import type { GenerationState } from "./generationEngine";
+
+const siteState = vi.hoisted(() => ({ tenantServiceGate: false }));
+vi.mock("@/config/site", () => ({ site: { features: siteState } }));
 
 function progressOf(done: number): StepProgress[] {
   return Array.from({ length: 8 }, (_, i) => ({
@@ -27,6 +31,7 @@ function stateOf(patch: Partial<GenerationState>): GenerationState {
     issues: null,
     errorCode: null,
     errorMessage: null,
+    tenantReason: null,
     charged: null,
     completion: null,
     ...patch,
@@ -219,5 +224,30 @@ describe("summarizeIssues", () => {
     ).toEqual(["a", "b", "c"]);
     expect(summarizeIssues(null)).toEqual([]);
     expect(summarizeIssues({ x: 1 })).toEqual([]);
+  });
+});
+
+describe("tenantBlockOf", () => {
+  const denied = stateOf({
+    phase: "failed",
+    errorCode: "NO_ENTITLEMENT",
+    tenantReason: "term_cap",
+  });
+
+  test("스쿨멘토에서 이용 거부로 멈추면 기관 사유를 준다", () => {
+    siteState.tenantServiceGate = true;
+    expect(tenantBlockOf(denied)).toEqual({ reason: "term_cap" });
+  });
+
+  test("위닝이면 없다", () => {
+    siteState.tenantServiceGate = false;
+    expect(tenantBlockOf(denied)).toBeNull();
+  });
+
+  test("다른 실패 코드면 없다", () => {
+    siteState.tenantServiceGate = true;
+    expect(
+      tenantBlockOf(stateOf({ phase: "failed", errorCode: "NETWORK" })),
+    ).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-// 학적 RPC(WC077 에서 WC087, WC094, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC068, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
@@ -76,6 +76,24 @@ const MAPPED: Record<string, Mapped> = {
     status: 403,
     code: "NOT_STUDENT",
     message: "학생 계정만 쓸 수 있어요.",
+  },
+  // 기타 소속 학생의 소속코드 이동(결정 96): WC068 코드 시도 한도, WC096 옮겨 갈 기관의 휴대폰 번호 중복, WC098 기타 소속 아님.
+  WC068: {
+    status: 429,
+    code: "TOO_MANY_ATTEMPTS",
+    message:
+      "소속코드 확인을 너무 많이 시도했어요. 잠시 후 다시 시도해 주세요.",
+  },
+  WC096: {
+    status: 409,
+    code: "PHONE_TAKEN",
+    message:
+      "이 기관에 같은 휴대폰 번호로 가입한 계정이 있어요. 선생님께 문의해 주세요.",
+  },
+  WC098: {
+    status: 403,
+    code: "NOT_CATCH_ALL",
+    message: "기타 소속 학생만 소속코드를 입력할 수 있어요.",
   },
   "23503": INVALID_CLASS,
   // 학급 이름 정규화(22023)와 학년, 번호 CHECK(23514)

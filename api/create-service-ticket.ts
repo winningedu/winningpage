@@ -6,6 +6,7 @@ import {
   hasPaidServiceAccess,
   SERVICE_CONFIGS,
 } from "./_lib/serviceAccess.js";
+import { tenantReasonExtra } from "./_lib/tenantUsage.js";
 
 const PAID_MESSAGE = "유료결제이후 이용해주세요!";
 // 기간 만료 전용 안내(api/_lib/serviceAccess.js의 checkProgramAccessTable 참고).
@@ -127,7 +128,7 @@ export default defineHandler({
     if (!access.allowed) {
       const detail =
         access.reason === "period_expired" ? EXPIRED_MESSAGE : PAID_MESSAGE;
-      res.status(403).json({ detail });
+      res.status(403).json({ detail, ...tenantReasonExtra(access.reason) });
       return;
     }
 

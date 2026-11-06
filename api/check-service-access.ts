@@ -22,6 +22,11 @@
 //     planEndsAt: string|null,    — 이용권 만료 시각(ISO).
 //     planLabel: string|null      — 상품 표시명.
 //   }
+//   스쿨멘토(SITE=schoolmentor)는 위 5필드에 두 개가 더 붙는다:
+//     tenantReason: catch_all|disabled|outside_period|grace|month_cap|term_cap|null
+//                   (기관 거부 사유. 앞 네 값은 allowed:false, 뒤 두 값은 allowed:true 이고 시작만 막힌다)
+//     limitKind:    "month"|"term"|null (남은 횟수가 작은 쪽, 같으면 term)
+//     planEndsAt 은 그 한도가 다시 열리는 날(YYYY-MM-DD)이다. 위닝 응답에는 두 필드가 없다.
 //   400 { detail }               — 알 수 없는 service_key.
 //   401 { detail }                — 토큰 없음/무효.
 //   405 { detail }                — POST 아님.
@@ -51,6 +56,13 @@ import {
   readQuotaSnapshot,
   SERVICE_CONFIGS,
 } from "./_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
+import {
+  PROGRAM_KEY_BY_SERVICE,
+  readTenantQuota,
+  readTenantUsage,
+  tenantEntryAccess,
+} from "./_lib/tenantUsage.js";
 
 // auth:"none"으로 두고 인증을 handler 내부에서 수행한다(change-phone.ts·
 // create-service-ticket.ts와 같은 패턴) — dev 원본은 400(알 수 없는 service_key)
@@ -77,6 +89,34 @@ export default defineHandler({
       return;
     }
     const userId = authed.userId;
+
+    // 스쿨멘토: 기관 설정으로 판정하고 남은 횟수도 기관 한도에서 읽는다.
+    // tenantReason 은 거부 사유이고 한도 소진(month_cap, term_cap)일 때는 allowed 가 true 여도 채워진다.
+    // limitKind 는 안내에 쓰는 한도 종류(month, term, 없으면 null)다. 읽지 못하면 열지 않고 500 으로 답한다.
+    if (isSchoolmentorSite()) {
+      try {
+        const tenant = await readTenantUsage(
+          ctx.supabaseAdmin,
+          userId,
+          PROGRAM_KEY_BY_SERVICE[config.service_key] ?? config.service_key,
+        );
+        const quota = readTenantQuota(tenant);
+        res.status(200).json({
+          allowed: tenantEntryAccess(tenant).allowed,
+          quotaRemaining: quota.quotaRemaining,
+          quotaTotal: quota.quotaTotal,
+          planEndsAt: quota.planEndsAt,
+          planLabel: quota.planLabel,
+          tenantReason: tenant.denyReason,
+          limitKind: quota.limitKind,
+        });
+      } catch (tenantError) {
+        console.error("check-service-access 기관 상태 조회 실패:", tenantError);
+        // 열지 않되 최종 막힘으로 답하지도 않는다. 5xx 라 클라이언트는 확인 실패로 보고 다시 시도한다.
+        sendError(res, "detail", 500, "이용권 확인 중 오류가 발생했습니다.");
+      }
+      return;
+    }
     // hasPaidServiceAccess(판정, fn_program_access_state RPC 경유)와
     // findProgramAccessRow(회차 표시용 행 조회, program_access 테이블 직접 조회)는
     // 서로의 결과에 의존하지 않는다 — 둘 다 program_access를 각자 다른 방식으로

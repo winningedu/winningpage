@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Db } from "../intake/collectDb.js";
-import { ADMISSION_PAGE_SIZE, loadAdmissionRows } from "./reportDb.js";
+import {
+  ADMISSION_PAGE_SIZE,
+  consumeCredit,
+  loadAdmissionRows,
+  reverseCredit,
+} from "./reportDb.js";
 
 type Call = { method: string; args: unknown[] };
 
@@ -128,5 +133,90 @@ describe("loadAdmissionRows", () => {
       await loadAdmissionRows(db, targets("가대"));
       expect(warn).not.toHaveBeenCalled();
     });
+  });
+});
+
+function rpcDb(result: unknown) {
+  const rpc = vi.fn(async () => ({ data: result, error: null }));
+  return { db: { rpc } as unknown as Db, rpc };
+}
+
+describe("consumeCredit 사이트 분기", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  test("위닝은 consume_growth_credit 을 부르고 응답 모양이 그대로다", async () => {
+    vi.stubEnv("SITE", "winning");
+    const { db, rpc } = rpcDb({ status: "charged", charged: true });
+    expect(await consumeCredit(db, "u1", "r1")).toEqual({
+      status: "charged",
+      charged: true,
+    });
+    expect(rpc).toHaveBeenCalledWith("consume_growth_credit", {
+      p_report_id: "r1",
+      p_profile_id: "u1",
+    });
+  });
+
+  test("스쿨멘토는 fn_consume_tenant_usage 로 growth_report 를 센다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, rpc } = rpcDb("consumed");
+    expect(await consumeCredit(db, "u1", "r1")).toEqual({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("fn_consume_tenant_usage", {
+      p_profile: "u1",
+      p_program_key: "growth",
+      p_source_kind: "growth_report",
+      p_source_id: "r1",
+    });
+  });
+
+  test("스쿨멘토에서 이미 센 회차는 already_charged", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db } = rpcDb("already_consumed");
+    expect(await consumeCredit(db, "u1", "r1")).toMatchObject({
+      status: "already_charged",
+      charged: true,
+    });
+  });
+
+  test("스쿨멘토에서 한도 거부는 quota_exhausted 와 tenantReason", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db } = rpcDb("month_cap");
+    expect(await consumeCredit(db, "u1", "r1")).toEqual({
+      status: "quota_exhausted",
+      charged: false,
+      tenantReason: "month_cap",
+    });
+  });
+});
+
+describe("reverseCredit 사이트 분기", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  test("위닝은 reverse_growth_credit 을 부른다", async () => {
+    vi.stubEnv("SITE", "winning");
+    const { db, rpc } = rpcDb({ status: "reversed", reversed: true });
+    expect(await reverseCredit(db, "u1", "r1")).toEqual({
+      status: "reversed",
+      reversed: true,
+    });
+    expect(rpc).toHaveBeenCalledWith("reverse_growth_credit", {
+      p_report_id: "r1",
+      p_profile_id: "u1",
+    });
+  });
+
+  test("스쿨멘토는 아무것도 하지 않고 reversed false", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db, rpc } = rpcDb({ status: "reversed", reversed: true });
+    expect(await reverseCredit(db, "u1", "r1")).toEqual({
+      status: "tenant_no_reversal",
+      reversed: false,
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

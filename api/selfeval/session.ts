@@ -21,7 +21,7 @@ import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import {
   fail,
-  hasSelfevalAccess,
+  readSelfevalAccess,
   readSelfevalQuota,
 } from "../_lib/selfeval/access.js";
 import {
@@ -46,6 +46,7 @@ import {
   validateSessionUpdateBody,
 } from "../_lib/selfeval/sessionBody.js";
 import { detailBody } from "../_lib/selfeval/view.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const NOT_FOUND = "자기평가서 세션을 찾을 수 없어요.";
 
@@ -90,6 +91,7 @@ async function handleCreate(
       409,
       "QUOTA_EXHAUSTED",
       "남은 이용 횟수가 없어요. 이용권을 확인해 주세요.",
+      tenantReasonExtra(quota.capReason),
     );
     return;
   }
@@ -215,12 +217,14 @@ export default defineHandler({
       );
       return;
     }
-    if (!(await hasSelfevalAccess(db, userId))) {
+    const access = await readSelfevalAccess(db, userId);
+    if (!access.allowed) {
       fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "이용권이 없어요. 자기평가서는 이용권 1회로 하나를 만들어요.",
+        tenantReasonExtra(access.tenantReason),
       );
       return;
     }

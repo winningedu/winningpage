@@ -4,6 +4,8 @@
 import type { callStructured } from "../../ai/gemini.js";
 import { createAiTrace } from "../../ai/telemetry/trace.js";
 import { hasPaidServiceAccess, SERVICE_CONFIGS } from "../../serviceAccess.js";
+import { isSchoolmentorSite } from "../../site.js";
+import { type TenantDenyReason, tenantReasonOf } from "../../tenantUsage.js";
 import type { Db } from "../intake/collectDb.js";
 import type { ValidationIssue } from "../validation.js";
 import { notifyGrowthReportDone } from "./notify.js";
@@ -59,7 +61,12 @@ export type AdvanceOutcome =
       state: StepState;
       terminal: boolean;
     }
-  | { kind: "no_entitlement"; reason: string }
+  | {
+      kind: "no_entitlement";
+      reason: string;
+      /** 스쿨멘토에서만 있다(catch_all, disabled, outside_period, grace, month_cap, term_cap). */
+      tenantReason?: TenantDenyReason;
+    }
   | { kind: "context_error" }
   | { kind: "superseded" }
   | { kind: "not_ready" }
@@ -117,13 +124,21 @@ export async function advanceStep(
 ): Promise<AdvanceOutcome> {
   const reportId = row.id;
   const gate = chargeGate(row, step);
+  let reservedCharge = false;
 
   // 선점 전에 막아야 거절된 요청이 시도 횟수를 올리지 않는다.
   if (gate === "check_access") {
     const config = SERVICE_CONFIGS.growth;
     if (!config) throw new Error("SERVICE_CONFIGS.growth 가 없습니다.");
     const { allowed, reason } = await hasPaidServiceAccess(db, userId, config);
-    if (!allowed) return { kind: "no_entitlement", reason: reason ?? "none" };
+    if (!allowed) {
+      const tenantReason = tenantReasonOf(reason);
+      return {
+        kind: "no_entitlement",
+        reason: reason ?? "none",
+        ...(tenantReason && { tenantReason }),
+      };
+    }
   }
   if (gate === "refuse_closed") {
     return {
@@ -137,7 +152,11 @@ export async function advanceStep(
   if (gate === "late_charge") {
     const c = await consumeCredit(db, userId, reportId);
     if (!(c.charged || c.status === "already_charged"))
-      return { kind: "no_entitlement", reason: c.status };
+      return {
+        kind: "no_entitlement",
+        reason: c.status,
+        ...(c.tenantReason && { tenantReason: c.tenantReason }),
+      };
     lateCharged = true;
   }
 
@@ -167,6 +186,38 @@ export async function advanceStep(
 
   // 이 아래에서 던지면 선점한 단계를 실패로 닫고 다시 던진다.
   try {
+    // 스쿨멘토는 모델을 부르기 전에 회차를 먼저 센다(결정 100). 선점이 거절된 요청은 시작하지 않았으므로
+    // 선점에 성공한 뒤에 센다. 같은 회차는 멱등이라 이미 센 회차는 한도여도 이어서 하고, 동시에 여러 회차를
+    // 시작해도 한도를 넘지 못한다. 실패한 실행은 돌려주지 않는다.
+    if (gate === "check_access" && isSchoolmentorSite()) {
+      const c = await consumeCredit(db, userId, reportId);
+      if (!(c.charged || c.status === "already_charged")) {
+        // 선점한 running 을 닫지 않으면 stale 시간까지 재요청이 막힌다.
+        await finishStep(
+          db,
+          userId,
+          reportId,
+          step,
+          false,
+          {},
+          [
+            {
+              code: "quota_denied",
+              message: "이용 한도에 걸려 시작하지 않았어요.",
+            },
+          ],
+          0,
+        );
+        return {
+          kind: "no_entitlement",
+          reason: c.tenantReason ?? c.status,
+          ...(c.tenantReason && { tenantReason: c.tenantReason }),
+        };
+      }
+      reservedCharge = true;
+      lateCharged = true;
+    }
+
     let context: Awaited<ReturnType<typeof loadContextInputs>>;
     try {
       context = await loadContextInputs(db, userId, row, deps.now());
@@ -249,7 +300,7 @@ export async function advanceStep(
 
       // No.14: 첫 모델 호출 단계(1단계) 성공 시 차감. 거절돼도 진행은 막지 않는다.
       let charged: boolean | undefined = lateCharged ? true : undefined;
-      if (step === 1 && gate === "check_access") {
+      if (step === 1 && gate === "check_access" && !reservedCharge) {
         try {
           const c = await consumeCredit(db, userId, reportId);
           charged = c.charged || c.status === "already_charged";

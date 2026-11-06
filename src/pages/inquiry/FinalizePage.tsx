@@ -21,10 +21,12 @@ import { INQUIRY_PATHS } from "@/components/inquiry/inquiryPaths";
 import StepGate, { STEP_BODY_CLASS } from "@/components/inquiry/StepGate";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { finalizeSession } from "@/lib/inquiry/api";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
 import type { FinalizePreview } from "@/lib/inquiry/types";
+import { parseTenantReason, tenantBlockMessage } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
 
 const TITLE = "이 탐구를 다음 탐구의 재료로";
@@ -59,6 +61,14 @@ function errorFor(result: {
     };
   }
   if (result.status === 403 && result.code === "NO_ENTITLEMENT") {
+    // 스쿨멘토는 이용권을 사지 않는다(결정 99). 구매 링크 대신 기관 사유를 보인다.
+    if (site.features.tenantServiceGate) {
+      return {
+        message: tenantBlockMessage(
+          parseTenantReason(result.extra?.tenantReason),
+        ),
+      };
+    }
     return {
       message: "이용권이 있어야 저장할 수 있어요",
       link: { to: PRICING, label: "이용권 보기" },

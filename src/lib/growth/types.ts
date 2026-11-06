@@ -49,6 +49,8 @@ export type SurveyEntitlement = {
   quotaRemaining: number | null;
   planEndsAt: string | null;
   planLabel: string | null;
+  /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 포함), 허용이면 null. */
+  tenantReason?: string | null;
 };
 
 /** goal_students 에서 만든 학생 프로필 초기값. 진로는 목표관리에 없어 채우지 않는다. */

@@ -1,6 +1,24 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, test, vi } from "vitest";
+
+const gateState = vi.hoisted(() => ({ on: false }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
+
 import { type FlowState, initialFlowState } from "./generationFlow";
 import StepFlowNotice from "./StepFlowNotice";
 
@@ -76,6 +94,25 @@ describe("StepFlowNotice", () => {
         .getByRole("link", { name: "이용권 보러 가기" })
         .getAttribute("href"),
     ).toBe("/pricing?service=selfeval");
+  });
+
+  test("스쿨멘토는 이용권 링크 대신 기관 사유를 보인다", () => {
+    gateState.on = true;
+    renderNotice(
+      "write",
+      state({
+        phase: "blocked",
+        errorCode: "QUOTA_EXHAUSTED",
+        tenantReason: "month_cap",
+      }),
+    );
+    expect(
+      screen.getByText(
+        "이번 달 이용 횟수를 모두 썼어요. 다음 달 1일부터 다시 이용할 수 있어요.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "이용권 보러 가기" })).toBeNull();
+    gateState.on = false;
   });
 
   test("STEP_ORDER 는 서버가 알려 준 단계의 화면으로 보낸다", () => {

@@ -25,7 +25,7 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
-import { fail, hasSelfevalAccess } from "../_lib/selfeval/access.js";
+import { fail, readSelfevalAccess } from "../_lib/selfeval/access.js";
 import {
   type Db,
   insertManualActivity,
@@ -59,6 +59,7 @@ import {
 } from "../_lib/selfeval/pickBody.js";
 import type { SessionRow } from "../_lib/selfeval/rows.js";
 import { guardStep } from "../_lib/selfeval/session.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 const NOT_FOUND = "자기평가서 세션을 찾을 수 없어요.";
 const LOCKED_MESSAGE =
@@ -227,12 +228,14 @@ export default defineHandler({
       fail(res, 400, parsed.code, parsed.message);
       return;
     }
-    if (!(await hasSelfevalAccess(db, userId))) {
+    const access = await readSelfevalAccess(db, userId);
+    if (!access.allowed) {
       fail(
         res,
         403,
         "NO_ENTITLEMENT",
         "이용권이 없어요. 자기평가서는 이용권 1회로 하나를 만들어요.",
+        tenantReasonExtra(access.tenantReason),
       );
       return;
     }

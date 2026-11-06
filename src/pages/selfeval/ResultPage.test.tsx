@@ -15,6 +15,8 @@ import {
   makeSections,
 } from "./testFixtures";
 
+const gateState = vi.hoisted(() => ({ on: false }));
+
 const {
   stepMock,
   shellMock,
@@ -50,6 +52,21 @@ vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
 }));
 vi.mock("@/context/ToastContext", () => ({ useToast: () => toastMock }));
+vi.mock("@/config/site", async (orig) => {
+  const actual = await orig<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get tenantServiceGate() {
+          return gateState.on;
+        },
+      },
+    },
+  };
+});
 vi.mock("react-router", async (orig) => ({
   ...(await orig<typeof import("react-router")>()),
   useNavigate: () => navigateMock,
@@ -111,6 +128,7 @@ const writtenOk = (sections = makeSections(), regenerationsLeft = 3) => ({
 });
 
 beforeEach(() => {
+  gateState.on = false;
   vi.clearAllMocks();
   refetchEntry.mockResolvedValue(undefined);
   shellMock.mockReturnValue({ refetchEntry });
@@ -378,5 +396,13 @@ describe("ResultPage 버튼", () => {
       await screen.findByRole("button", { name: "추가 횟수 구매" }),
     );
     expect(navigateMock).toHaveBeenCalledWith("/pricing?service=selfeval");
+  });
+
+  test("스쿨멘토는 추가 횟수 구매 버튼이 없다", async () => {
+    gateState.on = true;
+    detailMock.mockResolvedValue(withReport());
+    renderPage();
+    await screen.findByRole("button", { name: "검증하기" });
+    expect(screen.queryByRole("button", { name: "추가 횟수 구매" })).toBeNull();
   });
 });

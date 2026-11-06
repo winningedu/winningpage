@@ -66,6 +66,7 @@ import {
   upsertStudentRow,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -1287,7 +1288,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 쓰기형이므로 미결제는 403 이다(조회형만 200 {allowed:false}).
     if (!allowed) {
-      return res.status(403).json({ detail: PAID_MESSAGE });
+      return res.status(403).json({
+        detail: PAID_MESSAGE,
+        ...tenantReasonExtra(session.tenantReason),
+      });
     }
 
     const { supabaseAdmin, profileId } = narrowGoalSession(session);

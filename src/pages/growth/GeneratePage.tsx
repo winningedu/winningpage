@@ -15,10 +15,12 @@ import {
   describeGeneration,
   type GenerationAction,
   PRICING_PATH,
+  tenantBlockOf,
 } from "@/components/growth/generate/generateView";
 import { STEP_COUNT } from "@/components/growth/generate/stepLabels";
 import { useReportGeneration } from "@/components/growth/generate/useReportGeneration";
 import { GROWTH_PATHS } from "@/components/growth/growthPaths";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { siteWording } from "@/config/wording";
@@ -191,6 +193,7 @@ function GenerationRunner({
   }, [state.phase, reportId, navigate]);
 
   const notice = describeGeneration(state, resumedDone);
+  const tenantBlock = tenantBlockOf(state);
 
   function onAction(action: GenerationAction) {
     if (action === "retry") retry();
@@ -201,7 +204,11 @@ function GenerationRunner({
 
   return (
     <div className={BODY}>
-      {notice && <GenerationNoticeCard notice={notice} onAction={onAction} />}
+      {tenantBlock ? (
+        <ServiceBlockedNotice reason={tenantBlock.reason} onJoined={retry} />
+      ) : (
+        notice && <GenerationNoticeCard notice={notice} onAction={onAction} />
+      )}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <GenerationProgressCard state={state} />

@@ -136,6 +136,7 @@ describe("GET /api/enrollment/me", () => {
     expect(res.body).toEqual({
       ok: true,
       orgType: "학교",
+      isCatchAll: false,
       enrollment: {
         schoolYear: 2026,
         grade: "고2",
@@ -196,6 +197,18 @@ describe("GET /api/enrollment/me", () => {
     });
   });
 
+  test("flags a student whose institution is the catch-all (기타)", async () => {
+    kit.state.rows.tenants = () => ({
+      school_year: 2026,
+      org_type: null,
+      is_catch_all: true,
+    });
+
+    const res = await get();
+
+    expect((res.body as { isCatchAll: boolean }).isCatchAll).toBe(true);
+  });
+
   test("a student without an institution gets no enrollment", async () => {
     kit.state.rows.profiles = () => ({ tenant_id: null });
 
@@ -204,6 +217,7 @@ describe("GET /api/enrollment/me", () => {
     expect(res.body).toEqual({
       ok: true,
       orgType: null,
+      isCatchAll: false,
       enrollment: null,
       pending: null,
     });
