@@ -2,8 +2,10 @@
 //
 // 스쿨멘토 학생 가입 확정. 위닝 배포에서는 404.
 
+import { createLoginAuthClient } from "../_lib/auth/login.js";
 import { defineHandler } from "../_lib/handler.js";
 import { getClientIp } from "../_lib/phoneCode.js";
+import { createSignupAuthUser } from "../_lib/signup/authUser.js";
 import { parseSchoolStudentBody } from "../_lib/signup/schoolStudent.js";
 import { isSchoolmentorSite } from "../_lib/signup/site.js";
 import { lookupSignupTenant } from "../_lib/signup/tenant.js";
@@ -69,5 +71,57 @@ export default defineHandler({
         return;
       }
     }
+
+    const { userId } = await createSignupAuthUser(
+      ctx.supabaseAdmin,
+      input.email,
+      input.password,
+    );
+
+    const { data: signup, error: signupError } = await ctx.supabaseAdmin.rpc(
+      "fn_student_signup",
+      {
+        p_user_id: userId,
+        p_username: input.username,
+        p_name: input.name,
+        p_email: input.email,
+        p_phone: input.phone,
+        p_birth_date: input.birthDate,
+        p_gender: input.gender,
+        p_tenant_id: tenant?.id ?? null,
+        p_grade: input.grade,
+        p_group_name: input.groupName,
+        p_class_name: input.className,
+        p_number: input.number,
+        p_guardian_name: input.guardianName,
+        p_guardian_phone: input.guardianPhone,
+        p_guardian_relation: input.guardianRelation,
+        p_guardian_consent: input.guardianConsent,
+        p_identity_request_id: input.identityRequestId,
+        p_agree_service: input.agreeService,
+        p_agree_privacy: input.agreePrivacy,
+        p_agree_db_transfer: input.agreeDbTransfer,
+        p_agree_marketing: input.agreeMarketing,
+      },
+    );
+    if (signupError) throw signupError;
+
+    const { data: signed, error: signInError } = await createLoginAuthClient(
+      ip,
+    ).auth.signInWithPassword({
+      email: signup.email,
+      password: input.password,
+    });
+    if (signInError || !signed.session) throw signInError;
+
+    res.status(200).json({
+      session: {
+        access_token: signed.session.access_token,
+        refresh_token: signed.session.refresh_token,
+      },
+      username: signup.username,
+      linkCode: signup.link_code,
+      tenantName: signup.tenant_name,
+    });
   },
 });

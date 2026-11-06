@@ -33,6 +33,35 @@ import handler from "./school-student.js";
 
 const post = (body: unknown) => callSignup(handler, body);
 
+const TENANT = { id: "t-1", name: "가나중학교", org_type: "학교" };
+const SIGNUP_OK = {
+  ok: true,
+  id: "auth-user-1",
+  username: "student01",
+  email: "gildong@example.com",
+  under14: false,
+  tenant_id: "t-1",
+  tenant_name: "가나중학교",
+  link_code: "LINK-1",
+};
+
+/** 가입이 끝까지 가는 기본 설정. 테스트가 필요한 칸만 덮어쓴다. */
+function happyPath() {
+  kit.state.rpc.fn_signup_tenant_lookup = () => ({
+    data: [TENANT],
+    error: null,
+  });
+  kit.state.rpc.is_username_available = () => ({ data: true, error: null });
+  kit.state.rpc.fn_student_signup = () => ({ data: SIGNUP_OK, error: null });
+  kit.signIn.mockResolvedValue({
+    data: {
+      user: { id: "auth-user-1" },
+      session: { access_token: "at", refresh_token: "rt", expires_at: 1 },
+    },
+    error: null,
+  });
+}
+
 const BODY = {
   username: "student01",
   password: "Pass#123",
@@ -154,5 +183,75 @@ describe("POST /api/signup/school-student", () => {
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ code: "CLASS_REQUIRED" });
     expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("성공하면 계정을 만들고 가입 확정 뒤 세션과 학급 연결 코드를 돌려준다", async () => {
+    happyPath();
+    const signupCalls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_student_signup = (args) => {
+      signupCalls.push(args);
+      return { data: SIGNUP_OK, error: null };
+    };
+
+    const r = await post({ ...BODY, tenantId: "client-made-up" });
+
+    expect(kit.state.auth.createUser).toHaveBeenCalledWith({
+      email: "gildong@example.com",
+      password: "Pass#123",
+      email_confirm: true,
+    });
+    expect(signupCalls).toEqual([
+      {
+        p_user_id: "auth-user-1",
+        p_username: "student01",
+        p_name: "홍길동",
+        p_email: "gildong@example.com",
+        p_phone: "01012345678",
+        p_birth_date: "2012-03-04",
+        p_gender: "남",
+        p_tenant_id: "t-1",
+        p_grade: "중1",
+        p_group_name: null,
+        p_class_name: "3",
+        p_number: 7,
+        p_guardian_name: null,
+        p_guardian_phone: null,
+        p_guardian_relation: null,
+        p_guardian_consent: false,
+        p_identity_request_id: null,
+        p_agree_service: true,
+        p_agree_privacy: true,
+        p_agree_db_transfer: true,
+        p_agree_marketing: false,
+      },
+    ]);
+    expect(kit.signIn).toHaveBeenCalledWith({
+      email: "gildong@example.com",
+      password: "Pass#123",
+    });
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      session: { access_token: "at", refresh_token: "rt" },
+      username: "student01",
+      linkCode: "LINK-1",
+      tenantName: "가나중학교",
+    });
+  });
+
+  test("기타(tenantCode null)는 조회 없이 소속 없이 가입 확정을 부른다", async () => {
+    happyPath();
+    const lookup = vi.fn();
+    kit.state.rpc.fn_signup_tenant_lookup = lookup;
+    const signupCalls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_student_signup = (args) => {
+      signupCalls.push(args);
+      return { data: SIGNUP_OK, error: null };
+    };
+
+    const r = await post({ ...BODY, tenantCode: null, className: undefined });
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(signupCalls[0]).toMatchObject({ p_tenant_id: null });
+    expect(r.status).toBe(200);
   });
 });
