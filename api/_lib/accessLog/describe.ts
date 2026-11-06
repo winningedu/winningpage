@@ -32,3 +32,11 @@ export function kindOf(action: string): AccessLogKind {
   }
   return "view";
 }
+
+/** 교사 전화번호는 가운데를 가리고 끝 네 자리만 보인다("010-****-1234"). 번호가 모자라면 null. */
+export function maskTeacherPhone(phone: string | null): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.length < 8) return null;
+  const area = digits.startsWith("02") ? "02" : digits.slice(0, 3);
+  return `${area}-****-${digits.slice(-4)}`;
+}

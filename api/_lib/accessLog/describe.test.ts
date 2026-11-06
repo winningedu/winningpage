@@ -1,7 +1,7 @@
 // 접근 로그 한 줄을 화면 항목으로 풀어 주는 순수 함수 검증(사 #170, 교 #66, 결정 102.5).
 
 import { describe, expect, test } from "vitest";
-import { kindLabel, kindOf } from "./describe.js";
+import { kindLabel, kindOf, maskTeacherPhone } from "./describe.js";
 
 // admin_access_logs_action_check(20261105043132_b2b_access_log_extension) 와 1:1.
 const ALL_ACTIONS = [
@@ -46,5 +46,21 @@ describe("kindOf", () => {
     ["proxy_end", "대행"],
   ])("%s 는 %s", (action, label) => {
     expect(kindLabel(kindOf(action))).toBe(label);
+  });
+});
+
+describe("maskTeacherPhone", () => {
+  test.each([
+    ["01012341234", "010-****-1234"],
+    ["010-5678-9012", "010-****-9012"],
+    ["0212345678", "02-****-5678"],
+  ])("%s 는 %s", (phone, masked) => {
+    expect(maskTeacherPhone(phone)).toBe(masked);
+  });
+
+  test("비었거나 너무 짧으면 null", () => {
+    expect(maskTeacherPhone(null)).toBeNull();
+    expect(maskTeacherPhone("")).toBeNull();
+    expect(maskTeacherPhone("123")).toBeNull();
   });
 });
