@@ -922,3 +922,17 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
     expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
   });
 });
+
+describe("소속 없이 3단계에 들어온 경우", () => {
+  it("저장된 단계가 3이어도 소속이 없으면 소속 확인으로 돌려보낸다", () => {
+    window.sessionStorage.setItem(
+      "signup-flow",
+      JSON.stringify({ schoolStep: 3 }),
+    );
+
+    renderSignup();
+
+    expect(screen.getByLabelText("소속코드")).toBeInTheDocument();
+    expect(screen.queryByLabelText("이름")).toBeNull();
+  });
+});

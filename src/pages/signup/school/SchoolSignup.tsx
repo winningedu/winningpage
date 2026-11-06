@@ -26,14 +26,18 @@ export default function SchoolSignup() {
   const navigate = useNavigate();
   const signup = useSignup();
   const {
-    schoolStep,
+    schoolStep: savedStep,
     setSchoolStep,
+    tenant,
     formData,
     setUsernameCheck,
     updateVerification,
     setLinkCode,
     setSignupCompleted,
   } = signup;
+  // 소속 없이 3, 4단계가 저장돼 있으면(새로고침 등) 소속 확인부터 다시 한다.
+  const schoolStep =
+    (savedStep === 3 || savedStep === 4) && !tenant ? 2 : savedStep;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<SubmitError | null>(null);
 

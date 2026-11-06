@@ -40,6 +40,12 @@ export default function CompleteStep() {
         </InfoCard>
       )}
 
+      {childLinkEnabled && !linkCode && (
+        <InfoCard variant="card" className="w-full text-center">
+          연결코드는 마이페이지에서 확인할 수 있어요
+        </InfoCard>
+      )}
+
       <div className="flex w-full flex-col gap-3">
         <PrimaryButton onClick={() => leaveTo("/services/learning-diagnosis")}>
           학습진단 시작하기
