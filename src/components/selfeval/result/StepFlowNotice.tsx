@@ -5,7 +5,9 @@ import {
   routeForStep,
   SELFEVAL_PATHS,
 } from "@/components/selfeval/selfevalPaths";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import {
   MAX_MODEL_ATTEMPTS_PER_STEP,
   MAX_REGENERATIONS,
@@ -98,6 +100,10 @@ export default function StepFlowNotice({
 
   if (phase === "blocked") {
     const noRegenerate = state.errorCode === "REGENERATE_EXHAUSTED";
+    // 스쿨멘토는 이용권이 아니라 기관 설정 사유를 보인다(결정 99).
+    if (!noRegenerate && site.features.tenantServiceGate) {
+      return <ServiceBlockedNotice reason={state.tenantReason} />;
+    }
     return (
       <section className={CARD} role="alert">
         <p className={TITLE}>

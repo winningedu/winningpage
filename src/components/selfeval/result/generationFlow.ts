@@ -1,4 +1,5 @@
 import type { ApiResult } from "@/lib/selfeval/api";
+import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 
 // 모델을 부르는 한 단계(분석 run, 생성, 검증)의 실행 루프(순수 상태 머신).
 // 성장설계 generationEngine 의 단일 단계 판이다. React 와 타이머를 주입받아 테스트한다.
@@ -31,6 +32,8 @@ export type FlowState<T> = {
   reversed: boolean | null;
   /** STEP_ORDER 가 알려 준 세션의 현재 단계. */
   orderStep: number | null;
+  /** 이용 거부 응답의 스쿨멘토 기관 사유. 위닝은 null. */
+  tenantReason: TenantBlockReason | null;
 };
 
 export type StepFlowDeps<T> = {
@@ -57,6 +60,7 @@ export function initialFlowState<T>(): FlowState<T> {
     errorMessage: null,
     reversed: null,
     orderStep: null,
+    tenantReason: null,
   };
 }
 
@@ -82,6 +86,7 @@ export function createStepFlow<T>({ run, sleep, onState }: StepFlowDeps<T>) {
           errorMessage: null,
           reversed: null,
           orderStep: null,
+          tenantReason: null,
         });
         const result = await run();
         if (disposed) return;
@@ -102,6 +107,7 @@ export function createStepFlow<T>({ run, sleep, onState }: StepFlowDeps<T>) {
           attempts,
           errorCode: result.code,
           errorMessage: result.message,
+          tenantReason: parseTenantReason(extra.tenantReason),
         };
 
         if (result.code === "STEP_RUNNING") {
