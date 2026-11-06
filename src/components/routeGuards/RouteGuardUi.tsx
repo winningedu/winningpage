@@ -1,8 +1,10 @@
 import { useRevalidator, useRouteError } from "react-router";
+import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { queryClient } from "@/lib/queryClient";
 import {
   AdminForbiddenError,
   RouteCheckFailedError,
+  ServiceBlockedError,
 } from "@/lib/routeMiddleware";
 
 // src/lib/routeMiddleware.ts의 판정(middleware)과 짝을 이루는 UI 조각들.
@@ -83,6 +85,19 @@ const GOAL_CHECK_FAILED_COPY = {
 export function GoalAccessBoundary() {
   const error = useRouteError();
   const revalidator = useRevalidator();
+
+  // 스쿨멘토 기관 설정으로 막힘(결정 99). 소속코드를 입력하면 진입 판정을 다시 한다.
+  if (error instanceof ServiceBlockedError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-[#0D1B2A]">
+        <ServiceBlockedNotice
+          reason={error.reason}
+          onJoined={() => revalidator.revalidate()}
+          className="max-w-sm shadow-[0_18px_45px_rgba(13,27,42,0.10)]"
+        />
+      </main>
+    );
+  }
 
   if (!(error instanceof RouteCheckFailedError)) {
     throw error;
