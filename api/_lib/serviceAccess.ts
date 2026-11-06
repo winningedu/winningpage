@@ -555,7 +555,7 @@ export async function hasPaidServiceAccess(
   userId: string,
   config: ServiceConfig,
 ): Promise<{ allowed: boolean; reason: string | null }> {
-  // 스쿨멘토는 기관 설정만 본다(위닝 이용권은 보지 않는다). 로컬 우회보다 먼저 가른다 —
+  // 스쿨멘토는 기관 설정만 본다(위닝 이용권은 보지 않는다). 로컬 우회보다 먼저 가른다.
   // 로컬 QA 도 실제 게이트를 본다. reason 은 기관 거부 사유(catch_all, disabled, outside_period, grace)다.
   // 읽지 못하면 열지 않는다(checkProgramAccessTable 과 같은 fail-closed).
   if (isSchoolmentorSite()) {
