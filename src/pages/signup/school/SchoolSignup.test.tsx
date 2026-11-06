@@ -484,7 +484,7 @@ async function fillValidStudent() {
   type("생년월일", "20100304");
   type("성별", "남");
   type("학년", "중2");
-  type("반", "3");
+  if (screen.queryByLabelText("반")) type("반", "3");
 }
 
 describe("3단계 다음 버튼", () => {
@@ -712,5 +712,213 @@ describe("가입 제출과 5단계 완료", () => {
     expect(
       screen.getByRole("button", { name: "서비스 둘러보기" }),
     ).toBeInTheDocument();
+  });
+
+  it("학부모 정보를 채워 다음을 누르면 함께 보낸다", async () => {
+    await goToGuardian();
+    type("학부모 이름", "김부모");
+    type("관계", "어머니");
+    type("학부모 휴대폰번호", "01055556666");
+    click("인증번호 보내기");
+    await waitFor(() =>
+      expect(screen.getByLabelText("학부모 인증번호")).toBeEnabled(),
+    );
+    type("학부모 인증번호", "123456");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+
+    click("다음");
+
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    expect(lastCall("/api/signup/school-student")?.body).toMatchObject({
+      guardianName: "김부모",
+      guardianPhone: "01055556666",
+      guardianRelation: "어머니",
+      guardianConsent: false,
+    });
+  });
+
+  it("완료 화면의 서비스 둘러보기는 홈으로 간다", async () => {
+    await goToGuardian();
+    click("건너뛰기");
+    await screen.findByRole("button", { name: "서비스 둘러보기" });
+
+    click("서비스 둘러보기");
+
+    expect(screen.getByTestId("path")).toHaveTextContent("/");
+  });
+
+  it("14세 미만은 PASS 요청번호와 수집 동의를 함께 보낸다", async () => {
+    vi.stubEnv("VITE_UNDER14_SIGNUP_ENABLED", "true");
+    vi.mocked(runIdentityVerification).mockResolvedValue({
+      ok: true,
+      requestId: "req-1",
+      isUnder14: true,
+      age: 8,
+      mobile: "01099998888",
+    });
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: true,
+      error: null,
+    } as never);
+    await goToStudentInfo();
+    type("이름", "김학생");
+    type("아이디", "mentor01");
+    click("중복 확인");
+    await screen.findByText("사용할 수 있는 아이디입니다.");
+    type("비밀번호", "abc123!");
+    type("비밀번호 확인", "abc123!");
+    type("이메일", "a@b.co");
+    type("생년월일", "20180304");
+    type("학년", "중1");
+    type("반", "3");
+    click("PASS 간편 인증");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    click("다음");
+    check(/법정대리인 정보를 학부모 정보로 수집합니다/);
+
+    click("다음");
+
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    const body = lastCall("/api/signup/school-student")?.body;
+    expect(body).toMatchObject({
+      birthDate: "2018-03-04",
+      guardianPhone: "01099998888",
+      guardianConsent: true,
+      identityRequestId: "req-1",
+    });
+    expect(body).not.toHaveProperty("gender");
+    expect(body).not.toHaveProperty("phone");
+    vi.unstubAllEnvs();
+  });
+
+  it("학원 소속은 그룹, 반, 번호를 함께 보낸다", async () => {
+    await goToStudentInfo("학원");
+    await fillValidStudent();
+    type("그룹(선택)", "심화반");
+    type("번호(선택)", "7");
+    click("다음");
+    click("건너뛰기");
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    expect(lastCall("/api/signup/school-student")?.body).toMatchObject({
+      tenantId: "t-1",
+      groupName: "심화반",
+      className: "3",
+      number: 7,
+    });
+  });
+});
+
+describe("기타 소속 가입", () => {
+  it("소속, 반, 번호 없이 가입을 보낸다", async () => {
+    mockApi({
+      "/api/send-phone-code": SEND_OK,
+      "/api/verify-phone-code": VERIFY_OK,
+      "/api/signup/school-student": SIGNUP_OK,
+    });
+    renderSignup();
+    agreeRequiredTerms();
+    click("다음");
+    click("기타 소속으로 가입");
+    await fillValidStudent();
+    click("다음");
+
+    click("건너뛰기");
+
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    const body = lastCall("/api/signup/school-student")?.body;
+    expect(body).toMatchObject({ tenantId: null, grade: "중2" });
+    expect(body).not.toHaveProperty("className");
+    expect(body).not.toHaveProperty("number");
+    expect(body).not.toHaveProperty("groupName");
+  });
+});
+
+describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () => {
+  async function submitWithError(status: number, code: string) {
+    await goToGuardian();
+    mockApi({ "/api/signup/school-student": { status, body: { code } } });
+    click("건너뛰기");
+  }
+
+  it("같은 이름의 번호 중복", async () => {
+    await submitWithError(409, "NUMBER_TAKEN_SAME_NAME");
+
+    expect(
+      await screen.findByText("이미 가입 내역이 있습니다. 재확인해 주세요"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("반")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "온라인문의" })).toHaveAttribute(
+      "href",
+      "https://pf.kakao.com/_EfjwX",
+    );
+    expect(screen.getByText(/정보가 맞는데 계속 막히면/)).toBeInTheDocument();
+  });
+
+  it("다른 이름의 번호 중복", async () => {
+    await submitWithError(409, "NUMBER_TAKEN_OTHER");
+
+    expect(
+      await screen.findByText(
+        "동일한 학년, 반, 번호의 학생이 이미 존재합니다. 학년, 반, 번호를 다시 확인해 주세요",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "온라인문의" }),
+    ).toBeInTheDocument();
+  });
+
+  it("등록되지 않은 그룹", async () => {
+    await submitWithError(400, "WC080");
+
+    expect(
+      await screen.findByText("등록되지 않은 그룹이에요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("학년")).toBeInTheDocument();
+  });
+
+  it("그 사이 쓰인 아이디는 3단계에서 다시 확인하게 한다", async () => {
+    await submitWithError(409, "USERNAME_TAKEN");
+
+    expect(
+      await screen.findByText("이미 사용 중인 아이디입니다."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("그 사이 쓰인 번호는 아이디 찾기로 안내하고 다시 인증하게 한다", async () => {
+    await submitWithError(409, "PHONE_TAKEN");
+
+    expect(
+      await screen.findByText(
+        "이미 가입한 번호예요. 아이디 찾기에서 확인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "아이디 찾기" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
+  });
+
+  it("이미 쓰는 이메일은 다른 이메일을 쓰라고 안내한다", async () => {
+    await submitWithError(409, "EMAIL_TAKEN");
+
+    expect(
+      await screen.findByText(/다른 이메일을 입력해 주세요/),
+    ).toBeInTheDocument();
+  });
+
+  it("그 밖의 오류는 4단계에 머물며 다시 시도하게 한다", async () => {
+    await submitWithError(500, "WHATEVER");
+
+    expect(
+      await screen.findByText(
+        "가입 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
   });
 });
