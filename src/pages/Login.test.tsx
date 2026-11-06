@@ -39,9 +39,9 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-function renderLogin() {
+function renderLogin(entry = "/login") {
   return render(
-    <MemoryRouter initialEntries={["/login"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -143,7 +143,11 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
 
   it("mustChangePassword 면 첫 비밀번호 설정 화면으로 이동한다", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse(200, { ...OK_BODY, mustChangePassword: true }),
+      jsonResponse(200, {
+        ...OK_BODY,
+        mustChangePassword: true,
+        isTeacher: true,
+      }),
     );
     renderLogin();
     await screen.findByPlaceholderText("아이디를 입력해 주세요.");
@@ -154,6 +158,56 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       await screen.findByText("첫 비밀번호 설정 화면"),
     ).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("교사는 redirect 가 없으면 교사 콘솔로 이동한다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...OK_BODY, isTeacher: true }),
+    );
+    renderLogin();
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/teacher"));
+  });
+
+  it("교사는 redirect 가 교사 콘솔 안이면 그대로 따른다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...OK_BODY, isTeacher: true }),
+    );
+    renderLogin("/login?redirect=/teacher/students");
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/teacher/students"),
+    );
+  });
+
+  it("교사는 redirect 가 교사 콘솔 밖이면 교사 콘솔로 이동한다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...OK_BODY, isTeacher: true }),
+    );
+    renderLogin("/login?redirect=/mypage");
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/teacher"));
+  });
+
+  it("교사가 아닌 계정은 redirect 를 그대로 따른다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, { ...OK_BODY, isTeacher: false }),
+    );
+    renderLogin("/login?redirect=/mypage");
+    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+
+    fillAndSubmit();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/mypage"));
   });
 
   it("아이디 저장을 켜고 성공하면 아이디만 localStorage 에 남긴다", async () => {

@@ -36,6 +36,7 @@ const LOGIN_TIMEOUT_MS = 12000;
 
 // W2(첫 비밀번호 설정) 화면 경로. 설계 문서가 경로를 정하지 않아 여기서 정한다.
 const FIRST_PASSWORD_PATH = "/teacher/first-password";
+const TEACHER_HOME_PATH = "/teacher";
 
 // 아이디 저장(스쿨멘토). 아이디만 저장하고 비밀번호나 토큰은 저장하지 않는다.
 // 저장소가 막힌 환경(사생활 보호 모드 등)에서도 로그인은 되어야 하므로 모두 try/catch 한다.
@@ -67,6 +68,7 @@ type ServerLoginResult =
       accessToken: string;
       refreshToken: string;
       mustChangePassword: boolean;
+      isTeacher: boolean;
     }
   | { ok: false; message: string };
 
@@ -93,6 +95,7 @@ async function postServerLogin(
     accessToken: body.session.access_token,
     refreshToken: body.session.refresh_token,
     mustChangePassword: body.mustChangePassword === true,
+    isTeacher: body.isTeacher === true,
   };
 }
 
@@ -170,6 +173,16 @@ export default function Login() {
         setLoading(false);
         if (result.mustChangePassword) {
           navigate(FIRST_PASSWORD_PATH, { replace: true });
+          return;
+        }
+        if (result.isTeacher) {
+          // 교사는 교사 콘솔 안으로 가는 redirect 만 따르고, 그 외에는 콘솔 첫 화면으로 보낸다.
+          const insideConsole =
+            redirectTo === TEACHER_HOME_PATH ||
+            redirectTo.startsWith(`${TEACHER_HOME_PATH}/`);
+          window.location.replace(
+            insideConsole ? redirectTo : TEACHER_HOME_PATH,
+          );
           return;
         }
         window.location.replace(redirectTo);
