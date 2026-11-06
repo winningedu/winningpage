@@ -41,7 +41,7 @@ export default function QuotaExhaustedBanner({
   /** 스쿨멘토 기관 한도 사유. 사이트 스위치가 켜졌을 때만 쓴다. */
   tenantReason?: TenantBlockReason | null;
 }) {
-  // 스쿨멘토는 이용권을 사지 않는다(결정 99) — 기관 한도 문구만 보이고 구매 링크를 두지 않는다.
+  // 스쿨멘토는 이용권을 사지 않는다(결정 99). 기관 한도 문구만 보이고 구매 링크를 두지 않는다.
   if (site.features.tenantServiceGate) {
     return (
       <div

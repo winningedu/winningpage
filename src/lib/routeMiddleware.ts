@@ -53,7 +53,7 @@ export class RouteCheckFailedError extends Error {
   }
 }
 
-/** 스쿨멘토 기관 설정으로 서비스가 막힘 — ErrorBoundary가 잡아 사유 안내를 그린다(결정 99). */
+/** 스쿨멘토 기관 설정으로 서비스가 막힘. ErrorBoundary가 잡아 사유 안내를 그린다(결정 99). */
 export class ServiceBlockedError extends Error {
   reason: TenantBlockReason | null;
 
