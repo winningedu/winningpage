@@ -31,6 +31,7 @@ import {
   formatTodayDateMeta,
 } from "@/lib/goalPlanUtils";
 import { goalDailyRecordQueryOptions } from "@/lib/queryClient";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // 코드값 → 라벨(studyRecordOptions.js 옵션 그대로) / 라벨 → 코드값(GET 응답 프리필용, 서버는
 // api/goal/daily-record.js 가 한글 라벨로 저장하므로 역매핑이 필요하다).
@@ -275,7 +276,13 @@ export default function DailyRecord() {
         setBanner({ tone: "error", message: "로그인이 필요합니다." });
         break;
       case "not-allowed":
-        setBanner({ tone: "error", message: "이용권이 필요한 서비스입니다." });
+        setBanner({
+          tone: "error",
+          message: goalNotAllowedMessage(
+            result.tenantReason,
+            "이용권이 필요한 서비스입니다.",
+          ),
+        });
         break;
       case "not-active":
         setBanner({
