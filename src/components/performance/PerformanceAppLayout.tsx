@@ -80,7 +80,7 @@ function PerformanceShellContent() {
   // `fetchQuery({ ...옵션, staleTime:0 })`가 이미 채워 두므로, 이 useQuery는 보통
   // 그 결과를 그대로 구독만 한다 — 저장 리포트 등 채팅 페이지를 거치지 않고 이
   // 셸에 먼저 진입하는 경로에서만 자체적으로 조회한다.
-  const { session, userId } = useSession();
+  const { session, userId, tenantReason } = useSession();
   const accessToken = session?.access_token || null;
   const { data: bootstrap } = useQuery(
     performanceBootstrapQueryOptions(userId, accessToken),
@@ -142,7 +142,9 @@ function PerformanceShellContent() {
                   올리고(PerformanceChatPage.jsx), 여기는 그 값을 그대로 읽어 렌더만 한다.
                   저장 리포트 등 판정 근거가 없는 화면은 기본값 false라 배너가 뜨지 않는다
                   (PerformanceShellContext.jsx 주석 참고). */}
-                {quotaBannerVisible && <QuotaExhaustedBanner />}
+                {quotaBannerVisible && (
+                  <QuotaExhaustedBanner tenantReason={tenantReason} />
+                )}
 
                 {/* 페이지 타이틀 — 공유 타입 스케일 `text-app-title`(목표관리 페이지 헤더와 동일).
                   TODO(P6): §3.5 제안의 `통합 설계 리포트` 보조 버튼(설계 리포트 생성 이후에만 노출)은
