@@ -28,7 +28,7 @@ import { completePlanItemFromProgram } from "../_lib/growth/plan/complete.js";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import {
   fail,
-  hasSelfevalAccess,
+  readSelfevalAccess,
   readSelfevalQuota,
 } from "../_lib/selfeval/access.js";
 import {
@@ -74,10 +74,10 @@ async function resendReplies(
 async function handleList(res: VercelResponse, db: Db, userId: string) {
   const now = new Date();
   const replyResent = await resendReplies(db, userId, now);
-  const [quota, allowed, activityCount, sessions, growth, profile] =
+  const [quota, access, activityCount, sessions, growth, profile] =
     await Promise.all([
       readSelfevalQuota(db, userId),
-      hasSelfevalAccess(db, userId),
+      readSelfevalAccess(db, userId),
       countActivities(db, userId),
       listSessions(db, userId),
       loadGrowthSnapshot(db, userId),
@@ -97,7 +97,8 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
     ok: true,
     entry: entryBody({
       quota,
-      allowed,
+      allowed: access.allowed,
+      tenantReason: access.tenantReason,
       activityCount,
       open,
       growth,

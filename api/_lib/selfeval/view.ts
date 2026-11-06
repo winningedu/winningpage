@@ -2,6 +2,7 @@
 // 순수 모듈이다. 핸들러는 db.ts 로 읽은 행을 여기에 넘기고 결과를 그대로 응답한다.
 
 import type { QuotaSnapshot } from "../serviceAccess.js";
+import { tenantReasonExtra } from "../tenantUsage.js";
 import { bannerSummary } from "./growth.js";
 import type {
   ReportRow,
@@ -84,6 +85,8 @@ export function listItem(row: SessionListRow, latestScore: number | null) {
 export type EntryInput = {
   quota: QuotaSnapshot | null;
   allowed: boolean;
+  /** 스쿨멘토 기관 거부 사유. 위닝은 넘기지 않는다. */
+  tenantReason?: string | null;
   activityCount: number;
   open: SessionListRow | null;
   growth: GrowthSnapshot | null;
@@ -113,6 +116,7 @@ export function entryBody(input: EntryInput) {
   return {
     quota: input.quota,
     allowed: input.allowed,
+    ...tenantReasonExtra(input.tenantReason),
     activityCount: input.activityCount,
     openSession:
       open === null
