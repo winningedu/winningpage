@@ -105,6 +105,17 @@ export default defineHandler({
         );
         return;
       }
+      // WC100: 올해 학적이 다른 기관에 남아 있다(기관마다 학년도 전환 시점이 달랐던 경우). 본사가 먼저 확인해야 한다.
+      if (error.code === "WC100") {
+        sendError(
+          res,
+          "coded",
+          409,
+          "이 학생의 올해 학적이 다른 기관에 남아 있어요. 그 기관의 학적을 먼저 확인해 주세요.",
+          "OTHER_TENANT_ENROLLMENT",
+        );
+        return;
+      }
       // WC077 의 점유 학생 이름은 가려서 싣는다(본사는 담임이 아니다).
       if (
         sendEnrollmentRpcError(res, error, {

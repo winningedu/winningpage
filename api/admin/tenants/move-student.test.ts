@@ -176,6 +176,7 @@ describe("POST /api/admin/tenants/move-student", () => {
     ["WC080", 400, "GROUP_NOT_REGISTERED"],
     ["WC094", 403, "NOT_STUDENT"],
     ["WC099", 400, "SAME_TENANT"],
+    ["WC100", 409, "OTHER_TENANT_ENROLLMENT"],
     ["P0002", 404, "TENANT_NOT_FOUND"],
   ])(
     "DB 함수가 %s 를 내면 %i %s 이고 감사 로그를 남기지 않는다",
