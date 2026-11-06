@@ -18,6 +18,7 @@
 //   → 400 INVALID_BODY
 //   → 401 UNAUTHENTICATED
 //   → 403 FORBIDDEN            — attemptId가 요청자 소유가 아님
+//   → 403 ATTEMPT_NOT_COUNTED  — 스쿨멘토에서 센 시도(kind tenant)가 아님
 //   → 404 ATTEMPT_NOT_FOUND    — attemptId가 diagnosis_attempts에 없음(소진 전 저장 시도 등)
 //   → 405 METHOD_NOT_ALLOWED
 //   → 413 PAYLOAD_TOO_LARGE
@@ -26,6 +27,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { defineHandler, requireUserId } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,7 +150,7 @@ export default defineHandler({
     // 행을 기록해 뒀어야 한다(소진 없이 저장을 시도하는 비정상 경로 차단).
     const { data: attemptRow, error: attemptError } = await ctx.supabaseAdmin
       .from("diagnosis_attempts")
-      .select("profile_id")
+      .select("profile_id, kind")
       .eq("id", body.attemptId)
       .maybeSingle();
 
@@ -165,6 +167,18 @@ export default defineHandler({
 
     if (attemptRow.profile_id !== userId) {
       fail(res, 403, "FORBIDDEN", "본인 제출 건만 저장할 수 있습니다.");
+      return;
+    }
+
+    // 스쿨멘토는 기관 한도를 서버가 집행한다. fn_consume_tenant_diagnosis 가 센 시도(kind tenant)가
+    // 아니면 저장하지 않는다. 한도 응답을 건너뛰거나 클라이언트가 실패를 흘려보내도 새 리포트가 생기지 않는다.
+    if (isSchoolmentorSite() && attemptRow.kind !== "tenant") {
+      fail(
+        res,
+        403,
+        "ATTEMPT_NOT_COUNTED",
+        "이용 횟수가 센 제출만 저장할 수 있습니다.",
+      );
       return;
     }
 
