@@ -10,6 +10,7 @@ import {
 import { Outlet } from "react-router";
 import { useAuth } from "@/context/AuthProvider";
 import { entitlementQueryOptions } from "@/lib/queryClient";
+import type { TenantBlockReason } from "@/lib/tenantBlock";
 
 // 인앱 셸 공유 세션 컨텍스트 — 명세서 §2.3.
 //
@@ -49,6 +50,8 @@ interface Entitlement {
   quotaTotal: number | null;
   planEndsAt: string | null;
   planLabel: string | null;
+  tenantReason: TenantBlockReason | null;
+  limitKind: "month" | "term" | null;
 }
 
 interface SessionContextValue {
@@ -64,6 +67,9 @@ interface SessionContextValue {
   quotaTotal: number | null;
   planEndsAt: string | null;
   planLabel: string | null;
+  /** 스쿨멘토 기관 거부 사유와 한도 종류. 위닝은 null. */
+  tenantReason: TenantBlockReason | null;
+  limitKind: "month" | "term" | null;
   refreshEntitlement: () => void;
 }
 
@@ -75,6 +81,8 @@ const EMPTY_ENTITLEMENT: Entitlement = {
   quotaTotal: null,
   planEndsAt: null,
   planLabel: null,
+  tenantReason: null,
+  limitKind: null,
 };
 
 /**
@@ -176,6 +184,8 @@ export function SessionProvider({
       quotaTotal: entitlement.quotaTotal,
       planEndsAt: entitlement.planEndsAt,
       planLabel: entitlement.planLabel,
+      tenantReason: entitlement.tenantReason,
+      limitKind: entitlement.limitKind,
       // 차감이 일어난 뒤(api/performance/* 가 quotaRemaining을 돌려준 직후)
       // 화면 값을 맞추는 수단이다. 클라이언트가 임의로 -1 하지 않는다 —
       // 서버가 권위이므로 서버에 다시 물어 덮는다.
