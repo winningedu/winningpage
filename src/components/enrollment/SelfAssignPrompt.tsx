@@ -1,9 +1,8 @@
 import EnrollmentForm from "./EnrollmentForm";
-import { useMyEnrollment } from "./useMyEnrollment";
+import type { MyEnrollmentState } from "./useMyEnrollment";
 
 // 학년도 전환 뒤 반과 번호가 비워진 학생이 스스로 입력하게 하는 안내(사 #109). 마이페이지 위쪽에 둔다.
-export default function SelfAssignPrompt() {
-  const { data, reload } = useMyEnrollment();
+export default function SelfAssignPrompt({ data, reload }: MyEnrollmentState) {
   if (!data?.enrollment || data.enrollment.className !== null) return null;
 
   return (

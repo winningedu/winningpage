@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { EnrollmentClass } from "./api";
 import EnrollmentForm from "./EnrollmentForm";
-import { useMyEnrollment } from "./useMyEnrollment";
+import type { MyEnrollmentState } from "./useMyEnrollment";
 
 const ROW_BOX_CLASS =
   "flex h-13 flex-1 items-center rounded-xl border border-line bg-surface-footer px-5 text-base text-ink-sub";
@@ -16,8 +16,10 @@ function classText(c: EnrollmentClass): string {
 }
 
 // 마이페이지 학년, 반, 번호 행(사 #110). 바로 고치지 않고 수정요청으로 보내 담임 승인을 거친다.
-export default function ChangeRequestSection() {
-  const { data, reload } = useMyEnrollment();
+export default function ChangeRequestSection({
+  data,
+  reload,
+}: MyEnrollmentState) {
   const [editing, setEditing] = useState(false);
   if (!data?.enrollment) return null;
   const { enrollment, pending } = data;

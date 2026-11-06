@@ -17,3 +17,5 @@ export function useMyEnrollment() {
 
   return { data, reload };
 }
+
+export type MyEnrollmentState = ReturnType<typeof useMyEnrollment>;

@@ -8,6 +8,7 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
+import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment";
 import { site } from "@/config/site";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
@@ -131,12 +132,14 @@ type ProfileTabProps = {
   user: ProfileUser | null;
   profile: Profile | null;
   memberType?: string;
+  enrollment: MyEnrollmentState;
 };
 
 export default function ProfileTab({
   user,
   profile,
   memberType,
+  enrollment,
 }: ProfileTabProps) {
   // 학부모 변형(Figma 3379:12569 외) — 이름/휴대폰/이메일/비밀번호/이용안내만 있고
   // 학교·학년, 학부모 연결, 내 연결코드가 없다. 그 셋은 전부 학생 계정의 개념이다
@@ -548,7 +551,7 @@ export default function ProfileTab({
       )}
 
       {/* 학년, 반, 번호는 스쿨멘토 학생 전용이다. 바로 고치지 않고 수정요청으로 담임 승인을 거친다(사 #110). */}
-      {!isParent && <ChangeRequestSection />}
+      {!isParent && <ChangeRequestSection {...enrollment} />}
 
       {/* 소속 — 학생 전용, 가입 시 안 넣은 경우 여기서 1회 입력한다(태스크5,
           2026-09-01, 2026-09-22 tenant 전환으로 fn_my_tenant/fn_set_my_tenant

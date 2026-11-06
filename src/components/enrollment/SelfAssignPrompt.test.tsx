@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SelfAssignPrompt from "./SelfAssignPrompt";
+import { useMyEnrollment } from "./useMyEnrollment";
 
 const state = vi.hoisted(() => ({ studentEnrollment: true }));
 const mockApiFetch = vi.fn();
@@ -22,6 +23,11 @@ vi.mock("@/lib/apiFetch", () => ({
   getAuthHeader: async () => ({ Authorization: "Bearer student-token" }),
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
+
+// MyPage 가 학적을 한 번 읽어 내려 주는 모양을 흉내 낸다.
+function Harness() {
+  return <SelfAssignPrompt {...useMyEnrollment()} />;
+}
 
 function jsonResponse(status: number, body: unknown) {
   return { status, ok: status < 400, json: async () => body };
@@ -48,7 +54,7 @@ beforeEach(() => {
 describe("SelfAssignPrompt", () => {
   it("학급이 없으면 입력 안내와 학년이 채워진 폼을 보인다", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, meBody(null, null)));
-    render(<SelfAssignPrompt />);
+    render(<Harness />);
 
     expect(
       await screen.findByText("새 학년의 반과 번호를 입력해 주세요."),
@@ -61,7 +67,7 @@ describe("SelfAssignPrompt", () => {
       .mockResolvedValueOnce(jsonResponse(200, meBody(null, null)))
       .mockResolvedValueOnce(jsonResponse(200, { ok: true }))
       .mockResolvedValueOnce(jsonResponse(200, meBody("5", 12)));
-    render(<SelfAssignPrompt />);
+    render(<Harness />);
     await screen.findByText("새 학년의 반과 번호를 입력해 주세요.");
 
     fireEvent.change(screen.getByLabelText("반"), { target: { value: "5" } });
@@ -79,7 +85,7 @@ describe("SelfAssignPrompt", () => {
 
   it("학급이 이미 있으면 아무것도 그리지 않는다", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, meBody("5", 12)));
-    const { container } = render(<SelfAssignPrompt />);
+    const { container } = render(<Harness />);
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
@@ -87,7 +93,7 @@ describe("SelfAssignPrompt", () => {
 
   it("학적 기능이 꺼진 사이트(위닝)는 조회도 하지 않는다", () => {
     state.studentEnrollment = false;
-    const { container } = render(<SelfAssignPrompt />);
+    const { container } = render(<Harness />);
 
     expect(mockApiFetch).not.toHaveBeenCalled();
     expect(container).toBeEmptyDOMElement();
