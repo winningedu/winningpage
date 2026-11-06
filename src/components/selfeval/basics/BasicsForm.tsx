@@ -1,5 +1,7 @@
 import { useId } from "react";
+import GradeLockNote from "@/components/enrollment/GradeLockNote";
 import { Input } from "@/components/ui/input";
+import { site } from "@/config/site";
 import {
   AREA_LABELS,
   type Area,
@@ -67,6 +69,8 @@ export default function BasicsForm({
     (_, i) => entry.academicYearDefault - 2 + i,
   );
   const targetEmpty = form.targetChars.trim() === "";
+  // 스쿨멘토는 학적에서 채워진 학년을 서비스 안에서 바꾸지 않는다(사 #40).
+  const gradeLocked = site.features.studentEnrollment && form.gradeLabel !== "";
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_20rem]">
@@ -96,10 +100,16 @@ export default function BasicsForm({
                   ))}
                 </select>
               </Field>
-              <Field id={id("grade")} label="학년" error={errors.gradeLabel}>
+              <Field
+                id={id("grade")}
+                label="학년"
+                error={errors.gradeLabel}
+                hint={gradeLocked ? <GradeLockNote /> : undefined}
+              >
                 <select
                   id={id("grade")}
                   className={SELECT}
+                  disabled={gradeLocked}
                   value={form.gradeLabel}
                   onChange={(e) =>
                     onChange({
