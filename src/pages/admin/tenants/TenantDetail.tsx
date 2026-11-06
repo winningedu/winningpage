@@ -7,6 +7,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import SchoolAdminPanel from "./SchoolAdminPanel";
+import ServiceSettingsPanel from "./ServiceSettingsPanel";
 import { mouLabel } from "./tenantContract";
 import {
   CONTRACT_ORDER_MESSAGE,
@@ -26,13 +27,14 @@ import {
 // ---------------------------------------------------------------------------
 // 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 기관 정보 탭은 tenants 를 RLS 로
 // 바로 고치고(tenants_update 는 tenants edit 권한), 학교 관리자 탭은 서버 경로를 부른다.
-// 서비스 설정 탭은 다음 작업에서 이 탭 목록에 붙는다.
+// 서비스 설정 탭은 tenant_service_settings 를 RLS 로 바로 쓴다(ServiceSettingsPanel).
 // ---------------------------------------------------------------------------
 
-type TabKey = "info" | "schoolAdmins";
+type TabKey = "info" | "serviceSettings" | "schoolAdmins";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "info", label: "기관 정보" },
+  { key: "serviceSettings", label: "서비스 설정" },
   { key: "schoolAdmins", label: "학교 관리자" },
 ];
 
@@ -58,6 +60,9 @@ export default function TenantDetail({
   const [code, setCode] = useState("");
   const [form, setForm] = useState<TenantFormValues>(() => emptyTenantForm());
   const [savedName, setSavedName] = useState("");
+  // 서비스 설정 탭은 저장된 값만 본다(폼에서 고치는 중인 값은 아직 기관에 없다).
+  const [savedTermMonths, setSavedTermMonths] = useState<number | null>(null);
+  const [isCatchAll, setIsCatchAll] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadedUpdatedAt, setLoadedUpdatedAt] = useState("");
@@ -85,7 +90,11 @@ export default function TenantDetail({
         code: string;
         name: string;
         updated_at: string;
+        term_months: number | null;
+        is_catch_all: boolean;
       };
+      setSavedTermMonths(row.term_months);
+      setIsCatchAll(row.is_catch_all);
       setLoadedUpdatedAt(row.updated_at);
       setCode(row.code);
       setForm(tenantFormFromRow(row));
@@ -153,6 +162,7 @@ export default function TenantDetail({
     const [saved] = (data ?? []) as { updated_at: string }[];
     if (saved) setLoadedUpdatedAt(saved.updated_at);
     setSavedName(form.name.trim());
+    setSavedTermMonths(form.term_months ? Number(form.term_months) : null);
     setMessage("저장했어요.");
     onSaved?.();
   }
@@ -206,6 +216,12 @@ export default function TenantDetail({
 
       {tab === "schoolAdmins" ? (
         <SchoolAdminPanel tenantId={tenantId} tenantName={savedName} />
+      ) : tab === "serviceSettings" ? (
+        <ServiceSettingsPanel
+          tenantId={tenantId}
+          termMonths={savedTermMonths}
+          isCatchAll={isCatchAll}
+        />
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
