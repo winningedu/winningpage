@@ -106,4 +106,96 @@ describe("2단계 소속 확인", () => {
     click("다음");
     expect(screen.getByLabelText("이름")).toBeInTheDocument();
   });
+
+  it("없는 코드는 다시 확인하라고 안내하고 다음으로 넘기지 않는다", async () => {
+    mockApi({
+      "/api/signup/tenant-lookup": {
+        status: 404,
+        body: { code: "TENANT_NOT_FOUND" },
+      },
+    });
+    renderSignup();
+    agreeRequiredTerms();
+
+    type("소속코드", "ABCDEFGH");
+    click("확인");
+
+    expect(
+      await screen.findByText("소속코드를 다시 확인해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("형식이 틀린 코드는 서버에 묻지 않고 거절한다", () => {
+    mockApi({});
+    renderSignup();
+    agreeRequiredTerms();
+
+    type("소속코드", "ABC");
+    click("확인");
+
+    expect(
+      screen.getByText("소속코드를 다시 확인해 주세요."),
+    ).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("시도 횟수를 넘기면 잠시 후 다시 하라고 안내한다", async () => {
+    mockApi({
+      "/api/signup/tenant-lookup": { status: 429, body: { code: "WC068" } },
+    });
+    renderSignup();
+    agreeRequiredTerms();
+
+    type("소속코드", "ABCDEFGH");
+    click("확인");
+
+    expect(await screen.findByText(/잠시 후 다시 시도/)).toBeInTheDocument();
+  });
+
+  it("코드를 고치면 확인 결과가 사라진다", async () => {
+    mockApi({ "/api/signup/tenant-lookup": { body: TENANT } });
+    renderSignup();
+    agreeRequiredTerms();
+    type("소속코드", "ABCDEFGH");
+    click("확인");
+    await screen.findByText("새빛중학교");
+
+    type("소속코드", "ABCDEFGJ");
+
+    expect(screen.queryByText("새빛중학교")).toBeNull();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("코드를 비우고 다음을 누르면 확인 창이 뜨고 기타 소속으로 가입할 수 있다", () => {
+    renderSignup();
+    agreeRequiredTerms();
+
+    click("다음");
+
+    expect(
+      screen.getByText(
+        "소속코드를 모르시나요? 담당 선생님께 먼저 확인해 주세요",
+      ),
+    ).toBeInTheDocument();
+
+    click("기타 소속으로 가입");
+
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+  });
+
+  it("확인 창에서 코드 입력하기를 누르면 창만 닫힌다", () => {
+    renderSignup();
+    agreeRequiredTerms();
+    click("다음");
+
+    click("코드 입력하기");
+
+    expect(
+      screen.queryByText(
+        "소속코드를 모르시나요? 담당 선생님께 먼저 확인해 주세요",
+      ),
+    ).toBeNull();
+    expect(screen.getByLabelText("소속코드")).toBeInTheDocument();
+  });
 });
