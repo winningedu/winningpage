@@ -31,6 +31,7 @@ export default function SchoolSignup() {
     tenant,
     formData,
     setUsernameCheck,
+    setTenant,
     updateVerification,
     setLinkCode,
     setSignupCompleted,
@@ -53,7 +54,11 @@ export default function SchoolSignup() {
     if (code === "USERNAME_TAKEN") {
       setUsernameCheck({ value: formData.username, available: false });
     }
-    if (code === "PHONE_TAKEN") {
+    if (code === "TENANT_NOT_FOUND") setTenant(null);
+    if (code === "IDENTITY_REQUIRED") {
+      updateVerification("pass", { verified: false });
+    }
+    if (code === "PHONE_TAKEN" || code === "PHONE_NOT_VERIFIED") {
       updateVerification("phone", { requested: false, verified: false });
     }
 
@@ -104,7 +109,11 @@ export default function SchoolSignup() {
       )}
 
       {schoolStep === 2 && (
-        <TenantStep onPrev={() => goTo(1)} onNext={() => goTo(3)} />
+        <TenantStep
+          onPrev={() => goTo(1)}
+          onNext={() => goTo(3)}
+          submitError={submitError?.step === 2 ? submitError : null}
+        />
       )}
 
       {schoolStep === 3 && (

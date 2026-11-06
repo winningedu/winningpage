@@ -2,6 +2,7 @@
 // 학년 선택지는 서버 학적 검증(student_enrollments CHECK)과 같은 목록을 쓴다.
 import type { useSignup } from "@/context/SignupContext";
 import { normalizePhone } from "@/lib/phoneVerification";
+import { normalizeTenantCode } from "@/lib/tenantCode";
 import type { SchoolSignupBody } from "./api";
 
 export { ENROLLMENT_GRADES } from "../../../../api/_lib/console/enrollmentInput";
@@ -59,8 +60,11 @@ export function buildSignupBody(
     email: text(formData.email),
     ...(formData.phone && { phone: normalizePhone(formData.phone) }),
     birthDate: `${birthDate.slice(0, 4)}-${birthDate.slice(4, 6)}-${birthDate.slice(6, 8)}`,
-    ...(!isMinor && { gender: formData.gender }),
-    tenantId: tenant && !tenant.isCatchAll ? tenant.id : null,
+    gender: formData.gender,
+    tenantCode:
+      tenant?.isCatchAll === false
+        ? normalizeTenantCode(formData.orgCode)
+        : null,
     grade: formData.grade,
     ...(orgType &&
       orgType !== SCHOOL_ORG_TYPE &&

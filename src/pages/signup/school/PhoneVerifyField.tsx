@@ -26,7 +26,7 @@ interface PhoneVerifyFieldProps {
   onPhoneChange: (phone: string) => void;
   purpose: "signup" | "guardian_signup";
   // 소속 안에서만 번호 중복을 보게 하는 범위(결정 r8). 학부모 번호는 넘기지 않는다.
-  scope?: { tenantId?: string; catchAll?: boolean };
+  scope?: { tenantCode?: string; catchAll?: boolean };
   state: PhoneVerifyState;
   onStateChange: (state: PhoneVerifyState) => void;
 }

@@ -21,6 +21,7 @@ export const USERNAME_MESSAGES = {
   available: "사용할 수 있는 아이디입니다.",
   taken: "이미 사용 중인 아이디입니다.",
   invalidFormat: "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
+  tooMany: "확인 요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
   failed: "아이디를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
 };
 
@@ -47,7 +48,7 @@ export const GUARDIAN_MESSAGES = {
 // 제출 오류 코드별로 되돌아갈 단계와 문구(사 #102, #106, 결정 75, 81).
 // message가 없으면 칸 안의 표시로 충분해 상자를 띄우지 않는다.
 export interface SubmitError {
-  step: 3 | 4;
+  step: 2 | 3 | 4;
   message?: string;
   hint?: "findId" | "inquiry";
 }
@@ -70,6 +71,19 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   EMAIL_TAKEN: {
     step: 3,
     message: "이미 가입에 쓰인 이메일이에요. 다른 이메일을 입력해 주세요.",
+  },
+  // 서버가 소속코드를 다시 찾지 못했다. 2단계에서 코드를 다시 확인한다.
+  TENANT_NOT_FOUND: { step: 2, message: TENANT_MESSAGES.notFound },
+  CLASS_REQUIRED: { step: 3, message: "반을 입력해 주세요." },
+  IDENTITY_REQUIRED: {
+    step: 3,
+    message: "법정대리인 본인인증을 완료해 주세요.",
+  },
+  // StudentForm 의 같은 문구.
+  PHONE_NOT_VERIFIED: { step: 3, message: "전화번호 인증을 완료해 주세요." },
+  GUARDIAN_PHONE_NOT_VERIFIED: {
+    step: 4,
+    message: "학부모 핸드폰 인증을 완료해 주세요.",
   },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
 };

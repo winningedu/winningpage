@@ -8,6 +8,7 @@ import {
   TextField,
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { normalizeTenantCode } from "@/lib/tenantCode";
 import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
 import { checkUsernameAvailable } from "./api";
@@ -56,7 +57,9 @@ export default function StudentInfoStep({
   const showClass = !isCatchAll;
   // 번호 중복은 소속 안에서만 본다(결정 r8). 기타 소속은 기타끼리다.
   const phoneScope =
-    tenant && !tenant.isCatchAll ? { tenantId: tenant.id } : { catchAll: true };
+    tenant && !tenant.isCatchAll
+      ? { tenantCode: normalizeTenantCode(formData.orgCode) }
+      : { catchAll: true };
 
   const [usernameError, setUsernameError] = useState("");
   const [passVerifying, setPassVerifying] = useState(false);
@@ -104,14 +107,21 @@ export default function StudentInfoStep({
       return;
     }
 
-    const available = await checkUsernameAvailable(formData.username);
+    const result = await checkUsernameAvailable(formData.username);
 
-    if (available === null) {
-      setUsernameError(USERNAME_MESSAGES.failed);
+    if (!result.ok) {
+      setUsernameError(
+        result.reason === "too_many"
+          ? USERNAME_MESSAGES.tooMany
+          : USERNAME_MESSAGES.failed,
+      );
       return;
     }
 
-    setUsernameCheck({ value: formData.username, available });
+    setUsernameCheck({
+      value: formData.username,
+      available: result.available,
+    });
   }
 
   const usernameField = (() => {
@@ -148,7 +158,7 @@ export default function StudentInfoStep({
     (!needsPass || verification.pass.verified) &&
     isValidEmail(formData.email) &&
     isUnder14 !== null &&
-    (isUnder14 || formData.gender !== "") &&
+    formData.gender !== "" &&
     formData.grade !== "" &&
     (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
@@ -275,18 +285,16 @@ export default function StudentInfoStep({
           </div>
         )}
 
-        {isUnder14 !== true && (
-          <SelectField
-            label="성별"
-            id="school-gender"
-            name="gender"
-            size="lg"
-            value={formData.gender}
-            onChange={field("gender")}
-            options={GENDER_OPTIONS}
-            placeholder="선택"
-          />
-        )}
+        <SelectField
+          label="성별"
+          id="school-gender"
+          name="gender"
+          size="lg"
+          value={formData.gender}
+          onChange={field("gender")}
+          options={GENDER_OPTIONS}
+          placeholder="선택"
+        />
 
         <SelectField
           label="학년"

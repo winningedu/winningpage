@@ -74,7 +74,7 @@ const BODY: SchoolSignupBody = {
   phone: "01012345678",
   birthDate: "2010-03-04",
   gender: "남",
-  tenantId: "t-1",
+  tenantCode: "ABCDEFGH",
   grade: "중2",
   className: "3",
   number: 7,

@@ -10,15 +10,20 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useSignup } from "@/context/SignupContext";
 import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { lookupTenant } from "./api";
-import { TENANT_MESSAGES } from "./copy";
+import { type SubmitError, TENANT_MESSAGES } from "./copy";
 import StepActions from "./StepActions";
 
 interface TenantStepProps {
   onPrev: () => void;
   onNext: () => void;
+  submitError: SubmitError | null;
 }
 
-export default function TenantStep({ onPrev, onNext }: TenantStepProps) {
+export default function TenantStep({
+  onPrev,
+  onNext,
+  submitError,
+}: TenantStepProps) {
   const { formData, updateFormData, tenant, setTenant, updateVerification } =
     useSignup();
   const [error, setError] = useState("");
@@ -28,9 +33,10 @@ export default function TenantStep({ onPrev, onNext }: TenantStepProps) {
   const foundTenant = tenant && !tenant.isCatchAll ? tenant : null;
   const isCodeEmpty = formData.orgCode.trim() === "";
 
+  const helperText = foundTenant?.name ?? (error || submitError?.message || "");
   const fieldStatus = (() => {
     if (foundTenant) return "success";
-    return error ? "error" : "default";
+    return error || submitError ? "error" : "default";
   })();
 
   function handleCodeChange(value: string) {
@@ -97,7 +103,7 @@ export default function TenantStep({ onPrev, onNext }: TenantStepProps) {
         actionLabel="확인"
         onAction={handleCheck}
         actionDisabled={checking}
-        helperText={foundTenant?.name ?? error}
+        helperText={helperText}
         status={fieldStatus}
         autoComplete="off"
       />

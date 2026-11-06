@@ -102,7 +102,7 @@ export async function sendPhoneCode(
     | "guardian_signup"
     | "guardian_change" = "parent_signup",
   // 스쿨멘토 가입(2026-11-06): 번호 중복을 소속 안에서만 보게 하는 범위. 위닝 호출부는 넘기지 않는다.
-  scope: { tenantId?: string; catchAll?: boolean } = {},
+  scope: { tenantCode?: string; catchAll?: boolean } = {},
 ): Promise<SendPhoneCodeResult> {
   const normalized = normalizePhone(phone);
 
@@ -119,7 +119,7 @@ export async function sendPhoneCode(
   const { response, payload } = await postJson("/api/send-phone-code", {
     phone: normalized,
     purpose,
-    ...(scope.tenantId ? { tenant_id: scope.tenantId } : {}),
+    ...(scope.tenantCode ? { tenant_code: scope.tenantCode } : {}),
     ...(scope.catchAll ? { catch_all: true } : {}),
   });
 

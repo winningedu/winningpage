@@ -214,6 +214,7 @@ describe("2단계 소속 확인", () => {
 
 const SEND_OK = { body: { ok: true, expires_in: 180, cooldown: 60 } };
 const VERIFY_OK = { body: { ok: true } };
+const USERNAME_OK = { body: { available: true } };
 const SIGNUP_OK = {
   body: {
     session: { access_token: "access", refresh_token: "refresh" },
@@ -230,6 +231,7 @@ async function goToStudentInfo(orgType = "학교") {
     "/api/send-phone-code": SEND_OK,
     "/api/verify-phone-code": VERIFY_OK,
     "/api/signup/school-student": SIGNUP_OK,
+    "/api/signup/username-check": USERNAME_OK,
   });
   renderSignup();
   agreeRequiredTerms();
@@ -291,22 +293,19 @@ describe("3단계 학생 정보 칸", () => {
     expect(screen.getByLabelText("반")).toHaveValue("3");
   });
 
-  it("14세 미만이면 성별 칸을 숨긴다", async () => {
-    await goToStudentInfo("학교");
+  it("14세 미만에게도 성별을 받는다", async () => {
+    await goToStudentInfo();
 
     type("생년월일", "20180304");
 
-    expect(screen.queryByLabelText("성별")).toBeNull();
+    expect(screen.getByLabelText("성별")).toBeInTheDocument();
   });
 });
 
 describe("3단계 아이디 중복 확인", () => {
   it("사용할 수 있으면 안내하고, 아이디를 고치면 결과가 사라진다", async () => {
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: true,
-      error: null,
-    } as never);
     await goToStudentInfo();
+    calls.length = 0;
 
     type("아이디", "mentor01");
     click("중복 확인");
@@ -314,8 +313,9 @@ describe("3단계 아이디 중복 확인", () => {
     expect(
       await screen.findByText("사용할 수 있는 아이디입니다."),
     ).toBeInTheDocument();
-    expect(supabase.rpc).toHaveBeenCalledWith("is_username_available", {
-      check_username: "mentor01",
+    expect(calls[0]).toEqual({
+      url: "/api/signup/username-check",
+      body: { username: "mentor01" },
     });
 
     type("아이디", "mentor02");
@@ -324,11 +324,10 @@ describe("3단계 아이디 중복 확인", () => {
   });
 
   it("이미 쓰는 아이디면 알려 준다", async () => {
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: false,
-      error: null,
-    } as never);
     await goToStudentInfo();
+    mockApi({
+      "/api/signup/username-check": { body: { available: false } },
+    });
 
     type("아이디", "mentor01");
     click("중복 확인");
@@ -338,9 +337,24 @@ describe("3단계 아이디 중복 확인", () => {
     ).toBeInTheDocument();
   });
 
-  it("형식이 틀린 아이디는 서버에 묻지 않는다", async () => {
-    vi.mocked(supabase.rpc).mockClear();
+  it("요청이 너무 많으면 잠시 후 다시 하라고 안내한다", async () => {
     await goToStudentInfo();
+    mockApi({
+      "/api/signup/username-check": {
+        status: 429,
+        body: { code: "RATE_LIMITED" },
+      },
+    });
+
+    type("아이디", "mentor01");
+    click("중복 확인");
+
+    expect(await screen.findByText(/잠시 후 다시 시도/)).toBeInTheDocument();
+  });
+
+  it("형식이 틀린 아이디는 서버에 묻지 않는다", async () => {
+    await goToStudentInfo();
+    calls.length = 0;
 
     type("아이디", "Ab");
     click("중복 확인");
@@ -350,7 +364,7 @@ describe("3단계 아이디 중복 확인", () => {
         "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
       ),
     ).toBeInTheDocument();
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
   });
 });
 
@@ -372,7 +386,7 @@ describe("3단계 휴대폰 인증", () => {
     expect(calls[0]?.body).toEqual({
       phone: "01012345678",
       purpose: "signup",
-      tenant_id: "t-1",
+      tenant_code: "ABCDEFGH",
     });
 
     type("휴대폰 인증번호", "123456");
@@ -463,10 +477,6 @@ describe("3단계 휴대폰 인증", () => {
 
 // 3단계의 모든 필수 칸을 올바르게 채운다(14세 이상, 학교 소속).
 async function fillValidStudent() {
-  vi.mocked(supabase.rpc).mockResolvedValue({
-    data: true,
-    error: null,
-  } as never);
   type("이름", "김학생");
   type("아이디", "mentor01");
   click("중복 확인");
@@ -528,10 +538,6 @@ describe("3단계 다음 버튼", () => {
 
 describe("3단계 만 14세 미만", () => {
   async function fillUnder14Student() {
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: true,
-      error: null,
-    } as never);
     type("이름", "김학생");
     type("아이디", "mentor01");
     click("중복 확인");
@@ -540,6 +546,7 @@ describe("3단계 만 14세 미만", () => {
     type("비밀번호 확인", "abc123!");
     type("이메일", "a@b.co");
     type("생년월일", "20180304");
+    type("성별", "여");
     type("학년", "중1");
     type("반", "3");
   }
@@ -625,10 +632,6 @@ describe("4단계 학부모 정보", () => {
       age: 8,
       mobile: "01099998888",
     });
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: true,
-      error: null,
-    } as never);
     await goToStudentInfo();
     type("이름", "김학생");
     type("아이디", "mentor01");
@@ -638,6 +641,7 @@ describe("4단계 학부모 정보", () => {
     type("비밀번호 확인", "abc123!");
     type("이메일", "a@b.co");
     type("생년월일", "20180304");
+    type("성별", "여");
     type("학년", "중1");
     type("반", "3");
     click("PASS 간편 인증");
@@ -696,7 +700,7 @@ describe("가입 제출과 5단계 완료", () => {
       phone: "01012345678",
       birthDate: "2010-03-04",
       gender: "남",
-      tenantId: "t-1",
+      tenantCode: "ABCDEFGH",
       grade: "중2",
       className: "3",
       guardianConsent: false,
@@ -758,10 +762,6 @@ describe("가입 제출과 5단계 완료", () => {
       age: 8,
       mobile: "01099998888",
     });
-    vi.mocked(supabase.rpc).mockResolvedValue({
-      data: true,
-      error: null,
-    } as never);
     await goToStudentInfo();
     type("이름", "김학생");
     type("아이디", "mentor01");
@@ -771,6 +771,7 @@ describe("가입 제출과 5단계 완료", () => {
     type("비밀번호 확인", "abc123!");
     type("이메일", "a@b.co");
     type("생년월일", "20180304");
+    type("성별", "여");
     type("학년", "중1");
     type("반", "3");
     click("PASS 간편 인증");
@@ -786,11 +787,11 @@ describe("가입 제출과 5단계 완료", () => {
     const body = lastCall("/api/signup/school-student")?.body;
     expect(body).toMatchObject({
       birthDate: "2018-03-04",
+      gender: "여",
       guardianPhone: "01099998888",
       guardianConsent: true,
       identityRequestId: "req-1",
     });
-    expect(body).not.toHaveProperty("gender");
     expect(body).not.toHaveProperty("phone");
     vi.unstubAllEnvs();
   });
@@ -804,7 +805,7 @@ describe("가입 제출과 5단계 완료", () => {
     click("건너뛰기");
     await screen.findByRole("button", { name: "학습진단 시작하기" });
     expect(lastCall("/api/signup/school-student")?.body).toMatchObject({
-      tenantId: "t-1",
+      tenantCode: "ABCDEFGH",
       groupName: "심화반",
       className: "3",
       number: 7,
@@ -818,6 +819,7 @@ describe("기타 소속 가입", () => {
       "/api/send-phone-code": SEND_OK,
       "/api/verify-phone-code": VERIFY_OK,
       "/api/signup/school-student": SIGNUP_OK,
+      "/api/signup/username-check": USERNAME_OK,
     });
     renderSignup();
     agreeRequiredTerms();
@@ -830,7 +832,7 @@ describe("기타 소속 가입", () => {
 
     await screen.findByRole("button", { name: "학습진단 시작하기" });
     const body = lastCall("/api/signup/school-student")?.body;
-    expect(body).toMatchObject({ tenantId: null, grade: "중2" });
+    expect(body).toMatchObject({ tenantCode: null, grade: "중2" });
     expect(body).not.toHaveProperty("className");
     expect(body).not.toHaveProperty("number");
     expect(body).not.toHaveProperty("groupName");
@@ -909,6 +911,49 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
     expect(
       await screen.findByText(/다른 이메일을 입력해 주세요/),
     ).toBeInTheDocument();
+  });
+
+  it("서버가 소속코드를 못 찾으면 2단계로 돌려보낸다", async () => {
+    await submitWithError(404, "TENANT_NOT_FOUND");
+
+    expect(
+      await screen.findByText("소속코드를 다시 확인해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("소속코드")).toBeInTheDocument();
+  });
+
+  it("반이 빠졌다는 오류는 3단계로 돌려보낸다", async () => {
+    await submitWithError(400, "CLASS_REQUIRED");
+
+    expect(await screen.findByText("반을 입력해 주세요.")).toBeInTheDocument();
+    expect(screen.getByLabelText("반")).toBeInTheDocument();
+  });
+
+  it("본인인증이 빠졌다는 오류는 3단계로 돌려보낸다", async () => {
+    await submitWithError(400, "IDENTITY_REQUIRED");
+
+    expect(
+      await screen.findByText("법정대리인 본인인증을 완료해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+  });
+
+  it("휴대폰 인증이 빠졌다는 오류는 3단계에서 다시 인증하게 한다", async () => {
+    await submitWithError(400, "PHONE_NOT_VERIFIED");
+
+    expect(
+      await screen.findByText("전화번호 인증을 완료해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
+  });
+
+  it("학부모 휴대폰 인증이 빠졌다는 오류는 4단계에 머문다", async () => {
+    await submitWithError(400, "GUARDIAN_PHONE_NOT_VERIFIED");
+
+    expect(
+      await screen.findByText("학부모 핸드폰 인증을 완료해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
   });
 
   it("그 밖의 오류는 4단계에 머물며 다시 시도하게 한다", async () => {

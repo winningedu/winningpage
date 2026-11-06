@@ -31,15 +31,15 @@ describe("sendPhoneCode 소속 범위", () => {
     });
   });
 
-  it("tenantId를 tenant_id로 실어 보낸다", async () => {
+  it("소속코드를 tenant_code로 실어 보낸다", async () => {
     const fetchMock = mockFetchOk();
 
-    await sendPhoneCode("01012345678", "signup", { tenantId: "t-1" });
+    await sendPhoneCode("01012345678", "signup", { tenantCode: "ABCDEFGH" });
 
     expect(sentBody(fetchMock)).toEqual({
       phone: "01012345678",
       purpose: "signup",
-      tenant_id: "t-1",
+      tenant_code: "ABCDEFGH",
     });
   });
 

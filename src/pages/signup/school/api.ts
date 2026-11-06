@@ -1,6 +1,4 @@
 // 학교 학생 가입이 서버와 주고받는 호출 모음. 응답 계약은 api/signup/*.
-import { supabase } from "@/lib/supabase";
-
 export interface TenantSummary {
   id: string;
   name: string;
@@ -57,9 +55,10 @@ export interface SchoolSignupBody {
   // 14세 미만이 본인 번호 없이 가입하면 빠진다.
   phone?: string;
   birthDate: string;
-  gender?: string;
+  gender: string;
   // null은 기타 소속.
-  tenantId: string | null;
+  // 서버가 코드를 다시 찾는다. null은 기타 소속.
+  tenantCode: string | null;
   grade: string;
   groupName?: string;
   className?: string;
@@ -106,11 +105,21 @@ export async function submitSchoolSignup(
   return { ok: false, code: payload?.code || "UNKNOWN" };
 }
 
-// 아이디 중복 확인. 확인하지 못하면 null.
-export async function checkUsernameAvailable(username: string) {
-  const { data, error } = await supabase.rpc("is_username_available", {
-    check_username: username,
+export type UsernameCheckResult =
+  | { ok: true; available: boolean }
+  | { ok: false; reason: "too_many" | "unknown" };
+
+// 아이디 중복 확인. 앱 쪽 RPC는 service_role 전용이라 서버 경로로 묻는다.
+export async function checkUsernameAvailable(
+  username: string,
+): Promise<UsernameCheckResult> {
+  const { response, payload } = await postJson("/api/signup/username-check", {
+    username,
   });
 
-  return error ? null : data;
+  if (response?.ok) return { ok: true, available: payload.available === true };
+  if (payload?.code === "RATE_LIMITED")
+    return { ok: false, reason: "too_many" };
+
+  return { ok: false, reason: "unknown" };
 }
