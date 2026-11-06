@@ -139,8 +139,8 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       stripWinningPrefix: true,
       hiddenPrograms: [],
       bannerEmptyNotice: true,
-      // 운영 선행 조건(시크릿 키 env, Sb-Forwarded-For 설정)과 W2 라우트가 갖춰질 때까지 끈다.
-      serverLogin: false,
+      // 스쿨멘토는 서버를 거쳐 로그인한다(아이디 또는 이메일, 실패 횟수 잠금).
+      serverLogin: true,
       b2bMenu: true,
     },
     company: {
