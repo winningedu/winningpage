@@ -61,6 +61,7 @@ export async function readLatest<Row>(
 export interface TenantInfo {
   schoolYear: number;
   orgType: string | null;
+  isCatchAll: boolean;
 }
 
 export async function loadTenant(
@@ -69,11 +70,15 @@ export async function loadTenant(
 ): Promise<TenantInfo> {
   const { data, error } = await admin
     .from("tenants")
-    .select("school_year, org_type")
+    .select("school_year, org_type, is_catch_all")
     .eq("id", tenantId)
     .maybeSingle();
   if (error || !data) throw new Error("tenant lookup failed");
-  return { schoolYear: data.school_year, orgType: data.org_type };
+  return {
+    schoolYear: data.school_year,
+    orgType: data.org_type,
+    isCatchAll: data.is_catch_all === true,
+  };
 }
 
 /** 삭제된 그룹도 이름을 읽는다(지난 학급이 가리킬 수 있다). */
