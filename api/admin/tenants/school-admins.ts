@@ -8,6 +8,7 @@
 import { hasAdminViewPermission } from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { isUuid } from "../../_lib/service-credit/adjust.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -50,7 +51,7 @@ export default defineHandler({
     }
 
     const tenantId = req.query.tenantId;
-    if (typeof tenantId !== "string" || tenantId === "") {
+    if (typeof tenantId !== "string" || !isUuid(tenantId)) {
       sendError(res, "coded", 400, "기관을 확인해 주세요.", "BAD_REQUEST");
       return;
     }

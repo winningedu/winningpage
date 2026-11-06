@@ -19,13 +19,16 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 
 import handler from "./school-admins.js";
 
+const TENANT_7 = "7f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+const TENANT_8 = "8a2d3b4c-5e6f-4071-9b8c-0d1e2f3a4b5c";
+
 const get = (query: Record<string, string> = {}, method = "GET") =>
   callHandler(handler, undefined, method, query);
 
 const TEACHERS = [
   {
     id: "t-1",
-    tenant_id: "tenant-7",
+    tenant_id: TENANT_7,
     role: "school_admin",
     name: "박관리",
     phone: "01099998888",
@@ -40,7 +43,7 @@ const TEACHERS = [
   },
   {
     id: "t-2",
-    tenant_id: "tenant-7",
+    tenant_id: TENANT_7,
     role: "school_admin",
     name: "최취소",
     phone: "01011112222",
@@ -53,8 +56,8 @@ const TEACHERS = [
     updated_at: "2026-10-20T05:00:00Z",
     deleted_at: "2026-10-21T05:00:00Z",
   },
-  { ...tenantRow("t-3", "tenant-7"), role: "homeroom", name: "담임" },
-  { ...tenantRow("t-4", "tenant-8"), role: "school_admin", name: "다른기관" },
+  { ...tenantRow("t-3", TENANT_7), role: "homeroom", name: "담임" },
+  { ...tenantRow("t-4", TENANT_8), role: "school_admin", name: "다른기관" },
 ];
 
 function tenantRow(id: string, tenantId: string) {
@@ -82,7 +85,7 @@ beforeEach(() => {
   });
   kit.state.rows.teachers = (filters) => matchRows(TEACHERS, filters);
   kit.state.rows.tenants = (filters) =>
-    filters.id === "tenant-7" ? { address: "서울시 중구 1" } : null;
+    filters.id === TENANT_7 ? { address: "서울시 중구 1" } : null;
 });
 
 afterEach(() => {
@@ -100,7 +103,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
       error: null,
     });
 
-    const r = await get({ tenantId: "tenant-7" });
+    const r = await get({ tenantId: TENANT_7 });
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
@@ -108,7 +111,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
   });
 
   test("그 기관의 학교 관리자만 주소와 함께 돌려주고 담임과 다른 기관은 뺀다", async () => {
-    const r = await get({ tenantId: "tenant-7" });
+    const r = await get({ tenantId: TENANT_7 });
 
     expect(r.status).toBe(200);
     expect(r.headers["Cache-Control"]).toBe("no-store");
@@ -121,7 +124,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
   });
 
   test("발급일과 등록취소일을 읽기 값으로 싣고 취소하지 않은 관리자는 null 이다", async () => {
-    const r = await get({ tenantId: "tenant-7" });
+    const r = await get({ tenantId: TENANT_7 });
 
     const { admins } = r.body as { admins: Record<string, unknown>[] };
     expect(admins[0]).toMatchObject({
@@ -145,7 +148,7 @@ describe("GET /api/admin/tenants/school-admins", () => {
       matchRows(
         [
           {
-            ...tenantRow("t-5", "tenant-7"),
+            ...tenantRow("t-5", TENANT_7),
             role: "school_admin",
             name: "비활성",
             status: "inactive",
@@ -156,10 +159,18 @@ describe("GET /api/admin/tenants/school-admins", () => {
         filters,
       );
 
-    const r = await get({ tenantId: "tenant-7" });
+    const r = await get({ tenantId: TENANT_7 });
 
     const { admins } = r.body as { admins: Record<string, unknown>[] };
     expect(admins[0]).toMatchObject({ id: "t-5", canceledAt: null });
+  });
+
+  test("tenantId 가 UUID 가 아니면 400 이고 아무것도 읽지 않는다", async () => {
+    const r = await get({ tenantId: "tenant-7" });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(kit.state.reads.map((x) => x.table)).not.toContain("teachers");
   });
 
   test("tenantId 가 없으면 400", async () => {
