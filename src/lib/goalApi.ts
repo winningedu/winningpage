@@ -13,6 +13,7 @@
 // 의도적으로 `status`가 아니라 `kind`로 둔다.
 
 import { apiFetch, getAuthHeader } from "./apiFetch";
+import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
 // ---------------------------------------------------------------------------
 // 응답 payload 타입, api/_lib/goal/repo.ts buildXxxPayload()/api/goal/*.ts 응답 조립과
@@ -354,7 +355,7 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 //                                         입력을 지우지 않는다.
 export type SubmitGoalIntakeResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | { kind: "not-allowed"; tenantReason: TenantBlockReason | null }
   | { kind: "success"; student: GoalStudentPayload }
   | { kind: "already-onboarded" }
   | { kind: "cuts-missing"; missing: string[] }
@@ -401,7 +402,12 @@ export async function submitGoalIntake(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) {
+    return {
+      kind: "not-allowed",
+      tenantReason: parseTenantReason(result?.tenantReason),
+    };
+  }
 
   console.error(
     "[goalApi] POST /api/goal/intake 실패:",
