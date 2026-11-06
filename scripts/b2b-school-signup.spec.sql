@@ -378,6 +378,37 @@ select pg_temp.expect_msg('다른 계정이 쓰는 이메일은 duplicate_email'
   select pg_temp.go(21, '{"email": "STU01@example.com"}')
 $$, 'P0001', 'duplicate_email');
 
+-- ---------------------------------------------------------------------
+-- 소속: 기타(소속 없음)는 기타 기관으로, 없는 기관은 WC097
+-- ---------------------------------------------------------------------
+select pg_temp.expect_error('기타 기관이 없으면 소속 없는 가입은 WC097', $$select pg_temp.go(30, '{"tenant_id": null}')$$, 'WC097');
+select pg_temp.expect_error('없는 기관 id 는 WC097', $$select pg_temp.go(31, jsonb_build_object('tenant_id', gen_random_uuid()))$$, 'WC097');
+select pg_temp.verify('010-5036-0001');
+select pg_temp.expect_error('없는 기관이면 WC097(문자 인증은 미리 통과)', $$
+  select pg_temp.go(36, jsonb_build_object('tenant_id', gen_random_uuid()), false)
+$$, 'WC097');
+select pg_temp.expect_int('실패한 가입은 문자 인증을 소비하지 않는다',
+  (select count(*) from public.phone_verifications where phone = '01050360001' and consumed_at is null), 1);
+
+insert into public.tenants (code, name, region, org_type, tier, is_catch_all)
+  values ('SC222222', '기타', '기타', '기타', 'W', true);
+select pg_temp.expect_ok('소속 없는 가입', $$select pg_temp.go(32, '{"tenant_id": null}')$$);
+select pg_temp.expect_text('기타 기관에 묶이고 school_name 은 비운다',
+  (select (tenant_id = (select id from public.tenants where is_catch_all))::text || ':' || coalesce(school_name, '-')
+     from public.profiles where email = 'go32@example.com'), 'true:-');
+select pg_temp.expect_text('기타는 반과 번호를 받지 않는다(넘겨도 비운다), 학년은 남는다',
+  (select coalesce(class_id::text, '-') || ':' || coalesce(number::text, '-') || ':' || grade
+     from public.student_enrollments where student_id = (select id from public.profiles where email = 'go32@example.com')), '-:-:고1');
+select pg_temp.expect_text('기타도 student_profiles 학년이 들어간다',
+  (select grade from public.student_profiles where profile_id = (select id from public.profiles where email = 'go32@example.com')), '고1');
+select pg_temp.expect_ok('기타끼리는 같은 학년, 반, 번호 검사에서 빠진다', $$select pg_temp.go(33, '{"tenant_id": null, "number": 5}')$$);
+select pg_temp.expect_ok('기타끼리는 같은 학년, 반, 번호 검사에서 빠진다(2)', $$select pg_temp.go(34, '{"tenant_id": null, "number": 5}')$$);
+
+select pg_temp.mk_tenant('SD222222', '기관');
+select pg_temp.expect_ok('학원 소속 가입', $$select pg_temp.go(35, jsonb_build_object('tenant_id', (select id from public.tenants where code = 'SD222222')))$$);
+select pg_temp.expect_text('학원 소속은 school_name 을 비운다',
+  (select coalesce(school_name, '-') from public.profiles where email = 'go35@example.com'), '-');
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;

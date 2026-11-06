@@ -185,7 +185,15 @@ begin
 
   v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
 
-  select * into v_tenant from public.tenants t where t.id = p_tenant_id;
+  -- 소속: 코드를 모르면 null 로 보내 기타 기관에 둔다. 기타 기관은 반과 번호를 받지 않는다(결정 r4).
+  if p_tenant_id is null then
+    select * into v_tenant from public.tenants t where t.is_catch_all;
+  else
+    select * into v_tenant from public.tenants t where t.id = p_tenant_id;
+  end if;
+  if v_tenant.id is null then
+    raise exception 'tenant_not_found' using errcode = 'WC097';
+  end if;
 
   -- 본인 번호 문자 인증(가입 목적, 10분 안, 아직 안 쓴 것). 행 잠금 아래에서 소비한다.
   select v.id into v_pv_id
@@ -240,7 +248,11 @@ begin
 
   v_link_code := public.issue_student_link_code(p_user_id);
 
-  perform public.fn_enrollment_join(p_user_id, v_tenant.id, p_grade, p_group_name, p_class_name, p_number);
+  perform public.fn_enrollment_join(
+    p_user_id, v_tenant.id, p_grade,
+    case when v_tenant.is_catch_all then null else p_group_name end,
+    case when v_tenant.is_catch_all then null else p_class_name end,
+    case when v_tenant.is_catch_all then null else p_number end);
 
   return jsonb_build_object(
     'ok', true,
