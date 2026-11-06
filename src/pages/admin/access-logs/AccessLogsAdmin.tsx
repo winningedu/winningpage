@@ -29,12 +29,14 @@ const EMPTY_FILTER: AccessLogFilter = {
 const COLUMNS = [
   "일시",
   "소속코드",
+  "관리자",
   "교사 이름",
   "교사 코드",
   "교사 전화번호",
   "구분",
   "대상 학생",
   "내용",
+  "사유",
   "대행 여부",
 ];
 
@@ -52,6 +54,7 @@ export default function AccessLogsAdmin() {
         setError(null);
         setResult(next.data);
       } else {
+        setResult(null);
         setError(next.message);
       }
     });
@@ -118,7 +121,7 @@ export default function AccessLogsAdmin() {
         </p>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[60rem] border-collapse text-sm">
+        <table className="w-full min-w-[72rem] border-collapse text-sm">
           <thead>
             <tr className="border-y border-gray-300">
               {COLUMNS.map((name) => (
@@ -135,12 +138,27 @@ export default function AccessLogsAdmin() {
                   {formatValue(log.createdAt, "datetime")}
                 </td>
                 <td className="px-3 py-3">{log.tenantCode ?? "-"}</td>
+                <td className="px-3 py-3">
+                  {(log.actorName ?? log.actorEmail) ? (
+                    <>
+                      {log.actorName && <div>{log.actorName}</div>}
+                      {log.actorEmail && (
+                        <div className="text-xs text-gray-500">
+                          {log.actorEmail}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td className="px-3 py-3">{log.teacherName ?? "-"}</td>
                 <td className="px-3 py-3">{log.teacherLoginId ?? "-"}</td>
                 <td className="px-3 py-3">{log.teacherPhone ?? "-"}</td>
                 <td className="px-3 py-3">{log.kindLabel}</td>
                 <td className="px-3 py-3">{log.targetStudentName ?? "-"}</td>
                 <td className="px-3 py-3">{log.content}</td>
+                <td className="px-3 py-3">{log.reason ?? "-"}</td>
                 <td className="px-3 py-3">{log.isProxy ? "대행" : "-"}</td>
               </tr>
             ))}

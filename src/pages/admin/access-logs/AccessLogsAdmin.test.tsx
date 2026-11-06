@@ -76,6 +76,72 @@ describe("AccessLogsAdmin", () => {
     );
   });
 
+  test("본사 대행 줄과 본사 다운로드 줄은 관리자 이름, 이메일, 사유를 보여 준다", async () => {
+    const proxy: api.AccessLogEntry = {
+      ...ENTRY,
+      id: "log-proxy",
+      teacherName: null,
+      teacherLoginId: null,
+      teacherPhone: null,
+      actorName: "본사직원",
+      actorEmail: "hq@example.com",
+      reason: "교사 문의 대응",
+      kind: "proxy",
+      kindLabel: "대행",
+      content: "본사 대행",
+      isProxy: true,
+    };
+    const download: api.AccessLogEntry = {
+      ...proxy,
+      id: "log-download",
+      actorName: "다운직원",
+      actorEmail: "down@example.com",
+      reason: "정산 확인",
+      kind: "export",
+      kindLabel: "출력",
+      content: "회원 목록",
+      isProxy: false,
+    };
+    vi.mocked(api.fetchAccessLogs).mockResolvedValue({
+      ok: true,
+      data: { logs: [proxy, download], page: 1, hasNext: false },
+    });
+    render(<AccessLogsAdmin />);
+
+    const proxyRow = (await screen.findByText("본사직원")).closest("tr");
+    const proxyCells = within(proxyRow as HTMLElement);
+    expect(proxyCells.getByText("hq@example.com")).toBeInTheDocument();
+    expect(proxyCells.getByText("교사 문의 대응")).toBeInTheDocument();
+    const downloadRow = screen.getByText("다운직원").closest("tr");
+    const downloadCells = within(downloadRow as HTMLElement);
+    expect(downloadCells.getByText("down@example.com")).toBeInTheDocument();
+    expect(downloadCells.getByText("정산 확인")).toBeInTheDocument();
+    expect(downloadCells.getByText("출력")).toBeInTheDocument();
+    for (const header of ["관리자", "사유"]) {
+      expect(
+        screen.getByRole("columnheader", { name: header }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  test("쪽을 넘기다 실패하면 이전 쪽 목록을 지우고 오류만 보인다", async () => {
+    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
+      ok: true,
+      data: { logs: [ENTRY], page: 1, hasNext: true },
+    });
+    render(<AccessLogsAdmin />);
+    await screen.findByText("박교사");
+
+    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
+      ok: false,
+      message: "불러오지 못했습니다.",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    expect(await screen.findByText("불러오지 못했습니다.")).toBeInTheDocument();
+    expect(screen.queryByText("박교사")).not.toBeInTheDocument();
+  });
+
   test("소속코드, 기간, 구분을 골라 조회하면 그 조건으로 1쪽을 다시 읽는다", async () => {
     render(<AccessLogsAdmin />);
     await screen.findByText("박교사");
