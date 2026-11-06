@@ -425,12 +425,17 @@ select pg_temp.fx('m_g_cprot'), 't23_prog', 'qa', null, 5, 10000, now() - interv
 create temp table tgt_result as
   select * from public.fn_anonymize_expired_b2b_members(
     pg_temp.fx('ten_tg'), pg_temp.fx('m_t1'), 'hq@example.com',
-    array[pg_temp.fx('m_g_a'), pg_temp.fx('m_g_paid'), pg_temp.fx('m_g_cprot')]);
+    array[pg_temp.fx('m_g_a'), pg_temp.fx('m_g_paid'), pg_temp.fx('m_g_cprot'),
+      pg_temp.fx('m_g_teacher'), pg_temp.fx('m_mb1')]);
 select pg_temp.expect_text('고른 학생은 익명화된다', pg_temp.pname('g_a'), '삭제된 학생');
 select pg_temp.expect_text('고르지 않은 학생은 그대로다', pg_temp.pname('g_b'), '홍길동g_b');
 select pg_temp.expect_text('미리보기 뒤에 들어온 학생은 고르지 않았으니 그대로다', pg_temp.pname('g_new'), '홍길동g_new');
 select pg_temp.expect_text('유료 전환 학생은 골랐어도 그대로다', pg_temp.pname('g_paid'), '홍길동g_paid');
 select pg_temp.expect_text('고른 뒤 유료 전환이 된 학생도 실행 때 다시 보고 그대로 둔다', pg_temp.pname('g_cprot'), '홍길동g_cprot');
+select pg_temp.expect_text('목록에 넣어도 같은 기관의 교사는 그대로다', pg_temp.pname('g_teacher'), '홍길동g_teacher');
+select pg_temp.expect_text('목록에 넣어도 다른 기관의 학생은 그대로다', pg_temp.pname('mb1'), '홍길동mb1');
+select pg_temp.expect_bool('다른 기관 학생과 교사의 Auth 계정은 정지되지 않는다',
+  not pg_temp.banned('g_teacher') and not pg_temp.banned('mb1'), true);
 select pg_temp.expect_bool('고른 학생 Auth 계정만 정지된다', pg_temp.banned('g_a') and not pg_temp.banned('g_b'), true);
 select pg_temp.expect_bool('반환: 익명화 1, 보호 2, 직접 제외 2(g_b, g_new)',
   (select members_anonymized = 1 and members_protected = 2 and members_skipped = 2 from tgt_result), true);
