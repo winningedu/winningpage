@@ -90,6 +90,18 @@ describe("check-service-access 위닝", () => {
 describe("check-service-access 스쿨멘토", () => {
   beforeEach(() => vi.stubEnv("SITE", "schoolmentor"));
 
+  test("기관 상태를 읽지 못하면 막힘이 아니라 500 으로 답한다(열지는 않는다)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    setup();
+    db.rpcs.fn_tenant_usage_state = () => {
+      throw new Error("boom");
+    };
+    const res = await check();
+    expect(res.status).toBe(500);
+    expect(res.body).not.toMatchObject({ allowed: true });
+    expect(res.body).not.toHaveProperty("tenantReason");
+  });
+
   test("허용이고 한도가 없으면 무제한과 null 사유", async () => {
     setup();
     const res = await check();
@@ -163,15 +175,5 @@ describe("check-service-access 스쿨멘토", () => {
       name: "fn_tenant_usage_state",
       args: { p_profile: "me", p_program_key: "target" },
     });
-  });
-
-  test("기관 상태를 읽지 못하면 allowed false", async () => {
-    setup();
-    db.rpcs.fn_tenant_usage_state = () => {
-      throw new Error("boom");
-    };
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const res = await check();
-    expect(res.body).toMatchObject({ allowed: false, tenantReason: null });
   });
 });

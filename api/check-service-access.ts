@@ -92,7 +92,7 @@ export default defineHandler({
 
     // 스쿨멘토: 기관 설정으로 판정하고 남은 횟수도 기관 한도에서 읽는다.
     // tenantReason 은 거부 사유이고 한도 소진(month_cap, term_cap)일 때는 allowed 가 true 여도 채워진다.
-    // limitKind 는 안내에 쓰는 한도 종류(month, term, 없으면 null)다. 읽지 못하면 열지 않는다.
+    // limitKind 는 안내에 쓰는 한도 종류(month, term, 없으면 null)다. 읽지 못하면 열지 않고 500 으로 답한다.
     if (isSchoolmentorSite()) {
       try {
         const tenant = await readTenantUsage(
@@ -112,15 +112,8 @@ export default defineHandler({
         });
       } catch (tenantError) {
         console.error("check-service-access 기관 상태 조회 실패:", tenantError);
-        res.status(200).json({
-          allowed: false,
-          quotaRemaining: null,
-          quotaTotal: null,
-          planEndsAt: null,
-          planLabel: null,
-          tenantReason: null,
-          limitKind: null,
-        });
+        // 열지 않되 최종 막힘으로 답하지도 않는다. 5xx 라 클라이언트는 확인 실패로 보고 다시 시도한다.
+        sendError(res, "detail", 500, "이용권 확인 중 오류가 발생했습니다.");
       }
       return;
     }

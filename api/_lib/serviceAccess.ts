@@ -557,7 +557,8 @@ export async function hasPaidServiceAccess(
 ): Promise<{ allowed: boolean; reason: string | null }> {
   // 스쿨멘토는 기관 설정만 본다(위닝 이용권은 보지 않는다). 로컬 우회보다 먼저 가른다.
   // 로컬 QA 도 실제 게이트를 본다. reason 은 기관 거부 사유(catch_all, disabled, outside_period, grace)다.
-  // 읽지 못하면 열지 않는다(checkProgramAccessTable 과 같은 fail-closed).
+  // 읽지 못하면 열지 않는다. 막힘 사유를 지어내지 않고 던져서 호출한 라우트가 5xx 로 답하게 한다.
+  // 일시 오류가 최종 거부로 보이지 않고 클라이언트가 다시 시도하게 한다.
   if (isSchoolmentorSite()) {
     try {
       return tenantEntryAccess(
@@ -574,7 +575,7 @@ export async function hasPaidServiceAccess(
         userId,
         error,
       );
-      return { allowed: false, reason: null };
+      throw error;
     }
   }
 

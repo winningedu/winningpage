@@ -113,14 +113,14 @@ describe("hasPaidServiceAccess 사이트 분기", () => {
     });
   });
 
-  it("기관 상태를 읽지 못하면 열지 않는다", async () => {
+  it("기관 상태를 읽지 못하면 막힘 사유를 지어내지 않고 던진다(열지 않는다)", async () => {
     vi.stubEnv("SITE", "schoolmentor");
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const db = {
       rpc: async () => ({ data: null, error: { message: "boom" } }),
     } as never;
-    expect(await hasPaidServiceAccess(db, "u1", cfg("growth"))).toEqual({
-      allowed: false,
-      reason: null,
-    });
+    await expect(hasPaidServiceAccess(db, "u1", cfg("growth"))).rejects.toThrow(
+      "fn_tenant_usage_state",
+    );
   });
 });
