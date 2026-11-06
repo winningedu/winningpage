@@ -42,11 +42,18 @@ export default function AccessLogsAdmin() {
   const [filter, setFilter] = useState<AccessLogFilter>(EMPTY_FILTER);
   const [draft, setDraft] = useState<AccessLogFilter>(EMPTY_FILTER);
   const [result, setResult] = useState<AccessLogPage | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchAccessLogs(filter).then((next) => {
-      if (!cancelled && next.ok) setResult(next.data);
+      if (cancelled) return;
+      if (next.ok) {
+        setError(null);
+        setResult(next.data);
+      } else {
+        setError(next.message);
+      }
     });
     return () => {
       cancelled = true;
@@ -105,6 +112,11 @@ export default function AccessLogsAdmin() {
         </Field>
         <ActionButton type="submit">조회</ActionButton>
       </form>
+      {error && (
+        <p role="alert" className="mb-3 text-sm font-bold text-red-600">
+          {error}
+        </p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[60rem] border-collapse text-sm">
           <thead>
@@ -134,6 +146,28 @@ export default function AccessLogsAdmin() {
             ))}
           </tbody>
         </table>
+      </div>
+      {result?.logs.length === 0 && (
+        <p className="py-12 text-center text-sm text-gray-400">
+          기록이 없어요.
+        </p>
+      )}
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <ActionButton
+          variant="light"
+          disabled={filter.page <= 1}
+          onClick={() => setFilter({ ...filter, page: filter.page - 1 })}
+        >
+          이전
+        </ActionButton>
+        <span className="text-sm font-bold">{filter.page}쪽</span>
+        <ActionButton
+          variant="light"
+          disabled={!result?.hasNext}
+          onClick={() => setFilter({ ...filter, page: filter.page + 1 })}
+        >
+          다음
+        </ActionButton>
       </div>
     </div>
   );

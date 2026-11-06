@@ -104,4 +104,48 @@ describe("AccessLogsAdmin", () => {
       }),
     );
   });
+
+  test("다음 쪽이 있으면 다음 버튼으로 같은 조건의 다음 쪽을 읽고 첫 쪽에서는 이전이 막힌다", async () => {
+    vi.mocked(api.fetchAccessLogs).mockResolvedValue({
+      ok: true,
+      data: { logs: [ENTRY], page: 1, hasNext: true },
+    });
+    render(<AccessLogsAdmin />);
+    await screen.findByText("박교사");
+
+    expect(screen.getByRole("button", { name: "이전" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+
+    await waitFor(() =>
+      expect(api.fetchAccessLogs).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2 }),
+      ),
+    );
+  });
+
+  test("마지막 쪽에서는 다음이 막힌다", async () => {
+    render(<AccessLogsAdmin />);
+    await screen.findByText("박교사");
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  test("기록이 없으면 안내를 보이고, 실패하면 서버 메시지를 보인다", async () => {
+    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
+      ok: true,
+      data: { logs: [], page: 1, hasNext: false },
+    });
+    const { unmount } = render(<AccessLogsAdmin />);
+    expect(await screen.findByText("기록이 없어요.")).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(api.fetchAccessLogs).mockResolvedValueOnce({
+      ok: false,
+      message: "최고 관리자만 볼 수 있습니다.",
+    });
+    render(<AccessLogsAdmin />);
+    expect(
+      await screen.findByText("최고 관리자만 볼 수 있습니다."),
+    ).toBeInTheDocument();
+  });
 });
