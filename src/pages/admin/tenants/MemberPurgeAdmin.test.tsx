@@ -112,4 +112,46 @@ describe("MemberPurgeAdmin", () => {
     ).toBe(true);
     expect(within(row).getByText("고1")).toBeTruthy();
   });
+
+  test("체크를 푼 학생은 보내지 않고, 기관 이름을 입력해야 삭제를 확정하며, 결과 건수를 보여 준다", async () => {
+    vi.mocked(api.runMemberPurge).mockResolvedValue({
+      ok: true,
+      data: { deleted: 1, excluded: 1, skipped: 1 },
+    });
+    await openTenant();
+    fireEvent.click(screen.getByLabelText("박*준 선택"));
+
+    fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(
+        "삭제한 회원정보는 되돌릴 수 없어요. 1명을 삭제할까요?",
+      ),
+    ).toBeTruthy();
+    const confirm = within(dialog).getByRole("button", {
+      name: "삭제",
+    }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛" },
+    });
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛고" },
+    });
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(api.runMemberPurge).toHaveBeenCalledWith({
+        tenantId: "tenant-7",
+        targetIds: ["s-1"],
+      }),
+    );
+    expect(
+      await screen.findByText("삭제 1명, 제외(유료 전환) 1명, 제외(직접) 1명"),
+    ).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });
