@@ -1,0 +1,115 @@
+// 계약 종료 회원 삭제 화면(사 #162, #176, 결정 102.1, 102.3, 102.4). 기관을 고르면 미리보기를 읽고, 고른 학생만 삭제 API 로 보낸다.
+
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const db = vi.hoisted(() => ({
+  tenants: [] as Record<string, unknown>[],
+}));
+
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: () => ({
+        not: () => ({
+          order: async () => ({ data: db.tenants, error: null }),
+        }),
+      }),
+    })),
+  },
+}));
+
+vi.mock("./api", () => ({
+  fetchMemberPurgePreview: vi.fn(),
+  runMemberPurge: vi.fn(),
+}));
+
+import * as api from "./api";
+import MemberPurgeAdmin from "./MemberPurgeAdmin";
+
+const TENANT = {
+  id: "tenant-7",
+  code: "ABCD1234",
+  name: "한빛고",
+  contract_end_date: "2026-09-01",
+};
+
+const STUDENTS = [
+  {
+    id: "s-1",
+    name: "김*늘",
+    grade: "고1",
+    classLabel: "3반",
+    number: 5,
+    protected: false,
+  },
+  {
+    id: "s-2",
+    name: "이*윤",
+    grade: "고2",
+    classLabel: null,
+    number: null,
+    protected: true,
+  },
+  {
+    id: "s-3",
+    name: "박*준",
+    grade: "고1",
+    classLabel: "3반",
+    number: 6,
+    protected: false,
+  },
+];
+
+function preview(dDay: number | null, students = STUDENTS) {
+  return {
+    ok: true as const,
+    data: {
+      contractEnd: "2026-09-01",
+      graceEnd: "2026-10-01",
+      deletableFrom: "2026-10-02",
+      dDay,
+      students,
+    },
+  };
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  db.tenants = [TENANT];
+  vi.mocked(api.fetchMemberPurgePreview).mockResolvedValue(preview(-36));
+});
+
+async function openTenant() {
+  render(<MemberPurgeAdmin />);
+  const select = await screen.findByLabelText("기관");
+  await screen.findByRole("option", { name: /한빛고/ });
+  fireEvent.change(select, { target: { value: "tenant-7" } });
+  await screen.findByText("김*늘");
+}
+
+describe("MemberPurgeAdmin", () => {
+  test("기관을 고르면 계약 종료일, 유예 종료일, 삭제 가능일 안내와 학생 목록이 보이고 유료 전환 학생은 고를 수 없다", async () => {
+    await openTenant();
+
+    expect(api.fetchMemberPurgePreview).toHaveBeenCalledWith("tenant-7");
+    expect(screen.getByText("2026-09-01")).toBeTruthy();
+    expect(screen.getByText("2026-10-01")).toBeTruthy();
+    const paidRow = screen.getByText("이*윤").closest("tr") as HTMLElement;
+    const paidBox = within(paidRow).getByRole("checkbox") as HTMLInputElement;
+    expect(paidBox.checked).toBe(false);
+    expect(paidBox.disabled).toBe(true);
+    expect(within(paidRow).getByText("제외(유료 전환)")).toBeTruthy();
+    const row = screen.getByText("김*늘").closest("tr") as HTMLElement;
+    expect(
+      (within(row).getByRole("checkbox") as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(within(row).getByText("고1")).toBeTruthy();
+  });
+});
