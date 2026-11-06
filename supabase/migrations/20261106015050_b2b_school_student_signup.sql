@@ -128,6 +128,16 @@ declare
   v_link_code text;
   v_signup_enabled boolean;
   v_member_type text;
+  v_birth_date date := p_birth_date;
+  v_identity_rid text := btrim(coalesce(p_identity_request_id, ''));
+  v_iv_id uuid;
+  v_iv_purpose text;
+  v_iv_under14 boolean;
+  v_iv_birth_date date;
+  v_iv_gender text;
+  v_iv_mobile text;
+  v_under14 boolean := false;
+  v_constraint text;
 begin
   -- 가입 on/off 게이트(complete_signup_profile 과 같다). 설정 행이 없으면 닫는다(폴백으로 열지 않는다).
   select ((s.value #>> '{}')::boolean) into v_signup_enabled
@@ -176,19 +186,59 @@ begin
   if v_gender is not null and v_gender not in ('남', '여') then
     raise exception 'invalid_gender';
   end if;
-  if p_birth_date is null then
-    raise exception 'birth_date_required';
+
+  -- 만 14세 미만: PASS 본인확인(under14_guardian)이 생년월일, 성별, 학부모 번호의 정본이다(complete_signup_profile 과 같다).
+  -- 행을 잠가 같은 본인확인으로 두 계정이 만들어지지 않게 한다.
+  if v_identity_rid <> '' then
+    select iv.id, iv.purpose, iv.is_under14, iv.birth_date, iv.gender, iv.mobile
+      into v_iv_id, v_iv_purpose, v_iv_under14, v_iv_birth_date, v_iv_gender, v_iv_mobile
+      from public.identity_verifications iv
+     where iv.request_id = v_identity_rid
+       and iv.status = 'verified'
+       and iv.consumed_at is null
+       and iv.verified_at > now() - interval '30 minutes'
+     limit 1
+       for update;
+
+    if v_iv_id is null then
+      raise exception 'identity_not_verified';
+    end if;
+    if v_iv_purpose is distinct from 'under14_guardian' then
+      raise exception 'identity_purpose_mismatch';
+    end if;
+    -- 법정대리인이 만 14세 미만이면 대리인이 될 수 없다.
+    if coalesce(v_iv_under14, false) then
+      raise exception 'guardian_age';
+    end if;
+
+    v_under14 := true;
+    v_birth_date := v_iv_birth_date;
+    -- NICE 성별코드: 홀수(1/3/5/7)는 남, 짝수 계열(0/2/4/6/8)은 여, 그 밖의 값은 null.
+    v_gender := case
+      when v_iv_gender in ('1', '3', '5', '7') then '남'
+      when v_iv_gender in ('0', '2', '4', '6', '8') then '여'
+      else null
+    end;
+    v_guardian_phone := coalesce(nullif(regexp_replace(coalesce(v_iv_mobile, ''), '[^0-9]', '', 'g'), ''), v_guardian_phone);
   end if;
-  if v_gender is null then
-    raise exception 'gender_required';
+
+  -- 14세 이상은 생년월일과 성별이 필수다.
+  if not v_under14 then
+    if v_birth_date is null then
+      raise exception 'birth_date_required';
+    end if;
+    if v_gender is null then
+      raise exception 'gender_required';
+    end if;
   end if;
 
   if exists (select 1 from public.profiles pr where lower(btrim(pr.email)) = v_email and pr.id <> p_user_id) then
     raise exception 'duplicate_email';
   end if;
 
+  -- 본인 번호는 14세 이상 필수, 14세 미만은 선택이다(결정 72).
   v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
-  if v_phone_digits = '' then
+  if v_phone_digits = '' and not v_under14 then
     raise exception 'phone_required';
   end if;
 
@@ -207,6 +257,15 @@ begin
     else v_guardian_phone
   end;
 
+  if v_under14 then
+    if v_guardian_digits = '' then
+      raise exception 'guardian_phone_required';
+    end if;
+    if coalesce(p_guardian_consent, false) is not true then
+      raise exception 'guardian_consent_required';
+    end if;
+  end if;
+
   -- 소속: 코드를 모르면 null 로 보내 기타 기관에 둔다. 기타 기관은 반과 번호를 받지 않는다(결정 r4).
   if p_tenant_id is null then
     select * into v_tenant from public.tenants t where t.is_catch_all;
@@ -218,23 +277,26 @@ begin
   end if;
 
   -- 본인 번호 문자 인증(가입 목적, 10분 안, 아직 안 쓴 것). 행 잠금 아래에서 소비한다.
-  select v.id into v_pv_id
-    from public.phone_verifications v
-   where v.phone = v_phone_digits
-     and v.purpose = 'signup'
-     and v.verified_at is not null
-     and v.consumed_at is null
-     and v.verified_at > now() - interval '10 minutes'
-   order by v.verified_at desc
-   limit 1
-     for update;
+  if v_phone_digits <> '' then
+    select v.id into v_pv_id
+      from public.phone_verifications v
+     where v.phone = v_phone_digits
+       and v.purpose = 'signup'
+       and v.verified_at is not null
+       and v.consumed_at is null
+       and v.verified_at > now() - interval '10 minutes'
+     order by v.verified_at desc
+     limit 1
+       for update;
 
-  if v_pv_id is null then
-    raise exception 'phone_not_verified';
+    if v_pv_id is null then
+      raise exception 'phone_not_verified';
+    end if;
   end if;
 
-  -- 학부모 번호를 넣었으면 학부모 문자 인증(guardian_signup)도 같은 규칙으로 확인한다. 학부모 번호는 유일성 검사를 하지 않는다(형제 공유).
-  if v_guardian_digits <> '' then
+  -- 14세 이상이 학부모 번호를 넣었으면 학부모 문자 인증(guardian_signup)도 같은 규칙으로 확인한다.
+  -- 14세 미만의 학부모 번호는 PASS 로 이미 확인됐다. 학부모 번호는 유일성 검사를 하지 않는다(형제 공유).
+  if v_guardian_digits <> '' and not v_under14 then
     select v.id into v_gpv_id
       from public.phone_verifications v
      where v.phone = v_guardian_digits
@@ -251,7 +313,7 @@ begin
   end if;
 
   -- 번호 유일성은 기관 안에서만 본다(profiles_tenant_phone_unique_idx 와 같은 기준). 동시 가입은 아래 unique_violation 이 받는다.
-  if exists (
+  if v_phone_digits <> '' and exists (
     select 1 from public.profiles pr
      where pr.id <> p_user_id
        and pr.member_type is not null
@@ -263,33 +325,51 @@ begin
 
   perform set_config('app.tenant_set_via_rpc', '1', true);
 
-  insert into public.profiles (
-    id, name, username, phone, email, school_name, member_type, role,
-    terms_service_agreed, privacy_required_agreed, marketing_agreed,
-    birth_date, gender, tenant_id, updated_at,
-    guardian_name, guardian_phone, guardian_relation, guardian_consent, guardian_phone_verified_at
-  ) values (
-    p_user_id, v_name, v_username, v_phone, v_email,
-    case when v_tenant.org_type = '학교' then v_tenant.name end, 'student', 'user',
-    coalesce(p_agree_service, false), coalesce(p_agree_privacy, false), coalesce(p_agree_marketing, false),
-    p_birth_date, nullif(btrim(coalesce(p_gender, '')), ''), v_tenant.id, now(),
-    nullif(btrim(coalesce(p_guardian_name, '')), ''), nullif(v_guardian_phone, ''), v_guardian_relation,
-    coalesce(p_guardian_consent, false), case when v_gpv_id is not null then now() end
-  )
-  on conflict (id) do update set
-    name = excluded.name, username = excluded.username, phone = excluded.phone, email = excluded.email,
-    school_name = excluded.school_name, member_type = excluded.member_type,
-    terms_service_agreed = excluded.terms_service_agreed,
-    privacy_required_agreed = excluded.privacy_required_agreed,
-    marketing_agreed = excluded.marketing_agreed,
-    birth_date = excluded.birth_date, gender = excluded.gender, tenant_id = excluded.tenant_id,
-    guardian_name = excluded.guardian_name, guardian_phone = excluded.guardian_phone,
-    guardian_relation = excluded.guardian_relation, guardian_consent = excluded.guardian_consent,
-    guardian_phone_verified_at = excluded.guardian_phone_verified_at,
-    updated_at = now();
+  -- 동시 가입이 사전 검사를 같이 통과해도 유일 인덱스가 하나만 통과시킨다. 어느 인덱스인지에 따라 오류를 나눈다.
+  begin
+    insert into public.profiles (
+      id, name, username, phone, email, school_name, member_type, role,
+      terms_service_agreed, privacy_required_agreed, marketing_agreed,
+      birth_date, gender, tenant_id, updated_at,
+      guardian_name, guardian_phone, guardian_relation, guardian_consent, guardian_phone_verified_at
+    ) values (
+      p_user_id, v_name, v_username, nullif(v_phone, ''), v_email,
+      case when v_tenant.org_type = '학교' then v_tenant.name end, 'student', 'user',
+      coalesce(p_agree_service, false), coalesce(p_agree_privacy, false), coalesce(p_agree_marketing, false),
+      v_birth_date, v_gender, v_tenant.id, now(),
+      nullif(btrim(coalesce(p_guardian_name, '')), ''), nullif(v_guardian_phone, ''), v_guardian_relation,
+      coalesce(p_guardian_consent, false), case when v_gpv_id is not null then now() end
+    )
+    on conflict (id) do update set
+      name = excluded.name, username = excluded.username, phone = excluded.phone, email = excluded.email,
+      school_name = excluded.school_name, member_type = excluded.member_type,
+      terms_service_agreed = excluded.terms_service_agreed,
+      privacy_required_agreed = excluded.privacy_required_agreed,
+      marketing_agreed = excluded.marketing_agreed,
+      birth_date = excluded.birth_date, gender = excluded.gender, tenant_id = excluded.tenant_id,
+      guardian_name = excluded.guardian_name, guardian_phone = excluded.guardian_phone,
+      guardian_relation = excluded.guardian_relation, guardian_consent = excluded.guardian_consent,
+      guardian_phone_verified_at = excluded.guardian_phone_verified_at,
+      updated_at = now();
+  exception when unique_violation then
+    get stacked diagnostics v_constraint = constraint_name;
+    if v_constraint = 'profiles_username_unique_idx' then
+      raise exception 'username_taken' using errcode = 'WC095';
+    elsif v_constraint = 'profiles_tenant_phone_unique_idx' then
+      raise exception 'phone_taken' using errcode = 'WC096';
+    elsif v_constraint = 'profiles_email_unique_idx' then
+      raise exception 'duplicate_email';
+    end if;
+    raise;
+  end;
 
   update public.phone_verifications set consumed_at = now()
    where id in (v_pv_id, v_gpv_id) and consumed_at is null;
+
+  -- 본인확인도 같은 원칙으로 소비하고 새 계정과 잇는다(가입 전 인증이라 그 시점엔 계정이 없었다).
+  if v_iv_id is not null then
+    update public.identity_verifications set consumed_at = now(), user_id = p_user_id where id = v_iv_id;
+  end if;
 
   insert into public.student_profiles (profile_id, grade) values (p_user_id, p_grade)
   on conflict (profile_id) do update set grade = excluded.grade, updated_at = now();
@@ -320,6 +400,7 @@ begin
     'id', p_user_id,
     'username', v_username,
     'email', v_email,
+    'under14', v_under14,
     'tenant_id', v_tenant.id,
     'tenant_name', v_tenant.name,
     'link_code', v_link_code

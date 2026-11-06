@@ -535,6 +535,72 @@ select pg_temp.expect_ok('형제는 같은 학부모 번호를 쓸 수 있다', 
   select pg_temp.go(64, '{"guardian_name": "김보호", "guardian_phone": "010-6000-0003", "guardian_relation": "어머니"}')
 $$);
 
+-- ---------------------------------------------------------------------
+-- 만 14세 미만: PASS 본인확인(under14_guardian)이 생년월일, 성별, 학부모 번호의 정본이다
+-- ---------------------------------------------------------------------
+create function pg_temp.mk_iv(p_rid text, p_purpose text default 'under14_guardian', p_status text default 'verified',
+  p_guardian_under14 boolean default false, p_gender text default '1', p_mobile text default '01070000001',
+  p_verified_ago interval default interval '1 minute', p_consumed boolean default false) returns void
+language plpgsql as $$
+begin
+  insert into public.identity_verifications (request_id, purpose, status, is_under14, birth_date, gender, mobile,
+    verified_at, expires_at, consumed_at)
+  values (p_rid, p_purpose, p_status, p_guardian_under14, date '2013-05-06', p_gender, p_mobile,
+    now() - p_verified_ago, now() + interval '1 hour', case when p_consumed then now() end);
+end $$;
+
+-- 14세 미만은 본인 번호가 선택이라 비워 보낸다. 학부모 번호는 PASS 값으로 덮인다.
+create function pg_temp.go14(n int, p_rid text, extra jsonb default '{}') returns jsonb
+language plpgsql as $$
+begin
+  return pg_temp.su(
+    pg_temp.new_user('go' || n || '@example.com'),
+    jsonb_build_object('phone', '', 'username', 'gouser' || n, 'email', 'go' || n || '@example.com', 'number', n,
+      'birth_date', null, 'gender', null, 'identity_request_id', p_rid,
+      'guardian_name', '박보호', 'guardian_phone', '010-0000-0000', 'guardian_relation', '아버지',
+      'guardian_consent', true) || extra);
+end $$;
+
+select pg_temp.mk_iv('rid-70');
+select pg_temp.expect_ok('PASS 본인확인으로 본인 번호 없이 가입된다', $$select pg_temp.go14(70, 'rid-70')$$);
+select pg_temp.expect_text('PASS 값이 생년월일, 성별을 정하고 본인 번호는 비운다',
+  (select birth_date || ':' || gender || ':' || coalesce(phone, '-') from public.profiles where email = 'go70@example.com'),
+  '2013-05-06:남:-');
+select pg_temp.expect_text('학부모 번호는 PASS 번호로 덮이고 SMS 인증 시각은 비운다',
+  (select guardian_phone || ':' || guardian_consent || ':' || (guardian_phone_verified_at is null)
+     from public.profiles where email = 'go70@example.com'), '010-7000-0001:true:true');
+select pg_temp.expect_text('본인확인은 소비되고 새 계정과 이어진다',
+  (select (consumed_at is not null)::text || ':' || (user_id = (select id from public.profiles where email = 'go70@example.com'))::text
+     from public.identity_verifications where request_id = 'rid-70'), 'true:true');
+select pg_temp.expect_msg('같은 본인확인은 한 번만', $$select pg_temp.go14(71, 'rid-70')$$, 'P0001', 'identity_not_verified');
+
+select pg_temp.mk_iv('rid-72', p_gender => '2');
+select pg_temp.go14(72, 'rid-72');
+select pg_temp.expect_text('NICE 성별 짝수는 여', (select gender from public.profiles where email = 'go72@example.com'), '여');
+
+select pg_temp.expect_msg('없는 본인확인', $$select pg_temp.go14(73, 'nope')$$, 'P0001', 'identity_not_verified');
+select pg_temp.mk_iv('rid-74', p_status => 'pending');
+select pg_temp.expect_msg('완료되지 않은 본인확인', $$select pg_temp.go14(74, 'rid-74')$$, 'P0001', 'identity_not_verified');
+select pg_temp.mk_iv('rid-75', p_verified_ago => interval '31 minutes');
+select pg_temp.expect_msg('30분 지난 본인확인', $$select pg_temp.go14(75, 'rid-75')$$, 'P0001', 'identity_not_verified');
+select pg_temp.mk_iv('rid-76', p_purpose => 'signup');
+select pg_temp.expect_msg('목적이 다른 본인확인', $$select pg_temp.go14(76, 'rid-76')$$, 'P0001', 'identity_purpose_mismatch');
+select pg_temp.mk_iv('rid-77', p_guardian_under14 => true);
+select pg_temp.expect_msg('법정대리인이 14세 미만', $$select pg_temp.go14(77, 'rid-77')$$, 'P0001', 'guardian_age');
+select pg_temp.mk_iv('rid-78');
+select pg_temp.expect_msg('법정대리인 동의가 없으면 거부', $$select pg_temp.go14(78, 'rid-78', '{"guardian_consent": false}')$$, 'P0001', 'guardian_consent_required');
+select pg_temp.mk_iv('rid-79', p_mobile => null);
+select pg_temp.expect_msg('학부모 번호가 PASS 에도 입력에도 없으면 거부', $$select pg_temp.go14(79, 'rid-79', '{"guardian_phone": ""}')$$, 'P0001', 'guardian_phone_required');
+select pg_temp.mk_iv('rid-80');
+select pg_temp.expect_msg('본인 번호를 넣었으면 14세 미만도 인증이 필요하다', $$select pg_temp.go14(80, 'rid-80', '{"phone": "010-5080-0001"}')$$, 'P0001', 'phone_not_verified');
+select pg_temp.expect_ok('본인 번호를 인증하면 14세 미만도 본인 번호가 저장된다', $$
+  select pg_temp.verify('010-5081-0001');
+  select pg_temp.mk_iv('rid-81');
+  select pg_temp.go14(81, 'rid-81', '{"phone": "010-5081-0001"}')
+$$);
+select pg_temp.mk_iv('rid-82');
+select pg_temp.expect_msg('14세 미만이 아니면 본인 번호 없이는 가입할 수 없다', $$select pg_temp.go(82, '{"phone": ""}', false)$$, 'P0001', 'phone_required');
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;
