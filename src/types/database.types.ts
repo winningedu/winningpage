@@ -5648,7 +5648,10 @@ export type Database = {
           email: string | null;
           gender: string | null;
           guardian_consent: boolean | null;
+          guardian_name: string | null;
           guardian_phone: string | null;
+          guardian_phone_verified_at: string | null;
+          guardian_relation: string | null;
           id: string;
           is_active: boolean | null;
           landline: string | null;
@@ -5682,7 +5685,10 @@ export type Database = {
           email?: string | null;
           gender?: string | null;
           guardian_consent?: boolean | null;
+          guardian_name?: string | null;
           guardian_phone?: string | null;
+          guardian_phone_verified_at?: string | null;
+          guardian_relation?: string | null;
           id: string;
           is_active?: boolean | null;
           landline?: string | null;
@@ -5715,7 +5721,10 @@ export type Database = {
           email?: string | null;
           gender?: string | null;
           guardian_consent?: boolean | null;
+          guardian_name?: string | null;
           guardian_phone?: string | null;
+          guardian_phone_verified_at?: string | null;
+          guardian_relation?: string | null;
           id?: string;
           is_active?: boolean | null;
           landline?: string | null;
@@ -7215,18 +7224,21 @@ export type Database = {
         Row: {
           attempted_at: string;
           id: number;
-          user_id: string;
+          ip: string | null;
+          user_id: string | null;
         };
         ComputedFields: never;
         Insert: {
           attempted_at?: string;
           id?: number;
-          user_id: string;
+          ip?: string | null;
+          user_id?: string | null;
         };
         Update: {
           attempted_at?: string;
           id?: number;
-          user_id?: string;
+          ip?: string | null;
+          user_id?: string | null;
         };
         Relationships: [];
       };
@@ -9185,6 +9197,14 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      fn_signup_tenant_lookup: {
+        Args: { p_code: string; p_ip: string };
+        Returns: {
+          id: string;
+          name: string;
+          org_type: string;
+        }[];
+      };
       fn_student_parent: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -9194,6 +9214,32 @@ export type Database = {
           parent_name: string;
           parent_profile_id: string;
         }[];
+      };
+      fn_student_signup: {
+        Args: {
+          p_agree_db_transfer: boolean;
+          p_agree_marketing: boolean;
+          p_agree_privacy: boolean;
+          p_agree_service: boolean;
+          p_birth_date: string;
+          p_class_name: string;
+          p_email: string;
+          p_gender: string;
+          p_grade: string;
+          p_group_name: string;
+          p_guardian_consent: boolean;
+          p_guardian_name: string;
+          p_guardian_phone: string;
+          p_guardian_relation: string;
+          p_identity_request_id: string;
+          p_name: string;
+          p_number: number;
+          p_phone: string;
+          p_tenant_id: string;
+          p_user_id: string;
+          p_username: string;
+        };
+        Returns: Json;
       };
       fn_sync_program_access_cache: {
         Args: {
