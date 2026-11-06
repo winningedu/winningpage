@@ -46,3 +46,60 @@ export async function lookupTenant(code: string): Promise<LookupTenantResult> {
 
   return { ok: false, reason: "unknown" };
 }
+
+export interface SchoolSignupBody {
+  username: string;
+  password: string;
+  name: string;
+  email: string;
+  // 14세 미만이 본인 번호 없이 가입하면 빠진다.
+  phone?: string;
+  birthDate: string;
+  gender?: string;
+  // null은 기타 소속.
+  tenantId: string | null;
+  grade: string;
+  groupName?: string;
+  className?: string;
+  number?: number;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianRelation?: string;
+  guardianConsent: boolean;
+  identityRequestId?: string;
+  agreeService: boolean;
+  agreePrivacy: boolean;
+  agreeDbTransfer: boolean;
+  agreeMarketing: boolean;
+}
+
+export type SchoolSignupResult =
+  | {
+      ok: true;
+      session: { access_token: string; refresh_token: string };
+      username: string;
+      linkCode: string;
+      tenantName: string;
+    }
+  | { ok: false; code: string };
+
+export async function submitSchoolSignup(
+  body: SchoolSignupBody,
+): Promise<SchoolSignupResult> {
+  const { response, payload } = await postJson(
+    "/api/signup/school-student",
+    body,
+  );
+
+  if (response?.ok) {
+    return {
+      ok: true,
+      session: payload.session,
+      username: payload.username,
+      linkCode: payload.linkCode,
+      tenantName: payload.tenantName,
+    };
+  }
+
+  return { ok: false, code: payload?.code || "UNKNOWN" };
+}
