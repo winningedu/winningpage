@@ -601,6 +601,24 @@ $$);
 select pg_temp.mk_iv('rid-82');
 select pg_temp.expect_msg('14세 미만이 아니면 본인 번호 없이는 가입할 수 없다', $$select pg_temp.go(82, '{"phone": ""}', false)$$, 'P0001', 'phone_required');
 
+-- ---------------------------------------------------------------------
+-- fn_student_signup 은 service_role 만 실행한다(계정을 만드는 쪽은 서버뿐이다)
+-- ---------------------------------------------------------------------
+grant execute on function pg_temp.su(uuid, jsonb) to anon, authenticated;
+set local role anon;
+select pg_temp.expect_error('anon 은 fn_student_signup 실행 불가', $$select pg_temp.su(gen_random_uuid())$$, '42501');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error('authenticated 는 fn_student_signup 실행 불가', $$select pg_temp.su(gen_random_uuid())$$, '42501');
+reset role;
+select pg_temp.expect_bool('service_role 만 실행 권한이 있다',
+  has_function_privilege('service_role',
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute')
+  and not has_function_privilege('anon',
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute')
+  and not has_function_privilege('authenticated',
+    'public.fn_student_signup(uuid, text, text, text, text, date, text, uuid, text, text, text, smallint, text, text, text, boolean, text, boolean, boolean, boolean, boolean)', 'execute'), true);
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;
