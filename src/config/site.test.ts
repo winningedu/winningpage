@@ -89,7 +89,7 @@ describe("site — schoolmentor", () => {
     expect(site.favicon.svg).toBeUndefined();
   });
 
-  it("company는 필수 필드만 있고 선택 필드(특허·통신판매업·고객센터·연락처)는 전부 없다", async () => {
+  it("company는 필수 필드만 있고 선택 필드(특허·통신판매업·고객센터·연락처, 카카오 채널 주소 제외)는 없다", async () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.company.name).toBe("주식회사 위닝로직");
@@ -105,7 +105,6 @@ describe("site — schoolmentor", () => {
     expect(site.company.tel).toBeUndefined();
     expect(site.company.centerTel).toBeUndefined();
     expect(site.company.kakao).toBeUndefined();
-    expect(site.company.kakaoChannelUrl).toBeUndefined();
     expect(site.company.naverBlogUrl).toBeUndefined();
     expect(site.company.youtubeUrl).toBeUndefined();
     expect(site.company.instagramUrl).toBeUndefined();
@@ -127,6 +126,26 @@ describe("site - 프리미엄 노출 플래그", () => {
   });
 });
 
+describe("site - 콜멘토 노출 플래그", () => {
+  it("winning은 콜멘토를 노출하고 schoolmentor는 닫는다", async () => {
+    expect((await loadSite("winning")).site.features.callmentor).toBe(true);
+    expect((await loadSite("schoolmentor")).site.features.callmentor).toBe(
+      false,
+    );
+  });
+});
+
+describe("site - 서비스 이름 '위닝 ' 접두어 제거 플래그", () => {
+  it("winning은 접두어를 유지하고 schoolmentor는 뺀다", async () => {
+    expect((await loadSite("winning")).site.features.stripWinningPrefix).toBe(
+      false,
+    );
+    expect(
+      (await loadSite("schoolmentor")).site.features.stripWinningPrefix,
+    ).toBe(true);
+  });
+});
+
 describe("site - 배너 빈 상태 안내 플래그", () => {
   it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
     const { site } = await loadSite("winning");
@@ -138,6 +157,20 @@ describe("site - 배너 빈 상태 안내 플래그", () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.features.bannerEmptyNotice).toBe(true);
+  });
+});
+
+describe("site - 서버 로그인 플래그", () => {
+  it("winning은 클라이언트에서 직접 로그인한다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.features.serverLogin).toBe(false);
+  });
+
+  it("schoolmentor는 운영 준비(시크릿 키, 전달 IP 설정, W2 라우트)가 끝나기 전까지 서버 로그인을 끈다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.features.serverLogin).toBe(false);
   });
 });
 
@@ -163,6 +196,18 @@ describe("site - 숨길 프로그램 플래그", () => {
     expect(
       (await loadSite("schoolmentor")).site.features.hiddenPrograms,
     ).toEqual(["growth", "inquiry"]);
+  });
+});
+
+describe("site - 카카오 채널 주소", () => {
+  it("스쿨멘토는 위닝과 같은 카카오 채널 주소를 써서 온라인문의 메뉴가 남는다", async () => {
+    const winning = (await loadSite("winning")).site;
+    const schoolmentor = (await loadSite("schoolmentor")).site;
+
+    expect(winning.company.kakaoChannelUrl).toBeTruthy();
+    expect(schoolmentor.company.kakaoChannelUrl).toBe(
+      winning.company.kakaoChannelUrl,
+    );
   });
 });
 

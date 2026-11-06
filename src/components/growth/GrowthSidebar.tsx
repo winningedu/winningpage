@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 import type {
   GrowthStep,
   GrowthStepKey,
@@ -252,7 +253,7 @@ export default function GrowthSidebar({
 
           <StepGroup
             headingId="growth-steps-heading"
-            title="진행단계"
+            title={siteWording("진행단계")}
             entries={progressEntries}
             onNavigate={() => setOpenMobile(false)}
           />

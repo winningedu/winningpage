@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router";
 import { Navigate } from "react-router";
 import {
+  requireCallmentorAvailableMiddleware,
   requireGrowthAvailableMiddleware,
   requireInquiryAvailableMiddleware,
   requireSelfevalAvailableMiddleware,
@@ -14,7 +15,11 @@ import SelfAssessment from "@/pages/services/SelfAssessment";
 
 // 서비스 랜딩 4종(Figma 예시 1889:6944/1889:6486/1907:20783/1907:21352) + 구 경로 리다이렉트.
 const serviceLandingRoutes: RouteObject[] = [
-  { path: "/services/callmentor", Component: Callmentor },
+  {
+    path: "/services/callmentor",
+    Component: Callmentor,
+    middleware: [requireCallmentorAvailableMiddleware],
+  },
   // 구 경로 — GNB/DB services-content 슬러그가 가리키던 곳. 신규 랜딩으로 리다이렉트
   {
     path: "/page/services-content",

@@ -132,3 +132,37 @@ describe("ServiceCard", () => {
     );
   });
 });
+
+describe("ServiceCard variant", () => {
+  const service: Service = {
+    id: "svc-1",
+    name: "학습진단",
+    link: "/services/learning-diagnosis",
+  };
+
+  test("b2b는 B2B 카드 면과 hover 면 클래스를 쓴다", () => {
+    render(
+      <MemoryRouter>
+        <ServiceCard service={service} variant="b2b" />
+      </MemoryRouter>,
+    );
+    const className = screen.getByRole("link", {
+      name: "학습진단 바로가기",
+    }).className;
+    expect(className).toContain("rounded-b2b-card");
+    expect(className).toContain("shadow-card-b2b");
+    expect(className).toContain("hover:bg-surface-callout");
+    expect(className).toContain("hover:shadow-card-hover");
+    expect(className).not.toContain("rounded-[1.55rem]");
+  });
+
+  test("variant가 없으면 지금 카드 클래스 그대로다", () => {
+    renderCard(service);
+    const className = screen.getByRole("link", {
+      name: "학습진단 바로가기",
+    }).className;
+    expect(className).toContain("rounded-[1.55rem]");
+    expect(className).toContain("hover:bg-surface-03");
+    expect(className).not.toContain("b2b");
+  });
+});

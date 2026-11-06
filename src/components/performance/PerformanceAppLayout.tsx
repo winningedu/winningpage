@@ -4,9 +4,10 @@ import {
   AppShellSidebarProvider,
   AppShellSidebarTrigger,
 } from "@/components/app-shell/AppShellSidebar";
-import Header from "@/components/Header";
+import SiteHeader from "@/components/SiteHeader";
 import RouteLoadingOverlay from "@/components/ui/RouteLoadingOverlay";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { siteWording } from "@/config/wording";
 import {
   PerformanceShellProvider,
   usePerformanceShell,
@@ -99,7 +100,7 @@ function PerformanceShellContent() {
           자기 자신은 레이아웃 흐름의 높이를 차지하지 않는다. 헤더 높이만큼 자리를
           잡는 스페이서·`--header-height` 정의는 `AppShellSidebarProvider`
           (AppShellSidebar.tsx, sidebar-16 공식 블록 구조) 한 곳뿐이다. */}
-      <Header />
+      <SiteHeader />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           {/* 사이드바는 표시 전용이라 prop을 받는다(프로필 이름·학교유형·학년, 진행단계 5스텝
@@ -153,7 +154,7 @@ function PerformanceShellContent() {
                     부르는 피드백 루프로 화면이 떨렸다. */}
                 <div className="shrink-0 pb-6 pt-8 transition-[padding] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:py-4">
                   <h1 className="text-app-title font-semibold tracking-[-0.02rem] text-ink-strong transition-[font-size] duration-200 motion-reduce:transition-none group-data-[condensed=true]/canvas:text-app-section">
-                    위닝 수행평가 서비스
+                    {siteWording("위닝 수행평가 서비스")}
                   </h1>
                 </div>
 

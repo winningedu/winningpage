@@ -1,0 +1,248 @@
+// W13 학생 조회와 이력 탭. 담임은 담당 학급만, 관리자는 전교를 보며(서버가 범위와 이름 가림을 정한다) 관리자만 직접 변경한다.
+
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useSearchParams } from "react-router";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
+import EmptyMessage from "../EmptyMessage";
+import LoadMore from "../LoadMore";
+import NameCell from "../NameCell";
+import Notice from "../Notice";
+import Pagination from "../Pagination";
+import { slotLabel } from "../slotLabel";
+import { useClasses } from "../useClasses";
+import { useConsoleMe } from "../useConsoleMe";
+import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
+import { filterKey, usePageParam } from "../usePageParam";
+import DirectChangeDialog from "./DirectChangeDialog";
+import HistoryDialog from "./HistoryDialog";
+import StudentFilters from "./StudentFilters";
+
+const PAGE_SIZE = 50;
+const FOOTNOTE = "담임은 현재 반만, 관리자는 전교가 보여요";
+
+export interface StudentItem {
+  studentId: string;
+  name: string;
+  grade: string | null;
+  groupName: string | null;
+  history: {
+    schoolYear: number;
+    grade: string | null;
+    groupName: string | null;
+    className: string | null;
+  }[];
+  servicesUsed: number;
+  servicesTotal: number;
+  enrollment: {
+    grade: string | null;
+    groupId: string | null;
+    classId: string | null;
+    className: string | null;
+    number: number | null;
+    version: number;
+  };
+}
+
+const historyLabel = (item: StudentItem) =>
+  item.history
+    .map((h) => `${h.schoolYear} ${slotLabel({ ...h, number: null })}`)
+    .join(" / ");
+
+const groupOf = (item: StudentItem) =>
+  slotLabel({
+    grade: item.grade,
+    groupName: item.groupName,
+    className: null,
+    number: null,
+  });
+
+export default function StudentListTab() {
+  const { me } = useConsoleMe();
+  const mobile = useIsMobile();
+  const [page, setPage] = usePageParam();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = {
+    grade: searchParams.get("grade") ?? "",
+    groupId: searchParams.get("groupId") ?? "",
+    classId: searchParams.get("classId") ?? "",
+    q: searchParams.get("q") ?? "",
+  };
+  const queryClient = useQueryClient();
+  const [opened, setOpened] = useState<StudentItem | null>(null);
+  const [directId, setDirectId] = useState<string | null>(null);
+  const classes = useClasses();
+  const list = usePagedList<StudentItem>(
+    "/api/console/students/history",
+    filters,
+    page,
+    mobile,
+  );
+  const admin = me.kind !== "homeroom";
+  const direct = list.data?.items.find((i) => i.studentId === directId);
+
+  if (list.isError)
+    return <Notice tone="Danger">학생 목록을 불러오지 못했어요</Notice>;
+  if (!list.data || !classes.data) return null;
+  return (
+    <section className="flex flex-col">
+      <StudentFilters
+        key={filterKey(searchParams)}
+        classes={classes.data}
+        initial={filters}
+        onSearch={(values) =>
+          setSearchParams({
+            tab: "students",
+            ...Object.fromEntries(Object.entries(values).filter(([, v]) => v)),
+          })
+        }
+      />
+      <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
+        {`검색 결과 ${list.data.total}명`}
+      </h2>
+      {mobile ? (
+        <div className="flex flex-col">
+          {list.data.items.map((item) => (
+            <div
+              key={item.studentId}
+              className="flex flex-col gap-3 border-b border-line pt-4 pb-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOpened(item)}
+                  className="flex flex-col gap-1 text-left"
+                >
+                  <NameCell name={item.name} />
+                  <span className="text-app-caption text-ink-sub">
+                    {groupOf(item)}
+                  </span>
+                </button>
+                <span className="flex flex-col items-end gap-1">
+                  <span className="text-app-caption text-ink-sub">
+                    이용 서비스 수
+                  </span>
+                  <span className="text-app-label font-semibold text-ink">
+                    {`${item.servicesUsed}/${item.servicesTotal}`}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="shrink-0 text-app-caption text-ink-sub">
+                  학년그룹/반 이력
+                </span>
+                <span className="text-right text-app-label font-semibold text-ink">
+                  {historyLabel(item)}
+                </span>
+              </div>
+              {admin && (
+                <Button
+                  type="button"
+                  onClick={() => setDirectId(item.studentId)}
+                  className="h-11 w-full rounded-lg bg-surface-muted text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                >
+                  직접 변경
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>이름</TableHead>
+              <TableHead>학년그룹</TableHead>
+              <TableHead>학년그룹/반 이력</TableHead>
+              <TableHead>이용 서비스 수</TableHead>
+              {admin && <TableHead />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.data.items.map((item) => (
+              <TableRow
+                key={item.studentId}
+                onClick={() => setOpened(item)}
+                className="cursor-pointer"
+              >
+                <TableCell>
+                  <button type="button" className="text-left">
+                    <NameCell name={item.name} />
+                  </button>
+                </TableCell>
+                <TableCell>{groupOf(item)}</TableCell>
+                <TableCell>{historyLabel(item)}</TableCell>
+                <TableCell>{`${item.servicesUsed}/${item.servicesTotal}`}</TableCell>
+                {admin && (
+                  <TableCell>
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDirectId(item.studentId);
+                      }}
+                      className="h-8 rounded-lg bg-surface-muted px-3 text-app-label font-semibold text-ink-strong hover:bg-surface-muted"
+                    >
+                      직접 변경
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      {list.data.items.length === 0 && (
+        <EmptyMessage body="찾는 학생이 없어요. 이름이나 학년그룹, 반을 바꿔 보세요" />
+      )}
+      <p className="pt-3 text-app-caption text-ink-sub">{FOOTNOTE}</p>
+      {mobile ? (
+        <LoadMore
+          shown={list.data.items.length}
+          total={list.data.total}
+          unit="명"
+          onMore={list.fetchMore}
+        />
+      ) : (
+        list.data.pageCount > 0 && (
+          <Pagination
+            page={list.data.page}
+            pageCount={list.data.pageCount}
+            total={list.data.total}
+            pageSize={PAGE_SIZE}
+            onChange={setPage}
+          />
+        )
+      )}
+      {direct && (
+        <DirectChangeDialog
+          student={direct}
+          onSaved={() => {
+            setDirectId(null);
+            void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
+          }}
+          onConflict={() =>
+            void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY })
+          }
+          onClose={() => setDirectId(null)}
+        />
+      )}
+      {opened && (
+        <HistoryDialog
+          studentId={opened.studentId}
+          listName={opened.name}
+          onClose={() => setOpened(null)}
+        />
+      )}
+    </section>
+  );
+}

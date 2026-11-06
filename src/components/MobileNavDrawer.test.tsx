@@ -228,3 +228,88 @@ describe("MobileNavDrawer — 게스트(비로그인)", () => {
     }
   });
 });
+
+describe("MobileNavDrawer B2B 변형 게스트", () => {
+  it("guestSecondary가 있으면 회원가입 대신 그 링크를 보여준다", () => {
+    renderDrawer({
+      shouldShowLoggedInHeader: false,
+      isLoggedIn: false,
+      guestSecondary: { label: "선생님", href: "/login" },
+    });
+
+    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.getByRole("link", { name: "선생님" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.queryByText("회원가입")).not.toBeInTheDocument();
+  });
+});
+
+describe("MobileNavDrawer B2B 변형 학생", () => {
+  it("hideMenuItems에 든 MY 항목은 빼고, orgName은 학교 칩으로 보여준다", () => {
+    renderDrawer({
+      myMenuRole: "student",
+      hideMenuItems: ["신청 내역"],
+      orgName: "세종고등학교",
+    });
+
+    expect(
+      screen.queryByRole("link", { name: "신청 내역" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "MY페이지" })).toBeInTheDocument();
+    expect(screen.getByText("세종고등학교")).toBeInTheDocument();
+  });
+});
+
+describe("MobileNavDrawer B2B 변형 선생님", () => {
+  it("이름과 기관 칩, 관리 화면 링크, 로그아웃만 보여주고 학생용 MY 항목과 D-day는 없다", () => {
+    const onLogout = vi.fn();
+    renderDrawer({
+      teacher: {
+        name: "박지훈",
+        roleLabel: "담임교사",
+        consoleHref: "/teacher/dashboard",
+      },
+      orgName: "한빛고등학교",
+      onLogout,
+    });
+
+    expect(screen.getAllByText("박지훈").length).toBeGreaterThan(0);
+    expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
+      "href",
+      "/teacher/dashboard",
+    );
+    expect(
+      screen.queryByRole("link", { name: "MY페이지" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("D-100")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
+    expect(onLogout).toHaveBeenCalled();
+  });
+});
+
+describe("MobileNavDrawer B2B 변형 모양", () => {
+  it("variant b2b는 흐림 있는 오버레이와 항상 보이는 닫기 배경을 쓰고, 기본은 그대로다", () => {
+    const { unmount } = renderDrawer({ variant: "b2b" });
+
+    expect(document.querySelector('[data-slot="sheet-overlay"]')).toHaveClass(
+      "bg-overlay",
+      "backdrop-blur-xs",
+    );
+    expect(screen.getByRole("button", { name: "메뉴 닫기" })).toHaveClass(
+      "bg-drawer-close-bg",
+    );
+    unmount();
+
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "메뉴 닫기" })).not.toHaveClass(
+      "bg-drawer-close-bg",
+    );
+  });
+});

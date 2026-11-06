@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "overlayscrollbars/overlayscrollbars.css";
+@import "./styles/home-b2b.css";
 /*
   ---break---
 */
@@ -189,8 +190,45 @@
      이 변경과 무관하게 그대로 둔다. */
   --breakpoint-nav: 80rem;
 
+  /* 스쿨멘토(b2b) 셸 토큰 - src/components/b2b, 위닝은 쓰지 않는다. */
+  --color-b2b-pill-bg: #eaf1ff;
+  --color-b2b-pill-line: #d6e2ff;
+  --color-b2b-pill-ink: #1f2b7b;
+  --color-b2b-account: #0f1f5c;
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-footer-b2b-bg: #0b1745;
+  --color-footer-b2b-link: #e6ecff;
+  --color-footer-b2b-line: #2d375f;
+  --color-footer-b2b-info: #b9c3e3;
+  --color-footer-b2b-copyright: #8f9cc8;
+  --color-drawer-close-bg: #f5f8fb;
+  --color-drawer-on-primary: #f5f5f5;
+  --shadow-panel-strong: 0 1.125rem 2.8125rem rgba(13, 27, 42, 0.15);
+
   --font-grace:
     GraceSerif, "Noto Serif KR", "Nanum Myeongjo", Batang, AppleMyungjo, serif;
+
+  /* 교사 콘솔 공용 토큰(Figma _library-console, 스펙 00-shell-W2-W17-W18 0절). */
+  --color-surface-caution: #fbe8d2;
+  --color-surface-success: #e3f3e6;
+  --color-surface-danger: #ffd9d9;
+  --color-ink-danger: #991e1e;
+  --color-text-caution: #402b00;
+  --color-surface-avatar: #f1f1f1;
+  --color-primary-soft: #1b5da0;
+  --color-level-low: #f2a7a7;
+  --color-level-mid: #ff8a65;
+  --color-level-high: #81c784;
+  --color-service-diagnosis-fg: #1b5da0;
+  --color-service-diagnosis-bg: #e7f2fb;
+  --color-service-goal-fg: #436e55;
+  --color-service-growth-fg: #6f5b8f;
+  --color-service-performance-fg: #895936;
+  --color-service-self-assessment-fg: #8f4c49;
+  --color-service-research-fg: #786631;
+  --text-app-dialog-title: 1.125rem;
+  --text-app-dialog-title--line-height: 1.4;
+  --shadow-popover: 0 0.5rem 1.5rem 0 rgb(13 27 42 / 0.16);
 }
 
 /*

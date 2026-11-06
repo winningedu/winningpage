@@ -37,7 +37,50 @@ type MobileNavDrawerProps = {
   // 현재 경로가 속한 nav 그룹 타이틀 — Header의 activePathTitle(정확 일치 → 첫 세그먼트
   // 2단계 판정)을 그대로 받아 데스크톱 nav와 활성 표시 기준을 일치시킨다.
   activeGroupTitle?: string | null;
+  // 아래 옵션은 스쿨멘토(b2b) 전용이다. 위닝은 넘기지 않아 기존 그대로 그려진다.
+  // 비로그인 하단의 회원가입 자리를 대신하는 링크(선생님 로그인).
+  guestSecondary?: { label: string; href: string } | undefined;
+  // 로그인 하단 MY 목록에서 뺄 항목 라벨(신청 내역 등).
+  hideMenuItems?: string[] | undefined;
+  // 헤드 둘째 줄에 보여 줄 소속 기관 칩.
+  orgName?: string | undefined;
+  // "b2b"는 흐린 배경, 새 그림자, 항상 켜진 닫기 버튼 배경을 쓴다.
+  variant?: "b2b" | undefined;
+  // 선생님 계정이면 D-day와 학생용 MY 목록 대신 이름과 관리 화면 링크를 보여 준다.
+  teacher?:
+    | { name: string; roleLabel: string; consoleHref: string }
+    | undefined;
 };
+
+function LoggedInHead({
+  csatDDay,
+  name,
+  orgName,
+}: {
+  csatDDay?: string | undefined;
+  name: string;
+  orgName?: string | undefined;
+}) {
+  const row = (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      {csatDDay && (
+        <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
+          {csatDDay}
+        </span>
+      )}
+      <span className="text-sm font-medium text-[#1e293b]">{name}</span>
+    </div>
+  );
+  if (!orgName) return row;
+  return (
+    <div className="flex flex-col gap-2">
+      {row}
+      <span className="w-fit rounded-sm bg-surface-muted px-2.5 py-1 text-xs text-ink-strong">
+        {orgName}
+      </span>
+    </div>
+  );
+}
 
 // 헤더 햄버거(전체메뉴) 버튼으로 여는 전체화면 드로어. 모바일 전용이 아니라 데스크톱에서도
 // nav 5개 메뉴와 병행 노출된다(전체메뉴 버튼 클릭 시 뷰포트 무관하게 항상 열린다).
@@ -68,7 +111,18 @@ export default function MobileNavDrawer({
   onLogout,
   triggerRef,
   activeGroupTitle = null,
+  guestSecondary,
+  hideMenuItems = [],
+  orgName,
+  teacher,
+  variant,
 }: MobileNavDrawerProps) {
+  const isB2b = variant === "b2b";
+  const myItems = teacher
+    ? [{ label: "관리 화면", to: teacher.consoleHref }]
+    : buildMyMenu(myMenuRole).filter(
+        (item) => !hideMenuItems.includes(item.label),
+      );
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const { pathname } = useLocation();
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
@@ -96,8 +150,16 @@ export default function MobileNavDrawer({
         showCloseButton={false}
         finalFocus={triggerRef}
         aria-modal="true"
-        overlayClassName="bg-black/40 duration-100"
-        className="z-60 gap-0 rounded-none border-none bg-white p-0 shadow-[-18px_0_45px_rgba(13,27,42,0.14)] outline-none transition-transform duration-300 ease-(--ease-out-quart) motion-reduce:transition-none motion-reduce:duration-0 data-open:translate-x-0 data-closed:translate-x-full data-starting-style:opacity-100 data-ending-style:opacity-100 data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85vw] data-[side=right]:max-w-88 data-[side=right]:border-l-0 data-[side=right]:data-starting-style:translate-x-full data-[side=right]:data-ending-style:translate-x-full data-[side=right]:sm:max-w-88"
+        overlayClassName={
+          isB2b
+            ? "bg-overlay backdrop-blur-xs duration-100"
+            : "bg-black/40 duration-100"
+        }
+        className={`z-60 gap-0 rounded-none border-none bg-white p-0 ${
+          isB2b
+            ? "shadow-panel-strong"
+            : "shadow-[-18px_0_45px_rgba(13,27,42,0.14)]"
+        } outline-none transition-transform duration-300 ease-(--ease-out-quart) motion-reduce:transition-none motion-reduce:duration-0 data-open:translate-x-0 data-closed:translate-x-full data-starting-style:opacity-100 data-ending-style:opacity-100 data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85vw] data-[side=right]:max-w-88 data-[side=right]:border-l-0 data-[side=right]:data-starting-style:translate-x-full data-[side=right]:data-ending-style:translate-x-full data-[side=right]:sm:max-w-88`}
       >
         <SheetHeader className="shrink-0 flex-row items-center justify-between gap-0 space-y-0 border-b border-[#eeeeee] px-6 py-5">
           <SheetTitle className="sr-only">
@@ -107,14 +169,15 @@ export default function MobileNavDrawer({
           </SheetTitle>
 
           {shouldShowLoggedInHeader ? (
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <span className="rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
-                {csatDDay}
-              </span>
-              <span className="text-sm font-medium text-[#1e293b]">
-                {displayName}님{memberLabel ? ` ${memberLabel}` : ""}
-              </span>
-            </div>
+            <LoggedInHead
+              csatDDay={teacher ? undefined : csatDDay}
+              name={
+                teacher
+                  ? teacher.name
+                  : `${displayName}님${memberLabel ? ` ${memberLabel}` : ""}`
+              }
+              orgName={orgName}
+            />
           ) : (
             <span className="text-lg font-semibold text-primary">메뉴</span>
           )}
@@ -125,7 +188,9 @@ export default function MobileNavDrawer({
               <Button
                 variant="ghost"
                 size="icon-lg"
-                className="size-11 shrink-0 rounded-lg text-[#1e293b] hover:bg-[#f5f8fb] hover:text-[#1e293b]"
+                className={`size-11 shrink-0 rounded-lg text-[#1e293b] hover:bg-[#f5f8fb] hover:text-[#1e293b] ${
+                  isB2b ? "bg-drawer-close-bg" : ""
+                }`}
               />
             }
           >
@@ -227,7 +292,7 @@ export default function MobileNavDrawer({
             <>
               {/* 역할별 단일 소스(myMenuItems.buildMyMenu) — 관리자도 별도 버튼 없이
                   이 목록의 "관리자 메뉴" 항목으로 진입한다. */}
-              {buildMyMenu(myMenuRole).map((item) => (
+              {myItems.map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
@@ -272,13 +337,22 @@ export default function MobileNavDrawer({
                 로그인
               </Button>
 
-              {signupEnabled && (
+              {guestSecondary ? (
                 <Button
-                  render={<Link to="/signup" onClick={onClose} />}
-                  className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
+                  render={<Link to={guestSecondary.href} onClick={onClose} />}
+                  className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3.25 text-base font-medium text-drawer-on-primary hover:bg-[#012347]"
                 >
-                  회원가입
+                  {guestSecondary.label}
                 </Button>
+              ) : (
+                signupEnabled && (
+                  <Button
+                    render={<Link to="/signup" onClick={onClose} />}
+                    className="h-auto w-full justify-center rounded-lg border-none bg-primary px-6 py-3 text-base font-medium text-[#f5f5f5] hover:bg-[#012347]"
+                  >
+                    회원가입
+                  </Button>
+                )
               )}
             </div>
           )}

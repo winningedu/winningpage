@@ -1,0 +1,203 @@
+// PUT /api/console/counsel-status 계약 검증(W10 상담 상태, 교 #51, 결정 2). 상태는 절대값으로 정한다.
+
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  callHandler,
+  createFakeAdmin,
+  createKitState,
+  type KitState,
+  matchRows,
+  schoolAdminActor,
+} from "../_lib/console/consoleTestKit.js";
+
+const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
+
+vi.mock("../_lib/supabaseAdmin.js", () => ({
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => createFakeAdmin(kit.state),
+}));
+
+import handler from "./counsel-status.js";
+
+const put = (body: unknown) => callHandler(handler, body, "PUT");
+
+const enrollment = (student_id: string, class_id: string, grade: string) => ({
+  tenant_id: "tenant-1",
+  student_id,
+  school_year: 2026,
+  status: "active",
+  grade,
+  class_id,
+  number: 1,
+});
+
+const setCalls: Record<string, unknown>[] = [];
+let setResult: Record<string, unknown>;
+
+beforeEach(() => {
+  setCalls.length = 0;
+  setResult = {
+    previous_status: "unset",
+    current_status: "scheduled",
+    status_changed_at: "2026-11-05T00:00:00Z",
+  };
+  kit.state = createKitState();
+  kit.state.actor = schoolAdminActor({
+    kind: "homeroom",
+    class_ids: ["c-3"],
+    teacher_id: "teacher-1",
+  });
+  kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
+  kit.state.rows.student_enrollments = (f) =>
+    matchRows(
+      [
+        enrollment("s1", "c-3", "고3"),
+        enrollment("s2", "c-4", "고3"),
+        enrollment("s3", "c-3", "고2"),
+        { ...enrollment("s4", "c-x", "고3"), tenant_id: "tenant-2" },
+      ],
+      f,
+    );
+  const cls = (id: string, grade: string) => ({
+    id,
+    tenant_id: "tenant-1",
+    school_year: 2026,
+    grade,
+    group_id: null,
+    name: id,
+  });
+  kit.state.rows.classes = (f) =>
+    matchRows([cls("c-3", "고3"), cls("c-4", "고3"), cls("c-x", "고3")], f);
+  kit.state.rows.class_groups = () => [];
+  kit.state.rpc.fn_set_counsel_status = (args) => {
+    setCalls.push(args);
+    return { data: [setResult], error: null };
+  };
+});
+
+describe("PUT /api/console/counsel-status", () => {
+  test("a homeroom sets the status of a grade-3 student of own class for the current school year and an audit record is written", async () => {
+    const r = await put({ studentId: "s1", status: "scheduled" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({
+      ok: true,
+      status: "scheduled",
+      changedAt: "2026-11-05T00:00:00Z",
+    });
+    expect(setCalls).toEqual([
+      {
+        p_tenant_id: "tenant-1",
+        p_student_id: "s1",
+        p_school_year: 2026,
+        p_status: "scheduled",
+        p_changed_by: "teacher-1",
+      },
+    ]);
+    expect(kit.state.inserts[0]).toMatchObject({
+      table: "admin_access_logs",
+      row: {
+        action: "update",
+        resource_key: "counselStatus",
+        target_id: "s1",
+        meta: { from: "unset", to: "scheduled" },
+      },
+    });
+  });
+
+  test("the audit from value is the previous value the single database call reports, so a concurrent change is never misrecorded", async () => {
+    setResult = {
+      previous_status: "scheduled",
+      current_status: "needed",
+      status_changed_at: "2026-11-05T00:00:00Z",
+    };
+
+    const r = await put({ studentId: "s1", status: "needed" });
+
+    expect(r.status).toBe(200);
+    expect(kit.state.inserts[0]).toMatchObject({
+      row: { meta: { from: "scheduled", to: "needed" } },
+    });
+  });
+
+  test("sending the same status again keeps the change date and leaves an unchanged audit record", async () => {
+    setResult = {
+      previous_status: "done",
+      current_status: "done",
+      status_changed_at: "2026-11-01T00:00:00Z",
+    };
+
+    const r = await put({ studentId: "s1", status: "done" });
+
+    expect(r.body).toEqual({
+      ok: true,
+      status: "done",
+      changedAt: "2026-11-01T00:00:00Z",
+    });
+    expect(kit.state.inserts).toHaveLength(1);
+    expect(kit.state.inserts[0]).toMatchObject({
+      row: { meta: { from: "done", to: "done", unchanged: true } },
+    });
+  });
+
+  test("setting unset on a student who never had a status reports a null change date", async () => {
+    setResult = {
+      previous_status: "unset",
+      current_status: "unset",
+      status_changed_at: null,
+    };
+
+    const r = await put({ studentId: "s1", status: "unset" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, status: "unset", changedAt: null });
+  });
+
+  test("a student of another class, another tenant, not in grade 3, out of the current year or nobody is 404 and writes nothing", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          enrollment("s1", "c-3", "고3"),
+          enrollment("s2", "c-4", "고3"),
+          enrollment("s3", "c-3", "고2"),
+          { ...enrollment("s4", "c-x", "고3"), tenant_id: "tenant-2" },
+          { ...enrollment("s5", "c-3", "고3"), status: "graduated" },
+        ],
+        f,
+      );
+    for (const studentId of ["s2", "s3", "s4", "s5", "nobody"]) {
+      expect((await put({ studentId, status: "done" })).status).toBe(404);
+    }
+    expect(setCalls).toEqual([]);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("a school admin sets any grade-3 student of the tenant", async () => {
+    kit.state.actor = schoolAdminActor();
+
+    expect((await put({ studentId: "s2", status: "done" })).status).toBe(200);
+  });
+
+  test("an unknown status or a missing student id is 400", async () => {
+    expect((await put({ studentId: "s1", status: "later" })).status).toBe(400);
+    expect((await put({ studentId: "s1" })).status).toBe(400);
+    expect((await put({ status: "done" })).status).toBe(400);
+    expect((await put({ studentId: "", status: "done" })).status).toBe(400);
+  });
+
+  test("a failing audit write or database write fails the request", async () => {
+    kit.state.insertErrors.admin_access_logs = { message: "down" };
+    expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
+
+    kit.state.insertErrors = {};
+    kit.state.rpc.fn_set_counsel_status = () => ({
+      data: null,
+      error: { message: "down" },
+    });
+    expect((await put({ studentId: "s1", status: "done" })).status).toBe(500);
+  });
+
+  test("other methods are refused", async () => {
+    expect((await callHandler(handler, {}, "POST")).status).toBe(405);
+  });
+});

@@ -20,6 +20,7 @@ import {
 } from "@/components/growth/start/startLogic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { siteWording } from "@/config/wording";
 import type { SurveyBootstrap } from "@/lib/growth/api";
 
 // 성장설계 시작 화면. 경로: /app/growth
@@ -34,7 +35,7 @@ export default function StartPage() {
   return (
     <>
       <GoalPageHeader
-        title="위닝 성장설계"
+        title={siteWording("위닝 성장설계")}
         subcopy="내 자료를 확인하고 시작합니다."
       />
       {bootstrap ? (

@@ -2,10 +2,12 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import AcceptanceSection from "@/components/landing/AcceptanceSection";
 import { selectVisibleBanners } from "@/components/landing/bannerVisibility";
+import ColumnNewsSection from "@/components/landing/ColumnNewsSection";
 import HeroSection from "@/components/landing/HeroSection";
 import MentorSection from "@/components/landing/MentorSection";
 import NewsSection from "@/components/landing/NewsSection";
 import ServicesSection from "@/components/landing/ServicesSection";
+import { useHomeColumns } from "@/components/landing/useHomeColumns";
 import { useHomeSectionCopy } from "@/components/landing/useHomeSectionCopy";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,7 +23,6 @@ import { supabase } from "@/lib/supabase";
 // fetch 실패 시 각 섹션은 빈 배열 폴백으로 미렌더 처리 — 픽스처 자동 폴백은 없음.
 // 공지사항 섹션(company_news/notices)은 이 플래그와 무관하게 항상 DB 연동.
 const LANDING_PREVIEW = false;
-const NEWS_SECTION_PREVIEW_COUNT = 5;
 
 type Banner = {
   // banners.id는 실제로 bigint PK지만(uuid가 아니다) HeroSection.MainBanner의
@@ -285,6 +286,9 @@ export default function Home() {
   // 빈 상태 안내는 조회가 끝난 뒤에만 보여준다(로딩 중 깜빡임 방지). 두 영역은 따로 판정한다.
   const [bannersLoaded, setBannersLoaded] = useState(LANDING_PREVIEW);
   const [sideBannersLoaded, setSideBannersLoaded] = useState(LANDING_PREVIEW);
+  // 조회 실패 표시(스쿨멘토 홈 영역별 오류 안내용). 위닝은 예전처럼 빈 배열로 숨긴다.
+  const [bannersFailed, setBannersFailed] = useState(false);
+  const [sideBannersFailed, setSideBannersFailed] = useState(false);
   const banners = useMemo(
     () => selectVisibleBanners(fetchedBanners, todayKstYmd(), matchedTenantIds),
     [fetchedBanners, matchedTenantIds],
@@ -303,7 +307,7 @@ export default function Home() {
   // 멘토 fetch+정규화는 useHomeMentors로 추출됨(프리미엄 랜딩 섹션 9와 공유) — LANDING_PREVIEW일
   // 때는 기존과 동일하게 정적 픽스처를 쓰고, 아니면 훅이 마운트 시 자체 fetch한다(enabled 가드로
   // LANDING_PREVIEW 중에는 fetch 자체를 건너뛰어 기존 동작과 100% 동일).
-  const { mentors: fetchedMentors } = useHomeMentors({
+  const { mentors: fetchedMentors, status: mentorsStatus } = useHomeMentors({
     enabled: !LANDING_PREVIEW,
   });
   const mentors = LANDING_PREVIEW
@@ -311,9 +315,16 @@ export default function Home() {
     : fetchedMentors;
   // 섹션 제목(큰제목/중제목/라벨)은 home_section_copy 행이 정본, 행이 없으면 제목을 렌더하지 않는다.
   const sectionCopy = useHomeSectionCopy();
+  // 칼럼-교육청소식 섹션은 스쿨멘토 전용이라 위닝은 조회하지 않는다.
+  const homeColumns = useHomeColumns({ enabled: site.features.b2bMenu });
   // 공지사항 섹션(회사소식/공지사항)은 실 Supabase DB 연동 완료 — 프리뷰 대상 아님.
   const [companyNews, setCompanyNews] = useState<NewsItem[]>([]);
   const [notices, setNotices] = useState<NewsItem[]>([]);
+  // 목록별 조회 상태. 스쿨멘토 홈만 로딩, 오류를 화면에 보인다(NewsSection statuses).
+  const [newsStatuses, setNewsStatuses] = useState<{
+    company: "loading" | "ready" | "error";
+    notices: "loading" | "ready" | "error";
+  }>({ company: "loading", notices: "loading" });
 
   useEffect(() => {
     if (LANDING_PREVIEW) return undefined;
@@ -334,6 +345,7 @@ export default function Home() {
       if (error) {
         console.error("배너 조회 오류:", error);
         setBanners([]);
+        setBannersFailed(true);
         setBannersLoaded(true);
         return;
       }
@@ -458,6 +470,7 @@ export default function Home() {
       if (sideResult.error) {
         console.error("우측 배너 조회 오류:", sideResult.error);
         setSideBanners([]);
+        setSideBannersFailed(true);
       } else {
         const visible = ((sideResult.data || []) as SideBanner[]).filter(
           (item) => item.image_url || item.mobile_image_url,
@@ -495,7 +508,7 @@ export default function Home() {
           .order("is_pinned", { ascending: false })
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: false })
-          .limit(NEWS_SECTION_PREVIEW_COUNT),
+          .limit(site.news.maxRows),
         supabase
           .from("notices")
           .select("id, title, created_at, is_pinned, sort_order, category")
@@ -503,10 +516,15 @@ export default function Home() {
           .order("is_pinned", { ascending: false })
           .order("sort_order", { ascending: true })
           .order("created_at", { ascending: false })
-          .limit(NEWS_SECTION_PREVIEW_COUNT),
+          .limit(site.news.maxRows),
       ]);
 
       if (!mounted) return;
+
+      setNewsStatuses({
+        company: companyResult.error ? "error" : "ready",
+        notices: noticeResult.error ? "error" : "ready",
+      });
 
       if (companyResult.error) {
         console.error("회사소식 조회 오류:", companyResult.error);
@@ -567,6 +585,12 @@ export default function Home() {
     tenantsLoaded &&
     sideBanners.length === 0;
 
+  // 스쿨멘토 히어로 슬롯 상태. 조회가 끝나기 전에는 loading, 실패하면 error.
+  function slotStatus(loaded: boolean, failed: boolean) {
+    if (!loaded || !tenantsLoaded) return "loading" as const;
+    return failed ? ("error" as const) : ("ready" as const);
+  }
+
   function closePopup(id: string) {
     setPopups((prev) => prev.filter((popup) => popup.id !== id));
   }
@@ -590,15 +614,24 @@ export default function Home() {
       />
 
       <main
+        // 스쿨멘토는 영역별 상태를 화면에 보이므로 본문을 숨기지 않는다(W1).
         className={`min-h-screen bg-white pt-16 text-[#0D1B2A] transition-opacity duration-500 ${
-          heroReady ? "opacity-100" : "opacity-0"
+          heroReady || site.features.b2bMenu ? "opacity-100" : "opacity-0"
         }`}
       >
-        {(banners.length > 0 ||
+        {(site.features.b2bMenu ||
+          banners.length > 0 ||
           sideBanners.length > 0 ||
           showMainEmptyNotice ||
           showSideEmptyNotice) && (
           <HeroSection
+            {...(site.features.b2bMenu
+              ? {
+                  syncedSlides: true,
+                  mainStatus: slotStatus(bannersLoaded, bannersFailed),
+                  sideStatus: slotStatus(sideBannersLoaded, sideBannersFailed),
+                }
+              : {})}
             showMainEmptyNotice={showMainEmptyNotice}
             showSideEmptyNotice={showSideEmptyNotice}
             // HeroSection.MainBanner.button_link/sort_order는 exactOptionalPropertyTypes
@@ -626,19 +659,35 @@ export default function Home() {
           <ServicesSection services={services} {...sectionCopy.services} />
         )}
 
-        {universities.length > 0 && (
+        {!site.features.b2bMenu && universities.length > 0 && (
           <AcceptanceSection
             universities={universities}
             {...sectionCopy.acceptance}
           />
         )}
 
-        {mentors.length > 0 && (
-          <MentorSection mentors={mentors} {...sectionCopy.mentor} />
+        {(mentors.length > 0 ||
+          (site.features.b2bMenu && mentorsStatus === "error")) && (
+          <MentorSection
+            mentors={mentors}
+            status={mentorsStatus === "error" ? "error" : "ready"}
+            {...sectionCopy.mentor}
+          />
         )}
 
         {/* 공지사항 섹션: 실 DB(company_news/notices) 기준 — 0건이어도 항상 렌더, 컬럼별 빈 상태 문구 표시 */}
-        <NewsSection companyNews={companyNews} notices={notices} />
+        <NewsSection
+          companyNews={companyNews}
+          notices={notices}
+          {...(site.features.b2bMenu ? { statuses: newsStatuses } : {})}
+        />
+
+        {site.features.b2bMenu && (
+          <ColumnNewsSection
+            status={homeColumns.status}
+            boxes={homeColumns.boxes}
+          />
+        )}
       </main>
     </>
   );

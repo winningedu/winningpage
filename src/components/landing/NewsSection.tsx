@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import Chip from "@/components/Chip";
 import { site } from "@/config/site";
+import AreaNotice from "./AreaNotice";
 
 /**
  * 뉴스 섹션 (QA 행109, 2026-09-07 시안 Figma node 4885:19030 재구현) — 독립 풀폭 섹션
@@ -36,8 +37,6 @@ type NewsItem = {
   sort_order?: number;
   is_pinned?: boolean | null;
 };
-
-const MAX_ROWS = 5;
 
 // 시안(Figma 1907:14893) 배지 3색 → 공통 Chip 의 tone 토큰 매핑.
 // 색 hex 는 전부 src/components/Chip.jsx 가 소유한다(TONE_STYLES).
@@ -169,17 +168,81 @@ function NewsRow({ item, basePath }: { item: NewsItem; basePath: string }) {
   );
 }
 
+type ListStatus = "loading" | "ready" | "error";
+
 type NewsSectionProps = {
   companyNews?: NewsItem[];
   notices?: NewsItem[];
+  /** 목록별 조회 상태(스쿨멘토 홈). 없으면 위닝처럼 받은 행만 그린다. 있으면 빈, 오류, 로딩 박스를 11rem 높이로 맞춘다. */
+  statuses?: { company: ListStatus; notices: ListStatus };
 };
+
+function NewsRowSkeleton() {
+  return (
+    <li
+      data-testid="news-row-skeleton"
+      className="flex h-6.5 items-center justify-between"
+    >
+      <span className="h-4 w-65 rounded-sm bg-surface-muted" />
+      <span className="h-3 w-[3.8125rem] rounded-sm bg-surface-muted" />
+    </li>
+  );
+}
+
+function NewsList({
+  title,
+  moreLink,
+  items,
+  basePath,
+  empty,
+  status,
+}: {
+  title: string;
+  moreLink: string;
+  items: NewsItem[];
+  basePath: string;
+  empty: string;
+  status: ListStatus | undefined;
+}) {
+  // status가 있으면(스쿨멘토) 상태 박스를 시안 높이 11rem으로 맞춘다.
+  const boxClass = status ? "mt-6 h-16 md:h-44" : "mt-6 h-16 md:h-31.5";
+  return (
+    <div>
+      <ColumnHeader
+        title={title}
+        moreLink={moreLink}
+        moreLabel={`${title} 더보기`}
+      />
+      {status === "loading" ? (
+        <ul className="mt-6 space-y-6">
+          {[0, 1, 2, 3].map((index) => (
+            <NewsRowSkeleton key={index} />
+          ))}
+        </ul>
+      ) : status === "error" ? (
+        <div className={`${boxClass} flex items-center justify-center`}>
+          <AreaNotice message="소식을 불러오지 못했어요. 잠시 뒤 새로고침해 주세요" />
+        </div>
+      ) : items.length > 0 ? (
+        <ul className="mt-6 space-y-6">
+          {items.map((item) => (
+            <NewsRow key={item.id} item={item} basePath={basePath} />
+          ))}
+        </ul>
+      ) : (
+        <EmptyRows message={empty} className={boxClass} />
+      )}
+    </div>
+  );
+}
 
 export default function NewsSection({
   companyNews = [],
   notices = [],
+  statuses,
 }: NewsSectionProps) {
-  const newsRows = companyNews.slice(0, MAX_ROWS);
-  const noticeRows = notices.slice(0, MAX_ROWS);
+  const { maxRows, companyTitle, noticeTitle, companyEmpty, noticeEmpty } =
+    site.news;
 
   return (
     <section
@@ -192,47 +255,22 @@ export default function NewsSection({
         </h2>
 
         <div className="mt-perf-inset grid grid-cols-1 gap-perf-inset md:mt-15.25 md:grid-cols-2 md:gap-16">
-          {/* 좌: 회사소식 */}
-          <div>
-            <ColumnHeader
-              title="회사소식"
-              moreLink="/company-news/list"
-              moreLabel="회사소식 더보기"
-            />
-            {newsRows.length > 0 ? (
-              <ul className="mt-6 space-y-6">
-                {newsRows.map((item) => (
-                  <NewsRow key={item.id} item={item} basePath="/company-news" />
-                ))}
-              </ul>
-            ) : (
-              <EmptyRows
-                message="등록된 회사소식이 없습니다."
-                className="mt-6 h-16 md:h-31.5"
-              />
-            )}
-          </div>
-
-          {/* 우: 공지사항 */}
-          <div>
-            <ColumnHeader
-              title="공지사항"
-              moreLink="/events"
-              moreLabel="공지사항 더보기"
-            />
-            {noticeRows.length > 0 ? (
-              <ul className="mt-6 space-y-6">
-                {noticeRows.map((item) => (
-                  <NewsRow key={item.id} item={item} basePath="/events" />
-                ))}
-              </ul>
-            ) : (
-              <EmptyRows
-                message="등록된 공지사항이 없습니다."
-                className="mt-6 h-16 md:h-31.5"
-              />
-            )}
-          </div>
+          <NewsList
+            title={companyTitle}
+            moreLink="/company-news/list"
+            items={companyNews.slice(0, maxRows)}
+            basePath="/company-news"
+            empty={companyEmpty}
+            status={statuses?.company}
+          />
+          <NewsList
+            title={noticeTitle}
+            moreLink="/events"
+            items={notices.slice(0, maxRows)}
+            basePath="/events"
+            empty={noticeEmpty}
+            status={statuses?.notices}
+          />
         </div>
       </div>
     </section>

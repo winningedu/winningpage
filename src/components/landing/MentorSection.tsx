@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { site } from "@/config/site";
 import { useInfiniteMarquee } from "@/hooks/useInfiniteMarquee";
+import AreaNotice from "./AreaNotice";
 import MentorCard from "./MentorCard";
 import { LANDING_MARQUEE_SPEED } from "./marqueeConfig";
 
@@ -29,6 +31,8 @@ type MentorSectionProps = {
   eyebrow?: string;
   titleMain?: string;
   titleSub?: string;
+  /** 조회 실패면 "error". 카드 줄 자리에 오류 안내를 보여준다(스쿨멘토 홈). 기본은 "ready". */
+  status?: "ready" | "error";
 };
 
 const CALLMENTOR_COPY = {
@@ -45,6 +49,7 @@ export default function MentorSection({
   eyebrow,
   titleMain,
   titleSub,
+  status = "ready",
 }: MentorSectionProps) {
   const isCallMentor = variant === "callmentor";
   const copy = isCallMentor
@@ -62,7 +67,8 @@ export default function MentorSection({
     }),
   });
 
-  if (mentors.length === 0) return null;
+  const isError = status === "error";
+  if (mentors.length === 0 && !isError) return null;
 
   // 2개 이상일 때만 N배 반복 마퀴(기본 3배, 훅이 폭에 맞춰 자동 증가), 1개면 원본만 정적 렌더
   const isMarquee = mentors.length > 1;
@@ -72,7 +78,7 @@ export default function MentorSection({
 
   return (
     <section
-      aria-label="위닝 멘토"
+      aria-label={site.features.b2bMenu ? "선배 합격 노하우" : "위닝 멘토"}
       className={
         isPremium
           ? `mx-auto w-full max-w-[120rem] ${className}`
@@ -118,7 +124,15 @@ export default function MentorSection({
         {/* 컨텐츠 폭 캡 무한 마퀴 스트립 — AcceptanceSection과 동일 구조(스크롤 컨테이너 +
             내부 w-max 리스트)로 공용 landing-marquee-mask를 사용해 콘텐츠 폭 1100px 경계
             기준 좌우 페이드(데스크톱 9rem)를 동일하게 적용한다. */}
-        <div className="mx-auto w-full max-w-[120rem]" {...containerHandlers}>
+        {isError && (
+          <div className="flex h-[16.7125rem] items-center justify-center px-5">
+            <AreaNotice message="선배 카드를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요" />
+          </div>
+        )}
+        <div
+          className={`mx-auto w-full max-w-[120rem] ${isError ? "hidden" : ""}`}
+          {...containerHandlers}
+        >
           <div
             // useInfiniteMarquee의 scrollRef는 여러 엘리먼트 종류에 공용으로 쓰이도록
             // HTMLElement로 넓게 잡혀 있다 — 이 자리는 div이므로 타입만 좁혀 붙인다.

@@ -5,7 +5,16 @@ import { describe, expect, test, vi } from "vitest";
 import NewsSection from "./NewsSection";
 
 vi.mock("@/config/site", () => ({
-  site: { brandName: "스쿨멘토" },
+  site: {
+    brandName: "스쿨멘토",
+    news: {
+      maxRows: 5,
+      companyTitle: "회사소식",
+      noticeTitle: "공지사항",
+      companyEmpty: "등록된 회사소식이 없습니다.",
+      noticeEmpty: "등록된 공지사항이 없습니다.",
+    },
+  },
 }));
 
 // QA 행109(2026-09-07 시안 4885:19030) — 필터 탭 제거, 열당 최대 5행.
@@ -45,7 +54,7 @@ describe("NewsSection", () => {
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  test("각 열은 받은 순서 그대로 최대 5행만 렌더한다", () => {
+  test("각 열은 받은 순서 그대로 최대 5행만 렌더한다(winning 설정)", () => {
     renderSection({
       companyNews: makeItems(7, { prefix: "회사소식" }),
       notices: makeItems(7, { prefix: "공지" }),

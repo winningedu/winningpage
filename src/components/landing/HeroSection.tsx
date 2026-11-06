@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { resolvePromotedSlugLink } from "@/hooks/useNavGroups";
+import AreaNotice from "./AreaNotice";
 
 /** 스와이프 판정 최소 이동 거리 (px) */
 const SWIPE_THRESHOLD = 40;
@@ -203,9 +204,15 @@ type HeroSectionProps = {
   // 조회가 끝난 뒤에만 켜는 책임은 호출부에 있다.
   showMainEmptyNotice?: boolean;
   showSideEmptyNotice?: boolean;
+  // 스쿨멘토(결정 21): 큰, 작은 배너가 같은 순번으로 함께 넘어가고 점은 작은 배너 아래 한 줄만 둔다.
+  // 점 개수와 타이머는 큰 배너가 정하고 작은 배너는 순번을 자기 장수로 나눈 나머지로 돌린다.
+  syncedSlides?: boolean;
+  // 영역별 조회 상태(스쿨멘토). 배너가 0건일 때 loading은 빈 박스, error는 오류 안내를 슬롯에 보인다.
+  mainStatus?: "loading" | "ready" | "error";
+  sideStatus?: "loading" | "ready" | "error";
 };
 
-const EMPTY_BANNER_NOTICE = "배너가 없습니다";
+const EMPTY_BANNER_NOTICE = "배너가 없어요";
 
 /**
  * 히어로 섹션 (명세 3.1)
@@ -225,6 +232,9 @@ export default function HeroSection({
   sideBanners = [],
   showMainEmptyNotice = false,
   showSideEmptyNotice = false,
+  syncedSlides = false,
+  mainStatus = "ready",
+  sideStatus = "ready",
 }: HeroSectionProps) {
   const leftSlides = banners.filter((item) => item.image_url);
   const leftSlideCount = leftSlides.length;
@@ -236,25 +246,69 @@ export default function HeroSection({
   // leftSlides/rightSlides는 매 렌더 새로 .filter()된 배열이라 아래 map 결과도 매번 새
   // 참조가 되지만, useHeroCarousel은 intervals를 ref로만 추적해 자동 전환 타이머를
   // 리셋시키지 않으므로 여기서 별도 메모이제이션은 필요 없다.
+  // syncedSlides: 큰 배너가 순번과 타이머를 쥔다(큰 배너가 없으면 작은 배너가 쥔다). 작은 배너 훅은 꺼 둔다.
+  const sharedSlides = leftSlideCount > 0 ? leftSlides : rightSlides;
   const leftCarousel = useHeroCarousel(
-    leftSlideCount,
-    leftSlides.map((s) => secondsToMs(s.display_seconds)),
+    syncedSlides ? sharedSlides.length : leftSlideCount,
+    (syncedSlides ? sharedSlides : leftSlides).map((s) =>
+      secondsToMs(s.display_seconds),
+    ),
   );
-  const rightCarousel = useHeroCarousel(
-    rightSlideCount,
+  const ownRightCarousel = useHeroCarousel(
+    syncedSlides ? 0 : rightSlideCount,
     rightSlides.map((s) => secondsToMs(s.display_seconds)),
   );
+  const rightCarousel = syncedSlides ? leftCarousel : ownRightCarousel;
+  // 작은 배너 아래 점 줄: 위닝은 작은 배너 장수, 스쿨멘토는 큰 배너와 공유하는 장수.
+  const dotSlides = syncedSlides ? sharedSlides : rightSlides;
+  const dotActiveIndex = syncedSlides
+    ? leftCarousel.activeIndex
+    : ownRightCarousel.activeIndex;
+  const rightActiveIndex = syncedSlides
+    ? rightSlideCount > 0
+      ? leftCarousel.activeIndex % rightSlideCount
+      : 0
+    : ownRightCarousel.activeIndex;
 
-  const showLeftEmpty = leftSlideCount === 0 && showMainEmptyNotice;
-  const showRightEmpty = rightSlideCount === 0 && showSideEmptyNotice;
+  // 슬라이드가 0건인 슬롯의 상태: loading, error는 조회 상태가 정하고 empty는 호출부 스위치가 정한다.
+  function placeholderKind(
+    slideCount: number,
+    status: "loading" | "ready" | "error",
+    showEmpty: boolean,
+  ) {
+    if (slideCount > 0) return null;
+    if (status !== "ready") return status;
+    return showEmpty ? "empty" : null;
+  }
+  const leftPlaceholder = placeholderKind(
+    leftSlideCount,
+    mainStatus,
+    showMainEmptyNotice,
+  );
+  const rightPlaceholder = placeholderKind(
+    rightSlideCount,
+    sideStatus,
+    showSideEmptyNotice,
+  );
 
   if (
     leftSlideCount === 0 &&
     rightSlideCount === 0 &&
-    !showLeftEmpty &&
-    !showRightEmpty
+    !leftPlaceholder &&
+    !rightPlaceholder
   ) {
     return null;
+  }
+
+  function placeholderContent(
+    kind: "loading" | "error" | "empty",
+  ): React.ReactNode {
+    if (kind === "error") {
+      return (
+        <AreaNotice message="배너를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요" />
+      );
+    }
+    return kind === "empty" ? EMPTY_BANNER_NOTICE : null;
   }
 
   return (
@@ -263,13 +317,14 @@ export default function HeroSection({
           좌 73.89%(813.28/1100.6) + 우 24.47%(269.32/1100.6)
           lg 상단 패딩: 헤더 하단→배너 120px→7.5rem. pb는 0 — 다음 섹션 pt에서 갭 처리(섹션 수직 리듬 규칙) */}
       <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-center lg:gap-4.5 lg:pb-0 lg:pt-30">
-        {showLeftEmpty && (
+        {leftPlaceholder && (
           <div className="flex w-full flex-col items-center lg:basis-[73.89%] lg:grow lg:shrink-0">
             <section
               aria-label="메인 배너"
+              aria-busy={leftPlaceholder === "loading" || undefined}
               className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-969/429"
             >
-              {EMPTY_BANNER_NOTICE}
+              {placeholderContent(leftPlaceholder)}
             </section>
           </div>
         )}
@@ -368,7 +423,7 @@ export default function HeroSection({
 
             {/* 페이지네이션 인디케이터 — 카드 바깥 아래, 카드 기준 가로 중앙 (2건 이상일 때만)
                 lg 배너→인디케이터 간격: 시안 35px×0.8347=29.21→1.83rem */}
-            {leftSlideCount > 1 && (
+            {!syncedSlides && leftSlideCount > 1 && (
               <div className="mt-3 flex items-center gap-2.5 hero-reveal-indicator lg:mt-[1.83rem]">
                 {leftSlides.map((banner, index) => (
                   <button
@@ -389,14 +444,25 @@ export default function HeroSection({
           </div>
         )}
 
-        {showRightEmpty && (
+        {rightPlaceholder && (
           <div className="flex w-full max-w-80.25 flex-col items-center md:max-w-104 lg:max-w-none lg:basis-[24.47%] lg:grow lg:shrink-0">
             <section
               aria-label="이벤트 배너"
+              aria-busy={rightPlaceholder === "loading" || undefined}
               className="flex w-full items-center justify-center rounded-[1.64rem] bg-slate-100 text-base font-medium text-slate-500 aspect-321/429"
             >
-              {EMPTY_BANNER_NOTICE}
+              {placeholderContent(rightPlaceholder)}
             </section>
+            {syncedSlides && (
+              <div
+                data-testid="hero-dots-placeholder"
+                aria-hidden="true"
+                className="mt-3 flex items-center gap-2.5 opacity-0 lg:mt-[1.83rem]"
+              >
+                <span className="h-3 w-3 rounded-full bg-primary" />
+                <span className="h-3 w-3 rounded-full bg-[#D9D9D9]" />
+              </div>
+            )}
           </div>
         )}
 
@@ -422,7 +488,7 @@ export default function HeroSection({
               <div
                 className="flex h-full transition-transform duration-500 ease-out motion-reduce:transition-none"
                 style={{
-                  transform: `translateX(-${rightCarousel.activeIndex * 100}%)`,
+                  transform: `translateX(-${rightActiveIndex * 100}%)`,
                 }}
               >
                 {rightSlides.map((slide, index) => {
@@ -449,7 +515,7 @@ export default function HeroSection({
                     <div
                       key={slide.id ?? index}
                       className="h-full w-full flex-none"
-                      aria-hidden={index !== rightCarousel.activeIndex}
+                      aria-hidden={index !== rightActiveIndex}
                     >
                       {slide.link_url ? (
                         <a
@@ -460,9 +526,7 @@ export default function HeroSection({
                               ? "noopener noreferrer"
                               : undefined
                           }
-                          tabIndex={
-                            index === rightCarousel.activeIndex ? 0 : -1
-                          }
+                          tabIndex={index === rightActiveIndex ? 0 : -1}
                           draggable="false"
                           onClick={rightCarousel.handleSlideClick}
                           className="block h-full w-full"
@@ -481,19 +545,17 @@ export default function HeroSection({
 
             {/* 페이지네이션 인디케이터 — 카드 바깥 아래, 카드 기준 가로 중앙 (2건 이상일 때만)
                 lg 배너→인디케이터 간격: 시안 35px×0.8347=29.21→1.83rem */}
-            {rightSlideCount > 1 && (
+            {dotSlides.length > 1 && (
               <div className="mt-3 flex items-center gap-2.5 hero-reveal-indicator lg:mt-[1.83rem]">
-                {rightSlides.map((slide, index) => (
+                {dotSlides.map((slide, index) => (
                   <button
                     key={slide.id ?? index}
                     type="button"
                     aria-label={`${index + 1}번째 배너로 이동`}
-                    aria-current={index === rightCarousel.activeIndex}
+                    aria-current={index === dotActiveIndex}
                     onClick={() => rightCarousel.goTo(index)}
                     className={`relative h-3 w-3 rounded-full transition-colors duration-300 after:absolute after:-inset-4 after:content-[''] ${
-                      index === rightCarousel.activeIndex
-                        ? "bg-primary"
-                        : "bg-[#D9D9D9]"
+                      index === dotActiveIndex ? "bg-primary" : "bg-[#D9D9D9]"
                     }`}
                   />
                 ))}

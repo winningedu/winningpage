@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   AuthLayout,
   AuthTitle,
@@ -7,6 +7,7 @@ import {
   TextField,
   TextLinkButton,
 } from "@/components/auth";
+import { site } from "@/config/site";
 import { useRedirectIfAuthenticated } from "@/hooks/useRedirectIfAuthenticated";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { supabase } from "@/lib/supabase";
@@ -33,14 +34,82 @@ function safeRedirect(value: string | null) {
 
 const LOGIN_TIMEOUT_MS = 12000;
 
+// W2(첫 비밀번호 설정) 화면 경로. 설계 문서가 경로를 정하지 않아 여기서 정한다.
+const FIRST_PASSWORD_PATH = "/teacher/first-password";
+
+// 아이디 저장(스쿨멘토). 아이디만 저장하고 비밀번호나 토큰은 저장하지 않는다.
+// 저장소가 막힌 환경(사생활 보호 모드 등)에서도 로그인은 되어야 하므로 모두 try/catch 한다.
+const SAVED_LOGIN_ID_KEY = "schoolmentor.savedLoginId";
+
+function readSavedLoginId(): string {
+  try {
+    return localStorage.getItem(SAVED_LOGIN_ID_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeSavedLoginId(identifier: string | null) {
+  try {
+    if (identifier === null) localStorage.removeItem(SAVED_LOGIN_ID_KEY);
+    else localStorage.setItem(SAVED_LOGIN_ID_KEY, identifier);
+  } catch {
+    // 저장 실패는 로그인 결과에 영향을 주지 않는다.
+  }
+}
+
+const SERVER_LOGIN_FALLBACK_MESSAGE = "잠시 후 다시 시도해 주세요.";
+
+// 스쿨멘토 서버 로그인(POST /api/auth/login) 응답. 실패 문구는 서버가 정한 그대로 보여 준다.
+type ServerLoginResult =
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string;
+      mustChangePassword: boolean;
+    }
+  | { ok: false; message: string };
+
+async function postServerLogin(
+  identifier: string,
+  password: string,
+): Promise<ServerLoginResult> {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok || !body?.session) {
+    return {
+      ok: false,
+      message: body?.error?.message || SERVER_LOGIN_FALLBACK_MESSAGE,
+    };
+  }
+
+  return {
+    ok: true,
+    accessToken: body.session.access_token,
+    refreshToken: body.session.refresh_token,
+    mustChangePassword: body.mustChangePassword === true,
+  };
+}
+
 export default function Login() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const redirectTo = safeRedirect(params.get("redirect"));
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
   // 회원가입 안내 문단을 숨긴다(Header.tsx와 동일 원칙).
   const signupEnabled = useSignupEnabled();
 
-  const [email, setEmail] = useState("");
+  // 서버 로그인 사이트에서만 저장된 아이디를 읽는다(위닝은 이 값을 건드리지 않는다).
+  const [savedLoginId] = useState(() =>
+    site.features.serverLogin ? readSavedLoginId() : "",
+  );
+  const [email, setEmail] = useState(savedLoginId);
+  const [rememberId, setRememberId] = useState(savedLoginId !== "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -70,6 +139,43 @@ export default function Login() {
     setMessage("");
 
     try {
+      if (site.features.serverLogin) {
+        const result = await Promise.race([
+          postServerLogin(email, password),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(
+              () => reject(new Error("login_timeout")),
+              LOGIN_TIMEOUT_MS,
+            );
+          }),
+        ]);
+
+        if (!result.ok) {
+          setMessage(result.message);
+          setLoading(false);
+          return;
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: result.accessToken,
+          refresh_token: result.refreshToken,
+        });
+        if (sessionError) {
+          setMessage(SERVER_LOGIN_FALLBACK_MESSAGE);
+          setLoading(false);
+          return;
+        }
+
+        writeSavedLoginId(rememberId ? email.trim() : null);
+        setLoading(false);
+        if (result.mustChangePassword) {
+          navigate(FIRST_PASSWORD_PATH, { replace: true });
+          return;
+        }
+        window.location.replace(redirectTo);
+        return;
+      }
+
       const normalizedEmail = email.trim().toLowerCase();
 
       const loginPromise = supabase.auth.signInWithPassword({
@@ -162,12 +268,16 @@ export default function Login() {
       >
         <TextField
           id="login-email"
-          name="email"
-          type="email"
+          name={site.features.serverLogin ? "username" : "email"}
+          type={site.features.serverLogin ? "text" : "email"}
           value={email}
           onChange={setEmail}
-          placeholder="이메일을 입력해 주세요."
-          autoComplete="email"
+          placeholder={
+            site.features.serverLogin
+              ? "아이디를 입력해 주세요."
+              : "이메일을 입력해 주세요."
+          }
+          autoComplete={site.features.serverLogin ? "username" : "email"}
           required
         />
 
@@ -185,6 +295,17 @@ export default function Login() {
           helperText={message}
           status={message ? "error" : "default"}
         />
+
+        {site.features.serverLogin && (
+          <label className="flex items-center gap-2 text-sm font-medium text-ink">
+            <input
+              type="checkbox"
+              checked={rememberId}
+              onChange={(e) => setRememberId(e.target.checked)}
+            />
+            아이디 저장
+          </label>
+        )}
 
         {/* 버튼 라벨 시안 실측: 390 16px w700 lh20 / 1920 20px w700 lh20.
             PrimaryButton 기본값은 16px w600(회원가입 플로우 공용)이라 로그인에서만

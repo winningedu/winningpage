@@ -88,37 +88,55 @@ export type Database = {
       admin_access_logs: {
         Row: {
           action: string;
-          actor_email: string;
+          actor_email: string | null;
+          actor_kind: string | null;
+          actor_login_id: string | null;
           created_at: string;
           id: string;
+          meta: NonNullable<Json>;
           profile_id: string | null;
-          reason: string;
+          proxy_session_id: string | null;
+          reason: string | null;
           resource_key: string;
           row_count: number | null;
           target_id: string | null;
+          teacher_id: string | null;
+          tenant_id: string | null;
         };
         ComputedFields: never;
         Insert: {
           action: string;
-          actor_email: string;
+          actor_email?: string | null;
+          actor_kind?: string | null;
+          actor_login_id?: string | null;
           created_at?: string;
           id?: string;
+          meta?: NonNullable<Json>;
           profile_id?: string | null;
-          reason: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
           resource_key: string;
           row_count?: number | null;
           target_id?: string | null;
+          teacher_id?: string | null;
+          tenant_id?: string | null;
         };
         Update: {
           action?: string;
-          actor_email?: string;
+          actor_email?: string | null;
+          actor_kind?: string | null;
+          actor_login_id?: string | null;
           created_at?: string;
           id?: string;
+          meta?: NonNullable<Json>;
           profile_id?: string | null;
-          reason?: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
           resource_key?: string;
           row_count?: number | null;
           target_id?: string | null;
+          teacher_id?: string | null;
+          tenant_id?: string | null;
         };
         Relationships: [
           {
@@ -126,6 +144,27 @@ export type Database = {
             columns: ["profile_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_access_logs_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_access_logs_teacher_id_fkey";
+            columns: ["teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_access_logs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];
@@ -1300,6 +1339,88 @@ export type Database = {
           },
         ];
       };
+      class_groups: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          name: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          name: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          name?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "class_groups_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      classes: {
+        Row: {
+          capacity: number | null;
+          created_at: string;
+          grade: string;
+          group_id: string | null;
+          id: string;
+          name: string;
+          school_year: number;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          capacity?: number | null;
+          created_at?: string;
+          grade: string;
+          group_id?: string | null;
+          id?: string;
+          name: string;
+          school_year: number;
+          tenant_id: string;
+        };
+        Update: {
+          capacity?: number | null;
+          created_at?: string;
+          grade?: string;
+          group_id?: string | null;
+          id?: string;
+          name?: string;
+          school_year?: number;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "classes_group_id_tenant_id_fkey";
+            columns: ["group_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "class_groups";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "classes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       column_categories: {
         Row: {
           created_at: string;
@@ -1379,6 +1500,56 @@ export type Database = {
           view_count?: number;
         };
         Relationships: [];
+      };
+      counsel_statuses: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "counsel_statuses_changed_by_fkey";
+            columns: ["changed_by"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       coupon_grants: {
         Row: {
@@ -1707,6 +1878,122 @@ export type Database = {
           },
         ];
       };
+      enrollment_changes: {
+        Row: {
+          base_version: number | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decided_teacher_id: string | null;
+          from_class_id: string | null;
+          from_grade: string | null;
+          from_number: number | null;
+          id: string;
+          kind: string;
+          proxy_session_id: string | null;
+          reason: string | null;
+          reject_reason: string | null;
+          requested_by: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          to_class_id: string | null;
+          to_grade: string | null;
+          to_number: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          base_version?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decided_teacher_id?: string | null;
+          from_class_id?: string | null;
+          from_grade?: string | null;
+          from_number?: number | null;
+          id?: string;
+          kind: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
+          reject_reason?: string | null;
+          requested_by?: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          to_class_id?: string | null;
+          to_grade?: string | null;
+          to_number?: number | null;
+        };
+        Update: {
+          base_version?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decided_teacher_id?: string | null;
+          from_class_id?: string | null;
+          from_grade?: string | null;
+          from_number?: number | null;
+          id?: string;
+          kind?: string;
+          proxy_session_id?: string | null;
+          reason?: string | null;
+          reject_reason?: string | null;
+          requested_by?: string | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+          to_class_id?: string | null;
+          to_grade?: string | null;
+          to_number?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_changes_decided_teacher_id_fkey";
+            columns: ["decided_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_from_class_id_fkey";
+            columns: ["from_class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "enrollment_changes_to_class_id_fkey";
+            columns: ["to_class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       enrollments: {
         Row: {
           application_status: string | null;
@@ -1845,6 +2132,7 @@ export type Database = {
           sort_order: number | null;
           title: string;
           updated_at: string | null;
+          video_duration_seconds: number | null;
           view_count: number;
         };
         ComputedFields: never;
@@ -1863,6 +2151,7 @@ export type Database = {
           sort_order?: number | null;
           title?: string;
           updated_at?: string | null;
+          video_duration_seconds?: number | null;
           view_count?: number;
         };
         Update: {
@@ -1880,6 +2169,7 @@ export type Database = {
           sort_order?: number | null;
           title?: string;
           updated_at?: string | null;
+          video_duration_seconds?: number | null;
           view_count?: number;
         };
         Relationships: [];
@@ -2987,6 +3277,7 @@ export type Database = {
         Row: {
           badge: string | null;
           card_width: number | null;
+          consent_confirmed: boolean;
           created_at: string;
           description: string | null;
           id: string;
@@ -3005,6 +3296,7 @@ export type Database = {
         Insert: {
           badge?: string | null;
           card_width?: number | null;
+          consent_confirmed?: boolean;
           created_at?: string;
           description?: string | null;
           id?: string;
@@ -3022,6 +3314,7 @@ export type Database = {
         Update: {
           badge?: string | null;
           card_width?: number | null;
+          consent_confirmed?: boolean;
           created_at?: string;
           description?: string | null;
           id?: string;
@@ -3922,6 +4215,28 @@ export type Database = {
           found?: boolean;
           id?: string;
           request_ip?: unknown;
+        };
+        Relationships: [];
+      };
+      login_attempts: {
+        Row: {
+          failed_count: number;
+          identifier_hash: string;
+          locked_until: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          failed_count?: number;
+          identifier_hash: string;
+          locked_until?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          failed_count?: number;
+          identifier_hash?: string;
+          locked_until?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -5700,6 +6015,55 @@ export type Database = {
         };
         Relationships: [];
       };
+      proxy_sessions: {
+        Row: {
+          admin_profile_id: string;
+          end_reason: string | null;
+          ended_at: string | null;
+          expires_at: string;
+          id: string;
+          reason: string;
+          started_at: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_profile_id: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          expires_at: string;
+          id?: string;
+          reason: string;
+          started_at?: string;
+          tenant_id: string;
+        };
+        Update: {
+          admin_profile_id?: string;
+          end_reason?: string | null;
+          ended_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          reason?: string;
+          started_at?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "proxy_sessions_admin_profile_id_fkey";
+            columns: ["admin_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "proxy_sessions_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       refund_requests: {
         Row: {
           admin_memo: string | null;
@@ -6333,6 +6697,118 @@ export type Database = {
         };
         Relationships: [];
       };
+      student_enrollments: {
+        Row: {
+          class_id: string | null;
+          grade: string | null;
+          graduated_at: string | null;
+          id: string;
+          number: number | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_id?: string | null;
+          grade?: string | null;
+          graduated_at?: string | null;
+          id?: string;
+          number?: number | null;
+          school_year: number;
+          status?: string;
+          student_id: string;
+          tenant_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Update: {
+          class_id?: string | null;
+          grade?: string | null;
+          graduated_at?: string | null;
+          id?: string;
+          number?: number | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_enrollments_class_id_tenant_id_school_year_grade_fkey";
+            columns: ["class_id", "tenant_id", "school_year", "grade"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id", "tenant_id", "school_year", "grade"];
+          },
+          {
+            foreignKeyName: "student_enrollments_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_enrollments_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      student_flags: {
+        Row: {
+          created_at: string;
+          flagged_teacher_id: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_flags_flagged_teacher_id_fkey";
+            columns: ["flagged_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       student_link_codes: {
         Row: {
           code: string;
@@ -6422,6 +6898,319 @@ export type Database = {
           },
         ];
       };
+      student_usage_overrides: {
+        Row: {
+          monthly_limit: number | null;
+          profile_id: string;
+          program_key: string;
+          term_limit: number | null;
+          updated_at: string;
+          updated_by: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          monthly_limit?: number | null;
+          profile_id: string;
+          program_key: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          monthly_limit?: number | null;
+          profile_id?: string;
+          program_key?: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_usage_overrides_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      teacher_class_assignments: {
+        Row: {
+          class_id: string;
+          created_at: string;
+          created_by: string | null;
+          is_primary: boolean;
+          teacher_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          is_primary?: boolean;
+          teacher_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          class_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          is_primary?: boolean;
+          teacher_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_class_assignments_class_id_tenant_id_fkey";
+            columns: ["class_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "teacher_class_assignments_teacher_id_tenant_id_fkey";
+            columns: ["teacher_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id", "tenant_id"];
+          },
+        ];
+      };
+      teacher_import_runs: {
+        Row: {
+          account_count: number;
+          actor_profile_id: string | null;
+          chunk_index: number;
+          claimed_at: string;
+          created_at: string;
+          created_count: number;
+          error_count: number;
+          finished_at: string | null;
+          id: string;
+          payload_hash: string;
+          proxy_session_id: string | null;
+          request_id: string;
+          row_results: NonNullable<Json>;
+          tenant_id: string;
+          total_rows: number;
+          updated_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_count?: number;
+          actor_profile_id?: string | null;
+          chunk_index: number;
+          claimed_at?: string;
+          created_at?: string;
+          created_count?: number;
+          error_count?: number;
+          finished_at?: string | null;
+          id?: string;
+          payload_hash: string;
+          proxy_session_id?: string | null;
+          request_id: string;
+          row_results?: NonNullable<Json>;
+          tenant_id: string;
+          total_rows?: number;
+          updated_count?: number;
+        };
+        Update: {
+          account_count?: number;
+          actor_profile_id?: string | null;
+          chunk_index?: number;
+          claimed_at?: string;
+          created_at?: string;
+          created_count?: number;
+          error_count?: number;
+          finished_at?: string | null;
+          id?: string;
+          payload_hash?: string;
+          proxy_session_id?: string | null;
+          request_id?: string;
+          row_results?: NonNullable<Json>;
+          tenant_id?: string;
+          total_rows?: number;
+          updated_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_import_runs_actor_profile_id_fkey";
+            columns: ["actor_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_import_runs_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_import_runs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      teacher_memos: {
+        Row: {
+          author_teacher_id: string | null;
+          body: string;
+          created_at: string;
+          hidden_at: string | null;
+          id: string;
+          proxy_session_id: string | null;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_teacher_id?: string | null;
+          body: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          author_teacher_id?: string | null;
+          body?: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_memos_author_teacher_id_fkey";
+            columns: ["author_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      teachers: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          email: string | null;
+          id: string;
+          issue_claimed_at: string | null;
+          landline: string | null;
+          login_id: string | null;
+          must_change_password: boolean;
+          name: string;
+          password_set_at: string | null;
+          phone: string;
+          position: string | null;
+          profile_id: string | null;
+          role: string;
+          status: string;
+          temp_password_hash: string | null;
+          temp_password_issued_at: string | null;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          email?: string | null;
+          id?: string;
+          issue_claimed_at?: string | null;
+          landline?: string | null;
+          login_id?: string | null;
+          must_change_password?: boolean;
+          name: string;
+          password_set_at?: string | null;
+          phone: string;
+          position?: string | null;
+          profile_id?: string | null;
+          role: string;
+          status?: string;
+          temp_password_hash?: string | null;
+          temp_password_issued_at?: string | null;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          email?: string | null;
+          id?: string;
+          issue_claimed_at?: string | null;
+          landline?: string | null;
+          login_id?: string | null;
+          must_change_password?: boolean;
+          name?: string;
+          password_set_at?: string | null;
+          phone?: string;
+          position?: string | null;
+          profile_id?: string | null;
+          role?: string;
+          status?: string;
+          temp_password_hash?: string | null;
+          temp_password_issued_at?: string | null;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teachers_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teachers_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_code_attempts: {
         Row: {
           attempted_at: string;
@@ -6441,38 +7230,177 @@ export type Database = {
         };
         Relationships: [];
       };
+      tenant_service_settings: {
+        Row: {
+          enabled: boolean;
+          ends_on: string | null;
+          monthly_limit: number | null;
+          program_key: string;
+          starts_on: string | null;
+          tenant_id: string;
+          term_limit: number | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          enabled?: boolean;
+          ends_on?: string | null;
+          monthly_limit?: number | null;
+          program_key: string;
+          starts_on?: string | null;
+          tenant_id: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          enabled?: boolean;
+          ends_on?: string | null;
+          monthly_limit?: number | null;
+          program_key?: string;
+          starts_on?: string | null;
+          tenant_id?: string;
+          term_limit?: number | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_service_settings_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tenant_usage_events: {
+        Row: {
+          id: string;
+          profile_id: string;
+          program_key: string;
+          source_id: string;
+          source_kind: string;
+          tenant_id: string;
+          used_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: string;
+          profile_id: string;
+          program_key: string;
+          source_id: string;
+          source_kind: string;
+          tenant_id: string;
+          used_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          program_key?: string;
+          source_id?: string;
+          source_kind?: string;
+          tenant_id?: string;
+          used_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_usage_events_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tenant_usage_events_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenants: {
         Row: {
+          address: string | null;
           code: string;
+          contact_email: string | null;
+          contact_mobile: string | null;
+          contact_name: string | null;
+          contact_phone: string | null;
+          contract_end_date: string | null;
+          contract_start_date: string | null;
           created_at: string;
           created_by: string | null;
+          grace_ends_on: string | null;
+          homepage: string | null;
           id: string;
+          info_confirmed_at: string | null;
+          is_catch_all: boolean;
+          main_phone: string | null;
+          mou_status: string | null;
           name: string;
           org_type: string;
           region: string;
+          school_year: number;
+          special_exec_rate_pct: number | null;
+          term_months: number | null;
           tier: string;
           updated_at: string;
         };
         ComputedFields: never;
         Insert: {
+          address?: string | null;
           code: string;
+          contact_email?: string | null;
+          contact_mobile?: string | null;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          contract_end_date?: string | null;
+          contract_start_date?: string | null;
           created_at?: string;
           created_by?: string | null;
+          grace_ends_on?: string | null;
+          homepage?: string | null;
           id?: string;
+          info_confirmed_at?: string | null;
+          is_catch_all?: boolean;
+          main_phone?: string | null;
+          mou_status?: string | null;
           name: string;
           org_type: string;
           region: string;
+          school_year?: number;
+          special_exec_rate_pct?: number | null;
+          term_months?: number | null;
           tier: string;
           updated_at?: string;
         };
         Update: {
+          address?: string | null;
           code?: string;
+          contact_email?: string | null;
+          contact_mobile?: string | null;
+          contact_name?: string | null;
+          contact_phone?: string | null;
+          contract_end_date?: string | null;
+          contract_start_date?: string | null;
           created_at?: string;
           created_by?: string | null;
+          grace_ends_on?: string | null;
+          homepage?: string | null;
           id?: string;
+          info_confirmed_at?: string | null;
+          is_catch_all?: boolean;
+          main_phone?: string | null;
+          mou_status?: string | null;
           name?: string;
           org_type?: string;
           region?: string;
+          school_year?: number;
+          special_exec_rate_pct?: number | null;
+          term_months?: number | null;
           tier?: string;
           updated_at?: string;
         };
@@ -6849,14 +7777,18 @@ export type Database = {
       admin_access_log_entries: {
         Row: {
           action: string;
-          actor_email: string;
+          actor_email: string | null;
+          actor_kind: string | null;
+          actor_login_id: string | null;
           actor_name: string | null;
           created_at: string;
           id: string;
-          reason: string;
+          is_proxy: boolean | null;
+          reason: string | null;
           resource_key: string;
           row_count: number | null;
           target_id: string | null;
+          tenant_code: string | null;
         };
         ComputedFields: never;
         Relationships: [];
@@ -7402,6 +8334,41 @@ export type Database = {
           thoughts_tokens: number;
         }[];
       };
+      fn_anonymize_expired_b2b_members: {
+        Args: {
+          p_actor_email?: string;
+          p_actor_profile?: string;
+          p_tenant?: string;
+        };
+        Returns: {
+          grace_end: string;
+          members_anonymized: number;
+          members_protected: number;
+          not_yet: boolean;
+          tenants_processed: number;
+        }[];
+      };
+      fn_assignment_set: {
+        Args: {
+          p_add: Json;
+          p_primary: string;
+          p_remove_class_ids: string[];
+          p_teacher_id: string;
+          p_tenant: string;
+        };
+        Returns: undefined;
+      };
+      fn_auth_user_id_by_email: { Args: { p_email: string }; Returns: string };
+      fn_class_ensure: {
+        Args: {
+          p_grade: string;
+          p_group_id: string;
+          p_raw_name: string;
+          p_school_year: number;
+          p_tenant_id: string;
+        };
+        Returns: string;
+      };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
         Returns: {
@@ -7445,6 +8412,26 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      fn_console_actor: {
+        Args: { p_profile_id: string };
+        Returns: {
+          class_ids: string[];
+          kind: string;
+          must_change_password: boolean;
+          proxy_session_id: string;
+          teacher_id: string;
+          tenant_id: string;
+        }[];
+      };
+      fn_consume_tenant_usage: {
+        Args: {
+          p_profile: string;
+          p_program_key: string;
+          p_source_id: string;
+          p_source_kind: string;
+        };
+        Returns: string;
       };
       fn_coupon_by_code:
         | {
@@ -7535,13 +8522,29 @@ export type Database = {
           p_tier: string;
         };
         Returns: {
+          address: string | null;
           code: string;
+          contact_email: string | null;
+          contact_mobile: string | null;
+          contact_name: string | null;
+          contact_phone: string | null;
+          contract_end_date: string | null;
+          contract_start_date: string | null;
           created_at: string;
           created_by: string | null;
+          grace_ends_on: string | null;
+          homepage: string | null;
           id: string;
+          info_confirmed_at: string | null;
+          is_catch_all: boolean;
+          main_phone: string | null;
+          mou_status: string | null;
           name: string;
           org_type: string;
           region: string;
+          school_year: number;
+          special_exec_rate_pct: number | null;
+          term_months: number | null;
           tier: string;
           updated_at: string;
         };
@@ -7552,7 +8555,50 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      fn_decide_enrollment_change: {
+        Args: {
+          p_actor: string;
+          p_approve: boolean;
+          p_change_id: string;
+          p_reject_reason: string;
+        };
+        Returns: string;
+      };
       fn_delete_account: { Args: { p_user_id: string }; Returns: string };
+      fn_enrollment_join: {
+        Args: {
+          p_class_name: string;
+          p_grade: string;
+          p_group_name: string;
+          p_number: number;
+          p_student: string;
+          p_tenant: string;
+        };
+        Returns: {
+          class_id: string;
+          enrollment_id: string;
+          version: number;
+        }[];
+      };
+      fn_enrollment_update: {
+        Args: {
+          p_actor: string;
+          p_allowed_class_ids?: string[];
+          p_apply_year: number;
+          p_expected_version: number;
+          p_kind: string;
+          p_reason: string;
+          p_student: string;
+          p_tenant: string;
+          p_to_class_id: string;
+          p_to_grade: string;
+          p_to_number: number;
+        };
+        Returns: {
+          enrollment_id: string;
+          version: number;
+        }[];
+      };
       fn_finalize_paid_order: {
         Args: {
           p_confirm_amount?: number;
@@ -7566,6 +8612,10 @@ export type Database = {
           p_status: string;
         };
         Returns: Json;
+      };
+      fn_generate_teacher_login_id: {
+        Args: { p_tenant_id: string };
+        Returns: string;
       };
       fn_generate_tenant_code: {
         Args: Record<PropertyKey, never>;
@@ -7606,6 +8656,10 @@ export type Database = {
       fn_grant_signup_coupons_for_user: {
         Args: { p_user_id: string };
         Returns: number;
+      };
+      fn_group_soft_delete: {
+        Args: { p_actor: string; p_group: string; p_tenant: string };
+        Returns: undefined;
       };
       fn_growth_claim_step: {
         Args: {
@@ -7714,6 +8768,19 @@ export type Database = {
         }[];
       };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
+      fn_login_attempt_begin: {
+        Args: { p_hash: string };
+        Returns: {
+          attempt_no: number;
+          outcome: string;
+          retry_after_s: number;
+        }[];
+      };
+      fn_login_attempt_end: {
+        Args: { p_attempt_no?: number; p_hash: string; p_outcome: string };
+        Returns: undefined;
+      };
+      fn_login_resolve_email: { Args: { p_username: string }; Returns: string };
       fn_mark_program_entry: {
         Args: { p_program_key: string };
         Returns: undefined;
@@ -7732,6 +8799,25 @@ export type Database = {
           id: string;
           name: string;
         }[];
+      };
+      fn_my_usage_state: {
+        Args: { p_program_key: string };
+        Returns: {
+          allowed: boolean;
+          deny_reason: string;
+          month_limit: number;
+          month_remaining: number;
+          month_resets_on: string;
+          month_used: number;
+          term_limit: number;
+          term_remaining: number;
+          term_resets_on: string;
+          term_used: number;
+        }[];
+      };
+      fn_normalize_class_name: {
+        Args: { p_org_type: string; p_raw: string };
+        Returns: string;
       };
       fn_normalize_tenant_code: { Args: { p: string }; Returns: string };
       fn_order_consumption_state: {
@@ -7791,6 +8877,26 @@ export type Database = {
           unlimited_sessions: boolean;
         }[];
       };
+      fn_proxy_end: { Args: { p_admin: string }; Returns: string };
+      fn_proxy_start: {
+        Args: { p_admin: string; p_reason: string; p_tenant: string };
+        Returns: string;
+      };
+      fn_purge_b2b_retention: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          access_logs_deleted: number;
+          counsel_statuses_deleted: number;
+          enrollment_changes_deleted: number;
+          enrollments_deleted: number;
+          memos_deleted: number;
+          student_flags_deleted: number;
+        }[];
+      };
+      fn_raise_number_taken: {
+        Args: { p_class: string; p_number: number };
+        Returns: undefined;
+      };
       fn_refund_completed_amount: {
         Args: { p_order_id: string };
         Returns: number;
@@ -7835,6 +8941,15 @@ export type Database = {
           discount_amount: number;
           order_id: string;
         }[];
+      };
+      fn_request_enrollment_change: {
+        Args: {
+          p_to_class_name: string;
+          p_to_grade: string;
+          p_to_group_name: string;
+          p_to_number: number;
+        };
+        Returns: string;
       };
       fn_request_refund: {
         Args: {
@@ -7993,6 +9108,21 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
+      fn_school_year_rollover: {
+        Args: {
+          p_actor: string;
+          p_rows: Json;
+          p_tenant: string;
+          p_to_year: number;
+        };
+        Returns: {
+          assigned_count: number;
+          graduated_count: number;
+          promoted_count: number;
+          skipped_count: number;
+        }[];
+      };
       fn_selfeval_claim_step: {
         Args: {
           p_profile_id: string;
@@ -8034,6 +9164,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_set_counsel_status: {
+        Args: {
+          p_changed_by: string;
+          p_school_year: number;
+          p_status: string;
+          p_student_id: string;
+          p_tenant_id: string;
+        };
+        Returns: {
+          current_status: string;
+          previous_status: string;
+          status_changed_at: string;
+        }[];
+      };
       fn_set_my_tenant: {
         Args: { p_code: string };
         Returns: {
@@ -8059,9 +9203,102 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_teacher_attach_account: {
+        Args: {
+          p_login_id: string;
+          p_profile_id: string;
+          p_teacher_id: string;
+          p_temp_hash: string;
+        };
+        Returns: undefined;
+      };
+      fn_teacher_import_chunk_claim: {
+        Args: {
+          p_actor: string;
+          p_chunk_index: number;
+          p_payload_hash: string;
+          p_proxy_session: string;
+          p_request_id: string;
+          p_tenant: string;
+          p_total_rows: number;
+        };
+        Returns: {
+          outcome: string;
+          run_id: string;
+        }[];
+      };
+      fn_teacher_import_move_class: {
+        Args: { p_class_id: string; p_teacher_id: string };
+        Returns: undefined;
+      };
+      fn_teacher_issue_claim: {
+        Args: { p_teacher_id: string; p_tenant: string };
+        Returns: string;
+      };
+      fn_teacher_password_set: {
+        Args: { p_teacher_id: string; p_tenant: string };
+        Returns: undefined;
+      };
+      fn_teacher_register: {
+        Args: {
+          p_actor: string;
+          p_classes: Json;
+          p_email?: string;
+          p_landline?: string;
+          p_name: string;
+          p_phone: string;
+          p_position?: string;
+          p_role: string;
+          p_tenant_id: string;
+        };
+        Returns: {
+          teacher_id: string;
+          verdict: string;
+        }[];
+      };
+      fn_teacher_reissue_claim: {
+        Args: { p_teacher_id: string; p_tenant: string };
+        Returns: string;
+      };
+      fn_teacher_reissue_release: {
+        Args: { p_teacher_id: string };
+        Returns: undefined;
+      };
+      fn_teacher_set_status: {
+        Args: {
+          p_actor: string;
+          p_status: string;
+          p_teacher_id: string;
+          p_tenant: string;
+        };
+        Returns: string;
+      };
+      fn_teacher_soft_delete: {
+        Args: { p_actor: string; p_teacher_ids: string[]; p_tenant: string };
+        Returns: {
+          active_students: number;
+          profile_id: string;
+          teacher_id: string;
+        }[];
+      };
       fn_tenant_matches: {
         Args: { p_parent: string; p_student: string; p_tenant_id: string };
         Returns: boolean;
+      };
+      fn_tenant_usage_state: {
+        Args: { p_profile: string; p_program_key: string };
+        Returns: {
+          allowed: boolean;
+          deny_reason: string;
+          month_limit: number;
+          month_remaining: number;
+          month_resets_on: string;
+          month_used: number;
+          term_limit: number;
+          term_remaining: number;
+          term_resets_on: string;
+          term_used: number;
+        }[];
       };
       fn_usable_coupons:
         | {

@@ -13,6 +13,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
+import { type ConsoleActor, resolveConsoleActor } from "./console/actor.js";
 import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
 import { assertMethod } from "./httpMethod.js";
@@ -24,13 +25,21 @@ import { createSupabaseAdmin, isSupabaseConfigError } from "./supabaseAdmin.js";
 // 개발자용 원인, 이건 클라이언트용 안내문이다.
 const CONFIG_ERROR_RESPONSE_MESSAGE = "서버 설정이 올바르지 않습니다.";
 
-export type AuthMode = "none" | "user" | "admin" | "winningAdmin" | "cron";
+export type AuthMode =
+  | "none"
+  | "user"
+  | "admin"
+  | "winningAdmin"
+  | "cron"
+  | "console";
 
 export interface HandlerCtx {
   userId?: string;
   user?: User;
   token?: string;
   admin?: { userId: string };
+  /** auth:"console" 일 때만 채워진다(교사, 학교 관리자, 본사 대행). */
+  console?: ConsoleActor;
   supabaseAdmin: SupabaseClient;
 }
 
@@ -54,6 +63,10 @@ export function requireUserId(ctx: HandlerCtx): string {
 // auth:user 401 전부가 이 문구/코드를 쓴다.
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
+
+const NOT_CONSOLE_MESSAGE = "콘솔 권한이 없습니다.";
+const MUST_CHANGE_PASSWORD_MESSAGE = "임시 비밀번호를 먼저 변경해 주세요.";
+const NOT_SCHOOL_ADMIN_MESSAGE = "학교 관리자만 사용할 수 있습니다.";
 
 // api/performance/cleanup-attachments.ts, embed-session-vectors.ts 기준.
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";
@@ -85,6 +98,10 @@ export interface DefineHandlerOptions {
    * resolveWinningAdmin이 이미 자체 detail을 돌려주므로 대상이 아니다.
    */
   authFailureExtra?: Record<string, unknown>;
+  /** auth:"console" 전용 — "schoolAdmin" 이면 담임을 403 으로 막는다(대행은 통과). */
+  consoleRole?: "schoolAdmin";
+  /** auth:"console" 전용 — 임시 비밀번호 상태의 계정도 허용한다(비밀번호 설정 라우트용). */
+  allowMustChange?: boolean;
   /** 미처리 예외(500) 응답 문구 — 라우트마다 달라 필수로 받는다. */
   unhandledMessage: string;
   /** errorShape가 "coded"일 때만 쓰는 500 코드. */
@@ -147,7 +164,7 @@ export function defineHandler(opts: DefineHandlerOptions) {
         },
       });
 
-      if (opts.auth === "user") {
+      if (opts.auth === "user" || opts.auth === "console") {
         const authed = await resolveUser(req);
         if (!authed) {
           sendError(
@@ -163,6 +180,47 @@ export function defineHandler(opts: DefineHandlerOptions) {
         ctx.userId = authed.userId;
         ctx.user = authed.user;
         ctx.token = authed.token;
+
+        if (opts.auth === "console") {
+          const actor = await resolveConsoleActor(
+            ctx.supabaseAdmin,
+            authed.userId,
+          );
+          if (!actor) {
+            sendError(
+              res,
+              opts.errorShape,
+              403,
+              NOT_CONSOLE_MESSAGE,
+              "NOT_CONSOLE",
+              opts.authFailureExtra,
+            );
+            return;
+          }
+          if (actor.mustChangePassword && !opts.allowMustChange) {
+            sendError(
+              res,
+              opts.errorShape,
+              403,
+              MUST_CHANGE_PASSWORD_MESSAGE,
+              "MUST_CHANGE_PASSWORD",
+              opts.authFailureExtra,
+            );
+            return;
+          }
+          if (opts.consoleRole === "schoolAdmin" && actor.kind === "homeroom") {
+            sendError(
+              res,
+              opts.errorShape,
+              403,
+              NOT_SCHOOL_ADMIN_MESSAGE,
+              "NOT_SCHOOL_ADMIN",
+              opts.authFailureExtra,
+            );
+            return;
+          }
+          ctx.console = actor;
+        }
       } else if (opts.auth === "admin") {
         // adminAuth.ts는 req.headers를 Record<string, string>으로 선언한다 —
         // VercelRequest.headers(IncomingHttpHeaders)와는 형태만 다를 뿐 실사용

@@ -1,4 +1,5 @@
 import { CARD } from "@/components/growth/start/cardStyles";
+import { siteWording } from "@/config/wording";
 import type { HighGrade, SourceCounts } from "@/lib/selfeval/types";
 import type { CandidateFilter } from "./activitiesLogic";
 
@@ -20,8 +21,8 @@ const SELECT =
   "h-8 rounded-lg border border-input bg-transparent px-2 text-app-caption text-ink-strong outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 const SOURCES = [
-  { key: "performance", label: "위닝 수행평가" },
-  { key: "deep", label: "위닝 심화탐구" },
+  { key: "performance", label: siteWording("위닝 수행평가") },
+  { key: "deep", label: siteWording("위닝 심화탐구") },
   { key: "manual", label: "직접 입력" },
 ] as const;
 

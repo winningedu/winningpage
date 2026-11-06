@@ -1,9 +1,26 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const { fetchEntryMock } = vi.hoisted(() => ({ fetchEntryMock: vi.fn() }));
+
+const siteState = vi.hoisted(() => ({ b2bMenu: false }));
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    site: {
+      ...actual.site,
+      features: {
+        ...actual.site.features,
+        get b2bMenu() {
+          return siteState.b2bMenu;
+        },
+      },
+    },
+  };
+});
 
 vi.mock("@/lib/selfeval/api", () => ({
   fetchEntry: fetchEntryMock,
@@ -31,6 +48,9 @@ vi.mock("@/context/SessionContext", () => ({
 vi.mock("@/components/Header", () => ({
   default: () => <header data-testid="site-header" />,
 }));
+vi.mock("@/components/b2b/Header", () => ({
+  default: () => <header data-testid="b2b-header" />,
+}));
 vi.mock("@/components/ui/RouteLoadingOverlay", () => ({
   default: () => null,
 }));
@@ -42,6 +62,10 @@ function StepOneChild() {
   useSelfevalScreenStep(1);
   return <div>child</div>;
 }
+
+afterEach(() => {
+  siteState.b2bMenu = false;
+});
 
 beforeEach(() => {
   fetchEntryMock.mockReset();
@@ -85,6 +109,13 @@ function renderLayout() {
 }
 
 describe("SelfevalAppLayout 렌더 스모크", () => {
+  test("b2bMenu 사이트는 B2B 헤더를 그린다", () => {
+    siteState.b2bMenu = true;
+    renderLayout();
+    expect(screen.getByTestId("b2b-header")).toBeInTheDocument();
+    expect(screen.queryByTestId("site-header")).not.toBeInTheDocument();
+  });
+
   test("헤더, 사이드바, 페이지, 하단 고지를 함께 그린다", () => {
     renderLayout();
     expect(screen.getByTestId("site-header")).toBeInTheDocument();
