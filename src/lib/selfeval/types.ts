@@ -473,6 +473,8 @@ export type EntryResponse = {
   entry: {
     quota: QuotaSnapshot | null;
     allowed: boolean;
+    /** 스쿨멘토에서만 있다. 기관 거부 사유(한도 소진 포함). */
+    tenantReason?: string;
     activityCount: number;
     openSession: OpenSessionSummary | null;
     growth: EntryGrowth | null;
