@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const db = vi.hoisted(() => ({
   settings: [] as Record<string, unknown>[],
   defaults: null as Record<string, unknown> | null,
+  defaultsError: null as { message: string } | null,
   upserts: [] as {
     values: Record<string, unknown>;
     options: Record<string, unknown> | undefined;
@@ -25,7 +26,7 @@ vi.mock("@/lib/supabase", () => ({
             eq: () => ({
               maybeSingle: async () => ({
                 data: db.defaults ? { value: db.defaults } : null,
-                error: null,
+                error: db.defaultsError,
               }),
             }),
           }),
@@ -60,6 +61,7 @@ const DEFAULTS = {
 beforeEach(() => {
   db.settings = [];
   db.defaults = DEFAULTS;
+  db.defaultsError = null;
   db.upserts = [];
   db.upsertError = null;
 });
@@ -129,6 +131,47 @@ describe("ServiceSettingsPanel", () => {
       (screen.getByLabelText("수행평가 학기 한도") as HTMLInputElement).value,
     ).toBe("");
     expect(screen.getByText("학기 길이를 먼저 정해 주세요")).toBeTruthy();
+  });
+
+  test("학기 길이가 비어 있으면 기본값이 없는 서비스도 안내하고 학기 한도 칸을 막는다(결정 102.16)", async () => {
+    renderPanel({ termMonths: null });
+    fireEvent.click(await screen.findByLabelText("학습진단 제공"));
+
+    expect(screen.getByText("학기 길이를 먼저 정해 주세요")).toBeTruthy();
+    expect(
+      (screen.getByLabelText("학습진단 학기 한도") as HTMLInputElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  test("학기 길이가 비어 있으면 저장된 학기 한도가 있어도 null 로 저장한다", async () => {
+    db.settings = [
+      {
+        program_key: "diagnose",
+        enabled: true,
+        starts_on: null,
+        ends_on: null,
+        monthly_limit: 2,
+        term_limit: 8,
+      },
+    ];
+    renderPanel({ termMonths: null });
+    await screen.findByLabelText("학습진단 학기 한도");
+    fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
+
+    await waitFor(() => expect(db.upserts).toHaveLength(1));
+    expect(db.upserts[0]?.values.term_limit).toBeNull();
+    expect(db.upserts[0]?.values.monthly_limit).toBe(2);
+  });
+
+  test("기본값을 읽지 못하면 불러오기 실패를 보이고 켤 수 없다", async () => {
+    db.defaultsError = { message: "boom" };
+    renderPanel();
+
+    expect(
+      await screen.findByText("서비스 설정을 불러오지 못했어요."),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
   test("저장은 그 행 하나를 updated_by 와 함께 upsert 한다", async () => {

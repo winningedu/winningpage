@@ -61,7 +61,7 @@ export default function ServiceSettingsPanel({
           .maybeSingle(),
       ]);
       if (!alive) return;
-      if (settings.error) {
+      if (settings.error || defaultRow.error) {
         setLoadFailed(true);
         return;
       }
@@ -120,9 +120,14 @@ export default function ServiceSettingsPanel({
     }
     const { error } = await supabase
       .from("tenant_service_settings")
-      .upsert(settingPayload(tenantId, row, userId), {
-        onConflict: "tenant_id,program_key",
-      });
+      .upsert(
+        settingPayload(
+          tenantId,
+          termMonths === null ? { ...row, termLimit: "" } : row,
+          userId,
+        ),
+        { onConflict: "tenant_id,program_key" },
+      );
     setSaving(null);
     if (error) {
       setMessage(row.programKey, SAVE_ERROR);
@@ -155,10 +160,7 @@ export default function ServiceSettingsPanel({
         종료일을 비우면 기관 계약 기간을 따르고, 한도를 비우면 상한이 없어요.
       </p>
       {rows.map((row) => {
-        const needsTerm =
-          row.provided &&
-          termMonths === null &&
-          defaults[row.programKey]?.term_limit_by_term_months !== undefined;
+        const needsTerm = row.provided && termMonths === null;
         return (
           <div
             key={row.programKey}
@@ -217,7 +219,8 @@ export default function ServiceSettingsPanel({
                   inputMode="numeric"
                   aria-label={`${row.label} 학기 한도`}
                   placeholder="학기 한도"
-                  value={row.termLimit}
+                  value={needsTerm ? "" : row.termLimit}
+                  disabled={needsTerm}
                   onChange={(e) =>
                     patchRow(row.programKey, { termLimit: e.target.value })
                   }
