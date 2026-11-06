@@ -16,12 +16,16 @@ export interface OverrideEdit {
 export interface OverrideRow {
   profile_id: string;
   program_key: string;
-  monthly_limit: number | null;
-  term_limit: number | null;
+  monthly_limit?: number | null;
+  term_limit?: number | null;
   updated_by: string;
 }
 
-/** 이번에 고친 서비스(dirty)만 쓴다. 안 건드린 서비스의 기존 조정을 일괄 변경이 덮지 않게 한다. */
+/** 고친 칸의 표식. 서비스 키와 칸 이름을 점으로 잇는다(예: diagnose.monthly). */
+export const dirtyKey = (programKey: string, field: keyof OverrideEdit) =>
+  `${programKey}.${field}`;
+
+/** 이번에 고친 칸(dirty)만 쓴다. 다른 학생이나 안 건드린 칸의 기존 조정을 일괄 변경이 덮지 않게 한다. */
 export function overridePayloads(
   profileIds: string[],
   edits: Record<string, OverrideEdit>,
@@ -29,14 +33,33 @@ export function overridePayloads(
   userId: string,
 ): OverrideRow[] {
   return profileIds.flatMap((profileId) =>
-    SERVICE_PROGRAMS.filter(({ key }) => dirty.has(key)).map(({ key }) => ({
-      profile_id: profileId,
-      program_key: key,
-      monthly_limit: numberOrNull(edits[key]?.monthly ?? ""),
-      term_limit: numberOrNull(edits[key]?.term ?? ""),
-      updated_by: userId,
-    })),
+    SERVICE_PROGRAMS.flatMap(({ key }) => {
+      const monthly = dirty.has(dirtyKey(key, "monthly"));
+      const term = dirty.has(dirtyKey(key, "term"));
+      if (!monthly && !term) return [];
+      return [
+        {
+          profile_id: profileId,
+          program_key: key,
+          ...(monthly && {
+            monthly_limit: numberOrNull(edits[key]?.monthly ?? ""),
+          }),
+          ...(term && { term_limit: numberOrNull(edits[key]?.term ?? "") }),
+          updated_by: userId,
+        },
+      ];
+    }),
   );
+}
+
+/** supabase-js upsert 는 첫 행의 열만 쓰므로, 같은 열 묶음의 행끼리 모아 한 번씩 보낸다. */
+export function groupByColumns(rows: OverrideRow[]): OverrideRow[][] {
+  const groups = new Map<string, OverrideRow[]>();
+  for (const row of rows) {
+    const columns = Object.keys(row).sort().join(",");
+    groups.set(columns, [...(groups.get(columns) ?? []), row]);
+  }
+  return [...groups.values()];
 }
 
 /** 기관 설정으로 되돌리기: 6개 서비스 두 한도를 모두 null 로 보낸다(DELETE 권한이 없다). */
@@ -59,10 +82,10 @@ export function validateOverrideEdits(
   edits: Record<string, OverrideEdit>,
   dirty: Set<string>,
 ): string | null {
-  for (const key of dirty) {
-    const edit = edits[key];
-    if (edit && (!isLimit(edit.monthly.trim()) || !isLimit(edit.term.trim())))
-      return LIMIT_MESSAGE;
+  for (const entry of dirty) {
+    const [key = "", field = ""] = entry.split(".");
+    const value = edits[key]?.[field as keyof OverrideEdit];
+    if (value !== undefined && !isLimit(value.trim())) return LIMIT_MESSAGE;
   }
   return null;
 }

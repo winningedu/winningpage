@@ -59,9 +59,7 @@ function usage(overrides: Record<string, unknown> = {}) {
         termResetsOn: "2027-03-01",
         setting: null,
         override:
-          programKey === "diagnose"
-            ? { monthlyLimit: 5, termLimit: null }
-            : null,
+          programKey === "diagnose" ? { monthlyLimit: 5, termLimit: 5 } : null,
         ...(programKey === "growth" ? overrides : {}),
       })),
     },
@@ -146,18 +144,83 @@ describe("StudentUsageAdmin", () => {
         profile_id: "s-1",
         program_key: "growth",
         monthly_limit: 2,
-        term_limit: null,
         updated_by: "user-1",
       },
       {
         profile_id: "s-2",
         program_key: "growth",
         monthly_limit: 2,
-        term_limit: null,
         updated_by: "user-1",
       },
     ]);
     expect(await screen.findByText("저장했어요.")).toBeTruthy();
+  });
+
+  test("월 칸만 고치면 월 한도 열만 보내 다른 학생의 학기 조정을 건드리지 않는다", async () => {
+    render(<StudentUsageAdmin />);
+    await search();
+    fireEvent.click(screen.getByRole("button", { name: "김하늘 보기" }));
+    await screen.findByText("한빛고");
+    fireEvent.click(screen.getByLabelText("이바다 선택"));
+    fireEvent.change(screen.getByLabelText("학습진단 월 조정"), {
+      target: { value: "7" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "선택한 2명에게 저장" }),
+    );
+
+    await waitFor(() => expect(db.upserts).toHaveLength(1));
+    for (const row of db.upserts[0]?.rows ?? []) {
+      expect(row).not.toHaveProperty("term_limit");
+      expect(row.monthly_limit).toBe(7);
+    }
+  });
+
+  test("월 칸과 학기 칸을 서로 다른 서비스에서 고치면 열 묶음마다 upsert 한다", async () => {
+    render(<StudentUsageAdmin />);
+    await search();
+    fireEvent.click(screen.getByRole("button", { name: "김하늘 보기" }));
+    await screen.findByText("한빛고");
+    fireEvent.change(screen.getByLabelText("학습진단 월 조정"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(screen.getByLabelText("성장설계 학기 조정"), {
+      target: { value: "9" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "선택한 1명에게 저장" }),
+    );
+
+    await waitFor(() => expect(db.upserts).toHaveLength(2));
+    expect(db.upserts.map((u) => Object.keys(u.rows[0] ?? {}).sort())).toEqual([
+      ["monthly_limit", "profile_id", "program_key", "updated_by"],
+      ["profile_id", "program_key", "term_limit", "updated_by"],
+    ]);
+  });
+
+  test("새로 검색하면 고른 학생과 보던 화면을 비운다", async () => {
+    render(<StudentUsageAdmin />);
+    await search();
+    fireEvent.click(screen.getByRole("button", { name: "김하늘 보기" }));
+    await screen.findByText("한빛고");
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    await waitFor(() => expect(screen.queryByText("한빛고")).toBeNull());
+    expect(
+      (screen.getByLabelText("김하늘 선택") as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  test("다른 학생을 보아도 이미 고른 학생을 빼지 않는다", async () => {
+    render(<StudentUsageAdmin />);
+    await search();
+    fireEvent.click(screen.getByLabelText("이바다 선택"));
+    fireEvent.click(screen.getByRole("button", { name: "김하늘 보기" }));
+    await screen.findByText("한빛고");
+
+    expect(
+      screen.getByRole("button", { name: "선택한 2명에게 저장" }),
+    ).toBeTruthy();
   });
 
   test("고친 칸이 없으면 저장 버튼이 막혀 있다", async () => {

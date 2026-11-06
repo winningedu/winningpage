@@ -13,6 +13,8 @@ import { fetchStudentUsage, type StudentUsage } from "./api";
 import { SERVICE_PROGRAMS } from "./serviceSettings";
 import {
   denyReasonLabel,
+  dirtyKey,
+  groupByColumns,
   type OverrideEdit,
   overridePayloads,
   resetPayloads,
@@ -63,6 +65,9 @@ export default function StudentUsageAdmin() {
     }
     setMessage("");
     setStudents(result.data);
+    setSelected([]);
+    setViewedId(null);
+    setUsage(null);
   }
 
   async function view(profileId: string) {
@@ -73,7 +78,9 @@ export default function StudentUsageAdmin() {
       return;
     }
     setViewedId(profileId);
-    setSelected([profileId]);
+    setSelected((prev) =>
+      prev.includes(profileId) ? prev : [...prev, profileId],
+    );
     setUsage(result.data);
     setEdits(editsFrom(result.data));
     setDirty(new Set());
@@ -96,7 +103,7 @@ export default function StudentUsageAdmin() {
         [field]: value,
       },
     }));
-    setDirty((prev) => new Set(prev).add(programKey));
+    setDirty((prev) => new Set(prev).add(dirtyKey(programKey, field)));
   }
 
   async function write(
@@ -112,11 +119,18 @@ export default function StudentUsageAdmin() {
       setMessage(SAVE_ERROR);
       return;
     }
-    const { error } = await supabase
-      .from("student_usage_overrides")
-      .upsert(build(userId), { onConflict: "profile_id,program_key" });
+    let failed = false;
+    for (const rows of groupByColumns(build(userId))) {
+      const { error } = await supabase
+        .from("student_usage_overrides")
+        .upsert(rows, { onConflict: "profile_id,program_key" });
+      if (error) {
+        failed = true;
+        break;
+      }
+    }
     setBusy(false);
-    if (error) {
+    if (failed) {
       setMessage(SAVE_ERROR);
       return;
     }
