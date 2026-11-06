@@ -240,6 +240,20 @@ async function parseJsonSafe(response: Response): Promise<any> {
   }
 }
 
+/** 이용 거부. 스쿨멘토 화면이 결정 99 문구를 고르도록 서버의 기관 거부 사유를 싣는다(위닝은 null). */
+export type NotAllowed = {
+  kind: "not-allowed";
+  tenantReason: TenantBlockReason | null;
+};
+
+// biome-ignore lint/suspicious/noExplicitAny: 엔드포인트마다 응답 모양이 다른 원시 JSON.
+function notAllowed(body: any): NotAllowed {
+  return {
+    kind: "not-allowed",
+    tenantReason: parseTenantReason(body?.tenantReason),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // fetchGoalStudent — GET /api/goal/student
 // ---------------------------------------------------------------------------
@@ -279,7 +293,7 @@ async function parseJsonSafe(response: Response): Promise<any> {
 export type FetchGoalStudentResult =
   | { kind: "no-session" }
   | { kind: "error" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | {
       kind: "awaiting-cuts";
@@ -313,7 +327,7 @@ export async function fetchGoalStudent(): Promise<FetchGoalStudentResult> {
 
   const body = await parseJsonSafe(response);
 
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
 
   if (body?.onboarded === true) {
     return { kind: "onboarded", student: body };
@@ -425,7 +439,7 @@ export async function submitGoalIntake(
 // 부분 수정한다. 반환 계약은 submitGoalIntake와 같은 관례를 따른다.
 export type SubmitGoalIntakeUpdateResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "success"; student: GoalStudentPayload }
   | { kind: "not-onboarded" }
   | { kind: "cuts-missing"; missing: string[] }
@@ -470,7 +484,7 @@ export async function submitGoalIntakeUpdate(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
 
   console.error(
     "[goalApi] POST /api/goal/intake-update 실패:",
@@ -502,7 +516,7 @@ export async function submitGoalIntakeUpdate(
 //   { kind: 'error' }                   — 네트워크 오류·JSON 파싱 실패·5xx·예상 밖 상태코드.
 export type FetchTodayGoalRecordResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-active" }
   | {
       kind: "success";
@@ -542,7 +556,7 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 
   const body = await parseJsonSafe(response);
 
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
 
   if (body?.ok === true) {
     return {
@@ -594,7 +608,7 @@ interface SubmitDailyRecordBody {
 
 export type SubmitDailyRecordResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-active" }
   | { kind: "no-study-time" }
   | { kind: "before-start-date" }
@@ -644,7 +658,7 @@ export async function submitDailyRecord(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 409) {
     // QA3 행305 — 409는 requireActiveStudent(not_onboarded/awaiting_cuts)와
     // 쿨다운 게이트가 공유한다. reason으로만 구분한다.
@@ -689,7 +703,7 @@ export async function submitDailyRecord(
 
 type GoalWorkbooksRequestResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
@@ -719,7 +733,7 @@ async function goalWorkbooksRequest(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(await parseJsonSafe(response));
   if (response.status === 404) return { kind: "not-found" };
 
   const result = await parseJsonSafe(response);
@@ -736,7 +750,7 @@ async function goalWorkbooksRequest(
     return { kind: "error" };
   }
 
-  if (result?.allowed === false) return { kind: "not-allowed" };
+  if (result?.allowed === false) return notAllowed(result);
 
   return { kind: "success", result };
 }
@@ -828,7 +842,7 @@ export async function deleteGoalWorkbook(
 //                                         이미 온보딩 완료를 보장해 정상 경로에선 안 나온다).
 export type FetchGoalSchedulesResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "success"; schedules: GoalSchedule[] }
   | { kind: "error" };
 
@@ -854,7 +868,7 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
   }
 
   const body = await parseJsonSafe(response);
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
   if (body?.ok === true)
     return { kind: "success", schedules: body.schedules || [] };
 
@@ -872,7 +886,7 @@ export async function fetchGoalSchedules(): Promise<FetchGoalSchedulesResult> {
 type SubmitGoalScheduleResult =
   | { kind: "success"; schedule?: GoalSchedule }
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" };
@@ -905,7 +919,7 @@ async function submitGoalSchedule(
     return { kind: "success", schedule: result?.schedule };
   }
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 404) return { kind: "not-found" };
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
@@ -963,7 +977,7 @@ export async function deleteGoalSchedule({ id }: { id: number }) {
 
 type RequestPlanTasksResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
@@ -998,7 +1012,7 @@ async function requestPlanTasks(
   const result = await parseJsonSafe(response);
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 404) return { kind: "not-found" };
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
@@ -1030,7 +1044,7 @@ export async function fetchGoalPlanTasks({
 }) {
   const result = await requestPlanTasks("GET", { query: { from, to } });
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return { kind: "not-allowed" as const };
+  if (result.body?.allowed === false) return notAllowed(result.body);
   return {
     kind: "success" as const,
     tasks: (result.body?.tasks || []) as GoalPlanTask[],
@@ -1135,7 +1149,7 @@ interface GoalRankingEntry {
 export type FetchGoalRankingResult =
   | { kind: "no-session" }
   | { kind: "error" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | {
       kind: "ok";
       date: string;
@@ -1169,7 +1183,7 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 
   const body = await parseJsonSafe(response);
 
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
 
   if (body?.ok === true) {
     return {
@@ -1200,7 +1214,7 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 //       value, none:false, recordedAt } (api/goal/grades.js validateEntry 참고).
 export type FetchGoalGradesResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | { kind: "error" }
   | {
@@ -1232,7 +1246,7 @@ export async function fetchGoalGrades(): Promise<FetchGoalGradesResult> {
 
   const body = await parseJsonSafe(response);
 
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
   if (body?.onboarded === false) return { kind: "not-onboarded" };
   if (body?.onboarded === true) {
     return {
@@ -1260,7 +1274,7 @@ interface GoalGradeEntryInput {
 
 export type AddGoalGradeResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | { kind: "validation-error"; detail: string }
   | { kind: "success"; record?: GoalGradeRecord; records: GoalGradeRecord[] }
@@ -1304,7 +1318,7 @@ export async function addGoalGrade(
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 404) return { kind: "not-onboarded" };
 
   console.error(
@@ -1317,7 +1331,7 @@ export async function addGoalGrade(
 
 export type UpdateGoalGradeResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | { kind: "not-found" }
   | { kind: "validation-error"; detail: string }
@@ -1370,7 +1384,7 @@ export async function updateGoalGrade(
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 404) {
     return result?.reason === "record_not_found"
       ? { kind: "not-found" }
@@ -1387,7 +1401,7 @@ export async function updateGoalGrade(
 
 export type DeleteGoalGradeResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | { kind: "not-found" }
   | { kind: "success"; records: GoalGradeRecord[] }
@@ -1423,7 +1437,7 @@ export async function deleteGoalGrade(
     return { kind: "success", records: result?.records || [] };
   }
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 404) {
     return result?.reason === "record_not_found"
       ? { kind: "not-found" }
@@ -1466,7 +1480,7 @@ export async function deleteGoalGrade(
 
 type RequestGoalTimerResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "validation-error"; detail: string }
   | { kind: "error" }
   // biome-ignore lint/suspicious/noExplicitAny: 안전 파싱된 원시 JSON 그대로 넘긴다 — 각 wrapper가 필요한 필드만 좁혀 쓴다.
@@ -1500,7 +1514,7 @@ async function requestGoalTimer(
   const result = await parseJsonSafe(response);
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 400)
     return { kind: "validation-error", detail: result?.detail };
 
@@ -1525,7 +1539,7 @@ async function requestGoalTimer(
 export async function fetchGoalTimer() {
   const result = await requestGoalTimer("GET");
   if (result.kind !== "success") return result;
-  if (result.body?.allowed === false) return { kind: "not-allowed" as const };
+  if (result.body?.allowed === false) return notAllowed(result.body);
   return {
     kind: "success" as const,
     summary: result.body as GoalTimerSummary,
@@ -1624,7 +1638,7 @@ export async function addGoalTimerSubject(subject: string) {
 //     책임지므로 report 본문은 호출부(각 리포트 페이지)가 자신의 로컬 타입으로 좁혀 쓴다.
 export type FetchGoalReportResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-onboarded" }
   | { kind: "awaiting-cuts" }
   | { kind: "not-linked" }
@@ -1674,7 +1688,7 @@ export async function fetchGoalReport(
   const body = await parseJsonSafe(response);
 
   if (response.status === 200) {
-    if (body?.allowed === false) return { kind: "not-allowed" };
+    if (body?.allowed === false) return notAllowed(body);
     if (body?.ok === true) return { kind: "success", report: body.report };
     console.error(
       "[goalApi] GET /api/goal/report 예상 밖 200 응답 모양:",
@@ -1729,7 +1743,7 @@ export interface GoalAdvicePayload {
 
 export type FetchGoalAdviceResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-active" }
   | {
       kind: "success";
@@ -1767,7 +1781,7 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
 
   const body = await parseJsonSafe(response);
 
-  if (body?.allowed === false) return { kind: "not-allowed" };
+  if (body?.allowed === false) return notAllowed(body);
 
   if (body?.ok === true) {
     return {
@@ -1785,7 +1799,7 @@ export async function fetchGoalAdvice(): Promise<FetchGoalAdviceResult> {
 
 export type GenerateGoalAdviceResult =
   | { kind: "no-session" }
-  | { kind: "not-allowed" }
+  | NotAllowed
   | { kind: "not-active" }
   | { kind: "validation-error"; detail: string }
   | { kind: "success"; advice: GoalAdvicePayload }
@@ -1822,7 +1836,7 @@ export async function generateGoalAdvice(
   }
 
   if (response.status === 401) return { kind: "no-session" };
-  if (response.status === 403) return { kind: "not-allowed" };
+  if (response.status === 403) return notAllowed(result);
   if (response.status === 409) return { kind: "not-active" };
   if (response.status === 400) {
     return { kind: "validation-error", detail: result?.detail };
