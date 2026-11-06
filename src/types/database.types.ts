@@ -8262,6 +8262,22 @@ export type Database = {
           resource_key: string;
         }[];
       };
+      fn_admin_move_student_tenant: {
+        Args: {
+          p_actor: string;
+          p_class_name: string;
+          p_grade: string;
+          p_group_name: string;
+          p_number: number;
+          p_student: string;
+          p_tenant: string;
+        };
+        Returns: {
+          enrollment_id: string;
+          from_tenant_id: string;
+          tenant_id: string;
+        }[];
+      };
       fn_admin_requote_refund: {
         Args: { p_company_fault: boolean; p_refund_request_id: number };
         Returns: {
