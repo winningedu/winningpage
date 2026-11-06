@@ -8,12 +8,14 @@ import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
+import { site } from "@/config/site";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import ChangeEmailModal from "./ChangeEmailModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import ChangePhoneModal from "./ChangePhoneModal";
+import LinkCodeRow from "./LinkCodeRow";
 import OrgCodeModal from "./OrgCodeModal";
 import ProfileField from "./ProfileField";
 import ToggleRow from "./ToggleRow";
@@ -656,24 +658,15 @@ export default function ProfileTab({
       {/* 내 연결코드 — 학생 전용. 코드는 학생이 발급하고 학부모가 입력하는 방향이라
           (sql/40 issue_student_link_code) 학부모 화면에는 존재하지 않는다. */}
       {!isParent && (
-        <div className="mb-6">
-          <p className="mb-2 text-sm text-ink">내 연결코드</p>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${ROW_BOX_CLASS} flex-1 tracking-[0.2em] bg-surface-footer text-ink-sub`}
-            >
-              {linkCode || "-"}
-            </div>
-            <button
-              type="button"
-              onClick={handleReissueCode}
-              disabled={!linkCode || reissuing}
-              className="shrink-0 whitespace-nowrap text-sm font-semibold text-accent underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {reissuing ? "재발급 중..." : "재발급"}
-            </button>
-          </div>
-        </div>
+        <LinkCodeRow
+          label={
+            site.features.studentEnrollment ? "학생 고유코드" : "내 연결코드"
+          }
+          code={linkCode}
+          copyable={site.features.studentEnrollment}
+          reissuing={reissuing}
+          onReissue={handleReissueCode}
+        />
       )}
 
       <button
