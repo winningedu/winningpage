@@ -572,3 +572,38 @@ describe("3단계 만 14세 미만", () => {
     vi.unstubAllEnvs();
   });
 });
+
+async function goToGuardian() {
+  await goToStudentInfo();
+  await fillValidStudent();
+  click("다음");
+}
+
+describe("4단계 학부모 정보", () => {
+  it("비워 두고 건너뛸 수 있고, 번호를 적었다면 인증해야 다음으로 간다", async () => {
+    await goToGuardian();
+
+    expect(
+      screen.getByRole("button", { name: "건너뛰기" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeEnabled();
+
+    type("학부모 휴대폰번호", "01055556666");
+
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+
+    click("인증번호 보내기");
+    await waitFor(() =>
+      expect(screen.getByLabelText("학부모 인증번호")).toBeEnabled(),
+    );
+    type("학부모 인증번호", "123456");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    expect(calls.at(-2)?.body).toEqual({
+      phone: "01055556666",
+      purpose: "guardian_signup",
+    });
+  });
+});

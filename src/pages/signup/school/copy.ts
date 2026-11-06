@@ -38,3 +38,8 @@ export const NOTICE_MESSAGES = {
   inquiryLink: "온라인문의",
   inquiryAfter: "로 알려 주세요.",
 };
+
+export const GUARDIAN_MESSAGES = {
+  // Under14Form 의 같은 문구.
+  consent: "법정대리인 정보를 학부모 정보로 수집합니다.",
+};

@@ -3,6 +3,7 @@
 import { useNavigate } from "react-router";
 import { AuthLayout } from "@/components/auth";
 import { type SchoolStep, useSignup } from "@/context/SignupContext";
+import GuardianStep from "./GuardianStep";
 import StudentInfoStep from "./StudentInfoStep";
 import TenantStep from "./TenantStep";
 import TermsStep from "./TermsStep";
@@ -49,6 +50,15 @@ export default function SchoolSignup() {
 
       {schoolStep === 3 && (
         <StudentInfoStep onPrev={() => goTo(2)} onNext={() => goTo(4)} />
+      )}
+
+      {schoolStep === 4 && (
+        <GuardianStep
+          onPrev={() => goTo(3)}
+          onSubmit={() => goTo(5)}
+          submitting={false}
+          submitError={null}
+        />
       )}
     </AuthLayout>
   );
