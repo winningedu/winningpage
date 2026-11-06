@@ -11,6 +11,7 @@
  * 그건 판정이 됐다는 뜻이라 관대할 이유가 없다.
  */
 import { apiFetch, getAuthHeader } from "./apiFetch";
+import { parseTenantReason, type TenantBlockReason } from "./tenantBlock";
 
 export type DiagnosisAccessResult = {
   allowed: boolean;
@@ -18,6 +19,8 @@ export type DiagnosisAccessResult = {
   quotaRemaining: number | null;
   quotaTotal: number | null;
   planEndsAt: string | null;
+  /** 스쿨멘토 기관 거부 사유. 위닝 응답에는 없어 null 이다. */
+  tenantReason: TenantBlockReason | null;
 };
 
 // 판정 불가(세션 없음/네트워크 실패/5xx) 시 반환값. allowed:true로 진입을 열어 준다.
@@ -27,6 +30,7 @@ const ACCESS_FAIL_OPEN: DiagnosisAccessResult = {
   quotaRemaining: null,
   quotaTotal: null,
   planEndsAt: null,
+  tenantReason: null,
 };
 
 function normalizeQuota(value: unknown): number | null {
@@ -52,7 +56,10 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
       headers: authHeader,
     });
 
-    let result: Partial<DiagnosisAccessResult> & { detail?: string } = {};
+    let result: Partial<Omit<DiagnosisAccessResult, "tenantReason">> & {
+      detail?: string;
+      tenantReason?: unknown;
+    } = {};
     try {
       result = await response.json();
     } catch {
@@ -75,6 +82,7 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
       quotaRemaining: normalizeQuota(result.quotaRemaining),
       quotaTotal: normalizeQuota(result.quotaTotal),
       planEndsAt: result.planEndsAt ?? null,
+      tenantReason: parseTenantReason(result.tenantReason),
     };
   } catch (error) {
     console.warn(
@@ -97,7 +105,12 @@ const BLOCKING_ERROR_CODES = new Set([
 
 export type DiagnosisConsumeResult =
   | { outcome: "proceed"; status: string }
-  | { outcome: "blocked"; code: string; message: string }
+  | {
+      outcome: "blocked";
+      code: string;
+      message: string;
+      tenantReason: TenantBlockReason | null;
+    }
   | { outcome: "fail-open" };
 
 /**
@@ -130,6 +143,7 @@ export async function consumeDiagnosisAttempt(
       ok?: boolean;
       status?: string;
       error?: { code?: string; message?: string };
+      tenantReason?: unknown;
     } = {};
     try {
       result = await response.json();
@@ -147,6 +161,7 @@ export async function consumeDiagnosisAttempt(
         outcome: "blocked",
         code,
         message: result?.error?.message || "이용권을 확인해 주세요.",
+        tenantReason: parseTenantReason(result?.tenantReason),
       };
     }
 
