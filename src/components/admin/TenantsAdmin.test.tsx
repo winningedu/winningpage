@@ -142,6 +142,19 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
     expect(row.textContent).toContain("삭제 가능일 D-11");
   });
 
+  test.each([
+    ["종료일만", { contract_start_date: null }, "~ 2026-09-01"],
+    ["시작일만", { contract_end_date: null }, "2026-03-01 ~"],
+  ])("계약 %s 있으면 있는 날짜만 보인다", async (_label, patch, expected) => {
+    state.rows = [{ ...ROWS[0], ...patch }];
+    render(<TenantsAdmin config={CONFIG} />);
+
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(row.textContent).toContain(expected);
+  });
+
   test("기타 소속에는 기타 뱃지를 붙이고 계약이 없으면 대시로 보인다", async () => {
     render(<TenantsAdmin config={CONFIG} />);
 

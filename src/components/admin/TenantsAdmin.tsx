@@ -451,8 +451,8 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                       {hq && (
                         <>
                           <td className="px-3 py-3">
-                            {row.contract_start_date && row.contract_end_date
-                              ? `${row.contract_start_date} ~ ${row.contract_end_date}`
+                            {row.contract_start_date || row.contract_end_date
+                              ? `${row.contract_start_date ?? ""} ~ ${row.contract_end_date ?? ""}`.trim()
                               : "-"}
                           </td>
                           <td className="px-3 py-3">
