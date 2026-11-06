@@ -238,4 +238,99 @@ select pg_temp.expect_text('join: 학원 학적은 그룹 학급이고 번호가
      join public.class_groups g on g.id = c.group_id
     where e.student_id = pg_temp.fx('cj2')), '심화반:-');
 
+-- ---------------------------------------------------------------------
+-- fn_catch_all_join_tenant: 실패는 아무것도 바꾸지 않는다
+-- ---------------------------------------------------------------------
+create function pg_temp.join_call(p_key text, p_code text, p_group text, p_class text, p_number smallint)
+returns text language sql as $$
+  select format('select * from public.fn_catch_all_join_tenant(%L, %L, %L, %L, %L, %L)',
+    pg_temp.fx(p_key), p_code, '고2', p_group, p_class, p_number)
+$$;
+
+-- 소속, 기타 학적 행, 대기 신청이 처음 그대로인지 한 줄로 본다
+create function pg_temp.untouched(p_key text) returns text language sql as $$
+  select (select (tenant_id = pg_temp.fx('t_etc'))::text from public.profiles where id = pg_temp.fx(p_key))
+      || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx(p_key) and tenant_id = pg_temp.fx('t_etc'))
+      || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx(p_key) and status = 'pending')
+$$;
+
+select pg_temp.mk_cj('cj3', '010-7000-0003');
+select pg_temp.expect_text('join 실패 기준: 기타, 학적 1, 대기 신청 1', pg_temp.untouched('cj3'), 'true:1:1');
+
+-- 같은 반 같은 번호(다른 학생이 이미 8번)
+select pg_temp.fx('t_js') as t_js \gset
+select pg_temp.mk_user('tsg-occupant@t.local', pg_temp.fx('t_js')) as occupant \gset
+select public.fn_enrollment_join(:'occupant'::uuid, pg_temp.fx('t_js'), '고2', null, '3반', 8::smallint);
+select pg_temp.expect_error('join: 번호가 이미 쓰이면 WC077', pg_temp.join_call('cj3', 'TGFFFFFF', null, '3반', 8::smallint), 'WC077');
+select pg_temp.expect_text('join: WC077 이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
+
+-- 대상 기관에 같은 전화번호(숫자 기준)
+select pg_temp.mk_user('tsg-samephone@t.local', pg_temp.fx('t_js')) as samephone \gset
+update public.profiles set phone = '01070000003' where id = :'samephone'::uuid;
+select pg_temp.expect_error('join: 대상 기관에 같은 번호가 있으면 WC096', pg_temp.join_call('cj3', 'TGFFFFFF', null, '4반', 9::smallint), 'WC096');
+select pg_temp.expect_text('join: WC096 이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
+
+select pg_temp.expect_error('join: 등록되지 않은 그룹이면 WC080', pg_temp.join_call('cj3', 'TGGGGGGG', '없는그룹', 'A반', null), 'WC080');
+select pg_temp.expect_text('join: WC080 이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
+
+select pg_temp.expect_error('join: 기타가 아닌 학생은 WC098', pg_temp.join_call('real', 'TGFFFFFF', null, '3반', 1::smallint), 'WC098');
+select pg_temp.expect_text('join: WC098 이면 소속이 그대로',
+  (select (tenant_id = pg_temp.fx('t_real'))::text from public.profiles where id = pg_temp.fx('real')), 'true');
+select pg_temp.expect_error('join: 한 번 옮긴 학생은 다시 WC098', pg_temp.join_call('cj1', 'TGGGGGGG', null, 'A반', null), 'WC098');
+
+-- 못 찾는 코드와 기타 자신의 코드는 0행, 실패 기록은 남고 10회째 뒤에는 WC068
+select pg_temp.expect_int('join: 없는 코드는 0행',
+  (select count(*) from public.fn_catch_all_join_tenant(pg_temp.fx('cj3'), 'TGYYYYYY', '고2', null, '3반', 1::smallint)), 0);
+select pg_temp.expect_int('join: 기타 자신의 코드는 0행',
+  (select count(*) from public.fn_catch_all_join_tenant(pg_temp.fx('cj3'), 'TGAAAAAA', '고2', null, '3반', 1::smallint)), 0);
+select pg_temp.expect_int('join: 없는 코드는 실패 기록을 남긴다',
+  (select count(*) from public.tenant_code_attempts where user_id = pg_temp.fx('cj3')), 1);
+select pg_temp.expect_text('join: 0행이면 아무것도 바뀌지 않는다', pg_temp.untouched('cj3'), 'true:1:1');
+select pg_temp.expect_ok('join: 실패를 10회까지 채운다', $$
+  select count(*) from (select public.fn_catch_all_join_tenant(pg_temp.fx('cj3'), 'TGXXXXX' || n, '고2', null, '3반', 1::smallint)
+                          from generate_series(1, 9) n) q
+$$);
+select pg_temp.expect_error('join: 11번째 시도는 WC068', pg_temp.join_call('cj3', 'TGFFFFFF', null, '5반', 1::smallint), 'WC068');
+
+-- 계약이 끝난 기관으로도 옮길 수 있다(98.12), 옮긴 뒤 서비스는 기간 사유로 막힌다
+select pg_temp.mk_tenant('je', 'TGHHHHHH');
+update public.tenants set contract_end_date = pg_temp.today() - 5 where id = pg_temp.fx('t_je');
+select pg_temp.setting('je', 'selfeval', 5, null);
+select pg_temp.mk_cj('cj4', '010-7000-0004');
+select pg_temp.expect_ok('join: 계약이 끝난 기관으로도 옮긴다', pg_temp.join_call('cj4', 'TGHHHHHH', null, '1반', 1::smallint));
+select pg_temp.expect_text('join: 옮긴 뒤 서비스는 outside_period 로 막힌다',
+  (select s.deny_reason from public.fn_tenant_usage_state(pg_temp.fx('cj4'), 'selfeval') s), 'outside_period');
+
+-- ---------------------------------------------------------------------
+-- 기타 학적 행을 지워도 되는지: student_enrollments.id 를 가리키는 외래키가 없어야 한다(결정 98.11)
+-- 생기면 이 스펙이 깨져 fn_catch_all_join_tenant 의 삭제를 다시 따져 보게 된다.
+-- ---------------------------------------------------------------------
+select pg_temp.expect_int('student_enrollments 를 참조하는 외래키가 없다',
+  (select count(*) from pg_constraint where contype = 'f' and confrelid = 'public.student_enrollments'::regclass), 0);
+
+-- ---------------------------------------------------------------------
+-- 권한: 새 함수는 service_role 만 부른다(anon, authenticated 는 42501)
+-- ---------------------------------------------------------------------
+create function pg_temp.denied(p_role text, p_call text) returns void language plpgsql as $$
+begin
+  perform pg_temp.expect_error(p_role || ' 는 ' || split_part(p_call, '(', 1) || ' 를 못 부른다',
+    format('set local role %I; select * from %s', p_role, p_call), '42501');
+end $$;
+
+select pg_temp.denied(r, c)
+  from unnest(array['anon', 'authenticated']) r,
+       unnest(array[
+         'public.fn_consume_tenant_diagnosis(gen_random_uuid(), gen_random_uuid())',
+         'public.fn_tenant_code_resolve_for(gen_random_uuid(), ''X'')',
+         'public.fn_catch_all_tenant_lookup(gen_random_uuid(), ''X'')',
+         'public.fn_catch_all_join_tenant(gen_random_uuid(), ''X'', ''고1'', null, ''1반'', null)'
+       ]) c;
+select pg_temp.expect_int('service_role 은 새 함수 4개를 부를 수 있다',
+  (select count(*) from unnest(array[
+     'public.fn_consume_tenant_diagnosis(uuid, uuid)',
+     'public.fn_tenant_code_resolve_for(uuid, text)',
+     'public.fn_catch_all_tenant_lookup(uuid, text)',
+     'public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint)'
+   ]) f where has_function_privilege('service_role', f, 'execute')), 4);
+
 rollback;
