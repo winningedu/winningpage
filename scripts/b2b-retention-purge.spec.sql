@@ -330,11 +330,18 @@ select pg_temp.expect_bool('로그에 이름과 전화번호가 남지 않는다
   (select l.meta::text !~ '홍길동|0107' from public.admin_access_logs l
     where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
 
-select pg_temp.expect_int('재실행은 아무것도 바꾸지 않고 로그도 더하지 않는다',
+select pg_temp.expect_int('재실행은 아무것도 바꾸지 않는다',
   (select members_anonymized from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_ended'), pg_temp.fx('m_t1'), 'hq@example.com',
     array[pg_temp.fx('m_s1'), pg_temp.fx('m_s2paid'), pg_temp.fx('m_s3old')])), 0);
-select pg_temp.expect_int('재실행 뒤에도 로그는 한 줄',
-  (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 1);
+-- 유예가 지난 기관이면 지운 학생이 0명이어도 실행 기록은 남긴다(누가 언제 눌렀는지).
+select pg_temp.expect_int('재실행도 로그를 한 줄 더한다',
+  (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 2);
+select pg_temp.expect_bool('지운 학생이 0명인 실행의 로그는 삭제 0, 제외 1(보호), 직접 제외 0, 회원번호 없음이다',
+  (select l.row_count = 0 and (l.meta ->> 'deleted_count')::int = 0 and (l.meta ->> 'excluded_count')::int = 1
+      and (l.meta ->> 'skipped_count')::int = 0 and l.meta -> 'member_ids' = '[]'::jsonb
+      and l.profile_id = pg_temp.fx('m_t1')
+     from public.admin_access_logs l
+    where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended') and l.row_count = 0), true);
 
 -- 공통 유예 일수(app_settings.contract_grace_days = 30)를 두면 종료일 + 30일이 지난 기관이 대상이 된다.
 insert into public.app_settings (key, value) values ('contract_grace_days', '30'::jsonb)
