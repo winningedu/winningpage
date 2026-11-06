@@ -13,6 +13,10 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (...keys: string[]) => {
+    for (const key of keys) if (process.env[key]) return process.env[key];
+    return "";
+  },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -77,6 +81,7 @@ function tenantRow(id: string, tenantId: string) {
 }
 
 beforeEach(() => {
+  process.env.SITE = "schoolmentor";
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -89,6 +94,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.SITE;
   vi.restoreAllMocks();
 });
 
@@ -163,6 +169,16 @@ describe("GET /api/admin/tenants/school-admins", () => {
 
     const { admins } = r.body as { admins: Record<string, unknown>[] };
     expect(admins[0]).toMatchObject({ id: "t-5", canceledAt: null });
+  });
+
+  test("스쿨멘토가 아닌 사이트에서는 404 이고 아무것도 읽지 않는다", async () => {
+    delete process.env.SITE;
+
+    const r = await get({ tenantId: TENANT_7 });
+
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ error: { code: "NOT_FOUND" } });
+    expect(kit.state.reads).toHaveLength(0);
   });
 
   test("tenantId 가 UUID 가 아니면 400 이고 아무것도 읽지 않는다", async () => {
