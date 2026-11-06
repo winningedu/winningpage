@@ -60,6 +60,8 @@ export default defineHandler({
         .from("enrollment_changes")
         .select("to_grade, to_class_id, to_number, created_at")
         .eq("student_id", studentId)
+        .eq("tenant_id", tenantId)
+        .eq("school_year", tenant.schoolYear)
         .eq("status", "pending")
         .maybeSingle(),
     ]);

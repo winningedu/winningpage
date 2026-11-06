@@ -40,20 +40,92 @@ const CLASSES = [
   },
 ];
 
+// 본인 행 하나에 다른 학생, 다른 기관, 다른 학년도, 졸업 행을 섞어 두어 조회 조건이 맞는지 본다.
+const ENROLLMENTS = [
+  {
+    student_id: "other",
+    tenant_id: "tenant-1",
+    school_year: 2026,
+    status: "active",
+    grade: "고1",
+    class_id: "c-5",
+    number: 1,
+  },
+  {
+    student_id: "student-1",
+    tenant_id: "tenant-2",
+    school_year: 2026,
+    status: "active",
+    grade: "고1",
+    class_id: "c-5",
+    number: 2,
+  },
+  {
+    student_id: "student-1",
+    tenant_id: "tenant-1",
+    school_year: 2025,
+    status: "active",
+    grade: "고1",
+    class_id: "c-5",
+    number: 3,
+  },
+  {
+    student_id: "student-1",
+    tenant_id: "tenant-1",
+    school_year: 2026,
+    status: "graduated",
+    grade: "고1",
+    class_id: "c-5",
+    number: 4,
+  },
+  {
+    student_id: "student-1",
+    tenant_id: "tenant-1",
+    school_year: 2026,
+    status: "active",
+    grade: "고2",
+    class_id: "c-3",
+    number: 12,
+  },
+];
+
+const PENDING = {
+  status: "pending",
+  to_grade: "고3",
+  to_class_id: "c-5",
+  to_number: 7,
+  created_at: "2026-11-05T01:00:00Z",
+};
+// 다른 학생, 다른 기관, 지난 학년도의 열린 신청은 본인 응답에 실리면 안 된다.
+const CHANGES = [
+  { ...PENDING, student_id: "other", tenant_id: "tenant-1", school_year: 2026 },
+  {
+    ...PENDING,
+    student_id: "student-1",
+    tenant_id: "tenant-2",
+    school_year: 2026,
+  },
+  {
+    ...PENDING,
+    student_id: "student-1",
+    tenant_id: "tenant-1",
+    school_year: 2025,
+  },
+];
+
 beforeEach(() => {
+  // 테스트가 더한 행을 걷어 낸다.
+  ENROLLMENTS.length = 5;
+  CHANGES.length = 3;
   kit.state = createKitState();
   kit.state.user = { id: "student-1", email: "s@example.com" };
   kit.state.rows.profiles = () => ({ tenant_id: "tenant-1" });
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
   kit.state.rows.classes = (f) => matchRows(CLASSES, f);
   kit.state.rows.class_groups = () => [];
-  kit.state.rows.student_enrollments = () => ({
-    school_year: 2026,
-    grade: "고2",
-    class_id: "c-3",
-    number: 12,
-  });
-  kit.state.rows.enrollment_changes = () => null;
+  kit.state.rows.student_enrollments = (f) =>
+    matchRows(ENROLLMENTS, f)[0] ?? null;
+  kit.state.rows.enrollment_changes = (f) => matchRows(CHANGES, f)[0] ?? null;
 });
 
 describe("GET /api/enrollment/me", () => {
@@ -76,15 +148,12 @@ describe("GET /api/enrollment/me", () => {
   });
 
   test("includes the open change request with its target class", async () => {
-    kit.state.rows.enrollment_changes = (f) =>
-      f.status === "pending" && f.student_id === "student-1"
-        ? {
-            to_grade: "고3",
-            to_class_id: "c-5",
-            to_number: 7,
-            created_at: "2026-11-05T01:00:00Z",
-          }
-        : null;
+    CHANGES.push({
+      ...PENDING,
+      student_id: "student-1",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+    });
 
     const res = await get();
 
@@ -97,13 +166,24 @@ describe("GET /api/enrollment/me", () => {
     });
   });
 
+  test("ignores open requests of other students, other institutions and past school years", async () => {
+    const res = await get();
+
+    expect((res.body as { pending: unknown }).pending).toBeNull();
+  });
+
   test("a student whose class was cleared by the rollover has a null class name and number", async () => {
-    kit.state.rows.student_enrollments = () => ({
+    ENROLLMENTS.push({
+      student_id: "student-1",
+      tenant_id: "tenant-3",
       school_year: 2026,
+      status: "active",
       grade: "고3",
-      class_id: null,
-      number: null,
+      class_id: null as unknown as string,
+      number: null as unknown as number,
     });
+    kit.state.rows.profiles = () => ({ tenant_id: "tenant-3" });
+    kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
 
     const res = await get();
 
@@ -127,5 +207,18 @@ describe("GET /api/enrollment/me", () => {
       enrollment: null,
       pending: null,
     });
+  });
+
+  test("a read error is 500 INTERNAL", async () => {
+    kit.state.rows.student_enrollments = () => {
+      throw new Error("db down");
+    };
+
+    const res = await get();
+
+    expect(res.status).toBe(500);
+    expect((res.body as { error: { code: string } }).error.code).toBe(
+      "INTERNAL",
+    );
   });
 });
