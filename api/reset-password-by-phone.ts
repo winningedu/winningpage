@@ -305,8 +305,7 @@ export default defineHandler({
         });
       }
 
-      // 소비(consumed_at)는 실제 재설정이 성공한 뒤에만 찍는다(2026-09-03,
-      // 아래로 이동) — guardian_phone 다중 매치로 409를 돌려줄 때도 이
+      // 소비(consumed_at)는 재설정을 시도하기 직전에(아래 선점) 찍는다 — guardian_phone 다중 매치로 409를 돌려줄 때도 이
       // 인증을 태워버리면 사용자가 이메일 재설정으로 안내받은 뒤에도 다시
       // SMS 인증부터 반복해야 한다. 계정을 찾지 못했을 때(found:false)도
       // 마찬가지로 소비하지 않는다 — 재설정이 실제로 일어나지 않았다.
@@ -372,6 +371,25 @@ export default defineHandler({
 
       const { account, via } = target;
 
+      // 인증을 조건부 UPDATE 한 번으로 선점한다(consumed_at 이 null 인 행만). 동시에 들어온
+      // 요청 중 하나만 통과하고, 못 얻으면 이미 다른 요청이 쓴 인증이다.
+      const { data: claimed, error: claimError } = await supabase
+        .from("phone_verifications")
+        .update({ consumed_at: new Date().toISOString() })
+        .eq("id", verification.id)
+        .is("consumed_at", null)
+        .select("id");
+
+      if (claimError) throw claimError;
+
+      if (!claimed || claimed.length === 0) {
+        return void res.status(401).json({
+          ok: false,
+          reason: "phone_not_verified",
+          detail: "휴대폰 인증을 먼저 완료해 주세요.",
+        });
+      }
+
       const tempPassword = generateTempPassword();
 
       const { error: updateError } = await supabase.auth.admin.updateUserById(
@@ -384,26 +402,22 @@ export default defineHandler({
           "[reset-password-by-phone] 비밀번호 갱신 실패:",
           updateError,
         );
+        // 재설정이 일어나지 않았으니 선점한 인증을 되돌려 다시 시도할 수 있게 한다.
+        const { error: releaseError } = await supabase
+          .from("phone_verifications")
+          .update({ consumed_at: null })
+          .eq("id", verification.id);
+        if (releaseError) {
+          console.error(
+            "[reset-password-by-phone] phone_verifications 선점 해제 실패:",
+            releaseError,
+          );
+        }
         return void res.status(500).json({
           ok: false,
           reason: "update_failed",
           detail: "비밀번호 재설정에 실패했습니다. 다시 시도해 주세요.",
         });
-      }
-
-      // 재설정이 실제로 성공했다 — 이제 인증을 소비 처리한다. 여기서 실패해도
-      // 비밀번호는 이미 바뀌었으므로 사용자에게는 성공으로 응답한다
-      // (change-phone.ts의 동일 방침과 같다).
-      const { error: consumeError } = await supabase
-        .from("phone_verifications")
-        .update({ consumed_at: new Date().toISOString() })
-        .eq("id", verification.id);
-
-      if (consumeError) {
-        console.error(
-          "[reset-password-by-phone] phone_verifications 소비 마킹 실패:",
-          consumeError,
-        );
       }
 
       // 기존 로그인 세션 강제 로그아웃 — 시도하지 않는다.

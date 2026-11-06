@@ -120,4 +120,32 @@ describe("reset-password-by-phone chooseAccount", () => {
     expect(res.status).toBe(200);
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
   });
+
+  test("조회 뒤 다른 요청이 인증을 먼저 소비했으면 401 이고 비밀번호를 바꾸지 않는다", async () => {
+    // 인증 조회 이후 계정 조회 시점에 다른 요청이 같은 인증을 소비한 상황.
+    const profiles = db.tables.profiles ?? [];
+    Object.defineProperty(db.tables, "profiles", {
+      get() {
+        const v = verification();
+        if (v) v.consumed_at = "2026-11-06T00:00:01Z";
+        return profiles;
+      },
+    });
+    const res = await reset();
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ reason: "phone_not_verified" });
+    expect(db.passwordUpdates).toEqual([]);
+  });
+
+  test("비밀번호 갱신이 실패하면 선점한 인증을 되돌려 다시 시도할 수 있다", async () => {
+    (
+      state.db as {
+        auth: { admin: { updateUserById: () => Promise<unknown> } };
+      }
+    ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
+    const res = await reset();
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({ reason: "update_failed" });
+    expect(verification()?.consumed_at).toBeNull();
+  });
 });

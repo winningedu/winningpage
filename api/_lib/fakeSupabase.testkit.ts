@@ -39,6 +39,7 @@ class Query {
   private patch: Row | null = null;
   private embedTenant = false;
   private ambiguousEmbed = false;
+  private returnUpdated = false;
 
   constructor(
     private db: FakeDb,
@@ -46,6 +47,8 @@ class Query {
   ) {}
 
   select(cols = "*") {
+    // update(...).select() 는 갱신된 행을 돌려준다(조건부 선점 확인용).
+    if (this.patch) this.returnUpdated = true;
     // profiles 와 tenants 는 FK 가 둘이라 힌트 없는 임베드는 PostgREST 가 PGRST201 로 거부한다.
     this.ambiguousEmbed = /tenants\(/.test(cols);
     this.embedTenant = /tenants!profiles_tenant_id_fkey\(/.test(cols);
@@ -98,7 +101,10 @@ class Query {
     let rows = all.filter((r) => this.filters.every((f) => f(r)));
     if (this.patch) {
       for (const r of rows) Object.assign(r, this.patch);
-      return { data: null, error: null };
+      return {
+        data: this.returnUpdated ? rows.map((r) => ({ ...r })) : null,
+        error: null,
+      };
     }
     if (this.orderBy) {
       const { col, asc } = this.orderBy;
