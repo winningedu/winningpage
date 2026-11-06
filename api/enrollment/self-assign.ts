@@ -4,6 +4,7 @@
 // fn_enrollment_join 은 service_role 전용이다. 학생 id 는 토큰에서, 기관은 학생 프로필에서 서버가 정해
 // 넘기고 본문의 id 는 쓰지 않는다. 이미 학급이 있으면 DB 가 막는다(WC079).
 
+import { loadTenant } from "../_lib/console/directory.js";
 import { sendEnrollmentRpcError } from "../_lib/console/enrollmentErrors.js";
 import {
   isEnrollmentGrade,
@@ -63,6 +64,21 @@ export default defineHandler({
     if (profileError) throw new Error("profile lookup failed");
     if (!profile?.tenant_id) {
       sendError(res, "coded", 404, "소속 기관을 찾을 수 없어요.", "NOT_FOUND");
+      return;
+    }
+
+    // 기타 소속은 학급을 직접 정하지 않는다(결정 77, 98.9). 화면만 숨기지 않고 서버도 막는다.
+    if (
+      (await loadTenant(ctx.supabaseAdmin, profile.tenant_id as string))
+        .isCatchAll
+    ) {
+      sendError(
+        res,
+        "coded",
+        403,
+        "기타 소속은 학급을 직접 정할 수 없어요.",
+        "FORBIDDEN",
+      );
       return;
     }
 
