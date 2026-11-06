@@ -449,6 +449,56 @@ select pg_temp.expect_error('같은 기관 같은 번호는 WC096', $$
     'phone', '01050450001', 'username', 'gouser45d', 'email', 'go45d@example.com', 'number', 46))
 $$, 'WC096');
 
+-- ---------------------------------------------------------------------
+-- 학급 번호 중복(WC077)은 먼저 가입한 학생 이름을 detail 로 싣고, 실패하면 아무것도 남기지 않는다
+-- ---------------------------------------------------------------------
+create function pg_temp.expect_detail(t text, p_sql text, want_state text, want_detail text) returns void
+language plpgsql as $$
+declare
+  v_state text;
+  v_detail text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate, v_detail = pg_exception_detail;
+    if v_state is distinct from want_state or v_detail is distinct from want_detail then
+      raise exception '[FAIL] %: got % / %, want % / %', t, v_state, v_detail, want_state, want_detail;
+    end if;
+    raise notice '[PASS] % = % %', t, want_state, want_detail;
+    return;
+  end;
+  raise exception '[FAIL] %: 예외가 나지 않았다, want % %', t, want_state, want_detail;
+end $$;
+
+-- a_uid 학생(김학생)이 SA222222 고1 3반 7번이다.
+select pg_temp.verify('010-5050-0001');
+select pg_temp.expect_detail('같은 학년, 반, 번호는 WC077 이고 detail 이 먼저 가입한 학생 이름이다', $$
+  select pg_temp.go(50, '{"number": 7, "name": "박다른", "agree_marketing": true}', false)
+$$, 'WC077', '김학생');
+select pg_temp.expect_int('WC077 실패 뒤 문자 인증은 소비되지 않는다',
+  (select count(*) from public.phone_verifications where phone = '01050500001' and consumed_at is null), 1);
+select pg_temp.expect_int('WC077 실패 뒤 프로필은 가입 전 상태다(아이디 없음)',
+  (select count(*) from public.profiles where email = 'go50@example.com' and member_type is not null), 0);
+select pg_temp.expect_int('WC077 실패 뒤 약관, 연결코드, 학적이 남지 않는다',
+  (select count(*) from public.student_link_codes l join public.profiles p on p.id = l.student_id where p.email = 'go50@example.com')
+  + (select count(*) from public.student_enrollments e join public.profiles p on p.id = e.student_id where p.email = 'go50@example.com'), 0);
+select pg_temp.expect_ok('번호를 비우면 중복 검사에서 빠진다(같은 반)', $$select pg_temp.go(51, '{"number": null}')$$);
+select pg_temp.expect_ok('번호를 비우면 중복 검사에서 빠진다(같은 반 2)', $$select pg_temp.go(52, '{"number": null}')$$);
+select pg_temp.expect_ok('학급 번호는 학년이 다르면 따로다', $$select pg_temp.go(53, '{"number": 7, "grade": "고2"}')$$);
+
+select pg_temp.expect_error('등록되지 않은 그룹은 WC080', $$
+  select pg_temp.go(54, jsonb_build_object('tenant_id', (select id from public.tenants where code = 'SD222222'), 'group_name', '없는그룹'))
+$$, 'WC080');
+insert into public.class_groups (tenant_id, name) values ((select id from public.tenants where code = 'SD222222'), '심화반');
+select pg_temp.expect_ok('등록된 그룹은 통과(대소문자 무시)', $$
+  select pg_temp.go(55, jsonb_build_object('tenant_id', (select id from public.tenants where code = 'SD222222'), 'group_name', '심화반'))
+$$);
+select pg_temp.expect_text('그룹이 학급에 묶인다',
+  (select g.name from public.student_enrollments e join public.classes c on c.id = e.class_id
+     join public.class_groups g on g.id = c.group_id
+    where e.student_id = (select id from public.profiles where email = 'go55@example.com')), '심화반');
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;
