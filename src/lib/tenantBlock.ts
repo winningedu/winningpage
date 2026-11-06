@@ -46,3 +46,18 @@ export function goalNotAllowedMessage(
     ? tenantBlockMessage(reason)
     : winningText;
 }
+
+/**
+ * 수행평가 채팅처럼 서버 문구를 그대로 띄우는 곳의 이용권 거부 문구. 서버의 NO_ENTITLEMENT 문구는 결제를
+ * 안내하므로(위닝 기준) 스쿨멘토에서는 결정 99 문구로 바꾼다. 위닝과 다른 오류 코드는 서버 문구 그대로다.
+ */
+export function entitlementDeniedMessage(
+  code: string,
+  serverMessage: string,
+  tenantReason: unknown,
+): string {
+  const denied = code === "NO_ENTITLEMENT" || code === "ENTITLEMENT_EXPIRED";
+  return denied && site.features.tenantServiceGate
+    ? tenantBlockMessage(parseTenantReason(tenantReason))
+    : serverMessage;
+}
