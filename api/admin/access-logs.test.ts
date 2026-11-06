@@ -146,4 +146,74 @@ describe("GET /api/admin/access-logs", () => {
       content: "회원 목록",
     });
   });
+
+  test("소속코드를 주면 그 기관 id 로 거른다", async () => {
+    kit.state.rows.tenants = (filters) =>
+      filters.code === "ABCD1234" ? { id: "tenant-7" } : null;
+
+    await get({ tenantCode: "ABCD1234" });
+
+    expect(logFilters[0]).toMatchObject({ tenant_id: "tenant-7" });
+  });
+
+  test("없는 소속코드는 로그를 읽지 않고 빈 목록을 돌려준다", async () => {
+    kit.state.rows.tenants = () => null;
+
+    const r = await get({ tenantCode: "NOPE0000" });
+
+    expect(r.status).toBe(200);
+    expect((r.body as Body).logs).toEqual([]);
+    expect(logFilters).toHaveLength(0);
+  });
+
+  test("기간은 한국 날짜 기준으로 시작일 0시 이상, 종료일 다음 날 0시 미만이다", async () => {
+    await get({ from: "2026-11-01", to: "2026-11-05" });
+
+    expect(logFilters[0]).toMatchObject({
+      "created_at>=": "2026-11-01T00:00:00+09:00",
+      "created_at<": "2026-11-06T00:00:00+09:00",
+    });
+  });
+
+  test("구분을 주면 그 구분의 동작만 읽는다", async () => {
+    await get({ kind: "edit" });
+
+    const actions = logFilters[0]?.action as string[];
+    expect(actions).toContain("settings_change");
+    expect(actions).toContain("account_reissue");
+    expect(actions).not.toContain("view");
+    expect(actions).not.toContain("export");
+  });
+
+  test.each([
+    [{ kind: "nope" }],
+    [{ from: "2026/11/01" }],
+    [{ to: "내일" }],
+    [{ page: "0" }],
+    [{ page: "abc" }],
+  ])("잘못된 조건 %j 은 400 이고 읽지 않는다", async (query) => {
+    const r = await get(query);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(logFilters).toHaveLength(0);
+  });
+
+  test("한 쪽은 50줄이고 다음 쪽이 있으면 hasNext 이다", async () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({
+      ...TEACHER_VIEW_LOG,
+      id: `log-${i}`,
+    }));
+    kit.state.rows.admin_access_logs = () => many;
+
+    const first = await get();
+    const third = await get({ page: "3" });
+
+    expect((first.body as Body).logs).toHaveLength(50);
+    expect((first.body as Body).hasNext).toBe(true);
+    expect((third.body as Body).page).toBe(3);
+    expect((third.body as Body).logs).toHaveLength(20);
+    expect((third.body as Body).logs[0]?.id).toBe("log-100");
+    expect((third.body as Body).hasNext).toBe(false);
+  });
 });

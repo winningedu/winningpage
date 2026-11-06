@@ -49,6 +49,8 @@ export interface KitState {
     table: string;
     orderBy?: { column: string; ascending: boolean };
     limit?: number;
+    /** range(from, to) 를 건 경우의 양 끝(포함). */
+    range?: { from: number; to: number };
   }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
   events: string[];
@@ -74,6 +76,8 @@ export function matchRows<R extends Record<string, unknown>>(
       // gte(col, v) 는 "col>=" 키로 담긴다. 날짜 문자열은 사전순 비교로 충분하다.
       if (col.endsWith(">="))
         return String(row[col.slice(0, -2)]) >= String(want);
+      if (col.endsWith("<"))
+        return String(row[col.slice(0, -1)]) < String(want);
       return Array.isArray(want)
         ? want.includes(row[col])
         : String(row[col]) === String(want);
@@ -171,7 +175,10 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
-        const data = state.rows[table]?.(filters) ?? null;
+        let data = state.rows[table]?.(filters) ?? null;
+        if (Array.isArray(data) && read.range) {
+          data = data.slice(read.range.from, read.range.to + 1);
+        }
         // limit 을 건 읽기만 정렬과 자르기를 흉내 낸다(그 밖의 읽기는 픽스처 순서 그대로).
         if (!Array.isArray(data) || read.limit === undefined) {
           return { data, error: null };
@@ -202,8 +209,15 @@ export function createFakeAdmin(state: KitState) {
         filters[`${col}>=`] = value;
         return chain;
       };
-      for (const m of ["like", "ilike", "range", "is", "not"])
-        chain[m] = () => chain;
+      chain.lt = (col: string, value: unknown) => {
+        filters[`${col}<`] = value;
+        return chain;
+      };
+      chain.range = (from: number, to: number) => {
+        read.range = { from, to };
+        return chain;
+      };
+      for (const m of ["like", "ilike", "is", "not"]) chain[m] = () => chain;
       chain.limit = (count: number) => {
         read.limit = count;
         return chain;

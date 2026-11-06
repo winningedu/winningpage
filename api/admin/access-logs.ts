@@ -7,6 +7,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ACCESS_LOG_KINDS,
+  type AccessLogKind,
+  actionsOfKind,
   contentSummary,
   kindLabel,
   kindOf,
@@ -51,6 +54,45 @@ interface ProfileRow {
   member_type: string | null;
 }
 
+interface Filter {
+  tenantCode: string | null;
+  from: string | null;
+  before: string | null;
+  kind: AccessLogKind | null;
+  page: number;
+}
+
+function one(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+// 날짜는 YYYY-MM-DD 한국 날짜다. 시작일 0시(포함)부터 종료일 다음 날 0시(미포함)까지 읽는다.
+function kstDay(date: string, plusDays: number): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const moment = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(moment.getTime())) return null;
+  moment.setUTCDate(moment.getUTCDate() + plusDays);
+  if (plusDays === 0 && moment.toISOString().slice(0, 10) !== date) return null;
+  return `${moment.toISOString().slice(0, 10)}T00:00:00+09:00`;
+}
+
+/** 쿼리를 읽는다. 형식이 틀린 값이 하나라도 있으면 null. */
+function parseFilter(query: Record<string, unknown>): Filter | null {
+  const fromText = one(query.from);
+  const toText = one(query.to);
+  const kindText = one(query.kind);
+  const pageText = one(query.page);
+  const from = fromText ? kstDay(fromText, 0) : null;
+  const before = toText ? kstDay(toText, 1) : null;
+  const kind = ACCESS_LOG_KINDS.find((k) => k === kindText) ?? null;
+  const page = pageText === null ? 1 : Number(pageText);
+  if (fromText && !from) return null;
+  if (toText && !before) return null;
+  if (kindText && !kind) return null;
+  if (!Number.isInteger(page) || page < 1) return null;
+  return { tenantCode: one(query.tenantCode), from, before, kind, page };
+}
+
 function unique(values: (string | null)[]): string[] {
   return [...new Set(values.filter((v): v is string => v !== null))];
 }
@@ -76,7 +118,7 @@ export default defineHandler({
   unhandledCode: "INTERNAL",
   logLabel: "[admin/access-logs]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (_req, res, ctx) => {
+  handler: async (req, res, ctx) => {
     const { data: isSuper, error } = await ctx.supabaseAdmin.rpc(
       "fn_is_super_admin",
       { p_profile_id: ctx.userId },
@@ -93,15 +135,46 @@ export default defineHandler({
       return;
     }
 
-    const { data, error: readError } = await ctx.supabaseAdmin
+    const filter = parseFilter(req.query);
+    if (!filter) {
+      sendError(res, "coded", 400, "조회 조건을 확인해 주세요.", "BAD_REQUEST");
+      return;
+    }
+
+    let tenantId: string | null = null;
+    if (filter.tenantCode) {
+      const { data: tenant, error: tenantError } = await ctx.supabaseAdmin
+        .from("tenants")
+        .select("id")
+        .eq("code", filter.tenantCode)
+        .maybeSingle();
+      if (tenantError) throw new Error("tenant read failed");
+      if (!tenant) {
+        res
+          .status(200)
+          .json({ ok: true, logs: [], page: filter.page, hasNext: false });
+        return;
+      }
+      tenantId = (tenant as { id: string }).id;
+    }
+
+    let query = ctx.supabaseAdmin
       .from("admin_access_logs")
       .select(
         "id, created_at, action, resource_key, reason, row_count, target_id, actor_email, actor_kind, actor_login_id, profile_id, teacher_id, proxy_session_id, meta, tenants(code)",
-      )
+      );
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+    if (filter.from) query = query.gte("created_at", filter.from);
+    if (filter.before) query = query.lt("created_at", filter.before);
+    if (filter.kind) query = query.in("action", actionsOfKind(filter.kind));
+    const offset = (filter.page - 1) * PAGE_SIZE;
+    // 한 줄 더 읽어 다음 쪽이 있는지 안다.
+    const { data, error: readError } = await query
       .order("created_at", { ascending: false })
-      .range(0, PAGE_SIZE - 1);
+      .range(offset, offset + PAGE_SIZE);
     if (readError) throw new Error("access logs read failed");
-    const rows = (data ?? []) as unknown as LogRow[];
+    const all = (data ?? []) as unknown as LogRow[];
+    const rows = all.slice(0, PAGE_SIZE);
 
     const teacherIds = unique(rows.map((r) => r.teacher_id));
     const profileIds = unique(rows.flatMap((r) => [r.profile_id, r.target_id]));
@@ -153,8 +226,8 @@ export default defineHandler({
             row.proxy_session_id !== null || row.actor_kind === "hq_proxy",
         };
       }),
-      page: 1,
-      hasNext: false,
+      page: filter.page,
+      hasNext: all.length > PAGE_SIZE,
     });
   },
 });

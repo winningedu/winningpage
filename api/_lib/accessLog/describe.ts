@@ -16,6 +16,26 @@ export function kindLabel(kind: AccessLogKind): string {
   return KIND_LABELS[kind];
 }
 
+// admin_access_logs_action_check 와 1:1. 구분 필터가 동작 목록으로 바뀔 때 쓴다.
+const ACCESS_LOG_ACTIONS = [
+  "download",
+  "unmask",
+  "view",
+  "report_view",
+  "update",
+  "export",
+  "account_issue",
+  "account_reissue",
+  "account_status",
+  "account_delete",
+  "password_set",
+  "teacher_import",
+  "proxy_start",
+  "proxy_end",
+  "settings_change",
+  "member_purge",
+];
+
 /** admin_access_logs.action 을 구분으로 묶는다. 모르는 동작은 조회로 본다. */
 export function kindOf(action: string): AccessLogKind {
   if (action === "export") return "export";
@@ -148,4 +168,8 @@ export function contentSummary(entry: AccessLogContentInput): string {
     detail = `학급 ${entry.rowCount}`;
   }
   return detail === "" ? label : `${label} (${detail})`;
+}
+
+export function actionsOfKind(kind: AccessLogKind): string[] {
+  return ACCESS_LOG_ACTIONS.filter((action) => kindOf(action) === kind);
 }
