@@ -15,6 +15,9 @@ const db = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: "hq-1" } } } }),
+    },
     from: vi.fn(() => ({
       select: () => ({
         not: () => ({
@@ -25,11 +28,16 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("@/lib/adminPermissions", () => ({
+  fetchAdminPermissions: vi.fn(),
+}));
+
 vi.mock("./api", () => ({
   fetchMemberPurgePreview: vi.fn(),
   runMemberPurge: vi.fn(),
 }));
 
+import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import * as api from "./api";
 import MemberPurgeAdmin from "./MemberPurgeAdmin";
 
@@ -84,6 +92,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.tenants = [TENANT];
   vi.mocked(api.fetchMemberPurgePreview).mockResolvedValue(preview(-36));
+  vi.mocked(fetchAdminPermissions).mockResolvedValue(
+    new Map([["tenants", "edit"]]),
+  );
 });
 
 async function openTenant() {
@@ -184,6 +195,18 @@ describe("MemberPurgeAdmin", () => {
 
     expect(screen.getByText("최*새")).toBeTruthy();
     expect(screen.queryByText("김*늘")).toBeNull();
+  });
+
+  test("tenants 편집 권한이 없으면 삭제 실행 버튼이 막힌다", async () => {
+    vi.mocked(fetchAdminPermissions).mockResolvedValue(
+      new Map([["tenants", "view"]]),
+    );
+    await openTenant();
+
+    expect(
+      (screen.getByRole("button", { name: "삭제 실행" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 
   test("처리하지 못한 학생이 있으면 다시 실행해 달라는 안내를 보여 주고, 없으면 보여 주지 않는다", async () => {

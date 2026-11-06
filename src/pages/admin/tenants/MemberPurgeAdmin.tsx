@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
@@ -38,6 +39,24 @@ export default function MemberPurgeAdmin() {
   const [result, setResult] = useState<PurgeResult | null>(null);
   // 가장 최근에 미리보기를 요청한 기관. 늦게 도착한 옛 기관의 응답은 버린다.
   const requestedTenant = useRef("");
+  // 서버도 tenants edit 권한을 본다. 못 읽었으면 막아 둔다(fail-closed).
+  const [canEdit, setCanEdit] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const userId = data.session?.user?.id;
+        return userId ? fetchAdminPermissions(userId) : null;
+      })
+      .then((permissions) => {
+        if (active) setCanEdit(permissions?.get("tenants") === "edit");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -213,7 +232,7 @@ export default function MemberPurgeAdmin() {
           <div className="mb-4">
             <ActionButton
               variant="danger"
-              disabled={selected.size === 0 || !deletable}
+              disabled={selected.size === 0 || !deletable || !canEdit}
               onClick={() => setConfirming(true)}
             >
               삭제 실행
