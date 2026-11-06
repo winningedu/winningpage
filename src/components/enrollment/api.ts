@@ -15,24 +15,72 @@ export type SubmitResult = { ok: true } | { ok: false; message: string };
 
 export const SUBMIT_FAILED = "저장하지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-export async function submitEnrollment(
-  endpoint: EnrollmentEndpoint,
-  input: EnrollmentInput,
-): Promise<SubmitResult> {
+type PostResult = { ok: true; data: unknown } | { ok: false; message: string };
+
+async function postEnrollment(
+  endpoint: string,
+  body: unknown,
+): Promise<PostResult> {
   const auth = await getAuthHeader();
   if (!auth) return { ok: false, message: "로그인이 필요해요." };
   const res = await apiFetch(`/api/enrollment/${endpoint}`, {
     method: "POST",
     headers: { ...auth, "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
   });
-  if (res.ok) return { ok: true };
-  const body: unknown = await res.json().catch(() => null);
-  const message = (body as { error?: { message?: unknown } } | null)?.error
+  const data: unknown = await res.json().catch(() => null);
+  if (res.ok) return { ok: true, data };
+  const message = (data as { error?: { message?: unknown } } | null)?.error
     ?.message;
   return {
     ok: false,
     message: typeof message === "string" ? message : SUBMIT_FAILED,
+  };
+}
+
+export async function submitEnrollment(
+  endpoint: EnrollmentEndpoint,
+  input: EnrollmentInput,
+): Promise<SubmitResult> {
+  const result = await postEnrollment(endpoint, input);
+  return result.ok ? { ok: true } : result;
+}
+
+export type LookupTenantResult =
+  | { ok: true; name: string; orgType: string | null }
+  | { ok: false; message: string };
+
+/** 기타 소속 학생이 소속코드로 옮길 기관을 확인한다(결정 96). */
+export async function lookupJoinTenant(
+  code: string,
+): Promise<LookupTenantResult> {
+  const result = await postEnrollment("join-tenant-lookup", { code });
+  if (!result.ok) return result;
+  const { name, orgType } = result.data as {
+    name: string;
+    orgType: string | null;
+  };
+  return { ok: true, name, orgType };
+}
+
+export interface JoinTenantInput extends Omit<EnrollmentInput, "number"> {
+  code: string;
+  number?: number;
+}
+
+export type JoinTenantResult =
+  | { ok: true; tenantName: string }
+  | { ok: false; message: string };
+
+/** 소속코드로 기관을 옮기고 학적(학년, 반, 번호, 그룹)을 받는다(결정 96, 98.10). */
+export async function joinTenant(
+  input: JoinTenantInput,
+): Promise<JoinTenantResult> {
+  const result = await postEnrollment("join-tenant", input);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    tenantName: (result.data as { tenantName: string }).tenantName,
   };
 }
 
