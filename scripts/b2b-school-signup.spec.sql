@@ -305,6 +305,79 @@ select pg_temp.expect_bool('연결코드 발급, 결과에 같은 코드',
 select pg_temp.expect_int('문자 인증은 소비된다',
   (select count(*) from public.phone_verifications where phone = '01040000001' and consumed_at is not null), 1);
 
+-- ---------------------------------------------------------------------
+-- 입력 검증과 가입 게이트(번호 n 마다 따로 만든 계정, 아이디, 이메일, 번호를 쓴다)
+-- ---------------------------------------------------------------------
+-- 예외 메시지까지 확인한다(plpgsql 평문 예외는 모두 P0001 이라 메시지로 구분한다).
+create function pg_temp.expect_msg(t text, p_sql text, want_state text, want_msg text) returns void
+language plpgsql as $$
+declare
+  v_state text;
+  v_msg text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text;
+    if v_state is distinct from want_state or v_msg is distinct from want_msg then
+      raise exception '[FAIL] %: got % / %, want % / %', t, v_state, v_msg, want_state, want_msg;
+    end if;
+    raise notice '[PASS] % = % %', t, want_state, want_msg;
+    return;
+  end;
+  raise exception '[FAIL] %: 예외가 나지 않았다, want % %', t, want_state, want_msg;
+end $$;
+
+create function pg_temp.go(n int, extra jsonb default '{}', p_verify boolean default true) returns jsonb
+language plpgsql as $$
+declare
+  v_phone text := '010-50' || lpad(n::text, 2, '0') || '-0001';
+begin
+  if p_verify then perform pg_temp.verify(v_phone); end if;
+  return pg_temp.su(
+    pg_temp.new_user('go' || n || '@example.com'),
+    jsonb_build_object('phone', v_phone, 'username', 'gouser' || n, 'email', 'go' || n || '@example.com', 'number', n) || extra);
+end $$;
+
+update public.app_settings set value = 'false'::jsonb where key = 'signup_enabled';
+select pg_temp.expect_error('가입이 꺼져 있으면 WC074', $$select pg_temp.go(1)$$, 'WC074');
+delete from public.app_settings where key = 'signup_enabled';
+select pg_temp.expect_error('설정 행이 없어도 닫힌다(폴백으로 열지 않는다)', $$select pg_temp.go(2)$$, 'WC074');
+insert into public.app_settings (key, value) values ('signup_enabled', 'true'::jsonb);
+
+select pg_temp.expect_msg('이용약관 미동의', $$select pg_temp.go(3, '{"agree_service": false}')$$, 'P0001', 'terms_service_required');
+select pg_temp.expect_msg('개인정보 미동의', $$select pg_temp.go(4, '{"agree_privacy": false}')$$, 'P0001', 'privacy_required');
+select pg_temp.expect_msg('DB 전환 미동의', $$select pg_temp.go(5, '{"agree_db_transfer": false}')$$, 'P0001', 'db_transfer_required');
+select pg_temp.expect_msg('이름 없음', $$select pg_temp.go(6, '{"name": "  "}')$$, 'P0001', 'name_required');
+select pg_temp.expect_msg('이메일 없음', $$select pg_temp.go(7, '{"email": ""}')$$, 'P0001', 'email_required');
+select pg_temp.expect_msg('학년 없음', $$select pg_temp.go(8, '{"grade": null}')$$, 'P0001', 'grade_required');
+select pg_temp.expect_msg('14세 이상은 생년월일 필수', $$select pg_temp.go(9, '{"birth_date": null}')$$, 'P0001', 'birth_date_required');
+select pg_temp.expect_msg('14세 이상은 성별 필수', $$select pg_temp.go(10, '{"gender": null}')$$, 'P0001', 'gender_required');
+select pg_temp.expect_msg('성별은 남, 여만', $$select pg_temp.go(11, '{"gender": "x"}')$$, 'P0001', 'invalid_gender');
+select pg_temp.expect_msg('아이디가 너무 짧다', $$select pg_temp.go(12, '{"username": "abc"}')$$, 'P0001', 'username_invalid');
+select pg_temp.expect_msg('아이디가 너무 길다', $$select pg_temp.go(13, '{"username": "abcdefghijklmnopqrstu"}')$$, 'P0001', 'username_invalid');
+select pg_temp.expect_msg('아이디에 @ 불가', $$select pg_temp.go(14, '{"username": "ab@cd"}')$$, 'P0001', 'username_invalid');
+select pg_temp.expect_msg('아이디에 한글 불가', $$select pg_temp.go(15, '{"username": "가나다라"}')$$, 'P0001', 'username_invalid');
+select pg_temp.expect_ok('아이디 대문자는 소문자로 바꿔 받는다', $$select pg_temp.go(16, '{"username": "UpperCase16"}')$$);
+select pg_temp.expect_text('저장된 아이디는 소문자',
+  (select username from public.profiles where email = 'go16@example.com'), 'uppercase16');
+select pg_temp.expect_error('이미 쓰는 아이디(대소문자 무시)는 WC095', $$select pg_temp.go(17, '{"username": "UPPERCASE16"}')$$, 'WC095');
+select pg_temp.expect_ok('선생님 계정 login_id 와 겹치는 아이디 준비', $$
+  insert into public.teachers (tenant_id, name, phone, role, login_id)
+  values ((select id from public.tenants where code = 'SA222222'), '교사', '01099990001', 'homeroom', 'SA222222ABC234')
+$$);
+select pg_temp.expect_error('선생님 login_id 와 겹치는 아이디는 WC095', $$select pg_temp.go(18, '{"username": "sa222222abc234"}')$$, 'WC095');
+select pg_temp.expect_msg('계정이 없으면 user_not_found', $$
+  select pg_temp.verify('010-5019-0001');
+  select pg_temp.su(gen_random_uuid(), '{"phone": "010-5019-0001", "username": "nouser19", "email": "n19@example.com"}')
+$$, 'P0001', 'user_not_found');
+select pg_temp.expect_msg('이미 가입을 끝낸 계정은 다시 가입할 수 없다', $$
+  select pg_temp.su((select id from auth.users where email = 'stu01@example.com'), '{"username": "again20"}')
+$$, 'P0001', 'already_signed_up');
+select pg_temp.expect_msg('다른 계정이 쓰는 이메일은 duplicate_email', $$
+  select pg_temp.go(21, '{"email": "STU01@example.com"}')
+$$, 'P0001', 'duplicate_email');
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;

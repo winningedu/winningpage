@@ -117,11 +117,72 @@ declare
   v_name text := btrim(coalesce(p_name, ''));
   v_email text := lower(btrim(coalesce(p_email, '')));
   v_phone text := btrim(coalesce(p_phone, ''));
+  v_gender text := nullif(btrim(coalesce(p_gender, '')), '');
   v_phone_digits text;
   v_tenant public.tenants;
   v_pv_id uuid;
   v_link_code text;
+  v_signup_enabled boolean;
+  v_member_type text;
 begin
+  -- 가입 on/off 게이트(complete_signup_profile 과 같다). 설정 행이 없으면 닫는다(폴백으로 열지 않는다).
+  select ((s.value #>> '{}')::boolean) into v_signup_enabled
+    from public.app_settings s where s.key = 'signup_enabled';
+  if not coalesce(v_signup_enabled, false) then
+    raise exception 'signup_disabled' using errcode = 'WC074';
+  end if;
+
+  if not exists (select 1 from auth.users u where u.id = p_user_id) then
+    raise exception 'user_not_found';
+  end if;
+
+  -- 같은 계정의 동시 호출을 줄 세우고, 이미 가입을 끝낸 계정은 다시 쓰지 못하게 한다.
+  select pr.member_type into v_member_type from public.profiles pr where pr.id = p_user_id for update;
+  if v_member_type is not null then
+    raise exception 'already_signed_up';
+  end if;
+
+  if v_name = '' then
+    raise exception 'name_required';
+  end if;
+  if v_email = '' then
+    raise exception 'email_required';
+  end if;
+  if nullif(btrim(coalesce(p_grade, '')), '') is null then
+    raise exception 'grade_required';
+  end if;
+  if coalesce(p_agree_service, false) is not true then
+    raise exception 'terms_service_required';
+  end if;
+  if coalesce(p_agree_privacy, false) is not true then
+    raise exception 'privacy_required';
+  end if;
+  if coalesce(p_agree_db_transfer, false) is not true then
+    raise exception 'db_transfer_required';
+  end if;
+
+  -- 결정 70: 영문 소문자와 숫자 4~20자(@ 불가).
+  if v_username !~ '^[a-z0-9]{4,20}$' then
+    raise exception 'username_invalid';
+  end if;
+  if not public.is_username_available(v_username) then
+    raise exception 'username_taken' using errcode = 'WC095';
+  end if;
+
+  if v_gender is not null and v_gender not in ('남', '여') then
+    raise exception 'invalid_gender';
+  end if;
+  if p_birth_date is null then
+    raise exception 'birth_date_required';
+  end if;
+  if v_gender is null then
+    raise exception 'gender_required';
+  end if;
+
+  if exists (select 1 from public.profiles pr where lower(btrim(pr.email)) = v_email and pr.id <> p_user_id) then
+    raise exception 'duplicate_email';
+  end if;
+
   v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
 
   select * into v_tenant from public.tenants t where t.id = p_tenant_id;
