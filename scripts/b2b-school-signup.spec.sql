@@ -545,7 +545,7 @@ language plpgsql as $$
 begin
   insert into public.identity_verifications (request_id, purpose, status, is_under14, birth_date, gender, mobile,
     verified_at, expires_at, consumed_at)
-  values (p_rid, p_purpose, p_status, p_guardian_under14, date '2013-05-06', p_gender, p_mobile,
+  values (p_rid, p_purpose, p_status, p_guardian_under14, date '1980-05-06', p_gender, p_mobile,
     now() - p_verified_ago, now() + interval '1 hour', case when p_consumed then now() end);
 end $$;
 
@@ -556,16 +556,16 @@ begin
   return pg_temp.su(
     pg_temp.new_user('go' || n || '@example.com'),
     jsonb_build_object('phone', '', 'username', 'gouser' || n, 'email', 'go' || n || '@example.com', 'number', n,
-      'birth_date', null, 'gender', null, 'identity_request_id', p_rid,
+      'birth_date', date '2013-05-06', 'gender', '여', 'identity_request_id', p_rid,
       'guardian_name', '박보호', 'guardian_phone', '010-0000-0000', 'guardian_relation', '아버지',
       'guardian_consent', true) || extra);
 end $$;
 
 select pg_temp.mk_iv('rid-70');
 select pg_temp.expect_ok('PASS 본인확인으로 본인 번호 없이 가입된다', $$select pg_temp.go14(70, 'rid-70')$$);
-select pg_temp.expect_text('PASS 값이 생년월일, 성별을 정하고 본인 번호는 비운다',
+select pg_temp.expect_text('학생 생년월일과 성별은 폼 값이고 PASS(학부모) 값이 아니다, 본인 번호는 비운다',
   (select birth_date || ':' || gender || ':' || coalesce(phone, '-') from public.profiles where email = 'go70@example.com'),
-  '2013-05-06:남:-');
+  '2013-05-06:여:-');
 select pg_temp.expect_text('학부모 번호는 PASS 번호로 덮이고 SMS 인증 시각은 비운다',
   (select guardian_phone || ':' || guardian_consent || ':' || (guardian_phone_verified_at is null)
      from public.profiles where email = 'go70@example.com'), '010-7000-0001:true:true');
@@ -575,8 +575,18 @@ select pg_temp.expect_text('본인확인은 소비되고 새 계정과 이어진
 select pg_temp.expect_msg('같은 본인확인은 한 번만', $$select pg_temp.go14(71, 'rid-70')$$, 'P0001', 'identity_not_verified');
 
 select pg_temp.mk_iv('rid-72', p_gender => '2');
-select pg_temp.go14(72, 'rid-72');
-select pg_temp.expect_text('NICE 성별 짝수는 여', (select gender from public.profiles where email = 'go72@example.com'), '여');
+select pg_temp.go14(72, 'rid-72', '{"gender": "남"}');
+select pg_temp.expect_text('PASS 성별 코드는 학생 성별에 쓰이지 않는다', (select gender from public.profiles where email = 'go72@example.com'), '남');
+select pg_temp.mk_iv('rid-83');
+select pg_temp.expect_msg('14세 미만도 생년월일 필수', $$select pg_temp.go14(83, 'rid-83', '{"birth_date": null}')$$, 'P0001', 'birth_date_required');
+select pg_temp.mk_iv('rid-84');
+select pg_temp.expect_msg('14세 미만도 성별 필수', $$select pg_temp.go14(84, 'rid-84', '{"gender": null}')$$, 'P0001', 'gender_required');
+select pg_temp.expect_msg('14세 미만 생년월일인데 본인확인이 없으면 거부', $$
+  select pg_temp.go(85, jsonb_build_object('birth_date', ((now() at time zone 'Asia/Seoul')::date - interval '13 years 364 days')::date))
+$$, 'P0001', 'identity_not_verified');
+select pg_temp.expect_ok('만 14세 생일 당일은 14세 이상이라 본인확인 없이 가입된다', $$
+  select pg_temp.go(86, jsonb_build_object('birth_date', ((now() at time zone 'Asia/Seoul')::date - interval '14 years')::date))
+$$);
 
 select pg_temp.expect_msg('없는 본인확인', $$select pg_temp.go14(73, 'nope')$$, 'P0001', 'identity_not_verified');
 select pg_temp.mk_iv('rid-74', p_status => 'pending');

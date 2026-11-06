@@ -133,8 +133,6 @@ declare
   v_iv_id uuid;
   v_iv_purpose text;
   v_iv_under14 boolean;
-  v_iv_birth_date date;
-  v_iv_gender text;
   v_iv_mobile text;
   v_under14 boolean := false;
   v_constraint text;
@@ -187,11 +185,11 @@ begin
     raise exception 'invalid_gender';
   end if;
 
-  -- 만 14세 미만: PASS 본인확인(under14_guardian)이 생년월일, 성별, 학부모 번호의 정본이다(complete_signup_profile 과 같다).
-  -- 행을 잠가 같은 본인확인으로 두 계정이 만들어지지 않게 한다.
+  -- 만 14세 미만: PASS 본인확인(under14_guardian)은 법정대리인(성인)의 것이다. 학생의 생년월일과 성별은 폼 값을 그대로 쓰고,
+  -- PASS 에서는 학부모 번호만 받는다. 행을 잠가 같은 본인확인으로 두 계정이 만들어지지 않게 한다.
   if v_identity_rid <> '' then
-    select iv.id, iv.purpose, iv.is_under14, iv.birth_date, iv.gender, iv.mobile
-      into v_iv_id, v_iv_purpose, v_iv_under14, v_iv_birth_date, v_iv_gender, v_iv_mobile
+    select iv.id, iv.purpose, iv.is_under14, iv.mobile
+      into v_iv_id, v_iv_purpose, v_iv_under14, v_iv_mobile
       from public.identity_verifications iv
      where iv.request_id = v_identity_rid
        and iv.status = 'verified'
@@ -212,24 +210,19 @@ begin
     end if;
 
     v_under14 := true;
-    v_birth_date := v_iv_birth_date;
-    -- NICE 성별코드: 홀수(1/3/5/7)는 남, 짝수 계열(0/2/4/6/8)은 여, 그 밖의 값은 null.
-    v_gender := case
-      when v_iv_gender in ('1', '3', '5', '7') then '남'
-      when v_iv_gender in ('0', '2', '4', '6', '8') then '여'
-      else null
-    end;
     v_guardian_phone := coalesce(nullif(regexp_replace(coalesce(v_iv_mobile, ''), '[^0-9]', '', 'g'), ''), v_guardian_phone);
   end if;
 
-  -- 14세 이상은 생년월일과 성별이 필수다.
-  if not v_under14 then
-    if v_birth_date is null then
-      raise exception 'birth_date_required';
-    end if;
-    if v_gender is null then
-      raise exception 'gender_required';
-    end if;
+  -- 생년월일과 성별은 14세 미만도 필수다.
+  if v_birth_date is null then
+    raise exception 'birth_date_required';
+  end if;
+  if v_gender is null then
+    raise exception 'gender_required';
+  end if;
+  -- 만 14세 미만(KST 오늘 기준 만 나이)인데 본인확인이 없으면 거부한다.
+  if not v_under14 and extract(year from age((now() at time zone 'Asia/Seoul')::date, v_birth_date)) < 14 then
+    raise exception 'identity_not_verified';
   end if;
 
   if exists (select 1 from public.profiles pr where lower(btrim(pr.email)) = v_email and pr.id <> p_user_id) then
