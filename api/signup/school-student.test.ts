@@ -349,4 +349,80 @@ describe("POST /api/signup/school-student", () => {
       expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
     },
   );
+
+  describe("이미 있는 이메일", () => {
+    function emailExists(profile: Record<string, unknown> | null) {
+      happyPath();
+      kit.state.auth.createUser.mockResolvedValue({
+        data: { user: null },
+        error: { code: "email_exists", status: 422 },
+      });
+      kit.state.rpc.fn_auth_user_id_by_email = () => ({
+        data: "old-1",
+        error: null,
+      });
+      kit.state.rows.profiles = () => profile;
+    }
+
+    test("가입을 끝내지 않은 계정(member_type 없음)은 비밀번호를 새로 맞춰 다시 쓴다", async () => {
+      emailExists({ member_type: null, role: "user" });
+      const signupCalls: Record<string, unknown>[] = [];
+      kit.state.rpc.fn_student_signup = (args) => {
+        signupCalls.push(args);
+        return { data: SIGNUP_OK, error: null };
+      };
+
+      const r = await post(BODY);
+
+      expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("old-1", {
+        password: "Pass#123",
+      });
+      expect(signupCalls[0]).toMatchObject({ p_user_id: "old-1" });
+      expect(r.status).toBe(200);
+    });
+
+    test("다시 쓴 계정은 가입 확정이 실패해도 지우지 않는다", async () => {
+      emailExists({ member_type: null, role: "user" });
+      kit.state.rpc.fn_student_signup = () => ({
+        data: null,
+        error: { code: "WC095", message: "username_taken" },
+      });
+
+      const r = await post(BODY);
+
+      expect(r.status).toBe(409);
+      expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      ["가입을 마친 계정", { member_type: "student", role: "user" }],
+      ["관리자 계정", { member_type: null, role: "admin" }],
+      ["프로필이 없는 계정", null],
+    ])(
+      "%s 이면 409 EMAIL_TAKEN 이고 비밀번호를 건드리지 않는다",
+      async (_label, profile) => {
+        emailExists(profile);
+
+        const r = await post(BODY);
+
+        expect(r.status).toBe(409);
+        expect(r.body).toMatchObject({ code: "EMAIL_TAKEN" });
+        expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+        expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  test("Auth 가 비밀번호 정책(weak_password)으로 거절하면 400 VALIDATION password", async () => {
+    happyPath();
+    kit.state.auth.createUser.mockResolvedValue({
+      data: { user: null },
+      error: { code: "weak_password", status: 422 },
+    });
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "VALIDATION", field: "password" });
+  });
 });

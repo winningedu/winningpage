@@ -76,11 +76,27 @@ export default defineHandler({
       }
     }
 
-    const { userId, created } = await createSignupAuthUser(
+    const authUser = await createSignupAuthUser(
       ctx.supabaseAdmin,
       input.email,
       input.password,
     );
+    if (!authUser.ok) {
+      if (authUser.reason === "weak_password") {
+        res.status(400).json({
+          code: "VALIDATION",
+          message: "비밀번호를 다시 확인해 주세요.",
+          field: "password",
+        });
+      } else {
+        res.status(409).json({
+          code: "EMAIL_TAKEN",
+          message: "이미 가입된 이메일입니다.",
+        });
+      }
+      return;
+    }
+    const { userId, created } = authUser;
 
     const { data: signup, error: signupError } = await ctx.supabaseAdmin.rpc(
       "fn_student_signup",
