@@ -11,7 +11,7 @@ import AgreementRow from "@/components/auth/AgreementRow";
 import { useSignup } from "@/context/SignupContext";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { fetchIdentityMobile } from "../identityVerification";
-import { GUARDIAN_MESSAGES } from "./copy";
+import { GUARDIAN_MESSAGES, type SubmitError } from "./copy";
 import Notice from "./Notice";
 import PhoneVerifyField from "./PhoneVerifyField";
 import StepActions from "./StepActions";
@@ -23,7 +23,7 @@ interface GuardianStepProps {
   // withGuardian이 false면 입력해 둔 학부모 정보를 보내지 않는다(건너뛰기).
   onSubmit: (withGuardian: boolean) => void;
   submitting: boolean;
-  submitError: { message: string; hint?: "findId" | "inquiry" } | null;
+  submitError: SubmitError | null;
 }
 
 export default function GuardianStep({
@@ -127,7 +127,7 @@ export default function GuardianStep({
         )}
       </div>
 
-      {submitError && (
+      {submitError?.message && (
         <Notice
           message={submitError.message}
           {...(submitError.hint && { hint: submitError.hint })}

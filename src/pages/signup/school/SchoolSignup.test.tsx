@@ -214,6 +214,14 @@ describe("2단계 소속 확인", () => {
 
 const SEND_OK = { body: { ok: true, expires_in: 180, cooldown: 60 } };
 const VERIFY_OK = { body: { ok: true } };
+const SIGNUP_OK = {
+  body: {
+    session: { access_token: "access", refresh_token: "refresh" },
+    username: "mentor01",
+    linkCode: "LINK12",
+    tenantName: "새빛중학교",
+  },
+};
 
 // 소속을 확인한 뒤 3단계까지 간다. orgType으로 학교와 학원을 가른다.
 async function goToStudentInfo(orgType = "학교") {
@@ -221,6 +229,7 @@ async function goToStudentInfo(orgType = "학교") {
     "/api/signup/tenant-lookup": { body: { ...TENANT, orgType } },
     "/api/send-phone-code": SEND_OK,
     "/api/verify-phone-code": VERIFY_OK,
+    "/api/signup/school-student": SIGNUP_OK,
   });
   renderSignup();
   agreeRequiredTerms();
@@ -665,3 +674,43 @@ describe("4단계 학부모 정보", () => {
   });
 });
 
+function lastCall(url: string) {
+  return calls.filter((call) => call.url === url).at(-1);
+}
+
+describe("가입 제출과 5단계 완료", () => {
+  it("학부모 정보를 건너뛰면 학생 정보만 보내고 세션을 넣고 완료 화면을 보인다", async () => {
+    await goToGuardian();
+    type("학부모 이름", "김부모");
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByRole("button", { name: "학습진단 시작하기" }),
+    ).toBeInTheDocument();
+    expect(lastCall("/api/signup/school-student")?.body).toEqual({
+      username: "mentor01",
+      password: "abc123!",
+      name: "김학생",
+      email: "a@b.co",
+      phone: "01012345678",
+      birthDate: "2010-03-04",
+      gender: "남",
+      tenantId: "t-1",
+      grade: "중2",
+      className: "3",
+      guardianConsent: false,
+      agreeService: true,
+      agreePrivacy: true,
+      agreeDbTransfer: true,
+      agreeMarketing: false,
+    });
+    expect(supabase.auth.setSession).toHaveBeenCalledWith({
+      access_token: "access",
+      refresh_token: "refresh",
+    });
+    expect(
+      screen.getByRole("button", { name: "서비스 둘러보기" }),
+    ).toBeInTheDocument();
+  });
+});

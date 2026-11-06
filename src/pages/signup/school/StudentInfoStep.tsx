@@ -11,7 +11,8 @@ import { useSignup } from "@/context/SignupContext";
 import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
 import { checkUsernameAvailable } from "./api";
-import { INFO_MESSAGES, USERNAME_MESSAGES } from "./copy";
+import { INFO_MESSAGES, type SubmitError, USERNAME_MESSAGES } from "./copy";
+import Notice from "./Notice";
 import PhoneVerifyField from "./PhoneVerifyField";
 import {
   ENROLLMENT_GRADES,
@@ -27,11 +28,13 @@ const SCHOOL_ORG_TYPE = "학교";
 interface StudentInfoStepProps {
   onPrev: () => void;
   onNext: () => void;
+  submitError: SubmitError | null;
 }
 
 export default function StudentInfoStep({
   onPrev,
   onNext,
+  submitError,
 }: StudentInfoStepProps) {
   const {
     formData,
@@ -344,6 +347,13 @@ export default function StudentInfoStep({
           </>
         )}
       </div>
+
+      {submitError?.message && (
+        <Notice
+          message={submitError.message}
+          {...(submitError.hint && { hint: submitError.hint })}
+        />
+      )}
 
       <StepActions onPrev={onPrev} onNext={onNext} nextDisabled={!canProceed} />
     </>
