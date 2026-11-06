@@ -59,7 +59,7 @@ export const ADMIN_SECTION_KEYS = [
   // 둔다(admin_resources sort_order 305, 20260922002929 참고).
   "tenants",
   "members",
-  // 회원관리 — 계약 종료 회원 삭제(스쿨멘토, tenants 권한을 같이 쓴다. adminPermissions.ts 의 별칭)
+  // 회원관리, 계약 종료 회원 삭제(스쿨멘토, tenants 권한을 같이 쓴다. adminPermissions.ts 의 별칭)
   "memberPurge",
   "memberPurgeLogs",
   // 회원관리 — 이용 현황
