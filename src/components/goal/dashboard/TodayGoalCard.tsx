@@ -10,6 +10,7 @@ import {
   submitDailyRecord,
 } from "@/lib/goalApi";
 import { formatCooldownUnlockLabel } from "@/lib/goalPlanUtils";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // 대시보드 "오늘의 목표" 카드 — part-07 #20(카드 배경 정본, 1076×409 = 67.25rem×25.5625rem).
 // #21의 "카드 배경 1076×12 축소"는 시안 편집 사고로 판단해 채택하지 않는다(작업 지시 §확정사항 6).
@@ -159,10 +160,19 @@ export default function TodayGoalCard({ data, onSaved }: TodayGoalCardProps) {
       return;
     }
 
+    if (result.kind === "not-allowed") {
+      setError(
+        goalNotAllowedMessage(
+          result.tenantReason,
+          "이용권이 필요한 서비스입니다.",
+        ),
+      );
+      return;
+    }
+
     const messages: Record<string, string> = {
       "no-study-time": "순공 시간은 0보다 커야 해요.",
       "no-session": "로그인이 필요합니다.",
-      "not-allowed": "이용권이 필요한 서비스입니다.",
       "not-active": "목표관리 온보딩을 먼저 완료해 주세요.",
     };
     setError(

@@ -582,6 +582,38 @@ describe("advanceStep 스쿨멘토 시작 확인", () => {
     expect(consumeAt).toBeLessThan(runAt);
   });
 
+  it.each([
+    ["running", { kind: "running" }],
+    ["locked", { kind: "locked" }],
+    ["exhausted", { kind: "exhausted", attempts: 10 }],
+  ])(
+    "2단계 선점이 %s 로 거절되면 늦은 차감을 세지 않는다",
+    async (_n, claim) => {
+      mocks.claimStep.mockResolvedValue(claim);
+      const out = await advanceStep(db, "u", makeRow(), 2, deps);
+      expect(out.kind).toBe("claim_error");
+      expect(mocks.consumeCredit).not.toHaveBeenCalled();
+    },
+  );
+
+  it("2단계는 선점한 뒤에 같은 키로 한 번 세고 그 뒤에 모델을 부른다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 2 });
+    const out = await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(mocks.consumeCredit).toHaveBeenCalledTimes(1);
+    expect(mocks.consumeCredit).toHaveBeenCalledWith(db, "u", "r1");
+    const claimAt = mocks.claimStep.mock.invocationCallOrder[0] ?? 0;
+    const consumeAt = mocks.consumeCredit.mock.invocationCallOrder[0] ?? 0;
+    const runAt = mocks.runStep.mock.invocationCallOrder[0] ?? 0;
+    expect(claimAt).toBeLessThan(consumeAt);
+    expect(consumeAt).toBeLessThan(runAt);
+    expect(out).toMatchObject({ kind: "ok", charged: true });
+  });
+
   it("진입 게이트 거부 사유도 tenantReason 으로 싣는다", async () => {
     mocks.hasPaidServiceAccess.mockResolvedValue({
       allowed: false,
@@ -616,9 +648,31 @@ describe("advanceStep 스쿨멘토 시작 확인", () => {
     const out = await advanceStep(db, "u", makeRow(), 2, deps);
     expect(out).toEqual({
       kind: "no_entitlement",
-      reason: "quota_exhausted",
+      reason: "term_cap",
       tenantReason: "term_cap",
     });
+    expect(mocks.finishStep).toHaveBeenCalledWith(
+      db,
+      "u",
+      "r1",
+      2,
+      false,
+      {},
+      expect.any(Array),
+      0,
+    );
+    expect(mocks.runStep).not.toHaveBeenCalled();
+  });
+});
+
+describe("advanceStep 위닝 2단계는 선점 전에 차감한다", () => {
+  it("늦은 차감을 선점보다 먼저 하고 거절되면 선점하지 않는다", async () => {
+    mocks.consumeCredit.mockResolvedValue({ status: "charged", charged: true });
+    mocks.runStep.mockResolvedValue({ ...okResult, step: 2 });
+    await advanceStep(db, "u", makeRow(), 2, deps);
+    expect(mocks.consumeCredit.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.claimStep.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });
 

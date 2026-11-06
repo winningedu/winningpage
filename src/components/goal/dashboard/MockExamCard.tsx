@@ -8,6 +8,7 @@ import GoalStatChip from "@/components/goal/GoalStatChip";
 import AddMockExamGradeModal from "@/components/goal/modals/AddMockExamGradeModal";
 import { addGoalGrade, fetchGoalGrades } from "@/lib/goalApi";
 import { recentHistory } from "@/lib/goalGrades";
+import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // "모의고사" 카드(530×364 = 33.125rem×22.75rem, part-07 #20 정본 기준). 저장 후에는
 // 4022:5403 변형으로 전환된다 — 하단이 "학습 조언"에서 "기록한 성적"(최근 3건, 회차/백분위/
@@ -76,7 +77,7 @@ export default function MockExamCard({ data }: MockExamCardProps) {
         result.kind === "validation-error"
           ? result.detail
           : result.kind === "not-allowed"
-            ? "이용권이 필요합니다."
+            ? goalNotAllowedMessage(result.tenantReason, "이용권이 필요합니다.")
             : "저장에 실패했습니다. 다시 시도해 주세요.";
       return { ok: false, detail };
     }
