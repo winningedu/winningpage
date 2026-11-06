@@ -228,6 +228,8 @@ export type TenantQuota = {
   planEndsAt: string | null;
   planLabel: string | null;
   limitKind: "month" | "term" | null;
+  /** 남은 횟수가 0 일 때만 month_cap 또는 term_cap, 아니면 null. */
+  capReason: "month_cap" | "term_cap" | null;
 };
 
 /** 안내용 남은 횟수. 월과 학기 중 남은 횟수가 작은 쪽(같으면 학기), 한도가 없으면 전부 null(무제한). */
@@ -264,6 +266,7 @@ export function readTenantQuota(state: TenantUsageState): TenantQuota {
       planEndsAt: null,
       planLabel: null,
       limitKind: null,
+      capReason: null,
     };
   }
   return {
@@ -274,5 +277,11 @@ export function readTenantQuota(state: TenantUsageState): TenantQuota {
     planEndsAt: binding.resetsOn,
     planLabel: null,
     limitKind: binding.kind,
+    capReason:
+      binding.remaining === 0
+        ? binding.kind === "month"
+          ? "month_cap"
+          : "term_cap"
+        : null,
   };
 }

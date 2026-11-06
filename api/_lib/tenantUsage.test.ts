@@ -200,7 +200,19 @@ describe("readTenantQuota", () => {
       quotaTotal: null,
       planEndsAt: null,
       limitKind: null,
+      capReason: null,
     });
+  });
+  it("남은 횟수가 0 이면 capReason 이 한도 종류의 사유다", () => {
+    expect(
+      readTenantQuota(state({ monthLimit: 2, monthRemaining: 0 })).capReason,
+    ).toBe("month_cap");
+    expect(
+      readTenantQuota(state({ termLimit: 2, termRemaining: 0 })).capReason,
+    ).toBe("term_cap");
+    expect(
+      readTenantQuota(state({ termLimit: 2, termRemaining: 1 })).capReason,
+    ).toBeNull();
   });
   it("월 남은 횟수가 더 작으면 월 기준", () => {
     expect(
