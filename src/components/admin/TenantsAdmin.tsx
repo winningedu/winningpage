@@ -1,6 +1,7 @@
 import { Copy, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
@@ -9,6 +10,17 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import TenantDetail from "@/pages/admin/tenants/TenantDetail";
+import {
+  deletionDdayText,
+  mouLabel,
+  todayKst,
+} from "@/pages/admin/tenants/tenantContract";
+import {
+  ORG_TYPE_OPTIONS,
+  REGION_OPTIONS,
+  TIER_OPTIONS,
+} from "@/pages/admin/tenants/tenantOptions";
 
 // ---------------------------------------------------------------------------
 // 소속(테넌트) 관리(tenants, 2026-09-22) — 목록 + 발급.
@@ -33,6 +45,10 @@ import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 // 우선순위)을 목록에서 바로 보지 못하면 운영에 지장이 있을 수 있어, 일단
 // 노출하되 "내부용" 이라는 라벨을 붙여 회원 화면과 구분한다(불확실 지점,
 // 완료 보고 참고).
+//
+// 스쿨멘토(site.features.hqTenantAdmin)는 목록에 계약 기간, MOU, 유예 종료일, 삭제 D-day, 기타 뱃지를
+// 더하고 기관 이름을 누르면 기관 상세(TenantDetail: 기관 정보 수정, 학교 관리자)를 연다. 등록 직후에도
+// 발급 코드 모달 대신 그 상세로 간다. 위닝은 예전 화면 그대로다.
 // ---------------------------------------------------------------------------
 
 interface TenantRow {
@@ -43,43 +59,17 @@ interface TenantRow {
   org_type: string;
   tier: string;
   created_at: string;
+  contract_start_date?: string | null;
+  contract_end_date?: string | null;
+  grace_ends_on?: string | null;
+  mou_status?: string | null;
+  is_catch_all?: boolean;
 }
 
-// tenants_region_check(20260922002929)와 1:1.
-const REGION_OPTIONS = [
-  "서울",
-  "부산",
-  "대구",
-  "인천",
-  "광주",
-  "대전",
-  "울산",
-  "세종",
-  "경기",
-  "강원",
-  "충북",
-  "충남",
-  "전북",
-  "전남",
-  "경북",
-  "경남",
-  "제주",
-  "기타",
-];
+const BASE_COLUMNS = "id, code, name, region, org_type, tier, created_at";
+const HQ_COLUMNS = `${BASE_COLUMNS}, contract_start_date, contract_end_date, grace_ends_on, mou_status, is_catch_all`;
 
-// tenants_org_type_check 와 1:1.
-const ORG_TYPE_OPTIONS = ["기관", "사기업", "학교", "캠퍼스", "기타"];
-
-// tenants_tier_check 와 1:1. 라벨은 DB 코멘트("내부 분류용 등급")를 그대로
-// 옮긴 것 — 회원에게 노출되는 문구가 아니라 새 한국어 카피 창작이 아니다.
-const TIER_OPTIONS = [
-  { value: "S", label: "S" },
-  { value: "A", label: "A" },
-  { value: "B", label: "B" },
-  { value: "W", label: "W" },
-];
-
-type ViewMode = "list" | "create";
+type ViewMode = "list" | "create" | "detail";
 
 interface CreateForm {
   name: string;
@@ -108,6 +98,9 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   const [rows, setRows] = useState<TenantRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const [detailId, setDetailId] = useState<string | null>(null);
+  // app_settings.contract_grace_days — 유예 종료일이 빈 기관의 삭제 D-day 계산에 쓴다.
+  const [graceDays, setGraceDays] = useState<number | null>(null);
 
   const [form, setForm] = useState<CreateForm>(() => emptyForm());
   const [saving, setSaving] = useState(false);
@@ -122,7 +115,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
 
     const { data, error } = await supabase
       .from("tenants")
-      .select("id, code, name, region, org_type, tier, created_at")
+      .select(site.features.hqTenantAdmin ? HQ_COLUMNS : BASE_COLUMNS)
       .order("created_at", { ascending: false });
 
     setLoading(false);
@@ -134,16 +127,30 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
       return;
     }
 
-    setRows((data as TenantRow[]) || []);
+    // select 열 목록이 사이트 플래그에 따라 달라 타입 파서가 결과를 추론하지 못한다.
+    setRows((data as unknown as TenantRow[]) || []);
+  }
+
+  async function loadGraceDays() {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "contract_grace_days")
+      .maybeSingle();
+    const value = (data as { value: unknown } | null)?.value;
+    setGraceDays(typeof value === "number" ? value : null);
   }
 
   const onMountLoad = useEffectEvent(() => {
     loadRows();
+    if (site.features.hqTenantAdmin) loadGraceDays();
   });
 
   useEffect(() => {
     onMountLoad();
   }, []);
+
+  const hq = site.features.hqTenantAdmin;
 
   const filteredRows = useMemo(() => {
     const q = keyword.trim().toLowerCase();
@@ -154,6 +161,11 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   function openCreate() {
     setForm(emptyForm());
     setView("create");
+  }
+
+  function openDetail(id: string) {
+    setDetailId(id);
+    setView("detail");
   }
 
   function closeForm() {
@@ -198,6 +210,10 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     const created = data as TenantRow;
     closeForm();
     await loadRows();
+    if (site.features.hqTenantAdmin) {
+      openDetail(created.id);
+      return;
+    }
     setIssuedTenant(created);
   }
 
@@ -207,6 +223,16 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  if (view === "detail" && detailId) {
+    return (
+      <TenantDetail
+        tenantId={detailId}
+        onBack={() => setView("list")}
+        onSaved={loadRows}
+      />
+    );
   }
 
   if (view === "create") {
@@ -361,13 +387,24 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                   <th className="px-3 py-3 text-left">기업형태</th>
                   <th className="px-3 py-3 text-left">소속 코드</th>
                   <th className="px-3 py-3 text-left">등급(내부용)</th>
+                  {hq && (
+                    <>
+                      <th className="px-3 py-3 text-left">계약 기간</th>
+                      <th className="px-3 py-3 text-left">MOU</th>
+                      <th className="px-3 py-3 text-left">유예 종료일</th>
+                      <th className="px-3 py-3 text-left">삭제 D-day</th>
+                    </>
+                  )}
                   <th className="px-3 py-3 text-left">생성일</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-gray-400">
+                    <td
+                      colSpan={hq ? 11 : 7}
+                      className="py-12 text-center text-gray-400"
+                    >
                       등록된 데이터가 없습니다.
                     </td>
                   </tr>
@@ -375,7 +412,24 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                   filteredRows.map((row, index) => (
                     <tr key={row.id} className="border-b border-gray-100">
                       <td className="px-3 py-3">{index + 1}</td>
-                      <td className="px-3 py-3 font-bold">{row.name}</td>
+                      <td className="px-3 py-3 font-bold">
+                        {hq ? (
+                          <button
+                            type="button"
+                            onClick={() => openDetail(row.id)}
+                            className="text-left font-bold text-blue-700 underline"
+                          >
+                            {row.name}
+                          </button>
+                        ) : (
+                          row.name
+                        )}
+                        {hq && row.is_catch_all && (
+                          <span className="ml-2 bg-gray-200 px-2 py-0.5 text-xs font-black text-gray-700">
+                            기타
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-3">{row.region}</td>
                       <td className="px-3 py-3">{row.org_type}</td>
                       <td className="px-3 py-3">
@@ -394,6 +448,29 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                         </div>
                       </td>
                       <td className="px-3 py-3">{row.tier}</td>
+                      {hq && (
+                        <>
+                          <td className="px-3 py-3">
+                            {row.contract_start_date && row.contract_end_date
+                              ? `${row.contract_start_date} ~ ${row.contract_end_date}`
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-3">
+                            {mouLabel(row.mou_status)}
+                          </td>
+                          <td className="px-3 py-3">
+                            {row.grace_ends_on ?? "-"}
+                          </td>
+                          <td className="px-3 py-3">
+                            {deletionDdayText({
+                              contractEnd: row.contract_end_date ?? null,
+                              graceEnds: row.grace_ends_on ?? null,
+                              defaultGraceDays: graceDays,
+                              today: todayKst(),
+                            }) ?? "-"}
+                          </td>
+                        </>
+                      )}
                       <td className="px-3 py-3">
                         {formatDate(row.created_at)}
                       </td>
