@@ -118,4 +118,45 @@ select pg_temp.expect_text('state: 일반 기관은 그대로 허용',
 select pg_temp.expect_text('consume: 일반 기관은 그대로 consumed',
   public.fn_consume_tenant_usage(pg_temp.fx('real'), 'selfeval', 'selfeval_session', gen_random_uuid()), 'consumed');
 
+-- ---------------------------------------------------------------------
+-- fn_consume_tenant_diagnosis: 학습진단 제출 1건을 기관 한도로 센다(무료 1회 없음)
+-- ---------------------------------------------------------------------
+select pg_temp.mk_tenant('dg', 'TGCCCCCC');
+select pg_temp.setting('dg', 'diagnose', 2, null);
+select pg_temp.mk_user('tsg-dg-other@t.local', pg_temp.fx('t_dg')) as other_id \gset
+create temp table att as select gen_random_uuid() as id;
+
+select pg_temp.expect_text('diagnosis: 첫 제출은 consumed',
+  public.fn_consume_tenant_diagnosis((select id from att), pg_temp.fx('dg')), 'consumed');
+select pg_temp.expect_text('diagnosis: 시도 행은 kind tenant 로 한 줄',
+  (select a.kind || ':' || a.profile_id::text = 'tenant:' || pg_temp.fx('dg')::text from public.diagnosis_attempts a where a.id = (select id from att))::text, 'true');
+select pg_temp.expect_int('diagnosis: 사용 기록은 한 줄',
+  (select count(*) from public.tenant_usage_events where source_kind = 'diagnosis_attempt' and source_id = (select id from att)), 1);
+select pg_temp.expect_text('diagnosis: 같은 시도 재호출은 already_recorded',
+  public.fn_consume_tenant_diagnosis((select id from att), pg_temp.fx('dg')), 'already_recorded');
+select pg_temp.expect_int('diagnosis: 재호출은 기록을 늘리지 않는다',
+  (select count(*) from public.tenant_usage_events where profile_id = pg_temp.fx('dg')), 1);
+select pg_temp.expect_text('diagnosis: 남의 시도 id 는 attempt_conflict',
+  public.fn_consume_tenant_diagnosis((select id from att), :'other_id'::uuid), 'attempt_conflict');
+select pg_temp.expect_int('diagnosis: attempt_conflict 는 기록을 남기지 않는다',
+  (select count(*) from public.tenant_usage_events where profile_id = :'other_id'::uuid), 0);
+
+-- 사용 기록만 있고 시도 행이 없는 시도(중간에 끊긴 경우)는 already_consumed 로 시도 행을 채운다
+create temp table att2 as select gen_random_uuid() as id;
+insert into public.tenant_usage_events (profile_id, tenant_id, program_key, source_kind, source_id)
+  values (pg_temp.fx('dg'), pg_temp.fx('t_dg'), 'diagnose', 'diagnosis_attempt', (select id from att2));
+select pg_temp.expect_text('diagnosis: 기록만 있는 시도는 already_consumed',
+  public.fn_consume_tenant_diagnosis((select id from att2), pg_temp.fx('dg')), 'already_consumed');
+select pg_temp.expect_int('diagnosis: already_consumed 도 시도 행을 남긴다',
+  (select count(*) from public.diagnosis_attempts where id = (select id from att2) and kind = 'tenant'), 1);
+
+-- 월 2회가 찼다: 새 시도는 month_cap, 시도 행이 생기지 않는다
+create temp table att3 as select gen_random_uuid() as id;
+select pg_temp.expect_text('diagnosis: 한도가 차면 month_cap',
+  public.fn_consume_tenant_diagnosis((select id from att3), pg_temp.fx('dg')), 'month_cap');
+select pg_temp.expect_int('diagnosis: month_cap 은 시도 행을 남기지 않는다',
+  (select count(*) from public.diagnosis_attempts where id = (select id from att3)), 0);
+select pg_temp.expect_text('diagnosis: 기타 소속은 catch_all',
+  public.fn_consume_tenant_diagnosis(gen_random_uuid(), pg_temp.fx('etc')), 'catch_all');
+
 rollback;

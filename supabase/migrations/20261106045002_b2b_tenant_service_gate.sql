@@ -118,3 +118,44 @@ end;
 $$;
 
 comment on function public.fn_tenant_usage_state(uuid, text) is '학생의 한 서비스 사용 상태. deny_reason: catch_all(기타 소속), disabled, outside_period, grace, term_cap, month_cap. 허용이면 null.';
+
+-- 2) 학습진단 시도에 기관(tenant) 종류를 허용한다. 기관 학생은 무료 1회와 원장 없이 기관 한도로 센다.
+-- credit_needs_ledger 는 그대로다(tenant 는 ledger_id 를 비운다).
+alter table public.diagnosis_attempts
+  drop constraint diagnosis_attempts_kind_check,
+  add constraint diagnosis_attempts_kind_check check (kind in ('free', 'credit', 'tenant'));
+
+-- 3) 학습진단 제출 1건을 기관 한도로 센다(consume_diagnosis_attempt 의 기관 학생용, 멱등 키는 p_attempt_id).
+-- 같은 시도 id 가 다른 학생의 것이면 attempt_conflict, 같은 학생의 것이면 already_recorded 로 아무것도 다시 쓰지 않는다.
+-- 아니면 fn_consume_tenant_usage 에 맡기고 consumed, already_consumed 일 때만 시도 행을 남긴다.
+-- 거부 사유(month_cap, catch_all 등)는 그대로 돌려주고 시도 행을 남기지 않는다. 잠금은 소비 함수와 같은 advisory(101, 학생 단위).
+create function public.fn_consume_tenant_diagnosis(p_attempt_id uuid, p_profile uuid)
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_owner uuid;
+  v_result text;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_profile::text, 101));
+
+  select a.profile_id into v_owner from public.diagnosis_attempts a where a.id = p_attempt_id;
+  if found then
+    return case when v_owner = p_profile then 'already_recorded' else 'attempt_conflict' end;
+  end if;
+
+  v_result := public.fn_consume_tenant_usage(p_profile, 'diagnose', 'diagnosis_attempt', p_attempt_id);
+  if v_result in ('consumed', 'already_consumed') then
+    insert into public.diagnosis_attempts (id, profile_id, kind, reason)
+    values (p_attempt_id, p_profile, 'tenant', 'diagnosis:survey-submit');
+  end if;
+  return v_result;
+end;
+$$;
+
+revoke all on function public.fn_consume_tenant_diagnosis(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.fn_consume_tenant_diagnosis(uuid, uuid) to service_role;
+
+comment on function public.fn_consume_tenant_diagnosis(uuid, uuid) is '기관 학생의 학습진단 제출 1건을 기관 한도로 센다(service_role 전용). consumed, already_consumed 는 diagnosis_attempts(kind tenant)를 남기고, 같은 시도 재호출은 already_recorded, 남의 시도 id 는 attempt_conflict, 그 밖은 fn_consume_tenant_usage 의 거부 사유를 그대로 돌려준다.';
