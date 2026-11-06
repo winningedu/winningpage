@@ -22,6 +22,8 @@ drop function public.fn_anonymize_expired_b2b_members(uuid, uuid, text);
 -- 학적, 서비스 기록, 리포트는 남긴다(결정 r16). 이름이 '삭제된 학생'인 프로필은 이미 처리된 것으로 본다(다시 하지 않는다).
 -- 유예가 지난 기관을 처리하면 지운 학생이 0명이어도 member_purge 접근 로그를 한 줄 남긴다. 이름과 연락처는 넣지 않는다(사 #177).
 -- 행은 SKIP LOCKED 로 잠가 두 실행이 겹쳐도 같은 학생을 두 번 처리하지 않는다.
+-- 다른 실행이 잠가서 건너뛴 학생은 not_processed 로 센다(목록에 있는 이 기관의 학생 중 아직 이름이 남아 있는데 잠금 때문에 보지 못한 수).
+-- 반환값과 로그 meta.not_processed 에 담고, 본사 화면이 다시 실행해 달라고 안내한다.
 -- p_targets 안에 있는 보호되지 않은 후보만 지운다(위 설명). 목록 밖 후보는 지우지 않고 센다.
 -- 유료 전환 신청 표(#167)와 보호 해제 뒤 30일 재기산(#176-q1)은 결제가 열릴 때 함께 만든다.
 create function public.fn_anonymize_expired_b2b_members(
@@ -36,7 +38,8 @@ returns table (
   members_protected bigint,
   grace_end date,
   not_yet boolean,
-  members_skipped bigint
+  members_skipped bigint,
+  not_processed bigint
 )
 language plpgsql
 security definer
@@ -54,6 +57,8 @@ declare
   v_excluded bigint := 0;
   v_skipped_total bigint := 0;
   v_skipped bigint;
+  v_not_processed bigint;
+  v_not_processed_total bigint := 0;
   v_grace date;
   v_not_yet boolean := false;
 begin
@@ -98,10 +103,14 @@ begin
     )
     select coalesce((select array_agg(d.id order by d.id) from done d), '{}'),
            (select count(*) from cand c where c.protected),
-           (select count(*) from cand c where not c.protected and c.id <> all (p_targets))
-      into v_ids, v_protected, v_skipped;
+           (select count(*) from cand c where not c.protected and c.id <> all (p_targets)),
+           (select count(*) from public.profiles p
+             where p.id = any (p_targets) and p.tenant_id = v_tenant.id and p.member_type = 'student'
+               and p.name is distinct from c_name and p.id not in (select c.id from cand c))
+      into v_ids, v_protected, v_skipped, v_not_processed;
 
     v_skipped_total := v_skipped_total + v_skipped;
+    v_not_processed_total := v_not_processed_total + v_not_processed;
 
     -- 유예가 지난 기관이면 지운 학생이 0명이어도 실행 기록을 남긴다.
     insert into public.admin_access_logs (profile_id, actor_email, actor_login_id, actor_kind, action, resource_key, tenant_id, row_count, meta)
@@ -114,6 +123,7 @@ begin
         'deleted_count', cardinality(v_ids),
         'excluded_count', v_protected,
         'skipped_count', v_skipped,
+        'not_processed', v_not_processed,
         'member_ids', to_jsonb(v_ids)));
     v_tenants := v_tenants + 1;
     v_members := v_members + cardinality(v_ids);
@@ -126,7 +136,7 @@ begin
     v_not_yet := v_grace is null or v_today <= v_grace;
   end if;
 
-  return query select v_tenants, v_members, v_excluded, v_grace, v_not_yet, v_skipped_total;
+  return query select v_tenants, v_members, v_excluded, v_grace, v_not_yet, v_skipped_total, v_not_processed_total;
 end;
 $$;
 
