@@ -1,4 +1,4 @@
-// POST /api/reset-password-by-phone  { phone }
+// POST /api/reset-password-by-phone  { phone, chooseAccount?, accountId? }
 //
 // "비밀번호 찾기"의 휴대폰 인증 경로 — QA 시트 147·209행(2026-08-21 지시,
 // 2026-09-02 재확인). 이메일 링크 재설정(FindPassword.tsx → Supabase
@@ -20,6 +20,13 @@
 //   목록을 보여주고 고르게 하는 흐름은 이 화면(임시비밀번호 1회 노출)에는
 //   과하다고 판단해, 그 번호로 가장 먼저 가입한(= created_at 오름차순 1위)
 //   계정 하나만 재설정한다. 어느 계정인지는 응답의 masked_email로 알려준다.
+//
+// 계정 고르기(2026-11-06, 스쿨멘토) — 소속이 다르면 같은 번호로 계정을 따로 만들 수
+// 있어서(결정 r8) 위의 "가장 먼저 가입한 계정" 규칙이 맞지 않는다. 스쿨멘토 화면은
+// chooseAccount:true를 보낸다. profiles.phone 매치가 2건 이상이고 accountId가 없으면
+// 409 { code:'choose_account', accounts:[{ accountId, maskedId, tenantName }] }를 주고
+// 인증은 소비하지 않는다. accountId는 이 번호의 매치 목록 안에 있어야 한다(아니면 400,
+// 남의 계정 비밀번호를 id만 알아서 바꾸지 못하게). 위닝은 새 필드를 보내지 않는다.
 //
 // guardian_phone 경로(2026-09-03)
 //   ① profiles.phone 매치를 먼저 본다(기존 동작) — 있으면 그 결과만 쓴다.
@@ -173,6 +180,47 @@ async function findAccountsByGuardianPhone(
   );
 }
 
+type ChooseCandidate = MatchedAccount & {
+  username: string | null;
+  tenantName: string | null;
+};
+
+/** 이 번호(profiles.phone)로 가입이 끝난 계정 전부. 계정 고르기용이라 아이디와 소속도 함께 읽는다. */
+async function findAllAccountsByPhone(
+  supabase: SupabaseClient,
+  phone: string,
+): Promise<ChooseCandidate[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, email, username, tenants(name)")
+    .not("member_type", "is", null)
+    .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`)
+    .order("created_at", { ascending: true })
+    .returns<
+      {
+        id: string;
+        email: string | null;
+        username: string | null;
+        tenants: { name: string } | null;
+      }[]
+    >();
+
+  if (error) throw error;
+  return (data ?? [])
+    .filter((row) => Boolean(row.email))
+    .map((row) => ({
+      id: row.id,
+      email: row.email as string,
+      username: row.username,
+      tenantName: row.tenants?.name ?? null,
+    }));
+}
+
+/** 앞 3글자만 남기고 나머지를 *로 가린다(find-account-by-phone.ts의 동명 헬퍼와 동일, 결정 80). */
+function maskUsername(username: string): string {
+  return username.slice(0, 3) + "*".repeat(Math.max(username.length - 3, 0));
+}
+
 export type ResetTarget =
   | { kind: "none" }
   | { kind: "multiple"; accounts: MatchedAccount[] }
@@ -262,7 +310,43 @@ export default defineHandler({
       // 인증을 태워버리면 사용자가 이메일 재설정으로 안내받은 뒤에도 다시
       // SMS 인증부터 반복해야 한다. 계정을 찾지 못했을 때(found:false)도
       // 마찬가지로 소비하지 않는다 — 재설정이 실제로 일어나지 않았다.
-      const phoneAccount = await findOldestAccountByPhone(supabase, phone);
+      const chooseAccount = req.body?.chooseAccount === true;
+      const accountId =
+        typeof req.body?.accountId === "string" ? req.body.accountId : null;
+      const candidates = chooseAccount
+        ? await findAllAccountsByPhone(supabase, phone)
+        : [];
+
+      if (chooseAccount && candidates.length >= 2 && !accountId) {
+        return void res.status(409).json({
+          ok: false,
+          code: "choose_account",
+          accounts: candidates.map((c) => ({
+            accountId: c.id,
+            maskedId: c.username
+              ? maskUsername(c.username)
+              : maskEmail(c.email),
+            tenantName: c.tenantName,
+          })),
+          detail: "이 번호로 가입한 계정이 여러 개예요. 계정을 골라 주세요.",
+        });
+      }
+
+      if (chooseAccount && accountId) {
+        if (!candidates.some((c) => c.id === accountId)) {
+          return void res.status(400).json({
+            ok: false,
+            reason: "account_not_found",
+            detail: "선택한 계정을 찾을 수 없습니다.",
+          });
+        }
+      }
+
+      const chosen = accountId
+        ? candidates.find((c) => c.id === accountId)
+        : undefined;
+      const phoneAccount =
+        chosen ?? (await findOldestAccountByPhone(supabase, phone));
       const guardianAccounts = phoneAccount
         ? []
         : await findAccountsByGuardianPhone(supabase, phone);
