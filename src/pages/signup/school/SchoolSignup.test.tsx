@@ -366,4 +366,77 @@ describe("3단계 휴대폰 인증", () => {
       purpose: "signup",
     });
   });
+
+  it("이미 가입한 번호면 아이디 찾기로 안내한다", async () => {
+    await goToStudentInfo();
+    mockApi({
+      "/api/send-phone-code": {
+        status: 409,
+        body: { ok: false, reason: "phone_taken" },
+      },
+    });
+
+    type("휴대폰번호", "01012345678");
+    click("인증번호 보내기");
+
+    expect(
+      await screen.findByText(
+        "이미 가입한 번호예요. 아이디 찾기에서 확인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "아이디 찾기" })).toHaveAttribute(
+      "href",
+      "/login/find-id",
+    );
+    expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
+  });
+
+  it("기타 소속은 catch_all로 보낸다", async () => {
+    mockApi({
+      "/api/send-phone-code": {
+        body: { ok: true, expires_in: 180, cooldown: 60 },
+      },
+    });
+    renderSignup();
+    agreeRequiredTerms();
+    click("다음");
+    click("기타 소속으로 가입");
+
+    type("휴대폰번호", "01012345678");
+    click("인증번호 보내기");
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    expect(calls[0]?.body).toEqual({
+      phone: "01012345678",
+      purpose: "signup",
+      catch_all: true,
+    });
+  });
+
+  it("소속코드를 바꾸면 인증을 다시 받아야 한다", async () => {
+    await goToStudentInfo();
+    mockApi({
+      "/api/send-phone-code": {
+        body: { ok: true, expires_in: 180, cooldown: 60 },
+      },
+      "/api/verify-phone-code": { body: { ok: true } },
+      "/api/signup/tenant-lookup": { body: { ...TENANT, tenantId: "t-2" } },
+    });
+    type("휴대폰번호", "01012345678");
+    click("인증번호 보내기");
+    await waitFor(() =>
+      expect(screen.getByLabelText("휴대폰 인증번호")).toBeEnabled(),
+    );
+    type("휴대폰 인증번호", "123456");
+    await screen.findByText("전화번호 인증이 완료되었습니다.");
+
+    click("이전");
+    type("소속코드", "ABCDEFGJ");
+    click("확인");
+    await screen.findByText("새빛중학교");
+    click("다음");
+
+    expect(screen.queryByText("전화번호 인증이 완료되었습니다.")).toBeNull();
+    expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
+  });
 });

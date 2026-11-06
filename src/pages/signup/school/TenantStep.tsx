@@ -19,7 +19,8 @@ interface TenantStepProps {
 }
 
 export default function TenantStep({ onPrev, onNext }: TenantStepProps) {
-  const { formData, updateFormData, tenant, setTenant } = useSignup();
+  const { formData, updateFormData, tenant, setTenant, updateVerification } =
+    useSignup();
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
   const [confirmingCatchAll, setConfirmingCatchAll] = useState(false);
@@ -35,6 +36,8 @@ export default function TenantStep({ onPrev, onNext }: TenantStepProps) {
   function handleCodeChange(value: string) {
     updateFormData({ orgCode: value });
     setTenant(null);
+    // 휴대폰 중복은 소속 안에서 보므로 소속이 바뀌면 인증도 다시 받는다.
+    updateVerification("phone", { requested: false, verified: false });
     setError("");
   }
 
