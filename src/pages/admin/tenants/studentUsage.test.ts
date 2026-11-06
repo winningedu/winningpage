@@ -53,9 +53,25 @@ describe("overridePayloads", () => {
 
 describe("groupByColumns", () => {
   test("같은 열 묶음의 행끼리 모아 upsert 한 번으로 보낸다", () => {
-    const a = { profile_id: "s-1", program_key: "diagnose", monthly_limit: 1 };
-    const b = { profile_id: "s-1", program_key: "growth", term_limit: 2 };
-    const c = { profile_id: "s-2", program_key: "diagnose", monthly_limit: 1 };
+    const base = { updated_by: "user-1" };
+    const a = {
+      ...base,
+      profile_id: "s-1",
+      program_key: "diagnose",
+      monthly_limit: 1,
+    };
+    const b = {
+      ...base,
+      profile_id: "s-1",
+      program_key: "growth",
+      term_limit: 2,
+    };
+    const c = {
+      ...base,
+      profile_id: "s-2",
+      program_key: "diagnose",
+      monthly_limit: 1,
+    };
 
     expect(groupByColumns([a, b, c])).toEqual([[a, c], [b]]);
   });
