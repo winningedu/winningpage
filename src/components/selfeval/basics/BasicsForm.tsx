@@ -1,7 +1,7 @@
 import { useId } from "react";
 import GradeLockNote from "@/components/enrollment/GradeLockNote";
+import { useGradeLock } from "@/components/enrollment/useGradeLock";
 import { Input } from "@/components/ui/input";
-import { site } from "@/config/site";
 import {
   AREA_LABELS,
   type Area,
@@ -70,7 +70,7 @@ export default function BasicsForm({
   );
   const targetEmpty = form.targetChars.trim() === "";
   // 스쿨멘토는 학적에서 채워진 학년을 서비스 안에서 바꾸지 않는다(사 #40).
-  const gradeLocked = site.features.studentEnrollment && form.gradeLabel !== "";
+  const gradeLocked = useGradeLock(form.gradeLabel);
 
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[minmax(0,1fr)_20rem]">
