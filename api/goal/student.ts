@@ -48,6 +48,7 @@ import {
   updateStudentJungsiProb,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 /**
  * 행296·332 지연 재계산(QA3 §9-5 결정3) — 온보딩 시점에 목표 대학 정시 컷이
@@ -129,7 +130,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 조회형 규약 — 미결제는 에러가 아니다.
     if (!allowed) {
-      return res.status(200).json({ allowed: false });
+      return res.status(200).json({
+        allowed: false,
+        ...tenantReasonExtra(session.tenantReason),
+      });
     }
 
     const { supabaseAdmin, profileId } = narrowGoalSession(session);

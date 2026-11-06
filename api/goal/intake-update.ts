@@ -35,6 +35,7 @@ import {
   upsertStudentRow,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 import {
   computeEngineDerivedFields,
   deriveMogo,
@@ -156,7 +157,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { allowed } = session;
     if (!allowed) {
-      return res.status(403).json({ detail: PAID_MESSAGE });
+      return res.status(403).json({
+        detail: PAID_MESSAGE,
+        ...tenantReasonExtra(session.tenantReason),
+      });
     }
 
     const { supabaseAdmin, profileId } = narrowGoalSession(session);

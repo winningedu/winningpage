@@ -39,6 +39,7 @@ import {
   updateWorkbookOwned,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -312,7 +313,11 @@ async function handleGet(
   const { allowed } = session;
 
   // 조회형 규약 — 미결제는 에러가 아니다(§ api/goal/student.js).
-  if (!allowed) return res.status(200).json({ allowed: false });
+  if (!allowed)
+    return res.status(200).json({
+      allowed: false,
+      ...tenantReasonExtra(session.tenantReason),
+    });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
@@ -348,7 +353,11 @@ async function handlePost(
   session: GoalSession,
 ) {
   const { allowed } = session;
-  if (!allowed) return res.status(403).json({ detail: PAID_MESSAGE });
+  if (!allowed)
+    return res.status(403).json({
+      detail: PAID_MESSAGE,
+      ...tenantReasonExtra(session.tenantReason),
+    });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
@@ -414,7 +423,11 @@ async function handlePut(
   session: GoalSession,
 ) {
   const { allowed } = session;
-  if (!allowed) return res.status(403).json({ detail: PAID_MESSAGE });
+  if (!allowed)
+    return res.status(403).json({
+      detail: PAID_MESSAGE,
+      ...tenantReasonExtra(session.tenantReason),
+    });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 
@@ -543,7 +556,11 @@ async function handleDelete(
   session: GoalSession,
 ) {
   const { allowed } = session;
-  if (!allowed) return res.status(403).json({ detail: PAID_MESSAGE });
+  if (!allowed)
+    return res.status(403).json({
+      detail: PAID_MESSAGE,
+      ...tenantReasonExtra(session.tenantReason),
+    });
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
 

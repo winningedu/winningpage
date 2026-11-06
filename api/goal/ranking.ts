@@ -30,6 +30,7 @@ import { kstYMD } from "../../src/lib/goal/calc/index.js";
 import { isRankingVisible } from "../_lib/goal/rankingVisibility.js";
 import { num, openGoalSession } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -98,7 +99,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 조회형 규약, 미결제는 에러가 아니다(api/_lib/goal/repo.ts openGoalSession 주석과 동일).
     if (!allowed) {
-      return res.status(200).json({ allowed: false });
+      return res.status(200).json({
+        allowed: false,
+        ...tenantReasonExtra(session.tenantReason),
+      });
     }
 
     const today = kstYMD();

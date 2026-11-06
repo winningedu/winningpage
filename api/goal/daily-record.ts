@@ -48,6 +48,7 @@ import {
   upsertDailyRecord,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -359,7 +360,10 @@ async function handleGet(
 
   // 조회형 규약 — student.js:50-53 과 동일하게 미결제는 에러가 아니다.
   if (!allowed) {
-    return res.status(200).json({ allowed: false });
+    return res.status(200).json({
+      allowed: false,
+      ...tenantReasonExtra(session.tenantReason),
+    });
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
@@ -461,7 +465,10 @@ async function handlePost(
 
   // 쓰기형이므로 미결제는 403 이다(intake.js:545-548 과 동일 규약).
   if (!allowed) {
-    return res.status(403).json({ detail: PAID_MESSAGE });
+    return res.status(403).json({
+      detail: PAID_MESSAGE,
+      ...tenantReasonExtra(session.tenantReason),
+    });
   }
 
   const { supabaseAdmin, profileId } = narrowGoalSession(session);
