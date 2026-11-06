@@ -4,10 +4,15 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const db = vi.hoisted(() => ({
   row: null as Record<string, unknown> | null,
   selectError: null as { message: string } | null,
-  updated: [] as { values: Record<string, unknown>; id: unknown }[],
+  /** 첫 조회 뒤의 재조회가 돌려줄 행(비면 row 를 다시 준다). */
+  rereads: [] as (Record<string, unknown> | null)[],
+  updated: [] as {
+    values: Record<string, unknown>;
+    filters: Record<string, unknown>;
+  }[],
   updateResult: { data: [{ id: "tenant-7" }], error: null } as {
     data: unknown;
-    error: { message: string } | null;
+    error: { message: string; code?: string } | null;
   },
 }));
 
@@ -16,17 +21,26 @@ vi.mock("@/lib/supabase", () => ({
     from: vi.fn(() => ({
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({ data: db.row, error: db.selectError }),
+          maybeSingle: async () => ({
+            data: db.rereads.length > 0 ? db.rereads.shift() : db.row,
+            error: db.selectError,
+          }),
         }),
       }),
-      update: (values: Record<string, unknown>) => ({
-        eq: (_col: string, id: unknown) => ({
+      update: (values: Record<string, unknown>) => {
+        const filters: Record<string, unknown> = {};
+        const chain = {
+          eq: (col: string, value: unknown) => {
+            filters[col] = value;
+            return chain;
+          },
           select: async () => {
-            db.updated.push({ values, id });
+            db.updated.push({ values, filters });
             return db.updateResult;
           },
-        }),
-      }),
+        };
+        return chain;
+      },
     })),
   },
 }));
@@ -63,12 +77,14 @@ const ROW = {
   main_phone: null,
   homepage: null,
   is_catch_all: false,
+  updated_at: "2026-11-05T05:00:00Z",
 };
 
 beforeEach(() => {
   db.row = { ...ROW };
   db.selectError = null;
   db.updated = [];
+  db.rereads = [];
   db.updateResult = { data: [{ id: "tenant-7" }], error: null };
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
@@ -119,7 +135,7 @@ describe("TenantDetail 기관 정보 탭", () => {
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
     await waitFor(() => expect(db.updated).toHaveLength(1));
-    expect(db.updated[0]?.id).toBe("tenant-7");
+    expect(db.updated[0]?.filters.id).toBe("tenant-7");
     expect(db.updated[0]?.values).toMatchObject({
       name: "한빛고등학교",
       grace_ends_on: "2027-03-30",
@@ -145,6 +161,20 @@ describe("TenantDetail 기관 정보 탭", () => {
     expect(db.updated).toHaveLength(0);
   });
 
+  test("권한이 없어 바뀐 행이 없고 updated_at 도 그대로면 권한 안내를 보인다", async () => {
+    db.updateResult = { data: [], error: null };
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    db.rereads = [{ ...ROW }];
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(
+      await screen.findByText(
+        "저장하지 못했어요. 기관 수정 권한을 확인해 주세요.",
+      ),
+    ).toBeTruthy();
+  });
+
   test("권한이 없어 바뀐 행이 없으면 저장되지 않았다고 알린다", async () => {
     db.updateResult = { data: [], error: null };
     renderDetail();
@@ -156,6 +186,33 @@ describe("TenantDetail 기관 정보 탭", () => {
         "저장하지 못했어요. 기관 수정 권한을 확인해 주세요.",
       ),
     ).toBeTruthy();
+  });
+
+  test("저장은 불러온 updated_at 이 그대로일 때만 고친다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(db.updated).toHaveLength(1));
+    expect(db.updated[0]?.filters).toEqual({
+      id: "tenant-7",
+      updated_at: "2026-11-05T05:00:00Z",
+    });
+  });
+
+  test("0행이고 다시 읽은 updated_at 이 바뀌었으면 다른 관리자가 먼저 고쳤다고 알린다", async () => {
+    db.updateResult = { data: [], error: null };
+    const { onSaved } = renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    db.rereads = [{ ...ROW, updated_at: "2026-11-06T01:00:00Z" }];
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(
+      await screen.findByText(
+        "다른 관리자가 먼저 고쳤어요. 새로 불러온 뒤 다시 저장해 주세요.",
+      ),
+    ).toBeTruthy();
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   test("DB 가 거절하면 그 문구를 보인다", async () => {

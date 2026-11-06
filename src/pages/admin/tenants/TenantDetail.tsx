@@ -35,7 +35,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const TENANT_COLUMNS =
-  "id, code, name, region, org_type, tier, contract_start_date, contract_end_date, term_months, mou_status, grace_ends_on, contact_name, contact_phone, contact_mobile, contact_email, address, main_phone, homepage, is_catch_all";
+  "id, code, name, region, org_type, tier, contract_start_date, contract_end_date, term_months, mou_status, grace_ends_on, contact_name, contact_phone, contact_mobile, contact_email, address, main_phone, homepage, is_catch_all, updated_at";
 
 const MOU_OPTIONS = ["pending", "signed", "ended"];
 
@@ -58,6 +58,7 @@ export default function TenantDetail({
   const [savedName, setSavedName] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -81,7 +82,9 @@ export default function TenantDetail({
       const row = data as unknown as Record<string, string | number | null> & {
         code: string;
         name: string;
+        updated_at: string;
       };
+      setLoadedUpdatedAt(row.updated_at);
       setCode(row.code);
       setForm(tenantFormFromRow(row));
       setSavedName(row.name);
@@ -109,17 +112,34 @@ export default function TenantDetail({
       .from("tenants")
       .update(tenantPayload(form))
       .eq("id", tenantId)
-      .select("id");
+      .eq("updated_at", loadedUpdatedAt)
+      .select("id, updated_at");
+    if (!error && (!data || data.length === 0)) {
+      // 0행은 권한이 없거나 그 사이 다른 관리자가 먼저 저장한 경우다. 다시 읽어 구분한다.
+      const { data: current } = await supabase
+        .from("tenants")
+        .select("updated_at")
+        .eq("id", tenantId)
+        .maybeSingle();
+      setSaving(false);
+      const changed =
+        current &&
+        (current as unknown as { updated_at: string }).updated_at !==
+          loadedUpdatedAt;
+      setMessage(
+        changed
+          ? "다른 관리자가 먼저 고쳤어요. 새로 불러온 뒤 다시 저장해 주세요."
+          : "저장하지 못했어요. 기관 수정 권한을 확인해 주세요.",
+      );
+      return;
+    }
     setSaving(false);
     if (error) {
       setMessage(`저장 실패: ${error.message}`);
       return;
     }
-    // RLS 는 권한이 없으면 오류 없이 0행을 고친다.
-    if (!data || data.length === 0) {
-      setMessage("저장하지 못했어요. 기관 수정 권한을 확인해 주세요.");
-      return;
-    }
+    const [saved] = (data ?? []) as { updated_at: string }[];
+    if (saved) setLoadedUpdatedAt(saved.updated_at);
     setSavedName(form.name.trim());
     setMessage("저장했어요.");
     onSaved?.();
