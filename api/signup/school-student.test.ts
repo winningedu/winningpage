@@ -425,4 +425,54 @@ describe("POST /api/signup/school-student", () => {
     expect(r.status).toBe(400);
     expect(r.body).toMatchObject({ code: "VALIDATION", field: "password" });
   });
+
+  test("아이디가 이미 쓰이면 계정을 만들기 전에 409 USERNAME_TAKEN", async () => {
+    happyPath();
+    kit.state.rpc.is_username_available = () => ({ data: false, error: null });
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ code: "USERNAME_TAKEN" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("가입은 됐는데 서버 로그인이 실패하면 계정은 두고 502 LOGIN_FAILED", async () => {
+    happyPath();
+    kit.signIn.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { status: 500 },
+    });
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ code: "LOGIN_FAILED" });
+    expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
+  });
+
+  test("가입 결과를 개인정보 없이 한 줄 로그로 남긴다", async () => {
+    happyPath();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    await post({ ...BODY, guardianPhone: "010-9999-0000" });
+
+    expect(info).toHaveBeenCalledTimes(1);
+    const line = String(info.mock.calls[0]?.[0]);
+    expect(line).toContain("[signup/school-student]");
+    expect(line).toContain("outcome=created");
+    expect(line).toContain("user=auth-user-1");
+    expect(line).toContain("tenant=t-1");
+    for (const pii of [
+      "홍길동",
+      "gildong",
+      "student01",
+      "1234",
+      "9999",
+      "2012",
+      "Pass#",
+    ]) {
+      expect(line).not.toContain(pii);
+    }
+  });
 });

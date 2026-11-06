@@ -16,6 +16,15 @@ import { lookupSignupTenant } from "../_lib/signup/tenant.js";
 
 export const config = { runtime: "nodejs" };
 
+// 감사용 한 줄 로그. 이름, 이메일, 아이디, 번호, 비밀번호는 적지 않는다(Auth 사용자 id 와 기관 id, 결과 코드만).
+function auditLog(fields: Record<string, string | boolean | null>): void {
+  console.info(
+    `[signup/school-student] ${Object.entries(fields)
+      .map(([key, value]) => `${key}=${value ?? "none"}`)
+      .join(" ")}`,
+  );
+}
+
 export default defineHandler({
   methods: ["POST"],
   auth: "none",
@@ -76,6 +85,20 @@ export default defineHandler({
       }
     }
 
+    // 값싼 사전 확인: 이미 쓰는 아이디면 Auth 사용자를 만들었다 지우지 않는다. 최종 판정은 DB 가 한다.
+    const { data: available, error: availableError } =
+      await ctx.supabaseAdmin.rpc("is_username_available", {
+        check_username: input.username,
+      });
+    if (availableError) throw availableError;
+    if (available !== true) {
+      res.status(409).json({
+        code: "USERNAME_TAKEN",
+        message: "이미 사용 중인 아이디입니다.",
+      });
+      return;
+    }
+
     const authUser = await createSignupAuthUser(
       ctx.supabaseAdmin,
       input.email,
@@ -128,6 +151,7 @@ export default defineHandler({
       if (created) await discardSignupAuthUser(ctx.supabaseAdmin, userId);
       const failure = mapSignupRpcError(signupError, input.name);
       if (!failure) throw signupError;
+      auditLog({ outcome: "rejected", code: failure.code, user: userId });
       const { status, ...body } = failure;
       res.status(status).json(body);
       return;
@@ -139,7 +163,19 @@ export default defineHandler({
       email: signup.email,
       password: input.password,
     });
-    if (signInError || !signed.session) throw signInError;
+    auditLog({
+      outcome: "created",
+      user: userId,
+      tenant: tenant?.id ?? null,
+      under14: signup.under14,
+    });
+    if (signInError || !signed.session) {
+      res.status(502).json({
+        code: "LOGIN_FAILED",
+        message: "가입은 완료됐어요. 로그인해 주세요.",
+      });
+      return;
+    }
 
     res.status(200).json({
       session: {
