@@ -182,4 +182,60 @@ $$);
 select pg_temp.expect_error('lookup: 11번째 시도는 WC068(맞는 코드도 막는다)',
   format('select * from public.fn_catch_all_tenant_lookup(%L, %L)', pg_temp.fx('etc'), 'TGDDDDDD'), 'WC068');
 
+-- ---------------------------------------------------------------------
+-- fn_catch_all_join_tenant: 기타에서 소속코드로 옮기기(성공)
+-- ---------------------------------------------------------------------
+select pg_temp.mk_tenant('js', 'TGFFFFFF');
+select pg_temp.mk_tenant('ja', 'TGGGGGGG', '기관');
+insert into public.class_groups (tenant_id, name) values (pg_temp.fx('t_ja'), '심화반');
+
+-- 기타 소속 학생: 전화번호, 학년, 기타 학적 행(가입 때와 같다)과 대기 중인 반 변경 신청 한 건
+create function pg_temp.mk_cj(p_key text, p_phone text) returns void language plpgsql as $$
+declare
+  v_uid uuid := pg_temp.mk_user('tsg-' || p_key || '@t.local', pg_temp.fx('t_etc'));
+  v_year smallint;
+begin
+  update public.profiles set phone = p_phone where id = v_uid;
+  insert into public.student_profiles (profile_id, grade) values (v_uid, '고1');
+  perform public.fn_enrollment_join(v_uid, pg_temp.fx('t_etc'), '고1', null, null, null);
+  select school_year into v_year from public.tenants where id = pg_temp.fx('t_etc');
+  insert into public.enrollment_changes (tenant_id, student_id, school_year, kind, status, to_grade, requested_by)
+  values (pg_temp.fx('t_etc'), v_uid, v_year, 'request', 'pending', '고2', v_uid);
+  insert into fx values (p_key, v_uid);
+end $$;
+
+select pg_temp.mk_cj('cj1', '010-7000-0001');
+select pg_temp.expect_text('join: 학교로 옮기면 기관 이름과 학적 id 를 돌려준다',
+  (select j.tenant_name || ':' || (j.enrollment_id is not null)::text
+     from public.fn_catch_all_join_tenant(pg_temp.fx('cj1'), 'tgffffff', '고2', null, '3반', 7::smallint) j), 'tsg-js:true');
+select pg_temp.expect_text('join: 소속이 바뀌고 학교는 school_name 을 채운다',
+  (select (tenant_id = pg_temp.fx('t_js'))::text || ':' || coalesce(school_name, '-') from public.profiles where id = pg_temp.fx('cj1')), 'true:tsg-js');
+select pg_temp.expect_int('join: 기타 학적 행이 지워진다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('cj1') and tenant_id = pg_temp.fx('t_etc')), 0);
+select pg_temp.expect_text('join: 대상 기관 학적에 학년, 반(정규화된 이름), 번호가 들어간다',
+  (select e.grade || ':' || c.name || ':' || e.number
+     from public.student_enrollments e join public.classes c on c.id = e.class_id
+    where e.student_id = pg_temp.fx('cj1') and e.tenant_id = pg_temp.fx('t_js')), '고2:3:7');
+select pg_temp.expect_text('join: student_profiles 학년이 맞춰진다',
+  (select grade from public.student_profiles where profile_id = pg_temp.fx('cj1')), '고2');
+select pg_temp.expect_int('join: 대상 기관에 signup 적용 이력이 남는다',
+  (select count(*) from public.enrollment_changes
+    where student_id = pg_temp.fx('cj1') and tenant_id = pg_temp.fx('t_js') and kind = 'signup' and status = 'applied'), 1);
+select pg_temp.expect_text('join: 기타의 대기 신청은 소속 변경 사유로 rejected',
+  (select c.status || ':' || c.reject_reason from public.enrollment_changes c
+    where c.student_id = pg_temp.fx('cj1') and c.tenant_id = pg_temp.fx('t_etc') and c.kind = 'request'), 'rejected:소속 변경');
+
+-- 학원: 그룹을 받고 번호는 선택, school_name 은 비운다
+select pg_temp.mk_cj('cj2', '010-7000-0002');
+select pg_temp.expect_ok('join: 학원은 그룹을 주고 번호 없이 옮긴다', $$
+  select * from public.fn_catch_all_join_tenant(pg_temp.fx('cj2'), 'TGGGGGGG', '고1', '심화반', 'A반', null)
+$$);
+select pg_temp.expect_text('join: 학원은 school_name 을 비운다',
+  (select coalesce(school_name, '-') from public.profiles where id = pg_temp.fx('cj2')), '-');
+select pg_temp.expect_text('join: 학원 학적은 그룹 학급이고 번호가 없다',
+  (select g.name || ':' || coalesce(e.number::text, '-')
+     from public.student_enrollments e join public.classes c on c.id = e.class_id
+     join public.class_groups g on g.id = c.group_id
+    where e.student_id = pg_temp.fx('cj2')), '심화반:-');
+
 rollback;

@@ -227,3 +227,93 @@ grant execute on function public.fn_catch_all_tenant_lookup(uuid, text) to servi
 
 comment on function public.fn_tenant_code_resolve_for(uuid, text) is '소속코드 확인(service_role 전용, fn_resolve_tenant_code 와 같은 본문에 auth.uid() 대신 user id). 사용자당 1시간 실패 10회면 WC068, 못 찾으면 실패 기록을 남기고 null.';
 comment on function public.fn_catch_all_tenant_lookup(uuid, text) is '기타 소속 학생의 소속코드 조회(service_role 전용). 현재 소속이 기타가 아니면 WC098, 못 찾았거나 기타 자신의 코드면 0행(raise 하지 않는다).';
+
+-- 6) 기타 소속 학생이 소속코드로 실제 기관으로 옮긴다. 한 트랜잭션이라 어느 단계든 예외로 끝나면 전부 되돌아간다.
+-- 순서: 프로필 행 잠금과 기타 확인(WC098), 코드 확인(WC068), 대상 기관 전화번호 유일성(WC096), 기타의 대기 신청 거절,
+-- 기타 학적 행 삭제, 소속과 school_name 갱신, 대상 기관 학적 만들기(fn_enrollment_join: WC077, WC080, WC079, WC094).
+-- 못 찾았거나 기타 자신의 코드면 0행이다(raise 하지 않아야 실패 기록이 남는다).
+-- 기타 소속 때의 기록(학적 변경 이력, 메모, 플래그, 상담 상태)은 기타 기관에 그대로 둔다. student_enrollments.id 를 가리키는 외래키는 없어
+-- 학적 행 삭제는 다른 테이블에 영향이 없다. 계약이 끝난 기관으로도 옮길 수 있다(가입과 같다, 서비스는 기간 사유로 막힌다).
+create function public.fn_catch_all_join_tenant(
+  p_user uuid,
+  p_code text,
+  p_grade text,
+  p_group_name text,
+  p_class_name text,
+  p_number smallint
+)
+returns table (tenant_id uuid, tenant_name text, enrollment_id uuid)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+#variable_conflict use_column
+declare
+  v_from_tenant uuid;
+  v_from_catch_all boolean;
+  v_phone_digits text;
+  v_target_id uuid;
+  v_target public.tenants;
+  v_enrollment uuid;
+  v_constraint text;
+begin
+  select p.tenant_id, t.is_catch_all, regexp_replace(coalesce(p.phone, ''), '[^0-9]', '', 'g')
+    into v_from_tenant, v_from_catch_all, v_phone_digits
+    from public.profiles p left join public.tenants t on t.id = p.tenant_id
+   where p.id = p_user
+     for update of p;
+  if not coalesce(v_from_catch_all, false) then
+    raise exception 'only the catch-all tenant can move' using errcode = 'WC098';
+  end if;
+
+  v_target_id := public.fn_tenant_code_resolve_for(p_user, p_code);
+  if v_target_id is null then
+    return;
+  end if;
+  select * into v_target from public.tenants t where t.id = v_target_id;
+  if v_target.is_catch_all then
+    return;
+  end if;
+
+  if v_phone_digits <> '' and exists (
+    select 1 from public.profiles pr
+     where pr.id <> p_user
+       and pr.member_type is not null
+       and pr.tenant_id = v_target.id
+       and regexp_replace(coalesce(pr.phone, ''), '[^0-9]', '', 'g') = v_phone_digits
+  ) then
+    raise exception 'phone_taken' using errcode = 'WC096';
+  end if;
+
+  update public.enrollment_changes c
+     set status = 'rejected', reject_reason = '소속 변경', decided_at = now()
+   where c.student_id = p_user and c.tenant_id = v_from_tenant and c.status = 'pending';
+
+  delete from public.student_enrollments e where e.student_id = p_user and e.tenant_id = v_from_tenant;
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+  begin
+    update public.profiles pr
+       set tenant_id = v_target.id,
+           school_name = case when v_target.org_type = '학교' then v_target.name end,
+           updated_at = now()
+     where pr.id = p_user;
+  exception when unique_violation then
+    get stacked diagnostics v_constraint = constraint_name;
+    if v_constraint = 'profiles_tenant_phone_unique_idx' then
+      raise exception 'phone_taken' using errcode = 'WC096';
+    end if;
+    raise;
+  end;
+
+  select j.enrollment_id into v_enrollment
+    from public.fn_enrollment_join(p_user, v_target.id, p_grade, p_group_name, p_class_name, p_number) j;
+
+  return query select v_target.id, v_target.name, v_enrollment;
+end;
+$$;
+
+revoke all on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) from public, anon, authenticated;
+grant execute on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) to service_role;
+
+comment on function public.fn_catch_all_join_tenant(uuid, text, text, text, text, smallint) is '기타 소속 학생이 소속코드로 실제 기관으로 옮긴다(service_role 전용, 한 트랜잭션). 기타가 아니면 WC098, 시도 초과 WC068, 대상 기관 전화번호 중복 WC096, 번호 중복 WC077, 없는 그룹 WC080. 못 찾았거나 기타 코드면 0행. 기타의 대기 신청은 소속 변경 사유로 거절하고 기타 학적 행은 지운다.';
