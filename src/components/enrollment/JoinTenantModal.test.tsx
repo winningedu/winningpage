@@ -3,6 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { queryClient } from "@/lib/queryClient";
 import JoinTenantModal from "./JoinTenantModal";
 
 const mockApiFetch = vi.fn();
@@ -45,6 +46,33 @@ beforeEach(() => {
 });
 
 describe("JoinTenantModal", () => {
+  it("옮기기를 마치면 어디서 열었든 이용권 조회를 다시 한다", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce(
+        jsonResponse(200, { ok: true, name: "가나중학교", orgType: "학교" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { ok: true, tenantName: "가나중학교" }),
+      );
+    const invalidate = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockResolvedValue(undefined);
+    const { onJoined } = renderModal();
+
+    await enterCode(CODE);
+    await screen.findByText("가나중학교");
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고2" },
+    });
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
+
+    await waitFor(() => expect(onJoined).toHaveBeenCalled());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["entitlement"] });
+    invalidate.mockRestore();
+  });
+
   it("코드로 기관을 확인하고 학적을 입력해 옮기면 onJoined 에 기관 이름을 넘기고 닫는다", async () => {
     mockApiFetch
       .mockResolvedValueOnce(

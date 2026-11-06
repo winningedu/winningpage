@@ -1,6 +1,5 @@
 import { useState } from "react";
 import JoinTenantModal from "@/components/enrollment/JoinTenantModal";
-import { queryClient } from "@/lib/queryClient";
 import {
   TENANT_JOIN_LABEL,
   type TenantBlockReason,
@@ -8,7 +7,7 @@ import {
 } from "@/lib/tenantBlock";
 
 // 스쿨멘토 서비스 막힘 안내(결정 99). 구매, 이용권 링크는 두지 않는다.
-// 기타 소속이면 소속코드 입력 모달을 열고, 옮긴 뒤 이용권 조회를 모두 다시 한다.
+// 기타 소속이면 소속코드 입력 모달을 연다. 옮긴 뒤 이용권 조회 갱신은 모달이 맡는다.
 export default function ServiceBlockedNotice({
   reason,
   onJoined,
@@ -40,10 +39,7 @@ export default function ServiceBlockedNotice({
           <JoinTenantModal
             open={open}
             onClose={() => setOpen(false)}
-            onJoined={() => {
-              queryClient.invalidateQueries({ queryKey: ["entitlement"] });
-              onJoined?.();
-            }}
+            onJoined={() => onJoined?.()}
           />
         </>
       )}

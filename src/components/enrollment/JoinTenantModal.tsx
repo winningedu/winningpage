@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import MyPageModalShell from "@/components/mypage/MyPageModalShell";
 import ModalFooter from "@/components/mypage/modal/ModalFooter";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { queryClient } from "@/lib/queryClient";
 import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { TENANT_MESSAGES } from "@/pages/signup/school/copy";
 import {
@@ -112,6 +113,8 @@ export default function JoinTenantModal({
         setErrorMsg(result.message);
         return;
       }
+      // 어디서 열었든 옮기고 나면 캐시된 이용권 판정(catch_all)이 낡았으므로 모달이 직접 다시 읽게 한다.
+      queryClient.invalidateQueries({ queryKey: ["entitlement"] });
       onJoined?.(result.tenantName);
       onClose();
     } catch {
