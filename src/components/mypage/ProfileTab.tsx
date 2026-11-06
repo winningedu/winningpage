@@ -7,6 +7,7 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import CatchAllTenantField from "@/components/enrollment/CatchAllTenantField";
 import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
 import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment";
 import { site } from "@/config/site";
@@ -178,6 +179,10 @@ export default function ProfileTab({
   const [myTenant, setMyTenant] = useState<MyTenant | null | undefined>(
     undefined,
   );
+
+  // 기타 소속 학생은 소속코드로 기관을 옮긴다(결정 96). 소속 칸에 입력 진입점을 둔다.
+  const isCatchAll =
+    site.features.studentEnrollment && enrollment.data?.isCatchAll === true;
 
   // 학교·학년 인라인 편집.
   const [editingSchool, setEditingSchool] = useState(false);
@@ -558,7 +563,17 @@ export default function ProfileTab({
           경유로 교체). 이미 설정돼 있으면(myTenant) 소속명만 읽기 전용으로
           보여주고 진입 버튼을 숨긴다 — 재설정은 셀프서비스가 아니라 어드민
           경로(fn_admin_set_profile_tenant) 전용이다. */}
-      {!isParent && myTenant && (
+      {!isParent && myTenant && isCatchAll && (
+        <CatchAllTenantField
+          tenantName={myTenant.name}
+          onJoined={(tenantName) => {
+            setMyTenant({ name: tenantName });
+            void enrollment.reload();
+            window.dispatchEvent(new Event("winning-profile-updated"));
+          }}
+        />
+      )}
+      {!isParent && myTenant && !isCatchAll && (
         <ProfileField
           label="소속"
           value={myTenant.name}
