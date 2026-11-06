@@ -146,6 +146,7 @@ grant execute on function public.fn_anonymize_expired_b2b_members(uuid, uuid, te
 -- 계약 종료 회원 삭제 미리보기(사 #162, 결정 102.1, 102.4). 이름은 마스킹하지 않고 돌려준다. 가리는 일은 API 가 한다.
 -- 후보와 보호 조건은 위 함수와 같다(학생, 이름이 '삭제된 학생'이 아님, 지금 유효한 개인 유료 이용권이면 protected).
 -- 학년, 반, 번호는 기관의 올해 활성 학적에서 읽는다. 반 이름 앞에 그룹 이름이 있으면 붙인다.
+-- 정렬은 학년, 반, 번호, 회원번호 순이고 비어 있는 값은 뒤로 보낸다.
 -- 유예 종료일 식은 위 함수와 같다(tenants.grace_ends_on, 없으면 계약 종료일 + app_settings.contract_grace_days).
 create function public.fn_member_purge_preview(p_tenant uuid)
 returns table (
@@ -191,7 +192,7 @@ as $$
   union all
   select null, null, null, null, null, null, t.contract_end_date, t.grace_end
     from t where not exists (select 1 from cand)
-  order by 4 nulls last, 5 nulls last, 1;
+  order by 3 nulls last, 4 nulls last, 5 nulls last, 1 nulls last;
 $$;
 
 revoke all on function public.fn_member_purge_preview(uuid) from public, anon, authenticated;

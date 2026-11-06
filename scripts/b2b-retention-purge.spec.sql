@@ -430,6 +430,27 @@ select pg_temp.expect_bool('미리보기의 학년, 반(그룹 포함), 번호�
   (select grade = '고1' and class_label = 'A그룹 3반' and number = 5 from prev where profile_id = pg_temp.fx('m_g_a')), true);
 select pg_temp.expect_bool('학적이 반 없이 학년만 있으면 반과 번호는 비어 있다',
   (select grade = '고2' and class_label is null and number is null from prev where profile_id = pg_temp.fx('m_g_b')), true);
+-- 정렬: 학년, 반, 번호, 번호(id) 순이고 비어 있는 값은 뒤로 간다.
+select pg_temp.mk_tenant('ord', 'RPTTQQQQ', pg_temp.today() - 50, pg_temp.today() - 5);
+select pg_temp.mk_member('o1', 'ord', 'student', 31);   -- 고2 1반 1번
+select pg_temp.mk_member('o2', 'ord', 'student', 32);   -- 고1 2반 9번
+select pg_temp.mk_member('o3', 'ord', 'student', 33);   -- 고1 2반 3번
+select pg_temp.mk_member('o4', 'ord', 'student', 34);   -- 고1 반 없음
+select pg_temp.mk_member('o5', 'ord', 'student', 35);   -- 학적 없음
+insert into public.classes (tenant_id, school_year, grade, name)
+select t.id, t.school_year, g.grade, g.name from public.tenants t,
+  (values ('고2', '1반'), ('고1', '2반')) as g(grade, name) where t.id = pg_temp.fx('ten_ord');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number)
+select t.id, pg_temp.fx('m_' || e.k), t.school_year, e.grade,
+       (select c.id from public.classes c where c.tenant_id = t.id and c.name = e.cname), e.n
+  from public.tenants t,
+  (values ('o1', '고2', '1반', 1), ('o2', '고1', '2반', 9), ('o3', '고1', '2반', 3), ('o4', '고1', null, null)) as e(k, grade, cname, n)
+ where t.id = pg_temp.fx('ten_ord');
+select pg_temp.expect_text('미리보기는 학년, 반, 번호 순이고 반이나 학적이 없는 학생은 뒤로 간다',
+  (select string_agg(u.email, ',' order by x.ord)
+     from (select profile_id, row_number() over () as ord from public.fn_member_purge_preview(pg_temp.fx('ten_ord'))) x
+     join public.profiles u on u.id = x.profile_id),
+  't23-m-o3@t.local,t23-m-o2@t.local,t23-m-o4@t.local,t23-m-o1@t.local,t23-m-o5@t.local');
 select pg_temp.expect_int('이미 삭제된 학생은 미리보기에 없다',
   (select count(*) from prev where profile_id = pg_temp.fx('m_g_gone')), 0);
 select pg_temp.expect_int('교사는 미리보기에 없다',
