@@ -8854,14 +8854,14 @@ export type Database = {
       fn_member_purge_preview: {
         Args: { p_tenant: string };
         Returns: {
-          class_label: string | null;
+          class_label: string;
           contract_end: string;
-          grace_end: string | null;
-          grade: string | null;
-          name: string | null;
-          number: number | null;
-          profile_id: string | null;
-          protected: boolean | null;
+          grace_end: string;
+          grade: string;
+          name: string;
+          number: number;
+          profile_id: string;
+          protected: boolean;
         }[];
       };
       fn_my_tenant: {
