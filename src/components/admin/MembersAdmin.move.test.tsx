@@ -170,6 +170,32 @@ describe("MembersAdmin 소속 저장", () => {
     expect(hoisted.rpc).not.toHaveBeenCalled();
   });
 
+  test("스쿨멘토에서 학생을 소속 없음으로 바꾸면 RPC 를 부르지 않고 기타로 옮기라고 안내한다", async () => {
+    await openMember("김학생");
+
+    pickTenantAndSave("소속 없음");
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(expect.stringContaining("「기타」")),
+    );
+    expect(hoisted.rpc).not.toHaveBeenCalled();
+    expect(screen.queryByText(/으\)로 옮기기/)).toBeNull();
+  });
+
+  test("위닝에서는 학생도 소속 없음으로 바꿀 수 있다", async () => {
+    hoisted.studentEnrollment = false;
+    await openMember("김학생");
+
+    pickTenantAndSave("소속 없음");
+
+    await waitFor(() =>
+      expect(hoisted.rpc).toHaveBeenCalledWith("fn_admin_set_profile_tenant", {
+        p_profile_id: "p-student",
+        p_tenant_id: null,
+      }),
+    );
+  });
+
   test("학생이 아니면 스쿨멘토에서도 기존 RPC 를 쓴다", async () => {
     await openMember("박교사");
 

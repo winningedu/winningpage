@@ -647,17 +647,21 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
     const nextId = tenantDraft || null;
 
+    const isEnrollmentStudent =
+      site.features.studentEnrollment &&
+      String(selected.member_type || "") === "student";
+    // 스쿨멘토의 학생은 소속만 비우면 학적이 옛 기관에 남는다. 기타 기관으로 옮겨 학적을 정리한다.
+    if (isEnrollmentStudent && !nextId) {
+      alert("학생은 소속 없음으로 바꿀 수 없어요. 「기타」로 옮겨 주세요.");
+      return;
+    }
+
     // 스쿨멘토의 학생은 소속만이 아니라 학적도 옮겨야 새 기관 콘솔에 보인다. 학년과 반을 받는 이동 폼으로 보낸다.
     // 학생이 아니거나 위닝이면 아래 RPC 그대로다.
     const target = nextId
       ? tenants.find((tenant) => tenant.id === nextId)
       : undefined;
-    if (
-      site.features.studentEnrollment &&
-      String(selected.member_type || "") === "student" &&
-      target &&
-      nextId !== selected.tenant_id
-    ) {
+    if (isEnrollmentStudent && target && nextId !== selected.tenant_id) {
       setMoveTarget({
         id: target.id,
         name: target.name,
