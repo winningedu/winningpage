@@ -25,4 +25,6 @@ values ('contract_grace_days', '30'::jsonb)
 on conflict (key) do nothing;
 
 -- 실행 기록
--- (미실행) dev / Schoolmentor prod: 실행 후 이 줄에 날짜, 대상 DB, 전후 행 수를 적는다.
+-- 2026-11-06 dev gjowqdiopinhixfivnkx: 실행 전 두 키 2행(이미 있음), 실행 후 2행, 재실행 변경 없음
+-- 2026-11-06 Schoolmentor prod aalujumpwlnwlemnqrus: 실행 전 0행, 실행 후 2행, 재실행 변경 없음
+-- Winning prod: 실행하지 않음
