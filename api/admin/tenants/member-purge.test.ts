@@ -12,6 +12,10 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (...keys: string[]) => {
+    for (const key of keys) if (process.env[key]) return process.env[key];
+    return "";
+  },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -21,9 +25,14 @@ import handler from "./member-purge.js";
 const post = (body: unknown, method = "POST") =>
   callHandler(handler, body, method);
 
+const STUDENT_A = "a1111111-1111-4111-8111-111111111111";
+const STUDENT_B = "b2222222-2222-4222-8222-222222222222";
+const BODY = { tenantId: "tenant-7", targetIds: [STUDENT_A, STUDENT_B] };
+
 const anonymizeArgs: Record<string, unknown>[] = [];
 
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -41,6 +50,7 @@ beforeEach(() => {
           members_protected: 1,
           grace_end: "2026-10-01",
           not_yet: false,
+          members_skipped: 2,
         },
       ],
       error: null,
@@ -49,6 +59,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -63,7 +74,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: null,
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
@@ -84,7 +95,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: null,
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({
@@ -94,15 +105,16 @@ describe("POST /api/admin/tenants/member-purge", () => {
   });
 
   test("성공하면 그 기관만, 로그 실행자를 본사 관리자로 해서 익명화하고 건수를 돌려준다", async () => {
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true, deleted: 3, excluded: 1 });
+    expect(r.body).toEqual({ ok: true, deleted: 3, excluded: 1, skipped: 2 });
     expect(anonymizeArgs).toEqual([
       {
         p_tenant: "tenant-7",
         p_actor_profile: "hq-1",
         p_actor_email: "hq@example.com",
+        p_targets: [STUDENT_A, STUDENT_B],
       },
     ]);
   });
@@ -133,7 +145,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: { code: "XX000" },
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(500);
   });

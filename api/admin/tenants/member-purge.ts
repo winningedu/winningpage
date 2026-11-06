@@ -35,11 +35,15 @@ export default defineHandler({
       return;
     }
 
-    const tenantId = (req.body as { tenantId?: unknown } | undefined)?.tenantId;
+    const body = req.body as
+      | { tenantId?: unknown; targetIds?: unknown }
+      | undefined;
+    const tenantId = body?.tenantId;
     if (typeof tenantId !== "string" || tenantId === "") {
       sendError(res, "coded", 400, "기관을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
+    const targetIds = body?.targetIds as string[];
 
     const { data, error } = await ctx.supabaseAdmin.rpc(
       "fn_anonymize_expired_b2b_members",
@@ -47,6 +51,7 @@ export default defineHandler({
         p_tenant: tenantId,
         p_actor_profile: userId,
         p_actor_email: ctx.user?.email ?? undefined,
+        p_targets: targetIds,
       },
     );
     if (error) throw new Error("member purge failed");
@@ -69,6 +74,7 @@ export default defineHandler({
       ok: true,
       deleted: Number(result.members_anonymized),
       excluded: Number(result.members_protected),
+      skipped: Number(result.members_skipped),
     });
   },
 });
