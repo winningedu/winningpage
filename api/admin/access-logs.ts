@@ -124,12 +124,16 @@ export default defineHandler({
       ok: true,
       logs: rows.map((row) => {
         const teacher = row.teacher_id ? teachers.get(row.teacher_id) : null;
+        const actor = row.profile_id ? profiles.get(row.profile_id) : null;
         const target = row.target_id ? profiles.get(row.target_id) : null;
         const kind = kindOf(row.action);
         return {
           id: row.id,
           createdAt: row.created_at,
           tenantCode: row.tenants?.code ?? null,
+          actorName: actor?.name ?? null,
+          actorEmail: row.actor_email,
+          reason: row.reason,
           teacherName: teacher?.name ?? null,
           teacherLoginId: teacher?.login_id ?? row.actor_login_id,
           teacherPhone: maskTeacherPhone(teacher?.phone ?? null),

@@ -114,4 +114,36 @@ describe("GET /api/admin/access-logs", () => {
     expect(JSON.stringify(r.body)).not.toContain("김하늘");
     expect(JSON.stringify(r.body)).not.toContain("01012341234");
   });
+
+  test("위닝 관리자 행은 관리자 이름, 계정, 사유를 그대로 두고 학생이 아닌 대상은 이름이 없다", async () => {
+    kit.state.rows.admin_access_logs = () => [
+      {
+        ...TEACHER_VIEW_LOG,
+        id: "log-2",
+        action: "unmask",
+        resource_key: "members",
+        reason: "고객 문의 확인",
+        target_id: "hq-1",
+        actor_email: "hq@example.com",
+        actor_kind: null,
+        actor_login_id: null,
+        profile_id: "hq-1",
+        teacher_id: null,
+        tenants: null,
+      },
+    ];
+
+    const r = await get();
+
+    expect((r.body as Body).logs[0]).toMatchObject({
+      actorName: "본사직원",
+      actorEmail: "hq@example.com",
+      reason: "고객 문의 확인",
+      teacherName: null,
+      teacherPhone: null,
+      targetStudentName: null,
+      tenantCode: null,
+      content: "회원 목록",
+    });
+  });
 });
