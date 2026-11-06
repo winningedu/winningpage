@@ -57,6 +57,8 @@ import {
 } from "@/lib/goal/goalCutBackfill";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
+import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
+import PurgeLogsAdmin from "@/pages/admin/tenants/PurgeLogsAdmin";
 import type { TablesInsert } from "@/types/database.types";
 import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
 import {
@@ -265,6 +267,9 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       // (admin_resources sort_order 305 < members, 20260922002929).
       { key: "tenants", label: "소속(테넌트) 관리" },
       { key: "members", label: "회원 목록" },
+      // 스쿨멘토 전용. canAccessSection 이 tenants 권한과 hqTenantAdmin 플래그로 거른다.
+      { key: "memberPurge", label: "계약 종료 회원 삭제" },
+      { key: "memberPurgeLogs", label: "삭제 로그" },
       { key: "dailyEntries", label: "일일 입장", section: "이용 현황" },
       { key: "usageStatus", label: "이용 현황", section: "이용 현황" },
     ],
@@ -351,6 +356,8 @@ const CUSTOM_COMPONENT_REGISTRY = {
   adminAccessLogs: AccessLogsAdmin,
   revenue: RevenueAdmin,
   tenants: TenantsAdmin,
+  memberPurge: MemberPurgeAdmin,
+  memberPurgeLogs: PurgeLogsAdmin,
   growthReports: GrowthReportsAdmin,
   selfevalSessions: SelfevalSessionsAdmin,
   aiTelemetry: TelemetryAdmin,
