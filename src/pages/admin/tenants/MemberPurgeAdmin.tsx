@@ -111,6 +111,9 @@ export default function MemberPurgeAdmin() {
     await loadPreview(tenantId);
   }
 
+  // 삭제 가능일(유예 종료 다음 날)이 되기 전, 또는 유예 종료일을 모르면 실행할 수 없다.
+  const deletable = preview?.dDay != null && preview.dDay <= 0;
+
   const ddayText = preview
     ? deletionDdayText({
         contractEnd: preview.contractEnd,
@@ -201,7 +204,7 @@ export default function MemberPurgeAdmin() {
           <div className="mb-4">
             <ActionButton
               variant="danger"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || !deletable}
               onClick={() => setConfirming(true)}
             >
               삭제 실행

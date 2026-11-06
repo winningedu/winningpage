@@ -154,4 +154,43 @@ describe("MemberPurgeAdmin", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  test("삭제 가능일 전에는 삭제 실행 버튼이 막히고 D-day 안내가 보인다", async () => {
+    vi.mocked(api.fetchMemberPurgePreview).mockResolvedValue({
+      ok: true,
+      data: {
+        contractEnd: "2999-09-01",
+        graceEnd: "2999-10-01",
+        deletableFrom: "2999-10-02",
+        dDay: 12,
+        students: STUDENTS,
+      },
+    });
+    await openTenant();
+
+    expect(
+      (screen.getByRole("button", { name: "삭제 실행" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(screen.getByText(/삭제 가능일 D-/)).toBeTruthy();
+  });
+
+  test("서버가 아직 삭제할 수 없다고 하면 그 안내를 보여 주고 목록은 그대로 둔다", async () => {
+    vi.mocked(api.runMemberPurge).mockResolvedValue({
+      ok: false,
+      message: "아직 삭제할 수 없는 기관입니다.",
+    });
+    await openTenant();
+    fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+      target: { value: "한빛고" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+
+    expect(
+      await screen.findByText("아직 삭제할 수 없는 기관입니다."),
+    ).toBeTruthy();
+    expect(screen.getByText("김*늘")).toBeTruthy();
+  });
 });
