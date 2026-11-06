@@ -34,6 +34,7 @@ export const PHONE_MESSAGES = {
 
 export const NOTICE_MESSAGES = {
   findIdLink: "아이디 찾기",
+  loginLink: "로그인",
   // 결정 75: "정보가 맞는데 계속 막히면 온라인문의로 알려 주세요." 중 온라인문의만 링크다.
   inquiryBefore: "정보가 맞는데 계속 막히면 ",
   inquiryLink: "온라인문의",
@@ -50,8 +51,10 @@ export const GUARDIAN_MESSAGES = {
 export interface SubmitError {
   step: 2 | 3 | 4;
   message?: string;
-  hint?: "findId" | "inquiry";
+  hint?: "findId" | "inquiry" | "login";
 }
+
+const LOGIN_AFTER_SIGNUP_MESSAGE = "가입은 완료됐어요. 로그인해 주세요.";
 
 export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   NUMBER_TAKEN_SAME_NAME: {
@@ -85,6 +88,19 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
     step: 4,
     message: "학부모 핸드폰 인증을 완료해 주세요.",
   },
+  // 소속코드 오답 한도. 가입 확정이 소속코드를 다시 찾다가 걸린다.
+  WC068: { step: 2, message: TENANT_MESSAGES.tooMany },
+  // 가입은 끝났는데 로그인만 못 한 경우다. 다시 가입하게 하지 않고 로그인으로 보낸다.
+  LOGIN_FAILED: {
+    step: 4,
+    message: LOGIN_AFTER_SIGNUP_MESSAGE,
+    hint: "login",
+  },
+  ALREADY_SIGNED_UP: {
+    step: 4,
+    message: LOGIN_AFTER_SIGNUP_MESSAGE,
+    hint: "login",
+  },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
 };
 
@@ -92,3 +108,37 @@ export const GENERIC_SUBMIT_ERROR: SubmitError = {
   step: 4,
   message: "가입 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
 };
+
+// 서버가 VALIDATION 과 함께 돌려준 칸(요청 본문의 칸 이름)별로 되돌아갈 단계와 칸 이름.
+// 여기 없는 칸(약관 동의 등)은 화면에서 막히는 값이라 일반 오류로 처리한다.
+const VALIDATION_FIELDS: Record<string, { step: 2 | 3 | 4; label: string }> = {
+  tenantCode: { step: 2, label: "소속코드" },
+  username: { step: 3, label: "아이디" },
+  password: { step: 3, label: "비밀번호" },
+  name: { step: 3, label: "이름" },
+  email: { step: 3, label: "이메일" },
+  phone: { step: 3, label: "휴대폰번호" },
+  birthDate: { step: 3, label: "생년월일" },
+  gender: { step: 3, label: "성별" },
+  grade: { step: 3, label: "학년" },
+  groupName: { step: 3, label: "그룹" },
+  className: { step: 3, label: "반" },
+  number: { step: 3, label: "번호" },
+  identityRequestId: { step: 3, label: "본인인증" },
+  guardianName: { step: 4, label: "학부모 이름" },
+  guardianPhone: { step: 4, label: "학부모 휴대폰번호" },
+  guardianRelation: { step: 4, label: "관계" },
+  guardianConsent: { step: 4, label: "수집 동의" },
+};
+
+export function validationError(field: string | undefined): SubmitError {
+  const owner = field ? VALIDATION_FIELDS[field] : undefined;
+  if (!owner) return GENERIC_SUBMIT_ERROR;
+  return {
+    step: owner.step,
+    message:
+      field === "tenantCode"
+        ? TENANT_MESSAGES.notFound
+        : `${owner.label} 칸을 다시 확인해 주세요.`,
+  };
+}

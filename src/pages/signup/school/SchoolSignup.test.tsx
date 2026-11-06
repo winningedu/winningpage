@@ -956,6 +956,88 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
     expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
   });
 
+  it.each([
+    [502, "LOGIN_FAILED"],
+    [409, "ALREADY_SIGNED_UP"],
+  ])("%s %s 는 가입이 끝났으니 로그인하라고 안내한다", async (status, code) => {
+    await submitWithError(status, code);
+
+    expect(
+      await screen.findByText("가입은 완료됐어요. 로그인해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+  });
+
+  it("학부모 휴대폰 인증이 빠졌다는 오류는 학부모 번호 인증도 다시 받게 한다", async () => {
+    await goToGuardian();
+    type("학부모 휴대폰번호", "01055556666");
+    click("인증번호 보내기");
+    await waitFor(() =>
+      expect(screen.getByLabelText("학부모 인증번호")).toBeEnabled(),
+    );
+    type("학부모 인증번호", "123456");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
+    );
+    mockApi({
+      "/api/signup/school-student": {
+        status: 400,
+        body: { code: "GUARDIAN_PHONE_NOT_VERIFIED" },
+      },
+    });
+
+    click("다음");
+
+    expect(
+      await screen.findByText("학부모 핸드폰 인증을 완료해 주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("학부모 인증번호")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("소속코드 시도 한도(WC068)는 2단계로 돌려보내 너무 많이 시도했다고 안내한다", async () => {
+    await submitWithError(429, "WC068");
+
+    expect(
+      await screen.findByText(
+        "소속코드 확인을 너무 많이 시도했어요. 잠시 후 다시 시도해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("소속코드")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["tenantCode", "소속코드", "소속코드"],
+    ["email", "이메일 칸을 다시 확인해 주세요.", "이름"],
+    [
+      "guardianPhone",
+      "학부모 휴대폰번호 칸을 다시 확인해 주세요.",
+      "학부모 이름",
+    ],
+  ])(
+    "VALIDATION 칸 %s 는 그 칸이 있는 단계로 돌려보낸다",
+    async (field, message, label) => {
+      await goToGuardian();
+      mockApi({
+        "/api/signup/school-student": {
+          status: 400,
+          body: { code: "VALIDATION", field },
+        },
+      });
+      click("건너뛰기");
+
+      expect(
+        await screen.findByText(
+          field === "tenantCode" ? "소속코드를 다시 확인해 주세요." : message,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    },
+  );
+
   it("그 밖의 오류는 4단계에 머물며 다시 시도하게 한다", async () => {
     await submitWithError(500, "WHATEVER");
 

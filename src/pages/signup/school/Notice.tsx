@@ -5,7 +5,7 @@ import { NOTICE_MESSAGES } from "./copy";
 
 interface NoticeProps {
   message: string;
-  hint?: "findId" | "inquiry";
+  hint?: "findId" | "inquiry" | "login";
 }
 
 export default function Notice({ message, hint }: NoticeProps) {
@@ -21,6 +21,12 @@ export default function Notice({ message, hint }: NoticeProps) {
       {hint === "findId" && (
         <Link to="/login/find-id" className="underline underline-offset-2">
           {NOTICE_MESSAGES.findIdLink}
+        </Link>
+      )}
+
+      {hint === "login" && (
+        <Link to="/login" className="underline underline-offset-2">
+          {NOTICE_MESSAGES.loginLink}
         </Link>
       )}
 

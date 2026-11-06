@@ -116,6 +116,7 @@ describe("submitSchoolSignup", () => {
     expect(await submitSchoolSignup(BODY)).toEqual({
       ok: false,
       code: "NUMBER_TAKEN_SAME_NAME",
+      field: "number",
     });
 
     mockFetch(500, {});

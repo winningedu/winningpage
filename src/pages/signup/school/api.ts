@@ -82,7 +82,7 @@ export type SchoolSignupResult =
       linkCode: string;
       tenantName: string;
     }
-  | { ok: false; code: string };
+  | { ok: false; code: string; field?: string };
 
 export async function submitSchoolSignup(
   body: SchoolSignupBody,
@@ -102,7 +102,11 @@ export async function submitSchoolSignup(
     };
   }
 
-  return { ok: false, code: payload?.code || "UNKNOWN" };
+  return {
+    ok: false,
+    code: payload?.code || "UNKNOWN",
+    ...(typeof payload?.field === "string" && { field: payload.field }),
+  };
 }
 
 export type UsernameCheckResult =

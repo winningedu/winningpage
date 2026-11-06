@@ -7,7 +7,12 @@ import { type SchoolStep, useSignup } from "@/context/SignupContext";
 import { supabase } from "@/lib/supabase";
 import { submitSchoolSignup } from "./api";
 import CompleteStep from "./CompleteStep";
-import { GENERIC_SUBMIT_ERROR, SUBMIT_ERRORS, type SubmitError } from "./copy";
+import {
+  GENERIC_SUBMIT_ERROR,
+  SUBMIT_ERRORS,
+  type SubmitError,
+  validationError,
+} from "./copy";
 import GuardianStep from "./GuardianStep";
 import { buildSignupBody } from "./rules";
 import StudentInfoStep from "./StudentInfoStep";
@@ -48,18 +53,33 @@ export default function SchoolSignup() {
   }
 
   // 서버가 거절한 칸이 있는 단계로 돌려보낸다.
-  function showSubmitError(code: string) {
-    const error = SUBMIT_ERRORS[code] ?? GENERIC_SUBMIT_ERROR;
+  function showSubmitError(code: string, field?: string) {
+    const error =
+      code === "VALIDATION"
+        ? validationError(field)
+        : (SUBMIT_ERRORS[code] ?? GENERIC_SUBMIT_ERROR);
 
     if (code === "USERNAME_TAKEN") {
       setUsernameCheck({ value: formData.username, available: false });
     }
-    if (code === "TENANT_NOT_FOUND") setTenant(null);
+    if (
+      code === "TENANT_NOT_FOUND" ||
+      code === "WC068" ||
+      (code === "VALIDATION" && field === "tenantCode")
+    ) {
+      setTenant(null);
+    }
     if (code === "IDENTITY_REQUIRED") {
       updateVerification("pass", { verified: false });
     }
     if (code === "PHONE_TAKEN" || code === "PHONE_NOT_VERIFIED") {
       updateVerification("phone", { requested: false, verified: false });
+    }
+    if (code === "GUARDIAN_PHONE_NOT_VERIFIED") {
+      updateVerification("guardianPhone", {
+        requested: false,
+        verified: false,
+      });
     }
 
     setSubmitError(error);
@@ -75,7 +95,7 @@ export default function SchoolSignup() {
       );
 
       if (!result.ok) {
-        showSubmitError(result.code);
+        showSubmitError(result.code, result.field);
         return;
       }
 
