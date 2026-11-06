@@ -532,7 +532,7 @@ describe("advanceStep 스쿨멘토 시작 확인", () => {
     expect(out).toMatchObject({ kind: "ok", charged: true });
   });
 
-  it("한도에 걸리면 선점 전에 tenantReason 을 달아 no_entitlement", async () => {
+  it("한도에 걸리면 선점한 단계를 닫고 tenantReason 을 달아 no_entitlement", async () => {
     mocks.consumeCredit.mockResolvedValue({
       status: "quota_exhausted",
       charged: false,
@@ -544,8 +544,42 @@ describe("advanceStep 스쿨멘토 시작 확인", () => {
       reason: "month_cap",
       tenantReason: "month_cap",
     });
-    expect(mocks.claimStep).not.toHaveBeenCalled();
+    expect(mocks.finishStep).toHaveBeenCalledWith(
+      db,
+      "u",
+      "r1",
+      1,
+      false,
+      {},
+      expect.any(Array),
+      0,
+    );
     expect(mocks.runStep).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["running", { kind: "running" }],
+    ["locked", { kind: "locked" }],
+    ["exhausted", { kind: "exhausted", attempts: 10 }],
+  ])("선점이 %s 로 거절되면 시작을 세지 않는다", async (_n, claim) => {
+    mocks.claimStep.mockResolvedValue(claim);
+    const out = await advanceStep(db, "u", makeRow(), 1, deps);
+    expect(out.kind).toBe("claim_error");
+    expect(mocks.consumeCredit).not.toHaveBeenCalled();
+  });
+
+  it("선점한 뒤에 세고 그 뒤에 모델을 부른다", async () => {
+    mocks.consumeCredit.mockResolvedValue({
+      status: "charged",
+      charged: true,
+      tenantReason: null,
+    });
+    await advanceStep(db, "u", makeRow(), 1, deps);
+    const claimAt = mocks.claimStep.mock.invocationCallOrder[0] ?? 0;
+    const consumeAt = mocks.consumeCredit.mock.invocationCallOrder[0] ?? 0;
+    const runAt = mocks.runStep.mock.invocationCallOrder[0] ?? 0;
+    expect(claimAt).toBeLessThan(consumeAt);
+    expect(consumeAt).toBeLessThan(runAt);
   });
 
   it("진입 게이트 거부 사유도 tenantReason 으로 싣는다", async () => {

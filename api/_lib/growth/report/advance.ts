@@ -139,18 +139,6 @@ export async function advanceStep(
         ...(tenantReason && { tenantReason }),
       };
     }
-    // 스쿨멘토는 모델을 부르기 전에 회차를 먼저 센다(결정 100). 같은 회차는 멱등이라 이미 센 회차는
-    // 한도여도 이어서 하고, 동시에 여러 회차를 시작해도 한도를 넘지 못한다. 실패한 실행은 돌려주지 않는다.
-    if (isSchoolmentorSite()) {
-      const c = await consumeCredit(db, userId, reportId);
-      if (!(c.charged || c.status === "already_charged"))
-        return {
-          kind: "no_entitlement",
-          reason: c.tenantReason ?? c.status,
-          ...(c.tenantReason && { tenantReason: c.tenantReason }),
-        };
-      reservedCharge = true;
-    }
   }
   if (gate === "refuse_closed") {
     return {
@@ -160,7 +148,7 @@ export async function advanceStep(
       terminal: false,
     };
   }
-  let lateCharged = reservedCharge;
+  let lateCharged = false;
   if (gate === "late_charge") {
     const c = await consumeCredit(db, userId, reportId);
     if (!(c.charged || c.status === "already_charged"))
@@ -198,6 +186,38 @@ export async function advanceStep(
 
   // 이 아래에서 던지면 선점한 단계를 실패로 닫고 다시 던진다.
   try {
+    // 스쿨멘토는 모델을 부르기 전에 회차를 먼저 센다(결정 100). 선점이 거절된 요청은 시작하지 않았으므로
+    // 선점에 성공한 뒤에 센다. 같은 회차는 멱등이라 이미 센 회차는 한도여도 이어서 하고, 동시에 여러 회차를
+    // 시작해도 한도를 넘지 못한다. 실패한 실행은 돌려주지 않는다.
+    if (gate === "check_access" && isSchoolmentorSite()) {
+      const c = await consumeCredit(db, userId, reportId);
+      if (!(c.charged || c.status === "already_charged")) {
+        // 선점한 running 을 닫지 않으면 stale 시간까지 재요청이 막힌다.
+        await finishStep(
+          db,
+          userId,
+          reportId,
+          step,
+          false,
+          {},
+          [
+            {
+              code: "quota_denied",
+              message: "이용 한도에 걸려 시작하지 않았어요.",
+            },
+          ],
+          0,
+        );
+        return {
+          kind: "no_entitlement",
+          reason: c.tenantReason ?? c.status,
+          ...(c.tenantReason && { tenantReason: c.tenantReason }),
+        };
+      }
+      reservedCharge = true;
+      lateCharged = true;
+    }
+
     let context: Awaited<ReturnType<typeof loadContextInputs>>;
     try {
       context = await loadContextInputs(db, userId, row, deps.now());
