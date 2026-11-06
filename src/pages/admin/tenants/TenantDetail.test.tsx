@@ -188,10 +188,34 @@ describe("TenantDetail 탭과 이동", () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  test("기관을 찾지 못하면 안내를 보인다", async () => {
+  test("기관을 찾지 못하면 안내와 목록으로 버튼을 보인다", async () => {
     db.row = null;
-    renderDetail();
+    const { onBack } = renderDetail();
 
     expect(await screen.findByText("기관을 찾을 수 없어요.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  test("불러오는 중에도 목록으로 버튼이 onBack 을 부른다", async () => {
+    const { onBack } = renderDetail();
+
+    expect(screen.getByText("데이터를 불러오는 중입니다.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
+    expect(onBack).toHaveBeenCalled();
+    await screen.findByDisplayValue("한빛고");
+  });
+
+  test("불러오기가 오류로 실패하면 찾을 수 없다고 하지 않고 불러오지 못했다고 알린다", async () => {
+    db.row = null;
+    db.selectError = { message: "network" };
+    const { onBack } = renderDetail();
+
+    expect(
+      await screen.findByText("기관 정보를 불러오지 못했어요."),
+    ).toBeTruthy();
+    expect(screen.queryByText("기관을 찾을 수 없어요.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
+    expect(onBack).toHaveBeenCalled();
   });
 });

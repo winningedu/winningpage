@@ -57,6 +57,7 @@ export default function TenantDetail({
   const [form, setForm] = useState<TenantFormValues>(() => emptyTenantForm());
   const [savedName, setSavedName] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -69,7 +70,11 @@ export default function TenantDetail({
         .eq("id", tenantId)
         .maybeSingle();
       if (!alive) return;
-      if (error || !data) {
+      if (error) {
+        setLoadFailed(true);
+        return;
+      }
+      if (!data) {
         setNotFound(true);
         return;
       }
@@ -120,17 +125,21 @@ export default function TenantDetail({
     onSaved?.();
   }
 
-  if (notFound) {
+  if (notFound || loadFailed || !loaded) {
     return (
-      <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
-        기관을 찾을 수 없어요.
-      </div>
-    );
-  }
-  if (!loaded) {
-    return (
-      <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
-        데이터를 불러오는 중입니다.
+      <div>
+        <div className="mb-5 flex justify-end">
+          <ActionButton variant="light" onClick={onBack}>
+            목록으로
+          </ActionButton>
+        </div>
+        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+          {loadFailed
+            ? "기관 정보를 불러오지 못했어요."
+            : notFound
+              ? "기관을 찾을 수 없어요."
+              : "데이터를 불러오는 중입니다."}
+        </div>
       </div>
     );
   }
