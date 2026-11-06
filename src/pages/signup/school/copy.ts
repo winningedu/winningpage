@@ -20,3 +20,18 @@ export const USERNAME_MESSAGES = {
   invalidFormat: "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
   failed: "아이디를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
 };
+
+export const PHONE_MESSAGES = {
+  invalid: "휴대폰번호를 올바르게 입력해 주세요.",
+  verified: "전화번호 인증이 완료되었습니다.",
+  // 사 #106, 결정 75
+  taken: "이미 가입한 번호예요. 아이디 찾기에서 확인해 주세요.",
+};
+
+export const NOTICE_MESSAGES = {
+  findIdLink: "아이디 찾기",
+  // 결정 75: "정보가 맞는데 계속 막히면 온라인문의로 알려 주세요." 중 온라인문의만 링크다.
+  inquiryBefore: "정보가 맞는데 계속 막히면 ",
+  inquiryLink: "온라인문의",
+  inquiryAfter: "로 알려 주세요.",
+};

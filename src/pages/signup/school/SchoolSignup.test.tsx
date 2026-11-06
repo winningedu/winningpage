@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
 import { supabase } from "@/lib/supabase";
@@ -12,12 +12,17 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+function LocationProbe() {
+  return <p data-testid="path">{useLocation().pathname}</p>;
+}
+
 function renderSignup() {
   return render(
     <MemoryRouter initialEntries={["/signup/student"]}>
       <SignupProvider>
         <Routes>
           <Route path="/signup/student" element={<SchoolSignup />} />
+          <Route path="*" element={<LocationProbe />} />
         </Routes>
       </SignupProvider>
     </MemoryRouter>,
@@ -326,5 +331,39 @@ describe("3단계 아이디 중복 확인", () => {
       ),
     ).toBeInTheDocument();
     expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("3단계 휴대폰 인증", () => {
+  it("인증번호는 소속을 실어 보내고, 6자리를 넣으면 바로 검증한다", async () => {
+    await goToStudentInfo();
+    calls.length = 0;
+    mockApi({
+      "/api/send-phone-code": {
+        body: { ok: true, expires_in: 180, cooldown: 60 },
+      },
+      "/api/verify-phone-code": { body: { ok: true } },
+    });
+
+    type("휴대폰번호", "01012345678");
+    click("인증번호 보내기");
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    expect(calls[0]?.body).toEqual({
+      phone: "01012345678",
+      purpose: "signup",
+      tenant_id: "t-1",
+    });
+
+    type("휴대폰 인증번호", "123456");
+
+    expect(
+      await screen.findByText("전화번호 인증이 완료되었습니다."),
+    ).toBeInTheDocument();
+    expect(calls[1]?.body).toEqual({
+      phone: "01012345678",
+      code: "123456",
+      purpose: "signup",
+    });
   });
 });

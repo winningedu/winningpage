@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { AuthTitle, SelectField, TextField } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
-import { formatPhoneInput } from "@/lib/phoneVerification";
 import { isValidPassword } from "../StudentForm";
 import { checkUsernameAvailable } from "./api";
 import { INFO_MESSAGES, USERNAME_MESSAGES } from "./copy";
+import PhoneVerifyField from "./PhoneVerifyField";
 import { ENROLLMENT_GRADES, isValidUsername } from "./rules";
 import StepActions from "./StepActions";
 
@@ -31,6 +31,8 @@ export default function StudentInfoStep({
     isUnder14,
     usernameCheck,
     setUsernameCheck,
+    verification,
+    updateVerification,
   } = useSignup();
 
   const isCatchAll = tenant?.isCatchAll === true;
@@ -38,6 +40,9 @@ export default function StudentInfoStep({
   const isSchool = orgType === SCHOOL_ORG_TYPE;
   const showGroup = orgType !== null && !isSchool;
   const showClass = !isCatchAll;
+  // 번호 중복은 소속 안에서만 본다(결정 r8). 기타 소속은 기타끼리다.
+  const phoneScope =
+    tenant && !tenant.isCatchAll ? { tenantId: tenant.id } : { catchAll: true };
 
   const [usernameError, setUsernameError] = useState("");
 
@@ -140,16 +145,16 @@ export default function StudentInfoStep({
           autoComplete="new-password"
         />
 
-        <TextField
+        <PhoneVerifyField
+          idPrefix="school"
           label="휴대폰번호"
-          id="school-phone"
-          name="phone"
-          size="lg"
-          value={formData.phone}
-          onChange={(value) =>
-            updateFormData({ phone: formatPhoneInput(value) })
-          }
-          autoComplete="tel"
+          codeLabel="휴대폰 인증번호"
+          phone={formData.phone}
+          onPhoneChange={(phone) => updateFormData({ phone })}
+          purpose="signup"
+          scope={phoneScope}
+          state={verification.phone}
+          onStateChange={(state) => updateVerification("phone", state)}
         />
 
         <TextField
