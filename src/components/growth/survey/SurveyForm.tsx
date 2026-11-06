@@ -12,7 +12,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { SurveyBootstrap } from "@/lib/growth/api";
+import { parseTenantReason } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
+import NoEntitlementCard from "./NoEntitlementCard";
 import SurveyProgressCard from "./SurveyProgressCard";
 import SurveyQuestionBlock from "./SurveyQuestionBlock";
 import { prefillBanners, type SaveFailure } from "./surveySave";
@@ -27,7 +29,6 @@ import { useSurveyPersistence } from "./useSurveyPersistence";
 
 const LOCKED_MESSAGE = "리포트 생성이 시작된 회차는 설문을 바꿀 수 없어요";
 const CLOSED_MESSAGE = "이 회차는 닫혔어요. 시작 화면에서 다시 시작해 주세요";
-const PRICING_PATH = "/pricing?service=growth";
 
 type FormState =
   | { kind: "active" }
@@ -154,20 +155,10 @@ export default function SurveyForm({
       )}
 
       {formState.kind === "noEntitlement" && (
-        <GoalCard tone="cream" className="px-5 py-4">
-          <p className="text-app-body font-semibold text-ink-strong">
-            성장설계 이용권이 없어 답을 저장할 수 없어요
-          </p>
-          <Link
-            to={PRICING_PATH}
-            className={cn(
-              buttonVariants({ variant: "default" }),
-              "mt-3 h-10 px-4 text-app-label",
-            )}
-          >
-            이용권 알아보기
-          </Link>
-        </GoalCard>
+        <NoEntitlementCard
+          tenantReason={parseTenantReason(bootstrap.entitlement.tenantReason)}
+          onJoined={() => void refetchBootstrap()}
+        />
       )}
 
       {banners.map((banner) => (
