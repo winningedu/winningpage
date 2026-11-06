@@ -1,11 +1,13 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
 // 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
+import { useState } from "react";
 import { AuthTitle, SelectField, TextField } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { isValidPassword } from "../StudentForm";
-import { INFO_MESSAGES } from "./copy";
-import { ENROLLMENT_GRADES } from "./rules";
+import { checkUsernameAvailable } from "./api";
+import { INFO_MESSAGES, USERNAME_MESSAGES } from "./copy";
+import { ENROLLMENT_GRADES, isValidUsername } from "./rules";
 import StepActions from "./StepActions";
 
 const GENDER_OPTIONS = ["남", "여"];
@@ -27,6 +29,8 @@ export default function StudentInfoStep({
     birthDate,
     setBirthDate,
     isUnder14,
+    usernameCheck,
+    setUsernameCheck,
   } = useSignup();
 
   const isCatchAll = tenant?.isCatchAll === true;
@@ -34,6 +38,36 @@ export default function StudentInfoStep({
   const isSchool = orgType === SCHOOL_ORG_TYPE;
   const showGroup = orgType !== null && !isSchool;
   const showClass = !isCatchAll;
+
+  const [usernameError, setUsernameError] = useState("");
+
+  // 확인한 아이디와 지금 아이디가 같을 때만 결과가 살아 있다(고치면 버려진다).
+  const usernameResult =
+    usernameCheck?.value === formData.username ? usernameCheck : null;
+
+  async function handleUsernameCheck() {
+    if (!isValidUsername(formData.username)) {
+      setUsernameError(USERNAME_MESSAGES.invalidFormat);
+      return;
+    }
+
+    const available = await checkUsernameAvailable(formData.username);
+
+    if (available === null) {
+      setUsernameError(USERNAME_MESSAGES.failed);
+      return;
+    }
+
+    setUsernameCheck({ value: formData.username, available });
+  }
+
+  const usernameField = (() => {
+    if (usernameError) return { text: usernameError, status: "error" as const };
+    if (!usernameResult) return { text: "", status: "default" as const };
+    return usernameResult.available
+      ? { text: USERNAME_MESSAGES.available, status: "success" as const }
+      : { text: USERNAME_MESSAGES.taken, status: "error" as const };
+  })();
 
   const passwordMismatch =
     formData.passwordConfirm !== "" &&
@@ -65,7 +99,14 @@ export default function StudentInfoStep({
           name="username"
           size="lg"
           value={formData.username}
-          onChange={field("username")}
+          onChange={(value) => {
+            updateFormData({ username: value });
+            setUsernameError("");
+          }}
+          actionLabel="중복 확인"
+          onAction={handleUsernameCheck}
+          helperText={usernameField.text}
+          status={usernameField.status}
           autoComplete="username"
         />
 

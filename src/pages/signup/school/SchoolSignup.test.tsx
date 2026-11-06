@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
+import { supabase } from "@/lib/supabase";
 import SchoolSignup from "./SchoolSignup";
 
 vi.mock("@/lib/supabase", () => ({
@@ -274,3 +275,56 @@ describe("3단계 학생 정보 칸", () => {
   });
 });
 
+describe("3단계 아이디 중복 확인", () => {
+  it("사용할 수 있으면 안내하고, 아이디를 고치면 결과가 사라진다", async () => {
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: true,
+      error: null,
+    } as never);
+    await goToStudentInfo();
+
+    type("아이디", "mentor01");
+    click("중복 확인");
+
+    expect(
+      await screen.findByText("사용할 수 있는 아이디입니다."),
+    ).toBeInTheDocument();
+    expect(supabase.rpc).toHaveBeenCalledWith("is_username_available", {
+      check_username: "mentor01",
+    });
+
+    type("아이디", "mentor02");
+
+    expect(screen.queryByText("사용할 수 있는 아이디입니다.")).toBeNull();
+  });
+
+  it("이미 쓰는 아이디면 알려 준다", async () => {
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: false,
+      error: null,
+    } as never);
+    await goToStudentInfo();
+
+    type("아이디", "mentor01");
+    click("중복 확인");
+
+    expect(
+      await screen.findByText("이미 사용 중인 아이디입니다."),
+    ).toBeInTheDocument();
+  });
+
+  it("형식이 틀린 아이디는 서버에 묻지 않는다", async () => {
+    vi.mocked(supabase.rpc).mockClear();
+    await goToStudentInfo();
+
+    type("아이디", "Ab");
+    click("중복 확인");
+
+    expect(
+      screen.getByText(
+        "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+});

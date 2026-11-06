@@ -13,3 +13,10 @@ export const INFO_MESSAGES = {
   passwordMismatch: "비밀번호가 서로 달라요.",
   invalidBirthDate: "올바른 생년월일을 입력해 주세요.",
 };
+
+export const USERNAME_MESSAGES = {
+  available: "사용할 수 있는 아이디입니다.",
+  taken: "이미 사용 중인 아이디입니다.",
+  invalidFormat: "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
+  failed: "아이디를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+};

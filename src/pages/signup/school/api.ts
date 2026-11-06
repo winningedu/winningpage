@@ -1,4 +1,6 @@
 // 학교 학생 가입이 서버와 주고받는 호출 모음. 응답 계약은 api/signup/*.
+import { supabase } from "@/lib/supabase";
+
 export interface TenantSummary {
   id: string;
   name: string;
@@ -102,4 +104,13 @@ export async function submitSchoolSignup(
   }
 
   return { ok: false, code: payload?.code || "UNKNOWN" };
+}
+
+// 아이디 중복 확인. 확인하지 못하면 null.
+export async function checkUsernameAvailable(username: string) {
+  const { data, error } = await supabase.rpc("is_username_available", {
+    check_username: username,
+  });
+
+  return error ? null : data;
 }
