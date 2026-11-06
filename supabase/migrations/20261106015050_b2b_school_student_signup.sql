@@ -121,6 +121,10 @@ declare
   v_phone_digits text;
   v_tenant public.tenants;
   v_pv_id uuid;
+  v_gpv_id uuid;
+  v_guardian_phone text := btrim(coalesce(p_guardian_phone, ''));
+  v_guardian_digits text;
+  v_guardian_relation text := nullif(btrim(coalesce(p_guardian_relation, '')), '');
   v_link_code text;
   v_signup_enabled boolean;
   v_member_type text;
@@ -188,6 +192,21 @@ begin
     raise exception 'phone_required';
   end if;
 
+  if v_guardian_relation is not null and v_guardian_relation not in ('아버지', '어머니', '기타') then
+    raise exception 'invalid_guardian_relation';
+  end if;
+
+  -- 학부모 번호 표기를 complete_signup_profile 과 같은 하이픈 형식으로 맞춘다(아이디 찾기가 같은 열을 읽는다).
+  v_guardian_digits := regexp_replace(v_guardian_phone, '[^0-9]', '', 'g');
+  v_guardian_phone := case
+    when v_guardian_digits = '' then ''
+    when length(v_guardian_digits) = 11 then
+      substr(v_guardian_digits, 1, 3) || '-' || substr(v_guardian_digits, 4, 4) || '-' || substr(v_guardian_digits, 8, 4)
+    when length(v_guardian_digits) = 10 then
+      substr(v_guardian_digits, 1, 3) || '-' || substr(v_guardian_digits, 4, 3) || '-' || substr(v_guardian_digits, 7, 4)
+    else v_guardian_phone
+  end;
+
   -- 소속: 코드를 모르면 null 로 보내 기타 기관에 둔다. 기타 기관은 반과 번호를 받지 않는다(결정 r4).
   if p_tenant_id is null then
     select * into v_tenant from public.tenants t where t.is_catch_all;
@@ -214,6 +233,23 @@ begin
     raise exception 'phone_not_verified';
   end if;
 
+  -- 학부모 번호를 넣었으면 학부모 문자 인증(guardian_signup)도 같은 규칙으로 확인한다. 학부모 번호는 유일성 검사를 하지 않는다(형제 공유).
+  if v_guardian_digits <> '' then
+    select v.id into v_gpv_id
+      from public.phone_verifications v
+     where v.phone = v_guardian_digits
+       and v.purpose = 'guardian_signup'
+       and v.verified_at is not null
+       and v.consumed_at is null
+       and v.verified_at > now() - interval '10 minutes'
+     order by v.verified_at desc
+     limit 1
+       for update;
+    if v_gpv_id is null then
+      raise exception 'guardian_phone_not_verified';
+    end if;
+  end if;
+
   -- 번호 유일성은 기관 안에서만 본다(profiles_tenant_phone_unique_idx 와 같은 기준). 동시 가입은 아래 unique_violation 이 받는다.
   if exists (
     select 1 from public.profiles pr
@@ -230,12 +266,15 @@ begin
   insert into public.profiles (
     id, name, username, phone, email, school_name, member_type, role,
     terms_service_agreed, privacy_required_agreed, marketing_agreed,
-    birth_date, gender, tenant_id, updated_at
+    birth_date, gender, tenant_id, updated_at,
+    guardian_name, guardian_phone, guardian_relation, guardian_consent, guardian_phone_verified_at
   ) values (
     p_user_id, v_name, v_username, v_phone, v_email,
     case when v_tenant.org_type = '학교' then v_tenant.name end, 'student', 'user',
     coalesce(p_agree_service, false), coalesce(p_agree_privacy, false), coalesce(p_agree_marketing, false),
-    p_birth_date, nullif(btrim(coalesce(p_gender, '')), ''), v_tenant.id, now()
+    p_birth_date, nullif(btrim(coalesce(p_gender, '')), ''), v_tenant.id, now(),
+    nullif(btrim(coalesce(p_guardian_name, '')), ''), nullif(v_guardian_phone, ''), v_guardian_relation,
+    coalesce(p_guardian_consent, false), case when v_gpv_id is not null then now() end
   )
   on conflict (id) do update set
     name = excluded.name, username = excluded.username, phone = excluded.phone, email = excluded.email,
@@ -244,9 +283,13 @@ begin
     privacy_required_agreed = excluded.privacy_required_agreed,
     marketing_agreed = excluded.marketing_agreed,
     birth_date = excluded.birth_date, gender = excluded.gender, tenant_id = excluded.tenant_id,
+    guardian_name = excluded.guardian_name, guardian_phone = excluded.guardian_phone,
+    guardian_relation = excluded.guardian_relation, guardian_consent = excluded.guardian_consent,
+    guardian_phone_verified_at = excluded.guardian_phone_verified_at,
     updated_at = now();
 
-  update public.phone_verifications set consumed_at = now() where id = v_pv_id and consumed_at is null;
+  update public.phone_verifications set consumed_at = now()
+   where id in (v_pv_id, v_gpv_id) and consumed_at is null;
 
   insert into public.student_profiles (profile_id, grade) values (p_user_id, p_grade)
   on conflict (profile_id) do update set grade = excluded.grade, updated_at = now();

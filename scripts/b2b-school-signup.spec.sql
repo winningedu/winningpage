@@ -499,6 +499,42 @@ select pg_temp.expect_text('그룹이 학급에 묶인다',
      join public.class_groups g on g.id = c.group_id
     where e.student_id = (select id from public.profiles where email = 'go55@example.com')), '심화반');
 
+-- ---------------------------------------------------------------------
+-- 학부모 정보(14세 이상): 번호를 넣으면 guardian_signup 문자 인증이 필요하다
+-- ---------------------------------------------------------------------
+select pg_temp.expect_text('학부모 정보를 비우면 학부모 컬럼도 비어 있다',
+  (select coalesce(guardian_name, '-') || ':' || coalesce(guardian_phone, '-') || ':' || coalesce(guardian_relation, '-')
+     || ':' || (guardian_phone_verified_at is null) from public.profiles where id = (select id from auth.users where email = 'stu01@example.com')),
+  '-:-:-:true');
+select pg_temp.expect_msg('학부모 번호가 인증되지 않았으면 거부', $$
+  select pg_temp.go(60, '{"guardian_name": "김보호", "guardian_phone": "010-6000-0001", "guardian_relation": "어머니"}')
+$$, 'P0001', 'guardian_phone_not_verified');
+select pg_temp.expect_msg('가입 목적(signup) 인증은 학부모 번호 인증이 아니다', $$
+  select pg_temp.verify('010-6000-0002', 'signup');
+  select pg_temp.go(61, '{"guardian_name": "김보호", "guardian_phone": "010-6000-0002"}')
+$$, 'P0001', 'guardian_phone_not_verified');
+select pg_temp.expect_msg('관계는 아버지, 어머니, 기타만', $$
+  select pg_temp.go(62, '{"guardian_relation": "삼촌"}')
+$$, 'P0001', 'invalid_guardian_relation');
+
+select pg_temp.verify('010-6000-0003', 'guardian_signup');
+select pg_temp.expect_ok('학부모 번호 인증을 마치면 가입된다', $$
+  select pg_temp.go(63, '{"guardian_name": " 김보호 ", "guardian_phone": "01060000003", "guardian_relation": "어머니"}')
+$$);
+select pg_temp.expect_text('학부모 이름, 하이픈 번호, 관계가 저장된다',
+  (select guardian_name || ':' || guardian_phone || ':' || guardian_relation from public.profiles where email = 'go63@example.com'),
+  '김보호:010-6000-0003:어머니');
+select pg_temp.expect_bool('학부모 번호 인증 시각이 기록된다',
+  (select guardian_phone_verified_at is not null from public.profiles where email = 'go63@example.com'), true);
+select pg_temp.expect_int('학부모 인증도 소비된다',
+  (select count(*) from public.phone_verifications where phone = '01060000003' and consumed_at is not null), 1);
+select pg_temp.expect_int('학부모 번호는 학생 번호 유일성에 걸리지 않는다(같은 번호의 다른 학생 가입)', 1,
+  (select count(*) from public.profiles where email = 'go63@example.com' and phone = '010-5063-0001'));
+select pg_temp.verify('010-6000-0003', 'guardian_signup');
+select pg_temp.expect_ok('형제는 같은 학부모 번호를 쓸 수 있다', $$
+  select pg_temp.go(64, '{"guardian_name": "김보호", "guardian_phone": "010-6000-0003", "guardian_relation": "어머니"}')
+$$);
+
 do $$ begin raise notice '=== b2b-school-signup.spec: 전체 통과 ==='; end $$;
 
 rollback;
