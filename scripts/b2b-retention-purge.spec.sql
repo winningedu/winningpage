@@ -140,6 +140,33 @@ select pg_temp.log('view', interval '1 day');
 insert into public.admin_access_logs (actor_email, action, resource_key, reason, created_at)
   values ('t23-hq@t.local', 'download', 't23.hq', 't23 legacy hq', now() - interval '3 years');
 
+-- 기관마다 따로(결정 64): 한 기관의 졸업이 2년 지났어도 다른 기관의 학적, 이력, 특이학생, 상담 상태는 지우지 않는다.
+insert into public.tenants (code, name, region, org_type, tier)
+  values ('RPBBBBBB', 't23-b', '서울', '학교', 'B');
+insert into fx select 'tb', id from public.tenants where code = 'RPBBBBBB';
+insert into fx values
+  ('sp_grad', pg_temp.mk_user('t23-spg@t.local')),   -- A 3년 전 졸업, B 한 달 전 졸업
+  ('sp_act', pg_temp.mk_user('t23-spa@t.local'));    -- A 3년 전 졸업, B 재학 중
+create function pg_temp.split_rows(p_student text, p_tenant text) returns void
+language plpgsql as $$
+begin
+  insert into public.enrollment_changes (tenant_id, student_id, school_year, kind, status)
+  values (pg_temp.fx(p_tenant), pg_temp.fx(p_student), 2026, 'rollover', 'applied');
+  insert into public.student_flags (tenant_id, student_id) values (pg_temp.fx(p_tenant), pg_temp.fx(p_student));
+  insert into public.counsel_statuses (tenant_id, student_id, school_year, status)
+  values (pg_temp.fx(p_tenant), pg_temp.fx(p_student), 2026, 'done');
+end $$;
+select pg_temp.enr('sp_grad', 2022, interval '3 years');
+select pg_temp.enr('sp_act', 2022, interval '3 years');
+insert into public.student_enrollments (tenant_id, student_id, school_year, status, graduated_at) values
+  (pg_temp.fx('tb'), pg_temp.fx('sp_grad'), 2026, 'graduated', now() - interval '1 month');
+insert into public.student_enrollments (tenant_id, student_id, school_year, status) values
+  (pg_temp.fx('tb'), pg_temp.fx('sp_act'), 2026, 'active');
+select pg_temp.split_rows('sp_grad', 'ta');
+select pg_temp.split_rows('sp_grad', 'tb');
+select pg_temp.split_rows('sp_act', 'ta');
+select pg_temp.split_rows('sp_act', 'tb');
+
 create temp table purge_result as select * from public.fn_purge_b2b_retention();
 
 create function pg_temp.enr_n(p_student text) returns bigint language sql as $$
@@ -169,6 +196,18 @@ select pg_temp.expect_int('옛 졸업 기록이 있어도 재학 중이면 학�
 select pg_temp.expect_int('옛 졸업 기록이 있어도 재학 중이면 이력 보존', pg_temp.chg_n('back'), 1);
 select pg_temp.expect_int('재학생 학적', pg_temp.enr_n('active'), 1);
 select pg_temp.expect_int('재학생 이력', pg_temp.chg_n('active'), 1);
+
+-- 기관별 판정: 졸업 2년이 지난 기관의 행만 지우고 다른 기관의 행은 남긴다.
+create function pg_temp.tenant_rows(p_student text, p_tenant text) returns text language sql as $$
+  select (select count(*) from public.student_enrollments where student_id = pg_temp.fx(p_student) and tenant_id = pg_temp.fx(p_tenant))
+    || '/' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx(p_student) and tenant_id = pg_temp.fx(p_tenant))
+    || '/' || (select count(*) from public.student_flags where student_id = pg_temp.fx(p_student) and tenant_id = pg_temp.fx(p_tenant))
+    || '/' || (select count(*) from public.counsel_statuses where student_id = pg_temp.fx(p_student) and tenant_id = pg_temp.fx(p_tenant))
+$$;
+select pg_temp.expect_text('A 3년 전 졸업, B 한 달 전 졸업: A 행은 삭제', pg_temp.tenant_rows('sp_grad', 'ta'), '0/0/0/0');
+select pg_temp.expect_text('A 3년 전 졸업, B 한 달 전 졸업: B 학적, 이력, 특이학생, 상담 상태 보존', pg_temp.tenant_rows('sp_grad', 'tb'), '1/1/1/1');
+select pg_temp.expect_text('A 3년 전 졸업, B 재학 중: A 행은 삭제', pg_temp.tenant_rows('sp_act', 'ta'), '0/0/0/0');
+select pg_temp.expect_text('A 3년 전 졸업, B 재학 중: B 학적, 이력, 특이학생, 상담 상태 보존', pg_temp.tenant_rows('sp_act', 'tb'), '1/1/1/1');
 
 -- 접근 로그: 2년이 지난 일반 행, 1년이 지난 member_purge 행만 사라진다.
 select pg_temp.expect_int('3년 된 view 삭제', pg_temp.logs_n('view', interval '2 years 1 day', interval '100 years'), 0);

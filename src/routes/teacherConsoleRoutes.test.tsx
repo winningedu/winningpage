@@ -1,4 +1,4 @@
-// /teacher 콘솔 라우트 트리: 입구 가드, 첫 비밀번호, 셸 아래 화면, 준비 중 화면 연결을 검증한다.
+// /teacher 콘솔 라우트 트리: 입구 가드, 첫 비밀번호, 셸 아래 화면, 대시보드, 학교 고르기, 준비 중 화면 연결을 검증한다.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
@@ -102,24 +102,60 @@ describe("teacherConsoleRoutes", () => {
     ).toBeTruthy();
   });
 
-  it("아직 없는 콘솔 화면과 대시보드는 준비 중 화면으로 연결한다", async () => {
+  it("아직 없는 콘솔 화면은 준비 중 화면으로 연결한다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe }, ...count });
 
-    renderAt("/teacher/coaching");
+    renderAt("/teacher/no-such-screen");
 
     expect(await screen.findByText("이 화면은 곧 열려요")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { level: 1, name: "개인종합코칭" }),
+      screen.getByRole("heading", { level: 1, name: "준비 중인 화면" }),
     ).toBeTruthy();
   });
 
-  it("/teacher 는 대시보드 자리로 준비 중 화면을 보여 준다", async () => {
-    stubApi({ "GET /api/console/me": { body: homeroomMe }, ...count });
+  it("/teacher 는 셸 안의 대시보드 집계를 보여 준다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/classes": { body: { classes: [] } },
+      "GET /api/console/dashboard?grade=%EA%B3%A02&classId=c3": {
+        body: {
+          asOf: "2026-11-02",
+          usage: { usingCount: 24, totalCount: 28 },
+          goal: {
+            userCount: 0,
+            average: null,
+            buckets: { low: 0, mid: 0, high: 0 },
+          },
+          services: [],
+        },
+      },
+      ...count,
+    });
 
     renderAt("/teacher");
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "대시보드" }),
-    ).toBeTruthy();
+    expect(await screen.findByText("86%")).toBeTruthy();
+    expect(screen.getByRole("complementary")).toBeTruthy();
+    expect(screen.queryByText("이 화면은 곧 열려요")).toBeNull();
+  });
+
+  it("대행 권한이 있는 본사 관리자는 /teacher 에서 사이드바 없는 학교 고르기를 본다", async () => {
+    stubApi({
+      "GET /api/console/me": {
+        status: 403,
+        body: { error: { code: "NOT_CONSOLE", message: "no" } },
+      },
+      "GET /api/console/proxy/tenants": {
+        body: {
+          tenants: [{ id: "t1", code: "SM26HB83", name: "한빛고등학교" }],
+        },
+      },
+    });
+
+    const router = renderAt("/teacher");
+
+    expect(await screen.findByText("대행할 학교 고르기")).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/teacher/proxy");
+    expect(screen.queryByRole("complementary")).toBeNull();
   });
 });

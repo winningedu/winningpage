@@ -34,20 +34,12 @@ export interface ImportRequest {
   rows: ImportRowInput[];
 }
 
-/** 요청 본문 검증. 모양이 틀리면 null. 행 내용의 옳고 그름은 판정이 맡는다. */
-export function parseImportBody(body: unknown): ImportRequest | null {
-  const { requestId, chunkIndex, mode, rows } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
-  if (typeof requestId !== "string" || !UUID_RE.test(requestId)) return null;
-  if (!Number.isInteger(chunkIndex) || (chunkIndex as number) < 1) return null;
-  if (mode !== "overwrite" && mode !== "skip") return null;
-  if (
-    !Array.isArray(rows) ||
-    rows.length === 0 ||
-    rows.length > MAX_IMPORT_ROWS
-  )
+/** 행 배열 검증(1행 이상 max 행 이하). 모양이 틀리면 null. 행 내용의 옳고 그름은 판정이 맡는다. */
+export function parseImportRows(
+  rows: unknown,
+  max: number,
+): ImportRowInput[] | null {
+  if (!Array.isArray(rows) || rows.length === 0 || rows.length > max)
     return null;
   const parsed: ImportRowInput[] = [];
   for (const raw of rows as Record<string, unknown>[]) {
@@ -62,6 +54,20 @@ export function parseImportBody(body: unknown): ImportRequest | null {
       className: text(raw.className),
     });
   }
+  return parsed;
+}
+
+/** 요청 본문 검증. 모양이 틀리면 null. 행 내용의 옳고 그름은 판정이 맡는다. */
+export function parseImportBody(body: unknown): ImportRequest | null {
+  const { requestId, chunkIndex, mode, rows } = (body ?? {}) as Record<
+    string,
+    unknown
+  >;
+  if (typeof requestId !== "string" || !UUID_RE.test(requestId)) return null;
+  if (!Number.isInteger(chunkIndex) || (chunkIndex as number) < 1) return null;
+  if (mode !== "overwrite" && mode !== "skip") return null;
+  const parsed = parseImportRows(rows, MAX_IMPORT_ROWS);
+  if (!parsed) return null;
   return { requestId, chunkIndex: chunkIndex as number, mode, rows: parsed };
 }
 
@@ -132,7 +138,7 @@ function classKeyOf(grade: string, groupId: string | null, name: string) {
 }
 
 /** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
-function normalizeClassName(orgType: string, raw: string): string {
+export function normalizeClassName(orgType: string, raw: string): string {
   return orgType === "학교"
     ? raw.replace(/\D/g, "").replace(/^0+/, "")
     : raw.replace(/\s/g, "");
@@ -383,6 +389,35 @@ function judgeRows(
   return { prepared, verdicts };
 }
 
+/** 기관의 현재 교사와 학급을 읽어 모든 행을 판정한다. 읽기만 한다. */
+async function judgeAll(
+  admin: SupabaseClient,
+  tenantId: string,
+  rows: ImportRowInput[],
+): Promise<{ prepared: PreparedRow[]; verdicts: ImportVerdict[] }> {
+  const rowGrades = rows
+    .map((r) => r.grade.trim())
+    .filter((g) => GRADES.includes(g));
+  const context = await loadJudgeContext(
+    admin,
+    tenantId,
+    rows.map((r) => normalizePhone(r.phone)),
+    rows.map((r) => r.name.trim()).filter((n) => n !== ""),
+    [...new Set(rowGrades)],
+  );
+  return judgeRows(rows, context);
+}
+
+/** 미리보기(W15): 쓰지 않고 행 판정만 돌려준다. 적용 때 서버가 같은 규칙으로 다시 계산한다. */
+export async function previewTeacherImport(
+  admin: SupabaseClient,
+  tenantId: string,
+  rows: ImportRowInput[],
+): Promise<{ index: number; verdict: ImportVerdict }[]> {
+  const { verdicts } = await judgeAll(admin, tenantId, rows);
+  return verdicts.map((verdict, index) => ({ index, verdict }));
+}
+
 interface StoredRun {
   id: string;
   tenant_id: string;
@@ -472,17 +507,7 @@ export async function runTeacherImport(
     return { status: "ok", outcome: replayOf(data as StoredRun) };
   }
 
-  const rowGrades = request.rows
-    .map((r) => r.grade.trim())
-    .filter((g) => GRADES.includes(g));
-  const context = await loadJudgeContext(
-    admin,
-    tenantId,
-    request.rows.map((r) => normalizePhone(r.phone)),
-    request.rows.map((r) => r.name.trim()).filter((n) => n !== ""),
-    [...new Set(rowGrades)],
-  );
-  const { prepared, verdicts } = judgeRows(request.rows, context);
+  const { prepared, verdicts } = await judgeAll(admin, tenantId, request.rows);
 
   const rows: ImportRowResult[] = verdicts.map((verdict, index) => ({
     index,

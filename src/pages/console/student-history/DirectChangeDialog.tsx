@@ -12,8 +12,8 @@ import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
+import { gradesOf, useClasses } from "../useClasses";
 import type { StudentItem } from "./StudentListTab";
-import { gradesOf, useClasses } from "./useClasses";
 
 const REASONS = [
   ["auto", "자동"],

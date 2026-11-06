@@ -12,8 +12,9 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
-import { displayNameFor } from "../../_lib/console/maskName.js";
+import { displayNamesFor } from "../../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../../_lib/console/paging.js";
+import { queryValue } from "../../_lib/console/query.js";
 import { scopeQuery } from "../../_lib/console/scope.js";
 import {
   loadServiceUsage,
@@ -34,11 +35,6 @@ interface EnrollmentRow {
 }
 
 const COLUMNS = "student_id, school_year, grade, class_id, number, version";
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === undefined || value === "" ? undefined : value;
-}
 
 export default defineHandler({
   methods: ["GET"],
@@ -80,6 +76,14 @@ export default defineHandler({
     const names = await loadProfileNames(
       admin,
       current.map((e) => e.student_id),
+    );
+    const shownNames = displayNamesFor(
+      actor,
+      current.map((e) => ({
+        id: e.student_id,
+        group: e.class_id,
+        name: names.get(e.student_id) ?? "",
+      })),
     );
     const matches = current
       .filter((e) => !grade || e.grade === grade)
@@ -125,7 +129,7 @@ export default defineHandler({
         const cls = classOf(e);
         return {
           studentId: e.student_id,
-          name: displayNameFor(actor, names.get(e.student_id) ?? ""),
+          name: shownNames.get(e.student_id) ?? "",
           grade: e.grade,
           groupName: cls?.groupName ?? null,
           history: (historyOf.get(e.student_id) ?? [])

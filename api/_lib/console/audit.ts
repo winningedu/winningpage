@@ -8,6 +8,7 @@ import type { ConsoleActor, ConsoleActorKind } from "./actor.js";
 
 export type ConsoleAuditAction =
   | "view"
+  | "report_view"
   | "update"
   | "export"
   | "account_issue"

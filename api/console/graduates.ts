@@ -10,8 +10,9 @@ import {
   loadProfileNames,
   readAll,
 } from "../_lib/console/directory.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { queryValue } from "../_lib/console/query.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -25,11 +26,6 @@ interface EnrollmentRow {
   class_id: string | null;
   number: number | null;
   graduated_at: string | null;
-}
-
-function queryValue(raw: string | string[] | undefined): string | undefined {
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === undefined || value === "" ? undefined : value;
 }
 
 export default defineHandler({
@@ -86,8 +82,16 @@ export default defineHandler({
       admin,
       graduates.map((g) => g.student_id),
     );
-    const shown = graduates
-      .filter((g) => g.school_year === year)
+    const ofYear = graduates.filter((g) => g.school_year === year);
+    const shownNames = displayNamesFor(
+      actor,
+      ofYear.map((g) => ({
+        id: g.student_id,
+        group: g.class_id,
+        name: names.get(g.student_id) ?? "",
+      })),
+    );
+    const shown = ofYear
       .filter(
         (g) => !q || (names.get(g.student_id) ?? "").toLowerCase().includes(q),
       )
@@ -111,7 +115,7 @@ export default defineHandler({
       ...paged,
       items: paged.items.map((g) => ({
         studentId: g.student_id,
-        name: displayNameFor(actor, names.get(g.student_id) ?? ""),
+        name: shownNames.get(g.student_id) ?? "",
         graduatedYear: g.school_year,
         last: {
           grade: g.grade,

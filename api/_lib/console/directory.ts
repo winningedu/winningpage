@@ -12,7 +12,9 @@ export interface ReadQuery<Row>
   }> {
   eq(column: string, value: string | number): ReadQuery<Row>;
   in(column: string, values: string[]): ReadQuery<Row>;
-  order(column: string): ReadQuery<Row>;
+  gte(column: string, value: string | number): ReadQuery<Row>;
+  order(column: string, options?: { ascending: boolean }): ReadQuery<Row>;
+  limit(count: number): ReadQuery<Row>;
   range(from: number, to: number): ReadQuery<Row>;
 }
 
@@ -40,6 +42,20 @@ export function readAll<Row>(
       .order(orderBy)
       .range(from, to),
   );
+}
+
+/** created_at 이 가장 늦은 한 행. 조건에 맞는 행을 전부 읽지 않고 DB 에서 한 행만 가져온다. */
+export async function readLatest<Row>(
+  admin: SupabaseClient,
+  table: string,
+  columns: string,
+  where: (query: ReadQuery<Row>) => ReadQuery<Row>,
+): Promise<Row | undefined> {
+  const { data, error } = await where(readQuery<Row>(admin, table, columns))
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`${table} latest read failed`);
+  return data?.[0];
 }
 
 export interface TenantInfo {
@@ -87,6 +103,30 @@ export async function loadHomeroomClassIds(
     "class_id",
   );
   return new Set(rows.map((r) => r.class_id));
+}
+
+/** 학급의 담임 이름. 담임이 없거나 학급이 없으면 null. */
+export async function loadHomeroomName(
+  admin: SupabaseClient,
+  tenantId: string,
+  classId: string | null,
+): Promise<string | null> {
+  if (!classId) return null;
+  const [assignment] = await readAll<{ teacher_id: string }>(
+    admin,
+    "teacher_class_assignments",
+    "teacher_id",
+    (q) => q.eq("tenant_id", tenantId).eq("class_id", classId),
+    "teacher_id",
+  );
+  if (!assignment) return null;
+  const [teacher] = await readAll<{ name: string }>(
+    admin,
+    "teachers",
+    "name",
+    (q) => q.eq("tenant_id", tenantId).eq("id", assignment.teacher_id),
+  );
+  return teacher?.name ?? null;
 }
 
 /** 학년 순서(중1 부터 고3). 모르는 값은 뒤로. */

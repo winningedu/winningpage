@@ -19,15 +19,15 @@ import { PENDING_COUNT_KEY } from "../ConsoleLayout";
 import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
+import NameCell from "../NameCell";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
+import { type Slot, slotLabel } from "../slotLabel";
 import { useToast } from "../Toast";
-import { type Slot, slotLabel } from "./format";
-import NameCell from "./NameCell";
+import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
+import { usePageParam } from "../usePageParam";
 import RejectDialog from "./RejectDialog";
-import { HISTORY_KEY, usePagedList } from "./usePagedList";
-import { usePageParam } from "./usePageParam";
 
 interface PendingRequest {
   changeId: string;
@@ -74,7 +74,7 @@ export default function PendingRequestsTab() {
 
   const refresh = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: HISTORY_KEY }),
+      queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY }),
       queryClient.invalidateQueries({ queryKey: PENDING_COUNT_KEY }),
     ]);
 

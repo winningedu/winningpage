@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "./useClasses";
+import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
 
 export interface StudentFilterValues {
   grade: string;

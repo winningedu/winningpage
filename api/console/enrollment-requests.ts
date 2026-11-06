@@ -8,7 +8,7 @@ import {
   loadProfileNames,
   readAll,
 } from "../_lib/console/directory.js";
-import { displayNameFor } from "../_lib/console/maskName.js";
+import { displayNamesFor } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
 import { scopeQuery } from "../_lib/console/scope.js";
 import { defineHandler } from "../_lib/handler.js";
@@ -68,9 +68,18 @@ export default defineHandler({
       loadClassIndex(admin, actor.tenantId),
       loadProfileNames(
         admin,
-        paged.items.map((c) => c.student_id),
+        changes.map((c) => c.student_id),
       ),
     ]);
+    // 쪽이 달라도 같은 학급의 겹침이 보이도록 전체 목록으로 가린다. 묶음은 들어갈 학급이다.
+    const shownNames = displayNamesFor(
+      actor,
+      changes.map((c) => ({
+        id: c.student_id,
+        group: c.to_class_id,
+        name: names.get(c.student_id) ?? "",
+      })),
+    );
     const slot = (
       grade: string | null,
       classId: string | null,
@@ -90,7 +99,7 @@ export default defineHandler({
       items: paged.items.map((c) => ({
         changeId: c.id,
         studentId: c.student_id,
-        studentName: displayNameFor(actor, names.get(c.student_id) ?? ""),
+        studentName: shownNames.get(c.student_id) ?? "",
         from: slot(c.from_grade, c.from_class_id, c.from_number),
         to: slot(c.to_grade, c.to_class_id, c.to_number),
         gradeChanges: c.from_grade !== c.to_grade,

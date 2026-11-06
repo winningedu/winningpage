@@ -1501,6 +1501,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      counsel_statuses: {
+        Row: {
+          changed_at: string;
+          changed_by: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          changed_at?: string;
+          changed_by?: string | null;
+          school_year: number;
+          status: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          changed_at?: string;
+          changed_by?: string | null;
+          school_year?: number;
+          status?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "counsel_statuses_changed_by_fkey";
+            columns: ["changed_by"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "counsel_statuses_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       coupon_grants: {
         Row: {
           coupon_id: string;
@@ -6715,6 +6765,50 @@ export type Database = {
           },
         ];
       };
+      student_flags: {
+        Row: {
+          created_at: string;
+          flagged_teacher_id: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          flagged_teacher_id?: string | null;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "student_flags_flagged_teacher_id_fkey";
+            columns: ["flagged_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "student_flags_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       student_link_codes: {
         Row: {
           code: string;
@@ -6963,6 +7057,72 @@ export type Database = {
           },
         ];
       };
+      teacher_memos: {
+        Row: {
+          author_teacher_id: string | null;
+          body: string;
+          created_at: string;
+          hidden_at: string | null;
+          id: string;
+          proxy_session_id: string | null;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          author_teacher_id?: string | null;
+          body: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id: string;
+          student_id: string;
+          tenant_id: string;
+        };
+        Update: {
+          author_teacher_id?: string | null;
+          body?: string;
+          created_at?: string;
+          hidden_at?: string | null;
+          id?: string;
+          proxy_session_id?: string | null;
+          request_id?: string;
+          student_id?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "teacher_memos_author_teacher_id_fkey";
+            columns: ["author_teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "teachers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_proxy_session_id_fkey";
+            columns: ["proxy_session_id"];
+            isOneToOne: false;
+            referencedRelation: "proxy_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "teacher_memos_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       teachers: {
         Row: {
           created_at: string;
@@ -7184,6 +7344,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year: number;
+          special_exec_rate_pct: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;
@@ -7211,6 +7372,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year?: number;
+          special_exec_rate_pct?: number | null;
           term_months?: number | null;
           tier: string;
           updated_at?: string;
@@ -7237,6 +7399,7 @@ export type Database = {
           org_type?: string;
           region?: string;
           school_year?: number;
+          special_exec_rate_pct?: number | null;
           term_months?: number | null;
           tier?: string;
           updated_at?: string;
@@ -8380,6 +8543,7 @@ export type Database = {
           org_type: string;
           region: string;
           school_year: number;
+          special_exec_rate_pct: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;
@@ -8722,8 +8886,11 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: {
           access_logs_deleted: number;
+          counsel_statuses_deleted: number;
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
+          memos_deleted: number;
+          student_flags_deleted: number;
         }[];
       };
       fn_raise_number_taken: {
@@ -8996,6 +9163,20 @@ export type Database = {
           p_step: string;
         };
         Returns: Json;
+      };
+      fn_set_counsel_status: {
+        Args: {
+          p_changed_by: string;
+          p_school_year: number;
+          p_status: string;
+          p_student_id: string;
+          p_tenant_id: string;
+        };
+        Returns: {
+          current_status: string;
+          previous_status: string;
+          status_changed_at: string;
+        }[];
       };
       fn_set_my_tenant: {
         Args: { p_code: string };

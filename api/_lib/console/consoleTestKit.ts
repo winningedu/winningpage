@@ -21,6 +21,12 @@ export interface KitState {
   /** select().eq()/in()/maybeSingle() 가 돌려줄 값. 필터는 컬럼별 값(배열 가능). */
   rows: Record<string, (filters: Record<string, unknown>) => unknown>;
   inserts: { table: string; row: Record<string, unknown> }[];
+  /** upsert() 로 쓴 행과 충돌 열. 에러는 insertErrors 를 따른다. */
+  upserts: {
+    table: string;
+    row: Record<string, unknown>;
+    onConflict: string | undefined;
+  }[];
   insertError: unknown;
   /** 테이블별 insert 에러. 있으면 insertError 보다 먼저 쓴다. */
   insertErrors: Record<string, unknown>;
@@ -29,13 +35,27 @@ export interface KitState {
     values: Record<string, unknown>;
     filters: Record<string, unknown>;
   }[];
+  /** 테이블별 update 에러. 필터를 받아 에러를 돌려주면 그 update 가 실패한다. */
+  updateErrors: Record<
+    string,
+    (filters: Record<string, unknown>) => unknown | undefined
+  >;
+  /** delete() 를 건 테이블과 필터. */
+  deletes: { table: string; filters: Record<string, unknown> }[];
   /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
   orders: { table: string; column: string }[];
+  /** from() 마다 한 건. order(열, { ascending }) 와 limit(n) 을 건 경우 값이 채워진다. */
+  reads: {
+    table: string;
+    orderBy?: { column: string; ascending: boolean };
+    limit?: number;
+  }[];
   /** 호출 순서. "rpc:이름", "auth:동작", "insert:테이블". */
   events: string[];
   auth: {
     createUser: ReturnType<typeof vi.fn>;
     listUsers: ReturnType<typeof vi.fn>;
+    getUserById: ReturnType<typeof vi.fn>;
     updateUserById: ReturnType<typeof vi.fn>;
     deleteUser: ReturnType<typeof vi.fn>;
   };
@@ -50,11 +70,14 @@ export function matchRows<R extends Record<string, unknown>>(
   filters: Record<string, unknown>,
 ): R[] {
   return rows.filter((row) =>
-    Object.entries(filters).every(([col, want]) =>
-      Array.isArray(want)
+    Object.entries(filters).every(([col, want]) => {
+      // gte(col, v) 는 "col>=" 키로 담긴다. 날짜 문자열은 사전순 비교로 충분하다.
+      if (col.endsWith(">="))
+        return String(row[col.slice(0, -2)]) >= String(want);
+      return Array.isArray(want)
         ? want.includes(row[col])
-        : String(row[col]) === String(want),
-    ),
+        : String(row[col]) === String(want);
+    }),
   );
 }
 
@@ -85,14 +108,19 @@ export function createKitState(): KitState {
     rpc: {},
     rows: {},
     inserts: [],
+    upserts: [],
     insertError: null,
     insertErrors: {},
     updates: [],
+    updateErrors: {},
+    deletes: [],
     orders: [],
+    reads: [],
     events,
     auth: {
       createUser: ok("createUser"),
       listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+      getUserById: vi.fn(async () => ({ data: { user: null }, error: null })),
       updateUserById: ok("updateUserById"),
       deleteUser: ok("deleteUser"),
     },
@@ -135,10 +163,32 @@ export function createFakeAdmin(state: KitState) {
     from: (table: string) => {
       const filters: Record<string, unknown> = {};
       const chain: Record<string, unknown> = {};
-      const result = () => ({
-        data: state.rows[table]?.(filters) ?? null,
-        error: null,
-      });
+      let updating = false;
+      const read: KitState["reads"][number] = { table };
+      state.reads.push(read);
+      const result = () => {
+        const updateError = updating
+          ? state.updateErrors[table]?.(filters)
+          : undefined;
+        if (updateError) return { data: null, error: updateError };
+        const data = state.rows[table]?.(filters) ?? null;
+        // limit 을 건 읽기만 정렬과 자르기를 흉내 낸다(그 밖의 읽기는 픽스처 순서 그대로).
+        if (!Array.isArray(data) || read.limit === undefined) {
+          return { data, error: null };
+        }
+        const column = read.orderBy?.column;
+        const sign = read.orderBy?.ascending === false ? -1 : 1;
+        const sorted = column
+          ? [...data].sort(
+              (a, b) =>
+                sign *
+                String((a as Record<string, unknown>)[column]).localeCompare(
+                  String((b as Record<string, unknown>)[column]),
+                ),
+            )
+          : data;
+        return { data: sorted.slice(0, read.limit), error: null };
+      };
       chain.select = () => chain;
       chain.eq = (col: string, value: unknown) => {
         filters[col] = value;
@@ -148,10 +198,18 @@ export function createFakeAdmin(state: KitState) {
         filters[col] = values;
         return chain;
       };
-      for (const m of ["like", "limit", "ilike", "range"])
-        chain[m] = () => chain;
-      chain.order = (column: string) => {
+      chain.gte = (col: string, value: unknown) => {
+        filters[`${col}>=`] = value;
+        return chain;
+      };
+      for (const m of ["like", "ilike", "range"]) chain[m] = () => chain;
+      chain.limit = (count: number) => {
+        read.limit = count;
+        return chain;
+      };
+      chain.order = (column: string, options?: { ascending?: boolean }) => {
         state.orders.push({ table, column });
+        read.orderBy = { column, ascending: options?.ascending ?? true };
         return chain;
       };
       chain.maybeSingle = async () => result();
@@ -160,7 +218,21 @@ export function createFakeAdmin(state: KitState) {
       chain.update = (values: Record<string, unknown>) => {
         state.events.push(`update:${table}`);
         state.updates.push({ table, values, filters });
+        updating = true;
         return chain;
+      };
+      chain.delete = () => {
+        state.events.push(`delete:${table}`);
+        state.deletes.push({ table, filters });
+        return chain;
+      };
+      chain.upsert = (
+        row: Record<string, unknown>,
+        options?: { onConflict?: string },
+      ) => {
+        state.events.push(`upsert:${table}`);
+        state.upserts.push({ table, row, onConflict: options?.onConflict });
+        return Promise.resolve({ error: state.insertErrors[table] ?? null });
       };
       chain.insert = (row: Record<string, unknown>) => {
         state.events.push(`insert:${table}`);
