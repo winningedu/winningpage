@@ -119,7 +119,7 @@ export default defineHandler({
       }
       return;
     }
-    const { userId, created } = authUser;
+    const { userId } = authUser;
 
     const { data: signup, error: signupError } = await ctx.supabaseAdmin.rpc(
       "fn_student_signup",
@@ -148,7 +148,7 @@ export default defineHandler({
       },
     );
     if (signupError) {
-      if (created) await discardSignupAuthUser(ctx.supabaseAdmin, userId);
+      await discardSignupAuthUser(ctx.supabaseAdmin, userId);
       const failure = mapSignupRpcError(signupError, input.name);
       if (!failure) throw signupError;
       auditLog({ outcome: "rejected", code: failure.code, user: userId });

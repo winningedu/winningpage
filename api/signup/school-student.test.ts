@@ -109,6 +109,9 @@ describe("POST /api/signup/school-student", () => {
     ["password", { password: "abcdef" }],
     ["name", { name: "  " }],
     ["email", { email: "not-an-email" }],
+    ["email", { email: "someone@teacher.schoolmentor.kr" }],
+    ["email", { email: "Someone@Teacher.Schoolmentor.kr" }],
+    ["email", { email: "login-decoy-00000000@teacher.schoolmentor.kr" }],
     ["phone", { phone: "02-123-4567" }],
     ["birthDate", { birthDate: "2012/03/04" }],
     ["gender", { gender: "x" }],
@@ -364,37 +367,8 @@ describe("POST /api/signup/school-student", () => {
       kit.state.rows.profiles = () => profile;
     }
 
-    test("가입을 끝내지 않은 계정(member_type 없음)은 비밀번호를 새로 맞춰 다시 쓴다", async () => {
-      emailExists({ member_type: null, role: "user" });
-      const signupCalls: Record<string, unknown>[] = [];
-      kit.state.rpc.fn_student_signup = (args) => {
-        signupCalls.push(args);
-        return { data: SIGNUP_OK, error: null };
-      };
-
-      const r = await post(BODY);
-
-      expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("old-1", {
-        password: "Pass#123",
-      });
-      expect(signupCalls[0]).toMatchObject({ p_user_id: "old-1" });
-      expect(r.status).toBe(200);
-    });
-
-    test("다시 쓴 계정은 가입 확정이 실패해도 지우지 않는다", async () => {
-      emailExists({ member_type: null, role: "user" });
-      kit.state.rpc.fn_student_signup = () => ({
-        data: null,
-        error: { code: "WC095", message: "username_taken" },
-      });
-
-      const r = await post(BODY);
-
-      expect(r.status).toBe(409);
-      expect(kit.state.auth.deleteUser).not.toHaveBeenCalled();
-    });
-
     test.each([
+      ["가입을 끝내지 않은 계정", { member_type: null, role: "user" }],
       ["가입을 마친 계정", { member_type: "student", role: "user" }],
       ["관리자 계정", { member_type: null, role: "admin" }],
       ["프로필이 없는 계정", null],

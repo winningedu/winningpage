@@ -2,6 +2,7 @@
 // 형식 오류를 걸러 Auth 사용자 생성과 삭제를 아끼는 것이 목적이다.
 // 선택 칸은 키가 없거나 null 이어도 같다. 소속코드는 null("기타")과 빈 값을 구분해야 해서 키가 있어야 한다.
 
+import { SYNTHETIC_DOMAIN } from "../auth/login.js";
 import { isValidMobile, normalizePhone } from "../phoneCode.js";
 import { normalizeUsername } from "./username.js";
 
@@ -88,6 +89,10 @@ export function parseSchoolStudentBody(body: unknown): ParseResult {
 
   const email = typeof raw.email === "string" ? raw.email.trim() : "";
   if (!isValidEmail(email)) return fail("email");
+  // 교사 합성 이메일(로그인 미끼 DECOY_EMAIL 포함)은 학생 이메일로 받지 않는다.
+  if (email.toLowerCase().endsWith(`@${SYNTHETIC_DOMAIN}`)) {
+    return fail("email");
+  }
 
   let phone: string | null = null;
   if (raw.phone !== undefined && raw.phone !== null && raw.phone !== "") {
