@@ -280,7 +280,15 @@ select pg_temp.fx('m_s2paid'), 't23_prog', 'qa', null, 5, 10000, now() - interva
 insert into public.program_access_grants (profile_id, program_key, granted_by, granted_by_actor, granted_sessions, paid_amount, starts_at, expires_at, granted_months)
 select pg_temp.fx('m_s3old'), 't23_prog', 'qa', null, 5, 10000, now() - interval '100 days', now() - interval '50 days', 1;
 
-create temp table anon_result as select * from public.fn_anonymize_expired_b2b_members();
+-- 본사는 기관 하나와 학생 목록을 반드시 준다. 기관마다 따로 부르고, 목록에는 교사와 학부모도 일부러 넣어 본다.
+create temp table anon_result as
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_ended'), pg_temp.fx('m_t1'), 'hq@example.com',
+    array[pg_temp.fx('m_s1'), pg_temp.fx('m_s2paid'), pg_temp.fx('m_s3old'), pg_temp.fx('m_t1'), pg_temp.fx('m_p1')]);
+create temp table anon_other as
+  select 'ingrace' as k, * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_ingrace'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_g1')])
+  union all select 'explicit', * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_explicit'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_e1')])
+  union all select 'nograce', * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_nograce'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_n1')])
+  union all select 'nocontract', * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_nocontract'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_c1')]);
 
 create function pg_temp.pname(p_k text) returns text language sql as $$ select name from public.profiles where id = pg_temp.fx('m_' || p_k) $$;
 create function pg_temp.banned(p_k text) returns boolean language sql as $$
@@ -310,7 +318,7 @@ select pg_temp.expect_int('member_purge 로그는 기관당 한 줄',
   (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 1);
 select pg_temp.expect_bool('로그에 건수, 계약 종료일, 회원번호 목록이 있다',
   (select l.row_count = 2
-      and l.actor_kind is not null and l.actor_login_id is not null
+      and l.actor_kind = 'hq' and l.profile_id = pg_temp.fx('m_t1')
       and (l.meta ->> 'contract_end_date')::date = pg_temp.today() - 40
       and (l.meta ->> 'deleted_count')::int = 2
       and (l.meta ->> 'excluded_count')::int = 1
@@ -323,7 +331,8 @@ select pg_temp.expect_bool('로그에 이름과 전화번호가 남지 않는다
     where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
 
 select pg_temp.expect_int('재실행은 아무것도 바꾸지 않고 로그도 더하지 않는다',
-  (select members_anonymized from public.fn_anonymize_expired_b2b_members()), 0);
+  (select members_anonymized from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_ended'), pg_temp.fx('m_t1'), 'hq@example.com',
+    array[pg_temp.fx('m_s1'), pg_temp.fx('m_s2paid'), pg_temp.fx('m_s3old')])), 0);
 select pg_temp.expect_int('재실행 뒤에도 로그는 한 줄',
   (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_ended')), 1);
 
@@ -331,7 +340,11 @@ select pg_temp.expect_int('재실행 뒤에도 로그는 한 줄',
 insert into public.app_settings (key, value) values ('contract_grace_days', '30'::jsonb)
   on conflict (key) do update set value = '30'::jsonb;
 select pg_temp.expect_int('공통 일수 30: 종료 100일 뒤 기관이 처리된다',
-  (select members_anonymized from public.fn_anonymize_expired_b2b_members()), 1);
+  (select members_anonymized from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_nograce'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_n1')])), 1);
+select pg_temp.expect_bool('공통 일수 30: 유예 안 기관과 기관별 유예가 미래인 기관은 not_yet',
+  (select bool_and(not_yet and members_anonymized = 0) from (
+     select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_ingrace'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_g1')])
+     union all select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_explicit'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_e1')])) x), true);
 select pg_temp.expect_text('공통 일수로 처리된 기관의 학생', pg_temp.pname('n1'), '삭제된 학생');
 select pg_temp.expect_text('종료 10일 뒤(유예 30일 안) 기관은 여전히 그대로', pg_temp.pname('g1'), '홍길동g1');
 select pg_temp.expect_text('기관별 유예 종료일이 공통 일수보다 우선한다', pg_temp.pname('e1'), '홍길동e1');
@@ -345,7 +358,7 @@ select pg_temp.mk_member('ma1', 'manA', 'student', 11);
 select pg_temp.mk_member('mb1', 'manB', 'student', 12);
 select pg_temp.mk_member('mc1', 'manC', 'student', 13);
 create temp table man_not_yet as
-  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manC'), pg_temp.fx('m_t1'), 'hq@example.com');
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manC'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_mc1')]);
 select pg_temp.expect_bool('유예 안 기관을 지정하면 not_yet 과 유예 종료일을 돌려주고 아무것도 지우지 않는다',
   (select not_yet and grace_end = pg_temp.today() + 20 and members_anonymized = 0 from man_not_yet), true);
 select pg_temp.expect_text('유예 안 기관의 학생은 그대로', pg_temp.pname('mc1'), '홍길동mc1');
@@ -353,7 +366,7 @@ select pg_temp.expect_int('유예 안 기관은 로그도 남지 않는다',
   (select count(*) from public.admin_access_logs where action = 'member_purge' and tenant_id = pg_temp.fx('ten_manC')), 0);
 
 create temp table man_ok as
-  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manA'), pg_temp.fx('m_t1'), 'hq@example.com');
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_manA'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_ma1')]);
 select pg_temp.expect_bool('지정한 기관은 처리되고 not_yet 이 아니다',
   (select not not_yet and members_anonymized = 1 and members_protected = 0 and tenants_processed = 1 from man_ok), true);
 select pg_temp.expect_text('지정한 기관의 학생은 익명화된다', pg_temp.pname('ma1'), '삭제된 학생');
@@ -362,9 +375,13 @@ select pg_temp.expect_bool('로그의 실행자는 본사 관리자(프로필, �
   (select l.actor_kind = 'hq' and l.profile_id = pg_temp.fx('m_t1') and l.actor_email = 'hq@example.com'
       and l.actor_login_id is null
      from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_manA')), true);
-select pg_temp.expect_bool('실행자를 주지 않은 전체 실행은 시스템 아이디로 남는다',
+select pg_temp.mk_tenant('sys', 'RPMMSSSS', pg_temp.today() - 50, pg_temp.today() - 5);
+select pg_temp.mk_member('sy1', 'sys', 'student', 14);
+select pg_temp.expect_int('실행자를 주지 않아도 목록이 있으면 처리된다',
+  (select members_anonymized from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_sys'), null, null, array[pg_temp.fx('m_sy1')])), 1);
+select pg_temp.expect_bool('실행자를 주지 않은 실행은 시스템 아이디로 남는다',
   (select l.actor_login_id = 'system:b2b-retention-purge' and l.profile_id is null
-     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
+     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_sys')), true);
 
 -- ---------------------------------------------------------------------
 -- p_targets: 본사가 미리보기에서 고른 학생만 지운다(결정 102, 5번 PR 3)
@@ -445,12 +462,12 @@ select pg_temp.expect_bool('로그에 직접 제외 건수와 회원번호가 �
       and l.meta::text !~ '홍길동|0107'
      from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_tg')), true);
 
--- p_targets 를 주지 않으면 예전처럼 보호되지 않은 후보를 전부 처리하고 제외 건수는 0이다.
-create temp table all_result as
-  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tg'), pg_temp.fx('m_t1'), 'hq@example.com');
-select pg_temp.expect_bool('p_targets 가 null 이면 남은 보호 안 된 후보를 전부 처리한다',
-  (select members_anonymized = 2 and members_skipped = 0 from all_result)
-  and pg_temp.pname('g_b') = '삭제된 학생' and pg_temp.pname('g_new') = '삭제된 학생', true);
+-- p_targets 나 p_tenant 가 null 이면 실행하지 않는다(WC101). 목록이 없다고 전부 지우는 길은 없다.
+select pg_temp.expect_error('p_targets 가 null 이면 WC101',
+  $$select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tg'), pg_temp.fx('m_t1'), 'hq@example.com')$$, 'WC101');
+select pg_temp.expect_error('p_tenant 가 null 이면 WC101',
+  $$select * from public.fn_anonymize_expired_b2b_members(null, pg_temp.fx('m_t1'), 'hq@example.com', '{}')$$, 'WC101');
+select pg_temp.expect_text('WC101 로 거절되면 남은 후보는 그대로다', pg_temp.pname('g_b'), '홍길동g_b');
 
 -- 빈 배열은 아무도 지우지 않는다.
 select pg_temp.mk_tenant('tz', 'RPTTZZZZ', pg_temp.today() - 50, pg_temp.today() - 5);
