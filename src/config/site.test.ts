@@ -228,3 +228,13 @@ describe("site - 학교 학생 가입 플래그", () => {
     );
   });
 });
+
+describe("site - 학적 셀프서비스 스위치", () => {
+  it("스쿨멘토만 학적(학급 입력, 수정요청, 고유코드)을 마이페이지에 보인다", async () => {
+    const schoolmentor = await loadSite("schoolmentor");
+    expect(schoolmentor.site.features.studentEnrollment).toBe(true);
+
+    const winning = await loadSite("winning");
+    expect(winning.site.features.studentEnrollment).toBe(false);
+  });
+});

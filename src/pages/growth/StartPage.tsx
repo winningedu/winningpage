@@ -20,6 +20,7 @@ import {
 } from "@/components/growth/start/startLogic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { site } from "@/config/site";
 import { siteWording } from "@/config/wording";
 import type { SurveyBootstrap } from "@/lib/growth/api";
 
@@ -97,12 +98,15 @@ function StartBody({ bootstrap }: { bootstrap: SurveyBootstrap }) {
         questionCount={questionCount}
       />
       <GuideCard questionCount={questionCount} />
-      {bootstrap.promotion?.propose && bootstrap.promotion.next && (
-        <PromotionModal
-          next={bootstrap.promotion.next}
-          onPromoted={refetchBootstrap}
-        />
-      )}
+      {/* 스쿨멘토는 학년을 학년도 전환과 마이페이지 학적이 정하므로 서비스에서 올리지 않는다(사 #40). */}
+      {!site.features.studentEnrollment &&
+        bootstrap.promotion?.propose &&
+        bootstrap.promotion.next && (
+          <PromotionModal
+            next={bootstrap.promotion.next}
+            onPromoted={refetchBootstrap}
+          />
+        )}
       <ActionRow
         mode={mode}
         canViewReports={bootstrap.reports.length > 0 || openReport !== null}

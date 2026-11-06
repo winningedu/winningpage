@@ -7,12 +7,16 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
+import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment";
+import { site } from "@/config/site";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import ChangeEmailModal from "./ChangeEmailModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import ChangePhoneModal from "./ChangePhoneModal";
+import LinkCodeRow from "./LinkCodeRow";
 import OrgCodeModal from "./OrgCodeModal";
 import ProfileField from "./ProfileField";
 import ToggleRow from "./ToggleRow";
@@ -128,12 +132,14 @@ type ProfileTabProps = {
   user: ProfileUser | null;
   profile: Profile | null;
   memberType?: string;
+  enrollment: MyEnrollmentState;
 };
 
 export default function ProfileTab({
   user,
   profile,
   memberType,
+  enrollment,
 }: ProfileTabProps) {
   // 학부모 변형(Figma 3379:12569 외) — 이름/휴대폰/이메일/비밀번호/이용안내만 있고
   // 학교·학년, 학부모 연결, 내 연결코드가 없다. 그 셋은 전부 학생 계정의 개념이다
@@ -544,6 +550,9 @@ export default function ProfileTab({
         </ProfileField>
       )}
 
+      {/* 학년, 반, 번호는 스쿨멘토 학생 전용이다. 바로 고치지 않고 수정요청으로 담임 승인을 거친다(사 #110). */}
+      {!isParent && <ChangeRequestSection {...enrollment} />}
+
       {/* 소속 — 학생 전용, 가입 시 안 넣은 경우 여기서 1회 입력한다(태스크5,
           2026-09-01, 2026-09-22 tenant 전환으로 fn_my_tenant/fn_set_my_tenant
           경유로 교체). 이미 설정돼 있으면(myTenant) 소속명만 읽기 전용으로
@@ -652,24 +661,15 @@ export default function ProfileTab({
       {/* 내 연결코드 — 학생 전용. 코드는 학생이 발급하고 학부모가 입력하는 방향이라
           (sql/40 issue_student_link_code) 학부모 화면에는 존재하지 않는다. */}
       {!isParent && (
-        <div className="mb-6">
-          <p className="mb-2 text-sm text-ink">내 연결코드</p>
-          <div className="flex items-center gap-2">
-            <div
-              className={`${ROW_BOX_CLASS} flex-1 tracking-[0.2em] bg-surface-footer text-ink-sub`}
-            >
-              {linkCode || "-"}
-            </div>
-            <button
-              type="button"
-              onClick={handleReissueCode}
-              disabled={!linkCode || reissuing}
-              className="shrink-0 whitespace-nowrap text-sm font-semibold text-accent underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {reissuing ? "재발급 중..." : "재발급"}
-            </button>
-          </div>
-        </div>
+        <LinkCodeRow
+          label={
+            site.features.studentEnrollment ? "학생 고유코드" : "내 연결코드"
+          }
+          code={linkCode}
+          copyable={site.features.studentEnrollment}
+          reissuing={reissuing}
+          onReissue={handleReissueCode}
+        />
       )}
 
       <button
