@@ -8366,12 +8366,14 @@ export type Database = {
         Args: {
           p_actor_email?: string;
           p_actor_profile?: string;
+          p_targets?: string[];
           p_tenant?: string;
         };
         Returns: {
           grace_end: string;
           members_anonymized: number;
           members_protected: number;
+          members_skipped: number;
           not_yet: boolean;
           tenants_processed: number;
         }[];
@@ -8847,6 +8849,19 @@ export type Database = {
       fn_matched_tenant_ids: {
         Args: { p_student_profile_id?: string };
         Returns: string[];
+      };
+      fn_member_purge_preview: {
+        Args: { p_tenant: string };
+        Returns: {
+          class_label: string | null;
+          contract_end: string;
+          grace_end: string | null;
+          grade: string | null;
+          name: string | null;
+          number: number | null;
+          profile_id: string | null;
+          protected: boolean | null;
+        }[];
       };
       fn_my_tenant: {
         Args: Record<PropertyKey, never>;

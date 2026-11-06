@@ -367,6 +367,99 @@ select pg_temp.expect_bool('실행자를 주지 않은 전체 실행은 시스�
      from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_ended')), true);
 
 -- ---------------------------------------------------------------------
+-- p_targets: 본사가 미리보기에서 고른 학생만 지운다(결정 102, 5번 PR 3)
+-- ---------------------------------------------------------------------
+select pg_temp.mk_tenant('tg', 'RPTTGGGG', pg_temp.today() - 50, pg_temp.today() - 5);   -- 유예 지남
+select pg_temp.mk_member('g_a', 'tg', 'student', 21);       -- 고른다
+select pg_temp.mk_member('g_b', 'tg', 'student', 22);       -- 고르지 않는다(직접 제외)
+select pg_temp.mk_member('g_paid', 'tg', 'student', 23);    -- 유료 전환(보호)
+select pg_temp.mk_member('g_cprot', 'tg', 'student', 25);   -- 고른 뒤 유료 전환이 된 학생
+select pg_temp.mk_member('g_teacher', 'tg', 'teacher', 26);
+insert into public.program_access_grants (profile_id, program_key, granted_by, granted_by_actor, granted_sessions, paid_amount, starts_at, expires_at, granted_months)
+select pg_temp.fx('m_g_paid'), 't23_prog', 'qa', null, 5, 10000, now() - interval '10 days', null, null;
+
+-- 학적: g_a 는 올해 고1 3반 5번, 지난해 학적은 미리보기에 쓰지 않는다.
+insert into public.class_groups (tenant_id, name) select pg_temp.fx('ten_tg'), 'A그룹';
+insert into public.classes (tenant_id, school_year, grade, group_id, name)
+select t.id, t.school_year, '고1', (select g.id from public.class_groups g where g.tenant_id = t.id), '3반'
+  from public.tenants t where t.id = pg_temp.fx('ten_tg');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number)
+select t.id, pg_temp.fx('m_g_a'), t.school_year, '고1', c.id, 5
+  from public.tenants t join public.classes c on c.tenant_id = t.id where t.id = pg_temp.fx('ten_tg');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade)
+select t.id, pg_temp.fx('m_g_b'), t.school_year, '고2' from public.tenants t where t.id = pg_temp.fx('ten_tg');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, status, graduated_at)
+select t.id, pg_temp.fx('m_g_a'), t.school_year - 1, '중3', 'graduated', now() - interval '300 days'
+  from public.tenants t where t.id = pg_temp.fx('ten_tg');
+
+-- 미리보기: 실행과 같은 후보와 보호 표시. 이미 삭제된 학생과 교사는 없다.
+select pg_temp.mk_member('g_gone', 'tg', 'student', 27);
+update public.profiles set name = '삭제된 학생' where id = pg_temp.fx('m_g_gone');
+create temp table prev as select * from public.fn_member_purge_preview(pg_temp.fx('ten_tg'));
+select pg_temp.expect_int('미리보기는 삭제된 학생과 교사를 뺀 학생 4명을 돌려준다',
+  (select count(*) from prev where profile_id is not null), 4);
+select pg_temp.expect_bool('미리보기의 보호 표시는 유효한 개인 유료 이용권이 있는 학생만 true',
+  (select bool_and(protected = (profile_id = pg_temp.fx('m_g_paid'))) from prev where profile_id is not null), true);
+select pg_temp.expect_bool('미리보기는 계약 종료일과 유예 종료일을 돌려준다',
+  (select bool_and(contract_end = pg_temp.today() - 50 and grace_end = pg_temp.today() - 5) from prev), true);
+select pg_temp.expect_bool('미리보기의 학년, 반(그룹 포함), 번호는 올해 학적이다',
+  (select grade = '고1' and class_label = 'A그룹 3반' and number = 5 from prev where profile_id = pg_temp.fx('m_g_a')), true);
+select pg_temp.expect_bool('학적이 반 없이 학년만 있으면 반과 번호는 비어 있다',
+  (select grade = '고2' and class_label is null and number is null from prev where profile_id = pg_temp.fx('m_g_b')), true);
+select pg_temp.expect_int('이미 삭제된 학생은 미리보기에 없다',
+  (select count(*) from prev where profile_id = pg_temp.fx('m_g_gone')), 0);
+select pg_temp.expect_int('교사는 미리보기에 없다',
+  (select count(*) from prev where profile_id = pg_temp.fx('m_g_teacher')), 0);
+select pg_temp.expect_int('계약 종료일이 없는 기관은 0행이다',
+  (select count(*) from public.fn_member_purge_preview(pg_temp.fx('ten_nocontract'))), 0);
+select pg_temp.mk_tenant('tempty', 'RPTTEEEE', pg_temp.today() - 50, null);
+select pg_temp.expect_bool('학생이 한 명도 없는 기관은 학생 없는 한 줄로 날짜를 알려 준다',
+  (select count(*) = 1 and max(profile_id::text) is null and max(contract_end) = pg_temp.today() - 50
+     from public.fn_member_purge_preview(pg_temp.fx('ten_tempty'))), true);
+
+-- 미리보기 뒤에 들어온 학생, 그리고 고른 뒤에 유료 전환이 된 학생.
+select pg_temp.mk_member('g_new', 'tg', 'student', 28);
+insert into public.program_access_grants (profile_id, program_key, granted_by, granted_by_actor, granted_sessions, paid_amount, starts_at, expires_at, granted_months)
+select pg_temp.fx('m_g_cprot'), 't23_prog', 'qa', null, 5, 10000, now() - interval '1 day', null, null;
+
+create temp table tgt_result as
+  select * from public.fn_anonymize_expired_b2b_members(
+    pg_temp.fx('ten_tg'), pg_temp.fx('m_t1'), 'hq@example.com',
+    array[pg_temp.fx('m_g_a'), pg_temp.fx('m_g_paid'), pg_temp.fx('m_g_cprot')]);
+select pg_temp.expect_text('고른 학생은 익명화된다', pg_temp.pname('g_a'), '삭제된 학생');
+select pg_temp.expect_text('고르지 않은 학생은 그대로다', pg_temp.pname('g_b'), '홍길동g_b');
+select pg_temp.expect_text('미리보기 뒤에 들어온 학생은 고르지 않았으니 그대로다', pg_temp.pname('g_new'), '홍길동g_new');
+select pg_temp.expect_text('유료 전환 학생은 골랐어도 그대로다', pg_temp.pname('g_paid'), '홍길동g_paid');
+select pg_temp.expect_text('고른 뒤 유료 전환이 된 학생도 실행 때 다시 보고 그대로 둔다', pg_temp.pname('g_cprot'), '홍길동g_cprot');
+select pg_temp.expect_bool('고른 학생 Auth 계정만 정지된다', pg_temp.banned('g_a') and not pg_temp.banned('g_b'), true);
+select pg_temp.expect_bool('반환: 익명화 1, 보호 2, 직접 제외 2(g_b, g_new)',
+  (select members_anonymized = 1 and members_protected = 2 and members_skipped = 2 from tgt_result), true);
+select pg_temp.expect_bool('로그에 직접 제외 건수와 회원번호가 남고 이름과 전화번호는 없다',
+  (select (l.meta ->> 'skipped_count')::int = 2 and (l.meta ->> 'deleted_count')::int = 1
+      and l.meta -> 'member_ids' = to_jsonb(array[pg_temp.fx('m_g_a')::text])
+      and l.meta::text !~ '홍길동|0107'
+     from public.admin_access_logs l where l.action = 'member_purge' and l.tenant_id = pg_temp.fx('ten_tg')), true);
+
+-- p_targets 를 주지 않으면 예전처럼 보호되지 않은 후보를 전부 처리하고 제외 건수는 0이다.
+create temp table all_result as
+  select * from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tg'), pg_temp.fx('m_t1'), 'hq@example.com');
+select pg_temp.expect_bool('p_targets 가 null 이면 남은 보호 안 된 후보를 전부 처리한다',
+  (select members_anonymized = 2 and members_skipped = 0 from all_result)
+  and pg_temp.pname('g_b') = '삭제된 학생' and pg_temp.pname('g_new') = '삭제된 학생', true);
+
+-- 빈 배열은 아무도 지우지 않는다.
+select pg_temp.mk_tenant('tz', 'RPTTZZZZ', pg_temp.today() - 50, pg_temp.today() - 5);
+select pg_temp.mk_member('z_a', 'tz', 'student', 29);
+select pg_temp.expect_bool('빈 p_targets 는 아무도 지우지 않고 후보 전부를 직접 제외로 센다',
+  (select members_anonymized = 0 and members_skipped = 1
+     from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_tz'), pg_temp.fx('m_t1'), 'hq@example.com', '{}'))
+  and pg_temp.pname('z_a') = '홍길동z_a', true);
+
+-- 3개 인자 함수는 더 이상 없다(오버로드가 모호해지지 않는다).
+select pg_temp.expect_int('옛 3개 인자 시그니처는 없다',
+  (select count(*) from pg_proc p where p.proname = 'fn_anonymize_expired_b2b_members' and p.pronargs = 3), 0);
+
+-- ---------------------------------------------------------------------
 -- 클라이언트 role 차단
 -- ---------------------------------------------------------------------
 grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
@@ -385,6 +478,14 @@ reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 fn_anonymize_expired_b2b_members 실행 불가',
   $$select * from public.fn_anonymize_expired_b2b_members()$$, '42501');
+reset role;
+set local role anon;
+select pg_temp.expect_error('anon 은 fn_member_purge_preview 실행 불가',
+  $$select * from public.fn_member_purge_preview(null)$$, '42501');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error('authenticated 는 fn_member_purge_preview 실행 불가',
+  $$select * from public.fn_member_purge_preview(null)$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-retention-purge.spec: 전체 통과 ==='; end $$;
