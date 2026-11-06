@@ -159,3 +159,71 @@ revoke all on function public.fn_consume_tenant_diagnosis(uuid, uuid) from publi
 grant execute on function public.fn_consume_tenant_diagnosis(uuid, uuid) to service_role;
 
 comment on function public.fn_consume_tenant_diagnosis(uuid, uuid) is '기관 학생의 학습진단 제출 1건을 기관 한도로 센다(service_role 전용). consumed, already_consumed 는 diagnosis_attempts(kind tenant)를 남기고, 같은 시도 재호출은 already_recorded, 남의 시도 id 는 attempt_conflict, 그 밖은 fn_consume_tenant_usage 의 거부 사유를 그대로 돌려준다.';
+
+-- 4) 로그인 사용자 대신 user id 를 받는 소속코드 확인(fn_resolve_tenant_code 와 같은 본문).
+-- 서버 API 는 service_role 로 부르므로 auth.uid() 가 없다. 사용자당 최근 1시간 실패 10회면 WC068(맞는 코드도 막는다),
+-- 못 찾으면 실패 기록을 남기고 null 을 돌려준다. raise 하지 않는 이유는 fn_resolve_tenant_code 와 같다.
+-- fn_resolve_tenant_code 와 fn_set_my_tenant 는 그대로 둔다(위닝 동작 불변).
+create function public.fn_tenant_code_resolve_for(p_user uuid, p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_failures integer;
+  v_id uuid;
+begin
+  delete from public.tenant_code_attempts a
+   where a.user_id = p_user and a.attempted_at <= now() - interval '1 hour';
+
+  select count(*) into v_failures from public.tenant_code_attempts a where a.user_id = p_user;
+  if v_failures >= 10 then
+    raise exception 'tenant_code_attempts_exceeded' using errcode = 'WC068';
+  end if;
+
+  select t.id into v_id from public.tenants t where t.code = public.fn_normalize_tenant_code(p_code);
+
+  if v_id is null then
+    insert into public.tenant_code_attempts (user_id) values (p_user);
+    return null;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- 5) 기타 소속 학생의 소속코드 조회. 현재 소속이 기타가 아니면 WC098(기타에서만 옮길 수 있다, 다른 기관끼리는 본사만).
+-- 못 찾았거나 기타 자신의 코드면 0행이다(raise 하면 실패 기록이 같이 롤백된다). id, name, org_type 만 내보낸다.
+create function public.fn_catch_all_tenant_lookup(p_user uuid, p_code text)
+returns table (id uuid, name text, org_type text)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_current_catch_all boolean;
+  v_target uuid;
+begin
+  select t.is_catch_all into v_current_catch_all
+    from public.profiles p join public.tenants t on t.id = p.tenant_id
+   where p.id = p_user;
+  if not coalesce(v_current_catch_all, false) then
+    raise exception 'only the catch-all tenant can move' using errcode = 'WC098';
+  end if;
+
+  v_target := public.fn_tenant_code_resolve_for(p_user, p_code);
+  if v_target is null then
+    return;
+  end if;
+
+  return query select t.id, t.name, t.org_type from public.tenants t where t.id = v_target and not t.is_catch_all;
+end;
+$$;
+
+revoke all on function public.fn_tenant_code_resolve_for(uuid, text) from public, anon, authenticated;
+grant execute on function public.fn_tenant_code_resolve_for(uuid, text) to service_role;
+revoke all on function public.fn_catch_all_tenant_lookup(uuid, text) from public, anon, authenticated;
+grant execute on function public.fn_catch_all_tenant_lookup(uuid, text) to service_role;
+
+comment on function public.fn_tenant_code_resolve_for(uuid, text) is '소속코드 확인(service_role 전용, fn_resolve_tenant_code 와 같은 본문에 auth.uid() 대신 user id). 사용자당 1시간 실패 10회면 WC068, 못 찾으면 실패 기록을 남기고 null.';
+comment on function public.fn_catch_all_tenant_lookup(uuid, text) is '기타 소속 학생의 소속코드 조회(service_role 전용). 현재 소속이 기타가 아니면 WC098, 못 찾았거나 기타 자신의 코드면 0행(raise 하지 않는다).';

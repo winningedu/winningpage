@@ -159,4 +159,27 @@ select pg_temp.expect_int('diagnosis: month_cap 은 시도 행을 남기지 않�
 select pg_temp.expect_text('diagnosis: 기타 소속은 catch_all',
   public.fn_consume_tenant_diagnosis(gen_random_uuid(), pg_temp.fx('etc')), 'catch_all');
 
+-- ---------------------------------------------------------------------
+-- fn_catch_all_tenant_lookup: 기타 소속 학생의 소속코드 조회
+-- ---------------------------------------------------------------------
+select pg_temp.mk_tenant('lk', 'TGDDDDDD', '기관');
+
+select pg_temp.expect_error('lookup: 일반 기관 학생은 WC098',
+  format('select * from public.fn_catch_all_tenant_lookup(%L, %L)', pg_temp.fx('real'), 'TGDDDDDD'), 'WC098');
+select pg_temp.expect_text('lookup: 맞는 코드는 기관 이름과 종류',
+  (select l.name || ':' || l.org_type from public.fn_catch_all_tenant_lookup(pg_temp.fx('etc'), 'tgdddddd') l), 'tsg-lk:기관');
+select pg_temp.expect_int('lookup: 맞는 코드는 실패 기록을 남기지 않는다',
+  (select count(*) from public.tenant_code_attempts where user_id = pg_temp.fx('etc')), 0);
+select pg_temp.expect_int('lookup: 없는 코드는 0행',
+  (select count(*) from public.fn_catch_all_tenant_lookup(pg_temp.fx('etc'), 'TGZZZZZZ')), 0);
+select pg_temp.expect_int('lookup: 없는 코드는 실패 기록을 남긴다',
+  (select count(*) from public.tenant_code_attempts where user_id = pg_temp.fx('etc')), 1);
+select pg_temp.expect_int('lookup: 기타 자신의 코드는 0행',
+  (select count(*) from public.fn_catch_all_tenant_lookup(pg_temp.fx('etc'), 'TGAAAAAA')), 0);
+select pg_temp.expect_ok('lookup: 실패를 10회까지 채운다', $$
+  select public.fn_catch_all_tenant_lookup(pg_temp.fx('etc'), 'TGZZZZZ' || n) from generate_series(1, 9) n
+$$);
+select pg_temp.expect_error('lookup: 11번째 시도는 WC068(맞는 코드도 막는다)',
+  format('select * from public.fn_catch_all_tenant_lookup(%L, %L)', pg_temp.fx('etc'), 'TGDDDDDD'), 'WC068');
+
 rollback;
