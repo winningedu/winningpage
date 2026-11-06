@@ -7,6 +7,7 @@
 import { defineHandler } from "../_lib/handler.js";
 import { getClientIp } from "../_lib/phoneCode.js";
 import { isSchoolmentorSite } from "../_lib/signup/site.js";
+import { lookupSignupTenant } from "../_lib/signup/tenant.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -29,24 +30,23 @@ export default defineHandler({
       res.status(400).json({ code: "VALIDATION" });
       return;
     }
-    const { data, error } = await ctx.supabaseAdmin.rpc(
-      "fn_signup_tenant_lookup",
-      { p_code: code.trim(), p_ip: getClientIp(req) as string },
+    const result = await lookupSignupTenant(
+      ctx.supabaseAdmin,
+      code.trim(),
+      getClientIp(req),
     );
-    if (error?.code === "WC068") {
-      res.status(429).json({ code: "WC068" });
-      return;
-    }
-    if (error) throw error;
-    const tenant = data?.[0];
-    if (!tenant) {
-      res.status(404).json({ code: "TENANT_NOT_FOUND" });
+    if (!result.ok) {
+      if (result.reason === "rate_limited") {
+        res.status(429).json({ code: "WC068" });
+      } else {
+        res.status(404).json({ code: "TENANT_NOT_FOUND" });
+      }
       return;
     }
     res.status(200).json({
-      tenantId: tenant.id,
-      name: tenant.name,
-      orgType: tenant.org_type,
+      tenantId: result.tenant.id,
+      name: result.tenant.name,
+      orgType: result.tenant.orgType,
     });
   },
 });

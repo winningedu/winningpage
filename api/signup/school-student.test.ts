@@ -114,4 +114,45 @@ describe("POST /api/signup/school-student", () => {
 
     expect(r.status).not.toBe(400);
   });
+
+  test("소속코드는 서버가 다시 조회하고 없으면 404 TENANT_NOT_FOUND 로 계정을 만들지 않는다", async () => {
+    const calls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_signup_tenant_lookup = (args) => {
+      calls.push(args);
+      return { data: [], error: null };
+    };
+
+    const r = await post({ ...BODY, tenantId: "client-made-up" });
+
+    expect(calls).toEqual([{ p_code: "SCH001", p_ip: "9.9.9.9" }]);
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ code: "TENANT_NOT_FOUND" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("소속코드 오답 초과(WC068)는 429 로 바꾼다", async () => {
+    kit.state.rpc.fn_signup_tenant_lookup = () => ({
+      data: null,
+      error: { code: "WC068" },
+    });
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(429);
+    expect(r.body).toMatchObject({ code: "WC068" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test("소속이 있는 가입에 반이 없으면 400 CLASS_REQUIRED", async () => {
+    kit.state.rpc.fn_signup_tenant_lookup = () => ({
+      data: [{ id: "t-1", name: "가나중학교", org_type: "학교" }],
+      error: null,
+    });
+
+    const r = await post({ ...BODY, className: undefined });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: "CLASS_REQUIRED" });
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
 });

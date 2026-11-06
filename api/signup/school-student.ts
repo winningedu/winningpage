@@ -3,8 +3,10 @@
 // 스쿨멘토 학생 가입 확정. 위닝 배포에서는 404.
 
 import { defineHandler } from "../_lib/handler.js";
+import { getClientIp } from "../_lib/phoneCode.js";
 import { parseSchoolStudentBody } from "../_lib/signup/schoolStudent.js";
 import { isSchoolmentorSite } from "../_lib/signup/site.js";
+import { lookupSignupTenant } from "../_lib/signup/tenant.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -20,7 +22,7 @@ export default defineHandler({
   },
   logLabel: "[signup/school-student]",
   headers: { "Cache-Control": "no-store" },
-  handler: async (req, res) => {
+  handler: async (req, res, ctx) => {
     if (!isSchoolmentorSite()) {
       res.status(404).json({ code: "NOT_FOUND" });
       return;
@@ -33,6 +35,39 @@ export default defineHandler({
         field: parsed.field,
       });
       return;
+    }
+    const input = parsed.value;
+    const ip = getClientIp(req);
+
+    // 클라이언트가 보낸 기관 id 는 받지 않는다. 코드로 다시 찾는다(null 은 기타 소속).
+    let tenant: { id: string; name: string; orgType: string } | null = null;
+    if (input.tenantCode !== null) {
+      const found = await lookupSignupTenant(
+        ctx.supabaseAdmin,
+        input.tenantCode,
+        ip,
+      );
+      if (!found.ok) {
+        if (found.reason === "rate_limited") {
+          res.status(429).json({ code: "WC068" });
+        } else {
+          res.status(404).json({
+            code: "TENANT_NOT_FOUND",
+            message: "소속코드를 다시 확인해 주세요.",
+          });
+        }
+        return;
+      }
+      tenant = found.tenant;
+      // 학교와 학원은 반이 필수다(결정 77). 기타 소속은 반과 번호를 받지 않는다.
+      if (!input.className) {
+        res.status(400).json({
+          code: "CLASS_REQUIRED",
+          message: "반을 입력해 주세요.",
+          field: "className",
+        });
+        return;
+      }
     }
   },
 });
