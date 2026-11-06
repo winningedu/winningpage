@@ -47,14 +47,19 @@ describe("POST /api/delete-account - 학적 정리(사 #112)", () => {
     return callHandler(handler, {});
   }
 
-  test("익명화로 남는 탈퇴는 그 학생의 학적과 변경 신청을 지운다", async () => {
+  test("익명화로 남는 탈퇴는 그 학생의 학적, 변경 신청, 교사 메모, 특이학생, 상담 상태를 지운다", async () => {
     const res = await withdraw("anonymized");
 
     expect(res.status).toBe(200);
-    expect(kit.state.deletes).toEqual([
-      { table: "student_enrollments", filters: { student_id: "student-1" } },
-      { table: "enrollment_changes", filters: { student_id: "student-1" } },
-    ]);
+    expect(kit.state.deletes).toEqual(
+      [
+        "student_enrollments",
+        "enrollment_changes",
+        "teacher_memos",
+        "student_flags",
+        "counsel_statuses",
+      ].map((table) => ({ table, filters: { student_id: "student-1" } })),
+    );
   });
 
   test("프로필까지 지우는 탈퇴는 cascade 가 학적을 지우므로 따로 지우지 않는다", async () => {

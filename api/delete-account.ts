@@ -98,10 +98,16 @@ export default defineHandler({
         });
       }
 
-      // 익명화로 profiles 행이 남으면 학적(student_enrollments)도 남아 교사 화면 통계에 들어온다(사 #112).
+      // 익명화로 profiles 행이 남으면 학적과 교사 화면 기록(메모, 특이학생, 상담 상태)도 남는다(사 #112).
       // 지우는 탈퇴는 profiles 외래키 cascade 가 학적을 같이 지운다. 재호출해도 같은 결과다.
       if (mode !== "deleted") {
-        for (const table of ["student_enrollments", "enrollment_changes"]) {
+        for (const table of [
+          "student_enrollments",
+          "enrollment_changes",
+          "teacher_memos",
+          "student_flags",
+          "counsel_statuses",
+        ]) {
           const { error: enrollmentError } = await supabaseAdmin
             .from(table)
             .delete()
