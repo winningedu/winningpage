@@ -5,6 +5,14 @@ const mocks = vi.hoisted(() => ({
   readSelfevalQuota: vi.fn(),
   consumeCredit: vi.fn(),
   reverseCredit: vi.fn(),
+  isSchoolmentorSite: vi.fn(),
+  checkTenantStart: vi.fn(),
+}));
+vi.mock("../../site.js", () => ({
+  isSchoolmentorSite: mocks.isSchoolmentorSite,
+}));
+vi.mock("../../tenantUsage.js", () => ({
+  checkTenantStart: mocks.checkTenantStart,
 }));
 vi.mock("../access.js", () => ({
   hasSelfevalAccess: mocks.hasSelfevalAccess,
@@ -79,6 +87,54 @@ describe("checkChargeGate", () => {
     expect(await checkChargeGate(db, "u", row({}))).toBeNull();
     mocks.readSelfevalQuota.mockResolvedValue({ quotaRemaining: 2 });
     expect(await checkChargeGate(db, "u", row({}))).toBeNull();
+  });
+});
+
+describe("checkChargeGate 스쿨멘토", () => {
+  beforeEach(() => mocks.isSchoolmentorSite.mockReturnValue(true));
+
+  it("selfeval_session 단위로 시작 확인을 하고 통과하면 null 이다", async () => {
+    mocks.checkTenantStart.mockResolvedValue(null);
+    expect(await checkChargeGate(db, "u", row({}))).toBeNull();
+    expect(mocks.checkTenantStart).toHaveBeenCalledWith(db, "u", "selfeval", {
+      kind: "selfeval_session",
+      id: "s1",
+    });
+    expect(mocks.hasSelfevalAccess).not.toHaveBeenCalled();
+    expect(mocks.readSelfevalQuota).not.toHaveBeenCalled();
+  });
+
+  it.each(["month_cap", "term_cap"])(
+    "새 세션이 %s 에 걸리면 quota_exhausted 와 tenantReason",
+    async (reason) => {
+      mocks.checkTenantStart.mockResolvedValue(reason);
+      expect(await checkChargeGate(db, "u", row({}))).toEqual({
+        kind: "quota_exhausted",
+        tenantReason: reason,
+      });
+    },
+  );
+
+  it.each(["catch_all", "disabled", "outside_period", "grace"])(
+    "%s 는 no_entitlement 와 tenantReason",
+    async (reason) => {
+      mocks.checkTenantStart.mockResolvedValue(reason);
+      expect(await checkChargeGate(db, "u", row({}))).toEqual({
+        kind: "no_entitlement",
+        tenantReason: reason,
+      });
+    },
+  );
+});
+
+describe("checkChargeGate 위닝은 시작 확인을 하지 않는다", () => {
+  it("checkTenantStart 를 부르지 않는다", async () => {
+    mocks.isSchoolmentorSite.mockReturnValue(false);
+    mocks.hasSelfevalAccess.mockResolvedValue(false);
+    expect(await checkChargeGate(db, "u", row({}))).toEqual({
+      kind: "no_entitlement",
+    });
+    expect(mocks.checkTenantStart).not.toHaveBeenCalled();
   });
 });
 

@@ -399,6 +399,33 @@ describe("outcomeToHttp", () => {
     expect(http.extra).toEqual({ attempts: 2, softIssues: [] });
   });
 
+  it("no_entitlement 와 quota_exhausted 는 기존 코드에 tenantReason 만 더한다", () => {
+    expect(outcomeToHttp({ kind: "no_entitlement" })).toMatchObject({
+      status: 403,
+      code: "NO_ENTITLEMENT",
+      extra: {},
+    });
+    expect(
+      outcomeToHttp({ kind: "no_entitlement", tenantReason: "catch_all" }),
+    ).toMatchObject({
+      status: 403,
+      code: "NO_ENTITLEMENT",
+      extra: { tenantReason: "catch_all" },
+    });
+    expect(outcomeToHttp({ kind: "quota_exhausted" })).toMatchObject({
+      status: 409,
+      code: "QUOTA_EXHAUSTED",
+      extra: {},
+    });
+    expect(
+      outcomeToHttp({ kind: "quota_exhausted", tenantReason: "month_cap" }),
+    ).toMatchObject({
+      status: 409,
+      code: "QUOTA_EXHAUSTED",
+      extra: { tenantReason: "month_cap" },
+    });
+  });
+
   it("선점 거절은 코드가 붙은 409 다", () => {
     expect(outcomeToHttp({ kind: "locked" })).toMatchObject({
       status: 409,

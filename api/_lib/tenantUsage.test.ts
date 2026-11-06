@@ -7,6 +7,7 @@ import {
   readTenantUsage,
   type TenantUsageState,
   tenantEntryAccess,
+  tenantReasonExtra,
   tenantReasonOf,
 } from "./tenantUsage.js";
 
@@ -261,4 +262,13 @@ describe("tenantReasonOf", () => {
       expect(tenantReasonOf(reason)).toBeNull();
     },
   );
+});
+
+describe("tenantReasonExtra", () => {
+  it("사유가 있으면 tenantReason 한 키", () => {
+    expect(tenantReasonExtra("grace")).toEqual({ tenantReason: "grace" });
+  });
+  it.each([null, undefined])("%s 는 빈 객체", (reason) => {
+    expect(tenantReasonExtra(reason)).toEqual({});
+  });
 });

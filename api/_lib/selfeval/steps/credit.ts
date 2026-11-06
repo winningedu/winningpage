@@ -2,12 +2,14 @@
 // 정본 차감과 되돌림은 DB RPC 가 하고, 여기서는 선점 전 확인과 호출 결과 해석만 한다.
 // 성장설계 api/_lib/growth/report/advance.ts 의 차감 처리와 같은 방침이다.
 
+import { isSchoolmentorSite } from "../../site.js";
+import { checkTenantStart } from "../../tenantUsage.js";
 import { hasSelfevalAccess, readSelfevalQuota } from "../access.js";
 import { consumeCredit, type Db, reverseCredit } from "../db.js";
 import type { SessionRow } from "../rows.js";
 import type { Outcome } from "../runModelStep.js";
 
-type ChargeRow = Pick<SessionRow, "ledger_id" | "ledger_reversed_at">;
+type ChargeRow = Pick<SessionRow, "id" | "ledger_id" | "ledger_reversed_at">;
 
 /** 차감 이력이 없거나 되돌려졌으면 이번 성공에서 차감해야 한다. */
 export function needsCharge(session: ChargeRow): boolean {
@@ -31,6 +33,18 @@ export async function checkChargeGate(
   Outcome<never>,
   { kind: "no_entitlement" | "quota_exhausted" }
 > | null> {
+  // 스쿨멘토는 원장이 없어 needsCharge 가 늘 참이다. 기관 상태로 시작을 확인하되 이미 센 세션은
+  // 한도에서도 통과시킨다(checkTenantStart). 한도는 quota_exhausted, 그 밖은 no_entitlement 다.
+  if (isSchoolmentorSite()) {
+    const denied = await checkTenantStart(db, userId, "selfeval", {
+      kind: "selfeval_session",
+      id: session.id,
+    });
+    if (denied === null) return null;
+    return denied === "month_cap" || denied === "term_cap"
+      ? { kind: "quota_exhausted", tenantReason: denied }
+      : { kind: "no_entitlement", tenantReason: denied };
+  }
   if (!needsCharge(session)) return null;
   if (!(await hasSelfevalAccess(db, userId))) return { kind: "no_entitlement" };
   const quota = await readSelfevalQuota(db, userId);
