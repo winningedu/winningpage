@@ -88,6 +88,31 @@ select pg_temp.expect_bool('backfill 재실행은 값을 바꾸지 않는다',
      from public.profiles p join fx on fx.v = p.id where fx.k = 'signed'),
   true);
 
+-- 클라이언트(authenticated)는 자기 last_seen_at 을 고칠 수 없다
+update public.profiles set last_seen_at = timestamptz '2026-11-01 00:00:00+00'
+  where id = (select v from fx where k = 'stamped');
+grant select on fx to authenticated;
+select set_config('request.jwt.claims',
+  json_build_object('sub', (select v from fx where k = 'stamped'), 'role', 'authenticated')::text, true);
+set local role authenticated;
+update public.profiles set last_seen_at = timestamptz '2099-01-01 00:00:00+00'
+  where id = (select v from fx where k = 'stamped');
+reset role;
+select pg_temp.expect_bool('authenticated 의 last_seen_at 직접 수정은 무시된다',
+  (select p.last_seen_at = timestamptz '2026-11-01 00:00:00+00'
+     from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
+  true);
+
+-- service_role 의 수정은 반영된다
+select set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+update public.profiles set last_seen_at = timestamptz '2026-11-09 00:00:00+00'
+  where id = (select v from fx where k = 'stamped');
+select pg_temp.expect_bool('service_role 은 last_seen_at 을 적을 수 있다',
+  (select p.last_seen_at = timestamptz '2026-11-09 00:00:00+00'
+     from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
+  true);
+select set_config('request.jwt.claims', '', true);
+
 do $$ begin raise notice '=== b2b-last-seen.spec: 전체 통과 ==='; end $$;
 
 rollback;
