@@ -90,7 +90,7 @@ import {
 import SearchPreview from "./admin/knowledge/search/SearchPreview";
 import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
-import ServiceCreditAdjustAdmin from "./admin/service-credit/ServiceCreditAdjustAdmin";
+import ServiceCreditAdjustEntry from "./admin/service-credit/ServiceCreditAdjustEntry";
 import {
   AdminForm,
   type AdminRow,
@@ -355,7 +355,7 @@ const CUSTOM_COMPONENT_REGISTRY = {
   selfevalSessions: SelfevalSessionsAdmin,
   aiTelemetry: TelemetryAdmin,
   knowledgeEvals: EvalsAdmin,
-  serviceCreditAdjust: ServiceCreditAdjustAdmin,
+  serviceCreditAdjust: ServiceCreditAdjustEntry,
   inquirySessions: InquirySessionsAdmin,
 };
 

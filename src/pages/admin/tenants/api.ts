@@ -38,6 +38,31 @@ export interface IssuedSchoolAdmin {
   tempPassword?: string;
 }
 
+export interface StudentUsageProgram {
+  programKey: string;
+  allowed: boolean;
+  denyReason: string | null;
+  monthUsed: number;
+  monthLimit: number | null;
+  monthRemaining: number | null;
+  termUsed: number;
+  termLimit: number | null;
+  termRemaining: number | null;
+  monthResetsOn: string | null;
+  termResetsOn: string | null;
+  setting: {
+    enabled: boolean;
+    monthlyLimit: number | null;
+    termLimit: number | null;
+  } | null;
+  override: { monthlyLimit: number | null; termLimit: number | null } | null;
+}
+
+export interface StudentUsage {
+  tenant: { id: string; name: string; isCatchAll: boolean } | null;
+  programs: StudentUsageProgram[];
+}
+
 async function call<T>(
   url: string,
   init: { method: "GET" | "POST"; body?: unknown },
@@ -77,4 +102,13 @@ export function issueSchoolAdmin(
     method: "POST",
     body,
   });
+}
+
+export function fetchStudentUsage(
+  profileId: string,
+): Promise<ApiResult<StudentUsage>> {
+  return call<StudentUsage>(
+    `/api/admin/tenants/student-usage?profileId=${encodeURIComponent(profileId)}`,
+    { method: "GET" },
+  );
 }
