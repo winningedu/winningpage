@@ -3,11 +3,17 @@
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export default function TemplateLink({ file }: { file: string }) {
+export default function TemplateLink({
+  file,
+  downloadName,
+}: {
+  file: string;
+  downloadName: string;
+}) {
   return (
     <a
       href={`/templates/${file}`}
-      download
+      download={downloadName}
       className={cn(
         buttonVariants({ variant: "outline" }),
         "h-10 rounded-lg border-line px-5 text-app-label font-semibold text-primary",

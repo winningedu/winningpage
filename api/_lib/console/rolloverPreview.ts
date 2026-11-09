@@ -212,6 +212,15 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     student: PreviewStudent;
   }[] = [];
 
+  const sameNameKey = (s: PreviewStudent) =>
+    `${s.name}|${s.grade ?? ""}|${s.groupName ?? ""}|${s.className}`;
+  const sameNameCounts = new Map<string, number>();
+  for (const s of input.students) {
+    if (s.className === null) continue;
+    const key = sameNameKey(s);
+    sameNameCounts.set(key, (sameNameCounts.get(key) ?? 0) + 1);
+  }
+
   for (const line of input.lines) {
     const byName = input.students.filter((s) => s.name === line.name);
     const found = narrow(byName, line.from, input.orgType);
@@ -231,7 +240,11 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     const student = found[0] as PreviewStudent;
     const row: PreviewRow = {
       line: line.line,
-      displayName: masked,
+      displayName:
+        student.className !== null &&
+        (sameNameCounts.get(sameNameKey(student)) ?? 0) > 1
+          ? `${masked}*`
+          : masked,
       from: slotOf(student),
       to: null,
       studentId: student.studentId,

@@ -1,6 +1,6 @@
 // W5 대시보드. 담당 범위의 서비스 이용 학생, 목표시간 달성율, 서비스별 이용현황과 상태(empty, loading, error, proxy)를 검증한다.
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -241,14 +241,14 @@ describe("DashboardPage", () => {
 
     renderRoutes(routes, "/teacher");
 
-    expect(
-      await screen.findByText("대시보드를 불러오지 못했어요"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        "대시보드를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
-      ),
-    ).toBeTruthy();
+    // 알림(토스트)과 화면 안 문구가 같은 문장이라 둘 다 보인다.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(
+          "대시보드를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+        ),
+      ).toHaveLength(2),
+    );
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
     expect(screen.queryByText("서비스 이용 학생")).toBeNull();
   });

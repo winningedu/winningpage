@@ -173,7 +173,11 @@ export default function PendingRequestsTab() {
   );
 
   if (list.isError)
-    return <Notice tone="Danger">신청 목록을 불러오지 못했어요</Notice>;
+    return (
+      <Notice tone="Danger">
+        신청 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+      </Notice>
+    );
   if (!list.data) return null;
   return (
     <section className="flex flex-col gap-4">

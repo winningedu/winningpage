@@ -167,6 +167,18 @@ describe("W16 목록", () => {
 });
 
 describe("W16 상태 전환", () => {
+  it("목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubPage({ [LIST_URL]: { status: 500, body: {} } });
+
+    renderRoutes(routes, "/teacher/teachers/accounts");
+
+    expect(
+      await screen.findByText(
+        "교사 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("활성 계정은 비활성화하고 비활성 계정은 활성화하는 요청을 보낸다", async () => {
     const calls = stubPage({
       "POST /api/console/teachers/status": { body: { ok: true } },

@@ -38,7 +38,7 @@ export default function ServiceWindow({
           )}
           {detail.isError && (
             <p className="text-app-body text-ink-danger">
-              서비스 상세를 불러오지 못했어요
+              서비스 상세를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
             </p>
           )}
           {d && (

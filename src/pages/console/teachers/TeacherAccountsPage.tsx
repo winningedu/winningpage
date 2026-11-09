@@ -140,7 +140,9 @@ export default function TeacherAccountsPage() {
       <div className="flex max-w-content flex-col gap-4 px-4 pb-24 md:px-8 lg:px-12">
         {error && <Notice tone="Danger">{error}</Notice>}
         {list.isError && (
-          <Notice tone="Danger">교사 계정 목록을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            교사 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {list.data && (
           <section className="flex flex-col">

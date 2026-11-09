@@ -115,7 +115,9 @@ describe("W14 학생 가입 연결 미리보기", () => {
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
 
     expect(
-      await screen.findByText("연결 결과를 불러오지 못했어요"),
+      await screen.findByText(
+        "연결 결과를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });

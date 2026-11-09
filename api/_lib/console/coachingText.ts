@@ -993,6 +993,9 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
   }
 
   const setDays = g.days.filter((d) => d.weekday !== "sun" && d.ideal > 0);
+  // 목표일이 하루도 없으면(미접속 판정 포함) 요약 한 줄만 보인다(결정 105 11번).
+  const [first] = setDays;
+  if (!first) return { summary, details: null };
   const sunday = g.days
     .filter((d) => d.weekday === "sun")
     .reduce((s, d) => s + d.actual, 0);
@@ -1006,8 +1009,8 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
   const recordFlow = `최소 목표시간 충족 ${g.lastWeek ? `지난주 ${g.lastWeek.metDays}일, ` : ""}이번 주 ${met}/${set}일, 연속 기록 ${g.streak}일${streakText}.${sundayText}`;
 
   const missed = setDays.filter((d) => d.actual < d.min).reverse();
-  const worst = setDays.reduce((x, y) => (ratio(y) <= ratio(x) ? y : x));
-  const best = setDays.reduce((x, y) => (ratio(y) > ratio(x) ? y : x));
+  const worst = setDays.reduce((x, y) => (ratio(y) <= ratio(x) ? y : x), first);
+  const best = setDays.reduce((x, y) => (ratio(y) > ratio(x) ? y : x), first);
   const sat = setDays.find((d) => d.weekday === "sat");
   const weekdays = setDays.filter((d) => d.weekday !== "sat");
   const weekdayAvg = weekdays.length

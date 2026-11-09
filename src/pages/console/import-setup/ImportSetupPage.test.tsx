@@ -812,3 +812,44 @@ describe("ImportSetupPage 이미 실행한 학년도의 ① 올리기", () => {
     ).toBe("");
   });
 });
+
+describe("ImportSetupPage 샘플 파일 이름", () => {
+  it("두 양식 링크가 정한 파일 이름으로 내려받게 하고 주소는 그대로 둔다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    expect(await screen.findByText("③ 학년그룹 일괄 변경")).toBeTruthy();
+    const links = screen.getAllByRole("link", { name: "샘플 엑셀 양식" });
+    const byHref = Object.fromEntries(
+      links.map((l) => [l.getAttribute("href"), l.getAttribute("download")]),
+    );
+    expect(byHref).toEqual({
+      "/templates/student-roster.xlsx": "스쿨멘토_학생불러오기_샘플.xlsx",
+      "/templates/grade-bulk-change.xlsx":
+        "스쿨멘토_학년그룹일괄변경_샘플.xlsx",
+    });
+  });
+});
+
+describe("ImportSetupPage 목록 불러오기 실패 안내", () => {
+  it("그룹과 학년도 정보를 못 불러오면 다시 시도하라고 함께 안내한다", async () => {
+    stubImport({
+      extra: {
+        "GET /api/console/groups": { status: 500, body: {} },
+        "GET /api/console/school-year": { status: 500, body: {} },
+      },
+    });
+    renderRoutes(routes, "/teacher/import");
+
+    expect(
+      await screen.findByText(
+        "그룹을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "학년도 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+});

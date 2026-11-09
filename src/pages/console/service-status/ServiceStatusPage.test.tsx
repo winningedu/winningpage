@@ -438,7 +438,11 @@ describe("W8 서비스별 현황표", () => {
     stubPage({ [url("diagnosis")]: { status: 500, body: {} } });
     renderRoutes(routes, "/teacher/service-status");
 
-    expect(await screen.findByText("현황표를 불러오지 못했어요")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "현황표를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
   });
 
   it("모르는 탭 주소는 학습진단 탭으로 돌려보낸다", async () => {

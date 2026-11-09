@@ -96,7 +96,7 @@ export default function DashboardPage() {
         {failed && (
           <Notice tone="Danger">
             <p className="flex items-center gap-3">
-              대시보드를 불러오지 못했어요
+              대시보드를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
               <Button
                 type="button"
                 onClick={() => {

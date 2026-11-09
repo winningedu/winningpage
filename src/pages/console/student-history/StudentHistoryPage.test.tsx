@@ -137,6 +137,18 @@ describe("W13 승인 대기 탭", () => {
 });
 
 describe("W13 승인 대기 빈 상태", () => {
+  it("승인 대기 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubPage({ [PENDING_URL]: { status: 500, body: {} } });
+
+    renderRoutes(routes, "/teacher/student-history");
+
+    expect(
+      await screen.findByText(
+        "신청 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("승인 대기가 없으면 머리와 안내 문장만 보인다", async () => {
     stubPage({ [PENDING_URL]: { body: pendingBody([]) } });
 
@@ -569,6 +581,18 @@ describe("W13 학생 조회와 이력 탭", () => {
     );
   });
 
+  it("학생 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubStudents({ [STUDENTS_URL]: { status: 500, body: {} } });
+
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    expect(
+      await screen.findByText(
+        "학생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("학생이 없으면 안내만 보이고 쪽 이동은 없다", async () => {
     stubStudents({ [STUDENTS_URL]: { body: studentsBody([]) } });
 
@@ -823,6 +847,21 @@ describe("W13 빵부스러기", () => {
     expect(crumbs()).toEqual(["한빛고등학교", "전체"]);
   });
 
+  it("졸업생 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubPage(
+      { "GET /api/console/graduates?page=1": { status: 500, body: {} } },
+      adminMe,
+    );
+
+    renderRoutes(routes, "/teacher/student-history?tab=graduates");
+
+    expect(
+      await screen.findByText(
+        "졸업생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("졸업생 탭에 학년도가 주소에 없으면 서버가 쓴 학년도를 보인다", async () => {
     stubPage(
       {
@@ -937,6 +976,18 @@ describe("W13a 학년도별 이력 창", () => {
     expect(router.state.location.pathname + router.state.location.search).toBe(
       "/teacher/coaching?studentId=s1",
     );
+  });
+
+  it("이력을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubStudents({ [HISTORY_DIALOG]: { status: 500, body: {} } });
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+    const dialog = await openHistory();
+
+    expect(
+      await within(dialog).findByText(
+        "이력을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
   });
 
   it("닫기를 누르면 창이 닫힌다", async () => {

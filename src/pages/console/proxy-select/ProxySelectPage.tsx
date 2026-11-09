@@ -130,7 +130,9 @@ export default function ProxySelectPage() {
         />
 
         {tenants.isError && (
-          <Notice tone="Danger">학교 목록을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            학교 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {tenants.data && (
           <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">

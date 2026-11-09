@@ -309,6 +309,104 @@ describe("GET /api/console/coaching", () => {
     expect(body.summary).toContain("6축 중 4축 산출");
   });
 
+  describe("last access (결정 105)", () => {
+    // 오늘은 2026-11-02(KST). 접속 시각은 KST 날짜로 센다.
+    const seenAt = (lastSeen: string | null) => {
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [
+            { id: "s1", name: "김서연", last_seen_at: lastSeen },
+            { id: "s2", name: "윤하린" },
+            { id: "s3", name: "이서준" },
+          ],
+          f,
+        );
+    };
+
+    test("7 days since the last access is risk 미접속 and type C1, even when the week has no target days", async () => {
+      seenAt("2026-10-26T23:50:00+09:00");
+      kit.state.rows.goal_daily_records = () => [];
+      const body = (await get()).body as Body;
+      expect(body.verdicts.execution).toEqual({
+        level: "risk",
+        reason: "미접속",
+      });
+      expect(body.coachingType.code).toBe("C1");
+    });
+
+    test("7 days since the last access with target days in the week is 미접속 and C1, and the goal opinion keeps its details", async () => {
+      seenAt("2026-10-26T23:50:00+09:00");
+      const r = await get();
+      const body = r.body as Body;
+      expect(body.verdicts.execution).toEqual({
+        level: "risk",
+        reason: "미접속",
+      });
+      expect(body.coachingType.code).toBe("C1");
+      expect(
+        (r.body as { text: { goalOpinion: { details: unknown } } }).text
+          .goalOpinion.details,
+      ).not.toBeNull();
+    });
+
+    test("6 days since the last access is not 미접속, and a missing record skips the rule", async () => {
+      seenAt("2026-10-27T00:10:00+09:00");
+      expect(((await get()).body as Body).verdicts.execution).toEqual({
+        level: "caution",
+      });
+
+      seenAt(null);
+      const body = (await get()).body as Body;
+      expect(body.verdicts.execution).toEqual({ level: "caution" });
+      expect(body.student.lastSeenAt).toBeNull();
+    });
+
+    test("a student who does not use goal stays no_data however long the absence", async () => {
+      seenAt("2026-10-01T00:00:00+09:00");
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [{ id: "s3", name: "이서준", last_seen_at: "2026-10-01T00:00:00Z" }],
+          f,
+        );
+      const body = (await get({ studentId: "s3" })).body as Body;
+      expect(body.verdicts.execution).toEqual({ level: "no_data" });
+      expect(body.coachingType.code).not.toBe("C1");
+    });
+
+    test("the C1 sentence carries the real day count, and Sunday study without target days prints no Infinity", async () => {
+      seenAt("2026-10-23T12:00:00+09:00");
+      kit.state.rows.goal_daily_records = () => [
+        {
+          id: 1,
+          profile_id: "s1",
+          record_date: "2026-11-01",
+          record_index: 1,
+          target_ideal_hours: 0,
+          target_min_hours: 0,
+          study_hours: 2,
+        },
+      ];
+      const r = await get();
+      const json = JSON.stringify(r.body);
+      expect(json).toContain("최근 10일간 접속 기록이 없습니다");
+      expect(json).not.toContain("Infinity");
+      expect(
+        (r.body as { text: { goalOpinion: unknown } }).text.goalOpinion,
+      ).toEqual({
+        summary:
+          "최근 10일간 접속 기록이 없습니다. 실행이 어려웠던 이유를 학생 말로 먼저 듣고, 최소 목표시간만 지키는 것부터 다시 시작하세요.",
+        details: null,
+      });
+    });
+
+    test("the response carries the raw last access time of the student", async () => {
+      seenAt("2026-10-26T14:50:00.000Z");
+      expect(((await get()).body as Body).student.lastSeenAt).toBe(
+        "2026-10-26T14:50:00.000Z",
+      );
+    });
+  });
+
   test("a student who uses nothing has no scored axis and insufficient data", async () => {
     const body = (await get({ studentId: "s3" })).body as Body;
     expect(body.axes.every((a) => a.score === null)).toBe(true);

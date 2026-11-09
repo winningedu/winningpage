@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import ConsoleGate from "../ConsoleGate";
+import { ToastProvider } from "../Toast";
 import { proxyMe, renderRoutes, stubApi } from "../testUtils";
 import ProxySelectPage from "./ProxySelectPage";
 
@@ -73,6 +74,34 @@ describe("ProxySelectPage", () => {
     expect(start.disabled).toBe(false);
     expect(screen.getByText(/8시간 뒤 자동으로 끝나요/)).toBeTruthy();
   });
+  it("학교 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubApi({
+      "GET /api/console/proxy/tenants": () => {
+        throw new TypeError("network");
+      },
+    });
+
+    renderRoutes(
+      [
+        {
+          path: "/teacher/proxy",
+          element: (
+            <ToastProvider>
+              <ProxySelectPage />
+            </ToastProvider>
+          ),
+        },
+      ],
+      "/teacher/proxy",
+    );
+
+    expect(
+      await screen.findByText(
+        "학교 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("대행 권한이 있는 본사 관리자가 다른 콘솔 주소로 들어오면 학교 고르기로 보낸다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,

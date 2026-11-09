@@ -177,6 +177,19 @@ describe("W16b 학교 전체 관리자용", () => {
 });
 
 describe("W16b 오류와 미리 고른 선생님", () => {
+  it("선생님 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubApi({
+      "GET /api/console/teachers/unissued": { status: 500, body: {} },
+    });
+    open();
+
+    expect(
+      await screen.findByText(
+        "선생님 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("행에서 열면 그 선생님이 골라져 있고 서버 거절 문구를 창에 보인다", async () => {
     stubApi({
       "GET /api/console/teachers/unissued": { body: UNISSUED },

@@ -215,8 +215,58 @@ describe("W12 미배정 목록 default", () => {
     renderRoutes(routes, "/teacher/unassigned");
 
     expect(
-      await screen.findByText("미배정 목록을 불러오지 못했어요"),
+      await screen.findByText(
+        "미배정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
+  });
+
+  it("반은 학년그룹을 고른 뒤에만 열리고 그 학년그룹의 반만 보이며, 검색하면 classId 로 다시 읽는다", async () => {
+    const filtered = `GET /api/console/assign-pool?${new URLSearchParams({
+      grade: "고2",
+      classId: "c4",
+      page: "1",
+    })}`;
+    const calls = stubPage({ [filtered]: { body: listBody([]) } });
+    renderRoutes(routes, "/teacher/unassigned");
+    await screen.findByText("김*늘");
+    const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
+    expect(classSelect.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "고2" },
+    });
+    expect(classSelect.disabled).toBe(false);
+    expect(Array.from(classSelect.options).map((o) => o.textContent)).toEqual([
+      "전체",
+      "3반",
+      "4반",
+    ]);
+    fireEvent.change(classSelect, { target: { value: "c4" } });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "미배정 학생 0명" }),
+    ).toBeTruthy();
+    expect(calls.some((c) => c.key === filtered)).toBe(true);
+  });
+
+  it("주소의 반은 새로 열어도 남고, 학년그룹을 바꾸면 고른 반이 비워진다", async () => {
+    stubPage({
+      "GET /api/console/assign-pool?grade=%EA%B3%A02&classId=c4&page=1": {
+        body: listBody([p1]),
+      },
+    });
+    renderRoutes(routes, "/teacher/unassigned?grade=고2&classId=c4");
+    await screen.findByText("김*늘");
+    const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
+    expect(classSelect.value).toBe("c4");
+
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "고1" },
+    });
+
+    expect(classSelect.value).toBe("");
   });
 
   it("담임이 주소로 열면 대시보드로 돌려보낸다", async () => {

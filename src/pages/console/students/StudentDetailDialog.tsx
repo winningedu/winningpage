@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
 import { gradeLabel } from "../classLabel";
+import { kstDaysAgoText } from "../date";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import { slotLabel } from "../slotLabel";
@@ -35,6 +36,7 @@ interface StudentDetail {
   studentId: string;
   name: string;
   flagged: boolean;
+  lastSeenAt: string | null;
   enrollment: Slot & { homeroomName: string | null };
   summaries: Record<ServiceKey, string | null>;
   history: (Slot & { schoolYear: number })[];
@@ -133,7 +135,9 @@ export default function StudentDetailDialog({
           {detail?.name ?? "학생 상세"}
         </DialogTitle>
         {query.isError && (
-          <Notice tone="Danger">학생 정보를 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            학생 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {!detail && !query.isError && (
           <Skeleton aria-busy="true" className="h-40 rounded" />
@@ -145,6 +149,8 @@ export default function StudentDetailDialog({
                 slotLabel(detail.enrollment),
                 detail.enrollment.homeroomName &&
                   `담임 ${detail.enrollment.homeroomName}`,
+                detail.lastSeenAt &&
+                  `최근 접속 ${kstDaysAgoText(detail.lastSeenAt, new Date())}`,
               ]
                 .filter(Boolean)
                 .join(", ")}

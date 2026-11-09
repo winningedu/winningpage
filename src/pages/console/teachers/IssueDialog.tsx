@@ -159,7 +159,9 @@ export default function IssueDialog({
             : "교사 정보에 등록됐고 계정이 없는 선생님만 고를 수 있어요"}
         </Notice>
         {unissued.isError && !admin && (
-          <Notice tone="Danger">선생님 목록을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            선생님 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {error && <Notice tone="Danger">{error}</Notice>}
       </div>

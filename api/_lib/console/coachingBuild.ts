@@ -29,6 +29,7 @@ export async function buildCoaching(
   const verdicts = {
     execution: executionVerdict({
       usesGoal: metrics.used.goal,
+      daysSinceLastSeen: data.goalFacts?.daysSinceLastSeen ?? null,
       ...(week ? { week } : {}),
     }),
     learning: learningVerdict(
