@@ -220,112 +220,104 @@ export async function loadCoachingData(
 ): Promise<CoachingData> {
   const uses = (key: ServiceKey) => used.includes(key);
 
-  const [
-    diagnosis,
-    goalStudent,
-    records,
-    growth,
-    perf,
-    inquiry,
-    selfeval,
-    seenRows,
-  ] = await Promise.all([
-    uses("diagnosis")
-      ? readAll<{
-          diagnosed_at: string;
-          payload: unknown;
-          snapshot: unknown;
-        }>(
-          admin,
-          "diagnosis_reports",
-          "diagnosed_at, payload, snapshot",
-          (q) => q.eq("profile_id", studentId),
-          "attempt_id",
-        )
-      : [],
-    uses("goal")
-      ? readAll<{
-          ideal_university: string;
-          ideal_department: string;
-          min_university: string;
-          min_department: string;
-          study_schedule: unknown;
-          grade: string;
-          naesin_scores: unknown;
-          mock_exam_scores: unknown;
-        }>(
-          admin,
-          "goal_students",
-          "ideal_university, ideal_department, min_university, min_department, study_schedule, grade, naesin_scores, mock_exam_scores",
-          (q) => q.eq("profile_id", studentId),
-          "profile_id",
-        )
-      : [],
-    uses("goal")
-      ? readAll<DailyRecord>(
-          admin,
-          "goal_daily_records",
-          "record_date, target_ideal_hours, target_min_hours, study_hours, reasons",
-          (q) => q.eq("profile_id", studentId),
-        )
-      : ([] as DailyRecord[]),
-    uses("growth")
-      ? readAll<{
-          created_at: string;
-          axis_scores: unknown;
-          sections: unknown;
-          narrative_theme: string | null;
-        }>(
-          admin,
-          "growth_reports",
-          "created_at, axis_scores, sections, narrative_theme",
-          (q) => q.eq("profile_id", studentId).eq("status", "completed"),
-        )
-      : [],
-    uses("performance")
-      ? readAll<{
-          id: string;
-          selected_topic_id: string | null;
-          subject: string | null;
-        }>(
-          admin,
-          "performance_sessions",
-          "id, selected_topic_id, subject",
-          (q) => q.eq("profile_id", studentId),
-        )
-      : ([] as {
-          id: string;
-          selected_topic_id: string | null;
-          subject: string | null;
-        }[]),
-    uses("inquiry")
-      ? readAll<{
-          created_at: string;
-          selected_topic_id: string | null;
-          latest_evaluation_id: string | null;
-        }>(
-          admin,
-          "inquiry_sessions",
-          "created_at, selected_topic_id, latest_evaluation_id",
-          (q) => q.eq("profile_id", studentId),
-        )
-      : [],
-    uses("selfeval")
-      ? readAll<{ created_at: string; score: number | null }>(
-          admin,
-          "selfeval_reports",
-          "created_at, score",
-          (q) =>
-            q.eq("profile_id", studentId).eq("report_type", "verification"),
-        )
-      : ([] as { created_at: string; score: number | null }[]),
-    readAll<{ last_seen_at: string | null }>(
-      admin,
-      "profiles",
-      "last_seen_at",
-      (q) => q.eq("id", studentId),
-    ),
-  ]);
+  const [diagnosis, goalStudent, records, growth, perf, inquiry, selfeval] =
+    await Promise.all([
+      uses("diagnosis")
+        ? readAll<{
+            diagnosed_at: string;
+            payload: unknown;
+            snapshot: unknown;
+          }>(
+            admin,
+            "diagnosis_reports",
+            "diagnosed_at, payload, snapshot",
+            (q) => q.eq("profile_id", studentId),
+            "attempt_id",
+          )
+        : [],
+      uses("goal")
+        ? readAll<{
+            ideal_university: string;
+            ideal_department: string;
+            min_university: string;
+            min_department: string;
+            study_schedule: unknown;
+            grade: string;
+            naesin_scores: unknown;
+            mock_exam_scores: unknown;
+          }>(
+            admin,
+            "goal_students",
+            "ideal_university, ideal_department, min_university, min_department, study_schedule, grade, naesin_scores, mock_exam_scores",
+            (q) => q.eq("profile_id", studentId),
+            "profile_id",
+          )
+        : [],
+      uses("goal")
+        ? readAll<DailyRecord>(
+            admin,
+            "goal_daily_records",
+            "record_date, target_ideal_hours, target_min_hours, study_hours, reasons",
+            (q) => q.eq("profile_id", studentId),
+          )
+        : ([] as DailyRecord[]),
+      uses("growth")
+        ? readAll<{
+            created_at: string;
+            axis_scores: unknown;
+            sections: unknown;
+            narrative_theme: string | null;
+          }>(
+            admin,
+            "growth_reports",
+            "created_at, axis_scores, sections, narrative_theme",
+            (q) => q.eq("profile_id", studentId).eq("status", "completed"),
+          )
+        : [],
+      uses("performance")
+        ? readAll<{
+            id: string;
+            selected_topic_id: string | null;
+            subject: string | null;
+          }>(
+            admin,
+            "performance_sessions",
+            "id, selected_topic_id, subject",
+            (q) => q.eq("profile_id", studentId),
+          )
+        : ([] as {
+            id: string;
+            selected_topic_id: string | null;
+            subject: string | null;
+          }[]),
+      uses("inquiry")
+        ? readAll<{
+            created_at: string;
+            selected_topic_id: string | null;
+            latest_evaluation_id: string | null;
+          }>(
+            admin,
+            "inquiry_sessions",
+            "created_at, selected_topic_id, latest_evaluation_id",
+            (q) => q.eq("profile_id", studentId),
+          )
+        : [],
+      uses("selfeval")
+        ? readAll<{ created_at: string; score: number | null }>(
+            admin,
+            "selfeval_reports",
+            "created_at, score",
+            (q) =>
+              q.eq("profile_id", studentId).eq("report_type", "verification"),
+          )
+        : ([] as { created_at: string; score: number | null }[]),
+    ]);
+  const seenRows = await readAll<{ last_seen_at: string | null }>(
+    admin,
+    "profiles",
+    "last_seen_at",
+    (q) => q.eq("id", studentId),
+  );
 
   const goal = goalStudent[0];
   const today = kstYMD(now);
