@@ -150,7 +150,7 @@ export default function TeacherResetPassword() {
       cooldown.start();
       setPhoneMessage({
         text: sendResult.dryRun
-          ? "테스트 모드입니다 — 실제 문자는 발송되지 않았습니다."
+          ? "테스트 모드입니다. 실제 문자는 발송되지 않았습니다."
           : "카카오톡으로 인증번호를 발송했습니다.",
         status: "default",
       });
