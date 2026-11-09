@@ -95,9 +95,12 @@ grant select on fx to authenticated;
 select set_config('request.jwt.claims',
   json_build_object('sub', (select v from fx where k = 'stamped'), 'role', 'authenticated')::text, true);
 set local role authenticated;
-update public.profiles set last_seen_at = timestamptz '2099-01-01 00:00:00+00'
+update public.profiles set last_seen_at = timestamptz '2099-01-01 00:00:00+00', address = 'ls-addr'
   where id = (select v from fx where k = 'stamped');
 reset role;
+select pg_temp.expect_bool('authenticated 의 UPDATE 는 실제로 1행에 닿았다(address 는 바뀜)',
+  (select p.address = 'ls-addr' from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
+  true);
 select pg_temp.expect_bool('authenticated 의 last_seen_at 직접 수정은 무시된다',
   (select p.last_seen_at = timestamptz '2026-11-01 00:00:00+00'
      from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
@@ -112,6 +115,25 @@ select pg_temp.expect_bool('service_role 은 last_seen_at 을 적을 수 있다'
      from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
   true);
 select set_config('request.jwt.claims', '', true);
+
+-- JWT 없는 postgres 롤(마이그레이션, 수동 backfill)의 수정도 반영된다
+update public.profiles set last_seen_at = timestamptz '2026-11-10 00:00:00+00'
+  where id = (select v from fx where k = 'stamped');
+select pg_temp.expect_bool('postgres 롤(JWT 없음)은 last_seen_at 을 적을 수 있다',
+  (select p.last_seen_at = timestamptz '2026-11-10 00:00:00+00'
+     from public.profiles p join fx on fx.v = p.id where fx.k = 'stamped'),
+  true);
+
+-- 잠금 함수는 호출자 권한으로 돈다(security definer 아님)
+select pg_temp.expect_bool('fn_profiles_lock_last_seen_at 은 security definer 가 아니다',
+  (select not prosecdef from pg_proc where proname = 'fn_profiles_lock_last_seen_at'),
+  true);
+
+-- 트리거는 last_seen_at 갱신에만 걸린다
+select pg_temp.expect_bool('잠금 트리거는 UPDATE OF last_seen_at 에만 걸린다',
+  (select pg_get_triggerdef(oid) like '%UPDATE OF last_seen_at ON%'
+     from pg_trigger where tgname = 'trg_profiles_lock_last_seen_at'),
+  true);
 
 do $$ begin raise notice '=== b2b-last-seen.spec: 전체 통과 ==='; end $$;
 
