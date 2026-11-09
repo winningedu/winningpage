@@ -97,5 +97,27 @@ export default defineHandler({
       );
       return;
     }
+
+    const { data: teacher, error: teacherError } = await admin
+      .from("teachers")
+      .select("id, tenant_id, profile_id")
+      .eq("login_id", loginId)
+      .eq("phone", phone)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .not("profile_id", "is", null)
+      .maybeSingle();
+    if (teacherError) throw new Error("teacher read failed");
+    // 인증은 소비하지 않는다. 번호를 잘못 적은 사람이 인증을 다시 받지 않고 고쳐 적을 수 있다.
+    if (!teacher) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "아이디와 휴대폰 번호를 다시 확인해 주세요.",
+        "TEACHER_NOT_MATCHED",
+      );
+      return;
+    }
   },
 });

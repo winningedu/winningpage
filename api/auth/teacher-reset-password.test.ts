@@ -6,6 +6,7 @@ import {
   createFakeAdmin,
   createKitState,
   type KitState,
+  matchRows,
 } from "../_lib/console/consoleTestKit.js";
 
 const kit = vi.hoisted(() => ({
@@ -33,8 +34,20 @@ const PW = "NewPass123";
 
 const post = (body: unknown) => callHandler(handler, body);
 
+const TEACHER = {
+  id: "teacher-1",
+  tenant_id: "tenant-1",
+  profile_id: "profile-1",
+  login_id: LOGIN_ID,
+  phone: PHONE,
+  status: "active",
+};
+
 beforeEach(() => {
   kit.state = createKitState();
+  kit.state.rows.phone_verifications = (f) =>
+    f.id ? [{ id: "v1" }] : { id: "v1", verified_at: new Date().toISOString() };
+  kit.state.rows.teachers = (f) => matchRows([TEACHER], f)[0] ?? null;
   process.env.SITE = "schoolmentor";
 });
 
@@ -87,16 +100,24 @@ describe("POST /api/auth/teacher-reset-password", () => {
     });
   });
 
-  test("아이디는 앞뒤 공백과 소문자를 허용한다", async () => {
-    const r = await post({
+  test("아이디는 앞뒤 공백과 소문자를 허용하고 번호는 숫자만 남겨 교사를 조회한다", async () => {
+    const seen: Record<string, unknown>[] = [];
+    kit.state.rows.teachers = (f) => {
+      seen.push(f);
+      return null;
+    };
+
+    await post({
       loginId: ` ${LOGIN_ID.toLowerCase()} `,
       phone: "010-1234-5678",
       password: PW,
     });
 
-    // 형식 검사를 통과해 인증 조회까지 간다(인증이 없으므로 VERIFICATION_EXPIRED).
-    expect(r.status).toBe(400);
-    expect(r.body).toMatchObject({ error: { code: "VERIFICATION_EXPIRED" } });
+    expect(seen[0]).toMatchObject({
+      login_id: LOGIN_ID,
+      phone: PHONE,
+      status: "active",
+    });
   });
 
   test("인증 행이 없으면(없음, 이미 소비됨) VERIFICATION_EXPIRED 와 안내 문구를 돌려준다", async () => {
@@ -126,4 +147,32 @@ describe("POST /api/auth/teacher-reset-password", () => {
       "phone_verifications",
     ]);
   });
+
+  test.each([
+    ["번호가 다르면", { phone: "01099998888" }, TEACHER],
+    ["아이디가 다르면", { loginId: "ZZZZ2345XY7Z9K" }, TEACHER],
+    ["비활성 교사면", {}, { ...TEACHER, status: "inactive" }],
+  ])(
+    "%s TEACHER_NOT_MATCHED 이고 인증을 소비하지 않는다",
+    async (_name, over, teacher) => {
+      kit.state.rows.teachers = (f) => matchRows([teacher], f)[0] ?? null;
+
+      const r = await post({
+        loginId: LOGIN_ID,
+        phone: PHONE,
+        password: PW,
+        ...over,
+      });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toEqual({
+        error: {
+          code: "TEACHER_NOT_MATCHED",
+          message: "아이디와 휴대폰 번호를 다시 확인해 주세요.",
+        },
+      });
+      expect(kit.state.updates).toEqual([]);
+      expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
+    },
+  );
 });
