@@ -105,8 +105,9 @@ export default defineHandler({
     if (taken) {
       const holder = names.get(taken.student_id) ?? "";
       const sameName =
+        holder !== "" &&
         enrollments.filter((e) => names.get(e.student_id) === holder).length >
-        1;
+          1;
       res.status(200).json({
         result: "number_taken",
         homeroomName,
