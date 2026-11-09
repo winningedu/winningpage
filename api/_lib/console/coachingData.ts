@@ -28,6 +28,7 @@ import {
 } from "./goalRate.js";
 import { type Target, target } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
+import { INQUIRY_STEPS } from "./sessionStatus.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
   "목표 설정": "GOAL",
@@ -191,6 +192,17 @@ function narrativeKeywords(
   return latest?.narrative_theme ? [latest.narrative_theme] : [];
 }
 
+function inquiryStageOf(session: { current_step: number; status: string }) {
+  const last = INQUIRY_STEPS.length;
+  const completed = session.status === "completed";
+  const step = Math.min(Math.max(session.current_step, 1), last);
+  return {
+    step,
+    name: INQUIRY_STEPS[(completed ? last : step) - 1] ?? "",
+    completed,
+  };
+}
+
 export interface CoachingData {
   performanceTasks: {
     title: string | null;
@@ -201,6 +213,8 @@ export interface CoachingData {
   goalFacts: import("./coachingText.js").GoalFacts | null;
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
+  /** 가장 최근에 고친 탐구 세션의 콘솔 단계(6단계 이름). 세션이 없으면 null. */
+  inquiryStage: { step: number; name: string; completed: boolean } | null;
   growthKeywords: string[];
   grade: string | null;
   /** profiles.last_seen_at 그대로(ISO). 기록이 없으면 null. */
@@ -290,13 +304,15 @@ export async function loadCoachingData(
           }[]),
       uses("inquiry")
         ? readAll<{
-            created_at: string;
+            updated_at: string;
+            current_step: number;
+            status: string;
             selected_topic_id: string | null;
             latest_evaluation_id: string | null;
           }>(
             admin,
             "inquiry_sessions",
-            "created_at, selected_topic_id, latest_evaluation_id",
+            "updated_at, current_step, status, selected_topic_id, latest_evaluation_id",
             (q) => q.eq("profile_id", studentId),
           )
         : [],
@@ -365,7 +381,7 @@ export async function loadCoachingData(
     .map((id) => perfReports.find((r) => r.session_id === id)?.score)
     .filter((s): s is number => typeof s === "number");
 
-  const session = lastBy(inquiry, (s) => s.created_at);
+  const session = lastBy(inquiry, (s) => s.updated_at);
   const topics = session?.selected_topic_id
     ? await readAll<{ fit: string; detail: unknown }>(
         admin,
@@ -477,6 +493,7 @@ export async function loadCoachingData(
       subject: s.subject,
     })),
     inquiryTopic: topicTitle(topics[0]?.detail),
+    inquiryStage: session ? inquiryStageOf(session) : null,
     growthKeywords: narrativeKeywords(growth),
     grade,
     targets: goal
