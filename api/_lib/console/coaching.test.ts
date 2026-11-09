@@ -392,8 +392,16 @@ describe("computeCompetencies (연결표 r23~r42)", () => {
 });
 
 describe("signalOf (문구표 r17~r22)", () => {
+  const AXIS_KEYS = [
+    "execution",
+    "readiness",
+    "careerLink",
+    "performance",
+    "inquiry",
+    "selfAssessment",
+  ] as const;
   const axisScores = (...scores: (number | null)[]) =>
-    scores.map((score) => ({ score }));
+    scores.map((score, i) => ({ key: AXIS_KEYS[i], score }));
   const verdicts = (
     execution: VerdictLevel,
     learning: VerdictLevel,
@@ -410,10 +418,13 @@ describe("signalOf (문구표 r17~r22)", () => {
     ).toBe("focus");
   });
 
-  test("two severe counts is focus coaching and a learning risk counts as one", () => {
+  test("a learning risk does not count the execution axis again", () => {
     expect(
-      signalOf(verdicts("good", "risk", "good"), axisScores(49, 90)).signal,
-    ).toBe("focus");
+      signalOf(verdicts("good", "risk", "good"), axisScores(45, 90)).signal,
+    ).toBe("caution");
+  });
+
+  test("two severe counts is focus coaching and a learning risk counts as one", () => {
     expect(
       signalOf(verdicts("good", "good", "good"), axisScores(49, 40)).signal,
     ).toBe("focus");
