@@ -117,7 +117,12 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
+        {
+          id: "s1",
+          name: "김하늘",
+          created_at: "2026-03-02T01:00:00Z",
+          last_seen_at: "2026-11-06T14:50:00.000Z",
+        },
         { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
       ],
       f,
@@ -141,6 +146,15 @@ beforeEach(() => {
 });
 
 describe("GET /api/console/students/detail", () => {
+  test("lastSeenAt is the stored last access time and null when the student was never seen", async () => {
+    expect((await get()).body).toMatchObject({
+      lastSeenAt: "2026-11-06T14:50:00.000Z",
+    });
+    kit.state.rows.profiles = (f) =>
+      matchRows([{ id: "s1", name: "김하늘", last_seen_at: null }], f);
+    expect((await get()).body).toMatchObject({ lastSeenAt: null });
+  });
+
   test("a school admin opens a student and sees the real name, the current slot and the class history newest first", async () => {
     const r = await get();
 

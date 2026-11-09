@@ -90,11 +90,12 @@ export default defineHandler({
       homeroomName,
     ] = await Promise.all([
       loadClassIndex(admin, actor.tenantId),
-      readAll<{ name: string | null; created_at: string | null }>(
-        admin,
-        "profiles",
-        "name, created_at",
-        (q) => q.eq("id", studentId),
+      readAll<{
+        name: string | null;
+        created_at: string | null;
+        last_seen_at: string | null;
+      }>(admin, "profiles", "name, created_at, last_seen_at", (q) =>
+        q.eq("id", studentId),
       ),
       loadServiceUsage(admin, [studentId]),
       Promise.all(
@@ -139,6 +140,7 @@ export default defineHandler({
       joinedAt: profile?.created_at
         ? KST_DATE.format(new Date(profile.created_at))
         : null,
+      lastSeenAt: profile?.last_seen_at ?? null,
       flagged: flags.length > 0,
       enrollment: { ...slotOf(current), homeroomName },
       summaries,
