@@ -480,6 +480,106 @@ describe("GET /api/console/students special students", () => {
     expect(s1?.specialReasons).toEqual(["urgency"]);
   });
 
+  test("special=1 takes the union of all five reasons, total counts the union and pages split it", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+    try {
+      // s1 low_rate + urgency, s2 manual, s3 feedback_wait, s4 inactive, s7 no reason
+      kit.state.rows.student_enrollments = (f) =>
+        matchRows(
+          [
+            ...ENROLLMENTS,
+            row({
+              id: "e7",
+              student_id: "s7",
+              grade: "고1",
+              class_id: "c-G",
+              number: 2,
+            }),
+          ],
+          f,
+        );
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [
+            ...["s1", "s2", "s3", "s7"].map((id) => ({
+              id,
+              name: `학생${id}`,
+              created_at: "2026-03-02T01:00:00Z",
+              last_seen_at: null,
+            })),
+            {
+              id: "s4",
+              name: "학생s4",
+              created_at: "2026-03-02T01:00:00Z",
+              last_seen_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      const day = weekWindows().thisWeek.find(
+        (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+      );
+      kit.state.rows.goal_daily_records = (f) =>
+        matchRows(
+          [
+            {
+              profile_id: "s1",
+              record_date: day,
+              study_hours: 1,
+              target_ideal_hours: 10,
+              target_min_hours: 5,
+            },
+          ],
+          f,
+        );
+      kit.state.rows.performance_sessions = (f) =>
+        matchRows(
+          [
+            {
+              id: "ps-s3",
+              profile_id: "s3",
+              current_step: 5,
+              updated_at: "2026-11-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      kit.state.rows.performance_submissions = (f) =>
+        matchRows(
+          [{ session_id: "ps-s3", submitted_at: "2026-10-26T00:00:00Z" }],
+          f,
+        );
+      kit.state.rows.performance_reports = () => [];
+
+      const first = await get({ special: "1", pageSize: "3", page: "1" });
+      const second = await get({ special: "1", pageSize: "3", page: "2" });
+
+      expect(special(first).map((i) => i.studentId)).toEqual([
+        "s3",
+        "s2",
+        "s1",
+      ]);
+      expect(special(second).map((i) => i.studentId)).toEqual(["s4"]);
+      expect(first.body).toMatchObject({
+        total: 4,
+        scopeTotal: 5,
+        pageCount: 2,
+      });
+      expect(second.body).toMatchObject({ total: 4, page: 2 });
+      const all = [...special(first), ...special(second)];
+      expect(all.flatMap((i) => i.specialReasons).sort()).toEqual([
+        "feedback_wait",
+        "inactive",
+        "low_rate",
+        "manual",
+        "urgency",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
     const day = weekWindows().thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
