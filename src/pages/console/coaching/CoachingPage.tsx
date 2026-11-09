@@ -17,7 +17,13 @@ import CoachingRadar, { axisStatusText } from "./CoachingRadar";
 import { GoalOpinionCard, Narrative, ServiceCards } from "./CoachingSections";
 import MemoPanel from "./MemoPanel";
 import ServiceWindow from "./ServiceWindow";
-import type { Coaching, PickerStudent, ServiceKey, Signal } from "./types";
+import type {
+  Coaching,
+  PickerStudent,
+  ServiceKey,
+  Signal,
+  Target,
+} from "./types";
 import { useCoaching, useCoachingStudents } from "./useCoaching";
 
 const SERVICE_NAMES: [ServiceKey, string][] = [
@@ -40,6 +46,10 @@ const GRADE_ORDER = ["중1", "중2", "중3", "고1", "고2", "고3"];
 
 const CARD =
   "flex flex-col gap-5 rounded-2xl bg-goal-cardTone-neutral px-5 py-6 md:px-8 md:py-7";
+
+/** 대학과 학과, 확률이 있으면 퍼센트까지. 확률이 없으면 0%로 쓰지 않고 뺀다. */
+const targetLabel = (t: Target) =>
+  `${t.university} ${t.department}${t.probability == null ? "" : ` ${t.probability}%`}`;
 
 const classLabelOf = (s: PickerStudent) =>
   `${s.groupName ? `${s.groupName} ` : ""}${s.className ?? "반 없음"}${s.className ? "반" : ""}`;
@@ -180,16 +190,10 @@ export function StudentCard({ data }: { data: Coaching }) {
       <hr className="border-line" />
       <div className="flex flex-wrap gap-2">
         {student.targets?.ideal && (
-          <Chip tone="Badge">
-            이상 {student.targets.ideal.university}{" "}
-            {student.targets.ideal.department}
-          </Chip>
+          <Chip tone="Badge">이상 {targetLabel(student.targets.ideal)}</Chip>
         )}
         {student.targets?.min && (
-          <Chip tone="Neutral">
-            최소 {student.targets.min.university}{" "}
-            {student.targets.min.department}
-          </Chip>
+          <Chip tone="Neutral">최소 {targetLabel(student.targets.min)}</Chip>
         )}
         {SERVICE_NAMES.map(([key, name]) =>
           student.services[key] === "using" ? (
@@ -203,6 +207,12 @@ export function StudentCard({ data }: { data: Coaching }) {
           ),
         )}
       </div>
+      {(student.targets?.ideal?.probability != null ||
+        student.targets?.min?.probability != null) && (
+        <p className="text-app-caption text-ink-sub">
+          목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다
+        </p>
+      )}
     </section>
   );
 }

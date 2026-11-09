@@ -50,7 +50,7 @@ export interface Target {
   university: string;
   department: string;
   /** 수시 확률(정수 %). 산출 전이면 null. */
-  probability?: number | null;
+  probability: number | null;
 }
 
 export interface Coaching {

@@ -81,8 +81,8 @@ const coaching = (over: Partial<Coaching> = {}): Coaching => ({
     servicesUsed: 6,
     services: using,
     targets: {
-      ideal: { university: "가나대", department: "경영학과" },
-      min: { university: "다라대", department: "경영학과" },
+      ideal: { university: "가나대", department: "경영학과", probability: 34 },
+      min: { university: "다라대", department: "경영학과", probability: 61 },
     },
   },
   verdicts: {
@@ -322,7 +322,7 @@ describe("W9 개인종합코칭 기본", () => {
     expect(
       screen.getByText("실행 주의, 학습역량 주의, 연계 주의"),
     ).toBeTruthy();
-    expect(screen.getByText("이상 가나대 경영학과")).toBeTruthy();
+    expect(screen.getByText("이상 가나대 경영학과 34%")).toBeTruthy();
     expect(screen.getByText("담임 박지훈")).toBeTruthy();
     expect(screen.getByText("유형 F1 연결 보강")).toBeTruthy();
     expect(router.state.location.search).toBe("?studentId=s1");
@@ -505,6 +505,79 @@ describe("W9 문구 칸", () => {
     ).toBeTruthy();
   });
 
+  it("목표 칩에 수시 확률을 붙이고, 확률이 없으면 퍼센트 없이 대학만 보인다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          student: {
+            ...coaching().student,
+            targets: {
+              ideal: {
+                university: "가나대",
+                department: "경영학과",
+                probability: 34,
+              },
+              min: {
+                university: "다라대",
+                department: "경영학과",
+                probability: null,
+              },
+            },
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(await screen.findByText("이상 가나대 경영학과 34%")).toBeTruthy();
+    expect(screen.getByText("최소 다라대 경영학과")).toBeTruthy();
+    expect(screen.queryByText(/0%/)).toBeNull();
+  });
+
+  it("확률이 보이면 목표 상세가 없어도 상담 참고 지표 안내가 한 번만 보인다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          text: { ...coaching().text, goalOpinion: null },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(
+      await screen.findAllByText(
+        "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("확률이 모두 없으면 상담 참고 지표 안내를 보이지 않는다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          student: {
+            ...coaching().student,
+            targets: {
+              ideal: {
+                university: "가나대",
+                department: "경영학과",
+                probability: null,
+              },
+              min: null,
+            },
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(await screen.findByText("이상 가나대 경영학과")).toBeTruthy();
+    expect(screen.queryByText(/상담 참고 지표입니다/)).toBeNull();
+  });
+
   it("문구가 비어 있는 칸은 그리지 않는다", async () => {
     stubPage({
       "GET /api/console/coaching?studentId=s1": {
@@ -514,7 +587,6 @@ describe("W9 문구 칸", () => {
             priorityTask: null,
             careerPlan: null,
             goalOpinion: null,
-            points: [],
             competencyGap: null,
           },
         }),
@@ -527,7 +599,30 @@ describe("W9 문구 칸", () => {
     expect(screen.queryByText("우선 과제")).toBeNull();
     expect(screen.queryByRole("list", { name: "향후 진로계획" })).toBeNull();
     expect(screen.queryByText("목표관리 상담 의견")).toBeNull();
-    expect(screen.queryByText("종합 진단 상담 포인트")).toBeNull();
+  });
+
+  it("상담 포인트가 없을 때 서버가 내려주는 안내 문장을 보여 준다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          text: {
+            ...coaching().text,
+            points: [
+              "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.",
+            ],
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect(await screen.findByText("종합 진단 상담 포인트")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.",
+      ),
+    ).toBeTruthy();
   });
 });
 
