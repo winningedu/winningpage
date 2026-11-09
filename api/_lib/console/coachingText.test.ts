@@ -21,6 +21,7 @@ import {
   gradeInputCheck,
   nextServiceTasks,
   priorityTask,
+  serviceCards,
   strengths,
   studyMethods,
   type TextFacts,
@@ -827,6 +828,53 @@ describe("서비스 다음 할 일, 성장설계와 자기평가 (r114, r115)", 
         ).some((t) => t.includes("심화탐구 주제 탐색 시작")),
       ).toBe(false);
     }
+  });
+});
+
+describe("목표관리 서비스 카드의 목표대학 확률 (교 #59, 106-5)", () => {
+  const goalDetail = (targets: TextFacts["targets"]) =>
+    serviceCards(facts({ targets })).find((c) => c.service === "goal")?.detail;
+  const t = (
+    university: string,
+    department: string,
+    probability: number | null,
+  ) => ({
+    university,
+    department,
+    probability,
+  });
+
+  test("이상, 최소 목표대학과 확률을 연속 기록 뒤에 붙인다", () => {
+    expect(
+      goalDetail({
+        ideal: t("가나대", "경영학과", 34),
+        min: t("다라대", "경영학과", 61),
+      }),
+    ).toBe(
+      "최소 목표시간 충족 4일 / 목표 설정 6일, 연속 기록 1일, 이상 가나대 경영학과 34%, 최소 다라대 경영학과 61%",
+    );
+  });
+
+  test("확률이 없으면 퍼센트만 빼고, 목표가 없는 쪽은 뺀다", () => {
+    expect(
+      goalDetail({
+        ideal: t("가나대", "경영학과", null),
+        min: t("다라대", "경영학과", 0),
+      }),
+    ).toMatch(/, 이상 가나대 경영학과, 최소 다라대 경영학과 0%$/);
+    expect(
+      goalDetail({ ideal: null, min: t("다라대", "경영학과", 61) }),
+    ).toMatch(/연속 기록 1일, 최소 다라대 경영학과 61%$/);
+    expect(goalDetail(null)).toMatch(/연속 기록 1일$/);
+    expect(goalDetail(undefined)).toMatch(/연속 기록 1일$/);
+  });
+
+  test("합격을 단정하는 문장을 쓰지 않는다", () => {
+    const d = goalDetail({
+      ideal: t("가나대", "경영학과", 34),
+      min: null,
+    }) as string;
+    expect(d).not.toMatch(/합격/);
   });
 });
 

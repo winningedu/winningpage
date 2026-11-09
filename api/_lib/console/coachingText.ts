@@ -1134,6 +1134,19 @@ export interface ServiceCard {
   detail: string;
 }
 
+/** "이상 가나대 경영학과 34%". 확률이 없으면(미산출) 퍼센트만 뺀다. 목표가 없으면 빈 문자열. */
+function targetLabel(
+  kind: "이상" | "최소",
+  t:
+    | { university: string; department: string; probability: number | null }
+    | null
+    | undefined,
+): string {
+  if (!t) return "";
+  const base = `${kind} ${t.university} ${t.department}`;
+  return t.probability === null ? base : `${base} ${t.probability}%`;
+}
+
 const FIT_NAME = { fit: "맞음", normal: "보통", off: "어긋남" } as const;
 
 /** 서비스별 요약 카드 6장(교 #62). 쓰지 않는 서비스는 "서비스 이용 전", 목표를 못 읽으면 "목표 미설정". */
@@ -1202,7 +1215,14 @@ export function serviceCards(f: TextFacts): ServiceCard[] {
             level === "good" ? "양호" : level === "caution" ? "주의" : "위험",
           tone: level === "good" ? "success" : "warning",
           value: `달성율 ${pct(ach(f) ?? 0)}%`,
-          detail: `최소 목표시간 충족 ${week.metDays}일 / 목표 설정 ${week.setDays}일, 연속 기록 ${f.goal.streak}일`,
+          detail: [
+            `최소 목표시간 충족 ${week.metDays}일 / 목표 설정 ${week.setDays}일`,
+            `연속 기록 ${f.goal.streak}일`,
+            targetLabel("이상", f.targets?.ideal),
+            targetLabel("최소", f.targets?.min),
+          ]
+            .filter(Boolean)
+            .join(", "),
         })
       : m.used.goal
         ? {
