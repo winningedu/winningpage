@@ -937,6 +937,10 @@ const EXCLUDED_AXIS: Record<string, AxisKey> = {
   K: "readiness",
 };
 
+/** 상담 포인트가 하나도 없을 때의 안내(교 #93, 문구표 r177). */
+export const COUNSEL_POINTS_NONE =
+  "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.";
+
 /** 70점 미만 축의 상담 포인트 최대 2개(문구표 r159~r177). 한줄 진단이 다룬 축은 뺀다. */
 export function counselPoints(f: TextFacts): string[] {
   const excluded = EXCLUDED_AXIS[f.type.code];
@@ -955,7 +959,7 @@ export function counselPoints(f: TextFacts): string[] {
     );
     if (out.length === 2) break;
   }
-  return out;
+  return out.length > 0 ? out : [COUNSEL_POINTS_NONE];
 }
 
 /** 성적 입력값 확인(문구표 r178). 0.5등급 이상 차이일 때만. */

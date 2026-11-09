@@ -14,6 +14,7 @@ import {
 } from "./coaching.js";
 import {
   buildCoachingText,
+  COUNSEL_POINTS_NONE,
   careerPlan,
   counselPoints,
   goalOpinion,
@@ -849,6 +850,53 @@ describe("종합 진단 상담 포인트 (r159~r179)", () => {
         p.startsWith("학습 실행력"),
       ),
     ).toBe(false);
+  });
+
+  test("상담 포인트가 하나도 없으면 안내 문장 하나를 낸다 (교 #93, r177)", () => {
+    expect(COUNSEL_POINTS_NONE).toBe(
+      "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.",
+    );
+    const all80 = facts(
+      {},
+      {
+        performance: { avgScore: 90, tasks: 3, feedbackDone: 3 },
+      },
+    );
+    const okAxes = {
+      ...all80,
+      axes: {
+        ...all80.axes,
+        axes: all80.axes.axes.map((a) =>
+          a.status === "scored" ? { ...a, score: 80 } : a,
+        ),
+      },
+    };
+    expect(counselPoints(okAxes)).toEqual([COUNSEL_POINTS_NONE]);
+    const low = facts(
+      { type: { code: "H", name: "" } },
+      { performance: { avgScore: 20, tasks: 3, feedbackDone: 0 } },
+    );
+    const onlyCovered = {
+      ...low,
+      axes: {
+        ...low.axes,
+        axes: low.axes.axes.map((a) =>
+          a.key === "performance" || a.status !== "scored"
+            ? { ...a, score: a.status === "scored" ? 55 : a.score }
+            : { ...a, score: 80 },
+        ),
+      },
+    };
+    expect(counselPoints(onlyCovered)).toEqual([COUNSEL_POINTS_NONE]);
+  });
+
+  test("상담 포인트가 있으면 안내 문장은 붙지 않는다", () => {
+    const low = facts(
+      { type: F1 },
+      { performance: { avgScore: 50, tasks: 3, feedbackDone: 2 } },
+    );
+    expect(counselPoints(low)).not.toContain(COUNSEL_POINTS_NONE);
+    expect(counselPoints(low).length).toBeLessThanOrEqual(2);
   });
 
   test("성적 입력값 확인은 0.5등급 이상 차이일 때만 (r178)", () => {
