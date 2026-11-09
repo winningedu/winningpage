@@ -42,6 +42,8 @@ import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { defineHandler } from "./_lib/handler.js";
 import { isValidMobile, normalizePhone } from "./_lib/phoneCode.js";
+import { isValidPassword } from "./_lib/signup/schoolStudent.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -271,6 +273,20 @@ export default defineHandler({
         ok: false,
         reason: "invalid_phone",
         detail: "휴대폰 번호 형식이 올바르지 않습니다.",
+      });
+    }
+
+    // 스쿨멘토는 임시비밀번호 대신 학생이 정한 새 비밀번호를 받는다. DB 를 읽기 전에 검증한다.
+    const schoolmentor = isSchoolmentorSite();
+    const newPassword: unknown = req.body?.password;
+    if (
+      schoolmentor &&
+      (typeof newPassword !== "string" || !isValidPassword(newPassword))
+    ) {
+      return void res.status(400).json({
+        ok: false,
+        reason: "invalid_password",
+        detail: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
       });
     }
 

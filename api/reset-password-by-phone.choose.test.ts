@@ -2,7 +2,7 @@
 // 위닝은 새 필드를 보내지 않으므로 가장 먼저 가입한 계정 하나를 재설정하는
 // 기존 동작이 그대로여야 한다.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeDb,
@@ -10,11 +10,20 @@ import {
   type FakeDb,
 } from "./_lib/fakeSupabase.testkit.js";
 
-const state = vi.hoisted(() => ({ db: null as unknown }));
+const state = vi.hoisted(() => ({
+  db: null as unknown,
+  signIn: vi.fn(),
+}));
 
 vi.mock("./_lib/supabaseAdmin.js", () => ({
+  getEnv: (...names: string[]) =>
+    process.env[names[0] as string] ?? "env-value",
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => state.db,
+}));
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: () => ({ auth: { signInWithPassword: state.signIn } }),
 }));
 
 import handler from "./reset-password-by-phone.js";
@@ -147,5 +156,33 @@ describe("reset-password-by-phone chooseAccount", () => {
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
     expect(verification()?.consumed_at).toBeNull();
+  });
+});
+
+// 스쿨멘토(SITE=schoolmentor)는 임시비밀번호 대신 학생이 새 비밀번호를 직접 정한다.
+describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)", () => {
+  beforeEach(() => {
+    process.env.SITE = "schoolmentor";
+  });
+
+  afterEach(() => {
+    delete process.env.SITE;
+  });
+
+  test.each([
+    ["비밀번호가 없으면", {}],
+    ["비밀번호가 문자열이 아니면", { password: 123456 }],
+    ["비밀번호에 특수문자가 없으면", { password: "Abcdef12" }],
+  ])("%s 400 invalid_password 이고 DB 를 읽지 않는다", async (_name, extra) => {
+    const from = vi.spyOn(state.db as { from: () => unknown }, "from");
+    const res = await reset(extra);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      ok: false,
+      reason: "invalid_password",
+      detail: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
+    });
+    expect(from).not.toHaveBeenCalled();
+    expect(db.passwordUpdates).toEqual([]);
   });
 });
