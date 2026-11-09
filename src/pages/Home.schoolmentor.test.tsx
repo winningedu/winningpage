@@ -128,6 +128,30 @@ describe("Home 스쿨멘토 구성", () => {
     ).toBeInTheDocument();
   });
 
+  test("위닝 홈은 특허청 특허 조회 링크와 배지 이미지를 새 창으로 연다", async () => {
+    state.b2b = false;
+    renderHome();
+    await screen.findByRole("region", { name: "핵심 서비스" });
+    const link = screen.getByRole("link", { name: /특허 조회 새 창 열기/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://www.kipris.or.kr/khome/search/searchResult.do",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(
+      within(link).getByAltText(
+        "특허청 '학습코칭 장치 및 방법' 특허 등록 103038224",
+      ),
+    ).toHaveAttribute("src", "/images/landing/patent-badge.png");
+  });
+
+  test("스쿨멘토 홈에는 특허 배지 링크가 없다", async () => {
+    renderHome();
+    await screen.findByRole("region", { name: "핵심 서비스" });
+    expect(screen.queryByRole("link", { name: /특허 조회/ })).toBeNull();
+  });
+
   test("서비스, 새로운 소식, 칼럼-교육청소식 순서로 그린다", async () => {
     renderHome();
     const services = await screen.findByRole("region", { name: "핵심 서비스" });
