@@ -5,7 +5,7 @@
 // scopeTotal 은 필터 없이 범위 안의 학생 수라 "학생 없음"과 "조건에 맞는 학생 없음"을 가른다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { kstYMD } from "../../src/lib/goal/calc/index.js";
+import { diffDaysYMD, kstYMD } from "../../src/lib/goal/calc/index.js";
 import { loadDiagnosisStatus } from "../_lib/console/diagnosisStatus.js";
 import {
   compareClassName,
@@ -79,22 +79,29 @@ async function loadFlagged(
   );
   return new Set(rows.map((r) => r.student_id));
 }
-/** 이름과 가입일(KST 날짜). in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
+/** 이름, 가입일(KST 날짜), 최근 접속 시각. in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
 async function loadProfiles(
   admin: SupabaseClient,
   ids: string[],
-): Promise<Map<string, { name: string; joinedAt: string | null }>> {
+): Promise<
+  Map<
+    string,
+    { name: string; joinedAt: string | null; lastSeenAt: string | null }
+  >
+> {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += PROFILE_CHUNK) {
     chunks.push(ids.slice(i, i + PROFILE_CHUNK));
   }
   const pages = await Promise.all(
     chunks.map((chunk) =>
-      readAll<{ id: string; name: string | null; created_at: string | null }>(
-        admin,
-        "profiles",
-        "id, name, created_at",
-        (q) => q.in("id", chunk),
+      readAll<{
+        id: string;
+        name: string | null;
+        created_at: string | null;
+        last_seen_at: string | null;
+      }>(admin, "profiles", "id, name, created_at, last_seen_at", (q) =>
+        q.in("id", chunk),
       ),
     ),
   );
@@ -104,6 +111,7 @@ async function loadProfiles(
       {
         name: p.name ?? "",
         joinedAt: p.created_at ? kstYMD(new Date(p.created_at)) : null,
+        lastSeenAt: p.last_seen_at,
       },
     ]),
   );
@@ -229,6 +237,10 @@ export default defineHandler({
       });
     }
 
+    // 접속한 날과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속으로 잡지 않는다).
+    const today = kstYMD(new Date());
+    const daysSince = (at: string | null | undefined) =>
+      at ? diffDaysYMD(kstYMD(new Date(at)), today) : null;
     const extrasOf = async (rows: EnrollmentRow[]) => {
       const ids = rows.map((e) => e.student_id);
       await ensureServices(ids);
@@ -245,7 +257,7 @@ export default defineHandler({
           {
             weeklyRate: rates.get(id) ?? null,
             urgency: diagnosis.get(id)?.urgency ?? null,
-            lastSeenDays: null,
+            lastSeenDays: daysSince(profiles.get(id)?.lastSeenAt),
             feedbackWaitingDays: null,
             flagged: flagged.has(id),
           },

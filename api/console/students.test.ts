@@ -1,6 +1,6 @@
 // GET /api/console/students 계약 검증(W6 학생 관리). 담임은 담당 학급의 실명, 관리자는 전교의 가린 이름.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -491,6 +491,66 @@ describe("GET /api/console/students special students", () => {
     expect(
       special(withThreshold).find((i) => i.studentId === "s1")?.specialReasons,
     ).toEqual(["urgency"]);
+  });
+
+  describe("inactive", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+      kit.state.rows.diagnosis_reports = () => [];
+      kit.state.rows.student_flags = () => [];
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const seen = (lastSeen: Record<string, string | null>) => {
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          ["s1", "s2", "s3", "s4"].map((id) => ({
+            id,
+            name: `학생${id}`,
+            created_at: null,
+            last_seen_at: lastSeen[id] ?? null,
+          })),
+          f,
+        );
+    };
+    const reasonsById = (r: { body: unknown }) =>
+      Object.fromEntries(
+        special(r).map((i) => [i.studentId, i.specialReasons]),
+      );
+
+    test("7 KST calendar days or more since the last access is inactive, 6 and no record are not, and special=1 lists the inactive student", async () => {
+      seen({
+        // KST 11-02 23:59 is 7 days before 11-09, KST 11-03 00:00 is 6.
+        s1: "2026-11-02T14:59:59Z",
+        s2: "2026-11-02T15:00:00Z",
+        s3: null,
+      });
+
+      expect(reasonsById(await get())).toEqual({
+        s1: ["inactive"],
+        s2: [],
+        s3: [],
+        s4: [],
+      });
+      const only = await get({ special: "1" });
+      expect(special(only).map((i) => i.studentId)).toEqual(["s1"]);
+      expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("the tenant's inactive days replace the default 7", async () => {
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        org_type: "학원",
+        special_inactive_days: 3,
+      });
+      seen({ s1: "2026-11-06T03:00:00Z", s2: "2026-11-07T03:00:00Z" });
+
+      expect(reasonsById(await get())).toMatchObject({
+        s1: ["inactive"],
+        s2: [],
+      });
+    });
   });
 
   test("the special filter combines with a service tab", async () => {
