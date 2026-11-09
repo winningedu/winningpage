@@ -146,12 +146,21 @@ describe("Home 스쿨멘토 구성", () => {
     ).toHaveAttribute("src", "/images/landing/patent-badge.png");
   });
 
-  test("스쿨멘토 홈에는 특허 배지 링크가 없다", async () => {
+  test("스쿨멘토 홈도 특허증 PDF 링크와 배지 이미지를 새 창으로 연다", async () => {
     renderHome();
     await screen.findByRole("region", { name: "핵심 서비스" });
+    const link = screen.getByRole("link", { name: /특허증 새 창 열기/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "/images/landing/patent-certificate-10-3038224.pdf",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
     expect(
-      screen.queryByRole("link", { name: /특허증 새 창 열기/ }),
-    ).toBeNull();
+      within(link).getByAltText(
+        "지식재산처 학습코칭 장치 및 방법 특허 제10-3038224호",
+      ),
+    ).toBeInTheDocument();
   });
 
   test("서비스, 새로운 소식, 칼럼-교육청소식 순서로 그린다", async () => {
