@@ -43,7 +43,11 @@ function DeleteDialog({
         <p className="text-app-body text-ink-sub">
           삭제하면 화면에서만 숨겨져요. 작성한 교사만 삭제할 수 있어요
         </p>
-        {error && <Notice tone="Danger">메모를 지우지 못했어요</Notice>}
+        {error && (
+          <Notice tone="Danger">
+            메모를 지우지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
+        )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             취소

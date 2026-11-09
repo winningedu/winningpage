@@ -239,6 +239,23 @@ describe("W9d 메모 삭제 확인", () => {
       memoId: "m1",
     });
   });
+
+  it("삭제가 실패하면 다시 시도하라는 안내를 보인다", async () => {
+    render({ "POST /api/console/memos/hide": { status: 500, body: {} } });
+    await screen.findByText("진로 상담 필요");
+
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    await screen.findByText("메모를 삭제할까요?");
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "삭제" }).at(-1) as HTMLElement,
+    );
+
+    expect(
+      await screen.findByText(
+        "메모를 지우지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
 });
 
 describe("태블릿과 휴대폰의 접힘", () => {
