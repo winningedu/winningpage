@@ -200,4 +200,30 @@ describe("previous diagnosis and report meta (결정 106.4)", () => {
       diagnosedAt: "2026.03.10",
     });
   });
+
+  test("one report has no previous, and no report or an unused service has neither", async () => {
+    reports([
+      {
+        attempt_id: "a1",
+        diagnosed_at: "2026-03-10T00:00:00Z",
+        payload: payload(70),
+      },
+    ]);
+    const one = await load(["diagnosis"]);
+    expect(one.diagnosisPrevious).toBeNull();
+    expect(one.diagnosisMeta).toEqual({
+      schoolType: null,
+      gpa: null,
+      gradeTrend: null,
+      diagnosedAt: null,
+    });
+    reports([]);
+    const none = await load(["diagnosis"]);
+    expect([none.diagnosisPrevious, none.diagnosisMeta]).toEqual([null, null]);
+    const unused = await load([]);
+    expect([unused.diagnosisPrevious, unused.diagnosisMeta]).toEqual([
+      null,
+      null,
+    ]);
+  });
 });
