@@ -47,6 +47,8 @@ export const UNAUTHENTICATED_CODE = "UNAUTHENTICATED";
 // 미처리 예외(500) 전용 — 401 두 코드(위)와 섞이면 클라이언트가 "인증 실패
 // 계열"로 오분류할 수 있어 중립 코드로 분리한다.
 const UNEXPECTED_CODE = "UNEXPECTED";
+// 최근 접속 기록은 사용자당 이 간격에 한 번만 적는다(focus마다 불리는 라우트라서).
+const LAST_SEEN_THROTTLE_MS = 30 * 60 * 1000;
 
 /**
  * auth.getUser(jwt)가 던진(정확히는 { error }로 돌려준) 에러를 킥 판정 코드로
@@ -118,6 +120,15 @@ export default defineHandler({
       sendError(res, "coded", 401, message, code);
       return;
     }
+
+    const now = Date.now();
+    await ctx.supabaseAdmin
+      .from("profiles")
+      .update({ last_seen_at: new Date(now).toISOString() })
+      .eq("id", data.user.id)
+      .or(
+        `last_seen_at.is.null,last_seen_at.lt.${new Date(now - LAST_SEEN_THROTTLE_MS).toISOString()}`,
+      );
 
     res.status(200).json({ ok: true });
   },
