@@ -392,6 +392,25 @@ describe("GET /api/console/coaching/service", () => {
     ]);
   });
 
+  test("diagnosis with an unreadable report payload stays 404 SERVICE_NOT_USED", async () => {
+    kit.state.rows.diagnosis_reports = (f) =>
+      matchRows(
+        [
+          {
+            attempt_id: "d1",
+            profile_id: "s1",
+            diagnosed_at: "2026-03-10T00:00:00Z",
+            payload: {},
+            snapshot: {},
+          },
+        ],
+        f,
+      );
+    const r = await get({ studentId: "s1", service: "diagnosis" });
+    expect(r.status).toBe(404);
+    expect(r.body).toMatchObject({ error: { code: "SERVICE_NOT_USED" } });
+  });
+
   test("performance: counts, average and the list with the feedback state", async () => {
     const d = await detailOf("performance");
     expect(d.metrics).toContainEqual({ label: "제출", value: "2건" });
