@@ -92,7 +92,9 @@ export default function HistoryDialog({
           {`${detail?.name ?? listName} 학년도별 이력`}
         </DialogTitle>
         {history.isError && (
-          <Notice tone="Danger">이력을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            이력을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {detail && (
           <div className="flex flex-col gap-3">
