@@ -1,5 +1,6 @@
 // POST /api/auth/teacher-reset-password 계약 검증(결정 103). 휴대폰 인증으로 선생님 비밀번호를 다시 정한다.
 
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
@@ -48,6 +49,16 @@ beforeEach(() => {
   kit.state.rows.phone_verifications = (f) =>
     f.id ? [{ id: "v1" }] : { id: "v1", verified_at: new Date().toISOString() };
   kit.state.rows.teachers = (f) => matchRows([TEACHER], f)[0] ?? null;
+  kit.signIn.mockReset();
+  kit.signIn.mockResolvedValue({
+    data: { session: { access_token: "new-access" } },
+    error: null,
+  });
+  kit.signOut = vi.fn(async () => {
+    kit.state.events.push("auth:signOut");
+    return { error: null };
+  });
+  (kit.state.auth as Record<string, unknown>).signOut = kit.signOut;
   process.env.SITE = "schoolmentor";
 });
 
@@ -175,4 +186,64 @@ describe("POST /api/auth/teacher-reset-password", () => {
       expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
     },
   );
+
+  test("성공하면 Auth 비밀번호를 바꾸고 임시 상태를 지우고 잠금을 풀고 모든 세션을 끝내고 감사 로그를 남긴다", async () => {
+    const rpcArgs: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_teacher_password_set = (args) => {
+      rpcArgs.push(args);
+      return { data: null, error: null };
+    };
+
+    const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true });
+    expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("profile-1", {
+      password: PW,
+    });
+    expect(rpcArgs).toEqual([
+      { p_teacher_id: "teacher-1", p_tenant: "tenant-1" },
+    ]);
+    const lockHash = `\\x${createHash("sha256")
+      .update(`${LOGIN_ID.toLowerCase()}@teacher.schoolmentor.kr`)
+      .digest("hex")}`;
+    expect(kit.state.deletes).toEqual([
+      { table: "login_attempts", filters: { identifier_hash: lockHash } },
+    ]);
+    expect(kit.signIn).toHaveBeenCalledWith({
+      email: `${LOGIN_ID.toLowerCase()}@teacher.schoolmentor.kr`,
+      password: PW,
+    });
+    expect(kit.signOut).toHaveBeenCalledWith("new-access", "global");
+    expect(kit.state.inserts).toHaveLength(1);
+    expect(kit.state.inserts[0]).toMatchObject({
+      table: "admin_access_logs",
+      row: {
+        action: "password_set",
+        actor_kind: "teacher",
+        actor_login_id: LOGIN_ID,
+        teacher_id: "teacher-1",
+        tenant_id: "tenant-1",
+        target_id: "teacher-1",
+        meta: { kind: "reset" },
+      },
+    });
+    expect(
+      kit.state.events.filter((e) => e !== "rpc:fn_console_actor"),
+    ).toEqual([
+      "update:phone_verifications",
+      "auth:updateUserById",
+      "rpc:fn_teacher_password_set",
+      "delete:login_attempts",
+      "auth:signOut",
+      "insert:admin_access_logs",
+    ]);
+    expect(kit.state.updates).toEqual([
+      {
+        table: "phone_verifications",
+        values: { consumed_at: expect.any(String) },
+        filters: { id: "v1" },
+      },
+    ]);
+  });
 });

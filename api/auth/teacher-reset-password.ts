@@ -3,13 +3,22 @@
 // 선생님 비밀번호 찾기(결정 103). 휴대폰 인증(reset_password 목적)으로 번호 소유를 증명한 뒤
 // 아이디와 번호가 같은 교사의 비밀번호를 새로 정한다. 스쿨멘토 전용이라 위닝에서는 404.
 
+import { createLoginAuthClient, hashParam } from "../_lib/auth/login.js";
+import { writeConsoleAuditLog } from "../_lib/console/audit.js";
 import {
   checkNewPassword,
   PASSWORD_RULE_MESSAGES,
+  RpcError,
+  syntheticEmail,
+  TEACHERS_RESOURCE_KEY,
 } from "../_lib/console/teacherAccounts.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
-import { isValidMobile, normalizePhone } from "../_lib/phoneCode.js";
+import {
+  getClientIp,
+  isValidMobile,
+  normalizePhone,
+} from "../_lib/phoneCode.js";
 import { isSchoolmentorSite } from "../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
@@ -119,5 +128,104 @@ export default defineHandler({
       );
       return;
     }
+
+    // 인증을 조건부 UPDATE 한 번으로 선점한다. 동시에 들어온 요청 중 하나만 통과한다.
+    const { data: claimed, error: claimError } = await admin
+      .from("phone_verifications")
+      .update({ consumed_at: new Date().toISOString() })
+      .eq("id", verification.id)
+      .is("consumed_at", null)
+      .select("id");
+    if (claimError) throw new Error("phone verification claim failed");
+    if (!claimed || claimed.length === 0) {
+      sendError(
+        res,
+        "coded",
+        400,
+        VERIFICATION_EXPIRED_MESSAGE,
+        "VERIFICATION_EXPIRED",
+      );
+      return;
+    }
+
+    // first-password.ts 와 같은 순서로 Auth 를 먼저 바꾼다. 이 아래 단계가 실패해도 비밀번호는 되돌리지 않는다.
+    // 새 비밀번호는 이미 유효하고 임시 상태나 잠금이 남았더라도 새 비밀번호로 로그인하면 풀린다.
+    const { error: authError } = await admin.auth.admin.updateUserById(
+      teacher.profile_id,
+      { password },
+    );
+    if (authError) {
+      // 재설정이 일어나지 않았으니 선점한 인증을 되돌려 다시 시도할 수 있게 한다.
+      const { error: releaseError } = await admin
+        .from("phone_verifications")
+        .update({ consumed_at: null })
+        .eq("id", verification.id);
+      if (releaseError) {
+        console.error(
+          "[auth/teacher-reset-password] 인증 선점 해제 실패:",
+          releaseError,
+        );
+      }
+      sendError(
+        res,
+        "coded",
+        500,
+        "비밀번호를 바꾸지 못했습니다. 다시 시도해 주세요.",
+        "SAVE_FAILED",
+      );
+      return;
+    }
+
+    const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
+      p_teacher_id: teacher.id,
+      p_tenant: teacher.tenant_id,
+    });
+    if (stampError)
+      throw new RpcError("fn_teacher_password_set", stampError.code);
+
+    // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 교사가 재설정 뒤 바로 로그인할 수 있게 지운다.
+    const { error: lockError } = await admin
+      .from("login_attempts")
+      .delete()
+      .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
+    if (lockError) throw new Error("login attempts clear failed");
+
+    // 이전 기기 세션을 모두 끝낸다. 새 비밀번호로 만든 확인용 세션도 함께 끝내므로 응답에 세션을 싣지 않는다.
+    const { data: signed, error: signInError } = await createLoginAuthClient(
+      getClientIp(req),
+    ).auth.signInWithPassword({
+      email: syntheticEmail(loginId),
+      password,
+    });
+    if (signInError || !signed.session)
+      throw new Error("session after reset failed");
+    const { error: signOutError } = await admin.auth.admin.signOut(
+      signed.session.access_token,
+      "global",
+    );
+    if (signOutError) throw new Error("sign out global failed");
+
+    await writeConsoleAuditLog(
+      {
+        supabaseAdmin: admin,
+        userId: teacher.profile_id,
+        console: {
+          kind: "homeroom",
+          tenantId: teacher.tenant_id,
+          teacherId: teacher.id,
+          classIds: [],
+          proxySessionId: null,
+          mustChangePassword: false,
+          loginId,
+        },
+      },
+      {
+        action: "password_set",
+        resourceKey: TEACHERS_RESOURCE_KEY,
+        targetId: teacher.id,
+        meta: { kind: "reset" },
+      },
+    );
+    res.status(200).json({ ok: true });
   },
 });

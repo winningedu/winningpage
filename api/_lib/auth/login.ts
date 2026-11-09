@@ -110,7 +110,7 @@ export function normalizeIdentifier(identifier: string): string {
 }
 
 // bytea 는 PostgREST 에 \x 접두 hex 문자열로 보낸다.
-function hashParam(normalized: string): string {
+export function hashParam(normalized: string): string {
   return `\\x${createHash("sha256").update(normalized).digest("hex")}`;
 }
 
