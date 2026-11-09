@@ -1,4 +1,4 @@
-// POST /api/reset-password-by-phone  { phone, chooseAccount?, accountId? }
+// POST /api/reset-password-by-phone  { phone, chooseAccount?, accountId?, password? }
 //
 // "비밀번호 찾기"의 휴대폰 인증 경로 — QA 시트 147·209행(2026-08-21 지시,
 // 2026-09-02 재확인). 이메일 링크 재설정(FindPassword.tsx → Supabase
@@ -11,6 +11,11 @@
 //   호출한다. 여기서 phone_verifications.verified_at을 다시 확인하고,
 //   처리 직후 consumed_at을 찍어 같은 인증으로 재설정을 반복하지 못하게
 //   한다 — 그렇지 않으면 재인증 없이 비밀번호를 계속 새로 발급할 수 있다.
+//
+// 스쿨멘토 모드(2026-11-09, 사 #96): SITE=schoolmentor 에서는 임시비밀번호를 만들지도 돌려주지도
+// 않는다. 본문의 password(학생 비밀번호 규칙)를 DB 를 읽기 전에 검증하고, 인증 선점 뒤 그 값으로
+// 비밀번호를 바꾼 다음 모든 세션을 끊고 로그인 잠금을 푼다. 위닝은 password 를 무시하고 위의
+// 임시비밀번호 동작을 그대로 쓴다.
 //
 // 계정 존재 여부를 노출하지 않는 원칙과의 관계
 //   find-account-by-phone.ts와 같은 이유로 예외다 — OTP로 번호 소유를
@@ -40,8 +45,15 @@
 
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createLoginAuthClient, hashParam } from "./_lib/auth/login.js";
 import { defineHandler } from "./_lib/handler.js";
-import { isValidMobile, normalizePhone } from "./_lib/phoneCode.js";
+import {
+  getClientIp,
+  isValidMobile,
+  normalizePhone,
+} from "./_lib/phoneCode.js";
+import { isValidPassword } from "./_lib/signup/schoolStudent.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -261,6 +273,7 @@ export default defineHandler({
   methods: ["POST"],
   auth: "none",
   errorShape: "okDetail",
+  headers: { "Cache-Control": "no-store" },
   unhandledMessage: "비밀번호 재설정 중 오류가 발생했습니다.",
   logLabel: "reset-password-by-phone",
   handler: async (req, res, ctx) => {
@@ -271,6 +284,20 @@ export default defineHandler({
         ok: false,
         reason: "invalid_phone",
         detail: "휴대폰 번호 형식이 올바르지 않습니다.",
+      });
+    }
+
+    // 스쿨멘토는 임시비밀번호 대신 학생이 정한 새 비밀번호를 받는다. DB 를 읽기 전에 검증한다.
+    const schoolmentor = isSchoolmentorSite();
+    const newPassword: unknown = req.body?.password;
+    if (
+      schoolmentor &&
+      (typeof newPassword !== "string" || !isValidPassword(newPassword))
+    ) {
+      return void res.status(400).json({
+        ok: false,
+        reason: "invalid_password",
+        detail: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
       });
     }
 
@@ -390,11 +417,13 @@ export default defineHandler({
         });
       }
 
-      const tempPassword = generateTempPassword();
+      // 스쿨멘토는 학생이 정한 비밀번호, 위닝은 임시비밀번호(위에서 이미 검증한 값이다).
+      const tempPassword = schoolmentor ? null : generateTempPassword();
+      const password = schoolmentor ? (newPassword as string) : tempPassword;
 
       const { error: updateError } = await supabase.auth.admin.updateUserById(
         account.id,
-        { password: tempPassword },
+        { password: password as string },
       );
 
       if (updateError) {
@@ -420,14 +449,75 @@ export default defineHandler({
         });
       }
 
-      // 기존 로그인 세션 강제 로그아웃 — 시도하지 않는다.
+      if (schoolmentor) {
+        // 로그인과 같은 주소다. attemptLogin 이 fn_login_resolve_email 로 profiles.email 을 읽어 소문자와 공백 제거로 다룬다.
+        const authEmail = account.email.trim().toLowerCase();
+
+        // 이전 기기 세션을 모두 끝낸다(auth/teacher-reset-password.ts 와 같은 방식). 새 비밀번호로 만든 확인용 세션도
+        // 함께 끝내므로 응답에 세션을 싣지 않는다. 실패해도 비밀번호는 이미 바뀌었으니 되돌리지 않고 인증 선점도
+        // 풀지 않는다(같은 요청을 다시 보내도 소용없다).
+        const { data: signed, error: signInError } =
+          await createLoginAuthClient(getClientIp(req)).auth.signInWithPassword(
+            { email: authEmail, password: password as string },
+          );
+        let revoked = false;
+        if (!signInError && signed?.session) {
+          const { error: signOutError } = await supabase.auth.admin.signOut(
+            signed.session.access_token,
+            "global",
+          );
+          revoked = !signOutError;
+        }
+        if (!revoked) {
+          console.error("[reset-password-by-phone] 세션 정리 실패");
+          console.info("[reset-password-by-phone] reset", {
+            profileId: account.id,
+            via,
+            outcome: "revoke_failed",
+          });
+          return void res.status(500).json({
+            ok: false,
+            reason: "revoke_failed",
+            detail:
+              "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했으니 새 비밀번호로 로그인한 뒤 마이페이지에서 비밀번호를 한 번 더 바꿔 주세요.",
+          });
+        }
+
+        // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 학생이 재설정 뒤 바로 로그인할 수
+        // 있게 지운다. 실패해도 새 비밀번호로 로그인하면 풀리므로 단계 이름만 남기고 성공으로 답한다.
+        try {
+          const { error: clearError } = await supabase
+            .from("login_attempts")
+            .delete()
+            .eq("identifier_hash", hashParam(authEmail));
+          if (clearError) throw clearError;
+        } catch {
+          console.error("[reset-password-by-phone] login_attempts delete 실패");
+        }
+
+        console.info("[reset-password-by-phone] reset", {
+          profileId: account.id,
+          via,
+          outcome: "ok",
+        });
+
+        return void res.status(200).json({
+          ok: true,
+          found: true,
+          masked_email: maskEmail(account.email),
+          via,
+        });
+      }
+
+      // 위닝: 기존 로그인 세션 강제 로그아웃은 시도하지 않는다.
       // supabase-js(@supabase/supabase-js@2.110.0/@supabase/auth-js)의
       // admin.signOut(jwt, scope)은 "특정 세션의 access token(jwt)"을 받아
       // 그 세션 하나를 무효화하는 API다. userId로 그 사용자의 전체 세션을
       // 무효화하는 admin 엔드포인트가 없어(2026-09-02 기준) 여기서는 호출하지
       // 않는다 — 기존 세션이 있다면 새 임시비밀번호 발급 후에도 그 세션은
       // 계속 유효하다(계정 소유자 본인이 OTP로 인증한 뒤라는 전제하의 알려진
-      // 제약, 완료 보고에 명시).
+      // 제약, 완료 보고에 명시). 스쿨멘토는 위에서 새 비밀번호로 로그인해 얻은
+      // 세션의 토큰으로 전체 세션을 끝낸다.
 
       return void res.status(200).json({
         ok: true,
