@@ -6,12 +6,3 @@ alter table public.profiles
 
 comment on column public.profiles.last_seen_at is
   '최근 접속 시각. /api/session-check 가 30분에 한 번 적는다. 기록이 없으면 null(미접속 판정 규칙을 건너뜀)';
-
--- 처음 한 번: 기존 사용자가 "기록 없음"으로 시작하지 않게 Auth 마지막 로그인 시각으로 채운다.
--- 값이 이미 있으면 건드리지 않아 다시 돌려도 바뀌지 않는다.
-update public.profiles p
-set last_seen_at = u.last_sign_in_at
-from auth.users u
-where u.id = p.id
-  and p.last_seen_at is null
-  and u.last_sign_in_at is not null;

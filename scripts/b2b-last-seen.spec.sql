@@ -60,7 +60,7 @@ select pg_temp.expect_bool('새 프로필의 last_seen_at 은 null',
 update public.profiles set last_seen_at = timestamptz '2026-11-05 00:00:00+00'
   where id = (select v from fx where k = 'stamped');
 
--- backfill: 마이그레이션의 backfill 문과 같은 문장
+-- backfill: supabase/data/20261109070000_profiles_last_seen_at_backfill.sql 과 같은 문장
 update public.profiles p set last_seen_at = u.last_sign_in_at
   from auth.users u
   where u.id = p.id and p.last_seen_at is null and u.last_sign_in_at is not null;
