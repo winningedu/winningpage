@@ -40,7 +40,7 @@ function areasOf(value: unknown): Area[] {
   });
 }
 
-const mean = (areas: Area[]) =>
+export const mean = (areas: Area[]) =>
   areas.length === 0
     ? null
     : Math.round(areas.reduce((s, a) => s + a.score, 0) / areas.length);
