@@ -173,7 +173,11 @@ export default function MemoPanel({
               내가 쓴 메모만 보여요
             </p>
           )}
-          {saveError && <Notice tone="Danger">메모를 저장하지 못했어요</Notice>}
+          {saveError && (
+            <Notice tone="Danger">
+              메모를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요
+            </Notice>
+          )}
           <Button
             type="button"
             variant="secondary"

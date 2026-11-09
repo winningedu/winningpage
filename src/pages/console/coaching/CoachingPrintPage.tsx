@@ -49,7 +49,10 @@ export default function CoachingPrintPage() {
   }, [data]);
 
   if (logFailed) return <EmptyMessage body="인쇄 기록을 남기지 못했어요" />;
-  if (isError) return <EmptyMessage body="개인종합코칭을 불러오지 못했어요" />;
+  if (isError)
+    return (
+      <EmptyMessage body="개인종합코칭을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요" />
+    );
   if (!data) return null;
   return (
     <div className="flex flex-col gap-6 p-6">

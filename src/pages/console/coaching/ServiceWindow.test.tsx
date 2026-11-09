@@ -213,7 +213,9 @@ describe("W9a 서비스 상세 창", () => {
     });
     const dialog = await openGoal();
     expect(
-      await within(dialog).findByText("서비스 상세를 불러오지 못했어요"),
+      await within(dialog).findByText(
+        "서비스 상세를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });
@@ -266,5 +268,25 @@ describe("W9b 리포트 보기 전용", () => {
     );
 
     expect(await screen.findByText("열람할 리포트가 없어요")).toBeTruthy();
+  });
+
+  it("리포트를 읽지 못하면 다시 시도하라고 안내한다", async () => {
+    render({
+      "GET /api/console/coaching/report?studentId=s1&service=goal": {
+        status: 500,
+        body: {},
+      },
+    });
+    const dialog = await openGoal();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "리포트 보기" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "리포트를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
   });
 });

@@ -205,7 +205,9 @@ describe("W9c 코칭 PDF", () => {
     renderRoutes(routes, "/print?studentId=s1");
 
     expect(
-      await screen.findByText("개인종합코칭을 불러오지 못했어요"),
+      await screen.findByText(
+        "개인종합코칭을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
     expect(print).not.toHaveBeenCalled();
   });

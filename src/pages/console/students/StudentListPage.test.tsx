@@ -262,7 +262,9 @@ describe("W6 학생 관리 상태", () => {
     renderRoutes(routes, "/teacher/students");
 
     expect(
-      await screen.findByText("학생 목록을 불러오지 못했어요"),
+      await screen.findByText(
+        "학생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });
@@ -547,7 +549,9 @@ describe("W6a 학생 상세", () => {
     fireEvent.click(await screen.findByText("김서연"));
 
     expect(
-      await screen.findByText("학생 정보를 불러오지 못했어요"),
+      await screen.findByText(
+        "학생 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });

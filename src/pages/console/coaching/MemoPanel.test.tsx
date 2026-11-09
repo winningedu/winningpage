@@ -133,7 +133,11 @@ describe("교사 메모 패널", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
-    expect(await screen.findByText("메모를 저장하지 못했어요")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "메모를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
     expect((screen.getByLabelText("메모") as HTMLTextAreaElement).value).toBe(
       "상담함",
     );
@@ -149,7 +153,9 @@ describe("교사 메모 패널", () => {
 
     fireEvent.change(field, { target: { value: "상담함" } });
     fireEvent.click(save);
-    await screen.findByText("메모를 저장하지 못했어요");
+    await screen.findByText(
+      "메모를 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요",
+    );
     fireEvent.click(save);
     await waitFor(() =>
       expect(

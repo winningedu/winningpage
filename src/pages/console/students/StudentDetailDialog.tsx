@@ -135,7 +135,9 @@ export default function StudentDetailDialog({
           {detail?.name ?? "학생 상세"}
         </DialogTitle>
         {query.isError && (
-          <Notice tone="Danger">학생 정보를 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            학생 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {!detail && !query.isError && (
           <Skeleton aria-busy="true" className="h-40 rounded" />
