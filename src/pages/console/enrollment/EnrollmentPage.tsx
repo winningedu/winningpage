@@ -214,7 +214,9 @@ export default function EnrollmentPage() {
       />
       <div className="flex max-w-content flex-col gap-6 px-4 pb-24 md:px-8 lg:px-12">
         {summary.isError && (
-          <Notice tone="Danger">이용현황을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            이용현황을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {data && (
           <>

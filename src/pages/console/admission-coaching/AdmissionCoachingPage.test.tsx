@@ -377,7 +377,9 @@ describe("W10 입시 상담코칭", () => {
     renderRoutes(routes, "/teacher/admission-coaching");
 
     expect(
-      await screen.findByText("입시 상담코칭 목록을 불러오지 못했어요"),
+      await screen.findByText(
+        "입시 상담코칭 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });

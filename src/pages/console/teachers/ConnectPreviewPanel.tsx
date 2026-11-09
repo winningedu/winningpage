@@ -12,7 +12,8 @@ type Result =
   | { result: "ok" | "already_signed_up" | "no_class"; homeroomName?: string }
   | { result: "number_taken"; homeroomName?: string; holderName: string };
 
-const FAILED_MESSAGE = "연결 결과를 불러오지 못했어요";
+const FAILED_MESSAGE =
+  "연결 결과를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 function messageOf(r: Result): string {
   switch (r.result) {
