@@ -262,4 +262,31 @@ describe("evaluateRolloverPreview", () => {
     expect(r.applyRows).toHaveLength(1);
     expect(r.summary).toEqual({ graduate: 1, promote: 2, waiting: 1 });
   });
+
+  test("a uniquely matched row gets a star when its class has another student with the same real name, numberless students count", () => {
+    const a = student({ studentId: "s1", name: "김준호", number: 14 });
+    const b = student({ studentId: "s2", name: "김준호", number: null });
+    const r = run("김준호,1학년,,4,14\n김준호,1학년,,4,", [a, b]);
+
+    expect(r.rows[0]).toMatchObject({
+      displayName: "김*호*",
+      studentId: "s1",
+    });
+    expect(r.rows[1]).toMatchObject({
+      displayName: "김*호*",
+      result: "same_name",
+    });
+  });
+
+  test("same name in different classes, a single student, and a not found row get no star", () => {
+    const a = student({ studentId: "s1", name: "김준호", className: "4" });
+    const b = student({ studentId: "s2", name: "김준호", className: "5" });
+    const r = run("김준호,1학년,,4,7\n박민수,1학년,,4,7", [a, b]);
+
+    expect(r.rows[0]?.displayName).toBe("김*호");
+    expect(r.rows[1]).toMatchObject({
+      displayName: "박*수",
+      result: "student_not_found",
+    });
+  });
 });
