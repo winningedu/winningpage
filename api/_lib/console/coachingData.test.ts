@@ -66,4 +66,29 @@ describe("inquiry stage and topic (결정 106.2)", () => {
       completed: false,
     });
   });
+
+  test("a completed session shows the last step, with no topic when none is chosen", async () => {
+    inquiry([
+      {
+        updated_at: "2026-11-05",
+        current_step: 2,
+        status: "completed",
+        selected_topic_id: null,
+        latest_evaluation_id: null,
+      },
+    ]);
+    const data = await load(["inquiry"]);
+    expect(data.inquiryTopic).toBeNull();
+    expect(data.inquiryStage).toEqual({
+      step: 2,
+      name: "확정과 저장",
+      completed: true,
+    });
+  });
+
+  test("no session, or the service not used, gives no stage", async () => {
+    inquiry([]);
+    expect((await load(["inquiry"])).inquiryStage).toBeNull();
+    expect((await load([])).inquiryStage).toBeNull();
+  });
 });
