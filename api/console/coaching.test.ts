@@ -314,6 +314,28 @@ describe("GET /api/console/coaching", () => {
         probability: 61,
       });
     });
+
+    test("a missing state row or a null susi keeps the target names and leaves probability null", async () => {
+      state(null);
+      const none = await targetsOf();
+      expect(none.ideal).toEqual({
+        university: "가나대",
+        department: "경영학과",
+        probability: null,
+      });
+      state({ ideal_susi: null, min_susi: 0 });
+      const partial = await targetsOf();
+      expect(partial.ideal?.probability).toBeNull();
+      expect(partial.min?.probability).toBe(0);
+    });
+
+    test("a student without the goal service has no targets and the state is not read", async () => {
+      const body = (await get({ studentId: "s3" })).body as Body;
+      expect(body.student.targets).toBeNull();
+      expect(kit.state.reads.map((r) => r.table)).not.toContain(
+        "goal_student_state",
+      );
+    });
   });
 
   test("the goal week, the verdicts, the axes and the signal come from the services' own data", async () => {
