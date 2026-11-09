@@ -232,6 +232,35 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
+  it("VERIFICATION_EXPIRED 는 서버 문구를 보여 주고 인증번호 단계로 돌아간다", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: {
+          code: "VERIFICATION_EXPIRED",
+          message: "인증 시간이 지났어요. 인증번호를 다시 받아 주세요.",
+        },
+      }),
+    );
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "인증 시간이 지났어요. 인증번호를 다시 받아 주세요.",
+    );
+    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+    expect(screen.getByLabelText("인증번호")).toHaveValue("");
+  });
+
+  it("그 밖의 실패와 네트워크 오류는 저장 실패 문구를 보여 준다", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("offline"));
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(SAVE_FAILED);
+  });
+
   it("PASSWORD_CHANGED_REVOKE_FAILED 는 바뀐 비밀번호로 보고 안내와 로그인 버튼을 보여 준다", async () => {
     const message =
       "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했으니 새 비밀번호로 로그인한 뒤 마이페이지에서 비밀번호를 한 번 더 바꿔 주세요.";
