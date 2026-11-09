@@ -1,8 +1,9 @@
 // 코칭 판정 엔진에 넣을 자료를 서비스별 테이블에서 읽는다(W9). 서비스를 쓰지 않으면 그 자료는 null,
-// 자료 출처가 없는 지표(접속 기록, 내신과 모의고사 변화 등)는 읽지 않고 비워 둔다(결정 4).
+// 자료 출처가 없는 지표(내신과 모의고사 변화 등)는 읽지 않고 비워 둔다(결정 4).
+// 최근 접속은 profiles.last_seen_at(session-check 가 적는다)에서 읽고, KST 날짜 차이로 센다(결정 105).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { diffDaysYMD, kstYMD } from "../../../src/lib/goal/calc/index.js";
 import { deriveGradeSystem } from "../../../src/lib/goal/report/aggregate.js";
 import {
   type AreaScores,
@@ -201,6 +202,8 @@ export interface CoachingData {
   inquiryTopic: string | null;
   growthKeywords: string[];
   grade: string | null;
+  /** profiles.last_seen_at 그대로(ISO). 기록이 없으면 null. */
+  lastSeenAt: string | null;
   metrics: CoachingMetrics;
   targets: {
     ideal: { university: string; department: string } | null;
@@ -217,101 +220,120 @@ export async function loadCoachingData(
 ): Promise<CoachingData> {
   const uses = (key: ServiceKey) => used.includes(key);
 
-  const [diagnosis, goalStudent, records, growth, perf, inquiry, selfeval] =
-    await Promise.all([
-      uses("diagnosis")
-        ? readAll<{
-            diagnosed_at: string;
-            payload: unknown;
-            snapshot: unknown;
-          }>(
-            admin,
-            "diagnosis_reports",
-            "diagnosed_at, payload, snapshot",
-            (q) => q.eq("profile_id", studentId),
-            "attempt_id",
-          )
-        : [],
-      uses("goal")
-        ? readAll<{
-            ideal_university: string;
-            ideal_department: string;
-            min_university: string;
-            min_department: string;
-            study_schedule: unknown;
-            grade: string;
-            naesin_scores: unknown;
-            mock_exam_scores: unknown;
-          }>(
-            admin,
-            "goal_students",
-            "ideal_university, ideal_department, min_university, min_department, study_schedule, grade, naesin_scores, mock_exam_scores",
-            (q) => q.eq("profile_id", studentId),
-            "profile_id",
-          )
-        : [],
-      uses("goal")
-        ? readAll<DailyRecord>(
-            admin,
-            "goal_daily_records",
-            "record_date, target_ideal_hours, target_min_hours, study_hours, reasons",
-            (q) => q.eq("profile_id", studentId),
-          )
-        : ([] as DailyRecord[]),
-      uses("growth")
-        ? readAll<{
-            created_at: string;
-            axis_scores: unknown;
-            sections: unknown;
-            narrative_theme: string | null;
-          }>(
-            admin,
-            "growth_reports",
-            "created_at, axis_scores, sections, narrative_theme",
-            (q) => q.eq("profile_id", studentId).eq("status", "completed"),
-          )
-        : [],
-      uses("performance")
-        ? readAll<{
-            id: string;
-            selected_topic_id: string | null;
-            subject: string | null;
-          }>(
-            admin,
-            "performance_sessions",
-            "id, selected_topic_id, subject",
-            (q) => q.eq("profile_id", studentId),
-          )
-        : ([] as {
-            id: string;
-            selected_topic_id: string | null;
-            subject: string | null;
-          }[]),
-      uses("inquiry")
-        ? readAll<{
-            created_at: string;
-            selected_topic_id: string | null;
-            latest_evaluation_id: string | null;
-          }>(
-            admin,
-            "inquiry_sessions",
-            "created_at, selected_topic_id, latest_evaluation_id",
-            (q) => q.eq("profile_id", studentId),
-          )
-        : [],
-      uses("selfeval")
-        ? readAll<{ created_at: string; score: number | null }>(
-            admin,
-            "selfeval_reports",
-            "created_at, score",
-            (q) =>
-              q.eq("profile_id", studentId).eq("report_type", "verification"),
-          )
-        : ([] as { created_at: string; score: number | null }[]),
-    ]);
+  const [
+    diagnosis,
+    goalStudent,
+    records,
+    growth,
+    perf,
+    inquiry,
+    selfeval,
+    seenRows,
+  ] = await Promise.all([
+    uses("diagnosis")
+      ? readAll<{
+          diagnosed_at: string;
+          payload: unknown;
+          snapshot: unknown;
+        }>(
+          admin,
+          "diagnosis_reports",
+          "diagnosed_at, payload, snapshot",
+          (q) => q.eq("profile_id", studentId),
+          "attempt_id",
+        )
+      : [],
+    uses("goal")
+      ? readAll<{
+          ideal_university: string;
+          ideal_department: string;
+          min_university: string;
+          min_department: string;
+          study_schedule: unknown;
+          grade: string;
+          naesin_scores: unknown;
+          mock_exam_scores: unknown;
+        }>(
+          admin,
+          "goal_students",
+          "ideal_university, ideal_department, min_university, min_department, study_schedule, grade, naesin_scores, mock_exam_scores",
+          (q) => q.eq("profile_id", studentId),
+          "profile_id",
+        )
+      : [],
+    uses("goal")
+      ? readAll<DailyRecord>(
+          admin,
+          "goal_daily_records",
+          "record_date, target_ideal_hours, target_min_hours, study_hours, reasons",
+          (q) => q.eq("profile_id", studentId),
+        )
+      : ([] as DailyRecord[]),
+    uses("growth")
+      ? readAll<{
+          created_at: string;
+          axis_scores: unknown;
+          sections: unknown;
+          narrative_theme: string | null;
+        }>(
+          admin,
+          "growth_reports",
+          "created_at, axis_scores, sections, narrative_theme",
+          (q) => q.eq("profile_id", studentId).eq("status", "completed"),
+        )
+      : [],
+    uses("performance")
+      ? readAll<{
+          id: string;
+          selected_topic_id: string | null;
+          subject: string | null;
+        }>(
+          admin,
+          "performance_sessions",
+          "id, selected_topic_id, subject",
+          (q) => q.eq("profile_id", studentId),
+        )
+      : ([] as {
+          id: string;
+          selected_topic_id: string | null;
+          subject: string | null;
+        }[]),
+    uses("inquiry")
+      ? readAll<{
+          created_at: string;
+          selected_topic_id: string | null;
+          latest_evaluation_id: string | null;
+        }>(
+          admin,
+          "inquiry_sessions",
+          "created_at, selected_topic_id, latest_evaluation_id",
+          (q) => q.eq("profile_id", studentId),
+        )
+      : [],
+    uses("selfeval")
+      ? readAll<{ created_at: string; score: number | null }>(
+          admin,
+          "selfeval_reports",
+          "created_at, score",
+          (q) =>
+            q.eq("profile_id", studentId).eq("report_type", "verification"),
+        )
+      : ([] as { created_at: string; score: number | null }[]),
+    readAll<{ last_seen_at: string | null }>(
+      admin,
+      "profiles",
+      "last_seen_at",
+      (q) => q.eq("id", studentId),
+    ),
+  ]);
 
   const goal = goalStudent[0];
   const today = kstYMD(now);
+  const lastSeenAt = seenRows[0]?.last_seen_at ?? null;
+  // 접속한 날과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속 규칙을 건너뛴다).
+  const daysSinceLastSeen = lastSeenAt
+    ? diffDaysYMD(kstYMD(new Date(lastSeenAt)), today)
+    : null;
   const windows = weekWindows(today);
   const schedule = isRecord(goal?.study_schedule)
     ? (goal?.study_schedule as GoalSchedule)
@@ -388,6 +410,7 @@ export async function loadCoachingData(
   ) as Record<ServiceKey, boolean>;
 
   return {
+    lastSeenAt,
     metrics: {
       used: usedMap,
       diagnosis: diagnosisFrom(lastBy(diagnosis, (r) => r.diagnosed_at)),
@@ -433,8 +456,7 @@ export async function loadCoachingData(
           previousDays: lastDays,
           days,
           streak: streakOf(days),
-          // 접속 기록의 출처가 없다.
-          daysSinceLastSeen: null,
+          daysSinceLastSeen,
           reasons: records
             .filter((r) => sinceWeek.includes(r.record_date))
             .flatMap((r) => (Array.isArray(r.reasons) ? r.reasons : [])),

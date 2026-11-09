@@ -309,6 +309,32 @@ describe("GET /api/console/coaching", () => {
     expect(body.summary).toContain("6축 중 4축 산출");
   });
 
+  describe("last access (결정 105)", () => {
+    // 오늘은 2026-11-02(KST). 접속 시각은 KST 날짜로 센다.
+    const seenAt = (lastSeen: string | null) => {
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [
+            { id: "s1", name: "김서연", last_seen_at: lastSeen },
+            { id: "s2", name: "윤하린" },
+            { id: "s3", name: "이서준" },
+          ],
+          f,
+        );
+    };
+
+    test("7 days since the last access is risk 미접속 and type C1, even when the week has no target days", async () => {
+      seenAt("2026-10-26T23:50:00+09:00");
+      kit.state.rows.goal_daily_records = () => [];
+      const body = (await get()).body as Body;
+      expect(body.verdicts.execution).toEqual({
+        level: "risk",
+        reason: "미접속",
+      });
+      expect(body.coachingType.code).toBe("C1");
+    });
+  });
+
   test("a student who uses nothing has no scored axis and insufficient data", async () => {
     const body = (await get({ studentId: "s3" })).body as Body;
     expect(body.axes.every((a) => a.score === null)).toBe(true);

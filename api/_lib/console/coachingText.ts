@@ -1006,8 +1006,14 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
   const recordFlow = `최소 목표시간 충족 ${g.lastWeek ? `지난주 ${g.lastWeek.metDays}일, ` : ""}이번 주 ${met}/${set}일, 연속 기록 ${g.streak}일${streakText}.${sundayText}`;
 
   const missed = setDays.filter((d) => d.actual < d.min).reverse();
-  const worst = setDays.reduce((x, y) => (ratio(y) <= ratio(x) ? y : x));
-  const best = setDays.reduce((x, y) => (ratio(y) > ratio(x) ? y : x));
+  const worst = setDays.reduce<GoalDay | undefined>(
+    (x, y) => (!x || ratio(y) <= ratio(x) ? y : x),
+    undefined,
+  );
+  const best = setDays.reduce<GoalDay | undefined>(
+    (x, y) => (!x || ratio(y) > ratio(x) ? y : x),
+    undefined,
+  );
   const sat = setDays.find((d) => d.weekday === "sat");
   const weekdays = setDays.filter((d) => d.weekday !== "sat");
   const weekdayAvg = weekdays.length
@@ -1022,7 +1028,11 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
     Math.abs(satGap) >= 20
       ? `. 토요일 달성율이 월~금 평균보다 ${Math.abs(satGap)}%p ${satGap < 0 ? "낮습니다" : "높습니다"}`
       : "";
-  const weekdayPattern = `${missedText}. 가장 적게 한 날 ${WEEKDAY_NAME[worst.weekday]}(이상 목표의 ${pct(ratio(worst))}%), 가장 많이 한 날 ${WEEKDAY_NAME[best.weekday]}(${pct(ratio(best))}%)${satText}.`;
+  // 미접속 판정은 목표일이 하루도 없어도 이 줄까지 온다(결정 105).
+  const weekdayPattern =
+    worst && best
+      ? `${missedText}. 가장 적게 한 날 ${WEEKDAY_NAME[worst.weekday]}(이상 목표의 ${pct(ratio(worst))}%), 가장 많이 한 날 ${WEEKDAY_NAME[best.weekday]}(${pct(ratio(best))}%)${satText}.`
+      : "이번 주 설정된 목표시간이 없습니다.";
 
   const counts = new Map<string, number>();
   for (const r of g.reasons) counts.set(r, (counts.get(r) ?? 0) + 1);
