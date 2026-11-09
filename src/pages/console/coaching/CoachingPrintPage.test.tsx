@@ -183,6 +183,22 @@ describe("W9c 코칭 PDF", () => {
     ).toBeTruthy();
   });
 
+  it("학년, 반, 번호가 모두 없으면 빈 괄호 없이 학생 이름만 적는다", async () => {
+    const data = {
+      ...DATA,
+      student: { ...DATA.student, grade: null, className: null, number: null },
+    } as unknown as Coaching;
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: data },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/print?studentId=s1");
+
+    expect(await screen.findByText(/학생 김서연, 출력일시/)).toBeTruthy();
+  });
+
   it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {
     stubApi({
       "GET /api/console/me": { body: homeroomMe },

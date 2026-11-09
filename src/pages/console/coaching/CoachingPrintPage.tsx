@@ -54,6 +54,7 @@ export default function CoachingPrintPage() {
       <EmptyMessage body="개인종합코칭을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요" />
     );
   if (!data) return null;
+  const classText = studentClassText(data.student);
   return (
     <div className="flex flex-col gap-6 p-6">
       <style>{PRINT_RULE}</style>
@@ -62,8 +63,8 @@ export default function CoachingPrintPage() {
           개인종합코칭
         </h1>
         <p className="text-app-label text-ink-sub">
-          교육기관 {me.tenant.name}, 학생 {data.student.name}(
-          {studentClassText(data.student)}), 출력일시 {printedAt}, 출력자{" "}
+          교육기관 {me.tenant.name}, 학생 {data.student.name}
+          {classText && `(${classText})`}, 출력일시 {printedAt}, 출력자{" "}
           {me.teacher
             ? `${me.teacher.name}(${me.teacher.loginId})`
             : "본사 대행"}
