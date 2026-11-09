@@ -125,3 +125,31 @@ describe("diagnosisDetail areas", () => {
     expect(bars.slice(6).some((a) => "target" in a)).toBe(false);
   });
 });
+
+describe("diagnosisDetail priorities", () => {
+  test("execution areas ascending by score, 1순위 to 4순위, 점검, 유지, ties in radar order", () => {
+    const { priorities } = diagnosisDetail(AREAS, null, META);
+    expect(priorities.heading).toBe("학습 실행 역량 우선순위");
+    expect(priorities.columns).toEqual([
+      "순위",
+      "영역",
+      "점수",
+      "상태",
+      "먼저 할 것",
+    ]);
+    expect(priorities.rows).toEqual([
+      ["1순위", "계획 설계", "60점", "보통", "월간 계획을 주간, 일간으로 분해"],
+      ["2순위", "시간 관리", "61점", "보통", "고정 일정 먼저 입력"],
+      ["3순위", "실행 지속", "62점", "보통", "하루 최소 학습량 설정"],
+      ["4순위", "학습 안정", "62점", "보통", "최소 학습량 유지"],
+      [
+        "점검",
+        "학습 피드백",
+        "63점",
+        "보통",
+        "오답 원인 4분류(개념, 적용, 실수, 시간 부족)",
+      ],
+      ["유지", "목표 설정", "64점", "보통", "목표 대학, 학과 조사"],
+    ]);
+  });
+});

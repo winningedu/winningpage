@@ -76,6 +76,26 @@ const barOf = (
   ...(group === "execution" && { target: TARGET_SCORE }),
 });
 
+const RANK_LABELS = ["1순위", "2순위", "3순위", "4순위", "점검", "유지"];
+
+/** 실행 영역을 점수 오름차순으로. 동점은 EXECUTION_AREAS(레이더) 순서를 지킨다. */
+function priorityTable(areas: AreaScores) {
+  const bars = EXECUTION_AREAS.map((c) => barOf("execution", c, areas));
+  return {
+    heading: "학습 실행 역량 우선순위",
+    columns: ["순위", "영역", "점수", "상태", "먼저 할 것"],
+    rows: bars
+      .sort((a, b) => a.score - b.score)
+      .map((b, i) => [
+        RANK_LABELS[i] as string,
+        b.name,
+        `${b.score}점`,
+        b.status,
+        b.firstStep,
+      ]),
+  };
+}
+
 export function diagnosisDetail(
   areas: AreaScores,
   previous: AreaScores | null,
@@ -83,6 +103,7 @@ export function diagnosisDetail(
 ) {
   return {
     summary: summaryOf(areas, meta),
+    priorities: priorityTable(areas),
     bars: [
       ...EXECUTION_AREAS.map((c) => barOf("execution", c, areas)),
       ...READINESS_AREAS.map((c) => barOf("readiness", c, areas)),
