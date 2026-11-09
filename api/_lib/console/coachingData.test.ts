@@ -116,4 +116,21 @@ describe("self-assessment stage (결정 106.3)", () => {
       finished: false,
     });
   });
+
+  test("the last stage, a completed session, no session and an unused service end the progression", async () => {
+    selfeval([{ updated_at: "2026-11-06", current_step: 5, status: "active" }]);
+    expect(await stageOf()).toMatchObject({
+      name: "검증과 저장",
+      finished: true,
+    });
+    selfeval([
+      { updated_at: "2026-11-06", current_step: 6, status: "completed" },
+    ]);
+    expect(await stageOf()).toMatchObject({ finished: true });
+    selfeval([{ updated_at: "2026-11-06", current_step: 0, status: "active" }]);
+    expect(await stageOf()).toMatchObject({ name: "시작", finished: false });
+    selfeval([]);
+    expect(await stageOf()).toBeNull();
+    expect((await load([])).selfevalStage).toBeNull();
+  });
 });
