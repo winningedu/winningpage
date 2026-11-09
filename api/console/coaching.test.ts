@@ -334,6 +334,21 @@ describe("GET /api/console/coaching", () => {
       expect(body.coachingType.code).toBe("C1");
     });
 
+    test("7 days since the last access with target days in the week is 미접속 and C1, and the goal opinion keeps its details", async () => {
+      seenAt("2026-10-26T23:50:00+09:00");
+      const r = await get();
+      const body = r.body as Body;
+      expect(body.verdicts.execution).toEqual({
+        level: "risk",
+        reason: "미접속",
+      });
+      expect(body.coachingType.code).toBe("C1");
+      expect(
+        (r.body as { text: { goalOpinion: { details: unknown } } }).text
+          .goalOpinion.details,
+      ).not.toBeNull();
+    });
+
     test("6 days since the last access is not 미접속, and a missing record skips the rule", async () => {
       seenAt("2026-10-27T00:10:00+09:00");
       expect(((await get()).body as Body).verdicts.execution).toEqual({
