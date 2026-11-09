@@ -60,6 +60,7 @@ export interface Coaching {
     className: string | null;
     number: number | null;
     homeroomName: string | null;
+    lastSeenAt: string | null;
     servicesUsed: number;
     services: Record<ServiceKey, "using" | "not_joined">;
     targets: { ideal: Target | null; min: Target | null } | null;

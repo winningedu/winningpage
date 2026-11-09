@@ -77,6 +77,7 @@ const coaching = (over: Partial<Coaching> = {}): Coaching => ({
     className: "3",
     number: 1,
     homeroomName: "박지훈",
+    lastSeenAt: null,
     servicesUsed: 6,
     services: using,
     targets: {
@@ -325,6 +326,20 @@ describe("W9 개인종합코칭 기본", () => {
     expect(screen.getByText("담임 박지훈")).toBeTruthy();
     expect(screen.getByText("유형 F1 연결 보강")).toBeTruthy();
     expect(router.state.location.search).toBe("?studentId=s1");
+  });
+
+  it("학생 카드에 최근 접속을 한국 날짜 월.일로 보이고 기록이 없으면 보이지 않는다", async () => {
+    const withSeen = coaching();
+    withSeen.student.lastSeenAt = "2026-11-01T16:00:00Z";
+    stubPage({ "GET /api/console/coaching?studentId=s1": { body: withSeen } });
+    const first = renderRoutes(routes, "/teacher/coaching");
+    expect(await screen.findByText("최근 접속 11.02")).toBeTruthy();
+    first.unmount();
+
+    stubPage();
+    renderRoutes(routes, "/teacher/coaching");
+    await screen.findByText("2학년 3반 1번");
+    expect(screen.queryByText(/최근 접속/)).toBeNull();
   });
 
   it("한줄 진단과 5대 역량과 6축 상태를 보여 준다", async () => {

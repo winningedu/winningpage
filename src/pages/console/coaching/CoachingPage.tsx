@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Chip, { type ChipTone } from "../Chip";
 import { gradeLabel } from "../classLabel";
+import { kstDotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import PageHeader from "../PageHeader";
@@ -157,6 +158,9 @@ export function StudentCard({ data }: { data: Coaching }) {
         <p className="flex flex-wrap gap-x-5 gap-y-1 text-app-label text-ink-sub">
           <span>{meta}</span>
           {student.homeroomName && <span>담임 {student.homeroomName}</span>}
+          {student.lastSeenAt && (
+            <span>최근 접속 {kstDotDate(student.lastSeenAt).slice(5)}</span>
+          )}
           <span>
             이용 서비스 {student.servicesUsed}/{SERVICE_NAMES.length}
           </span>
