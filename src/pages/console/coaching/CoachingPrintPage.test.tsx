@@ -153,6 +153,47 @@ describe("W9c 코칭 PDF", () => {
     ).not.toContain("교육기관");
   });
 
+  it("확률이 있으면 PDF에도 상담 참고 지표 안내를 적고 없으면 적지 않는다", async () => {
+    const withTargets = (probability: number | null) =>
+      ({
+        ...DATA,
+        student: {
+          ...DATA.student,
+          targets: {
+            ideal: {
+              university: "가나대",
+              department: "경영학과",
+              probability,
+            },
+            min: null,
+          },
+        },
+      }) as Coaching;
+    const notice =
+      "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다";
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: withTargets(34) },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const first = renderRoutes(routes, "/print?studentId=s1");
+
+    expect(await screen.findByText("이상 가나대 경영학과 34%")).toBeTruthy();
+    expect(screen.getByText(notice)).toBeTruthy();
+    first.unmount();
+
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: withTargets(null) },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+    renderRoutes(routes, "/print?studentId=s1");
+
+    expect(await screen.findByText("이상 가나대 경영학과")).toBeTruthy();
+    expect(screen.queryByText(notice)).toBeNull();
+  });
+
   it("본사 대행이면 출력자는 본사 대행이다", async () => {
     stubApi({
       "GET /api/console/me": { body: proxyMe },
