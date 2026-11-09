@@ -22,12 +22,21 @@ import { diagnosisDetail } from "./diagnosisDetail.js";
 import { findForbiddenClaims } from "./forbiddenClaims.js";
 import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 import { serviceDetail } from "./serviceDetail.js";
+import { INQUIRY_STEPS, SELFEVAL_STEPS } from "./sessionStatus.js";
 
 describe("findForbiddenClaims 문구 판정", () => {
   test.each([
     "합격 보장합니다",
     "반드시 합격할 수 있습니다",
     "합격 확률은 34%입니다",
+    "합격을 보장해 드립니다",
+    "합격 가능성이 높습니다",
+    "합격 가능성이 큰 편입니다",
+    "충분히 합격할 수 있습니다",
+    "확률이 34%예요",
+    "확률이 34%이에요",
+    "확률은 34%로 높습니다",
+    "확률은 34%이다",
   ])("단정 표현은 잡는다: %s", (text) => {
     expect(findForbiddenClaims(text)).toHaveLength(1);
     expect(findForbiddenClaims(text)[0]?.text).toBe(text);
@@ -182,6 +191,15 @@ function facts(
   };
 }
 
+const SERVICES = [
+  "goal",
+  "diagnosis",
+  "growth",
+  "performance",
+  "inquiry",
+  "selfeval",
+] as const;
+
 const targets = (p: number | null): NonNullable<TextFacts["targets"]> => ({
   ideal: { university: "가나대", department: "경영학과", probability: p },
   min: { university: "다라대", department: "경영학과", probability: p },
@@ -200,6 +218,41 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
             ).toEqual([]);
           }
         }
+      }
+    }
+  });
+
+  test("심화탐구 모든 단계와 자기평가 모든 단계에서 문장에 단정 표현이 없다", () => {
+    const inquiryStages = [
+      ...INQUIRY_STEPS.map((name, i) => ({
+        step: i + 1,
+        name,
+        completed: false,
+      })),
+      { step: 6, name: INQUIRY_STEPS[5], completed: true },
+    ];
+    const selfevalStages = [
+      ...SELFEVAL_STEPS.map((name, i) => ({
+        step: i,
+        name,
+        finished: i >= SELFEVAL_STEPS.length - 2,
+      })),
+      { step: 6, name: SELFEVAL_STEPS[5], finished: true },
+    ];
+    for (const code of TYPE_CODES) {
+      for (const inquiryStage of inquiryStages) {
+        const f = facts(code, { inquiryStage });
+        expect(
+          findForbiddenClaims(buildCoachingText(f)),
+          `${code} 탐구 ${inquiryStage.step} ${inquiryStage.completed}`,
+        ).toEqual([]);
+      }
+      for (const selfevalStage of selfevalStages) {
+        const f = facts(code, { selfevalStage });
+        expect(
+          findForbiddenClaims(buildCoachingText(f)),
+          `${code} 자기평가 ${selfevalStage.step}`,
+        ).toEqual([]);
       }
     }
   });
@@ -229,9 +282,21 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
     ).toEqual([]);
   });
 
-  test("목표관리와 학습진단 상세 창 문장은 확률 0, 34, 100에서도 단정하지 않는다", () => {
+  test("여섯 서비스 상세 창 문장은 확률 0, 34, 100에서도 단정하지 않는다", () => {
     for (const p of PROBABILITIES) {
       const f = facts("D1", { targets: targets(p) });
+      f.metrics.growth = {
+        axes: {
+          A: { verdict: "confirmed", count: 3, required: 3 },
+          B: { verdict: "caution", count: 1, required: 3 },
+          C: { verdict: "none", count: 0, required: 3 },
+          D: null,
+          E: null,
+        },
+        curve: "rising",
+      };
+      f.metrics.inquiry = { topicFit: "fit", reportScore: 82 };
+      f.metrics.selfeval = { verifyScore: 77 };
       const built = {
         data: {
           metrics: f.metrics,
@@ -245,15 +310,25 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
             diagnosedAt: "2026-10-01",
           },
           growthKeywords: f.growthKeywords,
-          performanceTasks: [],
+          performanceTasks: [
+            { title: "통계 보고서", subject: "수학", done: true, score: 88 },
+            { title: "발표", subject: "국어", done: false, score: null },
+          ],
           inquiryTopic: f.inquiryTopic,
         },
         text: buildCoachingText(f),
       } as unknown as Parameters<typeof serviceDetail>[1];
+      for (const key of SERVICES) {
+        expect(serviceDetail(key, built), key).not.toBeNull();
+      }
       expect(
         findForbiddenClaims([
           serviceDetail("goal", built),
           serviceDetail("diagnosis", built),
+          serviceDetail("growth", built),
+          serviceDetail("performance", built),
+          serviceDetail("inquiry", built),
+          serviceDetail("selfeval", built),
         ]),
         `확률 ${p}`,
       ).toEqual([]);
