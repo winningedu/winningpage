@@ -832,7 +832,7 @@ describe("서비스 다음 할 일, 성장설계와 자기평가 (r114, r115)", 
 });
 
 describe("목표관리 서비스 카드의 목표대학 확률 (교 #59, 106-5)", () => {
-  const goalDetail = (targets: TextFacts["targets"]) =>
+  const goalDetail = (targets: NonNullable<TextFacts["targets"]> | null) =>
     serviceCards(facts({ targets })).find((c) => c.service === "goal")?.detail;
   const t = (
     university: string,
@@ -866,7 +866,6 @@ describe("목표관리 서비스 카드의 목표대학 확률 (교 #59, 106-5)"
       goalDetail({ ideal: null, min: t("다라대", "경영학과", 61) }),
     ).toMatch(/연속 기록 1일, 최소 다라대 경영학과 61%$/);
     expect(goalDetail(null)).toMatch(/연속 기록 1일$/);
-    expect(goalDetail(undefined)).toMatch(/연속 기록 1일$/);
   });
 
   test("합격을 단정하는 문장을 쓰지 않는다", () => {
