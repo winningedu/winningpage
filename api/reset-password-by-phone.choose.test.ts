@@ -182,7 +182,6 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     ["비밀번호가 문자열이 아니면", { password: 123456 }],
     ["비밀번호에 특수문자가 없으면", { password: "Abcdef12" }],
   ])("%s 400 invalid_password 이고 DB 를 읽지 않는다", async (_name, extra) => {
-    const from = vi.spyOn(state.db as { from: () => unknown }, "from");
     const res = await reset(extra);
     expect(res.status).toBe(400);
     expect(res.body).toEqual({
@@ -190,7 +189,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
       reason: "invalid_password",
       detail: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
     });
-    expect(from).not.toHaveBeenCalled();
+    expect(verification()?.consumed_at).toBeNull();
     expect(db.passwordUpdates).toEqual([]);
   });
 
@@ -228,6 +227,54 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     expect(verification()?.consumed_at).not.toBeNull();
   });
 
+  test("profiles.email 을 공백 제거와 소문자로 정규화해 세션 정리 로그인과 잠금 키에 쓴다", async () => {
+    const profile = db.tables.profiles?.[0];
+    if (profile) profile.email = " First@Example.COM ";
+    db.tables.login_attempts = [
+      { identifier_hash: hashParam("first@example.com") },
+    ];
+
+    const res = await reset({
+      chooseAccount: true,
+      accountId: "p1",
+      password: NEW_PASSWORD,
+    });
+
+    expect(res.status).toBe(200);
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: "first@example.com",
+      password: NEW_PASSWORD,
+    });
+    expect(db.tables.login_attempts).toEqual([]);
+  });
+
+  test.each([
+    ["성공하면", true, "ok"],
+    ["세션 정리에 실패해도", false, "revoke_failed"],
+  ])(
+    "%s 계정 id 와 경로만 담은 로그 한 줄을 남긴다",
+    async (_name, signInOk, outcome) => {
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      if (!signInOk)
+        state.signIn.mockResolvedValue({ data: {}, error: new Error("boom") });
+
+      await reset({
+        chooseAccount: true,
+        accountId: "p2",
+        password: NEW_PASSWORD,
+      });
+
+      expect(info).toHaveBeenCalledTimes(1);
+      expect(info).toHaveBeenCalledWith("[reset-password-by-phone] reset", {
+        profileId: "p2",
+        via: "phone",
+        outcome,
+      });
+      vi.restoreAllMocks();
+    },
+  );
+
   test("계정이 여러 개면 409 로 고르게 하고 비밀번호를 바꾸지 않는다", async () => {
     const res = await reset({ chooseAccount: true, password: NEW_PASSWORD });
     expect(res.status).toBe(409);
@@ -243,7 +290,11 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     ];
     state.signIn.mockResolvedValue({ data: {}, error: new Error("boom") });
 
-    const res = await reset({ password: NEW_PASSWORD, accountId: "p1" });
+    const res = await reset({
+      chooseAccount: true,
+      accountId: "p1",
+      password: NEW_PASSWORD,
+    });
 
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ ok: false, reason: "revoke_failed" });
@@ -280,5 +331,11 @@ describe("reset-password-by-phone 위닝은 password 를 무시한다", () => {
     expect(db.passwordUpdates).toHaveLength(1);
     expect(db.passwordUpdates[0]?.password).not.toBe("NewPass123!");
     expect(state.signIn).not.toHaveBeenCalled();
+  });
+
+  test("응답에 Cache-Control: no-store 를 싣는다", async () => {
+    const res = await reset();
+
+    expect(res.headers["Cache-Control"]).toBe("no-store");
   });
 });

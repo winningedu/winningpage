@@ -273,6 +273,7 @@ export default defineHandler({
   methods: ["POST"],
   auth: "none",
   errorShape: "okDetail",
+  headers: { "Cache-Control": "no-store" },
   unhandledMessage: "비밀번호 재설정 중 오류가 발생했습니다.",
   logLabel: "reset-password-by-phone",
   handler: async (req, res, ctx) => {
@@ -420,10 +421,10 @@ export default defineHandler({
       const tempPassword = schoolmentor ? null : generateTempPassword();
       const password = schoolmentor ? (newPassword as string) : tempPassword;
 
-      const { data: updated, error: updateError } =
-        await supabase.auth.admin.updateUserById(account.id, {
-          password: password as string,
-        });
+      const { error: updateError } = await supabase.auth.admin.updateUserById(
+        account.id,
+        { password: password as string },
+      );
 
       if (updateError) {
         console.error(
@@ -449,8 +450,8 @@ export default defineHandler({
       }
 
       if (schoolmentor) {
-        // GoTrue 가 로그인에 쓰는 주소는 Auth 의 이메일이다(profiles.email 이 아니다).
-        const authEmail = updated?.user?.email ?? account.email;
+        // 로그인과 같은 주소다. attemptLogin 이 fn_login_resolve_email 로 profiles.email 을 읽어 소문자와 공백 제거로 다룬다.
+        const authEmail = account.email.trim().toLowerCase();
 
         // 이전 기기 세션을 모두 끝낸다(auth/teacher-reset-password.ts 와 같은 방식). 새 비밀번호로 만든 확인용 세션도
         // 함께 끝내므로 응답에 세션을 싣지 않는다. 실패해도 비밀번호는 이미 바뀌었으니 되돌리지 않고 인증 선점도
@@ -469,6 +470,11 @@ export default defineHandler({
         }
         if (!revoked) {
           console.error("[reset-password-by-phone] 세션 정리 실패");
+          console.info("[reset-password-by-phone] reset", {
+            profileId: account.id,
+            via,
+            outcome: "revoke_failed",
+          });
           return void res.status(500).json({
             ok: false,
             reason: "revoke_failed",
@@ -483,11 +489,17 @@ export default defineHandler({
           const { error: clearError } = await supabase
             .from("login_attempts")
             .delete()
-            .eq("identifier_hash", hashParam(authEmail.trim().toLowerCase()));
+            .eq("identifier_hash", hashParam(authEmail));
           if (clearError) throw clearError;
         } catch {
           console.error("[reset-password-by-phone] login_attempts delete 실패");
         }
+
+        console.info("[reset-password-by-phone] reset", {
+          profileId: account.id,
+          via,
+          outcome: "ok",
+        });
 
         return void res.status(200).json({
           ok: true,

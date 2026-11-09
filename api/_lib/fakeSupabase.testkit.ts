@@ -5,7 +5,7 @@
 // 핸들러 테스트용 메모리 Supabase 가짜. 실제 쿼리 빌더처럼 필터를 적용해서,
 // 테스트가 "어떤 필터를 걸었는지"가 아니라 "그 결과 어떤 행이 보이는지"로
 // 동작을 검증하게 한다. 필요한 만큼만 지원한다(select, eq, is, not, or, order,
-// limit, maybeSingle, update, rpc, delete, auth.admin.updateUserById(data.user.email 은 profiles.email), tenants!profiles_tenant_id_fkey(name) 임베드).
+// limit, maybeSingle, update, rpc, delete, auth.admin.updateUserById, tenants!profiles_tenant_id_fkey(name) 임베드).
 
 type Row = Record<string, unknown>;
 type Filter = (row: Row) => boolean;
@@ -163,8 +163,7 @@ export function createFakeSupabase(db: FakeDb) {
       admin: {
         updateUserById: async (id: string, attrs: { password: string }) => {
           db.passwordUpdates.push({ id, password: attrs.password });
-          const email = db.tables.profiles?.find((r) => r.id === id)?.email;
-          return { data: { user: { email } }, error: null };
+          return { error: null };
         },
         signOut: async () => ({ error: null }),
       },
