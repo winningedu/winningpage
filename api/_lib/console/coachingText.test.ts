@@ -323,6 +323,31 @@ describe("우선 과제 (r184 = 유형의 한줄 진단, r23~r90)", () => {
 });
 
 describe("유형 과제와 향후 진로계획 (r25~r89, r107~r120)", () => {
+  test("G1 유형 과제 3개는 탐구 주제를 넣고, 주제가 없으면 뺀다 (r85)", () => {
+    const g1 = { code: "G1", name: "탐구 확장" };
+    expect(typeTasks(facts({ type: g1, inquiryTopic: "도시 재생" }))).toEqual([
+      "현재 실행 수준 유지 확인",
+      "학습 시간 일부를 심화탐구 '도시 재생'에 배정",
+      "탐구 결과 발표, 공유",
+    ]);
+    expect(typeTasks(facts({ type: g1, inquiryTopic: null }))?.[1]).toBe(
+      "학습 시간 일부를 심화탐구에 배정",
+    );
+    const plan = careerPlan(
+      facts({ type: g1, grade: "고1", inquiryTopic: "도시 재생" }),
+    );
+    expect(plan?.map((p) => p.label)).toEqual([
+      "우선 2주",
+      "이번 학기",
+      "다음 학기",
+    ]);
+    expect(plan?.map((p) => p.items[0])).toEqual([
+      "현재 실행 수준 유지 확인",
+      "학습 시간 일부를 심화탐구 '도시 재생'에 배정",
+      "탐구 결과 발표, 공유",
+    ]);
+  });
+
   test("유형 과제 3개: C2, F1, E2", () => {
     expect(typeTasks(facts({ type: { code: "C2", name: "" } }))).toEqual([
       "최소 목표시간 매일 충족(현재 4/6일)",

@@ -545,6 +545,14 @@ export function typeTasks(f: TextFacts): string[] | null {
         "수행평가 또는 심화탐구로 첫 기록 남기기",
         "기록을 성장설계 스토리에 연결",
       ];
+    case "G1":
+      return [
+        "현재 실행 수준 유지 확인",
+        f.inquiryTopic
+          ? `학습 시간 일부를 심화탐구 '${f.inquiryTopic}'에 배정`
+          : "학습 시간 일부를 심화탐구에 배정",
+        "탐구 결과 발표, 공유",
+      ];
     case "G2":
       return [
         "현재 실행 수준 유지 확인",
