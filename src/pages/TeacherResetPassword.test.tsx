@@ -64,6 +64,15 @@ function fillPasswords(password: string, confirm: string) {
   fireEvent.click(screen.getByRole("button", { name: "비밀번호 바꾸기" }));
 }
 
+function expectFirstStep() {
+  expect(screen.getByLabelText("아이디")).toBeEnabled();
+  expect(screen.getByLabelText("휴대폰 번호")).toBeEnabled();
+  expect(screen.getByLabelText("인증번호")).toBeDisabled();
+  expect(screen.getByLabelText("인증번호")).toHaveValue("");
+  expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+  expect(screen.queryByLabelText("새 비밀번호 확인")).toBeNull();
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockSend.mockResolvedValue({
@@ -157,7 +166,7 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("TEACHER_NOT_MATCHED 는 서버 문구를 보여 주고 비밀번호 단계에 머문다", async () => {
+  it("TEACHER_NOT_MATCHED 는 서버 문구를 보여 주고 첫 단계로 돌아간다", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse(400, {
         error: {
@@ -173,7 +182,33 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "아이디와 휴대폰 번호를 다시 확인해 주세요.",
     );
-    expect(screen.getByLabelText("새 비밀번호")).toBeInTheDocument();
+    expectFirstStep();
+  });
+
+  it("첫 단계로 돌아간 뒤 다른 번호로 인증번호를 다시 받고 비밀번호 입력은 비어 있다", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: {
+          code: "TEACHER_NOT_MATCHED",
+          message: "아이디와 휴대폰 번호를 다시 확인해 주세요.",
+        },
+      }),
+    );
+    await verifyAndReachPasswordStep();
+    fillPasswords("NewPass123", "NewPass123");
+    await screen.findByRole("alert");
+
+    fireEvent.change(screen.getByLabelText("휴대폰 번호"), {
+      target: { value: "01099998888" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "인증번호 받기" }));
+    const code = await screen.findByLabelText("인증번호");
+    await waitFor(() => expect(code).toBeEnabled());
+    fireEvent.change(code, { target: { value: "654321" } });
+
+    expect(mockSend).toHaveBeenLastCalledWith("01099998888", "reset_password");
+    expect(await screen.findByLabelText("새 비밀번호")).toHaveValue("");
+    expect(screen.getByLabelText("새 비밀번호 확인")).toHaveValue("");
   });
 
   it("VERIFICATION_EXPIRED 는 서버 문구를 보여 주고 인증번호 단계로 돌아간다", async () => {

@@ -83,6 +83,18 @@ export default function TeacherResetPassword() {
   const [formError, setFormError] = useState("");
   const [done, setDone] = useState(false);
 
+  // 첫 단계로 돌아간다. 아이디와 번호는 그대로 두어 고쳐 쓸 수 있고, 인증은 새로 받는다.
+  function restart() {
+    lastAttempt.current = "";
+    setRequested(false);
+    setVerified(false);
+    setPhoneCode("");
+    setPassword("");
+    setPasswordConfirm("");
+    setPhoneMessage({ text: "", status: "default" });
+    cooldown.reset();
+  }
+
   async function submit() {
     if (violatesPasswordRule(password)) {
       setFormError(PASSWORD_RULE_ERROR);
@@ -110,9 +122,12 @@ export default function TeacherResetPassword() {
       setFormError(outcome.message);
       return;
     }
-    setFormError(
-      outcome.kind === "not_matched" ? outcome.message : SAVE_FAILED_MESSAGE,
-    );
+    if (outcome.kind === "not_matched") {
+      restart();
+      setFormError(outcome.message);
+      return;
+    }
+    setFormError(SAVE_FAILED_MESSAGE);
   }
 
   async function requestCode() {
