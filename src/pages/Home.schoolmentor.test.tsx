@@ -128,14 +128,14 @@ describe("Home 스쿨멘토 구성", () => {
     ).toBeInTheDocument();
   });
 
-  test("위닝 홈은 특허청 특허 조회 링크와 배지 이미지를 새 창으로 연다", async () => {
+  test("위닝 홈은 특허증 PDF 링크와 배지 이미지를 새 창으로 연다", async () => {
     state.b2b = false;
     renderHome();
     await screen.findByRole("region", { name: "핵심 서비스" });
-    const link = screen.getByRole("link", { name: /특허 조회 새 창 열기/ });
+    const link = screen.getByRole("link", { name: /특허증 새 창 열기/ });
     expect(link).toHaveAttribute(
       "href",
-      "https://www.kipris.or.kr/khome/search/searchResult.do",
+      "/images/landing/patent-certificate-10-3038224.pdf",
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
@@ -149,7 +149,9 @@ describe("Home 스쿨멘토 구성", () => {
   test("스쿨멘토 홈에는 특허 배지 링크가 없다", async () => {
     renderHome();
     await screen.findByRole("region", { name: "핵심 서비스" });
-    expect(screen.queryByRole("link", { name: /특허 조회/ })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: /특허증 새 창 열기/ }),
+    ).toBeNull();
   });
 
   test("서비스, 새로운 소식, 칼럼-교육청소식 순서로 그린다", async () => {
