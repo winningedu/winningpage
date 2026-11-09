@@ -141,7 +141,7 @@ describe("Home 스쿨멘토 구성", () => {
     expect(link.getAttribute("rel")).toContain("noopener");
     expect(
       within(link).getByAltText(
-        "지식재산처 학습코칭 장치 및 방법 특허 등록 103038224",
+        "지식재산처 학습코칭 장치 및 방법 특허 제10-3038224호",
       ),
     ).toHaveAttribute("src", "/images/landing/patent-badge.png");
   });
