@@ -14,11 +14,14 @@ import {
 } from "./coaching.js";
 import {
   buildCoachingText,
+  COUNSEL_POINTS_NONE,
   careerPlan,
   counselPoints,
   goalOpinion,
   gradeInputCheck,
+  nextServiceTasks,
   priorityTask,
+  serviceCards,
   strengths,
   studyMethods,
   type TextFacts,
@@ -134,6 +137,9 @@ function facts(
     },
     pendingPerformance: [{ title: "통계로 본 우리 동네", subject: "수학" }],
     inquiryTopic: "도시 열섬 완화 방안",
+    inquiryStage: null,
+    selfevalStage: null,
+    targets: null,
     growthKeywords: ["도시 재생", "탄소 중립"],
     gradeCheck: null,
     ...over,
@@ -250,12 +256,104 @@ describe("우선 과제 (r184 = 유형의 한줄 진단, r23~r90)", () => {
     );
   });
 
-  test("G1 은 탐구 단계 이름의 출처가 없어 만들지 않는다", () => {
-    expect(priorityTask(facts({ type: { code: "G1", name: "" } }))).toBeNull();
+  const G1 = { code: "G1", name: "탐구 확장" };
+  const stage = (step: number, name: string, completed = false) => ({
+    step,
+    name,
+    completed,
+  });
+
+  test("G1 은 탐구 주제와 단계를 넣고 조사를 맞춘다 (r84)", () => {
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "도시 재생",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toBe(
+      "실행, 학습역량, 연계가 모두 안정적이고, 심화탐구 '도시 재생'이 '보고서 작성' 단계입니다. 우선 과제는 탐구를 다음 단계로 끌어올리는 것입니다.",
+    );
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "인공지능",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("심화탐구 '인공지능'이 '보고서 작성'");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "도시 계획",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("심화탐구 '도시 계획'이");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "기후 변화 대응",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("'기후 변화 대응'이 ");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "디자인 사고",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("'디자인 사고'가 ");
+  });
+
+  test("G1 은 주제가 없으면 주제 부분을 빼고, 탐구 단계를 읽지 못하면 만들지 않는다", () => {
+    const text = priorityTask(
+      facts({
+        type: G1,
+        inquiryTopic: null,
+        inquiryStage: stage(2, "주제 추천"),
+      }),
+    ) as string;
+    expect(text).toContain("심화탐구가 '주제 추천' 단계입니다.");
+    expect(text).not.toMatch(/undefined|null|''/);
+    expect(priorityTask(facts({ type: G1, inquiryStage: null }))).toBeNull();
+    expect(priorityTask(facts({ type: G1 }))).toBeNull();
   });
 });
 
 describe("유형 과제와 향후 진로계획 (r25~r89, r107~r120)", () => {
+  test("G1 유형 과제 3개는 탐구 주제를 넣고, 주제가 없으면 뺀다 (r85)", () => {
+    const g1 = { code: "G1", name: "탐구 확장" };
+    expect(typeTasks(facts({ type: g1, inquiryTopic: "도시 재생" }))).toEqual([
+      "현재 실행 수준 유지 확인",
+      "학습 시간 일부를 심화탐구 '도시 재생'에 배정",
+      "탐구 결과 발표, 공유",
+    ]);
+    expect(typeTasks(facts({ type: g1, inquiryTopic: null }))?.[1]).toBe(
+      "학습 시간 일부를 심화탐구에 배정",
+    );
+    const plan = careerPlan(
+      facts({ type: g1, grade: "고1", inquiryTopic: "도시 재생" }),
+    );
+    expect(plan?.map((p) => p.label)).toEqual([
+      "우선 2주",
+      "이번 학기",
+      "다음 학기",
+    ]);
+    expect(plan?.map((p) => p.items[0])).toEqual([
+      "현재 실행 수준 유지 확인",
+      "학습 시간 일부를 심화탐구 '도시 재생'에 배정",
+      "탐구 결과 발표, 공유",
+    ]);
+  });
+
   test("유형 과제 3개: C2, F1, E2", () => {
     expect(typeTasks(facts({ type: { code: "C2", name: "" } }))).toEqual([
       "최소 목표시간 매일 충족(현재 4/6일)",
@@ -273,7 +371,8 @@ describe("유형 과제와 향후 진로계획 (r25~r89, r107~r120)", () => {
   });
 
   test("1, 2학년은 칸마다 유형 과제와 서비스 다음 할 일을 둔다 (설계 예시 문장)", () => {
-    const plan = careerPlan(facts({ type: F1 }));
+    // 성장설계 키워드가 없으면 r114 항목이 빠져 기본 문구(r116)가 칸을 채운다
+    const plan = careerPlan(facts({ type: F1, growthKeywords: [] }));
     expect(plan?.map((p) => p.label)).toEqual([
       "우선 2주",
       "이번 학기",
@@ -555,6 +654,241 @@ describe("강점과 보완 (r133~r149)", () => {
   });
 });
 
+describe("서비스 다음 할 일, 심화탐구 이용 중 (r108~r113)", () => {
+  const step = (n: number, name: string, completed = false) => ({
+    step: n,
+    name,
+    completed,
+  });
+  const tasks = (over: Partial<TextFacts>) =>
+    nextServiceTasks(facts({ pendingPerformance: [], ...over }));
+
+  test("주제 탐색중, 설계중, 보고서 작성중, 피드백 완료를 6단계에 맞춘다 (교 106-3)", () => {
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: null,
+        inquiryStage: step(2, "주제 추천"),
+      }),
+    ).toContain("심화탐구 주제 확정(경영학과 연결)");
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(3, "설계 리포트"),
+      }),
+    ).toContain("'도시 재생' 탐구 설계 마무리");
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(4, "보고서 작성"),
+      }),
+    ).toContain("'도시 재생' 보고서 제출");
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(6, "확정과 저장", true),
+      }),
+    ).toContain("'도시 재생' 후속 탐구, 발표로 확장");
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(5, "평가 리포트"),
+      }),
+    ).toContain("'도시 재생' 후속 탐구, 발표로 확장");
+  });
+
+  test("탐구 진행중 문구는 없고, 주제가 필요한 단계에 주제가 없으면 뺀다", () => {
+    const all = [1, 2, 3, 4, 5, 6].flatMap((n) =>
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(n, "x"),
+      }),
+    );
+    expect(all.some((t) => t.includes("탐구 결과 정리"))).toBe(false);
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: null,
+        inquiryStage: step(4, "보고서 작성"),
+      }).some((t) => t.includes("보고서 제출")),
+    ).toBe(false);
+  });
+
+  test("고3 은 보고서 작성중일 때만, 유형 I 는 뺀다", () => {
+    const s3 = { inquiryTopic: "도시 재생", grade: "고3" };
+    expect(tasks({ ...s3, inquiryStage: step(3, "설계 리포트") })).toEqual([]);
+    expect(tasks({ ...s3, inquiryStage: step(4, "보고서 작성") })).toEqual([
+      "'도시 재생' 보고서 제출",
+    ]);
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(4, "보고서 작성"),
+        type: { code: "I", name: "" },
+      }).some((t) => t.includes("보고서 제출")),
+    ).toBe(false);
+  });
+});
+
+describe("서비스 다음 할 일, 성장설계와 자기평가 (r114, r115)", () => {
+  const tasks = (over: Partial<TextFacts>, metricOver = {}) =>
+    nextServiceTasks(facts({ pendingPerformance: [], ...over }, metricOver));
+  const used = (selfeval: boolean) => ({
+    used: {
+      diagnosis: true,
+      goal: true,
+      growth: true,
+      performance: true,
+      selfeval,
+      inquiry: true,
+    },
+  });
+
+  test("성장설계 이용 중이면 다음 학년 스토리 주제 활동 계획을 낸다, 키워드가 없으면 뺀다", () => {
+    expect(tasks({ grade: "고1", growthKeywords: ["도시 재생"] })).toContain(
+      "2학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    );
+    expect(tasks({ grade: "고2", growthKeywords: ["도시 재생"] })).toContain(
+      "3학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    );
+    expect(
+      tasks({ grade: "고1", growthKeywords: [] }).some((t) =>
+        t.includes("스토리 주제("),
+      ),
+    ).toBe(false);
+  });
+
+  test("자기평가는 다음 단계를 안내하고, 마지막 단계면 뺀다, 고2 미이용은 문항 분석 시작", () => {
+    const sev = (finished: boolean) => ({
+      selfevalStage: { step: 3, name: "분석 확인", finished },
+    });
+    expect(
+      tasks({ grade: "고1", growthKeywords: [], ...sev(false) }),
+    ).toContain("자기평가 '분석 확인' 단계 진행");
+    expect(
+      tasks({ grade: "고1", growthKeywords: [], ...sev(true) }).some((t) =>
+        t.startsWith("자기평가"),
+      ),
+    ).toBe(false);
+    expect(tasks({ grade: "고2", growthKeywords: [] }, used(false))).toContain(
+      "자기평가 문항 분석 시작",
+    );
+    expect(
+      tasks({ grade: "고1", growthKeywords: [] }, used(false)).some((t) =>
+        t.startsWith("자기평가"),
+      ),
+    ).toBe(false);
+    expect(
+      tasks({
+        grade: "고1",
+        growthKeywords: [],
+        type: { code: "J", name: "" },
+        ...sev(false),
+      }).some((t) => t.startsWith("자기평가")),
+    ).toBe(false);
+  });
+
+  test("순서는 수행평가, 심화탐구, 성장설계, 자기평가이고 기본 문구가 채워 세 개로 자른다", () => {
+    const full = tasks({
+      grade: "고1",
+      pendingPerformance: [{ title: "가", subject: "수학" }],
+      inquiryTopic: "도시 재생",
+      inquiryStage: { step: 4, name: "보고서 작성", completed: false },
+      growthKeywords: ["도시 재생"],
+      selfevalStage: { step: 3, name: "분석 확인", finished: false },
+    });
+    expect(full).toEqual([
+      "수행평가 '가'(수학) 피드백 반영 후 재제출",
+      "'도시 재생' 보고서 제출",
+      "2학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    ]);
+    expect(tasks({ grade: "고1" })).toHaveLength(3);
+  });
+
+  test("같은 문구는 두 번 나오지 않는다", () => {
+    const dup = tasks({
+      grade: "고1",
+      pendingPerformance: [
+        { title: "가", subject: "수학" },
+        { title: "가", subject: "수학" },
+      ],
+    });
+    expect(new Set(dup).size).toBe(dup.length);
+  });
+
+  test("유형 F2 와 G2 에는 심화탐구 주제 탐색 시작이 없다", () => {
+    for (const code of ["F2", "G2"]) {
+      expect(
+        tasks(
+          { grade: "고1", type: { code, name: "" } },
+          { used: { ...used(true).used, inquiry: false } },
+        ).some((t) => t.includes("심화탐구 주제 탐색 시작")),
+      ).toBe(false);
+    }
+  });
+});
+
+describe("목표관리 서비스 카드의 목표대학 확률 (교 #59, 106-5)", () => {
+  const goalDetail = (targets: NonNullable<TextFacts["targets"]> | null) =>
+    serviceCards(facts({ targets })).find((c) => c.service === "goal")?.detail;
+  const t = (
+    university: string,
+    department: string,
+    probability: number | null,
+  ) => ({
+    university,
+    department,
+    probability,
+  });
+
+  test("이상, 최소 목표대학과 확률을 연속 기록 뒤에 붙인다", () => {
+    expect(
+      goalDetail({
+        ideal: t("가나대", "경영학과", 34),
+        min: t("다라대", "경영학과", 61),
+      }),
+    ).toBe(
+      "최소 목표시간 충족 4일 / 목표 설정 6일, 연속 기록 1일, 이상 가나대 경영학과 34%, 최소 다라대 경영학과 61%",
+    );
+  });
+
+  test("확률이 없으면 퍼센트만 빼고, 목표가 없는 쪽은 뺀다", () => {
+    expect(
+      goalDetail({
+        ideal: t("가나대", "경영학과", null),
+        min: t("다라대", "경영학과", 0),
+      }),
+    ).toMatch(/, 이상 가나대 경영학과, 최소 다라대 경영학과 0%$/);
+    expect(
+      goalDetail({ ideal: null, min: t("다라대", "경영학과", 61) }),
+    ).toMatch(/연속 기록 1일, 최소 다라대 경영학과 61%$/);
+    expect(goalDetail(null)).toMatch(/연속 기록 1일$/);
+  });
+
+  test("대학 이름이 비어 있으면 빈칸을 겹쳐 쓰지 않는다", () => {
+    const d = goalDetail({
+      ideal: t("", "경영학과", 34),
+      min: null,
+    });
+    expect(d).toMatch(/, 이상 경영학과 34%$/);
+    expect(d).not.toContain("  ");
+  });
+
+  test("합격을 단정하는 문장을 쓰지 않는다", () => {
+    const d = goalDetail({
+      ideal: t("가나대", "경영학과", 34),
+      min: null,
+    }) as string;
+    expect(d).not.toMatch(/합격/);
+  });
+});
+
 describe("종합 진단 상담 포인트 (r159~r179)", () => {
   test("70점 미만 축마다 원인 지표별 상담 문구를 붙이고 낮은 축부터 최대 2개, 한줄 진단이 다룬 축은 뺀다 (r159~r177)", () => {
     const low = facts(
@@ -575,6 +909,53 @@ describe("종합 진단 상담 포인트 (r159~r179)", () => {
         p.startsWith("학습 실행력"),
       ),
     ).toBe(false);
+  });
+
+  test("상담 포인트가 하나도 없으면 안내 문장 하나를 낸다 (교 #93, r177)", () => {
+    expect(COUNSEL_POINTS_NONE).toBe(
+      "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.",
+    );
+    const all80 = facts(
+      {},
+      {
+        performance: { avgScore: 90, tasks: 3, feedbackDone: 3 },
+      },
+    );
+    const okAxes = {
+      ...all80,
+      axes: {
+        ...all80.axes,
+        axes: all80.axes.axes.map((a) =>
+          a.status === "scored" ? { ...a, score: 80 } : a,
+        ),
+      },
+    };
+    expect(counselPoints(okAxes)).toEqual([COUNSEL_POINTS_NONE]);
+    const low = facts(
+      { type: { code: "H", name: "" } },
+      { performance: { avgScore: 20, tasks: 3, feedbackDone: 0 } },
+    );
+    const onlyCovered = {
+      ...low,
+      axes: {
+        ...low.axes,
+        axes: low.axes.axes.map((a) =>
+          a.key === "performance" || a.status !== "scored"
+            ? { ...a, score: a.status === "scored" ? 55 : a.score }
+            : { ...a, score: 80 },
+        ),
+      },
+    };
+    expect(counselPoints(onlyCovered)).toEqual([COUNSEL_POINTS_NONE]);
+  });
+
+  test("상담 포인트가 있으면 안내 문장은 붙지 않는다", () => {
+    const low = facts(
+      { type: F1 },
+      { performance: { avgScore: 50, tasks: 3, feedbackDone: 2 } },
+    );
+    expect(counselPoints(low)).not.toContain(COUNSEL_POINTS_NONE);
+    expect(counselPoints(low).length).toBeLessThanOrEqual(2);
   });
 
   test("성적 입력값 확인은 0.5등급 이상 차이일 때만 (r178)", () => {

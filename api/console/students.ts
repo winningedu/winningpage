@@ -5,7 +5,7 @@
 // scopeTotal 은 필터 없이 범위 안의 학생 수라 "학생 없음"과 "조건에 맞는 학생 없음"을 가른다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { kstYMD } from "../../src/lib/goal/calc/index.js";
+import { diffDaysYMD, kstYMD } from "../../src/lib/goal/calc/index.js";
 import { loadDiagnosisStatus } from "../_lib/console/diagnosisStatus.js";
 import {
   compareClassName,
@@ -18,6 +18,7 @@ import { rateBucket } from "../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../_lib/console/goalStatus.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { loadPerformanceStatus } from "../_lib/console/performanceStatus.js";
 import { queryValue } from "../_lib/console/query.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
@@ -25,6 +26,10 @@ import {
   SERVICE_KEYS,
   type ServiceKey,
 } from "../_lib/console/serviceUsage.js";
+import {
+  resolveThresholds,
+  specialReasonsOf,
+} from "../_lib/console/special.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -75,22 +80,29 @@ async function loadFlagged(
   );
   return new Set(rows.map((r) => r.student_id));
 }
-/** 이름과 가입일(KST 날짜). in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
+/** 이름, 가입일(KST 날짜), 최근 접속 시각. in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
 async function loadProfiles(
   admin: SupabaseClient,
   ids: string[],
-): Promise<Map<string, { name: string; joinedAt: string | null }>> {
+): Promise<
+  Map<
+    string,
+    { name: string; joinedAt: string | null; lastSeenAt: string | null }
+  >
+> {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += PROFILE_CHUNK) {
     chunks.push(ids.slice(i, i + PROFILE_CHUNK));
   }
   const pages = await Promise.all(
     chunks.map((chunk) =>
-      readAll<{ id: string; name: string | null; created_at: string | null }>(
-        admin,
-        "profiles",
-        "id, name, created_at",
-        (q) => q.in("id", chunk),
+      readAll<{
+        id: string;
+        name: string | null;
+        created_at: string | null;
+        last_seen_at: string | null;
+      }>(admin, "profiles", "id, name, created_at, last_seen_at", (q) =>
+        q.in("id", chunk),
       ),
     ),
   );
@@ -100,6 +112,7 @@ async function loadProfiles(
       {
         name: p.name ?? "",
         joinedAt: p.created_at ? kstYMD(new Date(p.created_at)) : null,
+        lastSeenAt: p.last_seen_at,
       },
     ]),
   );
@@ -149,12 +162,13 @@ export default defineHandler({
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
     const { data: threshold, error: thresholdError } = await admin
       .from("tenants")
-      .select("special_exec_rate_pct")
+      .select(
+        "special_exec_rate_pct, special_inactive_days, special_feedback_wait_days",
+      )
       .eq("id", actor.tenantId)
       .maybeSingle();
     if (thresholdError) throw new Error("tenant threshold lookup failed");
-    const execRatePct =
-      (threshold?.special_exec_rate_pct as number | null | undefined) ?? null;
+    const thresholds = resolveThresholds(threshold);
     const [current, classes] = await Promise.all([
       readAll<EnrollmentRow>(admin, "student_enrollments", COLUMNS, (query) =>
         scopeQuery(query, actor, { classColumn: "class_id" })
@@ -224,28 +238,43 @@ export default defineHandler({
       });
     }
 
+    // 접속한 날과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속으로 잡지 않는다).
+    const today = kstYMD(new Date());
+    const daysSince = (at: string | null | undefined) =>
+      at ? diffDaysYMD(kstYMD(new Date(at)), today) : null;
     const extrasOf = async (rows: EnrollmentRow[]) => {
       const ids = rows.map((e) => e.student_id);
       await ensureServices(ids);
-      const [diagnosis, rates, flagged] = await Promise.all([
+      const [diagnosis, rates, flagged, performance] = await Promise.all([
         loadDiagnosisStatus(admin, ids),
         loadWeeklyRates(
           admin,
           ids.filter((id) => usedOf(id).includes("goal")),
         ),
         loadFlagged(admin, actor.tenantId),
+        loadPerformanceStatus(
+          admin,
+          ids.filter((id) => usedOf(id).includes("performance")),
+        ),
       ]);
-      const reasonsOf = (id: string): string[] => {
-        const rate = rates.get(id);
-        const level = diagnosis.get(id)?.urgency;
-        return [
-          ...(execRatePct !== null && rate !== undefined && rate < execRatePct
-            ? ["low_rate"]
-            : []),
-          ...(level === "high" || level === "very_high" ? ["urgency"] : []),
-          ...(flagged.has(id) ? ["manual"] : []),
-        ];
+      // 가장 최근 제출이 평가를 기다리면 제출일(KST)부터 오늘까지의 달력 날짜 차이.
+      const feedbackWaitingDaysOf = (id: string) => {
+        const status = performance.get(id);
+        return status?.feedback === "waiting" && status.lastSubmittedAt
+          ? diffDaysYMD(status.lastSubmittedAt, today)
+          : null;
       };
+      const reasonsOf = (id: string) =>
+        specialReasonsOf(
+          {
+            weeklyRate: rates.get(id) ?? null,
+            urgency: diagnosis.get(id)?.urgency ?? null,
+            lastSeenDays: daysSince(profiles.get(id)?.lastSeenAt),
+            feedbackWaitingDays: feedbackWaitingDaysOf(id),
+            flagged: flagged.has(id),
+          },
+          thresholds,
+        );
       return { diagnosis, rates, reasonsOf };
     };
     let extras: Awaited<ReturnType<typeof extrasOf>>;
@@ -262,7 +291,9 @@ export default defineHandler({
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
-      specialExecRatePct: execRatePct,
+      specialExecRatePct: thresholds.execRatePct,
+      specialInactiveDays: thresholds.inactiveDays,
+      specialFeedbackWaitDays: thresholds.feedbackWaitDays,
       pageCount: paged.pageCount,
       items: paged.items.map((e) => {
         const cls = classOf(e);

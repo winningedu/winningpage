@@ -541,18 +541,25 @@ const VERDICT_LABEL: Record<VerdictLevel, string> = {
 
 /**
  * 종합 코칭 신호(문구표 r17~r22). 심각 수 = (학습역량 위험이면 1) + 점수가 있는 축 중 50점 미만 축 수.
+ * 학습역량이 위험이면 같은 원천인 학습 실행력 축은 심각 수에서 뺀다(결정 106). 70점 미만 주의 판정에는 그대로 넣는다.
  * 신호 아래 줄은 세 판정을 쉼표로 잇는다(결정 6).
  */
 export function signalOf(
   verdicts: Verdicts,
-  axes: { score: number | null }[],
+  axes: { key: AxisKey; score: number | null }[],
 ): { signal: Signal; subLine: string } {
   const scores = axes
     .map((a) => a.score)
     .filter((s): s is number => s !== null);
+  const learningRisk = verdicts.learning.level === "risk";
   const severe =
-    (verdicts.learning.level === "risk" ? 1 : 0) +
-    scores.filter((s) => s < 50).length;
+    (learningRisk ? 1 : 0) +
+    axes.filter(
+      (a) =>
+        a.score !== null &&
+        a.score < 50 &&
+        !(learningRisk && a.key === "execution"),
+    ).length;
   const subLine = `실행 ${VERDICT_LABEL[verdicts.execution.level]}, 학습역량 ${VERDICT_LABEL[verdicts.learning.level]}, 연계 ${VERDICT_LABEL[verdicts.linkage.level]}`;
   const signal = ((): Signal => {
     if (verdicts.execution.level === "risk" || severe >= 2) return "focus";

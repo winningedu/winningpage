@@ -26,7 +26,13 @@ import {
   summarizeGoalWeek,
   weekWindows,
 } from "./goalRate.js";
+import { type Target, target } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
+import {
+  INQUIRY_STEPS,
+  SELFEVAL_STEPS,
+  selfevalFinished,
+} from "./sessionStatus.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
   "목표 설정": "GOAL",
@@ -89,6 +95,33 @@ function diagnosisFrom(
   return {
     areas: areas as AreaScores,
     trend: typeof code === "string" ? (TREND_BY_CODE[code] ?? null) : null,
+  };
+}
+
+export interface DiagnosisMeta {
+  schoolType: string | null;
+  gpa: string | null;
+  gradeTrend: string | null;
+  diagnosedAt: string | null;
+}
+
+/** 리포트 payload.student 의 문자열. 비었거나 "미입력"이면 null. */
+function diagnosisMetaFrom(
+  report: { payload: unknown } | undefined,
+): DiagnosisMeta | null {
+  if (!report || !isRecord(report.payload)) return null;
+  const student = isRecord(report.payload.student)
+    ? report.payload.student
+    : {};
+  const text = (key: string) => {
+    const v = student[key];
+    return typeof v === "string" && v !== "" && v !== "미입력" ? v : null;
+  };
+  return {
+    schoolType: text("schoolType"),
+    gpa: text("gpa"),
+    gradeTrend: text("gradeTrend"),
+    diagnosedAt: text("diagnosedAt"),
   };
 }
 
@@ -190,6 +223,32 @@ function narrativeKeywords(
   return latest?.narrative_theme ? [latest.narrative_theme] : [];
 }
 
+function inquiryStageOf(session: { current_step: number; status: string }) {
+  const last = INQUIRY_STEPS.length;
+  const completed = session.status === "completed";
+  const step = Math.min(Math.max(session.current_step, 1), last);
+  return {
+    step,
+    name: INQUIRY_STEPS[(completed ? last : step) - 1] ?? "",
+    completed,
+  };
+}
+
+/**
+ * 가장 최근 자기평가 세션에서 아직 하지 않은 첫 단계(W8 탭과 같은 계산, sessionStatus.ts selfevalFinished).
+ * finished 는 더 진행할 단계가 없다는 뜻이다(마지막 단계에 있거나 완료).
+ */
+function selfevalStageOf(session: { current_step: number; status: string }) {
+  const last = SELFEVAL_STEPS.length;
+  const step = Math.min(Math.max(session.current_step, 0), last);
+  const done = selfevalFinished(step);
+  return {
+    step,
+    name: SELFEVAL_STEPS[Math.min(done, last - 1)] ?? "",
+    finished: session.status === "completed" || done >= last - 1,
+  };
+}
+
 export interface CoachingData {
   performanceTasks: {
     title: string | null;
@@ -200,15 +259,20 @@ export interface CoachingData {
   goalFacts: import("./coachingText.js").GoalFacts | null;
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
+  /** 최신 바로 앞 학습진단(diagnosed_at 순)의 영역 점수. 없거나 읽을 수 없으면 null. */
+  diagnosisPrevious: AreaScores | null;
+  /** 최신 학습진단 리포트의 학교 유형, 평균 내신, 성적 흐름, 진단일. */
+  diagnosisMeta: DiagnosisMeta | null;
+  /** 가장 최근에 고친 탐구 세션의 콘솔 단계(6단계 이름). 세션이 없으면 null. */
+  inquiryStage: { step: number; name: string; completed: boolean } | null;
+  /** 가장 최근에 고친 자기평가 세션의 다음 단계. 세션이 없으면 null. */
+  selfevalStage: { step: number; name: string; finished: boolean } | null;
   growthKeywords: string[];
   grade: string | null;
   /** profiles.last_seen_at 그대로(ISO). 기록이 없으면 null. */
   lastSeenAt: string | null;
   metrics: CoachingMetrics;
-  targets: {
-    ideal: { university: string; department: string } | null;
-    min: { university: string; department: string } | null;
-  } | null;
+  targets: { ideal: Target | null; min: Target | null } | null;
 }
 
 /** 학생 한 명의 서비스별 자료. used 는 서비스 이용 여부(serviceUsage)다. */
@@ -292,13 +356,15 @@ export async function loadCoachingData(
           }[]),
       uses("inquiry")
         ? readAll<{
-            created_at: string;
+            updated_at: string;
+            current_step: number;
+            status: string;
             selected_topic_id: string | null;
             latest_evaluation_id: string | null;
           }>(
             admin,
             "inquiry_sessions",
-            "created_at, selected_topic_id, latest_evaluation_id",
+            "updated_at, current_step, status, selected_topic_id, latest_evaluation_id",
             (q) => q.eq("profile_id", studentId),
           )
         : [],
@@ -318,6 +384,29 @@ export async function loadCoachingData(
     "last_seen_at",
     (q) => q.eq("id", studentId),
   );
+  const selfevalSessions = uses("selfeval")
+    ? await readAll<{
+        updated_at: string;
+        current_step: number;
+        status: string;
+      }>(admin, "selfeval_sessions", "updated_at, current_step, status", (q) =>
+        q.eq("profile_id", studentId),
+      )
+    : [];
+  const goalState = uses("goal")
+    ? await readAll<{ ideal_susi: number | null; min_susi: number | null }>(
+        admin,
+        "goal_student_state",
+        "ideal_susi, min_susi",
+        (q) => q.eq("profile_id", studentId),
+        "profile_id",
+      )
+    : [];
+
+  const diagnosesNewestFirst = [...diagnosis].sort((a, b) =>
+    b.diagnosed_at.localeCompare(a.diagnosed_at),
+  );
+  const selfevalSession = lastBy(selfevalSessions, (s) => s.updated_at);
 
   const goal = goalStudent[0];
   const today = kstYMD(now);
@@ -358,7 +447,7 @@ export async function loadCoachingData(
     .map((id) => perfReports.find((r) => r.session_id === id)?.score)
     .filter((s): s is number => typeof s === "number");
 
-  const session = lastBy(inquiry, (s) => s.created_at);
+  const session = lastBy(inquiry, (s) => s.updated_at);
   const topics = session?.selected_topic_id
     ? await readAll<{ fit: string; detail: unknown }>(
         admin,
@@ -403,9 +492,11 @@ export async function loadCoachingData(
 
   return {
     lastSeenAt,
+    diagnosisPrevious: diagnosisFrom(diagnosesNewestFirst[1])?.areas ?? null,
+    diagnosisMeta: diagnosisMetaFrom(diagnosesNewestFirst[0]),
     metrics: {
       used: usedMap,
-      diagnosis: diagnosisFrom(lastBy(diagnosis, (r) => r.diagnosed_at)),
+      diagnosis: diagnosisFrom(diagnosesNewestFirst[0]),
       goal: uses("goal")
         ? {
             week,
@@ -470,22 +561,22 @@ export async function loadCoachingData(
       subject: s.subject,
     })),
     inquiryTopic: topicTitle(topics[0]?.detail),
+    inquiryStage: session ? inquiryStageOf(session) : null,
+    selfevalStage: selfevalSession ? selfevalStageOf(selfevalSession) : null,
     growthKeywords: narrativeKeywords(growth),
     grade,
     targets: goal
       ? {
-          ideal: goal.ideal_university
-            ? {
-                university: goal.ideal_university,
-                department: goal.ideal_department,
-              }
-            : null,
-          min: goal.min_university
-            ? {
-                university: goal.min_university,
-                department: goal.min_department,
-              }
-            : null,
+          ideal: target(
+            goal.ideal_university,
+            goal.ideal_department,
+            goalState[0]?.ideal_susi,
+          ),
+          min: target(
+            goal.min_university,
+            goal.min_department,
+            goalState[0]?.min_susi,
+          ),
         }
       : null,
   };
