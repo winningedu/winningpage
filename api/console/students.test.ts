@@ -447,6 +447,39 @@ describe("GET /api/console/students special students", () => {
     expect(r.body).toMatchObject({ total: 2, scopeTotal: 4 });
   });
 
+  test("a raw weekly rate of 39.6 rounds to 40 and does not fire the low rate reason", async () => {
+    const day = weekWindows().thisWeek.find(
+      (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+    );
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            record_date: day,
+            study_hours: 3.96,
+            target_ideal_hours: 10,
+            target_min_hours: 5,
+          },
+        ],
+        f,
+      );
+
+    const r = await get();
+    const s1 = (
+      r.body as {
+        items: {
+          studentId: string;
+          weeklyGoalRate: number;
+          specialReasons: string[];
+        }[];
+      }
+    ).items.find((i) => i.studentId === "s1");
+
+    expect(s1?.weeklyGoalRate).toBe(40);
+    expect(s1?.specialReasons).toEqual(["urgency"]);
+  });
+
   test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
     const day = weekWindows().thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
