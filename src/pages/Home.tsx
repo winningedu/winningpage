@@ -6,6 +6,7 @@ import ColumnNewsSection from "@/components/landing/ColumnNewsSection";
 import HeroSection from "@/components/landing/HeroSection";
 import MentorSection from "@/components/landing/MentorSection";
 import NewsSection from "@/components/landing/NewsSection";
+import PatentBadge from "@/components/landing/PatentBadge";
 import ServicesSection from "@/components/landing/ServicesSection";
 import { useHomeColumns } from "@/components/landing/useHomeColumns";
 import { useHomeSectionCopy } from "@/components/landing/useHomeSectionCopy";
@@ -615,10 +616,12 @@ export default function Home() {
 
       <main
         // 스쿨멘토는 영역별 상태를 화면에 보이므로 본문을 숨기지 않는다(W1).
-        className={`min-h-screen bg-white pt-16 text-[#0D1B2A] transition-opacity duration-500 ${
+        className={`relative min-h-screen bg-white pt-16 text-[#0D1B2A] transition-opacity duration-500 ${
           heroReady || site.features.b2bMenu ? "opacity-100" : "opacity-0"
         }`}
       >
+        {!site.features.b2bMenu && <PatentBadge />}
+
         {(site.features.b2bMenu ||
           banners.length > 0 ||
           sideBanners.length > 0 ||
