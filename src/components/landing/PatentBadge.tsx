@@ -1,5 +1,4 @@
-const KIPRIS_SEARCH_URL =
-  "https://www.kipris.or.kr/khome/search/searchResult.do";
+const CERTIFICATE_PDF_URL = "/images/landing/patent-certificate-10-3038224.pdf";
 const BADGE_ALT = "특허청 '학습코칭 장치 및 방법' 특허 등록 103038224";
 
 // 헤더 로고와 같은 컨테이너 폭/좌우 패딩으로 왼쪽 끝을 맞춘다.
@@ -9,10 +8,10 @@ export default function PatentBadge() {
   return (
     <div className="mx-auto max-w-[120rem] px-8 pt-4 lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-20 lg:z-10 lg:pt-0 2xl:px-30">
       <a
-        href={KIPRIS_SEARCH_URL}
+        href={CERTIFICATE_PDF_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${BADGE_ALT}, 특허 조회 새 창 열기`}
+        aria-label={`${BADGE_ALT}, 특허증 새 창 열기`}
         className="pointer-events-auto inline-block"
       >
         <img
