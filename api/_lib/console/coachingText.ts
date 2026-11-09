@@ -1143,7 +1143,7 @@ function targetLabel(
     | undefined,
 ): string {
   if (!t) return "";
-  const base = `${kind} ${t.university} ${t.department}`;
+  const base = [kind, t.university, t.department].filter(Boolean).join(" ");
   return t.probability === null ? base : `${base} ${t.probability}%`;
 }
 

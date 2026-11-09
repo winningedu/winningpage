@@ -871,6 +871,15 @@ describe("목표관리 서비스 카드의 목표대학 확률 (교 #59, 106-5)"
     expect(goalDetail(null)).toMatch(/연속 기록 1일$/);
   });
 
+  test("대학 이름이 비어 있으면 빈칸을 겹쳐 쓰지 않는다", () => {
+    const d = goalDetail({
+      ideal: t("", "경영학과", 34),
+      min: null,
+    });
+    expect(d).toMatch(/, 이상 경영학과 34%$/);
+    expect(d).not.toContain("  ");
+  });
+
   test("합격을 단정하는 문장을 쓰지 않는다", () => {
     const d = goalDetail({
       ideal: t("가나대", "경영학과", 34),

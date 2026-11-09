@@ -49,7 +49,9 @@ const CARD =
 
 /** 대학과 학과, 확률이 있으면 퍼센트까지. 확률이 없으면 0%로 쓰지 않고 뺀다. */
 const targetLabel = (t: Target) =>
-  `${t.university} ${t.department}${t.probability == null ? "" : ` ${t.probability}%`}`;
+  [t.university, t.department, t.probability == null ? "" : `${t.probability}%`]
+    .filter(Boolean)
+    .join(" ");
 
 const classLabelOf = (s: PickerStudent) =>
   `${s.groupName ? `${s.groupName} ` : ""}${s.className ?? "반 없음"}${s.className ? "반" : ""}`;

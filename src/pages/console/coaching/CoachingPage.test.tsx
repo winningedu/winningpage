@@ -553,6 +553,32 @@ describe("W9 문구 칸", () => {
     ).toHaveLength(1);
   });
 
+  it("대학 이름이 비어 있어도 목표 칩에 빈칸이 겹치지 않는다", async () => {
+    stubPage({
+      "GET /api/console/coaching?studentId=s1": {
+        body: coaching({
+          student: {
+            ...coaching().student,
+            targets: {
+              ideal: {
+                university: "",
+                department: "경영학과",
+                probability: 34,
+              },
+              min: null,
+            },
+          },
+        }),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/coaching?studentId=s1");
+
+    expect((await screen.findByText("이상 경영학과 34%")).textContent).toBe(
+      "이상 경영학과 34%",
+    );
+  });
+
   it("확률이 모두 없으면 상담 참고 지표 안내를 보이지 않는다", async () => {
     stubPage({
       "GET /api/console/coaching?studentId=s1": {
