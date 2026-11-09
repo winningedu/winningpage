@@ -39,6 +39,8 @@ const CURVE = {
   not_judgeable: "판정 불가",
 };
 const FIT = { fit: "맞음", normal: "보통", off: "어긋남" };
+const PROBABILITY_NOTICE =
+  "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다";
 const VERDICT = { confirmed: "확인됨", caution: "주의", none: "아직 없음" };
 
 /** 시간(소수)을 "5시간 30분" 모양으로. */
@@ -89,9 +91,14 @@ export function serviceDetail(
       const a = g.week.achievementPct;
       const last = g.lastWeek?.achievementPct;
       const targets = data.targets;
+      const ideal = targets?.ideal?.probability ?? null;
+      const min = targets?.min?.probability ?? null;
+      const percent = (p: number | null) => (p === null ? "미산출" : `${p}%`);
+      const hasProbability = ideal !== null || min !== null;
       return {
         ...base,
         title: "목표관리 상세",
+        ...(hasProbability && { notice: PROBABILITY_NOTICE }),
         metrics: [
           ...(a !== null
             ? [
@@ -119,6 +126,14 @@ export function serviceDetail(
                 {
                   label: "최소 목표대학",
                   value: `${targets.min.university} ${targets.min.department}`,
+                },
+              ]
+            : []),
+          ...(hasProbability
+            ? [
+                {
+                  label: "목표대학 확률 (이상 / 최소)",
+                  value: `${percent(ideal)} / ${percent(min)}`,
                 },
               ]
             : []),

@@ -332,6 +332,34 @@ describe("GET /api/console/coaching/service", () => {
     expect(d.points[0]).toContain("목표시간 달성율 72%");
   });
 
+  test("goal: target probability metric with the reference notice, 미산출 for a missing side", async () => {
+    kit.state.rows.goal_student_state = (f) =>
+      matchRows([{ profile_id: "s1", ideal_susi: 33.6, min_susi: 61.2 }], f);
+    const d = await detailOf("goal");
+    expect(d.metrics).toContainEqual({
+      label: "목표대학 확률 (이상 / 최소)",
+      value: "34% / 61%",
+    });
+    expect(d.notice).toBe(
+      "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다",
+    );
+
+    kit.state.rows.goal_student_state = (f) =>
+      matchRows([{ profile_id: "s1", ideal_susi: null, min_susi: 61.2 }], f);
+    expect((await detailOf("goal")).metrics).toContainEqual({
+      label: "목표대학 확률 (이상 / 최소)",
+      value: "미산출 / 61%",
+    });
+  });
+
+  test("goal: no probability at all shows neither the metric nor the notice", async () => {
+    const d = await detailOf("goal");
+    expect(d.metrics.some((m) => m.label.startsWith("목표대학 확률"))).toBe(
+      false,
+    );
+    expect(d.notice).toBeUndefined();
+  });
+
   test("diagnosis: three metric blocks, summary, 12 area bars and the priority table", async () => {
     const d = await detailOf("diagnosis");
     expect(d.metrics).toEqual([
