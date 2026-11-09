@@ -113,6 +113,22 @@ describe("OrgInfoPage 입력", () => {
     ).toBeTruthy();
   });
 
+  it("기관 정보를 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: adminMe },
+      "GET /api/console/org-info": { status: 500, body: {} },
+      "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
+    });
+
+    renderRoutes(routes, "/teacher/org-info");
+
+    expect(
+      await screen.findByText(
+        "기관 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("값이 틀린 칸을 한꺼번에 오류로 보이고 서버로 보내지 않는다", async () => {
     const calls = stubOrg();
     renderRoutes(routes, "/teacher/org-info");
