@@ -103,6 +103,38 @@ describe("GET /api/console/teachers/connect-preview", () => {
     });
   });
 
+  test("번호를 쓰는 학생과 이름이 같은 학생이 그 반에 더 있으면 가린 이름 뒤에 별표를 붙인다", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...["s-kim", "s-han", "s-han2"].map((id, i) => ({
+            tenant_id: T,
+            school_year: 2026,
+            status: "active",
+            class_id: "c-3",
+            student_id: id,
+            number: i === 0 ? 5 : i === 1 ? 12 : null,
+          })),
+        ],
+        f,
+      );
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s-kim", name: "김서연" },
+          { id: "s-han", name: "한지우" },
+          { id: "s-han2", name: "한지우" },
+        ],
+        f,
+      );
+    const r = await get({ ...BASE, name: "정도윤" });
+
+    expect(r.body).toMatchObject({
+      result: "number_taken",
+      holderName: "한*우*",
+    });
+  });
+
   test("이름도 번호도 겹치지 않으면 정상 연결이다", async () => {
     const r = await get({ ...BASE, name: "정도윤", number: "20" });
 
