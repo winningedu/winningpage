@@ -154,6 +154,9 @@ export default function ServiceWindow({
                   </div>
                 ))}
               </dl>
+              {d.notice && (
+                <p className="text-app-caption text-ink-sub">{d.notice}</p>
+              )}
               {d.summary && (
                 <p className="text-app-body text-ink-strong">{d.summary}</p>
               )}
@@ -171,9 +174,6 @@ export default function ServiceWindow({
                     </p>
                   ))}
                 </div>
-              )}
-              {d.notice && (
-                <p className="text-app-caption text-ink-sub">{d.notice}</p>
               )}
             </>
           )}

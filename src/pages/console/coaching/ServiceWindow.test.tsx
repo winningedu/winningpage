@@ -280,6 +280,28 @@ describe("W9a 서비스 상세 창", () => {
     expect(within(dialog).queryByText("학습 실행 역량 우선순위")).toBeNull();
   });
 
+  it("확률 안내는 지표 바로 아래, 표와 상담 포인트보다 위에 놓인다", async () => {
+    const notice =
+      "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다";
+    render({
+      "GET /api/console/coaching/service?studentId=s1&service=goal": {
+        body: { detail: { ...goalDetail.detail, notice } },
+      },
+    });
+    const dialog = await openGoal();
+
+    const noticeEl = await within(dialog).findByText(notice);
+    const metric = within(dialog).getByText("최소 목표시간 충족");
+    const tableHeading = within(dialog).getByText("최근 14일 일별 기록");
+    const points = within(dialog).getByText("상담 포인트");
+    const follows = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(metric.compareDocumentPosition(noticeEl) & follows).toBeTruthy();
+    expect(
+      noticeEl.compareDocumentPosition(tableHeading) & follows,
+    ).toBeTruthy();
+    expect(noticeEl.compareDocumentPosition(points) & follows).toBeTruthy();
+  });
+
   it("닫기와 ESC 로 닫힌다", async () => {
     render();
     const dialog = await openGoal();
