@@ -126,6 +126,20 @@ describe("diagnosisDetail areas", () => {
   });
 });
 
+describe("diagnosisDetail readiness order", () => {
+  test("readiness rows follow the W9a design order", () => {
+    const { bars } = diagnosisDetail(AREAS, null, META);
+    expect(bars.slice(6).map((b) => b.name)).toEqual([
+      "교과 관리",
+      "탐구 심화",
+      "기록 정리",
+      "수행 대응",
+      "입시 전략",
+      "활동 연계",
+    ]);
+  });
+});
+
 describe("diagnosisDetail priorities", () => {
   test("execution areas ascending by score, 1순위 to 4순위, 점검, 유지, ties in radar order", () => {
     const { priorities } = diagnosisDetail(AREAS, null, META);

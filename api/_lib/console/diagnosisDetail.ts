@@ -35,6 +35,16 @@ function averageMetric(
 
 export const TARGET_SCORE = 75;
 
+/** W9a 시안의 준비도 줄 순서. 영역 상수(READINESS_AREAS)의 순서와 다르다. */
+const READINESS_BAR_ORDER = [
+  "SUBJECT",
+  "INQUIRY",
+  "RECORD",
+  "PERFORM",
+  "STRATEGY",
+  "ACTIVITY",
+] as const satisfies readonly AreaCode[];
+
 /** 리포트 정보와 가장 시급한 실행 영역(동점은 레이더 순서) 한 문장. 비어 있는 정보는 뺀다. */
 function summaryOf(areas: AreaScores, meta: DiagnosisMeta | null): string {
   const weakest = EXECUTION_AREAS.reduce((low, c) =>
@@ -104,7 +114,7 @@ export function diagnosisDetail(
     priorities: priorityTable(areas),
     bars: [
       ...EXECUTION_AREAS.map((c) => barOf("execution", c, areas)),
-      ...READINESS_AREAS.map((c) => barOf("readiness", c, areas)),
+      ...READINESS_BAR_ORDER.map((c) => barOf("readiness", c, areas)),
     ],
     metrics: [
       averageMetric(
