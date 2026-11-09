@@ -118,7 +118,7 @@ export default defineHandler({
 
     const { data: teacher, error: teacherError } = await admin
       .from("teachers")
-      .select("id, tenant_id, profile_id")
+      .select("id, tenant_id, profile_id, role")
       .eq("login_id", loginId)
       .eq("phone", phone)
       .eq("status", "active")
@@ -239,7 +239,8 @@ export default defineHandler({
           supabaseAdmin: admin,
           userId: teacher.profile_id,
           console: {
-            kind: "homeroom",
+            // teachers.role 은 CHECK 로 이 두 값뿐이다. 콘솔 행위자 종류와 같은 이름이라 그대로 쓴다.
+            kind: teacher.role === "school_admin" ? "school_admin" : "homeroom",
             tenantId: teacher.tenant_id,
             teacherId: teacher.id,
             classIds: [],

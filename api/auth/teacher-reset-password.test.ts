@@ -42,6 +42,7 @@ const TEACHER = {
   login_id: LOGIN_ID,
   phone: PHONE,
   status: "active",
+  role: "homeroom",
 };
 
 beforeEach(() => {
@@ -369,4 +370,22 @@ describe("POST /api/auth/teacher-reset-password", () => {
       allLaterStepsRan();
     });
   });
+
+  test.each([
+    ["homeroom", "teacher"],
+    ["school_admin", "school_admin"],
+  ])(
+    "역할이 %s 인 교사의 감사 로그는 actor_kind %s 로 남긴다",
+    async (role, actorKind) => {
+      kit.state.rows.teachers = (f) =>
+        matchRows([{ ...TEACHER, role }], f)[0] ?? null;
+
+      const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+      expect(r.status).toBe(200);
+      expect(kit.state.inserts[0]?.row).toMatchObject({
+        actor_kind: actorKind,
+      });
+    },
+  );
 });
