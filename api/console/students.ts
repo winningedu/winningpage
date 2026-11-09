@@ -18,6 +18,7 @@ import { rateBucket } from "../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../_lib/console/goalStatus.js";
 import { displayNamesFor, nameMatchesQuery } from "../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../_lib/console/paging.js";
+import { loadPerformanceStatus } from "../_lib/console/performanceStatus.js";
 import { queryValue } from "../_lib/console/query.js";
 import { requireInScope, scopeQuery } from "../_lib/console/scope.js";
 import {
@@ -244,21 +245,32 @@ export default defineHandler({
     const extrasOf = async (rows: EnrollmentRow[]) => {
       const ids = rows.map((e) => e.student_id);
       await ensureServices(ids);
-      const [diagnosis, rates, flagged] = await Promise.all([
+      const [diagnosis, rates, flagged, performance] = await Promise.all([
         loadDiagnosisStatus(admin, ids),
         loadWeeklyRates(
           admin,
           ids.filter((id) => usedOf(id).includes("goal")),
         ),
         loadFlagged(admin, actor.tenantId),
+        loadPerformanceStatus(
+          admin,
+          ids.filter((id) => usedOf(id).includes("performance")),
+        ),
       ]);
+      // 가장 최근 제출이 평가를 기다리면 제출일(KST)부터 오늘까지의 달력 날짜 차이.
+      const feedbackWaitingDaysOf = (id: string) => {
+        const status = performance.get(id);
+        return status?.feedback === "waiting" && status.lastSubmittedAt
+          ? diffDaysYMD(status.lastSubmittedAt, today)
+          : null;
+      };
       const reasonsOf = (id: string) =>
         specialReasonsOf(
           {
             weeklyRate: rates.get(id) ?? null,
             urgency: diagnosis.get(id)?.urgency ?? null,
             lastSeenDays: daysSince(profiles.get(id)?.lastSeenAt),
-            feedbackWaitingDays: null,
+            feedbackWaitingDays: feedbackWaitingDaysOf(id),
             flagged: flagged.has(id),
           },
           thresholds,

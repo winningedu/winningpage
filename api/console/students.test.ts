@@ -553,6 +553,99 @@ describe("GET /api/console/students special students", () => {
     });
   });
 
+  describe("feedback wait", () => {
+    const submitted = (daysAgo: number) =>
+      // 협정 세계시 03시 기준 오늘(KST 11-09 12시)에서 daysAgo 일 전 정오(KST).
+      new Date(Date.UTC(2026, 10, 9 - daysAgo, 3)).toISOString();
+    let sessionCalls: unknown[];
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+      kit.state.rows.diagnosis_reports = () => [];
+      kit.state.rows.student_flags = () => [];
+      sessionCalls = [];
+      // s1 는 성공 제출 없음, s2 는 13일 전, s3 는 14일 전, s4 는 20일 전이지만 평가 리포트가 있다.
+      const sessions = ["s1", "s2", "s3", "s4"].map((p) => ({
+        id: `ps-${p}`,
+        profile_id: p,
+        current_step: 5,
+        updated_at: "2026-11-01T00:00:00Z",
+      }));
+      kit.state.rows.performance_sessions = (f) => {
+        sessionCalls.push(f.profile_id);
+        return matchRows(sessions, f);
+      };
+      kit.state.rows.performance_submissions = (f) =>
+        matchRows(
+          [
+            { session_id: "ps-s2", submitted_at: submitted(13) },
+            { session_id: "ps-s3", submitted_at: submitted(14) },
+            { session_id: "ps-s4", submitted_at: submitted(20) },
+          ],
+          f,
+        );
+      kit.state.rows.performance_reports = (f) =>
+        matchRows([{ session_id: "ps-s4", report_type: "evaluation" }], f);
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const reasonsById = (r: { body: unknown }) =>
+      Object.fromEntries(
+        special(r).map((i) => [i.studentId, i.specialReasons]),
+      );
+
+    test("a latest submission waiting 14 days or more is feedback_wait, 13 days, an evaluated one and no submission are not, and special=1 lists it", async () => {
+      expect(reasonsById(await get())).toMatchObject({
+        s1: [],
+        s2: [],
+        s3: ["feedback_wait"],
+        s4: [],
+      });
+      const only = await get({ special: "1" });
+      expect(special(only).map((i) => i.studentId)).toEqual(["s3"]);
+      expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("the tenant's feedback wait days replace the default 14", async () => {
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        org_type: "학원",
+        special_feedback_wait_days: 13,
+      });
+
+      expect(reasonsById(await get())).toMatchObject({
+        s2: ["feedback_wait"],
+        s3: ["feedback_wait"],
+      });
+    });
+
+    test("performance status is read only for students who used the performance service", async () => {
+      kit.state.rows.performance_sessions = (f) => {
+        sessionCalls.push(f.profile_id);
+        return matchRows(
+          [
+            {
+              id: "ps-s3",
+              profile_id: "s3",
+              current_step: 5,
+              updated_at: "2026-11-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      };
+
+      await get();
+
+      const narrowed = sessionCalls.filter(
+        (c) => Array.isArray(c) && c.length < 4,
+      );
+      expect(narrowed.length).toBeGreaterThan(0);
+      expect(narrowed.every((c) => (c as string[]).join() === "s3")).toBe(true);
+    });
+  });
+
   test("the special filter combines with a service tab", async () => {
     expect(
       special(await get({ special: "1", tab: "growth" })).map(
