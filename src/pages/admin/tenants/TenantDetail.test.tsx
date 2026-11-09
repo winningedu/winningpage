@@ -55,6 +55,22 @@ vi.mock("./SchoolAdminPanel", () => ({
   }) => <div>학교 관리자 패널 {`${tenantId}/${tenantName}`}</div>,
 }));
 
+vi.mock("./ServiceSettingsPanel", () => ({
+  default: ({
+    tenantId,
+    termMonths,
+    isCatchAll,
+  }: {
+    tenantId: string;
+    termMonths: number | null;
+    isCatchAll: boolean;
+  }) => (
+    <div>
+      서비스 설정 패널 {`${tenantId}/${termMonths}/${String(isCatchAll)}`}
+    </div>
+  ),
+}));
+
 import TenantDetail from "./TenantDetail";
 
 const ROW = {
@@ -298,5 +314,28 @@ describe("TenantDetail 탭과 이동", () => {
     expect(screen.queryByText("기관을 찾을 수 없어요.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "목록으로" }));
     expect(onBack).toHaveBeenCalled();
+  });
+});
+
+describe("TenantDetail 서비스 설정 탭", () => {
+  test("탭을 누르면 저장된 학기 길이와 기타 여부를 패널에 넘긴다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+
+    fireEvent.click(screen.getByRole("tab", { name: "서비스 설정" }));
+
+    expect(screen.getByText("서비스 설정 패널 tenant-7/6/false")).toBeTruthy();
+  });
+
+  test("학기 길이를 고쳐도 저장 전에는 패널이 저장된 값을 쓴다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    fireEvent.change(screen.getByLabelText("학기 길이"), {
+      target: { value: "3" },
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "서비스 설정" }));
+
+    expect(screen.getByText("서비스 설정 패널 tenant-7/6/false")).toBeTruthy();
   });
 });

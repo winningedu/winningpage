@@ -12,6 +12,10 @@ import {
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
 vi.mock("../../_lib/supabaseAdmin.js", () => ({
+  getEnv: (...keys: string[]) => {
+    for (const key of keys) if (process.env[key]) return process.env[key];
+    return "";
+  },
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -21,9 +25,15 @@ import handler from "./member-purge.js";
 const post = (body: unknown, method = "POST") =>
   callHandler(handler, body, method);
 
+const STUDENT_A = "a1111111-1111-4111-8111-111111111111";
+const STUDENT_B = "b2222222-2222-4222-8222-222222222222";
+const TENANT = "c3333333-3333-4333-8333-333333333333";
+const BODY = { tenantId: TENANT, targetIds: [STUDENT_A, STUDENT_B] };
+
 const anonymizeArgs: Record<string, unknown>[] = [];
 
 beforeEach(() => {
+  vi.stubEnv("SITE", "schoolmentor");
   kit.state = createKitState();
   kit.state.user = { id: "hq-1", email: "hq@example.com" };
   kit.state.rpc.fn_admin_effective_permissions = () => ({
@@ -41,6 +51,8 @@ beforeEach(() => {
           members_protected: 1,
           grace_end: "2026-10-01",
           not_yet: false,
+          members_skipped: 2,
+          not_processed: 1,
         },
       ],
       error: null,
@@ -49,6 +61,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -63,7 +76,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: null,
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
@@ -84,7 +97,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: null,
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({
@@ -94,15 +107,22 @@ describe("POST /api/admin/tenants/member-purge", () => {
   });
 
   test("성공하면 그 기관만, 로그 실행자를 본사 관리자로 해서 익명화하고 건수를 돌려준다", async () => {
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true, deleted: 3, excluded: 1 });
+    expect(r.body).toEqual({
+      ok: true,
+      deleted: 3,
+      excluded: 1,
+      skipped: 2,
+      notProcessed: 1,
+    });
     expect(anonymizeArgs).toEqual([
       {
-        p_tenant: "tenant-7",
+        p_tenant: TENANT,
         p_actor_profile: "hq-1",
         p_actor_email: "hq@example.com",
+        p_targets: [STUDENT_A, STUDENT_B],
       },
     ]);
   });
@@ -111,6 +131,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
     ["tenantId 없음", {}],
     ["빈 tenantId", { tenantId: "" }],
     ["문자열이 아닌 tenantId", { tenantId: 7 }],
+    ["uuid 가 아닌 tenantId", { tenantId: "tenant-7", targetIds: [STUDENT_A] }],
     ["본문 없음", undefined],
   ])("%s 이면 400 이고 아무것도 지우지 않는다", async (_label, body) => {
     const r = await post(body);
@@ -119,8 +140,58 @@ describe("POST /api/admin/tenants/member-purge", () => {
     expect(anonymizeArgs).toHaveLength(0);
   });
 
+  test.each([
+    ["targetIds 없음", { tenantId: TENANT }],
+    ["빈 targetIds", { tenantId: TENANT, targetIds: [] }],
+    ["배열이 아닌 targetIds", { tenantId: TENANT, targetIds: STUDENT_A }],
+    [
+      "uuid 가 아닌 항목",
+      { tenantId: TENANT, targetIds: [STUDENT_A, "not-a-uuid"] },
+    ],
+    ["문자열이 아닌 항목", { tenantId: TENANT, targetIds: [STUDENT_A, 7] }],
+    ["중복된 항목", { tenantId: TENANT, targetIds: [STUDENT_A, STUDENT_A] }],
+    [
+      "5,000개 초과",
+      {
+        tenantId: TENANT,
+        targetIds: Array.from(
+          { length: 5001 },
+          (_, i) =>
+            `a${String(i).padStart(7, "0")}-1111-4111-8111-111111111111`,
+        ),
+      },
+    ],
+  ])("%s 이면 400 이고 아무것도 지우지 않는다", async (_label, body) => {
+    const r = await post(body);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(anonymizeArgs).toHaveLength(0);
+  });
+
+  test("5,000개까지는 받는다", async () => {
+    const targetIds = Array.from(
+      { length: 5000 },
+      (_, i) => `a${String(i).padStart(7, "0")}-1111-4111-8111-111111111111`,
+    );
+
+    const r = await post({ tenantId: TENANT, targetIds });
+
+    expect(r.status).toBe(200);
+    expect(anonymizeArgs[0]?.p_targets).toHaveLength(5000);
+  });
+
+  test("스쿨멘토가 아닌 사이트에서는 404 이고 아무것도 지우지 않는다", async () => {
+    vi.stubEnv("SITE", "winning");
+
+    const r = await post(BODY);
+
+    expect(r.status).toBe(404);
+    expect(anonymizeArgs).toHaveLength(0);
+  });
+
   test("POST 이외의 메서드는 405 이다", async () => {
-    const r = await post({ tenantId: "tenant-7" }, "GET");
+    const r = await post({ tenantId: TENANT }, "GET");
 
     expect(r.status).toBe(405);
     expect(anonymizeArgs).toHaveLength(0);
@@ -133,7 +204,7 @@ describe("POST /api/admin/tenants/member-purge", () => {
       error: { code: "XX000" },
     });
 
-    const r = await post({ tenantId: "tenant-7" });
+    const r = await post(BODY);
 
     expect(r.status).toBe(500);
   });

@@ -1,3 +1,4 @@
+import { site } from "@/config/site";
 import { getCached, setCached } from "./routeMiddlewareCache";
 import { supabase } from "./supabase";
 
@@ -32,6 +33,15 @@ export type AdminPermissionMap = Map<string, AdminLevel>;
  * (사용자 지시 2026-08-23).
  */
 const SUPER_ONLY_SECTIONS = new Set(["adminMembers", "adminRoles"]);
+
+/**
+ * 별도 권한 행 없이 다른 메뉴 키의 권한을 같이 쓰는 메뉴(결정 102.8). 스쿨멘토(hqTenantAdmin)에만 있는 화면이라
+ * 사이트 플래그가 꺼져 있으면 권한이 있어도 열지 않는다. 서버 API 도 같은 tenants 권한을 본다.
+ */
+const SECTION_PERMISSION_ALIAS: Record<string, string> = {
+  memberPurge: "tenants",
+  memberPurgeLogs: "tenants",
+};
 
 const PERMISSIONS_CACHE_KIND = "admin-permissions";
 const SUPER_CACHE_KIND = "admin-is-super";
@@ -100,5 +110,7 @@ export function canAccessSection(
   sectionKey: string,
 ): boolean {
   if (SUPER_ONLY_SECTIONS.has(sectionKey)) return isSuperAdmin;
+  const alias = SECTION_PERMISSION_ALIAS[sectionKey];
+  if (alias) return site.features.hqTenantAdmin && permissions.has(alias);
   return permissions.has(sectionKey);
 }
