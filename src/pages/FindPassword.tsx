@@ -15,6 +15,9 @@
 //   표시하고 복사 버튼을 제공하는 것으로 대신한다(StudentComplete.tsx의 연결코드
 //   복사 패턴과 동일).
 //
+//   스쿨멘토 학생(사 #96)은 임시비밀번호 대신 인증 뒤 새 비밀번호를 직접 정한다. 인증 직후
+//   자동 요청 없이 입력 칸을 보여주고, 제출하면 같은 라우트에 password 를 함께 보낸다.
+//
 // ② 이메일 링크(기존, 그대로 유지)
 //   Supabase resetPasswordForEmail로 재설정 링크를 보내고, 사용자가 그 링크를
 //   열면 /login/reset-password(ResetPassword.tsx)로 이동해 새 비밀번호를 정한다.
@@ -44,6 +47,8 @@ import {
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
+import { isValidPassword } from "./signup/StudentForm";
+import { INFO_MESSAGES } from "./signup/school/copy";
 import TeacherResetPassword from "./TeacherResetPassword";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -64,6 +69,7 @@ type PhoneResetResult =
       maskedEmail: string;
       via: "phone" | "guardian_phone";
     }
+  | { kind: "changed" }
   | { kind: "not_found" }
   | {
       kind: "choose_account";
@@ -77,10 +83,12 @@ type PhoneResetResult =
   | { kind: "error"; message: string };
 
 // 스쿨멘토는 소속이 다르면 같은 번호로 계정이 여러 개라 chooseAccount 를 보내 서버가
-// 계정 목록(409 choose_account)을 주게 한다. 위닝은 새 필드 없이 기존 요청 그대로다.
+// 계정 목록(409 choose_account)을 주게 하고, 학생이 직접 정한 새 비밀번호(password)를 함께 보낸다.
+// 위닝은 새 필드 없이 기존 요청 그대로다.
 async function requestPhoneReset(
   phone: string,
   accountId?: string,
+  password?: string,
 ): Promise<PhoneResetResult> {
   try {
     const response = await fetch("/api/reset-password-by-phone", {
@@ -91,6 +99,7 @@ async function requestPhoneReset(
         ...(site.key === "schoolmentor" && {
           chooseAccount: true,
           ...(accountId && { accountId }),
+          password,
         }),
       }),
     });
@@ -123,6 +132,8 @@ async function requestPhoneReset(
     }
 
     if (!payload.found) return { kind: "not_found" };
+
+    if (site.key === "schoolmentor") return { kind: "changed" };
 
     return {
       kind: "success",
@@ -273,6 +284,11 @@ export default function FindPassword() {
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<PhoneResetResult | null>(null);
   const [copied, setCopied] = useState(false);
+  // 스쿨멘토는 임시비밀번호 대신 학생이 새 비밀번호를 직접 정한다. 계정 고르기 뒤 다시 보낼 수 있게 상태로 둔다.
+  const directPassword = site.key === "schoolmentor";
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [formError, setFormError] = useState("");
 
   async function requestPhoneCode() {
     if (!isValidMobile(phone)) {
@@ -359,7 +375,7 @@ export default function FindPassword() {
   // 인증이 확인되는 즉시 재설정을 요청한다 — 별도 "재설정하기" 버튼을 두지 않는다
   // (FindAccount.tsx가 인증 직후 바로 조회하는 것과 동일 패턴).
   useEffect(() => {
-    if (!phoneVerified) return;
+    if (!phoneVerified || directPassword) return;
 
     let cancelled = false;
     setResetting(true);
@@ -373,13 +389,37 @@ export default function FindPassword() {
     return () => {
       cancelled = true;
     };
-  }, [phoneVerified, phone]);
+  }, [phoneVerified, phone, directPassword]);
+
+  function submitNewPassword() {
+    if (!isValidPassword(newPassword)) {
+      setFormError(INFO_MESSAGES.passwordRule);
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setFormError(INFO_MESSAGES.passwordMismatch);
+      return;
+    }
+
+    setFormError("");
+    setResetting(true);
+    setResetResult(null);
+
+    requestPhoneReset(phone, undefined, newPassword).then((result) => {
+      setResetting(false);
+      setResetResult(result);
+    });
+  }
 
   function chooseAccount(accountId: string) {
     setResetting(true);
     setResetResult(null);
 
-    requestPhoneReset(phone, accountId).then((result) => {
+    requestPhoneReset(
+      phone,
+      accountId,
+      directPassword ? newPassword : undefined,
+    ).then((result) => {
       setResetting(false);
       setResetResult(result);
     });
@@ -513,8 +553,68 @@ export default function FindPassword() {
 
           {phoneVerified && resetting && (
             <p className="text-center text-sm text-ink-sub">
-              새 비밀번호를 발급하는 중입니다...
+              {directPassword
+                ? "비밀번호를 바꾸는 중입니다..."
+                : "새 비밀번호를 발급하는 중입니다..."}
             </p>
+          )}
+
+          {directPassword &&
+            phoneVerified &&
+            !resetting &&
+            (resetResult === null || resetResult.kind === "error") && (
+              <div className="flex w-full flex-col gap-5">
+                <TextField
+                  label="새 비밀번호"
+                  id="find-password-new-password"
+                  name="password"
+                  type="password"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  helperText={INFO_MESSAGES.passwordRule}
+                  autoComplete="new-password"
+                  required
+                />
+
+                <TextField
+                  label="새 비밀번호 확인"
+                  id="find-password-new-password-confirm"
+                  name="passwordConfirm"
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={setNewPasswordConfirm}
+                  autoComplete="new-password"
+                  required
+                />
+
+                {formError && (
+                  <p
+                    role="alert"
+                    className="w-full text-center text-sm text-error"
+                  >
+                    {formError}
+                  </p>
+                )}
+
+                <PrimaryButton
+                  onClick={submitNewPassword}
+                  disabled={!newPassword || !newPasswordConfirm}
+                >
+                  비밀번호 바꾸기
+                </PrimaryButton>
+              </div>
+            )}
+
+          {resetResult?.kind === "changed" && (
+            <div className="flex w-full flex-col gap-5">
+              <p className="w-full text-center text-sm text-ink">
+                비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+              </p>
+
+              <PrimaryButton onClick={() => navigate("/login")}>
+                로그인하러 가기
+              </PrimaryButton>
+            </div>
           )}
 
           {resetResult?.kind === "success" && (
