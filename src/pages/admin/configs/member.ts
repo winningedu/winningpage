@@ -59,6 +59,29 @@ interface MemberCustomConfig {
 type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
+  // 계약 종료 회원 삭제와 삭제 로그(스쿨멘토, 5번 본사 관리 화면). 메뉴는 tenants 권한을 같이 쓰고(canAccessSection 별칭)
+  // hqTenantAdmin 이 꺼진 위닝에서는 열리지 않는다. 화면은 custom 컴포넌트가 그린다.
+  memberPurge: {
+    title: "계약 종료 회원 삭제",
+    table: "tenants",
+    searchPlaceholder: "",
+    order: "name",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "memberPurge",
+    columns: [],
+  },
+  memberPurgeLogs: {
+    title: "삭제 로그",
+    table: "admin_access_logs",
+    searchPlaceholder: "",
+    order: "created_at",
+    readOnly: true,
+    custom: true,
+    customComponentKey: "memberPurgeLogs",
+    columns: [],
+  },
+
   // 성장설계 회차 운영(growthReports): 회차 목록, 상세, 실패 회차 복구, 이용권 부여.
   // 데이터는 /api/admin/growth-* 가 합성해 내려주므로 제네릭 CRUD 가 아니라
   // custom 컴포넌트(src/pages/admin/growth/GrowthReportsAdmin.tsx)가 전부 그린다.
