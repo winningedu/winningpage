@@ -164,6 +164,7 @@ beforeEach(() => {
       f,
     );
   kit.state.rows.goal_daily_records = (f) => matchRows(RECORDS, f);
+  kit.state.rows.goal_student_state = () => [];
   kit.state.rows.growth_profiles = () => [];
   kit.state.rows.growth_reports = () => [];
   kit.state.rows.performance_sessions = (f) =>
@@ -285,6 +286,33 @@ describe("GET /api/console/coaching", () => {
         ideal: { university: "가나대", department: "경영학과" },
         min: { university: "다라대", department: "경영학과" },
       },
+    });
+  });
+
+  describe("target university probability (결정 106.5)", () => {
+    const state = (row: Record<string, unknown> | null) => {
+      kit.state.rows.goal_student_state = (f) =>
+        matchRows(row ? [{ profile_id: "s1", ...row }] : [], f);
+    };
+    const targetsOf = async () =>
+      ((await get()).body as Body).student.targets as Record<
+        string,
+        Record<string, unknown> | null
+      >;
+
+    test("the susi probabilities of the goal state are rounded to integers on each target", async () => {
+      state({ ideal_susi: 33.6, min_susi: 61.2 });
+      const targets = await targetsOf();
+      expect(targets.ideal).toEqual({
+        university: "가나대",
+        department: "경영학과",
+        probability: 34,
+      });
+      expect(targets.min).toEqual({
+        university: "다라대",
+        department: "경영학과",
+        probability: 61,
+      });
     });
   });
 

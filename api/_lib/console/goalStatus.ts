@@ -16,7 +16,7 @@ const ID_CHUNK = 100;
 // 연속 기록을 세려고 거슬러 읽는 일수.
 const STREAK_LOOKBACK_DAYS = 365;
 
-interface Target {
+export interface Target {
   university: string;
   department: string;
   /** 현재 확률(%). 목표 대학 컷이 없어 산출 전이면 null. */
@@ -59,7 +59,7 @@ interface RecordRow extends GoalRecord {
 const COLUMNS =
   "profile_id, study_schedule, ideal_university, ideal_department, min_university, min_department";
 
-function target(
+export function target(
   university: string,
   department: string,
   probability: number | null | undefined,

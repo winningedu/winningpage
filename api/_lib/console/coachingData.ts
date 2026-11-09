@@ -26,6 +26,7 @@ import {
   summarizeGoalWeek,
   weekWindows,
 } from "./goalRate.js";
+import { type Target, target } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
@@ -205,10 +206,7 @@ export interface CoachingData {
   /** profiles.last_seen_at 그대로(ISO). 기록이 없으면 null. */
   lastSeenAt: string | null;
   metrics: CoachingMetrics;
-  targets: {
-    ideal: { university: string; department: string } | null;
-    min: { university: string; department: string } | null;
-  } | null;
+  targets: { ideal: Target | null; min: Target | null } | null;
 }
 
 /** 학생 한 명의 서비스별 자료. used 는 서비스 이용 여부(serviceUsage)다. */
@@ -318,6 +316,15 @@ export async function loadCoachingData(
     "last_seen_at",
     (q) => q.eq("id", studentId),
   );
+  const goalState = uses("goal")
+    ? await readAll<{ ideal_susi: number | null; min_susi: number | null }>(
+        admin,
+        "goal_student_state",
+        "ideal_susi, min_susi",
+        (q) => q.eq("profile_id", studentId),
+        "profile_id",
+      )
+    : [];
 
   const goal = goalStudent[0];
   const today = kstYMD(now);
@@ -474,18 +481,16 @@ export async function loadCoachingData(
     grade,
     targets: goal
       ? {
-          ideal: goal.ideal_university
-            ? {
-                university: goal.ideal_university,
-                department: goal.ideal_department,
-              }
-            : null,
-          min: goal.min_university
-            ? {
-                university: goal.min_university,
-                department: goal.min_department,
-              }
-            : null,
+          ideal: target(
+            goal.ideal_university,
+            goal.ideal_department,
+            goalState[0]?.ideal_susi,
+          ),
+          min: target(
+            goal.min_university,
+            goal.min_department,
+            goalState[0]?.min_susi,
+          ),
         }
       : null,
   };

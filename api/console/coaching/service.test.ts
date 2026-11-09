@@ -164,6 +164,7 @@ beforeEach(() => {
       f,
     );
   kit.state.rows.goal_daily_records = (f) => matchRows(RECORDS, f);
+  kit.state.rows.goal_student_state = () => [];
   kit.state.rows.growth_profiles = () => [];
   kit.state.rows.growth_reports = () => [];
   kit.state.rows.performance_sessions = (f) =>
