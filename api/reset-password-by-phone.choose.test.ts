@@ -227,4 +227,58 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     ]);
     expect(verification()?.consumed_at).not.toBeNull();
   });
+
+  test("계정이 여러 개면 409 로 고르게 하고 비밀번호를 바꾸지 않는다", async () => {
+    const res = await reset({ chooseAccount: true, password: NEW_PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "choose_account" });
+    expect(db.passwordUpdates).toEqual([]);
+    expect(state.signIn).not.toHaveBeenCalled();
+    expect(verification()?.consumed_at).toBeNull();
+  });
+
+  test("세션 정리에 실패하면 500 revoke_failed 이고 비밀번호와 인증 선점은 그대로 둔다", async () => {
+    db.tables.login_attempts = [
+      { identifier_hash: hashParam("first@example.com") },
+    ];
+    state.signIn.mockResolvedValue({ data: {}, error: new Error("boom") });
+
+    const res = await reset({ password: NEW_PASSWORD, accountId: "p1" });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({ ok: false, reason: "revoke_failed" });
+    expect(db.passwordUpdates).toEqual([{ id: "p1", password: NEW_PASSWORD }]);
+    expect(verification()?.consumed_at).not.toBeNull();
+    expect(db.tables.login_attempts).toHaveLength(1);
+  });
+
+  test("비밀번호 갱신이 실패하면 선점한 인증을 되돌리고 세션 정리를 하지 않는다", async () => {
+    (
+      state.db as {
+        auth: { admin: { updateUserById: () => Promise<unknown> } };
+      }
+    ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
+
+    const res = await reset({ password: NEW_PASSWORD });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toMatchObject({ reason: "update_failed" });
+    expect(verification()?.consumed_at).toBeNull();
+    expect(state.signIn).not.toHaveBeenCalled();
+  });
+});
+
+describe("reset-password-by-phone 위닝은 password 를 무시한다", () => {
+  test("password 를 보내도 임시비밀번호를 만들어 돌려주고 세션 정리는 하지 않는다", async () => {
+    const res = await reset({ password: "NewPass123!" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      found: true,
+      temp_password: expect.any(String),
+    });
+    expect(db.passwordUpdates).toHaveLength(1);
+    expect(db.passwordUpdates[0]?.password).not.toBe("NewPass123!");
+    expect(state.signIn).not.toHaveBeenCalled();
+  });
 });
