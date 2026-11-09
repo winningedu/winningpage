@@ -113,7 +113,11 @@ export default function GroupManager() {
           추가
         </Button>
       </div>
-      {loadFailed && <Notice tone="Danger">그룹을 불러오지 못했어요</Notice>}
+      {loadFailed && (
+        <Notice tone="Danger">
+          그룹을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+        </Notice>
+      )}
       {groups && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-app-label text-ink-sub">

@@ -42,7 +42,10 @@ export default function ImportSetupPage() {
                 <h2 className="flex-1 text-lg font-semibold tracking-[-0.02em] text-ink-strong">
                   ① 명단 엑셀 올리기
                 </h2>
-                <TemplateLink file="student-roster.xlsx" />
+                <TemplateLink
+                  file="student-roster.xlsx"
+                  downloadName="스쿨멘토_학생불러오기_샘플.xlsx"
+                />
               </div>
               <Dropzone
                 accept=".xlsx,.xls,.csv"
