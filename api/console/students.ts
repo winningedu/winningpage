@@ -25,6 +25,10 @@ import {
   SERVICE_KEYS,
   type ServiceKey,
 } from "../_lib/console/serviceUsage.js";
+import {
+  resolveThresholds,
+  specialReasonsOf,
+} from "../_lib/console/special.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 
@@ -149,12 +153,13 @@ export default defineHandler({
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
     const { data: threshold, error: thresholdError } = await admin
       .from("tenants")
-      .select("special_exec_rate_pct")
+      .select(
+        "special_exec_rate_pct, special_inactive_days, special_feedback_wait_days",
+      )
       .eq("id", actor.tenantId)
       .maybeSingle();
     if (thresholdError) throw new Error("tenant threshold lookup failed");
-    const execRatePct =
-      (threshold?.special_exec_rate_pct as number | null | undefined) ?? null;
+    const thresholds = resolveThresholds(threshold);
     const [current, classes] = await Promise.all([
       readAll<EnrollmentRow>(admin, "student_enrollments", COLUMNS, (query) =>
         scopeQuery(query, actor, { classColumn: "class_id" })
@@ -235,17 +240,17 @@ export default defineHandler({
         ),
         loadFlagged(admin, actor.tenantId),
       ]);
-      const reasonsOf = (id: string): string[] => {
-        const rate = rates.get(id);
-        const level = diagnosis.get(id)?.urgency;
-        return [
-          ...(execRatePct !== null && rate !== undefined && rate < execRatePct
-            ? ["low_rate"]
-            : []),
-          ...(level === "high" || level === "very_high" ? ["urgency"] : []),
-          ...(flagged.has(id) ? ["manual"] : []),
-        ];
-      };
+      const reasonsOf = (id: string) =>
+        specialReasonsOf(
+          {
+            weeklyRate: rates.get(id) ?? null,
+            urgency: diagnosis.get(id)?.urgency ?? null,
+            lastSeenDays: null,
+            feedbackWaitingDays: null,
+            flagged: flagged.has(id),
+          },
+          thresholds,
+        );
       return { diagnosis, rates, reasonsOf };
     };
     let extras: Awaited<ReturnType<typeof extrasOf>>;
@@ -262,7 +267,9 @@ export default defineHandler({
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
-      specialExecRatePct: execRatePct,
+      specialExecRatePct: thresholds.execRatePct,
+      specialInactiveDays: thresholds.inactiveDays,
+      specialFeedbackWaitDays: thresholds.feedbackWaitDays,
       pageCount: paged.pageCount,
       items: paged.items.map((e) => {
         const cls = classOf(e);

@@ -447,7 +447,7 @@ describe("GET /api/console/students special students", () => {
     expect(r.body).toMatchObject({ total: 2, scopeTotal: 4 });
   });
 
-  test("the low rate reason applies only when the tenant sets a threshold", async () => {
+  test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
     const day = weekWindows().thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
@@ -468,19 +468,29 @@ describe("GET /api/console/students special students", () => {
     const without = await get();
     expect(
       special(without).find((i) => i.studentId === "s1")?.specialReasons,
-    ).toEqual(["urgency"]);
-    expect(without.body).toMatchObject({ specialExecRatePct: null });
+    ).toEqual(["low_rate", "urgency"]);
+    expect(without.body).toMatchObject({
+      specialExecRatePct: 40,
+      specialInactiveDays: 7,
+      specialFeedbackWaitDays: 14,
+    });
 
     kit.state.rows.tenants = () => ({
       school_year: 2026,
       org_type: "학원",
-      special_exec_rate_pct: 40,
+      special_exec_rate_pct: 1,
+      special_inactive_days: 3,
+      special_feedback_wait_days: 5,
     });
     const withThreshold = await get();
-    expect(withThreshold.body).toMatchObject({ specialExecRatePct: 40 });
+    expect(withThreshold.body).toMatchObject({
+      specialExecRatePct: 1,
+      specialInactiveDays: 3,
+      specialFeedbackWaitDays: 5,
+    });
     expect(
       special(withThreshold).find((i) => i.studentId === "s1")?.specialReasons,
-    ).toEqual(["low_rate", "urgency"]);
+    ).toEqual(["urgency"]);
   });
 
   test("the special filter combines with a service tab", async () => {
