@@ -5655,6 +5655,7 @@ export type Database = {
           id: string;
           is_active: boolean | null;
           landline: string | null;
+          last_seen_at: string | null;
           marketing_agreed: boolean | null;
           member_category: string | null;
           member_type: string | null;
@@ -5692,6 +5693,7 @@ export type Database = {
           id: string;
           is_active?: boolean | null;
           landline?: string | null;
+          last_seen_at?: string | null;
           marketing_agreed?: boolean | null;
           member_category?: string | null;
           member_type?: string | null;
@@ -5728,6 +5730,7 @@ export type Database = {
           id?: string;
           is_active?: boolean | null;
           landline?: string | null;
+          last_seen_at?: string | null;
           marketing_agreed?: boolean | null;
           member_category?: string | null;
           member_type?: string | null;
