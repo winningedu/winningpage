@@ -70,6 +70,8 @@ type PhoneResetResult =
       via: "phone" | "guardian_phone";
     }
   | { kind: "changed" }
+  | { kind: "changed_revoke_failed"; message: string }
+  | { kind: "expired"; message: string }
   | { kind: "not_found" }
   | {
       kind: "choose_account";
@@ -120,6 +122,18 @@ async function requestPhoneReset(
           : [],
         message: payload.detail,
       };
+    }
+
+    // 스쿨멘토만 해당한다. 위닝 서버는 이 두 경우를 이 형태로 보내지 않는다.
+    if (site.key === "schoolmentor" && typeof payload?.detail === "string") {
+      // 비밀번호를 정하는 사이 인증 창(10분)이 지났다. 인증부터 다시 받게 한다.
+      if (response.status === 401 && payload.reason === "phone_not_verified") {
+        return { kind: "expired", message: payload.detail };
+      }
+      // 비밀번호는 바뀌었지만 다른 기기 로그아웃에 실패했다. 다시 시도할 오류가 아니라 바뀐 것으로 다룬다.
+      if (payload.reason === "revoke_failed") {
+        return { kind: "changed_revoke_failed", message: payload.detail };
+      }
     }
 
     if (!response.ok || !payload?.ok) {
@@ -350,6 +364,7 @@ export default function FindPassword() {
     verifyPhoneCode(phone, code, "reset_password").then((verifyResult) => {
       if (verifyResult.ok) {
         setPhoneVerified(true);
+        setFormError("");
         setPhoneMessage({
           text: "전화번호 인증이 완료되었습니다.",
           status: "success",
@@ -391,6 +406,24 @@ export default function FindPassword() {
     };
   }, [phoneVerified, phone, directPassword]);
 
+  // 인증 창이 지났으면 전화번호 단계로 돌아가 인증을 새로 받게 한다(TeacherResetPassword.tsx 의 expired 처리와 같다).
+  // 재전송 대기는 그대로 둔다. 풀면 이 경로로 발송 제한을 피해 갈 수 있다.
+  function showResetResult(result: PhoneResetResult) {
+    setResetting(false);
+    if (result.kind === "expired") {
+      lastPhoneAttempt.current = "";
+      setPhoneRequested(false);
+      setPhoneVerified(false);
+      setPhoneCode("");
+      setNewPassword("");
+      setNewPasswordConfirm("");
+      setPhoneMessage({ text: "", status: "default" });
+      setFormError(result.message);
+      return;
+    }
+    setResetResult(result);
+  }
+
   function submitNewPassword() {
     if (!isValidPassword(newPassword)) {
       setFormError(INFO_MESSAGES.passwordRule);
@@ -405,10 +438,7 @@ export default function FindPassword() {
     setResetting(true);
     setResetResult(null);
 
-    requestPhoneReset(phone, undefined, newPassword).then((result) => {
-      setResetting(false);
-      setResetResult(result);
-    });
+    requestPhoneReset(phone, undefined, newPassword).then(showResetResult);
   }
 
   function chooseAccount(accountId: string) {
@@ -419,10 +449,7 @@ export default function FindPassword() {
       phone,
       accountId,
       directPassword ? newPassword : undefined,
-    ).then((result) => {
-      setResetting(false);
-      setResetResult(result);
-    });
+    ).then(showResetResult);
   }
 
   async function handleCopyPassword() {
@@ -514,6 +541,15 @@ export default function FindPassword() {
         <>
           {!phoneVerified && (
             <div className="flex w-full flex-col gap-5">
+              {formError && (
+                <p
+                  role="alert"
+                  className="w-full text-center text-sm text-error"
+                >
+                  {formError}
+                </p>
+              )}
+
               <TextField
                 label="전화번호"
                 id="find-password-phone"
@@ -605,11 +641,21 @@ export default function FindPassword() {
               </div>
             )}
 
-          {resetResult?.kind === "changed" && (
+          {(resetResult?.kind === "changed" ||
+            resetResult?.kind === "changed_revoke_failed") && (
             <div className="flex w-full flex-col gap-5">
-              <p className="w-full text-center text-sm text-ink">
-                비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
-              </p>
+              {resetResult.kind === "changed_revoke_failed" ? (
+                <p
+                  role="alert"
+                  className="w-full text-center text-sm text-error"
+                >
+                  {resetResult.message}
+                </p>
+              ) : (
+                <p className="w-full text-center text-sm text-ink">
+                  비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+                </p>
+              )}
 
               <PrimaryButton onClick={() => navigate("/login")}>
                 로그인하러 가기

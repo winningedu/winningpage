@@ -20,6 +20,11 @@ vi.mock("@/config/site", () => ({
 
 vi.mock("@/hooks/useSignupEnabled", () => ({ useSignupEnabled: () => false }));
 
+// 재전송 대기(60초)를 끄고 다시 인증하는 흐름을 바로 확인한다.
+vi.mock("@/hooks/useCooldown", () => ({
+  useCooldown: () => ({ active: false, remaining: 0, start: () => {} }),
+}));
+
 vi.mock("@/lib/supabase", () => ({ supabase: { auth: {} } }));
 
 vi.mock("@/lib/phoneVerification", async (importActual) => ({
@@ -205,23 +210,101 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
     });
   });
 
-  it("서버가 실패를 알리면 detail 을 보여준다", async () => {
+  it("서버가 실패를 알리면 detail 을 보여주고 다시 시도할 수 있게 입력 칸을 둔다", async () => {
     state.siteKey = "schoolmentor";
     mockFetch.mockResolvedValueOnce({
       status: 500,
       ok: false,
       json: async () => ({
         ok: false,
-        reason: "revoke_failed",
-        detail: "비밀번호는 바뀌었어요.",
+        reason: "update_failed",
+        detail: "비밀번호 재설정에 실패했습니다. 다시 시도해 주세요.",
       }),
     });
     await verifyPhone();
     await submitNewPassword();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "비밀번호는 바뀌었어요.",
+      "비밀번호 재설정에 실패했습니다. 다시 시도해 주세요.",
     );
+    expect(screen.getByLabelText("새 비밀번호")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "비밀번호 바꾸기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("인증 시간이 지났다는 401 이면 전화번호 단계로 돌아가 detail 을 보여주고 비밀번호 칸을 지운다", async () => {
+    state.siteKey = "schoolmentor";
+    mockFetch.mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      json: async () => ({
+        ok: false,
+        reason: "phone_not_verified",
+        detail: "휴대폰 인증을 먼저 완료해 주세요.",
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "휴대폰 인증을 먼저 완료해 주세요.",
+    );
+    expect(screen.getByLabelText("전화번호")).toBeInTheDocument();
+    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "인증번호 보내기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("인증을 다시 마치면 비밀번호 칸이 비어 있고 지난 오류 문구는 사라진다", async () => {
+    state.siteKey = "schoolmentor";
+    mockFetch.mockResolvedValueOnce({
+      status: 401,
+      ok: false,
+      json: async () => ({
+        ok: false,
+        reason: "phone_not_verified",
+        detail: "휴대폰 인증을 먼저 완료해 주세요.",
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+    await screen.findByLabelText("전화번호");
+
+    fireEvent.click(screen.getByRole("button", { name: "인증번호 보내기" }));
+    const code = await screen.findByLabelText("인증번호");
+    await waitFor(() => expect(code).toBeEnabled());
+    fireEvent.change(code, { target: { value: "654321" } });
+
+    expect(await screen.findByLabelText("새 비밀번호")).toHaveValue("");
+    expect(screen.getByLabelText("새 비밀번호 확인")).toHaveValue("");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("비밀번호는 바뀌었지만 세션 정리에 실패하면(revoke_failed) 완료 화면에 안내문을 보여준다", async () => {
+    state.siteKey = "schoolmentor";
+    const notice = "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했어요.";
+    mockFetch.mockResolvedValueOnce({
+      status: 500,
+      ok: false,
+      json: async () => ({
+        ok: false,
+        reason: "revoke_failed",
+        detail: notice,
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(notice);
+    expect(
+      screen.getByRole("button", { name: "로그인하러 가기" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+    expect(
+      screen.queryByText("비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요."),
+    ).toBeNull();
   });
 });
 
