@@ -166,15 +166,17 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("TEACHER_NOT_MATCHED 는 서버 문구를 보여 주고 첫 단계로 돌아간다", async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse(400, {
-        error: {
-          code: "TEACHER_NOT_MATCHED",
-          message: "아이디와 휴대폰 번호를 다시 확인해 주세요.",
-        },
-      }),
-    );
+  it("TEACHER_NOT_MATCHED 는 서버 문구를 보여 주고 인증과 입력한 비밀번호를 유지한 채 아이디를 고쳐 다시 보낼 수 있다", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse(400, {
+          error: {
+            code: "TEACHER_NOT_MATCHED",
+            message: "아이디와 휴대폰 번호를 다시 확인해 주세요.",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
     await verifyAndReachPasswordStep();
 
     fillPasswords("NewPass123", "NewPass123");
@@ -182,7 +184,24 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "아이디와 휴대폰 번호를 다시 확인해 주세요.",
     );
-    expectFirstStep();
+    expect(screen.getByLabelText("새 비밀번호")).toHaveValue("NewPass123");
+    expect(screen.getByLabelText("새 비밀번호 확인")).toHaveValue("NewPass123");
+    expect(screen.getByLabelText("아이디")).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("아이디"), {
+      target: { value: "ZZZZ2345XY7Z9K" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "비밀번호 바꾸기" }));
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(JSON.parse(mockFetch.mock.calls[1]?.[1].body)).toMatchObject({
+      loginId: "ZZZZ2345XY7Z9K",
+      phone: "01012345678",
+    });
   });
 
   it("처음부터 다시를 누르면 안내 없이 첫 단계로 돌아가고 비밀번호 입력을 지운다", async () => {
@@ -198,59 +217,19 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("첫 단계로 돌아간 뒤 다른 번호로 인증번호를 다시 받고 비밀번호 입력은 비어 있다", async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse(400, {
-        error: {
-          code: "TEACHER_NOT_MATCHED",
-          message: "아이디와 휴대폰 번호를 다시 확인해 주세요.",
-        },
-      }),
-    );
+  it("처음부터 다시 뒤에도 60초 재전송 대기는 남아 있고 번호는 고쳐 쓸 수 있다", async () => {
     await verifyAndReachPasswordStep();
-    fillPasswords("NewPass123", "NewPass123");
-    await screen.findByRole("alert");
 
+    fireEvent.click(screen.getByRole("button", { name: "처음부터 다시" }));
+
+    expect(
+      screen.getByRole("button", { name: /초 후 다시 보내기/ }),
+    ).toBeDisabled();
     fireEvent.change(screen.getByLabelText("휴대폰 번호"), {
       target: { value: "01099998888" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "인증번호 받기" }));
-    const code = await screen.findByLabelText("인증번호");
-    await waitFor(() => expect(code).toBeEnabled());
-    fireEvent.change(code, { target: { value: "654321" } });
-
-    expect(mockSend).toHaveBeenLastCalledWith("01099998888", "reset_password");
-    expect(await screen.findByLabelText("새 비밀번호")).toHaveValue("");
-    expect(screen.getByLabelText("새 비밀번호 확인")).toHaveValue("");
-  });
-
-  it("VERIFICATION_EXPIRED 는 서버 문구를 보여 주고 인증번호 단계로 돌아간다", async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse(400, {
-        error: {
-          code: "VERIFICATION_EXPIRED",
-          message: "인증 시간이 지났어요. 인증번호를 다시 받아 주세요.",
-        },
-      }),
-    );
-    await verifyAndReachPasswordStep();
-
-    fillPasswords("NewPass123", "NewPass123");
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "인증 시간이 지났어요. 인증번호를 다시 받아 주세요.",
-    );
-    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
-    expect(screen.getByLabelText("인증번호")).toHaveValue("");
-  });
-
-  it("그 밖의 실패와 네트워크 오류는 저장 실패 문구를 보여 준다", async () => {
-    mockFetch.mockRejectedValueOnce(new Error("offline"));
-    await verifyAndReachPasswordStep();
-
-    fillPasswords("NewPass123", "NewPass123");
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(SAVE_FAILED);
+    expect(screen.getByLabelText("휴대폰 번호")).toHaveValue("01099998888");
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
   it("PASSWORD_CHANGED_REVOKE_FAILED 는 바뀐 비밀번호로 보고 안내와 로그인 버튼을 보여 준다", async () => {

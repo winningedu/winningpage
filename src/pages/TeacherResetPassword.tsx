@@ -96,6 +96,7 @@ export default function TeacherResetPassword() {
   const [doneNotice, setDoneNotice] = useState("");
 
   // 첫 단계로 돌아간다. 아이디와 번호는 그대로 두어 고쳐 쓸 수 있고, 인증은 새로 받는다.
+  // 재전송 대기(60초)는 그대로 둔다. 풀면 이 버튼으로 발송 제한을 피해 갈 수 있다.
   function restart() {
     lastAttempt.current = "";
     setRequested(false);
@@ -104,11 +105,6 @@ export default function TeacherResetPassword() {
     setPassword("");
     setPasswordConfirm("");
     setPhoneMessage({ text: "", status: "default" });
-    cooldown.reset();
-  }
-
-  function restartByUser() {
-    restart();
     setFormError("");
   }
 
@@ -144,12 +140,10 @@ export default function TeacherResetPassword() {
       setFormError(outcome.message);
       return;
     }
-    if (outcome.kind === "not_matched") {
-      restart();
-      setFormError(outcome.message);
-      return;
-    }
-    setFormError(SAVE_FAILED_MESSAGE);
+    // 아이디가 틀렸을 수 있다. 인증과 입력한 비밀번호를 그대로 두어 아이디만 고쳐 다시 보낼 수 있게 한다.
+    setFormError(
+      outcome.kind === "not_matched" ? outcome.message : SAVE_FAILED_MESSAGE,
+    );
   }
 
   async function requestCode() {
@@ -361,7 +355,7 @@ export default function TeacherResetPassword() {
             tone="accent"
             size="xs"
             underline
-            onClick={restartByUser}
+            onClick={restart}
             className="self-center"
           >
             처음부터 다시
