@@ -176,20 +176,34 @@ export default defineHandler({
       return;
     }
 
-    // 이전 기기 세션을 모두 끝낸다. 새 비밀번호로 만든 확인용 세션도 함께 끝내므로 응답에 세션을 싣지 않는다.
+    // 이전 기기 세션을 모두 끝낸다(first-password.ts 처럼 DB 단계보다 먼저). 새 비밀번호로 만든 확인용 세션도
+    // 함께 끝내므로 응답에 세션을 싣지 않는다. 실패해도 비밀번호는 이미 바뀌었으니 되돌리지 않고 인증 선점도 풀지 않는다.
+    // 같은 요청을 다시 보내도 소용없어 재시도 오류가 아닌 "바뀌었음" 오류로 알리고 이후 단계는 하지 않는다.
     const { data: signed, error: signInError } = await createLoginAuthClient(
       getClientIp(req),
     ).auth.signInWithPassword({
       email: syntheticEmail(loginId),
       password,
     });
-    if (signInError || !signed.session)
-      throw new Error("session after reset failed");
-    const { error: signOutError } = await admin.auth.admin.signOut(
-      signed.session.access_token,
-      "global",
-    );
-    if (signOutError) throw new Error("sign out global failed");
+    let revoked = false;
+    if (!signInError && signed.session) {
+      const { error: signOutError } = await admin.auth.admin.signOut(
+        signed.session.access_token,
+        "global",
+      );
+      revoked = !signOutError;
+    }
+    if (!revoked) {
+      console.error("[auth/teacher-reset-password] 세션 정리 실패");
+      sendError(
+        res,
+        "coded",
+        500,
+        "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했으니 새 비밀번호로 로그인한 뒤 마이페이지에서 비밀번호를 한 번 더 바꿔 주세요.",
+        "PASSWORD_CHANGED_REVOKE_FAILED",
+      );
+      return;
+    }
 
     const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
       p_teacher_id: teacher.id,

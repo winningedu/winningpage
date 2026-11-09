@@ -276,4 +276,40 @@ describe("POST /api/auth/teacher-reset-password", () => {
     expect(r.body).toMatchObject({ error: { code: "VERIFICATION_EXPIRED" } });
     expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
   });
+
+  describe.each([
+    [
+      "확인용 로그인",
+      () =>
+        kit.signIn.mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: "boom" },
+        }),
+    ],
+    [
+      "전체 로그아웃",
+      () => kit.signOut.mockResolvedValueOnce({ error: { message: "boom" } }),
+    ],
+  ])("세션 정리(%s)가 실패하면", (_name, breakStep) => {
+    test("500 PASSWORD_CHANGED_REVOKE_FAILED 이고 인증은 되돌리지 않고 이후 단계를 하지 않는다", async () => {
+      breakStep();
+
+      const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+      expect(r.status).toBe(500);
+      expect(r.body).toEqual({
+        error: {
+          code: "PASSWORD_CHANGED_REVOKE_FAILED",
+          message:
+            "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했으니 새 비밀번호로 로그인한 뒤 마이페이지에서 비밀번호를 한 번 더 바꿔 주세요.",
+        },
+      });
+      expect(kit.state.updates.map((u) => u.values)).toEqual([
+        { consumed_at: expect.any(String) },
+      ]);
+      expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
+      expect(kit.state.deletes).toEqual([]);
+      expect(kit.state.inserts).toEqual([]);
+    });
+  });
 });
