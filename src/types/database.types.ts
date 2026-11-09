@@ -7360,6 +7360,8 @@ export type Database = {
           region: string;
           school_year: number;
           special_exec_rate_pct: number | null;
+          special_feedback_wait_days: number | null;
+          special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;
@@ -7388,6 +7390,8 @@ export type Database = {
           region: string;
           school_year?: number;
           special_exec_rate_pct?: number | null;
+          special_feedback_wait_days?: number | null;
+          special_inactive_days?: number | null;
           term_months?: number | null;
           tier: string;
           updated_at?: string;
@@ -7415,6 +7419,8 @@ export type Database = {
           region?: string;
           school_year?: number;
           special_exec_rate_pct?: number | null;
+          special_feedback_wait_days?: number | null;
+          special_inactive_days?: number | null;
           term_months?: number | null;
           tier?: string;
           updated_at?: string;
@@ -8605,6 +8611,8 @@ export type Database = {
           region: string;
           school_year: number;
           special_exec_rate_pct: number | null;
+          special_feedback_wait_days: number | null;
+          special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
           updated_at: string;

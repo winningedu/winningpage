@@ -65,6 +65,9 @@ export async function buildCoaching(
     goal: data.goalFacts,
     pendingPerformance: data.pendingPerformance,
     inquiryTopic: data.inquiryTopic,
+    inquiryStage: data.inquiryStage,
+    selfevalStage: data.selfevalStage,
+    targets,
     growthKeywords: data.growthKeywords,
     gradeCheck: null,
   });

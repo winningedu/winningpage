@@ -2,24 +2,23 @@
 // 지표(metrics), 표(table), 상담 포인트(points)만 쓰고, 없는 자료는 그 칸을 만들지 않는다.
 
 import { AXIS_NAMES } from "../growth/axes.js";
-import {
-  EXECUTION_AREAS,
-  indicatorsOf,
-  READINESS_AREAS,
-  urgencyOf,
-} from "./coaching.js";
 import type { buildCoaching } from "./coachingBuild.js";
-import { AREA_NAME, areaState } from "./coachingText.js";
-import { URGENCY_LABEL } from "./diagnosisStatus.js";
+import { type DiagnosisBar, diagnosisDetail } from "./diagnosisDetail.js";
 import type { GoalDay } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 export interface ServiceDetail {
   service: ServiceKey;
   title: string;
-  metrics: { label: string; value: string }[];
+  metrics: { label: string; value: string; sub?: string }[];
   table: { heading: string; columns: string[]; rows: string[][] } | null;
   points: string[];
+  /** 학습진단 창: 요약 문장, 영역 줄, 우선순위 표. */
+  summary?: string;
+  bars?: DiagnosisBar[];
+  secondTable?: { heading: string; columns: string[]; rows: string[][] };
+  /** 창 아래에 붙는 안내(목표관리 창). */
+  notice?: string;
 }
 
 type Built = Awaited<ReturnType<typeof buildCoaching>>;
@@ -40,6 +39,8 @@ const CURVE = {
   not_judgeable: "판정 불가",
 };
 const FIT = { fit: "맞음", normal: "보통", off: "어긋남" };
+const PROBABILITY_NOTICE =
+  "목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다";
 const VERDICT = { confirmed: "확인됨", caution: "주의", none: "아직 없음" };
 
 /** 시간(소수)을 "5시간 30분" 모양으로. */
@@ -90,9 +91,14 @@ export function serviceDetail(
       const a = g.week.achievementPct;
       const last = g.lastWeek?.achievementPct;
       const targets = data.targets;
+      const ideal = targets?.ideal?.probability ?? null;
+      const min = targets?.min?.probability ?? null;
+      const percent = (p: number | null) => (p === null ? "미산출" : `${p}%`);
+      const hasProbability = ideal !== null || min !== null;
       return {
         ...base,
         title: "목표관리 상세",
+        ...(hasProbability && { notice: PROBABILITY_NOTICE }),
         metrics: [
           ...(a !== null
             ? [
@@ -123,6 +129,14 @@ export function serviceDetail(
                 },
               ]
             : []),
+          ...(hasProbability
+            ? [
+                {
+                  label: "목표대학 확률 (이상 / 최소)",
+                  value: `${percent(ideal)} / ${percent(min)}`,
+                },
+              ]
+            : []),
         ],
         table: {
           heading: "최근 14일 일별 기록, 최근 날짜부터, 일요일은 목표 없음",
@@ -143,28 +157,18 @@ export function serviceDetail(
     case "diagnosis": {
       const dx = m.diagnosis;
       if (!dx) return null;
-      const ind = indicatorsOf(m);
-      const areas = [...EXECUTION_AREAS, ...READINESS_AREAS];
+      const { metrics, summary, bars, priorities } = diagnosisDetail(
+        dx.areas,
+        data.diagnosisPrevious,
+        data.diagnosisMeta,
+      );
       return {
         ...base,
         title: "학습진단 상세",
-        metrics: [
-          { label: "긴급도", value: URGENCY_LABEL[urgencyOf(dx.areas)] },
-          {
-            label: "학습 실행 역량",
-            value: `${Math.round(ind.dxExecution.score as number)}점`,
-          },
-        ],
-        table: {
-          heading: "12개 영역",
-          columns: ["영역", "점수", "상태"],
-          rows: areas.map((c) => [
-            AREA_NAME[c],
-            `${dx.areas[c]}점`,
-            areaState(c, dx.areas[c]),
-          ]),
-        },
-        points: [],
+        metrics,
+        summary,
+        bars,
+        secondTable: priorities,
       };
     }
     case "growth": {

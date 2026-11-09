@@ -135,7 +135,7 @@ describe("Home 스쿨멘토 구성", () => {
     const link = screen.getByRole("link", { name: /특허증 새 창 열기/ });
     expect(link).toHaveAttribute(
       "href",
-      "/images/landing/patent-certificate-10-3038224.pdf",
+      "/images/landing/위닝에듀 학습코칭 특허증.pdf",
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
@@ -152,7 +152,7 @@ describe("Home 스쿨멘토 구성", () => {
     const link = screen.getByRole("link", { name: /특허증 새 창 열기/ });
     expect(link).toHaveAttribute(
       "href",
-      "/images/landing/patent-certificate-10-3038224.pdf",
+      "/images/landing/위닝에듀 학습코칭 특허증.pdf",
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");

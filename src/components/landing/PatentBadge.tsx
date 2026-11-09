@@ -1,6 +1,6 @@
 import { site } from "@/config/site";
 
-const CERTIFICATE_PDF_URL = "/images/landing/patent-certificate-10-3038224.pdf";
+const CERTIFICATE_PDF_URL = "/images/landing/위닝에듀 학습코칭 특허증.pdf";
 const BADGE_ALT = "지식재산처 학습코칭 장치 및 방법 특허 제10-3038224호";
 
 // 헤더 로고와 같은 컨테이너 폭/좌우 패딩으로 왼쪽 끝을 맞춘다(사이트별 헤더 기준).

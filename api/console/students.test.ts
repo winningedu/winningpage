@@ -1,6 +1,6 @@
 // GET /api/console/students 계약 검증(W6 학생 관리). 담임은 담당 학급의 실명, 관리자는 전교의 가린 이름.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -447,7 +447,140 @@ describe("GET /api/console/students special students", () => {
     expect(r.body).toMatchObject({ total: 2, scopeTotal: 4 });
   });
 
-  test("the low rate reason applies only when the tenant sets a threshold", async () => {
+  test("a raw weekly rate of 39.6 rounds to 40 and does not fire the low rate reason", async () => {
+    const day = weekWindows().thisWeek.find(
+      (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+    );
+    kit.state.rows.goal_daily_records = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            record_date: day,
+            study_hours: 3.96,
+            target_ideal_hours: 10,
+            target_min_hours: 5,
+          },
+        ],
+        f,
+      );
+
+    const r = await get();
+    const s1 = (
+      r.body as {
+        items: {
+          studentId: string;
+          weeklyGoalRate: number;
+          specialReasons: string[];
+        }[];
+      }
+    ).items.find((i) => i.studentId === "s1");
+
+    expect(s1?.weeklyGoalRate).toBe(40);
+    expect(s1?.specialReasons).toEqual(["urgency"]);
+  });
+
+  test("special=1 takes the union of all five reasons, total counts the union and pages split it", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+    try {
+      // s1 low_rate + urgency, s2 manual, s3 feedback_wait, s4 inactive, s7 no reason
+      kit.state.rows.student_enrollments = (f) =>
+        matchRows(
+          [
+            ...ENROLLMENTS,
+            row({
+              id: "e7",
+              student_id: "s7",
+              grade: "고1",
+              class_id: "c-G",
+              number: 2,
+            }),
+          ],
+          f,
+        );
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [
+            ...["s1", "s2", "s3", "s7"].map((id) => ({
+              id,
+              name: `학생${id}`,
+              created_at: "2026-03-02T01:00:00Z",
+              last_seen_at: null,
+            })),
+            {
+              id: "s4",
+              name: "학생s4",
+              created_at: "2026-03-02T01:00:00Z",
+              last_seen_at: "2026-10-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      const day = weekWindows().thisWeek.find(
+        (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+      );
+      kit.state.rows.goal_daily_records = (f) =>
+        matchRows(
+          [
+            {
+              profile_id: "s1",
+              record_date: day,
+              study_hours: 1,
+              target_ideal_hours: 10,
+              target_min_hours: 5,
+            },
+          ],
+          f,
+        );
+      kit.state.rows.performance_sessions = (f) =>
+        matchRows(
+          [
+            {
+              id: "ps-s3",
+              profile_id: "s3",
+              current_step: 5,
+              updated_at: "2026-11-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      kit.state.rows.performance_submissions = (f) =>
+        matchRows(
+          [{ session_id: "ps-s3", submitted_at: "2026-10-26T00:00:00Z" }],
+          f,
+        );
+      kit.state.rows.performance_reports = () => [];
+
+      const first = await get({ special: "1", pageSize: "3", page: "1" });
+      const second = await get({ special: "1", pageSize: "3", page: "2" });
+
+      expect(special(first).map((i) => i.studentId)).toEqual([
+        "s3",
+        "s2",
+        "s1",
+      ]);
+      expect(special(second).map((i) => i.studentId)).toEqual(["s4"]);
+      expect(first.body).toMatchObject({
+        total: 4,
+        scopeTotal: 5,
+        pageCount: 2,
+      });
+      expect(second.body).toMatchObject({ total: 4, page: 2 });
+      const all = [...special(first), ...special(second)];
+      expect(all.flatMap((i) => i.specialReasons).sort()).toEqual([
+        "feedback_wait",
+        "inactive",
+        "low_rate",
+        "manual",
+        "urgency",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("the low rate reason uses the default 40 percent when the tenant sets none, the tenant value when set, and the response carries all three thresholds", async () => {
     const day = weekWindows().thisWeek.find(
       (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
     );
@@ -468,19 +601,182 @@ describe("GET /api/console/students special students", () => {
     const without = await get();
     expect(
       special(without).find((i) => i.studentId === "s1")?.specialReasons,
-    ).toEqual(["urgency"]);
-    expect(without.body).toMatchObject({ specialExecRatePct: null });
+    ).toEqual(["low_rate", "urgency"]);
+    expect(without.body).toMatchObject({
+      specialExecRatePct: 40,
+      specialInactiveDays: 7,
+      specialFeedbackWaitDays: 14,
+    });
 
     kit.state.rows.tenants = () => ({
       school_year: 2026,
       org_type: "학원",
-      special_exec_rate_pct: 40,
+      special_exec_rate_pct: 1,
+      special_inactive_days: 3,
+      special_feedback_wait_days: 5,
     });
     const withThreshold = await get();
-    expect(withThreshold.body).toMatchObject({ specialExecRatePct: 40 });
+    expect(withThreshold.body).toMatchObject({
+      specialExecRatePct: 1,
+      specialInactiveDays: 3,
+      specialFeedbackWaitDays: 5,
+    });
     expect(
       special(withThreshold).find((i) => i.studentId === "s1")?.specialReasons,
-    ).toEqual(["low_rate", "urgency"]);
+    ).toEqual(["urgency"]);
+  });
+
+  describe("inactive", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+      kit.state.rows.diagnosis_reports = () => [];
+      kit.state.rows.student_flags = () => [];
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const seen = (lastSeen: Record<string, string | null>) => {
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          ["s1", "s2", "s3", "s4"].map((id) => ({
+            id,
+            name: `학생${id}`,
+            created_at: null,
+            last_seen_at: lastSeen[id] ?? null,
+          })),
+          f,
+        );
+    };
+    const reasonsById = (r: { body: unknown }) =>
+      Object.fromEntries(
+        special(r).map((i) => [i.studentId, i.specialReasons]),
+      );
+
+    test("7 KST calendar days or more since the last access is inactive, 6 and no record are not, and special=1 lists the inactive student", async () => {
+      seen({
+        // KST 11-02 23:59 is 7 days before 11-09, KST 11-03 00:00 is 6.
+        s1: "2026-11-02T14:59:59Z",
+        s2: "2026-11-02T15:00:00Z",
+        s3: null,
+      });
+
+      expect(reasonsById(await get())).toEqual({
+        s1: ["inactive"],
+        s2: [],
+        s3: [],
+        s4: [],
+      });
+      const only = await get({ special: "1" });
+      expect(special(only).map((i) => i.studentId)).toEqual(["s1"]);
+      expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("the tenant's inactive days replace the default 7", async () => {
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        org_type: "학원",
+        special_inactive_days: 3,
+      });
+      seen({ s1: "2026-11-06T03:00:00Z", s2: "2026-11-07T03:00:00Z" });
+
+      expect(reasonsById(await get())).toMatchObject({
+        s1: ["inactive"],
+        s2: [],
+      });
+    });
+  });
+
+  describe("feedback wait", () => {
+    const submitted = (daysAgo: number) =>
+      // 협정 세계시 03시 기준 오늘(KST 11-09 12시)에서 daysAgo 일 전 정오(KST).
+      new Date(Date.UTC(2026, 10, 9 - daysAgo, 3)).toISOString();
+    let sessionCalls: unknown[];
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+      kit.state.rows.diagnosis_reports = () => [];
+      kit.state.rows.student_flags = () => [];
+      sessionCalls = [];
+      // s1 는 성공 제출 없음, s2 는 13일 전, s3 는 14일 전, s4 는 20일 전이지만 평가 리포트가 있다.
+      const sessions = ["s1", "s2", "s3", "s4"].map((p) => ({
+        id: `ps-${p}`,
+        profile_id: p,
+        current_step: 5,
+        updated_at: "2026-11-01T00:00:00Z",
+      }));
+      kit.state.rows.performance_sessions = (f) => {
+        sessionCalls.push(f.profile_id);
+        return matchRows(sessions, f);
+      };
+      kit.state.rows.performance_submissions = (f) =>
+        matchRows(
+          [
+            { session_id: "ps-s2", submitted_at: submitted(13) },
+            { session_id: "ps-s3", submitted_at: submitted(14) },
+            { session_id: "ps-s4", submitted_at: submitted(20) },
+          ],
+          f,
+        );
+      kit.state.rows.performance_reports = (f) =>
+        matchRows([{ session_id: "ps-s4", report_type: "evaluation" }], f);
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const reasonsById = (r: { body: unknown }) =>
+      Object.fromEntries(
+        special(r).map((i) => [i.studentId, i.specialReasons]),
+      );
+
+    test("a latest submission waiting 14 days or more is feedback_wait, 13 days, an evaluated one and no submission are not, and special=1 lists it", async () => {
+      expect(reasonsById(await get())).toMatchObject({
+        s1: [],
+        s2: [],
+        s3: ["feedback_wait"],
+        s4: [],
+      });
+      const only = await get({ special: "1" });
+      expect(special(only).map((i) => i.studentId)).toEqual(["s3"]);
+      expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("the tenant's feedback wait days replace the default 14", async () => {
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        org_type: "학원",
+        special_feedback_wait_days: 13,
+      });
+
+      expect(reasonsById(await get())).toMatchObject({
+        s2: ["feedback_wait"],
+        s3: ["feedback_wait"],
+      });
+    });
+
+    test("performance status is read only for students who used the performance service", async () => {
+      kit.state.rows.performance_sessions = (f) => {
+        sessionCalls.push(f.profile_id);
+        return matchRows(
+          [
+            {
+              id: "ps-s3",
+              profile_id: "s3",
+              current_step: 5,
+              updated_at: "2026-11-01T00:00:00Z",
+            },
+          ],
+          f,
+        );
+      };
+
+      await get();
+
+      const narrowed = sessionCalls.filter(
+        (c) => Array.isArray(c) && c.length < 4,
+      );
+      expect(narrowed.length).toBeGreaterThan(0);
+      expect(narrowed.every((c) => (c as string[]).join() === "s3")).toBe(true);
+    });
   });
 
   test("the special filter combines with a service tab", async () => {
