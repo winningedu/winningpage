@@ -5,12 +5,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { consoleRequest } from "../api";
+import { kstDotDateTime } from "../date";
 import EmptyMessage from "../EmptyMessage";
+import { useConsoleMe } from "../useConsoleMe";
 import {
   AxisPanel,
   CompetencyList,
   StudentCard,
   SummaryCallout,
+  studentClassText,
 } from "./CoachingPage";
 import { Narrative } from "./CoachingSections";
 import { useCoaching } from "./useCoaching";
@@ -27,6 +30,8 @@ export default function CoachingPrintPage() {
   const [params] = useSearchParams();
   const { data, isError } = useCoaching(params.get("studentId"));
   const printed = useRef(false);
+  const { me } = useConsoleMe();
+  const [printedAt] = useState(() => kstDotDateTime(new Date()));
 
   const [logFailed, setLogFailed] = useState(false);
 
@@ -53,6 +58,13 @@ export default function CoachingPrintPage() {
         <h1 className="text-app-title font-bold text-ink-strong">
           개인종합코칭
         </h1>
+        <p className="text-app-label text-ink-sub">
+          교육기관 {me.tenant.name}, 학생 {data.student.name}(
+          {studentClassText(data.student)}), 출력일시 {printedAt}, 출력자{" "}
+          {me.teacher
+            ? `${me.teacher.name}(${me.teacher.loginId})`
+            : "본사 대행"}
+        </p>
         <StudentCard data={data} />
         <SummaryCallout data={data} />
         <CompetencyList data={data} />

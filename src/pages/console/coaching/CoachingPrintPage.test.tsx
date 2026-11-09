@@ -9,7 +9,9 @@ vi.mock("@/lib/supabase", () => ({
 }));
 vi.mock("../useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 
-import { homeroomMe, renderRoutes, stubApi } from "../testUtils";
+import type { ConsoleMe } from "../api";
+import { homeroomMe, proxyMe, renderRoutes, stubApi } from "../testUtils";
+import { ConsoleMeContext } from "../useConsoleMe";
 import CoachingPrintPage from "./CoachingPrintPage";
 import type { Coaching } from "./types";
 
@@ -86,11 +88,22 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
-const routes = [{ path: "/print", Component: CoachingPrintPage }];
+const routesFor = (me: ConsoleMe) => [
+  {
+    path: "/print",
+    Component: () => (
+      <ConsoleMeContext.Provider value={{ me, reload: async () => {} }}>
+        <CoachingPrintPage />
+      </ConsoleMeContext.Provider>
+    ),
+  },
+];
+const routes = routesFor(homeroomMe);
 
 describe("W9c 코칭 PDF", () => {
   it("A4 두 쪽에 학생과 진단을 담고 메모는 넣지 않으며 인쇄 창을 한 번 연다", async () => {
@@ -114,6 +127,60 @@ describe("W9c 코칭 PDF", () => {
     ).toEqual({
       studentId: "s1",
     });
+  });
+
+  it("첫 쪽 제목 아래에 기관, 학생, 출력일시(한국 시간), 출력자를 한 줄로 적는다", async () => {
+    vi.useFakeTimers({
+      toFake: ["Date"],
+      now: new Date("2026-11-03T05:20:00Z"),
+    });
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const { container } = renderRoutes(routes, "/print?studentId=s1");
+
+    const line = await screen.findByText(
+      "교육기관 한빛고등학교, 학생 김서연(2학년 3반 1번), 출력일시 2026.11.03 14:20, 출력자 박지훈(SM26HB83K7MPQ2)",
+    );
+    expect(container.querySelector(".coaching__print")?.contains(line)).toBe(
+      true,
+    );
+    expect(
+      container.querySelector(".coaching__print-p2")?.textContent,
+    ).not.toContain("교육기관");
+  });
+
+  it("본사 대행이면 출력자는 본사 대행이다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: proxyMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    renderRoutes(routesFor(proxyMe), "/print?studentId=s1");
+
+    expect(await screen.findByText(/, 출력자 본사 대행$/)).toBeTruthy();
+  });
+
+  it("학년그룹이 있으면 반 앞에 붙이고 번호가 없으면 번호 조각을 뺀다", async () => {
+    const data = {
+      ...DATA,
+      student: { ...DATA.student, groupName: "A레벨", number: null },
+    } as Coaching;
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: data },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    renderRoutes(routes, "/print?studentId=s1");
+
+    expect(
+      await screen.findByText(/학생 김서연\(2학년 A레벨 3반\), 출력일시/),
+    ).toBeTruthy();
   });
 
   it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {

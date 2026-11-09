@@ -131,10 +131,9 @@ function StudentPicker({
   );
 }
 
-export function StudentCard({ data }: { data: Coaching }) {
-  const { student } = data;
-  const signal = SIGNAL[data.signal];
-  const meta = [
+/** "2학년 1학년그룹 3반 1번" 처럼 학년, 반, 번호를 잇는다. 없는 조각은 뺀다. */
+export function studentClassText(student: Coaching["student"]) {
+  return [
     student.grade ? gradeLabel(student.grade) : null,
     student.className
       ? `${student.groupName ? `${student.groupName} ` : ""}${student.className}반`
@@ -143,6 +142,12 @@ export function StudentCard({ data }: { data: Coaching }) {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+export function StudentCard({ data }: { data: Coaching }) {
+  const { student } = data;
+  const signal = SIGNAL[data.signal];
+  const meta = studentClassText(student);
   return (
     <section className={CARD} aria-label="학생 정보">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
