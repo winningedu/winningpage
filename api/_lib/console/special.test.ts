@@ -60,3 +60,46 @@ describe("specialReasonsOf inactive", () => {
     ).toEqual(["inactive"]);
   });
 });
+
+describe("specialReasonsOf urgency, feedback_wait, manual", () => {
+  test("urgency high and very_high fire, mid, low and unknown do not", () => {
+    for (const urgency of ["high", "very_high"])
+      expect(specialReasonsOf({ ...none, urgency }, T)).toEqual(["urgency"]);
+    for (const urgency of ["mid", "low", null])
+      expect(specialReasonsOf({ ...none, urgency }, T)).toEqual([]);
+  });
+
+  test("a submission waiting 14 days or more fires, 13 and none do not, the tenant value overrides", () => {
+    expect(specialReasonsOf({ ...none, feedbackWaitingDays: 14 }, T)).toEqual([
+      "feedback_wait",
+    ]);
+    expect(specialReasonsOf({ ...none, feedbackWaitingDays: 13 }, T)).toEqual(
+      [],
+    );
+    expect(
+      specialReasonsOf(
+        { ...none, feedbackWaitingDays: 5 },
+        { ...T, feedbackWaitDays: 5 },
+      ),
+    ).toEqual(["feedback_wait"]);
+  });
+
+  test("a manual flag fires", () => {
+    expect(specialReasonsOf({ ...none, flagged: true }, T)).toEqual(["manual"]);
+  });
+
+  test("several reasons come out in the fixed order", () => {
+    expect(
+      specialReasonsOf(
+        {
+          weeklyRate: 10,
+          urgency: "high",
+          lastSeenDays: 9,
+          feedbackWaitingDays: 20,
+          flagged: true,
+        },
+        T,
+      ),
+    ).toEqual(["low_rate", "inactive", "urgency", "feedback_wait", "manual"]);
+  });
+});

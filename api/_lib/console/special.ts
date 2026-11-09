@@ -58,5 +58,13 @@ export function specialReasonsOf(
     reasons.push("low_rate");
   if (input.lastSeenDays !== null && input.lastSeenDays >= t.inactiveDays)
     reasons.push("inactive");
+  if (input.urgency === "high" || input.urgency === "very_high")
+    reasons.push("urgency");
+  if (
+    input.feedbackWaitingDays !== null &&
+    input.feedbackWaitingDays >= t.feedbackWaitDays
+  )
+    reasons.push("feedback_wait");
+  if (input.flagged) reasons.push("manual");
   return reasons;
 }
