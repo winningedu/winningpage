@@ -37,11 +37,11 @@ async function inChunks<T>(
   ids: string[],
   read: (chunk: string[]) => Promise<T[]>,
 ): Promise<T[]> {
-  const reads: Promise<T[]>[] = [];
+  const rows: T[] = [];
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
-    reads.push(read(ids.slice(i, i + ID_CHUNK)));
+    rows.push(...(await read(ids.slice(i, i + ID_CHUNK))));
   }
-  return (await Promise.all(reads)).flat();
+  return rows;
 }
 
 /** 세션이 있는 학생만 맵에 담는다. */
