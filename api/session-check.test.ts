@@ -164,4 +164,45 @@ describe("session-check handler: 최근 접속 기록", () => {
     expect(res.body).toEqual({ ok: true });
     expect(fake.profiles[0]?.last_seen_at).toBe(NOW.toISOString());
   });
+
+  test("30분 안의 두 번째 호출은 다시 적지 않고, 30분이 지나면 다시 적는다", async () => {
+    await callHandler(handler, undefined, "GET");
+    vi.setSystemTime(new Date(NOW.getTime() + 29 * 60 * 1000));
+    await callHandler(handler, undefined, "GET");
+    expect(fake.writes).toHaveLength(1);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 31 * 60 * 1000));
+    await callHandler(handler, undefined, "GET");
+    expect(fake.writes).toHaveLength(2);
+  });
+
+  test("기록에 실패해도 응답은 200 { ok: true } 그대로다", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    fake.updateError = { message: "boom" };
+    const failed = await callHandler(handler, undefined, "GET");
+    expect(failed.status).toBe(200);
+    expect(failed.body).toEqual({ ok: true });
+
+    fake.updateError = null;
+    fake.updateThrows = true;
+    const thrown = await callHandler(handler, undefined, "GET");
+    expect(thrown.status).toBe(200);
+    expect(thrown.body).toEqual({ ok: true });
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  test("폐기된 세션은 401 SESSION_REVOKED 이고 아무것도 적지 않는다", async () => {
+    const { AuthSessionMissingError } = await import("@supabase/supabase-js");
+    fake.getUser = async () => ({
+      data: { user: null },
+      error: new AuthSessionMissingError(),
+    });
+
+    const res = await callHandler(handler, undefined, "GET");
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ error: { code: SESSION_REVOKED_CODE } });
+    expect(fake.writes).toHaveLength(0);
+  });
 });

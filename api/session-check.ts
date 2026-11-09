@@ -3,7 +3,9 @@
 //
 // 동시 로그인 정책(prod: 계정당 1세션, Supabase "single session per user" 토글 +
 // JWT expiry 300s — 그 설정 자체는 코드 밖, 이 라우트의 범위가 아니다) 하에서,
-// 킥당한 탭이 "내가 지금도 유효한 세션인지"를 물어보는 순수 조회 엔드포인트다.
+// 킥당한 탭이 "내가 지금도 유효한 세션인지"를 물어보는 엔드포인트다. 판정은 조회뿐이고,
+// 유효한 세션이면 부수적으로 profiles.last_seen_at(최근 접속)을 30분에 한 번 적는다
+// (결정 105). 이 기록은 실패해도 응답을 바꾸지 않고, 폐기된 세션에서는 적지 않는다.
 // 탭 focus 시(refetchOnWindowFocus) 클라이언트가 이 라우트를 부른다 — 폴링·
 // Realtime 없음(src/lib/queryClient.ts sessionCheckQueryOptions 참고).
 //
@@ -121,14 +123,22 @@ export default defineHandler({
       return;
     }
 
-    const now = Date.now();
-    await ctx.supabaseAdmin
-      .from("profiles")
-      .update({ last_seen_at: new Date(now).toISOString() })
-      .eq("id", data.user.id)
-      .or(
-        `last_seen_at.is.null,last_seen_at.lt.${new Date(now - LAST_SEEN_THROTTLE_MS).toISOString()}`,
-      );
+    // 최근 접속 기록은 부가 기능이다. 실패해도 킥 판정 응답은 바꾸지 않는다.
+    try {
+      const now = Date.now();
+      const { error: stampError } = await ctx.supabaseAdmin
+        .from("profiles")
+        .update({ last_seen_at: new Date(now).toISOString() })
+        .eq("id", data.user.id)
+        .or(
+          `last_seen_at.is.null,last_seen_at.lt.${new Date(now - LAST_SEEN_THROTTLE_MS).toISOString()}`,
+        );
+      if (stampError) {
+        console.warn("session-check: last_seen_at 기록 실패", stampError);
+      }
+    } catch (stampThrown) {
+      console.warn("session-check: last_seen_at 기록 예외", stampThrown);
+    }
 
     res.status(200).json({ ok: true });
   },
