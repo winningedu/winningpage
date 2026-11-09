@@ -92,3 +92,28 @@ describe("inquiry stage and topic (결정 106.2)", () => {
     expect((await load([])).inquiryStage).toBeNull();
   });
 });
+
+describe("self-assessment stage (결정 106.3)", () => {
+  const selfeval = (rows: Record<string, unknown>[]) => {
+    kit.rows.selfeval_sessions = (f) =>
+      matchRows(
+        rows.map((r) => ({ profile_id: "s1", ...r })),
+        f,
+      );
+    kit.rows.selfeval_reports = () => [];
+  };
+  const stageOf = async () => (await load(["selfeval"])).selfevalStage;
+
+  test("the session edited last gives the stage still to do, using the W8 step names", async () => {
+    selfeval([
+      { updated_at: "2026-11-06", current_step: 2, status: "in_progress" },
+      { updated_at: "2026-10-01", current_step: 6, status: "completed" },
+    ]);
+    // current_step 2 = 시작, 기본 입력, 활동 선택 이 끝났고 다음은 분석 확인이다.
+    expect(await stageOf()).toEqual({
+      step: 2,
+      name: "분석 확인",
+      finished: false,
+    });
+  });
+});

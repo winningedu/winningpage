@@ -28,7 +28,7 @@ import {
 } from "./goalRate.js";
 import { type Target, target } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
-import { INQUIRY_STEPS } from "./sessionStatus.js";
+import { INQUIRY_STEPS, SELFEVAL_STEPS } from "./sessionStatus.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
   "목표 설정": "GOAL",
@@ -203,6 +203,21 @@ function inquiryStageOf(session: { current_step: number; status: string }) {
   };
 }
 
+/**
+ * 가장 최근 자기평가 세션에서 아직 하지 않은 첫 단계(W8 탭과 같은 계산, sessionStatus.ts selfevalFinished).
+ * finished 는 더 진행할 단계가 없다는 뜻이다(마지막 단계에 있거나 완료).
+ */
+function selfevalStageOf(session: { current_step: number; status: string }) {
+  const last = SELFEVAL_STEPS.length;
+  const step = Math.min(Math.max(session.current_step, 0), last);
+  const done = step === 0 || step >= last - 1 ? step : step + 1;
+  return {
+    step,
+    name: SELFEVAL_STEPS[Math.min(done, last - 1)] ?? "",
+    finished: session.status === "completed" || done >= last - 1,
+  };
+}
+
 export interface CoachingData {
   performanceTasks: {
     title: string | null;
@@ -215,6 +230,8 @@ export interface CoachingData {
   inquiryTopic: string | null;
   /** 가장 최근에 고친 탐구 세션의 콘솔 단계(6단계 이름). 세션이 없으면 null. */
   inquiryStage: { step: number; name: string; completed: boolean } | null;
+  /** 가장 최근에 고친 자기평가 세션의 다음 단계. 세션이 없으면 null. */
+  selfevalStage: { step: number; name: string; finished: boolean } | null;
   growthKeywords: string[];
   grade: string | null;
   /** profiles.last_seen_at 그대로(ISO). 기록이 없으면 null. */
@@ -332,6 +349,15 @@ export async function loadCoachingData(
     "last_seen_at",
     (q) => q.eq("id", studentId),
   );
+  const selfevalSessions = uses("selfeval")
+    ? await readAll<{
+        updated_at: string;
+        current_step: number;
+        status: string;
+      }>(admin, "selfeval_sessions", "updated_at, current_step, status", (q) =>
+        q.eq("profile_id", studentId),
+      )
+    : [];
   const goalState = uses("goal")
     ? await readAll<{ ideal_susi: number | null; min_susi: number | null }>(
         admin,
@@ -341,6 +367,8 @@ export async function loadCoachingData(
         "profile_id",
       )
     : [];
+
+  const selfevalSession = lastBy(selfevalSessions, (s) => s.updated_at);
 
   const goal = goalStudent[0];
   const today = kstYMD(now);
@@ -494,6 +522,7 @@ export async function loadCoachingData(
     })),
     inquiryTopic: topicTitle(topics[0]?.detail),
     inquiryStage: session ? inquiryStageOf(session) : null,
+    selfevalStage: selfevalSession ? selfevalStageOf(selfevalSession) : null,
     growthKeywords: narrativeKeywords(growth),
     grade,
     targets: goal
