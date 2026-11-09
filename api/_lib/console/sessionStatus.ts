@@ -39,7 +39,7 @@ const TOTAL = 6;
 const pct = (finished: number) => Math.round((finished / TOTAL) * 100);
 
 /** 세션 current_step(0~6)에서 끝낸 단계 수. 시작과 기본 입력은 1 이 되면 함께 끝난다. */
-function selfevalFinished(step: number): number {
+export function selfevalFinished(step: number): number {
   const s = Math.min(Math.max(step, 0), TOTAL);
   if (s === 0 || s === TOTAL) return s;
   return s === TOTAL - 1 ? s : s + 1;

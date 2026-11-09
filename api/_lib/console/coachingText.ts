@@ -162,10 +162,10 @@ export interface TextFacts {
   /** 피드백 대기 수행평가. */
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
-  inquiryStage?: CoachingData["inquiryStage"];
-  selfevalStage?: CoachingData["selfevalStage"];
+  inquiryStage: CoachingData["inquiryStage"];
+  selfevalStage: CoachingData["selfevalStage"];
   /** 목표대학과 수시 확률(%). 목표관리를 안 쓰면 null. */
-  targets?: CoachingData["targets"];
+  targets: CoachingData["targets"];
   growthKeywords: string[];
   /** 같은 등급제일 때 학습진단 평균 내신과 목표관리 입력 내신. */
   gradeCheck: { diagnosis: number; goalInput: number } | null;

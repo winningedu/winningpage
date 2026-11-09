@@ -9,7 +9,7 @@ import {
 } from "./coaching.js";
 import type { DiagnosisMeta } from "./coachingData.js";
 import { AREA_NAME, areaState, STRATEGIES } from "./coachingText.js";
-import { mean, URGENCY_LABEL } from "./diagnosisStatus.js";
+import { URGENCY_LABEL } from "./diagnosisStatus.js";
 
 export interface DiagnosisMetric {
   label: string;
@@ -18,9 +18,7 @@ export interface DiagnosisMetric {
 }
 
 const average = (codes: readonly AreaCode[], areas: AreaScores) =>
-  mean(
-    codes.map((c) => ({ name: AREA_NAME[c], score: areas[c], status: "" })),
-  ) as number;
+  Math.round(codes.reduce((sum, c) => sum + areas[c], 0) / codes.length);
 
 function averageMetric(
   label: string,

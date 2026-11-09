@@ -186,6 +186,7 @@ function facts(
     inquiryStage: { step: 4, name: "보고서 작성", completed: false },
     selfevalStage: { step: 2, name: "자기 점검", finished: false },
     growthKeywords: ["도시 재생", "탄소 중립"],
+    targets: null,
     gradeCheck: { diagnosis: 2.1, goalInput: 2.4 },
     ...over,
   };

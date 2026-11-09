@@ -28,7 +28,11 @@ import {
 } from "./goalRate.js";
 import { type Target, target } from "./goalStatus.js";
 import type { ServiceKey } from "./serviceUsage.js";
-import { INQUIRY_STEPS, SELFEVAL_STEPS } from "./sessionStatus.js";
+import {
+  INQUIRY_STEPS,
+  SELFEVAL_STEPS,
+  selfevalFinished,
+} from "./sessionStatus.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
   "목표 설정": "GOAL",
@@ -237,7 +241,7 @@ function inquiryStageOf(session: { current_step: number; status: string }) {
 function selfevalStageOf(session: { current_step: number; status: string }) {
   const last = SELFEVAL_STEPS.length;
   const step = Math.min(Math.max(session.current_step, 0), last);
-  const done = step === 0 || step >= last - 1 ? step : step + 1;
+  const done = selfevalFinished(step);
   return {
     step,
     name: SELFEVAL_STEPS[Math.min(done, last - 1)] ?? "",
