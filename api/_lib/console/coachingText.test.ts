@@ -250,8 +250,75 @@ describe("우선 과제 (r184 = 유형의 한줄 진단, r23~r90)", () => {
     );
   });
 
-  test("G1 은 탐구 단계 이름의 출처가 없어 만들지 않는다", () => {
-    expect(priorityTask(facts({ type: { code: "G1", name: "" } }))).toBeNull();
+  const G1 = { code: "G1", name: "탐구 확장" };
+  const stage = (step: number, name: string, completed = false) => ({
+    step,
+    name,
+    completed,
+  });
+
+  test("G1 은 탐구 주제와 단계를 넣고 조사를 맞춘다 (r84)", () => {
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "도시 재생",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toBe(
+      "실행, 학습역량, 연계가 모두 안정적이고, 심화탐구 '도시 재생'이 '보고서 작성' 단계입니다. 우선 과제는 탐구를 다음 단계로 끌어올리는 것입니다.",
+    );
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "인공지능",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("심화탐구 '인공지능'이 '보고서 작성'");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "도시 계획",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("심화탐구 '도시 계획'이");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "기후 변화 대응",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("'기후 변화 대응'이 ");
+    expect(
+      priorityTask(
+        facts({
+          type: G1,
+          inquiryTopic: "디자인 사고",
+          inquiryStage: stage(4, "보고서 작성"),
+        }),
+      ),
+    ).toContain("'디자인 사고'가 ");
+  });
+
+  test("G1 은 주제가 없으면 주제 부분을 빼고, 탐구 단계를 읽지 못하면 만들지 않는다", () => {
+    const text = priorityTask(
+      facts({
+        type: G1,
+        inquiryTopic: null,
+        inquiryStage: stage(2, "주제 추천"),
+      }),
+    ) as string;
+    expect(text).toContain("심화탐구가 '주제 추천' 단계입니다.");
+    expect(text).not.toMatch(/undefined|null|''/);
+    expect(priorityTask(facts({ type: G1, inquiryStage: null }))).toBeNull();
+    expect(priorityTask(facts({ type: G1 }))).toBeNull();
   });
 });
 

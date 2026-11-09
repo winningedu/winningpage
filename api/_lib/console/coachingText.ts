@@ -381,9 +381,15 @@ export function priorityTask(f: TextFacts): string | null {
     }
     case "F2":
       return `실행과 학습역량은 안정적이지만 성장설계, 수행평가, 심화탐구 기록이 없어 ${d} 연결을 보여줄 활동이 아직 없습니다. 우선 과제는 ${withParticle(d, "과", "와")} 연결되는 탐구 질문 1개 정하기입니다.`;
-    case "G1":
-      // 탐구 단계 이름의 출처가 없어 만들지 않는다.
-      return null;
+    case "G1": {
+      const stage = f.inquiryStage;
+      if (!stage) return null;
+      const topic = f.inquiryTopic;
+      const subject = topic
+        ? ` '${topic}'${hasFinalConsonant(topic) ? "이" : "가"}`
+        : "가";
+      return `실행, 학습역량, 연계가 모두 안정적이고, 심화탐구${subject} '${stage.name}' 단계입니다. 우선 과제는 탐구를 다음 단계로 끌어올리는 것입니다.`;
+    }
     case "G2": {
       const best = f.axes.strongest;
       if (!best) return null;
