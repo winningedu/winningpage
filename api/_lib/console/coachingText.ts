@@ -564,6 +564,21 @@ export function typeTasks(f: TextFacts): string[] | null {
   }
 }
 
+/** 심화탐구 이용 중인 학생의 다음 할 일(r109~r113). 앱의 6단계를 문구표 단계에 맞춘다(교 106-3). */
+function inquiryNextTask(f: TextFacts): string | null {
+  const stage = f.inquiryStage;
+  if (!stage || !f.metrics.used.inquiry || f.type.code === "I") return null;
+  const grade3 = f.grade === "고3";
+  if (!grade3 && f.grade !== "고1" && f.grade !== "고2") return null;
+  const topic = f.inquiryTopic ? `'${f.inquiryTopic}'` : null;
+  if (stage.completed || stage.step >= 5)
+    return !grade3 && topic ? `${topic} 후속 탐구, 발표로 확장` : null;
+  if (stage.step === 4) return topic ? `${topic} 보고서 제출` : null;
+  if (grade3) return null;
+  if (stage.step === 3) return topic ? `${topic} 탐구 설계 마무리` : null;
+  return `심화탐구 주제 확정(${dept(f)} 연결)`;
+}
+
 /** 서비스 다음 할 일(문구표 r107~r116). 앞에서부터 쓰고 모자라면 기본 문구로 채운다. */
 export function nextServiceTasks(f: TextFacts): string[] {
   const d = dept(f);
@@ -587,6 +602,8 @@ export function nextServiceTasks(f: TextFacts): string[] {
   ) {
     tasks.push(`${d} 관련 심화탐구 주제 탐색 시작`);
   }
+  const inquiry = inquiryNextTask(f);
+  if (inquiry) tasks.push(inquiry);
   if (lowGrade && !f.metrics.used.growth)
     tasks.push("성장설계로 진로 스토리 대주제 정하기");
   if (lowGrade) {

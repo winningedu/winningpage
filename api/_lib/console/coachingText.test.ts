@@ -18,6 +18,7 @@ import {
   counselPoints,
   goalOpinion,
   gradeInputCheck,
+  nextServiceTasks,
   priorityTask,
   strengths,
   studyMethods,
@@ -644,6 +645,88 @@ describe("강점과 보완 (r133~r149)", () => {
       },
     };
     expect(weaknesses(clean)).toEqual(["피드백 대기 수행평가 '가' 외 2건"]);
+  });
+});
+
+describe("서비스 다음 할 일, 심화탐구 이용 중 (r108~r113)", () => {
+  const step = (n: number, name: string, completed = false) => ({
+    step: n,
+    name,
+    completed,
+  });
+  const tasks = (over: Partial<TextFacts>) =>
+    nextServiceTasks(facts({ pendingPerformance: [], ...over }));
+
+  test("주제 탐색중, 설계중, 보고서 작성중, 피드백 완료를 6단계에 맞춘다 (교 106-3)", () => {
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: null,
+        inquiryStage: step(2, "주제 추천"),
+      }),
+    ).toContain("심화탐구 주제 확정(경영학과 연결)");
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(3, "설계 리포트"),
+      }),
+    ).toContain("'도시 재생' 탐구 설계 마무리");
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(4, "보고서 작성"),
+      }),
+    ).toContain("'도시 재생' 보고서 제출");
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(6, "확정과 저장", true),
+      }),
+    ).toContain("'도시 재생' 후속 탐구, 발표로 확장");
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(5, "평가 리포트"),
+      }),
+    ).toContain("'도시 재생' 후속 탐구, 발표로 확장");
+  });
+
+  test("탐구 진행중 문구는 없고, 주제가 필요한 단계에 주제가 없으면 뺀다", () => {
+    const all = [1, 2, 3, 4, 5, 6].flatMap((n) =>
+      tasks({
+        grade: "고1",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(n, "x"),
+      }),
+    );
+    expect(all.some((t) => t.includes("탐구 결과 정리"))).toBe(false);
+    expect(
+      tasks({
+        grade: "고1",
+        inquiryTopic: null,
+        inquiryStage: step(4, "보고서 작성"),
+      }).some((t) => t.includes("보고서 제출")),
+    ).toBe(false);
+  });
+
+  test("고3 은 보고서 작성중일 때만, 유형 I 는 뺀다", () => {
+    const s3 = { inquiryTopic: "도시 재생", grade: "고3" };
+    expect(tasks({ ...s3, inquiryStage: step(3, "설계 리포트") })).toEqual([]);
+    expect(tasks({ ...s3, inquiryStage: step(4, "보고서 작성") })).toEqual([
+      "'도시 재생' 보고서 제출",
+    ]);
+    expect(
+      tasks({
+        grade: "고2",
+        inquiryTopic: "도시 재생",
+        inquiryStage: step(4, "보고서 작성"),
+        type: { code: "I", name: "" },
+      }).some((t) => t.includes("보고서 제출")),
+    ).toBe(false);
   });
 });
 
