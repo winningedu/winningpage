@@ -49,7 +49,11 @@ export function diagnosisDetail(
         previous,
       ),
       averageMetric("학교생활 준비도", READINESS_AREAS, areas, previous),
-      { label: "학습진단 긴급도", value: URGENCY_LABEL[urgencyOf(areas)] },
+      {
+        label: "학습진단 긴급도",
+        value: URGENCY_LABEL[urgencyOf(areas)],
+        sub: `40점 미만 영역 ${Object.values(areas).filter((s) => s < 40).length}개`,
+      },
     ],
   };
 }

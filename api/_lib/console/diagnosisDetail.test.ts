@@ -54,4 +54,26 @@ describe("diagnosisDetail metrics", () => {
       sub: "직전 진단 69점",
     });
   });
+
+  test("with one report there is no previous diagnosis text", () => {
+    const d = diagnosisDetail(AREAS, null, META);
+    expect(d.metrics[0]).not.toHaveProperty("sub");
+    expect(d.metrics[1]).not.toHaveProperty("sub");
+  });
+
+  test("urgency block counts the areas under 40 across all 12", () => {
+    const none = diagnosisDetail(AREAS, null, META).metrics[2];
+    expect(none).toEqual({
+      label: "학습진단 긴급도",
+      value: "보통",
+      sub: "40점 미만 영역 0개",
+    });
+    const one = diagnosisDetail({ ...AREAS, RECORD: 38 }, null, META)
+      .metrics[2];
+    expect(one).toEqual({
+      label: "학습진단 긴급도",
+      value: "매우 높음",
+      sub: "40점 미만 영역 1개",
+    });
+  });
 });
