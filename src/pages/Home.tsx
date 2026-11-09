@@ -620,7 +620,7 @@ export default function Home() {
           heroReady || site.features.b2bMenu ? "opacity-100" : "opacity-0"
         }`}
       >
-        {!site.features.b2bMenu && <PatentBadge />}
+        <PatentBadge />
 
         {(site.features.b2bMenu ||
           banners.length > 0 ||
