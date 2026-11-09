@@ -176,9 +176,6 @@ export function GoalOpinionCard({ data }: { data: Coaching }) {
             ))}
           </dl>
           <Bullets title="상담 질문" items={opinion.details.questions} />
-          <p className="text-app-caption text-ink-sub">
-            목표대학 확률은 합격 가능성 예측이 아니라 상담 참고 지표입니다
-          </p>
         </>
       )}
     </section>

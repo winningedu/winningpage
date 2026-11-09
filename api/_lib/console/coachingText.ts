@@ -17,6 +17,7 @@ import {
   urgencyOf,
   type Verdicts,
 } from "./coaching.js";
+import type { CoachingData } from "./coachingData.js";
 import { URGENCY_LABEL } from "./diagnosisStatus.js";
 import type { GoalDay, GoalWeek } from "./goalRate.js";
 
@@ -161,6 +162,10 @@ export interface TextFacts {
   /** 피드백 대기 수행평가. */
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
+  inquiryStage: CoachingData["inquiryStage"];
+  selfevalStage: CoachingData["selfevalStage"];
+  /** 목표대학과 수시 확률(%). 목표관리를 안 쓰면 null. */
+  targets: CoachingData["targets"];
   growthKeywords: string[];
   /** 같은 등급제일 때 학습진단 평균 내신과 목표관리 입력 내신. */
   gradeCheck: { diagnosis: number; goalInput: number } | null;
@@ -376,9 +381,15 @@ export function priorityTask(f: TextFacts): string | null {
     }
     case "F2":
       return `실행과 학습역량은 안정적이지만 성장설계, 수행평가, 심화탐구 기록이 없어 ${d} 연결을 보여줄 활동이 아직 없습니다. 우선 과제는 ${withParticle(d, "과", "와")} 연결되는 탐구 질문 1개 정하기입니다.`;
-    case "G1":
-      // 탐구 단계 이름의 출처가 없어 만들지 않는다.
-      return null;
+    case "G1": {
+      const stage = f.inquiryStage;
+      if (!stage) return null;
+      const topic = f.inquiryTopic;
+      const subject = topic
+        ? ` '${topic}'${hasFinalConsonant(topic) ? "이" : "가"}`
+        : "가";
+      return `실행, 학습역량, 연계가 모두 안정적이고, 심화탐구${subject} '${stage.name}' 단계입니다. 우선 과제는 탐구를 다음 단계로 끌어올리는 것입니다.`;
+    }
     case "G2": {
       const best = f.axes.strongest;
       if (!best) return null;
@@ -534,6 +545,14 @@ export function typeTasks(f: TextFacts): string[] | null {
         "수행평가 또는 심화탐구로 첫 기록 남기기",
         "기록을 성장설계 스토리에 연결",
       ];
+    case "G1":
+      return [
+        "현재 실행 수준 유지 확인",
+        f.inquiryTopic
+          ? `학습 시간 일부를 심화탐구 '${f.inquiryTopic}'에 배정`
+          : "학습 시간 일부를 심화탐구에 배정",
+        "탐구 결과 발표, 공유",
+      ];
     case "G2":
       return [
         "현재 실행 수준 유지 확인",
@@ -543,6 +562,21 @@ export function typeTasks(f: TextFacts): string[] | null {
     default:
       return null;
   }
+}
+
+/** 심화탐구 이용 중인 학생의 다음 할 일(r109~r113). 앱의 6단계를 문구표 단계에 맞춘다(교 106-3). */
+function inquiryNextTask(f: TextFacts): string | null {
+  const stage = f.inquiryStage;
+  if (!stage || !f.metrics.used.inquiry || f.type.code === "I") return null;
+  const grade3 = f.grade === "고3";
+  if (!grade3 && f.grade !== "고1" && f.grade !== "고2") return null;
+  const topic = f.inquiryTopic ? `'${f.inquiryTopic}'` : null;
+  if (stage.completed || stage.step >= 5)
+    return !grade3 && topic ? `${topic} 후속 탐구, 발표로 확장` : null;
+  if (stage.step === 4) return topic ? `${topic} 보고서 제출` : null;
+  if (grade3) return null;
+  if (stage.step === 3) return topic ? `${topic} 탐구 설계 마무리` : null;
+  return `심화탐구 주제 확정(${dept(f)} 연결)`;
 }
 
 /** 서비스 다음 할 일(문구표 r107~r116). 앞에서부터 쓰고 모자라면 기본 문구로 채운다. */
@@ -568,17 +602,35 @@ export function nextServiceTasks(f: TextFacts): string[] {
   ) {
     tasks.push(`${d} 관련 심화탐구 주제 탐색 시작`);
   }
+  const inquiry = inquiryNextTask(f);
+  if (inquiry) tasks.push(inquiry);
   if (lowGrade && !f.metrics.used.growth)
     tasks.push("성장설계로 진로 스토리 대주제 정하기");
+  const keyword = f.growthKeywords[0];
+  if (lowGrade && f.metrics.used.growth && keyword)
+    tasks.push(
+      `${f.grade === "고1" ? 2 : 3}학년 스토리 주제(${keyword}) 활동 계획 세우기`,
+    );
+  if (lowGrade && f.type.code !== "J") {
+    const stage = f.selfevalStage;
+    if (f.metrics.used.selfeval) {
+      if (stage && !stage.finished)
+        tasks.push(`자기평가 '${stage.name}' 단계 진행`);
+    } else if (f.grade === "고2") {
+      tasks.push("자기평가 문항 분석 시작");
+    }
+  }
   if (lowGrade) {
     return [
-      ...tasks,
-      `수행평가마다 교과 개념과 ${d} 연결 한 줄 정리`,
-      "학기 활동 기록 정리",
-      "다음 학년 활동 계획 세우기",
+      ...new Set([
+        ...tasks,
+        `수행평가마다 교과 개념과 ${d} 연결 한 줄 정리`,
+        "학기 활동 기록 정리",
+        "다음 학년 활동 계획 세우기",
+      ]),
     ].slice(0, 3);
   }
-  return tasks;
+  return [...new Set(tasks)];
 }
 
 const GRADE3_PLAN: {
@@ -885,6 +937,10 @@ const EXCLUDED_AXIS: Record<string, AxisKey> = {
   K: "readiness",
 };
 
+/** 상담 포인트가 하나도 없을 때의 안내(교 #93, 문구표 r177). */
+export const COUNSEL_POINTS_NONE =
+  "70점 미만인 축이 없거나, 이미 한줄 진단에서 다룬 축입니다.";
+
 /** 70점 미만 축의 상담 포인트 최대 2개(문구표 r159~r177). 한줄 진단이 다룬 축은 뺀다. */
 export function counselPoints(f: TextFacts): string[] {
   const excluded = EXCLUDED_AXIS[f.type.code];
@@ -903,7 +959,7 @@ export function counselPoints(f: TextFacts): string[] {
     );
     if (out.length === 2) break;
   }
-  return out;
+  return out.length > 0 ? out : [COUNSEL_POINTS_NONE];
 }
 
 /** 성적 입력값 확인(문구표 r178). 0.5등급 이상 차이일 때만. */
@@ -1078,6 +1134,19 @@ export interface ServiceCard {
   detail: string;
 }
 
+/** "이상 가나대 경영학과 34%". 확률이 없으면(미산출) 퍼센트만 뺀다. 목표가 없으면 빈 문자열. */
+function targetLabel(
+  kind: "이상" | "최소",
+  t:
+    | { university: string; department: string; probability: number | null }
+    | null
+    | undefined,
+): string {
+  if (!t) return "";
+  const base = [kind, t.university, t.department].filter(Boolean).join(" ");
+  return t.probability === null ? base : `${base} ${t.probability}%`;
+}
+
 const FIT_NAME = { fit: "맞음", normal: "보통", off: "어긋남" } as const;
 
 /** 서비스별 요약 카드 6장(교 #62). 쓰지 않는 서비스는 "서비스 이용 전", 목표를 못 읽으면 "목표 미설정". */
@@ -1146,7 +1215,14 @@ export function serviceCards(f: TextFacts): ServiceCard[] {
             level === "good" ? "양호" : level === "caution" ? "주의" : "위험",
           tone: level === "good" ? "success" : "warning",
           value: `달성율 ${pct(ach(f) ?? 0)}%`,
-          detail: `최소 목표시간 충족 ${week.metDays}일 / 목표 설정 ${week.setDays}일, 연속 기록 ${f.goal.streak}일`,
+          detail: [
+            `최소 목표시간 충족 ${week.metDays}일 / 목표 설정 ${week.setDays}일`,
+            `연속 기록 ${f.goal.streak}일`,
+            targetLabel("이상", f.targets?.ideal),
+            targetLabel("최소", f.targets?.min),
+          ]
+            .filter(Boolean)
+            .join(", "),
         })
       : m.used.goal
         ? {

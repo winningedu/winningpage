@@ -49,6 +49,8 @@ export interface Competency {
 export interface Target {
   university: string;
   department: string;
+  /** 수시 확률(정수 %). 산출 전이면 null. */
+  probability: number | null;
 }
 
 export interface Coaching {
@@ -115,12 +117,34 @@ export interface ServiceCard {
   detail: string;
 }
 
+export interface ServiceDetailTable {
+  heading: string;
+  columns: string[];
+  rows: string[][];
+}
+
+export interface DiagnosisBar {
+  group: "execution" | "readiness";
+  name: string;
+  score: number;
+  status: string;
+  firstStep: string;
+  /** 목표선(75점). 학습 실행 역량 줄에만 있다. */
+  target?: number;
+}
+
 export interface ServiceDetail {
   service: ServiceKey;
   title: string;
-  metrics: { label: string; value: string }[];
-  table: { heading: string; columns: string[]; rows: string[][] } | null;
+  metrics: { label: string; value: string; sub?: string }[];
+  table: ServiceDetailTable | null;
   points: string[];
+  /** 학습진단 창: 요약 문장, 12개 영역 줄, 우선순위 표. */
+  summary?: string;
+  bars?: DiagnosisBar[];
+  secondTable?: ServiceDetailTable;
+  /** 목표관리 창: 목표대학 확률은 상담 참고 지표라는 안내. */
+  notice?: string;
 }
 
 export interface ReportView {
