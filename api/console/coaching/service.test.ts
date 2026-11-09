@@ -34,6 +34,12 @@ const enrollment = (over: Record<string, unknown>) => ({
 
 // 학습진단 payload: 1쪽 6영역(학습 실행 역량)과 2쪽 6영역(준비도). 이름은 AREA_LABEL 이다.
 const DIAGNOSIS_PAYLOAD = {
+  student: {
+    schoolType: "일반고",
+    gpa: "2.60등급(5등급제)",
+    gradeTrend: "상승",
+    diagnosedAt: "2026.03.10",
+  },
   learningAxes: [
     { name: "목표 설정", score: 62 },
     { name: "계획 설계", score: 60 },
@@ -51,6 +57,17 @@ const DIAGNOSIS_PAYLOAD = {
       { name: "기록 정리", score: 80 },
       { name: "입시 전략", score: 78 },
     ],
+  },
+};
+
+// 직전 진단: 모든 영역이 같은 점수(실행 58, 준비도 69).
+const PREVIOUS_PAYLOAD = {
+  learningAxes: DIAGNOSIS_PAYLOAD.learningAxes.map((a) => ({
+    ...a,
+    score: 58,
+  })),
+  readiness: {
+    areas: DIAGNOSIS_PAYLOAD.readiness.areas.map((a) => ({ ...a, score: 69 })),
   },
 };
 
@@ -147,6 +164,13 @@ beforeEach(() => {
           payload: DIAGNOSIS_PAYLOAD,
           snapshot: { gradeTrend: "UP_MOST" },
         },
+        {
+          attempt_id: "d0",
+          profile_id: "s1",
+          diagnosed_at: "2026-01-10T00:00:00Z",
+          payload: PREVIOUS_PAYLOAD,
+          snapshot: {},
+        },
       ],
       f,
     );
@@ -206,9 +230,13 @@ afterEach(() => {
 
 type Detail = {
   title: string;
-  metrics: { label: string; value: string }[];
+  metrics: { label: string; value: string; sub?: string }[];
   table: { columns: string[]; rows: string[][] } | null;
   points: string[];
+  summary?: string | null;
+  bars?: { group: string; name: string; target?: number }[];
+  secondTable?: { heading: string; rows: string[][] };
+  notice?: string;
 };
 const detailOf = async (service: string) =>
   ((await get({ studentId: "s1", service })).body as { detail: Detail }).detail;
@@ -304,12 +332,36 @@ describe("GET /api/console/coaching/service", () => {
     expect(d.points[0]).toContain("목표시간 달성율 72%");
   });
 
-  test("diagnosis: urgency and the 12 areas with their states", async () => {
+  test("diagnosis: three metric blocks, summary, 12 area bars and the priority table", async () => {
     const d = await detailOf("diagnosis");
-    expect(d.metrics).toContainEqual({ label: "긴급도", value: "보통" });
-    expect(d.table?.rows).toHaveLength(12);
-    expect(d.table?.rows[1]).toEqual(["계획 설계", "60점", "보통"]);
-    expect(d.table?.rows[6]).toEqual(["교과 관리", "74점", "양호"]);
+    expect(d.metrics).toEqual([
+      {
+        label: "학습 실행 역량(6영역 평균)",
+        value: "62점",
+        sub: "직전 진단 58점",
+      },
+      { label: "학교생활 준비도", value: "78점", sub: "직전 진단 69점" },
+      { label: "학습진단 긴급도", value: "보통", sub: "40점 미만 영역 0개" },
+    ]);
+    expect(d.summary).toBe(
+      "학교 유형 일반고, 전체 평균 내신 2.60등급(5등급제), 성적 흐름 상승, 진단일 2026.03.10. 가장 시급한 영역 계획 설계 60점, 목표까지 15점",
+    );
+    expect(d.table).toBeNull();
+    expect(d.bars).toHaveLength(12);
+    expect(d.bars?.[1]).toMatchObject({
+      group: "execution",
+      name: "계획 설계",
+      score: 60,
+      status: "보통",
+      target: 75,
+    });
+    expect(d.secondTable?.rows[0]).toEqual([
+      "1순위",
+      "계획 설계",
+      "60점",
+      "보통",
+      "월간 계획을 주간, 일간으로 분해",
+    ]);
   });
 
   test("performance: counts, average and the list with the feedback state", async () => {

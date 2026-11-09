@@ -2,24 +2,23 @@
 // 지표(metrics), 표(table), 상담 포인트(points)만 쓰고, 없는 자료는 그 칸을 만들지 않는다.
 
 import { AXIS_NAMES } from "../growth/axes.js";
-import {
-  EXECUTION_AREAS,
-  indicatorsOf,
-  READINESS_AREAS,
-  urgencyOf,
-} from "./coaching.js";
 import type { buildCoaching } from "./coachingBuild.js";
-import { AREA_NAME, areaState } from "./coachingText.js";
-import { URGENCY_LABEL } from "./diagnosisStatus.js";
+import { type DiagnosisBar, diagnosisDetail } from "./diagnosisDetail.js";
 import type { GoalDay } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
 export interface ServiceDetail {
   service: ServiceKey;
   title: string;
-  metrics: { label: string; value: string }[];
+  metrics: { label: string; value: string; sub?: string }[];
   table: { heading: string; columns: string[]; rows: string[][] } | null;
   points: string[];
+  /** 학습진단 창: 요약 문장, 영역 줄, 우선순위 표. */
+  summary?: string;
+  bars?: DiagnosisBar[];
+  secondTable?: { heading: string; columns: string[]; rows: string[][] };
+  /** 창 아래에 붙는 안내(목표관리 창). */
+  notice?: string;
 }
 
 type Built = Awaited<ReturnType<typeof buildCoaching>>;
@@ -143,28 +142,18 @@ export function serviceDetail(
     case "diagnosis": {
       const dx = m.diagnosis;
       if (!dx) return null;
-      const ind = indicatorsOf(m);
-      const areas = [...EXECUTION_AREAS, ...READINESS_AREAS];
+      const { metrics, summary, bars, priorities } = diagnosisDetail(
+        dx.areas,
+        data.diagnosisPrevious,
+        data.diagnosisMeta,
+      );
       return {
         ...base,
         title: "학습진단 상세",
-        metrics: [
-          { label: "긴급도", value: URGENCY_LABEL[urgencyOf(dx.areas)] },
-          {
-            label: "학습 실행 역량",
-            value: `${Math.round(ind.dxExecution.score as number)}점`,
-          },
-        ],
-        table: {
-          heading: "12개 영역",
-          columns: ["영역", "점수", "상태"],
-          rows: areas.map((c) => [
-            AREA_NAME[c],
-            `${dx.areas[c]}점`,
-            areaState(c, dx.areas[c]),
-          ]),
-        },
-        points: [],
+        metrics,
+        summary,
+        bars,
+        secondTable: priorities,
       };
     }
     case "growth": {
