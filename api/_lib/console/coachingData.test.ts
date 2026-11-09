@@ -134,3 +134,70 @@ describe("self-assessment stage (결정 106.3)", () => {
     expect((await load([])).selfevalStage).toBeNull();
   });
 });
+
+describe("previous diagnosis and report meta (결정 106.4)", () => {
+  const payload = (score: number, student?: Record<string, unknown>) => ({
+    ...(student ? { student } : {}),
+    learningAxes: [
+      "목표 설정",
+      "계획 설계",
+      "실행 지속",
+      "시간 관리",
+      "학습 피드백",
+      "학습 안정",
+    ].map((name) => ({ name, score })),
+    readiness: {
+      areas: [
+        "교과 관리",
+        "수행 대응",
+        "탐구 심화",
+        "활동 연계",
+        "기록 정리",
+        "입시 전략",
+      ].map((name) => ({ name, score })),
+    },
+  });
+  const reports = (
+    rows: { diagnosed_at: string; payload: unknown; attempt_id: string }[],
+  ) => {
+    kit.rows.diagnosis_reports = (f) =>
+      matchRows(
+        rows.map((r) => ({ profile_id: "s1", snapshot: null, ...r })),
+        f,
+      );
+  };
+
+  test("the report before the latest by diagnosed_at gives the previous areas, and the latest gives the meta without 미입력 values", async () => {
+    reports([
+      {
+        attempt_id: "a3",
+        diagnosed_at: "2026-01-10T00:00:00Z",
+        payload: payload(50),
+      },
+      {
+        attempt_id: "a1",
+        diagnosed_at: "2026-03-10T00:00:00Z",
+        payload: payload(70, {
+          schoolType: "일반고",
+          gpa: "2.60등급(5등급제)",
+          gradeTrend: "미입력",
+          diagnosedAt: "2026.03.10",
+        }),
+      },
+      {
+        attempt_id: "a2",
+        diagnosed_at: "2026-02-10T00:00:00Z",
+        payload: payload(60),
+      },
+    ]);
+    const data = await load(["diagnosis"]);
+    expect(data.metrics.diagnosis?.areas.PLAN).toBe(70);
+    expect(data.diagnosisPrevious?.PLAN).toBe(60);
+    expect(data.diagnosisMeta).toEqual({
+      schoolType: "일반고",
+      gpa: "2.60등급(5등급제)",
+      gradeTrend: null,
+      diagnosedAt: "2026.03.10",
+    });
+  });
+});

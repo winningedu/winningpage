@@ -94,6 +94,33 @@ function diagnosisFrom(
   };
 }
 
+export interface DiagnosisMeta {
+  schoolType: string | null;
+  gpa: string | null;
+  gradeTrend: string | null;
+  diagnosedAt: string | null;
+}
+
+/** 리포트 payload.student 의 문자열. 비었거나 "미입력"이면 null. */
+function diagnosisMetaFrom(
+  report: { payload: unknown } | undefined,
+): DiagnosisMeta | null {
+  if (!report || !isRecord(report.payload)) return null;
+  const student = isRecord(report.payload.student)
+    ? report.payload.student
+    : {};
+  const text = (key: string) => {
+    const v = student[key];
+    return typeof v === "string" && v !== "" && v !== "미입력" ? v : null;
+  };
+  return {
+    schoolType: text("schoolType"),
+    gpa: text("gpa"),
+    gradeTrend: text("gradeTrend"),
+    diagnosedAt: text("diagnosedAt"),
+  };
+}
+
 function growthFrom(
   report: { axis_scores: unknown; sections: unknown } | undefined,
 ): CoachingMetrics["growth"] {
@@ -228,6 +255,10 @@ export interface CoachingData {
   goalFacts: import("./coachingText.js").GoalFacts | null;
   pendingPerformance: { title: string | null; subject: string | null }[];
   inquiryTopic: string | null;
+  /** 최신 바로 앞 학습진단(diagnosed_at 순)의 영역 점수. 없거나 읽을 수 없으면 null. */
+  diagnosisPrevious: AreaScores | null;
+  /** 최신 학습진단 리포트의 학교 유형, 평균 내신, 성적 흐름, 진단일. */
+  diagnosisMeta: DiagnosisMeta | null;
   /** 가장 최근에 고친 탐구 세션의 콘솔 단계(6단계 이름). 세션이 없으면 null. */
   inquiryStage: { step: number; name: string; completed: boolean } | null;
   /** 가장 최근에 고친 자기평가 세션의 다음 단계. 세션이 없으면 null. */
@@ -368,6 +399,9 @@ export async function loadCoachingData(
       )
     : [];
 
+  const diagnosesNewestFirst = [...diagnosis].sort((a, b) =>
+    b.diagnosed_at.localeCompare(a.diagnosed_at),
+  );
   const selfevalSession = lastBy(selfevalSessions, (s) => s.updated_at);
 
   const goal = goalStudent[0];
@@ -454,9 +488,11 @@ export async function loadCoachingData(
 
   return {
     lastSeenAt,
+    diagnosisPrevious: diagnosisFrom(diagnosesNewestFirst[1])?.areas ?? null,
+    diagnosisMeta: diagnosisMetaFrom(diagnosesNewestFirst[0]),
     metrics: {
       used: usedMap,
-      diagnosis: diagnosisFrom(lastBy(diagnosis, (r) => r.diagnosed_at)),
+      diagnosis: diagnosisFrom(diagnosesNewestFirst[0]),
       goal: uses("goal")
         ? {
             week,
