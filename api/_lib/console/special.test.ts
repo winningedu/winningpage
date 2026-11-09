@@ -47,3 +47,16 @@ describe("specialReasonsOf low_rate", () => {
     ).toEqual(["low_rate"]);
   });
 });
+
+describe("specialReasonsOf inactive", () => {
+  test("7 days or more without access fires, 6 and unknown do not, the tenant value overrides", () => {
+    expect(specialReasonsOf({ ...none, lastSeenDays: 7 }, T)).toEqual([
+      "inactive",
+    ]);
+    expect(specialReasonsOf({ ...none, lastSeenDays: 6 }, T)).toEqual([]);
+    expect(specialReasonsOf({ ...none, lastSeenDays: null }, T)).toEqual([]);
+    expect(
+      specialReasonsOf({ ...none, lastSeenDays: 3 }, { ...T, inactiveDays: 3 }),
+    ).toEqual(["inactive"]);
+  });
+});

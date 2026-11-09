@@ -56,5 +56,7 @@ export function specialReasonsOf(
   const reasons: SpecialReason[] = [];
   if (input.weeklyRate !== null && input.weeklyRate < t.execRatePct)
     reasons.push("low_rate");
+  if (input.lastSeenDays !== null && input.lastSeenDays >= t.inactiveDays)
+    reasons.push("inactive");
   return reasons;
 }
