@@ -77,3 +77,27 @@ describe("diagnosisDetail metrics", () => {
     });
   });
 });
+
+describe("diagnosisDetail summary", () => {
+  test("joins the report facts and the most urgent execution area", () => {
+    expect(diagnosisDetail(AREAS, null, META).summary).toBe(
+      "학교 유형 일반고, 전체 평균 내신 2.60등급(5등급제), 성적 흐름 상승, 진단일 2026.03.10. 가장 시급한 영역 계획 설계 60점, 목표까지 15점",
+    );
+  });
+
+  test("leaves out the pieces the report did not fill", () => {
+    const meta = { ...META, gpa: null, schoolType: null };
+    expect(diagnosisDetail(AREAS, null, meta).summary).toBe(
+      "성적 흐름 상승, 진단일 2026.03.10. 가장 시급한 영역 계획 설계 60점, 목표까지 15점",
+    );
+    expect(diagnosisDetail(AREAS, null, null).summary).toBe(
+      "가장 시급한 영역 계획 설계 60점, 목표까지 15점",
+    );
+  });
+
+  test("drops the target clause when the weakest area is 75 or more", () => {
+    expect(diagnosisDetail(flat(80, 80), null, null).summary).toBe(
+      "가장 시급한 영역 목표 설정 80점",
+    );
+  });
+});

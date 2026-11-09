@@ -35,12 +35,31 @@ function averageMetric(
   };
 }
 
+export const TARGET_SCORE = 75;
+
+/** 리포트 정보와 가장 시급한 실행 영역(동점은 레이더 순서) 한 문장. 비어 있는 정보는 뺀다. */
+function summaryOf(areas: AreaScores, meta: DiagnosisMeta | null): string {
+  const weakest = EXECUTION_AREAS.reduce((low, c) =>
+    areas[c] < areas[low] ? c : low,
+  );
+  const gap = TARGET_SCORE - areas[weakest];
+  const urgent = `가장 시급한 영역 ${AREA_NAME[weakest]} ${areas[weakest]}점${gap > 0 ? `, 목표까지 ${gap}점` : ""}`;
+  const facts = [
+    meta?.schoolType && `학교 유형 ${meta.schoolType}`,
+    meta?.gpa && `전체 평균 내신 ${meta.gpa}`,
+    meta?.gradeTrend && `성적 흐름 ${meta.gradeTrend}`,
+    meta?.diagnosedAt && `진단일 ${meta.diagnosedAt}`,
+  ].filter(Boolean);
+  return facts.length > 0 ? `${facts.join(", ")}. ${urgent}` : urgent;
+}
+
 export function diagnosisDetail(
   areas: AreaScores,
   previous: AreaScores | null,
-  _meta: DiagnosisMeta | null,
+  meta: DiagnosisMeta | null,
 ) {
   return {
+    summary: summaryOf(areas, meta),
     metrics: [
       averageMetric(
         "학습 실행 역량(6영역 평균)",
