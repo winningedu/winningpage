@@ -68,7 +68,7 @@ export default defineHandler({
 
     const built = await buildCoaching(admin, studentId, used, enrollment.grade);
     const {
-      data: { metrics, targets },
+      data: { metrics, targets, lastSeenAt },
       axesResult,
       verdicts,
       type,
@@ -104,6 +104,7 @@ export default defineHandler({
           ]),
         ),
         targets,
+        lastSeenAt,
       },
       verdicts,
       signal,

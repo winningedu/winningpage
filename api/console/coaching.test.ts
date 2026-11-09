@@ -333,6 +333,56 @@ describe("GET /api/console/coaching", () => {
       });
       expect(body.coachingType.code).toBe("C1");
     });
+
+    test("6 days since the last access is not 미접속, and a missing record skips the rule", async () => {
+      seenAt("2026-10-27T00:10:00+09:00");
+      expect(((await get()).body as Body).verdicts.execution).toEqual({
+        level: "caution",
+      });
+
+      seenAt(null);
+      const body = (await get()).body as Body;
+      expect(body.verdicts.execution).toEqual({ level: "caution" });
+      expect(body.student.lastSeenAt).toBeNull();
+    });
+
+    test("a student who does not use goal stays no_data however long the absence", async () => {
+      seenAt("2026-10-01T00:00:00+09:00");
+      kit.state.rows.profiles = (f) =>
+        matchRows(
+          [{ id: "s3", name: "이서준", last_seen_at: "2026-10-01T00:00:00Z" }],
+          f,
+        );
+      const body = (await get({ studentId: "s3" })).body as Body;
+      expect(body.verdicts.execution).toEqual({ level: "no_data" });
+      expect(body.coachingType.code).not.toBe("C1");
+    });
+
+    test("the C1 sentence carries the real day count, and Sunday study without target days prints no Infinity", async () => {
+      seenAt("2026-10-23T12:00:00+09:00");
+      kit.state.rows.goal_daily_records = () => [
+        {
+          id: 1,
+          profile_id: "s1",
+          record_date: "2026-11-01",
+          record_index: 1,
+          target_ideal_hours: 0,
+          target_min_hours: 0,
+          study_hours: 2,
+        },
+      ];
+      const r = await get();
+      const json = JSON.stringify(r.body);
+      expect(json).toContain("최근 10일간 접속 기록이 없습니다");
+      expect(json).not.toContain("Infinity");
+    });
+
+    test("the response carries the raw last access time of the student", async () => {
+      seenAt("2026-10-26T14:50:00.000Z");
+      expect(((await get()).body as Body).student.lastSeenAt).toBe(
+        "2026-10-26T14:50:00.000Z",
+      );
+    });
   });
 
   test("a student who uses nothing has no scored axis and insufficient data", async () => {

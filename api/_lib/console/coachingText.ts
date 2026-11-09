@@ -1000,7 +1000,7 @@ export function goalOpinion(f: TextFacts): GoalOpinion | null {
   const streakText =
     g.streak >= 3 ? "(유지 중)" : g.streak === 0 ? "(최근 목표일에 끊김)" : "";
   const sundayText =
-    sunday > 0
+    sunday > 0 && idealSum > 0
       ? ` 일요일에 ${Math.round(sunday * 10) / 10}시간 더 공부해 주간 달성율에 ${Math.round((sunday / idealSum) * 100)}%p가 더해졌습니다.`
       : "";
   const recordFlow = `최소 목표시간 충족 ${g.lastWeek ? `지난주 ${g.lastWeek.metDays}일, ` : ""}이번 주 ${met}/${set}일, 연속 기록 ${g.streak}일${streakText}.${sundayText}`;
