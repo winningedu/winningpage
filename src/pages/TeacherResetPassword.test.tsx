@@ -96,7 +96,7 @@ describe("TeacherResetPassword 휴대폰 인증", () => {
 
     expect(mockSend).toHaveBeenCalledWith("01012345678", "reset_password");
     expect(
-      screen.getByRole("button", { name: /초 후 다시 보내기/ }),
+      await screen.findByRole("button", { name: /초 후 다시 보내기/ }),
     ).toBeDisabled();
   });
 
