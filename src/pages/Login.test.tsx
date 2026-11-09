@@ -18,6 +18,9 @@ const mockReplace = vi.fn();
 
 vi.mock("@/config/site", () => ({
   site: {
+    get key() {
+      return state.serverLogin ? "schoolmentor" : "winning";
+    },
     features: {
       get serverLogin() {
         return state.serverLogin;
@@ -267,6 +270,26 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
     vi.restoreAllMocks();
+  });
+});
+
+describe("Login - 비밀번호 찾기 링크 문구", () => {
+  it("스쿨멘토는 '비밀번호를 잊으셨나요?' 로 보인다", async () => {
+    renderLogin();
+
+    expect(
+      await screen.findByRole("link", { name: "비밀번호를 잊으셨나요?" }),
+    ).toHaveAttribute("href", "/login/find-password");
+    expect(screen.queryByRole("link", { name: "비밀번호 찾기" })).toBeNull();
+  });
+
+  it("위닝은 '비밀번호 찾기' 를 유지한다", async () => {
+    state.serverLogin = false;
+    renderLogin();
+
+    expect(
+      await screen.findByRole("link", { name: "비밀번호 찾기" }),
+    ).toHaveAttribute("href", "/login/find-password");
   });
 });
 
