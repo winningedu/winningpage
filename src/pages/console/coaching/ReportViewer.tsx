@@ -60,7 +60,7 @@ export default function ReportViewer({
             )}
             {report.isError && (
               <p className="text-app-body text-ink-danger">
-                리포트를 불러오지 못했어요
+                리포트를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
               </p>
             )}
             {report.isSuccess && report.data === null && (

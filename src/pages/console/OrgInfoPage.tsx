@@ -126,7 +126,9 @@ export default function OrgInfoPage() {
       <>
         <PageHeader title="내정보관리" />
         <div className="flex flex-col items-start gap-3 px-4 md:px-8 lg:px-12">
-          <Notice tone="Danger">기관 정보를 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            기관 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
           <Button onClick={() => void load()}>다시 시도</Button>
         </div>
       </>

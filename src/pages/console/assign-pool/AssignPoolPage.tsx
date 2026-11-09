@@ -1,5 +1,5 @@
 // W12 미배정 목록(학교 관리자). 학급이 비어 있는 학생에게 학년그룹, 그룹, 반, 번호를 정해 배치한다.
-// 필터는 학년그룹과 이름 검색이다(미배정은 반이 없어 반 필터는 두지 않는다). 상태는 쿼리스트링에 둔다.
+// 필터는 학년그룹, 반, 이름 검색이다. 반은 동명 재학생 확인만 좁히고 학년그룹을 고른 뒤에만 열린다(결정 105). 상태는 쿼리스트링에 둔다.
 
 import { useState } from "react";
 import { useSearchParams } from "react-router";
@@ -20,7 +20,12 @@ import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
-import { gradesOf, useClasses } from "../useClasses";
+import {
+  type ClassOption,
+  classesOf,
+  gradesOf,
+  useClasses,
+} from "../useClasses";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import AssignPoolRow from "./AssignPoolRow";
@@ -31,14 +36,16 @@ const PAGE_SIZE = 50;
 const EMPTY_MESSAGE =
   "미배정 학생이 없어요. 새 학생이 가입하거나 학년그룹 일괄 변경에서 반을 비운 학생이 생기면 여기에 나타나요";
 
-type FilterValues = { grade: string; q: string };
+type FilterValues = { grade: string; classId: string; q: string };
+
+const ALL = { value: "", label: "전체" };
 
 function Filters({
-  grades,
+  classes,
   initial,
   onSearch,
 }: {
-  grades: string[];
+  classes: ClassOption[];
   initial: FilterValues;
   onSearch: (values: FilterValues) => void;
 }) {
@@ -50,10 +57,28 @@ function Filters({
         label="학년그룹"
         value={values.grade}
         options={[
-          { value: "", label: "전체" },
-          ...grades.map((g) => ({ value: g, label: gradeLabel(g) })),
+          ALL,
+          ...gradesOf(classes).map((g) => ({
+            value: g,
+            label: gradeLabel(g),
+          })),
         ]}
-        onChange={(grade) => setValues((prev) => ({ ...prev, grade }))}
+        onChange={(grade) =>
+          setValues((prev) => ({ ...prev, grade, classId: "" }))
+        }
+      />
+      <FilterSelect
+        label="반"
+        value={values.classId}
+        disabled={values.grade === ""}
+        options={[
+          ALL,
+          ...classesOf(classes, values.grade, "").map((c) => ({
+            value: c.id,
+            label: `${c.groupName ? `${c.groupName} ` : ""}${c.name}반`,
+          })),
+        ]}
+        onChange={(classId) => setValues((prev) => ({ ...prev, classId }))}
       />
       <div className="flex gap-2">
         <Input
@@ -84,6 +109,7 @@ export default function AssignPoolPage() {
   const classes = useClasses();
   const filters: FilterValues = {
     grade: searchParams.get("grade") ?? "",
+    classId: searchParams.get("classId") ?? "",
     q: searchParams.get("q") ?? "",
   };
   const list = usePagedList<PoolStudent>(
@@ -107,7 +133,7 @@ export default function AssignPoolPage() {
       {classes.data && (
         <Filters
           key={filterKey(searchParams)}
-          grades={gradesOf(classes.data)}
+          classes={classes.data}
           initial={filters}
           onSearch={(values) =>
             setSearchParams(
@@ -118,7 +144,9 @@ export default function AssignPoolPage() {
       )}
       <section className="flex flex-col gap-4 px-4 pb-24 md:px-8 lg:px-12">
         {list.isError && (
-          <Notice tone="Danger">미배정 목록을 불러오지 못했어요</Notice>
+          <Notice tone="Danger">
+            미배정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+          </Notice>
         )}
         {data && classes.data && (
           <>

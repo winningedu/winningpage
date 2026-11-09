@@ -175,7 +175,10 @@ export default function RolloverSection({
         <h2 className="flex-1 text-lg font-semibold tracking-[-0.02em] text-ink-strong">
           ③ 학년그룹 일괄 변경
         </h2>
-        <TemplateLink file="grade-bulk-change.xlsx" />
+        <TemplateLink
+          file="grade-bulk-change.xlsx"
+          downloadName="스쿨멘토_학년그룹일괄변경_샘플.xlsx"
+        />
       </div>
       <p className="text-app-body text-ink-sub">
         학년그룹이 변경될 때(학년도 전환 등, 보통 1년에 한 번) 기존 학년그룹,
@@ -183,7 +186,9 @@ export default function RolloverSection({
         학년도에는 한 번만 실행할 수 있어요
       </p>
       {loadFailed && (
-        <Notice tone="Danger">학년도 정보를 불러오지 못했어요</Notice>
+        <Notice tone="Danger">
+          학년도 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+        </Notice>
       )}
       {target && <p className="text-app-body text-ink-sub">{target}</p>}
       <textarea

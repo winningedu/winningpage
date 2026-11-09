@@ -216,4 +216,36 @@ describe("GET /api/console/assign-pool", () => {
 
     expect(names.sort()).toEqual(["김*늘*", "김*늘*", "전*윤"]);
   });
+
+  test("classId narrows only the same-name enrolled lookup, pool membership is unchanged", async () => {
+    const r = await get({ q: "김하늘", classId: "c-G" });
+    const body = r.body as {
+      items: {
+        studentId: string;
+        sameNameCount: number;
+        sameNameEnrolled: { className: string }[];
+      }[];
+    };
+
+    expect(r.status).toBe(200);
+    expect(body.items.map((i) => i.studentId)).toEqual(["p1"]);
+    expect(body.items[0]?.sameNameCount).toBe(1);
+    expect(body.items[0]?.sameNameEnrolled.map((s) => s.className)).toEqual([
+      "1",
+    ]);
+    expect(ids(await get({ classId: "c-G" })).sort()).toEqual([
+      "p1",
+      "p2",
+      "p3",
+    ]);
+  });
+
+  test("a classId from another tenant matches no enrolled student and leaks nothing", async () => {
+    const r = await get({ q: "김하늘", classId: "c-other-tenant" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({
+      items: [{ studentId: "p1", sameNameCount: 0, sameNameEnrolled: [] }],
+    });
+  });
 });

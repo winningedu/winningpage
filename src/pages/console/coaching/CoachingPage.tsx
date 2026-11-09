@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Chip, { type ChipTone } from "../Chip";
 import { gradeLabel } from "../classLabel";
+import { kstDotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import PageHeader from "../PageHeader";
@@ -130,10 +131,9 @@ function StudentPicker({
   );
 }
 
-export function StudentCard({ data }: { data: Coaching }) {
-  const { student } = data;
-  const signal = SIGNAL[data.signal];
-  const meta = [
+/** "2학년 1학년그룹 3반 1번" 처럼 학년, 반, 번호를 잇는다. 없는 조각은 뺀다. */
+export function studentClassText(student: Coaching["student"]) {
+  return [
     student.grade ? gradeLabel(student.grade) : null,
     student.className
       ? `${student.groupName ? `${student.groupName} ` : ""}${student.className}반`
@@ -142,6 +142,12 @@ export function StudentCard({ data }: { data: Coaching }) {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+export function StudentCard({ data }: { data: Coaching }) {
+  const { student } = data;
+  const signal = SIGNAL[data.signal];
+  const meta = studentClassText(student);
   return (
     <section className={CARD} aria-label="학생 정보">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -157,6 +163,9 @@ export function StudentCard({ data }: { data: Coaching }) {
         <p className="flex flex-wrap gap-x-5 gap-y-1 text-app-label text-ink-sub">
           <span>{meta}</span>
           {student.homeroomName && <span>담임 {student.homeroomName}</span>}
+          {student.lastSeenAt && (
+            <span>최근 접속 {kstDotDate(student.lastSeenAt).slice(5)}</span>
+          )}
           <span>
             이용 서비스 {student.servicesUsed}/{SERVICE_NAMES.length}
           </span>
@@ -397,7 +406,7 @@ export default function CoachingPage() {
           )}
           {list.isPending && <Skeleton />}
           {(list.isError || coaching.isError) && (
-            <EmptyMessage body="개인종합코칭을 불러오지 못했어요" />
+            <EmptyMessage body="개인종합코칭을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요" />
           )}
           {studentId && windowService && (
             <ServiceWindow

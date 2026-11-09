@@ -91,7 +91,11 @@ export default function StudentListTab() {
   const direct = list.data?.items.find((i) => i.studentId === directId);
 
   if (list.isError)
-    return <Notice tone="Danger">학생 목록을 불러오지 못했어요</Notice>;
+    return (
+      <Notice tone="Danger">
+        학생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+      </Notice>
+    );
   if (!list.data || !classes.data) return null;
   return (
     <section className="flex flex-col">

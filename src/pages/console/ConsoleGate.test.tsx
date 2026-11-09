@@ -61,6 +61,26 @@ describe("ConsoleGate", () => {
     expect(screen.queryByText("마이페이지 화면")).toBeNull();
   });
 
+  it("대행 학교 목록 조회가 실패해도 다시 시도하라는 안내를 보여 준다", async () => {
+    stubApi({
+      "GET /api/console/me": {
+        status: 403,
+        body: { error: { code: "NOT_CONSOLE", message: "no" } },
+      },
+      "GET /api/console/proxy/tenants": () => {
+        throw new TypeError("network");
+      },
+    });
+
+    renderRoutes(routes, "/teacher/my");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      }),
+    ).toBeTruthy();
+  });
+
   it("임시 비밀번호 상태면 어느 콘솔 화면이든 첫 비밀번호 화면으로 보낸다", async () => {
     stubApi({
       "GET /api/console/me": {
@@ -99,6 +119,18 @@ describe("ConsoleGate", () => {
 
     expect(
       await screen.findByRole("button", { name: "다시 시도" }),
+    ).toBeTruthy();
+  });
+
+  it("me 조회가 실패하면 다시 시도하라는 안내도 보여 준다", async () => {
+    stubApi({ "GET /api/console/me": { status: 500 } });
+
+    renderRoutes(routes, "/teacher/my");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      }),
     ).toBeTruthy();
   });
 });

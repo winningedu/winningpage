@@ -262,7 +262,9 @@ describe("W6 학생 관리 상태", () => {
     renderRoutes(routes, "/teacher/students");
 
     expect(
-      await screen.findByText("학생 목록을 불러오지 못했어요"),
+      await screen.findByText(
+        "학생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });
@@ -441,6 +443,48 @@ const detail = {
 const DETAIL_URL = "GET /api/console/students/detail?studentId=s1";
 
 describe("W6a 학생 상세", () => {
+  it("최근 접속은 한국 날짜로 오늘 또는 n일 전을 정보 줄에 붙이고 기록이 없으면 붙이지 않는다", async () => {
+    vi.useFakeTimers({
+      toFake: ["Date"],
+      now: new Date("2026-11-05T01:00:00Z"),
+    });
+    try {
+      stubPage({
+        [DETAIL_URL]: {
+          body: { ...detail, lastSeenAt: "2026-11-04T14:30:00Z" },
+        },
+      });
+      const first = renderRoutes(routes, "/teacher/students");
+      fireEvent.click(await screen.findByText("김서연"));
+      expect(
+        await screen.findByText("2학년 3반 1번, 담임 박지훈, 최근 접속 1일 전"),
+      ).toBeTruthy();
+      first.unmount();
+
+      stubPage({
+        [DETAIL_URL]: {
+          body: { ...detail, lastSeenAt: "2026-11-04T15:30:00Z" },
+        },
+      });
+      const second = renderRoutes(routes, "/teacher/students");
+      fireEvent.click(await screen.findByText("김서연"));
+      expect(
+        await screen.findByText("2학년 3반 1번, 담임 박지훈, 최근 접속 오늘"),
+      ).toBeTruthy();
+      second.unmount();
+
+      stubPage({ [DETAIL_URL]: { body: { ...detail, lastSeenAt: null } } });
+      renderRoutes(routes, "/teacher/students");
+      fireEvent.click(await screen.findByText("김서연"));
+      expect(
+        await screen.findByText("2학년 3반 1번, 담임 박지훈"),
+      ).toBeTruthy();
+      expect(screen.queryByText(/최근 접속/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("이름을 누르면 실명 제목과 학년반 이력, 서비스 이용, 사용 횟수를 창으로 보여 준다", async () => {
     stubPage({ [DETAIL_URL]: { body: detail } });
     renderRoutes(routes, "/teacher/students");
@@ -505,7 +549,9 @@ describe("W6a 학생 상세", () => {
     fireEvent.click(await screen.findByText("김서연"));
 
     expect(
-      await screen.findByText("학생 정보를 불러오지 못했어요"),
+      await screen.findByText(
+        "학생 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
   });
 });

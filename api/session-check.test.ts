@@ -14,8 +14,48 @@
 // 검증한다 — auth-js 내부 재포장까지 포함해서 검증된다.
 
 import { createClient } from "@supabase/supabase-js";
-import { describe, expect, test, vi } from "vitest";
-import {
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { callHandler } from "./_lib/console/consoleTestKit.js";
+
+// 핸들러 테스트용 admin 가짜: auth.getUser 와 profiles 의 조건부 update 만 흉내 낸다.
+const fake = vi.hoisted(() => ({
+  getUser: null as unknown as () => Promise<unknown>,
+  profiles: [] as { id: string; last_seen_at: string | null }[],
+  writes: [] as { id: string; at: string }[],
+  updateError: null as null | { message: string },
+  updateThrows: false,
+}));
+
+vi.mock("./_lib/supabaseAdmin.js", () => ({
+  isSupabaseConfigError: () => false,
+  createSupabaseAdmin: () => ({
+    auth: { getUser: () => fake.getUser() },
+    from: (table: string) => ({
+      update: (patch: { last_seen_at: string }) => ({
+        eq: (_col: string, id: string) => ({
+          // or("last_seen_at.is.null,last_seen_at.lt.<cutoff>")
+          or: async (expr: string) => {
+            expect(table).toBe("profiles");
+            if (fake.updateThrows) throw new Error("db down");
+            if (fake.updateError) return { error: fake.updateError };
+            const cutoff = expr.split("last_seen_at.lt.")[1] as string;
+            const row = fake.profiles.find((r) => r.id === id);
+            if (
+              row &&
+              (row.last_seen_at === null || row.last_seen_at < cutoff)
+            ) {
+              row.last_seen_at = patch.last_seen_at;
+              fake.writes.push({ id, at: patch.last_seen_at });
+            }
+            return { error: null };
+          },
+        }),
+      }),
+    }),
+  }),
+}));
+
+import handler, {
   classifyAuthError,
   SESSION_REVOKED_CODE,
   UNAUTHENTICATED_CODE,
@@ -97,5 +137,72 @@ describe("classifyAuthError — 실제 auth.getUser(jwt) 경로", () => {
   test("에러가 null/undefined(토큰 없음 등)여도 UNAUTHENTICATED로 분류한다", () => {
     expect(classifyAuthError(null)).toBe(UNAUTHENTICATED_CODE);
     expect(classifyAuthError(undefined)).toBe(UNAUTHENTICATED_CODE);
+  });
+});
+
+describe("session-check handler: 최근 접속 기록", () => {
+  const NOW = new Date("2026-11-09T12:00:00+09:00");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    fake.profiles = [{ id: "u1", last_seen_at: null }];
+    fake.writes = [];
+    fake.updateError = null;
+    fake.updateThrows = false;
+    fake.getUser = async () => ({ data: { user: { id: "u1" } }, error: null });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test("유효한 토큰이면 그 사용자의 last_seen_at 을 지금으로 적는다", async () => {
+    const res = await callHandler(handler, undefined, "GET");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(fake.profiles[0]?.last_seen_at).toBe(NOW.toISOString());
+  });
+
+  test("30분 안의 두 번째 호출은 다시 적지 않고, 30분이 지나면 다시 적는다", async () => {
+    await callHandler(handler, undefined, "GET");
+    vi.setSystemTime(new Date(NOW.getTime() + 29 * 60 * 1000));
+    await callHandler(handler, undefined, "GET");
+    expect(fake.writes).toHaveLength(1);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 31 * 60 * 1000));
+    await callHandler(handler, undefined, "GET");
+    expect(fake.writes).toHaveLength(2);
+  });
+
+  test("기록에 실패해도 응답은 200 { ok: true } 그대로다", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    fake.updateError = { message: "boom" };
+    const failed = await callHandler(handler, undefined, "GET");
+    expect(failed.status).toBe(200);
+    expect(failed.body).toEqual({ ok: true });
+
+    fake.updateError = null;
+    fake.updateThrows = true;
+    const thrown = await callHandler(handler, undefined, "GET");
+    expect(thrown.status).toBe(200);
+    expect(thrown.body).toEqual({ ok: true });
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  test("폐기된 세션은 401 SESSION_REVOKED 이고 아무것도 적지 않는다", async () => {
+    const { AuthSessionMissingError } = await import("@supabase/supabase-js");
+    fake.getUser = async () => ({
+      data: { user: null },
+      error: new AuthSessionMissingError(),
+    });
+
+    const res = await callHandler(handler, undefined, "GET");
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ error: { code: SESSION_REVOKED_CODE } });
+    expect(fake.writes).toHaveLength(0);
   });
 });

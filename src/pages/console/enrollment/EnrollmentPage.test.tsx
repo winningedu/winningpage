@@ -502,7 +502,9 @@ describe("W7 이용현황", () => {
     renderRoutes(routes, "/teacher/enrollment");
 
     expect(
-      await screen.findByText("이용현황을 불러오지 못했어요"),
+      await screen.findByText(
+        "이용현황을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "정원 입력" })).toBeNull();
   });

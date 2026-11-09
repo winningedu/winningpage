@@ -119,7 +119,11 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
   }, [serverYear, onYear]);
 
   if (list.isError)
-    return <Notice tone="Danger">졸업생 목록을 불러오지 못했어요</Notice>;
+    return (
+      <Notice tone="Danger">
+        졸업생 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+      </Notice>
+    );
   if (!list.data) return null;
   // 주소에 학년도가 없으면 서버가 쓴 최근 졸업 학년도다.
   const year = urlYear || String(list.data.year ?? "");

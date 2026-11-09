@@ -52,7 +52,7 @@ export default function ConsoleGate() {
 
   if (query.isError) {
     return (
-      <GateMessage title="정보를 불러오지 못했어요">
+      <GateMessage title="정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요">
         <Button onClick={() => void query.refetch()}>다시 시도</Button>
       </GateMessage>
     );
@@ -71,7 +71,7 @@ export default function ConsoleGate() {
   if (noaccess) {
     if (proxyTenants.isError) {
       return (
-        <GateMessage title="정보를 불러오지 못했어요">
+        <GateMessage title="정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요">
           <Button onClick={() => void proxyTenants.refetch()}>다시 시도</Button>
         </GateMessage>
       );
