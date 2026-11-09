@@ -6,7 +6,7 @@ import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
 import { gradeClassOf, joinedLabel, numberOf } from "./studentLabel";
-import type { StudentRow } from "./types";
+import type { SpecialThresholds, StudentRow } from "./types";
 import UrgencyChip from "./UrgencyChip";
 
 interface StudentCardsProps {
@@ -14,7 +14,7 @@ interface StudentCardsProps {
   academy: boolean;
   showEdit: boolean;
   showReasons: boolean;
-  execRatePct: number | null;
+  thresholds: SpecialThresholds;
   onOpen: (studentId: string) => void;
   onEdit: (studentId: string) => void;
 }
@@ -24,7 +24,7 @@ export default function StudentCards({
   academy,
   showEdit,
   showReasons,
-  execRatePct,
+  thresholds,
   onOpen,
   onEdit,
 }: StudentCardsProps) {
@@ -69,7 +69,7 @@ export default function StudentCards({
           {showReasons && (
             <SpecialReasons
               reasons={row.specialReasons}
-              execRatePct={execRatePct}
+              thresholds={thresholds}
             />
           )}
           {showEdit && row.canEdit && (

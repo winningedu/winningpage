@@ -24,7 +24,7 @@ import StudentEditDialog from "./StudentEditDialog";
 import StudentFilterBar, { type StudentFilterValues } from "./StudentFilterBar";
 import StudentTable from "./StudentTable";
 import { SERVICES } from "./services";
-import type { StudentListExtra, StudentRow } from "./types";
+import type { SpecialThresholds, StudentListExtra, StudentRow } from "./types";
 
 const PAGE_SIZE = 50;
 const TABS = [
@@ -34,8 +34,14 @@ const TABS = [
 ];
 const SKELETON_ROWS = 8;
 
+const specialThresholds = (d: StudentListExtra): SpecialThresholds => ({
+  execRatePct: d.specialExecRatePct,
+  inactiveDays: d.specialInactiveDays,
+  feedbackWaitDays: d.specialFeedbackWaitDays,
+});
+
 const SPECIAL_CRITERIA =
-  "특이학생은 주간 목표시간 달성율이 기준에 못 미치거나, 학습진단 긴급도가 높음 이상이거나, 선생님이 직접 지정한 학생이에요";
+  "특이학생은 주간 목표시간 달성율이 기준에 못 미치거나, 기준일 이상 접속하지 않았거나, 학습진단 긴급도가 높음 이상이거나, 수행평가 피드백을 기준일 이상 기다리고 있거나, 선생님이 직접 지정한 학생이에요";
 const NO_STUDENTS_MESSAGE =
   "연결된 학생이 없습니다. 학생들이 가입하면 자동으로 표시됩니다";
 const NO_MATCH_MESSAGE =
@@ -198,7 +204,7 @@ export default function StudentListPage() {
                 academy={academy}
                 showEdit={homeroom}
                 showReasons={special}
-                execRatePct={data.specialExecRatePct}
+                thresholds={specialThresholds(data)}
                 onOpen={setOpenedId}
                 onEdit={setEditId}
               />
@@ -208,7 +214,7 @@ export default function StudentListPage() {
                 academy={academy}
                 showEdit={homeroom}
                 showReasons={special}
-                execRatePct={data.specialExecRatePct}
+                thresholds={specialThresholds(data)}
                 onOpen={setOpenedId}
                 onEdit={setEditId}
               />

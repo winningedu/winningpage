@@ -14,7 +14,7 @@ import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
 import { gradeClassOf, joinedLabel, numberOf } from "./studentLabel";
-import type { StudentRow } from "./types";
+import type { SpecialThresholds, StudentRow } from "./types";
 import UrgencyChip from "./UrgencyChip";
 
 interface StudentTableProps {
@@ -23,7 +23,7 @@ interface StudentTableProps {
   showEdit: boolean;
   /** 특이학생만 보는 중이면 사유 열을 더한다. */
   showReasons: boolean;
-  execRatePct: number | null;
+  thresholds: SpecialThresholds;
   onOpen: (studentId: string) => void;
   onEdit: (studentId: string) => void;
 }
@@ -33,7 +33,7 @@ export default function StudentTable({
   academy,
   showEdit,
   showReasons,
-  execRatePct,
+  thresholds,
   onOpen,
   onEdit,
 }: StudentTableProps) {
@@ -92,7 +92,7 @@ export default function StudentTable({
                 <TableCell>
                   <SpecialReasons
                     reasons={row.specialReasons}
-                    execRatePct={execRatePct}
+                    thresholds={thresholds}
                   />
                 </TableCell>
               )}

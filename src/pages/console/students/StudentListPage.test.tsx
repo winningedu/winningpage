@@ -743,10 +743,17 @@ describe("W6 특이학생", () => {
       [SPECIAL_URL]: {
         body: listBody(
           [
-            student(1, { specialReasons: ["low_rate", "urgency"] }),
-            student(2, { specialReasons: ["manual"] }),
+            student(1, {
+              specialReasons: ["low_rate", "inactive", "urgency"],
+            }),
+            student(2, { specialReasons: ["feedback_wait", "manual"] }),
           ],
-          { scopeTotal: 28, specialExecRatePct: 40 },
+          {
+            scopeTotal: 28,
+            specialExecRatePct: 40,
+            specialInactiveDays: 7,
+            specialFeedbackWaitDays: 14,
+          },
         ),
       },
     });
@@ -761,8 +768,18 @@ describe("W6 특이학생", () => {
     ).toBeTruthy();
     expect(await screen.findByText("달성율 40% 미만")).toBeTruthy();
     expect(screen.getByText("긴급도 높음 이상")).toBeTruthy();
+    expect(screen.getByText("7일 이상 미접속")).toBeTruthy();
+    expect(screen.getByText("수행평가 피드백 14일 이상 대기")).toBeTruthy();
     expect(screen.getByText("직접 지정")).toBeTruthy();
-    expect(screen.getByText(/특이학생은/)).toBeTruthy();
+    const criteria = screen.getByText(/특이학생은/).textContent ?? "";
+    for (const part of [
+      "달성율",
+      "접속하지 않았",
+      "긴급도",
+      "수행평가 피드백",
+      "직접 지정",
+    ])
+      expect(criteria).toContain(part);
     expect(
       screen
         .getByRole("button", { name: "특이학생만" })

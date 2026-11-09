@@ -21,10 +21,23 @@ export interface StudentRow {
   enrollmentVersion: number;
 }
 
-export type SpecialReason = "low_rate" | "urgency" | "manual";
+export type SpecialReason =
+  | "low_rate"
+  | "inactive"
+  | "urgency"
+  | "feedback_wait"
+  | "manual";
+
+export interface SpecialThresholds {
+  execRatePct: number;
+  inactiveDays: number;
+  feedbackWaitDays: number;
+}
 
 export interface StudentListExtra {
   scopeTotal: number;
   orgType: string | null;
-  specialExecRatePct: number | null;
+  specialExecRatePct: number;
+  specialInactiveDays: number;
+  specialFeedbackWaitDays: number;
 }
