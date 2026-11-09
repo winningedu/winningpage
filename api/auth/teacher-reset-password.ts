@@ -32,6 +32,15 @@ const VERIFICATION_WINDOW_MS = 10 * 60 * 1000;
 const VERIFICATION_EXPIRED_MESSAGE =
   "인증 시간이 지났어요. 인증번호를 다시 받아 주세요.";
 
+// 비밀번호 교체와 세션 정리 뒤의 마무리 단계. 실패해도 응답을 바꾸지 않으려고 단계 이름만 남기고 삼킨다(비밀 값은 남기지 않는다).
+async function finishStep(label: string, run: () => Promise<unknown>) {
+  try {
+    await run();
+  } catch {
+    console.error(`[auth/teacher-reset-password] ${label} 실패`);
+  }
+}
+
 export default defineHandler({
   methods: ["POST"],
   auth: "none",
@@ -205,40 +214,47 @@ export default defineHandler({
       return;
     }
 
-    const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
-      p_teacher_id: teacher.id,
-      p_tenant: teacher.tenant_id,
+    // 비밀번호는 바뀌었고 모든 세션도 끝났다. 아래 마무리 단계가 실패해도 교사는 새 비밀번호로 로그인할 수 있으므로
+    // 실패한 단계 이름만 남기고 성공으로 답한다(다시 시도하게 하면 이미 쓴 인증 때문에 막힌다). 단계끼리는 서로 기다리지 않는다.
+    await finishStep("fn_teacher_password_set", async () => {
+      const { error } = await admin.rpc("fn_teacher_password_set", {
+        p_teacher_id: teacher.id,
+        p_tenant: teacher.tenant_id,
+      });
+      if (error) throw new RpcError("fn_teacher_password_set", error.code);
     });
-    if (stampError)
-      throw new RpcError("fn_teacher_password_set", stampError.code);
 
     // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 교사가 재설정 뒤 바로 로그인할 수 있게 지운다.
-    const { error: lockError } = await admin
-      .from("login_attempts")
-      .delete()
-      .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
-    if (lockError) throw new Error("login attempts clear failed");
+    await finishStep("login_attempts delete", async () => {
+      const { error } = await admin
+        .from("login_attempts")
+        .delete()
+        .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
+      if (error) throw new Error("login attempts clear failed");
+    });
 
-    await writeConsoleAuditLog(
-      {
-        supabaseAdmin: admin,
-        userId: teacher.profile_id,
-        console: {
-          kind: "homeroom",
-          tenantId: teacher.tenant_id,
-          teacherId: teacher.id,
-          classIds: [],
-          proxySessionId: null,
-          mustChangePassword: false,
-          loginId,
+    await finishStep("audit log", () =>
+      writeConsoleAuditLog(
+        {
+          supabaseAdmin: admin,
+          userId: teacher.profile_id,
+          console: {
+            kind: "homeroom",
+            tenantId: teacher.tenant_id,
+            teacherId: teacher.id,
+            classIds: [],
+            proxySessionId: null,
+            mustChangePassword: false,
+            loginId,
+          },
         },
-      },
-      {
-        action: "password_set",
-        resourceKey: TEACHERS_RESOURCE_KEY,
-        targetId: teacher.id,
-        meta: { kind: "reset" },
-      },
+        {
+          action: "password_set",
+          resourceKey: TEACHERS_RESOURCE_KEY,
+          targetId: teacher.id,
+          meta: { kind: "reset" },
+        },
+      ),
     );
     res.status(200).json({ ok: true });
   },

@@ -312,4 +312,48 @@ describe("POST /api/auth/teacher-reset-password", () => {
       expect(kit.state.inserts).toEqual([]);
     });
   });
+
+  describe("세션 정리 뒤 마무리 단계가 실패해도", () => {
+    const allLaterStepsRan = () => {
+      expect(kit.state.events).toContain("rpc:fn_teacher_password_set");
+      expect(kit.state.deletes).toHaveLength(1);
+      expect(kit.state.inserts).toHaveLength(1);
+    };
+
+    test("임시 상태 해제 rpc 가 실패하면 200 이고 잠금 해제와 감사 로그는 계속한다", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      kit.state.rpc.fn_teacher_password_set = () => ({
+        data: null,
+        error: { code: "XX000" },
+      });
+
+      const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+      expect(r.status).toBe(200);
+      expect(r.body).toEqual({ ok: true });
+      allLaterStepsRan();
+    });
+
+    test("잠금 해제가 실패하면 200 이고 감사 로그는 계속한다", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      kit.state.deleteErrors.login_attempts = { code: "XX000" };
+
+      const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+      expect(r.status).toBe(200);
+      expect(r.body).toEqual({ ok: true });
+      allLaterStepsRan();
+    });
+
+    test("감사 로그 적재가 실패해도 200 이다", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      kit.state.insertErrors.admin_access_logs = { code: "XX000" };
+
+      const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+      expect(r.status).toBe(200);
+      expect(r.body).toEqual({ ok: true });
+      allLaterStepsRan();
+    });
+  });
 });
