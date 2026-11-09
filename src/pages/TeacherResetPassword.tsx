@@ -2,18 +2,67 @@
 // 아이디와 휴대폰 번호로 본인을 확인(휴대폰 인증, reset_password 목적)한 뒤 새 비밀번호를 직접 정한다.
 // 서버: POST /api/auth/teacher-reset-password.
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { AuthTitle, TextField } from "@/components/auth";
+import { useNavigate } from "react-router";
+import { AuthTitle, PrimaryButton, TextField } from "@/components/auth";
 import { useCooldown } from "@/hooks/useCooldown";
 import {
   isValidMobile,
+  normalizePhone,
   PHONE_RESEND_COOLDOWN_SECONDS,
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
+import {
+  PASSWORD_MISMATCH_ERROR,
+  PASSWORD_RULE_ERROR,
+  SAVE_FAILED_MESSAGE,
+  violatesPasswordRule,
+} from "./console/passwordRule";
 
 type FieldStatus = "default" | "error" | "success";
 
+// 서버가 문구를 정해 주는 두 실패(결정 103). 그 밖의 실패는 저장 실패 문구로 보여 준다.
+const VERIFICATION_EXPIRED = "VERIFICATION_EXPIRED";
+const TEACHER_NOT_MATCHED = "TEACHER_NOT_MATCHED";
+
+type ResetOutcome =
+  | { kind: "ok" }
+  | { kind: "expired"; message: string }
+  | { kind: "not_matched"; message: string }
+  | { kind: "failed" };
+
+async function requestReset(
+  loginId: string,
+  phone: string,
+  password: string,
+): Promise<ResetOutcome> {
+  try {
+    const response = await fetch("/api/auth/teacher-reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        loginId: loginId.trim().toUpperCase(),
+        phone: normalizePhone(phone),
+        password,
+      }),
+    });
+    const payload = await response.json();
+    if (response.ok && payload?.ok) return { kind: "ok" };
+
+    const code = payload?.error?.code;
+    const message = payload?.error?.message;
+    if (typeof message === "string") {
+      if (code === VERIFICATION_EXPIRED) return { kind: "expired", message };
+      if (code === TEACHER_NOT_MATCHED) return { kind: "not_matched", message };
+    }
+    return { kind: "failed" };
+  } catch {
+    return { kind: "failed" };
+  }
+}
+
 export default function TeacherResetPassword() {
+  const navigate = useNavigate();
   const [loginId, setLoginId] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
@@ -30,6 +79,41 @@ export default function TeacherResetPassword() {
 
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    if (violatesPasswordRule(password)) {
+      setFormError(PASSWORD_RULE_ERROR);
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setFormError(PASSWORD_MISMATCH_ERROR);
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError("");
+    const outcome = await requestReset(loginId, phone, password);
+    setSubmitting(false);
+
+    if (outcome.kind === "ok") {
+      setDone(true);
+      return;
+    }
+    if (outcome.kind === "expired") {
+      // 인증 창이 지났다. 인증번호 단계로 돌아가 다시 받게 한다.
+      lastAttempt.current = "";
+      setPhoneCode("");
+      setVerified(false);
+      setFormError(outcome.message);
+      return;
+    }
+    setFormError(
+      outcome.kind === "not_matched" ? outcome.message : SAVE_FAILED_MESSAGE,
+    );
+  }
 
   async function requestCode() {
     if (!isValidMobile(phone)) {
@@ -109,6 +193,20 @@ export default function TeacherResetPassword() {
   useEffect(() => {
     onCodeChange(phoneCode);
   }, [phoneCode]);
+
+  if (done) {
+    return (
+      <>
+        <AuthTitle line1="비밀번호를 바꿨어요" line2Color="ink" />
+        <p className="w-full text-center text-sm text-ink">
+          비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+        </p>
+        <PrimaryButton onClick={() => navigate("/login")}>
+          로그인하러 가기
+        </PrimaryButton>
+      </>
+    );
+  }
 
   return (
     <>
@@ -198,6 +296,22 @@ export default function TeacherResetPassword() {
           </>
         )}
       </div>
+
+      {formError && (
+        <p role="alert" className="w-full text-center text-sm text-error">
+          {formError}
+        </p>
+      )}
+
+      {verified && (
+        <PrimaryButton
+          onClick={submit}
+          disabled={submitting}
+          loading={submitting}
+        >
+          비밀번호 바꾸기
+        </PrimaryButton>
+      )}
     </>
   );
 }
