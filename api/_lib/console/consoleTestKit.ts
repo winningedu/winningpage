@@ -40,6 +40,10 @@ export interface KitState {
     string,
     (filters: Record<string, unknown>) => unknown | undefined
   >;
+  /** 테이블별 delete 에러. 있으면 그 테이블의 delete 가 실패한다. */
+  deleteErrors: Record<string, unknown>;
+  /** is(), not() 으로 건 조건. eq 와 달리 filters 에 섞지 않고 따로 쌓는다(기존 matchRows 가 모르는 키라서). */
+  nullFilters: { table: string; method: "is" | "not"; args: unknown[] }[];
   /** delete() 를 건 테이블과 필터. */
   deletes: { table: string; filters: Record<string, unknown> }[];
   /** order() 로 정렬한 열. id 열이 없는 테이블을 id 로 정렬하는 실수를 테스트가 잡는 데 쓴다. */
@@ -117,6 +121,8 @@ export function createKitState(): KitState {
     insertErrors: {},
     updates: [],
     updateErrors: {},
+    deleteErrors: {},
+    nullFilters: [],
     deletes: [],
     orders: [],
     reads: [],
@@ -168,6 +174,7 @@ export function createFakeAdmin(state: KitState) {
       const filters: Record<string, unknown> = {};
       const chain: Record<string, unknown> = {};
       let updating = false;
+      let deleting = false;
       const read: KitState["reads"][number] = { table };
       state.reads.push(read);
       const result = () => {
@@ -175,6 +182,9 @@ export function createFakeAdmin(state: KitState) {
           ? state.updateErrors[table]?.(filters)
           : undefined;
         if (updateError) return { data: null, error: updateError };
+        if (deleting && state.deleteErrors[table]) {
+          return { data: null, error: state.deleteErrors[table] };
+        }
         let data = state.rows[table]?.(filters) ?? null;
         if (Array.isArray(data) && read.range) {
           data = data.slice(read.range.from, read.range.to + 1);
@@ -217,7 +227,13 @@ export function createFakeAdmin(state: KitState) {
         read.range = { from, to };
         return chain;
       };
-      for (const m of ["like", "ilike", "is", "not"]) chain[m] = () => chain;
+      for (const m of ["like", "ilike"]) chain[m] = () => chain;
+      for (const method of ["is", "not"] as const) {
+        chain[method] = (...args: unknown[]) => {
+          state.nullFilters.push({ table, method, args });
+          return chain;
+        };
+      }
       chain.limit = (count: number) => {
         read.limit = count;
         return chain;
@@ -239,6 +255,7 @@ export function createFakeAdmin(state: KitState) {
       chain.delete = () => {
         state.events.push(`delete:${table}`);
         state.deletes.push({ table, filters });
+        deleting = true;
         return chain;
       };
       chain.upsert = (

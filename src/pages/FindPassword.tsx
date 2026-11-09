@@ -44,6 +44,7 @@ import {
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
+import TeacherResetPassword from "./TeacherResetPassword";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -53,6 +54,7 @@ const COPY_FEEDBACK_MS = 2000;
 const RESET_LINK_TTL_MINUTES = 30;
 
 type FindMethod = "phone" | "email";
+type Audience = "student" | "teacher";
 type FieldStatus = "default" | "error" | "success";
 
 type PhoneResetResult =
@@ -136,8 +138,48 @@ async function requestPhoneReset(
   }
 }
 
+// 스쿨멘토 전용 최상단 탭. 선생님은 아이디와 휴대폰으로 본인을 확인하는 별도 화면이다(결정 103).
+function AudienceTabs({
+  audience,
+  onChange,
+}: {
+  audience: Audience;
+  onChange: (next: Audience) => void;
+}) {
+  const tabs: { key: Audience; label: string }[] = [
+    { key: "student", label: "학생" },
+    { key: "teacher", label: "선생님" },
+  ];
+
+  return (
+    <div
+      role="tablist"
+      aria-label="비밀번호 찾기 대상"
+      className="flex w-full gap-2 rounded-xl bg-surface-card p-1"
+    >
+      {tabs.map(({ key, label }) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={audience === key}
+          onClick={() => onChange(key)}
+          className={`h-10 flex-1 rounded-lg text-sm font-semibold transition-colors ${
+            audience === key
+              ? "bg-white text-primary shadow-sm"
+              : "text-ink-sub"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function FindPassword() {
   const navigate = useNavigate();
+  const [audience, setAudience] = useState<Audience>("student");
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
   // 회원가입 안내 CTA를 숨긴다(Header.tsx와 동일 원칙).
   const signupEnabled = useSignupEnabled();
@@ -361,8 +403,29 @@ export default function FindPassword() {
     setMethod(next);
   }
 
+  if (site.key === "schoolmentor" && audience === "teacher") {
+    return (
+      <AuthLayout>
+        <AudienceTabs audience={audience} onChange={setAudience} />
+        <TeacherResetPassword />
+        <TextLinkButton
+          as="link"
+          to="/login"
+          tone="ink"
+          size="xs"
+          weight="bold"
+        >
+          로그인으로 돌아가기
+        </TextLinkButton>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout>
+      {site.key === "schoolmentor" && (
+        <AudienceTabs audience={audience} onChange={setAudience} />
+      )}
       <AuthTitle
         line1="비밀번호를 잊으셨나요?"
         line2={

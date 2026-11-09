@@ -351,7 +351,9 @@ export default function Login() {
           tone="ink"
           size="xs"
         >
-          비밀번호 찾기
+          {site.key === "schoolmentor"
+            ? "비밀번호를 잊으셨나요?"
+            : "비밀번호 찾기"}
         </TextLinkButton>
       </p>
 
