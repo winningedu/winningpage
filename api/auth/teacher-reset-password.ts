@@ -176,20 +176,6 @@ export default defineHandler({
       return;
     }
 
-    const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
-      p_teacher_id: teacher.id,
-      p_tenant: teacher.tenant_id,
-    });
-    if (stampError)
-      throw new RpcError("fn_teacher_password_set", stampError.code);
-
-    // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 교사가 재설정 뒤 바로 로그인할 수 있게 지운다.
-    const { error: lockError } = await admin
-      .from("login_attempts")
-      .delete()
-      .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
-    if (lockError) throw new Error("login attempts clear failed");
-
     // 이전 기기 세션을 모두 끝낸다. 새 비밀번호로 만든 확인용 세션도 함께 끝내므로 응답에 세션을 싣지 않는다.
     const { data: signed, error: signInError } = await createLoginAuthClient(
       getClientIp(req),
@@ -204,6 +190,20 @@ export default defineHandler({
       "global",
     );
     if (signOutError) throw new Error("sign out global failed");
+
+    const { error: stampError } = await admin.rpc("fn_teacher_password_set", {
+      p_teacher_id: teacher.id,
+      p_tenant: teacher.tenant_id,
+    });
+    if (stampError)
+      throw new RpcError("fn_teacher_password_set", stampError.code);
+
+    // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 교사가 재설정 뒤 바로 로그인할 수 있게 지운다.
+    const { error: lockError } = await admin
+      .from("login_attempts")
+      .delete()
+      .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
+    if (lockError) throw new Error("login attempts clear failed");
 
     await writeConsoleAuditLog(
       {

@@ -233,9 +233,9 @@ describe("POST /api/auth/teacher-reset-password", () => {
     ).toEqual([
       "update:phone_verifications",
       "auth:updateUserById",
+      "auth:signOut",
       "rpc:fn_teacher_password_set",
       "delete:login_attempts",
-      "auth:signOut",
       "insert:admin_access_logs",
     ]);
     expect(kit.state.updates).toEqual([
