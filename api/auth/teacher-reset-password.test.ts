@@ -163,10 +163,23 @@ describe("POST /api/auth/teacher-reset-password", () => {
     ["번호가 다르면", { phone: "01099998888" }, TEACHER],
     ["아이디가 다르면", { loginId: "ZZZZ2345XY7Z9K" }, TEACHER],
     ["비활성 교사면", {}, { ...TEACHER, status: "inactive" }],
+    ["삭제된 교사면", {}, { ...TEACHER, deleted_at: "2026-11-01T00:00:00Z" }],
+    ["계정(profile_id)이 없는 교사면", {}, { ...TEACHER, profile_id: null }],
   ])(
     "%s TEACHER_NOT_MATCHED 이고 인증을 소비하지 않는다",
     async (_name, over, teacher) => {
-      kit.state.rows.teachers = (f) => matchRows([teacher], f)[0] ?? null;
+      // 실제 DB 처럼 eq 에 더해 is(deleted_at, null) 과 not(profile_id, is, null) 도 걸린 대로 걸러 낸다.
+      kit.state.rows.teachers = (f) => {
+        const row = teacher as Record<string, unknown>;
+        const keep = kit.state.nullFilters
+          .filter((n) => n.table === "teachers")
+          .every((n) =>
+            n.method === "is"
+              ? row[n.args[0] as string] == null
+              : row[n.args[0] as string] != null,
+          );
+        return keep ? (matchRows([teacher], f)[0] ?? null) : null;
+      };
 
       const r = await post({
         loginId: LOGIN_ID,
