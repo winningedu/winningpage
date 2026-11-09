@@ -401,7 +401,10 @@ describe("signalOf (문구표 r17~r22)", () => {
     "selfAssessment",
   ] as const;
   const axisScores = (...scores: (number | null)[]) =>
-    scores.map((score, i) => ({ key: AXIS_KEYS[i], score }));
+    scores.map((score, i) => ({
+      key: AXIS_KEYS[i] ?? "selfAssessment",
+      score,
+    }));
   const verdicts = (
     execution: VerdictLevel,
     learning: VerdictLevel,
@@ -421,6 +424,36 @@ describe("signalOf (문구표 r17~r22)", () => {
   test("a learning risk does not count the execution axis again", () => {
     expect(
       signalOf(verdicts("good", "risk", "good"), axisScores(45, 90)).signal,
+    ).toBe("caution");
+  });
+
+  test("a learning risk plus another axis under 50 is focus coaching", () => {
+    expect(
+      signalOf(verdicts("good", "risk", "good"), axisScores(45, 40)).signal,
+    ).toBe("focus");
+    expect(
+      signalOf(verdicts("good", "risk", "good"), axisScores(60, 40)).signal,
+    ).toBe("focus");
+  });
+
+  test("without a learning risk the execution axis under 50 still counts", () => {
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(45, 90)).signal,
+    ).toBe("caution");
+    expect(
+      signalOf(verdicts("good", "good", "good"), axisScores(45, 40)).signal,
+    ).toBe("focus");
+  });
+
+  test("a learning risk with an unscored execution axis counts only the learning risk", () => {
+    expect(
+      signalOf(verdicts("good", "risk", "good"), axisScores(null, 90)).signal,
+    ).toBe("caution");
+  });
+
+  test("a learning risk keeps a low execution axis in the under-70 caution check", () => {
+    expect(
+      signalOf(verdicts("good", "risk", "good"), axisScores(48, 90)).signal,
     ).toBe("caution");
   });
 
