@@ -606,15 +606,31 @@ export function nextServiceTasks(f: TextFacts): string[] {
   if (inquiry) tasks.push(inquiry);
   if (lowGrade && !f.metrics.used.growth)
     tasks.push("성장설계로 진로 스토리 대주제 정하기");
+  const keyword = f.growthKeywords[0];
+  if (lowGrade && f.metrics.used.growth && keyword)
+    tasks.push(
+      `${f.grade === "고1" ? 2 : 3}학년 스토리 주제(${keyword}) 활동 계획 세우기`,
+    );
+  if (lowGrade && f.type.code !== "J") {
+    const stage = f.selfevalStage;
+    if (f.metrics.used.selfeval) {
+      if (stage && !stage.finished)
+        tasks.push(`자기평가 '${stage.name}' 단계 진행`);
+    } else if (f.grade === "고2") {
+      tasks.push("자기평가 문항 분석 시작");
+    }
+  }
   if (lowGrade) {
     return [
-      ...tasks,
-      `수행평가마다 교과 개념과 ${d} 연결 한 줄 정리`,
-      "학기 활동 기록 정리",
-      "다음 학년 활동 계획 세우기",
+      ...new Set([
+        ...tasks,
+        `수행평가마다 교과 개념과 ${d} 연결 한 줄 정리`,
+        "학기 활동 기록 정리",
+        "다음 학년 활동 계획 세우기",
+      ]),
     ].slice(0, 3);
   }
-  return tasks;
+  return [...new Set(tasks)];
 }
 
 const GRADE3_PLAN: {

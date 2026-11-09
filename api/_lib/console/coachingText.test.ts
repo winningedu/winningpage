@@ -366,7 +366,8 @@ describe("유형 과제와 향후 진로계획 (r25~r89, r107~r120)", () => {
   });
 
   test("1, 2학년은 칸마다 유형 과제와 서비스 다음 할 일을 둔다 (설계 예시 문장)", () => {
-    const plan = careerPlan(facts({ type: F1 }));
+    // 성장설계 키워드가 없으면 r114 항목이 빠져 기본 문구(r116)가 칸을 채운다
+    const plan = careerPlan(facts({ type: F1, growthKeywords: [] }));
     expect(plan?.map((p) => p.label)).toEqual([
       "우선 2주",
       "이번 학기",
@@ -727,6 +728,104 @@ describe("서비스 다음 할 일, 심화탐구 이용 중 (r108~r113)", () => 
         type: { code: "I", name: "" },
       }).some((t) => t.includes("보고서 제출")),
     ).toBe(false);
+  });
+});
+
+describe("서비스 다음 할 일, 성장설계와 자기평가 (r114, r115)", () => {
+  const tasks = (over: Partial<TextFacts>, metricOver = {}) =>
+    nextServiceTasks(facts({ pendingPerformance: [], ...over }, metricOver));
+  const used = (selfeval: boolean) => ({
+    used: {
+      diagnosis: true,
+      goal: true,
+      growth: true,
+      performance: true,
+      selfeval,
+      inquiry: true,
+    },
+  });
+
+  test("성장설계 이용 중이면 다음 학년 스토리 주제 활동 계획을 낸다, 키워드가 없으면 뺀다", () => {
+    expect(tasks({ grade: "고1", growthKeywords: ["도시 재생"] })).toContain(
+      "2학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    );
+    expect(tasks({ grade: "고2", growthKeywords: ["도시 재생"] })).toContain(
+      "3학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    );
+    expect(
+      tasks({ grade: "고1", growthKeywords: [] }).some((t) =>
+        t.includes("스토리 주제("),
+      ),
+    ).toBe(false);
+  });
+
+  test("자기평가는 다음 단계를 안내하고, 마지막 단계면 뺀다, 고2 미이용은 문항 분석 시작", () => {
+    const sev = (finished: boolean) => ({
+      selfevalStage: { step: 3, name: "분석 확인", finished },
+    });
+    expect(
+      tasks({ grade: "고1", growthKeywords: [], ...sev(false) }),
+    ).toContain("자기평가 '분석 확인' 단계 진행");
+    expect(
+      tasks({ grade: "고1", growthKeywords: [], ...sev(true) }).some((t) =>
+        t.startsWith("자기평가"),
+      ),
+    ).toBe(false);
+    expect(tasks({ grade: "고2", growthKeywords: [] }, used(false))).toContain(
+      "자기평가 문항 분석 시작",
+    );
+    expect(
+      tasks({ grade: "고1", growthKeywords: [] }, used(false)).some((t) =>
+        t.startsWith("자기평가"),
+      ),
+    ).toBe(false);
+    expect(
+      tasks({
+        grade: "고1",
+        growthKeywords: [],
+        type: { code: "J", name: "" },
+        ...sev(false),
+      }).some((t) => t.startsWith("자기평가")),
+    ).toBe(false);
+  });
+
+  test("순서는 수행평가, 심화탐구, 성장설계, 자기평가이고 기본 문구가 채워 세 개로 자른다", () => {
+    const full = tasks({
+      grade: "고1",
+      pendingPerformance: [{ title: "가", subject: "수학" }],
+      inquiryTopic: "도시 재생",
+      inquiryStage: { step: 4, name: "보고서 작성", completed: false },
+      growthKeywords: ["도시 재생"],
+      selfevalStage: { step: 3, name: "분석 확인", finished: false },
+    });
+    expect(full).toEqual([
+      "수행평가 '가'(수학) 피드백 반영 후 재제출",
+      "'도시 재생' 보고서 제출",
+      "2학년 스토리 주제(도시 재생) 활동 계획 세우기",
+    ]);
+    expect(tasks({ grade: "고1" })).toHaveLength(3);
+  });
+
+  test("같은 문구는 두 번 나오지 않는다", () => {
+    const dup = tasks({
+      grade: "고1",
+      pendingPerformance: [
+        { title: "가", subject: "수학" },
+        { title: "가", subject: "수학" },
+      ],
+    });
+    expect(new Set(dup).size).toBe(dup.length);
+  });
+
+  test("유형 F2 와 G2 에는 심화탐구 주제 탐색 시작이 없다", () => {
+    for (const code of ["F2", "G2"]) {
+      expect(
+        tasks(
+          { grade: "고1", type: { code, name: "" } },
+          { used: { ...used(true).used, inquiry: false } },
+        ).some((t) => t.includes("심화탐구 주제 탐색 시작")),
+      ).toBe(false);
+    }
   });
 });
 
