@@ -8,7 +8,7 @@ import {
   urgencyOf,
 } from "./coaching.js";
 import type { DiagnosisMeta } from "./coachingData.js";
-import { AREA_NAME } from "./coachingText.js";
+import { AREA_NAME, areaState, STRATEGIES } from "./coachingText.js";
 import { mean, URGENCY_LABEL } from "./diagnosisStatus.js";
 
 export interface DiagnosisMetric {
@@ -53,6 +53,29 @@ function summaryOf(areas: AreaScores, meta: DiagnosisMeta | null): string {
   return facts.length > 0 ? `${facts.join(", ")}. ${urgent}` : urgent;
 }
 
+export interface DiagnosisBar {
+  group: "execution" | "readiness";
+  name: string;
+  score: number;
+  status: string;
+  firstStep: string;
+  /** 목표선(75점). 학습 실행 역량 줄에만 있다. */
+  target?: number;
+}
+
+const barOf = (
+  group: DiagnosisBar["group"],
+  code: AreaCode,
+  areas: AreaScores,
+): DiagnosisBar => ({
+  group,
+  name: AREA_NAME[code],
+  score: areas[code],
+  status: areaState(code, areas[code]),
+  firstStep: STRATEGIES[code][0] as string,
+  ...(group === "execution" && { target: TARGET_SCORE }),
+});
+
 export function diagnosisDetail(
   areas: AreaScores,
   previous: AreaScores | null,
@@ -60,6 +83,10 @@ export function diagnosisDetail(
 ) {
   return {
     summary: summaryOf(areas, meta),
+    bars: [
+      ...EXECUTION_AREAS.map((c) => barOf("execution", c, areas)),
+      ...READINESS_AREAS.map((c) => barOf("readiness", c, areas)),
+    ],
     metrics: [
       averageMetric(
         "학습 실행 역량(6영역 평균)",

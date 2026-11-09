@@ -101,3 +101,27 @@ describe("diagnosisDetail summary", () => {
     );
   });
 });
+
+describe("diagnosisDetail areas", () => {
+  test("12 rows, execution then readiness, with state and first step, target 75 only on execution", () => {
+    const { bars } = diagnosisDetail(AREAS, null, META);
+    expect(bars).toHaveLength(12);
+    expect(bars[1]).toEqual({
+      group: "execution",
+      name: "계획 설계",
+      score: 60,
+      status: "보통",
+      firstStep: "월간 계획을 주간, 일간으로 분해",
+      target: 75,
+    });
+    expect(bars[6]).toEqual({
+      group: "readiness",
+      name: "교과 관리",
+      score: 74,
+      status: "양호",
+      firstStep: "과목별 성적 추이 정리",
+    });
+    expect(bars.slice(0, 6).every((a) => a.target === 75)).toBe(true);
+    expect(bars.slice(6).some((a) => "target" in a)).toBe(false);
+  });
+});
