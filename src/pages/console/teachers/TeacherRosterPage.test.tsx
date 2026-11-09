@@ -195,6 +195,18 @@ describe("W14 목록", () => {
 });
 
 describe("W14 빈 상태와 필터", () => {
+  it("목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+    stubPage({ [LIST_URL]: { status: 500, body: {} } });
+
+    renderRoutes(routes, "/teacher/teachers");
+
+    expect(
+      await screen.findByText(
+        "교사 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+      ),
+    ).toBeTruthy();
+  });
+
   it("등록된 선생님이 없으면 안내 문구만 보인다", async () => {
     stubPage({ [LIST_URL]: { body: listBody([], 0) } });
 
