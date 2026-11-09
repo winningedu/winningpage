@@ -375,6 +375,13 @@ describe("GET /api/console/coaching", () => {
       const json = JSON.stringify(r.body);
       expect(json).toContain("최근 10일간 접속 기록이 없습니다");
       expect(json).not.toContain("Infinity");
+      expect(
+        (r.body as { text: { goalOpinion: unknown } }).text.goalOpinion,
+      ).toEqual({
+        summary:
+          "최근 10일간 접속 기록이 없습니다. 실행이 어려웠던 이유를 학생 말로 먼저 듣고, 최소 목표시간만 지키는 것부터 다시 시작하세요.",
+        details: null,
+      });
     });
 
     test("the response carries the raw last access time of the student", async () => {
