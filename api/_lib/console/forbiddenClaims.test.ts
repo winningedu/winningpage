@@ -19,7 +19,7 @@ import {
   type TextFacts,
 } from "./coachingText.js";
 import { diagnosisDetail } from "./diagnosisDetail.js";
-import { findForbiddenClaims } from "./forbiddenClaims.js";
+import { findForbiddenClaims, strings } from "./forbiddenClaims.js";
 import { type GoalDay, summarizeGoalWeek } from "./goalRate.js";
 import { serviceDetail } from "./serviceDetail.js";
 import { INQUIRY_STEPS, SELFEVAL_STEPS } from "./sessionStatus.js";
@@ -60,6 +60,12 @@ describe("findForbiddenClaims 문구 판정", () => {
     expect(hits.map((h) => h.text)).toEqual(["반드시 합격합니다", "합격 보장"]);
   });
 });
+
+// 훑을 문자열이 하나도 없으면 "걸리지 않음"이 공허하게 통과하므로 개수부터 본다.
+function expectNoClaims(value: unknown, label: string) {
+  expect(strings(value).length, `${label} 훑은 문자열 수`).toBeGreaterThan(0);
+  expect(findForbiddenClaims(value), label).toEqual([]);
+}
 
 // ---- 전체 훑기: 콘솔이 만드는 코칭 문장에 단정 표현이 없다 -----------------------------------
 
@@ -214,10 +220,10 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
         for (const month of MONTHS) {
           for (const p of PROBABILITIES) {
             const f = facts(code, { grade, month, targets: targets(p) });
-            expect(
-              findForbiddenClaims(buildCoachingText(f)),
+            expectNoClaims(
+              buildCoachingText(f),
               `${code} ${grade} ${month}월 확률 ${p}`,
-            ).toEqual([]);
+            );
           }
         }
       }
@@ -244,17 +250,17 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
     for (const code of TYPE_CODES) {
       for (const inquiryStage of inquiryStages) {
         const f = facts(code, { inquiryStage });
-        expect(
-          findForbiddenClaims(buildCoachingText(f)),
+        expectNoClaims(
+          buildCoachingText(f),
           `${code} 탐구 ${inquiryStage.step} ${inquiryStage.completed}`,
-        ).toEqual([]);
+        );
       }
       for (const selfevalStage of selfevalStages) {
         const f = facts(code, { selfevalStage });
-        expect(
-          findForbiddenClaims(buildCoachingText(f)),
+        expectNoClaims(
+          buildCoachingText(f),
           `${code} 자기평가 ${selfevalStage.step}`,
-        ).toEqual([]);
+        );
       }
     }
   });
@@ -270,18 +276,16 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
         pendingPerformance: [],
         goal: null,
       });
-      expect(findForbiddenClaims(buildCoachingText(f)), code).toEqual([]);
+      expectNoClaims(buildCoachingText(f), code);
     }
   });
 
   test("한줄 진단과 신호 아래 줄에도 없다", () => {
     const f = facts("D1");
-    expect(
-      findForbiddenClaims([
-        summaryLine(f.axes),
-        signalOf(f.verdicts, f.axes.axes).subLine,
-      ]),
-    ).toEqual([]);
+    expectNoClaims(
+      [summaryLine(f.axes), signalOf(f.verdicts, f.axes.axes).subLine],
+      "한줄 진단",
+    );
   });
 
   test("여섯 서비스 상세 창 문장은 확률 0, 34, 100에서도 단정하지 않는다", () => {
@@ -323,18 +327,18 @@ describe("코칭 문구 전체 훑기 (결정 106 7번)", () => {
       for (const key of SERVICES) {
         expect(serviceDetail(key, built), key).not.toBeNull();
       }
-      expect(
-        findForbiddenClaims([
+      expectNoClaims(
+        [
           serviceDetail("goal", built),
           serviceDetail("diagnosis", built),
           serviceDetail("growth", built),
           serviceDetail("performance", built),
           serviceDetail("inquiry", built),
           serviceDetail("selfeval", built),
-        ]),
+        ],
         `확률 ${p}`,
-      ).toEqual([]);
+      );
     }
-    expect(findForbiddenClaims(diagnosisDetail(AREAS, null, null))).toEqual([]);
+    expectNoClaims(diagnosisDetail(AREAS, null, null), "진단 상세");
   });
 });

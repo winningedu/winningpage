@@ -18,7 +18,7 @@ const FORBIDDEN: (string | RegExp)[] = [
   /확률(?:은|이|를|을)?\s*\d+(?:\.\d+)?\s*%\s*(?:입니다|이므로|이라서|이기 때문|예요|이에요|이다|(?:으)?로\s*(?:높|낮|예상|판단|봅니다|보입니다))/,
 ];
 
-function strings(value: unknown, out: string[] = []): string[] {
+export function strings(value: unknown, out: string[] = []): string[] {
   if (typeof value === "string") {
     if (value.trim() !== "") out.push(value);
   } else if (Array.isArray(value)) {
