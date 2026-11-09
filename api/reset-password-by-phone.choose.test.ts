@@ -26,12 +26,15 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ auth: { signInWithPassword: state.signIn } }),
 }));
 
+import { hashParam } from "./_lib/auth/login.js";
 import handler from "./reset-password-by-phone.js";
 
 let db: FakeDb;
 
 const reset = (extra: Record<string, unknown> = {}) =>
   callHandler(handler as never, { phone: "010-1234-5678", ...extra });
+
+const NEW_PASSWORD = "NewPass123!";
 
 const verification = () => db.tables.phone_verifications?.[0];
 
@@ -163,6 +166,11 @@ describe("reset-password-by-phone chooseAccount", () => {
 describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)", () => {
   beforeEach(() => {
     process.env.SITE = "schoolmentor";
+    state.signIn.mockReset();
+    state.signIn.mockResolvedValue({
+      data: { session: { access_token: "new-access" } },
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -184,5 +192,39 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     });
     expect(from).not.toHaveBeenCalled();
     expect(db.passwordUpdates).toEqual([]);
+  });
+
+  test("고른 계정에 새 비밀번호를 정하고 전체 세션을 끊고 잠금 행을 지운다", async () => {
+    db.tables.login_attempts = [
+      { identifier_hash: hashParam("second@example.com") },
+      { identifier_hash: hashParam("first@example.com") },
+    ];
+    const signOut = vi.fn(async () => ({ error: null }));
+    (state.db as { auth: { admin: { signOut: unknown } } }).auth.admin.signOut =
+      signOut;
+
+    const res = await reset({
+      chooseAccount: true,
+      accountId: "p2",
+      password: NEW_PASSWORD,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ok: true,
+      found: true,
+      masked_email: "se****@ex***.com",
+      via: "phone",
+    });
+    expect(db.passwordUpdates).toEqual([{ id: "p2", password: NEW_PASSWORD }]);
+    expect(state.signIn).toHaveBeenCalledWith({
+      email: "second@example.com",
+      password: NEW_PASSWORD,
+    });
+    expect(signOut).toHaveBeenCalledWith("new-access", "global");
+    expect(db.tables.login_attempts).toEqual([
+      { identifier_hash: hashParam("first@example.com") },
+    ]);
+    expect(verification()?.consumed_at).not.toBeNull();
   });
 });
