@@ -29,9 +29,12 @@ type FieldStatus = "default" | "error" | "success";
 // 서버가 문구를 정해 주는 두 실패(결정 103). 그 밖의 실패는 저장 실패 문구로 보여 준다.
 const VERIFICATION_EXPIRED = "VERIFICATION_EXPIRED";
 const TEACHER_NOT_MATCHED = "TEACHER_NOT_MATCHED";
+// 비밀번호는 바뀌었지만 다른 기기 로그아웃에 실패했다. 다시 시도할 오류가 아니라 바뀐 것으로 다룬다.
+const PASSWORD_CHANGED_REVOKE_FAILED = "PASSWORD_CHANGED_REVOKE_FAILED";
 
 type ResetOutcome =
   | { kind: "ok" }
+  | { kind: "changed_revoke_failed"; message: string }
   | { kind: "expired"; message: string }
   | { kind: "not_matched"; message: string }
   | { kind: "failed" };
@@ -59,6 +62,8 @@ async function requestReset(
     if (typeof message === "string") {
       if (code === VERIFICATION_EXPIRED) return { kind: "expired", message };
       if (code === TEACHER_NOT_MATCHED) return { kind: "not_matched", message };
+      if (code === PASSWORD_CHANGED_REVOKE_FAILED)
+        return { kind: "changed_revoke_failed", message };
     }
     return { kind: "failed" };
   } catch {
@@ -87,6 +92,8 @@ export default function TeacherResetPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [done, setDone] = useState(false);
+  // 비밀번호는 바뀌었지만 다른 기기 로그아웃은 실패한 경우의 안내. 성공 문구 대신 보여 준다.
+  const [doneNotice, setDoneNotice] = useState("");
 
   // 첫 단계로 돌아간다. 아이디와 번호는 그대로 두어 고쳐 쓸 수 있고, 인증은 새로 받는다.
   function restart() {
@@ -121,6 +128,11 @@ export default function TeacherResetPassword() {
     setSubmitting(false);
 
     if (outcome.kind === "ok") {
+      setDone(true);
+      return;
+    }
+    if (outcome.kind === "changed_revoke_failed") {
+      setDoneNotice(outcome.message);
       setDone(true);
       return;
     }
@@ -223,9 +235,15 @@ export default function TeacherResetPassword() {
     return (
       <>
         <AuthTitle line1="비밀번호를 바꿨어요" line2Color="ink" />
-        <p className="w-full text-center text-sm text-ink">
-          비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
-        </p>
+        {doneNotice ? (
+          <p role="alert" className="w-full text-center text-sm text-error">
+            {doneNotice}
+          </p>
+        ) : (
+          <p className="w-full text-center text-sm text-ink">
+            비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+          </p>
+        )}
         <PrimaryButton onClick={() => navigate("/login")}>
           로그인하러 가기
         </PrimaryButton>

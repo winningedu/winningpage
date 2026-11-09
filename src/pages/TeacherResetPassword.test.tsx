@@ -252,4 +252,22 @@ describe("TeacherResetPassword 새 비밀번호", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(SAVE_FAILED);
   });
+
+  it("PASSWORD_CHANGED_REVOKE_FAILED 는 바뀐 비밀번호로 보고 안내와 로그인 버튼을 보여 준다", async () => {
+    const message =
+      "비밀번호는 바뀌었어요. 다른 기기의 로그인은 끊지 못했으니 새 비밀번호로 로그인한 뒤 마이페이지에서 비밀번호를 한 번 더 바꿔 주세요.";
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(500, {
+        error: { code: "PASSWORD_CHANGED_REVOKE_FAILED", message },
+      }),
+    );
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "로그인하러 가기" }));
+    expect(await screen.findByText("로그인 화면")).toBeInTheDocument();
+  });
 });
