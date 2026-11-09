@@ -185,6 +185,19 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expectFirstStep();
   });
 
+  it("처음부터 다시를 누르면 안내 없이 첫 단계로 돌아가고 비밀번호 입력을 지운다", async () => {
+    await verifyAndReachPasswordStep();
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "NewPass123" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "처음부터 다시" }));
+
+    expectFirstStep();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("첫 단계로 돌아간 뒤 다른 번호로 인증번호를 다시 받고 비밀번호 입력은 비어 있다", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse(400, {

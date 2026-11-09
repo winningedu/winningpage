@@ -3,7 +3,12 @@
 // 서버: POST /api/auth/teacher-reset-password.
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { AuthTitle, PrimaryButton, TextField } from "@/components/auth";
+import {
+  AuthTitle,
+  PrimaryButton,
+  TextField,
+  TextLinkButton,
+} from "@/components/auth";
 import { useCooldown } from "@/hooks/useCooldown";
 import {
   isValidMobile,
@@ -93,6 +98,11 @@ export default function TeacherResetPassword() {
     setPasswordConfirm("");
     setPhoneMessage({ text: "", status: "default" });
     cooldown.reset();
+  }
+
+  function restartByUser() {
+    restart();
+    setFormError("");
   }
 
   async function submit() {
@@ -319,13 +329,26 @@ export default function TeacherResetPassword() {
       )}
 
       {verified && (
-        <PrimaryButton
-          onClick={submit}
-          disabled={submitting}
-          loading={submitting}
-        >
-          비밀번호 바꾸기
-        </PrimaryButton>
+        <>
+          <PrimaryButton
+            onClick={submit}
+            disabled={submitting}
+            loading={submitting}
+          >
+            비밀번호 바꾸기
+          </PrimaryButton>
+
+          <TextLinkButton
+            as="button"
+            tone="accent"
+            size="xs"
+            underline
+            onClick={restartByUser}
+            className="self-center"
+          >
+            처음부터 다시
+          </TextLinkButton>
+        </>
       )}
     </>
   );
