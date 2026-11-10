@@ -17,10 +17,15 @@ vi.mock("@/lib/apiFetch", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
+let mockProfile: Record<string, unknown> = {
+  id: "student-1",
+  name: "학생",
+  member_type: "student",
+};
 vi.mock("./mypage/useMyPageProfile", () => ({
   useMyPageProfile: () => ({
     user: { id: "student-1", email: "s@example.com" },
-    profile: { id: "student-1", name: "학생", member_type: "student" },
+    profile: mockProfile,
     loading: false,
   }),
 }));
@@ -72,6 +77,7 @@ const me = (className: string | null, number: number | null) => ({
 
 beforeEach(() => {
   mockApiFetch.mockReset();
+  mockProfile = { id: "student-1", name: "학생", member_type: "student" };
 });
 
 describe("MyPage 학적", () => {
@@ -99,5 +105,34 @@ describe("MyPage 학적", () => {
     await waitFor(() =>
       expect(screen.getByText("고3 5반 12번")).toBeInTheDocument(),
     );
+  });
+});
+
+describe("MyPage 회원 유형별 탭", () => {
+  function renderMyPage() {
+    return render(
+      <MemoryRouter initialEntries={["/mypage"]}>
+        <MyPage />
+      </MemoryRouter>,
+    );
+  }
+
+  it("학부모는 자녀 등록 및 수정 탭을 본다", () => {
+    mockProfile = { id: "p1", name: "학부모", member_type: "parent" };
+    renderMyPage();
+
+    expect(screen.getAllByText(/자녀 등록 및 수정/).length).toBeGreaterThan(0);
+  });
+
+  it("member_type이 parent여도 관리자는 학부모 탭을 보지 않는다", () => {
+    mockProfile = {
+      id: "a1",
+      name: "관리자",
+      member_type: "parent",
+      role: "admin",
+    };
+    renderMyPage();
+
+    expect(screen.queryByText(/자녀 등록 및 수정/)).not.toBeInTheDocument();
   });
 });

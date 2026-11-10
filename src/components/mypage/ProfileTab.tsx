@@ -11,6 +11,7 @@ import CatchAllTenantField from "@/components/enrollment/CatchAllTenantField";
 import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
 import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment";
 import { site } from "@/config/site";
+import { classifyMember } from "@/lib/memberAccess";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
@@ -146,7 +147,8 @@ export default function ProfileTab({
   // 학교·학년, 학부모 연결, 내 연결코드가 없다. 그 셋은 전부 학생 계정의 개념이다
   // (학부모에겐 연결할 "학부모"도, 발급받을 연결코드도 없다 — 코드는 학생이 발급하고
   // 학부모가 입력한다, sql/40 issue_student_link_code).
-  const isParent = memberType === "parent";
+  const isParent =
+    classifyMember({ memberType, role: profile?.role ?? null }) === "parent";
   const guideLinks = isParent ? PARENT_GUIDE_LINKS : STUDENT_GUIDE_LINKS;
 
   const profileId = profile?.id || user?.id;
