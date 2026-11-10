@@ -19,7 +19,7 @@ import audienceDesign from "@/assets/services/research/audience-design.png";
 import audienceReview from "@/assets/services/research/audience-review.png";
 import audienceTopic from "@/assets/services/research/audience-topic.png";
 import { SURVEY_QUESTION_COUNT } from "@/components/growth/survey/surveyLabels";
-import { useServiceStart } from "@/components/service/useServiceStart";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";

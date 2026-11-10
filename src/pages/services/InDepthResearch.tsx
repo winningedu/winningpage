@@ -11,7 +11,7 @@ import outcomeCalendar from "@/assets/services/research/outcome-calendar.png";
 import outcomeFolder from "@/assets/services/research/outcome-folder.png";
 import outcomeSkill from "@/assets/services/research/outcome-skill.png";
 import outcomeWallet from "@/assets/services/research/outcome-wallet.png";
-import { useServiceStart } from "@/components/service/useServiceStart";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";

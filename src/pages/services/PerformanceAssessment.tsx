@@ -22,7 +22,7 @@ import coachWriting from "@/assets/services/performance/coach-writing.png";
 import heroAura from "@/assets/services/performance/hero-aura.svg";
 import heroEvaluationReport from "@/assets/services/performance/hero-evaluation-report.png";
 import iconCalendar from "@/assets/services/performance/icon-calendar-v2.png";
-import { useServiceStart } from "@/components/service/useServiceStart";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";

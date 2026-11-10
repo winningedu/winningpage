@@ -22,7 +22,7 @@ import studentCardWriting from "@/assets/services/self-assessment/student-card-0
 import studentCardOrganizing from "@/assets/services/self-assessment/student-card-02-organizing.jpg";
 import studentCardStructuring from "@/assets/services/self-assessment/student-card-03-structuring.jpg";
 import studentCardPolishing from "@/assets/services/self-assessment/student-card-04-polishing.jpg";
-import { useServiceStart } from "@/components/service/useServiceStart";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";

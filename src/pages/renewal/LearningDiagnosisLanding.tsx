@@ -12,7 +12,7 @@ import illustrationStrength from "@/assets/renewal/landing/illustration-strength
 import illustrationTrial from "@/assets/renewal/landing/illustration-trial.png";
 import illustrationWeakness from "@/assets/renewal/landing/illustration-weakness.png";
 import macbookFull from "@/assets/renewal/landing/macbook-full.png";
-import { useServiceStart } from "@/components/service/useServiceStart";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 import { site } from "@/config/site";
 import { useInView } from "@/hooks/useInView";
@@ -31,6 +31,8 @@ const STEPS = [
   { title: "서비스 추천", desc: "가장 먼저 필요한 서비스를 추천해요" },
 ];
 
+const DIAGNOSIS_APP_ROUTE = "/app/learning-diagnosis/survey";
+
 // 시안은 카드마다 이미지 규격이 다르다 — 카드1 353×269/top 0(상단 플러시), 카드2·3 353×235/top 34.
 // 즉 셋 다 이미지 영역의 "바닥"이 y269에 맞고 카드2·3만 위에 34 여백이 붙는 구조다.
 // 원본 픽셀이 정확히 그 비율이다: strength 706×538 = 353:269, weakness/trial 706×470 = 353:235.
@@ -38,8 +40,6 @@ const STEPS = [
 // 으로 바닥을 맞추면, 카드1은 무손실 정합(비율 동일) / 카드2·3은 상단에 boxW×34/353 여백이
 // 자동 생성돼 시안 구조가 전 폭에서 그대로 보존된다(과거 aspect-[3/2]는 카드1을 세로 12.5% 잘랐다).
 // 아래 imageClass의 고정 높이/마진은 wide(1184px~) 전용이다.
-const DIAGNOSIS_APP_ROUTE = "/app/learning-diagnosis/survey";
-
 const AUDIENCE = [
   {
     image: illustrationStrength,
