@@ -39,6 +39,9 @@ vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
 }));
+vi.mock("@/lib/diagnosisInputStorage", () => ({
+  submitDiagnosisAnswers: () => ({ meta: { diagnosedAt: null } }),
+}));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
   fetchSurveyCopyOverrides: async () => new Map(),
 }));
@@ -263,5 +266,57 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     renderDraft();
     await screen.findByRole("button", { name: "q1 답하기" });
     expect(screen.getByTestId("answers")).toHaveTextContent("{}");
+  });
+
+  it("제출에 성공하면 초안을 지운다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalled());
+    expect(onResult.mock.calls[0][0]).not.toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("제출이 거부되면 초안을 남긴다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "check-failed" });
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(localStorage.getItem(DRAFT_KEY)).not.toBeNull();
+  });
+
+  it("저장소가 던져도 설문은 동작한다", async () => {
+    const boom = () => {
+      throw new DOMException("denied", "SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(boom);
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"중학생"');
+  });
+
+  it("위닝은 저장소에 아무것도 쓰지 않는다", async () => {
+    gateState.resume = false;
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("answers")).toHaveTextContent("중학생"),
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 });

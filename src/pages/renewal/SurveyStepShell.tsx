@@ -18,7 +18,7 @@ import {
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
 // 이어 답하기 초안(사 #44, 스쿨멘토 전용). 이 기기 localStorage 에 사용자별로 저장한다.
-import { loadDraft, saveDraft } from "@/lib/diagnosisDraft";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/diagnosisDraft";
 // 리포트 '페이지'가 아니라 storage 모듈만 import 한다 — 페이지를 가져오면 인쇄 CSS 가 설문 번들로 끌려온다.
 // 저장 키·직렬화·스키마 검증의 정의처도 그 모듈 하나다(여기에 리터럴을 두면 읽기 쪽과 갈라진다).
 import { submitDiagnosisAnswers } from "@/lib/diagnosisInputStorage";
@@ -232,6 +232,8 @@ export default function SurveyStepShell() {
       admissionCutsError: admissionResolved.cutsError,
       attemptId,
     });
+    // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
+    if (site.features.diagnosisResume && userId) clearDraft(userId);
 
     // 리포트 영속화 — diagnosedAt 은 항상 이 함수(submitDiagnosisAnswers)가 방금 new
     // Date().toISOString() 으로 채웠으므로 실제로는 항상 존재한다(엔진 자체는 시계를 읽지
@@ -257,7 +259,7 @@ export default function SurveyStepShell() {
     return payload;
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
-  }, [answers, awaitCuts, navigate]);
+  }, [answers, awaitCuts, navigate, userId]);
 
   if (accessFailed) {
     return (
