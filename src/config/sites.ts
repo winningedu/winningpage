@@ -54,7 +54,7 @@ export interface SiteConfig {
     serviceStartNotice: boolean;
     // 입시 결과 안내(결정 107 14번).
     admissionResultsNotice: boolean;
-    // 목표성장서비스 0교시 기록(결정 107 15번).
+    // 목표성장서비스 0시간 기록(결정 107 15번).
     goalZeroHourRecord: boolean;
     // 진단 이어하기(결정 107 17번).
     diagnosisResume: boolean;
