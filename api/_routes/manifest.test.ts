@@ -134,7 +134,7 @@ const vercelJson = JSON.parse(
 };
 
 const alternation = (routes: Record<string, unknown>) =>
-  `/api/(${Object.keys(routes).sort().join("|")})`;
+  `/api/(${Object.keys(routes).sort().join("|")})/?`;
 
 describe("vercel.json 라우터 rewrite", () => {
   test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
@@ -143,6 +143,33 @@ describe("vercel.json 라우터 rewrite", () => {
       { source: alternation(routes60), destination: "/api/router-60" },
       { source: "/api/(.*)", destination: "/api/router" },
     ]);
+  });
+});
+
+describe("vercel.json rewrite 시뮬레이션", () => {
+  const destinationManifests: Record<string, Record<string, unknown>> = {
+    "/api/router": defaultRoutes,
+    "/api/router-30": routes30,
+    "/api/router-60": routes60,
+  };
+  const compiled = vercelJson.rewrites.slice(0, 3).map((rewrite) => ({
+    ...rewrite,
+    pattern: new RegExp(`^${rewrite.source}$`),
+  }));
+
+  const cases = Object.values(destinationManifests)
+    .flatMap((routes) => Object.keys(routes))
+    .flatMap((key) => [`/api/${key}`, `/api/${key}/`]);
+
+  test("모든 매니페스트 키가 끝 슬래시 유무와 관계없이 자기 진입 함수에 닿는다", () => {
+    const misrouted = cases.filter((url) => {
+      const key = url.replace(/^\/api\//, "").replace(/\/$/, "");
+      const hit = compiled.find(({ pattern }) => pattern.test(url));
+      const target = hit && destinationManifests[hit.destination];
+      return !target || !Object.hasOwn(target, key);
+    });
+
+    expect(misrouted).toEqual([]);
   });
 });
 
