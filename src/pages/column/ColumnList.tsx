@@ -11,6 +11,7 @@ import {
   getDisplayDate,
   getViewCount,
 } from "./columnData";
+import { COLUMN_KINDS, getColumnKind } from "./columnKind";
 import { useColumnCategories } from "./useColumnCategories";
 
 const SORT_LATEST = "최신순";
@@ -21,6 +22,7 @@ export default function ColumnList() {
   const categories = useColumnCategories();
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(ALL_CATEGORY);
+  const [kind, setKind] = useState<string>(ALL_CATEGORY);
   const [sortKey, setSortKey] = useState(SORT_LATEST);
   const [keyword, setKeyword] = useState("");
 
@@ -47,6 +49,10 @@ export default function ColumnList() {
 
   const visibleRows = useMemo(() => {
     let result = rows;
+
+    if (kind !== ALL_CATEGORY) {
+      result = result.filter((row) => getColumnKind(row) === kind);
+    }
 
     if (category !== ALL_CATEGORY) {
       result = result.filter(
@@ -75,7 +81,7 @@ export default function ColumnList() {
     }
 
     return sorted;
-  }, [rows, category, categories, keyword, sortKey, hasViewCounts]);
+  }, [rows, kind, category, categories, keyword, sortKey, hasViewCounts]);
 
   return (
     <main className="bg-white pt-16">
@@ -95,6 +101,14 @@ export default function ColumnList() {
           </div>
 
           <div className="mt-16 flex flex-col gap-6 sm:mt-18 sm:flex-row sm:items-center sm:justify-between">
+            {site.features.columnVideo && (
+              <CategoryChips
+                categories={[...COLUMN_KINDS]}
+                active={kind}
+                onChange={setKind}
+                align="left"
+              />
+            )}
             {hasViewCounts ? (
               <div className="relative inline-flex w-fit shrink-0 items-center">
                 <select
