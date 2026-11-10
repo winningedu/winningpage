@@ -315,8 +315,12 @@ export default function HeroSection({
     <section aria-label="메인 히어로" className="w-full">
       {/* lg 가로 배치: gap 18px(1101x480 시안 원값)→1.125rem
           좌 73.89%(813.28/1100.6) + 우 24.47%(269.32/1100.6)
-          lg 상단 패딩: 헤더 하단→배너 120px→7.5rem. pb는 0 — 다음 섹션 pt에서 갭 처리(섹션 수직 리듬 규칙) */}
-      <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-center lg:gap-4.5 lg:pb-0 lg:pt-30">
+          lg 상단 패딩: 위닝 요청(2026-11-10)으로 시안 원값 7.5rem에서 줄여 두 사이트 공통으로 적용한다.
+          lg:pt-18(4.5rem)은 특허 배지(절대 위치, 하단이 main 상단에서 8rem)와 가로로 겹치는 좁은 데스크톱 폭에서
+          배너가 배지보다 0.5rem 아래에 놓이게 한다. 1632px(102rem) 이상은 배지가 배너 왼쪽에 완전히 비켜
+          있어(위닝 배지 오른쪽 끝 최대 248px, 스쿨멘토 min(6.25vw,120px)+128px, 배너 왼쪽 266px) 3rem까지 줄인다.
+          pb는 0 — 다음 섹션 pt에서 갭 처리(섹션 수직 리듬 규칙) */}
+      <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-center lg:gap-4.5 lg:pb-0 lg:pt-18 min-[102rem]:pt-12">
         {leftPlaceholder && (
           <div className="flex w-full flex-col items-center lg:basis-[73.89%] lg:grow lg:shrink-0">
             <section

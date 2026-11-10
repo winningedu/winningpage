@@ -6,13 +6,14 @@ const BADGE_ALT = "지식재산처 학습코칭 장치 및 방법 특허 제10-3
 // 헤더 로고와 같은 컨테이너 폭/좌우 패딩으로 왼쪽 끝을 맞춘다(사이트별 헤더 기준).
 // lg 이상은 히어로 상단 빈 패딩에 겹쳐 놓아 히어로를 밀어내지 않고,
 // lg 미만은 일반 흐름으로 히어로 위에 둬 캐러셀을 가리지 않는다.
+// lg:top-18(4.5rem): 4rem 헤더 아래 0.5rem에 둔다(2026-11-10 배너 위 여백 축소에 맞춰 0.5rem 올림).
 export default function PatentBadge() {
   const horizontal = site.features.b2bMenu
     ? "px-8 desktop:px-[clamp(2rem,6.25vw,7.5rem)]"
     : "mx-auto max-w-[120rem] px-8 2xl:px-30";
   return (
     <div
-      className={`${horizontal} pt-4 lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-20 lg:z-10 lg:pt-0`}
+      className={`${horizontal} pt-4 lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-18 lg:z-10 lg:pt-0`}
     >
       <a
         href={CERTIFICATE_PDF_URL}
