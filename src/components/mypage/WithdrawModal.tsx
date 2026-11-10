@@ -11,6 +11,7 @@
 // 삭제(api/delete-account.ts → fn_delete_account)는 confirm 단계에서만 호출된다.
 import { useEffect, useState } from "react";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 
 const ETC_REASON = "기타 사유 (직접 입력)";
@@ -125,6 +126,8 @@ export default function WithdrawModal({ open, onClose }: WithdrawModalProps) {
         return;
       }
 
+      // 공용 PC에 탈퇴한 계정의 학습진단 초안이 남지 않게 지운다.
+      clearAllDrafts();
       await supabase.auth.signOut({ scope: "local" });
       setSubmitting(false);
       setStep("done");
