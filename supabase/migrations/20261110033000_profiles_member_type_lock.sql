@@ -31,7 +31,7 @@ create trigger trg_profiles_lock_member_type
   before update of member_type on public.profiles
   for each row execute function public.fn_profiles_lock_member_type();
 
--- complete_signup_profile: 20261021014317 본문 그대로, 트리거 게이트를 여는 set_config 한 줄만 더했다.
+-- complete_signup_profile: 20261021014317 본문 그대로, 기존 유형 검사와 트리거 게이트를 여는 set_config 만 더했다.
 CREATE OR REPLACE FUNCTION "public"."complete_signup_profile"("p_name" "text", "p_username" "text", "p_phone" "text", "p_email" "text", "p_region" "text", "p_school_type" "text", "p_school_name" "text", "p_member_type" "text", "p_terms_service_agreed" boolean, "p_privacy_required_agreed" boolean, "p_identity_required_agreed" boolean, "p_privacy_optional_agreed" boolean, "p_marketing_agreed" boolean, "p_ads_agreed" boolean, "p_guardian_phone" "text" DEFAULT NULL::"text", "p_guardian_consent" boolean DEFAULT false, "p_identity_request_id" "text" DEFAULT NULL::"text", "p_birth_date" "date" DEFAULT NULL::"date", "p_gender" "text" DEFAULT NULL::"text", "p_org_code" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'pg_temp'
@@ -336,6 +336,17 @@ begin
   -- fn_profiles_lock_tenant(20260922) 게이트를 통과시킨다 — 아래 INSERT ...
   -- ON CONFLICT DO UPDATE 가 재호출 시 UPDATE 경로를 탈 수 있어서다.
   perform set_config('app.tenant_set_via_rpc', '1', true);
+  -- member_type 이 이미 있는 회원은 같은 유형일 때만 트리거 게이트를 연다.
+  -- 다른 유형으로의 재호출(유형 갈아타기)은 막는다. 행을 잠가 검사와 upsert 사이에 안 바뀌게 한다.
+  if exists (
+    select 1 from public.profiles
+     where id = v_user_id
+       and member_type is not null
+       and member_type is distinct from v_member_type
+     for update
+  ) then
+    raise exception 'member_type_locked' using errcode = 'WC102';
+  end if;
   perform set_config('app.member_type_set_via_rpc', 'on', true);
 
   insert into public.profiles (

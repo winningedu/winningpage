@@ -69,10 +69,25 @@ grant execute on function pg_temp.expect_error(text, text, text) to authenticate
 grant execute on function pg_temp.expect_text(text, text, text) to authenticated;
 grant execute on function pg_temp.fx(text) to authenticated, service_role;
 
+create function pg_temp.signup_sql(p_email text, p_member_type text, p_school text) returns text
+language sql as $$
+  select format($f$select public.complete_signup_profile(
+    p_name => %1$L, p_username => %1$L, p_phone => '', p_email => %1$L,
+    p_region => '', p_school_type => '', p_school_name => %3$L,
+    p_member_type => %2$L, p_terms_service_agreed => true, p_privacy_required_agreed => true,
+    p_identity_required_agreed => false, p_privacy_optional_agreed => false,
+    p_marketing_agreed => false, p_ads_agreed => false, p_guardian_phone => '',
+    p_guardian_consent => false, p_identity_request_id => '', p_birth_date => null,
+    p_gender => null, p_org_code => '')$f$, p_email, p_member_type, p_school)
+$$;
+grant execute on function pg_temp.signup_sql(text, text, text) to authenticated;
+
 insert into fx values ('stu', pg_temp.mk_user('mtl-stu@t.local', 'student'));
 insert into fx values ('blank', pg_temp.mk_user('mtl-blank@t.local', null));
 insert into fx values ('adm', pg_temp.mk_user('mtl-adm@t.local', null));
 update public.profiles set role = 'admin' where id = pg_temp.fx('adm');
+insert into fx values ('diff', pg_temp.mk_user('mtl-diff@t.local', 'student'));
+insert into fx values ('same', pg_temp.mk_user('mtl-same@t.local', 'mentor'));
 insert into fx values ('tch', pg_temp.mk_user('mtl-tch@t.local', null));
 
 -- 가입 RPC 호출이 열려 있어야 3번(complete_signup_profile) 을 돌린다.
@@ -123,6 +138,25 @@ select public.complete_signup_profile(
 reset role;
 select pg_temp.expect_text('complete_signup_profile 로 member_type 설정',
   (select member_type from public.profiles where id = pg_temp.fx('blank')), 'mentor');
+
+-- 3d. 이미 member_type 이 있는 회원이 다른 유형으로 가입 완료를 다시 부르면 거부
+select pg_temp.as_user(pg_temp.fx('diff'));
+set local role authenticated;
+select pg_temp.expect_error('기존 member_type 과 다른 유형으로 complete_signup_profile 거부',
+  pg_temp.signup_sql('mtl-diff@t.local', 'mentor', 'mtl-x'), 'WC102');
+reset role;
+select pg_temp.expect_text('거부 후 member_type 그대로',
+  (select member_type from public.profiles where id = pg_temp.fx('diff')), 'student');
+
+-- 3e. 같은 유형으로 다시 부르는 것(가입 완료 재실행)은 통과하고 다른 열도 갱신된다
+select pg_temp.as_user(pg_temp.fx('same'));
+set local role authenticated;
+select pg_temp.signup_sql('mtl-same@t.local', 'mentor', 'mtl-again') as q \gset
+:q ;
+reset role;
+select pg_temp.expect_text('같은 유형 재호출 시 다른 열 갱신',
+  (select school_name || ':' || member_type from public.profiles where id = pg_temp.fx('same')),
+  'mtl-again:mentor');
 
 -- 3b. 어드민 세션(is_admin)은 직접 고칠 수 있다
 select pg_temp.as_user(pg_temp.fx('adm'));
