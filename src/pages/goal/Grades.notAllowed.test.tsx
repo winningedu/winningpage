@@ -54,10 +54,15 @@ vi.mock("@/components/goal/modals/AddMockExamGradeModal", () => ({
   default: Stub,
 }));
 
+const denyState = { reason: "month_cap" };
+
 const MONTH_CAP =
   "이번 달 이용 횟수를 모두 썼어요. 다음 달 1일부터 다시 이용할 수 있어요.";
 
+const TEACHER = "선생님 계정에서는 학생 서비스를 이용할 수 없어요.";
+
 beforeEach(() => {
+  denyState.reason = "month_cap";
   siteState.tenantServiceGate = false;
   for (const fn of Object.values(api)) fn.mockReset();
   api.fetchGoalStudent.mockResolvedValue({
@@ -75,9 +80,12 @@ beforeEach(() => {
     naesinRecords: [{ term: "1-1", value: 2, subjects: {} }],
     mockRecords: [],
   });
-  const denied = { kind: "not-allowed", tenantReason: "month_cap" };
-  api.addGoalGrade.mockResolvedValue(denied);
-  api.updateGoalGrade.mockResolvedValue(denied);
+  const denied = async () => ({
+    kind: "not-allowed",
+    tenantReason: denyState.reason,
+  });
+  api.addGoalGrade.mockImplementation(denied);
+  api.updateGoalGrade.mockImplementation(denied);
 });
 
 async function openAdd() {
@@ -119,6 +127,13 @@ describe("Grades 이용 거부 문구", () => {
     siteState.tenantServiceGate = true;
     await openAdd();
     expect(await screen.findByText(MONTH_CAP)).toBeInTheDocument();
+  });
+
+  it("추가: 스쿨멘토는 선생님 계정에 선생님 문구를 보인다", async () => {
+    siteState.tenantServiceGate = true;
+    denyState.reason = "teacher";
+    await openAdd();
+    expect(await screen.findByText(TEACHER)).toBeInTheDocument();
   });
 
   it("수정: 위닝은 기존 문구를 그대로 보인다", async () => {
