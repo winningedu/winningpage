@@ -1,13 +1,22 @@
 name: Type Check
 
+# dev push 에서는 돌지 않는다. dev 에 들어오는 코드는 PR 에서 이미 같은 트리로
+# 검사했고(pr-merge.sh 가 조상 검사와 체크 통과를 강제), main 을 dev 에 합친 push 는
+# 배포 PR(dev 에서 main)이 검사한다. main push 는 마지막 확인으로 남긴다.
 on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [dev, main]
+    branches: [main]
+
+# 같은 PR 에 새 커밋이 오면 이전 실행을 취소한다. push 실행은 run_id 로 묶여 취소되지 않는다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-  typecheck:
+  # 정적 검사(tsc 3개, type-coverage, biome). 테스트 잡과 동시에 돈다.
+  static:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -43,8 +52,28 @@ jobs:
       - name: biome ci
         run: npm run format:ci
 
-      # 회귀 테스트 전체(goal/calc·진단 채점 등 순수 로직 + admission/performance
-      # DOM 렌더링·에디터·모달 등 컴포넌트 테스트) — 골든 픽스처·파리티가
-      # 깨지면 여기서 즉시 잡는다.
-      - name: vitest run
-        run: npm test
+  # 회귀 테스트 전체(goal/calc·진단 채점 등 순수 로직 + admission/performance
+  # DOM 렌더링·에디터·모달 등 컴포넌트 테스트) — 골든 픽스처·파리티가
+  # 깨지면 여기서 즉시 잡는다.
+  # 테스트 파일을 4묶음으로 나눠 4개 잡이 동시에 돈다(Vitest --shard, 파일 단위 분할).
+  # 묶음마다 따로 통과와 실패를 판정하므로 한 묶음이라도 실패하면 PR 체크가 실패한다.
+  # fail-fast 를 꺼서 한 번 실행에 모든 묶음의 실패를 다 본다.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: test (${{ matrix.shard }}/4)
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: vitest run (${{ matrix.shard }}/4)
+        run: npm test -- --shard=${{ matrix.shard }}/4

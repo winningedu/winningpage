@@ -48,6 +48,28 @@ export default mergeConfig(
         provider: "v8",
         reporter: ["text", "html"],
       },
+      // jsdom 은 테스트 파일마다 가짜 브라우저를 새로 띄워 파일당 약 0.7초가 든다.
+      // api/ 와 supabase/ 는 서버 코드라 화면이 없으므로 node 환경으로 돌린다
+      // (2026-11-10 CI 실측: 전체 누적 시간의 54%가 jsdom 준비였다).
+      // 두 프로젝트 모두 extends: true 로 위 설정(env, setupFiles, exclude)을 물려받는다.
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "server",
+            environment: "node",
+            include: ["api/**/*.test.ts", "supabase/**/*.test.ts"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: "client",
+            environment: "jsdom",
+            exclude: ["api/**", "supabase/**"],
+          },
+        },
+      ],
     },
   }),
 );
