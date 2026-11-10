@@ -303,7 +303,7 @@ export default function PaymentSuccess() {
   // 이때 '프로그램 시작하기'를 눌러도 입장 판정에서 막히므로 CTA 를 바꾸지 않고
   // 대신 복구 안내를 보여준다.
   // 로그인 안 된 재방문(재부여를 시도하지 않은 상태). 실패로 취급하지 않는다.
-  const { memberType } = useMemberType();
+  const { kind } = useMemberType();
 
   const needsLogin = !isWaitingDeposit && access?.error === NOT_OWNER_ERROR;
   const grantFailed = !isWaitingDeposit && !needsLogin && access?.ok === false;
@@ -330,7 +330,7 @@ export default function PaymentSuccess() {
   //
   // memberType 로딩 중에는 버튼을 내리지 않는다(깜빡임 방지) — 로딩이 끝난 뒤
   // parent 로 판명되면 그때 대체 CTA 로 바뀐다.
-  const isParentPayer = memberType === "parent";
+  const isParentPayer = kind === "parent";
   const canStart =
     !isWaitingDeposit && !grantFailed && entries.length > 0 && !isParentPayer;
   // 부여는 정상 종료됐는데 들어갈 프로그램이 없는 상품(수시예측·콜멘토 등).

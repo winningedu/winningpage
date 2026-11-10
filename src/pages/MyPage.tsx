@@ -9,6 +9,7 @@ import PaymentsTab from "@/components/mypage/PaymentsTab";
 import ProfileTab from "@/components/mypage/ProfileTab";
 import ChildrenTab from "@/components/mypage/parent/ChildrenTab";
 import ParentPaymentsTab from "@/components/mypage/parent/ParentPaymentsTab";
+import { classifyMember } from "@/lib/memberAccess";
 import { useMyPageOrders } from "./mypage/useMyPageOrders";
 import { useMyPageProfile } from "./mypage/useMyPageProfile";
 import { useMyPageTab } from "./mypage/useMyPageTab";
@@ -48,7 +49,8 @@ export default function MyPage() {
   const enrollment = useMyEnrollment();
 
   const memberType = cleanText(profile?.member_type).toLowerCase();
-  const isParent = memberType === "parent";
+  const isParent =
+    classifyMember({ memberType, role: profile?.role ?? null }) === "parent";
 
   // 학부모 탭 배지용 대기 건수(확정 디자인 3967:3944 "결제 요청 1"·"환불 요청 1").
   const { pendingOrderCount, reload: reloadPendingCount } =
@@ -134,7 +136,7 @@ export default function MyPage() {
             <ProfileTab
               user={user}
               profile={profile}
-              memberType={memberType}
+              isParent={isParent}
               enrollment={enrollment}
             />
           )}

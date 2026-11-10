@@ -64,6 +64,7 @@ describe("Pricing 역할 분기", () => {
       loading: false,
       userId: "user-1",
       memberType: "parent",
+      kind: "parent",
       error: null,
       refetch: vi.fn(),
     });

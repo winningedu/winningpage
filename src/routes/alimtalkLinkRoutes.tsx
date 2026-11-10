@@ -147,8 +147,8 @@ function GoalReportRedirect() {
 
   // 세션 + 회원유형이 아직 확정 전이면 아무것도 그리지 않는다 — 학생/학부모
   // 분기를 잘못 그렸다가 다시 갈아엎는 깜빡임을 피한다.
-  const { loading: memberLoading, memberType } = useMemberType();
-  const isParent = memberType === "parent";
+  const { loading: memberLoading, userId, kind } = useMemberType();
+  const isParent = kind === "parent";
   const children = useApprovedChildren(isParent);
 
   if (memberLoading) return null;
@@ -157,7 +157,7 @@ function GoalReportRedirect() {
   // 로그인 후엔 세션이 생겨 이 컴포넌트가 다시 평가되고, 그때는 회원유형에
   // 맞는 목적지로 정확히 갈라진다(login 화면들이 쓰는 ?redirect= 관례,
   // src/lib/routeMiddleware.ts loginRedirect 참고).
-  if (!memberType) {
+  if (!userId) {
     const target = `${location.pathname}${location.search}`;
     return (
       <Navigate to={`/login?redirect=${encodeURIComponent(target)}`} replace />
@@ -222,7 +222,8 @@ function GoalReportRedirect() {
     );
   }
 
-  // 학생(그 외 회원유형 포함) — 기존 동작 그대로. 비로그인 처리는 이미 위에서
+  // 학생(그 외 회원유형 포함) — 기존 동작 그대로. 회원유형 조회가 실패해도(error) 이
+  // 화면엔 재시도 안내가 없어 이 학생 경로로 떨어진다. 이용권 판정은 아래 미들웨어가 한다. 비로그인 처리는 이미 위에서
   // 끝났으므로 여기 도달했다면 로그인 상태이고, 목표관리 이용권 판정은
   // /app/goal 그룹의 requireGoalAccessMiddleware 가 그대로 맡는다.
   const search = buildReportSearch(String(safePeriod), at);

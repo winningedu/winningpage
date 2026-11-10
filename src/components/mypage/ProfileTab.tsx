@@ -1,5 +1,5 @@
 // 마이페이지 "내 정보 수정" 탭 — 이번 범위는 학생 화면만이다(사용자 지시로 학부모 변형
-// 3762:20390은 범위 제외). memberType prop은 받되 분기하지 않는다(팀 리더 지시).
+// 3762:20390은 범위 제외).
 //
 // 레이아웃·필드 라벨·순서는 team-lead가 전달한 시안 PNG(profile-20170.png, 3762:20170)를
 // 직접 판독해 반영했다. 정확한 여백·폰트 스케일까지 픽셀 재현하지는 않았다(러프 구현 지시).
@@ -132,21 +132,20 @@ type ParentLink = {
 type ProfileTabProps = {
   user: ProfileUser | null;
   profile: Profile | null;
-  memberType?: string;
+  isParent: boolean;
   enrollment: MyEnrollmentState;
 };
 
 export default function ProfileTab({
   user,
   profile,
-  memberType,
+  isParent,
   enrollment,
 }: ProfileTabProps) {
   // 학부모 변형(Figma 3379:12569 외) — 이름/휴대폰/이메일/비밀번호/이용안내만 있고
   // 학교·학년, 학부모 연결, 내 연결코드가 없다. 그 셋은 전부 학생 계정의 개념이다
   // (학부모에겐 연결할 "학부모"도, 발급받을 연결코드도 없다 — 코드는 학생이 발급하고
   // 학부모가 입력한다, sql/40 issue_student_link_code).
-  const isParent = memberType === "parent";
   const guideLinks = isParent ? PARENT_GUIDE_LINKS : STUDENT_GUIDE_LINKS;
 
   const profileId = profile?.id || user?.id;
