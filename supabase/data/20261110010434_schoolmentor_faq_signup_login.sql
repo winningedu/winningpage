@@ -75,3 +75,7 @@ select v.question, v.answer, '회원가입 및 이용환경', true, v.sort_order
  );
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
+-- 2026-11-10 Schoolmentor prod (aalujumpwlnwlemnqrus), main 18a6e5e8 배포 뒤 실행.
+--   실행 전: '회원가입 및 이용환경' 5행, 모두 위닝에서 복사된 질문(위닝에듀 웹사이트, PASS 본인인증, 알림톡 안내 등)
+--   실행 후: 12행 (7행 추가, sort_order 1~7). 위닝 질문 5행은 이 파일이 끄지 않아 그대로 노출 중이며 소유자가 관리자에서 정리한다.
+--   재실행: 조회 결과 같음
