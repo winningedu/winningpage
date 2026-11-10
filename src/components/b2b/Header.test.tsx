@@ -254,67 +254,63 @@ function loginAs(profile: { member_type: string; role: string }) {
   });
 }
 
+async function renderAs(profile: { member_type: string; role: string }) {
+  loginAs(profile);
+  renderHeader();
+  await screen.findByRole("link", { name: /최관리 님/ });
+}
+
+async function openDrawer() {
+  fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+  return within(await screen.findByRole("dialog"));
+}
+
 describe("b2b Header MY 메뉴 역할", () => {
   it("관리자는 드로어에서 관리자 메뉴 링크로 /admin 에 갈 수 있다", async () => {
-    loginAs({ member_type: "student", role: "admin" });
-    renderHeader();
-    await screen.findByRole("link", { name: /최관리 님/ });
+    await renderAs({ member_type: "student", role: "admin" });
 
-    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+    const drawer = await openDrawer();
 
-    const drawer = await screen.findByRole("dialog");
-    expect(
-      within(drawer).getByRole("link", { name: "관리자 메뉴" }),
-    ).toHaveAttribute("href", "/admin");
+    expect(drawer.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
   });
-});
 
-describe("b2b Header 역할별 드로어 MY 메뉴", () => {
   it("학부모는 드로어에서 자녀 등록 및 수정을 보고 나의 서비스는 보지 못한다", async () => {
-    loginAs({ member_type: "parent", role: "user" });
-    renderHeader();
-    await screen.findByRole("link", { name: /최관리 님/ });
+    await renderAs({ member_type: "parent", role: "user" });
 
-    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+    const drawer = await openDrawer();
 
-    const drawer = await screen.findByRole("dialog");
     expect(
-      within(drawer).getByRole("link", { name: "자녀 등록 및 수정" }),
+      drawer.getByRole("link", { name: "자녀 등록 및 수정" }),
     ).toHaveAttribute("href", "/mypage?tab=children");
     expect(
-      within(drawer).queryByRole("link", { name: "나의 서비스" }),
+      drawer.queryByRole("link", { name: "나의 서비스" }),
     ).not.toBeInTheDocument();
   });
 
   it("학생은 드로어에서 관리자 메뉴를 보지 못한다", async () => {
-    loginAs({ member_type: "student", role: "user" });
-    renderHeader();
-    await screen.findByRole("link", { name: /최관리 님/ });
+    await renderAs({ member_type: "student", role: "user" });
 
-    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+    const drawer = await openDrawer();
 
-    const drawer = await screen.findByRole("dialog");
     expect(
-      within(drawer).queryByRole("link", { name: "관리자 메뉴" }),
+      drawer.queryByRole("link", { name: "관리자 메뉴" }),
     ).not.toBeInTheDocument();
   });
-});
 
-describe("b2b Header 데스크톱 관리자 진입", () => {
-  it("관리자는 계정 영역에 관리자 메뉴 링크가 있고 학생은 없다", async () => {
-    loginAs({ member_type: "student", role: "admin" });
-    const { unmount } = renderHeader();
-    await screen.findByRole("link", { name: /최관리 님/ });
+  it("관리자는 데스크톱 계정 영역에 관리자 메뉴 링크가 있다", async () => {
+    await renderAs({ member_type: "student", role: "admin" });
 
     expect(screen.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
       "href",
       "/admin",
     );
+  });
 
-    unmount();
-    loginAs({ member_type: "student", role: "user" });
-    renderHeader();
-    await screen.findByRole("link", { name: /최관리 님/ });
+  it("학생은 데스크톱 계정 영역에 관리자 메뉴 링크가 없다", async () => {
+    await renderAs({ member_type: "student", role: "user" });
 
     expect(
       screen.queryByRole("link", { name: "관리자 메뉴" }),
