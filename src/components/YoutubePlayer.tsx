@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
+type YtPlayer = { destroy: () => void };
 type YtApi = {
   Player: new (
     el: HTMLIFrameElement,
     opts: { host: string; events: { onError: () => void } },
-  ) => unknown;
+  ) => YtPlayer;
 };
 type YtWindow = Window & {
   YT?: YtApi;
@@ -45,6 +46,7 @@ type YoutubePlayerProps = {
 /**
  * 유튜브 임베드(16:9). 플레이어가 오류를 알리면(비공개, 삭제, 퍼가기 막힘 등 모든 onError)
  * 플레이어 자리에 재생 불가 안내를 보인다(W2 unavailable). 스크립트를 못 불러오면 iframe을 그대로 둔다.
+ * IFrame API가 건드리는 iframe은 React가 아닌 effect가 컨테이너 안에 직접 만들고, 정리할 때 destroy한다.
  * 영상이 바뀌면 호출하는 쪽이 key로 다시 마운트한다.
  */
 export default function YoutubePlayer({
@@ -52,15 +54,26 @@ export default function YoutubePlayer({
   title,
   autoplay,
 }: YoutubePlayerProps) {
-  const frameRef = useRef<HTMLIFrameElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const frame = document.createElement("iframe");
+    frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}${autoplay ? "&autoplay=1" : ""}`;
+    frame.title = title;
+    frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+    frame.allowFullscreen = true;
+    frame.className = "aspect-video w-full border-0";
+    container.appendChild(frame);
+
     let alive = true;
+    let player: YtPlayer | null = null;
     loadYoutubeApi()
       .then((yt) => {
-        if (!alive || !frameRef.current) return;
-        new yt.Player(frameRef.current, {
+        if (!alive) return;
+        player = new yt.Player(frame, {
           host: "https://www.youtube-nocookie.com",
           events: { onError: () => alive && setFailed(true) },
         });
@@ -68,8 +81,10 @@ export default function YoutubePlayer({
       .catch(() => {});
     return () => {
       alive = false;
+      player?.destroy();
+      container.replaceChildren();
     };
-  }, []);
+  }, [videoId, title, autoplay]);
 
   if (failed) {
     return (
@@ -82,15 +97,5 @@ export default function YoutubePlayer({
     );
   }
 
-  const src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}${autoplay ? "&autoplay=1" : ""}`;
-  return (
-    <iframe
-      ref={frameRef}
-      src={src}
-      title={title}
-      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-      allowFullScreen
-      className="aspect-video w-full border-0"
-    />
-  );
+  return <div ref={containerRef} />;
 }

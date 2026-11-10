@@ -58,6 +58,7 @@ describe("VideoPlayerDialog", () => {
         constructor(_el: unknown, opts: { events: (typeof created)[number] }) {
           created.push(opts.events);
         }
+        destroy() {}
       },
     };
     render(<Harness />);
