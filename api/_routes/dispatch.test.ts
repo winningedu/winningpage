@@ -27,4 +27,96 @@ describe("dispatch", () => {
     expect(handler).toHaveBeenCalledExactlyOnceWith(req, res);
     expect(other).not.toHaveBeenCalled();
   });
+
+  test.each([
+    ["/api/goal/advice?x=1", "goal/advice"],
+    ["/api/change-phone/", "change-phone"],
+  ])("%s 는 쿼리와 끝 슬래시를 떼고 %s 로 찾는다", async (url, key) => {
+    const handler = vi.fn();
+    const res = makeRes();
+
+    await dispatch(
+      { [key]: async () => ({ default: handler }) },
+      makeReq(url),
+      res,
+    );
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test("없는 경로는 로더를 부르지 않고 404 NOT_FOUND 를 응답한다", async () => {
+    const loader = vi.fn(async () => ({ default: vi.fn() }));
+    const res = makeRes();
+
+    await dispatch({ "goal/advice": loader }, makeReq("/api/nope"), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "NOT_FOUND" });
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  test.each(["__proto__", "constructor", "toString", "hasOwnProperty"])(
+    "프로토타입 키 %s 는 404 다",
+    async (key) => {
+      const res = makeRes();
+
+      await dispatch({}, makeReq(`/api/${key}`), res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: "NOT_FOUND" });
+    },
+  );
+
+  test("req.url 이 없으면 던지지 않고 404 다", async () => {
+    const res = makeRes();
+
+    await dispatch({}, makeReq(undefined), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  test("req.query 와 req.url 을 바꾸지 않는다", async () => {
+    const req = makeReq("/api/goal/advice?x=1", { x: "1" });
+    const res = makeRes();
+
+    await dispatch(
+      { "goal/advice": async () => ({ default: vi.fn() }) },
+      req,
+      res,
+    );
+
+    expect(req.url).toBe("/api/goal/advice?x=1");
+    expect(req.query).toEqual({ x: "1" });
+  });
+
+  test("로더가 거부되면 응답 없이 그대로 전파한다", async () => {
+    const res = makeRes();
+    const routes = {
+      broken: async () => {
+        throw new Error("load failed");
+      },
+    };
+
+    await expect(dispatch(routes, makeReq("/api/broken"), res)).rejects.toThrow(
+      "load failed",
+    );
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test("핸들러가 거부되면 응답 없이 그대로 전파한다", async () => {
+    const res = makeRes();
+    const routes = {
+      boom: async () => ({
+        default: async () => {
+          throw new Error("handler failed");
+        },
+      }),
+    };
+
+    await expect(dispatch(routes, makeReq("/api/boom"), res)).rejects.toThrow(
+      "handler failed",
+    );
+    expect(res.status).not.toHaveBeenCalled();
+  });
 });
