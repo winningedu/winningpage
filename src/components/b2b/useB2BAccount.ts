@@ -85,8 +85,8 @@ export function useB2BAccount(): B2BAccount {
         name: cleanText(profile?.name),
         memberLabel,
         myMenuRole: resolveMyMenuRole({
-          role: profile?.role,
-          memberType: profile?.member_type,
+          role: profile?.role ?? null,
+          memberType: profile?.member_type ?? null,
         }),
         orgName: await fetchOrgName(),
       };
