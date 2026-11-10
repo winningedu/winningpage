@@ -10,6 +10,7 @@ import {
 } from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { assertQaAdminMayWrite } from "../../_lib/qaAccount.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -41,6 +42,8 @@ export default defineHandler({
       sendError(res, "coded", 403, "대행 권한이 없습니다.", "FORBIDDEN");
       return;
     }
+
+    await assertQaAdminMayWrite(ctx.supabaseAdmin, ctx.userId as string);
     const body = parseBody(req.body);
     if (!body) {
       sendError(

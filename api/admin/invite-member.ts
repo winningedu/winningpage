@@ -38,6 +38,7 @@ import type { VercelRequest } from "@vercel/node";
 import { getBearerToken } from "../_lib/adminAuth.js";
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { assertQaAdminMayWrite } from "../_lib/qaAccount.js";
 import { getEnv } from "../_lib/supabaseAdmin.js";
 
 export const config = { runtime: "nodejs" };
@@ -122,6 +123,8 @@ export default defineHandler({
     if (!auth.ok) {
       return void sendError(res, "detail", auth.status, auth.detail);
     }
+
+    await assertQaAdminMayWrite(supabaseAdmin, auth.userId);
 
     const body = (req.body || {}) as {
       email?: string;

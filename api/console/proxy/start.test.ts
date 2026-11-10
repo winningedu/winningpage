@@ -36,6 +36,12 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
       return Promise.resolve({ data: null, error: null });
     },
     from: (table: string) => ({
+      // QA 계정 조회(qa_accounts): 이 파일의 관리자는 QA 가 아니다.
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        }),
+      }),
       insert: (row: Record<string, unknown>) => {
         state.inserts.push({ table, row });
         return Promise.resolve({ error: state.logError });
