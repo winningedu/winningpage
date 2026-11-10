@@ -41,4 +41,11 @@ describe("useMemberType 관리자 통과", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.memberType).toBe("mentor");
   });
+
+  it("앞뒤 공백이 있는 member_type 도 다듬어서 판정한다", async () => {
+    profileRow.current = { member_type: " Parent ", role: "user" };
+    const { result } = renderHook(() => useMemberType());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.memberType).toBe("parent");
+  });
 });

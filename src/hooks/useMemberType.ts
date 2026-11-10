@@ -85,7 +85,9 @@ export function useMemberType() {
       // 관리자는 학생과 같은 경로로 통과시킨다(memberAccess.ts).
       setMemberType(
         resolvePublicMemberType({
-          memberType: String(profile?.member_type || "").toLowerCase(),
+          memberType: String(profile?.member_type || "")
+            .trim()
+            .toLowerCase(),
           role: profile?.role ?? null,
         }),
       );

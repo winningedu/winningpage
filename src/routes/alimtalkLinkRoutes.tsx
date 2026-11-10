@@ -147,7 +147,7 @@ function GoalReportRedirect() {
 
   // 세션 + 회원유형이 아직 확정 전이면 아무것도 그리지 않는다 — 학생/학부모
   // 분기를 잘못 그렸다가 다시 갈아엎는 깜빡임을 피한다.
-  const { loading: memberLoading, memberType } = useMemberType();
+  const { loading: memberLoading, userId, memberType } = useMemberType();
   const isParent = memberType === "parent";
   const children = useApprovedChildren(isParent);
 
@@ -157,7 +157,7 @@ function GoalReportRedirect() {
   // 로그인 후엔 세션이 생겨 이 컴포넌트가 다시 평가되고, 그때는 회원유형에
   // 맞는 목적지로 정확히 갈라진다(login 화면들이 쓰는 ?redirect= 관례,
   // src/lib/routeMiddleware.ts loginRedirect 참고).
-  if (!memberType) {
+  if (!userId) {
     const target = `${location.pathname}${location.search}`;
     return (
       <Navigate to={`/login?redirect=${encodeURIComponent(target)}`} replace />

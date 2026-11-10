@@ -41,9 +41,10 @@ export default function Pricing() {
   if (!userId) return <PricingSelling />;
 
   // 조회 자체가 실패했으면 회원 유형을 알 수 없다 — "차단"이 아니라 "일시
-  // 오류"로 다뤄 재시도를 준다. memberType===null(가입 미완료)과 원인이
-  // 다르므로 아래 BlockedMemberNotice 로 묶지 않는다(그 문구는 "가입을
-  // 완성해 달라"인데, 조회 실패는 사용자가 고칠 방법이 없는 상태다).
+  // 오류"로 다뤄 재시도를 준다. memberType==="" (로그인했지만 가입 미완료)와
+  // 원인이 다르므로 아래 BlockedMemberNotice 로 묶지 않는다(그 문구는 "가입을
+  // 완성해 달라"인데, 조회 실패는 사용자가 고칠 방법이 없는 상태다). null은
+  // 게스트이거나 조회 실패일 때만 나온다.
   if (error) return <MemberTypeRetryNotice onRetry={refetch} />;
 
   if (memberType === "student") return <StudentEnrollmentRequest />;
