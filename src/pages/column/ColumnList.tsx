@@ -137,7 +137,7 @@ export default function ColumnList() {
               </div>
             ) : visibleRows.length === 0 ? (
               <div className="py-24 text-center text-sm font-bold text-gray-400">
-                등록된 {site.columnTitle}이 없습니다.
+                {site.boardEmpty ?? `등록된 ${site.columnTitle}이 없습니다.`}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">
