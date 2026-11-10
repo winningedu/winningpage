@@ -19,11 +19,13 @@ import audienceDesign from "@/assets/services/research/audience-design.png";
 import audienceReview from "@/assets/services/research/audience-review.png";
 import audienceTopic from "@/assets/services/research/audience-topic.png";
 import { SURVEY_QUESTION_COUNT } from "@/components/growth/survey/surveyLabels";
+import { useServiceStart } from "@/components/service/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 import ServiceSection from "@/components/services/ServiceSection";
+import { siteWording } from "@/config/wording";
 import { useInView } from "@/hooks/useInView";
 import { getDemoAccessState } from "@/lib/demoAccess";
 import GrowthFeatureCards from "./growthLanding/GrowthFeatureCards";
@@ -55,7 +57,9 @@ const PROCESS_STEPS = [
   },
   {
     title: "활동 자료 모으기",
-    desc: "위닝에서 만든 활동 기록을 모읍니다. 빈 학기는 자기평가서로 채웁니다.",
+    desc: siteWording(
+      "위닝에서 만든 활동 기록을 모읍니다. 빈 학기는 자기평가서로 채웁니다.",
+    ),
   },
   {
     title: "리포트 생성",
@@ -136,7 +140,9 @@ const STAGE_CONTENT: Record<string, GrowthTabCard[]> = {
       title: "성적 추이와 입결 대비 위치",
       desc: "5등급제・9등급제를 구분하고, 학기별 추이와 전년도 입결 대비 위치를 봅니다.",
       icon: iconTablet,
-      example: "위닝 내부 기준의 참고 위치이며 합격 가능성 예측이 아닙니다",
+      example: siteWording(
+        "위닝 내부 기준의 참고 위치이며 합격 가능성 예측이 아닙니다",
+      ),
     },
   ],
   "남은 기간 설계": [
@@ -274,7 +280,9 @@ const PRINCIPLES = [
 const FAQ_ITEMS = [
   {
     q: "어떤 자료를 분석하나요?",
-    a: `학생이 위닝에서 직접 만든 활동 기록과 학생 설문(${SURVEY_QUESTION_COUNT}문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.`,
+    a: siteWording(
+      `학생이 위닝에서 직접 만든 활동 기록과 학생 설문(${SURVEY_QUESTION_COUNT}문항) 응답을 분석합니다. 기록이 비어 있는 학기는 자기평가서를 올려 채울 수 있으며, 이때 주제・개념・결과・한계 네 항목만 추출하고 원문은 저장하지 않습니다.`,
+    ),
   },
   {
     q: "AI가 활동이나 글을 대신 만들어 주나요?",
@@ -282,7 +290,9 @@ const FAQ_ITEMS = [
   },
   {
     q: "진단은 어떤 기준으로 하나요?",
-    a: "위닝 A~E 5축(학업역량・진로・전공적합성・탐구・자기주도성・공동체역량・발전가능성)을 학년별 기준에 비춰 확인됨・주의・아직 없음으로 판정합니다. 모든 진단은 위닝 내부 기준이며, 대학의 평가 결과나 합격 가능성 예측이 아닙니다.",
+    a: siteWording(
+      "위닝 A~E 5축(학업역량・진로・전공적합성・탐구・자기주도성・공동체역량・발전가능성)을 학년별 기준에 비춰 확인됨・주의・아직 없음으로 판정합니다. 모든 진단은 위닝 내부 기준이며, 대학의 평가 결과나 합격 가능성 예측이 아닙니다.",
+    ),
   },
   {
     q: "결과물은 어떻게 활용하나요?",
@@ -295,7 +305,9 @@ const FAQ_ITEMS = [
 ];
 
 const NOTE_LINES = [
-  "모든 진단은 위닝 내부 기준이며 대학의 평가 결과나 합격 가능성이 아닙니다.",
+  siteWording(
+    "모든 진단은 위닝 내부 기준이며 대학의 평가 결과나 합격 가능성이 아닙니다.",
+  ),
   "화면의 예시는 가상 학생의 데모 데이터이며 실제 학생의 이름・소속은 포함되어 있지 않습니다.",
 ];
 
@@ -310,6 +322,10 @@ function HeroSection() {
     boolean,
   ];
   const navigate = useNavigate();
+  const { requestStart, startDialogs } = useServiceStart({
+    to: GROWTH_APP_ROUTE,
+    resultNotice: false,
+  });
 
   // 비로그인은 /login 으로 보내 복귀지를 앱 경로로 남긴다. 이용권 판정은 앱 라우트가 맡는다.
   async function handleHeroCta(event?: MouseEvent<HTMLButtonElement>) {
@@ -375,11 +391,12 @@ function HeroSection() {
 
         <button
           type="button"
-          onClick={handleHeroCta}
+          onClick={(event) => requestStart(() => handleHeroCta(event))}
           className="mt-6 inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] bg-primary px-8 text-base font-semibold text-white shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] transition hover:bg-[#01498F] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]"
         >
           지금 시작하기
         </button>
+        {startDialogs}
 
         <ServiceHeroBrowserFrame>
           <img
@@ -402,7 +419,7 @@ export default function GrowthDesign() {
         className="lg:pt-20"
         heading={
           <>
-            위닝 성장설계의
+            {siteWording("위닝 성장설계의")}
             <br />
             <span className="text-primary">4단계 핵심 프로세스</span>
           </>
