@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import MobileNavDrawer from "./MobileNavDrawer";
 import { buildMyMenu, resolveMyMenuRole } from "./myMenuItems";
+import { resolveUserType } from "./userType";
 
 const CSAT_DATE = "2026-11-19";
 const HEADER_PROFILE_CACHE_KEY = "winning-header-profile";
@@ -663,6 +664,12 @@ export default function Header() {
     memberType: profile?.member_type ?? null,
   });
   const myMenuItems = buildMyMenu(myMenuRole);
+  // 수능 D-day는 수험생인 학생에게만 보인다(관리자, 학부모, 멘토 제외).
+  const showCsatDDay =
+    resolveUserType({
+      role: profile?.role ?? null,
+      memberType: profile?.member_type ?? null,
+    }) === "student";
 
   // 메가 패널 콘텐츠(모든 navGroups 컬럼)는 activeMega와 무관하게 항상 동일하다(어떤
   // 그룹을 hover해도 5개 컬럼 전체가 함께 보이는 구조 — activeMega는 nav 버튼 하이라이트와
@@ -758,9 +765,11 @@ export default function Header() {
             }}
             onMouseLeave={scheduleMegaClose}
           >
-            <span className="shrink-0 whitespace-nowrap rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
-              {csatDDay}
-            </span>
+            {showCsatDDay && (
+              <span className="shrink-0 whitespace-nowrap rounded-sm bg-primary px-2.5 py-1 text-xs text-white">
+                {csatDDay}
+              </span>
+            )}
 
             <div className="flex shrink-0 items-center gap-2">
               <Link
@@ -1291,7 +1300,7 @@ export default function Header() {
         displayName={displayName}
         memberLabel={memberLabel}
         myMenuRole={myMenuRole}
-        csatDDay={csatDDay}
+        csatDDay={showCsatDDay ? csatDDay : ""}
         onLogout={handleLogout}
         triggerRef={mobileNavTriggerRef}
         activeGroupTitle={activePathTitle}

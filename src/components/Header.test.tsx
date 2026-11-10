@@ -573,3 +573,69 @@ describe("Header 로그아웃과 학습진단 초안", () => {
     expect(localStorage.getItem("other-key")).toBe("keep");
   });
 });
+
+describe("Header 수능 D-day 배지는 학생에게만", () => {
+  async function renderAs(profile: { member_type: string; role: string }) {
+    mockProfileRow = {
+      id: "u7",
+      email: "d@test.com",
+      name: "최계정",
+      ...profile,
+    };
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u7", email: "d@test.com" } },
+      user: { id: "u7", email: "d@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+    await screen.findByRole("link", { name: "마이페이지" });
+  }
+
+  it("학생은 데스크톱 헤더에 D-day 배지가 있다", async () => {
+    await renderAs({ member_type: "student", role: "user" });
+
+    expect(screen.getByText(/^수능 D/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["관리자", { member_type: "student", role: "admin" }],
+    ["학부모", { member_type: "parent", role: "user" }],
+    ["멘토", { member_type: "mentor", role: "user" }],
+  ])("%s는 데스크톱 헤더에 D-day 배지가 없다", async (_label, profile) => {
+    await renderAs(profile);
+
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: "학생",
+      profile: { member_type: "student", role: "user" },
+      count: 2,
+    },
+    {
+      label: "관리자",
+      profile: { member_type: "student", role: "admin" },
+      count: 0,
+    },
+    {
+      label: "학부모",
+      profile: { member_type: "parent", role: "user" },
+      count: 0,
+    },
+    {
+      label: "멘토",
+      profile: { member_type: "mentor", role: "user" },
+      count: 0,
+    },
+  ])(
+    "$label 드로어를 열어도 D-day 배지는 데스크톱 포함 $count개다",
+    async ({ profile, count }) => {
+      await renderAs(profile);
+      fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+      await screen.findByRole("dialog");
+
+      expect(screen.queryAllByText(/^수능 D/)).toHaveLength(count);
+    },
+  );
+});
