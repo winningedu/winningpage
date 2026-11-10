@@ -10,7 +10,7 @@
       "destination": "/api/router-60"
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/((?!(?:.*/)?\\.\\.?(?:/|$)).*)",
       "destination": "/api/router"
     },
     {

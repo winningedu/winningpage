@@ -164,7 +164,13 @@ describe("vercel.json 라우터 rewrite", () => {
     expect(vercelJson.rewrites.slice(0, 3)).toEqual([
       { source: alternation(routes30), destination: "/api/router-30" },
       { source: alternation(routes60), destination: "/api/router-60" },
-      { source: "/api/(.*)", destination: "/api/router" },
+      // Vercel 은 원본 경로로 source 를 맞춰 보고 함수에는 정규화된 req.url 을 넘긴다.
+      // 그래서 /api/goal/../change-phone 이 catch-all 에 걸린 뒤 /api/change-phone 으로 도착한다.
+      // catch-all 은 . 과 .. 구간이 있는 경로를 받지 않아야 한다.
+      {
+        source: "/api/((?!(?:.*/)?\\.\\.?(?:/|$)).*)",
+        destination: "/api/router",
+      },
     ]);
   });
 });
@@ -193,6 +199,39 @@ describe("vercel.json rewrite 시뮬레이션", () => {
     });
 
     expect(misrouted).toEqual([]);
+  });
+
+  test("점 구간이 있는 경로는 어떤 rewrite 에도 걸리지 않는다", () => {
+    const dotSegmentPaths = [
+      "/api/goal/../change-phone",
+      "/api/./change-phone",
+      "/api/..",
+      "/api/a/..",
+      "/api/a/../",
+      "/api/../x",
+      "/api/growth/report/../../change-phone",
+      "/api/selfeval/./session",
+    ];
+
+    const matched = dotSegmentPaths.filter((url) =>
+      compiled.some(({ pattern }) => pattern.test(url)),
+    );
+
+    expect(matched).toEqual([]);
+  });
+
+  test("점이 들어 있어도 구간 전체가 점이 아니면 catch-all 에 걸린다", () => {
+    const catchAll = new RegExp(`^${vercelJson.rewrites[2]?.source}$`);
+    const missed = [
+      "/api/change-phone",
+      "/api/change-phone/",
+      "/api/goal/advice",
+      "/api/.well-known/x",
+      "/api/foo..bar",
+      "/api/nonexistent",
+    ].filter((url) => !catchAll.test(url));
+
+    expect(missed).toEqual([]);
   });
 });
 
