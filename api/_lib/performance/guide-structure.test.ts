@@ -2,7 +2,7 @@
 //
 // `guideTextFromSession`은 우리 저장소에만 있는 어댑터다 — 세션이 upload/
 // manual 중 어느 모드인지에 따라 `guide_json.text` / `guide_freetext` 중
-// 어느 컬럼을 읽어 판정에 넘길지를 결정한다(§8.3, api/performance/analyze-guide.ts).
+// 어느 컬럼을 읽어 판정에 넘길지를 결정한다(§8.3, api/_routes/performance/analyze-guide.ts).
 // 이 배선이 조용히 틀어지면 안내문 판정 자체는 멀쩡한데 엉뚱한 텍스트를
 // 판정하게 된다.
 import { describe, expect, test } from "vitest";

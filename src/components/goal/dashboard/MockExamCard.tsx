@@ -29,7 +29,7 @@ type MockExamCardData = {
   advice?: string;
 };
 
-// api/goal/grades.js 회차 기록 — mockRecords 원소. recentHistory()가 delta 를 파생시켜 붙인다.
+// api/_routes/goal/grades.js 회차 기록 — mockRecords 원소. recentHistory()가 delta 를 파생시켜 붙인다.
 // (index signature 대신 실제 쓰는 필드만 선언 — goalApi.ts 의 GoalGradeRecord 는 index
 // signature 가 없어 구조적 할당 시 인덱스 시그니처 요구가 오히려 막힌다, 판단 지점)
 type MockGradeRecord = {

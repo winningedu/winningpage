@@ -1,5 +1,5 @@
 // STEP2 안내문 직접 입력(`freetext`) 글자 수 상한 — 프론트(`ManualInfoForm`)와
-// 서버(`api/performance/analyze-guide.ts`)가 함께 읽는 단일 정본이다.
+// 서버(`api/_routes/performance/analyze-guide.ts`)가 함께 읽는 단일 정본이다.
 //
 // 근거: QA 시트 행 194(사용자 확정값 1000자).
 //

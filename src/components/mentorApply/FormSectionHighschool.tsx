@@ -34,7 +34,7 @@ export const HIGHSCHOOL_REQUIRED_FIELDS = [
 
 const CSAT_SUMMARY_MAX_LENGTH = 200;
 
-// 내신 평균 — 서버(api/mentor-apply.js)가 0~9.99 숫자로 받고 소수 2자리로 반올림한다.
+// 내신 평균 — 서버(api/_routes/mentor-apply.js)가 0~9.99 숫자로 받고 소수 2자리로 반올림한다.
 // 한 자리 정수 + 소수점 이하 최대 2자리만 허용해 "1.87" 같은 입력만 통과시킨다.
 const GPA_PATTERN = /^[0-9](\.[0-9]{1,2})?$/;
 

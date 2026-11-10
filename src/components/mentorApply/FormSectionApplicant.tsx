@@ -11,7 +11,7 @@
 //   폼 라이브러리는 도입하지 않는다.
 //
 // 필드 name 은 DB 컬럼명(sql/52_mentor_applications.sql) / 제출 API 본문 키
-//   (api/mentor-apply.js)와 **문자 그대로 동일**하다. 화면 상태 객체를 그대로 JSON 으로
+//   (api/_routes/mentor-apply.js)와 **문자 그대로 동일**하다. 화면 상태 객체를 그대로 JSON 으로
 //   보낼 수 있어야 매핑 테이블이라는 무의미한 중간 계층이 생기지 않는다.
 //
 // ⚠ `phone` 은 이 섹션(1-3 휴대폰 번호)과 5번 섹션(5-2 휴대폰 본인인증)이 **같은 키를 공유**한다.
@@ -132,7 +132,7 @@ export default function FormSectionApplicant({
           onChange={handle("name")}
           placeholder="이름을 입력 해주세요"
           autoComplete="name"
-          // 서버 상한(api/mentor-apply.js FIELD_SPECS)과 동일하게 맞춰 둔다. 클라에서 넘길 수
+          // 서버 상한(api/_routes/mentor-apply.js FIELD_SPECS)과 동일하게 맞춰 둔다. 클라에서 넘길 수
           // 없는 값이면 서버가 거절할 일도 없다.
           maxLength={50}
           error={errors.name}

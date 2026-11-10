@@ -22,7 +22,7 @@ export function formatClock(totalSeconds: number) {
 // 진행바 채움은 반드시 elapsed/target 비례로 계산한다 — 시안은 4카드 모두 83/340(24.4%)로
 // 목표·경과가 다 다른데도 동일해 "시안 미갱신"으로 판단했다(part-09 §78, 작업 지시 확정 사항 §2).
 //
-// elapsedSeconds·running·targetHours는 전부 서버(api/goal/timer.js)가 준 값을 부모(Timer.jsx)가
+// elapsedSeconds·running·targetHours는 전부 서버(api/_routes/goal/timer.js)가 준 값을 부모(Timer.jsx)가
 // 조립한 것이다 — 이 컴포넌트 자체는 클라이언트 초 계산을 하지 않는다(초 단위 표시 갱신은
 // 부모의 1초 틱이 elapsedSeconds를 다시 계산해 내려주는 방식).
 //

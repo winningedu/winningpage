@@ -1,13 +1,13 @@
 // 성적 관리(#35) + 대시보드 모의고사/내신 카드가 공유하는 순수 파생 함수.
 //
-// api/goal/grades.js 의 회차 레코드({term, value, subjects, ...})를 화면이 쓰는 두 모양으로
+// api/_routes/goal/grades.js 의 회차 레코드({term, value, subjects, ...})를 화면이 쓰는 두 모양으로
 // 바꾼다: GoalTable 행(과목별 값 + 평균), KPI/이력 카드용 "최신값·직전 대비 증감".
 //
 // ⚠ 여기 있는 산술은 전부 단순 뺄셈·평균이다. src/lib/goal/calc/ 의 확률 파이프라인과는
 // 무관하다 — 성적 기록 UoW 스코프(팀장 확정)가 "확률 재계산 없음"이라 calc 모듈을 아예
 // import 하지 않는다.
 
-// api/goal/grades.js 회차 레코드 — 호출부(NaesinCard/MockExamCard)가 각자 로컬 타입을
+// api/_routes/goal/grades.js 회차 레코드 — 호출부(NaesinCard/MockExamCard)가 각자 로컬 타입을
 // 이미 선언해 쓰고 있어(예: MockGradeRecord) 여기서는 이 모듈이 실제로 읽는 필드만
 // 최소 구조로 잡는다(넓은 index signature 로 호출부의 로컬 타입과 구조적으로 호환된다).
 interface GoalGradeRecordLike {
@@ -29,7 +29,7 @@ export function round1(value: number | null | undefined): number | null {
 
 /**
  * 회차 자연 순서(응시/입력 시점) 정렬 키 — 모의고사는 examDate, 내신은 enteredAt을 쓴다
- * (api/goal/grades.ts validateEntry가 채우는 필드, 둘 중 하나만 존재). 둘 다 없는
+ * (api/_routes/goal/grades.ts validateEntry가 채우는 필드, 둘 중 하나만 존재). 둘 다 없는
  * 방어적 상황(레거시 데이터)에서는 recordedAt(저장 시각)으로 대체한다.
  */
 function examOrderKey(record: GoalGradeRecordLike): string {
@@ -41,7 +41,7 @@ function examOrderKey(record: GoalGradeRecordLike): string {
 
 /**
  * QA 행288 — latestKpi()/recentHistory()가 배열의 "마지막 원소"를 최신으로 간주해 왔는데,
- * api/goal/grades.ts upsertRecord()는 회차를 그냥 배열 끝에 append한다. 사용자가 회차를
+ * api/_routes/goal/grades.ts upsertRecord()는 회차를 그냥 배열 끝에 append한다. 사용자가 회차를
  * 시간순과 다르게(예: 지난 시험을 나중에 추가) 입력하면 증감이 뒤바뀐다.
  *
  * 회차 라벨(term)은 내신은 자유 입력이라 정렬 키로 못 쓴다("고1 3월" 같은 상수 목록이
@@ -64,7 +64,7 @@ export function sortByExamOrder<T extends GoalGradeRecordLike>(
   );
 }
 
-/** api/goal/grades.js 회차 레코드 배열 → GoalTable rows({term, korean, math, english, science, average}). */
+/** api/_routes/goal/grades.js 회차 레코드 배열 → GoalTable rows({term, korean, math, english, science, average}). */
 export function toTableRows(records: GoalGradeRecordLike[] | null | undefined) {
   return (records || []).map((record) => ({
     term: record.term,

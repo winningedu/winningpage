@@ -41,7 +41,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
   적용하는 것이 계약과 일관된다.
 - **영향 범위**: `isPreHighStudent` 이고 `remainingNaesin` 오버라이드를 명시적으로
   주는 호출자만. 기존 203개 골든 테스트는 이 오버라이드를 넘기는 픽스처가 0건이라
-  전부 그대로 통과한다(직접 grep 확인). `api/goal/intake.js` 의 `NAESIN_NONE_REMAINING`
+  전부 그대로 통과한다(직접 grep 확인). `api/_routes/goal/intake.js` 의 `NAESIN_NONE_REMAINING`
   표가 고1 을 추가로 채워 이 경로를 처음 실사용한다.
 - **상태**: **수정함** (`pipeline.js:219-237`, 2026-08-12)
 
@@ -53,7 +53,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
 - **원본 동작**: 해당 없음(원본은 이 조합에서 고1 을 다루지 않는다).
 - **우리 동작(수정 전)**: `pipeline.js` 의 `getRemainingMogo` 자체에는
   `isPreHighStudent` 가드가 없다(오버라이드를 처음부터 존중했다). 문제는 호출부
-  `api/goal/intake.js` 의 `MOGO_NONE_REMAINING` 표에 고1 키가 없어 `?? null` 로
+  `api/_routes/goal/intake.js` 의 `MOGO_NONE_REMAINING` 표에 고1 키가 없어 `?? null` 로
   `remainingMogo=null` 이 되고, `getRemainingMogo(grade, lastMogo='', null)` 이
   `${grade}_` 키로 표를 조회해 미매칭 → 0 이 됐다(실제 잔여는 14).
 - **우리 동작(수정 후)**: `MOGO_NONE_REMAINING` 에 `고1: 14`(총량 그대로 — "작년
@@ -64,7 +64,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
 - **영향 범위**: `input.mockAllNone` 이고 `inputGrade === '고1'` 인 온보딩 요청의
   `remain_mogo` 저장값. `currentMogo` 가 0 이라 정시 확률 자체에는 영향이 없다
   (게이트에서 0 으로 걸림, `pipeline.js:227-228`) — 저장값 정확성만의 문제였다.
-- **상태**: **수정함** (`api/goal/intake.js` `MOGO_NONE_REMAINING`, 2026-08-12)
+- **상태**: **수정함** (`api/_routes/goal/intake.js` `MOGO_NONE_REMAINING`, 2026-08-12)
 
 ### #3 고1 내신전무 + 모의는 있음 → `'중3_10모'` 키 미매칭으로 `remainMogo` 0
 
@@ -78,21 +78,21 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
   잔여 회차가 0 으로 떨어졌다.
 - **우리 동작(수정 후)**: `isMiddleSubstituted` 분기에서 치환 **전** 학년
   (`inputGrade`, 즉 `'고1'`)으로 같은 엔진 함수(`getRemainingMogo`)를 호출해 값을
-  만들어 오버라이드로 넘긴다(`api/goal/intake.js:649-653`). 표를 베껴 쓰지 않고
+  만들어 오버라이드로 넘긴다(`api/_routes/goal/intake.js:649-653`). 표를 베껴 쓰지 않고
   같은 함수를 재사용한다.
 - **이탈 이유**: `primitives.js` 의 표 자체는 원본 그대로 유지한다(손대지 않음,
   `NOTE(target-parity)` 대상) — 호출부에서 조회 학년을 우회해 미매칭을 피했다.
   "새로 여는 문(고1+내신전무+모의있음 경로는 이전엔 400 으로 막혀 있었다) 뒤에
   알려진 오작동을 두지 않는다"는 원칙에 따른 수정.
 - **영향 범위**: 고1 + 내신 전 회차 없음 + 모의고사는 실제로 봄, 조합 하나.
-- **상태**: **수정함** (`api/goal/intake.js`, `c37ac77`, 2026-08-11)
+- **상태**: **수정함** (`api/_routes/goal/intake.js`, `c37ac77`, 2026-08-11)
 
 ### #4 `'중3'` 학년 치환 리터럴이 DB 저장값으로 새어나감
 
 - **원본 위치**: 해당 없음(우리 구현 전용 특례 — 원본에는 이 치환 개념 자체가
   없다).
 - **원본 동작**: N/A.
-- **우리 동작(수정 전)**: `api/goal/intake.js` 의 `grade`(엔진 호출용 치환값
+- **우리 동작(수정 전)**: `api/_routes/goal/intake.js` 의 `grade`(엔진 호출용 치환값
   `'중3'`)를 그대로 `goal_students.grade` 행에 저장했다 — 고1 학생이 화면에
   "중3"으로 표시됐다.
 - **우리 동작(수정 후)**: DB 에는 `inputGrade`(학생이 실제로 고른 `'고1'`)를
@@ -106,7 +106,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
   유일하다(grep 재확인 — 계산 로직 소비처 0건, 특례 식별자는 이미
   `naesin_scores.priorNaesinGrade` 로 행에 남아 있다). 계산 결과에는 영향이 없다.
 - **상태**: **수정함** (우리 쪽 표시 버그로 분류, 원본과의 이탈이 아님)
-  (`api/goal/intake.js`, 2026-08-12)
+  (`api/_routes/goal/intake.js`, 2026-08-12)
 
 ### #5 학원 1건당 이동시간 공제 — 원본 1h → 우리 0.5h
 
@@ -118,7 +118,7 @@ listed here should be considered bugs"*). 계산 모듈과 원본이 다르게 �
 - **우리 동작**: `calcAvailableHours(day, hasSchool, commuteHours)` 세 번째
   인자로 파라미터화했다. 함수 기본값은 여전히 `1`(원본 파리티 — 기존 골든
   픽스처가 이 기본값을 전제로 고정돼 있어 그대로 둔다). 실사용 호출부
-  (`api/goal/intake.js` `buildWeeklySchedule` → `calculateWeekSchedule({ …,
+  (`api/_routes/goal/intake.js` `buildWeeklySchedule` → `calculateWeekSchedule({ …,
   commuteHours: ACADEMY_COMMUTE_HOURS })`, `schedule.js` 신설 상수)는 `0.5`
   를 명시로 넘긴다.
 - **이탈 이유**: **2026-09-02 사용자 결정: 학원 이동시간 0.5h(QA 행293)**.

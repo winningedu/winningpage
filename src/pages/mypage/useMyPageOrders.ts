@@ -92,7 +92,7 @@ export function useMyPageOrders(user: SessionUser | null) {
       supabase
         .from("orders")
         // 가상계좌는 승인 직후 paid 가 아니라 waiting_deposit 으로 기록된다
-        // (api/confirm-payment.js — 계좌 발급만 끝난 상태). paid 만 조회하면 입금 전
+        // (api/_routes/confirm-payment.js — 계좌 발급만 끝난 상태). paid 만 조회하면 입금 전
         // 주문이 마이페이지에서 통째로 사라지므로 두 상태를 함께 읽고, 배지·환불 대상
         // 판정을 위해 status 도 가져온다.
         //

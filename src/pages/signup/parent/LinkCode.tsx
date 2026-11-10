@@ -9,7 +9,7 @@
 // py100/gap40과 불일치 — 이 페이지는 py100/gap40(다수 규칙)을 유지, 시안 쪽 확인 필요.
 //
 // 조회 한도가 있어서 디바운스가 필수다
-//   서버가 시간당 조회 30회 / 실패 10회로 끊는다(api/lookup-child.js). 6자가 채워질
+//   서버가 시간당 조회 30회 / 실패 10회로 끊는다(api/_routes/lookup-child.js). 6자가 채워질
 //   때마다 즉시 쏘면 오타 몇 번에 한도가 차버려서, 입력이 멎은 뒤에 한 번만 보낸다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";

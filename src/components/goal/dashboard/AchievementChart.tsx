@@ -53,7 +53,7 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
-// goal_probability_logs 이력 1건 — api/goal/student.js probabilityHistory 원소.
+// goal_probability_logs 이력 1건 — api/_routes/goal/student.js probabilityHistory 원소.
 type AchievementPoint = {
   recordedAt: string;
   idealSusi?: number | null;

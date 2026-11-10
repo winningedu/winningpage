@@ -8,7 +8,7 @@
 // 이 규칙을 다시 구현하면(과거 한 차례 그랬다) 서버와 반드시 어긋난다 —
 // orders만 있고 program_access/enrollments가 없는 사용자, 혹은 그 반대인
 // 사용자가 생기면 양쪽 판정이 갈린다. 그래서 판정 로직은 여기 한 곳에만
-// 두고, api/create-service-ticket.js(SSO 티켓 발급), api/check-service-access.js
+// 두고, api/_routes/create-service-ticket.js(SSO 티켓 발급), api/_routes/check-service-access.js
 // (클라이언트 조회용, 읽기 전용), api/_lib/goal/repo.ts(목표관리 서버 라우트의
 // 세션 게이트)가 함께 쓴다.
 //
@@ -72,7 +72,7 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
   },
   // 학습진단(이용 요금 구조 최종본 20260806) — 유료 전환. 회원가입 시 1회 무료는
   // 이 config가 관여하지 않는 별도 판정이다(diagnosis_attempts kind='free',
-  // api/diagnosis/access.ts·consume.ts 참고) — hasPaidServiceAccess는 "무료 1회
+  // api/_routes/diagnosis/access.ts·consume.ts 참고) — hasPaidServiceAccess는 "무료 1회
   // 이후" 이용권만 본다. products.program_key='diagnose'(sql/60 관계, session_quota
   // 1)와 1:1 대응.
   diagnose: {

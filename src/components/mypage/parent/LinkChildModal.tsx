@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 //
 // ⚠ 시안과 백엔드 불일치 — 시안은 "6자리 **숫자** 코드"라고 안내하고 입력칸도
 // 숫자로 그려져 있지만, 실제 연결코드는 숫자가 아니다. 발급기
-// (generate_link_code_string, sql/40)와 api/lookup-child.js 의 CODE_PATTERN 이
+// (generate_link_code_string, sql/40)와 api/_routes/lookup-child.js 의 CODE_PATTERN 이
 // 모두 [23456789ABCDEFGHJKMNPQRSTUVWXYZ] 6자리다 — 헷갈리는 글자(0/O/1/I/L)를
 // 뺀 영숫자다. 숫자만 받게 만들면 실제 코드를 아예 입력할 수 없으므로 영숫자로
 // 받고 안내 문구도 "6자리 코드"로 고쳤다. 디자이너 확인 필요.

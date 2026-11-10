@@ -1,4 +1,4 @@
-// 지식 검색 품질 평가(골든셋)의 판단 순수 함수. 핸들러는 api/admin/knowledge-eval.ts 이고,
+// 지식 검색 품질 평가(골든셋)의 판단 순수 함수. 핸들러는 api/_routes/admin/knowledge-eval.ts 이고,
 // DB 와 임베딩을 부르는 러너는 runner.ts 다.
 //
 // 운영 검색 상수와 학생 요청 경로는 바꾸지 않는다. 평가 실행만 파라미터를 덮어쓴다.

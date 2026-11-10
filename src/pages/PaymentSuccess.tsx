@@ -28,7 +28,7 @@ import { buildAccessInfoBody } from "./paymentSuccessCopy";
 // 부여된 program_key → '프로그램 시작하기' 목적지.
 //
 // 즉시 입장 모델이라 CTA 는 결제 직후 실제 서비스로 들어가야 한다. 입장(SSO)이
-// 성립하는 서비스는 목표관리·수행평가 2건뿐이다(api/create-service-ticket.js:7-22 의
+// 성립하는 서비스는 목표관리·수행평가 2건뿐이다(api/_routes/create-service-ticket.js:7-22 의
 // SERVICE_CONFIGS, src/lib/paidServiceAccess.js:5 의 PAID_SERVICE_CONFIGS).
 //
 // 키는 service_key 가 아니라 **부여 결과(access.granted)의 program_key** 다
@@ -84,7 +84,7 @@ const COPY_FEEDBACK_MS = 2000;
 // 풀리지만, 아래 사유들은 몇 번 새로고침해도 같은 결과다 — 비회원 결제(주문에
 // 권한을 줄 계정이 없다)·주문 없음·라인아이템 없음·서버 설정 누락·주문 소유자
 // 불일치는 모두 요청을 반복해서 바뀌는 값이 아니다. 사유 문자열의 정본은
-// api/_lib/programAccess.js 와 api/confirm-payment.js:accessNotAttempted 다.
+// api/_lib/programAccess.js 와 api/_routes/confirm-payment.js:accessNotAttempted 다.
 const PERMANENT_ACCESS_ERRORS = new Set([
   "order_has_no_user",
   "order_not_found",
@@ -94,7 +94,7 @@ const PERMANENT_ACCESS_ERRORS = new Set([
 ]);
 
 // 'not_order_owner' 는 실패가 아니다.
-//   api/confirm-payment.js 는 이미 결제완료된 주문에 대한 재부여를 주문 소유자
+//   api/_routes/confirm-payment.js 는 이미 결제완료된 주문에 대한 재부여를 주문 소유자
 //   본인일 때만 시도한다(그 검사가 없으면 orderId 만 아는 요청으로 남의 권한을
 //   되살릴 수 있다). 로그아웃 상태로 성공 URL 을 다시 열면 그 검사에 걸려
 //   ok=false 로 오는데, 이건 "부여가 실패했다"가 아니라 "확인할 수 없어 시도하지
@@ -184,7 +184,7 @@ function formatKRW(value: number | string | null | undefined) {
 //   가상계좌 : + 가상계좌 번호, 입금자명, 입금기한 — 결제수단·승인 시간 행이 없다 (1882-14746)
 //
 // '이용 시작일' 행: 즉시 입장 모델이므로 이용 시작 = 결제 확정 시각이다. orders 에
-// 시작일 컬럼을 새로 만들지 않고 승인 시각(= api/confirm-payment.js 가 orders.paid_at
+// 시작일 컬럼을 새로 만들지 않고 승인 시각(= api/_routes/confirm-payment.js 가 orders.paid_at
 // 에 찍는 값과 같은 순간)에서 파생해 표시한다. 가상계좌는 아직 입금 전이라 시작일이
 // 없으므로 이 행을 넣지 않는다(입금기한 행이 그 상태를 표현한다).
 //
@@ -287,12 +287,12 @@ export default function PaymentSuccess() {
 
   const rows = buildRows({ payment, orderId, totalAmount, vat });
 
-  // 이용 권한 부여 결과. api/confirm-payment.js 가 승인 응답에 실어 준다
+  // 이용 권한 부여 결과. api/_routes/confirm-payment.js 가 승인 응답에 실어 준다
   // (형태: { ok, granted, serviceKeys, skipped, error }).
   const access = payment?.access ?? null;
 
   // 가상계좌 미입금 상태 판정. 승인 응답의 토스 status 가 정본이고, 멱등 재응답
-  // 경로도 같은 값을 채운다(api/confirm-payment.js). 과거 주문(raw 없음)에서
+  // 경로도 같은 값을 채운다(api/_routes/confirm-payment.js). 과거 주문(raw 없음)에서
   // status 가 비어 오는 경우를 대비해 virtualAccount 존재로도 한 번 더 본다.
   const isWaitingDeposit =
     payment?.status === "WAITING_FOR_DEPOSIT" ||
@@ -607,7 +607,7 @@ export default function PaymentSuccess() {
           </div>
 
           {/* 이용 안내 — 운영 모델은 '즉시 입장'(사용자 확정)이다. 결제 승인
-                시점에 api/confirm-payment.js 가 권한을 자동 부여하므로 "담당
+                시점에 api/_routes/confirm-payment.js 가 권한을 자동 부여하므로 "담당
                 매니저가 영업일 1~2일 내 안내"(수동 프로비저닝) 문구는 삭제했다.
                 상태별로 사실이 다르므로 6분기로 쓴다(입금대기 / 로그인 필요 /
                 영구 실패 / 재시도 가능 실패 / 입장 대상 없는 상품 / 즉시 입장).

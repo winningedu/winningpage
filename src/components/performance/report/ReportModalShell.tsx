@@ -70,7 +70,7 @@ import { shouldUseServerPdf } from "@/lib/report/shouldUseServerPdf";
 //     전달한다 — 지정하지 않으면 열리기 전 포커스였던 요소로 자동 복귀한다).
 type ReportModalShellFooterContext = {
   /** 인쇄/PDF 핸들러. 데스크톱은 react-to-print, 모바일·인앱(QA 2차 시트 행39·56)은
-   * api/report-pdf.ts 서버 렌더 경로로 내부 분기한다. 함수형 `footer`에서 인쇄
+   * api/_routes/report-pdf.ts 서버 렌더 경로로 내부 분기한다. 함수형 `footer`에서 인쇄
    * 버튼 `onClick`에 그대로 연결한다. */
   print: () => void;
   /** 서버 PDF 경로가 진행 중인 동안 true(폼 제출은 완료 이벤트가 없어 고정 타이머로
@@ -135,7 +135,7 @@ export default function ReportModalShell({
   // 응답하는 경로로 대신 보낸다.
   const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
   const print = () => {
-    // documentTitle 없으면 서버 PDF 경로를 타지 않는다 — api/report-pdf.ts 응답의
+    // documentTitle 없으면 서버 PDF 경로를 타지 않는다 — api/_routes/report-pdf.ts 응답의
     // 파일명(Content-Disposition)이 필수라 폴백 문자열("리포트")로 채워 보내면 모든
     // 리포트가 같은 이름으로 저장된다. 이 경우 UA와 무관하게 기존 react-to-print
     // 경로로 둔다(호출부가 documentTitle을 반드시 넘기게 하는 계약은 위 주석 참고).

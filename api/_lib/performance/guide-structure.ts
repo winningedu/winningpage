@@ -17,7 +17,7 @@
 // 판정**이라서, 프롬프트 자산과 섞이면 §12.1(프롬프트 1바이트 불변)과 §12.2(도메인 규칙)
 // 의 검증 대상 경계가 흐려진다.
 // 이름은 이 저장소가 안내문을 부르는 말(`guide_input_mode`/`guide_freetext`/`guide_json`,
-// `api/performance/analyze-guide.js`)을 따라 `guide-` 접두를 쓰고, 판정 산출물이
+// `api/_routes/performance/analyze-guide.js`)을 따라 `guide-` 접두를 쓰고, 판정 산출물이
 // "제출 구조"라서 `-structure`를 붙였다. 외부의 함수명 `inferAssessmentStructure`는
 // 그대로 둔다 — §12.2 표가 그 이름으로 자산을 지목하고 있어 대조 시 검색어가 된다.
 //
@@ -73,7 +73,7 @@
 // 두 가지뿐이다. 즉 **모델이 낸 평문/사람이 친 평문을 가공 없이** 그대로 먹였다.
 //
 // 이 저장소에서 그에 대응하는 값은 `guide_input_mode`에 따라 갈린다(§8.3,
-// `api/performance/analyze-guide.js:273-291`, `:472-490`):
+// `api/_routes/performance/analyze-guide.js:273-291`, `:472-490`):
 //   · `'upload'` → `performance_sessions.guide_json.text`
 //        (N장을 단일 vision 호출로 종합한 평문 한 덩어리. `GUIDE_EXTRACTION_SYSTEM`이
 //         외부 `analyze-assessment-storage.js:70-110`의 원문 이식이라 `[답변 문항 목록]`

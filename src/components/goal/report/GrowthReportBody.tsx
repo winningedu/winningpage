@@ -36,7 +36,7 @@ const PERIOD_TABS = [
 ];
 
 // 자식 카드가 그대로 요구하는 shape 그대로 재사용한다(각 카드 .tsx의 Props 타입 참고) —
-// api/goal/report.js buildGrowthReport() 반환값이 이 모양과 이미 일치한다는 전제(임무 지시
+// api/_routes/goal/report.js buildGrowthReport() 반환값이 이 모양과 이미 일치한다는 전제(임무 지시
 // "mock 제거" 절)를 그대로 타입으로 옮긴다.
 type StatRow = { label: string; value: number; unit?: string };
 type CardTip = { variant?: string; text?: ReactNode } | null;
@@ -137,7 +137,7 @@ type GrowthReportBodyProps = {
 // 넘기면 그대로 재사용 가능하도록 이 파일 안에 `if (isParent)` 류의 뷰어 분기를 절대 두지 않는다.
 //
 // mock 제거(I단계 실배선) — 데이터는 더 이상 이 컴포넌트가 소유하지 않는다. fetch 훅은
-// pages/goal/GrowthReport.jsx가 갖고, `report`는 api/goal/report.js buildGrowthReport()가
+// pages/goal/GrowthReport.jsx가 갖고, `report`는 api/_routes/goal/report.js buildGrowthReport()가
 // 만드는 그대로다(합격 가능성 변화 데이터도 report.admission으로 함께 온다 — 예전엔
 // 옛 목업 두 파일(mockAdmissionChance/monthlyAdmissionChance)에서 따로 import했었다).
 // 순수 프레젠테이션 컴포넌트로만 남긴다 — 데이터 유무 판단(빈 상태 등)은

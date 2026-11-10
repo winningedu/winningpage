@@ -105,7 +105,7 @@ export interface GoalStudentPayload {
   mockInput: Record<string, unknown> | null;
 }
 
-/** 오늘 확률 스냅샷 — api/goal/daily-record.ts buildProbsPayload(). */
+/** 오늘 확률 스냅샷 — api/_routes/goal/daily-record.ts buildProbsPayload(). */
 interface GoalProbsBlock {
   idealSusi: number | null;
   idealJungsi: number | null;
@@ -113,7 +113,7 @@ interface GoalProbsBlock {
   minJungsi: number | null;
 }
 
-/** api/goal/daily-record.ts buildRecordPayload(). */
+/** api/_routes/goal/daily-record.ts buildRecordPayload(). */
 interface GoalDailyRecord {
   recordIndex: number | null;
   recordDate: string;
@@ -125,7 +125,7 @@ interface GoalDailyRecord {
 }
 
 /**
- * QA3 행305 — api/goal/daily-record.ts computeCooldownState(). 한 번도 제출한
+ * QA3 행305 — api/_routes/goal/daily-record.ts computeCooldownState(). 한 번도 제출한
  * 적 없는 학생은 null(잠금 개념 자체가 없다).
  */
 export interface GoalRecordCooldown {
@@ -135,7 +135,7 @@ export interface GoalRecordCooldown {
 }
 
 /**
- * QA3 행305 — api/goal/daily-record.ts buildSummaryPayload(). 잠금 중 요약
+ * QA3 행305 — api/_routes/goal/daily-record.ts buildSummaryPayload(). 잠금 중 요약
  * 패널 전용, 오늘/가장 최근 제출 행이 하나도 없으면 null.
  */
 export interface GoalRecordSummary {
@@ -150,7 +150,7 @@ export interface GoalRecordSummary {
   deltaMinJungsi: number | null;
 }
 
-/** QA3 행305 — api/goal/daily-record.ts buildTomorrowTargets(). */
+/** QA3 행305 — api/_routes/goal/daily-record.ts buildTomorrowTargets(). */
 export interface GoalTomorrowTargets {
   idealHours: number;
   minHours: number;
@@ -198,7 +198,7 @@ interface GoalWorkbook {
   shelvedAt: string | null;
 }
 
-/** GET /api/goal/timer 응답의 summary 블록(camelCase). api/goal/timer.ts 참고. */
+/** GET /api/goal/timer 응답의 summary 블록(camelCase). api/_routes/goal/timer.ts 참고. */
 interface GoalTimerSummary {
   date: string;
   serverNow: string;
@@ -211,7 +211,7 @@ interface GoalTimerSummary {
   visibleSubjects: string[];
 }
 
-/** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/goal/grades.ts validateEntry 참고. */
+/** fetchGoalGrades()/addGoalGrade() 회차 레코드 — api/_routes/goal/grades.ts validateEntry 참고. */
 interface GoalGradeRecord {
   term: string;
   enteredAt?: string;
@@ -376,7 +376,7 @@ export type SubmitGoalIntakeResult =
   | { kind: "validation-error"; detail: string }
   | { kind: "error" };
 
-// intake 설문 본문(7단계 폼) — 서버가 zod로 검증하는 실제 계약(api/goal/intake.ts)이라
+// intake 설문 본문(7단계 폼) — 서버가 zod로 검증하는 실제 계약(api/_routes/goal/intake.ts)이라
 // 클라이언트 쪽에서 이중으로 좁게 규정하지 않는다(과잉 제약 방지, 판단 지점).
 export async function submitGoalIntake(
   body: object,
@@ -508,7 +508,7 @@ export async function submitGoalIntakeUpdate(
 //                                          동일 사유).
 //   { kind: 'success', record, probs, cooldown, summary, tomorrowTargets }
 //                                        — 200 {ok:true, ...}. record는 오늘 기록이
-//                                          없으면 null(api/goal/daily-record.js
+//                                          없으면 null(api/_routes/goal/daily-record.js
 //                                          buildRecordPayload 계약). cooldown/
 //                                          summary/tomorrowTargets는 QA3 행305
 //                                          쿨다운·잠금 패널 전용(둘 다 한 번도
@@ -582,7 +582,7 @@ export async function fetchTodayGoalRecord(): Promise<FetchTodayGoalRecordResult
 //
 // body는 부분 제출을 허용한다 — { studyHours?, bodyCondition?, reasons?, tasks?, memo? }.
 // 대시보드 카드는 { studyHours }만, "오늘의 공부 기록" 페이지는 나머지 필드(+선택적
-// studyHours)를 보낸다(api/goal/daily-record.js 헤더 "부분 제출" 절과 동일 계약).
+// studyHours)를 보낸다(api/_routes/goal/daily-record.js 헤더 "부분 제출" 절과 동일 계약).
 //
 // 반환 계약(discriminated union, `kind` 필드로 분기):
 //
@@ -612,7 +612,7 @@ export type SubmitDailyRecordResult =
   | { kind: "not-active" }
   | { kind: "no-study-time" }
   | { kind: "before-start-date" }
-  // QA3 행305 — 12시간 쿨다운 중 재제출. api/goal/daily-record.ts 409 {reason:'cooldown'}.
+  // QA3 행305 — 12시간 쿨다운 중 재제출. api/_routes/goal/daily-record.ts 409 {reason:'cooldown'}.
   | { kind: "cooldown"; submittedAt: string | null; unlocksAt: string | null }
   | { kind: "validation-error"; detail: string }
   | {
@@ -801,7 +801,7 @@ export async function updateGoalWorkbook(
 /**
  * PUT {id, shelve:true} — "완독! 책장에 꽂기". status='done'인 문제집만 허용되고,
  * 아직 완독하지 않은 행을 보내면 서버가 400(validation-error)을 돌려준다
- * (api/goal/workbooks.ts canShelveWorkbook 검증).
+ * (api/_routes/goal/workbooks.ts canShelveWorkbook 검증).
  */
 export async function shelveGoalWorkbook(
   id: number,
@@ -1057,7 +1057,7 @@ interface GoalPlanTaskInput {
   subject: string;
   durationMinutes: number;
   // 문제집 연결(QA 행286-B) — 셋 다 선택. workbookId만 보내면 페이지 없이 연결,
-  // 셋 다 보내면 페이지 범위까지 연결(api/goal/plan-tasks.ts validateWorkbookLinkFields
+  // 셋 다 보내면 페이지 범위까지 연결(api/_routes/goal/plan-tasks.ts validateWorkbookLinkFields
   // 검증 규약과 동일). null은 연결 해제(updateGoalPlanTask 전용, 생성 시엔 안 씀).
   workbookId?: number | null;
   pageFrom?: number | null;
@@ -1139,7 +1139,7 @@ export async function deleteGoalPlanTask(id: number) {
 //                                          "홍O동" 형태로 마스킹한 배열, me는
 //                                          본인이 오늘 기록을 제출했을 때만
 //                                          {rank,name,hours}이고 그 외엔 null
-//                                          (api/goal/ranking.js 참고).
+//                                          (api/_routes/goal/ranking.js 참고).
 interface GoalRankingEntry {
   rank: number;
   name: string;
@@ -1204,14 +1204,14 @@ export async function fetchGoalRanking(): Promise<FetchGoalRankingResult> {
 // addGoalGrade    — POST /api/goal/grades
 // ---------------------------------------------------------------------------
 //
-// api/goal/grades.js 참고 — 성적 기록·표시 전용이다. 확률/그래프를 다시 계산하지
+// api/_routes/goal/grades.js 참고 — 성적 기록·표시 전용이다. 확률/그래프를 다시 계산하지
 // 않으므로 이 두 함수의 반환값에도 확률·rate 필드가 없다.
 //
 // fetchGoalGrades 반환 계약(fetchGoalStudent 와 같은 kind 분기 관례):
 //   { kind: 'no-session' | 'not-allowed' | 'not-onboarded' | 'error' }
 //   { kind: 'ok', naesinRecords: [...], mockRecords: [...] }
 //     — 각 레코드 shape: { term, enteredAt|examDate, subjects:{korean,math,english,science},
-//       value, none:false, recordedAt } (api/goal/grades.js validateEntry 참고).
+//       value, none:false, recordedAt } (api/_routes/goal/grades.js validateEntry 참고).
 export type FetchGoalGradesResult =
   | { kind: "no-session" }
   | NotAllowed
@@ -1339,7 +1339,7 @@ export type UpdateGoalGradeResult =
   | { kind: "error" };
 
 /**
- * PUT /api/goal/grades — 회차 id(term) 기준 전체 갱신(api/goal/grades.ts handlePut 참고).
+ * PUT /api/goal/grades — 회차 id(term) 기준 전체 갱신(api/_routes/goal/grades.ts handlePut 참고).
  *
  * 반환 계약:
  *   { kind: 'no-session' | 'not-allowed' | 'error' }
@@ -1408,7 +1408,7 @@ export type DeleteGoalGradeResult =
   | { kind: "error" };
 
 /**
- * DELETE /api/goal/grades — 회차 id(term) 기준 삭제(api/goal/grades.ts handleDelete 참고).
+ * DELETE /api/goal/grades — 회차 id(term) 기준 삭제(api/_routes/goal/grades.ts handleDelete 참고).
  * kind 분기는 updateGoalGrade와 동일 관례(validation-error만 없음 — 삭제는 term 누락 외
  * 별도 바디 검증이 없다).
  */
@@ -1460,7 +1460,7 @@ export async function deleteGoalGrade(
 // 다섯 함수 모두 fetchGoalStudent/submitGoalIntake와 같은 규약(예외를 던지지
 // 않고 discriminated union으로 반환, `kind` 필드로 분기)을 따른다.
 //
-// summary shape(camelCase, api/goal/timer.js GET 응답 그대로):
+// summary shape(camelCase, api/_routes/goal/timer.js GET 응답 그대로):
 //   { date, serverNow, running:{subject,startedAt}|null,
 //     subjects:[{subject,seconds}], totalSeconds,
 //     targets:[{subject,targetHours}], visibleSubjects:[subject] }
@@ -1631,9 +1631,9 @@ export async function addGoalTimerSubject(subject: string) {
 //   { kind: 'awaiting-cuts' }     — 409 reason:'awaiting_cuts'. 컷 대기 중이라 rate/target 미확정.
 //   { kind: 'not-linked' }        — 403 {error:{code:'NOT_LINKED'}}. studentId로 학부모가
 //     조회할 때만 나온다 — 서버가 fn_is_linked_pair로 재확인한 결과 승인된 쌍이 아니다
-//     (api/goal/report.ts checkLinkedPair, QA 시트 행210).
+//     (api/_routes/goal/report.ts checkLinkedPair, QA 시트 행210).
 //   { kind: 'success', report }   — 200 {ok:true, report}. report는 type별로 모양이 다르다
-//     (GrowthReportBody.jsx / DirectionReportBody.jsx가 그대로 소비하는 shape — api/goal/report.js
+//     (GrowthReportBody.jsx / DirectionReportBody.jsx가 그대로 소비하는 shape — api/_routes/goal/report.js
 //     buildGrowthReport()/buildDirectionReport() 참고). 이 파일은 discriminated union 판별자만
 //     책임지므로 report 본문은 호출부(각 리포트 페이지)가 자신의 로컬 타입으로 좁혀 쓴다.
 export type FetchGoalReportResult =
@@ -1653,7 +1653,7 @@ export type FetchGoalReportResult =
 // ChildReport.tsx weekly/monthly — 마지막 인자 `studentId`만 넘긴다).
 //
 // 네 번째 인자 `studentId` — 학부모가 자녀 리포트를 열람할 때만 넘긴다(QA 시트 행210,
-// api/goal/report.ts studentId 쿼리). weekly/monthly 전용이다 — direction과 함께 보내면
+// api/_routes/goal/report.ts studentId 쿼리). weekly/monthly 전용이다 — direction과 함께 보내면
 // 서버가 400을 준다(호출부에서 애초에 조합하지 않는다). 생략하면 기존 동작 그대로
 // (요청자 본인 리포트).
 export async function fetchGoalReport(
@@ -1705,7 +1705,7 @@ export async function fetchGoalReport(
   }
 
   // coded shape(api/_lib/httpResponse.ts) — studentId로 조회했는데 서버 재확인 결과
-  // 승인된 학부모-학생 쌍이 아닌 경우만 이 코드가 온다(api/goal/report.ts checkLinkedPair).
+  // 승인된 학부모-학생 쌍이 아닌 경우만 이 코드가 온다(api/_routes/goal/report.ts checkLinkedPair).
   if (response.status === 403 && body?.error?.code === "NOT_LINKED") {
     return { kind: "not-linked" };
   }

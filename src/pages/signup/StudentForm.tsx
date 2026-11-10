@@ -477,7 +477,7 @@ export default function StudentForm() {
   // 학생 명의 번호가 없는 경우에만 노출되는 대체 인증 경로. 위 학생 본인 전화번호
   // 인증(requestPhoneCode/onPhoneCodeChange)과 완전히 동일한 패턴이며, 서버 purpose만
   // 'guardian_signup'으로 다르다(guardian_signup은 SIGNUP_PURPOSES가 아니라 phone_taken
-  // 중복 차단 대상이 아니다 — api/send-phone-code.ts 참고).
+  // 중복 차단 대상이 아니다 — api/_routes/send-phone-code.ts 참고).
   async function requestGuardianPhoneCode() {
     setFormError("");
 

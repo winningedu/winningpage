@@ -11,7 +11,7 @@
 //   ③ 제출 전 클라이언트 검증 — 섹션 1~3 은 각 파일이 export 한 validate*Section 을 그대로 쓰고,
 //                            섹션 4·5 는 검증 함수가 없어 이 파일에서 만든다(아래 사유 주석 참고).
 //   ④ 제출 + 결과 처리     — 첨부파일은 2단계 signed upload 로, 나머지 필드는 application/json 으로
-//                            보낸다(아래 「제출」 섹션 주석 참고. api/mentor-apply.js 클라이언트
+//                            보낸다(아래 「제출」 섹션 주석 참고. api/_routes/mentor-apply.js 클라이언트
 //                            호출 규약 주석은 이전 base64 단일 요청 방식이라 이 부분만 최신이 아니다 —
 //                            그 파일은 API 담당이 갱신 중이다).
 //
@@ -76,7 +76,7 @@ type MentorApplyValues = {
   name: string;
   birth_date: string;
   // QA 지시(2026-08-21) 추가 필드. DB 컬럼·서버 화이트리스트 배선까지 끝났다
-  // (supabase/migrations/20260821000006_mentor_apply_gender.sql, api/mentor-apply.ts
+  // (supabase/migrations/20260821000006_mentor_apply_gender.sql, api/_routes/mentor-apply.ts
   // FIELD_SPECS) — 다른 필드와 동일하게 `...values` 스프레드로 그대로 제출된다.
   gender: string;
   phone: string;
@@ -357,7 +357,7 @@ function scrollToField(fieldName: string) {
 // 파일은 클라이언트가 Supabase Storage 에 **직접** 업로드하고(서버리스 함수를 거치지
 // 않으므로 함수 본문 상한과 무관하다), 지원서 제출 요청에는 업로드된 경로만 싣는다.
 // (그 100MB 문구 자체는 이후 Supabase 전역 업로드 상한 실측에 맞춰 50MB 로 재확정됐다
-// — api/mentor-apply.js MAX_FILE_BYTES 주석 참고. 2단계 방식을 쓰는 이유는 무관하다.)
+// — api/_routes/mentor-apply.js MAX_FILE_BYTES 주석 참고. 2단계 방식을 쓰는 이유는 무관하다.)
 //
 // 순서를 "파일 선택 즉시 업로드"가 아니라 "제출 버튼을 눌렀을 때"로 미룬 이유 — 업로드 URL
 // 발급(/api/mentor-apply-upload-url)이 휴대폰 인증 완료를 전제로 하므로, 인증 전에 파일을
@@ -417,7 +417,7 @@ const SUBMIT_STAGE_LABELS = {
 //   로 매핑한다 — `phone` 으로 매핑하면 섹션 1 의 번호 인풋(형식은 멀쩡한 값)에도 이 문구가
 //   함께 뜨는 오표시가 재발한다(리뷰 WARN #1, validateDocumentsSection 주석과 동일 사정).
 // ⚠ 이 맵은 제출(3단계) 응답과 업로드 URL 발급(1단계) 응답에 공용으로 쓴다 — 발급도 같은
-//   휴대폰 인증 검사를 거치므로(팀 계약, api/mentor-apply-upload-url.js) reason 어휘가
+//   휴대폰 인증 검사를 거치므로(팀 계약, api/_routes/mentor-apply-upload-url.js) reason 어휘가
 //   겹칠 수 있다. file_* 계열은 이제 제출 요청이 아니라 발급 요청에서 나는 편이 자연스럽지만,
 //   두 엔드포인트 모두 결국 proof_file 로 모이므로 매핑을 나눌 실익이 없다.
 const SERVER_REASON_TO_FIELD = {
@@ -721,7 +721,7 @@ export default function MentorApplyForm() {
         }
 
         // anon 클라이언트를 그대로 쓴다 — 버킷이 비공개라도 signed upload token 이 이
-        // path 하나만 인가하므로 동작한다(팀 계약, api/mentor-apply-upload-url.js).
+        // path 하나만 인가하므로 동작한다(팀 계약, api/_routes/mentor-apply-upload-url.js).
         const { error: storageError } = await supabase.storage
           .from(BUCKET)
           .uploadToSignedUrl(issueResult.path, issueResult.token, file!); // 위와 동일: 검증 통과 후 file != null
@@ -748,7 +748,7 @@ export default function MentorApplyForm() {
         agree_identity: agreements.identity === true,
         agree_marketing: agreements.marketing === true,
         agree_ad: agreements.ad === true,
-        // base64 첨부 대신 1~2단계에서 올린 경로만 보낸다(팀 계약, api/mentor-apply.js).
+        // base64 첨부 대신 1~2단계에서 올린 경로만 보낸다(팀 계약, api/_routes/mentor-apply.js).
         proof_file_path: proofPath,
         proof_file_name: file!.name, // 위와 동일: 검증 통과 후 file != null
       };
@@ -776,7 +776,7 @@ export default function MentorApplyForm() {
         const { stage, result } = error;
         const reason = result?.reason;
         // 화면 문구는 서버 detail 을 그대로 쓴다 — 문구를 새로 지으면 서버 reason 과
-        // 표현이 갈라진다(api/mentor-apply.js 호출 규약 주석).
+        // 표현이 갈라진다(api/_routes/mentor-apply.js 호출 규약 주석).
         const fallbackDetail =
           stage === "upload" ? UPLOAD_STEP_ERROR : GENERIC_SUBMIT_ERROR;
         const detail = result?.detail || fallbackDetail;

@@ -28,7 +28,7 @@ import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 // 두 엔드포인트를 함께 쓴다:
 //   - fetchGoalStudent()  기존(온보딩) — 목표 대학 컷(targets)과 온보딩 시점 베이스라인
 //     성적(scores.convertedGrade/currentMogo)을 가져온다. 이 페이지가 새로 만드는 게 아니다.
-//   - fetchGoalGrades()   신규(api/goal/grades.js) — 이 페이지에서 추가한 회차 기록 배열.
+//   - fetchGoalGrades()   신규(api/_routes/goal/grades.js) — 이 페이지에서 추가한 회차 기록 배열.
 //
 // mockGrades(옛 목업 데이터)는 더 이상 쓰지 않는다 — 이 페이지는 실데이터 전용이다.
 //
@@ -42,7 +42,7 @@ import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 //   컷이 null(목표 대학 컷 미확보)이면 GoalGaugeCard가 마커·목표 텍스트를 생략한다(이번에
 //   그 가드를 추가했다 — GoalGaugeCard.jsx 참고). 확률과 무관한 단순 뺄셈이라 calc를
 //   쓰지 않는다.
-// api/goal/grades.js 회차 레코드 shape.
+// api/_routes/goal/grades.js 회차 레코드 shape.
 type GradeRecord = {
   term: string;
   value: number;
@@ -263,7 +263,7 @@ export default function Grades() {
 
   // 컷(naesinCut/mockCut)과 현재값(naesinKpi.value/mockKpi.value)이 둘 다 있을 때만 격차를
   // 계산한다 — 값이 없는데 뺄셈을 하면 NaN이 그대로 화면에 노출된다(온보딩 직후 정시 컷이
-  // 없는 awaiting_cuts류 학생 등 실제로 값이 비는 경로가 있다, api/goal/intake.js §9-Q1(b)).
+  // 없는 awaiting_cuts류 학생 등 실제로 값이 비는 경로가 있다, api/_routes/goal/intake.js §9-Q1(b)).
   const naesinCut =
     targets.min.naesinCut != null && naesinKpi.value != null
       ? targets.min.naesinCut

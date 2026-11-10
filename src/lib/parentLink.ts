@@ -2,7 +2,7 @@
 //
 // 두 단계로 나뉘는 이유
 //   미리보기(lookupChild)는 서버 전용 조회 이력 테이블에 한도를 걸어야 해서 Vercel
-//   함수(api/lookup-child.js)로 나가고, 실제 연결 요청(requestParentLink)은 DB만
+//   함수(api/_routes/lookup-child.js)로 나가고, 실제 연결 요청(requestParentLink)은 DB만
 //   만지므로 RPC로 바로 간다.
 //
 // 연결은 코드 입력 즉시 확정된다
@@ -11,7 +11,7 @@
 //
 // ⚠️ lookupChild는 로그인이 필요하다
 //   조회 결과에 미성년자의 이름과 학교가 들어가서 익명 호출을 막아뒀다
-//   (api/lookup-child.js 주석). 그래서 학부모 가입 직후 세션을 유지해야 한다 —
+//   (api/_routes/lookup-child.js 주석). 그래서 학부모 가입 직후 세션을 유지해야 한다 —
 //   가입 후 signOut 하면 이 화면에서 not_authenticated로 떨어진다.
 
 import { apiFetch, getAuthHeader } from "./apiFetch";
@@ -91,7 +91,7 @@ export type LookupChildResult =
         name: string;
         school: string;
         schoolType: string;
-        // 서버에 학년 컬럼이 아직 없어 항상 null이다(api/lookup-child.js 주석) — 컬럼이 생겼을 때
+        // 서버에 학년 컬럼이 아직 없어 항상 null이다(api/_routes/lookup-child.js 주석) — 컬럼이 생겼을 때
         // 실제 값 형태(string 라벨? number?)가 아직 정해지지 않아 any로 둔다.
         grade: any;
       };
@@ -160,7 +160,7 @@ export async function lookupChild(code: string): Promise<LookupChildResult> {
       name: payload.child?.name || "",
       school: payload.child?.school || "",
       schoolType: payload.child?.school_type || "",
-      // 서버에 학년 컬럼이 아직 없어 항상 null이다(api/lookup-child.js 주석).
+      // 서버에 학년 컬럼이 아직 없어 항상 null이다(api/_routes/lookup-child.js 주석).
       grade: payload.child?.grade ?? null,
     },
     alreadyLinked: Boolean(payload.already_linked),

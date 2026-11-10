@@ -121,7 +121,7 @@ export async function resolveAdmin(
 //   sql/55_goal_management.sql)은 `is_winning_admin()`을 쓴다 — uid 또는 JWT
 //   email로 profiles 행을 찾고, role in ('admin', 'admin_basic', 'admin_manager',
 //   'admin_master') 4종을 허용한다. 목표관리 도메인 라우트(예:
-//   api/goal/admin/reset-student.js)가 이 판정 기준과 다르면 "어드민 화면에서는
+//   api/_routes/goal/admin/reset-student.js)가 이 판정 기준과 다르면 "어드민 화면에서는
 //   되는데 API는 막힌다"가 생기므로, 여기서는 반드시 `is_winning_admin()`을
 //   그대로 미러한다(resolveAdmin은 건드리지 않는다 — 다른 곳에서 이미 씀).
 //

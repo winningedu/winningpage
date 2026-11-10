@@ -4,14 +4,14 @@ import {
   CONDITION_LABELS,
   REASON_LABELS,
   TASK_LABELS,
-} from "../../../api/goal/daily-record";
+} from "../../../api/_routes/goal/daily-record";
 import {
   CONDITION_OPTIONS,
   DISTURBANCE_OPTIONS,
   STUDY_ITEM_OPTIONS,
 } from "./studyRecordOptions";
 
-// api/goal/daily-record.ts 의 화이트리스트(코드값 → 한글 라벨)가 클라이언트
+// api/_routes/goal/daily-record.ts 의 화이트리스트(코드값 → 한글 라벨)가 클라이언트
 // studyRecordOptions.ts 의 옵션과 글자 단위로 어긋나면, bonusV2.ts의 태그 가산
 // (TASK_NAESIN/TASK_MOCK_EXAM)이 조용히 0배로 떨어진다 — 그 계약을 지킨다.
 

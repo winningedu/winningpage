@@ -6,7 +6,7 @@
 //     회전 보정 없이 리사이즈하면 세로로 찍은 사진이 눕는다 — 두 처리는 한 세트다.
 //
 // ⚠️ 여기 있는 상한 검사는 전부 **왕복 절감용 1차 필터**다. 정본은 서버
-// (`api/performance/upload-url.js`)와 버킷 정책(sql/54_performance_app.sql (6))이다.
+// (`api/_routes/performance/upload-url.js`)와 버킷 정책(sql/54_performance_app.sql (6))이다.
 // 이 파일의 값을 고칠 일이 생기면 그 두 곳을 먼저 고쳐야 한다.
 //
 // ── EXIF 회전을 누가 적용하는가 (구현 결정)

@@ -68,7 +68,7 @@ type EvaluationBranchActionsProps = {
   /** `추가 수행평가 진행하기`. */
   onNewAssessment?: () => void;
   /** 확정 요청 진행 중인 액션. 진행 중에는 세 버튼을 모두 잠근다 — 두 확정 액션이 겹치면
-   * 서버는 멱등/409로 정상 분기하지만(`api/performance/finalize.js` 멱등 ②③), 그 사이에
+   * 서버는 멱등/409로 정상 분기하지만(`api/_routes/performance/finalize.js` 멱등 ②③), 그 사이에
    * 폼 복원까지 끼어들면 화면 상태가 서버와 어긋난다. */
   busyAction?: EvaluationBusyAction;
   /** 재평가 상한에 도달한 경우. */

@@ -22,7 +22,7 @@ import { siteWording } from "@/config/wording";
 //    `deriveStepStates.js`(P13, 순수 함수)이고, 호출부는 `PerformanceChatPage`다. 파생값은
 //    `PerformanceShellContext`를 통해 `PerformanceAppLayout`이 이 컴포넌트로 내려보낸다
 //    (외부 앱에 off-by-one 결함이 있던 지점이라 파생 규율을 별도 파일 주석에 못박아 뒀다 —
-//    `deriveStepStates.js`, api/performance/bootstrap.js `deriveResumeStep` 주석 참고).
+//    `deriveStepStates.js`, api/_routes/performance/bootstrap.js `deriveResumeStep` 주석 참고).
 //
 // ⚠️ 프로필·진행단계 값의 실제 소스는 `GET /api/performance/bootstrap`이다
 //    (`profile.name` / `profile.schoolType`, 학년은 `lastSession.gradeLabel`). 그 호출은

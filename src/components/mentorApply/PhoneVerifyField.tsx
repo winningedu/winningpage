@@ -6,7 +6,7 @@
 // 를 그대로 노출한다(문구가 두 벌이 되면 서버 reason 과 어긋난다).
 //
 // purpose 는 **'mentor_apply'** 다. 'signup'/'parent_signup' 계열을 쓰면
-// `api/send-phone-code.js` 의 `SIGNUP_PURPOSES` 분기를 타면서 **이미 가입한 대학생의
+// `api/_routes/send-phone-code.js` 의 `SIGNUP_PURPOSES` 분기를 타면서 **이미 가입한 대학생의
 // 번호가 409 `phone_taken` 으로 거절**돼 지원 자체가 막힌다(명세 §재사용 매핑 B).
 // 지원자는 비회원이므로 중복 검사 대상이 아니다(확인 항목 ㊵ 해소).
 //
@@ -35,7 +35,7 @@ import {
 } from "@/lib/phoneVerification";
 
 const PHONE_PURPOSE = "mentor_apply";
-// ParentForm.jsx:109 와 동일한 60초. 서버(api/send-phone-code.js)가 강제하는 값을
+// ParentForm.jsx:109 와 동일한 60초. 서버(api/_routes/send-phone-code.js)가 강제하는 값을
 // 화면에 보이게 만드는 용도일 뿐 보안 장치가 아니다(useCooldown.js 파일 주석).
 const RESEND_COOLDOWN_SECONDS = 60;
 

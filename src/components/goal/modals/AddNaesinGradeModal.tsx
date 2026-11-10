@@ -10,7 +10,7 @@ import ModalField from "@/components/goal/ModalField";
 // QA 행290 재설계(팀장 지시 항목10) — 4과목 flat(국/수/영/"탐구"로 잘못 라벨된 4번째 칸)에서
 // 6과목군(온보딩 NAESIN_SUBJECT_GROUPS와 같은 키)으로 바꾼다. 내신에는 원래 "탐구"라는
 // 과목이 없다 — 구판의 science 키는 실제로 "과학"이 아니라 "탐구" 라벨을 달고 있었는데,
-// 이는 온보딩 구조가 없던 시절의 임시 대체였다(api/goal/grades.ts NAESIN_SUBJECT_KEYS와
+// 이는 온보딩 구조가 없던 시절의 임시 대체였다(api/_routes/goal/grades.ts NAESIN_SUBJECT_KEYS와
 // 키가 같아야 한다).
 const SUBJECTS = [
   { key: "korean", label: "국어" },

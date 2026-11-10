@@ -591,7 +591,7 @@ export type JungsiInputResolution = {
   snapshot: unknown;
 };
 
-/** 백분위(0~100) → 9등급 GRADE_PERCENTILE 역조회. api/goal/report.ts percentileToGrade와 동일 규칙. */
+/** 백분위(0~100) → 9등급 GRADE_PERCENTILE 역조회. api/_routes/goal/report.ts percentileToGrade와 동일 규칙. */
 function percentileToGrade9(
   percentile: number,
   gradePercentile: Record<number, { min: number; max: number }>,
@@ -623,7 +623,7 @@ export function resolveJungsiSubjectAverage(
   gradePercentile: Record<number, { min: number; max: number }>,
 ): JungsiInputResolution {
   const scores = isPlainObject(mockExamScores) ? mockExamScores : {};
-  // 실제 저장 shape(api/goal/intake.ts, qa3-goal2-grades 병렬 유닛)은 rounds가 배열이
+  // 실제 저장 shape(api/_routes/goal/intake.ts, qa3-goal2-grades 병렬 유닛)은 rounds가 배열이
   // 아니라 회차 키(MOCK_FLOW 순서로 삽입된) → 회차 객체 Record이고, track은 회차별이
   // 아니라 mock_exam_scores 최상위 필드 하나다(탐구 선택 과목은 온보딩 섹션 전체에서
   // 한 번만 고른다). Object 키 삽입 순서가 학년순(MOCK_FLOW)이므로 Object.values의

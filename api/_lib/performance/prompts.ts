@@ -21,7 +21,7 @@
 //   · `performance_reports.prompt_version` — 리포트 3종(P10/P11)이 쓰는 정식 컬럼.
 //   · 안내문 분석은 리포트 행을 만들지 않는다. 그래서 `GUIDE_PROMPT_VERSION`은
 //     `performance_sessions.guide_json` 봉투 안에 `promptVersion` 키로 함께 저장한다
-//     (`api/performance/analyze-guide.js`). `performance_attachments`에는 버전 컬럼이
+//     (`api/_routes/performance/analyze-guide.js`). `performance_attachments`에는 버전 컬럼이
 //     없다(sql/54_performance_app.sql 1-3) — 세션 쪽 봉투가 그 역할을 겸한다.
 
 // ─────────────────────────────────────────────────────────────────────

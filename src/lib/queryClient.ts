@@ -218,7 +218,7 @@ export function sessionCheckQueryOptions(userId: string | null) {
 // 부른다 — 셸은 그 결과로 채워진 캐시를 staleTime 그대로 구독만 한다.
 const PERFORMANCE_BOOTSTRAP_STALE_MS = 15_000;
 
-/** `api/performance/bootstrap.ts` 응답 중 이 저장소 클라이언트가 실제로 쓰는 필드만
+/** `api/_routes/performance/bootstrap.ts` 응답 중 이 저장소 클라이언트가 실제로 쓰는 필드만
  * 좁혀 선언한다(`session.ts` 상단 주석과 같은 판단 — 전체 계약은 그 파일의 헤더 주석
  * `200 { profile, entitlement, lastSession|null, latestDraft|null }` 참고). */
 export type PerformanceBootstrapPayload = {

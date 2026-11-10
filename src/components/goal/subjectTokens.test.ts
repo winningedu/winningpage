@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { SUBJECT_IDS } from "../../../api/goal/workbooks";
+import { SUBJECT_IDS } from "../../../api/_routes/goal/workbooks";
 import {
   getBookDarkBgClass,
   getBookDarkTextClass,
@@ -25,7 +25,7 @@ const KNOWN_IDS = [
 // api/goal/workbooks.ts의 서버 화이트리스트(goal_workbooks_subject_check 5종)와
 // 클라이언트 WORKBOOK_SUBJECT_IDS가 어긋나면, "나의 노력" 카드가 서버가 거부하는
 // 과목(social/history/second_lang)으로 문제집 등록을 시도해 400을 유발한다.
-describe("WORKBOOK_SUBJECT_IDS ↔ api/goal/workbooks.ts SUBJECT_IDS parity", () => {
+describe("WORKBOOK_SUBJECT_IDS ↔ api/_routes/goal/workbooks.ts SUBJECT_IDS parity", () => {
   test("두 배열이 순서까지 완전히 같다", () => {
     expect(WORKBOOK_SUBJECT_IDS).toEqual(SUBJECT_IDS);
   });

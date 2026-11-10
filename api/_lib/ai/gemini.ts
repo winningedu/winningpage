@@ -2,7 +2,7 @@
 //
 // 원래 수행평가 전용이었다(`api/_lib/performance/gemini.ts`, 외부 앱
 // `/Users/hyunsoo/uwellnow/suhaengpyeong`의 `api/_lib/gemini.js` 이식). 목표관리
-// AI 조언(QA 행295·306, `api/goal/advice.ts`)이 같은 재시도·백오프·구조화 출력
+// AI 조언(QA 행295·306, `api/_routes/goal/advice.ts`)이 같은 재시도·백오프·구조화 출력
 // 인프라를 필요로 해 이 경로로 승격했다 — 도메인 중립 이름(`api/_lib/gemini.ts`)으로
 // 옮기고, 옛 경로(`api/_lib/performance/gemini.ts`)는 re-export shim만 남겨
 // 수행평가 호출부(recommend-topics/design-report/evaluate/analyze-guide)를
@@ -28,7 +28,7 @@
 //      `contents` 배열 순서가 `[...inlineData, text]`인 것은 외부와 동일하게 유지한다(§12.3).
 //   ③ **구조화 출력 통로를 열어 둔다.** `responseMimeType`/`responseSchema`를 `options`로
 //      받아 `config`에 실어 보낸다 — 주제 추천 P8 / 설계 리포트 P10 / 평가 P11에 더해
-//      목표관리 AI 조언(`api/goal/advice.ts`)도 구조화 출력을 쓴다. **안내문 추출(P7)은
+//      목표관리 AI 조언(`api/_routes/goal/advice.ts`)도 구조화 출력을 쓴다. **안내문 추출(P7)은
 //      쓰지 않는다** — 그 단계의 원본 계약은 평문이다.
 //
 // 회차 차감은 이 계층 바깥이다 (§12.3 「재시도가 회차 차감과 얽히지 않도록」)

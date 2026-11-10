@@ -1,6 +1,6 @@
-// 재개 분기 판정표(§5.4) 재료 조회 — `api/performance/session.js` GET.
+// 재개 분기 판정표(§5.4) 재료 조회 — `api/_routes/performance/session.js` GET.
 //
-// ── 계약 (`api/performance/session.js` 코드 실측이 정본)
+// ── 계약 (`api/_routes/performance/session.js` 코드 실측이 정본)
 //   `GET /api/performance/session?sessionId=…`
 //   → 200 { session, topics, round, maxRounds }
 //   `session.selectedTopicId`/`topics.length`가 재개 분기 판정표(2370행)의 ⓐ/ⓑ/ⓒ를

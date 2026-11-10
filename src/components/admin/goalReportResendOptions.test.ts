@@ -1,4 +1,4 @@
-// api/goal/admin/resend-report.test.ts 와 같은 기준일 규칙(기간 시작이 아니라
+// api/_routes/goal/admin/resend-report.test.ts 와 같은 기준일 규칙(기간 시작이 아니라
 // 그 기간의 자동 발송일)로 후보를 고른다 — TODAY=2026-09-23(수)를 기본으로 쓴다.
 //
 // QA — 두 번째 인자는 "오늘 날짜"가 아니라 실제 "지금 시각"이다(resend-report.ts와

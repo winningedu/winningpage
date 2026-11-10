@@ -28,7 +28,7 @@ import { tenantBlockMessage } from "@/lib/tenantBlock";
 // FLOW 전체 키(내신 12개・모의고사 14개)를 항상 빈 객체로 채워 들고 있다가(다른 시험/
 // 회차를 다시 고르면 이전에 입력해 둔 값이 사라지지 않게 하려는 설계, 각 buildInitial*
 // 주석 참고) 제출 시 통째로 서버에 실어 보낸다. 서버는 이제 "표시 창"(선택 회차 포함
-// 역순 최대 3개) 밖・빈 회차를 무시하도록 방어했지만(api/goal/intake.ts), 클라이언트도
+// 역순 최대 3개) 밖・빈 회차를 무시하도록 방어했지만(api/_routes/goal/intake.ts), 클라이언트도
 // 애초에 화면에 보이지도 않는 빈/스테일 데이터를 굳이 실어 보낼 필요가 없다 — 여기서
 // 한 번 더 창 안 + 실제 값이 있는 회차만 걸러 payload를 sparse하게 만든다.
 
@@ -168,7 +168,7 @@ function OnboardingWizard() {
   // 2026-08-11: goal_students 테이블이 생겨 실제 제출은 submitGoalIntake()
   // (src/lib/goalApi.js, POST /api/goal/intake)로 한다 — 더 이상 콘솔 로그로 대체하지
   // 않는다. body는 GoalOnboardingContext state 8개 필드를 그대로 넘긴다(계약이 이미
-  // 일치하므로 변환 불필요, api/goal/intake.js 주석 참고).
+  // 일치하므로 변환 불필요, api/_routes/goal/intake.js 주석 참고).
   //
   // 분기(작업 지시 §서버 계약):
   //   200(success) · 409(already-onboarded) — 서버가 이미 완료로 인정한다는 뜻이 같으므로

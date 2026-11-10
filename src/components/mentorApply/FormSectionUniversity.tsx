@@ -39,7 +39,7 @@ export const UNIVERSITY_FIELDS = [
 // 섹션 2 는 7개 전부 필수다(명세 §폼 명세 필수 항목 카운트: 필수 7 / 선택 0).
 export const UNIVERSITY_REQUIRED_FIELDS = UNIVERSITY_FIELDS;
 
-// 2-7 응시 정보와 결과 전체 — 서버(api/mentor-apply.js)·명세와 동일한 상한.
+// 2-7 응시 정보와 결과 전체 — 서버(api/_routes/mentor-apply.js)·명세와 동일한 상한.
 const EXAM_RESULTS_MAX_LENGTH = 2000;
 
 // ⚠ [시안 부재 — 파생 카피] FormSectionApplicant.jsx 의 ERROR_MESSAGES 주석과 동일한 사정이다.

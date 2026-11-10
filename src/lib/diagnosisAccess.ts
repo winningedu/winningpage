@@ -1,6 +1,6 @@
 /**
- * 학습진단 유료 게이팅 — 프런트 모듈. 판정 정본은 서버(api/diagnosis/access.ts,
- * api/diagnosis/consume.ts → consume_diagnosis_attempt RPC)다. 이 파일은 그 두
+ * 학습진단 유료 게이팅 — 프런트 모듈. 판정 정본은 서버(api/_routes/diagnosis/access.ts,
+ * api/_routes/diagnosis/consume.ts → consume_diagnosis_attempt RPC)다. 이 파일은 그 두
  * 엔드포인트를 부르고, 실패를 어떻게 흡수할지(fail-open 범위)만 결정한다.
  *
  * ⚠️ 두 함수 모두 **네트워크/서버 오류는 관대하게(fail-open)** 다룬다 — 로컬

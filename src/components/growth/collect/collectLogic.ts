@@ -1,5 +1,5 @@
 // 활동 선택 화면(명세 No.37~51, 73, 75, 113, 120~122, 145, 153, 154)의 순수 규칙.
-// 화면은 이 모듈이 돌려준 값만 그린다. 서버 계약은 src/lib/growth/types.ts 와 api/growth/collect.ts 를 따른다.
+// 화면은 이 모듈이 돌려준 값만 그린다. 서버 계약은 src/lib/growth/types.ts 와 api/_routes/growth/collect.ts 를 따른다.
 import type {
   ApiResult,
   CollectSummary,

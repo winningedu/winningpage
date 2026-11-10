@@ -60,7 +60,7 @@ export function requireUserId(ctx: HandlerCtx): string {
 }
 
 // 코드베이스 전역에서 이미 통일돼 있던 문구(변경 없이 그대로 채택) —
-// api/performance/*.ts, api/check-service-access.ts, api/diagnosis/*.ts 등
+// api/performance/*.ts, api/_routes/check-service-access.ts, api/diagnosis/*.ts 등
 // auth:user 401 전부가 이 문구/코드를 쓴다.
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";

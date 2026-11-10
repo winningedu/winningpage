@@ -1,4 +1,4 @@
-// QA 행288 회귀 테스트 — api/goal/grades.ts upsertRecord()가 회차를 배열 끝에 append하고
+// QA 행288 회귀 테스트 — api/_routes/goal/grades.ts upsertRecord()가 회차를 배열 끝에 append하고
 // latestKpi()/recentHistory()가 "배열 마지막 = 최신"으로 가정하던 시절엔, 회차를 시간순과
 // 다르게 입력하면(예: 지난 시험을 나중에 추가) 증감이 뒤바뀌었다. sortByExamOrder()가 항상
 // examDate/enteredAt(응시·입력 시점) 기준으로 다시 정렬하는지를 검증한다.
