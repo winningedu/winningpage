@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 import { isValidEmail } from "@/lib/validators";
 import MyPageModalShell from "./MyPageModalShell";
@@ -222,6 +223,8 @@ export default function ChangeEmailModal({
   // signOut 실패는 무시한다 — 로컬 세션 제거만 실패할 수 있는데, 어차피
   // 전체 리로드로 로그인 화면에 가면 이어서 쓸 수 없다.
   const relogin = useCallback(async () => {
+    // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+    clearAllDrafts();
     try {
       await supabase.auth.signOut();
     } catch (signOutError) {
