@@ -4,7 +4,7 @@
 -- 일을 하지 못하게 막는 첫 단계다. 이 마이그레이션은 스키마만 담는다. qa_accounts 행은 데이터 SQL 로 넣는다.
 -- 위닝 DB 에서는 qa_accounts 가 비어 있어 아래 함수가 항상 false 를 돌려주고 동작이 달라지지 않는다.
 --
--- WC102: QA 본사 관리자가 브라우저(authenticated JWT)로 public 테이블에 INSERT, UPDATE, DELETE 를 시도함.
+-- WC104: QA 본사 관리자가 브라우저(authenticated JWT)로 public 테이블에 INSERT, UPDATE, DELETE 를 시도함.
 -- 서버 라우트는 service_role 이라 auth.uid() 가 null 이어서 이 트리거를 타지 않는다. 라우트는 코드에서 막는다.
 
 create table if not exists public.qa_accounts (
@@ -47,13 +47,13 @@ begin
   if auth.uid() is not null
      and public.fn_is_qa_account()
      and (public.is_admin() or public.fn_is_active_admin()) then
-    raise exception 'QA 계정이라 이 기능은 작동하지 않아요.' using errcode = 'WC102';
+    raise exception 'QA 계정이라 이 기능은 작동하지 않아요.' using errcode = 'WC104';
   end if;
   return null;
 end $$;
 
 comment on function public.fn_block_qa_admin_write() is
-  'QA 본사 관리자의 브라우저 쓰기 차단(WC102). 문 단위 BEFORE INSERT OR UPDATE OR DELETE 트리거 함수. service_role 과 postgres 롤(auth.uid() 가 null)은 통과.';
+  'QA 본사 관리자의 브라우저 쓰기 차단(WC104). 문 단위 BEFORE INSERT OR UPDATE OR DELETE 트리거 함수. service_role 과 postgres 롤(auth.uid() 가 null)은 통과.';
 
 -- qa_accounts 를 뺀 모든 public 테이블에 건다. 관리자 화면이 열릴 때만으로 브라우저가 적는 테이블은 없어서(접속일은
 -- /api/session-check 가 service_role 로 적는다) 제외할 테이블이 없다. 개인정보 반출 사유 기록(admin_access_logs)도 쓰기라 막힌다.

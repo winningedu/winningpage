@@ -110,20 +110,20 @@ select pg_temp.expect_bool('authenticated 는 qa_accounts 에 권한이 없다',
 select pg_temp.expect_bool('anon 은 fn_is_qa_account 를 실행할 수 없다',
   has_function_privilege('anon', 'public.fn_is_qa_account(uuid)', 'execute'), false);
 
--- QA 본사 관리자(profiles.role = admin): 브라우저 쓰기 차단 WC102
+-- QA 본사 관리자(profiles.role = admin): 브라우저 쓰기 차단 WC104
 select pg_temp.expect_error('QA 관리자의 UPDATE 차단', (select v from fx where k = 'qa_admin'),
-  $q$update public.profiles set address = 'x' where false$q$, 'WC102');
+  $q$update public.profiles set address = 'x' where false$q$, 'WC104');
 select pg_temp.expect_error('QA 관리자의 DELETE 차단', (select v from fx where k = 'qa_admin'),
-  $q$delete from public.profiles where false$q$, 'WC102');
+  $q$delete from public.profiles where false$q$, 'WC104');
 select pg_temp.expect_error('QA 관리자의 INSERT 차단', (select v from fx where k = 'qa_admin'),
-  $q$insert into public.profiles (id, name) select gen_random_uuid(), 'x' where false$q$, 'WC102');
+  $q$insert into public.profiles (id, name) select gen_random_uuid(), 'x' where false$q$, 'WC104');
 select pg_temp.expect_ok('QA 관리자의 SELECT 는 된다', (select v from fx where k = 'qa_admin'),
   $q$select count(*) from public.profiles$q$);
 
 -- admin_members 활성 행만 있는 QA 관리자도 차단
 select pg_temp.expect_error('admin_members 활성 QA 관리자의 UPDATE 차단',
   (select v from fx where k = 'qa_member_admin'),
-  $q$update public.profiles set address = 'x' where false$q$, 'WC102');
+  $q$update public.profiles set address = 'x' where false$q$, 'WC104');
 
 -- 영향 없는 호출자
 select pg_temp.expect_ok('QA 아닌 관리자의 UPDATE 는 된다', (select v from fx where k = 'real_admin'),
