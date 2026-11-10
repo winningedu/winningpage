@@ -25,3 +25,11 @@ export function loadDraft(userId: string): Record<string, unknown> | null {
     return null;
   }
 }
+
+export function clearDraft(userId: string) {
+  try {
+    localStorage.removeItem(KEY_PREFIX + userId);
+  } catch {
+    // 삭제 실패는 설문 진행을 막지 않는다.
+  }
+}
