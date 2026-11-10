@@ -1,8 +1,9 @@
 // QA 계정 보호: 관리자 판정 함수가 QA 관리자의 쓰기 요청만 막는지 본다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { resolveAdmin, resolveWinningAdmin } from "./adminAuth.js";
+import { assertNotQaAccount } from "./qaAccount.js";
 
 interface World {
   qa: boolean;
@@ -93,5 +94,56 @@ describe.each([
       status: 403,
       detail: "관리자 권한이 필요합니다.",
     });
+  });
+});
+
+// 차단 스위치: QA_ACCOUNT_GUARD_ENABLED 가 "true" 일 때만 막는다(vitest.config.ts 가 기본으로 "true" 를 깐다).
+describe("QA_ACCOUNT_GUARD_ENABLED", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test.each([
+    ["없음", undefined],
+    ["빈 값", ""],
+    ["false", "false"],
+    ["1", "1"],
+  ])("값이 %s 이면 QA 계정도 막지 않는다", async (_label, value) => {
+    vi.stubEnv("QA_ACCOUNT_GUARD_ENABLED", value);
+
+    const admin = await resolveAdmin(
+      fakeAdmin({ qa: true, role: "admin" }),
+      req("POST"),
+    );
+    expect(admin).toEqual({ ok: true, userId: "u1" });
+    await expect(
+      assertNotQaAccount(fakeAdmin({ qa: true, role: "user" }), "u1"),
+    ).resolves.toBeUndefined();
+  });
+
+  test.each(["true", " TRUE ", "True"])(
+    "값이 '%s' 이면 QA 계정을 막는다",
+    async (value) => {
+      vi.stubEnv("QA_ACCOUNT_GUARD_ENABLED", value);
+
+      const admin = await resolveAdmin(
+        fakeAdmin({ qa: true, role: "admin" }),
+        req("POST"),
+      );
+      expect(admin).toMatchObject({ ok: false, code: "QA_ACCOUNT_READ_ONLY" });
+      await expect(
+        assertNotQaAccount(fakeAdmin({ qa: true, role: "user" }), "u1"),
+      ).rejects.toMatchObject({ code: "QA_ACCOUNT_RESTRICTED" });
+    },
+  );
+
+  test("스위치가 꺼져 있어도 QA 가 아닌 계정은 그대로다", async () => {
+    vi.stubEnv("QA_ACCOUNT_GUARD_ENABLED", "false");
+
+    const admin = await resolveAdmin(
+      fakeAdmin({ qa: false, role: "admin" }),
+      req("POST"),
+    );
+    expect(admin).toEqual({ ok: true, userId: "u1" });
   });
 });
