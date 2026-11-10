@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthProvider";
-import { resolvePublicMemberType } from "@/lib/memberAccess";
+import {
+  classifyMember,
+  type MemberKind,
+  resolvePublicMemberType,
+} from "@/lib/memberAccess";
 import { supabase } from "@/lib/supabase";
 
 // Header.jsx(:151 근방)가 profiles 를 조회하는 것과 같은 컬럼 세트.
@@ -26,6 +30,8 @@ const PROFILE_COLUMNS = "id, name, email, username, member_type, role";
  *   memberType   profiles.member_type 소문자 정규화값('' = 미설정). 게스트면 null
  *                (미설정과 게스트를 구분해야 호출부가 "로그인은 했지만 유형이
  *                없는 사용자"를 게스트로 오판하지 않는다).
+ *   kind         memberType의 유형(classifyMember). 관리자는 memberType처럼 student다.
+ *                게스트와 조회 실패는 null. 호출부는 문자열 대신 이 값으로 분기한다.
  *   error        profiles 조회 실패 시 Error, 그 외엔 null.
  *   refetch      조회를 처음부터 다시 실행한다. 소비처가 error 를 "차단"이
  *                아니라 "일시 오류"로 다룰 때(재시도 버튼) 쓴다 — useProducts
@@ -38,6 +44,7 @@ export function useMemberType() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [memberType, setMemberType] = useState<string | null>(null);
+  const [kind, setKind] = useState<MemberKind | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -55,6 +62,7 @@ export function useMemberType() {
     if (!authUserId) {
       setUserId(null);
       setMemberType(null);
+      setKind(null);
       setError(null);
       setLoading(false);
       return undefined;
@@ -76,6 +84,7 @@ export function useMemberType() {
         console.error("profiles 조회 실패:", profileError);
         setUserId(authUserId);
         setMemberType(null);
+        setKind(null);
         setError(profileError);
         setLoading(false);
         return;
@@ -83,12 +92,14 @@ export function useMemberType() {
 
       setUserId(authUserId);
       // 관리자는 학생과 같은 경로로 통과시킨다(memberAccess.ts).
-      setMemberType(
-        resolvePublicMemberType({
-          memberType: String(profile?.member_type || "").toLowerCase(),
-          role: profile?.role ?? null,
-        }),
-      );
+      const gateType = resolvePublicMemberType({
+        memberType: String(profile?.member_type || "")
+          .trim()
+          .toLowerCase(),
+        role: profile?.role ?? null,
+      });
+      setMemberType(gateType);
+      setKind(classifyMember({ memberType: gateType }));
       setLoading(false);
     })();
 
@@ -97,5 +108,5 @@ export function useMemberType() {
     };
   }, [isAuthReady, authUserId, reloadKey]);
 
-  return { loading, userId, memberType, error, refetch };
+  return { loading, userId, memberType, kind, error, refetch };
 }

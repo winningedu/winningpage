@@ -3,15 +3,17 @@ import { useAuth } from "@/context/AuthProvider";
 import { cleanText } from "@/hooks/useNavGroups";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import { classifyMember, getMemberLabel } from "@/lib/memberAccess";
 import { supabase } from "@/lib/supabase";
-import { fetchProfile, getCsatDay, getMemberLabel } from "../Header";
-import { type MyMenuRole, resolveMyMenuRole } from "../myMenuItems";
+import { fetchProfile, getCsatDay } from "../Header";
 
-type Student = {
-  status: "student";
+// other: 멘토, 유형 미설정, 모르는 유형, 콘솔 조회에 실패한 선생님. 이름 칩만 보이고 D-day는 없다.
+type MemberStatus = "student" | "parent" | "admin" | "other";
+
+type Member<Status extends MemberStatus> = {
+  status: Status;
   name: string;
   memberLabel: string;
-  myMenuRole: MyMenuRole;
   orgName: string | null;
 };
 
@@ -22,7 +24,12 @@ type Teacher = {
   orgName: string;
 };
 
-type Resolved = Student | Teacher;
+type Resolved =
+  | Member<"student">
+  | Member<"parent">
+  | Member<"admin">
+  | Member<"other">
+  | Teacher;
 
 const TEACHER_ROLE_LABELS: Record<string, string> = {
   homeroom: "담임교사",
@@ -32,7 +39,10 @@ const TEACHER_ROLE_LABELS: Record<string, string> = {
 export type B2BAccount =
   | { status: "loading" }
   | { status: "guest" }
-  | (Student & { csatDDay: string })
+  | (Member<"student"> & { csatDDay: string })
+  | Member<"parent">
+  | Member<"admin">
+  | Member<"other">
   | Teacher;
 
 // 학생이 소속된 기관 이름. 행이 없으면 null이라 칩을 그리지 않는다.
@@ -42,7 +52,7 @@ async function fetchOrgName(): Promise<string | null> {
   return data[0]?.name ?? null;
 }
 
-// 선생님 콘솔 계정이면 이름, 역할, 기관을 돌려준다. 401, 403 등 실패는 null(학생으로 본다).
+// 선생님 콘솔 계정이면 이름, 역할, 기관을 돌려준다. 401, 403 등 실패는 null(이름 칩만 보인다).
 async function fetchTeacher(): Promise<Teacher | null> {
   const headers = await getAuthHeader();
   if (!headers) return null;
@@ -58,7 +68,7 @@ async function fetchTeacher(): Promise<Teacher | null> {
   };
 }
 
-// 헤더와 드로어가 함께 쓰는 로그인 상태(로딩, 게스트, 학생, 선생님).
+// 헤더와 드로어가 함께 쓰는 로그인 상태(로딩, 게스트, 학생, 학부모, 관리자, 선생님, 그 외).
 export function useB2BAccount(): B2BAccount {
   const { user, isReady } = useAuth();
   const [resolved, setResolved] = useState<{
@@ -75,19 +85,23 @@ export function useB2BAccount(): B2BAccount {
     let alive = true;
     (async () => {
       const profile = await fetchProfile(user);
-      const memberLabel = getMemberLabel(profile);
+      const memberLabel = getMemberLabel({
+        memberType: profile?.member_type,
+        role: profile?.role,
+      });
+      const kind = classifyMember({
+        role: profile?.role ?? null,
+        memberType: profile?.member_type ?? null,
+      });
       const teacher =
-        memberLabel === "멘토회원"
-          ? await fetchTeacher().catch(() => null)
-          : null;
+        kind === "teacher" ? await fetchTeacher().catch(() => null) : null;
       const account: Resolved = teacher ?? {
-        status: "student",
+        status:
+          kind === "admin" || kind === "parent" || kind === "student"
+            ? kind
+            : "other",
         name: cleanText(profile?.name),
         memberLabel,
-        myMenuRole: resolveMyMenuRole({
-          role: profile?.role ?? null,
-          memberType: profile?.member_type ?? null,
-        }),
         orgName: await fetchOrgName(),
       };
       if (alive) setResolved({ userId: user.id, account });

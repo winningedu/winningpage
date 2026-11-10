@@ -40,7 +40,7 @@ import StudentEnrollmentRequest from "./checkout/StudentEnrollmentRequest";
 //   분리하는 편이 장기적으로 더 명확하다 — 이 디스패처는 그 전환 전까지의
 //   임시 배선이다(BLOCK 원문 "a·c 간 조정 필요" 참고).
 export default function Checkout() {
-  const { loading, userId, memberType, error, refetch } = useMemberType();
+  const { loading, userId, memberType, kind, error, refetch } = useMemberType();
 
   if (loading) {
     return (
@@ -59,8 +59,8 @@ export default function Checkout() {
 
   if (error) return <MemberTypeRetryNotice onRetry={refetch} />;
 
-  if (memberType === "student") return <StudentEnrollmentRequest />;
-  if (memberType === "parent") return <ParentCheckout />;
+  if (kind === "student") return <StudentEnrollmentRequest />;
+  if (kind === "parent") return <ParentCheckout />;
 
   return <BlockedMemberNotice memberType={memberType} />;
 }
