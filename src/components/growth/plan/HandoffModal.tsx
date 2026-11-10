@@ -1,4 +1,5 @@
 import AppModal from "@/components/goal/AppModal";
+import { siteWording } from "@/config/wording";
 import type { ProgramHandoff } from "@/lib/growth/api";
 import { buildHandoffRows, handoffSubtitle } from "./planLogic";
 
@@ -27,7 +28,7 @@ export default function HandoffModal({
     <AppModal
       open={handoff !== null}
       onClose={onClose}
-      title={`위닝 ${name}로 이동할까요?`}
+      title={siteWording(`위닝 ${name}로 이동할까요?`)}
       subtitle={handoffSubtitle(name)}
       submitLabel="이동하기"
       onSubmit={() => handoff && onConfirm(handoff)}

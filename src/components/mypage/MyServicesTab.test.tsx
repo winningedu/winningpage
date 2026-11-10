@@ -229,3 +229,33 @@ describe("MyServicesTab 심화탐구 항목", () => {
     );
   });
 });
+
+describe("MyServicesTab - 스쿨멘토 서비스 이름", () => {
+  afterEach(() => {
+    state.grants = [];
+    mockFetchLatestDiagnosisReport.mockReset();
+    vi.doUnmock("@/config/site");
+    vi.resetModules();
+  });
+
+  it("학습진단 카드 이름에 '위닝 '을 붙이지 않는다", async () => {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: { brandName: "스쿨멘토", features: { stripWinningPrefix: true } },
+    }));
+    state.grants = [DIAGNOSE_GRANT];
+    mockFetchLatestDiagnosisReport.mockResolvedValue(null);
+    const { default: Tab } = await import("./MyServicesTab");
+
+    render(
+      <MemoryRouter>
+        <Tab />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("학습진단")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("위닝 학습진단")).not.toBeInTheDocument();
+  });
+});

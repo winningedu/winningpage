@@ -9,6 +9,7 @@ import {
   getThumbnailUrl,
   getViewCount,
 } from "@/pages/column/columnData";
+import { getVideoId } from "@/pages/column/kind";
 
 type ColumnLike = {
   id: string | number;
@@ -63,6 +64,7 @@ function MetaRow({
 }
 
 // link_url이 있으면 상세 대신 외부 주소로 새 창 이동, 없으면 내부 상세 Link.
+// 스쿨멘토의 유튜브 영상 주소는 상세로 보낸다(상세에서 재생).
 function CardLink({
   column,
   className,
@@ -74,7 +76,9 @@ function CardLink({
 }) {
   const linkUrl = typeof column.link_url === "string" ? column.link_url : "";
 
-  if (linkUrl) {
+  const isPlayableVideo = getVideoId(column) !== null;
+
+  if (linkUrl && !isPlayableVideo) {
     return (
       <a
         href={linkUrl}
@@ -110,7 +114,10 @@ export default function ColumnCard({
   categories,
   variant = "grid",
 }: ColumnCardProps) {
-  const thumbnail = getThumbnailUrl(column);
+  const videoId = getVideoId(column);
+  const thumbnail =
+    getThumbnailUrl(column) ||
+    (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "");
   const categoryLabel = getCategoryLabel(column, categories);
   const hasCategory = categoryLabel !== ALL_CATEGORY;
 

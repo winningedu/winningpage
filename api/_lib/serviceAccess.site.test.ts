@@ -80,6 +80,13 @@ describe("hasPaidServiceAccess 사이트 분기", () => {
     expect(names(rpc)).not.toContain("fn_program_access_state");
   });
 
+  it("스쿨멘토는 선생님 계정을 teacher 사유로 막는다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    const { db } = fakeDb(stateRow({ allowed: false, deny_reason: "teacher" }));
+    const out = await hasPaidServiceAccess(db, "t1", cfg("growth"));
+    expect(out).toEqual({ allowed: false, reason: "teacher" });
+  });
+
   it("스쿨멘토 목표관리는 program_key target 으로 읽는다", async () => {
     vi.stubEnv("SITE", "schoolmentor");
     const { db, rpc } = fakeDb(stateRow());

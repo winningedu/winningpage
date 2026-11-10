@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import FaqAccordionRow from "@/components/faq/FaqAccordionRow";
 import FaqCategoryTabs from "@/components/faq/FaqCategoryTabs";
 import { FAQ_TABPANEL_ID, getFaqTabId } from "@/components/faq/faqTabId";
+import { site } from "@/config/site";
 import { FAQ_CATEGORIES } from "@/data/faqCategories";
 import { supabase } from "@/lib/supabase";
 
@@ -199,7 +200,7 @@ export default function Faq() {
                 role="tabpanel"
                 aria-labelledby={getFaqTabId(activeTab)}
               >
-                {renderList("등록된 질문이 없습니다.")}
+                {renderList(site.boardEmpty ?? "등록된 질문이 없습니다.")}
               </div>
             </>
           )}

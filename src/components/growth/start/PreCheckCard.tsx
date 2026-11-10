@@ -1,3 +1,4 @@
+import { siteWording } from "@/config/wording";
 import type { ActivityOverview } from "@/lib/growth/api";
 import { CARD, CARD_HINT, CARD_TITLE, SUB_TILE } from "./cardStyles";
 
@@ -41,7 +42,7 @@ export default function PreCheckCard({
       <p className={CARD_HINT}>아래가 갖춰질수록 진단이 구체적으로 나와요.</p>
       <div className="mt-4 flex gap-3">
         <Stat
-          label="위닝에 저장된 활동"
+          label={siteWording("위닝에 저장된 활동")}
           value={String(overview.total)}
           unit="건"
           note={`교과 ${overview.byGroup.curricular}건, 창체 ${overview.byGroup.extracurricular}건`}

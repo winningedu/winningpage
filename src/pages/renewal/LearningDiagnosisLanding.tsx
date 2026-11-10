@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import type { CSSProperties, MutableRefObject } from "react";
+import type { CSSProperties, MouseEvent, MutableRefObject } from "react";
 import { Link } from "react-router";
 import benefitStrengthTable from "@/assets/renewal/landing/benefit-strength-table.png";
 import benefitSummaryCard from "@/assets/renewal/landing/benefit-summary-card.png";
@@ -12,7 +12,9 @@ import illustrationStrength from "@/assets/renewal/landing/illustration-strength
 import illustrationTrial from "@/assets/renewal/landing/illustration-trial.png";
 import illustrationWeakness from "@/assets/renewal/landing/illustration-weakness.png";
 import macbookFull from "@/assets/renewal/landing/macbook-full.png";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
+import { site } from "@/config/site";
 import { useInView } from "@/hooks/useInView";
 
 const CTA_LINK_CLASS =
@@ -28,6 +30,8 @@ const STEPS = [
   { title: "결과 확인", desc: "응답을 바탕으로 유형을 분석해요" },
   { title: "서비스 추천", desc: "가장 먼저 필요한 서비스를 추천해요" },
 ];
+
+const DIAGNOSIS_APP_ROUTE = "/app/learning-diagnosis/survey";
 
 // 시안은 카드마다 이미지 규격이 다르다 — 카드1 353×269/top 0(상단 플러시), 카드2·3 353×235/top 34.
 // 즉 셋 다 이미지 영역의 "바닥"이 y269에 맞고 카드2·3만 위에 34 여백이 붙는 구조다.
@@ -55,6 +59,7 @@ const AUDIENCE = [
   {
     image: illustrationTrial,
     imageClass: "wide:mt-8.5 wide:h-58.75",
+    freeTrial: true,
     titleLines: ["유료 서비스 전에 무료로", "서비스를 경험해보고 싶은 학생"],
     descLines: ["내 위치를 데이터로 확인하고", "맞는 서비스를 찾고 있는 경우"],
   },
@@ -151,7 +156,9 @@ const HERO_GRAIN_STYLE = { backgroundImage: `url(${heroGrain})` };
 const HERO_GRAIN_CLASS =
   "pointer-events-none absolute select-none bg-size-[8.375rem_8.375rem] bg-repeat mix-blend-overlay";
 
-function HeroSection() {
+type StartClickHandler = (event: MouseEvent<HTMLAnchorElement>) => void;
+
+function HeroSection({ onStart }: { onStart: StartClickHandler }) {
   // 히어로를 벗어나 스크롤하면 30초 회전을 멈춘다 — SVG 리페인트 비용 절감
   // (GoalManagement.jsx HeroSection과 동일 useInView 훅 구조).
   // useInView(범위 밖 파일)가 튜플이 아닌 배열을 반환해 각 원소가 유니온으로 추론되므로 단언.
@@ -268,7 +275,8 @@ function HeroSection() {
         </p>
 
         <Link
-          to="/app/learning-diagnosis/survey"
+          to={DIAGNOSIS_APP_ROUTE}
+          onClick={onStart}
           className={`${CTA_LINK_CLASS} mt-6 bg-primary shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] hover:bg-[#01498F] focus-visible:ring-primary`}
         >
           지금 시작하기
@@ -338,6 +346,12 @@ function StepsSection() {
 }
 
 function AudienceSection() {
+  // 스쿨멘토에는 무료진단이 없어 체험 카드를 그리지 않는다(사 #12, 결정 107-10).
+  const audience = site.features.serviceStartNotice
+    ? AUDIENCE.filter((item) => !item.freeTrial)
+    : AUDIENCE;
+  const hasTrialCard = audience.length === AUDIENCE.length;
+
   return (
     <section className="bg-white pt-20 pb-10 md:pt-62.5 md:pb-0">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
@@ -351,8 +365,10 @@ function AudienceSection() {
             ('서비스를 경험해보고 싶은 분' ≈250 / '목표는 있는데 지금 무엇을 준비해야' ≈252)이
             한 줄에 안 들어가 2줄 구조가 3~4줄로 붕괴한다. 그래서 640~1183은 2열을 유지하고,
             3장 중 마지막 1장이 좌측에 고아로 남는 문제만 아래 last: 규칙으로 해소한다. */}
-        <div className="mt-10 grid grid-cols-1 justify-center gap-6 sm:grid-cols-2 md:mt-perf-inset wide:grid-cols-[repeat(3,22.0625rem)] wide:gap-5">
-          {AUDIENCE.map((item) => (
+        <div
+          className={`mt-10 grid grid-cols-1 justify-center gap-6 sm:grid-cols-2 md:mt-perf-inset ${hasTrialCard ? "wide:grid-cols-[repeat(3,22.0625rem)]" : "wide:grid-cols-[repeat(2,22.0625rem)]"} wide:gap-5`}
+        >
+          {audience.map((item) => (
             <article
               key={item.titleLines.join("")}
               /* 640~1183: 마지막 카드를 2칸 스팬 + 중앙정렬한다. 스팬 영역 폭 W(=행 전체)에 대해
@@ -362,7 +378,7 @@ function AudienceSection() {
                  screens가 px(기본) + rem(wide·desktop) 혼용이라 Tailwind가 max- 계열 변형 생성을
                  거부한다("mixed units" 경고) — 조용히 무효 클래스가 되므로 max- 변형은 쓰면 안 된다.
                  대신 wide: 로 되돌린다(생성 순서상 wide 규칙이 sm 규칙 뒤라 ≥1184에서 이긴다). */
-              className="flex flex-col overflow-hidden rounded-[1.875rem] bg-[#FBFAFA] transition hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_rgba(82,82,82,0.14)] sm:last:col-span-2 sm:last:mx-auto sm:last:w-[calc(50%-0.75rem)] wide:h-124.5 wide:last:col-auto wide:last:mx-0 wide:last:w-auto"
+              className={`flex flex-col overflow-hidden rounded-[1.875rem] bg-[#FBFAFA] transition hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_rgba(82,82,82,0.14)] wide:h-124.5 ${hasTrialCard ? "sm:last:col-span-2 sm:last:mx-auto sm:last:w-[calc(50%-0.75rem)] wide:last:col-auto wide:last:mx-0 wide:last:w-auto" : ""}`}
             >
               <img
                 src={item.image}
@@ -592,7 +608,7 @@ function MacbookShowcase() {
   );
 }
 
-function BottomCta() {
+function BottomCta({ onStart }: { onStart: StartClickHandler }) {
   return (
     <section className="bg-[#172437] py-14 md:mt-59 md:pt-35.25 md:pb-35.5">
       <div className="mx-auto flex w-full max-w-content flex-col items-center gap-8 px-5 text-center sm:gap-10 sm:px-8 md:gap-perf-inset">
@@ -602,7 +618,8 @@ function BottomCta() {
 
         <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:justify-center sm:gap-6">
           <Link
-            to="/app/learning-diagnosis/survey"
+            to={DIAGNOSIS_APP_ROUTE}
+            onClick={onStart}
             className={`${CTA_LINK_CLASS} gap-2 bg-primary shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] hover:bg-[#01498F] focus-visible:ring-white`}
           >
             학습진단 시작하기
@@ -624,14 +641,27 @@ function BottomCta() {
 }
 
 export default function LearningDiagnosisLanding() {
+  const { requestStart, startDialogs, isGuestBlocked } = useServiceStart({
+    to: DIAGNOSIS_APP_ROUTE,
+    resultNotice: false,
+  });
+
+  // 스쿨멘토 비로그인만 링크 이동을 막고 안내를 연다. 그 밖에는 링크가 그대로 이동한다.
+  function handleStart(event: MouseEvent<HTMLAnchorElement>) {
+    if (!isGuestBlocked) return;
+    event.preventDefault();
+    requestStart(() => {});
+  }
+
   return (
     <main className="min-h-screen bg-white pt-16">
-      <HeroSection />
+      <HeroSection onStart={handleStart} />
       <StepsSection />
       <AudienceSection />
       <BenefitsSection />
       <MacbookShowcase />
-      <BottomCta />
+      <BottomCta onStart={handleStart} />
+      {startDialogs}
     </main>
   );
 }

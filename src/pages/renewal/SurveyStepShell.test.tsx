@@ -6,10 +6,18 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useOutletContext } from "react-router";
+import {
+  MemoryRouter,
+  Navigate,
+  Route,
+  Routes,
+  useOutletContext,
+  useParams,
+} from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const gateState = vi.hoisted(() => ({ on: false }));
+const gateState = vi.hoisted(() => ({ on: false, resume: false }));
+const authState = vi.hoisted(() => ({ userId: "u1" as string | null }));
 const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
 
@@ -24,13 +32,22 @@ vi.mock("@/config/site", async (orig) => {
         get tenantServiceGate() {
           return gateState.on;
         },
+        get diagnosisResume() {
+          return gateState.resume;
+        },
       },
     },
   };
 });
+vi.mock("@/context/AuthProvider", () => ({
+  useAuthOptional: () => ({ userId: authState.userId }),
+}));
 vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
+}));
+vi.mock("@/lib/diagnosisInputStorage", () => ({
+  submitDiagnosisAnswers: () => ({ meta: { diagnosedAt: null } }),
 }));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
   fetchSurveyCopyOverrides: async () => new Map(),
@@ -43,7 +60,10 @@ vi.mock("./diagnosisStudentName", () => ({
   fetchLoggedInStudentName: async () => null,
 }));
 
+import { getStepRequiredQuestions } from "@/lib/renewalSurvey";
 import SurveyStepShell from "./SurveyStepShell";
+
+const DRAFT_KEY = "diagnosis-draft:u1";
 
 const denied = (tenantReason: string | null) => ({
   allowed: false,
@@ -94,6 +114,9 @@ function renderShell() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  gateState.resume = false;
+  authState.userId = "u1";
   accessMock.mockReset();
   consumeMock.mockReset();
   vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -185,5 +208,187 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
     expect(
       screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
     ).not.toBeInTheDocument();
+  });
+});
+
+function step1Answers() {
+  return Object.fromEntries(
+    getStepRequiredQuestions(1).map((q) => [q.id, q.options?.[0]]),
+  );
+}
+
+function DraftChild() {
+  const ctx = useOutletContext<{
+    answers: Record<string, unknown>;
+    setAnswer: (id: string, v: unknown) => void;
+  }>();
+  return (
+    <>
+      <button type="button" onClick={() => ctx.setAnswer("q1", "중학생")}>
+        q1 답하기
+      </button>
+      <p data-testid="answers">{JSON.stringify(ctx.answers)}</p>
+    </>
+  );
+}
+
+function renderDraft() {
+  return render(
+    <MemoryRouter initialEntries={["/survey"]}>
+      <Routes>
+        <Route path="/survey" element={<SurveyStepShell />}>
+          <Route index element={<DraftChild />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("SurveyStepShell 이어 답하기 초안", () => {
+  beforeEach(() => {
+    gateState.resume = true;
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+  });
+
+  it("답할 때마다 사용자 id 키로 저장한다", async () => {
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}").answers,
+      ).toEqual({ q1: "중학생", q4: expect.any(String) }),
+    );
+  });
+
+  it("다시 들어오면 답한 문항을 채운다", async () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    renderDraft();
+    await waitFor(() =>
+      expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"N수생"'),
+    );
+  });
+
+  it("다른 사용자의 초안은 채우지 않는다", async () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    authState.userId = "u2";
+    renderDraft();
+    await screen.findByRole("button", { name: "q1 답하기" });
+    expect(screen.getByTestId("answers")).toHaveTextContent("{}");
+  });
+
+  it("제출에 성공하면 초안을 지운다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalled());
+    expect(onResult).not.toHaveBeenCalledWith(null);
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("제출이 거부되면 초안을 남긴다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "check-failed" });
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(localStorage.getItem(DRAFT_KEY)).not.toBeNull();
+  });
+
+  it("저장소가 던져도 설문은 동작한다", async () => {
+    const boom = () => {
+      throw new DOMException("denied", "SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(boom);
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"중학생"');
+  });
+
+  it("위닝은 저장소에 아무것도 쓰지 않는다", async () => {
+    gateState.resume = false;
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("answers")).toHaveTextContent("중학생"),
+    );
+    expect(setItem).not.toHaveBeenCalled();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("1단계로 들어오면 첫 미완료 단계로 옮긴다", async () => {
+    const step1 = step1Answers();
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
+    );
+    function StepChild() {
+      return <p data-testid="step">{useParams().step}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/app/learning-diagnosis/survey/1"]}>
+        <Routes>
+          <Route
+            path="/app/learning-diagnosis/survey"
+            element={<SurveyStepShell />}
+          >
+            <Route path=":step" element={<StepChild />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("step")).toHaveTextContent("2"),
+    );
+  });
+
+  it("인덱스로 들어와도 첫 미완료 단계로 옮긴다", async () => {
+    const step1 = step1Answers();
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
+    );
+    function StepChild() {
+      return <p data-testid="step">{useParams().step}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/app/learning-diagnosis/survey"]}>
+        <Routes>
+          <Route
+            path="/app/learning-diagnosis/survey"
+            element={<SurveyStepShell />}
+          >
+            <Route
+              index
+              element={
+                <Navigate to="/app/learning-diagnosis/survey/1" replace />
+              }
+            />
+            <Route path=":step" element={<StepChild />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("step")).toHaveTextContent("2"),
+    );
   });
 });

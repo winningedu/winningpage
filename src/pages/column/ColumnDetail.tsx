@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import ColumnBody, { hasBlockContent } from "@/components/column/ColumnBody";
 import ColumnCard from "@/components/column/ColumnCard";
+import YoutubePlayer from "@/components/YoutubePlayer";
 import { site } from "@/config/site";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import {
@@ -19,6 +20,7 @@ import {
   getCoverUrl,
   normalizeImageUrls,
 } from "./columnData";
+import { getVideoId } from "./kind";
 import { useColumnCategories } from "./useColumnCategories";
 
 const RELATED_PAGE_SIZE = 4;
@@ -63,6 +65,7 @@ export default function ColumnDetail() {
   const remainingImages = post ? normalizeImageUrls(post).slice(1) : [];
   const hasBlocks = hasBlockContent(post);
   const linkUrl = typeof post?.link_url === "string" ? post.link_url : "";
+  const videoId = post ? getVideoId(post) : null;
 
   const relatedRows = useMemo(() => {
     if (!post) return [];
@@ -196,7 +199,16 @@ export default function ColumnDetail() {
 
       <section>
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
-          {linkUrl && (
+          {videoId && post && (
+            <div className="mt-16 md:mt-24">
+              <YoutubePlayer
+                key={videoId}
+                videoId={videoId}
+                title={post.title || ""}
+              />
+            </div>
+          )}
+          {linkUrl && !videoId && (
             <a
               href={linkUrl}
               target="_blank"

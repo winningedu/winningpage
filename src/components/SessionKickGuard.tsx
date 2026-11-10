@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import ConfirmModal from "@/components/checkout/ConfirmModal";
 import { useAuth } from "@/context/AuthProvider";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { sessionCheckQueryOptions } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 
@@ -116,6 +117,8 @@ export default function SessionKickGuard() {
     // 잔존 세션은 토큰 만료 시 auto-refresh 실패로 정리된다.
     if (readKickHandled()) return;
     writeKickHandled();
+    // 킥된 기기가 공용 PC일 수 있어 학습진단 초안(성적, 목표 학교)을 남기지 않는다.
+    clearAllDrafts();
 
     // signOut이 성공하든 타임아웃으로 포기하든 이후 동작은 같다 — 그래서
     // 플래그 쓰기는 이 race가 끝난 뒤, replace 바로 직전에만 한다(리뷰 LOW:

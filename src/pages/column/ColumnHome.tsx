@@ -62,7 +62,7 @@ export default function ColumnHome() {
       {!loading && rows.length === 0 ? (
         <div className="mx-auto w-full max-w-content px-5 py-24 text-center sm:px-8">
           <p className="text-sm font-bold text-gray-400">
-            등록된 {site.columnTitle}이 없습니다.
+            {site.boardEmpty ?? `등록된 ${site.columnTitle}이 없습니다.`}
           </p>
         </div>
       ) : (
@@ -127,7 +127,8 @@ export default function ColumnHome() {
 
                 {filteredGridRows.length === 0 ? (
                   <div className="py-24 text-center text-sm font-bold text-gray-400">
-                    등록된 {site.columnTitle}이 없습니다.
+                    {site.boardEmpty ??
+                      `등록된 ${site.columnTitle}이 없습니다.`}
                   </div>
                 ) : (
                   <div className="mt-10 grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">

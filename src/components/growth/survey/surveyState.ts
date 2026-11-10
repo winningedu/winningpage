@@ -1,5 +1,6 @@
 // 학생 조사 화면의 순수 상태 로직. 네트워크와 DOM 에 의존하지 않는다.
 //   - initialAnswers: 재진입 복원 또는 프리필 병합으로 초기 답을 만든다.
+import { siteWording } from "@/config/wording";
 import type {
   SurveyAnswers,
   SurveyBootstrap,
@@ -15,9 +16,9 @@ export const UNIVERSITY_MAX = 2;
 export type AnswerOrigin = "previous" | "diagnosis" | "activity";
 
 export const PREFILL_BADGE: Readonly<Record<AnswerOrigin, string>> = {
-  diagnosis: "무료진단에서 가져옴",
+  diagnosis: siteWording("무료진단에서 가져옴"),
   previous: "지난 회차 답",
-  activity: "저장된 활동에서 확인",
+  activity: siteWording("저장된 활동에서 확인"),
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {

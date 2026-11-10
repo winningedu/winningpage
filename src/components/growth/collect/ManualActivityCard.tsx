@@ -1,6 +1,7 @@
 import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { siteWording } from "@/config/wording";
 import type { ActivityView } from "@/lib/growth/api";
 import { activityGroupLabel } from "../../../../api/_lib/activityGroup.js";
 import { CollectSection, NoticeBox } from "./CollectSection";
@@ -117,7 +118,9 @@ export function ManualActivityCard({
   return (
     <CollectSection
       title="활동 직접 입력"
-      description="위닝에 없는 활동을 직접 적어요. 집계와 A부터 E 판정에 함께 써요."
+      description={siteWording(
+        "위닝에 없는 활동을 직접 적어요. 집계와 A부터 E 판정에 함께 써요.",
+      )}
       sectionRef={sectionRef}
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

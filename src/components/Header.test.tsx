@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Header from "./Header";
@@ -82,6 +82,7 @@ vi.mock("@/lib/supabase", () => ({
       onAuthStateChange: () => ({
         data: { subscription: { unsubscribe: () => {} } },
       }),
+      signOut: async () => ({ error: null }),
     },
   },
 }));
@@ -541,5 +542,34 @@ describe("Header — 햄버거 위치(§6-7, 2026-09-03 계정 그룹 마지막�
       logout.compareDocumentPosition(hamburger) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+});
+
+describe("Header 로그아웃과 학습진단 초안", () => {
+  it("로그아웃하면 모든 사용자의 학습진단 초안만 지운다", async () => {
+    mockProfileRow = {
+      id: "u1",
+      email: "student@test.com",
+      name: "홍길동",
+      member_type: "student",
+      role: "student",
+    };
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u1", email: "student@test.com" } },
+      user: { id: "u1", email: "student@test.com" },
+      isReady: true,
+    });
+    localStorage.setItem("diagnosis-draft:u1", "{}");
+    localStorage.setItem("diagnosis-draft:u2", "{}");
+    localStorage.setItem("other-key", "keep");
+
+    renderHeader();
+    fireEvent.click(await screen.findByRole("button", { name: "로그아웃" }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull(),
+    );
+    expect(localStorage.getItem("diagnosis-draft:u2")).toBeNull();
+    expect(localStorage.getItem("other-key")).toBe("keep");
   });
 });

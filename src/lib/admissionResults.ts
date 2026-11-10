@@ -10,6 +10,8 @@
 // 신규 5지표(grade_avg / grade_min / grade_avg10 / grade_min10 / grade_first_avg)는
 // v1 미노출이다. 행에 실려 오더라도 여기서 화면용 파생값을 만들지 않는다(Q5).
 
+import { site } from "@/config/site";
+
 // ---------------------------------------------------------------------------
 // 상수
 // ---------------------------------------------------------------------------
@@ -25,9 +27,11 @@ export const ACTIVE_RESULT_YEAR = 2026;
 
 // 값이 없는 셀의 표기는 2종이다. 2개년 축에서는 "그해 전형 자체가 없었다"(2026 행의
 // 40.8%가 짝 없음)와 "대학이 등급을 공개하지 않았다"의 구분 가치가 크다.
-//   행 부재            → EMPTY_CELL       '-'
+//   행 부재            → EMPTY_CELL       '-' (스쿨멘토는 '자료 없음', 사 #69)
 //   행 존재 + 등급 null → UNDISCLOSED_CELL '미공개'
-export const EMPTY_CELL = "-";
+export const EMPTY_CELL = site.features.admissionResultsNotice
+  ? "자료 없음"
+  : "-";
 export const UNDISCLOSED_CELL = "미공개";
 
 // Δ 열에서 "전년 행이 아예 없어 비교 자체가 불가"한 셀의 표기.

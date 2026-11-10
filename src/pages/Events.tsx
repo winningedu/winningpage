@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import SafeHtml from "@/components/admission/SafeHtml";
 import BoardListPage from "@/components/board/BoardListPage";
+import { site } from "@/config/site";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
 import {
@@ -261,13 +262,12 @@ export default function Events() {
   // 다시 붙이면 중복이 된다.
   return (
     <BoardListPage
-      title="공지사항"
+      title={site.news.noticeTitle}
       source={BOARD_SOURCES.notices}
-      searchAriaLabel="공지사항 검색"
       getDetailHref={(row) =>
         `/events?id=${encodeURIComponent(String(row.id))}`
       }
-      emptyMessage="등록된 공지사항이 없습니다."
+      emptyMessage={site.news.noticeEmpty}
     />
   );
 }

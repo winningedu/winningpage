@@ -11,6 +11,7 @@ import outcomeCalendar from "@/assets/services/research/outcome-calendar.png";
 import outcomeFolder from "@/assets/services/research/outcome-folder.png";
 import outcomeSkill from "@/assets/services/research/outcome-skill.png";
 import outcomeWallet from "@/assets/services/research/outcome-wallet.png";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
@@ -19,6 +20,7 @@ import ServiceProcessCards from "@/components/services/ServiceProcessCards";
 import ServiceSection from "@/components/services/ServiceSection";
 import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
+import { siteWording } from "@/config/wording";
 import { useInView } from "@/hooks/useInView";
 import { getDemoAccessState } from "@/lib/demoAccess";
 import InDepthResearchScreenPreview from "./InDepthResearchScreenPreview";
@@ -189,6 +191,10 @@ function HeroSection() {
     boolean,
   ];
   const navigate = useNavigate();
+  const { requestStart, startDialogs } = useServiceStart({
+    to: INQUIRY_APP_ROUTE,
+    resultNotice: true,
+  });
 
   // 히어로 CTA는 인앱 서비스(/app/inquiry)로 직접 이동한다(수행평가 소개 페이지의 HERO_SERVICE
   // 와 같은 방식). 비로그인은 /login 으로 보내 복귀지를 앱 경로로 남긴다. 인앱 서비스라
@@ -286,8 +292,9 @@ function HeroSection() {
         </h1>
 
         <p className="mt-6 break-keep text-[1.125rem] font-medium leading-[1.6] text-ink sm:text-[1.25rem] md:text-[1.5rem]">
-          탐구의 방향이 막막한 순간, 위닝 심화탐구가 구체적인 길을 제시해 학생이
-          스스로 완성하도록 돕습니다
+          {siteWording(
+            "탐구의 방향이 막막한 순간, 위닝 심화탐구가 구체적인 길을 제시해 학생이 스스로 완성하도록 돕습니다",
+          )}
         </p>
 
         {/* CTA, 시안(3163:4727)은 280×68 / cornerRadius 50(높이 68이라 실효 pill) / 그림자
@@ -296,11 +303,12 @@ function HeroSection() {
             (handleHeroCta 참고). */}
         <button
           type="button"
-          onClick={handleHeroCta}
+          onClick={(event) => requestStart(() => handleHeroCta(event))}
           className="mt-6 inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] bg-primary px-8 text-base font-semibold text-white shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] transition hover:bg-[#01498F] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]"
         >
           지금 시작하기
         </button>
+        {startDialogs}
 
         {/* 브라우저 목업: 새 시안(754:72290)은 목업 안에 주제 추천 화면 캡처를 넣는다.
             프레임 값은 선례 3종과 같은 규격이다. */}

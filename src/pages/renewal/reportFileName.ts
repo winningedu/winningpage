@@ -1,3 +1,5 @@
+import { site } from "@/config/site";
+
 // 학습진단 리포트 PDF 파일명(QA 시트 2026-08-22).
 //
 // 요구 형식: "위닝에듀 학습진단리포트_OOO학생_년월일.PDF"
@@ -9,7 +11,7 @@
 //
 // 종전 형식 "{이름}_위닝학습진단리포트"(QA 행 103, 2026-08-20)를 이 형식으로 교체했다.
 
-const REPORT_FILE_PREFIX = "위닝에듀 학습진단리포트";
+const REPORT_FILE_PREFIX = `${site.brandName} 학습진단리포트`;
 
 function toKstYmd(iso: string | null | undefined) {
   if (!iso) return null;

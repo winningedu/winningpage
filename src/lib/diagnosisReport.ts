@@ -17,6 +17,8 @@
  * AdmissionSection 은 admission 을 무조건 구조분해하고 rows.map 을 돌기 때문에 null 이면 흰 화면이 된다.
  */
 
+import { site } from "@/config/site";
+import { siteWording } from "@/config/wording";
 import {
   ADMISSION_BAND_COPY,
   ADMISSION_BAND_LABEL,
@@ -746,6 +748,26 @@ type RankedService = {
   lowestLinkedAreaName: string | null;
 };
 
+/**
+ * 콜멘토를 닫은 사이트(스쿨멘토, 결정 107.12)는 추천 후보에서 콜멘토를 빼고 목표관리만 말하는
+ * 안내를 쓴다. 위닝은 null 이라 기존 문구와 순위가 그대로다.
+ */
+const CALLMENTOR_CLOSED_NOTICE = site.features.callmentor
+  ? null
+  : {
+      M3: "중학교 3학년은 목표관리가 추천 대상입니다. 나머지 서비스는 고등학교 활동을 전제로 하므로 진학 이후에 안내드립니다.",
+      H3_LATE:
+        "고등학교 3학년 6월 이후에는 남은 기간 안에 바로 실행할 수 있는 목표관리를 우선 안내드립니다.",
+    };
+
+function withoutClosedServices<
+  T extends { all: { code: string }[]; rank1: unknown; rank2: unknown },
+>(services: T): T {
+  if (site.features.callmentor) return services;
+  const all = services.all.filter((service) => service.code !== "CALL_MENTOR");
+  return { ...services, all, rank1: all[0] ?? null, rank2: all[1] ?? null };
+}
+
 function buildRecommendations(services: {
   rank1: RankedService | null;
   rank2: RankedService | null;
@@ -766,7 +788,7 @@ function buildRecommendations(services: {
     );
     return {
       rank: RANK_LABELS[index],
-      name: SERVICE_LABEL[service.code] ?? service.name ?? "",
+      name: siteWording(SERVICE_LABEL[service.code] ?? service.name ?? ""),
       desc: copy?.text ?? rankPrefix(index, service),
       chips: copy?.tags ?? [],
     };
@@ -918,9 +940,10 @@ function buildNotices(
     // 문구가 갈리는 이유도 다르다 — M3 는 문구집 원문, H3_LATE 는 자체 결정(2026-08-12 확정)이다.
     serviceLimit:
       serviceFilterReason === "M3"
-        ? commonCopy("SVC_M3_LIMIT")
+        ? (CALLMENTOR_CLOSED_NOTICE?.M3 ?? commonCopy("SVC_M3_LIMIT"))
         : serviceFilterReason === "H3_LATE"
-          ? SELF_DECIDED.SERVICE_H3_LATE_NOTICE
+          ? (CALLMENTOR_CLOSED_NOTICE?.H3_LATE ??
+            SELF_DECIDED.SERVICE_H3_LATE_NOTICE)
           : null,
     // 리커트를 건너뛴 문장이 있으면 해당 영역이 남은 응답만으로 산출됐음을 알린다(§4.2 결측).
     skipNote: hasSkipped ? commonCopy("SKIP_NOTE") : null,
@@ -983,7 +1006,7 @@ export function buildReport(input: any, ctx: BuildReportCtx = {}) {
   // 갈라졌을 때 헤드라인과 배너가 서로 다른 말을 한다.
   const sincerity = sincerityOf(safeInput);
   const studentType = classifyStudentType(safeInput, areaScores);
-  const services = rankServices(safeInput, areaScores);
+  const services = withoutClosedServices(rankServices(safeInput, areaScores));
 
   return {
     // F-18 — 픽스처 폴백(가상 학생)인지 실제 응답인지 UI 가 구분하는 유일한 플래그.

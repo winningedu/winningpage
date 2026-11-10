@@ -8,8 +8,12 @@ const state = vi.hoisted(() => ({ title: "교육칼럼", rows: [] as unknown[] }
 
 vi.mock("@/config/site", () => ({
   site: {
+    features: { columnVideo: false },
     get columnTitle() {
       return state.title;
+    },
+    get boardEmpty() {
+      return state.title === "교육칼럼" ? undefined : "작성된 글이 없어요";
     },
   },
 }));
@@ -54,8 +58,6 @@ describe("ColumnList 게시판 이름", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "칼럼-교육청소식" }),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText("등록된 칼럼-교육청소식이 없습니다."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("작성된 글이 없어요")).toBeInTheDocument();
   });
 });
