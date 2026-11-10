@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
-import YoutubePlayer from "./YoutubePlayer";
+import YoutubePlayer from "@/components/YoutubePlayer";
 
 type VideoPlayerDialogProps = {
   open: boolean;
