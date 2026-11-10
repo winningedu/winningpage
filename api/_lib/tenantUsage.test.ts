@@ -167,6 +167,7 @@ describe("consumeTenantUsage", () => {
     ["already_consumed", "already_charged", true, null],
     ["month_cap", "quota_exhausted", false, "month_cap"],
     ["term_cap", "quota_exhausted", false, "term_cap"],
+    ["teacher", "no_entitlement", false, "teacher"],
     ["catch_all", "no_entitlement", false, "catch_all"],
     ["disabled", "no_entitlement", false, "disabled"],
     ["outside_period", "entitlement_expired", false, "outside_period"],

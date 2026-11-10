@@ -119,10 +119,13 @@ select pg_temp.expect_text('consume: 일반 기관은 그대로 consumed',
   public.fn_consume_tenant_usage(pg_temp.fx('real'), 'selfeval', 'selfeval_session', gen_random_uuid()), 'consumed');
 
 -- ---------------------------------------------------------------------
--- 선생님 계정(profiles.member_type = 'teacher')은 설정이 켜진 기관이어도 teacher 로 막힌다(가장 먼저 본다)
+-- 선생님 계정(public.teachers.profile_id 로 이어진 계정)은 설정이 켜진 기관이어도 teacher 로 막힌다(가장 먼저 본다)
 -- ---------------------------------------------------------------------
 select pg_temp.mk_user('tsg-teacher@t.local', pg_temp.fx('t_real')) as teacher_id \gset
 update public.profiles set member_type = 'teacher' where id = :'teacher_id'::uuid;
+insert into public.teachers (tenant_id, name, phone, role, login_id, profile_id)
+select pg_temp.fx('t_real'), 'TSG교사', '01055550001', 'homeroom', t.code || 'AAAAAA', :'teacher_id'::uuid
+  from public.tenants t where t.id = pg_temp.fx('t_real');
 
 select pg_temp.expect_text('state: 선생님 계정은 설정이 켜져 있어도 teacher',
   (select s.allowed || ':' || s.deny_reason from public.fn_tenant_usage_state(:'teacher_id'::uuid, 'selfeval') s), 'false:teacher');
@@ -130,6 +133,19 @@ select pg_temp.expect_text('consume: 선생님 계정은 teacher',
   public.fn_consume_tenant_usage(:'teacher_id'::uuid, 'selfeval', 'selfeval_session', gen_random_uuid()), 'teacher');
 select pg_temp.expect_int('consume: 선생님 계정은 기록을 남기지 않는다',
   (select count(*) from public.tenant_usage_events where profile_id = :'teacher_id'::uuid), 0);
+-- member_type 은 클라이언트가 고칠 수 있는 열이라 판정에 쓰지 않는다. teachers 행만 본다.
+update public.profiles set member_type = 'student' where id = :'teacher_id'::uuid;
+select pg_temp.expect_text('state: member_type 을 student 로 바꿔도 선생님은 teacher',
+  (select s.allowed || ':' || s.deny_reason from public.fn_tenant_usage_state(:'teacher_id'::uuid, 'selfeval') s), 'false:teacher');
+update public.profiles set member_type = null where id = :'teacher_id'::uuid;
+select pg_temp.expect_text('consume: member_type 이 null 이어도 선생님은 teacher',
+  public.fn_consume_tenant_usage(:'teacher_id'::uuid, 'selfeval', 'selfeval_session', gen_random_uuid()), 'teacher');
+update public.teachers set deleted_at = now() where profile_id = :'teacher_id'::uuid;
+select pg_temp.expect_text('state: 삭제한 선생님도 teacher',
+  (select s.allowed || ':' || s.deny_reason from public.fn_tenant_usage_state(:'teacher_id'::uuid, 'selfeval') s), 'false:teacher');
+select pg_temp.expect_text('state: teachers 행이 없는 member_type=teacher 는 막지 않는다',
+  (select s.allowed::text from public.fn_tenant_usage_state(
+     (select pg_temp.mk_user('tsg-fake@t.local', pg_temp.fx('t_real'))), 'selfeval') s), 'true');
 select pg_temp.expect_text('state: 같은 기관의 학생은 그대로 허용',
   (select s.allowed::text from public.fn_tenant_usage_state(pg_temp.fx('real'), 'selfeval') s), 'true');
 

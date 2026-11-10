@@ -180,6 +180,11 @@ const CONSUME_MAP: Record<string, TenantConsumeResult> = {
     charged: false,
     tenantReason: "term_cap",
   },
+  teacher: {
+    status: "no_entitlement",
+    charged: false,
+    tenantReason: "teacher",
+  },
   catch_all: {
     status: "no_entitlement",
     charged: false,

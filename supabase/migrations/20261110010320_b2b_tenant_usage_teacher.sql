@@ -1,7 +1,8 @@
 set local lock_timeout = '5s';
 
 -- 선생님 계정은 학생 서비스를 쓰지 못한다(deny_reason teacher, 가장 먼저 본다). 이용 횟수도 세지 않는다.
--- 선생님은 profiles.member_type = 'teacher' 로 가르고, 삭제한 선생님도 member_type 이 남아 계속 막힌다.
+-- 선생님은 public.teachers.profile_id 로 가른다. profiles.member_type 은 클라이언트가 고칠 수 있어 쓰지 않는다.
+-- teachers 는 anon, authenticated 가 읽지도 쓰지도 못한다. 삭제한 선생님(deleted_at)도 행이 남아 계속 막힌다.
 -- 시그니처, security definer, search_path 와 나머지 본문은 20261106045002 와 같고 변수 하나와 case 의 첫 갈래만 늘었다.
 -- 스키마와 함수만 있고 데이터 문장이 없다. 위닝 사이트는 이 함수를 부르지 않아 동작이 그대로다.
 create or replace function public.fn_tenant_usage_state(p_profile uuid, p_program_key text)
@@ -51,7 +52,7 @@ begin
   select t.* into v_tenant
     from public.profiles p join public.tenants t on t.id = p.tenant_id
    where p.id = p_profile;
-  v_is_teacher := exists (select 1 from public.profiles p where p.id = p_profile and p.member_type = 'teacher');
+  v_is_teacher := exists (select 1 from public.teachers th where th.profile_id = p_profile);
   select s.* into v_set from public.tenant_service_settings s
    where s.tenant_id = v_tenant.id and s.program_key = p_program_key;
   select o.* into v_ovr from public.student_usage_overrides o
