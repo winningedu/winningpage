@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { site } from "@/config/site";
 import { useAuthOptional } from "@/context/AuthProvider";
@@ -34,10 +34,18 @@ import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { fetchSurveyCopyOverrides } from "@/lib/diagnosisSurveyCopyOverrides";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
+import {
+  getStepPath,
+  isStepComplete,
+  SURVEY_FIRST_STEP_PATH,
+  SURVEY_TOTAL_STEPS,
+} from "@/lib/renewalSurvey";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { Json } from "@/types/database.types";
 // Q-01(2026-08-11 확정) — 제출 시점에 로그인 학생 이름을 조회한다. 비로그인·조회 실패는 null.
 import { fetchLoggedInStudentName } from "./diagnosisStudentName";
+
+const SURVEY_BASE_PATH = SURVEY_FIRST_STEP_PATH.replace(/\/1$/, "");
 
 /**
  * 설문 5스텝 공통 셸. `/free-diagnosis/survey` 부모 라우트의 element 이므로
@@ -49,6 +57,8 @@ import { fetchLoggedInStudentName } from "./diagnosisStudentName";
  */
 export default function SurveyStepShell() {
   const navigate = useNavigate();
+  // 진입 시점의 경로. 사용자가 나중에 직접 1단계로 돌아가도 초안 복원 이동이 다시 일어나지 않게 한다.
+  const entryPathRef = useRef(useLocation().pathname);
   const userId = useAuthOptional()?.userId ?? null;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
@@ -134,8 +144,18 @@ export default function SurveyStepShell() {
   useEffect(() => {
     if (!site.features.diagnosisResume || !userId) return;
     const draft = loadDraft(userId);
-    if (draft) setAnswers((prev) => ({ ...draft, ...prev }));
-  }, [userId]);
+    if (!draft) return;
+    setAnswers((prev) => ({ ...draft, ...prev }));
+    // 1단계로 들어왔으면 답이 끝난 단계를 건너뛰어 첫 미완료 단계에서 이어 답하게 한다.
+    // 인덱스 진입은 자식 라우트가 1단계로 리다이렉트하므로 둘 다 대상이다.
+    const entry = entryPathRef.current;
+    if (entry !== SURVEY_FIRST_STEP_PATH && entry !== SURVEY_BASE_PATH) return;
+    for (let step = 1; step <= SURVEY_TOTAL_STEPS; step++) {
+      if (isStepComplete(step, draft)) continue;
+      if (step > 1) navigate(getStepPath(step), { replace: true });
+      return;
+    }
+  }, [userId, navigate]);
 
   // 이어 답하기(사 #44): 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
   useEffect(() => {

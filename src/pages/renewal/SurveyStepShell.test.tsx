@@ -6,7 +6,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useOutletContext } from "react-router";
+import {
+  MemoryRouter,
+  Navigate,
+  Route,
+  Routes,
+  useOutletContext,
+  useParams,
+} from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const gateState = vi.hoisted(() => ({ on: false, resume: false }));
@@ -53,6 +60,7 @@ vi.mock("./diagnosisStudentName", () => ({
   fetchLoggedInStudentName: async () => null,
 }));
 
+import { getStepRequiredQuestions } from "@/lib/renewalSurvey";
 import SurveyStepShell from "./SurveyStepShell";
 
 const DRAFT_KEY = "diagnosis-draft:u1";
@@ -318,5 +326,71 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     );
     expect(setItem).not.toHaveBeenCalled();
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("1단계로 들어오면 첫 미완료 단계로 옮긴다", async () => {
+    const step1 = Object.fromEntries(
+      getStepRequiredQuestions(1).map(
+        (q: { id: string; options: string[] }) => [q.id, q.options[0]],
+      ),
+    );
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
+    );
+    function StepChild() {
+      return <p data-testid="step">{useParams().step}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/app/learning-diagnosis/survey/1"]}>
+        <Routes>
+          <Route
+            path="/app/learning-diagnosis/survey"
+            element={<SurveyStepShell />}
+          >
+            <Route path=":step" element={<StepChild />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("step")).toHaveTextContent("2"),
+    );
+  });
+
+  it("인덱스로 들어와도 첫 미완료 단계로 옮긴다", async () => {
+    const step1 = Object.fromEntries(
+      getStepRequiredQuestions(1).map(
+        (q: { id: string; options: string[] }) => [q.id, q.options[0]],
+      ),
+    );
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
+    );
+    function StepChild() {
+      return <p data-testid="step">{useParams().step}</p>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/app/learning-diagnosis/survey"]}>
+        <Routes>
+          <Route
+            path="/app/learning-diagnosis/survey"
+            element={<SurveyStepShell />}
+          >
+            <Route
+              index
+              element={
+                <Navigate to="/app/learning-diagnosis/survey/1" replace />
+              }
+            />
+            <Route path=":step" element={<StepChild />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("step")).toHaveTextContent("2"),
+    );
   });
 });
