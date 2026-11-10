@@ -58,8 +58,10 @@ const SURVEY_BASE_PATH = SURVEY_FIRST_STEP_PATH.replace(/\/1$/, "");
 export default function SurveyStepShell() {
   const navigate = useNavigate();
   // 진입 시점의 경로. 사용자가 나중에 직접 1단계로 돌아가도 초안 복원 이동이 다시 일어나지 않게 한다.
-  const entryPathRef = useRef(useLocation().pathname);
+  const { pathname } = useLocation();
+  const entryPathRef = useRef(pathname);
   const userId = useAuthOptional()?.userId ?? null;
+  const resumeEnabled = site.features.diagnosisResume && !!userId;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
@@ -142,7 +144,7 @@ export default function SurveyStepShell() {
   // 이어 답하기(사 #44): 이 사용자의 초안이 있으면 답을 채운다. 막힌 사용자는 설문 화면이
   // 렌더되지 않아 채워도 보이지 않는다.
   useEffect(() => {
-    if (!site.features.diagnosisResume || !userId) return;
+    if (!resumeEnabled || !userId) return;
     const draft = loadDraft(userId);
     if (!draft) return;
     setAnswers((prev) => ({ ...draft, ...prev }));
@@ -155,14 +157,14 @@ export default function SurveyStepShell() {
       if (step > 1) navigate(getStepPath(step), { replace: true });
       return;
     }
-  }, [userId, navigate]);
+  }, [resumeEnabled, userId, navigate]);
 
   // 이어 답하기(사 #44): 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
   useEffect(() => {
-    if (!site.features.diagnosisResume || !userId) return;
+    if (!resumeEnabled || !userId) return;
     if (Object.keys(answers).length === 0) return;
     saveDraft(userId, answers);
-  }, [answers, userId]);
+  }, [answers, resumeEnabled, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
   // 훅 내부에서 대학→학과→전형유형/세부전형명/반영교과 순으로 필요한 조회만 다시 tap 한다.
@@ -253,7 +255,7 @@ export default function SurveyStepShell() {
       attemptId,
     });
     // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
-    if (site.features.diagnosisResume && userId) clearDraft(userId);
+    if (resumeEnabled && userId) clearDraft(userId);
 
     // 리포트 영속화 — diagnosedAt 은 항상 이 함수(submitDiagnosisAnswers)가 방금 new
     // Date().toISOString() 으로 채웠으므로 실제로는 항상 존재한다(엔진 자체는 시계를 읽지
@@ -279,7 +281,7 @@ export default function SurveyStepShell() {
     return payload;
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
-  }, [answers, awaitCuts, navigate, userId]);
+  }, [answers, awaitCuts, navigate, userId, resumeEnabled]);
 
   if (accessFailed) {
     return (
