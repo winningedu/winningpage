@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COLUMN_KINDS, getColumnKind } from "./columnKind";
+import { COLUMN_KINDS, getColumnKind } from "./kind";
 
 describe("getColumnKind", () => {
   it.each([

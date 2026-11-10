@@ -11,7 +11,7 @@ import {
   getDisplayDate,
   getViewCount,
 } from "./columnData";
-import { COLUMN_KINDS, getColumnKind } from "./columnKind";
+import { COLUMN_KINDS, type ColumnKind, getColumnKind } from "./kind";
 import { useColumnCategories } from "./useColumnCategories";
 
 const SORT_LATEST = "최신순";
@@ -22,7 +22,9 @@ export default function ColumnList() {
   const categories = useColumnCategories();
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(ALL_CATEGORY);
-  const [kind, setKind] = useState<string>(ALL_CATEGORY);
+  const [kind, setKind] = useState<ColumnKind | typeof ALL_CATEGORY>(
+    ALL_CATEGORY,
+  );
   const [sortKey, setSortKey] = useState(SORT_LATEST);
   const [keyword, setKeyword] = useState("");
 
@@ -105,7 +107,9 @@ export default function ColumnList() {
               <CategoryChips
                 categories={[...COLUMN_KINDS]}
                 active={kind}
-                onChange={setKind}
+                onChange={(value) =>
+                  setKind(value as ColumnKind | typeof ALL_CATEGORY)
+                }
                 align="left"
               />
             )}
