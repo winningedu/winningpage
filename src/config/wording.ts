@@ -7,13 +7,12 @@ const SERVICE_NAMES = "수행평가|성장설계|심화탐구|목표관리|학�
 // 서비스 이름 '위닝 자기평가서'는 '자기평가'로 쓴다(결정 107.11). 문서를 가리키는 '자기평가서'는 그대로 둔다.
 // 서비스 화면의 나머지 '위닝' 브랜드 말은 사이트 이름으로 바꾼다(위닝에듀는 그대로).
 // 같은 사이트는 명세 표기대로 '진행단계'도 '진행 단계'로 띄어 쓴다(결정 14).
-const EXACT: Record<string, string> = {
-  "저장된 활동에서 확인": "이미 채워진 항목",
-};
+const EXACT = new Map([["저장된 활동에서 확인", "이미 채워진 항목"]]);
 
 export function siteWording(text: string): string {
   if (!site.features.stripWinningPrefix) return text;
-  if (text in EXACT) return EXACT[text];
+  const exact = EXACT.get(text);
+  if (exact !== undefined) return exact;
 
   return text
     .replaceAll("위닝 자기평가서", "자기평가")
