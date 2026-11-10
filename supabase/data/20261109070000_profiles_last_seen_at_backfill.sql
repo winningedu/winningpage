@@ -11,3 +11,17 @@ from auth.users u
 where u.id = p.id
   and p.last_seen_at is null
   and u.last_sign_in_at is not null;
+
+-- 실행 기록 (행 수: last_seen_at 비어 있음 / 채워짐 / 채울 수 있음)
+-- 2026-11-09 dev (gjowqdiopinhixfivnkx)
+--   실행 전: 59 / 1 / 49
+--   실행 후: 10 / 50 / 0 (남은 10행은 로그인 기록이 없는 계정)
+--   재실행: 변경 없음
+-- 2026-11-09 Winning prod (ykrpjcsubmbenfcnwlzd)
+--   실행 전: 44 / 1 / 44
+--   실행 후: 0 / 45 / 0
+--   재실행: 변경 없음
+-- 2026-11-09 Schoolmentor prod (aalujumpwlnwlemnqrus)
+--   실행 전: 12 / 0 / 10
+--   실행 후: 2 / 10 / 0 (남은 2행은 로그인 기록이 없는 계정)
+--   재실행: 변경 없음
