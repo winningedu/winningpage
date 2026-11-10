@@ -22,12 +22,12 @@ import {
 import { cleanText, isSameObject, useNavGroups } from "@/hooks/useNavGroups";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import { classifyMember } from "@/lib/memberAccess";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import MobileNavDrawer from "./MobileNavDrawer";
 import { buildMyMenu, resolveMyMenuRole } from "./myMenuItems";
-import { resolveUserType } from "./userType";
 
 const CSAT_DATE = "2026-11-19";
 const HEADER_PROFILE_CACHE_KEY = "winning-header-profile";
@@ -666,7 +666,7 @@ export default function Header() {
   const myMenuItems = buildMyMenu(myMenuRole);
   // 수능 D-day는 수험생인 학생에게만 보인다(관리자, 학부모, 멘토 제외).
   const showCsatDDay =
-    resolveUserType({
+    classifyMember({
       role: profile?.role ?? null,
       memberType: profile?.member_type ?? null,
     }) === "student";
