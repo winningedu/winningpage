@@ -1,5 +1,5 @@
 // 리포트 화면의 "PDF 저장" 공통 동작. 데스크톱은 react-to-print(iframe 인쇄),
-// 모바일과 인앱 브라우저는 api/_routes/report-pdf.ts 서버 렌더 경로로 보낸다.
+// 모바일과 인앱 브라우저는 api/report-pdf.ts 서버 렌더 경로로 보낸다.
 // 인쇄 대상은 반환하는 contentRef 를 단 요소 하나다. 버튼과 툴바는 그 밖에 둔다.
 import { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";

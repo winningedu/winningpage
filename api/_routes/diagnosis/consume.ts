@@ -7,7 +7,7 @@
 // attemptId는 클라이언트가 제출 직전에 만드는 uuid로, 더블클릭·재시도 멱등 키다
 // (RPC pk 충돌이 아니라 같은 attempt id 재조회로 처리된다 — 아래 already_recorded).
 //
-// 응답 규격은 api/performance/recommend-topics.ts와 같은 관례(fail() 헬퍼,
+// 응답 규격은 api/_routes/performance/recommend-topics.ts와 같은 관례(fail() 헬퍼,
 // 코드별 HTTP status)를 따른다 — 이 저장소의 회차 소진 라우트가 이미 그 모양으로
 // 통일돼 있어(§9.3 참고 스타일), 학습진단만 200+ok:false로 다르게 갈 이유가 없다.
 //

@@ -1,4 +1,4 @@
-// api/diagnosis/report.ts의 순수 검증 로직만 검증한다. 핸들러 전체(supabase I/O)는
+// api/_routes/diagnosis/report.ts의 순수 검증 로직만 검증한다. 핸들러 전체(supabase I/O)는
 // delete-account.test.ts와 같은 방침으로 로컬 스택 QA에서 확인한다.
 
 import { describe, expect, test } from "vitest";

@@ -535,7 +535,7 @@ export function buildRuleFallback(input: AdvicePromptInput): AdviceModelResult {
 }
 
 // ---------------------------------------------------------------------------
-// 최종 payload 조립 — api/goal/advice.ts가 캐시에 저장하고 클라이언트에 돌려주는 shape.
+// 최종 payload 조립 — api/_routes/goal/advice.ts가 캐시에 저장하고 클라이언트에 돌려주는 shape.
 // ---------------------------------------------------------------------------
 
 export type AdvicePayload = {

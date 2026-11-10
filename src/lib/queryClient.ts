@@ -155,7 +155,7 @@ export function goalDailyRecordQueryOptions(userId: string | null) {
 // 실패·서버 오류까지도 전부 "unknown"(조용히 무시)으로 뭉개고 "kicked" 단
 // 하나만 소비처(SessionKickGuard)가 반응해야 하는 신호로 남긴다.
 //   ok      — 세션 유효.
-//   kicked  — 서버가 이 세션을 명시적으로 폐기함(api/session-check.ts의
+//   kicked  — 서버가 이 세션을 명시적으로 폐기함(api/_routes/session-check.ts의
 //             SESSION_REVOKED). 이것만 킥 확정.
 //   unknown — 그 외 전부(토큰 없음, 일반 401, 네트워크 오류, 타임아웃 등).
 export type SessionCheckResult = "ok" | "kicked" | "unknown";

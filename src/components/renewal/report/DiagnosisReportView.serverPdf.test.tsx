@@ -1,5 +1,5 @@
 // QA 2차 시트 행39·56 — 카카오톡 인앱 등 모바일 UA에서는 "PDF 파일로 다운 받기"가
-// window.print() 대신 서버 PDF 경로(api/_routes/report-pdf.ts)를 타야 한다. 데스크톱은 기존
+// window.print() 대신 서버 PDF 경로(api/report-pdf.ts)를 타야 한다. 데스크톱은 기존
 // window.print() 경로를 그대로 유지한다(벡터 품질·기존 QA 통과분 보존).
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render } from "@testing-library/react";

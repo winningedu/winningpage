@@ -94,7 +94,7 @@ export default defineHandler({
   errorShape: "coded",
   // 이 응답은 매 focus마다 최신 판정이어야 한다 — 프록시·브라우저 캐시가 이전
   // 200(또는 이전 401)을 재사용하면 킥 감지가 그 캐시 수명만큼 지연된다
-  // (api/performance/evaluate.ts와 같은 관례).
+  // (api/_routes/performance/evaluate.ts와 같은 관례).
   headers: { "Cache-Control": "no-store" },
   unhandledMessage: "세션 확인 중 오류가 발생했습니다.",
   unhandledCode: UNEXPECTED_CODE,

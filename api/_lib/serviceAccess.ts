@@ -13,7 +13,7 @@
 // 세션 게이트)가 함께 쓴다.
 //
 // target_url·SSO_SECRET·티켓 서명처럼 "티켓 발급" 전용 로직은 여기 없다.
-// 그건 api/create-service-ticket.js에 남아 있다 — 접근 판정과는 관심사가
+// 그건 api/_routes/create-service-ticket.js에 남아 있다 — 접근 판정과는 관심사가
 // 다르다(check-service-access.js는 target_url/SSO_SECRET을 아예 요구하지
 // 않는다).
 
@@ -40,7 +40,7 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     service_name: "AI 수행평가 서비스",
     // target_url(SUHAENG_SERVICE_URL) 폐기(인앱 전환, 2026-08-13) — 수행평가는
     // 더 이상 외부 앱으로 SSO 티켓 발급・리다이렉트하지 않는다
-    // (api/create-service-ticket.js의 suhaeng 조기 분기 참고). 이 config 자체는
+    // (api/_routes/create-service-ticket.js의 suhaeng 조기 분기 참고). 이 config 자체는
     // 계속 쓴다 — payment_keywords/program_keys는 hasPaidServiceAccess 판정
     // (check-service-access.js, RequireEntitlement 가드 경로)이 그대로 참조한다.
     payment_keywords: ["수행", "수행평가", "AI 수행평가", "세특팅"],

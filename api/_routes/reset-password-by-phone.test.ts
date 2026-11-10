@@ -1,4 +1,4 @@
-// api/reset-password-by-phone.ts의 generateTempPassword(임시비밀번호 생성기)
+// api/_routes/reset-password-by-phone.ts의 generateTempPassword(임시비밀번호 생성기)
 // 규격 검증. 라우트 핸들러 전체(supabase 조회·auth admin 호출)는 외부 I/O에
 // 묶여 있어 여기서 돌리기 어렵다 — delete-account.test.ts와 같은 방침으로,
 // 분리 가능한 순수 함수만 로컬에서 검증한다. 분기 실동작(phone_not_verified·

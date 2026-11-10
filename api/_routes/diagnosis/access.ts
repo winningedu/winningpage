@@ -18,7 +18,7 @@
 //   405 { detail }                — POST 아님.
 //   500 { detail }                — 서버 설정 누락 등 예외.
 //
-// ⚠️ 이 응답은 안내용이다. 실제 차단 권위는 api/diagnosis/consume.ts가 부르는
+// ⚠️ 이 응답은 안내용이다. 실제 차단 권위는 api/_routes/diagnosis/consume.ts가 부르는
 //    consume_diagnosis_attempt RPC 하나뿐이다(check-service-access.ts와 동일 원칙).
 //    프런트(diagnosisAccess.ts)는 네트워크/5xx 실패를 fail-open으로 처리한다 —
 //    이 라우트는 그 계약을 흔들지 않고 그냥 실패를 그대로 던진다.

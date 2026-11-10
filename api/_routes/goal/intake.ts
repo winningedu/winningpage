@@ -1301,7 +1301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //    status='awaiting_cuts'(onboarded_at = null) 인 행은 아직 확률이 없으므로
     //    목표 대학을 바꿔 다시 시도할 수 있게 열어 둔다.
     //    (학생 부분 수정은 delta 유지(2026-09-23 결정) — 이 전면 재온보딩 차단과
-    //    달리 api/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
+    //    달리 api/_routes/goal/intake-update.ts는 Σdelta를 보존한 채 base_*만 재계산한다.)
     const existing = await fetchStudentRow(supabaseAdmin, profileId);
     if (existing?.onboarded_at) {
       return res.status(409).json({

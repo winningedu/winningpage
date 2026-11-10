@@ -25,7 +25,7 @@ export const HIGH_SCHOOL_GRADE_OPTIONS = [
 // 시퀀스로 확장한다(qa3-held-high-design.md §2・§3). 키는 계산 모듈
 // (src/lib/goal/calc/primitives.ts getRemainingNaesin/getRemainingMogo)의 순번 표가 쓰는
 // `${gradeLabel}_${examLabel}` 조합과 정확히 일치해야 한다 — 그 표를 재구현하지 않고
-// api/goal/intake.ts가 그대로 재사용하기 위해서다(계산 모듈은 동결 대상).
+// api/_routes/goal/intake.ts가 그대로 재사용하기 위해서다(계산 모듈은 동결 대상).
 export interface FlowEntry {
   key: string;
   grade: "g1" | "g2" | "g3";

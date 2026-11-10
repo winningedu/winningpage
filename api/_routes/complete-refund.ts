@@ -39,7 +39,7 @@
 // 누르면 4)단계가 기취소를 찾아 토스 재호출 없이 7)단계만 재시도된다 —
 // 그래서 별도 보정 절차 없이 재클릭이 곧 복구 경로다.
 //
-// 필요 환경변수: TOSS_SECRET_KEY(api/confirm-payment.ts와 동일), Supabase
+// 필요 환경변수: TOSS_SECRET_KEY(api/_routes/confirm-payment.ts와 동일), Supabase
 // URL/서비스롤 키(api/_lib/supabaseAdmin.js), anon 키(VITE_SUPABASE_ANON_KEY —
 // 7)단계에서 어드민 토큰을 실어 보내는 클라이언트 생성용).
 

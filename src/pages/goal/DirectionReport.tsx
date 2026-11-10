@@ -38,7 +38,7 @@ type DirectionReportResult =
 
 // 학습방향 리포트 라우트(#37 내신 탭 / #38 정시 탭) — fetch 훅을 여기서 소유한다
 // (DirectionReportBody는 mock을 뗀 순수 프레젠테이션). 쿼리 파라미터 `tab`(내신/정시)과
-// `reportId`(저장된 goal_direction_reports 행 id — api/goal/report.js가 돌려주는
+// `reportId`(저장된 goal_direction_reports 행 id — api/_routes/goal/report.js가 돌려주는
 // periodChips[].value 중 하나, QA 행301) 둘 다 URL에 유지한다. `reportId`를 생략하면
 // 서버가 가장 최근 리포트를 기본값으로 고른다(api/_routes/goal/report.js buildDirectionReport()
 // — reports[0], 최신순 정렬).

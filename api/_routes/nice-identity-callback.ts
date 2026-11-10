@@ -280,7 +280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 결과 원문은 넘기지 않는다. 프론트가 알아야 할 건 분기에 쓸 값뿐이다.
         // mobile만 예외다 — 법정대리인(학부모) 휴대폰 번호 프리필에 그대로 써야
         // 하므로 숫자만 남겨 함께 실어 보낸다(값이 없으면 빈 문자열, 조회는
-        // api/nice-identity-result.ts가 새로고침 이후 경로를 맡는다).
+        // api/_routes/nice-identity-result.ts가 새로고침 이후 경로를 맡는다).
         is_under14: under14 === null ? "" : String(under14),
         age: computeKoreanAge(birthDate) ?? "",
         mobile: (result.mobile_no || "").replace(/[^0-9]/g, ""),

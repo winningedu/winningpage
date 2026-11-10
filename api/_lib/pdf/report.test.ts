@@ -1,4 +1,4 @@
-// api/_routes/report-pdf.ts 가 쓰는 순수 로직(HTML 크기·baseUrl 허용 목록·<script> 제거·
+// api/report-pdf.ts 가 쓰는 순수 로직(HTML 크기·baseUrl 허용 목록·<script> 제거·
 // 실행 환경 판별). 실제 브라우저 렌더는 scripts/dev/report-pdf-smoke.mts(통합
 // 스크립트)로만 검증한다 — vitest는 네트워크/브라우저를 띄우지 않는다.
 import { describe, expect, it, vi } from "vitest";

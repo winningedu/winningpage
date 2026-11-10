@@ -107,7 +107,7 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
   }
 }
 
-// api/diagnosis/consume.ts가 실제로 판정을 거부했을 때만 쓰는 코드 — 이 넷은
+// api/_routes/diagnosis/consume.ts가 실제로 판정을 거부했을 때만 쓰는 코드 — 이 넷은
 // consume_diagnosis_attempt RPC의 status 어휘 중 "무엇도 기록/차감하지 않고
 // 막는" 경로에 대응한다(free_used/charged/already_recorded는 전부 진행 허용).
 const BLOCKING_ERROR_CODES = new Set([

@@ -108,7 +108,7 @@ async function requireActiveStudent(
 
 // ---------------------------------------------------------------------------
 // 학생유형(있으면) — src/lib/goal/report/insights.ts buildDirectionSummary +
-// aggregate.ts buildNaesinSubjectMetrics 재사용(api/goal/report.ts와 동일 조합).
+// aggregate.ts buildNaesinSubjectMetrics 재사용(api/_routes/goal/report.ts와 동일 조합).
 // 301(학습방향 리포트 영속화)은 별도 UoW라 여기서는 즉석 계산 best-effort로만
 // 곁들인다 — 실패해도 조언 생성 자체를 막지 않는다(선택적 컨텍스트).
 // ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ function buildStudentTypeContext(
       value: number;
       subjects?: Record<string, unknown>;
     };
-    // biome-ignore lint/suspicious/noExplicitAny: buildNaesinSubjectMetrics는 GoalStudentRow(생성 타입 없음)를 받는다 — api/goal/report.ts와 동일하게 any로 넘긴다.
+    // biome-ignore lint/suspicious/noExplicitAny: buildNaesinSubjectMetrics는 GoalStudentRow(생성 타입 없음)를 받는다 — api/_routes/goal/report.ts와 동일하게 any로 넘긴다.
     const subjectsRaw = buildNaesinSubjectMetrics(studentRow as any, entry);
     if (!subjectsRaw.length) return null;
 

@@ -4,7 +4,7 @@
 // 클라이언트가 "이 사용자가 이 서비스의 유료 이용권을 가졌는가"를 물어보는
 // 읽기 전용 엔드포인트다. 판정 로직 자체는 api/_lib/serviceAccess.js
 // (program_access / enrollments 판정)에 있고, 여기서는 그걸 그대로
-// 불러 쓴다 — api/create-service-ticket.js와 정확히 같은 규칙을 쓴다는
+// 불러 쓴다 — api/_routes/create-service-ticket.js와 정확히 같은 규칙을 쓴다는
 // 뜻이다. orders 테이블은 보지 않는다(그 이유는 serviceAccess.js 상단 주석
 // 참고).
 //
