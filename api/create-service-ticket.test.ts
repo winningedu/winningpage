@@ -21,8 +21,9 @@ vi.mock("./_lib/supabaseAdmin.js", () => ({
 
 import handler from "./create-service-ticket.js";
 
-function setup(denyReason: string) {
+function setup(denyReason: string, qaIds: string[] = []) {
   const db = createFakeDb({
+    tables: { qa_accounts: qaIds.map((profile_id) => ({ profile_id })) },
     rpcs: {
       fn_tenant_usage_state: () => [
         {
@@ -92,5 +93,16 @@ describe("create-service-ticket 이용 거부", () => {
     const res = await call();
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ detail: "유료결제이후 이용해주세요!" });
+  });
+
+  test("QA 계정은 이용권 판정보다 먼저 막혀 입장권을 받지 못한다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    setup("catch_all", ["me"]);
+    const res = await call();
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({
+      detail: "QA 계정이라 이 기능은 작동하지 않아요.",
+      code: "QA_ACCOUNT_RESTRICTED",
+    });
   });
 });
