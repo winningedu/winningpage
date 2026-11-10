@@ -2,6 +2,7 @@
 // 느슨한 타입 가드만 쓴다. 모양이 맞지 않으면 { kind: "empty" } 로 두고 값을 지어내지 않는다.
 // 모양의 출처: api/_lib/growth/report/compute.ts(앱 섹션), prompts.ts(모델 섹션).
 
+import { siteWording } from "@/config/wording";
 import {
   isRecord,
   NO_DATA_TEXT,
@@ -112,7 +113,8 @@ function tableBody(
 ): BodyView {
   const rows = rowsOf(body);
   if (rows === null) return empty();
-  const note = str(body.note);
+  const rawNote = str(body.note);
+  const note = rawNote === null ? null : siteWording(rawNote);
   const base = { kind: "table" as const, note, unreachable: false };
 
   if (section.id === "1-14") {

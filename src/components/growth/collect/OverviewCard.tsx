@@ -1,3 +1,4 @@
+import { siteWording } from "@/config/wording";
 import type { SourceCounts } from "@/lib/growth/api";
 import { CollectSection, CountRow, NoticeBox } from "./CollectSection";
 import { buildOverview } from "./collectLogic";
@@ -14,7 +15,10 @@ export function OverviewCard({
   return (
     <CollectSection title="분석 대상 요약">
       <div>
-        <CountRow label="위닝 저장 활동" count={overview.winning} />
+        <CountRow
+          label={siteWording("위닝 저장 활동")}
+          count={overview.winning}
+        />
         <CountRow label="추가 업로드" count={overview.upload} />
         <CountRow label="직접 입력" count={overview.manual} />
         <CountRow label="분석 대상 합계" count={overview.total} strong />
