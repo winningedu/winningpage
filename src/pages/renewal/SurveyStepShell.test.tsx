@@ -211,6 +211,12 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
   });
 });
 
+function step1Answers() {
+  return Object.fromEntries(
+    getStepRequiredQuestions(1).map((q) => [q.id, q.options?.[0]]),
+  );
+}
+
 function DraftChild() {
   const ctx = useOutletContext<{
     answers: Record<string, unknown>;
@@ -286,7 +292,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     renderSubmit(onResult);
     fireEvent.click(await screen.findByRole("button", { name: "제출" }));
     await waitFor(() => expect(onResult).toHaveBeenCalled());
-    expect(onResult.mock.calls[0][0]).not.toBeNull();
+    expect(onResult).not.toHaveBeenCalledWith(null);
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 
@@ -329,11 +335,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
   });
 
   it("1단계로 들어오면 첫 미완료 단계로 옮긴다", async () => {
-    const step1 = Object.fromEntries(
-      getStepRequiredQuestions(1).map(
-        (q: { id: string; options: string[] }) => [q.id, q.options[0]],
-      ),
-    );
+    const step1 = step1Answers();
     localStorage.setItem(
       DRAFT_KEY,
       JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
@@ -359,11 +361,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
   });
 
   it("인덱스로 들어와도 첫 미완료 단계로 옮긴다", async () => {
-    const step1 = Object.fromEntries(
-      getStepRequiredQuestions(1).map(
-        (q: { id: string; options: string[] }) => [q.id, q.options[0]],
-      ),
-    );
+    const step1 = step1Answers();
     localStorage.setItem(
       DRAFT_KEY,
       JSON.stringify({ v: 1, savedAt: Date.now(), answers: step1 }),
