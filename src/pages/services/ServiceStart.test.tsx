@@ -116,7 +116,7 @@ async function renderLanding(landing: Landing) {
 }
 
 function pressStart(landing: Landing) {
-  const control = screen.getAllByText(landing.startLabel)[0];
+  const control = screen.getAllByText(landing.startLabel)[0] as HTMLElement;
   fireEvent.click(control);
 }
 
@@ -198,7 +198,7 @@ describe.each(LANDINGS)("위닝 $name 소개 화면", (landing) => {
 });
 
 describe("학습진단 소개 화면 하단 시작하기", () => {
-  const diagnosis = LANDINGS[5];
+  const diagnosis = LANDINGS[5] as Landing;
 
   it("스쿨멘토 비로그인은 하단 버튼도 안내 창을 연다", async () => {
     await renderLanding(diagnosis);
@@ -212,7 +212,7 @@ describe("학습진단 소개 화면 하단 시작하기", () => {
 });
 
 describe("학습진단 소개 화면 무료 카드", () => {
-  const diagnosis = LANDINGS[5];
+  const diagnosis = LANDINGS[5] as Landing;
 
   it("스쿨멘토에서는 유료 서비스 전에 무료로 카드가 없다", async () => {
     await renderLanding(diagnosis);
