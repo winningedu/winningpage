@@ -238,3 +238,82 @@ describe("b2b Header 드로어 연결", () => {
     expect(within(drawer).queryByText("회원가입")).not.toBeInTheDocument();
   });
 });
+
+function loginAs(profile: { member_type: string; role: string }) {
+  mockProfileRow = {
+    id: "u9",
+    email: "m@test.com",
+    name: "최관리",
+    ...profile,
+  };
+  mockTenantRows = [];
+  mockUseAuth.mockReturnValue({
+    session: { user: { id: "u9", email: "m@test.com" } },
+    user: { id: "u9", email: "m@test.com" },
+    isReady: true,
+  });
+}
+
+async function renderAs(profile: { member_type: string; role: string }) {
+  loginAs(profile);
+  renderHeader();
+  await screen.findByRole("link", { name: /최관리 님/ });
+}
+
+async function openDrawer() {
+  fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+  return within(await screen.findByRole("dialog"));
+}
+
+describe("b2b Header MY 메뉴 역할", () => {
+  it("관리자는 드로어에서 관리자 메뉴 링크로 /admin 에 갈 수 있다", async () => {
+    await renderAs({ member_type: "student", role: "admin" });
+
+    const drawer = await openDrawer();
+
+    expect(drawer.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("학부모는 드로어에서 자녀 등록 및 수정을 보고 나의 서비스는 보지 못한다", async () => {
+    await renderAs({ member_type: "parent", role: "user" });
+
+    const drawer = await openDrawer();
+
+    expect(
+      drawer.getByRole("link", { name: "자녀 등록 및 수정" }),
+    ).toHaveAttribute("href", "/mypage?tab=children");
+    expect(
+      drawer.queryByRole("link", { name: "나의 서비스" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("학생은 드로어에서 관리자 메뉴를 보지 못한다", async () => {
+    await renderAs({ member_type: "student", role: "user" });
+
+    const drawer = await openDrawer();
+
+    expect(
+      drawer.queryByRole("link", { name: "관리자 메뉴" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("관리자는 데스크톱 계정 영역에 관리자 메뉴 링크가 있다", async () => {
+    await renderAs({ member_type: "student", role: "admin" });
+
+    expect(screen.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("학생은 데스크톱 계정 영역에 관리자 메뉴 링크가 없다", async () => {
+    await renderAs({ member_type: "student", role: "user" });
+
+    expect(
+      screen.queryByRole("link", { name: "관리자 메뉴" }),
+    ).not.toBeInTheDocument();
+  });
+});
