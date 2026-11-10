@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 async function loadAsSchoolmentor<T>(path: string): Promise<T> {
   vi.resetModules();
   vi.doMock("@/config/site", () => ({
-    site: { features: { stripWinningPrefix: true } },
+    site: { brandName: "스쿨멘토", features: { stripWinningPrefix: true } },
   }));
   return (await import(/* @vite-ignore */ path)) as T;
 }
@@ -51,9 +51,9 @@ describe("서비스 이름 라벨 - 스쿨멘토", () => {
       typeof import("@/components/growth/plan/planLogic")
     >("@/components/growth/plan/planLogic");
 
-    expect(PROGRAM_LABELS.self).toBe("자기평가서");
+    expect(PROGRAM_LABELS.self).toBe("자기평가");
     expect(PROGRAM_LABELS.deep).toBe("심화탐구");
-    expect(handoffButtonLabel("self")).toBe("자기평가서에서 하기");
+    expect(handoffButtonLabel("self")).toBe("자기평가에서 하기");
     expect(handoffButtonLabel("deep")).toBe("심화탐구에서 하기");
   });
 
@@ -64,6 +64,6 @@ describe("서비스 이름 라벨 - 스쿨멘토", () => {
 
     expect(sourceLabel("performance")).toBe("수행평가");
     expect(sourceLabel("deep")).toBe("심화탐구");
-    expect(sourceLabel("self")).toBe("자기평가서");
+    expect(sourceLabel("self")).toBe("자기평가");
   });
 });
