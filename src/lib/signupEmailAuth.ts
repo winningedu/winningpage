@@ -31,6 +31,7 @@
 //   그래서 **가입을 끝내는 화면은 반드시 applySignupPassword를 호출해야 한다** —
 //   호출하지 않으면 계정에 임시 비밀번호가 남아 로그인이 불가능해진다.
 
+import { clearAllDrafts } from "./diagnosisDraft";
 import { supabase } from "./supabase";
 
 /**
@@ -189,6 +190,8 @@ export async function sendSignupEmailCode({
     if (state === EMAIL_STATE.TAKEN) return { state };
 
     // 이전 세션이 남아 있으면 OTP 검증이 엉뚱한 계정에 붙을 수 있어 먼저 끊는다.
+    // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+    clearAllDrafts();
     try {
       await supabase.auth.signOut({ scope: "global" });
     } catch (_error) {
