@@ -43,7 +43,12 @@ export default function VideoPlayerDialog({
             </DialogPrimitive.Close>
           </div>
           <div className="aspect-video w-full sm:px-5">
-            <YoutubePlayer videoId={videoId} title={title} autoplay />
+            <YoutubePlayer
+              key={videoId}
+              videoId={videoId}
+              title={title}
+              autoplay
+            />
           </div>
         </DialogPrimitive.Popup>
       </DialogPortal>

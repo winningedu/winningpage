@@ -74,6 +74,32 @@ describe("VideoPlayerDialog", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  test("오류 뒤 다른 영상으로 바뀌면 안내 대신 새 플레이어를 보인다", async () => {
+    const created: { onError?: (e: { data: number }) => void }[] = [];
+    (window as unknown as { YT: unknown }).YT = {
+      Player: class {
+        constructor(_el: unknown, opts: { events: (typeof created)[number] }) {
+          created.push(opts.events);
+        }
+        destroy() {}
+      },
+    };
+    const props = { open: true, onOpenChange: () => {}, title: "영상" };
+    const { rerender } = render(
+      <VideoPlayerDialog {...props} videoId="abcDEF12345" />,
+    );
+    await waitFor(() => expect(created).toHaveLength(1));
+    act(() => created[0]?.onError?.({ data: 100 }));
+    expect(screen.getByRole("status")).toBeInTheDocument();
+
+    rerender(<VideoPlayerDialog {...props} videoId="abcDEF12346" />);
+
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(document.querySelector("iframe")?.getAttribute("src")).toContain(
+      "abcDEF12346",
+    );
+  });
+
   test("Esc로 닫으면 플레이어가 사라진다", async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "열기" }));
