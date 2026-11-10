@@ -9000,6 +9000,14 @@ export type Database = {
           student_flags_deleted: number;
         }[];
       };
+      fn_qa_assert_parent_link: {
+        Args: { p_parent: string; p_student: string };
+        Returns: undefined;
+      };
+      fn_qa_assert_tenant_join: {
+        Args: { p_tenant: string; p_user: string };
+        Returns: undefined;
+      };
       fn_raise_number_taken: {
         Args: { p_class: string; p_number: number };
         Returns: undefined;
