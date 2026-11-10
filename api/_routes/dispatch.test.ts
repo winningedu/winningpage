@@ -31,7 +31,8 @@ describe("dispatch", () => {
   test.each([
     ["/api/goal/advice?x=1", "goal/advice"],
     ["/api/change-phone/", "change-phone"],
-  ])("%s 는 쿼리와 끝 슬래시를 떼고 %s 로 찾는다", async (url, key) => {
+    ["/api/goal/advice#frag", "goal/advice"],
+  ])("%s 는 쿼리, 해시, 끝 슬래시를 떼고 %s 로 찾는다", async (url, key) => {
     const handler = vi.fn();
     const res = makeRes();
 
@@ -43,6 +44,30 @@ describe("dispatch", () => {
 
     expect(handler).toHaveBeenCalledOnce();
     expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    "/api/goal/../change-phone",
+    "/api/./change-phone",
+    "/api/goal/%2e%2e/change-phone",
+    "/api\\change-phone",
+    "http://evil.example/api/change-phone",
+    "//evil.example/api/change-phone",
+    "/api/goal%2Fadvice",
+    "/api//change-phone",
+    "/api/goal//advice",
+  ])("정규화가 필요한 주소 %s 는 로더 없이 404 다", async (url) => {
+    const loader = vi.fn(async () => ({ default: vi.fn() }));
+    const res = makeRes();
+
+    await dispatch(
+      { "change-phone": loader, "goal/advice": loader },
+      makeReq(url),
+      res,
+    );
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(loader).not.toHaveBeenCalled();
   });
 
   test("없는 경로는 로더를 부르지 않고 404 NOT_FOUND 를 응답한다", async () => {
