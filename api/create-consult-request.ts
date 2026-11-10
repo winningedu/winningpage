@@ -12,6 +12,7 @@
 // 뿐 신뢰하지 않는다.
 
 import { defineHandler } from "./_lib/handler.js";
+import { assertNotQaRequester } from "./_lib/qaAccount.js";
 
 // PremiumApply.jsx SERVICE_OPTIONS 와 글자 단위로 동일해야 한다.
 // 목록 밖 값은 위조된 요청으로 보고 거절한다.
@@ -55,6 +56,9 @@ export default defineHandler({
   unhandledMessage: "상담 신청 처리 중 오류가 발생했습니다.",
   logLabel: "create-consult-request",
   handler: async (req, res, ctx) => {
+    // 접수된 상담은 실제 상담원이 연락한다. 토큰이 있고 QA 계정이면 접수하지 않는다.
+    await assertNotQaRequester(ctx.supabaseAdmin, req);
+
     const body = req.body || {};
 
     const name = clean(body.name);

@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { type ErrorShape, sendError } from "./httpResponse.js";
+import { getBearerToken } from "./serviceAccess.js";
 
 export const QA_ACCOUNT_MESSAGE = "QA 계정이라 이 기능은 작동하지 않아요.";
 /** QA 본사 관리자의 쓰기 요청. */
@@ -74,4 +75,19 @@ export function sendQaBlocked(
     code,
     detail: QA_ACCOUNT_MESSAGE,
   });
+}
+
+/**
+ * 로그인 없이도 쓰는 엔드포인트용. 토큰이 있고 QA 계정이면 막는다.
+ * 토큰이 없거나 무효이면 익명으로 보고 통과시킨다(그 엔드포인트의 원래 동작).
+ */
+export async function assertNotQaRequester(
+  supabaseAdmin: SupabaseClient,
+  req: { headers: Record<string, string | string[] | undefined> },
+): Promise<void> {
+  const token = getBearerToken(req as { headers: Record<string, string> });
+  if (!token) return;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user?.id) return;
+  await assertNotQaAccount(supabaseAdmin, data.user.id);
 }
