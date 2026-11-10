@@ -1,4 +1,4 @@
-import { parseYoutubeVideoId } from "@/components/landing/homeColumns";
+import { parseYoutubeVideoId } from "@/lib/youtube";
 
 export const COLUMN_KINDS = ["영상", "칼럼"] as const;
 

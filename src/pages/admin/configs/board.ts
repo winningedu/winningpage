@@ -1,7 +1,7 @@
-import { parseYoutubeVideoId } from "@/components/landing/homeColumns";
 import { site } from "@/config/site";
 import { FAQ_CATEGORIES } from "@/data/faqCategories";
 import { blocksToPlainText } from "@/lib/blockToPlainText";
+import { parseYoutubeVideoId } from "@/lib/youtube";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 import { fetchColumnCategories } from "@/pages/column/columnData";
 

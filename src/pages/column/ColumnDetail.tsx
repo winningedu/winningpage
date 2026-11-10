@@ -8,10 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import ColumnBody, { hasBlockContent } from "@/components/column/ColumnBody";
 import ColumnCard from "@/components/column/ColumnCard";
-import { parseYoutubeVideoId } from "@/components/landing/homeColumns";
 import YoutubePlayer from "@/components/YoutubePlayer";
 import { site } from "@/config/site";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import { parseYoutubeVideoId } from "@/lib/youtube";
 import {
   ALL_CATEGORY,
   type ColumnRow,

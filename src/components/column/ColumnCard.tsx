@@ -1,8 +1,8 @@
 import { ExternalLink, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { parseYoutubeVideoId } from "@/components/landing/homeColumns";
 import { site } from "@/config/site";
+import { parseYoutubeVideoId } from "@/lib/youtube";
 import {
   ALL_CATEGORY,
   formatDate,
