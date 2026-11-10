@@ -34,7 +34,7 @@ const MY_PROFILE: MyMenuItem = {
   label: "내 정보 수정",
   to: "/mypage?tab=profile",
 };
-const ADMIN_MENU: MyMenuItem = { label: "관리자 메뉴", to: "/admin" };
+export const ADMIN_MENU: MyMenuItem = { label: "관리자 메뉴", to: "/admin" };
 
 export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
   switch (role) {
