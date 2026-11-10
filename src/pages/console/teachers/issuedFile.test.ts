@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 발급 계정 안내 파일(교 #125). 이름, 전화번호 뒷 4자리, 학년, 반, 아이디, 임시 비밀번호 여섯 칸이고 학년과 반이 없는 교사는 빈 칸이다.
 
 import { afterEach, describe, expect, it, vi } from "vitest";

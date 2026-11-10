@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // useProducts 숨길 프로그램 게이트 - 가격표(/pricing), 신청, 결제 카탈로그가 모두 이 훅을
 // 쓰므로, site.features.hiddenPrograms에 든 서비스 그룹은 여기서 한 번에 빠진다.
 import { renderHook, waitFor } from "@testing-library/react";

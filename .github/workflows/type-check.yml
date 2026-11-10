@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 정적 검사(tsc 3개, type-coverage, biome). 테스트 잡과 동시에 돈다.
+  # 정적 검사(tsc 3개, biome). 테스트 잡과 동시에 돈다.
   static:
     runs-on: ubuntu-latest
     steps:
@@ -43,14 +43,28 @@ jobs:
       - name: tsc --noEmit (scripts)
         run: npm run typecheck:scripts
 
+      - name: biome ci
+        run: npm run format:ci
+
+  # type-coverage 는 타입 검사를 처음부터 다시 해서 38초에서 70초가 걸린다.
+  # static 잡에 두면 그 잡이 가장 늦게 끝나므로 따로 떼어 동시에 돌린다.
+  type-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
       # any 비율 후퇴 방지 게이트. 임계값은 package.json의 type-coverage
       # 스크립트(--at-least)에 고정돼 있다 — 개선되면 npx type-coverage --update로
       # 임계값을 올릴 수 있지만 낮추려면 리뷰에서 이유를 설명해야 한다.
       - name: type-coverage
         run: npm run type-coverage
-
-      - name: biome ci
-        run: npm run format:ci
 
   # 회귀 테스트 전체(goal/calc·진단 채점 등 순수 로직 + admission/performance
   # DOM 렌더링·에디터·모달 등 컴포넌트 테스트) — 골든 픽스처·파리티가

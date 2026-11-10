@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // useIsMobile 은 첫 그림부터 창 너비를 따라, 휴대폰이 데스크톱 값으로 시작하지 않게 한다.
 
 import { renderHook } from "@testing-library/react";
