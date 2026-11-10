@@ -567,7 +567,10 @@ async function handlePost(
   // 없었다"와 "0시간을 제출했다"를 구분해야 한다 — 후자만 명시적 400 사유를 준다).
   let studyHoursInput: number;
   if (body.studyHours !== undefined) {
-    if (!isNumericInput(body.studyHours)) {
+    if (
+      !isNumericInput(body.studyHours) ||
+      (typeof body.studyHours === "string" && body.studyHours.trim() === "")
+    ) {
       return res
         .status(400)
         .json({ detail: "순공 시간 형식이 올바르지 않습니다." });

@@ -142,6 +142,24 @@ describe("daily-record POST 0시간", () => {
     expect(repo.upsertDailyRecord).not.toHaveBeenCalled();
   });
 
+  test("스쿨멘토도 빈 문자열과 공백 문자열은 0시간이 아니라 400이다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+    for (const studyHours of ["", "   "]) {
+      const res = await post({ ...ZERO, studyHours });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(repo.upsertDailyRecord).not.toHaveBeenCalled();
+  });
+
+  test("위닝도 빈 문자열과 공백 문자열은 400이다", async () => {
+    vi.stubEnv("SITE", "winning");
+    for (const studyHours of ["", "   "]) {
+      const res = await post({ ...ZERO, studyHours });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(repo.upsertDailyRecord).not.toHaveBeenCalled();
+  });
+
   test("위닝은 0시간을 no_study_time 400으로 막는다", async () => {
     vi.stubEnv("SITE", "winning");
     const res = await post(ZERO);
