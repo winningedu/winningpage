@@ -152,3 +152,9 @@ values ('schoolmentor_home_cards_applied', 'true'::jsonb)
 on conflict (key) do nothing;
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
+-- 2026-11-10 Schoolmentor prod (aalujumpwlnwlemnqrus), main 18a6e5e8 배포 뒤 실행. 카드 이미지 3장 200 확인.
+--   실행 전: mentor 제목 '위닝과 함께 합격한 선배에게' / '멘토스 소개' 머리말, 카드 활성 9 / 전체 9
+--     (콜멘토와 프리미엄 카드 2개 활성), 표식 0
+--   실행 후: mentor 제목 정한 문구, 머리말 없음. 카드 활성 8 / 전체 12 (입결정보, 이용안내(꺼짐), 자주하는 질문 추가,
+--     콜멘토와 프리미엄 2개 비활성), 표식 1
+--   재실행: 조회 28행 모두 같음
