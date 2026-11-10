@@ -9,7 +9,6 @@ vi.mock("@/context/AuthProvider", () => ({ useAuth: vi.fn() }));
 vi.mock("../Header", () => ({
   fetchProfile: vi.fn(),
   getCsatDay: vi.fn(),
-  getMemberLabel: vi.fn(),
 }));
 
 import { signOutB2B } from "./useB2BAccount";

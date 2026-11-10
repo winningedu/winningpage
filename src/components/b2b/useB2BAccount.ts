@@ -3,9 +3,9 @@ import { useAuth } from "@/context/AuthProvider";
 import { cleanText } from "@/hooks/useNavGroups";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
-import { classifyMember } from "@/lib/memberAccess";
+import { classifyMember, getMemberLabel } from "@/lib/memberAccess";
 import { supabase } from "@/lib/supabase";
-import { fetchProfile, getCsatDay, getMemberLabel } from "../Header";
+import { fetchProfile, getCsatDay } from "../Header";
 
 // other: 멘토, 유형 미설정, 모르는 유형, 콘솔 조회에 실패한 선생님. 이름 칩만 보이고 D-day는 없다.
 type MemberStatus = "student" | "parent" | "admin" | "other";
@@ -85,7 +85,10 @@ export function useB2BAccount(): B2BAccount {
     let alive = true;
     (async () => {
       const profile = await fetchProfile(user);
-      const memberLabel = getMemberLabel(profile);
+      const memberLabel = getMemberLabel({
+        memberType: profile?.member_type,
+        role: profile?.role,
+      });
       const kind = classifyMember({
         role: profile?.role ?? null,
         memberType: profile?.member_type ?? null,

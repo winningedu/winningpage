@@ -22,12 +22,12 @@ import {
 import { cleanText, isSameObject, useNavGroups } from "@/hooks/useNavGroups";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
-import { classifyMember } from "@/lib/memberAccess";
+import { classifyMember, getMemberLabel } from "@/lib/memberAccess";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import MobileNavDrawer from "./MobileNavDrawer";
-import { buildMyMenu, resolveMyMenuRole } from "./myMenuItems";
+import { buildMyMenu, toMyMenuRole } from "./myMenuItems";
 
 const CSAT_DATE = "2026-11-19";
 const HEADER_PROFILE_CACHE_KEY = "winning-header-profile";
@@ -115,25 +115,6 @@ export type Profile = Pick<
   Tables<"profiles">,
   "id" | "name" | "email" | "username" | "member_type" | "role"
 >;
-
-const MEMBER_KIND_LABELS = {
-  admin: "관리자",
-  student: "학생회원",
-  parent: "학부모회원",
-  teacher: "선생님",
-  mentor: "멘토회원",
-  unset: "",
-} as const;
-
-export function getMemberLabel(profile: Profile | null) {
-  const kind = classifyMember({
-    memberType: profile?.member_type ?? null,
-    role: profile?.role ?? null,
-  });
-  if (kind !== "unknown") return MEMBER_KIND_LABELS[kind];
-  const raw = cleanText(profile?.member_type).toLowerCase();
-  return raw.endsWith("회원") ? raw : `${raw}회원`;
-}
 
 // 이름 라벨 truncate(§6-6 사용자 결정, 이름 max 5자) — 계정 그룹 폭 겹침 방지(QA 행327)
 // 이후 폐지됐던 이름 truncate 상한을 헤더 이름 칩에 한해 다시 도입한다.
@@ -653,22 +634,22 @@ export default function Header() {
   const hasProfile = !!profile && !!cleanText(profile?.name);
   const shouldShowLoggedInHeader = isLoggedIn && hasProfile;
   const displayName = cleanText(profile?.name) || "";
-  const memberLabel = getMemberLabel(profile);
+  const memberLabel = getMemberLabel({
+    memberType: profile?.member_type,
+    role: profile?.role,
+  });
   // MY 메뉴 역할 판정·목록은 myMenuItems.ts(단일 소스, §6-3 사용자 결정)를 그대로 쓴다 —
   // 데스크톱 메가 패널 6번째 컬럼(아래 return 블록)과 모바일 드로어(MobileNavDrawer)가
   // 이 두 값을 공유한다. profile이 아직 로딩 중이어도 안전한 기본값(student)으로
-  // resolveMyMenuRole이 수렴하므로 그냥 항상 계산해 둔다.
-  const myMenuRole = resolveMyMenuRole({
+  // toMyMenuRole이 수렴하므로 그냥 항상 계산해 둔다.
+  const memberKind = classifyMember({
     role: profile?.role ?? null,
     memberType: profile?.member_type ?? null,
   });
+  const myMenuRole = toMyMenuRole(memberKind);
   const myMenuItems = buildMyMenu(myMenuRole);
   // 수능 D-day는 수험생인 학생에게만 보인다(관리자, 학부모, 멘토 제외).
-  const showCsatDDay =
-    classifyMember({
-      role: profile?.role ?? null,
-      memberType: profile?.member_type ?? null,
-    }) === "student";
+  const showCsatDDay = memberKind === "student";
 
   // 메가 패널 콘텐츠(모든 navGroups 컬럼)는 activeMega와 무관하게 항상 동일하다(어떤
   // 그룹을 hover해도 5개 컬럼 전체가 함께 보이는 구조 — activeMega는 nav 버튼 하이라이트와

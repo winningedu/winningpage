@@ -49,12 +49,16 @@ export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
   }
 }
 
-// Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙. 회원 유형은 lib/memberAccess.ts가 정하고,
-// 메뉴에선 관리자와 학부모 외엔 학생 메뉴를 쓴다.
+// 회원 유형(lib/memberAccess.ts의 MemberKind, b2b 헤더의 status 포함)에서 MY 메뉴 역할을
+// 정한다. 관리자와 학부모 외엔 학생 메뉴를 쓴다.
+export function toMyMenuRole(kind: string): MyMenuRole {
+  return kind === "admin" || kind === "parent" ? kind : "student";
+}
+
+// Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙.
 export function resolveMyMenuRole(input: {
   role?: string | null;
   memberType?: string | null;
 }): MyMenuRole {
-  const kind = classifyMember(input);
-  return kind === "admin" || kind === "parent" ? kind : "student";
+  return toMyMenuRole(classifyMember(input));
 }

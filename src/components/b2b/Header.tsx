@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
 import MobileNavDrawer from "../MobileNavDrawer";
-import { ADMIN_MENU } from "../myMenuItems";
+import { ADMIN_MENU, toMyMenuRole } from "../myMenuItems";
 import MegaPanel from "./MegaPanel";
 import { NAV_LEFT, PILL_GAP, PILL_W } from "./navGrid";
 import { signOutB2B, useB2BAccount } from "./useB2BAccount";
@@ -22,10 +22,7 @@ export default function Header() {
   const groups = useNavGroups().filter((group) => group.items.length > 0);
   const loggedIn = account.status !== "loading" && account.status !== "guest";
   // 선생님은 드로어에서 예전처럼 학생 MY 메뉴를 쓴다(선생님 동작은 관리 화면에 있다).
-  const drawerMyMenuRole =
-    account.status === "parent" || account.status === "admin"
-      ? account.status
-      : "student";
+  const drawerMyMenuRole = toMyMenuRole(account.status);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const [openTitle, setOpenTitle] = useState<string | null>(null);

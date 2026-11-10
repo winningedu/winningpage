@@ -35,6 +35,26 @@ export function classifyMember(input: {
   return MEMBER_TYPE_KINDS[memberType] ?? "unknown";
 }
 
+const MEMBER_KIND_LABELS = {
+  admin: "관리자",
+  student: "학생회원",
+  parent: "학부모회원",
+  teacher: "선생님",
+  mentor: "멘토회원",
+  unset: "",
+} as const;
+
+// 헤더 이름 칩에 붙는 라벨. 모르는 유형은 저장된 값에 "회원"을 붙여 보여 준다.
+export function getMemberLabel(input: {
+  memberType?: string | null | undefined;
+  role?: string | null | undefined;
+}): string {
+  const kind = classifyMember(input);
+  if (kind !== "unknown") return MEMBER_KIND_LABELS[kind];
+  const raw = (input.memberType ?? "").trim().toLowerCase();
+  return raw.endsWith("회원") ? raw : `${raw}회원`;
+}
+
 // 공개 사이트(요금표, 결제)의 회원 유형 판정. 관리자(profiles.role='admin',
 // 총괄 포함)는 member_type 이 비어 있거나 mentor 여도 막히지 않고 학생과 같은
 // 경로를 본다. 이용권 판정은 바꾸지 않는다(이용권은 별도 어드민 도구로 부여).
