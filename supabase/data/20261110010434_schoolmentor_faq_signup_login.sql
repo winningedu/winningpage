@@ -31,6 +31,20 @@
 -- 멱등: 같은 question 행이 이미 있으면 추가하지 않는다. 자연 키는 question (faqs에 유니크 키는 없다).
 -- 하드코딩한 uuid 없음. 삭제와 비활성 없음.
 
+-- 0. 대상 DB 가드. Schoolmentor prod 만 통과한다.
+--    page_contents company-intro 의 menu_label '공지-회사소개' 는 20261105021419_schoolmentor_menu_labels.sql 이
+--    Schoolmentor prod 에만 넣은 값이다. 위닝 DB(dev, Winning prod)의 값은 '회사소개' 라 여기서 멈춘다.
+--    raise 는 supabase db query -f 실행 전체를 중단한다 (의도한 동작).
+do $$
+begin
+  if not exists (
+    select 1 from public.page_contents
+     where slug = 'company-intro' and menu_label = '공지-회사소개'
+  ) then
+    raise exception 'Schoolmentor prod 전용 파일입니다. 대상 DB가 맞는지 확인하세요 (company-intro menu_label 이 공지-회사소개 가 아님).';
+  end if;
+end $$;
+
 insert into public.faqs (question, answer, category, is_active, sort_order, content_json)
 select v.question, v.answer, '회원가입 및 이용환경', true, v.sort_order, null
   from (values
