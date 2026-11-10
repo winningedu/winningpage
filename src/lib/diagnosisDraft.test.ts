@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDraft, loadDraft, saveDraft } from "./diagnosisDraft";
+import {
+  clearAllDrafts,
+  clearDraft,
+  loadDraft,
+  saveDraft,
+} from "./diagnosisDraft";
 
 beforeEach(() => {
   localStorage.clear();
@@ -59,5 +64,32 @@ describe("diagnosisDraft", () => {
     expect(() => saveDraft("u1", { q1: "a" })).not.toThrow();
     expect(loadDraft("u1")).toBeNull();
     expect(() => clearDraft("u1")).not.toThrow();
+  });
+
+  it("clearAllDrafts는 모든 사용자의 초안만 지우고 다른 키는 둔다", () => {
+    saveDraft("u1", { q1: "a" });
+    saveDraft("u2", { q1: "b" });
+    localStorage.setItem("other-key", "keep");
+    clearAllDrafts();
+    expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u2")).toBeNull();
+    expect(localStorage.getItem("other-key")).toBe("keep");
+  });
+
+  it("저장하거나 읽을 때 다른 사용자의 만료된 초안을 쓸어낸다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
+    saveDraft("old", { q1: "a" });
+    vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
+    saveDraft("u1", { q1: "b" });
+    expect(localStorage.getItem("diagnosis-draft:old")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u1")).not.toBeNull();
+
+    vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
+    saveDraft("old2", { q1: "c" });
+    vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
+    loadDraft("u1");
+    expect(localStorage.getItem("diagnosis-draft:old2")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u1")).not.toBeNull();
   });
 });
