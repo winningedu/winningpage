@@ -7,6 +7,7 @@ import CompanyNews from "./CompanyNews";
 // 사이트별 게시판 문구와 Location 노출은 테스트마다 state 로 바꾼다. 기본값은 위닝이다.
 const siteState = vi.hoisted(() => ({
   schoolmentor: false,
+  newsRows: null as Record<string, unknown>[] | null,
 }));
 
 vi.mock("@/config/site", async (importOriginal) => {
@@ -37,16 +38,22 @@ vi.mock("@/config/site", async (importOriginal) => {
   };
 });
 
-// 쿼리 체인의 어느 지점에서 await 해도 빈 결과가 나오게 하는 Promise 기반 체인.
+// 쿼리 체인의 어느 지점에서 await 해도 결과가 나오게 하는 Promise 기반 체인.
+// company_news 만 테스트가 정한 행을 돌려주고, 나머지는 빈 결과다.
 vi.mock("@/lib/supabase", () => {
-  const makeChain = (): Promise<{ data: null; error: null }> =>
-    Object.assign(Promise.resolve({ data: null, error: null }), {
-      select: makeChain,
-      eq: makeChain,
-      order: makeChain,
-      maybeSingle: makeChain,
+  const makeChain = (data: unknown): Promise<{ data: unknown; error: null }> =>
+    Object.assign(Promise.resolve({ data, error: null }), {
+      select: () => makeChain(data),
+      eq: () => makeChain(data),
+      order: () => makeChain(data),
+      maybeSingle: () => makeChain(data),
     });
-  return { supabase: { from: makeChain } };
+  return {
+    supabase: {
+      from: (table: string) =>
+        makeChain(table === "company_news" ? siteState.newsRows : null),
+    },
+  };
 });
 
 describe("CompanyNews 히어로 서비스 카드", () => {
@@ -135,4 +142,22 @@ describe("CompanyNews 사이트별 게시판과 Location", () => {
     ).toBeTruthy();
     expect(await screen.findByText("작성된 글이 없어요")).toBeTruthy();
   });
+
+  test.each([
+    [false, "회사소식 목록으로"],
+    [true, "공지-회사소개 목록으로"],
+  ])(
+    "상세 뒤로가기 버튼은 게시판 이름을 따른다 (스쿨멘토=%s)",
+    async (schoolmentor, label) => {
+      siteState.schoolmentor = schoolmentor;
+      siteState.newsRows = [{ id: 1, title: "글 제목", content: "본문" }];
+      render(
+        <MemoryRouter initialEntries={["/company-news?id=1"]}>
+          <CompanyNews />
+        </MemoryRouter>,
+      );
+      expect(await screen.findByRole("button", { name: label })).toBeTruthy();
+      siteState.newsRows = null;
+    },
+  );
 });

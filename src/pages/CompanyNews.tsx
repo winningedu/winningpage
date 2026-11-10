@@ -845,7 +845,7 @@ function NewsDetail({ row, onBack }: { row: BoardRow; onBack: () => void }) {
           className="mb-8 inline-flex items-center gap-2 text-[0.9375rem] font-semibold text-ink hover:text-primary focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <ArrowLeft className="h-4.5 w-4.5" aria-hidden="true" />
-          회사소식 목록으로
+          {site.news.companyTitle} 목록으로
         </button>
 
         <article className="border-y border-[#D9D9D9]">
