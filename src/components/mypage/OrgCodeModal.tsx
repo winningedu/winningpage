@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { QA_ACCOUNT_MESSAGE } from "@/lib/qaAccount";
 import { supabase } from "@/lib/supabase";
 import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import MyPageModalShell from "./MyPageModalShell";
@@ -29,6 +30,8 @@ const TENANT_ERROR_TEXT: Record<string, string> = {
   WC071: "이미 소속이 설정되어 있어요.",
   // WC068: 최근 1시간 실패 시도 10회 초과(레이트리밋).
   WC068: "시도 횟수를 초과했어요. 잠시 후 다시 시도해 주세요.",
+  // WC103: QA 계정이 QA 계정이 없는 기관으로 옮기려 함(QA 계정 보호).
+  WC103: QA_ACCOUNT_MESSAGE,
 };
 const TENANT_UNKNOWN_ERROR_TEXT =
   "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.";
