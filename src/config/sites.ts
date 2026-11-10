@@ -13,6 +13,8 @@ export interface SiteConfig {
   manifest: string;
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
+  // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
+  boardEmpty?: string;
   // 홈 '새로운 소식' 두 목록의 제목, 건수, 빈 안내 문구(사 #33, #86, #88).
   news: {
     maxRows: number;
@@ -46,6 +48,18 @@ export interface SiteConfig {
     studentEnrollment: boolean;
     // 본사 관리자 화면의 기관 상세(기관 정보, 학교 관리자)와 목록 계약 열(5번 본사 관리 화면, 결정 102).
     hqTenantAdmin: boolean;
+    // 칼럼 영상(결정 107 3~6번).
+    columnVideo: boolean;
+    // 서비스 시작 안내(결정 107 8~10번).
+    serviceStartNotice: boolean;
+    // 입시 결과 안내(결정 107 14번).
+    admissionResultsNotice: boolean;
+    // 목표성장서비스 0교시 기록(결정 107 15번).
+    goalZeroHourRecord: boolean;
+    // 진단 이어하기(결정 107 17번).
+    diagnosisResume: boolean;
+    // 회사 소개의 Location(오시는 길) 구역 노출 여부(결정 107 19번).
+    companyLocation: boolean;
   };
   company: {
     name: string;
@@ -103,6 +117,12 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       schoolSignup: false,
       studentEnrollment: false,
       hqTenantAdmin: false,
+      columnVideo: false,
+      serviceStartNotice: false,
+      admissionResultsNotice: false,
+      goalZeroHourRecord: false,
+      diagnosisResume: false,
+      companyLocation: true,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -138,6 +158,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     },
     manifest: "/schoolmentor/site.webmanifest",
     columnTitle: "칼럼-교육청소식",
+    boardEmpty: "작성된 글이 없어요",
     news: {
       maxRows: 4,
       companyTitle: "공지-회사소개",
@@ -158,6 +179,12 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       schoolSignup: true,
       studentEnrollment: true,
       hqTenantAdmin: true,
+      columnVideo: true,
+      serviceStartNotice: true,
+      admissionResultsNotice: true,
+      goalZeroHourRecord: true,
+      diagnosisResume: true,
+      companyLocation: false,
     },
     company: {
       name: "주식회사 위닝로직",

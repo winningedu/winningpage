@@ -247,3 +247,29 @@ describe("site - 본사 기관 관리 스위치", () => {
     expect((await loadSite("winning")).site.features.hqTenantAdmin).toBe(false);
   });
 });
+
+describe("site - 계획 8 사이트 설정 값(결정 107)", () => {
+  it("스쿨멘토는 빈 게시판 문구를 갖고 칼럼 영상 등 위닝 전용 기능은 닫는다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.boardEmpty).toBe("작성된 글이 없어요");
+    expect(site.features.columnVideo).toBe(true);
+    expect(site.features.serviceStartNotice).toBe(true);
+    expect(site.features.admissionResultsNotice).toBe(true);
+    expect(site.features.goalZeroHourRecord).toBe(true);
+    expect(site.features.diagnosisResume).toBe(true);
+    expect(site.features.companyLocation).toBe(false);
+  });
+
+  it("위닝은 빈 게시판 문구가 없고 새 기능 스위치가 기존 동작 값이다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.boardEmpty).toBeUndefined();
+    expect(site.features.columnVideo).toBe(false);
+    expect(site.features.serviceStartNotice).toBe(false);
+    expect(site.features.admissionResultsNotice).toBe(false);
+    expect(site.features.goalZeroHourRecord).toBe(false);
+    expect(site.features.diagnosisResume).toBe(false);
+    expect(site.features.companyLocation).toBe(true);
+  });
+});
