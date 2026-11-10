@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({ title: "교육칼럼", rows: [] as unknown[] }
 
 vi.mock("@/config/site", () => ({
   site: {
+    features: { columnVideo: false },
     get columnTitle() {
       return state.title;
     },
