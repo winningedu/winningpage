@@ -22,6 +22,7 @@ import studentCardWriting from "@/assets/services/self-assessment/student-card-0
 import studentCardOrganizing from "@/assets/services/self-assessment/student-card-02-organizing.jpg";
 import studentCardStructuring from "@/assets/services/self-assessment/student-card-03-structuring.jpg";
 import studentCardPolishing from "@/assets/services/self-assessment/student-card-04-polishing.jpg";
+import { useServiceStart } from "@/components/service/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
@@ -31,6 +32,7 @@ import ServiceSection from "@/components/services/ServiceSection";
 import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTabsPanel from "@/components/services/ServiceTabsPanel";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
+import { siteWording } from "@/config/wording";
 import { useInView } from "@/hooks/useInView";
 import SelfevalScreenPreview from "./selfevalLanding/SelfevalScreenPreview";
 
@@ -232,7 +234,9 @@ const FAQ_ITEMS = [
   },
   {
     q: "AI가 대신 작성해 주나요?",
-    a: "아니요. 위닝 자기평가서는 문항 해석・구조 설계・피드백을 돕는 코칭 서비스이며, 실제 작성은 학생 본인이 수행합니다. 제공되는 설계안・피드백을 그대로 옮겨 제출하는 것은 학문적 정직성에 어긋날 수 있어 권장하지 않습니다.",
+    a: siteWording(
+      "아니요. 위닝 자기평가서는 문항 해석・구조 설계・피드백을 돕는 코칭 서비스이며, 실제 작성은 학생 본인이 수행합니다. 제공되는 설계안・피드백을 그대로 옮겨 제출하는 것은 학문적 정직성에 어긋날 수 있어 권장하지 않습니다.",
+    ),
   },
   {
     q: "피드백은 어떤 기준으로 제공되나요?",
@@ -333,13 +337,19 @@ function HeroSection({ onCta }: { onCta: () => void }) {
 export default function SelfAssessment() {
   const navigate = useNavigate();
 
+  const { requestStart, startDialogs } = useServiceStart({
+    to: "/app/selfeval",
+    resultNotice: true,
+  });
+
   function handleCta() {
-    navigate("/app/selfeval");
+    requestStart(() => navigate("/app/selfeval"));
   }
 
   return (
     <main className="min-h-screen bg-white pt-16">
       <HeroSection onCta={handleCta} />
+      {startDialogs}
 
       <ServiceSection
         className="lg:pt-20"
@@ -410,7 +420,10 @@ export default function SelfAssessment() {
         <ServiceOutcomesPanel items={OUTCOME_ITEMS} />
       </ServiceSection>
 
-      <ServiceSection className="lg:pt-33.5" heading="위닝 자기평가서">
+      <ServiceSection
+        className="lg:pt-33.5"
+        heading={siteWording("위닝 자기평가서")}
+      >
         <ServiceTestimonials items={TESTIMONIALS} />
       </ServiceSection>
 
