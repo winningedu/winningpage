@@ -242,4 +242,26 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
       ).toEqual({ q1: "중학생", q4: expect.any(String) }),
     );
   });
+
+  it("다시 들어오면 답한 문항을 채운다", async () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    renderDraft();
+    await waitFor(() =>
+      expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"N수생"'),
+    );
+  });
+
+  it("다른 사용자의 초안은 채우지 않는다", async () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    authState.userId = "u2";
+    renderDraft();
+    await screen.findByRole("button", { name: "q1 답하기" });
+    expect(screen.getByTestId("answers")).toHaveTextContent("{}");
+  });
 });

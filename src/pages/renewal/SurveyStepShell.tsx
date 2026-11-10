@@ -17,8 +17,8 @@ import {
   checkDiagnosisAccess,
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
-// 이어 답하기 초안(사 #44, 스쿨멘토 전용) — 이 기기 localStorage 에 사용자별로 저장한다.
-import { saveDraft } from "@/lib/diagnosisDraft";
+// 이어 답하기 초안(사 #44, 스쿨멘토 전용). 이 기기 localStorage 에 사용자별로 저장한다.
+import { loadDraft, saveDraft } from "@/lib/diagnosisDraft";
 // 리포트 '페이지'가 아니라 storage 모듈만 import 한다 — 페이지를 가져오면 인쇄 CSS 가 설문 번들로 끌려온다.
 // 저장 키·직렬화·스키마 검증의 정의처도 그 모듈 하나다(여기에 리터럴을 두면 읽기 쪽과 갈라진다).
 import { submitDiagnosisAnswers } from "@/lib/diagnosisInputStorage";
@@ -129,7 +129,15 @@ export default function SurveyStepShell() {
     });
   }, []);
 
-  // 이어 답하기(사 #44) — 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
+  // 이어 답하기(사 #44): 이 사용자의 초안이 있으면 답을 채운다. 막힌 사용자는 설문 화면이
+  // 렌더되지 않아 채워도 보이지 않는다.
+  useEffect(() => {
+    if (!site.features.diagnosisResume || !userId) return;
+    const draft = loadDraft(userId);
+    if (draft) setAnswers((prev) => ({ ...draft, ...prev }));
+  }, [userId]);
+
+  // 이어 답하기(사 #44): 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
   useEffect(() => {
     if (!site.features.diagnosisResume || !userId) return;
     if (Object.keys(answers).length === 0) return;
