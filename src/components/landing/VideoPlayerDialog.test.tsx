@@ -64,7 +64,7 @@ describe("VideoPlayerDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "열기" }));
     await screen.findByRole("dialog");
     await waitFor(() => expect(created).toHaveLength(1));
-    act(() => created[0].onError?.({ data: 100 }));
+    act(() => created[0]?.onError?.({ data: 100 }));
 
     expect(screen.getByRole("status")).toHaveTextContent(
       "재생할 수 없는 영상이에요",

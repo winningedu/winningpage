@@ -38,7 +38,7 @@ describe("YoutubePlayer", () => {
   test("플레이어 오류가 나면 iframe 대신 재생 불가 안내를 보인다", async () => {
     render(<YoutubePlayer videoId="abcDEF12345" title="영상 제목" />);
     await vi.waitFor(() => expect(created).toHaveLength(1));
-    act(() => created[0].onError?.({ data: 150 }));
+    act(() => created[0]?.onError?.({ data: 150 }));
     expect(screen.getByRole("status")).toHaveTextContent(
       "재생할 수 없는 영상이에요",
     );

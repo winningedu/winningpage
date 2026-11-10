@@ -55,9 +55,7 @@ describe("ColumnDetail 유튜브 재생", () => {
       link_url: youtube,
     });
     renderDetail();
-    const frame = await screen.findByTitle("영상 글", {
-      selector: "iframe",
-    });
+    const frame = await screen.findByTitle("영상 글");
     expect(frame.getAttribute("src")).toContain(
       "https://www.youtube-nocookie.com/embed/abcDEF12345?",
     );

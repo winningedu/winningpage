@@ -202,7 +202,7 @@ export default function ColumnDetail() {
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
           {videoId && post && (
             <div className="mt-16 md:mt-24">
-              <YoutubePlayer videoId={videoId} title={post.title} />
+              <YoutubePlayer videoId={videoId} title={post.title || ""} />
             </div>
           )}
           {linkUrl && !videoId && (
