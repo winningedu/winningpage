@@ -46,6 +46,7 @@ import {
   getAdmissionActiveYear,
   setAdmissionActiveYear,
 } from "@/lib/admissionSettings";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import {
   computeGoalCutBackfill,
   fetchBackfillSourceRows,
@@ -3921,6 +3922,8 @@ export function AdminLayout() {
   }
 
   async function logout() {
+    // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+    clearAllDrafts();
     await supabase.auth.signOut();
     window.location.replace("/");
   }
