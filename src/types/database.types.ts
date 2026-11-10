@@ -6076,6 +6076,30 @@ export type Database = {
           },
         ];
       };
+      qa_accounts: {
+        Row: {
+          created_at: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          profile_id: string;
+        };
+        Update: {
+          created_at?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qa_accounts_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       refund_requests: {
         Row: {
           admin_memo: string | null;
@@ -8822,6 +8846,7 @@ export type Database = {
         Args: { p_a: string; p_b: string };
         Returns: boolean;
       };
+      fn_is_qa_account: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_is_super_admin: { Args: { p_profile_id?: string }; Returns: boolean };
       fn_knowledge_near_duplicates: {
         Args: {
