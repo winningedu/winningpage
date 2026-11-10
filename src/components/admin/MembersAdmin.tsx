@@ -386,6 +386,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setDetailLoading(true);
     setDetailError("");
 
+    // 관리자 화면은 지급, 상세를 위해 저장된 member_type 원본을 그대로 본다(classifyMember 대상 아님).
     const isParent = String(profile.member_type || "") === "parent";
 
     const [linkRes, accessRes, orderRes, msgRes] = await Promise.all([
@@ -648,6 +649,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
     const nextId = tenantDraft || null;
 
+    // 저장된 member_type 원본 기준이다(위 loadDetail과 같다).
     const isEnrollmentStudent =
       site.features.studentEnrollment &&
       String(selected.member_type || "") === "student";
@@ -747,6 +749,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
   }, [orders]);
 
   if (selected) {
+    // 저장된 member_type 원본 기준이다(위 loadDetail과 같다).
     const isParent = String(selected.member_type || "") === "parent";
     const activeTab = TABS.find((t) => t.key === tab);
 
