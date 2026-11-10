@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
     data: unknown;
     error: { code: string } | null;
   },
+  qa: false,
   rpc: vi.fn(),
 }));
 
@@ -36,6 +37,12 @@ vi.mock("./_lib/supabaseAdmin.js", () => {
       chain[method] = () => chain;
     }
     chain.maybeSingle = async () => {
+      if (name === "qa_accounts") {
+        return {
+          data: state.qa ? { profile_id: "student-1" } : null,
+          error: null,
+        };
+      }
       if (name === "parent_child_links") {
         return { data: { parent_id: "parent-1" }, error: null };
       }
@@ -132,6 +139,7 @@ beforeEach(() => {
     error: null,
   };
   state.rpc.mockClear();
+  state.qa = false;
 });
 
 describe("request-enrollment 수량", () => {
@@ -210,5 +218,22 @@ describe("request-enrollment 수량", () => {
     const out = await call([{ id: "a1", quantity: 1 }]);
     expect(out.status).toBe(400);
     expect(out.body).toEqual({ error: "결제 수량이 올바르지 않습니다." });
+  });
+});
+
+describe("request-enrollment QA 계정", () => {
+  test("QA 학생의 결제 요청은 403 이고 주문을 만들지 않는다", async () => {
+    state.products = [product()];
+    state.qa = true;
+
+    const out = await call([{ id: "p1" }]);
+
+    expect(out.status).toBe(403);
+    expect(out.body).toEqual({
+      error: "QA 계정이라 이 기능은 작동하지 않아요.",
+      detail: "QA 계정이라 이 기능은 작동하지 않아요.",
+      code: "QA_ACCOUNT_RESTRICTED",
+    });
+    expect(state.rpc).not.toHaveBeenCalled();
   });
 });
