@@ -13,6 +13,7 @@ import {
 } from "../../_lib/console/teacherAccounts.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { assertQaAdminMayWrite } from "../../_lib/qaAccount.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -81,6 +82,8 @@ export default defineHandler({
       sendError(res, "coded", 403, "기관 관리 권한이 없습니다.", "FORBIDDEN");
       return;
     }
+
+    await assertQaAdminMayWrite(ctx.supabaseAdmin, userId);
 
     const tenantId = (req.body as { tenantId?: unknown } | undefined)?.tenantId;
     const body = parseRegisterBody(req.body);

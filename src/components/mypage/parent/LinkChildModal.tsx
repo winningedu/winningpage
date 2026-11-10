@@ -9,6 +9,7 @@ import {
 } from "react";
 import MyPageModalShell from "@/components/mypage/MyPageModalShell";
 import type { RequestParentLinkRpcResult } from "@/lib/parentLink";
+import { QA_ACCOUNT_MESSAGE } from "@/lib/qaAccount";
 import { supabase } from "@/lib/supabase";
 
 // 자녀 연결 모달 (Figma 3709:2579 입력 / 3709:2599 완료).
@@ -33,6 +34,8 @@ const LINK_ERROR_TEXT = {
   cannot_link_self: "본인 계정은 자녀로 연결할 수 없습니다.",
   student_already_linked: "이미 다른 학부모와 연결된 학생입니다.",
   link_already_requested: "이미 연결을 요청한 학생입니다.",
+  // QA 계정 보호(WC103): 메시지 자체가 안내 문구다.
+  [QA_ACCOUNT_MESSAGE]: QA_ACCOUNT_MESSAGE,
 };
 const LINK_UNKNOWN_ERROR_TEXT =
   "연결 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";

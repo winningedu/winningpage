@@ -125,6 +125,7 @@ describe("POST /api/enrollment/join-tenant", () => {
     ["WC080", 400, "GROUP_NOT_REGISTERED"],
     ["WC079", 409, "ALREADY_ASSIGNED"],
     ["WC094", 403, "NOT_STUDENT"],
+    ["WC103", 403, "QA_ACCOUNT_RESTRICTED"],
   ])("%s maps to %i %s with a Korean message", async (pgCode, status, code) => {
     kit.state.rpc.fn_catch_all_join_tenant = () => ({
       data: null,

@@ -15,6 +15,7 @@
 //   가입 후 signOut 하면 이 화면에서 not_authenticated로 떨어진다.
 
 import { apiFetch, getAuthHeader } from "./apiFetch";
+import { QA_ACCOUNT_MESSAGE } from "./qaAccount";
 import { supabase } from "./supabase";
 
 // 서버가 발급하는 코드 알파벳. 헷갈리는 0·1·I·L·O를 뺀 31종이다
@@ -182,6 +183,8 @@ export async function requestParentLink(
     // RPC는 raise exception의 메시지를 그대로 올려보낸다. 우리가 정의한
     // 사유 코드면 그대로 쓰고, 아니면 원문을 감춘다(내부 오류가 새면 안 된다).
     const raw = String(error.message || "").trim();
+    // QA 계정 보호(WC103)의 안내 문구는 그대로 보여 준다.
+    if (raw === QA_ACCOUNT_MESSAGE) return fail("qa_restricted", raw);
     return fail(raw in MESSAGES ? raw : "unknown");
   }
 

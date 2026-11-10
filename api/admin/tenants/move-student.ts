@@ -14,6 +14,7 @@ import {
 import { hasAdminEditPermission } from "../../_lib/console/proxy.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import { assertQaAdminMayWrite } from "../../_lib/qaAccount.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
@@ -74,6 +75,8 @@ export default defineHandler({
       sendError(res, "coded", 403, "회원 관리 권한이 없습니다.", "FORBIDDEN");
       return;
     }
+
+    await assertQaAdminMayWrite(ctx.supabaseAdmin, userId);
 
     const body = parseBody(req.body);
     if (!body) {

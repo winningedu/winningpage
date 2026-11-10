@@ -38,6 +38,7 @@
 import { defineHandler } from "../_lib/handler.js";
 import { sendError } from "../_lib/httpResponse.js";
 import { sendPlainMessage } from "../_lib/messaging/aligo.js";
+import { assertQaAdminMayWrite } from "../_lib/qaAccount.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -76,6 +77,8 @@ export default defineHandler({
         "회원 관리 수정 권한이 있어야 문자를 보낼 수 있습니다.",
       );
     }
+
+    await assertQaAdminMayWrite(supabaseAdmin, actorId);
 
     const body = (req.body || {}) as {
       profileId?: string;

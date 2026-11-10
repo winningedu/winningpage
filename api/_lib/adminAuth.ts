@@ -29,13 +29,36 @@
 //   막으려면 SQL 함수와 이 파일을 **같이** 고쳐야 한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isQaAccount,
+  isReadMethod,
+  QA_ACCOUNT_MESSAGE,
+  QA_ACCOUNT_READ_ONLY_CODE,
+} from "./qaAccount.js";
 import { getBearerToken } from "./serviceAccess.js";
 
 export { getBearerToken };
 
 export type AdminResolution =
   | { ok: true; userId: string }
-  | { ok: false; status: number; detail: string };
+  | { ok: false; status: number; detail: string; code?: string };
+
+// QA 본사 관리자는 읽기만 된다. 관리자임이 확인된 뒤에만 부르므로 여기서 QA 이면 곧 QA 관리자다.
+async function rejectQaWrite(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+  method: string | undefined,
+): Promise<AdminResolution | null> {
+  if (isReadMethod(method) || !(await isQaAccount(supabaseAdmin, userId))) {
+    return null;
+  }
+  return {
+    ok: false,
+    status: 403,
+    code: QA_ACCOUNT_READ_ONLY_CODE,
+    detail: QA_ACCOUNT_MESSAGE,
+  };
+}
 
 /**
  * Authorization: Bearer <supabase access token> → 관리자 판정.
@@ -45,7 +68,7 @@ export type AdminResolution =
  */
 export async function resolveAdmin(
   supabaseAdmin: SupabaseClient,
-  req: { headers: Record<string, string> },
+  req: { headers: Record<string, string>; method?: string | undefined },
 ): Promise<AdminResolution> {
   const token = getBearerToken(req);
 
@@ -82,7 +105,12 @@ export async function resolveAdmin(
     return { ok: false, status: 403, detail: "관리자 권한이 필요합니다." };
   }
 
-  return { ok: true, userId };
+  return (
+    (await rejectQaWrite(supabaseAdmin, userId, req.method)) ?? {
+      ok: true,
+      userId,
+    }
+  );
 }
 
 // 목표관리(goal) 도메인 어드민 판정 — SQL `public.is_winning_admin()`의 JS 미러.
@@ -112,7 +140,7 @@ export async function resolveAdmin(
  */
 export async function resolveWinningAdmin(
   supabaseAdmin: SupabaseClient,
-  req: { headers: Record<string, string> },
+  req: { headers: Record<string, string>; method?: string | undefined },
 ): Promise<AdminResolution> {
   const token = getBearerToken(req);
 
@@ -169,5 +197,10 @@ export async function resolveWinningAdmin(
     return { ok: false, status: 403, detail: "관리자 권한이 필요합니다." };
   }
 
-  return { ok: true, userId };
+  return (
+    (await rejectQaWrite(supabaseAdmin, userId, req.method)) ?? {
+      ok: true,
+      userId,
+    }
+  );
 }
