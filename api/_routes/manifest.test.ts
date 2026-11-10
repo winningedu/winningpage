@@ -18,6 +18,9 @@ const manifests = {
   "manifest-60.ts": routes60,
 };
 
+// Vercel 이 함수로 빌드하는 확장자
+const SOURCE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+
 const listFiles = (dir: string): string[] =>
   fs
     .readdirSync(dir, { withFileTypes: true })
@@ -32,12 +35,12 @@ const handlerKeys = listFiles(ROUTES_DIR)
   .map((file) => path.relative(ROUTES_DIR, file).split(path.sep).join("/"))
   .filter(
     (rel) =>
-      rel.endsWith(".ts") &&
+      SOURCE_EXT.test(rel) &&
       !rel.includes(".test.") &&
       rel !== "dispatch.ts" &&
       !/^manifest[^/]*\.ts$/.test(rel),
   )
-  .map((rel) => rel.replace(/\.ts$/, ""))
+  .map((rel) => rel.replace(SOURCE_EXT, ""))
   .sort();
 
 // 소스에서 선언된 maxDuration 을 읽는다. 선언이 없으면 undefined
@@ -225,7 +228,7 @@ describe("api/ 직속 독립 함수", () => {
       .map((file) => path.relative(API_DIR, file).split(path.sep).join("/"))
       .filter(
         (rel) =>
-          rel.endsWith(".ts") &&
+          SOURCE_EXT.test(rel) &&
           !rel.includes(".test.") &&
           !rel.startsWith("_lib/") &&
           !rel.startsWith("_routes/"),
