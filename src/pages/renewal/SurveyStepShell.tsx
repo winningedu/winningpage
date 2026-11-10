@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { site } from "@/config/site";
+import { useAuthOptional } from "@/context/AuthProvider";
 // QA 행348(2026-09-02) — q1(학년) 응답으로 q4(등급 체계)를 자동 결정한다(카드 자체는 화면에서 제거).
 import { getGradeSystemLabelForGradeLevel } from "@/data/renewalSurveyQuestions";
 // B-1(2026-08-11 확정) — q15 캐스케이드 fetch 상태(옵션 5벌 + loading + error)를 이 셸이 소유한다.
@@ -16,6 +17,8 @@ import {
   checkDiagnosisAccess,
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
+// 이어 답하기 초안(사 #44, 스쿨멘토 전용) — 이 기기 localStorage 에 사용자별로 저장한다.
+import { saveDraft } from "@/lib/diagnosisDraft";
 // 리포트 '페이지'가 아니라 storage 모듈만 import 한다 — 페이지를 가져오면 인쇄 CSS 가 설문 번들로 끌려온다.
 // 저장 키·직렬화·스키마 검증의 정의처도 그 모듈 하나다(여기에 리터럴을 두면 읽기 쪽과 갈라진다).
 import { submitDiagnosisAnswers } from "@/lib/diagnosisInputStorage";
@@ -46,6 +49,7 @@ import { fetchLoggedInStudentName } from "./diagnosisStudentName";
  */
 export default function SurveyStepShell() {
   const navigate = useNavigate();
+  const userId = useAuthOptional()?.userId ?? null;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
@@ -124,6 +128,13 @@ export default function SurveyStepShell() {
       };
     });
   }, []);
+
+  // 이어 답하기(사 #44) — 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
+  useEffect(() => {
+    if (!site.features.diagnosisResume || !userId) return;
+    if (Object.keys(answers).length === 0) return;
+    saveDraft(userId, answers);
+  }, [answers, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
   // 훅 내부에서 대학→학과→전형유형/세부전형명/반영교과 순으로 필요한 조회만 다시 tap 한다.

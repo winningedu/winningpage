@@ -9,7 +9,8 @@ import {
 import { MemoryRouter, Route, Routes, useOutletContext } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const gateState = vi.hoisted(() => ({ on: false }));
+const gateState = vi.hoisted(() => ({ on: false, resume: false }));
+const authState = vi.hoisted(() => ({ userId: "u1" as string | null }));
 const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
 
@@ -24,10 +25,16 @@ vi.mock("@/config/site", async (orig) => {
         get tenantServiceGate() {
           return gateState.on;
         },
+        get diagnosisResume() {
+          return gateState.resume;
+        },
       },
     },
   };
 });
+vi.mock("@/context/AuthProvider", () => ({
+  useAuthOptional: () => ({ userId: authState.userId }),
+}));
 vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
@@ -44,6 +51,8 @@ vi.mock("./diagnosisStudentName", () => ({
 }));
 
 import SurveyStepShell from "./SurveyStepShell";
+
+const DRAFT_KEY = "diagnosis-draft:u1";
 
 const denied = (tenantReason: string | null) => ({
   allowed: false,
@@ -94,6 +103,9 @@ function renderShell() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  gateState.resume = false;
+  authState.userId = "u1";
   accessMock.mockReset();
   consumeMock.mockReset();
   vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -185,5 +197,49 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
     expect(
       screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
     ).not.toBeInTheDocument();
+  });
+});
+
+function DraftChild() {
+  const ctx = useOutletContext<{
+    answers: Record<string, unknown>;
+    setAnswer: (id: string, v: unknown) => void;
+  }>();
+  return (
+    <>
+      <button type="button" onClick={() => ctx.setAnswer("q1", "중학생")}>
+        q1 답하기
+      </button>
+      <p data-testid="answers">{JSON.stringify(ctx.answers)}</p>
+    </>
+  );
+}
+
+function renderDraft() {
+  return render(
+    <MemoryRouter initialEntries={["/survey"]}>
+      <Routes>
+        <Route path="/survey" element={<SurveyStepShell />}>
+          <Route index element={<DraftChild />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("SurveyStepShell 이어 답하기 초안", () => {
+  beforeEach(() => {
+    gateState.resume = true;
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+  });
+
+  it("답할 때마다 사용자 id 키로 저장한다", async () => {
+    renderDraft();
+    fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}").answers,
+      ).toEqual({ q1: "중학생", q4: expect.any(String) }),
+    );
   });
 });
