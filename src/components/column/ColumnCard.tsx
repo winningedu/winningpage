@@ -1,8 +1,6 @@
 import { ExternalLink, Eye } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { site } from "@/config/site";
-import { parseYoutubeVideoId } from "@/lib/youtube";
 import {
   ALL_CATEGORY,
   formatDate,
@@ -11,6 +9,7 @@ import {
   getThumbnailUrl,
   getViewCount,
 } from "@/pages/column/columnData";
+import { getVideoId } from "@/pages/column/kind";
 
 type ColumnLike = {
   id: string | number;
@@ -77,8 +76,7 @@ function CardLink({
 }) {
   const linkUrl = typeof column.link_url === "string" ? column.link_url : "";
 
-  const isPlayableVideo =
-    site.features.columnVideo && parseYoutubeVideoId(linkUrl) !== null;
+  const isPlayableVideo = getVideoId(column) !== null;
 
   if (linkUrl && !isPlayableVideo) {
     return (
@@ -116,11 +114,7 @@ export default function ColumnCard({
   categories,
   variant = "grid",
 }: ColumnCardProps) {
-  const videoId = site.features.columnVideo
-    ? parseYoutubeVideoId(
-        typeof column.link_url === "string" ? column.link_url : undefined,
-      )
-    : null;
+  const videoId = getVideoId(column);
   const thumbnail =
     getThumbnailUrl(column) ||
     (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "");

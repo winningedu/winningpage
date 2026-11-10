@@ -11,7 +11,6 @@ import ColumnCard from "@/components/column/ColumnCard";
 import YoutubePlayer from "@/components/YoutubePlayer";
 import { site } from "@/config/site";
 import { withDedupedKeys } from "@/lib/reactKeys";
-import { parseYoutubeVideoId } from "@/lib/youtube";
 import {
   ALL_CATEGORY,
   type ColumnRow,
@@ -21,6 +20,7 @@ import {
   getCoverUrl,
   normalizeImageUrls,
 } from "./columnData";
+import { getVideoId } from "./kind";
 import { useColumnCategories } from "./useColumnCategories";
 
 const RELATED_PAGE_SIZE = 4;
@@ -65,8 +65,7 @@ export default function ColumnDetail() {
   const remainingImages = post ? normalizeImageUrls(post).slice(1) : [];
   const hasBlocks = hasBlockContent(post);
   const linkUrl = typeof post?.link_url === "string" ? post.link_url : "";
-  const youtubeId = parseYoutubeVideoId(linkUrl);
-  const videoId = youtubeId && site.features.columnVideo ? youtubeId : null;
+  const videoId = post ? getVideoId(post) : null;
 
   const relatedRows = useMemo(() => {
     if (!post) return [];
