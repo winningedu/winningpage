@@ -157,7 +157,7 @@ const vercelJson = JSON.parse(
 };
 
 const alternation = (routes: Record<string, unknown>) =>
-  `/api/(${Object.keys(routes).sort().join("|")})/?`;
+  `/api/((?:${Object.keys(routes).sort().join("|")})/?)`;
 
 describe("vercel.json 라우터 rewrite", () => {
   test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
