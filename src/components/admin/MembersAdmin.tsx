@@ -147,6 +147,7 @@ const MEMBER_TYPE_LABEL: Record<string, string> = {
   student: "학생",
   parent: "학부모",
   mentor: "멘토",
+  teacher: "선생님",
 };
 
 // 가입유형 필터 — 와이어프레임의 "전체 / 학생 / 학부모" 그대로다. mentor 는
