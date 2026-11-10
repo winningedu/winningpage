@@ -960,7 +960,7 @@ function NewsSection({
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <div className="flex items-end justify-between">
           <h2 className="text-[1.5rem] font-bold leading-[1.4] text-ink sm:text-[1.75rem] lg:text-[2rem]">
-            회사소식
+            {site.news.companyTitle}
           </h2>
           {/* "더보기" — 전체 목록 페이지로 보낸다(색·크기·밑줄은 이관 전 버튼 그대로. 근거는
               섹션 상단 주석 참고). */}
@@ -985,7 +985,7 @@ function NewsSection({
             </div>
           ) : visibleRows.length === 0 ? (
             <div className="py-16 text-center text-sm font-medium text-[#767676]">
-              등록된 회사소식이 없습니다.
+              {site.news.companyEmpty}
             </div>
           ) : (
             visibleRows.map((row) => (
@@ -1110,7 +1110,7 @@ export default function CompanyNews() {
       <HeroSection page={introPage} />
       <MissionSection />
       <BusinessSection />
-      <LocationSection />
+      {site.features.companyLocation && <LocationSection />}
       <NewsSection
         rows={rows}
         loading={loading}
