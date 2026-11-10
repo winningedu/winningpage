@@ -14,6 +14,7 @@ import {
   STUDY_ITEM_OPTIONS,
 } from "@/components/goal/studyRecordOptions";
 import { getSubjectLabel } from "@/components/goal/subjectTokens";
+import { site } from "@/config/site";
 import { useAuth } from "@/context/AuthProvider";
 import type {
   GoalRecordCooldown,
@@ -199,7 +200,7 @@ export default function DailyRecord() {
   const handleSave = async () => {
     if (!canSave || submitting) return;
 
-    if (studyHours <= 0) {
+    if (studyHours <= 0 && !site.features.goalZeroHourRecord) {
       setBanner({
         tone: "info",
         message:
