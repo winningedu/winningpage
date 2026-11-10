@@ -40,10 +40,33 @@ const handlerKeys = listFiles(ROUTES_DIR)
   .map((rel) => rel.replace(/\.ts$/, ""))
   .sort();
 
+// 소스에서 선언된 maxDuration 을 읽는다. 선언이 없으면 undefined
+const declaredMaxDuration = (source: string) => {
+  const configBlock = source.match(/export const config\s*=\s*\{[^}]*\}/s)?.[0];
+  return configBlock?.match(/maxDuration:\s*(\d+)/)?.[1];
+};
+
 const manifestsHolding = (key: string) =>
   Object.entries(manifests)
     .filter(([, routes]) => Object.hasOwn(routes, key))
     .map(([name]) => name);
+
+describe("maxDuration 파싱", () => {
+  test("여러 줄로 나뉜 config 객체에서도 읽는다", () => {
+    const source = [
+      "export const config = {",
+      '  runtime: "nodejs",',
+      "  maxDuration: 60,",
+      "};",
+    ].join("\n");
+
+    expect(declaredMaxDuration(source)).toBe("60");
+  });
+
+  test("config 선언이 없으면 undefined 다", () => {
+    expect(declaredMaxDuration("export default () => {};")).toBeUndefined();
+  });
+});
 
 describe("라우트 매니페스트", () => {
   test("모든 핸들러 파일이 정확히 한 매니페스트에 등록돼 있다", () => {
@@ -75,10 +98,7 @@ describe("라우트 매니페스트", () => {
         path.join(ROUTES_DIR, `${key}.ts`),
         "utf8",
       );
-      const configLine = source
-        .split("\n")
-        .find((line) => line.startsWith("export const config"));
-      const declared = configLine?.match(/maxDuration:\s*(\d+)/)?.[1];
+      const declared = declaredMaxDuration(source);
       const expected =
         declared === undefined
           ? "manifest.ts"
