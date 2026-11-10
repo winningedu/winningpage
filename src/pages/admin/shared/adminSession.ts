@@ -1,3 +1,4 @@
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 
 function decodeJwtPayload(token: string) {
@@ -49,6 +50,7 @@ export async function getFreshSupabaseAccessTokenOrSignOut() {
       await supabase.auth.refreshSession();
 
     if (refreshError || !refreshData?.session?.access_token) {
+      clearAllDrafts();
       await supabase.auth.signOut().catch(() => {});
       throw new Error(
         "관리자 로그인 토큰이 만료되었습니다. 다시 로그인한 뒤 저장하세요.",
@@ -67,6 +69,7 @@ export async function getFreshSupabaseAccessTokenOrSignOut() {
   }
 
   if (Number(freshPayload.exp) <= Math.floor(Date.now() / 1000)) {
+    clearAllDrafts();
     await supabase.auth.signOut().catch(() => {});
     throw new Error(
       "관리자 로그인 토큰이 만료되었습니다. 다시 로그인한 뒤 저장하세요.",
