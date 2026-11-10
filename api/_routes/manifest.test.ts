@@ -161,12 +161,15 @@ describe("진입 함수 config", () => {
 });
 
 describe("api/ 직속 독립 함수", () => {
-  test("라우터, 크론 대상, zoom-webhook 외에는 두지 않는다", () => {
+  test("라우터, 크론 대상, 예외 두 개 외에는 두지 않는다", () => {
     const allowed = new Set([
       "router.ts",
       "router-30.ts",
       "router-60.ts",
+      // body parser 를 꺼야 해서 라우터에 못 넣는다
       "zoom-webhook.ts",
+      // Chromium 메모리를 AI 핸들러와 한 인스턴스에서 나눠 쓰지 않는다
+      "report-pdf.ts",
       ...vercelJson.crons.map(
         ({ path: cronPath }) => `${cronPath.replace(/^\/api\//, "")}.ts`,
       ),

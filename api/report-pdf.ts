@@ -16,8 +16,8 @@
 // change-phone.ts와 동일한 선례).
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { defineHandler } from "../_lib/handler.js";
-import { renderReportPdf } from "../_lib/pdf/render.js";
+import { defineHandler } from "./_lib/handler.js";
+import { renderReportPdf } from "./_lib/pdf/render.js";
 import {
   buildContentDispositionHeader,
   createSlidingWindowRateLimiter,
@@ -29,7 +29,7 @@ import {
   renderErrorPage,
   sanitizeFileName,
   sanitizePrintHtml,
-} from "../_lib/pdf/report.js";
+} from "./_lib/pdf/report.js";
 
 export const config = { runtime: "nodejs", maxDuration: 60 };
 

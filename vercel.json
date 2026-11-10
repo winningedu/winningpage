@@ -6,7 +6,7 @@
       "destination": "/api/router-30"
     },
     {
-      "source": "/api/(admin/knowledge-dedupe|admin/knowledge-eval|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|report-pdf|selfeval/analyze|selfeval/finalize|selfeval/verify|selfeval/write)",
+      "source": "/api/(admin/knowledge-dedupe|admin/knowledge-eval|growth/collect|growth/report|inquiry/evaluate-report|inquiry/plan-report|inquiry/recommend-topics|performance/admin-embed|performance/analyze-guide|performance/design-report|performance/evaluate|performance/recommend-topics|selfeval/analyze|selfeval/finalize|selfeval/verify|selfeval/write)",
       "destination": "/api/router-60"
     },
     {

@@ -21,7 +21,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 - Relative imports inside `api/` use the `.js` extension. `.ts` breaks production.
 - New endpoints use `defineHandler` from `api/_lib/handler.ts`.
 - Endpoints live in `api/_routes/<path>.ts` and must be registered in a manifest chosen by `maxDuration`: `manifest.ts` (none), `manifest-30.ts`, `manifest-60.ts`. A new limit needs a new `api/router-<n>.ts` entry, a manifest, and a `vercel.json` rewrite.
-- `api/router*.ts` are the only general entry functions. Cron targets (`vercel.json` `crons`) and `zoom-webhook.ts` stay as standalone files in `api/`. `api/_routes/manifest.test.ts` enforces this.
+- `api/router*.ts` are the only general entry functions. Cron targets (`vercel.json` `crons`), `zoom-webhook.ts`, and `report-pdf.ts` (Chromium memory isolation) stay as standalone files in `api/`. `api/_routes/manifest.test.ts` enforces this.
 - URLs are unchanged: `/api/<path>`.
 
 ## Code
