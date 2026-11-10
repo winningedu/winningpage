@@ -101,9 +101,10 @@ describe("parseReportId", () => {
 // fn_parent_children RPC를 모두 스텁해 실제 세션/네트워크 없이 그린다
 // (Header.test.tsx의 관례를 따른다).
 const memberState = vi.hoisted(() => ({
-  current: { userId: "parent-1", memberType: "parent" } as {
+  current: { userId: "parent-1", memberType: "parent", kind: "parent" } as {
     userId: string | null;
     memberType: string | null;
+    kind: string | null;
   },
 }));
 vi.mock("@/hooks/useMemberType", () => ({
@@ -187,14 +188,14 @@ describe("GoalReportRedirect 비학부모", () => {
   }
 
   it("로그인했지만 유형이 비어 있으면 로그인으로 보내지 않고 학생 경로로 간다", async () => {
-    memberState.current = { userId: "u-unset", memberType: "" };
+    memberState.current = { userId: "u-unset", memberType: "", kind: "unset" };
     await renderAt("/services/goal/reports/weekly/2026-08-17");
 
     expect(await screen.findByText("성장 리포트 화면")).toBeInTheDocument();
   });
 
   it("비로그인이면 로그인으로 보낸다", async () => {
-    memberState.current = { userId: null, memberType: null };
+    memberState.current = { userId: null, memberType: null, kind: null };
     await renderAt("/services/goal/reports/weekly/2026-08-17");
 
     expect(await screen.findByText("로그인 화면")).toBeInTheDocument();

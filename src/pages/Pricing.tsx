@@ -21,7 +21,7 @@ import PricingSelling from "./pricing/PricingSelling";
 // 역할 판정(member_type 조회)은 useMemberType 훅 하나로 Checkout.jsx 와
 // 공유한다 — 각자 손으로 쓰면 판정이 갈리는 병(팀 리드 지시)을 막는다.
 export default function Pricing() {
-  const { loading, userId, memberType, error, refetch } = useMemberType();
+  const { loading, userId, memberType, kind, error, refetch } = useMemberType();
 
   if (loading) {
     // 이 페이지가 이미 쓰는 로딩 톤(PricingSelling.jsx 요금 정보 로딩 박스)과
@@ -47,8 +47,8 @@ export default function Pricing() {
   // 게스트이거나 조회 실패일 때만 나온다.
   if (error) return <MemberTypeRetryNotice onRetry={refetch} />;
 
-  if (memberType === "student") return <StudentEnrollmentRequest />;
-  if (memberType === "parent") return <PricingSelling viewer="parent" />;
+  if (kind === "student") return <StudentEnrollmentRequest />;
+  if (kind === "parent") return <PricingSelling viewer="parent" />;
 
   return <BlockedMemberNotice memberType={memberType} />;
 }
