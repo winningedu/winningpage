@@ -1,6 +1,7 @@
 // POST /api/signup-welcome   (본문 없음, Authorization: Bearer <access_token>)
 //
 // 학부모 회원가입 직후 1회 — 가입 축하 쿠폰을 발급하고 안내 알림톡을 보낸다.
+// 스쿨멘토에는 쿠폰이 없어 이 라우트는 아무것도 하지 않는다(결정 110).
 //
 // 왜 서버인가
 //   ① 알리고는 발신 IP 화이트리스트를 쓴다. 브라우저에서 직접 못 부른다
@@ -39,6 +40,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendAndLog } from "./_lib/messaging/alimtalkSend.js";
+import { isSchoolmentorSite } from "./_lib/site.js";
 import { createSupabaseAdmin } from "./_lib/supabaseAdmin.js";
 
 export const config = { runtime: "nodejs" };
@@ -52,6 +54,12 @@ function getBearerToken(req: VercelRequest) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, detail: "Method not allowed" });
+  }
+
+  if (isSchoolmentorSite()) {
+    return res
+      .status(200)
+      .json({ ok: true, skipped: true, reason: "schoolmentor" });
   }
 
   const token = getBearerToken(req);
