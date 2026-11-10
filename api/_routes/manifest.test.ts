@@ -3,6 +3,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
+import { config as config10 } from "../router.js";
+import { config as config30 } from "../router-30.js";
+import { config as config60 } from "../router-60.js";
 import { routes as defaultRoutes } from "./manifest.js";
 import { routes as routes30 } from "./manifest-30.js";
 import { routes as routes60 } from "./manifest-60.js";
@@ -117,5 +120,73 @@ describe("라우트 매니페스트", () => {
     });
 
     expect(bad).toEqual([]);
+  });
+});
+
+const API_DIR = path.join(ROUTES_DIR, "..");
+const REPO_ROOT = path.join(API_DIR, "..");
+
+const vercelJson = JSON.parse(
+  fs.readFileSync(path.join(REPO_ROOT, "vercel.json"), "utf8"),
+) as {
+  rewrites: { source: string; destination: string }[];
+  crons: { path: string }[];
+};
+
+const alternation = (routes: Record<string, unknown>) =>
+  `/api/(${Object.keys(routes).sort().join("|")})`;
+
+describe("vercel.json 라우터 rewrite", () => {
+  test("앞의 세 개가 30초, 60초, 기본 진입 함수로 보낸다", () => {
+    expect(vercelJson.rewrites.slice(0, 3)).toEqual([
+      { source: alternation(routes30), destination: "/api/router-30" },
+      { source: alternation(routes60), destination: "/api/router-60" },
+      { source: "/api/(.*)", destination: "/api/router" },
+    ]);
+  });
+});
+
+describe("진입 함수 config", () => {
+  test("router-30 은 30초, router-60 은 60초, router 는 한도를 두지 않는다", () => {
+    expect(config30).toEqual({
+      runtime: "nodejs",
+      maxDuration: 30,
+    });
+    expect(config60).toEqual({
+      runtime: "nodejs",
+      maxDuration: 60,
+    });
+    expect(config10).toEqual({ runtime: "nodejs" });
+  });
+});
+
+describe("api/ 직속 독립 함수", () => {
+  test("라우터, 크론 대상, zoom-webhook 외에는 두지 않는다", () => {
+    const allowed = new Set([
+      "router.ts",
+      "router-30.ts",
+      "router-60.ts",
+      "zoom-webhook.ts",
+      ...vercelJson.crons.map(
+        ({ path: cronPath }) => `${cronPath.replace(/^\/api\//, "")}.ts`,
+      ),
+    ]);
+    const standalone = listFiles(API_DIR)
+      .map((file) => path.relative(API_DIR, file).split(path.sep).join("/"))
+      .filter(
+        (rel) =>
+          rel.endsWith(".ts") &&
+          !rel.includes(".test.") &&
+          !rel.startsWith("_lib/") &&
+          !rel.startsWith("_routes/"),
+      );
+
+    const unexpected = standalone.filter((rel) => !allowed.has(rel));
+
+    expect(
+      unexpected,
+      "새 엔드포인트는 api/_routes/ 에 두고 매니페스트에 등록한다",
+    ).toEqual([]);
+    expect(standalone.sort()).toEqual([...allowed].sort());
   });
 });
