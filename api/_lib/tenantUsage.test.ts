@@ -86,15 +86,18 @@ describe("tenantEntryAccess", () => {
       });
     },
   );
-  it.each(["catch_all", "disabled", "outside_period", "grace"] as const)(
-    "%s 는 막고 사유를 그대로 낸다",
-    (denyReason) => {
-      expect(tenantEntryAccess(state({ allowed: false, denyReason }))).toEqual({
-        allowed: false,
-        reason: denyReason,
-      });
-    },
-  );
+  it.each([
+    "teacher",
+    "catch_all",
+    "disabled",
+    "outside_period",
+    "grace",
+  ] as const)("%s 는 막고 사유를 그대로 낸다", (denyReason) => {
+    expect(tenantEntryAccess(state({ allowed: false, denyReason }))).toEqual({
+      allowed: false,
+      reason: denyReason,
+    });
+  });
 });
 
 describe("readTenantUsage", () => {
@@ -259,6 +262,7 @@ describe("readTenantQuota", () => {
 
 describe("tenantReasonOf", () => {
   it.each([
+    "teacher",
     "catch_all",
     "disabled",
     "outside_period",
@@ -279,6 +283,9 @@ describe("tenantReasonOf", () => {
 describe("tenantReasonExtra", () => {
   it("사유가 있으면 tenantReason 한 키", () => {
     expect(tenantReasonExtra("grace")).toEqual({ tenantReason: "grace" });
+  });
+  it("teacher 도 tenantReason 한 키", () => {
+    expect(tenantReasonExtra("teacher")).toEqual({ tenantReason: "teacher" });
   });
   it.each([null, undefined])("%s 는 빈 객체", (reason) => {
     expect(tenantReasonExtra(reason)).toEqual({});
