@@ -1,0 +1,121 @@
+// 엔드포인트 등록이 어긋나 URL 이 404 가 되거나, maxDuration 이 다른 진입 함수로
+// 가는 사고를 막는 구조 가드. 새 핸들러는 파일만 추가하면 이 테스트가 빠진 등록을 알려준다.
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, test } from "vitest";
+import { routes as defaultRoutes } from "./manifest.js";
+import { routes as routes30 } from "./manifest-30.js";
+import { routes as routes60 } from "./manifest-60.js";
+
+const ROUTES_DIR = import.meta.dirname;
+
+const manifests = {
+  "manifest.ts": defaultRoutes,
+  "manifest-30.ts": routes30,
+  "manifest-60.ts": routes60,
+};
+
+const listFiles = (dir: string): string[] =>
+  fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) =>
+      entry.isDirectory()
+        ? listFiles(path.join(dir, entry.name))
+        : [path.join(dir, entry.name)],
+    );
+
+// 라우트 키 = api/_routes 기준 상대 경로에서 확장자를 뗀 값
+const handlerKeys = listFiles(ROUTES_DIR)
+  .map((file) => path.relative(ROUTES_DIR, file).split(path.sep).join("/"))
+  .filter(
+    (rel) =>
+      rel.endsWith(".ts") &&
+      !rel.includes(".test.") &&
+      rel !== "dispatch.ts" &&
+      !/^manifest[^/]*\.ts$/.test(rel),
+  )
+  .map((rel) => rel.replace(/\.ts$/, ""))
+  .sort();
+
+const manifestsHolding = (key: string) =>
+  Object.entries(manifests)
+    .filter(([, routes]) => Object.hasOwn(routes, key))
+    .map(([name]) => name);
+
+describe("라우트 매니페스트", () => {
+  test("모든 핸들러 파일이 정확히 한 매니페스트에 등록돼 있다", () => {
+    const problems = handlerKeys
+      .map((key) => ({ key, holders: manifestsHolding(key) }))
+      .filter(({ holders }) => holders.length !== 1)
+      .map(({ key, holders }) => `${key}: ${holders.length}곳 [${holders}]`);
+
+    expect(problems, "새 엔드포인트는 매니페스트에 한 번만 등록한다").toEqual(
+      [],
+    );
+  });
+
+  test("매니페스트 키가 없는 파일을 가리키지 않는다", () => {
+    const known = new Set(handlerKeys);
+    const dangling = Object.entries(manifests).flatMap(([name, routes]) =>
+      Object.keys(routes)
+        .filter((key) => !known.has(key))
+        .map((key) => `${name}: ${key}`),
+    );
+
+    expect(dangling).toEqual([]);
+  });
+
+  test("핸들러가 선언한 maxDuration 과 매니페스트가 일치한다", () => {
+    const problems: string[] = [];
+    for (const key of handlerKeys) {
+      const source = fs.readFileSync(
+        path.join(ROUTES_DIR, `${key}.ts`),
+        "utf8",
+      );
+      const configLine = source
+        .split("\n")
+        .find((line) => line.startsWith("export const config"));
+      const declared = configLine?.match(/maxDuration:\s*(\d+)/)?.[1];
+      const expected =
+        declared === undefined
+          ? "manifest.ts"
+          : declared === "30"
+            ? "manifest-30.ts"
+            : declared === "60"
+              ? "manifest-60.ts"
+              : undefined;
+      if (expected === undefined) {
+        problems.push(
+          `${key}: maxDuration ${declared} 는 지원하지 않는다. 새 한도는 새 진입 함수가 필요하다`,
+        );
+      } else if (!manifestsHolding(key).includes(expected)) {
+        problems.push(`${key}: ${expected} 에 있어야 한다`);
+      }
+    }
+
+    expect(problems).toEqual([]);
+  });
+
+  test("모든 로더는 키와 같은 이름의 정적 import 를 쓴다", () => {
+    // Vercel 파일 추적기는 정적 지정자만 따라간다. 포맷터가 줄을 나눠도 통과하도록 공백을 접는다.
+    const staticLoader = /"([^"]+)": \(\) => import\("\.\/([^"]+)\.js"\)/g;
+    const bad = Object.entries(manifests).flatMap(([name, routes]) => {
+      const source = fs
+        .readFileSync(path.join(ROUTES_DIR, name), "utf8")
+        .replace(/\s+/g, " ");
+      const matched = [...source.matchAll(staticLoader)];
+      const dynamicCount = source.split("import(").length - 1;
+      const mismatched = matched
+        .filter(([, key, target]) => key !== target)
+        .map(([, key]) => `${name}: ${key}`);
+      const allStatic =
+        matched.length === Object.keys(routes).length &&
+        dynamicCount === matched.length;
+      return allStatic
+        ? mismatched
+        : [...mismatched, `${name}: 정적 import 가 아닌 로더가 있다`];
+    });
+
+    expect(bad).toEqual([]);
+  });
+});
