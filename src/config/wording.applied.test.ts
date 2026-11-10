@@ -67,3 +67,35 @@ describe("서비스 이름 라벨 - 스쿨멘토", () => {
     expect(sourceLabel("self")).toBe("자기평가");
   });
 });
+
+describe("성장설계 학생 조사 - 스쿨멘토", () => {
+  it("저장된 활동으로 채운 문항은 '이미 채워진 항목', 진단 응답은 '학습진단에서 가져옴' 배지를 단다", async () => {
+    const { PREFILL_BADGE } = await loadAsSchoolmentor<
+      typeof import("@/components/growth/survey/surveyState")
+    >("@/components/growth/survey/surveyState");
+
+    expect(PREFILL_BADGE.activity).toBe("이미 채워진 항목");
+    expect(PREFILL_BADGE.diagnosis).toBe("학습진단에서 가져옴");
+    expect(PREFILL_BADGE.previous).toBe("지난 회차 답");
+  });
+});
+
+describe("성장설계 학생 조사 배너 - 스쿨멘토", () => {
+  it("진단 응답 배너는 '학습진단'을 쓴다", async () => {
+    const { prefillBanners } = await loadAsSchoolmentor<
+      typeof import("@/components/growth/survey/surveySave")
+    >("@/components/growth/survey/surveySave");
+
+    const [banner] = prefillBanners({
+      resumed: false,
+      answered: 0,
+      nextNumber: null,
+      origins: { q1: "diagnosis", q2: "diagnosis" },
+    });
+
+    expect(banner?.title).toBe("학습진단 응답으로 2문항을 미리 채웠어요");
+    expect(banner?.body).toBe(
+      "학습진단에서 답한 내용이에요. 다르면 바꿔 주세요.",
+    );
+  });
+});
