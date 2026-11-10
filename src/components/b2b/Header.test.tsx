@@ -193,7 +193,7 @@ describe("b2b Header 선생님 상태", () => {
 });
 
 describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
-  it("콘솔 조회가 403이면 학생 상태로 보이고, 로그아웃은 세션만 끊는다", async () => {
+  it("콘솔 조회가 403이면 학생이 아닌 이름 칩만 보이고(D-day, 관리 화면 없음), 로그아웃은 세션만 끊는다", async () => {
     mockProfileRow = {
       id: "u3",
       email: "x@test.com",
@@ -211,8 +211,9 @@ describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
     renderHeader();
 
     expect(
-      await screen.findByRole("link", { name: "김교사 님 멘토회원" }),
+      await screen.findByRole("link", { name: /김교사 님/ }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "관리 화면" }),
     ).not.toBeInTheDocument();
@@ -221,6 +222,19 @@ describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
     await waitFor(() =>
       expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" }),
     );
+  });
+});
+
+describe("b2b Header 멘토회원", () => {
+  it("멘토회원은 콘솔을 조회하지 않고 수능 D-day 없이 이름 칩만 보인다", async () => {
+    mockApiFetch.mockClear();
+    await renderAs({ member_type: "mentor", role: "user" });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "관리 화면" }),
+    ).not.toBeInTheDocument();
   });
 });
 

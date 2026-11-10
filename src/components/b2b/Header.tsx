@@ -126,9 +126,7 @@ export default function Header() {
               </Link>
             </div>
           )}
-          {(account.status === "student" ||
-            account.status === "parent" ||
-            account.status === "admin") && (
+          {loggedIn && account.status !== "teacher" && (
             <div className="hidden items-center gap-3 desktop:flex">
               {account.status === "student" && (
                 <span className={`${CHIP} bg-primary text-white`}>
@@ -203,11 +201,7 @@ export default function Header() {
         isLoggedIn={loggedIn}
         displayName={loggedIn ? account.name : ""}
         memberLabel={
-          account.status === "student" ||
-          account.status === "parent" ||
-          account.status === "admin"
-            ? account.memberLabel
-            : ""
+          loggedIn && account.status !== "teacher" ? account.memberLabel : ""
         }
         myMenuRole={drawerMyMenuRole}
         csatDDay={account.status === "student" ? account.csatDDay : ""}
