@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { classifyMember } from "@/lib/memberAccess";
+import { classifyMember, type MemberKind } from "@/lib/memberAccess";
 
 // 학생/학부모가 아닌 로그인 사용자를 위한 안내. /checkout 과 /pricing 양쪽에서
 // 재사용한다(2026-08-12b 팀 리드 지시 — "학생/학부모가 아니면 /checkout
@@ -32,6 +32,11 @@ const COPY = {
   },
 };
 
+const COPY_BY_KIND: Partial<Record<MemberKind, typeof COPY.incomplete>> = {
+  mentor: COPY.mentor,
+  teacher: COPY.teacher,
+};
+
 // memberType 은 optional prop 이다 — 호출부(Checkout.jsx·Pricing.jsx)가
 // useMemberType() 으로 이미 들고 있는 값을 그대로 넘긴다(2026-08-12c 팀 리드
 // 지시, 새 조회를 만들지 않는다).
@@ -43,12 +48,7 @@ export default function BlockedMemberNotice({
   memberType,
 }: BlockedMemberNoticeProps) {
   const kind = classifyMember({ memberType });
-  const copy =
-    kind === "mentor"
-      ? COPY.mentor
-      : kind === "teacher"
-        ? COPY.teacher
-        : COPY.incomplete;
+  const copy = COPY_BY_KIND[kind] ?? COPY.incomplete;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white pt-16 text-center">
