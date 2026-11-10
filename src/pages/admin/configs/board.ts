@@ -1,3 +1,5 @@
+import { parseYoutubeVideoId } from "@/components/landing/homeColumns";
+import { site } from "@/config/site";
 import { FAQ_CATEGORIES } from "@/data/faqCategories";
 import { blocksToPlainText } from "@/lib/blockToPlainText";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
@@ -66,6 +68,23 @@ interface BoardCustomConfig {
 }
 
 type BoardConfig = BoardCrudConfig | BoardCustomConfig;
+
+const YOUTUBE_HOSTS = [
+  "youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtu.be",
+  "youtube-nocookie.com",
+];
+
+// 호스트가 유튜브인 주소(영상 주소로 읽히는지는 parseYoutubeVideoId가 판단한다).
+function looksLikeYoutube(url: string): boolean {
+  try {
+    return YOUTUBE_HOSTS.includes(new URL(url).hostname.replace(/^www\./, ""));
+  } catch {
+    return false;
+  }
+}
 
 // 영상 재생 시간 입력값: 비어 있으면 null, 1초 이상 24시간 미만 정수면 그 값, 아니면 NaN(검증 실패).
 // DB CHECK(galleries_video_duration_seconds_check)와 같은 범위다.
@@ -285,6 +304,13 @@ export const boardConfigs: Record<string, BoardConfig> = {
       const linkUrl = String(form.link_url ?? "").trim();
       if (linkUrl && !/^https?:\/\//i.test(linkUrl)) {
         return "연결주소는 http:// 또는 https:// 로 시작해야 합니다.";
+      }
+      if (
+        site.features.columnVideo &&
+        looksLikeYoutube(linkUrl) &&
+        !parseYoutubeVideoId(linkUrl)
+      ) {
+        return "유튜브 영상 주소 형식이 아닙니다. youtube.com/watch?v=, youtu.be/, youtube.com/shorts/ 주소를 넣어 주세요.";
       }
       const duration = parseVideoDuration(form.video_duration_seconds);
       if (Number.isNaN(duration)) {
