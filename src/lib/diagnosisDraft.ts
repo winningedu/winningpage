@@ -4,6 +4,7 @@
  * 저장소 접근은 전부 try/catch 로 감싼다(비공개 모드 등에서 SecurityError 가 날 수 있다).
  */
 const KEY_PREFIX = "diagnosis-draft:";
+const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 export function saveDraft(userId: string, answers: Record<string, unknown>) {
   try {
@@ -20,7 +21,16 @@ export function loadDraft(userId: string): Record<string, unknown> | null {
   try {
     const raw = localStorage.getItem(KEY_PREFIX + userId);
     if (!raw) return null;
-    return JSON.parse(raw).answers;
+    const draft = JSON.parse(raw);
+    if (
+      draft?.v !== 1 ||
+      typeof draft.savedAt !== "number" ||
+      Date.now() - draft.savedAt > MAX_AGE_MS
+    ) {
+      localStorage.removeItem(KEY_PREFIX + userId);
+      return null;
+    }
+    return draft.answers ?? null;
   } catch {
     return null;
   }
