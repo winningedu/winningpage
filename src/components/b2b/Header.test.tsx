@@ -268,3 +268,34 @@ describe("b2b Header MY 메뉴 역할", () => {
     ).toHaveAttribute("href", "/admin");
   });
 });
+
+describe("b2b Header 역할별 드로어 MY 메뉴", () => {
+  it("학부모는 드로어에서 자녀 등록 및 수정을 보고 나의 서비스는 보지 못한다", async () => {
+    loginAs({ member_type: "parent", role: "user" });
+    renderHeader();
+    await screen.findByRole("link", { name: /최관리 님/ });
+
+    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+
+    const drawer = await screen.findByRole("dialog");
+    expect(
+      within(drawer).getByRole("link", { name: "자녀 등록 및 수정" }),
+    ).toHaveAttribute("href", "/mypage?tab=children");
+    expect(
+      within(drawer).queryByRole("link", { name: "나의 서비스" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("학생은 드로어에서 관리자 메뉴를 보지 못한다", async () => {
+    loginAs({ member_type: "student", role: "user" });
+    renderHeader();
+    await screen.findByRole("link", { name: /최관리 님/ });
+
+    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+
+    const drawer = await screen.findByRole("dialog");
+    expect(
+      within(drawer).queryByRole("link", { name: "관리자 메뉴" }),
+    ).not.toBeInTheDocument();
+  });
+});
