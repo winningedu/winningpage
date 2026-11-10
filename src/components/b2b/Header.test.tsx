@@ -238,3 +238,33 @@ describe("b2b Header 드로어 연결", () => {
     expect(within(drawer).queryByText("회원가입")).not.toBeInTheDocument();
   });
 });
+
+function loginAs(profile: { member_type: string; role: string }) {
+  mockProfileRow = {
+    id: "u9",
+    email: "m@test.com",
+    name: "최관리",
+    ...profile,
+  };
+  mockTenantRows = [];
+  mockUseAuth.mockReturnValue({
+    session: { user: { id: "u9", email: "m@test.com" } },
+    user: { id: "u9", email: "m@test.com" },
+    isReady: true,
+  });
+}
+
+describe("b2b Header MY 메뉴 역할", () => {
+  it("관리자는 드로어에서 관리자 메뉴 링크로 /admin 에 갈 수 있다", async () => {
+    loginAs({ member_type: "student", role: "admin" });
+    renderHeader();
+    await screen.findByRole("link", { name: /최관리 님/ });
+
+    fireEvent.click(screen.getByRole("button", { name: "전체 메뉴 열기" }));
+
+    const drawer = await screen.findByRole("dialog");
+    expect(
+      within(drawer).getByRole("link", { name: "관리자 메뉴" }),
+    ).toHaveAttribute("href", "/admin");
+  });
+});

@@ -186,7 +186,9 @@ export default function Header() {
         isLoggedIn={loggedIn}
         displayName={loggedIn ? account.name : ""}
         memberLabel={account.status === "student" ? account.memberLabel : ""}
-        myMenuRole="student"
+        myMenuRole={
+          account.status === "student" ? account.myMenuRole : "student"
+        }
         csatDDay={account.status === "student" ? account.csatDDay : ""}
         onLogout={signOutB2B}
         triggerRef={hamburgerRef}

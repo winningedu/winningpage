@@ -5,11 +5,13 @@ import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 import { fetchProfile, getCsatDay, getMemberLabel } from "../Header";
+import { type MyMenuRole, resolveMyMenuRole } from "../myMenuItems";
 
 type Student = {
   status: "student";
   name: string;
   memberLabel: string;
+  myMenuRole: MyMenuRole;
   orgName: string | null;
 };
 
@@ -82,6 +84,10 @@ export function useB2BAccount(): B2BAccount {
         status: "student",
         name: cleanText(profile?.name),
         memberLabel,
+        myMenuRole: resolveMyMenuRole({
+          role: profile?.role,
+          memberType: profile?.member_type,
+        }),
         orgName: await fetchOrgName(),
       };
       if (alive) setResolved({ userId: user.id, account });
