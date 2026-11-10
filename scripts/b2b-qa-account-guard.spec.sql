@@ -1,5 +1,5 @@
 -- =====================================================================
--- QA 계정 보호 SQL 스펙: qa_accounts, fn_is_qa_account, QA 본사 관리자 쓰기 차단 트리거
+-- QA 계정 보호 SQL 스펙: qa_accounts, fn_is_qa_account, QA 본사 관리자 쓰기 차단 트리거, 차단 스위치
 --
 -- 실행: 마이그레이션이 전부 적용된 스택에서
 --   psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/b2b-qa-account-guard.spec.sql
@@ -91,6 +91,23 @@ insert into public.qa_accounts (profile_id)
   select v from fx where k in ('qa_admin', 'qa_member_admin', 'qa_student');
 insert into public.admin_members (profile_id, status)
   select v, 'active' from fx where k = 'qa_member_admin';
+
+-- 스위치(app_settings.qa_account_guard_enabled)가 없거나 false 이면 차단이 꺼진다(QA 기간)
+select pg_temp.expect_bool('스위치 행이 없으면 QA 계정도 false',
+  public.fn_is_qa_account((select v from fx where k = 'qa_student')), false);
+select pg_temp.expect_ok('스위치 행이 없으면 QA 관리자의 UPDATE 가 된다', (select v from fx where k = 'qa_admin'),
+  $q$update public.profiles set address = 'x' where false$q$);
+select pg_temp.expect_ok('스위치 행이 없으면 QA 관리자의 INSERT 가 된다', (select v from fx where k = 'qa_admin'),
+  $q$insert into public.profiles (id, name) select gen_random_uuid(), 'x' where false$q$);
+insert into public.app_settings (key, value) values ('qa_account_guard_enabled', 'false'::jsonb);
+select pg_temp.expect_bool('스위치가 false 이면 QA 계정도 false',
+  public.fn_is_qa_account((select v from fx where k = 'qa_student')), false);
+select pg_temp.expect_ok('스위치가 false 이면 admin_members 활성 QA 관리자의 UPDATE 가 된다',
+  (select v from fx where k = 'qa_member_admin'),
+  $q$update public.profiles set address = 'x' where false$q$);
+
+-- 스위치를 켠다(운영 전환). 아래는 모두 켜진 상태의 동작이다.
+update public.app_settings set value = 'true'::jsonb where key = 'qa_account_guard_enabled';
 
 -- fn_is_qa_account
 select pg_temp.expect_bool('QA 계정이면 true',

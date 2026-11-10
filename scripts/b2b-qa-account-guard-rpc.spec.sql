@@ -112,6 +112,31 @@ insert into public.qa_accounts (profile_id)
   select v from fx where k in ('qa_resident', 'qa_s1', 'qa_s2', 'qa_etc1', 'qa_etc2', 'qa_parent', 'qa_child');
 
 -- ---------------------------------------------------------------------
+-- 스위치(app_settings.qa_account_guard_enabled)가 없으면 차단이 꺼진다(QA 기간)
+-- ---------------------------------------------------------------------
+insert into public.student_link_codes (student_id, code)
+  select v, case k when 'qa_child' then 'QRQQQQ' when 'real_child' then 'RRRRRR' else 'SSSSSS' end
+    from fx where k in ('qa_child', 'real_child', 'real_child2');
+
+select pg_temp.expect_ok('스위치가 없으면 QA 학생이 QA 계정 없는 기관 코드를 넣을 수 있다',
+  (select v from fx where k = 'qa_s1'),
+  $q$select * from public.fn_set_my_tenant('QRBBBBBB')$q$);
+select pg_temp.expect_ok('스위치가 없으면 기타 소속 QA 학생이 QA 계정 없는 기관으로 옮길 수 있다', null,
+  format($q$select * from public.fn_catch_all_join_tenant(%L, 'QRBBBBBB', '고2', null, '3반', 6::smallint)$q$,
+    (select v from fx where k = 'qa_etc1')));
+select pg_temp.expect_ok('스위치가 없으면 QA 학부모가 QA 아닌 자녀를 연결할 수 있다',
+  (select v from fx where k = 'qa_parent'),
+  $q$select public.request_parent_link('RRRRRR')$q$);
+
+-- 스위치를 켠다(운영 전환). 기관 소속과 연결을 처음 상태로 되돌린 뒤 켜진 상태의 동작을 본다.
+update public.profiles set tenant_id = null
+ where id = (select v from fx where k = 'qa_s1');
+update public.profiles set tenant_id = (select v from fx where k = 't_etc')
+ where id = (select v from fx where k = 'qa_etc1');
+delete from public.parent_child_links where parent_id = (select v from fx where k = 'qa_parent');
+insert into public.app_settings (key, value) values ('qa_account_guard_enabled', 'true'::jsonb);
+
+-- ---------------------------------------------------------------------
 -- fn_set_my_tenant: 브라우저 RPC
 -- ---------------------------------------------------------------------
 select pg_temp.expect_error('QA 학생이 QA 계정이 없는 기관 코드를 넣으면 WC103',
@@ -143,10 +168,6 @@ select pg_temp.expect_ok('기타 소속 QA 학생이 QA 계정이 있는 기관�
 -- ---------------------------------------------------------------------
 -- request_parent_link: 연결코드로 자녀 연결
 -- ---------------------------------------------------------------------
-insert into public.student_link_codes (student_id, code)
-  select v, case k when 'qa_child' then 'QRQQQQ' when 'real_child' then 'RRRRRR' else 'SSSSSS' end
-    from fx where k in ('qa_child', 'real_child', 'real_child2');
-
 select pg_temp.expect_error('QA 학부모가 QA 아닌 자녀를 연결하면 WC103',
   (select v from fx where k = 'qa_parent'),
   $q$select public.request_parent_link('RRRRRR')$q$, 'WC103');
