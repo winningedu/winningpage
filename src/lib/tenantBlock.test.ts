@@ -7,6 +7,7 @@ import {
 
 describe("tenantBlockMessage", () => {
   it.each([
+    ["teacher", "선생님 계정에서는 학생 서비스를 이용할 수 없어요."],
     ["catch_all", "소속코드를 입력하면 서비스를 이용할 수 있어요."],
     ["disabled", "소속 기관에서 제공하지 않는 서비스예요."],
     [
@@ -40,6 +41,7 @@ describe("tenantBlockMessage", () => {
 describe("parseTenantReason", () => {
   it("알려진 사유만 돌려주고 나머지는 null", () => {
     expect(parseTenantReason("term_cap")).toBe("term_cap");
+    expect(parseTenantReason("teacher")).toBe("teacher");
     expect(parseTenantReason("period_expired")).toBeNull();
     expect(parseTenantReason(undefined)).toBeNull();
     expect(parseTenantReason(3)).toBeNull();

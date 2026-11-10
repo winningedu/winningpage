@@ -21,6 +21,7 @@ import {
 } from "@/data/navigation";
 import { cleanText, isSameObject, useNavGroups } from "@/hooks/useNavGroups";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { queryClient } from "@/lib/queryClient";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
@@ -572,6 +573,8 @@ export default function Header() {
   }, [user]);
 
   function clearSupabaseAuthStorage() {
+    // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+    clearAllDrafts();
     try {
       const localKeys: string[] = [];
 

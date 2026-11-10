@@ -8,8 +8,12 @@ const state = vi.hoisted(() => ({ title: "교육칼럼", rows: [] as unknown[] }
 
 vi.mock("@/config/site", () => ({
   site: {
+    features: { columnVideo: false },
     get columnTitle() {
       return state.title;
+    },
+    get boardEmpty() {
+      return state.title === "교육칼럼" ? undefined : "작성된 글이 없어요";
     },
   },
 }));
@@ -39,7 +43,7 @@ describe("ColumnHome 빈 안내", () => {
 
   it.each([
     ["교육칼럼", "등록된 교육칼럼이 없습니다."],
-    ["칼럼-교육청소식", "등록된 칼럼-교육청소식이 없습니다."],
+    ["칼럼-교육청소식", "작성된 글이 없어요"],
   ])("%s: 글이 하나도 없으면 안내한다", async (title, text) => {
     state.title = title;
     renderHome();
@@ -48,7 +52,7 @@ describe("ColumnHome 빈 안내", () => {
 
   it.each([
     ["교육칼럼", "등록된 교육칼럼이 없습니다."],
-    ["칼럼-교육청소식", "등록된 칼럼-교육청소식이 없습니다."],
+    ["칼럼-교육청소식", "작성된 글이 없어요"],
   ])("%s: 목록 영역이 비면 안내한다", async (title, text) => {
     state.title = title;
     state.rows = [{ id: "1", title: "A글", category: "교육청소식" }];

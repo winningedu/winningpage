@@ -1,4 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const state = vi.hoisted(() => ({ video: false }));
+
+vi.mock("@/config/site", () => ({
+  site: {
+    get features() {
+      return { columnVideo: state.video };
+    },
+  },
+}));
+
 import { boardConfigs } from "./board";
 
 type GalleriesConfig = {
@@ -56,5 +67,43 @@ describe("galleries link_url 저장 변환", () => {
   it("빈 값은 null로 저장한다", () => {
     expect(toPayload("  ")).toBeNull();
     expect(toPayload(undefined)).toBeNull();
+  });
+});
+
+describe("galleries 유튜브 주소 검사", () => {
+  const MESSAGE =
+    "유튜브 영상 주소 형식이 아닙니다. youtube.com/watch?v=, youtu.be/, youtube.com/shorts/ 주소를 넣어 주세요.";
+  afterEach(() => {
+    state.video = false;
+  });
+
+  it.each([
+    "https://youtube.com/channel/UCx",
+    "https://youtu.be/abc",
+    "https://www.youtube.com/watch?v=short",
+    "https://m.youtube.com/playlist?list=PLx",
+  ])("스쿨멘토는 영상으로 읽히지 않는 %s 를 막는다", (value) => {
+    state.video = true;
+    expect(check(value)).toBe(MESSAGE);
+  });
+
+  it.each([
+    "https://www.youtube.com/watch?v=abcDEF12345",
+    "https://youtu.be/abcDEF12345",
+    "https://a.com/x",
+  ])("스쿨멘토도 %s 는 허용한다", (value) => {
+    state.video = true;
+    expect(check(value)).toBeNull();
+  });
+
+  it("스쿨멘토도 http(s)가 아니면 기존 문구로 거부한다", () => {
+    state.video = true;
+    expect(check("javascript:alert(1)")).toBe(
+      "연결주소는 http:// 또는 https:// 로 시작해야 합니다.",
+    );
+  });
+
+  it("위닝은 유튜브 채널 주소도 허용한다", () => {
+    expect(check("https://youtube.com/channel/UCx")).toBeNull();
   });
 });

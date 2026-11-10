@@ -38,7 +38,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import PerformanceSidebar from "./PerformanceSidebar";
 
@@ -191,5 +191,33 @@ describe("프로필 블록", () => {
     )?.[1];
     expect(profileBlock).toBeDefined();
     expect(profileBlock?.includes("<p")).toBe(false);
+  });
+});
+
+describe("스쿨멘토 메뉴 이름", () => {
+  test("채팅 메뉴는 '스쿨멘토 채팅'이다(결정 107.11)", async () => {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: { brandName: "스쿨멘토", features: { stripWinningPrefix: true } },
+    }));
+    const { default: Sidebar } = await import("./PerformanceSidebar");
+
+    const { SidebarProvider: Provider } = await import(
+      "@/components/ui/sidebar"
+    );
+    const { MemoryRouter: Router } = await import("react-router");
+    const anchors = collectAnchors(
+      renderToStaticMarkup(
+        <Router initialEntries={["/app/performance"]}>
+          <Provider>
+            <Sidebar />
+          </Provider>
+        </Router>,
+      ),
+    );
+
+    expect(anchors.map((a) => a.text)).toContain("스쿨멘토 채팅");
+    vi.doUnmock("@/config/site");
+    vi.resetModules();
   });
 });

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { siteWording } from "@/config/wording";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
 import { CARD, CARD_HINT, CARD_TITLE } from "./cardStyles";
@@ -81,8 +82,10 @@ export default function ProfileCard({
         </h2>
         <p className={CARD_HINT}>
           {forced
-            ? "처음 한 번만 적으면 다른 위닝 서비스에서도 함께 써요."
-            : "고친 값은 다른 위닝 서비스에서도 함께 써요."}
+            ? siteWording(
+                "처음 한 번만 적으면 다른 위닝 서비스에서도 함께 써요.",
+              )
+            : siteWording("고친 값은 다른 위닝 서비스에서도 함께 써요.")}
         </p>
         <ProfileForm
           values={values}

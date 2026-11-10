@@ -48,6 +48,7 @@ import {
   upsertDailyRecord,
 } from "../_lib/goal/repo.js";
 import { sendError } from "../_lib/httpResponse.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 import { tenantReasonExtra } from "../_lib/tenantUsage.js";
 
 export const config = { runtime: "nodejs" };
@@ -566,7 +567,10 @@ async function handlePost(
   // 없었다"와 "0시간을 제출했다"를 구분해야 한다 — 후자만 명시적 400 사유를 준다).
   let studyHoursInput: number;
   if (body.studyHours !== undefined) {
-    if (!isNumericInput(body.studyHours)) {
+    if (
+      !isNumericInput(body.studyHours) ||
+      (typeof body.studyHours === "string" && body.studyHours.trim() === "")
+    ) {
       return res
         .status(400)
         .json({ detail: "순공 시간 형식이 올바르지 않습니다." });
@@ -581,11 +585,18 @@ async function handlePost(
   // "오늘의 공부 기록" 페이지(#26, studyHours를 아예 입력받지 않는다)가
   // existing?.study_hours만 보고, 타이머만 쓰고 카드에서 수기 입력을 한 번도 안 한
   // 학생은 항상 0으로 떨어져 아래 no_study_time 게이트에 막힌다.
+  // 사 #49 — 스쿨멘토는 0을 허용하므로, 타이머 병합(max)이 삼켜 버리는 음수 입력을 먼저 막는다.
+  if (isSchoolmentorSite() && studyHoursInput < 0) {
+    return res.status(400).json({ reason: "no_study_time" });
+  }
   studyHoursInput = mergeStudyHoursWithTimer(studyHoursInput, timerHours);
 
+  // 사 #49 — 스쿨멘토는 공부하지 않은 날도 0시간으로 저장한다(결정 107-15). 위닝은 기존대로 막는다.
+  const allowZeroHours = isSchoolmentorSite();
   if (
     !Number.isFinite(studyHoursInput) ||
-    studyHoursInput <= 0 ||
+    studyHoursInput < 0 ||
+    (studyHoursInput === 0 && !allowZeroHours) ||
     studyHoursInput > STUDY_HOURS_MAX
   ) {
     return res.status(400).json({ reason: "no_study_time" });
@@ -606,17 +617,27 @@ async function handlePost(
   // ── 수식 v2 — rate 는 온보딩 시 1회 산출된 값(goal_students.rate_*). 정시 컷이
   // 없어 null 인 학생은 0 취급(그 목표엔 애초에 게이지가 없다, jungsiAvailable=false
   // 와 동일한 판정, api/_lib/goal/repo.ts buildStudentPayload 참고).
-  const delta = calculateDailyBonusV2({
-    idealSusiRate: num(student.rate_ideal_susi) ?? 0,
-    idealJungsiRate: num(student.rate_ideal_jungsi) ?? 0,
-    minSusiRate: num(student.rate_min_susi) ?? 0,
-    minJungsiRate: num(student.rate_min_jungsi) ?? 0,
-    condition: bodyCondition,
-    tasks,
-    studyHours,
-    idealHours,
-    minHours,
-  });
+  // 0시간 기록은 확률을 올리지 않는다(사 #49). bonusV2 는 목표 0인 날을 100% 달성으로
+  // 보므로 계산에 맡기지 않고 전부 0으로 고정한다.
+  const delta =
+    allowZeroHours && studyHours === 0
+      ? {
+          idealSusiBonus: 0,
+          idealJungsiBonus: 0,
+          minSusiBonus: 0,
+          minJungsiBonus: 0,
+        }
+      : calculateDailyBonusV2({
+          idealSusiRate: num(student.rate_ideal_susi) ?? 0,
+          idealJungsiRate: num(student.rate_ideal_jungsi) ?? 0,
+          minSusiRate: num(student.rate_min_susi) ?? 0,
+          minJungsiRate: num(student.rate_min_jungsi) ?? 0,
+          condition: bodyCondition,
+          tasks,
+          studyHours,
+          idealHours,
+          minHours,
+        });
 
   const payload = {
     profile_id: profileId,

@@ -11,7 +11,12 @@ const siteState = vi.hoisted(() => ({
 vi.mock("@/config/site", () => ({
   site: {
     company: {},
+    news: {
+      companyTitle: "회사소식",
+      companyEmpty: "등록된 회사소식이 없습니다.",
+    },
     features: {
+      companyLocation: true,
       get premium() {
         return siteState.premium;
       },

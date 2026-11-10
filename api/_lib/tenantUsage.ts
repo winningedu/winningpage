@@ -4,18 +4,20 @@
 //   fn_consume_tenant_usage   (source_kind, source_id) 당 1회만 세는 소비(멱등)
 //
 // 거부 사유(tenantReason, deny_reason) 값:
+//   teacher         선생님 계정(학생 서비스를 쓸 수 없다)
 //   catch_all       기타 소속(소속코드를 입력해야 한다)
 //   disabled        기관 설정 없음 또는 꺼짐, 소속 기관 없음
 //   outside_period  이용 기간 전 또는 유예까지 끝남
 //   grace           계약 종료 뒤 유예 기간
 //   month_cap       이번 달 한도 소진
 //   term_cap        이번 학기 한도 소진
-// 진입 게이트는 catch_all, disabled, outside_period, grace 만 막고 month_cap, term_cap 은
+// 진입 게이트는 teacher, catch_all, disabled, outside_period, grace 만 막고 month_cap, term_cap 은
 // 막지 않는다(이미 센 작업은 열려 있다). 시작 지점과 소비는 한도까지 집행한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type TenantDenyReason =
+  | "teacher"
   | "catch_all"
   | "disabled"
   | "outside_period"
@@ -55,6 +57,7 @@ export const PROGRAM_KEY_BY_SERVICE: Record<string, string> = {
 };
 
 const DENY_REASONS: ReadonlySet<string> = new Set([
+  "teacher",
   "catch_all",
   "disabled",
   "outside_period",
@@ -176,6 +179,11 @@ const CONSUME_MAP: Record<string, TenantConsumeResult> = {
     status: "quota_exhausted",
     charged: false,
     tenantReason: "term_cap",
+  },
+  teacher: {
+    status: "no_entitlement",
+    charged: false,
+    tenantReason: "teacher",
   },
   catch_all: {
     status: "no_entitlement",

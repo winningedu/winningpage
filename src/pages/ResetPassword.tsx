@@ -29,6 +29,7 @@ import {
   PrimaryButton,
   TextField,
 } from "@/components/auth";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
@@ -212,6 +213,8 @@ export default function ResetPassword() {
       // 재설정에 쓰인 임시 recovery 세션을 남겨두지 않는다 — 방금 정한
       // 비밀번호로 다시 로그인하게 한다(로그인 폼의 signInWithPassword가
       // 세션을 새로 만든다).
+      // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+      clearAllDrafts();
       await supabase.auth.signOut();
     } finally {
       setSubmitting(false);

@@ -50,7 +50,7 @@ import { siteWording } from "@/config/wording";
 // 전부 제거하며 `위닝 채팅`으로 확정한다(결과적으로 시안 예외 노드와 표기가 같아진다).
 // 세 번째 항목 `설정`은 `3754:4872` 단독 출현이라 이번 범위에서 제외한다(§3.4, §11 Q3).
 const MENU_ITEMS = [
-  { label: "위닝 채팅", to: "/app/performance" },
+  { label: siteWording("위닝 채팅"), to: "/app/performance" },
   { label: "저장 리포트", to: "/app/performance/reports" },
 ];
 

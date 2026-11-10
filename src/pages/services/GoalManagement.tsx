@@ -33,19 +33,21 @@ import stagePlanAi from "@/assets/services/goal/stage-plan-ai.png";
 import stagePlanCoffee from "@/assets/services/goal/stage-plan-coffee.png";
 import stagePlanLaptopChair from "@/assets/services/goal/stage-plan-laptop-chair.png";
 import stagePlanWriting from "@/assets/services/goal/stage-plan-writing.png";
+// 서비스 랜딩 4종 공통 컴포넌트 — 정본은 InDepthResearch.jsx(심화탐구)다.
+// 섹션 껍데기·카드 마크업·타이포는 전부 아래 컴포넌트가 소유하고, 이 파일에는
+// 데이터 배열과 이 페이지 고유 섹션(Hero / PhoneReport)만 남긴다.
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
 import ServiceOutcomesPanel from "@/components/services/ServiceOutcomesPanel";
 import ServiceProcessCards from "@/components/services/ServiceProcessCards";
-// 서비스 랜딩 4종 공통 컴포넌트 — 정본은 InDepthResearch.jsx(심화탐구)다.
-// 섹션 껍데기·카드 마크업·타이포는 전부 아래 컴포넌트가 소유하고, 이 파일에는
-// 데이터 배열과 이 페이지 고유 섹션(Hero / PhoneReport)만 남긴다.
 import ServiceSection from "@/components/services/ServiceSection";
 import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTabsPanel from "@/components/services/ServiceTabsPanel";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
 import { SECTION_HEADING_CLASS } from "@/components/services/serviceTokens";
+import { siteWording } from "@/config/wording";
 import { useInView } from "@/hooks/useInView";
 
 // 목표관리 서비스 랜딩 — /services/goal (구 경로 /page/services-goal)
@@ -403,6 +405,10 @@ function HeroSection() {
     boolean,
   ];
   const navigate = useNavigate();
+  const { requestStart, startDialogs } = useServiceStart({
+    to: HERO_SERVICE.to,
+    resultNotice: false,
+  });
 
   return (
     <section className="relative overflow-hidden bg-white pb-14 pt-10 sm:pb-16 sm:pt-14 md:pb-0 md:pt-9">
@@ -473,11 +479,12 @@ function HeroSection() {
 
         <button
           type="button"
-          onClick={() => navigate(HERO_SERVICE.to)}
+          onClick={() => requestStart(() => navigate(HERO_SERVICE.to))}
           className="mt-6 inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] bg-primary px-8 text-base font-semibold text-white shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] transition hover:bg-[#01498F] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]"
         >
           지금 시작하기
         </button>
+        {startDialogs}
 
         <ServiceHeroBrowserFrame>
           <img
@@ -497,7 +504,7 @@ function ProcessSection() {
       className="lg:pt-35"
       heading={
         <>
-          위닝 목표관리의
+          {siteWording("위닝 목표관리의")}
           <br />
           <span className="text-primary">4단계 핵심 프로세스</span>
         </>

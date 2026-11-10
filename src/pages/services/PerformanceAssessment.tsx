@@ -22,6 +22,7 @@ import coachWriting from "@/assets/services/performance/coach-writing.png";
 import heroAura from "@/assets/services/performance/hero-aura.svg";
 import heroEvaluationReport from "@/assets/services/performance/hero-evaluation-report.png";
 import iconCalendar from "@/assets/services/performance/icon-calendar-v2.png";
+import { useServiceStart } from "@/components/service-start/useServiceStart";
 import ServiceAudienceCards from "@/components/services/ServiceAudienceCards";
 import ServiceFaq from "@/components/services/ServiceFaq";
 import ServiceHeroBrowserFrame from "@/components/services/ServiceHeroBrowserFrame";
@@ -31,6 +32,7 @@ import ServiceSection from "@/components/services/ServiceSection";
 import ServiceStepCards from "@/components/services/ServiceStepCards";
 import ServiceTabsPanel from "@/components/services/ServiceTabsPanel";
 import ServiceTestimonials from "@/components/services/ServiceTestimonials";
+import { siteWording } from "@/config/wording";
 import { useInView } from "@/hooks/useInView";
 
 // 수행평가 서비스 랜딩 — /services/performance (구 경로 /page/services-ai-performance)
@@ -291,7 +293,9 @@ const FAQ_ITEMS = [
   },
   {
     q: "제시된 내용을 그대로 제출해도 되나요?",
-    a: "아니요. 위닝 수행평가는 주제・자료・구성 방향을 제안하는 코칭 서비스이며, 실제 탐구와 작성은 학생 본인이 수행하는 것을 원칙으로 합니다. 제안 내용을 그대로 옮겨 제출하는 것은 학교 규정 및 학문적 정직성에 어긋날 수 있어 권장하지 않습니다.",
+    a: siteWording(
+      "아니요. 위닝 수행평가는 주제・자료・구성 방향을 제안하는 코칭 서비스이며, 실제 탐구와 작성은 학생 본인이 수행하는 것을 원칙으로 합니다. 제안 내용을 그대로 옮겨 제출하는 것은 학교 규정 및 학문적 정직성에 어긋날 수 있어 권장하지 않습니다.",
+    ),
   },
   {
     q: "개인 정보와 결과물은 안전하게 관리되나요?",
@@ -303,6 +307,10 @@ const FAQ_ITEMS = [
 // 위치값이 4페이지 전부 다름). 이 함수는 이번 공통 컴포넌트 전환에서 손대지 않았다.
 function HeroSection() {
   const navigate = useNavigate();
+  const { requestStart, startDialogs } = useServiceStart({
+    to: HERO_SERVICE.to,
+    resultNotice: true,
+  });
 
   // 히어로를 벗어나 스크롤하면 30초 회전을 멈춘다 — SVG 리페인트 비용 절감
   // (서비스 랜딩 4종 + LearningDiagnosisLanding.jsx HeroSection 공통 useInView 훅 구조).
@@ -404,11 +412,12 @@ function HeroSection() {
 
         <button
           type="button"
-          onClick={() => navigate(HERO_SERVICE.to)}
+          onClick={() => requestStart(() => navigate(HERO_SERVICE.to))}
           className="mt-6 inline-flex h-14 w-full max-w-75 items-center justify-center rounded-[1.875rem] bg-primary px-8 text-base font-semibold text-white shadow-[0_0.625rem_1.5625rem_rgba(1,50,98,0.4)] transition hover:bg-[#01498F] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-17 sm:text-[1.25rem]"
         >
           지금 시작하기
         </button>
+        {startDialogs}
 
         {/* 브라우저 목업 — 래퍼/프레임 지오메트리(폭 1068px, radius 5px, 3중 그림자, 상단
             마진 + 하단 음수 마진으로 다음 섹션과 겹치는 처리)는 목표관리(GoalManagement.jsx)
@@ -438,7 +447,7 @@ export default function PerformanceAssessment() {
       {/* 히어로 목업이 lg:mb-[-7.89375rem]로 이 섹션 위에 겹치므로 pt 가 페이지 내 최소값이다. */}
       <ServiceSection
         className="lg:pt-39.25"
-        heading="위닝 수행평가와 함께하는 완성까지의 흐름"
+        heading={siteWording("위닝 수행평가와 함께하는 완성까지의 흐름")}
       >
         <ServiceProcessCards items={PROCESS_STEPS} />
       </ServiceSection>

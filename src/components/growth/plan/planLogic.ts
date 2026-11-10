@@ -197,7 +197,9 @@ export function progressNote(item: PlanItemView, hasHandoff: boolean): string {
   if (item.program === "school") return "진행: 직접 체크";
   const name = PROGRAM_LABELS[item.program];
   if (!hasHandoff) {
-    return "진행: 직접 체크. 위닝 프로그램을 쓰지 않아도 하면 체크해요.";
+    return siteWording(
+      "진행: 직접 체크. 위닝 프로그램을 쓰지 않아도 하면 체크해요.",
+    );
   }
   return HANDOFF_AUTO_COMPLETE
     ? `진행: ${name}에서 확정하면 자동으로 완료돼요. 직접 체크해도 돼요.`

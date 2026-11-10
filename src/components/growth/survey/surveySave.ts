@@ -1,4 +1,5 @@
 // 학생 조사 자동 저장의 표시 로직(순수). 저장 상태 문구, 실패 분류, 프리필 안내 배너.
+import { siteWording } from "@/config/wording";
 import type { ApiResult } from "@/lib/growth/api";
 import type { AnswerOrigin } from "./surveyState";
 
@@ -46,8 +47,8 @@ export type PrefillBanner = { title: string; body: string };
 
 const BANNER_COPY: Record<AnswerOrigin, (n: number) => PrefillBanner> = {
   diagnosis: (n) => ({
-    title: `무료진단 응답으로 ${n}문항을 미리 채웠어요`,
-    body: "무료진단에서 답한 내용이에요. 다르면 바꿔 주세요.",
+    title: siteWording(`무료진단 응답으로 ${n}문항을 미리 채웠어요`),
+    body: siteWording("무료진단에서 답한 내용이에요. 다르면 바꿔 주세요."),
   }),
   activity: (n) => ({
     title: `저장된 활동에서 확인한 ${n}문항을 미리 채웠어요`,

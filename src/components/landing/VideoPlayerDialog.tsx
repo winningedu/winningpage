@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
+import YoutubePlayer from "@/components/YoutubePlayer";
 
 type VideoPlayerDialogProps = {
   open: boolean;
@@ -42,12 +43,11 @@ export default function VideoPlayerDialog({
             </DialogPrimitive.Close>
           </div>
           <div className="aspect-video w-full sm:px-5">
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`}
+            <YoutubePlayer
+              key={videoId}
+              videoId={videoId}
               title={title}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              className="size-full border-0"
+              autoplay
             />
           </div>
         </DialogPrimitive.Popup>

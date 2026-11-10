@@ -12,6 +12,7 @@ vi.mock("@/config/site", () => ({
     get columnTitle() {
       return state.title;
     },
+    features: { columnVideo: false },
   },
 }));
 vi.mock("./columnData", async (importOriginal) => {

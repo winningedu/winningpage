@@ -11,6 +11,7 @@ import {
   getDisplayDate,
   getViewCount,
 } from "./columnData";
+import { COLUMN_KINDS, type ColumnKind, getColumnKind } from "./kind";
 import { useColumnCategories } from "./useColumnCategories";
 
 const SORT_LATEST = "최신순";
@@ -21,6 +22,9 @@ export default function ColumnList() {
   const categories = useColumnCategories();
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(ALL_CATEGORY);
+  const [kind, setKind] = useState<ColumnKind | typeof ALL_CATEGORY>(
+    ALL_CATEGORY,
+  );
   const [sortKey, setSortKey] = useState(SORT_LATEST);
   const [keyword, setKeyword] = useState("");
 
@@ -47,6 +51,10 @@ export default function ColumnList() {
 
   const visibleRows = useMemo(() => {
     let result = rows;
+
+    if (kind !== ALL_CATEGORY) {
+      result = result.filter((row) => getColumnKind(row) === kind);
+    }
 
     if (category !== ALL_CATEGORY) {
       result = result.filter(
@@ -75,7 +83,7 @@ export default function ColumnList() {
     }
 
     return sorted;
-  }, [rows, category, categories, keyword, sortKey, hasViewCounts]);
+  }, [rows, kind, category, categories, keyword, sortKey, hasViewCounts]);
 
   return (
     <main className="bg-white pt-16">
@@ -95,6 +103,16 @@ export default function ColumnList() {
           </div>
 
           <div className="mt-16 flex flex-col gap-6 sm:mt-18 sm:flex-row sm:items-center sm:justify-between">
+            {site.features.columnVideo && (
+              <CategoryChips
+                categories={[...COLUMN_KINDS]}
+                active={kind}
+                onChange={(value) =>
+                  setKind(value as ColumnKind | typeof ALL_CATEGORY)
+                }
+                align="left"
+              />
+            )}
             {hasViewCounts ? (
               <div className="relative inline-flex w-fit shrink-0 items-center">
                 <select
@@ -137,7 +155,7 @@ export default function ColumnList() {
               </div>
             ) : visibleRows.length === 0 ? (
               <div className="py-24 text-center text-sm font-bold text-gray-400">
-                등록된 {site.columnTitle}이 없습니다.
+                {site.boardEmpty ?? `등록된 ${site.columnTitle}이 없습니다.`}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-x-5 gap-y-9 sm:grid-cols-2 wide:grid-cols-4">

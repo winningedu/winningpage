@@ -31,7 +31,7 @@ export const NO_DATA_TEXT = "자료 없음";
 
 export const PART_TITLES: Record<1 | 2 | 3, string> = {
   1: "1부 지금까지 무엇을 했는가",
-  2: "2부 위닝 A부터 E 5축 진단",
+  2: siteWording("2부 위닝 A부터 E 5축 진단"),
   3: "3부 남은 기간 설계",
 };
 

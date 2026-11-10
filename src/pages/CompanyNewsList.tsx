@@ -1,4 +1,5 @@
 import BoardListPage from "@/components/board/BoardListPage";
+import { site } from "@/config/site";
 import { BOARD_SOURCES } from "./board/boardData";
 
 /**
@@ -14,15 +15,14 @@ import { BOARD_SOURCES } from "./board/boardData";
 export default function CompanyNewsList() {
   return (
     <BoardListPage
-      title="회사소식"
+      title={site.news.companyTitle}
       source={BOARD_SOURCES.companyNews}
-      searchAriaLabel="회사소식 검색"
       // BoardRow.id는 옵셔널 타입이지만(boardData.ts), String(undefined) === "undefined"라
       // encodeURIComponent(undefined)와 동일한 문자열이 나와 기존 동작을 그대로 보존한다.
       getDetailHref={(row) =>
         `/company-news?id=${encodeURIComponent(String(row.id))}`
       }
-      emptyMessage="등록된 회사소식이 없습니다."
+      emptyMessage={site.news.companyEmpty}
     />
   );
 }

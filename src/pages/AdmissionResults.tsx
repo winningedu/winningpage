@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "react-router";
+import { site } from "@/config/site";
 import type { ComboOption } from "./admissionResults/ComboField";
 import {
   CONTAINER,
@@ -350,6 +351,15 @@ export default function AdmissionResults() {
   return (
     <div className="min-h-screen bg-white">
       <main className="pt-16">
+        {/* 사 #69: 스쿨멘토만 화면 맨 위에 늘 보이는 안내(따라 내려오는 고정 막대 아님). */}
+        {site.features.admissionResultsNotice && (
+          <p
+            role="note"
+            className={`${CONTAINER} pt-6 text-center text-sm text-gray-600`}
+          >
+            입결은 지난 입시 결과일 뿐이며 올해 합격을 예측하는 값이 아니에요.
+          </p>
+        )}
         {/* QA 시트(입시정보 카테고리) 반영 — 조회 버튼을 눌러도 페이지를 이동하지 않고
             검색 폼은 그대로 둔 채 그 아래에 결과를 이어 붙인다. 딥링크(?u=&d=) 호환을 위해
             라우트/쿼리스트링 계약은 그대로 유지하고, 뷰를 서로 바꿔치기하던 기존 삼항연산자만

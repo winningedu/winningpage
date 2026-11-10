@@ -113,7 +113,7 @@ type ProgramKeyMeta = {
 // 타입의 동적 인덱스 접근은 noUncheckedIndexedAccess로 undefined 가능성이
 // 붙어 non-null 단언이 필요해지는데, 이 상수는 그 문제 없이 항상 정의돼 있다.
 const DIAGNOSE_META: ProgramKeyMeta = {
-  serviceName: "위닝 학습진단",
+  serviceName: siteWording("위닝 학습진단"),
   category: "diagnosis",
   route: "/services/learning-diagnosis",
 };

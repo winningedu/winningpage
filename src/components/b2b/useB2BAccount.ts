@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthProvider";
 import { cleanText } from "@/hooks/useNavGroups";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 import { fetchProfile, getCsatDay, getMemberLabel } from "../Header";
 
@@ -102,6 +103,8 @@ export function useB2BAccount(): B2BAccount {
 
 // 현재 페이지에 머문 채 세션만 끊는다. AuthProvider가 SIGNED_OUT을 받아 게스트로 돌아간다.
 export async function signOutB2B() {
+  // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+  clearAllDrafts();
   try {
     await supabase.auth.signOut({ scope: "local" });
   } catch (error) {

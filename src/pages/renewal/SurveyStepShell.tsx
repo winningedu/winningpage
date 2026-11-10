@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { site } from "@/config/site";
+import { useAuthOptional } from "@/context/AuthProvider";
 // QA 행348(2026-09-02) — q1(학년) 응답으로 q4(등급 체계)를 자동 결정한다(카드 자체는 화면에서 제거).
 import { getGradeSystemLabelForGradeLevel } from "@/data/renewalSurveyQuestions";
 // B-1(2026-08-11 확정) — q15 캐스케이드 fetch 상태(옵션 5벌 + loading + error)를 이 셸이 소유한다.
@@ -16,6 +17,8 @@ import {
   checkDiagnosisAccess,
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
+// 이어 답하기 초안(사 #44, 스쿨멘토 전용). 이 기기 localStorage 에 사용자별로 저장한다.
+import { clearDraft, loadDraft, saveDraft } from "@/lib/diagnosisDraft";
 // 리포트 '페이지'가 아니라 storage 모듈만 import 한다 — 페이지를 가져오면 인쇄 CSS 가 설문 번들로 끌려온다.
 // 저장 키·직렬화·스키마 검증의 정의처도 그 모듈 하나다(여기에 리터럴을 두면 읽기 쪽과 갈라진다).
 import { submitDiagnosisAnswers } from "@/lib/diagnosisInputStorage";
@@ -31,10 +34,18 @@ import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
 import { fetchSurveyCopyOverrides } from "@/lib/diagnosisSurveyCopyOverrides";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
+import {
+  getStepPath,
+  isStepComplete,
+  SURVEY_FIRST_STEP_PATH,
+  SURVEY_TOTAL_STEPS,
+} from "@/lib/renewalSurvey";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { Json } from "@/types/database.types";
 // Q-01(2026-08-11 확정) — 제출 시점에 로그인 학생 이름을 조회한다. 비로그인·조회 실패는 null.
 import { fetchLoggedInStudentName } from "./diagnosisStudentName";
+
+const SURVEY_BASE_PATH = SURVEY_FIRST_STEP_PATH.replace(/\/1$/, "");
 
 /**
  * 설문 5스텝 공통 셸. `/free-diagnosis/survey` 부모 라우트의 element 이므로
@@ -46,6 +57,11 @@ import { fetchLoggedInStudentName } from "./diagnosisStudentName";
  */
 export default function SurveyStepShell() {
   const navigate = useNavigate();
+  // 진입 시점의 경로. 사용자가 나중에 직접 1단계로 돌아가도 초안 복원 이동이 다시 일어나지 않게 한다.
+  const { pathname } = useLocation();
+  const entryPathRef = useRef(pathname);
+  const userId = useAuthOptional()?.userId ?? null;
+  const resumeEnabled = site.features.diagnosisResume && !!userId;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
@@ -124,6 +140,31 @@ export default function SurveyStepShell() {
       };
     });
   }, []);
+
+  // 이어 답하기(사 #44): 이 사용자의 초안이 있으면 답을 채운다. 막힌 사용자는 설문 화면이
+  // 렌더되지 않아 채워도 보이지 않는다.
+  useEffect(() => {
+    if (!resumeEnabled || !userId) return;
+    const draft = loadDraft(userId);
+    if (!draft) return;
+    setAnswers((prev) => ({ ...draft, ...prev }));
+    // 1단계로 들어왔으면 답이 끝난 단계를 건너뛰어 첫 미완료 단계에서 이어 답하게 한다.
+    // 인덱스 진입은 자식 라우트가 1단계로 리다이렉트하므로 둘 다 대상이다.
+    const entry = entryPathRef.current;
+    if (entry !== SURVEY_FIRST_STEP_PATH && entry !== SURVEY_BASE_PATH) return;
+    for (let step = 1; step <= SURVEY_TOTAL_STEPS; step++) {
+      if (isStepComplete(step, draft)) continue;
+      if (step > 1) navigate(getStepPath(step), { replace: true });
+      return;
+    }
+  }, [resumeEnabled, userId, navigate]);
+
+  // 이어 답하기(사 #44): 답이 바뀔 때마다 이 기기에 저장한다. 빈 답은 기존 초안을 덮지 않는다.
+  useEffect(() => {
+    if (!resumeEnabled || !userId) return;
+    if (Object.keys(answers).length === 0) return;
+    saveDraft(userId, answers);
+  }, [answers, resumeEnabled, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
   // 훅 내부에서 대학→학과→전형유형/세부전형명/반영교과 순으로 필요한 조회만 다시 tap 한다.
@@ -213,6 +254,8 @@ export default function SurveyStepShell() {
       admissionCutsError: admissionResolved.cutsError,
       attemptId,
     });
+    // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
+    if (resumeEnabled && userId) clearDraft(userId);
 
     // 리포트 영속화 — diagnosedAt 은 항상 이 함수(submitDiagnosisAnswers)가 방금 new
     // Date().toISOString() 으로 채웠으므로 실제로는 항상 존재한다(엔진 자체는 시계를 읽지
@@ -238,7 +281,7 @@ export default function SurveyStepShell() {
     return payload;
     // awaitCuts 는 훅 안에서 useCallback(빈 deps)로 안정된 참조라 이 콜백도 answers 가 바뀔 때만
     // 재생성된다 — admissionCascade 객체 전체를 deps 에 넣으면 매 렌더 재생성되어 의미가 없다.
-  }, [answers, awaitCuts, navigate]);
+  }, [answers, awaitCuts, navigate, userId, resumeEnabled]);
 
   if (accessFailed) {
     return (
