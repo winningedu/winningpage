@@ -20,10 +20,12 @@ export default function Header() {
   const account = useB2BAccount();
   // 하위 항목이 없는 그룹은 알약과 패널 컬럼에서 뺀다(결정 19).
   const groups = useNavGroups().filter((group) => group.items.length > 0);
-  const loggedIn = account.status === "student" || account.status === "teacher";
+  const loggedIn = account.status !== "loading" && account.status !== "guest";
   // 선생님은 드로어에서 예전처럼 학생 MY 메뉴를 쓴다(선생님 동작은 관리 화면에 있다).
   const drawerMyMenuRole =
-    account.status === "student" ? account.myMenuRole : "student";
+    account.status === "parent" || account.status === "admin"
+      ? account.status
+      : "student";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const [openTitle, setOpenTitle] = useState<string | null>(null);
@@ -76,14 +78,13 @@ export default function Header() {
             className="h-5.5 w-[9.675rem] object-contain desktop:w-[9.881rem]"
           />
         </Link>
-        {(account.status === "student" || account.status === "teacher") &&
-          account.orgName && (
-            <span
-              className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
-            >
-              {account.orgName}
-            </span>
-          )}
+        {loggedIn && account.orgName && (
+          <span
+            className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
+          >
+            {account.orgName}
+          </span>
+        )}
 
         <div
           className="absolute top-0 hidden h-full items-center desktop:flex"
@@ -125,11 +126,15 @@ export default function Header() {
               </Link>
             </div>
           )}
-          {account.status === "student" && (
+          {(account.status === "student" ||
+            account.status === "parent" ||
+            account.status === "admin") && (
             <div className="hidden items-center gap-3 desktop:flex">
-              <span className={`${CHIP} bg-primary text-white`}>
-                {account.csatDDay}
-              </span>
+              {account.status === "student" && (
+                <span className={`${CHIP} bg-primary text-white`}>
+                  {account.csatDDay}
+                </span>
+              )}
               <Link
                 to="/mypage"
                 className="flex items-center gap-2 whitespace-nowrap py-1.5 text-sm font-medium text-primary"
@@ -138,7 +143,7 @@ export default function Header() {
                 {account.memberLabel && ` ${account.memberLabel}`}
                 <ChevronRight size={24} className="size-6" />
               </Link>
-              {account.myMenuRole === "admin" && (
+              {account.status === "admin" && (
                 <Link
                   to={ADMIN_MENU.to}
                   className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
@@ -197,7 +202,13 @@ export default function Header() {
         shouldShowLoggedInHeader={loggedIn}
         isLoggedIn={loggedIn}
         displayName={loggedIn ? account.name : ""}
-        memberLabel={account.status === "student" ? account.memberLabel : ""}
+        memberLabel={
+          account.status === "student" ||
+          account.status === "parent" ||
+          account.status === "admin"
+            ? account.memberLabel
+            : ""
+        }
         myMenuRole={drawerMyMenuRole}
         csatDDay={account.status === "student" ? account.csatDDay : ""}
         onLogout={signOutB2B}

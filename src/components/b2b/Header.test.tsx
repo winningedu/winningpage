@@ -317,3 +317,57 @@ describe("b2b Header MY 메뉴 역할", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("b2b Header 계정 종류별 데스크톱 영역", () => {
+  it("관리자는 수능 D-day 배지가 없고 로그아웃이 있다", async () => {
+    await renderAs({ member_type: "student", role: "admin" });
+
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
+  });
+
+  it("관리자는 이름 칩과 관리자 메뉴 링크가 있다", async () => {
+    await renderAs({ member_type: "student", role: "admin" });
+
+    expect(screen.getByRole("link", { name: /최관리 님/ })).toHaveAttribute(
+      "href",
+      "/mypage",
+    );
+    expect(screen.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("학부모는 학부모회원 이름 칩이 마이페이지로 가고 수능 D-day 배지는 없다", async () => {
+    await renderAs({ member_type: "parent", role: "user" });
+
+    expect(
+      screen.getByRole("link", { name: "최관리 님 학부모회원" }),
+    ).toHaveAttribute("href", "/mypage");
+    expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
+  });
+
+  it("학생은 수능 D-day 배지가 있고 관리자 메뉴는 없다", async () => {
+    await renderAs({ member_type: "student", role: "user" });
+
+    expect(screen.getByText(/^수능 D/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "관리자 메뉴" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("학부모와 관리자는 드로어에서도 로그인 상태로 보이고 수능 D-day는 학생에게만 있다", async () => {
+    await renderAs({ member_type: "parent", role: "user" });
+
+    const drawer = await openDrawer();
+
+    expect(drawer.queryByText(/^수능 D/)).not.toBeInTheDocument();
+    expect(drawer.getAllByText(/학부모회원/).length).toBeGreaterThan(0);
+  });
+});

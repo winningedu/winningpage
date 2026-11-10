@@ -7,11 +7,10 @@ import { supabase } from "@/lib/supabase";
 import { fetchProfile, getCsatDay, getMemberLabel } from "../Header";
 import { type MyMenuRole, resolveMyMenuRole } from "../myMenuItems";
 
-type Student = {
-  status: "student";
+type Member<Status extends MyMenuRole> = {
+  status: Status;
   name: string;
   memberLabel: string;
-  myMenuRole: MyMenuRole;
   orgName: string | null;
 };
 
@@ -22,7 +21,11 @@ type Teacher = {
   orgName: string;
 };
 
-type Resolved = Student | Teacher;
+type Resolved =
+  | Member<"student">
+  | Member<"parent">
+  | Member<"admin">
+  | Teacher;
 
 const TEACHER_ROLE_LABELS: Record<string, string> = {
   homeroom: "담임교사",
@@ -32,7 +35,9 @@ const TEACHER_ROLE_LABELS: Record<string, string> = {
 export type B2BAccount =
   | { status: "loading" }
   | { status: "guest" }
-  | (Student & { csatDDay: string })
+  | (Member<"student"> & { csatDDay: string })
+  | Member<"parent">
+  | Member<"admin">
   | Teacher;
 
 // 학생이 소속된 기관 이름. 행이 없으면 null이라 칩을 그리지 않는다.
@@ -58,7 +63,7 @@ async function fetchTeacher(): Promise<Teacher | null> {
   };
 }
 
-// 헤더와 드로어가 함께 쓰는 로그인 상태(로딩, 게스트, 학생, 선생님).
+// 헤더와 드로어가 함께 쓰는 로그인 상태(로딩, 게스트, 학생, 학부모, 관리자, 선생님).
 export function useB2BAccount(): B2BAccount {
   const { user, isReady } = useAuth();
   const [resolved, setResolved] = useState<{
@@ -81,13 +86,12 @@ export function useB2BAccount(): B2BAccount {
           ? await fetchTeacher().catch(() => null)
           : null;
       const account: Resolved = teacher ?? {
-        status: "student",
-        name: cleanText(profile?.name),
-        memberLabel,
-        myMenuRole: resolveMyMenuRole({
+        status: resolveMyMenuRole({
           role: profile?.role ?? null,
           memberType: profile?.member_type ?? null,
         }),
+        name: cleanText(profile?.name),
+        memberLabel,
         orgName: await fetchOrgName(),
       };
       if (alive) setResolved({ userId: user.id, account });
