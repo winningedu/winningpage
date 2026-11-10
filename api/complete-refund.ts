@@ -218,7 +218,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     req as { headers: Record<string, string> },
   );
   if (!admin.ok) {
-    return res.status(admin.status).json({ error: admin.detail });
+    return res.status(admin.status).json({
+      error: admin.detail,
+      ...(admin.code && { code: admin.code, detail: admin.detail }),
+    });
   }
 
   const refundRequestId = req.body?.refundRequestId;

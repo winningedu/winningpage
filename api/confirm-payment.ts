@@ -31,6 +31,11 @@ import {
   type GrantProgramAccessOptions,
   grantProgramAccessForOrder,
 } from "./_lib/programAccess.js";
+import {
+  isQaAccount,
+  QA_ACCOUNT_RESTRICTED_CODE,
+  sendQaBlocked,
+} from "./_lib/qaAccount.js";
 import { getBearerToken } from "./_lib/serviceAccess.js";
 import {
   createSupabaseAdmin,
@@ -82,6 +87,7 @@ const APPROVAL_APPROVED = "approved";
 type OrderRow = {
   id: string;
   user_id: string | null;
+  parent_profile_id: string | null;
   amount: number;
   status: string;
   approval_status: string;
@@ -231,13 +237,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // user_id / paid_at 은 권한 부여용이다(부여 대상 사용자 + 이용 시작 시각).
       // approval_status/payment_key 는 승인 호출 전 게이트용이다(아래).
       .select(
-        "id, user_id, amount, status, approval_status, payment_key, paid_at, raw",
+        "id, user_id, parent_profile_id, amount, status, approval_status, payment_key, paid_at, raw",
       )
       .eq("id", orderId)
       .maybeSingle();
     order = orderQueryData ?? null;
 
     if (order) {
+      // QA 계정의 주문(결제 대상 학생이나 결제하는 학부모가 QA)은 승인하지 않는다.
+      // 토스 승인은 실제 돈을 움직이고, 승인된 주문은 실제 환불 업무가 된다.
+      for (const profileId of [order.user_id, order.parent_profile_id]) {
+        if (profileId && (await isQaAccount(supabaseAdmin, profileId))) {
+          return sendQaBlocked(res, "error", QA_ACCOUNT_RESTRICTED_CODE);
+        }
+      }
+
       // 학부모 수락 전에는 결제가 진행될 수 없다(sql/68
       // orders_approval_before_payment_check). paid/waiting_deposit 인 주문은
       // DB 불변식상 이미 approved 여야 하므로 이 게이트에 걸리지 않는다 — 실제로

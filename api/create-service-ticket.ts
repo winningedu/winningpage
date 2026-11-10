@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { defineHandler } from "./_lib/handler.js";
 import { resolveUser } from "./_lib/httpAuth.js";
+import { assertNotQaAccount } from "./_lib/qaAccount.js";
 import {
   clean,
   hasPaidServiceAccess,
@@ -119,6 +120,8 @@ export default defineHandler({
     }
 
     const { userId, user } = authed;
+    // 외부 서비스로 넘어가는 입장권은 실제 서비스 운영에 닿는다. QA 계정에는 발급하지 않는다.
+    await assertNotQaAccount(ctx.supabaseAdmin, userId);
     const access = await hasPaidServiceAccess(
       ctx.supabaseAdmin,
       userId,

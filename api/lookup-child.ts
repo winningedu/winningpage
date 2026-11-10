@@ -21,6 +21,11 @@ import type { VercelResponse } from "@vercel/node";
 import { defineHandler } from "./_lib/handler.js";
 import { sendError } from "./_lib/httpResponse.js";
 import { getClientIp } from "./_lib/phoneCode.js";
+import {
+  isQaAccount,
+  QA_ACCOUNT_RESTRICTED_CODE,
+  sendQaBlocked,
+} from "./_lib/qaAccount.js";
 import { getBearerToken } from "./_lib/serviceAccess.js";
 import type { createSupabaseAdmin } from "./_lib/supabaseAdmin.js";
 
@@ -172,6 +177,14 @@ export default defineHandler({
           reason: "link_code_not_found",
           detail: "일치하는 연결코드가 없습니다.",
         });
+      }
+
+      // QA 학부모는 QA 자녀만 볼 수 있다. 실제 미성년자의 이름과 학교를 QA 계정에 보여주지 않는다.
+      if (
+        (await isQaAccount(supabase, actorId)) &&
+        !(await isQaAccount(supabase, codeRow.student_id))
+      ) {
+        return void sendQaBlocked(res, "okDetail", QA_ACCOUNT_RESTRICTED_CODE);
       }
 
       const { data: student, error: studentError } = await supabase

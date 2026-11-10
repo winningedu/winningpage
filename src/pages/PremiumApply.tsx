@@ -13,6 +13,7 @@ import { useLocation } from "react-router";
 import { PREMIUM_APPLY_FORM_ANCHOR_ID } from "@/components/premium/premiumRoutesPaths";
 import BookViewer from "@/components/premiumBook/BookViewer";
 import { usePremiumBookPages } from "@/components/premiumBook/usePremiumBookPages";
+import { getAuthHeader } from "@/lib/apiFetch";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 
 // 이용신청 > 프리미엄 이용 (node 1882:11190) 정식 페이지.
@@ -240,7 +241,11 @@ export default function PremiumApply() {
     try {
       const res = await fetch("/api/create-consult-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // 로그인 상태면 토큰을 함께 보낸다. 서버가 QA 계정의 접수를 걸러내는 데만 쓴다.
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeader()),
+        },
         body: JSON.stringify({
           name: form.name.trim(),
           phone: form.phone.trim(),

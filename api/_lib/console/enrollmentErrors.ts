@@ -1,10 +1,11 @@
-// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC068, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC103, WC068, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelResponse } from "@vercel/node";
 import { sendError } from "../httpResponse.js";
+import { QA_ACCOUNT_MESSAGE } from "../qaAccount.js";
 import type { ConsoleActor } from "./actor.js";
 import { maskName } from "./maskName.js";
 
@@ -100,6 +101,12 @@ const MAPPED: Record<string, Mapped> = {
     status: 400,
     code: "SAME_TENANT",
     message: "이미 이 기관에 속한 학생이에요.",
+  },
+  // QA 계정 보호(fn_qa_assert_tenant_join): QA 학생이 QA 계정이 없는 기관으로 옮기려 함.
+  WC103: {
+    status: 403,
+    code: "QA_ACCOUNT_RESTRICTED",
+    message: QA_ACCOUNT_MESSAGE,
   },
   "23503": INVALID_CLASS,
   // 학급 이름 정규화(22023)와 학년, 번호 CHECK(23514)

@@ -20,6 +20,11 @@
 
 import crypto from "node:crypto";
 import { defineHandler } from "./_lib/handler.js";
+import {
+  isQaAccount,
+  QA_ACCOUNT_RESTRICTED_CODE,
+  sendQaBlocked,
+} from "./_lib/qaAccount.js";
 import { getBearerToken } from "./_lib/serviceAccess.js";
 
 // products 테이블에서 조회한 행 중 이 라우트가 실제로 읽는 필드만 담는다.
@@ -102,6 +107,11 @@ export default defineHandler({
         return void res
           .status(401)
           .json({ error: "로그인이 만료되었습니다. 다시 로그인해 주세요." });
+      }
+
+      // 1-1) QA 계정은 결제 요청을 만들 수 없다. 만들면 실제 학부모에게 결제 요청이 간다.
+      if (await isQaAccount(supabaseAdmin, studentId)) {
+        return void sendQaBlocked(res, "error", QA_ACCOUNT_RESTRICTED_CODE);
       }
 
       // 2) 회원유형 확인 — api/lookup-child.js 의 회원유형 검사 패턴과 동일.

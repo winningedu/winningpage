@@ -18,6 +18,7 @@ import { isAuthorizedCron } from "./cronAuth.js";
 import { resolveUser } from "./httpAuth.js";
 import { assertMethod } from "./httpMethod.js";
 import { type ErrorShape, sendError } from "./httpResponse.js";
+import { QaBlockedError, sendQaBlocked } from "./qaAccount.js";
 import { createSupabaseAdmin, isSupabaseConfigError } from "./supabaseAdmin.js";
 
 // dev 원본 ~20파일이 개별 `try { createSupabaseAdmin() } catch { ... }`로 냈던
@@ -230,6 +231,10 @@ export function defineHandler(opts: DefineHandlerOptions) {
           req as unknown as { headers: Record<string, string> },
         );
         if (!admin.ok) {
+          if (admin.code) {
+            sendQaBlocked(res, opts.errorShape, admin.code);
+            return;
+          }
           sendError(res, opts.errorShape, admin.status, admin.detail);
           return;
         }
@@ -241,6 +246,10 @@ export function defineHandler(opts: DefineHandlerOptions) {
           req as unknown as { headers: Record<string, string> },
         );
         if (!admin.ok) {
+          if (admin.code) {
+            sendQaBlocked(res, opts.errorShape, admin.code);
+            return;
+          }
           sendError(res, opts.errorShape, admin.status, admin.detail);
           return;
         }
@@ -266,6 +275,10 @@ export function defineHandler(opts: DefineHandlerOptions) {
 
       await opts.handler(req, res, ctx);
     } catch (error) {
+      if (error instanceof QaBlockedError) {
+        sendQaBlocked(res, opts.errorShape, error.code);
+        return;
+      }
       console.error(`${opts.logLabel || "handler"} error:`, error);
       if (isSupabaseConfigError(error)) {
         sendError(
