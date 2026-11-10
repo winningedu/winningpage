@@ -34,3 +34,15 @@
 5. 같은 파일을 다시 실행해 변경이 없음을 확인한다.
 6. dev 검증 후 같은 절차로 prod에 실행한다.
 7. 파일 맨 아래에 실행 기록(날짜, 대상 DB, 전후 행 수)을 주석 블록으로 덧붙이고 PR로 커밋한다.
+
+## QA 계정 차단 켜기(운영 전환)
+
+스쿨멘토 QA 기간에는 QA 계정 차단이 꺼져 있다. 운영 전환 때 아래 순서로 켠다. 스위치는 두 곳이고 반드시 함께 바꾼다.
+DB 스위치(`app_settings.qa_account_guard_enabled`)는 브라우저 쓰기와 RPC를, 서버 스위치(`QA_ACCOUNT_GUARD_ENABLED`)는 API 라우트를 막는다.
+한쪽만 켜면 막히는 범위가 반쪽이다.
+
+1. QA 데이터 초기화 데이터 SQL을 실행한다. QA 계정과 QA 기관, 그 안에서 생긴 데이터만 지우고 약관, 콘텐츠, 설정은 남긴다.
+2. QA 계정 15개를 다시 만들고 `qa_accounts`에 등록한다(`20261110050000_schoolmentor_qa_accounts.sql`).
+3. `app_settings`의 `qa_account_guard_enabled`를 `true`로 바꾸는 데이터 SQL을 실행한다(행이 없으면 꺼짐).
+4. Vercel 스쿨멘토 production 환경 변수 `QA_ACCOUNT_GUARD_ENABLED=true`를 넣고 재배포한다.
+5. `qa-admin`으로 저장을 시도해 "QA 계정이라 이 기능은 작동하지 않아요."가 나오는지 확인한다.

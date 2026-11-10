@@ -26,11 +26,27 @@ export class QaBlockedError extends Error {
   }
 }
 
-/** 조회 자체가 실패하면 QA 아님으로 오인하지 않도록 예외를 던진다. */
+/**
+ * 차단 스위치. 환경 변수 QA_ACCOUNT_GUARD_ENABLED 가 "true"(앞뒤 공백, 대소문자 무시)일 때만 켜진다.
+ * 없거나 다른 값이면 꺼짐이다. DB 쪽 스위치는 app_settings.qa_account_guard_enabled 이고 둘은 함께 바꾼다.
+ */
+export function isQaGuardEnabled(): boolean {
+  return (
+    String(process.env.QA_ACCOUNT_GUARD_ENABLED ?? "")
+      .trim()
+      .toLowerCase() === "true"
+  );
+}
+
+/**
+ * 스위치가 꺼져 있으면 항상 false (조회도 하지 않는다). 모든 라우트 차단이 이 함수를 거친다.
+ * 조회 자체가 실패하면 QA 아님으로 오인하지 않도록 예외를 던진다.
+ */
 export async function isQaAccount(
   supabaseAdmin: SupabaseClient,
   profileId: string,
 ): Promise<boolean> {
+  if (!isQaGuardEnabled()) return false;
   const { data, error } = await supabaseAdmin
     .from("qa_accounts")
     .select("profile_id")

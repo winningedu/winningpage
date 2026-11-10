@@ -22,6 +22,9 @@ export default mergeConfig(
         // CI(.env.local 없음)에서도 기본값(winning)을 깔아 둔다. 사이트별 분기를
         // 검증하는 테스트는 vi.stubEnv로 개별 오버라이드한다.
         VITE_SITE: process.env.VITE_SITE ?? "winning",
+        // QA 계정 차단 스위치. 기존 QA 차단 테스트가 켠 상태를 전제로 하므로 기본을 켬으로 둔다.
+        // 꺼짐 동작은 qaAccount.test.ts 가 vi.stubEnv 로 검증한다.
+        QA_ACCOUNT_GUARD_ENABLED: "true",
       },
       // 전역 주입 대신 명시적 import(test/expect/describe from "vitest")를 쓴다 —
       // 이 저장소의 다른 곳들도 암묵적 전역에 의존하지 않는 관례를 따른다.
