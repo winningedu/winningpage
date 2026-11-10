@@ -119,6 +119,21 @@ select pg_temp.expect_text('consume: 일반 기관은 그대로 consumed',
   public.fn_consume_tenant_usage(pg_temp.fx('real'), 'selfeval', 'selfeval_session', gen_random_uuid()), 'consumed');
 
 -- ---------------------------------------------------------------------
+-- 선생님 계정(profiles.member_type = 'teacher')은 설정이 켜진 기관이어도 teacher 로 막힌다(가장 먼저 본다)
+-- ---------------------------------------------------------------------
+select pg_temp.mk_user('tsg-teacher@t.local', pg_temp.fx('t_real')) as teacher_id \gset
+update public.profiles set member_type = 'teacher' where id = :'teacher_id'::uuid;
+
+select pg_temp.expect_text('state: 선생님 계정은 설정이 켜져 있어도 teacher',
+  (select s.allowed || ':' || s.deny_reason from public.fn_tenant_usage_state(:'teacher_id'::uuid, 'selfeval') s), 'false:teacher');
+select pg_temp.expect_text('consume: 선생님 계정은 teacher',
+  public.fn_consume_tenant_usage(:'teacher_id'::uuid, 'selfeval', 'selfeval_session', gen_random_uuid()), 'teacher');
+select pg_temp.expect_int('consume: 선생님 계정은 기록을 남기지 않는다',
+  (select count(*) from public.tenant_usage_events where profile_id = :'teacher_id'::uuid), 0);
+select pg_temp.expect_text('state: 같은 기관의 학생은 그대로 허용',
+  (select s.allowed::text from public.fn_tenant_usage_state(pg_temp.fx('real'), 'selfeval') s), 'true');
+
+-- ---------------------------------------------------------------------
 -- fn_consume_tenant_diagnosis: 학습진단 제출 1건을 기관 한도로 센다(무료 1회 없음)
 -- ---------------------------------------------------------------------
 select pg_temp.mk_tenant('dg', 'TGCCCCCC');
