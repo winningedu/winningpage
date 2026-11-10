@@ -116,6 +116,29 @@ describe("ResetPassword — token_hash 모드", () => {
     expect(callOrder).toEqual(["verifyOtp", "updateUser", "rpc", "signOut"]);
   });
 
+  it("재설정을 마치고 로그아웃하면 학습진단 초안만 모두 지운다", async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+    mockUpdateUser.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
+    localStorage.setItem("diagnosis-draft:u1", "{}");
+    localStorage.setItem("diagnosis-draft:u2", "{}");
+    localStorage.setItem("other-key", "keep");
+
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText("비밀번호가 변경됐어요")).toBeInTheDocument(),
+    );
+    expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u2")).toBeNull();
+    expect(localStorage.getItem("other-key")).toBe("keep");
+    localStorage.clear();
+  });
+
   it("verifyOtp가 otp_expired/403으로 실패하면 만료 화면을 보여주고 updateUser는 부르지 않는다", async () => {
     mockVerifyOtp.mockResolvedValue({
       error: { code: "otp_expired", status: 403 },

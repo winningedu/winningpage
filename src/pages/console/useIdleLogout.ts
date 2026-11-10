@@ -4,6 +4,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
+import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { supabase } from "@/lib/supabase";
 
 export const IDLE_LOGOUT_MS = 30 * 60 * 1000;
@@ -48,6 +49,8 @@ export function useIdleLogout() {
         schedule();
         return;
       }
+      // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+      clearAllDrafts();
       const toLogin = () => navigate("/login", { replace: true });
       void supabase.auth.signOut({ scope: "local" }).then(toLogin, toLogin);
     };

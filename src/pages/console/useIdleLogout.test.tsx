@@ -47,6 +47,21 @@ describe("useIdleLogout", () => {
     expect(mocks.navigate).toHaveBeenCalledWith("/login", { replace: true });
   });
 
+  it("유휴 로그아웃하면 학습진단 초안만 모두 지운다", async () => {
+    localStorage.setItem("diagnosis-draft:u1", "{}");
+    localStorage.setItem("diagnosis-draft:u2", "{}");
+    localStorage.setItem("other-key", "keep");
+    renderHook(() => useIdleLogout());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(IDLE_LOGOUT_MS);
+    });
+
+    expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u2")).toBeNull();
+    expect(localStorage.getItem("other-key")).toBe("keep");
+  });
+
   it.each(["click", "keydown"])(
     "%s 입력이 있으면 타이머가 처음부터 다시 시작한다",
     async (type) => {
