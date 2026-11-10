@@ -46,7 +46,7 @@
 -- 멱등: 값이 이미 목표와 같으면 갱신하지 않고, 행이 이미 있으면 추가하지 않는다.
 --   자연 키는 home_section_copy는 section_key, program_categories는 lower(trim(name)).
 -- 제목은 시드 원본 값(위닝 문구)일 때만 바꾼다. 관리자가 고친 제목은 덮어쓰지 않는다.
--- 카드의 설명, 순서, 활성과 9개 밖 비활성은 첫 실행에만 적용한다 (이용안내 행이 생기면 이후 실행은 건너뜀).
+-- 카드의 설명, 순서, 활성과 9개 밖 비활성은 첫 실행에만 적용한다 (표식 키가 생기면 이후 실행은 건너뜀).
 -- 하드코딩한 uuid 없음. 삭제 없음.
 
 -- 0. 대상 DB 가드. Schoolmentor prod 만 통과한다.
@@ -85,8 +85,9 @@ update public.program_categories
 
 -- 3. 이용안내를 뺀 8개 카드: 있으면 설명, 순서, 활성, 링크를 맞추고, 없으면 추가한다.
 --    기존 행의 그림과 링크는 값이 비어 있을 때만 채운다. 성장설계 링크는 이름으로 길을 못 찾아 항상 맞춘다.
---    첫 실행 표식: 이용안내 행(4번에서 마지막에 추가)이 이미 있으면 이 파일이 한 번 돌았다는 뜻이다.
---    그때는 기존 카드의 설명, 순서, 활성을 갱신하지 않아 관리자가 고친 값을 덮어쓰지 않는다.
+--    첫 실행 표식: app_settings 키 schoolmentor_home_cards_applied(6번에서 마지막에 넣음)가 이미 있으면
+--    이 파일이 한 번 돌았다는 뜻이다. 그때는 기존 카드의 설명, 순서, 활성을 갱신하지 않아 관리자가 고친 값을
+--    덮어쓰지 않는다. 이용안내 카드는 QA에서 지우거나 이름을 바꿀 수 있어 표식으로 쓰지 않는다.
 update public.program_categories p
    set description = v.description,
        sort_order = v.sort_order,
@@ -104,7 +105,7 @@ update public.program_categories p
     ('자주하는 질문', '궁금한 점을 빠르게 확인하세요',                   '/faq',              '/images/landing/services/faq.png',                     9)
   ) as v(name, description, link, icon_image_url, sort_order)
  where lower(trim(p.name)) = v.name
-   and not exists (select 1 from public.program_categories g where lower(trim(g.name)) = '이용안내')
+   and not exists (select 1 from public.app_settings m where m.key = 'schoolmentor_home_cards_applied')
    and (p.description, p.sort_order, p.is_active, p.link, nullif(p.icon_image_url, ''))
        is distinct from (v.description, v.sort_order, true, coalesce(v.link, p.link),
                          coalesce(nullif(p.icon_image_url, ''), v.icon_image_url));
@@ -126,17 +127,17 @@ select v.name, v.description, coalesce(v.link, '/services'), v.icon_image_url, v
    select 1 from public.program_categories p where lower(trim(p.name)) = v.name
  );
 
--- 4. 9개 밖의 활성 카드를 비활성한다 (콜멘토, 프리미엄 카드 등). 첫 실행에만 적용한다 (이용안내 행이 아직 없을 때).
+-- 4. 9개 밖의 활성 카드를 비활성한다 (콜멘토, 프리미엄 카드 등). 첫 실행에만 적용한다 (표식 키가 아직 없을 때).
 update public.program_categories
    set is_active = false
  where is_active
-   and not exists (select 1 from public.program_categories g where lower(trim(g.name)) = '이용안내')
+   and not exists (select 1 from public.app_settings m where m.key = 'schoolmentor_home_cards_applied')
    and lower(trim(name)) not in (
      '학습진단', '목표관리', '성장설계', '수행평가', '심화탐구', '자기평가',
      '입결정보', '이용안내', '자주하는 질문'
    );
 
--- 5. 이용안내 카드는 (첫 실행 표식이므로 맨 마지막에) 없을 때만 꺼 둔 채로 추가한다 (링크 없음). 이미 있는 행은 건드리지 않는다.
+-- 5. 이용안내 카드는 없을 때만 꺼 둔 채로 추가한다 (링크 없음). 이미 있는 행은 건드리지 않는다.
 insert into public.program_categories
   (name, description, link, icon_image_url, sort_order, is_active, is_premium)
 select '이용안내', '이용 절차와 신청 방법을 단계별로 안내', null,
@@ -144,5 +145,10 @@ select '이용안내', '이용 절차와 신청 방법을 단계별로 안내', 
  where not exists (
    select 1 from public.program_categories p where lower(trim(p.name)) = '이용안내'
  );
+
+-- 6. 첫 실행 표식. 위 3, 4번이 끝난 뒤 맨 마지막에 넣는다. 이미 있으면 건드리지 않는다.
+insert into public.app_settings (key, value)
+values ('schoolmentor_home_cards_applied', 'true'::jsonb)
+on conflict (key) do nothing;
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
