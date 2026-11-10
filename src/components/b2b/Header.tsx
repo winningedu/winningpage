@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
 import MobileNavDrawer from "../MobileNavDrawer";
+import { ADMIN_MENU } from "../myMenuItems";
 import MegaPanel from "./MegaPanel";
 import { NAV_LEFT, PILL_GAP, PILL_W } from "./navGrid";
 import { signOutB2B, useB2BAccount } from "./useB2BAccount";
@@ -20,6 +21,9 @@ export default function Header() {
   // 하위 항목이 없는 그룹은 알약과 패널 컬럼에서 뺀다(결정 19).
   const groups = useNavGroups().filter((group) => group.items.length > 0);
   const loggedIn = account.status === "student" || account.status === "teacher";
+  // 선생님은 드로어에서 예전처럼 학생 MY 메뉴를 쓴다(선생님 동작은 관리 화면에 있다).
+  const drawerMyMenuRole =
+    account.status === "student" ? account.myMenuRole : "student";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const [openTitle, setOpenTitle] = useState<string | null>(null);
@@ -136,10 +140,10 @@ export default function Header() {
               </Link>
               {account.myMenuRole === "admin" && (
                 <Link
-                  to="/admin"
+                  to={ADMIN_MENU.to}
                   className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
                 >
-                  관리자 메뉴
+                  {ADMIN_MENU.label}
                 </Link>
               )}
               <button
@@ -194,9 +198,7 @@ export default function Header() {
         isLoggedIn={loggedIn}
         displayName={loggedIn ? account.name : ""}
         memberLabel={account.status === "student" ? account.memberLabel : ""}
-        myMenuRole={
-          account.status === "student" ? account.myMenuRole : "student"
-        }
+        myMenuRole={drawerMyMenuRole}
         csatDDay={account.status === "student" ? account.csatDDay : ""}
         onLogout={signOutB2B}
         triggerRef={hamburgerRef}
