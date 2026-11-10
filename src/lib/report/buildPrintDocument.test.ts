@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 서버 PDF 경로(모바일·인앱)가 캡처하는 자립 HTML 문서 빌더 — 클라이언트가 만드는
 // 이 문자열이 그대로 api/report-pdf.ts의 puppeteer setContent() 입력이 된다.
 import { afterEach, describe, expect, it } from "vitest";

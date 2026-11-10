@@ -48,25 +48,28 @@ export default mergeConfig(
         provider: "v8",
         reporter: ["text", "html"],
       },
-      // jsdom 은 테스트 파일마다 가짜 브라우저를 새로 띄워 파일당 약 0.7초가 든다.
-      // api/ 와 supabase/ 는 서버 코드라 화면이 없으므로 node 환경으로 돌린다
+      // jsdom 은 테스트 파일마다 가짜 브라우저를 새로 띄워 파일당 약 0.7초가 든다
       // (2026-11-10 CI 실측: 전체 누적 시간의 54%가 jsdom 준비였다).
+      // 화면을 그리는 테스트(.test.tsx)만 jsdom 으로 돌리고, 순수 로직 테스트
+      // (.test.ts, .test.mjs)는 node 환경으로 돌린다.
+      // .test.ts 인데 window 나 sessionStorage 가 필요한 파일은 맨 위에
+      // `// @vitest-environment jsdom` 한 줄을 둔다.
       // 두 프로젝트 모두 extends: true 로 위 설정(env, setupFiles, exclude)을 물려받는다.
       projects: [
         {
           extends: true,
           test: {
-            name: "server",
+            name: "node",
             environment: "node",
-            include: ["api/**/*.test.ts", "supabase/**/*.test.ts"],
+            include: ["**/*.test.ts", "**/*.test.mjs"],
           },
         },
         {
           extends: true,
           test: {
-            name: "client",
+            name: "dom",
             environment: "jsdom",
-            exclude: ["api/**", "supabase/**"],
+            exclude: ["**/*.test.ts", "**/*.test.mjs"],
           },
         },
       ],

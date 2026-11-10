@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // QA 행280 — STEP5 제출폼 자동 저장 훅 회귀 검증.
 //
 // 무엇을 막는가
