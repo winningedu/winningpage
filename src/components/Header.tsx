@@ -116,23 +116,22 @@ export type Profile = Pick<
   "id" | "name" | "email" | "username" | "member_type" | "role"
 >;
 
-export function getMemberLabel(profile: Profile | null) {
-  const raw = cleanText(profile?.member_type).toLowerCase();
-  const role = cleanText(profile?.role).toLowerCase();
+const MEMBER_KIND_LABELS = {
+  admin: "관리자",
+  student: "학생회원",
+  parent: "학부모회원",
+  teacher: "선생님",
+  mentor: "멘토회원",
+  unset: "",
+} as const;
 
-  if (role === "admin") return "관리자";
-  if (!raw) return "";
-  if (raw === "student" || raw === "학생" || raw === "학생회원")
-    return "학생회원";
-  if (
-    raw === "parent" ||
-    raw === "parents" ||
-    raw === "학부모" ||
-    raw === "학부모회원"
-  )
-    return "학부모회원";
-  if (raw === "mentor" || raw === "teacher" || raw === "멘토" || raw === "교사")
-    return "멘토회원";
+export function getMemberLabel(profile: Profile | null) {
+  const kind = classifyMember({
+    memberType: profile?.member_type ?? null,
+    role: profile?.role ?? null,
+  });
+  if (kind !== "unknown") return MEMBER_KIND_LABELS[kind];
+  const raw = cleanText(profile?.member_type).toLowerCase();
   return raw.endsWith("회원") ? raw : `${raw}회원`;
 }
 

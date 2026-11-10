@@ -211,7 +211,7 @@ describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
     renderHeader();
 
     expect(
-      await screen.findByRole("link", { name: /김교사 님/ }),
+      await screen.findByRole("link", { name: "김교사 님 선생님" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
     expect(
