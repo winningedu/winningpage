@@ -15,7 +15,11 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-import { AdminLayout } from "./Admin";
+vi.mock("./admin/shared/adminSession", () => ({
+  getFreshSupabaseAccessTokenOrSignOut: async () => "token",
+}));
+
+import { AdminLayout, requestWinningEmbedding } from "./Admin";
 
 beforeEach(() => {
   localStorage.clear();
@@ -40,5 +44,23 @@ describe("Admin 학습진단 초안", () => {
     await waitFor(() => expect(window.location.replace).toHaveBeenCalled());
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
     expect(localStorage.getItem("other-key")).toBe("keep");
+  });
+
+  it("임베딩 요청이 401이면 학습진단 초안을 지우고 다른 키는 둔다", async () => {
+    localStorage.setItem("diagnosis-draft:u1", "{}");
+    localStorage.setItem("other-key", "keep");
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(JSON.stringify({ detail: "unauthorized" }), {
+          status: 401,
+        }),
+    );
+
+    await requestWinningEmbedding({ id: "row-1" });
+
+    expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
+    expect(localStorage.getItem("other-key")).toBe("keep");
+    vi.unstubAllGlobals();
   });
 });

@@ -405,7 +405,7 @@ function shouldRequestWinningEmbedding(config, row) {
   return WINNING_RAG_KNOWLEDGE_TYPES.has(String(row?.knowledge_type || ""));
 }
 
-async function requestWinningEmbedding(row) {
+export async function requestWinningEmbedding(row) {
   if (!row?.id) return null;
 
   try {
@@ -433,6 +433,8 @@ async function requestWinningEmbedding(row) {
       const detail = result?.detail;
 
       if (response.status === 401) {
+        // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
+        clearAllDrafts();
         await supabase.auth.signOut().catch(() => {});
         throw new Error(
           `${detail || "관리자 인증 실패"}: 로그아웃 후 다시 로그인하세요.`,
