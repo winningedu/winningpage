@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { HANDOFF_STORAGE_KEY } from "../../components/growth/plan/planLogic";
 import { clearGrowthHandoff, readGrowthHandoff } from "./handoff";

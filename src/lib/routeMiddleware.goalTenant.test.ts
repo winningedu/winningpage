@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 목표관리 진입 미들웨어: 스쿨멘토는 결제 이동 대신 기관 사유 오류를 던지고, 위닝은 결제로 보낸다.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

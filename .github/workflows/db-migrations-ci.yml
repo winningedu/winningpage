@@ -9,6 +9,11 @@ name: db-migrations-ci
 on:
   pull_request:
 
+# 같은 PR 에 새 커밋이 오면 이전 리허설을 취소한다(로컬 Docker 스택만 쓰므로 끊어도 안전하다).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   rehearse-migrations:
     runs-on: ubuntu-latest

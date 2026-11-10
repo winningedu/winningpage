@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const { apiFetchMock, getAuthHeaderMock } = vi.hoisted(() => ({
