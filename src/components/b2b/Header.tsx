@@ -134,6 +134,14 @@ export default function Header() {
                 {account.memberLabel && ` ${account.memberLabel}`}
                 <ChevronRight size={24} className="size-6" />
               </Link>
+              {account.myMenuRole === "admin" && (
+                <Link
+                  to="/admin"
+                  className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
+                >
+                  관리자 메뉴
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={signOutB2B}

@@ -299,3 +299,25 @@ describe("b2b Header 역할별 드로어 MY 메뉴", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("b2b Header 데스크톱 관리자 진입", () => {
+  it("관리자는 계정 영역에 관리자 메뉴 링크가 있고 학생은 없다", async () => {
+    loginAs({ member_type: "student", role: "admin" });
+    const { unmount } = renderHeader();
+    await screen.findByRole("link", { name: /최관리 님/ });
+
+    expect(screen.getByRole("link", { name: "관리자 메뉴" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+
+    unmount();
+    loginAs({ member_type: "student", role: "user" });
+    renderHeader();
+    await screen.findByRole("link", { name: /최관리 님/ });
+
+    expect(
+      screen.queryByRole("link", { name: "관리자 메뉴" }),
+    ).not.toBeInTheDocument();
+  });
+});
