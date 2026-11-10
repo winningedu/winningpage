@@ -136,7 +136,7 @@ export default function MyPage() {
             <ProfileTab
               user={user}
               profile={profile}
-              memberType={memberType}
+              isParent={isParent}
               enrollment={enrollment}
             />
           )}

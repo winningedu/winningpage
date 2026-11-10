@@ -26,8 +26,8 @@ const MEMBER_TYPE_KINDS: Record<string, MemberKind> = {
 // role=admin이 member_type보다 우선한다(관리자 계정도 member_type을 가질 수 있다).
 // 비어 있으면 unset, 모르는 값은 unknown이다. 학생으로 조용히 바꾸지 않는다.
 export function classifyMember(input: {
-  memberType?: string | null;
-  role?: string | null;
+  memberType?: string | null | undefined;
+  role?: string | null | undefined;
 }): MemberKind {
   if ((input.role ?? "").trim().toLowerCase() === "admin") return "admin";
   const memberType = (input.memberType ?? "").trim().toLowerCase();

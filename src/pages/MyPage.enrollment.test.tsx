@@ -111,7 +111,7 @@ describe("MyPage 학적", () => {
 describe("MyPage 회원 유형별 탭", () => {
   function renderMyPage() {
     return render(
-      <MemoryRouter initialEntries={["/mypage"]}>
+      <MemoryRouter initialEntries={["/mypage?tab=profile"]}>
         <MyPage />
       </MemoryRouter>,
     );
