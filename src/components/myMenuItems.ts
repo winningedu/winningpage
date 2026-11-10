@@ -10,7 +10,7 @@
 // "자녀 등록 및 수정" 탭이 있다(MyPage.tsx PARENT_TABS). 학생에겐 자녀가 없다.
 // 탭 키는 useMyPageTab.ts의 `?tab=` 쿼리 계약을 그대로 따른다.
 
-import { resolveUserType } from "./userType";
+import { classifyMember } from "@/lib/memberAccess";
 
 export type MyMenuRole = "student" | "parent" | "admin";
 
@@ -49,12 +49,12 @@ export function buildMyMenu(role: MyMenuRole): MyMenuItem[] {
   }
 }
 
-// Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙. 계정 종류는 userType.ts가 정하고,
-// 메뉴에선 선생님(멘토)도 학생 메뉴를 쓴다.
+// Header.tsx가 profile에서 MY 메뉴 역할을 정하는 규칙. 회원 유형은 lib/memberAccess.ts가 정하고,
+// 메뉴에선 관리자와 학부모 외엔 학생 메뉴를 쓴다.
 export function resolveMyMenuRole(input: {
   role?: string | null;
   memberType?: string | null;
 }): MyMenuRole {
-  const userType = resolveUserType(input);
-  return userType === "admin" || userType === "parent" ? userType : "student";
+  const kind = classifyMember(input);
+  return kind === "admin" || kind === "parent" ? kind : "student";
 }

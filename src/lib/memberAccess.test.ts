@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePublicMemberType } from "./memberAccess";
+import { classifyMember, resolvePublicMemberType } from "./memberAccess";
 
 describe("resolvePublicMemberType", () => {
   it("관리자는 member_type 과 상관없이 학생 경로로 통과한다", () => {
@@ -22,5 +22,41 @@ describe("resolvePublicMemberType", () => {
     expect(
       resolvePublicMemberType({ memberType: null, role: null }),
     ).toBeNull();
+  });
+});
+
+describe("classifyMember", () => {
+  it("role이 admin이면 member_type과 상관없이 관리자다", () => {
+    expect(classifyMember({ memberType: "student", role: "admin" })).toBe(
+      "admin",
+    );
+    expect(classifyMember({ memberType: "parent", role: " Admin " })).toBe(
+      "admin",
+    );
+  });
+
+  it.each([
+    ["parent", "parent"],
+    ["parents", "parent"],
+    [" 학부모 ", "parent"],
+    ["학부모회원", "parent"],
+    ["teacher", "teacher"],
+    ["교사", "teacher"],
+    ["mentor", "mentor"],
+    ["멘토", "mentor"],
+    ["멘토회원", "mentor"],
+    ["student", "student"],
+    ["학생", "student"],
+    ["학생회원", "student"],
+    ["", "unset"],
+    [null, "unset"],
+    ["   ", "unset"],
+    ["알수없음", "unknown"],
+  ])("member_type %j 는 %s 다", (memberType, expected) => {
+    expect(classifyMember({ memberType, role: "user" })).toBe(expected);
+  });
+
+  it("role이 없어도 member_type으로 판정한다", () => {
+    expect(classifyMember({ memberType: "parent" })).toBe("parent");
   });
 });
