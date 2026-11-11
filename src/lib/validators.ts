@@ -72,7 +72,7 @@ export function isValidAdmissionYear(value: unknown) {
 }
 
 // textarea 글자수 상한(600 / 800 / 1000 / 2000자) 검사.
-// 기준은 JS 문자열 length(UTF-16 코드유닛)다 — 서버 재검증(api/mentor-apply.js)도 반드시
+// 기준은 JS 문자열 length(UTF-16 코드유닛)다 — 서버 재검증(api/_routes/mentor-apply.js)도 반드시
 // 같은 기준을 써야 클라이언트에서 통과한 값이 서버에서 거절되는 일이 없다.
 // 값이 비어 있으면 true 다(필수 여부는 이 함수의 책임이 아니다).
 export function isWithinMaxLength(value: unknown, max: number) {

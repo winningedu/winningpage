@@ -1,5 +1,5 @@
 // 목표관리 AI 조언(QA 행295·306) — 프롬프트 조립 · 컴플라이언스 후처리 · 규칙 기반
-// 폴백을 담은 순수 함수 모음. DB I/O·Gemini 호출은 전혀 하지 않는다(api/goal/advice.ts
+// 폴백을 담은 순수 함수 모음. DB I/O·Gemini 호출은 전혀 하지 않는다(api/_routes/goal/advice.ts
 // 가 이 모듈의 결과를 캐시·응답에 배선한다) — 그래서 전부 결정적으로 단위 테스트할 수
 // 있다(majorTheme 랜덤만 예외, 호출부가 rand 함수를 주입할 수 있게 열어 둔다).
 //
@@ -97,7 +97,7 @@ export function pickMajorTheme(rand: () => number = Math.random): MajorTheme {
 }
 
 // ---------------------------------------------------------------------------
-// 프롬프트 입력 — api/goal/advice.ts 가 DB 행을 이 모양으로 정규화해 넘긴다.
+// 프롬프트 입력 — api/_routes/goal/advice.ts 가 DB 행을 이 모양으로 정규화해 넘긴다.
 // ---------------------------------------------------------------------------
 
 export type AdviceStudentContext = {
@@ -113,7 +113,7 @@ export type AdviceStudentContext = {
   minSusi: number | null;
   minJungsi: number | null;
   jungsiAvailable: boolean;
-  /** 학습방향 요약(있으면) — api/goal/advice.ts 가 buildNaesinSubjectMetrics 등으로 best-effort 산출. */
+  /** 학습방향 요약(있으면) — api/_routes/goal/advice.ts 가 buildNaesinSubjectMetrics 등으로 best-effort 산출. */
   studentType: { title: string; summary: string; weakSubjects: string } | null;
 };
 
@@ -535,7 +535,7 @@ export function buildRuleFallback(input: AdvicePromptInput): AdviceModelResult {
 }
 
 // ---------------------------------------------------------------------------
-// 최종 payload 조립 — api/goal/advice.ts가 캐시에 저장하고 클라이언트에 돌려주는 shape.
+// 최종 payload 조립 — api/_routes/goal/advice.ts가 캐시에 저장하고 클라이언트에 돌려주는 shape.
 // ---------------------------------------------------------------------------
 
 export type AdvicePayload = {
@@ -569,7 +569,7 @@ export function buildProbabilitySummary(student: AdviceStudentContext): string {
 
 /**
  * Gemini 응답(구조화 JSON)과 규칙 폴백을 같은 shape의 최종 payload로 만든다.
- * origin은 호출부(api/goal/advice.ts)가 결정한다 — 이 함수는 조립만 한다.
+ * origin은 호출부(api/_routes/goal/advice.ts)가 결정한다 — 이 함수는 조립만 한다.
  */
 export function buildAdvicePayload(
   input: AdvicePromptInput,

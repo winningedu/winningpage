@@ -38,7 +38,7 @@ const POLL_INTERVAL_MS = 20 * 1000; // GET 폴링 15~30초 범위(임무 지시)
 // serverNow − Date.now())으로 매초 표시값만 다시 계산한다. 저장은 하지 않는다 —
 // setInterval이 하는 일은 화면 갱신 트리거(tick)뿐이고, 실제 누적은 항상 서버 재조회로
 // 확정된다(폴링·visibilitychange·start/stop 직후 reload).
-// GET /api/goal/timer 응답(camelCase) — api/goal/timer.js 헤더 주석 참고.
+// GET /api/goal/timer 응답(camelCase) — api/_routes/goal/timer.js 헤더 주석 참고.
 type GoalTimerSummaryBody = {
   date: string;
   serverNow: string;

@@ -30,7 +30,7 @@ type GoalRateRowProps = {
 };
 
 // 0.1h 단위 반올림 표시(임무 지시) — round1(src/lib/goalGrades.ts)과 같은 계산이지만
-// 이 카드는 grades 도메인과 무관해 이 파일 안에 별도로 둔다(house 패턴, api/goal/grades.ts
+// 이 카드는 grades 도메인과 무관해 이 파일 안에 별도로 둔다(house 패턴, api/_routes/goal/grades.ts
 // 헤더 주석과 동일 이유).
 function formatHours(hours: number) {
   return (Math.round(hours * 10) / 10).toFixed(1);

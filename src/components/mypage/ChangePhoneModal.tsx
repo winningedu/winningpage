@@ -17,21 +17,21 @@ import MyPageModalShell from "./MyPageModalShell";
 // (멘토신청)와 같은 헬퍼(src/lib/phoneVerification.js sendPhoneCode/verifyPhoneCode)
 // 를 재사용한다 — 새 호출 규약을 만들지 않는다.
 //
-// purpose 는 'phone_change'다(api/send-phone-code.js ALLOWED_PURPOSES 에 이미
+// purpose 는 'phone_change'다(api/_routes/send-phone-code.js ALLOWED_PURPOSES 에 이미
 // 있던 목적 — 이 화면이 처음 소비한다). 'signup' 계열이 아니라서 이미 가입된
 // 본인 번호를 phone_taken 으로 거절하는 SIGNUP_PURPOSES 분기를 타지 않는다.
 //
 // target(2026-09-03, 학부모 핸드폰) — 기본 'self'는 기존 동작 그대로 본인
 // profiles.phone을 바꾼다. 'guardian'이면 profiles.guardian_phone을 바꾸는
 // 화면으로, purpose가 'guardian_change'로 바뀌고(같은 번호로 본인 번호 변경과
-// 동시에 진행 중이어도 purpose_mismatch가 걸러준다) api/change-phone.ts 호출
+// 동시에 진행 중이어도 purpose_mismatch가 걸러준다) api/_routes/change-phone.ts 호출
 // body에 target:'guardian'을 함께 보낸다. 단계 흐름(auth → form → verify →
 // confirm → done)과 본인확인(비밀번호) 게이트는 target과 무관하게 동일하다.
 //
 // 인증 채널은 시안 문구 그대로 카카오톡이다, api/_lib/messaging/aligo.ts 기본 채널이
 // 알림톡(카카오)이라 문구와 실제 발송 채널이 일치한다.
 //
-// 완료 처리는 api/change-phone.js 서버 라우트를 거친다. phone_verifications 는
+// 완료 처리는 api/_routes/change-phone.js 서버 라우트를 거친다. phone_verifications 는
 // RLS 전면 거부 테이블이라(sql/40 [6]) 클라이언트가 인증 여부를 스스로 확인할
 // 수 없고, 그 라우트가 "검증된 번호로만 바뀐다"를 강제한다 — 그 파일 상단 주석
 // 참고.
@@ -186,7 +186,7 @@ export default function ChangePhoneModal({
     setStep("confirm");
   }, [verifying, code, nextPhone, PHONE_PURPOSE]);
 
-  // 최종 확정 — api/change-phone.js.
+  // 최종 확정 — api/_routes/change-phone.js.
   const submit = useCallback(async () => {
     if (confirming) return;
     setConfirming(true);

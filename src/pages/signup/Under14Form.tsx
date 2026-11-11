@@ -271,7 +271,7 @@ export default function Under14Form() {
 
   // T9(2026-09-03): PASS가 넘긴 학부모 휴대폰 번호(흐름 A)가 비어 있으면 — 새로고침
   // 등으로 콜백의 postMessage/보조 채널 결과를 놓친 경우 — requestId로 다시 조회한다
-  // (흐름 B, api/nice-identity-result.ts). 실패하거나 값이 없으면 조용히 넘어가고,
+  // (흐름 B, api/_routes/nice-identity-result.ts). 실패하거나 값이 없으면 조용히 넘어가고,
   // 아래 guardianPhone 필드는 기존처럼 직접 입력 가능한 상태로 남는다.
   useEffect(() => {
     if (!verification.pass.verified || !verification.pass.requestId) return;

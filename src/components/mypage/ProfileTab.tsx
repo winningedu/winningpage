@@ -76,7 +76,7 @@ function formatBirthDate(value: string | null | undefined) {
 }
 
 // 성별 표시 — profiles.gender는 NICE 본인인증 API 응답을 가공 없이 그대로 저장한
-// 값이다(api/nice-identity-callback.ts:242 `gender: result.gender || null`,
+// 값이다(api/_routes/nice-identity-callback.ts:242 `gender: result.gender || null`,
 // supabase/migrations/20260821000006_mentor_apply_gender.sql 주석: "profiles.gender는
 // 외부 본인인증 API 응답을 그대로 흘려받는 컬럼이라 CHECK이 없다" — 그 파일이 정의한
 // '남'/'여' 자체 폼 규약과는 성격이 다르다). 이 값의 숫자 코드 규약(1/2인지 1/0인지)을

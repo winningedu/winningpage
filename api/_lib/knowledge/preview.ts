@@ -1,5 +1,5 @@
 // 관리자 지식 DB 검색 테스트의 판단 순수 함수. 핸들러는
-// api/admin/knowledge-search.ts 이고, 질의문 조립과 패킹 규칙은
+// api/_routes/admin/knowledge-search.ts 이고, 질의문 조립과 패킹 규칙은
 // 학생 요청 경로(knowledge.ts)의 함수를 그대로 가져다 쓴다.
 
 import {

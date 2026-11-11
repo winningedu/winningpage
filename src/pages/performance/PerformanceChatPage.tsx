@@ -1034,7 +1034,7 @@ export default function PerformanceChatPage() {
           data?.error?.code === "UNCHARGED_SESSION_EXISTS"
         ) {
           // 저장 리포트로는 못 돌아간다 — 미차감 세션은 정의상 산출물이 없어 그 목록에
-          // 뜨지 않는다(api/performance/reports.js). 대신 재개 선택 카드로 돌아가는
+          // 뜨지 않는다(api/_routes/performance/reports.js). 대신 재개 선택 카드로 돌아가는
           // 버튼을 실제로 렌더한다(`submitErrorCode`, InlineCard 아래 렌더 지점).
           setSubmitError(
             "이미 진행 중인(회차를 아직 쓰지 않은) 수행평가가 있어요.",
@@ -1483,7 +1483,7 @@ export default function PerformanceChatPage() {
     } catch (error) {
       console.error("[performance] 제출 실패:", error?.code, error);
       // 게이트 실패(`SUBMISSION_TOO_SHORT`/`REQUIRED_FIELD_EMPTY`)는 **초안이 저장된 채로**
-      // 돌아온다 — 서버가 게이트를 저장 이후에 보기 때문이다(`api/performance/submission.js`).
+      // 돌아온다 — 서버가 게이트를 저장 이후에 보기 때문이다(`api/_routes/performance/submission.js`).
       // 학생이 쓰던 글은 남아 있으므로 `submissionSaveError`(자동 저장 실패)는 건드리지
       // 않는다 — 그리핑 원인이었다: 저장은 성공했는데 제출만 실패한 순간에도
       // `submissionSaveError`를 같이 쓰면 `SubmissionForm`이 "저장 실패"를 오표시했다.
@@ -1535,7 +1535,7 @@ export default function PerformanceChatPage() {
   /**
    * `추가 평가 받기`(§5.17). **확정하지 않는다** — §12.2 L2372 「'추가 평가 받기'만 확정 없이
    * 폼을 복원한다」. 서버 호출도 없다: 복원된 폼의 다음 저장이 자연스럽게 새 revision을 연다
-   * (`api/performance/submission.js` 「draft upsert」).
+   * (`api/_routes/performance/submission.js` 「draft upsert」).
    */
   function handleReevaluate() {
     if (finalizeAction) return;

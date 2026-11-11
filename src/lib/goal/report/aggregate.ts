@@ -2,7 +2,7 @@
 //
 // 이 파일은 supabase 를 전혀 모른다 — 전부 행 배열(DB에서 이미 읽어 온 snake_case
 // 객체)과 원시 값(YMD 문자열 등)을 인자로 받아 숫자·구조를 계산만 한다. DB 조회는
-// api/_lib/goal/repo.ts, DB 접속, 라우팅은 api/goal/report.js 가 맡는다, 그래야
+// api/_lib/goal/repo.ts, DB 접속, 라우팅은 api/_routes/goal/report.js 가 맡는다, 그래야
 // 이 파일을 supabase 없이 aggregate.test.ts 로 직접 테스트할 수 있다.
 //
 // 기간 경계는 순수 달력이다(팀장 확정, 변경 금지) — 주간 = 월~일, 월간 = 1일~말일.

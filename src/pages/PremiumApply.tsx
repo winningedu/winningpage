@@ -74,7 +74,7 @@ const FIELD_ORDER: (keyof FormState)[] = [
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_ALLOWED_PATTERN = /^[0-9-]+$/;
 
-// 서버(api/create-consult-request.js)와 동일한 규칙. 클라이언트에서 먼저 걸러 왕복을
+// 서버(api/_routes/create-consult-request.js)와 동일한 규칙. 클라이언트에서 먼저 걸러 왕복을
 // 줄이되, 최종 검증은 서버가 다시 한다.
 function validateForm(form: FormState): FormErrors {
   const errors: FormErrors = {};

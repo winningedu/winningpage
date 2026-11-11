@@ -38,7 +38,7 @@ describe("isGuideFreetextTooLong 경계값", () => {
 describe("analyze-guide.ts 서버 게이트 배선", () => {
   const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
   const HANDLER_SOURCE = fs.readFileSync(
-    path.join(CURRENT_DIR, "../../performance/analyze-guide.ts"),
+    path.join(CURRENT_DIR, "../../_routes/performance/analyze-guide.ts"),
     "utf8",
   );
 

@@ -1,6 +1,6 @@
 // STEP5 제출물 호출 — docs/수행평가-상세-명세.md §8.6(엔드포인트 계약) / §8.3 / §5.14 / §9.3.
 //
-// ── 계약 (`api/performance/submission.js` 코드 실측이 정본)
+// ── 계약 (`api/_routes/performance/submission.js` 코드 실측이 정본)
 //   조회  `GET /api/performance/submission?sessionId=…`
 //         → 200 `{ schema, submission|null, minChars, maxRevisions }`
 //         `schema`는 **서버 소유**다(§8.3 — 외부 앱은 DOM `data-schema` 왕복이라 위조

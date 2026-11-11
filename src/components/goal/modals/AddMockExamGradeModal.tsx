@@ -15,7 +15,7 @@ const ROUND_OPTIONS = MOCK_EXAM_ROUNDS.map((label) => ({
 // placeholder로 판단된다(추정). 그대로 placeholder 예시값으로만 재사용하고 실제 상태는 빈 값으로 시작.
 //
 // QA 행291 재설계(팀장 지시 항목10) — 탐구 단일에서 탐구1・탐구2로 나눈다(온보딩
-// MOCK_SUBJECTS와 같은 분리, api/goal/grades.ts MOCK_SUBJECT_KEYS와 키가 같아야 한다).
+// MOCK_SUBJECTS와 같은 분리, api/_routes/goal/grades.ts MOCK_SUBJECT_KEYS와 키가 같아야 한다).
 const SUBJECTS = [
   { key: "korean", label: "국어", placeholder: "82" },
   { key: "math", label: "수학", placeholder: "74" },

@@ -21,17 +21,17 @@ describe("TOPIC_MAX_ROUNDS 정본 단일화", () => {
   });
 
   test("recommend-topics.js는 로컬 MAX_ROUNDS 대신 정본을 import한다", () => {
-    const source = read("api/performance/recommend-topics.ts");
+    const source = read("api/_routes/performance/recommend-topics.ts");
     expect(source).toContain(
-      'import { TOPIC_MAX_ROUNDS as MAX_ROUNDS } from "../_lib/performance/topic-rounds.js";',
+      'import { TOPIC_MAX_ROUNDS as MAX_ROUNDS } from "../../_lib/performance/topic-rounds.js";',
     );
     expect(source).not.toMatch(/const MAX_ROUNDS = \d+;/);
   });
 
   test("session.js도 로컬 MAX_ROUNDS 대신 정본을 import한다(재개 응답 값 일치)", () => {
-    const source = read("api/performance/session.ts");
+    const source = read("api/_routes/performance/session.ts");
     expect(source).toContain(
-      'import { TOPIC_MAX_ROUNDS } from "../_lib/performance/topic-rounds.js";',
+      'import { TOPIC_MAX_ROUNDS } from "../../_lib/performance/topic-rounds.js";',
     );
     expect(source).toContain("const MAX_ROUNDS = TOPIC_MAX_ROUNDS;");
     expect(source).not.toMatch(/const MAX_ROUNDS = \d+;/);

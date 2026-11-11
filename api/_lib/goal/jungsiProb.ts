@@ -13,7 +13,7 @@
 // 재사용한다.
 //
 // 재계산이 과거 기록을 소급하지 않는 이유(구현 아님, 기존 동작의 자연스러운
-// 결과): api/goal/daily-record.ts:470-472 가 rate_ideal_jungsi/rate_min_jungsi
+// 결과): api/_routes/goal/daily-record.ts:470-472 가 rate_ideal_jungsi/rate_min_jungsi
 // null 을 이미 0 으로 접어(`num(student.rate_ideal_jungsi) ?? 0`) 왔으므로,
 // 정시 컷이 없던 기간의 모든 study_records.delta_*_jungsi 는 처음부터 0 이었다.
 // 즉 뷰(goal_student_state)가 매번 다시 더하는 clamp(base + Σdelta) 의 Σdelta 는

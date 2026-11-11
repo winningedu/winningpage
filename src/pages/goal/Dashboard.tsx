@@ -248,7 +248,7 @@ function mapTodayGoal(
     lowerGoalRate: rateOf(daySchedule.min),
     // QA 행304 — 카드가 달성률 %만 보여주고 실제 이상/최소 목표 "시간(h)"이 어디에도
     // 안 보였다. daySchedule은 이미 서버가 온보딩 때 요일별로 계산해 저장한 값이라
-    // (api/goal/intake.ts buildWeeklySchedule 이 채우는 study_schedule 컬럼, api/_lib/goal/repo.ts
+    // (api/_routes/goal/intake.ts buildWeeklySchedule 이 채우는 study_schedule 컬럼, api/_lib/goal/repo.ts
     // buildStudentPayload가 weeklySchedule로 내려준다) 그대로 넘긴다 — 새로 계산하지 않는다.
     upperTargetHours: daySchedule.ideal,
     lowerTargetHours: daySchedule.min,
@@ -314,7 +314,7 @@ function buildTomorrowPlan(
 function mapMockExam(student: GoalStudent) {
   const { lastMogoExam, currentMogo } = student.scores;
   return {
-    // lastMogoExam 라벨은 api/goal/intake.js MOCK_ROUNDS와 동일('3모'/'6모'/'9모'/'10모').
+    // lastMogoExam 라벨은 api/_routes/goal/intake.js MOCK_ROUNDS와 동일('3모'/'6모'/'9모'/'10모').
     round: lastMogoExam ? `${lastMogoExam} 모의고사` : "모의고사 기록 없음",
     // 모의고사 카드는 D-day 소스가 없다(회차 일정 테이블 자체가 미생성 — 중요일정과 달리
     // 실데이터 전환 대상이 아니다) — dday 키를 생략하면 GoalDdayBadge가 빈 뱃지를 렌더한다
@@ -342,7 +342,7 @@ export function shouldShowRankingRail(rankingResult: RankingResult | null) {
 // 있어도(예: 내가 5등) 병합하지 않는다 — 동률일 때 top의 어느 행이 "나"인지
 // 클라이언트가 rank/hours만 보고 추측해 그 자리를 내 실명으로 바꿔치기하면,
 // 실제로는 다른 학생인 동률 상대의 마스킹 이름이 내 실명으로 뒤바뀌는 사고가
-// 난다(마스킹은 서버 전용 — api/goal/ranking.js 파일 헤더 참고). 그 대가로 내가
+// 난다(마스킹은 서버 전용 — api/_routes/goal/ranking.js 파일 헤더 참고). 그 대가로 내가
 // 상위 5명 안에 들면 같은 사람이 두 행(마스킹+실명)으로 중복 표시될 수 있다 —
 // 이 페이지가 소유한 판단.
 function mapRankingRows(rankingResult: RankingResult | null) {

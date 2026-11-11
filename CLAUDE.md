@@ -13,13 +13,17 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 
 ## Naming
 
-- Components PascalCase (`BulkPanel.tsx`), other `.ts` camelCase, `api/` route files kebab-case (`send-phone-code.ts`).
+- Components PascalCase (`BulkPanel.tsx`), other `.ts` camelCase, `api/_routes/` route files kebab-case (`send-phone-code.ts`).
 
 ## api/
 
 - `api/_lib/` holds shared modules that Vercel does not turn into endpoints. All non-route server code goes here.
 - Relative imports inside `api/` use the `.js` extension. `.ts` breaks production.
 - New endpoints use `defineHandler` from `api/_lib/handler.ts`.
+- Endpoints live in `api/_routes/<path>.ts` and must be registered in a manifest chosen by `maxDuration`: `manifest.ts` (none), `manifest-30.ts`, `manifest-60.ts`. A new limit needs a new `api/router-<n>.ts` entry, a manifest, and a `vercel.json` rewrite.
+- `api/router*.ts` are the only general entry functions. Cron targets (`vercel.json` `crons`), `zoom-webhook.ts`, and `report-pdf.ts` (Chromium memory isolation) stay as standalone files in `api/`. `api/_routes/manifest.test.ts` enforces this.
+- URLs are unchanged: `/api/<path>`.
+- The `vercel.json` catch-all rewrite excludes paths with a `.` or `..` segment: Vercel matches the raw path but hands the function a normalized `req.url`, so `/api/goal/../change-phone` would otherwise reach the `change-phone` handler.
 
 ## Code
 

@@ -1,6 +1,6 @@
 /**
- * 학습진단 유료 게이팅 — 프런트 모듈. 판정 정본은 서버(api/diagnosis/access.ts,
- * api/diagnosis/consume.ts → consume_diagnosis_attempt RPC)다. 이 파일은 그 두
+ * 학습진단 유료 게이팅 — 프런트 모듈. 판정 정본은 서버(api/_routes/diagnosis/access.ts,
+ * api/_routes/diagnosis/consume.ts → consume_diagnosis_attempt RPC)다. 이 파일은 그 두
  * 엔드포인트를 부르고, 실패를 어떻게 흡수할지(fail-open 범위)만 결정한다.
  *
  * ⚠️ 두 함수 모두 **네트워크/서버 오류는 관대하게(fail-open)** 다룬다 — 로컬
@@ -107,7 +107,7 @@ export async function checkDiagnosisAccess(): Promise<DiagnosisAccessResult> {
   }
 }
 
-// api/diagnosis/consume.ts가 실제로 판정을 거부했을 때만 쓰는 코드 — 이 넷은
+// api/_routes/diagnosis/consume.ts가 실제로 판정을 거부했을 때만 쓰는 코드 — 이 넷은
 // consume_diagnosis_attempt RPC의 status 어휘 중 "무엇도 기록/차감하지 않고
 // 막는" 경로에 대응한다(free_used/charged/already_recorded는 전부 진행 허용).
 const BLOCKING_ERROR_CODES = new Set([

@@ -190,7 +190,7 @@ export const revenueConfigs: Record<string, RevenueConfig> = {
       { key: "amount", label: "환불 신청 금액", type: "money" },
       { key: "reason", label: "신청 사유" },
       // 환불계좌 3필드(2026-08-22 추가) — 가상계좌 결제 건 환불에 실제로
-      // 쓰이는 계좌다(api/complete-refund.ts 가 토스 결제취소 API의
+      // 쓰이는 계좌다(api/_routes/complete-refund.ts 가 토스 결제취소 API의
       // refundReceiveAccount로 그대로 넘긴다). columns 배열은 목록 전용이라
       // 이 저장소의 AdminEngine 렌더 구조상 애초에 인라인 편집이 없다 —
       // 편집은 아래 fields(상세/수정 폼)로만 가능하므로 별도 readOnly 플래그가

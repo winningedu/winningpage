@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase";
 // requireAuthMiddleware가 /login?redirect=원래경로로 보낸다). 여기서는 로그인은
 // 됐지만 이 자녀와 연결되지 않은 경우만 다룬다 — fn_parent_children(sql/73)이 UI
 // 게이트다 — 반환 목록에 이 studentId가 approved로
-// 없으면 화면 진입 자체를 막는다(아래 child===null). 진짜 방어선은 api/goal/report.ts가
+// 없으면 화면 진입 자체를 막는다(아래 child===null). 진짜 방어선은 api/_routes/goal/report.ts가
 // studentId 쿼리를 받을 때 서버에서 fn_is_linked_pair로 다시 확인하는 쪽이다(403
 // NOT_LINKED) — 판정 축을 둘로 늘리지 않기 위해 여기서 fn_is_linked_pair를 따로
 // 부르지 않는다(자녀 목록과 열람 권한이 갈라지면 목록엔 보이는데 못 여는 상태가 난다).
@@ -25,7 +25,7 @@ import { supabase } from "@/lib/supabase";
 // GrowthReportBody는 학생 뷰(src/pages/goal/GrowthReport.tsx)와 완전히 동일한 프레젠테이션
 // 컴포넌트를 그대로 재사용한다 — period/onPeriodChange/report 3개 prop만 받는 순수
 // 컴포넌트라 학부모 열람에도 그대로 맞는다(그 파일 주석이 원래 예고했던 재사용 지점).
-// 데이터는 새 RPC를 만들지 않고 기존 api/goal/report.ts에 studentId 쿼리 파라미터를
+// 데이터는 새 RPC를 만들지 않고 기존 api/_routes/goal/report.ts에 studentId 쿼리 파라미터를
 // 추가해 조회한다 — 이용권 게이트·온보딩 게이트·weekly/monthly 집계 파이프라인이 이미
 // 이 엔드포인트에 있고, 학부모 열람은 그 파이프라인을 자녀 프로필 기준으로 그대로 태우면
 // 되기 때문이다.

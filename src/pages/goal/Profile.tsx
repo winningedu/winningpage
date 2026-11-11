@@ -94,7 +94,7 @@ function normalizeStoredNaesin(
   const exams: NaesinState["exams"] = {};
   // naesin_scores.exams는 2026-09-02(749cc3a4) 이후로 시험별 배열
   // `[{ key, groups }]`로만 저장된다 — buildNaesinExamsPayload/naesinExams가 그 모양을
-  // 만든다(api/goal/intake.ts). 그 이전(고정 4회차 체크박스 방식)의 원본 형식은 시험
+  // 만든다(api/_routes/goal/intake.ts). 그 이전(고정 4회차 체크박스 방식)의 원본 형식은 시험
   // key 이름공간 자체가 달라 지금 화면과 호환 불가능이라 별도 변환 없이 그대로
   // 버려진다(buildInitialState가 알 수 없는 키를 자동으로 defaults로 채운다).
   if (Array.isArray(raw.exams)) {

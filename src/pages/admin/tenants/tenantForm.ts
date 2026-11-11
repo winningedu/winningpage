@@ -1,6 +1,6 @@
 // 기관 정보 탭의 입력 값, 검증, 저장 페이로드. 저장은 tenants 를 RLS 로 바로 고치므로(서버 검증 없음)
 // 날짜 순서는 DB 제약(tenants_contract_order, tenants_grace_after_end)과 같은 규칙을 여기서 먼저 막는다.
-// 형식 규칙은 api/console/org-info.ts 와 같다. 소속 코드는 발급 후 불변이라 페이로드에 넣지 않는다.
+// 형식 규칙은 api/_routes/console/org-info.ts 와 같다. 소속 코드는 발급 후 불변이라 페이로드에 넣지 않는다.
 
 export interface TenantFormValues {
   name: string;

@@ -130,7 +130,7 @@ export default function StudentEnrollmentRequest() {
 
   // org 한정 상품 노출 필터(2026-09-01) — 학생 본인 기준(fn_matched_tenant_ids 를
   // 인자 없이 호출 → 본인 + 연결된 학부모의 소속). 표시 전용, 정본은
-  // fn_request_enrollment 의 서버 재검증(api/request-enrollment.ts WC064 매핑).
+  // fn_request_enrollment 의 서버 재검증(api/_routes/request-enrollment.ts WC064 매핑).
   const { ids: matchedTenantIds } = useMatchedTenantIds();
   const orgFilteredServices = useMemo(
     () => filterOrgProducts(filteredServices, matchedTenantIds),
@@ -291,7 +291,7 @@ export default function StudentEnrollmentRequest() {
       // 학부모 연결 판정 — 버튼은 처음부터 비활성화하지 않는다(시안 B는 "시도 후
       // 실패" 모달이다, 팀 리드 지시). 연결이 없으면 여기서 모달을 띄우고 중단한다.
       // (서버도 같은 판정을 다시 한다 — 이 클라이언트 조회는 UX 용이고, 신뢰
-      // 경계는 api/request-enrollment.js 다.)
+      // 경계는 api/_routes/request-enrollment.js 다.)
       const parentLink = await getApprovedParentLink(user.id);
       if (!parentLink) {
         setShowFailModal(true);
@@ -321,7 +321,7 @@ export default function StudentEnrollmentRequest() {
             ...authHeader,
           },
           // id 만 보낸다 — parentProfileId·금액류는 서버가 신뢰하지 않고 무시한다
-          // (api/request-enrollment.js 신뢰 경계 주석 참고).
+          // (api/_routes/request-enrollment.js 신뢰 경계 주석 참고).
           body: JSON.stringify({
             items: [
               ...selectedItems.map((i) => ({ id: i.id })),
@@ -405,7 +405,7 @@ export default function StudentEnrollmentRequest() {
                 {completedOrder.id}
               </dd>
             </div>
-            {/* 연결된 학부모 — api/request-enrollment.ts 가 조회한 parentName을
+            {/* 연결된 학부모 — api/_routes/request-enrollment.ts 가 조회한 parentName을
                 그대로 표시만 한다(QA F2, 2026-08-27). */}
             <div className="flex items-center justify-between gap-4 bg-white px-4 py-3">
               <dt className="shrink-0 text-[0.875rem] font-medium text-ink">

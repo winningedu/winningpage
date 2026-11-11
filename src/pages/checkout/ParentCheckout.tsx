@@ -178,7 +178,7 @@ function mergeStackable(
   }));
 }
 
-// 상품 변경 경로(hasChanged)의 토스 주문명 — api/request-enrollment.ts 의
+// 상품 변경 경로(hasChanged)의 토스 주문명 — api/_routes/request-enrollment.ts 의
 // buildOrderName 과 동일 규칙(첫 상품명 + 2개 이상이면 " 외 N건"). 원 주문의
 // order_name 을 그대로 쓰면 실제로 결제하는 상품과 결제창 표기가 달라진다.
 function buildOrderNameFromItems(items: SelectedItem[]) {

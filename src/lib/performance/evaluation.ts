@@ -1,7 +1,7 @@
 // STEP5 평가·확정 호출 — docs/수행평가-상세-명세.md §8.6(엔드포인트 계약) / §9.3(차감) /
 // §5.15·§5.16·§5.17.
 //
-// ── 계약 (`api/performance/evaluate.js` / `api/performance/finalize.js` 코드 실측이 정본)
+// ── 계약 (`api/_routes/performance/evaluate.js` / `api/_routes/performance/finalize.js` 코드 실측이 정본)
 //   요청  `POST /api/performance/evaluate` `{ sessionId, submissionId }`
 //         **제출 원고를 보내지 않는다.** 서버가 `performance_submissions.fields`에서 읽는다 —
 //         외부 앱은 클라이언트가 결합 텍스트와 `confirm_submit` 플래그를 보냈고

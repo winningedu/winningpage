@@ -6,7 +6,7 @@
 // ⚠️ 가입 완료 후 signOut 하지 않는다
 //   StudentForm은 가입 직후 세션을 파기하지만 학부모는 그러면 안 된다. 바로 다음
 //   화면(E-2~E-4)의 자녀 연결코드 조회가 로그인을 요구하기 때문이다
-//   (api/lookup-child.js — 조회 결과에 미성년자의 이름과 학교가 들어간다).
+//   (api/_routes/lookup-child.js — 조회 결과에 미성년자의 이름과 학교가 들어간다).
 //   여기서 signOut을 넣으면 다음 화면이 통째로 not_authenticated로 죽는다.
 //
 // ⚠️ 인증번호 검증은 서버가 한다
@@ -557,7 +557,7 @@ export default function ParentForm() {
       // 2026-08-25 회의 확정). 기다리지 않는다 — 알리고 왕복이 몇 초 걸릴 수
       // 있고, 문자가 늦거나 실패해도 가입은 이미 끝났다. 서버가 member_type 을
       // 한 번 더 확인하고 중복 발송도 막으므로 여기서 조건을 더 걸지 않는다
-      // (api/signup-welcome.ts 상단 주석).
+      // (api/_routes/signup-welcome.ts 상단 주석).
       void (async () => {
         try {
           const authHeader = await getAuthHeader();

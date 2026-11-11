@@ -1,5 +1,5 @@
 // "나의 노력" 문제집 진도 계산 — 순수 함수만 모아 EffortWorkbookRow/BookStack이 공유한다
-// (api/goal/workbooks.ts 응답 shape과 무관하게 클라이언트 어디서든 같은 규칙으로 계산하도록).
+// (api/_routes/goal/workbooks.ts 응답 shape과 무관하게 클라이언트 어디서든 같은 규칙으로 계산하도록).
 
 /**
  * 달성률(%) — totalPages가 0/null/undefined면(방어적 상황, DB CHECK상 실제로는 항상
