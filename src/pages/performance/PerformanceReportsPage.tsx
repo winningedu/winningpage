@@ -65,7 +65,7 @@ import { performanceBootstrapQueryOptions } from "@/lib/queryClient";
 
 const SUBJECT_GROUP_ALL = "";
 
-/** 목록/상세 조회 응답 1건의 세션 요약 — 서버(`api/performance/reports.js`)가 정규화해
+/** 목록/상세 조회 응답 1건의 세션 요약 — 서버(`api/_routes/performance/reports.js`)가 정규화해
  * 내려준다. 저장소에 별도 공유 타입이 없어 이 화면 안에서만 로컬로 선언한다. */
 type SavedReportListItem = {
   sessionId: string;

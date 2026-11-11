@@ -41,7 +41,7 @@ import PhotoThumb from "./PhotoThumb";
 //   시안이 없다(§11.3 Q81) — `flex-wrap`으로 흘리고 카드 높이는 내용에 맡긴다.
 //
 // ── 클라이언트 검증은 1차 필터다
-//   장수·용량·형식 상한을 여기서도 보지만 **정본은 서버**(`api/performance/upload-url.js`)다.
+//   장수·용량·형식 상한을 여기서도 보지만 **정본은 서버**(`api/_routes/performance/upload-url.js`)다.
 //   여기서 막는 이유는 불필요한 왕복과 실패한 업로드 자리(pending 고아 행)를 줄이는 것뿐이다.
 //   에러 표시 UI는 시안에 없다(§11.3 Q39 — 시안에 토스트 컴포넌트 자체가 없다).
 //   그래서 카드 안 한 줄 `role="alert"` 텍스트로 최소한만 만든다(BasicInfoForm의

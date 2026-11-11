@@ -11,7 +11,7 @@ type OnboardingUser = {
   email?: string;
 };
 
-// 로그인 사용자 이름 추출 — api/create-service-ticket.js의 getUserName()과 동일한 우선순위
+// 로그인 사용자 이름 추출 — api/_routes/create-service-ticket.js의 getUserName()과 동일한 우선순위
 // (user_metadata.name → full_name → student_name → email)를 프런트에서 재사용할 별도 헬퍼가
 // 없어 그대로 이식했다.
 function getUserDisplayName(user?: OnboardingUser | null) {

@@ -1,5 +1,5 @@
 // 저장된 성장설계 리포트의 조회 응답 조립. 순수 모듈이라 DB 와 시계에 닿지 않는다.
-// api/growth/reports.ts 가 행을 읽어 이 모듈로 응답 본문을 만든다.
+// api/_routes/growth/reports.ts 가 행을 읽어 이 모듈로 응답 본문을 만든다.
 
 import { AXES, AXIS_NAMES, type AxisEvaluation, weakestAxis } from "../axes.js";
 import {

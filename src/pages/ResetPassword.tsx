@@ -10,7 +10,7 @@
 //   토큰을 소모해 버리는 문제(otp_expired)를 이렇게 피한다.
 //
 // ② 레거시(해시 링크) 모드 — Supabase 기본 ConfirmationURL 템플릿이 여기 붙는
-//   경로다. 관리자 초대 링크(api/admin/invite-member.ts:159)도 이 경로를 그대로
+//   경로다. 관리자 초대 링크(api/_routes/admin/invite-member.ts:159)도 이 경로를 그대로
 //   쓴다. Supabase 클라이언트는 이 URL을 열면(detectSessionInUrl 기본값 true)
 //   링크에 담긴 recovery 토큰을 스스로 감지해 임시 세션을 만들고
 //   'PASSWORD_RECOVERY' 이벤트를 쏜다. 그 세션이 있어야만

@@ -17,7 +17,7 @@ import {
 // **필수 라벨 = 라벨 전체 `#991e1e`**(§5.5 단정, 별표만이 아니다), 선택 라벨은
 // `#808080`(ink-sub) — TextField/SelectField의 `labelClassName` 확장으로 표현한다.
 //
-// **학교유형은 이 폼에 없다.** `profiles.school_type` 스냅샷은 서버(`api/performance/session.js`)
+// **학교유형은 이 폼에 없다.** `profiles.school_type` 스냅샷은 서버(`api/_routes/performance/session.js`)
 // 전담이다(Q61-ⓔ) — 클라이언트가 보낼 수 있는 필드 자체를 만들지 않는다(신뢰 경계).
 //
 // **'직접 입력' 인터랙션**(원본 `index.html:963-978` 패턴 이식, `performanceCurriculum.js`

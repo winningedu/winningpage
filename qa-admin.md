@@ -103,7 +103,7 @@ prod `mentor_applications` 에 정상 적재되고 있다. dev 가 0행이었던
 - dev 배포 번들이 붙는 Supabase = `gjowqdiopinhixfivnkx` (**dev DB 맞음**)
 
 **cross-write 도 아니다** — dev `phone_verifications` 에 멘토 관문 purpose 인
-`mentor_apply`(`api/mentor-apply.ts:150`) 가 **0건**이다. dev 에서 폼을 끝까지 진행한
+`mentor_apply`(`api/_routes/mentor-apply.ts:150`) 가 **0건**이다. dev 에서 폼을 끝까지 진행한
 사람이 아예 없다는 뜻이라, "인증은 dev 에 남고 신청만 prod 로 갔다"는 시나리오가 배제된다.
 
 **dev 확인용 합성 데이터 5건 투입 (2026-08-31).** 실데이터 복제는 하지 않았다 —

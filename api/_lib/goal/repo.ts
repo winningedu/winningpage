@@ -74,7 +74,7 @@ export const CUT_KEYS = [
 // 20260827011107_goal_timer_subjects.sql, 원래 5종에서 QA B9로 확장)과 AddTaskModal
 // 과목 칩의 한글 라벨(TASK_SUBJECTS, src/components/goal/goalFormOptions.ts)을 잇는다.
 // '탐구' → 'science' 매핑은 team-lead가 sql/75 CHECK 값을 먼저 확정해 준 결과다 —
-// 사회탐구까지 포괄하는 라벨이지만 DB 값은 그대로 따른다. api/goal/plan-tasks.js 는 이
+// 사회탐구까지 포괄하는 라벨이지만 DB 값은 그대로 따른다. api/_routes/goal/plan-tasks.js 는 이
 // 배럴만 참조하고 자체 매핑을 두지 않는다(단일 정본).
 export const SUBJECT_CODE_TO_LABEL: Record<string, string> = {
   korean: "국어",
@@ -198,7 +198,7 @@ export function narrowGoalSession(session: GoalSessionResult): {
 /**
  * 두 프로필이 현재 approved 상태로 연결된 학부모-학생 쌍인지 SECURITY DEFINER RPC로
  * 확인한다(fn_is_linked_pair, supabase/migrations/20260821000000_baseline.sql). 학부모가
- * 자녀 목표관리 리포트를 열람하는 경로(api/goal/report.ts studentId 쿼리) 전용 — 순서는
+ * 자녀 목표관리 리포트를 열람하는 경로(api/_routes/goal/report.ts studentId 쿼리) 전용 — 순서는
  * 무관하다. 조회 실패는 fail-closed로 접는다(checkProgramAccessTable과 동일 판단,
  * api/_lib/serviceAccess.ts — 판정 불가를 "연결됨"으로 오인해 남의 리포트를 열어주지 않는다).
  */
@@ -474,7 +474,7 @@ export async function fetchLatestDailyRecord(
 }
 
 // ---------------------------------------------------------------------------
-// 성장/학습방향 리포트(#33/#34/#37/#38) 조회 — api/goal/report.js 전용.
+// 성장/학습방향 리포트(#33/#34/#37/#38) 조회 — api/_routes/goal/report.js 전용.
 //
 // 이 절의 함수 이름은 병렬 브랜치(daily-record/timer/plan)의 api/_lib/goal/repo.ts 헬퍼와
 // 겹치지 않도록 전부 `*InRange` 접미사로 새로 지었다(dev 머지 시 union되도록).
@@ -508,7 +508,7 @@ export async function fetchRecordsInRange(
 /**
  * goal_timer_sessions — profile_id 1건, session_date 구간 전량. 마감된 세션만
  * 돌려준다(ended_at is not null) — 진행 중인 세션은 duration_seconds 가 null 이라
- * D7/D8 합산에 넣을 수 없다(reconcile 은 api/goal/timer.js 진입점에서만 도는데
+ * D7/D8 합산에 넣을 수 없다(reconcile 은 api/_routes/goal/timer.js 진입점에서만 도는데
  * 리포트 GET 은 그 진입점을 거치지 않으므로, 자정을 넘겨 여러 날 방치된 열린
  * 세션이 있어도 이 쿼리는 그 세션을 아예 보지 않는다 — 과소집계될 수 있다는
  * 뜻이지만, 열린 세션의 duration 을 리포트가 임의로 추정해 보여주는 것보다는
@@ -914,7 +914,7 @@ export function buildPlanTaskPayload(row: Row): PlanTaskPayload {
  * status가 done으로 바뀌고 workbook_id·pageTo가 함께 있을 때 goal_workbooks.
  * current_page를 얼마나 전진시킬지 계산하는 순수 함수(QA 행286-B) —
  * max(기존 진도, 이번 과제 pageTo), 상한은 total_pages. done→pending으로
- * 되돌려도 이 함수는 호출되지 않는다(진도 롤백 없음, api/goal/plan-tasks.ts
+ * 되돌려도 이 함수는 호출되지 않는다(진도 롤백 없음, api/_routes/goal/plan-tasks.ts
  * handlePut 참고) — 페이지를 되감으면 다른 과제가 이미 더 앞서 있던 진도까지
  * 함께 밀릴 수 있어 명시적으로 하지 않기로 했다.
  */
@@ -1105,7 +1105,7 @@ export function buildAwaitingCutsPayload(row: Row) {
 }
 
 // ---------------------------------------------------------------------------
-// 문제집(goal_workbooks) — "나의 노력" 화면(Efforts.jsx). api/goal/workbooks.js 전용.
+// 문제집(goal_workbooks) — "나의 노력" 화면(Efforts.jsx). api/_routes/goal/workbooks.js 전용.
 // 스키마 정본: sql/76_goal_workbooks.sql.
 // ---------------------------------------------------------------------------
 
@@ -1815,7 +1815,7 @@ export async function fetchVisibleTimerSubjects(
  * 타이머 노출 과목 추가("+ 과목 추가", QA B9). 아직 이 학생의 행이 하나도 없으면
  * 기본 4과목을 sort_order 0..3으로 먼저 물질화한 뒤, 요청 과목을 다음 sort_order로
  * 이어 추가한다. 이미 노출 중인 과목을 다시 추가해도 멱등(upsert ignoreDuplicates)
- * — 카탈로그 유효성(TIMER_SUBJECTS.includes) 검증은 호출부(api/goal/timer.ts)가
+ * — 카탈로그 유효성(TIMER_SUBJECTS.includes) 검증은 호출부(api/_routes/goal/timer.ts)가
  * 먼저 한다. 반환은 갱신된 노출 목록 전체.
  */
 export async function addTimerSubject(
@@ -1862,7 +1862,7 @@ export async function addTimerSubject(
 }
 
 // ---------------------------------------------------------------------------
-// AI 조언 캐시(goal_advice_cache, QA 행295·306) — api/goal/advice.ts 전용.
+// AI 조언 캐시(goal_advice_cache, QA 행295·306) — api/_routes/goal/advice.ts 전용.
 // ---------------------------------------------------------------------------
 
 export const TABLE_ADVICE_CACHE = "goal_advice_cache";

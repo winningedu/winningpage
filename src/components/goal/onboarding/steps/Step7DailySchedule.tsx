@@ -58,7 +58,7 @@ export default function Step7DailySchedule({
   const otherDays = WEEKDAY_OPTIONS.filter(({ key }) => key !== activeDay);
   const canAddAcademy = day.academies.length < WEEK_SCHEDULE_MAX_ACADEMIES;
 
-  // 실시간 미리보기 — 서버(api/goal/intake.ts buildWeeklySchedule)와 동일한 순수 함수를
+  // 실시간 미리보기 — 서버(api/_routes/goal/intake.ts buildWeeklySchedule)와 동일한 순수 함수를
   // 그대로 재사용한다(계산 모듈은 클라이언트·서버 양쪽에서 import 가능, calc/DIVERGENCE.md
   // 상단 "이식 원칙" 참고). 학원 이동시간 상수도 서버와 같은 ACADEMY_COMMUTE_HOURS(0.5h,
   // QA 행293 사용자 결정)를 쓴다 — 화면에 보이는 값과 저장되는 값이 어긋나지 않는다.

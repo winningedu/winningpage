@@ -5,7 +5,7 @@
 // 그쪽과 조각 구성이 달라(주제/학생명 없음, 대신 "기간" 하나) 그 파일을 그대로 가져다
 // 쓰지 않는다.
 //
-// 날짜 조각은 `api/goal/report.js`의 `resolveWeeklyPeriod`/`resolveMonthlyPeriod`
+// 날짜 조각은 `api/_routes/goal/report.js`의 `resolveWeeklyPeriod`/`resolveMonthlyPeriod`
 // (`src/lib/goal/report/aggregate.ts`)가 만드는 `periodLabel = "${start} ~ ${end}"`에서
 // 뽑는다 — 서버 응답은 `periodKey`(주간은 그 주 월요일 YMD, 월간은 YYYY-MM)를 그대로
 // 클라이언트에 내려주지 않으므로, 화면에 이미 있는 `periodLabel`의 시작일 토큰을

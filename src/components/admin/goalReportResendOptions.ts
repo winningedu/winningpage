@@ -1,6 +1,6 @@
 // GoalStudentsAdmin "리포트 알림톡 다시 보내기" 섹션의 기간 select 후보 계산.
 //
-// api/goal/admin/resend-report.ts 의 validateResendPeriod 가 서버측 최종
+// api/_routes/goal/admin/resend-report.ts 의 validateResendPeriod 가 서버측 최종
 // 판정이다 — 여기서는 그 규칙을 미리 적용해 "눌러도 어차피 400 나는" 후보를
 // 아예 안 보여준다. 기준일(=그 기간이 실제로 자동 발송되는 날짜)과 14일 상수는
 // 의존이 0에 가까운 잎 모듈(api/_lib/goal/reportResendPolicy.ts) 값을 그대로

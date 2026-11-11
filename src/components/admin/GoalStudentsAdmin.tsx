@@ -1095,7 +1095,7 @@ function GoalProbabilityChart({ logs }: { logs: GoalProbabilityLogRow[] }) {
 
 const GOAL_RECORD_PAGE = 30;
 
-// api/goal/admin/resend-report.ts 의 ResendReportResponse와 같은 모양이다(그
+// api/_routes/goal/admin/resend-report.ts 의 ResendReportResponse와 같은 모양이다(그
 // 서버 타입은 api/ 전용 tsconfig 아래라 여기서 직접 import하지 않는다 — 대신
 // 이 화면이 실제로 읽는 필드만 로컬로 좁게 선언한다).
 interface ResendReportResult {

@@ -202,7 +202,7 @@ export const PROGRESS_SIDEBAR = {
 // 거주 지역(1-5) — 7개 광역권.
 // ⚠ 기존 REGION_OPTIONS(src/pages/signup/StudentForm.jsx, 17개 시도 + 기타)와 체계가 다르다.
 //    이름 충돌과 오용을 막기 위해 MENTOR_ 접두를 붙였다. 재사용 금지, 상호 치환 금지.
-// ⚠ QA 지시(2026-08-21)로 "서울"을 맨 앞에 추가했다 — api/mentor-apply.ts RESIDENCE_REGIONS
+// ⚠ QA 지시(2026-08-21)로 "서울"을 맨 앞에 추가했다 — api/_routes/mentor-apply.ts RESIDENCE_REGIONS
 //    화이트리스트와 반드시 함께 고칠 것(둘 중 하나만 고치면 "서울" 선택 시 서버가 거절한다).
 // ⚠ QA 시트 행93 디자이너 댓글(2026-08-27)로 "수도권"을 "경기"로 바꿨다(사용자 확정 2026-09-07,
 //    시안 3372-4059는 아직 "수도권"). 기존 지원서의 "수도권" 값은 표시만 하므로 그대로 둔다.
@@ -218,7 +218,7 @@ export const MENTOR_REGION_OPTIONS = [
 
 // 지원자 성별(1-신설) — QA 지시(2026-08-21)로 추가한 단일 선택 칩.
 // DB 컬럼(mentor_applications.gender, supabase/migrations/20260821000006_mentor_apply_gender.sql)
-// 과 서버 화이트리스트(api/mentor-apply.ts GENDERS)까지 전부 배선됐다 — 값을 바꾸려면 셋을
+// 과 서버 화이트리스트(api/_routes/mentor-apply.ts GENDERS)까지 전부 배선됐다 — 값을 바꾸려면 셋을
 // 항상 함께 고칠 것.
 export const GENDER_OPTIONS = ["남", "여"];
 

@@ -6,7 +6,7 @@
 //
 // ⚠️ 여기서 하는 확장자·용량 검사는 **UX 용일 뿐 보안 장치가 아니다.**
 // 클라이언트 검증은 개발자도구로 얼마든지 우회되므로, 실제 강제는 제출 엔드포인트
-// (`api/mentor-apply.js`, 명세 §백엔드/데이터 3)가 MIME·확장자 화이트리스트와
+// (`api/_routes/mentor-apply.js`, 명세 §백엔드/데이터 3)가 MIME·확장자 화이트리스트와
 // 크기 상한을 **서버에서 다시** 검사해서 한다. 이 컴포넌트는 사용자가 업로드를
 // 끝까지 진행한 뒤에야 거절당하는 일을 줄이는 역할만 한다.
 //
@@ -17,7 +17,7 @@
 // signed upload URL 방식**으로 바꿨다 — 클라이언트가 Supabase Storage 에 파일을
 // 직접 올리고(이 요청은 서버리스 함수를 거치지 않아 함수 본문 상한과 무관하다), 지원서
 // 제출 요청에는 업로드된 경로(`proof_file_path`)만 실어 보낸다(MentorApplyForm.jsx 제출
-// 로직, api/mentor-apply-upload-url.js). 이걸로 Vercel 4.5MB 벽은 벗어났지만, 그
+// 로직, api/_routes/mentor-apply-upload-url.js). 이걸로 Vercel 4.5MB 벽은 벗어났지만, 그
 // 대신 **Supabase 프로젝트 전역 Storage 업로드 상한(실측 52428800 = 50MB, dev·운영
 // 동일)이 새로운 천장**으로 드러났다 — 버킷 file_size_limit 을 100MB 로 걸어도 전역
 // 상한에서 먼저 막힌다. 그래서 표시 문구도 상한도 **50MB** 로 정렬했다(2026-08-10
@@ -52,11 +52,11 @@ const DEFAULT_ACCEPT = ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(",");
 // 2단계 signed upload 전환으로 서버리스 함수 본문 상한(4.5MB)과는 무관해졌지만,
 // Supabase 프로젝트 전역 Storage 업로드 상한이 실측 50MB 라 그 값을 기본 상한으로
 // 쓴다(위 파일 상단 ⚠️ 참고). 실제 강제는 여전히 서버(Storage 정책 +
-// api/mentor-apply-upload-url.js) 몫이고 여기는 UX 용이다.
+// api/_routes/mentor-apply-upload-url.js) 몫이고 여기는 UX 용이다.
 //
-// api/mentor-apply.js 의 MAX_FILE_BYTES 와 값이 같아야 한다 — 서버 상수를 그대로
+// api/_routes/mentor-apply.js 의 MAX_FILE_BYTES 와 값이 같아야 한다 — 서버 상수를 그대로
 // import 하지 않는 이유는 api/ 가 클라이언트 번들과 분리된 서버리스 함수라서다
-// (같은 패턴이 api/mentor-apply.js:199-201 화이트리스트 복제 주석에도 있다).
+// (같은 패턴이 api/_routes/mentor-apply.js:199-201 화이트리스트 복제 주석에도 있다).
 // 둘 중 하나만 고치면 "선택은 되는데 제출 직전 서버가 거절"하는 조용한 어긋남이
 // 생기므로, 이 값을 바꿀 때는 반드시 서버 쪽도 함께 바꿀 것.
 const DEFAULT_MAX_SIZE_BYTES = 50 * 1024 * 1024;

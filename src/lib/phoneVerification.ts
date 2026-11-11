@@ -4,7 +4,7 @@
 // ⚠️ mock과 구조가 다르다 — 단순 치환이 아니다
 //   mock은 발송 시점 코드를 클라이언트에 내려주고 프론트가 로컬 비교했다.
 //   그러면 응답만 열어봐도 누구나 통과한다. 실제로는 **검증도 서버가** 한다
-//   (api/verify-phone-code.js). 그래서 호출부에 mockCode를 들고 있던 상태가
+//   (api/_routes/verify-phone-code.js). 그래서 호출부에 mockCode를 들고 있던 상태가
 //   사라지고, 검증 결과를 서버 응답으로 받는다.
 //
 // 시도 횟수 제한
@@ -87,7 +87,7 @@ export type VerifyPhoneCodeResult =
  * 인증번호를 발송한다.
  *
  * guardian_signup/guardian_change(2026-09-03)는 학생이 본인 명의 휴대폰이 없어
- * profiles.guardian_phone에 저장하는 학부모 번호 인증 경로다 — api/send-phone-code.ts
+ * profiles.guardian_phone에 저장하는 학부모 번호 인증 경로다 — api/_routes/send-phone-code.ts
  * ALLOWED_PURPOSES와 동일한 값이어야 한다.
  */
 export async function sendPhoneCode(
@@ -151,7 +151,7 @@ export async function sendPhoneCode(
  * 인증번호를 검증한다. 판정은 서버가 한다.
  *
  * purpose(선택, 2026-09-03) — 넘기면 서버가 대상 인증 행의 purpose와 일치하는지
- * 함께 확인한다(api/verify-phone-code.ts). 같은 번호로 목적이 다른 인증이 동시에
+ * 함께 확인한다(api/_routes/verify-phone-code.ts). 같은 번호로 목적이 다른 인증이 동시에
  * 진행 중일 때(예: 본인 번호 변경 중 학부모 번호도 바꾸는 경우) 엉뚱한 코드로
  * 통과되는 것을 막는다. 생략하면 기존 동작 그대로다 — 기존 호출부는 고칠 필요 없다.
  */

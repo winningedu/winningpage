@@ -26,7 +26,7 @@ import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 // 트리거: 중요일정 목록 페이지(Schedules.jsx) 우상단 `일정 등록`(신규) / 카드별 `수정`(값 프리필,
 // initial prop — 수정용 시안은 없어 동일 모달 재사용을 추정한 구현, part-14 §164).
 //
-// scheduleType은 값(value)을 카테고리 **코드**로 쓴다(api/goal/schedules.js 와이어 계약,
+// scheduleType은 값(value)을 카테고리 **코드**로 쓴다(api/_routes/goal/schedules.js 와이어 계약,
 // src/lib/goal/scheduleCategory.js 참고) — 라벨은 화면 전용이고 저장·전송은 항상 코드다.
 const SCHEDULE_TYPE_OPTIONS = SCHEDULE_CATEGORIES.map(({ code, label }) => ({
   value: code,

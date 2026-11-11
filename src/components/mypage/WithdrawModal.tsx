@@ -8,7 +8,7 @@
 //
 // 2단계 확인(QA 시트 지시) — 사유 선택 화면 자체는 위 시안을 그대로 두고, "탈퇴 진행"을
 // 누르면 그 뒤에 안내(notice) → 최종 재확인(confirm) 두 단계를 추가로 거친다. 실제
-// 삭제(api/delete-account.ts → fn_delete_account)는 confirm 단계에서만 호출된다.
+// 삭제(api/_routes/delete-account.ts → fn_delete_account)는 confirm 단계에서만 호출된다.
 import { useEffect, useState } from "react";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";

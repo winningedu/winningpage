@@ -803,7 +803,7 @@ export function checkSubmissionMinLength(
 // `submission_text`로 올려보냈고, 서버는 그것을 그대로 프롬프트 `[학생 제출물]`에
 // 넣고 **동시에 100자 게이트의 측정 대상으로도 썼다**(`api/evaluate-text.js:38`).
 // 즉 게이트가 재는 대상을 클라이언트가 만들었다. 여기서는
-//   · 조립은 서버(`api/performance/evaluate.js`가 이 함수를 부른다),
+//   · 조립은 서버(`api/_routes/performance/evaluate.js`가 이 함수를 부른다),
 //   · 게이트는 조립 결과가 아니라 **필드 값 순수 본문**(`countSubmissionChars`)
 // 으로 갈라 놓았다(Q35). 두 관심사가 한 문자열을 공유하던 것이 외부 결함의 원인이다.
 //

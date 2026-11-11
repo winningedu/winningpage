@@ -27,7 +27,7 @@ const HEARTBEAT_INTERVAL_MS = 60 * 1000;
  * QA3 행305 후속 — "오늘의 공부 기록" 미기록 뱃지 판정. 순수 함수로 분리해
  * 단독 테스트한다(Dashboard.tsx buildTodayHeadline과 동일 관례). record.recordIndex가
  * null이 아니면(실제 daily_records 행 존재 — 타이머 시간만으로 합성된 프리필은
- * recordIndex:null이라 여기 해당 없다, api/goal/daily-record.ts mergeTimerIntoRecord
+ * recordIndex:null이라 여기 해당 없다, api/_routes/goal/daily-record.ts mergeTimerIntoRecord
  * 계약) 오늘 이미 기록을 남긴 것이다. cooldown.active도 같은 결론(제출하지 않으면
  * 잠금 자체가 없다) — 자정을 갓 넘겨 오늘 행은 아직 없지만 어제 밤 제출로 잠금만
  * 남아 있는 경우까지 "기록함"으로 잡는다.

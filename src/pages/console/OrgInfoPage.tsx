@@ -1,6 +1,6 @@
 // W17 내정보관리(스펙 3절). 입력, 확인, 조회 전용 세 단계.
 // 최종확인은 저장(PATCH) 뒤 확정(POST confirm) 두 번 호출한다(결정 47). 확정이 실패하면 다시 누르면 된다.
-// 본사 대행은 읽기만 한다(결정 48). 검사 패턴은 서버 api/console/org-info.ts 와 같다.
+// 본사 대행은 읽기만 한다(결정 48). 검사 패턴은 서버 api/_routes/console/org-info.ts 와 같다.
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";

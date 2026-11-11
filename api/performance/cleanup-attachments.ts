@@ -96,7 +96,7 @@
 
 import { defineHandler } from "../_lib/handler.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { BUCKET } from "./upload-url.js";
+import { BUCKET } from "../_routes/performance/upload-url.js";
 
 /** §8.8 「보관 기간 — 90일」 */
 const RETENTION_DAYS = 90;

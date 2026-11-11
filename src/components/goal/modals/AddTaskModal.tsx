@@ -60,7 +60,7 @@ type AddTaskModalSubmitPayload = {
   weekdays?: number[];
   // 문제집 연결(QA 행286-B, 선택) — 연결 안 하면 셋 다 없다. workbookId만 있고
   // 페이지가 없으면 페이지 없이 연결만, 셋 다 있으면 페이지 범위까지 연결한다
-  // (api/goal/plan-tasks.ts validateWorkbookLinkFields와 같은 규약).
+  // (api/_routes/goal/plan-tasks.ts validateWorkbookLinkFields와 같은 규약).
   workbookId?: number;
   pageFrom?: number;
   pageTo?: number;
@@ -141,7 +141,7 @@ export default function AddTaskModal({
   const pageFromNum = pageFrom === "" ? null : Number(pageFrom);
   const pageToNum = pageTo === "" ? null : Number(pageTo);
   // 페이지 두 칸은 "둘 다 비움" 또는 "둘 다 채움"만 허용한다(서버 검증과 동일 규약,
-  // api/goal/plan-tasks.ts validateWorkbookLinkFields) — 한쪽만 채우면 저장 버튼을 막는다.
+  // api/_routes/goal/plan-tasks.ts validateWorkbookLinkFields) — 한쪽만 채우면 저장 버튼을 막는다.
   const pageRangeInvalid =
     Boolean(selectedWorkbook) &&
     ((pageFrom === "") !== (pageTo === "") ||

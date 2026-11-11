@@ -1,5 +1,5 @@
 // 수행평가 지식 DB 엑셀 일괄 반영의 판단과 변환 순수 함수.
-// 라우트(api/admin/knowledge-bulk.ts)는 이 결과를 그대로 DB 에 쓴다.
+// 라우트(api/_routes/admin/knowledge-bulk.ts)는 이 결과를 그대로 DB 에 쓴다.
 //
 // 규칙
 //   knowledge_type 은 파일 값과 무관하게 메뉴 고정값으로 덮는다(fixedValues 관용구).

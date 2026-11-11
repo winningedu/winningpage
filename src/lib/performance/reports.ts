@@ -1,5 +1,5 @@
 // 저장 리포트(P12) 조회 호출 — docs/수행평가-상세-명세.md §5.18/§5.19/§8.6,
-// `api/performance/reports.js` 코드 실측이 정본.
+// `api/_routes/performance/reports.js` 코드 실측이 정본.
 //
 // ── 계약
 //   목록  `GET /api/performance/reports?cursor=<updated_at ISO>&limit=<n>`

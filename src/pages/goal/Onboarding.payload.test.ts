@@ -9,7 +9,7 @@ import type {
 } from "@/context/GoalOnboardingContext";
 import { buildMockRoundsPayload, buildNaesinExamsPayload } from "./Onboarding";
 
-// 로컬 E2E 버그(팀장 지시) — 서버 방어(api/goal/intake.ts 표시 창 검증)와 별개로
+// 로컬 E2E 버그(팀장 지시) — 서버 방어(api/_routes/goal/intake.ts 표시 창 검증)와 별개로
 // 클라이언트도 화면에 보이지 않는 빈/스테일 회차・시험을 굳이 payload에 실어 보내지
 // 않아야 한다. 순수 함수 두 개만 직접 검증한다(intake.naesinMogo.test.ts의
 // 서버 쪽 창 검증 테스트와 같은 창 규칙을 공유).

@@ -4,7 +4,7 @@
 // 있어야 작성 현황 사이드바(§6-3)가 27개 필수 필드의 채움 상태를 한 곳에서 셀 수 있고,
 // 제출 페이로드도 섹션별로 흩어지지 않는다(명세 §6-3 / §백엔드·데이터).
 //
-// 필드 name 은 DB 컬럼(sql/52_mentor_applications.sql) 및 제출 엔드포인트(api/mentor-apply.js)의
+// 필드 name 은 DB 컬럼(sql/52_mentor_applications.sql) 및 제출 엔드포인트(api/_routes/mentor-apply.js)의
 // 키와 **문자 그대로 동일한 snake_case** 로 맞췄다. 화면용 camelCase 를 따로 두면 제출 직전에
 // 매핑 테이블이 하나 더 생기고, 그 테이블이 곧 오타의 발원지가 된다.
 //
@@ -60,7 +60,7 @@ export const COMPETENCY_MULTI_FIELD_NAMES = [
   "consult_grades",
 ];
 
-// 글자수 상한(§폼 명세 섹션 4 검증규칙). 서버(api/mentor-apply.js)와 동일한 값이다.
+// 글자수 상한(§폼 명세 섹션 4 검증규칙). 서버(api/_routes/mentor-apply.js)와 동일한 값이다.
 //
 // ⚠ 이 값을 `maxLength` 로 컨트롤에 직접 걸고 `showCounter` 도 함께 켰다. 시안은 상한을
 //    placeholder 안 `(600자 이내)` 문구로만 알리고 카운터를 그리지 않았으므로(확인 항목 ㉝)

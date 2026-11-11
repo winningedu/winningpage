@@ -6,7 +6,7 @@
 // Gate B 대조 시 반드시 재검토가 필요하다(design-doc §9 미결 항목 아님 —
 // 스키마에는 있으나 생성 경로가 아직 없는 케이스).
 //
-// **실사용 생성 경로는 수행평가 설계 리포트다**(2026-08, P10). `api/performance/design-report.js`가
+// **실사용 생성 경로는 수행평가 설계 리포트다**(2026-08, P10). `api/_routes/performance/design-report.js`가
 // §8.5 계약대로 `{kind:'keyValue', rows:[{label, content, href?}]}`를 만들고,
 // `PerformanceReportSurface`가 admission-* 클래스에 수행평가 시안 스타일을 다시 입힌다
 // (docs/수행평가-상세-명세.md §6.2 「`AdmissionSurface`는 재사용 불가 — 스타일 신설」).

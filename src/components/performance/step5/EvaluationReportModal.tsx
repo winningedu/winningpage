@@ -19,7 +19,7 @@ import SectionedReportView, {
 // 「평가 리포트 = 카드 1 + sections 7. 프롬프트의 평가 형식은 8항목이지만 **렌더 계약은
 // 8섹션이 아니다.**」 §5.16의 「섹션 목록」 8행은 *프롬프트 항목 번호* 기준 표기이고,
 // 1번 `종합 평가 점수`는 `score`/`summary` 스칼라 2개로 승격돼 `sections`에서 빠진다.
-// 서버가 그 계약대로 내려준다(`api/performance/evaluate.js buildEvaluationSections` +
+// 서버가 그 계약대로 내려준다(`api/_routes/performance/evaluate.js buildEvaluationSections` +
 // `api/_lib/performance/prompts.js EVALUATION_REPORT_SECTIONS` 7종):
 //
 //   화면 순서 1 | 종합 평가 점수            | **이 파일의 점수 카드**(score + summary)

@@ -30,7 +30,7 @@ const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 // 사용자가 창을 닫았는지 보는 주기. 닫힘은 이벤트로 알 수 없어 폴링뿐이다.
 const CLOSE_POLL_MS = 500;
 
-// 콜백이 결과를 한 번 더 남겨 두는 자리(api/nice-identity-callback.ts).
+// 콜백이 결과를 한 번 더 남겨 두는 자리(api/_routes/nice-identity-callback.ts).
 // postMessage 가 유실돼도 여기서 주워 온다.
 const RESULT_STORAGE_KEY = "winning:nice-identity";
 // 이전 시도의 찌꺼기를 이번 결과로 오인하지 않도록 최근 것만 인정한다.
@@ -45,7 +45,7 @@ type CallbackPayload = {
   age?: string | number | null;
   reason?: string;
   // 법정대리인(학부모) 휴대폰 번호 프리필용 — mobile만 예외로 원문 값을 싣는다
-  // (api/nice-identity-callback.ts 참고). 없으면 빈 문자열.
+  // (api/_routes/nice-identity-callback.ts 참고). 없으면 빈 문자열.
   mobile?: string;
 };
 
@@ -273,7 +273,7 @@ export async function runIdentityVerification({
 
 /**
  * 콜백의 postMessage/보조 채널을 놓쳤을 때(새로고침·복귀) DB에서 PASS 휴대폰
- * 번호를 다시 조회한다(흐름 B — api/nice-identity-result.ts). 실패하면 조용히
+ * 번호를 다시 조회한다(흐름 B — api/_routes/nice-identity-result.ts). 실패하면 조용히
  * 빈 문자열을 돌려준다 — 이 값이 없어도 사용자는 기존처럼 직접 입력할 수 있다.
  */
 export async function fetchIdentityMobile(requestId: string): Promise<string> {

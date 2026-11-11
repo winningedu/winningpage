@@ -1,5 +1,5 @@
 // 성장설계 API 응답과 요청 타입, 서버 핸들러 머리 주석과 api/_lib/growth 의 순수 모듈 반환형을
-// 그대로 옮겼다(api/growth/survey.ts, collect.ts, report.ts, reports.ts, plan.ts, plan/item.ts).
+// 그대로 옮겼다(api/_routes/growth/survey.ts, collect.ts, report.ts, reports.ts, plan.ts, plan/item.ts).
 // 서버 계약이 바뀌면 이 파일만 고친다. 서버 주석에 모양이 없는 큰 jsonb 필드(sections, signals 등)는
 // 화면 담당이 쓰는 시점에 좁히도록 unknown 으로 둔다.
 //

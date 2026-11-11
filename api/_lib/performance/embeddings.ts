@@ -115,7 +115,7 @@ export function getEmbeddingDimension(): number {
  * ⚠️ `keywords`는 이 저장소의 어떤 쓰기 경로에도 없다(어드민 폼에 필드 없음).
  *    그래도 줄을 유지하는 이유는 기존 코퍼스의 공식과 문자 단위로 일치시키기
  *    위해서다. 호출부는 이 컬럼을 반드시 select 해야 한다 —
- *    `api/performance/admin-embed.js`의 SELECT_COLUMNS 에 포함되어 있다.
+ *    `api/_routes/performance/admin-embed.js`의 SELECT_COLUMNS 에 포함되어 있다.
  *    빠뜨리면 값이 있는 행에서도 `키워드: `가 빈 채로 조립돼 공식이 다시 어긋난다.
  */
 /** `buildKnowledgeSearchText`가 실제로 읽는 필드만 담은 최소 형태. */

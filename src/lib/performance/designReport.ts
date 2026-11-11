@@ -1,6 +1,6 @@
 // STEP4 설계 리포트 호출 — docs/수행평가-상세-명세.md §8.6(엔드포인트 계약) / §9.3(차감) / §5.12.
 //
-// ── 계약 (`api/performance/design-report.js` 코드 실측이 정본)
+// ── 계약 (`api/_routes/performance/design-report.js` 코드 실측이 정본)
 //   요청  `POST /api/performance/design-report` `{ sessionId, topicId, regenerate? }`
 //   성공  `200 { reportId, topicId, structure{type,reason,writingFrame}, sections[], resources[],
 //               quotaRemaining, charged:false, generationCount, maxGenerations, promptVersion,

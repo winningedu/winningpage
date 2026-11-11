@@ -35,7 +35,7 @@ import { goalDailyRecordQueryOptions } from "@/lib/queryClient";
 import { goalNotAllowedMessage } from "@/lib/tenantBlock";
 
 // 코드값 → 라벨(studyRecordOptions.js 옵션 그대로) / 라벨 → 코드값(GET 응답 프리필용, 서버는
-// api/goal/daily-record.js 가 한글 라벨로 저장하므로 역매핑이 필요하다).
+// api/_routes/goal/daily-record.js 가 한글 라벨로 저장하므로 역매핑이 필요하다).
 const TASK_CODE_BY_LABEL = Object.fromEntries(
   STUDY_ITEM_OPTIONS.map((o) => [o.label, o.value]),
 );

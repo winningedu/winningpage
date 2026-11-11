@@ -8,12 +8,12 @@
 // 이 규칙을 다시 구현하면(과거 한 차례 그랬다) 서버와 반드시 어긋난다 —
 // orders만 있고 program_access/enrollments가 없는 사용자, 혹은 그 반대인
 // 사용자가 생기면 양쪽 판정이 갈린다. 그래서 판정 로직은 여기 한 곳에만
-// 두고, api/create-service-ticket.js(SSO 티켓 발급), api/check-service-access.js
+// 두고, api/_routes/create-service-ticket.js(SSO 티켓 발급), api/_routes/check-service-access.js
 // (클라이언트 조회용, 읽기 전용), api/_lib/goal/repo.ts(목표관리 서버 라우트의
 // 세션 게이트)가 함께 쓴다.
 //
 // target_url·SSO_SECRET·티켓 서명처럼 "티켓 발급" 전용 로직은 여기 없다.
-// 그건 api/create-service-ticket.js에 남아 있다 — 접근 판정과는 관심사가
+// 그건 api/_routes/create-service-ticket.js에 남아 있다 — 접근 판정과는 관심사가
 // 다르다(check-service-access.js는 target_url/SSO_SECRET을 아예 요구하지
 // 않는다).
 
@@ -40,7 +40,7 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
     service_name: "AI 수행평가 서비스",
     // target_url(SUHAENG_SERVICE_URL) 폐기(인앱 전환, 2026-08-13) — 수행평가는
     // 더 이상 외부 앱으로 SSO 티켓 발급・리다이렉트하지 않는다
-    // (api/create-service-ticket.js의 suhaeng 조기 분기 참고). 이 config 자체는
+    // (api/_routes/create-service-ticket.js의 suhaeng 조기 분기 참고). 이 config 자체는
     // 계속 쓴다 — payment_keywords/program_keys는 hasPaidServiceAccess 판정
     // (check-service-access.js, RequireEntitlement 가드 경로)이 그대로 참조한다.
     payment_keywords: ["수행", "수행평가", "AI 수행평가", "세특팅"],
@@ -72,7 +72,7 @@ export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
   },
   // 학습진단(이용 요금 구조 최종본 20260806) — 유료 전환. 회원가입 시 1회 무료는
   // 이 config가 관여하지 않는 별도 판정이다(diagnosis_attempts kind='free',
-  // api/diagnosis/access.ts·consume.ts 참고) — hasPaidServiceAccess는 "무료 1회
+  // api/_routes/diagnosis/access.ts·consume.ts 참고) — hasPaidServiceAccess는 "무료 1회
   // 이후" 이용권만 본다. products.program_key='diagnose'(sql/60 관계, session_quota
   // 1)와 1:1 대응.
   diagnose: {

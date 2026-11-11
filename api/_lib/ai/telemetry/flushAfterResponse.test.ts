@@ -13,20 +13,20 @@ function source(relative: string): string {
 }
 
 const AFTER_RESPONSE = [
-  "performance/recommend-topics.ts",
-  "performance/design-report.ts",
-  "performance/evaluate.ts",
-  "performance/analyze-guide.ts",
-  "performance/admin-embed.ts",
-  "growth/collect.ts",
-  "admin/knowledge-search.ts",
-  "admin/knowledge-dedupe.ts",
-  "admin/knowledge-eval.ts",
+  "_routes/performance/recommend-topics.ts",
+  "_routes/performance/design-report.ts",
+  "_routes/performance/evaluate.ts",
+  "_routes/performance/analyze-guide.ts",
+  "_routes/performance/admin-embed.ts",
+  "_routes/growth/collect.ts",
+  "_routes/admin/knowledge-search.ts",
+  "_routes/admin/knowledge-dedupe.ts",
+  "_routes/admin/knowledge-eval.ts",
 ];
 
 const BEFORE_RESPONSE = [
   "performance/embed-session-vectors.ts",
-  "goal/advice.ts",
+  "_routes/goal/advice.ts",
   "_lib/inquiry/generate.ts",
   "_lib/selfeval/runModelStep.ts",
   "_lib/growth/report/advance.ts",

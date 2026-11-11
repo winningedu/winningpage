@@ -1,8 +1,8 @@
 // 결제 확정 시 이용 권한(program_access)을 부여/회수하는 공용 모듈.
 //
 // 왜 별도 파일인가
-//   부여 지점이 두 곳이다. 카드·간편결제는 api/confirm-payment.js 가 승인 직후
-//   주문을 paid 로 확정할 때, 가상계좌는 api/toss-webhook.js 가 입금을 확인해
+//   부여 지점이 두 곳이다. 카드·간편결제는 api/_routes/confirm-payment.js 가 승인 직후
+//   주문을 paid 로 확정할 때, 가상계좌는 api/_routes/toss-webhook.js 가 입금을 확인해
 //   waiting_deposit → paid 로 전이할 때다. 같은 로직을 두 벌 두면 한쪽만
 //   고쳐지는 사고가 나므로 여기로 모은다(api/_lib/supabaseAdmin.js 주석의
 //   "신규 파일부터는 여기로 모은다" 방침).
@@ -204,7 +204,7 @@ export async function grantProgramAccessForOrder(
     // 주문 라인이 0건인 경우 RPC 가 ok=false + error='no_order_items' 를 준다.
     result.ok = payload.ok === true;
     result.error = result.ok ? null : clean(payload.error) || "grant_failed";
-    // 진단용. api/confirm-payment.js·api/toss-webhook.js 가 로그에 싣는다.
+    // 진단용. api/_routes/confirm-payment.js·api/_routes/toss-webhook.js 가 로그에 싣는다.
     result.ledgerInserted = Number(payload.ledger_inserted ?? 0);
     return result;
   } catch (err) {

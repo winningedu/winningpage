@@ -1,5 +1,5 @@
 // 목표관리 리포트 알림톡 — "조회 → 발송"을 크론 3종(일간·주간·월간)과
-// 관리자 재발송(api/goal/admin/resend-report.ts)이 공유하는 부분.
+// 관리자 재발송(api/_routes/goal/admin/resend-report.ts)이 공유하는 부분.
 //
 // 로더/발송 두 단계로 나눈 이유
 //   처음에는 "학생 1명분 발송" 함수 하나로 뽑았는데, 그러면 크론이 학생마다
@@ -22,7 +22,10 @@
 //   중복 발송된다. goalReportSend.test.ts 가 이 포맷을 리터럴 문자열로 고정한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CONDITION_LABELS, TASK_LABELS } from "../../goal/daily-record.js";
+import {
+  CONDITION_LABELS,
+  TASK_LABELS,
+} from "../../_routes/goal/daily-record.js";
 import { sendAndLog } from "../messaging/alimtalkSend.js";
 import {
   achievementRate,

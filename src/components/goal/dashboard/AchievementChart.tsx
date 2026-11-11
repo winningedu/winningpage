@@ -17,7 +17,7 @@ import GoalCard from "@/components/goal/GoalCard";
 // 목표대학 수시/정시 합격확률" 4계열 시계열이라 데이터 모양 자체가 다르다.
 //
 // 계열: 이상_수시 · 이상_정시 · 최소_수시 · 최소_정시 (goal_probability_logs
-// ideal_susi/ideal_jungsi/min_susi/min_jungsi, api/goal/student.js가
+// ideal_susi/ideal_jungsi/min_susi/min_jungsi, api/_routes/goal/student.js가
 // probabilityHistory 배열로 내려준다 — 오래된 순).
 //
 // Y축 0~100(눈금 0/25/50/75/100, 시안 실측), X축은 기록 시각("11/21 9:40" 포맷).
@@ -53,7 +53,7 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
-// goal_probability_logs 이력 1건 — api/goal/student.js probabilityHistory 원소.
+// goal_probability_logs 이력 1건 — api/_routes/goal/student.js probabilityHistory 원소.
 type AchievementPoint = {
   recordedAt: string;
   idealSusi?: number | null;

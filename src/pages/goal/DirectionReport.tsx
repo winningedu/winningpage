@@ -7,7 +7,7 @@ import { fetchGoalReport } from "@/lib/goalApi";
 const VALID_TABS = ["naesin", "jeongsi"] as const;
 type DirectionTab = (typeof VALID_TABS)[number];
 
-// DirectionReportBody.tsx의 DirectionReport 타입과 동일한 shape — api/goal/report.js
+// DirectionReportBody.tsx의 DirectionReport 타입과 동일한 shape — api/_routes/goal/report.js
 // buildDirectionReport()가 만드는 그대로다(GrowthReport.tsx의 동일 패턴 참고).
 // activePeriod/periodChips[].value는 이제 회차 옵션 키가 아니라 저장된
 // goal_direction_reports 행의 id 문자열이다(QA 행301, 파라미터명도 reportId로 통일).
@@ -38,9 +38,9 @@ type DirectionReportResult =
 
 // 학습방향 리포트 라우트(#37 내신 탭 / #38 정시 탭) — fetch 훅을 여기서 소유한다
 // (DirectionReportBody는 mock을 뗀 순수 프레젠테이션). 쿼리 파라미터 `tab`(내신/정시)과
-// `reportId`(저장된 goal_direction_reports 행 id — api/goal/report.js가 돌려주는
+// `reportId`(저장된 goal_direction_reports 행 id — api/_routes/goal/report.js가 돌려주는
 // periodChips[].value 중 하나, QA 행301) 둘 다 URL에 유지한다. `reportId`를 생략하면
-// 서버가 가장 최근 리포트를 기본값으로 고른다(api/goal/report.js buildDirectionReport()
+// 서버가 가장 최근 리포트를 기본값으로 고른다(api/_routes/goal/report.js buildDirectionReport()
 // — reports[0], 최신순 정렬).
 export default function DirectionReport() {
   const [searchParams, setSearchParams] = useSearchParams();
