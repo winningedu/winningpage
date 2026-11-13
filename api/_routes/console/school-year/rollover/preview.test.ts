@@ -313,7 +313,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
       ];
       const baseEnrollments = kit.state.rows.student_enrollments;
       kit.state.rows.student_enrollments = (f) =>
-        (baseEnrollments?.(f) as Record<string, unknown>[]).map((e) =>
+        ((baseEnrollments?.(f) ?? []) as Record<string, unknown>[]).map((e) =>
           e.student_id === "s1" ? { ...e, class_id: "c-mix-4" } : e,
         );
 
