@@ -12,6 +12,7 @@ import {
   loadTenant,
   readAll,
 } from "../../../_lib/console/directory.js";
+import { gradeFilterMatches } from "../../../_lib/console/enrollmentInput.js";
 import { displayNamesFor } from "../../../_lib/console/maskName.js";
 import { paginate, parsePageQuery } from "../../../_lib/console/paging.js";
 import { queryValue } from "../../../_lib/console/query.js";
@@ -86,7 +87,13 @@ export default defineHandler({
       })),
     );
     const matches = current
-      .filter((e) => !grade || e.grade === grade)
+      .filter((e) =>
+        gradeFilterMatches(
+          grade,
+          e.grade,
+          e.class_id ? classes.get(e.class_id)?.grade : undefined,
+        ),
+      )
       .filter((e) => !classId || e.class_id === classId)
       .filter(
         (e) =>
