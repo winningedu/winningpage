@@ -340,6 +340,63 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
     expect(r.pendingRows).toEqual([]);
   });
 
+  test("a registered name in another grade needs a check: not applied, not stored as pending", () => {
+    const r = run("김하늘,2학년,,4,7", [kim], midyear);
+    expect(r.rows[0]).toMatchObject({
+      result: "check_target",
+      studentId: null,
+    });
+    expect(r.applyRows).toEqual([]);
+    expect(r.pendingRows).toEqual([]);
+  });
+
+  test("a name nobody registered is still pending", () => {
+    const r = run("모르는사람,2학년,,4,7", [kim], midyear);
+    expect(r.rows[0]?.result).toBe("student_not_found");
+    expect(r.pendingRows).toHaveLength(1);
+  });
+
+  test("an explicit new grade must match the stage too: 고2 for a 중2 student is a check, 2학년 and 2 are fine", () => {
+    const mid = student({ studentId: "m", name: "중이", grade: "중2" });
+    const wrong = run("중이,2학년,,4,7,고2,,5,1", [mid], midyear);
+    expect(wrong.rows[0]?.result).toBe("check_target");
+    expect(wrong.applyRows).toEqual([]);
+    for (const cell of ["2학년", "2", "중2"]) {
+      const ok = run(`중이,2학년,,4,7,${cell},,5,1`, [mid], midyear);
+      expect(ok.applyRows).toHaveLength(1);
+    }
+  });
+
+  test("a class change with no homeroom in the new class keeps both facts", () => {
+    const r = run("김하늘,1학년,,4,7,1학년,,5,2", [kim], midyear);
+    expect(r.rows[0]).toMatchObject({
+      result: "class_changed",
+      noHomeroom: true,
+    });
+    const withHomeroom = run("김하늘,1학년,,4,7,1학년,,5,2", [kim], {
+      ...midyear,
+      homeroomClasses: new Set(["고1||5"]),
+    });
+    expect(withHomeroom.rows[0]?.noHomeroom).toBeUndefined();
+  });
+
+  test("limits: a name over 50 characters or a class name over 30 is a check at preview time, never applied or stored", () => {
+    const longName = "가".repeat(51);
+    const longClass = "나".repeat(31);
+    const r = run(
+      `${longName},1학년,,4,7\n김하늘,1학년,,4,7,1학년,,${longClass},1\n새사람,1학년,,${longClass},1`,
+      [kim],
+      midyear,
+    );
+    expect(r.rows.map((x) => x.result)).toEqual([
+      "check_target",
+      "check_target",
+      "check_target",
+    ]);
+    expect(r.applyRows).toEqual([]);
+    expect(r.pendingRows).toEqual([]);
+  });
+
   test("a student in the top grade is not graduating", () => {
     const r = run(
       "박서준,3학년,,4,7,,,6,1",
@@ -388,13 +445,14 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 });
 
 describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
-  test("in rollover a line whose existing grade graduates is not stored (grade stays null so the apply counts it as skipped)", () => {
+  test("in rollover a line whose existing grade graduates is not stored (left out of the pending list, not counted as skipped)", () => {
     const r = run(
       "없는사람,고3,,4,7\n없는둘,고1,,4,7",
       [student({ studentId: "s1", name: "김하늘", grade: "고1" })],
       { graduatingGrades: ["고3"] },
     );
-    expect(r.pendingRows.map((p) => p.grade)).toEqual([null, "고2"]);
+    // 졸업하는 학년 줄은 저장 대상에서 아예 뺀다(건너뜀으로 세지 않는다).
+    expect(r.pendingRows.map((p) => p.grade)).toEqual(["고2"]);
   });
 
   const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });

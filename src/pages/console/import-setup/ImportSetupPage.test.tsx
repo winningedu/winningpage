@@ -599,6 +599,7 @@ describe("ImportSetupPage 학기 중 적용", () => {
         to: { grade: "고1", groupName: null, className: "3", number: 8 },
         studentId: "s1",
         result: "class_changed",
+        noHomeroom: true,
       },
     ],
     summary: { graduate: 0, promote: 0, waiting: 0 },
@@ -633,6 +634,9 @@ describe("ImportSetupPage 학기 중 적용", () => {
       "tr",
     ) as HTMLElement;
     expect(within(changed).getByText("반 변경")).toBeTruthy();
+    expect(
+      within(changed).getByText("새 반에 담임 없음(안내만, 반영됨)"),
+    ).toBeTruthy();
     expect(
       screen.getByText(/학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요/),
     ).toBeTruthy();

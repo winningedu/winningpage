@@ -12,6 +12,9 @@ import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
 import { loadTenant } from "../../../_lib/console/directory.js";
 import { sendEnrollmentRpcError } from "../../../_lib/console/enrollmentErrors.js";
 import {
+  cleanName,
+  MAX_CLASS_NAME_LENGTH,
+  MAX_NAME_LENGTH,
   MAX_ROWS,
   ROLLOVER_GRADES,
 } from "../../../_lib/console/rolloverPreview.js";
@@ -54,12 +57,6 @@ interface MidyearCounts {
   pending_skipped: number;
   pending_deleted: number;
 }
-
-const MAX_NAME_LENGTH = 50;
-const MAX_CLASS_NAME_LENGTH = 30;
-
-/** 제어 문자와 서식 문자(보이지 않는 글자)를 뺀 이름. */
-const cleanName = (name: string) => name.replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
 
 const validClassName = (value: unknown) =>
   typeof value === "string" && value.length <= MAX_CLASS_NAME_LENGTH;
