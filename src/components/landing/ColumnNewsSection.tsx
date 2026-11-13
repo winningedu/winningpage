@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
+import { useColumnCategories } from "@/pages/column/useColumnCategories";
 import AreaNotice from "./AreaNotice";
 import { ColumnBoxItem, ColumnBoxSkeleton } from "./ColumnBox";
 import type { HomeColumnBox } from "./homeColumns";
@@ -17,6 +18,7 @@ export default function ColumnNewsSection({
   status,
   boxes,
 }: ColumnNewsSectionProps) {
+  const categories = useColumnCategories();
   const [playing, setPlaying] = useState<HomeColumnBox | null>(null);
 
   return (
@@ -41,7 +43,12 @@ export default function ColumnNewsSection({
       {status === "ready" && boxes.length > 0 ? (
         <ul className="mt-[1.375rem] flex gap-3.5 overflow-x-auto md:grid md:grid-cols-2 md:justify-items-center lg:flex lg:justify-start">
           {boxes.map((box) => (
-            <ColumnBoxItem key={box.id} box={box} onPlay={setPlaying} />
+            <ColumnBoxItem
+              key={box.id}
+              box={box}
+              categories={categories}
+              onPlay={setPlaying}
+            />
           ))}
         </ul>
       ) : status === "loading" ? (

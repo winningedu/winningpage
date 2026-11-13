@@ -402,6 +402,63 @@ describe("W6 학생 관리 역할과 조회", () => {
   });
 });
 
+describe("W6 학생 관리 그룹 선택지", () => {
+  const academyList = {
+    "GET /api/console/students?page=1": {
+      body: listBody([student(1, { grade: "고1", className: "1" })], {
+        orgType: "학원",
+      }),
+    },
+  };
+
+  it("학급이 없는 그룹도 그룹 관리와 같은 순서로 그룹 칸에 나온다", async () => {
+    stubPage(
+      {
+        ...academyList,
+        "GET /api/console/groups": {
+          body: {
+            groups: [
+              { id: "g1", name: "A레벨", studentCount: 0 },
+              { id: "g2", name: "B레벨", studentCount: 0 },
+            ],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual([
+        "전체",
+        "A레벨",
+        "B레벨",
+      ]),
+    );
+  });
+});
+
+describe("W6 학생 관리 학교 계정", () => {
+  it("그룹 칸이 없고 그룹 목록도 읽지 않는다", async () => {
+    const calls = stubPage(
+      {
+        "GET /api/console/students?page=1": {
+          body: listBody([student(1, { grade: "고1", className: "1" })]),
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    await screen.findByText("김서연");
+    expect(screen.queryByLabelText("그룹")).toBeNull();
+    expect(calls.some((c) => c.key.includes("/api/console/groups"))).toBe(
+      false,
+    );
+  });
+});
+
 describe("W6 학생 관리 휴대폰", () => {
   afterEach(() => {
     window.innerWidth = 1024;

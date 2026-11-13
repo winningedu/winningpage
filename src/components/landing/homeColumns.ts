@@ -15,6 +15,7 @@ export type HomeColumnBox = {
   kind: "video" | "column";
   title: string;
   date: string;
+  category?: string;
   thumbnailUrl?: string;
   videoId?: string;
   durationLabel?: string;
@@ -63,6 +64,7 @@ export function toHomeColumnBox(row: ColumnRow): HomeColumnBox {
     kind: videoId ? "video" : "column",
     title: row.title ?? "",
     date: formatDate(getDisplayDate(row)).replaceAll("-", "."),
+    ...(row.category ? { category: row.category } : {}),
     ...(thumbnailUrl ? { thumbnailUrl } : {}),
     ...(videoId ? { videoId } : {}),
     ...(duration ? { durationLabel: duration } : {}),

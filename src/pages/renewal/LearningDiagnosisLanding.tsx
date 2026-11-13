@@ -353,7 +353,7 @@ function AudienceSection() {
   const hasTrialCard = audience.length === AUDIENCE.length;
 
   return (
-    <section className="bg-white pt-20 pb-10 md:pt-62.5 md:pb-0">
+    <section className="bg-white pt-20 pb-10 md:pt-33.5 md:pb-0">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <h2 className={`${SECTION_HEADING_CLASS} text-ink-title`}>
           이런 학생에게 학습 진단을 추천해요
@@ -407,7 +407,7 @@ function AudienceSection() {
 
 function BenefitsSection() {
   return (
-    <section className="bg-white pb-10 pt-20 md:pt-60 md:pb-0">
+    <section className="bg-white pb-10 pt-20 md:pt-33.5 md:pb-0">
       <div className="mx-auto flex w-full max-w-content flex-col items-center gap-10 px-5 sm:px-8 md:gap-perf-inset">
         <h2 className={`text-center ${SECTION_HEADING_CLASS} text-ink-header`}>
           학습진단으로 얻을 수 있는 것

@@ -30,7 +30,7 @@ import GoalSidebar from "./GoalSidebar";
 export default function GoalAppLayout() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader showHome />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           <GoalSidebar />

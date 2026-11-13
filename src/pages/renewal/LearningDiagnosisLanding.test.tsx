@@ -68,3 +68,18 @@ describe("LearningDiagnosisLanding 히어로", () => {
     expect(start.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
   });
 });
+
+// QA4 28번: 가장 큰 두 간격(15rem 이상)을 성장설계 소개 페이지 기준(8.375rem)으로 맞춘다.
+describe("LearningDiagnosisLanding 섹션 간격", () => {
+  it.each([
+    "이런 학생에게 학습 진단을 추천해요",
+    "학습진단으로 얻을 수 있는 것",
+  ])("%s 섹션 위 간격은 성장설계와 같은 8.375rem이다", (heading) => {
+    renderPage();
+    const section = screen
+      .getByRole("heading", { name: heading })
+      .closest("section");
+    expect(section).toHaveClass("md:pt-33.5");
+    expect(section?.className).not.toMatch(/md:pt-(60|62\.5)/);
+  });
+});

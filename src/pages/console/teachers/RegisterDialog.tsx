@@ -8,11 +8,11 @@ import { consoleRequest, errorMessage } from "../api";
 import { gradeLabel } from "../classLabel";
 import Notice from "../Notice";
 import TextField from "../TextField";
+import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
   EMPTY_CLASS,
   toClassBody,
-  useGroups,
 } from "./ClassRowFields";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";

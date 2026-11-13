@@ -23,7 +23,8 @@ import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
-import { gradesOf, groupsOf, useClasses } from "../useClasses";
+import { gradesOf, useClasses } from "../useClasses";
+import { useGroupOptions } from "../useGroups";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import BulkDeleteDialog from "./BulkDeleteDialog";
@@ -95,6 +96,11 @@ export default function TeacherRosterPage() {
     groupId: searchParams.get("groupId") ?? "",
   };
   const classes = useClasses();
+  const groups = useGroupOptions(
+    classes.data ?? [],
+    filters.grade,
+    filters.groupId,
+  );
   const list = usePagedList<RosterRow, { teachers: TeacherSummary[] }>(
     "/api/console/teachers/list",
     filters,
@@ -156,7 +162,7 @@ export default function TeacherRosterPage() {
                 value={filters.groupId}
                 options={[
                   ALL,
-                  ...groupsOf(classes.data, filters.grade).map((g) => ({
+                  ...groups.map((g) => ({
                     value: g.id,
                     label: g.name,
                   })),

@@ -538,7 +538,7 @@ function StageSection() {
 function AudienceSection() {
   return (
     <ServiceSection
-      className="lg:pt-71.75"
+      className="lg:pt-33.5"
       heading={
         <>
           이런 학생에게{" "}
@@ -567,7 +567,7 @@ function ManagementSection() {
 
 function OutcomesSection() {
   return (
-    <ServiceSection className="lg:pt-60" heading="목표관리로 달라지는 것들">
+    <ServiceSection className="lg:pt-33.5" heading="목표관리로 달라지는 것들">
       {/* items 5장 → ServiceOutcomesPanel 이 sm:grid-cols-5 를 자동 적용한다. */}
       <ServiceOutcomesPanel items={OUTCOME_ITEMS} />
     </ServiceSection>
@@ -575,7 +575,7 @@ function OutcomesSection() {
 }
 
 function PhoneReportSection() {
-  // 이 섹션도 스크롤 상당히 아래(lg:pt-[16.125rem])라 뷰포트에 들어와 있는 동안만
+  // 이 섹션도 스크롤 상당히 아래라 뷰포트에 들어와 있는 동안만
   // 애니메이션을 돌린다(LearningDiagnosisLanding MacbookMockup과 동일 훅 구조).
   const [chipLayerRef, chipsInView] = useInView(ANIMATION_IN_VIEW_MARGIN) as [
     MutableRefObject<HTMLDivElement | null>,
@@ -583,7 +583,7 @@ function PhoneReportSection() {
   ];
 
   return (
-    <section className="overflow-x-clip bg-white pt-16 sm:pt-20 lg:pt-64.5">
+    <section className="overflow-x-clip bg-white pt-16 sm:pt-20 lg:pt-33.5">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-start lg:justify-between lg:gap-16">
           <div className="max-w-104 text-center lg:max-w-145.75 lg:text-left">
@@ -750,7 +750,7 @@ function TestimonialsSection() {
 function FaqSection() {
   return (
     <ServiceSection
-      className="pb-20 sm:pb-24 lg:pb-27.5 lg:pt-60.75"
+      className="pb-20 sm:pb-24 lg:pb-27.5 lg:pt-33.5"
       heading="자주 묻는 질문"
     >
       <ServiceFaq items={FAQ_ITEMS} />

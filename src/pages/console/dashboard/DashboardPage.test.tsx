@@ -155,6 +155,24 @@ describe("DashboardPage", () => {
     expect(screen.getByText("50%")).toBeTruthy();
   });
 
+  it("관리자 대시보드의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: adminMe },
+      "GET /api/console/classes": { body: { classes: CLASSES } },
+      "GET /api/console/dashboard": { body: stats() },
+      "GET /api/console/groups": {
+        body: { groups: [{ id: "g1", name: "A레벨", studentCount: 0 }] },
+      },
+    });
+
+    renderRoutes(routes, "/teacher");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual(["전체", "A레벨"]),
+    );
+  });
+
   it("이용 학생이 없는 범위는 안내 문구와 달성율 카드의 '이용 학생 없음'을 보인다", async () => {
     stubApi({
       "GET /api/console/me": { body: adminMe },

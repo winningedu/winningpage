@@ -100,7 +100,7 @@ function PerformanceShellContent() {
           자기 자신은 레이아웃 흐름의 높이를 차지하지 않는다. 헤더 높이만큼 자리를
           잡는 스페이서·`--header-height` 정의는 `AppShellSidebarProvider`
           (AppShellSidebar.tsx, sidebar-16 공식 블록 구조) 한 곳뿐이다. */}
-      <SiteHeader />
+      <SiteHeader showHome />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           {/* 사이드바는 표시 전용이라 prop을 받는다(프로필 이름·학교유형·학년, 진행단계 5스텝

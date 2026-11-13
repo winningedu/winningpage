@@ -1,8 +1,6 @@
 // W14b 개별 등록과 W16a 담당 추가가 함께 쓰는 학급 입력 한 줄. 학년그룹, (그룹이 있으면) 그룹, 반.
 // 없는 학급은 서버가 만든다(fn_class_ensure)라 반은 목록에서 고르지 않고 적는다.
 
-import { useQuery } from "@tanstack/react-query";
-import { consoleRequest } from "../api";
 import FilterSelect from "../FilterSelect";
 import TextField from "../TextField";
 
@@ -27,18 +25,6 @@ export function toClassBody(
     name: r.name.trim(),
     ...(r.groupId ? { groupId: r.groupId } : {}),
   }));
-}
-
-export function useGroups() {
-  return useQuery({
-    queryKey: ["console", "groups"],
-    queryFn: async () => {
-      const res = await consoleRequest("/api/console/groups");
-      if (res.status !== 200) throw new Error(`groups ${res.status}`);
-      return (res.body as { groups: { id: string; name: string }[] }).groups;
-    },
-    retry: false,
-  });
 }
 
 interface ClassRowFieldsProps {

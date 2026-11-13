@@ -2,13 +2,20 @@ import { Play } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
+import { ALL_CATEGORY, getCategoryLabel } from "@/pages/column/columnData";
 import type { HomeColumnBox } from "./homeColumns";
 
 // 박스 폭: 모바일(가로 스크롤)과 데스크톱은 Md 16.531rem, 태블릿(2x2)은 Lg 21.5625rem.
 const BOX_CLASS =
   "flex w-[16.531rem] shrink-0 flex-col gap-3 rounded-2xl border border-column-line bg-white px-3 pt-3 pb-4 text-left md:w-[21.5625rem] lg:w-[16.531rem]";
 
-function Thumbnail({ box }: { box: HomeColumnBox }) {
+function Thumbnail({
+  box,
+  categoryLabel,
+}: {
+  box: HomeColumnBox;
+  categoryLabel: string;
+}) {
   const isVideo = box.kind === "video";
   return (
     <div className="relative aspect-8/5 w-full overflow-hidden rounded-[0.625rem] bg-column-thumb">
@@ -28,15 +35,18 @@ function Thumbnail({ box }: { box: HomeColumnBox }) {
           />
         </div>
       )}
-      <span
-        className={`absolute top-2 left-2 inline-flex h-[1.375rem] items-center rounded-md px-[0.5625rem] text-[0.71875rem] font-bold ${
-          isVideo
-            ? "bg-b2b-account text-white"
-            : "border border-column-badge-line bg-b2b-pill-bg text-b2b-account"
-        }`}
-      >
-        {isVideo ? "영상" : "칼럼"}
-      </span>
+      {categoryLabel !== ALL_CATEGORY && (
+        <span
+          data-testid="column-box-badge"
+          className={`absolute top-2 left-2 inline-flex h-[1.375rem] items-center rounded-md px-[0.5625rem] text-[0.71875rem] font-bold ${
+            isVideo
+              ? "bg-b2b-account text-white"
+              : "border border-column-badge-line bg-b2b-pill-bg text-b2b-account"
+          }`}
+        >
+          {categoryLabel}
+        </span>
+      )}
       {isVideo && (
         <span
           aria-hidden="true"
@@ -54,10 +64,16 @@ function Thumbnail({ box }: { box: HomeColumnBox }) {
   );
 }
 
-function Body({ box }: { box: HomeColumnBox }) {
+function Body({
+  box,
+  categoryLabel,
+}: {
+  box: HomeColumnBox;
+  categoryLabel: string;
+}) {
   return (
     <>
-      <Thumbnail box={box} />
+      <Thumbnail box={box} categoryLabel={categoryLabel} />
       <p className="line-clamp-2 min-h-11 px-1 text-[0.9375rem] font-bold leading-[1.359rem] tracking-[-0.025rem] text-column-title">
         {box.title}
       </p>
@@ -72,11 +88,14 @@ function Body({ box }: { box: HomeColumnBox }) {
 
 export function ColumnBoxItem({
   box,
+  categories,
   onPlay,
 }: {
   box: HomeColumnBox;
+  categories: string[];
   onPlay: (box: HomeColumnBox) => void;
 }): ReactNode {
+  const categoryLabel = getCategoryLabel(box, categories);
   return (
     <li className="flex">
       {box.kind === "video" ? (
@@ -86,11 +105,11 @@ export function ColumnBoxItem({
           onClick={() => onPlay(box)}
           className={`${BOX_CLASS} cursor-pointer`}
         >
-          <Body box={box} />
+          <Body box={box} categoryLabel={categoryLabel} />
         </button>
       ) : (
         <Link to={`/info/column/${box.id}`} className={BOX_CLASS}>
-          <Body box={box} />
+          <Body box={box} categoryLabel={categoryLabel} />
         </Link>
       )}
     </li>
