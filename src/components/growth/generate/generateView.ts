@@ -10,7 +10,12 @@ export const MAX_ATTEMPTS = 10;
 export const PRICING_PATH = "/pricing?service=growth";
 
 export type StepBadge = "완료" | "진행 중" | "대기" | "실패";
-export type GenerationAction = "retry" | "start" | "pricing" | "report";
+export type GenerationAction =
+  | "retry"
+  | "start"
+  | "pricing"
+  | "report"
+  | "collect";
 
 export function completedCount(progress: StepProgress[]): number {
   return progress.filter((p) => p.status === "ok").length;
@@ -31,6 +36,8 @@ export type GenerationNotice = {
   title: string;
   body: string;
   action: GenerationAction | null;
+  /** 주 버튼 옆에 나란히 두는 두 번째 버튼. 실패와 종결에서 자료 다시 올리기를 안내한다. */
+  secondaryAction: GenerationAction | null;
   /** "n / 10". 실패류에만 있다. */
   attemptsLabel: string | null;
   issues: string[];
@@ -74,7 +81,12 @@ export function describeGeneration(
   state: GenerationState,
   resumedDone: number,
 ): GenerationNotice | null {
-  const base = { action: null, attemptsLabel: null, issues: [] as string[] };
+  const base = {
+    action: null,
+    secondaryAction: null,
+    attemptsLabel: null,
+    issues: [] as string[],
+  };
   const attemptsLabel =
     state.attempts > 0 ? `${state.attempts} / ${MAX_ATTEMPTS}` : null;
   const code = state.errorCode;
@@ -123,6 +135,7 @@ export function describeGeneration(
           title: `${stepName(state.currentStep)} 결과가 검증을 통과하지 못했어요`,
           body: "검증에 걸려 다시 요청했지만 통과하지 못했어요. 다시 시도해 주세요.",
           action: "retry",
+          secondaryAction: "collect",
           attemptsLabel,
           issues: summarizeIssues(state.issues),
         };
@@ -132,6 +145,7 @@ export function describeGeneration(
         title: `${stepName(state.currentStep)}에서 응답을 받지 못했어요`,
         body: `다시 시도하면 ${state.currentStep}단계부터 이어서 만들어요.`,
         action: "retry",
+        secondaryAction: "collect",
         attemptsLabel,
         issues: [],
       };
@@ -150,6 +164,7 @@ export function describeGeneration(
           title: "이 회차는 더 진행할 수 없어요",
           body: `이미 닫힌 회차예요. ${money}`,
           action: "start",
+          secondaryAction: "collect",
         };
       }
       if (code === "STEP_FATAL") {
@@ -159,6 +174,7 @@ export function describeGeneration(
           title: "복구할 수 없는 오류로 이 회차를 닫았어요",
           body: `이 회차는 더 진행할 수 없어요. ${money}`,
           action: "start",
+          secondaryAction: "collect",
         };
       }
       return {
@@ -166,6 +182,7 @@ export function describeGeneration(
         title: "시도 횟수 10회를 모두 썼어요",
         body: `이 회차는 더 진행할 수 없어요. ${money}`,
         action: "start",
+        secondaryAction: "collect",
         attemptsLabel,
         issues: [],
       };

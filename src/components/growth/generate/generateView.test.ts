@@ -111,6 +111,30 @@ describe("describeGeneration", () => {
     }
   });
 
+  test("실패와 종결은 기존 버튼 옆에 자료 다시 올리기를 함께 안내한다", () => {
+    const cases: Partial<GenerationState>[] = [
+      { phase: "failed", errorCode: "STEP_VALIDATION_FAILED" },
+      { phase: "failed", errorCode: "NETWORK" },
+      { phase: "terminal", errorCode: "ATTEMPTS_EXHAUSTED", attempts: 10 },
+      { phase: "terminal", errorCode: "STEP_FATAL" },
+      { phase: "terminal", errorCode: "REPORT_LOCKED" },
+    ];
+    for (const patch of cases) {
+      const d = describeGeneration(stateOf(patch), 0);
+      expect(d?.secondaryAction).toBe("collect");
+    }
+  });
+
+  test("이용권 없음과 진행, 완료에는 자료 다시 올리기를 붙이지 않는다", () => {
+    for (const patch of [
+      { phase: "failed", errorCode: "NO_ENTITLEMENT" },
+      { phase: "waiting" },
+      { phase: "done" },
+    ] as Partial<GenerationState>[]) {
+      expect(describeGeneration(stateOf(patch), 0)?.secondaryAction).toBeNull();
+    }
+  });
+
   test("이용권 없음은 요금제 안내로 보낸다", () => {
     const d = describeGeneration(
       stateOf({ phase: "failed", errorCode: "NO_ENTITLEMENT" }),
