@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { consoleRequest, errorMessage } from "../api";
 import Notice from "../Notice";
-import { useGradeLabel } from "../useConsoleMe";
+import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
 import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
@@ -38,6 +38,7 @@ export default function AssignDialog({
   onClose,
 }: AssignDialogProps) {
   const gradeLabel = useGradeLabel();
+  const academy = useIsAcademy();
   const groups = useGroups();
   const [row, setRow] = useState<ClassInput>(EMPTY_CLASS);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export default function AssignDialog({
         <ClassRowFields
           value={row}
           groups={groups.data ?? []}
+          academy={academy}
           onChange={setRow}
         />
         <Notice tone="Info">

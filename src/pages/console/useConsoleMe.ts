@@ -46,8 +46,13 @@ export function useConsoleMe(): ConsoleMeContextValue {
   return value;
 }
 
+/** 학교가 아닌 기관이면 true. 다학년 학급과 "고1" 표기는 학원만 쓴다. */
+export function useIsAcademy(): boolean {
+  return isAcademyOrg(useConsoleMe().me.tenant.orgType);
+}
+
 /** 학원 기관만 "고1" 그대로, 학교는 "1학년". 학년 없는 학급은 "다학년". */
 export function useGradeLabel(): GradeLabeler {
-  const academy = isAcademyOrg(useConsoleMe().me.tenant.orgType);
+  const academy = useIsAcademy();
   return (grade) => gradeLabel(grade, academy);
 }

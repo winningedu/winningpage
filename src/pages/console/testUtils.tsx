@@ -90,6 +90,7 @@ export function stubApi(routes: Record<string, ApiHandler>) {
 export function renderRoutes(
   routes: Parameters<typeof createMemoryRouter>[0],
   initialPath: string,
+  me: ConsoleMe = homeroomMe,
 ) {
   const router = createMemoryRouter(routes, { initialEntries: [initialPath] });
   const queryClient = new QueryClient({
@@ -97,9 +98,7 @@ export function renderRoutes(
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <ConsoleMeContext.Provider
-        value={{ me: homeroomMe, reload: async () => {} }}
-      >
+      <ConsoleMeContext.Provider value={{ me, reload: async () => {} }}>
         <RouterProvider router={router} />
       </ConsoleMeContext.Provider>
     </QueryClientProvider>,
