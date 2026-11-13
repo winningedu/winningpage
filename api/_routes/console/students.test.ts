@@ -338,6 +338,13 @@ describe("GET /api/console/students", () => {
       expect(ids(await get({ tab: "none" }))).toEqual(["s3", "s4"]);
       expect(ids(await get({ tab: "growth" }))).toEqual(["s1"]);
       expect(ids(await get({ special: "1" }))).not.toContain("p1");
+      // 가입 전 줄은 전체 탭에서만 세므로 다른 탭과 특이학생에서는 scopeTotal 에 더하지 않는다.
+      expect((await get({ tab: "growth" })).body).toMatchObject({
+        scopeTotal: 4,
+      });
+      expect((await get({ special: "1" })).body).toMatchObject({
+        scopeTotal: 4,
+      });
     });
   });
 

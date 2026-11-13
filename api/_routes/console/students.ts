@@ -335,12 +335,12 @@ export default defineHandler({
       listed = listed.filter((e) => extras.reasonsOf(e.student_id).length > 0);
     }
     // 가입하지 않은 학생은 서비스를 쓰는 학생이 아니라 전체 탭에만 나오고, 특이학생에는 들지 않는다.
-    const pendingListed =
-      tab === "all" && !special
-        ? pendingRows.filter((p) =>
-            passes({ grade: p.grade, classId: p.class_id, name: p.name }),
-          )
-        : [];
+    const showsPending = tab === "all" && !special;
+    const pendingListed = showsPending
+      ? pendingRows.filter((p) =>
+          passes({ grade: p.grade, classId: p.class_id, name: p.name }),
+        )
+      : [];
     const paged = paginate(
       [...listed, ...pendingListed].sort(compareRows),
       pageQuery,
@@ -350,7 +350,7 @@ export default defineHandler({
     await ensureServices(pagedStudents.map((e) => e.student_id));
     res.status(200).json({
       total: paged.total,
-      scopeTotal: current.length + pendingRows.length,
+      scopeTotal: current.length + (showsPending ? pendingRows.length : 0),
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
