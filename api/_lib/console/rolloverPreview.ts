@@ -8,6 +8,11 @@
 // check_target 새 학년, 그룹, 반, 번호를 확인해야 함, duplicate_target 같은 새 반과 번호가 겹침,
 // no_homeroom 새 반에 담임이 없음(안내만, 반영됨), applied 반영.
 // 졸업 학년은 호출부가 정한다(고3 항상, 중3 은 학교만). 새 학년은 현재 학년에서 한 학년 올린 값이다(중3 은 고1).
+//
+// 다학년(학원만, 학교는 아래 규칙이 모두 꺼진다): 학년 칸이 학년이 아니면(비었거나 "초6" 같은 글) 그 줄은 다학년 학급 줄이고,
+// 글은 저장하지 않는다. 학년 칸은 명단 양식(5칸) 줄이면 기존 학년 칸, 새 칸까지 있는 줄이면 새 학년 칸이다.
+// 같은 그룹과 반을 가리키는 다른 줄이나 이미 있는 다학년 학급(mixedClasses)도 그 줄을 다학년으로 만든다.
+// 다학년 줄은 학년으로 학생을 좁히지 않고(이름으로 찾음) 학생의 학년은 그대로 두거나(학기 중) 한 학년 올린다(넘기기).
 
 import { maskName } from "./maskName.js";
 
@@ -59,10 +64,13 @@ export type PreviewResult =
   | "class_changed";
 
 export interface PreviewSlot {
+  /** 다학년 학급이면 null. */
   grade: string | null;
   groupName: string | null;
   className: string | null;
   number: number | null;
+  /** 다학년 학급이면 true(아니면 키가 없다). */
+  mixed?: boolean;
 }
 
 export interface PreviewRow {
@@ -83,6 +91,8 @@ export interface ApplyRow {
   number: number | null;
   /** 학기 중 방식에서만. 미리보기 때의 학적 version. */
   version?: number;
+  /** 다학년 학급 줄이면 true(아니면 키가 없다). */
+  mixed?: boolean;
 }
 
 /** 가입하지 않은 학생의 명단 줄. 학년이나 반을 못 정한 줄은 null 로 두고 저장할 때 건너뛴다. */
@@ -92,6 +102,8 @@ export interface PendingRow {
   groupId: string | null;
   className: string | null;
   number: number | null;
+  /** 다학년 학급 줄이면 true(아니면 키가 없다). 학년은 줄에 적힌 실제 학년이거나 null 이다. */
+  mixed?: boolean;
 }
 
 export interface PreviewInput {
@@ -105,6 +117,8 @@ export interface PreviewInput {
   groups: Map<string, { id: string; name: string }>;
   /** 새 학년도에 담임이 있는 학급: `${학년}|${그룹id 또는 빈 문자열}|${반 이름}`. */
   homeroomClasses: Set<string>;
+  /** 새 학년도에 이미 다학년 학급인 학급: `${그룹id 또는 빈 문자열}|${반 이름 소문자}`. 학원만 쓴다. */
+  mixedClasses?: Set<string>;
 }
 
 /** 붙여넣은 글을 줄로 읽는다. 탭이 있으면 탭, 없으면 쉼표로 나누고 머리글 줄(이름으로 시작)은 건너뛴다. */
@@ -149,6 +163,18 @@ export function normalizeClassName(
 
 const digitOf = (value: string): string | null => /\d/.exec(value)?.[0] ?? null;
 
+/** 학년 칸인가. "고2", "고2학년" 처럼 학년으로 시작하거나 "2", "2학년" 처럼 1부터 3까지 숫자뿐이면 학년이다. */
+export function isGradeCell(cell: string): boolean {
+  const text = cell.replace(/\s/g, "");
+  return (
+    ROLLOVER_GRADES.some((g) => text.startsWith(g)) ||
+    /^[1-3](학년)?$/.test(text)
+  );
+}
+
+/** 학원(학교가 아닌 기관)만 다학년 줄을 쓴다. */
+const isAcademy = (orgType: string | null) => orgType !== "학교";
+
 function parseNumber(cell: string): number | null | "invalid" {
   const text = cell.replace(/번$/, "").trim();
   if (text === "") return null;
@@ -178,23 +204,29 @@ function pendingOf(
   line: ParsedLine,
   midyear: boolean,
   input: PreviewInput,
+  mixed: boolean,
 ): PendingRow | null {
   const current = input.students.flatMap((s) => (s.grade ? [s.grade] : []));
+  const academy = isAcademy(input.orgType);
   const { from } = line;
   const to = isRosterOnly(line) ? { ...from, grade: "" } : line.to;
   let grade: string | null;
-  const existing = resolveGrade(from.grade, current);
+  // 학원에서 학년이 아닌 글("초6" 등)은 빈 칸으로 보고 글은 저장하지 않는다.
+  const existing = resolveGrade(
+    academy && !isGradeCell(from.grade) ? "" : from.grade,
+    current,
+  );
   if (!midyear && existing && input.graduatingGrades.includes(existing)) {
     // 졸업하는 학년의 명단 줄은 저장 대상에서 뺀다(건너뜀으로 세지 않는다).
     return null;
   } else if (midyear) {
     grade = existing;
-  } else if (to.grade !== "") {
+  } else if (to.grade !== "" && (!academy || isGradeCell(to.grade))) {
     grade = resolveGrade(to.grade, current.map(nextGrade));
   } else {
     grade = existing === null ? null : nextGrade(existing);
   }
-  const target = targetOf({ ...line, to }, grade ?? "", input);
+  const target = targetOf({ ...line, to }, grade ?? "", input, mixed);
   const unknownGroup = !isNoGroup(to.group) && target.groupId === null;
   return {
     name: cleanName(line.name),
@@ -202,6 +234,7 @@ function pendingOf(
     groupId: target.groupId,
     className: unknownGroup ? null : target.slot.className,
     number: target.slot.number,
+    ...(mixed && { mixed: true }),
   };
 }
 
@@ -250,6 +283,7 @@ function targetOf(
   line: ParsedLine,
   grade: string,
   input: PreviewInput,
+  mixed: boolean,
 ): Target {
   const { to } = line;
   const className = normalizeClassName(input.orgType, to.className);
@@ -264,16 +298,18 @@ function targetOf(
     to.grade.replace(/\s/g, "").startsWith(g),
   );
   const wrongGrade =
+    !mixed &&
     to.grade !== "" &&
     (input.mode === "midyear" && written !== undefined
       ? written !== grade
       : digitOf(to.grade) !== digitOf(grade));
   return {
     slot: {
-      grade,
+      grade: mixed ? null : grade,
       groupName: group?.name ?? (isNoGroup(to.group) ? null : to.group),
       className: className === "" ? null : className,
       number: number === "invalid" ? null : number,
+      ...(mixed && { mixed: true }),
     },
     groupId,
     checkNeeded:
@@ -295,6 +331,47 @@ function classChanges(student: PreviewStudent, target: Target): boolean {
 const isRosterOnly = (line: ParsedLine) =>
   line.to.group === "" && line.to.className === "" && line.to.number === "";
 
+/** 줄의 새 칸(그룹, 반, 번호). 명단 양식 줄이면 기존 칸이 곧 새 칸이다. */
+const targetCellsOf = (line: ParsedLine) =>
+  isRosterOnly(line) ? line.from : line.to;
+
+/** 다학년 여부를 정하는 학년 칸: 명단 양식 줄은 기존 학년 칸, 새 칸까지 있는 줄은 새 학년 칸. */
+const decidingGradeOf = (line: ParsedLine) =>
+  isRosterOnly(line) ? line.from.grade : line.to.grade;
+
+/** 줄이 가리키는 학급: `${그룹id 또는 빈 문자열}|${반 이름 소문자}`. 반이 비었거나 모르는 그룹이면 null. */
+function classKeyOf(line: ParsedLine, input: PreviewInput): string | null {
+  const cells = targetCellsOf(line);
+  const className = normalizeClassName(
+    input.orgType,
+    cells.className,
+  ).toLowerCase();
+  if (className === "") return null;
+  if (isNoGroup(cells.group)) return `|${className}`;
+  const group = input.groups.get(cells.group.toLowerCase());
+  return group ? `${group.id}|${className}` : null;
+}
+
+/**
+ * 다학년 줄을 가른다(학원만). 학년 칸이 학년이 아닌 줄, 그 줄과 같은 학급을 가리키는 다른 줄,
+ * 이미 다학년인 학급(mixedClasses)을 가리키는 줄이 다학년이다.
+ */
+function mixedLinesOf(input: PreviewInput): Set<ParsedLine> {
+  const mixed = new Set<ParsedLine>();
+  if (!isAcademy(input.orgType)) return mixed;
+  const own = input.lines.filter((l) => !isGradeCell(decidingGradeOf(l)));
+  const keys = new Set(input.mixedClasses ?? []);
+  for (const line of own) {
+    const key = classKeyOf(line, input);
+    if (key) keys.add(key);
+  }
+  for (const line of input.lines) {
+    const key = classKeyOf(line, input);
+    if (own.includes(line) || (key !== null && keys.has(key))) mixed.add(line);
+  }
+  return mixed;
+}
+
 export function evaluateRolloverPreview(input: PreviewInput): {
   rows: PreviewRow[];
   applyRows: ApplyRow[];
@@ -302,12 +379,15 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   summary: { graduate: number; promote: number; waiting: number };
 } {
   const midyear = input.mode === "midyear";
+  const academy = isAcademy(input.orgType);
+  const mixedLines = mixedLinesOf(input);
   const rows: PreviewRow[] = [];
   const pendingRows: PendingRow[] = [];
   const pending: {
     row: PreviewRow;
     target: Target;
     student: PreviewStudent;
+    mixed: boolean;
   }[] = [];
 
   const sameNameKey = (s: PreviewStudent) =>
@@ -320,13 +400,21 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   }
 
   const rosterOnlyOf = (line: ParsedLine) => midyear && isRosterOnly(line);
+  // 학원에서 학년이 아닌 글("초6" 등)은 빈 칸처럼 학생을 좁히지 않는다.
+  const matchGrade = (cell: string) =>
+    academy && !isGradeCell(cell) ? "" : cell;
   const foundFor = (line: ParsedLine) =>
     narrow(
       input.students.filter((s) => s.name === line.name),
       // 학기 중 명단 양식 줄은 이름과 학년으로만 찾는다(기존 반과 번호는 곧 바뀔 값이다).
       rosterOnlyOf(line)
-        ? { grade: line.from.grade, group: "", className: "", number: "" }
-        : line.from,
+        ? {
+            grade: matchGrade(line.from.grade),
+            group: "",
+            className: "",
+            number: "",
+          }
+        : { ...line.from, grade: matchGrade(line.from.grade) },
       input.orgType,
     );
   // 학기 중에는 한 학생을 가리키는 줄이 둘 이상이면 어느 줄이 맞는지 알 수 없어 모두 사람이 확인한다.
@@ -386,7 +474,12 @@ export function evaluateRolloverPreview(input: PreviewInput): {
         continue;
       }
       if (!same) {
-        const pendingRow = pendingOf(line, midyear, input);
+        const pendingRow = pendingOf(
+          line,
+          midyear,
+          input,
+          mixedLines.has(line),
+        );
         if (pendingRow) pendingRows.push(pendingRow);
       }
       rows.push({
@@ -429,17 +522,19 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     const toLine: ParsedLine = rosterOnly
       ? { ...line, to: { ...line.from, grade: line.to.grade } }
       : line;
+    const mixed = mixedLines.has(line);
     const target = targetOf(
       toLine,
       midyear ? (student.grade as string) : nextGrade(student.grade ?? ""),
       input,
+      mixed,
     );
     row.to = target.slot;
     if (target.checkNeeded) {
       row.result = "check_target";
       continue;
     }
-    pending.push({ row, target, student });
+    pending.push({ row, target, student, mixed });
   }
 
   const slotKey = (t: Target) =>
@@ -453,7 +548,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   }
   const seenStudents = new Set<string>();
   const applyRows: ApplyRow[] = [];
-  for (const { row, target, student } of pending) {
+  for (const { row, target, student, mixed } of pending) {
     const key = slotKey(target);
     if (
       (key && (seenKeys.get(key) ?? 0) > 1) ||
@@ -463,7 +558,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       continue;
     }
     seenStudents.add(student.studentId);
-    const homeroomKey = `${target.slot.grade}|${target.groupId ?? ""}|${target.slot.className}`;
+    const homeroomKey = `${mixed ? "" : target.slot.grade}|${target.groupId ?? ""}|${target.slot.className}`;
     row.result = input.homeroomClasses.has(homeroomKey)
       ? "applied"
       : "no_homeroom";
@@ -478,6 +573,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       className: target.slot.className as string,
       number: target.slot.number,
       ...(midyear && { version: student.version }),
+      ...(mixed && { mixed: true }),
     });
   }
 

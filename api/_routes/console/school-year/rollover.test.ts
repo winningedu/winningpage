@@ -22,6 +22,7 @@ const state = vi.hoisted(() => ({
     error: null,
   } as { data: unknown; error: unknown },
   logError: null as unknown,
+  orgType: "학원",
   rpcCalls: [] as { name: string; args: Record<string, unknown> }[],
   inserts: [] as { table: string; row: Row }[],
 }));
@@ -51,7 +52,7 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
             data: {
               login_id: "SM123456",
               school_year: 2026,
-              org_type: "학원",
+              org_type: state.orgType,
               is_catch_all: false,
             },
             error: null,
@@ -133,6 +134,7 @@ beforeEach(() => {
     error: null,
   };
   state.logError = null;
+  state.orgType = "학원";
   state.rpcCalls = [];
   state.inserts = [];
 });
@@ -184,6 +186,107 @@ describe("POST /api/console/school-year/rollover", () => {
         skipped: 1,
         assigned: 18,
       },
+    });
+  });
+
+  describe("mixed-grade lines (다학년)", () => {
+    test("a mixed row and a gradeless mixed pending line ride along; ordinary lines get no mixed key", async () => {
+      await post({
+        toYear: 2027,
+        rows: [
+          { studentId: "s-1", className: "A", number: 1, mixed: true },
+          { studentId: "s-2", className: "3" },
+        ],
+        pendingRows: [
+          {
+            name: "홍길동",
+            grade: null,
+            groupId: "g-1",
+            className: "A",
+            number: 2,
+            mixed: true,
+          },
+          {
+            name: "김영희",
+            grade: "고2",
+            groupId: null,
+            className: "3",
+            number: 1,
+          },
+        ],
+      });
+
+      expect(rolloverCall()?.args.p_rows).toEqual([
+        {
+          student_id: "s-1",
+          group_id: null,
+          class_name: "A",
+          number: 1,
+          mixed: true,
+        },
+        { student_id: "s-2", group_id: null, class_name: "3", number: null },
+      ]);
+      expect(rolloverCall()?.args.p_pending).toEqual([
+        {
+          name: "홍길동",
+          grade: null,
+          group_id: "g-1",
+          class_name: "A",
+          number: 2,
+          mixed: true,
+        },
+        {
+          name: "김영희",
+          grade: "고2",
+          group_id: null,
+          class_name: "3",
+          number: 1,
+        },
+      ]);
+    });
+
+    test("mixed must be a boolean", async () => {
+      for (const body of [
+        {
+          toYear: 2027,
+          rows: [{ studentId: "s", className: "A", mixed: "yes" }],
+        },
+        {
+          toYear: 2027,
+          pendingRows: [{ name: "홍길동", className: "A", mixed: 1 }],
+        },
+      ]) {
+        expect((await post(body)).status).toBe(400);
+      }
+      expect(rolloverCall()).toBeUndefined();
+    });
+
+    test("a school tenant cannot apply a mixed line: 400 and nothing runs", async () => {
+      state.orgType = "학교";
+
+      const rows = await post({
+        toYear: 2027,
+        rows: [{ studentId: "s-1", className: "3", mixed: true }],
+      });
+      const pending = await post({
+        toYear: 2027,
+        pendingRows: [{ name: "홍길동", className: "3", mixed: true }],
+      });
+
+      expect(rows.status).toBe(400);
+      expect(pending.status).toBe(400);
+      expect(rolloverCall()).toBeUndefined();
+    });
+
+    test("a school tenant still applies ordinary lines", async () => {
+      state.orgType = "학교";
+
+      const r = await post({
+        toYear: 2027,
+        rows: [{ studentId: "s-1", className: "3" }],
+      });
+
+      expect(r.status).toBe(200);
     });
   });
 

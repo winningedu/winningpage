@@ -104,7 +104,13 @@ export default defineHandler({
     const homeroomClasses = new Set(
       [...classes.values()]
         .filter((c) => c.schoolYear === toYear && homerooms.has(c.id))
-        .map((c) => `${c.grade}|${c.groupId ?? ""}|${c.name}`),
+        .map((c) => `${c.grade ?? ""}|${c.groupId ?? ""}|${c.name}`),
+    );
+    // 새 학년도에 이미 다학년인 학급(학년 없음). 같은 그룹과 반을 가리키는 줄이 다학년 줄이 된다.
+    const mixedClasses = new Set(
+      [...classes.values()]
+        .filter((c) => c.schoolYear === toYear && c.grade === null)
+        .map((c) => `${c.groupId ?? ""}|${c.name.toLowerCase()}`),
     );
 
     res.status(200).json(
@@ -120,6 +126,7 @@ export default defineHandler({
             .map((g) => [g.name.toLowerCase(), { id: g.id, name: g.name }]),
         ),
         homeroomClasses,
+        mixedClasses,
       }),
     );
   },

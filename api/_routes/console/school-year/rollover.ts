@@ -30,6 +30,7 @@ interface RolloverRow {
   class_name: string;
   number: number | null;
   version?: number;
+  mixed?: boolean;
 }
 
 interface PendingInput {
@@ -38,6 +39,7 @@ interface PendingInput {
   group_id: string | null;
   class_name: string | null;
   number: number | null;
+  mixed?: boolean;
 }
 
 interface RolloverCounts {
@@ -69,13 +71,14 @@ function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
   if (!Array.isArray(rows) || rows.length > MAX_ROWS) return null;
   const parsed: RolloverRow[] = [];
   for (const raw of rows) {
-    const { studentId, groupId, className, number, version } = (raw ??
+    const { studentId, groupId, className, number, version, mixed } = (raw ??
       {}) as Record<string, unknown>;
     if (typeof studentId !== "string" || studentId === "") return null;
     if (!validClassName(className) || (className as string).trim() === "")
       return null;
     if (groupId != null && typeof groupId !== "string") return null;
     if (number != null && !isNumber(number)) return null;
+    if (mixed != null && typeof mixed !== "boolean") return null;
     if (needVersion && !(Number.isInteger(version) && (version as number) >= 1))
       return null;
     parsed.push({
@@ -84,6 +87,7 @@ function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
       class_name: className as string,
       number: (number as number | null | undefined) ?? null,
       ...(needVersion && { version: version as number }),
+      ...(mixed === true && { mixed: true }),
     });
   }
   return parsed;
@@ -94,10 +98,8 @@ function parsePending(rows: unknown): PendingInput[] | null {
   if (!Array.isArray(rows) || rows.length > MAX_ROWS) return null;
   const parsed: PendingInput[] = [];
   for (const raw of rows) {
-    const { name, grade, groupId, className, number } = (raw ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const { name, grade, groupId, className, number, mixed } = (raw ??
+      {}) as Record<string, unknown>;
     const cleaned = typeof name === "string" ? cleanName(name) : "";
     if (cleaned === "" || cleaned.length > MAX_NAME_LENGTH) return null;
     if (grade != null && !ROLLOVER_GRADES.includes(grade as string))
@@ -105,12 +107,14 @@ function parsePending(rows: unknown): PendingInput[] | null {
     if (groupId != null && typeof groupId !== "string") return null;
     if (className != null && !validClassName(className)) return null;
     if (number != null && !isNumber(number)) return null;
+    if (mixed != null && typeof mixed !== "boolean") return null;
     parsed.push({
       name: cleaned,
       grade: (grade as string | null | undefined) ?? null,
       group_id: (groupId as string | null | undefined) ?? null,
       class_name: (className as string | null | undefined) ?? null,
       number: (number as number | null | undefined) ?? null,
+      ...(mixed === true && { mixed: true }),
     });
   }
   return parsed;
@@ -133,11 +137,22 @@ export default defineHandler({
       string,
       unknown
     >;
-    const { schoolYear } = await loadTenant(ctx.supabaseAdmin, actor.tenantId);
+    const { schoolYear, orgType } = await loadTenant(
+      ctx.supabaseAdmin,
+      actor.tenantId,
+    );
     const { mode, toYear: expectedYear } = rosterModeOf(schoolYear);
     const parsedRows = parseRows(rows, mode === "midyear");
     const pending = parsePending(pendingRows);
-    if (toYear !== expectedYear || !parsedRows || !pending) {
+    // 다학년 학급은 학원만 쓴다(DB 도 학교의 학년 없는 학급을 막는다).
+    const usesMixed =
+      parsedRows?.some((r) => r.mixed) || pending?.some((p) => p.mixed);
+    if (
+      toYear !== expectedYear ||
+      !parsedRows ||
+      !pending ||
+      (usesMixed && orgType === "학교")
+    ) {
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
