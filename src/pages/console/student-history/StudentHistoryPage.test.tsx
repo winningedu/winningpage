@@ -1,6 +1,6 @@
 // W13 학생조회-변경-이력. 승인 대기, 학생 조회와 이력, 졸업생 탭과 W13a, W13b, W13c 창을 검증한다.
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -578,6 +578,24 @@ describe("W13 학생 조회와 이력 탭", () => {
     await screen.findByText("검색 결과 2명");
     expect(screen.getAllByRole("button", { name: "직접 변경" })).toHaveLength(
       2,
+    );
+  });
+
+  it("관리자의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+    stubStudents(
+      {
+        "GET /api/console/groups": {
+          body: { groups: [{ id: "g1", name: "A레벨", studentCount: 0 }] },
+        },
+      },
+      adminMe,
+    );
+
+    renderRoutes(routes, "/teacher/student-history?tab=students");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual(["전체", "A레벨"]),
     );
   });
 
