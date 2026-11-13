@@ -53,6 +53,25 @@ describe("POST /api/console/teachers/assignments mixed-grade class", () => {
     expect(args.p_add).toEqual([{ grade: null, name: "A" }]);
   });
 
+  test("a mixed-grade class named like an existing graded class is a 409 with a clear message", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "사기업" });
+    kit.state.rpc.fn_assignment_set = () => ({
+      data: null,
+      error: { code: "WC105" },
+    });
+
+    const r = await post({
+      teacherId: "teacher-1",
+      add: [{ grade: null, name: "A" }],
+    });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      error: { code: "MIXED_CLASS_NAME_TAKEN" },
+    });
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
   test("a school tenant cannot add a mixed-grade class: 400 and nothing is written", async () => {
     kit.state.rows.tenants = () => ({ org_type: "학교" });
     const rpc = vi.fn(() => ({ data: null, error: null }));

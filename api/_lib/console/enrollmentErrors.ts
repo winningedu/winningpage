@@ -1,4 +1,4 @@
-// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC103, WC068, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC103, WC105, WC068, 40P01, 55P03, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
@@ -113,6 +113,24 @@ const MAPPED: Record<string, Mapped> = {
     status: 409,
     code: "SCHOOL_YEAR_CHANGED",
     message: "학년도가 바뀌었어요. 명단을 다시 미리보기해 주세요.",
+  },
+  // 교착(40P01)이나 잠금 대기 시간 초과(55P03)는 다시 시도하면 된다. 40001 과 같은 409 다.
+  "40P01": {
+    status: 409,
+    code: "TRY_AGAIN",
+    message: "다른 작업과 겹쳤어요. 잠시 뒤 다시 시도해 주세요.",
+  },
+  "55P03": {
+    status: 409,
+    code: "TRY_AGAIN",
+    message:
+      "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
+  },
+  // 같은 그룹과 이름의 학년 학급이 이미 있어 다학년 학급을 만들 수 없다(fn_class_ensure).
+  WC105: {
+    status: 409,
+    code: "MIXED_CLASS_NAME_TAKEN",
+    message: "같은 이름의 학년 반이 이미 있어요. 반 이름을 바꿔 주세요.",
   },
   "23503": INVALID_CLASS,
   // 학급 이름 정규화(22023)와 학년, 번호 CHECK(23514)

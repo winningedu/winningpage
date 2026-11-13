@@ -362,6 +362,24 @@ const DB_ERRORS: Record<
     code: "INVALID_CLASS",
     message: "학년, 학급 정보를 확인해 주세요.",
   },
+  // 같은 이름의 학년 학급이 이미 있어 다학년 학급을 만들 수 없다(fn_class_ensure).
+  WC105: {
+    status: 409,
+    code: "MIXED_CLASS_NAME_TAKEN",
+    message: "같은 이름의 학년 반이 이미 있습니다. 반 이름을 바꿔 주세요.",
+  },
+  // 교착(40P01)이나 잠금 대기 시간 초과(55P03)는 다시 시도하면 된다.
+  "40P01": {
+    status: 409,
+    code: "TRY_AGAIN",
+    message: "다른 작업과 겹쳤습니다. 잠시 뒤 다시 시도해 주세요.",
+  },
+  "55P03": {
+    status: 409,
+    code: "TRY_AGAIN",
+    message:
+      "다른 작업이 끝나길 기다리다 멈췄습니다. 잠시 뒤 다시 시도해 주세요.",
+  },
   "23505": {
     status: 409,
     code: "CLASS_TAKEN",
