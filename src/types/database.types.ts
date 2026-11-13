@@ -6376,7 +6376,7 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "roster_pending_students_class_id_tenant_id_school_year_grade_fkey";
+            foreignKeyName: "roster_pending_students_class_id_tenant_id_school_year_gra_fkey";
             columns: ["class_id", "tenant_id", "school_year", "grade"];
             isOneToOne: false;
             referencedRelation: "classes";
@@ -9283,20 +9283,27 @@ export type Database = {
           p_tenant: string;
         };
         Returns: {
+          pending_deleted: number;
           pending_skipped: number;
           pending_stored: number;
           skipped_count: number;
           updated_count: number;
         }[];
       };
+      fn_roster_pending_lock: {
+        Args: { p_tenant: string; p_year: number };
+        Returns: undefined;
+      };
       fn_roster_pending_replace: {
         Args: {
           p_actor: string;
+          p_classes?: string[];
           p_rows: Json;
           p_tenant: string;
           p_year: number;
         };
         Returns: {
+          deleted_count: number;
           skipped_count: number;
           stored_count: number;
         }[];
@@ -9312,6 +9319,7 @@ export type Database = {
         Returns: {
           assigned_count: number;
           graduated_count: number;
+          pending_deleted: number;
           pending_skipped: number;
           pending_stored: number;
           promoted_count: number;

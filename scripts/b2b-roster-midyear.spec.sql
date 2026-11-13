@@ -95,6 +95,7 @@ insert into fx select 'tb', id from public.tenants where code = 'RMBBBBBB';
 insert into fx values
   ('s1', pg_temp.mk_user('rm-s1@t.local')), ('s2', pg_temp.mk_user('rm-s2@t.local')),
   ('s3', pg_temp.mk_user('rm-s3@t.local')), ('s4', pg_temp.mk_user('rm-s4@t.local')),
+  ('s5', pg_temp.mk_user('rm-s5@t.local')), ('s6', pg_temp.mk_user('rm-s6@t.local')),
   ('actor', pg_temp.mk_user('rm-actor@t.local'));
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 create function pg_temp.year(p_tenant text default 'ta') returns integer language sql as $$
@@ -134,9 +135,9 @@ select pg_temp.enroll('s4', '고2', '2', 6);
 -- ---------------------------------------------------------------------
 -- fn_roster_midyear
 -- ---------------------------------------------------------------------
--- 결과: 바뀐 학생/건너뜀/가입 전 저장/가입 전 건너뜀
+-- 결과: 바뀐 학생/건너뜀/가입 전 저장/가입 전 건너뜀/가입 전 삭제
 create function pg_temp.midyear(p_rows jsonb, p_pending jsonb default '[]') returns text language sql as $$
-  select r.updated_count || '/' || r.skipped_count || '/' || r.pending_stored || '/' || r.pending_skipped
+  select r.updated_count || '/' || r.skipped_count || '/' || r.pending_stored || '/' || r.pending_skipped || '/' || r.pending_deleted
     from public.fn_roster_midyear(pg_temp.fx('ta'), p_rows, p_pending, pg_temp.fx('actor')) r
 $$;
 
@@ -147,7 +148,7 @@ select pg_temp.expect_text('midyear: s1 은 3반 9번으로, 가입 전 2줄 저
       jsonb_build_object('name', '미가입1', 'grade', '고1', 'class_name', '3', 'number', 1),
       jsonb_build_object('name', '미가입2', 'grade', '고2', 'class_name', '2'),
       jsonb_build_object('name', '미가입3', 'grade', '고2'))),
-  '1/0/2/1');
+  '1/0/2/1/0');
 select pg_temp.expect_text('midyear: 학년은 그대로, 반과 번호만 바뀌고 version 이 오른다',
   pg_temp.enr_s('s1'), 'active/고1/3/9/v2');
 select pg_temp.expect_text('midyear: 명단에 없는 학생은 그대로',
@@ -163,21 +164,21 @@ select pg_temp.expect_int('midyear: 가입 전 명단 2줄이 학급과 함께 �
      join public.classes c on c.id = p.class_id and c.tenant_id = p.tenant_id
     where p.tenant_id = pg_temp.fx('ta') and p.school_year = pg_temp.year('ta')), 2);
 
--- 다시 불러도 된다(몇 번이든): 같은 값은 건너뛰고, 가입 전 명단은 통째로 바뀐다
-select pg_temp.expect_text('midyear: 같은 명단을 다시 올리면 바뀐 학생 0, 건너뜀 1, 가입 전은 새 줄로 교체',
+-- 다시 불러도 된다(몇 번이든): 같은 값은 건너뛰고, 올린 학급(3반)의 가입 전 줄만 새 줄로 바뀐다
+select pg_temp.expect_text('midyear: 같은 명단을 다시 올리면 바뀐 학생 0, 건너뜀 1, 3반 가입 전 1줄 삭제 후 새 줄 저장',
   pg_temp.midyear(
     jsonb_build_array(pg_temp.row_of('s1', '3', 9, pg_temp.ver('s1'))),
     jsonb_build_array(jsonb_build_object('name', '미가입9', 'grade', '고1', 'class_name', '3', 'number', 3))),
-  '0/1/1/0');
-select pg_temp.expect_text('midyear: 가입 전 명단은 새 줄만 남는다',
-  (select string_agg(name, ',') from public.roster_pending_students where tenant_id = pg_temp.fx('ta')), '미가입9');
+  '0/1/1/0/1');
+select pg_temp.expect_text('midyear: 올리지 않은 2반의 가입 전 줄은 남고 3반 줄만 바뀐다',
+  (select string_agg(name, ',' order by name) from public.roster_pending_students where tenant_id = pg_temp.fx('ta')), '미가입2,미가입9');
 
 -- 번호 맞바꾸기(같은 학급 안에서 1,2 를 서로)
 select pg_temp.expect_text('midyear: 학급 안에서 번호를 맞바꿔도 된다',
   pg_temp.midyear(jsonb_build_array(
     pg_temp.row_of('s3', '2', 6, pg_temp.ver('s3')),
     pg_temp.row_of('s4', '2', 5, pg_temp.ver('s4')))),
-  '2/0/0/0');
+  '2/0/0/0/1');
 select pg_temp.expect_text('midyear: 맞바꾼 s3', pg_temp.enr_s('s3'), 'active/고2/2/6/v2');
 select pg_temp.expect_text('midyear: 맞바꾼 s4', pg_temp.enr_s('s4'), 'active/고2/2/5/v2');
 select pg_temp.expect_text('midyear: 번호만 바뀌면 이력 reason 은 number_change',
@@ -202,24 +203,54 @@ select pg_temp.expect_text('midyear: 다른 기관 학생 줄은 건너뛴다',
      from public.fn_roster_midyear(pg_temp.fx('tb'), jsonb_build_array(pg_temp.row_of('s2', '1', 7, 1)), '[]', pg_temp.fx('actor')) r),
   '0/1');
 
--- 줄이 없는 호출은 그 학년도의 가입 전 명단을 비운다(통째로 바꾸기)
-select pg_temp.expect_int('midyear: 가입 전 줄 없이 부르면 그 학년도 가입 전 명단이 비워진다',
-  (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta')), 0);
-select pg_temp.midyear('[]', jsonb_build_array(
-  jsonb_build_object('name', '미가입9', 'grade', '고1', 'class_name', '3', 'number', 3)));
+-- 부분 올리기는 다른 학급의 가입 전 줄을 지우지 않는다(2반만 올렸으니 2반 줄만 사라지고 3반 줄은 남는다)
+select pg_temp.expect_text('midyear: 2반만 올리면 2반 가입 전 줄만 지워지고 3반 줄은 남는다',
+  (select string_agg(name, ',' order by name) from public.roster_pending_students where tenant_id = pg_temp.fx('ta')), '미가입9');
+
+-- 가입하면 가입 전 줄이 지워지고, 학적이 사라져도 돌아오지 않는다(트리거)
+select * from public.fn_roster_pending_replace(pg_temp.fx('ta'), pg_temp.year('ta'),
+  jsonb_build_array(
+    jsonb_build_object('name', 'rm-s5@t.local', 'grade', '고1', 'class_name', '8'),
+    jsonb_build_object('name', 'rm-s6@t.local', 'grade', '고1', 'class_name', '9', 'number', 5)),
+  pg_temp.fx('actor'), (select array_agg(id) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('8', '9')));
+select pg_temp.enroll('s5', '고1', '8', 3);
+select pg_temp.expect_int('trigger: 같은 반에 같은 이름이 가입하면 번호 없는 가입 전 줄이 지워진다',
+  (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta') and name = 'rm-s5@t.local'), 0);
+select pg_temp.enroll('s6', '고1', '9', 6);
+select pg_temp.expect_int('trigger: 번호가 다르면 번호 있는 가입 전 줄은 남는다',
+  (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta') and name = 'rm-s6@t.local'), 1);
+update public.student_enrollments set number = 5
+ where student_id = pg_temp.fx('s6') and school_year = pg_temp.year('ta');
+select pg_temp.expect_int('trigger: 번호가 같아지면 지워진다',
+  (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta') and name = 'rm-s6@t.local'), 0);
+delete from public.student_enrollments where student_id in (pg_temp.fx('s5'), pg_temp.fx('s6'));
+select pg_temp.expect_int('trigger: 학적이 사라져도 가입 전 줄은 돌아오지 않는다',
+  (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta') and name in ('rm-s5@t.local', 'rm-s6@t.local')), 0);
+
+-- 한도: 줄 수 3000, 이름 50자
+select pg_temp.expect_error('limit: 가입 전 줄이 3000 을 넘으면 거부',
+  format($f$select * from public.fn_roster_pending_replace(%L, %s, %L::jsonb, %L)$f$,
+    pg_temp.fx('ta'), pg_temp.year('ta'), (select jsonb_agg('{}'::jsonb) from generate_series(1, 3001)), pg_temp.fx('actor')), '54000');
+select pg_temp.expect_error('limit: 학적 줄이 3000 을 넘으면 거부',
+  format($f$select * from public.fn_roster_midyear(%L, %L::jsonb, '[]', %L)$f$,
+    pg_temp.fx('ta'), (select jsonb_agg('{}'::jsonb) from generate_series(1, 3001)), pg_temp.fx('actor')), '54000');
+select pg_temp.expect_error('limit: 이름이 50자를 넘으면 거부(CHECK)',
+  format($f$select * from public.fn_roster_pending_replace(%L, %s, %L::jsonb, %L)$f$,
+    pg_temp.fx('ta'), pg_temp.year('ta'),
+    jsonb_build_array(jsonb_build_object('name', repeat('가', 51), 'grade', '고1', 'class_name', '3')), pg_temp.fx('actor')), '23514');
 
 -- ---------------------------------------------------------------------
 -- fn_roster_rollover: 넘기기와 가입 전 명단이 같은 트랜잭션
 -- ---------------------------------------------------------------------
 select pg_temp.expect_text('rollover: 학년도가 오르고 가입 전 1줄이 새 학년도로 저장된다',
-  (select r.promoted_count || '/' || r.pending_stored || '/' || r.pending_skipped
+  (select r.promoted_count || '/' || r.pending_stored || '/' || r.pending_skipped || '/' || r.pending_deleted
      from public.fn_roster_rollover(pg_temp.fx('ta'), (select y + 1 from y0), '[]',
        jsonb_build_array(jsonb_build_object('name', '새미가입', 'grade', '고2', 'class_name', '4', 'number', 1)),
        pg_temp.fx('actor')) r),
-  '4/1/0');
-select pg_temp.expect_text('rollover: 가입 전 명단은 새 학년도 것만 남는다(이전 학년도 줄은 그대로 보존)',
+  '4/1/0/1');
+select pg_temp.expect_text('rollover: 이전 학년도 가입 전 줄은 지워지고 새 학년도 줄만 남는다(보존 기간)',
   (select string_agg(name || '@' || school_year, ',' order by school_year) from public.roster_pending_students
-    where tenant_id = pg_temp.fx('ta')), '미가입9@' || (select y from y0) || ',새미가입@' || (select y + 1 from y0));
+    where tenant_id = pg_temp.fx('ta')), '새미가입@' || (select y + 1 from y0));
 
 -- ---------------------------------------------------------------------
 -- 권한: 표는 정책이 없고 함수는 service_role 만
