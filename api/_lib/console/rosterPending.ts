@@ -19,15 +19,21 @@ export function hiddenPendingIds(
   pending: PendingRecord[],
   active: ActiveRecord[],
 ): Set<string> {
+  // 학급과 이름(앞뒤 공백 제외, 트리거의 btrim 과 같다)별로 재학생 번호를 모아 둔다.
+  const keyOf = (classId: string, name: string) =>
+    `${classId}\u0000${name.trim()}`;
+  const numbers = new Map<string, Set<number | null>>();
+  for (const a of active) {
+    if (a.classId === null) continue;
+    const key = keyOf(a.classId, a.name);
+    const set = numbers.get(key) ?? new Set<number | null>();
+    set.add(a.number);
+    numbers.set(key, set);
+  }
   const hidden = new Set<string>();
   for (const p of pending) {
-    const joined = active.some(
-      (a) =>
-        a.classId === p.classId &&
-        a.name === p.name &&
-        (p.number === null || a.number === p.number),
-    );
-    if (joined) hidden.add(p.id);
+    const set = numbers.get(keyOf(p.classId, p.name));
+    if (set && (p.number === null || set.has(p.number))) hidden.add(p.id);
   }
   return hidden;
 }

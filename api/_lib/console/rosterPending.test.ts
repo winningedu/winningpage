@@ -52,4 +52,13 @@ describe("hiddenPendingIds", () => {
       new Set(),
     );
   });
+
+  test("names are compared trimmed, like the trigger's btrim", () => {
+    expect(
+      hiddenPendingIds(
+        [pending({ id: "p1", name: " 홍길동 " })],
+        [active({ name: "홍길동 " })],
+      ),
+    ).toEqual(new Set(["p1"]));
+  });
 });
