@@ -108,7 +108,7 @@ export default function ConsoleLayout() {
             currentPage={item?.label ?? ""}
             onOpenMenu={() => setDrawerOpen(true)}
           />
-          <main className="pb-12 lg:pb-24">
+          <main key={me.tenant.id} className="pb-12 lg:pb-24">
             {blocked ? <NoPermission /> : <Outlet />}
           </main>
         </div>

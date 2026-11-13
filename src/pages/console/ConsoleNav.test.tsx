@@ -1,10 +1,19 @@
 // 사이드바와 드로어가 함께 쓰는 메뉴. 역할별 항목, 교사 카드, 현재 위치 강조, 승인 대기 배지를 검증한다.
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: { getSession: vi.fn(async () => ({ data: { session: null } })) },
+  },
+}));
+
 import type { ConsoleMe } from "./api";
 import ConsoleNav from "./ConsoleNav";
+import { ToastProvider } from "./Toast";
 import { adminMe, homeroomMe, proxyMe } from "./testUtils";
 
 function renderNav(
@@ -16,14 +25,18 @@ function renderNav(
   } = {},
 ) {
   return render(
-    <MemoryRouter>
-      <ConsoleNav
-        me={me}
-        pendingCount={props.pendingCount ?? 0}
-        activePath={props.activePath ?? "/teacher"}
-        {...(props.onNavigate ? { onNavigate: props.onNavigate } : {})}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <MemoryRouter>
+          <ConsoleNav
+            me={me}
+            pendingCount={props.pendingCount ?? 0}
+            activePath={props.activePath ?? "/teacher"}
+            {...(props.onNavigate ? { onNavigate: props.onNavigate } : {})}
+          />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
   );
 }
 
