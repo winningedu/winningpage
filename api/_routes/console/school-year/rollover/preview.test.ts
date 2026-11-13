@@ -1,6 +1,6 @@
 // POST /api/console/school-year/rollover/preview 계약 검증(W11 ③ 미리보기). 읽기만 하고 아무것도 쓰지 않는다.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -21,6 +21,10 @@ import handler from "./preview.js";
 
 const post = (body: unknown) => callHandler(handler, body);
 
+// 2027-03-05 KST 는 2027학년도다. 기관(2026)은 달력보다 뒤라 넘기기 방식이다.
+const rolloverDay = () =>
+  vi.setSystemTime(new Date("2027-03-05T00:00:00+09:00"));
+
 const enrollment = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
   school_year: 2026,
@@ -28,7 +32,13 @@ const enrollment = (over: Record<string, unknown>) => ({
   ...over,
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  rolloverDay();
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
   kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학원" });
@@ -40,6 +50,7 @@ beforeEach(() => {
           grade: "고1",
           class_id: "c-4",
           number: 7,
+          version: 3,
         }),
         enrollment({
           student_id: "s2",
@@ -173,11 +184,76 @@ describe("POST /api/console/school-year/rollover/preview", () => {
           result: "student_not_found",
         },
       ],
+      pendingRows: [
+        {
+          name: "없는사람",
+          grade: "고2",
+          groupId: null,
+          className: "3",
+          number: 1,
+        },
+      ],
       summary: { graduate: 1, promote: 3, waiting: 1 },
       applyRows: [
         { studentId: "s1", groupId: "g-a", className: "3", number: 1 },
         { studentId: "s2", groupId: "g-a", className: "5", number: 2 },
       ],
+    });
+  });
+
+  describe("mid-year (the tenant is already at the calendar school year)", () => {
+    beforeEach(() => {
+      vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
+    });
+
+    const MIDYEAR_TEXT = [
+      "김하늘\t1학년\tA레벨\t4\t7\t3학년\tA레벨\t5\t2",
+      "없는사람\t1학년\t\t4\t1\t\t\t\t",
+    ].join("\n");
+
+    test("the year to ask for is the tenant's own year: grade stays, only the class slot changes, the version rides along, and the missing person is a pending row", async () => {
+      const r = await post({ toYear: 2026, text: MIDYEAR_TEXT });
+
+      expect(r.status).toBe(200);
+      expect(r.body).toMatchObject({
+        rows: [
+          {
+            studentId: "s1",
+            from: { grade: "고1" },
+            to: { grade: "고1", groupName: "A레벨", className: "5", number: 2 },
+          },
+          { studentId: null, result: "student_not_found" },
+        ],
+        applyRows: [
+          {
+            studentId: "s1",
+            groupId: "g-a",
+            className: "5",
+            number: 2,
+            version: 3,
+          },
+        ],
+        pendingRows: [
+          {
+            name: "없는사람",
+            grade: "고1",
+            groupId: null,
+            className: "4",
+            number: 1,
+          },
+        ],
+        summary: { graduate: 0, promote: 0, waiting: 0 },
+      });
+    });
+
+    test("the next year is refused here, and the tenant's own year is refused while a rollover is due", async () => {
+      expect((await post({ toYear: 2027, text: MIDYEAR_TEXT })).status).toBe(
+        400,
+      );
+      rolloverDay();
+      expect((await post({ toYear: 2026, text: MIDYEAR_TEXT })).status).toBe(
+        400,
+      );
     });
   });
 

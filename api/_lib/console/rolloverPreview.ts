@@ -34,6 +34,8 @@ export interface PreviewStudent {
   groupName: string | null;
   className: string | null;
   number: number | null;
+  /** 학적 version. 학기 중 적용이 그 사이 바뀐 학생을 알아보는 데 쓴다. */
+  version?: number;
 }
 
 export type PreviewResult =
@@ -66,6 +68,8 @@ export interface ApplyRow {
   groupId: string | null;
   className: string;
   number: number | null;
+  /** 학기 중 방식에서만. 미리보기 때의 학적 version. */
+  version?: number;
 }
 
 /** 가입하지 않은 학생의 명단 줄. 학년이나 반을 못 정한 줄은 null 로 두고 저장할 때 건너뛴다. */
@@ -378,6 +382,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       groupId: target.groupId,
       className: target.slot.className as string,
       number: target.slot.number,
+      ...(midyear && { version: student.version }),
     });
   }
 
