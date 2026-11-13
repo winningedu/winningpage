@@ -11,6 +11,9 @@
 
 import { maskName } from "./maskName.js";
 
+/** 한 번에 읽는 명단 줄 수의 한도(미리보기와 적용이 같이 쓴다). */
+export const MAX_ROWS = 3000;
+
 export const ROLLOVER_GRADES = ["중1", "중2", "중3", "고1", "고2", "고3"];
 
 export interface ParsedCells {

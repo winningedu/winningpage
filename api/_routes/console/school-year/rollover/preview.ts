@@ -15,6 +15,7 @@ import {
 } from "../../../../_lib/console/directory.js";
 import {
   evaluateRolloverPreview,
+  MAX_ROWS,
   type PreviewStudent,
   parseRolloverText,
 } from "../../../../_lib/console/rolloverPreview.js";
@@ -23,8 +24,6 @@ import { defineHandler } from "../../../../_lib/handler.js";
 import { sendError } from "../../../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-const MAX_ROWS = 3000;
 
 export default defineHandler({
   methods: ["POST"],

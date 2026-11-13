@@ -331,6 +331,56 @@ describe("POST /api/console/school-year/rollover", () => {
     expect(midyearCall()).toBeUndefined();
   });
 
+  test("limits: more rows than the preview allows, a class name over 30 characters, an unknown grade and a name of only control characters are 400", async () => {
+    const row = { studentId: "s", className: "3" };
+    const pendingLine = {
+      name: "홍길동",
+      grade: "고2",
+      groupId: null,
+      className: "3",
+      number: 1,
+    };
+    const bodies = [
+      { toYear: 2027, rows: Array.from({ length: 3001 }, () => row) },
+      {
+        toYear: 2027,
+        pendingRows: Array.from({ length: 3001 }, () => pendingLine),
+      },
+      { toYear: 2027, rows: [{ ...row, className: "가".repeat(31) }] },
+      {
+        toYear: 2027,
+        pendingRows: [{ ...pendingLine, className: "가".repeat(31) }],
+      },
+      { toYear: 2027, pendingRows: [{ ...pendingLine, grade: "중4" }] },
+      { toYear: 2027, pendingRows: [{ ...pendingLine, name: "\u200b\u0007" }] },
+      {
+        toYear: 2027,
+        pendingRows: [{ ...pendingLine, name: "가".repeat(51) }],
+      },
+    ];
+    for (const body of bodies) {
+      expect((await post(body)).status).toBe(400);
+    }
+    expect(rolloverCall()).toBeUndefined();
+  });
+
+  test("control and format characters are stripped from a pending name before it is stored", async () => {
+    await post({
+      toYear: 2027,
+      pendingRows: [
+        {
+          name: " 홍\u200b길\u0007동 ",
+          grade: "고2",
+          groupId: null,
+          className: "3",
+          number: 1,
+        },
+      ],
+    });
+    const sent = (rolloverCall()?.args.p_pending ?? []) as { name: string }[];
+    expect(sent[0]?.name).toBe("홍길동");
+  });
+
   test("a pending line with a bad number or no name is a 400", async () => {
     for (const bad of [
       { name: "", grade: "고2", groupId: null, className: "3", number: 1 },

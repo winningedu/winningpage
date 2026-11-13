@@ -11,6 +11,10 @@
 import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
 import { loadTenant } from "../../../_lib/console/directory.js";
 import { sendEnrollmentRpcError } from "../../../_lib/console/enrollmentErrors.js";
+import {
+  MAX_ROWS,
+  ROLLOVER_GRADES,
+} from "../../../_lib/console/rolloverPreview.js";
 import { rosterModeOf } from "../../../_lib/console/schoolYear.js";
 import { defineHandler } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
@@ -50,19 +54,27 @@ interface MidyearCounts {
 }
 
 const MAX_NAME_LENGTH = 50;
+const MAX_CLASS_NAME_LENGTH = 30;
+
+/** 제어 문자와 서식 문자(보이지 않는 글자)를 뺀 이름. */
+const cleanName = (name: string) => name.replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
+
+const validClassName = (value: unknown) =>
+  typeof value === "string" && value.length <= MAX_CLASS_NAME_LENGTH;
 
 const isNumber = (value: unknown) =>
   Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 99;
 
 function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
   if (rows == null) return [];
-  if (!Array.isArray(rows)) return null;
+  if (!Array.isArray(rows) || rows.length > MAX_ROWS) return null;
   const parsed: RolloverRow[] = [];
   for (const raw of rows) {
     const { studentId, groupId, className, number, version } = (raw ??
       {}) as Record<string, unknown>;
     if (typeof studentId !== "string" || studentId === "") return null;
-    if (typeof className !== "string" || className.trim() === "") return null;
+    if (!validClassName(className) || (className as string).trim() === "")
+      return null;
     if (groupId != null && typeof groupId !== "string") return null;
     if (number != null && !isNumber(number)) return null;
     if (needVersion && !(Number.isInteger(version) && (version as number) >= 1))
@@ -70,7 +82,7 @@ function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
     parsed.push({
       student_id: studentId,
       group_id: (groupId as string | null | undefined) ?? null,
-      class_name: className,
+      class_name: className as string,
       number: (number as number | null | undefined) ?? null,
       ...(needVersion && { version: version as number }),
     });
@@ -80,26 +92,22 @@ function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
 
 function parsePending(rows: unknown): PendingInput[] | null {
   if (rows == null) return [];
-  if (!Array.isArray(rows)) return null;
+  if (!Array.isArray(rows) || rows.length > MAX_ROWS) return null;
   const parsed: PendingInput[] = [];
   for (const raw of rows) {
     const { name, grade, groupId, className, number } = (raw ?? {}) as Record<
       string,
       unknown
     >;
-    if (
-      typeof name !== "string" ||
-      name.trim() === "" ||
-      name.length > MAX_NAME_LENGTH
-    ) {
+    const cleaned = typeof name === "string" ? cleanName(name) : "";
+    if (cleaned === "" || cleaned.length > MAX_NAME_LENGTH) return null;
+    if (grade != null && !ROLLOVER_GRADES.includes(grade as string))
       return null;
-    }
-    if (grade != null && typeof grade !== "string") return null;
     if (groupId != null && typeof groupId !== "string") return null;
-    if (className != null && typeof className !== "string") return null;
+    if (className != null && !validClassName(className)) return null;
     if (number != null && !isNumber(number)) return null;
     parsed.push({
-      name: name.trim(),
+      name: cleaned,
       grade: (grade as string | null | undefined) ?? null,
       group_id: (groupId as string | null | undefined) ?? null,
       class_name: (className as string | null | undefined) ?? null,
