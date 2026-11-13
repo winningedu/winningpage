@@ -19,7 +19,8 @@ import TemplateLink from "./TemplateLink";
 
 interface SchoolYear {
   toYear: number;
-  rolledOver: boolean;
+  /** 서버가 정한다. midyear 는 학년을 두고 그룹, 반, 번호만 바꾸며 몇 번이든 쓸 수 있다. */
+  mode: "rollover" | "midyear";
   gradeCounts: { grade: string; count: number }[];
   graduatingGrades: string[];
 }
@@ -55,23 +56,48 @@ interface ApplyRow {
   number: number | null;
 }
 
+interface PendingRow {
+  name: string;
+  grade: string | null;
+  groupId: string | null;
+  className: string | null;
+  number: number | null;
+}
+
 interface Preview {
   rows: PreviewRow[];
   applyRows: ApplyRow[];
+  /** 가입하지 않은 학생의 명단 줄. 적용하면 학생 목록에 미회원가입으로 저장된다. */
+  pendingRows: PendingRow[];
   summary: RolloverSummary;
 }
 
 interface RolloverSectionProps {
   text: string;
   onTextChange: (text: string) => void;
-  /** 이미 실행한 학년도인지 알린다(① 올리기를 같이 막는다). */
-  onLockedChange: (locked: boolean) => void;
+}
+
+/** 적용 응답의 미회원가입 저장 결과를 문장 뒤에 붙인다. 저장도 건너뜀도 없으면 붙이지 않는다. */
+function pendingSentence(done: {
+  pendingStored: number;
+  pendingSkipped: number;
+}): string {
+  const parts = [
+    ...(done.pendingStored > 0
+      ? [`미회원가입 ${done.pendingStored}명은 학생 목록에 저장했어요`]
+      : []),
+    ...(done.pendingSkipped > 0
+      ? [
+          `학년이나 반을 알 수 없는 ${done.pendingSkipped}명은 저장하지 못했어요`,
+        ]
+      : []),
+  ];
+  return parts.length > 0 ? `. ${parts.join(", ")}` : "";
 }
 
 export default function RolloverSection({
   text,
   onTextChange,
-  onLockedChange,
 }: RolloverSectionProps) {
   const toast = useToast();
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -135,7 +161,11 @@ export default function RolloverSection({
     try {
       const res = await consoleRequest("/api/console/school-year/rollover", {
         method: "POST",
-        body: { toYear: year.toYear, rows: current.applyRows },
+        body: {
+          toYear: year.toYear,
+          rows: current.applyRows,
+          pendingRows: current.pendingRows,
+        },
       });
       if (res.status !== 200) {
         toast.show({
@@ -145,18 +175,35 @@ export default function RolloverSection({
         return;
       }
       const done = res.body as {
+        mode: "rollover" | "midyear";
         graduated: number;
         promoted: number;
         assigned: number;
+        updated: number;
+        pendingStored: number;
+        pendingSkipped: number;
       };
       setConfirming(false);
       setPreview(null);
       await load();
-      // 졸업과 진급이 모두 0이면 이미 실행한 학년도다. 안내는 ③ 의 이미 실행 안내가 맡는다(결정 58).
-      if (done.graduated + done.promoted === 0) return;
+      if (done.mode === "midyear") {
+        toast.show({
+          tone: "Success",
+          message: `명단을 적용했어요. 그룹, 반, 번호 변경 ${done.updated}명${pendingSentence(done)}`,
+        });
+        return;
+      }
+      // 졸업과 진급이 모두 0이면 그 사이 다른 곳에서 학년도 전환이 끝난 것이다.
+      if (done.graduated + done.promoted === 0) {
+        toast.show({
+          tone: "Error",
+          message: "이미 학년도 전환이 끝났어요. 명단을 다시 미리보기해 주세요",
+        });
+        return;
+      }
       toast.show({
         tone: "Success",
-        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요`,
+        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요${pendingSentence(done)}`,
       });
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
@@ -165,9 +212,8 @@ export default function RolloverSection({
     }
   };
 
-  const locked = year?.rolledOver === true;
-  useEffect(() => onLockedChange(locked), [locked, onLockedChange]);
-  const target = year ? targetLine(year) : null;
+  const midyear = year?.mode === "midyear";
+  const target = year && !midyear ? targetLine(year) : null;
 
   return (
     <section className="flex flex-col gap-4 border-t border-line pt-8">
@@ -181,9 +227,9 @@ export default function RolloverSection({
         />
       </div>
       <p className="text-app-body text-ink-sub">
-        학년그룹이 변경될 때(학년도 전환 등, 보통 1년에 한 번) 기존 학년그룹,
-        그룹, 반, 번호를 새 학년그룹, 그룹, 반, 번호로 한 번에 바꿉니다. 같은
-        학년도에는 한 번만 실행할 수 있어요
+        {midyear
+          ? "명단의 그룹, 반, 번호를 학생에게 한 번에 반영합니다. 학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요. 학기 중에도 몇 번이든 올릴 수 있어요"
+          : "학년그룹이 변경될 때(학년도 전환 등, 보통 1년에 한 번) 기존 학년그룹, 그룹, 반, 번호를 새 학년그룹, 그룹, 반, 번호로 한 번에 바꿉니다"}
       </p>
       {loadFailed && (
         <Notice tone="Danger">
@@ -193,18 +239,18 @@ export default function RolloverSection({
       {target && <p className="text-app-body text-ink-sub">{target}</p>}
       <textarea
         value={text}
-        disabled={locked || previewing}
+        disabled={previewing}
         placeholder="변경할 명단을 붙여넣으세요"
         onChange={(e) => onTextChange(e.target.value)}
         className={cn(
           "h-40 w-full resize-none rounded-lg border border-line bg-background p-4 text-app-label text-ink-strong placeholder:text-neutral-400",
-          (locked || previewing) && "opacity-40",
+          previewing && "opacity-40",
         )}
       />
       <div className="flex">
         <Button
           type="button"
-          disabled={locked || !year || previewing || text.trim() === ""}
+          disabled={!year || previewing || text.trim() === ""}
           onClick={() => void runPreview()}
           className="h-11 rounded-lg px-5 text-app-label font-semibold max-md:w-full md:h-10"
         >
@@ -228,14 +274,11 @@ export default function RolloverSection({
           </div>
         </>
       )}
-      {locked && (
-        <Notice tone="Info">
-          이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요
-        </Notice>
-      )}
       {preview && (
         <RolloverConfirmDialog
           open={confirming}
+          mode={year?.mode ?? "rollover"}
+          changeCount={preview.applyRows.length}
           summary={preview.summary}
           applying={applying}
           onCancel={() => setConfirming(false)}

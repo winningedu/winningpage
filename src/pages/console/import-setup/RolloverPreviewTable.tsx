@@ -37,7 +37,7 @@ export interface PreviewRow {
 
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
   applied: { label: "반영", tone: "Success" },
-  student_not_found: { label: "현재 학생을 찾을 수 없음", tone: "Danger" },
+  student_not_found: { label: "미회원가입", tone: "Danger" },
   graduating: { label: "3학년은 졸업 처리 대상", tone: "Warning" },
   check_target: { label: "새 반과 번호 확인", tone: "Warning" },
   duplicate_target: { label: "같은 새 반과 번호가 중복", tone: "Danger" },
