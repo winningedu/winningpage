@@ -252,6 +252,17 @@ select pg_temp.expect_text('rollover: 이전 학년도 가입 전 줄은 지워�
   (select string_agg(name || '@' || school_year, ',' order by school_year) from public.roster_pending_students
     where tenant_id = pg_temp.fx('ta')), '새미가입@' || (select y + 1 from y0));
 
+-- 그 사이 다른 관리자가 넘기기를 끝냈다면(졸업, 진급 0) 가입 전 명단은 건드리지 않는다
+select pg_temp.expect_text('rollover: 이미 끝난 넘기기를 다시 부르면 0 건이고 가입 전 명단은 그대로',
+  (select r.graduated_count || '/' || r.promoted_count || '/' || r.pending_stored || '/' || r.pending_skipped || '/' || r.pending_deleted
+     from public.fn_roster_rollover(pg_temp.fx('ta'), (select y + 1 from y0), '[]',
+       jsonb_build_array(jsonb_build_object('name', '덮어쓰기', 'grade', '고2', 'class_name', '4', 'number', 2)),
+       pg_temp.fx('actor')) r),
+  '0/0/0/0/0');
+select pg_temp.expect_text('rollover: 이미 끝난 넘기기 뒤에도 기존 가입 전 줄이 남는다',
+  (select string_agg(name, ',' order by name) from public.roster_pending_students where tenant_id = pg_temp.fx('ta')),
+  '새미가입');
+
 -- ---------------------------------------------------------------------
 -- 권한: 표는 정책이 없고 함수는 service_role 만
 -- ---------------------------------------------------------------------

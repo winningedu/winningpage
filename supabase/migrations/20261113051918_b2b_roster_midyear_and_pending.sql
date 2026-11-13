@@ -107,7 +107,7 @@ end;
 $$;
 
 -- 학년도 넘기기와 가입 전 명단을 한 트랜잭션으로. 넘기기는 fn_school_year_rollover 그대로고(같은 학년도로 다시
--- 부르면 효과 없음), 기관이 p_to_year 에 있을 때 그 학년도의 가입 전 명단을 바꾼다(올린 학급과 지난 학년도 줄만 지운다).
+-- 부르면 효과 없음), 넘기기가 실제로 졸업이나 진급을 했을 때만 그 학년도의 가입 전 명단을 바꾼다(올린 학급과 지난 학년도 줄만 지운다).
 create function public.fn_roster_rollover(
   p_tenant uuid,
   p_to_year integer,
@@ -139,12 +139,14 @@ begin
      or jsonb_array_length(coalesce(p_pending, '[]'::jsonb)) > 3000 then
     raise exception 'too many roster rows' using errcode = '54000';
   end if;
-  -- 기관 행을 바꾸기 전에 잡아 학기 중 적용과 같은 순서로 줄 선다.
+  -- 같은 학년도 키로 가입 전 명단을 만지는 호출끼리 줄 세운다. 이 키는 학기 중 적용(넘기기 전 학년도)과 다르므로
+  -- 넘기기와 학기 중 적용의 순서는 기관 행 잠금(넘기기의 갱신, 적용의 FOR SHARE)이 정한다.
   perform public.fn_roster_pending_lock(p_tenant, p_to_year);
 
   select * into v_r from public.fn_school_year_rollover(p_tenant, p_to_year, p_rows, p_actor);
 
-  if exists (select 1 from public.tenants t where t.id = p_tenant and t.school_year = p_to_year) then
+  -- 넘기기가 아무것도 하지 않았으면(다른 관리자가 이미 끝냄) 가입 전 명단은 건드리지 않는다.
+  if v_r.graduated_count + v_r.promoted_count > 0 then
     select s.stored_count, s.skipped_count, s.deleted_count into v_stored, v_skipped, v_deleted
       from public.fn_roster_pending_replace(
         p_tenant, p_to_year, p_pending, p_actor,
@@ -170,8 +172,9 @@ $$;
 --   번호가 겹치면 WC077 로 전체가 되돌려진다. 학급 안에서 번호를 서로 맞바꾸는 명단도 되도록,
 --   바꿀 학생의 번호를 먼저 비우고(version 은 올리지 않는다) 새 값을 넣는다.
 -- 이력은 enrollment_changes 에 kind admin_direct, reason class_change(학급이 바뀜) 또는 number_change(번호만)로 남긴다.
--- 가장 먼저 기관, 학년도 자문 잠금을 잡고(가입 전 명단 갈아 끼우기와 같은 잠금), 기관 행을 공유 잠금으로 읽어
--- 학년도 넘기기와 겹치지 않게 하며, 학적은 학생 id 순으로 잠근다.
+-- 가장 먼저 기관, 학년도 자문 잠금을 잡아(가입 전 명단 갈아 끼우기와 같은 잠금) 같은 학년도의 적용끼리 줄 세우고,
+-- 기관 행을 공유 잠금으로 읽어 학년도 넘기기와 겹치지 않게 한다(둘의 순서는 이 기관 행 잠금이 정한다).
+-- 학적은 학생 id 순으로 잠근다.
 -- 같은 학생이 두 번 오면 첫 줄만 쓴다. 가입 전 명단은 올해 학년도의 것을 같은 트랜잭션에서 바꾼다.
 create function public.fn_roster_midyear(
   p_tenant uuid,
@@ -214,7 +217,8 @@ begin
     raise exception 'too many roster rows' using errcode = '54000';
   end if;
 
-  -- 같은 기관, 학년도의 적용을 줄 세운다. 학급을 만들고 학적을 잠그기 전에 먼저 잡아 서로 교착하지 않게 한다.
+  -- 같은 기관, 학년도 키의 적용끼리 줄 세운다. 학급을 만들고 학적을 잠그기 전에 먼저 잡아 서로 교착하지 않게 한다.
+  -- 넘기기와의 순서는 이 잠금이 아니라 아래 기관 행 잠금이 정한다.
   select t.school_year into v_year from public.tenants t where t.id = p_tenant;
   if v_year is null then
     raise exception 'tenant not found' using errcode = 'no_data_found';
