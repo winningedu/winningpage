@@ -93,7 +93,7 @@ revoke all on function public.fn_class_grade_match() from public, anon, authenti
 -- 잠그는 순서(교착 검토). 모두 이 잠금(L)을 쓰고, 한 트랜잭션 안에서 L 은 같은 키로 다시 잡을 뿐이다.
 --   학생 가입(fn_enrollment_join): 기관 행 공유 잠금 -> L(현재 학년도) -> 학적 행
 --   학기 중 적용(fn_roster_midyear): L(현재 학년도) -> 기관 행 공유 잠금 -> 학적 행(학생 id 순) -> 학급 만들기(L 다시)
---   넘기기(fn_roster_rollover -> fn_school_year_rollover): L(다음 학년도) -> 기관 행 갱신 -> 학적 행(id 순) -> 학급 만들기(L 다시)
+--   넘기기(fn_roster_rollover -> fn_school_year_rollover): L(다음 학년도) -> 기관 행 갱신 -> 열린 신청 행 -> 학적 행(id 순) -> 학급 만들기(L 다시)
 --   교사 등록과 담당 변경(fn_teacher_register, fn_assignment_set): 교사 행 -> L(학급마다 같은 키로 한 번씩)
 -- 잠금 대기는 어떤 함수도 lock_timeout 으로 끊지 않는다. 파일 맨 위의 set local 은 이 마이그레이션을 돌리는 동안만 적용된다.
 -- 기다리는 쪽은 API 역할의 statement_timeout(8초)이 57014 로 끊고, API 가 다시 시도하라는 409 로 바꾼다.
@@ -237,7 +237,7 @@ begin
      where x.student_id is not null group by x.student_id having count(*) > 1) then
     raise exception 'duplicate student_id in roster rows' using errcode = '22023';
   end if;
-  -- 잠그는 순서: L(다음 학년도) -> 기관 행 갱신 -> 학적 행. fn_roster_rollover 가 이미 잡았으면 다시 잡을 뿐이다.
+  -- 잠그는 순서: L(다음 학년도) -> 기관 행 갱신 -> 열린 신청 행 -> 학적 행. fn_roster_rollover 가 이미 잡았으면 다시 잡을 뿐이다.
   perform public.fn_roster_pending_lock(p_tenant, p_to_year);
 
   update public.tenants t set school_year = p_to_year
