@@ -48,7 +48,7 @@ export function emptyTenantForm(): TenantFormValues {
   };
 }
 
-/** tenants 행(일부 칼럼만 있어도 된다)을 입력 값으로 바꾼다. null 은 빈 문자열이다. */
+/** tenants 행(일부 칼럼만 있어도 된다)을 입력 값으로 바꾼다. null 은 빈 문자열이고, 홈페이지만 비어 있으면 http:// 를 미리 채운다. */
 export function tenantFormFromRow(
   row: Partial<
     Record<keyof TenantFormValues, string | number | null | undefined>
