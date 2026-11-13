@@ -122,6 +122,8 @@ export interface PreviewInput {
   homeroomClasses: Set<string>;
   /** 새 학년도에 이미 다학년 학급인 학급: `${그룹id 또는 빈 문자열}|${반 이름 소문자}`. 학원만 쓴다. */
   mixedClasses?: Set<string>;
+  /** 새 학년도에 이미 있는 학년 학급(학년이 있는 학급): 같은 형식의 키. 같은 이름의 다학년 학급은 만들 수 없어 확인 대상이다. */
+  gradedClasses?: Set<string>;
 }
 
 /** 붙여넣은 글을 줄로 읽는다. 탭이 있으면 탭, 없으면 쉼표로 나누고 머리글 줄(이름으로 시작)은 건너뛴다. */
@@ -375,6 +377,7 @@ function flagLines(input: PreviewInput): Map<ParsedLine, LineFlags> {
   const flags = new Map<ParsedLine, LineFlags>();
   if (!isAcademy(input.orgType)) return flags;
   const existing = input.mixedClasses ?? new Set<string>();
+  const graded = input.gradedClasses ?? new Set<string>();
   type Kind = "grade" | "mixed" | "blank" | "junk";
   const kindOf = (line: ParsedLine): Kind => {
     const cell = decidingGradeOf(line);
@@ -400,7 +403,14 @@ function flagLines(input: PreviewInput): Map<ParsedLine, LineFlags> {
     const key = classKeyOf(line, input);
     const kind = kindOf(line);
     flags.set(line, {
-      check: kind === "junk" || conflicting.has(line),
+      // 다학년 줄이 같은 그룹과 이름의 학년 학급을 가리키면 DB 가 다학년 학급을 만들지 못한다(이미 다학년이면 그 학급으로 간다).
+      check:
+        kind === "junk" ||
+        conflicting.has(line) ||
+        (kind === "mixed" &&
+          key !== null &&
+          graded.has(key) &&
+          !existing.has(key)),
       mixed: kind === "mixed" || (key !== null && existing.has(key)),
     });
   }

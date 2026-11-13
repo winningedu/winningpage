@@ -107,16 +107,25 @@ export default defineHandler({
         .filter((c) => c.schoolYear === toYear && homerooms.has(c.id))
         .map((c) => `${c.grade ?? ""}|${c.groupId ?? ""}|${c.name}`),
     );
-    // 새 학년도에 이미 다학년인 학급(학년 없음). 같은 그룹과 반을 가리키는 줄이 다학년 줄이 된다.
-    // 올해 다학년인 학급도 포함한다: 넘기기에서 같은 그룹과 반 이름을 가리키는 줄은 실제 새 학년을 적었어도 다학년 학급 하나로 이어진다.
+    const keyOf = (c: { groupId: string | null; name: string }) =>
+      `${c.groupId ?? ""}|${c.name.toLowerCase()}`;
+    // 새 학년도에 이미 있는 학년 학급. 같은 그룹과 이름의 다학년 학급은 만들 수 없어(DB 가 막는다) 다학년 줄은 확인 대상이다.
+    const gradedClasses = new Set(
+      [...classes.values()]
+        .filter((c) => c.schoolYear === toYear && c.grade !== null)
+        .map(keyOf),
+    );
+    // 이미 다학년인 학급(학년 없음): 새 학년도 것과, 올해 것은 같은 이름의 학년 학급이 새 학년도에 없을 때만 넣는다.
+    // 넘기기에서 같은 그룹과 반 이름을 가리키는 줄은 실제 새 학년을 적었어도 다학년 학급 하나로 이어진다.
     const mixedClasses = new Set(
       [...classes.values()]
         .filter(
           (c) =>
-            (c.schoolYear === toYear || c.schoolYear === schoolYear) &&
-            c.grade === null,
+            c.grade === null &&
+            (c.schoolYear === toYear ||
+              (c.schoolYear === schoolYear && !gradedClasses.has(keyOf(c)))),
         )
-        .map((c) => `${c.groupId ?? ""}|${c.name.toLowerCase()}`),
+        .map(keyOf),
     );
 
     res.status(200).json(
@@ -133,6 +142,7 @@ export default defineHandler({
         ),
         homeroomClasses,
         mixedClasses,
+        gradedClasses,
       }),
     );
   },

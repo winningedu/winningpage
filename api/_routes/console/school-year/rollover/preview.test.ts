@@ -292,6 +292,53 @@ describe("POST /api/console/school-year/rollover/preview", () => {
       });
     });
 
+    test("a 다학년 line into a name that already exists as a graded class of the target year is a check, but a real grade line goes on as graded", async () => {
+      // c-next(고2, A레벨 그룹, 이름 3)가 새 학년도의 학년 학급이다.
+      const mixedText = "김하늘\t1학년\tA레벨\t4\t7\t다학년\tA레벨\t3\t1";
+      const gradedText = "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1";
+
+      const mixed = await post({ toYear: 2027, text: mixedText });
+      const graded = await post({ toYear: 2027, text: gradedText });
+
+      expect(mixed.body).toMatchObject({
+        rows: [{ result: "check_target" }],
+        applyRows: [],
+      });
+      expect(graded.body).toMatchObject({
+        applyRows: [{ studentId: "s1", className: "3" }],
+      });
+    });
+
+    test("a class that is mixed this year but whose name exists as a graded class next year is not treated as mixed", async () => {
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-now",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: "g-a",
+              name: "3",
+            },
+          ],
+          f,
+        ),
+      ];
+
+      const r = await post({
+        toYear: 2027,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1",
+      });
+
+      expect(r.body).toMatchObject({ applyRows: [{ studentId: "s1" }] });
+      expect(
+        (r.body as { applyRows: Record<string, unknown>[] }).applyRows[0],
+      ).not.toHaveProperty("mixed");
+    });
+
     test("R6: the student's current class being mixed is passed on, so staying in it is not a class change", async () => {
       vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
       const baseClasses = kit.state.rows.classes;

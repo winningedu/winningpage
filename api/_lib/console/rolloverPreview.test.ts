@@ -69,6 +69,7 @@ const base = {
   groups: new Map([["a레벨", { id: "g-a", name: "A레벨" }]]),
   homeroomClasses: new Set<string>(),
   mixedClasses: new Set<string>(),
+  gradedClasses: new Set<string>(),
 };
 
 function run(
@@ -822,6 +823,69 @@ describe("mixed-grade lines (다학년, academy only)", () => {
       const r = run("김하늘,고1,,A,3\n이서준,,A레벨,A,4", [kim, lee], midyear);
 
       expect(r.rows.map((x) => x.result)).not.toContain("check_target");
+    });
+  });
+
+  describe("a 다학년 line cannot target a name that already exists as a graded class", () => {
+    const graded = { ...midyear, gradedClasses: new Set(["|a"]) };
+
+    test("a blank 5-column line and a 다학년 token are check_target and neither applied nor stored", () => {
+      const r = run("김하늘,,,A,3\n모르는사람,다학년,,A,4", [kim], graded);
+
+      expect(r.rows.map((x) => x.result)).toEqual([
+        "check_target",
+        "check_target",
+      ]);
+      expect(r.applyRows).toEqual([]);
+      expect(r.pendingRows).toEqual([]);
+    });
+
+    test("the token on a 9-column line is a check too, in a rollover as well", () => {
+      const roll = run("김하늘,1학년,,4,7,다학년,,A,3", [kim], {
+        gradedClasses: new Set(["|a"]),
+      });
+
+      expect(roll.rows[0]?.result).toBe("check_target");
+      expect(roll.applyRows).toEqual([]);
+    });
+
+    test("a real grade line into that graded class is an ordinary graded line", () => {
+      const r = run("김하늘,고1,,A,3", [kim], graded);
+
+      expect(r.applyRows).toEqual([
+        {
+          studentId: "s1",
+          groupId: null,
+          className: "A",
+          number: 3,
+        },
+      ]);
+      expect(r.applyRows[0]).not.toHaveProperty("mixed");
+    });
+
+    test("a different group or name is not affected", () => {
+      const r = run("김하늘,,,B,3\n이서준,,A레벨,A,4", [kim, lee], graded);
+
+      expect(r.rows.map((x) => x.result)).not.toContain("check_target");
+    });
+
+    test("when the class is somehow both, the existing mixed class wins (R1c)", () => {
+      const r = run("김하늘,,,A,3", [kim], {
+        ...graded,
+        mixedClasses: new Set(["|a"]),
+      });
+
+      expect(r.applyRows).toMatchObject([{ mixed: true }]);
+    });
+
+    test("a school ignores the graded set", () => {
+      const r = run("김하늘,고1,,4,7,,,4,9", [kim], {
+        orgType: "학교",
+        gradedClasses: new Set(["|4"]),
+        ...midyear,
+      });
+
+      expect(r.applyRows).toHaveLength(1);
     });
   });
 
