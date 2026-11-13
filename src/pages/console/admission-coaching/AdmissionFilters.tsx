@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import FilterSelect from "../FilterSelect";
-import { type ClassOption, classesOf, groupsOf } from "../useClasses";
+import { type ClassOption, classesOf } from "../useClasses";
+import { useGroupOptions } from "../useGroups";
 
 export interface AdmissionFilterValues {
   grade: string;
@@ -30,6 +31,7 @@ export default function AdmissionFilters({
   const [values, setValues] = useState(initial);
   const change = (patch: Partial<AdmissionFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
+  const groups = useGroupOptions(classes, values.grade);
   const grades = [...new Set(classes.map((c) => c.grade))];
   // 중3과 고3이 함께 있으면 둘을 가려 고르게 한다. 빈 값은 두 학년 모두다.
   const gradeOptions = [
@@ -50,7 +52,7 @@ export default function AdmissionFilters({
         value={values.groupId}
         options={[
           ALL,
-          ...groupsOf(classes, values.grade).map((g) => ({
+          ...groups.map((g) => ({
             value: g.id,
             label: g.name,
           })),
