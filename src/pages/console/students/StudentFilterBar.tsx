@@ -42,7 +42,12 @@ export default function StudentFilterBar({
   onSearch,
 }: StudentFilterBarProps) {
   const [values, setValues] = useState(initial);
-  const groups = useGroupOptions(classes, values.grade, showGroup);
+  const groups = useGroupOptions(
+    classes,
+    values.grade,
+    values.groupId,
+    showGroup,
+  );
   const change = (patch: Partial<StudentFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
   const classDisabled = classNeedsGrade && values.grade === "";

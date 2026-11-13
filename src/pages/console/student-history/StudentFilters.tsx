@@ -30,7 +30,7 @@ export default function StudentFilters({
   onSearch,
 }: StudentFiltersProps) {
   const [values, setValues] = useState(initial);
-  const groups = useGroupOptions(classes, values.grade);
+  const groups = useGroupOptions(classes, values.grade, values.groupId);
   const classOptions = classesOf(classes, values.grade, values.groupId);
   const change = (patch: Partial<StudentFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));

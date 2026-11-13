@@ -24,7 +24,7 @@ export default function DashboardFilter({
   onSubmit,
 }: DashboardFilterProps) {
   const gradeChosen = value.grade !== "";
-  const groups = useGroupOptions(classes, value.grade);
+  const groups = useGroupOptions(classes, value.grade, value.groupId);
   return (
     <form
       className="flex flex-wrap items-center gap-3"

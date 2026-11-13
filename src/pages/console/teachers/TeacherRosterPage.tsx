@@ -96,7 +96,11 @@ export default function TeacherRosterPage() {
     groupId: searchParams.get("groupId") ?? "",
   };
   const classes = useClasses();
-  const groups = useGroupOptions(classes.data ?? [], filters.grade);
+  const groups = useGroupOptions(
+    classes.data ?? [],
+    filters.grade,
+    filters.groupId,
+  );
   const list = usePagedList<RosterRow, { teachers: TeacherSummary[] }>(
     "/api/console/teachers/list",
     filters,

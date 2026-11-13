@@ -31,7 +31,7 @@ export default function AdmissionFilters({
   const [values, setValues] = useState(initial);
   const change = (patch: Partial<AdmissionFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
-  const groups = useGroupOptions(classes, values.grade);
+  const groups = useGroupOptions(classes, values.grade, values.groupId);
   const grades = [...new Set(classes.map((c) => c.grade))];
   // 중3과 고3이 함께 있으면 둘을 가려 고르게 한다. 빈 값은 두 학년 모두다.
   const gradeOptions = [
