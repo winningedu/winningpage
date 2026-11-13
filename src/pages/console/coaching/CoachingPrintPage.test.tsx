@@ -258,6 +258,25 @@ describe("W9c 코칭 PDF", () => {
     expect(container.querySelector(".coaching__print-root")).not.toBeNull();
   });
 
+  it("인쇄할 때 쪽 안 간격과 줄 간격을 줄이고 카드가 쪽 사이에서 갈라지지 않게 하며 끝 빈 쪽을 막는다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const { container } = renderRoutes(routes, "/print?studentId=s1");
+
+    await screen.findByText("김서연");
+    const rule = container.querySelector("style")?.textContent ?? "";
+    expect(rule).toMatch(
+      /\.coaching__print\s+\*[^{]*{[^}]*line-height:\s*1\.4/,
+    );
+    expect(rule).toMatch(/\.coaching__print\s*,[^{]*{[^}]*gap:\s*0\.75rem/);
+    expect(rule).toMatch(/break-inside:\s*avoid/);
+    expect(rule).toMatch(/\.coaching__print-p2\s*{[^}]*break-after:\s*avoid/);
+  });
+
   it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {
     stubApi({
       "GET /api/console/me": { body: homeroomMe },

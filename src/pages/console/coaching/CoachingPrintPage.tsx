@@ -25,6 +25,11 @@ const PRINT_RULE = `
     .console-frame-body { padding-top: 0 !important; }
     .coaching__print-root { padding: 0 !important; gap: 0 !important; }
     .coaching__print { break-after: page; }
+    .coaching__print-p2 { break-after: avoid; }
+    .coaching__print, .coaching__print-p2 { gap: 0.75rem !important; }
+    .coaching__print [class*="gap-"], .coaching__print-p2 [class*="gap-"] { gap: 0.5rem !important; }
+    .coaching__print *, .coaching__print-p2 * { line-height: 1.4 !important; }
+    .coaching__print > *, .coaching__print-p2 > *, .coaching__print li, .coaching__print-p2 li, .coaching__print-p2 [class*="rounded-"] { break-inside: avoid; }
   }
 `;
 
