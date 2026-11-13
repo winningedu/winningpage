@@ -2,9 +2,9 @@
 //
 // 내정보관리(W17, 교 #230, #231). 기관 정보를 읽고, 최종확인 전까지 학교 관리자가 입력 항목을 고친다.
 // 소속코드는 읽기 전용이라 PATCH 에서 받지 않는다(알 수 없는 항목은 400).
-// 최종확인(org-info/confirm) 뒤에는 조회만 되고 변경은 본사 화면에서 한다. 확정 여부는 UPDATE 조건
+// 최종확인(org-info/confirm) 뒤에는 조회만 되고(본사 대행도 같다) 변경은 본사 화면에서 한다. 확정 여부는 UPDATE 조건
 // (info_confirmed_at is null)으로 판정해, 확정과 동시에 들어온 저장이 확정 뒤에 덮어쓰지 못한다.
-// 권한: 조회는 학교 관리자와 본사 대행, 저장은 학교 관리자만.
+// 권한: 조회와 저장 모두 학교 관리자와 본사 대행(담임은 handler 가 막는다). 기관은 항상 세션의 actor 에서 온다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import { RpcError } from "../../_lib/console/teacherAccounts.js";
@@ -93,16 +93,6 @@ export default defineHandler({
       return;
     }
 
-    if (actor.kind !== "school_admin") {
-      sendError(
-        res,
-        "coded",
-        403,
-        "기관 정보는 본사 관리 화면에서 변경합니다.",
-        "FORBIDDEN",
-      );
-      return;
-    }
     const values = parseBody(req.body);
     if (!values) {
       sendError(res, "coded", 400, "입력 항목을 확인해 주세요.", "BAD_REQUEST");

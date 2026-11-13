@@ -176,18 +176,33 @@ describe("PATCH /api/console/org-info", () => {
     expect(r.body).toMatchObject({ error: { code: "NOT_SCHOOL_ADMIN" } });
   });
 
-  test("본사 대행은 교사 콘솔에서 고칠 수 없다(403 FORBIDDEN)", async () => {
+  test("본사 대행은 세션 기관 행만 고치고 감사 로그를 본사 직원 이름과 대행 세션 id 로 남긴다", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "hq_proxy",
       teacher_id: null,
       proxy_session_id: "session-1",
     });
 
-    const r = await patch({ address: "a" });
+    const r = await patch({ address: "새 주소" });
 
-    expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
-    expect(kit.state.updates).toHaveLength(0);
+    expect(r.status).toBe(200);
+    expect(kit.state.updates).toEqual([
+      {
+        table: "tenants",
+        values: { address: "새 주소" },
+        filters: { id: "tenant-1", info_confirmed_at: null },
+      },
+    ]);
+    expect(kit.state.inserts[0]?.row).toMatchObject({
+      action: "settings_change",
+      resource_key: "console.org-info",
+      actor_kind: "hq_proxy",
+      actor_email: "admin@example.com",
+      proxy_session_id: "session-1",
+      teacher_id: null,
+      tenant_id: "tenant-1",
+      target_id: "tenant-1",
+    });
   });
 
   test("임시 비밀번호 상태의 관리자는 403 MUST_CHANGE_PASSWORD", async () => {
