@@ -12,7 +12,11 @@ vi.mock("@/config/site", () => ({
 
 // 헤더는 각자 테스트가 있다. 여기서는 사이트별 선택만 본다.
 vi.mock("./Header", () => ({ default: () => <header>winning-header</header> }));
-vi.mock("./b2b/Header", () => ({ default: () => <header>b2b-header</header> }));
+vi.mock("./b2b/Header", () => ({
+  default: ({ showHome }: { showHome?: boolean }) => (
+    <header data-show-home={String(Boolean(showHome))}>b2b-header</header>
+  ),
+}));
 
 afterEach(() => {
   siteState.b2bMenu = false;
@@ -32,5 +36,19 @@ describe("SiteHeader", () => {
 
     expect(screen.getByText("winning-header")).toBeInTheDocument();
     expect(screen.queryByText("b2b-header")).not.toBeInTheDocument();
+  });
+
+  it("showHome은 B2B 헤더에만 전달되고 위닝 헤더는 그대로다", () => {
+    siteState.b2bMenu = true;
+    const { unmount } = render(<SiteHeader showHome />);
+    expect(screen.getByText("b2b-header")).toHaveAttribute(
+      "data-show-home",
+      "true",
+    );
+    unmount();
+
+    siteState.b2bMenu = false;
+    render(<SiteHeader showHome />);
+    expect(screen.getByText("winning-header")).toBeInTheDocument();
   });
 });
