@@ -51,7 +51,12 @@ vi.mock("@/components/Header", () => ({
   default: () => <header data-testid="site-header" />,
 }));
 vi.mock("@/components/b2b/Header", () => ({
-  default: () => <header data-testid="b2b-header" />,
+  default: ({ showHome }: { showHome?: boolean }) => (
+    <header
+      data-testid="b2b-header"
+      data-show-home={String(Boolean(showHome))}
+    />
+  ),
 }));
 vi.mock("@/components/ui/RouteLoadingOverlay", () => ({
   default: () => null,
@@ -109,6 +114,10 @@ describe("GrowthAppLayout 렌더 스모크", () => {
     siteState.b2bMenu = true;
     renderLayout();
     expect(screen.getByTestId("b2b-header")).toBeInTheDocument();
+    expect(screen.getByTestId("b2b-header")).toHaveAttribute(
+      "data-show-home",
+      "true",
+    );
     expect(screen.queryByTestId("site-header")).not.toBeInTheDocument();
   });
 

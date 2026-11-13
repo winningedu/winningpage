@@ -48,7 +48,7 @@ function SelfevalShellContent() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader showHome />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           <SelfevalSidebar

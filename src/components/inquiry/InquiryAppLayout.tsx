@@ -45,7 +45,7 @@ function InquiryShellContent() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader showHome />
       <AppShellSidebarProvider>
         <div className="flex flex-1">
           <InquirySidebar

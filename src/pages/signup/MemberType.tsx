@@ -50,7 +50,7 @@ export default function MemberType() {
         line1Color="primary"
         line2={
           <span className="sm:whitespace-nowrap">
-            위닝에듀에 오신 것을 환영해요
+            {site.brandName}에 오신 것을 환영해요
           </span>
         }
         line2Color="ink"
@@ -80,7 +80,7 @@ export default function MemberType() {
       </div>
 
       <p className="text-base text-ink">
-        위닝에듀 회원이신가요?{" "}
+        {site.brandName} 회원이신가요?{" "}
         <TextLinkButton
           as="link"
           to="/login"

@@ -12,6 +12,10 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
+vi.mock("@/pages/column/useColumnCategories", () => ({
+  useColumnCategories: () => ["교육칼럼", "입시전략"],
+}));
+
 const { default: ColumnNewsSection } = await import("./ColumnNewsSection");
 
 const boxes: HomeColumnBox[] = [
@@ -20,6 +24,7 @@ const boxes: HomeColumnBox[] = [
     kind: "video",
     title: "늦은 시작과 높은 꿈",
     date: "2026.10.05",
+    category: "입시전략",
     thumbnailUrl: "https://i.ytimg.com/vi/abcDEF12345/hqdefault.jpg",
     videoId: "abcDEF12345",
     durationLabel: "12:40",
@@ -29,6 +34,7 @@ const boxes: HomeColumnBox[] = [
     kind: "column",
     title: "수시 전략 한눈에",
     date: "2026.10.03",
+    category: "교육칼럼",
     thumbnailUrl: "https://img/c1.png",
   },
   { id: "c2", kind: "column", title: "썸네일 없는 글", date: "2026.10.01" },
@@ -107,6 +113,43 @@ describe("ColumnNewsSection 박스", () => {
       "src",
       expect.stringContaining("/embed/abcDEF12345"),
     );
+  });
+});
+
+describe("ColumnNewsSection 카테고리 배지", () => {
+  test("썸네일 왼쪽 위 배지에 글의 카테고리를 보여준다", () => {
+    renderSection();
+    const column = screen.getByRole("link", { name: /수시 전략 한눈에/ });
+    expect(within(column).getByTestId("column-box-badge")).toHaveTextContent(
+      "교육칼럼",
+    );
+    const video = screen.getByRole("button", {
+      name: "늦은 시작과 높은 꿈 영상 재생",
+    });
+    expect(within(video).getByTestId("column-box-badge")).toHaveTextContent(
+      "입시전략",
+    );
+  });
+
+  test("카테고리가 없거나 관리 목록에 없으면 배지를 그리지 않는다", () => {
+    renderSection({
+      boxes: [
+        {
+          id: "x",
+          kind: "column",
+          title: "카테고리 없는 글",
+          date: "2026.10.01",
+        },
+        {
+          id: "y",
+          kind: "column",
+          title: "지워진 카테고리 글",
+          date: "2026.10.01",
+          category: "삭제된 칩",
+        },
+      ],
+    });
+    expect(screen.queryByTestId("column-box-badge")).toBeNull();
   });
 });
 

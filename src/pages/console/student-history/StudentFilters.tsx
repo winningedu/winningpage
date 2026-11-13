@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGroupOptions } from "../useGroups";
 
 export interface StudentFilterValues {
   grade: string;
@@ -29,6 +30,7 @@ export default function StudentFilters({
   onSearch,
 }: StudentFiltersProps) {
   const [values, setValues] = useState(initial);
+  const groups = useGroupOptions(classes, values.grade, values.groupId);
   const classOptions = classesOf(classes, values.grade, values.groupId);
   const change = (patch: Partial<StudentFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
@@ -49,7 +51,7 @@ export default function StudentFilters({
         value={values.groupId}
         options={[
           ALL,
-          ...groupsOf(classes, values.grade).map((g) => ({
+          ...groups.map((g) => ({
             value: g.id,
             label: g.name,
           })),

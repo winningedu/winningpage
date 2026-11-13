@@ -145,4 +145,21 @@ describe("tenantFormFromRow", () => {
     expect(values.contract_end_date).toBe("");
     expect(values.contact_email).toBe("");
   });
+
+  test("저장된 홈페이지가 없으면 http:// 를 미리 채우고 저장된 값은 그대로 둔다", () => {
+    expect(tenantFormFromRow({ homepage: null }).homepage).toBe("http://");
+    expect(tenantFormFromRow({}).homepage).toBe("http://");
+    expect(tenantFormFromRow({ homepage: "https://hanbit.kr" }).homepage).toBe(
+      "https://hanbit.kr",
+    );
+  });
+});
+
+describe("홈페이지에 스킴만 남은 경우", () => {
+  test("검증은 통과하고 저장은 null 로 보낸다", () => {
+    const values = form({ homepage: "http://" });
+
+    expect(validateTenantForm(values)).toBeNull();
+    expect(tenantPayload(values).homepage).toBeNull();
+  });
 });

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { consoleRequest } from "../api";
 import FilterSelect from "../FilterSelect";
 import TextField from "../TextField";
-import { GRADES, useGroups } from "./ClassRowFields";
+import { useGroups } from "../useGroups";
+import { GRADES } from "./ClassRowFields";
 
 type Result =
   | { result: "ok" | "already_signed_up" | "no_class"; homeroomName?: string }

@@ -4,7 +4,8 @@
 import { Button } from "@/components/ui/button";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGroupOptions } from "../useGroups";
 import type { DashboardFilterValue } from "./useDashboard";
 
 interface DashboardFilterProps {
@@ -23,6 +24,7 @@ export default function DashboardFilter({
   onSubmit,
 }: DashboardFilterProps) {
   const gradeChosen = value.grade !== "";
+  const groups = useGroupOptions(classes, value.grade, value.groupId);
   return (
     <form
       className="flex flex-wrap items-center gap-3"
@@ -45,7 +47,7 @@ export default function DashboardFilter({
         value={value.groupId}
         options={[
           ALL,
-          ...groupsOf(classes, value.grade).map((g) => ({
+          ...groups.map((g) => ({
             value: g.id,
             label: g.name,
           })),

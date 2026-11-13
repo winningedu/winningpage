@@ -1,7 +1,7 @@
 // W10 입시 상담코칭. 중3, 고3 학생 표, 학년그룹과 그룹과 반 조회, 코칭 이동, 3학년이 없는 상태를 검증한다.
 // 상담 상태 4가지 고르기와 변경 일자(교 #51, 결정 2)도 검증한다.
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -220,6 +220,23 @@ describe("W10 입시 상담코칭", () => {
     expect(
       screen.getByRole("navigation", { name: "현재 위치" }).textContent,
     ).toBe("한빛고등학교3학년");
+  });
+
+  it("관리자의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+    stubPage(
+      {
+        "GET /api/console/groups": {
+          body: { groups: [{ id: "g1", name: "A레벨", studentCount: 0 }] },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/admission-coaching");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual(["전체", "A레벨"]),
+    );
   });
 
   it("담당 학급에 3학년이 없으면 안내만 보이고 조회 칸은 남는다", async () => {

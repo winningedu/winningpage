@@ -216,6 +216,30 @@ describe("W14 빈 상태와 필터", () => {
     expect(screen.getByText("등록된 선생님이 없어요")).toBeTruthy();
   });
 
+  it("그룹 칸에 학급이 없는 그룹도 그룹 관리 순서로 나온다", async () => {
+    stubPage({
+      "GET /api/console/groups": {
+        body: {
+          groups: [
+            { id: "g1", name: "A레벨", studentCount: 0 },
+            { id: "g2", name: "B레벨", studentCount: 0 },
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual([
+        "전체",
+        "A레벨",
+        "B레벨",
+      ]),
+    );
+  });
+
   it("학년그룹을 고르면 그 학년으로 다시 읽는다", async () => {
     const calls = stubPage({
       "GET /api/console/classes": {
