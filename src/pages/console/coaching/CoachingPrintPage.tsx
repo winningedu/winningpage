@@ -22,6 +22,8 @@ const PRINT_RULE = `
   @media print {
     @page { size: A4 portrait; margin: 12mm; }
     #root > header { display: none !important; }
+    .console-frame-body { padding-top: 0 !important; }
+    .coaching__print-root { padding: 0 !important; gap: 0 !important; }
     .coaching__print { break-after: page; }
   }
 `;
@@ -56,7 +58,7 @@ export default function CoachingPrintPage() {
   if (!data) return null;
   const classText = studentClassText(data.student);
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="coaching__print-root flex flex-col gap-6 p-6">
       <style>{PRINT_RULE}</style>
       <section className="coaching__print flex flex-col gap-6">
         <h1 className="text-app-title font-bold text-ink-strong">

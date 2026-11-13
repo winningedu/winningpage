@@ -240,6 +240,24 @@ describe("W9c 코칭 PDF", () => {
     expect(await screen.findByText(/학생 김서연, 출력일시/)).toBeTruthy();
   });
 
+  it("인쇄할 때만 위쪽 여백과 바깥 여백을 걷어낸다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const { container } = renderRoutes(routes, "/print?studentId=s1");
+
+    await screen.findByText("김서연");
+    const rule = container.querySelector("style")?.textContent ?? "";
+    expect(rule).toMatch(
+      /@media print[\s\S]*\.console-frame-body\s*{[^}]*padding-top:\s*0/,
+    );
+    expect(rule).toMatch(/\.coaching__print-root\s*{[^}]*padding:\s*0/);
+    expect(container.querySelector(".coaching__print-root")).not.toBeNull();
+  });
+
   it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {
     stubApi({
       "GET /api/console/me": { body: homeroomMe },
