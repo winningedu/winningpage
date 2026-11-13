@@ -195,6 +195,42 @@ select pg_temp.expect_error('request: 로그인하지 않으면 거부(42501)',
   $$select public.fn_request_enrollment_change('고1', null, '2', 1::smallint) from (select set_config('request.jwt.claim.sub', '', true)) x$$, '42501');
 
 -- ---------------------------------------------------------------------
+-- 다학년 학급: 학생은 항상 실제 학년으로 신청한다. 다학년 학급의 학생은 학년이 바뀌어도 학급을 유지한다.
+-- ---------------------------------------------------------------------
+insert into public.tenants (code, name, region, org_type, tier) values ('R9MMMMMM', 't19-m', '서울', '사기업', 'B');
+insert into fx select 'tm', id from public.tenants where code = 'R9MMMMMM';
+insert into fx values
+  ('m1', pg_temp.mk_user('t19-m1@t.local')), ('m2', pg_temp.mk_user('t19-m2@t.local')),
+  ('m3', pg_temp.mk_user('t19-m3@t.local')), ('m4', pg_temp.mk_user('t19-m4@t.local'));
+create temp table mc (k text primary key, v uuid);
+insert into mc values
+  ('mix', public.fn_class_ensure(pg_temp.fx('tm'), pg_temp.year(), null, null, 'MX')),
+  ('g2', public.fn_class_ensure(pg_temp.fx('tm'), pg_temp.year(), '중2', null, 'G'));
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number)
+  select pg_temp.fx('tm'), pg_temp.fx(k), pg_temp.year(), g, (select v from mc where mc.k = c), n
+    from (values ('m1', '중2', 'mix', 1), ('m2', '중2', 'g2', 1)) v(k, g, c, n);
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade)
+  values (pg_temp.fx('tm'), pg_temp.fx('m3'), pg_temp.year(), '고1'),
+         (pg_temp.fx('tm'), pg_temp.fx('m4'), pg_temp.year(), null);
+
+insert into rq values ('m1', pg_temp.req('m1', '중3', null, null, null));
+select pg_temp.expect_text('request 다학년: 학년이 바뀌어도 다학년 학급은 유지한다',
+  (select (to_class_id = (select v from mc where k = 'mix') and to_grade = '중3' and from_grade = '중2')::text
+     from public.enrollment_changes where id = (select v from rq where k = 'm1')), 'true');
+insert into rq values ('m2', pg_temp.req('m2', '중3', null, null, null));
+select pg_temp.expect_text('request 다학년: 학년 학급은 지금처럼 학년이 바뀌면 학급을 비운다',
+  (select (to_class_id is null and to_grade = '중3')::text
+     from public.enrollment_changes where id = (select v from rq where k = 'm2')), 'true');
+insert into rq values ('m3', pg_temp.req('m3', '고1', null, 'mx', 5));
+select pg_temp.expect_text('request 다학년: 실제 학년과 학급 이름 MX 로 신청하면 다학년 학급이 된다(이름 우선)',
+  (select (to_class_id = (select v from mc where k = 'mix') and to_grade = '고1')::text
+     from public.enrollment_changes where id = (select v from rq where k = 'm3')), 'true');
+select pg_temp.expect_error('request 다학년: 학년이 없는 학생이 학급 이름을 보내면 다학년 학급이 되지 않고 거부된다(23502)',
+  $$select pg_temp.req('m4', null, null, 'MX', 9)$$, '23502');
+select pg_temp.expect_int('request 다학년: 거부되면 신청이 남지 않는다',
+  (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('m4')), 0);
+
+-- ---------------------------------------------------------------------
 -- fn_decide_enrollment_change: 승인자 검사, version 검사, 적용 또는 거절
 -- ---------------------------------------------------------------------
 create function pg_temp.decide(p_change uuid, p_approve boolean, p_actor text, p_reason text default null)

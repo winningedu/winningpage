@@ -491,3 +491,83 @@ begin
   return query select v_updated, v_skipped, v_stored, v_pending_skipped, v_deleted;
 end;
 $$;
+
+-- 학생의 학적 변경 신청: 학급 이름을 보낼 때 학년이 없으면 거부하고(다학년 학급이 만들어지지 않게),
+-- 학급 이름 없이 학년만 바꾸면 지금 학급이 다학년일 때 그 학급을 유지한다.
+create or replace function public.fn_request_enrollment_change(
+  p_to_grade text,
+  p_to_group_name text,
+  p_to_class_name text,
+  p_to_number smallint
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+#variable_conflict use_column
+declare
+  v_uid uuid := auth.uid();
+  v_enr public.student_enrollments;
+  v_year integer;
+  v_grade text;
+  v_group uuid;
+  v_class uuid;
+  v_id uuid;
+begin
+  if v_uid is null then
+    raise exception 'authentication required' using errcode = '42501';
+  end if;
+
+  if not exists (select 1 from public.profiles pr where pr.id = v_uid and pr.member_type = 'student') then
+    raise exception 'not a student account' using errcode = 'WC094';
+  end if;
+
+  select e.* into v_enr
+    from public.student_enrollments e
+    join public.tenants t on t.id = e.tenant_id and t.school_year = e.school_year
+   where e.student_id = v_uid and e.status = 'active';
+  if not found then
+    raise exception 'enrollment not found' using errcode = 'WC081';
+  end if;
+
+  v_grade := coalesce(p_to_grade, v_enr.grade);
+
+  if nullif(btrim(p_to_group_name), '') is not null then
+    select g.id into v_group from public.class_groups g
+     where g.tenant_id = v_enr.tenant_id and lower(g.name) = lower(btrim(p_to_group_name)) and g.deleted_at is null;
+    if v_group is null then
+      raise exception 'class group not registered' using errcode = 'WC080';
+    end if;
+  end if;
+
+  if nullif(btrim(p_to_class_name), '') is not null then
+    -- 학년 null 은 다학년 학급을 뜻하므로, 학생은 항상 실제 학년으로만 학급을 신청할 수 있다.
+    if v_grade is null then
+      raise exception 'grade required for a class' using errcode = 'not_null_violation';
+    end if;
+    v_class := public.fn_class_ensure(v_enr.tenant_id, v_enr.school_year, v_grade, v_group, p_to_class_name);
+  elsif v_grade is not distinct from v_enr.grade
+        or exists (select 1 from public.classes c where c.id = v_enr.class_id and c.grade is null) then
+    -- 학급은 학년에 속하므로 학년이 바뀌면 비우지만, 다학년 학급은 학생의 학년이 바뀌어도 유지한다.
+    v_class := v_enr.class_id;
+  end if;
+
+  begin
+    insert into public.enrollment_changes (
+      tenant_id, student_id, school_year, kind, status,
+      from_grade, from_class_id, from_number, to_grade, to_class_id, to_number,
+      base_version, requested_by
+    ) values (
+      v_enr.tenant_id, v_uid, v_enr.school_year, 'request', 'pending',
+      v_enr.grade, v_enr.class_id, v_enr.number, v_grade, v_class, coalesce(p_to_number, v_enr.number),
+      v_enr.version, v_uid
+    )
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'a request is already pending' using errcode = 'WC082';
+  end;
+
+  return v_id;
+end;
+$$;
