@@ -15,6 +15,7 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
+import { gradeFilterMatches } from "../../_lib/console/enrollmentInput.js";
 import { rateBucket } from "../../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
 import {
@@ -52,7 +53,7 @@ interface EnrollmentRow {
 interface PendingRow {
   id: string;
   name: string;
-  grade: string;
+  grade: string | null;
   class_id: string;
   number: number | null;
 }
@@ -246,7 +247,11 @@ export default defineHandler({
       classId: string | null;
       name: string;
     }) =>
-      (!grade || x.grade === grade) &&
+      gradeFilterMatches(
+        grade,
+        x.grade,
+        x.classId ? classes.get(x.classId)?.grade : undefined,
+      ) &&
       (!classId || x.classId === classId) &&
       (!groupId ||
         (x.classId !== null && classes.get(x.classId)?.groupId === groupId)) &&
