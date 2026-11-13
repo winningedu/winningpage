@@ -99,15 +99,49 @@ describe("HeroSection syncedSlides", () => {
     expect(screen.queryAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(0);
   });
 
-  it("큰 배너가 한 장이고 작은 배너가 여러 장이면 작은 배너만 점이 있고 스스로 넘어간다", () => {
+  it("큰 배너 2장, 작은 배너 3장이면 큰 배너의 초로 0,1,0,1 순으로 넘어가고 경계에서 같은 장이 반복되지 않는다", () => {
+    renderHero({
+      banners: banners.slice(0, 2),
+      sideBanners: [
+        ...sideBanners,
+        {
+          id: "s3",
+          title: "이벤트 3",
+          image_url: "/s3.png",
+          display_seconds: 99,
+        },
+      ],
+    });
+    const seen = [shownIndex("메인 배너")];
+    for (let i = 0; i < 3; i += 1) {
+      act(() => {
+        vi.advanceTimersByTime(2999);
+      });
+      expect(shownIndex("메인 배너")).toBe(seen[seen.length - 1]);
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      seen.push(shownIndex("메인 배너"));
+    }
+    expect(seen).toEqual([0, 1, 0, 1]);
+    expect(screen.getAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(3);
+  });
+
+  it("큰 배너가 한 장이면 작은 배너는 스스로 넘어가지 않고 점은 보이며 점을 누르면 작은 배너만 바뀐다", () => {
     renderHero({ banners: banners.slice(0, 1) });
     expect(screen.queryAllByLabelText(/번째 메인 배너로 이동/)).toHaveLength(0);
-    expect(screen.getAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(2);
     act(() => {
-      vi.advanceTimersByTime(99000);
+      vi.advanceTimersByTime(300000);
     });
-    expect(shownIndex("메인 배너")).toBe(0);
+    expect(shownIndex("이벤트 배너")).toBe(0);
+
+    const sideDots = screen.getAllByLabelText(/^\d번째 배너로 이동/);
+    expect(sideDots).toHaveLength(2);
+    fireEvent.click(sideDots[1] as HTMLElement);
     expect(shownIndex("이벤트 배너")).toBe(1);
+    expect(shownIndex("메인 배너")).toBe(0);
+    expect(sideDots[1]).toHaveAttribute("aria-current", "true");
+    expect(sideDots[0]).toHaveAttribute("aria-current", "false");
   });
 });
 

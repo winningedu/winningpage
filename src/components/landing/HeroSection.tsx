@@ -205,7 +205,7 @@ type HeroSectionProps = {
   showMainEmptyNotice?: boolean;
   showSideEmptyNotice?: boolean;
   // 스쿨멘토(결정 21): 큰, 작은 배너가 같은 순번으로 함께 넘어간다. 점은 배너마다 자기 장수가 2장 이상일 때 둔다(QA 4차 9번).
-  // 타이머는 장수가 더 많은 쪽이 정하고 다른 배너는 순번을 자기 장수로 나눈 나머지로 돌린다.
+  // 타이머는 큰 배너가 정하고 작은 배너는 순번을 자기 장수로 나눈 나머지로 돌린다.
   syncedSlides?: boolean;
   // 영역별 조회 상태(스쿨멘토). 배너가 0건일 때 loading은 빈 박스, error는 오류 안내를 슬롯에 보인다.
   mainStatus?: "loading" | "ready" | "error";
@@ -246,10 +246,8 @@ export default function HeroSection({
   // leftSlides/rightSlides는 매 렌더 새로 .filter()된 배열이라 아래 map 결과도 매번 새
   // 참조가 되지만, useHeroCarousel은 intervals를 ref로만 추적해 자동 전환 타이머를
   // 리셋시키지 않으므로 여기서 별도 메모이제이션은 필요 없다.
-  // syncedSlides: 장수가 더 많은 쪽이 순번과 타이머를 쥔다(같으면 큰 배너). 작은 배너 훅은 꺼 둔다.
-  // 각 배너는 순번을 자기 장수로 나눈 나머지로 돌려 두 배너의 점이 모두 눌릴 수 있게 한다.
-  const sharedSlides =
-    rightSlideCount > leftSlideCount ? rightSlides : leftSlides;
+  // syncedSlides: 큰 배너가 순번과 타이머를 쥔다(큰 배너가 없으면 작은 배너가 쥔다). 작은 배너 훅은 꺼 둔다.
+  const sharedSlides = leftSlideCount > 0 ? leftSlides : rightSlides;
   const leftCarousel = useHeroCarousel(
     syncedSlides ? sharedSlides.length : leftSlideCount,
     (syncedSlides ? sharedSlides : leftSlides).map((s) =>
@@ -261,13 +259,24 @@ export default function HeroSection({
     rightSlides.map((s) => secondsToMs(s.display_seconds)),
   );
   const rightCarousel = syncedSlides ? leftCarousel : ownRightCarousel;
+  // 작은 배너 점이 공유 순번 범위 밖의 장을 눌렀을 때만 쓰는 값. 공유 순번이 바뀌면 다시 순번을 따른다.
+  const [sideOverride, setSideOverride] = useState<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 공유 순번이 바뀔 때만 초기화한다.
+  useEffect(() => setSideOverride(null), [leftCarousel.activeIndex]);
+  function selectSideDot(index: number) {
+    if (!syncedSlides || index < sharedSlides.length) {
+      setSideOverride(null);
+      rightCarousel.goTo(index);
+    } else {
+      setSideOverride(index);
+    }
+  }
   const leftActiveIndex = syncedSlides
     ? leftCarousel.activeIndex % Math.max(leftSlideCount, 1)
     : leftCarousel.activeIndex;
   const rightActiveIndex = syncedSlides
-    ? rightSlideCount > 0
-      ? leftCarousel.activeIndex % rightSlideCount
-      : 0
+    ? (sideOverride ??
+      (rightSlideCount > 0 ? leftCarousel.activeIndex % rightSlideCount : 0))
     : ownRightCarousel.activeIndex;
 
   // 슬라이드가 0건인 슬롯의 상태: loading, error는 조회 상태가 정하고 empty는 호출부 스위치가 정한다.
@@ -555,7 +564,7 @@ export default function HeroSection({
                     type="button"
                     aria-label={`${index + 1}번째 배너로 이동`}
                     aria-current={index === rightActiveIndex}
-                    onClick={() => rightCarousel.goTo(index)}
+                    onClick={() => selectSideDot(index)}
                     className={`relative h-3 w-3 rounded-full transition-colors duration-300 after:absolute after:-inset-4 after:content-[''] ${
                       index === rightActiveIndex ? "bg-primary" : "bg-[#D9D9D9]"
                     }`}
