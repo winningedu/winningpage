@@ -296,20 +296,48 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
   const midyear = { mode: "midyear" as const };
 
-  test("only group, class and number change: the student's current grade is the target grade and a new grade cell is ignored", () => {
-    const r = run("김하늘,1학년,,4,7,3학년,a레벨,5,2", [kim], {
+  test("only group, class and number change: the student's grade stays, and a class change is shown as class_changed (still applied)", () => {
+    const r = run("김하늘,1학년,,4,7,1학년,a레벨,5,2", [kim], {
       ...midyear,
       homeroomClasses: new Set(["고1|g-a|5"]),
     });
 
     expect(r.rows[0]).toMatchObject({
       studentId: "s1",
-      result: "applied",
+      result: "class_changed",
       to: { grade: "고1", groupName: "A레벨", className: "5", number: 2 },
     });
     expect(r.applyRows).toEqual([
       { studentId: "s1", groupId: "g-a", className: "5", number: 2 },
     ]);
+  });
+
+  test("a number-only change in the same class is plainly applied", () => {
+    const r = run("김하늘,1학년,,4,7,,,4,9", [kim], midyear);
+    expect(r.rows[0]?.result).toBe("no_homeroom");
+    expect(r.applyRows).toHaveLength(1);
+  });
+
+  test("a registered student, a line with the same name and grade but another class: applied with a class change", () => {
+    const r = run("김하늘,1학년,,9,3", [kim], midyear);
+    expect(r.rows[0]?.result).toBe("class_changed");
+    expect(r.applyRows).toEqual([
+      { studentId: "s1", groupId: null, className: "9", number: 3 },
+    ]);
+  });
+
+  test("a new grade cell that differs from the current grade needs a check and is not applied", () => {
+    const r = run("김하늘,1학년,,4,7,3학년,,5,2", [kim], midyear);
+    expect(r.rows[0]?.result).toBe("check_target");
+    expect(r.applyRows).toEqual([]);
+  });
+
+  test("two lines for the same registered student are all same_name: none applied, none pending", () => {
+    const r = run("김하늘,1학년,,9,3\n김하늘,1학년,,8,2", [kim], midyear);
+    expect(r.rows.map((x) => x.result)).toEqual(["same_name", "same_name"]);
+    expect(r.rows.every((x) => x.studentId === null)).toBe(true);
+    expect(r.applyRows).toEqual([]);
+    expect(r.pendingRows).toEqual([]);
   });
 
   test("a student in the top grade is not graduating", () => {
@@ -350,6 +378,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 
     expect(r.rows[0]).toMatchObject({
       studentId: "s1",
+      result: "class_changed",
       to: { grade: "고1", className: "9", number: 3 },
     });
     expect(r.applyRows).toEqual([
@@ -359,6 +388,15 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 });
 
 describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
+  test("in rollover a line whose existing grade graduates is not stored (grade stays null so the apply counts it as skipped)", () => {
+    const r = run(
+      "없는사람,고3,,4,7\n없는둘,고1,,4,7",
+      [student({ studentId: "s1", name: "김하늘", grade: "고1" })],
+      { graduatingGrades: ["고3"] },
+    );
+    expect(r.pendingRows.map((p) => p.grade)).toEqual([null, "고2"]);
+  });
+
   const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
 
   test("a not found line is kept with its new cells as the target, in mid-year the grade is the existing grade cell", () => {

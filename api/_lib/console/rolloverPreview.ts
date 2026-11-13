@@ -45,7 +45,8 @@ export type PreviewResult =
   | "check_target"
   | "duplicate_target"
   | "same_name"
-  | "no_homeroom";
+  | "no_homeroom"
+  | "class_changed";
 
 export interface PreviewSlot {
   grade: string | null;
@@ -170,7 +171,11 @@ function pendingOf(
   const { from } = line;
   const to = isRosterOnly(line) ? { ...from, grade: "" } : line.to;
   let grade: string | null;
-  if (midyear) {
+  const existing = resolveGrade(from.grade, current);
+  if (!midyear && existing && input.graduatingGrades.includes(existing)) {
+    // 졸업하는 학년의 명단 줄은 저장하지 않는다(적용에서 건너뜀으로 센다).
+    grade = null;
+  } else if (midyear) {
     grade = resolveGrade(from.grade, current);
   } else if (to.grade !== "") {
     grade = resolveGrade(to.grade, current.map(nextGrade));
@@ -257,6 +262,16 @@ function targetOf(
   };
 }
 
+/** 이미 반이 있는 학생이 다른 반이나 그룹으로 옮겨 가는가. 번호만 바뀌면 아니다. */
+function classChanges(student: PreviewStudent, target: Target): boolean {
+  if (student.className === null) return false;
+  return (
+    student.className !== target.slot.className ||
+    (student.groupName?.toLowerCase() ?? null) !==
+      (target.slot.groupName?.toLowerCase() ?? null)
+  );
+}
+
 /** 새 칸(그룹, 반, 번호)이 모두 비어 있으면 명단 양식 줄이라 기존 칸이 곧 바뀔 값이다. */
 const isRosterOnly = (line: ParsedLine) =>
   line.to.group === "" && line.to.className === "" && line.to.number === "";
@@ -285,20 +300,37 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     sameNameCounts.set(key, (sameNameCounts.get(key) ?? 0) + 1);
   }
 
-  for (const line of input.lines) {
-    const byName = input.students.filter((s) => s.name === line.name);
-    // 학기 중 명단 양식 줄은 이름과 학년으로만 찾는다(기존 반과 번호는 곧 바뀔 값이다).
-    const rosterOnly = midyear && isRosterOnly(line);
-    const found = narrow(
-      byName,
-      rosterOnly
+  const rosterOnlyOf = (line: ParsedLine) => midyear && isRosterOnly(line);
+  const foundFor = (line: ParsedLine) =>
+    narrow(
+      input.students.filter((s) => s.name === line.name),
+      // 학기 중 명단 양식 줄은 이름과 학년으로만 찾는다(기존 반과 번호는 곧 바뀔 값이다).
+      rosterOnlyOf(line)
         ? { grade: line.from.grade, group: "", className: "", number: "" }
         : line.from,
       input.orgType,
     );
+  // 학기 중에는 한 학생을 가리키는 줄이 둘 이상이면 어느 줄이 맞는지 알 수 없어 모두 사람이 확인한다.
+  const lineCounts = new Map<string, number>();
+  if (midyear) {
+    for (const line of input.lines) {
+      const found = foundFor(line);
+      if (found.length === 1) {
+        const id = (found[0] as PreviewStudent).studentId;
+        lineCounts.set(id, (lineCounts.get(id) ?? 0) + 1);
+      }
+    }
+  }
+
+  for (const line of input.lines) {
+    const rosterOnly = rosterOnlyOf(line);
+    const found = foundFor(line);
     const masked = maskName(line.name);
-    if (found.length === 0 || found.length > 1) {
-      const same = found.length > 1;
+    const repeated =
+      found.length === 1 &&
+      (lineCounts.get((found[0] as PreviewStudent).studentId) ?? 0) > 1;
+    if (found.length === 0 || found.length > 1 || repeated) {
+      const same = found.length > 1 || repeated;
       if (!same) pendingRows.push(pendingOf(line, midyear, input));
       rows.push({
         line: line.line,
@@ -336,9 +368,10 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       row.result = "graduating";
       continue;
     }
+    // 학기 중에는 학년을 바꾸지 않으므로 새 학년 칸이 지금 학년과 다르면 targetOf 가 확인 대상으로 돌린다.
     const toLine: ParsedLine = rosterOnly
-      ? { ...line, to: { ...line.from, grade: "" } }
-      : { ...line, to: { ...line.to, grade: midyear ? "" : line.to.grade } };
+      ? { ...line, to: { ...line.from, grade: line.to.grade } }
+      : line;
     const target = targetOf(
       toLine,
       midyear ? (student.grade as string) : nextGrade(student.grade ?? ""),
@@ -377,6 +410,8 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     row.result = input.homeroomClasses.has(homeroomKey)
       ? "applied"
       : "no_homeroom";
+    // 학기 중 반이나 그룹이 바뀌는 학생은 눈에 띄게 한다(반영은 된다).
+    if (midyear && classChanges(student, target)) row.result = "class_changed";
     applyRows.push({
       studentId: student.studentId,
       groupId: target.groupId,
