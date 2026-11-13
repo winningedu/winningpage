@@ -7,6 +7,7 @@ import { consoleRequest, errorMessage } from "../api";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import TextField from "../TextField";
+import { useGradeLabel } from "../useConsoleMe";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
 import { classText } from "./roster";
@@ -23,7 +24,11 @@ interface Unissued {
   id: string;
   name: string;
   phoneLast4: string;
-  classes: { grade: string; groupName: string | null; name: string }[];
+  classes: {
+    grade: string | null;
+    groupName: string | null;
+    name: string;
+  }[];
 }
 
 interface IssueResponse {
@@ -49,6 +54,7 @@ export default function IssueDialog({
   onIssued,
   onClose,
 }: IssueDialogProps) {
+  const gradeLabel = useGradeLabel();
   const [kind, setKind] = useState("homeroom");
   const [picked, setPicked] = useState(teacherId);
   const [name, setName] = useState("");
@@ -92,7 +98,7 @@ export default function IssueDialog({
         phoneLast4: (admin ? phone : (teacher?.phoneLast4 ?? ""))
           .replace(/\D/g, "")
           .slice(-4),
-        grade: first ? `${first.grade.slice(1)}학년` : "",
+        grade: first ? gradeLabel(first.grade) : "",
         className: first ? `${first.name}반` : "",
         loginId: body.loginId,
         tempPassword: body.tempPassword,
@@ -147,7 +153,7 @@ export default function IssueDialog({
               { value: "", label: "선택" },
               ...(unissued.data ?? []).map((t) => ({
                 value: t.id,
-                label: `${t.name}${t.classes[0] ? ` (${classText(t.classes[0])})` : ""} 뒷번호 ${t.phoneLast4}`,
+                label: `${t.name}${t.classes[0] ? ` (${classText(t.classes[0], gradeLabel)})` : ""} 뒷번호 ${t.phoneLast4}`,
               })),
             ]}
             onChange={setPicked}

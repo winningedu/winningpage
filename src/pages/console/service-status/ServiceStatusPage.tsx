@@ -27,7 +27,7 @@ import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import Tabs from "../Tabs";
 import { useClasses } from "../useClasses";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import { COLUMNS } from "./columns";
@@ -48,6 +48,7 @@ export default function ServiceStatusPage() {
 }
 
 function StatusBody({ tab }: { tab: (typeof TABS)[number] }) {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const mobile = useIsMobile();
   const navigate = useNavigate();
@@ -76,7 +77,9 @@ function StatusBody({ tab }: { tab: (typeof TABS)[number] }) {
   const scope =
     me.kind === "homeroom"
       ? me.classes.length > 0
-        ? `담당 학급 ${sortClasses(me.classes).map(classLabel).join(", ")}`
+        ? `담당 학급 ${sortClasses(me.classes)
+            .map((c) => classLabel(c, gradeLabel))
+            .join(", ")}`
         : null
       : list.data?.orgType === "학원"
         ? "학원 전체"

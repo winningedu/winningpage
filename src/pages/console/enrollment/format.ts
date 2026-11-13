@@ -1,6 +1,6 @@
 // W7 이용현황이 쓰는 서비스 이름, 비율 계산, 표기 규칙.
 
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 
 export const SERVICES = [
   { key: "diagnosis", label: "학습진단", bar: "bg-service-diagnosis-fg" },
@@ -19,7 +19,7 @@ export type ServiceKey = (typeof SERVICES)[number]["key"];
 
 export interface ClassRow {
   classId: string;
-  grade: string;
+  grade: string | null;
   groupName: string | null;
   className: string;
   homeroomName: string | null;
@@ -40,7 +40,10 @@ export const percent = (count: number, total: number) =>
   total > 0 ? Math.round((count / total) * 100) : 0;
 
 /** "1학년", 그룹이 있으면 "1학년-A레벨"(교 #39). */
-export function gradeGroupLabel(row: Pick<ClassRow, "grade" | "groupName">) {
+export function gradeGroupLabel(
+  row: Pick<ClassRow, "grade" | "groupName">,
+  gradeLabel: GradeLabeler,
+) {
   return row.groupName
     ? `${gradeLabel(row.grade)}-${row.groupName}`
     : gradeLabel(row.grade);

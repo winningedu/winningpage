@@ -111,6 +111,31 @@ describe("GET /api/console/classes", () => {
     });
   });
 
+  test("a mixed-grade class comes with a null grade after the graded classes, and a homeroom of it sees it", async () => {
+    const mixed = {
+      id: "c-m",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: null,
+      group_id: null,
+      name: "다",
+    };
+    kit.state.rows.classes = (f) => matchRows([...CLASSES, mixed], f);
+
+    const all = (await get()).body as {
+      classes: { id: string; grade: string | null }[];
+    };
+    expect(all.classes.map((c) => c.id)).toEqual(["c-g", "c-a", "c-b", "c-m"]);
+    expect(all.classes[3]).toMatchObject({ grade: null });
+
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-m"],
+    });
+    const own = (await get()).body as { classes: { id: string }[] };
+    expect(own.classes.map((c) => c.id)).toEqual(["c-m"]);
+  });
+
   test("every full read is ordered by a column its table has (assignments have no id column)", async () => {
     await get();
     expect(kit.state.orders).toContainEqual({

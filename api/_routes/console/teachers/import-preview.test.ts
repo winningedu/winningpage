@@ -99,6 +99,90 @@ describe("POST /api/console/teachers/import-preview", () => {
     });
   });
 
+  describe("학원의 다학년 학급(적용이 fn_class_ensure 의 이름 우선으로 그 학급에 넣는다)", () => {
+    beforeEach(() => {
+      kit.state.rows.tenants = () => ({
+        org_type: "사기업",
+        school_year: 2026,
+      });
+      kit.state.rows.teachers = (f) =>
+        Array.isArray(f.phone) || Array.isArray(f.name)
+          ? []
+          : [
+              {
+                id: "t1",
+                name: "김교사",
+                phone: "01011112222",
+                deleted_at: null,
+              },
+            ];
+      kit.state.rows.classes = () => [
+        { id: "c-g", grade: "고1", group_id: null, name: "A" },
+        { id: "c-m", grade: null, group_id: null, name: "A" },
+      ];
+      kit.state.rows.teacher_class_assignments = () => [
+        { teacher_id: "t1", class_id: "c-m" },
+      ];
+    });
+
+    test("같은 그룹과 이름의 다학년 학급이 학년 학급보다 먼저라 그 학급의 담임과 견준다", async () => {
+      const same = await post({ rows: [row({ className: "A" })] });
+      const other = await post({
+        rows: [
+          row({
+            name: "박교사",
+            phone: "010-7777-8888",
+            grade: "고2",
+            className: "A",
+          }),
+        ],
+      });
+
+      expect(
+        (same.body as { rows: { verdict: string }[] }).rows[0]?.verdict,
+      ).toBe("same");
+      expect(
+        (other.body as { rows: { verdict: string }[] }).rows[0]?.verdict,
+      ).toBe("changed");
+    });
+
+    test("학년이 달라도 같은 다학년 학급을 가리키는 두 행은 학급 중복이다", async () => {
+      kit.state.rows.teacher_class_assignments = () => [];
+
+      const r = await post({
+        rows: [
+          row({ className: "A" }),
+          row({
+            name: "이교사",
+            phone: "010-3333-4444",
+            grade: "고2",
+            className: "A",
+          }),
+        ],
+      });
+
+      expect(
+        (r.body as { rows: { verdict: string }[] }).rows.map((x) => x.verdict),
+      ).toEqual(["new", "class_duplicate"]);
+    });
+
+    test("다학년 학급이 아닌 이름은 지금처럼 그 학년의 학급과 견준다", async () => {
+      kit.state.rows.classes = () => [
+        { id: "c-g", grade: "고1", group_id: null, name: "B" },
+        { id: "c-m", grade: null, group_id: null, name: "A" },
+      ];
+      kit.state.rows.teacher_class_assignments = () => [
+        { teacher_id: "t1", class_id: "c-g" },
+      ];
+
+      const r = await post({ rows: [row({ className: "B" })] });
+
+      expect((r.body as { rows: { verdict: string }[] }).rows[0]?.verdict).toBe(
+        "same",
+      );
+    });
+  });
+
   test("행이 없거나 200개를 넘으면 400 이다", async () => {
     expect((await post({ rows: [] })).status).toBe(400);
     expect(

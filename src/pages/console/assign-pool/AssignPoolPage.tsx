@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
@@ -22,10 +21,11 @@ import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import {
   type ClassOption,
-  classesOf,
-  gradesOf,
+  studentClassesOf,
+  studentGradesOf,
   useClasses,
 } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import AssignPoolRow from "./AssignPoolRow";
@@ -49,6 +49,7 @@ function Filters({
   initial: FilterValues;
   onSearch: (values: FilterValues) => void;
 }) {
+  const gradeLabel = useGradeLabel();
   const [values, setValues] = useState(initial);
   const search = () => onSearch(values);
   return (
@@ -58,7 +59,7 @@ function Filters({
         value={values.grade}
         options={[
           ALL,
-          ...gradesOf(classes).map((g) => ({
+          ...studentGradesOf(classes).map((g) => ({
             value: g,
             label: gradeLabel(g),
           })),
@@ -73,7 +74,7 @@ function Filters({
         disabled={values.grade === ""}
         options={[
           ALL,
-          ...classesOf(classes, values.grade, "").map((c) => ({
+          ...studentClassesOf(classes, values.grade, "").map((c) => ({
             value: c.id,
             label: `${c.groupName ? `${c.groupName} ` : ""}${c.name}반`,
           })),

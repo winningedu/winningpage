@@ -7,7 +7,7 @@ import { useSearchParams } from "react-router";
 import { consoleRequest } from "../api";
 import { kstDotDateTime } from "../date";
 import EmptyMessage from "../EmptyMessage";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import {
   AxisPanel,
   CompetencyList,
@@ -33,6 +33,7 @@ const PRINT_RULE = `
 `;
 
 export default function CoachingPrintPage() {
+  const gradeLabel = useGradeLabel();
   const [params] = useSearchParams();
   const { data, isError } = useCoaching(params.get("studentId"));
   const printed = useRef(false);
@@ -60,7 +61,7 @@ export default function CoachingPrintPage() {
       <EmptyMessage body="개인종합코칭을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요" />
     );
   if (!data) return null;
-  const classText = studentClassText(data.student);
+  const classText = studentClassText(data.student, gradeLabel);
   return (
     <div className="coaching__print-root flex flex-col gap-6 p-6">
       <style>{PRINT_RULE}</style>

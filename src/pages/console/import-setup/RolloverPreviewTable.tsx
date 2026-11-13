@@ -9,13 +9,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Chip, { type ChipTone } from "../Chip";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
+import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
 
 export interface PreviewSlot {
   grade: string | null;
   groupName: string | null;
   className: string | null;
   number: number | null;
+  /** 다학년 학급이면 true. */
+  mixed?: boolean;
 }
 
 export type PreviewResult =
@@ -52,15 +55,22 @@ const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
   },
 };
 
-export const RESULT_LEGEND = `결과 종류: ${Object.values(RESULTS)
-  .map((r) => r.label)
-  .join(", ")}`;
+// 졸업 칩은 학교는 "3학년", 학원은 "고3" 으로 말한다.
+export const resultLabel = (result: PreviewResult, academy: boolean) =>
+  academy && result === "graduating"
+    ? "고3은 졸업 처리 대상"
+    : RESULTS[result].label;
+
+export const resultLegend = (academy: boolean) =>
+  `결과 종류: ${(Object.keys(RESULTS) as PreviewResult[])
+    .map((r) => resultLabel(r, academy))
+    .join(", ")}`;
 
 /** "{학년}, {그룹 또는 없음}, {반}, {번호}번". 비어 있는 칸은 "-" 또는 "번호 미입력". */
-function slotText(slot: PreviewSlot | null): string {
+function slotText(slot: PreviewSlot | null, gradeLabel: GradeLabeler): string {
   if (!slot) return "-";
   return [
-    slot.grade ? gradeLabel(slot.grade) : "-",
+    slot.mixed || slot.grade ? gradeLabel(slot.grade) : "-",
     slot.groupName ?? "없음",
     slot.className ? `${slot.className}반` : "-",
     slot.number === null ? "번호 미입력" : `${slot.number}번`,
@@ -68,6 +78,8 @@ function slotText(slot: PreviewSlot | null): string {
 }
 
 export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
+  const gradeLabel = useGradeLabel();
+  const academy = useIsAcademy();
   return (
     <Table>
       <TableHeader>
@@ -82,16 +94,16 @@ export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
         {rows.map((row) => (
           <TableRow key={row.line}>
             <TableCell>{row.displayName}</TableCell>
-            <TableCell>{slotText(row.from)}</TableCell>
-            <TableCell>{slotText(row.to)}</TableCell>
+            <TableCell>{slotText(row.from, gradeLabel)}</TableCell>
+            <TableCell>{slotText(row.to, gradeLabel)}</TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 <Chip tone={RESULTS[row.result].tone}>
-                  {RESULTS[row.result].label}
+                  {resultLabel(row.result, academy)}
                 </Chip>
                 {row.noHomeroom && (
                   <Chip tone={RESULTS.no_homeroom.tone}>
-                    {RESULTS.no_homeroom.label}
+                    {resultLabel("no_homeroom", academy)}
                   </Chip>
                 )}
               </div>

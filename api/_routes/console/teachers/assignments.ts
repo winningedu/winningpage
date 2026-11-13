@@ -7,6 +7,7 @@
 
 import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
 import {
+  hasMixedClassForSchool,
   parseClassRows,
   RpcError,
 } from "../../../_lib/console/teacherAccounts.js";
@@ -62,6 +63,16 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    if (await hasMixedClassForSchool(admin, actor.tenantId, add)) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "대상과 학급을 확인해 주세요.",
+        "BAD_REQUEST",
+      );
+      return;
+    }
 
     const scoped = await loadTeachersInScope(admin, actor.tenantId, [
       raw.teacherId,

@@ -1,6 +1,6 @@
 // W14와 W16이 함께 쓰는 교사 목록 응답 모양과 표시 규칙.
 
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 
 export type AccountStatus = "active" | "inactive" | "unissued";
 
@@ -24,29 +24,32 @@ export interface TeacherSummary {
   hasAccount: boolean;
   activeStudents: number;
   classes: {
-    grade: string;
+    grade: string | null;
     groupId: string | null;
     groupName: string | null;
     name: string;
   }[];
 }
 
-/** 학년 칸. 그룹이 있으면 "1학년-A레벨" 로 같이 적는다(학원, 결정 4). */
+/** 학년 칸. 그룹이 있으면 "1학년-A레벨" 로 같이 적는다(학원, 결정 4). 학년이 null 이면 다학년 학급이다. */
 export function gradeGroupLabel(
   grade: string | null,
   groupName: string | null,
+  gradeLabel: GradeLabeler,
 ): string {
-  if (!grade) return "-";
   return groupName ? `${gradeLabel(grade)}-${groupName}` : gradeLabel(grade);
 }
 
 /** 담당 학급 표기. "2학년 3반" 또는 "1학년-A레벨 2반". */
-export function classText(c: {
-  grade: string;
-  groupName: string | null;
-  name: string;
-}): string {
-  return `${gradeGroupLabel(c.grade, c.groupName)} ${c.name}반`;
+export function classText(
+  c: {
+    grade: string | null;
+    groupName: string | null;
+    name: string;
+  },
+  gradeLabel: GradeLabeler,
+): string {
+  return `${gradeGroupLabel(c.grade, c.groupName, gradeLabel)} ${c.name}반`;
 }
 
 /** W16 계정 목록 한 줄(GET /api/console/teachers/accounts). */
@@ -62,7 +65,7 @@ export interface AccountItem {
   passwordSet: boolean;
   classes: {
     id: string;
-    grade: string;
+    grade: string | null;
     groupId: string | null;
     groupName: string | null;
     name: string;

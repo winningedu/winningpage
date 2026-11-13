@@ -4,7 +4,12 @@ import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import type { ConsoleMe } from "./api";
 import Chip from "./Chip";
-import { classLabel, primaryClass } from "./classLabel";
+import {
+  classLabel,
+  gradeLabel,
+  isAcademyOrg,
+  primaryClass,
+} from "./classLabel";
 import { findMenuItem, menuFor } from "./menu";
 import TenantSwitcher from "./TenantSwitcher";
 
@@ -17,6 +22,8 @@ interface ConsoleNavProps {
 }
 
 function TeacherCard({ me }: { me: ConsoleMe }) {
+  const label = (g: string | null) =>
+    gradeLabel(g, isAcademyOrg(me.tenant.orgType));
   const homeroom = me.kind === "homeroom";
   const primary = primaryClass(me.classes);
   const roleChip = homeroom
@@ -41,7 +48,9 @@ function TeacherCard({ me }: { me: ConsoleMe }) {
       <div className="flex flex-wrap gap-1.5">
         <Chip tone="Info">{roleChip}</Chip>
         {homeroom ? (
-          primary && <Chip tone="Neutral">{`${classLabel(primary)} 담임`}</Chip>
+          primary && (
+            <Chip tone="Neutral">{`${classLabel(primary, label)} 담임`}</Chip>
+          )
         ) : (
           <Chip tone="Neutral">전교 통합 관리 권한</Chip>
         )}

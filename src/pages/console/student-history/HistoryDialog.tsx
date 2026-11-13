@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/table";
 import { consoleRequest } from "../api";
 import Chip from "../Chip";
-import { gradeLabel } from "../classLabel";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
+import { useGradeLabel } from "../useConsoleMe";
 
 // 서비스 표시 순서
 const SERVICES = [
@@ -66,6 +66,7 @@ export default function HistoryDialog({
   graduate = false,
   onClose,
 }: HistoryDialogProps) {
+  const gradeLabel = useGradeLabel();
   const navigate = useNavigate();
   const history = useQuery({
     queryKey: ["console", "enrollment-history", studentId],

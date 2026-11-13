@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Chip from "../Chip";
 import NameCell from "../NameCell";
+import { useGradeLabel } from "../useConsoleMe";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
@@ -29,6 +30,7 @@ export default function StudentCards({
   onOpen,
   onEdit,
 }: StudentCardsProps) {
+  const gradeLabel = useGradeLabel();
   return (
     <ul className="flex flex-col">
       {rows.map((row) => (
@@ -41,7 +43,7 @@ export default function StudentCards({
               <span className="flex flex-col items-start gap-1">
                 <NameCell name={row.displayName} />
                 <span className="text-app-caption text-ink">
-                  {`${gradeClassOf(row, academy)} ${numberOf(row)}`}
+                  {`${gradeClassOf(row, academy, gradeLabel)} ${numberOf(row)}`}
                 </span>
                 <Chip tone="Neutral">미회원가입</Chip>
               </span>
@@ -53,7 +55,7 @@ export default function StudentCards({
               >
                 <NameCell name={row.displayName} />
                 <span className="text-app-caption text-ink">
-                  {`${gradeClassOf(row, academy)} ${numberOf(row)}`}
+                  {`${gradeClassOf(row, academy, gradeLabel)} ${numberOf(row)}`}
                 </span>
                 <span className="text-app-caption text-ink-sub">
                   {joinedLabel(row.joinedAt)}

@@ -1376,7 +1376,7 @@ export type Database = {
         Row: {
           capacity: number | null;
           created_at: string;
-          grade: string;
+          grade: string | null;
           group_id: string | null;
           id: string;
           name: string;
@@ -1387,7 +1387,7 @@ export type Database = {
         Insert: {
           capacity?: number | null;
           created_at?: string;
-          grade: string;
+          grade?: string | null;
           group_id?: string | null;
           id?: string;
           name: string;
@@ -1397,7 +1397,7 @@ export type Database = {
         Update: {
           capacity?: number | null;
           created_at?: string;
-          grade?: string;
+          grade?: string | null;
           group_id?: string | null;
           id?: string;
           name?: string;
@@ -6344,7 +6344,7 @@ export type Database = {
           class_id: string;
           created_at: string;
           created_by: string | null;
-          grade: string;
+          grade: string | null;
           id: string;
           name: string;
           number: number | null;
@@ -6356,7 +6356,7 @@ export type Database = {
           class_id: string;
           created_at?: string;
           created_by?: string | null;
-          grade: string;
+          grade?: string | null;
           id?: string;
           name: string;
           number?: number | null;
@@ -6367,7 +6367,7 @@ export type Database = {
           class_id?: string;
           created_at?: string;
           created_by?: string | null;
-          grade?: string;
+          grade?: string | null;
           id?: string;
           name?: string;
           number?: number | null;
@@ -6376,11 +6376,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "roster_pending_students_class_id_tenant_id_school_year_gra_fkey";
-            columns: ["class_id", "tenant_id", "school_year", "grade"];
+            foreignKeyName: "roster_pending_students_class_tenant_year_fkey";
+            columns: ["class_id", "tenant_id", "school_year"];
             isOneToOne: false;
             referencedRelation: "classes";
-            referencedColumns: ["id", "tenant_id", "school_year", "grade"];
+            referencedColumns: ["id", "tenant_id", "school_year"];
           },
           {
             foreignKeyName: "roster_pending_students_tenant_id_fkey";
@@ -6831,11 +6831,11 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "student_enrollments_class_id_tenant_id_school_year_grade_fkey";
-            columns: ["class_id", "tenant_id", "school_year", "grade"];
+            foreignKeyName: "student_enrollments_class_tenant_year_fkey";
+            columns: ["class_id", "tenant_id", "school_year"];
             isOneToOne: false;
             referencedRelation: "classes";
-            referencedColumns: ["id", "tenant_id", "school_year", "grade"];
+            referencedColumns: ["id", "tenant_id", "school_year"];
           },
           {
             foreignKeyName: "student_enrollments_student_id_fkey";
@@ -9290,6 +9290,13 @@ export type Database = {
           updated_count: number;
         }[];
       };
+      fn_roster_mixed_pending_targets: {
+        Args: { p_pending: Json };
+        Returns: {
+          class_name: string;
+          group_id: string;
+        }[];
+      };
       fn_roster_pending_lock: {
         Args: { p_tenant: string; p_year: number };
         Returns: undefined;
@@ -9330,6 +9337,7 @@ export type Database = {
       fn_school_year_rollover: {
         Args: {
           p_actor: string;
+          p_pending?: Json;
           p_rows: Json;
           p_tenant: string;
           p_to_year: number;

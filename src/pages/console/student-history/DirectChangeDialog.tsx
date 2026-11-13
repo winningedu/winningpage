@@ -6,13 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorCode, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
-import { gradesOf, useClasses } from "../useClasses";
+import { studentGradesOf, useClasses } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import type { StudentItem } from "./StudentListTab";
 
 const REASONS = [
@@ -45,10 +46,10 @@ function parseNumber(input: string): number | null | undefined {
   return value >= 1 ? value : undefined;
 }
 
-function numberTakenMessage(body: unknown): string {
+function numberTakenMessage(body: unknown, gradeLabel: GradeLabeler): string {
   const { occupant } = body as {
     occupant?: {
-      grade: string;
+      grade: string | null;
       className: string;
       number: number;
       displayName: string | null;
@@ -66,6 +67,7 @@ export default function DirectChangeDialog({
   onConflict,
   onClose,
 }: DirectChangeDialogProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const { enrollment } = student;
   // 처음 열 때의 값. 목록이 다시 불러와져도 입력값과 비교할 기준은 그대로다.
@@ -106,6 +108,8 @@ export default function DirectChangeDialog({
   };
   const changeGrade = (next: string) => {
     setGrade(next);
+    // 다학년 학급은 학생의 학년이 바뀌어도 그대로 받으므로 고른 학급과 그룹을 지우지 않는다.
+    if (classes.data?.find((c) => c.id === classId)?.grade === null) return;
     setGroupId("");
     setClassId("");
   };
@@ -113,11 +117,19 @@ export default function DirectChangeDialog({
   const options = classes.data ?? [];
   const groups = new Map<string, string>();
   for (const c of options) {
-    if (c.grade === grade && c.groupId && c.groupName)
+    if (
+      grade !== "" &&
+      (c.grade === null || c.grade === grade) &&
+      c.groupId &&
+      c.groupName
+    )
       groups.set(c.groupId, c.groupName);
   }
   const classOptions = options.filter(
-    (c) => c.grade === grade && (c.groupId ?? "") === groupId,
+    (c) =>
+      grade !== "" &&
+      (c.grade === null || c.grade === grade) &&
+      (c.groupId ?? "") === groupId,
   );
 
   const changed =
@@ -159,7 +171,8 @@ export default function DirectChangeDialog({
         onSaved();
         return;
       }
-      if (code === "NUMBER_TAKEN") setNumberError(numberTakenMessage(res.body));
+      if (code === "NUMBER_TAKEN")
+        setNumberError(numberTakenMessage(res.body, gradeLabel));
       else if (code === "VERSION_CONFLICT") {
         setNotice(CONFLICT_MESSAGE);
         onConflict();
@@ -198,7 +211,7 @@ export default function DirectChangeDialog({
                 variant="stacked"
                 label="새 학년그룹"
                 value={grade}
-                options={gradesOf(options).map((g) => ({
+                options={studentGradesOf(options).map((g) => ({
                   value: g,
                   label: gradeLabel(g),
                 }))}

@@ -17,6 +17,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { consoleRequest } from "../api";
 import Chip from "../Chip";
+import { isAcademyOrg } from "../classLabel";
 import { kstDotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
@@ -64,9 +65,9 @@ const SAVE_FAILED = "상담 상태를 저장하지 못했어요. 다시 시도�
 /** 변경 일자는 KST 날짜로 "2026.10.28", 없으면 "-". */
 const changedDate = (iso: string | null) => (iso ? kstDotDate(iso) : "-");
 
-/** "3학년/3반", 그룹이 있으면 "3학년-A레벨/3반". 중3 은 "중3" 으로 가린다. */
-function slot(item: AdmissionItem) {
-  const grade = item.grade === "중3" ? "중3" : "3학년";
+/** "3학년/3반", 그룹이 있으면 "3학년-A레벨/3반". 학교는 중3 을 "중3" 으로 가리고, 학원은 "고3" 처럼 원래 값이다. */
+function slot(item: AdmissionItem, academy: boolean) {
+  const grade = academy ? item.grade : item.grade === "중3" ? "중3" : "3학년";
   return `${item.groupName ? `${grade}-${item.groupName}` : grade}/${item.className}반`;
 }
 
@@ -101,15 +102,17 @@ export default function AdmissionCoachingPage() {
     page,
     mobile,
   );
-  const admissionClasses = (classes.data ?? []).filter((c) =>
-    ADMISSION_GRADES.includes(c.grade),
+  const academy = isAcademyOrg(me.tenant.orgType);
+  // 학년 없는 다학년 학급에는 중3, 고3 학생이 있을 수 있다.
+  const admissionClasses = (classes.data ?? []).filter(
+    (c) => c.grade === null || ADMISSION_GRADES.includes(c.grade),
   );
   const className = admissionClasses.find(
     (c) => c.id === filters.classId,
   )?.name;
   const breadcrumb = [
     me.tenant.name,
-    "3학년",
+    academy ? filters.grade || "중3, 고3" : "3학년",
     ...(className ? [`${className}반`] : []),
   ];
   const toast = useToast();
@@ -209,7 +212,7 @@ export default function AdmissionCoachingPage() {
                       <div className="flex flex-col gap-1">
                         <NameCell name={item.name} />
                         <span className="text-app-caption text-ink-sub">
-                          {slot(item)}
+                          {slot(item, academy)}
                         </span>
                       </div>
                       <Urgency value={item.urgency} />
@@ -272,7 +275,7 @@ export default function AdmissionCoachingPage() {
                         <NameCell name={item.name} />
                       </TableCell>
                       <TableCell className="text-app-label text-ink">
-                        {slot(item)}
+                        {slot(item, academy)}
                       </TableCell>
                       <TableCell className="text-app-label text-ink">
                         {target(item.idealTarget)}

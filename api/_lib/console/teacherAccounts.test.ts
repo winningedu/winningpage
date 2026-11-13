@@ -7,8 +7,30 @@ import {
   generateTempPassword,
   hashTempPassword,
   issueTeacherAccount,
+  parseClassRows,
   verifyTempPassword,
 } from "./teacherAccounts.js";
+
+describe("parseClassRows", () => {
+  test("a null grade is a mixed-grade class and keeps the name and group", () => {
+    expect(
+      parseClassRows([{ grade: null, name: "A", groupId: "g-1" }]),
+    ).toEqual([{ grade: null, name: "A", group_id: "g-1" }]);
+  });
+
+  test("a missing grade, a blank grade or a blank name is still rejected", () => {
+    expect(parseClassRows([{ name: "A" }])).toBeNull();
+    expect(parseClassRows([{ grade: "", name: "A" }])).toBeNull();
+    expect(parseClassRows([{ grade: null, name: " " }])).toBeNull();
+    expect(parseClassRows([{ grade: 3, name: "A" }])).toBeNull();
+  });
+
+  test("a graded row is unchanged", () => {
+    expect(parseClassRows([{ grade: "고1", name: "3반" }])).toEqual([
+      { grade: "고1", name: "3반" },
+    ]);
+  });
+});
 
 describe("generateTempPassword", () => {
   test("10자이고 영문자, 숫자, 기호를 모두 포함한다", () => {

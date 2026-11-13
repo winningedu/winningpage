@@ -2,9 +2,9 @@
 // 학년그룹을 고르기 전에는 반을 고를 수 없다(교 #151).
 
 import { Button } from "@/components/ui/button";
-import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { useGroupOptions } from "../useGroups";
 import type { DashboardFilterValue } from "./useDashboard";
 
@@ -23,6 +23,7 @@ export default function DashboardFilter({
   onChange,
   onSubmit,
 }: DashboardFilterProps) {
+  const gradeLabel = useGradeLabel();
   const gradeChosen = value.grade !== "";
   const groups = useGroupOptions(classes, value.grade, value.groupId);
   return (

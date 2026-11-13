@@ -190,6 +190,56 @@ describe("GET /api/console/teachers/list", () => {
     expect(body.total).toBe(2);
   });
 
+  test("다학년 학급은 grade 가 null 인 학급 줄이고 grade=mixed 로만 걸러지며 학년 학급 뒤에 온다", async () => {
+    kit.state.rows.classes = (f) =>
+      matchRows(
+        [
+          ...CLASSES,
+          {
+            id: "c-mix",
+            tenant_id: T,
+            school_year: 2026,
+            grade: null,
+            group_id: null,
+            name: "다",
+          },
+        ],
+        f,
+      );
+    kit.state.rows.teacher_class_assignments = (f) =>
+      matchRows(
+        [
+          ...ASSIGNMENTS,
+          {
+            tenant_id: T,
+            teacher_id: "t-free",
+            class_id: "c-mix",
+            is_primary: true,
+          },
+        ],
+        f,
+      );
+
+    const all = (await get()).body as {
+      items: { classId: string | null; grade: string | null }[];
+    };
+    expect(all.items.map((i) => i.classId)).toEqual([
+      "c-1-1",
+      "c-1-2",
+      "c-2-3",
+      "c-2-5",
+      "c-mix",
+    ]);
+    expect(all.items[4]).toMatchObject({ grade: null, classId: "c-mix" });
+
+    const mixed = (await get({ grade: "mixed" })).body as {
+      items: { classId: string | null }[];
+      total: number;
+    };
+    expect(mixed.items.map((i) => i.classId)).toEqual(["c-mix"]);
+    expect(mixed.total).toBe(1);
+  });
+
   test("teachers 는 삭제되지 않은 학교 관리자까지 재학생 수 합계와 담당 학급을 싣는다", async () => {
     const r = await get();
 

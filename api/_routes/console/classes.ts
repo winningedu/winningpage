@@ -19,7 +19,7 @@ export const config = { runtime: "nodejs" };
 
 interface ClassRow {
   id: string;
-  grade: string;
+  grade: string | null;
   group_id: string | null;
   name: string;
 }

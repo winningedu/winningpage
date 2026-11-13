@@ -1,5 +1,6 @@
 // W7 반별 카드(768 미만). 제목은 담임, 오른쪽은 학년그룹과 반, 서비스 6칸은 "25명 (83%)" 형식이다.
 
+import { useGradeLabel } from "../useConsoleMe";
 import { type ClassRow, gradeGroupLabel, percent, SERVICES } from "./format";
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function ClassCards({ rows, edit }: Props) {
+  const gradeLabel = useGradeLabel();
   return (
     <div className="flex flex-col gap-3">
       {rows.map((r) => {
@@ -26,7 +28,7 @@ export default function ClassCards({ rows, edit }: Props) {
               <h3 className="text-app-body font-semibold text-ink-strong">
                 {title}
               </h3>
-              <span className="text-app-label text-ink-sub">{`${gradeGroupLabel(r)} ${r.className}반`}</span>
+              <span className="text-app-label text-ink-sub">{`${gradeGroupLabel(r, gradeLabel)} ${r.className}반`}</span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-app-caption text-ink-sub">총원 / 정원</span>

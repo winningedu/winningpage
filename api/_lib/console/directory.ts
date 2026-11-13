@@ -150,7 +150,7 @@ export function compareClassName(a: string, b: string): number {
 export interface ClassInfo {
   id: string;
   schoolYear: number;
-  grade: string;
+  grade: string | null;
   groupId: string | null;
   groupName: string | null;
   name: string;
@@ -165,7 +165,7 @@ export async function loadClassIndex(
     readAll<{
       id: string;
       school_year: number;
-      grade: string;
+      grade: string | null;
       group_id: string | null;
       name: string;
     }>(admin, "classes", "id, school_year, grade, group_id, name", (q) =>

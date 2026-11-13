@@ -716,6 +716,111 @@ describe("W6b 학생 정보 편집", () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
+  it("학원은 다학년 학급이 있으면 어느 학년이든 골라 다학년 학급에 옮기고, 학생 학년으로 mixed 를 보내지 않는다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    const calls = stubPage(
+      {
+        "GET /api/console/classes": {
+          body: {
+            classes: [
+              ...classes.classes,
+              {
+                id: "cm",
+                grade: null,
+                groupId: null,
+                groupName: null,
+                name: "다",
+                hasHomeroom: true,
+              },
+            ],
+          },
+        },
+        [PATCH_URL]: { body: { ok: true, enrollmentId: "e1", version: 2 } },
+      },
+      academyMe,
+    );
+    const dialog = await openEdit();
+    const gradeSelect = within(dialog).getByLabelText("학년");
+
+    expect(
+      within(gradeSelect)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["중1", "중2", "중3", "고1", "고2", "고3"]);
+    fireEvent.change(gradeSelect, { target: { value: "고1" } });
+    expect(
+      within(within(dialog).getByLabelText("반"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["선택", "다반"]);
+    fireEvent.change(within(dialog).getByLabelText("반"), {
+      target: { value: "cm" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === PATCH_URL)?.body).toEqual({
+        studentId: "s1",
+        expectedVersion: 1,
+        grade: "고1",
+        classId: "cm",
+        number: 1,
+      }),
+    );
+  });
+
+  it("다학년 학급의 학생이 학년만 고치면 고른 학급과 그룹을 그대로 둔다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    stubPage(
+      {
+        "GET /api/console/classes": {
+          body: {
+            classes: [
+              ...classes.classes,
+              {
+                id: "cm",
+                grade: null,
+                groupId: null,
+                groupName: null,
+                name: "다",
+                hasHomeroom: true,
+              },
+            ],
+          },
+        },
+        [LIST_URL]: {
+          body: listBody([student(1, { classId: "cm", className: "다" })]),
+        },
+      },
+      academyMe,
+    );
+    const dialog = await openEdit();
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+
+    fireEvent.change(within(dialog).getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
   it("학년을 바꾸면 D-day 와 내신 기준 안내가 더해지고 저장은 막히지 않는다", async () => {
     stubPage();
     const dialog = await openEdit();

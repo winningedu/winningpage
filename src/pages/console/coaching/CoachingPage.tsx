@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Chip, { type ChipTone } from "../Chip";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import { kstDotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import PageHeader from "../PageHeader";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import CoachingRadar, { axisStatusText } from "./CoachingRadar";
 import { GoalOpinionCard, Narrative, ServiceCards } from "./CoachingSections";
 import MemoPanel from "./MemoPanel";
@@ -75,6 +75,7 @@ function StudentPicker({
   onSearch: (q: string) => void;
   onPick: (id: string) => void;
 }) {
+  const gradeLabel = useGradeLabel();
   const [draft, setDraft] = useState(q);
   const grades = GRADE_ORDER.filter((g) => students.some((s) => s.grade === g));
   const classes = new Map<string, PickerStudent>();
@@ -144,7 +145,10 @@ function StudentPicker({
 }
 
 /** "2학년 1학년그룹 3반 1번" 처럼 학년, 반, 번호를 잇는다. 없는 조각은 뺀다. */
-export function studentClassText(student: Coaching["student"]) {
+export function studentClassText(
+  student: Coaching["student"],
+  gradeLabel: GradeLabeler,
+) {
   return [
     student.grade ? gradeLabel(student.grade) : null,
     student.className
@@ -157,9 +161,10 @@ export function studentClassText(student: Coaching["student"]) {
 }
 
 export function StudentCard({ data }: { data: Coaching }) {
+  const gradeLabel = useGradeLabel();
   const { student } = data;
   const signal = SIGNAL[data.signal];
-  const meta = studentClassText(student);
+  const meta = studentClassText(student, gradeLabel);
   return (
     <section className={CARD} aria-label="학생 정보">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">

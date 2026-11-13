@@ -3,9 +3,10 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
+import { useGradeLabel } from "../useConsoleMe";
 import { GRADES } from "./ClassRowFields";
 import { deleteTeachers } from "./DeleteDialog";
 import { classText, type TeacherSummary } from "./roster";
@@ -27,14 +28,17 @@ interface BulkDeleteDialogProps {
   onClose: () => void;
 }
 
-const classesLabel = (t: TeacherSummary) =>
-  t.classes.length > 0 ? t.classes.map(classText).join(", ") : "-";
+const classesLabel = (t: TeacherSummary, gradeLabel: GradeLabeler) =>
+  t.classes.length > 0
+    ? t.classes.map((c) => classText(c, gradeLabel)).join(", ")
+    : "-";
 
 export default function BulkDeleteDialog({
   teachers,
   onDeleted,
   onClose,
 }: BulkDeleteDialogProps) {
+  const gradeLabel = useGradeLabel();
   const [mode, setMode] = useState<Mode>("select");
   const [picked, setPicked] = useState<string[]>([]);
   const [grade, setGrade] = useState("");
@@ -136,7 +140,9 @@ export default function BulkDeleteDialog({
               <span className="w-20 font-semibold text-ink-strong">
                 {t.name}
               </span>
-              <span className="flex-1 text-ink-sub">{classesLabel(t)}</span>
+              <span className="flex-1 text-ink-sub">
+                {classesLabel(t, gradeLabel)}
+              </span>
               <span>{`재학생 ${t.activeStudents}명`}</span>
             </li>
           ))}
@@ -180,7 +186,9 @@ export default function BulkDeleteDialog({
                 <span className="w-20 font-semibold text-ink-strong">
                   {t.name}
                 </span>
-                <span className="flex-1 text-ink-sub">{classesLabel(t)}</span>
+                <span className="flex-1 text-ink-sub">
+                  {classesLabel(t, gradeLabel)}
+                </span>
                 <span>{`재학생 ${t.activeStudents}명`}</span>
               </li>
             ))}

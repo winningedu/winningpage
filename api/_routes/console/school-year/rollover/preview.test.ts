@@ -201,6 +201,190 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     });
   });
 
+  describe("mixed-grade class (다학년)", () => {
+    const MIXED_CLASS = {
+      id: "c-mix",
+      tenant_id: "tenant-1",
+      school_year: 2027,
+      grade: null,
+      group_id: null,
+      name: "다",
+    };
+    const MIXED_TEXT = "김하늘\t1학년\tA레벨\t4\t7\t다학년\t\t다\t1";
+
+    beforeEach(() => {
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows([MIXED_CLASS], f),
+      ];
+      kit.state.rows.teacher_class_assignments = (f) =>
+        matchRows(
+          [
+            { tenant_id: "tenant-1", class_id: "c-next" },
+            { tenant_id: "tenant-1", class_id: "c-mix" },
+          ],
+          f,
+        );
+    });
+
+    test("a non-grade new grade cell targets the mixed class: the student moves up a grade, the slot says mixed, and the homeroom is looked up without a grade", async () => {
+      const r = await post({ toYear: 2027, text: MIXED_TEXT });
+
+      expect(r.body).toMatchObject({
+        rows: [
+          {
+            studentId: "s1",
+            result: "applied",
+            to: { grade: null, mixed: true, className: "다", number: 1 },
+          },
+        ],
+        applyRows: [
+          {
+            studentId: "s1",
+            groupId: null,
+            className: "다",
+            number: 1,
+            mixed: true,
+          },
+        ],
+      });
+    });
+
+    test("a grade line into a class that already exists as mixed becomes a mixed line", async () => {
+      const r = await post({
+        toYear: 2027,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t다\t1",
+      });
+
+      expect(r.body).toMatchObject({
+        applyRows: [{ studentId: "s1", className: "다", mixed: true }],
+      });
+    });
+
+    test("R5: a class that is mixed this year stays one mixed class next year when the roster targets the same group and name with a real new grade", async () => {
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-now",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: null,
+              name: "혼",
+            },
+          ],
+          f,
+        ),
+      ];
+
+      const r = await post({
+        toYear: 2027,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t혼\t1",
+      });
+
+      expect(r.body).toMatchObject({
+        applyRows: [{ studentId: "s1", className: "혼", mixed: true }],
+        rows: [{ to: { grade: null, mixed: true } }],
+      });
+    });
+
+    test("a 다학년 line into a name that already exists as a graded class of the target year is a check, but a real grade line goes on as graded", async () => {
+      // c-next(고2, A레벨 그룹, 이름 3)가 새 학년도의 학년 학급이다.
+      const mixedText = "김하늘\t1학년\tA레벨\t4\t7\t다학년\tA레벨\t3\t1";
+      const gradedText = "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1";
+
+      const mixed = await post({ toYear: 2027, text: mixedText });
+      const graded = await post({ toYear: 2027, text: gradedText });
+
+      expect(mixed.body).toMatchObject({
+        rows: [{ result: "check_target" }],
+        applyRows: [],
+      });
+      expect(graded.body).toMatchObject({
+        applyRows: [{ studentId: "s1", className: "3" }],
+      });
+    });
+
+    test("a class that is mixed this year but whose name exists as a graded class next year is not treated as mixed", async () => {
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-now",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: "g-a",
+              name: "3",
+            },
+          ],
+          f,
+        ),
+      ];
+
+      const r = await post({
+        toYear: 2027,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\tA레벨\t3\t1",
+      });
+
+      expect(r.body).toMatchObject({ applyRows: [{ studentId: "s1" }] });
+      expect(
+        (r.body as { applyRows: Record<string, unknown>[] }).applyRows[0],
+      ).not.toHaveProperty("mixed");
+    });
+
+    test("R6: the student's current class being mixed is passed on, so staying in it is not a class change", async () => {
+      vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-4",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: "g-a",
+              name: "4",
+            },
+          ],
+          f,
+        ),
+      ];
+      const baseEnrollments = kit.state.rows.student_enrollments;
+      kit.state.rows.student_enrollments = (f) =>
+        ((baseEnrollments?.(f) ?? []) as Record<string, unknown>[]).map((e) =>
+          e.student_id === "s1" ? { ...e, class_id: "c-mix-4" } : e,
+        );
+
+      const r = await post({
+        toYear: 2026,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t1학년\tA레벨\t4\t9",
+      });
+
+      expect(r.body).toMatchObject({ rows: [{ result: "no_homeroom" }] });
+    });
+
+    test("a school tenant never sees mixed classes: the same text is a wrong grade needing a check", async () => {
+      kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
+
+      const r = await post({ toYear: 2027, text: MIXED_TEXT });
+
+      expect(r.body).toMatchObject({
+        rows: [{ result: "check_target" }],
+        applyRows: [],
+      });
+      expect(JSON.stringify(r.body)).not.toContain("mixed");
+    });
+  });
+
   describe("mid-year (the tenant is already at the calendar school year)", () => {
     beforeEach(() => {
       vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));

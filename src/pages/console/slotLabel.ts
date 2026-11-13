@@ -1,6 +1,6 @@
 // W13 화면이 쓰는 자리 표기. "{학년} {반} {번호}번", 그룹이 있으면 "1학년-A레벨 1반"(교 #216).
 
-import { gradeLabel } from "./classLabel";
+import type { GradeLabeler } from "./classLabel";
 
 export interface Slot {
   grade: string | null;
@@ -9,7 +9,7 @@ export interface Slot {
   number: number | null;
 }
 
-export function slotLabel(s: Slot): string {
+export function slotLabel(s: Slot, gradeLabel: GradeLabeler): string {
   const grade = s.grade
     ? s.groupName
       ? `${gradeLabel(s.grade)}-${s.groupName}`

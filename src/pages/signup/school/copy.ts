@@ -102,6 +102,11 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
     hint: "login",
   },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
+  // 서버가 교착이나 대기 시간 초과를 만나 새 Auth 사용자를 지우고 돌려준다. 같은 값으로 다시 누르면 된다.
+  TRY_AGAIN: {
+    step: 4,
+    message: "지금 처리 중인 작업이 있어요. 잠시 뒤 다시 시도해 주세요.",
+  },
 };
 
 export const GENERIC_SUBMIT_ERROR: SubmitError = {

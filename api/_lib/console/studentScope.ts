@@ -13,6 +13,7 @@ import {
   loadTenant,
   readAll,
 } from "./directory.js";
+import { gradeFilterMatches } from "./enrollmentInput.js";
 import { requireInScope, scopeQuery } from "./scope.js";
 
 /** 입시를 앞둔 학년(W10 대상). */
@@ -67,7 +68,7 @@ export async function loadScopedStudents(
     const cls = row.class_id ? classes.get(row.class_id) : undefined;
     if (!row.grade || !cls) continue;
     if (filter.grades && !filter.grades.includes(row.grade)) continue;
-    if (filter.grade && row.grade !== filter.grade) continue;
+    if (!gradeFilterMatches(filter.grade, row.grade, cls.grade)) continue;
     if (filter.classId && cls.id !== filter.classId) continue;
     if (filter.groupId && cls.groupId !== filter.groupId) continue;
     students.push({

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import Chip from "../Chip";
 import NameCell from "../NameCell";
+import { useGradeLabel } from "../useConsoleMe";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
 import SpecialReasons from "./SpecialReasons";
@@ -38,6 +39,7 @@ export default function StudentTable({
   onOpen,
   onEdit,
 }: StudentTableProps) {
+  const gradeLabel = useGradeLabel();
   return (
     // 태블릿에서 표가 가로로 밀리므로 키보드로도 닿게 한다(빌드 로그 구현 메모).
     // biome-ignore lint/a11y/noNoninteractiveTabindex: 스크롤 영역은 키보드 초점을 받아야 한다.
@@ -84,7 +86,7 @@ export default function StudentTable({
               </TableCell>
               <TableCell>
                 <span className="flex items-center gap-2 text-app-label text-ink">
-                  <span>{gradeClassOf(row, academy)}</span>
+                  <span>{gradeClassOf(row, academy, gradeLabel)}</span>
                   <span aria-hidden className="h-3 w-px bg-border" />
                   <span>{numberOf(row)}</span>
                 </span>

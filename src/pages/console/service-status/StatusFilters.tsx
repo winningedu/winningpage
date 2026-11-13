@@ -4,9 +4,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 
 export interface StatusFilterValues {
   grade: string;
@@ -23,6 +23,7 @@ interface Props {
 const ALL = { value: "", label: "전체" };
 
 export default function StatusFilters({ classes, initial, onSearch }: Props) {
+  const gradeLabel = useGradeLabel();
   const [values, setValues] = useState(initial);
   const change = (patch: Partial<StatusFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
