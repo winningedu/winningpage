@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Chip from "../Chip";
-import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
@@ -24,6 +23,7 @@ import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { gradesOf, useClasses } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { useGroupOptions } from "../useGroups";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
@@ -86,6 +86,7 @@ type DialogState =
   | { kind: "issue"; teacherId?: string };
 
 export default function TeacherRosterPage() {
+  const gradeLabel = useGradeLabel();
   const mobile = useIsMobile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -225,7 +226,7 @@ export default function TeacherRosterPage() {
                       <LoginCell row={item} />
                     </div>
                     <span className="text-app-caption text-ink-sub">
-                      {`${gradeGroupLabel(item.grade, item.groupName)} ${item.className ? `${item.className}반` : ""}`}
+                      {`${gradeGroupLabel(item.grade, item.groupName, gradeLabel)} ${item.className ? `${item.className}반` : ""}`}
                     </span>
                     {item.teacher && (
                       <Button
@@ -260,7 +261,11 @@ export default function TeacherRosterPage() {
                   {list.data.items.map((item) => (
                     <TableRow key={item.classId ?? item.teacher?.id}>
                       <TableCell>
-                        {gradeGroupLabel(item.grade, item.groupName)}
+                        {gradeGroupLabel(
+                          item.grade,
+                          item.groupName,
+                          gradeLabel,
+                        )}
                       </TableCell>
                       <TableCell>
                         {item.className ? `${item.className}반` : "-"}

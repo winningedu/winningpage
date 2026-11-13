@@ -13,7 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
@@ -26,6 +25,7 @@ import {
   gradesOf,
   useClasses,
 } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import AssignPoolRow from "./AssignPoolRow";
@@ -49,6 +49,7 @@ function Filters({
   initial: FilterValues;
   onSearch: (values: FilterValues) => void;
 }) {
+  const gradeLabel = useGradeLabel();
   const [values, setValues] = useState(initial);
   const search = () => onSearch(values);
   return (

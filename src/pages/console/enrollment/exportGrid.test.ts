@@ -1,6 +1,7 @@
 // W7 엑셀 출력 표. 집계값만 담고(교 #40) 이름 칸의 수식 문자는 글자로 막는다.
 
 import { describe, expect, it } from "vitest";
+import { gradeLabel } from "../classLabel";
 import { buildEnrollmentGrid, enrollmentFileName } from "./exportGrid";
 import type { ClassRow } from "./format";
 
@@ -51,6 +52,7 @@ describe("buildEnrollmentGrid", () => {
       filter: { grade: "학년그룹: 1학년", class: "반: 전체" },
       asOf: "2026-11-05",
       scopeLabel: "1학년",
+      gradeLabel: (g) => gradeLabel(g, false),
     });
 
     expect(grid[0]).toEqual(["이용현황"]);
@@ -125,10 +127,25 @@ describe("buildEnrollmentGrid", () => {
       filter: { grade: "", class: "" },
       asOf: "2026-11-05",
       scopeLabel: "학교 전체",
+      gradeLabel: (g) => gradeLabel(g, false),
     });
 
     const header = grid.findIndex((r) => r[0] === "담임");
     expect(grid[header + 1]?.[0]).toBe('\'=HYPERLINK("x")');
+  });
+
+  it("학원은 학년그룹 칸에 고1 같은 원래 값을, 다학년은 다학년을 적는다", () => {
+    const grid = buildEnrollmentGrid({
+      rows: [row(), row({ classId: "c2", grade: null, groupName: null })],
+      filter: { grade: "", class: "" },
+      asOf: "2026-11-05",
+      scopeLabel: "학원 전체",
+      gradeLabel: (g) => gradeLabel(g, true),
+    });
+
+    const header = grid.findIndex((r) => r[0] === "담임");
+    expect(grid[header + 1]?.[1]).toBe("고1-A레벨");
+    expect(grid[header + 2]?.[1]).toBe("다학년");
   });
 });
 

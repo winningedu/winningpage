@@ -6,13 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorCode, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import { gradesOf, useClasses } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import type { StudentItem } from "./StudentListTab";
 
 const REASONS = [
@@ -45,7 +46,7 @@ function parseNumber(input: string): number | null | undefined {
   return value >= 1 ? value : undefined;
 }
 
-function numberTakenMessage(body: unknown): string {
+function numberTakenMessage(body: unknown, gradeLabel: GradeLabeler): string {
   const { occupant } = body as {
     occupant?: {
       grade: string;
@@ -66,6 +67,7 @@ export default function DirectChangeDialog({
   onConflict,
   onClose,
 }: DirectChangeDialogProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const { enrollment } = student;
   // 처음 열 때의 값. 목록이 다시 불러와져도 입력값과 비교할 기준은 그대로다.
@@ -159,7 +161,8 @@ export default function DirectChangeDialog({
         onSaved();
         return;
       }
-      if (code === "NUMBER_TAKEN") setNumberError(numberTakenMessage(res.body));
+      if (code === "NUMBER_TAKEN")
+        setNumberError(numberTakenMessage(res.body, gradeLabel));
       else if (code === "VERSION_CONFLICT") {
         setNotice(CONFLICT_MESSAGE);
         onConflict();

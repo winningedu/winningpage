@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
+import { useGradeLabel } from "../useConsoleMe";
 import RolloverConfirmDialog, {
   type RolloverSummary,
 } from "./RolloverConfirmDialog";
@@ -33,7 +34,7 @@ function joinCounts(items: string[]): string {
     : `${items.slice(0, -1).join(", ")}과 ${last}`;
 }
 
-function targetLine(year: SchoolYear): string | null {
+function targetLine(year: SchoolYear, gradeLabel: GradeLabeler): string | null {
   const text = (grades: { grade: string; count: number }[]) =>
     joinCounts(grades.map((g) => `${gradeLabel(g.grade)} ${g.count}명`));
   const graduating = year.gradeCounts.filter((g) =>
@@ -99,6 +100,7 @@ export default function RolloverSection({
   text,
   onTextChange,
 }: RolloverSectionProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -213,7 +215,7 @@ export default function RolloverSection({
   };
 
   const midyear = year?.mode === "midyear";
-  const target = year && !midyear ? targetLine(year) : null;
+  const target = year && !midyear ? targetLine(year, gradeLabel) : null;
 
   return (
     <section className="flex flex-col gap-4 border-t border-line pt-8">

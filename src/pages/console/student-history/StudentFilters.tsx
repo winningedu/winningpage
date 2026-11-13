@@ -4,9 +4,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { useGroupOptions } from "../useGroups";
 
 export interface StudentFilterValues {
@@ -29,6 +29,7 @@ export default function StudentFilters({
   initial,
   onSearch,
 }: StudentFiltersProps) {
+  const gradeLabel = useGradeLabel();
   const [values, setValues] = useState(initial);
   const groups = useGroupOptions(classes, values.grade, values.groupId);
   const classOptions = classesOf(classes, values.grade, values.groupId);

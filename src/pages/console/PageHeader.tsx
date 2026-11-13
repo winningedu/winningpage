@@ -3,8 +3,8 @@
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConsoleMe } from "./api";
-import { gradeLabel, primaryClass } from "./classLabel";
-import { useConsoleMe } from "./useConsoleMe";
+import { type GradeLabeler, primaryClass } from "./classLabel";
+import { useConsoleMe, useGradeLabel } from "./useConsoleMe";
 
 interface PageHeaderProps {
   title: string;
@@ -20,7 +20,7 @@ interface PageHeaderProps {
   breadcrumb?: string[];
 }
 
-function crumbsFor(me: ConsoleMe): string[] {
+function crumbsFor(me: ConsoleMe, gradeLabel: GradeLabeler): string[] {
   if (me.kind !== "homeroom") return [me.tenant.name, "전체"];
   const primary = primaryClass(me.classes);
   return primary
@@ -37,8 +37,9 @@ export default function PageHeader({
   notice,
   breadcrumb,
 }: PageHeaderProps) {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
-  const crumbs = breadcrumb ?? crumbsFor(me);
+  const crumbs = breadcrumb ?? crumbsFor(me, gradeLabel);
   return (
     <header className="flex max-w-content flex-col gap-4 px-4 pt-6 pb-6 md:px-8 md:pt-10 lg:px-12 lg:pt-14 lg:pb-10">
       <div className="flex items-start gap-4">

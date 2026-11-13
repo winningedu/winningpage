@@ -69,6 +69,27 @@ describe("ConsoleNav 담임교사", () => {
     expect(screen.getByText("2학년 3반 담임")).toBeTruthy();
     expect(screen.getByText("아이디 SM26HB83K7MPQ2")).toBeTruthy();
   });
+
+  it("학원 담임은 학급을 고2 처럼 원래 학년 값으로 보여 준다", () => {
+    renderNav({
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "학원" },
+    });
+
+    expect(screen.getByText("고2 3반 담임")).toBeTruthy();
+  });
+
+  it("학원 다학년 학급 담임은 다학년으로 보여 준다", () => {
+    renderNav({
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "학원" },
+      classes: [
+        { id: "c3", grade: null, name: "3", group: null, isPrimary: true },
+      ],
+    });
+
+    expect(screen.getByText("다학년 3반 담임")).toBeTruthy();
+  });
 });
 
 describe("ConsoleNav 학교 전체 관리자와 본사 대행", () => {

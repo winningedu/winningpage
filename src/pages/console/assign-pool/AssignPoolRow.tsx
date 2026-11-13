@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
@@ -20,6 +19,7 @@ import NameCell from "../NameCell";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
 import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { PoolStudent } from "./types";
 
@@ -81,6 +81,7 @@ export default function AssignPoolRow({
   mobile,
   onSelect,
 }: AssignPoolRowProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [grade, setGrade] = useState(student.grade ?? "");
@@ -127,7 +128,7 @@ export default function AssignPoolRow({
       }
       if (code === "NUMBER_TAKEN") {
         setNumberInvalid(true);
-        setMessage(numberTakenMessage(res.body));
+        setMessage(numberTakenMessage(res.body, gradeLabel));
       } else if (code === "VERSION_CONFLICT") {
         setMessage(CONFLICT_MESSAGE);
         refetch();

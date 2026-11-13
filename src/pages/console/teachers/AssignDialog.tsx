@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { consoleRequest, errorMessage } from "../api";
 import Notice from "../Notice";
+import { useGradeLabel } from "../useConsoleMe";
 import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
@@ -36,6 +37,7 @@ export default function AssignDialog({
   onChanged,
   onClose,
 }: AssignDialogProps) {
+  const gradeLabel = useGradeLabel();
   const groups = useGroups();
   const [row, setRow] = useState<ClassInput>(EMPTY_CLASS);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export default function AssignDialog({
               <tr key={c.id} className="border-b border-line">
                 <td className="py-2">{c.isPrimary ? "주 담당" : "추가"}</td>
                 <td className="py-2">
-                  {gradeGroupLabel(c.grade, c.groupName)}
+                  {gradeGroupLabel(c.grade, c.groupName, gradeLabel)}
                 </td>
                 <td className="py-2">{`${c.name}반`}</td>
                 <td className="py-2 text-right">{c.activeStudents}</td>

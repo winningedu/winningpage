@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import Chip from "../Chip";
 import { PENDING_COUNT_KEY } from "../ConsoleLayout";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
 import NameCell from "../NameCell";
@@ -25,6 +25,7 @@ import Pagination from "../Pagination";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { type Slot, slotLabel } from "../slotLabel";
 import { useToast } from "../Toast";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import RejectDialog from "./RejectDialog";
@@ -42,7 +43,11 @@ const PAGE_SIZE = 50;
 const CONFLICT_MESSAGE = "다른 분이 먼저 바꿨어요. 새로 고침해 주세요";
 
 // 서버가 번호를 쓰는 학생(occupant)을 실어 보낸다. 가린 이름 여부는 서버가 정한다.
-function numberTakenMessage(body: unknown, studentName: string): string {
+function numberTakenMessage(
+  body: unknown,
+  studentName: string,
+  gradeLabel: GradeLabeler,
+): string {
   const { occupant } = body as {
     occupant?: {
       grade: string;
@@ -58,6 +63,7 @@ function numberTakenMessage(body: unknown, studentName: string): string {
 }
 
 export default function PendingRequestsTab() {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -95,7 +101,7 @@ export default function PendingRequestsTab() {
         });
         await refresh();
       } else if (code === "NUMBER_TAKEN") {
-        setNotice(numberTakenMessage(res.body, item.studentName));
+        setNotice(numberTakenMessage(res.body, item.studentName, gradeLabel));
       } else if (code === "VERSION_CONFLICT" || code === "REQUEST_NOT_FOUND") {
         setNotice(CONFLICT_MESSAGE);
         await refresh();
@@ -198,7 +204,7 @@ export default function PendingRequestsTab() {
                   기존 학년그룹/반/번호
                 </span>
                 <span className="text-app-label font-semibold text-ink">
-                  {slotLabel(item.from)}
+                  {slotLabel(item.from, gradeLabel)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -206,7 +212,7 @@ export default function PendingRequestsTab() {
                   요청한 학년그룹/반/번호
                 </span>
                 <span className="flex items-center gap-2 text-app-label font-semibold text-ink">
-                  {slotLabel(item.to)}
+                  {slotLabel(item.to, gradeLabel)}
                   <Chip tone="Neutral">신청 중</Chip>
                 </span>
               </div>
@@ -230,10 +236,10 @@ export default function PendingRequestsTab() {
                 <TableCell>
                   <NameCell name={item.studentName} />
                 </TableCell>
-                <TableCell>{slotLabel(item.from)}</TableCell>
+                <TableCell>{slotLabel(item.from, gradeLabel)}</TableCell>
                 <TableCell>
                   <span className="flex items-center gap-2">
-                    {slotLabel(item.to)}
+                    {slotLabel(item.to, gradeLabel)}
                     <Chip tone="Neutral">신청 중</Chip>
                   </span>
                 </TableCell>

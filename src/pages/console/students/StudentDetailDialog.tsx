@@ -17,11 +17,11 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
-import { gradeLabel } from "../classLabel";
 import { kstDaysAgoText } from "../date";
 import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import { slotLabel } from "../slotLabel";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import { SERVICES, type ServiceKey } from "./services";
 
@@ -88,6 +88,7 @@ export default function StudentDetailDialog({
   studentId,
   onClose,
 }: StudentDetailDialogProps) {
+  const gradeLabel = useGradeLabel();
   const navigate = useNavigate();
   const query = useQuery({
     queryKey: ["console", "student-detail", studentId],
@@ -146,7 +147,7 @@ export default function StudentDetailDialog({
           <>
             <p className="text-app-label text-ink-sub">
               {[
-                slotLabel(detail.enrollment),
+                slotLabel(detail.enrollment, gradeLabel),
                 detail.enrollment.homeroomName &&
                   `담임 ${detail.enrollment.homeroomName}`,
                 detail.lastSeenAt &&

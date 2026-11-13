@@ -5,9 +5,9 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { consoleRequest, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
 import Notice from "../Notice";
 import TextField from "../TextField";
+import { useGradeLabel } from "../useConsoleMe";
 import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
@@ -46,6 +46,7 @@ export default function RegisterDialog({
   onDone,
   onClose,
 }: RegisterDialogProps) {
+  const gradeLabel = useGradeLabel();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const nextId = useRef(1);

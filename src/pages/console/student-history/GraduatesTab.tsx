@@ -13,12 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { GradeLabeler } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
 import NameCell from "../NameCell";
 import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { slotLabel } from "../slotLabel";
+import { useGradeLabel } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import HistoryDialog from "./HistoryDialog";
@@ -42,13 +44,13 @@ interface GraduateItem {
   }[];
 }
 
-const lastLabel = (g: GraduateItem) =>
-  slotLabel({ ...g.last, groupName: null });
-const historyLabel = (g: GraduateItem) =>
+const lastLabel = (g: GraduateItem, gradeLabel: GradeLabeler) =>
+  slotLabel({ ...g.last, groupName: null }, gradeLabel);
+const historyLabel = (g: GraduateItem, gradeLabel: GradeLabeler) =>
   g.history
     .map(
       (h) =>
-        `${h.schoolYear} ${slotLabel({ ...h, groupName: null, number: null })}`,
+        `${h.schoolYear} ${slotLabel({ ...h, groupName: null, number: null }, gradeLabel)}`,
     )
     .join(" / ");
 
@@ -102,6 +104,7 @@ interface GraduatesTabProps {
 }
 
 export default function GraduatesTab({ onYear }: GraduatesTabProps) {
+  const gradeLabel = useGradeLabel();
   const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,7 +159,7 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
                 <span className="flex flex-col gap-1">
                   <NameCell name={item.name} />
                   <span className="text-app-caption text-ink-sub">
-                    {`마지막 학급 ${lastLabel(item)}`}
+                    {`마지막 학급 ${lastLabel(item, gradeLabel)}`}
                   </span>
                 </span>
                 <span className="flex flex-col items-end gap-1">
@@ -173,7 +176,7 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
                   학년그룹/반 이력
                 </span>
                 <span className="text-right text-app-label font-semibold text-ink">
-                  {historyLabel(item)}
+                  {historyLabel(item, gradeLabel)}
                 </span>
               </div>
               <Button
@@ -204,8 +207,8 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
                   <NameCell name={item.name} />
                 </TableCell>
                 <TableCell>{`${item.graduatedYear}학년도`}</TableCell>
-                <TableCell>{lastLabel(item)}</TableCell>
-                <TableCell>{historyLabel(item)}</TableCell>
+                <TableCell>{lastLabel(item, gradeLabel)}</TableCell>
+                <TableCell>{historyLabel(item, gradeLabel)}</TableCell>
                 <TableCell>
                   <Button
                     type="button"

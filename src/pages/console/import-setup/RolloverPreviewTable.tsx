@@ -9,7 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Chip, { type ChipTone } from "../Chip";
-import { gradeLabel } from "../classLabel";
+import type { GradeLabeler } from "../classLabel";
+import { useGradeLabel } from "../useConsoleMe";
 
 export interface PreviewSlot {
   grade: string | null;
@@ -57,7 +58,7 @@ export const RESULT_LEGEND = `결과 종류: ${Object.values(RESULTS)
   .join(", ")}`;
 
 /** "{학년}, {그룹 또는 없음}, {반}, {번호}번". 비어 있는 칸은 "-" 또는 "번호 미입력". */
-function slotText(slot: PreviewSlot | null): string {
+function slotText(slot: PreviewSlot | null, gradeLabel: GradeLabeler): string {
   if (!slot) return "-";
   return [
     slot.grade ? gradeLabel(slot.grade) : "-",
@@ -68,6 +69,7 @@ function slotText(slot: PreviewSlot | null): string {
 }
 
 export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
+  const gradeLabel = useGradeLabel();
   return (
     <Table>
       <TableHeader>
@@ -82,8 +84,8 @@ export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
         {rows.map((row) => (
           <TableRow key={row.line}>
             <TableCell>{row.displayName}</TableCell>
-            <TableCell>{slotText(row.from)}</TableCell>
-            <TableCell>{slotText(row.to)}</TableCell>
+            <TableCell>{slotText(row.from, gradeLabel)}</TableCell>
+            <TableCell>{slotText(row.to, gradeLabel)}</TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 <Chip tone={RESULTS[row.result].tone}>

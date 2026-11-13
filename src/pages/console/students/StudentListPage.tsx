@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { gradeLabel, primaryClass } from "../classLabel";
+import { MIXED_GRADE, primaryClass } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
 import { CONSOLE_BASE } from "../menu";
@@ -15,7 +15,7 @@ import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import Tabs from "../Tabs";
 import { useClasses } from "../useClasses";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import StudentCards from "./StudentCards";
@@ -71,6 +71,7 @@ function EmptyState({
 }
 
 export default function StudentListPage() {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const navigate = useNavigate();
   const mobile = useIsMobile();
@@ -84,7 +85,9 @@ export default function StudentListPage() {
   // 담임은 주소에 학년이 없을 때 주 담당 반으로 시작한다. 검색하면 값(비어 있어도)을 주소에 적는다.
   const useDefault = homeroom && primary && !searchParams.has("grade");
   const filters: StudentFilterValues = {
-    grade: useDefault ? primary.grade : (searchParams.get("grade") ?? ""),
+    grade: useDefault
+      ? (primary.grade ?? MIXED_GRADE)
+      : (searchParams.get("grade") ?? ""),
     groupId: searchParams.get("groupId") ?? "",
     classId: useDefault ? primary.id : (searchParams.get("classId") ?? ""),
     q: searchParams.get("q") ?? "",

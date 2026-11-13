@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useGradeLabel } from "../useConsoleMe";
 import { type ClassRow, gradeGroupLabel, percent, SERVICES } from "./format";
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function ClassTable({ rows, edit }: Props) {
+  const gradeLabel = useGradeLabel();
   return (
     <Table className="min-w-[56rem]">
       <TableHeader>
@@ -55,7 +57,7 @@ export default function ClassTable({ rows, edit }: Props) {
               {r.homeroomName ?? "담임 미배정"}
             </TableCell>
             <TableCell className="text-app-label text-ink">
-              {gradeGroupLabel(r)}
+              {gradeGroupLabel(r, gradeLabel)}
             </TableCell>
             <TableCell className="text-app-label text-ink">{`${r.className}반`}</TableCell>
             <TableCell className="text-right text-app-label text-ink">

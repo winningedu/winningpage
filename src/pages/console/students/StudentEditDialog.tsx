@@ -6,7 +6,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorCode, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
@@ -19,6 +18,7 @@ import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { StudentRow } from "./types";
 
@@ -38,6 +38,7 @@ export default function StudentEditDialog({
   classes,
   onClose,
 }: StudentEditDialogProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const queryClient = useQueryClient();
   // 처음 열 때의 값. 목록이 다시 불러와져도 입력값과 비교할 기준은 그대로다.
@@ -92,7 +93,8 @@ export default function StudentEditDialog({
         onClose();
         return;
       }
-      if (code === "NUMBER_TAKEN") setNumberError(numberTakenMessage(res.body));
+      if (code === "NUMBER_TAKEN")
+        setNumberError(numberTakenMessage(res.body, gradeLabel));
       else if (code === "VERSION_CONFLICT") {
         setNotice(CONFLICT_MESSAGE);
         void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
