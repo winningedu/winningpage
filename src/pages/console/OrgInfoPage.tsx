@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HOMEPAGE_PREFIX, withoutBareScheme } from "@/lib/homepage";
 import { cn } from "@/lib/utils";
-import { consoleRequest, errorCode } from "./api";
+import { consoleRequest, errorCode, errorMessage } from "./api";
 import Notice from "./Notice";
 import PageHeader from "./PageHeader";
 import { SAVE_FAILED_MESSAGE } from "./passwordRule";
@@ -58,6 +58,8 @@ type Values = Record<FieldKey, string>;
 type Mode = "edit" | "confirm" | "locked";
 
 interface OrgInfo extends Record<FieldKey, string | null> {
+  tenantId: string;
+  updatedAt: string;
   code: string;
   infoConfirmedAt: string | null;
 }
@@ -95,6 +97,11 @@ export default function OrgInfoPage() {
   const toast = useToast();
   const proxy = me.kind === "hq_proxy";
   const [code, setCode] = useState<string | null>(null);
+  // 화면을 그린 기관과 마지막으로 본 갱신 시각. 저장과 최종확인이 이 값을 서버에 되돌려 보낸다.
+  const [seen, setSeen] = useState<{
+    tenantId: string;
+    updatedAt: string;
+  } | null>(null);
   const [values, setValues] = useState<Values | null>(null);
   const [mode, setMode] = useState<Mode>("edit");
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
@@ -108,6 +115,7 @@ export default function OrgInfoPage() {
       if (res.status !== 200) throw new Error(`org-info ${res.status}`);
       const info = res.body as OrgInfo;
       setCode(info.code);
+      setSeen({ tenantId: info.tenantId, updatedAt: info.updatedAt });
       const loaded = Object.fromEntries(
         FIELDS.map((f) => [f.key, info[f.key] ?? ""]),
       ) as Values;
@@ -144,6 +152,15 @@ export default function OrgInfoPage() {
   const trimmed = (v: Values) =>
     Object.fromEntries(FIELDS.map((f) => [f.key, v[f.key].trim()]));
 
+  // 기관이 바뀐 세션이면 me 를 다시 읽어 화면이 실제 세션을 따르게 한다.
+  const sessionChanged = async (body: unknown) => {
+    toast.show({
+      tone: "Error",
+      message: errorMessage(body) ?? SAVE_FAILED_MESSAGE,
+    });
+    await reload();
+  };
+
   const toConfirm = () => {
     if (!values) return;
     const cleaned = { ...values, homepage: withoutBareScheme(values.homepage) };
@@ -155,7 +172,7 @@ export default function OrgInfoPage() {
 
   // 본사 대행은 저장만 한다. 확정은 학교 관리자 몫이라 조회 전용으로 잠그지 않는다.
   const proxySave = async () => {
-    if (!values) return;
+    if (!values || !seen) return;
     const cleaned = { ...values, homepage: withoutBareScheme(values.homepage) };
     setValues(cleaned);
     const found = validate(cleaned);
@@ -165,8 +182,12 @@ export default function OrgInfoPage() {
     try {
       const patch = await consoleRequest("/api/console/org-info", {
         method: "PATCH",
-        body: trimmed(cleaned),
+        body: { ...trimmed(cleaned), tenantId: seen.tenantId },
       });
+      if (patch.status === 409 && errorCode(patch.body) === "SESSION_CHANGED") {
+        await sessionChanged(patch.body);
+        return;
+      }
       if (
         patch.status === 409 &&
         errorCode(patch.body) === "ALREADY_CONFIRMED"
@@ -176,6 +197,10 @@ export default function OrgInfoPage() {
       }
       if (patch.status !== 200)
         throw new Error(`org-info patch ${patch.status}`);
+      setSeen({
+        tenantId: seen.tenantId,
+        updatedAt: (patch.body as { updatedAt: string }).updatedAt,
+      });
       if (cleaned.homepage === "") {
         setValues({ ...cleaned, homepage: HOMEPAGE_PREFIX });
       }
@@ -188,13 +213,17 @@ export default function OrgInfoPage() {
   };
 
   const finalSave = async () => {
-    if (!values) return;
+    if (!values || !seen) return;
     setSaving(true);
     try {
       const patch = await consoleRequest("/api/console/org-info", {
         method: "PATCH",
-        body: trimmed(values),
+        body: { ...trimmed(values), tenantId: seen.tenantId },
       });
+      if (patch.status === 409 && errorCode(patch.body) === "SESSION_CHANGED") {
+        await sessionChanged(patch.body);
+        return;
+      }
       if (
         patch.status === 409 &&
         errorCode(patch.body) === "ALREADY_CONFIRMED"
@@ -216,7 +245,29 @@ export default function OrgInfoPage() {
         throw new Error(`org-info patch ${patch.status}`);
       const confirm = await consoleRequest("/api/console/org-info/confirm", {
         method: "POST",
+        body: {
+          tenantId: seen.tenantId,
+          updatedAt: (patch.body as { updatedAt: string }).updatedAt,
+        },
       });
+      if (
+        confirm.status === 409 &&
+        errorCode(confirm.body) === "SESSION_CHANGED"
+      ) {
+        await sessionChanged(confirm.body);
+        return;
+      }
+      if (
+        confirm.status === 409 &&
+        errorCode(confirm.body) === "INFO_CHANGED"
+      ) {
+        toast.show({
+          tone: "Error",
+          message: errorMessage(confirm.body) ?? SAVE_FAILED_MESSAGE,
+        });
+        await load();
+        return;
+      }
       if (
         confirm.status === 409 &&
         errorCode(confirm.body) === "ALREADY_CONFIRMED"

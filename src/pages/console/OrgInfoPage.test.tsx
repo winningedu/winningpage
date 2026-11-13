@@ -1,6 +1,6 @@
 // W17 내정보관리. 저장, 최종확인, 조회 전용 상태와 본사 대행 저장을 검증한다.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -34,6 +34,8 @@ const routes = [
 ];
 
 const ORG = {
+  tenantId: "t1",
+  updatedAt: "2026-11-05T00:00:00.100000+00:00",
   code: "SM26HB83",
   name: "한빛고등학교",
   address: "서울시 한빛구 학교로 12",
@@ -44,6 +46,7 @@ const ORG = {
   contactEmail: "manager@hanbit.hs.kr",
   infoConfirmedAt: null as string | null,
 };
+const SAVED_AT = "2026-11-05T00:30:00.200000+00:00";
 const SAVED = {
   name: ORG.name,
   address: ORG.address,
@@ -65,7 +68,9 @@ function stubOrg(
   return stubApi({
     "GET /api/console/me": { body: over.me ?? adminMe },
     "GET /api/console/org-info": { body: { ...ORG, ...over.org } },
-    "PATCH /api/console/org-info": over.patch ?? { body: { ok: true } },
+    "PATCH /api/console/org-info": over.patch ?? {
+      body: { ok: true, updatedAt: SAVED_AT },
+    },
     "POST /api/console/org-info/confirm": over.confirm ?? {
       body: { ok: true, infoConfirmedAt: "2026-11-05T00:00:00Z" },
     },
@@ -276,7 +281,9 @@ describe("OrgInfoPage 최종확인", () => {
       "PATCH /api/console/org-info",
       "POST /api/console/org-info/confirm",
     ]);
-    expect(writes[0]?.body).toEqual(SAVED);
+    expect(writes[0]?.body).toEqual({ ...SAVED, tenantId: "t1" });
+    // 확정은 방금 저장한 화면의 기관 id 와 갱신 시각에 건다.
+    expect(writes[1]?.body).toEqual({ tenantId: "t1", updatedAt: SAVED_AT });
     expect(screen.getByText("입력값은 모두 조회만 가능해요")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
     expect(screen.queryByRole("button", { name: "최종확인(저장)" })).toBeNull();
@@ -358,6 +365,83 @@ describe("OrgInfoPage 최종확인", () => {
     ).toBeTruthy();
   });
 
+  it("기관이 바뀐 세션이라는 응답(SESSION_CHANGED)이면 안내를 보이고 me 를 다시 읽는다", async () => {
+    const calls = stubOrg({
+      patch: {
+        status: 409,
+        body: {
+          error: {
+            code: "SESSION_CHANGED",
+            message:
+              "기관이 바뀌었어요. 화면을 새로 고친 뒤 다시 시도해 주세요.",
+          },
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("교육기관명(필수)");
+    clickSave();
+    const meReads = () =>
+      calls.filter((c) => c.key === "GET /api/console/me").length;
+    const before = meReads();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종확인(저장)" }),
+    );
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "기관이 바뀌었어요. 화면을 새로 고친 뒤 다시 시도해 주세요.",
+    );
+    await waitFor(() => expect(meReads()).toBeGreaterThan(before));
+    expect(calls.some((c) => c.key.startsWith("POST"))).toBe(false);
+  });
+
+  it("검토한 뒤 정보가 바뀌었다는 응답(INFO_CHANGED)이면 안내를 보이고 다시 읽어 수정 단계로 돌아간다", async () => {
+    let reads = 0;
+    stubApi({
+      "GET /api/console/me": { body: adminMe },
+      "GET /api/console/org-info": () => {
+        reads += 1;
+        return {
+          body: {
+            ...ORG,
+            address: reads > 1 ? "본사가 고친 주소" : ORG.address,
+          },
+        };
+      },
+      "PATCH /api/console/org-info": {
+        body: { ok: true, updatedAt: SAVED_AT },
+      },
+      "POST /api/console/org-info/confirm": {
+        status: 409,
+        body: {
+          error: {
+            code: "INFO_CHANGED",
+            message:
+              "그사이 기관 정보가 바뀌었어요. 내용을 다시 확인해 주세요.",
+          },
+        },
+      },
+      "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
+    });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("교육기관명(필수)");
+    clickSave();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종확인(저장)" }),
+    );
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "그사이 기관 정보가 바뀌었어요. 내용을 다시 확인해 주세요.",
+    );
+    await waitFor(async () =>
+      expect((await field("주소")).value).toBe("본사가 고친 주소"),
+    );
+    expect((await field("주소")).readOnly).toBe(false);
+    expect(screen.getByRole("button", { name: "저장" })).toBeTruthy();
+  });
+
   it("서버 오류면 오류 토스트를 보이고 확인 단계에 머문다", async () => {
     stubOrg({ confirm: { status: 500, body: {} } });
     renderRoutes(routes, "/teacher/org-info");
@@ -423,8 +507,40 @@ describe("OrgInfoPage 본사 대행 저장", () => {
       (c) => c.key.startsWith("PATCH") || c.key.startsWith("POST"),
     );
     expect(writes.map((c) => c.key)).toEqual(["PATCH /api/console/org-info"]);
-    expect(writes[0]?.body).toEqual({ ...SAVED, address: "새 주소" });
+    expect(writes[0]?.body).toEqual({
+      ...SAVED,
+      address: "새 주소",
+      tenantId: "t1",
+    });
     expect((await field("주소")).readOnly).toBe(false);
+  });
+
+  it("다른 탭에서 학교를 바꿔 SESSION_CHANGED 가 오면 안내를 보이고 me 를 다시 읽는다", async () => {
+    const calls = stubOrg({
+      me: proxyMe,
+      patch: {
+        status: 409,
+        body: {
+          error: {
+            code: "SESSION_CHANGED",
+            message:
+              "기관이 바뀌었어요. 화면을 새로 고친 뒤 다시 시도해 주세요.",
+          },
+        },
+      },
+    });
+    renderRoutes(routes, "/teacher/org-info");
+    fireEvent.change(await field("주소"), { target: { value: "새 주소" } });
+    const meReads = () =>
+      calls.filter((c) => c.key === "GET /api/console/me").length;
+    const before = meReads();
+
+    clickSave();
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "기관이 바뀌었어요. 화면을 새로 고친 뒤 다시 시도해 주세요.",
+    );
+    await waitFor(() => expect(meReads()).toBeGreaterThan(before));
   });
 
   it("값이 틀리면 학교 관리자와 같은 검사로 서버에 보내지 않는다", async () => {
