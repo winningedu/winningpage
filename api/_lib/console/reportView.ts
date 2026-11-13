@@ -6,7 +6,6 @@ export interface ReportSection {
   text: string;
 }
 
-const MAX_TEXT = 4000;
 // 글이 아니라 구조를 나타내는 키.
 const META_KEYS = new Set([
   "title",
@@ -32,7 +31,6 @@ export function flattenText(value: unknown): string {
 
 /** 제목이 있는 항목 배열({title, body})은 항목마다, 그 밖의 값은 한 문단으로. 글이 없는 항목은 뺀다. */
 export function reportSections(sections: unknown): ReportSection[] {
-  const clip = (s: string) => s.slice(0, MAX_TEXT);
   if (Array.isArray(sections)) {
     return sections
       .map((item): ReportSection => {
@@ -45,11 +43,11 @@ export function reportSections(sections: unknown): ReportSection[] {
         const title = obj.title;
         return {
           title: typeof title === "string" ? title : "",
-          text: clip(flattenText(rest)),
+          text: flattenText(rest),
         };
       })
       .filter((s) => s.text !== "");
   }
-  const text = clip(flattenText(sections));
+  const text = flattenText(sections);
   return text ? [{ title: "", text }] : [];
 }

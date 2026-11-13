@@ -17,4 +17,10 @@ describe("reportSections", () => {
       reportSections([{ id: "a", title: "성적", body: "평균", avg: 3.5 }]),
     ).toEqual([{ title: "성적", text: "평균\n3.5" }]);
   });
+
+  test("긴 구역도 자르지 않는다", () => {
+    const long = "가".repeat(9000);
+    const [s] = reportSections([{ title: "긴 글", body: long }]);
+    expect(s.text).toBe(long);
+  });
 });
