@@ -25,7 +25,8 @@ export type PreviewResult =
   | "check_target"
   | "duplicate_target"
   | "same_name"
-  | "no_homeroom";
+  | "no_homeroom"
+  | "class_changed";
 
 export interface PreviewRow {
   line: number;
@@ -33,11 +34,14 @@ export interface PreviewRow {
   from: PreviewSlot | null;
   to: PreviewSlot | null;
   result: PreviewResult;
+  /** 반이 바뀌는 줄에서 새 반에 담임이 없을 때. 반 변경 칩 옆에 담임 없음 칩도 보인다. */
+  noHomeroom?: boolean;
 }
 
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
   applied: { label: "반영", tone: "Success" },
-  student_not_found: { label: "현재 학생을 찾을 수 없음", tone: "Danger" },
+  class_changed: { label: "반 변경", tone: "Warning" },
+  student_not_found: { label: "미회원가입", tone: "Danger" },
   graduating: { label: "3학년은 졸업 처리 대상", tone: "Warning" },
   check_target: { label: "새 반과 번호 확인", tone: "Warning" },
   duplicate_target: { label: "같은 새 반과 번호가 중복", tone: "Danger" },
@@ -81,9 +85,16 @@ export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
             <TableCell>{slotText(row.from)}</TableCell>
             <TableCell>{slotText(row.to)}</TableCell>
             <TableCell>
-              <Chip tone={RESULTS[row.result].tone}>
-                {RESULTS[row.result].label}
-              </Chip>
+              <div className="flex flex-wrap gap-1">
+                <Chip tone={RESULTS[row.result].tone}>
+                  {RESULTS[row.result].label}
+                </Chip>
+                {row.noHomeroom && (
+                  <Chip tone={RESULTS.no_homeroom.tone}>
+                    {RESULTS.no_homeroom.label}
+                  </Chip>
+                )}
+              </div>
             </TableCell>
           </TableRow>
         ))}

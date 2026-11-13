@@ -37,10 +37,10 @@ describe("W11 sample templates", () => {
     expect(parsed[0]?.name).not.toBe("");
   });
 
-  test("student-roster.xlsx has the roster columns of decision 34", () => {
+  test("student-roster.xlsx has the five roster columns: name, grade, group, class, number", () => {
     const [header, example] = readSheet("student-roster.xlsx");
 
-    expect(header).toEqual(["이름", "학년", "반", "번호"]);
-    expect(example).toHaveLength(4);
+    expect(header).toEqual(["이름", "학년", "그룹", "반", "번호"]);
+    expect(example).toHaveLength(5);
   });
 });

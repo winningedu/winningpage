@@ -15,7 +15,6 @@ import TemplateLink from "./TemplateLink";
 export default function ImportSetupPage() {
   const toast = useToast();
   const [text, setText] = useState("");
-  const [locked, setLocked] = useState(false);
   const mobile = useIsMobile();
 
   const readFile = async (file: File) => {
@@ -37,6 +36,10 @@ export default function ImportSetupPage() {
       <div className="flex max-w-content flex-col gap-5 px-4 md:px-8 lg:px-12">
         {!mobile && (
           <div className="flex flex-col gap-5">
+            <p className="text-app-body font-medium text-ink-danger">
+              (주의) 신규학급 이외는 기존의 학생명단이 변경될수 있어 업로드
+              실행시 주의가 필요합니다
+            </p>
             <section className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="flex-1 text-lg font-semibold tracking-[-0.02em] text-ink-strong">
@@ -49,15 +52,10 @@ export default function ImportSetupPage() {
               </div>
               <Dropzone
                 accept=".xlsx,.xls,.csv"
-                disabled={locked}
                 onFile={(f) => void readFile(f)}
               />
             </section>
-            <RolloverSection
-              text={text}
-              onTextChange={setText}
-              onLockedChange={setLocked}
-            />
+            <RolloverSection text={text} onTextChange={setText} />
           </div>
         )}
         <GroupManager />
