@@ -216,6 +216,13 @@ select pg_temp.expect_text('rollover: 번호가 겹치지 않으면 성공', pg_
 select pg_temp.expect_text('rollover: 열린 신청은 사유와 함께 거절된다',
   (select status || '/' || (reject_reason is not null) || '/' || (decided_by = pg_temp.fx('actor'))
      from public.enrollment_changes where student_id = pg_temp.fx('req') and kind = 'request'), 'rejected/true/true');
+-- 잠그는 순서: 열린 신청 거절(enrollment_changes)이 학적 행 사전 잠금(student_enrollments)보다 앞에 있어야 한다.
+-- 다른 경로(승인, 본사 이동, 기타 소속 가입)는 신청을 먼저 잠그므로 순서가 반대면 교착한다. 한 세션이라 소스 위치로 확인한다.
+select pg_temp.expect_bool('rollover: 신청 거절이 학적 행 사전 잠금보다 앞선다',
+  (select strpos(d, 'update public.enrollment_changes c') > 0
+      and strpos(d, 'update public.enrollment_changes c') < strpos(d, 'order by e.id for update')
+     from (select pg_get_functiondef('public.fn_school_year_rollover(uuid, integer, jsonb, uuid, jsonb)'::regprocedure) as d) q),
+  true);
 
 -- ---------------------------------------------------------------------
 -- 다학년 학급: 학생은 자기 학년으로 +1, 고3 은 졸업. 다학년 학급은 실제로 진급하는 학생의 mixed 줄에 대해서만 만들어진다.

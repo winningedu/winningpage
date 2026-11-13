@@ -251,6 +251,12 @@ begin
 
   select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
 
+  -- 열린 신청을 먼저 거절한다. 다른 경로(승인, 본사 이동, 기타 소속 가입)처럼 신청 행을 학적 행보다 먼저 잠근다.
+  update public.enrollment_changes c
+     set status = 'rejected', reject_reason = '학년도가 바뀌어 신청이 닫혔어요',
+         decided_by = p_actor, decided_teacher_id = v_teacher, proxy_session_id = v_proxy, decided_at = now()
+   where c.tenant_id = p_tenant and c.status = 'pending';
+
   -- 이 호출이 건드릴 학적 행을 먼저 잠그고(아래 반복과 같은 id 순) 그 행으로 사전 생성할 학급을 정한다. 그 사이 학년이나
   -- 졸업이나 삭제가 바뀌어 고아 학급이 남거나 학급이 늦게 만들어지는 일이 없다.
   perform 1 from public.student_enrollments e
@@ -275,11 +281,6 @@ begin
       select t.group_id, t.class_name from public.fn_roster_mixed_pending_targets(p_pending) t
        order by 1 nulls first, 2
     ) d;
-
-  update public.enrollment_changes c
-     set status = 'rejected', reject_reason = '학년도가 바뀌어 신청이 닫혔어요',
-         decided_by = p_actor, decided_teacher_id = v_teacher, proxy_session_id = v_proxy, decided_at = now()
-   where c.tenant_id = p_tenant and c.status = 'pending';
 
   for v_e in
     select * from public.student_enrollments e
