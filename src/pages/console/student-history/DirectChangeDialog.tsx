@@ -12,7 +12,7 @@ import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
-import { gradesOf, useClasses } from "../useClasses";
+import { studentGradesOf, useClasses } from "../useClasses";
 import { useGradeLabel } from "../useConsoleMe";
 import type { StudentItem } from "./StudentListTab";
 
@@ -115,11 +115,12 @@ export default function DirectChangeDialog({
   const options = classes.data ?? [];
   const groups = new Map<string, string>();
   for (const c of options) {
-    if (c.grade === grade && c.groupId && c.groupName)
+    if ((c.grade === null || c.grade === grade) && c.groupId && c.groupName)
       groups.set(c.groupId, c.groupName);
   }
   const classOptions = options.filter(
-    (c) => c.grade === grade && (c.groupId ?? "") === groupId,
+    (c) =>
+      (c.grade === null || c.grade === grade) && (c.groupId ?? "") === groupId,
   );
 
   const changed =
@@ -201,7 +202,7 @@ export default function DirectChangeDialog({
                 variant="stacked"
                 label="새 학년그룹"
                 value={grade}
-                options={gradesOf(options).map((g) => ({
+                options={studentGradesOf(options).map((g) => ({
                   value: g,
                   label: gradeLabel(g),
                 }))}

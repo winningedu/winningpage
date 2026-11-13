@@ -17,7 +17,12 @@ import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import {
+  type ClassOption,
+  studentClassesOf,
+  studentGradesOf,
+  studentGroupsOf,
+} from "../useClasses";
 import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { StudentRow } from "./types";
@@ -120,7 +125,7 @@ export default function StudentEditDialog({
             variant="stacked"
             label="학년"
             value={grade}
-            options={gradesOf(classes).map((g) => ({
+            options={studentGradesOf(classes).map((g) => ({
               value: g,
               label: gradeLabel(g),
             }))}
@@ -136,7 +141,7 @@ export default function StudentEditDialog({
             value={groupId}
             options={[
               { value: "", label: "그룹 없음" },
-              ...groupsOf(classes, grade).map((g) => ({
+              ...studentGroupsOf(classes, grade).map((g) => ({
                 value: g.id,
                 label: g.name,
               })),
@@ -152,7 +157,7 @@ export default function StudentEditDialog({
             value={classId}
             options={[
               { value: "", label: "선택" },
-              ...classesOf(classes, grade, groupId).map((c) => ({
+              ...studentClassesOf(classes, grade, groupId).map((c) => ({
                 value: c.id,
                 label: `${c.name}반`,
               })),

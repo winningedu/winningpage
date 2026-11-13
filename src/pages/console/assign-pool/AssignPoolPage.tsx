@@ -21,8 +21,8 @@ import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import {
   type ClassOption,
-  classesOf,
-  gradesOf,
+  studentClassesOf,
+  studentGradesOf,
   useClasses,
 } from "../useClasses";
 import { useGradeLabel } from "../useConsoleMe";
@@ -59,7 +59,7 @@ function Filters({
         value={values.grade}
         options={[
           ALL,
-          ...gradesOf(classes).map((g) => ({
+          ...studentGradesOf(classes).map((g) => ({
             value: g,
             label: gradeLabel(g),
           })),
@@ -74,7 +74,7 @@ function Filters({
         disabled={values.grade === ""}
         options={[
           ALL,
-          ...classesOf(classes, values.grade, "").map((c) => ({
+          ...studentClassesOf(classes, values.grade, "").map((c) => ({
             value: c.id,
             label: `${c.groupName ? `${c.groupName} ` : ""}${c.name}반`,
           })),

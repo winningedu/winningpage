@@ -18,7 +18,12 @@ import {
 import NameCell from "../NameCell";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import {
+  type ClassOption,
+  studentClassesOf,
+  studentGradesOf,
+  studentGroupsOf,
+} from "../useClasses";
 import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { PoolStudent } from "./types";
@@ -148,7 +153,10 @@ export default function AssignPoolRow({
       value={grade}
       options={[
         { value: "", label: "학년그룹 선택" },
-        ...gradesOf(classes).map((g) => ({ value: g, label: gradeLabel(g) })),
+        ...studentGradesOf(classes).map((g) => ({
+          value: g,
+          label: gradeLabel(g),
+        })),
       ]}
       onChange={(next) => {
         setGrade(next);
@@ -163,7 +171,7 @@ export default function AssignPoolRow({
       value={groupId}
       options={[
         { value: "", label: "그룹 없음" },
-        ...groupsOf(classes, grade).map((g) => ({
+        ...studentGroupsOf(classes, grade).map((g) => ({
           value: g.id,
           label: g.name,
         })),
@@ -181,7 +189,7 @@ export default function AssignPoolRow({
       disabled={grade === ""}
       options={[
         { value: "", label: "반 선택" },
-        ...classesOf(classes, grade, groupId).map((c) => ({
+        ...studentClassesOf(classes, grade, groupId).map((c) => ({
           value: c.id,
           label: `${c.name}반`,
         })),

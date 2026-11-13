@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { MIXED_GRADE } from "./classLabel";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "./useClasses";
+import {
+  type ClassOption,
+  classesOf,
+  gradesOf,
+  groupsOf,
+  studentClassesOf,
+  studentGradesOf,
+  studentGroupsOf,
+} from "./useClasses";
 
 const cls = (
   id: string,
@@ -62,5 +70,56 @@ describe("groupsOf and classesOf with the mixed filter", () => {
       "m1",
       "m2",
     ]);
+  });
+});
+
+describe("student pickers (a student's own grade, never the mixed filter value)", () => {
+  const classes = [
+    cls("a", "고1", "g1"),
+    cls("b", "고2", "g1"),
+    cls("m1", null, "g2"),
+    cls("m2", null, null),
+  ];
+
+  test("grades are the classes' real grades when no mixed class exists", () => {
+    expect(studentGradesOf([cls("a", "고2"), cls("b", "중1")])).toEqual([
+      "중1",
+      "고2",
+    ]);
+  });
+
+  test("a mixed class accepts any grade, so every grade is offered and mixed itself never is", () => {
+    expect(studentGradesOf(classes)).toEqual([
+      "중1",
+      "중2",
+      "중3",
+      "고1",
+      "고2",
+      "고3",
+    ]);
+    expect(studentGradesOf([cls("m", null)])).not.toContain(MIXED_GRADE);
+  });
+
+  test("classes fit a student of the same grade or a mixed class", () => {
+    expect(studentClassesOf(classes, "고1", "").map((c) => c.id)).toEqual([
+      "a",
+      "m1",
+      "m2",
+    ]);
+    expect(studentClassesOf(classes, "고3", "").map((c) => c.id)).toEqual([
+      "m1",
+      "m2",
+    ]);
+    expect(studentClassesOf(classes, "고1", "g2").map((c) => c.id)).toEqual([
+      "m1",
+    ]);
+  });
+
+  test("groups are those of the same grade's or mixed classes", () => {
+    expect(studentGroupsOf(classes, "고1").map((g) => g.id)).toEqual([
+      "g1",
+      "g2",
+    ]);
+    expect(studentGroupsOf(classes, "고3").map((g) => g.id)).toEqual(["g2"]);
   });
 });

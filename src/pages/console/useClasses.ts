@@ -43,18 +43,25 @@ function inGrade(c: ClassOption, grade: string): boolean {
   return grade === MIXED_GRADE ? c.grade === null : c.grade === grade;
 }
 
+function groupsWhere(
+  classes: ClassOption[],
+  keep: (c: ClassOption) => boolean,
+): { id: string; name: string }[] {
+  const groups = new Map<string, string>();
+  for (const c of classes) {
+    if (keep(c) && c.groupId && c.groupName) {
+      groups.set(c.groupId, c.groupName);
+    }
+  }
+  return [...groups].map(([id, name]) => ({ id, name }));
+}
+
 /** 그룹 선택지. 학년을 골랐으면 그 학년 학급의 그룹만. */
 export function groupsOf(
   classes: ClassOption[],
   grade: string,
 ): { id: string; name: string }[] {
-  const groups = new Map<string, string>();
-  for (const c of classes) {
-    if (inGrade(c, grade) && c.groupId && c.groupName) {
-      groups.set(c.groupId, c.groupName);
-    }
-  }
-  return [...groups].map(([id, name]) => ({ id, name }));
+  return groupsWhere(classes, (c) => inGrade(c, grade));
 }
 
 /** 반 선택지. 학년과 그룹을 골랐으면 거기에 맞는 학급만. */
@@ -65,5 +72,37 @@ export function classesOf(
 ): ClassOption[] {
   return classes.filter(
     (c) => inGrade(c, grade) && (!groupId || c.groupId === groupId),
+  );
+}
+
+// 학생 한 명의 학년과 학급을 고르는 화면(학적 편집, 직접 변경, 반 배정)용 선택지. 위의 필터용 함수와 달리
+// 고른 학년은 학생의 실제 학년이라 mixed 를 담지 않고, 다학년 학급은 어느 학년의 학생도 받는다.
+
+/** 학생 학년 선택지. 다학년 학급이 있으면 여섯 학년 모두, 없으면 학급이 있는 학년만. */
+export function studentGradesOf(classes: ClassOption[]): string[] {
+  return classes.some((c) => c.grade === null)
+    ? [...GRADE_ORDER]
+    : gradesOf(classes);
+}
+
+const fitsStudent = (c: ClassOption, grade: string) =>
+  !grade || c.grade === null || c.grade === grade;
+
+/** 학생 그룹 선택지. 학년을 골랐으면 그 학년 학급과 다학년 학급의 그룹. */
+export function studentGroupsOf(
+  classes: ClassOption[],
+  grade: string,
+): { id: string; name: string }[] {
+  return groupsWhere(classes, (c) => fitsStudent(c, grade));
+}
+
+/** 학생 반 선택지. 학년을 골랐으면 그 학년 학급과 다학년 학급, 그룹을 골랐으면 그 그룹만. */
+export function studentClassesOf(
+  classes: ClassOption[],
+  grade: string,
+  groupId: string,
+): ClassOption[] {
+  return classes.filter(
+    (c) => fitsStudent(c, grade) && (!groupId || c.groupId === groupId),
   );
 }
