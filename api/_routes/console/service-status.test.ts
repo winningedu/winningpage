@@ -259,6 +259,65 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     expect(await total()).toBe(1);
   });
 
+  test("grade=mixed keeps the users of grade-less classes whatever their own grade, and a homeroom stays in own classes", async () => {
+    const baseClasses = kit.state.rows.classes;
+    kit.state.rows.classes = (f) => [
+      ...((baseClasses?.(f) ?? []) as unknown[]),
+      ...matchRows(
+        [
+          {
+            id: "c-M",
+            tenant_id: "tenant-1",
+            school_year: 2026,
+            grade: null,
+            group_id: null,
+            name: "다",
+          },
+        ],
+        f,
+      ),
+    ];
+    const baseEnrollments = kit.state.rows.student_enrollments;
+    kit.state.rows.student_enrollments = (f) => [
+      ...((baseEnrollments?.(f) ?? []) as unknown[]),
+      ...matchRows([{ ...enrollment("s5", "c-M", 1), grade: "중2" }], f),
+    ];
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s1", name: "김서연" },
+          { id: "s2", name: "최민준" },
+          { id: "s4", name: "강호준" },
+          { id: "s5", name: "오지안" },
+        ],
+        f,
+      );
+    kit.state.rows.diagnosis_attempts = (f) =>
+      matchRows(
+        [
+          { id: "a1", profile_id: "s1" },
+          { id: "a5", profile_id: "s5" },
+        ],
+        f,
+      );
+    kit.state.rows.diagnosis_reports = () => [];
+
+    kit.state.actor = schoolAdminActor();
+    const mixed = await get({ grade: "mixed" });
+    expect(
+      (mixed.body as { items: { studentId: string }[] }).items.map(
+        (i) => i.studentId,
+      ),
+    ).toEqual(["s5"]);
+
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    const outside = await get({ grade: "mixed" });
+    expect((outside.body as { items: unknown[] }).items).toEqual([]);
+  });
+
   test("pages the list and reports the page count", async () => {
     kit.state.actor = schoolAdminActor();
 
