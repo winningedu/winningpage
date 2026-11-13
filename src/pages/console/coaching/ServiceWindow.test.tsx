@@ -364,6 +364,30 @@ describe("W9b 리포트 보기 전용", () => {
     expect(viewer.classList.contains("coaching-report-viewer")).toBe(true);
   });
 
+  it("워터마크는 스크롤 칸이 아니라 글 전체를 감싼 칸에 깔려 끝까지 따라간다", async () => {
+    render({
+      "GET /api/console/coaching/report?studentId=s1&service=goal": {
+        body: {
+          title: "목표관리 리포트",
+          summary: "",
+          sections: [{ title: "보완할 점", text: "근거를 더 쓰세요" }],
+        },
+      },
+    });
+    const dialog = await openGoal();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "리포트 보기" }),
+    );
+    const viewer = await screen.findByRole("dialog", {
+      name: "목표관리 리포트",
+    });
+    const layer = (await within(viewer).findAllByText(/박지훈.*열람 전용/))[0]
+      .parentElement as HTMLElement;
+    const content = layer.parentElement as HTMLElement;
+    expect(content.contains(screen.getByText("근거를 더 쓰세요"))).toBe(true);
+    expect(content.classList.contains("overflow-y-auto")).toBe(false);
+  });
+
   it("리포트가 없으면 안내한다", async () => {
     render({
       "GET /api/console/coaching/report?studentId=s1&service=goal": {
