@@ -4,6 +4,8 @@
 // 소속코드는 읽기 전용이라 PATCH 에서 받지 않는다(알 수 없는 항목은 400).
 // 최종확인(org-info/confirm) 뒤에는 조회만 되고(본사 대행도 같다) 변경은 본사 화면에서 한다. 확정 여부는 UPDATE 조건
 // (info_confirmed_at is null)으로 판정해, 확정과 동시에 들어온 저장이 확정 뒤에 덮어쓰지 못한다.
+// 저장 요청은 화면이 그린 기관 id(tenantId)를 싣는다. 쓸 기관은 항상 세션의 actor 이고, 이 값은 다른 탭에서
+// 기관을 바꾼 세션에 옛 화면의 값이 덮어쓰지 않게 하는 의도 확인일 뿐이다(다르면 409 SESSION_CHANGED).
 // 권한: 조회와 저장 모두 학교 관리자와 본사 대행(담임은 handler 가 막는다). 기관은 항상 세션의 actor 에서 온다.
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
@@ -74,12 +76,14 @@ export default defineHandler({
       const { data, error } = await admin
         .from("tenants")
         .select(
-          "code, name, address, main_phone, contact_phone, contact_mobile, homepage, contact_email, info_confirmed_at",
+          "code, name, address, main_phone, contact_phone, contact_mobile, homepage, contact_email, info_confirmed_at, updated_at",
         )
         .eq("id", actor.tenantId)
         .maybeSingle();
       if (error || !data) throw new RpcError("tenant read", error?.code);
       res.status(200).json({
+        tenantId: actor.tenantId,
+        updatedAt: data.updated_at,
         code: data.code,
         name: data.name,
         address: data.address,
@@ -93,9 +97,24 @@ export default defineHandler({
       return;
     }
 
-    const values = parseBody(req.body);
+    const { tenantId, ...fields } = (req.body ?? {}) as Record<string, unknown>;
+    const values =
+      typeof tenantId === "string" && tenantId !== ""
+        ? parseBody(fields)
+        : null;
     if (!values) {
       sendError(res, "coded", 400, "입력 항목을 확인해 주세요.", "BAD_REQUEST");
+      return;
+    }
+
+    if (tenantId !== actor.tenantId) {
+      sendError(
+        res,
+        "coded",
+        409,
+        "기관이 바뀌었어요. 화면을 새로 고친 뒤 다시 시도해 주세요.",
+        "SESSION_CHANGED",
+      );
       return;
     }
 
@@ -104,7 +123,7 @@ export default defineHandler({
       .update(values)
       .eq("id", actor.tenantId)
       .is("info_confirmed_at", null)
-      .select("id");
+      .select("id, updated_at");
     if (error) throw new RpcError("tenants org info update", error.code);
     if (!data || data.length === 0) {
       sendError(
@@ -131,6 +150,6 @@ export default defineHandler({
         meta: { step: "save", fields: Object.keys(values) },
       },
     );
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, updatedAt: data[0]?.updated_at });
   },
 });

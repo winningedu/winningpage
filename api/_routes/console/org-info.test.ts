@@ -31,7 +31,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 
 import handler from "./org-info.js";
 
-const patch = (body: unknown) => callHandler(handler, body, "PATCH");
+// 화면이 그린 기관 id(tenantId)는 모든 호출자가 싣는다. 기본값은 세션 기관과 같다.
+const patch = (body: Record<string, unknown>, tenantId: unknown = "tenant-1") =>
+  callHandler(handler, { tenantId, ...body }, "PATCH");
 const get = () => callHandler(handler, undefined, "GET");
 
 const TENANT = {
@@ -45,6 +47,7 @@ const TENANT = {
   homepage: null,
   contact_email: null,
   info_confirmed_at: null,
+  updated_at: "2026-11-05T00:00:00.123456+00:00",
 };
 
 beforeEach(() => {
@@ -56,7 +59,7 @@ beforeEach(() => {
     "info_confirmed_at" in filters
       ? kit.confirmed
         ? []
-        : [{ id: "tenant-1" }]
+        : [{ id: "tenant-1", updated_at: "2026-11-05T00:30:00.654321+00:00" }]
       : {
           ...TENANT,
           info_confirmed_at: kit.confirmed ? "2026-11-05T01:00:00Z" : null,
@@ -73,6 +76,8 @@ describe("GET /api/console/org-info", () => {
 
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
+      tenantId: "tenant-1",
+      updatedAt: "2026-11-05T00:00:00.123456+00:00",
       code: "SCHOOL001",
       name: "한빛중학교",
       address: null,
@@ -99,7 +104,10 @@ describe("PATCH /api/console/org-info", () => {
     });
 
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true });
+    expect(r.body).toEqual({
+      ok: true,
+      updatedAt: "2026-11-05T00:30:00.654321+00:00",
+    });
     expect(kit.state.updates).toEqual([
       {
         table: "tenants",
@@ -220,42 +228,56 @@ describe("PATCH /api/console/org-info", () => {
     expect(kit.state.inserts).toHaveLength(0);
   });
 
-  test("본사 대행이 본문에 tenantId 를 실어도 400 이고 기관은 바뀌지 않는다", async () => {
+  test("화면이 그린 기관 id 가 세션 기관과 같으면 그 기관만 고친다", async () => {
+    const r = await patch({ address: "a" }, "tenant-1");
+
+    expect(r.status).toBe(200);
+    expect(kit.state.updates.map((u) => u.filters.id)).toEqual(["tenant-1"]);
+  });
+
+  test("기관 id 가 세션 기관과 다르면 409 SESSION_CHANGED 이고 아무 기관도 고치지 않으며 감사 로그도 없다", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "hq_proxy",
+      tenant_id: "tenant-2",
       teacher_id: null,
-      proxy_session_id: "session-1",
+      proxy_session_id: "session-2",
     });
 
-    const r = await patch({ tenantId: "tenant-2", address: "a" });
+    const r = await patch({ address: "a" }, "tenant-1");
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "SESSION_CHANGED" } });
+    expect(kit.state.updates).toHaveLength(0);
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("요청에 적힌 기관 id 는 쓰기 대상을 바꾸지 못한다(세션 기관이 아니면 거부)", async () => {
+    const r = await patch({ address: "a" }, "tenant-2");
+
+    expect(r.status).toBe(409);
+    expect(kit.state.updates.some((u) => u.filters.id === "tenant-2")).toBe(
+      false,
+    );
+    expect(kit.state.updates).toHaveLength(0);
+  });
+
+  test("기관 id 가 본문에 없으면 400 이고 저장하지 않는다", async () => {
+    const r = await callHandler(handler, { address: "a" }, "PATCH");
 
     expect(r.status).toBe(400);
     expect(kit.state.updates).toHaveLength(0);
   });
 
-  test("기관을 바꾼 대행 세션에서 같은 요청을 다시 보내면 새 세션의 기관만 고친다", async () => {
-    const proxyOf = (tenant: string, session: string) =>
-      schoolAdminActor({
-        kind: "hq_proxy",
-        tenant_id: tenant,
-        teacher_id: null,
-        proxy_session_id: session,
-      });
-    kit.state.actor = proxyOf("tenant-1", "session-1");
-    await patch({ address: "a" });
-    kit.state.actor = proxyOf("tenant-2", "session-2");
-    await patch({ address: "a" });
+  test.each([
+    ["null", null],
+    ["빈 문자열", ""],
+    ["문자열이 아님", 7],
+  ])("기관 id 가 %s 이면 400 이고 저장하지 않는다", async (_label, id) => {
+    const r = await patch({ address: "a" }, id);
 
-    expect(kit.state.updates.map((u) => u.filters.id)).toEqual([
-      "tenant-1",
-      "tenant-2",
-    ]);
-    expect(
-      kit.state.inserts.map((i) => [i.row.tenant_id, i.row.proxy_session_id]),
-    ).toEqual([
-      ["tenant-1", "session-1"],
-      ["tenant-2", "session-2"],
-    ]);
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "BAD_REQUEST" } });
+    expect(kit.state.updates).toHaveLength(0);
   });
 
   test("끝났거나 만료된 대행 세션(행위자 none)은 403 NOT_CONSOLE 이고 저장하지 않는다", async () => {
