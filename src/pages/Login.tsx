@@ -266,7 +266,7 @@ export default function Login() {
         variant="login"
         line1Color="title"
         line1="진학의 첫단추,"
-        line2="위닝에듀에서 시작해요"
+        line2={`${site.brandName}에서 시작해요`}
       />
 
       {/* placeholder 색: 시안 실측 #d7d7d7 = line 토큰. TextField 기본값은 ink-sub(#808080)
@@ -363,7 +363,7 @@ export default function Login() {
           네이비가 아닌 본문색 + 굵기로만 구분하므로 tone 도 primary → ink 로 되돌린다. */}
       {signupEnabled && (
         <p className="whitespace-nowrap text-center text-xs font-medium text-ink sm:text-base">
-          아직 위닝에듀 회원이 아니신가요?{" "}
+          아직 {site.brandName} 회원이 아니신가요?{" "}
           <TextLinkButton
             as="link"
             to="/signup"
