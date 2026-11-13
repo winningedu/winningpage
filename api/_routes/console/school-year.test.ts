@@ -121,6 +121,12 @@ describe("GET /api/console/school-year", () => {
     });
   });
 
+  test("reports which way a roster upload works: rollover while behind the calendar, midyear once at it", async () => {
+    expect((await get()).body).toMatchObject({ mode: "rollover" });
+    kit.tenant = { school_year: 2026, org_type: "학원" };
+    expect((await get()).body).toMatchObject({ mode: "midyear" });
+  });
+
   test("before the rollover there is no last run", async () => {
     expect((await get()).body).toMatchObject({ lastRollover: null });
   });
