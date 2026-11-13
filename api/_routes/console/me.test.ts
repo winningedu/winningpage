@@ -115,6 +115,18 @@ describe("GET /api/console/me", () => {
     expect(r.body).toMatchObject({ tenant: { orgType: "학원" } });
   });
 
+  test("학년이 없는 다학년 학급은 grade 가 null 로 내려간다", async () => {
+    kit.state.rows.classes = () => [
+      { id: "class-1", grade: null, name: "A", group_id: null },
+    ];
+
+    const r = await get();
+
+    expect(r.body).toMatchObject({
+      classes: [{ id: "class-1", grade: null, name: "A", isPrimary: true }],
+    });
+  });
+
   test("학교 전체 관리자는 담당 학급 목록이 비어 있고 학급을 조회하지 않는다", async () => {
     kit.state.actor = {
       ...kit.state.actor,

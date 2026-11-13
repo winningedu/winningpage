@@ -55,7 +55,7 @@ export default defineHandler({
 
     const classes: {
       id: string;
-      grade: string;
+      grade: string | null;
       name: string;
       group: string | null;
       isPrimary: boolean;
