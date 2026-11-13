@@ -3,7 +3,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
@@ -60,6 +60,9 @@ function TenantRow({
 
 export default function ProxySelectPage() {
   const navigate = useNavigate();
+  const switchFailed = (
+    useLocation().state as { proxySwitchFailed?: true } | null
+  )?.proxySwitchFailed;
   const toast = useToast();
   const queryClient = useQueryClient();
   const tenants = useProxyTenants();
@@ -114,6 +117,12 @@ export default function ProxySelectPage() {
             학교를 고르고 대행 사유를 하나 골라 주세요.
           </p>
         </div>
+
+        {switchFailed && (
+          <Notice tone="Danger">
+            학교를 바꾸지 못했어요. 대행이 끝났으니 학교를 다시 골라 주세요
+          </Notice>
+        )}
 
         <TextField
           label="학교 검색"

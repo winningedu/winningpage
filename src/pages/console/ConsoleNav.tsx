@@ -6,6 +6,7 @@ import type { ConsoleMe } from "./api";
 import Chip from "./Chip";
 import { classLabel, primaryClass } from "./classLabel";
 import { findMenuItem, menuFor } from "./menu";
+import TenantSwitcher from "./TenantSwitcher";
 
 interface ConsoleNavProps {
   me: ConsoleMe;
@@ -26,9 +27,16 @@ function TeacherCard({ me }: { me: ConsoleMe }) {
   const name = me.teacher ? `${me.teacher.name} 선생님` : "본사 직원";
   return (
     <div className="flex flex-col gap-2 rounded-[0.875rem] border border-border bg-card p-4">
-      <p className="text-app-caption font-medium text-ink-sub">
-        {me.tenant.name}
-      </p>
+      {me.kind === "hq_proxy" ? (
+        <TenantSwitcher
+          current={me.tenant}
+          className="text-app-caption font-medium text-ink-sub"
+        />
+      ) : (
+        <p className="text-app-caption font-medium text-ink-sub">
+          {me.tenant.name}
+        </p>
+      )}
       <p className="text-app-card-title font-bold text-ink-strong">{name}</p>
       <div className="flex flex-wrap gap-1.5">
         <Chip tone="Info">{roleChip}</Chip>
