@@ -1,6 +1,7 @@
 // 명단 엑셀을 읽어 ③ 입력칸에 넣을 탭 줄로 바꾼다(결정 50). 서버는 탭이 있으면 탭으로 나누므로 칸 안의 쉼표가 칸을 밀지 않는다. 서버 주소 없이 브라우저에서 읽는다.
 // 첫 시트만 읽고 머리글 줄(첫 칸 "이름")은 건너뛴다.
-//   4칸 명단(이름, 학년, 반, 번호): 기존 칸으로 넣고 새 칸은 비운다.
+//   5칸 명단(이름, 학년, 그룹, 반, 번호): 기존 칸으로 넣고 새 칸은 비운다.
+//   4칸 명단(이름, 학년, 반, 번호, 그룹 없는 예전 양식): 같게 그룹 칸을 비워 넣는다.
 //   9칸 ③ 양식: 그대로 쓴다.
 
 import { readSheetLines } from "../sheetFile";
@@ -11,7 +12,8 @@ export const TOO_LARGE_ROSTER_MESSAGE =
 
 const MAX_DATA_ROWS = 2000;
 
-const ROSTER_WIDTH = 4;
+const OLD_ROSTER_WIDTH = 4;
+const ROSTER_WIDTH = 5;
 const BULK_WIDTH = 9;
 
 export async function readRosterLines(file: File): Promise<string> {
@@ -27,13 +29,14 @@ export async function readRosterLines(file: File): Promise<string> {
   });
   // 시트는 모든 줄이 같은 칸 수로 읽힌다.
   const width = Math.max(...rows.map((row) => row.length));
-  if (width < ROSTER_WIDTH) throw new Error(EMPTY_ROSTER_MESSAGE);
+  if (width < OLD_ROSTER_WIDTH) throw new Error(EMPTY_ROSTER_MESSAGE);
   return rows
-    .map((row) =>
-      width >= BULK_WIDTH
-        ? row
-        : [row[0], row[1], "", row[2], row[3], "", "", "", ""],
-    )
+    .map((row) => {
+      if (width >= BULK_WIDTH) return row;
+      return width >= ROSTER_WIDTH
+        ? [row[0], row[1], row[2], row[3], row[4], "", "", "", ""]
+        : [row[0], row[1], "", row[2], row[3], "", "", "", ""];
+    })
     .map((cells) => cells.map((c) => c ?? "").join("\t"))
     .join("\n");
 }

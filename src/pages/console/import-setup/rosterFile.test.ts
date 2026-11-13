@@ -33,6 +33,17 @@ describe("readRosterLines", () => {
     );
   });
 
+  it("5칸 명단(이름, 학년, 그룹, 반, 번호)은 기존 칸으로 넣고 새 칸은 비운다", async () => {
+    const file = xlsxFile([
+      ["이름", "학년", "그룹", "반", "번호"],
+      ["홍길동", "1학년", "A레벨", "4", "7"],
+      ["김하늘", "2학년", "없음", "3", "12"],
+    ]);
+    expect(await readRosterLines(file)).toBe(
+      "홍길동\t1학년\tA레벨\t4\t7\t\t\t\t\n김하늘\t2학년\t없음\t3\t12\t\t\t\t",
+    );
+  });
+
   it("9칸 양식은 그대로 쓴다", async () => {
     const file = xlsxFile([
       [
