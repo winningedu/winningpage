@@ -49,7 +49,7 @@ function parseNumber(input: string): number | null | undefined {
 function numberTakenMessage(body: unknown, gradeLabel: GradeLabeler): string {
   const { occupant } = body as {
     occupant?: {
-      grade: string;
+      grade: string | null;
       className: string;
       number: number;
       displayName: string | null;

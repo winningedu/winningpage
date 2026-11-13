@@ -2,10 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { consoleRequest } from "./api";
+import { MIXED_GRADE } from "./classLabel";
 
 export interface ClassOption {
   id: string;
-  grade: string;
+  grade: string | null;
   groupId: string | null;
   groupName: string | null;
   name: string;
@@ -29,10 +30,17 @@ export function useClasses(year?: number) {
   });
 }
 
-/** 학년 선택지. 학급이 있는 학년만, 학년 순서대로. */
+/** 학년 선택지. 학급이 있는 학년만, 학년 순서대로. 학년 없는 다학년 학급이 있으면 맨 뒤에 mixed. */
 export function gradesOf(classes: ClassOption[]): string[] {
   const grades = new Set(classes.map((c) => c.grade));
-  return GRADE_ORDER.filter((g) => grades.has(g));
+  const options = GRADE_ORDER.filter((g) => grades.has(g));
+  return grades.has(null) ? [...options, MIXED_GRADE] : options;
+}
+
+/** 학년 필터(빈 값은 전체, mixed 는 학년 없는 학급)에 이 학급이 드는지. */
+function inGrade(c: ClassOption, grade: string): boolean {
+  if (!grade) return true;
+  return grade === MIXED_GRADE ? c.grade === null : c.grade === grade;
 }
 
 /** 그룹 선택지. 학년을 골랐으면 그 학년 학급의 그룹만. */
@@ -42,7 +50,7 @@ export function groupsOf(
 ): { id: string; name: string }[] {
   const groups = new Map<string, string>();
   for (const c of classes) {
-    if ((!grade || c.grade === grade) && c.groupId && c.groupName) {
+    if (inGrade(c, grade) && c.groupId && c.groupName) {
       groups.set(c.groupId, c.groupName);
     }
   }
@@ -56,6 +64,6 @@ export function classesOf(
   groupId: string,
 ): ClassOption[] {
   return classes.filter(
-    (c) => (!grade || c.grade === grade) && (!groupId || c.groupId === groupId),
+    (c) => inGrade(c, grade) && (!groupId || c.groupId === groupId),
   );
 }

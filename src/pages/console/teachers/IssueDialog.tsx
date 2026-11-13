@@ -24,7 +24,11 @@ interface Unissued {
   id: string;
   name: string;
   phoneLast4: string;
-  classes: { grade: string; groupName: string | null; name: string }[];
+  classes: {
+    grade: string | null;
+    groupName: string | null;
+    name: string;
+  }[];
 }
 
 interface IssueResponse {

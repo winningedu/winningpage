@@ -23,7 +23,7 @@ export function numberTakenMessage(
 ): string {
   const { occupant } = body as {
     occupant?: {
-      grade: string;
+      grade: string | null;
       className: string;
       number: number;
       displayName: string | null;

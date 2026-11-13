@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { MIXED_GRADE } from "../classLabel";
 import FilterSelect from "../FilterSelect";
 import { type ClassOption, classesOf } from "../useClasses";
 import { useGroupOptions } from "../useGroups";
@@ -13,7 +14,7 @@ export interface AdmissionFilterValues {
 }
 
 interface Props {
-  /** 중3, 고3 학급만. */
+  /** 중3, 고3 학급과 학년 없는 다학년 학급. */
   classes: ClassOption[];
   admin: boolean;
   initial: AdmissionFilterValues;
@@ -32,7 +33,14 @@ export default function AdmissionFilters({
   const change = (patch: Partial<AdmissionFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
   const groups = useGroupOptions(classes, values.grade, values.groupId);
-  const grades = [...new Set(classes.map((c) => c.grade))];
+  const grades = [
+    ...new Set(classes.flatMap((c) => (c.grade ? [c.grade] : []))),
+  ];
+  // 다학년 학급에는 어느 학년의 학생도 있을 수 있어 학년을 골라도 반 선택지에 남긴다.
+  const classOptions = [
+    ...classesOf(classes, values.grade, values.groupId),
+    ...(values.grade ? classesOf(classes, MIXED_GRADE, values.groupId) : []),
+  ];
   // 중3과 고3이 함께 있으면 둘을 가려 고르게 한다. 빈 값은 두 학년 모두다.
   const gradeOptions = [
     { value: "", label: admin ? "3학년만" : "3학년" },
@@ -64,7 +72,7 @@ export default function AdmissionFilters({
         value={values.classId}
         options={[
           ALL,
-          ...classesOf(classes, values.grade, values.groupId).map((c) => ({
+          ...classOptions.map((c) => ({
             value: c.id,
             label: `${c.name}반`,
           })),
