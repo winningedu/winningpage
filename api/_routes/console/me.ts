@@ -26,7 +26,7 @@ export default defineHandler({
 
     const { data: tenant, error: tenantError } = await admin
       .from("tenants")
-      .select("id, code, name")
+      .select("id, code, name, org_type")
       .eq("id", actor.tenantId)
       .maybeSingle();
     if (tenantError || !tenant)
@@ -124,7 +124,12 @@ export default defineHandler({
 
     res.status(200).json({
       kind: actor.kind,
-      tenant: { id: tenant.id, code: tenant.code, name: tenant.name },
+      tenant: {
+        id: tenant.id,
+        code: tenant.code,
+        name: tenant.name,
+        orgType: tenant.org_type,
+      },
       teacher,
       classIds: actor.classIds,
       classes,

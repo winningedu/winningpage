@@ -39,6 +39,7 @@ beforeEach(() => {
     id: "tenant-1",
     code: "SCHOOL001",
     name: "한빛중학교",
+    org_type: "학교",
   });
   kit.state.rows.teacher_class_assignments = () => [
     { class_id: "class-1", is_primary: true },
@@ -66,7 +67,12 @@ describe("GET /api/console/me", () => {
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       kind: "homeroom",
-      tenant: { id: "tenant-1", code: "SCHOOL001", name: "한빛중학교" },
+      tenant: {
+        id: "tenant-1",
+        code: "SCHOOL001",
+        name: "한빛중학교",
+        orgType: "학교",
+      },
       teacher: {
         id: "teacher-1",
         loginId: "ABCD2345XY7Z9K",
@@ -94,6 +100,19 @@ describe("GET /api/console/me", () => {
       mustChangePassword: false,
     });
     expect(r.headers["Cache-Control"]).toBe("no-store");
+  });
+
+  test("학원 기관이면 tenant.orgType 이 학원이다", async () => {
+    kit.state.rows.tenants = () => ({
+      id: "tenant-1",
+      code: "ACAD001",
+      name: "한빛학원",
+      org_type: "학원",
+    });
+
+    const r = await get();
+
+    expect(r.body).toMatchObject({ tenant: { orgType: "학원" } });
   });
 
   test("학교 전체 관리자는 담당 학급 목록이 비어 있고 학급을 조회하지 않는다", async () => {
