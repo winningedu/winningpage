@@ -113,6 +113,49 @@ describe("OrgInfoPage 입력", () => {
     ).toBeTruthy();
   });
 
+  it("저장된 홈페이지가 없으면 http:// 를 미리 채우고 저장된 값은 그대로 보인다", async () => {
+    stubOrg({ org: { homepage: null } as never });
+    renderRoutes(routes, "/teacher/org-info");
+
+    expect((await field("홈페이지 주소")).value).toBe("http://");
+  });
+
+  it("홈페이지에 http:// 만 남기면 비운 것으로 보고 빈 값으로 저장한다", async () => {
+    const calls = stubOrg({ org: { homepage: null } as never });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("홈페이지 주소");
+
+    clickSave();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종확인(저장)" }),
+    );
+
+    await screen.findByText(/저장했어요/);
+    const patch = calls.find((c) => c.key.startsWith("PATCH"));
+    expect(patch?.body).toMatchObject({ homepage: "" });
+  });
+
+  it("비운 채 확인 단계에서 수정하기로 돌아오면 http:// 를 다시 채운다", async () => {
+    stubOrg({ org: { homepage: null } as never });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("홈페이지 주소");
+    clickSave();
+
+    fireEvent.click(await screen.findByRole("button", { name: "수정하기" }));
+
+    expect((await field("홈페이지 주소")).value).toBe("http://");
+  });
+
+  it("본사 대행과 최종확인이 끝난 화면에는 http:// 를 채우지 않는다", async () => {
+    stubOrg({
+      me: proxyMe,
+      org: { homepage: null, infoConfirmedAt: "2026-11-05T00:00:00Z" } as never,
+    });
+    renderRoutes(routes, "/teacher/org-info");
+
+    expect((await field("홈페이지 주소")).value).toBe("");
+  });
+
   it("기관 정보를 읽지 못하면 다시 시도 안내를 보인다", async () => {
     stubApi({
       "GET /api/console/me": { body: adminMe },

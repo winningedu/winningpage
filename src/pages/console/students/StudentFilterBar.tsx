@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { gradeLabel } from "../classLabel";
 import FilterSelect from "../FilterSelect";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import { type ClassOption, classesOf, gradesOf } from "../useClasses";
+import { useGroupOptions } from "../useGroups";
 
 export interface StudentFilterValues {
   grade: string;
@@ -41,6 +42,7 @@ export default function StudentFilterBar({
   onSearch,
 }: StudentFilterBarProps) {
   const [values, setValues] = useState(initial);
+  const groups = useGroupOptions(classes, values.grade, showGroup);
   const change = (patch: Partial<StudentFilterValues>) =>
     setValues((prev) => ({ ...prev, ...patch }));
   const classDisabled = classNeedsGrade && values.grade === "";
@@ -67,7 +69,7 @@ export default function StudentFilterBar({
             value={values.groupId}
             options={[
               ALL,
-              ...groupsOf(classes, values.grade).map((g) => ({
+              ...groups.map((g) => ({
                 value: g.id,
                 label: g.name,
               })),

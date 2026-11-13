@@ -6,11 +6,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { consoleRequest, errorMessage } from "../api";
 import Notice from "../Notice";
+import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
   EMPTY_CLASS,
   toClassBody,
-  useGroups,
 } from "./ClassRowFields";
 import { type AccountItem, gradeGroupLabel } from "./roster";
 import TeacherDialog, {
