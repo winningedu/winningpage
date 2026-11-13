@@ -10,6 +10,7 @@ import { loadTenant, readAll } from "../../_lib/console/directory.js";
 import {
   gradeFilterMatches,
   isGradeFilter,
+  MIXED_GRADE,
 } from "../../_lib/console/enrollmentInput.js";
 import { rateBucket } from "../../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
@@ -63,23 +64,31 @@ export default defineHandler({
         .filter(
           (c) =>
             (classId === undefined || c.id === classId) &&
-            gradeFilterMatches(grade, c.grade, c.grade) &&
+            // 학년은 학생의 학년으로 거르고(아래), 다학년만 학급 학년으로 가른다.
+            (grade !== MIXED_GRADE || c.grade === null) &&
             (groupId === undefined || c.group_id === groupId),
         )
         .map((c) => c.id),
     );
 
+    const classGradeById = new Map(classes.map((c) => [c.id, c.grade]));
     const enrollments = await readAll<{
       student_id: string;
       class_id: string | null;
-    }>(admin, "student_enrollments", "student_id, class_id", (q) =>
+      grade: string | null;
+    }>(admin, "student_enrollments", "student_id, class_id, grade", (q) =>
       q
         .eq("tenant_id", actor.tenantId)
         .eq("school_year", schoolYear)
         .eq("status", "active"),
     );
     const studentIds = enrollments
-      .filter((e) => e.class_id !== null && classIds.has(e.class_id))
+      .filter(
+        (e) =>
+          e.class_id !== null &&
+          classIds.has(e.class_id) &&
+          gradeFilterMatches(grade, e.grade, classGradeById.get(e.class_id)),
+      )
       .map((e) => e.student_id);
 
     const usage = await loadServiceUsage(admin, studentIds);
