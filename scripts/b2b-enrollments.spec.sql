@@ -415,6 +415,111 @@ select pg_temp.expect_bool('update: 대행 세션 id 가 이력에 남는다',
   (select proxy_session_id is not null from public.enrollment_changes
     where student_id = pg_temp.fx('s2') and kind = 'admin_direct'), true);
 
+-- ---------------------------------------------------------------------
+-- 다학년 학급(classes.grade null): 학원만 만들 수 있고, 학급 학년은 바꿀 수 없다.
+-- 학생의 학년은 항상 실제 값이고, 학년 있는 학급은 다른 학년의 학생을 어느 길로도 받지 않는다.
+-- 학급과 기관, 학년도의 짝은 3열 FK 가 지킨다.
+-- ---------------------------------------------------------------------
+insert into public.tenants (code, name, region, org_type, tier) values ('T9DDDDDD', 't9-d', '서울', '사기업', 'B');
+insert into fx select 'td', id from public.tenants where code = 'T9DDDDDD';
+insert into fx values
+  ('m1', pg_temp.mk_user('t9-m1@t.local')), ('m2', pg_temp.mk_user('t9-m2@t.local')),
+  ('m3', pg_temp.mk_user('t9-m3@t.local')), ('m4', pg_temp.mk_user('t9-m4@t.local')),
+  ('m5', pg_temp.mk_user('t9-m5@t.local')), ('m6', pg_temp.mk_user('t9-m6@t.local'));
+
+select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 ensure 할 수 없다(22023)',
+  $$select public.fn_class_ensure(pg_temp.fx('ta'), pg_temp.year(), null, null, '1')$$, '22023');
+select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 직접 넣을 수 없다',
+  $$insert into public.classes (tenant_id, school_year, grade, name) values (pg_temp.fx('ta'), pg_temp.year(), null, 'X')$$, '23514');
+
+insert into cls values
+  ('m_mix', public.fn_class_ensure(pg_temp.fx('tc'), pg_temp.year(), null, null, 'M')),
+  ('m_g1', public.fn_class_ensure(pg_temp.fx('tc'), pg_temp.year(), '고1', null, 'G')),
+  ('m_mix_old', public.fn_class_ensure(pg_temp.fx('tc'), pg_temp.year() - 1, null, null, 'M')),
+  ('m_mix_td', public.fn_class_ensure(pg_temp.fx('td'), pg_temp.year(), null, null, 'M'));
+select pg_temp.expect_bool('다학년: 학원은 학년 없는 학급을 만든다',
+  (select grade is null from public.classes where id = pg_temp.cls('m_mix')), true);
+select pg_temp.expect_bool('다학년: 같은 입력이면 같은 학급(멱등)',
+  public.fn_class_ensure(pg_temp.fx('tc'), pg_temp.year(), null, null, 'M') = pg_temp.cls('m_mix'), true);
+
+select pg_temp.expect_ok('다학년: 중2 학생이 들어간다',
+  $$select pg_temp.enroll('m1', 'tc', pg_temp.year(), '중2', 'm_mix', 1)$$);
+select pg_temp.expect_ok('다학년: 고1 학생도 같은 학급에 들어간다',
+  $$select pg_temp.enroll('m2', 'tc', pg_temp.year(), '고1', 'm_mix', 2)$$);
+select pg_temp.expect_text('다학년: 학생 학년은 그대로 실제 값', pg_temp.enr_s('m1'), '중2/M/1/v1');
+select pg_temp.expect_error('다학년: 학년이 없는 학생은 받지 않는다',
+  $$select pg_temp.enroll('m3', 'tc', pg_temp.year(), null, 'm_mix', 3)$$, '23514');
+select pg_temp.expect_error('다학년: 학년 목록 밖 값은 받지 않는다',
+  $$select pg_temp.enroll('m3', 'tc', pg_temp.year(), '다학년', 'm_mix', 3)$$, '23514');
+
+-- 학년 있는 학급은 다른 학년의 학생을 어느 길로도 받지 않는다
+select pg_temp.expect_error('학년 불일치: 직접 insert 거부',
+  $$select pg_temp.enroll('m3', 'tc', pg_temp.year(), '고2', 'm_g1', 1)$$, '23503');
+select pg_temp.expect_ok('학년 일치: 직접 insert 가능',
+  $$select pg_temp.enroll('m3', 'tc', pg_temp.year(), '고1', 'm_g1', 1)$$);
+select pg_temp.expect_error('학년 불일치: 직접 학년 변경 거부',
+  $$update public.student_enrollments set grade = '고2' where student_id = pg_temp.fx('m3')$$, '23503');
+select pg_temp.expect_error('학년 불일치: 직접 학급 변경 거부(다른 학년 학급)',
+  $$update public.student_enrollments set class_id = pg_temp.cls('m_g1'), number = 77 where student_id = pg_temp.fx('m1')$$, '23503');
+select pg_temp.expect_error('학년 불일치: fn_enrollment_update 거부',
+  $$select pg_temp.upd('m2', 1, '고2', 'm_g1', 5, 'admin_direct', 'correction', null, 'tc')$$, '23503');
+select pg_temp.expect_text('학년 불일치: 거부되면 그대로', pg_temp.enr_s('m2'), '고1/M/2/v1');
+select pg_temp.expect_text('다학년: fn_enrollment_update 로 학급을 옮겨도 학년은 바뀌지 않는다',
+  pg_temp.upd('m2', 1, '고1', 'm_mix', 9, 'admin_direct', 'number_change', null, 'tc'), '2');
+select pg_temp.expect_text('다학년: 학년이 바뀌어도 다학년 학급에 남을 수 있다(고2)',
+  pg_temp.upd('m2', 2, '고2', 'm_mix', 9, 'admin_direct', 'correction', null, 'tc'), '3');
+select pg_temp.expect_text('다학년: student_profiles.grade 도 학생의 학년', pg_temp.sp_grade('m2'), '고2');
+
+-- 가입 전 명단 줄도 같다
+create function pg_temp.pend(p_class text, p_grade text, p_year integer default null) returns void
+language plpgsql as $$
+begin
+  insert into public.roster_pending_students (tenant_id, school_year, name, grade, class_id, number)
+  values (pg_temp.fx('tc'), coalesce(p_year, pg_temp.year()), 'p-' || p_class || coalesce(p_grade, 'x'), p_grade, pg_temp.cls(p_class), null);
+end $$;
+select pg_temp.expect_ok('다학년: 가입 전 줄은 학년 없이 저장된다', $$select pg_temp.pend('m_mix', null)$$);
+select pg_temp.expect_ok('다학년: 가입 전 줄은 실제 학년이 있어도 저장된다', $$select pg_temp.pend('m_mix', '고3')$$);
+select pg_temp.expect_error('학년 불일치: 가입 전 줄 거부', $$select pg_temp.pend('m_g1', '고2')$$, '23503');
+select pg_temp.expect_error('학년 불일치: 학년 없는 가입 전 줄도 학년 있는 학급에는 거부', $$select pg_temp.pend('m_g1', null)$$, '23503');
+select pg_temp.expect_error('학년 불일치: 가입 전 줄 직접 학급 변경 거부',
+  $$update public.roster_pending_students set class_id = pg_temp.cls('m_g1') where name = 'p-m_mix고3'$$, '23503');
+
+-- 학급 학년은 바꿀 수 없다(학년 일치를 FK 가 아니라 트리거가 지키므로 이 불변이 필수다)
+select pg_temp.expect_error('학급 학년을 바꾸면 거부',
+  $$update public.classes set grade = '고2' where id = pg_temp.cls('m_g1')$$, '23514');
+select pg_temp.expect_error('다학년 학급에 학년을 넣어도 거부',
+  $$update public.classes set grade = '고2' where id = pg_temp.cls('m_mix')$$, '23514');
+select pg_temp.expect_error('학년 있는 학급을 다학년으로 바꿔도 거부',
+  $$update public.classes set grade = null where id = pg_temp.cls('m_g1')$$, '23514');
+select pg_temp.expect_ok('같은 값으로 다시 쓰는 것은 허용',
+  $$update public.classes set grade = grade where id = pg_temp.cls('m_g1')$$);
+select pg_temp.expect_ok('학급 정원 같은 다른 열은 바꿀 수 있다',
+  $$update public.classes set capacity = 20 where id = pg_temp.cls('m_mix')$$);
+
+-- 기관과 학년도의 짝은 3열 FK 가 지킨다(학급 학년이 없어도 다른 기관, 다른 학년도 학급은 거부)
+select pg_temp.expect_error('다학년: 다른 기관의 다학년 학급 거부',
+  $$select pg_temp.enroll('m4', 'tc', pg_temp.year(), '고1', 'm_mix_td', 1)$$, '23503');
+select pg_temp.expect_error('다학년: 다른 학년도의 다학년 학급 거부',
+  $$select pg_temp.enroll('m4', 'tc', pg_temp.year(), '고1', 'm_mix_old', 1)$$, '23503');
+select pg_temp.expect_error('다학년: 다른 기관의 다학년 학급으로 가입 전 줄 거부',
+  $$select pg_temp.pend('m_mix_td', null)$$, '23503');
+select pg_temp.expect_error('다학년: 다른 학년도의 다학년 학급으로 가입 전 줄 거부',
+  $$select pg_temp.pend('m_mix_old', null)$$, '23503');
+
+-- 가입(fn_enrollment_join): 학생은 항상 실제 학년을 보내고, 학급 이름이 다학년 학급과 같으면 그 학급으로 간다
+select pg_temp.expect_bool('다학년: 학원 학생이 학급 이름 M 으로 가입하면 다학년 학급에 들어간다',
+  (select e.class_id = pg_temp.cls('m_mix') from public.fn_enrollment_join(
+     pg_temp.fx('m5'), pg_temp.fx('tc'), '중3', null, 'm', 4::smallint) e), true);
+select pg_temp.expect_text('다학년: 가입해도 학생 학년은 그대로', pg_temp.enr_s('m5'), '중3/M/4/v1');
+select pg_temp.expect_text('다학년: 가입해도 student_profiles.grade 는 학생 학년', pg_temp.sp_grade('m5'), '중3');
+select pg_temp.expect_bool('다학년: 같은 이름의 학년 있는 학급 G 는 그대로 학년 학급',
+  (select e.class_id = pg_temp.cls('m_g1') from public.fn_enrollment_join(
+     pg_temp.fx('m6'), pg_temp.fx('tc'), '고1', null, 'g', 4::smallint) e), true);
+select pg_temp.expect_error('다학년: 학년 없이 학급 이름으로 가입하면 다학년 학급이 되지 않고 거부된다',
+  $$select * from public.fn_enrollment_join(pg_temp.fx('m4'), pg_temp.fx('tc'), null, null, 'zz', 1::smallint)$$, '23514');
+select pg_temp.expect_int('다학년: 거부되면 학적이 없다',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('m4')), 0);
+
 -- 함수는 service_role 만
 grant execute on function pg_temp.expect_error(text, text, text) to anon, authenticated;
 set local role anon;
