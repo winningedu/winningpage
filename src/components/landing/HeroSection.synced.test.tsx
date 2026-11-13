@@ -1,4 +1,4 @@
-// 스쿨멘토 히어로(결정 21, M1~M2): 큰 배너와 작은 배너가 같은 순번으로 함께 넘어가고 점은 작은 배너 아래 한 줄만 둔다.
+// 스쿨멘토 히어로(결정 21, M1~M2): 큰 배너와 작은 배너가 같은 순번으로 함께 넘어가고 점은 각 배너가 자기 장수만큼 가진다(QA 4차 9번: 이전에는 작은 배너 아래 한 줄만 뒀다).
 import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -47,12 +47,10 @@ describe("HeroSection syncedSlides", () => {
     vi.useRealTimers();
   });
 
-  it("점은 한 줄뿐이고 큰 배너 장수만큼 있다", () => {
+  it("큰 배너와 작은 배너가 각자 장수만큼 점을 가진다", () => {
     renderHero();
-    expect(
-      screen.getAllByRole("button", { name: /번째 배너로 이동/ }),
-    ).toHaveLength(3);
-    expect(screen.queryByLabelText(/번째 메인 배너로 이동/)).toBeNull();
+    expect(screen.getAllByLabelText(/번째 메인 배너로 이동/)).toHaveLength(3);
+    expect(screen.getAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(2);
   });
 
   it("큰 배너의 display_seconds로 두 배너가 함께 넘어간다", () => {
@@ -80,20 +78,36 @@ describe("HeroSection syncedSlides", () => {
     expect(shownIndex("이벤트 배너")).toBe(0);
   });
 
-  it("점을 누르면 두 배너가 함께 그 장으로 간다", () => {
+  it("점을 누르면 두 배너가 함께 그 장으로 가고 누른 점이 현재로 표시된다", () => {
     renderHero();
-    const dots = screen.getAllByRole("button", { name: /번째 배너로 이동/ });
-    fireEvent.click(dots[2] as HTMLElement);
+    const mainDots = screen.getAllByLabelText(/번째 메인 배너로 이동/);
+    fireEvent.click(mainDots[2] as HTMLElement);
     expect(shownIndex("메인 배너")).toBe(2);
     expect(shownIndex("이벤트 배너")).toBe(0);
-    expect(dots[2]).toHaveAttribute("aria-current", "true");
+    expect(mainDots[2]).toHaveAttribute("aria-current", "true");
+
+    const sideDots = screen.getAllByLabelText(/^\d번째 배너로 이동/);
+    fireEvent.click(sideDots[1] as HTMLElement);
+    expect(shownIndex("메인 배너")).toBe(1);
+    expect(shownIndex("이벤트 배너")).toBe(1);
+    expect(sideDots[1]).toHaveAttribute("aria-current", "true");
   });
 
-  it("큰 배너가 한 장이면 점이 없다", () => {
+  it("한 배너가 한 장이면 그 배너에는 점이 없다", () => {
+    renderHero({ sideBanners: sideBanners.slice(0, 1) });
+    expect(screen.getAllByLabelText(/번째 메인 배너로 이동/)).toHaveLength(3);
+    expect(screen.queryAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(0);
+  });
+
+  it("큰 배너가 한 장이고 작은 배너가 여러 장이면 작은 배너만 점이 있고 스스로 넘어간다", () => {
     renderHero({ banners: banners.slice(0, 1) });
-    expect(
-      screen.queryByRole("button", { name: /번째 배너로 이동/ }),
-    ).toBeNull();
+    expect(screen.queryAllByLabelText(/번째 메인 배너로 이동/)).toHaveLength(0);
+    expect(screen.getAllByLabelText(/^\d번째 배너로 이동/)).toHaveLength(2);
+    act(() => {
+      vi.advanceTimersByTime(99000);
+    });
+    expect(shownIndex("메인 배너")).toBe(0);
+    expect(shownIndex("이벤트 배너")).toBe(1);
   });
 });
 
