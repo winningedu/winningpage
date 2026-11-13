@@ -25,6 +25,7 @@ create index roster_pending_students_tenant_year_idx
 alter table public.roster_pending_students enable row level security;
 revoke all on table public.roster_pending_students from anon, authenticated;
 grant all on table public.roster_pending_students to service_role;
+create trigger trg_qa_admin_write_block before insert or update or delete on public.roster_pending_students for each statement execute function public.fn_block_qa_admin_write();
 
 comment on table public.roster_pending_students is
   '명단에는 있지만 아직 가입하지 않은 학생(미회원가입). 올릴 때마다 기관과 학년도 단위로 통째로 바꾼다. 읽을 때 가입한 학생과 겹치면 가린다.';
