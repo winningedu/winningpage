@@ -9,6 +9,7 @@ import {
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import Header from "./Header";
+import { NAV_LEFT } from "./navGrid";
 
 vi.mock("@/hooks/useNavGroups", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useNavGroups")>();
@@ -383,5 +384,29 @@ describe("b2b Header 계정 종류별 데스크톱 영역", () => {
 
     expect(drawer.queryByText(/^수능 D/)).not.toBeInTheDocument();
     expect(drawer.getAllByText(/학부모회원/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("b2b Header 소속 칩", () => {
+  it("칩은 메뉴 알약 시작점(NAV_LEFT) 앞에서 끝나도록 폭이 제한되고 말줄임과 title을 가진다", async () => {
+    mockProfileRow = {
+      id: "u1",
+      email: "s@test.com",
+      name: "홍길동",
+      member_type: "student",
+      role: "user",
+    };
+    mockTenantRows = [{ id: "t1", name: "위닝고등학교" }];
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u1", email: "s@test.com" } },
+      user: { id: "u1", email: "s@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+
+    const chip = await screen.findByText("위닝고등학교");
+    expect(chip).toHaveAttribute("title", "위닝고등학교");
+    expect(chip).toHaveClass("min-w-0", "truncate");
+    expect(chip.style.maxWidth).toContain(NAV_LEFT);
   });
 });

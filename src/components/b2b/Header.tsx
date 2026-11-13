@@ -11,6 +11,10 @@ import { signOutB2B, useB2BAccount } from "./useB2BAccount";
 
 const CLOSE_DELAY_MS = 100;
 
+// 소속 칩 폭 상한 계산용. 아래 헤더 좌우 패딩, 로고 폭, 칩 왼쪽 여백과 맞춰 둔다.
+const HEADER_PAD_X = "clamp(2rem, 6.25vw, 7.5rem)";
+const CHIP_MAX_W = `calc(${NAV_LEFT} - ${HEADER_PAD_X} - 9.881rem - 0.75rem - 1rem)`;
+
 const CHIP = "rounded-sm px-2.5 py-1 text-xs";
 const ACCOUNT_PILL =
   "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-b2b-account px-3.5 text-sm font-bold tracking-[-0.01875rem]";
@@ -77,7 +81,9 @@ export default function Header() {
         </Link>
         {loggedIn && account.orgName && (
           <span
-            className={`${CHIP} ml-3 hidden bg-surface-muted text-ink-strong desktop:block`}
+            title={account.orgName}
+            className={`${CHIP} ml-3 hidden min-w-0 truncate bg-surface-muted text-ink-strong desktop:block`}
+            style={{ maxWidth: CHIP_MAX_W }}
           >
             {account.orgName}
           </span>
