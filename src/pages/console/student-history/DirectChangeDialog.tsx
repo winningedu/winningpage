@@ -108,6 +108,8 @@ export default function DirectChangeDialog({
   };
   const changeGrade = (next: string) => {
     setGrade(next);
+    // 다학년 학급은 학생의 학년이 바뀌어도 그대로 받으므로 고른 학급과 그룹을 지우지 않는다.
+    if (classes.data?.find((c) => c.id === classId)?.grade === null) return;
     setGroupId("");
     setClassId("");
   };
@@ -115,12 +117,19 @@ export default function DirectChangeDialog({
   const options = classes.data ?? [];
   const groups = new Map<string, string>();
   for (const c of options) {
-    if ((c.grade === null || c.grade === grade) && c.groupId && c.groupName)
+    if (
+      grade !== "" &&
+      (c.grade === null || c.grade === grade) &&
+      c.groupId &&
+      c.groupName
+    )
       groups.set(c.groupId, c.groupName);
   }
   const classOptions = options.filter(
     (c) =>
-      (c.grade === null || c.grade === grade) && (c.groupId ?? "") === groupId,
+      grade !== "" &&
+      (c.grade === null || c.grade === grade) &&
+      (c.groupId ?? "") === groupId,
   );
 
   const changed =

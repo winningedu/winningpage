@@ -772,6 +772,55 @@ describe("W6b 학생 정보 편집", () => {
     );
   });
 
+  it("다학년 학급의 학생이 학년만 고치면 고른 학급과 그룹을 그대로 둔다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    stubPage(
+      {
+        "GET /api/console/classes": {
+          body: {
+            classes: [
+              ...classes.classes,
+              {
+                id: "cm",
+                grade: null,
+                groupId: null,
+                groupName: null,
+                name: "다",
+                hasHomeroom: true,
+              },
+            ],
+          },
+        },
+        [LIST_URL]: {
+          body: listBody([student(1, { classId: "cm", className: "다" })]),
+        },
+      },
+      academyMe,
+    );
+    const dialog = await openEdit();
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+
+    fireEvent.change(within(dialog).getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
   it("학년을 바꾸면 D-day 와 내신 기준 안내가 더해지고 저장은 막히지 않는다", async () => {
     stubPage();
     const dialog = await openEdit();

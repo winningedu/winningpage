@@ -131,6 +131,8 @@ export default function StudentEditDialog({
             }))}
             onChange={(next) => {
               setGrade(next);
+              // 다학년 학급은 학생의 학년이 바뀌어도 그대로 받으므로 고른 학급과 그룹을 지우지 않는다.
+              if (classes.find((c) => c.id === classId)?.grade === null) return;
               setGroupId("");
               setClassId("");
             }}

@@ -1124,6 +1124,77 @@ describe("W13b 학생 정보 직접 변경", () => {
     expect(saveButton(dialog).disabled).toBe(true);
   });
 
+  describe("다학년 학급", () => {
+    const mixedClass = { ...klass("cm", "고2", "다"), grade: null };
+    const withMixed = (enrollment: Record<string, unknown>) => ({
+      [CLASSES]: {
+        body: { classes: [klass("c3", "고2", "3"), mixedClass] },
+      },
+      [STUDENTS_URL]: {
+        body: studentsBody([
+          student(1, {
+            enrollment: {
+              grade: "고2",
+              groupId: null,
+              classId: "c3",
+              className: "3",
+              number: 1,
+              version: 4,
+              ...enrollment,
+            },
+          }),
+          student(2),
+        ]),
+      },
+    });
+    const classOptions = (dialog: HTMLElement) =>
+      within(within(dialog).getByLabelText("새 반"))
+        .getAllByRole("option")
+        .map((o) => o.textContent);
+
+    it("학년이 없는 학생에게는 학급을 하나도 보이지 않고 다학년 학급도 권하지 않는다", async () => {
+      const { dialog } = await openDirect(
+        withMixed({
+          grade: null,
+          classId: null,
+          className: null,
+          number: null,
+        }),
+      );
+
+      expect(classOptions(dialog)).toEqual(["선택"]);
+    });
+
+    it("다학년 학급의 학생이 학년만 고치면 고른 학급을 그대로 둔다", async () => {
+      const { dialog } = await openDirect(
+        withMixed({ classId: "cm", className: "다" }),
+      );
+      expect(
+        (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
+      ).toBe("cm");
+
+      fireEvent.change(within(dialog).getByLabelText("새 학년그룹"), {
+        target: { value: "고1" },
+      });
+
+      expect(
+        (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
+      ).toBe("cm");
+    });
+
+    it("학년 학급의 학생이 학년을 고치면 학급을 비운다", async () => {
+      const { dialog } = await openDirect(withMixed({}));
+
+      fireEvent.change(within(dialog).getByLabelText("새 학년그룹"), {
+        target: { value: "고1" },
+      });
+
+      expect(
+        (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
+      ).toBe("");
+    });
+  });
+
   it("저장하면 바뀐 값과 사유를 보내고 닫은 뒤 목록을 다시 불러온다", async () => {
     const { calls, dialog } = await openDirect();
     setNumber(dialog, "36");
