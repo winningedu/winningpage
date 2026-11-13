@@ -2,6 +2,8 @@
 // 날짜 순서는 DB 제약(tenants_contract_order, tenants_grace_after_end)과 같은 규칙을 여기서 먼저 막는다.
 // 형식 규칙은 api/_routes/console/org-info.ts 와 같다. 소속 코드는 발급 후 불변이라 페이로드에 넣지 않는다.
 
+import { HOMEPAGE_PREFIX, withoutBareScheme } from "@/lib/homepage";
+
 export interface TenantFormValues {
   name: string;
   region: string;
@@ -57,6 +59,7 @@ export function tenantFormFromRow(
     const value = row[key];
     if (value !== null && value !== undefined) values[key] = String(value);
   }
+  if (values.homepage === "") values.homepage = HOMEPAGE_PREFIX;
   return values;
 }
 
@@ -90,7 +93,7 @@ export function validateTenantForm(values: TenantFormValues): string | null {
       return `${label}는 숫자와 하이픈만 쓸 수 있어요.`;
     }
   }
-  const homepage = values.homepage.trim();
+  const homepage = withoutBareScheme(values.homepage).trim();
   if (homepage && !HOMEPAGE.test(homepage)) {
     return "홈페이지는 http:// 또는 https:// 로 시작해야 해요.";
   }
@@ -117,6 +120,6 @@ export function tenantPayload(values: TenantFormValues) {
     contact_email: blankToNull(values.contact_email),
     address: blankToNull(values.address),
     main_phone: blankToNull(values.main_phone),
-    homepage: blankToNull(values.homepage),
+    homepage: blankToNull(withoutBareScheme(values.homepage)),
   };
 }
