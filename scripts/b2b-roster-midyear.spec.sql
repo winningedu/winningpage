@@ -374,16 +374,45 @@ select pg_temp.expect_text('S1 pending: 저장하지 못할 mixed 줄(이름 없
 select pg_temp.expect_int('S1 pending: NONAME, BADGRADE 학급은 없다',
   (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('NONAME', 'BADGRADE')), 0);
 
+-- 한 학생은 한 줄만(22023)
+select pg_temp.expect_error('midyear: 같은 student_id 가 두 줄이면 아무것도 하기 전에 22023',
+  format($f$select * from public.fn_roster_midyear(%L, %L::jsonb, '[]', %L)$f$, pg_temp.fx('ta'),
+    jsonb_build_array(
+      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', 'DUP1', 'version', 1),
+      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', 'DUP2', 'version', 1)),
+    pg_temp.fx('actor')), '22023');
+select pg_temp.expect_int('midyear: 22023 이면 DUP 학급이 없다',
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name like 'DUP%'), 0);
+
+-- 학적 줄(학년 줄) 뒤의 가입 전 mixed 줄도 같은 사전 생성에서 만들어 학급이 하나로 모인다
+insert into fx values ('w6', pg_temp.mk_user('rm-w6@t.local'));
+select pg_temp.enroll('w6', '고2', '1', 9);
+select pg_temp.expect_text('midyear: 학년 줄과 가입 전 mixed 줄이 같은 이름이면 다학년 학급 하나',
+  pg_temp.midyear(jsonb_build_array(pg_temp.row_of('w6', 'PX', 1, pg_temp.ver('w6'))),
+    jsonb_build_array(jsonb_build_object('name', 'pxp', 'class_name', 'PX', 'number', 2, 'mixed', true))),
+  '1/0/1/0/0');
+select pg_temp.expect_text('midyear: PX 학급은 하나이고 학년이 없으며 학생이 들어갔다',
+  (select count(*) || '/' || count(*) filter (where grade is null) from public.classes
+    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = 'PX')
+  || '/' || pg_temp.enr_s('w6'), '1/1/active/고2/PX/1/v2');
+
+-- 같은 이름의 학년 학급이 이미 있으면 다학년 줄은 WC105 로 거부되고 전체가 되돌려진다
+select pg_temp.expect_error('midyear: 학년 학급과 같은 이름의 mixed 줄은 WC105',
+  format($f$select * from public.fn_roster_midyear(%L, %L::jsonb, '[]', %L)$f$, pg_temp.fx('ta'),
+    jsonb_build_array(jsonb_build_object('student_id', pg_temp.fx('w6'), 'class_name', '1', 'number', 5,
+      'version', pg_temp.ver('w6'), 'mixed', true)), pg_temp.fx('actor')), 'WC105');
+select pg_temp.expect_text('midyear: WC105 이면 학생은 그대로', pg_temp.enr_s('w6'), 'active/고2/PX/1/v2');
+
 -- ---------------------------------------------------------------------
 -- fn_roster_rollover: 넘기기와 가입 전 명단이 같은 트랜잭션
 -- ---------------------------------------------------------------------
--- 다학년 학생(w1, w2, w4)이 더해져 진급 7(졸업 w3 1명은 제외), 지운 지난 가입 전 줄 4(pm1, pm2, pm3, 미가입9)
+-- 다학년 학생(w1, w2, w4, w6)이 더해져 진급 8(졸업 w3 1명은 제외), 지운 지난 가입 전 줄 5(pm1, pm2, pm3, pxp, 미가입9)
 select pg_temp.expect_text('rollover: 학년도가 오르고 가입 전 1줄이 새 학년도로 저장된다',
   (select r.promoted_count || '/' || r.pending_stored || '/' || r.pending_skipped || '/' || r.pending_deleted
      from public.fn_roster_rollover(pg_temp.fx('ta'), (select y + 1 from y0), '[]',
        jsonb_build_array(jsonb_build_object('name', '새미가입', 'grade', '고2', 'class_name', '4', 'number', 1)),
        pg_temp.fx('actor')) r),
-  '7/1/0/4');
+  '8/1/0/5');
 select pg_temp.expect_text('rollover: 이전 학년도 가입 전 줄은 지워지고 새 학년도 줄만 남는다(보존 기간)',
   (select string_agg(name || '@' || school_year, ',' order by school_year) from public.roster_pending_students
     where tenant_id = pg_temp.fx('ta')), '새미가입@' || (select y + 1 from y0));

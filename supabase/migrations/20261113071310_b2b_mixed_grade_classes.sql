@@ -85,24 +85,43 @@ create trigger trg_roster_pending_students_class_grade_match
 
 revoke all on function public.fn_class_grade_match() from public, anon, authenticated;
 
--- 같은 기관, 학년도, 그룹, 반 이름(소문자, 정규화한 이름)의 학급을 찾거나 만드는 일을 줄 세우는 자문 잠금.
--- 학생 가입과 명단의 다학년 학급 만들기가 겹쳐도 한 이름에 학년 학급과 다학년 학급이 함께 생기지 않게 한다.
--- 잠그는 순서: 명단 적용은 기관, 학년도 잠금(fn_roster_pending_lock)을 먼저 잡고, 학적 행을 잠그기 전에 이 잠금을 키 순서로
--- 미리 잡는다. 학생 가입은 이 잠금 하나만 잡은 뒤 학적 행을 잠근다. 그래서 둘이 서로를 기다리지 않는다.
-create function public.fn_class_lock(p_tenant uuid, p_year integer, p_group uuid, p_name text)
-returns void
-language plpgsql
+-- 학급 만들기(fn_class_ensure)를 줄 세우는 잠금은 이름마다가 아니라 (기관, 학년도) 당 하나이고, 명단 적용이 이미 쓰는
+-- fn_roster_pending_lock 과 같은 키다. 명단 적용은 이 잠금을 먼저 잡고 그 안에서 학급을 만들 때 다시 잡아도 막히지 않으며,
+-- 학생 가입과 교사 등록은 명단 적용이 끝나길 기다린다. 이름마다 잠그면 교사 등록이 [1반, 2반] 과 [2반, 1반] 순서로
+-- 겹칠 때 교착하고, 3000 줄 적용이 잠금을 수천 개 잡아 공유 잠금 표를 채울 수 있다.
+--
+-- 잠그는 순서(교착 검토). 모두 이 잠금(L)을 쓰고, 한 트랜잭션 안에서 L 은 같은 키로 다시 잡을 뿐이다.
+--   학생 가입(fn_enrollment_join): 기관 행 공유 잠금 -> L(현재 학년도) -> 학적 행
+--   학기 중 적용(fn_roster_midyear): L(현재 학년도) -> 기관 행 공유 잠금 -> 학적 행(학생 id 순) -> 학급 만들기(L 다시)
+--   넘기기(fn_roster_rollover -> fn_school_year_rollover): L(다음 학년도) -> 기관 행 갱신 -> 학적 행(id 순) -> 학급 만들기(L 다시)
+--   교사 등록과 담당 변경(fn_teacher_register, fn_assignment_set): 교사 행 -> L(학급마다 같은 키로 한 번씩)
+-- 교사 행은 위의 적용들이 잠그지 않고, 가입이 기다리는 L 은 한 키뿐이라 쌍으로는 순환이 생기지 않는다.
+-- 남는 경우 둘: (1) 본사 이동과 기타 소속 가입(fn_admin_move_student_tenant, fn_catch_all_join_tenant)은 학생의 학적 행을
+-- 지운 뒤 가입하므로 학적 행을 쥔 채 L 을 기다리고, 같은 학생을 가진 학기 중 적용은 L 을 쥔 채 그 행을 기다린다.
+-- (2) 학년도 경계에서 넘기기(기관 행 갱신 대기), 가입(기관 행 공유 잠금을 쥐고 L 대기), 학기 중 적용(L 을 쥐고 기관 행
+-- 공유 잠금 대기)이 한꺼번에 겹치면 세 갈래 순환이 생길 수 있다. 둘 다 교착 감지기가 한 쪽을 40P01 로 끊고, API 가
+-- 다시 시도하라는 409 로 바꾼다. 가입이 잠금을 기다리는 시간은 lock_timeout(55P03)이 끊는다.
+-- 기관의 유형(org_type)을 학교로 바꿀 때 다학년 학급이 남아 있는지는 막지 않는다.
+
+-- 이번 명단의 가입 전 줄 중 다학년 학급을 만들어야 하는 (그룹, 반 이름): 이름, 반이 있고 mixed 이며 학년은 없거나
+-- 여섯 학년 중 하나인 줄. fn_roster_pending_replace 가 저장하는 줄과 같은 조건이라 건너뛸 줄은 학급을 남기지 않는다.
+create function public.fn_roster_mixed_pending_targets(p_pending jsonb)
+returns table (group_id uuid, class_name text)
+language sql
+stable
 security definer
 set search_path = public, pg_temp
 as $$
-begin
-  perform pg_advisory_xact_lock(hashtextextended(
-    'class_ensure:' || p_tenant::text || ':' || p_year::text || ':' || coalesce(p_group::text, '') || ':' || lower(p_name), 0));
-end;
+  select distinct x.group_id, x.class_name
+    from jsonb_to_recordset(coalesce(p_pending, '[]'::jsonb))
+         as x(name text, grade text, group_id uuid, class_name text, number smallint, mixed boolean)
+   where coalesce(x.mixed, false) and nullif(btrim(x.name), '') is not null
+     and nullif(btrim(x.class_name), '') is not null
+     and (x.grade is null or x.grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']))
 $$;
 
-revoke all on function public.fn_class_lock(uuid, integer, uuid, text) from public, anon, authenticated;
-grant execute on function public.fn_class_lock(uuid, integer, uuid, text) to service_role;
+revoke all on function public.fn_roster_mixed_pending_targets(jsonb) from public, anon, authenticated;
+grant execute on function public.fn_roster_mixed_pending_targets(jsonb) to service_role;
 
 -- 같은 입력이면 같은 학급 id 를 돌려주는 find-or-create. 학교는 그룹을 쓰지 않고 학년도 꼭 있어야 한다.
 -- p_grade 가 null 이면 다학년 학급이다(학원만). 학원에서 학생이 실제 학년과 학급 이름을 보내면,
@@ -142,7 +161,17 @@ begin
   if p_grade is not null and p_grade <> all (array['중1', '중2', '중3', '고1', '고2', '고3']) then
     raise exception 'invalid class grade' using errcode = 'check_violation';
   end if;
-  perform public.fn_class_lock(p_tenant_id, p_school_year, p_group_id, v_name);
+  -- (기관, 학년도) 당 하나의 잠금(명단 적용과 같은 키). 위의 순서 설명 참고.
+  perform public.fn_roster_pending_lock(p_tenant_id, p_school_year);
+
+  -- 같은 그룹과 이름의 학년 학급이 이미 있으면 다학년 학급을 만들 수 없다(WC105). 이름 우선 규칙은 다학년이 먼저라서
+  -- 둘이 함께 있으면 학년 학급으로 들어갈 길이 막힌다.
+  if p_grade is null and exists (
+    select 1 from public.classes c
+     where c.tenant_id = p_tenant_id and c.school_year = p_school_year and c.grade is not null
+       and c.group_id is not distinct from p_group_id and lower(c.name) = lower(v_name)) then
+    raise exception 'a graded class with this name already exists' using errcode = 'WC105';
+  end if;
 
   if p_grade is not null and v_org_type <> '학교' then
     select id into v_id from public.classes
@@ -171,11 +200,14 @@ $$;
 -- mixed 가 true 면 그 줄의 학급은 다학년 학급이다(학원만, 학교는 fn_class_ensure 가 22023 으로 막는다).
 -- 학생은 언제나 자기 학년을 한 학년 올리거나 졸업한다. 다학년 학급은 실제로 진급하는 학생의 mixed 줄에 대해서만
 -- 만들어진다(졸업하는 학생, 학적이 없거나 이미 새 학년도 행이 있거나 학년이 없는 학생의 줄은 학급을 남기지 않는다).
-create or replace function public.fn_school_year_rollover(
+-- p_pending(가입 전 줄)은 그 줄들의 다학년 학급도 같은 사전 생성에서 만들려고 받는다(없으면 빈 목록). 한 학생은 한 줄만 쓸 수 있다.
+drop function public.fn_school_year_rollover(uuid, integer, jsonb, uuid);
+create function public.fn_school_year_rollover(
   p_tenant uuid,
   p_to_year integer,
   p_rows jsonb,
-  p_actor uuid
+  p_actor uuid,
+  p_pending jsonb default '[]'::jsonb
 )
 returns table (graduated_count integer, promoted_count integer, skipped_count integer, assigned_count integer)
 language plpgsql
@@ -198,6 +230,14 @@ declare
   v_assigned integer := 0;
   v_constraint text;
 begin
+  if exists (
+    select 1 from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as x(student_id uuid)
+     where x.student_id is not null group by x.student_id having count(*) > 1) then
+    raise exception 'duplicate student_id in roster rows' using errcode = '22023';
+  end if;
+  -- 잠그는 순서: L(다음 학년도) -> 기관 행 갱신 -> 학적 행. fn_roster_rollover 가 이미 잡았으면 다시 잡을 뿐이다.
+  perform public.fn_roster_pending_lock(p_tenant, p_to_year);
+
   update public.tenants t set school_year = p_to_year
    where t.id = p_tenant and t.school_year = p_to_year - 1
   returning t.org_type into v_org;
@@ -211,11 +251,17 @@ begin
 
   select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
 
-  -- 진급할 학생의 다학년 줄에 대해서만, 다학년 학급을 키 순서로 한 번씩 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의
-  -- 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로 그 다학년 학급에 들어가 한 학급이 둘로 갈라지지 않는다.
+  -- 이 호출이 건드릴 학적 행을 먼저 잠그고(아래 반복과 같은 id 순) 그 행으로 사전 생성할 학급을 정한다. 그 사이 학년이나
+  -- 졸업이나 삭제가 바뀌어 고아 학급이 남거나 학급이 늦게 만들어지는 일이 없다.
+  perform 1 from public.student_enrollments e
+   where e.tenant_id = p_tenant and e.school_year = p_to_year - 1 and e.status = 'active'
+   order by e.id for update;
+
+  -- 진급할 학생의 다학년 줄과 저장할 가입 전 다학년 줄에 대해서만, 다학년 학급을 한 번씩 먼저 만든다. 줄 순서와 상관없이
+  -- 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로 그 다학년 학급에 들어가 한 학급이 둘로 갈라지지 않는다.
   perform public.fn_class_ensure(p_tenant, p_to_year, null, d.group_id, d.class_name)
     from (
-      select distinct x.group_id, x.class_name
+      select x.group_id, x.class_name
         from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
              as x(student_id uuid, group_id uuid, class_name text, number smallint, mixed boolean)
         join public.student_enrollments e
@@ -225,7 +271,9 @@ begin
          and not (e.grade = '고3' or (e.grade = '중3' and v_org = '학교'))
          and not exists (select 1 from public.student_enrollments n
                           where n.student_id = e.student_id and n.school_year = p_to_year)
-       order by x.group_id nulls first, x.class_name
+      union
+      select t.group_id, t.class_name from public.fn_roster_mixed_pending_targets(p_pending) t
+       order by 1 nulls first, 2
     ) d;
 
   update public.enrollment_changes c
@@ -306,6 +354,9 @@ begin
 end;
 $$;
 
+revoke all on function public.fn_school_year_rollover(uuid, integer, jsonb, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.fn_school_year_rollover(uuid, integer, jsonb, uuid, jsonb) to service_role;
+
 -- 학기 중 명단 적용과 가입 전 명단에 다학년 줄을 더한다. 줄의 mixed 가 true 면 그 줄의 학급은 다학년 학급이다(학원만).
 -- 학생의 학년은 건드리지 않는다. 가입 전 줄은 다학년 학급이면 grade 가 null 일 수 있다(줄에 실제 학년이 있으면 그대로).
 -- 학년을 정하지 못한 줄은 mixed 가 아니면 지금처럼 건너뛴다.
@@ -337,17 +388,12 @@ begin
   end if;
   perform public.fn_roster_pending_lock(p_tenant, p_year);
 
-  -- 저장할 수 있는 다학년 줄(이름, 반이 있고 학년은 없거나 여섯 학년 중 하나)의 학급만 키 순서로 한 번씩 먼저 만든다
-  -- (줄 순서와 상관없이 같은 학급으로 모으려고. 학교는 22023). 건너뛸 줄은 학급을 남기지 않는다.
+  -- 저장할 수 있는 다학년 줄(fn_roster_mixed_pending_targets)의 학급만 한 번씩 먼저 만든다(줄 순서와 상관없이 같은 학급으로
+  -- 모으려고. 학교는 22023). 건너뛸 줄은 학급을 남기지 않는다. 호출한 쪽이 이미 만들었으면 찾기만 한다.
   perform public.fn_class_ensure(p_tenant, p_year, null, d.group_id, d.class_name)
     from (
-      select distinct x.group_id, x.class_name
-        from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
-             as x(name text, grade text, group_id uuid, class_name text, number smallint, mixed boolean)
-       where coalesce(x.mixed, false) and nullif(btrim(x.name), '') is not null
-         and nullif(btrim(x.class_name), '') is not null
-         and (x.grade is null or x.grade = any (c_grades))
-       order by x.group_id nulls first, x.class_name
+      select t.group_id, t.class_name from public.fn_roster_mixed_pending_targets(p_rows) t
+       order by 1 nulls first, 2
     ) d;
 
   for v_r in
@@ -425,9 +471,14 @@ begin
      or jsonb_array_length(coalesce(p_pending, '[]'::jsonb)) > 3000 then
     raise exception 'too many roster rows' using errcode = '54000';
   end if;
+  if exists (
+    select 1 from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as x(student_id uuid)
+     where x.student_id is not null group by x.student_id having count(*) > 1) then
+    raise exception 'duplicate student_id in roster rows' using errcode = '22023';
+  end if;
 
-  -- 같은 기관, 학년도 키의 적용끼리 줄 세운다. 학급을 만들고 학적을 잠그기 전에 먼저 잡아 서로 교착하지 않게 한다.
-  -- 넘기기와의 순서는 이 잠금이 아니라 아래 기관 행 잠금이 정한다.
+  -- 잠그는 순서: L(현재 학년도) -> 기관 행 공유 잠금 -> 학적 행(학생 id 순). L 은 학급 만들기(fn_class_ensure)도 쓰는
+  -- (기관, 학년도) 당 하나의 잠금이라 같은 호출 안에서는 다시 잡을 뿐이다. 넘기기와의 순서는 아래 기관 행 잠금이 정한다.
   select t.school_year into v_year from public.tenants t where t.id = p_tenant;
   if v_year is null then
     raise exception 'tenant not found' using errcode = 'no_data_found';
@@ -440,46 +491,29 @@ begin
 
   select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
 
-  -- 학생 가입과 줄을 세우려고, 이번 명단(학적 줄과 가입 전 줄)이 가리키는 학급의 이름 잠금(fn_class_lock)을 학적 행을
-  -- 잠그기 전에 키 순서로 먼저 잡는다. 가입은 이 잠금을 잡은 뒤 학적 행을 잠그므로, 순서가 같아 서로 기다리지 않는다.
-  select t.org_type into v_org from public.tenants t where t.id = p_tenant;
-  perform public.fn_class_lock(p_tenant, v_year, d.group_id, d.name)
-    from (
-      select distinct k.group_id, public.fn_normalize_class_name(v_org, k.class_name) as name
-        from (
-          select x.group_id, x.class_name
-            from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
-                 as x(student_id uuid, group_id uuid, class_name text)
-          union all
-          select y.group_id, y.class_name
-            from jsonb_to_recordset(coalesce(p_pending, '[]'::jsonb))
-                 as y(group_id uuid, class_name text)
-        ) k
-       where nullif(btrim(k.class_name), '') is not null
-    ) d
-   where d.name <> ''
-   order by d.group_id nulls first, d.name;
+  -- 이 호출이 건드릴 학적 행을 먼저 잠그고(아래 반복과 같은 학생 id 순) 그 행으로 사전 생성할 학급을 정한다. 그 사이 학년 변경,
+  -- 졸업, 삭제가 끼어들어 고아 학급이 남거나 학급이 늦게 만들어지는 일이 없다. 버전 검사는 아래 반복이 그대로 한다.
+  perform 1 from public.student_enrollments e
+   where e.tenant_id = p_tenant and e.school_year = v_year and e.status = 'active'
+     and e.student_id in (
+       select x.student_id from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as x(student_id uuid))
+   order by e.student_id for update;
 
-  -- 실제로 바뀔 수 있는 학생(재학 학적이 있고 학년이 있는 학생, 한 학생의 첫 줄)의 다학년 줄에 대해서만, 다학년 학급을
-  -- 키 순서로 한 번씩 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로
-  -- 그 다학년 학급에 들어간다(학교는 22023). 학적이 없는 학생 id 나 건너뛸 줄은 학급을 남기지 않는다.
+  -- 바뀔 수 있는 학생(재학 학적이 있고 학년이 있는 학생)의 다학년 줄과 저장할 가입 전 다학년 줄에 대해서만, 다학년 학급을
+  -- 한 번씩 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로 그 다학년
+  -- 학급에 들어간다(학교는 22023). 학적이 없는 학생 id 나 건너뛸 줄은 학급을 남기지 않는다.
   perform public.fn_class_ensure(p_tenant, v_year, null, d.group_id, d.class_name)
     from (
-      select distinct f.group_id, f.class_name
-        from (
-          select distinct on (q.student_id) q.student_id, q.group_id, q.class_name, q.mixed
-            from (
-              select (t.elem ->> 'student_id')::uuid as student_id, (t.elem ->> 'group_id')::uuid as group_id,
-                     t.elem ->> 'class_name' as class_name, coalesce((t.elem ->> 'mixed')::boolean, false) as mixed, t.ord
-                from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) with ordinality as t(elem, ord)
-            ) q
-           order by q.student_id, q.ord
-        ) f
+      select x.group_id, x.class_name
+        from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
+             as x(student_id uuid, group_id uuid, class_name text, number smallint, version integer, mixed boolean)
         join public.student_enrollments e
-          on e.student_id = f.student_id and e.tenant_id = p_tenant and e.school_year = v_year
+          on e.student_id = x.student_id and e.tenant_id = p_tenant and e.school_year = v_year
          and e.status = 'active' and e.grade is not null
-       where coalesce(f.mixed, false) and nullif(btrim(f.class_name), '') is not null
-       order by f.group_id nulls first, f.class_name
+       where coalesce(x.mixed, false) and nullif(btrim(x.class_name), '') is not null
+      union
+      select t.group_id, t.class_name from public.fn_roster_mixed_pending_targets(p_pending) t
+       order by 1 nulls first, 2
     ) d;
 
   for v_r in
@@ -559,6 +593,64 @@ begin
     ) s;
 
   return query select v_updated, v_skipped, v_stored, v_pending_skipped, v_deleted;
+end;
+$$;
+
+-- 학년도 넘기기와 가입 전 명단. fn_school_year_rollover 에 가입 전 줄을 같이 넘겨 그 줄의 다학년 학급도 학적 줄과 같은
+-- 사전 생성에서 만든다.
+create or replace function public.fn_roster_rollover(
+  p_tenant uuid,
+  p_to_year integer,
+  p_rows jsonb,
+  p_pending jsonb,
+  p_actor uuid
+)
+returns table (
+  graduated_count integer,
+  promoted_count integer,
+  skipped_count integer,
+  assigned_count integer,
+  pending_stored integer,
+  pending_skipped integer,
+  pending_deleted integer
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+#variable_conflict use_column
+declare
+  v_r record;
+  v_stored integer := 0;
+  v_skipped integer := 0;
+  v_deleted integer := 0;
+begin
+  if jsonb_array_length(coalesce(p_rows, '[]'::jsonb)) > 3000
+     or jsonb_array_length(coalesce(p_pending, '[]'::jsonb)) > 3000 then
+    raise exception 'too many roster rows' using errcode = '54000';
+  end if;
+  -- 같은 학년도 키로 가입 전 명단을 만지는 호출끼리 줄 세운다. 이 키는 학기 중 적용(넘기기 전 학년도)과 다르므로
+  -- 넘기기와 학기 중 적용의 순서는 기관 행 잠금(넘기기의 갱신, 적용의 FOR SHARE)이 정한다.
+  perform public.fn_roster_pending_lock(p_tenant, p_to_year);
+
+  select * into v_r from public.fn_school_year_rollover(p_tenant, p_to_year, p_rows, p_actor, p_pending);
+
+  -- 넘기기가 아무것도 하지 않았으면(다른 관리자가 이미 끝냄) 가입 전 명단은 건드리지 않는다.
+  if v_r.graduated_count + v_r.promoted_count > 0 then
+    select s.stored_count, s.skipped_count, s.deleted_count into v_stored, v_skipped, v_deleted
+      from public.fn_roster_pending_replace(
+        p_tenant, p_to_year, p_pending, p_actor,
+        coalesce((
+          select array_agg(distinct e.class_id)
+            from public.student_enrollments e
+            join jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb)) as x(student_id uuid) on x.student_id = e.student_id
+           where e.tenant_id = p_tenant and e.school_year = p_to_year and e.class_id is not null
+        ), '{}')
+      ) s;
+  end if;
+
+  return query select v_r.graduated_count, v_r.promoted_count, v_r.skipped_count, v_r.assigned_count,
+                      v_stored, v_skipped, v_deleted;
 end;
 $$;
 

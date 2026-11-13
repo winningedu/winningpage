@@ -8508,15 +8508,6 @@ export type Database = {
         };
         Returns: string;
       };
-      fn_class_lock: {
-        Args: {
-          p_group: string;
-          p_name: string;
-          p_tenant: string;
-          p_year: number;
-        };
-        Returns: undefined;
-      };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
         Returns: {
@@ -9299,6 +9290,13 @@ export type Database = {
           updated_count: number;
         }[];
       };
+      fn_roster_mixed_pending_targets: {
+        Args: { p_pending: Json };
+        Returns: {
+          class_name: string;
+          group_id: string;
+        }[];
+      };
       fn_roster_pending_lock: {
         Args: { p_tenant: string; p_year: number };
         Returns: undefined;
@@ -9339,6 +9337,7 @@ export type Database = {
       fn_school_year_rollover: {
         Args: {
           p_actor: string;
+          p_pending?: Json;
           p_rows: Json;
           p_tenant: string;
           p_to_year: number;
