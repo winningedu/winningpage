@@ -60,19 +60,21 @@ export default defineHandler({
 
     const classes = await readAll<{
       id: string;
+      grade: string | null;
       group_id: string | null;
       name: string;
-    }>(admin, "classes", "id, group_id, name", (q) =>
-      q
-        .eq("tenant_id", actor.tenantId)
-        .eq("school_year", schoolYear)
-        .eq("grade", grade),
+    }>(admin, "classes", "id, grade, group_id, name", (q) =>
+      q.eq("tenant_id", actor.tenantId).eq("school_year", schoolYear),
     );
-    const cls = classes.find(
+    // 가입(fn_class_ensure)과 같게, 같은 그룹과 이름의 다학년 학급(학년 없음)이 그 학년의 학급보다 먼저다.
+    const named = classes.filter(
       (c) =>
         c.name.toLowerCase() === className.toLowerCase() &&
         (c.group_id ?? "") === groupId,
     );
+    const cls =
+      named.find((c) => c.grade === null) ??
+      named.find((c) => c.grade === grade);
     if (!cls) {
       res.status(200).json({ result: "no_class" });
       return;

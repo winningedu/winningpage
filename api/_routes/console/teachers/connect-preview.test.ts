@@ -177,6 +177,77 @@ describe("GET /api/console/teachers/connect-preview", () => {
     });
   });
 
+  describe("학원의 다학년 학급", () => {
+    beforeEach(() => {
+      kit.state.rows.tenants = () => ({
+        school_year: 2026,
+        org_type: "사기업",
+      });
+      kit.state.rows.classes = (f) =>
+        matchRows(
+          [
+            {
+              id: "c-g",
+              tenant_id: T,
+              school_year: 2026,
+              grade: "고2",
+              group_id: null,
+              name: "A",
+            },
+            {
+              id: "c-m",
+              tenant_id: T,
+              school_year: 2026,
+              grade: null,
+              group_id: null,
+              name: "A",
+            },
+          ],
+          f,
+        );
+      kit.state.rows.student_enrollments = (f) =>
+        matchRows(
+          [
+            {
+              tenant_id: T,
+              school_year: 2026,
+              status: "active",
+              class_id: "c-m",
+              student_id: "s-mix",
+              number: 7,
+            },
+          ],
+          f,
+        );
+      kit.state.rows.profiles = (f) =>
+        matchRows([{ id: "s-mix", name: "오지안" }], f);
+    });
+
+    test("같은 그룹과 이름의 다학년 학급이 학년 학급보다 먼저다", async () => {
+      const r = await get({ ...BASE, name: "오지안", className: "A" });
+
+      expect(r.body).toMatchObject({ result: "already_signed_up" });
+    });
+
+    test("그 학년의 학급이 없어도 다학년 학급으로 연결된다", async () => {
+      const r = await get({
+        ...BASE,
+        grade: "고1",
+        name: "정도윤",
+        className: "A",
+        number: "7",
+      });
+
+      expect(r.body).toMatchObject({ result: "number_taken" });
+    });
+
+    test("다른 이름은 여전히 없는 학급이다", async () => {
+      expect((await get({ ...BASE, className: "B" })).body).toEqual({
+        result: "no_class",
+      });
+    });
+  });
+
   test("이름, 학년, 반, 번호가 비었거나 번호가 숫자가 아니면 400 이다", async () => {
     expect((await get({ ...BASE, name: " " })).status).toBe(400);
     expect((await get({ ...BASE, number: "0" })).status).toBe(400);
