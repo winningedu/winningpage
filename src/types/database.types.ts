@@ -6339,6 +6339,58 @@ export type Database = {
         };
         Relationships: [];
       };
+      roster_pending_students: {
+        Row: {
+          class_id: string;
+          created_at: string;
+          created_by: string | null;
+          grade: string;
+          id: string;
+          name: string;
+          number: number | null;
+          school_year: number;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          class_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          grade: string;
+          id?: string;
+          name: string;
+          number?: number | null;
+          school_year: number;
+          tenant_id: string;
+        };
+        Update: {
+          class_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          grade?: string;
+          id?: string;
+          name?: string;
+          number?: number | null;
+          school_year?: number;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "roster_pending_students_class_id_tenant_id_school_year_grade_fkey";
+            columns: ["class_id", "tenant_id", "school_year", "grade"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id", "tenant_id", "school_year", "grade"];
+          },
+          {
+            foreignKeyName: "roster_pending_students_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       selfeval_reports: {
         Row: {
           char_count: Json | null;
@@ -9222,6 +9274,49 @@ export type Database = {
           p_user_id: string;
         };
         Returns: Json;
+      };
+      fn_roster_midyear: {
+        Args: {
+          p_actor: string;
+          p_pending: Json;
+          p_rows: Json;
+          p_tenant: string;
+        };
+        Returns: {
+          pending_skipped: number;
+          pending_stored: number;
+          skipped_count: number;
+          updated_count: number;
+        }[];
+      };
+      fn_roster_pending_replace: {
+        Args: {
+          p_actor: string;
+          p_rows: Json;
+          p_tenant: string;
+          p_year: number;
+        };
+        Returns: {
+          skipped_count: number;
+          stored_count: number;
+        }[];
+      };
+      fn_roster_rollover: {
+        Args: {
+          p_actor: string;
+          p_pending: Json;
+          p_rows: Json;
+          p_tenant: string;
+          p_to_year: number;
+        };
+        Returns: {
+          assigned_count: number;
+          graduated_count: number;
+          pending_skipped: number;
+          pending_stored: number;
+          promoted_count: number;
+          skipped_count: number;
+        }[];
       };
       fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
       fn_school_year_rollover: {
