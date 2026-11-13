@@ -388,7 +388,7 @@ describe("b2b Header 계정 종류별 데스크톱 영역", () => {
 });
 
 describe("b2b Header 소속 칩", () => {
-  it("칩은 메뉴 알약 시작점(NAV_LEFT) 앞에서 끝나도록 폭이 제한되고 말줄임과 title을 가진다", async () => {
+  it("칩은 120rem 이상에서만 보이고 메뉴 알약 시작점(NAV_LEFT) 앞에서 끝나도록 폭이 제한되며 말줄임과 title을 가진다", async () => {
     mockProfileRow = {
       id: "u1",
       email: "s@test.com",
@@ -408,6 +408,9 @@ describe("b2b Header 소속 칩", () => {
     expect(chip).toHaveAttribute("title", "위닝고등학교");
     expect(chip).toHaveClass("min-w-0", "truncate");
     expect(chip.style.maxWidth).toContain(NAV_LEFT);
+    // 폭 상한이 남기는 글자 자리가 1440px에서는 11px 남짓이라 120rem(1920px) 미만에서는 칩을 숨긴다.
+    expect(chip).toHaveClass("hidden", "min-[120rem]:block");
+    expect(chip).not.toHaveClass("desktop:block");
   });
 });
 

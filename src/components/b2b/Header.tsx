@@ -11,9 +11,11 @@ import { signOutB2B, useB2BAccount } from "./useB2BAccount";
 
 const CLOSE_DELAY_MS = 100;
 
-// 소속 칩 폭 상한 계산용. 아래 헤더 좌우 패딩, 로고 폭, 칩 왼쪽 여백과 맞춰 둔다.
+// 헤더 좌우 패딩과 데스크톱 로고 폭. 클래스는 CSS 변수로 읽고(정적 클래스 스캔 때문에 값을 클래스에 끼울 수 없다),
+// 소속 칩 폭 상한 계산도 같은 값을 쓴다. 뒤의 0.75rem은 칩 왼쪽 여백, 1rem은 메뉴 알약과의 간격이다.
 const HEADER_PAD_X = "clamp(2rem, 6.25vw, 7.5rem)";
-const CHIP_MAX_W = `calc(${NAV_LEFT} - ${HEADER_PAD_X} - 9.881rem - 0.75rem - 1rem)`;
+const LOGO_W_DESKTOP = "9.881rem";
+const CHIP_MAX_W = `calc(${NAV_LEFT} - ${HEADER_PAD_X} - ${LOGO_W_DESKTOP} - 0.75rem - 1rem)`;
 
 const CHIP = "rounded-sm px-2.5 py-1 text-xs";
 const ACCOUNT_PILL =
@@ -75,18 +77,26 @@ export default function Header({ showHome = false }: { showHome?: boolean }) {
       onMouseEnter={cancelClose}
       onMouseLeave={scheduleClose}
     >
-      <div className="flex h-full items-center justify-between px-8 desktop:px-[clamp(2rem,6.25vw,7.5rem)]">
+      <div
+        className="flex h-full items-center justify-between px-8 desktop:px-(--header-pad-x)"
+        style={
+          {
+            "--header-pad-x": HEADER_PAD_X,
+            "--header-logo-w": LOGO_W_DESKTOP,
+          } as React.CSSProperties
+        }
+      >
         <Link to="/" className="flex shrink-0 items-center">
           <img
             src={site.logo.horizontal}
             alt={site.brandName}
-            className="h-5.5 w-[9.675rem] object-contain desktop:w-[9.881rem]"
+            className="h-5.5 w-[9.675rem] object-contain desktop:w-(--header-logo-w)"
           />
         </Link>
         {loggedIn && account.orgName && (
           <span
             title={account.orgName}
-            className={`${CHIP} ml-3 hidden min-w-0 truncate bg-surface-muted text-ink-strong desktop:block`}
+            className={`${CHIP} ml-3 hidden min-w-0 truncate bg-surface-muted text-ink-strong min-[120rem]:block`}
             style={{ maxWidth: CHIP_MAX_W }}
           >
             {account.orgName}
