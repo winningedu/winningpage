@@ -176,12 +176,11 @@ function pendingOf(
     // 졸업하는 학년의 명단 줄은 저장하지 않는다(적용에서 건너뜀으로 센다).
     grade = null;
   } else if (midyear) {
-    grade = resolveGrade(from.grade, current);
+    grade = existing;
   } else if (to.grade !== "") {
     grade = resolveGrade(to.grade, current.map(nextGrade));
   } else {
-    const now = resolveGrade(from.grade, current);
-    grade = now === null ? null : nextGrade(now);
+    grade = existing === null ? null : nextGrade(existing);
   }
   const target = targetOf({ ...line, to }, grade ?? "", input);
   const unknownGroup = !isNoGroup(to.group) && target.groupId === null;

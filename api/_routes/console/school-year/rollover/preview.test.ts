@@ -207,7 +207,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
     });
 
     const MIDYEAR_TEXT = [
-      "김하늘\t1학년\tA레벨\t4\t7\t3학년\tA레벨\t5\t2",
+      "김하늘\t1학년\tA레벨\t4\t7\t1학년\tA레벨\t5\t2",
       "없는사람\t1학년\t\t4\t1\t\t\t\t",
     ].join("\n");
 
@@ -220,6 +220,7 @@ describe("POST /api/console/school-year/rollover/preview", () => {
           {
             studentId: "s1",
             from: { grade: "고1" },
+            result: "class_changed",
             to: { grade: "고1", groupName: "A레벨", className: "5", number: 2 },
           },
           { studentId: null, result: "student_not_found" },
