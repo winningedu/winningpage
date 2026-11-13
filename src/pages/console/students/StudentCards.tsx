@@ -1,6 +1,7 @@
 // W6 휴대폰 카드 목록. 이름은 줄여 쓰지 않고 줄바꿈한다.
 
 import { Button } from "@/components/ui/button";
+import Chip from "../Chip";
 import NameCell from "../NameCell";
 import RateCell from "./RateCell";
 import ServiceIcons from "./ServiceIcons";
@@ -36,19 +37,29 @@ export default function StudentCards({
           className="flex flex-col gap-3 border-b border-line py-4"
         >
           <div className="flex items-start justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => onOpen(row.studentId)}
-              className="flex flex-col gap-1 text-left"
-            >
-              <NameCell name={row.displayName} />
-              <span className="text-app-caption text-ink">
-                {`${gradeClassOf(row, academy)} ${numberOf(row)}`}
+            {row.pending ? (
+              <span className="flex flex-col items-start gap-1">
+                <NameCell name={row.displayName} />
+                <span className="text-app-caption text-ink">
+                  {`${gradeClassOf(row, academy)} ${numberOf(row)}`}
+                </span>
+                <Chip tone="Neutral">미회원가입</Chip>
               </span>
-              <span className="text-app-caption text-ink-sub">
-                {joinedLabel(row.joinedAt)}
-              </span>
-            </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOpen(row.studentId)}
+                className="flex flex-col gap-1 text-left"
+              >
+                <NameCell name={row.displayName} />
+                <span className="text-app-caption text-ink">
+                  {`${gradeClassOf(row, academy)} ${numberOf(row)}`}
+                </span>
+                <span className="text-app-caption text-ink-sub">
+                  {joinedLabel(row.joinedAt)}
+                </span>
+              </button>
+            )}
             <span className="flex w-[4.75rem] shrink-0 flex-col items-start gap-1">
               <span className="text-app-caption text-ink-sub">
                 학습진단 긴급도
@@ -72,7 +83,7 @@ export default function StudentCards({
               thresholds={thresholds}
             />
           )}
-          {showEdit && row.canEdit && (
+          {showEdit && row.canEdit && !row.pending && (
             <Button
               type="button"
               variant="ghost"

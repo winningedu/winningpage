@@ -197,6 +197,40 @@ describe("W6 학생 관리 default", () => {
   });
 });
 
+describe("W6 학생 관리 미회원가입", () => {
+  it("가입 전 줄은 미회원가입 표시와 함께 보이고, 이름을 눌러도 상세가 열리지 않으며 편집하기가 없다", async () => {
+    const calls = stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          student(1),
+          student(2, {
+            pending: true,
+            studentId: "p1",
+            displayName: "한가입",
+            joinedAt: null,
+            canEdit: false,
+            services: noServices,
+            serviceCount: 0,
+          }),
+        ]),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/students");
+
+    const row = (await screen.findByText("한가입")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(within(row).getByText("미회원가입")).toBeTruthy();
+    expect(within(row).queryByRole("button")).toBeNull();
+    expect(within(row).getByText("2학년 3반")).toBeTruthy();
+    const real = screen.getByText("김서연").closest("tr") as HTMLElement;
+    expect(within(real).queryByText("미회원가입")).toBeNull();
+    expect(within(real).getByRole("button", { name: "편집하기" })).toBeTruthy();
+    expect(calls.some((c) => c.key.includes("/students/detail"))).toBe(false);
+  });
+});
+
 describe("W6 학생 관리 상태", () => {
   it("범위 안에 학생이 없으면 안내만 보이고 버튼은 없다", async () => {
     stubPage({
