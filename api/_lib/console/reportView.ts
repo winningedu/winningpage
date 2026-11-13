@@ -16,10 +16,9 @@ const META_KEYS = new Set([
   "evidence_ids",
 ]);
 
-/** JSON 안의 문장과 숫자를 줄바꿈으로 이어 붙인다. 불리언과 빈 값은 건너뛴다. */
+/** JSON 안의 문장을 줄바꿈으로 이어 붙인다. 숫자와 불리언, 빈 값은 건너뛴다. */
 export function flattenText(value: unknown): string {
   if (typeof value === "string") return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
   if (Array.isArray(value)) {
     return value.map(flattenText).filter(Boolean).join("\n");
   }
