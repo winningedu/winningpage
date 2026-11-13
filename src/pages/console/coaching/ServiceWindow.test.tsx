@@ -382,7 +382,7 @@ describe("W9b 리포트 보기 전용", () => {
       name: "목표관리 리포트",
     });
     const layer = (await within(viewer).findAllByText(/박지훈.*열람 전용/))[0]
-      .parentElement as HTMLElement;
+      ?.parentElement as HTMLElement;
     const content = layer.parentElement as HTMLElement;
     expect(content.contains(screen.getByText("근거를 더 쓰세요"))).toBe(true);
     expect(content.classList.contains("overflow-y-auto")).toBe(false);

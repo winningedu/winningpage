@@ -20,7 +20,7 @@ describe("reportSections", () => {
 
   test("긴 구역도 자르지 않는다", () => {
     const long = "가".repeat(9000);
-    const [s] = reportSections([{ title: "긴 글", body: long }]);
-    expect(s.text).toBe(long);
+    const sections = reportSections([{ title: "긴 글", body: long }]);
+    expect(sections[0]?.text).toBe(long);
   });
 });
