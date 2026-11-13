@@ -373,7 +373,7 @@ describe("ImportSetupPage 미리보기", () => {
     expect(screen.getAllByText("새 반과 번호 확인").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "결과 종류: 반영, 미회원가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미회원가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
@@ -591,6 +591,16 @@ describe("ImportSetupPage 학기 중 적용", () => {
   const MIDYEAR = { rolledOver: true, mode: "midyear", toYear: 2026 };
   const MID_PREVIEW = {
     ...PREVIEW,
+    rows: [
+      {
+        line: 1,
+        displayName: "김*늘",
+        from: { grade: "고1", groupName: null, className: "4", number: 7 },
+        to: { grade: "고1", groupName: null, className: "3", number: 8 },
+        studentId: "s1",
+        result: "class_changed",
+      },
+    ],
     summary: { graduate: 0, promote: 0, waiting: 0 },
     applyRows: [
       { studentId: "s1", groupId: null, className: "3", number: 8, version: 2 },
@@ -619,6 +629,10 @@ describe("ImportSetupPage 학기 중 적용", () => {
     await midyearPreview();
 
     expect(screen.queryByText(/진급 대상/)).toBeNull();
+    const changed = (await screen.findByText("김*늘")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(within(changed).getByText("반 변경")).toBeTruthy();
     expect(
       screen.getByText(/학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요/),
     ).toBeTruthy();
@@ -627,7 +641,7 @@ describe("ImportSetupPage 학기 중 적용", () => {
       await screen.findByText("그룹, 반, 번호 변경을 적용할까요?"),
     ).toBeTruthy();
     const dialog = within(screen.getByRole("dialog"));
-    expect(dialog.getByText("그룹, 반, 번호 변경 대상")).toBeTruthy();
+    expect(dialog.getByText("명단에서 찾은 학생")).toBeTruthy();
     expect(dialog.getByText("2명")).toBeTruthy();
     expect(dialog.queryByText(/학년 \+1/)).toBeNull();
     expect(dialog.queryByText(/졸업/)).toBeNull();

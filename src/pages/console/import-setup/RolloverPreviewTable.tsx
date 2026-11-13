@@ -25,7 +25,8 @@ export type PreviewResult =
   | "check_target"
   | "duplicate_target"
   | "same_name"
-  | "no_homeroom";
+  | "no_homeroom"
+  | "class_changed";
 
 export interface PreviewRow {
   line: number;
@@ -37,6 +38,7 @@ export interface PreviewRow {
 
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
   applied: { label: "반영", tone: "Success" },
+  class_changed: { label: "반 변경", tone: "Warning" },
   student_not_found: { label: "미회원가입", tone: "Danger" },
   graduating: { label: "3학년은 졸업 처리 대상", tone: "Warning" },
   check_target: { label: "새 반과 번호 확인", tone: "Warning" },

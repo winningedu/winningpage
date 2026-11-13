@@ -12,7 +12,7 @@ export interface RolloverSummary {
 
 interface RolloverConfirmDialogProps {
   open: boolean;
-  /** midyear 는 학년을 두고 그룹, 반, 번호만 바꾼다. changeCount 는 그때 바뀔 학생 수. */
+  /** midyear 는 학년을 두고 그룹, 반, 번호만 바꾼다. changeCount 는 그때 명단에서 찾은 학생 수(바뀌지 않는 학생도 든다). */
   mode: "rollover" | "midyear";
   changeCount: number;
   summary: RolloverSummary;
@@ -32,7 +32,7 @@ export default function RolloverConfirmDialog({
 }: RolloverConfirmDialogProps) {
   const midyear = mode === "midyear";
   const items = midyear
-    ? [{ label: "그룹, 반, 번호 변경 대상", value: changeCount }]
+    ? [{ label: "명단에서 찾은 학생", value: changeCount }]
     : [
         { label: "졸업 처리 대상", value: summary.graduate },
         { label: "학년 +1 대상", value: summary.promote },
