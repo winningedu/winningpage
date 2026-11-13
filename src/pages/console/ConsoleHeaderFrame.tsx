@@ -7,7 +7,7 @@ export default function ConsoleHeaderFrame() {
   return (
     <>
       <Header />
-      <div className="pt-16">
+      <div className="console-frame-body pt-16">
         <Outlet />
       </div>
     </>

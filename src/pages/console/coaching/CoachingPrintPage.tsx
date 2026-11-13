@@ -22,7 +22,13 @@ const PRINT_RULE = `
   @media print {
     @page { size: A4 portrait; margin: 12mm; }
     #root > header { display: none !important; }
+    .console-frame-body { padding-top: 0 !important; }
+    .coaching__print-root { padding: 0 !important; gap: 0 !important; }
     .coaching__print { break-after: page; }
+    .coaching__print-p2 { break-after: avoid; }
+    .coaching__print, .coaching__print-p2 { gap: 0.75rem !important; }
+    .coaching__print p, .coaching__print-p2 p { line-height: 1.4 !important; }
+    .coaching__print li, .coaching__print-p2 li, .coaching__print [class*="rounded-"], .coaching__print-p2 [class*="rounded-"], .coaching__keep { break-inside: avoid; }
   }
 `;
 
@@ -56,7 +62,7 @@ export default function CoachingPrintPage() {
   if (!data) return null;
   const classText = studentClassText(data.student);
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="coaching__print-root flex flex-col gap-6 p-6">
       <style>{PRINT_RULE}</style>
       <section className="coaching__print flex flex-col gap-6">
         <h1 className="text-app-title font-bold text-ink-strong">
@@ -74,7 +80,9 @@ export default function CoachingPrintPage() {
         <CompetencyList data={data} />
       </section>
       <section className="coaching__print-p2 flex flex-col gap-6">
-        <AxisPanel data={data} />
+        <div className="coaching__keep">
+          <AxisPanel data={data} />
+        </div>
         <Narrative data={data} />
       </section>
     </div>
