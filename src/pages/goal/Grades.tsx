@@ -17,6 +17,8 @@ import {
 import {
   improvementDelta,
   latestKpi,
+  mockBaselineRow,
+  naesinBaselineRow,
   round1,
   toTableRows,
 } from "@/lib/goalGrades";
@@ -65,6 +67,7 @@ type GradesState =
         currentMogo?: number | null;
         lastMogoExam?: string | null;
       };
+      mockInput: Record<string, unknown> | null;
       naesinRecords: GradeRecord[];
       mockRecords: GradeRecord[];
     };
@@ -129,6 +132,7 @@ export default function Grades() {
       status: "ready",
       targets: studentResult.student.targets,
       scores: studentResult.student.scores,
+      mockInput: studentResult.student.mockInput,
       naesinRecords: gradesResult.naesinRecords,
       mockRecords: gradesResult.mockRecords,
     } as unknown as GradesState;
@@ -240,7 +244,7 @@ export default function Grades() {
     );
   }
 
-  const { targets, scores, naesinRecords, mockRecords } = state;
+  const { targets, scores, mockInput, naesinRecords, mockRecords } = state;
 
   // .find()는 항상 T | undefined를 돌려주므로(editingXxxTerm이 존재해도 배열에서 방금
   // 지워졌을 수 있음), exactOptionalPropertyTypes 아래서 모달 props로 안전하게 넘기려면
@@ -322,6 +326,7 @@ export default function Grades() {
 
         <GoalTable
           title="내신・회차별 등급"
+          baselineRow={naesinBaselineRow(scores.convertedGrade)}
           // GoalTable의 GoalTableRow는 미export라 여기서 컴포넌트 prop 타입으로 우회 단언한다.
           // exactOptionalPropertyTypes가 명시적 undefined 값을 막을 뿐 런타임 형태는 동일하다.
           rows={
@@ -342,6 +347,7 @@ export default function Grades() {
         />
         <GoalTable
           title="모의고사・회차별 백분위"
+          baselineRow={mockBaselineRow(scores.currentMogo, mockInput)}
           rows={
             toTableRows(mockRecords) as ComponentProps<typeof GoalTable>["rows"]
           }
