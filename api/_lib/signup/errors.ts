@@ -20,6 +20,13 @@ export const NUMBER_TAKEN_SAME_NAME_MESSAGE =
 export const NUMBER_TAKEN_OTHER_MESSAGE =
   "동일한 학년, 반, 번호의 학생이 이미 존재합니다. 학년, 반, 번호를 다시 확인해 주세요";
 
+// 교착(40P01), 잠금 대기 시간 초과(55P03), statement_timeout(57014, API 역할의 8초)은 명단 적용과 겹친 가입이다. 다시 시도하면 된다.
+const TRY_AGAIN: SignupFailure = {
+  status: 409,
+  code: "TRY_AGAIN",
+  message: "잠시 뒤 다시 시도해 주세요.",
+};
+
 const BY_SQLSTATE: Record<string, SignupFailure> = {
   WC074: {
     status: 403,
@@ -46,6 +53,9 @@ const BY_SQLSTATE: Record<string, SignupFailure> = {
     code: "WC080",
     message: "등록되지 않은 그룹이에요.",
   },
+  "40P01": TRY_AGAIN,
+  "55P03": TRY_AGAIN,
+  "57014": TRY_AGAIN,
 };
 
 const IDENTITY_REQUIRED: SignupFailure = {
