@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
         assigned_count: 18,
         pending_stored: 2,
         pending_skipped: 1,
+        pending_deleted: 3,
       },
     ],
     error: null,
@@ -126,6 +127,7 @@ beforeEach(() => {
         assigned_count: 18,
         pending_stored: 2,
         pending_skipped: 1,
+        pending_deleted: 3,
       },
     ],
     error: null,
@@ -156,6 +158,7 @@ describe("POST /api/console/school-year/rollover", () => {
         mode: "rollover",
         pendingStored: 2,
         pendingSkipped: 1,
+        pendingDeleted: 3,
       },
     });
     expect(rolloverCall()?.args).toEqual({
@@ -234,6 +237,7 @@ describe("POST /api/console/school-year/rollover", () => {
             skipped_count: 1,
             pending_stored: 2,
             pending_skipped: 0,
+            pending_deleted: 6,
           },
         ],
         error: null,
@@ -264,6 +268,7 @@ describe("POST /api/console/school-year/rollover", () => {
           skipped: 1,
           pendingStored: 2,
           pendingSkipped: 0,
+          pendingDeleted: 6,
         },
       });
       expect(midyearCall()?.args).toEqual({
@@ -292,7 +297,14 @@ describe("POST /api/console/school-year/rollover", () => {
       expect(
         state.inserts.find((i) => i.table === "admin_access_logs")?.row,
       ).toMatchObject({
-        meta: { mode: "midyear", toYear: 2026, updated: 4 },
+        meta: {
+          mode: "midyear",
+          toYear: 2026,
+          updated: 4,
+          pendingStored: 2,
+          pendingSkipped: 0,
+          pendingDeleted: 6,
+        },
       });
     });
 

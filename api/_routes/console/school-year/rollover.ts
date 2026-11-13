@@ -44,6 +44,7 @@ interface RolloverCounts {
   assigned_count: number;
   pending_stored: number;
   pending_skipped: number;
+  pending_deleted: number;
 }
 
 interface MidyearCounts {
@@ -51,6 +52,7 @@ interface MidyearCounts {
   skipped_count: number;
   pending_stored: number;
   pending_skipped: number;
+  pending_deleted: number;
 }
 
 const MAX_NAME_LENGTH = 50;
@@ -168,6 +170,7 @@ export default defineHandler({
     const pendingCounts = {
       pendingStored: counts.pending_stored,
       pendingSkipped: counts.pending_skipped,
+      pendingDeleted: counts.pending_deleted,
     };
     const result =
       mode === "midyear"
