@@ -86,6 +86,12 @@ describe("sendEnrollmentRpcError", () => {
       "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
     ],
     [
+      "57014",
+      409,
+      "TRY_AGAIN",
+      "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
+    ],
+    [
       "WC105",
       409,
       "MIXED_CLASS_NAME_TAKEN",

@@ -1,4 +1,4 @@
-// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC103, WC105, WC068, 40P01, 55P03, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
+// 학적 RPC(WC077 에서 WC087, WC094, WC096, WC098, WC099, WC103, WC105, WC068, 40P01, 55P03, 57014, 외래키 23503, 22023, 23514)의 에러를 코드가 붙은 HTTP 에러로 바꾼다.
 // 코드는 supabase/migrations 의 b2b_student_enrollments, b2b_enrollment_change_requests,
 // b2b_school_year_rollover 가 정한다.
 
@@ -19,6 +19,12 @@ const INVALID_CLASS: Mapped = {
   status: 400,
   code: "INVALID_CLASS",
   message: "학년, 학급 정보를 확인해 주세요.",
+};
+
+const LOCK_WAIT_STOPPED: Mapped = {
+  status: 409,
+  code: "TRY_AGAIN",
+  message: "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
 };
 
 const MAPPED: Record<string, Mapped> = {
@@ -120,12 +126,9 @@ const MAPPED: Record<string, Mapped> = {
     code: "TRY_AGAIN",
     message: "다른 작업과 겹쳤어요. 잠시 뒤 다시 시도해 주세요.",
   },
-  "55P03": {
-    status: 409,
-    code: "TRY_AGAIN",
-    message:
-      "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
-  },
+  "55P03": LOCK_WAIT_STOPPED,
+  // API 역할에서는 잠금 대기가 statement_timeout(8초)에 먼저 걸려 57014 로 끝난다. 같은 다시 시도 응답이다.
+  "57014": LOCK_WAIT_STOPPED,
   // 같은 그룹과 이름의 학년 학급이 이미 있어 다학년 학급을 만들 수 없다(fn_class_ensure).
   WC105: {
     status: 409,
