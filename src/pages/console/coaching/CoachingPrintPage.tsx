@@ -27,9 +27,8 @@ const PRINT_RULE = `
     .coaching__print { break-after: page; }
     .coaching__print-p2 { break-after: avoid; }
     .coaching__print, .coaching__print-p2 { gap: 0.75rem !important; }
-    .coaching__print [class*="gap-"], .coaching__print-p2 [class*="gap-"] { gap: 0.5rem !important; }
-    .coaching__print *, .coaching__print-p2 * { line-height: 1.4 !important; }
-    .coaching__print > *, .coaching__print-p2 > *, .coaching__print li, .coaching__print-p2 li, .coaching__print-p2 [class*="rounded-"] { break-inside: avoid; }
+    .coaching__print p, .coaching__print-p2 p { line-height: 1.4 !important; }
+    .coaching__print li, .coaching__print-p2 li, .coaching__print [class*="rounded-"], .coaching__print-p2 [class*="rounded-"], .coaching__keep { break-inside: avoid; }
   }
 `;
 
@@ -81,7 +80,9 @@ export default function CoachingPrintPage() {
         <CompetencyList data={data} />
       </section>
       <section className="coaching__print-p2 flex flex-col gap-6">
-        <AxisPanel data={data} />
+        <div className="coaching__keep">
+          <AxisPanel data={data} />
+        </div>
         <Narrative data={data} />
       </section>
     </div>
