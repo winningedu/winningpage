@@ -1,5 +1,5 @@
 // W9b 리포트 보기 전용. 글만 보이고 인쇄와 내려받기가 없다. 열람자 이름이 워터마크로 깔리고
-// 워터마크는 스크롤하는 글 전체에 깔린다. 인쇄물에서는 통째로 숨고(@media print), 오른쪽 클릭 메뉴와 글 선택을 막는다.
+// 워터마크는 스크롤하지 않는 겹침 칸이라 글이 길어도 보이는 쪽을 덮는다. 인쇄물에서는 통째로 숨고(@media print), 오른쪽 클릭 메뉴와 글 선택을 막는다.
 // 휴대폰에서는 화면 전체를 쓴다.
 
 import { Button } from "@/components/ui/button";
@@ -44,17 +44,8 @@ export default function ReportViewer({
         <DialogTitle className="px-6 pt-6 text-app-section font-semibold text-ink-strong">
           {title}
         </DialogTitle>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-          <div className="relative overflow-hidden">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 grid grid-cols-2 auto-rows-[12rem] items-center text-center text-app-label font-semibold text-ink-sub/20 -rotate-12"
-            >
-              {Array.from({ length: 120 }, (_, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: 같은 글을 반복해 깐다
-                <span key={i}>{mark}</span>
-              ))}
-            </div>
+        <div className="relative min-h-0 flex-1">
+          <div className="h-full overflow-y-auto px-6 pb-6">
             <div className="relative flex flex-col gap-5">
               {report.isPending && (
                 <p className="text-app-body text-ink-sub">불러오는 중</p>
@@ -88,6 +79,15 @@ export default function ReportViewer({
                 </section>
               ))}
             </div>
+          </div>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 grid grid-cols-2 content-around gap-y-24 text-center text-app-label font-semibold text-ink-sub/20 -rotate-12"
+          >
+            {Array.from({ length: 12 }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: 같은 글을 반복해 깐다
+              <span key={i}>{mark}</span>
+            ))}
           </div>
         </div>
         <div className="flex justify-end px-6 pb-6">
