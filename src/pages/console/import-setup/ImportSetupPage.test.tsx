@@ -58,10 +58,11 @@ function stubImport(
     groups?: unknown;
     year?: Partial<typeof YEAR>;
     extra?: Record<string, ApiHandler>;
+    me?: unknown;
   } = {},
 ) {
   return stubApi({
-    "GET /api/console/me": { body: adminMe },
+    "GET /api/console/me": { body: over.me ?? adminMe },
     "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
     "GET /api/console/groups": { body: { groups: over.groups ?? GROUPS } },
     "GET /api/console/school-year": { body: { ...YEAR, ...over.year } },
@@ -331,10 +332,15 @@ const PREVIEW = {
   summary: { graduate: 150, promote: 300, waiting: 3 },
 };
 
-async function previewIt(extra: Record<string, ApiHandler> = {}) {
+async function previewIt(
+  extra: Record<string, ApiHandler> = {},
+  preview: unknown = PREVIEW,
+  me: unknown = adminMe,
+) {
   const calls = stubImport({
+    me,
     extra: {
-      "POST /api/console/school-year/rollover/preview": { body: PREVIEW },
+      "POST /api/console/school-year/rollover/preview": { body: preview },
       ...extra,
     },
   });
@@ -377,6 +383,101 @@ describe("ImportSetupPage 미리보기", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
+  });
+});
+
+describe("ImportSetupPage 미리보기 학원", () => {
+  const academyMe = {
+    ...adminMe,
+    tenant: { ...adminMe.tenant, orgType: "사기업" },
+  };
+  const MIXED_PREVIEW = {
+    ...PREVIEW,
+    rows: [
+      {
+        line: 1,
+        displayName: "김*늘",
+        from: { grade: "고1", groupName: null, className: "4", number: 7 },
+        to: {
+          grade: null,
+          groupName: null,
+          className: "A",
+          number: 1,
+          mixed: true,
+        },
+        studentId: "s1",
+        result: "applied",
+      },
+      PREVIEW.rows[1],
+    ],
+    applyRows: [
+      {
+        studentId: "s1",
+        groupId: null,
+        className: "A",
+        number: 1,
+        mixed: true,
+      },
+    ],
+  };
+
+  it("다학년 줄은 새 칸에 다학년으로, 나머지 학년은 고1 처럼 원래 값으로, 졸업 칩은 고3 으로 말한다", async () => {
+    await previewIt({}, MIXED_PREVIEW, academyMe);
+
+    expect(await screen.findByText("고1, 없음, 4반, 7번")).toBeTruthy();
+    expect(screen.getByText("다학년, 없음, A반, 1번")).toBeTruthy();
+    expect(screen.getByText("고3, A레벨, 1반, 번호 미입력")).toBeTruthy();
+    expect(screen.getByText("고3은 졸업 처리 대상")).toBeTruthy();
+    expect(screen.queryByText("3학년은 졸업 처리 대상")).toBeNull();
+    expect(
+      screen.getByText(
+        "결과 종류: 반영, 반 변경, 미회원가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("적용하면 다학년 표시가 붙은 줄을 그대로 서버에 보낸다", async () => {
+    const calls = await previewIt(
+      {
+        "POST /api/console/school-year/rollover": {
+          body: {
+            ok: true,
+            graduated: 0,
+            promoted: 1,
+            skipped: 0,
+            assigned: 1,
+            mode: "rollover",
+            pendingStored: 0,
+            pendingSkipped: 0,
+            pendingDeleted: 0,
+          },
+        },
+      },
+      MIXED_PREVIEW,
+      academyMe,
+    );
+    await screen.findByText("다학년, 없음, A반, 1번");
+
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.key === "POST /api/console/school-year/rollover")
+          ?.body,
+      ).toMatchObject({
+        toYear: 2027,
+        rows: [
+          {
+            studentId: "s1",
+            groupId: null,
+            className: "A",
+            number: 1,
+            mixed: true,
+          },
+        ],
+      }),
+    );
   });
 });
 

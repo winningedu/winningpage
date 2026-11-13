@@ -8,13 +8,13 @@ import type { GradeLabeler } from "../classLabel";
 import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import { useToast } from "../Toast";
-import { useGradeLabel } from "../useConsoleMe";
+import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
 import RolloverConfirmDialog, {
   type RolloverSummary,
 } from "./RolloverConfirmDialog";
 import RolloverPreviewTable, {
   type PreviewRow,
-  RESULT_LEGEND,
+  resultLegend,
 } from "./RolloverPreviewTable";
 import TemplateLink from "./TemplateLink";
 
@@ -55,6 +55,7 @@ interface ApplyRow {
   groupId: string | null;
   className: string;
   number: number | null;
+  mixed?: boolean;
 }
 
 interface PendingRow {
@@ -63,6 +64,7 @@ interface PendingRow {
   groupId: string | null;
   className: string | null;
   number: number | null;
+  mixed?: boolean;
 }
 
 interface Preview {
@@ -101,6 +103,7 @@ export default function RolloverSection({
   onTextChange,
 }: RolloverSectionProps) {
   const gradeLabel = useGradeLabel();
+  const academy = useIsAcademy();
   const toast = useToast();
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -264,7 +267,7 @@ export default function RolloverSection({
           <RolloverPreviewTable rows={preview.rows} />
           <div className="flex items-center gap-4">
             <p className="flex-1 text-app-label text-ink-sub">
-              {RESULT_LEGEND}
+              {resultLegend(academy)}
             </p>
             <Button
               type="button"
