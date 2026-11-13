@@ -81,6 +81,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 성적관리(grades.ts)가 naesin_scores/mock_exam_scores 안 최상위 `records`에 쌓은
+ * 회차는 이 라우트가 컬럼을 새 객체로 다시 쓸 때 사라진다. 기존 컬럼의 `records`가
+ * 배열이면 그대로(원소·순서 동일) 새 객체에 얹고, 아니면 키를 만들지 않는다.
+ */
+function withExistingRecords(
+  existingScores: unknown,
+  next: Record<string, unknown>,
+) {
+  const records = isPlainObject(existingScores)
+    ? existingScores.records
+    : undefined;
+  return Array.isArray(records) ? { ...next, records } : next;
+}
+
+/**
  * 요청 바디를 section별로 분기해 검증한다. 각 section의 실제 규칙(범위·필수값
  * 등)은 intake.ts의 validateTarget/validateNaesinInput/validateMockExamInput을
  * 그대로 위임한다 — 온보딩과 다른 규칙으로 갈리는 것을 막기 위해서다(파일 상단
@@ -334,7 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (value.section === "naesin") {
-      rowUpdate.naesin_scores = {
+      rowUpdate.naesin_scores = withExistingRecords(existing.naesin_scores, {
         lastExam: value.naesinLastExamKey,
         scale: value.naesinScale,
         overall: value.naesinAllNone ? null : Number(value.naesinOverall),
@@ -346,15 +361,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...(value.naesinAllNone
           ? { priorNaesinGrade: Number(value.priorNaesinGrade) }
           : {}),
-      };
+      });
     }
 
     if (value.section === "mock") {
-      rowUpdate.mock_exam_scores = {
-        lastRound: value.mockLastRoundKey,
-        track: value.mockTrack,
-        rounds: mockDerived.resolvedRounds,
-      };
+      rowUpdate.mock_exam_scores = withExistingRecords(
+        existing.mock_exam_scores,
+        {
+          lastRound: value.mockLastRoundKey,
+          track: value.mockTrack,
+          rounds: mockDerived.resolvedRounds,
+        },
+      );
     }
 
     const savedRow = await upsertStudentRow(supabaseAdmin, rowUpdate);
