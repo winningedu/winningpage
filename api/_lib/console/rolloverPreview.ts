@@ -1,7 +1,10 @@
 // 학년도 넘기기 미리보기(W11 ③). 붙여넣은 명단 줄을 현재 재학생과 맞추고 줄마다 결과를 정한다.
 // 순수 규칙만 둔다. 읽기와 응답은 라우트(school-year/rollover/preview)가 한다.
 //
-// 결과: student_not_found 현재 학생이 없음, same_name 같은 이름이 둘 이상이라 사람이 확인, graduating 졸업 대상,
+// 두 방식(mode): rollover 는 학년 +1 과 졸업, midyear 는 학년을 두고 그룹, 반, 번호만 바꾼다(학기 중 몇 번이든).
+// 현재 학생이 없는 줄(student_not_found)은 pendingRows 로 돌려줘 가입 전 명단(미회원가입)으로 저장하게 한다.
+//
+// 결과: student_not_found 현재 학생이 없음(미회원가입), same_name 같은 이름이 둘 이상이라 사람이 확인, graduating 졸업 대상,
 // check_target 새 학년, 그룹, 반, 번호를 확인해야 함, duplicate_target 같은 새 반과 번호가 겹침,
 // no_homeroom 새 반에 담임이 없음(안내만, 반영됨), applied 반영.
 // 졸업 학년은 호출부가 정한다(고3 항상, 중3 은 학교만). 새 학년은 현재 학년에서 한 학년 올린 값이다(중3 은 고1).
@@ -62,6 +65,15 @@ export interface ApplyRow {
   studentId: string;
   groupId: string | null;
   className: string;
+  number: number | null;
+}
+
+/** 가입하지 않은 학생의 명단 줄. 학년이나 반을 못 정한 줄은 null 로 두고 저장할 때 건너뛴다. */
+export interface PendingRow {
+  name: string;
+  grade: string | null;
+  groupId: string | null;
+  className: string | null;
   number: number | null;
 }
 
@@ -132,6 +144,45 @@ const isNoGroup = (cell: string) => cell === "" || cell === "없음";
 function nextGrade(grade: string): string {
   if (grade === "중3") return "고1";
   return ROLLOVER_GRADES[ROLLOVER_GRADES.indexOf(grade) + 1] ?? grade;
+}
+
+/** "고2" 처럼 학년이 적혔으면 그대로, "2학년" 처럼 숫자뿐이면 기관에 있는 학년 중 하나로 정해질 때만 정한다. */
+function resolveGrade(cell: string, known: string[]): string | null {
+  const text = cell.replace(/\s/g, "");
+  const explicit = ROLLOVER_GRADES.find((g) => text.startsWith(g));
+  if (explicit) return explicit;
+  const digit = digitOf(text);
+  if (!digit) return null;
+  const hits = [...new Set(known)].filter((g) => g.endsWith(digit));
+  return hits.length === 1 ? (hits[0] as string) : null;
+}
+
+function pendingOf(
+  line: ParsedLine,
+  midyear: boolean,
+  input: PreviewInput,
+): PendingRow {
+  const current = input.students.flatMap((s) => (s.grade ? [s.grade] : []));
+  const { from } = line;
+  const to = isRosterOnly(line) ? { ...from, grade: "" } : line.to;
+  let grade: string | null;
+  if (midyear) {
+    grade = resolveGrade(from.grade, current);
+  } else if (to.grade !== "") {
+    grade = resolveGrade(to.grade, current.map(nextGrade));
+  } else {
+    const now = resolveGrade(from.grade, current);
+    grade = now === null ? null : nextGrade(now);
+  }
+  const target = targetOf({ ...line, to }, grade ?? "", input);
+  const unknownGroup = !isNoGroup(to.group) && target.groupId === null;
+  return {
+    name: line.name,
+    grade,
+    groupId: target.groupId,
+    className: unknownGroup ? null : target.slot.className,
+    number: target.slot.number,
+  };
 }
 
 function slotOf(s: PreviewStudent): PreviewSlot {
@@ -209,10 +260,12 @@ const isRosterOnly = (line: ParsedLine) =>
 export function evaluateRolloverPreview(input: PreviewInput): {
   rows: PreviewRow[];
   applyRows: ApplyRow[];
+  pendingRows: PendingRow[];
   summary: { graduate: number; promote: number; waiting: number };
 } {
   const midyear = input.mode === "midyear";
   const rows: PreviewRow[] = [];
+  const pendingRows: PendingRow[] = [];
   const pending: {
     row: PreviewRow;
     target: Target;
@@ -242,6 +295,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     const masked = maskName(line.name);
     if (found.length === 0 || found.length > 1) {
       const same = found.length > 1;
+      if (!same) pendingRows.push(pendingOf(line, midyear, input));
       rows.push({
         line: line.line,
         displayName: same ? `${masked}*` : masked,
@@ -331,6 +385,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     return {
       rows,
       applyRows,
+      pendingRows,
       summary: { graduate: 0, promote: 0, waiting: 0 },
     };
   }
@@ -343,6 +398,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   return {
     rows,
     applyRows,
+    pendingRows,
     summary: { graduate, promote, waiting: promote - applyRows.length },
   };
 }

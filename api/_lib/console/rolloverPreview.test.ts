@@ -357,3 +357,80 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
     ]);
   });
 });
+
+describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
+  const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+
+  test("a not found line is kept with its new cells as the target, in mid-year the grade is the existing grade cell", () => {
+    const r = run("없는사람,1학년,,4,7,2학년,a레벨,3,8", [kim], {
+      mode: "midyear",
+    });
+
+    expect(r.rows[0]?.result).toBe("student_not_found");
+    expect(r.pendingRows).toEqual([
+      {
+        name: "없는사람",
+        grade: "고1",
+        groupId: "g-a",
+        className: "3",
+        number: 8,
+      },
+    ]);
+  });
+
+  test("with empty new cells the existing cells are the target; in rollover the grade is the next grade", () => {
+    const line = "없는사람,고1,,4,7";
+    expect(run(line, [kim], { mode: "midyear" }).pendingRows).toEqual([
+      {
+        name: "없는사람",
+        grade: "고1",
+        groupId: null,
+        className: "4",
+        number: 7,
+      },
+    ]);
+    expect(run(line, [kim]).pendingRows).toEqual([
+      {
+        name: "없는사람",
+        grade: "고2",
+        groupId: null,
+        className: "4",
+        number: 7,
+      },
+    ]);
+  });
+
+  test("a digit only grade is resolved against the grades the tenant has; an ambiguous or unknown one stays unresolved", () => {
+    const mixed = [
+      student({ studentId: "a", name: "가", grade: "중2" }),
+      student({ studentId: "b", name: "나", grade: "고2" }),
+    ];
+    const r = run("없는사람,2학년,,4,7", mixed, { mode: "midyear" });
+    expect(r.pendingRows).toEqual([
+      {
+        name: "없는사람",
+        grade: null,
+        groupId: null,
+        className: "4",
+        number: 7,
+      },
+    ]);
+  });
+
+  test("a line without a class, or with an unknown group, has no class so the apply skips it", () => {
+    const r = run("없는사람,1학년,,,\n없는둘,1학년,Z레벨,4,1", [kim], {
+      mode: "midyear",
+    });
+    expect(r.pendingRows.map((p) => p.className)).toEqual([null, null]);
+  });
+
+  test("same_name lines and matched lines are not pending", () => {
+    const twin = [
+      student({ studentId: "s1", name: "김하늘", grade: "고1", number: 1 }),
+      student({ studentId: "s2", name: "김하늘", grade: "고1", number: 2 }),
+    ];
+    const r = run("김하늘,1학년,,4,,,,5,1", twin, { mode: "midyear" });
+    expect(r.rows[0]?.result).toBe("same_name");
+    expect(r.pendingRows).toEqual([]);
+  });
+});
