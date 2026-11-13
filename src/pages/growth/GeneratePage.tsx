@@ -199,7 +199,6 @@ function GenerationRunner({
     if (action === "retry") retry();
     else if (action === "start") navigate(GROWTH_PATHS.home);
     else if (action === "pricing") navigate(PRICING_PATH);
-    else if (action === "collect") navigate(GROWTH_PATHS.collect);
     else navigate(GROWTH_PATHS.report(reportId));
   }
 
