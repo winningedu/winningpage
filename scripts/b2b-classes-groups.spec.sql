@@ -140,6 +140,51 @@ select pg_temp.expect_error('다른 테넌트 그룹을 쓰는 학급 거부',
   $$insert into public.classes (tenant_id, school_year, grade, group_id, name)
     values (pg_temp.fx('school'), 2026, '고3', (select v from ids where k = 'g1'), '9')$$, '23503');
 
+-- 다학년 학급(grade null): 학원만, 같은 입력이면 같은 학급(NULLS NOT DISTINCT 인덱스의 ON CONFLICT)
+insert into ids values
+  ('m1', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, ' M 7 ')),
+  ('m2', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, 'm7'));
+select pg_temp.expect_bool('다학년: 같은 입력이면 같은 학급(멱등)',
+  (select v from ids where k = 'm1') = (select v from ids where k = 'm2'), true);
+select pg_temp.expect_bool('다학년: grade 가 null 로 저장된다',
+  (select grade is null and name = 'M7' from public.classes where id = (select v from ids where k = 'm1')), true);
+select pg_temp.expect_bool('다학년: 한 기관, 학년도, 그룹, 이름에 한 학급뿐',
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('academy') and school_year = 2026
+     and grade is null and group_id is null and name = 'M7') = 1, true);
+select pg_temp.expect_error('다학년: 같은 다학년 학급 직접 insert 거부(null 도 같은 값)',
+  $$insert into public.classes (tenant_id, school_year, grade, group_id, name)
+    values (pg_temp.fx('academy'), 2026, null, null, 'M7')$$, '23505');
+select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 ensure 할 수 없다',
+  $$select public.fn_class_ensure(pg_temp.fx('school'), 2026, null, null, '5')$$, '22023');
+select pg_temp.expect_error('다학년: 학교는 학년 없는 학급을 직접 insert 할 수 없다',
+  $$insert into public.classes (tenant_id, school_year, grade, name) values (pg_temp.fx('school'), 2026, null, '5')$$, '23514');
+
+-- 이름 우선: 학원에서 학생이 실제 학년과 학급 이름을 보내면, 같은 기관, 학년도, 그룹, 이름의 다학년 학급이 먼저다
+select pg_temp.expect_bool('우선: 실제 학년으로 불러도 같은 이름의 다학년 학급을 돌려준다',
+  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, 'M7') = (select v from ids where k = 'm1'), true);
+select pg_temp.expect_bool('우선: 대소문자와 공백을 무시한다',
+  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '중1', null, ' m 7') = (select v from ids where k = 'm1'), true);
+select pg_temp.expect_bool('우선: 학년 있는 M7 학급은 그룹 없는 올해에는 만들어지지 않는다',
+  not exists (select 1 from public.classes where tenant_id = pg_temp.fx('academy') and school_year = 2026
+     and group_id is null and name = 'M7' and grade is not null), true);
+insert into ids values
+  ('pg', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', (select v from ids where k = 'g1'), 'M7')),
+  ('py', public.fn_class_ensure(pg_temp.fx('academy'), 2027, '고2', null, 'M7')),
+  ('p8', public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, 'M8'));
+select pg_temp.expect_bool('우선: 그룹이 다르면 다학년 학급이 아니라 새 학년 학급이다',
+  (select grade = '고2' and id <> (select v from ids where k = 'm1') from public.classes where id = (select v from ids where k = 'pg')), true);
+select pg_temp.expect_bool('우선: 학년도가 다르면 다학년 학급이 아니라 새 학년 학급이다',
+  (select grade = '고2' from public.classes where id = (select v from ids where k = 'py')), true);
+select pg_temp.expect_bool('우선: 다른 이름은 학년 학급을 만든다',
+  (select grade = '고2' from public.classes where id = (select v from ids where k = 'p8')), true);
+insert into ids values ('m8', public.fn_class_ensure(pg_temp.fx('academy'), 2026, null, null, 'M8'));
+select pg_temp.expect_bool('우선: 다학년을 직접 부르면 같은 이름의 학년 학급이 있어도 다학년 학급을 만든다',
+  (select grade is null and id <> (select v from ids where k = 'p8') from public.classes where id = (select v from ids where k = 'm8')), true);
+select pg_temp.expect_bool('우선: 그 뒤로는 M8 도 다학년 학급이 먼저다',
+  public.fn_class_ensure(pg_temp.fx('academy'), 2026, '고2', null, 'M8') = (select v from ids where k = 'm8'), true);
+select pg_temp.expect_text('우선: 학교는 영향이 없다(학년 학급)',
+  (select grade from public.classes where id = public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, '3')), '고1');
+
 -- 값 제약과 불변 컬럼
 select pg_temp.expect_error('grade 목록 밖 거부',
   $$insert into public.classes (tenant_id, school_year, grade, name)
