@@ -99,3 +99,33 @@ test("모의고사 설문 값은 마지막 회차의 국어, 수학, 탐구 백�
   expect(mockBaselineRow(0, null)).toBeNull();
   expect(mockBaselineRow(null, null)).toBeNull();
 });
+
+test("설문 회차가 여럿이면 국어, 수학, 탐구 칸은 종합 백분위가 쓰는 모든 회차의 평균이다", () => {
+  const row = mockBaselineRow(80, {
+    lastRound: "r3",
+    rounds: {
+      r1: {
+        kor: { pct: 90 },
+        math: { pct: 70 },
+        tam1: { pct: 80 },
+        tam2: { pct: 60 },
+      },
+      r2: { kor: { pct: 85 }, math: { grade: "3" }, tam1: { pct: 75 } },
+      r3: { kor: { pct: 80 }, math: { pct: 72 }, tam1: {}, tam2: {} },
+    },
+  });
+  expect(row).toEqual({
+    term: "설문 입력",
+    korean: 85,
+    math: 71,
+    science: 72.5,
+    average: 80,
+  });
+});
+
+test("rounds 모양이 없는 옛 행은 평균만 보인다", () => {
+  expect(mockBaselineRow(80, { lastRound: "x" })).toEqual({
+    term: "설문 입력",
+    average: 80,
+  });
+});

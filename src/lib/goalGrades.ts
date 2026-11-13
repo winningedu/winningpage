@@ -174,28 +174,39 @@ type StoredPct = { pct?: unknown } | undefined;
 const pctOf = (value: StoredPct) =>
   typeof value?.pct === "number" ? value.pct : null;
 
+const mean = (values: number[]) =>
+  values.length
+    ? round1(values.reduce((a, b) => a + b, 0) / values.length)
+    : null;
+
 /**
- * 모의고사 설문 행. 국어, 수학, 탐구 백분위는 마지막으로 고른 회차(mockInput.lastRound)에서 읽고,
- * 영어는 설문이 등급으로 받았으므로 칸을 비운다. 탐구는 두 과목 백분위의 평균이다.
+ * 모의고사 설문 행. 종합 백분위(calcJeongsiCompositeFE)가 저장된 모든 회차(mockInput.rounds)를
+ * 쓰므로 국어, 수학, 탐구 칸도 같은 회차 전체의 평균이다. 탐구는 회차별로 두 과목 평균을 낸 뒤
+ * 회차끼리 평균한다. 값이 없는 과목과 영어(설문이 등급으로 받음) 칸은 비운다. rounds 모양이 없으면 평균만 보인다.
  */
 export function mockBaselineRow(
   currentMogo: number | null | undefined,
   mockInput: Record<string, unknown> | null | undefined,
 ) {
   if (currentMogo == null || !(currentMogo > 0)) return null;
-  const rounds = (mockInput?.rounds ?? {}) as Record<
-    string,
-    Record<string, StoredPct> | undefined
-  >;
-  const round = rounds[String(mockInput?.lastRound ?? "")];
-  const tam = [pctOf(round?.tam1), pctOf(round?.tam2)].filter(
-    (v): v is number => v !== null,
+  const rounds = Object.values(
+    (mockInput?.rounds ?? {}) as Record<
+      string,
+      Record<string, StoredPct> | undefined
+    >,
   );
-  const korean = pctOf(round?.kor);
-  const math = pctOf(round?.math);
-  const science = tam.length
-    ? round1(tam.reduce((a, b) => a + b, 0) / tam.length)
-    : null;
+  const pcts = (
+    pick: (r: Record<string, StoredPct> | undefined) => number | null,
+  ) => rounds.map(pick).filter((v): v is number => v !== null);
+  const korean = mean(pcts((r) => pctOf(r?.kor)));
+  const math = mean(pcts((r) => pctOf(r?.math)));
+  const science = mean(
+    pcts((r) =>
+      mean(
+        [pctOf(r?.tam1), pctOf(r?.tam2)].filter((v): v is number => v !== null),
+      ),
+    ),
+  );
   return {
     term: SURVEY_BASELINE_TERM,
     ...(korean !== null ? { korean } : {}),
