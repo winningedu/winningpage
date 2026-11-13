@@ -73,7 +73,7 @@ describe("ConsoleNav 담임교사", () => {
   it("학원 담임은 학급을 고2 처럼 원래 학년 값으로 보여 준다", () => {
     renderNav({
       ...homeroomMe,
-      tenant: { ...homeroomMe.tenant, orgType: "학원" },
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
     });
 
     expect(screen.getByText("고2 3반 담임")).toBeTruthy();
@@ -82,7 +82,7 @@ describe("ConsoleNav 담임교사", () => {
   it("학원 다학년 학급 담임은 다학년으로 보여 준다", () => {
     renderNav({
       ...homeroomMe,
-      tenant: { ...homeroomMe.tenant, orgType: "학원" },
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
       classes: [
         { id: "c3", grade: null, name: "3", group: null, isPrimary: true },
       ],

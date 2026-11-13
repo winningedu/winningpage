@@ -22,7 +22,7 @@ const withOrg =
 describe("useGradeLabel", () => {
   it("학원 기관은 원래 학년 값과 다학년을 돌려준다", () => {
     const { result } = renderHook(() => useGradeLabel(), {
-      wrapper: withOrg("학원"),
+      wrapper: withOrg("사기업"),
     });
     expect(result.current("고1")).toBe("고1");
     expect(result.current(null)).toBe("다학년");

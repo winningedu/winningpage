@@ -4,7 +4,12 @@ import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import type { ConsoleMe } from "./api";
 import Chip from "./Chip";
-import { classLabel, gradeLabel, primaryClass } from "./classLabel";
+import {
+  classLabel,
+  gradeLabel,
+  isAcademyOrg,
+  primaryClass,
+} from "./classLabel";
 import { findMenuItem, menuFor } from "./menu";
 import TenantSwitcher from "./TenantSwitcher";
 
@@ -18,7 +23,7 @@ interface ConsoleNavProps {
 
 function TeacherCard({ me }: { me: ConsoleMe }) {
   const label = (g: string | null) =>
-    gradeLabel(g, me.tenant.orgType === "학원");
+    gradeLabel(g, isAcademyOrg(me.tenant.orgType));
   const homeroom = me.kind === "homeroom";
   const primary = primaryClass(me.classes);
   const roleChip = homeroom

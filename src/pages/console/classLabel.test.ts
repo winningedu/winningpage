@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import type { ConsoleClass } from "./api";
-import { classLabel, gradeLabel, sortClasses } from "./classLabel";
+import {
+  classLabel,
+  gradeLabel,
+  isAcademyOrg,
+  sortClasses,
+} from "./classLabel";
 
 const cls = (over: Partial<ConsoleClass>): ConsoleClass => ({
   id: "c",
@@ -29,6 +34,14 @@ describe("gradeLabel", () => {
   test("학년이 없는 학급은 다학년이다", () => {
     expect(gradeLabel(null, true)).toBe("다학년");
     expect(gradeLabel(null, false)).toBe("다학년");
+  });
+});
+
+describe("isAcademyOrg", () => {
+  test("학교만 학교이고 나머지 기관 유형은 모두 학원 규칙이다", () => {
+    expect(isAcademyOrg("학교")).toBe(false);
+    for (const t of ["기관", "사기업", "캠퍼스", "기타"])
+      expect(isAcademyOrg(t)).toBe(true);
   });
 });
 

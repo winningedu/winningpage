@@ -6,6 +6,9 @@ import type { ConsoleClass } from "./api";
 /** 목록 필터에서 다학년(학년 없는 학급)을 가리키는 값. API 의 grade=mixed 와 같다. */
 export const MIXED_GRADE = "mixed";
 
+/** 학교(org_type 학교)가 아닌 기관은 모두 학원 규칙이다. DB 의 fn_class_ensure 와 같은 기준. */
+export const isAcademyOrg = (orgType: string) => orgType !== "학교";
+
 export type GradeLabeler = (grade: string | null) => string;
 
 export function gradeLabel(grade: string | null, academy: boolean): string {
