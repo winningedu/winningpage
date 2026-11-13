@@ -56,7 +56,7 @@ export default defineHandler({
 
     const { schoolYear } = await loadTenant(admin, actor.tenantId);
     const [scopedClasses, students] = await Promise.all([
-      readAll<{ id: string; grade: string }>(
+      readAll<{ id: string; grade: string | null }>(
         admin,
         "classes",
         "id, grade",
@@ -73,8 +73,11 @@ export default defineHandler({
         classId: queryValue(req.query.classId),
       }),
     ]);
-    const hasGrade3InScope = scopedClasses.some((c) =>
-      (ADMISSION_GRADES as readonly string[]).includes(c.grade),
+    // 학년 없는 다학년 학급에는 중3, 고3 학생이 있을 수 있어 범위 안으로 센다.
+    const hasGrade3InScope = scopedClasses.some(
+      (c) =>
+        c.grade === null ||
+        (ADMISSION_GRADES as readonly string[]).includes(c.grade),
     );
 
     const paged = paginate(students, pageQuery);
