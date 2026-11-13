@@ -205,6 +205,75 @@ describe("PATCH /api/console/org-info", () => {
     });
   });
 
+  test("본사 대행도 최종확인 뒤에는 학교 관리자와 같이 409 이고 감사 로그를 남기지 않는다", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "session-1",
+    });
+    kit.confirmed = true;
+
+    const r = await patch({ address: "새 주소" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "ALREADY_CONFIRMED" } });
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("본사 대행이 본문에 tenantId 를 실어도 400 이고 기관은 바뀌지 않는다", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "hq_proxy",
+      teacher_id: null,
+      proxy_session_id: "session-1",
+    });
+
+    const r = await patch({ tenantId: "tenant-2", address: "a" });
+
+    expect(r.status).toBe(400);
+    expect(kit.state.updates).toHaveLength(0);
+  });
+
+  test("기관을 바꾼 대행 세션에서 같은 요청을 다시 보내면 새 세션의 기관만 고친다", async () => {
+    const proxyOf = (tenant: string, session: string) =>
+      schoolAdminActor({
+        kind: "hq_proxy",
+        tenant_id: tenant,
+        teacher_id: null,
+        proxy_session_id: session,
+      });
+    kit.state.actor = proxyOf("tenant-1", "session-1");
+    await patch({ address: "a" });
+    kit.state.actor = proxyOf("tenant-2", "session-2");
+    await patch({ address: "a" });
+
+    expect(kit.state.updates.map((u) => u.filters.id)).toEqual([
+      "tenant-1",
+      "tenant-2",
+    ]);
+    expect(
+      kit.state.inserts.map((i) => [i.row.tenant_id, i.row.proxy_session_id]),
+    ).toEqual([
+      ["tenant-1", "session-1"],
+      ["tenant-2", "session-2"],
+    ]);
+  });
+
+  test("끝났거나 만료된 대행 세션(행위자 none)은 403 NOT_CONSOLE 이고 저장하지 않는다", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "none",
+      tenant_id: null,
+      teacher_id: null,
+      proxy_session_id: null,
+    });
+
+    const r = await patch({ address: "a" });
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "NOT_CONSOLE" } });
+    expect(kit.state.updates).toHaveLength(0);
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
   test("임시 비밀번호 상태의 관리자는 403 MUST_CHANGE_PASSWORD", async () => {
     kit.state.actor = schoolAdminActor({ must_change_password: true });
 
