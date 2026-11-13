@@ -8,6 +8,7 @@ import type { VercelResponse } from "@vercel/node";
 import { MAX_PASSWORD_LENGTH, SYNTHETIC_DOMAIN } from "../auth/login.js";
 import { sendError } from "../httpResponse.js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
+import { loadTenant } from "./directory.js";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -214,7 +215,11 @@ export interface RegisterInput {
   /** 숫자만(01012345678). */
   phone: string;
   role: "homeroom" | "school_admin";
-  classes: { grade: string; name: string; group_id?: string | undefined }[];
+  classes: {
+    grade: string | null;
+    name: string;
+    group_id?: string | undefined;
+  }[];
   /** 학교 관리자 발급 항목(사 #159-q3). 값이 있는 칸만 저장한다. */
   position?: string | undefined;
   email?: string | undefined;
@@ -382,7 +387,7 @@ export interface ParsedRegisterBody {
   classes: RegisterInput["classes"];
 }
 
-/** 학급 목록(생략하면 빈 목록). 배열이 아니거나 학년, 이름이 비면 null. */
+/** 학급 목록(생략하면 빈 목록). 배열이 아니거나 학년, 이름이 비면 null. 학년이 null 이면 다학년 학급이다. */
 export function parseClassRows(
   classes: unknown,
 ): RegisterInput["classes"] | null {
@@ -390,7 +395,10 @@ export function parseClassRows(
   if (!Array.isArray(classes)) return null;
   const parsed: RegisterInput["classes"] = [];
   for (const row of classes as Record<string, unknown>[]) {
-    if (typeof row?.grade !== "string" || typeof row?.name !== "string")
+    if (
+      (row?.grade !== null && typeof row?.grade !== "string") ||
+      typeof row?.name !== "string"
+    )
       return null;
     if (row.grade === "" || row.name.trim() === "") return null;
     parsed.push({
@@ -400,6 +408,16 @@ export function parseClassRows(
     });
   }
   return parsed;
+}
+
+/** 학교는 학년 없는 다학년 학급을 만들 수 없다(학원만). 학년 없는 줄이 있을 때만 기관 유형을 읽는다. */
+export async function hasMixedClassForSchool(
+  admin: SupabaseClient,
+  tenantId: string,
+  classes: RegisterInput["classes"],
+): Promise<boolean> {
+  if (!classes.some((c) => c.grade === null)) return false;
+  return (await loadTenant(admin, tenantId)).orgType === "학교";
 }
 
 /** 이름, 전화번호(숫자만으로 정규화, 01 로 시작 10 또는 11자리), 학급 목록(생략 가능)을 검증한다. */
