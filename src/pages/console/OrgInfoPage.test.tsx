@@ -1,6 +1,6 @@
-// W17 내정보관리. 저장, 최종확인, 조회 전용 상태와 본사 대행 읽기 전용을 검증한다.
+// W17 내정보관리. 저장, 최종확인, 조회 전용 상태와 본사 대행 저장을 검증한다.
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -393,14 +393,79 @@ describe("OrgInfoPage 조회 전용", () => {
     expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
   });
 
-  it("본사 대행은 값을 보기만 하고 저장 버튼이 없다", async () => {
-    stubOrg({ me: proxyMe });
+  it("최종확인이 끝난 기관은 본사 대행도 학교 관리자처럼 잠겨 있다", async () => {
+    stubOrg({
+      me: proxyMe,
+      org: { infoConfirmedAt: "2026-11-01T00:00:00Z" },
+    });
 
     renderRoutes(routes, "/teacher/org-info");
 
     expect((await field("교육기관명(필수)")).readOnly).toBe(true);
     expect(screen.getByText("입력값은 모두 조회만 가능해요")).toBeTruthy();
-    const main = screen.getByRole("main");
-    expect(within(main).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
+  });
+});
+
+describe("OrgInfoPage 본사 대행 저장", () => {
+  it("확정 전에는 같은 칸을 고쳐 저장(PATCH)만 하고 최종확인은 부르지 않는다", async () => {
+    const calls = stubOrg({ me: proxyMe });
+    renderRoutes(routes, "/teacher/org-info");
+    const address = await field("주소");
+    expect(address.readOnly).toBe(false);
+    expect(screen.getByText("소속코드는 바꿀 수 없어요")).toBeTruthy();
+
+    fireEvent.change(address, { target: { value: "새 주소" } });
+    clickSave();
+
+    expect(await screen.findByText("저장했어요")).toBeTruthy();
+    const writes = calls.filter(
+      (c) => c.key.startsWith("PATCH") || c.key.startsWith("POST"),
+    );
+    expect(writes.map((c) => c.key)).toEqual(["PATCH /api/console/org-info"]);
+    expect(writes[0]?.body).toEqual({ ...SAVED, address: "새 주소" });
+    expect((await field("주소")).readOnly).toBe(false);
+  });
+
+  it("값이 틀리면 학교 관리자와 같은 검사로 서버에 보내지 않는다", async () => {
+    const calls = stubOrg({ me: proxyMe });
+    renderRoutes(routes, "/teacher/org-info");
+    fireEvent.change(await field("대표번호"), { target: { value: "abc" } });
+
+    clickSave();
+
+    expect(
+      await screen.findByText("숫자와 하이픈만 쓸 수 있어요. 예: 02-123-4567"),
+    ).toBeTruthy();
+    expect(calls.some((c) => c.key.startsWith("PATCH"))).toBe(false);
+  });
+
+  it("저장 중 이미 확정됐다는 응답(409)이면 다시 읽어 조회 전용으로 보인다", async () => {
+    let confirmed = false;
+    stubApi({
+      "GET /api/console/me": { body: proxyMe },
+      "GET /api/console/org-info": () => ({
+        body: {
+          ...ORG,
+          infoConfirmedAt: confirmed ? "2026-11-01T00:00:00Z" : null,
+        },
+      }),
+      "PATCH /api/console/org-info": () => {
+        confirmed = true;
+        return {
+          status: 409,
+          body: { error: { code: "ALREADY_CONFIRMED", message: "x" } },
+        };
+      },
+      "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
+    });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("주소");
+
+    clickSave();
+
+    expect(
+      await screen.findByText("입력값은 모두 조회만 가능해요"),
+    ).toBeTruthy();
   });
 });

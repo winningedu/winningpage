@@ -1,6 +1,7 @@
 // W17 내정보관리(스펙 3절). 입력, 확인, 조회 전용 세 단계.
 // 최종확인은 저장(PATCH) 뒤 확정(POST confirm) 두 번 호출한다(결정 47). 확정이 실패하면 다시 누르면 된다.
-// 본사 대행은 읽기만 한다(결정 48). 검사 패턴은 서버 api/_routes/console/org-info.ts 와 같다.
+// 본사 대행은 확정 전에 같은 칸을 고쳐 저장(PATCH)만 하고 최종확인은 학교 관리자가 한다.
+// 검사 패턴은 서버 api/_routes/console/org-info.ts 와 같다.
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -110,7 +111,7 @@ export default function OrgInfoPage() {
       const loaded = Object.fromEntries(
         FIELDS.map((f) => [f.key, info[f.key] ?? ""]),
       ) as Values;
-      if (!proxy && !info.infoConfirmedAt && loaded.homepage === "") {
+      if (!info.infoConfirmedAt && loaded.homepage === "") {
         loaded.homepage = HOMEPAGE_PREFIX;
       }
       setValues(loaded);
@@ -119,7 +120,7 @@ export default function OrgInfoPage() {
     } catch {
       setLoadFailed(true);
     }
-  }, [proxy]);
+  }, []);
   useEffect(() => {
     void load();
   }, [load]);
@@ -138,8 +139,8 @@ export default function OrgInfoPage() {
     );
   }
 
-  const readOnly = proxy || mode !== "edit";
-  const locked = proxy || mode === "locked";
+  const readOnly = mode !== "edit";
+  const locked = mode === "locked";
   const trimmed = (v: Values) =>
     Object.fromEntries(FIELDS.map((f) => [f.key, v[f.key].trim()]));
 
@@ -150,6 +151,40 @@ export default function OrgInfoPage() {
     const found = validate(cleaned);
     setErrors(found);
     if (Object.keys(found).length === 0) setMode("confirm");
+  };
+
+  // 본사 대행은 저장만 한다. 확정은 학교 관리자 몫이라 조회 전용으로 잠그지 않는다.
+  const proxySave = async () => {
+    if (!values) return;
+    const cleaned = { ...values, homepage: withoutBareScheme(values.homepage) };
+    setValues(cleaned);
+    const found = validate(cleaned);
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+    setSaving(true);
+    try {
+      const patch = await consoleRequest("/api/console/org-info", {
+        method: "PATCH",
+        body: trimmed(cleaned),
+      });
+      if (
+        patch.status === 409 &&
+        errorCode(patch.body) === "ALREADY_CONFIRMED"
+      ) {
+        await load();
+        return;
+      }
+      if (patch.status !== 200)
+        throw new Error(`org-info patch ${patch.status}`);
+      if (cleaned.homepage === "") {
+        setValues({ ...cleaned, homepage: HOMEPAGE_PREFIX });
+      }
+      toast.show({ tone: "Success", message: "저장했어요" });
+    } catch {
+      toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const finalSave = async () => {
@@ -212,7 +247,7 @@ export default function OrgInfoPage() {
       <PageHeader
         title="내정보관리"
         subtitle={
-          mode === "confirm" && !proxy
+          mode === "confirm"
             ? "최종확인으로 저장하면 조회 전용이 돼요. 바꾸려면 본사에 요청해야 해요"
             : "교육기관 기본 정보를 등록하고 조회합니다"
         }
@@ -221,7 +256,9 @@ export default function OrgInfoPage() {
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          if (mode === "edit" && !proxy) toConfirm();
+          if (mode !== "edit") return;
+          if (proxy) void proxySave();
+          else toConfirm();
         }}
         className="flex max-w-content flex-col gap-5 px-4 md:gap-6 md:px-8 lg:px-12"
       >
@@ -272,17 +309,18 @@ export default function OrgInfoPage() {
             저장했어요. 이제 조회만 할 수 있어요. 바꾸려면 본사에 요청해 주세요
           </Notice>
         )}
-        {values && !proxy && mode === "edit" && (
+        {values && mode === "edit" && (
           <div className="flex">
             <Button
               type="submit"
+              disabled={saving}
               className={cn(buttonBase, "bg-primary text-primary-foreground")}
             >
               저장
             </Button>
           </div>
         )}
-        {values && !proxy && mode === "confirm" && (
+        {values && mode === "confirm" && (
           <div className="flex gap-2 max-md:flex-col">
             <Button
               type="button"
