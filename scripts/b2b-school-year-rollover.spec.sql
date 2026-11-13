@@ -218,7 +218,7 @@ select pg_temp.expect_text('rollover: 열린 신청은 사유와 함께 거절�
      from public.enrollment_changes where student_id = pg_temp.fx('req') and kind = 'request'), 'rejected/true/true');
 
 -- ---------------------------------------------------------------------
--- 다학년 학급: 학생은 자기 학년으로 +1, 고3 은 졸업, 학급은 새 학년도에 줄이 있을 때만 만들어진다.
+-- 다학년 학급: 학생은 자기 학년으로 +1, 고3 은 졸업. 다학년 학급은 실제로 진급하는 학생의 mixed 줄에 대해서만 만들어진다.
 -- 줄 순서가 달라도 같은 이름의 다학년 줄은 한 학급이다(학년 줄이 다학년 학급을 먼저 만들지 않는다).
 -- ---------------------------------------------------------------------
 insert into public.tenants (code, name, region, org_type, tier) values
@@ -244,7 +244,7 @@ select pg_temp.expect_text('다학년 rollover 준비: 다학년 학급에 학�
   (select count(*)::text from public.student_enrollments e join public.classes c on c.id = e.class_id
     where c.tenant_id = pg_temp.fx('tm') and c.grade is null), '4');
 
--- 학년 줄(mixed 아님)을 맨 앞에 둬도 같은 학급이다. 고3 의 줄은 졸업이라 무시된다.
+-- 학년 줄(mixed 아님)을 맨 앞에 둬도 같은 학급이다. 고3 의 mixed 줄은 졸업이라 무시되고 그 줄만으로는 학급이 생기지 않는다(아래 S1 케이스).
 select pg_temp.expect_text('다학년 rollover: 졸업 1(고3), 진급 3, 건너뜀 0, 배정 3',
   pg_temp.rollover('tm', jsonb_build_array(
     jsonb_build_object('student_id', pg_temp.fx('x4'), 'class_name', 'M', 'number', 3),
@@ -313,6 +313,25 @@ select pg_temp.expect_text('학교 rollover: mixed 가 없으면 지금처럼 �
     jsonb_build_object('student_id', pg_temp.fx('xs'), 'class_name', '1', 'number', 1))), '0/1/0/1');
 select pg_temp.expect_bool('학교 rollover: 학교의 학급은 학년이 있다',
   (select bool_and(c.grade is not null) from public.classes c where c.tenant_id = pg_temp.fx('ts')), true);
+
+-- 적용되지 않을 줄(졸업하는 학생, 없는 학생 id)의 mixed 는 학급을 남기지 않는다
+insert into public.tenants (code, name, region, org_type, tier) values ('RQRRRRRR', 't20-r', '서울', '사기업', 'B');
+insert into fx select 'tr', id from public.tenants where code = 'RQRRRRRR';
+insert into fx values ('z1', pg_temp.mk_user('t20-z1@t.local')), ('z2', pg_temp.mk_user('t20-z2@t.local')),
+  ('z3', pg_temp.mk_user('t20-z3@t.local'));
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade)
+  select pg_temp.fx('tr'), pg_temp.fx(k), pg_temp.year('tr'), g from (values ('z1', '고3'), ('z2', '고1')) v(k, g);
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade)
+  values (pg_temp.fx('tr'), pg_temp.fx('z3'), pg_temp.year('tr') + 1, '고2');
+select pg_temp.expect_text('S1 rollover: 졸업, 없는 학생, 이미 새 학년도 행이 있는 학생의 mixed 줄은 학급을 남기지 않고 진급 학생은 남긴다',
+  pg_temp.rollover('tr', jsonb_build_array(
+    jsonb_build_object('student_id', pg_temp.fx('z1'), 'class_name', 'GRAD', 'mixed', true),
+    jsonb_build_object('student_id', gen_random_uuid(), 'class_name', 'UNK', 'mixed', true),
+    jsonb_build_object('student_id', pg_temp.fx('z3'), 'class_name', 'SKIP', 'mixed', true),
+    jsonb_build_object('student_id', pg_temp.fx('z2'), 'class_name', 'OK', 'number', 1, 'mixed', true))), '1/1/0/1');
+select pg_temp.expect_text('S1 rollover: 만들어진 학급은 진급 학생의 OK 하나뿐',
+  (select string_agg(name, ',' order by name) from public.classes
+    where tenant_id = pg_temp.fx('tr') and school_year = pg_temp.year('tr')), 'OK');
 
 -- ---------------------------------------------------------------------
 -- fn_group_soft_delete: 올해 학급에 재학생이 있으면 막는다

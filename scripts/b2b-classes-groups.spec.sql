@@ -185,6 +185,30 @@ select pg_temp.expect_bool('우선: 그 뒤로는 M8 도 다학년 학급이 먼
 select pg_temp.expect_text('우선: 학교는 영향이 없다(학년 학급)',
   (select grade from public.classes where id = public.fn_class_ensure(pg_temp.fx('school'), 2026, '고1', null, '3')), '고1');
 
+-- 학년이 아닌 값은 이름 우선 규칙이 다학년 학급을 돌려주기 전에 테이블 CHECK 와 같은 오류로 막는다
+select pg_temp.expect_error('학년 목록 밖 값은 다학년 학급이 있어도 거부(23514)',
+  $$select public.fn_class_ensure(pg_temp.fx('academy'), 2026, '초6', null, 'M7')$$, '23514');
+
+-- 같은 기관, 학년도, 그룹, 이름의 find-or-create 는 자문 잠금으로 줄 선다(트랜잭션 끝까지 잡힌다)
+create function pg_temp.adv_locks() returns bigint language sql as $$
+  select count(*) from pg_locks where locktype = 'advisory' and pid = pg_backend_pid()
+$$;
+do $$
+declare
+  v_t uuid := (select id from public.tenants where code = 'T3AKADMY');
+  v_n bigint;
+  v_base bigint := pg_temp.adv_locks();
+begin
+  perform public.fn_class_ensure(v_t, 2030, '고1', null, 'LK1');
+  perform public.fn_class_ensure(v_t, 2030, '고2', null, 'lk1');
+  select pg_temp.adv_locks() - v_base into v_n;
+  if v_n <> 1 then raise exception '[FAIL] 잠금: 같은 이름(대소문자 무시)은 잠금 하나, got %', v_n; end if;
+  perform public.fn_class_ensure(v_t, 2030, '고1', null, 'LK2');
+  select pg_temp.adv_locks() - v_base into v_n;
+  if v_n <> 2 then raise exception '[FAIL] 잠금: 다른 이름은 잠금이 하나 더, got %', v_n; end if;
+  raise notice '[PASS] 잠금: 학급 find-or-create 는 이름마다 자문 잠금 하나를 잡는다';
+end $$;
+
 -- 값 제약과 불변 컬럼
 select pg_temp.expect_error('grade 목록 밖 거부',
   $$insert into public.classes (tenant_id, school_year, grade, name)

@@ -8508,6 +8508,15 @@ export type Database = {
         };
         Returns: string;
       };
+      fn_class_lock: {
+        Args: {
+          p_group: string;
+          p_name: string;
+          p_tenant: string;
+          p_year: number;
+        };
+        Returns: undefined;
+      };
       fn_complete_refund: {
         Args: { p_admin_memo?: string; p_refund_request_id: number };
         Returns: {

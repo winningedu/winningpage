@@ -1,3 +1,5 @@
+set local lock_timeout = '5s';
+
 -- B2B 다학년 학급: 학원(org_type 이 학교가 아닌 기관)의 학급은 학년이 섞여도 된다. classes.grade 가 null 이면 다학년이다.
 -- 학생의 학년은 언제나 실제 값이다(student_enrollments.grade 는 그대로 null 이 아니면 6개 값, 학급이 있으면 null 불가).
 -- 학교는 학년 없는 학급을 만들 수 없다. 새 테이블은 없다.
@@ -83,6 +85,25 @@ create trigger trg_roster_pending_students_class_grade_match
 
 revoke all on function public.fn_class_grade_match() from public, anon, authenticated;
 
+-- 같은 기관, 학년도, 그룹, 반 이름(소문자, 정규화한 이름)의 학급을 찾거나 만드는 일을 줄 세우는 자문 잠금.
+-- 학생 가입과 명단의 다학년 학급 만들기가 겹쳐도 한 이름에 학년 학급과 다학년 학급이 함께 생기지 않게 한다.
+-- 잠그는 순서: 명단 적용은 기관, 학년도 잠금(fn_roster_pending_lock)을 먼저 잡고, 학적 행을 잠그기 전에 이 잠금을 키 순서로
+-- 미리 잡는다. 학생 가입은 이 잠금 하나만 잡은 뒤 학적 행을 잠근다. 그래서 둘이 서로를 기다리지 않는다.
+create function public.fn_class_lock(p_tenant uuid, p_year integer, p_group uuid, p_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended(
+    'class_ensure:' || p_tenant::text || ':' || p_year::text || ':' || coalesce(p_group::text, '') || ':' || lower(p_name), 0));
+end;
+$$;
+
+revoke all on function public.fn_class_lock(uuid, integer, uuid, text) from public, anon, authenticated;
+grant execute on function public.fn_class_lock(uuid, integer, uuid, text) to service_role;
+
 -- 같은 입력이면 같은 학급 id 를 돌려주는 find-or-create. 학교는 그룹을 쓰지 않고 학년도 꼭 있어야 한다.
 -- p_grade 가 null 이면 다학년 학급이다(학원만). 학원에서 학생이 실제 학년과 학급 이름을 보내면,
 -- 같은 기관, 학년도, 그룹, 이름의 다학년 학급이 이미 있을 때 그 학급을 먼저 돌려준다(학생이 다학년 학급에 들어가는 길).
@@ -117,6 +138,11 @@ begin
   if v_name = '' then
     raise exception 'invalid class name' using errcode = 'invalid_parameter_value';
   end if;
+  -- 이름 우선 규칙이 학년이 아닌 값에 다학년 학급을 돌려주지 않게, 테이블 CHECK 와 같은 오류로 먼저 막는다.
+  if p_grade is not null and p_grade <> all (array['중1', '중2', '중3', '고1', '고2', '고3']) then
+    raise exception 'invalid class grade' using errcode = 'check_violation';
+  end if;
+  perform public.fn_class_lock(p_tenant_id, p_school_year, p_group_id, v_name);
 
   if p_grade is not null and v_org_type <> '학교' then
     select id into v_id from public.classes
@@ -143,7 +169,8 @@ $$;
 
 -- 학년도 넘기기에 다학년 줄을 더한다. p_rows 의 {student_id, class_name, group_id?, number?, mixed?} 에서
 -- mixed 가 true 면 그 줄의 학급은 다학년 학급이다(학원만, 학교는 fn_class_ensure 가 22023 으로 막는다).
--- 학생은 언제나 자기 학년을 한 학년 올리거나 졸업한다. 학급은 새 학년도에 줄이 있을 때만 만들어진다.
+-- 학생은 언제나 자기 학년을 한 학년 올리거나 졸업한다. 다학년 학급은 실제로 진급하는 학생의 mixed 줄에 대해서만
+-- 만들어진다(졸업하는 학생, 학적이 없거나 이미 새 학년도 행이 있거나 학년이 없는 학생의 줄은 학급을 남기지 않는다).
 create or replace function public.fn_school_year_rollover(
   p_tenant uuid,
   p_to_year integer,
@@ -184,14 +211,21 @@ begin
 
   select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
 
-  -- 다학년 줄의 학급을 먼저 만든다. 그러면 줄 순서와 상관없이, 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의
-  -- 이름 우선 규칙으로 그 다학년 학급에 들어가 한 학급이 학년 학급과 다학년 학급으로 갈라지지 않는다.
+  -- 진급할 학생의 다학년 줄에 대해서만, 다학년 학급을 키 순서로 한 번씩 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의
+  -- 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로 그 다학년 학급에 들어가 한 학급이 둘로 갈라지지 않는다.
   perform public.fn_class_ensure(p_tenant, p_to_year, null, d.group_id, d.class_name)
     from (
       select distinct x.group_id, x.class_name
         from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
              as x(student_id uuid, group_id uuid, class_name text, number smallint, mixed boolean)
+        join public.student_enrollments e
+          on e.student_id = x.student_id and e.tenant_id = p_tenant
+         and e.school_year = p_to_year - 1 and e.status = 'active' and e.grade is not null
        where coalesce(x.mixed, false) and nullif(btrim(x.class_name), '') is not null
+         and not (e.grade = '고3' or (e.grade = '중3' and v_org = '학교'))
+         and not exists (select 1 from public.student_enrollments n
+                          where n.student_id = e.student_id and n.school_year = p_to_year)
+       order by x.group_id nulls first, x.class_name
     ) d;
 
   update public.enrollment_changes c
@@ -303,7 +337,8 @@ begin
   end if;
   perform public.fn_roster_pending_lock(p_tenant, p_year);
 
-  -- 다학년 줄의 학급을 먼저 만든다(줄 순서와 상관없이 같은 학급으로 모으려고. 학교는 22023).
+  -- 저장할 수 있는 다학년 줄(이름, 반이 있고 학년은 없거나 여섯 학년 중 하나)의 학급만 키 순서로 한 번씩 먼저 만든다
+  -- (줄 순서와 상관없이 같은 학급으로 모으려고. 학교는 22023). 건너뛸 줄은 학급을 남기지 않는다.
   perform public.fn_class_ensure(p_tenant, p_year, null, d.group_id, d.class_name)
     from (
       select distinct x.group_id, x.class_name
@@ -311,6 +346,8 @@ begin
              as x(name text, grade text, group_id uuid, class_name text, number smallint, mixed boolean)
        where coalesce(x.mixed, false) and nullif(btrim(x.name), '') is not null
          and nullif(btrim(x.class_name), '') is not null
+         and (x.grade is null or x.grade = any (c_grades))
+       order by x.group_id nulls first, x.class_name
     ) d;
 
   for v_r in
@@ -367,6 +404,7 @@ as $$
 #variable_conflict use_column
 declare
   v_year integer;
+  v_org text;
   v_teacher uuid;
   v_proxy uuid;
   v_r record;
@@ -402,14 +440,46 @@ begin
 
   select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
 
-  -- 다학년 줄의 학급을 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의 이름 우선
-  -- 규칙으로 그 다학년 학급에 들어간다(학교는 22023).
+  -- 학생 가입과 줄을 세우려고, 이번 명단(학적 줄과 가입 전 줄)이 가리키는 학급의 이름 잠금(fn_class_lock)을 학적 행을
+  -- 잠그기 전에 키 순서로 먼저 잡는다. 가입은 이 잠금을 잡은 뒤 학적 행을 잠그므로, 순서가 같아 서로 기다리지 않는다.
+  select t.org_type into v_org from public.tenants t where t.id = p_tenant;
+  perform public.fn_class_lock(p_tenant, v_year, d.group_id, d.name)
+    from (
+      select distinct k.group_id, public.fn_normalize_class_name(v_org, k.class_name) as name
+        from (
+          select x.group_id, x.class_name
+            from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
+                 as x(student_id uuid, group_id uuid, class_name text)
+          union all
+          select y.group_id, y.class_name
+            from jsonb_to_recordset(coalesce(p_pending, '[]'::jsonb))
+                 as y(group_id uuid, class_name text)
+        ) k
+       where nullif(btrim(k.class_name), '') is not null
+    ) d
+   where d.name <> ''
+   order by d.group_id nulls first, d.name;
+
+  -- 실제로 바뀔 수 있는 학생(재학 학적이 있고 학년이 있는 학생, 한 학생의 첫 줄)의 다학년 줄에 대해서만, 다학년 학급을
+  -- 키 순서로 한 번씩 먼저 만든다. 줄 순서와 상관없이 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의 이름 우선 규칙으로
+  -- 그 다학년 학급에 들어간다(학교는 22023). 학적이 없는 학생 id 나 건너뛸 줄은 학급을 남기지 않는다.
   perform public.fn_class_ensure(p_tenant, v_year, null, d.group_id, d.class_name)
     from (
-      select distinct x.group_id, x.class_name
-        from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
-             as x(student_id uuid, group_id uuid, class_name text, number smallint, version integer, mixed boolean)
-       where coalesce(x.mixed, false) and nullif(btrim(x.class_name), '') is not null
+      select distinct f.group_id, f.class_name
+        from (
+          select distinct on (q.student_id) q.student_id, q.group_id, q.class_name, q.mixed
+            from (
+              select (t.elem ->> 'student_id')::uuid as student_id, (t.elem ->> 'group_id')::uuid as group_id,
+                     t.elem ->> 'class_name' as class_name, coalesce((t.elem ->> 'mixed')::boolean, false) as mixed, t.ord
+                from jsonb_array_elements(coalesce(p_rows, '[]'::jsonb)) with ordinality as t(elem, ord)
+            ) q
+           order by q.student_id, q.ord
+        ) f
+        join public.student_enrollments e
+          on e.student_id = f.student_id and e.tenant_id = p_tenant and e.school_year = v_year
+         and e.status = 'active' and e.grade is not null
+       where coalesce(f.mixed, false) and nullif(btrim(f.class_name), '') is not null
+       order by f.group_id nulls first, f.class_name
     ) d;
 
   for v_r in

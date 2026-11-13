@@ -356,6 +356,24 @@ select pg_temp.expect_text('학교 midyear: mixed 가 없으면 지금처럼 학
 select pg_temp.expect_bool('학교: 학급은 학년이 있다',
   (select bool_and(c.grade is not null) from public.classes c where c.tenant_id = pg_temp.fx('ts')), true);
 
+-- 적용되지 않을 줄의 mixed 는 학급을 남기지 않는다(S1): 없는 학생 id, 학년 없는 학생, 저장하지 못할 가입 전 줄
+select pg_temp.expect_text('S1 midyear: 없는 학생 id 와 학년 없는 학생의 mixed 줄은 학급을 남기지 않는다',
+  (select r.updated_count || '/' || r.skipped_count
+     from public.fn_roster_midyear(pg_temp.fx('ta'), jsonb_build_array(
+       jsonb_build_object('student_id', gen_random_uuid(), 'class_name', 'NOSTU', 'mixed', true, 'version', 1),
+       jsonb_build_object('student_id', pg_temp.fx('w5'), 'class_name', 'NOGRADE', 'mixed', true, 'version', 1)),
+       '[]', pg_temp.fx('actor')) r), '0/2');
+select pg_temp.expect_int('S1 midyear: NOSTU, NOGRADE 학급은 없다',
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('NOSTU', 'NOGRADE')), 0);
+select pg_temp.expect_text('S1 pending: 저장하지 못할 mixed 줄(이름 없음, 학년 목록 밖)은 학급을 남기지 않는다',
+  (select r.stored_count || '/' || r.skipped_count
+     from public.fn_roster_pending_replace(pg_temp.fx('ta'), pg_temp.year('ta'), jsonb_build_array(
+       jsonb_build_object('name', '', 'class_name', 'NONAME', 'mixed', true),
+       jsonb_build_object('name', '가', 'grade', '초6', 'class_name', 'BADGRADE', 'mixed', true)),
+       pg_temp.fx('actor'), '{}') r), '0/2');
+select pg_temp.expect_int('S1 pending: NONAME, BADGRADE 학급은 없다',
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('NONAME', 'BADGRADE')), 0);
+
 -- ---------------------------------------------------------------------
 -- fn_roster_rollover: 넘기기와 가입 전 명단이 같은 트랜잭션
 -- ---------------------------------------------------------------------
