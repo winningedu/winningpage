@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const { shellMock, runMock, listMock } = vi.hoisted(() => ({
@@ -40,7 +40,10 @@ function shell(openReport: unknown) {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <GeneratePage />
+      <Routes>
+        <Route path="*" element={<GeneratePage />} />
+        <Route path="/app/growth/collect" element={<p>자료 올리기 화면</p>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -76,5 +79,24 @@ describe("GeneratePage", () => {
     );
     expect(await screen.findByText("5단계까지 만들어 두었어요")).toBeTruthy();
     expect(screen.getByText("5 / 8 단계 완료")).toBeTruthy();
+  });
+
+  test("생성이 실패하면 다시 시도 옆의 자료 다시 올리기로 자료 올리기 화면에 간다", async () => {
+    shellMock.mockReturnValue(
+      shell({ id: "r1", status: "in_progress", currentStep: 5 }),
+    );
+    listMock.mockResolvedValue({
+      kind: "ok",
+      data: { open: { id: "r1", progress: progressOf(5) } },
+    });
+    runMock.mockResolvedValue({ kind: "error", code: "NETWORK", message: "x" });
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", { name: "다시 시도" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "자료 다시 올리기" }));
+    expect(await screen.findByText("자료 올리기 화면")).toBeTruthy();
   });
 });

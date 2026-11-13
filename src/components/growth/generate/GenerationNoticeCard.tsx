@@ -6,6 +6,7 @@ const LABELS: Record<GenerationAction, string> = {
   start: "시작 화면으로",
   pricing: "이용권 구입하기",
   report: "리포트 보기",
+  collect: "자료 다시 올리기",
 };
 
 const TONE: Record<GenerationNotice["tone"], string> = {
@@ -46,14 +47,29 @@ export default function GenerationNoticeCard({
           )}
         </div>
         {notice.action && (
-          <Button
-            type="button"
-            size="lg"
-            className="h-10 shrink-0 px-5 text-app-label"
-            onClick={() => onAction(notice.action as GenerationAction)}
-          >
-            {LABELS[notice.action]}
-          </Button>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            {notice.secondaryAction && (
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="h-10 px-5 text-app-label"
+                onClick={() =>
+                  onAction(notice.secondaryAction as GenerationAction)
+                }
+              >
+                {LABELS[notice.secondaryAction]}
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="lg"
+              className="h-10 px-5 text-app-label"
+              onClick={() => onAction(notice.action as GenerationAction)}
+            >
+              {LABELS[notice.action]}
+            </Button>
+          </div>
         )}
       </div>
     </section>
