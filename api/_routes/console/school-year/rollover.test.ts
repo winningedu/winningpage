@@ -1,7 +1,7 @@
 // POST /api/console/school-year/rollover 계약 검증. 학교 관리자(대행 포함)만, 기관은 행위자에서 정한다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 type Row = Record<string, unknown>;
 
@@ -14,6 +14,8 @@ const state = vi.hoisted(() => ({
         promoted_count: 20,
         skipped_count: 1,
         assigned_count: 18,
+        pending_stored: 2,
+        pending_skipped: 1,
       },
     ],
     error: null,
@@ -44,7 +46,15 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
         select: () => chain,
         eq: () => chain,
         maybeSingle: () =>
-          Promise.resolve({ data: { login_id: "SM123456" }, error: null }),
+          Promise.resolve({
+            data: {
+              login_id: "SM123456",
+              school_year: 2026,
+              org_type: "학원",
+              is_catch_all: false,
+            },
+            error: null,
+          }),
         insert: (row: Row) => {
           state.inserts.push({ table, row });
           return Promise.resolve({ error: state.logError });
@@ -91,10 +101,21 @@ const SCHOOL_ADMIN = {
 };
 
 function rolloverCall() {
-  return state.rpcCalls.find((c) => c.name === "fn_school_year_rollover");
+  return state.rpcCalls.find((c) => c.name === "fn_roster_rollover");
 }
 
+function midyearCall() {
+  return state.rpcCalls.find((c) => c.name === "fn_roster_midyear");
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
+  // 2027-03-05 KST 는 2027학년도다. 기관(2026)은 달력보다 뒤라 넘기기 방식이다.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-03-05T00:00:00+09:00"));
   state.actor = SCHOOL_ADMIN;
   state.result = {
     data: [
@@ -103,6 +124,8 @@ beforeEach(() => {
         promoted_count: 20,
         skipped_count: 1,
         assigned_count: 18,
+        pending_stored: 2,
+        pending_skipped: 1,
       },
     ],
     error: null,
@@ -130,6 +153,9 @@ describe("POST /api/console/school-year/rollover", () => {
         promoted: 20,
         skipped: 1,
         assigned: 18,
+        mode: "rollover",
+        pendingStored: 2,
+        pendingSkipped: 1,
       },
     });
     expect(rolloverCall()?.args).toEqual({
@@ -139,6 +165,7 @@ describe("POST /api/console/school-year/rollover", () => {
         { student_id: "s-1", group_id: "g-1", class_name: "3", number: 4 },
         { student_id: "s-2", group_id: null, class_name: "5", number: null },
       ],
+      p_pending: [],
       p_actor: "user-1",
     });
     expect(
@@ -155,6 +182,170 @@ describe("POST /api/console/school-year/rollover", () => {
         assigned: 18,
       },
     });
+  });
+
+  test("not-signed-up lines ride along in snake_case, names stay out of the audit log", async () => {
+    await post({
+      toYear: 2027,
+      pendingRows: [
+        {
+          name: "홍길동",
+          grade: "고2",
+          groupId: null,
+          className: "3",
+          number: 1,
+        },
+        {
+          name: "김영희",
+          grade: null,
+          groupId: "g-1",
+          className: null,
+          number: null,
+        },
+      ],
+    });
+
+    expect(rolloverCall()?.args.p_pending).toEqual([
+      {
+        name: "홍길동",
+        grade: "고2",
+        group_id: null,
+        class_name: "3",
+        number: 1,
+      },
+      {
+        name: "김영희",
+        grade: null,
+        group_id: "g-1",
+        class_name: null,
+        number: null,
+      },
+    ]);
+    expect(JSON.stringify(state.inserts)).not.toContain("홍길동");
+  });
+
+  describe("mid-year (the tenant is already at the calendar school year)", () => {
+    beforeEach(() => {
+      vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
+      state.result = {
+        data: [
+          {
+            updated_count: 4,
+            skipped_count: 1,
+            pending_stored: 2,
+            pending_skipped: 0,
+          },
+        ],
+        error: null,
+      };
+    });
+
+    test("runs the mid-year function with the tenant's own year, row versions and the pending lines, and reports its counts", async () => {
+      const result = await post({
+        toYear: 2026,
+        rows: [{ studentId: "s-1", className: "3", number: 4, version: 2 }],
+        pendingRows: [
+          {
+            name: "홍길동",
+            grade: "고2",
+            groupId: null,
+            className: "3",
+            number: 1,
+          },
+        ],
+      });
+
+      expect(result).toEqual({
+        status: 200,
+        body: {
+          ok: true,
+          mode: "midyear",
+          updated: 4,
+          skipped: 1,
+          pendingStored: 2,
+          pendingSkipped: 0,
+        },
+      });
+      expect(midyearCall()?.args).toEqual({
+        p_tenant: "tenant-1",
+        p_rows: [
+          {
+            student_id: "s-1",
+            group_id: null,
+            class_name: "3",
+            number: 4,
+            version: 2,
+          },
+        ],
+        p_pending: [
+          {
+            name: "홍길동",
+            grade: "고2",
+            group_id: null,
+            class_name: "3",
+            number: 1,
+          },
+        ],
+        p_actor: "user-1",
+      });
+      expect(rolloverCall()).toBeUndefined();
+      expect(
+        state.inserts.find((i) => i.table === "admin_access_logs")?.row,
+      ).toMatchObject({
+        meta: { mode: "midyear", toYear: 2026, updated: 4 },
+      });
+    });
+
+    test("can run again and again: a second call is the same 200", async () => {
+      expect((await post({ toYear: 2026 })).status).toBe(200);
+      expect((await post({ toYear: 2026 })).status).toBe(200);
+    });
+
+    test("a version mismatch is 409 and a row without a version is a 400", async () => {
+      state.result = { data: null, error: { code: "WC078" } };
+      expect(
+        await post({
+          toYear: 2026,
+          rows: [{ studentId: "s-1", className: "3", version: 2 }],
+        }),
+      ).toMatchObject({
+        status: 409,
+        body: { error: { code: "VERSION_CONFLICT" } },
+      });
+      expect(
+        (
+          await post({
+            toYear: 2026,
+            rows: [{ studentId: "s-1", className: "3" }],
+          })
+        ).status,
+      ).toBe(400);
+    });
+  });
+
+  test("a toYear that does not fit the tenant's mode is a 400 and nothing runs", async () => {
+    expect((await post({ toYear: 2026 })).status).toBe(400);
+    vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
+    expect((await post({ toYear: 2027 })).status).toBe(400);
+    expect(rolloverCall()).toBeUndefined();
+    expect(midyearCall()).toBeUndefined();
+  });
+
+  test("a pending line with a bad number or no name is a 400", async () => {
+    for (const bad of [
+      { name: "", grade: "고2", groupId: null, className: "3", number: 1 },
+      {
+        name: "홍길동",
+        grade: "고2",
+        groupId: null,
+        className: "3",
+        number: 0,
+      },
+    ]) {
+      expect((await post({ toYear: 2027, pendingRows: [bad] })).status).toBe(
+        400,
+      );
+    }
   });
 
   test("a homeroom teacher is refused by the handler (403) and nothing runs", async () => {
@@ -174,6 +365,8 @@ describe("POST /api/console/school-year/rollover", () => {
           promoted_count: 0,
           skipped_count: 0,
           assigned_count: 0,
+          pending_stored: 0,
+          pending_skipped: 0,
         },
       ],
       error: null,
