@@ -140,3 +140,134 @@ begin
   return v_id;
 end;
 $$;
+
+-- 학년도 넘기기에 다학년 줄을 더한다. p_rows 의 {student_id, class_name, group_id?, number?, mixed?} 에서
+-- mixed 가 true 면 그 줄의 학급은 다학년 학급이다(학원만, 학교는 fn_class_ensure 가 22023 으로 막는다).
+-- 학생은 언제나 자기 학년을 한 학년 올리거나 졸업한다. 학급은 새 학년도에 줄이 있을 때만 만들어진다.
+create or replace function public.fn_school_year_rollover(
+  p_tenant uuid,
+  p_to_year integer,
+  p_rows jsonb,
+  p_actor uuid
+)
+returns table (graduated_count integer, promoted_count integer, skipped_count integer, assigned_count integer)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+#variable_conflict use_column
+declare
+  c_grades constant text[] := array['중1', '중2', '중3', '고1', '고2', '고3'];
+  v_org text;
+  v_teacher uuid;
+  v_proxy uuid;
+  v_e public.student_enrollments;
+  v_next text;
+  v_class uuid;
+  v_number smallint;
+  v_graduated integer := 0;
+  v_promoted integer := 0;
+  v_skipped integer := 0;
+  v_assigned integer := 0;
+  v_constraint text;
+begin
+  update public.tenants t set school_year = p_to_year
+   where t.id = p_tenant and t.school_year = p_to_year - 1
+  returning t.org_type into v_org;
+  if not found then
+    if not exists (select 1 from public.tenants t where t.id = p_tenant) then
+      raise exception 'tenant not found' using errcode = 'no_data_found';
+    end if;
+    return query select 0, 0, 0, 0;
+    return;
+  end if;
+
+  select a.teacher_id, a.proxy_session_id into v_teacher, v_proxy from public.fn_console_actor(p_actor) a;
+
+  -- 다학년 줄의 학급을 먼저 만든다. 그러면 줄 순서와 상관없이, 같은 그룹과 이름의 학년 줄도 fn_class_ensure 의
+  -- 이름 우선 규칙으로 그 다학년 학급에 들어가 한 학급이 학년 학급과 다학년 학급으로 갈라지지 않는다.
+  perform public.fn_class_ensure(p_tenant, p_to_year, null, d.group_id, d.class_name)
+    from (
+      select distinct x.group_id, x.class_name
+        from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
+             as x(student_id uuid, group_id uuid, class_name text, number smallint, mixed boolean)
+       where coalesce(x.mixed, false) and nullif(btrim(x.class_name), '') is not null
+    ) d;
+
+  update public.enrollment_changes c
+     set status = 'rejected', reject_reason = '학년도가 바뀌어 신청이 닫혔어요',
+         decided_by = p_actor, decided_teacher_id = v_teacher, proxy_session_id = v_proxy, decided_at = now()
+   where c.tenant_id = p_tenant and c.status = 'pending';
+
+  for v_e in
+    select * from public.student_enrollments e
+     where e.tenant_id = p_tenant and e.school_year = p_to_year - 1 and e.status = 'active'
+     order by e.id for update
+  loop
+    if v_e.grade is null or exists (
+      select 1 from public.student_enrollments n where n.student_id = v_e.student_id and n.school_year = p_to_year
+    ) then
+      v_skipped := v_skipped + 1;
+      continue;
+    end if;
+
+    if v_e.grade = '고3' or (v_e.grade = '중3' and v_org = '학교') then
+      update public.student_enrollments e
+         set status = 'graduated', graduated_at = now(),
+             version = e.version + 1, updated_at = now(), updated_by = p_actor
+       where e.id = v_e.id;
+      insert into public.enrollment_changes (
+        tenant_id, student_id, school_year, kind, status, from_grade, from_class_id, from_number,
+        reason, base_version, requested_by, decided_by, decided_teacher_id, proxy_session_id, decided_at
+      ) values (
+        p_tenant, v_e.student_id, p_to_year, 'rollover', 'applied', v_e.grade, v_e.class_id, v_e.number,
+        'promotion', v_e.version, p_actor, p_actor, v_teacher, v_proxy, now()
+      );
+      v_graduated := v_graduated + 1;
+    else
+      v_next := case when v_e.grade = '중3' then '고1' else c_grades[array_position(c_grades, v_e.grade) + 1] end;
+
+      v_class := null;
+      v_number := null;
+      select public.fn_class_ensure(
+               p_tenant, p_to_year, case when coalesce(x.mixed, false) then null else v_next end, x.group_id, x.class_name),
+             x.number
+        into v_class, v_number
+        from jsonb_to_recordset(coalesce(p_rows, '[]'::jsonb))
+             as x(student_id uuid, group_id uuid, class_name text, number smallint, mixed boolean)
+       where x.student_id = v_e.student_id and nullif(btrim(x.class_name), '') is not null
+       limit 1;
+
+      begin
+        insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number, updated_by)
+        values (p_tenant, v_e.student_id, p_to_year, v_next, v_class, v_number, p_actor);
+      exception when unique_violation then
+        get stacked diagnostics v_constraint = constraint_name;
+        if v_constraint = 'student_enrollments_class_number_idx' then
+          perform public.fn_raise_number_taken(v_class, v_number);
+        end if;
+        raise;
+      end;
+
+      update public.student_profiles sp set grade = v_next, updated_at = now()
+       where sp.profile_id = v_e.student_id and sp.grade is distinct from v_next;
+
+      insert into public.enrollment_changes (
+        tenant_id, student_id, school_year, kind, status, from_grade, from_class_id, from_number,
+        to_grade, to_class_id, to_number,
+        reason, base_version, requested_by, decided_by, decided_teacher_id, proxy_session_id, decided_at
+      ) values (
+        p_tenant, v_e.student_id, p_to_year, 'rollover', 'applied', v_e.grade, v_e.class_id, v_e.number,
+        v_next, v_class, v_number,
+        'promotion', v_e.version, p_actor, p_actor, v_teacher, v_proxy, now()
+      );
+      v_promoted := v_promoted + 1;
+      if v_class is not null then
+        v_assigned := v_assigned + 1;
+      end if;
+    end if;
+  end loop;
+
+  return query select v_graduated, v_promoted, v_skipped, v_assigned;
+end;
+$$;
