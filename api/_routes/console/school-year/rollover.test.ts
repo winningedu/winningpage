@@ -245,6 +245,19 @@ describe("POST /api/console/school-year/rollover", () => {
       ]);
     });
 
+    test("the same student on two rows is a 400 and nothing runs", async () => {
+      const r = await post({
+        toYear: 2027,
+        rows: [
+          { studentId: "s-1", className: "3" },
+          { studentId: "s-1", className: "4" },
+        ],
+      });
+
+      expect(r.status).toBe(400);
+      expect(rolloverCall()).toBeUndefined();
+    });
+
     test("mixed must be a boolean", async () => {
       for (const body of [
         {

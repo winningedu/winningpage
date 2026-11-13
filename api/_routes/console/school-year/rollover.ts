@@ -70,10 +70,14 @@ function parseRows(rows: unknown, needVersion: boolean): RolloverRow[] | null {
   if (rows == null) return [];
   if (!Array.isArray(rows) || rows.length > MAX_ROWS) return null;
   const parsed: RolloverRow[] = [];
+  const seen = new Set<string>();
   for (const raw of rows) {
     const { studentId, groupId, className, number, version, mixed } = (raw ??
       {}) as Record<string, unknown>;
     if (typeof studentId !== "string" || studentId === "") return null;
+    // 한 학생은 한 줄만(DB 도 22023 으로 막는다).
+    if (seen.has(studentId)) return null;
+    seen.add(studentId);
     if (!validClassName(className) || (className as string).trim() === "")
       return null;
     if (groupId != null && typeof groupId !== "string") return null;
