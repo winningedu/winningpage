@@ -70,10 +70,10 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
-function renderHeader() {
+function renderHeader(props: { showHome?: boolean } = {}) {
   return render(
     <MemoryRouter>
-      <Header />
+      <Header {...props} />
     </MemoryRouter>,
   );
 }
@@ -408,5 +408,21 @@ describe("b2b Header 소속 칩", () => {
     expect(chip).toHaveAttribute("title", "위닝고등학교");
     expect(chip).toHaveClass("min-w-0", "truncate");
     expect(chip.style.maxWidth).toContain(NAV_LEFT);
+  });
+});
+
+describe("b2b Header 메인으로 버튼", () => {
+  it("서비스 화면(showHome)에서는 전체 메뉴 버튼 바로 왼쪽에 메인(/)으로 가는 링크가 있다", () => {
+    renderHeader({ showHome: true });
+    const home = screen.getByRole("link", { name: "메인으로" });
+    const menu = screen.getByRole("button", { name: "전체 메뉴 열기" });
+    expect(home).toHaveAttribute("href", "/");
+    expect(home.nextElementSibling).toBe(menu);
+    expect(home.className).toBe(menu.className);
+  });
+
+  it("기본 화면에는 메인으로 버튼이 없다", () => {
+    renderHeader();
+    expect(screen.queryByRole("link", { name: "메인으로" })).toBeNull();
   });
 });

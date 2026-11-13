@@ -1,4 +1,4 @@
-import { ChevronRight, Menu } from "lucide-react";
+import { ChevronRight, House, Menu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
@@ -19,8 +19,12 @@ const CHIP = "rounded-sm px-2.5 py-1 text-xs";
 const ACCOUNT_PILL =
   "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-b2b-account px-3.5 text-sm font-bold tracking-[-0.01875rem]";
 
+const ICON_BUTTON =
+  "relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-1/2 after:content-['']";
+
 // 스쿨멘토 전용 헤더(b2bMenu 사이트). 위닝은 기존 Header를 그대로 쓴다.
-export default function Header() {
+// showHome: 로그인 후 서비스 화면에서 전체 메뉴 버튼 왼쪽에 메인으로 가는 버튼을 둔다.
+export default function Header({ showHome = false }: { showHome?: boolean }) {
   const account = useB2BAccount();
   // 하위 항목이 없는 그룹은 알약과 패널 컬럼에서 뺀다(결정 19).
   const groups = useNavGroups().filter((group) => group.items.length > 0);
@@ -182,6 +186,11 @@ export default function Header() {
               </button>
             </div>
           )}
+          {showHome && (
+            <Link to="/" aria-label="메인으로" className={ICON_BUTTON}>
+              <House size={18} className="size-[1.125rem]" />
+            </Link>
+          )}
           <button
             ref={hamburgerRef}
             type="button"
@@ -189,7 +198,7 @@ export default function Header() {
             aria-expanded={drawerOpen}
             aria-controls="mobile-nav-drawer"
             aria-label="전체 메뉴 열기"
-            className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-1/2 after:content-['']"
+            className={ICON_BUTTON}
           >
             <Menu size={18} className="size-[1.125rem]" />
           </button>
