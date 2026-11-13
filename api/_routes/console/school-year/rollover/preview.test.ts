@@ -262,6 +262,69 @@ describe("POST /api/console/school-year/rollover/preview", () => {
       });
     });
 
+    test("R5: a class that is mixed this year stays one mixed class next year when the roster targets the same group and name with a real new grade", async () => {
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-now",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: null,
+              name: "혼",
+            },
+          ],
+          f,
+        ),
+      ];
+
+      const r = await post({
+        toYear: 2027,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t2학년\t\t혼\t1",
+      });
+
+      expect(r.body).toMatchObject({
+        applyRows: [{ studentId: "s1", className: "혼", mixed: true }],
+        rows: [{ to: { grade: null, mixed: true } }],
+      });
+    });
+
+    test("R6: the student's current class being mixed is passed on, so staying in it is not a class change", async () => {
+      vi.setSystemTime(new Date("2026-11-13T12:00:00+09:00"));
+      const baseClasses = kit.state.rows.classes;
+      kit.state.rows.classes = (f) => [
+        ...((baseClasses?.(f) ?? []) as unknown[]),
+        ...matchRows(
+          [
+            {
+              id: "c-mix-4",
+              tenant_id: "tenant-1",
+              school_year: 2026,
+              grade: null,
+              group_id: "g-a",
+              name: "4",
+            },
+          ],
+          f,
+        ),
+      ];
+      const baseEnrollments = kit.state.rows.student_enrollments;
+      kit.state.rows.student_enrollments = (f) =>
+        (baseEnrollments?.(f) as Record<string, unknown>[]).map((e) =>
+          e.student_id === "s1" ? { ...e, class_id: "c-mix-4" } : e,
+        );
+
+      const r = await post({
+        toYear: 2026,
+        text: "김하늘\t1학년\tA레벨\t4\t7\t1학년\tA레벨\t4\t9",
+      });
+
+      expect(r.body).toMatchObject({ rows: [{ result: "no_homeroom" }] });
+    });
+
     test("a school tenant never sees mixed classes: the same text is a wrong grade needing a check", async () => {
       kit.state.rows.tenants = () => ({ school_year: 2026, org_type: "학교" });
 

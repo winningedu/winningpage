@@ -9,10 +9,11 @@
 // no_homeroom 새 반에 담임이 없음(안내만, 반영됨), applied 반영.
 // 졸업 학년은 호출부가 정한다(고3 항상, 중3 은 학교만). 새 학년은 현재 학년에서 한 학년 올린 값이다(중3 은 고1).
 //
-// 다학년(학원만, 학교는 아래 규칙이 모두 꺼진다): 학년 칸이 학년이 아니면(비었거나 "초6" 같은 글) 그 줄은 다학년 학급 줄이고,
-// 글은 저장하지 않는다. 학년 칸은 명단 양식(5칸) 줄이면 기존 학년 칸, 새 칸까지 있는 줄이면 새 학년 칸이다.
-// 같은 그룹과 반을 가리키는 다른 줄이나 이미 있는 다학년 학급(mixedClasses)도 그 줄을 다학년으로 만든다.
-// 다학년 줄은 학년으로 학생을 좁히지 않고(이름으로 찾음) 학생의 학년은 그대로 두거나(학기 중) 한 학년 올린다(넘기기).
+// 다학년(학원만, 학교는 아래 규칙이 모두 꺼진다): 학년 칸이 "다학년" 이면 그 줄은 다학년 학급 줄이다. 명단 양식(5칸) 줄은 학년 칸이
+// 비어 있어도 다학년이다. 새 칸까지 있는 줄(9칸)의 빈 새 학년 칸은 예전처럼 학생의 학년을 쓰고, 목표 학급이 이미 다학년일
+// 때만(mixedClasses) 다학년이다. 그 밖의 글(학년이 아닌 값)은 확인 대상이다. 줄끼리 퍼지지 않는다: 같은 학급을 가리키는 줄이
+// 다학년과 실제 학년으로 갈리면 그 줄 모두 확인 대상이다. 다학년 줄은 학년으로 학생을 좁히지 않고(이름으로 찾음) 학생의
+// 학년은 그대로 두거나(학기 중) 한 학년 올린다(넘기기).
 
 import { maskName } from "./maskName.js";
 
@@ -51,6 +52,8 @@ export interface PreviewStudent {
   number: number | null;
   /** 학적 version. 학기 중 적용이 그 사이 바뀐 학생을 알아보는 데 쓴다. */
   version?: number;
+  /** 지금 학급이 다학년 학급이면 true. 같은 이름의 학년 학급으로 옮기는 것도 반 변경이다. */
+  mixedClass?: boolean;
 }
 
 export type PreviewResult =
@@ -321,6 +324,7 @@ function targetOf(
 function classChanges(student: PreviewStudent, target: Target): boolean {
   if (student.className === null) return false;
   return (
+    (student.mixedClass ?? false) !== (target.slot.mixed ?? false) ||
     student.className !== target.slot.className ||
     (student.groupName?.toLowerCase() ?? null) !==
       (target.slot.groupName?.toLowerCase() ?? null)
@@ -352,24 +356,55 @@ function classKeyOf(line: ParsedLine, input: PreviewInput): string | null {
   return group ? `${group.id}|${className}` : null;
 }
 
+const isMixedToken = (cell: string) => cell.replace(/\s/g, "") === "다학년";
+
+interface LineFlags {
+  /** 다학년 학급 줄. */
+  mixed: boolean;
+  /** 학년 칸이 이상하거나 같은 학급을 가리키는 줄끼리 엇갈려 사람이 확인해야 하는 줄. */
+  check: boolean;
+}
+
 /**
- * 다학년 줄을 가른다(학원만). 학년 칸이 학년이 아닌 줄, 그 줄과 같은 학급을 가리키는 다른 줄,
- * 이미 다학년인 학급(mixedClasses)을 가리키는 줄이 다학년이다.
+ * 줄마다 다학년 여부와 확인 대상 여부를 정한다(학원만, 학교는 모두 평소와 같다).
+ * 다학년: 학년 칸이 "다학년", 5칸 줄의 빈 학년 칸, 목표 학급이 이미 다학년(mixedClasses).
+ * 확인: 학년 칸이 학년도 다학년도 빈 칸도 아닌 글, 또 이미 다학년이 아닌 학급을 가리키는 줄이 다학년 줄과 실제 학년(또는
+ * 학생 학년을 쓰는 빈 9칸 줄)으로 갈리면 그 줄 모두.
  */
-function mixedLinesOf(input: PreviewInput): Set<ParsedLine> {
-  const mixed = new Set<ParsedLine>();
-  if (!isAcademy(input.orgType)) return mixed;
-  const own = input.lines.filter((l) => !isGradeCell(decidingGradeOf(l)));
-  const keys = new Set(input.mixedClasses ?? []);
-  for (const line of own) {
+function flagLines(input: PreviewInput): Map<ParsedLine, LineFlags> {
+  const flags = new Map<ParsedLine, LineFlags>();
+  if (!isAcademy(input.orgType)) return flags;
+  const existing = input.mixedClasses ?? new Set<string>();
+  type Kind = "grade" | "mixed" | "blank" | "junk";
+  const kindOf = (line: ParsedLine): Kind => {
+    const cell = decidingGradeOf(line);
+    if (isGradeCell(cell)) return "grade";
+    if (isMixedToken(cell)) return "mixed";
+    if (cell.trim() === "") return isRosterOnly(line) ? "mixed" : "blank";
+    return "junk";
+  };
+  const byClass = new Map<string, ParsedLine[]>();
+  for (const line of input.lines) {
     const key = classKeyOf(line, input);
-    if (key) keys.add(key);
+    if (key === null || existing.has(key) || kindOf(line) === "junk") continue;
+    byClass.set(key, [...(byClass.get(key) ?? []), line]);
+  }
+  const conflicting = new Set<ParsedLine>();
+  for (const lines of byClass.values()) {
+    const kinds = lines.map(kindOf);
+    if (kinds.includes("mixed") && kinds.some((k) => k !== "mixed")) {
+      for (const line of lines) conflicting.add(line);
+    }
   }
   for (const line of input.lines) {
     const key = classKeyOf(line, input);
-    if (own.includes(line) || (key !== null && keys.has(key))) mixed.add(line);
+    const kind = kindOf(line);
+    flags.set(line, {
+      check: kind === "junk" || conflicting.has(line),
+      mixed: kind === "mixed" || (key !== null && existing.has(key)),
+    });
   }
-  return mixed;
+  return flags;
 }
 
 export function evaluateRolloverPreview(input: PreviewInput): {
@@ -380,7 +415,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
 } {
   const midyear = input.mode === "midyear";
   const academy = isAcademy(input.orgType);
-  const mixedLines = mixedLinesOf(input);
+  const lineFlags = flagLines(input);
   const rows: PreviewRow[] = [];
   const pendingRows: PendingRow[] = [];
   const pending: {
@@ -452,6 +487,17 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       });
       continue;
     }
+    if (lineFlags.get(line)?.check) {
+      rows.push({
+        line: line.line,
+        displayName: masked,
+        from: null,
+        to: null,
+        studentId: null,
+        result: "check_target",
+      });
+      continue;
+    }
     const repeated =
       found.length === 1 &&
       (lineCounts.get((found[0] as PreviewStudent).studentId) ?? 0) > 1;
@@ -478,7 +524,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
           line,
           midyear,
           input,
-          mixedLines.has(line),
+          lineFlags.get(line)?.mixed ?? false,
         );
         if (pendingRow) pendingRows.push(pendingRow);
       }
@@ -522,7 +568,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     const toLine: ParsedLine = rosterOnly
       ? { ...line, to: { ...line.from, grade: line.to.grade } }
       : line;
-    const mixed = mixedLines.has(line);
+    const mixed = lineFlags.get(line)?.mixed ?? false;
     const target = targetOf(
       toLine,
       midyear ? (student.grade as string) : nextGrade(student.grade ?? ""),

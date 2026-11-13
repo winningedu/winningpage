@@ -99,6 +99,7 @@ export default defineHandler({
         className: cls?.name ?? null,
         number: e.number,
         version: e.version,
+        ...(cls?.grade === null && { mixedClass: true }),
       };
     });
     const homeroomClasses = new Set(
@@ -107,9 +108,14 @@ export default defineHandler({
         .map((c) => `${c.grade ?? ""}|${c.groupId ?? ""}|${c.name}`),
     );
     // 새 학년도에 이미 다학년인 학급(학년 없음). 같은 그룹과 반을 가리키는 줄이 다학년 줄이 된다.
+    // 올해 다학년인 학급도 포함한다: 넘기기에서 같은 그룹과 반 이름을 가리키는 줄은 실제 새 학년을 적었어도 다학년 학급 하나로 이어진다.
     const mixedClasses = new Set(
       [...classes.values()]
-        .filter((c) => c.schoolYear === toYear && c.grade === null)
+        .filter(
+          (c) =>
+            (c.schoolYear === toYear || c.schoolYear === schoolYear) &&
+            c.grade === null,
+        )
         .map((c) => `${c.groupId ?? ""}|${c.name.toLowerCase()}`),
     );
 
