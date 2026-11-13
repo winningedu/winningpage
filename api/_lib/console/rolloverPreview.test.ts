@@ -62,6 +62,7 @@ const student = (
 });
 
 const base = {
+  mode: "rollover" as "rollover" | "midyear",
   orgType: "학원",
   graduatingGrades: ["고3"],
   groups: new Map([["a레벨", { id: "g-a", name: "A레벨" }]]),
@@ -288,5 +289,71 @@ describe("evaluateRolloverPreview", () => {
       displayName: "박*수",
       result: "student_not_found",
     });
+  });
+});
+
+describe("evaluateRolloverPreview in mid-year mode", () => {
+  const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+  const midyear = { mode: "midyear" as const };
+
+  test("only group, class and number change: the student's current grade is the target grade and a new grade cell is ignored", () => {
+    const r = run("김하늘,1학년,,4,7,3학년,a레벨,5,2", [kim], {
+      ...midyear,
+      homeroomClasses: new Set(["고1|g-a|5"]),
+    });
+
+    expect(r.rows[0]).toMatchObject({
+      studentId: "s1",
+      result: "applied",
+      to: { grade: "고1", groupName: "A레벨", className: "5", number: 2 },
+    });
+    expect(r.applyRows).toEqual([
+      { studentId: "s1", groupId: "g-a", className: "5", number: 2 },
+    ]);
+  });
+
+  test("a student in the top grade is not graduating", () => {
+    const r = run(
+      "박서준,3학년,,4,7,,,6,1",
+      [student({ studentId: "s3", name: "박서준", grade: "고3" })],
+      { ...midyear, graduatingGrades: ["고3"] },
+    );
+
+    expect(r.rows[0]?.result).not.toBe("graduating");
+    expect(r.applyRows).toHaveLength(1);
+  });
+
+  test("students missing from the list are not counted as promoted or graduating", () => {
+    const r = run(
+      "김하늘,1학년,,4,7,,,6,1",
+      [kim, student({ studentId: "s2", name: "윤하린", grade: "고3" })],
+      midyear,
+    );
+
+    expect(r.summary).toEqual({ graduate: 0, promote: 0, waiting: 0 });
+  });
+
+  test("a line with only the roster cells (no new cells) takes those cells as the target and matches by name and grade", () => {
+    const r = run(
+      "김하늘,1학년,,9,3",
+      [
+        student({
+          studentId: "s1",
+          name: "김하늘",
+          grade: "고1",
+          className: "4",
+          number: 7,
+        }),
+      ],
+      midyear,
+    );
+
+    expect(r.rows[0]).toMatchObject({
+      studentId: "s1",
+      to: { grade: "고1", className: "9", number: 3 },
+    });
+    expect(r.applyRows).toEqual([
+      { studentId: "s1", groupId: null, className: "9", number: 3 },
+    ]);
   });
 });

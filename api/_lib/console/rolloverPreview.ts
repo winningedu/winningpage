@@ -66,6 +66,8 @@ export interface ApplyRow {
 }
 
 export interface PreviewInput {
+  /** rollover 는 학년 +1 과 졸업, midyear 는 학년을 두고 그룹, 반, 번호만 바꾼다(서버가 정한다). */
+  mode: "rollover" | "midyear";
   lines: ParsedLine[];
   students: PreviewStudent[];
   orgType: string | null;
@@ -200,11 +202,16 @@ function targetOf(
   };
 }
 
+/** 새 칸(그룹, 반, 번호)이 모두 비어 있으면 명단 양식 줄이라 기존 칸이 곧 바뀔 값이다. */
+const isRosterOnly = (line: ParsedLine) =>
+  line.to.group === "" && line.to.className === "" && line.to.number === "";
+
 export function evaluateRolloverPreview(input: PreviewInput): {
   rows: PreviewRow[];
   applyRows: ApplyRow[];
   summary: { graduate: number; promote: number; waiting: number };
 } {
+  const midyear = input.mode === "midyear";
   const rows: PreviewRow[] = [];
   const pending: {
     row: PreviewRow;
@@ -223,7 +230,15 @@ export function evaluateRolloverPreview(input: PreviewInput): {
 
   for (const line of input.lines) {
     const byName = input.students.filter((s) => s.name === line.name);
-    const found = narrow(byName, line.from, input.orgType);
+    // 학기 중 명단 양식 줄은 이름과 학년으로만 찾는다(기존 반과 번호는 곧 바뀔 값이다).
+    const rosterOnly = midyear && isRosterOnly(line);
+    const found = narrow(
+      byName,
+      rosterOnly
+        ? { grade: line.from.grade, group: "", className: "", number: "" }
+        : line.from,
+      input.orgType,
+    );
     const masked = maskName(line.name);
     if (found.length === 0 || found.length > 1) {
       const same = found.length > 1;
@@ -251,11 +266,26 @@ export function evaluateRolloverPreview(input: PreviewInput): {
       result: "applied",
     };
     rows.push(row);
-    if (student.grade && input.graduatingGrades.includes(student.grade)) {
+    if (midyear && !student.grade) {
+      row.result = "check_target";
+      continue;
+    }
+    if (
+      !midyear &&
+      student.grade &&
+      input.graduatingGrades.includes(student.grade)
+    ) {
       row.result = "graduating";
       continue;
     }
-    const target = targetOf(line, nextGrade(student.grade ?? ""), input);
+    const toLine: ParsedLine = rosterOnly
+      ? { ...line, to: { ...line.from, grade: "" } }
+      : { ...line, to: { ...line.to, grade: midyear ? "" : line.to.grade } };
+    const target = targetOf(
+      toLine,
+      midyear ? (student.grade as string) : nextGrade(student.grade ?? ""),
+      input,
+    );
     row.to = target.slot;
     if (target.checkNeeded) {
       row.result = "check_target";
@@ -297,6 +327,13 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     });
   }
 
+  if (midyear) {
+    return {
+      rows,
+      applyRows,
+      summary: { graduate: 0, promote: 0, waiting: 0 },
+    };
+  }
   const graduate = input.students.filter(
     (s) => s.grade && input.graduatingGrades.includes(s.grade),
   ).length;
