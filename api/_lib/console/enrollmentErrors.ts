@@ -108,6 +108,12 @@ const MAPPED: Record<string, Mapped> = {
     code: "QA_ACCOUNT_RESTRICTED",
     message: QA_ACCOUNT_MESSAGE,
   },
+  // 학기 중 명단 적용이 기다리는 사이 학년도가 넘어갔다(fn_roster_midyear 가 40001 을 던진다).
+  "40001": {
+    status: 409,
+    code: "SCHOOL_YEAR_CHANGED",
+    message: "학년도가 바뀌었어요. 명단을 다시 미리보기해 주세요.",
+  },
   "23503": INVALID_CLASS,
   // 학급 이름 정규화(22023)와 학년, 번호 CHECK(23514)
   "22023": INVALID_CLASS,

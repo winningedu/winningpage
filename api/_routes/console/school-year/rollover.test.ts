@@ -313,6 +313,19 @@ describe("POST /api/console/school-year/rollover", () => {
       expect((await post({ toYear: 2026 })).status).toBe(200);
     });
 
+    test("a school year that changed while waiting (40001) is a 409 with its own code", async () => {
+      state.result = { data: null, error: { code: "40001" } };
+      expect(
+        await post({
+          toYear: 2026,
+          rows: [{ studentId: "s-1", className: "3", version: 2 }],
+        }),
+      ).toMatchObject({
+        status: 409,
+        body: { error: { code: "SCHOOL_YEAR_CHANGED" } },
+      });
+    });
+
     test("a version mismatch is 409 and a row without a version is a 400", async () => {
       state.result = { data: null, error: { code: "WC078" } };
       expect(
