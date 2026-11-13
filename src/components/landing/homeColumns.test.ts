@@ -83,4 +83,11 @@ describe("toHomeColumnBox", () => {
     );
     expect(box).not.toHaveProperty("durationLabel");
   });
+
+  test("글의 카테고리를 박스에 싣고 없으면 싣지 않는다", () => {
+    expect(toHomeColumnBox(row("k", { category: "교육칼럼" })).category).toBe(
+      "교육칼럼",
+    );
+    expect(toHomeColumnBox(row("n"))).not.toHaveProperty("category");
+  });
 });
