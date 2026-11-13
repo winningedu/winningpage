@@ -230,6 +230,48 @@ describe("GET /api/console/dashboard", () => {
     });
   });
 
+  test("grade=mixed narrows to grade-less classes, counts every student in them whatever their grade, and a homeroom stays in own classes", async () => {
+    const mixed = {
+      id: "c-mix",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: null,
+      group_id: null,
+      name: "다",
+    };
+    kit.state.rows.classes = (f) => matchRows([...CLASSES, mixed], f);
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...ENROLLMENTS,
+          enroll("s9", "c-mix", { grade: "중2" }),
+          enroll("s10", "c-mix", { grade: "고1" }),
+        ],
+        f,
+      );
+
+    const byMixed = await get({ grade: "mixed" });
+    expect((byMixed.body as { usage: unknown }).usage).toEqual({
+      usingCount: 0,
+      totalCount: 2,
+    });
+    const byGrade = await get({ grade: "고1" });
+    expect((byGrade.body as { usage: unknown }).usage).toEqual({
+      usingCount: 1,
+      totalCount: 1,
+    });
+
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-3"],
+    });
+    const outside = await get({ grade: "mixed" });
+    expect((outside.body as { usage: unknown }).usage).toEqual({
+      usingCount: 0,
+      totalCount: 0,
+    });
+  });
+
   test("an unknown grade is a 400", async () => {
     const r = await get({ grade: "고9" });
     expect(r.status).toBe(400);

@@ -7,7 +7,10 @@
 
 import { kstYMD } from "../../../src/lib/goal/calc/index.js";
 import { loadTenant, readAll } from "../../_lib/console/directory.js";
-import { isEnrollmentGrade } from "../../_lib/console/enrollmentInput.js";
+import {
+  gradeFilterMatches,
+  isGradeFilter,
+} from "../../_lib/console/enrollmentInput.js";
 import { rateBucket } from "../../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
 import { queryValue } from "../../_lib/console/query.js";
@@ -38,7 +41,7 @@ export default defineHandler({
     const grade = queryValue(req.query.grade);
     const groupId = queryValue(req.query.groupId);
     const classId = queryValue(req.query.classId);
-    if (grade !== undefined && !isEnrollmentGrade(grade)) {
+    if (grade !== undefined && !isGradeFilter(grade)) {
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
@@ -46,7 +49,7 @@ export default defineHandler({
     const { schoolYear } = await loadTenant(admin, actor.tenantId);
     const classes = await readAll<{
       id: string;
-      grade: string;
+      grade: string | null;
       group_id: string | null;
     }>(admin, "classes", "id, grade, group_id", (q) =>
       scopeQuery(q, actor, { classColumn: "id" }).eq("school_year", schoolYear),
@@ -60,7 +63,7 @@ export default defineHandler({
         .filter(
           (c) =>
             (classId === undefined || c.id === classId) &&
-            (grade === undefined || c.grade === grade) &&
+            gradeFilterMatches(grade, c.grade, c.grade) &&
             (groupId === undefined || c.group_id === groupId),
         )
         .map((c) => c.id),

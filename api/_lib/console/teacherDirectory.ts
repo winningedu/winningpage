@@ -12,7 +12,7 @@ import {
 
 export interface DirectoryClass {
   id: string;
-  grade: string;
+  grade: string | null;
   groupId: string | null;
   groupName: string | null;
   name: string;
@@ -36,7 +36,7 @@ export interface DirectoryTeacher {
 
 export interface DirectoryClassRow {
   id: string;
-  grade: string;
+  grade: string | null;
   groupId: string | null;
   groupName: string | null;
   name: string;
@@ -64,8 +64,8 @@ interface TeacherRow {
 }
 
 export function compareClasses(
-  a: { grade: string; groupName: string | null; name: string },
-  b: { grade: string; groupName: string | null; name: string },
+  a: { grade: string | null; groupName: string | null; name: string },
+  b: { grade: string | null; groupName: string | null; name: string },
 ): number {
   return (
     gradeRank(a.grade) - gradeRank(b.grade) ||
@@ -89,7 +89,7 @@ export async function loadTeacherDirectory(
       ),
       readAll<{
         id: string;
-        grade: string;
+        grade: string | null;
         group_id: string | null;
         name: string;
       }>(admin, "classes", "id, grade, group_id, name", (q) =>
