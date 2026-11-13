@@ -68,6 +68,11 @@ const naesinBody = {
     exams: {},
   },
 };
+const mockBody = {
+  section: "mock",
+  mockExam: { lastRound: "", track: "", rounds: {} },
+};
+
 async function callRoute(body: unknown) {
   const { default: handler } = await import("./intake-update.js");
   const res = {
@@ -101,5 +106,72 @@ describe("intake-update records 보존", () => {
     expect((update.naesin_scores as { records: unknown }).records).toEqual(
       rounds,
     );
+  });
+
+  it("모의고사를 고쳐도 기존 mock_exam_scores.records를 같은 내용·순서로 유지한다", async () => {
+    const res = await callRoute(mockBody);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const update = savedUpdate();
+    expect(update.mock_exam_scores).toEqual({
+      lastRound: "",
+      track: "",
+      rounds: {},
+      records: rounds,
+    });
+  });
+
+  it("기존 컬럼에 records가 없으면 새 객체에도 records 키를 만들지 않는다", async () => {
+    fetchStudentRowMock.mockResolvedValue(
+      studentRow({
+        naesin_scores: { lastExam: "g3_s1mid", overall: 3 },
+        mock_exam_scores: null,
+      }),
+    );
+
+    await callRoute(naesinBody);
+    expect(savedUpdate().naesin_scores).not.toHaveProperty("records");
+
+    upsertStudentRowMock.mockClear();
+    await callRoute(mockBody);
+    expect(savedUpdate().mock_exam_scores).not.toHaveProperty("records");
+  });
+
+  it("records가 배열이 아니면 옮기지 않는다", async () => {
+    fetchStudentRowMock.mockResolvedValue(
+      studentRow({
+        naesin_scores: { records: { id: "r1" } },
+        mock_exam_scores: { records: "r1" },
+      }),
+    );
+
+    await callRoute(naesinBody);
+    expect(savedUpdate().naesin_scores).not.toHaveProperty("records");
+
+    upsertStudentRowMock.mockClear();
+    await callRoute(mockBody);
+    expect(savedUpdate().mock_exam_scores).not.toHaveProperty("records");
+  });
+
+  it("내신만 고치면 mock_exam_scores를 쓰지 않고, 모의고사만 고치면 naesin_scores를 쓰지 않는다", async () => {
+    await callRoute(naesinBody);
+    expect(savedUpdate()).not.toHaveProperty("mock_exam_scores");
+
+    upsertStudentRowMock.mockClear();
+    await callRoute(mockBody);
+    expect(savedUpdate()).not.toHaveProperty("naesin_scores");
+  });
+
+  it("target 구간은 두 컬럼 모두 쓰지 않는다", async () => {
+    const res = await callRoute({
+      section: "target",
+      upperUniversity: { university: "서울대", department: "경영학과" },
+      lowerUniversity: { university: "연세대", department: "경영학과" },
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const update = savedUpdate();
+    expect(update).not.toHaveProperty("naesin_scores");
+    expect(update).not.toHaveProperty("mock_exam_scores");
   });
 });
