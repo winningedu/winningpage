@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HOMEPAGE_PREFIX, withoutBareScheme } from "@/lib/homepage";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode } from "./api";
 import Notice from "./Notice";
@@ -106,17 +107,19 @@ export default function OrgInfoPage() {
       if (res.status !== 200) throw new Error(`org-info ${res.status}`);
       const info = res.body as OrgInfo;
       setCode(info.code);
-      setValues(
-        Object.fromEntries(
-          FIELDS.map((f) => [f.key, info[f.key] ?? ""]),
-        ) as Values,
-      );
+      const loaded = Object.fromEntries(
+        FIELDS.map((f) => [f.key, info[f.key] ?? ""]),
+      ) as Values;
+      if (!proxy && !info.infoConfirmedAt && loaded.homepage === "") {
+        loaded.homepage = HOMEPAGE_PREFIX;
+      }
+      setValues(loaded);
       setMode(info.infoConfirmedAt ? "locked" : "edit");
       setErrors({});
     } catch {
       setLoadFailed(true);
     }
-  }, []);
+  }, [proxy]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -142,7 +145,9 @@ export default function OrgInfoPage() {
 
   const toConfirm = () => {
     if (!values) return;
-    const found = validate(values);
+    const cleaned = { ...values, homepage: withoutBareScheme(values.homepage) };
+    setValues(cleaned);
+    const found = validate(cleaned);
     setErrors(found);
     if (Object.keys(found).length === 0) setMode("confirm");
   };
@@ -278,7 +283,12 @@ export default function OrgInfoPage() {
               type="button"
               variant="outline"
               disabled={saving}
-              onClick={() => setMode("edit")}
+              onClick={() => {
+                if (values.homepage === "") {
+                  setValues({ ...values, homepage: HOMEPAGE_PREFIX });
+                }
+                setMode("edit");
+              }}
               className={cn(buttonBase, "border-line text-primary")}
             >
               수정하기
