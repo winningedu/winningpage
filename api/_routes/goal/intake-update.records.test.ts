@@ -88,7 +88,7 @@ async function callRoute(body: unknown) {
 
 function savedUpdate(): Record<string, unknown> {
   expect(upsertStudentRowMock).toHaveBeenCalledTimes(1);
-  return upsertStudentRowMock.mock.calls[0][1];
+  return upsertStudentRowMock.mock.calls[0]?.[1];
 }
 
 describe("intake-update records 보존", () => {
