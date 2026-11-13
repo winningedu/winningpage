@@ -306,6 +306,26 @@ describe("OrgInfoPage 최종확인", () => {
     expect((await field("주소")).readOnly).toBe(false);
   });
 
+  it("저장 요청이 400 으로 입력 단계에 돌아와도 빈 홈페이지에는 http:// 가 다시 채워진다", async () => {
+    stubOrg({
+      org: { homepage: null } as never,
+      patch: {
+        status: 400,
+        body: { error: { code: "BAD_REQUEST", message: "x" } },
+      },
+    });
+    renderRoutes(routes, "/teacher/org-info");
+    await field("홈페이지 주소");
+    clickSave();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "최종확인(저장)" }),
+    );
+
+    expect(await screen.findByRole("button", { name: "저장" })).toBeTruthy();
+    expect((await field("홈페이지 주소")).value).toBe("http://");
+  });
+
   it("이미 확정됐다는 응답(409)이면 다시 읽어 조회 전용으로 보인다", async () => {
     let confirmed = false;
     stubApi({

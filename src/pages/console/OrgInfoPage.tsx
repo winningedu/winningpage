@@ -168,8 +168,13 @@ export default function OrgInfoPage() {
         return;
       }
       if (patch.status === 400) {
+        const restored =
+          values.homepage === ""
+            ? { ...values, homepage: HOMEPAGE_PREFIX }
+            : values;
+        setValues(restored);
         setMode("edit");
-        setErrors(validate(values));
+        setErrors(validate(restored));
         return;
       }
       if (patch.status !== 200)
