@@ -159,3 +159,48 @@ export function recentHistory(
   }));
   return withDelta.slice(-count).reverse();
 }
+
+// 설문(온보딩)에서 입력한 점수를 성적 관리 표에 읽기 전용 첫 행으로 보여 주는 행. 회차 기록이
+// 아니므로 toTableRows 와 섞지 않고, 평균, 증감, 차트 계산에는 넣지 않는다. 값이 없거나 0(미입력)이면 null.
+export const SURVEY_BASELINE_TERM = "설문 입력";
+
+export function naesinBaselineRow(convertedGrade: number | null | undefined) {
+  if (convertedGrade == null || !(convertedGrade > 0)) return null;
+  return { term: SURVEY_BASELINE_TERM, average: convertedGrade };
+}
+
+type StoredPct = { pct?: unknown } | undefined;
+
+const pctOf = (value: StoredPct) =>
+  typeof value?.pct === "number" ? value.pct : null;
+
+/**
+ * 모의고사 설문 행. 국어, 수학, 탐구 백분위는 마지막으로 고른 회차(mockInput.lastRound)에서 읽고,
+ * 영어는 설문이 등급으로 받았으므로 칸을 비운다. 탐구는 두 과목 백분위의 평균이다.
+ */
+export function mockBaselineRow(
+  currentMogo: number | null | undefined,
+  mockInput: Record<string, unknown> | null | undefined,
+) {
+  if (currentMogo == null || !(currentMogo > 0)) return null;
+  const rounds = (mockInput?.rounds ?? {}) as Record<
+    string,
+    Record<string, StoredPct> | undefined
+  >;
+  const round = rounds[String(mockInput?.lastRound ?? "")];
+  const tam = [pctOf(round?.tam1), pctOf(round?.tam2)].filter(
+    (v): v is number => v !== null,
+  );
+  const korean = pctOf(round?.kor);
+  const math = pctOf(round?.math);
+  const science = tam.length
+    ? round1(tam.reduce((a, b) => a + b, 0) / tam.length)
+    : null;
+  return {
+    term: SURVEY_BASELINE_TERM,
+    ...(korean !== null ? { korean } : {}),
+    ...(math !== null ? { math } : {}),
+    ...(science !== null ? { science } : {}),
+    average: currentMogo,
+  };
+}
