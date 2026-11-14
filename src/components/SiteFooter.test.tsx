@@ -2,8 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { FooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
 import type { SiteConfig } from "@/config/site";
+import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import SiteFooter from "./SiteFooter";
 
 type MockSite = Pick<SiteConfig, "brandName" | "logo" | "company">;
@@ -51,7 +51,7 @@ afterEach(() => {
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
 }));
-vi.mock("@/components/footer/useFooterOperatorImage", () => ({
+vi.mock("@/hooks/useFooterOperatorImage", () => ({
   useFooterOperatorImage: () => operatorImage.value,
 }));
 

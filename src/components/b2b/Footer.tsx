@@ -1,6 +1,6 @@
 import { Link } from "react-router";
-import { useFooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
 import { site } from "@/config/site";
+import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 
 // 시안: 상호명 줄과 사업자 번호 줄은 값이 없는 조각을 빼고 " | "로 잇는다(빈 값을 그리지 않는다).
 function joinPieces(pieces: (string | undefined)[]) {

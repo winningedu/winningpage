@@ -1,10 +1,10 @@
 import { Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
-import { useFooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
 import KakaoIcon from "@/components/icons/KakaoIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
 import { site } from "@/config/site";
+import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import { useNavGroups } from "@/hooks/useNavGroups";
 
 // 결제/랜딩 공용 푸터. 사업자 정보 + 이용약관/개인정보처리방침 링크 포함.

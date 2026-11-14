@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 
 const MIGRATIONS = path.resolve(
   import.meta.dirname,
-  "../../../supabase/migrations",
+  "../../../../supabase/migrations",
 );
 
 function readMigration(): string {

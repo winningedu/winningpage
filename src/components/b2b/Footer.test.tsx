@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
+import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import Footer from "./Footer";
 
 vi.mock("@/config/site", async () => {
@@ -13,7 +13,7 @@ vi.mock("@/config/site", async () => {
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
 }));
-vi.mock("@/components/footer/useFooterOperatorImage", () => ({
+vi.mock("@/hooks/useFooterOperatorImage", () => ({
   useFooterOperatorImage: () => operatorImage.value,
 }));
 
