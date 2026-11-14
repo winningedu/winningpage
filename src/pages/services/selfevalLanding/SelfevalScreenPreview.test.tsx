@@ -1,6 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import SelfevalScreenPreview from "./SelfevalScreenPreview";
+
+const siteState = vi.hoisted(() => ({
+  homeUrl: "https://www.winningedu.com",
+}));
+
+vi.mock("@/config/site", () => ({
+  site: {
+    get homeUrl() {
+      return siteState.homeUrl;
+    },
+  },
+}));
 
 const SLIDES = [
   { src: "/a.png", alt: "첫 화면" },
@@ -31,5 +43,23 @@ describe("SelfevalScreenPreview 넘김 점", () => {
     expect(
       screen.getByRole("button", { name: "1번째 화면" }).className,
     ).toContain("bg-ink-sub");
+  });
+});
+
+describe("SelfevalScreenPreview 주소창", () => {
+  beforeEach(() => {
+    siteState.homeUrl = "https://www.winningedu.com";
+  });
+
+  it("위닝은 위닝에듀 주소를 보인다", () => {
+    render(<SelfevalScreenPreview slides={SLIDES} />);
+    expect(screen.getByText("https://www.winningedu.com")).toBeInTheDocument();
+  });
+
+  it("스쿨멘토는 스쿨멘토 주소를 보인다", () => {
+    siteState.homeUrl = "https://www.schoolmentor.kr";
+    render(<SelfevalScreenPreview slides={SLIDES} />);
+    expect(screen.getByText("https://www.schoolmentor.kr")).toBeInTheDocument();
+    expect(screen.queryByText(/winningedu\.com/)).toBeNull();
   });
 });

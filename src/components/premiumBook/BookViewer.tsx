@@ -70,8 +70,10 @@ function FaceContent({
   onFail,
   eager,
   hidden,
+  label,
 }: {
   face: Face | null;
+  label: string;
   failed: boolean;
   onFail: (order: number, url: string) => void;
   eager?: boolean;
@@ -110,7 +112,7 @@ function FaceContent({
       className="pbv-page-img"
       src={url}
       // alt는 DB 컬럼 없이 프론트에서 생성한다(§5.3, sql/47에서 alt_text를 뺀 이유).
-      alt={hidden ? "" : `프리미엄 안내 책자 ${face.order}페이지`}
+      alt={hidden ? "" : `${label} ${face.order}페이지`}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
       draggable="false"
@@ -135,6 +137,8 @@ type BookViewerProps = {
   error?: unknown;
   // onRetry: error 상태의 "다시 시도" 버튼 핸들러. 재시도 개념이 없는 소비처는 생략해도 된다.
   onRetry?: () => void;
+  // 접근성 이름(그룹 라벨, 페이지 이미지 alt 앞부분). 기본은 위닝에듀 프리미엄 책자 이름이다.
+  label?: string;
 };
 
 export default function BookViewer({
@@ -142,6 +146,7 @@ export default function BookViewer({
   loading = false,
   error = null,
   onRetry,
+  label = "프리미엄 안내 책자",
 }: BookViewerProps) {
   // 현재 위치는 뷰 인덱스가 아니라 페이지(sort_order) 앵커로 들고 있다.
   // spread ↔ 1페이지 모드가 바뀌어도 보고 있던 페이지가 유지된다.
@@ -436,7 +441,7 @@ export default function BookViewer({
           } as CSSProperties
         }
         role="group"
-        aria-label="프리미엄 안내 책자"
+        aria-label={label}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: onKeyDown으로 페이지 넘김을 키보드로 조작하기 위해 포커스 가능해야 한다.
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -472,6 +477,7 @@ export default function BookViewer({
                         : false
                     }
                     onFail={handleImageError}
+                    label={label}
                     eager
                   />
                 </div>
@@ -484,6 +490,7 @@ export default function BookViewer({
                         : false
                     }
                     onFail={handleImageError}
+                    label={label}
                     eager
                   />
                 </div>
@@ -523,6 +530,7 @@ export default function BookViewer({
                             : false
                         }
                         onFail={handleImageError}
+                        label={label}
                         eager
                         hidden
                       />
@@ -536,6 +544,7 @@ export default function BookViewer({
                             : false
                         }
                         onFail={handleImageError}
+                        label={label}
                         eager
                         hidden
                       />

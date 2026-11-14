@@ -148,6 +148,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       { key: "programCategories", label: "핵심 서비스" },
       // 기획표 라벨 변경: 멘토 성공전략 → 멘토스 소개.
       { key: "mentorStrategies", label: "멘토스 소개" },
+      { key: "footerImages", label: "푸터관리" },
       // premiumAchievements(프리미엄 실적 뱃지) 화면은 premium-db-decouple로 제거했다 —
       // premium_achievements 테이블 자체가 drop되고(20260824000008), 프리미엄 랜딩은
       // premiumStaticData.ts 코드 상수를 쓴다.

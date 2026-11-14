@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SiteConfig } from "@/config/site";
+import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import SiteFooter from "./SiteFooter";
 
 type MockSite = Pick<SiteConfig, "brandName" | "logo" | "company">;
@@ -43,7 +44,16 @@ vi.mock("@/config/site", () => ({
 const WINNING_SITE = structuredClone(siteState.current);
 afterEach(() => {
   siteState.current = structuredClone(WINNING_SITE);
+  operatorImage.value = null;
 });
+
+// 운영기관 이미지 훅은 기본 null(이미지 없음)이라 기존 단언은 그대로 통과한다.
+const operatorImage = vi.hoisted(() => ({
+  value: null as FooterOperatorImage | null,
+}));
+vi.mock("@/hooks/useFooterOperatorImage", () => ({
+  useFooterOperatorImage: () => operatorImage.value,
+}));
 
 // 푸터 회귀 테스트(dev 레이아웃 기준). useNavGroups는 실제 구현을 쓰지 않고 5개 그룹
 // 고정값으로 대체한다(Header.test.tsx의 관례를 따름) — 실 Supabase 조회가 테스트에
@@ -136,6 +146,56 @@ describe("SiteFooter", () => {
         "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SiteFooter, 운영기관 이미지", () => {
+  it("이미지가 있으면 모바일과 데스크톱 로고 자리를 같은 링크 안에서 이미지로 바꾼다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/operator.png",
+      title: "위닝 운영기관",
+    };
+    renderFooter();
+
+    expect(screen.queryByAltText("위닝에듀")).not.toBeInTheDocument();
+    const images = screen.getAllByAltText("위닝 운영기관");
+    expect(images).toHaveLength(2);
+    for (const image of images) {
+      expect(image).toHaveAttribute(
+        "src",
+        "https://cdn.example/footer/operator.png",
+      );
+      expect(image.closest("a")).toHaveAttribute("href", "/company-news");
+    }
+  });
+
+  it("이미지 모양이 달라도 레이아웃이 깨지지 않게 모바일은 폭, 데스크톱은 높이를 제한한다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/operator.png",
+      title: "위닝 운영기관",
+    };
+    renderFooter();
+
+    const [mobile, desktop] = screen.getAllByAltText(
+      "위닝 운영기관",
+    ) as HTMLElement[];
+    expect(mobile).toHaveClass(
+      "h-25",
+      "w-auto",
+      "max-w-full",
+      "object-contain",
+    );
+    expect(desktop).toHaveClass("w-46.25", "max-h-25", "object-contain");
+  });
+
+  it("이미지가 없으면 기존 로고 클래스에 제한 클래스를 더하지 않는다", () => {
+    renderFooter();
+
+    const [mobile, desktop] = screen.getAllByAltText(
+      "위닝에듀",
+    ) as HTMLElement[];
+    expect(mobile?.className).toBe("h-25 w-auto object-contain");
+    expect(desktop?.className).toBe("h-auto w-46.25");
   });
 });
 

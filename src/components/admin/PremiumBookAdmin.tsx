@@ -438,20 +438,50 @@ export default function PremiumBookAdmin({
         idBySort.set(row.sort_order, row.id);
       }
 
-      const upsertRows = urls.map((url, i) => ({
-        ...(idBySort.has(i + 1) ? { id: idBySort.get(i + 1) } : {}),
-        sort_order: i + 1,
-        image_url: url,
-      }));
+      // id가 있는 행과 없는 행을 한 배열로 보내면 PostgREST가 공통 컬럼 집합으로 맞추며
+      // id 없는 행을 id: null로 보내 NOT NULL 위반으로 문장 전체가 실패한다.
+      // payload를 균질하게 유지하려고 기존 행은 upsert, 새 행은 insert로 나눠 보낸다.
+      const upsertRows: Pick<
+        PremiumBookPageRow,
+        "id" | "sort_order" | "image_url"
+      >[] = [];
+      const insertRows: Pick<PremiumBookPageRow, "sort_order" | "image_url">[] =
+        [];
+      for (const [i, url] of urls.entries()) {
+        const sortOrder = i + 1;
+        if (idBySort.has(sortOrder)) {
+          upsertRows.push({
+            id: idBySort.get(sortOrder),
+            sort_order: sortOrder,
+            image_url: url,
+          });
+        } else {
+          insertRows.push({ sort_order: sortOrder, image_url: url });
+        }
+      }
 
-      const { error: upsertError } = await supabase
-        .from("premium_book_pages")
-        .upsert(upsertRows);
+      if (upsertRows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from("premium_book_pages")
+          .upsert(upsertRows);
 
-      if (upsertError) {
-        throw new Error(
-          `페이지 upsert 실패(이미지는 업로드됐습니다): ${upsertError.message}`,
-        );
+        if (upsertError) {
+          throw new Error(
+            `페이지 upsert 실패(이미지는 업로드됐습니다): ${upsertError.message}`,
+          );
+        }
+      }
+
+      if (insertRows.length > 0) {
+        const { error: insertError } = await supabase
+          .from("premium_book_pages")
+          .insert(insertRows);
+
+        if (insertError) {
+          throw new Error(
+            `새 페이지 insert 실패(이미지는 업로드됐습니다. 다시 적용하면 복구됩니다): ${insertError.message}`,
+          );
+        }
       }
 
       // d. 새 책자가 더 짧으면 잉여 행 삭제.

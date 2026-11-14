@@ -5,16 +5,28 @@ import type { GateableProgram } from "./programs";
 
 export type SiteKey = "winning" | "schoolmentor";
 
+// 게시판 페이지 상단 배너 이미지. 값이 있는 사이트만 배너를 렌더한다.
+export interface BoardBanner {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
 export interface SiteConfig {
   key: SiteKey;
   brandName: string;
   logo: { horizontal: string; stacked: string };
   favicon: { png96: string; appleTouch: string; ico: string; svg?: string };
   manifest: string;
+  // 서비스 소개 화면의 브라우저 목업 주소창에 보일 사이트 주소.
+  homeUrl: string;
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
   // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
   boardEmpty?: string;
+  // 고객안내 FAQ와 교육-정보안내 상단 배너. 없으면 배너 영역을 렌더하지 않는다.
+  boardBanners?: { faq: BoardBanner; info: BoardBanner };
   // 홈 '새로운 소식' 두 목록의 제목, 건수, 빈 안내 문구(사 #33, #86, #88).
   news: {
     maxRows: number;
@@ -60,6 +72,8 @@ export interface SiteConfig {
     diagnosisResume: boolean;
     // 회사 소개의 Location(오시는 길) 구역 노출 여부(결정 107 19번).
     companyLocation: boolean;
+    // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
+    usageGuide: boolean;
   };
   company: {
     name: string;
@@ -68,6 +82,8 @@ export interface SiteConfig {
     bizRegNo: string;
     address: string;
     patentNo?: string;
+    // 스쿨멘토 푸터 운영위탁 줄의 사업 유형 문구(예: 소프트웨어 사업자). 없으면 그 조각을 그리지 않는다.
+    businessType?: string;
     mailOrderNo?: string;
     supportChannelLabel?: string;
     tel?: string;
@@ -97,6 +113,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       svg: "/favicon.svg",
     },
     manifest: "/site.webmanifest",
+    homeUrl: "https://www.winningedu.com",
     columnTitle: "교육칼럼",
     news: {
       maxRows: 5,
@@ -123,6 +140,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       goalZeroHourRecord: false,
       diagnosisResume: false,
       companyLocation: true,
+      usageGuide: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -157,8 +175,23 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/schoolmentor/favicon.ico",
     },
     manifest: "/schoolmentor/site.webmanifest",
+    homeUrl: "https://www.schoolmentor.kr",
     columnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
+    boardBanners: {
+      faq: {
+        src: "/images/faq-banner.png",
+        alt: "궁금한 점, 여기서 바로 해결하세요",
+        width: 2400,
+        height: 720,
+      },
+      info: {
+        src: "/images/info-banner.png",
+        alt: "놓치면 안 될 교육 소식, 한곳에서 확인하세요",
+        width: 2400,
+        height: 720,
+      },
+    },
     news: {
       maxRows: 4,
       companyTitle: "공지-회사소개",
@@ -185,12 +218,15 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       goalZeroHourRecord: true,
       diagnosisResume: true,
       companyLocation: false,
+      usageGuide: true,
     },
     company: {
       name: "주식회사 위닝로직",
       ceo: "강원석",
       corpRegNo: "164711-0016571",
       bizRegNo: "783-81-04298",
+      patentNo: "10-3038224",
+      businessType: "소프트웨어 사업자",
       address:
         "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
       // 결정 1(2026-11-05): 스쿨멘토도 위닝에듀 카카오 채널을 쓴다(온라인문의 메뉴 유지).

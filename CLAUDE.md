@@ -4,7 +4,7 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 
 ## Placement examples and exceptions
 
-- Domain folders: `api/_lib/goal/`, `api/_lib/inquiry/`, `api/_lib/growth/`, `api/_lib/selfeval/`, `src/pages/admin/knowledge/`.
+- Domain folders: `api/_lib/goal/`, `api/_lib/inquiry/`, `api/_lib/consult/`, `api/_lib/growth/`, `api/_lib/selfeval/`, `src/pages/admin/knowledge/`.
 - Feature folders shared by several domains: `api/_lib/ai/` (gemini, sdkAdapter, telemetry), `api/_lib/messaging/` (aligo, alimtalk).
 - Shared top-level files: `handler.ts`, `http*.ts`, `supabaseAdmin.ts`, `serviceAccess.ts`, `programAccess.ts`, `phoneCode.ts`, `niceIdentity.ts`, `outbound.ts`, `adminAuth.ts`, `cronAuth.ts`, `site.ts`.
 - Cross-domain import example: growth reads `../_lib/goal/repo.js`. Never hoist it to hide the dependency.

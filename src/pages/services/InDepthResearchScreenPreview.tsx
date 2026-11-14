@@ -2,6 +2,7 @@ import { type MutableRefObject, useEffect, useState } from "react";
 import previewDesign from "@/assets/services/research/preview-design.png";
 import previewEvaluate from "@/assets/services/research/preview-evaluate.png";
 import previewWrite from "@/assets/services/research/preview-write.png";
+import { site } from "@/config/site";
 import { useInView } from "@/hooks/useInView";
 
 const SLIDES = [
@@ -60,7 +61,7 @@ export default function InDepthResearchScreenPreview() {
             <span className="h-2.5 w-2.5 rounded-full bg-[#F6BE4F]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#62C554]" />
             <div className="flex-1 truncate rounded-full bg-[#F1F3F4] px-4 py-1 text-center text-[0.75rem] text-[#767676]">
-              https://www.winningedu.com
+              {site.homeUrl}
             </div>
           </div>
           <div

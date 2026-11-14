@@ -33,6 +33,12 @@ vi.mock("@/config/site", async (importOriginal) => {
         get companyLocation() {
           return !siteState.schoolmentor;
         },
+        get b2bMenu() {
+          return siteState.schoolmentor;
+        },
+        get premium() {
+          return !siteState.schoolmentor;
+        },
       },
     },
   };
@@ -160,4 +166,199 @@ describe("CompanyNews 사이트별 게시판과 Location", () => {
       siteState.newsRows = null;
     },
   );
+});
+
+describe("CompanyNews Mission 문구의 브랜드", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  test("위닝은 위닝에듀 문구를 그대로 보인다", () => {
+    siteState.schoolmentor = false;
+    const { container } = renderPage();
+    expect(container.textContent).toContain(
+      "데이터와 전문성으로 증명하는 위닝에듀입니다",
+    );
+    expect(container.textContent).not.toContain("위닝로직입니다");
+  });
+
+  test("스쿨멘토는 위닝로직으로 바꿔 보인다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    expect(container.textContent).toContain(
+      "데이터와 전문성으로 증명하는 위닝로직입니다",
+    );
+    expect(container.textContent).not.toContain(
+      "데이터와 전문성으로 증명하는 위닝에듀입니다",
+    );
+  });
+});
+
+describe("CompanyNews 사업영역 구역", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  const businessSection = () => {
+    const section = screen.getByText("사업영역").closest("section");
+    if (!section) throw new Error("사업영역 구역이 없습니다");
+    return section;
+  };
+
+  test("위닝은 기존 제목과 카드 구성을 그대로 보인다", () => {
+    siteState.schoolmentor = false;
+    renderPage();
+    const section = businessSection();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /위닝에듀는 기술을/ })
+        .textContent,
+    ).toBe("위닝에듀는 기술을 기반으로 경계없는 입시지원을 제공합니다");
+    expect(section.textContent).toContain("입시 컨설팅 서비스");
+    expect(section.textContent).not.toContain("1:1 콜멘토링");
+    expect(section.textContent).toContain(
+      "학습진단, 목표관리, 수행평가, 성장설계, 콜멘토, 자기평가, 심화탐구",
+    );
+    expect(section.textContent).not.toContain("CEC Academy (영국)");
+  });
+
+  test("스쿨멘토는 위닝로직 제목을 두 줄로 보인다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    const heading = screen.getByRole("heading", {
+      level: 2,
+      name: /위닝로직은 기술을/,
+    });
+    expect(heading.textContent).toBe(
+      "위닝로직은 기술을 기반으로 경계없는 진로진학 및 학습지원을 제공합니다",
+    );
+  });
+
+  test("스쿨멘토는 카드 3장을 학습 플랫폼, 연계 협력 네트워크, 1:1 콜멘토링 순서로 보인다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    const titles = Array.from(
+      businessSection().querySelectorAll("p.font-semibold"),
+    ).map((node) => node.textContent);
+    expect(titles).toEqual([
+      "학습 플랫폼",
+      "연계 협력 네트워크",
+      "1:1 콜멘토링",
+    ]);
+  });
+
+  test("스쿨멘토 학습 플랫폼 본문은 콜멘토 없이 두 줄이다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "학습진단, 목표관리, 수행평가,\n성장설계, 자기평가, 심화탐구",
+    );
+  });
+
+  test("스쿨멘토 연계 협력 네트워크 본문은 CEC Academy (영국) 줄을 더한다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "클로이위닝 미술학원\nCEC Academy (영국)",
+    );
+  });
+
+  test("스쿨멘토 1:1 콜멘토링 본문은 시안 세 줄이다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "학업・진로 상담\n공부습관 코칭, 학교생활 관리\n학습진단・액션노트 제공",
+    );
+  });
+});
+
+describe("CompanyNews 히어로 서비스 박스", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  const heroBoxes = (container: HTMLElement) => {
+    const hero = container.querySelector("section");
+    if (!hero) throw new Error("히어로 구역이 없습니다");
+    return Array.from(hero.querySelectorAll<HTMLAnchorElement>("a"));
+  };
+
+  const firstBox = (container: HTMLElement) => {
+    const box = heroBoxes(container)[0];
+    if (!box) throw new Error("히어로 박스가 없습니다");
+    return box;
+  };
+
+  const SCHOOLMENTOR_BOXES = [
+    ["01", "학습진단", "/services/learning-diagnosis", "#1e3a66"],
+    ["02", "목표관리", "/services/goal", "#4a3f6e"],
+    ["03", "수행평가", "/services/performance", "#35646e"],
+    ["04", "성장설계", "/services/growth", "#2d5c46"],
+    ["05", "자기평가", "/services/self-assessment", "#5a3e62"],
+    ["06", "심화탐구", "/services/research", "#3c4a6e"],
+    ["07", "콜멘토", "/services/callmentor", "#6b4528"],
+  ] as const;
+
+  test("스쿨멘토는 박스 7개를 01부터 07까지 번호와 시안 색으로 보인다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const boxes = heroBoxes(container);
+    expect(boxes).toHaveLength(7);
+    SCHOOLMENTOR_BOXES.forEach(([number, title, route, color], index) => {
+      const box = boxes[index];
+      if (!box) throw new Error(`${index}번째 박스가 없습니다`);
+      expect(box.getAttribute("href")).toBe(route);
+      expect(box.textContent).toContain(number);
+      expect(box.textContent).toContain(title);
+      expect(box.style.backgroundColor).toBe(
+        `rgb(${[1, 3, 5].map((i) => Number.parseInt(color.slice(i, i + 2), 16)).join(", ")})`,
+      );
+    });
+  });
+
+  test("스쿨멘토는 BEST 탭이 학습진단과 심화탐구에만 있다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const withBest = heroBoxes(container)
+      .filter((box) => box.textContent?.includes("BEST"))
+      .map((box) => box.getAttribute("href"));
+    expect(withBest).toEqual([
+      "/services/learning-diagnosis",
+      "/services/research",
+    ]);
+  });
+
+  test("스쿨멘토 박스는 둥근 모서리이고 둘째 줄을 가운데에 놓는다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const box = firstBox(container);
+    expect(box.className).toContain("rounded-3xl");
+    expect(box.parentElement?.className).toContain("flex-wrap");
+    expect(box.parentElement?.className).toContain("justify-center");
+  });
+
+  test("위닝은 번호 없이 BEST 탭이 학습진단과 콜멘토에 있고 박스가 맞닿는다", () => {
+    siteState.schoolmentor = false;
+    const { container } = renderPage();
+    const boxes = heroBoxes(container);
+    const first = firstBox(container);
+    expect(boxes).toHaveLength(8);
+    expect(first.textContent).not.toContain("01");
+    expect(
+      boxes
+        .filter((box) => box.textContent?.includes("BEST"))
+        .map((box) => box.getAttribute("href")),
+    ).toEqual(["/services/learning-diagnosis", "/services/callmentor"]);
+    expect(first.style.backgroundColor).toBe("rgb(1, 50, 98)");
+    expect(first.className).not.toContain("rounded");
+    expect(first.parentElement?.className).toContain("grid-cols-2");
+  });
 });
