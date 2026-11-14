@@ -111,6 +111,8 @@ select pg_temp.expect_int('일반 로그인 사용자의 DELETE 는 0행이다',
     $q$delete from public.footer_operator_images where title like 'spec-%'$q$), 0);
 select pg_temp.expect_int('anon 의 UPDATE 는 0행이다', pg_temp.rows_as('anon', null,
   $q$update public.footer_operator_images set title = 'spec-hacked' where title = 'spec-a'$q$), 0);
+select pg_temp.expect_int('anon 의 DELETE 는 0행이다', pg_temp.rows_as('anon', null,
+  $q$delete from public.footer_operator_images where title like 'spec-%'$q$), 0);
 select pg_temp.expect_int('막힌 쓰기 뒤에도 원래 행 셋이 그대로다', (
   select count(*) from public.footer_operator_images where title like 'spec-%'), 3);
 
