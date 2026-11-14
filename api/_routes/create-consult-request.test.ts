@@ -91,4 +91,22 @@ describe("POST /api/create-consult-request - 서비스 선택지는 사이트별
     expect(r.status).toBe(400);
     expect(kit.state.inserts).toEqual([]);
   });
+
+  test("SITE=winning 을 명시해도 프리미엄 선택지는 저장되고 이용안내 선택지는 400 이다", async () => {
+    vi.stubEnv("SITE", "winning");
+
+    const ok = await callHandler(handler, VALID);
+    expect(ok.status).toBe(200);
+    expect(kit.state.inserts.map((i) => i.table)).toEqual([
+      "premium_consult_requests",
+    ]);
+
+    kit.state.inserts.length = 0;
+    const rejected = await callHandler(handler, {
+      ...VALID,
+      service: "자기평가",
+    });
+    expect(rejected.status).toBe(400);
+    expect(kit.state.inserts).toEqual([]);
+  });
 });
