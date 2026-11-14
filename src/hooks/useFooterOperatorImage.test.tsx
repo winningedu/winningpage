@@ -13,22 +13,28 @@ type Row = {
 const db = vi.hoisted(() => ({
   rows: [] as Row[],
   error: null as unknown,
+  // 훅이 실제로 보낸 쿼리 호출 기록.
+  fromTables: [] as string[],
+  eqCalls: [] as [string, unknown][],
+  orderColumns: [] as string[],
 }));
 
 // eq, order 를 메모리 행에 적용하고 limit 에서 결과를 내는 최소 쿼리 빌더.
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: (table: string) => {
-      expect(table).toBe("footer_operator_images");
+      db.fromTables.push(table);
       let rows = [...db.rows];
       const orderKeys: (keyof Row)[] = [];
       const builder = {
         select: () => builder,
         eq: (column: keyof Row, value: unknown) => {
+          db.eqCalls.push([column, value]);
           rows = rows.filter((row) => row[column] === value);
           return builder;
         },
         order: (column: keyof Row) => {
+          db.orderColumns.push(column);
           orderKeys.push(column);
           return builder;
         },
@@ -54,6 +60,9 @@ vi.mock("@/lib/supabase", () => ({
 afterEach(() => {
   db.rows = [];
   db.error = null;
+  db.fromTables = [];
+  db.eqCalls = [];
+  db.orderColumns = [];
 });
 
 describe("useFooterOperatorImage", () => {
@@ -84,6 +93,10 @@ describe("useFooterOperatorImage", () => {
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(result.current).not.toBeNull());
     expect(result.current).toEqual({ imageUrl: "/a.png", title: "앞" });
+    // 결과가 맞아 보이는 것만으로는 부족하다. 실제로 한 번만, 노출 필터와 두 정렬을 붙여 조회했는지 본다.
+    expect(db.fromTables).toEqual(["footer_operator_images"]);
+    expect(db.eqCalls).toEqual([["is_active", true]]);
+    expect(db.orderColumns).toEqual(["sort_order", "id"]);
   });
 
   test("순서가 같으면 id 가 작은 행을 고른다", async () => {
@@ -110,15 +123,18 @@ describe("useFooterOperatorImage", () => {
 
   test("행이 없으면 null 이다", async () => {
     const { result } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(db.fromTables).toHaveLength(1));
     await new Promise((r) => setTimeout(r, 0));
     expect(result.current).toBeNull();
   });
 
   test("조회 오류면 null 이다", async () => {
     db.error = { message: "boom" };
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     const { result } = renderHook(() => useFooterOperatorImage());
-    await new Promise((r) => setTimeout(r, 0));
+    await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
     expect(result.current).toBeNull();
   });
 });
