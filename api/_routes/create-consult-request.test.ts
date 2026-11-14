@@ -1,6 +1,6 @@
 // POST /api/create-consult-request: 로그인 없이도 쓰는 상담 신청. 토큰이 있고 QA 계정이면 접수하지 않는다.
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeAdmin,
@@ -10,7 +10,8 @@ import {
 
 const kit = vi.hoisted(() => ({ state: null as unknown as KitState }));
 
-vi.mock("../_lib/supabaseAdmin.js", () => ({
+vi.mock("../_lib/supabaseAdmin.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../_lib/supabaseAdmin.js")>()),
   isSupabaseConfigError: () => false,
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
@@ -29,6 +30,10 @@ const VALID = {
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.user = { id: "u1", email: "u1@t.local" };
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("POST /api/create-consult-request", () => {
@@ -53,5 +58,37 @@ describe("POST /api/create-consult-request", () => {
     expect(kit.state.inserts.map((i) => i.table)).toEqual([
       "premium_consult_requests",
     ]);
+  });
+});
+
+describe("POST /api/create-consult-request - 서비스 선택지는 사이트별이다", () => {
+  test("스쿨멘토는 이용안내 서비스 선택지를 같은 테이블에 저장한다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+
+    const r = await callHandler(handler, { ...VALID, service: "목표관리" });
+
+    expect(r.status).toBe(200);
+    expect(kit.state.inserts.map((i) => i.table)).toEqual([
+      "premium_consult_requests",
+    ]);
+    expect(kit.state.inserts[0]?.row).toMatchObject({ service: "목표관리" });
+  });
+
+  test("스쿨멘토는 프리미엄 서비스 선택지를 받지 않는다", async () => {
+    vi.stubEnv("SITE", "schoolmentor");
+
+    const r = await callHandler(handler, VALID);
+
+    expect(r.status).toBe(400);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
+  test("위닝에듀는 이용안내 서비스 선택지를 받지 않는다", async () => {
+    vi.stubEnv("SITE", "winning");
+
+    const r = await callHandler(handler, { ...VALID, service: "목표관리" });
+
+    expect(r.status).toBe(400);
+    expect(kit.state.inserts).toEqual([]);
   });
 });
