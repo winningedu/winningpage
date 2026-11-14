@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import BoardBannerImage from "@/components/BoardBannerImage";
+import type { BoardBanner } from "@/config/sites";
 import {
   BOARD_PAGE_SIZE,
   type BoardRow,
@@ -86,6 +88,8 @@ type BoardListPageProps = {
   emptyMessage?: string;
   /** 검색 결과 0건 문구. 함수면 trim 된 검색어를 인자로 받는다. */
   noResultMessage?: string | ((keyword: string) => string);
+  /** 제목 위에 보일 배너. 생략하면 배너 없이 기존 간격 그대로다. */
+  banner?: BoardBanner;
 };
 
 export default function BoardListPage({
@@ -96,6 +100,7 @@ export default function BoardListPage({
   getDetailHref,
   emptyMessage = DEFAULT_EMPTY_MESSAGE,
   noResultMessage = defaultNoResultMessage,
+  banner,
 }: BoardListPageProps) {
   const [rows, setRows] = useState<BoardRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,8 +203,15 @@ export default function BoardListPage({
 
   return (
     <main className="min-h-screen bg-white pt-16">
-      <section className="pb-20 pt-16 sm:pb-29.75 sm:pt-28.5">
+      <section
+        className={
+          banner
+            ? "pb-20 pt-10 sm:pb-29.75"
+            : "pb-20 pt-16 sm:pb-29.75 sm:pt-28.5"
+        }
+      >
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+          {banner ? <BoardBannerImage banner={banner} /> : null}
           <div className="flex flex-col gap-6 sm:gap-2.25">
             <h1 className="break-keep text-2xl font-semibold leading-[1.3] tracking-[-0.02em] text-ink sm:text-[2.75rem]">
               {title}

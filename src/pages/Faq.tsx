@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import BoardBannerImage from "@/components/BoardBannerImage";
 import FaqAccordionRow from "@/components/faq/FaqAccordionRow";
 import FaqCategoryTabs from "@/components/faq/FaqCategoryTabs";
 import { FAQ_TABPANEL_ID, getFaqTabId } from "@/components/faq/faqTabId";
@@ -141,8 +142,17 @@ export default function Faq() {
     <main className="min-h-screen bg-white pt-16">
       {/* 헤더 하단 → 제목 상단 여백: 시안 149px × 0.766(스케일 팩터) ≈ 114px = 7.125rem.
           모바일은 pt-16(64px)을 유지해 데스크톱보다 좁게 둔다. */}
-      <section className="pb-20 pt-16 sm:pb-24 sm:pt-28.5">
+      <section
+        className={
+          site.boardBanners
+            ? "pb-20 pt-10 sm:pb-24"
+            : "pb-20 pt-16 sm:pb-24 sm:pt-28.5"
+        }
+      >
         <div className="mx-auto w-full max-w-content px-5 sm:px-8">
+          {site.boardBanners ? (
+            <BoardBannerImage banner={site.boardBanners.faq} />
+          ) : null}
           {/* 시안 실측: 제목과 검색창은 같은 행이 아니라 제목 아래에 검색창이
               우측 정렬로 놓인다(제목 하단→검색창 상단 12px × 0.766 ≈ 9px).
               모바일은 세로 스택 + 검색창 w-full 을 그대로 유지한다. */}

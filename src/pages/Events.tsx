@@ -268,6 +268,7 @@ export default function Events() {
         `/events?id=${encodeURIComponent(String(row.id))}`
       }
       emptyMessage={site.news.noticeEmpty}
+      {...(site.boardBanners ? { banner: site.boardBanners.info } : {})}
     />
   );
 }

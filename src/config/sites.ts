@@ -5,6 +5,14 @@ import type { GateableProgram } from "./programs";
 
 export type SiteKey = "winning" | "schoolmentor";
 
+// 게시판 페이지 상단 배너 이미지. 값이 있는 사이트만 배너를 렌더한다.
+export interface BoardBanner {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
 export interface SiteConfig {
   key: SiteKey;
   brandName: string;
@@ -15,6 +23,8 @@ export interface SiteConfig {
   columnTitle: string;
   // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
   boardEmpty?: string;
+  // 고객안내 FAQ와 교육-정보안내 상단 배너. 없으면 배너 영역을 렌더하지 않는다.
+  boardBanners?: { faq: BoardBanner; info: BoardBanner };
   // 홈 '새로운 소식' 두 목록의 제목, 건수, 빈 안내 문구(사 #33, #86, #88).
   news: {
     maxRows: number;
@@ -159,6 +169,20 @@ export const SITES: Record<SiteKey, SiteConfig> = {
     manifest: "/schoolmentor/site.webmanifest",
     columnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
+    boardBanners: {
+      faq: {
+        src: "/images/faq-banner.png",
+        alt: "궁금한 점, 여기서 바로 해결하세요",
+        width: 2400,
+        height: 720,
+      },
+      info: {
+        src: "/images/info-banner.png",
+        alt: "놓치면 안 될 교육 소식, 한곳에서 확인하세요",
+        width: 2400,
+        height: 720,
+      },
+    },
     news: {
       maxRows: 4,
       companyTitle: "공지-회사소개",
