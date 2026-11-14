@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { FooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
 import type { SiteConfig } from "@/config/site";
 import SiteFooter from "./SiteFooter";
 
@@ -43,7 +44,16 @@ vi.mock("@/config/site", () => ({
 const WINNING_SITE = structuredClone(siteState.current);
 afterEach(() => {
   siteState.current = structuredClone(WINNING_SITE);
+  operatorImage.value = null;
 });
+
+// 운영기관 이미지 훅은 기본 null(이미지 없음)이라 기존 단언은 그대로 통과한다.
+const operatorImage = vi.hoisted(() => ({
+  value: null as FooterOperatorImage | null,
+}));
+vi.mock("@/components/footer/useFooterOperatorImage", () => ({
+  useFooterOperatorImage: () => operatorImage.value,
+}));
 
 // 푸터 회귀 테스트(dev 레이아웃 기준). useNavGroups는 실제 구현을 쓰지 않고 5개 그룹
 // 고정값으로 대체한다(Header.test.tsx의 관례를 따름) — 실 Supabase 조회가 테스트에
@@ -136,6 +146,27 @@ describe("SiteFooter", () => {
         "주소: (본점) 세종특별자치시 마음안1로 61, 404호 | 온라인고객센터 : 카카오 채널 '위닝에듀'",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SiteFooter, 운영기관 이미지", () => {
+  it("이미지가 있으면 모바일과 데스크톱 로고 자리를 같은 링크 안에서 이미지로 바꾼다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/operator.png",
+      title: "위닝 운영기관",
+    };
+    renderFooter();
+
+    expect(screen.queryByAltText("위닝에듀")).not.toBeInTheDocument();
+    const images = screen.getAllByAltText("위닝 운영기관");
+    expect(images).toHaveLength(2);
+    for (const image of images) {
+      expect(image).toHaveAttribute(
+        "src",
+        "https://cdn.example/footer/operator.png",
+      );
+      expect(image.closest("a")).toHaveAttribute("href", "/company-news");
+    }
   });
 });
 

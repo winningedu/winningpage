@@ -1,5 +1,6 @@
 import { Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
+import { useFooterOperatorImage } from "@/components/footer/useFooterOperatorImage";
 import KakaoIcon from "@/components/icons/KakaoIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
@@ -113,6 +114,10 @@ function SocialLinks({ company }: { company: typeof site.company }) {
 
 export default function SiteFooter() {
   const navGroups = useNavGroups();
+  // 관리자가 올린 운영기관 이미지가 있으면 스택 로고 자리(모바일, 데스크톱 모두)에 대신 보인다.
+  const operatorImage = useFooterOperatorImage();
+  const logoSrc = operatorImage?.imageUrl ?? site.logo.stacked;
+  const logoAlt = operatorImage?.title ?? site.brandName;
 
   return (
     <footer className="bg-surface-footer">
@@ -124,8 +129,8 @@ export default function SiteFooter() {
             className="inline-flex shrink-0 items-center"
           >
             <img
-              src={site.logo.stacked}
-              alt={site.brandName}
+              src={logoSrc}
+              alt={logoAlt}
               className="h-25 w-auto object-contain"
             />
           </Link>
@@ -163,11 +168,7 @@ export default function SiteFooter() {
             to="/company-news"
             className="inline-flex shrink-0 items-center"
           >
-            <img
-              src={site.logo.stacked}
-              alt={site.brandName}
-              className="h-auto w-46.25"
-            />
+            <img src={logoSrc} alt={logoAlt} className="h-auto w-46.25" />
           </Link>
 
           <div className="flex flex-col items-end gap-10">
