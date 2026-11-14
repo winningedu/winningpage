@@ -168,6 +168,31 @@ describe("SiteFooter, 운영기관 이미지", () => {
       expect(image.closest("a")).toHaveAttribute("href", "/company-news");
     }
   });
+
+  it("이미지 모양이 달라도 레이아웃이 깨지지 않게 모바일은 폭, 데스크톱은 높이를 제한한다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/operator.png",
+      title: "위닝 운영기관",
+    };
+    renderFooter();
+
+    const [mobile, desktop] = screen.getAllByAltText("위닝 운영기관");
+    expect(mobile).toHaveClass(
+      "h-25",
+      "w-auto",
+      "max-w-full",
+      "object-contain",
+    );
+    expect(desktop).toHaveClass("w-46.25", "max-h-25", "object-contain");
+  });
+
+  it("이미지가 없으면 기존 로고 클래스에 제한 클래스를 더하지 않는다", () => {
+    renderFooter();
+
+    const [mobile, desktop] = screen.getAllByAltText("위닝에듀");
+    expect(mobile.className).toBe("h-25 w-auto object-contain");
+    expect(desktop.className).toBe("h-auto w-46.25");
+  });
 });
 
 const SOCIAL_LABELS = [
