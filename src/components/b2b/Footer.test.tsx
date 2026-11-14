@@ -68,4 +68,31 @@ describe("b2b Footer", () => {
     expect(within(footer).queryByRole("img")).not.toBeInTheDocument();
     expect(within(footer).queryByRole("separator")).not.toBeInTheDocument();
   });
+
+  it("운영기관 이미지가 있으면 왼쪽에 alt 와 함께 보이고 구분선이 따라오며 나머지 문구는 그대로다", () => {
+    operatorImage.value = {
+      imageUrl: "https://cdn.example/footer/hansol.png",
+      title: "한솔고등학교",
+    };
+    renderFooter();
+
+    const footer = screen.getByRole("contentinfo");
+    const image = within(footer).getByRole("img", { name: "한솔고등학교" });
+    expect(image).toHaveAttribute(
+      "src",
+      "https://cdn.example/footer/hansol.png",
+    );
+    expect(image).toHaveAttribute("loading", "lazy");
+    const divider = within(footer).getByRole("separator");
+    // 이미지, 구분선, 회사 블록 순서(DOM 순서가 모바일 세로 순서이기도 하다).
+    expect(
+      image.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      divider.compareDocumentPosition(
+        within(footer).getByText("WINNING LOGIC"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expectCommonFooterContent(footer);
+  });
 });
