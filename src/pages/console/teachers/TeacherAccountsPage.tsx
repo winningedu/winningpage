@@ -16,11 +16,13 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { consoleRequest, errorCode, errorMessage } from "../api";
 import Chip from "../Chip";
+import type { GradeLabeler } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import AssignDialog from "./AssignDialog";
@@ -38,14 +40,15 @@ const roleLabel = (t: AccountItem) =>
   t.role === "school_admin" ? "학교 전체 관리자" : "담임교사";
 
 /** "2학년 3반(주) + 2학년 5반". 학교 전체 관리자는 전교다. */
-function scopeText(t: AccountItem): string {
+function scopeText(t: AccountItem, gradeLabel: GradeLabeler): string {
   if (t.role === "school_admin") return "전교";
   return t.classes
-    .map((c) => `${classText(c)}${c.isPrimary ? "(주)" : ""}`)
+    .map((c) => `${classText(c, gradeLabel)}${c.isPrimary ? "(주)" : ""}`)
     .join(" + ");
 }
 
 export default function TeacherAccountsPage() {
+  const gradeLabel = useGradeLabel();
   const mobile = useIsMobile();
   const queryClient = useQueryClient();
   const [page, setPage] = usePageParam();
@@ -101,7 +104,7 @@ export default function TeacherAccountsPage() {
       {
         name: t.name,
         phoneLast4: t.phoneLast4,
-        grade: first ? `${first.grade.slice(1)}학년` : "",
+        grade: first ? gradeLabel(first.grade) : "",
         className: first ? `${first.name}반` : "",
         loginId: t.loginId,
         tempPassword: temp,
@@ -168,7 +171,7 @@ export default function TeacherAccountsPage() {
                       {statusChip(t)}
                     </div>
                     <span className="text-app-label text-ink">
-                      {scopeText(t)}
+                      {scopeText(t, gradeLabel)}
                     </span>
                     <span className="text-app-label text-ink">{t.loginId}</span>
                     <span className="text-app-label text-ink-sub">••••••</span>
@@ -215,7 +218,7 @@ export default function TeacherAccountsPage() {
                     <TableRow key={t.id}>
                       <TableCell>{t.name}</TableCell>
                       <TableCell>{roleLabel(t)}</TableCell>
-                      <TableCell>{scopeText(t)}</TableCell>
+                      <TableCell>{scopeText(t, gradeLabel)}</TableCell>
                       <TableCell>{t.loginId}</TableCell>
                       <TableCell className="text-ink-sub">••••••</TableCell>
                       <TableCell>

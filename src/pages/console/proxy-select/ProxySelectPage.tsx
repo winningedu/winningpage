@@ -3,7 +3,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
@@ -12,15 +12,8 @@ import Notice from "../Notice";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import { CONSOLE_ME_KEY } from "../useConsoleMe";
+import ProxyReasonField, { type Reason } from "./ProxyReasonField";
 import { useProxyTenants } from "./useProxyTenants";
-
-const REASONS = [
-  { value: "admin_absent", label: "관리자 부재" },
-  { value: "roster_proxy", label: "명단 대행" },
-  { value: "incident_support", label: "장애 지원" },
-] as const;
-
-type Reason = (typeof REASONS)[number]["value"];
 
 const START_FAILED = "대행을 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
@@ -67,6 +60,9 @@ function TenantRow({
 
 export default function ProxySelectPage() {
   const navigate = useNavigate();
+  const switchFailed = (
+    useLocation().state as { proxySwitchFailed?: true } | null
+  )?.proxySwitchFailed;
   const toast = useToast();
   const queryClient = useQueryClient();
   const tenants = useProxyTenants();
@@ -122,6 +118,12 @@ export default function ProxySelectPage() {
           </p>
         </div>
 
+        {switchFailed && (
+          <Notice tone="Danger">
+            학교를 바꾸지 못했어요. 대행이 끝났으니 학교를 다시 골라 주세요
+          </Notice>
+        )}
+
         <TextField
           label="학교 검색"
           placeholder="학교 이름이나 소속코드를 입력하세요"
@@ -152,28 +154,7 @@ export default function ProxySelectPage() {
           </div>
         )}
 
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-3 text-app-label font-medium text-ink-sub">
-            대행 사유
-          </legend>
-          <div className="flex flex-wrap gap-x-6 gap-y-3">
-            {REASONS.map((r) => (
-              <label
-                key={r.value}
-                className="flex items-center gap-2 text-app-body text-ink-strong"
-              >
-                <input
-                  type="radio"
-                  name="reason"
-                  checked={reason === r.value}
-                  onChange={() => setReason(r.value)}
-                  className="size-4 accent-primary"
-                />
-                {r.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <ProxyReasonField reason={reason} onChange={setReason} />
 
         {tenantId && reason && (
           <Notice tone="Info">

@@ -7,7 +7,7 @@ export type ConsoleKind = "homeroom" | "school_admin" | "hq_proxy";
 
 export interface ConsoleClass {
   id: string;
-  grade: string;
+  grade: string | null;
   name: string;
   group: string | null;
   isPrimary: boolean;
@@ -15,7 +15,7 @@ export interface ConsoleClass {
 
 export interface ConsoleMe {
   kind: ConsoleKind;
-  tenant: { id: string; code: string; name: string };
+  tenant: { id: string; code: string; name: string; orgType: string };
   teacher: {
     id: string;
     loginId: string | null;

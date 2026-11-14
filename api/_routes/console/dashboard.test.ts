@@ -66,12 +66,21 @@ const CLASSES = [
   },
 ];
 
+// 학생의 학년은 학급의 학년과 같다(학급이 없으면 없다).
+const GRADE_OF_CLASS: Record<string, string> = {
+  "c-3": "고2",
+  "c-5": "고2",
+  "c-1": "고1",
+  "c-x": "고2",
+};
+
 const enroll = (student_id: string, class_id: string | null, over = {}) => ({
   tenant_id: "tenant-1",
   school_year: 2026,
   status: "active",
   student_id,
   class_id,
+  grade: class_id ? (GRADE_OF_CLASS[class_id] ?? null) : null,
   ...over,
 });
 
@@ -227,6 +236,99 @@ describe("GET /api/console/dashboard", () => {
       userCount: 0,
       average: null,
       buckets: { low: 0, mid: 0, high: 0 },
+    });
+  });
+
+  test("grade=mixed narrows to grade-less classes, counts every student in them whatever their grade, and a homeroom stays in own classes", async () => {
+    const mixed = {
+      id: "c-mix",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: null,
+      group_id: null,
+      name: "다",
+    };
+    kit.state.rows.classes = (f) => matchRows([...CLASSES, mixed], f);
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...ENROLLMENTS,
+          enroll("s9", "c-mix", { grade: "중2" }),
+          enroll("s10", "c-mix", { grade: "고1" }),
+        ],
+        f,
+      );
+
+    const byMixed = await get({ grade: "mixed" });
+    expect((byMixed.body as { usage: unknown }).usage).toEqual({
+      usingCount: 0,
+      totalCount: 2,
+    });
+    // 학년 필터는 학생의 학년이라 다학년 학급의 고1 학생(s10)도 센다.
+    const byGrade = await get({ grade: "고1" });
+    expect((byGrade.body as { usage: unknown }).usage).toEqual({
+      usingCount: 1,
+      totalCount: 2,
+    });
+
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-3"],
+    });
+    const outside = await get({ grade: "mixed" });
+    expect((outside.body as { usage: unknown }).usage).toEqual({
+      usingCount: 0,
+      totalCount: 0,
+    });
+  });
+
+  test("a real grade filter counts the students of that grade in every class, graded or mixed, so it agrees with the student list (10 + 5)", async () => {
+    const mixed = {
+      id: "c-mix",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: null,
+      group_id: null,
+      name: "다",
+    };
+    const graded = {
+      id: "c-g2",
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: "중2",
+      group_id: null,
+      name: "1",
+    };
+    kit.state.rows.classes = (f) => matchRows([...CLASSES, graded, mixed], f);
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...Array.from({ length: 10 }, (_, i) =>
+            enroll(`g${i}`, "c-g2", { grade: "중2" }),
+          ),
+          ...Array.from({ length: 5 }, (_, i) =>
+            enroll(`m${i}`, "c-mix", { grade: "중2" }),
+          ),
+          enroll("m5", "c-mix", { grade: "고1" }),
+        ],
+        f,
+      );
+
+    const byGrade = await get({ grade: "중2" });
+    expect((byGrade.body as { usage: unknown }).usage).toMatchObject({
+      totalCount: 15,
+    });
+    const byMixed = await get({ grade: "mixed" });
+    expect((byMixed.body as { usage: unknown }).usage).toMatchObject({
+      totalCount: 6,
+    });
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-mix"],
+    });
+    const own = await get({ grade: "중2" });
+    expect((own.body as { usage: unknown }).usage).toMatchObject({
+      totalCount: 5,
     });
   });
 

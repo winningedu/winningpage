@@ -165,6 +165,28 @@ describe("POST /api/enrollment/join-tenant", () => {
     },
   );
 
+  test.each([
+    ["40P01", "다른 작업과 겹쳤어요. 잠시 뒤 다시 시도해 주세요."],
+    [
+      "55P03",
+      "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
+    ],
+    [
+      "57014",
+      "다른 작업이 끝나길 기다리다 멈췄어요. 잠시 뒤 다시 시도해 주세요.",
+    ],
+  ])("%s 는 409 TRY_AGAIN 으로 바꾼다", async (pgCode, message) => {
+    kit.state.rpc.fn_catch_all_join_tenant = () => ({
+      data: null,
+      error: { code: pgCode },
+    });
+
+    expect(await post(BODY)).toMatchObject({
+      status: 409,
+      body: { error: { code: "TRY_AGAIN", message } },
+    });
+  });
+
   test("an unknown RPC failure is 500", async () => {
     kit.state.rpc.fn_catch_all_join_tenant = () => ({
       data: null,

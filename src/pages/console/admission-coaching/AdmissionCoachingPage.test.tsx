@@ -1,7 +1,7 @@
 // W10 입시 상담코칭. 중3, 고3 학생 표, 학년그룹과 그룹과 반 조회, 코칭 이동, 3학년이 없는 상태를 검증한다.
 // 상담 상태 4가지 고르기와 변경 일자(교 #51, 결정 2)도 검증한다.
 
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
@@ -37,7 +37,7 @@ const routes = [
   },
 ];
 
-const classOf = (id: string, grade: string, name: string) => ({
+const classOf = (id: string, grade: string | null, name: string) => ({
   id,
   grade,
   groupId: null,
@@ -222,6 +222,23 @@ describe("W10 입시 상담코칭", () => {
     ).toBe("한빛고등학교3학년");
   });
 
+  it("관리자의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+    stubPage(
+      {
+        "GET /api/console/groups": {
+          body: { groups: [{ id: "g1", name: "A레벨", studentCount: 0 }] },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/admission-coaching");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual(["전체", "A레벨"]),
+    );
+  });
+
   it("담당 학급에 3학년이 없으면 안내만 보이고 조회 칸은 남는다", async () => {
     stubPage({
       [LIST_URL]: { body: body([], { total: 0, hasGrade3InScope: false }) },
@@ -269,6 +286,37 @@ describe("W10 입시 상담코칭", () => {
     expect(
       screen.getByRole("navigation", { name: "현재 위치" }).textContent,
     ).toBe("한빛고등학교3학년4반");
+  });
+
+  it("학년 없는 다학년 학급도 반 선택지에 나온다", async () => {
+    stubPage({
+      "GET /api/console/classes": {
+        body: { classes: [...CLASSES.classes, classOf("cm", null, "다")] },
+      },
+    });
+    renderRoutes(routes, "/teacher/admission-coaching");
+    await screen.findByText("조회 결과 2명");
+
+    const classNames = () =>
+      within(screen.getByLabelText("반"))
+        .getAllByRole("option")
+        .map((o) => o.textContent);
+    expect(classNames()).toEqual(["전체", "3반", "4반", "다반"]);
+  });
+
+  it("학원은 학년을 고3 처럼 원래 값으로 보이고 학교는 지금처럼 3학년으로 보인다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    stubPage({}, academyMe);
+    renderRoutes(routes, "/teacher/admission-coaching");
+
+    const first = await screen.findByRole("row", { name: /정민서/ });
+    expect(within(first).getByText("고3/3반")).toBeTruthy();
+    expect(
+      screen.getByRole("navigation", { name: "현재 위치" }).textContent,
+    ).toBe("한빛고등학교중3, 고3");
   });
 
   it("상담 상태를 누르면 바로 바뀌고 저장한 변경 일자가 보인다", async () => {

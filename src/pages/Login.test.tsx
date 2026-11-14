@@ -9,7 +9,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "./Login";
 
-const state = vi.hoisted(() => ({ serverLogin: true }));
+const state = vi.hoisted(() => ({ serverLogin: true, signupEnabled: false }));
 const mockGetSession = vi.fn();
 const mockSetSession = vi.fn();
 const mockSignInWithPassword = vi.fn();
@@ -21,6 +21,9 @@ vi.mock("@/config/site", () => ({
     get key() {
       return state.serverLogin ? "schoolmentor" : "winning";
     },
+    get brandName() {
+      return state.serverLogin ? "스쿨멘토" : "위닝에듀";
+    },
     features: {
       get serverLogin() {
         return state.serverLogin;
@@ -29,7 +32,9 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
-vi.mock("@/hooks/useSignupEnabled", () => ({ useSignupEnabled: () => false }));
+vi.mock("@/hooks/useSignupEnabled", () => ({
+  useSignupEnabled: () => state.signupEnabled,
+}));
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
@@ -62,6 +67,7 @@ function jsonResponse(status: number, body: unknown) {
 
 beforeEach(() => {
   state.serverLogin = true;
+  state.signupEnabled = false;
   vi.clearAllMocks();
   localStorage.clear();
   mockGetSession.mockResolvedValue({ data: { session: null } });
@@ -270,6 +276,32 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
     vi.restoreAllMocks();
+  });
+});
+
+describe("Login - 브랜드 문구", () => {
+  it("스쿨멘토는 제목과 가입 안내에 스쿨멘토를 쓰고 위닝에듀는 나오지 않는다", async () => {
+    state.signupEnabled = true;
+    renderLogin();
+    expect(
+      await screen.findByRole("heading", { name: /스쿨멘토에서 시작해요$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/아직 스쿨멘토 회원이 아니신가요\?/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/위닝에듀/)).toBeNull();
+  });
+
+  it("위닝은 기존 문구를 유지한다", async () => {
+    state.serverLogin = false;
+    state.signupEnabled = true;
+    renderLogin();
+    expect(
+      await screen.findByRole("heading", { name: /위닝에듀에서 시작해요$/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/아직 위닝에듀 회원이 아니신가요\?/),
+    ).toBeInTheDocument();
   });
 });
 

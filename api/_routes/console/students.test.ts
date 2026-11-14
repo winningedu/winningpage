@@ -122,6 +122,7 @@ beforeEach(() => {
   kit.state.rows.diagnosis_reports = () => [];
   kit.state.rows.goal_daily_records = () => [];
   kit.state.rows.student_flags = () => [];
+  kit.state.rows.roster_pending_students = () => [];
 });
 
 type Item = { studentId: string; displayName: string };
@@ -256,6 +257,94 @@ describe("GET /api/console/students", () => {
       page: 2,
       pageSize: 3,
       pageCount: 2,
+    });
+  });
+
+  describe("미회원가입 (roster_pending_students)", () => {
+    const pendingRow = (over: Record<string, unknown>) => ({
+      tenant_id: "tenant-1",
+      school_year: 2026,
+      grade: "고2",
+      class_id: "c-A",
+      number: null,
+      ...over,
+    });
+
+    beforeEach(() => {
+      kit.state.rows.roster_pending_students = (f) =>
+        matchRows(
+          [
+            pendingRow({ id: "p1", name: "한가입", number: 4 }),
+            // 같은 학급에 같은 이름의 재학생(s1)이 가입했다.
+            pendingRow({ id: "p2", name: "김하늘" }),
+            pendingRow({
+              id: "p3",
+              name: "최별도",
+              grade: "고1",
+              class_id: "c-G",
+              number: 2,
+            }),
+            pendingRow({ id: "p4", name: "다른기관", tenant_id: "tenant-2" }),
+            pendingRow({ id: "p5", name: "지난해", school_year: 2025 }),
+          ],
+          f,
+        );
+    });
+
+    type Pending = Item & {
+      pending?: boolean;
+      canEdit: boolean;
+      services: Record<string, boolean>;
+    };
+    const pendingItems = (r: { body: unknown }) =>
+      (items(r) as Pending[]).filter((i) => i.pending);
+
+    test("sit in the list by grade, class and number with the masked name and no actions, hidden once the student joined, and count in scopeTotal", async () => {
+      const r = await get();
+
+      expect(ids(r)).toEqual(["p3", "s3", "s2", "p1", "s1", "s4"]);
+      expect(pendingItems(r).map((i) => i.displayName)).toEqual([
+        "최*도",
+        "한*입",
+      ]);
+      expect(pendingItems(r).every((i) => !i.canEdit)).toBe(true);
+      expect((items(r) as Pending[]).filter((i) => !i.pending)).toHaveLength(4);
+      expect(r.body).toMatchObject({ total: 6, scopeTotal: 6 });
+    });
+
+    test("follow the grade, class and q filters and the page slices", async () => {
+      expect(ids(await get({ grade: "고1" }))).toEqual(["p3", "s3"]);
+      expect(ids(await get({ classId: "c-A" }))).toEqual(["s2", "p1", "s1"]);
+      expect(ids(await get({ groupId: "g-1" }))).toEqual(["p3", "s3"]);
+      expect(ids(await get({ q: "한가입" }))).toEqual(["p1"]);
+      expect(ids(await get({ pageSize: "2", page: "2" }))).toEqual([
+        "s2",
+        "p1",
+      ]);
+    });
+
+    test("a homeroom sees only pending lines of own classes, with the real name", async () => {
+      kit.state.actor = schoolAdminActor({
+        kind: "homeroom",
+        class_ids: ["c-A"],
+      });
+      const r = await get();
+
+      expect(ids(r)).toEqual(["s2", "p1", "s1"]);
+      expect(pendingItems(r).map((i) => i.displayName)).toEqual(["한가입"]);
+    });
+
+    test("are not services users: a service tab, none and special=1 leave them out", async () => {
+      expect(ids(await get({ tab: "none" }))).toEqual(["s3", "s4"]);
+      expect(ids(await get({ tab: "growth" }))).toEqual(["s1"]);
+      expect(ids(await get({ special: "1" }))).not.toContain("p1");
+      // 가입 전 줄은 전체 탭에서만 세므로 다른 탭과 특이학생에서는 scopeTotal 에 더하지 않는다.
+      expect((await get({ tab: "growth" })).body).toMatchObject({
+        scopeTotal: 4,
+      });
+      expect((await get({ special: "1" })).body).toMatchObject({
+        scopeTotal: 4,
+      });
     });
   });
 
@@ -404,6 +493,137 @@ describe("GET /api/console/students", () => {
       weeklyGoalRate: 0,
       weeklyGoalLevel: "low",
     });
+  });
+});
+
+describe("GET /api/console/students mixed-grade class", () => {
+  // c-M 은 학년이 없는 다학년 학급. s7 은 중2, s8 은 고1 이고, 가입 전 줄 하나는 학년이 없다.
+  beforeEach(() => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...ENROLLMENTS,
+          row({
+            id: "e7",
+            student_id: "s7",
+            grade: "중2",
+            class_id: "c-M",
+            number: 1,
+          }),
+          row({
+            id: "e8",
+            student_id: "s8",
+            grade: "고1",
+            class_id: "c-M",
+            number: 2,
+          }),
+        ],
+        f,
+      );
+    const baseClasses = kit.state.rows.classes;
+    kit.state.rows.classes = (f) => [
+      ...(baseClasses ? (baseClasses(f) as unknown[]) : []),
+      ...matchRows(
+        [
+          {
+            id: "c-M",
+            tenant_id: "tenant-1",
+            school_year: 2026,
+            grade: null,
+            group_id: null,
+            name: "다",
+          },
+        ],
+        f,
+      ),
+    ];
+    kit.state.rows.profiles = (f) =>
+      matchRows(
+        [
+          { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
+          { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
+          { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
+          { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
+          { id: "s7", name: "최민준", created_at: "2026-03-06T01:00:00Z" },
+          { id: "s8", name: "정서아", created_at: "2026-03-06T01:00:00Z" },
+        ],
+        f,
+      );
+    kit.state.rows.roster_pending_students = (f) =>
+      matchRows(
+        [
+          {
+            id: "p1",
+            tenant_id: "tenant-1",
+            school_year: 2026,
+            name: "한가을",
+            grade: null,
+            class_id: "c-M",
+            number: 3,
+          },
+        ],
+        f,
+      );
+  });
+
+  test("a homeroom of a mixed class sees all its students whatever their grade and nothing else", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-M"],
+    });
+
+    const r = await get();
+
+    expect(ids(r)).toEqual(["s7", "s8", "p1"]);
+    expect(items(r).map((i) => i.displayName)).toEqual([
+      "최민준",
+      "정서아",
+      "한가을",
+    ]);
+  });
+
+  test("a pending row of a mixed class carries a null grade", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-M"],
+    });
+
+    const r = await get();
+
+    expect(items(r).find((i) => i.studentId === "p1")).toMatchObject({
+      pending: true,
+      grade: null,
+      classId: "c-M",
+    });
+  });
+
+  test("grade=mixed lists the students and pending rows of grade-less classes only", async () => {
+    const r = await get({ grade: "mixed" });
+
+    expect(ids(r)).toEqual(["s7", "s8", "p1"]);
+  });
+
+  test("a real grade filter still compares the student's own grade, in mixed classes too", async () => {
+    expect(ids(await get({ grade: "고1" }))).toEqual(["s8", "s3"]);
+    expect(ids(await get({ grade: "중2" }))).toEqual(["s7"]);
+  });
+
+  test("grade=mixed does not widen a homeroom's scope", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+
+    expect(ids(await get({ grade: "mixed" }))).toEqual([]);
+  });
+
+  test("a homeroom asking for another teacher's mixed class gets 404", async () => {
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+
+    expect((await get({ classId: "c-M" })).status).toBe(404);
   });
 });
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { classLabel, sortClasses } from "./classLabel";
 import PageHeader from "./PageHeader";
-import { useConsoleMe } from "./useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "./useConsoleMe";
 
 const ROLE_LABEL: Record<string, string> = {
   homeroom: "담임교사",
@@ -13,12 +13,15 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function MyPage() {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const [dialogOpen, setDialogOpen] = useState(false);
   const scope =
     me.kind === "homeroom"
       ? sortClasses(me.classes)
-          .map((c) => `${classLabel(c)}${c.isPrimary ? "(주)" : ""}`)
+          .map(
+            (c) => `${classLabel(c, gradeLabel)}${c.isPrimary ? "(주)" : ""}`,
+          )
           .join(", ")
       : "전교";
   const rows: [string, string][] = [

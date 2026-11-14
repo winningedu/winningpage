@@ -1,6 +1,6 @@
 // W11 학생불러오기-일괄설정, W11a 확인 창. 화면에 보이는 글, 보낸 요청, 열린 창으로 검증한다.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
 
@@ -43,6 +43,7 @@ const YEAR = {
   schoolYear: 2026,
   toYear: 2027,
   rolledOver: false,
+  mode: "rollover",
   gradeCounts: [
     { grade: "고1", count: 150 },
     { grade: "고2", count: 150 },
@@ -57,10 +58,11 @@ function stubImport(
     groups?: unknown;
     year?: Partial<typeof YEAR>;
     extra?: Record<string, ApiHandler>;
+    me?: unknown;
   } = {},
 ) {
   return stubApi({
-    "GET /api/console/me": { body: adminMe },
+    "GET /api/console/me": { body: over.me ?? adminMe },
     "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
     "GET /api/console/groups": { body: { groups: over.groups ?? GROUPS } },
     "GET /api/console/school-year": { body: { ...YEAR, ...over.year } },
@@ -259,26 +261,32 @@ describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
     ).toBeTruthy();
   });
 
-  it("이미 실행한 학년도는 입력칸과 미리보기를 막고 안내를 보인다", async () => {
-    stubImport({ year: { rolledOver: true } });
+  it("학년도 넘기기를 이미 한 기관도 입력칸과 미리보기를 막지 않고 이미 실행했다는 안내도 없다", async () => {
+    stubImport({ year: { rolledOver: true, mode: "midyear", toYear: 2026 } });
     renderRoutes(routes, "/teacher/import");
 
-    expect(
-      await screen.findByText(
-        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
-      ),
-    ).toBeTruthy();
-    expect(
-      (
-        screen.getByPlaceholderText(
-          "변경할 명단을 붙여넣으세요",
-        ) as HTMLTextAreaElement
-      ).disabled,
-    ).toBe(true);
+    const textarea = (await screen.findByPlaceholderText(
+      "변경할 명단을 붙여넣으세요",
+    )) as HTMLTextAreaElement;
+    await screen.findByText("③ 학년그룹 일괄 변경");
+    expect(textarea.disabled).toBe(false);
+    fireEvent.change(textarea, { target: { value: "김하늘" } });
     expect(
       (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
         .disabled,
-    ).toBe(true);
+    ).toBe(false);
+    expect(screen.queryByText(/이미 실행했어요/)).toBeNull();
+    expect(screen.queryByText(/한 번만 실행할 수 있어요/)).toBeNull();
+  });
+
+  it("업로드와 붙여넣기 자리에 빨간 주의 문구를 그대로 보인다", async () => {
+    stubImport();
+    renderRoutes(routes, "/teacher/import");
+
+    const warning = await screen.findByText(
+      "(주의) 신규학급 이외는 기존의 학생명단이 변경될수 있어 업로드 실행시 주의가 필요합니다",
+    );
+    expect(warning.className).toContain("text-ink-danger");
   });
 });
 
@@ -318,13 +326,21 @@ const PREVIEW = {
     },
   ],
   applyRows: [{ studentId: "s1", groupId: null, className: "3", number: 8 }],
+  pendingRows: [
+    { name: "홍길동", grade: "고2", groupId: null, className: "3", number: 1 },
+  ],
   summary: { graduate: 150, promote: 300, waiting: 3 },
 };
 
-async function previewIt(extra: Record<string, ApiHandler> = {}) {
+async function previewIt(
+  extra: Record<string, ApiHandler> = {},
+  preview: unknown = PREVIEW,
+  me: unknown = adminMe,
+) {
   const calls = stubImport({
+    me,
     extra: {
-      "POST /api/console/school-year/rollover/preview": { body: PREVIEW },
+      "POST /api/console/school-year/rollover/preview": { body: preview },
       ...extra,
     },
   });
@@ -363,10 +379,105 @@ describe("ImportSetupPage 미리보기", () => {
     expect(screen.getAllByText("새 반과 번호 확인").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "결과 종류: 반영, 현재 학생을 찾을 수 없음, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미회원가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
+  });
+});
+
+describe("ImportSetupPage 미리보기 학원", () => {
+  const academyMe = {
+    ...adminMe,
+    tenant: { ...adminMe.tenant, orgType: "사기업" },
+  };
+  const MIXED_PREVIEW = {
+    ...PREVIEW,
+    rows: [
+      {
+        line: 1,
+        displayName: "김*늘",
+        from: { grade: "고1", groupName: null, className: "4", number: 7 },
+        to: {
+          grade: null,
+          groupName: null,
+          className: "A",
+          number: 1,
+          mixed: true,
+        },
+        studentId: "s1",
+        result: "applied",
+      },
+      PREVIEW.rows[1],
+    ],
+    applyRows: [
+      {
+        studentId: "s1",
+        groupId: null,
+        className: "A",
+        number: 1,
+        mixed: true,
+      },
+    ],
+  };
+
+  it("다학년 줄은 새 칸에 다학년으로, 나머지 학년은 고1 처럼 원래 값으로, 졸업 칩은 고3 으로 말한다", async () => {
+    await previewIt({}, MIXED_PREVIEW, academyMe);
+
+    expect(await screen.findByText("고1, 없음, 4반, 7번")).toBeTruthy();
+    expect(screen.getByText("다학년, 없음, A반, 1번")).toBeTruthy();
+    expect(screen.getByText("고3, A레벨, 1반, 번호 미입력")).toBeTruthy();
+    expect(screen.getByText("고3은 졸업 처리 대상")).toBeTruthy();
+    expect(screen.queryByText("3학년은 졸업 처리 대상")).toBeNull();
+    expect(
+      screen.getByText(
+        "결과 종류: 반영, 반 변경, 미회원가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("적용하면 다학년 표시가 붙은 줄을 그대로 서버에 보낸다", async () => {
+    const calls = await previewIt(
+      {
+        "POST /api/console/school-year/rollover": {
+          body: {
+            ok: true,
+            graduated: 0,
+            promoted: 1,
+            skipped: 0,
+            assigned: 1,
+            mode: "rollover",
+            pendingStored: 0,
+            pendingSkipped: 0,
+            pendingDeleted: 0,
+          },
+        },
+      },
+      MIXED_PREVIEW,
+      academyMe,
+    );
+    await screen.findByText("다학년, 없음, A반, 1번");
+
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.key === "POST /api/console/school-year/rollover")
+          ?.body,
+      ).toMatchObject({
+        toYear: 2027,
+        rows: [
+          {
+            studentId: "s1",
+            groupId: null,
+            className: "A",
+            number: 1,
+            mixed: true,
+          },
+        ],
+      }),
+    );
   });
 });
 
@@ -489,23 +600,19 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     ).toBe(false);
   });
 
-  it("확인하면 미리보기 줄을 보내 적용하고, 완료 토스트와 이미 실행 상태로 바뀐다", async () => {
-    let rolledOver = false;
+  it("확인하면 미리보기 줄과 가입 전 줄을 보내 적용하고, 완료 토스트를 보이며 입력은 계속 열려 있다", async () => {
     const calls = await previewIt({
-      "GET /api/console/school-year": () => ({
-        body: { ...YEAR, rolledOver },
-      }),
-      "POST /api/console/school-year/rollover": () => {
-        rolledOver = true;
-        return {
-          body: {
-            ok: true,
-            graduated: 150,
-            promoted: 300,
-            skipped: 2,
-            assigned: 297,
-          },
-        };
+      "POST /api/console/school-year/rollover": {
+        body: {
+          ok: true,
+          mode: "rollover",
+          graduated: 150,
+          promoted: 300,
+          skipped: 2,
+          assigned: 297,
+          pendingStored: 4,
+          pendingSkipped: 1,
+        },
       },
     });
 
@@ -514,7 +621,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(
       await screen.findByText(
-        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요",
+        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요. 미회원가입 4명은 학생 목록에 저장했어요, 학년이나 반을 알 수 없는 1명은 저장하지 못했어요",
       ),
     ).toBeTruthy();
     expect(
@@ -523,36 +630,32 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     ).toEqual({
       toYear: 2027,
       rows: [{ studentId: "s1", groupId: null, className: "3", number: 8 }],
+      pendingRows: PREVIEW.pendingRows,
     });
-    expect(
-      await screen.findByText(
-        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
-      ),
-    ).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
     expect(
-      (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+      (
+        screen.getByPlaceholderText(
+          "변경할 명단을 붙여넣으세요",
+        ) as HTMLTextAreaElement
+      ).disabled,
+    ).toBe(false);
+    expect(screen.queryByText(/이미 실행했어요/)).toBeNull();
   });
 
-  it("응답의 졸업과 진급이 모두 0이면 이미 실행한 것으로 보고 성공 토스트 없이 안내만 보인다", async () => {
-    let rolledOver = false;
+  it("넘기기 방식인데 졸업과 진급이 모두 0이면 이미 전환이 끝난 것이라 성공 토스트 대신 다시 미리보기하라고 알린다", async () => {
     await previewIt({
-      "GET /api/console/school-year": () => ({
-        body: { ...YEAR, rolledOver },
-      }),
-      "POST /api/console/school-year/rollover": () => {
-        rolledOver = true;
-        return {
-          body: {
-            ok: true,
-            graduated: 0,
-            promoted: 0,
-            skipped: 2,
-            assigned: 0,
-          },
-        };
+      "POST /api/console/school-year/rollover": {
+        body: {
+          ok: true,
+          mode: "rollover",
+          graduated: 0,
+          promoted: 0,
+          skipped: 2,
+          assigned: 0,
+          pendingStored: 0,
+          pendingSkipped: 0,
+        },
       },
     });
 
@@ -561,11 +664,10 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(
       await screen.findByText(
-        "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
+        "이미 학년도 전환이 끝났어요. 명단을 다시 미리보기해 주세요",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/학년그룹 일괄 변경을 적용했어요/)).toBeNull();
-    expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("적용이 실패하면 창을 열어 둔 채 서버 문구를 토스트로 보인다", async () => {
@@ -583,6 +685,108 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(await screen.findByText("이미 사용 중인 번호예요.")).toBeTruthy();
     expect(screen.getByText("학년그룹 일괄 변경을 적용할까요?")).toBeTruthy();
+  });
+});
+
+describe("ImportSetupPage 학기 중 적용", () => {
+  const MIDYEAR = { rolledOver: true, mode: "midyear", toYear: 2026 };
+  const MID_PREVIEW = {
+    ...PREVIEW,
+    rows: [
+      {
+        line: 1,
+        displayName: "김*늘",
+        from: { grade: "고1", groupName: null, className: "4", number: 7 },
+        to: { grade: "고1", groupName: null, className: "3", number: 8 },
+        studentId: "s1",
+        result: "class_changed",
+        noHomeroom: true,
+      },
+    ],
+    summary: { graduate: 0, promote: 0, waiting: 0 },
+    applyRows: [
+      { studentId: "s1", groupId: null, className: "3", number: 8, version: 2 },
+      { studentId: "s9", groupId: null, className: "4", number: 1, version: 5 },
+    ],
+  };
+
+  async function midyearPreview(extra: Record<string, ApiHandler> = {}) {
+    const calls = stubImport({
+      year: MIDYEAR,
+      extra: {
+        "POST /api/console/school-year/rollover/preview": { body: MID_PREVIEW },
+        ...extra,
+      },
+    });
+    renderRoutes(routes, "/teacher/import");
+    const textarea = (await screen.findByPlaceholderText(
+      "변경할 명단을 붙여넣으세요",
+    )) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "김하늘,1학년,,4,7" } });
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+    return calls;
+  }
+
+  it("진급과 졸업 문구 없이 그룹 반 번호 변경 대상만 보여 주고, 설명도 학기 중 방식으로 바뀐다", async () => {
+    await midyearPreview();
+
+    expect(screen.queryByText(/진급 대상/)).toBeNull();
+    const changed = (await screen.findByText("김*늘")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(within(changed).getByText("반 변경")).toBeTruthy();
+    expect(
+      within(changed).getByText("새 반에 담임 없음(안내만, 반영됨)"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요/),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    expect(
+      await screen.findByText("그룹, 반, 번호 변경을 적용할까요?"),
+    ).toBeTruthy();
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByText("명단에서 찾은 학생")).toBeTruthy();
+    expect(dialog.getByText("2명")).toBeTruthy();
+    expect(dialog.queryByText(/학년 \+1/)).toBeNull();
+    expect(dialog.queryByText(/졸업/)).toBeNull();
+    expect(dialog.queryByText(/한 번만 실행/)).toBeNull();
+  });
+
+  it("확인하면 version 이 실린 줄을 보내고 토스트는 그룹 반 번호 변경 n명으로 말하며, 다시 미리보기할 수 있다", async () => {
+    const calls = await midyearPreview({
+      "POST /api/console/school-year/rollover": {
+        body: {
+          ok: true,
+          mode: "midyear",
+          updated: 2,
+          skipped: 0,
+          pendingStored: 1,
+          pendingSkipped: 0,
+        },
+      },
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    const toast = await screen.findByText(
+      "명단을 적용했어요. 그룹, 반, 번호 변경 2명. 미회원가입 1명은 학생 목록에 저장했어요",
+    );
+    expect(toast.textContent).not.toMatch(/학년 \+1|졸업/);
+    expect(
+      calls.find((c) => c.key === "POST /api/console/school-year/rollover")
+        ?.body,
+    ).toEqual({
+      toYear: 2026,
+      rows: MID_PREVIEW.applyRows,
+      pendingRows: PREVIEW.pendingRows,
+    });
+    // 몇 번이든 다시 올릴 수 있어 같은 명단으로 바로 다시 미리보기할 수 있다.
+    expect(
+      (screen.getByRole("button", { name: "미리보기" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
   });
 });
 
@@ -771,29 +975,21 @@ describe("ImportSetupPage 권한 없음", () => {
   });
 });
 
-describe("ImportSetupPage 이미 실행한 학년도의 ① 올리기", () => {
-  it("끌어다 놓기와 파일 선택을 막는다", async () => {
-    stubImport({ year: { rolledOver: true } });
+describe("ImportSetupPage 학기 중의 ① 올리기", () => {
+  it("학년도 넘기기를 이미 했어도 끌어다 놓기와 파일 선택이 열려 있고 고른 파일 줄을 채운다", async () => {
+    stubImport({ year: { rolledOver: true, mode: "midyear", toYear: 2026 } });
     renderRoutes(routes, "/teacher/import");
 
-    await screen.findByText(
-      "이번 학년도에는 이미 실행했어요. 같은 학년도에 다시 실행할 수 없어요",
-    );
-    // 잠금은 ③ 이 알린 다음 한 번 더 그려져야 반영된다.
-    await waitFor(() =>
-      expect(
-        (screen.getByRole("button", { name: "파일 선택" }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true),
-    );
+    const input = (await screen.findByLabelText(
+      "명단 엑셀 파일",
+    )) as HTMLInputElement;
+    expect(input.disabled).toBe(false);
     expect(
-      (screen.getByLabelText("명단 엑셀 파일") as HTMLInputElement).disabled,
-    ).toBe(true);
-    const zone = screen.getByText(
-      "엑셀 파일을 여기에 끌어다 놓거나 파일 선택을 누르세요",
-    ).parentElement as HTMLElement;
-    fireEvent.drop(zone, {
-      dataTransfer: {
+      (screen.getByRole("button", { name: "파일 선택" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    fireEvent.change(input, {
+      target: {
         files: [
           xlsxFile([
             ["이름", "학년", "반", "번호"],
@@ -802,14 +998,15 @@ describe("ImportSetupPage 이미 실행한 학년도의 ① 올리기", () => {
         ],
       },
     });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(
-      (
-        screen.getByPlaceholderText(
-          "변경할 명단을 붙여넣으세요",
-        ) as HTMLTextAreaElement
-      ).value,
-    ).toBe("");
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByPlaceholderText(
+            "변경할 명단을 붙여넣으세요",
+          ) as HTMLTextAreaElement
+        ).value,
+      ).toBe("김하늘\t2학년\t\t3\t12\t\t\t\t"),
+    );
   });
 });
 

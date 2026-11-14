@@ -1,5 +1,6 @@
 // W7 엑셀 출력 표(교 #40). 제목, 조회 조건, 서비스별 이용 인원, 반별 표와 합계 행만 담고 학생 이름은 담지 않는다.
 
+import type { GradeLabeler } from "../classLabel";
 import { dotDate } from "../date";
 import {
   type ClassRow,
@@ -23,8 +24,9 @@ export function buildEnrollmentGrid(input: {
   filter: { grade: string; class: string };
   asOf: string;
   scopeLabel: string;
+  gradeLabel: GradeLabeler;
 }): Cell[][] {
-  const { rows, filter, asOf, scopeLabel } = input;
+  const { rows, filter, asOf, scopeLabel, gradeLabel } = input;
   const totals = totalsOf(rows);
   const capacitySum = rows.reduce((sum, r) => sum + (r.capacity ?? 0), 0);
 
@@ -53,7 +55,7 @@ export function buildEnrollmentGrid(input: {
     ],
     ...rows.map((r) => [
       safe(r.homeroomName ?? "담임 미배정"),
-      safe(gradeGroupLabel(r)),
+      safe(gradeGroupLabel(r, gradeLabel)),
       safe(`${r.className}반`),
       r.total,
       r.capacity ?? "",

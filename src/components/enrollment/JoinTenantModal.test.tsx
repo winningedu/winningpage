@@ -244,6 +244,7 @@ describe("JoinTenantModal", () => {
     ],
     ["WC077", 409, "NUMBER_TAKEN", "이미 사용 중인 번호예요."],
     ["WC080", 400, "GROUP_NOT_REGISTERED", "등록되지 않은 그룹이에요."],
+    ["40P01", 409, "TRY_AGAIN", "잠시 뒤 다시 시도해 주세요."],
   ])(
     "옮기기가 %s 로 실패하면 문구를 보이고 닫지 않는다",
     async (_pg, status, code, message) => {

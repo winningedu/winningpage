@@ -195,6 +195,61 @@ describe("GET /api/console/students/history", () => {
     expect(name("s10")).toBe("김*늘");
   });
 
+  test("grade=mixed lists the students of grade-less classes whatever their own grade, and a homeroom of that class sees them all", async () => {
+    kit.state.rows.student_enrollments = (f) =>
+      matchRows(
+        [
+          ...ENROLLMENTS,
+          row({
+            id: "e11",
+            student_id: "s7",
+            grade: "중2",
+            class_id: "c-M",
+            number: 1,
+          }),
+          row({
+            id: "e12",
+            student_id: "s8",
+            grade: "고1",
+            class_id: "c-M",
+            number: 2,
+          }),
+        ],
+        f,
+      );
+    const baseClasses = kit.state.rows.classes;
+    kit.state.rows.classes = (f) => [
+      ...((baseClasses?.(f) ?? []) as unknown[]),
+      ...matchRows(
+        [
+          {
+            id: "c-M",
+            tenant_id: "tenant-1",
+            school_year: 2026,
+            grade: null,
+            group_id: null,
+            name: "다",
+          },
+        ],
+        f,
+      ),
+    ];
+
+    expect(ids(await get({ grade: "mixed" }))).toEqual(["s7", "s8"]);
+    expect(ids(await get({ grade: "고1" }))).toEqual(["s8", "s3"]);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-M"],
+    });
+    expect(ids(await get())).toEqual(["s7", "s8"]);
+    expect(ids(await get({ grade: "mixed" }))).toEqual(["s7", "s8"]);
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-A"],
+    });
+    expect(ids(await get({ grade: "mixed" }))).toEqual([]);
+  });
+
   test("an item carries the current grade and group, the class history newest first, the service count and the enrollment with its version", async () => {
     const r = await get();
     const s1 = (r.body as { items: { studentId: string }[] }).items.find(

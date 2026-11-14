@@ -3,8 +3,11 @@
 import { describe, expect, test } from "vitest";
 import {
   ENROLLMENT_GRADES,
+  gradeFilterMatches,
   isEnrollmentGrade,
   isEnrollmentNumber,
+  isGradeFilter,
+  MIXED_GRADE,
 } from "./enrollmentInput.js";
 
 describe("enrollment input", () => {
@@ -33,5 +36,33 @@ describe("enrollment input", () => {
 
   test.each([0, 100, 1.5, "7", null])("%s is not a valid number", (value) => {
     expect(isEnrollmentNumber(value)).toBe(false);
+  });
+});
+
+describe("grade filter", () => {
+  test("mixed is accepted as a filter value but is not a student grade", () => {
+    expect(MIXED_GRADE).toBe("mixed");
+    expect(isGradeFilter("mixed")).toBe(true);
+    expect(isGradeFilter("고2")).toBe(true);
+    expect(isGradeFilter("고4")).toBe(false);
+    expect(isEnrollmentGrade("mixed")).toBe(false);
+  });
+
+  test("no filter matches everything", () => {
+    expect(gradeFilterMatches(undefined, "고1", "고1")).toBe(true);
+    expect(gradeFilterMatches(undefined, "고1", null)).toBe(true);
+  });
+
+  test("a grade filter compares the grade given as the own grade", () => {
+    expect(gradeFilterMatches("고1", "고1", null)).toBe(true);
+    expect(gradeFilterMatches("고2", "고1", "고2")).toBe(false);
+    expect(gradeFilterMatches("고2", null, "고2")).toBe(false);
+  });
+
+  test("mixed matches only a class without a grade, whatever the own grade", () => {
+    expect(gradeFilterMatches("mixed", "고1", null)).toBe(true);
+    expect(gradeFilterMatches("mixed", "중2", null)).toBe(true);
+    expect(gradeFilterMatches("mixed", "고1", "고1")).toBe(false);
+    expect(gradeFilterMatches("mixed", "고1", undefined)).toBe(false);
   });
 });

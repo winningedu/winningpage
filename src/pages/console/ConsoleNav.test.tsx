@@ -1,10 +1,19 @@
 // 사이드바와 드로어가 함께 쓰는 메뉴. 역할별 항목, 교사 카드, 현재 위치 강조, 승인 대기 배지를 검증한다.
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase", () => ({
+  supabase: {
+    auth: { getSession: vi.fn(async () => ({ data: { session: null } })) },
+  },
+}));
+
 import type { ConsoleMe } from "./api";
 import ConsoleNav from "./ConsoleNav";
+import { ToastProvider } from "./Toast";
 import { adminMe, homeroomMe, proxyMe } from "./testUtils";
 
 function renderNav(
@@ -16,14 +25,18 @@ function renderNav(
   } = {},
 ) {
   return render(
-    <MemoryRouter>
-      <ConsoleNav
-        me={me}
-        pendingCount={props.pendingCount ?? 0}
-        activePath={props.activePath ?? "/teacher"}
-        {...(props.onNavigate ? { onNavigate: props.onNavigate } : {})}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <ToastProvider>
+        <MemoryRouter>
+          <ConsoleNav
+            me={me}
+            pendingCount={props.pendingCount ?? 0}
+            activePath={props.activePath ?? "/teacher"}
+            {...(props.onNavigate ? { onNavigate: props.onNavigate } : {})}
+          />
+        </MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -55,6 +68,27 @@ describe("ConsoleNav 담임교사", () => {
     expect(screen.getByText("담임교사")).toBeTruthy();
     expect(screen.getByText("2학년 3반 담임")).toBeTruthy();
     expect(screen.getByText("아이디 SM26HB83K7MPQ2")).toBeTruthy();
+  });
+
+  it("학원 담임은 학급을 고2 처럼 원래 학년 값으로 보여 준다", () => {
+    renderNav({
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    });
+
+    expect(screen.getByText("고2 3반 담임")).toBeTruthy();
+  });
+
+  it("학원 다학년 학급 담임은 다학년으로 보여 준다", () => {
+    renderNav({
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+      classes: [
+        { id: "c3", grade: null, name: "3", group: null, isPrimary: true },
+      ],
+    });
+
+    expect(screen.getByText("다학년 3반 담임")).toBeTruthy();
   });
 });
 

@@ -3,13 +3,13 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { gradeLabel, primaryClass } from "../classLabel";
+import { MIXED_GRADE, primaryClass } from "../classLabel";
 import { dotDate } from "../date";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import { useToast } from "../Toast";
 import { useClasses } from "../useClasses";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import AchievementCard from "./AchievementCard";
 import DashboardFilter from "./DashboardFilter";
 import ServiceCard from "./ServiceCard";
@@ -20,13 +20,18 @@ const NO_STUDENTS =
   "연결된 학생이 없습니다. 학생들이 가입하면 자동으로 표시됩니다";
 
 export default function DashboardPage() {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const toast = useToast();
   const homeroom = me.kind === "homeroom";
   const primary = primaryClass(me.classes);
   const initial: DashboardFilterValue =
     homeroom && primary
-      ? { grade: primary.grade, groupId: "", classId: primary.id }
+      ? {
+          grade: primary.grade ?? MIXED_GRADE,
+          groupId: "",
+          classId: primary.id,
+        }
       : { grade: "", groupId: "", classId: "" };
   const [draft, setDraft] = useState(initial);
   const [applied, setApplied] = useState(initial);

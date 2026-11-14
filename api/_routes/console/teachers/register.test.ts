@@ -69,6 +69,83 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("POST /api/console/teachers/register mixed-grade class", () => {
+  const MIXED = {
+    name: "김교사",
+    phone: "010-1234-5678",
+    classes: [{ grade: null, name: "A" }],
+  };
+
+  test("an academy tenant registers a teacher into a mixed-grade class with a null grade", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "사기업" });
+    let args: Record<string, unknown> = {};
+    kit.state.rpc.fn_teacher_register = (a) => {
+      args = a;
+      return {
+        data: [{ teacher_id: "teacher-1", verdict: "created" }],
+        error: null,
+      };
+    };
+
+    const r = await post(MIXED);
+
+    expect(r.status).toBe(200);
+    expect(args.p_classes).toEqual([{ grade: null, name: "A" }]);
+  });
+
+  test("a school tenant cannot have a mixed-grade class: 400 and nothing is written", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "학교" });
+    const rpc = vi.fn(() => ({ data: [], error: null }));
+    kit.state.rpc.fn_teacher_register = rpc;
+
+    const r = await post(MIXED);
+
+    expect(r.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(kit.state.auth.createUser).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      "WC105",
+      "MIXED_CLASS_NAME_TAKEN",
+      "같은 이름의 학년 반이 이미 있습니다. 반 이름을 바꿔 주세요.",
+    ],
+    [
+      "40P01",
+      "TRY_AGAIN",
+      "다른 작업과 겹쳤습니다. 잠시 뒤 다시 시도해 주세요.",
+    ],
+    [
+      "55P03",
+      "TRY_AGAIN",
+      "다른 작업이 끝나길 기다리다 멈췄습니다. 잠시 뒤 다시 시도해 주세요.",
+    ],
+  ])(
+    "the DB error %s is a 409 %s with a message, not a 500",
+    async (dbCode, code, message) => {
+      kit.state.rows.tenants = () => ({ org_type: "사기업" });
+      kit.state.rpc.fn_teacher_register = () => ({
+        data: null,
+        error: { code: dbCode },
+      });
+
+      const r = await post(MIXED);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toMatchObject({ error: { code, message } });
+    },
+  );
+
+  test("a graded class never reads the tenant", async () => {
+    kit.state.rows.tenants = () => {
+      throw new Error("tenant must not be read");
+    };
+
+    expect((await post(VALID)).status).toBe(200);
+  });
+});
+
 describe("POST /api/console/teachers/register", () => {
   test("신규 교사는 등록하고 합성 이메일 계정을 만들어 임시 비밀번호를 한 번 돌려준다", async () => {
     const r = await post(VALID);

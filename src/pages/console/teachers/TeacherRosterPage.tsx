@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Chip from "../Chip";
-import { gradeLabel } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
 import LoadMore from "../LoadMore";
@@ -23,7 +22,9 @@ import { CONSOLE_BASE } from "../menu";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
-import { gradesOf, groupsOf, useClasses } from "../useClasses";
+import { gradesOf, useClasses } from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
+import { useGroupOptions } from "../useGroups";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
 import BulkDeleteDialog from "./BulkDeleteDialog";
@@ -85,6 +86,12 @@ type DialogState =
   | { kind: "issue"; teacherId?: string };
 
 export default function TeacherRosterPage() {
+  const gradeLabel = useGradeLabel();
+  // 학급이 없는 담임 줄은 "-", 학년 없는 학급은 다학년이다.
+  const gradeCell = (item: RosterRow) =>
+    item.classId === null
+      ? "-"
+      : gradeGroupLabel(item.grade, item.groupName, gradeLabel);
   const mobile = useIsMobile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -95,6 +102,11 @@ export default function TeacherRosterPage() {
     groupId: searchParams.get("groupId") ?? "",
   };
   const classes = useClasses();
+  const groups = useGroupOptions(
+    classes.data ?? [],
+    filters.grade,
+    filters.groupId,
+  );
   const list = usePagedList<RosterRow, { teachers: TeacherSummary[] }>(
     "/api/console/teachers/list",
     filters,
@@ -156,7 +168,7 @@ export default function TeacherRosterPage() {
                 value={filters.groupId}
                 options={[
                   ALL,
-                  ...groupsOf(classes.data, filters.grade).map((g) => ({
+                  ...groups.map((g) => ({
                     value: g.id,
                     label: g.name,
                   })),
@@ -219,7 +231,7 @@ export default function TeacherRosterPage() {
                       <LoginCell row={item} />
                     </div>
                     <span className="text-app-caption text-ink-sub">
-                      {`${gradeGroupLabel(item.grade, item.groupName)} ${item.className ? `${item.className}반` : ""}`}
+                      {`${gradeCell(item)} ${item.className ? `${item.className}반` : ""}`}
                     </span>
                     {item.teacher && (
                       <Button
@@ -253,9 +265,7 @@ export default function TeacherRosterPage() {
                 <TableBody>
                   {list.data.items.map((item) => (
                     <TableRow key={item.classId ?? item.teacher?.id}>
-                      <TableCell>
-                        {gradeGroupLabel(item.grade, item.groupName)}
-                      </TableCell>
+                      <TableCell>{gradeCell(item)}</TableCell>
                       <TableCell>
                         {item.className ? `${item.className}반` : "-"}
                       </TableCell>

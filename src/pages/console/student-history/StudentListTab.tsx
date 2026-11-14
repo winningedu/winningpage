@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { GradeLabeler } from "../classLabel";
 import EmptyMessage from "../EmptyMessage";
 import LoadMore from "../LoadMore";
 import NameCell from "../NameCell";
@@ -20,7 +21,7 @@ import Notice from "../Notice";
 import Pagination from "../Pagination";
 import { slotLabel } from "../slotLabel";
 import { useClasses } from "../useClasses";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { filterKey, usePageParam } from "../usePageParam";
 import DirectChangeDialog from "./DirectChangeDialog";
@@ -53,20 +54,26 @@ export interface StudentItem {
   };
 }
 
-const historyLabel = (item: StudentItem) =>
+const historyLabel = (item: StudentItem, gradeLabel: GradeLabeler) =>
   item.history
-    .map((h) => `${h.schoolYear} ${slotLabel({ ...h, number: null })}`)
+    .map(
+      (h) => `${h.schoolYear} ${slotLabel({ ...h, number: null }, gradeLabel)}`,
+    )
     .join(" / ");
 
-const groupOf = (item: StudentItem) =>
-  slotLabel({
-    grade: item.grade,
-    groupName: item.groupName,
-    className: null,
-    number: null,
-  });
+const groupOf = (item: StudentItem, gradeLabel: GradeLabeler) =>
+  slotLabel(
+    {
+      grade: item.grade,
+      groupName: item.groupName,
+      className: null,
+      number: null,
+    },
+    gradeLabel,
+  );
 
 export default function StudentListTab() {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const mobile = useIsMobile();
   const [page, setPage] = usePageParam();
@@ -128,7 +135,7 @@ export default function StudentListTab() {
                 >
                   <NameCell name={item.name} />
                   <span className="text-app-caption text-ink-sub">
-                    {groupOf(item)}
+                    {groupOf(item, gradeLabel)}
                   </span>
                 </button>
                 <span className="flex flex-col items-end gap-1">
@@ -145,7 +152,7 @@ export default function StudentListTab() {
                   학년그룹/반 이력
                 </span>
                 <span className="text-right text-app-label font-semibold text-ink">
-                  {historyLabel(item)}
+                  {historyLabel(item, gradeLabel)}
                 </span>
               </div>
               {admin && (
@@ -183,8 +190,8 @@ export default function StudentListTab() {
                     <NameCell name={item.name} />
                   </button>
                 </TableCell>
-                <TableCell>{groupOf(item)}</TableCell>
-                <TableCell>{historyLabel(item)}</TableCell>
+                <TableCell>{groupOf(item, gradeLabel)}</TableCell>
+                <TableCell>{historyLabel(item, gradeLabel)}</TableCell>
                 <TableCell>{`${item.servicesUsed}/${item.servicesTotal}`}</TableCell>
                 {admin && (
                   <TableCell>

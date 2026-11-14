@@ -35,6 +35,59 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("POST /api/console/teachers/assignments mixed-grade class", () => {
+  test("an academy tenant adds a mixed-grade class with a null grade", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "사기업" });
+    let args: Record<string, unknown> = {};
+    kit.state.rpc.fn_assignment_set = (a) => {
+      args = a;
+      return { data: null, error: null };
+    };
+
+    const r = await post({
+      teacherId: "teacher-1",
+      add: [{ grade: null, name: "A" }],
+    });
+
+    expect(r.status).toBe(200);
+    expect(args.p_add).toEqual([{ grade: null, name: "A" }]);
+  });
+
+  test("a mixed-grade class named like an existing graded class is a 409 with a clear message", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "사기업" });
+    kit.state.rpc.fn_assignment_set = () => ({
+      data: null,
+      error: { code: "WC105" },
+    });
+
+    const r = await post({
+      teacherId: "teacher-1",
+      add: [{ grade: null, name: "A" }],
+    });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({
+      error: { code: "MIXED_CLASS_NAME_TAKEN" },
+    });
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("a school tenant cannot add a mixed-grade class: 400 and nothing is written", async () => {
+    kit.state.rows.tenants = () => ({ org_type: "학교" });
+    const rpc = vi.fn(() => ({ data: null, error: null }));
+    kit.state.rpc.fn_assignment_set = rpc;
+
+    const r = await post({
+      teacherId: "teacher-1",
+      add: [{ grade: null, name: "A" }],
+    });
+
+    expect(r.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+});
+
 describe("POST /api/console/teachers/assignments", () => {
   test("더할 학급, 지울 학급, 주담당을 fn_assignment_set 에 넘기고 감사 로그를 남긴다", async () => {
     let args: Record<string, unknown> = {};

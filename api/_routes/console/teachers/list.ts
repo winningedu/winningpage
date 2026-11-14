@@ -5,6 +5,7 @@
 // teachers 는 W14e 선택 삭제와 조건 일괄 삭제 후보(학교 관리자 포함, 재학생 수와 담당 학급)다. 쪽에 걸리지 않는다.
 // 권한: 학교 관리자 또는 본사 대행. 선생님 이름은 가리지 않는다(교사 정보 관리 화면).
 
+import { gradeFilterMatches } from "../../../_lib/console/enrollmentInput.js";
 import { paginate, parsePageQuery } from "../../../_lib/console/paging.js";
 import {
   type DirectoryTeacher,
@@ -54,7 +55,8 @@ export default defineHandler({
     const rows = directory.classes
       .filter(
         (c) =>
-          (!grade || c.grade === grade) && (!groupId || c.groupId === groupId),
+          gradeFilterMatches(grade, c.grade, c.grade) &&
+          (!groupId || c.groupId === groupId),
       )
       .map((c) => {
         const holder = directory.holderByClassId.get(c.id) ?? null;

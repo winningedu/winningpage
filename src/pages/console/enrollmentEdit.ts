@@ -1,7 +1,7 @@
 // W6b, W12 가 함께 쓰는 학적 저장 도우미. 번호 입력 해석과 번호 중복 문구.
 
 import { errorMessage } from "./api";
-import { gradeLabel } from "./classLabel";
+import type { GradeLabeler } from "./classLabel";
 import { SAVE_FAILED_MESSAGE } from "./passwordRule";
 
 export const CONFLICT_MESSAGE = "다른 분이 먼저 바꿨어요. 새로 고침해 주세요";
@@ -17,10 +17,13 @@ export function parseNumber(input: string): number | null | undefined {
 }
 
 /** 서버가 번호를 쓰는 학생(occupant)을 실어 보낸다. 가린 이름 여부는 서버가 정한다(결정 30). */
-export function numberTakenMessage(body: unknown): string {
+export function numberTakenMessage(
+  body: unknown,
+  gradeLabel: GradeLabeler,
+): string {
   const { occupant } = body as {
     occupant?: {
-      grade: string;
+      grade: string | null;
       className: string;
       number: number;
       displayName: string | null;

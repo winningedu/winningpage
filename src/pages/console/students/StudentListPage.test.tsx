@@ -197,6 +197,40 @@ describe("W6 학생 관리 default", () => {
   });
 });
 
+describe("W6 학생 관리 미회원가입", () => {
+  it("가입 전 줄은 미회원가입 표시와 함께 보이고, 이름을 눌러도 상세가 열리지 않으며 편집하기가 없다", async () => {
+    const calls = stubPage({
+      [LIST_URL]: {
+        body: listBody([
+          student(1),
+          student(2, {
+            pending: true,
+            studentId: "p1",
+            displayName: "한가입",
+            joinedAt: null,
+            canEdit: false,
+            services: noServices,
+            serviceCount: 0,
+          }),
+        ]),
+      },
+    });
+
+    renderRoutes(routes, "/teacher/students");
+
+    const row = (await screen.findByText("한가입")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(within(row).getByText("미회원가입")).toBeTruthy();
+    expect(within(row).queryByRole("button")).toBeNull();
+    expect(within(row).getByText("2학년 3반")).toBeTruthy();
+    const real = screen.getByText("김서연").closest("tr") as HTMLElement;
+    expect(within(real).queryByText("미회원가입")).toBeNull();
+    expect(within(real).getByRole("button", { name: "편집하기" })).toBeTruthy();
+    expect(calls.some((c) => c.key.includes("/students/detail"))).toBe(false);
+  });
+});
+
 describe("W6 학생 관리 상태", () => {
   it("범위 안에 학생이 없으면 안내만 보이고 버튼은 없다", async () => {
     stubPage({
@@ -365,6 +399,63 @@ describe("W6 학생 관리 역할과 조회", () => {
 
     expect(await screen.findByText("1학년-A레벨 1반")).toBeTruthy();
     expect(screen.getByLabelText("그룹")).toBeTruthy();
+  });
+});
+
+describe("W6 학생 관리 그룹 선택지", () => {
+  const academyList = {
+    "GET /api/console/students?page=1": {
+      body: listBody([student(1, { grade: "고1", className: "1" })], {
+        orgType: "학원",
+      }),
+    },
+  };
+
+  it("학급이 없는 그룹도 그룹 관리와 같은 순서로 그룹 칸에 나온다", async () => {
+    stubPage(
+      {
+        ...academyList,
+        "GET /api/console/groups": {
+          body: {
+            groups: [
+              { id: "g1", name: "A레벨", studentCount: 0 },
+              { id: "g2", name: "B레벨", studentCount: 0 },
+            ],
+          },
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    const select = (await screen.findByLabelText("그룹")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.text)).toEqual([
+        "전체",
+        "A레벨",
+        "B레벨",
+      ]),
+    );
+  });
+});
+
+describe("W6 학생 관리 학교 계정", () => {
+  it("그룹 칸이 없고 그룹 목록도 읽지 않는다", async () => {
+    const calls = stubPage(
+      {
+        "GET /api/console/students?page=1": {
+          body: listBody([student(1, { grade: "고1", className: "1" })]),
+        },
+      },
+      adminMe,
+    );
+    renderRoutes(routes, "/teacher/students");
+
+    await screen.findByText("김서연");
+    expect(screen.queryByLabelText("그룹")).toBeNull();
+    expect(calls.some((c) => c.key.includes("/api/console/groups"))).toBe(
+      false,
+    );
   });
 });
 
@@ -623,6 +714,111 @@ describe("W6b 학생 정보 편집", () => {
     expect(
       calls.filter((c) => c.key === LIST_URL).length,
     ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("학원은 다학년 학급이 있으면 어느 학년이든 골라 다학년 학급에 옮기고, 학생 학년으로 mixed 를 보내지 않는다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    const calls = stubPage(
+      {
+        "GET /api/console/classes": {
+          body: {
+            classes: [
+              ...classes.classes,
+              {
+                id: "cm",
+                grade: null,
+                groupId: null,
+                groupName: null,
+                name: "다",
+                hasHomeroom: true,
+              },
+            ],
+          },
+        },
+        [PATCH_URL]: { body: { ok: true, enrollmentId: "e1", version: 2 } },
+      },
+      academyMe,
+    );
+    const dialog = await openEdit();
+    const gradeSelect = within(dialog).getByLabelText("학년");
+
+    expect(
+      within(gradeSelect)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["중1", "중2", "중3", "고1", "고2", "고3"]);
+    fireEvent.change(gradeSelect, { target: { value: "고1" } });
+    expect(
+      within(within(dialog).getByLabelText("반"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["선택", "다반"]);
+    fireEvent.change(within(dialog).getByLabelText("반"), {
+      target: { value: "cm" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === PATCH_URL)?.body).toEqual({
+        studentId: "s1",
+        expectedVersion: 1,
+        grade: "고1",
+        classId: "cm",
+        number: 1,
+      }),
+    );
+  });
+
+  it("다학년 학급의 학생이 학년만 고치면 고른 학급과 그룹을 그대로 둔다", async () => {
+    const academyMe = {
+      ...homeroomMe,
+      tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+    };
+    stubPage(
+      {
+        "GET /api/console/classes": {
+          body: {
+            classes: [
+              ...classes.classes,
+              {
+                id: "cm",
+                grade: null,
+                groupId: null,
+                groupName: null,
+                name: "다",
+                hasHomeroom: true,
+              },
+            ],
+          },
+        },
+        [LIST_URL]: {
+          body: listBody([student(1, { classId: "cm", className: "다" })]),
+        },
+      },
+      academyMe,
+    );
+    const dialog = await openEdit();
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+
+    fireEvent.change(within(dialog).getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+
+    expect(
+      (within(dialog).getByLabelText("반") as HTMLSelectElement).value,
+    ).toBe("cm");
+    expect(
+      (
+        within(dialog).getByRole("button", {
+          name: "저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("학년을 바꾸면 D-day 와 내신 기준 안내가 더해지고 저장은 막히지 않는다", async () => {

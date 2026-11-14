@@ -15,7 +15,7 @@ vi.mock("./issuedFile", async (importOriginal) => ({
   downloadIssuedFile: mocks.download,
 }));
 
-import { renderRoutes, stubApi } from "../testUtils";
+import { homeroomMe, renderRoutes, stubApi } from "../testUtils";
 import RegisterDialog from "./RegisterDialog";
 
 const GROUPS = { groups: [{ id: "g-a", name: "A레벨", studentCount: 3 }] };
@@ -31,7 +31,12 @@ const EXISTING = [
   },
 ];
 
-function open() {
+const ACADEMY_ME = {
+  ...homeroomMe,
+  tenant: { ...homeroomMe.tenant, orgType: "사기업" },
+};
+
+function open(me = homeroomMe) {
   const onClose = vi.fn();
   const onDone = vi.fn();
   renderRoutes(
@@ -48,6 +53,7 @@ function open() {
       },
     ],
     "/",
+    me,
   );
   return { onClose, onDone };
 }
@@ -64,6 +70,64 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+describe("W14b 개별 등록 다학년", () => {
+  it("학원은 다학년을 골라 grade null 로 등록하고 안내 파일에는 다학년이 적힌다", async () => {
+    const calls = stubApi({
+      "GET /api/console/groups": { body: GROUPS },
+      "POST /api/console/teachers/register": {
+        body: {
+          ok: true,
+          teacherId: "t-new",
+          loginId: "SM26HB83W2RF7H",
+          verdict: "created",
+          tempPassword: "Ab3!xYz9Qk",
+        },
+      },
+    });
+    open(ACADEMY_ME);
+
+    expect(await screen.findByText("개별 등록")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "학년그룹에서 학년이 섞여 있으면 다학년을 선택하여 주세요",
+      ),
+    ).toBeTruthy();
+    fill("이름", "윤서진");
+    fill("전화번호", "010-5678-1234");
+    fireEvent.change(screen.getByLabelText("학년그룹"), {
+      target: { value: "mixed" },
+    });
+    fill("반", "A반");
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+
+    expect(await screen.findByText("SM26HB83W2RF7H")).toBeTruthy();
+    expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
+      name: "윤서진",
+      phone: "010-5678-1234",
+      classes: [{ grade: null, name: "A반" }],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "안내 파일 내려받기" }));
+    await waitFor(() =>
+      expect(mocks.download).toHaveBeenCalledWith([
+        expect.objectContaining({ grade: "다학년", className: "A반" }),
+      ]),
+    );
+  });
+
+  it("학교는 다학년 선택지도 안내 문구도 없다", async () => {
+    stubApi({ "GET /api/console/groups": { body: GROUPS } });
+    open();
+
+    await screen.findByText("개별 등록");
+    expect(
+      within(screen.getByLabelText("학년그룹"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).not.toContain("다학년");
+    expect(screen.queryByText(/다학년을 선택하여/)).toBeNull();
+  });
 });
 
 describe("W14b 개별 등록", () => {

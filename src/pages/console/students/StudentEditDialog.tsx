@@ -6,7 +6,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { consoleRequest, errorCode, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
 import {
   CONFLICT_MESSAGE,
   NUMBER_INVALID_MESSAGE,
@@ -18,7 +17,13 @@ import Notice from "../Notice";
 import { SAVE_FAILED_MESSAGE } from "../passwordRule";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
-import { type ClassOption, classesOf, gradesOf, groupsOf } from "../useClasses";
+import {
+  type ClassOption,
+  studentClassesOf,
+  studentGradesOf,
+  studentGroupsOf,
+} from "../useClasses";
+import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { StudentRow } from "./types";
 
@@ -38,6 +43,7 @@ export default function StudentEditDialog({
   classes,
   onClose,
 }: StudentEditDialogProps) {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const queryClient = useQueryClient();
   // 처음 열 때의 값. 목록이 다시 불러와져도 입력값과 비교할 기준은 그대로다.
@@ -92,7 +98,8 @@ export default function StudentEditDialog({
         onClose();
         return;
       }
-      if (code === "NUMBER_TAKEN") setNumberError(numberTakenMessage(res.body));
+      if (code === "NUMBER_TAKEN")
+        setNumberError(numberTakenMessage(res.body, gradeLabel));
       else if (code === "VERSION_CONFLICT") {
         setNotice(CONFLICT_MESSAGE);
         void queryClient.invalidateQueries({ queryKey: CONSOLE_LIST_KEY });
@@ -118,12 +125,14 @@ export default function StudentEditDialog({
             variant="stacked"
             label="학년"
             value={grade}
-            options={gradesOf(classes).map((g) => ({
+            options={studentGradesOf(classes).map((g) => ({
               value: g,
               label: gradeLabel(g),
             }))}
             onChange={(next) => {
               setGrade(next);
+              // 다학년 학급은 학생의 학년이 바뀌어도 그대로 받으므로 고른 학급과 그룹을 지우지 않는다.
+              if (classes.find((c) => c.id === classId)?.grade === null) return;
               setGroupId("");
               setClassId("");
             }}
@@ -134,7 +143,7 @@ export default function StudentEditDialog({
             value={groupId}
             options={[
               { value: "", label: "그룹 없음" },
-              ...groupsOf(classes, grade).map((g) => ({
+              ...studentGroupsOf(classes, grade).map((g) => ({
                 value: g.id,
                 label: g.name,
               })),
@@ -150,7 +159,7 @@ export default function StudentEditDialog({
             value={classId}
             options={[
               { value: "", label: "선택" },
-              ...classesOf(classes, grade, groupId).map((c) => ({
+              ...studentClassesOf(classes, grade, groupId).map((c) => ({
                 value: c.id,
                 label: `${c.name}반`,
               })),

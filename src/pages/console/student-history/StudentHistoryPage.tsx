@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { gradeLabel } from "../classLabel";
 import PageHeader from "../PageHeader";
 import Tabs from "../Tabs";
 import { useClasses } from "../useClasses";
-import { useConsoleMe } from "../useConsoleMe";
+import { useConsoleMe, useGradeLabel } from "../useConsoleMe";
 import GraduatesTab from "./GraduatesTab";
 import PendingRequestsTab from "./PendingRequestsTab";
 import StudentListTab from "./StudentListTab";
 
 export default function StudentHistoryPage() {
+  const gradeLabel = useGradeLabel();
   const { me } = useConsoleMe();
   const [params, setParams] = useSearchParams();
   const admin = me.kind !== "homeroom";

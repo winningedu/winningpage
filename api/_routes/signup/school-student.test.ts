@@ -411,6 +411,30 @@ describe("POST /api/signup/school-student", () => {
     },
   );
 
+  test.each([
+    ["40P01", "deadlock detected"],
+    ["55P03", "could not obtain lock"],
+    ["57014", "canceling statement due to statement timeout"],
+  ])(
+    "교착이나 대기 시간 초과(%s)는 409 TRY_AGAIN 으로 바꾸고 새로 만든 Auth 사용자를 지운다",
+    async (sqlstate, message) => {
+      happyPath();
+      kit.state.rpc.fn_student_signup = () => ({
+        data: null,
+        error: { code: sqlstate, message },
+      });
+
+      const r = await post(BODY);
+
+      expect(r.status).toBe(409);
+      expect(r.body).toEqual({
+        code: "TRY_AGAIN",
+        message: "잠시 뒤 다시 시도해 주세요.",
+      });
+      expect(kit.state.auth.deleteUser).toHaveBeenCalledWith("auth-user-1");
+    },
+  );
+
   describe("이미 있는 이메일", () => {
     function emailExists(profile: Record<string, unknown> | null) {
       happyPath();

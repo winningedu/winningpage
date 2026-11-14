@@ -5,14 +5,14 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { consoleRequest, errorMessage } from "../api";
-import { gradeLabel } from "../classLabel";
 import Notice from "../Notice";
 import TextField from "../TextField";
+import { useGradeLabel, useIsAcademy } from "../useConsoleMe";
+import { useGroups } from "../useGroups";
 import ClassRowFields, {
   type ClassInput,
   EMPTY_CLASS,
   toClassBody,
-  useGroups,
 } from "./ClassRowFields";
 import IssuedPanel from "./IssuedPanel";
 import type { IssuedRow } from "./issuedFile";
@@ -46,6 +46,8 @@ export default function RegisterDialog({
   onDone,
   onClose,
 }: RegisterDialogProps) {
+  const gradeLabel = useGradeLabel();
+  const academy = useIsAcademy();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const nextId = useRef(1);
@@ -153,6 +155,7 @@ export default function RegisterDialog({
             key={row.id}
             value={row.value}
             groups={groups.data ?? []}
+            academy={academy}
             onChange={(next) =>
               setRows((prev) =>
                 prev.map((r) => (r.id === row.id ? { ...r, value: next } : r)),

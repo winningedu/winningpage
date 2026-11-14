@@ -2,6 +2,7 @@
 //
 // W6 학생 관리. 기관의 현재 학년도 재학생을 학년, 그룹, 반, 번호(번호 없음은 뒤) 순으로 나눠 준다.
 // 담임은 담당 학급 학생만 실명으로, 학교 관리자와 본사 대행은 전교를 가린 이름으로 본다(서버가 가린다).
+// 가입하지 않은 학생의 명단 줄은 전체 탭에 미회원가입으로 같이 나온다(실제 학생이 가입하면 가려진다).
 // scopeTotal 은 필터 없이 범위 안의 학생 수라 "학생 없음"과 "조건에 맞는 학생 없음"을 가른다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -14,6 +15,7 @@ import {
   loadTenant,
   readAll,
 } from "../../_lib/console/directory.js";
+import { gradeFilterMatches } from "../../_lib/console/enrollmentInput.js";
 import { rateBucket } from "../../_lib/console/goalRate.js";
 import { loadGoalStatus } from "../../_lib/console/goalStatus.js";
 import {
@@ -23,6 +25,7 @@ import {
 import { paginate, parsePageQuery } from "../../_lib/console/paging.js";
 import { loadPerformanceStatus } from "../../_lib/console/performanceStatus.js";
 import { queryValue } from "../../_lib/console/query.js";
+import { hiddenPendingIds } from "../../_lib/console/rosterPending.js";
 import { requireInScope, scopeQuery } from "../../_lib/console/scope.js";
 import {
   loadServiceUsage,
@@ -46,10 +49,20 @@ interface EnrollmentRow {
   version: number;
 }
 
+/** 가입하지 않은 학생의 명단 줄(미회원가입, roster_pending_students). 실제 학생 id 가 없다. */
+interface PendingRow {
+  id: string;
+  name: string;
+  grade: string | null;
+  class_id: string;
+  number: number | null;
+}
+
 // tab 값: 전체, 서비스 하나를 쓴 학생, 서비스를 하나도 안 쓴 학생(none).
 const TABS: readonly string[] = ["all", "none", ...SERVICE_KEYS];
 
 const COLUMNS = "student_id, grade, class_id, number, version";
+const PENDING_COLUMNS = "id, name, grade, class_id, number";
 
 const PROFILE_CHUNK = 100;
 
@@ -184,40 +197,81 @@ export default defineHandler({
       admin,
       current.map((e) => e.student_id),
     );
-    const shownNames = displayNamesFor(
-      actor,
+    const nameOf = (e: EnrollmentRow) => profiles.get(e.student_id)?.name ?? "";
+    const pendingAll = await readAll<PendingRow>(
+      admin,
+      "roster_pending_students",
+      PENDING_COLUMNS,
+      (query) =>
+        scopeQuery(query, actor, { classColumn: "class_id" }).eq(
+          "school_year",
+          schoolYear,
+        ),
+    );
+    const hidden = hiddenPendingIds(
+      pendingAll.map((p) => ({
+        id: p.id,
+        name: p.name,
+        classId: p.class_id,
+        number: p.number,
+      })),
       current.map((e) => ({
-        id: e.student_id,
-        group: e.class_id,
-        name: profiles.get(e.student_id)?.name ?? "",
+        name: nameOf(e),
+        classId: e.class_id,
+        number: e.number,
       })),
     );
+    const pendingRows = pendingAll.filter((p) => !hidden.has(p.id));
+    const shownNames = displayNamesFor(actor, [
+      ...current.map((e) => ({
+        id: e.student_id,
+        group: e.class_id,
+        name: nameOf(e),
+      })),
+      ...pendingRows.map((p) => ({
+        id: p.id,
+        group: p.class_id,
+        name: p.name,
+      })),
+    ]);
     const classOf = (e: EnrollmentRow) =>
       e.class_id ? classes.get(e.class_id) : undefined;
-    const matches = current
-      .filter((e) => !grade || e.grade === grade)
-      .filter((e) => !classId || e.class_id === classId)
-      .filter(
-        (e) =>
-          !groupId ||
-          (e.class_id !== null && classes.get(e.class_id)?.groupId === groupId),
-      )
-      .filter(
-        (e) =>
-          !q ||
-          nameMatchesQuery(actor, profiles.get(e.student_id)?.name ?? "", q),
-      );
-    matches.sort(
-      (a, b) =>
-        gradeRank(a.grade) - gradeRank(b.grade) ||
-        (classOf(a)?.groupName ?? "").localeCompare(
-          classOf(b)?.groupName ?? "",
-          "ko",
-        ) ||
-        compareClassName(classOf(a)?.name ?? "", classOf(b)?.name ?? "") ||
-        (a.number ?? 100) - (b.number ?? 100) ||
-        a.student_id.localeCompare(b.student_id),
+    const classOfRow = (r: EnrollmentRow | PendingRow) =>
+      r.class_id ? classes.get(r.class_id) : undefined;
+    const isEnrollment = (r: EnrollmentRow | PendingRow): r is EnrollmentRow =>
+      "student_id" in r;
+    const keyOf = (r: EnrollmentRow | PendingRow) =>
+      isEnrollment(r) ? r.student_id : r.id;
+    const passes = (x: {
+      grade: string | null;
+      classId: string | null;
+      name: string;
+    }) =>
+      gradeFilterMatches(
+        grade,
+        x.grade,
+        x.classId ? classes.get(x.classId)?.grade : undefined,
+      ) &&
+      (!classId || x.classId === classId) &&
+      (!groupId ||
+        (x.classId !== null && classes.get(x.classId)?.groupId === groupId)) &&
+      (!q || nameMatchesQuery(actor, x.name, q));
+    const compareRows = (
+      a: EnrollmentRow | PendingRow,
+      b: EnrollmentRow | PendingRow,
+    ) =>
+      gradeRank(a.grade) - gradeRank(b.grade) ||
+      (classOfRow(a)?.groupName ?? "").localeCompare(
+        classOfRow(b)?.groupName ?? "",
+        "ko",
+      ) ||
+      compareClassName(classOfRow(a)?.name ?? "", classOfRow(b)?.name ?? "") ||
+      (a.number ?? 100) - (b.number ?? 100) ||
+      keyOf(a).localeCompare(keyOf(b));
+    const matches = current.filter((e) =>
+      passes({ grade: e.grade, classId: e.class_id, name: nameOf(e) }),
     );
+    matches.sort(compareRows);
 
     // 서비스 탭과 특이학생 거르기는 쪽을 나누기 전에 해야 하므로 그때는 모든 후보를 읽고,
     // 아니면 보이는 쪽만 읽는다.
@@ -285,12 +339,23 @@ export default defineHandler({
       extras = await extrasOf(listed);
       listed = listed.filter((e) => extras.reasonsOf(e.student_id).length > 0);
     }
-    const paged = paginate(listed, pageQuery);
-    if (!special) extras = await extrasOf(paged.items);
-    await ensureServices(paged.items.map((e) => e.student_id));
+    // 가입하지 않은 학생은 서비스를 쓰는 학생이 아니라 전체 탭에만 나오고, 특이학생에는 들지 않는다.
+    const showsPending = tab === "all" && !special;
+    const pendingListed = showsPending
+      ? pendingRows.filter((p) =>
+          passes({ grade: p.grade, classId: p.class_id, name: p.name }),
+        )
+      : [];
+    const paged = paginate(
+      [...listed, ...pendingListed].sort(compareRows),
+      pageQuery,
+    );
+    const pagedStudents = paged.items.filter(isEnrollment);
+    if (!special) extras = await extrasOf(pagedStudents);
+    await ensureServices(pagedStudents.map((e) => e.student_id));
     res.status(200).json({
       total: paged.total,
-      scopeTotal: current.length,
+      scopeTotal: current.length + (showsPending ? pendingRows.length : 0),
       page: paged.page,
       pageSize: pageQuery.pageSize,
       orgType,
@@ -299,6 +364,31 @@ export default defineHandler({
       specialFeedbackWaitDays: thresholds.feedbackWaitDays,
       pageCount: paged.pageCount,
       items: paged.items.map((e) => {
+        if (!isEnrollment(e)) {
+          const pendingClass = classOfRow(e);
+          return {
+            pending: true,
+            studentId: e.id,
+            displayName: shownNames.get(e.id) ?? "",
+            joinedAt: null,
+            grade: e.grade,
+            groupId: pendingClass?.groupId ?? null,
+            groupName: pendingClass?.groupName ?? null,
+            classId: e.class_id,
+            className: pendingClass?.name ?? null,
+            number: e.number,
+            services: Object.fromEntries(
+              SERVICE_KEYS.map((key) => [key, false]),
+            ),
+            serviceCount: 0,
+            urgency: null,
+            weeklyGoalRate: null,
+            weeklyGoalLevel: null,
+            specialReasons: [],
+            canEdit: false,
+            enrollmentVersion: 0,
+          };
+        }
         const cls = classOf(e);
         const used = usedOf(e.student_id);
         return {

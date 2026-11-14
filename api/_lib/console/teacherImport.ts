@@ -130,12 +130,17 @@ interface JudgeContext {
   /** 이름이 같은 기존 교사들의 전화번호. */
   phonesByName: Map<string, Set<string>>;
   classIdByKey: Map<string, string>;
+  /** 학년 없는 다학년 학급(학원): `${그룹id 또는 빈 문자열}|${반 이름 소문자}` 에서 학급 id. */
+  mixedClassIdByKey: Map<string, string>;
   holderByClassId: Map<string, ExistingTeacher>;
 }
 
 function classKeyOf(grade: string, groupId: string | null, name: string) {
   return `${grade}|${groupId ?? ""}|${name.toLowerCase()}`;
 }
+
+const mixedKeyOf = (groupId: string | null, name: string) =>
+  `${groupId ?? ""}|${name.toLowerCase()}`;
 
 /** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
 export function normalizeClassName(orgType: string, raw: string): string {
@@ -195,25 +200,29 @@ async function loadJudgeContext(
   if (nameError) throw new RpcError("teachers read", nameError.code);
 
   const classIdByKey = new Map<string, string>();
+  const mixedClassIdByKey = new Map<string, string>();
   const holderByClassId = new Map<string, ExistingTeacher>();
   if (grades.length > 0) {
     const { data: classes, error: classError } = await admin
       .from("classes")
       .select("id, grade, group_id, name")
       .eq("tenant_id", tenantId)
-      .eq("school_year", tenant.school_year)
-      .in("grade", grades);
+      .eq("school_year", tenant.school_year);
     if (classError) throw new RpcError("classes read", classError.code);
     for (const c of (classes ?? []) as {
       id: string;
-      grade: string;
+      grade: string | null;
       group_id: string | null;
       name: string;
     }[]) {
-      classIdByKey.set(classKeyOf(c.grade, c.group_id, c.name), c.id);
+      if (c.grade === null) {
+        mixedClassIdByKey.set(mixedKeyOf(c.group_id, c.name), c.id);
+      } else if (grades.includes(c.grade)) {
+        classIdByKey.set(classKeyOf(c.grade, c.group_id, c.name), c.id);
+      }
     }
 
-    const classIds = [...classIdByKey.values()];
+    const classIds = [...classIdByKey.values(), ...mixedClassIdByKey.values()];
     if (classIds.length > 0) {
       const { data: assignments, error: assignError } = await admin
         .from("teacher_class_assignments")
@@ -270,6 +279,7 @@ async function loadJudgeContext(
     ),
     phonesByName,
     classIdByKey,
+    mixedClassIdByKey,
     holderByClassId,
   };
 }
@@ -340,8 +350,13 @@ function judgeRows(
     if (earlierName === undefined) firstNameByPhone.set(phone, name);
 
     if (hasClass) {
-      row.classKey = classKeyOf(grade, row.groupId, normalizedClass);
-      row.classId = context.classIdByKey.get(row.classKey) ?? null;
+      // 적용(fn_class_ensure)이 같은 그룹과 이름의 다학년 학급을 학년 학급보다 먼저 쓰므로 미리보기도 그렇게 맞춘다.
+      const mixedKey = mixedKeyOf(row.groupId, normalizedClass);
+      const mixedId = context.mixedClassIdByKey.get(mixedKey);
+      row.classKey = mixedId
+        ? `mixed|${mixedKey}`
+        : classKeyOf(grade, row.groupId, normalizedClass);
+      row.classId = mixedId ?? context.classIdByKey.get(row.classKey) ?? null;
     }
     verdicts.push("new");
   }

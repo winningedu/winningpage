@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { consoleRequest } from "../api";
-import { gradeLabel } from "../classLabel";
+import { MIXED_GRADE } from "../classLabel";
 import { dotDate } from "../date";
 import EmptyMessage from "../EmptyMessage";
 import FilterSelect from "../FilterSelect";
@@ -15,6 +15,7 @@ import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
 import { useToast } from "../Toast";
+import { useGradeLabel } from "../useConsoleMe";
 import ClassCards from "./ClassCards";
 import ClassTable from "./ClassTable";
 import EnrollmentSummaryCards from "./EnrollmentSummaryCards";
@@ -42,6 +43,7 @@ function parseCapacity(text: string): { ok: boolean; value: number | null } {
 }
 
 export default function EnrollmentPage() {
+  const gradeLabel = useGradeLabel();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -60,7 +62,9 @@ export default function EnrollmentPage() {
   const data = summary.data;
   const all = data?.classes ?? [];
   const rows = all.filter(
-    (r) => (!grade || r.grade === grade) && (!classId || r.classId === classId),
+    (r) =>
+      (!grade || (r.grade ?? MIXED_GRADE) === grade) &&
+      (!classId || r.classId === classId),
   );
   const totals = totalsOf(rows);
   const picked = all.find((r) => r.classId === classId);
@@ -70,7 +74,7 @@ export default function EnrollmentPage() {
     : grade
       ? gradeLabel(grade)
       : wholeLabel;
-  const grades = [...new Set(all.map((r) => r.grade))];
+  const grades = [...new Set(all.map((r) => r.grade ?? MIXED_GRADE))];
 
   const empty = totals.total === 0;
   const visible = empty
@@ -149,6 +153,7 @@ export default function EnrollmentPage() {
           },
           asOf: data.asOf,
           scopeLabel,
+          gradeLabel,
         }),
         data.asOf,
       );

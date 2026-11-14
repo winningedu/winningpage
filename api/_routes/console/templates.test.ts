@@ -37,10 +37,22 @@ describe("W11 sample templates", () => {
     expect(parsed[0]?.name).not.toBe("");
   });
 
-  test("student-roster.xlsx has the roster columns of decision 34", () => {
+  test("student-roster.xlsx has the five roster columns: name, grade, group, class, number", () => {
     const [header, example] = readSheet("student-roster.xlsx");
 
-    expect(header).toEqual(["이름", "학년", "반", "번호"]);
-    expect(example).toHaveLength(4);
+    expect(header).toEqual(["이름", "학년", "그룹", "반", "번호"]);
+    expect(example).toHaveLength(5);
+  });
+
+  test("both templates keep their first example row and add one 다학년 example (grade cell 다학년 / new-grade cell 다학년)", () => {
+    const bulk = readSheet("grade-bulk-change.xlsx");
+    const roster = readSheet("student-roster.xlsx");
+
+    expect(bulk[1]?.[5]).toBe("2학년");
+    expect(bulk[2]?.[5]).toBe("다학년");
+    expect(parseRolloverText((bulk[2] ?? []).join("\t"))).toHaveLength(1);
+    expect(roster[1]?.[1]).toBe("1학년");
+    expect(roster[2]?.[1]).toBe("다학년");
+    expect(roster[2]).toHaveLength(5);
   });
 });

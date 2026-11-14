@@ -55,6 +55,8 @@ type GoalTableRow = {
 type GoalTableProps = {
   title?: string;
   rows: GoalTableRow[];
+  // 설문 입력 점수처럼 회차 기록이 아닌 읽기 전용 첫 행. 증감 계산과 수정/삭제에서 빠진다.
+  baselineRow?: GoalTableRow | null;
   onAddRound?: () => void;
   lowerIsBetter?: boolean;
   onEditRow?: (term: string) => void;
@@ -66,6 +68,7 @@ type GoalTableProps = {
 export default function GoalTable({
   title,
   rows,
+  baselineRow,
   onAddRound,
   lowerIsBetter,
   onEditRow,
@@ -118,7 +121,7 @@ export default function GoalTable({
         }
       />
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && !baselineRow ? (
         <div className="mt-5">
           {/* GoalEmptyState(다른 UoW 소유)는 onAdd undefined 미허용 — 없으면 prop 자체를 생략 */}
           <GoalEmptyState
@@ -144,6 +147,21 @@ export default function GoalTable({
               </tr>
             </thead>
             <tbody>
+              {baselineRow && (
+                <tr className="text-ink">
+                  <td className="py-3 pr-3 font-medium text-ink-strong">
+                    {baselineRow.term}
+                  </td>
+                  <td className="py-3 pr-3">{baselineRow.korean}</td>
+                  <td className="py-3 pr-3">{baselineRow.math}</td>
+                  <td className="py-3 pr-3">{baselineRow.english}</td>
+                  <td className="py-3 pr-3">{baselineRow.science}</td>
+                  <td className="py-3 pr-3 font-semibold text-ink-strong">
+                    {baselineRow.average}
+                  </td>
+                  {showActionColumn && <td className="py-3 pl-3" />}
+                </tr>
+              )}
               {rows.map((row, index) => {
                 // index > 0 이면 rows[index - 1] 은 항상 존재
                 const prevAverage = index > 0 ? rows[index - 1]!.average : null;

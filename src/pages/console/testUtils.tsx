@@ -6,10 +6,16 @@ import { render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
 import type { ConsoleMe } from "./api";
+import { ConsoleMeContext } from "./useConsoleMe";
 
 export const homeroomMe: ConsoleMe = {
   kind: "homeroom",
-  tenant: { id: "t1", code: "SM26HB83", name: "한빛고등학교" },
+  tenant: {
+    id: "t1",
+    code: "SM26HB83",
+    name: "한빛고등학교",
+    orgType: "학교",
+  },
   teacher: {
     id: "teacher-1",
     loginId: "SM26HB83K7MPQ2",
@@ -84,6 +90,7 @@ export function stubApi(routes: Record<string, ApiHandler>) {
 export function renderRoutes(
   routes: Parameters<typeof createMemoryRouter>[0],
   initialPath: string,
+  me: ConsoleMe = homeroomMe,
 ) {
   const router = createMemoryRouter(routes, { initialEntries: [initialPath] });
   const queryClient = new QueryClient({
@@ -91,7 +98,9 @@ export function renderRoutes(
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ConsoleMeContext.Provider value={{ me, reload: async () => {} }}>
+        <RouterProvider router={router} />
+      </ConsoleMeContext.Provider>
     </QueryClientProvider>,
   );
   return { router, ...view };

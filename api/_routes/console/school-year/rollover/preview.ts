@@ -3,7 +3,8 @@
 // 학년도 넘기기(W11 ③)의 미리보기. 붙여넣은 명단(탭 또는 쉼표, 이름, 기존 학년그룹, 그룹, 반, 번호, 새 학년그룹, 그룹,
 // 반, 번호)을 현재 재학생과 맞춰 줄마다 결과를 돌려준다. 아무것도 쓰지 않는다. 학교 관리자와 본사 대행만.
 // applyRows 는 화면이 그대로 POST /rollover 에 넘기는 줄이고, 이름은 서버에서 가려 준다(동명은 끝에 별표).
-// toYear 는 기관의 다음 학년도여야 한다(롤오버 RPC 가 한 해씩만 올린다).
+// 방식은 서버가 기관의 학년도와 달력으로 정한다(rosterModeOf). 넘기기 방식이면 toYear 는 기관의 다음 학년도
+// (롤오버 RPC 가 한 해씩만 올린다), 학기 중 방식이면 기관의 학년도이고 몇 번이든 부를 수 있다.
 
 import {
   loadClassIndex,
@@ -14,15 +15,15 @@ import {
 } from "../../../../_lib/console/directory.js";
 import {
   evaluateRolloverPreview,
+  MAX_ROWS,
   type PreviewStudent,
   parseRolloverText,
 } from "../../../../_lib/console/rolloverPreview.js";
+import { rosterModeOf } from "../../../../_lib/console/schoolYear.js";
 import { defineHandler } from "../../../../_lib/handler.js";
 import { sendError } from "../../../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
-
-const MAX_ROWS = 3000;
 
 export default defineHandler({
   methods: ["POST"],
@@ -51,7 +52,8 @@ export default defineHandler({
     }
 
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    if (toYear !== schoolYear + 1) {
+    const { mode, toYear: expectedYear } = rosterModeOf(schoolYear);
+    if (toYear !== expectedYear) {
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
@@ -62,10 +64,11 @@ export default defineHandler({
         grade: string | null;
         class_id: string | null;
         number: number | null;
+        version: number;
       }>(
         admin,
         "student_enrollments",
-        "student_id, grade, class_id, number",
+        "student_id, grade, class_id, number, version",
         (q) =>
           q
             .eq("tenant_id", actor.tenantId)
@@ -95,16 +98,39 @@ export default defineHandler({
         groupName: cls?.groupName ?? null,
         className: cls?.name ?? null,
         number: e.number,
+        version: e.version,
+        ...(cls?.grade === null && { mixedClass: true }),
       };
     });
     const homeroomClasses = new Set(
       [...classes.values()]
         .filter((c) => c.schoolYear === toYear && homerooms.has(c.id))
-        .map((c) => `${c.grade}|${c.groupId ?? ""}|${c.name}`),
+        .map((c) => `${c.grade ?? ""}|${c.groupId ?? ""}|${c.name}`),
+    );
+    const keyOf = (c: { groupId: string | null; name: string }) =>
+      `${c.groupId ?? ""}|${c.name.toLowerCase()}`;
+    // 새 학년도에 이미 있는 학년 학급. 같은 그룹과 이름의 다학년 학급은 만들 수 없어(DB 가 막는다) 다학년 줄은 확인 대상이다.
+    const gradedClasses = new Set(
+      [...classes.values()]
+        .filter((c) => c.schoolYear === toYear && c.grade !== null)
+        .map(keyOf),
+    );
+    // 이미 다학년인 학급(학년 없음): 새 학년도 것과, 올해 것은 같은 이름의 학년 학급이 새 학년도에 없을 때만 넣는다.
+    // 넘기기에서 같은 그룹과 반 이름을 가리키는 줄은 실제 새 학년을 적었어도 다학년 학급 하나로 이어진다.
+    const mixedClasses = new Set(
+      [...classes.values()]
+        .filter(
+          (c) =>
+            c.grade === null &&
+            (c.schoolYear === toYear ||
+              (c.schoolYear === schoolYear && !gradedClasses.has(keyOf(c)))),
+        )
+        .map(keyOf),
     );
 
     res.status(200).json(
       evaluateRolloverPreview({
+        mode,
         lines,
         students,
         orgType,
@@ -115,6 +141,8 @@ export default defineHandler({
             .map((g) => [g.name.toLowerCase(), { id: g.id, name: g.name }]),
         ),
         homeroomClasses,
+        mixedClasses,
+        gradedClasses,
       }),
     );
   },

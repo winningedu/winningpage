@@ -240,6 +240,59 @@ describe("W9c 코칭 PDF", () => {
     expect(await screen.findByText(/학생 김서연, 출력일시/)).toBeTruthy();
   });
 
+  it("인쇄할 때만 위쪽 여백과 바깥 여백을 걷어낸다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const { container } = renderRoutes(routes, "/print?studentId=s1");
+
+    await screen.findByText("김서연");
+    const rule = container.querySelector("style")?.textContent ?? "";
+    expect(rule).toMatch(
+      /@media print[\s\S]*\.console-frame-body\s*{[^}]*padding-top:\s*0/,
+    );
+    expect(rule).toMatch(/\.coaching__print-root\s*{[^}]*padding:\s*0/);
+    expect(container.querySelector(".coaching__print-root")).not.toBeNull();
+  });
+
+  it("인쇄할 때 쪽 안 간격과 줄 간격을 줄이고 카드가 쪽 사이에서 갈라지지 않게 하며 끝 빈 쪽을 막는다", async () => {
+    stubApi({
+      "GET /api/console/me": { body: homeroomMe },
+      "GET /api/console/coaching?studentId=s1": { body: DATA },
+      "POST /api/console/coaching/print-log": { body: { ok: true } },
+    });
+
+    const { container } = renderRoutes(routes, "/print?studentId=s1");
+
+    await screen.findByText("김서연");
+    const rule = container.querySelector("style")?.textContent ?? "";
+    const blocks = [...rule.matchAll(/([^{}]+){([^}]*)}/g)].map((m) => ({
+      selector: (m[1] ?? "").trim(),
+      body: m[2] ?? "",
+    }));
+    const selectorsWith = (decl: RegExp) =>
+      blocks.filter((b) => decl.test(b.body)).map((b) => b.selector);
+
+    // 줄 간격은 본문 문단에만 건다(목록 글머리 점 위치는 건드리지 않는다)
+    expect(selectorsWith(/line-height:\s*1\.4/).join(" ")).toMatch(/\bp\b/);
+    expect(selectorsWith(/line-height/).join(" ")).not.toMatch(/\*/);
+    // 간격은 바깥 칸과 구역에만 건다(컴포넌트 안쪽 gap 은 그대로)
+    expect(selectorsWith(/gap:\s*0\.75rem/).join(" ")).toMatch(
+      /\.coaching__print\b/,
+    );
+    expect(selectorsWith(/\bgap:/).join(" ")).not.toMatch(/gap-|\*/);
+    // 쪽 나눔 방지는 작은 단위에만 건다. 큰 덩어리 전체에는 걸지 않는다
+    const avoid = selectorsWith(/break-inside:\s*avoid/).join(" ");
+    expect(avoid).toMatch(/\bli\b/);
+    expect(avoid).toMatch(/\.coaching__keep/);
+    expect(avoid).not.toMatch(/>\s*\*/);
+    expect(container.querySelector(".coaching__keep")).not.toBeNull();
+    expect(rule).toMatch(/\.coaching__print-p2\s*{[^}]*break-after:\s*avoid/);
+  });
+
   it("인쇄 기록을 남기지 못하면 인쇄 창을 열지 않고 안내한다", async () => {
     stubApi({
       "GET /api/console/me": { body: homeroomMe },

@@ -2,6 +2,8 @@ import type { Urgency } from "../urgency";
 import type { ServiceKey } from "./services";
 
 export interface StudentRow {
+  /** 가입하지 않은 학생의 명단 줄(미회원가입). studentId 는 실제 학생 id 가 아니라 상세, 편집으로 가지 않는다. */
+  pending?: boolean;
   studentId: string;
   displayName: string;
   joinedAt: string | null;

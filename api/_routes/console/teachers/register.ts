@@ -5,6 +5,7 @@
 // 권한: 학교 관리자 또는 본사 대행.
 
 import {
+  hasMixedClassForSchool,
   parseRegisterBody,
   RpcError,
   registerResponseBody,
@@ -40,6 +41,22 @@ export default defineHandler({
     }
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
+    if (
+      await hasMixedClassForSchool(
+        ctx.supabaseAdmin,
+        actor.tenantId,
+        body.classes,
+      )
+    ) {
+      sendError(
+        res,
+        "coded",
+        400,
+        "이름, 전화번호, 학급을 확인해 주세요.",
+        "BAD_REQUEST",
+      );
+      return;
+    }
 
     let result: Awaited<ReturnType<typeof registerTeacherWithAccount>>;
     try {

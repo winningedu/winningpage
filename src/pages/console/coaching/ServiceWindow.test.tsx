@@ -364,6 +364,39 @@ describe("W9b 리포트 보기 전용", () => {
     expect(viewer.classList.contains("coaching-report-viewer")).toBe(true);
   });
 
+  it("워터마크는 스크롤하지 않는 칸에 스크롤 칸과 나란히 깔려 글 길이와 상관없이 보이는 쪽을 덮는다", async () => {
+    render({
+      "GET /api/console/coaching/report?studentId=s1&service=goal": {
+        body: {
+          title: "목표관리 리포트",
+          summary: "",
+          sections: [{ title: "보완할 점", text: "근거를 더 쓰세요" }],
+        },
+      },
+    });
+    const dialog = await openGoal();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "리포트 보기" }),
+    );
+    const viewer = await screen.findByRole("dialog", {
+      name: "목표관리 리포트",
+    });
+    const layer = (await within(viewer).findAllByText(/박지훈.*열람 전용/))[0]
+      ?.parentElement as HTMLElement;
+    const wrapper = layer.parentElement as HTMLElement;
+    const scroller = screen
+      .getByText("근거를 더 쓰세요")
+      .closest(".overflow-y-auto") as HTMLElement;
+    expect(layer.classList.contains("absolute")).toBe(true);
+    expect(layer.classList.contains("pointer-events-none")).toBe(true);
+    expect(layer.getAttribute("aria-hidden")).toBe("true");
+    expect(layer.querySelectorAll("span")).toHaveLength(12);
+    expect(wrapper.classList.contains("relative")).toBe(true);
+    expect(wrapper.classList.contains("overflow-y-auto")).toBe(false);
+    expect(scroller.parentElement).toBe(wrapper);
+    expect(scroller.contains(layer)).toBe(false);
+  });
+
   it("리포트가 없으면 안내한다", async () => {
     render({
       "GET /api/console/coaching/report?studentId=s1&service=goal": {

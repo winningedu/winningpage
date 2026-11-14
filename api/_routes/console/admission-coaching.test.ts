@@ -253,6 +253,48 @@ describe("GET /api/console/admission-coaching", () => {
     expect(res.body).toMatchObject({ total: 0, hasGrade3InScope: true });
   });
 
+  test("a homeroom of a mixed-grade class lists its 중3 and 고3 students whatever the class grade, and the class counts as in scope", async () => {
+    const baseClasses = kit.state.rows.classes;
+    kit.state.rows.classes = (f) => [
+      ...((baseClasses?.(f) ?? []) as unknown[]),
+      ...matchRows(
+        [
+          {
+            id: "c-mix",
+            tenant_id: "tenant-1",
+            school_year: 2026,
+            grade: null,
+            group_id: null,
+            name: "다",
+          },
+        ],
+        f,
+      ),
+    ];
+    const baseEnrollments = kit.state.rows.student_enrollments;
+    kit.state.rows.student_enrollments = (f) => [
+      ...((baseEnrollments?.(f) ?? []) as unknown[]),
+      ...matchRows(
+        [
+          enrollment("s5", "고3", "c-mix", 1),
+          enrollment("s6", "고1", "c-mix", 2),
+        ],
+        f,
+      ),
+    ];
+    kit.state.actor = schoolAdminActor({
+      kind: "homeroom",
+      class_ids: ["c-mix"],
+    });
+
+    const res = await get();
+
+    expect(res.body).toMatchObject({ total: 1, hasGrade3InScope: true });
+    expect(
+      (res.body as { items: { studentId: string; grade: string }[] }).items,
+    ).toMatchObject([{ studentId: "s5", grade: "고3" }]);
+  });
+
   test("grade narrows to one of 중3 or 고3; other grades and bad pages are 400", async () => {
     kit.state.actor = schoolAdminActor();
 

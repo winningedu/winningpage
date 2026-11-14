@@ -4,7 +4,13 @@
 // examDate/enteredAt(응시·입력 시점) 기준으로 다시 정렬하는지를 검증한다.
 
 import { expect, test } from "vitest";
-import { latestKpi, recentHistory, sortByExamOrder } from "./goalGrades.ts";
+import {
+  latestKpi,
+  mockBaselineRow,
+  naesinBaselineRow,
+  recentHistory,
+  sortByExamOrder,
+} from "./goalGrades.ts";
 
 // 시간순으로는 3월 < 6월 < 9월이지만, 배열 순서(append 순서)는 뒤섞여 있다 —
 // "9월을 먼저 입력하고 나중에 6월을 추가로 기록한" 상황을 재현한다.
@@ -60,4 +66,66 @@ test("recentHistory는 응시 시점 최신순으로 정렬하고 직전 회차 
   expect(bySeptember?.delta).toBe(8); // 88 - 80
   const byMarch = history.find((r) => r.term === "3월 모의고사");
   expect(byMarch?.delta).toBeNull(); // 첫 회차, 비교 대상 없음
+});
+
+test("내신 설문 값은 평균만 있는 '설문 입력' 행이 되고 없으면 행이 없다", () => {
+  expect(naesinBaselineRow(2.4)).toEqual({ term: "설문 입력", average: 2.4 });
+  expect(naesinBaselineRow(null)).toBeNull();
+  expect(naesinBaselineRow(undefined)).toBeNull();
+  expect(naesinBaselineRow(0)).toBeNull();
+});
+
+test("모의고사 설문 값은 마지막 회차의 국어, 수학, 탐구 백분위만 채우고 영어 칸은 비운다", () => {
+  const row = mockBaselineRow(88.5, {
+    lastRound: "고3_6모",
+    rounds: {
+      고3_6모: {
+        kor: { grade: "1", pct: 96 },
+        math: { grade: "2", pct: 90 },
+        eng: { grade: "2" },
+        tam1: { grade: "1", pct: 98 },
+        tam2: { grade: "2", pct: 92 },
+      },
+    },
+  });
+  expect(row).toEqual({
+    term: "설문 입력",
+    korean: 96,
+    math: 90,
+    science: 95,
+    average: 88.5,
+  });
+  expect(row).not.toHaveProperty("english");
+  expect(mockBaselineRow(0, null)).toBeNull();
+  expect(mockBaselineRow(null, null)).toBeNull();
+});
+
+test("설문 회차가 여럿이면 국어, 수학, 탐구 칸은 종합 백분위가 쓰는 모든 회차의 평균이다", () => {
+  const row = mockBaselineRow(80, {
+    lastRound: "r3",
+    rounds: {
+      r1: {
+        kor: { pct: 90 },
+        math: { pct: 70 },
+        tam1: { pct: 80 },
+        tam2: { pct: 60 },
+      },
+      r2: { kor: { pct: 85 }, math: { grade: "3" }, tam1: { pct: 75 } },
+      r3: { kor: { pct: 80 }, math: { pct: 72 }, tam1: {}, tam2: {} },
+    },
+  });
+  expect(row).toEqual({
+    term: "설문 입력",
+    korean: 85,
+    math: 71,
+    science: 72.5,
+    average: 80,
+  });
+});
+
+test("rounds 모양이 없는 옛 행은 평균만 보인다", () => {
+  expect(mockBaselineRow(80, { lastRound: "x" })).toEqual({
+    term: "설문 입력",
+    average: 80,
+  });
 });

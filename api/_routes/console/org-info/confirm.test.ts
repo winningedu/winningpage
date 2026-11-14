@@ -12,6 +12,7 @@ import {
 const kit = vi.hoisted(() => ({
   state: null as unknown as KitState,
   confirmed: false,
+  current: "2026-11-05T00:30:00.654321+00:00",
 }));
 
 // 키트의 가짜 쿼리 빌더에는 .is() 가 없어 .eq() 와 같은 필터 기록으로 대신한다.
@@ -31,13 +32,24 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
 
 import handler from "./confirm.js";
 
-const post = () => callHandler(handler, {});
+const REVIEWED = "2026-11-05T00:30:00.654321+00:00";
+// 관리자가 검토한 화면의 기관 id 와 갱신 시각을 싣는다.
+const post = (body: Record<string, unknown> = {}) =>
+  callHandler(handler, { tenantId: "tenant-1", updatedAt: REVIEWED, ...body });
 
 beforeEach(() => {
   kit.state = createKitState();
   kit.confirmed = false;
+  kit.current = REVIEWED;
   kit.state.actor = schoolAdminActor();
-  kit.state.rows.tenants = () => (kit.confirmed ? [] : [{ id: "tenant-1" }]);
+  // 조건부 update(updated_at 필터가 있는 호출)는 확정 전이고 검토한 시각 그대로일 때만 한 행을 돌려준다.
+  // 그 밖의 읽기는 확정 여부를 돌려준다.
+  kit.state.rows.tenants = (filters) =>
+    "updated_at" in filters
+      ? kit.confirmed || filters.updated_at !== kit.current
+        ? []
+        : [{ id: "tenant-1" }]
+      : { info_confirmed_at: kit.confirmed ? "2026-11-05T01:00:00Z" : null };
 });
 
 afterEach(() => {
@@ -61,7 +73,11 @@ describe("POST /api/console/org-info/confirm", () => {
       {
         table: "tenants",
         values: { info_confirmed_at: "2026-11-05T01:00:00.000Z" },
-        filters: { id: "tenant-1", info_confirmed_at: null },
+        filters: {
+          id: "tenant-1",
+          info_confirmed_at: null,
+          updated_at: REVIEWED,
+        },
       },
     ]);
     expect(kit.state.inserts[0]?.row).toMatchObject({
@@ -81,6 +97,35 @@ describe("POST /api/console/org-info/confirm", () => {
     expect(r.status).toBe(409);
     expect(r.body).toMatchObject({ error: { code: "ALREADY_CONFIRMED" } });
     expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("검토한 뒤 정보가 바뀌었으면(갱신 시각이 다르면) 409 INFO_CHANGED 이고 확정도 감사 로그도 없다", async () => {
+    kit.current = "2026-11-05T00:45:00.000001+00:00";
+
+    const r = await post();
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "INFO_CHANGED" } });
+    expect(kit.state.inserts).toHaveLength(0);
+  });
+
+  test("화면이 그린 기관 id 가 세션 기관과 다르면 409 SESSION_CHANGED 이고 확정하지 않는다", async () => {
+    const r = await post({ tenantId: "tenant-2" });
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "SESSION_CHANGED" } });
+    expect(kit.state.updates).toHaveLength(0);
+  });
+
+  test.each([
+    ["기관 id 없음", { tenantId: undefined }],
+    ["검토 시각 없음", { updatedAt: undefined }],
+    ["검토 시각이 문자열이 아님", { updatedAt: 5 }],
+  ])("%s 이면 400 이고 확정하지 않는다", async (_label, body) => {
+    const r = await post(body);
+
+    expect(r.status).toBe(400);
+    expect(kit.state.updates).toHaveLength(0);
   });
 
   test("담임은 403 NOT_SCHOOL_ADMIN", async () => {

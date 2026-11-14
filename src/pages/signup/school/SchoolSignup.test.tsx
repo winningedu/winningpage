@@ -947,6 +947,18 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
     expect(screen.getByLabelText("휴대폰 인증번호")).toBeDisabled();
   });
 
+  it("교착이나 대기 시간 초과(TRY_AGAIN)는 4단계에서 잠시 뒤 다시 시도하라고 안내하고 입력값은 그대로 둔다", async () => {
+    await submitWithError(409, "TRY_AGAIN");
+
+    expect(
+      await screen.findByText(
+        "지금 처리 중인 작업이 있어요. 잠시 뒤 다시 시도해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "건너뛰기" })).toBeEnabled();
+  });
+
   it("학부모 휴대폰 인증이 빠졌다는 오류는 4단계에 머문다", async () => {
     await submitWithError(400, "GUARDIAN_PHONE_NOT_VERIFIED");
 
