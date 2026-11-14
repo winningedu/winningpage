@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import bizAiPlatform from "@/assets/company/biz-ai-platform.png";
+import bizCallmentor from "@/assets/company/biz-callmentor.png";
 import bizConsulting from "@/assets/company/biz-consulting.png";
 import bizNetwork from "@/assets/company/biz-network.png";
 import missionBg from "@/assets/company/mission-bg.jpg";
@@ -69,6 +70,8 @@ const HERO_CARDS = [
   {
     key: "free",
     bg: "#013262",
+    b2bBg: "#1e3a66",
+    b2bBest: true,
     tint: "#bddfff",
     title: "학습진단",
     desc: ["나에게 필요한", "서비스 진단"],
@@ -78,6 +81,8 @@ const HERO_CARDS = [
   {
     key: "goal",
     bg: "#47406b",
+    b2bBg: "#4a3f6e",
+    b2bBest: false,
     tint: "#ffffff",
     title: "목표관리",
     desc: ["수험생활의", "완벽한 목표 설계"],
@@ -87,6 +92,8 @@ const HERO_CARDS = [
   {
     key: "perf",
     bg: "#40606b",
+    b2bBg: "#35646e",
+    b2bBest: false,
     tint: "#c0eefe",
     title: "수행평가",
     desc: ["주제 추천부터 연계까지", "AI가 관리하는 수행평가"],
@@ -96,6 +103,8 @@ const HERO_CARDS = [
   {
     key: "growth",
     bg: "#2d5c4a",
+    b2bBg: "#2d5c46",
+    b2bBest: false,
     tint: "#b6e3cf",
     title: "성장설계",
     desc: ["나만의 강점을 찾는", "성장 로드맵 설계"],
@@ -105,6 +114,8 @@ const HERO_CARDS = [
   {
     key: "self",
     bg: "#5a3d63",
+    b2bBg: "#5a3e62",
+    b2bBest: false,
     tint: "#e3c2ea",
     title: "자기평가",
     desc: ["활동 후 정리까지", "완성하는 자기평가서"],
@@ -114,6 +125,8 @@ const HERO_CARDS = [
   {
     key: "research",
     bg: "#3d4a6b",
+    b2bBg: "#3c4a6e",
+    b2bBest: true,
     tint: "#c2d0f5",
     title: "심화탐구",
     desc: ["주제 추천부터 연계까지", "깊이 있는 심화탐구"],
@@ -123,6 +136,8 @@ const HERO_CARDS = [
   {
     key: "mentor",
     bg: "#66452b",
+    b2bBg: "#6b4528",
+    b2bBest: false,
     tint: "#f2bc92",
     title: "콜멘토",
     desc: ["나만의 1:1", "입시 멘토링"],
@@ -151,12 +166,25 @@ const PLATFORM_SERVICES = [
   { title: "심화탐구", route: "/services/research" },
 ];
 
+const CALLMENTOR_ROUTE = "/services/callmentor";
+const B2B_PLATFORM_ROW_SIZE = 3;
+
+// 스쿨멘토는 콜멘토가 사업영역의 별도 카드(1:1 콜멘토링)라 학습 플랫폼 설명에서 빼고,
+// 서비스를 3개씩 두 줄로 나눠 보인다.
 function platformServicesDesc() {
-  return PLATFORM_SERVICES.filter(
-    ({ route }) => !isHiddenProgramLink(route, site.features.hiddenPrograms),
-  )
-    .map(({ title }) => title)
-    .join(", ");
+  const titles = PLATFORM_SERVICES.filter(
+    ({ route }) =>
+      !isHiddenProgramLink(route, site.features.hiddenPrograms) &&
+      !(site.features.b2bMenu && route === CALLMENTOR_ROUTE),
+  ).map(({ title }) => title);
+  if (!site.features.b2bMenu) return titles.join(", ");
+  return [
+    titles.slice(0, B2B_PLATFORM_ROW_SIZE),
+    titles.slice(B2B_PLATFORM_ROW_SIZE),
+  ]
+    .filter((row) => row.length > 0)
+    .map((row) => row.join(", "))
+    .join(",\n");
 }
 
 // -------------------------------------------------------------------------
@@ -181,6 +209,15 @@ const BUSINESS_CARDS = [
     image: bizNetwork,
     title: "연계 협력 네트워크",
     desc: "정상어학원・정상수학학원\n클로이위닝 미술학원",
+    b2bDesc:
+      "정상어학원・정상수학학원\n클로이위닝 미술학원\nCEC Academy (영국)",
+  },
+  {
+    key: "callmentor",
+    b2bOnly: true,
+    image: bizCallmentor,
+    title: "1:1 콜멘토링",
+    desc: "학업・진로 상담\n공부습관 코칭, 학교생활 관리\n학습진단・액션노트 제공",
   },
 ];
 // ! 가운뎃점은 시안 원문이 U+00B7(·)이나, 코드 정본(InDepthResearch.jsx) 및 페이지 전역 선례가
@@ -379,6 +416,48 @@ function renderContent(content: string | null | undefined) {
 // 사진 컬럼을 없애고 텍스트+카드 단일 컬럼을 섹션 중앙에 배치하는 구성으로 재배치했다
 // (사진에 맞춰 flush하던 min-h/pt/pb 계산도 함께 정리).
 // -------------------------------------------------------------------------
+type HeroCard = (typeof HERO_CARDS)[number];
+
+// 스쿨멘토 히어로 박스 — 둥근 박스 7개를 4+3으로 가운데 정렬하고 번호(01~)를 붙인다.
+// 위닝의 맞닿는 타일(8장)과 구성이 달라 별도 컴포넌트로 둔다. 모바일은 2열이다.
+function B2bServiceBoxes({ cards }: { cards: HeroCard[] }) {
+  return (
+    <div className="flex w-full flex-wrap justify-center gap-3 md:gap-5">
+      {cards.map((card, index) => (
+        <Link
+          key={card.key}
+          to={card.route}
+          style={{ backgroundColor: card.b2bBg }}
+          className="relative flex basis-[calc(50%-0.375rem)] flex-col items-center justify-between gap-6 rounded-3xl px-3 pb-6 pt-12 transition hover:brightness-110 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-white md:basis-[calc(25%-0.9375rem)] lg:gap-10 lg:pb-9 lg:pt-16"
+        >
+          {card.b2bBest && (
+            <span className="absolute left-0 top-0 rounded-br-xl rounded-tl-3xl bg-[#f7a21b] px-3 py-1.5 text-[0.625rem] font-bold leading-[1.3] text-[#1f2b3d] sm:text-[0.6875rem]">
+              BEST
+            </span>
+          )}
+          <span
+            aria-hidden="true"
+            className="absolute right-4 top-3 text-[0.75rem] font-semibold leading-[1.3] text-white/50 sm:text-[0.8125rem]"
+          >
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span
+            className="block text-center text-[0.75rem] font-medium leading-[1.4] sm:text-[0.8125rem]"
+            style={{ color: card.tint, opacity: 0.95 }}
+          >
+            {card.desc[0]}
+            <br />
+            {card.desc[1]}
+          </span>
+          <span className="block text-center font-grace text-[1.375rem] font-bold leading-[1.3] text-white sm:text-[1.6875rem] lg:text-[1.9rem]">
+            {card.title}
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function HeroSection({ page }: { page: IntroPage }) {
   // 원장 카피(아이브로우/헤드라인)는 시안 고정값으로 못박는다. company-intro 슬러그의
   // page_contents 행은 운영 중인 구 디자인(제목=회사명 "위닝에듀", 부제=설명 문단, 이미지=박스형
@@ -387,6 +466,11 @@ function HeroSection({ page }: { page: IntroPage }) {
   // 관리자 오버레이는 회귀 위험이 낮은 body(보조 카피, 선택 렌더)만 유지한다.
   const headline = "15년간 쌓아온 데이터로 빈틈없이 함께 가겠습니다.";
   const body = cleanText(page?.body);
+  const visibleCards = HERO_CARDS.filter(
+    (card) =>
+      (site.features.premium || !isPremiumLink(card.route)) &&
+      !isHiddenProgramLink(card.route, site.features.hiddenPrograms),
+  );
 
   return (
     <section className="relative overflow-hidden bg-[#202f3f] py-16 sm:py-20 lg:py-28">
@@ -405,60 +489,60 @@ function HeroSection({ page }: { page: IntroPage }) {
         {/* 카드 그리드 검산: 8장 확장(6→8, 사용자 확정) 후 데스크톱 4열 × 2행,
             gap 0(맞닿는 타일이 시안 핵심 구성) 유지. 모바일은 2열 × 4행,
             768px 이상은 4열 × 2행으로 조기 전환해 타일이 과도하게 부풀지 않게 한다. */}
-        <div className="grid w-full max-w-142.5 grid-cols-2 sm:grid-cols-4 lg:grid-rows-2">
-          {HERO_CARDS.filter(
-            (card) =>
-              (site.features.premium || !isPremiumLink(card.route)) &&
-              !isHiddenProgramLink(card.route, site.features.hiddenPrograms),
-          ).map((card) => {
-            const content = (
-              <>
-                {card.best && (
-                  <span className="absolute left-0 top-0 flex h-5 w-8.5 items-center justify-center bg-[#ff8e00] text-[0.625rem] font-medium leading-[1.3] text-white sm:h-6 sm:w-10 sm:text-[0.6875rem]">
-                    BEST
-                  </span>
-                )}
-                {/* button(수시카드)은 phrasing content만 허용해 <p>가 유효하지 않다 —
+        {site.features.b2bMenu ? (
+          <B2bServiceBoxes cards={visibleCards} />
+        ) : (
+          <div className="grid w-full max-w-142.5 grid-cols-2 sm:grid-cols-4 lg:grid-rows-2">
+            {visibleCards.map((card) => {
+              const content = (
+                <>
+                  {card.best && (
+                    <span className="absolute left-0 top-0 flex h-5 w-8.5 items-center justify-center bg-[#ff8e00] text-[0.625rem] font-medium leading-[1.3] text-white sm:h-6 sm:w-10 sm:text-[0.6875rem]">
+                      BEST
+                    </span>
+                  )}
+                  {/* button(수시카드)은 phrasing content만 허용해 <p>가 유효하지 않다 —
                     6장 전부 <span className="block">으로 통일한다. */}
-                <span
-                  className="block text-center text-[0.6875rem] font-semibold leading-[1.3] sm:text-[0.8125rem]"
-                  style={{ color: card.tint, opacity: 0.95 }}
-                >
-                  {card.desc[0]}
-                  <br />
-                  {card.desc[1]}
-                </span>
-                {/* 타이틀 서체 — 파일 상단 주석 참고(font-grace, font-bold 필수 동반). */}
-                <span className="mt-2 block text-center font-grace text-[1.375rem] font-bold leading-[1.3] text-white sm:text-[1.6875rem] lg:text-[1.6rem]">
-                  {card.title}
-                </span>
-              </>
-            );
-            const className =
-              "relative flex aspect-248/229 flex-col items-center justify-center gap-1 px-2 transition hover:brightness-110 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-white";
+                  <span
+                    className="block text-center text-[0.6875rem] font-semibold leading-[1.3] sm:text-[0.8125rem]"
+                    style={{ color: card.tint, opacity: 0.95 }}
+                  >
+                    {card.desc[0]}
+                    <br />
+                    {card.desc[1]}
+                  </span>
+                  {/* 타이틀 서체 — 파일 상단 주석 참고(font-grace, font-bold 필수 동반). */}
+                  <span className="mt-2 block text-center font-grace text-[1.375rem] font-bold leading-[1.3] text-white sm:text-[1.6875rem] lg:text-[1.6rem]">
+                    {card.title}
+                  </span>
+                </>
+              );
+              const className =
+                "relative flex aspect-248/229 flex-col items-center justify-center gap-1 px-2 transition hover:brightness-110 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-white";
 
-            return card.route ? (
-              <Link
-                key={card.key}
-                to={card.route}
-                style={{ backgroundColor: card.bg }}
-                className={className}
-              >
-                {content}
-              </Link>
-            ) : (
-              <button
-                key={card.key}
-                type="button"
-                onClick={alertServiceNotReady}
-                style={{ backgroundColor: card.bg }}
-                className={className}
-              >
-                {content}
-              </button>
-            );
-          })}
-        </div>
+              return card.route ? (
+                <Link
+                  key={card.key}
+                  to={card.route}
+                  style={{ backgroundColor: card.bg }}
+                  className={className}
+                >
+                  {content}
+                </Link>
+              ) : (
+                <button
+                  key={card.key}
+                  type="button"
+                  onClick={alertServiceNotReady}
+                  style={{ backgroundColor: card.bg }}
+                  className={className}
+                >
+                  {content}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -470,24 +554,28 @@ function HeroSection({ page }: { page: IntroPage }) {
 // — 시안에 없는 좌→우 그라디언트 스크림을 추가로 넣었다(근거를 여기 남긴다).
 // Talents for Winning Edu 블록은 사용자 확정으로 삭제했다(미션·비전만 유지).
 // -------------------------------------------------------------------------
-const MISSION_BLOCKS = [
-  {
-    key: "mission",
-    label: "Mission",
-    lines: [
-      "학생 한 명, 한명의 가능성을 믿고,",
-      "데이터와 전문성으로 증명하는 위닝에듀입니다",
-    ],
-  },
-  {
-    key: "vision",
-    label: "Vision",
-    lines: [
-      "데이터와 실적으로 증명하는",
-      "대한민국 대표 입시 컨설팅 플랫폼입니다",
-    ],
-  },
-];
+// 스쿨멘토는 운영 법인 브랜드(위닝로직)로 말한다. 판정은 렌더 시점에 한다.
+function missionBlocks() {
+  const brand = site.features.b2bMenu ? "위닝로직" : "위닝에듀";
+  return [
+    {
+      key: "mission",
+      label: "Mission",
+      lines: [
+        "학생 한 명, 한명의 가능성을 믿고,",
+        `데이터와 전문성으로 증명하는 ${brand}입니다`,
+      ],
+    },
+    {
+      key: "vision",
+      label: "Vision",
+      lines: [
+        "데이터와 실적으로 증명하는",
+        "대한민국 대표 입시 컨설팅 플랫폼입니다",
+      ],
+    },
+  ];
+}
 
 function MissionSection() {
   return (
@@ -532,7 +620,7 @@ function MissionSection() {
       />
 
       <div className="mx-auto flex w-full max-w-content flex-col px-5 sm:px-8">
-        {MISSION_BLOCKS.map((block, index) => (
+        {missionBlocks().map((block, index) => (
           <div
             key={block.key}
             className={index === 0 ? "" : "mt-5 sm:mt-7 lg:mt-10"}
@@ -564,15 +652,21 @@ function MissionSection() {
 // [3] 사업영역 — 흰 배경 카드 3장 (3D 일러스트 + 타이틀 + 본문)
 // -------------------------------------------------------------------------
 function BusinessSection() {
+  const isB2b = site.features.b2bMenu;
   return (
     <section className="bg-white pt-16 pb-16 sm:pt-20 lg:pt-40 lg:pb-41.75">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <p className="text-center text-[0.875rem] font-medium leading-[1.3] text-primary sm:text-[1rem]">
           사업영역
         </p>
-        <h2 className="mx-auto mt-5 max-w-xl break-keep text-center text-[1.5rem] font-semibold leading-[1.3] text-ink sm:text-[1.75rem] lg:text-[2rem]">
-          위닝에듀는 기술을 기반으로 <br className="hidden lg:inline" />
-          경계없는 입시지원을 제공합니다
+        <h2
+          className={`mx-auto mt-5 break-keep text-center text-[1.5rem] font-semibold leading-[1.3] text-ink sm:text-[1.75rem] lg:text-[2rem] ${isB2b ? "max-w-xl lg:max-w-3xl" : "max-w-xl"}`}
+        >
+          {isB2b ? "위닝로직은" : "위닝에듀는"} 기술을 기반으로{" "}
+          <br className="hidden lg:inline" />
+          {isB2b
+            ? "경계없는 진로진학 및 학습지원을 제공합니다"
+            : "경계없는 입시지원을 제공합니다"}
         </h2>
 
         {/* 3열 폭 검산: (1100 − 30×2) / 3 = 346.7px, 시안 370×0.937(카드폭 정규화 비율) = 346.7px ✓
@@ -581,7 +675,9 @@ function BusinessSection() {
             채워 카드 한 장이 컨테이너 전폭을 차지해 여백만 남는 것을 막는다. */}
         <div className="mt-10 grid grid-cols-1 gap-5 sm:mt-12 sm:grid-cols-2 lg:mt-16.75 lg:grid-cols-3 lg:gap-7.5">
           {BUSINESS_CARDS.filter(
-            (card) => site.features.premium || !card.premiumOnly,
+            (card) =>
+              (site.features.premium || !card.premiumOnly) &&
+              (isB2b || !card.b2bOnly),
           ).map((card) => (
             <div
               key={card.key}
@@ -599,7 +695,8 @@ function BusinessSection() {
                 {card.title}
               </p>
               <p className="mt-7 whitespace-pre-line break-keep text-[0.9375rem] font-medium leading-[1.4] text-ink lg:text-[1.25rem]">
-                {card.desc ?? platformServicesDesc()}
+                {(isB2b && card.b2bDesc) ||
+                  (card.desc ?? platformServicesDesc())}
               </p>
             </div>
           ))}
