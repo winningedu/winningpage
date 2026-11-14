@@ -418,7 +418,7 @@ function renderContent(content: string | null | undefined) {
 // -------------------------------------------------------------------------
 type HeroCard = (typeof HERO_CARDS)[number];
 
-// 스쿨멘토 히어로 박스 — 둥근 박스 7개를 4+3으로 가운데 정렬하고 번호(01~)를 붙인다.
+// 스쿨멘토 히어로 박스: 둥근 박스 7개를 4+3으로 가운데 정렬하고 번호(01~)를 붙인다.
 // 위닝의 맞닿는 타일(8장)과 구성이 달라 별도 컴포넌트로 둔다. 모바일은 2열이다.
 function B2bServiceBoxes({ cards }: { cards: HeroCard[] }) {
   return (
