@@ -28,6 +28,11 @@ import { FAQ_CATEGORIES } from "@/data/faqCategories";
 import { boardConfigs } from "@/pages/admin/configs/board";
 import Faq from "./Faq";
 
+type FaqAdminConfig = {
+  fields: Array<{ key: string; options?: unknown }>;
+};
+const configs = boardConfigs as unknown as Record<string, FaqAdminConfig>;
+
 const row = (category: string, index: number) => ({
   id: `id-${index}`,
   question: `질문 ${index}`,
@@ -75,7 +80,7 @@ describe("Faq 카테고리 탭", () => {
   });
 
   it("관리자 카테고리 선택지에 선생님 계정이 있다", () => {
-    const field = boardConfigs.faqs.fields.find((f) => f.key === "category");
+    const field = configs.faqs?.fields.find((f) => f.key === "category");
     expect(field?.options).toEqual(FAQ_CATEGORIES);
     expect(field?.options).toContain("선생님 계정");
   });
