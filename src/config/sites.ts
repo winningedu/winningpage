@@ -60,6 +60,8 @@ export interface SiteConfig {
     diagnosisResume: boolean;
     // 회사 소개의 Location(오시는 길) 구역 노출 여부(결정 107 19번).
     companyLocation: boolean;
+    // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
+    usageGuide: boolean;
   };
   company: {
     name: string;
@@ -123,6 +125,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       goalZeroHourRecord: false,
       diagnosisResume: false,
       companyLocation: true,
+      usageGuide: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -185,6 +188,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       goalZeroHourRecord: true,
       diagnosisResume: true,
       companyLocation: false,
+      usageGuide: true,
     },
     company: {
       name: "주식회사 위닝로직",

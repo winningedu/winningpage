@@ -53,6 +53,7 @@
 import {
   PREMIUM_ADMISSION_A_PATH,
   PREMIUM_PROGRAM_PATH_PREFIX,
+  USAGE_GUIDE_PATH,
 } from "@/components/premium/premiumRoutesPaths";
 
 export const NAV_GUARD = "max(0px, calc(18.382rem - (100vw - 72.75rem) / 2))";
@@ -157,7 +158,7 @@ export const FALLBACK_NAV_GROUPS = [
 ];
 
 // 스쿨멘토 fallback 메뉴 트리(DB 캐시도 조회 결과도 없을 때의 첫 그림). 2026-11-05 확정 메뉴 이름.
-// 이용신청 그룹은 이용안내 화면이 생길 때까지 도착지가 없어 넣지 않는다.
+// 이용신청 그룹은 이용안내 하나만 둔다. 서비스제공은 2026-11-04에 중단돼 넣지 않는다.
 export const SCHOOLMENTOR_FALLBACK_NAV_GROUPS = [
   {
     title: "목표성장서비스",
@@ -185,6 +186,11 @@ export const SCHOOLMENTOR_FALLBACK_NAV_GROUPS = [
       { label: "입결정보", to: "/admission/results", sortOrder: 2 },
       { label: "칼럼-교육청소식", to: "/info/column", sortOrder: 3 },
     ],
+  },
+  {
+    title: "이용신청",
+    to: USAGE_GUIDE_PATH,
+    items: [{ label: "이용안내", to: USAGE_GUIDE_PATH, sortOrder: 1 }],
   },
   {
     title: "고객안내",
