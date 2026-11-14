@@ -176,7 +176,9 @@ describe("SiteFooter, 운영기관 이미지", () => {
     };
     renderFooter();
 
-    const [mobile, desktop] = screen.getAllByAltText("위닝 운영기관");
+    const [mobile, desktop] = screen.getAllByAltText(
+      "위닝 운영기관",
+    ) as HTMLElement[];
     expect(mobile).toHaveClass(
       "h-25",
       "w-auto",
@@ -189,9 +191,11 @@ describe("SiteFooter, 운영기관 이미지", () => {
   it("이미지가 없으면 기존 로고 클래스에 제한 클래스를 더하지 않는다", () => {
     renderFooter();
 
-    const [mobile, desktop] = screen.getAllByAltText("위닝에듀");
-    expect(mobile.className).toBe("h-25 w-auto object-contain");
-    expect(desktop.className).toBe("h-auto w-46.25");
+    const [mobile, desktop] = screen.getAllByAltText(
+      "위닝에듀",
+    ) as HTMLElement[];
+    expect(mobile?.className).toBe("h-25 w-auto object-contain");
+    expect(desktop?.className).toBe("h-auto w-46.25");
   });
 });
 
