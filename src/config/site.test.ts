@@ -89,7 +89,7 @@ describe("site — schoolmentor", () => {
     expect(site.favicon.svg).toBeUndefined();
   });
 
-  it("company는 필수 필드만 있고 선택 필드(특허·통신판매업·고객센터·연락처, 카카오 채널 주소 제외)는 없다", async () => {
+  it("company는 필수 필드에 푸터용 특허번호와 사업 유형만 더하고 통신판매업·고객센터·연락처는 없다", async () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.company.name).toBe("주식회사 위닝로직");
@@ -99,7 +99,9 @@ describe("site — schoolmentor", () => {
     expect(site.company.address).toBe(
       "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
     );
-    expect(site.company.patentNo).toBeUndefined();
+    // 푸터 시안(운영위탁 줄)에 특허등록과 사업 유형이 들어가 추가한 필드다.
+    expect(site.company.patentNo).toBe("10-3038224");
+    expect(site.company.businessType).toBe("소프트웨어 사업자");
     expect(site.company.mailOrderNo).toBeUndefined();
     expect(site.company.supportChannelLabel).toBeUndefined();
     expect(site.company.tel).toBeUndefined();
