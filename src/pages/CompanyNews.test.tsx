@@ -36,6 +36,9 @@ vi.mock("@/config/site", async (importOriginal) => {
         get b2bMenu() {
           return siteState.schoolmentor;
         },
+        get premium() {
+          return !siteState.schoolmentor;
+        },
       },
     },
   };
@@ -190,6 +193,86 @@ describe("CompanyNews Mission 문구의 브랜드", () => {
     );
     expect(container.textContent).not.toContain(
       "데이터와 전문성으로 증명하는 위닝에듀입니다",
+    );
+  });
+});
+
+describe("CompanyNews 사업영역 구역", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  const businessSection = () => {
+    const section = screen.getByText("사업영역").closest("section");
+    if (!section) throw new Error("사업영역 구역이 없습니다");
+    return section;
+  };
+
+  test("위닝은 기존 제목과 카드 구성을 그대로 보인다", () => {
+    siteState.schoolmentor = false;
+    renderPage();
+    const section = businessSection();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /위닝에듀는 기술을/ })
+        .textContent,
+    ).toBe("위닝에듀는 기술을 기반으로 경계없는 입시지원을 제공합니다");
+    expect(section.textContent).toContain("입시 컨설팅 서비스");
+    expect(section.textContent).not.toContain("1:1 콜멘토링");
+    expect(section.textContent).toContain(
+      "학습진단, 목표관리, 수행평가, 성장설계, 콜멘토, 자기평가, 심화탐구",
+    );
+    expect(section.textContent).not.toContain("CEC Academy (영국)");
+  });
+
+  test("스쿨멘토는 위닝로직 제목을 두 줄로 보인다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    const heading = screen.getByRole("heading", {
+      level: 2,
+      name: /위닝로직은 기술을/,
+    });
+    expect(heading.textContent).toBe(
+      "위닝로직은 기술을 기반으로 경계없는 진로진학 및 학습지원을 제공합니다",
+    );
+  });
+
+  test("스쿨멘토는 카드 3장을 학습 플랫폼, 연계 협력 네트워크, 1:1 콜멘토링 순서로 보인다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    const titles = Array.from(
+      businessSection().querySelectorAll("p.font-semibold"),
+    ).map((node) => node.textContent);
+    expect(titles).toEqual([
+      "학습 플랫폼",
+      "연계 협력 네트워크",
+      "1:1 콜멘토링",
+    ]);
+  });
+
+  test("스쿨멘토 학습 플랫폼 본문은 콜멘토 없이 두 줄이다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "학습진단, 목표관리, 수행평가,\n성장설계, 자기평가, 심화탐구",
+    );
+  });
+
+  test("스쿨멘토 연계 협력 네트워크 본문은 CEC Academy (영국) 줄을 더한다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "클로이위닝 미술학원\nCEC Academy (영국)",
+    );
+  });
+
+  test("스쿨멘토 1:1 콜멘토링 본문은 시안 세 줄이다", () => {
+    siteState.schoolmentor = true;
+    renderPage();
+    expect(businessSection().textContent).toContain(
+      "학업・진로 상담\n공부습관 코칭, 학교생활 관리\n학습진단・액션노트 제공",
     );
   });
 });

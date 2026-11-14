@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import bizAiPlatform from "@/assets/company/biz-ai-platform.png";
+import bizCallmentor from "@/assets/company/biz-callmentor.png";
 import bizConsulting from "@/assets/company/biz-consulting.png";
 import bizNetwork from "@/assets/company/biz-network.png";
 import missionBg from "@/assets/company/mission-bg.jpg";
@@ -151,12 +152,25 @@ const PLATFORM_SERVICES = [
   { title: "심화탐구", route: "/services/research" },
 ];
 
+const CALLMENTOR_ROUTE = "/services/callmentor";
+const B2B_PLATFORM_ROW_SIZE = 3;
+
+// 스쿨멘토는 콜멘토가 사업영역의 별도 카드(1:1 콜멘토링)라 학습 플랫폼 설명에서 빼고,
+// 서비스를 3개씩 두 줄로 나눠 보인다.
 function platformServicesDesc() {
-  return PLATFORM_SERVICES.filter(
-    ({ route }) => !isHiddenProgramLink(route, site.features.hiddenPrograms),
-  )
-    .map(({ title }) => title)
-    .join(", ");
+  const titles = PLATFORM_SERVICES.filter(
+    ({ route }) =>
+      !isHiddenProgramLink(route, site.features.hiddenPrograms) &&
+      !(site.features.b2bMenu && route === CALLMENTOR_ROUTE),
+  ).map(({ title }) => title);
+  if (!site.features.b2bMenu) return titles.join(", ");
+  return [
+    titles.slice(0, B2B_PLATFORM_ROW_SIZE),
+    titles.slice(B2B_PLATFORM_ROW_SIZE),
+  ]
+    .filter((row) => row.length > 0)
+    .map((row) => row.join(", "))
+    .join(",\n");
 }
 
 // -------------------------------------------------------------------------
@@ -181,6 +195,15 @@ const BUSINESS_CARDS = [
     image: bizNetwork,
     title: "연계 협력 네트워크",
     desc: "정상어학원・정상수학학원\n클로이위닝 미술학원",
+    b2bDesc:
+      "정상어학원・정상수학학원\n클로이위닝 미술학원\nCEC Academy (영국)",
+  },
+  {
+    key: "callmentor",
+    b2bOnly: true,
+    image: bizCallmentor,
+    title: "1:1 콜멘토링",
+    desc: "학업・진로 상담\n공부습관 코칭, 학교생활 관리\n학습진단・액션노트 제공",
   },
 ];
 // ! 가운뎃점은 시안 원문이 U+00B7(·)이나, 코드 정본(InDepthResearch.jsx) 및 페이지 전역 선례가
@@ -568,15 +591,21 @@ function MissionSection() {
 // [3] 사업영역 — 흰 배경 카드 3장 (3D 일러스트 + 타이틀 + 본문)
 // -------------------------------------------------------------------------
 function BusinessSection() {
+  const isB2b = site.features.b2bMenu;
   return (
     <section className="bg-white pt-16 pb-16 sm:pt-20 lg:pt-40 lg:pb-41.75">
       <div className="mx-auto w-full max-w-content px-5 sm:px-8">
         <p className="text-center text-[0.875rem] font-medium leading-[1.3] text-primary sm:text-[1rem]">
           사업영역
         </p>
-        <h2 className="mx-auto mt-5 max-w-xl break-keep text-center text-[1.5rem] font-semibold leading-[1.3] text-ink sm:text-[1.75rem] lg:text-[2rem]">
-          위닝에듀는 기술을 기반으로 <br className="hidden lg:inline" />
-          경계없는 입시지원을 제공합니다
+        <h2
+          className={`mx-auto mt-5 break-keep text-center text-[1.5rem] font-semibold leading-[1.3] text-ink sm:text-[1.75rem] lg:text-[2rem] ${isB2b ? "max-w-xl lg:max-w-3xl" : "max-w-xl"}`}
+        >
+          {isB2b ? "위닝로직은" : "위닝에듀는"} 기술을 기반으로{" "}
+          <br className="hidden lg:inline" />
+          {isB2b
+            ? "경계없는 진로진학 및 학습지원을 제공합니다"
+            : "경계없는 입시지원을 제공합니다"}
         </h2>
 
         {/* 3열 폭 검산: (1100 − 30×2) / 3 = 346.7px, 시안 370×0.937(카드폭 정규화 비율) = 346.7px ✓
@@ -585,7 +614,9 @@ function BusinessSection() {
             채워 카드 한 장이 컨테이너 전폭을 차지해 여백만 남는 것을 막는다. */}
         <div className="mt-10 grid grid-cols-1 gap-5 sm:mt-12 sm:grid-cols-2 lg:mt-16.75 lg:grid-cols-3 lg:gap-7.5">
           {BUSINESS_CARDS.filter(
-            (card) => site.features.premium || !card.premiumOnly,
+            (card) =>
+              (site.features.premium || !card.premiumOnly) &&
+              (isB2b || !card.b2bOnly),
           ).map((card) => (
             <div
               key={card.key}
@@ -603,7 +634,8 @@ function BusinessSection() {
                 {card.title}
               </p>
               <p className="mt-7 whitespace-pre-line break-keep text-[0.9375rem] font-medium leading-[1.4] text-ink lg:text-[1.25rem]">
-                {card.desc ?? platformServicesDesc()}
+                {(isB2b && card.b2bDesc) ||
+                  (card.desc ?? platformServicesDesc())}
               </p>
             </div>
           ))}
