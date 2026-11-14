@@ -15,7 +15,7 @@
 --
 -- 실행 전 조회 (결과를 실행 기록에 남긴다):
 --   select slug, menu_group, menu_group_order, menu_label, sort_order, is_active
---     from public.page_contents where menu_group = '이용신청' or slug in ('/usage-guide', 'usage-guide');
+--     from public.page_contents where menu_group = '이용신청' or slug = '/usage-guide';
 --   select name, link, sort_order, is_active from public.program_categories
 --    where lower(trim(name)) = '이용안내';
 -- 실행 후 확인: 위 두 조회가 이용안내 1행씩, link /usage-guide, 활성이어야 한다.
@@ -34,12 +34,13 @@ begin
   end if;
 end $$;
 
--- 1. 이용안내 메뉴 행. 슬러그 후보 중 하나라도 이미 있으면 추가하지 않는다.
+-- 1. 이용안내 메뉴 행. 슬러그는 '/usage-guide' 만 본다. 선행 슬래시 없는 'usage-guide' 는
+--    /page/usage-guide 로 풀려 새 화면에 닿지 않으므로 후보로 쓰지 않는다.
 insert into public.page_contents
   (slug, title, menu_label, menu_group, menu_group_order, sort_order, is_active)
 select '/usage-guide', '이용안내', '이용안내', '이용신청', 4, 1, true
  where not exists (
-   select 1 from public.page_contents p where p.slug in ('/usage-guide', 'usage-guide')
+   select 1 from public.page_contents p where p.slug = '/usage-guide'
  )
 on conflict (slug) do nothing;
 
@@ -49,7 +50,7 @@ update public.page_contents
        menu_group_order = 4,
        sort_order = 1,
        is_active = true
- where slug in ('/usage-guide', 'usage-guide')
+ where slug = '/usage-guide'
    and (menu_group, menu_group_order, sort_order, is_active)
        is distinct from ('이용신청', 4, 1, true);
 
