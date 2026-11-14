@@ -276,3 +276,89 @@ describe("CompanyNews 사업영역 구역", () => {
     );
   });
 });
+
+describe("CompanyNews 히어로 서비스 박스", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  const heroBoxes = (container: HTMLElement) => {
+    const hero = container.querySelector("section");
+    if (!hero) throw new Error("히어로 구역이 없습니다");
+    return Array.from(hero.querySelectorAll<HTMLAnchorElement>("a"));
+  };
+
+  const firstBox = (container: HTMLElement) => {
+    const box = heroBoxes(container)[0];
+    if (!box) throw new Error("히어로 박스가 없습니다");
+    return box;
+  };
+
+  const SCHOOLMENTOR_BOXES = [
+    ["01", "학습진단", "/services/learning-diagnosis", "#1e3a66"],
+    ["02", "목표관리", "/services/goal", "#4a3f6e"],
+    ["03", "수행평가", "/services/performance", "#35646e"],
+    ["04", "성장설계", "/services/growth", "#2d5c46"],
+    ["05", "자기평가", "/services/self-assessment", "#5a3e62"],
+    ["06", "심화탐구", "/services/research", "#3c4a6e"],
+    ["07", "콜멘토", "/services/callmentor", "#6b4528"],
+  ] as const;
+
+  test("스쿨멘토는 박스 7개를 01부터 07까지 번호와 시안 색으로 보인다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const boxes = heroBoxes(container);
+    expect(boxes).toHaveLength(7);
+    SCHOOLMENTOR_BOXES.forEach(([number, title, route, color], index) => {
+      const box = boxes[index];
+      if (!box) throw new Error(`${index}번째 박스가 없습니다`);
+      expect(box.getAttribute("href")).toBe(route);
+      expect(box.textContent).toContain(number);
+      expect(box.textContent).toContain(title);
+      expect(box.style.backgroundColor).toBe(
+        `rgb(${[1, 3, 5].map((i) => Number.parseInt(color.slice(i, i + 2), 16)).join(", ")})`,
+      );
+    });
+  });
+
+  test("스쿨멘토는 BEST 탭이 학습진단과 심화탐구에만 있다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const withBest = heroBoxes(container)
+      .filter((box) => box.textContent?.includes("BEST"))
+      .map((box) => box.getAttribute("href"));
+    expect(withBest).toEqual([
+      "/services/learning-diagnosis",
+      "/services/research",
+    ]);
+  });
+
+  test("스쿨멘토 박스는 둥근 모서리이고 둘째 줄을 가운데에 놓는다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    const box = firstBox(container);
+    expect(box.className).toContain("rounded-3xl");
+    expect(box.parentElement?.className).toContain("flex-wrap");
+    expect(box.parentElement?.className).toContain("justify-center");
+  });
+
+  test("위닝은 번호 없이 BEST 탭이 학습진단과 콜멘토에 있고 박스가 맞닿는다", () => {
+    siteState.schoolmentor = false;
+    const { container } = renderPage();
+    const boxes = heroBoxes(container);
+    const first = firstBox(container);
+    expect(boxes).toHaveLength(8);
+    expect(first.textContent).not.toContain("01");
+    expect(
+      boxes
+        .filter((box) => box.textContent?.includes("BEST"))
+        .map((box) => box.getAttribute("href")),
+    ).toEqual(["/services/learning-diagnosis", "/services/callmentor"]);
+    expect(first.style.backgroundColor).toBe("rgb(1, 50, 98)");
+    expect(first.className).not.toContain("rounded");
+    expect(first.parentElement?.className).toContain("grid-cols-2");
+  });
+});
