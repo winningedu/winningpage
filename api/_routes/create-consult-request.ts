@@ -11,12 +11,14 @@
 // 여기가 최종 방어선이다 — 클라이언트(PremiumApply.jsx) 검증은 UX용일
 // 뿐 신뢰하지 않는다.
 
+import { USAGE_GUIDE_SERVICE_OPTIONS } from "../_lib/consult/usageGuideServices.js";
 import { defineHandler } from "../_lib/handler.js";
 import { assertNotQaRequester } from "../_lib/qaAccount.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 
-// PremiumApply.jsx SERVICE_OPTIONS 와 글자 단위로 동일해야 한다.
+// PremiumApply.tsx PREMIUM_SERVICE_OPTIONS 와 글자 단위로 동일해야 한다.
 // 목록 밖 값은 위조된 요청으로 보고 거절한다.
-const SERVICE_OPTIONS = [
+const PREMIUM_SERVICE_OPTIONS = [
   "대입컨설팅 프로그램",
   "특목고입학 프로그램",
   "대학원입학 프로그램",
@@ -24,6 +26,14 @@ const SERVICE_OPTIONS = [
   "국제학교 학습관리",
   "국제・해외고 국내대 입학컨설팅",
 ];
+
+// 스쿨멘토는 이용안내 화면(UsageGuide.tsx)의 선택지를 쓴다. 두 사이트가 같은 테이블 구조를
+// 각자의 DB에 두므로 저장 위치와 어드민 화면은 같고 선택지만 사이트별이다.
+function getServiceOptions(): readonly string[] {
+  return isSchoolmentorSite()
+    ? USAGE_GUIDE_SERVICE_OPTIONS
+    : PREMIUM_SERVICE_OPTIONS;
+}
 
 const NAME_MAX_LENGTH = 40;
 const EMAIL_MAX_LENGTH = 100;
@@ -89,7 +99,7 @@ export default defineHandler({
     }
 
     const service = clean(body.service);
-    if (!SERVICE_OPTIONS.includes(service)) {
+    if (!getServiceOptions().includes(service)) {
       return void res.status(400).json({ error: "상담 분야를 선택해 주세요." });
     }
 

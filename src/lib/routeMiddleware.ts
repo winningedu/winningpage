@@ -235,6 +235,15 @@ export const requirePremiumAvailableMiddleware: MiddlewareFunction =
     }
   };
 
+// 2d-1) /usage-guide - 이용안내를 열지 않는 사이트(site.features.usageGuide=false, 위닝에듀)는
+// 직접 URL 진입을 홈으로 되돌린다. 2d와 같은 이유로 빌드타임 상수를 동기 판정한다.
+export const requireUsageGuideAvailableMiddleware: MiddlewareFunction =
+  async () => {
+    if (!site.features.usageGuide) {
+      throw redirect("/");
+    }
+  };
+
 // 2d-2) /services/callmentor - 콜멘토를 닫는 사이트(site.features.callmentor=false, 스쿨멘토)는
 // 직접 URL 진입도 홈으로 되돌린다. 2d와 같은 이유로 빌드타임 상수를 동기 판정한다.
 export const requireCallmentorAvailableMiddleware: MiddlewareFunction =

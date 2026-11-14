@@ -33,6 +33,7 @@ vi.mock("@/lib/supabase", () => {
       select: makeChain,
       eq: makeChain,
       order: makeChain,
+      limit: makeChain,
     });
   const channel = { on: () => channel, subscribe: () => channel };
   return {

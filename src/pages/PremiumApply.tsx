@@ -32,7 +32,7 @@ import { formatPhoneInput } from "@/lib/phoneVerification";
 
 // 셀렉트 옵션 — 시안에 목록이 없어(B-13) 헤더·푸터 「프리미엄」 6개 프로그램 라벨
 // (src/data/navigation.js FALLBACK_NAV_GROUPS)을 정본으로 그대로 쓴다.
-const SERVICE_OPTIONS = [
+const PREMIUM_SERVICE_OPTIONS = [
   "대입컨설팅 프로그램",
   "특목고입학 프로그램",
   "대학원입학 프로그램",
@@ -40,6 +40,28 @@ const SERVICE_OPTIONS = [
   "국제학교 학습관리",
   "국제・해외고 국내대 입학컨설팅",
 ];
+
+// 화면 문구와 서비스 선택지. 같은 틀을 쓰는 이용안내(스쿨멘토) 화면은 UsageGuide.tsx가
+// 자기 문구를 넘긴다. 위닝에듀 프리미엄 화면은 아래 PREMIUM_APPLY_COPY 그대로다.
+export type ConsultApplyCopy = {
+  eyebrow: string;
+  title: string;
+  bookLabel: string;
+  inquiryHeading: string;
+  inquirySentence: string;
+  emailPlaceholder: string;
+  serviceOptions: readonly string[];
+};
+
+const PREMIUM_APPLY_COPY: ConsultApplyCopy = {
+  eyebrow: "프리미엄 이용",
+  title: "위닝에듀만의 프리미엄 서비스를 확인해보세요",
+  bookLabel: "프리미엄 안내 책자",
+  inquiryHeading: "프리미엄 서비스 상담 신청하기",
+  inquirySentence: "문의사항을 남겨주시면 위닝에듀 팀이 확인 후 연락드립니다.",
+  emailPlaceholder: "example@winningedu.com",
+  serviceOptions: PREMIUM_SERVICE_OPTIONS,
+};
 
 type FormState = {
   name: string;
@@ -76,7 +98,10 @@ const PHONE_ALLOWED_PATTERN = /^[0-9-]+$/;
 
 // 서버(api/_routes/create-consult-request.js)와 동일한 규칙. 클라이언트에서 먼저 걸러 왕복을
 // 줄이되, 최종 검증은 서버가 다시 한다.
-function validateForm(form: FormState): FormErrors {
+function validateForm(
+  form: FormState,
+  serviceOptions: readonly string[],
+): FormErrors {
   const errors: FormErrors = {};
 
   const name = form.name.trim();
@@ -101,7 +126,7 @@ function validateForm(form: FormState): FormErrors {
     errors.email = "이메일 형식을 확인해주세요.";
   }
 
-  if (!form.service || !SERVICE_OPTIONS.includes(form.service)) {
+  if (!form.service || !serviceOptions.includes(form.service)) {
     errors.service = "이용하고 싶으신 서비스를 선택해주세요.";
   }
 
@@ -174,7 +199,7 @@ const selectClass =
 
 const inputErrorClass = "border-red-400 focus:border-red-500";
 
-export default function PremiumApply() {
+export function ConsultApplyPage({ copy }: { copy: ConsultApplyCopy }) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -227,7 +252,7 @@ export default function PremiumApply() {
     event.preventDefault();
     if (submitting) return; // 중복 클릭으로 두 번 신청되는 것을 막는다.
 
-    const nextErrors = validateForm(form);
+    const nextErrors = validateForm(form, copy.serviceOptions);
     setErrors(nextErrors);
     setSubmitError("");
 
@@ -283,16 +308,17 @@ export default function PremiumApply() {
       {/* 히어로 */}
       <section className="mx-auto max-w-content px-6 pt-20 pb-10 text-center">
         <p className="text-base font-semibold leading-7 text-accent">
-          프리미엄 이용
+          {copy.eyebrow}
         </p>
         <h1 className="mx-auto mt-2 max-w-225 text-3xl font-semibold leading-tight text-ink md:text-[3.125rem] md:leading-17.5">
-          위닝에듀만의 프리미엄 서비스를 확인해보세요
+          {copy.title}
         </h1>
       </section>
 
       {/* 플립북 뷰어 — 섹션 래퍼까지 BookViewer가 렌더한다 */}
       <BookViewer
         pages={pages}
+        label={copy.bookLabel}
         loading={loading}
         error={error}
         onRetry={retry}
@@ -308,10 +334,10 @@ export default function PremiumApply() {
           <div className="max-w-130 shrink-0 lg:pt-4">
             <p className="text-sm font-medium leading-5 text-primary">문의</p>
             <h2 className="mt-2 text-2xl font-semibold leading-10.25 text-ink md:text-[2rem]">
-              프리미엄 서비스 상담 신청하기
+              {copy.inquiryHeading}
             </h2>
             <p className="mt-2 text-base font-normal leading-6.5 text-ink">
-              문의사항을 남겨주시면 위닝에듀 팀이 확인 후 연락드립니다.
+              {copy.inquirySentence}
             </p>
           </div>
 
@@ -385,7 +411,7 @@ export default function PremiumApply() {
                         type="email"
                         value={form.email}
                         onChange={(e) => updateField("email", e.target.value)}
-                        placeholder="example@winningedu.com"
+                        placeholder={copy.emailPlaceholder}
                         className={`${inputClass} ${errors.email ? inputErrorClass : ""}`}
                       />
                     </FormField>
@@ -411,7 +437,7 @@ export default function PremiumApply() {
                           <option value="" disabled>
                             이용 서비스 선택
                           </option>
-                          {SERVICE_OPTIONS.map((option) => (
+                          {copy.serviceOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
@@ -492,4 +518,8 @@ export default function PremiumApply() {
       </section>
     </main>
   );
+}
+
+export default function PremiumApply() {
+  return <ConsultApplyPage copy={PREMIUM_APPLY_COPY} />;
 }

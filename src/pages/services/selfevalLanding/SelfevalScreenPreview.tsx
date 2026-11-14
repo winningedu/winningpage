@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { site } from "@/config/site";
 
 // 실제 서비스 화면 3장을 브라우저 프레임에 담아 점으로 넘겨 보는 미리보기. 자동 재생 없음.
 type PreviewSlide = { src: string; alt: string };
@@ -26,7 +27,7 @@ export default function SelfevalScreenPreview({
               <span className="h-2.5 w-2.5 rounded-full bg-[#62C554]" />
             </span>
             <span className="flex-1 truncate rounded-full bg-[#F1F3F4] px-4 py-1 text-center text-[0.75rem] text-[#767676]">
-              https://www.winningedu.com
+              {site.homeUrl}
             </span>
           </div>
           <img

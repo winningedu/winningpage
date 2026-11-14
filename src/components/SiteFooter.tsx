@@ -4,6 +4,7 @@ import KakaoIcon from "@/components/icons/KakaoIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
 import { site } from "@/config/site";
+import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import { useNavGroups } from "@/hooks/useNavGroups";
 
 // 결제/랜딩 공용 푸터. 사업자 정보 + 이용약관/개인정보처리방침 링크 포함.
@@ -113,6 +114,17 @@ function SocialLinks({ company }: { company: typeof site.company }) {
 
 export default function SiteFooter() {
   const navGroups = useNavGroups();
+  // 관리자가 올린 운영기관 이미지가 있으면 스택 로고 자리(모바일, 데스크톱 모두)에 대신 보인다.
+  const operatorImage = useFooterOperatorImage();
+  const logoSrc = operatorImage?.imageUrl ?? site.logo.stacked;
+  const logoAlt = operatorImage?.title ?? site.brandName;
+  // 모양이 제각각인 업로드 이미지만 박스 안으로 제한한다(로고 DOM은 그대로 둔다).
+  const mobileLogoClass = operatorImage
+    ? "h-25 w-auto max-w-full object-contain"
+    : "h-25 w-auto object-contain";
+  const desktopLogoClass = operatorImage
+    ? "h-auto max-h-25 w-46.25 object-contain"
+    : "h-auto w-46.25";
 
   return (
     <footer className="bg-surface-footer">
@@ -123,11 +135,7 @@ export default function SiteFooter() {
             to="/company-news"
             className="inline-flex shrink-0 items-center"
           >
-            <img
-              src={site.logo.stacked}
-              alt={site.brandName}
-              className="h-25 w-auto object-contain"
-            />
+            <img src={logoSrc} alt={logoAlt} className={mobileLogoClass} />
           </Link>
 
           <SocialLinks company={site.company} />
@@ -163,11 +171,7 @@ export default function SiteFooter() {
             to="/company-news"
             className="inline-flex shrink-0 items-center"
           >
-            <img
-              src={site.logo.stacked}
-              alt={site.brandName}
-              className="h-auto w-46.25"
-            />
+            <img src={logoSrc} alt={logoAlt} className={desktopLogoClass} />
           </Link>
 
           <div className="flex flex-col items-end gap-10">
