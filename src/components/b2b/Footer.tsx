@@ -1,10 +1,27 @@
+import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 
-// 시안: 상호명 줄과 사업자 번호 줄은 값이 없는 조각을 빼고 " | "로 잇는다(빈 값을 그리지 않는다).
-function joinPieces(pieces: (string | undefined)[]) {
-  return pieces.filter(Boolean).join(" | ");
+// 시안: 항목을 " | "로 잇고 값이 없는 항목은 뺀다(빈 값을 그리지 않는다). 항목은 안에서 줄이
+// 바뀌지 않고 " | " 자리에서만 줄이 바뀐다. prefix 는 첫 항목 안에 붙는다.
+function PipeItems({
+  items,
+  prefix,
+}: {
+  items: (string | undefined)[];
+  prefix?: ReactNode;
+}) {
+  const present = items.filter((item): item is string => Boolean(item));
+  return present.map((item, index) => (
+    <Fragment key={item}>
+      {index > 0 && " | "}
+      <span className="whitespace-nowrap">
+        {index === 0 && prefix}
+        {item}
+      </span>
+    </Fragment>
+  ));
 }
 
 // 주소는 도로명까지만 보인다. 괄호 뒤 동, 단지명은 시안에 없다.
@@ -18,15 +35,15 @@ function roadAddress(address: string) {
 export default function Footer() {
   const { company } = site;
   const operatorImage = useFooterOperatorImage();
-  const nameLine = joinPieces([
+  const nameItems = [
     `상호명: ${company.name}`,
     `대표: ${company.ceo}`,
     company.businessType,
-  ]);
-  const registrationLine = joinPieces([
+  ];
+  const registrationItems = [
     `사업자 등록번호: ${company.bizRegNo}`,
     company.patentNo ? `특허등록: ${company.patentNo}` : undefined,
-  ]);
+  ];
 
   return (
     <footer className="bg-footer-b2b-bg">
@@ -48,24 +65,29 @@ export default function Footer() {
               <p className="text-[1.4375rem] leading-7 font-extrabold tracking-[0.01875rem] text-white">
                 WINNING LOGIC
               </p>
-              <div className="mt-[1.031rem] text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
+              <div className="mt-[1.031rem] break-keep text-[0.8125rem] leading-[1.675rem] text-footer-b2b-info">
                 <p>
-                  <span className="text-white">(운영위탁)</span> {nameLine}
+                  <PipeItems
+                    items={nameItems}
+                    prefix={<span className="text-white">(운영위탁) </span>}
+                  />
                 </p>
-                <p>{registrationLine}</p>
+                <p>
+                  <PipeItems items={registrationItems} />
+                </p>
                 <p>{`주소: ${roadAddress(company.address)}`}</p>
               </div>
             </div>
-            <div className="flex gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
+            <div className="flex shrink-0 gap-[1.6625rem] text-[0.8125rem] leading-5 font-semibold text-footer-b2b-link lg:pt-[0.4375rem]">
               <Link
                 to="/privacy"
-                className="relative after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+                className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
               >
                 개인정보처리방침
               </Link>
               <Link
                 to="/terms"
-                className="relative after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
+                className="relative whitespace-nowrap after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 lg:after:hidden"
               >
                 이용약관
               </Link>

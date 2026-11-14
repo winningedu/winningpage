@@ -95,4 +95,41 @@ describe("b2b Footer", () => {
     ).toBeTruthy();
     expectCommonFooterContent(footer);
   });
+
+  it("줄바꿈은 항목 사이에서만 일어나고 링크 묶음은 줄어들지 않는다", () => {
+    renderFooter();
+    const footer = screen.getByRole("contentinfo");
+
+    // "|" 로 이은 항목은 항목 안에서 줄이 바뀌지 않는다(예: 소프트웨어 사업자가 중간에서 끊기지 않는다).
+    const nameLine = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === COMPANY_LINES[0],
+    );
+    const registrationLine = within(footer).getByText(
+      (_, element) =>
+        element?.tagName === "P" && element.textContent === COMPANY_LINES[1],
+    );
+    expect(
+      Array.from(nameLine.children).map((item) => item.textContent),
+    ).toEqual([
+      "(운영위탁) 상호명: 주식회사 위닝로직",
+      "대표: 강원석",
+      "소프트웨어 사업자",
+    ]);
+    expect(
+      Array.from(registrationLine.children).map((item) => item.textContent),
+    ).toEqual(["사업자 등록번호: 783-81-04298", "특허등록: 10-3038224"]);
+    for (const item of [...nameLine.children, ...registrationLine.children]) {
+      expect(item).toHaveClass("whitespace-nowrap");
+    }
+    // 항목이 없는 주소 줄은 단어 중간이 아니라 띄어쓰기에서만 끊긴다.
+    const addressLine = within(footer).getByText(COMPANY_LINES[2] as string);
+    expect(addressLine.closest(".break-keep")).not.toBeNull();
+
+    for (const name of ["개인정보처리방침", "이용약관"]) {
+      const link = within(footer).getByRole("link", { name });
+      expect(link).toHaveClass("whitespace-nowrap");
+      expect(link.parentElement).toHaveClass("shrink-0");
+    }
+  });
 });
