@@ -470,24 +470,28 @@ function HeroSection({ page }: { page: IntroPage }) {
 // — 시안에 없는 좌→우 그라디언트 스크림을 추가로 넣었다(근거를 여기 남긴다).
 // Talents for Winning Edu 블록은 사용자 확정으로 삭제했다(미션·비전만 유지).
 // -------------------------------------------------------------------------
-const MISSION_BLOCKS = [
-  {
-    key: "mission",
-    label: "Mission",
-    lines: [
-      "학생 한 명, 한명의 가능성을 믿고,",
-      "데이터와 전문성으로 증명하는 위닝에듀입니다",
-    ],
-  },
-  {
-    key: "vision",
-    label: "Vision",
-    lines: [
-      "데이터와 실적으로 증명하는",
-      "대한민국 대표 입시 컨설팅 플랫폼입니다",
-    ],
-  },
-];
+// 스쿨멘토는 운영 법인 브랜드(위닝로직)로 말한다. 판정은 렌더 시점에 한다.
+function missionBlocks() {
+  const brand = site.features.b2bMenu ? "위닝로직" : "위닝에듀";
+  return [
+    {
+      key: "mission",
+      label: "Mission",
+      lines: [
+        "학생 한 명, 한명의 가능성을 믿고,",
+        `데이터와 전문성으로 증명하는 ${brand}입니다`,
+      ],
+    },
+    {
+      key: "vision",
+      label: "Vision",
+      lines: [
+        "데이터와 실적으로 증명하는",
+        "대한민국 대표 입시 컨설팅 플랫폼입니다",
+      ],
+    },
+  ];
+}
 
 function MissionSection() {
   return (
@@ -532,7 +536,7 @@ function MissionSection() {
       />
 
       <div className="mx-auto flex w-full max-w-content flex-col px-5 sm:px-8">
-        {MISSION_BLOCKS.map((block, index) => (
+        {missionBlocks().map((block, index) => (
           <div
             key={block.key}
             className={index === 0 ? "" : "mt-5 sm:mt-7 lg:mt-10"}

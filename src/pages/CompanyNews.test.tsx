@@ -33,6 +33,9 @@ vi.mock("@/config/site", async (importOriginal) => {
         get companyLocation() {
           return !siteState.schoolmentor;
         },
+        get b2bMenu() {
+          return siteState.schoolmentor;
+        },
       },
     },
   };
@@ -160,4 +163,33 @@ describe("CompanyNews 사이트별 게시판과 Location", () => {
       siteState.newsRows = null;
     },
   );
+});
+
+describe("CompanyNews Mission 문구의 브랜드", () => {
+  const renderPage = () =>
+    render(
+      <MemoryRouter>
+        <CompanyNews />
+      </MemoryRouter>,
+    );
+
+  test("위닝은 위닝에듀 문구를 그대로 보인다", () => {
+    siteState.schoolmentor = false;
+    const { container } = renderPage();
+    expect(container.textContent).toContain(
+      "데이터와 전문성으로 증명하는 위닝에듀입니다",
+    );
+    expect(container.textContent).not.toContain("위닝로직입니다");
+  });
+
+  test("스쿨멘토는 위닝로직으로 바꿔 보인다", () => {
+    siteState.schoolmentor = true;
+    const { container } = renderPage();
+    expect(container.textContent).toContain(
+      "데이터와 전문성으로 증명하는 위닝로직입니다",
+    );
+    expect(container.textContent).not.toContain(
+      "데이터와 전문성으로 증명하는 위닝에듀입니다",
+    );
+  });
 });
