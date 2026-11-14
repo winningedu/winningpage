@@ -18,6 +18,12 @@ describe("site — winning", () => {
     expect(site.logo.stacked).toBe("/images/winning-logo-stacked.svg");
   });
 
+  it("homeUrl이 위닝에듀 주소다", async () => {
+    const { site } = await loadSite("winning");
+
+    expect(site.homeUrl).toBe("https://www.winningedu.com");
+  });
+
   it("manifest 경로가 /site.webmanifest다", async () => {
     const { site } = await loadSite("winning");
 
@@ -64,6 +70,12 @@ describe("site — winning", () => {
 });
 
 describe("site — schoolmentor", () => {
+  it("homeUrl이 스쿨멘토 주소다", async () => {
+    const { site } = await loadSite("schoolmentor");
+
+    expect(site.homeUrl).toBe("https://www.schoolmentor.kr");
+  });
+
   it("brandName·로고 경로가 스쿨멘토 정본이다", async () => {
     const { site } = await loadSite("schoolmentor");
 

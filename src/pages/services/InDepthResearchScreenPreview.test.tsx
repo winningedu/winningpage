@@ -2,6 +2,18 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import InDepthResearchScreenPreview from "./InDepthResearchScreenPreview";
 
+const siteState = vi.hoisted(() => ({
+  homeUrl: "https://www.winningedu.com",
+}));
+
+vi.mock("@/config/site", () => ({
+  site: {
+    get homeUrl() {
+      return siteState.homeUrl;
+    },
+  },
+}));
+
 const inViewState = vi.hoisted(() => ({ value: true }));
 
 vi.mock("@/hooks/useInView", () => ({
@@ -41,6 +53,7 @@ function selectedLabels() {
 }
 
 beforeEach(() => {
+  siteState.homeUrl = "https://www.winningedu.com";
   vi.useFakeTimers();
   inViewState.value = true;
 });
@@ -160,5 +173,19 @@ describe("InDepthResearchScreenPreview", () => {
       ?.firstElementChild as HTMLElement;
     expect(inactive.className).not.toContain("bg-line");
     expect(inactive.className).toContain("h-3");
+  });
+});
+
+describe("InDepthResearchScreenPreview 주소창", () => {
+  test("위닝은 위닝에듀 주소를 보인다", () => {
+    render(<InDepthResearchScreenPreview />);
+    expect(screen.getByText("https://www.winningedu.com")).toBeInTheDocument();
+  });
+
+  test("스쿨멘토는 스쿨멘토 주소를 보인다", () => {
+    siteState.homeUrl = "https://www.schoolmentor.kr";
+    render(<InDepthResearchScreenPreview />);
+    expect(screen.getByText("https://www.schoolmentor.kr")).toBeInTheDocument();
+    expect(screen.queryByText(/winningedu\.com/)).toBeNull();
   });
 });

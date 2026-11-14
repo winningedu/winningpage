@@ -19,6 +19,8 @@ export interface SiteConfig {
   logo: { horizontal: string; stacked: string };
   favicon: { png96: string; appleTouch: string; ico: string; svg?: string };
   manifest: string;
+  // 서비스 소개 화면의 브라우저 목업 주소창에 보일 사이트 주소.
+  homeUrl: string;
   // 칼럼 게시판의 사용자 노출 이름(제목, 홈 링크, 빈 안내).
   columnTitle: string;
   // 게시판 목록이 비었을 때 보여줄 안내 문구(결정 107 1번). 없으면 화면의 기존 문구를 쓴다.
@@ -107,6 +109,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       svg: "/favicon.svg",
     },
     manifest: "/site.webmanifest",
+    homeUrl: "https://www.winningedu.com",
     columnTitle: "교육칼럼",
     news: {
       maxRows: 5,
@@ -167,6 +170,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ico: "/schoolmentor/favicon.ico",
     },
     manifest: "/schoolmentor/site.webmanifest",
+    homeUrl: "https://www.schoolmentor.kr",
     columnTitle: "칼럼-교육청소식",
     boardEmpty: "작성된 글이 없어요",
     boardBanners: {
