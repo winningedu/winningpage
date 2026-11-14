@@ -89,7 +89,7 @@ describe("site — schoolmentor", () => {
     expect(site.favicon.svg).toBeUndefined();
   });
 
-  it("company는 필수 필드에 푸터용 특허번호와 사업 유형만 더하고 통신판매업·고객센터·연락처는 없다", async () => {
+  it("company는 필수 필드에 푸터용 특허번호와 사업 유형만 더하고 통신판매업, 고객센터, 연락처는 없다", async () => {
     const { site } = await loadSite("schoolmentor");
 
     expect(site.company.name).toBe("주식회사 위닝로직");

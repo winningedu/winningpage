@@ -15,6 +15,7 @@ type Field = {
   imageSpec?: { width?: number; height?: number; aspectOnly?: boolean };
 };
 type Config = {
+  guideText?: string;
   title: string;
   table: string;
   order: string;
@@ -55,6 +56,13 @@ describe("푸터관리 어드민 섹션", () => {
       height: 250,
       aspectOnly: true,
     });
+  });
+
+  test("안내 문구가 사이트별 푸터 배경색과 권장 크기를 알려 준다", () => {
+    const guide = (configs.footerImages as Config).guideText ?? "";
+    expect(guide).toContain("스쿨멘토 푸터 배경은 짙은 남색");
+    expect(guide).toContain("위닝에듀 푸터 배경은 연한 회색");
+    expect(guide).toContain("660×250");
   });
 
   test("섹션 키가 메인화면 관리 키들 바로 뒤에 등록돼 있다", () => {
