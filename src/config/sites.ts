@@ -82,6 +82,8 @@ export interface SiteConfig {
     bizRegNo: string;
     address: string;
     patentNo?: string;
+    // 스쿨멘토 푸터 운영위탁 줄의 사업 유형 문구(예: 소프트웨어 사업자). 없으면 그 조각을 그리지 않는다.
+    businessType?: string;
     mailOrderNo?: string;
     supportChannelLabel?: string;
     tel?: string;
@@ -223,6 +225,8 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       ceo: "강원석",
       corpRegNo: "164711-0016571",
       bizRegNo: "783-81-04298",
+      patentNo: "10-3038224",
+      businessType: "소프트웨어 사업자",
       address:
         "세종특별자치시 마음안1로 61, 404-B호 (고운동, 세종 리치먼드힐2 타운하우스)",
       // 결정 1(2026-11-05): 스쿨멘토도 위닝에듀 카카오 채널을 쓴다(온라인문의 메뉴 유지).

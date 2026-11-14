@@ -2116,6 +2116,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      footer_operator_images: {
+        Row: {
+          created_at: string;
+          id: number;
+          image_url: string;
+          is_active: boolean;
+          sort_order: number;
+          title: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          id?: number;
+          image_url: string;
+          is_active?: boolean;
+          sort_order?: number;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: number;
+          image_url?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       galleries: {
         Row: {
           category: string | null;
