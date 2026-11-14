@@ -7,3 +7,9 @@
 insert into public.admin_resources (key, group_title, label, sort_order, is_active)
 values ('footerImages', '메인화면 관리', '푸터관리', 170, true)
 on conflict (key) do nothing;
+
+-- 실행 기록
+-- 2026-11-14 dev(gjowqdiopinhixfivnkx), Winning prod(ykrpjcsubmbenfcnwlzd), Schoolmentor prod(aalujumpwlnwlemnqrus) 실행.
+--   세 DB 모두 실행 전 admin_resources 56행(footerImages 0), 실행 후 57행(footerImages 1).
+--   재실행: 세 DB 모두 57행 그대로.
+--   역할별 권한은 넣지 않았다. 최고 관리자만 메뉴가 보인다.
