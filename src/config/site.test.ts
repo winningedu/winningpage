@@ -146,6 +146,15 @@ describe("site - 서비스 이름 '위닝 ' 접두어 제거 플래그", () => {
   });
 });
 
+describe("site - 이용안내 노출 플래그", () => {
+  it("winning은 이용안내 화면을 닫고 schoolmentor는 연다", async () => {
+    expect((await loadSite("winning")).site.features.usageGuide).toBe(false);
+    expect((await loadSite("schoolmentor")).site.features.usageGuide).toBe(
+      true,
+    );
+  });
+});
+
 describe("site - 배너 빈 상태 안내 플래그", () => {
   it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
     const { site } = await loadSite("winning");
