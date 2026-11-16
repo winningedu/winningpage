@@ -48,6 +48,7 @@ export function buildEnrollmentGrid(input: {
       "학년그룹",
       "반",
       "총원",
+      "미가입",
       "정원",
       "이용 학생",
       ...SERVICES.map((s) => s.label),
@@ -58,6 +59,7 @@ export function buildEnrollmentGrid(input: {
       safe(gradeGroupLabel(r, gradeLabel)),
       safe(`${r.className}반`),
       r.total,
+      r.pendingCount,
       r.capacity ?? "",
       r.joined,
       ...SERVICES.map((s) => countWithRate(r.services[s.key], r.total)),
@@ -68,6 +70,7 @@ export function buildEnrollmentGrid(input: {
       "",
       "",
       totals.total,
+      totals.pending,
       totals.capacityRate ? capacitySum : "",
       totals.joined,
       ...SERVICES.map((s) =>

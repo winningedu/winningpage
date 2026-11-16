@@ -67,6 +67,7 @@ const classRow = (over: Record<string, unknown> = {}) => ({
   className: "1",
   homeroomName: "김담임",
   total: 30,
+  pendingCount: 3,
   capacity: 32,
   joined: 28,
   services: services([28, 21, 9, 6, 3, 0]),
@@ -84,6 +85,7 @@ const SCHOOL = {
       className: "2",
       homeroomName: null,
       total: 31,
+      pendingCount: 0,
       capacity: null,
       joined: 29,
       services: services([29, 10, 0, 0, 0, 0]),
@@ -168,6 +170,56 @@ describe("W7 이용현황", () => {
 
     const second = screen.getByRole("row", { name: /담임 미배정/ });
     expect(within(second).getByText("31")).toBeTruthy();
+  });
+
+  it("반별 표에 미가입 칸을 총원 칸 오른쪽에 두고, 총원과 미가입 숫자는 그 반의 학생 목록(전체 탭) 링크다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const first = await screen.findByRole("row", { name: /김담임/ });
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent);
+    expect(headers.indexOf("미가입")).toBe(headers.indexOf("총원 / 정원") + 1);
+    const hrefOf = (name: string) => {
+      const href = within(first)
+        .getByRole("link", { name })
+        .getAttribute("href");
+      const url = new URL(href ?? "", "http://x");
+      return [url.pathname, Object.fromEntries(url.searchParams)];
+    };
+    const expected = [
+      "/teacher/students",
+      { tab: "all", grade: "고1", classId: "c1" },
+    ];
+    expect(hrefOf("30 / 32")).toEqual(expected);
+    expect(hrefOf("3")).toEqual(expected);
+  });
+
+  it("학년 없는 다학년 반의 링크는 grade=mixed 로 건다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [classRow({ grade: null, pendingCount: 4 })],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const row = await screen.findByRole("row", { name: /김담임/ });
+    const href = within(row)
+      .getByRole("link", { name: "4" })
+      .getAttribute("href");
+    expect(
+      Object.fromEntries(new URL(href ?? "", "http://x").searchParams),
+    ).toEqual({
+      tab: "all",
+      grade: "mixed",
+      classId: "c1",
+    });
   });
 
   it("학년그룹을 고르면 요약과 표가 그 범위로 줄고, 반은 학년그룹을 고른 뒤에만 고를 수 있다", async () => {
