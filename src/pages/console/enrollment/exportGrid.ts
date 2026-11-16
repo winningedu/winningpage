@@ -49,6 +49,7 @@ export function buildEnrollmentGrid(input: {
       "반",
       "총원",
       "정원",
+      "미가입",
       "이용 학생",
       ...SERVICES.map((s) => s.label),
       "목표 실행률 평균",
@@ -59,6 +60,7 @@ export function buildEnrollmentGrid(input: {
       safe(`${r.className}반`),
       r.total,
       r.capacity ?? "",
+      r.pendingCount,
       r.joined,
       ...SERVICES.map((s) => countWithRate(r.services[s.key], r.total)),
       r.goalRateAvg === null ? "" : `${r.goalRateAvg}%`,
@@ -69,6 +71,7 @@ export function buildEnrollmentGrid(input: {
       "",
       totals.total,
       totals.capacityRate ? capacitySum : "",
+      totals.pending,
       totals.joined,
       ...SERVICES.map((s) =>
         countWithRate(totals.services[s.key], totals.total),

@@ -67,6 +67,7 @@ const classRow = (over: Record<string, unknown> = {}) => ({
   className: "1",
   homeroomName: "김담임",
   total: 30,
+  pendingCount: 3,
   capacity: 32,
   joined: 28,
   services: services([28, 21, 9, 6, 3, 0]),
@@ -84,6 +85,7 @@ const SCHOOL = {
       className: "2",
       homeroomName: null,
       total: 31,
+      pendingCount: 0,
       capacity: null,
       joined: 29,
       services: services([29, 10, 0, 0, 0, 0]),
@@ -170,6 +172,65 @@ describe("W7 이용현황", () => {
     expect(within(second).getByText("31")).toBeTruthy();
   });
 
+  it("요약에 미가입 학생 카드를 두고, 보이는 범위의 미가입 합계를 명 단위로 보여 준다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const card = await screen.findByRole("region", { name: "미가입 학생" });
+    expect(within(card).getByText("3명")).toBeTruthy();
+  });
+
+  it("반별 표에 미가입 칸을 총원 칸 오른쪽에 두고, 총원과 미가입 숫자는 그 반의 학생 목록(전체 탭) 링크다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const first = await screen.findByRole("row", { name: /김담임/ });
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent);
+    expect(headers.indexOf("미가입")).toBe(headers.indexOf("총원 / 정원") + 1);
+    const hrefOf = (name: string) => {
+      const href = within(first)
+        .getByRole("link", { name })
+        .getAttribute("href");
+      const url = new URL(href ?? "", "http://x");
+      return [url.pathname, Object.fromEntries(url.searchParams)];
+    };
+    const expected = [
+      "/teacher/students",
+      { tab: "all", grade: "고1", classId: "c1" },
+    ];
+    expect(hrefOf("30 / 32")).toEqual(expected);
+    expect(hrefOf("3")).toEqual(expected);
+  });
+
+  it("학년 없는 다학년 반의 링크는 grade=mixed 로 건다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [classRow({ grade: null, pendingCount: 4 })],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const row = await screen.findByRole("row", { name: /김담임/ });
+    const href = within(row)
+      .getByRole("link", { name: "4" })
+      .getAttribute("href");
+    expect(
+      Object.fromEntries(new URL(href ?? "", "http://x").searchParams),
+    ).toEqual({
+      tab: "all",
+      grade: "mixed",
+      classId: "c1",
+    });
+  });
+
   it("학년그룹을 고르면 요약과 표가 그 범위로 줄고, 반은 학년그룹을 고른 뒤에만 고를 수 있다", async () => {
     stubPage({
       [SUMMARY_URL]: {
@@ -250,6 +311,36 @@ describe("W7 이용현황", () => {
     expect(within(plain).getByText("1학년")).toBeTruthy();
   });
 
+  it("가입한 학생이 0명이어도 미가입 학생이 있는 반은 표와 미가입 링크를 보이고 안내는 보이지 않는다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [
+            classRow({
+              total: 0,
+              pendingCount: 3,
+              joined: 0,
+              capacity: null,
+              services: services([0, 0, 0, 0, 0, 0]),
+              goalRateAvg: null,
+            }),
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const row = await screen.findByRole("row", { name: /김담임/ });
+    expect(within(row).getByRole("link", { name: "3" })).toBeTruthy();
+    expect(within(row).getAllByText("0명 (0%)")).toHaveLength(6);
+    expect(screen.queryByText(/조회 범위에 학생이 없어요/)).toBeNull();
+    const card = screen.getByRole("region", { name: "미가입 학생" });
+    expect(within(card).getByText("3명")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("NaN");
+  });
+
   it("조회 범위에 학생이 없으면 표 자리에 안내를 보이고 0명으로 요약한다", async () => {
     stubPage({
       [SUMMARY_URL]: {
@@ -258,6 +349,7 @@ describe("W7 이용현황", () => {
           classes: [
             classRow({
               total: 0,
+              pendingCount: 0,
               joined: 0,
               capacity: null,
               services: services([0, 0, 0, 0, 0, 0]),
@@ -474,6 +566,27 @@ describe("W7 이용현황", () => {
 
     expect(screen.getByText("담임25")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
+  });
+
+  it("휴대폰 반 카드에도 미가입 수를 보이고 그 반의 학생 목록 링크로 잇는다", async () => {
+    useMobileScreen();
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const card = await screen.findByRole("article", { name: "김담임" });
+    expect(within(card).getByText("미가입")).toBeTruthy();
+    const href = within(card)
+      .getByRole("link", { name: "3" })
+      .getAttribute("href");
+    expect(
+      Object.fromEntries(new URL(href ?? "", "http://x").searchParams),
+    ).toEqual({
+      tab: "all",
+      grade: "고1",
+      classId: "c1",
+    });
+    expect(within(card).getByRole("link", { name: "30 / 32" })).toBeTruthy();
   });
 
   it("휴대폰에서는 엑셀 출력을 두지 않고 정원 입력은 본문에서 한다", async () => {
