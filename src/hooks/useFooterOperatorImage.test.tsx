@@ -11,7 +11,10 @@ type Row = {
   image_url: string;
   sort_order: number;
   is_active: boolean;
+  tenant_id: string | null;
 };
+
+type RpcResult = { data: string[] | null; error: { message: string } | null };
 
 const db = vi.hoisted(() => ({
   rows: [] as Row[],
@@ -20,15 +23,46 @@ const db = vi.hoisted(() => ({
   fromTables: [] as string[],
   eqCalls: [] as [string, unknown][],
   orderColumns: [] as string[],
+  rpcCalls: [] as string[],
+  // 소속 기관 조회 결과. 사용자 id 별로 다르게 돌려준다.
+  tenantIdsByUser: {} as Record<string, string[]>,
+  rpcError: null as { message: string } | null,
+  // 설정하면 rpc 가 이 약속이 풀릴 때까지 끝나지 않는다.
+  rpcGate: null as Promise<void> | null,
 }));
 
-// eq, order 를 메모리 행에 적용하고 limit 에서 결과를 내는 최소 쿼리 빌더.
+const auth = vi.hoisted(() => ({
+  value: { user: null, isReady: true } as {
+    user: { id: string } | null;
+    isReady: boolean;
+  },
+}));
+
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => auth.value,
+}));
+
+// eq, order 를 메모리 행에 적용하고, 마지막 order 뒤에 await 하면 결과를 내는 최소 쿼리 빌더.
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: (table: string) => {
       db.fromTables.push(table);
       let rows = [...db.rows];
       const orderKeys: (keyof Row)[] = [];
+      // order 를 부를 때마다 지금까지의 정렬을 적용한 결과를 약속으로 내고, 이어서 order 를 더 붙일 수도 있다.
+      const result = () => {
+        const sorted = [...rows].sort((a, b) => {
+          for (const key of orderKeys) {
+            const diff = Number(a[key]) - Number(b[key]);
+            if (diff !== 0) return diff;
+          }
+          return 0;
+        });
+        return Promise.resolve({
+          data: db.error ? null : sorted,
+          error: db.error,
+        });
+      };
       const builder = {
         select: () => builder,
         eq: (column: keyof Row, value: unknown) => {
@@ -39,26 +73,30 @@ vi.mock("@/lib/supabase", () => ({
         order: (column: keyof Row) => {
           db.orderColumns.push(column);
           orderKeys.push(column);
-          return builder;
-        },
-        limit: (count: number) => {
-          const sorted = [...rows].sort((a, b) => {
-            for (const key of orderKeys) {
-              const diff = Number(a[key]) - Number(b[key]);
-              if (diff !== 0) return diff;
-            }
-            return 0;
-          });
-          return Promise.resolve({
-            data: db.error ? null : sorted.slice(0, count),
-            error: db.error,
-          });
+          return Object.assign(result(), { order: builder.order });
         },
       };
       return builder;
     },
+    rpc: async (name: string): Promise<RpcResult> => {
+      db.rpcCalls.push(name);
+      if (db.rpcGate) await db.rpcGate;
+      if (db.rpcError) return { data: null, error: db.rpcError };
+      const userId = auth.value.user?.id ?? "";
+      return { data: db.tenantIdsByUser[userId] ?? [], error: null };
+    },
   },
 }));
+
+function row(overrides: Partial<Row> & Pick<Row, "id" | "title">): Row {
+  return {
+    image_url: `/${overrides.id}.png`,
+    sort_order: 1,
+    is_active: true,
+    tenant_id: null,
+    ...overrides,
+  };
+}
 
 afterEach(() => {
   db.rows = [];
@@ -66,36 +104,23 @@ afterEach(() => {
   db.fromTables = [];
   db.eqCalls = [];
   db.orderColumns = [];
+  db.rpcCalls = [];
+  db.tenantIdsByUser = {};
+  db.rpcError = null;
+  db.rpcGate = null;
+  auth.value = { user: null, isReady: true };
 });
 
 describe("useFooterOperatorImage", () => {
   test("노출 중인 행 가운데 순서가 가장 앞선 행의 주소와 제목을 돌려준다", async () => {
     db.rows = [
-      {
-        id: 1,
-        title: "숨김",
-        image_url: "/hidden.png",
-        sort_order: 0,
-        is_active: false,
-      },
-      {
-        id: 2,
-        title: "뒤",
-        image_url: "/b.png",
-        sort_order: 5,
-        is_active: true,
-      },
-      {
-        id: 3,
-        title: "앞",
-        image_url: "/a.png",
-        sort_order: 1,
-        is_active: true,
-      },
+      row({ id: 1, title: "숨김", sort_order: 0, is_active: false }),
+      row({ id: 2, title: "뒤", sort_order: 5 }),
+      row({ id: 3, title: "앞", sort_order: 1 }),
     ];
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(result.current).not.toBeNull());
-    expect(result.current).toEqual({ imageUrl: "/a.png", title: "앞" });
+    expect(result.current).toEqual({ imageUrl: "/3.png", title: "앞" });
     // 결과가 맞아 보이는 것만으로는 부족하다. 실제로 한 번만, 노출 필터와 두 정렬을 붙여 조회했는지 본다.
     expect(db.fromTables).toEqual(["footer_operator_images"]);
     expect(db.eqCalls).toEqual([["is_active", true]]);
@@ -103,25 +128,35 @@ describe("useFooterOperatorImage", () => {
   });
 
   test("순서가 같으면 id 가 작은 행을 고른다", async () => {
-    db.rows = [
-      {
-        id: 9,
-        title: "나중",
-        image_url: "/9.png",
-        sort_order: 1,
-        is_active: true,
-      },
-      {
-        id: 4,
-        title: "먼저",
-        image_url: "/4.png",
-        sort_order: 1,
-        is_active: true,
-      },
-    ];
+    db.rows = [row({ id: 9, title: "나중" }), row({ id: 4, title: "먼저" })];
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(result.current).not.toBeNull());
     expect(result.current?.title).toBe("먼저");
+  });
+
+  test("비회원은 대상이 없는 공통 이미지를 보고 소속 기관 조회는 하지 않는다", async () => {
+    db.rows = [
+      row({ id: 1, title: "A기관", sort_order: 1, tenant_id: "tenant-a" }),
+      row({ id: 2, title: "공통", sort_order: 9 }),
+    ];
+    const { result } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.title).toBe("공통");
+    expect(db.rpcCalls).toEqual([]);
+  });
+
+  test("회원은 소속 기관 이미지를 본다", async () => {
+    auth.value = { user: { id: "u1" }, isReady: true };
+    db.tenantIdsByUser = { u1: ["tenant-a"] };
+    db.rows = [
+      row({ id: 1, title: "공통", sort_order: 1 }),
+      row({ id: 2, title: "A기관", sort_order: 9, tenant_id: "tenant-a" }),
+      row({ id: 3, title: "B기관", sort_order: 0, tenant_id: "tenant-b" }),
+    ];
+    const { result } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.title).toBe("A기관");
+    expect(db.rpcCalls).toEqual(["fn_matched_tenant_ids"]);
   });
 
   test("행이 없으면 null 이다", async () => {

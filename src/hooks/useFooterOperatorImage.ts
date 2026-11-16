@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
 export type FooterOperatorImage = { imageUrl: string; title: string };
@@ -25,42 +26,61 @@ export function selectFooterOperatorImage(
 }
 
 /**
- * footer_operator_images 에서 노출 중인 첫 행(sort_order, id 순)을 1회 조회한다.
- * 행이 없거나 조회 실패면 null이고, 푸터는 이미지 자리를 그리지 않는다.
+ * footer_operator_images 의 노출 행(sort_order, id 순)을 1회 조회하고, 로그인한 회원이면
+ * 소속 기관 목록과 합쳐 selectFooterOperatorImage 로 한 장을 고른다.
+ * 해당하는 행이 없거나 조회 실패면 null이고, 푸터는 이미지 자리를 그리지 않는다.
  */
 export function useFooterOperatorImage(): FooterOperatorImage | null {
-  const [image, setImage] = useState<FooterOperatorImage | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const [rows, setRows] = useState<FooterImageRow[]>([]);
+  const [tenantIds, setTenantIds] = useState<string[]>([]);
 
   useEffect(() => {
     let mounted = true;
 
-    async function fetchImage() {
+    async function fetchRows() {
       const { data, error } = await supabase
         .from("footer_operator_images")
-        .select("image_url, title")
+        .select("image_url, title, tenant_id")
         .eq("is_active", true)
         .order("sort_order", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(1);
+        .order("id", { ascending: true });
 
       if (!mounted) return;
 
       if (error) {
         console.error("푸터 운영기관 이미지 조회 오류:", error);
-        setImage(null);
+        setRows([]);
         return;
       }
 
-      const row = (data as FooterImageRow[] | null)?.[0];
-      setImage(row ? { imageUrl: row.image_url, title: row.title } : null);
+      setRows((data as FooterImageRow[] | null) ?? []);
     }
 
-    fetchImage();
+    fetchRows();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  return image;
+  useEffect(() => {
+    if (!userId) return;
+    let mounted = true;
+
+    async function fetchTenantIds() {
+      const { data } = await supabase.rpc("fn_matched_tenant_ids");
+      if (!mounted) return;
+      setTenantIds(data ?? []);
+    }
+
+    fetchTenantIds();
+
+    return () => {
+      mounted = false;
+    };
+  }, [userId]);
+
+  return selectFooterOperatorImage(rows, tenantIds);
 }
