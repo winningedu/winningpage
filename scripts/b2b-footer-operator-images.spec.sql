@@ -141,8 +141,8 @@ select pg_temp.expect_int('위에서 넣은 공통 행은 tenant_id 가 null 이
   select count(*) from public.footer_operator_images where title like 'spec-%' and tenant_id is null), 3);
 
 insert into public.tenants (code, name, region, org_type, tier)
-  values ('FOAAAAAA', 'spec-footer-tenant', '서울', '학교', 'B');
-insert into fx select 'tenant', id from public.tenants where code = 'FOAAAAAA';
+  values ('FPAAAAAA', 'spec-footer-tenant', '서울', '학교', 'B');
+insert into fx select 'tenant', id from public.tenants where code = 'FPAAAAAA';
 
 select pg_temp.expect_int('실제 기관을 대상으로 한 행이 들어간다',
   pg_temp.rows_as('authenticated', (select v from fx where k = 'admin'),
