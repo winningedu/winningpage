@@ -1597,6 +1597,30 @@ export function AdminTable<T extends AdminRow = AdminRow>({
     (_, index) => windowStart + index,
   );
 
+  // column.loadOptions 가 있는 컬럼의 불러온 선택지(key 별). 폼의 loadedOptions 와
+  // 같은 수명 규칙(언마운트 뒤 결과 무시, 실패는 경고만)이다.
+  const [loadedOptions, setLoadedOptions] = useState<
+    Record<string, AdminOption[]>
+  >({});
+  useEffect(() => {
+    let alive = true;
+    for (const column of config.columns) {
+      const { loadOptions } = column;
+      if (!loadOptions) continue;
+      loadOptions()
+        .then((options) => {
+          if (alive)
+            setLoadedOptions((prev) => ({ ...prev, [column.key]: options }));
+        })
+        .catch((error) => {
+          console.warn(`${column.key} 선택지 조회 실패:`, error);
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [config.columns]);
+
   // 섹션 요약(summarizeHwpSection)은 페이지당 최대 60회(10행 × 6컬럼) 호출되고
   // jsonb doc의 blocks 배열을 훑는다. 셀에서 직접 부르면 keyword 검색 타이핑
   // 한 글자마다 전부 재계산된다 — 페이지 행이 실제로 바뀔 때만 1회 계산한다.
@@ -1819,7 +1843,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                         formatValue(
                           row[column.key],
                           column.type,
-                          column.options,
+                          loadedOptions[column.key] ?? column.options,
                         )
                       )}
                     </td>
