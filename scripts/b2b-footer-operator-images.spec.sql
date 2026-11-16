@@ -129,6 +129,31 @@ select pg_temp.expect_int('관리자의 DELETE 가 된다',
   pg_temp.rows_as('authenticated', (select v from fx where k = 'admin'),
     $q$delete from public.footer_operator_images where title = 'spec-new2'$q$), 1);
 
+-- 노출 대상(tenant_id): null 허용 uuid 컬럼이고 tenants 를 참조한다
+select pg_temp.expect_int('tenant_id 컬럼이 있다', (
+  select count(*) from information_schema.columns
+  where table_schema = 'public' and table_name = 'footer_operator_images' and column_name = 'tenant_id'), 1);
+select pg_temp.expect_int('tenant_id 는 null 을 허용한다', (
+  select count(*) from information_schema.columns
+  where table_schema = 'public' and table_name = 'footer_operator_images'
+    and column_name = 'tenant_id' and is_nullable = 'YES'), 1);
+select pg_temp.expect_int('위에서 넣은 공통 행은 tenant_id 가 null 이다', (
+  select count(*) from public.footer_operator_images where title like 'spec-%' and tenant_id is null), 3);
+
+insert into public.tenants (code, name, region, org_type, tier)
+  values ('FOAAAAAA', 'spec-footer-tenant', '서울', '학교', 'B');
+insert into fx select 'tenant', id from public.tenants where code = 'FOAAAAAA';
+
+select pg_temp.expect_int('실제 기관을 대상으로 한 행이 들어간다',
+  pg_temp.rows_as('authenticated', (select v from fx where k = 'admin'),
+    format($q$insert into public.footer_operator_images (title, image_url, tenant_id) values ('spec-target', 'https://t.local/t.png', %L)$q$,
+      (select v from fx where k = 'tenant'))), 1);
+select pg_temp.expect_error_as('없는 기관 id 는 외래키로 거절된다', 'authenticated',
+  (select v from fx where k = 'admin'),
+  $q$insert into public.footer_operator_images (title, image_url, tenant_id) values ('spec-bad', 'https://t.local/x.png', gen_random_uuid())$q$, '23503');
+select pg_temp.expect_int('anon 은 기관 대상 노출 행을 포함해 노출 행 셋을 읽는다', pg_temp.rows_as('anon', null,
+  $q$select 1 from public.footer_operator_images where title like 'spec-%' and tenant_id is not null$q$), 1);
+
 do $$ begin raise notice '=== b2b-footer-operator-images.spec: 전체 통과 ==='; end $$;
 
 rollback;
