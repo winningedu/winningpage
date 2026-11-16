@@ -172,6 +172,15 @@ describe("W7 이용현황", () => {
     expect(within(second).getByText("31")).toBeTruthy();
   });
 
+  it("요약에 미가입 학생 카드를 두고, 보이는 범위의 미가입 합계를 명 단위로 보여 준다", async () => {
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const card = await screen.findByRole("region", { name: "미가입 학생" });
+    expect(within(card).getByText("3명")).toBeTruthy();
+  });
+
   it("반별 표에 미가입 칸을 총원 칸 오른쪽에 두고, 총원과 미가입 숫자는 그 반의 학생 목록(전체 탭) 링크다", async () => {
     stubPage();
 
