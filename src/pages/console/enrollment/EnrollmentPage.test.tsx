@@ -311,6 +311,36 @@ describe("W7 이용현황", () => {
     expect(within(plain).getByText("1학년")).toBeTruthy();
   });
 
+  it("가입한 학생이 0명이어도 미가입 학생이 있는 반은 표와 미가입 링크를 보이고 안내는 보이지 않는다", async () => {
+    stubPage({
+      [SUMMARY_URL]: {
+        body: {
+          ...SCHOOL,
+          classes: [
+            classRow({
+              total: 0,
+              pendingCount: 3,
+              joined: 0,
+              capacity: null,
+              services: services([0, 0, 0, 0, 0, 0]),
+              goalRateAvg: null,
+            }),
+          ],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const row = await screen.findByRole("row", { name: /김담임/ });
+    expect(within(row).getByRole("link", { name: "3" })).toBeTruthy();
+    expect(within(row).getAllByText("0명 (0%)")).toHaveLength(6);
+    expect(screen.queryByText(/조회 범위에 학생이 없어요/)).toBeNull();
+    const card = screen.getByRole("region", { name: "미가입 학생" });
+    expect(within(card).getByText("3명")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("NaN");
+  });
+
   it("조회 범위에 학생이 없으면 표 자리에 안내를 보이고 0명으로 요약한다", async () => {
     stubPage({
       [SUMMARY_URL]: {
@@ -319,6 +349,7 @@ describe("W7 이용현황", () => {
           classes: [
             classRow({
               total: 0,
+              pendingCount: 0,
               joined: 0,
               capacity: null,
               services: services([0, 0, 0, 0, 0, 0]),
