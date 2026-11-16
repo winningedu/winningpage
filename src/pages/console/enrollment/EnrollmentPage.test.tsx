@@ -537,6 +537,27 @@ describe("W7 이용현황", () => {
     expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
   });
 
+  it("휴대폰 반 카드에도 미가입 수를 보이고 그 반의 학생 목록 링크로 잇는다", async () => {
+    useMobileScreen();
+    stubPage();
+
+    renderRoutes(routes, "/teacher/enrollment");
+
+    const card = await screen.findByRole("article", { name: "김담임" });
+    expect(within(card).getByText("미가입")).toBeTruthy();
+    const href = within(card)
+      .getByRole("link", { name: "3" })
+      .getAttribute("href");
+    expect(
+      Object.fromEntries(new URL(href ?? "", "http://x").searchParams),
+    ).toEqual({
+      tab: "all",
+      grade: "고1",
+      classId: "c1",
+    });
+    expect(within(card).getByRole("link", { name: "30 / 32" })).toBeTruthy();
+  });
+
   it("휴대폰에서는 엑셀 출력을 두지 않고 정원 입력은 본문에서 한다", async () => {
     useMobileScreen();
     stubPage();
