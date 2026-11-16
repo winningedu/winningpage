@@ -26,6 +26,11 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
+// 푸터 이미지 훅이 읽는 로그인 상태는 비회원으로 고정한다.
+vi.mock("@/context/AuthProvider", () => ({
+  useAuth: () => ({ user: null, isReady: true }),
+}));
+
 // 실 Supabase 조회가 테스트에 영향을 주지 않게 빈 결과 + no-op 채널로 대체한다.
 vi.mock("@/lib/supabase", () => {
   const makeChain = (): Promise<{ data: null; error: null }> =>

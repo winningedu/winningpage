@@ -2123,6 +2123,7 @@ export type Database = {
           image_url: string;
           is_active: boolean;
           sort_order: number;
+          tenant_id: string | null;
           title: string;
           updated_at: string;
         };
@@ -2133,6 +2134,7 @@ export type Database = {
           image_url: string;
           is_active?: boolean;
           sort_order?: number;
+          tenant_id?: string | null;
           title: string;
           updated_at?: string;
         };
@@ -2142,10 +2144,19 @@ export type Database = {
           image_url?: string;
           is_active?: boolean;
           sort_order?: number;
+          tenant_id?: string | null;
           title?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "footer_operator_images_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       galleries: {
         Row: {
