@@ -31,9 +31,18 @@ interface MainImageSpec {
 interface MainColumn {
   key: string;
   label: string;
-  type?: "image" | "date" | "datetime" | "boolean" | "imageList" | "truncate";
+  type?:
+    | "image"
+    | "date"
+    | "datetime"
+    | "boolean"
+    | "imageList"
+    | "truncate"
+    | "select";
   showFileName?: boolean;
   options?: FieldOption[];
+  loadOptions?: () => Promise<FieldOption[]>;
+  emptyLabel?: string;
 }
 
 interface MainField {

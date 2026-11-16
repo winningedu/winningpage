@@ -56,7 +56,7 @@ describe("푸터관리 어드민 섹션", () => {
       "sort_order",
       "is_active",
     ]);
-    const column = config.columns[2];
+    const column = config.columns[2] as Field;
     expect(column.label).toBe("노출 대상");
     expect(column.emptyLabel).toBe("공통");
     expect(column.loadOptions).toBe(loadTenantOptions);

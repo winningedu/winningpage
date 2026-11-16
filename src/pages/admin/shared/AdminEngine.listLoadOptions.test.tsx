@@ -102,7 +102,7 @@ describe("AdminTable 컬럼 loadOptions", () => {
       loadOptions: () => Promise.reject(new Error("boom")),
     });
     await waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(warn.mock.calls[0][0]).toContain("tenant_id");
+    expect(warn.mock.calls[0]?.[0]).toContain("tenant_id");
     expect(cellsOf("노출 대상")).toEqual(["t-1", "공통", "t-gone", "공통"]);
     expect(screen.getByText("첫째")).toBeTruthy();
   });
