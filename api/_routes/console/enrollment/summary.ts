@@ -13,6 +13,7 @@ import {
 } from "../../../_lib/console/directory.js";
 import { loadGoalStatus } from "../../../_lib/console/goalStatus.js";
 import { kstDateOffset } from "../../../_lib/console/kstDate.js";
+import { loadPendingStudents } from "../../../_lib/console/rosterPending.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -47,9 +48,10 @@ export default defineHandler({
     const admin = ctx.supabaseAdmin;
 
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    const [students, classes, capacities, assignments, teachers] =
+    const [students, pending, classes, capacities, assignments, teachers] =
       await Promise.all([
         loadScopedStudents(admin, actor),
+        loadPendingStudents(admin, actor, schoolYear),
         loadClassIndex(admin, actor.tenantId),
         readAll<{ id: string; capacity: number | null }>(
           admin,
@@ -118,6 +120,7 @@ export default defineHandler({
           className: cls.name,
           homeroomName: homeroomOf.get(cls.id) ?? null,
           total: members.length,
+          pendingCount: pending.filter((p) => p.class_id === cls.id).length,
           capacity: capacityOf.get(cls.id) ?? null,
           joined,
           services,

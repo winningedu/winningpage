@@ -2,6 +2,11 @@
 // 같은 기관, 학년도의 같은 학급에 같은 이름의 재학생이 가입했으면 가린다. 가입 전 줄에 번호가 있으면 번호도 같아야 한다.
 // 읽을 때 걸러 내므로 줄을 지우지 않는다(다음에 명단을 올리면 통째로 바뀐다).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ConsoleActor } from "./actor.js";
+import { readAll } from "./directory.js";
+import { scopeQuery } from "./scope.js";
+
 export interface PendingRecord {
   id: string;
   name: string;
@@ -36,4 +41,22 @@ export function hiddenPendingIds(
     if (set && (p.number === null || set.has(p.number))) hidden.add(p.id);
   }
   return hidden;
+}
+
+/** 보는 사람의 범위 안, 이번 학년도의 가입 전 명단 줄. 목록(students.ts)과 같은 범위 규칙이다. */
+export function loadPendingStudents(
+  admin: SupabaseClient,
+  actor: ConsoleActor,
+  schoolYear: number,
+) {
+  return readAll<{ id: string; class_id: string }>(
+    admin,
+    "roster_pending_students",
+    "id, class_id",
+    (query) =>
+      scopeQuery(query, actor, { classColumn: "class_id" }).eq(
+        "school_year",
+        schoolYear,
+      ),
+  );
 }

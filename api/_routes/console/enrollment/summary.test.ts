@@ -76,6 +76,29 @@ const ENROLLMENTS = [
   enrollment("sx", "c-x", { tenant_id: "tenant-2" }),
 ];
 
+const pending = (
+  id: string,
+  classId: string,
+  over: Record<string, unknown> = {},
+) => ({
+  id,
+  tenant_id: "tenant-1",
+  school_year: 2026,
+  name: `미가입${id}`,
+  grade: "고1",
+  class_id: classId,
+  number: null,
+  ...over,
+});
+
+const PENDING = [
+  pending("p1", "c-1"),
+  pending("p2", "c-1"),
+  pending("p3", "c-2"),
+  pending("p4", "c-2", { school_year: 2025 }),
+  pending("px", "c-x", { tenant_id: "tenant-2" }),
+];
+
 beforeEach(() => {
   kit.state = createKitState();
   kit.state.actor = schoolAdminActor();
@@ -90,6 +113,8 @@ beforeEach(() => {
   kit.state.rows.teachers = (f) =>
     matchRows([{ id: "t1", tenant_id: "tenant-1", name: "김담임" }], f);
   kit.state.rows.student_enrollments = (f) => matchRows(ENROLLMENTS, f);
+  kit.state.rows.profiles = () => [];
+  kit.state.rows.roster_pending_students = (f) => matchRows(PENDING, f);
   for (const table of [
     "growth_profiles",
     "growth_reports",
@@ -167,6 +192,20 @@ describe("GET /api/console/enrollment/summary", () => {
         capacity: null,
         joined: 1,
       }),
+    ]);
+  });
+
+  test("each class carries the number of not-yet-signed-up roster students of this tenant and year, apart from total", async () => {
+    const res = await get();
+
+    const body = res.body as {
+      classes: { classId: string; total: number; pendingCount: number }[];
+    };
+    expect(
+      body.classes.map((c) => [c.classId, c.total, c.pendingCount]),
+    ).toEqual([
+      ["c-1", 3, 2],
+      ["c-2", 1, 1],
     ]);
   });
 
