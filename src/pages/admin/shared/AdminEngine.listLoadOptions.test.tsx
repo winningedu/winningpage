@@ -65,4 +65,18 @@ describe("AdminTable 컬럼 loadOptions", () => {
     await screen.findByText("스쿨멘토");
     expect(cellsOf("노출 대상")[0]).toBe("스쿨멘토");
   });
+
+  test("값이 비어 있으면 emptyLabel 을 보여 준다", async () => {
+    renderTable({
+      key: "tenant_id",
+      label: "노출 대상",
+      type: "select",
+      emptyLabel: "공통",
+      loadOptions: () => Promise.resolve(OPTIONS),
+    });
+    await screen.findByText("스쿨멘토");
+    const cells = cellsOf("노출 대상");
+    expect(cells[1]).toBe("공통");
+    expect(cells[3]).toBe("공통");
+  });
 });

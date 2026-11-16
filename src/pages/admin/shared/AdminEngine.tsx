@@ -1839,6 +1839,9 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                         formatListValue(row[column.key], column.type)
                       ) : column.type === "truncate" ? (
                         truncateText(row[column.key])
+                      ) : column.emptyLabel &&
+                        [null, undefined, ""].includes(row[column.key]) ? (
+                        column.emptyLabel
                       ) : (
                         formatValue(
                           row[column.key],
