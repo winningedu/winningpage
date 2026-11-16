@@ -191,6 +191,7 @@ const fileNameFromUrl = () => 'stub-file';
 const normalizeArray = (v) => (Array.isArray(v) ? v : []);
 const formatListValue = () => 'stub-list';
 const truncateText = () => 'stub-truncate';
+const loadedOptions = {};
 export default function CellHarness({
   column, row, index, sectionSummaries, onOpenMetaEdit, onEdit, onOpenSection
 }) {

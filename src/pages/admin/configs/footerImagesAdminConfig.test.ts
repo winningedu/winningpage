@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { ADMIN_SECTION_KEYS } from "../adminSectionKeys";
+import { bannerFormToPayload, loadTenantOptions } from "./bannersForm";
 import { mainConfigs } from "./main";
 
 type Field = {
@@ -13,6 +14,9 @@ type Field = {
   folder?: string;
   cacheControl?: string;
   imageSpec?: { width?: number; height?: number; aspectOnly?: boolean };
+  emptyLabel?: string;
+  loadOptions?: unknown;
+  help?: string;
 };
 type Config = {
   guideText?: string;
@@ -20,6 +24,7 @@ type Config = {
   table: string;
   order: string;
   fields: Field[];
+  formToPayload?: unknown;
 };
 
 const configs = mainConfigs as unknown as Record<string, Config>;
@@ -37,8 +42,56 @@ describe("푸터관리 어드민 섹션", () => {
       ["is_active", "radioBoolean", true],
       ["title", "text", true],
       ["image_url", "image", true],
+      ["tenant_id", "select", false],
       ["sort_order", "number", false],
     ]);
+  });
+
+  test("목록에 이름과 순서 사이로 노출 대상 컬럼이 있고 기관 이름으로 보여 준다", () => {
+    const config = configs.footerImages as Config & { columns: Field[] };
+    expect(config.columns.map((c) => c.key)).toEqual([
+      "image_url",
+      "title",
+      "tenant_id",
+      "sort_order",
+      "is_active",
+    ]);
+    const column = config.columns[2] as Field;
+    expect(column.label).toBe("노출 대상");
+    expect(column.emptyLabel).toBe("공통");
+    expect(column.loadOptions).toBe(loadTenantOptions);
+  });
+
+  test("배너 목록에는 노출 대상 컬럼을 더하지 않는다", () => {
+    for (const key of ["banners", "sideBanners"]) {
+      const columns = (configs[key] as Config & { columns: Field[] }).columns;
+      expect(columns.some((c) => c.loadOptions)).toBe(false);
+    }
+  });
+
+  test("노출 대상은 배너와 같은 기관 선택이고 비우면 null 로 저장한다", () => {
+    const config = configs.footerImages as Config;
+    const field = config.fields.find((f) => f.key === "tenant_id") as Field;
+    const bannerField = banners.fields.find(
+      (f) => f.key === "tenant_id",
+    ) as Field;
+    expect(field.label).toBe("노출 대상");
+    expect(field.emptyLabel).toBe("공통");
+    expect(field.loadOptions).toBe(loadTenantOptions);
+    expect(field.help).toBe(bannerField.help);
+    expect(config.formToPayload).toBe(bannerFormToPayload);
+    // 노출 시작일, 종료일이 없는 폼도 그대로 통과한다.
+    expect(
+      bannerFormToPayload({ title: "a", tenant_id: "", sort_order: 1 }),
+    ).toEqual({ title: "a", tenant_id: null, sort_order: 1 });
+  });
+
+  test("안내 문구가 노출 대상 규칙을 설명한다", () => {
+    const guide = (configs.footerImages as Config).guideText ?? "";
+    expect(guide).toContain("노출 대상이 소속 기관인 이미지");
+    expect(guide).toContain("공통 이미지");
+    expect(guide).toContain("순서가 가장 앞선");
+    expect(guide).not.toContain("1장만");
   });
 
   test("이미지는 푸터 전용 폴더에 배너와 같은 캐시 설정으로 올리고, 비율만 안내한다", () => {

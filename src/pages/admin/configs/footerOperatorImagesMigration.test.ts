@@ -65,3 +65,29 @@ test("마이그레이션에는 데이터 문장을 두지 않는다", () => {
     /\b(insert\s+into|update\s+public\.\w+\s+set|delete\s+from)\b/i,
   );
 });
+
+function readTargetMigration(): string {
+  const file = fs
+    .readdirSync(MIGRATIONS)
+    .find((name) => name.endsWith("_footer_operator_images_tenant_target.sql"));
+  expect(file).toBeDefined();
+  return fs.readFileSync(path.join(MIGRATIONS, file as string), "utf8");
+}
+
+test("노출 대상 마이그레이션이 tenants 를 참조하는 tenant_id 를 null 허용으로 추가하고 인덱스를 건다", () => {
+  const sql = readTargetMigration();
+  expect(sql).toMatch(
+    /alter table public\.footer_operator_images\s+add column if not exists tenant_id uuid references public\.tenants\(id\);/i,
+  );
+  expect(sql).not.toMatch(/tenant_id uuid not null/i);
+  expect(sql).toMatch(
+    /create index if not exists footer_operator_images_tenant_id_idx on public\.footer_operator_images using btree \(tenant_id\);/i,
+  );
+  expect(sql).toMatch(
+    /comment on column public\.footer_operator_images\.tenant_id is '[^']*공통[^']*';/,
+  );
+  expect(sql).toMatch(/comment on table public\.footer_operator_images is/i);
+  expect(sql).not.toMatch(
+    /\b(insert\s+into|update\s+public\.\w+\s+set|delete\s+from|create policy|alter policy)\b/i,
+  );
+});

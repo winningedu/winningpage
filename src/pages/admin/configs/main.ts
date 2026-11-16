@@ -31,9 +31,18 @@ interface MainImageSpec {
 interface MainColumn {
   key: string;
   label: string;
-  type?: "image" | "date" | "datetime" | "boolean" | "imageList" | "truncate";
+  type?:
+    | "image"
+    | "date"
+    | "datetime"
+    | "boolean"
+    | "imageList"
+    | "truncate"
+    | "select";
   showFileName?: boolean;
   options?: FieldOption[];
+  loadOptions?: () => Promise<FieldOption[]>;
+  emptyLabel?: string;
 }
 
 interface MainField {
@@ -313,10 +322,18 @@ export const mainConfigs: Record<string, MainConfig> = {
     searchPlaceholder: "이미지 이름을 검색하세요",
     order: "sort_order",
     homepage: true,
-    guideText: `푸터 왼쪽에 보이는 운영기관 이미지를 올립니다. 노출 중인 이미지 중 순서가 가장 앞선 1장만 푸터에 보이고, 노출 중인 이미지가 없으면 이미지 자리는 비어 있습니다. 스쿨멘토 푸터 배경은 짙은 남색, 위닝에듀 푸터 배경은 연한 회색이므로 그 배경에서 잘 보이는 이미지를 고르세요(어두운 그림만 있는 투명 PNG는 짙은 남색 푸터에서 보이지 않고, 흰 배경 이미지는 흰 상자처럼 보입니다). 권장: 660×250px(2배 해상도, 비율 66:25) / 형식: JPG 또는 PNG / 2MB 이하`,
+    guideText: `푸터 왼쪽에 보이는 운영기관 이미지를 올립니다. 회원에게는 노출 대상이 소속 기관인 이미지가 보이고, 그런 이미지가 없으면 공통 이미지가 보입니다. 같은 대상의 이미지가 여러 장이면 순서가 가장 앞선 이미지가 보이고, 맞는 노출 중인 이미지가 없으면 이미지 자리는 비어 있습니다. 스쿨멘토 푸터 배경은 짙은 남색, 위닝에듀 푸터 배경은 연한 회색이므로 그 배경에서 잘 보이는 이미지를 고르세요(어두운 그림만 있는 투명 PNG는 짙은 남색 푸터에서 보이지 않고, 흰 배경 이미지는 흰 상자처럼 보입니다). 권장: 660×250px(2배 해상도, 비율 66:25) / 형식: JPG 또는 PNG / 2MB 이하`,
+    formToPayload: bannerFormToPayload,
     columns: [
       { key: "image_url", label: "이미지", type: "image" },
       { key: "title", label: "이름" },
+      {
+        key: "tenant_id",
+        label: "노출 대상",
+        type: "select",
+        emptyLabel: "공통",
+        loadOptions: loadTenantOptions,
+      },
       { key: "sort_order", label: "순서" },
       { key: "is_active", label: "노출", type: "boolean" },
     ],
@@ -343,6 +360,14 @@ export const mainConfigs: Record<string, MainConfig> = {
         imageSpec: { width: 660, height: 250, maxMB: 2, aspectOnly: true },
         folder: "landing/footer",
         cacheControl: "31536000, immutable",
+      },
+      {
+        key: "tenant_id",
+        label: "노출 대상",
+        type: "select",
+        emptyLabel: "공통",
+        loadOptions: loadTenantOptions,
+        help: "공통은 모두에게 노출하고, 기관을 고르면 그 기관 소속 회원에게만 노출합니다.",
       },
       { key: "sort_order", label: "순서", type: "number" },
     ],
