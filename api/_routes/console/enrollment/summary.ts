@@ -48,10 +48,9 @@ export default defineHandler({
     const admin = ctx.supabaseAdmin;
 
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    const [students, pending, classes, capacities, assignments, teachers] =
+    const [students, classes, capacities, assignments, teachers] =
       await Promise.all([
         loadScopedStudents(admin, actor),
-        loadPendingStudents(admin, actor, schoolYear),
         loadClassIndex(admin, actor.tenantId),
         readAll<{ id: string; capacity: number | null }>(
           admin,
@@ -74,6 +73,12 @@ export default defineHandler({
           (q) => q.eq("tenant_id", actor.tenantId),
         ),
       ]);
+    const pending = await loadPendingStudents(
+      admin,
+      actor,
+      schoolYear,
+      students,
+    );
     const usage = await loadServiceUsage(
       admin,
       students.map((s) => s.studentId),

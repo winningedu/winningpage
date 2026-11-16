@@ -43,20 +43,60 @@ export function hiddenPendingIds(
   return hidden;
 }
 
-/** 보는 사람의 범위 안, 이번 학년도의 가입 전 명단 줄. 목록(students.ts)과 같은 범위 규칙이다. */
-export function loadPendingStudents(
+const PROFILE_CHUNK = 100;
+
+/**
+ * 보는 사람의 범위 안, 이번 학년도의 가입 전 명단 줄 중 학생 목록에 보이는 것(가입한 같은 이름 재학생이 있으면 가린다).
+ * 범위 규칙과 가림 규칙은 목록(students.ts)과 같다.
+ */
+export async function loadPendingStudents(
   admin: SupabaseClient,
   actor: ConsoleActor,
   schoolYear: number,
+  active: { studentId: string; classId: string; number: number | null }[],
 ) {
-  return readAll<{ id: string; class_id: string }>(
-    admin,
-    "roster_pending_students",
-    "id, class_id",
-    (query) =>
-      scopeQuery(query, actor, { classColumn: "class_id" }).eq(
-        "school_year",
-        schoolYear,
-      ),
+  const all = await readAll<{
+    id: string;
+    name: string;
+    class_id: string;
+    number: number | null;
+  }>(admin, "roster_pending_students", "id, name, class_id, number", (query) =>
+    scopeQuery(query, actor, { classColumn: "class_id" }).eq(
+      "school_year",
+      schoolYear,
+    ),
   );
+  if (all.length === 0) return [];
+  // in 목록이 URL 한도를 넘지 않게 100명씩 읽는다.
+  const chunks: string[][] = [];
+  for (let i = 0; i < active.length; i += PROFILE_CHUNK) {
+    chunks.push(active.slice(i, i + PROFILE_CHUNK).map((a) => a.studentId));
+  }
+  const profiles = (
+    await Promise.all(
+      chunks.map((chunk) =>
+        readAll<{ id: string; name: string | null }>(
+          admin,
+          "profiles",
+          "id, name",
+          (q) => q.in("id", chunk),
+        ),
+      ),
+    )
+  ).flat();
+  const nameOf = new Map(profiles.map((p) => [p.id, p.name ?? ""]));
+  const hidden = hiddenPendingIds(
+    all.map((p) => ({
+      id: p.id,
+      name: p.name,
+      classId: p.class_id,
+      number: p.number,
+    })),
+    active.map((a) => ({
+      name: nameOf.get(a.studentId) ?? "",
+      classId: a.classId,
+      number: a.number,
+    })),
+  );
+  return all.filter((p) => !hidden.has(p.id));
 }

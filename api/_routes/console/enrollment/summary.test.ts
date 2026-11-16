@@ -209,6 +209,19 @@ describe("GET /api/console/enrollment/summary", () => {
     ]);
   });
 
+  test("a roster line is not counted once a student of the same name has signed up in that class", async () => {
+    kit.state.rows.profiles = (f) =>
+      matchRows([{ id: "s1", name: "미가입p1" }], f);
+
+    const res = await get();
+
+    const body = res.body as {
+      classes: { classId: string; pendingCount: number }[];
+    };
+    // s1 (c-1, 이름 미가입p1)이 가입해 p1 줄은 가려진다
+    expect(body.classes.find((c) => c.classId === "c-1")?.pendingCount).toBe(1);
+  });
+
   test("class goal rate is the mean of members' weekly achievement over the 7 days ending yesterday (KST), null when nobody uses goal", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-05T03:00:00Z"));
