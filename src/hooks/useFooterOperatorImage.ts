@@ -31,10 +31,14 @@ export function selectFooterOperatorImage(
  * 해당하는 행이 없거나 조회 실패면 null이고, 푸터는 이미지 자리를 그리지 않는다.
  */
 export function useFooterOperatorImage(): FooterOperatorImage | null {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const userId = user?.id ?? null;
-  const [rows, setRows] = useState<FooterImageRow[]>([]);
-  const [tenantIds, setTenantIds] = useState<string[]>([]);
+  const [rows, setRows] = useState<FooterImageRow[] | null>(null);
+  // 어느 사용자의 소속 기관인지 함께 담아, 사용자가 바뀐 직후 이전 사용자의 값을 쓰지 않는다.
+  const [tenants, setTenants] = useState<{
+    userId: string | null;
+    ids: string[];
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -66,13 +70,17 @@ export function useFooterOperatorImage(): FooterOperatorImage | null {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!isReady) return;
+    if (!userId) {
+      setTenants({ userId: null, ids: [] });
+      return;
+    }
     let mounted = true;
 
     async function fetchTenantIds() {
       const { data } = await supabase.rpc("fn_matched_tenant_ids");
       if (!mounted) return;
-      setTenantIds(data ?? []);
+      setTenants({ userId, ids: data ?? [] });
     }
 
     fetchTenantIds();
@@ -80,7 +88,8 @@ export function useFooterOperatorImage(): FooterOperatorImage | null {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [isReady, userId]);
 
-  return selectFooterOperatorImage(rows, tenantIds);
+  if (!rows || !isReady || tenants?.userId !== userId) return null;
+  return selectFooterOperatorImage(rows, tenants.ids);
 }

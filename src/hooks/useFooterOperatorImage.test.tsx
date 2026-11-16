@@ -159,6 +159,38 @@ describe("useFooterOperatorImage", () => {
     expect(db.rpcCalls).toEqual(["fn_matched_tenant_ids"]);
   });
 
+  test("행과 소속 기관 조회가 모두 끝나기 전에는 null 이라 공통 이미지가 먼저 번쩍이지 않는다", async () => {
+    auth.value = { user: { id: "u1" }, isReady: true };
+    db.tenantIdsByUser = { u1: ["tenant-a"] };
+    db.rows = [
+      row({ id: 1, title: "공통", sort_order: 1 }),
+      row({ id: 2, title: "A기관", sort_order: 9, tenant_id: "tenant-a" }),
+    ];
+    let release: () => void = () => {};
+    db.rpcGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { result } = renderHook(() => useFooterOperatorImage());
+    // 행 조회는 끝났지만 소속 기관 조회가 아직이다.
+    await waitFor(() => expect(db.rpcCalls).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current).toBeNull();
+    release();
+    await waitFor(() => expect(result.current?.title).toBe("A기관"));
+  });
+
+  test("인증 상태가 확정되기 전에는 null 이고 조회 결과도 내지 않는다", async () => {
+    auth.value = { user: null, isReady: false };
+    db.rows = [row({ id: 1, title: "공통" })];
+    const { result, rerender } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(db.fromTables).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current).toBeNull();
+    auth.value = { user: null, isReady: true };
+    rerender();
+    await waitFor(() => expect(result.current?.title).toBe("공통"));
+  });
+
   test("행이 없으면 null 이다", async () => {
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(db.fromTables).toHaveLength(1));
