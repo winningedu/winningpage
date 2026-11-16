@@ -318,6 +318,13 @@ export const mainConfigs: Record<string, MainConfig> = {
     columns: [
       { key: "image_url", label: "이미지", type: "image" },
       { key: "title", label: "이름" },
+      {
+        key: "tenant_id",
+        label: "노출 대상",
+        type: "select",
+        emptyLabel: "공통",
+        loadOptions: loadTenantOptions,
+      },
       { key: "sort_order", label: "순서" },
       { key: "is_active", label: "노출", type: "boolean" },
     ],
