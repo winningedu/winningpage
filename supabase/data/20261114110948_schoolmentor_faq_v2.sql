@@ -392,8 +392,8 @@ select v.question, v.answer, v.category, true, v.sort_order, null::jsonb
 commit;
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
--- 날짜:
+-- 날짜: 2026-11-14
 -- 대상 DB: Schoolmentor prod (aalujumpwlnwlemnqrus)
--- 실행 전 (노출/전체):
--- 실행 후 (노출/전체):
--- 재실행: 조회 결과 같음 여부
+-- 실행 전 (노출/전체): 7/37 (회원가입 및 이용환경 7)
+-- 실행 후 (노출/전체): 73/110 (회원가입 및 이용환경 20, 서비스 이용 방법 35, 요금제 및 결제 9, 선생님 계정 9), 노출 행의 sort_order 73개 서로 다름
+-- 재실행: 조회 결과 같음

@@ -68,3 +68,8 @@ update public.program_categories
    and (link, is_active) is distinct from ('/usage-guide', true);
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
+-- 2026-11-14 Schoolmentor prod (aalujumpwlnwlemnqrus) 실행. main 배포(f80a74d9) 뒤에 실행했다.
+--   실행 전: page_contents 20행, '/usage-guide' 행 없음. program_categories 에 이름이 이용안내인 카드 없음.
+--   실행 후: page_contents 21행, '/usage-guide' 행(이용신청, 순서 4, 노출) 추가.
+--   홈 카드: 이름이 이용안내인 행이 운영에 없어 2번 문장은 0행을 바꿨다. 카드는 켜지 않았다.
+--   재실행: 조회 결과 같음.
