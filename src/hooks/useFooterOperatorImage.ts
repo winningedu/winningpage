@@ -78,8 +78,14 @@ export function useFooterOperatorImage(): FooterOperatorImage | null {
     let mounted = true;
 
     async function fetchTenantIds() {
-      const { data } = await supabase.rpc("fn_matched_tenant_ids");
+      const { data, error } = await supabase.rpc("fn_matched_tenant_ids");
       if (!mounted) return;
+      if (error) {
+        // 조회에 실패하면 소속이 없는 것으로 보고 공통 이미지를 보여 준다.
+        console.warn("fn_matched_tenant_ids 조회 실패:", error.message);
+        setTenants({ userId, ids: [] });
+        return;
+      }
       setTenants({ userId, ids: data ?? [] });
     }
 

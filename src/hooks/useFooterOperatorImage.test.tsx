@@ -191,6 +191,43 @@ describe("useFooterOperatorImage", () => {
     await waitFor(() => expect(result.current?.title).toBe("공통"));
   });
 
+  test("소속 기관 조회가 실패하면 공통 이미지를 본다", async () => {
+    auth.value = { user: { id: "u1" }, isReady: true };
+    db.rpcError = { message: "boom" };
+    db.rows = [
+      row({ id: 1, title: "공통", sort_order: 5 }),
+      row({ id: 2, title: "A기관", sort_order: 1, tenant_id: "tenant-a" }),
+    ];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { result } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.title).toBe("공통");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("로그인과 로그아웃으로 사용자가 바뀌면 이미지를 다시 고른다", async () => {
+    db.tenantIdsByUser = { u1: ["tenant-a"] };
+    db.rows = [
+      row({ id: 1, title: "공통", sort_order: 5 }),
+      row({ id: 2, title: "A기관", sort_order: 1, tenant_id: "tenant-a" }),
+    ];
+    const { result, rerender } = renderHook(() => useFooterOperatorImage());
+    await waitFor(() => expect(result.current?.title).toBe("공통"));
+
+    auth.value = { user: { id: "u1" }, isReady: true };
+    rerender();
+    // 이전 사용자(비회원)의 결과를 그대로 두지 않고 새 조회가 끝날 때까지 비운다.
+    expect(result.current).toBeNull();
+    await waitFor(() => expect(result.current?.title).toBe("A기관"));
+
+    auth.value = { user: null, isReady: true };
+    rerender();
+    await waitFor(() => expect(result.current?.title).toBe("공통"));
+    // 행은 다시 받지 않고 소속 기관 조회만 로그인 때 한 번 더 한다.
+    expect(db.fromTables).toHaveLength(1);
+    expect(db.rpcCalls).toHaveLength(1);
+  });
+
   test("행이 없으면 null 이다", async () => {
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(db.fromTables).toHaveLength(1));
