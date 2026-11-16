@@ -115,13 +115,12 @@ language sql as $$
   select public.fn_consume_tenant_usage(pg_temp.fx(p_key), p_program, p_kind, coalesce(p_source, gen_random_uuid()))
 $$;
 
--- 지난 기록 만들기: n 개를 p_months_ago 개월 전 15일에 넣는다.
+-- 지난 기록 만들기: n 개를 서울 시각 기준 p_months_ago 개월 전 지금 시각에 넣는다(계약 시작일과 같은 날짜라 오늘 날짜와 무관하게 학기 안에 들어간다).
 create function pg_temp.backfill(p_key text, p_program text, p_kind text, p_months_ago integer, p_n integer)
 returns void language sql as $$
   insert into public.tenant_usage_events (profile_id, tenant_id, program_key, source_kind, source_id, used_at)
   select pg_temp.fx(p_key), pg_temp.fx('t_' || p_key), p_program, p_kind, gen_random_uuid(),
-         date_trunc('month', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'
-           - make_interval(months => p_months_ago) + interval '14 days'
+         ((now() at time zone 'Asia/Seoul') - make_interval(months => p_months_ago)) at time zone 'Asia/Seoul'
   from generate_series(1, p_n)
 $$;
 
