@@ -3,7 +3,26 @@ import { supabase } from "@/lib/supabase";
 
 export type FooterOperatorImage = { imageUrl: string; title: string };
 
-type FooterImageRow = { image_url: string; title: string };
+type FooterImageRow = {
+  image_url: string;
+  title: string;
+  tenant_id: string | null;
+};
+
+/**
+ * 정렬된 노출 행에서 푸터에 그릴 한 장을 고른다.
+ * 내 소속 기관을 대상으로 한 행이 있으면 그 첫 행, 없으면 대상이 없는(공통) 첫 행,
+ * 둘 다 없으면 null. 다른 기관 대상 행은 어떤 경우에도 고르지 않는다.
+ */
+export function selectFooterOperatorImage(
+  rows: FooterImageRow[],
+  matchedTenantIds: string[],
+): FooterOperatorImage | null {
+  const row =
+    rows.find((r) => r.tenant_id && matchedTenantIds.includes(r.tenant_id)) ??
+    rows.find((r) => r.tenant_id === null);
+  return row ? { imageUrl: row.image_url, title: row.title } : null;
+}
 
 /**
  * footer_operator_images 에서 노출 중인 첫 행(sort_order, id 순)을 1회 조회한다.

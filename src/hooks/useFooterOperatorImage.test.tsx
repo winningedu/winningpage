@@ -1,6 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { useFooterOperatorImage } from "./useFooterOperatorImage";
+import {
+  selectFooterOperatorImage,
+  useFooterOperatorImage,
+} from "./useFooterOperatorImage";
 
 type Row = {
   id: number;
@@ -136,5 +139,57 @@ describe("useFooterOperatorImage", () => {
     const { result } = renderHook(() => useFooterOperatorImage());
     await waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1));
     expect(result.current).toBeNull();
+  });
+});
+
+// 행은 DB 가 sort_order, id 순으로 정렬해 넘긴 순서 그대로 들어온다.
+describe("selectFooterOperatorImage", () => {
+  const common = { image_url: "/c.png", title: "공통", tenant_id: null };
+  const mineA = { image_url: "/a.png", title: "A기관", tenant_id: "tenant-a" };
+  const mineA2 = {
+    image_url: "/a2.png",
+    title: "A기관 둘째",
+    tenant_id: "tenant-a",
+  };
+  const otherB = { image_url: "/b.png", title: "B기관", tenant_id: "tenant-b" };
+
+  test("순서가 더 뒤여도 내 기관 이미지가 공통보다 먼저 보인다", () => {
+    expect(selectFooterOperatorImage([common, mineA], ["tenant-a"])).toEqual({
+      imageUrl: "/a.png",
+      title: "A기관",
+    });
+  });
+
+  test("내 기관 이미지가 둘이면 앞선 순서를 고른다", () => {
+    expect(
+      selectFooterOperatorImage([mineA, mineA2, common], ["tenant-a"]),
+    ).toEqual({ imageUrl: "/a.png", title: "A기관" });
+  });
+
+  test("다른 기관 이미지는 보지 않고 공통으로 돌아간다", () => {
+    expect(selectFooterOperatorImage([otherB, common], ["tenant-a"])).toEqual({
+      imageUrl: "/c.png",
+      title: "공통",
+    });
+  });
+
+  test("공통도 내 기관 이미지도 없으면 null 이다", () => {
+    expect(selectFooterOperatorImage([otherB], ["tenant-a"])).toBeNull();
+  });
+
+  test("비회원(빈 목록)은 공통 이미지를 본다", () => {
+    expect(selectFooterOperatorImage([otherB, mineA, common], [])).toEqual({
+      imageUrl: "/c.png",
+      title: "공통",
+    });
+  });
+
+  test("소속 기관이 둘이면 두 기관 이미지 중 앞선 순서를 고른다", () => {
+    expect(
+      selectFooterOperatorImage(
+        [common, otherB, mineA],
+        ["tenant-a", "tenant-b"],
+      ),
+    ).toEqual({ imageUrl: "/b.png", title: "B기관" });
   });
 });
