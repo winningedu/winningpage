@@ -13,6 +13,7 @@ import {
 } from "../../../_lib/console/directory.js";
 import { loadGoalStatus } from "../../../_lib/console/goalStatus.js";
 import { kstDateOffset } from "../../../_lib/console/kstDate.js";
+import { loadPendingStudents } from "../../../_lib/console/rosterPending.js";
 import {
   loadServiceUsage,
   SERVICE_KEYS,
@@ -72,6 +73,12 @@ export default defineHandler({
           (q) => q.eq("tenant_id", actor.tenantId),
         ),
       ]);
+    const pending = await loadPendingStudents(
+      admin,
+      actor,
+      schoolYear,
+      students,
+    );
     const usage = await loadServiceUsage(
       admin,
       students.map((s) => s.studentId),
@@ -118,6 +125,7 @@ export default defineHandler({
           className: cls.name,
           homeroomName: homeroomOf.get(cls.id) ?? null,
           total: members.length,
+          pendingCount: pending.filter((p) => p.class_id === cls.id).length,
           capacity: capacityOf.get(cls.id) ?? null,
           joined,
           services,

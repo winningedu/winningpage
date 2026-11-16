@@ -63,6 +63,13 @@ export default function EnrollmentSummaryCards({ totals, scopeLabel }: Props) {
         </div>
       </section>
       <section
+        aria-label="미가입 학생"
+        className="flex shrink-0 flex-col gap-1 rounded-2xl bg-goal-cardTone-neutral p-5 md:w-[10rem]"
+      >
+        <h2 className="text-app-label text-ink-sub">미가입 학생</h2>
+        <p className="text-app-stat font-semibold text-ink-strong">{`${totals.pending}명`}</p>
+      </section>
+      <section
         aria-label="서비스별 이용현황"
         className="flex min-w-0 flex-1 flex-col gap-4 rounded-2xl bg-goal-cardTone-neutral px-6 py-5"
       >

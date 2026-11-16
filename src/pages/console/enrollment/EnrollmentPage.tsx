@@ -76,7 +76,7 @@ export default function EnrollmentPage() {
       : wholeLabel;
   const grades = [...new Set(all.map((r) => r.grade ?? MIXED_GRADE))];
 
-  const empty = totals.total === 0;
+  const empty = totals.total === 0 && totals.pending === 0;
   const visible = empty
     ? []
     : mobile

@@ -1,5 +1,6 @@
 // W7 반별 표(768 이상). 서비스 칸은 "25명 (83%)" 형식이다(교 #39). 정원 입력 중에는 정원 칸이 입력 칸이다.
 
+import { Link } from "react-router";
 import {
   Table,
   TableBody,
@@ -9,7 +10,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useGradeLabel } from "../useConsoleMe";
-import { type ClassRow, gradeGroupLabel, percent, SERVICES } from "./format";
+import {
+  type ClassRow,
+  gradeGroupLabel,
+  percent,
+  SERVICES,
+  studentListPath,
+} from "./format";
 
 interface Props {
   rows: ClassRow[];
@@ -23,7 +30,7 @@ interface Props {
 export default function ClassTable({ rows, edit }: Props) {
   const gradeLabel = useGradeLabel();
   return (
-    <Table className="min-w-[56rem]">
+    <Table className="min-w-[60rem]">
       <TableHeader>
         <TableRow>
           <TableHead className="text-app-caption text-ink-sub">담임</TableHead>
@@ -33,6 +40,9 @@ export default function ClassTable({ rows, edit }: Props) {
           <TableHead className="text-app-caption text-ink-sub">반</TableHead>
           <TableHead className="text-right text-app-caption text-ink-sub">
             총원 / 정원
+          </TableHead>
+          <TableHead className="text-right text-app-caption text-ink-sub">
+            미가입
           </TableHead>
           <TableHead className="text-right text-app-caption text-ink-sub">
             이용 학생 / 총원
@@ -74,11 +84,18 @@ export default function ClassTable({ rows, edit }: Props) {
                     className="h-8 w-16 rounded-lg border border-line px-2 text-right text-app-label"
                   />
                 </span>
-              ) : r.capacity === null ? (
-                `${r.total}`
               ) : (
-                `${r.total} / ${r.capacity}`
+                <Link to={studentListPath(r)} className="underline">
+                  {r.capacity === null
+                    ? `${r.total}`
+                    : `${r.total} / ${r.capacity}`}
+                </Link>
               )}
+            </TableCell>
+            <TableCell className="text-right text-app-label text-ink">
+              <Link to={studentListPath(r)} className="underline">
+                {`${r.pendingCount}`}
+              </Link>
             </TableCell>
             <TableCell className="text-right text-app-label text-ink">
               {`${r.joined} / ${r.total}`}

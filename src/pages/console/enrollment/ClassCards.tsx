@@ -1,7 +1,14 @@
 // W7 반별 카드(768 미만). 제목은 담임, 오른쪽은 학년그룹과 반, 서비스 6칸은 "25명 (83%)" 형식이다.
 
+import { Link } from "react-router";
 import { useGradeLabel } from "../useConsoleMe";
-import { type ClassRow, gradeGroupLabel, percent, SERVICES } from "./format";
+import {
+  type ClassRow,
+  gradeGroupLabel,
+  percent,
+  SERVICES,
+  studentListPath,
+} from "./format";
 
 interface Props {
   rows: ClassRow[];
@@ -46,12 +53,24 @@ export default function ClassCards({ rows, edit }: Props) {
                   />
                 </span>
               ) : (
-                <span className="text-app-label font-medium text-ink">
+                <Link
+                  to={studentListPath(r)}
+                  className="text-app-label font-medium text-ink underline"
+                >
                   {r.capacity === null
                     ? `${r.total}`
                     : `${r.total} / ${r.capacity}`}
-                </span>
+                </Link>
               )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-app-caption text-ink-sub">미가입</span>
+              <Link
+                to={studentListPath(r)}
+                className="text-app-label font-medium text-ink underline"
+              >
+                {`${r.pendingCount}`}
+              </Link>
             </div>
             <div className="flex items-center justify-between gap-3">
               <span className="text-app-caption text-ink-sub">이용 학생</span>
