@@ -47,6 +47,28 @@ describe("푸터관리 어드민 섹션", () => {
     ]);
   });
 
+  test("목록에 이름과 순서 사이로 노출 대상 컬럼이 있고 기관 이름으로 보여 준다", () => {
+    const config = configs.footerImages as Config & { columns: Field[] };
+    expect(config.columns.map((c) => c.key)).toEqual([
+      "image_url",
+      "title",
+      "tenant_id",
+      "sort_order",
+      "is_active",
+    ]);
+    const column = config.columns[2] as Field;
+    expect(column.label).toBe("노출 대상");
+    expect(column.emptyLabel).toBe("공통");
+    expect(column.loadOptions).toBe(loadTenantOptions);
+  });
+
+  test("배너 목록에는 노출 대상 컬럼을 더하지 않는다", () => {
+    for (const key of ["banners", "sideBanners"]) {
+      const columns = (configs[key] as Config & { columns: Field[] }).columns;
+      expect(columns.some((c) => c.loadOptions)).toBe(false);
+    }
+  });
+
   test("노출 대상은 배너와 같은 기관 선택이고 비우면 null 로 저장한다", () => {
     const config = configs.footerImages as Config;
     const field = config.fields.find((f) => f.key === "tenant_id") as Field;
