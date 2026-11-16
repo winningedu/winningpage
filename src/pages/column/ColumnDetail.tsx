@@ -62,6 +62,7 @@ export default function ColumnDetail() {
   }, [id]);
 
   const coverUrl = post ? getCoverUrl(post) : "";
+  const contained = site.features.columnCoverContained;
   const remainingImages = post ? normalizeImageUrls(post).slice(1) : [];
   const hasBlocks = hasBlockContent(post);
   const linkUrl = typeof post?.link_url === "string" ? post.link_url : "";
@@ -178,12 +179,22 @@ export default function ColumnDetail() {
     <main className="bg-white pt-16">
       {coverUrl ? (
         <>
-          <img
-            src={coverUrl}
-            alt={post.title || ""}
-            className="h-104 w-full object-cover md:h-136"
-          />
-          <section className="mt-16 md:mt-25">
+          {contained ? (
+            <div className="mx-auto mt-10 w-full max-w-content px-5 sm:px-8 md:mt-16">
+              <img
+                src={coverUrl}
+                alt={post.title || ""}
+                className="mx-auto block h-auto max-h-104 w-auto max-w-full rounded-2xl"
+              />
+            </div>
+          ) : (
+            <img
+              src={coverUrl}
+              alt={post.title || ""}
+              className="h-104 w-full object-cover md:h-136"
+            />
+          )}
+          <section className={contained ? "mt-10 md:mt-16" : "mt-16 md:mt-25"}>
             <div className="mx-auto w-full max-w-content px-5 sm:px-8">
               {titleBlock}
             </div>

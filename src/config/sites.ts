@@ -74,6 +74,8 @@ export interface SiteConfig {
     companyLocation: boolean;
     // 이용신청 > 이용안내 화면(/usage-guide: 안내서 뷰어와 도입 문의 폼)의 라우트 노출 여부.
     usageGuide: boolean;
+    // 칼럼 상세 커버 이미지를 본문 폭 안에 자르지 않고 보여줄지 여부(4차 QA 35행). false면 전체 폭 배너.
+    columnCoverContained: boolean;
   };
   company: {
     name: string;
@@ -141,6 +143,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       diagnosisResume: false,
       companyLocation: true,
       usageGuide: false,
+      columnCoverContained: false,
     },
     company: {
       name: "주식회사 위닝에듀",
@@ -219,6 +222,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       diagnosisResume: true,
       companyLocation: false,
       usageGuide: true,
+      columnCoverContained: true,
     },
     company: {
       name: "주식회사 위닝로직",

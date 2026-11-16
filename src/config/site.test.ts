@@ -169,6 +169,17 @@ describe("site - 이용안내 노출 플래그", () => {
   });
 });
 
+describe("site - 칼럼 커버 본문 폭 플래그", () => {
+  it("winning은 전체 폭 배너를 유지하고 schoolmentor는 본문 폭 안에 담는다", async () => {
+    expect((await loadSite("winning")).site.features.columnCoverContained).toBe(
+      false,
+    );
+    expect(
+      (await loadSite("schoolmentor")).site.features.columnCoverContained,
+    ).toBe(true);
+  });
+});
+
 describe("site - 배너 빈 상태 안내 플래그", () => {
   it("winning은 배너가 없으면 영역을 숨긴다(안내 문구 없음)", async () => {
     const { site } = await loadSite("winning");
