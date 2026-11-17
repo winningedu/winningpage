@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import MyPageModalShell from "@/components/mypage/MyPageModalShell";
+import { site } from "@/config/site";
 import type { RequestParentLinkRpcResult } from "@/lib/parentLink";
 import { QA_ACCOUNT_MESSAGE } from "@/lib/qaAccount";
 import { supabase } from "@/lib/supabase";
@@ -26,24 +27,28 @@ const CODE_ALPHABET = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]$/;
 
 // request_parent_link(sql/40)는 errcode 없이 메시지로만 사유를 던진다.
 // PostgREST 는 그 문구를 error.message 에 그대로 실어 준다.
-const LINK_ERROR_TEXT = {
+const linkErrorText = (codeLabel: string) => ({
   not_a_parent: "학부모 회원만 자녀를 연결할 수 있습니다.",
-  invalid_code_format: "연결코드 형식이 올바르지 않습니다.",
-  link_code_not_found:
-    "일치하는 연결코드가 없습니다. 코드를 다시 확인해 주세요.",
+  invalid_code_format: `${codeLabel} 형식이 올바르지 않습니다.`,
+  link_code_not_found: `일치하는 ${codeLabel}가 없습니다. 코드를 다시 확인해 주세요.`,
   cannot_link_self: "본인 계정은 자녀로 연결할 수 없습니다.",
   student_already_linked: "이미 다른 학부모와 연결된 학생입니다.",
   link_already_requested: "이미 연결을 요청한 학생입니다.",
   // QA 계정 보호(WC103): 메시지 자체가 안내 문구다.
   [QA_ACCOUNT_MESSAGE]: QA_ACCOUNT_MESSAGE,
-};
+});
 const LINK_UNKNOWN_ERROR_TEXT =
   "연결 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
+// 학생 화면(ProfileTab)과 같은 이름을 쓴다: 학생 등록 사이트는 학생 고유코드.
+const codeLabelOf = () =>
+  site.features.studentEnrollment ? "학생 고유코드" : "연결코드";
+
 function resolveLinkError(error: { message?: string } | null | undefined) {
   const raw = String(error?.message || "");
-  const hit = Object.keys(LINK_ERROR_TEXT).find((key) => raw.includes(key));
-  return hit ? LINK_ERROR_TEXT[hit] : LINK_UNKNOWN_ERROR_TEXT;
+  const texts = linkErrorText(codeLabelOf());
+  const hit = Object.keys(texts).find((key) => raw.includes(key));
+  return hit ? texts[hit] : LINK_UNKNOWN_ERROR_TEXT;
 }
 
 type LinkChildModalProps = {
@@ -58,6 +63,7 @@ export default function LinkChildModal({
   onLinked,
 }: LinkChildModalProps) {
   const titleId = useId();
+  const codeLabel = codeLabelOf();
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const [chars, setChars] = useState(() => Array(CODE_LENGTH).fill(""));
@@ -193,7 +199,7 @@ export default function LinkChildModal({
           id={titleId}
           className="text-[1.25rem] font-bold leading-[1.4] text-ink-title"
         >
-          연결코드를 입력해주세요
+          {codeLabel}를 입력해주세요
         </h2>
         <p className="mt-3 break-keep text-[0.8125rem] leading-[1.6] text-ink-sub">
           자녀 계정 마이페이지 → 학부모 연결에서
@@ -214,7 +220,7 @@ export default function LinkChildModal({
               autoComplete="one-time-code"
               maxLength={1}
               value={ch}
-              aria-label={`연결코드 ${index + 1}번째 자리`}
+              aria-label={`${codeLabel} ${index + 1}번째 자리`}
               onChange={(e) => writeChar(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               className="h-12 w-10 rounded-lg border border-line text-center text-[1rem] font-semibold uppercase text-ink outline-hidden focus:border-accent"
