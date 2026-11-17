@@ -10,9 +10,20 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   beginResult: {
-    data: [{ outcome: "proceed", attempt_no: 1, retry_after_s: 0 }],
+    data: [
+      {
+        outcome: "proceed",
+        attempt_no: 1,
+        account_attempt_no: 1,
+        retry_after_s: 0,
+      },
+    ],
     error: null,
   } as { data: unknown; error: unknown },
+  legacyBeginResult: { data: null, error: null } as {
+    data: unknown;
+    error: unknown;
+  },
   resolvedEmail: null as string | null,
   teacher: null as Record<string, unknown> | null,
   resolveError: null as unknown,
@@ -49,8 +60,11 @@ vi.mock("../../_lib/supabaseAdmin.js", () => {
             error: state.resolveError,
           });
         }
+        if (args[0] === "fn_login_attempt_begin") {
+          return Promise.resolve(state.legacyBeginResult);
+        }
         return Promise.resolve(
-          args[0] === "fn_login_attempt_begin"
+          args[0] === "fn_login_lock_begin"
             ? state.beginResult
             : { data: null, error: null },
         );
@@ -105,6 +119,15 @@ function sha256Param(value: string): string {
   return `\\x${createHash("sha256").update(value).digest("hex")}`;
 }
 
+// 쌍 해시: sha256(0xff || sha256(계정 열쇠) || IP). scripts/b2b-login-attempts.spec.sql 의 pg_temp.ph 와 같다.
+function pairParam(accountKey: string, ip: string): string {
+  const account = createHash("sha256").update(accountKey).digest();
+  const pair = createHash("sha256")
+    .update(Buffer.concat([Buffer.from([0xff]), account, Buffer.from(ip)]))
+    .digest("hex");
+  return `\\x${pair}`;
+}
+
 const INVALID_CREDENTIALS = {
   data: { session: null, user: null },
   error: {
@@ -119,9 +142,17 @@ beforeEach(() => {
   process.env.SUPABASE_URL = "http://127.0.0.1:54421";
   process.env.SUPABASE_SECRET_KEY = "sb_secret_test";
   state.beginResult = {
-    data: [{ outcome: "proceed", attempt_no: 1, retry_after_s: 0 }],
+    data: [
+      {
+        outcome: "proceed",
+        attempt_no: 1,
+        account_attempt_no: 1,
+        retry_after_s: 0,
+      },
+    ],
     error: null,
   };
+  state.legacyBeginResult = { data: null, error: null };
   state.resolvedEmail = null;
   state.teacher = null;
   state.resolveError = null;
@@ -131,7 +162,14 @@ beforeEach(() => {
 describe("POST /api/auth/login", () => {
   test("틀린 비밀번호는 401 INVALID 와 실패 횟수 문구를 주고 end(invalid)를 부른다", async () => {
     state.beginResult = {
-      data: [{ outcome: "proceed", attempt_no: 2, retry_after_s: 0 }],
+      data: [
+        {
+          outcome: "proceed",
+          attempt_no: 2,
+          account_attempt_no: 2,
+          retry_after_s: 0,
+        },
+      ],
       error: null,
     };
 
@@ -145,8 +183,9 @@ describe("POST /api/auth/login", () => {
       },
       failCount: 2,
     });
-    expect(state.rpc).toHaveBeenCalledWith("fn_login_attempt_end", {
-      p_hash: expect.any(String),
+    expect(state.rpc).toHaveBeenCalledWith("fn_login_lock_end", {
+      p_account_hash: expect.any(String),
+      p_pair_hash: expect.any(String),
       p_outcome: "invalid",
     });
   });
@@ -185,8 +224,9 @@ describe("POST /api/auth/login", () => {
       email: "kim01@teacher.schoolmentor.kr",
       password: "pw",
     });
-    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-      p_hash: expect.any(String),
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+      p_account_hash: expect.any(String),
+      p_pair_hash: expect.any(String),
       p_outcome: "success",
     });
     expect(state.createClient).toHaveBeenCalledWith(
@@ -220,7 +260,14 @@ describe("POST /api/auth/login", () => {
 
   test("잠금 중이면 429 LOCKED 와 남은 분(올림)을 주고 GoTrue 와 end 를 부르지 않는다", async () => {
     state.beginResult = {
-      data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 301 }],
+      data: [
+        {
+          outcome: "locked",
+          attempt_no: 5,
+          account_attempt_no: 5,
+          retry_after_s: 301,
+        },
+      ],
       error: null,
     };
 
@@ -237,7 +284,7 @@ describe("POST /api/auth/login", () => {
     expect(r.headers["Retry-After"]).toBe("301");
     expect(state.signIn).not.toHaveBeenCalled();
     expect(state.rpc).not.toHaveBeenCalledWith(
-      "fn_login_attempt_end",
+      "fn_login_lock_end",
       expect.anything(),
     );
   });
@@ -260,10 +307,12 @@ describe("POST /api/auth/login", () => {
       expect(r.body).toEqual({
         error: { code: "RETRY", message: "잠시 후 다시 시도해 주세요." },
       });
-      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-        p_hash: expect.any(String),
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+        p_account_hash: expect.any(String),
+        p_pair_hash: expect.any(String),
         p_outcome: "error",
         p_attempt_no: 1,
+        p_account_attempt_no: 1,
       });
     },
   );
@@ -284,8 +333,9 @@ describe("POST /api/auth/login", () => {
       },
       failCount: 1,
     });
-    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-      p_hash: expect.any(String),
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+      p_account_hash: expect.any(String),
+      p_pair_hash: expect.any(String),
       p_outcome: "invalid",
     });
   });
@@ -309,7 +359,14 @@ describe("POST /api/auth/login", () => {
 
     test("403 EMAIL_NOT_CONFIRMED 를 주고 end(error)로 이번 시도를 세지 않는다", async () => {
       state.beginResult = {
-        data: [{ outcome: "proceed", attempt_no: 3, retry_after_s: 0 }],
+        data: [
+          {
+            outcome: "proceed",
+            attempt_no: 3,
+            account_attempt_no: 17,
+            retry_after_s: 0,
+          },
+        ],
         error: null,
       };
       state.signIn.mockResolvedValue(NOT_CONFIRMED);
@@ -318,16 +375,25 @@ describe("POST /api/auth/login", () => {
 
       expect(r.status).toBe(403);
       expect(r.body).toEqual(NOT_CONFIRMED_BODY);
-      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-        p_hash: expect.any(String),
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+        p_account_hash: expect.any(String),
+        p_pair_hash: expect.any(String),
         p_outcome: "error",
         p_attempt_no: 3,
+        p_account_attempt_no: 17,
       });
     });
 
     test("5번째 시도여도 LOCKED 가 아니라 EMAIL_NOT_CONFIRMED 를 주고 같은 attempt_no 로 취소한다", async () => {
       state.beginResult = {
-        data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+        data: [
+          {
+            outcome: "proceed",
+            attempt_no: 5,
+            account_attempt_no: 5,
+            retry_after_s: 600,
+          },
+        ],
         error: null,
       };
       state.signIn.mockResolvedValue(NOT_CONFIRMED);
@@ -337,10 +403,12 @@ describe("POST /api/auth/login", () => {
       expect(r.status).toBe(403);
       expect(r.body).toEqual(NOT_CONFIRMED_BODY);
       expect(r.headers["Retry-After"]).toBeUndefined();
-      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-        p_hash: expect.any(String),
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+        p_account_hash: expect.any(String),
+        p_pair_hash: expect.any(String),
         p_outcome: "error",
         p_attempt_no: 5,
+        p_account_attempt_no: 5,
       });
     });
 
@@ -351,8 +419,9 @@ describe("POST /api/auth/login", () => {
 
       expect(r.status).toBe(401);
       expect(r.body).toMatchObject({ error: { code: "INVALID" } });
-      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-        p_hash: expect.any(String),
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+        p_account_hash: expect.any(String),
+        p_pair_hash: expect.any(String),
         p_outcome: "invalid",
       });
     });
@@ -365,8 +434,9 @@ describe("POST /api/auth/login", () => {
 
       expect(r.status).toBe(401);
       expect(r.body).toMatchObject({ error: { code: "INVALID" } });
-      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-        p_hash: expect.any(String),
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+        p_account_hash: expect.any(String),
+        p_pair_hash: expect.any(String),
         p_outcome: "invalid",
       });
     });
@@ -411,8 +481,9 @@ describe("POST /api/auth/login", () => {
       email: DECOY_EMAIL,
       password: "pw",
     });
-    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
-      p_hash: expect.any(String),
+    expect(state.rpc).toHaveBeenLastCalledWith("fn_login_lock_end", {
+      p_account_hash: expect.any(String),
+      p_pair_hash: expect.any(String),
       p_outcome: "invalid",
     });
   });
@@ -467,8 +538,8 @@ describe("POST /api/auth/login", () => {
     await login({ identifier: "kim01", password: "pw" });
 
     const hashes = state.rpc.mock.calls
-      .filter((c) => c[0] === "fn_login_attempt_begin")
-      .map((c) => (c[1] as { p_hash: string }).p_hash);
+      .filter((c) => c[0] === "fn_login_lock_begin")
+      .map((c) => (c[1] as { p_account_hash: string }).p_account_hash);
     expect(hashes[0]).toMatch(/^\\x[0-9a-f]{64}$/);
     expect(hashes[0]).toBe(hashes[1]);
   });
@@ -480,24 +551,84 @@ describe("POST /api/auth/login", () => {
     await login({ identifier: " Stu@Example.com ", password: "pw" });
 
     const hashes = state.rpc.mock.calls
-      .filter((c) => c[0] === "fn_login_attempt_begin")
-      .map((c) => (c[1] as { p_hash: string }).p_hash);
+      .filter((c) => c[0] === "fn_login_lock_begin")
+      .map((c) => (c[1] as { p_account_hash: string }).p_account_hash);
     expect(hashes[0]).toBe(sha256Param("stu@example.com"));
     expect(hashes[1]).toBe(hashes[0]);
+  });
+
+  test("계정 해시와 (계정, 요청 IP) 쌍 해시로 begin 을 부르고 IP 가 다르면 쌍 해시만 다르다", async () => {
+    state.resolvedEmail = "stu@example.com";
+    await login(
+      { identifier: "STU01", password: "pw" },
+      { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
+    );
+    await login(
+      { identifier: "STU01", password: "pw" },
+      { "x-forwarded-for": "9.9.9.9" },
+    );
+
+    const begins = state.rpc.mock.calls
+      .filter((c) => c[0] === "fn_login_lock_begin")
+      .map((c) => c[1]);
+    expect(begins).toEqual([
+      {
+        p_account_hash: sha256Param("stu@example.com"),
+        p_pair_hash: pairParam("stu@example.com", "1.2.3.4"),
+      },
+      {
+        p_account_hash: sha256Param("stu@example.com"),
+        p_pair_hash: pairParam("stu@example.com", "9.9.9.9"),
+      },
+    ]);
   });
 
   test("계정이 없는 아이디는 식별자 자체를 열쇠로 쓴다", async () => {
     state.resolvedEmail = null;
     await login({ identifier: " Nobody ", password: "pw" });
 
-    expect(state.rpc).toHaveBeenCalledWith("fn_login_attempt_begin", {
-      p_hash: sha256Param("nobody"),
+    expect(state.rpc).toHaveBeenCalledWith("fn_login_lock_begin", {
+      p_account_hash: sha256Param("nobody"),
+      p_pair_hash: expect.any(String),
     });
   });
 
   test("5번째 실패는 429 LOCKED 로 잠금 문구를 준다", async () => {
     state.beginResult = {
-      data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+      data: [
+        {
+          outcome: "proceed",
+          attempt_no: 5,
+          account_attempt_no: 5,
+          retry_after_s: 600,
+        },
+      ],
+      error: null,
+    };
+
+    const r = await login({ identifier: "kim01", password: "bad" });
+
+    expect(r.status).toBe(429);
+    expect(r.body).toEqual({
+      error: {
+        code: "LOCKED",
+        message:
+          "로그인에 5회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 10분 후에 다시 시도해 주세요.",
+      },
+    });
+    expect(r.headers["Retry-After"]).toBe("600");
+  });
+
+  test("계정 전체 50번째 실패는 쌍 횟수가 5 미만이어도 같은 429 LOCKED 문구를 준다", async () => {
+    state.beginResult = {
+      data: [
+        {
+          outcome: "proceed",
+          attempt_no: 2,
+          account_attempt_no: 50,
+          retry_after_s: 600,
+        },
+      ],
       error: null,
     };
 
@@ -531,7 +662,7 @@ describe("POST /api/auth/login", () => {
     expect(r.status).toBe(503);
     expect(state.signIn).not.toHaveBeenCalled();
     expect(state.rpc).not.toHaveBeenCalledWith(
-      "fn_login_attempt_begin",
+      "fn_login_lock_begin",
       expect.anything(),
     );
   });
@@ -549,5 +680,132 @@ describe("POST /api/auth/login", () => {
     expect(r.status).toBe(400);
     expect(state.rpc).not.toHaveBeenCalled();
     expect(state.signIn).not.toHaveBeenCalled();
+  });
+
+  // 배포 겹침: 앱이 먼저 올라가고 DB 에 fn_login_lock_begin 이 아직 없으면(PGRST202) 옛 계정 열쇠 함수로 센다.
+  describe("새 잠금 함수가 아직 없는 DB(PGRST202)", () => {
+    const NOT_FOUND = {
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function" },
+    };
+
+    test("틀린 비밀번호는 옛 begin 을 계정 해시로 불러 그 횟수로 401 INVALID 를 주고 옛 end(invalid)를 부른다", async () => {
+      state.resolvedEmail = "stu@example.com";
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 3, retry_after_s: 0 }],
+        error: null,
+      };
+
+      const r = await login({ identifier: "STU01", password: "bad" });
+
+      expect(r.status).toBe(401);
+      expect(r.body).toEqual({
+        error: {
+          code: "INVALID",
+          message: "아이디 또는 비밀번호가 올바르지 않습니다. (실패 3/5회)",
+        },
+        failCount: 3,
+      });
+      expect(state.rpc).toHaveBeenCalledWith("fn_login_attempt_begin", {
+        p_hash: sha256Param("stu@example.com"),
+      });
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("stu@example.com"),
+        p_outcome: "invalid",
+      });
+      expect(state.rpc).not.toHaveBeenCalledWith(
+        "fn_login_lock_end",
+        expect.anything(),
+      );
+    });
+
+    test("성공하면 옛 end(success)로 계정 행을 지운다", async () => {
+      state.resolvedEmail = "stu@example.com";
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 2, retry_after_s: 0 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue({
+        data: {
+          user: { id: "u2" },
+          session: { access_token: "at", refresh_token: "rt", expires_at: 1 },
+        },
+        error: null,
+      });
+
+      const r = await login({ identifier: "STU01", password: "pw" });
+
+      expect(r.status).toBe(200);
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("stu@example.com"),
+        p_outcome: "success",
+      });
+    });
+
+    test("인증 서버 오류는 503 RETRY 이고 옛 end(error)에 begin 의 시도 번호를 넘긴다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 4, retry_after_s: 0 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue({
+        data: { session: null, user: null },
+        error: { status: 502, code: "unexpected_failure" },
+      });
+
+      const r = await login({ identifier: "nobody", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("nobody"),
+        p_outcome: "error",
+        p_attempt_no: 4,
+      });
+    });
+
+    test("옛 begin 의 5번째 실패는 429 LOCKED, 잠금 중이면 GoTrue 를 부르지 않는다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+        error: null,
+      };
+      const fifth = await login({ identifier: "kim01", password: "bad" });
+      expect(fifth.status).toBe(429);
+      expect(fifth.headers["Retry-After"]).toBe("600");
+
+      state.signIn.mockClear();
+      state.legacyBeginResult = {
+        data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 540 }],
+        error: null,
+      };
+      const locked = await login({ identifier: "kim01", password: "pw" });
+      expect(locked.status).toBe(429);
+      expect(locked.headers["Retry-After"]).toBe("540");
+      expect(state.signIn).not.toHaveBeenCalled();
+    });
+
+    test("옛 begin 도 실패하면 503 RETRY 이고 GoTrue 를 부르지 않는다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = { data: null, error: { code: "PGRST202" } };
+
+      const r = await login({ identifier: "kim01", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.signIn).not.toHaveBeenCalled();
+    });
+
+    test("PGRST202 가 아닌 begin 오류는 옛 함수로 넘어가지 않고 503 RETRY", async () => {
+      state.beginResult = { data: null, error: { code: "XX000" } };
+
+      const r = await login({ identifier: "kim01", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.rpc).not.toHaveBeenCalledWith(
+        "fn_login_attempt_begin",
+        expect.anything(),
+      );
+    });
   });
 });

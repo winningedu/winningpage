@@ -220,7 +220,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     expect(db.passwordUpdates).toEqual([]);
   });
 
-  test("고른 계정에 새 비밀번호를 정하고 전체 세션을 끊고 잠금 행을 지운다", async () => {
+  test("고른 계정에 새 비밀번호를 정하고 전체 세션을 끊는다(잠금 행은 비밀번호 변경 트리거가 지운다)", async () => {
     db.tables.login_attempts = [
       { identifier_hash: hashParam("second@example.com") },
       { identifier_hash: hashParam("first@example.com") },
@@ -249,17 +249,15 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
     });
     expect(signOut).toHaveBeenCalledWith("new-access", "global");
     expect(db.tables.login_attempts).toEqual([
+      { identifier_hash: hashParam("second@example.com") },
       { identifier_hash: hashParam("first@example.com") },
     ]);
     expect(verification()?.consumed_at).not.toBeNull();
   });
 
-  test("profiles.email 을 공백 제거와 소문자로 정규화해 세션 정리 로그인과 잠금 키에 쓴다", async () => {
+  test("profiles.email 을 공백 제거와 소문자로 정규화해 세션 정리 로그인에 쓴다", async () => {
     const profile = db.tables.profiles?.[0];
     if (profile) profile.email = " First@Example.COM ";
-    db.tables.login_attempts = [
-      { identifier_hash: hashParam("first@example.com") },
-    ];
 
     const res = await reset({
       chooseAccount: true,
@@ -272,7 +270,6 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
       email: "first@example.com",
       password: NEW_PASSWORD,
     });
-    expect(db.tables.login_attempts).toEqual([]);
   });
 
   test.each([

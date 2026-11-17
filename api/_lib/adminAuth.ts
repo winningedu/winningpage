@@ -113,23 +113,22 @@ export async function resolveAdmin(
   );
 }
 
-// 목표관리(goal) 도메인 어드민 판정 — SQL `public.is_winning_admin()`의 JS 미러.
+// 목표관리(goal) 도메인 어드민 판정. SQL `public.is_winning_admin()`의 JS 미러.
 //
 // 왜 별도 함수인가
 //   위 resolveAdmin()은 `is_admin()`(uid 단일, role='admin' 단독)을 미러한다.
 //   그런데 goal_students의 기존 RLS 정책(`goal_students_admin_select`,
-//   sql/55_goal_management.sql)은 `is_winning_admin()`을 쓴다 — uid 또는 JWT
-//   email로 profiles 행을 찾고, role in ('admin', 'admin_basic', 'admin_manager',
-//   'admin_master') 4종을 허용한다. 목표관리 도메인 라우트(예:
+//   sql/55_goal_management.sql)은 `is_winning_admin()`을 쓴다. uid로 profiles 행을
+//   찾고, role in ('admin', 'admin_basic', 'admin_manager', 'admin_master') 4종을
+//   허용한다. 목표관리 도메인 라우트(예:
 //   api/_routes/goal/admin/reset-student.js)가 이 판정 기준과 다르면 "어드민 화면에서는
 //   되는데 API는 막힌다"가 생기므로, 여기서는 반드시 `is_winning_admin()`을
-//   그대로 미러한다(resolveAdmin은 건드리지 않는다 — 다른 곳에서 이미 씀).
+//   그대로 미러한다(resolveAdmin은 건드리지 않는다. 다른 곳에서 이미 씀).
 //
-// 무엇을 미러하는가 — sql/00_base_schema.sql:1338-1353
+// 무엇을 미러하는가: supabase/migrations/20261117075023_profile_email_sync_admin_id_only.sql
 //   create function public.is_winning_admin() returns boolean
 //     select exists (select 1 from public.profiles
-//                     where (profiles.id = auth.uid()
-//                            or lower(profiles.email) = lower(auth.jwt() ->> 'email'))
+//                     where profiles.id = auth.uid()
 //                       and profiles.role in ('admin', 'admin_basic', 'admin_manager', 'admin_master'));
 //
 /**
@@ -156,18 +155,12 @@ export async function resolveWinningAdmin(
   }
 
   const userId = userData.user.id;
-  const jwtEmail = String(userData.user.email || "").toLowerCase();
 
-  // is_winning_admin()과 같은 술어: id = uid OR lower(email) = lower(jwt email).
-  // profiles.email에는 UNIQUE가 없어 매칭 행이 둘 이상일 수 있으므로, 그중
-  // 하나라도 4개 role 집합에 속하면 통과시킨다(SQL exists()와 동일 의미).
-  const orFilter = jwtEmail
-    ? `id.eq.${userId},email.ilike.${jwtEmail}`
-    : `id.eq.${userId}`;
-  const { data: profiles, error: profileError } = await supabaseAdmin
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("id, role, email")
-    .or(orFilter);
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
 
   if (profileError) {
     return {
@@ -183,15 +176,7 @@ export async function resolveWinningAdmin(
     "admin_manager",
     "admin_master",
   ]);
-  const isAdmin = (profiles || []).some((profile) => {
-    const matchesId = profile.id === userId;
-    const matchesEmail =
-      jwtEmail && String(profile.email || "").toLowerCase() === jwtEmail;
-    return (
-      (matchesId || matchesEmail) &&
-      ALLOWED_ROLES.has(String(profile.role || ""))
-    );
-  });
+  const isAdmin = ALLOWED_ROLES.has(String(profile?.role || ""));
 
   if (!isAdmin) {
     return { ok: false, status: 403, detail: "관리자 권한이 필요합니다." };

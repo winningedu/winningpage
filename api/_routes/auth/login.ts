@@ -42,6 +42,7 @@ export default defineHandler({
     const result = await attemptLogin(ctx.supabaseAdmin, {
       identifier,
       password,
+      ip,
       signIn: async (email, pw) =>
         authClient.auth.signInWithPassword({ email, password: pw }),
     });

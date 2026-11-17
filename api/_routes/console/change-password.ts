@@ -79,10 +79,12 @@ export default defineHandler({
     }
 
     const admin = ctx.supabaseAdmin;
-    const authClient = createLoginAuthClient(getClientIp(req));
+    const ip = getClientIp(req);
+    const authClient = createLoginAuthClient(ip);
     const login = await attemptLogin(admin, {
       identifier: loginId,
       password: currentPassword,
+      ip,
       signIn: async (email, password) =>
         authClient.auth.signInWithPassword({ email, password }),
     });

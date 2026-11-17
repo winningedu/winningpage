@@ -25,16 +25,15 @@ import MyPageModalShell from "./MyPageModalShell";
 //   · 인증 단계의 새 이메일 값이 '010-4321-4321'(전화번호 변경 화면에서 복사된
 //     흔적)이고 안내가 '이메일으로'(→ '이메일로')
 //
-// profiles.email 도 함께 갱신한다 — 앱은 auth 가 아니라 profiles.email 을
-// 읽어 화면에 뿌린다(MyPage.queryProfile). 갱신하지 않으면 변경 후에도 옛
-// 주소가 계속 보인다.
+// 앱은 auth 가 아니라 profiles.email 을 읽어 화면에 뿌린다(MyPage.queryProfile).
+// 그 복사본은 auth 이메일이 바뀔 때 DB 트리거(fn_auth_users_sync_profile_email)가
+// 맞춘다. 브라우저는 profiles.email 을 쓰지 않는다(fn_profiles_lock_email 이 막는다).
 const FIELD_CLASS =
   "h-13 w-full rounded-xl border border-line px-4 text-[0.9375rem] text-ink outline-hidden focus:border-accent";
 
 type ChangeEmailModalProps = {
   open: boolean;
   currentEmail?: string;
-  profileId?: string;
   onClose: () => void;
   onChanged?: (email: string) => void;
 };
@@ -42,7 +41,6 @@ type ChangeEmailModalProps = {
 export default function ChangeEmailModal({
   open,
   currentEmail,
-  profileId,
   onClose,
   onChanged,
 }: ChangeEmailModalProps) {
@@ -187,34 +185,21 @@ export default function ChangeEmailModal({
       return;
     }
 
-    // 코드 검증이 통과해도 변경이 **확정되지 않을 수 있다** — 대시보드의
+    // 코드 검증이 통과해도 변경이 **확정되지 않을 수 있다**. 대시보드의
     // "Secure email change"가 켜져 있으면 기존 주소에서도 확인해야 최종
-    // 반영된다(그래서 메일이 두 통 간다). 그 상태에서 profiles.email 을 먼저
-    // 갱신하면 auth 이메일과 갈라져, 화면은 새 주소인데 로그인은 옛 주소로
-    // 해야 하는 상태가 된다. 그러니 auth 를 다시 읽어 실제로 바뀌었는지
-    // 확인한 뒤에만 미러를 갱신한다.
+    // 반영된다(그래서 메일이 두 통 간다). 그래서 auth 를 다시 읽어 실제로
+    // 바뀌었는지 보고 화면(완료 문구, onChanged)을 정한다. profiles.email 복사본은
+    // auth.users 트리거(fn_auth_users_sync_profile_email)가 맞추므로 여기서 쓰지 않는다.
     const { data: fresh } = await supabase.auth.getUser();
     const applied =
       String(fresh?.user?.email || "").toLowerCase() ===
       nextEmail.trim().toLowerCase();
 
-    if (applied && profileId) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          email: nextEmail.trim().toLowerCase(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profileId);
-      if (profileError)
-        console.warn("profiles.email 갱신 실패:", profileError.message);
-    }
-
     setSaving(false);
     setPendingOldConfirm(!applied);
     setStep("done");
     if (applied) onChanged?.(nextEmail.trim());
-  }, [saving, code, nextEmail, profileId, onChanged]);
+  }, [saving, code, nextEmail, onChanged]);
 
   // 변경 확정 후 재로그인 강제 — 권한 판정 문제는 아니다(서버는 auth.getUser 로
   // 라이브 이메일을 읽고, is_winning_admin/adminAuth 모두 id 분기로 통과한다).

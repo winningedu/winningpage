@@ -46,7 +46,7 @@
 
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createLoginAuthClient, hashParam } from "../_lib/auth/login.js";
+import { createLoginAuthClient } from "../_lib/auth/login.js";
 import { defineHandler } from "../_lib/handler.js";
 import {
   getClientIp,
@@ -490,17 +490,7 @@ export default defineHandler({
           });
         }
 
-        // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 학생이 재설정 뒤 바로 로그인할 수
-        // 있게 지운다. 실패해도 새 비밀번호로 로그인하면 풀리므로 단계 이름만 남기고 성공으로 답한다.
-        try {
-          const { error: clearError } = await supabase
-            .from("login_attempts")
-            .delete()
-            .eq("identifier_hash", hashParam(authEmail));
-          if (clearError) throw clearError;
-        } catch {
-          console.error("[reset-password-by-phone] login_attempts delete 실패");
-        }
+        // 로그인 잠금 행은 auth.users 비밀번호 변경 트리거(login_attempts_clear_on_password_change)가 지운다.
 
         console.info("[reset-password-by-phone] reset", {
           profileId: account.id,
