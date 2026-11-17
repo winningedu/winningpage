@@ -6,6 +6,7 @@ import { useState } from "react";
 import { consoleRequest, errorMessage } from "../api";
 import FilterSelect from "../FilterSelect";
 import Notice from "../Notice";
+import { ADMIN_ROLE_LABEL, HOMEROOM_ROLE_LABEL } from "../roleLabel";
 import TextField from "../TextField";
 import { useGradeLabel } from "../useConsoleMe";
 import IssuedPanel from "./IssuedPanel";
@@ -45,8 +46,8 @@ interface IssueDialogProps {
 }
 
 const KINDS = [
-  { value: "homeroom", label: "담임교사용" },
-  { value: "admin", label: "학교 전체 관리자용" },
+  { value: "homeroom", label: `${HOMEROOM_ROLE_LABEL}용` },
+  { value: "admin", label: `${ADMIN_ROLE_LABEL}용` },
 ];
 
 export default function IssueDialog({
@@ -162,7 +163,7 @@ export default function IssueDialog({
         <Notice tone="Info">
           {admin
             ? "전화번호는 비밀번호 찾기 때 본인 확인에 쓰여요"
-            : "교사 정보에 등록됐고 계정이 없는 선생님만 고를 수 있어요"}
+            : "선생님 정보에 등록됐고 계정이 없는 선생님만 고를 수 있어요"}
         </Notice>
         {unissued.isError && !admin && (
           <Notice tone="Danger">

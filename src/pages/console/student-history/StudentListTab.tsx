@@ -29,7 +29,7 @@ import HistoryDialog from "./HistoryDialog";
 import StudentFilters from "./StudentFilters";
 
 const PAGE_SIZE = 50;
-const FOOTNOTE = "담임은 현재 반만, 관리자는 전교가 보여요";
+const FOOTNOTE = "담임 선생님은 현재 반만, 전체 관리자는 전체가 보여요";
 
 export interface StudentItem {
   studentId: string;
@@ -149,7 +149,7 @@ export default function StudentListTab() {
               </div>
               <div className="flex items-start justify-between gap-3">
                 <span className="shrink-0 text-app-caption text-ink-sub">
-                  학년그룹/반 이력
+                  학년/반 이력
                 </span>
                 <span className="text-right text-app-label font-semibold text-ink">
                   {historyLabel(item, gradeLabel)}
@@ -172,8 +172,8 @@ export default function StudentListTab() {
           <TableHeader>
             <TableRow>
               <TableHead>이름</TableHead>
-              <TableHead>학년그룹</TableHead>
-              <TableHead>학년그룹/반 이력</TableHead>
+              <TableHead>학년</TableHead>
+              <TableHead>학년/반 이력</TableHead>
               <TableHead>이용 서비스 수</TableHead>
               {admin && <TableHead />}
             </TableRow>
@@ -213,7 +213,7 @@ export default function StudentListTab() {
         </Table>
       )}
       {list.data.items.length === 0 && (
-        <EmptyMessage body="찾는 학생이 없어요. 이름이나 학년그룹, 반을 바꿔 보세요" />
+        <EmptyMessage body="찾는 학생이 없어요. 이름이나 학년, 반을 바꿔 보세요" />
       )}
       <p className="pt-3 text-app-caption text-ink-sub">{FOOTNOTE}</p>
       {mobile ? (

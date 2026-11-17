@@ -3,6 +3,7 @@
 // ① 은 엑셀을 브라우저에서 읽어 ③ 입력칸에 줄로 채운다(결정 50). 맞춤은 ③ 미리보기가 한다.
 
 import { useState } from "react";
+import { site } from "@/config/site";
 import { useIsMobile } from "@/hooks/use-mobile";
 import PageHeader from "../PageHeader";
 import { useToast } from "../Toast";
@@ -29,16 +30,16 @@ export default function ImportSetupPage() {
     <>
       <PageHeader
         title="학생불러오기-일괄설정"
-        subtitle="명단 엑셀 올리기, 학년그룹 일괄 변경, 그룹(레벨) 관리"
-        mobileSubtitle="그룹(레벨) 관리"
-        notice="명단 엑셀 올리기와 학년그룹 일괄 변경은 PC나 태블릿에서 할 수 있어요"
+        subtitle="명단 엑셀 올리기, 학년도 전환, 그룹 관리"
+        mobileSubtitle="그룹 관리"
+        notice="명단 엑셀 올리기와 학년도 전환은 PC나 태블릿에서 할 수 있어요"
       />
       <div className="flex max-w-content flex-col gap-5 px-4 md:px-8 lg:px-12">
         {!mobile && (
           <div className="flex flex-col gap-5">
             <p className="text-app-body font-medium text-ink-danger">
-              (주의) 신규학급 이외는 기존의 학생명단이 변경될수 있어 업로드
-              실행시 주의가 필요합니다
+              (주의) 신규반 이외는 기존의 학생명단이 변경될수 있어 업로드 실행시
+              주의가 필요합니다
             </p>
             <section className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
@@ -47,7 +48,7 @@ export default function ImportSetupPage() {
                 </h2>
                 <TemplateLink
                   file="student-roster.xlsx"
-                  downloadName="스쿨멘토_학생불러오기_샘플.xlsx"
+                  downloadName={`${site.brandName}_학생불러오기_샘플.xlsx`}
                 />
               </div>
               <Dropzone

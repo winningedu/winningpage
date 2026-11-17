@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { HOMEPAGE_PREFIX, withoutBareScheme } from "@/lib/homepage";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorCode, errorMessage } from "./api";
+import { CONSOLE_BASE, findMenuItem, menuLabel } from "./menu";
 import Notice from "./Notice";
 import PageHeader from "./PageHeader";
 import { SAVE_FAILED_MESSAGE } from "./passwordRule";
@@ -23,7 +24,7 @@ const HOMEPAGE = /^https?:\/\/\S+$/;
 const PHONE_ERROR = "숫자와 하이픈만 쓸 수 있어요. 예: 02-123-4567";
 
 const FIELDS = [
-  { key: "name", label: "교육기관명(필수)", required: true },
+  { key: "name", label: "기관명(필수)", required: true },
   { key: "address", label: "주소" },
   { key: "mainPhone", label: "대표번호", pattern: PHONE, error: PHONE_ERROR },
   {
@@ -69,7 +70,7 @@ function validate(values: Values): Partial<Record<FieldKey, string>> {
   for (const field of FIELDS) {
     const value = values[field.key].trim();
     if ("required" in field && value === "") {
-      errors[field.key] = "교육기관명을 입력해 주세요";
+      errors[field.key] = "기관명을 입력해 주세요";
     } else if (value.length > MAX_LENGTH) {
       errors[field.key] = `${MAX_LENGTH}자 이하로 써 주세요`;
     } else if (
@@ -94,6 +95,8 @@ const labelOf = (key: FieldKey) =>
 
 export default function OrgInfoPage() {
   const { me, reload } = useConsoleMe();
+  const menuItem = findMenuItem(`${CONSOLE_BASE}/org-info`);
+  const title = menuItem ? menuLabel(menuItem, me.tenant.orgType) : "";
   const toast = useToast();
   const proxy = me.kind === "hq_proxy";
   const [code, setCode] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export default function OrgInfoPage() {
   if (loadFailed) {
     return (
       <>
-        <PageHeader title="내정보관리" />
+        <PageHeader title={title} />
         <div className="flex flex-col items-start gap-3 px-4 md:px-8 lg:px-12">
           <Notice tone="Danger">
             기관 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
@@ -296,11 +299,11 @@ export default function OrgInfoPage() {
   return (
     <>
       <PageHeader
-        title="내정보관리"
+        title={title}
         subtitle={
           mode === "confirm"
             ? "최종확인으로 저장하면 조회 전용이 돼요. 바꾸려면 본사에 요청해야 해요"
-            : "교육기관 기본 정보를 등록하고 조회합니다"
+            : "기관 기본 정보를 등록하고 조회합니다"
         }
       />
       <form

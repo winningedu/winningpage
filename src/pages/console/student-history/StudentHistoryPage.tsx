@@ -48,7 +48,7 @@ export default function StudentHistoryPage() {
       <PageHeader
         title="학생조회-변경-이력"
         {...(breadcrumb && { breadcrumb })}
-        subtitle="승인 대기 요청을 처리하고 학생의 학년그룹과 반 이력을 확인합니다"
+        subtitle="승인 대기 요청을 처리하고 학생의 학년과 반 이력을 확인합니다"
       />
       <Tabs
         items={tabs}

@@ -64,7 +64,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("W16b 담임교사용", () => {
+describe("W16b 담임 선생님용", () => {
   it("계정 없는 선생님을 골라 발급하면 아이디를 알리고 안내 파일을 한 번만 내려받는다", async () => {
     const calls = stubApi({
       "GET /api/console/teachers/unissued": { body: UNISSUED },
@@ -125,7 +125,7 @@ describe("W16b 담임교사용", () => {
   });
 });
 
-describe("W16b 학교 전체 관리자용", () => {
+describe("W16b 전체 관리자용", () => {
   it("이름과 전화번호를 모두 적어야 발급하고 같은 안내 파일 절차를 쓴다", async () => {
     const calls = stubApi({
       "GET /api/console/teachers/unissued": { body: UNISSUED },

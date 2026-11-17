@@ -28,7 +28,7 @@ export function toClassBody(
   }));
 }
 
-const MIXED_HELPER = "학년그룹에서 학년이 섞여 있으면 다학년을 선택하여 주세요";
+const MIXED_HELPER = "학년이 섞여 있으면 다학년을 선택하여 주세요";
 
 interface ClassRowFieldsProps {
   value: ClassInput;
@@ -48,7 +48,7 @@ export default function ClassRowFields({
     <div className="flex flex-wrap items-end gap-2">
       <FilterSelect
         variant="stacked"
-        label="학년그룹"
+        label="학년"
         value={value.grade}
         options={[
           { value: "", label: "선택" },

@@ -149,7 +149,7 @@ export default function StudentDetailDialog({
               {[
                 slotLabel(detail.enrollment, gradeLabel),
                 detail.enrollment.homeroomName &&
-                  `담임 ${detail.enrollment.homeroomName}`,
+                  `담임 선생님 ${detail.enrollment.homeroomName}`,
                 detail.lastSeenAt &&
                   `최근 접속 ${kstDaysAgoText(detail.lastSeenAt, new Date())}`,
               ]
@@ -161,7 +161,7 @@ export default function StudentDetailDialog({
                 <TableHeader>
                   <TableRow>
                     <TableHead>학년도</TableHead>
-                    <TableHead>학년그룹</TableHead>
+                    <TableHead>학년</TableHead>
                     <TableHead>반</TableHead>
                     <TableHead>번호</TableHead>
                   </TableRow>
@@ -222,7 +222,7 @@ export default function StudentDetailDialog({
                 </TableBody>
               </Table>
             </Block>
-            <Block title="이번 달과 학기 사용 횟수">
+            <Block title="이번 달과 학기 이용 횟수">
               <Table>
                 <TableHeader>
                   <TableRow>

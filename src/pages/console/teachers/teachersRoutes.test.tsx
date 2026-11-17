@@ -47,11 +47,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("교사 관리 라우트", () => {
+describe("선생님 관리 라우트", () => {
   it.each([
-    ["/teacher/teachers", "교사 정보 입력관리"],
-    ["/teacher/teachers/excel", "교사 엑셀 일괄업로드"],
-    ["/teacher/accounts", "교사 계정 관리"],
+    ["/teacher/teachers", "선생님 정보 입력관리"],
+    ["/teacher/teachers/excel", "선생님 엑셀 일괄업로드"],
+    ["/teacher/accounts", "선생님 계정 관리"],
   ])("%s 는 %s 화면을 연다", async (path, title) => {
     renderAt(path);
 

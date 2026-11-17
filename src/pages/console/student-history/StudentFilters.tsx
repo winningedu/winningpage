@@ -39,7 +39,7 @@ export default function StudentFilters({
   return (
     <div className="flex flex-wrap items-center gap-2.5 py-6">
       <FilterSelect
-        label="학년그룹"
+        label="학년"
         value={values.grade}
         options={[
           ALL,

@@ -50,18 +50,20 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("교사 메모 패널", () => {
+describe("선생님 메모 패널", () => {
   it("메모를 날짜와 작성자와 함께 보이고 남의 메모에는 삭제 대신 안내를 둔다", async () => {
     render();
 
     expect(await screen.findByText("진로 상담 필요")).toBeTruthy();
-    expect(screen.getAllByText("교사 메모").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("선생님 메모").length).toBeGreaterThan(0);
     expect(screen.getByText("2026.10.28 박지훈")).toBeTruthy();
     expect(screen.getByText("2026.10.14 최민정")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "삭제" })).toHaveLength(1);
-    expect(screen.getByText("작성한 교사만 지울 수 있어요")).toBeTruthy();
+    expect(screen.getByText("작성한 선생님만 지울 수 있어요")).toBeTruthy();
     expect(
-      screen.getByText("작성자와 현재 담임만 열람, 학생과 학부모 비공개"),
+      screen.getByText(
+        "작성자와 현재 담임 선생님만 열람, 학생과 학부모 비공개",
+      ),
     ).toBeTruthy();
   });
 
@@ -185,7 +187,7 @@ describe("교사 메모 패널", () => {
     expect(await screen.findByText("아직 메모가 없어요")).toBeTruthy();
   });
 
-  it("학교 관리자에게는 자기 메모만 보인다는 안내를 더한다", async () => {
+  it("전체 관리자에게는 자기 메모만 보인다는 안내를 더한다", async () => {
     render({}, true);
     expect(await screen.findByText("내가 쓴 메모만 보여요")).toBeTruthy();
   });
@@ -200,7 +202,7 @@ describe("W9d 메모 삭제 확인", () => {
     expect(await screen.findByText("메모를 삭제할까요?")).toBeTruthy();
     expect(
       screen.getByText(
-        "삭제하면 화면에서만 숨겨져요. 작성한 교사만 삭제할 수 있어요",
+        "삭제하면 화면에서만 숨겨져요. 작성한 선생님만 삭제할 수 있어요",
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
@@ -262,7 +264,7 @@ describe("태블릿과 휴대폰의 접힘", () => {
   it("접기 버튼이 펼침 상태를 알린다", async () => {
     render();
     await screen.findByText("진로 상담 필요");
-    const toggle = screen.getByRole("button", { name: /교사 메모/ });
+    const toggle = screen.getByRole("button", { name: /선생님 메모/ });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");

@@ -95,7 +95,7 @@ function StudentPicker({
   return (
     <div className="flex flex-wrap items-center gap-3 px-4 pb-6 md:px-8 lg:px-12">
       <FilterSelect
-        label="학년그룹"
+        label="학년"
         value={selected?.grade ?? ""}
         options={grades.map((g) => ({ value: g, label: gradeLabel(g) }))}
         onChange={(grade) => {
@@ -179,7 +179,9 @@ export function StudentCard({ data }: { data: Coaching }) {
         </h2>
         <p className="flex flex-wrap gap-x-5 gap-y-1 text-app-label text-ink-sub">
           <span>{meta}</span>
-          {student.homeroomName && <span>담임 {student.homeroomName}</span>}
+          {student.homeroomName && (
+            <span>담임 선생님 {student.homeroomName}</span>
+          )}
           {student.lastSeenAt && (
             <span>최근 접속 {kstDotDate(student.lastSeenAt).slice(5)}</span>
           )}
@@ -407,7 +409,7 @@ export default function CoachingPage() {
         }
       />
       {noStudent ? (
-        <EmptyMessage body="고를 학생이 없어요. 담당 학급이 없거나 학급에 학생이 없어요" />
+        <EmptyMessage body="고를 학생이 없어요. 담당 반이 없거나 반에 학생이 없어요" />
       ) : (
         <>
           {list.isSuccess && (

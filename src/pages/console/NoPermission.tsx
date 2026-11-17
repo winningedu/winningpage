@@ -9,10 +9,10 @@ export default function NoPermission() {
   return (
     <div className="flex flex-col items-center gap-4 px-6 py-24 text-center">
       <h1 className="text-app-section font-semibold text-ink-sub">
-        이 메뉴는 학교 전체 관리자만 쓸 수 있어요
+        이 메뉴는 전체 관리자만 쓸 수 있어요
       </h1>
       <p className="text-app-body text-ink-sub">
-        담당 학급 관리는 학생 관리에서 할 수 있어요
+        담당 반 관리는 학생 관리에서 할 수 있어요
       </p>
       <Button
         type="button"

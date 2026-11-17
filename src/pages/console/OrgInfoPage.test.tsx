@@ -99,7 +99,7 @@ describe("OrgInfoPage 입력", () => {
 
     renderRoutes(routes, "/teacher/org-info");
 
-    expect((await field("교육기관명(필수)")).value).toBe("한빛고등학교");
+    expect((await field("기관명(필수)")).value).toBe("한빛고등학교");
     expect((await field("주소")).value).toBe("서울시 한빛구 학교로 12");
     expect((await field("대표번호")).value).toBe("02-123-4567");
     expect((await field("담당자 전화")).value).toBe("02-123-4568");
@@ -110,13 +110,28 @@ describe("OrgInfoPage 입력", () => {
     expect(code.value).toBe("SM26HB83");
     expect(code.disabled).toBe(true);
     expect(
-      screen.getByText("교육기관 기본 정보를 등록하고 조회합니다"),
+      screen.getByText("기관 기본 정보를 등록하고 조회합니다"),
     ).toBeTruthy();
     expect(screen.getByText("소속코드는 바꿀 수 없어요")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { level: 1, name: "내정보관리" }),
+      screen.getByRole("heading", { level: 1, name: "학교 정보" }),
     ).toBeTruthy();
   });
+
+  it.each(["학원", "캠퍼스"])(
+    "기관 유형이 %s 이면 화면 제목은 기관 유형 뒤에 정보를 붙인다",
+    async (orgType) => {
+      stubOrg({ me: { ...adminMe, tenant: { ...adminMe.tenant, orgType } } });
+      renderRoutes(routes, "/teacher/org-info");
+
+      expect(
+        await screen.findByRole("heading", {
+          level: 1,
+          name: `${orgType} 정보`,
+        }),
+      ).toBeTruthy();
+    },
+  );
 
   it("저장된 홈페이지가 없으면 http:// 를 미리 채우고 저장된 값은 그대로 보인다", async () => {
     stubOrg({ org: { homepage: null } as never });
@@ -180,7 +195,7 @@ describe("OrgInfoPage 입력", () => {
   it("값이 틀린 칸을 한꺼번에 오류로 보이고 서버로 보내지 않는다", async () => {
     const calls = stubOrg();
     renderRoutes(routes, "/teacher/org-info");
-    fireEvent.change(await field("교육기관명(필수)"), {
+    fireEvent.change(await field("기관명(필수)"), {
       target: { value: "  " },
     });
     fireEvent.change(await field("대표번호"), { target: { value: "02-abc" } });
@@ -197,7 +212,7 @@ describe("OrgInfoPage 입력", () => {
 
     clickSave();
 
-    expect(await screen.findByText("교육기관명을 입력해 주세요")).toBeTruthy();
+    expect(await screen.findByText("기관명을 입력해 주세요")).toBeTruthy();
     expect(
       screen.getAllByText("숫자와 하이픈만 쓸 수 있어요. 예: 02-123-4567"),
     ).toHaveLength(3);
@@ -216,7 +231,7 @@ describe("OrgInfoPage 입력", () => {
   it("비어 있어도 되는 항목은 비워도 저장 확인으로 넘어간다", async () => {
     stubOrg({ org: { homepage: null, contactEmail: "" } as never });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
 
     clickSave();
 
@@ -230,7 +245,7 @@ describe("OrgInfoPage 최종확인", () => {
   it("저장을 누르면 아직 서버에 보내지 않고 확인 단계로 간다", async () => {
     const calls = stubOrg();
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
 
     clickSave();
 
@@ -260,7 +275,7 @@ describe("OrgInfoPage 최종확인", () => {
   it("최종확인은 저장(PATCH) 뒤에 확정을 부르고 조회 전용으로 바뀐다", async () => {
     const calls = stubOrg();
     renderRoutes(routes, "/teacher/org-info");
-    fireEvent.change(await field("교육기관명(필수)"), {
+    fireEvent.change(await field("기관명(필수)"), {
       target: { value: " 한빛고등학교 " },
     });
     clickSave();
@@ -302,7 +317,7 @@ describe("OrgInfoPage 최종확인", () => {
       },
     });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
     clickSave();
 
     fireEvent.click(
@@ -353,7 +368,7 @@ describe("OrgInfoPage 최종확인", () => {
       "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
     });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
     clickSave();
 
     fireEvent.click(
@@ -379,7 +394,7 @@ describe("OrgInfoPage 최종확인", () => {
       },
     });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
     clickSave();
     const meReads = () =>
       calls.filter((c) => c.key === "GET /api/console/me").length;
@@ -425,7 +440,7 @@ describe("OrgInfoPage 최종확인", () => {
       "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
     });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
     clickSave();
 
     fireEvent.click(
@@ -445,7 +460,7 @@ describe("OrgInfoPage 최종확인", () => {
   it("서버 오류면 오류 토스트를 보이고 확인 단계에 머문다", async () => {
     stubOrg({ confirm: { status: 500, body: {} } });
     renderRoutes(routes, "/teacher/org-info");
-    await field("교육기관명(필수)");
+    await field("기관명(필수)");
     clickSave();
 
     fireEvent.click(
@@ -470,14 +485,14 @@ describe("OrgInfoPage 조회 전용", () => {
         "저장했어요. 이제 조회만 할 수 있어요. 바꾸려면 본사에 요청해 주세요",
       ),
     ).toBeTruthy();
-    expect((await field("교육기관명(필수)")).readOnly).toBe(true);
+    expect((await field("기관명(필수)")).readOnly).toBe(true);
     expect(
-      screen.getByText("교육기관 기본 정보를 등록하고 조회합니다"),
+      screen.getByText("기관 기본 정보를 등록하고 조회합니다"),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
   });
 
-  it("최종확인이 끝난 기관은 본사 대행도 학교 관리자처럼 잠겨 있다", async () => {
+  it("최종확인이 끝난 기관은 본사 대행도 전체 관리자처럼 잠겨 있다", async () => {
     stubOrg({
       me: proxyMe,
       org: { infoConfirmedAt: "2026-11-01T00:00:00Z" },
@@ -485,7 +500,7 @@ describe("OrgInfoPage 조회 전용", () => {
 
     renderRoutes(routes, "/teacher/org-info");
 
-    expect((await field("교육기관명(필수)")).readOnly).toBe(true);
+    expect((await field("기관명(필수)")).readOnly).toBe(true);
     expect(screen.getByText("입력값은 모두 조회만 가능해요")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "저장" })).toBeNull();
   });
@@ -543,7 +558,7 @@ describe("OrgInfoPage 본사 대행 저장", () => {
     await waitFor(() => expect(meReads()).toBeGreaterThan(before));
   });
 
-  it("값이 틀리면 학교 관리자와 같은 검사로 서버에 보내지 않는다", async () => {
+  it("값이 틀리면 전체 관리자와 같은 검사로 서버에 보내지 않는다", async () => {
     const calls = stubOrg({ me: proxyMe });
     renderRoutes(routes, "/teacher/org-info");
     fireEvent.change(await field("대표번호"), { target: { value: "abc" } });

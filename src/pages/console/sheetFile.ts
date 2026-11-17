@@ -9,8 +9,8 @@ const ACCEPTED_FILE = /\.(xlsx|xls|csv)$/i;
 export interface SheetOptions {
   /** 남길 칸 수. */
   width: number;
-  /** 첫 칸이 이 글자인 줄은 머리글이라 버린다. */
-  header: string;
+  /** 첫 칸이 이 글자(여러 개면 그중 하나)인 줄은 머리글이라 버린다. */
+  header: string | readonly string[];
   /** 머리글과 빈 줄을 뺀 줄 수의 한도. */
   maxRows: number;
   /** unreadable 은 읽을 수 없거나 읽을 줄이 없을 때, tooLarge 는 파일과 읽는 줄이 너무 클 때, tooMany 는 maxRows 를 넘을 때. */
@@ -21,6 +21,7 @@ export async function readSheetLines(
   file: File,
   { width, header, maxRows, messages }: SheetOptions,
 ): Promise<string[][]> {
+  const headers = [header].flat();
   // 끌어다 놓기는 accept 를 거치지 않으므로 확장자를 여기서 다시 거른다.
   if (!ACCEPTED_FILE.test(file.name)) throw new Error(messages.unreadable);
   // 신뢰할 수 없는 파일이라 읽기 전에 크기부터 막는다(결정 56).
@@ -51,7 +52,10 @@ export async function readSheetLines(
   if (tooLarge) throw new Error(messages.tooLarge);
 
   const rows = grid
-    .filter((row) => row[0] !== header && row.some((cell) => cell !== ""))
+    .filter(
+      (row) =>
+        !headers.includes(row[0] ?? "") && row.some((cell) => cell !== ""),
+    )
     .map((row) => row.slice(0, width));
   if (rows.length === 0) throw new Error(messages.unreadable);
   if (rows.length > maxRows) throw new Error(messages.tooMany);

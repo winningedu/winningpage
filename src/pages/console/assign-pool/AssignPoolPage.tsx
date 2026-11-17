@@ -34,7 +34,7 @@ import type { PoolStudent } from "./types";
 
 const PAGE_SIZE = 50;
 const EMPTY_MESSAGE =
-  "미배정 학생이 없어요. 새 학생이 가입하거나 학년그룹 일괄 변경에서 반을 비운 학생이 생기면 여기에 나타나요";
+  "미배정 학생이 없어요. 새 학생이 가입하거나 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요";
 
 type FilterValues = { grade: string; classId: string; q: string };
 
@@ -55,7 +55,7 @@ function Filters({
   return (
     <div className="flex flex-col gap-2 px-4 py-6 md:flex-row md:flex-wrap md:items-center md:gap-3 md:px-8 lg:px-12">
       <FilterSelect
-        label="학년그룹"
+        label="학년"
         value={values.grade}
         options={[
           ALL,
@@ -129,7 +129,7 @@ export default function AssignPoolPage() {
     <>
       <PageHeader
         title="미배정 목록"
-        subtitle="학급이 정해지지 않은 학생을 학급에 배치합니다"
+        subtitle="반이 정해지지 않은 학생을 반에 배치합니다"
       />
       {classes.data && (
         <Filters
@@ -184,7 +184,7 @@ export default function AssignPoolPage() {
                       <TableHead className="text-right">
                         동명 재학생 수
                       </TableHead>
-                      <TableHead>학년그룹</TableHead>
+                      <TableHead>학년</TableHead>
                       <TableHead>그룹</TableHead>
                       <TableHead>반</TableHead>
                       <TableHead>번호</TableHead>

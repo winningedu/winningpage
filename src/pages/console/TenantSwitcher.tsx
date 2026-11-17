@@ -109,7 +109,7 @@ export default function TenantSwitcher({
   return (
     <>
       <select
-        aria-label="학교 바꾸기"
+        aria-label="기관 바꾸기"
         value={current.id}
         onChange={(e) => {
           const next = list.find((t) => t.id === e.target.value);
@@ -130,9 +130,9 @@ export default function TenantSwitcher({
         }}
       >
         <DialogContent showCloseButton={false}>
-          <DialogTitle>학교 바꾸기</DialogTitle>
+          <DialogTitle>기관 바꾸기</DialogTitle>
           <DialogDescription>
-            {`바꿀 학교: ${target?.name ?? ""}`}
+            {`바꿀 기관: ${target?.name ?? ""}`}
             <br />
             지금 대행은 끝나고, 고른 사유로 새 대행이 시작돼요.
           </DialogDescription>

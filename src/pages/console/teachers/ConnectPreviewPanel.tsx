@@ -25,7 +25,7 @@ function messageOf(r: Result): string {
     case "number_taken":
       return `번호 사용 중이에요. ${r.holderName} 학생이 쓰고 있어요. 다른 번호로 가입하도록 안내해 주세요`;
     case "no_class":
-      return "등록되지 않은 학급이에요. 학년그룹과 반을 확인해 주세요";
+      return "등록되지 않은 반이에요. 학년과 반을 확인해 주세요";
   }
 }
 
@@ -87,7 +87,7 @@ export default function ConnectPreviewPanel() {
         />
         <FilterSelect
           variant="stacked"
-          label="학년그룹"
+          label="학년"
           value={values.grade}
           options={[
             { value: "", label: "선택" },

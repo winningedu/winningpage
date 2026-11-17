@@ -74,7 +74,7 @@ export default function ExcelPreview({
         <TableHeader>
           <TableRow>
             <TableHead>줄</TableHead>
-            <TableHead>교사명</TableHead>
+            <TableHead>선생님 이름</TableHead>
             <TableHead>전화번호</TableHead>
             <TableHead>학년</TableHead>
             <TableHead>그룹</TableHead>
@@ -105,12 +105,12 @@ export default function ExcelPreview({
       </Table>
       <fieldset className="flex flex-col gap-2">
         <legend className="pb-1 text-app-label font-medium text-ink-sub">
-          이미 담임이 있는 학급(변경)은
+          이미 담임 선생님이 있는 반(변경)은
         </legend>
         {(
           [
             ["skip", "건너뛰기"],
-            ["overwrite", "담임 이름 덮어쓰기"],
+            ["overwrite", "담임 선생님 이름 덮어쓰기"],
           ] as const
         ).map(([value, label]) => (
           <label

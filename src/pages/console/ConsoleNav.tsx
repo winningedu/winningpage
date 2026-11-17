@@ -10,7 +10,8 @@ import {
   isAcademyOrg,
   primaryClass,
 } from "./classLabel";
-import { findMenuItem, menuFor } from "./menu";
+import { findMenuItem, menuFor, menuLabel } from "./menu";
+import { ADMIN_ROLE_LABEL, HOMEROOM_ROLE_LABEL } from "./roleLabel";
 import TenantSwitcher from "./TenantSwitcher";
 
 interface ConsoleNavProps {
@@ -27,9 +28,9 @@ function TeacherCard({ me }: { me: ConsoleMe }) {
   const homeroom = me.kind === "homeroom";
   const primary = primaryClass(me.classes);
   const roleChip = homeroom
-    ? "담임교사"
+    ? HOMEROOM_ROLE_LABEL
     : me.kind === "school_admin"
-      ? "학교 전체 관리자"
+      ? ADMIN_ROLE_LABEL
       : "본사 대행";
   const name = me.teacher ? `${me.teacher.name} 선생님` : "본사 직원";
   return (
@@ -49,10 +50,10 @@ function TeacherCard({ me }: { me: ConsoleMe }) {
         <Chip tone="Info">{roleChip}</Chip>
         {homeroom ? (
           primary && (
-            <Chip tone="Neutral">{`${classLabel(primary, label)} 담임`}</Chip>
+            <Chip tone="Neutral">{`${classLabel(primary, label)} 담임 선생님`}</Chip>
           )
         ) : (
-          <Chip tone="Neutral">전교 통합 관리 권한</Chip>
+          <Chip tone="Neutral">전체 관리 권한</Chip>
         )}
       </div>
       {me.teacher?.loginId && (
@@ -105,7 +106,7 @@ export default function ConsoleNav({
                       : "font-medium text-ink",
                   )}
                 >
-                  {item.label}
+                  {menuLabel(item, me.tenant.orgType)}
                   {item.badge && <Badge count={pendingCount} />}
                 </Link>
               );

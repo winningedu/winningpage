@@ -78,7 +78,7 @@ afterEach(() => {
 });
 
 describe("DashboardPage", () => {
-  it("담임은 주 담당 학급 범위의 집계 기준, 이용 학생, 달성율 3단계, 서비스별 인원을 본다", async () => {
+  it("담임 선생님은 주 담당 반 범위의 집계 기준, 이용 학생, 달성율 3단계, 서비스별 인원을 본다", async () => {
     const calls = stubApi({
       "GET /api/console/me": { body: homeroomMe },
       "GET /api/console/classes": { body: { classes: CLASSES } },
@@ -96,9 +96,7 @@ describe("DashboardPage", () => {
       screen.getByText("오늘의 학생 현황을 한눈에 확인하세요."),
     ).toBeTruthy();
     expect(
-      await screen.findByText(
-        "집계 기준: 담당 학급 2학년 3반, 2026.11.02 기준",
-      ),
+      await screen.findByText("집계 기준: 담당 반 2학년 3반, 2026.11.02 기준"),
     ).toBeTruthy();
     expect(screen.getByText("86%")).toBeTruthy();
     expect(screen.getByText("/ 28명")).toBeTruthy();
@@ -117,7 +115,7 @@ describe("DashboardPage", () => {
       calls.some((c) => c.key.startsWith("GET /api/console/dashboard")),
     ).toBe(true);
   });
-  it("학교 관리자는 전교로 시작하고, 학년그룹을 고르기 전에는 반을 고를 수 없으며, 조회를 눌러야 범위가 바뀐다", async () => {
+  it("전체 관리자는 전체로 시작하고, 학년을 고르기 전에는 반을 고를 수 없으며, 조회를 눌러야 범위가 바뀐다", async () => {
     const calls = stubApi({
       "GET /api/console/me": { body: adminMe },
       "GET /api/console/classes": { body: { classes: CLASSES } },
@@ -130,15 +128,13 @@ describe("DashboardPage", () => {
     renderRoutes(routes, "/teacher");
 
     expect(
-      await screen.findByText("집계 기준: 전교, 2026.11.02 기준"),
+      await screen.findByText("집계 기준: 전체, 2026.11.02 기준"),
     ).toBeTruthy();
     const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
     expect(classSelect.disabled).toBe(true);
-    expect(
-      within(classSelect).getByText("학년그룹을 먼저 골라요"),
-    ).toBeTruthy();
+    expect(within(classSelect).getByText("학년을 먼저 골라요")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     expect((screen.getByLabelText("반") as HTMLSelectElement).disabled).toBe(
@@ -155,7 +151,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("50%")).toBeTruthy();
   });
 
-  it("관리자 대시보드의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+  it("관리자 대시보드의 그룹 칸에 반이 없는 그룹도 나온다", async () => {
     stubApi({
       "GET /api/console/me": { body: adminMe },
       "GET /api/console/classes": { body: { classes: CLASSES } },
@@ -218,8 +214,8 @@ describe("DashboardPage", () => {
     });
 
     renderRoutes(routes, "/teacher");
-    await screen.findByText("집계 기준: 전교, 2026.11.02 기준");
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    await screen.findByText("집계 기준: 전체, 2026.11.02 기준");
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     fireEvent.change(screen.getByLabelText("반"), { target: { value: "c5" } });

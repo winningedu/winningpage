@@ -90,7 +90,7 @@ describe("W15 기본 화면", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "교사 엑셀 일괄업로드",
+        name: "선생님 엑셀 일괄업로드",
       }),
     ).toBeTruthy();
     expect(screen.getByText("1. 양식 내려받기")).toBeTruthy();
@@ -98,7 +98,7 @@ describe("W15 기본 화면", () => {
     expect(link.getAttribute("href")).toBe("/templates/teacher-roster.xlsx");
     expect(
       screen.getByText(
-        "양식 5칸: 교사명, 전화번호, 학년, 그룹, 반. 예시 2행이 들어 있어요",
+        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 예시 2행이 들어 있어요",
       ),
     ).toBeTruthy();
     expect(screen.getByText("2. 파일 올리기 또는 붙여넣기")).toBeTruthy();
@@ -120,7 +120,7 @@ describe("W15 휴대폰", () => {
     expect(
       (
         await screen.findAllByText(
-          "교사 엑셀 일괄업로드는 PC나 태블릿에서 할 수 있어요",
+          "선생님 엑셀 일괄업로드는 PC나 태블릿에서 할 수 있어요",
         )
       ).length,
     ).toBeGreaterThan(0);
@@ -205,10 +205,10 @@ describe("W15 미리보기", () => {
     stubPage();
     renderRoutes(routes, "/teacher/teachers/excel");
     await screen.findByText("1. 양식 내려받기");
-    const input = screen.getByLabelText("교사 엑셀 파일");
+    const input = screen.getByLabelText("선생님 엑셀 파일");
 
     const sheet = XLSX.utils.aoa_to_sheet([
-      ["교사명", "전화번호", "학년", "그룹", "반"],
+      ["선생님 이름", "전화번호", "학년", "그룹", "반"],
       ["박지훈", "010-1234-5678", "고2", "", "3반"],
     ]);
     const book = XLSX.utils.book_new();
@@ -288,7 +288,9 @@ describe("W15 적용", () => {
     paste(PASTED);
     fireEvent.click(screen.getByRole("button", { name: "올리기" }));
     await screen.findByText("3. 행 판정 미리보기");
-    fireEvent.click(screen.getByRole("radio", { name: "담임 이름 덮어쓰기" }));
+    fireEvent.click(
+      screen.getByRole("radio", { name: "담임 선생님 이름 덮어쓰기" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "적용" }));
 
     expect(
@@ -333,7 +335,7 @@ describe("W15 적용", () => {
   it("20줄씩 나눠 같은 요청 번호로 보내고 중간에 실패하면 끝낸 묶음은 건너뛰고 이어서 보낸다", async () => {
     const lines = Array.from(
       { length: 45 },
-      (_, i) => `교사${i}\t010-0000-${String(1000 + i)}\t고1\t\t${i + 1}반`,
+      (_, i) => `선생님${i}\t010-0000-${String(1000 + i)}\t고1\t\t${i + 1}반`,
     ).join("\n");
     let importCalls = 0;
     const calls = stubPage({

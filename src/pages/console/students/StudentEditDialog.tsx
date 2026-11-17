@@ -29,8 +29,8 @@ import type { StudentRow } from "./types";
 
 const GRADE_NOTICE = "학년이 바뀌면 목표관리 D-day와 내신 기준이 바뀌어요";
 const NO_HOMEROOM_NOTICE =
-  "옮길 반에는 담임이 없어요. 안내만 하고 그대로 반영해요";
-const GROUP_LABEL = "그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)";
+  "옮길 반에는 담임 선생님이 없어요. 안내만 하고 그대로 반영해요";
+const GROUP_LABEL = "그룹(구분되어 있으면 입력, 없으면 빈칸)";
 
 interface StudentEditDialogProps {
   student: StudentRow;
