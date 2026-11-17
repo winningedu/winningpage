@@ -130,6 +130,13 @@ export default function SchoolSignup() {
       const passwordResult = await applySignupPassword(formData.password);
 
       if (passwordResult.error) {
+        // GoTrue가 정책 미달로 거절했다. 3단계 비밀번호 칸에서 고치게 한다.
+        const code = (passwordResult.error as { code?: string }).code;
+
+        if (code === "weak_password") {
+          showSubmitError("VALIDATION", "password");
+          return;
+        }
         showSubmitError("UNKNOWN");
         return;
       }

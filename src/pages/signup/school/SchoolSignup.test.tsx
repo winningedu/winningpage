@@ -939,6 +939,22 @@ describe("가입 제출과 5단계 완료", () => {
     expect(lastCall("/api/signup/school-student")).toBeUndefined();
   });
 
+  it("비밀번호가 약하다고 거절되면 3단계의 비밀번호 칸을 다시 확인하게 한다", async () => {
+    await goToGuardian();
+    vi.mocked(applySignupPassword).mockResolvedValue({
+      error: Object.assign(new Error("weak"), { code: "weak_password" }),
+    });
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("비밀번호 칸을 다시 확인해 주세요."),
+    ).toBeInTheDocument();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+  });
+
   it("이미 가입이 끝난 상태(ALREADY_SIGNED_UP)는 성공으로 보고 완료 화면을 보인다", async () => {
     await goToGuardian();
     mockApi({
