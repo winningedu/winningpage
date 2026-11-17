@@ -142,4 +142,69 @@ select pg_temp.as_none();
 select pg_temp.expect_text('거부 후 값 그대로',
   (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
 
+-- 본인 auth 이메일(대소문자, 앞뒤 공백 무시)은 쓸 수 있다.
+select pg_temp.as_user(pg_temp.fx('a'), 'pes-a@t.local');
+set local role authenticated;
+update public.profiles set email = ' PES-A@t.local ' where id = pg_temp.fx('a');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('본인 auth 이메일로 쓰기 통과',
+  (select email from public.profiles where id = pg_temp.fx('a')), ' PES-A@t.local ');
+
+-- INSERT 도 같은 잠금을 탄다(profiles_insert_own).
+insert into fx values ('noprof', gen_random_uuid());
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  created_at, updated_at, raw_app_meta_data, raw_user_meta_data
+) values (
+  pg_temp.fx('noprof'), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'pes-noprof@t.local', 'x', now(), now(),
+  '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb
+);
+select pg_temp.as_user(pg_temp.fx('noprof'), 'pes-noprof@t.local');
+set local role authenticated;
+select pg_temp.expect_error('다른 주소로 profiles INSERT 거부',
+  format($f$insert into public.profiles (id, name, role, email) values (%L, 'x', 'user', 'pes-else@t.local')$f$,
+    pg_temp.fx('noprof')),
+  'WC106');
+reset role;
+select pg_temp.as_none();
+
+-- complete_signup_profile(security definer, 호출자 JWT 그대로)은 본인 auth 이메일로 통과한다.
+insert into public.app_settings (key, value) values ('signup_enabled', 'true'::jsonb)
+on conflict (key) do update set value = 'true'::jsonb;
+update public.app_settings set value = 'false'::jsonb where key = 'require_tenant_on_signup';
+select pg_temp.as_user(pg_temp.fx('noprof'), 'pes-noprof@t.local');
+set local role authenticated;
+select public.complete_signup_profile(
+  p_name => 'pes-noprof', p_username => 'pes-noprof@t.local', p_phone => '',
+  p_email => 'pes-noprof@t.local', p_region => '', p_school_type => '', p_school_name => '',
+  p_member_type => 'mentor', p_terms_service_agreed => true, p_privacy_required_agreed => true,
+  p_identity_required_agreed => false, p_privacy_optional_agreed => false,
+  p_marketing_agreed => false, p_ads_agreed => false, p_guardian_phone => '',
+  p_guardian_consent => false, p_identity_request_id => '', p_birth_date => null,
+  p_gender => null, p_org_code => '');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('complete_signup_profile 본인 이메일 통과',
+  (select email from public.profiles where id = pg_temp.fx('noprof')), 'pes-noprof@t.local');
+
+-- 어드민 세션(is_admin)은 다른 회원 email 을 고칠 수 있다.
+select pg_temp.as_user(pg_temp.fx('adm'), 'pes-adm@t.local');
+set local role authenticated;
+update public.profiles set email = 'pes-by-admin@t.local' where id = pg_temp.fx('b');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('어드민 변경 통과',
+  (select email from public.profiles where id = pg_temp.fx('b')), 'pes-by-admin@t.local');
+
+-- service_role 세션은 게이트를 안 탄다.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+set local role service_role;
+update public.profiles set email = 'pes-by-service@t.local' where id = pg_temp.fx('b');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('service_role 변경 통과',
+  (select email from public.profiles where id = pg_temp.fx('b')), 'pes-by-service@t.local');
+
 rollback;
