@@ -66,11 +66,10 @@ describe("lookupTenant", () => {
   });
 });
 
+const AUTH = { Authorization: "Bearer access" };
+
 const BODY: SchoolSignupBody = {
-  username: "mentor01",
-  password: "abc123!",
   name: "김학생",
-  email: "a@b.co",
   phone: "01012345678",
   birthDate: "2010-03-04",
   gender: "남",
@@ -86,26 +85,26 @@ const BODY: SchoolSignupBody = {
 };
 
 describe("submitSchoolSignup", () => {
-  it("본문을 POST로 보내고 세션과 연결코드를 돌려받는다", async () => {
+  it("본문을 Bearer 토큰과 함께 POST로 보내고 연결코드를 돌려받는다", async () => {
     const fetchMock = mockFetch(200, {
-      session: { access_token: "a", refresh_token: "r" },
-      username: "mentor01",
       linkCode: "LINK12",
       tenantName: "새빛중학교",
     });
 
-    const result = await submitSchoolSignup(BODY);
+    const result = await submitSchoolSignup(BODY, AUTH);
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ];
     expect(url).toBe("/api/signup/school-student");
+    expect(init.headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "Bearer access",
+    });
     expect(JSON.parse(String(init.body))).toEqual(BODY);
     expect(result).toEqual({
       ok: true,
-      session: { access_token: "a", refresh_token: "r" },
-      username: "mentor01",
       linkCode: "LINK12",
       tenantName: "새빛중학교",
     });
@@ -113,14 +112,14 @@ describe("submitSchoolSignup", () => {
 
   it("서버 오류 코드를 그대로 돌려주고, 코드가 없으면 UNKNOWN이다", async () => {
     mockFetch(409, { code: "NUMBER_TAKEN_SAME_NAME", field: "number" });
-    expect(await submitSchoolSignup(BODY)).toEqual({
+    expect(await submitSchoolSignup(BODY, AUTH)).toEqual({
       ok: false,
       code: "NUMBER_TAKEN_SAME_NAME",
       field: "number",
     });
 
     mockFetch(500, {});
-    expect(await submitSchoolSignup(BODY)).toEqual({
+    expect(await submitSchoolSignup(BODY, AUTH)).toEqual({
       ok: false,
       code: "UNKNOWN",
     });

@@ -9,11 +9,15 @@ export type LookupTenantResult =
   | { ok: true; tenant: TenantSummary }
   | { ok: false; reason: "not_found" | "too_many" | "unknown" };
 
-async function postJson(url: string, body: unknown) {
+async function postJson(
+  url: string,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+) {
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify(body),
     });
     const payload = await response.json();
@@ -48,10 +52,7 @@ export async function lookupTenant(code: string): Promise<LookupTenantResult> {
 }
 
 export interface SchoolSignupBody {
-  username: string;
-  password: string;
   name: string;
-  email: string;
   // 14세 미만이 본인 번호 없이 가입하면 빠진다.
   phone?: string;
   birthDate: string;
@@ -75,28 +76,23 @@ export interface SchoolSignupBody {
 }
 
 export type SchoolSignupResult =
-  | {
-      ok: true;
-      session: { access_token: string; refresh_token: string };
-      username: string;
-      linkCode: string;
-      tenantName: string;
-    }
+  | { ok: true; linkCode: string; tenantName: string }
   | { ok: false; code: string; field?: string };
 
+// 이메일 인증을 마친 브라우저 세션의 토큰(Authorization 헤더)으로 부른다.
 export async function submitSchoolSignup(
   body: SchoolSignupBody,
+  authHeader: { Authorization: string },
 ): Promise<SchoolSignupResult> {
   const { response, payload } = await postJson(
     "/api/signup/school-student",
     body,
+    authHeader,
   );
 
   if (response?.ok) {
     return {
       ok: true,
-      session: payload.session,
-      username: payload.username,
       linkCode: payload.linkCode,
       tenantName: payload.tenantName,
     };
@@ -107,23 +103,4 @@ export async function submitSchoolSignup(
     code: payload?.code || "UNKNOWN",
     ...(typeof payload?.field === "string" && { field: payload.field }),
   };
-}
-
-export type UsernameCheckResult =
-  | { ok: true; available: boolean }
-  | { ok: false; reason: "too_many" | "unknown" };
-
-// 아이디 중복 확인. 앱 쪽 RPC는 service_role 전용이라 서버 경로로 묻는다.
-export async function checkUsernameAvailable(
-  username: string,
-): Promise<UsernameCheckResult> {
-  const { response, payload } = await postJson("/api/signup/username-check", {
-    username,
-  });
-
-  if (response?.ok) return { ok: true, available: payload.available === true };
-  if (payload?.code === "RATE_LIMITED")
-    return { ok: false, reason: "too_many" };
-
-  return { ok: false, reason: "unknown" };
 }

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { AuthLayout } from "@/components/auth";
 import { type SchoolStep, useSignup } from "@/context/SignupContext";
+import { getAuthHeader } from "@/lib/apiFetch";
+import { applySignupPassword } from "@/lib/signupEmailAuth";
 import { supabase } from "@/lib/supabase";
 import { submitSchoolSignup } from "./api";
 import CompleteStep from "./CompleteStep";
@@ -35,7 +37,7 @@ export default function SchoolSignup() {
     setSchoolStep,
     tenant,
     formData,
-    setUsernameCheck,
+    updateFormData,
     setTenant,
     updateVerification,
     setLinkCode,
@@ -52,6 +54,18 @@ export default function SchoolSignup() {
     setSchoolStep(step as SchoolStep);
   }
 
+  function resetEmailVerification() {
+    updateVerification("email", {
+      requested: false,
+      verified: false,
+      checked: false,
+      available: false,
+      mode: null,
+      resumed: false,
+    });
+    updateFormData({ emailCode: "" });
+  }
+
   // 서버가 거절한 칸이 있는 단계로 돌려보낸다.
   function showSubmitError(code: string, field?: string) {
     const error =
@@ -59,8 +73,8 @@ export default function SchoolSignup() {
         ? validationError(field)
         : (SUBMIT_ERRORS[code] ?? GENERIC_SUBMIT_ERROR);
 
-    if (code === "USERNAME_TAKEN") {
-      setUsernameCheck({ value: formData.username, available: false });
+    if (code === "UNAUTHENTICATED" || code === "EMAIL_NOT_VERIFIED") {
+      resetEmailVerification();
     }
     if (
       code === "TENANT_NOT_FOUND" ||
@@ -86,23 +100,56 @@ export default function SchoolSignup() {
     setSchoolStep(error.step);
   }
 
+  function finish(linkCode: string | null) {
+    setLinkCode(linkCode);
+    setSignupCompleted(true);
+    setSchoolStep(5);
+  }
+
   async function handleSubmit(withGuardian: boolean) {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // 이메일 인증으로 브라우저에 만들어진 세션이 인증한 이메일의 것인지 확인한다.
+      const { data } = await supabase.auth.getUser();
+      const verifiedEmail = formData.email.trim().toLowerCase();
+
+      if (data.user?.email?.toLowerCase() !== verifiedEmail) {
+        showSubmitError("EMAIL_NOT_VERIFIED");
+        return;
+      }
+
+      const passwordResult = await applySignupPassword(formData.password);
+
+      if (passwordResult.error) {
+        showSubmitError("UNKNOWN");
+        return;
+      }
+
+      const authHeader = await getAuthHeader();
+
+      if (!authHeader) {
+        showSubmitError("UNAUTHENTICATED");
+        return;
+      }
+
       const result = await submitSchoolSignup(
         buildSignupBody(signup, withGuardian),
+        authHeader,
       );
+
+      // 같은 계정으로 이미 가입이 끝났다. 다시 보낸 요청이므로 성공으로 본다.
+      if (!result.ok && result.code === "ALREADY_SIGNED_UP") {
+        finish(null);
+        return;
+      }
 
       if (!result.ok) {
         showSubmitError(result.code, result.field);
         return;
       }
 
-      await supabase.auth.setSession(result.session);
-      setLinkCode(result.linkCode);
-      setSignupCompleted(true);
-      setSchoolStep(5);
+      finish(result.linkCode);
     } finally {
       setSubmitting(false);
     }

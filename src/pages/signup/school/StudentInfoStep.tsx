@@ -11,16 +11,11 @@ import { useSignup } from "@/context/SignupContext";
 import { normalizeTenantCode } from "@/lib/tenantCode";
 import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
-import { checkUsernameAvailable } from "./api";
-import { INFO_MESSAGES, type SubmitError, USERNAME_MESSAGES } from "./copy";
+import { INFO_MESSAGES, type SubmitError } from "./copy";
+import EmailVerifyField from "./EmailVerifyField";
 import Notice from "./Notice";
 import PhoneVerifyField from "./PhoneVerifyField";
-import {
-  ENROLLMENT_GRADES,
-  isValidClassNumber,
-  isValidEmail,
-  isValidUsername,
-} from "./rules";
+import { ENROLLMENT_GRADES, isValidClassNumber } from "./rules";
 import StepActions from "./StepActions";
 
 const GENDER_OPTIONS = ["남", "여"];
@@ -44,8 +39,6 @@ export default function StudentInfoStep({
     birthDate,
     setBirthDate,
     isUnder14,
-    usernameCheck,
-    setUsernameCheck,
     verification,
     updateVerification,
   } = useSignup();
@@ -61,7 +54,6 @@ export default function StudentInfoStep({
       ? { tenantCode: normalizeTenantCode(formData.orgCode) }
       : { catchAll: true };
 
-  const [usernameError, setUsernameError] = useState("");
   const [passVerifying, setPassVerifying] = useState(false);
   const [passError, setPassError] = useState("");
 
@@ -97,41 +89,6 @@ export default function StudentInfoStep({
     }
   }
 
-  // 확인한 아이디와 지금 아이디가 같을 때만 결과가 살아 있다(고치면 버려진다).
-  const usernameResult =
-    usernameCheck?.value === formData.username ? usernameCheck : null;
-
-  async function handleUsernameCheck() {
-    if (!isValidUsername(formData.username)) {
-      setUsernameError(USERNAME_MESSAGES.invalidFormat);
-      return;
-    }
-
-    const result = await checkUsernameAvailable(formData.username);
-
-    if (!result.ok) {
-      setUsernameError(
-        result.reason === "too_many"
-          ? USERNAME_MESSAGES.tooMany
-          : USERNAME_MESSAGES.failed,
-      );
-      return;
-    }
-
-    setUsernameCheck({
-      value: formData.username,
-      available: result.available,
-    });
-  }
-
-  const usernameField = (() => {
-    if (usernameError) return { text: usernameError, status: "error" as const };
-    if (!usernameResult) return { text: "", status: "default" as const };
-    return usernameResult.available
-      ? { text: USERNAME_MESSAGES.available, status: "success" as const }
-      : { text: USERNAME_MESSAGES.taken, status: "error" as const };
-  })();
-
   const passwordMismatch =
     formData.passwordConfirm !== "" &&
     formData.password !== formData.passwordConfirm;
@@ -149,14 +106,13 @@ export default function StudentInfoStep({
     (isUnder14 === true && formData.phone === "");
   const canProceed =
     formData.name.trim() !== "" &&
-    usernameResult?.available === true &&
     isValidPassword(formData.password) &&
     !passwordMismatch &&
     formData.passwordConfirm !== "" &&
     isPhoneOk &&
     !isUnder14Blocked &&
     (!needsPass || verification.pass.verified) &&
-    isValidEmail(formData.email) &&
+    verification.email.verified &&
     isUnder14 !== null &&
     formData.gender !== "" &&
     formData.grade !== "" &&
@@ -179,23 +135,6 @@ export default function StudentInfoStep({
           value={formData.name}
           onChange={field("name")}
           autoComplete="name"
-        />
-
-        <TextField
-          label="아이디"
-          id="school-username"
-          name="username"
-          size="lg"
-          value={formData.username}
-          onChange={(value) => {
-            updateFormData({ username: value });
-            setUsernameError("");
-          }}
-          actionLabel="중복 확인"
-          onAction={handleUsernameCheck}
-          helperText={usernameField.text}
-          status={usernameField.status}
-          autoComplete="username"
         />
 
         <TextField
@@ -228,6 +167,21 @@ export default function StudentInfoStep({
           autoComplete="new-password"
         />
 
+        {/* 이메일 인증번호는 발송에 시간이 걸리고, 휴대폰 인증은 10분 뒤 만료되어 이메일을 먼저 받는다. */}
+        <EmailVerifyField
+          idPrefix="school"
+          label="이메일"
+          codeLabel="이메일 인증번호"
+          email={formData.email}
+          onEmailChange={(email) => updateFormData({ email })}
+          code={formData.emailCode}
+          onCodeChange={(emailCode) => updateFormData({ emailCode })}
+          name={formData.name.trim()}
+          password={formData.password}
+          state={verification.email}
+          onStateChange={(state) => updateVerification("email", state)}
+        />
+
         <PhoneVerifyField
           idPrefix="school"
           label={isUnder14 === true ? "휴대폰번호(선택)" : "휴대폰번호"}
@@ -238,17 +192,6 @@ export default function StudentInfoStep({
           scope={phoneScope}
           state={verification.phone}
           onStateChange={(state) => updateVerification("phone", state)}
-        />
-
-        <TextField
-          label="이메일"
-          id="school-email"
-          name="email"
-          type="email"
-          size="lg"
-          value={formData.email}
-          onChange={field("email")}
-          autoComplete="email"
         />
 
         <TextField
