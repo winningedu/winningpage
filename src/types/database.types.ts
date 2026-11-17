@@ -4262,6 +4262,7 @@ export type Database = {
       };
       login_attempts: {
         Row: {
+          account_hash: string | null;
           failed_count: number;
           identifier_hash: string;
           locked_until: string | null;
@@ -4269,12 +4270,14 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          account_hash?: string | null;
           failed_count?: number;
           identifier_hash: string;
           locked_until?: string | null;
           updated_at?: string;
         };
         Update: {
+          account_hash?: string | null;
           failed_count?: number;
           identifier_hash?: string;
           locked_until?: string | null;
@@ -8966,6 +8969,25 @@ export type Database = {
       };
       fn_login_attempt_end: {
         Args: { p_attempt_no?: number; p_hash: string; p_outcome: string };
+        Returns: undefined;
+      };
+      fn_login_lock_begin: {
+        Args: { p_account_hash: string; p_pair_hash: string };
+        Returns: {
+          account_attempt_no: number;
+          attempt_no: number;
+          outcome: string;
+          retry_after_s: number;
+        }[];
+      };
+      fn_login_lock_end: {
+        Args: {
+          p_account_attempt_no?: number;
+          p_account_hash: string;
+          p_attempt_no?: number;
+          p_outcome: string;
+          p_pair_hash: string;
+        };
         Returns: undefined;
       };
       fn_login_resolve_email: { Args: { p_username: string }; Returns: string };

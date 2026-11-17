@@ -20,10 +20,16 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+vi.mock("../../_lib/phoneCode.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../_lib/phoneCode.js")>()),
+  getClientIp: () => "7.7.7.7",
+}));
+
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ auth: { signInWithPassword: kit.signIn } }),
 }));
 
+import { hashParam, pairHashParam } from "../../_lib/auth/login.js";
 import handler from "./change-password.js";
 
 const post = (body: unknown) => callHandler(handler, body);
@@ -49,8 +55,15 @@ beforeEach(() => {
     must_change_password: false,
   });
   kit.state.rows.profiles = () => ({ member_type: "teacher" });
-  kit.state.rpc.fn_login_attempt_begin = () => ({
-    data: [{ outcome: "proceed", attempt_no: 1, retry_after_s: 0 }],
+  kit.state.rpc.fn_login_lock_begin = () => ({
+    data: [
+      {
+        outcome: "proceed",
+        attempt_no: 1,
+        account_attempt_no: 1,
+        retry_after_s: 0,
+      },
+    ],
     error: null,
   });
   kit.signIn.mockReset();
@@ -85,7 +98,7 @@ describe("POST /api/console/change-password", () => {
     });
     expect(kit.signIn).not.toHaveBeenCalled();
     expect(kit.state.auth.updateUserById).not.toHaveBeenCalled();
-    expect(kit.state.events).not.toContain("rpc:fn_login_attempt_begin");
+    expect(kit.state.events).not.toContain("rpc:fn_login_lock_begin");
   });
 
   test("Auth 비밀번호를 바꾼 뒤 변경 시각 rpc 에 교사와 기관을 함께 넘기고 감사 로그보다 먼저 부른다", async () => {
@@ -175,12 +188,19 @@ describe("POST /api/console/change-password", () => {
       data: { user: null, session: null },
       error: { status: 400 },
     });
-    kit.state.rpc.fn_login_attempt_begin = () => ({
-      data: [{ outcome: "proceed", attempt_no: 2, retry_after_s: 0 }],
+    kit.state.rpc.fn_login_lock_begin = () => ({
+      data: [
+        {
+          outcome: "proceed",
+          attempt_no: 2,
+          account_attempt_no: 2,
+          retry_after_s: 0,
+        },
+      ],
       error: null,
     });
     const ended: Record<string, unknown>[] = [];
-    kit.state.rpc.fn_login_attempt_end = (args) => {
+    kit.state.rpc.fn_login_lock_end = (args) => {
       ended.push(args);
       return { data: null, error: null };
     };
@@ -201,9 +221,44 @@ describe("POST /api/console/change-password", () => {
     expect(kit.state.inserts).toHaveLength(0);
   });
 
+  test("현재 비밀번호 확인은 계정과 요청 IP 쌍의 열쇠로 센다", async () => {
+    const begun: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_login_lock_begin = (args) => {
+      begun.push(args);
+      return {
+        data: [
+          {
+            outcome: "proceed",
+            attempt_no: 1,
+            account_attempt_no: 1,
+            retry_after_s: 0,
+          },
+        ],
+        error: null,
+      };
+    };
+
+    await post({ currentPassword: "OldPass123", newPassword: "NewPass456" });
+
+    const email = "abcd2345xy7z9k@teacher.schoolmentor.kr";
+    expect(begun).toEqual([
+      {
+        p_account_hash: hashParam(email),
+        p_pair_hash: pairHashParam(email, "7.7.7.7"),
+      },
+    ]);
+  });
+
   test("잠긴 상태면 429 LOCKED 와 Retry-After 이고 GoTrue 를 부르지 않는다", async () => {
-    kit.state.rpc.fn_login_attempt_begin = () => ({
-      data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 540 }],
+    kit.state.rpc.fn_login_lock_begin = () => ({
+      data: [
+        {
+          outcome: "locked",
+          attempt_no: 5,
+          account_attempt_no: 5,
+          retry_after_s: 540,
+        },
+      ],
       error: null,
     });
 
@@ -230,7 +285,7 @@ describe("POST /api/console/change-password", () => {
 
       expect(r.status).toBe(400);
       expect(r.body).toMatchObject({ error: { code } });
-      expect(kit.state.events).not.toContain("rpc:fn_login_attempt_begin");
+      expect(kit.state.events).not.toContain("rpc:fn_login_lock_begin");
     },
   );
 

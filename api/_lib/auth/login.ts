@@ -63,6 +63,8 @@ export type LoginResult = LoginSuccess | LoginFailure;
 export interface LoginInput {
   identifier: string;
   password: string;
+  /** 요청자 IP(getClientIp). 실패는 (계정, IP) 쌍마다 센다. */
+  ip: string | null;
   signIn: (
     email: string,
     password: string,
@@ -122,6 +124,18 @@ export function hashParam(normalized: string): string {
   return `\\x${createHash("sha256").update(normalized).digest("hex")}`;
 }
 
+// (계정, IP) 쌍의 잠금 열쇠: sha256(0xff || sha256(계정 열쇠) || IP). 0xff 는 UTF-8 에 없는 바이트라
+// 어떤 식별자를 넣어도 쌍 열쇠가 다른 계정의 열쇠와 겹치지 않는다.
+export function pairHashParam(accountKey: string, ip: string | null): string {
+  const account = createHash("sha256").update(accountKey).digest();
+  const pair = createHash("sha256")
+    .update(
+      Buffer.concat([Buffer.from([0xff]), account, Buffer.from(ip ?? "")]),
+    )
+    .digest("hex");
+  return `\\x${pair}`;
+}
+
 // 존재하지 않는 계정을 흉내 내는 고정 주소. 모르는 식별자에도 GoTrue 를 한 번 불러 응답 시간을 맞춘다.
 // 로그인 아이디는 기관 코드 8자 + 무작위 6자라 이 주소와 겹칠 수 없다. 결과는 성공이어도 쓰지 않는다.
 export const DECOY_EMAIL = `login-decoy-00000000@${SYNTHETIC_DOMAIN}`;
@@ -158,18 +172,28 @@ export async function attemptLogin(
 
   // 먼저 계정을 정한다. 잠금 열쇠는 계정의 인증 이메일이다. 아이디와 이메일 두 가지로 입력해도 같은 열쇠를 쓰므로
   // 추측 횟수가 두 배가 되지 않는다. 계정을 모르는 식별자는 식별자 자체가 열쇠다(응답은 아는 계정과 같다).
+  // 실패는 (계정, IP) 쌍마다 5회, 계정 전체 50회로 센다. 남이 다른 IP 에서 틀려도 주인의 IP 는 잠기지 않는다.
   const resolved = await resolveAuthEmail(admin, identifier);
   if (resolved.failed) return RETRY_FAILURE;
   const email = resolved.email;
-  const hash = hashParam(email ?? identifier);
+  const accountKey = email ?? identifier;
+  const hashes = {
+    p_account_hash: hashParam(accountKey),
+    p_pair_hash: pairHashParam(accountKey, input.ip),
+  };
 
   const { data, error: beginError } = await admin.rpc(
-    "fn_login_attempt_begin",
-    { p_hash: hash },
+    "fn_login_lock_begin",
+    hashes,
   );
   const begin = (
     data as
-      | { outcome: string; attempt_no: number; retry_after_s: number }[]
+      | {
+          outcome: string;
+          attempt_no: number;
+          account_attempt_no: number;
+          retry_after_s: number;
+        }[]
       | null
   )?.[0];
   if (beginError || !begin) return RETRY_FAILURE;
@@ -202,8 +226,8 @@ export async function attemptLogin(
   }
 
   if (!error && signed.session && signed.user) {
-    await admin.rpc("fn_login_attempt_end", {
-      p_hash: hash,
+    await admin.rpc("fn_login_lock_end", {
+      ...hashes,
       p_outcome: "success",
     });
     const { data: teacher } = await admin
@@ -225,10 +249,11 @@ export async function attemptLogin(
 
   // GoTrue 는 비밀번호가 맞을 때만 email_not_confirmed 를 준다. 틀린 비밀번호가 아니므로 실패로 세지 않는다.
   if (error?.code === "email_not_confirmed") {
-    await admin.rpc("fn_login_attempt_end", {
-      p_hash: hash,
+    await admin.rpc("fn_login_lock_end", {
+      ...hashes,
       p_outcome: "error",
       p_attempt_no: begin.attempt_no,
+      p_account_attempt_no: begin.account_attempt_no,
     });
     return {
       ok: false,
@@ -239,16 +264,17 @@ export async function attemptLogin(
   }
 
   if (error && isServerSideError(error)) {
-    await admin.rpc("fn_login_attempt_end", {
-      p_hash: hash,
+    await admin.rpc("fn_login_lock_end", {
+      ...hashes,
       p_outcome: "error",
       p_attempt_no: begin.attempt_no,
+      p_account_attempt_no: begin.account_attempt_no,
     });
     return RETRY_FAILURE;
   }
 
-  await admin.rpc("fn_login_attempt_end", {
-    p_hash: hash,
+  await admin.rpc("fn_login_lock_end", {
+    ...hashes,
     p_outcome: "invalid",
   });
   // 5번째 실패는 begin 이 이미 10분 잠금을 걸었다.
