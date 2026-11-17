@@ -158,7 +158,8 @@ export const FALLBACK_NAV_GROUPS = [
 ];
 
 // 스쿨멘토 fallback 메뉴 트리(DB 캐시도 조회 결과도 없을 때의 첫 그림). 2026-11-05 확정 메뉴 이름.
-// 이용신청 그룹은 이용안내 하나만 둔다. 서비스제공은 2026-11-04에 중단돼 넣지 않는다.
+// 이용신청 그룹은 이용안내와 서비스제공을 둔다. 서비스제공은 2026-11-04에 중단됐다가
+// 2026-11-17 고객사가 화면을 전달해 다시 넣었다.
 export const SCHOOLMENTOR_FALLBACK_NAV_GROUPS = [
   {
     title: "목표성장서비스",
@@ -190,7 +191,10 @@ export const SCHOOLMENTOR_FALLBACK_NAV_GROUPS = [
   {
     title: "이용신청",
     to: USAGE_GUIDE_PATH,
-    items: [{ label: "이용안내", to: USAGE_GUIDE_PATH, sortOrder: 1 }],
+    items: [
+      { label: "이용안내", to: USAGE_GUIDE_PATH, sortOrder: 1 },
+      { label: "서비스제공", to: "/service-offer", sortOrder: 2 },
+    ],
   },
   {
     title: "고객안내",

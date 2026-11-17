@@ -108,10 +108,10 @@ describe("getFallbackNavGroups", () => {
       "입결정보",
       "칼럼-교육청소식",
     ]);
-    expect(labels("이용신청")).toEqual(["이용안내"]);
-    expect(groups.find((g) => g.title === "이용신청")?.items[0]?.to).toBe(
-      "/usage-guide",
-    );
+    expect(labels("이용신청")).toEqual(["이용안내", "서비스제공"]);
+    expect(
+      groups.find((g) => g.title === "이용신청")?.items.map((i) => i.to),
+    ).toEqual(["/usage-guide", "/service-offer"]);
     expect(labels("고객안내")).toEqual([
       "공지-회사소개",
       "교육-정보안내",
@@ -121,10 +121,6 @@ describe("getFallbackNavGroups", () => {
     const links = groups.flatMap((g) => g.items.map((i) => i.to));
     expect(links).not.toContain("/services/callmentor");
     expect(links).not.toContain("/pricing");
-    // 서비스제공은 2026-11-04 중단: 메뉴에 두지 않는다.
-    expect(groups.flatMap((g) => g.items.map((i) => i.label))).not.toContain(
-      "서비스제공",
-    );
   });
 
   it("위닝은 기존 FALLBACK_NAV_GROUPS를 그대로 쓴다", async () => {
@@ -212,6 +208,7 @@ describe("composeFinalNavGroups - 스쿨멘토 이용신청", () => {
     ]);
     expect(groups[3]?.items.map((i) => [i.label, i.to])).toEqual([
       ["이용안내", "/usage-guide"],
+      ["서비스제공", "/service-offer"],
     ]);
   });
 });

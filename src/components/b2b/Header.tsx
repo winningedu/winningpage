@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { site } from "@/config/site";
 import { useNavGroups } from "@/hooks/useNavGroups";
+import { CONSOLE_BASE } from "@/pages/console/menu";
 import MobileNavDrawer from "../MobileNavDrawer";
 import { ADMIN_MENU, toMyMenuRole } from "../myMenuItems";
 import MegaPanel from "./MegaPanel";
@@ -182,7 +183,7 @@ export default function Header({ showHome = false }: { showHome?: boolean }) {
                 {account.roleLabel && ` ${account.roleLabel}`}
               </span>
               <Link
-                to="/teacher/dashboard"
+                to={CONSOLE_BASE}
                 className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
               >
                 관리 화면
@@ -238,7 +239,7 @@ export default function Header({ showHome = false }: { showHome?: boolean }) {
             ? {
                 name: account.name,
                 roleLabel: account.roleLabel,
-                consoleHref: "/teacher/dashboard",
+                consoleHref: CONSOLE_BASE,
               }
             : undefined
         }

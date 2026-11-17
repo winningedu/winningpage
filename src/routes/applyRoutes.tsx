@@ -7,6 +7,7 @@ import {
 } from "@/lib/routeMiddleware";
 import MentorApply from "@/pages/MentorApply";
 import PremiumApply from "@/pages/PremiumApply";
+import ServiceOfferPage from "@/pages/service-offer/ServiceOfferPage";
 import UsageGuide from "@/pages/UsageGuide";
 
 // 이용신청 > 프리미엄 이용 / 멘토신청 + 구 경로 리다이렉트.
@@ -30,6 +31,12 @@ const applyRoutes: RouteObject[] = [
   {
     path: USAGE_GUIDE_PATH,
     Component: UsageGuide,
+    middleware: [requireUsageGuideAvailableMiddleware],
+  },
+  // 서비스제공(스쿨멘토)도 이용안내와 같은 게이트를 쓴다. 위닝에듀는 홈으로 되돌린다.
+  {
+    path: "/service-offer",
+    Component: ServiceOfferPage,
     middleware: [requireUsageGuideAvailableMiddleware],
   },
 
