@@ -267,7 +267,7 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
     items: [
       // 소속(테넌트) 마스터가 회원 데이터의 상위 개념이라 회원 목록 앞에 둔다
       // (admin_resources sort_order 305 < members, 20260922002929).
-      { key: "tenants", label: "소속(테넌트) 관리" },
+      { key: "tenants", label: "기관 관리" },
       { key: "members", label: "회원 목록" },
       // 스쿨멘토 전용. canAccessSection 이 tenants 권한과 hqTenantAdmin 플래그로 거른다.
       { key: "memberPurge", label: "계약 종료 회원 삭제" },
