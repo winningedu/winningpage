@@ -157,7 +157,6 @@ export const routes: Record<string, RouteLoader> = {
   "signup-welcome": () => import("./signup-welcome.js"),
   "signup/school-student": () => import("./signup/school-student.js"),
   "signup/tenant-lookup": () => import("./signup/tenant-lookup.js"),
-  "signup/username-check": () => import("./signup/username-check.js"),
   "toss-webhook": () => import("./toss-webhook.js"),
   "verify-phone-code": () => import("./verify-phone-code.js"),
 };
