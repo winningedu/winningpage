@@ -36,4 +36,7 @@ update public.tenants
    and org_type is distinct from '학원';
 
 -- 실행 기록 (소유자가 실행한 뒤 채운다)
--- 아직 실행하지 않았다.
+-- 2026-11-17 Schoolmentor prod (aalujumpwlnwlemnqrus) 실행. main 배포(1d1be81b) 뒤, 마이그레이션 20261117032344 적용을 확인하고 실행했다.
+--   실행 전: tenants 4행. QA학원 org_type 기타, 위닝고등학교 학교, 한솔고등학교 학교, 기타(is_catch_all) 기타.
+--            tenants_org_type_check 허용 값에 학원 포함(두 운영 DB 모두).
+--   실행 후: QA학원 org_type 학원. 나머지 3행은 그대로다.
