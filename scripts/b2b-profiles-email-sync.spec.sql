@@ -112,6 +112,21 @@ select pg_temp.expect_text('중복이면 이 행의 복사본은 NULL',
 select pg_temp.expect_text('중복 상대 행은 그대로',
   (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
 
+-- 중복이 아닌 실패도 auth 변경을 막지 않는다. warning 에는 sqlstate 와 회원 id 만 남긴다
+-- (sqlerrm 에는 제약 이름과 값, 곧 이메일이 실릴 수 있다).
+alter table public.profiles add constraint pes_boom check (email is distinct from 'pes-boom@t.local');
+update auth.users set email = 'pes-boom@t.local' where id = pg_temp.fx('a');
+select pg_temp.expect_text('다른 실패여도 auth 변경은 반영된다',
+  (select email from auth.users where id = pg_temp.fx('a')), 'pes-boom@t.local');
+select pg_temp.expect_text('다른 실패면 profiles.email 은 그대로',
+  (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
+alter table public.profiles drop constraint pes_boom;
+update auth.users set email = 'pes-a@t.local' where id = pg_temp.fx('a');
+update public.profiles set email = 'pes-dup@t.local' where id = pg_temp.fx('a');
+select pg_temp.expect_text('동기화 실패 warning 에 sqlerrm 을 싣지 않는다',
+  (position('sqlerrm' in pg_get_functiondef('public.fn_auth_users_sync_profile_email()'::regprocedure)) = 0)::text,
+  'true');
+
 -- ---------------------------------------------------------------------
 -- 4. is_winning_admin 은 id 로만 판정한다
 -- ---------------------------------------------------------------------

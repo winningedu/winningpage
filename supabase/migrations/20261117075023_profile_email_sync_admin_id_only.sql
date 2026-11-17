@@ -31,7 +31,8 @@ begin
 
   return new;
 exception when others then
-  raise warning 'profiles.email sync failed for user %: %', new.id, sqlerrm;
+  -- 오류 문구에는 제약 이름과 값(이메일)이 실릴 수 있어 sqlstate 와 회원 id 만 남긴다.
+  raise warning 'profiles.email sync failed for user %, sqlstate %', new.id, sqlstate;
   return new;
 end $$;
 
