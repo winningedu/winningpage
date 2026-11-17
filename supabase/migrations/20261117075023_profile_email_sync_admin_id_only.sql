@@ -66,6 +66,7 @@ $$;
 -- 3) profiles.email 잠금. profiles_update_own, profiles_insert_own 때문에 로그인 회원이 본인 email 을 아무 값으로나 쓸 수 있었다.
 --    fn_profiles_lock_member_type 과 같은 예외 원칙: authenticated 이면서 is_admin() 이 아닌 세션만 게이트를 탄다.
 --    그 세션은 그 행 계정의 auth.users.email 과 같은 값만 쓸 수 있다. NULL 은 INSERT 이거나 이미 NULL 인 행일 때만 된다.
+--    저장 값은 호출자와 상관없이 lower(btrim()) 으로 다듬는다.
 --    GoTrue(JWT 없음), service_role, postgres, 위 동기화 트리거는 이 게이트를 안 탄다.
 --    complete_signup_profile 은 security definer 라도 auth.role() 이 호출자 JWT 라 게이트를 탄다. 가입 화면은 auth 이메일만 보낸다.
 create or replace function public.fn_profiles_lock_email()
@@ -89,11 +90,15 @@ begin
     end if;
   end if;
 
+  if new.email is not null then
+    new.email := lower(btrim(new.email));
+  end if;
+
   return new;
 end $$;
 
 comment on function public.fn_profiles_lock_email() is
-  'profiles.email 잠금 트리거 함수. authenticated 세션(어드민 제외)이 그 행 계정의 auth.users.email 과 다른 값을 쓰거나 값이 있는 email 을 NULL 로 비우면 WC106. service_role, postgres, GoTrue, 어드민은 예외(fn_profiles_lock_member_type 과 동일).';
+  'profiles.email 잠금 트리거 함수. authenticated 세션(어드민 제외)이 그 행 계정의 auth.users.email 과 다른 값을 쓰거나 값이 있는 email 을 NULL 로 비우면 WC106. 누가 쓰든 저장 값은 lower(btrim()). service_role, postgres, GoTrue, 어드민은 예외(fn_profiles_lock_member_type 과 동일).';
 
 revoke execute on function public.fn_profiles_lock_email() from public, anon, authenticated;
 

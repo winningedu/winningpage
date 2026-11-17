@@ -142,14 +142,14 @@ select pg_temp.as_none();
 select pg_temp.expect_text('거부 후 값 그대로',
   (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
 
--- 본인 auth 이메일(대소문자, 앞뒤 공백 무시)은 쓸 수 있다.
+-- 본인 auth 이메일(대소문자, 앞뒤 공백 무시)은 쓸 수 있고, 저장 값은 소문자로 다듬는다.
 select pg_temp.as_user(pg_temp.fx('a'), 'pes-a@t.local');
 set local role authenticated;
 update public.profiles set email = ' PES-A@t.local ' where id = pg_temp.fx('a');
 reset role;
 select pg_temp.as_none();
 select pg_temp.expect_text('본인 auth 이메일로 쓰기 통과',
-  (select email from public.profiles where id = pg_temp.fx('a')), ' PES-A@t.local ');
+  (select email from public.profiles where id = pg_temp.fx('a')), 'pes-a@t.local');
 
 -- 값이 있는 email 을 NULL 로 비우는 것도 막는다(NULL 이면 다른 회원이 그 주소를 쓸 수 있게 된다).
 select pg_temp.as_user(pg_temp.fx('a'), 'pes-a@t.local');
@@ -216,10 +216,10 @@ select pg_temp.as_none();
 select pg_temp.expect_text('어드민 변경 통과',
   (select email from public.profiles where id = pg_temp.fx('b')), 'pes-by-admin@t.local');
 
--- service_role 세션은 게이트를 안 탄다.
+-- service_role 세션은 게이트를 안 타지만 저장 값은 똑같이 소문자로 다듬는다.
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 set local role service_role;
-update public.profiles set email = 'pes-by-service@t.local' where id = pg_temp.fx('b');
+update public.profiles set email = ' PES-By-Service@T.local ' where id = pg_temp.fx('b');
 reset role;
 select pg_temp.as_none();
 select pg_temp.expect_text('service_role 변경 통과',
