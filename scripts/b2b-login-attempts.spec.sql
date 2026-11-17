@@ -198,6 +198,17 @@ select pg_temp.expect_text('같은 계정의 다른 IP 는 잠기지 않는다',
 select pg_temp.expect_bool('쌍 행은 계정 해시를 가진다',
   (select account_hash = pg_temp.h('k1') from public.login_attempts where identifier_hash = pg_temp.ph('k1', '10.0.0.2')), true);
 
+-- 계정 전체 50회: IP 를 바꿔 가며 실패해도 50번째가 계정을 잠근다
+select count(pg_temp.lbegin('k2', '10.1.0.' || g)) from generate_series(1, 49) g;
+select pg_temp.expect_text('계정 49회까지는 잠금 없음', pg_temp.row_s('k2'), '49:false');
+select pg_temp.expect_text('계정 50번째 시도가 계정을 600초 잠근다', pg_temp.lbegin('k2', '10.1.1.1'), 'proceed:1:50:600');
+select pg_temp.expect_text('잠긴 계정은 처음 보는 IP 도 locked', pg_temp.lbegin('k2', '10.1.1.2'), 'locked:0:50:600');
+select pg_temp.expect_text('잠긴 계정은 횟수를 늘리지 않는다', pg_temp.row_s('k2'), '50:true');
+select pg_temp.expect_text('계정 잠금 중 새 쌍 행도 0회', pg_temp.prow_s('k2', '10.1.1.2'), '0:false');
+update public.login_attempts set locked_until = now() - interval '1 second'
+  where identifier_hash = pg_temp.h('k2');
+select pg_temp.expect_text('계정 잠금이 끝나면 계정은 1부터', pg_temp.lbegin('k2', '10.1.1.2'), 'proceed:1:1:0');
+
 -- ---------------------------------------------------------------------
 -- fn_login_resolve_email:lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
 -- ---------------------------------------------------------------------
