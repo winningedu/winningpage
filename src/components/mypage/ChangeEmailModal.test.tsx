@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ChangeEmailModal from "./ChangeEmailModal";
 
 const authEmail = vi.hoisted(() => ({ current: "old@example.com" }));
+const from = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
@@ -17,12 +18,14 @@ vi.mock("@/lib/supabase", () => ({
       },
       signOut: async () => ({ error: null }),
     },
+    from,
   },
 }));
 
 beforeEach(() => {
   localStorage.clear();
   authEmail.current = "old@example.com";
+  from.mockReset();
   Object.defineProperty(window, "location", {
     configurable: true,
     value: { replace: vi.fn() },
@@ -58,5 +61,34 @@ describe("ChangeEmailModal 학습진단 초안", () => {
     await waitFor(() => expect(window.location.replace).toHaveBeenCalled());
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
     expect(localStorage.getItem("other-key")).toBe("keep");
+  });
+});
+
+describe("ChangeEmailModal profiles.email", () => {
+  it("변경이 확정돼도 profiles 를 직접 고치지 않는다(DB 트리거가 맞춘다)", async () => {
+    const onChanged = vi.fn();
+    render(<ChangeEmailModal open onClose={() => {}} onChanged={onChanged} />);
+
+    fireEvent.change(screen.getByPlaceholderText("example@email.com"), {
+      target: { value: "new@example.com" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText("본인 확인을 위해 비밀번호를 입력해주세요"),
+      { target: { value: "pw" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "인증번호 보내기" }));
+    fireEvent.change(
+      await screen.findByPlaceholderText(
+        "이메일로 보낸 인증번호를 입력해주세요",
+      ),
+      { target: { value: "123456" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "변경하기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "변경할게요" }));
+
+    await waitFor(() =>
+      expect(onChanged).toHaveBeenCalledWith("new@example.com"),
+    );
+    expect(from).not.toHaveBeenCalled();
   });
 });

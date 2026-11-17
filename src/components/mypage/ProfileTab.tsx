@@ -702,9 +702,6 @@ export default function ProfileTab({
       <ChangeEmailModal
         open={emailOpen}
         currentEmail={form.email}
-        // profileId는 optional(exactOptionalPropertyTypes) — undefined면 키 자체를
-        // 생략한다(ChangeEmailModal 내부도 `profileId &&`로 truthy 체크).
-        {...(profileId !== undefined && { profileId })}
         onClose={() => setEmailOpen(false)}
         onChanged={(email) => {
           updateForm("email", email);
