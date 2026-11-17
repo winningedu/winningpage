@@ -88,9 +88,12 @@ afterEach(() => {
 });
 
 function fillAndSubmit(identifier = "kim01", password = "pw1234") {
-  fireEvent.change(screen.getByPlaceholderText("아이디를 입력해 주세요."), {
-    target: { value: identifier },
-  });
+  fireEvent.change(
+    screen.getByPlaceholderText("아이디 또는 이메일을 입력해 주세요."),
+    {
+      target: { value: identifier },
+    },
+  );
   fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
     target: { value: password },
   });
@@ -112,7 +115,9 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
     );
     renderLogin();
 
-    const id = await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    const id = await screen.findByPlaceholderText(
+      "아이디 또는 이메일을 입력해 주세요.",
+    );
     expect(id).toHaveAttribute("type", "text");
     fireEvent.change(id, { target: { value: " Kim01 " } });
     fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
@@ -141,13 +146,28 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       jsonResponse(401, { error: { code: "INVALID", message }, failCount: 2 }),
     );
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(mockSetSession).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("가입 미완료 이메일(403 EMAIL_NOT_CONFIRMED) 문구도 서버가 준 그대로 보여 준다", async () => {
+    const message =
+      "가입이 끝나지 않은 이메일입니다. 회원가입을 다시 진행해 주세요.";
+    mockFetch.mockResolvedValue(
+      jsonResponse(403, { error: { code: "EMAIL_NOT_CONFIRMED", message } }),
+    );
+    renderLogin();
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
+
+    fillAndSubmit("stu@example.com");
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(mockSetSession).not.toHaveBeenCalled();
   });
 
   it("mustChangePassword 면 첫 비밀번호 설정 화면으로 이동한다", async () => {
@@ -159,7 +179,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       }),
     );
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
@@ -174,7 +194,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       jsonResponse(200, { ...OK_BODY, isTeacher: true }),
     );
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
@@ -186,7 +206,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       jsonResponse(200, { ...OK_BODY, isTeacher: true }),
     );
     renderLogin("/login?redirect=/teacher/students");
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
@@ -200,7 +220,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       jsonResponse(200, { ...OK_BODY, isTeacher: true }),
     );
     renderLogin("/login?redirect=/mypage");
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
@@ -212,7 +232,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       jsonResponse(200, { ...OK_BODY, isTeacher: false }),
     );
     renderLogin("/login?redirect=/mypage");
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fillAndSubmit();
 
@@ -222,7 +242,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
   it("아이디 저장을 켜고 성공하면 아이디만 localStorage 에 남긴다", async () => {
     mockFetch.mockResolvedValue(jsonResponse(200, OK_BODY));
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fireEvent.click(screen.getByLabelText("아이디 저장"));
     fillAndSubmit("kim01", "pw1234");
@@ -242,7 +262,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
     renderLogin();
 
     expect(
-      await screen.findByPlaceholderText("아이디를 입력해 주세요."),
+      await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요."),
     ).toHaveValue("kim01");
     expect(screen.getByLabelText("아이디 저장")).toBeChecked();
   });
@@ -251,7 +271,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
     localStorage.setItem("schoolmentor.savedLoginId", "kim01");
     mockFetch.mockResolvedValue(jsonResponse(200, OK_BODY));
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fireEvent.click(screen.getByLabelText("아이디 저장"));
     fillAndSubmit("kim01", "pw1234");
@@ -269,7 +289,7 @@ describe("Login - 스쿨멘토 서버 로그인", () => {
       throw new Error("blocked");
     });
     renderLogin();
-    await screen.findByPlaceholderText("아이디를 입력해 주세요.");
+    await screen.findByPlaceholderText("아이디 또는 이메일을 입력해 주세요.");
 
     fireEvent.click(screen.getByLabelText("아이디 저장"));
     fillAndSubmit();
