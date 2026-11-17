@@ -469,6 +469,7 @@ function HeroSection({ page }: { page: IntroPage }) {
   const visibleCards = HERO_CARDS.filter(
     (card) =>
       (site.features.premium || !isPremiumLink(card.route)) &&
+      (site.features.callmentor || card.route !== CALLMENTOR_ROUTE) &&
       !isHiddenProgramLink(card.route, site.features.hiddenPrograms),
   );
 
