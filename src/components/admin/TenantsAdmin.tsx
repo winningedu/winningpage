@@ -440,7 +440,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                           <button
                             type="button"
                             onClick={() => copyCode(row.code)}
-                            aria-label="코드 복사"
+                            aria-label="소속코드 복사"
                             className="text-gray-400 hover:text-black"
                           >
                             <Copy size={14} />

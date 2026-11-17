@@ -133,7 +133,7 @@ function getSignupRpcMessage(raw?: string) {
   // WC073(tenant_required, 2026-09-22 tenant 전환) — StudentForm과 동일 매핑
   // 참고. 위닝에듀는 현재 발생하지 않지만 서버 스키마 선반영 대비.
   if (message.includes("tenant_required")) {
-    return "소속 코드를 확인해 주세요.";
+    return "소속코드를 확인해 주세요.";
   }
 
   return `회원 정보 저장 중 문제가 발생했습니다: ${raw}`;

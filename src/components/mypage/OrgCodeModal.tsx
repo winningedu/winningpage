@@ -92,7 +92,9 @@ export default function OrgCodeModal({
     // 무력화되므로 서버가 의도적으로 0행을 돌려준다 — 마이그레이션 주석 참고).
     const row = Array.isArray(data) ? data[0] : undefined;
     if (!row) {
-      setErrorMsg("존재하지 않는 소속코드입니다. 코드를 다시 확인해 주세요.");
+      setErrorMsg(
+        "존재하지 않는 소속코드입니다. 소속코드를 다시 확인해 주세요.",
+      );
       return;
     }
 

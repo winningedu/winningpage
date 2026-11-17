@@ -1,6 +1,12 @@
 // 본사 기관 목록(5번 본사 관리 화면). 사이트 플래그 hqTenantAdmin 이 꺼져 있으면(위닝) 예전 그대로다.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -143,6 +149,9 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
       expect(screen.getByText(header)).toBeTruthy();
     }
     expect(row.textContent).toContain("2026-03-01 ~ 2026-09-01");
+    expect(
+      within(row).getByRole("button", { name: "소속코드 복사" }),
+    ).toBeTruthy();
     expect(row.textContent).toContain("협약 중");
     expect(row.textContent).toContain("2026-10-01");
     // 2026-09-21 KST 에서 삭제 가능일(유예 종료 다음 날 10-02)까지 11일.
