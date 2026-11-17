@@ -30,6 +30,7 @@
 // 있어서(결정 r8) 위의 "가장 먼저 가입한 계정" 규칙이 맞지 않는다. 스쿨멘토 화면은
 // chooseAccount:true를 보낸다. profiles.phone 매치가 2건 이상이고 accountId가 없으면
 // 409 { code:'choose_account', accounts:[{ accountId, maskedId, tenantName }] }를 주고
+// (maskedId는 가린 이메일, 선생님만 가린 로그인 아이디)
 // 인증은 소비하지 않는다. accountId는 이 번호의 매치 목록 안에 있어야 한다(아니면 400,
 // 남의 계정 비밀번호를 id만 알아서 바꾸지 못하게). 위닝은 새 필드를 보내지 않는다.
 //
@@ -194,6 +195,7 @@ async function findAccountsByGuardianPhone(
 
 type ChooseCandidate = MatchedAccount & {
   username: string | null;
+  memberType: string | null;
   tenantName: string | null;
 };
 
@@ -204,7 +206,9 @@ async function findAllAccountsByPhone(
 ): Promise<ChooseCandidate[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, username, tenants!profiles_tenant_id_fkey(name)")
+    .select(
+      "id, email, username, member_type, tenants!profiles_tenant_id_fkey(name)",
+    )
     .not("member_type", "is", null)
     .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`)
     .order("created_at", { ascending: true })
@@ -213,6 +217,7 @@ async function findAllAccountsByPhone(
         id: string;
         email: string | null;
         username: string | null;
+        member_type: string | null;
         tenants: { name: string } | null;
       }[]
     >();
@@ -224,6 +229,7 @@ async function findAllAccountsByPhone(
       id: row.id,
       email: row.email as string,
       username: row.username,
+      memberType: row.member_type,
       tenantName: row.tenants?.name ?? null,
     }));
 }
@@ -349,9 +355,10 @@ export default defineHandler({
           code: "choose_account",
           accounts: candidates.map((c) => ({
             accountId: c.id,
-            maskedId: c.username
-              ? maskUsername(c.username)
-              : maskEmail(c.email),
+            maskedId:
+              c.memberType === "teacher" && c.username
+                ? maskUsername(c.username)
+                : maskEmail(c.email),
             tenantName: c.tenantName,
           })),
           detail: "이 번호로 가입한 계정이 여러 개예요. 계정을 골라 주세요.",
