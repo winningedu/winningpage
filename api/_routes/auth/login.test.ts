@@ -719,5 +719,93 @@ describe("POST /api/auth/login", () => {
         expect.anything(),
       );
     });
+
+    test("성공하면 옛 end(success)로 계정 행을 지운다", async () => {
+      state.resolvedEmail = "stu@example.com";
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 2, retry_after_s: 0 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue({
+        data: {
+          user: { id: "u2" },
+          session: { access_token: "at", refresh_token: "rt", expires_at: 1 },
+        },
+        error: null,
+      });
+
+      const r = await login({ identifier: "STU01", password: "pw" });
+
+      expect(r.status).toBe(200);
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("stu@example.com"),
+        p_outcome: "success",
+      });
+    });
+
+    test("인증 서버 오류는 503 RETRY 이고 옛 end(error)에 begin 의 시도 번호를 넘긴다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 4, retry_after_s: 0 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue({
+        data: { session: null, user: null },
+        error: { status: 502, code: "unexpected_failure" },
+      });
+
+      const r = await login({ identifier: "nobody", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("nobody"),
+        p_outcome: "error",
+        p_attempt_no: 4,
+      });
+    });
+
+    test("옛 begin 의 5번째 실패는 429 LOCKED, 잠금 중이면 GoTrue 를 부르지 않는다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+        error: null,
+      };
+      const fifth = await login({ identifier: "kim01", password: "bad" });
+      expect(fifth.status).toBe(429);
+      expect(fifth.headers["Retry-After"]).toBe("600");
+
+      state.signIn.mockClear();
+      state.legacyBeginResult = {
+        data: [{ outcome: "locked", attempt_no: 5, retry_after_s: 540 }],
+        error: null,
+      };
+      const locked = await login({ identifier: "kim01", password: "pw" });
+      expect(locked.status).toBe(429);
+      expect(locked.headers["Retry-After"]).toBe("540");
+      expect(state.signIn).not.toHaveBeenCalled();
+    });
+
+    test("옛 begin 도 실패하면 503 RETRY 이고 GoTrue 를 부르지 않는다", async () => {
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = { data: null, error: { code: "PGRST202" } };
+
+      const r = await login({ identifier: "kim01", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.signIn).not.toHaveBeenCalled();
+    });
+
+    test("PGRST202 가 아닌 begin 오류는 옛 함수로 넘어가지 않고 503 RETRY", async () => {
+      state.beginResult = { data: null, error: { code: "XX000" } };
+
+      const r = await login({ identifier: "kim01", password: "pw" });
+
+      expect(r.status).toBe(503);
+      expect(state.rpc).not.toHaveBeenCalledWith(
+        "fn_login_attempt_begin",
+        expect.anything(),
+      );
+    });
   });
 });
