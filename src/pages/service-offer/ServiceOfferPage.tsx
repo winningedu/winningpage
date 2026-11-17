@@ -1,4 +1,6 @@
 import { type KeyboardEvent, useState } from "react";
+import { Link } from "react-router";
+import { USAGE_GUIDE_PATH } from "@/components/premium/premiumRoutesPaths";
 import {
   AccessLogIcon,
   ArrowRightIcon,
@@ -336,7 +338,10 @@ export default function ServiceOfferPage() {
 
       <section className="pt-[5.25rem] pb-24">
         <div className={WRAP}>
-          <div className="flex flex-col items-start justify-between gap-[1.875rem] rounded-[1.375rem] bg-linear-[165deg,#0B2545_0%,#1A3D75_70%,#0d2a52_100%] px-[1.625rem] py-[1.875rem] text-[#dfe8fb] shadow-[0_1.125rem_2.75rem_rgba(11,37,69,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_1.5rem_3.375rem_rgba(11,37,69,0.22)] lg:flex-row lg:items-center lg:px-12 lg:py-[1.625rem]">
+          <Link
+            to={USAGE_GUIDE_PATH}
+            className="flex flex-col items-start justify-between gap-[1.875rem] rounded-[1.375rem] bg-linear-[165deg,#0B2545_0%,#1A3D75_70%,#0d2a52_100%] px-[1.625rem] py-[1.875rem] text-[#dfe8fb] shadow-[0_1.125rem_2.75rem_rgba(11,37,69,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_1.5rem_3.375rem_rgba(11,37,69,0.22)] lg:flex-row lg:items-center lg:px-12 lg:py-[1.625rem]"
+          >
             <div>
               <h3 className="text-[1.75rem] font-extrabold tracking-[-0.035em] text-white">
                 도입 상담 문의
@@ -359,7 +364,7 @@ export default function ServiceOfferPage() {
                 이용안내
               </span>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
     </main>

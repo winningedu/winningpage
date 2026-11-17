@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
+import { USAGE_GUIDE_PATH } from "@/components/premium/premiumRoutesPaths";
 import ServiceOfferPage from "./ServiceOfferPage";
 
 function renderPage() {
@@ -55,5 +56,14 @@ describe("ServiceOfferPage", () => {
 
     fireEvent.keyDown(card, { key: "a" });
     expect(card).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("도입 상담 박스는 같은 탭에서 이용안내로 가는 링크 하나다", () => {
+    renderPage();
+    const link = screen.getByRole("link", { name: /도입 상담 문의/ });
+
+    expect(link).toHaveAttribute("href", USAGE_GUIDE_PATH);
+    expect(link).not.toHaveAttribute("target");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 });
