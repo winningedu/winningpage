@@ -143,16 +143,16 @@ export default function TeacherRosterPage() {
   return (
     <>
       <PageHeader
-        title="교사 정보 입력관리"
-        subtitle="선생님 이름, 학년그룹, 반을 등록해 학생 가입 때 학급 매칭에 사용합니다"
-        notice="교사 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요"
+        title="선생님 정보 입력관리"
+        subtitle="선생님 이름, 학년, 반을 등록해 학생 가입 때 반 매칭에 사용합니다"
+        notice="선생님 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요"
       />
       <div className="flex max-w-content flex-col px-4 pb-24 md:px-8 lg:px-12">
         <div className="flex flex-wrap items-center gap-2.5 pb-6">
           {classes.data && (
             <>
               <FilterSelect
-                label="학년그룹"
+                label="학년"
                 value={filters.grade}
                 options={[
                   ALL,
@@ -209,13 +209,13 @@ export default function TeacherRosterPage() {
         {previewOpen && <ConnectPreviewPanel />}
         {list.isError && (
           <Notice tone="Danger">
-            교사 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+            선생님 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
           </Notice>
         )}
         {list.data && (
           <section className="flex flex-col">
             <h2 className="pb-4 text-app-card-title font-bold text-ink-strong">
-              {`총 ${list.data.total}개 학급`}
+              {`총 ${list.data.total}개 반`}
             </h2>
             {mobile ? (
               <div className="flex flex-col">
@@ -254,7 +254,7 @@ export default function TeacherRosterPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>학년그룹</TableHead>
+                    <TableHead>학년</TableHead>
                     <TableHead>반</TableHead>
                     <TableHead>이름</TableHead>
                     <TableHead className="text-right">재학생 수</TableHead>

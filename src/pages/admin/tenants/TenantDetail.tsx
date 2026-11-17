@@ -26,7 +26,7 @@ import {
 
 // ---------------------------------------------------------------------------
 // 본사 기관 상세(5번 본사 관리 화면, 사 #144, #159, 결정 r14, r15). 기관 정보 탭은 tenants 를 RLS 로
-// 바로 고치고(tenants_update 는 tenants edit 권한), 학교 관리자 탭은 서버 경로를 부른다.
+// 바로 고치고(tenants_update 는 tenants edit 권한), 전체 관리자 탭은 서버 경로를 부른다.
 // 서비스 설정 탭은 tenant_service_settings 를 RLS 로 바로 쓴다(ServiceSettingsPanel).
 // ---------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ type TabKey = "info" | "serviceSettings" | "schoolAdmins";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "info", label: "기관 정보" },
   { key: "serviceSettings", label: "서비스 설정" },
-  { key: "schoolAdmins", label: "학교 관리자" },
+  { key: "schoolAdmins", label: "전체 관리자" },
 ];
 
 const TENANT_COLUMNS =
@@ -225,7 +225,7 @@ export default function TenantDetail({
       ) : (
         <div className="bg-white p-6 shadow-sm">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="소속 코드">
+            <Field label="소속코드">
               <input
                 value={code}
                 readOnly
@@ -250,7 +250,7 @@ export default function TenantDetail({
                 ))}
               </Select>
             </Field>
-            <Field label="기업형태">
+            <Field label="기관 유형">
               <Select
                 value={form.org_type}
                 onChange={(value) => setField("org_type", value)}

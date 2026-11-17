@@ -8,6 +8,8 @@ export interface MenuItem {
   noPermissionView?: boolean;
   /** 승인 대기 건수 배지를 붙이는 항목. */
   badge?: boolean;
+  /** 이름 앞에 기관 유형(학교, 학원 등)이 붙는 항목. */
+  orgTypePrefix?: boolean;
 }
 
 export interface MenuGroup {
@@ -62,13 +64,17 @@ export const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    label: "교육기관관리",
+    label: "기관 관리",
     adminOnly: true,
     items: [
-      { label: "교사 정보 입력관리", to: `${CONSOLE_BASE}/teachers` },
-      { label: "교사 엑셀 일괄업로드", to: `${CONSOLE_BASE}/teachers/excel` },
-      { label: "교사 계정 관리", to: `${CONSOLE_BASE}/accounts` },
-      { label: "내정보관리", to: `${CONSOLE_BASE}/org-info` },
+      { label: "선생님 정보 입력관리", to: `${CONSOLE_BASE}/teachers` },
+      { label: "선생님 엑셀 일괄업로드", to: `${CONSOLE_BASE}/teachers/excel` },
+      { label: "선생님 계정 관리", to: `${CONSOLE_BASE}/accounts` },
+      {
+        label: "정보",
+        to: `${CONSOLE_BASE}/org-info`,
+        orgTypePrefix: true,
+      },
     ],
   },
   {
@@ -114,6 +120,12 @@ export function findMenuItem(pathname: string): MenuItem | null {
     if (hit && (!best || item.to.length > best.to.length)) best = item;
   }
   return best;
+}
+
+/** 화면에 보이는 항목 이름. 기관 유형이 붙는 항목은 유형을 읽기 전에는 이름을 그리지 않는다. */
+export function menuLabel(item: MenuItem, orgType: string): string {
+  if (!item.orgTypePrefix) return item.label;
+  return orgType ? `${orgType} ${item.label}` : "";
 }
 
 /** 이 역할이 열 수 있는 화면인지. 담임은 관리자 전용, 본사 대행은 마이페이지를 열 수 없다. */

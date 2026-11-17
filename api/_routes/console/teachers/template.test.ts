@@ -23,7 +23,7 @@ describe("W15 teacher-roster.xlsx", () => {
       defval: "",
     });
 
-    expect(rows[0]).toEqual(["교사명", "전화번호", "학년", "그룹", "반"]);
+    expect(rows[0]).toEqual(["선생님 이름", "전화번호", "학년", "그룹", "반"]);
     expect(rows).toHaveLength(3);
     for (const example of rows.slice(1)) {
       expect(example[0]).not.toBe("");

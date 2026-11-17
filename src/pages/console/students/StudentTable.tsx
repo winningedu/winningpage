@@ -49,7 +49,7 @@ export default function StudentTable({
           <TableRow>
             <TableHead>학습진단 긴급도</TableHead>
             <TableHead>이름 (가입일)</TableHead>
-            <TableHead>학년그룹/반/번호</TableHead>
+            <TableHead>학년/반/번호</TableHead>
             <TableHead>주간 목표시간 달성율</TableHead>
             <TableHead>이용서비스</TableHead>
             {showReasons && <TableHead>특이 사유</TableHead>}
@@ -67,7 +67,7 @@ export default function StudentTable({
                   <span className="flex flex-col items-start gap-0.5">
                     <NameCell name={row.displayName} />
                     <span className="pl-11">
-                      <Chip tone="Neutral">미회원가입</Chip>
+                      <Chip tone="Neutral">미가입</Chip>
                     </span>
                   </span>
                 ) : (

@@ -9,7 +9,7 @@ const ROW_BOX_CLASS =
 function classText(c: EnrollmentClass): string {
   const parts = [c.grade, c.groupName];
   if (c.className === null)
-    return [...parts, "반 미정"].filter(Boolean).join(" ");
+    return [...parts, "미배정"].filter(Boolean).join(" ");
   parts.push(`${c.className}반`);
   if (c.number !== null) parts.push(`${c.number}번`);
   return parts.filter(Boolean).join(" ");

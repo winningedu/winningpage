@@ -41,7 +41,7 @@ function DeleteDialog({
           메모를 삭제할까요?
         </DialogTitle>
         <p className="text-app-body text-ink-sub">
-          삭제하면 화면에서만 숨겨져요. 작성한 교사만 삭제할 수 있어요
+          삭제하면 화면에서만 숨겨져요. 작성한 선생님만 삭제할 수 있어요
         </p>
         {error && (
           <Notice tone="Danger">
@@ -139,7 +139,7 @@ export default function MemoPanel({
         onClick={() => setOpen((v) => !v)}
         className="flex h-11 items-center justify-between px-6 text-app-card-title font-semibold text-ink-strong lg:hidden"
       >
-        교사 메모
+        선생님 메모
         <ChevronDown
           aria-hidden
           className={cn("size-4 transition-transform", open && "rotate-180")}
@@ -149,7 +149,7 @@ export default function MemoPanel({
         className={cn("flex-col gap-4 p-6", open ? "flex" : "hidden lg:flex")}
       >
         <h2 className="text-app-card-title font-semibold text-ink-strong max-lg:sr-only">
-          교사 메모
+          선생님 메모
         </h2>
         <div className="flex flex-col gap-2">
           <label
@@ -170,7 +170,7 @@ export default function MemoPanel({
             className="h-[7.5rem] resize-none rounded-xl border border-line bg-background p-4 text-app-label text-ink-strong placeholder:text-ink-sub"
           />
           <p className="text-app-caption text-ink-sub">
-            작성자와 현재 담임만 열람, 학생과 학부모 비공개
+            작성자와 현재 담임 선생님만 열람, 학생과 학부모 비공개
           </p>
           {admin && (
             <p className="text-app-caption text-ink-sub">
@@ -219,7 +219,7 @@ export default function MemoPanel({
                 </Button>
               ) : (
                 <p className="text-app-caption text-ink-sub">
-                  작성한 교사만 지울 수 있어요
+                  작성한 선생님만 지울 수 있어요
                 </p>
               )}
             </li>

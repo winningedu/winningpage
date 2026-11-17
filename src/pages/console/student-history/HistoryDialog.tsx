@@ -106,7 +106,7 @@ export default function HistoryDialog({
               <TableHeader>
                 <TableRow>
                   <TableHead>학년도</TableHead>
-                  <TableHead>학년그룹, 그룹</TableHead>
+                  <TableHead>학년, 그룹</TableHead>
                   <TableHead>반</TableHead>
                   <TableHead>번호</TableHead>
                   <TableHead />
@@ -136,7 +136,7 @@ export default function HistoryDialog({
         {noPermission && (
           <Notice tone="Danger">
             <p>이 학생의 코칭 화면을 열람할 권한이 없습니다.</p>
-            <p>현재 담임교사와 학교 전체 관리자만 열람할 수 있습니다.</p>
+            <p>현재 담임 선생님과 전체 관리자만 열람할 수 있습니다.</p>
           </Notice>
         )}
         <div className="flex justify-end gap-2">

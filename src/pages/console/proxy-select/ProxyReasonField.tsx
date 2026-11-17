@@ -1,7 +1,7 @@
 // 대행 사유 고르기. 학교 고르기(W5a)와 콘솔의 학교 바꾸기 창이 같은 목록과 모양을 쓴다.
 
 export const REASONS = [
-  { value: "admin_absent", label: "관리자 부재" },
+  { value: "admin_absent", label: "전체 관리자 부재" },
   { value: "roster_proxy", label: "명단 대행" },
   { value: "incident_support", label: "장애 지원" },
 ] as const;

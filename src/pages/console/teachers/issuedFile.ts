@@ -50,7 +50,7 @@ export async function downloadIssuedFile(rows: IssuedRow[]): Promise<void> {
   const url = URL.createObjectURL(new Blob([bytes], { type: XLSX_TYPE }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "교사 계정 안내.xlsx";
+  link.download = "선생님 계정 안내.xlsx";
   link.click();
   // 하나뿐인 임시 비밀번호 파일이라 click 직후에 풀면 내려받기가 끊길 수 있다. 시작할 시간을 둔다.
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);

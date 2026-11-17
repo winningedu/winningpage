@@ -147,7 +147,12 @@ describe("POST /api/console/org-info/confirm", () => {
     const r = await post();
 
     expect(r.status).toBe(403);
-    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(r.body).toMatchObject({
+      error: {
+        code: "FORBIDDEN",
+        message: "기관 정보는 본사 관리자 화면에서 변경합니다.",
+      },
+    });
     expect(kit.state.updates).toHaveLength(0);
   });
 

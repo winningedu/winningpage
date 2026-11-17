@@ -90,13 +90,11 @@ describe("W14b 개별 등록 다학년", () => {
 
     expect(await screen.findByText("개별 등록")).toBeTruthy();
     expect(
-      screen.getByText(
-        "학년그룹에서 학년이 섞여 있으면 다학년을 선택하여 주세요",
-      ),
+      screen.getByText("학년이 섞여 있으면 다학년을 선택하여 주세요"),
     ).toBeTruthy();
     fill("이름", "윤서진");
     fill("전화번호", "010-5678-1234");
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "mixed" },
     });
     fill("반", "A반");
@@ -122,7 +120,7 @@ describe("W14b 개별 등록 다학년", () => {
 
     await screen.findByText("개별 등록");
     expect(
-      within(screen.getByLabelText("학년그룹"))
+      within(screen.getByLabelText("학년"))
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).not.toContain("다학년");
@@ -152,7 +150,7 @@ describe("W14b 개별 등록", () => {
 
     fill("이름", "윤서진");
     fill("전화번호", "010-5678-1234");
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고3" },
     });
     fill("반", "2반");
@@ -213,7 +211,7 @@ describe("W14b 결과 상태", () => {
     ).toBeNull();
   });
 
-  it("서버가 전화번호 중복이나 담임 있는 학급을 거절하면 그 문구를 창에 보이고 입력은 남는다", async () => {
+  it("서버가 전화번호 중복이나 담임 선생님 있는 반을 거절하면 그 문구를 창에 보이고 입력은 남는다", async () => {
     stubApi({
       "GET /api/console/groups": { body: GROUPS },
       "POST /api/console/teachers/register": {
@@ -255,7 +253,7 @@ describe("W14b 결과 상태", () => {
     expect(screen.getByText(/이름이 같은 선생님이 이미 있어요/)).toBeTruthy();
   });
 
-  it("학년그룹-반 추가로 줄을 늘려 여러 학급을 보내고 덜 채운 줄은 서버를 부르지 않는다", async () => {
+  it("학년-반 추가로 줄을 늘려 여러 반을 보내고 덜 채운 줄은 서버를 부르지 않는다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: GROUPS },
       "POST /api/console/teachers/register": {
@@ -272,14 +270,14 @@ describe("W14b 결과 상태", () => {
     await screen.findByText("개별 등록");
     fill("이름", "박지훈");
     fill("전화번호", "01012345678");
-    fireEvent.click(screen.getByRole("button", { name: "학년그룹-반 추가" }));
-    const grades = screen.getAllByLabelText("학년그룹");
+    fireEvent.click(screen.getByRole("button", { name: "학년-반 추가" }));
+    const grades = screen.getAllByLabelText("학년");
     const names = screen.getAllByLabelText("반");
     expect(grades).toHaveLength(2);
     fireEvent.change(grades[0] as HTMLElement, { target: { value: "고2" } });
     fireEvent.click(screen.getByRole("button", { name: "등록" }));
     expect(
-      await screen.findByText("학년그룹과 반을 함께 입력해 주세요"),
+      await screen.findByText("학년과 반을 함께 입력해 주세요"),
     ).toBeTruthy();
     expect(calls.filter((c) => c.key.startsWith("POST"))).toHaveLength(0);
 

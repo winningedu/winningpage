@@ -119,11 +119,11 @@ describe("ChangeRequestSection", () => {
     ).toBeInTheDocument();
   });
 
-  it("반이 비어 있으면 반 미정으로 보이고 요청 버튼은 없다(입력 안내가 맡는다)", async () => {
+  it("반이 비어 있으면 미배정으로 보이고 요청 버튼은 없다(입력 안내가 맡는다)", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, me(null, null)));
     render(<Harness />);
 
-    expect(await screen.findByText("고2 반 미정")).toBeInTheDocument();
+    expect(await screen.findByText("고2 미배정")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "수정요청하기" }),
     ).not.toBeInTheDocument();

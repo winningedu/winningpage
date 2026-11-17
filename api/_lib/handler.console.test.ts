@@ -106,6 +106,8 @@ async function call(
 
 const code = (r: { body: unknown }) =>
   (r.body as { error: { code: string } }).error.code;
+const message = (r: { body: unknown }) =>
+  (r.body as { error: { message: string } }).error.message;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,6 +137,7 @@ describe('defineHandler auth:"console"', () => {
 
     expect(r.status).toBe(403);
     expect(code(r)).toBe("NOT_CONSOLE");
+    expect(message(r)).toBe("선생님 화면 권한이 없습니다.");
     expect(seen.ctx).toBeUndefined();
   });
 
@@ -185,6 +188,7 @@ describe('defineHandler auth:"console"', () => {
 
     expect(homeroom.status).toBe(403);
     expect(code(homeroom)).toBe("NOT_SCHOOL_ADMIN");
+    expect(message(homeroom)).toBe("전체 관리자만 사용할 수 있습니다.");
     expect(admin.status).toBe(200);
     expect(proxy.status).toBe(200);
     expect(seen.ctx?.console).toMatchObject({

@@ -152,17 +152,17 @@ afterEach(() => {
 });
 
 describe("W14 목록", () => {
-  it("담당 학급마다 한 줄로 학년그룹, 반, 이름, 재학생 수, 로그인 계정을 보인다", async () => {
+  it("담당 반마다 한 줄로 학년, 반, 이름, 재학생 수, 로그인 계정을 보인다", async () => {
     stubPage();
 
     renderRoutes(routes, "/teacher/teachers");
 
-    expect(await screen.findByText("총 5개 학급")).toBeTruthy();
+    expect(await screen.findByText("총 5개 반")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { level: 1, name: "교사 정보 입력관리" }),
+      screen.getByRole("heading", { level: 1, name: "선생님 정보 입력관리" }),
     ).toBeTruthy();
     for (const head of [
-      "학년그룹",
+      "학년",
       "반",
       "이름",
       "재학생 수",
@@ -202,7 +202,7 @@ describe("W14 빈 상태와 필터", () => {
 
     expect(
       await screen.findByText(
-        "교사 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+        "선생님 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
       ),
     ).toBeTruthy();
   });
@@ -212,11 +212,11 @@ describe("W14 빈 상태와 필터", () => {
 
     renderRoutes(routes, "/teacher/teachers");
 
-    expect(await screen.findByText("총 0개 학급")).toBeTruthy();
+    expect(await screen.findByText("총 0개 반")).toBeTruthy();
     expect(screen.getByText("등록된 선생님이 없어요")).toBeTruthy();
   });
 
-  it("그룹 칸에 학급이 없는 그룹도 그룹 관리 순서로 나온다", async () => {
+  it("그룹 칸에 반이 없는 그룹도 그룹 관리 순서로 나온다", async () => {
     stubPage({
       "GET /api/console/groups": {
         body: {
@@ -240,7 +240,7 @@ describe("W14 빈 상태와 필터", () => {
     );
   });
 
-  it("학년그룹을 고르면 그 학년으로 다시 읽는다", async () => {
+  it("학년을 고르면 그 학년으로 다시 읽는다", async () => {
     const calls = stubPage({
       "GET /api/console/classes": {
         body: {
@@ -270,12 +270,12 @@ describe("W14 빈 상태와 필터", () => {
     });
 
     renderRoutes(routes, "/teacher/teachers");
-    await screen.findByText("총 5개 학급");
-    fireEvent.change(await screen.findByLabelText("학년그룹"), {
+    await screen.findByText("총 5개 반");
+    fireEvent.change(await screen.findByLabelText("학년"), {
       target: { value: "고2" },
     });
 
-    expect(await screen.findByText("총 1개 학급")).toBeTruthy();
+    expect(await screen.findByText("총 1개 반")).toBeTruthy();
     expect(
       calls.some(
         (c) =>
@@ -292,7 +292,7 @@ describe("W14 휴대폰", () => {
 
     renderRoutes(routes, "/teacher/teachers");
 
-    expect(await screen.findByText("총 5개 학급")).toBeTruthy();
+    expect(await screen.findByText("총 5개 반")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "학생 가입 연결 미리보기" }),
     ).toBeTruthy();
@@ -304,7 +304,7 @@ describe("W14 휴대폰", () => {
     }
     expect(
       screen.getByText(
-        "교사 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요",
+        "선생님 등록, 삭제, 계정 발급은 PC나 태블릿에서 할 수 있어요",
       ),
     ).toBeTruthy();
   });

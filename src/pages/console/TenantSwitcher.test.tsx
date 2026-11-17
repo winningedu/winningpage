@@ -32,7 +32,7 @@ function SchoolPage() {
   });
   return (
     <>
-      <p>{`학교 데이터: ${data.data?.name ?? "없음"}`}</p>
+      <p>{`기관 데이터: ${data.data?.name ?? "없음"}`}</p>
       <input
         aria-label="메모"
         value={draft}
@@ -105,7 +105,7 @@ function stubProxy(over: Setup = {}) {
 
 const picker = () =>
   screen.findByRole("combobox", {
-    name: "학교 바꾸기",
+    name: "기관 바꾸기",
   }) as Promise<HTMLSelectElement>;
 
 async function chooseSecondTenant() {
@@ -123,7 +123,7 @@ afterEach(() => {
 });
 
 describe("TenantSwitcher 보이는 사람", () => {
-  it("본사 대행에게는 대행 가능한 학교 목록이 든 드롭다운으로 보인다", async () => {
+  it("본사 대행에게는 대행 가능한 기관 목록이 든 드롭다운으로 보인다", async () => {
     stubProxy();
 
     renderRoutes(routes, "/teacher");
@@ -136,7 +136,7 @@ describe("TenantSwitcher 보이는 사람", () => {
     ]);
   });
 
-  it("학교 관리자에게는 학교 이름만 보이고 대행 목록을 부르지도 않는다", async () => {
+  it("기관 관리자에게는 기관 이름만 보이고 대행 목록을 부르지도 않는다", async () => {
     const calls = stubApi({
       "GET /api/console/me": { body: adminMe },
       "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
@@ -153,7 +153,7 @@ describe("TenantSwitcher 보이는 사람", () => {
 });
 
 describe("TenantSwitcher 바꾸기", () => {
-  it("다른 학교를 고르면 사유를 묻고, 취소하면 아무것도 바꾸지 않는다", async () => {
+  it("다른 기관를 고르면 사유를 묻고, 취소하면 아무것도 바꾸지 않는다", async () => {
     const calls = stubProxy();
     renderRoutes(routes, "/teacher/students");
     await chooseSecondTenant();
@@ -173,20 +173,20 @@ describe("TenantSwitcher 바꾸기", () => {
     expect(calls.some((c) => c.key.includes("proxy/start"))).toBe(false);
   });
 
-  it("사유를 고르면 대행을 끝내고 새 학교로 다시 시작해 같은 화면에서 새 학교 데이터만 보인다", async () => {
+  it("사유를 고르면 대행을 끝내고 새 기관로 다시 시작해 같은 화면에서 새 기관 데이터만 보인다", async () => {
     const calls = stubProxy();
     renderRoutes(routes, "/teacher/students");
-    expect(await screen.findByText("학교 데이터: 한빛고등학교")).toBeTruthy();
+    expect(await screen.findByText("기관 데이터: 한빛고등학교")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("메모"), {
-      target: { value: "A 학교 메모" },
+      target: { value: "A 기관 메모" },
     });
     await chooseSecondTenant();
 
     fireEvent.click(await screen.findByRole("radio", { name: "명단 대행" }));
     fireEvent.click(screen.getByRole("button", { name: "바꾸기" }));
 
-    expect(await screen.findByText("학교 데이터: 한빛수학학원")).toBeTruthy();
-    expect(screen.queryByText("학교 데이터: 한빛고등학교")).toBeNull();
+    expect(await screen.findByText("기관 데이터: 한빛수학학원")).toBeTruthy();
+    expect(screen.queryByText("기관 데이터: 한빛고등학교")).toBeNull();
     expect((screen.getByLabelText("메모") as HTMLInputElement).value).toBe("");
     expect((await picker()).value).toBe("t2");
     const writes = calls.filter((c) => c.key.startsWith("POST"));
@@ -197,7 +197,7 @@ describe("TenantSwitcher 바꾸기", () => {
     expect(writes[1]?.body).toEqual({ tenantId: "t2", reason: "roster_proxy" });
   });
 
-  it("학생 상세처럼 다른 학교에서 열 수 없는 주소에 있었으면 콘솔 홈으로 간다", async () => {
+  it("학생 상세처럼 다른 기관에서 열 수 없는 주소에 있었으면 콘솔 홈으로 간다", async () => {
     stubProxy();
     renderRoutes(routes, "/teacher/students/s-1");
     expect(await screen.findByText("학생 상세")).toBeTruthy();
@@ -210,28 +210,28 @@ describe("TenantSwitcher 바꾸기", () => {
     expect(screen.queryByText("학생 상세")).toBeNull();
   });
 
-  it("새 대행을 시작하지 못하면 학교 고르기 화면에서 오류를 보이고 이전 학교 화면을 남기지 않는다", async () => {
+  it("새 대행을 시작하지 못하면 기관 고르기 화면에서 오류를 보이고 이전 기관 화면을 남기지 않는다", async () => {
     stubProxy({ startStatus: 500 });
     renderRoutes(routes, "/teacher/students");
-    await screen.findByText("학교 데이터: 한빛고등학교");
+    await screen.findByText("기관 데이터: 한빛고등학교");
     await chooseSecondTenant();
 
     fireEvent.click(await screen.findByRole("radio", { name: "명단 대행" }));
     fireEvent.click(screen.getByRole("button", { name: "바꾸기" }));
 
-    expect(await screen.findByText("대행할 학교 고르기")).toBeTruthy();
+    expect(await screen.findByText("대행할 기관 고르기")).toBeTruthy();
     expect(
       screen.getByText(
-        "학교를 바꾸지 못했어요. 대행이 끝났으니 학교를 다시 골라 주세요",
+        "기관를 바꾸지 못했어요. 대행이 끝났으니 기관를 다시 골라 주세요",
       ),
     ).toBeTruthy();
-    expect(screen.queryByText(/학교 데이터/)).toBeNull();
+    expect(screen.queryByText(/기관 데이터/)).toBeNull();
   });
 
   it("기존 대행을 끝내지 못하면 오류 토스트를 보이고 새 대행은 시작하지 않는다", async () => {
     const calls = stubProxy({ endStatus: 500 });
     renderRoutes(routes, "/teacher/students");
-    await screen.findByText("학교 데이터: 한빛고등학교");
+    await screen.findByText("기관 데이터: 한빛고등학교");
     await chooseSecondTenant();
 
     fireEvent.click(await screen.findByRole("radio", { name: "명단 대행" }));
@@ -240,7 +240,7 @@ describe("TenantSwitcher 바꾸기", () => {
     expect(
       await screen.findByText("바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요"),
     ).toBeTruthy();
-    expect(screen.getByText("학교 데이터: 한빛고등학교")).toBeTruthy();
+    expect(screen.getByText("기관 데이터: 한빛고등학교")).toBeTruthy();
     expect(calls.some((c) => c.key.includes("proxy/start"))).toBe(false);
   });
 });

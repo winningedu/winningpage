@@ -120,7 +120,7 @@ describe("W9c 코칭 PDF", () => {
     expect(container.querySelectorAll(".coaching__print-p2")).toHaveLength(1);
     expect(screen.getByText("대학 평가 5대 역량")).toBeTruthy();
     expect(screen.getByText("성장설계 키워드가 정리되어 있음")).toBeTruthy();
-    expect(screen.queryByText("교사 메모")).toBeNull();
+    expect(screen.queryByText("선생님 메모")).toBeNull();
     await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
     expect(
       calls.find((c) => c.key === "POST /api/console/coaching/print-log")?.body,
@@ -143,14 +143,14 @@ describe("W9c 코칭 PDF", () => {
     const { container } = renderRoutes(routes, "/print?studentId=s1");
 
     const line = await screen.findByText(
-      "교육기관 한빛고등학교, 학생 김서연(2학년 3반 1번), 출력일시 2026.11.03 14:20, 출력자 박지훈(SM26HB83K7MPQ2)",
+      "기관 한빛고등학교, 학생 김서연(2학년 3반 1번), 출력일시 2026.11.03 14:20, 출력자 박지훈(SM26HB83K7MPQ2)",
     );
     expect(container.querySelector(".coaching__print")?.contains(line)).toBe(
       true,
     );
     expect(
       container.querySelector(".coaching__print-p2")?.textContent,
-    ).not.toContain("교육기관");
+    ).not.toContain("기관");
   });
 
   it("확률이 있으면 PDF에도 상담 참고 지표 안내를 적고 없으면 적지 않는다", async () => {
@@ -206,7 +206,7 @@ describe("W9c 코칭 PDF", () => {
     expect(await screen.findByText(/, 출력자 본사 대행$/)).toBeTruthy();
   });
 
-  it("학년그룹이 있으면 반 앞에 붙이고 번호가 없으면 번호 조각을 뺀다", async () => {
+  it("학년이 있으면 반 앞에 붙이고 번호가 없으면 번호 조각을 뺀다", async () => {
     const data = {
       ...DATA,
       student: { ...DATA.student, groupName: "A레벨", number: null },

@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { classLabel, sortClasses } from "./classLabel";
 import PageHeader from "./PageHeader";
+import { ADMIN_ROLE_LABEL, HOMEROOM_ROLE_LABEL } from "./roleLabel";
 import { useConsoleMe, useGradeLabel } from "./useConsoleMe";
 
 const ROLE_LABEL: Record<string, string> = {
-  homeroom: "담임교사",
-  school_admin: "학교 전체 관리자",
+  homeroom: HOMEROOM_ROLE_LABEL,
+  school_admin: ADMIN_ROLE_LABEL,
 };
 
 export default function MyPage() {
@@ -23,7 +24,7 @@ export default function MyPage() {
             (c) => `${classLabel(c, gradeLabel)}${c.isPrimary ? "(주)" : ""}`,
           )
           .join(", ")
-      : "전교";
+      : "전체";
   const rows: [string, string][] = [
     ["아이디", `${me.teacher?.loginId ?? ""} (조회만, 수정 불가)`],
     ["이름", me.teacher?.name ?? ""],

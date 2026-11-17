@@ -22,6 +22,7 @@ import LoadMore from "../LoadMore";
 import Notice from "../Notice";
 import PageHeader from "../PageHeader";
 import Pagination from "../Pagination";
+import { ADMIN_ROLE_LABEL, HOMEROOM_ROLE_LABEL } from "../roleLabel";
 import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY, usePagedList } from "../usePagedList";
 import { usePageParam } from "../usePageParam";
@@ -37,11 +38,11 @@ const SELF_MESSAGE = "본인 계정은 비활성화할 수 없어요";
 const FAILED_MESSAGE = "처리하지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 const roleLabel = (t: AccountItem) =>
-  t.role === "school_admin" ? "학교 전체 관리자" : "담임교사";
+  t.role === "school_admin" ? ADMIN_ROLE_LABEL : HOMEROOM_ROLE_LABEL;
 
 /** "2학년 3반(주) + 2학년 5반". 학교 전체 관리자는 전교다. */
 function scopeText(t: AccountItem, gradeLabel: GradeLabeler): string {
-  if (t.role === "school_admin") return "전교";
+  if (t.role === "school_admin") return "전체";
   return t.classes
     .map((c) => `${classText(c, gradeLabel)}${c.isPrimary ? "(주)" : ""}`)
     .join(" + ");
@@ -125,8 +126,8 @@ export default function TeacherAccountsPage() {
   return (
     <>
       <PageHeader
-        title="교사 계정 관리"
-        subtitle="담임교사와 학교 전체 관리자의 로그인 아이디를 발급하고 관리합니다"
+        title="선생님 계정 관리"
+        subtitle="담임 선생님과 전체 관리자의 로그인 아이디를 발급하고 관리합니다"
         actions={
           mobile ? undefined : (
             <Button
@@ -144,13 +145,13 @@ export default function TeacherAccountsPage() {
         {error && <Notice tone="Danger">{error}</Notice>}
         {list.isError && (
           <Notice tone="Danger">
-            교사 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+            선생님 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
           </Notice>
         )}
         {list.data && (
           <section className="flex flex-col">
             <h2 className="pb-4 text-app-card-title font-bold text-ink-strong">
-              {`교사 계정 ${list.data.total}개`}
+              {`선생님 계정 ${list.data.total}개`}
             </h2>
             {mobile ? (
               <div className="flex flex-col">
@@ -264,7 +265,7 @@ export default function TeacherAccountsPage() {
               </Table>
             )}
             {list.data.items.length === 0 && (
-              <EmptyMessage body="발급된 교사 계정이 없어요" />
+              <EmptyMessage body="발급된 선생님 계정이 없어요" />
             )}
             {mobile ? (
               <LoadMore

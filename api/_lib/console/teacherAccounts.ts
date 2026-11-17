@@ -317,7 +317,7 @@ const DB_ERRORS: Record<
     status: 409,
     code: "LAST_SCHOOL_ADMIN",
     message:
-      "학교 관리자가 1명뿐이라 바꿀 수 없습니다. 다른 관리자를 먼저 지정해 주세요.",
+      "전체 관리자가 1명뿐이라 바꿀 수 없습니다. 다른 전체 관리자를 먼저 지정해 주세요.",
   },
   WC088: {
     status: 404,
@@ -344,23 +344,23 @@ const DB_ERRORS: Record<
   WC092: {
     status: 409,
     code: "LAST_CLASS_REQUIRED",
-    message: "담임 선생님은 담당 학급이 하나 이상 있어야 합니다.",
+    message: "담임 선생님은 담당 반이 하나 이상 있어야 합니다.",
   },
   WC093: {
     status: 400,
     code: "PRIMARY_NOT_ASSIGNED",
-    message: "주담당으로 지정할 학급이 배정되어 있지 않습니다.",
+    message: "주담당으로 지정할 반이 배정되어 있지 않습니다.",
   },
   // 학급 이름 정규화(22023)와 학년 CHECK(23514)
   "22023": {
     status: 400,
     code: "INVALID_CLASS",
-    message: "학년, 학급 정보를 확인해 주세요.",
+    message: "학년, 반 정보를 확인해 주세요.",
   },
   "23514": {
     status: 400,
     code: "INVALID_CLASS",
-    message: "학년, 학급 정보를 확인해 주세요.",
+    message: "학년, 반 정보를 확인해 주세요.",
   },
   // 같은 이름의 학년 학급이 이미 있어 다학년 학급을 만들 수 없다(fn_class_ensure).
   WC105: {
@@ -383,7 +383,7 @@ const DB_ERRORS: Record<
   "23505": {
     status: 409,
     code: "CLASS_TAKEN",
-    message: "다른 선생님이 이미 담임인 학급입니다.",
+    message: "다른 선생님이 이미 담임 선생님인 반입니다.",
   },
 };
 

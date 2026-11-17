@@ -112,13 +112,13 @@ describe("W13 승인 대기 탭", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "승인 대기 요청을 처리하고 학생의 학년그룹과 반 이력을 확인합니다",
+        "승인 대기 요청을 처리하고 학생의 학년과 반 이력을 확인합니다",
       ),
     ).toBeTruthy();
     for (const head of [
       "학생명",
-      "기존 학년그룹/반/번호",
-      "요청한 학년그룹/반/번호",
+      "기존 학년/반/번호",
+      "요청한 학년/반/번호",
       "처리",
     ]) {
       expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
@@ -157,7 +157,7 @@ describe("W13 승인 대기 빈 상태", () => {
     expect(await screen.findByText("승인 대기 0건")).toBeTruthy();
     expect(
       screen.getByText(
-        "승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요",
+        "승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년과 반 이력을 볼 수 있어요",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "학생명" })).toBeTruthy();
@@ -466,7 +466,7 @@ describe("W13 승인 대기 휴대폰", () => {
 
     expect(await screen.findByText("김서연")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.getByText("기존 학년그룹/반/번호")).toBeTruthy();
+    expect(screen.getByText("기존 학년/반/번호")).toBeTruthy();
     expect(screen.getByText("2학년 3반 12번")).toBeTruthy();
     expect(screen.getByText("1 / 2건")).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
@@ -545,18 +545,13 @@ function stubStudents(
 }
 
 describe("W13 학생 조회와 이력 탭", () => {
-  it("학생마다 학년그룹, 학년도별 반 이력, 이용 서비스 수를 보여 준다", async () => {
+  it("학생마다 학년, 학년도별 반 이력, 이용 서비스 수를 보여 준다", async () => {
     stubStudents();
 
     renderRoutes(routes, "/teacher/student-history?tab=students");
 
     expect(await screen.findByText("검색 결과 2명")).toBeTruthy();
-    for (const head of [
-      "이름",
-      "학년그룹",
-      "학년그룹/반 이력",
-      "이용 서비스 수",
-    ]) {
+    for (const head of ["이름", "학년", "학년/반 이력", "이용 서비스 수"]) {
       expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
     }
     const r = row("김서연");
@@ -564,13 +559,13 @@ describe("W13 학생 조회와 이력 탭", () => {
     expect(within(r).getByText("2026 2학년 3반 / 2025 1학년 5반")).toBeTruthy();
     expect(within(r).getByText("6/6")).toBeTruthy();
     expect(
-      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+      screen.getByText("담임 선생님은 현재 반만, 전체 관리자는 전체가 보여요"),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "직접 변경" })).toBeNull();
     expect(screen.getByText("1 / 1 페이지, 1~2번째")).toBeTruthy();
   });
 
-  it("학교 관리자에게는 행마다 직접 변경 버튼이 있다", async () => {
+  it("전체 관리자에게는 행마다 직접 변경 버튼이 있다", async () => {
     stubStudents({}, adminMe);
 
     renderRoutes(routes, "/teacher/student-history?tab=students");
@@ -581,7 +576,7 @@ describe("W13 학생 조회와 이력 탭", () => {
     );
   });
 
-  it("관리자의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+  it("관리자의 그룹 칸에 반이 없는 그룹도 나온다", async () => {
     stubStudents(
       {
         "GET /api/console/groups": {
@@ -618,12 +613,10 @@ describe("W13 학생 조회와 이력 탭", () => {
 
     expect(await screen.findByText("검색 결과 0명")).toBeTruthy();
     expect(
-      screen.getByText(
-        "찾는 학생이 없어요. 이름이나 학년그룹, 반을 바꿔 보세요",
-      ),
+      screen.getByText("찾는 학생이 없어요. 이름이나 학년, 반을 바꿔 보세요"),
     ).toBeTruthy();
     expect(
-      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+      screen.getByText("담임 선생님은 현재 반만, 전체 관리자는 전체가 보여요"),
     ).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
   });
@@ -635,7 +628,7 @@ describe("W13 학생 조회 필터", () => {
   const select = (label: string) =>
     screen.findByLabelText(label) as Promise<HTMLSelectElement>;
 
-  it("학년그룹을 고르기 전에는 반을 막고, 검색을 누르면 조건대로 다시 불러온다", async () => {
+  it("학년을 고르기 전에는 반을 막고, 검색을 누르면 조건대로 다시 불러온다", async () => {
     const FILTERED = query([
       ["grade", "고2"],
       ["classId", "c5"],
@@ -649,7 +642,7 @@ describe("W13 학생 조회 필터", () => {
       routes,
       "/teacher/student-history?tab=students",
     );
-    const grade = await select("학년그룹");
+    const grade = await select("학년");
     const klassSelect = await select("반");
     expect(klassSelect.disabled).toBe(true);
     expect(
@@ -684,7 +677,7 @@ describe("W13 학생 조회 필터", () => {
     );
   });
 
-  it("학년그룹을 바꾸면 고른 반을 비우고 그룹은 그 학년의 것만 보인다", async () => {
+  it("학년을 바꾸면 고른 반을 비우고 그룹은 그 학년의 것만 보인다", async () => {
     stubStudents({
       [CLASSES]: {
         body: {
@@ -696,7 +689,7 @@ describe("W13 학생 조회 필터", () => {
       },
     });
     renderRoutes(routes, "/teacher/student-history?tab=students");
-    const grade = await select("학년그룹");
+    const grade = await select("학년");
     const group = await select("그룹");
     const klassSelect = await select("반");
     expect(
@@ -760,9 +753,7 @@ describe("W13 뒤로 가기와 필터", () => {
       routes,
       "/teacher/student-history?tab=students&grade=고2",
     );
-    const grade = (await screen.findByLabelText(
-      "학년그룹",
-    )) as HTMLSelectElement;
+    const grade = (await screen.findByLabelText("학년")) as HTMLSelectElement;
     await screen.findByText("검색 결과 1명");
     fireEvent.change(grade, { target: { value: "고1" } });
     fireEvent.change(screen.getByPlaceholderText("이름 검색"), {
@@ -776,9 +767,9 @@ describe("W13 뒤로 가기와 필터", () => {
     await router.navigate(-1);
 
     await vi.waitFor(() =>
-      expect(
-        (screen.getByLabelText("학년그룹") as HTMLSelectElement).value,
-      ).toBe("고2"),
+      expect((screen.getByLabelText("학년") as HTMLSelectElement).value).toBe(
+        "고2",
+      ),
     );
     expect(
       (screen.getByPlaceholderText("이름 검색") as HTMLInputElement).value,
@@ -955,7 +946,7 @@ describe("W13a 학년도별 이력 창", () => {
     return screen.findByRole("dialog");
   };
 
-  it("학년도별 학년그룹, 반, 번호와 연결된 서비스를 보이고 코칭으로 보낸다", async () => {
+  it("학년도별 학년, 반, 번호와 연결된 서비스를 보이고 코칭으로 보낸다", async () => {
     stubStudents({ [HISTORY_DIALOG]: { body: historyBody() } });
     const { router } = renderRoutes(
       routes,
@@ -972,7 +963,7 @@ describe("W13a 학년도별 이력 창", () => {
         "연결된 서비스 데이터: 학습진단, 목표관리, 심화탐구(3/6). 학년이나 반이 바뀌어도 기록은 그대로 이어져요",
       ),
     ).toBeTruthy();
-    for (const head of ["학년도", "학년그룹, 그룹", "반", "번호"]) {
+    for (const head of ["학년도", "학년, 그룹", "반", "번호"]) {
       expect(
         within(dialog).getByRole("columnheader", { name: head }),
       ).toBeTruthy();
@@ -1084,7 +1075,7 @@ describe("W13b 학생 정보 직접 변경", () => {
       within(dialog).getByText("지금 2학년 3반 1번, 그룹 없음"),
     ).toBeTruthy();
     expect(
-      (within(dialog).getByLabelText("새 학년그룹") as HTMLSelectElement).value,
+      (within(dialog).getByLabelText("새 학년") as HTMLSelectElement).value,
     ).toBe("고2");
     expect(
       (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
@@ -1113,7 +1104,7 @@ describe("W13b 학생 정보 직접 변경", () => {
     ).toBeTruthy();
     expect(
       within(dialog).getByText(
-        "옮길 반에 담임이 없으면 안내만 하고 바로 반영해요",
+        "옮길 반에 담임 선생님이 없으면 안내만 하고 바로 반영해요",
       ),
     ).toBeTruthy();
     expect(saveButton(dialog).disabled).toBe(true);
@@ -1124,7 +1115,7 @@ describe("W13b 학생 정보 직접 변경", () => {
     expect(saveButton(dialog).disabled).toBe(true);
   });
 
-  describe("다학년 학급", () => {
+  describe("다학년 반", () => {
     const mixedClass = { ...klass("cm", "고2", "다"), grade: null };
     const withMixed = (enrollment: Record<string, unknown>) => ({
       [CLASSES]: {
@@ -1152,7 +1143,7 @@ describe("W13b 학생 정보 직접 변경", () => {
         .getAllByRole("option")
         .map((o) => o.textContent);
 
-    it("학년이 없는 학생에게는 학급을 하나도 보이지 않고 다학년 학급도 권하지 않는다", async () => {
+    it("학년이 없는 학생에게는 반을 하나도 보이지 않고 다학년 반도 권하지 않는다", async () => {
       const { dialog } = await openDirect(
         withMixed({
           grade: null,
@@ -1165,7 +1156,7 @@ describe("W13b 학생 정보 직접 변경", () => {
       expect(classOptions(dialog)).toEqual(["선택"]);
     });
 
-    it("다학년 학급의 학생이 학년만 고치면 고른 학급을 그대로 둔다", async () => {
+    it("다학년 반의 학생이 학년만 고치면 고른 반을 그대로 둔다", async () => {
       const { dialog } = await openDirect(
         withMixed({ classId: "cm", className: "다" }),
       );
@@ -1173,7 +1164,7 @@ describe("W13b 학생 정보 직접 변경", () => {
         (within(dialog).getByLabelText("새 반") as HTMLSelectElement).value,
       ).toBe("cm");
 
-      fireEvent.change(within(dialog).getByLabelText("새 학년그룹"), {
+      fireEvent.change(within(dialog).getByLabelText("새 학년"), {
         target: { value: "고1" },
       });
 
@@ -1182,10 +1173,10 @@ describe("W13b 학생 정보 직접 변경", () => {
       ).toBe("cm");
     });
 
-    it("학년 학급의 학생이 학년을 고치면 학급을 비운다", async () => {
+    it("학년 반의 학생이 학년을 고치면 반을 비운다", async () => {
       const { dialog } = await openDirect(withMixed({}));
 
-      fireEvent.change(within(dialog).getByLabelText("새 학년그룹"), {
+      fireEvent.change(within(dialog).getByLabelText("새 학년"), {
         target: { value: "고1" },
       });
 
@@ -1360,7 +1351,7 @@ describe("W13b 학생 정보 직접 변경", () => {
     );
   });
 
-  it("다음 학년도를 고르면 그 학년도의 학급으로 반을 다시 고르게 한다", async () => {
+  it("다음 학년도를 고르면 그 학년도의 반으로 반을 다시 고르게 한다", async () => {
     const { calls, dialog } = await openDirect({
       "GET /api/console/classes?year=2027": {
         body: { classes: [klass("n3", "고2", "3"), klass("n4", "고2", "4")] },
@@ -1414,14 +1405,14 @@ describe("W13 학생 조회 휴대폰", () => {
     expect(await screen.findByText("김서연")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByText("이용 서비스 수")).toBeTruthy();
-    expect(screen.getByText("학년그룹/반 이력")).toBeTruthy();
+    expect(screen.getByText("학년/반 이력")).toBeTruthy();
     expect(screen.getByText("6/6")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "직접 변경" })).toHaveLength(
       1,
     );
     expect(screen.getByText("1 / 2명")).toBeTruthy();
     expect(
-      screen.getByText("담임은 현재 반만, 관리자는 전교가 보여요"),
+      screen.getByText("담임 선생님은 현재 반만, 전체 관리자는 전체가 보여요"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
@@ -1484,8 +1475,8 @@ describe("W13 졸업생 탭", () => {
     for (const head of [
       "이름",
       "졸업 학년도",
-      "마지막 학년그룹/반/번호",
-      "학년그룹/반 이력",
+      "마지막 학년/반/번호",
+      "학년/반 이력",
     ]) {
       expect(screen.getByRole("columnheader", { name: head })).toBeTruthy();
     }
@@ -1495,9 +1486,7 @@ describe("W13 졸업생 탭", () => {
     expect(within(r).getByText("2025 3학년 1반 / 2024 2학년 2반")).toBeTruthy();
     expect(within(r).getByRole("button", { name: "이력 보기" })).toBeTruthy();
     expect(
-      screen.getByText(
-        "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.",
-      ),
+      screen.getByText("졸업생의 학년과 반 이력은 졸업 후 2년 동안 보관해요."),
     ).toBeTruthy();
     expect(screen.getByText("1 / 3 페이지, 1~50번째")).toBeTruthy();
   });
@@ -1508,9 +1497,7 @@ describe("W13 졸업생 탭", () => {
 
     expect(await screen.findByText("검색 결과 0명")).toBeTruthy();
     expect(
-      screen.getByText(
-        "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.",
-      ),
+      screen.getByText("졸업생의 학년과 반 이력은 졸업 후 2년 동안 보관해요."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "이력 보기" })).toBeNull();
     expect(screen.queryByRole("navigation", { name: "쪽 이동" })).toBeNull();
@@ -1579,7 +1566,7 @@ describe("W13 졸업생 탭", () => {
     expect(within(dialog).queryByText(/열람할 권한이 없습니다/)).toBeNull();
   });
 
-  it("담임은 졸업생 주소로 들어와도 승인 대기 탭이 열린다", async () => {
+  it("담임 선생님은 졸업생 주소로 들어와도 승인 대기 탭이 열린다", async () => {
     stubPage();
     renderRoutes(routes, "/teacher/student-history?tab=graduates");
 
@@ -1604,7 +1591,7 @@ describe("W13 졸업생 탭", () => {
 });
 
 describe("W13 졸업생 휴대폰", () => {
-  it("카드에 마지막 학급과 졸업 학년도를 보이고 이력 보기 버튼이 있다", async () => {
+  it("카드에 마지막 반과 졸업 학년도를 보이고 이력 보기 버튼이 있다", async () => {
     useMobileScreen();
     const url = (pairs: string[][]) =>
       `GET /api/console/graduates?${new URLSearchParams(pairs)}`;
@@ -1627,7 +1614,7 @@ describe("W13 졸업생 휴대폰", () => {
 
     expect(await screen.findByText("한예준")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.getByText("마지막 학급 3학년 1반 1번")).toBeTruthy();
+    expect(screen.getByText("마지막 반 3학년 1반 1번")).toBeTruthy();
     expect(screen.getByText("졸업 학년도", { selector: "span" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "이력 보기" })).toBeTruthy();
     expect(screen.getByText("1 / 3명")).toBeTruthy();

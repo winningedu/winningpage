@@ -4,6 +4,16 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
 
+const siteState = vi.hoisted(() => ({ brandName: "위닝에듀" }));
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    get site() {
+      return { ...actual.site, brandName: siteState.brandName };
+    },
+  };
+});
 const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock("@/lib/supabase", () => ({
   supabase: { auth: { getSession: mocks.getSession } },
@@ -89,22 +99,22 @@ describe("ImportSetupPage 머리와 그룹 목록", () => {
       await screen.findByRole("heading", { name: "학생불러오기-일괄설정" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("명단 엑셀 올리기, 학년그룹 일괄 변경, 그룹(레벨) 관리"),
+      screen.getByText("명단 엑셀 올리기, 학년도 전환, 그룹 관리"),
     ).toBeTruthy();
     expect(await screen.findByText("A레벨")).toBeTruthy();
     expect(screen.getByText("C레벨")).toBeTruthy();
     // 휴대폰 부제와 구역 제목
-    expect(screen.getAllByText("그룹(레벨) 관리")).toHaveLength(2);
+    expect(screen.getAllByText("그룹 관리")).toHaveLength(2);
     expect(
       screen.getByText(
-        "명단 엑셀 올리기와 학년그룹 일괄 변경은 PC나 태블릿에서 할 수 있어요",
+        "명단 엑셀 올리기와 학년도 전환은 PC나 태블릿에서 할 수 있어요",
       ),
     ).toBeTruthy();
   });
 });
 
 describe("ImportSetupPage 그룹 추가", () => {
-  const GROUP_LABEL = "그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)";
+  const GROUP_LABEL = "그룹(구분되어 있으면 입력, 없으면 빈칸)";
 
   it("이름을 넣고 추가하면 요청을 보내고 칸을 비우며 목록에 새 그룹이 보인다", async () => {
     const groups = [...GROUPS];
@@ -183,7 +193,7 @@ describe("ImportSetupPage 그룹 삭제", () => {
     expect(await screen.findByText("C레벨 그룹을 삭제할까요?")).toBeTruthy();
     expect(
       screen.getByText(
-        "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당학급배정, 필터의 보기에서 빠져요",
+        "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당반배정, 필터의 보기에서 빠져요",
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
@@ -220,12 +230,12 @@ describe("ImportSetupPage 그룹 삭제 막힘", () => {
   });
 });
 
-describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
+describe("ImportSetupPage ③ 학년도 전환", () => {
   it("진급 대상 줄, 양식 내려받기, 빈 입력칸의 미리보기 막힘을 보여준다", async () => {
     stubImport();
     renderRoutes(routes, "/teacher/import");
 
-    expect(await screen.findByText("③ 학년그룹 일괄 변경")).toBeTruthy();
+    expect(await screen.findByText("③ 학년도 전환")).toBeTruthy();
     expect(
       await screen.findByText(
         "진급 대상: 1학년 150명과 2학년 150명은 학년 +1, 3학년 150명은 졸업 처리",
@@ -268,7 +278,7 @@ describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
     const textarea = (await screen.findByPlaceholderText(
       "변경할 명단을 붙여넣으세요",
     )) as HTMLTextAreaElement;
-    await screen.findByText("③ 학년그룹 일괄 변경");
+    await screen.findByText("③ 학년도 전환");
     expect(textarea.disabled).toBe(false);
     fireEvent.change(textarea, { target: { value: "김하늘" } });
     expect(
@@ -284,7 +294,7 @@ describe("ImportSetupPage ③ 학년그룹 일괄 변경", () => {
     renderRoutes(routes, "/teacher/import");
 
     const warning = await screen.findByText(
-      "(주의) 신규학급 이외는 기존의 학생명단이 변경될수 있어 업로드 실행시 주의가 필요합니다",
+      "(주의) 신규반 이외는 기존의 학생명단이 변경될수 있어 업로드 실행시 주의가 필요합니다",
     );
     expect(warning.className).toContain("text-ink-danger");
   });
@@ -363,8 +373,8 @@ describe("ImportSetupPage 미리보기", () => {
     );
     for (const header of [
       "이름",
-      "기존 학년그룹, 그룹, 반, 번호",
-      "새 학년그룹, 그룹, 반, 번호",
+      "기존 학년, 그룹, 반, 번호",
+      "새 학년, 그룹, 반, 번호",
       "결과",
     ]) {
       expect(screen.getByRole("columnheader", { name: header })).toBeTruthy();
@@ -379,7 +389,7 @@ describe("ImportSetupPage 미리보기", () => {
     expect(screen.getAllByText("새 반과 번호 확인").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "결과 종류: 반영, 반 변경, 미회원가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨)",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
@@ -431,7 +441,7 @@ describe("ImportSetupPage 미리보기 학원", () => {
     expect(screen.queryByText("3학년은 졸업 처리 대상")).toBeNull();
     expect(
       screen.getByText(
-        "결과 종류: 반영, 반 변경, 미회원가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨)",
       ),
     ).toBeTruthy();
   });
@@ -575,15 +585,13 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     const calls = await previewIt();
 
     fireEvent.click(await screen.findByRole("button", { name: "적용" }));
-    expect(
-      await screen.findByText("학년그룹 일괄 변경을 적용할까요?"),
-    ).toBeTruthy();
+    expect(await screen.findByText("학년도 전환을 적용할까요?")).toBeTruthy();
     expect(screen.getByText("졸업 처리 대상")).toBeTruthy();
     expect(screen.getByText("150명")).toBeTruthy();
     expect(screen.getByText("학년 +1 대상")).toBeTruthy();
     expect(screen.getByText("300명")).toBeTruthy();
     expect(
-      screen.getByText("반 배정 대기(명단에 없거나 반과 번호를 비운 학생)"),
+      screen.getByText("미배정(명단에 없거나 반과 번호를 비운 학생)"),
     ).toBeTruthy();
     expect(screen.getByText("3명")).toBeTruthy();
     expect(
@@ -592,7 +600,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
     await waitFor(() =>
-      expect(screen.queryByText("학년그룹 일괄 변경을 적용할까요?")).toBeNull(),
+      expect(screen.queryByText("학년도 전환을 적용할까요?")).toBeNull(),
     );
     expect(screen.getByRole("table")).toBeTruthy();
     expect(
@@ -621,7 +629,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
 
     expect(
       await screen.findByText(
-        "학년그룹 일괄 변경을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요. 미회원가입 4명은 학생 목록에 저장했어요, 학년이나 반을 알 수 없는 1명은 저장하지 못했어요",
+        "학년도 전환을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요. 미가입 4명은 학생 목록에 저장했어요, 학년이나 반을 알 수 없는 1명은 저장하지 못했어요",
       ),
     ).toBeTruthy();
     expect(
@@ -667,7 +675,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
         "이미 학년도 전환이 끝났어요. 명단을 다시 미리보기해 주세요",
       ),
     ).toBeTruthy();
-    expect(screen.queryByText(/학년그룹 일괄 변경을 적용했어요/)).toBeNull();
+    expect(screen.queryByText(/학년도 전환을 적용했어요/)).toBeNull();
   });
 
   it("적용이 실패하면 창을 열어 둔 채 서버 문구를 토스트로 보인다", async () => {
@@ -684,7 +692,7 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     fireEvent.click(await screen.findByRole("button", { name: "확인" }));
 
     expect(await screen.findByText("이미 사용 중인 번호예요.")).toBeTruthy();
-    expect(screen.getByText("학년그룹 일괄 변경을 적용할까요?")).toBeTruthy();
+    expect(screen.getByText("학년도 전환을 적용할까요?")).toBeTruthy();
   });
 });
 
@@ -736,7 +744,7 @@ describe("ImportSetupPage 학기 중 적용", () => {
     ) as HTMLElement;
     expect(within(changed).getByText("반 변경")).toBeTruthy();
     expect(
-      within(changed).getByText("새 반에 담임 없음(안내만, 반영됨)"),
+      within(changed).getByText("새 반에 담임 선생님 없음(안내만, 반영됨)"),
     ).toBeTruthy();
     expect(
       screen.getByText(/학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요/),
@@ -771,7 +779,7 @@ describe("ImportSetupPage 학기 중 적용", () => {
     fireEvent.click(await screen.findByRole("button", { name: "확인" }));
 
     const toast = await screen.findByText(
-      "명단을 적용했어요. 그룹, 반, 번호 변경 2명. 미회원가입 1명은 학생 목록에 저장했어요",
+      "명단을 적용했어요. 그룹, 반, 번호 변경 2명. 미가입 1명은 학생 목록에 저장했어요",
     );
     expect(toast.textContent).not.toMatch(/학년 \+1|졸업/);
     expect(
@@ -930,7 +938,7 @@ describe("ImportSetupPage 휴대폰", () => {
 
     expect(await screen.findByText("A레벨")).toBeTruthy();
     expect(screen.queryByText("① 명단 엑셀 올리기")).toBeNull();
-    expect(screen.queryByText("③ 학년그룹 일괄 변경")).toBeNull();
+    expect(screen.queryByText("③ 학년도 전환")).toBeNull();
     expect(calls.some((c) => c.key === "GET /api/console/school-year")).toBe(
       false,
     );
@@ -938,7 +946,7 @@ describe("ImportSetupPage 휴대폰", () => {
 });
 
 describe("ImportSetupPage 권한 없음", () => {
-  it("담임이 열면 리다이렉트 없이 안내를 보이고 학생 관리로 보낸다", async () => {
+  it("담임 선생님이 열면 리다이렉트 없이 안내를 보이고 학생 관리로 보낸다", async () => {
     stubApi({
       "GET /api/console/me": { body: homeroomMe },
       "GET /api/console/enrollment-requests/count": { body: { count: 0 } },
@@ -963,10 +971,10 @@ describe("ImportSetupPage 권한 없음", () => {
     );
 
     expect(
-      await screen.findByText("이 메뉴는 학교 전체 관리자만 쓸 수 있어요"),
+      await screen.findByText("이 메뉴는 전체 관리자만 쓸 수 있어요"),
     ).toBeTruthy();
     expect(
-      screen.getByText("담당 학급 관리는 학생 관리에서 할 수 있어요"),
+      screen.getByText("담당 반 관리는 학생 관리에서 할 수 있어요"),
     ).toBeTruthy();
     expect(router.state.location.pathname).toBe("/teacher/import");
     fireEvent.click(screen.getByRole("button", { name: "학생 관리로 가기" }));
@@ -1011,21 +1019,24 @@ describe("ImportSetupPage 학기 중의 ① 올리기", () => {
 });
 
 describe("ImportSetupPage 샘플 파일 이름", () => {
-  it("두 양식 링크가 정한 파일 이름으로 내려받게 하고 주소는 그대로 둔다", async () => {
-    stubImport();
-    renderRoutes(routes, "/teacher/import");
+  it.each([["위닝에듀"], ["스쿨멘토"]])(
+    "두 양식 링크가 사이트 이름(%s)으로 시작하는 파일 이름으로 내려받게 하고 주소는 그대로 둔다",
+    async (brandName) => {
+      siteState.brandName = brandName;
+      stubImport();
+      renderRoutes(routes, "/teacher/import");
 
-    expect(await screen.findByText("③ 학년그룹 일괄 변경")).toBeTruthy();
-    const links = screen.getAllByRole("link", { name: "샘플 엑셀 양식" });
-    const byHref = Object.fromEntries(
-      links.map((l) => [l.getAttribute("href"), l.getAttribute("download")]),
-    );
-    expect(byHref).toEqual({
-      "/templates/student-roster.xlsx": "스쿨멘토_학생불러오기_샘플.xlsx",
-      "/templates/grade-bulk-change.xlsx":
-        "스쿨멘토_학년그룹일괄변경_샘플.xlsx",
-    });
-  });
+      expect(await screen.findByText("③ 학년도 전환")).toBeTruthy();
+      const links = screen.getAllByRole("link", { name: "샘플 엑셀 양식" });
+      const byHref = Object.fromEntries(
+        links.map((l) => [l.getAttribute("href"), l.getAttribute("download")]),
+      );
+      expect(byHref).toEqual({
+        "/templates/student-roster.xlsx": `${brandName}_학생불러오기_샘플.xlsx`,
+        "/templates/grade-bulk-change.xlsx": `${brandName}_학년도전환_샘플.xlsx`,
+      });
+    },
+  );
 });
 
 describe("ImportSetupPage 목록 불러오기 실패 안내", () => {

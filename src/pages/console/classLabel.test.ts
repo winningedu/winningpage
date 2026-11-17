@@ -31,7 +31,7 @@ describe("gradeLabel", () => {
     expect(gradeLabel("mixed", true)).toBe("다학년");
   });
 
-  test("학년이 없는 학급은 다학년이다", () => {
+  test("학년이 없는 반은 다학년이다", () => {
     expect(gradeLabel(null, true)).toBe("다학년");
     expect(gradeLabel(null, false)).toBe("다학년");
   });
@@ -62,7 +62,7 @@ describe("classLabel", () => {
 });
 
 describe("sortClasses", () => {
-  test("다학년 학급은 학년이 있는 학급 뒤에 온다", () => {
+  test("다학년 반은 학년이 있는 반 뒤에 온다", () => {
     const sorted = sortClasses([
       cls({ id: "m", grade: null, name: "1" }),
       cls({ id: "b", grade: "고3", name: "1" }),

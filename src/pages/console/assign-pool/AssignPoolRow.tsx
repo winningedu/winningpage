@@ -28,7 +28,7 @@ import { useGradeLabel } from "../useConsoleMe";
 import { CONSOLE_LIST_KEY } from "../usePagedList";
 import type { PoolStudent } from "./types";
 
-const ALREADY_ASSIGNED_MESSAGE = "이미 학급이 정해져 있어요.";
+const ALREADY_ASSIGNED_MESSAGE = "이미 반이 정해져 있어요.";
 
 function CellSelect({
   label,
@@ -149,10 +149,10 @@ export default function AssignPoolRow({
 
   const gradeSelect = (
     <CellSelect
-      label="학년그룹 선택"
+      label="학년 선택"
       value={grade}
       options={[
-        { value: "", label: "학년그룹 선택" },
+        { value: "", label: "학년 선택" },
         ...studentGradesOf(classes).map((g) => ({
           value: g,
           label: gradeLabel(g),
@@ -255,7 +255,7 @@ export default function AssignPoolRow({
           </button>
           {error}
         </div>
-        {field("학년그룹", gradeSelect)}
+        {field("학년", gradeSelect)}
         {field("그룹", groupSelect)}
         {field("반", classSelect)}
         {field("번호", numberInput)}

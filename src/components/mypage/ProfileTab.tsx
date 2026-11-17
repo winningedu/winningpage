@@ -393,7 +393,7 @@ export default function ProfileTab({
     if (error) {
       console.error("연결코드 재발급 실패:", error);
       setErrorMsg(
-        "연결코드 재발급에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        `${site.features.studentEnrollment ? "학생 고유코드" : "연결코드"} 재발급에 실패했습니다. 잠시 후 다시 시도해 주세요.`,
       );
       return;
     }

@@ -91,11 +91,11 @@ export function validateOverrideEdits(
 }
 
 const OUTSIDE_PERIOD =
-  "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.";
+  "지금은 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.";
 
 const DENY_LABELS: Record<string, string> = {
   catch_all: "소속코드를 입력하면 서비스를 이용할 수 있어요.",
-  disabled: "소속 기관에서 제공하지 않는 서비스예요.",
+  disabled: "기관에서 제공하지 않는 서비스예요.",
   outside_period: OUTSIDE_PERIOD,
   grace: OUTSIDE_PERIOD,
   month_cap:

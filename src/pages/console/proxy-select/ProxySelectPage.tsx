@@ -111,35 +111,35 @@ export default function ProxySelectPage() {
       >
         <div className="flex flex-col gap-2">
           <h1 className="text-app-title font-bold text-ink-strong">
-            대행할 학교 고르기
+            대행할 기관 고르기
           </h1>
           <p className="text-app-body text-ink-sub">
-            학교를 고르고 대행 사유를 하나 골라 주세요.
+            기관를 고르고 대행 사유를 하나 골라 주세요.
           </p>
         </div>
 
         {switchFailed && (
           <Notice tone="Danger">
-            학교를 바꾸지 못했어요. 대행이 끝났으니 학교를 다시 골라 주세요
+            기관를 바꾸지 못했어요. 대행이 끝났으니 기관를 다시 골라 주세요
           </Notice>
         )}
 
         <TextField
-          label="학교 검색"
-          placeholder="학교 이름이나 소속코드를 입력하세요"
+          label="기관 검색"
+          placeholder="기관 이름이나 소속코드를 입력하세요"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
 
         {tenants.isError && (
           <Notice tone="Danger">
-            학교 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
+            기관 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요
           </Notice>
         )}
         {tenants.data && (
           <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
             {shown.length === 0 ? (
-              <EmptyMessage body="찾는 학교가 없어요. 이름이나 소속코드를 바꿔 보세요" />
+              <EmptyMessage body="찾는 기관가 없어요. 이름이나 소속코드를 바꿔 보세요" />
             ) : (
               shown.map((t) => (
                 <TenantRow

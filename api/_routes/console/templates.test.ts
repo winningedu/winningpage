@@ -23,11 +23,11 @@ describe("W11 sample templates", () => {
 
     expect(header).toEqual([
       "이름",
-      "기존 학년그룹",
+      "기존 학년",
       "그룹",
       "반",
       "번호",
-      "새 학년그룹",
+      "새 학년",
       "그룹",
       "반",
       "번호",

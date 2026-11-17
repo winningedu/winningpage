@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { formatKRW, SERVICE_NOTICES } from "@/data/pricingCatalog";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { fetchEntitlement } from "@/lib/entitlement";
-import { getApprovedParentLink } from "@/lib/parentLink";
+import { getApprovedParentLink, linkCodeLabel } from "@/lib/parentLink";
 import {
   filterOrgProducts,
   useMatchedTenantIds,
@@ -66,11 +66,11 @@ const SINGLE_PLAN_NOTICE =
 
 // 학부모 미연결 실패 모달(시안 3921:7480) 본문 — 시안 원문 그대로(3줄 줄바꿈
 // 유지). 제목의 시안 오타 "실패했습니다.," → "실패했습니다."로 정정(사용자 확정).
-const FAIL_MODAL_BODY = (
+const failModalBody = () => (
   <>
     아직 연결된 학부모 계정이 없어요.
     <br />
-    마이페이지에 있는 내 연결코드를
+    마이페이지에 있는 내 {linkCodeLabel()}를
     <br />
     학부모님께 알려드리면 결제 요청을 보낼 수 있어요.
   </>
@@ -553,7 +553,7 @@ export default function StudentEnrollmentRequest() {
           title="결제요청에 실패했습니다."
           onClose={() => setShowFailModal(false)}
         >
-          {FAIL_MODAL_BODY}
+          {failModalBody()}
         </ConfirmModal>
       )}
 

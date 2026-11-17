@@ -27,9 +27,14 @@ import {
   sendQaBlocked,
 } from "../_lib/qaAccount.js";
 import { getBearerToken } from "../_lib/serviceAccess.js";
+import { isSchoolmentorSite } from "../_lib/site.js";
 import type { createSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 
 export const config = { runtime: "nodejs" };
+
+// 스쿨멘토는 학생 화면에서 이 코드를 "학생 고유코드"라 부른다. 화면에 그대로 나가는 문구라
+// 요청 시점에 사이트를 보고 정한다.
+const codeLabel = () => (isSchoolmentorSite() ? "학생 고유코드" : "연결코드");
 
 const CODE_PATTERN = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
 
@@ -76,7 +81,7 @@ export default defineHandler({
   // 공유 getBearerToken을 쓴다(api/docs/batch-3-issues.md 참고).
   auth: "none",
   errorShape: "okDetail",
-  unhandledMessage: "연결코드 조회 중 오류가 발생했습니다.",
+  unhandledMessage: "코드 조회 중 오류가 발생했습니다.",
   logLabel: "lookup-child",
   handler: async (req, res, ctx) => {
     // 입력 코드는 대문자로만 저장되므로 소문자 입력도 받아준다.
@@ -128,7 +133,7 @@ export default defineHandler({
         return void res.status(400).json({
           ok: false,
           reason: "invalid_code_format",
-          detail: "연결코드 6자리를 정확히 입력해 주세요.",
+          detail: `${codeLabel()} 6자리를 정확히 입력해 주세요.`,
         });
       }
 
@@ -175,7 +180,7 @@ export default defineHandler({
         return void res.status(404).json({
           ok: false,
           reason: "link_code_not_found",
-          detail: "일치하는 연결코드가 없습니다.",
+          detail: `일치하는 ${codeLabel()}가 없습니다.`,
         });
       }
 
@@ -223,7 +228,7 @@ export default defineHandler({
       return void res.status(500).json({
         ok: false,
         reason: "unknown",
-        detail: "연결코드 조회 중 오류가 발생했습니다.",
+        detail: `${codeLabel()} 조회 중 오류가 발생했습니다.`,
       });
     }
   },

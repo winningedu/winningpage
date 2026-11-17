@@ -14,6 +14,7 @@
 //   (api/_routes/lookup-child.js 주석). 그래서 학부모 가입 직후 세션을 유지해야 한다 —
 //   가입 후 signOut 하면 이 화면에서 not_authenticated로 떨어진다.
 
+import { site } from "../config/site";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { QA_ACCOUNT_MESSAGE } from "./qaAccount";
 import { supabase } from "./supabase";
@@ -45,12 +46,17 @@ export function findImpossibleChars(code: unknown) {
   ];
 }
 
-const MESSAGES: Record<string, string> = {
+// 학생 화면(ProfileTab)과 같은 이름을 쓴다: 학생 등록 사이트는 학생 고유코드.
+// 렌더, 호출 시점에 읽어야 해서 상수가 아니라 함수다.
+export const linkCodeLabel = () =>
+  site.features.studentEnrollment ? "학생 고유코드" : "연결코드";
+
+const messages = (): Record<string, string> => ({
   not_authenticated: "로그인이 필요합니다. 다시 로그인해 주세요.",
   not_a_parent: "학부모 회원만 이용할 수 있습니다.",
-  invalid_code_format: "연결코드 6자리를 정확히 입력해 주세요.",
-  link_code_not_found: "일치하는 연결코드를 찾을 수 없습니다",
-  cannot_link_self: "본인의 연결코드는 사용할 수 없습니다.",
+  invalid_code_format: `${linkCodeLabel()} 6자리를 정확히 입력해 주세요.`,
+  link_code_not_found: `일치하는 ${linkCodeLabel()}를 찾을 수 없습니다`,
+  cannot_link_self: `본인의 ${linkCodeLabel()}는 사용할 수 없습니다.`,
   student_already_linked: "이미 다른 보호자와 연결된 학생이에요.",
   link_already_requested:
     "이미 연결을 요청했어요. 자녀의 승인을 기다려 주세요.",
@@ -58,7 +64,7 @@ const MESSAGES: Record<string, string> = {
   too_many_failed_lookups: "조회 실패가 많습니다. 잠시 후 다시 시도해 주세요.",
   network: "연결 상태를 확인한 뒤 다시 시도해 주세요.",
   unknown: "잠시 후 다시 시도해 주세요.",
-};
+});
 
 type ParentLinkFail = { ok: false; reason: string; message: string };
 
@@ -107,8 +113,8 @@ function fail(reason: string, detail?: string): ParentLinkFail {
   return {
     ok: false,
     reason,
-    // MESSAGES.unknown 키는 항상 정의돼 있는 최종 폴백.
-    message: detail || MESSAGES[reason] || MESSAGES.unknown!,
+    // messages().unknown 키는 항상 정의돼 있는 최종 폴백.
+    message: detail || messages()[reason] || messages().unknown!,
   };
 }
 
@@ -185,7 +191,7 @@ export async function requestParentLink(
     const raw = String(error.message || "").trim();
     // QA 계정 보호(WC103)의 안내 문구는 그대로 보여 준다.
     if (raw === QA_ACCOUNT_MESSAGE) return fail("qa_restricted", raw);
-    return fail(raw in MESSAGES ? raw : "unknown");
+    return fail(raw in messages() ? raw : "unknown");
   }
 
   // 생성 타입은 RPC 반환을 Json으로만 표현한다 — 실제 payload 모양은

@@ -44,13 +44,13 @@ export interface PreviewRow {
 const RESULTS: Record<PreviewResult, { label: string; tone: ChipTone }> = {
   applied: { label: "반영", tone: "Success" },
   class_changed: { label: "반 변경", tone: "Warning" },
-  student_not_found: { label: "미회원가입", tone: "Danger" },
+  student_not_found: { label: "미가입", tone: "Danger" },
   graduating: { label: "3학년은 졸업 처리 대상", tone: "Warning" },
   check_target: { label: "새 반과 번호 확인", tone: "Warning" },
   duplicate_target: { label: "같은 새 반과 번호가 중복", tone: "Danger" },
   same_name: { label: "같은 이름이 2명 이상(사람이 확인)", tone: "Danger" },
   no_homeroom: {
-    label: "새 반에 담임 없음(안내만, 반영됨)",
+    label: "새 반에 담임 선생님 없음(안내만, 반영됨)",
     tone: "Warning",
   },
 };
@@ -85,8 +85,8 @@ export default function RolloverPreviewTable({ rows }: { rows: PreviewRow[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>이름</TableHead>
-          <TableHead>기존 학년그룹, 그룹, 반, 번호</TableHead>
-          <TableHead>새 학년그룹, 그룹, 반, 번호</TableHead>
+          <TableHead>기존 학년, 그룹, 반, 번호</TableHead>
+          <TableHead>새 학년, 그룹, 반, 번호</TableHead>
           <TableHead>결과</TableHead>
         </TableRow>
       </TableHeader>

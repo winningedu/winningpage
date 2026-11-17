@@ -72,7 +72,7 @@ export function Narrative({ data }: { data: Coaching }) {
       <Bullets title="학습방법" items={text.studyMethods} />
       <div className="flex flex-col gap-1 text-app-caption text-ink-sub">
         <p>
-          서비스 이용 데이터로 자동 구성한 상담 참고안이며 교사 판단으로 보완.
+          서비스 이용 데이터로 자동 구성한 상담 참고안이며 선생님 판단으로 보완.
         </p>
         <p>학교생활기록부 기재 문구가 아닙니다</p>
       </div>

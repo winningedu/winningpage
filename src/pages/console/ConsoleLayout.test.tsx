@@ -85,7 +85,7 @@ afterEach(() => {
 });
 
 describe("ConsoleLayout 본문", () => {
-  it("담임은 사이드바 메뉴, 빵부스러기(기관, 학년, 반), 화면 제목을 본다", async () => {
+  it("담임 선생님은 사이드바 메뉴, 빵부스러기(기관, 학년, 반), 화면 제목을 본다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe }, ...countOk });
 
     renderRoutes(routes, "/teacher/my");
@@ -104,10 +104,10 @@ describe("ConsoleLayout 본문", () => {
     expect(
       within(aside).getByRole("link", { name: "마이페이지" }),
     ).toBeTruthy();
-    expect(within(aside).queryByText("교육기관관리")).toBeNull();
+    expect(within(aside).queryByText("기관 관리")).toBeNull();
   });
 
-  it("학교 전체 관리자의 빵부스러기는 기관과 전체다", async () => {
+  it("전체 관리자의 빵부스러기는 기관과 전체다", async () => {
     stubApi({ "GET /api/console/me": { body: adminMe }, ...countOk });
 
     renderRoutes(routes, "/teacher/my");
@@ -194,7 +194,7 @@ describe("ConsoleLayout 서랍", () => {
 });
 
 describe("ConsoleLayout 본사 대행 띠", () => {
-  it("대행 중이면 기관명 띠를 보이고 종료를 누르면 대행 종료 후 학교 고르기로 보낸다", async () => {
+  it("대행 중이면 기관명 띠를 보이고 종료를 누르면 대행 종료 후 기관 고르기로 보낸다", async () => {
     const calls = stubApi({
       "GET /api/console/me": { body: proxyMe },
       "POST /api/console/proxy/end": { body: { ok: true, ended: true } },
@@ -224,7 +224,7 @@ describe("ConsoleLayout 본사 대행 띠", () => {
     expect(screen.queryByText(/본사 대행 중/)).toBeNull();
   });
 
-  it("대행 만료 시각이 지나면 학교 고르기로 보낸다", async () => {
+  it("대행 만료 시각이 지나면 기관 고르기로 보낸다", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     vi.setSystemTime(new Date("2026-11-05T00:00:00Z"));
     stubApi({
@@ -293,7 +293,7 @@ describe("ConsoleLayout 토스트와 준비 중 화면", () => {
     expect(screen.getByText("이 화면은 곧 열려요")).toBeTruthy();
   });
 
-  it("담임이 관리자 전용 화면 주소로 들어오면 대시보드로 돌려보낸다", async () => {
+  it("담임 선생님이 관리자 전용 화면 주소로 들어오면 대시보드로 돌려보낸다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe }, ...countOk });
 
     const { router } = renderRoutes(routes, "/teacher/accounts");

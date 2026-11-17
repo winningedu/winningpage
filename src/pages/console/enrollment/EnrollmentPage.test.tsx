@@ -65,7 +65,7 @@ const classRow = (over: Record<string, unknown> = {}) => ({
   grade: "고1",
   groupName: null,
   className: "1",
-  homeroomName: "김담임",
+  homeroomName: "김담임 선생님",
   total: 30,
   pendingCount: 3,
   capacity: 32,
@@ -128,7 +128,7 @@ const manyClasses = (n: number) =>
     classRow({
       classId: `m${i}`,
       className: `${i + 1}`,
-      homeroomName: `담임${i + 1}`,
+      homeroomName: `담임 선생님${i + 1}`,
     }),
   );
 
@@ -145,22 +145,22 @@ afterEach(() => {
 });
 
 describe("W7 이용현황", () => {
-  it("학교 전체 이용 학생 요약, 정원 기준 가입률, 반별 표를 보여 준다", async () => {
+  it("전체 이용 학생 요약, 정원 기준 가입률, 반별 표를 보여 준다", async () => {
     stubPage();
 
     renderRoutes(routes, "/teacher/enrollment");
 
     expect(
-      await screen.findByText("집계 기준: 학교 전체, 2026.11.05 기준"),
+      await screen.findByText("집계 기준: 전체, 2026.11.05 기준"),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "이용현황" })).toBeTruthy();
     const donut = screen.getByRole("region", { name: "서비스 이용 학생" });
     expect(within(donut).getByText("57 / 61명")).toBeTruthy();
     expect(within(donut).getByText("93%")).toBeTruthy();
-    expect(within(donut).getByText("학교 전체 가입률 94%")).toBeTruthy();
+    expect(within(donut).getByText("전체 가입률 94%")).toBeTruthy();
     expect(within(donut).getByText("정원 미입력 반 1개는 제외")).toBeTruthy();
 
-    const first = screen.getByRole("row", { name: /김담임/ });
+    const first = screen.getByRole("row", { name: /김담임 선생님/ });
     expect(within(first).getByText("1학년")).toBeTruthy();
     expect(within(first).getByText("1반")).toBeTruthy();
     expect(within(first).getByText("30 / 32")).toBeTruthy();
@@ -168,7 +168,7 @@ describe("W7 이용현황", () => {
     expect(within(first).getByText("28명 (93%)")).toBeTruthy();
     expect(within(first).getByText("57%")).toBeTruthy();
 
-    const second = screen.getByRole("row", { name: /담임 미배정/ });
+    const second = screen.getByRole("row", { name: /담임 선생님 없음/ });
     expect(within(second).getByText("31")).toBeTruthy();
   });
 
@@ -186,7 +186,7 @@ describe("W7 이용현황", () => {
 
     renderRoutes(routes, "/teacher/enrollment");
 
-    const first = await screen.findByRole("row", { name: /김담임/ });
+    const first = await screen.findByRole("row", { name: /김담임 선생님/ });
     const headers = screen
       .getAllByRole("columnheader")
       .map((h) => h.textContent);
@@ -218,7 +218,7 @@ describe("W7 이용현황", () => {
 
     renderRoutes(routes, "/teacher/enrollment");
 
-    const row = await screen.findByRole("row", { name: /김담임/ });
+    const row = await screen.findByRole("row", { name: /김담임 선생님/ });
     const href = within(row)
       .getByRole("link", { name: "4" })
       .getAttribute("href");
@@ -231,7 +231,7 @@ describe("W7 이용현황", () => {
     });
   });
 
-  it("학년그룹을 고르면 요약과 표가 그 범위로 줄고, 반은 학년그룹을 고른 뒤에만 고를 수 있다", async () => {
+  it("학년을 고르면 요약과 표가 그 범위로 줄고, 반은 학년을 고른 뒤에만 고를 수 있다", async () => {
     stubPage({
       [SUMMARY_URL]: {
         body: {
@@ -242,7 +242,7 @@ describe("W7 이용현황", () => {
               classId: "c3",
               grade: "고2",
               className: "1",
-              homeroomName: "유담임",
+              homeroomName: "유담임 선생님",
               total: 20,
               capacity: null,
               joined: 10,
@@ -253,16 +253,16 @@ describe("W7 이용현황", () => {
       },
     });
     renderRoutes(routes, "/teacher/enrollment");
-    await screen.findByText("유담임");
+    await screen.findByText("유담임 선생님");
     const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
     expect(classSelect.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
 
-    expect(screen.queryByText("김담임")).toBeNull();
-    expect(screen.getByText("유담임")).toBeTruthy();
+    expect(screen.queryByText("김담임 선생님")).toBeNull();
+    expect(screen.getByText("유담임 선생님")).toBeTruthy();
     expect(
       await screen.findByText("집계 기준: 2학년, 2026.11.05 기준"),
     ).toBeTruthy();
@@ -281,7 +281,7 @@ describe("W7 이용현황", () => {
     ).toBeTruthy();
   });
 
-  it("학원은 학년그룹을 학년 칸에 같이 적고 집계 기준을 학원 전체로 쓴다", async () => {
+  it("학원은 학년을 학년 칸에 같이 적고 집계 기준을 전체로 쓴다", async () => {
     stubPage({
       [SUMMARY_URL]: {
         body: {
@@ -303,7 +303,7 @@ describe("W7 이용현황", () => {
     renderRoutes(routes, "/teacher/enrollment");
 
     expect(
-      await screen.findByText("집계 기준: 학원 전체, 2026.11.05 기준"),
+      await screen.findByText("집계 기준: 전체, 2026.11.05 기준"),
     ).toBeTruthy();
     const academy = screen.getByRole("row", { name: /서지안/ });
     expect(within(academy).getByText("1학년-A레벨")).toBeTruthy();
@@ -332,7 +332,7 @@ describe("W7 이용현황", () => {
 
     renderRoutes(routes, "/teacher/enrollment");
 
-    const row = await screen.findByRole("row", { name: /김담임/ });
+    const row = await screen.findByRole("row", { name: /김담임 선생님/ });
     expect(within(row).getByRole("link", { name: "3" })).toBeTruthy();
     expect(within(row).getAllByText("0명 (0%)")).toHaveLength(6);
     expect(screen.queryByText(/조회 범위에 학생이 없어요/)).toBeNull();
@@ -364,13 +364,13 @@ describe("W7 이용현황", () => {
 
     expect(
       await screen.findByText(
-        "조회 범위에 학생이 없어요. 학년그룹이나 반을 바꿔 보세요",
+        "조회 범위에 학생이 없어요. 학년이나 반을 바꿔 보세요",
       ),
     ).toBeTruthy();
     const donut = screen.getByRole("region", { name: "서비스 이용 학생" });
     expect(within(donut).getByText("0 / 0명")).toBeTruthy();
-    expect(screen.queryByRole("row", { name: /김담임/ })).toBeNull();
-    expect(screen.getByText("총 1개 학급")).toBeTruthy();
+    expect(screen.queryByRole("row", { name: /김담임 선생님/ })).toBeNull();
+    expect(screen.getByText("총 1개 반")).toBeTruthy();
   });
 
   it("정원 입력에서 바꾼 반만 저장하고, 저장하면 알림을 보이고 입력을 닫고 다시 읽는다", async () => {
@@ -481,11 +481,13 @@ describe("W7 이용현황", () => {
 
     await waitFor(() => expect(mocks.writeFile).toHaveBeenCalledTimes(1));
     expect(mocks.writeFile.mock.calls[0]?.[1]).toBe(
-      "스쿨멘토_이용현황_20261105.xlsx",
+      "위닝에듀_이용현황_20261105.xlsx",
     );
     const grid = mocks.aoaToSheet.mock.calls[0]?.[0] as unknown[][];
     expect(grid[0]).toEqual(["이용현황"]);
-    expect(grid.some((r) => r[0] === "김담임" && r[3] === 30)).toBe(true);
+    expect(grid.some((r) => r[0] === "김담임 선생님" && r[3] === 30)).toBe(
+      true,
+    );
     expect(
       calls.find((c) => c.key === "POST /api/console/enrollment/export")?.body,
     ).toEqual({ classCount: 2 });
@@ -538,12 +540,12 @@ describe("W7 이용현황", () => {
     renderRoutes(routes, "/teacher/enrollment");
 
     expect(await screen.findByText("1 / 2 페이지, 1~50번째")).toBeTruthy();
-    expect(screen.queryByText("담임51")).toBeNull();
+    expect(screen.queryByText("담임 선생님51")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
-    expect(screen.getByText("담임51")).toBeTruthy();
-    expect(screen.queryByText("담임1")).toBeNull();
+    expect(screen.getByText("담임 선생님51")).toBeTruthy();
+    expect(screen.queryByText("담임 선생님1")).toBeNull();
   });
 
   it("휴대폰은 표 대신 반 카드를 그리고, 20개씩 더 보기로 잇는다", async () => {
@@ -553,18 +555,18 @@ describe("W7 이용현황", () => {
     });
     renderRoutes(routes, "/teacher/enrollment");
 
-    await screen.findByText("담임1");
+    await screen.findByText("담임 선생님1");
     expect(screen.queryByRole("table")).toBeNull();
-    const card = screen.getByRole("article", { name: "담임1" });
+    const card = screen.getByRole("article", { name: "담임 선생님1" });
     expect(within(card).getByText("1학년 1반")).toBeTruthy();
     expect(within(card).getByText("28 / 30")).toBeTruthy();
     expect(within(card).getByText("28명 (93%)")).toBeTruthy();
-    expect(screen.queryByText("담임21")).toBeNull();
+    expect(screen.queryByText("담임 선생님21")).toBeNull();
     expect(screen.getByText("20 / 25반")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "더 보기" }));
 
-    expect(screen.getByText("담임25")).toBeTruthy();
+    expect(screen.getByText("담임 선생님25")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "더 보기" })).toBeNull();
   });
 
@@ -574,7 +576,7 @@ describe("W7 이용현황", () => {
 
     renderRoutes(routes, "/teacher/enrollment");
 
-    const card = await screen.findByRole("article", { name: "김담임" });
+    const card = await screen.findByRole("article", { name: "김담임 선생님" });
     expect(within(card).getByText("미가입")).toBeTruthy();
     const href = within(card)
       .getByRole("link", { name: "3" })
@@ -593,7 +595,7 @@ describe("W7 이용현황", () => {
     useMobileScreen();
     stubPage();
     renderRoutes(routes, "/teacher/enrollment");
-    await screen.findByText("김담임");
+    await screen.findByText("김담임 선생님");
     expect(screen.queryByRole("button", { name: "엑셀 출력" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "정원 입력" }));
@@ -602,7 +604,7 @@ describe("W7 이용현황", () => {
     expect(screen.getByRole("button", { name: "저장" })).toBeTruthy();
   });
 
-  it("담임이 열면 대시보드로 돌려보낸다", async () => {
+  it("담임 선생님이 열면 대시보드로 돌려보낸다", async () => {
     const calls = stubPage({}, homeroomMe);
     renderRoutes(routes, "/teacher/enrollment");
 

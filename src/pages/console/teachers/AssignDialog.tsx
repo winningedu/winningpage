@@ -20,10 +20,9 @@ import TeacherDialog, {
   DialogFooter,
 } from "./TeacherDialog";
 
-const FAILED_MESSAGE =
-  "담당 학급을 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요";
+const FAILED_MESSAGE = "담당 반을 바꾸지 못했어요. 잠시 뒤 다시 시도해 주세요";
 const LAST_CLASS_MESSAGE =
-  "담임은 담당 학급이 1개 이상 있어야 해서 마지막 학급은 해제할 수 없어요";
+  "담임 선생님은 담당 반이 1개 이상 있어야 해서 마지막 반은 해제할 수 없어요";
 
 interface AssignDialogProps {
   /** 계정 목록의 최신 행. 바뀐 뒤 부모가 다시 읽어 내려준다. */
@@ -89,7 +88,7 @@ export default function AssignDialog({
           <thead>
             <tr className="border-b border-line text-left text-ink-sub">
               <th className="py-2 font-medium">구분</th>
-              <th className="py-2 font-medium">학년그룹</th>
+              <th className="py-2 font-medium">학년</th>
               <th className="py-2 font-medium">반</th>
               <th className="py-2 text-right font-medium">학생 수</th>
               <th className="py-2" />
@@ -119,7 +118,7 @@ export default function AssignDialog({
           </tbody>
         </table>
         {teacher.classes.length === 0 && (
-          <p className="text-app-label text-ink-sub">담당 학급이 아직 없어요</p>
+          <p className="text-app-label text-ink-sub">담당 반이 아직 없어요</p>
         )}
         {lastClass && (
           <p className="text-app-caption text-ink-sub">{LAST_CLASS_MESSAGE}</p>
@@ -131,7 +130,8 @@ export default function AssignDialog({
           onChange={setRow}
         />
         <Notice tone="Info">
-          한 학급의 담임은 한 명이에요. 이미 담임이 있는 학급은 추가할 수 없어요
+          한 반의 담임 선생님은 한 명이에요. 이미 담임 선생님이 있는 반은 추가할
+          수 없어요
         </Notice>
         {error && <Notice tone="Danger">{error}</Notice>}
       </div>

@@ -994,7 +994,7 @@ export default function StudentForm() {
         // app_settings.require_tenant_on_signup=false 라 현재는 발생하지 않지만
         // 서버 스키마 선반영 대비 매핑해 둔다.
         if (errorMessage.includes("tenant_required")) {
-          setFormError("소속 코드를 확인해 주세요.");
+          setFormError("소속코드를 확인해 주세요.");
           return;
         }
 

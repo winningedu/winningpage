@@ -209,7 +209,7 @@ export default function DirectChangeDialog({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <FilterSelect
                 variant="stacked"
-                label="새 학년그룹"
+                label="새 학년"
                 value={grade}
                 options={studentGradesOf(options).map((g) => ({
                   value: g,
@@ -219,7 +219,7 @@ export default function DirectChangeDialog({
               />
               <FilterSelect
                 variant="stacked"
-                label="새 그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)"
+                label="새 그룹(구분되어 있으면 입력, 없으면 빈칸)"
                 value={groupId}
                 options={[
                   { value: "", label: "그룹 없음" },
@@ -282,7 +282,7 @@ export default function DirectChangeDialog({
           </div>
         )}
         <p className="text-app-caption text-ink-sub">
-          옮길 반에 담임이 없으면 안내만 하고 바로 반영해요
+          옮길 반에 담임 선생님이 없으면 안내만 하고 바로 반영해요
         </p>
         {notice && <Notice tone="Danger">{notice}</Notice>}
         <div className="flex justify-end gap-2">

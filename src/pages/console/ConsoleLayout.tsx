@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { consoleRequest } from "./api";
 import ConsoleBar from "./ConsoleBar";
 import ConsoleNav from "./ConsoleNav";
-import { CONSOLE_BASE, canOpen, findMenuItem } from "./menu";
+import { CONSOLE_BASE, canOpen, findMenuItem, menuLabel } from "./menu";
 import NoPermission from "./NoPermission";
 import ProxyBanner from "./ProxyBanner";
 import { useToast } from "./Toast";
@@ -105,7 +105,7 @@ export default function ConsoleLayout() {
         </aside>
         <div className="min-w-0 flex-1 bg-background">
           <ConsoleBar
-            currentPage={item?.label ?? ""}
+            currentPage={item ? menuLabel(item, me.tenant.orgType) : ""}
             onOpenMenu={() => setDrawerOpen(true)}
           />
           <main key={me.tenant.id} className="pb-12 lg:pb-24">

@@ -18,7 +18,7 @@ export type Verdict =
 export const VERDICT_LABEL: Record<Verdict, string> = {
   format_error: "형식 오류",
   group_not_registered: "등록되지 않은 그룹",
-  class_duplicate: "파일 안 학급 중복",
+  class_duplicate: "파일 안 반 중복",
   phone_conflict: "전화번호 오류",
   same_name_other: "이름이 같은 다른 선생님",
   shared_login: "여러 반 공통 아이디",

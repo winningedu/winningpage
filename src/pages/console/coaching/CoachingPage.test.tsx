@@ -174,7 +174,7 @@ const coaching = (over: Partial<Coaching> = {}): Coaching => ({
       basisUsed: 0,
       basisTotal: 1,
       evidence: [],
-      fallback: "담임 관찰로 보완",
+      fallback: "담임 선생님 관찰로 보완",
     },
     {
       key: "potential",
@@ -323,7 +323,7 @@ describe("W9 개인종합코칭 기본", () => {
       screen.getByText("실행 주의, 학습역량 주의, 연계 주의"),
     ).toBeTruthy();
     expect(screen.getByText("이상 가나대 경영학과 34%")).toBeTruthy();
-    expect(screen.getByText("담임 박지훈")).toBeTruthy();
+    expect(screen.getByText("담임 선생님 박지훈")).toBeTruthy();
     expect(screen.getByText("유형 F1 연결 보강")).toBeTruthy();
     expect(router.state.location.search).toBe("?studentId=s1");
   });
@@ -354,7 +354,9 @@ describe("W9 개인종합코칭 기본", () => {
     expect(within(competencies).getByText("학업역량")).toBeTruthy();
     expect(within(competencies).getByText("73점")).toBeTruthy();
     expect(within(competencies).getByText("근거 5/5")).toBeTruthy();
-    expect(within(competencies).getByText("담임 관찰로 보완")).toBeTruthy();
+    expect(
+      within(competencies).getByText("담임 선생님 관찰로 보완"),
+    ).toBeTruthy();
     const axes = screen.getByRole("list", { name: "6축 종합 진단" });
     expect(within(axes).getByText("67점")).toBeTruthy();
     expect(within(axes).getByText("평가 전")).toBeTruthy();
@@ -471,7 +473,7 @@ describe("W9 문구 칸", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "서비스 이용 데이터로 자동 구성한 상담 참고안이며 교사 판단으로 보완.",
+        "서비스 이용 데이터로 자동 구성한 상담 참고안이며 선생님 판단으로 보완.",
       ),
     ).toBeTruthy();
     expect(
@@ -652,7 +654,7 @@ describe("W9 문구 칸", () => {
   });
 });
 
-describe("W9 교사 메모", () => {
+describe("W9 선생님 메모", () => {
   it("학생 옆에 메모 패널을 두고 그 학생의 메모를 읽는다", async () => {
     stubPage({
       "GET /api/console/memos?studentId=s1": {
@@ -716,7 +718,7 @@ describe("W9 고를 학생 없음, 불러오는 중, 오류", () => {
 
     expect(
       await screen.findByText(
-        "고를 학생이 없어요. 담당 학급이 없거나 학급에 학생이 없어요",
+        "고를 학생이 없어요. 담당 반이 없거나 반에 학생이 없어요",
       ),
     ).toBeTruthy();
     expect(
@@ -827,7 +829,7 @@ describe("W9 기관 관리자", () => {
     );
   });
 
-  it("담임에게는 이름 검색이 없다", async () => {
+  it("담임 선생님에게는 이름 검색이 없다", async () => {
     stubPage();
 
     renderRoutes(routes, "/teacher/coaching?studentId=s1");

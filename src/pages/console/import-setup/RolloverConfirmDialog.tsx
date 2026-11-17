@@ -37,7 +37,7 @@ export default function RolloverConfirmDialog({
         { label: "졸업 처리 대상", value: summary.graduate },
         { label: "학년 +1 대상", value: summary.promote },
         {
-          label: "반 배정 대기(명단에 없거나 반과 번호를 비운 학생)",
+          label: "미배정(명단에 없거나 반과 번호를 비운 학생)",
           value: summary.waiting,
         },
       ];
@@ -51,7 +51,7 @@ export default function RolloverConfirmDialog({
         <DialogTitle className="text-app-dialog-title font-semibold tracking-[-0.02em] text-ink-strong">
           {midyear
             ? "그룹, 반, 번호 변경을 적용할까요?"
-            : "학년그룹 일괄 변경을 적용할까요?"}
+            : "학년도 전환을 적용할까요?"}
         </DialogTitle>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col text-app-body">
