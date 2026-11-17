@@ -36,6 +36,22 @@ begin
   return v_id;
 end $$;
 
+create function pg_temp.as_user(p_uid uuid, p_email text) returns void
+language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_uid, 'role', 'authenticated', 'email', p_email)::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+end $$;
+
+-- JWT 없는 세션(postgres, GoTrue 와 같은 직접 접속)으로 되돌린다.
+create function pg_temp.as_none() returns void
+language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+end $$;
+
 create temp table fx (k text primary key, v uuid);
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
 
@@ -74,5 +90,21 @@ select pg_temp.expect_text('중복이면 이 행의 복사본은 NULL',
   (select coalesce(email, '(null)') from public.profiles where id = pg_temp.fx('b')), '(null)');
 select pg_temp.expect_text('중복 상대 행은 그대로',
   (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
+
+-- ---------------------------------------------------------------------
+-- 4. is_winning_admin 은 id 로만 판정한다
+-- ---------------------------------------------------------------------
+insert into fx values ('adm', pg_temp.mk_user('pes-adm@t.local', null));
+update public.profiles set role = 'admin' where id = pg_temp.fx('adm');
+
+select pg_temp.as_user(pg_temp.fx('adm'), 'pes-adm@t.local');
+select pg_temp.expect_text('어드민은 id 로 is_winning_admin 통과',
+  public.is_winning_admin()::text, 'true');
+
+-- 비어드민의 JWT 이메일이 어드민 profiles.email 과 같아도 통과하지 못한다.
+select pg_temp.as_user(pg_temp.fx('a'), 'PES-ADM@t.local');
+select pg_temp.expect_text('어드민 이메일을 가진 비어드민은 is_winning_admin 거부',
+  public.is_winning_admin()::text, 'false');
+select pg_temp.as_none();
 
 rollback;

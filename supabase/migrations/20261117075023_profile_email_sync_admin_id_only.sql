@@ -46,3 +46,19 @@ create trigger trg_auth_users_sync_profile_email
   for each row
   when (old.email is distinct from new.email)
   execute function public.fn_auth_users_sync_profile_email();
+
+-- 2) is_winning_admin: 어드민은 profiles.id = auth.uid() 로만 판정한다.
+--    예전에는 JWT 이메일이 어드민 profiles.email 과 같아도 통과했다. profiles.email 은 회원이 고칠 수 있던 복사본이라 권한 근거가 될 수 없다.
+create or replace function public.is_winning_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role in ('admin', 'admin_basic', 'admin_manager', 'admin_master')
+  );
+$$;
