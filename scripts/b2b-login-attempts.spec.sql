@@ -168,7 +168,38 @@ select pg_temp.expect_text('오래된 행은 정리된다', pg_temp.row_s('u2'),
 select pg_temp.expect_text('최근 행은 남는다', pg_temp.row_s('u4'), '1:false');
 
 -- ---------------------------------------------------------------------
--- fn_login_resolve_email: lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
+-- fn_login_lock_begin/end: (계정, IP) 쌍마다 5회, 계정 전체 50회
+-- ---------------------------------------------------------------------
+-- 쌍 해시: sha256(0xff || 계정 해시 || IP). API(api/_lib/auth/login.ts pairHashParam)와 같은 방식이다.
+create function pg_temp.ph(p_id text, p_ip text) returns bytea language sql as $$
+  select extensions.digest('\xff'::bytea || pg_temp.h(p_id) || convert_to(p_ip, 'UTF8'), 'sha256')
+$$;
+
+-- begin 결과를 "outcome:쌍 시도 번호:계정 시도 번호:retry" 로 돌려준다.
+create function pg_temp.lbegin(p_id text, p_ip text) returns text language sql as $$
+  select outcome || ':' || attempt_no || ':' || account_attempt_no || ':' || retry_after_s
+  from public.fn_login_lock_begin(pg_temp.h(p_id), pg_temp.ph(p_id, p_ip))
+$$;
+
+create function pg_temp.prow_s(p_id text, p_ip text) returns text language sql as $$
+  select coalesce((select failed_count || ':' || (locked_until is not null)
+    from public.login_attempts where identifier_hash = pg_temp.ph(p_id, p_ip)), 'none')
+$$;
+
+select pg_temp.lbegin('k1', '10.0.0.1');
+select pg_temp.lbegin('k1', '10.0.0.1');
+select pg_temp.lbegin('k1', '10.0.0.1');
+select pg_temp.expect_text('쌍 4번째 시도', pg_temp.lbegin('k1', '10.0.0.1'), 'proceed:4:4:0');
+select pg_temp.expect_text('쌍 5번째 시도가 그 쌍을 600초 잠근다', pg_temp.lbegin('k1', '10.0.0.1'), 'proceed:5:5:600');
+select pg_temp.expect_text('잠긴 쌍은 locked', pg_temp.lbegin('k1', '10.0.0.1'), 'locked:5:5:600');
+select pg_temp.expect_text('잠긴 쌍 행', pg_temp.prow_s('k1', '10.0.0.1'), '5:true');
+select pg_temp.expect_text('계정 행은 5회, 잠금 없음', pg_temp.row_s('k1'), '5:false');
+select pg_temp.expect_text('같은 계정의 다른 IP 는 잠기지 않는다', pg_temp.lbegin('k1', '10.0.0.2'), 'proceed:1:6:0');
+select pg_temp.expect_bool('쌍 행은 계정 해시를 가진다',
+  (select account_hash = pg_temp.h('k1') from public.login_attempts where identifier_hash = pg_temp.ph('k1', '10.0.0.2')), true);
+
+-- ---------------------------------------------------------------------
+-- fn_login_resolve_email:lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
 -- ---------------------------------------------------------------------
 create function pg_temp.mk_profile(p_username text, p_member_type text, p_email text) returns void
 language plpgsql as $$
