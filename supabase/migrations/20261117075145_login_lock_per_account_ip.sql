@@ -73,5 +73,51 @@ begin
 end;
 $$;
 
+-- success: 그 쌍 행과 계정 행을 지운다(맞는 비밀번호는 주인이라는 증거다). 같은 계정의 다른 쌍은 남긴다.
+-- invalid: 이미 센 시도라 아무것도 안 한다.
+-- error: 인증 서버 오류로 끝난 시도라 두 행에서 이번 시도를 취소한다. 행마다 begin 이 돌려준 번호가 아직
+-- 현재 횟수일 때만 1 줄이고, 잠금은 그 시도가 직접 건 것(쌍 5번째, 계정 50번째)일 때만 푼다.
+-- 번호 없이(null) 부르면 그 행은 건드리지 않는다. 두 행은 begin 과 같은 순서로 먼저 잠근다.
+create function public.fn_login_lock_end(
+  p_account_hash bytea,
+  p_pair_hash bytea,
+  p_outcome text,
+  p_attempt_no smallint default null,
+  p_account_attempt_no smallint default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if p_outcome not in ('success', 'invalid', 'error') then
+    raise exception 'unknown login attempt outcome' using errcode = 'invalid_parameter_value';
+  end if;
+
+  perform 1 from public.login_attempts a
+   where a.identifier_hash in (p_account_hash, p_pair_hash)
+   order by a.identifier_hash
+     for update;
+
+  if p_outcome = 'success' then
+    delete from public.login_attempts where identifier_hash in (p_account_hash, p_pair_hash);
+  elsif p_outcome = 'error' then
+    update public.login_attempts
+       set failed_count = failed_count - 1,
+           locked_until = case when p_attempt_no = 5 then null else locked_until end,
+           updated_at = now()
+     where identifier_hash = p_pair_hash and failed_count = p_attempt_no and failed_count > 0;
+    update public.login_attempts
+       set failed_count = failed_count - 1,
+           locked_until = case when p_account_attempt_no = 50 then null else locked_until end,
+           updated_at = now()
+     where identifier_hash = p_account_hash and failed_count = p_account_attempt_no and failed_count > 0;
+  end if;
+end;
+$$;
+
 revoke all on function public.fn_login_lock_begin(bytea, bytea) from public, anon, authenticated;
 grant execute on function public.fn_login_lock_begin(bytea, bytea) to service_role;
+revoke all on function public.fn_login_lock_end(bytea, bytea, text, smallint, smallint) from public, anon, authenticated;
+grant execute on function public.fn_login_lock_end(bytea, bytea, text, smallint, smallint) to service_role;

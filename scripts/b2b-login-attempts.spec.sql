@@ -209,6 +209,50 @@ update public.login_attempts set locked_until = now() - interval '1 second'
   where identifier_hash = pg_temp.h('k2');
 select pg_temp.expect_text('계정 잠금이 끝나면 계정은 1부터', pg_temp.lbegin('k2', '10.1.1.2'), 'proceed:1:1:0');
 
+create function pg_temp.lend(p_id text, p_ip text, p_outcome text, p_no smallint, p_account_no smallint)
+returns void language sql as $$
+  select public.fn_login_lock_end(pg_temp.h(p_id), pg_temp.ph(p_id, p_ip), p_outcome, p_no, p_account_no)
+$$;
+
+-- error 는 두 행에서 이번 시도를 되돌린다. 같은 시도의 error 를 두 번 불러도 한 번만 되돌린다
+select pg_temp.lbegin('k3', '10.2.0.1');
+select pg_temp.lbegin('k3', '10.2.0.2');
+select pg_temp.expect_text('error 전 3번째 시도', pg_temp.lbegin('k3', '10.2.0.1'), 'proceed:2:3:0');
+select pg_temp.lend('k3', '10.2.0.1', 'error', 2::smallint, 3::smallint);
+select pg_temp.lend('k3', '10.2.0.1', 'error', 2::smallint, 3::smallint);
+select pg_temp.expect_text('error 는 쌍을 1회 되돌린다', pg_temp.prow_s('k3', '10.2.0.1'), '1:false');
+select pg_temp.expect_text('error 는 계정을 1회 되돌린다', pg_temp.row_s('k3'), '2:false');
+
+-- 잠금을 건 시도의 error 는 그 잠금을 푼다. 늦게 온 이전 시도의 error 는 건드리지 않는다
+select pg_temp.lbegin('k3', '10.2.0.1');
+select pg_temp.lbegin('k3', '10.2.0.1');
+select pg_temp.lbegin('k3', '10.2.0.1');
+select pg_temp.expect_text('쌍 5번째가 잠근다', pg_temp.lbegin('k3', '10.2.0.1'), 'proceed:5:6:600');
+select pg_temp.lend('k3', '10.2.0.1', 'error', 4::smallint, 5::smallint);
+select pg_temp.expect_text('늦은 4번째 error 는 쌍을 그대로 둔다', pg_temp.prow_s('k3', '10.2.0.1'), '5:true');
+select pg_temp.expect_text('늦은 4번째 error 는 계정을 그대로 둔다', pg_temp.row_s('k3'), '6:false');
+select pg_temp.lend('k3', '10.2.0.1', 'error', 5::smallint, 6::smallint);
+select pg_temp.expect_text('잠근 시도의 error 는 쌍 잠금을 푼다', pg_temp.prow_s('k3', '10.2.0.1'), '4:false');
+select pg_temp.expect_text('잠근 시도의 error 는 계정도 되돌린다', pg_temp.row_s('k3'), '5:false');
+
+update public.login_attempts set failed_count = 49 where identifier_hash = pg_temp.h('k3');
+select pg_temp.expect_text('계정 50번째가 계정을 잠근다', pg_temp.lbegin('k3', '10.2.0.3'), 'proceed:1:50:600');
+select pg_temp.lend('k3', '10.2.0.3', 'error', 1::smallint, 50::smallint);
+select pg_temp.expect_text('계정을 잠근 시도의 error 는 계정 잠금을 푼다', pg_temp.row_s('k3'), '49:false');
+
+-- 시도 번호 없는 error, invalid 는 아무것도 하지 않는다
+select pg_temp.lend('k3', '10.2.0.3', 'error', null, null);
+select pg_temp.lend('k3', '10.2.0.3', 'invalid', null, null);
+select pg_temp.expect_text('번호 없는 error 와 invalid 는 무시', pg_temp.row_s('k3'), '49:false');
+select pg_temp.expect_error('lock_end 는 알 수 없는 outcome 거부',
+  $$select pg_temp.lend('k3', '10.2.0.3', 'bogus', null, null)$$, '22023');
+
+-- success 는 그 쌍과 계정 행을 지우고 같은 계정의 다른 쌍은 남긴다
+select pg_temp.lend('k3', '10.2.0.1', 'success', null, null);
+select pg_temp.expect_text('success 는 쌍 행 삭제', pg_temp.prow_s('k3', '10.2.0.1'), 'none');
+select pg_temp.expect_text('success 는 계정 행 삭제', pg_temp.row_s('k3'), 'none');
+select pg_temp.expect_text('success 는 다른 쌍을 남긴다', pg_temp.prow_s('k3', '10.2.0.2'), '1:false');
+
 -- ---------------------------------------------------------------------
 -- fn_login_resolve_email:lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
 -- ---------------------------------------------------------------------
