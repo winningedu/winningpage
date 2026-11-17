@@ -58,7 +58,7 @@ export default function StudentFilterBar({
     <div className="flex flex-col gap-2 px-4 py-6 md:flex-row md:flex-wrap md:items-center md:gap-3 md:px-8 lg:px-12">
       <div className="grid grid-cols-2 gap-2 md:flex md:gap-3">
         <FilterSelect
-          label="학년그룹"
+          label="학년"
           value={values.grade}
           options={[
             ALL,
@@ -98,7 +98,7 @@ export default function StudentFilterBar({
         />
       </div>
       {classDisabled && (
-        <p className="text-app-caption text-ink-sub">학년그룹을 먼저 골라요</p>
+        <p className="text-app-caption text-ink-sub">학년을 먼저 골라요</p>
       )}
       <div className="flex gap-2">
         <Input

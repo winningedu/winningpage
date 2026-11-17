@@ -22,7 +22,7 @@ function fillAll() {
   fireEvent.change(screen.getByLabelText("이름"), {
     target: { value: "김서연" },
   });
-  fireEvent.change(screen.getByLabelText("학년그룹"), {
+  fireEvent.change(screen.getByLabelText("학년"), {
     target: { value: "고2" },
   });
   fireEvent.change(screen.getByLabelText("반"), { target: { value: "3반" } });
@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe("W14 학생 가입 연결 미리보기", () => {
-  it("값이 다 차야 확인할 수 있고 정상 연결이면 담임 이름과 함께 알린다", async () => {
+  it("값이 다 차야 확인할 수 있고 정상 연결이면 담임 선생님 이름과 함께 알린다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
       [`GET ${BASE}`]: { body: { result: "ok", homeroomName: "박지훈" } },
@@ -82,7 +82,7 @@ describe("W14 학생 가입 연결 미리보기", () => {
     ).toBeTruthy();
   });
 
-  it("이미 가입한 학생과 없는 학급도 각각 알린다", async () => {
+  it("이미 가입한 학생과 없는 반도 각각 알린다", async () => {
     stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
       [`GET ${BASE}`]: {
@@ -102,7 +102,7 @@ describe("W14 학생 가입 연결 미리보기", () => {
     fireEvent.click(screen.getByRole("button", { name: "확인" }));
     expect(
       await screen.findByText(
-        "등록되지 않은 학급이에요. 학년그룹과 반을 확인해 주세요",
+        "등록되지 않은 반이에요. 학년과 반을 확인해 주세요",
       ),
     ).toBeTruthy();
   });

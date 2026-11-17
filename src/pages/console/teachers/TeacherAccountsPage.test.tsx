@@ -130,9 +130,9 @@ describe("W16 목록", () => {
 
     renderRoutes(routes, "/teacher/teachers/accounts");
 
-    expect(await screen.findByText("교사 계정 3개")).toBeTruthy();
+    expect(await screen.findByText("선생님 계정 3개")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { level: 1, name: "교사 계정 관리" }),
+      screen.getByRole("heading", { level: 1, name: "선생님 계정 관리" }),
     ).toBeTruthy();
     for (const head of [
       "이름",
@@ -148,10 +148,10 @@ describe("W16 목록", () => {
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0] as HTMLElement).getByText("최민정")).toBeTruthy();
     expect(
-      within(rows[0] as HTMLElement).getByText("학교 전체 관리자"),
+      within(rows[0] as HTMLElement).getByText("전체 관리자"),
     ).toBeTruthy();
     const park = rows[1] as HTMLElement;
-    expect(within(park).getByText("담임교사")).toBeTruthy();
+    expect(within(park).getByText("담임 선생님")).toBeTruthy();
     expect(within(park).getByText("2학년 3반(주) + 2학년 5반")).toBeTruthy();
     expect(within(park).getByText("SM26HB83K7MPQ2")).toBeTruthy();
     expect(within(park).getByText("••••••")).toBeTruthy();
@@ -174,7 +174,7 @@ describe("W16 상태 전환", () => {
 
     expect(
       await screen.findByText(
-        "교사 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+        "선생님 계정 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
       ),
     ).toBeTruthy();
   });
@@ -232,7 +232,7 @@ describe("W16 상태 전환", () => {
 });
 
 describe("W16 담당 변경, 신규 발급, 재발급", () => {
-  it("담당 변경/추가는 그 선생님의 담당 창을 열고 학급이 없는 관리자에게는 버튼이 없다", async () => {
+  it("담당 변경/추가는 그 선생님의 담당 창을 열고 반이 없는 관리자에게는 버튼이 없다", async () => {
     stubPage();
 
     renderRoutes(routes, "/teacher/teachers/accounts");
@@ -318,7 +318,7 @@ describe("W16 휴대폰", () => {
 
     renderRoutes(routes, "/teacher/teachers/accounts");
 
-    expect(await screen.findByText("교사 계정 3개")).toBeTruthy();
+    expect(await screen.findByText("선생님 계정 3개")).toBeTruthy();
     expect(
       screen.getAllByRole("button", { name: "비활성화" }).length,
     ).toBeGreaterThan(0);

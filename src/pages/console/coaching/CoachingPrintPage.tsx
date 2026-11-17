@@ -70,7 +70,7 @@ export default function CoachingPrintPage() {
           개인종합코칭
         </h1>
         <p className="text-app-label text-ink-sub">
-          교육기관 {me.tenant.name}, 학생 {data.student.name}
+          기관 {me.tenant.name}, 학생 {data.student.name}
           {classText && `(${classText})`}, 출력일시 {printedAt}, 출력자{" "}
           {me.teacher
             ? `${me.teacher.name}(${me.teacher.loginId})`

@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 describe("MyPage", () => {
-  it("담임교사의 아이디, 이름, 역할, 담당 범위(주 학급 표시)를 보여 준다", async () => {
+  it("담임 선생님의 아이디, 이름, 역할, 담당 범위(주 반 표시)를 보여 준다", async () => {
     stubApi({ "GET /api/console/me": { body: homeroomMe } });
 
     renderRoutes(routes, "/teacher/my");
@@ -47,18 +47,18 @@ describe("MyPage", () => {
     expect(screen.getByText("내 정보와 설정")).toBeTruthy();
     expect(row("아이디")).toBe("SM26HB83K7MPQ2 (조회만, 수정 불가)");
     expect(row("이름")).toBe("박지훈");
-    expect(row("역할")).toBe("담임교사");
+    expect(row("역할")).toBe("담임 선생님");
     expect(row("담당 범위")).toBe("2학년 3반(주), 2학년 5반");
   });
 
-  it("학교 전체 관리자는 역할이 학교 전체 관리자이고 담당 범위가 전교다", async () => {
+  it("전체 관리자는 역할이 전체 관리자이고 담당 범위가 전체다", async () => {
     stubApi({ "GET /api/console/me": { body: adminMe } });
 
     renderRoutes(routes, "/teacher/my");
 
     await screen.findByRole("heading", { level: 1, name: "마이페이지" });
-    expect(row("역할")).toBe("학교 전체 관리자");
-    expect(row("담당 범위")).toBe("전교");
+    expect(row("역할")).toBe("전체 관리자");
+    expect(row("담당 범위")).toBe("전체");
     expect(row("아이디")).toBe("SM26HB83R4TXW9 (조회만, 수정 불가)");
   });
 

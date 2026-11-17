@@ -50,7 +50,7 @@ export default function DeleteDialog({
       onClose={onClose}
     >
       <div className="flex flex-col gap-3 text-app-body text-ink">
-        <p>{`이 선생님이 맡은 학급의 재학생 ${teacher.activeStudents}명은 그대로 남고, 담임 표시는 (미등록)으로 바뀌어요. 가입할 때 그 반을 고를 수 없게 돼요.`}</p>
+        <p>{`이 선생님이 맡은 반의 재학생 ${teacher.activeStudents}명은 그대로 남고, 담임 선생님 표시는 (미등록)으로 바뀌어요. 가입할 때 그 반을 고를 수 없게 돼요.`}</p>
         <p>연결 계정도 함께 삭제돼요. 학생 정보는 그대로 남아요</p>
         {error && <Notice tone="Danger">{error}</Notice>}
       </div>

@@ -90,7 +90,7 @@ describe("W16a 담당 표", () => {
     expect(within(extra).getByText("5반")).toBeTruthy();
   });
 
-  it("추가 담당을 해제하면 그 학급만 지우는 요청을 보내고 목록을 다시 읽게 한다", async () => {
+  it("추가 담당을 해제하면 그 반만 지우는 요청을 보내고 목록을 다시 읽게 한다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
       "POST /api/console/teachers/assignments": { body: { ok: true } },
@@ -107,7 +107,7 @@ describe("W16a 담당 표", () => {
     });
   });
 
-  it("주 담당을 해제하면 남는 첫 학급을 주 담당으로 함께 보낸다", async () => {
+  it("주 담당을 해제하면 남는 첫 반을 주 담당으로 함께 보낸다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
       "POST /api/console/teachers/assignments": { body: { ok: true } },
@@ -126,7 +126,7 @@ describe("W16a 담당 표", () => {
     );
   });
 
-  it("담임의 마지막 학급은 해제할 수 없다고 알리고 버튼을 막는다", () => {
+  it("담임 선생님의 마지막 반은 해제할 수 없다고 알리고 버튼을 막는다", () => {
     stubApi({ "GET /api/console/groups": { body: { groups: [] } } });
     open(teacher({ classes: [klass("c3", "3", true, 28)] }));
 
@@ -136,14 +136,14 @@ describe("W16a 담당 표", () => {
     ).toBe(true);
     expect(
       screen.getByText(
-        "담임은 담당 학급이 1개 이상 있어야 해서 마지막 학급은 해제할 수 없어요",
+        "담임 선생님은 담당 반이 1개 이상 있어야 해서 마지막 반은 해제할 수 없어요",
       ),
     ).toBeTruthy();
   });
 });
 
-describe("W16a 학급 추가", () => {
-  it("학년그룹과 반을 넣어 추가하면 add 로 보내고 담임이 있는 학급이면 서버 문구를 창에 보인다", async () => {
+describe("W16a 반 추가", () => {
+  it("학년과 반을 넣어 추가하면 add 로 보내고 담임 선생님이 있는 반이면 서버 문구를 창에 보인다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
       "POST /api/console/teachers/assignments": {
@@ -151,7 +151,7 @@ describe("W16a 학급 추가", () => {
         body: {
           error: {
             code: "CLASS_TAKEN",
-            message: "다른 선생님이 이미 담임인 학급입니다.",
+            message: "다른 선생님이 이미 담임 선생님인 반입니다.",
           },
         },
       },
@@ -160,14 +160,14 @@ describe("W16a 학급 추가", () => {
 
     const add = screen.getByRole("button", { name: "추가" });
     expect((add as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     fireEvent.change(screen.getByLabelText("반"), { target: { value: "4반" } });
     fireEvent.click(add);
 
     expect(
-      await screen.findByText("다른 선생님이 이미 담임인 학급입니다."),
+      await screen.findByText("다른 선생님이 이미 담임 선생님인 반입니다."),
     ).toBeTruthy();
     expect(calls.find((c) => c.key.startsWith("POST"))?.body).toEqual({
       teacherId: "t-park",

@@ -8,7 +8,7 @@ export const TENANT_MESSAGES = {
 };
 
 export const INFO_MESSAGES = {
-  classHint: "학년, 반, 번호는 선생님 화면의 학급 편성에 쓰여요.",
+  classHint: "학년, 반, 번호는 선생님 화면의 반 편성에 쓰여요.",
   passwordRule: "영문, 숫자, 특수문자를 모두 포함해 6자 이상 입력해 주세요.",
   passwordMismatch: "비밀번호가 서로 달라요.",
   invalidBirthDate: "올바른 생년월일을 입력해 주세요.",

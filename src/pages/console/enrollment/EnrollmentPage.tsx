@@ -68,12 +68,11 @@ export default function EnrollmentPage() {
   );
   const totals = totalsOf(rows);
   const picked = all.find((r) => r.classId === classId);
-  const wholeLabel = data?.orgType === "학원" ? "학원 전체" : "학교 전체";
   const scopeLabel = picked
     ? `${gradeLabel(picked.grade)} ${picked.className}반`
     : grade
       ? gradeLabel(grade)
-      : wholeLabel;
+      : "전체";
   const grades = [...new Set(all.map((r) => r.grade ?? MIXED_GRADE))];
 
   const empty = totals.total === 0 && totals.pending === 0;
@@ -148,7 +147,7 @@ export default function EnrollmentPage() {
         buildEnrollmentGrid({
           rows,
           filter: {
-            grade: `학년그룹: ${grade ? gradeLabel(grade) : "전체"}`,
+            grade: `학년: ${grade ? gradeLabel(grade) : "전체"}`,
             class: `반: ${picked ? `${picked.className}반` : "전체"}`,
           },
           asOf: data.asOf,
@@ -211,7 +210,7 @@ export default function EnrollmentPage() {
     <>
       <PageHeader
         title="이용현황"
-        subtitle="학급별, 서비스별 이용 학생 수를 확인합니다"
+        subtitle="반별, 서비스별 이용 학생 수를 확인합니다"
         {...(data && !mobile && { actions })}
         {...(data && {
           asOf: `집계 기준: ${scopeLabel}, ${dotDate(data.asOf)} 기준`,
@@ -228,7 +227,7 @@ export default function EnrollmentPage() {
             <EnrollmentSummaryCards totals={totals} scopeLabel={scopeLabel} />
             <div className="flex flex-wrap justify-end gap-2.5">
               <FilterSelect
-                label="학년그룹"
+                label="학년"
                 value={grade}
                 options={[
                   { value: "", label: "전체" },
@@ -264,7 +263,7 @@ export default function EnrollmentPage() {
             {mobile && <div className="flex justify-end">{actions}</div>}
             <section className="flex flex-col">
               <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
-                {`총 ${rows.length}개 학급`}
+                {`총 ${rows.length}개 반`}
               </h2>
               {editing && (
                 <Notice tone="Info">
@@ -278,7 +277,7 @@ export default function EnrollmentPage() {
                 <ClassTable rows={visible} {...editProp} />
               )}
               {empty && (
-                <EmptyMessage body="조회 범위에 학생이 없어요. 학년그룹이나 반을 바꿔 보세요" />
+                <EmptyMessage body="조회 범위에 학생이 없어요. 학년이나 반을 바꿔 보세요" />
               )}
               {!empty &&
                 (mobile ? (

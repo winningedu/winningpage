@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { site } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorMessage } from "../api";
 import type { GradeLabeler } from "../classLabel";
@@ -87,7 +88,7 @@ function pendingSentence(done: {
 }): string {
   const parts = [
     ...(done.pendingStored > 0
-      ? [`미회원가입 ${done.pendingStored}명은 학생 목록에 저장했어요`]
+      ? [`미가입 ${done.pendingStored}명은 학생 목록에 저장했어요`]
       : []),
     ...(done.pendingSkipped > 0
       ? [
@@ -208,7 +209,7 @@ export default function RolloverSection({
       }
       toast.show({
         tone: "Success",
-        message: `학년그룹 일괄 변경을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요${pendingSentence(done)}`,
+        message: `학년도 전환을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요${pendingSentence(done)}`,
       });
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
@@ -224,17 +225,17 @@ export default function RolloverSection({
     <section className="flex flex-col gap-4 border-t border-line pt-8">
       <div className="flex items-center gap-3">
         <h2 className="flex-1 text-lg font-semibold tracking-[-0.02em] text-ink-strong">
-          ③ 학년그룹 일괄 변경
+          ③ 학년도 전환
         </h2>
         <TemplateLink
           file="grade-bulk-change.xlsx"
-          downloadName="스쿨멘토_학년그룹일괄변경_샘플.xlsx"
+          downloadName={`${site.brandName}_학년도전환_샘플.xlsx`}
         />
       </div>
       <p className="text-app-body text-ink-sub">
         {midyear
           ? "명단의 그룹, 반, 번호를 학생에게 한 번에 반영합니다. 학년은 바뀌지 않고, 명단에 없는 학생은 그대로예요. 학기 중에도 몇 번이든 올릴 수 있어요"
-          : "학년그룹이 변경될 때(학년도 전환 등, 보통 1년에 한 번) 기존 학년그룹, 그룹, 반, 번호를 새 학년그룹, 그룹, 반, 번호로 한 번에 바꿉니다"}
+          : "학년도가 바뀔 때(보통 1년에 한 번) 기존 학년, 그룹, 반, 번호를 새 학년, 그룹, 반, 번호로 한 번에 바꿉니다"}
       </p>
       {loadFailed && (
         <Notice tone="Danger">

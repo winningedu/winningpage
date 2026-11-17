@@ -43,8 +43,8 @@ function renderNav(
 const linkLabels = () =>
   screen.getAllByRole("link").map((a) => a.textContent?.replace(/\d+\+?$/, ""));
 
-describe("ConsoleNav 담임교사", () => {
-  it("담임 메뉴 항목만 순서대로 보여 준다", () => {
+describe("ConsoleNav 담임 선생님", () => {
+  it("담임 선생님 메뉴 항목만 순서대로 보여 준다", () => {
     renderNav(homeroomMe);
 
     expect(linkLabels()).toEqual([
@@ -57,29 +57,29 @@ describe("ConsoleNav 담임교사", () => {
       "마이페이지",
     ]);
     expect(screen.getByText("마이페이지(내 정보 및 설정)")).toBeTruthy();
-    expect(screen.queryByText("교육기관관리")).toBeNull();
+    expect(screen.queryByText("기관 관리")).toBeNull();
   });
 
-  it("교사 카드에 기관, 이름, 역할, 주 담당 학급, 아이디를 보여 준다", () => {
+  it("선생님 카드에 기관, 이름, 역할, 주 담당 반, 아이디를 보여 준다", () => {
     renderNav(homeroomMe);
 
     expect(screen.getByText("한빛고등학교")).toBeTruthy();
     expect(screen.getByText("박지훈 선생님")).toBeTruthy();
-    expect(screen.getByText("담임교사")).toBeTruthy();
-    expect(screen.getByText("2학년 3반 담임")).toBeTruthy();
+    expect(screen.getByText("담임 선생님")).toBeTruthy();
+    expect(screen.getByText("2학년 3반 담임 선생님")).toBeTruthy();
     expect(screen.getByText("아이디 SM26HB83K7MPQ2")).toBeTruthy();
   });
 
-  it("학원 담임은 학급을 고2 처럼 원래 학년 값으로 보여 준다", () => {
+  it("학원 담임 선생님은 반을 고2 처럼 원래 학년 값으로 보여 준다", () => {
     renderNav({
       ...homeroomMe,
       tenant: { ...homeroomMe.tenant, orgType: "사기업" },
     });
 
-    expect(screen.getByText("고2 3반 담임")).toBeTruthy();
+    expect(screen.getByText("고2 3반 담임 선생님")).toBeTruthy();
   });
 
-  it("학원 다학년 학급 담임은 다학년으로 보여 준다", () => {
+  it("학원 다학년 반 담임 선생님은 다학년으로 보여 준다", () => {
     renderNav({
       ...homeroomMe,
       tenant: { ...homeroomMe.tenant, orgType: "사기업" },
@@ -88,11 +88,11 @@ describe("ConsoleNav 담임교사", () => {
       ],
     });
 
-    expect(screen.getByText("다학년 3반 담임")).toBeTruthy();
+    expect(screen.getByText("다학년 3반 담임 선생님")).toBeTruthy();
   });
 });
 
-describe("ConsoleNav 학교 전체 관리자와 본사 대행", () => {
+describe("ConsoleNav 전체 관리자와 본사 대행", () => {
   it("관리자 메뉴 항목을 순서대로 보여 준다", () => {
     renderNav(adminMe);
 
@@ -106,23 +106,23 @@ describe("ConsoleNav 학교 전체 관리자와 본사 대행", () => {
       "학생불러오기-일괄설정",
       "미배정 목록",
       "학생조회-변경-이력",
-      "교사 정보 입력관리",
-      "교사 엑셀 일괄업로드",
-      "교사 계정 관리",
-      "내정보관리",
+      "선생님 정보 입력관리",
+      "선생님 엑셀 일괄업로드",
+      "선생님 계정 관리",
+      "학교 정보",
       "마이페이지",
     ]);
-    expect(screen.getByText("교육기관관리")).toBeTruthy();
+    expect(screen.getByText("기관 관리")).toBeTruthy();
     expect(screen.getByText("최민정 선생님")).toBeTruthy();
-    expect(screen.getByText("학교 전체 관리자")).toBeTruthy();
-    expect(screen.getByText("전교 통합 관리 권한")).toBeTruthy();
+    expect(screen.getByText("전체 관리자")).toBeTruthy();
+    expect(screen.getByText("전체 관리 권한")).toBeTruthy();
     expect(screen.getByText("아이디 SM26HB83R4TXW9")).toBeTruthy();
   });
 
   it("본사 대행은 관리자 메뉴에 '본사 직원' 카드를 쓰고 아이디 줄이 없다", () => {
     renderNav(proxyMe);
 
-    expect(screen.getByText("내정보관리")).toBeTruthy();
+    expect(screen.getByText("학교 정보")).toBeTruthy();
     expect(screen.getByText("본사 직원")).toBeTruthy();
     expect(screen.getByText("본사 대행")).toBeTruthy();
     expect(screen.queryByText(/아이디/)).toBeNull();
@@ -132,6 +132,20 @@ describe("ConsoleNav 학교 전체 관리자와 본사 대행", () => {
   });
 });
 
+describe("ConsoleNav 기관 정보 메뉴 이름", () => {
+  it.each(["학교", "학원", "캠퍼스"])(
+    "기관 유형이 %s 이면 메뉴 이름은 기관 유형 뒤에 정보를 붙인다",
+    (orgType) => {
+      renderNav({ ...adminMe, tenant: { ...adminMe.tenant, orgType } });
+
+      expect(
+        screen.getByRole("link", { name: `${orgType} 정보` }),
+      ).toBeTruthy();
+      expect(screen.queryByText("내정보관리")).toBeNull();
+    },
+  );
+});
+
 describe("ConsoleNav 현재 위치와 배지", () => {
   it("가장 긴 접두사 항목만 현재 위치로 표시한다", () => {
     renderNav(adminMe, { activePath: "/teacher/teachers/excel" });
@@ -139,7 +153,9 @@ describe("ConsoleNav 현재 위치와 배지", () => {
     const current = screen
       .getAllByRole("link")
       .filter((a) => a.getAttribute("aria-current") === "page");
-    expect(current.map((a) => a.textContent)).toEqual(["교사 엑셀 일괄업로드"]);
+    expect(current.map((a) => a.textContent)).toEqual([
+      "선생님 엑셀 일괄업로드",
+    ]);
   });
 
   it("/teacher 는 정확히 일치할 때만 대시보드를 강조한다", () => {

@@ -186,7 +186,7 @@ export default function Header({ showHome = false }: { showHome?: boolean }) {
                 to={CONSOLE_BASE}
                 className={`${ACCOUNT_PILL} bg-b2b-account text-white`}
               >
-                관리 화면
+                선생님 화면
               </Link>
               <button
                 type="button"

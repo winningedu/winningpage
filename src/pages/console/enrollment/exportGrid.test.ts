@@ -1,6 +1,18 @@
 // W7 엑셀 출력 표. 집계값만 담고(교 #40) 이름 칸의 수식 문자는 글자로 막는다.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const siteState = vi.hoisted(() => ({ brandName: "위닝에듀" }));
+vi.mock("@/config/site", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/config/site")>();
+  return {
+    ...actual,
+    get site() {
+      return { ...actual.site, brandName: siteState.brandName };
+    },
+  };
+});
+
 import { gradeLabel } from "../classLabel";
 import { buildEnrollmentGrid, enrollmentFileName } from "./exportGrid";
 import type { ClassRow } from "./format";
@@ -10,7 +22,7 @@ const row = (over: Partial<ClassRow> = {}): ClassRow => ({
   grade: "고1",
   groupName: "A레벨",
   className: "1",
-  homeroomName: "김담임",
+  homeroomName: "김담임 선생님",
   total: 30,
   pendingCount: 3,
   capacity: 32,
@@ -51,19 +63,19 @@ describe("buildEnrollmentGrid", () => {
           },
         }),
       ],
-      filter: { grade: "학년그룹: 1학년", class: "반: 전체" },
+      filter: { grade: "학년: 1학년", class: "반: 전체" },
       asOf: "2026-11-05",
       scopeLabel: "1학년",
       gradeLabel: (g) => gradeLabel(g, false),
     });
 
     expect(grid[0]).toEqual(["이용현황"]);
-    expect(grid[1]).toEqual(["조회 조건", "학년그룹: 1학년", "반: 전체"]);
+    expect(grid[1]).toEqual(["조회 조건", "학년: 1학년", "반: 전체"]);
     expect(grid[2]).toEqual(["집계 기준", "1학년, 2026.11.05 기준"]);
-    const header = grid.findIndex((r) => r[0] === "담임");
+    const header = grid.findIndex((r) => r[0] === "담임 선생님");
     expect(grid[header]).toEqual([
-      "담임",
-      "학년그룹",
+      "담임 선생님",
+      "학년",
       "반",
       "총원",
       "정원",
@@ -78,7 +90,7 @@ describe("buildEnrollmentGrid", () => {
       "목표 실행률 평균",
     ]);
     expect(grid[header + 1]).toEqual([
-      "김담임",
+      "김담임 선생님",
       "1학년-A레벨",
       "1반",
       30,
@@ -94,7 +106,7 @@ describe("buildEnrollmentGrid", () => {
       "57%",
     ]);
     expect(grid[header + 2]).toEqual([
-      "담임 미배정",
+      "담임 선생님 없음",
       "1학년-A레벨",
       "2반",
       10,
@@ -127,38 +139,43 @@ describe("buildEnrollmentGrid", () => {
     ]);
   });
 
-  it("수식으로 읽힐 담임 이름 앞에 작은따옴표를 붙인다", () => {
+  it("수식으로 읽힐 담임 선생님 이름 앞에 작은따옴표를 붙인다", () => {
     const grid = buildEnrollmentGrid({
       rows: [row({ homeroomName: '=HYPERLINK("x")' })],
       filter: { grade: "", class: "" },
       asOf: "2026-11-05",
-      scopeLabel: "학교 전체",
+      scopeLabel: "전체",
       gradeLabel: (g) => gradeLabel(g, false),
     });
 
-    const header = grid.findIndex((r) => r[0] === "담임");
+    const header = grid.findIndex((r) => r[0] === "담임 선생님");
     expect(grid[header + 1]?.[0]).toBe('\'=HYPERLINK("x")');
   });
 
-  it("학원은 학년그룹 칸에 고1 같은 원래 값을, 다학년은 다학년을 적는다", () => {
+  it("학원은 학년 칸에 고1 같은 원래 값을, 다학년은 다학년을 적는다", () => {
     const grid = buildEnrollmentGrid({
       rows: [row(), row({ classId: "c2", grade: null, groupName: null })],
       filter: { grade: "", class: "" },
       asOf: "2026-11-05",
-      scopeLabel: "학원 전체",
+      scopeLabel: "전체",
       gradeLabel: (g) => gradeLabel(g, true),
     });
 
-    const header = grid.findIndex((r) => r[0] === "담임");
+    const header = grid.findIndex((r) => r[0] === "담임 선생님");
     expect(grid[header + 1]?.[1]).toBe("고1-A레벨");
     expect(grid[header + 2]?.[1]).toBe("다학년");
   });
 });
 
 describe("enrollmentFileName", () => {
-  it("스쿨멘토_이용현황_날짜 에 확장자를 붙인다", () => {
-    expect(enrollmentFileName("2026-11-05")).toBe(
-      "스쿨멘토_이용현황_20261105.xlsx",
-    );
-  });
+  it.each([["위닝에듀"], ["스쿨멘토"]])(
+    "사이트 이름(%s)_이용현황_날짜 에 확장자를 붙인다",
+    (brandName) => {
+      siteState.brandName = brandName;
+
+      expect(enrollmentFileName("2026-11-05")).toBe(
+        `${brandName}_이용현황_20261105.xlsx`,
+      );
+    },
+  );
 });

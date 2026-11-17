@@ -35,7 +35,7 @@ export default function DashboardFilter({
       }}
     >
       <FilterSelect
-        label="학년그룹"
+        label="학년"
         value={value.grade}
         options={[
           ALL,
@@ -68,7 +68,7 @@ export default function DashboardFilter({
                   label: `${c.name}반`,
                 })),
               ]
-            : [{ value: "", label: "학년그룹을 먼저 골라요" }]
+            : [{ value: "", label: "학년을 먼저 골라요" }]
         }
         onChange={(classId) => onChange({ ...value, classId })}
       />

@@ -48,7 +48,7 @@ describe("sendEnrollmentRpcError", () => {
       "VERSION_CONFLICT",
       "다른 분이 먼저 바꿨어요. 새로 고침해 주세요.",
     ],
-    ["WC079", 409, "ALREADY_ASSIGNED", "이미 학급이 정해져 있어요."],
+    ["WC079", 409, "ALREADY_ASSIGNED", "이미 반이 정해져 있어요."],
     ["WC080", 400, "GROUP_NOT_REGISTERED", "등록되지 않은 그룹이에요."],
     ["WC081", 404, "NOT_FOUND", "학적을 찾을 수 없어요."],
     ["WC082", 409, "REQUEST_PENDING", "이미 처리 중인 변경 신청이 있어요."],
@@ -98,9 +98,9 @@ describe("sendEnrollmentRpcError", () => {
       "같은 이름의 학년 반이 이미 있어요. 반 이름을 바꿔 주세요.",
     ],
     ["WC094", 403, "NOT_STUDENT", "학생 계정만 쓸 수 있어요."],
-    ["23503", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
-    ["22023", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
-    ["23514", 400, "INVALID_CLASS", "학년, 학급 정보를 확인해 주세요."],
+    ["23503", 400, "INVALID_CLASS", "학년, 반 정보를 확인해 주세요."],
+    ["22023", 400, "INVALID_CLASS", "학년, 반 정보를 확인해 주세요."],
+    ["23514", 400, "INVALID_CLASS", "학년, 반 정보를 확인해 주세요."],
   ])("%s maps to %i %s", (pgCode, status, code, message) => {
     const result = run({ code: pgCode });
     expect(result).toMatchObject({

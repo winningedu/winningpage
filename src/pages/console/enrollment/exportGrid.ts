@@ -1,5 +1,6 @@
 // W7 엑셀 출력 표(교 #40). 제목, 조회 조건, 서비스별 이용 인원, 반별 표와 합계 행만 담고 학생 이름은 담지 않는다.
 
+import { site } from "@/config/site";
 import type { GradeLabeler } from "../classLabel";
 import { dotDate } from "../date";
 import {
@@ -44,8 +45,8 @@ export function buildEnrollmentGrid(input: {
     ],
     [],
     [
-      "담임",
-      "학년그룹",
+      "담임 선생님",
+      "학년",
       "반",
       "총원",
       "정원",
@@ -55,7 +56,7 @@ export function buildEnrollmentGrid(input: {
       "목표 실행률 평균",
     ],
     ...rows.map((r) => [
-      safe(r.homeroomName ?? "담임 미배정"),
+      safe(r.homeroomName ?? "담임 선생님 없음"),
       safe(gradeGroupLabel(r, gradeLabel)),
       safe(`${r.className}반`),
       r.total,
@@ -81,9 +82,9 @@ export function buildEnrollmentGrid(input: {
   ];
 }
 
-/** 스쿨멘토_이용현황_날짜(교 #40). 날짜는 집계 기준일이다. */
+/** 사이트이름_이용현황_날짜(교 #40). 날짜는 집계 기준일이다. */
 export const enrollmentFileName = (asOf: string) =>
-  `스쿨멘토_이용현황_${asOf.replaceAll("-", "")}.xlsx`;
+  `${site.brandName}_이용현황_${asOf.replaceAll("-", "")}.xlsx`;
 
 /** 표를 엑셀로 내려받는다. 콘솔 첫 묶음에 들어가지 않도록 내려받을 때만 xlsx 를 불러온다. */
 export async function downloadEnrollmentXlsx(

@@ -59,7 +59,7 @@ describe("teacherConsoleRoutes", () => {
     expect(router.state.location.pathname).toBe("/login");
   });
 
-  it("임시 비밀번호 교사는 /teacher 로 들어와도 첫 비밀번호 화면을 본다", async () => {
+  it("임시 비밀번호 선생님는 /teacher 로 들어와도 첫 비밀번호 화면을 본다", async () => {
     stubApi({
       "GET /api/console/me": {
         body: { ...homeroomMe, mustChangePassword: true },
@@ -86,7 +86,7 @@ describe("teacherConsoleRoutes", () => {
     expect(screen.getByRole("complementary")).toBeTruthy();
   });
 
-  it("학교 관리자는 /teacher/org-info 에서 내정보관리를 본다", async () => {
+  it("학교 관리자는 /teacher/org-info 에서 학교 정보를 본다", async () => {
     stubApi({
       "GET /api/console/me": { body: adminMe },
       "GET /api/console/org-info": {
@@ -98,7 +98,7 @@ describe("teacherConsoleRoutes", () => {
     renderAt("/teacher/org-info");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "내정보관리" }),
+      await screen.findByRole("heading", { level: 1, name: "학교 정보" }),
     ).toBeTruthy();
   });
 
@@ -139,7 +139,7 @@ describe("teacherConsoleRoutes", () => {
     expect(screen.queryByText("이 화면은 곧 열려요")).toBeNull();
   });
 
-  it("대행 권한이 있는 본사 관리자는 /teacher 에서 사이드바 없는 학교 고르기를 본다", async () => {
+  it("대행 권한이 있는 본사 관리자는 /teacher 에서 사이드바 없는 기관 고르기를 본다", async () => {
     stubApi({
       "GET /api/console/me": {
         status: 403,
@@ -154,7 +154,7 @@ describe("teacherConsoleRoutes", () => {
 
     const router = renderAt("/teacher");
 
-    expect(await screen.findByText("대행할 학교 고르기")).toBeTruthy();
+    expect(await screen.findByText("대행할 기관 고르기")).toBeTruthy();
     expect(router.state.location.pathname).toBe("/teacher/proxy");
     expect(screen.queryByRole("complementary")).toBeNull();
   });

@@ -13,7 +13,8 @@ export const TOO_MANY_TEACHER_MESSAGE =
 // 서버 미리보기가 한 번에 판정하는 행 수와 같다(MAX_PREVIEW_ROWS).
 export const MAX_TEACHER_ROWS = 200;
 const WIDTH = 5;
-const HEADER_FIRST_CELL = "교사명";
+// 양식 머리글 첫 칸. 옛 양식(교사명)으로 만든 파일도 읽는다.
+const HEADER_FIRST_CELLS = ["선생님 이름", "교사명"];
 
 export interface TeacherFileRow {
   name: string;
@@ -26,7 +27,7 @@ export interface TeacherFileRow {
 export async function readTeacherFile(file: File): Promise<string> {
   const rows = await readSheetLines(file, {
     width: WIDTH,
-    header: HEADER_FIRST_CELL,
+    header: HEADER_FIRST_CELLS,
     maxRows: MAX_TEACHER_ROWS,
     messages: {
       unreadable: EMPTY_TEACHER_MESSAGE,
@@ -48,7 +49,7 @@ export function parseTeacherLines(text: string): TeacherFileRow[] {
     .filter((line) => line.trim() !== "")
     .map((line) => (line.includes("\t") ? line.split("\t") : line.split(",")))
     .map((cells) => cells.map((c) => c.trim()))
-    .filter((cells) => cells[0] !== HEADER_FIRST_CELL)
+    .filter((cells) => !HEADER_FIRST_CELLS.includes(cells[0] ?? ""))
     .map((cells) => ({
       name: cells[0] ?? "",
       phone: cells[1] ?? "",

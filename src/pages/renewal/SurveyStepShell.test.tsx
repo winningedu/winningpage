@@ -139,7 +139,7 @@ describe("SurveyStepShell 진입 거부", () => {
     accessMock.mockResolvedValue(denied("disabled"));
     renderShell();
     expect(
-      await screen.findByText("소속 기관에서 제공하지 않는 서비스예요."),
+      await screen.findByText("기관에서 제공하지 않는 서비스예요."),
     ).toBeInTheDocument();
     expect(screen.queryByText("결제 페이지")).not.toBeInTheDocument();
     expect(screen.queryByText("설문 화면")).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
       await screen.findByText("이용 가능 여부를 확인하지 못했어요."),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
+      screen.queryByText("기관에서 제공하지 않는 서비스예요."),
     ).not.toBeInTheDocument();
     accessMock.mockResolvedValue({ ...denied(null), allowed: true });
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
@@ -206,7 +206,7 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
       "이미 사용된 요청입니다. 다시 시도해 주세요.",
     );
     expect(
-      screen.queryByText("소속 기관에서 제공하지 않는 서비스예요."),
+      screen.queryByText("기관에서 제공하지 않는 서비스예요."),
     ).not.toBeInTheDocument();
   });
 });

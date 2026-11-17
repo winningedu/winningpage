@@ -199,7 +199,7 @@ export default function StudentUsageAdmin() {
       {usage && (
         <div className="space-y-3 bg-white p-4 shadow-sm">
           <p className="text-sm font-black text-[#111827]">
-            {usage.tenant?.name ?? "소속 기관 없음"}
+            {usage.tenant?.name ?? "기관 없음"}
           </p>
           <p className="text-xs font-bold text-gray-500">
             비워 두면 기관 설정을 따라요. 고친 서비스만 저장해요.

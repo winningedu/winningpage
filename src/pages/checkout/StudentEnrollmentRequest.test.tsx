@@ -3,12 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddonProduct } from "@/lib/products";
 
 const mocks = vi.hoisted(() => ({
+  site: { features: { studentEnrollment: false } },
+  parentLink: { parentId: "parent-1" } as { parentId: string } | null,
   addons: [] as unknown[],
   allowed: {} as Record<string, boolean | null>,
   apiFetch: vi.fn(),
   entitlementCalls: [] as string[],
 }));
 
+vi.mock("@/config/site", () => ({ site: mocks.site }));
 vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
 vi.mock("@/context/AuthProvider", () => ({
   useAuth: () => ({ user: { id: "student-1" } }),
@@ -41,8 +44,9 @@ vi.mock("@/lib/entitlement", () => ({
     return { allowed: mocks.allowed[serviceKey] ?? null };
   },
 }));
-vi.mock("@/lib/parentLink", () => ({
-  getApprovedParentLink: async () => ({ parentId: "parent-1" }),
+vi.mock("@/lib/parentLink", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/parentLink")>()),
+  getApprovedParentLink: async () => mocks.parentLink,
 }));
 vi.mock("@/lib/apiFetch", () => ({
   getAuthHeader: async () => ({ Authorization: "Bearer t" }),
@@ -75,6 +79,8 @@ beforeEach(() => {
   mocks.allowed = { suhaeng: true, inquiry: false };
   mocks.apiFetch.mockReset();
   mocks.entitlementCalls = [];
+  mocks.parentLink = { parentId: "parent-1" };
+  mocks.site.features.studentEnrollment = false;
 });
 
 describe("StudentEnrollmentRequest 추가 이용권", () => {
@@ -148,5 +154,31 @@ describe("StudentEnrollmentRequest 추가 이용권", () => {
         "이용 중인 서비스의 추가 이용권만 요청할 수 있어요.",
       ),
     ).toBeTruthy();
+  });
+});
+
+describe("StudentEnrollmentRequest 학부모 미연결 모달 코드 명칭", () => {
+  async function openFailModal() {
+    mocks.parentLink = null;
+    render(<StudentEnrollmentRequest />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "위닝 수행평가 추가 수량 늘리기",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "결제 요청" }));
+    return screen.findByText(/아직 연결된 학부모 계정이 없어요/);
+  }
+
+  it("학생 등록 사이트는 학생 고유코드로 안내한다", async () => {
+    mocks.site.features.studentEnrollment = true;
+    const body = await openFailModal();
+    expect(body.textContent).toContain("학생 고유코드");
+    expect(body.textContent).not.toContain("연결코드");
+  });
+
+  it("그 외 사이트는 연결코드로 안내한다", async () => {
+    const body = await openFailModal();
+    expect(body.textContent).toContain("내 연결코드");
   });
 });

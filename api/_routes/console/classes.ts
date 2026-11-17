@@ -29,7 +29,7 @@ export default defineHandler({
   auth: "console",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학급 목록을 불러오지 못했습니다.",
+  unhandledMessage: "반 목록을 불러오지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/classes]",
   headers: { "Cache-Control": "no-store" },

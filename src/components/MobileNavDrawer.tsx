@@ -46,7 +46,7 @@ type MobileNavDrawerProps = {
   orgName?: string | undefined;
   // "b2b"는 흐린 배경, 새 그림자, 항상 켜진 닫기 버튼 배경을 쓴다.
   variant?: "b2b" | undefined;
-  // 선생님 계정이면 D-day와 학생용 MY 목록 대신 이름과 관리 화면 링크를 보여 준다.
+  // 선생님 계정이면 D-day와 학생용 MY 목록 대신 이름과 선생님 화면 링크를 보여 준다.
   teacher?:
     | { name: string; roleLabel: string; consoleHref: string }
     | undefined;
@@ -119,7 +119,7 @@ export default function MobileNavDrawer({
 }: MobileNavDrawerProps) {
   const isB2b = variant === "b2b";
   const myItems = teacher
-    ? [{ label: "관리 화면", to: teacher.consoleHref }]
+    ? [{ label: "선생님 화면", to: teacher.consoleHref }]
     : buildMyMenu(myMenuRole).filter(
         (item) => !hideMenuItems.includes(item.label),
       );

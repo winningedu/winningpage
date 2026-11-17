@@ -33,10 +33,10 @@ export default function ClassTable({ rows, edit }: Props) {
     <Table className="min-w-[60rem]">
       <TableHeader>
         <TableRow>
-          <TableHead className="text-app-caption text-ink-sub">담임</TableHead>
           <TableHead className="text-app-caption text-ink-sub">
-            학년그룹
+            담임 선생님
           </TableHead>
+          <TableHead className="text-app-caption text-ink-sub">학년</TableHead>
           <TableHead className="text-app-caption text-ink-sub">반</TableHead>
           <TableHead className="text-right text-app-caption text-ink-sub">
             총원 / 정원
@@ -64,7 +64,7 @@ export default function ClassTable({ rows, edit }: Props) {
         {rows.map((r) => (
           <TableRow key={r.classId} className="h-[3.25rem]">
             <TableCell className="text-app-label text-ink">
-              {r.homeroomName ?? "담임 미배정"}
+              {r.homeroomName ?? "담임 선생님 없음"}
             </TableCell>
             <TableCell className="text-app-label text-ink">
               {gradeGroupLabel(r, gradeLabel)}

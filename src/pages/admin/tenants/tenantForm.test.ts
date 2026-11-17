@@ -112,7 +112,7 @@ describe("tenantPayload", () => {
     });
   });
 
-  test("소속 코드는 페이로드에 절대 들어가지 않는다", () => {
+  test("소속코드는 페이로드에 절대 들어가지 않는다", () => {
     const row = {
       code: "ABCD2345",
       name: "한빛고",

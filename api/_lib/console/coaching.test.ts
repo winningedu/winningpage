@@ -375,7 +375,7 @@ describe("computeCompetencies (연결표 r23~r42)", () => {
       score: null,
       basisUsed: 0,
       basisTotal: 1,
-      fallback: "담임 관찰로 보완",
+      fallback: "담임 선생님 관찰로 보완",
     });
   });
 

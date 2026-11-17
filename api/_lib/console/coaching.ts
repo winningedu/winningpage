@@ -469,7 +469,7 @@ const COMPETENCY_DEFS: {
     key: "community",
     name: "공동체역량",
     indicators: ["growthD"],
-    fallback: "담임 관찰로 보완",
+    fallback: "담임 선생님 관찰로 보완",
   },
   {
     key: "potential",

@@ -5,6 +5,10 @@ import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
 import { classifyMember, getMemberLabel } from "@/lib/memberAccess";
 import { supabase } from "@/lib/supabase";
+import {
+  ADMIN_ROLE_LABEL,
+  HOMEROOM_ROLE_LABEL,
+} from "@/pages/console/roleLabel";
 import { fetchProfile, getCsatDay } from "../Header";
 
 // other: 멘토, 유형 미설정, 모르는 유형, 콘솔 조회에 실패한 선생님. 이름 칩만 보이고 D-day는 없다.
@@ -32,8 +36,8 @@ type Resolved =
   | Teacher;
 
 const TEACHER_ROLE_LABELS: Record<string, string> = {
-  homeroom: "담임교사",
-  school_admin: "학교 전체 관리자",
+  homeroom: HOMEROOM_ROLE_LABEL,
+  school_admin: ADMIN_ROLE_LABEL,
 };
 
 export type B2BAccount =

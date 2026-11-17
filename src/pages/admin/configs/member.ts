@@ -150,15 +150,15 @@ export const memberConfigs: Record<string, MemberConfig> = {
     ],
   },
 
-  // 소속(테넌트) 관리(2026-09-22) — profiles/products/coupons.org_code(자유
+  // 기관 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·
   // 등록 폼 모두 custom 컴포넌트가 직접 다룬다(src/components/admin/TenantsAdmin.tsx).
   // columns 는 목록에서만 쓰인다(members 와 같은 관례).
   tenants: {
-    title: "소속(테넌트) 관리",
+    title: "기관 관리",
     table: "tenants",
-    searchPlaceholder: "소속명 검색",
+    searchPlaceholder: "기관명 검색",
     order: "created_at",
     readOnly: true,
     custom: true,
@@ -166,8 +166,8 @@ export const memberConfigs: Record<string, MemberConfig> = {
     columns: [
       { key: "name", label: "이름" },
       { key: "region", label: "지역" },
-      { key: "org_type", label: "기업형태" },
-      { key: "code", label: "소속 코드" },
+      { key: "org_type", label: "기관 유형" },
+      { key: "code", label: "소속코드" },
       // 정산·영업 우선순위 등 내부 판단 재료라 회원에게는 어떤 경로로도
       // 노출되지 않는다(tenants.tier 코멘트, 20260922002929) — 노출 여부가
       // 불확실해 일단 어드민 화면에만 라벨로 구분해 보여준다(판단 근거는

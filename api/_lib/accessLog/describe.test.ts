@@ -77,6 +77,12 @@ describe("menuLabel", () => {
     ["tenant_service_settings", "기관 서비스 설정"],
     ["student_usage_overrides", "학생별 이용 한도"],
     ["members", "회원 목록"],
+    ["teacherMemo", "선생님 메모"],
+    ["teacherMemoList", "선생님 메모 목록"],
+    ["classGroup", "반 묶음"],
+    ["classCapacity", "반 정원"],
+    ["console.teachers", "선생님 계정 관리"],
+    ["console.teacher_assignments", "선생님 배정"],
   ])("%s 는 %s", (key, label) => {
     expect(menuLabel(key)).toBe(label);
   });
@@ -119,7 +125,7 @@ describe("contentSummary", () => {
     );
   });
 
-  test("출력은 학급 수를 붙인다", () => {
+  test("출력은 반 수를 붙인다", () => {
     expect(
       contentSummary({
         action: "export",
@@ -127,7 +133,7 @@ describe("contentSummary", () => {
         rowCount: 3,
         meta: {},
       }),
-    ).toBe("이용현황 (학급 3)");
+    ).toBe("이용현황 (반 3)");
   });
 
   test("덧붙일 내용이 없으면 메뉴 이름만", () => {

@@ -58,7 +58,7 @@ export interface SiteConfig {
     schoolSignup: boolean;
     // 마이페이지 학적(학급 직접 입력, 학년, 반, 번호 수정요청, 학생 고유코드)과 서비스 화면의 학년 고정(사 #40, #109, #110, #111).
     studentEnrollment: boolean;
-    // 본사 관리자 화면의 기관 상세(기관 정보, 학교 관리자)와 목록 계약 열(5번 본사 관리 화면, 결정 102).
+    // 본사 관리자 화면의 기관 상세(기관 정보, 전체 관리자)와 목록 계약 열(5번 본사 관리 화면, 결정 102).
     hqTenantAdmin: boolean;
     // 칼럼 영상(결정 107 3~6번).
     columnVideo: boolean;

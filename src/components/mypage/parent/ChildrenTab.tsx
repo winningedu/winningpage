@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import ChildCard, { type Child } from "./ChildCard";
 import LinkChildModal from "./LinkChildModal";
@@ -27,7 +28,7 @@ function EmptyState({ onOpenLink }: { onOpenLink: () => void }) {
         onClick={onOpenLink}
         className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-[0.875rem] font-semibold text-white transition hover:opacity-90"
       >
-        연결코드로 자녀 찾기
+        {`${site.features.studentEnrollment ? "학생 고유코드" : "연결코드"}로 자녀 찾기`}
       </button>
     </div>
   );

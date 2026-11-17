@@ -65,9 +65,9 @@ export function requireUserId(ctx: HandlerCtx): string {
 const AUTH_REQUIRED_MESSAGE = "로그인이 필요합니다.";
 const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 
-const NOT_CONSOLE_MESSAGE = "콘솔 권한이 없습니다.";
+const NOT_CONSOLE_MESSAGE = "선생님 화면 권한이 없습니다.";
 const MUST_CHANGE_PASSWORD_MESSAGE = "임시 비밀번호를 먼저 변경해 주세요.";
-const NOT_SCHOOL_ADMIN_MESSAGE = "학교 관리자만 사용할 수 있습니다.";
+const NOT_SCHOOL_ADMIN_MESSAGE = "전체 관리자만 사용할 수 있습니다.";
 
 // api/performance/cleanup-attachments.ts, embed-session-vectors.ts 기준.
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";

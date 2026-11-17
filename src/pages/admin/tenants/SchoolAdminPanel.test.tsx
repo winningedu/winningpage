@@ -53,7 +53,7 @@ function fill(label: string, value: string) {
 }
 
 describe("SchoolAdminPanel", () => {
-  test("학교 관리자 목록에 주소, 발급일, 등록취소일을 읽기로만 보여준다", async () => {
+  test("전체 관리자 목록에 주소, 발급일, 등록취소일을 읽기로만 보여준다", async () => {
     renderPanel();
 
     expect(await screen.findByText("박관리")).toBeTruthy();
@@ -70,7 +70,7 @@ describe("SchoolAdminPanel", () => {
     ).toBeTruthy();
   });
 
-  test("발급 폼의 학교 칸은 읽기 전용 기관 이름이고 입력한 값을 tenantId 와 함께 보낸다", async () => {
+  test("발급 폼의 기관 칸은 읽기 전용 기관 이름이고 입력한 값을 tenantId 와 함께 보낸다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
       ok: true,
       data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
@@ -78,10 +78,10 @@ describe("SchoolAdminPanel", () => {
     renderPanel();
     await screen.findByText("박관리");
 
-    expect((screen.getByLabelText("학교") as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText("기관") as HTMLInputElement).value).toBe(
       "한빛고",
     );
-    expect((screen.getByLabelText("학교") as HTMLInputElement).readOnly).toBe(
+    expect((screen.getByLabelText("기관") as HTMLInputElement).readOnly).toBe(
       true,
     );
     fill("이름", "  김새로 ");

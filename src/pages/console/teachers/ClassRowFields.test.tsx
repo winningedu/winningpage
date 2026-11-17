@@ -2,10 +2,10 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ClassRowFields, { EMPTY_CLASS, toClassBody } from "./ClassRowFields";
 
-const HELPER = "학년그룹에서 학년이 섞여 있으면 다학년을 선택하여 주세요";
+const HELPER = "학년이 섞여 있으면 다학년을 선택하여 주세요";
 
 const optionLabels = () =>
-  within(screen.getByLabelText("학년그룹"))
+  within(screen.getByLabelText("학년"))
     .getAllByRole("option")
     .map((o) => o.textContent);
 
@@ -66,7 +66,7 @@ describe("ClassRowFields", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "mixed" },
     });
 

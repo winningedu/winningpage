@@ -201,7 +201,7 @@ export default function PendingRequestsTab() {
               <NameCell name={item.studentName} />
               <div className="flex items-center justify-between gap-3">
                 <span className="text-app-caption text-ink-sub">
-                  기존 학년그룹/반/번호
+                  기존 학년/반/번호
                 </span>
                 <span className="text-app-label font-semibold text-ink">
                   {slotLabel(item.from, gradeLabel)}
@@ -209,7 +209,7 @@ export default function PendingRequestsTab() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-app-caption text-ink-sub">
-                  요청한 학년그룹/반/번호
+                  요청한 학년/반/번호
                 </span>
                 <span className="flex items-center gap-2 text-app-label font-semibold text-ink">
                   {slotLabel(item.to, gradeLabel)}
@@ -225,8 +225,8 @@ export default function PendingRequestsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>학생명</TableHead>
-              <TableHead>기존 학년그룹/반/번호</TableHead>
-              <TableHead>요청한 학년그룹/반/번호</TableHead>
+              <TableHead>기존 학년/반/번호</TableHead>
+              <TableHead>요청한 학년/반/번호</TableHead>
               <TableHead>처리</TableHead>
             </TableRow>
           </TableHeader>
@@ -254,7 +254,7 @@ export default function PendingRequestsTab() {
         </Table>
       )}
       {list.data.items.length === 0 && (
-        <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년그룹과 반 이력을 볼 수 있어요" />
+        <EmptyMessage body="승인 대기가 없어요. 학생 조회와 이력 탭에서 학생의 학년과 반 이력을 볼 수 있어요" />
       )}
       {mobile ? (
         <LoadMore

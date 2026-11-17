@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 describe("ProxySelectPage", () => {
-  it("본사 관리자는 학교 목록과 사유 3개를 보고, 학교와 사유를 모두 고르기 전까지 대행 시작이 막혀 있다", async () => {
+  it("본사 관리자는 기관 목록과 사유 3개를 보고, 기관와 사유를 모두 고르기 전까지 대행 시작이 막혀 있다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": { body: TENANTS },
@@ -58,7 +58,7 @@ describe("ProxySelectPage", () => {
 
     expect(await screen.findByText("한빛고등학교")).toBeTruthy();
     expect(screen.getByText("SM26HB83")).toBeTruthy();
-    for (const reason of ["관리자 부재", "명단 대행", "장애 지원"]) {
+    for (const reason of ["전체 관리자 부재", "명단 대행", "장애 지원"]) {
       expect(screen.getByRole("radio", { name: reason })).toBeTruthy();
     }
     const start = screen.getByRole("button", {
@@ -74,7 +74,7 @@ describe("ProxySelectPage", () => {
     expect(start.disabled).toBe(false);
     expect(screen.getByText(/8시간 뒤 자동으로 끝나요/)).toBeTruthy();
   });
-  it("학교 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
+  it("기관 목록을 읽지 못하면 다시 시도 안내를 보인다", async () => {
     stubApi({
       "GET /api/console/proxy/tenants": () => {
         throw new TypeError("network");
@@ -97,12 +97,12 @@ describe("ProxySelectPage", () => {
 
     expect(
       await screen.findByText(
-        "학교 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
+        "기관 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요",
       ),
     ).toBeTruthy();
   });
 
-  it("대행 권한이 있는 본사 관리자가 다른 콘솔 주소로 들어오면 학교 고르기로 보낸다", async () => {
+  it("대행 권한이 있는 본사 관리자가 다른 콘솔 주소로 들어오면 기관 고르기로 보낸다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": { body: TENANTS },
@@ -110,11 +110,11 @@ describe("ProxySelectPage", () => {
 
     const { router } = renderRoutes(routes, "/teacher");
 
-    expect(await screen.findByText("대행할 학교 고르기")).toBeTruthy();
+    expect(await screen.findByText("대행할 기관 고르기")).toBeTruthy();
     expect(router.state.location.pathname).toBe("/teacher/proxy");
   });
 
-  it("대행 권한이 없는 계정은 학교 고르기로 가지 않고 이용 권한 없음 안내를 본다", async () => {
+  it("대행 권한이 없는 계정은 기관 고르기로 가지 않고 이용 권한 없음 안내를 본다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": {
@@ -126,10 +126,10 @@ describe("ProxySelectPage", () => {
     renderRoutes(routes, "/teacher");
 
     expect(await screen.findByText("이용 권한이 없어요")).toBeTruthy();
-    expect(screen.queryByText("대행할 학교 고르기")).toBeNull();
+    expect(screen.queryByText("대행할 기관 고르기")).toBeNull();
   });
 
-  it("학교 이름이나 소속코드로 목록을 좁히고, 맞는 학교가 없으면 안내한다", async () => {
+  it("기관 이름이나 소속코드로 목록을 좁히고, 맞는 기관가 없으면 안내한다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": { body: TENANTS },
@@ -138,21 +138,21 @@ describe("ProxySelectPage", () => {
     renderRoutes(routes, "/teacher/proxy");
     await screen.findByText("한빛고등학교");
 
-    fireEvent.change(screen.getByLabelText("학교 검색"), {
+    fireEvent.change(screen.getByLabelText("기관 검색"), {
       target: { value: "sm26ss" },
     });
     expect(screen.getByText("새솔중학교")).toBeTruthy();
     expect(screen.queryByText("한빛고등학교")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("학교 검색"), {
-      target: { value: "없는학교" },
+    fireEvent.change(screen.getByLabelText("기관 검색"), {
+      target: { value: "없는기관" },
     });
     expect(
-      screen.getByText("찾는 학교가 없어요. 이름이나 소속코드를 바꿔 보세요"),
+      screen.getByText("찾는 기관가 없어요. 이름이나 소속코드를 바꿔 보세요"),
     ).toBeTruthy();
   });
 
-  it("대행을 시작하면 고른 학교와 사유를 보내고 me 를 다시 읽은 뒤 대시보드로 간다", async () => {
+  it("대행을 시작하면 고른 기관와 사유를 보내고 me 를 다시 읽은 뒤 대시보드로 간다", async () => {
     let started = false;
     const calls = stubApi({
       "GET /api/console/me": () => (started ? { body: proxyMe } : NOT_CONSOLE),
@@ -189,7 +189,7 @@ describe("ProxySelectPage", () => {
     const { router } = renderRoutes(routes, "/teacher/proxy");
     await screen.findByText("한빛고등학교");
     fireEvent.click(screen.getByRole("radio", { name: "한빛고등학교" }));
-    fireEvent.click(screen.getByRole("radio", { name: "관리자 부재" }));
+    fireEvent.click(screen.getByRole("radio", { name: "전체 관리자 부재" }));
     fireEvent.click(screen.getByRole("button", { name: "대행 시작" }));
 
     expect(

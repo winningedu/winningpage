@@ -25,7 +25,7 @@ import {
   type TeacherFileRow,
 } from "./teacherFile";
 
-const PC_ONLY = "교사 엑셀 일괄업로드는 PC나 태블릿에서 할 수 있어요";
+const PC_ONLY = "선생님 엑셀 일괄업로드는 PC나 태블릿에서 할 수 있어요";
 const PREVIEW_FAILED = "미리보기를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 type Phase =
@@ -114,7 +114,7 @@ export default function TeacherExcelPage() {
   return (
     <>
       <PageHeader
-        title="교사 엑셀 일괄업로드"
+        title="선생님 엑셀 일괄업로드"
         subtitle="엑셀(.xlsx, .xls) 또는 CSV 파일로 여러 선생님의 이름, 전화번호, 학년, 반을 한 번에 등록합니다"
         mobileSubtitle={PC_ONLY}
       />

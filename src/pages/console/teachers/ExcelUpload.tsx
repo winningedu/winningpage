@@ -53,7 +53,8 @@ export default function ExcelUpload({
             양식 내려받기(.xlsx)
           </a>
           <p className="text-app-label text-ink-sub">
-            양식 5칸: 교사명, 전화번호, 학년, 그룹, 반. 예시 2행이 들어 있어요
+            양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 예시 2행이 들어
+            있어요
           </p>
         </div>
       </section>
@@ -88,7 +89,7 @@ export default function ExcelUpload({
             ref={inputRef}
             type="file"
             accept=".xlsx,.xls,.csv"
-            aria-label="교사 엑셀 파일"
+            aria-label="선생님 엑셀 파일"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -107,7 +108,7 @@ export default function ExcelUpload({
           <textarea
             aria-label="붙여넣기"
             value={text}
-            placeholder="교사명, 전화번호, 학년, 그룹, 반 순서로 한 줄에 한 학급씩 붙여넣으세요"
+            placeholder="선생님 이름, 전화번호, 학년, 그룹, 반 순서로 한 줄에 한 반씩 붙여넣으세요"
             onChange={(e) => onText(e.target.value)}
             className="h-32 w-full resize-none rounded-lg border border-line bg-background p-4 text-app-label text-ink-strong placeholder:text-ink-sub"
           />

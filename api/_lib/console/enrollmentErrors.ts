@@ -18,7 +18,7 @@ interface Mapped {
 const INVALID_CLASS: Mapped = {
   status: 400,
   code: "INVALID_CLASS",
-  message: "학년, 학급 정보를 확인해 주세요.",
+  message: "학년, 반 정보를 확인해 주세요.",
 };
 
 const LOCK_WAIT_STOPPED: Mapped = {
@@ -41,7 +41,7 @@ const MAPPED: Record<string, Mapped> = {
   WC079: {
     status: 409,
     code: "ALREADY_ASSIGNED",
-    message: "이미 학급이 정해져 있어요.",
+    message: "이미 반이 정해져 있어요.",
   },
   WC080: {
     status: 400,

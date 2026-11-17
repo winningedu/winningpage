@@ -53,7 +53,7 @@ export default function EditNameDialog({
           onChange={(e) => setName(e.target.value)}
         />
         <Notice tone="Info">
-          이름만 고칠 수 있어요. 아이디와 전화번호, 이미 등록된 학생의 학급은
+          이름만 고칠 수 있어요. 아이디와 전화번호, 이미 등록된 학생의 반은
           그대로예요
         </Notice>
         {error && <Notice tone="Danger">{error}</Notice>}
