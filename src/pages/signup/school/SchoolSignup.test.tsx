@@ -434,7 +434,7 @@ describe("3단계 이메일 인증", () => {
 
     const container = screen.getByLabelText("이메일").parentElement;
     const button = within(container as HTMLElement).getByRole("button");
-    expect(button).toBeDisabled();
+    await waitFor(() => expect(button).toBeDisabled());
     expect(button).toHaveTextContent(/초 후 재발송/);
     expect(sendSignupEmailCode).toHaveBeenCalledTimes(1);
   });
