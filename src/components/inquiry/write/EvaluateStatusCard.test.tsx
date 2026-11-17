@@ -71,7 +71,7 @@ describe("EvaluateStatusCard", () => {
     );
     expect(
       screen.getByText(
-        "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+        "지금은 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
       ),
     ).toBeVisible();
     expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();

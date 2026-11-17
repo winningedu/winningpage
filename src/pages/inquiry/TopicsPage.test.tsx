@@ -263,7 +263,7 @@ describe("TopicsPage", () => {
     });
     renderPage({ startRecommend: true });
     expect(
-      await screen.findByText("소속 기관에서 제공하지 않는 서비스예요."),
+      await screen.findByText("기관에서 제공하지 않는 서비스예요."),
     ).toBeTruthy();
     expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
     gateState.on = false;

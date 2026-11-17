@@ -91,7 +91,7 @@ describe("MyPage 학적", () => {
         <MyPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("고3 반 미정")).toBeInTheDocument();
+    expect(await screen.findByText("고3 미배정")).toBeInTheDocument();
     expect(
       mockApiFetch.mock.calls.filter((c) => c[0] === "/api/enrollment/me"),
     ).toHaveLength(1);

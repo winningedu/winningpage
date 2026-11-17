@@ -88,7 +88,7 @@ describe("푸터관리 어드민 섹션", () => {
 
   test("안내 문구가 노출 대상 규칙을 설명한다", () => {
     const guide = (configs.footerImages as Config).guideText ?? "";
-    expect(guide).toContain("노출 대상이 소속 기관인 이미지");
+    expect(guide).toContain("노출 대상이 기관인 이미지");
     expect(guide).toContain("공통 이미지");
     expect(guide).toContain("순서가 가장 앞선");
     expect(guide).not.toContain("1장만");

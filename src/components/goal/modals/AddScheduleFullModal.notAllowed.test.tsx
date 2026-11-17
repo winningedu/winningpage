@@ -49,7 +49,7 @@ describe("AddScheduleFullModal 이용 거부 문구", () => {
     siteState.tenantServiceGate = true;
     save();
     expect(
-      await screen.findByText("소속 기관에서 제공하지 않는 서비스예요."),
+      await screen.findByText("기관에서 제공하지 않는 서비스예요."),
     ).toBeInTheDocument();
   });
 });

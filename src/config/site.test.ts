@@ -253,7 +253,7 @@ describe("site - 학교 학생 가입 플래그", () => {
 });
 
 describe("site - 학적 셀프서비스 스위치", () => {
-  it("스쿨멘토만 학적(학급 입력, 수정요청, 고유코드)을 마이페이지에 보인다", async () => {
+  it("스쿨멘토만 학적(반 입력, 수정요청, 고유코드)을 마이페이지에 보인다", async () => {
     const schoolmentor = await loadSite("schoolmentor");
     expect(schoolmentor.site.features.studentEnrollment).toBe(true);
 
@@ -263,7 +263,7 @@ describe("site - 학적 셀프서비스 스위치", () => {
 });
 
 describe("site - 본사 기관 관리 스위치", () => {
-  it("스쿨멘토만 본사 기관 관리 화면(기관 상세, 학교 관리자)을 연다", async () => {
+  it("스쿨멘토만 본사 기관 관리 화면(기관 상세, 전체 관리자)을 연다", async () => {
     expect((await loadSite("schoolmentor")).site.features.hqTenantAdmin).toBe(
       true,
     );
