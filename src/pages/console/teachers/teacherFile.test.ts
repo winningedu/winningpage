@@ -21,10 +21,11 @@ function xlsxFile(aoa: string[][], name = "teachers.xlsx"): File {
   return new File([data], name);
 }
 
-const HEADER = ["교사명", "전화번호", "학년", "그룹", "반"];
+const HEADER = ["선생님 이름", "전화번호", "학년", "그룹", "반"];
+const OLD_HEADER = ["교사명", "전화번호", "학년", "그룹", "반"];
 
 describe("readTeacherFile", () => {
-  it("머리글을 건너뛰고 한 줄에 한 학급을 탭으로 이은 줄로 돌려준다", async () => {
+  it("머리글을 건너뛰고 한 줄에 한 반을 탭으로 이은 줄로 돌려준다", async () => {
     const file = xlsxFile([
       HEADER,
       ["박지훈", "010-1234-5678", "고2", "", "3반"],
@@ -33,6 +34,17 @@ describe("readTeacherFile", () => {
 
     expect(await readTeacherFile(file)).toBe(
       "박지훈\t010-1234-5678\t고2\t\t3반\n임채원\t010-4321-8765\t고1\tA레벨\t4반",
+    );
+  });
+
+  it("옛 양식의 머리글(교사명)도 건너뛴다", async () => {
+    const file = xlsxFile([
+      OLD_HEADER,
+      ["박지훈", "010-1234-5678", "고2", "", "3반"],
+    ]);
+
+    expect(await readTeacherFile(file)).toBe(
+      "박지훈\t010-1234-5678\t고2\t\t3반",
     );
   });
 
@@ -71,7 +83,7 @@ describe("readTeacherFile", () => {
 
   it("200줄을 넘으면 너무 많다고 한다", async () => {
     const rows = Array.from({ length: 201 }, (_, i) => [
-      `교사${i}`,
+      `선생님${i}`,
       "01012345678",
       "고1",
       "",
@@ -85,10 +97,26 @@ describe("readTeacherFile", () => {
 });
 
 describe("parseTeacherLines", () => {
+  it("옛 양식의 머리글 줄(교사명)도 버린다", () => {
+    expect(
+      parseTeacherLines(
+        "교사명\t전화번호\t학년\t그룹\t반\n박지훈\t010-1234-5678\t고2\t\t3반",
+      ),
+    ).toEqual([
+      {
+        name: "박지훈",
+        phone: "010-1234-5678",
+        grade: "고2",
+        group: "",
+        className: "3반",
+      },
+    ]);
+  });
+
   it("탭이 있으면 탭으로, 없으면 쉼표로 나누고 빈 줄과 머리글은 버린다", () => {
     expect(
       parseTeacherLines(
-        "교사명\t전화번호\t학년\t그룹\t반\n박지훈\t010-1234-5678\t고2\t\t3반\n\n임채원, 010-4321-8765, 고1, , 4반",
+        "선생님 이름\t전화번호\t학년\t그룹\t반\n박지훈\t010-1234-5678\t고2\t\t3반\n\n임채원, 010-4321-8765, 고1, , 4반",
       ),
     ).toEqual([
       {
