@@ -33,7 +33,6 @@ export const PHONE_MESSAGES = {
 
 export const NOTICE_MESSAGES = {
   findIdLink: "아이디 찾기",
-  loginLink: "로그인",
   // 결정 75: "정보가 맞는데 계속 막히면 온라인문의로 알려 주세요." 중 온라인문의만 링크다.
   inquiryBefore: "정보가 맞는데 계속 막히면 ",
   inquiryLink: "온라인문의",
@@ -50,7 +49,7 @@ export const GUARDIAN_MESSAGES = {
 export interface SubmitError {
   step: 2 | 3 | 4;
   message?: string;
-  hint?: "findId" | "inquiry" | "login";
+  hint?: "findId" | "inquiry";
 }
 
 export const SUBMIT_ERRORS: Record<string, SubmitError> = {
@@ -90,7 +89,7 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   UNAUTHENTICATED: { step: 3, message: EMAIL_MESSAGES.reverify },
   EMAIL_NOT_VERIFIED: { step: 3, message: EMAIL_MESSAGES.reverify },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
-  // 서버가 교착이나 대기 시간 초과를 만나 새 Auth 사용자를 지우고 돌려준다. 같은 값으로 다시 누르면 된다.
+  // 서버가 교착이나 대기 시간 초과를 만났다. 가입은 저장되지 않았으니 같은 값으로 다시 누르면 된다.
   TRY_AGAIN: {
     step: 4,
     message: "지금 처리 중인 작업이 있어요. 잠시 뒤 다시 시도해 주세요.",
