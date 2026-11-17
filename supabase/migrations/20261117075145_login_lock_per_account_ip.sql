@@ -117,6 +117,37 @@ begin
 end;
 $$;
 
+-- 비밀번호가 바뀌면(휴대폰 재설정, 교사 재설정, 이메일 링크 재설정, 콘솔과 마이페이지 변경) 그 계정의 계정 행과
+-- 모든 쌍 행을 지운다. 열쇠는 앱과 같은 sha256(lower(btrim(인증 이메일))) 이다(api/_lib/auth/login.ts hashParam).
+-- 어떤 오류도 비밀번호 변경을 막지 않도록 잡아서 경고만 남긴다(이메일은 남기지 않는다).
+create function public.fn_login_attempts_clear_on_password_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_hash bytea;
+begin
+  if new.email is not null and btrim(new.email) <> '' then
+    v_hash := extensions.digest(lower(btrim(new.email)), 'sha256');
+    delete from public.login_attempts where identifier_hash = v_hash or account_hash = v_hash;
+  end if;
+  return null;
+exception when others then
+  raise warning 'login_attempts clear on password change failed: %', sqlstate;
+  return null;
+end;
+$$;
+
+revoke all on function public.fn_login_attempts_clear_on_password_change() from public, anon, authenticated;
+
+create trigger login_attempts_clear_on_password_change
+  after update of encrypted_password on auth.users
+  for each row
+  when (old.encrypted_password is distinct from new.encrypted_password)
+  execute function public.fn_login_attempts_clear_on_password_change();
+
 revoke all on function public.fn_login_lock_begin(bytea, bytea) from public, anon, authenticated;
 grant execute on function public.fn_login_lock_begin(bytea, bytea) to service_role;
 revoke all on function public.fn_login_lock_end(bytea, bytea, text, smallint, smallint) from public, anon, authenticated;

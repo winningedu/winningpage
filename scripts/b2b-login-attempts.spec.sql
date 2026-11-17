@@ -254,6 +254,50 @@ select pg_temp.expect_text('success 는 계정 행 삭제', pg_temp.row_s('k3'),
 select pg_temp.expect_text('success 는 다른 쌍을 남긴다', pg_temp.prow_s('k3', '10.2.0.2'), '1:false');
 
 -- ---------------------------------------------------------------------
+-- auth.users 비밀번호가 바뀌면(모든 재설정, 변경 경로) 그 계정의 계정 행과 모든 쌍 행을 지운다
+-- ---------------------------------------------------------------------
+-- 트리거와 스펙의 해시가 Node(createHash('sha256'))로 만든 값과 같다
+select pg_temp.expect_text('계정 해시는 Node sha256 과 같다', encode(pg_temp.h('trig@example.com'), 'hex'),
+  'a517c51e3ced871e012721d6e019f006bcd39d478b8189b87243f1a8e19100f6');
+select pg_temp.expect_text('쌍 해시는 Node 의 0xff || 계정 해시 || IP 와 같다', encode(pg_temp.ph('trig@example.com', '10.3.0.1'), 'hex'),
+  '1a8ac0a2f7043b905cfe7b66907e63134370803ced35fcff5846d2534068cccb');
+insert into auth.users (id, email, aud, role, encrypted_password) values
+  ('00000000-0000-4000-8000-0000000000a1', 'Trig@Example.com', 'authenticated', 'authenticated', 'old'),
+  ('00000000-0000-4000-8000-0000000000a2', null, 'authenticated', 'authenticated', 'old');
+select pg_temp.lbegin('trig@example.com', '10.3.0.1');
+select pg_temp.lbegin('trig@example.com', '10.3.0.2');
+select pg_temp.lbegin('other@example.com', '10.3.0.1');
+-- 옛 함수가 만든 계정 행(account_hash 없음)도 같은 열쇠라 함께 지운다
+select pg_temp.begin_s('trig@example.com');
+
+update auth.users set last_sign_in_at = now() where id = '00000000-0000-4000-8000-0000000000a1';
+select pg_temp.expect_text('비밀번호 밖의 변경은 행을 남긴다', pg_temp.row_s('trig@example.com'), '3:false');
+
+update auth.users set encrypted_password = 'new' where id = '00000000-0000-4000-8000-0000000000a1';
+select pg_temp.expect_text('비밀번호 변경은 계정 행 삭제', pg_temp.row_s('trig@example.com'), 'none');
+select pg_temp.expect_text('비밀번호 변경은 쌍 행 삭제(1)', pg_temp.prow_s('trig@example.com', '10.3.0.1'), 'none');
+select pg_temp.expect_text('비밀번호 변경은 쌍 행 삭제(2)', pg_temp.prow_s('trig@example.com', '10.3.0.2'), 'none');
+select pg_temp.expect_text('다른 계정의 행은 남는다', pg_temp.prow_s('other@example.com', '10.3.0.1'), '1:false');
+
+select pg_temp.expect_ok('이메일 없는 계정의 비밀번호 변경도 성공',
+  $$update auth.users set encrypted_password = 'new' where id = '00000000-0000-4000-8000-0000000000a2'$$);
+
+-- 행 삭제가 실패해도 비밀번호 변경은 막지 않는다(경고만 남긴다)
+select pg_temp.lbegin('trig@example.com', '10.3.0.1');
+create function pg_temp.fail_delete() returns trigger language plpgsql as $$
+begin
+  raise exception 'forced delete failure';
+end $$;
+create trigger spec_fail_delete before delete on public.login_attempts
+  for each row execute function pg_temp.fail_delete();
+select pg_temp.expect_ok('행 삭제가 실패해도 비밀번호 변경은 성공',
+  $$update auth.users set encrypted_password = 'newer' where id = '00000000-0000-4000-8000-0000000000a1'$$);
+select pg_temp.expect_bool('비밀번호는 바뀌었다',
+  (select encrypted_password = 'newer' from auth.users where id = '00000000-0000-4000-8000-0000000000a1'), true);
+select pg_temp.expect_text('삭제 실패 시 행은 남는다', pg_temp.row_s('trig@example.com'), '1:false');
+drop trigger spec_fail_delete on public.login_attempts;
+
+-- ---------------------------------------------------------------------
 -- fn_login_resolve_email:lower(trim(username)) 로 인증 이메일을 정한다(profiles_username_unique_idx)
 -- ---------------------------------------------------------------------
 create function pg_temp.mk_profile(p_username text, p_member_type text, p_email text) returns void
@@ -292,6 +336,12 @@ select pg_temp.expect_error('anon 은 end 실행 불가',
   $$select public.fn_login_attempt_end('\x00'::bytea, 'success')$$, '42501');
 select pg_temp.expect_error('anon 은 fn_login_resolve_email 실행 불가',
   $$select public.fn_login_resolve_email('kim01')$$, '42501');
+select pg_temp.expect_error('anon 은 lock_begin 실행 불가',
+  $$select * from public.fn_login_lock_begin('\x00'::bytea, '\x01'::bytea)$$, '42501');
+select pg_temp.expect_error('anon 은 lock_end 실행 불가',
+  $$select public.fn_login_lock_end('\x00'::bytea, '\x01'::bytea, 'success')$$, '42501');
+select pg_temp.expect_error('anon 은 비밀번호 변경 트리거 함수 실행 불가',
+  $$select public.fn_login_attempts_clear_on_password_change()$$, '42501');
 reset role;
 set local role authenticated;
 select pg_temp.expect_error('authenticated 는 login_attempts 조회 불가',
@@ -302,6 +352,12 @@ select pg_temp.expect_error('authenticated 는 end 실행 불가',
   $$select public.fn_login_attempt_end('\x00'::bytea, 'success')$$, '42501');
 select pg_temp.expect_error('authenticated 는 fn_login_resolve_email 실행 불가',
   $$select public.fn_login_resolve_email('kim01')$$, '42501');
+select pg_temp.expect_error('authenticated 는 lock_begin 실행 불가',
+  $$select * from public.fn_login_lock_begin('\x00'::bytea, '\x01'::bytea)$$, '42501');
+select pg_temp.expect_error('authenticated 는 lock_end 실행 불가',
+  $$select public.fn_login_lock_end('\x00'::bytea, '\x01'::bytea, 'success')$$, '42501');
+select pg_temp.expect_error('authenticated 는 비밀번호 변경 트리거 함수 실행 불가',
+  $$select public.fn_login_attempts_clear_on_password_change()$$, '42501');
 reset role;
 
 do $$ begin raise notice '=== b2b-login-attempts.spec: 전체 통과 ==='; end $$;
