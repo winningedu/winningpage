@@ -35,7 +35,7 @@ export default defineHandler({
         res,
         "coded",
         403,
-        "기관 정보는 본사 관리 화면에서 변경합니다.",
+        "기관 정보는 본사 관리자 화면에서 변경합니다.",
         "FORBIDDEN",
       );
       return;

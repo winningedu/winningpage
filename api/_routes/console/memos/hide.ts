@@ -56,7 +56,7 @@ export default defineHandler({
         res,
         "coded",
         403,
-        "작성한 교사만 지울 수 있어요.",
+        "작성한 선생님만 지울 수 있어요.",
         "FORBIDDEN",
       );
       return;
