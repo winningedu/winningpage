@@ -1,3 +1,4 @@
+import { type KeyboardEvent, useState } from "react";
 import {
   AccessLogIcon,
   ArrowRightIcon,
@@ -134,6 +135,15 @@ function Lines({ lines }: { lines: string[] }) {
 }
 
 export default function ServiceOfferPage() {
+  const [selected, setSelected] = useState(false);
+  const toggle = () => setSelected((prev) => !prev);
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      toggle();
+    }
+  };
+
   return (
     <main className="pt-16 text-[#1A2333] antialiased tracking-[-0.01em]">
       <section className="bg-linear-to-b from-[#E6EEFB] via-[#F1F6FD] via-55% to-white pt-14 pb-7">
@@ -176,12 +186,28 @@ export default function ServiceOfferPage() {
           {/* biome-ignore lint/a11y/useSemanticElements: 시안처럼 눌러서 켜고 다시 눌러서 끄는 카드라 input radio 로 바꿀 수 없다 */}
           <div
             role="radio"
-            aria-checked="false"
+            aria-checked={selected}
             tabIndex={0}
-            className="mt-[1.375rem] flex cursor-pointer flex-col items-start justify-between gap-6 rounded-[1.125rem] border border-[#D3DBE8] bg-white px-8 py-[1.625rem] transition hover:border-[#aebfe0] lg:flex-row lg:items-center"
+            onClick={toggle}
+            onKeyDown={onKeyDown}
+            className={`mt-[1.375rem] flex cursor-pointer flex-col items-start justify-between gap-6 rounded-[1.125rem] border px-8 py-[1.625rem] transition lg:flex-row lg:items-center ${
+              selected
+                ? "border-[#2C6BE8] bg-[#F6FAFF] shadow-[0_0_0_0.1875rem_rgba(44,107,232,0.1)]"
+                : "border-[#D3DBE8] bg-white hover:border-[#aebfe0]"
+            }`}
           >
             <div className="flex min-w-0 items-center gap-[1.125rem]">
-              <span className="relative size-[1.375rem] flex-none rounded-full border-[1.5px] border-[#C4CCDA] bg-white transition" />
+              <span
+                className={`relative size-[1.375rem] flex-none rounded-full border-[1.5px] transition ${
+                  selected
+                    ? "border-[#2C6BE8] bg-[#2C6BE8]"
+                    : "border-[#C4CCDA] bg-white"
+                }`}
+              >
+                {selected && (
+                  <span className="absolute inset-[0.3125rem] rounded-full bg-white" />
+                )}
+              </span>
               <div>
                 <div className="text-base font-bold">
                   [교육기관 패키지] 개인 이용권

@@ -1,6 +1,6 @@
 // 스쿨멘토 이용신청 > 서비스제공. 고객사가 준 정적 화면을 그대로 옮긴 안내 페이지다.
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import ServiceOfferPage from "./ServiceOfferPage";
@@ -37,5 +37,23 @@ describe("ServiceOfferPage", () => {
     expect(
       screen.getByRole("radio", { name: /\[교육기관 패키지\] 개인 이용권/ }),
     ).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("이용권 카드는 클릭, Enter, Space 로 선택과 해제를 오간다", () => {
+    renderPage();
+    const card = screen.getByRole("radio");
+
+    fireEvent.click(card);
+    expect(card).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(card);
+    expect(card).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(card).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(card, { key: " " });
+    expect(card).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.keyDown(card, { key: "a" });
+    expect(card).toHaveAttribute("aria-checked", "false");
   });
 });
