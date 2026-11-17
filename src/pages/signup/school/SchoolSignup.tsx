@@ -37,6 +37,7 @@ export default function SchoolSignup() {
     setSchoolStep,
     tenant,
     formData,
+    verification,
     updateFormData,
     setTenant,
     updateVerification,
@@ -110,6 +111,13 @@ export default function SchoolSignup() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // 새로고침하면 비밀번호는 비고 인증 세션만 남는다. 이때 보내면 계정에 임시
+      // 비밀번호가 남은 채 가입이 끝나므로, 3단계에서 인증과 비밀번호를 다시 받는다.
+      if (!formData.password || !verification.email.verified) {
+        showSubmitError("EMAIL_NOT_VERIFIED");
+        return;
+      }
+
       // 이메일 인증으로 브라우저에 만들어진 세션이 인증한 이메일의 것인지 확인한다.
       const { data } = await supabase.auth.getUser();
       const verifiedEmail = formData.email.trim().toLowerCase();

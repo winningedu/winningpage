@@ -894,6 +894,34 @@ describe("가입 제출과 5단계 완료", () => {
     ).toBeInTheDocument();
   });
 
+  it("새로고침으로 비밀번호가 비어 있으면 세션이 살아 있어도 보내지 않고 3단계에서 인증을 다시 받게 한다", async () => {
+    window.sessionStorage.setItem(
+      "signup-flow",
+      JSON.stringify({
+        schoolStep: 4,
+        tenant: {
+          isCatchAll: false,
+          id: "t-1",
+          name: "새빛중학교",
+          orgType: "학교",
+        },
+        formData: { email: VERIFIED_EMAIL },
+        verification: { email: { verified: true } },
+      }),
+    );
+    mockApi({ "/api/signup/school-student": SIGNUP_OK });
+    renderSignup();
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("이메일 인증을 다시 진행해 주세요."),
+    ).toBeInTheDocument();
+    expect(applySignupPassword).not.toHaveBeenCalled();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+  });
+
   it("비밀번호를 계정에 반영하지 못하면 가입을 보내지 않고 오류를 보인다", async () => {
     await goToGuardian();
     vi.mocked(applySignupPassword).mockResolvedValue({
