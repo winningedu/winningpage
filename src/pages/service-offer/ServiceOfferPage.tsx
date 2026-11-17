@@ -147,7 +147,7 @@ export default function ServiceOfferPage() {
   };
 
   return (
-    <main className="pt-16 text-[#1A2333] antialiased tracking-[-0.01em]">
+    <main className="bg-white pt-16 text-[#1A2333] antialiased tracking-[-0.01em]">
       <section className="bg-linear-to-b from-[#E6EEFB] via-[#F1F6FD] via-55% to-white pt-14 pb-7">
         <div className={WRAP}>
           <div className="flex flex-col items-start justify-between gap-[1.875rem] overflow-hidden rounded-[1.625rem] bg-linear-[115deg,#BDD0F1_0%,#A9C2EB_100%] px-[1.625rem] py-[1.875rem] shadow-[0_0.875rem_2.125rem_rgba(27,79,184,0.14)] lg:flex-row lg:items-center lg:px-16 lg:py-10">
