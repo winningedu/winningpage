@@ -35,7 +35,7 @@ export default defineHandler({
   consoleRole: "schoolAdmin",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "담당 학급을 바꾸지 못했습니다.",
+  unhandledMessage: "담당 반을 바꾸지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/teachers/assignments]",
   headers: { "Cache-Control": "no-store" },
@@ -51,26 +51,14 @@ export default defineHandler({
       !isStringArray(removeClassIds) ||
       (primary !== null && typeof primary !== "string")
     ) {
-      sendError(
-        res,
-        "coded",
-        400,
-        "대상과 학급을 확인해 주세요.",
-        "BAD_REQUEST",
-      );
+      sendError(res, "coded", 400, "대상과 반을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
     if (await hasMixedClassForSchool(admin, actor.tenantId, add)) {
-      sendError(
-        res,
-        "coded",
-        400,
-        "대상과 학급을 확인해 주세요.",
-        "BAD_REQUEST",
-      );
+      sendError(res, "coded", 400, "대상과 반을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
 

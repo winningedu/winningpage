@@ -121,12 +121,37 @@ describe("POST /api/console/teachers/assignments", () => {
   });
 
   test.each([
-    ["담임의 마지막 학급 제거", "WC092", 409, "LAST_CLASS_REQUIRED"],
-    ["다른 교사가 이미 담임인 학급", "23505", 409, "CLASS_TAKEN"],
-    ["배정되지 않은 주담당", "WC093", 400, "PRIMARY_NOT_ASSIGNED"],
+    [
+      "담임의 마지막 학급 제거",
+      "WC092",
+      409,
+      "LAST_CLASS_REQUIRED",
+      "담임 선생님은 담당 반이 하나 이상 있어야 합니다.",
+    ],
+    [
+      "다른 선생님이 이미 담임인 학급",
+      "23505",
+      409,
+      "CLASS_TAKEN",
+      "다른 선생님이 이미 담임 선생님인 반입니다.",
+    ],
+    [
+      "배정되지 않은 주담당",
+      "WC093",
+      400,
+      "PRIMARY_NOT_ASSIGNED",
+      "주담당으로 지정할 반이 배정되어 있지 않습니다.",
+    ],
+    [
+      "학년 또는 반 이름 오류",
+      "23514",
+      400,
+      "INVALID_CLASS",
+      "학년, 반 정보를 확인해 주세요.",
+    ],
   ])(
     "%s 는 %s 로 막혀 %i %s 응답이고 감사 로그를 남기지 않는다",
-    async (_label, dbCode, status, code) => {
+    async (_label, dbCode, status, code, message) => {
       kit.state.rpc.fn_assignment_set = () => ({
         data: null,
         error: { code: dbCode },
@@ -138,10 +163,19 @@ describe("POST /api/console/teachers/assignments", () => {
       });
 
       expect(r.status).toBe(status);
-      expect(r.body).toMatchObject({ error: { code } });
+      expect(r.body).toMatchObject({ error: { code, message } });
       expect(kit.state.inserts).toHaveLength(0);
     },
   );
+
+  test("요청이 올바르지 않으면 400 이고 선생님 화면 용어로 안내한다", async () => {
+    const r = await post({ add: [] });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      error: { message: "대상과 반을 확인해 주세요." },
+    });
+  });
 
   test("다른 기관 교사는 404", async () => {
     kit.state.rows.teachers = () => [
