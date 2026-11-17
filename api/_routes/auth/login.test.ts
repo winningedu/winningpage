@@ -20,6 +20,10 @@ const state = vi.hoisted(() => ({
     ],
     error: null,
   } as { data: unknown; error: unknown },
+  legacyBeginResult: { data: null, error: null } as {
+    data: unknown;
+    error: unknown;
+  },
   resolvedEmail: null as string | null,
   teacher: null as Record<string, unknown> | null,
   resolveError: null as unknown,
@@ -55,6 +59,9 @@ vi.mock("../../_lib/supabaseAdmin.js", () => {
             data: state.resolvedEmail,
             error: state.resolveError,
           });
+        }
+        if (args[0] === "fn_login_attempt_begin") {
+          return Promise.resolve(state.legacyBeginResult);
         }
         return Promise.resolve(
           args[0] === "fn_login_lock_begin"
@@ -145,6 +152,7 @@ beforeEach(() => {
     ],
     error: null,
   };
+  state.legacyBeginResult = { data: null, error: null };
   state.resolvedEmail = null;
   state.teacher = null;
   state.resolveError = null;
@@ -672,5 +680,44 @@ describe("POST /api/auth/login", () => {
     expect(r.status).toBe(400);
     expect(state.rpc).not.toHaveBeenCalled();
     expect(state.signIn).not.toHaveBeenCalled();
+  });
+
+  // 배포 겹침: 앱이 먼저 올라가고 DB 에 fn_login_lock_begin 이 아직 없으면(PGRST202) 옛 계정 열쇠 함수로 센다.
+  describe("새 잠금 함수가 아직 없는 DB(PGRST202)", () => {
+    const NOT_FOUND = {
+      data: null,
+      error: { code: "PGRST202", message: "Could not find the function" },
+    };
+
+    test("틀린 비밀번호는 옛 begin 을 계정 해시로 불러 그 횟수로 401 INVALID 를 주고 옛 end(invalid)를 부른다", async () => {
+      state.resolvedEmail = "stu@example.com";
+      state.beginResult = NOT_FOUND;
+      state.legacyBeginResult = {
+        data: [{ outcome: "proceed", attempt_no: 3, retry_after_s: 0 }],
+        error: null,
+      };
+
+      const r = await login({ identifier: "STU01", password: "bad" });
+
+      expect(r.status).toBe(401);
+      expect(r.body).toEqual({
+        error: {
+          code: "INVALID",
+          message: "아이디 또는 비밀번호가 올바르지 않습니다. (실패 3/5회)",
+        },
+        failCount: 3,
+      });
+      expect(state.rpc).toHaveBeenCalledWith("fn_login_attempt_begin", {
+        p_hash: sha256Param("stu@example.com"),
+      });
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: sha256Param("stu@example.com"),
+        p_outcome: "invalid",
+      });
+      expect(state.rpc).not.toHaveBeenCalledWith(
+        "fn_login_lock_end",
+        expect.anything(),
+      );
+    });
   });
 });
