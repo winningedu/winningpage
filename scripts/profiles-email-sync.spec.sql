@@ -9,6 +9,24 @@
 -- =====================================================================
 begin;
 
+create function pg_temp.expect_error(t text, p_sql text, want text) returns void
+language plpgsql as $$
+declare
+  v_state text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate;
+    if v_state is distinct from want then
+      raise exception '[FAIL] %: sqlstate %, want %', t, v_state, want;
+    end if;
+    raise notice '[PASS] % = %', t, want;
+    return;
+  end;
+  raise exception '[FAIL] %: 예외가 나지 않았다, want %', t, want;
+end $$;
+
 create function pg_temp.expect_text(t text, got text, want text) returns void
 language plpgsql as $$
 begin
@@ -54,6 +72,9 @@ end $$;
 
 create temp table fx (k text primary key, v uuid);
 create function pg_temp.fx(p_k text) returns uuid language sql as $$ select v from fx where k = p_k $$;
+grant select on fx to authenticated, service_role;
+grant execute on function pg_temp.expect_error(text, text, text) to authenticated;
+grant execute on function pg_temp.fx(text) to authenticated, service_role;
 
 insert into fx values ('stu', pg_temp.mk_user('pes-stu@t.local', 'student'));
 
@@ -106,5 +127,19 @@ select pg_temp.as_user(pg_temp.fx('a'), 'PES-ADM@t.local');
 select pg_temp.expect_text('어드민 이메일을 가진 비어드민은 is_winning_admin 거부',
   public.is_winning_admin()::text, 'false');
 select pg_temp.as_none();
+
+-- ---------------------------------------------------------------------
+-- 5. 로그인 회원은 profiles.email 을 자기 auth 이메일 말고는 못 쓴다
+-- ---------------------------------------------------------------------
+-- 'a' 의 auth 이메일은 pes-a@t.local 이다.
+select pg_temp.as_user(pg_temp.fx('a'), 'pes-a@t.local');
+set local role authenticated;
+select pg_temp.expect_error('다른 주소로 profiles.email 변경 거부',
+  format($f$update public.profiles set email = 'pes-other@t.local' where id = %L$f$, pg_temp.fx('a')),
+  'WC106');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('거부 후 값 그대로',
+  (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
 
 rollback;
