@@ -35,7 +35,7 @@ export default defineHandler({
   auth: "user",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학교 관리자를 불러오지 못했습니다.",
+  unhandledMessage: "전체 관리자를 불러오지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[admin/tenants/school-admins]",
   headers: { "Cache-Control": "no-store" },

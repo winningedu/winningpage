@@ -34,7 +34,7 @@ export default defineHandler({
         res,
         "coded",
         400,
-        "이름, 전화번호, 학급을 확인해 주세요.",
+        "이름, 전화번호, 반을 확인해 주세요.",
         "BAD_REQUEST",
       );
       return;
@@ -52,7 +52,7 @@ export default defineHandler({
         res,
         "coded",
         400,
-        "이름, 전화번호, 학급을 확인해 주세요.",
+        "이름, 전화번호, 반을 확인해 주세요.",
         "BAD_REQUEST",
       );
       return;

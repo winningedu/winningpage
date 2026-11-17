@@ -14,7 +14,7 @@ export default defineHandler({
   auth: "user",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학교 목록을 불러오지 못했습니다.",
+  unhandledMessage: "기관 목록을 불러오지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/proxy/tenants]",
   headers: { "Cache-Control": "no-store" },

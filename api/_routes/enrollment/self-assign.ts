@@ -45,7 +45,7 @@ export default defineHandler({
   auth: "user",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "학급을 정하지 못했습니다.",
+  unhandledMessage: "반을 정하지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[enrollment/self-assign]",
   headers: { "Cache-Control": "no-store" },
@@ -64,11 +64,11 @@ export default defineHandler({
       .maybeSingle();
     if (profileError) throw new Error("profile lookup failed");
     if (!profile?.tenant_id) {
-      sendError(res, "coded", 404, "소속 기관을 찾을 수 없어요.", "NOT_FOUND");
+      sendError(res, "coded", 404, "기관을 찾을 수 없어요.", "NOT_FOUND");
       return;
     }
 
-    // 스쿨멘토에서 기타 소속은 학급을 직접 정하지 않는다(결정 77, 98.9). 화면만 숨기지 않고 서버도 막는다. 위닝은 그대로다.
+    // 스쿨멘토에서 기타 소속은 반을 직접 정하지 않는다(결정 77, 98.9). 화면만 숨기지 않고 서버도 막는다. 위닝은 그대로다.
     if (
       isSchoolmentorSite() &&
       (await loadTenant(ctx.supabaseAdmin, profile.tenant_id as string))
@@ -78,7 +78,7 @@ export default defineHandler({
         res,
         "coded",
         403,
-        "기타 소속은 학급을 직접 정할 수 없어요.",
+        "기타 소속은 반을 직접 정할 수 없어요.",
         "FORBIDDEN",
       );
       return;

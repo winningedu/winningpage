@@ -72,7 +72,11 @@ describe("POST /api/console/memos/hide", () => {
   });
 
   test("another teacher's memo is 403 and stays as it is", async () => {
-    expect((await post({ memoId: "m2" })).status).toBe(403);
+    const r = await post({ memoId: "m2" });
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({
+      error: { message: "작성한 선생님만 지울 수 있어요." },
+    });
     expect(kit.state.updates).toEqual([]);
     expect(kit.state.inserts).toEqual([]);
   });

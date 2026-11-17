@@ -33,7 +33,7 @@ export default defineHandler({
   consoleRole: "schoolAdmin",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",
-  unhandledMessage: "교사 목록을 불러오지 못했습니다.",
+  unhandledMessage: "선생님 목록을 불러오지 못했습니다.",
   unhandledCode: "INTERNAL",
   logLabel: "[console/teachers/list]",
   headers: { "Cache-Control": "no-store" },

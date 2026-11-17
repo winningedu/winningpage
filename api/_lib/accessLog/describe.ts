@@ -74,14 +74,14 @@ const MENU_LABELS: Record<string, string> = {
   studentFlag: "학생 표시",
   studentEnrollment: "학적",
   enrollmentRequest: "학적 수정 요청",
-  teacherMemo: "교사 메모",
-  teacherMemoList: "교사 메모 목록",
-  classGroup: "학급 묶음",
-  classCapacity: "학급 정원",
+  teacherMemo: "선생님 메모",
+  teacherMemoList: "선생님 메모 목록",
+  classGroup: "반 묶음",
+  classCapacity: "반 정원",
   schoolYear: "학년도",
   "console.students": "학생 목록",
-  "console.teachers": "교사 계정 관리",
-  "console.teacher_assignments": "교사 배정",
+  "console.teachers": "선생님 계정 관리",
+  "console.teacher_assignments": "선생님 배정",
   "console.org-info": "기관 정보",
   teacherConsoleProxy: "본사 대행",
   tenant_service_settings: "기관 서비스 설정",
@@ -103,7 +103,7 @@ const PROGRAM_LABELS: Record<string, string> = {
   growth: "성장설계",
   suhaeng: "수행평가",
   inquiry: "심화탐구",
-  selfeval: "자기평가서",
+  selfeval: "자기평가",
 };
 
 const COLUMN_LABELS: Record<string, string> = {
@@ -165,7 +165,7 @@ export function contentSummary(entry: AccessLogContentInput): string {
   if (entry.action === "settings_change" && entry.meta) {
     detail = settingsDetail(entry.meta);
   } else if (entry.action === "export" && entry.rowCount !== null) {
-    detail = `학급 ${entry.rowCount}`;
+    detail = `반 ${entry.rowCount}`;
   }
   return detail === "" ? label : `${label} (${detail})`;
 }
