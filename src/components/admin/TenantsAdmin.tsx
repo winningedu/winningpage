@@ -34,7 +34,7 @@ import {
 // 등록 흐름을 표현할 수 없다.
 //
 // code(소속 코드) 는 발급 후 불변이다(trg_tenants_lock_code, 20260922002929)
-// — 그래서 이 화면에 편집 폼 자체를 두지 않는다(등록만). 이름·지역·기업형태·
+// — 그래서 이 화면에 편집 폼 자체를 두지 않는다(등록만). 이름·지역·기관 유형·
 // 등급을 나중에 고쳐야 하면(tenants_update RLS 는 이미 열려 있다) 별도
 // 요구로 다시 붙인다.
 //
@@ -265,7 +265,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
               ))}
             </Select>
           </Field>
-          <Field label="기업형태">
+          <Field label="기관 유형">
             <Select
               value={form.org_type}
               onChange={(value) =>
@@ -312,7 +312,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
         // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다).
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-lg font-black">소속을 발급했습니다</h2>
+            <h2 className="mb-4 text-lg font-black">기관을 발급했습니다</h2>
             <div className="mb-1 text-sm font-bold text-gray-500">
               {issuedTenant.name}
             </div>
@@ -384,8 +384,8 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                   <th className="w-14 px-3 py-3 text-left">번호</th>
                   <th className="px-3 py-3 text-left">이름</th>
                   <th className="px-3 py-3 text-left">지역</th>
-                  <th className="px-3 py-3 text-left">기업형태</th>
-                  <th className="px-3 py-3 text-left">소속 코드</th>
+                  <th className="px-3 py-3 text-left">기관 유형</th>
+                  <th className="px-3 py-3 text-left">소속코드</th>
                   <th className="px-3 py-3 text-left">등급(내부용)</th>
                   {hq && (
                     <>

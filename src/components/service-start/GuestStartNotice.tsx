@@ -26,7 +26,7 @@ export default function GuestStartNotice({
             className="flex flex-col gap-2 break-keep text-base leading-[1.6] text-ink"
           >
             <p>결제 후 이용해 주세요.</p>
-            <p>소속 기관에서 이용 중이면 로그인해 주세요.</p>
+            <p>기관에서 이용 중이면 로그인해 주세요.</p>
           </DialogPrimitive.Description>
           <div className="flex gap-2">
             <DialogPrimitive.Close className="h-12 flex-1 rounded-xl bg-surface-muted text-base font-semibold text-ink-strong focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">

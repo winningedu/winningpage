@@ -94,7 +94,7 @@ const ROWS = [
   },
 ];
 
-const CONFIG = { title: "소속(테넌트) 관리", searchPlaceholder: "검색" };
+const CONFIG = { title: "기관 관리", searchPlaceholder: "검색" };
 
 beforeEach(() => {
   state.hqTenantAdmin = true;
@@ -132,7 +132,14 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
     const row = (await screen.findByText("한빛고")).closest(
       "tr",
     ) as HTMLElement;
-    for (const header of ["계약 기간", "MOU", "유예 종료일", "삭제 D-day"]) {
+    for (const header of [
+      "기관 유형",
+      "소속코드",
+      "계약 기간",
+      "MOU",
+      "유예 종료일",
+      "삭제 D-day",
+    ]) {
       expect(screen.getByText(header)).toBeTruthy();
     }
     expect(row.textContent).toContain("2026-03-01 ~ 2026-09-01");

@@ -13,7 +13,7 @@ import {
 } from "./api";
 
 // ---------------------------------------------------------------------------
-// 기관 상세의 학교 관리자 탭(사 #159, 결정 102.6). 목록은 읽기만 하고(주소, 발급일, 등록취소일),
+// 기관 상세의 전체 관리자 탭(사 #159, 결정 102.6). 목록은 읽기만 하고(주소, 발급일, 등록취소일),
 // 취소와 재발급은 본사 대행으로 한다. 발급 결과의 임시 비밀번호는 모달에서 한 번만 보여 주고
 // 닫으면 상태에서 지운다(서버도 응답에 한 번만 싣는다).
 // ---------------------------------------------------------------------------
@@ -120,12 +120,12 @@ export default function SchoolAdminPanel({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="학교 관리자 발급 결과"
+          aria-label="전체 관리자 발급 결과"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         >
           <div className="w-full max-w-md bg-white p-6 shadow-lg">
             <h2 className="mb-4 text-lg font-black">
-              학교 관리자를 발급했습니다
+              전체 관리자를 발급했습니다
             </h2>
             <div className="mb-1 text-sm font-bold text-gray-500">아이디</div>
             <div className="mb-3 flex items-center gap-2">
@@ -174,7 +174,7 @@ export default function SchoolAdminPanel({
 
       <div className="mb-6 bg-white p-6 shadow-sm">
         <div className="mb-3 text-sm font-bold text-gray-500">
-          학교 관리자 목록
+          전체 관리자 목록
         </div>
         {loadError && (
           <div className="mb-3 text-sm font-bold text-red-600">{loadError}</div>
@@ -197,7 +197,7 @@ export default function SchoolAdminPanel({
             {!list || list.admins.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-8 text-center text-gray-400">
-                  발급한 학교 관리자가 없습니다.
+                  발급한 전체 관리자가 없습니다.
                 </td>
               </tr>
             ) : (
@@ -226,10 +226,10 @@ export default function SchoolAdminPanel({
 
       <div className="bg-white p-6 shadow-sm">
         <div className="mb-3 text-sm font-bold text-gray-500">
-          학교 관리자 발급
+          전체 관리자 발급
         </div>
         <div className="flex flex-wrap items-end gap-4">
-          <Field label="학교">
+          <Field label="기관">
             <input
               value={tenantName}
               readOnly

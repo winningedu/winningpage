@@ -25,7 +25,7 @@ describe("goalNotAllowedMessage", () => {
   it("스쿨멘토에서 사유가 없으면 제공하지 않는 서비스 문구를 쓴다", () => {
     siteState.tenantServiceGate = true;
     expect(goalNotAllowedMessage(null, "이용권이 필요합니다.")).toBe(
-      "소속 기관에서 제공하지 않는 서비스예요.",
+      "기관에서 제공하지 않는 서비스예요.",
     );
   });
 });
@@ -42,19 +42,19 @@ describe("entitlementDeniedMessage", () => {
   it("스쿨멘토의 이용권 거부는 사유에 맞는 결정 99 문구를 쓴다", () => {
     siteState.tenantServiceGate = true;
     expect(entitlementDeniedMessage("NO_ENTITLEMENT", SERVER, "grace")).toBe(
-      "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+      "지금은 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
     );
     expect(
       entitlementDeniedMessage("ENTITLEMENT_EXPIRED", "x", "outside_period"),
     ).toBe(
-      "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
+      "지금은 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.",
     );
   });
 
   it("스쿨멘토에서 사유가 없으면 제공하지 않는 서비스 문구를 쓴다", () => {
     siteState.tenantServiceGate = true;
     expect(entitlementDeniedMessage("NO_ENTITLEMENT", SERVER, undefined)).toBe(
-      "소속 기관에서 제공하지 않는 서비스예요.",
+      "기관에서 제공하지 않는 서비스예요.",
     );
   });
 
