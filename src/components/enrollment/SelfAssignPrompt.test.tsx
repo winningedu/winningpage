@@ -1,4 +1,4 @@
-// 마이페이지 위쪽 학급 입력 안내(사 #109). 올해 학적에 학급이 없는 스쿨멘토 학생에게만 보인다.
+// 마이페이지 위쪽 반 입력 안내(사 #109). 올해 학적에 반이 없는 스쿨멘토 학생에게만 보인다.
 
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe("SelfAssignPrompt", () => {
-  it("학급이 없으면 입력 안내와 학년이 채워진 폼을 보인다", async () => {
+  it("반이 없으면 입력 안내와 학년이 채워진 폼을 보인다", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, meBody(null, null)));
     render(<Harness />);
 
@@ -60,6 +60,9 @@ describe("SelfAssignPrompt", () => {
       await screen.findByText("새 학년의 반과 번호를 입력해 주세요."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("학년")).toHaveValue("고3");
+    expect(
+      screen.getByText("입력하지 않으면 선생님 화면에는 미배정으로 보여요."),
+    ).toBeInTheDocument();
   });
 
   it("입력을 마치면 다시 불러와 안내가 사라진다", async () => {
@@ -83,7 +86,7 @@ describe("SelfAssignPrompt", () => {
     );
   });
 
-  it("학급이 이미 있으면 아무것도 그리지 않는다", async () => {
+  it("반이 이미 있으면 아무것도 그리지 않는다", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, meBody("5", 12)));
     const { container } = render(<Harness />);
 
@@ -91,7 +94,7 @@ describe("SelfAssignPrompt", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("기타 소속 학생에게는 학급이 비어 있어도 숨긴다(결정 98.9)", async () => {
+  it("기타 소속 학생에게는 반이 비어 있어도 숨긴다(결정 98.9)", async () => {
     mockApiFetch.mockResolvedValue(
       jsonResponse(200, { ...meBody(null, null), isCatchAll: true }),
     );

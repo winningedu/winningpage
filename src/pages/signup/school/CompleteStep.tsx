@@ -32,8 +32,8 @@ export default function CompleteStep() {
 
       {childLinkEnabled && linkCode && (
         <InfoCard variant="card" className="w-full text-center">
-          코드를 학부모님께 알려주면 학부모 대시보드에 내 학습 현황이 자동으로
-          연결돼요
+          학생 고유코드를 학부모님께 알려주면 학부모 대시보드에 내 학습 현황이
+          자동으로 연결돼요
           <span className="mt-3 block text-xl font-medium tracking-[0.2em] text-accent">
             {linkCode}
           </span>
@@ -42,7 +42,7 @@ export default function CompleteStep() {
 
       {childLinkEnabled && !linkCode && (
         <InfoCard variant="card" className="w-full text-center">
-          연결코드는 마이페이지에서 확인할 수 있어요
+          학생 고유코드는 마이페이지에서 확인할 수 있어요
         </InfoCard>
       )}
 
