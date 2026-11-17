@@ -154,7 +154,7 @@ describe("b2b Header 학생 상태", () => {
 });
 
 describe("b2b Header 선생님 상태", () => {
-  it("이름과 역할, 학교 칩, 관리 화면 링크, 로그아웃을 보여 주고 D-day와 마이페이지는 없다", async () => {
+  it("이름과 역할, 기관 칩, 선생님 화면 링크, 로그아웃을 보여 주고 D-day와 마이페이지는 없다", async () => {
     mockProfileRow = {
       id: "u2",
       email: "t@test.com",
@@ -178,10 +178,10 @@ describe("b2b Header 선생님 상태", () => {
     renderHeader();
 
     expect(
-      await screen.findByText("박지훈 선생님 담임교사"),
+      await screen.findByText("박지훈 선생님 담임 선생님"),
     ).toBeInTheDocument();
     expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "선생님 화면" })).toHaveAttribute(
       "href",
       CONSOLE_BASE,
     );
@@ -194,7 +194,35 @@ describe("b2b Header 선생님 상태", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("관리 화면 링크가 가리키는 경로는 콘솔 라우트의 인덱스로 등록돼 있다(캐치올 아님)", async () => {
+  it("전체 관리자 역할은 전체 관리자로 표시한다", async () => {
+    mockProfileRow = {
+      id: "u2",
+      email: "t@test.com",
+      name: "최민수",
+      member_type: "teacher",
+      role: "user",
+    };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        teacher: { name: "최민수", role: "school_admin" },
+        tenant: { name: "한빛고등학교" },
+      }),
+    });
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u2", email: "t@test.com" } },
+      user: { id: "u2", email: "t@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+
+    expect(
+      await screen.findByText("최민수 선생님 전체 관리자"),
+    ).toBeInTheDocument();
+  });
+
+  it("선생님 화면 링크가 가리키는 경로는 콘솔 라우트의 인덱스로 등록돼 있다(캐치올 아님)", async () => {
     mockProfileRow = {
       id: "u2",
       email: "t@test.com",
@@ -217,7 +245,7 @@ describe("b2b Header 선생님 상태", () => {
     });
     renderHeader();
     const href = (
-      await screen.findByRole("link", { name: "관리 화면" })
+      await screen.findByRole("link", { name: "선생님 화면" })
     ).getAttribute("href");
 
     const consoleRoot = teacherConsoleRoutes.find((r) => r.path === href);
@@ -229,7 +257,7 @@ describe("b2b Header 선생님 상태", () => {
 });
 
 describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
-  it("콘솔 조회가 403이면 학생이 아닌 이름 칩만 보이고(D-day, 관리 화면 없음), 로그아웃은 세션만 끊는다", async () => {
+  it("콘솔 조회가 403이면 학생이 아닌 이름 칩만 보이고(D-day, 선생님 화면 없음), 로그아웃은 세션만 끊는다", async () => {
     mockProfileRow = {
       id: "u3",
       email: "x@test.com",
@@ -251,7 +279,7 @@ describe("b2b Header 선생님 조회 실패와 로그아웃", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "관리 화면" }),
+      screen.queryByRole("link", { name: "선생님 화면" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
@@ -269,7 +297,7 @@ describe("b2b Header 멘토회원", () => {
     expect(mockApiFetch).not.toHaveBeenCalled();
     expect(screen.queryByText(/^수능 D/)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "관리 화면" }),
+      screen.queryByRole("link", { name: "선생님 화면" }),
     ).not.toBeInTheDocument();
   });
 });
