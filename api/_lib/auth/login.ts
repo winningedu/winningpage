@@ -277,8 +277,8 @@ export async function attemptLogin(
     ...hashes,
     p_outcome: "invalid",
   });
-  // 5번째 실패는 begin 이 이미 10분 잠금을 걸었다.
-  if (begin.attempt_no >= MAX_FAILS) {
+  // 쌍 5번째나 계정 50번째 실패는 begin 이 이미 10분 잠금을 걸었다(retry_after_s > 0). 어느 쪽인지는 알리지 않는다.
+  if (begin.retry_after_s > 0) {
     return {
       ok: false,
       status: 429,

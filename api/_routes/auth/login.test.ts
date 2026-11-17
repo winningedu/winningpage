@@ -611,6 +611,32 @@ describe("POST /api/auth/login", () => {
     expect(r.headers["Retry-After"]).toBe("600");
   });
 
+  test("계정 전체 50번째 실패는 쌍 횟수가 5 미만이어도 같은 429 LOCKED 문구를 준다", async () => {
+    state.beginResult = {
+      data: [
+        {
+          outcome: "proceed",
+          attempt_no: 2,
+          account_attempt_no: 50,
+          retry_after_s: 600,
+        },
+      ],
+      error: null,
+    };
+
+    const r = await login({ identifier: "kim01", password: "bad" });
+
+    expect(r.status).toBe(429);
+    expect(r.body).toEqual({
+      error: {
+        code: "LOCKED",
+        message:
+          "로그인에 5회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 10분 후에 다시 시도해 주세요.",
+      },
+    });
+    expect(r.headers["Retry-After"]).toBe("600");
+  });
+
   test("begin 이 실패하면 503 RETRY 이고 GoTrue 를 부르지 않는다", async () => {
     state.beginResult = { data: null, error: { code: "XX000" } };
 
