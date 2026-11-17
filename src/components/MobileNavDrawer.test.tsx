@@ -272,7 +272,7 @@ describe("MobileNavDrawer B2B 변형 선생님", () => {
       teacher: {
         name: "박지훈",
         roleLabel: "담임교사",
-        consoleHref: "/teacher/dashboard",
+        consoleHref: "/teacher",
       },
       orgName: "한빛고등학교",
       onLogout,
@@ -282,7 +282,7 @@ describe("MobileNavDrawer B2B 변형 선생님", () => {
     expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
       "href",
-      "/teacher/dashboard",
+      "/teacher",
     );
     expect(
       screen.queryByRole("link", { name: "MY페이지" }),

@@ -36,11 +36,9 @@ describe("프리미엄 라우트 게이트 배선", () => {
     expect(route?.middleware).toEqual([requireUsageGuideAvailableMiddleware]);
   });
 
-  it("서비스제공 라우트는 만들지 않는다", () => {
-    const paths = applyRoutes.map((r) => r.path ?? "");
-    expect(paths.some((path) => path.includes("service-provision"))).toBe(
-      false,
-    );
+  it("/service-offer 는 이용안내와 같은 게이트를 가진다", () => {
+    const route = applyRoutes.find((r) => r.path === "/service-offer");
+    expect(route?.middleware).toEqual([requireUsageGuideAvailableMiddleware]);
   });
 
   it("멘토신청 라우트에는 게이트를 걸지 않는다", () => {

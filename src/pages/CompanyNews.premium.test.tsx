@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from "vitest";
 
 const siteState = vi.hoisted(() => ({
   premium: true,
+  callmentor: true,
   hidden: [] as string[],
 }));
 vi.mock("@/config/site", () => ({
@@ -19,6 +20,9 @@ vi.mock("@/config/site", () => ({
       companyLocation: true,
       get premium() {
         return siteState.premium;
+      },
+      get callmentor() {
+        return siteState.callmentor;
       },
       get hiddenPrograms() {
         return siteState.hidden;
@@ -114,5 +118,29 @@ describe("CompanyNews - 숨김 프로그램", () => {
       ),
     ).toBeInTheDocument();
     siteState.hidden = [];
+  });
+});
+
+describe("CompanyNews - 콜멘토 히어로 카드", () => {
+  test("콜멘토를 닫는 사이트(callmentor=false)는 콜멘토 카드를 렌더하지 않는다", () => {
+    siteState.callmentor = false;
+    const { container } = renderPage();
+    siteState.callmentor = true;
+
+    expect(
+      container.querySelector('a[href="/services/callmentor"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('a[href="/services/growth"]'),
+    ).not.toBeNull();
+  });
+
+  test("콜멘토를 여는 사이트(callmentor=true)는 콜멘토 카드를 렌더한다", () => {
+    siteState.callmentor = true;
+    const { container } = renderPage();
+
+    expect(
+      container.querySelector('a[href="/services/callmentor"]'),
+    ).not.toBeNull();
   });
 });

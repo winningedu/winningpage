@@ -6,8 +6,10 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, type RouteObject } from "react-router";
 import { describe, expect, it, vi } from "vitest";
+import { CONSOLE_BASE } from "@/pages/console/menu";
+import teacherConsoleRoutes from "@/routes/teacherConsoleRoutes";
 import Header from "./Header";
 import { NAV_LEFT } from "./navGrid";
 
@@ -181,7 +183,7 @@ describe("b2b Header 선생님 상태", () => {
     expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
       "href",
-      "/teacher/dashboard",
+      CONSOLE_BASE,
     );
     expect(
       screen.getByRole("button", { name: "로그아웃" }),
@@ -190,6 +192,39 @@ describe("b2b Header 선생님 상태", () => {
     expect(
       screen.queryByRole("link", { name: /마이페이지/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("관리 화면 링크가 가리키는 경로는 콘솔 라우트의 인덱스로 등록돼 있다(캐치올 아님)", async () => {
+    mockProfileRow = {
+      id: "u2",
+      email: "t@test.com",
+      name: "박지훈",
+      member_type: "teacher",
+      role: "user",
+    };
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        teacher: { name: "박지훈", role: "homeroom" },
+        tenant: { name: "한빛고등학교" },
+      }),
+    });
+    mockUseAuth.mockReturnValue({
+      session: { user: { id: "u2", email: "t@test.com" } },
+      user: { id: "u2", email: "t@test.com" },
+      isReady: true,
+    });
+    renderHeader();
+    const href = (
+      await screen.findByRole("link", { name: "관리 화면" })
+    ).getAttribute("href");
+
+    const consoleRoot = teacherConsoleRoutes.find((r) => r.path === href);
+    const hasIndex = (routes: RouteObject[] = []): boolean =>
+      routes.some((r) => r.index === true || hasIndex(r.children));
+    expect(consoleRoot).toBeDefined();
+    expect(hasIndex(consoleRoot?.children)).toBe(true);
   });
 });
 
