@@ -89,4 +89,32 @@ describe("admin/invite-member 기존 계정 찾기", () => {
     expect(r.body).toEqual({ detail: "이미 활성 상태인 관리자입니다." });
     expect(invite).not.toHaveBeenCalled();
   });
+
+  test("profiles.email 만 초대 주소와 같고 auth 이메일이 다른 계정은 고르지 않는다", async () => {
+    // 초대 주소를 auth 이메일로 가진 계정이 없다. STALE_COPY 의 profiles.email 만 같다.
+    kit.state.rpc.fn_auth_user_id_by_email = () => ({
+      data: null,
+      error: null,
+    });
+
+    const r = await callHandler(inviteMember, BODY);
+
+    expect(r.status).toBe(200);
+    expect(invite).toHaveBeenCalledWith(INVITED, expect.anything());
+    expect(kit.state.upserts.map((u) => u.row.profile_id)).not.toContain(
+      STALE_COPY.id,
+    );
+  });
+
+  test("이메일 확인 전인 auth 계정은 고르지 않는다", async () => {
+    authUser(null);
+
+    const r = await callHandler(inviteMember, BODY);
+
+    expect(r.status).toBe(200);
+    expect(invite).toHaveBeenCalledWith(INVITED, expect.anything());
+    expect(kit.state.upserts.map((u) => u.row.profile_id)).not.toContain(
+      REAL.id,
+    );
+  });
 });
