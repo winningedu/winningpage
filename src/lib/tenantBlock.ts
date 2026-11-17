@@ -15,12 +15,12 @@ export type TenantBlockReason =
 export const TENANT_JOIN_LABEL = "소속코드 입력";
 
 const PERIOD_MESSAGE =
-  "지금은 소속 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.";
+  "지금은 기관의 서비스 이용 기간이 아니에요. 선생님께 문의해 주세요.";
 
 const MESSAGES: Record<TenantBlockReason, string> = {
   teacher: "선생님 계정에서는 학생 서비스를 이용할 수 없어요.",
   catch_all: "소속코드를 입력하면 서비스를 이용할 수 있어요.",
-  disabled: "소속 기관에서 제공하지 않는 서비스예요.",
+  disabled: "기관에서 제공하지 않는 서비스예요.",
   outside_period: PERIOD_MESSAGE,
   grace: PERIOD_MESSAGE,
   month_cap:

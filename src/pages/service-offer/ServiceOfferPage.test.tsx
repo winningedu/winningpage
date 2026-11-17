@@ -67,6 +67,19 @@ describe("ServiceOfferPage", () => {
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
+  it("용어 표준에 맞춰 선생님 화면, 개인종합코칭, 담임 선생님, 전체 관리자를 쓴다", () => {
+    const { container } = renderPage();
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("선생님 화면에서 한눈에 확인할 수 있습니다");
+    expect(text).toContain("개인종합코칭 기능이 있어서");
+    expect(text).toContain("담임 선생님, 전체 관리자, 본사 권한을");
+    expect(text).not.toContain("교사용 통합관리 화면");
+    expect(text).not.toContain("학생종합코칭");
+    expect(text).not.toContain("담임교사");
+    expect(text).not.toContain("학교관리자");
+  });
+
   it("가운뎃점 없이 쉼표와 와/과로 바꾼 문구를 그린다", () => {
     const { container } = renderPage();
     const text = container.textContent ?? "";

@@ -23,7 +23,14 @@ export const REGION_OPTIONS = [
 ];
 
 // tenants_org_type_check 와 1:1.
-export const ORG_TYPE_OPTIONS = ["기관", "사기업", "학교", "캠퍼스", "기타"];
+export const ORG_TYPE_OPTIONS = [
+  "기관",
+  "사기업",
+  "학교",
+  "학원",
+  "캠퍼스",
+  "기타",
+];
 
 // tenants_tier_check 와 1:1. 라벨은 DB 코멘트("내부 분류용 등급")를 그대로 옮긴 것.
 export const TIER_OPTIONS = [

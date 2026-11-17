@@ -262,7 +262,7 @@ describe("3단계 학생 정보 칸", () => {
     }
     expect(screen.queryByLabelText("그룹(선택)")).toBeNull();
     expect(
-      screen.getByText("학년, 반, 번호는 선생님 화면의 학급 편성에 쓰여요."),
+      screen.getByText("학년, 반, 번호는 선생님 화면의 반 편성에 쓰여요."),
     ).toBeInTheDocument();
   });
 
@@ -741,6 +741,18 @@ describe("가입 제출과 5단계 완료", () => {
       guardianRelation: "어머니",
       guardianConsent: false,
     });
+  });
+
+  it("완료 화면은 학생 고유코드를 학부모님께 알려 주도록 안내한다", async () => {
+    vi.stubEnv("VITE_CHILD_LINK_ENABLED", "true");
+    await goToGuardian();
+    click("건너뛰기");
+    await screen.findByRole("button", { name: "서비스 둘러보기" });
+
+    expect(
+      screen.getByText(/학생 고유코드를 학부모님께 알려주면/),
+    ).toBeInTheDocument();
+    vi.unstubAllEnvs();
   });
 
   it("완료 화면의 서비스 둘러보기는 홈으로 간다", async () => {

@@ -13,7 +13,7 @@ export default function SelfAssignPrompt({ data, reload }: MyEnrollmentState) {
         새 학년의 반과 번호를 입력해 주세요.
       </h2>
       <p className="mb-4 mt-1 text-sm text-ink-sub">
-        입력하지 않으면 선생님 화면에는 반 미정으로 보여요.
+        입력하지 않으면 선생님 화면에는 미배정으로 보여요.
       </p>
       <EnrollmentForm
         endpoint="self-assign"

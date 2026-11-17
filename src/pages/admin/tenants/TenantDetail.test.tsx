@@ -52,7 +52,7 @@ vi.mock("./SchoolAdminPanel", () => ({
   }: {
     tenantId: string;
     tenantName: string;
-  }) => <div>학교 관리자 패널 {`${tenantId}/${tenantName}`}</div>,
+  }) => <div>전체 관리자 패널 {`${tenantId}/${tenantName}`}</div>,
 }));
 
 vi.mock("./ServiceSettingsPanel", () => ({
@@ -113,11 +113,12 @@ function renderDetail(onBack = vi.fn(), onSaved = vi.fn()) {
 }
 
 describe("TenantDetail 기관 정보 탭", () => {
-  test("기관을 불러와 입력칸을 채우고 소속 코드는 읽기 전용이다", async () => {
+  test("기관을 불러와 입력칸을 채우고 소속코드는 읽기 전용이다", async () => {
     renderDetail();
 
     expect(await screen.findByDisplayValue("한빛고")).toBeTruthy();
-    const code = screen.getByLabelText("소속 코드") as HTMLInputElement;
+    const code = screen.getByLabelText("소속코드") as HTMLInputElement;
+    expect(screen.getByLabelText("기관 유형")).toBeTruthy();
     expect(code.value).toBe("ABCD2345");
     expect(code.readOnly).toBe(true);
     expect(
@@ -140,7 +141,7 @@ describe("TenantDetail 기관 정보 탭", () => {
     ).toBeTruthy();
   });
 
-  test("저장은 tenants 를 그 id 로 고치고 소속 코드는 보내지 않는다", async () => {
+  test("저장은 tenants 를 그 id 로 고치고 소속코드는 보내지 않는다", async () => {
     const { onSaved } = renderDetail();
     fireEvent.change(await screen.findByDisplayValue("한빛고"), {
       target: { value: "한빛고등학교" },
@@ -266,14 +267,14 @@ describe("TenantDetail 기관 정보 탭", () => {
 });
 
 describe("TenantDetail 탭과 이동", () => {
-  test("학교 관리자 탭은 그 기관의 패널을 연다", async () => {
+  test("전체 관리자 탭은 그 기관의 패널을 연다", async () => {
     renderDetail();
     await screen.findByDisplayValue("한빛고");
 
-    fireEvent.click(screen.getByRole("tab", { name: "학교 관리자" }));
+    fireEvent.click(screen.getByRole("tab", { name: "전체 관리자" }));
 
-    expect(screen.getByText("학교 관리자 패널 tenant-7/한빛고")).toBeTruthy();
-    expect(screen.queryByLabelText("소속 코드")).toBeNull();
+    expect(screen.getByText("전체 관리자 패널 tenant-7/한빛고")).toBeTruthy();
+    expect(screen.queryByLabelText("소속코드")).toBeNull();
   });
 
   test("목록으로 버튼이 onBack 을 부른다", async () => {

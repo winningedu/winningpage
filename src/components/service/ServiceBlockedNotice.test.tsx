@@ -24,7 +24,7 @@ describe("ServiceBlockedNotice", () => {
   it("기관 제공 안 함은 문구만 보이고 버튼과 구매 링크가 없다", () => {
     render(<ServiceBlockedNotice reason="disabled" />);
     expect(
-      screen.getByText("소속 기관에서 제공하지 않는 서비스예요."),
+      screen.getByText("기관에서 제공하지 않는 서비스예요."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();

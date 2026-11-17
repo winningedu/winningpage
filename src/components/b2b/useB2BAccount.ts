@@ -32,8 +32,8 @@ type Resolved =
   | Teacher;
 
 const TEACHER_ROLE_LABELS: Record<string, string> = {
-  homeroom: "담임교사",
-  school_admin: "학교 전체 관리자",
+  homeroom: "담임 선생님",
+  school_admin: "전체 관리자",
 };
 
 export type B2BAccount =

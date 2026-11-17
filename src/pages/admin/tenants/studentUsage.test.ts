@@ -121,7 +121,7 @@ describe("denyReasonLabel", () => {
   test("결정 99 문구로 막힘 사유를 풀고 허용이면 빈 문자열이다", () => {
     expect(denyReasonLabel(null)).toBe("");
     expect(denyReasonLabel("disabled")).toBe(
-      "소속 기관에서 제공하지 않는 서비스예요.",
+      "기관에서 제공하지 않는 서비스예요.",
     );
     expect(denyReasonLabel("grace")).toBe(denyReasonLabel("outside_period"));
     expect(denyReasonLabel("month_cap")).toBe(

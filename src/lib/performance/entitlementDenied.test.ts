@@ -13,7 +13,7 @@ vi.mock("./apiClient", () => ({
 }));
 
 const BUY = "유료 이용권을 결제하신 뒤 이용할 수 있습니다.";
-const DISABLED = "소속 기관에서 제공하지 않는 서비스예요.";
+const DISABLED = "기관에서 제공하지 않는 서비스예요.";
 const TERM_CAP = "이번 학기 이용 횟수를 모두 썼어요. 선생님께 문의해 주세요.";
 
 const calls = {

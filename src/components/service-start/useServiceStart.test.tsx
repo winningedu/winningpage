@@ -73,7 +73,7 @@ describe("useServiceStart - 스쿨멘토 비로그인", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("결제 후 이용해 주세요.")).toBeInTheDocument();
     expect(
-      screen.getByText("소속 기관에서 이용 중이면 로그인해 주세요."),
+      screen.getByText("기관에서 이용 중이면 로그인해 주세요."),
     ).toBeInTheDocument();
     expect(proceed).not.toHaveBeenCalled();
   });

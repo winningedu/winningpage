@@ -266,12 +266,12 @@ describe("MobileNavDrawer B2B 변형 학생", () => {
 });
 
 describe("MobileNavDrawer B2B 변형 선생님", () => {
-  it("이름과 기관 칩, 관리 화면 링크, 로그아웃만 보여주고 학생용 MY 항목과 D-day는 없다", () => {
+  it("이름과 기관 칩, 선생님 화면 링크, 로그아웃만 보여주고 학생용 MY 항목과 D-day는 없다", () => {
     const onLogout = vi.fn();
     renderDrawer({
       teacher: {
         name: "박지훈",
-        roleLabel: "담임교사",
+        roleLabel: "담임 선생님",
         consoleHref: "/teacher",
       },
       orgName: "한빛고등학교",
@@ -280,7 +280,7 @@ describe("MobileNavDrawer B2B 변형 선생님", () => {
 
     expect(screen.getAllByText("박지훈").length).toBeGreaterThan(0);
     expect(screen.getByText("한빛고등학교")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "관리 화면" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "선생님 화면" })).toHaveAttribute(
       "href",
       "/teacher",
     );
