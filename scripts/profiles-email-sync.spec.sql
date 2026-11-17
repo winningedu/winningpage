@@ -48,4 +48,31 @@ update auth.users set email = ' PES-New@T.local ' where id = pg_temp.fx('stu');
 select pg_temp.expect_text('auth 이메일 변경 시 profiles.email 소문자 동기화',
   (select email from public.profiles where id = pg_temp.fx('stu')), 'pes-new@t.local');
 
+-- ---------------------------------------------------------------------
+-- 2. 선생님과 합성 주소는 건너뛴다
+-- ---------------------------------------------------------------------
+insert into fx values ('tch', pg_temp.mk_user('pes-tch@teacher.schoolmentor.kr', 'teacher'));
+update public.profiles set email = null where id = pg_temp.fx('tch');
+update auth.users set email = 'pes-tch-real@t.local' where id = pg_temp.fx('tch');
+select pg_temp.expect_text('선생님 profiles.email 은 NULL 그대로',
+  (select coalesce(email, '(null)') from public.profiles where id = pg_temp.fx('tch')), '(null)');
+
+update auth.users set email = 'pes-syn@teacher.schoolmentor.kr' where id = pg_temp.fx('stu');
+select pg_temp.expect_text('합성 주소로 바뀌면 복사하지 않는다',
+  (select email from public.profiles where id = pg_temp.fx('stu')), 'pes-new@t.local');
+
+-- ---------------------------------------------------------------------
+-- 3. 다른 행과 겹치면 이 행의 복사본만 NULL 로 비우고 auth 변경은 그대로 된다
+-- ---------------------------------------------------------------------
+insert into fx values ('a', pg_temp.mk_user('pes-a@t.local', 'student'));
+insert into fx values ('b', pg_temp.mk_user('pes-b@t.local', 'student'));
+update public.profiles set email = 'pes-dup@t.local' where id = pg_temp.fx('a');
+update auth.users set email = 'PES-DUP@t.local' where id = pg_temp.fx('b');
+select pg_temp.expect_text('중복이면 auth 변경은 반영된다',
+  (select email from auth.users where id = pg_temp.fx('b')), 'PES-DUP@t.local');
+select pg_temp.expect_text('중복이면 이 행의 복사본은 NULL',
+  (select coalesce(email, '(null)') from public.profiles where id = pg_temp.fx('b')), '(null)');
+select pg_temp.expect_text('중복 상대 행은 그대로',
+  (select email from public.profiles where id = pg_temp.fx('a')), 'pes-dup@t.local');
+
 rollback;
