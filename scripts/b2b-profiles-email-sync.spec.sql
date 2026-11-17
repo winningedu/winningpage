@@ -151,6 +151,24 @@ select pg_temp.as_none();
 select pg_temp.expect_text('본인 auth 이메일로 쓰기 통과',
   (select email from public.profiles where id = pg_temp.fx('a')), ' PES-A@t.local ');
 
+-- 값이 있는 email 을 NULL 로 비우는 것도 막는다(NULL 이면 다른 회원이 그 주소를 쓸 수 있게 된다).
+select pg_temp.as_user(pg_temp.fx('a'), 'pes-a@t.local');
+set local role authenticated;
+select pg_temp.expect_error('값이 있는 profiles.email 을 NULL 로 비우기 거부',
+  format($f$update public.profiles set email = null where id = %L$f$, pg_temp.fx('a')),
+  'WC106');
+reset role;
+select pg_temp.as_none();
+
+-- 이미 NULL 인 행(선생님)은 NULL 그대로 쓸 수 있다.
+select pg_temp.as_user(pg_temp.fx('tch'), 'pes-tch-real@t.local');
+set local role authenticated;
+update public.profiles set email = null where id = pg_temp.fx('tch');
+reset role;
+select pg_temp.as_none();
+select pg_temp.expect_text('이미 NULL 인 email 을 NULL 로 쓰기 통과',
+  (select coalesce(email, '(null)') from public.profiles where id = pg_temp.fx('tch')), '(null)');
+
 -- INSERT 도 같은 잠금을 탄다(profiles_insert_own).
 insert into fx values ('noprof', gen_random_uuid());
 insert into auth.users (
