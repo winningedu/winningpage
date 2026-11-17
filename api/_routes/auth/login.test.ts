@@ -290,6 +290,88 @@ describe("POST /api/auth/login", () => {
     });
   });
 
+  describe("가입이 끝나지 않은 이메일(email_not_confirmed)", () => {
+    const NOT_CONFIRMED = {
+      data: { session: null, user: null },
+      error: {
+        status: 400,
+        code: "email_not_confirmed",
+        message: "Email not confirmed",
+      },
+    };
+    const NOT_CONFIRMED_BODY = {
+      error: {
+        code: "EMAIL_NOT_CONFIRMED",
+        message:
+          "가입이 끝나지 않은 이메일입니다. 회원가입을 다시 진행해 주세요.",
+      },
+    };
+
+    test("403 EMAIL_NOT_CONFIRMED 를 주고 end(error)로 이번 시도를 세지 않는다", async () => {
+      state.beginResult = {
+        data: [{ outcome: "proceed", attempt_no: 3, retry_after_s: 0 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue(NOT_CONFIRMED);
+
+      const r = await login({ identifier: "stu@example.com", password: "pw" });
+
+      expect(r.status).toBe(403);
+      expect(r.body).toEqual(NOT_CONFIRMED_BODY);
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: expect.any(String),
+        p_outcome: "error",
+        p_attempt_no: 3,
+      });
+    });
+
+    test("5번째 시도여도 LOCKED 가 아니라 EMAIL_NOT_CONFIRMED 를 주고 같은 attempt_no 로 취소한다", async () => {
+      state.beginResult = {
+        data: [{ outcome: "proceed", attempt_no: 5, retry_after_s: 600 }],
+        error: null,
+      };
+      state.signIn.mockResolvedValue(NOT_CONFIRMED);
+
+      const r = await login({ identifier: "stu@example.com", password: "pw" });
+
+      expect(r.status).toBe(403);
+      expect(r.body).toEqual(NOT_CONFIRMED_BODY);
+      expect(r.headers["Retry-After"]).toBeUndefined();
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: expect.any(String),
+        p_outcome: "error",
+        p_attempt_no: 5,
+      });
+    });
+
+    test("미확인 계정에 틀린 비밀번호(invalid_credentials)는 지금처럼 401 INVALID 로 세어진다", async () => {
+      state.signIn.mockResolvedValue(INVALID_CREDENTIALS);
+
+      const r = await login({ identifier: "stu@example.com", password: "bad" });
+
+      expect(r.status).toBe(401);
+      expect(r.body).toMatchObject({ error: { code: "INVALID" } });
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: expect.any(String),
+        p_outcome: "invalid",
+      });
+    });
+
+    test("모르는 식별자(대역 주소)는 어떤 GoTrue 응답에도 EMAIL_NOT_CONFIRMED 를 주지 않는다", async () => {
+      state.resolvedEmail = null;
+      state.signIn.mockResolvedValue(NOT_CONFIRMED);
+
+      const r = await login({ identifier: "nobody", password: "pw" });
+
+      expect(r.status).toBe(401);
+      expect(r.body).toMatchObject({ error: { code: "INVALID" } });
+      expect(state.rpc).toHaveBeenLastCalledWith("fn_login_attempt_end", {
+        p_hash: expect.any(String),
+        p_outcome: "invalid",
+      });
+    });
+  });
+
   test("@ 가 들어 있으면 이메일로 그대로 GoTrue 에 보낸다", async () => {
     await login({ identifier: " Parent@Example.com ", password: "pw" });
 

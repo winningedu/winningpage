@@ -21,8 +21,8 @@
 //   않으면 재인증 없이 계정 조회를 무한 반복할 수 있다.
 //
 // accounts(2026-11-06, 스쿨멘토) — 같은 번호로 소속이 다른 계정이 여러 개일 수 있어
-// 아이디(앞 3글자만 보이고 나머지 *, 결정 80)와 소속 이름을 계정마다 같이 준다.
-// username이 없는 계정(위닝 이메일 가입)은 가릴 아이디가 없어 넣지 않는다.
+// 가린 이메일과 소속 이름을 계정마다 같이 준다. 선생님만 이메일이 없는(합성 이메일)
+// 로그인 아이디 계정이라 앞 3글자만 보이고 나머지 *인 아이디(결정 80)를 준다.
 //
 // 계정 존재 여부를 노출하지 않는 원칙과의 관계
 //   다른 라우트들은 "이메일이 이미 가입돼 있다/없다"를 알려주지 않는다(계정 존재
@@ -82,7 +82,14 @@ function maskUsername(username: string): string {
 type ProfileMatch = {
   email: string | null;
   username: string | null;
+  member_type: string | null;
   tenants: { name: string } | null;
+};
+
+type FoundAccount = {
+  maskedId?: string;
+  maskedEmail?: string;
+  tenantName: string | null;
 };
 
 export default defineHandler({
@@ -145,7 +152,9 @@ export default defineHandler({
 
       const { data: byPhone, error: byPhoneError } = await supabase
         .from("profiles")
-        .select("email, username, tenants!profiles_tenant_id_fkey(name)")
+        .select(
+          "email, username, member_type, tenants!profiles_tenant_id_fkey(name)",
+        )
         .not("member_type", "is", null)
         .or(`phone.eq.${phone},phone.eq.${hyphenated}`)
         .returns<ProfileMatch[]>();
@@ -159,7 +168,9 @@ export default defineHandler({
         const { data: byGuardianPhone, error: byGuardianPhoneError } =
           await supabase
             .from("profiles")
-            .select("email, username, tenants!profiles_tenant_id_fkey(name)")
+            .select(
+              "email, username, member_type, tenants!profiles_tenant_id_fkey(name)",
+            )
             .not("member_type", "is", null)
             .or(`guardian_phone.eq.${phone},guardian_phone.eq.${hyphenated}`)
             .returns<ProfileMatch[]>();
@@ -189,12 +200,13 @@ export default defineHandler({
         found: true,
         masked_email: maskedEmails[0],
         masked_emails: maskedEmails,
-        accounts: matches
-          .filter((row) => Boolean(row.username))
-          .map((row) => ({
-            maskedId: maskUsername(row.username as string),
-            tenantName: row.tenants?.name ?? null,
-          })),
+        accounts: matches.flatMap((row): FoundAccount[] => {
+          const tenantName = row.tenants?.name ?? null;
+          if (row.member_type === "teacher" && row.username)
+            return [{ maskedId: maskUsername(row.username), tenantName }];
+          if (!row.email) return [];
+          return [{ maskedEmail: maskEmail(row.email), tenantName }];
+        }),
         via,
       });
     } catch (error) {

@@ -33,11 +33,6 @@ const BY_SQLSTATE: Record<string, SignupFailure> = {
     code: "SIGNUP_CLOSED",
     message: "지금은 가입할 수 없습니다.",
   },
-  WC095: {
-    status: 409,
-    code: "USERNAME_TAKEN",
-    message: "이미 사용 중인 아이디입니다.",
-  },
   WC096: {
     status: 409,
     code: "PHONE_TAKEN",
@@ -76,6 +71,11 @@ const BY_MESSAGE: Record<string, SignupFailure> = {
     code: "ALREADY_SIGNED_UP",
     message: "이미 가입을 마친 계정입니다.",
   },
+  email_not_verified: {
+    status: 403,
+    code: "EMAIL_NOT_VERIFIED",
+    message: "이메일 인증을 먼저 완료해 주세요.",
+  },
   phone_not_verified: {
     status: 400,
     code: "PHONE_NOT_VERIFIED",
@@ -99,7 +99,6 @@ const VALIDATION_FIELD: Record<string, string> = {
   terms_service_required: "agreeService",
   privacy_required: "agreePrivacy",
   db_transfer_required: "agreeDbTransfer",
-  username_invalid: "username",
   invalid_gender: "gender",
   gender_required: "gender",
   birth_date_required: "birthDate",

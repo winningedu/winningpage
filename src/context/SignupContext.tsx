@@ -39,7 +39,6 @@ interface SignupFormData {
   orgCode: string;
   parentBirthDate: string; // 'YYYYMMDD' 8자리
   // 스쿨멘토 학교 가입(2026-11-06): 아이디 로그인, 학급 편성, 학부모 정보 칸.
-  username: string;
   passwordConfirm: string;
   grade: string;
   groupName: string;
@@ -63,12 +62,6 @@ interface SignupAgreements {
 export type SignupTenant =
   | { isCatchAll: false; id: string; name: string; orgType: string }
   | { isCatchAll: true };
-
-// 아이디 중복 확인 결과. 값을 고치면 버려야 하므로 확인한 아이디를 함께 둔다.
-interface UsernameCheck {
-  value: string;
-  available: boolean;
-}
 
 export type SchoolStep = 1 | 2 | 3 | 4 | 5;
 
@@ -113,7 +106,6 @@ interface SignupState {
   parentSignupCompleted: boolean;
   tenant: SignupTenant | null;
   schoolStep: SchoolStep;
-  usernameCheck: UsernameCheck | null;
 }
 
 // 학생(9필드: 이름/전화/전화인증코드/이메일/이메일인증코드/비밀번호/지역/재학구분/학교명)과
@@ -136,7 +128,6 @@ const INITIAL_FORM_DATA: SignupFormData = {
   gender: "", // T8: 성별(학생·학부모 공통, 14세 미만은 PASS 값이 정본이라 입력칸 없음)
   orgCode: "", // T8: 소속코드(선택, 학생·학부모·14세 미만 공통)
   parentBirthDate: "", // T8: 학부모 생년월일 8자리(학생 birthDate와 별개)
-  username: "",
   passwordConfirm: "",
   grade: "",
   groupName: "",
@@ -186,7 +177,6 @@ const INITIAL_STATE: SignupState = {
   parentSignupCompleted: false, // 학부모 가입 성공 직후 true — signupCompleted와 동일 패턴의 학부모 온보딩 진입 가드용
   tenant: null, // 스쿨멘토 가입 2단계 결과
   schoolStep: 1, // 스쿨멘토 가입 현재 단계
-  usernameCheck: null,
 };
 
 // 만 나이 계산: 생일이 이미 지났으면 연도 차, 아직 안 지났으면 연도 차 - 1.
@@ -341,7 +331,6 @@ interface SignupContextValue extends SignupState {
   setParentSignupCompleted: (parentSignupCompleted: boolean) => void;
   setTenant: (tenant: SignupTenant | null) => void;
   setSchoolStep: (schoolStep: SchoolStep) => void;
-  setUsernameCheck: (usernameCheck: UsernameCheck | null) => void;
   resetForMemberType: (memberType: MemberType) => void;
   resetSignup: () => void;
 }
@@ -438,13 +427,6 @@ export function SignupProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, schoolStep }));
   }, []);
 
-  const setUsernameCheck = useCallback(
-    (usernameCheck: UsernameCheck | null) => {
-      setState((prev) => ({ ...prev, usernameCheck }));
-    },
-    [],
-  );
-
   // 유형 선택(학생/학부모)을 되돌아가 다시 고를 때, 이전 유형에서 입력하던 폼데이터/동의/
   // 인증/완료 플래그가 새 유형 흐름에 그대로 남아있으면 상태가 오염된다(예: 학부모로
   // 전환했는데 학생 인증 플래그가 verified로 남는 등). memberType 설정과 동시에 관련
@@ -461,7 +443,6 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       parentSignupCompleted: false,
       tenant: null,
       schoolStep: 1,
-      usernameCheck: null,
     }));
   }, []);
 
@@ -485,7 +466,6 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       setParentSignupCompleted,
       setTenant,
       setSchoolStep,
-      setUsernameCheck,
       resetForMemberType,
       resetSignup,
     }),
@@ -504,7 +484,6 @@ export function SignupProvider({ children }: { children: ReactNode }) {
       setBirthDate,
       setTenant,
       setSchoolStep,
-      setUsernameCheck,
       resetForMemberType,
     ],
   );

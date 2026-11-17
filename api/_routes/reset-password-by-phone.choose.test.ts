@@ -94,12 +94,39 @@ describe("reset-password-by-phone chooseAccount", () => {
     expect(res.body).toMatchObject({
       code: "choose_account",
       accounts: [
-        { accountId: "p1", maskedId: "kim*****", tenantName: "한빛중학교" },
-        { accountId: "p2", maskedId: "kim****", tenantName: "새봄학원" },
+        {
+          accountId: "p1",
+          maskedId: "fi****@ex***.com",
+          tenantName: "한빛중학교",
+        },
+        {
+          accountId: "p2",
+          maskedId: "se****@ex***.com",
+          tenantName: "새봄학원",
+        },
       ],
     });
+    expect(JSON.stringify(res.body)).not.toContain("kimmin");
     expect(db.passwordUpdates).toEqual([]);
     expect(verification()?.consumed_at).toBeNull();
+  });
+
+  test("선생님 계정은 가린 로그인 아이디로 보여준다", async () => {
+    db.tables.profiles?.push({
+      id: "p3",
+      email: "teach012345678@teacher.schoolmentor.kr",
+      username: "teach012345678",
+      phone: "01012345678",
+      member_type: "teacher",
+      tenant_id: "t-school",
+      created_at: "2026-03-01T00:00:00Z",
+    });
+    const res = await reset({ chooseAccount: true });
+    expect((res.body as { accounts: unknown[] }).accounts[2]).toEqual({
+      accountId: "p3",
+      maskedId: "tea***********",
+      tenantName: "한빛중학교",
+    });
   });
 
   test("고른 accountId 의 계정만 재설정하고 인증을 소비한다", async () => {

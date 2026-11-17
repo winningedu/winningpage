@@ -7,12 +7,7 @@ import type { SchoolSignupBody } from "./api";
 
 export { ENROLLMENT_GRADES } from "../../../../api/_lib/console/enrollmentInput";
 
-const USERNAME_PATTERN = /^[a-z0-9]{4,20}$/;
 const CLASS_NUMBER_PATTERN = /^[1-9][0-9]?$/;
-
-export function isValidUsername(value: string) {
-  return USERNAME_PATTERN.test(value);
-}
 
 // 번호는 1에서 99까지 숫자. 비우는 것은 호출부가 먼저 거른다.
 export function isValidClassNumber(value: string) {
@@ -54,10 +49,7 @@ export function buildSignupBody(
   const text = (value: string) => value.trim();
 
   return {
-    username: formData.username,
-    password: formData.password,
     name: text(formData.name),
-    email: text(formData.email),
     ...(formData.phone && { phone: normalizePhone(formData.phone) }),
     birthDate: `${birthDate.slice(0, 4)}-${birthDate.slice(4, 6)}-${birthDate.slice(6, 8)}`,
     gender: formData.gender,

@@ -21,13 +21,13 @@ describe("SignupContext 학교 가입 값", () => {
 
     act(() => {
       result.current.updateFormData({
-        username: "mentor01",
+        name: "김학생",
         password: "abc123!",
         passwordConfirm: "abc123!",
       });
     });
 
-    expect(storedFlow().formData.username).toBe("mentor01");
+    expect(storedFlow().formData.name).toBe("김학생");
     expect(storedFlow().formData).not.toHaveProperty("password");
     expect(storedFlow().formData).not.toHaveProperty("passwordConfirm");
   });
