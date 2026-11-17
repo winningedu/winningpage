@@ -66,4 +66,17 @@ describe("ServiceOfferPage", () => {
     expect(link).not.toHaveAttribute("target");
     expect(screen.getAllByRole("link")).toHaveLength(1);
   });
+
+  it("가운뎃점 없이 쉼표와 와/과로 바꾼 문구를 그린다", () => {
+    const { container } = renderPage();
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("서비스제공과 이용신청");
+    expect(text).toContain("학교와 교육기관을 대상으로");
+    expect(text).toContain("학습진단, 목표관리, 성장설계, 수행평가");
+    expect(text).toContain("선생님, 학생, 학부모 모두에게");
+    expect(text).toContain("주간과 월간 리포트");
+    expect(text).toContain("권한별 접근관리와 기록");
+    expect(text).not.toMatch(/\u00b7/);
+  });
 });
