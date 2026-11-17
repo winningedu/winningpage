@@ -4267,6 +4267,7 @@ export type Database = {
           identifier_hash: string;
           locked_until: string | null;
           updated_at: string;
+          window_started_at: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -4275,6 +4276,7 @@ export type Database = {
           identifier_hash: string;
           locked_until?: string | null;
           updated_at?: string;
+          window_started_at?: string | null;
         };
         Update: {
           account_hash?: string | null;
@@ -4282,6 +4284,7 @@ export type Database = {
           identifier_hash?: string;
           locked_until?: string | null;
           updated_at?: string;
+          window_started_at?: string | null;
         };
         Relationships: [];
       };

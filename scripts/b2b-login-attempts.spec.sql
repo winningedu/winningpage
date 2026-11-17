@@ -198,7 +198,7 @@ select pg_temp.expect_text('같은 계정의 다른 IP 는 잠기지 않는다',
 select pg_temp.expect_bool('쌍 행은 계정 해시를 가진다',
   (select account_hash = pg_temp.h('k1') from public.login_attempts where identifier_hash = pg_temp.ph('k1', '10.0.0.2')), true);
 
--- 계정 전체 50회: IP 를 바꿔 가며 실패해도 50번째가 계정을 잠근다
+-- 계정 전체 50회: 한 10분 창 안에서 IP 를 바꿔 가며 실패해도 50번째가 계정을 잠근다
 select count(pg_temp.lbegin('k2', '10.1.0.' || g)) from generate_series(1, 49) g;
 select pg_temp.expect_text('계정 49회까지는 잠금 없음', pg_temp.row_s('k2'), '49:false');
 select pg_temp.expect_text('계정 50번째 시도가 계정을 600초 잠근다', pg_temp.lbegin('k2', '10.1.1.1'), 'proceed:1:50:600');
@@ -208,6 +208,40 @@ select pg_temp.expect_text('계정 잠금 중 새 쌍 행도 0회', pg_temp.prow
 update public.login_attempts set locked_until = now() - interval '1 second'
   where identifier_hash = pg_temp.h('k2');
 select pg_temp.expect_text('계정 잠금이 끝나면 계정은 1부터', pg_temp.lbegin('k2', '10.1.1.2'), 'proceed:1:1:0');
+
+-- 계정 횟수는 10분 창 안에서만 센다. IP 하나가 10분마다 5회씩 틀려도 계정 50회에 닿지 않는다
+-- (한 트랜잭션 안의 now() 는 고정이라 창과 쌍 잠금이 지난 것처럼 시각을 직접 당긴다)
+create function pg_temp.slow_one_ip(p_id text, p_ip text, p_rounds int) returns text language plpgsql as $$
+declare
+  v_last text;
+begin
+  for i in 1..p_rounds loop
+    for j in 1..5 loop
+      v_last := pg_temp.lbegin(p_id, p_ip);
+      if v_last like 'locked:%' then
+        raise exception '[FAIL] %번째 창 %번째 시도가 잠겼다: %', i, j, v_last;
+      end if;
+    end loop;
+    update public.login_attempts set locked_until = now() - interval '1 second'
+     where identifier_hash = pg_temp.ph(p_id, p_ip);
+    update public.login_attempts set window_started_at = window_started_at - interval '10 minutes'
+     where identifier_hash = pg_temp.h(p_id);
+  end loop;
+  return v_last;
+end $$;
+select pg_temp.expect_text('IP 하나가 창마다 5회씩 12창(60회) 틀려도 계정은 잠기지 않는다',
+  pg_temp.slow_one_ip('k4', '10.4.0.1', 12), 'proceed:5:5:600');
+select pg_temp.expect_text('창이 바뀌면 계정 횟수는 1부터', pg_temp.lbegin('k4', '10.4.0.2'), 'proceed:1:1:0');
+update public.login_attempts set window_started_at = now() - interval '9 minutes 59 seconds'
+ where identifier_hash = pg_temp.h('k4');
+select pg_temp.expect_text('창 안(9분 59초)이면 계정 횟수를 잇는다', pg_temp.lbegin('k4', '10.4.0.2'), 'proceed:2:2:0');
+select pg_temp.expect_bool('창 안의 시도는 창 시작 시각을 옮기지 않는다',
+  (select window_started_at = now() - interval '9 minutes 59 seconds' from public.login_attempts where identifier_hash = pg_temp.h('k4')), true);
+update public.login_attempts set window_started_at = now() - interval '10 minutes'
+ where identifier_hash = pg_temp.h('k4');
+select pg_temp.expect_text('창 시작에서 정확히 10분이면 새 창', pg_temp.lbegin('k4', '10.4.0.2'), 'proceed:3:1:0');
+select pg_temp.expect_bool('새 창은 지금 시작한다',
+  (select window_started_at = now() from public.login_attempts where identifier_hash = pg_temp.h('k4')), true);
 
 create function pg_temp.lend(p_id text, p_ip text, p_outcome text, p_no smallint, p_account_no smallint)
 returns void language sql as $$
