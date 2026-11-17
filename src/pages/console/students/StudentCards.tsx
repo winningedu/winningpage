@@ -45,7 +45,7 @@ export default function StudentCards({
                 <span className="text-app-caption text-ink">
                   {`${gradeClassOf(row, academy, gradeLabel)} ${numberOf(row)}`}
                 </span>
-                <Chip tone="Neutral">미회원가입</Chip>
+                <Chip tone="Neutral">미가입</Chip>
               </span>
             ) : (
               <button

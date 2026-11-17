@@ -1,4 +1,4 @@
-// W11 그룹(레벨) 관리. 등록된 그룹을 보여주고 추가, 삭제한다.
+// W11 그룹 관리. 등록된 그룹을 보여주고 추가, 삭제한다.
 
 import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -90,16 +90,16 @@ export default function GroupManager() {
   return (
     <section className="flex flex-col gap-4 md:border-t md:border-line md:pt-8">
       <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink-strong">
-        그룹(레벨) 관리
+        그룹 관리
       </h2>
       <p className="text-app-body text-ink-sub">
-        운영하고 있는 그룹이나 레벨 이름을 등록합니다. 등록한 이름이
-        학생정보편집, 담당학급배정, 필터에서 나타납니다.
+        운영하고 있는 그룹 이름을 등록합니다. 등록한 이름이 학생정보편집,
+        담당반배정, 필터에서 나타납니다.
       </p>
       <div className="flex flex-col items-start gap-3">
         <TextField
-          label="그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)"
-          placeholder="예: A레벨"
+          label="그룹(구분되어 있으면 입력, 없으면 빈칸)"
+          placeholder="예: A그룹"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -156,7 +156,7 @@ export default function GroupManager() {
               <p className="text-app-body text-ink-strong">
                 {blocked
                   ? `소속 학생이 ${target.studentCount}명 있어 지울 수 없어요. 학생정보편집에서 학생의 그룹을 먼저 바꿔 주세요`
-                  : "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당학급배정, 필터의 보기에서 빠져요"}
+                  : "소속 학생이 없는 그룹이에요. 삭제하면 학생정보편집, 담당반배정, 필터의 보기에서 빠져요"}
               </p>
               <div className="flex justify-end gap-2">
                 <Button

@@ -73,7 +73,8 @@ describe("W14d 한 명 삭제", () => {
         body: {
           error: {
             code: "LAST_SCHOOL_ADMIN",
-            message: "학교 관리자가 1명뿐이라 바꿀 수 없습니다.",
+            message:
+              "전체 관리자가 1명뿐이라 바꿀 수 없습니다. 다른 전체 관리자를 먼저 지정해 주세요.",
           },
         },
       },
@@ -90,7 +91,9 @@ describe("W14d 한 명 삭제", () => {
     fireEvent.click(screen.getByRole("button", { name: "삭제" }));
 
     expect(
-      await screen.findByText("학교 관리자가 1명뿐이라 바꿀 수 없습니다."),
+      await screen.findByText(
+        "전체 관리자가 1명뿐이라 바꿀 수 없습니다. 다른 전체 관리자를 먼저 지정해 주세요.",
+      ),
     ).toBeTruthy();
     expect(onDeleted).not.toHaveBeenCalled();
   });
@@ -149,7 +152,7 @@ describe("W14e 선택 삭제", () => {
     expect(calls[0]?.body).toEqual({ teacherIds: ["t-han", "t-lee"] });
   });
 
-  it("활성 학교 관리자가 한 명도 안 남게 되면 막고 삭제 버튼을 비활성으로 둔다", () => {
+  it("활성 전체 관리자가 한 명도 안 남게 되면 막고 삭제 버튼을 비활성으로 둔다", () => {
     stubApi({});
     mount(
       <BulkDeleteDialog
@@ -163,7 +166,7 @@ describe("W14e 선택 삭제", () => {
 
     expect(
       screen.getByText(
-        "활성 학교 전체 관리자가 한 명도 남지 않아 삭제할 수 없어요. 다른 관리자를 먼저 지정해 주세요",
+        "활성 전체 관리자가 한 명도 남지 않아 삭제할 수 없어요. 다른 전체 관리자를 먼저 지정해 주세요",
       ),
     ).toBeTruthy();
     expect(
@@ -174,7 +177,7 @@ describe("W14e 선택 삭제", () => {
 });
 
 describe("W14e 일괄 삭제", () => {
-  it("학년을 고르면 그 학년 학급을 맡은 선생님을 대상으로 잡아 삭제한다", async () => {
+  it("학년을 고르면 그 학년 반을 맡은 선생님을 대상으로 잡아 삭제한다", async () => {
     const calls = stubApi({
       "POST /api/console/teachers/delete": {
         body: { ok: true, deleted: 2, activeStudents: 59 },
@@ -190,7 +193,7 @@ describe("W14e 일괄 삭제", () => {
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "일괄 삭제" }));
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고1" },
     });
 

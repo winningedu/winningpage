@@ -77,13 +77,11 @@ function StatusBody({ tab }: { tab: (typeof TABS)[number] }) {
   const scope =
     me.kind === "homeroom"
       ? me.classes.length > 0
-        ? `담당 학급 ${sortClasses(me.classes)
+        ? `담당 반 ${sortClasses(me.classes)
             .map((c) => classLabel(c, gradeLabel))
             .join(", ")}`
         : null
-      : list.data?.orgType === "학원"
-        ? "학원 전체"
-        : "학교 전체";
+      : "전체";
   const asOf =
     list.data && scope
       ? `집계 기준: ${scope}, ${dotDate(list.data.asOf)} 기준`

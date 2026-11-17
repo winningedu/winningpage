@@ -24,7 +24,7 @@ export default function ClassCards({ rows, edit }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {rows.map((r) => {
-        const title = r.homeroomName ?? "담임 미배정";
+        const title = r.homeroomName ?? "담임 선생님 없음";
         return (
           <article
             key={r.classId}

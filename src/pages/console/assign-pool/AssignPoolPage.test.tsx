@@ -146,7 +146,7 @@ describe("W12 미배정 목록 default", () => {
       screen.getByRole("heading", { level: 1, name: "미배정 목록" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("학급이 정해지지 않은 학생을 학급에 배치합니다"),
+      screen.getByText("반이 정해지지 않은 학생을 반에 배치합니다"),
     ).toBeTruthy();
     expect(
       screen.getByRole("heading", { name: "미배정 학생 2명" }),
@@ -154,7 +154,7 @@ describe("W12 미배정 목록 default", () => {
     for (const head of [
       "이름",
       "동명 재학생 수",
-      "학년그룹",
+      "학년",
       "그룹",
       "반",
       "번호",
@@ -203,7 +203,7 @@ describe("W12 미배정 목록 default", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "미배정 학생이 없어요. 새 학생이 가입하거나 학년그룹 일괄 변경에서 반을 비운 학생이 생기면 여기에 나타나요",
+        "미배정 학생이 없어요. 새 학생이 가입하거나 학년도 전환에서 반을 비운 학생이 생기면 여기에 나타나요",
       ),
     ).toBeTruthy();
     expect(screen.queryByTestId("same-name-check")).toBeNull();
@@ -221,7 +221,7 @@ describe("W12 미배정 목록 default", () => {
     ).toBeTruthy();
   });
 
-  it("반은 학년그룹을 고른 뒤에만 열리고 그 학년그룹의 반만 보이며, 검색하면 classId 로 다시 읽는다", async () => {
+  it("반은 학년을 고른 뒤에만 열리고 그 학년의 반만 보이며, 검색하면 classId 로 다시 읽는다", async () => {
     const filtered = `GET /api/console/assign-pool?${new URLSearchParams({
       grade: "고2",
       classId: "c4",
@@ -233,7 +233,7 @@ describe("W12 미배정 목록 default", () => {
     const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
     expect(classSelect.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     expect(classSelect.disabled).toBe(false);
@@ -251,7 +251,7 @@ describe("W12 미배정 목록 default", () => {
     expect(calls.some((c) => c.key === filtered)).toBe(true);
   });
 
-  it("주소의 반은 새로 열어도 남고, 학년그룹을 바꾸면 고른 반이 비워진다", async () => {
+  it("주소의 반은 새로 열어도 남고, 학년을 바꾸면 고른 반이 비워진다", async () => {
     stubPage({
       "GET /api/console/assign-pool?grade=%EA%B3%A02&classId=c4&page=1": {
         body: listBody([p1]),
@@ -262,14 +262,14 @@ describe("W12 미배정 목록 default", () => {
     const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
     expect(classSelect.value).toBe("c4");
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고1" },
     });
 
     expect(classSelect.value).toBe("");
   });
 
-  it("담임이 주소로 열면 대시보드로 돌려보낸다", async () => {
+  it("담임 선생님이 주소로 열면 대시보드로 돌려보낸다", async () => {
     stubPage({}, homeroomMe);
 
     renderRoutes(routes, "/teacher/unassigned");
@@ -280,7 +280,7 @@ describe("W12 미배정 목록 default", () => {
 
 describe("W12 배치", () => {
   const fill = (row: HTMLElement, classValue: string, number: string) => {
-    fireEvent.change(within(row).getByLabelText("학년그룹 선택"), {
+    fireEvent.change(within(row).getByLabelText("학년 선택"), {
       target: { value: "고2" },
     });
     fireEvent.change(within(row).getByLabelText("반 선택"), {
@@ -291,7 +291,7 @@ describe("W12 배치", () => {
     });
   };
 
-  it("학년그룹과 반을 고르기 전에는 배치할 수 없다", async () => {
+  it("학년과 반을 고르기 전에는 배치할 수 없다", async () => {
     stubPage();
     renderRoutes(routes, "/teacher/unassigned");
     const row = (await screen.findByText("노*윤")).closest("tr") as HTMLElement;
@@ -386,8 +386,7 @@ describe("W12 배치", () => {
     ).toBe("true");
     const other = screen.getByText("노*윤").closest("tr") as HTMLElement;
     expect(
-      (within(other).getByLabelText("학년그룹 선택") as HTMLSelectElement)
-        .disabled,
+      (within(other).getByLabelText("학년 선택") as HTMLSelectElement).disabled,
     ).toBe(false);
   });
 
@@ -398,7 +397,7 @@ describe("W12 배치", () => {
         body: {
           error: {
             code: "ALREADY_ASSIGNED",
-            message: "이미 학급이 정해져 있어요.",
+            message: "이미 반이 정해져 있어요.",
           },
         },
       },
@@ -410,7 +409,7 @@ describe("W12 배치", () => {
     fireEvent.click(within(row).getByRole("button", { name: "배치" }));
 
     expect(
-      await within(row).findByText("이미 학급이 정해져 있어요."),
+      await within(row).findByText("이미 반이 정해져 있어요."),
     ).toBeTruthy();
     await waitFor(() =>
       expect(calls.filter((c) => c.key === LIST_URL).length).toBeGreaterThan(1),

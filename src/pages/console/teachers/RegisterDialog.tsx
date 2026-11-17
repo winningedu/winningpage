@@ -24,7 +24,7 @@ import TeacherDialog, {
 } from "./TeacherDialog";
 
 const FAILED_MESSAGE = "선생님을 등록하지 못했어요. 잠시 뒤 다시 시도해 주세요";
-const CLASS_INCOMPLETE_MESSAGE = "학년그룹과 반을 함께 입력해 주세요";
+const CLASS_INCOMPLETE_MESSAGE = "학년과 반을 함께 입력해 주세요";
 
 interface RegisterResponse {
   loginId: string;
@@ -115,7 +115,7 @@ export default function RegisterDialog({
   }
   if (added) {
     return (
-      <TeacherDialog title="학급을 더했어요" onClose={onClose}>
+      <TeacherDialog title="반을 더했어요" onClose={onClose}>
         <Notice tone="Info">
           이미 등록된 선생님이라 새 아이디를 만들지 않고 그 아이디에 반만
           더했어요
@@ -175,12 +175,12 @@ export default function RegisterDialog({
             }
             className="h-10 rounded-lg border-line px-5 text-app-label font-semibold text-primary"
           >
-            학년그룹-반 추가
+            학년-반 추가
           </Button>
         </div>
         <Notice tone="Info">
-          학년그룹과 반은 선택이에요. 담임을 맡지 않으면 비워 두고 나중에 계정
-          관리에서 배정해요
+          학년과 반은 선택이에요. 담임 선생님을 맡지 않으면 비워 두고 나중에
+          계정 관리에서 배정해요
         </Notice>
         {error && <Notice tone="Danger">{error}</Notice>}
       </div>

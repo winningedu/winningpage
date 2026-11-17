@@ -28,7 +28,7 @@ const ROWS = [
 ];
 
 describe("issuedSheet", () => {
-  it("머리글 한 줄 뒤에 교사마다 한 줄을 둔다", () => {
+  it("머리글 한 줄 뒤에 선생님마다 한 줄을 둔다", () => {
     expect(issuedSheet(ROWS)).toEqual([
       ["이름", "전화번호 뒷 4자리", "학년", "반", "아이디", "임시 비밀번호"],
       ["이수민", "1234", "1학년", "2반", "SM26HB83W5ZQ7H", "Ab3!xYz9Qk"],

@@ -26,7 +26,7 @@ import { filterKey, usePageParam } from "../usePageParam";
 import HistoryDialog from "./HistoryDialog";
 
 const PAGE_SIZE = 50;
-const FOOTNOTE = "졸업생의 학년그룹과 반 이력은 졸업 후 2년 동안 보관해요.";
+const FOOTNOTE = "졸업생의 학년과 반 이력은 졸업 후 2년 동안 보관해요.";
 
 interface GraduateItem {
   studentId: string;
@@ -159,7 +159,7 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
                 <span className="flex flex-col gap-1">
                   <NameCell name={item.name} />
                   <span className="text-app-caption text-ink-sub">
-                    {`마지막 학급 ${lastLabel(item, gradeLabel)}`}
+                    {`마지막 반 ${lastLabel(item, gradeLabel)}`}
                   </span>
                 </span>
                 <span className="flex flex-col items-end gap-1">
@@ -173,7 +173,7 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
               </div>
               <div className="flex items-start justify-between gap-3">
                 <span className="shrink-0 text-app-caption text-ink-sub">
-                  학년그룹/반 이력
+                  학년/반 이력
                 </span>
                 <span className="text-right text-app-label font-semibold text-ink">
                   {historyLabel(item, gradeLabel)}
@@ -195,8 +195,8 @@ export default function GraduatesTab({ onYear }: GraduatesTabProps) {
             <TableRow>
               <TableHead>이름</TableHead>
               <TableHead>졸업 학년도</TableHead>
-              <TableHead>마지막 학년그룹/반/번호</TableHead>
-              <TableHead>학년그룹/반 이력</TableHead>
+              <TableHead>마지막 학년/반/번호</TableHead>
+              <TableHead>학년/반 이력</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>

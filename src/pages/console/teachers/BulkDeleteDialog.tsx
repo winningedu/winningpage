@@ -17,7 +17,7 @@ import TeacherDialog, {
 } from "./TeacherDialog";
 
 const BLOCKED_MESSAGE =
-  "활성 학교 전체 관리자가 한 명도 남지 않아 삭제할 수 없어요. 다른 관리자를 먼저 지정해 주세요";
+  "활성 전체 관리자가 한 명도 남지 않아 삭제할 수 없어요. 다른 전체 관리자를 먼저 지정해 주세요";
 const ALL = { value: "", label: "전체" };
 
 type Mode = "select" | "condition";
@@ -152,7 +152,7 @@ export default function BulkDeleteDialog({
           <div className="flex gap-2">
             <FilterSelect
               variant="stacked"
-              label="학년그룹"
+              label="학년"
               value={grade}
               options={[
                 ALL,

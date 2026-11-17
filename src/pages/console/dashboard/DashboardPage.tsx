@@ -59,9 +59,7 @@ export default function DashboardPage() {
   ]
     .filter(Boolean)
     .join(" ");
-  const scopeLabel = homeroom
-    ? `담당 학급 ${scope || "전체"}`
-    : scope || "전교";
+  const scopeLabel = homeroom ? `담당 반 ${scope || "전체"}` : scope || "전체";
   const breadcrumb = applied.grade
     ? [
         me.tenant.name,
@@ -126,7 +124,7 @@ export default function DashboardPage() {
                 stats={loaded ? stats.data : null}
                 caption={
                   homeroom
-                    ? "이용 학생 수와 담당 학급 안의 비율"
+                    ? "이용 학생 수와 담당 반 안의 비율"
                     : "이용 학생 수와 조회 범위 안의 비율"
                 }
               />

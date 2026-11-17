@@ -156,7 +156,7 @@ describe("W8 서비스별 현황표", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "집계 기준: 담당 학급 2학년 3반, 2학년 5반, 2026.11.05 기준",
+        "집계 기준: 담당 반 2학년 3반, 2학년 5반, 2026.11.05 기준",
       ),
     ).toBeTruthy();
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
@@ -339,7 +339,7 @@ describe("W8 서비스별 현황표", () => {
     expect(router.state.location.search).toBe("?studentId=s2");
   });
 
-  it("학년그룹과 반을 고르고 이름을 적어 검색하면 그 조건으로 다시 읽고, 반은 학년그룹을 고른 뒤에만 열린다", async () => {
+  it("학년과 반을 고르고 이름을 적어 검색하면 그 조건으로 다시 읽고, 반은 학년을 고른 뒤에만 열린다", async () => {
     const filtered = `GET /api/console/service-status?${new URLSearchParams({
       service: "diagnosis",
       grade: "고2",
@@ -353,7 +353,7 @@ describe("W8 서비스별 현황표", () => {
     const classSelect = screen.getByLabelText("반") as HTMLSelectElement;
     expect(classSelect.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     expect(classSelect.disabled).toBe(false);
@@ -367,7 +367,7 @@ describe("W8 서비스별 현황표", () => {
     expect(calls.some((c) => c.key === filtered)).toBe(true);
   });
 
-  it("관리자는 서버가 가린 이름과 학교 전체 집계 기준을 본다", async () => {
+  it("관리자는 서버가 가린 이름과 전체 집계 기준을 본다", async () => {
     stubPage(
       {
         [url("diagnosis")]: {
@@ -390,7 +390,7 @@ describe("W8 서비스별 현황표", () => {
     renderRoutes(routes, "/teacher/service-status");
 
     expect(
-      await screen.findByText("집계 기준: 학교 전체, 2026.11.05 기준"),
+      await screen.findByText("집계 기준: 전체, 2026.11.05 기준"),
     ).toBeTruthy();
     const row = screen.getByRole("row", { name: /김\*연/ });
     expect(within(row).getByText("높음")).toBeTruthy();

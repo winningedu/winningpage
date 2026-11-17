@@ -38,7 +38,7 @@ import StatusToggle, { type CounselStatus } from "./StatusToggle";
 const PAGE_SIZE = 50;
 const ADMISSION_GRADES = ["중3", "고3"];
 const NOT_GRADE3 =
-  "담당 학급에 중3, 고3 학생이 없습니다. 입시 상담코칭은 입시를 앞둔 중3, 고3 학생을 위한 화면입니다. 다른 학년 학생의 학습코칭은 개인종합코칭에서 볼 수 있습니다";
+  "담당 반에 중3, 고3 학생이 없습니다. 입시 상담코칭은 입시를 앞둔 중3, 고3 학생을 위한 화면입니다. 다른 학년 학생의 학습코칭은 개인종합코칭에서 볼 수 있습니다";
 
 interface Target {
   university: string;
@@ -196,7 +196,7 @@ export default function AdmissionCoachingPage() {
         {list.data?.hasGrade3InScope && (
           <section className="flex flex-col">
             <Notice tone="Info">
-              상담 메모는 개인종합코칭의 교사 메모에 써 주세요
+              상담 메모는 개인종합코칭의 선생님 메모에 써 주세요
             </Notice>
             <h2 className="pt-5 pb-4 text-app-card-title font-bold text-ink-strong">
               {`조회 결과 ${list.data.total}명`}
@@ -250,7 +250,7 @@ export default function AdmissionCoachingPage() {
                   <TableRow>
                     {[
                       "학생",
-                      "학년그룹/반",
+                      "학년/반",
                       "이상 목표대학",
                       "최소 목표대학",
                       "학습 실행 역량",

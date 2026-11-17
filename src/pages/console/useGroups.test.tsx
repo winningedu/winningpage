@@ -68,14 +68,14 @@ describe("useGroupOptions", () => {
     );
   });
 
-  it("학년을 고르면 그 학년 학급이 있는 그룹과 학급이 하나도 없는 그룹만 준다", async () => {
+  it("학년을 고르면 그 학년 반이 있는 그룹과 반이 하나도 없는 그룹만 준다", async () => {
     const { result } = renderHook(() => useGroupOptions(classes, "고1"), {
       wrapper,
     });
     await waitFor(() => expect(ids(result.current)).toEqual(["g0", "g1"]));
   });
 
-  it("읽는 중에는 학급에서 만든 목록을, 실패하면 계속 그 목록을 준다", async () => {
+  it("읽는 중에는 반에서 만든 목록을, 실패하면 계속 그 목록을 준다", async () => {
     mocks.request.mockResolvedValue({
       status: 500,
       body: {},
@@ -100,7 +100,7 @@ describe("useGroupOptions", () => {
     );
   });
 
-  it("학교는 그룹을 읽지 않고 학급에서 만든 목록을 준다", async () => {
+  it("학교는 그룹을 읽지 않고 반에서 만든 목록을 준다", async () => {
     const { result } = renderHook(
       () => useGroupOptions(classes, "", "", false),
       { wrapper },

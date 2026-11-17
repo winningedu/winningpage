@@ -153,13 +153,13 @@ describe("W10 입시 상담코칭", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText("상담 메모는 개인종합코칭의 교사 메모에 써 주세요"),
+      screen.getByText("상담 메모는 개인종합코칭의 선생님 메모에 써 주세요"),
     ).toBeTruthy();
     expect(
       screen.getAllByRole("columnheader").map((h) => h.textContent),
     ).toEqual([
       "학생",
-      "학년그룹/반",
+      "학년/반",
       "이상 목표대학",
       "최소 목표대학",
       "학습 실행 역량",
@@ -215,14 +215,14 @@ describe("W10 입시 상담코칭", () => {
     expect(await screen.findByText("조회 결과 150명")).toBeTruthy();
     expect(screen.getByRole("row", { name: /남\*혁/ })).toBeTruthy();
     expect(screen.getByText("1 / 3 페이지, 1~50번째")).toBeTruthy();
-    const group = screen.getByLabelText("학년그룹") as HTMLSelectElement;
+    const group = screen.getByLabelText("학년") as HTMLSelectElement;
     expect(within(group).getByRole("option", { name: "3학년만" })).toBeTruthy();
     expect(
       screen.getByRole("navigation", { name: "현재 위치" }).textContent,
     ).toBe("한빛고등학교3학년");
   });
 
-  it("관리자의 그룹 칸에 학급이 없는 그룹도 나온다", async () => {
+  it("관리자의 그룹 칸에 반이 없는 그룹도 나온다", async () => {
     stubPage(
       {
         "GET /api/console/groups": {
@@ -239,7 +239,7 @@ describe("W10 입시 상담코칭", () => {
     );
   });
 
-  it("담당 학급에 3학년이 없으면 안내만 보이고 조회 칸은 남는다", async () => {
+  it("담당 반에 3학년이 없으면 안내만 보이고 조회 칸은 남는다", async () => {
     stubPage({
       [LIST_URL]: { body: body([], { total: 0, hasGrade3InScope: false }) },
     });
@@ -247,14 +247,14 @@ describe("W10 입시 상담코칭", () => {
 
     expect(
       await screen.findByText(
-        "담당 학급에 중3, 고3 학생이 없습니다. 입시 상담코칭은 입시를 앞둔 중3, 고3 학생을 위한 화면입니다. 다른 학년 학생의 학습코칭은 개인종합코칭에서 볼 수 있습니다",
+        "담당 반에 중3, 고3 학생이 없습니다. 입시 상담코칭은 입시를 앞둔 중3, 고3 학생을 위한 화면입니다. 다른 학년 학생의 학습코칭은 개인종합코칭에서 볼 수 있습니다",
       ),
     ).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
     expect(
-      screen.queryByText("상담 메모는 개인종합코칭의 교사 메모에 써 주세요"),
+      screen.queryByText("상담 메모는 개인종합코칭의 선생님 메모에 써 주세요"),
     ).toBeNull();
-    expect(screen.getByLabelText("학년그룹")).toBeTruthy();
+    expect(screen.getByLabelText("학년")).toBeTruthy();
     expect(screen.getByRole("button", { name: "조회" })).toBeTruthy();
   });
 
@@ -288,7 +288,7 @@ describe("W10 입시 상담코칭", () => {
     ).toBe("한빛고등학교3학년4반");
   });
 
-  it("학년 없는 다학년 학급도 반 선택지에 나온다", async () => {
+  it("학년 없는 다학년 반도 반 선택지에 나온다", async () => {
     stubPage({
       "GET /api/console/classes": {
         body: { classes: [...CLASSES.classes, classOf("cm", null, "다")] },

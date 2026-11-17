@@ -145,7 +145,7 @@ afterEach(() => {
 });
 
 describe("W6 학생 관리 default", () => {
-  it("담임의 대표 반 학생을 필터 값과 함께 표로 보여 준다", async () => {
+  it("담임 선생님의 대표 반 학생을 필터 값과 함께 표로 보여 준다", async () => {
     stubPage();
 
     renderRoutes(routes, "/teacher/students");
@@ -176,7 +176,7 @@ describe("W6 학생 관리 default", () => {
     for (const head of [
       "학습진단 긴급도",
       "이름 (가입일)",
-      "학년그룹/반/번호",
+      "학년/반/번호",
       "주간 목표시간 달성율",
       "이용서비스",
     ]) {
@@ -197,8 +197,8 @@ describe("W6 학생 관리 default", () => {
   });
 });
 
-describe("W6 학생 관리 미회원가입", () => {
-  it("가입 전 줄은 미회원가입 표시와 함께 보이고, 이름을 눌러도 상세가 열리지 않으며 편집하기가 없다", async () => {
+describe("W6 학생 관리 미가입", () => {
+  it("가입 전 줄은 미가입 표시와 함께 보이고, 이름을 눌러도 상세가 열리지 않으며 편집하기가 없다", async () => {
     const calls = stubPage({
       [LIST_URL]: {
         body: listBody([
@@ -221,11 +221,11 @@ describe("W6 학생 관리 미회원가입", () => {
     const row = (await screen.findByText("한가입")).closest(
       "tr",
     ) as HTMLElement;
-    expect(within(row).getByText("미회원가입")).toBeTruthy();
+    expect(within(row).getByText("미가입")).toBeTruthy();
     expect(within(row).queryByRole("button")).toBeNull();
     expect(within(row).getByText("2학년 3반")).toBeTruthy();
     const real = screen.getByText("김서연").closest("tr") as HTMLElement;
-    expect(within(real).queryByText("미회원가입")).toBeNull();
+    expect(within(real).queryByText("미가입")).toBeNull();
     expect(within(real).getByRole("button", { name: "편집하기" })).toBeTruthy();
     expect(calls.some((c) => c.key.includes("/students/detail"))).toBe(false);
   });
@@ -315,7 +315,7 @@ describe("W6 학생 관리 역할과 조회", () => {
     expect(await screen.findByText("학년 변경 화면")).toBeTruthy();
   });
 
-  it("담임이 여러 반을 맡으면 반 칸에서 맡은 반을 고르고, 검색하면 그 반으로 조회한다", async () => {
+  it("담임 선생님이 여러 반을 맡으면 반 칸에서 맡은 반을 고르고, 검색하면 그 반으로 조회한다", async () => {
     const calls = stubPage({
       [`GET /api/console/students?grade=${GRADE2}&classId=c5&page=1`]: {
         body: listBody([student(2, { className: "5" })]),
@@ -356,7 +356,7 @@ describe("W6 학생 관리 역할과 조회", () => {
     );
   });
 
-  it("학교 관리자는 전교를 보고 편집하기 없이, 반은 학년을 고른 뒤에만 열린다", async () => {
+  it("전체 관리자는 전체를 보고 편집하기 없이, 반은 학년을 고른 뒤에만 열린다", async () => {
     stubPage(
       {
         "GET /api/console/students?page=1": {
@@ -373,9 +373,9 @@ describe("W6 학생 관리 역할과 조회", () => {
     expect(screen.queryByRole("button", { name: "편집하기" })).toBeNull();
     const select = screen.getByLabelText("반") as HTMLSelectElement;
     expect(select.disabled).toBe(true);
-    expect(screen.getByText("학년그룹을 먼저 골라요")).toBeTruthy();
+    expect(screen.getByText("학년을 먼저 골라요")).toBeTruthy();
     expect(screen.queryByLabelText("그룹")).toBeNull();
-    fireEvent.change(screen.getByLabelText("학년그룹"), {
+    fireEvent.change(screen.getByLabelText("학년"), {
       target: { value: "고2" },
     });
     expect((screen.getByLabelText("반") as HTMLSelectElement).disabled).toBe(
@@ -411,7 +411,7 @@ describe("W6 학생 관리 그룹 선택지", () => {
     },
   };
 
-  it("학급이 없는 그룹도 그룹 관리와 같은 순서로 그룹 칸에 나온다", async () => {
+  it("반이 없는 그룹도 그룹 관리와 같은 순서로 그룹 칸에 나온다", async () => {
     stubPage(
       {
         ...academyList,
@@ -548,7 +548,9 @@ describe("W6a 학생 상세", () => {
       const first = renderRoutes(routes, "/teacher/students");
       fireEvent.click(await screen.findByText("김서연"));
       expect(
-        await screen.findByText("2학년 3반 1번, 담임 박지훈, 최근 접속 1일 전"),
+        await screen.findByText(
+          "2학년 3반 1번, 담임 선생님 박지훈, 최근 접속 1일 전",
+        ),
       ).toBeTruthy();
       first.unmount();
 
@@ -560,7 +562,9 @@ describe("W6a 학생 상세", () => {
       const second = renderRoutes(routes, "/teacher/students");
       fireEvent.click(await screen.findByText("김서연"));
       expect(
-        await screen.findByText("2학년 3반 1번, 담임 박지훈, 최근 접속 오늘"),
+        await screen.findByText(
+          "2학년 3반 1번, 담임 선생님 박지훈, 최근 접속 오늘",
+        ),
       ).toBeTruthy();
       second.unmount();
 
@@ -568,7 +572,7 @@ describe("W6a 학생 상세", () => {
       renderRoutes(routes, "/teacher/students");
       fireEvent.click(await screen.findByText("김서연"));
       expect(
-        await screen.findByText("2학년 3반 1번, 담임 박지훈"),
+        await screen.findByText("2학년 3반 1번, 담임 선생님 박지훈"),
       ).toBeTruthy();
       expect(screen.queryByText(/최근 접속/)).toBeNull();
     } finally {
@@ -576,7 +580,7 @@ describe("W6a 학생 상세", () => {
     }
   });
 
-  it("이름을 누르면 실명 제목과 학년반 이력, 서비스 이용, 사용 횟수를 창으로 보여 준다", async () => {
+  it("이름을 누르면 실명 제목과 학년반 이력, 서비스 이용, 이용 횟수를 창으로 보여 준다", async () => {
     stubPage({ [DETAIL_URL]: { body: detail } });
     renderRoutes(routes, "/teacher/students");
 
@@ -586,7 +590,9 @@ describe("W6a 학생 상세", () => {
     expect(
       await within(dialog).findByRole("heading", { name: "김서연" }),
     ).toBeTruthy();
-    expect(within(dialog).getByText("2학년 3반 1번, 담임 박지훈")).toBeTruthy();
+    expect(
+      within(dialog).getByText("2학년 3반 1번, 담임 선생님 박지훈"),
+    ).toBeTruthy();
     expect(within(dialog).getByText("학교생활 준비도 71")).toBeTruthy();
     expect(within(dialog).getByText('대주제 "지속가능한 도시"')).toBeTruthy();
     const history = within(dialog)
@@ -674,9 +680,7 @@ describe("W6b 학생 정보 편집", () => {
       (within(dialog).getByLabelText("번호") as HTMLInputElement).value,
     ).toBe("1");
     expect(
-      within(dialog).getByLabelText(
-        "그룹(레벨이 구분되어 있으면 입력, 없으면 빈칸)",
-      ),
+      within(dialog).getByLabelText("그룹(구분되어 있으면 입력, 없으면 빈칸)"),
     ).toBeTruthy();
     expect(
       (
@@ -716,7 +720,7 @@ describe("W6b 학생 정보 편집", () => {
     ).toBeGreaterThanOrEqual(2);
   });
 
-  it("학원은 다학년 학급이 있으면 어느 학년이든 골라 다학년 학급에 옮기고, 학생 학년으로 mixed 를 보내지 않는다", async () => {
+  it("학원은 다학년 반이 있으면 어느 학년이든 골라 다학년 반에 옮기고, 학생 학년으로 mixed 를 보내지 않는다", async () => {
     const academyMe = {
       ...homeroomMe,
       tenant: { ...homeroomMe.tenant, orgType: "사기업" },
@@ -772,7 +776,7 @@ describe("W6b 학생 정보 편집", () => {
     );
   });
 
-  it("다학년 학급의 학생이 학년만 고치면 고른 학급과 그룹을 그대로 둔다", async () => {
+  it("다학년 반의 학생이 학년만 고치면 고른 반과 그룹을 그대로 둔다", async () => {
     const academyMe = {
       ...homeroomMe,
       tenant: { ...homeroomMe.tenant, orgType: "사기업" },
@@ -846,7 +850,7 @@ describe("W6b 학생 정보 편집", () => {
     ).toBe(false);
   });
 
-  it("담임이 없는 반을 고르면 안내만 더하고 저장은 막히지 않는다", async () => {
+  it("담임 선생님이 없는 반을 고르면 안내만 더하고 저장은 막히지 않는다", async () => {
     stubPage();
     const dialog = await openEdit();
 
@@ -859,7 +863,7 @@ describe("W6b 학생 정보 편집", () => {
 
     expect(
       within(dialog).getByText(
-        "옮길 반에는 담임이 없어요. 안내만 하고 그대로 반영해요",
+        "옮길 반에는 담임 선생님이 없어요. 안내만 하고 그대로 반영해요",
       ),
     ).toBeTruthy();
   });
