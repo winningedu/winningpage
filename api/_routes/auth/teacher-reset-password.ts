@@ -3,7 +3,7 @@
 // 선생님 비밀번호 찾기(결정 103). 휴대폰 인증(reset_password 목적)으로 번호 소유를 증명한 뒤
 // 아이디와 번호가 같은 교사의 비밀번호를 새로 정한다. 스쿨멘토 전용이라 위닝에서는 404.
 
-import { createLoginAuthClient, hashParam } from "../../_lib/auth/login.js";
+import { createLoginAuthClient } from "../../_lib/auth/login.js";
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
 import {
   checkNewPassword,
@@ -224,14 +224,7 @@ export default defineHandler({
       if (error) throw new RpcError("fn_teacher_password_set", error.code);
     });
 
-    // 로그인 잠금 열쇠는 로그인과 같은 해시(인증 이메일의 sha256)다. 잠겨 있던 교사가 재설정 뒤 바로 로그인할 수 있게 지운다.
-    await finishStep("login_attempts delete", async () => {
-      const { error } = await admin
-        .from("login_attempts")
-        .delete()
-        .eq("identifier_hash", hashParam(syntheticEmail(loginId)));
-      if (error) throw new Error("login attempts clear failed");
-    });
+    // 로그인 잠금 행은 auth.users 비밀번호 변경 트리거(login_attempts_clear_on_password_change)가 지운다.
 
     await finishStep("audit log", () =>
       writeConsoleAuditLog(
