@@ -175,11 +175,26 @@ export default defineHandler({
 
     // 이미 가입돼 있으면 초대가 422 로 떨어진다 — 그건 오류가 아니라 "재발송"
     // 또는 "기존 회원을 관리자로 올리기" 경로다. 먼저 기존 사용자를 찾아본다.
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, member_type, name")
-      .eq("email", email)
-      .maybeSingle();
+    // 계정은 auth.users 의 확인된 이메일로만 찾는다. profiles.email 은 회원이 고칠 수 있던
+    // 복사본이라, 그걸로 고르면 남의 주소를 적어 둔 계정이 관리자가 될 수 있다.
+    const { data: authUserId, error: authLookupError } =
+      await supabaseAdmin.rpc("fn_auth_user_id_by_email", { p_email: email });
+    if (authLookupError) throw new Error("invite auth user lookup failed");
+    const { data: authUser, error: authUserError } =
+      typeof authUserId === "string"
+        ? await supabaseAdmin.auth.admin.getUserById(authUserId)
+        : { data: null, error: null };
+    if (authUserError) throw new Error("invite auth user read failed");
+    const confirmedId = authUser?.user?.email_confirmed_at
+      ? authUser.user.id
+      : null;
+    const { data: existingProfile } = confirmedId
+      ? await supabaseAdmin
+          .from("profiles")
+          .select("id, member_type, name")
+          .eq("id", confirmedId)
+          .maybeSingle()
+      : { data: null };
 
     let profileId = existingProfile?.id as string | undefined;
     let resent = false;
