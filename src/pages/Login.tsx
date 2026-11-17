@@ -287,7 +287,7 @@ export default function Login() {
           onChange={setEmail}
           placeholder={
             site.features.serverLogin
-              ? "아이디를 입력해 주세요."
+              ? "아이디 또는 이메일을 입력해 주세요."
               : "이메일을 입력해 주세요."
           }
           autoComplete={site.features.serverLogin ? "username" : "email"}

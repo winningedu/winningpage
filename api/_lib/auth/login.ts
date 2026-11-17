@@ -22,6 +22,10 @@ export function lockedMessage(retryAfterSeconds: number): string {
   return `로그인에 ${MAX_FAILS}회 연속 실패하여 10분 동안 로그인할 수 없습니다. 약 ${Math.ceil(retryAfterSeconds / 60)}분 후에 다시 시도해 주세요.`;
 }
 
+export const EMAIL_NOT_CONFIRMED_CODE = "EMAIL_NOT_CONFIRMED";
+export const EMAIL_NOT_CONFIRMED_MESSAGE =
+  "가입이 끝나지 않은 이메일입니다. 회원가입을 다시 진행해 주세요.";
+
 export const RETRY_CODE = "RETRY";
 export const RETRY_MESSAGE = "잠시 후 다시 시도해 주세요.";
 
@@ -71,7 +75,11 @@ export interface LoginInput {
         expires_at?: number;
       } | null;
     };
-    error: { status?: number | undefined } | null;
+    error: {
+      status?: number | undefined;
+      code?: string | undefined;
+      message?: string | undefined;
+    } | null;
   }>;
 }
 
@@ -183,8 +191,8 @@ export async function attemptLogin(
       email ?? DECOY_EMAIL,
       input.password,
     ));
-    if (email === null && !error) {
-      // 없는 주소는 성공해도 인정하지 않는다.
+    if (email === null && (!error || error.code === "email_not_confirmed")) {
+      // 없는 주소는 성공해도, 가입 미완료 응답이 와도 인정하지 않는다.
       signed = { user: null, session: null };
       error = { status: 400 };
     }
@@ -212,6 +220,21 @@ export async function attemptLogin(
       },
       mustChangePassword: teacher?.must_change_password ?? false,
       isTeacher: teacher != null,
+    };
+  }
+
+  // GoTrue 는 비밀번호가 맞을 때만 email_not_confirmed 를 준다. 틀린 비밀번호가 아니므로 실패로 세지 않는다.
+  if (error?.code === "email_not_confirmed") {
+    await admin.rpc("fn_login_attempt_end", {
+      p_hash: hash,
+      p_outcome: "error",
+      p_attempt_no: begin.attempt_no,
+    });
+    return {
+      ok: false,
+      status: 403,
+      code: EMAIL_NOT_CONFIRMED_CODE,
+      message: EMAIL_NOT_CONFIRMED_MESSAGE,
     };
   }
 

@@ -1,7 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
+import {
+  applySignupPassword,
+  sendSignupEmailCode,
+  verifySignupEmailCode,
+} from "@/lib/signupEmailAuth";
 import { supabase } from "@/lib/supabase";
 import { runIdentityVerification } from "../identityVerification";
 import SchoolSignup from "./SchoolSignup";
@@ -14,9 +25,39 @@ vi.mock("../identityVerification", () => ({
 vi.mock("@/lib/supabase", () => ({
   supabase: {
     rpc: vi.fn(),
-    auth: { setSession: vi.fn(async () => ({ error: null })) },
+    auth: { getUser: vi.fn(), getSession: vi.fn() },
+    from: vi.fn(),
   },
 }));
+
+// 이메일 코드 흐름은 모듈 경계에서 대역으로 바꾼다. 상수와 문구는 실제 값을 쓴다.
+vi.mock("@/lib/signupEmailAuth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/signupEmailAuth")>()),
+  sendSignupEmailCode: vi.fn(),
+  verifySignupEmailCode: vi.fn(),
+  applySignupPassword: vi.fn(),
+}));
+
+const VERIFIED_EMAIL = "a@b.co";
+
+// 인증을 마친 브라우저 세션 대역. 프로필에는 아직 member_type이 없다.
+function mockBrowserSession(sessionEmail: string | null = VERIFIED_EMAIL) {
+  vi.mocked(supabase.auth.getUser).mockResolvedValue({
+    data: { user: sessionEmail ? { id: "u-1", email: sessionEmail } : null },
+    error: null,
+  } as never);
+  vi.mocked(supabase.auth.getSession).mockResolvedValue({
+    data: {
+      session: { access_token: "access", user: { id: "u-1" } },
+    },
+    error: null,
+  } as never);
+  vi.mocked(supabase.from).mockReturnValue({
+    select: () => ({
+      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+    }),
+  } as never);
+}
 
 function LocationProbe() {
   return <p data-testid="path">{useLocation().pathname}</p>;
@@ -69,6 +110,13 @@ function type(label: string | RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
+// 인증번호 보내기 버튼이 이메일과 휴대폰에 하나씩 있어 입력 칸으로 짝을 찾는다.
+function clickActionOf(inputLabel: string) {
+  const container = screen.getByLabelText(inputLabel).parentElement;
+  if (!container) throw new Error(`${inputLabel} 칸을 찾지 못했어요.`);
+  fireEvent.click(within(container).getByRole("button"));
+}
+
 function agreeRequiredTerms() {
   check(/이용약관/);
   check(/개인정보 수집 및 이용/);
@@ -81,6 +129,17 @@ const TENANT = { tenantId: "t-1", name: "새빛중학교", orgType: "학교" };
 beforeEach(() => {
   window.sessionStorage.clear();
   calls.length = 0;
+  vi.mocked(sendSignupEmailCode).mockReset();
+  vi.mocked(verifySignupEmailCode).mockReset();
+  vi.mocked(applySignupPassword).mockReset();
+  vi.mocked(sendSignupEmailCode).mockResolvedValue({
+    state: "available",
+    mode: "signup",
+    resumed: false,
+  });
+  vi.mocked(verifySignupEmailCode).mockResolvedValue({ ok: true });
+  vi.mocked(applySignupPassword).mockResolvedValue({ ok: true });
+  mockBrowserSession();
 });
 
 afterEach(() => {
@@ -214,14 +273,8 @@ describe("2단계 소속 확인", () => {
 
 const SEND_OK = { body: { ok: true, expires_in: 180, cooldown: 60 } };
 const VERIFY_OK = { body: { ok: true } };
-const USERNAME_OK = { body: { available: true } };
 const SIGNUP_OK = {
-  body: {
-    session: { access_token: "access", refresh_token: "refresh" },
-    username: "mentor01",
-    linkCode: "LINK12",
-    tenantName: "새빛중학교",
-  },
+  body: { linkCode: "LINK12", tenantName: "새빛중학교" },
 };
 
 // 소속을 확인한 뒤 3단계까지 간다. orgType으로 학교와 학원을 가른다.
@@ -231,7 +284,6 @@ async function goToStudentInfo(orgType = "학교") {
     "/api/send-phone-code": SEND_OK,
     "/api/verify-phone-code": VERIFY_OK,
     "/api/signup/school-student": SIGNUP_OK,
-    "/api/signup/username-check": USERNAME_OK,
   });
   renderSignup();
   agreeRequiredTerms();
@@ -247,11 +299,11 @@ describe("3단계 학생 정보 칸", () => {
 
     for (const label of [
       "이름",
-      "아이디",
       "비밀번호",
       "비밀번호 확인",
-      "휴대폰번호",
       "이메일",
+      "이메일 인증번호",
+      "휴대폰번호",
       "생년월일",
       "성별",
       "학년",
@@ -261,6 +313,7 @@ describe("3단계 학생 정보 칸", () => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     expect(screen.queryByLabelText("그룹(선택)")).toBeNull();
+    expect(screen.queryByLabelText("아이디")).toBeNull();
     expect(
       screen.getByText("학년, 반, 번호는 선생님 화면의 반 편성에 쓰여요."),
     ).toBeInTheDocument();
@@ -302,69 +355,144 @@ describe("3단계 학생 정보 칸", () => {
   });
 });
 
-describe("3단계 아이디 중복 확인", () => {
-  it("사용할 수 있으면 안내하고, 아이디를 고치면 결과가 사라진다", async () => {
+describe("3단계 이메일 인증", () => {
+  it("이메일이 휴대폰번호보다 위에 있다", async () => {
     await goToStudentInfo();
-    calls.length = 0;
 
-    type("아이디", "mentor01");
-    click("중복 확인");
+    const email = screen.getByLabelText("이메일");
+    const phone = screen.getByLabelText("휴대폰번호");
 
     expect(
-      await screen.findByText("사용할 수 있는 아이디입니다."),
+      email.compareDocumentPosition(phone) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("인증번호를 보내고, 6자리를 넣으면 바로 검증해 인증을 마친다", async () => {
+    await goToStudentInfo();
+    type("이름", "김학생");
+    type("비밀번호", "abc123!");
+
+    type("이메일", "A@B.co ");
+    clickActionOf("이메일");
+
+    expect(
+      await screen.findByText("입력한 이메일로 인증코드를 발송했습니다."),
     ).toBeInTheDocument();
-    expect(calls[0]).toEqual({
-      url: "/api/signup/username-check",
-      body: { username: "mentor01" },
+    expect(sendSignupEmailCode).toHaveBeenCalledWith({
+      email: "a@b.co",
+      password: "abc123!",
+      name: "김학생",
+      memberType: "student",
     });
 
-    type("아이디", "mentor02");
-
-    expect(screen.queryByText("사용할 수 있는 아이디입니다.")).toBeNull();
-  });
-
-  it("이미 쓰는 아이디면 알려 준다", async () => {
-    await goToStudentInfo();
-    mockApi({
-      "/api/signup/username-check": { body: { available: false } },
-    });
-
-    type("아이디", "mentor01");
-    click("중복 확인");
+    type("이메일 인증번호", "123456");
 
     expect(
-      await screen.findByText("이미 사용 중인 아이디입니다."),
+      await screen.findByText("이메일 인증이 완료되었습니다."),
     ).toBeInTheDocument();
-  });
-
-  it("요청이 너무 많으면 잠시 후 다시 하라고 안내한다", async () => {
-    await goToStudentInfo();
-    mockApi({
-      "/api/signup/username-check": {
-        status: 429,
-        body: { code: "RATE_LIMITED" },
-      },
+    expect(verifySignupEmailCode).toHaveBeenCalledWith({
+      email: "a@b.co",
+      token: "123456",
+      mode: "signup",
     });
-
-    type("아이디", "mentor01");
-    click("중복 확인");
-
-    expect(await screen.findByText(/잠시 후 다시 시도/)).toBeInTheDocument();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
   });
 
-  it("형식이 틀린 아이디는 서버에 묻지 않는다", async () => {
+  it("형식이 틀린 이메일은 보내지 않는다", async () => {
     await goToStudentInfo();
-    calls.length = 0;
 
-    type("아이디", "Ab");
-    click("중복 확인");
+    type("이메일", "abc");
+    clickActionOf("이메일");
 
     expect(
-      screen.getByText(
-        "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
+      screen.getByText("이메일을 올바르게 입력해 주세요."),
+    ).toBeInTheDocument();
+    expect(sendSignupEmailCode).not.toHaveBeenCalled();
+  });
+
+  it("이미 가입된 이메일(taken)이면 알려 주고 인증번호 칸을 열지 않는다", async () => {
+    vi.mocked(sendSignupEmailCode).mockResolvedValue({ state: "taken" });
+    await goToStudentInfo();
+
+    type("이메일", "a@b.co");
+    clickActionOf("이메일");
+
+    expect(
+      await screen.findByText(
+        "이미 가입된 이메일입니다. 로그인 페이지에서 로그인해 주세요.",
       ),
     ).toBeInTheDocument();
-    expect(calls).toHaveLength(0);
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+  });
+
+  it("보낸 직후에는 재발송이 쿨타임으로 막히고, 남은 시간을 보여 준다", async () => {
+    await goToStudentInfo();
+
+    type("이메일", "a@b.co");
+    clickActionOf("이메일");
+    await screen.findByText("입력한 이메일로 인증코드를 발송했습니다.");
+
+    const container = screen.getByLabelText("이메일").parentElement;
+    const button = within(container as HTMLElement).getByRole("button");
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveTextContent(/초 후 재발송/);
+    expect(sendSignupEmailCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("틀린 인증번호는 알려 주고 인증을 마치지 않는다", async () => {
+    vi.mocked(verifySignupEmailCode).mockResolvedValue({
+      error: new Error("bad"),
+    });
+    await goToStudentInfo();
+    type("이메일", "a@b.co");
+    clickActionOf("이메일");
+    await screen.findByText("입력한 이메일로 인증코드를 발송했습니다.");
+
+    type("이메일 인증번호", "123456");
+
+    expect(await screen.findByText("인증번호가 틀립니다.")).toBeInTheDocument();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeEnabled();
+  });
+
+  it("인증한 계정이 이미 회원 프로필을 가졌으면 인증으로 인정하지 않는다", async () => {
+    vi.mocked(supabase.from).mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { email: "a@b.co", member_type: "student" },
+            error: null,
+          }),
+        }),
+      }),
+    } as never);
+    await goToStudentInfo();
+    type("이메일", "a@b.co");
+    clickActionOf("이메일");
+    await screen.findByText("입력한 이메일로 인증코드를 발송했습니다.");
+
+    type("이메일 인증번호", "123456");
+
+    expect(
+      await screen.findByText(
+        "이미 가입된 이메일입니다. 로그인 페이지에서 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("이메일 인증이 완료되었습니다.")).toBeNull();
+  });
+
+  it("인증 뒤에 이메일을 고치면 인증이 풀린다", async () => {
+    await goToStudentInfo();
+    type("이메일", "a@b.co");
+    clickActionOf("이메일");
+    await screen.findByText("입력한 이메일로 인증코드를 발송했습니다.");
+    type("이메일 인증번호", "123456");
+    await screen.findByText("이메일 인증이 완료되었습니다.");
+
+    type("이메일", "c@d.co");
+
+    expect(screen.queryByText("이메일 인증이 완료되었습니다.")).toBeNull();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+    expect(screen.getByLabelText("이메일 인증번호")).toHaveValue("");
   });
 });
 
@@ -380,7 +508,7 @@ describe("3단계 휴대폰 인증", () => {
     });
 
     type("휴대폰번호", "01012345678");
-    click("인증번호 보내기");
+    clickActionOf("휴대폰번호");
     await waitFor(() => expect(calls).toHaveLength(1));
 
     expect(calls[0]?.body).toEqual({
@@ -411,7 +539,7 @@ describe("3단계 휴대폰 인증", () => {
     });
 
     type("휴대폰번호", "01012345678");
-    click("인증번호 보내기");
+    clickActionOf("휴대폰번호");
 
     expect(
       await screen.findByText(
@@ -437,7 +565,7 @@ describe("3단계 휴대폰 인증", () => {
     click("기타 소속으로 가입");
 
     type("휴대폰번호", "01012345678");
-    click("인증번호 보내기");
+    clickActionOf("휴대폰번호");
     await waitFor(() => expect(calls).toHaveLength(1));
 
     expect(calls[0]?.body).toEqual({
@@ -457,7 +585,7 @@ describe("3단계 휴대폰 인증", () => {
       "/api/signup/tenant-lookup": { body: { ...TENANT, tenantId: "t-2" } },
     });
     type("휴대폰번호", "01012345678");
-    click("인증번호 보내기");
+    clickActionOf("휴대폰번호");
     await waitFor(() =>
       expect(screen.getByLabelText("휴대폰 인증번호")).toBeEnabled(),
     );
@@ -475,22 +603,30 @@ describe("3단계 휴대폰 인증", () => {
   });
 });
 
+// 이메일로 인증번호를 받아 6자리를 넣고 인증을 마친다.
+async function verifyEmail(email = VERIFIED_EMAIL) {
+  type("이메일", email);
+  clickActionOf("이메일");
+  await waitFor(() =>
+    expect(screen.getByLabelText("이메일 인증번호")).toBeEnabled(),
+  );
+  type("이메일 인증번호", "123456");
+  await screen.findByText("이메일 인증이 완료되었습니다.");
+}
+
 // 3단계의 모든 필수 칸을 올바르게 채운다(14세 이상, 학교 소속).
 async function fillValidStudent() {
   type("이름", "김학생");
-  type("아이디", "mentor01");
-  click("중복 확인");
-  await screen.findByText("사용할 수 있는 아이디입니다.");
   type("비밀번호", "abc123!");
   type("비밀번호 확인", "abc123!");
+  await verifyEmail();
   type("휴대폰번호", "01012345678");
-  click("인증번호 보내기");
+  clickActionOf("휴대폰번호");
   await waitFor(() =>
     expect(screen.getByLabelText("휴대폰 인증번호")).toBeEnabled(),
   );
   type("휴대폰 인증번호", "123456");
   await screen.findByText("전화번호 인증이 완료되었습니다.");
-  type("이메일", "a@b.co");
   type("생년월일", "20100304");
   type("성별", "남");
   type("학년", "중2");
@@ -517,11 +653,11 @@ describe("3단계 다음 버튼", () => {
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
   });
 
-  it("아이디를 확인한 뒤 고치면 다시 확인할 때까지 막는다", async () => {
+  it("이메일 인증을 마치지 않으면 막는다", async () => {
     await goToStudentInfo();
     await fillValidStudent();
 
-    type("아이디", "mentor02");
+    type("이메일", "c@d.co");
 
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
   });
@@ -539,12 +675,9 @@ describe("3단계 다음 버튼", () => {
 describe("3단계 만 14세 미만", () => {
   async function fillUnder14Student() {
     type("이름", "김학생");
-    type("아이디", "mentor01");
-    click("중복 확인");
-    await screen.findByText("사용할 수 있는 아이디입니다.");
     type("비밀번호", "abc123!");
     type("비밀번호 확인", "abc123!");
-    type("이메일", "a@b.co");
+    await verifyEmail();
     type("생년월일", "20180304");
     type("성별", "여");
     type("학년", "중1");
@@ -634,12 +767,9 @@ describe("4단계 학부모 정보", () => {
     });
     await goToStudentInfo();
     type("이름", "김학생");
-    type("아이디", "mentor01");
-    click("중복 확인");
-    await screen.findByText("사용할 수 있는 아이디입니다.");
     type("비밀번호", "abc123!");
     type("비밀번호 확인", "abc123!");
-    type("이메일", "a@b.co");
+    await verifyEmail();
     type("생년월일", "20180304");
     type("성별", "여");
     type("학년", "중1");
@@ -670,7 +800,7 @@ describe("4단계 학부모 정보", () => {
     click("이전");
 
     expect(screen.getByLabelText("이름")).toHaveValue("김학생");
-    expect(screen.getByLabelText("아이디")).toHaveValue("mentor01");
+    expect(screen.getByLabelText("이메일")).toHaveValue(VERIFIED_EMAIL);
 
     click("다음");
 
@@ -682,8 +812,19 @@ function lastCall(url: string) {
   return calls.filter((call) => call.url === url).at(-1);
 }
 
+// 요청 머리글은 본문과 따로 쌓는다. fetch 대역이 마지막 호출의 머리글을 기억한다.
+function lastHeaders() {
+  const fetchMock = vi.mocked(globalThis.fetch);
+  const submit = fetchMock.mock.calls
+    .filter(([url]) => url === "/api/signup/school-student")
+    .at(-1);
+  return (submit?.[1] as RequestInit | undefined)?.headers as
+    | Record<string, string>
+    | undefined;
+}
+
 describe("가입 제출과 5단계 완료", () => {
-  it("학부모 정보를 건너뛰면 학생 정보만 보내고 세션을 넣고 완료 화면을 보인다", async () => {
+  it("학부모 정보를 건너뛰면 학생 정보만 보내고 완료 화면을 보인다", async () => {
     await goToGuardian();
     type("학부모 이름", "김부모");
 
@@ -693,10 +834,7 @@ describe("가입 제출과 5단계 완료", () => {
       await screen.findByRole("button", { name: "학습진단 시작하기" }),
     ).toBeInTheDocument();
     expect(lastCall("/api/signup/school-student")?.body).toEqual({
-      username: "mentor01",
-      password: "abc123!",
       name: "김학생",
-      email: "a@b.co",
       phone: "01012345678",
       birthDate: "2010-03-04",
       gender: "남",
@@ -709,12 +847,127 @@ describe("가입 제출과 5단계 완료", () => {
       agreeDbTransfer: true,
       agreeMarketing: false,
     });
-    expect(supabase.auth.setSession).toHaveBeenCalledWith({
-      access_token: "access",
-      refresh_token: "refresh",
-    });
     expect(
       screen.getByRole("button", { name: "서비스 둘러보기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("비밀번호를 계정에 반영한 뒤, 브라우저 세션 토큰을 Bearer로 실어 보낸다", async () => {
+    await goToGuardian();
+
+    click("건너뛰기");
+
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    expect(applySignupPassword).toHaveBeenCalledWith("abc123!");
+    expect(lastHeaders()).toMatchObject({ Authorization: "Bearer access" });
+    expect(
+      vi.mocked(applySignupPassword).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(globalThis.fetch).mock.invocationCallOrder.at(-1) as number,
+    );
+  });
+
+  it("세션 이메일이 인증한 이메일과 다르면 보내지 않고 3단계에서 인증을 다시 받게 한다", async () => {
+    await goToGuardian();
+    mockBrowserSession("other@b.co");
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("이메일 인증을 다시 진행해 주세요."),
+    ).toBeInTheDocument();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(applySignupPassword).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("세션이 없어도 같은 안내로 3단계에 돌려보낸다", async () => {
+    await goToGuardian();
+    mockBrowserSession(null);
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("이메일 인증을 다시 진행해 주세요."),
+    ).toBeInTheDocument();
+  });
+
+  it("새로고침으로 비밀번호가 비어 있으면 세션이 살아 있어도 보내지 않고 3단계에서 인증을 다시 받게 한다", async () => {
+    window.sessionStorage.setItem(
+      "signup-flow",
+      JSON.stringify({
+        schoolStep: 4,
+        tenant: {
+          isCatchAll: false,
+          id: "t-1",
+          name: "새빛중학교",
+          orgType: "학교",
+        },
+        formData: { email: VERIFIED_EMAIL },
+        verification: { email: { verified: true } },
+      }),
+    );
+    mockApi({ "/api/signup/school-student": SIGNUP_OK });
+    renderSignup();
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("이메일 인증을 다시 진행해 주세요."),
+    ).toBeInTheDocument();
+    expect(applySignupPassword).not.toHaveBeenCalled();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+  });
+
+  it("비밀번호를 계정에 반영하지 못하면 가입을 보내지 않고 오류를 보인다", async () => {
+    await goToGuardian();
+    vi.mocked(applySignupPassword).mockResolvedValue({
+      error: new Error("fail"),
+    });
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText(
+        "가입 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+  });
+
+  it("비밀번호가 약하다고 거절되면 3단계의 비밀번호 칸을 다시 확인하게 한다", async () => {
+    await goToGuardian();
+    vi.mocked(applySignupPassword).mockResolvedValue({
+      error: Object.assign(new Error("weak"), { code: "weak_password" }),
+    });
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByText("비밀번호 칸을 다시 확인해 주세요."),
+    ).toBeInTheDocument();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+  });
+
+  it("이미 가입이 끝난 상태(ALREADY_SIGNED_UP)는 성공으로 보고 완료 화면을 보인다", async () => {
+    await goToGuardian();
+    mockApi({
+      "/api/signup/school-student": {
+        status: 409,
+        body: { code: "ALREADY_SIGNED_UP" },
+      },
+    });
+
+    click("건너뛰기");
+
+    expect(
+      await screen.findByRole("button", { name: "학습진단 시작하기" }),
     ).toBeInTheDocument();
   });
 
@@ -776,12 +1029,9 @@ describe("가입 제출과 5단계 완료", () => {
     });
     await goToStudentInfo();
     type("이름", "김학생");
-    type("아이디", "mentor01");
-    click("중복 확인");
-    await screen.findByText("사용할 수 있는 아이디입니다.");
     type("비밀번호", "abc123!");
     type("비밀번호 확인", "abc123!");
-    type("이메일", "a@b.co");
+    await verifyEmail();
     type("생년월일", "20180304");
     type("성별", "여");
     type("학년", "중1");
@@ -831,7 +1081,6 @@ describe("기타 소속 가입", () => {
       "/api/send-phone-code": SEND_OK,
       "/api/verify-phone-code": VERIFY_OK,
       "/api/signup/school-student": SIGNUP_OK,
-      "/api/signup/username-check": USERNAME_OK,
     });
     renderSignup();
     agreeRequiredTerms();
@@ -894,14 +1143,21 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
     expect(screen.getByLabelText("학년")).toBeInTheDocument();
   });
 
-  it("그 사이 쓰인 아이디는 3단계에서 다시 확인하게 한다", async () => {
-    await submitWithError(409, "USERNAME_TAKEN");
+  it.each([
+    [401, "UNAUTHENTICATED"],
+    [403, "EMAIL_NOT_VERIFIED"],
+  ])(
+    "%s %s 는 3단계에서 이메일 인증을 다시 받게 한다",
+    async (status, code) => {
+      await submitWithError(status, code);
 
-    expect(
-      await screen.findByText("이미 사용 중인 아이디입니다."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
-  });
+      expect(
+        await screen.findByText("이메일 인증을 다시 진행해 주세요."),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("이메일 인증번호")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+    },
+  );
 
   it("그 사이 쓰인 번호는 아이디 찾기로 안내하고 다시 인증하게 한다", async () => {
     await submitWithError(409, "PHONE_TAKEN");
@@ -978,21 +1234,6 @@ describe("제출 오류는 해당 칸이 있는 단계로 돌려보낸다", () =
       await screen.findByText("학부모 핸드폰 인증을 완료해 주세요."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("학부모 이름")).toBeInTheDocument();
-  });
-
-  it.each([
-    [502, "LOGIN_FAILED"],
-    [409, "ALREADY_SIGNED_UP"],
-  ])("%s %s 는 가입이 끝났으니 로그인하라고 안내한다", async (status, code) => {
-    await submitWithError(status, code);
-
-    expect(
-      await screen.findByText("가입은 완료됐어요. 로그인해 주세요."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
   });
 
   it("학부모 휴대폰 인증이 빠졌다는 오류는 학부모 번호 인증도 다시 받게 한다", async () => {

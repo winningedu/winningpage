@@ -1,20 +1,15 @@
-// 스쿨멘토 학생 가입 요청 본문 검증(순수 함수). DB 가 최종 판정하지만, 계정을 만들기 전에
-// 형식 오류를 걸러 Auth 사용자 생성과 삭제를 아끼는 것이 목적이다.
+// 스쿨멘토 학생 가입 요청 본문 검증(순수 함수). DB 가 최종 판정하지만, 가입 확정을 부르기 전에
+// 형식 오류를 걸러 내는 것이 목적이다. 이메일은 본문이 아니라 토큰의 Auth 사용자에서 온다.
 // 선택 칸은 키가 없거나 null 이어도 같다. 소속코드는 null("기타")과 빈 값을 구분해야 해서 키가 있어야 한다.
 
-import { SYNTHETIC_DOMAIN } from "../auth/login.js";
 import { isValidMobile, normalizePhone } from "../phoneCode.js";
-import { normalizeUsername } from "./username.js";
 
 export const MAX_PASSWORD_LENGTH = 256;
 const MAX_TEXT_LENGTH = 100;
 const MAX_NUMBER = 32767; // smallint
 
 export interface SchoolStudentInput {
-  username: string;
-  password: string;
   name: string;
-  email: string;
   /** 숫자만. 14세 미만은 본인 번호가 선택이라 없을 수 있다. */
   phone: string | null;
   /** 14세 미만은 본인확인(PASS)이 정본이라 없을 수 있다. */
@@ -49,10 +44,6 @@ export function isValidPassword(value: string): boolean {
   );
 }
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
-}
-
 function isValidDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
@@ -77,22 +68,8 @@ export function parseSchoolStudentBody(body: unknown): ParseResult {
   >;
   const fail = (field: string): ParseResult => ({ ok: false, field });
 
-  const username = normalizeUsername(raw.username);
-  if (!username) return fail("username");
-
-  if (typeof raw.password !== "string" || !isValidPassword(raw.password)) {
-    return fail("password");
-  }
-
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   if (!name || name.length > MAX_TEXT_LENGTH) return fail("name");
-
-  const email = typeof raw.email === "string" ? raw.email.trim() : "";
-  if (!isValidEmail(email)) return fail("email");
-  // 교사 합성 이메일(로그인 미끼 DECOY_EMAIL 포함)은 학생 이메일로 받지 않는다.
-  if (email.toLowerCase().endsWith(`@${SYNTHETIC_DOMAIN}`)) {
-    return fail("email");
-  }
 
   let phone: string | null = null;
   if (raw.phone !== undefined && raw.phone !== null && raw.phone !== "") {
@@ -174,10 +151,7 @@ export function parseSchoolStudentBody(body: unknown): ParseResult {
   return {
     ok: true,
     value: {
-      username,
-      password: raw.password,
       name,
-      email,
       phone,
       birthDate,
       gender,

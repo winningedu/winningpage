@@ -218,12 +218,14 @@ insert into public.terms (code, version, audience, title, is_required, profile_c
   ('student_marketing', 'T1', 'student', '마케팅', false, 'marketing_agreed');
 
 -- handle_new_user 트리거가 만드는 상태(auth.users 와 빈 profiles 행)를 흉내 낸다.
-create function pg_temp.new_user(p_email text) returns uuid
+-- 인증 코드(verifyOtp)를 마친 계정이 기본이다. p_confirmed 가 false 면 이메일 미인증 계정이다.
+create function pg_temp.new_user(p_email text, p_confirmed boolean default true) returns uuid
 language plpgsql as $$
 declare
   v_id uuid := gen_random_uuid();
 begin
-  insert into auth.users (id, email, aud, role) values (v_id, p_email, 'authenticated', 'authenticated');
+  insert into auth.users (id, email, aud, role, email_confirmed_at)
+  values (v_id, p_email, 'authenticated', 'authenticated', case when p_confirmed then now() end);
   insert into public.profiles (id, email, role) values (v_id, p_email, 'user');
   return v_id;
 end $$;
@@ -242,9 +244,9 @@ language plpgsql as $$
 begin
   return public.fn_student_signup(
     p_user_id => p_user,
-    p_username => case when p ? 'username' then p->>'username' else 'kimstu01' end,
+    p_username => p->>'username',
     p_name => case when p ? 'name' then p->>'name' else '김학생' end,
-    p_email => case when p ? 'email' then p->>'email' else 'Stu01@Example.com' end,
+    p_email => p->>'email',
     p_phone => case when p ? 'phone' then p->>'phone' else '010-4000-0001' end,
     p_birth_date => case when p ? 'birth_date' then (p->>'birth_date')::date else date '2010-03-02' end,
     p_gender => case when p ? 'gender' then p->>'gender' else '남' end,
@@ -269,14 +271,16 @@ end $$;
 -- ---------------------------------------------------------------------
 -- 14세 이상 학교 학생 가입이 프로필, 학년, 학적, 약관, 연결코드를 한 번에 만든다
 -- ---------------------------------------------------------------------
-select pg_temp.new_user('stu01@example.com') as uid \gset a_
+select pg_temp.new_user('Stu01@Example.com') as uid \gset a_
 select pg_temp.verify('010-4000-0001');
 select pg_temp.su(:'a_uid'::uuid) as r \gset a_
 
 select pg_temp.expect_bool('가입 결과 ok', (:'a_r'::jsonb)->>'ok' = 'true', true);
-select pg_temp.expect_text('프로필: 학생, 아이디 소문자, 이메일 소문자',
-  (select member_type || ':' || username || ':' || email from public.profiles where id = :'a_uid'::uuid),
-  'student:kimstu01:stu01@example.com');
+select pg_temp.expect_text('프로필: 학생, 아이디 없음, 이메일은 인증된 auth 이메일(소문자)',
+  (select member_type || ':' || coalesce(username, '-') || ':' || email from public.profiles where id = :'a_uid'::uuid),
+  'student:-:stu01@example.com');
+select pg_temp.expect_bool('결과에 username 이 없고 email 은 인증된 이메일',
+  not ((:'a_r'::jsonb) ? 'username') and (:'a_r'::jsonb)->>'email' = 'stu01@example.com', true);
 select pg_temp.expect_text('프로필: 이름, 전화, 생일, 성별',
   (select name || ':' || phone || ':' || birth_date || ':' || gender from public.profiles where id = :'a_uid'::uuid),
   '김학생:010-4000-0001:2010-03-02:남');
@@ -302,6 +306,14 @@ select pg_temp.expect_text('약관 동의: DB 전환 true, 마케팅 false',
   'student_db_transfer=true,student_marketing=false');
 select pg_temp.expect_bool('연결코드 발급, 결과에 같은 코드',
   (select code = (:'a_r'::jsonb)->>'link_code' from public.student_link_codes where student_id = :'a_uid'::uuid and is_active), true);
+-- 같은 계정의 동시 호출은 계정 id 의 advisory 잠금으로 줄을 선다(한 세션 스펙이라 트랜잭션이 끝나기 전 잠금이 남는 것으로 확인한다).
+select pg_temp.expect_bool('가입 호출이 계정 id 기준 advisory 잠금을 잡는다',
+  exists (
+    select 1 from pg_locks l
+     where l.locktype = 'advisory' and l.pid = pg_backend_pid() and l.objsubid = 1
+       and l.classid::text::bigint = ((hashtext(:'a_uid')::bigint >> 32) & 4294967295)
+       and l.objid::text::bigint = (hashtext(:'a_uid')::bigint & 4294967295)
+  ), true);
 select pg_temp.expect_int('문자 인증은 소비된다',
   (select count(*) from public.phone_verifications where phone = '01040000001' and consumed_at is not null), 1);
 
@@ -335,8 +347,8 @@ declare
 begin
   if p_verify then perform pg_temp.verify(v_phone); end if;
   return pg_temp.su(
-    pg_temp.new_user('go' || n || '@example.com'),
-    jsonb_build_object('phone', v_phone, 'username', 'gouser' || n, 'email', 'go' || n || '@example.com', 'number', n) || extra);
+    pg_temp.new_user(coalesce(extra->>'auth_email', 'go' || n || '@example.com')),
+    jsonb_build_object('phone', v_phone, 'number', n) || (extra - 'auth_email'));
 end $$;
 
 update public.app_settings set value = 'false'::jsonb where key = 'signup_enabled';
@@ -349,34 +361,58 @@ select pg_temp.expect_msg('이용약관 미동의', $$select pg_temp.go(3, '{"ag
 select pg_temp.expect_msg('개인정보 미동의', $$select pg_temp.go(4, '{"agree_privacy": false}')$$, 'P0001', 'privacy_required');
 select pg_temp.expect_msg('DB 전환 미동의', $$select pg_temp.go(5, '{"agree_db_transfer": false}')$$, 'P0001', 'db_transfer_required');
 select pg_temp.expect_msg('이름 없음', $$select pg_temp.go(6, '{"name": "  "}')$$, 'P0001', 'name_required');
-select pg_temp.expect_msg('이메일 없음', $$select pg_temp.go(7, '{"email": ""}')$$, 'P0001', 'email_required');
+select pg_temp.expect_msg('이메일 인증을 마치지 않은 계정은 email_not_verified', $$
+  select pg_temp.verify('010-5007-0001');
+  select pg_temp.su(pg_temp.new_user('go7@example.com', false), '{"phone": "010-5007-0001", "number": 7}')
+$$, 'P0001', 'email_not_verified');
+select pg_temp.expect_int('미인증 계정 가입이 실패하면 아무것도 쓰지 않는다',
+  (select count(*) from public.profiles where email = 'go7@example.com' and member_type is not null)
+  + (select count(*) from public.phone_verifications where phone = '01050070001' and consumed_at is not null), 0);
 select pg_temp.expect_msg('학년 없음', $$select pg_temp.go(8, '{"grade": null}')$$, 'P0001', 'grade_required');
 select pg_temp.expect_msg('14세 이상은 생년월일 필수', $$select pg_temp.go(9, '{"birth_date": null}')$$, 'P0001', 'birth_date_required');
 select pg_temp.expect_msg('14세 이상은 성별 필수', $$select pg_temp.go(10, '{"gender": null}')$$, 'P0001', 'gender_required');
 select pg_temp.expect_msg('성별은 남, 여만', $$select pg_temp.go(11, '{"gender": "x"}')$$, 'P0001', 'invalid_gender');
-select pg_temp.expect_msg('아이디가 너무 짧다', $$select pg_temp.go(12, '{"username": "abc"}')$$, 'P0001', 'username_invalid');
-select pg_temp.expect_msg('아이디가 너무 길다', $$select pg_temp.go(13, '{"username": "abcdefghijklmnopqrstu"}')$$, 'P0001', 'username_invalid');
-select pg_temp.expect_msg('아이디에 @ 불가', $$select pg_temp.go(14, '{"username": "ab@cd"}')$$, 'P0001', 'username_invalid');
-select pg_temp.expect_msg('아이디에 한글 불가', $$select pg_temp.go(15, '{"username": "가나다라"}')$$, 'P0001', 'username_invalid');
-select pg_temp.expect_ok('아이디 대문자는 소문자로 바꿔 받는다', $$select pg_temp.go(16, '{"username": "UpperCase16"}')$$);
-select pg_temp.expect_text('저장된 아이디는 소문자',
-  (select username from public.profiles where email = 'go16@example.com'), 'uppercase16');
-select pg_temp.expect_error('이미 쓰는 아이디(대소문자 무시)는 WC095', $$select pg_temp.go(17, '{"username": "UPPERCASE16"}')$$, 'WC095');
+select pg_temp.expect_ok('p_email 은 무시하고 인증된 auth 이메일을 저장한다(p_email 이 다른 주소여도)', $$
+  select pg_temp.go(12, '{"email": "other12@example.com"}')
+$$);
+select pg_temp.expect_text('저장된 이메일은 auth 이메일',
+  (select email from public.profiles where id = (select id from auth.users where email = 'go12@example.com')), 'go12@example.com');
+select pg_temp.expect_int('p_email 로 넘긴 주소는 어디에도 남지 않는다',
+  (select count(*) from public.profiles where email = 'other12@example.com'), 0);
+select pg_temp.expect_ok('p_email 이 null 이어도 가입된다', $$select pg_temp.go(13, '{"email": null}')$$);
+select pg_temp.expect_ok('auth 이메일의 대문자와 공백은 소문자로 정리해 저장한다', $$
+  select pg_temp.go(14, '{"auth_email": " Upper14@Example.COM "}')
+$$);
+select pg_temp.expect_text('저장된 이메일은 소문자',
+  (select email from public.profiles where id = (select id from auth.users where email = ' Upper14@Example.COM ')), 'upper14@example.com');
+select pg_temp.expect_ok('p_username 은 무시한다(형식이 틀려도 가입된다)', $$select pg_temp.go(15, '{"username": "a@b"}')$$);
+select pg_temp.expect_bool('학생 프로필의 username 은 null',
+  (select username is null from public.profiles where email = 'go15@example.com'), true);
+select pg_temp.expect_ok('p_username 이 null 이어도 가입된다', $$select pg_temp.go(16, '{"username": null}')$$);
+select pg_temp.expect_ok('다른 프로필이 쓰는 아이디를 p_username 으로 넘겨도 걸리지 않는다', $$
+  with u as (select pg_temp.new_user('t17@example.com') as id)
+  update public.profiles p set username = 'taken17' from u where p.id = u.id;
+  select pg_temp.go(17, '{"username": "TAKEN17"}')
+$$);
 select pg_temp.expect_ok('선생님 계정 login_id 와 겹치는 아이디 준비', $$
   insert into public.teachers (tenant_id, name, phone, role, login_id)
   values ((select id from public.tenants where code = 'SA222222'), '교사', '01099990001', 'homeroom', 'SA222222ABC234')
 $$);
-select pg_temp.expect_error('선생님 login_id 와 겹치는 아이디는 WC095', $$select pg_temp.go(18, '{"username": "sa222222abc234"}')$$, 'WC095');
+select pg_temp.expect_ok('선생님 login_id 와 같은 p_username 도 걸리지 않는다', $$select pg_temp.go(18, '{"username": "sa222222abc234"}')$$);
 select pg_temp.expect_msg('계정이 없으면 user_not_found', $$
   select pg_temp.verify('010-5019-0001');
-  select pg_temp.su(gen_random_uuid(), '{"phone": "010-5019-0001", "username": "nouser19", "email": "n19@example.com"}')
+  select pg_temp.su(gen_random_uuid(), '{"phone": "010-5019-0001"}')
 $$, 'P0001', 'user_not_found');
-select pg_temp.expect_msg('이미 가입을 끝낸 계정은 다시 가입할 수 없다', $$
-  select pg_temp.su((select id from auth.users where email = 'stu01@example.com'), '{"username": "again20"}')
-$$, 'P0001', 'already_signed_up');
-select pg_temp.expect_msg('다른 계정이 쓰는 이메일은 duplicate_email', $$
-  select pg_temp.go(21, '{"email": "STU01@example.com"}')
-$$, 'P0001', 'duplicate_email');
+select pg_temp.expect_msg('이미 가입을 끝낸 계정은 다시 가입할 수 없다',
+  format($$select pg_temp.su(%L::uuid, '{}')$$, :'a_uid'), 'P0001', 'already_signed_up');
+-- 다른 계정의 프로필이 이미 쓰는 이메일(대소문자 무시)이 auth 이메일인 계정을 만든다.
+select pg_temp.new_user('go21@example.com') as uid \gset d_
+update public.profiles set email = null where id = :'d_uid'::uuid;
+update auth.users set email = 'STU01@example.com' where id = :'d_uid'::uuid;
+select pg_temp.verify('010-5021-0001');
+select pg_temp.expect_msg('다른 계정이 쓰는 이메일은 duplicate_email',
+  format($$select pg_temp.su(%L::uuid, '{"phone": "010-5021-0001", "number": 21}')$$, :'d_uid'),
+  'P0001', 'duplicate_email');
 
 -- ---------------------------------------------------------------------
 -- 소속: 기타(소속 없음)는 기타 기관으로, 없는 기관은 WC097
@@ -433,20 +469,20 @@ $$, 'P0001', 'phone_not_verified');
 select pg_temp.expect_ok('기관 A 에서 번호 가입', $$select pg_temp.go(45, '{}')$$);
 select pg_temp.expect_msg('같은 인증을 기관 B 가입에 다시 쓸 수 없다', $$
   select pg_temp.su(pg_temp.new_user('go45b@example.com'), jsonb_build_object(
-    'phone', '010-5045-0001', 'username', 'gouser45b', 'email', 'go45b@example.com',
+    'phone', '010-5045-0001',
     'tenant_id', (select id from public.tenants where code = 'SB222222')))
 $$, 'P0001', 'phone_not_verified');
 select pg_temp.expect_ok('기관 B 는 새 인증을 받으면 같은 번호로 가입된다', $$
   select pg_temp.verify('010-5045-0001');
   select pg_temp.su(pg_temp.new_user('go45c@example.com'), jsonb_build_object(
-    'phone', '010-5045-0001', 'username', 'gouser45c', 'email', 'go45c@example.com',
+    'phone', '010-5045-0001',
     'tenant_id', (select id from public.tenants where code = 'SB222222')))
 $$);
 
 select pg_temp.expect_ok('같은 번호로 새 인증이 있어도 같은 기관에는 한 번만(준비)', $$select pg_temp.verify('010-5045-0001')$$);
 select pg_temp.expect_error('같은 기관 같은 번호는 WC096', $$
   select pg_temp.su(pg_temp.new_user('go45d@example.com'), jsonb_build_object(
-    'phone', '01050450001', 'username', 'gouser45d', 'email', 'go45d@example.com', 'number', 46))
+    'phone', '01050450001', 'number', 46))
 $$, 'WC096');
 
 -- ---------------------------------------------------------------------
@@ -478,7 +514,7 @@ select pg_temp.expect_detail('같은 학년, 반, 번호는 WC077 이고 detail 
 $$, 'WC077', '김학생');
 select pg_temp.expect_int('WC077 실패 뒤 문자 인증은 소비되지 않는다',
   (select count(*) from public.phone_verifications where phone = '01050500001' and consumed_at is null), 1);
-select pg_temp.expect_int('WC077 실패 뒤 프로필은 가입 전 상태다(아이디 없음)',
+select pg_temp.expect_int('WC077 실패 뒤 프로필은 가입 전 상태다(member_type 없음)',
   (select count(*) from public.profiles where email = 'go50@example.com' and member_type is not null), 0);
 select pg_temp.expect_int('WC077 실패 뒤 약관, 연결코드, 학적이 남지 않는다',
   (select count(*) from public.student_link_codes l join public.profiles p on p.id = l.student_id where p.email = 'go50@example.com')
@@ -504,7 +540,7 @@ select pg_temp.expect_text('그룹이 학급에 묶인다',
 -- ---------------------------------------------------------------------
 select pg_temp.expect_text('학부모 정보를 비우면 학부모 컬럼도 비어 있다',
   (select coalesce(guardian_name, '-') || ':' || coalesce(guardian_phone, '-') || ':' || coalesce(guardian_relation, '-')
-     || ':' || (guardian_phone_verified_at is null) from public.profiles where id = (select id from auth.users where email = 'stu01@example.com')),
+     || ':' || (guardian_phone_verified_at is null) from public.profiles where id = :'a_uid'::uuid),
   '-:-:-:true');
 select pg_temp.expect_msg('학부모 번호가 인증되지 않았으면 거부', $$
   select pg_temp.go(60, '{"guardian_name": "김보호", "guardian_phone": "010-6000-0001", "guardian_relation": "어머니"}')
@@ -555,7 +591,7 @@ language plpgsql as $$
 begin
   return pg_temp.su(
     pg_temp.new_user('go' || n || '@example.com'),
-    jsonb_build_object('phone', '', 'username', 'gouser' || n, 'email', 'go' || n || '@example.com', 'number', n,
+    jsonb_build_object('phone', '', 'number', n,
       'birth_date', date '2013-05-06', 'gender', '여', 'identity_request_id', p_rid,
       'guardian_name', '박보호', 'guardian_phone', '010-0000-0000', 'guardian_relation', '아버지',
       'guardian_consent', true) || extra);

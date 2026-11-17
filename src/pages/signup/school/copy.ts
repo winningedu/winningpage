@@ -17,12 +17,11 @@ export const INFO_MESSAGES = {
   passDone: "법정대리인 본인인증이 완료되었어요.",
 };
 
-export const USERNAME_MESSAGES = {
-  available: "사용할 수 있는 아이디입니다.",
-  taken: "이미 사용 중인 아이디입니다.",
-  invalidFormat: "아이디는 영문 소문자와 숫자 4자에서 20자로 입력해 주세요.",
-  tooMany: "확인 요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
-  failed: "아이디를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+export const EMAIL_MESSAGES = {
+  invalid: "이메일을 올바르게 입력해 주세요.",
+  verified: "이메일 인증이 완료되었습니다.",
+  // 세션이 없거나 인증한 이메일과 다를 때, 서버가 인증을 인정하지 않을 때.
+  reverify: "이메일 인증을 다시 진행해 주세요.",
 };
 
 export const PHONE_MESSAGES = {
@@ -34,7 +33,6 @@ export const PHONE_MESSAGES = {
 
 export const NOTICE_MESSAGES = {
   findIdLink: "아이디 찾기",
-  loginLink: "로그인",
   // 결정 75: "정보가 맞는데 계속 막히면 온라인문의로 알려 주세요." 중 온라인문의만 링크다.
   inquiryBefore: "정보가 맞는데 계속 막히면 ",
   inquiryLink: "온라인문의",
@@ -51,10 +49,8 @@ export const GUARDIAN_MESSAGES = {
 export interface SubmitError {
   step: 2 | 3 | 4;
   message?: string;
-  hint?: "findId" | "inquiry" | "login";
+  hint?: "findId" | "inquiry";
 }
-
-const LOGIN_AFTER_SIGNUP_MESSAGE = "가입은 완료됐어요. 로그인해 주세요.";
 
 export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   NUMBER_TAKEN_SAME_NAME: {
@@ -69,7 +65,6 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
     hint: "inquiry",
   },
   WC080: { step: 3, message: "등록되지 않은 그룹이에요." },
-  USERNAME_TAKEN: { step: 3 },
   PHONE_TAKEN: { step: 3, message: PHONE_MESSAGES.taken, hint: "findId" },
   EMAIL_TAKEN: {
     step: 3,
@@ -90,19 +85,11 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   },
   // 소속코드 오답 한도. 가입 확정이 소속코드를 다시 찾다가 걸린다.
   WC068: { step: 2, message: TENANT_MESSAGES.tooMany },
-  // 가입은 끝났는데 로그인만 못 한 경우다. 다시 가입하게 하지 않고 로그인으로 보낸다.
-  LOGIN_FAILED: {
-    step: 4,
-    message: LOGIN_AFTER_SIGNUP_MESSAGE,
-    hint: "login",
-  },
-  ALREADY_SIGNED_UP: {
-    step: 4,
-    message: LOGIN_AFTER_SIGNUP_MESSAGE,
-    hint: "login",
-  },
+  // 인증 세션이 없거나 이메일이 아직 확인되지 않았다. 3단계에서 인증을 다시 받는다.
+  UNAUTHENTICATED: { step: 3, message: EMAIL_MESSAGES.reverify },
+  EMAIL_NOT_VERIFIED: { step: 3, message: EMAIL_MESSAGES.reverify },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
-  // 서버가 교착이나 대기 시간 초과를 만나 새 Auth 사용자를 지우고 돌려준다. 같은 값으로 다시 누르면 된다.
+  // 서버가 교착이나 대기 시간 초과를 만났다. 가입은 저장되지 않았으니 같은 값으로 다시 누르면 된다.
   TRY_AGAIN: {
     step: 4,
     message: "지금 처리 중인 작업이 있어요. 잠시 뒤 다시 시도해 주세요.",
@@ -118,7 +105,6 @@ export const GENERIC_SUBMIT_ERROR: SubmitError = {
 // 여기 없는 칸(약관 동의 등)은 화면에서 막히는 값이라 일반 오류로 처리한다.
 const VALIDATION_FIELDS: Record<string, { step: 2 | 3 | 4; label: string }> = {
   tenantCode: { step: 2, label: "소속코드" },
-  username: { step: 3, label: "아이디" },
   password: { step: 3, label: "비밀번호" },
   name: { step: 3, label: "이름" },
   email: { step: 3, label: "이메일" },
