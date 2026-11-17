@@ -86,6 +86,12 @@ type ProfileMatch = {
   tenants: { name: string } | null;
 };
 
+type FoundAccount = {
+  maskedId?: string;
+  maskedEmail?: string;
+  tenantName: string | null;
+};
+
 export default defineHandler({
   methods: ["POST"],
   auth: "none",
@@ -194,7 +200,7 @@ export default defineHandler({
         found: true,
         masked_email: maskedEmails[0],
         masked_emails: maskedEmails,
-        accounts: matches.flatMap((row) => {
+        accounts: matches.flatMap((row): FoundAccount[] => {
           const tenantName = row.tenants?.name ?? null;
           if (row.member_type === "teacher" && row.username)
             return [{ maskedId: maskUsername(row.username), tenantName }];
