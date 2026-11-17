@@ -24,6 +24,7 @@ import { useSignup } from "@/context/SignupContext";
 import {
   CODE_LENGTH,
   findImpossibleChars,
+  linkCodeLabel,
   lookupChild,
   normalizeLinkCode,
   requestParentLink,
@@ -81,7 +82,7 @@ export default function LinkCode() {
     if (impossible.length > 0) {
       resetResult();
       setError(
-        `연결코드에 ${impossible.join("·")}는 쓰이지 않아요. 다시 확인해 주세요.`,
+        `${linkCodeLabel()}에 ${impossible.join("·")}는 쓰이지 않아요. 다시 확인해 주세요.`,
       );
       return;
     }
@@ -168,13 +169,13 @@ export default function LinkCode() {
         <AuthTitle
           line1={
             <span className="sm:whitespace-nowrap">
-              자녀의 연결코드를 입력해 주세요
+              자녀의 {linkCodeLabel()}를 입력해 주세요
             </span>
           }
         />
         <p className="break-keep text-base font-medium text-ink sm:text-xl">
           {/* 시안 갱신: '마의페이지'는 오타로 확인되어 '마이페이지'로 수정(원문 오타 재현 대상 아님). */}
-          자녀 마이페이지 &gt; 연결코드에서
+          자녀 마이페이지 &gt; {linkCodeLabel()}에서
           <br />
           6자리 코드를 확인할 수 있어요
         </p>
@@ -187,7 +188,7 @@ export default function LinkCode() {
           size="lg"
           value={code}
           onChange={handleChange}
-          placeholder="6자리 연결코드를 입력해 주세요"
+          placeholder={`6자리 ${linkCodeLabel()}를 입력해 주세요`}
           active={!!child && !alreadyLinked}
           // helperText는 string(exactOptionalPropertyTypes, undefined 불가) —
           // TextField가 내부에서 truthy 체크만 하므로 ""는 undefined와 동일하게 렌더된다.

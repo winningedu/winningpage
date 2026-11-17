@@ -17,6 +17,7 @@ import {
   TextLinkButton,
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { linkCodeLabel } from "@/lib/parentLink";
 
 type LinkChoiceProps = {
   mode?: "initial" | "add";
@@ -83,7 +84,7 @@ export default function LinkChoice({ mode = "initial" }: LinkChoiceProps) {
             <UserCheck className="h-12 w-12 text-primary" strokeWidth={1.5} />
           }
           title="자녀가 회원이예요"
-          description="자녀 계정에서 연결코드를 입력하면 바로 연결돼요"
+          description={`자녀 계정에서 ${linkCodeLabel()}를 입력하면 바로 연결돼요`}
           onClick={() =>
             navigate("/signup/parent/link/code", { state: { childName } })
           }

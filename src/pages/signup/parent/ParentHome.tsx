@@ -14,6 +14,7 @@ import {
   TextLinkButton,
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { linkCodeLabel } from "@/lib/parentLink";
 
 export default function ParentHome() {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function ParentHome() {
           line2Color="ink"
         />
         <p className="break-keep text-base font-medium text-ink sm:text-xl sm:whitespace-nowrap">
-          자녀 앱 설정 &gt; 연결코드에서 6자리 숫자를 확인할 수 있어요
+          자녀 앱 설정 &gt; {linkCodeLabel()}에서 6자리 숫자를 확인할 수 있어요
         </p>
       </div>
 
