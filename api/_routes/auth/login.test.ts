@@ -20,10 +20,6 @@ const state = vi.hoisted(() => ({
     ],
     error: null,
   } as { data: unknown; error: unknown },
-  legacyBeginResult: { data: null, error: null } as {
-    data: unknown;
-    error: unknown;
-  },
   resolvedEmail: null as string | null,
   teacher: null as Record<string, unknown> | null,
   resolveError: null as unknown,
@@ -59,9 +55,6 @@ vi.mock("../../_lib/supabaseAdmin.js", () => {
             data: state.resolvedEmail,
             error: state.resolveError,
           });
-        }
-        if (args[0] === "fn_login_attempt_begin") {
-          return Promise.resolve(state.legacyBeginResult);
         }
         return Promise.resolve(
           args[0] === "fn_login_lock_begin"
@@ -152,7 +145,6 @@ beforeEach(() => {
     ],
     error: null,
   };
-  state.legacyBeginResult = { data: null, error: null };
   state.resolvedEmail = null;
   state.teacher = null;
   state.resolveError = null;
