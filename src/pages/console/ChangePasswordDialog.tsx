@@ -76,9 +76,12 @@ export default function ChangePasswordDialog({
     }
     setErrors(found);
     if (found.newPassword || found.confirm) return;
-    if (await pwnedCheck.ensureChecked(newPassword)) return;
-
     setSaving(true);
+    if (await pwnedCheck.ensureChecked(newPassword)) {
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await consoleRequest("/api/console/change-password", {
         method: "POST",

@@ -302,6 +302,27 @@ describe("ChangePasswordDialog 서버 응답", () => {
     expect(calls.some((c) => c.key.startsWith("POST"))).toBe(false);
   });
 
+  it("유출 조회가 끝나기 전에 저장을 두 번 눌러도 한 번만 보낸다", async () => {
+    let finishLookup!: (value: "ok") => void;
+    pwned.check.mockReturnValue(
+      new Promise((resolve) => {
+        finishLookup = resolve;
+      }),
+    );
+    const calls = stubChange({ body: { ok: true, session: SESSION } });
+    renderRoutes(routes, "/teacher/my");
+    const dialog = await openDialog();
+    fill(dialog, "OldPass123", "NewPass456");
+
+    const save = dialog.getByRole("button", { name: "저장" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    finishLookup("ok");
+
+    expect(await dialog.findByText("비밀번호를 바꿨어요")).toBeTruthy();
+    expect(calls.filter((c) => c.key.startsWith("POST"))).toHaveLength(1);
+  });
+
   it("서버가 PASSWORD_PWNED 를 돌려주면 새 비밀번호 칸에 같은 안내를 보인다", async () => {
     stubChange({
       status: 400,
