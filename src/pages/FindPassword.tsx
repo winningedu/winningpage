@@ -32,7 +32,6 @@ import {
   TextField,
   TextLinkButton,
 } from "@/components/auth";
-import { site } from "@/config/site";
 import { useCooldown } from "@/hooks/useCooldown";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
@@ -151,7 +150,7 @@ async function requestPhoneReset(
   }
 }
 
-// 스쿨멘토 전용 최상단 탭. 선생님은 아이디와 휴대폰으로 본인을 확인하는 별도 화면이다(결정 103).
+// 최상단 탭(두 사이트 공통). 선생님은 아이디와 휴대폰으로 본인을 확인하는 별도 화면이다(결정 103).
 function AudienceTabs({
   audience,
   onChange,
@@ -431,7 +430,7 @@ export default function FindPassword() {
     setMethod(next);
   }
 
-  if (site.key === "schoolmentor" && audience === "teacher") {
+  if (audience === "teacher") {
     return (
       <AuthLayout>
         <AudienceTabs audience={audience} onChange={setAudience} />
@@ -451,9 +450,7 @@ export default function FindPassword() {
 
   return (
     <AuthLayout>
-      {site.key === "schoolmentor" && (
-        <AudienceTabs audience={audience} onChange={setAudience} />
-      )}
+      <AudienceTabs audience={audience} onChange={setAudience} />
       <AuthTitle
         line1="비밀번호를 잊으셨나요?"
         line2={

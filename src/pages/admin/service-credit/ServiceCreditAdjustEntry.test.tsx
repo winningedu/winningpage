@@ -1,10 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const flag = vi.hoisted(() => ({ hqTenantAdmin: false }));
+const siteState = vi.hoisted(() => ({
+  key: "winning",
+  features: { hqTenantAdmin: true },
+}));
 
 vi.mock("@/config/site", () => ({
-  site: { features: flag },
+  site: siteState,
 }));
 vi.mock("./ServiceCreditAdjustAdmin", () => ({
   default: () => <div>위닝 이용권 조정</div>,
@@ -16,11 +19,11 @@ vi.mock("@/pages/admin/tenants/StudentUsageAdmin", () => ({
 import ServiceCreditAdjustEntry from "./ServiceCreditAdjustEntry";
 
 beforeEach(() => {
-  flag.hqTenantAdmin = false;
+  siteState.key = "winning";
 });
 
 describe("ServiceCreditAdjustEntry", () => {
-  test("위닝은 기존 이용권 조정 화면을 그대로 쓴다", () => {
+  test("hqTenantAdmin 이 켜진 위닝도 기존 이용권 조정 화면을 그대로 쓴다", () => {
     render(
       <ServiceCreditAdjustEntry config={{ title: "서비스이용횟수조정" }} />,
     );
@@ -30,7 +33,7 @@ describe("ServiceCreditAdjustEntry", () => {
   });
 
   test("스쿨멘토는 기관 이용 한도 조정 화면으로 바꾼다", () => {
-    flag.hqTenantAdmin = true;
+    siteState.key = "schoolmentor";
     render(
       <ServiceCreditAdjustEntry config={{ title: "서비스이용횟수조정" }} />,
     );

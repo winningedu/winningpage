@@ -55,7 +55,7 @@ interface AdminSettingsListConfig {
   order: string;
   readOnly: true;
   noCreate: true;
-  // 스쿨멘토(hqTenantAdmin)만 전용 컴포넌트로 바꾼다. 위닝은 둘 다 비워 둔 제네릭 목록이다.
+  // hqTenantAdmin 이 켜진 사이트(스쿨멘토, 위닝)만 전용 컴포넌트로 바꾼다. 꺼진 사이트는 둘 다 비워 둔 제네릭 목록이다.
   custom?: true;
   customComponentKey?: string;
   columns: AdminSettingsColumn[];

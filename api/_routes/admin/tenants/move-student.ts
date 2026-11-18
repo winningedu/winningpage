@@ -2,7 +2,7 @@
 //
 // 스쿨멘토 본사 관리자가 학생을 다른 기관으로 옮긴다(사 결정 r4 4번, 결정 96, 101, 102). 소속만 바꾸던
 // fn_admin_set_profile_tenant 와 달리 옛 기관 학적과 대기 신청을 정리하고 대상 기관 학적을 만든다
-// (fn_admin_move_student_tenant, 한 트랜잭션). 반은 비워도 된다(결정 102.14). 위닝에서는 404.
+// (fn_admin_move_student_tenant, 한 트랜잭션). 반은 비워도 된다(결정 102.14).
 // 권한: 로그인 + HQ 권한 members edit. 옮긴 기록은 admin_access_logs 에 update / members 로 남긴다.
 
 import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
@@ -15,7 +15,6 @@ import { hasAdminEditPermission } from "../../../_lib/console/proxy.js";
 import { defineHandler } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 import { assertQaAdminMayWrite } from "../../../_lib/qaAccount.js";
-import { isSchoolmentorSite } from "../../../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -60,10 +59,6 @@ export default defineHandler({
   logLabel: "[admin/tenants/move-student]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
-    if (!isSchoolmentorSite()) {
-      sendError(res, "coded", 404, "Not found", "NOT_FOUND");
-      return;
-    }
     const userId = ctx.userId as string;
     if (
       !(await hasAdminEditPermission(

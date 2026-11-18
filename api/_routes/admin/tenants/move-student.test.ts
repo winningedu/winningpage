@@ -62,13 +62,13 @@ afterEach(() => {
 });
 
 describe("POST /api/admin/tenants/move-student", () => {
-  test("위닝에서는 라우트가 없는 것처럼 404 이고 아무것도 옮기지 않는다", async () => {
+  test("위닝에서도 스쿨멘토와 같이 학생을 옮긴다", async () => {
     vi.stubEnv("SITE", "winning");
 
     const r = await post(VALID);
 
-    expect(r.status).toBe(404);
-    expect(moveArgs).toHaveLength(0);
+    expect(r.status).toBe(200);
+    expect(moveArgs).toHaveLength(1);
   });
 
   test.each([

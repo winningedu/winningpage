@@ -9,5 +9,10 @@ export function tenantSaveErrorMessage(error: {
     return "이 기관에 같은 휴대폰 번호의 회원이 이미 있어요. 확인 후 다시 옮겨 주세요.";
   }
 
+  // 학생의 올해 학적이 다른 기관에 있으면 소속만 바꿀 수 없다. 학적을 함께 옮기는 이동 화면을 쓴다.
+  if (error.code === "WC100") {
+    return "이 학생은 올해 학적이 다른 기관에 있어요. 학생 기관 이동 화면에서 옮겨 주세요.";
+  }
+
   return `소속 저장 실패: ${error.message}`;
 }

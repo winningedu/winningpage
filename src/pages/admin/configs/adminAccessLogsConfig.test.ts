@@ -24,10 +24,12 @@ describe("adminAccessLogs 설정: 사이트 스위치", () => {
     });
   });
 
-  test("위닝은 기존 제네릭 목록 그대로다", async () => {
+  test("위닝도 hqTenantAdmin 이 켜져 있어 전용 화면을 쓴다", async () => {
     const config = (await loadConfigs("winning")).adminAccessLogs;
 
-    expect(config?.custom).toBeUndefined();
-    expect(config?.customComponentKey).toBeUndefined();
+    expect(config).toMatchObject({
+      custom: true,
+      customComponentKey: "adminAccessLogs",
+    });
   });
 });
