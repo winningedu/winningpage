@@ -11,7 +11,7 @@ import CatchAllTenantField from "@/components/enrollment/CatchAllTenantField";
 import ChangeRequestSection from "@/components/enrollment/ChangeRequestSection";
 import type { MyEnrollmentState } from "@/components/enrollment/useMyEnrollment";
 import { site } from "@/config/site";
-import type { SignupProfileRpcResult } from "@/lib/parentLink";
+import { linkCodeLabel, type SignupProfileRpcResult } from "@/lib/parentLink";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/types/database.types";
 import ChangeEmailModal from "./ChangeEmailModal";
@@ -393,7 +393,7 @@ export default function ProfileTab({
     if (error) {
       console.error("연결코드 재발급 실패:", error);
       setErrorMsg(
-        `${site.features.studentEnrollment ? "학생 고유코드" : "연결코드"} 재발급에 실패했습니다. 잠시 후 다시 시도해 주세요.`,
+        `${linkCodeLabel()} 재발급에 실패했습니다. 잠시 후 다시 시도해 주세요.`,
       );
       return;
     }
@@ -677,7 +677,9 @@ export default function ProfileTab({
       {!isParent && (
         <LinkCodeRow
           label={
-            site.features.studentEnrollment ? "학생 고유코드" : "내 연결코드"
+            site.key === "schoolmentor"
+              ? linkCodeLabel()
+              : `내 ${linkCodeLabel()}`
           }
           code={linkCode}
           copyable={site.features.studentEnrollment}

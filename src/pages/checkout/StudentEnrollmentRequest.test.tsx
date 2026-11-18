@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddonProduct } from "@/lib/products";
 
 const mocks = vi.hoisted(() => ({
-  site: { features: { studentEnrollment: false } },
+  site: { key: "winning", features: { studentEnrollment: true } },
   parentLink: { parentId: "parent-1" } as { parentId: string } | null,
   addons: [] as unknown[],
   allowed: {} as Record<string, boolean | null>,
@@ -80,7 +80,7 @@ beforeEach(() => {
   mocks.apiFetch.mockReset();
   mocks.entitlementCalls = [];
   mocks.parentLink = { parentId: "parent-1" };
-  mocks.site.features.studentEnrollment = false;
+  mocks.site.key = "winning";
 });
 
 describe("StudentEnrollmentRequest 추가 이용권", () => {
@@ -170,14 +170,14 @@ describe("StudentEnrollmentRequest 학부모 미연결 모달 코드 명칭", ()
     return screen.findByText(/아직 연결된 학부모 계정이 없어요/);
   }
 
-  it("학생 등록 사이트는 학생 고유코드로 안내한다", async () => {
-    mocks.site.features.studentEnrollment = true;
+  it("스쿨멘토는 학생 고유코드로 안내한다", async () => {
+    mocks.site.key = "schoolmentor";
     const body = await openFailModal();
     expect(body.textContent).toContain("학생 고유코드");
     expect(body.textContent).not.toContain("연결코드");
   });
 
-  it("그 외 사이트는 연결코드로 안내한다", async () => {
+  it("위닝에듀는 연결코드로 안내한다", async () => {
     const body = await openFailModal();
     expect(body.textContent).toContain("내 연결코드");
   });

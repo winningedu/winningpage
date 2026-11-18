@@ -46,10 +46,11 @@ export function findImpossibleChars(code: unknown) {
   ];
 }
 
-// 학생 화면(ProfileTab)과 같은 이름을 쓴다: 학생 등록 사이트는 학생 고유코드.
+// 학생 화면(ProfileTab)과 같은 이름을 쓴다: 스쿨멘토는 학생 고유코드, 위닝은 연결코드.
+// 학적 플래그가 아니라 사이트로 고른다(위닝도 학적이 켜져도 이름은 그대로다).
 // 렌더, 호출 시점에 읽어야 해서 상수가 아니라 함수다.
 export const linkCodeLabel = () =>
-  site.features.studentEnrollment ? "학생 고유코드" : "연결코드";
+  site.key === "schoolmentor" ? "학생 고유코드" : "연결코드";
 
 const messages = (): Record<string, string> => ({
   not_authenticated: "로그인이 필요합니다. 다시 로그인해 주세요.",
