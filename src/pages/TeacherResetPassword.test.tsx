@@ -313,6 +313,22 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("유출 조회에 실패해도(unknown) 제출을 막지 않고 보낸다", async () => {
+    mockPwned.mockResolvedValue("unknown");
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(PWNED_MESSAGE)).toBeNull();
+  });
+
   it("서버가 PASSWORD_PWNED 를 돌려주면 새 비밀번호 칸에 같은 안내를 보이고 인증은 유지한다", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse(400, {

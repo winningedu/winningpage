@@ -323,6 +323,20 @@ describe("ChangePasswordDialog 서버 응답", () => {
     expect(calls.filter((c) => c.key.startsWith("POST"))).toHaveLength(1);
   });
 
+  it("유출 조회에 실패해도(unknown) 저장을 막지 않고 보낸다", async () => {
+    pwned.check.mockResolvedValue("unknown");
+    const calls = stubChange({ body: { ok: true, session: SESSION } });
+    renderRoutes(routes, "/teacher/my");
+    const dialog = await openDialog();
+    fill(dialog, "OldPass123", "NewPass456");
+
+    fireEvent.click(dialog.getByRole("button", { name: "저장" }));
+
+    expect(await dialog.findByText("비밀번호를 바꿨어요")).toBeTruthy();
+    expect(calls.filter((c) => c.key.startsWith("POST"))).toHaveLength(1);
+    expect(dialog.queryByText(PWNED_MESSAGE)).toBeNull();
+  });
+
   it("서버가 PASSWORD_PWNED 를 돌려주면 새 비밀번호 칸에 같은 안내를 보인다", async () => {
     stubChange({
       status: 400,
