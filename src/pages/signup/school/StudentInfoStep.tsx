@@ -8,6 +8,8 @@ import {
   TextField,
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { normalizeTenantCode } from "@/lib/tenantCode";
 import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
@@ -53,6 +55,8 @@ export default function StudentInfoStep({
     tenant && !tenant.isCatchAll
       ? { tenantCode: normalizeTenantCode(formData.orgCode) }
       : { catchAll: true };
+
+  const pwnedCheck = usePwnedPasswordCheck();
 
   const [passVerifying, setPassVerifying] = useState(false);
   const [passError, setPassError] = useState("");
@@ -144,10 +148,22 @@ export default function StudentInfoStep({
           type="password"
           size="lg"
           value={formData.password}
-          onChange={field("password")}
-          helperText={INFO_MESSAGES.passwordRule}
+          onChange={(value) => {
+            pwnedCheck.reset();
+            updateFormData({ password: value });
+          }}
+          onBlur={() => {
+            if (isValidPassword(formData.password))
+              pwnedCheck.checkOnBlur(formData.password);
+          }}
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : INFO_MESSAGES.passwordRule
+          }
           status={
-            formData.password && !isValidPassword(formData.password)
+            pwnedCheck.pwned ||
+            (formData.password && !isValidPassword(formData.password))
               ? "error"
               : "default"
           }

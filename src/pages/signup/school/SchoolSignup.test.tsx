@@ -9,6 +9,10 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
 import {
+  checkPwnedPassword,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
+import {
   applySignupPassword,
   sendSignupEmailCode,
   verifySignupEmailCode,
@@ -36,6 +40,12 @@ vi.mock("@/lib/signupEmailAuth", async (importOriginal) => ({
   sendSignupEmailCode: vi.fn(),
   verifySignupEmailCode: vi.fn(),
   applySignupPassword: vi.fn(),
+}));
+
+// 유출 비밀번호 조회는 네트워크 대신 대역을 쓴다. 기본은 안전한 비밀번호다.
+vi.mock("@/lib/pwnedPassword", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: vi.fn(),
 }));
 
 const VERIFIED_EMAIL = "a@b.co";
@@ -132,6 +142,8 @@ beforeEach(() => {
   vi.mocked(sendSignupEmailCode).mockReset();
   vi.mocked(verifySignupEmailCode).mockReset();
   vi.mocked(applySignupPassword).mockReset();
+  vi.mocked(checkPwnedPassword).mockReset();
+  vi.mocked(checkPwnedPassword).mockResolvedValue("ok");
   vi.mocked(sendSignupEmailCode).mockResolvedValue({
     state: "available",
     mode: "signup",
@@ -668,6 +680,19 @@ describe("3단계 다음 버튼", () => {
     type("번호(선택)", "0");
 
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+});
+
+describe("3단계 유출된 비밀번호", () => {
+  it("비밀번호 칸을 벗어났을 때 유출된 비밀번호면 칸 아래에 알려 준다", async () => {
+    vi.mocked(checkPwnedPassword).mockResolvedValue("pwned");
+    await goToStudentInfo();
+
+    type("비밀번호", "abc123!");
+    expect(screen.queryByText(PWNED_PASSWORD_MESSAGE)).toBeNull();
+    fireEvent.blur(screen.getByLabelText("비밀번호"));
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
   });
 });
 
