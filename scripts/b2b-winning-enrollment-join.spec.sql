@@ -58,6 +58,9 @@ values ('WEAAAAAA', 'wej-school', '서울', '학교', 'B', current_date - 10);
 insert into public.app_settings (key, value) values ('signup_enabled', 'true'::jsonb)
 on conflict (key) do update set value = 'true'::jsonb;
 update public.app_settings set value = 'false'::jsonb where key = 'require_tenant_on_signup';
+-- 사이트 표식: 위닝 프로젝트는 "winning" 이다(스쿨멘토 프로젝트는 "schoolmentor", 11번 케이스).
+insert into public.app_settings (key, value) values ('site_key', '"winning"'::jsonb)
+on conflict (key) do update set value = '"winning"'::jsonb;
 
 -- 학생 가입: student_profiles.grade 가 있으면 그 학년이 학적 학년의 후보다.
 -- 본인 번호 인증(phone_verifications)은 가입 한 번에 한 건씩 소비되므로 호출마다 새로 만든다.
@@ -377,5 +380,47 @@ select pg_temp.expect_text('QA 계정이 QA 구성원 없는 기관 코드를 �
   :'st' || ':' || (select count(*) from public.profiles where id = pg_temp.fx('q1') and tenant_id is not null) || ':' || pg_temp.enr('q1'),
   'WC103:0:0:null:none');
 update public.app_settings set value = 'false'::jsonb where key = 'qa_account_guard_enabled';
+
+-- ---------------------------------------------------------------------
+-- 11. 스쿨멘토 프로젝트(site_key = schoolmentor)는 위닝식 학생 가입 RPC 를 막고 학부모는 그대로 둔다
+-- ---------------------------------------------------------------------
+update public.app_settings set value = '"schoolmentor"'::jsonb where key = 'site_key';
+
+select pg_temp.mk_signup_student('m1', '고2');
+select pg_temp.signup_sql('m1', '01091110021', 'WEAAAAAA') as q \gset
+select pg_temp.as_user(pg_temp.fx('m1'));
+set local role authenticated;
+select pg_temp.try_sql(:'q') as st \gset
+reset role;
+select pg_temp.expect_text('스쿨멘토에서 위닝식 학생 가입 RPC 는 WC107', :'st', 'WC107');
+select pg_temp.expect_text('WC107 뒤 회원 유형도 소속도 학적도 없음',
+  (select coalesce(member_type, 'null') || ':' || (tenant_id is not null)::text from public.profiles where id = pg_temp.fx('m1'))
+    || ':' || pg_temp.enr('m1'),
+  'null:false:0:null:none');
+
+select pg_temp.mk_signup_student('m2', null);
+select pg_temp.signup_sql('m2', '01091110022', 'WEAAAAAA', 'parent') as q \gset
+select pg_temp.as_user(pg_temp.fx('m2'));
+set local role authenticated;
+select pg_temp.try_sql(:'q') as st \gset
+reset role;
+select pg_temp.expect_text('스쿨멘토에서도 학부모 가입 RPC 는 그대로 성공하고 학적 없음',
+  :'st' || ':' || (select member_type from public.profiles where id = pg_temp.fx('m2')) || ':' || pg_temp.enr('m2'),
+  'none:parent:0:null:none');
+
+-- ---------------------------------------------------------------------
+-- 12. 표식이 없으면(마이그레이션만 먼저 배포된 상태) 학생 가입은 거절도 학적도 없이 소속만 정한다
+-- ---------------------------------------------------------------------
+delete from public.app_settings where key = 'site_key';
+
+select pg_temp.mk_signup_student('n1', '고2');
+select pg_temp.signup_sql('n1', '01091110023', 'WEAAAAAA') as q \gset
+select pg_temp.as_user(pg_temp.fx('n1'));
+set local role authenticated;
+select pg_temp.try_sql(:'q') as st \gset
+reset role;
+select pg_temp.expect_text('표식이 없으면 학생 가입은 성공하고 소속만 정해지며 학적 없음',
+  :'st' || ':' || (select (tenant_id is not null)::text from public.profiles where id = pg_temp.fx('n1')) || ':' || pg_temp.enr('n1'),
+  'none:true:0:null:none');
 
 rollback;
