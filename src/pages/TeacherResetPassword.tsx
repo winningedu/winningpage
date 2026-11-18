@@ -10,6 +10,7 @@ import {
   TextLinkButton,
 } from "@/components/auth";
 import { useCooldown } from "@/hooks/useCooldown";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import {
   isValidMobile,
   normalizePhone,
@@ -17,6 +18,7 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import {
   PASSWORD_MISMATCH_ERROR,
   PASSWORD_RULE_ERROR,
@@ -31,12 +33,15 @@ const VERIFICATION_EXPIRED = "VERIFICATION_EXPIRED";
 const TEACHER_NOT_MATCHED = "TEACHER_NOT_MATCHED";
 // 비밀번호는 바뀌었지만 다른 기기 로그아웃에 실패했다. 다시 시도할 오류가 아니라 바뀐 것으로 다룬다.
 const PASSWORD_CHANGED_REVOKE_FAILED = "PASSWORD_CHANGED_REVOKE_FAILED";
+// 서버(Supabase)가 유출된 비밀번호로 거부했다. 인증은 서버가 풀어 두어 다른 비밀번호만 다시 입력하면 된다.
+const PASSWORD_PWNED = "PASSWORD_PWNED";
 
 type ResetOutcome =
   | { kind: "ok" }
   | { kind: "changed_revoke_failed"; message: string }
   | { kind: "expired"; message: string }
   | { kind: "not_matched"; message: string }
+  | { kind: "pwned" }
   | { kind: "failed" };
 
 async function requestReset(
@@ -58,6 +63,7 @@ async function requestReset(
     if (response.ok && payload?.ok) return { kind: "ok" };
 
     const code = payload?.error?.code;
+    if (code === PASSWORD_PWNED) return { kind: "pwned" };
     const message = payload?.error?.message;
     if (typeof message === "string") {
       if (code === VERIFICATION_EXPIRED) return { kind: "expired", message };
@@ -94,6 +100,7 @@ export default function TeacherResetPassword() {
   const [done, setDone] = useState(false);
   // 비밀번호는 바뀌었지만 다른 기기 로그아웃은 실패한 경우의 안내. 성공 문구 대신 보여 준다.
   const [doneNotice, setDoneNotice] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
 
   // 첫 단계로 돌아간다. 아이디와 번호는 그대로 두어 고쳐 쓸 수 있고, 인증은 새로 받는다.
   // 재전송 대기(60초)는 그대로 둔다. 풀면 이 버튼으로 발송 제한을 피해 갈 수 있다.
@@ -104,6 +111,7 @@ export default function TeacherResetPassword() {
     setPhoneCode("");
     setPassword("");
     setPasswordConfirm("");
+    pwnedCheck.reset();
     setPhoneMessage({ text: "", status: "default" });
     setFormError("");
   }
@@ -120,11 +128,19 @@ export default function TeacherResetPassword() {
 
     setSubmitting(true);
     setFormError("");
+    if (await pwnedCheck.ensureChecked(password)) {
+      setSubmitting(false);
+      return;
+    }
     const outcome = await requestReset(loginId, phone, password);
     setSubmitting(false);
 
     if (outcome.kind === "ok") {
       setDone(true);
+      return;
+    }
+    if (outcome.kind === "pwned") {
+      pwnedCheck.markPwned();
       return;
     }
     if (outcome.kind === "changed_revoke_failed") {
@@ -314,7 +330,16 @@ export default function TeacherResetPassword() {
               name="password"
               type="password"
               value={password}
-              onChange={setPassword}
+              onChange={(value) => {
+                setPassword(value);
+                pwnedCheck.reset();
+              }}
+              onBlur={() => {
+                if (!violatesPasswordRule(password))
+                  pwnedCheck.checkOnBlur(password);
+              }}
+              helperText={pwnedCheck.pwned ? PWNED_PASSWORD_MESSAGE : ""}
+              status={pwnedCheck.pwned ? "error" : "default"}
               placeholder="8자 이상, 영문과 숫자 포함"
               autoComplete="new-password"
               required
