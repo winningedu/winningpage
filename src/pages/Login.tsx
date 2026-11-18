@@ -107,10 +107,7 @@ export default function Login() {
   // 회원가입 안내 문단을 숨긴다(Header.tsx와 동일 원칙).
   const signupEnabled = useSignupEnabled();
 
-  // 서버 로그인 사이트에서만 저장된 아이디를 읽는다.
-  const [savedLoginId] = useState(() =>
-    site.features.serverLogin ? readSavedLoginId() : "",
-  );
+  const [savedLoginId] = useState(readSavedLoginId);
   const [email, setEmail] = useState(savedLoginId);
   const [rememberId, setRememberId] = useState(savedLoginId !== "");
   const [password, setPassword] = useState("");
@@ -118,20 +115,6 @@ export default function Login() {
   const [message, setMessage] = useState("");
   // 이미 로그인된 사용자에게 로그인 폼이 잠깐 노출되는 것을 막는 게이트.
   const sessionChecking = useRedirectIfAuthenticated(redirectTo);
-
-  function getFriendlyError(errorMessage?: string) {
-    if (!errorMessage) return "로그인 중 문제가 발생했습니다.";
-
-    if (errorMessage.includes("Invalid login credentials")) {
-      return "이메일 또는 비밀번호가 올바르지 않습니다.";
-    }
-
-    if (errorMessage.includes("Email not confirmed")) {
-      return "이메일 인증이 완료되지 않았습니다. 받은 메일함을 확인해 주세요.";
-    }
-
-    return errorMessage;
-  }
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -142,89 +125,48 @@ export default function Login() {
     setMessage("");
 
     try {
-      if (site.features.serverLogin) {
-        const result = await Promise.race([
-          postServerLogin(email, password),
-          new Promise<never>((_, reject) => {
-            window.setTimeout(
-              () => reject(new Error("login_timeout")),
-              LOGIN_TIMEOUT_MS,
-            );
-          }),
-        ]);
-
-        if (!result.ok) {
-          setMessage(result.message);
-          setLoading(false);
-          return;
-        }
-
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: result.accessToken,
-          refresh_token: result.refreshToken,
-        });
-        if (sessionError) {
-          setMessage(SERVER_LOGIN_FALLBACK_MESSAGE);
-          setLoading(false);
-          return;
-        }
-
-        writeSavedLoginId(rememberId ? email.trim() : null);
-        setLoading(false);
-        if (result.mustChangePassword) {
-          navigate(FIRST_PASSWORD_PATH, { replace: true });
-          return;
-        }
-        if (result.isTeacher) {
-          // 교사는 교사 콘솔 안으로 가는 redirect 만 따르고, 그 외에는 콘솔 첫 화면으로 보낸다.
-          const insideConsole =
-            redirectTo === TEACHER_HOME_PATH ||
-            redirectTo.startsWith(`${TEACHER_HOME_PATH}/`);
-          window.location.replace(
-            insideConsole ? redirectTo : TEACHER_HOME_PATH,
+      const result = await Promise.race([
+        postServerLogin(email, password),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error("login_timeout")),
+            LOGIN_TIMEOUT_MS,
           );
-          return;
-        }
-        window.location.replace(redirectTo);
-        return;
-      }
-
-      const normalizedEmail = email.trim().toLowerCase();
-
-      const loginPromise = supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        window.setTimeout(
-          () => reject(new Error("login_timeout")),
-          LOGIN_TIMEOUT_MS,
-        );
-      });
-
-      const { data, error } = await Promise.race([
-        loginPromise,
-        timeoutPromise,
+        }),
       ]);
 
-      if (error) {
-        setMessage(getFriendlyError(error.message));
+      if (!result.ok) {
+        setMessage(result.message);
         setLoading(false);
         return;
       }
 
-      if (!data?.user) {
-        setMessage("사용자 정보를 불러오지 못했습니다. 다시 시도해 주세요.");
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
+      });
+      if (sessionError) {
+        setMessage(SERVER_LOGIN_FALLBACK_MESSAGE);
         setLoading(false);
         return;
       }
 
+      writeSavedLoginId(rememberId ? email.trim() : null);
       setLoading(false);
-      // href가 아닌 replace: 로그인 성공 후 뒤로가기로 /login에 다시 진입하면
-      // 방금 추가된 세션 확인 게이트가 세션을 발견해 즉시 재이동시키는 헷갈리는
-      // 바운스가 생긴다. replace로 히스토리에서 /login 자체를 지워 이를 막는다.
+      if (result.mustChangePassword) {
+        navigate(FIRST_PASSWORD_PATH, { replace: true });
+        return;
+      }
+      if (result.isTeacher) {
+        // 교사는 교사 콘솔 안으로 가는 redirect 만 따르고, 그 외에는 콘솔 첫 화면으로 보낸다.
+        const insideConsole =
+          redirectTo === TEACHER_HOME_PATH ||
+          redirectTo.startsWith(`${TEACHER_HOME_PATH}/`);
+        window.location.replace(insideConsole ? redirectTo : TEACHER_HOME_PATH);
+        return;
+      }
       window.location.replace(redirectTo);
+      return;
     } catch (error) {
       console.error("로그인 처리 오류:", error);
 
@@ -281,16 +223,12 @@ export default function Login() {
       >
         <TextField
           id="login-email"
-          name={site.features.serverLogin ? "username" : "email"}
-          type={site.features.serverLogin ? "text" : "email"}
+          name="username"
+          type="text"
           value={email}
           onChange={setEmail}
-          placeholder={
-            site.features.serverLogin
-              ? "아이디 또는 이메일을 입력해 주세요."
-              : "이메일을 입력해 주세요."
-          }
-          autoComplete={site.features.serverLogin ? "username" : "email"}
+          placeholder="아이디 또는 이메일을 입력해 주세요."
+          autoComplete="username"
           required
         />
 
@@ -309,16 +247,14 @@ export default function Login() {
           status={message ? "error" : "default"}
         />
 
-        {site.features.serverLogin && (
-          <label className="flex items-center gap-2 text-sm font-medium text-ink">
-            <input
-              type="checkbox"
-              checked={rememberId}
-              onChange={(e) => setRememberId(e.target.checked)}
-            />
-            아이디 저장
-          </label>
-        )}
+        <label className="flex items-center gap-2 text-sm font-medium text-ink">
+          <input
+            type="checkbox"
+            checked={rememberId}
+            onChange={(e) => setRememberId(e.target.checked)}
+          />
+          아이디 저장
+        </label>
 
         {/* 버튼 라벨 시안 실측: 390 16px w700 lh20 / 1920 20px w700 lh20.
             PrimaryButton 기본값은 16px w600(회원가입 플로우 공용)이라 로그인에서만
