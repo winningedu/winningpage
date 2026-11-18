@@ -90,11 +90,20 @@ beforeEach(() => {
 });
 
 describe("reset-password-by-phone chooseAccount", () => {
-  test("chooseAccount 가 없으면 가장 먼저 가입한 계정을 재설정한다", async () => {
+  test("계정이 1개면 accountId 없이 바로 재설정한다", async () => {
+    db.tables.profiles?.pop();
     const res = await reset();
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ found: true, via: "phone" });
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
+  });
+
+  test("chooseAccount 를 보내지 않아도 계정이 2개 이상이면 409 로 고르게 한다", async () => {
+    const res = await reset();
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "choose_account" });
+    expect(db.passwordUpdates).toEqual([]);
+    expect(verification()?.consumed_at).toBeNull();
   });
 
   test("계정이 2개 이상이고 accountId 가 없으면 409 로 고르게 하고 인증을 소비하지 않는다", async () => {
@@ -160,10 +169,10 @@ describe("reset-password-by-phone chooseAccount", () => {
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
   });
 
-  test("chooseAccount 없이 보낸 accountId 는 무시한다", async () => {
+  test("chooseAccount 없이 보낸 accountId 도 매치 목록 안이면 그 계정을 재설정한다", async () => {
     const res = await reset({ accountId: "p2" });
     expect(res.status).toBe(200);
-    expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
+    expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p2"]);
   });
 
   test("조회 뒤 다른 요청이 인증을 먼저 소비했으면 401 이고 비밀번호를 바꾸지 않는다", async () => {
@@ -176,7 +185,7 @@ describe("reset-password-by-phone chooseAccount", () => {
         return profiles;
       },
     });
-    const res = await reset();
+    const res = await reset({ accountId: "p1" });
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ reason: "phone_not_verified" });
     expect(db.passwordUpdates).toEqual([]);
@@ -188,7 +197,7 @@ describe("reset-password-by-phone chooseAccount", () => {
         auth: { admin: { updateUserById: () => Promise<unknown> } };
       }
     ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
-    const res = await reset();
+    const res = await reset({ accountId: "p1" });
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
     expect(verification()?.consumed_at).toBeNull();
@@ -327,7 +336,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정", () => {
       }
     ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
 
-    const res = await reset({ password: NEW_PASSWORD });
+    const res = await reset({ accountId: "p1", password: NEW_PASSWORD });
 
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
@@ -344,7 +353,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정", () => {
       error: { code: "weak_password", reasons: ["pwned"] },
     });
 
-    const res = await reset({ password: NEW_PASSWORD });
+    const res = await reset({ accountId: "p1", password: NEW_PASSWORD });
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({

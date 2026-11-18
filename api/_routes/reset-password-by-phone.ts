@@ -1,4 +1,4 @@
-// POST /api/reset-password-by-phone  { phone, chooseAccount?, accountId?, password }
+// POST /api/reset-password-by-phone  { phone, accountId?, password }
 //
 // "비밀번호 찾기"의 휴대폰 인증 경로 — QA 시트 147·209행(2026-08-21 지시,
 // 2026-09-02 재확인). 이메일 링크 재설정(FindPassword.tsx → Supabase
@@ -21,13 +21,12 @@
 //   이미 증명했으므로 "이 번호로 가입한 계정이 없다"는 응답이 안전하다.
 //
 // 계정 고르기(2026-11-06, 스쿨멘토) — 소속이 다르면 같은 번호로 계정을 따로 만들 수
-// 있어서(결정 r8) "가장 먼저 가입한 계정" 규칙이 맞지 않는다. 화면은
-// chooseAccount:true를 보낸다. profiles.phone 매치가 2건 이상이고 accountId가 없으면
+// 있어서(결정 r8) "가장 먼저 가입한 계정" 규칙이 맞지 않는다.
+// profiles.phone 매치가 1건이면 accountId 없이 진행하고, 2건 이상이고 accountId가 없으면
 // 409 { code:'choose_account', accounts:[{ accountId, maskedId, tenantName }] }를 주고
 // (maskedId는 가린 이메일, 선생님만 가린 로그인 아이디)
 // 인증은 소비하지 않는다. accountId는 이 번호의 매치 목록 안에 있어야 한다(아니면 400,
-// 남의 계정 비밀번호를 id만 알아서 바꾸지 못하게). chooseAccount가 없으면 가장 먼저
-// 가입한(created_at 오름차순 1위) 계정 하나를 재설정한다.
+// 남의 계정 비밀번호를 id만 알아서 바꾸지 못하게).
 //
 // guardian_phone 경로(2026-09-03)
 //   ① profiles.phone 매치를 먼저 본다(기존 동작) — 있으면 그 결과만 쓴다.
@@ -96,29 +95,6 @@ function maskEmail(email: string): string {
 }
 
 type MatchedAccount = { id: string; email: string };
-
-/**
- * 이 번호로 가입이 끝난 계정 중 가장 먼저 만들어진 것 하나만 고른다.
- * find-account-by-phone.ts의 조회 조건(member_type 존재, 두 표기 대조)과
- * 동일하되, 여러 건일 때의 우선순위(created_at 오름차순)만 추가한다.
- */
-async function findOldestAccountByPhone(
-  supabase: SupabaseClient,
-  phone: string,
-): Promise<MatchedAccount | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, email")
-    .not("member_type", "is", null)
-    .or(`phone.eq.${phone},phone.eq.${toHyphenated(phone)}`)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data?.email) return null;
-  return { id: data.id, email: data.email };
-}
 
 /**
  * 이 번호를 guardian_phone으로 등록한 계정을 전부 찾는다(2026-09-03).
@@ -287,14 +263,11 @@ export default defineHandler({
       // 인증을 태워버리면 사용자가 이메일 재설정으로 안내받은 뒤에도 다시
       // SMS 인증부터 반복해야 한다. 계정을 찾지 못했을 때(found:false)도
       // 마찬가지로 소비하지 않는다 — 재설정이 실제로 일어나지 않았다.
-      const chooseAccount = req.body?.chooseAccount === true;
       const accountId =
         typeof req.body?.accountId === "string" ? req.body.accountId : null;
-      const candidates = chooseAccount
-        ? await findAllAccountsByPhone(supabase, phone)
-        : [];
+      const candidates = await findAllAccountsByPhone(supabase, phone);
 
-      if (chooseAccount && candidates.length >= 2 && !accountId) {
+      if (candidates.length >= 2 && !accountId) {
         return void res.status(409).json({
           ok: false,
           code: "choose_account",
@@ -310,21 +283,17 @@ export default defineHandler({
         });
       }
 
-      if (chooseAccount && accountId) {
-        if (!candidates.some((c) => c.id === accountId)) {
-          return void res.status(400).json({
-            ok: false,
-            reason: "account_not_found",
-            detail: "선택한 계정을 찾을 수 없습니다.",
-          });
-        }
+      if (accountId && !candidates.some((c) => c.id === accountId)) {
+        return void res.status(400).json({
+          ok: false,
+          reason: "account_not_found",
+          detail: "선택한 계정을 찾을 수 없습니다.",
+        });
       }
 
-      const chosen = accountId
-        ? candidates.find((c) => c.id === accountId)
-        : undefined;
-      const phoneAccount =
-        chosen ?? (await findOldestAccountByPhone(supabase, phone));
+      const phoneAccount = accountId
+        ? (candidates.find((c) => c.id === accountId) ?? null)
+        : (candidates[0] ?? null);
       const guardianAccounts = phoneAccount
         ? []
         : await findAccountsByGuardianPhone(supabase, phone);
