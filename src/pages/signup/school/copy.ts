@@ -50,6 +50,8 @@ export interface SubmitError {
   step: 2 | 3 | 4;
   message?: string;
   hint?: "findId" | "inquiry";
+  // 유출된 비밀번호라는 거절. 문구는 상자 대신 비밀번호 칸이 보인다.
+  pwnedPassword?: true;
 }
 
 export const SUBMIT_ERRORS: Record<string, SubmitError> = {
@@ -88,6 +90,7 @@ export const SUBMIT_ERRORS: Record<string, SubmitError> = {
   // 인증 세션이 없거나 이메일이 아직 확인되지 않았다. 3단계에서 인증을 다시 받는다.
   UNAUTHENTICATED: { step: 3, message: EMAIL_MESSAGES.reverify },
   EMAIL_NOT_VERIFIED: { step: 3, message: EMAIL_MESSAGES.reverify },
+  PWNED_PASSWORD: { step: 3, pwnedPassword: true },
   SIGNUP_CLOSED: { step: 4, message: "지금은 가입을 받지 않고 있어요." },
   // 서버가 교착이나 대기 시간 초과를 만났다. 가입은 저장되지 않았으니 같은 값으로 다시 누르면 된다.
   TRY_AGAIN: {

@@ -833,8 +833,10 @@ describe("4단계 학부모 정보", () => {
     await screen.findByLabelText("학부모 이름");
 
     expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
-    expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
-      "010-9999-8888",
+    await waitFor(() =>
+      expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
+        "010-9999-8888",
+      ),
     );
     expect(screen.getByLabelText("학부모 휴대폰번호")).toBeDisabled();
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
@@ -1006,6 +1008,27 @@ describe("가입 제출과 5단계 완료", () => {
     ).toBeInTheDocument();
     expect(lastCall("/api/signup/school-student")).toBeUndefined();
     expect(screen.getByLabelText("이름")).toBeInTheDocument();
+  });
+
+  it("유출된 비밀번호라고 거절되면 3단계 비밀번호 칸에 유출 문구를 보인다", async () => {
+    await goToGuardian();
+    vi.mocked(applySignupPassword).mockResolvedValue({
+      error: Object.assign(new Error("pwned"), {
+        code: "weak_password",
+        reasons: ["pwned"],
+      }),
+    });
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText("비밀번호 칸을 다시 확인해 주세요.")).toBeNull();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+
+    type("비밀번호", "abc123?");
+    expect(screen.queryByText(PWNED_PASSWORD_MESSAGE)).toBeNull();
   });
 
   it("이미 가입이 끝난 상태(ALREADY_SIGNED_UP)는 성공으로 보고 완료 화면을 보인다", async () => {

@@ -1,6 +1,6 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
 // 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AuthTitle,
   PrimaryButton,
@@ -57,6 +57,13 @@ export default function StudentInfoStep({
       : { catchAll: true };
 
   const pwnedCheck = usePwnedPasswordCheck();
+  const { markPwned } = pwnedCheck;
+  const rejectedAsPwned = submitError?.pwnedPassword === true;
+
+  // 저장할 때 Supabase가 유출된 비밀번호라고 거절하면 이 단계로 돌아와 칸에 보인다.
+  useEffect(() => {
+    if (rejectedAsPwned) markPwned();
+  }, [rejectedAsPwned, markPwned]);
 
   const [passVerifying, setPassVerifying] = useState(false);
   const [passError, setPassError] = useState("");
