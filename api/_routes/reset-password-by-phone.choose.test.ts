@@ -1,8 +1,7 @@
-// POST /api/reset-password-by-phone 의 계정 고르기(chooseAccount, 스쿨멘토).
-// 위닝은 새 필드를 보내지 않으므로 가장 먼저 가입한 계정 하나를 재설정하는
-// 기존 동작이 그대로여야 한다.
+// POST /api/reset-password-by-phone 의 계정 고르기(chooseAccount)와 새 비밀번호 직접 설정.
+// 위닝에듀와 스쿨멘토가 같은 경로를 쓴다(SITE 를 가리지 않는다).
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeDb,
@@ -32,14 +31,23 @@ import handler from "./reset-password-by-phone.js";
 
 let db: FakeDb;
 
-const reset = (extra: Record<string, unknown> = {}) =>
-  callHandler(handler as never, { phone: "010-1234-5678", ...extra });
-
 const NEW_PASSWORD = "NewPass123!";
+
+const reset = (extra: Record<string, unknown> = {}) =>
+  callHandler(handler as never, {
+    phone: "010-1234-5678",
+    password: NEW_PASSWORD,
+    ...extra,
+  });
 
 const verification = () => db.tables.phone_verifications?.[0];
 
 beforeEach(() => {
+  state.signIn.mockReset();
+  state.signIn.mockResolvedValue({
+    data: { session: { access_token: "new-access" } },
+    error: null,
+  });
   db = createFakeDb({
     tables: {
       tenants: [
@@ -82,7 +90,7 @@ beforeEach(() => {
 });
 
 describe("reset-password-by-phone chooseAccount", () => {
-  test("새 필드가 없으면 가장 먼저 가입한 계정을 재설정한다(위닝)", async () => {
+  test("chooseAccount 가 없으면 가장 먼저 가입한 계정을 재설정한다", async () => {
     const res = await reset();
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ found: true, via: "phone" });
@@ -133,10 +141,7 @@ describe("reset-password-by-phone chooseAccount", () => {
   test("고른 accountId 의 계정만 재설정하고 인증을 소비한다", async () => {
     const res = await reset({ chooseAccount: true, accountId: "p2" });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      found: true,
-      temp_password: expect.any(String),
-    });
+    expect(res.body).toMatchObject({ found: true });
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p2"]);
     expect(verification()?.consumed_at).not.toBeNull();
   });
@@ -190,23 +195,10 @@ describe("reset-password-by-phone chooseAccount", () => {
   });
 });
 
-// 스쿨멘토(SITE=schoolmentor)는 임시비밀번호 대신 학생이 새 비밀번호를 직접 정한다.
-describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)", () => {
-  beforeEach(() => {
-    process.env.SITE = "schoolmentor";
-    state.signIn.mockReset();
-    state.signIn.mockResolvedValue({
-      data: { session: { access_token: "new-access" } },
-      error: null,
-    });
-  });
-
-  afterEach(() => {
-    delete process.env.SITE;
-  });
-
+// 임시비밀번호 대신 회원이 새 비밀번호를 직접 정한다.
+describe("reset-password-by-phone 새 비밀번호 직접 설정", () => {
   test.each([
-    ["비밀번호가 없으면", {}],
+    ["비밀번호가 없으면", { password: undefined }],
     ["비밀번호가 문자열이 아니면", { password: 123456 }],
     ["비밀번호에 특수문자가 없으면", { password: "Abcdef12" }],
   ])("%s 400 invalid_password 이고 DB 를 읽지 않는다", async (_name, extra) => {
@@ -365,20 +357,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
   });
 });
 
-describe("reset-password-by-phone 위닝은 password 를 무시한다", () => {
-  test("password 를 보내도 임시비밀번호를 만들어 돌려주고 세션 정리는 하지 않는다", async () => {
-    const res = await reset({ password: "NewPass123!" });
-
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      found: true,
-      temp_password: expect.any(String),
-    });
-    expect(db.passwordUpdates).toHaveLength(1);
-    expect(db.passwordUpdates[0]?.password).not.toBe("NewPass123!");
-    expect(state.signIn).not.toHaveBeenCalled();
-  });
-
+describe("reset-password-by-phone 응답 헤더", () => {
   test("응답에 Cache-Control: no-store 를 싣는다", async () => {
     const res = await reset();
 
