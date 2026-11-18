@@ -233,15 +233,149 @@ select pg_temp.expect_text('학부모 소속 해제 = 소속 null, 학적 그대
     || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('c_par')),
   'null:1');
 
--- 소속을 다른 기관으로 바꾸는 경우는 학적을 건드리지 않는다.
+-- ---------------------------------------------------------------------
+-- 7. 어드민이 학생의 소속을 다른 기관으로 바꾸려 하면 막는다(학적을 함께 옮기는 fn_admin_move_student_tenant 를 쓴다)
+-- ---------------------------------------------------------------------
+-- 실행하고 SQLSTATE 를 돌려준다(없으면 none). 호출자 권한으로 돈다.
+create function pg_temp.try_sql(p_sql text) returns text
+language plpgsql as $$
+begin
+  execute p_sql;
+  return 'none';
+exception when others then
+  return sqlstate;
+end $$;
+grant execute on function pg_temp.try_sql(text) to authenticated;
+
 insert into public.tenants (code, name, region, org_type, tier, contract_start_date)
 values ('WEBBBBBB', 'wej-other', '서울', '학교', 'B', current_date - 10);
+
+-- c1: 소속 WEAAAAAA 와 그 학적이 있다.
 select format('select public.fn_admin_set_profile_tenant(%L, %L)', pg_temp.fx('c1'), (select id from public.tenants where code = 'WEBBBBBB')) as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+select pg_temp.try_sql(:'q') as st \gset
+reset role;
+select pg_temp.expect_text('올해 학적이 있는 학생을 다른 기관으로 바꾸면 WC100', :'st', 'WC100');
+select pg_temp.expect_text('WC100 뒤 소속과 학적이 그대로',
+  (select t.code from public.profiles pr join public.tenants t on t.id = pr.tenant_id where pr.id = pg_temp.fx('c1'))
+    || ':' || (select string_agg(t.code, ',') from public.student_enrollments e join public.tenants t on t.id = e.tenant_id where e.student_id = pg_temp.fx('c1')),
+  'WEAAAAAA:WEAAAAAA');
+
+-- i1: 소속도 학적도 없는 개인 회원 학생. 소속을 정하면 학적이 같이 생긴다.
+select pg_temp.mk_signup_student('i1', '고1');
+update public.profiles set member_type = 'student' where id = pg_temp.fx('i1');
+select format('select public.fn_admin_set_profile_tenant(%L, %L)', pg_temp.fx('i1'), (select id from public.tenants where code = 'WEBBBBBB')) as q \gset
 select pg_temp.as_user(pg_temp.fx('adm'));
 set local role authenticated;
 :q ;
 reset role;
-select pg_temp.expect_text('다른 기관으로 변경 = 학적 그대로 1',
-  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('c1'))::text, '1');
+select pg_temp.expect_text('개인 회원 학생에게 소속을 정하면 그 기관 학적 1건, 학년 고1',
+  (select t.code from public.profiles pr join public.tenants t on t.id = pr.tenant_id where pr.id = pg_temp.fx('i1'))
+    || ':' || (select string_agg(t.code, ',') from public.student_enrollments e join public.tenants t on t.id = e.tenant_id where e.student_id = pg_temp.fx('i1'))
+    || ':' || pg_temp.enr('i1'),
+  'WEBBBBBB:WEBBBBBB:1:고1:true');
+
+-- 학부모에게 소속을 정하면 학적은 만들지 않는다.
+select pg_temp.mk_signup_student('p2', null);
+update public.profiles set member_type = 'parent' where id = pg_temp.fx('p2');
+select format('select public.fn_admin_set_profile_tenant(%L, %L)', pg_temp.fx('p2'), (select id from public.tenants where code = 'WEBBBBBB')) as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('학부모에게 소속을 정해도 학적 없음', pg_temp.enr('p2'), '0:null:none');
+
+-- ---------------------------------------------------------------------
+-- 8. 소속 해제는 지난 학년도처럼 졸업한 올해 학적 행을 지우지 않고, 지운 활성 학적은 이력으로 남긴다
+-- ---------------------------------------------------------------------
+select pg_temp.mk_signup_student('g1', null);
+update public.profiles set member_type = 'student', tenant_id = (select id from public.tenants where code = 'WEAAAAAA') where id = pg_temp.fx('g1');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, status, graduated_at, updated_by)
+select t.id, pg_temp.fx('g1'), t.school_year, '고3', 'graduated', now(), pg_temp.fx('g1') from public.tenants t where t.code = 'WEAAAAAA';
+select pg_temp.unset_sql('g1') as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('소속 해제 = 소속 null, 졸업한 올해 학적은 그대로 1',
+  (select coalesce(tenant_id::text, 'null') from public.profiles where id = pg_temp.fx('g1'))
+    || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('g1') and status = 'graduated'),
+  'null:1');
+
+select pg_temp.mk_signup_student('r1', null);
+update public.profiles set member_type = 'student', tenant_id = (select id from public.tenants where code = 'WEAAAAAA') where id = pg_temp.fx('r1');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, updated_by)
+select t.id, pg_temp.fx('r1'), t.school_year, '고2', pg_temp.fx('r1') from public.tenants t where t.code = 'WEAAAAAA';
+select pg_temp.unset_sql('r1') as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('소속 해제 = 학적 삭제가 이력(admin_direct, applied, 고2에서 비움, 실행한 관리자)으로 남음',
+  (select count(*)::text || ':' || coalesce(max(c.from_grade), 'null') || ':' || coalesce(max(c.to_grade), 'null')
+      || ':' || bool_and(c.decided_by = pg_temp.fx('adm'))::text
+     from public.enrollment_changes c
+    where c.student_id = pg_temp.fx('r1') and c.kind = 'admin_direct' and c.status = 'applied'),
+  '1:고2:null:true');
+select pg_temp.expect_text('소속 해제 = 학적 0', (select count(*) from public.student_enrollments where student_id = pg_temp.fx('r1'))::text, '0');
+
+-- ---------------------------------------------------------------------
+-- 9. 가입 RPC와 소속 코드 입력도 올해 학적이 다른 기관에 있으면 WC100, 같은 기관이면 그대로 둔다
+-- ---------------------------------------------------------------------
+select pg_temp.mk_signup_student('x1', null);
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, updated_by)
+select t.id, pg_temp.fx('x1'), t.school_year, '고1', pg_temp.fx('x1') from public.tenants t where t.code = 'WEBBBBBB';
+select pg_temp.signup_sql('x1', '01091110011', 'WEAAAAAA') as q \gset
+select pg_temp.as_user(pg_temp.fx('x1'));
+set local role authenticated;
+select pg_temp.try_sql(:'q') as st \gset
+reset role;
+select pg_temp.expect_text('올해 학적이 다른 기관에 있는 학생이 다른 기관 코드로 가입하면 WC100', :'st', 'WC100');
+select pg_temp.expect_text('WC100 뒤 가입 프로필도 학적도 그대로(학적은 WEBBBBBB 한 건)',
+  (select count(*) from public.profiles where id = pg_temp.fx('x1') and tenant_id is not null)::text
+    || ':' || (select string_agg(t.code, ',') from public.student_enrollments e join public.tenants t on t.id = e.tenant_id where e.student_id = pg_temp.fx('x1')),
+  '0:WEBBBBBB');
+
+select pg_temp.mk_signup_student('x2', null);
+update public.profiles set member_type = 'student' where id = pg_temp.fx('x2');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, updated_by)
+select t.id, pg_temp.fx('x2'), t.school_year, '고1', pg_temp.fx('x2') from public.tenants t where t.code = 'WEBBBBBB';
+select pg_temp.as_user(pg_temp.fx('x2'));
+set local role authenticated;
+select pg_temp.try_sql($q$select * from public.fn_set_my_tenant('WEAAAAAA')$q$) as st \gset
+reset role;
+select pg_temp.expect_text('올해 학적이 다른 기관에 있는 학생의 소속 코드 입력은 WC100', :'st', 'WC100');
+select pg_temp.expect_text('WC100 뒤 소속 없음, 학적은 WEBBBBBB 한 건',
+  (select count(*) from public.profiles where id = pg_temp.fx('x2') and tenant_id is not null)::text
+    || ':' || (select string_agg(t.code, ',') from public.student_enrollments e join public.tenants t on t.id = e.tenant_id where e.student_id = pg_temp.fx('x2')),
+  '0:WEBBBBBB');
+
+select pg_temp.mk_signup_student('x3', null);
+update public.profiles set member_type = 'student' where id = pg_temp.fx('x3');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, updated_by)
+select t.id, pg_temp.fx('x3'), t.school_year, '고1', pg_temp.fx('x3') from public.tenants t where t.code = 'WEAAAAAA';
+select pg_temp.as_user(pg_temp.fx('x3'));
+set local role authenticated;
+select pg_temp.try_sql($q$select * from public.fn_set_my_tenant('WEAAAAAA')$q$) as st \gset
+reset role;
+select pg_temp.expect_text('같은 기관 올해 학적이 이미 있으면 소속 코드 입력이 성공하고 학적은 그대로 1건', :'st' || ':' || pg_temp.enr('x3'), 'none:1:고1:true');
+
+-- ---------------------------------------------------------------------
+-- 10. QA 계정 차단은 학적을 만들기 전에 막는다
+-- ---------------------------------------------------------------------
+insert into public.app_settings (key, value) values ('qa_account_guard_enabled', 'true'::jsonb)
+on conflict (key) do update set value = 'true'::jsonb;
+select pg_temp.mk_signup_student('q1', '고2');
+update public.profiles set member_type = 'student' where id = pg_temp.fx('q1');
+insert into public.qa_accounts (profile_id) values (pg_temp.fx('q1'));
+select pg_temp.as_user(pg_temp.fx('q1'));
+set local role authenticated;
+select pg_temp.try_sql($q$select * from public.fn_set_my_tenant('WEAAAAAA')$q$) as st \gset
+reset role;
+select pg_temp.expect_text('QA 계정이 QA 구성원 없는 기관 코드를 넣으면 WC103, 소속과 학적 없음',
+  :'st' || ':' || (select count(*) from public.profiles where id = pg_temp.fx('q1') and tenant_id is not null) || ':' || pg_temp.enr('q1'),
+  'WC103:0:0:null:none');
+update public.app_settings set value = 'false'::jsonb where key = 'qa_account_guard_enabled';
 
 rollback;
