@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router";
-import { Outlet } from "react-router";
+import { Outlet, redirect } from "react-router";
 import { site } from "@/config/site";
 import { SignupProvider } from "@/context/SignupContext";
 import { requireSignupEnabledMiddleware } from "@/lib/routeMiddleware";
@@ -35,6 +35,13 @@ function SignupFlowLayout() {
 
 // 로그인·회원가입 리뉴얼(§5.2) — 헤더/푸터 포함 풀 페이지가 시안 확정이므로
 // SiteLayout 안으로 편입(구 Login.jsx/Signup.jsx의 pt-16 보정 관례 그대로 재사용).
+// 위닝식 학생 가입 단계(생년월일, 14세 미만)는 스쿨멘토에서 열지 않는다. 스쿨멘토 학생은
+// 소속 확인과 이메일 인증을 거치는 학교 가입(/signup/student)으로만 가입한다.
+const winningStudentGate: Pick<RouteObject, "loader"> = site.features
+  .schoolSignup
+  ? { loader: () => redirect("/signup/student") }
+  : {};
+
 const authRoutes: RouteObject[] = [
   { path: "/login", Component: Login },
   // 아이디·비밀번호 찾기(QA 지시 2026-08-21) — SignupProvider 밖(회원가입 단계 데이터와
@@ -50,7 +57,11 @@ const authRoutes: RouteObject[] = [
     middleware: [requireSignupEnabledMiddleware],
     children: [
       { path: "/signup", Component: MemberType },
-      { path: "/signup/student/birth", Component: StudentBirth },
+      {
+        path: "/signup/student/birth",
+        Component: StudentBirth,
+        ...winningStudentGate,
+      },
       // 스쿨멘토는 소속 확인 5단계 가입, 위닝은 기존 폼(features.schoolSignup).
       {
         path: "/signup/student",
@@ -59,8 +70,13 @@ const authRoutes: RouteObject[] = [
       {
         path: "/signup/student/under14/verify",
         Component: Under14Verify,
+        ...winningStudentGate,
       },
-      { path: "/signup/student/under14", Component: Under14Form },
+      {
+        path: "/signup/student/under14",
+        Component: Under14Form,
+        ...winningStudentGate,
+      },
       // 통합 가입 폼(/signup/unified, VITE_UNIFIED_SIGNUP_ENABLED)은 2026-08-25 폐기 —
       // 시안 미확정 임시 라우트였고, 정식 폼 3종(학생/14세 미만/학부모)이 가입 필수 항목
       // (생년월일·성별)을 받도록 확장되면서 레거시 폼은 필수값을 보내지 못해 가입 자체가
