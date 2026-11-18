@@ -34,9 +34,8 @@ interface EmailVerifyFieldProps {
   onEmailChange: (email: string) => void;
   code: string;
   onCodeChange: (code: string) => void;
-  // 인증 메일을 만들 때 계정에 남기는 값. 비밀번호가 비어 있으면 임시값으로 만들어진다.
+  // 인증 메일을 만들 때 계정에 남기는 값. 비밀번호는 항상 임시값으로 만들어진다.
   name: string;
-  password: string;
   state: EmailVerifyState;
   onStateChange: (state: Partial<EmailVerifyState>) => void;
 }
@@ -50,7 +49,6 @@ export default function EmailVerifyField({
   code,
   onCodeChange,
   name,
-  password,
   state,
   onStateChange,
 }: EmailVerifyFieldProps) {
@@ -87,7 +85,6 @@ export default function EmailVerifyField({
         error,
       } = await sendSignupEmailCode({
         email: normalizedEmail,
-        password,
         name,
         memberType: "student",
       });

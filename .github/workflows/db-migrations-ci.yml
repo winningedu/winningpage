@@ -4,6 +4,14 @@
 # required check("rehearse-migrations")로 쓰기 위해 모든 PR에서 트리거된다.
 # paths 필터를 쓰면 미변경 PR에서 check가 아예 안 떠서 머지가 영구 블록되기 때문.
 # supabase/ 변경이 없으면 즉시 성공으로 끝난다.
+#
+# 같은 코드 트리가 릴리스 한 번에 최대 3번 검사된다: (1) 작업 브랜치에서 dev PR,
+# (2) dev 에서 main PR, (3) main push. pr-merge.sh 는 베이스가 헤드의 조상일 때만
+# 머지하므로 세 번 모두 검사 대상 트리가 같다.
+# 그래서 같은 워크플로가 이 트리를 이미 끝까지 통과했으면 무거운 잡을 건너뛴다.
+# 건너뛰는 게 안전한 이유: 통과 기록(아티팩트)은 모든 잡이 이 트리에서 성공한 뒤에만 만들어진다.
+# 건너뛴 잡은 Success 로 보고돼 머지를 막지 않는다(paths 필터는 Pending 으로 남아서 쓰지 않는다).
+# 조회가 실패하면 전부 실행한다(fail open). 수동(workflow_dispatch)과 예약 실행은 항상 전부 돈다.
 name: db-migrations-ci
 
 on:
@@ -15,7 +23,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 같은 트리를 이미 통과했는지 확인한다. 통과한 실행이 남긴 아티팩트
+  # (tested-tree-db-migrations-<트리 해시>)가 있으면 skip=true 로 무거운 잡을 건너뛴다.
+  # 조회가 실패하거나 수동, 예약 실행이면 skip=false 로 전부 돌린다.
+  same-tree:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.lookup.outputs.skip }}
+      tree: ${{ steps.lookup.outputs.tree }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Look up tested tree
+        id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          tree=$(git rev-parse 'HEAD^{tree}')
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          name="tested-tree-db-migrations-$tree"
+          skip=false
+          run_id=""
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
+            reason="수동 또는 예약 실행이라 항상 전부 실행"
+          elif json=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$name&per_page=10"); then
+            count=$(jq '[.artifacts[] | select(.expired == false)] | length' <<<"$json")
+            if [ "$count" -ge 1 ] 2>/dev/null; then
+              skip=true
+              run_id=$(jq -r '[.artifacts[] | select(.expired == false)][0].workflow_run.id' <<<"$json")
+              reason="같은 트리를 통과한 실행이 있음"
+            else
+              reason="같은 트리를 통과한 기록이 없음"
+            fi
+          else
+            reason="아티팩트 조회 실패, 안전하게 전부 실행"
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          msg="skip=$skip tree=$tree ($reason)"
+          [ -n "$run_id" ] && msg="$msg, 통과한 실행 run_id=$run_id"
+          echo "$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
   rehearse-migrations:
+    needs: same-tree
+    if: needs.same-tree.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -123,3 +177,23 @@ jobs:
       - name: Check committed database.types.ts matches schema
         if: steps.changes.outputs.supabase == 'true'
         run: node scripts/check-database-types-drift.mjs src/types/database.types.ts /tmp/database.types.generated.ts
+
+  # 위 잡이 전부 성공했을 때만 이 트리의 통과 기록을 남긴다. 건너뛴 실행은 기록하지 않는다.
+  record-tree:
+    needs: [same-tree, rehearse-migrations]
+    if: needs.same-tree.outputs.skip != 'true' && success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Write tested tree
+        env:
+          TREE: ${{ needs.same-tree.outputs.tree }}
+        run: echo "$TREE" > tested-tree.txt
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: tested-tree-db-migrations-${{ needs.same-tree.outputs.tree }}
+          path: tested-tree.txt
+          retention-days: 14
+          if-no-files-found: error

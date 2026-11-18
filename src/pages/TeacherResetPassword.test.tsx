@@ -11,12 +11,20 @@ const mockSend = vi.fn();
 const mockVerify = vi.fn();
 const mockFetch = vi.fn();
 
+const mockPwned = vi.fn();
+const PWNED_MESSAGE =
+  "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.";
 const SAVE_FAILED = "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요";
 
 vi.mock("@/lib/phoneVerification", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/phoneVerification")>()),
   sendPhoneCode: (...args: unknown[]) => mockSend(...args),
   verifyPhoneCode: (...args: unknown[]) => mockVerify(...args),
+}));
+
+vi.mock("@/lib/pwnedPassword", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: (...args: unknown[]) => mockPwned(...args),
 }));
 
 function renderTeacher() {
@@ -82,6 +90,7 @@ beforeEach(() => {
     dryRun: false,
   });
   mockVerify.mockResolvedValue({ ok: true });
+  mockPwned.mockResolvedValue("ok");
   vi.stubGlobal("fetch", mockFetch);
 });
 
@@ -277,5 +286,74 @@ describe("TeacherResetPassword 새 비밀번호", () => {
     expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "로그인하러 가기" }));
     expect(await screen.findByText("로그인 화면")).toBeInTheDocument();
+  });
+
+  it("새 비밀번호 칸을 벗어날 때 유출된 비밀번호면 칸 아래에 안내를 보이고 보내지 않는다", async () => {
+    mockPwned.mockResolvedValue("pwned");
+    await verifyAndReachPasswordStep();
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "NewPass123" },
+    });
+
+    fireEvent.blur(screen.getByLabelText("새 비밀번호"));
+
+    expect(await screen.findByText(PWNED_MESSAGE)).toBeInTheDocument();
+    fillPasswords("NewPass123", "NewPass123");
+    await waitFor(() => expect(mockPwned).toHaveBeenCalled());
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("칸을 벗어나지 않고 바로 눌러도 유출된 비밀번호면 안내를 보이고 보내지 않는다", async () => {
+    mockPwned.mockResolvedValue("pwned");
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(await screen.findByText(PWNED_MESSAGE)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("유출 조회에 실패해도(unknown) 제출을 막지 않고 보낸다", async () => {
+    mockPwned.mockResolvedValue("unknown");
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(PWNED_MESSAGE)).toBeNull();
+  });
+
+  it("서버가 PASSWORD_PWNED 를 돌려주면 새 비밀번호 칸에 같은 안내를 보이고 인증은 유지한다", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(400, {
+        error: { code: "PASSWORD_PWNED", message: PWNED_MESSAGE },
+      }),
+    );
+    await verifyAndReachPasswordStep();
+
+    fillPasswords("NewPass123", "NewPass123");
+
+    expect(await screen.findByText(PWNED_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByLabelText("새 비밀번호")).toBeInTheDocument();
+  });
+
+  it("비밀번호를 고치면 유출 안내가 사라진다", async () => {
+    mockPwned.mockResolvedValue("pwned");
+    await verifyAndReachPasswordStep();
+    fillPasswords("NewPass123", "NewPass123");
+    await screen.findByText(PWNED_MESSAGE);
+
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "OtherPass456" },
+    });
+
+    expect(screen.queryByText(PWNED_MESSAGE)).toBeNull();
   });
 });

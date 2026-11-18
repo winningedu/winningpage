@@ -1,6 +1,6 @@
 // 3단계 학생 정보(사 #101, 결정 r7, 교 결정 r10).
 // 학교는 반이 숫자, 학원은 글자도 받고 그룹을 적는다. 기타 소속은 반과 번호를 받지 않는다(결정 77).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AuthTitle,
   PrimaryButton,
@@ -8,6 +8,8 @@ import {
   TextField,
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { normalizeTenantCode } from "@/lib/tenantCode";
 import { runIdentityVerification } from "../identityVerification";
 import { isValidPassword } from "../StudentForm";
@@ -54,6 +56,17 @@ export default function StudentInfoStep({
       ? { tenantCode: normalizeTenantCode(formData.orgCode) }
       : { catchAll: true };
 
+  const pwnedCheck = usePwnedPasswordCheck();
+  const { markPwned } = pwnedCheck;
+  const rejectedAsPwned = submitError?.pwnedPassword === true;
+
+  // 저장할 때 Supabase가 유출된 비밀번호라고 거절하면 이 단계로 돌아와 칸에 보인다.
+  useEffect(() => {
+    if (rejectedAsPwned) markPwned();
+  }, [rejectedAsPwned, markPwned]);
+
+  // 유출 조회 중에는 다음 버튼을 막아 다음 단계가 두 번 불리지 않게 한다.
+  const [checking, setChecking] = useState(false);
   const [passVerifying, setPassVerifying] = useState(false);
   const [passError, setPassError] = useState("");
 
@@ -118,6 +131,14 @@ export default function StudentInfoStep({
     formData.grade !== "" &&
     (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
+  async function handleNext() {
+    setChecking(true);
+    const pwned = await pwnedCheck.ensureChecked(formData.password);
+    setChecking(false);
+    if (pwned) return;
+    onNext();
+  }
+
   function field(key: keyof typeof formData) {
     return (value: string) => updateFormData({ [key]: value });
   }
@@ -144,10 +165,22 @@ export default function StudentInfoStep({
           type="password"
           size="lg"
           value={formData.password}
-          onChange={field("password")}
-          helperText={INFO_MESSAGES.passwordRule}
+          onChange={(value) => {
+            pwnedCheck.reset();
+            updateFormData({ password: value });
+          }}
+          onBlur={() => {
+            if (isValidPassword(formData.password))
+              pwnedCheck.checkOnBlur(formData.password);
+          }}
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : INFO_MESSAGES.passwordRule
+          }
           status={
-            formData.password && !isValidPassword(formData.password)
+            pwnedCheck.pwned ||
+            (formData.password && !isValidPassword(formData.password))
               ? "error"
               : "default"
           }
@@ -177,7 +210,6 @@ export default function StudentInfoStep({
           code={formData.emailCode}
           onCodeChange={(emailCode) => updateFormData({ emailCode })}
           name={formData.name.trim()}
-          password={formData.password}
           state={verification.email}
           onStateChange={(state) => updateVerification("email", state)}
         />
@@ -306,7 +338,12 @@ export default function StudentInfoStep({
         />
       )}
 
-      <StepActions onPrev={onPrev} onNext={onNext} nextDisabled={!canProceed} />
+      <StepActions
+        onPrev={onPrev}
+        onNext={handleNext}
+        nextDisabled={!canProceed || checking}
+        loading={checking}
+      />
     </>
   );
 }

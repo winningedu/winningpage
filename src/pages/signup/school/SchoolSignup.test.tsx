@@ -9,6 +9,10 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
 import {
+  checkPwnedPassword,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
+import {
   applySignupPassword,
   sendSignupEmailCode,
   verifySignupEmailCode,
@@ -36,6 +40,12 @@ vi.mock("@/lib/signupEmailAuth", async (importOriginal) => ({
   sendSignupEmailCode: vi.fn(),
   verifySignupEmailCode: vi.fn(),
   applySignupPassword: vi.fn(),
+}));
+
+// 유출 비밀번호 조회는 네트워크 대신 대역을 쓴다. 기본은 안전한 비밀번호다.
+vi.mock("@/lib/pwnedPassword", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: vi.fn(),
 }));
 
 const VERIFIED_EMAIL = "a@b.co";
@@ -132,6 +142,8 @@ beforeEach(() => {
   vi.mocked(sendSignupEmailCode).mockReset();
   vi.mocked(verifySignupEmailCode).mockReset();
   vi.mocked(applySignupPassword).mockReset();
+  vi.mocked(checkPwnedPassword).mockReset();
+  vi.mocked(checkPwnedPassword).mockResolvedValue("ok");
   vi.mocked(sendSignupEmailCode).mockResolvedValue({
     state: "available",
     mode: "signup",
@@ -380,7 +392,6 @@ describe("3단계 이메일 인증", () => {
     ).toBeInTheDocument();
     expect(sendSignupEmailCode).toHaveBeenCalledWith({
       email: "a@b.co",
-      password: "abc123!",
       name: "김학생",
       memberType: "student",
     });
@@ -672,6 +683,45 @@ describe("3단계 다음 버튼", () => {
   });
 });
 
+describe("3단계 유출된 비밀번호", () => {
+  it("비밀번호 칸을 벗어났을 때 유출된 비밀번호면 칸 아래에 알려 준다", async () => {
+    vi.mocked(checkPwnedPassword).mockResolvedValue("pwned");
+    await goToStudentInfo();
+
+    type("비밀번호", "abc123!");
+    expect(screen.queryByText(PWNED_PASSWORD_MESSAGE)).toBeNull();
+    fireEvent.blur(screen.getByLabelText("비밀번호"));
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+  });
+});
+
+describe("3단계 유출된 비밀번호 다음 단계", () => {
+  it("칸을 벗어나지 않고 다음을 눌러도 유출된 비밀번호면 3단계에 머문다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+    vi.mocked(checkPwnedPassword).mockResolvedValue("pwned");
+
+    click("다음");
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
+  });
+
+  it("조회가 실패해도 다음으로 넘어간다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+    vi.mocked(checkPwnedPassword).mockResolvedValue("unknown");
+
+    click("다음");
+
+    expect(
+      await screen.findByRole("button", { name: "건너뛰기" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("3단계 만 14세 미만", () => {
   async function fillUnder14Student() {
     type("이름", "김학생");
@@ -726,6 +776,7 @@ async function goToGuardian() {
   await goToStudentInfo();
   await fillValidStudent();
   click("다음");
+  await screen.findByLabelText("학부모 이름");
 }
 
 describe("4단계 학부모 정보", () => {
@@ -779,10 +830,13 @@ describe("4단계 학부모 정보", () => {
       expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
     );
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
-    expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
-      "010-9999-8888",
+    await waitFor(() =>
+      expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
+        "010-9999-8888",
+      ),
     );
     expect(screen.getByLabelText("학부모 휴대폰번호")).toBeDisabled();
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
@@ -803,6 +857,7 @@ describe("4단계 학부모 정보", () => {
     expect(screen.getByLabelText("이메일")).toHaveValue(VERIFIED_EMAIL);
 
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     expect(screen.getByLabelText("학부모 이름")).toHaveValue("김부모");
   });
@@ -955,6 +1010,27 @@ describe("가입 제출과 5단계 완료", () => {
     expect(screen.getByLabelText("이름")).toBeInTheDocument();
   });
 
+  it("유출된 비밀번호라고 거절되면 3단계 비밀번호 칸에 유출 문구를 보인다", async () => {
+    await goToGuardian();
+    vi.mocked(applySignupPassword).mockResolvedValue({
+      error: Object.assign(new Error("pwned"), {
+        code: "weak_password",
+        reasons: ["pwned"],
+      }),
+    });
+    calls.length = 0;
+
+    click("건너뛰기");
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText("비밀번호 칸을 다시 확인해 주세요.")).toBeNull();
+    expect(lastCall("/api/signup/school-student")).toBeUndefined();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+
+    type("비밀번호", "abc123?");
+    expect(screen.queryByText(PWNED_PASSWORD_MESSAGE)).toBeNull();
+  });
+
   it("이미 가입이 끝난 상태(ALREADY_SIGNED_UP)는 성공으로 보고 완료 화면을 보인다", async () => {
     await goToGuardian();
     mockApi({
@@ -1041,6 +1117,7 @@ describe("가입 제출과 5단계 완료", () => {
       expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
     );
     click("다음");
+    await screen.findByLabelText("학부모 이름");
     check(/법정대리인 정보를 학부모 정보로 수집합니다/);
 
     click("다음");
@@ -1064,6 +1141,7 @@ describe("가입 제출과 5단계 완료", () => {
     type("그룹(선택)", "심화반");
     type("번호(선택)", "7");
     click("다음");
+    await screen.findByLabelText("학부모 이름");
     click("건너뛰기");
     await screen.findByRole("button", { name: "학습진단 시작하기" });
     expect(lastCall("/api/signup/school-student")?.body).toMatchObject({
@@ -1088,6 +1166,7 @@ describe("기타 소속 가입", () => {
     click("기타 소속으로 가입");
     await fillValidStudent();
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     click("건너뛰기");
 

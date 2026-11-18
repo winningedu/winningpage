@@ -4,6 +4,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import {
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import { consoleRequest, errorCode, errorMessage } from "./api";
 import Notice from "./Notice";
@@ -44,6 +49,7 @@ export default function ChangePasswordDialog({
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [retryMs, setRetryMs] = useState(0);
+  const pwnedCheck = usePwnedPasswordCheck();
 
   // 잠금 시간 동안만 저장을 막는다.
   useEffect(() => {
@@ -59,6 +65,7 @@ export default function ChangePasswordDialog({
       setConfirm("");
       setErrors({});
       setDone(false);
+      pwnedCheck.reset();
     }
     onOpenChange(next);
   };
@@ -72,8 +79,12 @@ export default function ChangePasswordDialog({
     }
     setErrors(found);
     if (found.newPassword || found.confirm) return;
-
     setSaving(true);
+    if (await pwnedCheck.ensureChecked(newPassword)) {
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await consoleRequest("/api/console/change-password", {
         method: "POST",
@@ -99,6 +110,8 @@ export default function ChangePasswordDialog({
           current: errorMessage(res.body) ?? CURRENT_PASSWORD_ERROR,
         });
         setRetryMs((res.retryAfterSeconds ?? 0) * 1000);
+      } else if (res.status === 400 && code === PASSWORD_PWNED_CODE) {
+        pwnedCheck.markPwned();
       } else if (
         res.status === 400 &&
         (isPasswordRuleCode(code) || code === "PASSWORD_SAME_AS_CURRENT")
@@ -164,8 +177,18 @@ export default function ChangePasswordDialog({
               autoComplete="new-password"
               placeholder="8자 이상, 영문과 숫자 포함, 현재 비밀번호와 다르게"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              error={errors.newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                pwnedCheck.reset();
+              }}
+              onBlur={() => {
+                if (!violatesPasswordRule(newPassword))
+                  pwnedCheck.checkOnBlur(newPassword);
+              }}
+              error={
+                errors.newPassword ??
+                (pwnedCheck.pwned ? PWNED_PASSWORD_MESSAGE : undefined)
+              }
             />
             <TextField
               label="새 비밀번호 확인"

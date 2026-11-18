@@ -29,8 +29,13 @@ import {
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { formatPhoneInput, normalizePhone } from "@/lib/phoneVerification";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import {
   applySignupPassword,
   EMAIL_RESEND_COOLDOWN_SECONDS,
@@ -252,6 +257,7 @@ export default function Under14Form() {
   const passwordValid = formData.password
     ? isValidPassword(formData.password)
     : null;
+  const pwnedCheck = usePwnedPasswordCheck();
 
   // §3.2 흐름: S1(생년월일) -> U0(PASS 안내) -> U1(이 화면). 학생 유형이 아니거나, 플래그가
   // off이거나, 법정대리인 PASS 인증을 아직 마치지 않은 상태로 직접 URL 진입 시 순서대로 되돌린다.
@@ -313,7 +319,7 @@ export default function Under14Form() {
     [agreements],
   );
 
-  // --- 이메일 인증: src/lib/signupEmailAuth.js의 공용 시퀀스를 쓴다.
+  // --- 이메일 인증: src/lib/signupEmailAuth.ts의 공용 시퀀스를 쓴다.
   // (상태 확인 → OTP 발송 → OTP 검증. 가입 중단 계정이면 이어서 가입한다)
   // 이전에는 "인증번호 보내기" 클릭이 아무 동작도 하지 않는 no-op 스텁이었다.
   async function requestEmailCode() {
@@ -350,12 +356,11 @@ export default function Under14Form() {
       status: "default",
     });
 
-    // 비밀번호는 여기서 요구하지 않는다. 비어 있으면 임시 비밀번호로 계정이
-    // 만들어지고, 실제 값은 가입을 끝내는 시점에 applySignupPassword가 채운다
-    // (src/lib/signupEmailAuth.js — handleNext에서 호출한다).
+    // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
+    // 쓰고, 실제 값은 가입을 끝내는 시점에 applySignupPassword가 설정한다
+    // (src/lib/signupEmailAuth.ts, handleNext에서 호출한다).
     const { state, mode, resumed, error } = await sendSignupEmailCode({
       email: normalizedEmail,
-      password: formData.password,
       name: formData.name.trim(),
       memberType: "student",
     });
@@ -498,6 +503,9 @@ export default function Under14Form() {
     setLoading(true);
 
     try {
+      // 입력칸을 벗어날 때 확인하지 않았다면 여기서 확인한다(조회 실패는 막지 않는다).
+      if (await pwnedCheck.ensureChecked(formData.password)) return;
+
       const normalizedName = formData.name.trim();
       const normalizedEmail = formData.email.trim().toLowerCase();
       const normalizedPhone = formData.noOwnPhone
@@ -539,6 +547,11 @@ export default function Under14Form() {
       );
 
       if (passwordError) {
+        if (isPwnedPasswordError(passwordError)) {
+          pwnedCheck.markPwned();
+          return;
+        }
+
         setFormError(
           "비밀번호 설정에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         );
@@ -730,17 +743,29 @@ export default function Under14Form() {
           type="password"
           size="lg"
           value={formData.password}
-          onChange={(v) => updateFormData({ password: v })}
+          onChange={(v) => {
+            updateFormData({ password: v });
+            pwnedCheck.reset();
+          }}
+          onBlur={() => {
+            if (passwordValid) pwnedCheck.checkOnBlur(formData.password);
+          }}
           placeholder="비밀번호를 입력 해주세요"
-          helperText="영문/숫자/특수문자 포함 6자 이상"
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : "영문/숫자/특수문자 포함 6자 이상"
+          }
           // 이메일 인증 액션을 막던 선행 조건이 사라졌으므로(2026-08-07) 비밀번호
           // 규칙 충족 여부는 이 필드가 직접 알려준다(StudentForm과 동일).
           status={
-            passwordValid === null
-              ? "default"
-              : passwordValid
-                ? "success"
-                : "error"
+            pwnedCheck.pwned
+              ? "error"
+              : passwordValid === null
+                ? "default"
+                : passwordValid
+                  ? "success"
+                  : "error"
           }
           autoComplete="new-password"
         />

@@ -20,6 +20,11 @@ import {
 } from "../../_lib/console/teacherManage.js";
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
+import {
+  isPwnedAuthError,
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "../../_lib/pwnedPassword.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -100,6 +105,16 @@ export default defineHandler({
         ctx.userId as string,
         { password },
       );
+      if (authError && isPwnedAuthError(authError)) {
+        sendError(
+          res,
+          "coded",
+          400,
+          PWNED_PASSWORD_MESSAGE,
+          PASSWORD_PWNED_CODE,
+        );
+        return;
+      }
       if (authError) throw new AuthSyncError("password");
 
       // 임시 비밀번호로 연 이 세션만 남기고 다른 세션은 끝낸다. DB 임시 상태 해제보다 먼저 해서

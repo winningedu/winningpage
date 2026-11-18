@@ -53,6 +53,10 @@ import {
   isValidMobile,
   normalizePhone,
 } from "../_lib/phoneCode.js";
+import {
+  isPwnedAuthError,
+  PWNED_PASSWORD_MESSAGE,
+} from "../_lib/pwnedPassword.js";
 import { isValidPassword } from "../_lib/signup/schoolStudent.js";
 import { isSchoolmentorSite } from "../_lib/site.js";
 
@@ -448,6 +452,14 @@ export default defineHandler({
             "[reset-password-by-phone] phone_verifications 선점 해제 실패:",
             releaseError,
           );
+        }
+        // 학생이 정한 비밀번호가 유출 목록에 있으면 다른 비밀번호를 고르게 한다(인증은 위에서 풀었다).
+        if (isPwnedAuthError(updateError)) {
+          return void res.status(400).json({
+            ok: false,
+            reason: "password_pwned",
+            detail: PWNED_PASSWORD_MESSAGE,
+          });
         }
         return void res.status(500).json({
           ok: false,

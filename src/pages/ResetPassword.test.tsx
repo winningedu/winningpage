@@ -9,6 +9,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import ResetPassword from "./ResetPassword";
 
 const mockGetSession = vi.fn();
@@ -17,6 +18,13 @@ const mockVerifyOtp = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockSignOut = vi.fn();
 const mockRpc = vi.fn();
+const mockCheckPwnedPassword = vi.fn();
+
+// 네트워크 조회만 목으로 바꾼다. 메시지와 에러 판별은 실제 모듈을 쓴다.
+vi.mock("@/lib/pwnedPassword", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: (...args: unknown[]) => mockCheckPwnedPassword(...args),
+}));
 
 vi.mock("@/lib/supabase", () => ({
   supabase: {
@@ -47,6 +55,8 @@ describe("ResetPassword — token_hash 모드", () => {
     mockUpdateUser.mockReset();
     mockSignOut.mockReset();
     mockRpc.mockReset();
+    mockCheckPwnedPassword.mockReset();
+    mockCheckPwnedPassword.mockResolvedValue("ok");
 
     // getSession이 영영 응답하지 않아도(네버 리졸브) token_hash 모드는 세션을
     // 기다리지 않아야 한다 — 이 목이 실제로 불리지 않는 것까지 확인한다.
@@ -155,6 +165,109 @@ describe("ResetPassword — token_hash 모드", () => {
     );
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
+
+  it("조회가 실패해도(unknown) 제출을 막지 않는다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("unknown");
+    mockVerifyOtp.mockResolvedValue({ error: null });
+    mockUpdateUser.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText("비밀번호가 변경됐어요")).toBeInTheDocument(),
+    );
+  });
+
+  it("저장 때 Supabase가 유출된 비밀번호라고 거절하면 같은 입력칸에 같은 안내를 보여준다", async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+    mockUpdateUser.mockResolvedValue({
+      error: {
+        code: "weak_password",
+        name: "AuthWeakPasswordError",
+        reasons: ["pwned"],
+      },
+    });
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText("새 비밀번호")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("새 비밀번호 입력칸을 벗어났을 때 유출된 비밀번호면 그 칸 아래에 안내를 보여준다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("pwned");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    const field = screen.getByLabelText("새 비밀번호");
+    fireEvent.change(field, { target: { value: "New!pass2" } });
+    expect(mockCheckPwnedPassword).not.toHaveBeenCalled();
+    fireEvent.blur(field);
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("입력칸을 벗어나지 않고 바로 제출해도 유출된 비밀번호면 막고 토큰도 쓰지 않는다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("pwned");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("조회 중에 비밀번호를 바꿔도 조회가 유출로 끝나면 토큰을 쓰지 않고 저장도 하지 않는다", async () => {
+    let resolveLookup: (value: "pwned") => void = () => {};
+    mockCheckPwnedPassword.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLookup = resolve;
+      }),
+    );
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+    await waitFor(() => expect(mockCheckPwnedPassword).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "Other!pass3" },
+    });
+    resolveLookup("pwned");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "비밀번호 변경하기" }),
+      ).toBeInTheDocument(),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("ResetPassword — 레거시(해시 링크) 폴백", () => {
@@ -165,6 +278,8 @@ describe("ResetPassword — 레거시(해시 링크) 폴백", () => {
     mockUpdateUser.mockReset();
     mockSignOut.mockReset();
     mockRpc.mockReset();
+    mockCheckPwnedPassword.mockReset();
+    mockCheckPwnedPassword.mockResolvedValue("ok");
     window.location.hash = "";
   });
 
