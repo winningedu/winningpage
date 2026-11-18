@@ -1,6 +1,6 @@
-// Login.tsx 회귀 테스트 - 스쿨멘토(서버 로그인)와 위닝(클라이언트 직접 로그인) 분기.
+// Login.tsx 회귀 테스트 - 서버 로그인(스쿨멘토, 위닝에듀)과 클라이언트 직접 로그인(플래그 꺼짐) 분기.
 //
-// site.features.serverLogin 스위치로 갈린다. @/config/site 와 @/lib/supabase 는
+// site.features.serverLogin 스위치로 갈린다. 사이트 키(state.site)는 플래그와 따로 바꾼다. @/config/site 와 @/lib/supabase 는
 // ResetPassword.test.tsx 관례대로 vi.mock 하고, 서버 로그인은 fetch 를 가로챈다.
 
 import "@testing-library/jest-dom/vitest";
@@ -9,7 +9,11 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "./Login";
 
-const state = vi.hoisted(() => ({ serverLogin: true, signupEnabled: false }));
+const state = vi.hoisted(() => ({
+  serverLogin: true,
+  site: "schoolmentor" as "schoolmentor" | "winning",
+  signupEnabled: false,
+}));
 const mockGetSession = vi.fn();
 const mockSetSession = vi.fn();
 const mockSignInWithPassword = vi.fn();
@@ -19,10 +23,10 @@ const mockReplace = vi.fn();
 vi.mock("@/config/site", () => ({
   site: {
     get key() {
-      return state.serverLogin ? "schoolmentor" : "winning";
+      return state.site;
     },
     get brandName() {
-      return state.serverLogin ? "스쿨멘토" : "위닝에듀";
+      return state.site === "winning" ? "위닝에듀" : "스쿨멘토";
     },
     features: {
       get serverLogin() {
@@ -67,6 +71,7 @@ function jsonResponse(status: number, body: unknown) {
 
 beforeEach(() => {
   state.serverLogin = true;
+  state.site = "schoolmentor";
   state.signupEnabled = false;
   vi.clearAllMocks();
   localStorage.clear();
@@ -314,6 +319,7 @@ describe("Login - 브랜드 문구", () => {
 
   it("위닝은 기존 문구를 유지한다", async () => {
     state.serverLogin = false;
+    state.site = "winning";
     state.signupEnabled = true;
     renderLogin();
     expect(
@@ -322,6 +328,47 @@ describe("Login - 브랜드 문구", () => {
     expect(
       screen.getByText(/아직 위닝에듀 회원이 아니신가요\?/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Login - 위닝에듀 서버 로그인", () => {
+  beforeEach(() => {
+    state.site = "winning";
+  });
+
+  it("아이디 입력창을 보이고 /api/auth/login 으로 로그인한다", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        session: { access_token: "at", refresh_token: "rt" },
+        mustChangePassword: false,
+        isTeacher: false,
+      }),
+    );
+    renderLogin();
+
+    const id = await screen.findByPlaceholderText(
+      "아이디 또는 이메일을 입력해 주세요.",
+    );
+    expect(id).toHaveAttribute("type", "text");
+    expect(id).toHaveAttribute("name", "username");
+    expect(screen.getByLabelText("아이디 저장")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /위닝에듀에서 시작해요$/ }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(id, { target: { value: "kim@example.com" } });
+    fireEvent.change(screen.getByPlaceholderText("비밀번호를 입력해 주세요."), {
+      target: { value: "pw1234" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/"));
+    expect(mockFetch.mock.calls[0]?.[0]).toBe("/api/auth/login");
+    expect(mockSetSession).toHaveBeenCalledWith({
+      access_token: "at",
+      refresh_token: "rt",
+    });
+    expect(mockSignInWithPassword).not.toHaveBeenCalled();
   });
 });
 
@@ -337,6 +384,7 @@ describe("Login - 비밀번호 찾기 링크 문구", () => {
 
   it("위닝은 '비밀번호 찾기' 를 유지한다", async () => {
     state.serverLogin = false;
+    state.site = "winning";
     renderLogin();
 
     expect(
@@ -348,6 +396,7 @@ describe("Login - 비밀번호 찾기 링크 문구", () => {
 describe("Login - 위닝 클라이언트 직접 로그인(회귀)", () => {
   beforeEach(() => {
     state.serverLogin = false;
+    state.site = "winning";
   });
 
   it("서버 로그인 대신 signInWithPassword 를 직접 부르고 이메일 문구를 유지한다", async () => {

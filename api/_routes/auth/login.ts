@@ -1,7 +1,6 @@
 // POST /api/auth/login  { identifier, password }
 //
-// 스쿨멘토 전용 서버 로그인. 아이디(또는 이메일)로 로그인하고 연속 실패를 센다.
-// 위닝은 클라이언트에서 signInWithPassword 를 직접 부른다(이 라우트를 쓰지 않는다).
+// 스쿨멘토와 위닝에듀가 함께 쓰는 서버 로그인. 아이디(또는 이메일)로 로그인하고 연속 실패를 센다.
 // 설계: schoolmentor-notes/design-data-foundation.md 4절, 5.2절.
 
 import {

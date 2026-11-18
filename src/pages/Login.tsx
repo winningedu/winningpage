@@ -107,7 +107,7 @@ export default function Login() {
   // 회원가입 안내 문단을 숨긴다(Header.tsx와 동일 원칙).
   const signupEnabled = useSignupEnabled();
 
-  // 서버 로그인 사이트에서만 저장된 아이디를 읽는다(위닝은 이 값을 건드리지 않는다).
+  // 서버 로그인 사이트에서만 저장된 아이디를 읽는다.
   const [savedLoginId] = useState(() =>
     site.features.serverLogin ? readSavedLoginId() : "",
   );

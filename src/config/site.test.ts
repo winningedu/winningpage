@@ -184,10 +184,10 @@ describe("site - 배너 빈 상태 안내 플래그", () => {
 });
 
 describe("site - 서버 로그인 플래그", () => {
-  it("winning은 클라이언트에서 직접 로그인한다", async () => {
+  it("winning도 서버 로그인을 쓴다", async () => {
     const { site } = await loadSite("winning");
 
-    expect(site.features.serverLogin).toBe(false);
+    expect(site.features.serverLogin).toBe(true);
   });
 
   it("schoolmentor는 서버 로그인을 쓴다", async () => {

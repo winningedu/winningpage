@@ -128,7 +128,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       stripWinningPrefix: false,
       hiddenPrograms: [],
       bannerEmptyNotice: false,
-      serverLogin: false,
+      serverLogin: true,
       b2bMenu: false,
       tenantServiceGate: false,
       schoolSignup: false,
