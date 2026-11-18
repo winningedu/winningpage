@@ -11,6 +11,7 @@ import FindPassword from "./FindPassword";
 const state = vi.hoisted(() => ({
   siteKey: "schoolmentor",
   pwnedResult: "safe" as "safe" | "pwned" | "unknown",
+  pwnedGate: null as Promise<void> | null,
 }));
 const mockFetch = vi.fn();
 
@@ -31,7 +32,10 @@ vi.mock("@/hooks/useCooldown", () => ({
 
 vi.mock("@/lib/pwnedPassword", async (importActual) => ({
   ...(await importActual<typeof import("@/lib/pwnedPassword")>()),
-  checkPwnedPassword: async () => state.pwnedResult,
+  checkPwnedPassword: async () => {
+    await state.pwnedGate;
+    return state.pwnedResult;
+  },
 }));
 
 vi.mock("@/lib/supabase", () => ({ supabase: { auth: {} } }));
@@ -93,6 +97,7 @@ async function verifyPhone() {
 
 beforeEach(() => {
   state.pwnedResult = "safe";
+  state.pwnedGate = null;
   mockFetch.mockReset();
   vi.stubGlobal("fetch", mockFetch);
 });
@@ -243,6 +248,34 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
     fireEvent.blur(field);
 
     expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+  });
+
+  it("유출 조회가 끝나기 전에 버튼을 두 번 눌러도 요청은 한 번만 보낸다", async () => {
+    state.siteKey = "schoolmentor";
+    let finishLookup!: () => void;
+    state.pwnedGate = new Promise((resolve) => {
+      finishLookup = resolve;
+    });
+    mockFetch.mockResolvedValue(changedResponse);
+    await verifyPhone();
+    fireEvent.change(await screen.findByLabelText("새 비밀번호"), {
+      target: { value: NEW_PASSWORD },
+    });
+    fireEvent.change(screen.getByLabelText("새 비밀번호 확인"), {
+      target: { value: NEW_PASSWORD },
+    });
+
+    const button = screen.getByRole("button", { name: "비밀번호 바꾸기" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    finishLookup();
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("조회에 실패해도(unknown) 막지 않고 요청한다", async () => {

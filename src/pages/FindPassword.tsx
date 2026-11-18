@@ -446,9 +446,12 @@ export default function FindPassword() {
     }
 
     setFormError("");
-    if (await pwnedCheck.ensureChecked(newPassword)) return;
-
     setResetting(true);
+    if (await pwnedCheck.ensureChecked(newPassword)) {
+      setResetting(false);
+      return;
+    }
+
     setResetResult(null);
 
     requestPhoneReset(phone, undefined, newPassword).then(showResetResult);
