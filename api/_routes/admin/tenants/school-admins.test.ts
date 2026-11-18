@@ -116,6 +116,16 @@ describe("GET /api/admin/tenants/school-admins", () => {
     expect(kit.state.reads.map((x) => x.table)).not.toContain("teachers");
   });
 
+  test("위닝에서도 스쿨멘토와 같이 그 기관의 학교 관리자를 돌려준다", async () => {
+    process.env.SITE = "winning";
+
+    const r = await get({ tenantId: TENANT_7 });
+
+    expect(r.status).toBe(200);
+    const body = r.body as { admins: { id: string }[] };
+    expect(body.admins.map((a) => a.id)).toEqual(["t-1", "t-2"]);
+  });
+
   test("그 기관의 학교 관리자만 주소와 함께 돌려주고 담임과 다른 기관은 뺀다", async () => {
     const r = await get({ tenantId: TENANT_7 });
 
@@ -169,16 +179,6 @@ describe("GET /api/admin/tenants/school-admins", () => {
 
     const { admins } = r.body as { admins: Record<string, unknown>[] };
     expect(admins[0]).toMatchObject({ id: "t-5", canceledAt: null });
-  });
-
-  test("스쿨멘토가 아닌 사이트에서는 404 이고 아무것도 읽지 않는다", async () => {
-    delete process.env.SITE;
-
-    const r = await get({ tenantId: TENANT_7 });
-
-    expect(r.status).toBe(404);
-    expect(r.body).toMatchObject({ error: { code: "NOT_FOUND" } });
-    expect(kit.state.reads).toHaveLength(0);
   });
 
   test("tenantId 가 UUID 가 아니면 400 이고 아무것도 읽지 않는다", async () => {
