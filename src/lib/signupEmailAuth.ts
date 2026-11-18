@@ -311,12 +311,13 @@ export async function verifySignupEmailCode({
  * 발송 시점에는 임시 비밀번호였을 수도, 이어가기라면 이전 시도의 비밀번호가
  * 남아 있을 수도 있다. 어느 쪽이든 여기서 사용자가 실제로 입력한 값으로 맞춘다.
  * 이 호출을 빠뜨리면 사용자가 방금 정한 비밀번호로 로그인할 수 없다.
- *
+ * 이메일 단계는 항상 임시 비밀번호를 쓰므로 비어 있으면 계정이 알 수 없는
+ * 임의 비밀번호로 남는다. 그래서 빈 값은 오류로 돌려준다.
  */
 export async function applySignupPassword(
   password: string | null | undefined,
 ): Promise<{ ok?: boolean; error?: Error }> {
-  if (!password) return { ok: true };
+  if (!password) return { error: new Error("비밀번호가 비어 있습니다.") };
 
   const { error } = await supabase.auth.updateUser({ password });
 
