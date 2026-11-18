@@ -1,5 +1,5 @@
 // api/_routes/reset-password-by-phone.ts의 resolveResetTarget(guardian_phone 경로 분기 판정) 검증.
-// 라우트 핸들러 전체(supabase 조회·auth admin 호출)는 reset-password-by-phone.choose.test.ts가 다룬다.
+// 라우트 핸들러 전체(supabase 조회, auth admin 호출)는 reset-password-by-phone.choose.test.ts가 다룬다.
 
 import { describe, expect, test } from "vitest";
 import { resolveResetTarget } from "./reset-password-by-phone.js";
