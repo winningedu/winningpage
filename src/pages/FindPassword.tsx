@@ -61,7 +61,7 @@ type Audience = "student" | "teacher";
 type FieldStatus = "default" | "error" | "success";
 
 type PhoneResetResult =
-  | { kind: "changed" }
+  | { kind: "changed"; maskedEmail: string; via: "phone" | "guardian_phone" }
   | { kind: "changed_revoke_failed"; message: string }
   | { kind: "expired"; message: string }
   | { kind: "pwned" }
@@ -138,7 +138,11 @@ async function requestPhoneReset(
 
     if (!payload.found) return { kind: "not_found" };
 
-    return { kind: "changed" };
+    return {
+      kind: "changed",
+      maskedEmail: payload.masked_email,
+      via: payload.via,
+    };
   } catch {
     return {
       kind: "error",
@@ -618,9 +622,20 @@ export default function FindPassword() {
                   {resetResult.message}
                 </p>
               ) : (
-                <p className="w-full text-center text-sm text-ink">
-                  비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
-                </p>
+                <>
+                  <InfoCard variant="card" className="text-center">
+                    {resetResult.via === "guardian_phone" && (
+                      <>
+                        학부모 핸드폰으로 등록된 계정이에요.
+                        <br />
+                      </>
+                    )}
+                    {resetResult.maskedEmail} 계정이에요.
+                  </InfoCard>
+                  <p className="w-full text-center text-sm text-ink">
+                    비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+                  </p>
+                </>
               )}
 
               <PrimaryButton onClick={() => navigate("/login")}>

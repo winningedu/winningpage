@@ -166,6 +166,43 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it.each(["schoolmentor", "winning"])(
+    "%s 에서 성공하면 바뀐 계정의 마스킹 이메일을 보여주고 학부모 안내는 숨긴다",
+    async (siteKey) => {
+      state.siteKey = siteKey;
+      mockFetch.mockResolvedValueOnce(changedResponse);
+      await verifyPhone();
+      await submitNewPassword();
+
+      expect(
+        await screen.findByText(/ab\*\*\*\*@ex\*\*\*\.com/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/학부모 핸드폰으로 등록된 계정이에요/),
+      ).toBeNull();
+    },
+  );
+
+  it("학부모 핸드폰으로 찾은 계정이면 그 사실을 함께 알려 준다", async () => {
+    state.siteKey = "winning";
+    mockFetch.mockResolvedValueOnce({
+      ...changedResponse,
+      json: async () => ({
+        ok: true,
+        found: true,
+        masked_email: "ch****@ex***.com",
+        via: "guardian_phone",
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(
+      await screen.findByText(/학부모 핸드폰으로 등록된 계정이에요/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/ch\*\*\*\*@ex\*\*\*\.com/)).toBeInTheDocument();
+  });
+
   it("chooseAccount 와 password 를 보내고 성공하면 완료 화면을 보여준다(임시비밀번호 없음)", async () => {
     state.siteKey = "schoolmentor";
     mockFetch.mockResolvedValueOnce(changedResponse);
