@@ -17,10 +17,10 @@ export function usePwnedPasswordCheck() {
 
     latest.current = password;
     const promise = checkPwnedPassword(password).then((result) => {
-      // 조회 중 비밀번호가 바뀌어 버려진 결과는 제출을 막지 않는다(막으면 안내 없이 멈춘다).
-      if (latest.current !== password) return false;
       const isPwned = result === "pwned";
-      setPwned(isPwned);
+      // 입력이 이미 바뀌었어도 이 값이 유출로 나왔으면 호출자는 멈춰야 한다.
+      // 안내문은 지금 입력칸의 값에 대한 결과일 때만 켠다.
+      if (latest.current === password) setPwned(isPwned);
       return isPwned;
     });
     inflight.current = { password, promise };

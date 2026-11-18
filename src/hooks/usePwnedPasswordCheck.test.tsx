@@ -124,12 +124,12 @@ describe("usePwnedPasswordCheck", () => {
     expect(checkMock).toHaveBeenCalledTimes(1);
   });
 
-  test("조회 중 비밀번호가 바뀌어 버려진 결과면 ensureChecked 는 false 로 풀린다", async () => {
+  test("조회 중 비밀번호가 바뀌어도 유출로 나온 결과면 ensureChecked 는 true 로 풀리고 안내는 켜지 않는다", async () => {
     const slow = deferred<"pwned">();
     checkMock.mockReturnValue(slow.promise);
     const { result } = renderHook(() => usePwnedPasswordCheck());
 
-    let blocked = true;
+    let blocked = false;
     await act(async () => {
       const submit = result.current.ensureChecked("password");
       result.current.reset();
@@ -137,8 +137,24 @@ describe("usePwnedPasswordCheck", () => {
       blocked = await submit;
     });
 
-    expect(blocked).toBe(false);
+    expect(blocked).toBe(true);
     expect(result.current.pwned).toBe(false);
+  });
+
+  test("조회 중 비밀번호가 바뀌었고 결과가 ok 면 ensureChecked 는 false 로 풀린다", async () => {
+    const slow = deferred<"ok">();
+    checkMock.mockReturnValue(slow.promise);
+    const { result } = renderHook(() => usePwnedPasswordCheck());
+
+    let blocked = true;
+    await act(async () => {
+      const submit = result.current.ensureChecked("password");
+      result.current.reset();
+      slow.resolve("ok");
+      blocked = await submit;
+    });
+
+    expect(blocked).toBe(false);
   });
 
   test("markPwned 는 pwned 를 켜고 reset 은 끈다", () => {

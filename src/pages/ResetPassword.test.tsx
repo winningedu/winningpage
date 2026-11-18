@@ -239,6 +239,35 @@ describe("ResetPassword — token_hash 모드", () => {
     expect(mockVerifyOtp).not.toHaveBeenCalled();
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
+
+  it("조회 중에 비밀번호를 바꿔도 조회가 유출로 끝나면 토큰을 쓰지 않고 저장도 하지 않는다", async () => {
+    let resolveLookup: (value: "pwned") => void = () => {};
+    mockCheckPwnedPassword.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLookup = resolve;
+      }),
+    );
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+    await waitFor(() => expect(mockCheckPwnedPassword).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("새 비밀번호"), {
+      target: { value: "Other!pass3" },
+    });
+    resolveLookup("pwned");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "비밀번호 변경하기" }),
+      ).toBeInTheDocument(),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("ResetPassword — 레거시(해시 링크) 폴백", () => {
