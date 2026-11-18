@@ -46,9 +46,12 @@ export default function FirstPasswordPage() {
     else if (confirm !== newPassword) next.confirm = PASSWORD_MISMATCH_ERROR;
     setErrors(next);
     if (next.newPassword || next.confirm) return;
-    if (await pwnedCheck.ensureChecked(newPassword)) return;
-
     setSaving(true);
+    if (await pwnedCheck.ensureChecked(newPassword)) {
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await consoleRequest("/api/console/first-password", {
         method: "POST",

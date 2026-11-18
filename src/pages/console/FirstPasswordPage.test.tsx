@@ -224,6 +224,26 @@ describe("FirstPasswordPage", () => {
     expect(calls.some((c) => c.key.startsWith("POST"))).toBe(false);
   });
 
+  it("유출 조회가 끝나기 전에 저장을 두 번 눌러도 한 번만 보낸다", async () => {
+    let finishLookup!: (value: "ok") => void;
+    pwned.check.mockReturnValue(
+      new Promise((resolve) => {
+        finishLookup = resolve;
+      }),
+    );
+    const calls = stubFirstPassword({ body: { ok: true } });
+    renderRoutes(routes, "/teacher/first-password");
+    await fill("NewPass123");
+
+    const save = screen.getByRole("button", { name: "저장" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    finishLookup("ok");
+
+    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    expect(calls.filter((c) => c.key.startsWith("POST"))).toHaveLength(1);
+  });
+
   it("확인에 실패해도(unknown) 저장을 막지 않는다", async () => {
     pwned.check.mockResolvedValue("unknown");
     stubFirstPassword({ body: { ok: true } });
