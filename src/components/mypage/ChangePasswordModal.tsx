@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import MyPageModalShell from "./MyPageModalShell";
 
@@ -47,15 +49,18 @@ export default function ChangePasswordModal({
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
+  const { reset: resetPwned } = pwnedCheck;
 
   useEffect(() => {
     if (!open) return;
+    resetPwned();
     setStep("form");
     setCurrent("");
     setNext("");
     setSaving(false);
     setErrorMsg("");
-  }, [open]);
+  }, [open, resetPwned]);
 
   const nextValid = PASSWORD_REGEX.test(next);
   const canProceed = current.length > 0 && nextValid && !saving;
@@ -269,16 +274,22 @@ export default function ChangePasswordModal({
             onChange={(e) => {
               setNext(e.target.value);
               setErrorMsg("");
+              pwnedCheck.reset();
+            }}
+            onBlur={() => {
+              if (nextValid) pwnedCheck.checkOnBlur(next);
             }}
             placeholder="새 비밀번호 입력"
             className={`mt-2 ${FIELD_CLASS}`}
           />
           <span
             className={`mt-2 block text-[0.75rem] ${
-              next && !nextValid ? "text-error" : "text-ink-sub"
+              pwnedCheck.pwned || (next && !nextValid)
+                ? "text-error"
+                : "text-ink-sub"
             }`}
           >
-            {PASSWORD_HINT}
+            {pwnedCheck.pwned ? PWNED_PASSWORD_MESSAGE : PASSWORD_HINT}
           </span>
         </label>
 
