@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { consoleRequest, errorCode } from "./api";
 import {
   isPasswordRuleCode,
@@ -29,6 +31,7 @@ export default function FirstPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+  const pwnedCheck = usePwnedPasswordCheck();
 
   // me 를 다시 읽어 임시 비밀번호 상태가 풀린 것을 가드가 알게 한 뒤 이동한다.
   const leave = async () => {
@@ -43,6 +46,7 @@ export default function FirstPasswordPage() {
     else if (confirm !== newPassword) next.confirm = PASSWORD_MISMATCH_ERROR;
     setErrors(next);
     if (next.newPassword || next.confirm) return;
+    if (await pwnedCheck.ensureChecked(newPassword)) return;
 
     setSaving(true);
     try {
@@ -60,6 +64,8 @@ export default function FirstPasswordPage() {
       }
       if (res.status === 400 && code === "PASSWORD_SAME_AS_TEMP") {
         setErrors({ newPassword: "임시 비밀번호와 다르게 써 주세요" });
+      } else if (res.status === 400 && code === "PASSWORD_PWNED") {
+        pwnedCheck.markPwned();
       } else if (res.status === 400 && isPasswordRuleCode(code)) {
         setErrors({ newPassword: PASSWORD_RULE_ERROR });
       } else {
@@ -101,8 +107,18 @@ export default function FirstPasswordPage() {
           autoComplete="new-password"
           placeholder="8자 이상, 영문과 숫자 포함, 임시 비밀번호와 다르게"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          error={errors.newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            pwnedCheck.reset();
+          }}
+          onBlur={() => {
+            if (!violatesPasswordRule(newPassword))
+              pwnedCheck.checkOnBlur(newPassword);
+          }}
+          error={
+            errors.newPassword ??
+            (pwnedCheck.pwned ? PWNED_PASSWORD_MESSAGE : undefined)
+          }
         />
         <TextField
           label="새 비밀번호 확인"
