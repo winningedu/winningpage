@@ -13,6 +13,12 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+const pwned = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("@/lib/pwnedPassword", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: pwned.check,
+}));
+
 import ConsoleGate from "./ConsoleGate";
 import MyPage from "./MyPage";
 import {
@@ -31,6 +37,8 @@ const routes = [
   { path: "/login", element: <p>로그인 화면</p> },
 ];
 
+const PWNED_MESSAGE =
+  "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.";
 const RULE_ERROR =
   "새 비밀번호가 규칙에 맞지 않아요. 8자 이상, 영문과 숫자를 함께 쓰고 현재 비밀번호와 다르게 써 주세요";
 const CURRENT_ERROR = "현재 비밀번호가 맞지 않아요. 다시 입력해 주세요";
@@ -66,6 +74,7 @@ function fill(
 }
 
 beforeEach(() => {
+  pwned.check.mockResolvedValue("ok");
   mocks.getSession.mockResolvedValue({
     data: { session: { user: { id: "u" }, access_token: "tok" } },
   });
@@ -263,5 +272,48 @@ describe("ChangePasswordDialog 서버 응답", () => {
       (await screen.findByRole("status", { hidden: true })).textContent,
     ).toBe("저장하지 못했어요. 잠시 뒤 다시 시도해 주세요");
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("새 비밀번호 칸을 벗어날 때 유출된 비밀번호면 칸 아래에 안내를 보이고 저장을 막는다", async () => {
+    pwned.check.mockResolvedValue("pwned");
+    const calls = stubChange({ body: {} });
+    renderRoutes(routes, "/teacher/my");
+    const dialog = await openDialog();
+    fill(dialog, "OldPass123", "NewPass456");
+
+    fireEvent.blur(dialog.getByLabelText("새 비밀번호"));
+
+    expect(await dialog.findByText(PWNED_MESSAGE)).toBeTruthy();
+    fireEvent.click(dialog.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(pwned.check).toHaveBeenCalled());
+    expect(calls.some((c) => c.key.startsWith("POST"))).toBe(false);
+  });
+
+  it("칸을 벗어나지 않고 바로 저장해도 유출된 비밀번호면 안내를 보이고 보내지 않는다", async () => {
+    pwned.check.mockResolvedValue("pwned");
+    const calls = stubChange({ body: {} });
+    renderRoutes(routes, "/teacher/my");
+    const dialog = await openDialog();
+    fill(dialog, "OldPass123", "NewPass456");
+
+    fireEvent.click(dialog.getByRole("button", { name: "저장" }));
+
+    expect(await dialog.findByText(PWNED_MESSAGE)).toBeTruthy();
+    expect(calls.some((c) => c.key.startsWith("POST"))).toBe(false);
+  });
+
+  it("서버가 PASSWORD_PWNED 를 돌려주면 새 비밀번호 칸에 같은 안내를 보인다", async () => {
+    stubChange({
+      status: 400,
+      body: { error: { code: "PASSWORD_PWNED", message: "x" } },
+    });
+    renderRoutes(routes, "/teacher/my");
+    const dialog = await openDialog();
+    fill(dialog, "OldPass123", "NewPass456");
+
+    fireEvent.click(dialog.getByRole("button", { name: "저장" }));
+
+    expect(await dialog.findByText(PWNED_MESSAGE)).toBeTruthy();
+    expect(screen.queryByRole("status", { hidden: true })).toBeNull();
   });
 });
