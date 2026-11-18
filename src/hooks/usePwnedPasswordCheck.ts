@@ -17,8 +17,10 @@ export function usePwnedPasswordCheck() {
 
     latest.current = password;
     const promise = checkPwnedPassword(password).then((result) => {
+      // 조회 중 비밀번호가 바뀌어 버려진 결과는 제출을 막지 않는다(막으면 안내 없이 멈춘다).
+      if (latest.current !== password) return false;
       const isPwned = result === "pwned";
-      if (latest.current === password) setPwned(isPwned);
+      setPwned(isPwned);
       return isPwned;
     });
     inflight.current = { password, promise };

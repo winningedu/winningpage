@@ -124,6 +124,23 @@ describe("usePwnedPasswordCheck", () => {
     expect(checkMock).toHaveBeenCalledTimes(1);
   });
 
+  test("조회 중 비밀번호가 바뀌어 버려진 결과면 ensureChecked 는 false 로 풀린다", async () => {
+    const slow = deferred<"pwned">();
+    checkMock.mockReturnValue(slow.promise);
+    const { result } = renderHook(() => usePwnedPasswordCheck());
+
+    let blocked = true;
+    await act(async () => {
+      const submit = result.current.ensureChecked("password");
+      result.current.reset();
+      slow.resolve("pwned");
+      blocked = await submit;
+    });
+
+    expect(blocked).toBe(false);
+    expect(result.current.pwned).toBe(false);
+  });
+
   test("markPwned 는 pwned 를 켜고 reset 은 끈다", () => {
     const { result } = renderHook(() => usePwnedPasswordCheck());
 
