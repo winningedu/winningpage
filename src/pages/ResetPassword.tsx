@@ -143,6 +143,9 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
+      // 토큰을 쓰기 전에 확인한다. 유출된 비밀번호로 링크를 소모하지 않게 한다.
+      if (await pwnedCheck.ensureChecked(password)) return;
+
       if (isTokenHashMode) {
         // 사용자가 실제로 제출하는 이 순간에만 토큰을 소모한다 — 마운트
         // 시점에 미리 소모하면 메일 보안 스캐너가 링크를 먼저 열었을 때

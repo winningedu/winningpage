@@ -182,6 +182,21 @@ describe("ResetPassword — token_hash 모드", () => {
     );
     expect(field).toHaveAttribute("aria-invalid", "true");
   });
+
+  it("입력칸을 벗어나지 않고 바로 제출해도 유출된 비밀번호면 막고 토큰도 쓰지 않는다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("pwned");
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("ResetPassword — 레거시(해시 링크) 폴백", () => {
