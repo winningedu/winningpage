@@ -153,7 +153,7 @@ describe("TenantSwitcher 보이는 사람", () => {
 });
 
 describe("TenantSwitcher 바꾸기", () => {
-  it("다른 기관를 고르면 사유를 묻고, 취소하면 아무것도 바꾸지 않는다", async () => {
+  it("다른 기관을 고르면 사유를 묻고, 취소하면 아무것도 바꾸지 않는다", async () => {
     const calls = stubProxy();
     renderRoutes(routes, "/teacher/students");
     await chooseSecondTenant();
@@ -222,7 +222,7 @@ describe("TenantSwitcher 바꾸기", () => {
     expect(await screen.findByText("대행할 기관 고르기")).toBeTruthy();
     expect(
       screen.getByText(
-        "기관를 바꾸지 못했어요. 대행이 끝났으니 기관를 다시 골라 주세요",
+        "기관을 바꾸지 못했어요. 대행이 끝났으니 기관을 다시 골라 주세요",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/기관 데이터/)).toBeNull();

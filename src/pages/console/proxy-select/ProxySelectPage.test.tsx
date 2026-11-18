@@ -129,7 +129,7 @@ describe("ProxySelectPage", () => {
     expect(screen.queryByText("대행할 기관 고르기")).toBeNull();
   });
 
-  it("기관 이름이나 소속코드로 목록을 좁히고, 맞는 기관가 없으면 안내한다", async () => {
+  it("기관 이름이나 소속코드로 목록을 좁히고, 맞는 기관이 없으면 안내한다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": { body: TENANTS },
@@ -148,7 +148,7 @@ describe("ProxySelectPage", () => {
       target: { value: "없는기관" },
     });
     expect(
-      screen.getByText("찾는 기관가 없어요. 이름이나 소속코드를 바꿔 보세요"),
+      screen.getByText("찾는 기관이 없어요. 이름이나 소속코드를 바꿔 보세요"),
     ).toBeTruthy();
   });
 

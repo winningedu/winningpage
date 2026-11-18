@@ -114,13 +114,13 @@ export default function ProxySelectPage() {
             대행할 기관 고르기
           </h1>
           <p className="text-app-body text-ink-sub">
-            기관를 고르고 대행 사유를 하나 골라 주세요.
+            기관을 고르고 대행 사유를 하나 골라 주세요.
           </p>
         </div>
 
         {switchFailed && (
           <Notice tone="Danger">
-            기관를 바꾸지 못했어요. 대행이 끝났으니 기관를 다시 골라 주세요
+            기관을 바꾸지 못했어요. 대행이 끝났으니 기관을 다시 골라 주세요
           </Notice>
         )}
 
@@ -139,7 +139,7 @@ export default function ProxySelectPage() {
         {tenants.data && (
           <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
             {shown.length === 0 ? (
-              <EmptyMessage body="찾는 기관가 없어요. 이름이나 소속코드를 바꿔 보세요" />
+              <EmptyMessage body="찾는 기관이 없어요. 이름이나 소속코드를 바꿔 보세요" />
             ) : (
               shown.map((t) => (
                 <TenantRow
