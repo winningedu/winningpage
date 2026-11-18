@@ -380,7 +380,6 @@ describe("3단계 이메일 인증", () => {
     ).toBeInTheDocument();
     expect(sendSignupEmailCode).toHaveBeenCalledWith({
       email: "a@b.co",
-      password: "abc123!",
       name: "김학생",
       memberType: "student",
     });

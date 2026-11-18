@@ -614,7 +614,6 @@ export default function StudentForm() {
       // 가입 완료 직전 applySignupPassword가 채운다.
       const { state, mode, resumed, error } = await sendSignupEmailCode({
         email: normalizedEmail,
-        password: formData.password,
         name: formData.name.trim(),
         memberType: "student",
       });

@@ -355,7 +355,6 @@ export default function Under14Form() {
     // (src/lib/signupEmailAuth.js — handleNext에서 호출한다).
     const { state, mode, resumed, error } = await sendSignupEmailCode({
       email: normalizedEmail,
-      password: formData.password,
       name: formData.name.trim(),
       memberType: "student",
     });

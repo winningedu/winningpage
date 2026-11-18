@@ -333,7 +333,6 @@ export default function ParentForm() {
     try {
       const { state, mode, resumed, error } = await sendSignupEmailCode({
         email: normalizedEmail,
-        password: formData.password,
         name: formData.name.trim(),
         memberType: "parent",
       });

@@ -177,7 +177,6 @@ export default function StudentInfoStep({
           code={formData.emailCode}
           onCodeChange={(emailCode) => updateFormData({ emailCode })}
           name={formData.name.trim()}
-          password={formData.password}
           state={verification.email}
           onStateChange={(state) => updateVerification("email", state)}
         />
