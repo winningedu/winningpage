@@ -29,7 +29,9 @@ import {
   PrimaryButton,
   TextField,
 } from "@/components/auth";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
@@ -80,6 +82,7 @@ export default function ResetPassword() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const pwnedCheck = usePwnedPasswordCheck();
 
   useEffect(() => {
     readyRef.current = ready;
@@ -275,15 +278,27 @@ export default function ResetPassword() {
           name="password"
           type="password"
           value={password}
-          onChange={setPassword}
+          onChange={(value) => {
+            setPassword(value);
+            pwnedCheck.reset();
+          }}
+          onBlur={() => {
+            if (passwordValid) pwnedCheck.checkOnBlur(password);
+          }}
           placeholder="새 비밀번호를 입력해 주세요"
-          helperText="영문/숫자/특수문자 포함 6자 이상"
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : "영문/숫자/특수문자 포함 6자 이상"
+          }
           status={
-            passwordValid === null
-              ? "default"
-              : passwordValid
-                ? "success"
-                : "error"
+            pwnedCheck.pwned
+              ? "error"
+              : passwordValid === null
+                ? "default"
+                : passwordValid
+                  ? "success"
+                  : "error"
           }
           autoComplete="new-password"
           required
