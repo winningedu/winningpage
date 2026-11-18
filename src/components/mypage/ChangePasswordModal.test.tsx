@@ -98,4 +98,39 @@ describe("ChangePasswordModal: 유출된 비밀번호 확인", () => {
     expect(mockSignInWithPassword).not.toHaveBeenCalled();
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
+
+  it("조회가 실패해도(unknown) 변경을 막지 않는다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("unknown");
+    renderModal();
+
+    fillForm();
+    await confirmChange();
+
+    await waitFor(() =>
+      expect(screen.getByText("변경이 완료됐어요")).toBeInTheDocument(),
+    );
+  });
+
+  it("저장 때 Supabase가 유출된 비밀번호라고 거절하면 같은 입력칸에 같은 안내를 보여준다", async () => {
+    mockUpdateUser.mockResolvedValue({
+      error: {
+        code: "weak_password",
+        name: "AuthWeakPasswordError",
+        reasons: ["pwned"],
+      },
+    });
+    renderModal();
+
+    fillForm();
+    await confirmChange();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(
+        "비밀번호 변경에 실패했어요. 잠시 후 다시 시도해 주세요.",
+      ),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import MyPageModalShell from "./MyPageModalShell";
 
@@ -130,7 +133,10 @@ export default function ChangePasswordModal({
       // 키워드로만 구분한다. 실제 문구는 "New password should be different from
       // the old password." 라 'same' 만 보면 걸리지 않는다 — 두 표현을 함께 본다.
       const raw = error.message || "";
-      if (/same|different from the old/i.test(raw)) {
+      if (isPwnedPasswordError(error)) {
+        // 안내는 새 비밀번호 칸 아래에 보인다(사전 확인이 놓친 경우).
+        markPwned();
+      } else if (/same|different from the old/i.test(raw)) {
         setErrorMsg("기존과 다른 비밀번호를 입력해주세요.");
       } else if (error.status === 429) {
         setErrorMsg("시도가 너무 많았어요. 잠시 후 다시 시도해 주세요.");
@@ -158,7 +164,7 @@ export default function ChangePasswordModal({
     setSaving(false);
     setStep("done");
     onChanged?.();
-  }, [saving, email, current, next, onChanged, ensureChecked]);
+  }, [saving, email, current, next, onChanged, ensureChecked, markPwned]);
 
   if (!open) return null;
 
