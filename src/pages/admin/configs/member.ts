@@ -60,7 +60,7 @@ type MemberConfig = MemberCrudConfig | MemberCustomConfig;
 
 export const memberConfigs: Record<string, MemberConfig> = {
   // 계약 종료 회원 삭제와 삭제 로그(스쿨멘토, 5번 본사 관리 화면). 메뉴는 tenants 권한을 같이 쓰고(canAccessSection 별칭)
-  // hqTenantAdmin 이 꺼진 위닝에서는 열리지 않는다. 화면은 custom 컴포넌트가 그린다.
+  // 위닝에서는 메뉴가 보여도 서버(member-purge 라우트의 사이트 검사)가 거절한다. 화면은 custom 컴포넌트가 그린다.
   memberPurge: {
     title: "계약 종료 회원 삭제",
     table: "tenants",
