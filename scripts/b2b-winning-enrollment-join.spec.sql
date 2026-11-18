@@ -181,4 +181,67 @@ select count(*) as n from public.fn_set_my_tenant('WEAAAAAA') \gset
 reset role;
 select pg_temp.expect_text('학부모 소속 코드 입력 = 학적 없음', pg_temp.enr('c_par'), '0:null:none');
 
+-- ---------------------------------------------------------------------
+-- 6. 어드민이 학생의 소속을 비우면 올해 학적과 대기 신청이 지워진다
+-- ---------------------------------------------------------------------
+select pg_temp.mk_user('wej-admin@t.local', null) as adm \gset
+insert into fx values ('adm', :'adm');
+insert into public.admin_resources (key, group_title, label, sort_order, is_active)
+  values ('members', '회원 관리', '회원 관리', 100, true)
+  on conflict (key) do nothing;
+insert into public.admin_members (profile_id, status) values (pg_temp.fx('adm'), 'active');
+insert into public.admin_member_permissions (profile_id, resource_key, level)
+  values (pg_temp.fx('adm'), 'members', 'edit');
+
+create function pg_temp.unset_sql(p_key text) returns text language sql as $$
+  select format('select public.fn_admin_set_profile_tenant(%L, null)', pg_temp.fx(p_key))
+$$;
+grant execute on function pg_temp.unset_sql(text) to authenticated;
+
+-- s1: 가입으로 학적이 있고 대기 신청이 한 건 있다.
+insert into public.enrollment_changes (tenant_id, student_id, school_year, kind, status, to_grade, requested_by)
+select e.tenant_id, e.student_id, e.school_year, 'request', 'pending', '고3', e.student_id
+  from public.student_enrollments e where e.student_id = pg_temp.fx('s1');
+select pg_temp.expect_text('기준: s1 소속 있음, 학적 1, 대기 신청 1',
+  (select (tenant_id is not null)::text from public.profiles where id = pg_temp.fx('s1'))
+    || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s1'))
+    || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s1') and status = 'pending'),
+  'true:1:1');
+
+select pg_temp.unset_sql('s1') as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('소속 해제 = 소속 null, 학적 0, 대기 신청 0',
+  (select coalesce(tenant_id::text, 'null') from public.profiles where id = pg_temp.fx('s1'))
+    || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('s1'))
+    || ':' || (select count(*) from public.enrollment_changes where student_id = pg_temp.fx('s1') and status = 'pending'),
+  'null:0:0');
+
+-- 학생이 아니면(학부모) 소속만 비우고 학적에는 손대지 않는다. 학적이 있다면 그대로 남아야 한다.
+update public.profiles set tenant_id = (select id from public.tenants where code = 'WEAAAAAA') where id = pg_temp.fx('c_par');
+insert into public.student_enrollments (tenant_id, student_id, school_year, grade, updated_by)
+select t.id, pg_temp.fx('c_par'), t.school_year, null, pg_temp.fx('c_par') from public.tenants t where t.code = 'WEAAAAAA';
+select format('select public.fn_admin_set_profile_tenant(%L, null)', pg_temp.fx('c_par')) as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('학부모 소속 해제 = 소속 null, 학적 그대로 1',
+  (select coalesce(tenant_id::text, 'null') from public.profiles where id = pg_temp.fx('c_par'))
+    || ':' || (select count(*) from public.student_enrollments where student_id = pg_temp.fx('c_par')),
+  'null:1');
+
+-- 소속을 다른 기관으로 바꾸는 경우는 학적을 건드리지 않는다.
+insert into public.tenants (code, name, region, org_type, tier, contract_start_date)
+values ('WEBBBBBB', 'wej-other', '서울', '학교', 'B', current_date - 10);
+select format('select public.fn_admin_set_profile_tenant(%L, %L)', pg_temp.fx('c1'), (select id from public.tenants where code = 'WEBBBBBB')) as q \gset
+select pg_temp.as_user(pg_temp.fx('adm'));
+set local role authenticated;
+:q ;
+reset role;
+select pg_temp.expect_text('다른 기관으로 변경 = 학적 그대로 1',
+  (select count(*) from public.student_enrollments where student_id = pg_temp.fx('c1'))::text, '1');
+
 rollback;

@@ -522,3 +522,49 @@ $function$;
 
 comment on function public.fn_set_my_tenant(text) is
   '로그인 회원이 스스로 소속 코드를 입력해 profiles.tenant_id 를 세팅한다. 이미 소속이 설정돼 있으면 WC071(재설정은 어드민 경로 fn_admin_set_profile_tenant). 코드 판정은 fn_resolve_tenant_code 재사용(시도 초과 WC068). 없는 코드면 raise 하지 않고 0행을 돌려준다. raise 하면 실패 기록이 롤백돼 리밋이 무력화되기 때문이며, "없는 코드" 안내는 프론트가 0행을 보고 한다. fn_profiles_lock_tenant 트리거를 통과시키려고 update 직전 app.tenant_set_via_rpc 를 켠다. 학생이면 같은 트랜잭션에서 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 20261118.';
+
+-- fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때(p_tenant_id null) 올해 학적을 지우는 블록만 더했다.
+-- 소속 없는 학생이 옛 기관 선생님 화면에 남지 않게 한다. 대기 중인 변경 신청은 fn_catch_all_join_tenant 와 같이 반려로 닫고,
+-- 지난 학년도(졸업) 학적은 남긴다. 학생이 아니거나 p_tenant_id 가 null 이 아니면 동작은 그대로다.
+create or replace function public.fn_admin_set_profile_tenant(p_profile_id uuid, p_tenant_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  if not public.fn_admin_can('members', 'edit') then
+    raise exception 'not_authorized' using errcode = 'WC072';
+  end if;
+
+  if p_tenant_id is not null and not exists (
+    select 1 from public.tenants t where t.id = p_tenant_id
+  ) then
+    raise exception 'tenant_not_found';
+  end if;
+
+  if p_tenant_id is null and exists (
+    select 1 from public.profiles pr where pr.id = p_profile_id and pr.member_type = 'student'
+  ) then
+    update public.enrollment_changes c
+       set status = 'rejected', reject_reason = '소속 해제', decided_by = auth.uid(), decided_at = now()
+     where c.student_id = p_profile_id and c.status = 'pending';
+
+    delete from public.student_enrollments e
+     using public.tenants t
+     where t.id = e.tenant_id
+       and e.student_id = p_profile_id
+       and e.school_year = t.school_year;
+  end if;
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+
+  update public.profiles
+     set tenant_id  = p_tenant_id,
+         updated_at = now()
+   where id = p_profile_id;
+end;
+$function$;
+
+comment on function public.fn_admin_set_profile_tenant(uuid, uuid) is
+  '회원 관리 편집 권한(fn_admin_can(''members'',''edit'')) 보유 관리자 전용. p_tenant_id 가 NULL 이면 소속 해제, 존재하지 않는 tenant 면 거부(WC072 는 권한 없음 전용, tenant 미존재는 별도 메시지). fn_set_my_tenant 와 동일하게 트리거 우회 설정을 켜고 UPDATE 한다. 학생의 소속을 해제하면 그 학생의 기관별 올해 학적(student_enrollments)을 지우고 대기 중인 변경 신청은 반려로 닫아, 개인 회원이 되고 옛 기관 선생님 화면에서 사라진다. 학생이 아니거나 tenant 를 지정하면 학적은 건드리지 않는다. 20261118.';
