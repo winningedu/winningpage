@@ -61,6 +61,19 @@ function extractBlock(
   return source.slice(start, end + endNeedle.length);
 }
 
+/** 같은 앵커가 여러 마이그레이션에 있을 때 **마지막** 정의(현행)의 구간을 잘라낸다. */
+function extractLastBlock(
+  source: string,
+  startNeedle: string,
+  endNeedle: string,
+): string {
+  const start = source.lastIndexOf(startNeedle);
+  if (start < 0) return "";
+  const end = source.indexOf(endNeedle, start);
+  if (end < 0) return "";
+  return source.slice(start, end + endNeedle.length);
+}
+
 /** `needle`이 시작하는 줄부터 다음 `;`까지(포함) 문장 1개를 잘라낸다. */
 function extractStatement(source: string, needle: string): string {
   const idx = source.indexOf(needle);
@@ -75,7 +88,7 @@ const COMMIT_FN = extractBlock(
   'CREATE OR REPLACE FUNCTION "public"."commit_performance_evaluation_report"',
   "\n$$;",
 );
-const FINALIZE_FN = extractBlock(
+const FINALIZE_FN = extractLastBlock(
   BASELINE,
   'CREATE OR REPLACE FUNCTION "public"."finalize_performance_submission"',
   "\n$$;",
@@ -484,21 +497,34 @@ describe("[6] 구 sql/58 스키마·RPC 불변식(baseline.sql)", () => {
   // 1회성 마이그레이션 절차였다. baseline은 pg_dump 스키마 스냅샷이라
   // 배포 시점 절차문(DO 블록)을 담지 않는다 — 최종 상태에 함수가 정확히
   // 1개씩만 존재하는지로 등가 검증한다(오버로드 잔재가 없다는 결과 상태).
-  test("함수명이 baseline에 정확히 1개 시그니처로만 존재한다(오버로드 잔재 없음의 결과 상태)", () => {
-    expect(
-      (
+  test("함수명이 마이그레이션 전체에 정확히 1개 시그니처로만 존재한다(오버로드 잔재 없음의 결과 상태)", () => {
+    for (const name of [
+      "commit_performance_evaluation_report",
+      "finalize_performance_submission",
+    ]) {
+      const signatures = new Set(
         BASELINE.match(
-          /CREATE OR REPLACE FUNCTION "public"\."commit_performance_evaluation_report"/g,
-        ) || []
-      ).length,
-    ).toBe(1);
+          new RegExp(
+            `CREATE OR REPLACE FUNCTION "public"\\."${name}"\\([^)]*\\)`,
+            "g",
+          ),
+        ) || [],
+      );
+      expect(signatures.size).toBe(1);
+    }
+  });
+
+  // 수행평가 최종본은 심화탐구 「위닝 기록에서 불러오기」의 재료다(activity_records).
+  // 새로 확정하는 경로에서만 올리고, 중복 승격은 부분 유니크가 조용히 막는다.
+  test("finalize RPC가 활동 기록을 중복 없이 승격한다", () => {
+    expect(FINALIZE_FN.includes("insert into public.activity_records")).toBe(
+      true,
+    );
     expect(
-      (
-        BASELINE.match(
-          /CREATE OR REPLACE FUNCTION "public"\."finalize_performance_submission"/g,
-        ) || []
-      ).length,
-    ).toBe(1);
+      FINALIZE_FN.includes(
+        "on conflict (source_program, source_ref_id) where source_ref_id is not null do nothing",
+      ),
+    ).toBe(true);
   });
 
   // 라우트가 select 하는 컬럼이 baseline의 구 sql/58 스코프에 실재하는가 — 42703 배포 사고 방지.

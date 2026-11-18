@@ -1,5 +1,5 @@
 // 하위 프로그램 확정 수신(명세 No.161). 송신측인 심화탐구(deep)와 자기평가서(self)가
-// 산출물을 확정할 때 이 함수를 부른다. 두 송신측은 아직 이 함수를 부르지 않는다(후속 단계에서 연결).
+// 산출물을 확정할 때 이 함수를 부른다(inquiry/finalize, inquiry/session, selfeval/finalize, selfeval/reports).
 //
 // 중복 확정 규칙(decideMutation 의 program-done 판정):
 //   - 항목의 program 과 입력 program 이 다르면 PROGRAM_MISMATCH 로 거절한다.
