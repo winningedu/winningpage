@@ -10,6 +10,17 @@ describe("tenantSaveErrorMessage", () => {
     );
   });
 
+  it("올해 학적이 다른 기관에 있어 WC100이면 기관 이동 화면을 쓰라고 안내한다", () => {
+    expect(
+      tenantSaveErrorMessage({
+        code: "WC100",
+        message: "other_tenant_enrollment",
+      }),
+    ).toBe(
+      "이 학생은 올해 학적이 다른 기관에 있어요. 학생 기관 이동 화면에서 옮겨 주세요.",
+    );
+  });
+
   it("그 밖의 오류는 기존처럼 소속 저장 실패와 원문을 준다", () => {
     expect(
       tenantSaveErrorMessage({ code: "WC072", message: "not_authorized" }),
