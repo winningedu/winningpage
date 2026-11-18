@@ -18,7 +18,10 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import {
   PASSWORD_MISMATCH_ERROR,
   PASSWORD_RULE_ERROR,
@@ -33,8 +36,6 @@ const VERIFICATION_EXPIRED = "VERIFICATION_EXPIRED";
 const TEACHER_NOT_MATCHED = "TEACHER_NOT_MATCHED";
 // 비밀번호는 바뀌었지만 다른 기기 로그아웃에 실패했다. 다시 시도할 오류가 아니라 바뀐 것으로 다룬다.
 const PASSWORD_CHANGED_REVOKE_FAILED = "PASSWORD_CHANGED_REVOKE_FAILED";
-// 서버(Supabase)가 유출된 비밀번호로 거부했다. 인증은 서버가 풀어 두어 다른 비밀번호만 다시 입력하면 된다.
-const PASSWORD_PWNED = "PASSWORD_PWNED";
 
 type ResetOutcome =
   | { kind: "ok" }
@@ -63,7 +64,8 @@ async function requestReset(
     if (response.ok && payload?.ok) return { kind: "ok" };
 
     const code = payload?.error?.code;
-    if (code === PASSWORD_PWNED) return { kind: "pwned" };
+    // 서버(Supabase)가 유출된 비밀번호로 거부했다. 인증은 서버가 풀어 두어 다른 비밀번호만 다시 입력하면 된다.
+    if (code === PASSWORD_PWNED_CODE) return { kind: "pwned" };
     const message = payload?.error?.message;
     if (typeof message === "string") {
       if (code === VERIFICATION_EXPIRED) return { kind: "expired", message };

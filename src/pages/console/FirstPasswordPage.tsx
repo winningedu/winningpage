@@ -5,7 +5,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { consoleRequest, errorCode } from "./api";
 import {
   isPasswordRuleCode,
@@ -67,7 +70,7 @@ export default function FirstPasswordPage() {
       }
       if (res.status === 400 && code === "PASSWORD_SAME_AS_TEMP") {
         setErrors({ newPassword: "임시 비밀번호와 다르게 써 주세요" });
-      } else if (res.status === 400 && code === "PASSWORD_PWNED") {
+      } else if (res.status === 400 && code === PASSWORD_PWNED_CODE) {
         pwnedCheck.markPwned();
       } else if (res.status === 400 && isPasswordRuleCode(code)) {
         setErrors({ newPassword: PASSWORD_RULE_ERROR });

@@ -5,7 +5,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import { consoleRequest, errorCode, errorMessage } from "./api";
 import Notice from "./Notice";
@@ -107,7 +110,7 @@ export default function ChangePasswordDialog({
           current: errorMessage(res.body) ?? CURRENT_PASSWORD_ERROR,
         });
         setRetryMs((res.retryAfterSeconds ?? 0) * 1000);
-      } else if (res.status === 400 && code === "PASSWORD_PWNED") {
+      } else if (res.status === 400 && code === PASSWORD_PWNED_CODE) {
         pwnedCheck.markPwned();
       } else if (
         res.status === 400 &&

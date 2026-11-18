@@ -7,6 +7,9 @@
 export const PWNED_PASSWORD_MESSAGE =
   "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.";
 
+// 서버(콘솔 API)가 유출된 비밀번호로 거부할 때 돌려주는 오류 코드.
+export const PASSWORD_PWNED_CODE = "PASSWORD_PWNED";
+
 export type PwnedCheckResult = "pwned" | "ok" | "unknown";
 
 const RANGE_URL = "https://api.pwnedpasswords.com/range/";
