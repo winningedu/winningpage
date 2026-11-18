@@ -68,14 +68,25 @@ afterEach(() => {
 });
 
 describe("POST /api/auth/teacher-reset-password", () => {
-  test("위닝 사이트에서는 404 이고 아무것도 읽지 않는다", async () => {
+  test("위닝 사이트도 스쿨멘토와 같이 처리한다(형식이 틀리면 404 가 아니라 400)", async () => {
     process.env.SITE = "winning";
 
     const r = await post({});
 
-    expect(r.status).toBe(404);
-    expect(r.body).toEqual({ code: "NOT_FOUND" });
-    expect(kit.state.reads).toEqual([]);
+    expect(r.status).toBe(400);
+  });
+
+  test("위닝 사이트에서도 성공하면 비밀번호를 바꾼다", async () => {
+    process.env.SITE = "winning";
+    kit.state.rpc.fn_teacher_password_set = () => ({ data: null, error: null });
+
+    const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true });
+    expect(kit.state.auth.updateUserById).toHaveBeenCalledWith("profile-1", {
+      password: PW,
+    });
   });
 
   test.each([
