@@ -2,6 +2,8 @@
 -- 위닝 가입과 소속 코드 입력은 profiles.tenant_id 만 정해서 위닝 학생이 선생님 화면에 보이지 않았다.
 --
 -- 1) complete_signup_profile: 20261110033000 본문 그대로, 학생이고 소속이 있으면 학급 없는 학적을 만드는 블록만 더했다.
+--    학적은 app_settings.site_key 가 "winning" 일 때만 만들고, "schoolmentor" 이면 학생 가입을 WC107 로 거절한다(표식이 없으면 이전 동작).
+--    fn_set_my_tenant 와 fn_admin_set_profile_tenant 는 가입 경로가 아니라(스쿨멘토 학생은 가입 때 소속이 정해지고, 어드민 경로는 관리자 전용) 표식을 보지 않는다.
 -- 2) fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 같은 학적을 만든다.
 -- 3) fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때 올해 활성 학적을 지우고 이력으로 남기며,
 --    소속을 정할 때는 학적을 함께 만든다(올해 학적이 다른 기관에 있으면 WC100, 그 경우는 fn_admin_move_student_tenant 를 쓴다).
@@ -44,6 +46,7 @@ declare
   v_enroll_tenant  uuid;
   v_enroll_grade   text;
   v_enroll_year    smallint;
+  v_site_key       text;
 begin
   v_user_id := auth.uid();
 
@@ -94,6 +97,14 @@ begin
 
   if v_member_type not in ('student', 'parent', 'mentor') then
     raise exception 'invalid_member_type';
+  end if;
+
+  -- 사이트 표식(app_settings.site_key): 프로젝트마다 데이터 SQL 로 "winning" 또는 "schoolmentor" 를 심는다.
+  -- 스쿨멘토 학생은 /api/signup/school-student(fn_student_signup)로만 가입한다. 이 RPC 로 가입하면
+  -- 이메일 인증과 기관별 전화번호 검사를 건너뛰므로 막는다. 표식이 없으면(마이그레이션만 먼저 배포) 막지 않는다.
+  select (s.value #>> '{}') into v_site_key from public.app_settings s where s.key = 'site_key';
+  if v_site_key = 'schoolmentor' and v_member_type = 'student' then
+    raise exception 'student_signup_not_allowed' using errcode = 'WC107';
   end if;
 
   -- 지역,재학 구분은 학생에게만 필수([13]).
@@ -426,7 +437,8 @@ begin
   -- 소속은 방금 저장한 profiles.tenant_id 로 본다(재호출에서 기존 소속이 유지될 수 있다).
   -- 학급과 번호는 없이 만들고, 학년은 student_profiles.grade 가 중1~고3 일 때만 쓴다.
   -- 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막아 소속과 학적이 갈라지지 않게 한다.
-  if v_member_type = 'student' then
+  -- 사이트 표식이 "winning" 일 때만 만든다(표식이 없으면 이전처럼 소속만 정한다).
+  if v_member_type = 'student' and v_site_key = 'winning' then
     select pr.tenant_id into v_enroll_tenant from public.profiles pr where pr.id = v_user_id;
 
     if v_enroll_tenant is not null then
@@ -464,7 +476,7 @@ end;
 $_$;
 
 comment on function public.complete_signup_profile(text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, boolean, text, boolean, text, date, text, text) is
-  '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막는다. 20261118.';
+  '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막는다. app_settings.site_key 가 schoolmentor 이면 학생 가입을 WC107 로 거절하고, winning 일 때만 학적을 만든다(표식이 없으면 소속만 정한다). 20261118.';
 
 -- fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 소속을 정한 뒤 학급 없는 학적을 만드는 블록만 더했다.
 -- 반환 모양은 그대로다. 이미 소속이 있으면 위에서 WC071 로 끝나므로 재호출로 학적이 겹치지 않는다.
