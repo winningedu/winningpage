@@ -33,7 +33,7 @@
 //   쓴다. 유출된 비밀번호(leaked password protection)를 Supabase가 거부하는데,
 //   그 거부가 이메일 인증 단계에서 나면 사용자가 비밀번호를 고칠 길이 막힌다.
 //   그래서 **모든 경로에서 가입을 끝내는 화면은 반드시 applySignupPassword를
-//   호출해야 한다** — 호출하지 않으면 계정에 임시 비밀번호가 남아 로그인이
+//   호출해야 한다**. 호출하지 않으면 계정에 임시 비밀번호가 남아 로그인이
 //   불가능해진다.
 
 import { clearAllDrafts } from "./diagnosisDraft";
