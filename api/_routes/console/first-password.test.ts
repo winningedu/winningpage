@@ -171,4 +171,24 @@ describe("POST /api/console/first-password", () => {
     expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
     expect(kit.state.inserts).toHaveLength(0);
   });
+
+  test("유출된 비밀번호면 400 PASSWORD_PWNED 이고 이후 단계를 실행하지 않는다", async () => {
+    kit.state.auth.updateUserById.mockResolvedValue({
+      data: null,
+      error: { code: "weak_password", reasons: ["pwned"] },
+    });
+
+    const r = await post({ password: "NewPass123" });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      error: {
+        code: "PASSWORD_PWNED",
+        message: "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.",
+      },
+    });
+    expect(kit.signOut).not.toHaveBeenCalled();
+    expect(kit.state.events).not.toContain("rpc:fn_teacher_password_set");
+    expect(kit.state.inserts).toHaveLength(0);
+  });
 });
