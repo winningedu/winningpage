@@ -65,6 +65,8 @@ export default function StudentInfoStep({
     if (rejectedAsPwned) markPwned();
   }, [rejectedAsPwned, markPwned]);
 
+  // 유출 조회 중에는 다음 버튼을 막아 다음 단계가 두 번 불리지 않게 한다.
+  const [checking, setChecking] = useState(false);
   const [passVerifying, setPassVerifying] = useState(false);
   const [passError, setPassError] = useState("");
 
@@ -130,7 +132,10 @@ export default function StudentInfoStep({
     (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
   async function handleNext() {
-    if (await pwnedCheck.ensureChecked(formData.password)) return;
+    setChecking(true);
+    const pwned = await pwnedCheck.ensureChecked(formData.password);
+    setChecking(false);
+    if (pwned) return;
     onNext();
   }
 
@@ -336,7 +341,8 @@ export default function StudentInfoStep({
       <StepActions
         onPrev={onPrev}
         onNext={handleNext}
-        nextDisabled={!canProceed}
+        nextDisabled={!canProceed || checking}
+        loading={checking}
       />
     </>
   );
