@@ -8,15 +8,12 @@
 // "알림톡 또는 이메일 인증코드" 중 이번에 새로 구현하는 쪽이라 우선 노출한다.
 //
 // ① 휴대폰 인증(신규)
-//   FindAccount.tsx와 같은 골격(send-phone-code purpose:'reset_password' →
-//   verify-phone-code)으로 번호 소유를 증명한 뒤, /api/reset-password-by-phone이
-//   즉시 새 임시비밀번호를 발급한다. 알림톡으로 임시비밀번호 자체를 보내는 것은
-//   신규 카카오 템플릿 승인이 필요해 이번 범위에 넣지 않았다 — 화면에 한 번
-//   표시하고 복사 버튼을 제공하는 것으로 대신한다(StudentComplete.tsx의 연결코드
-//   복사 패턴과 동일).
-//
-//   스쿨멘토 학생(사 #96)은 임시비밀번호 대신 인증 뒤 새 비밀번호를 직접 정한다. 인증 직후
-//   자동 요청 없이 입력 칸을 보여주고, 제출하면 같은 라우트에 password 를 함께 보낸다.
+//   FindAccount.tsx와 같은 골격(send-phone-code purpose:'reset_password' 다음
+//   verify-phone-code)으로 번호 소유를 증명한 뒤, 회원이 새 비밀번호를 직접 정한다.
+//   인증 직후 자동 요청 없이 입력 칸을 보여주고, 제출하면 /api/reset-password-by-phone에
+//   password 를 보낸다. 규칙은 두 사이트가 같다.
+//   - 같은 번호로 계정이 여러 개면 서버가 409 choose_account 로 목록을 주고, 회원이 계정을 고른다.
+//   - 비밀번호가 바뀌면 서버가 모든 기기의 세션을 끝낸다.
 //
 // ② 이메일 링크(기존, 그대로 유지)
 //   Supabase resetPasswordForEmail로 재설정 링크를 보내고, 사용자가 그 링크를
@@ -55,7 +52,6 @@ import TeacherResetPassword from "./TeacherResetPassword";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_COOLDOWN_SECONDS = 60;
-const COPY_FEEDBACK_MS = 2000;
 // Supabase 대시보드의 mailer_otp_exp(초 단위, 기본 1800 = 30분)와 같은 값이다.
 // 그 설정을 바꾸면 이 분 단위 안내 문구도 같이 바꿔야 어긋나지 않는다.
 const RESET_LINK_TTL_MINUTES = 30;
@@ -65,13 +61,7 @@ type Audience = "student" | "teacher";
 type FieldStatus = "default" | "error" | "success";
 
 type PhoneResetResult =
-  | {
-      kind: "success";
-      tempPassword: string;
-      maskedEmail: string;
-      via: "phone" | "guardian_phone";
-    }
-  | { kind: "changed" }
+  | { kind: "changed"; maskedEmail: string; via: "phone" | "guardian_phone" }
   | { kind: "changed_revoke_failed"; message: string }
   | { kind: "expired"; message: string }
   | { kind: "pwned" }
@@ -87,13 +77,12 @@ type PhoneResetResult =
   | { kind: "multiple_accounts"; maskedEmails: string[]; message: string }
   | { kind: "error"; message: string };
 
-// 스쿨멘토는 소속이 다르면 같은 번호로 계정이 여러 개라 chooseAccount 를 보내 서버가
-// 계정 목록(409 choose_account)을 주게 하고, 학생이 직접 정한 새 비밀번호(password)를 함께 보낸다.
-// 위닝은 새 필드 없이 기존 요청 그대로다.
+// 소속이 다르면 같은 번호로 계정이 여러 개라 chooseAccount 를 보내 서버가
+// 계정 목록(409 choose_account)을 주게 하고, 회원이 직접 정한 새 비밀번호(password)를 함께 보낸다.
 async function requestPhoneReset(
   phone: string,
+  password: string,
   accountId?: string,
-  password?: string,
 ): Promise<PhoneResetResult> {
   try {
     const response = await fetch("/api/reset-password-by-phone", {
@@ -101,11 +90,9 @@ async function requestPhoneReset(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         phone: normalizePhone(phone),
-        ...(site.key === "schoolmentor" && {
-          chooseAccount: true,
-          ...(accountId && { accountId }),
-          password,
-        }),
+        chooseAccount: true,
+        ...(accountId && { accountId }),
+        password,
       }),
     });
     const payload = await response.json();
@@ -127,8 +114,7 @@ async function requestPhoneReset(
       };
     }
 
-    // 스쿨멘토만 해당한다. 위닝 서버는 이 두 경우를 이 형태로 보내지 않는다.
-    if (site.key === "schoolmentor" && typeof payload?.detail === "string") {
+    if (typeof payload?.detail === "string") {
       // 비밀번호를 정하는 사이 인증 창(10분)이 지났다. 인증부터 다시 받게 한다.
       if (response.status === 401 && payload.reason === "phone_not_verified") {
         return { kind: "expired", message: payload.detail };
@@ -152,13 +138,10 @@ async function requestPhoneReset(
 
     if (!payload.found) return { kind: "not_found" };
 
-    if (site.key === "schoolmentor") return { kind: "changed" };
-
     return {
-      kind: "success",
-      tempPassword: payload.temp_password,
+      kind: "changed",
       maskedEmail: payload.masked_email,
-      via: payload.via === "guardian_phone" ? "guardian_phone" : "phone",
+      via: payload.via,
     };
   } catch {
     return {
@@ -302,9 +285,7 @@ export default function FindPassword() {
 
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<PhoneResetResult | null>(null);
-  const [copied, setCopied] = useState(false);
-  // 스쿨멘토는 임시비밀번호 대신 학생이 새 비밀번호를 직접 정한다. 계정 고르기 뒤 다시 보낼 수 있게 상태로 둔다.
-  const directPassword = site.key === "schoolmentor";
+  // 회원이 새 비밀번호를 직접 정한다. 계정 고르기 뒤 다시 보낼 수 있게 상태로 둔다.
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [formError, setFormError] = useState("");
@@ -393,25 +374,6 @@ export default function FindPassword() {
     onPhoneCodeChange(phoneCode);
   }, [phoneCode]);
 
-  // 인증이 확인되는 즉시 재설정을 요청한다 — 별도 "재설정하기" 버튼을 두지 않는다
-  // (FindAccount.tsx가 인증 직후 바로 조회하는 것과 동일 패턴).
-  useEffect(() => {
-    if (!phoneVerified || directPassword) return;
-
-    let cancelled = false;
-    setResetting(true);
-
-    requestPhoneReset(phone).then((result) => {
-      if (cancelled) return;
-      setResetting(false);
-      setResetResult(result);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [phoneVerified, phone, directPassword]);
-
   // 인증 창이 지났으면 전화번호 단계로 돌아가 인증을 새로 받게 한다(TeacherResetPassword.tsx 의 expired 처리와 같다).
   // 재전송 대기는 그대로 둔다. 풀면 이 경로로 발송 제한을 피해 갈 수 있다.
   function showResetResult(result: PhoneResetResult) {
@@ -454,31 +416,14 @@ export default function FindPassword() {
 
     setResetResult(null);
 
-    requestPhoneReset(phone, undefined, newPassword).then(showResetResult);
+    requestPhoneReset(phone, newPassword).then(showResetResult);
   }
 
   function chooseAccount(accountId: string) {
     setResetting(true);
     setResetResult(null);
 
-    requestPhoneReset(
-      phone,
-      accountId,
-      directPassword ? newPassword : undefined,
-    ).then(showResetResult);
-  }
-
-  async function handleCopyPassword() {
-    if (resetResult?.kind !== "success") return;
-
-    try {
-      await navigator.clipboard.writeText(resetResult.tempPassword);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
-    } catch (error) {
-      // TODO: 클립보드 API 미지원 환경 대비 폴백(예: 임시 textarea + execCommand) 필요.
-      console.error("임시비밀번호 복사 오류:", error);
-    }
+    requestPhoneReset(phone, newPassword, accountId).then(showResetResult);
   }
 
   function switchMethod(next: FindMethod) {
@@ -605,14 +550,11 @@ export default function FindPassword() {
 
           {phoneVerified && resetting && (
             <p className="text-center text-sm text-ink-sub">
-              {directPassword
-                ? "비밀번호를 바꾸는 중입니다..."
-                : "새 비밀번호를 발급하는 중입니다..."}
+              비밀번호를 바꾸는 중입니다...
             </p>
           )}
 
-          {directPassword &&
-            phoneVerified &&
+          {phoneVerified &&
             !resetting &&
             (resetResult === null || resetResult.kind === "error") && (
               <div className="flex w-full flex-col gap-5">
@@ -680,46 +622,21 @@ export default function FindPassword() {
                   {resetResult.message}
                 </p>
               ) : (
-                <p className="w-full text-center text-sm text-ink">
-                  비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
-                </p>
+                <>
+                  <InfoCard variant="card" className="text-center">
+                    {resetResult.via === "guardian_phone" && (
+                      <>
+                        학부모 핸드폰으로 등록된 계정이에요.
+                        <br />
+                      </>
+                    )}
+                    {resetResult.maskedEmail} 계정이에요.
+                  </InfoCard>
+                  <p className="w-full text-center text-sm text-ink">
+                    비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.
+                  </p>
+                </>
               )}
-
-              <PrimaryButton onClick={() => navigate("/login")}>
-                로그인하러 가기
-              </PrimaryButton>
-            </div>
-          )}
-
-          {resetResult?.kind === "success" && (
-            <div className="flex w-full flex-col gap-5">
-              <InfoCard variant="card" className="text-center">
-                {resetResult.via === "guardian_phone" && (
-                  <>
-                    학부모 핸드폰으로 등록된 계정이에요.
-                    <br />
-                  </>
-                )}
-                {resetResult.maskedEmail} 계정의 임시비밀번호가 발급됐어요.
-                <br />
-                로그인 후 마이페이지 &gt; 내 정보 수정에서 비밀번호를 바꿔
-                주세요.
-              </InfoCard>
-
-              <div className="flex w-full items-center justify-center rounded-[0.875rem] bg-surface-card py-4 text-xl font-medium tracking-[0.2em] text-accent">
-                {resetResult.tempPassword}
-              </div>
-
-              <TextLinkButton
-                as="button"
-                tone="accent"
-                size="xs"
-                underline
-                onClick={handleCopyPassword}
-                className="self-center"
-              >
-                {copied ? "복사되었습니다" : "임시비밀번호 복사하기"}
-              </TextLinkButton>
 
               <PrimaryButton onClick={() => navigate("/login")}>
                 로그인하러 가기

@@ -48,8 +48,6 @@ export interface SiteConfig {
     hiddenPrograms: readonly GateableProgram[];
     // 홈 배너(큰 배너/작은 배너)가 노출 대상 없이 0건일 때 영역을 숨기지 않고 '배너가 없습니다' 안내를 보여줄지(기획 #26).
     bannerEmptyNotice: boolean;
-    // 로그인을 서버(POST /api/auth/login, 아이디 로그인과 실패 잠금)로 처리할지. false면 클라이언트가 signInWithPassword 를 직접 부른다.
-    serverLogin: boolean;
     // B2B 메뉴 트리(목표성장서비스, 수행심화서비스, 입시정보, 고객안내)를 fallback으로 쓸지. false면 위닝 트리.
     b2bMenu: boolean;
     // 서비스 막힘을 기관 설정 문구(결정 99)로 보여주고 구매, 이용권 링크를 숨길지. false면 위닝의 결제 안내.
@@ -128,7 +126,6 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       stripWinningPrefix: false,
       hiddenPrograms: [],
       bannerEmptyNotice: false,
-      serverLogin: false,
       b2bMenu: false,
       tenantServiceGate: false,
       schoolSignup: false,
@@ -206,7 +203,6 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       hiddenPrograms: [],
       bannerEmptyNotice: true,
       // 스쿨멘토는 서버를 거쳐 로그인한다(아이디 또는 이메일, 실패 횟수 잠금).
-      serverLogin: true,
       b2bMenu: true,
       tenantServiceGate: true,
       schoolSignup: true,
