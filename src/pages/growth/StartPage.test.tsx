@@ -13,18 +13,14 @@ const { shellMock, stepMock, navigateMock, saveMock, promoteMock, toastMock } =
     toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
   }));
 
-const siteState = vi.hoisted(() => ({ studentEnrollment: false }));
+// 올해 학적이 있으면(기관 학생) 학년도 전환이 학년을 올리므로 승급 모달은 학적 없는 개인 회원만 본다.
+const enrollmentState = vi.hoisted(() => ({
+  data: { enrollment: null } as { enrollment: object | null } | null,
+}));
 
-// 학적 스위치만 테스트가 바꾼다. 나머지 사이트 설정은 그대로 쓴다.
-vi.mock("@/config/site", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/config/site")>();
-  const features = { ...actual.site.features };
-  Object.defineProperty(features, "studentEnrollment", {
-    get: () => siteState.studentEnrollment,
-    enumerable: true,
-  });
-  return { site: { ...actual.site, features } };
-});
+vi.mock("@/components/enrollment/useMyEnrollment", () => ({
+  useMyEnrollment: () => ({ data: enrollmentState.data, reload: vi.fn() }),
+}));
 
 vi.mock("@/components/growth/GrowthShellContext", () => ({
   useGrowthShell: shellMock,
@@ -110,6 +106,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  enrollmentState.data = { enrollment: null };
   vi.clearAllMocks();
   sessionStorage.clear();
   refetchBootstrap.mockResolvedValue(undefined);
@@ -401,12 +398,18 @@ describe("StartPage 새 학년도 모달", () => {
     expect(screen.queryByText(/올릴까요/)).toBeNull();
   });
 
-  test("스쿨멘토는 학년을 학적이 정하므로 승급 제안 모달을 열지 않는다(사 #40)", () => {
-    siteState.studentEnrollment = true;
+  test("올해 학적이 있으면 학년도 전환이 학년을 올리므로 승급 제안 모달을 열지 않는다(사 #40)", () => {
+    enrollmentState.data = { enrollment: { schoolYear: 2026 } };
     setShell({}, makeBootstrap({ promotion: promo }));
     renderPage();
     expect(screen.queryByText(/올릴까요/)).toBeNull();
-    siteState.studentEnrollment = false;
+  });
+
+  test("학적을 아직 불러오지 못했으면 모달이 번쩍이지 않도록 열지 않는다", () => {
+    enrollmentState.data = null;
+    setShell({}, makeBootstrap({ promotion: promo }));
+    renderPage();
+    expect(screen.queryByText(/올릴까요/)).toBeNull();
   });
 
   test("제안이 없으면 모달을 열지 않는다", () => {

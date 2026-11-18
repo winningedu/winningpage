@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import { useMyEnrollment } from "@/components/enrollment/useMyEnrollment";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import {
   useGrowthScreenStep,
@@ -20,7 +21,6 @@ import {
 } from "@/components/growth/start/startLogic";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { site } from "@/config/site";
 import { siteWording } from "@/config/wording";
 import type { SurveyBootstrap } from "@/lib/growth/api";
 import { parseTenantReason } from "@/lib/tenantBlock";
@@ -73,6 +73,7 @@ export default function StartPage() {
 function StartBody({ bootstrap }: { bootstrap: SurveyBootstrap }) {
   const navigate = useNavigate();
   const { studentName, refetchBootstrap } = useGrowthShell();
+  const myEnrollment = useMyEnrollment();
   const { openReport, entitlement } = bootstrap;
   const { values, usedInitial } = pickProfileValues(
     bootstrap.profile,
@@ -99,8 +100,9 @@ function StartBody({ bootstrap }: { bootstrap: SurveyBootstrap }) {
         questionCount={questionCount}
       />
       <GuideCard questionCount={questionCount} />
-      {/* 스쿨멘토는 학년을 학년도 전환과 마이페이지 학적이 정하므로 서비스에서 올리지 않는다(사 #40). */}
-      {!site.features.studentEnrollment &&
+      {/* 올해 학적이 있는 학생은 학년을 학년도 전환과 마이페이지 학적이 정하므로 서비스에서 올리지 않는다(사 #40).
+          학적을 읽기 전(null)에는 모달이 번쩍이지 않도록 열지 않는다. */}
+      {myEnrollment.data?.enrollment === null &&
         bootstrap.promotion?.propose &&
         bootstrap.promotion.next && (
           <PromotionModal
