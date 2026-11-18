@@ -43,3 +43,8 @@ select count(*) as final_submissions,
        )) as missing_activity_records
 from public.performance_submissions sub
 where sub.is_final;
+
+-- 실행 기록
+-- 2026-11-18 dev(gjowqdiopinhixfivnkx): 실행 전 최종본 7건, performance 기록 0건. 1회차 뒤 7건, 누락 0. 2회차 추가 0건.
+-- 2026-11-18 Winning prod(ykrpjcsubmbenfcnwlzd): 실행 전 최종본 4건, performance 기록 0건. 1회차 뒤 4건, 누락 0. 2회차 추가 0건. 학년, 학기, 주제 NULL 0건.
+-- 2026-11-18 Schoolmentor prod(aalujumpwlnwlemnqrus): 실행 전 최종본 2건, performance 기록 0건. 1회차 뒤 2건, 누락 0. 2회차 추가 0건. 학년, 학기, 주제 NULL 0건.
