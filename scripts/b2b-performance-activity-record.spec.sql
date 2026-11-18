@@ -141,4 +141,42 @@ select pg_temp.expect_text('주제 없음 확정', (select v from st where k = '
 select pg_temp.expect_text('주제 없음 topic NULL', pg_temp.col('notopic', 'topic'), null);
 select pg_temp.expect_text('주제 없음 행 1개', pg_temp.cnt('notopic'), '1');
 
+-- 6. confirmed_at 은 확정한 제출본의 finalized_at 과 정확히 같다
+select pg_temp.expect_text('confirmed_at = finalized_at', pg_temp.col('base', 'confirmed_at'),
+  (select s.finalized_at::text from public.performance_submissions s
+    join fx f on f.submission_id = s.id where f.k = 'base'));
+
+-- 7. 평가 리포트가 없으면 no_evaluation 이고 행은 만들지 않는다
+select pg_temp.mk_case('noeval', '고2', '1학기', true);
+delete from public.performance_reports
+ where submission_id = (select submission_id from fx where k = 'noeval');
+set local role service_role;
+insert into st select 'noeval', pg_temp.fin('noeval');
+reset role;
+select pg_temp.expect_text('평가 없음 결과', (select v from st where k = 'noeval'), 'no_evaluation');
+select pg_temp.expect_text('평가 없음 행 0개', pg_temp.cnt('noeval'), '0');
+
+-- 8. (평가 리포트는 세션당 1건이라 둘째 제출본에는 없다) 같은 세션의 다른 제출본이 이미 확정이면 already_finalized_other 이고 행은 늘지 않는다
+select pg_temp.mk_case('two', '고2', '1학기', true);
+do $$
+declare
+  v_sub2 uuid := gen_random_uuid();
+  v_f fx%rowtype;
+begin
+  select * into v_f from fx where k = 'two';
+  insert into public.performance_submissions (id, session_id, revision, fields)
+  values (v_sub2, v_f.session_id, 2, '{}'::jsonb);
+  insert into fx values ('two2', v_f.profile_id, v_f.session_id, v_sub2);
+end $$;
+set local role service_role;
+insert into st select 'two', pg_temp.fin('two');
+insert into st select 'two2', pg_temp.fin('two2');
+reset role;
+select pg_temp.expect_text('첫 제출본 확정', (select v from st where k = 'two'), 'finalized');
+select pg_temp.expect_text('다른 제출본 확정 시도', (select v from st where k = 'two2'),
+  'already_finalized_other');
+select pg_temp.expect_text('다른 제출본 시도 후에도 행 1개', pg_temp.cnt('two2'), '1');
+select pg_temp.expect_text('행은 같은 세션을 가리킨다', pg_temp.col('two2', 'source_ref_id'),
+  (select session_id::text from fx where k = 'two'));
+
 rollback;
