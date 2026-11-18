@@ -31,7 +31,10 @@ import {
 } from "@/components/auth";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
@@ -172,6 +175,11 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
+        // 사전 확인이 놓친 경우(조회 실패 등) 저장 때 Supabase가 거절한다.
+        if (isPwnedPasswordError(error)) {
+          pwnedCheck.markPwned();
+          return;
+        }
         // supabase 에러는 영문 원문이라 그대로 내보내면 안 된다(실동작 QA
         // 2026-08-23 — "New password should be different from the old password."
         // 가 노출됐다). 사용자가 실제로 만나는 코드만 한글로 매핑하고, 나머지는

@@ -166,6 +166,48 @@ describe("ResetPassword — token_hash 모드", () => {
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
+  it("조회가 실패해도(unknown) 제출을 막지 않는다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("unknown");
+    mockVerifyOtp.mockResolvedValue({ error: null });
+    mockUpdateUser.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText("비밀번호가 변경됐어요")).toBeInTheDocument(),
+    );
+  });
+
+  it("저장 때 Supabase가 유출된 비밀번호라고 거절하면 같은 입력칸에 같은 안내를 보여준다", async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+    mockUpdateUser.mockResolvedValue({
+      error: {
+        code: "weak_password",
+        name: "AuthWeakPasswordError",
+        reasons: ["pwned"],
+      },
+    });
+    renderResetPassword(
+      "/login/reset-password?token_hash=abc123&type=recovery",
+    );
+
+    await fillAndSubmitPassword();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText("새 비밀번호")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it("새 비밀번호 입력칸을 벗어났을 때 유출된 비밀번호면 그 칸 아래에 안내를 보여준다", async () => {
     mockCheckPwnedPassword.mockResolvedValue("pwned");
     renderResetPassword(
