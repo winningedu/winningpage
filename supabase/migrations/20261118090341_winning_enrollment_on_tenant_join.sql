@@ -454,3 +454,71 @@ $_$;
 
 comment on function public.complete_signup_profile(text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, boolean, text, boolean, text, date, text, text) is
   '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않는다. 20261118.';
+
+-- fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 소속을 정한 뒤 학급 없는 학적을 만드는 블록만 더했다.
+-- 반환 모양은 그대로다. 이미 소속이 있으면 위에서 WC071 로 끝나므로 재호출로 학적이 겹치지 않고,
+-- 올해 학적이 어디에든 이미 있으면 만들지 않는다.
+create or replace function public.fn_set_my_tenant(p_code text)
+ RETURNS TABLE(tenant_id uuid, name text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_caller   uuid := auth.uid();
+  v_existing uuid;
+  v_id       uuid;
+  v_grade    text;
+begin
+  if v_caller is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  select p.tenant_id into v_existing from public.profiles p where p.id = v_caller;
+
+  if v_existing is not null then
+    raise exception 'tenant_already_set' using errcode = 'WC071';
+  end if;
+
+  -- 코드 정규화, 레이트리밋(WC068)은 fn_resolve_tenant_code 가 담당한다.
+  -- 못 찾으면 NULL. 여기서 raise 하면 그 함수가 남긴 실패 기록이 같이
+  -- 롤백돼 리밋이 무력화되므로, 0행을 돌려주고 "없는 코드" 표기는 프론트
+  -- 몫으로 둔다.
+  v_id := public.fn_resolve_tenant_code(p_code);
+
+  if v_id is null then
+    return;
+  end if;
+
+  perform public.fn_qa_assert_tenant_join(v_caller, v_id);
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+
+  update public.profiles
+     set tenant_id  = v_id,
+         updated_at = now()
+   where id = v_caller;
+
+  -- 학생이면 선생님 화면이 읽는 학적을 만든다(학급과 번호 없이, 학년은 중1~고3 일 때만).
+  if exists (select 1 from public.profiles pr where pr.id = v_caller and pr.member_type = 'student')
+     and not exists (
+       select 1
+         from public.student_enrollments e
+         join public.tenants t on t.id = v_id
+        where e.student_id = v_caller
+          and e.school_year = t.school_year
+     ) then
+    select sp.grade into v_grade from public.student_profiles sp where sp.profile_id = v_caller;
+    v_grade := case
+      when v_grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']) then v_grade
+    end;
+    perform public.fn_enrollment_join(v_caller, v_id, v_grade, null, null, null);
+  end if;
+
+  return query
+    select t.id, t.name from public.tenants t where t.id = v_id;
+end;
+$function$;
+
+comment on function public.fn_set_my_tenant(text) is
+  '로그인 회원이 스스로 소속 코드를 입력해 profiles.tenant_id 를 세팅한다. 이미 소속이 설정돼 있으면 WC071(재설정은 어드민 경로 fn_admin_set_profile_tenant). 코드 판정은 fn_resolve_tenant_code 재사용(시도 초과 WC068). 없는 코드면 raise 하지 않고 0행을 돌려준다. raise 하면 실패 기록이 롤백돼 리밋이 무력화되기 때문이며, "없는 코드" 안내는 프론트가 0행을 보고 한다. fn_profiles_lock_tenant 트리거를 통과시키려고 update 직전 app.tenant_set_via_rpc 를 켠다. 학생이면 같은 트랜잭션에서 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 20261118.';

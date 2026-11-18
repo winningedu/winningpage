@@ -161,4 +161,24 @@ set local role authenticated;
 reset role;
 select pg_temp.expect_text('학부모는 소속이 있어도 학적 없음', pg_temp.enr('p1'), '0:null:none');
 
+-- ---------------------------------------------------------------------
+-- 5. 가입 뒤 소속 코드를 입력하면(fn_set_my_tenant) 학생에게 같은 학적이 생긴다
+-- ---------------------------------------------------------------------
+select pg_temp.mk_signup_student('c1', '고3');
+update public.profiles set member_type = 'student' where id = pg_temp.fx('c1');
+select pg_temp.as_user(pg_temp.fx('c1'));
+set local role authenticated;
+select count(*) as n from public.fn_set_my_tenant('WEAAAAAA') \gset
+reset role;
+select pg_temp.expect_text('소속 코드 입력 = 반환 1행', :'n', '1');
+select pg_temp.expect_text('소속 코드 입력 = 학적 1건, 학년 고3, 학급 없음', pg_temp.enr('c1'), '1:고3:true');
+
+select pg_temp.mk_signup_student('c_par', null);
+update public.profiles set member_type = 'parent' where id = pg_temp.fx('c_par');
+select pg_temp.as_user(pg_temp.fx('c_par'));
+set local role authenticated;
+select count(*) as n from public.fn_set_my_tenant('WEAAAAAA') \gset
+reset role;
+select pg_temp.expect_text('학부모 소속 코드 입력 = 학적 없음', pg_temp.enr('c_par'), '0:null:none');
+
 rollback;
