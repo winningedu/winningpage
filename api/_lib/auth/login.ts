@@ -182,18 +182,10 @@ export async function attemptLogin(
     p_pair_hash: pairHashParam(accountKey, input.ip),
   };
 
-  let { data, error: beginError } = await admin.rpc(
+  const { data, error: beginError } = await admin.rpc(
     "fn_login_lock_begin",
     hashes,
   );
-  // 배포 겹침 대비(임시): DB push 와 앱 배포가 함께 돌아 새 함수가 아직 없으면(PGRST202) 옛
-  // fn_login_attempt_begin/end(계정 열쇠만, 5회)로 센다. 옛 함수를 지우는 마이그레이션과 함께 이 분기를 지운다.
-  const legacy = beginError?.code === "PGRST202";
-  if (legacy) {
-    ({ data, error: beginError } = await admin.rpc("fn_login_attempt_begin", {
-      p_hash: hashes.p_account_hash,
-    }));
-  }
   const begin = (
     data as
       | {
@@ -208,20 +200,14 @@ export async function attemptLogin(
 
   // error 는 begin 이 돌려준 번호로 이번 시도를 취소한다.
   const end = (p_outcome: "success" | "invalid" | "error") =>
-    legacy
-      ? admin.rpc("fn_login_attempt_end", {
-          p_hash: hashes.p_account_hash,
-          p_outcome,
-          ...(p_outcome === "error" && { p_attempt_no: begin.attempt_no }),
-        })
-      : admin.rpc("fn_login_lock_end", {
-          ...hashes,
-          p_outcome,
-          ...(p_outcome === "error" && {
-            p_attempt_no: begin.attempt_no,
-            p_account_attempt_no: begin.account_attempt_no,
-          }),
-        });
+    admin.rpc("fn_login_lock_end", {
+      ...hashes,
+      p_outcome,
+      ...(p_outcome === "error" && {
+        p_attempt_no: begin.attempt_no,
+        p_account_attempt_no: begin.account_attempt_no,
+      }),
+    });
 
   if (begin.outcome === "locked") {
     return {

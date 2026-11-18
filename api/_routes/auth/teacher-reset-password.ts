@@ -19,6 +19,11 @@ import {
   isValidMobile,
   normalizePhone,
 } from "../../_lib/phoneCode.js";
+import {
+  isPwnedAuthError,
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "../../_lib/pwnedPassword.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
 
 export const config = { runtime: "nodejs" };
@@ -174,6 +179,16 @@ export default defineHandler({
           "[auth/teacher-reset-password] 인증 선점 해제 실패:",
           releaseError,
         );
+      }
+      if (isPwnedAuthError(authError)) {
+        sendError(
+          res,
+          "coded",
+          400,
+          PWNED_PASSWORD_MESSAGE,
+          PASSWORD_PWNED_CODE,
+        );
+        return;
       }
       sendError(
         res,

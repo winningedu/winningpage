@@ -22,14 +22,19 @@
 //   나간다. Supabase 대시보드에서 그 템플릿도 {{ .Token }}을 쓰도록 고쳐두지
 //   않으면 이 경로에서만 매직링크가 발송된다.
 //
-// 비밀번호는 언제 계정에 반영되나 (2026-08-07 변경)
+// 비밀번호는 언제 계정에 반영되나 (2026-08-07 변경, 2026-11-18 다시 변경)
 //   예전에는 "비밀번호를 먼저 입력해야 이메일 인증 버튼이 열리는" 구조였다.
 //   signUp이 비밀번호를 요구하기 때문인데, 화면 순서상 비밀번호 필드가 이메일
 //   아래에 있어서 사용자가 아래로 내려갔다 되돌아와야 했다.
-//   이제는 발송 시점에 비밀번호가 없으면 임시 비밀번호로 계정을 만들고, 가입
-//   완료 직전(applySignupPassword)에 폼에 입력된 실제 비밀번호로 덮어쓴다.
-//   그래서 **가입을 끝내는 화면은 반드시 applySignupPassword를 호출해야 한다** —
-//   호출하지 않으면 계정에 임시 비밀번호가 남아 로그인이 불가능해진다.
+//   그래서 발송 시점에는 임시 비밀번호로 계정을 만들고, 가입 완료 직전
+//   (applySignupPassword)에 폼에 입력된 실제 비밀번호로 덮어쓴다.
+//
+//   2026-11-18부터는 폼에 비밀번호가 있어도 이메일 단계는 항상 임시 비밀번호를
+//   쓴다. 유출된 비밀번호(leaked password protection)를 Supabase가 거부하는데,
+//   그 거부가 이메일 인증 단계에서 나면 사용자가 비밀번호를 고칠 길이 막힌다.
+//   그래서 **모든 경로에서 가입을 끝내는 화면은 반드시 applySignupPassword를
+//   호출해야 한다**. 호출하지 않으면 계정에 임시 비밀번호가 남아 로그인이
+//   불가능해진다.
 
 import { clearAllDrafts } from "./diagnosisDraft";
 import { supabase } from "./supabase";
@@ -147,9 +152,6 @@ function generateTempPassword() {
 type SendSignupEmailCodeParams = {
   /** 정규화된(소문자·trim) 이메일 */
   email: string;
-  /** 폼에 입력된 비밀번호. 비어 있으면 임시 비밀번호로 계정을 만들고, 실제 값은
-   *  applySignupPassword가 채운다. */
-  password?: string;
   name: string;
   /** 'student' | 'parent' | 'mentor' */
   memberType: string;
@@ -161,7 +163,6 @@ type SendSignupEmailCodeParams = {
  */
 export async function sendSignupEmailCode({
   email,
-  password,
   name,
   memberType,
 }: SendSignupEmailCodeParams): Promise<{
@@ -218,8 +219,8 @@ export async function sendSignupEmailCode({
     // 미확인 계정에 대한 signUp 재호출은 확인메일을 다시 보낸다.
     const { error } = await supabase.auth.signUp({
       email,
-      // 비밀번호 입력 여부와 무관하게 인증을 진행시키기 위한 임시값(파일 상단 주석).
-      password: password || generateTempPassword(),
+      // 항상 임시값이다. 실제 비밀번호는 applySignupPassword가 가입 완료 직전에 넣는다(파일 상단 주석).
+      password: generateTempPassword(),
       options: {
         data: {
           email,
@@ -310,12 +311,13 @@ export async function verifySignupEmailCode({
  * 발송 시점에는 임시 비밀번호였을 수도, 이어가기라면 이전 시도의 비밀번호가
  * 남아 있을 수도 있다. 어느 쪽이든 여기서 사용자가 실제로 입력한 값으로 맞춘다.
  * 이 호출을 빠뜨리면 사용자가 방금 정한 비밀번호로 로그인할 수 없다.
- *
+ * 이메일 단계는 항상 임시 비밀번호를 쓰므로 비어 있으면 계정이 알 수 없는
+ * 임의 비밀번호로 남는다. 그래서 빈 값은 오류로 돌려준다.
  */
 export async function applySignupPassword(
   password: string | null | undefined,
 ): Promise<{ ok?: boolean; error?: Error }> {
-  if (!password) return { ok: true };
+  if (!password) return { error: new Error("비밀번호가 비어 있습니다.") };
 
   const { error } = await supabase.auth.updateUser({ password });
 

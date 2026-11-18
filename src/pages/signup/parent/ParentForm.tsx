@@ -26,6 +26,7 @@ import {
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import {
@@ -37,6 +38,10 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import {
   applySignupPassword,
   MESSAGES as EMAIL_MESSAGES,
@@ -167,6 +172,7 @@ export default function ParentForm() {
     status: "default",
   });
   const [passwordError, setPasswordError] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -313,9 +319,9 @@ export default function ParentForm() {
       return;
     }
 
-    // 비밀번호는 여기서 요구하지 않는다. 비어 있으면 임시 비밀번호로 계정이
-    // 만들어지고, 실제 값은 가입 완료 직전 applySignupPassword가 채운다
-    // (src/lib/signupEmailAuth.js).
+    // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
+    // 쓰고, 실제 값은 가입 완료 직전 applySignupPassword가 설정한다
+    // (src/lib/signupEmailAuth.ts).
     if (emailCooldown.active) {
       setEmailMessage({
         text: EMAIL_MESSAGES.cooldown(emailCooldown.remaining),
@@ -333,7 +339,6 @@ export default function ParentForm() {
     try {
       const { state, mode, resumed, error } = await sendSignupEmailCode({
         email: normalizedEmail,
-        password: formData.password,
         name: formData.name.trim(),
         memberType: "parent",
       });
@@ -381,6 +386,7 @@ export default function ParentForm() {
 
   function handlePasswordChange(value: string) {
     updateFormData({ password: value });
+    pwnedCheck.reset();
     if (!value) {
       setPasswordError("");
     } else if (!PASSWORD_REGEX.test(value)) {
@@ -390,14 +396,18 @@ export default function ParentForm() {
     }
   }
 
-  const passwordStatus = !formData.password
-    ? "default"
-    : passwordError
-      ? "error"
-      : "success";
-  const passwordHelper = !formData.password
-    ? "영문/숫자/특수문자 포함 6자 이상"
-    : passwordError || "영문/숫자/특수문자 포함 6자 이상";
+  const passwordStatus = pwnedCheck.pwned
+    ? "error"
+    : !formData.password
+      ? "default"
+      : passwordError
+        ? "error"
+        : "success";
+  const passwordHelper = pwnedCheck.pwned
+    ? PWNED_PASSWORD_MESSAGE
+    : !formData.password
+      ? "영문/숫자/특수문자 포함 6자 이상"
+      : passwordError || "영문/숫자/특수문자 포함 6자 이상";
 
   // T8(QA 2026-08-22): 생년월일 8자리 실시간 검증 — StudentBirth.tsx가 쓰는
   // isValidBirthDate(src/lib/validators)를 그대로 재사용해 두 화면의 판정이 갈리지
@@ -461,6 +471,9 @@ export default function ParentForm() {
     setFormError("");
 
     try {
+      // 입력칸을 벗어날 때 확인하지 않았다면 여기서 확인한다(조회 실패는 막지 않는다).
+      if (await pwnedCheck.ensureChecked(formData.password)) return;
+
       // 이메일 OTP 검증 직후라 세션이 있어야 한다. 확인하지 않고 RPC를 부르면
       // not_authenticated만 보고 원인을 짐작해야 한다.
       const { data: userData, error: getUserError } =
@@ -487,6 +500,11 @@ export default function ParentForm() {
       );
 
       if (passwordError) {
+        if (isPwnedPasswordError(passwordError)) {
+          pwnedCheck.markPwned();
+          return;
+        }
+
         setFormError(
           "비밀번호 설정에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         );
@@ -762,6 +780,11 @@ export default function ParentForm() {
           type="password"
           value={formData.password}
           onChange={handlePasswordChange}
+          onBlur={() => {
+            if (PASSWORD_REGEX.test(formData.password)) {
+              pwnedCheck.checkOnBlur(formData.password);
+            }
+          }}
           placeholder="비밀번호를 입력 해주세요"
           helperText={passwordHelper}
           status={passwordStatus}

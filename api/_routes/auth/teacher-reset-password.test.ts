@@ -273,6 +273,29 @@ describe("POST /api/auth/teacher-reset-password", () => {
     expect(kit.state.inserts).toEqual([]);
   });
 
+  test("유출된 비밀번호면 선점한 인증을 되돌리고 400 PASSWORD_PWNED 를 돌려주며 이후 단계를 하지 않는다", async () => {
+    kit.state.auth.updateUserById.mockResolvedValueOnce({
+      data: null,
+      error: { code: "weak_password", reasons: ["pwned"] },
+    });
+
+    const r = await post({ loginId: LOGIN_ID, phone: PHONE, password: PW });
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({
+      error: {
+        code: "PASSWORD_PWNED",
+        message: "유출된 적 있는 비밀번호예요. 다른 비밀번호를 입력해 주세요.",
+      },
+    });
+    expect(kit.state.updates.map((u) => u.values)).toEqual([
+      { consumed_at: expect.any(String) },
+      { consumed_at: null },
+    ]);
+    expect(kit.state.deletes).toEqual([]);
+    expect(kit.state.inserts).toEqual([]);
+  });
+
   test("선점 UPDATE 가 0행이면(동시에 다른 요청이 사용) VERIFICATION_EXPIRED 이고 비밀번호를 바꾸지 않는다", async () => {
     kit.state.rows.phone_verifications = (f) =>
       f.id ? [] : { id: "v1", verified_at: new Date().toISOString() };

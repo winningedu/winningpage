@@ -17,6 +17,11 @@ import {
 import { defineHandler } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { getClientIp } from "../../_lib/phoneCode.js";
+import {
+  isPwnedAuthError,
+  PASSWORD_PWNED_CODE,
+  PWNED_PASSWORD_MESSAGE,
+} from "../../_lib/pwnedPassword.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -107,6 +112,10 @@ export default defineHandler({
       ctx.userId as string,
       { password: newPassword },
     );
+    if (updateError && isPwnedAuthError(updateError)) {
+      sendError(res, "coded", 400, PWNED_PASSWORD_MESSAGE, PASSWORD_PWNED_CODE);
+      return;
+    }
     if (updateError) throw new Error("password update failed");
 
     const { error: stampError } = await admin.rpc("fn_teacher_password_set", {

@@ -27,6 +27,7 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 
 import { hashParam } from "../_lib/auth/login.js";
+import { PWNED_PASSWORD_MESSAGE } from "../_lib/pwnedPassword.js";
 import handler from "./reset-password-by-phone.js";
 
 let db: FakeDb;
@@ -338,6 +339,27 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
 
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
+    expect(verification()?.consumed_at).toBeNull();
+    expect(state.signIn).not.toHaveBeenCalled();
+  });
+
+  test("유출된 비밀번호로 거부되면 400 password_pwned 이고 선점한 인증을 되돌린다", async () => {
+    (
+      state.db as {
+        auth: { admin: { updateUserById: () => Promise<unknown> } };
+      }
+    ).auth.admin.updateUserById = async () => ({
+      error: { code: "weak_password", reasons: ["pwned"] },
+    });
+
+    const res = await reset({ password: NEW_PASSWORD });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      ok: false,
+      reason: "password_pwned",
+      detail: PWNED_PASSWORD_MESSAGE,
+    });
     expect(verification()?.consumed_at).toBeNull();
     expect(state.signIn).not.toHaveBeenCalled();
   });

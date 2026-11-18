@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import MyPageModalShell from "./MyPageModalShell";
 
@@ -47,15 +52,18 @@ export default function ChangePasswordModal({
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
+  const { reset: resetPwned, ensureChecked, markPwned } = pwnedCheck;
 
   useEffect(() => {
     if (!open) return;
+    resetPwned();
     setStep("form");
     setCurrent("");
     setNext("");
     setSaving(false);
     setErrorMsg("");
-  }, [open]);
+  }, [open, resetPwned]);
 
   const nextValid = PASSWORD_REGEX.test(next);
   const canProceed = current.length > 0 && nextValid && !saving;
@@ -64,6 +72,14 @@ export default function ChangePasswordModal({
     if (saving) return;
     setSaving(true);
     setErrorMsg("");
+
+    // 0) 유출 여부 사전 확인. 현재 비밀번호 확인보다 먼저 해서, 유출된 비밀번호로
+    //    시도하다 현재 비밀번호 시도 횟수만 쓰는 일이 없게 한다.
+    if (await ensureChecked(next)) {
+      setSaving(false);
+      setStep("form");
+      return;
+    }
 
     // 1) 현재 비밀번호 확인(위 주석 참고).
     //
@@ -117,7 +133,10 @@ export default function ChangePasswordModal({
       // 키워드로만 구분한다. 실제 문구는 "New password should be different from
       // the old password." 라 'same' 만 보면 걸리지 않는다 — 두 표현을 함께 본다.
       const raw = error.message || "";
-      if (/same|different from the old/i.test(raw)) {
+      if (isPwnedPasswordError(error)) {
+        // 안내는 새 비밀번호 칸 아래에 보인다(사전 확인이 놓친 경우).
+        markPwned();
+      } else if (/same|different from the old/i.test(raw)) {
         setErrorMsg("기존과 다른 비밀번호를 입력해주세요.");
       } else if (error.status === 429) {
         setErrorMsg("시도가 너무 많았어요. 잠시 후 다시 시도해 주세요.");
@@ -145,7 +164,7 @@ export default function ChangePasswordModal({
     setSaving(false);
     setStep("done");
     onChanged?.();
-  }, [saving, email, current, next, onChanged]);
+  }, [saving, email, current, next, onChanged, ensureChecked, markPwned]);
 
   if (!open) return null;
 
@@ -269,16 +288,22 @@ export default function ChangePasswordModal({
             onChange={(e) => {
               setNext(e.target.value);
               setErrorMsg("");
+              pwnedCheck.reset();
+            }}
+            onBlur={() => {
+              if (nextValid) pwnedCheck.checkOnBlur(next);
             }}
             placeholder="새 비밀번호 입력"
             className={`mt-2 ${FIELD_CLASS}`}
           />
           <span
             className={`mt-2 block text-[0.75rem] ${
-              next && !nextValid ? "text-error" : "text-ink-sub"
+              pwnedCheck.pwned || (next && !nextValid)
+                ? "text-error"
+                : "text-ink-sub"
             }`}
           >
-            {PASSWORD_HINT}
+            {pwnedCheck.pwned ? PWNED_PASSWORD_MESSAGE : PASSWORD_HINT}
           </span>
         </label>
 

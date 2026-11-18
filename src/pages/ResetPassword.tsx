@@ -29,7 +29,12 @@ import {
   PrimaryButton,
   TextField,
 } from "@/components/auth";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { clearAllDrafts } from "@/lib/diagnosisDraft";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
@@ -80,6 +85,7 @@ export default function ResetPassword() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const pwnedCheck = usePwnedPasswordCheck();
 
   useEffect(() => {
     readyRef.current = ready;
@@ -140,6 +146,9 @@ export default function ResetPassword() {
     setSubmitting(true);
 
     try {
+      // 토큰을 쓰기 전에 확인한다. 유출된 비밀번호로 링크를 소모하지 않게 한다.
+      if (await pwnedCheck.ensureChecked(password)) return;
+
       if (isTokenHashMode) {
         // 사용자가 실제로 제출하는 이 순간에만 토큰을 소모한다 — 마운트
         // 시점에 미리 소모하면 메일 보안 스캐너가 링크를 먼저 열었을 때
@@ -166,6 +175,11 @@ export default function ResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
+        // 사전 확인이 놓친 경우(조회 실패 등) 저장 때 Supabase가 거절한다.
+        if (isPwnedPasswordError(error)) {
+          pwnedCheck.markPwned();
+          return;
+        }
         // supabase 에러는 영문 원문이라 그대로 내보내면 안 된다(실동작 QA
         // 2026-08-23 — "New password should be different from the old password."
         // 가 노출됐다). 사용자가 실제로 만나는 코드만 한글로 매핑하고, 나머지는
@@ -275,15 +289,27 @@ export default function ResetPassword() {
           name="password"
           type="password"
           value={password}
-          onChange={setPassword}
+          onChange={(value) => {
+            setPassword(value);
+            pwnedCheck.reset();
+          }}
+          onBlur={() => {
+            if (passwordValid) pwnedCheck.checkOnBlur(password);
+          }}
           placeholder="새 비밀번호를 입력해 주세요"
-          helperText="영문/숫자/특수문자 포함 6자 이상"
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : "영문/숫자/특수문자 포함 6자 이상"
+          }
           status={
-            passwordValid === null
-              ? "default"
-              : passwordValid
-                ? "success"
-                : "error"
+            pwnedCheck.pwned
+              ? "error"
+              : passwordValid === null
+                ? "default"
+                : passwordValid
+                  ? "success"
+                  : "error"
           }
           autoComplete="new-password"
           required

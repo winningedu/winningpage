@@ -37,6 +37,7 @@ import {
 } from "@/components/auth";
 import { site } from "@/config/site";
 import { useCooldown } from "@/hooks/useCooldown";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
 import { isRateLimited, isServerFailure } from "@/lib/authErrors";
 import {
@@ -46,6 +47,7 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import { supabase } from "@/lib/supabase";
 import { isValidPassword } from "./signup/StudentForm";
 import { INFO_MESSAGES } from "./signup/school/copy";
@@ -72,6 +74,7 @@ type PhoneResetResult =
   | { kind: "changed" }
   | { kind: "changed_revoke_failed"; message: string }
   | { kind: "expired"; message: string }
+  | { kind: "pwned" }
   | { kind: "not_found" }
   | {
       kind: "choose_account";
@@ -130,6 +133,8 @@ async function requestPhoneReset(
       if (response.status === 401 && payload.reason === "phone_not_verified") {
         return { kind: "expired", message: payload.detail };
       }
+      // 정한 비밀번호가 유출 목록에 있다. 새 비밀번호 칸에 안내를 보여준다.
+      if (payload.reason === "password_pwned") return { kind: "pwned" };
       // 비밀번호는 바뀌었지만 다른 기기 로그아웃에 실패했다. 다시 시도할 오류가 아니라 바뀐 것으로 다룬다.
       if (payload.reason === "revoke_failed") {
         return { kind: "changed_revoke_failed", message: payload.detail };
@@ -303,6 +308,7 @@ export default function FindPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [formError, setFormError] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
 
   async function requestPhoneCode() {
     if (!isValidMobile(phone)) {
@@ -417,14 +423,19 @@ export default function FindPassword() {
       setPhoneCode("");
       setNewPassword("");
       setNewPasswordConfirm("");
+      pwnedCheck.reset();
       setPhoneMessage({ text: "", status: "default" });
       setFormError(result.message);
+      return;
+    }
+    if (result.kind === "pwned") {
+      pwnedCheck.markPwned();
       return;
     }
     setResetResult(result);
   }
 
-  function submitNewPassword() {
+  async function submitNewPassword() {
     if (!isValidPassword(newPassword)) {
       setFormError(INFO_MESSAGES.passwordRule);
       return;
@@ -436,6 +447,11 @@ export default function FindPassword() {
 
     setFormError("");
     setResetting(true);
+    if (await pwnedCheck.ensureChecked(newPassword)) {
+      setResetting(false);
+      return;
+    }
+
     setResetResult(null);
 
     requestPhoneReset(phone, undefined, newPassword).then(showResetResult);
@@ -606,8 +622,20 @@ export default function FindPassword() {
                   name="password"
                   type="password"
                   value={newPassword}
-                  onChange={setNewPassword}
-                  helperText={INFO_MESSAGES.passwordRule}
+                  onChange={(value) => {
+                    setNewPassword(value);
+                    pwnedCheck.reset();
+                  }}
+                  onBlur={() => {
+                    if (isValidPassword(newPassword))
+                      pwnedCheck.checkOnBlur(newPassword);
+                  }}
+                  helperText={
+                    pwnedCheck.pwned
+                      ? PWNED_PASSWORD_MESSAGE
+                      : INFO_MESSAGES.passwordRule
+                  }
+                  status={pwnedCheck.pwned ? "error" : "default"}
                   autoComplete="new-password"
                   required
                 />

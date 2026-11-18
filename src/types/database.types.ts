@@ -8962,18 +8962,6 @@ export type Database = {
         }[];
       };
       fn_kst_day_start: { Args: { p_ts: string }; Returns: string };
-      fn_login_attempt_begin: {
-        Args: { p_hash: string };
-        Returns: {
-          attempt_no: number;
-          outcome: string;
-          retry_after_s: number;
-        }[];
-      };
-      fn_login_attempt_end: {
-        Args: { p_attempt_no?: number; p_hash: string; p_outcome: string };
-        Returns: undefined;
-      };
       fn_login_lock_begin: {
         Args: { p_account_hash: string; p_pair_hash: string };
         Returns: {
