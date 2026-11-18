@@ -35,10 +35,10 @@ describe("checkPwnedPassword", () => {
 
     await expect(checkPwnedPassword("password")).resolves.toBe("pwned");
 
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`https://api.pwnedpasswords.com/range/${PREFIX}`);
-    expect(init.headers).toEqual({ "Add-Padding": "true" });
-    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init?.headers).toEqual({ "Add-Padding": "true" });
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   test("COUNT 0 인 줄은 응답 크기를 맞추는 가짜라 유출이 아니다", async () => {
