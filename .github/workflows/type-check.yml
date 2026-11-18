@@ -1,8 +1,17 @@
 name: Type Check
 
+# 같은 코드 트리가 릴리스 한 번에 최대 3번 검사된다: (1) 작업 브랜치에서 dev PR,
+# (2) dev 에서 main PR, (3) main push. pr-merge.sh 는 베이스가 헤드의 조상일 때만
+# 머지하므로 세 번 모두 검사 대상 트리가 같다.
+# 그래서 같은 워크플로가 이 트리를 이미 끝까지 통과했으면 무거운 잡을 건너뛴다.
+# 건너뛰는 게 안전한 이유: 통과 기록(아티팩트)은 모든 잡이 이 트리에서 성공한 뒤에만 만들어진다.
+# 건너뛴 잡은 Success 로 보고돼 머지를 막지 않는다(paths 필터는 Pending 으로 남아서 쓰지 않는다).
+# 조회가 실패하면 전부 실행한다(fail open). 수동(workflow_dispatch)과 예약 실행은 항상 전부 돈다.
+#
 # dev push 에서는 돌지 않는다. dev 에 들어오는 코드는 PR 에서 이미 같은 트리로
 # 검사했고(pr-merge.sh 가 조상 검사와 체크 통과를 강제), main 을 dev 에 합친 push 는
-# 배포 PR(dev 에서 main)이 검사한다. main push 는 마지막 확인으로 남긴다.
+# 배포 PR(dev 에서 main)이 검사한다. main push 는 마지막 확인으로 남기되, 같은 트리를
+# 이미 통과했으면 위 규칙대로 건너뛴다.
 on:
   pull_request:
     branches: [dev, main]
@@ -15,8 +24,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 같은 트리를 이미 통과했는지 확인한다. 통과한 실행이 남긴 아티팩트
+  # (tested-tree-type-check-<트리 해시>)가 있으면 skip=true 로 무거운 잡을 건너뛴다.
+  # 조회가 실패하거나 수동, 예약 실행이면 skip=false 로 전부 돌린다.
+  same-tree:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.lookup.outputs.skip }}
+      tree: ${{ steps.lookup.outputs.tree }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Look up tested tree
+        id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          tree=$(git rev-parse 'HEAD^{tree}')
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          name="tested-tree-type-check-$tree"
+          skip=false
+          run_id=""
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$EVENT_NAME" = "schedule" ]; then
+            reason="수동 또는 예약 실행이라 항상 전부 실행"
+          elif json=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$name&per_page=10"); then
+            count=$(jq '[.artifacts[] | select(.expired == false)] | length' <<<"$json")
+            if [ "$count" -ge 1 ] 2>/dev/null; then
+              skip=true
+              run_id=$(jq -r '[.artifacts[] | select(.expired == false)][0].workflow_run.id' <<<"$json")
+              reason="같은 트리를 통과한 실행이 있음"
+            else
+              reason="같은 트리를 통과한 기록이 없음"
+            fi
+          else
+            reason="아티팩트 조회 실패, 안전하게 전부 실행"
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          msg="skip=$skip tree=$tree ($reason)"
+          [ -n "$run_id" ] && msg="$msg, 통과한 실행 run_id=$run_id"
+          echo "$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
   # 정적 검사(tsc 3개, biome). 테스트 잡과 동시에 돈다.
   static:
+    needs: same-tree
+    if: needs.same-tree.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -49,6 +104,8 @@ jobs:
   # type-coverage 는 타입 검사를 처음부터 다시 해서 38초에서 70초가 걸린다.
   # static 잡에 두면 그 잡이 가장 늦게 끝나므로 따로 떼어 동시에 돌린다.
   type-coverage:
+    needs: same-tree
+    if: needs.same-tree.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -73,6 +130,8 @@ jobs:
   # 묶음마다 따로 통과와 실패를 판정하므로 한 묶음이라도 실패하면 PR 체크가 실패한다.
   # fail-fast 를 꺼서 한 번 실행에 모든 묶음의 실패를 다 본다.
   test:
+    needs: same-tree
+    if: needs.same-tree.outputs.skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -91,3 +150,23 @@ jobs:
 
       - name: vitest run (${{ matrix.shard }}/4)
         run: npm test -- --shard=${{ matrix.shard }}/4
+
+  # 위 잡이 전부 성공했을 때만 이 트리의 통과 기록을 남긴다. 건너뛴 실행은 기록하지 않는다.
+  record-tree:
+    needs: [same-tree, static, type-coverage, test]
+    if: needs.same-tree.outputs.skip != 'true' && success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Write tested tree
+        env:
+          TREE: ${{ needs.same-tree.outputs.tree }}
+        run: echo "$TREE" > tested-tree.txt
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: tested-tree-type-check-${{ needs.same-tree.outputs.tree }}
+          path: tested-tree.txt
+          retention-days: 14
+          if-no-files-found: error
