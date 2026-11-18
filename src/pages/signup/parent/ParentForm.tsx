@@ -319,8 +319,8 @@ export default function ParentForm() {
       return;
     }
 
-    // 비밀번호는 여기서 요구하지 않는다. 비어 있으면 임시 비밀번호로 계정이
-    // 만들어지고, 실제 값은 가입 완료 직전 applySignupPassword가 채운다
+    // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
+    // 쓰고, 실제 값은 가입 완료 직전 applySignupPassword가 설정한다
     // (src/lib/signupEmailAuth.js).
     if (emailCooldown.active) {
       setEmailMessage({

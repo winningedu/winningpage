@@ -356,9 +356,9 @@ export default function Under14Form() {
       status: "default",
     });
 
-    // 비밀번호는 여기서 요구하지 않는다. 비어 있으면 임시 비밀번호로 계정이
-    // 만들어지고, 실제 값은 가입을 끝내는 시점에 applySignupPassword가 채운다
-    // (src/lib/signupEmailAuth.js — handleNext에서 호출한다).
+    // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
+    // 쓰고, 실제 값은 가입을 끝내는 시점에 applySignupPassword가 설정한다
+    // (src/lib/signupEmailAuth.js, handleNext에서 호출한다).
     const { state, mode, resumed, error } = await sendSignupEmailCode({
       email: normalizedEmail,
       name: formData.name.trim(),
