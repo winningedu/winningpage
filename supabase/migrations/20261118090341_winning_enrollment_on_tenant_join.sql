@@ -3,7 +3,9 @@
 --
 -- 1) complete_signup_profile: 20261110033000 본문 그대로, 학생이고 소속이 있으면 학급 없는 학적을 만드는 블록만 더했다.
 -- 2) fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 같은 학적을 만든다.
--- 3) fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때 올해 학적을 지운다.
+-- 3) fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때 올해 활성 학적을 지우고 이력으로 남기며,
+--    소속을 정할 때는 학적을 함께 만든다(올해 학적이 다른 기관에 있으면 WC100, 그 경우는 fn_admin_move_student_tenant 를 쓴다).
+-- 학적 만들기는 그 기관의 올해 학적이 같은 기관에 이미 있으면 건드리지 않고, 다른 기관에 있으면 WC100(other_tenant_enrollment)으로 막는다.
 -- 소유자, 권한은 create or replace 가 그대로 유지한다. 시그니처는 바뀌지 않는다.
 
 CREATE OR REPLACE FUNCTION "public"."complete_signup_profile"("p_name" "text", "p_username" "text", "p_phone" "text", "p_email" "text", "p_region" "text", "p_school_type" "text", "p_school_name" "text", "p_member_type" "text", "p_terms_service_agreed" boolean, "p_privacy_required_agreed" boolean, "p_identity_required_agreed" boolean, "p_privacy_optional_agreed" boolean, "p_marketing_agreed" boolean, "p_ads_agreed" boolean, "p_guardian_phone" "text" DEFAULT NULL::"text", "p_guardian_consent" boolean DEFAULT false, "p_identity_request_id" "text" DEFAULT NULL::"text", "p_birth_date" "date" DEFAULT NULL::"date", "p_gender" "text" DEFAULT NULL::"text", "p_org_code" "text" DEFAULT NULL::"text") RETURNS "jsonb"
@@ -41,6 +43,7 @@ declare
   v_signup_enabled boolean;
   v_enroll_tenant  uuid;
   v_enroll_grade   text;
+  v_enroll_year    smallint;
 begin
   v_user_id := auth.uid();
 
@@ -422,16 +425,24 @@ begin
   -- 위닝 가입 학생도 스쿨멘토 선생님 화면이 읽는 학적(student_enrollments)을 갖는다.
   -- 소속은 방금 저장한 profiles.tenant_id 로 본다(재호출에서 기존 소속이 유지될 수 있다).
   -- 학급과 번호는 없이 만들고, 학년은 student_profiles.grade 가 중1~고3 일 때만 쓴다.
-  -- 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않는다. fn_enrollment_join 은 그 경우 이력만 늘리거나 WC079 를 낸다.
+  -- 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막아 소속과 학적이 갈라지지 않게 한다.
   if v_member_type = 'student' then
     select pr.tenant_id into v_enroll_tenant from public.profiles pr where pr.id = v_user_id;
 
+    if v_enroll_tenant is not null then
+      select t.school_year into v_enroll_year from public.tenants t where t.id = v_enroll_tenant;
+
+      if exists (
+        select 1 from public.student_enrollments e
+         where e.student_id = v_user_id and e.school_year = v_enroll_year and e.tenant_id <> v_enroll_tenant
+      ) then
+        raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+      end if;
+    end if;
+
     if v_enroll_tenant is not null and not exists (
-      select 1
-        from public.student_enrollments e
-        join public.tenants t on t.id = v_enroll_tenant
-       where e.student_id = v_user_id
-         and e.school_year = t.school_year
+      select 1 from public.student_enrollments e
+       where e.student_id = v_user_id and e.school_year = v_enroll_year and e.tenant_id = v_enroll_tenant
     ) then
       select sp.grade into v_enroll_grade from public.student_profiles sp where sp.profile_id = v_user_id;
       v_enroll_grade := case
@@ -453,11 +464,11 @@ end;
 $_$;
 
 comment on function public.complete_signup_profile(text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, boolean, text, boolean, text, date, text, text) is
-  '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않는다. 20261118.';
+  '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막는다. 20261118.';
 
 -- fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 소속을 정한 뒤 학급 없는 학적을 만드는 블록만 더했다.
--- 반환 모양은 그대로다. 이미 소속이 있으면 위에서 WC071 로 끝나므로 재호출로 학적이 겹치지 않고,
--- 올해 학적이 어디에든 이미 있으면 만들지 않는다.
+-- 반환 모양은 그대로다. 이미 소속이 있으면 위에서 WC071 로 끝나므로 재호출로 학적이 겹치지 않는다.
+-- 올해 학적이 같은 기관에 이미 있으면 만들지 않고, 다른 기관에 있으면 WC100 으로 막는다.
 create or replace function public.fn_set_my_tenant(p_code text)
  RETURNS TABLE(tenant_id uuid, name text)
  LANGUAGE plpgsql
@@ -469,6 +480,8 @@ declare
   v_existing uuid;
   v_id       uuid;
   v_grade    text;
+  v_year     smallint;
+  v_student  boolean;
 begin
   if v_caller is null then
     raise exception 'not_authenticated';
@@ -492,6 +505,17 @@ begin
 
   perform public.fn_qa_assert_tenant_join(v_caller, v_id);
 
+  select exists (select 1 from public.profiles pr where pr.id = v_caller and pr.member_type = 'student') into v_student;
+  select t.school_year into v_year from public.tenants t where t.id = v_id;
+
+  -- 올해 학적이 다른 기관에 있는 학생은 소속만 바꾸면 학적과 갈라지므로 막는다.
+  if v_student and exists (
+    select 1 from public.student_enrollments e
+     where e.student_id = v_caller and e.school_year = v_year and e.tenant_id <> v_id
+  ) then
+    raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+  end if;
+
   perform set_config('app.tenant_set_via_rpc', '1', true);
 
   update public.profiles
@@ -500,13 +524,9 @@ begin
    where id = v_caller;
 
   -- 학생이면 선생님 화면이 읽는 학적을 만든다(학급과 번호 없이, 학년은 중1~고3 일 때만).
-  if exists (select 1 from public.profiles pr where pr.id = v_caller and pr.member_type = 'student')
-     and not exists (
-       select 1
-         from public.student_enrollments e
-         join public.tenants t on t.id = v_id
-        where e.student_id = v_caller
-          and e.school_year = t.school_year
+  if v_student and not exists (
+       select 1 from public.student_enrollments e
+        where e.student_id = v_caller and e.school_year = v_year and e.tenant_id = v_id
      ) then
     select sp.grade into v_grade from public.student_profiles sp where sp.profile_id = v_caller;
     v_grade := case
@@ -521,40 +541,70 @@ end;
 $function$;
 
 comment on function public.fn_set_my_tenant(text) is
-  '로그인 회원이 스스로 소속 코드를 입력해 profiles.tenant_id 를 세팅한다. 이미 소속이 설정돼 있으면 WC071(재설정은 어드민 경로 fn_admin_set_profile_tenant). 코드 판정은 fn_resolve_tenant_code 재사용(시도 초과 WC068). 없는 코드면 raise 하지 않고 0행을 돌려준다. raise 하면 실패 기록이 롤백돼 리밋이 무력화되기 때문이며, "없는 코드" 안내는 프론트가 0행을 보고 한다. fn_profiles_lock_tenant 트리거를 통과시키려고 update 직전 app.tenant_set_via_rpc 를 켠다. 학생이면 같은 트랜잭션에서 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 20261118.';
+  '로그인 회원이 스스로 소속 코드를 입력해 profiles.tenant_id 를 세팅한다. 이미 소속이 설정돼 있으면 WC071(재설정은 어드민 경로 fn_admin_set_profile_tenant). 코드 판정은 fn_resolve_tenant_code 재사용(시도 초과 WC068). 없는 코드면 raise 하지 않고 0행을 돌려준다. raise 하면 실패 기록이 롤백돼 리밋이 무력화되기 때문이며, "없는 코드" 안내는 프론트가 0행을 보고 한다. fn_profiles_lock_tenant 트리거를 통과시키려고 update 직전 app.tenant_set_via_rpc 를 켠다. 학생이면 같은 트랜잭션에서 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 올해 학적이 다른 기관에 있으면 WC100. 20261118.';
 
--- fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때(p_tenant_id null) 올해 학적을 지우는 블록만 더했다.
--- 소속 없는 학생이 옛 기관 선생님 화면에 남지 않게 한다. 대기 중인 변경 신청은 fn_catch_all_join_tenant 와 같이 반려로 닫고,
--- 지난 학년도(졸업) 학적은 남긴다. 학생이 아니거나 p_tenant_id 가 null 이 아니면 동작은 그대로다.
+-- fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생에게만 학적 처리를 더했다.
+-- 소속 해제(p_tenant_id null): 올해 활성 학적을 지우고 enrollment_changes 에 admin_direct 이력으로 남긴다(실행한 관리자가 decided_by).
+-- 대기 중인 변경 신청은 fn_catch_all_join_tenant 와 같이 반려로 닫고, 졸업 학적은 남긴다.
+-- 소속 지정: 올해 학적이 다른 기관에 있으면 WC100 으로 막는다(학적을 함께 옮기는 fn_admin_move_student_tenant 를 쓴다).
+-- 올해 학적이 없으면 fn_set_my_tenant 와 같이 학급 없는 학적을 만들어 소속과 학적이 갈라지지 않게 한다.
+-- 학생이 아니면 동작은 그대로다.
 create or replace function public.fn_admin_set_profile_tenant(p_profile_id uuid, p_tenant_id uuid)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
 AS $function$
+declare
+  v_student boolean;
+  v_year    smallint;
+  v_grade   text;
 begin
   if not public.fn_admin_can('members', 'edit') then
     raise exception 'not_authorized' using errcode = 'WC072';
   end if;
 
-  if p_tenant_id is not null and not exists (
-    select 1 from public.tenants t where t.id = p_tenant_id
-  ) then
-    raise exception 'tenant_not_found';
+  if p_tenant_id is not null then
+    select t.school_year into v_year from public.tenants t where t.id = p_tenant_id;
+    if not found then
+      raise exception 'tenant_not_found';
+    end if;
   end if;
 
-  if p_tenant_id is null and exists (
+  select exists (
     select 1 from public.profiles pr where pr.id = p_profile_id and pr.member_type = 'student'
-  ) then
+  ) into v_student;
+
+  if v_student and p_tenant_id is null then
     update public.enrollment_changes c
        set status = 'rejected', reject_reason = '소속 해제', decided_by = auth.uid(), decided_at = now()
      where c.student_id = p_profile_id and c.status = 'pending';
 
-    delete from public.student_enrollments e
-     using public.tenants t
-     where t.id = e.tenant_id
-       and e.student_id = p_profile_id
-       and e.school_year = t.school_year;
+    with gone as (
+      delete from public.student_enrollments e
+       using public.tenants t
+       where t.id = e.tenant_id
+         and e.student_id = p_profile_id
+         and e.school_year = t.school_year
+         and e.status = 'active'
+      returning e.*
+    )
+    insert into public.enrollment_changes (
+      tenant_id, student_id, school_year, kind, status,
+      from_grade, from_class_id, from_number, reason, base_version, requested_by, decided_by, decided_at
+    )
+    select g.tenant_id, g.student_id, g.school_year, 'admin_direct', 'applied',
+           g.grade, g.class_id, g.number, 'correction', g.version, auth.uid(), auth.uid(), now()
+      from gone g;
+  end if;
+
+  if v_student and p_tenant_id is not null then
+    if exists (
+      select 1 from public.student_enrollments e
+       where e.student_id = p_profile_id and e.school_year = v_year and e.tenant_id <> p_tenant_id
+    ) then
+      raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+    end if;
   end if;
 
   perform set_config('app.tenant_set_via_rpc', '1', true);
@@ -563,8 +613,19 @@ begin
      set tenant_id  = p_tenant_id,
          updated_at = now()
    where id = p_profile_id;
+
+  if v_student and p_tenant_id is not null and not exists (
+    select 1 from public.student_enrollments e
+     where e.student_id = p_profile_id and e.school_year = v_year and e.tenant_id = p_tenant_id
+  ) then
+    select sp.grade into v_grade from public.student_profiles sp where sp.profile_id = p_profile_id;
+    v_grade := case
+      when v_grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']) then v_grade
+    end;
+    perform public.fn_enrollment_join(p_profile_id, p_tenant_id, v_grade, null, null, null);
+  end if;
 end;
 $function$;
 
 comment on function public.fn_admin_set_profile_tenant(uuid, uuid) is
-  '회원 관리 편집 권한(fn_admin_can(''members'',''edit'')) 보유 관리자 전용. p_tenant_id 가 NULL 이면 소속 해제, 존재하지 않는 tenant 면 거부(WC072 는 권한 없음 전용, tenant 미존재는 별도 메시지). fn_set_my_tenant 와 동일하게 트리거 우회 설정을 켜고 UPDATE 한다. 학생의 소속을 해제하면 그 학생의 기관별 올해 학적(student_enrollments)을 지우고 대기 중인 변경 신청은 반려로 닫아, 개인 회원이 되고 옛 기관 선생님 화면에서 사라진다. 학생이 아니거나 tenant 를 지정하면 학적은 건드리지 않는다. 20261118.';
+  '회원 관리 편집 권한(fn_admin_can(''members'',''edit'')) 보유 관리자 전용. p_tenant_id 가 NULL 이면 소속 해제, 존재하지 않는 tenant 면 거부(WC072 는 권한 없음 전용, tenant 미존재는 별도 메시지). fn_set_my_tenant 와 동일하게 트리거 우회 설정을 켜고 UPDATE 한다. 학생의 소속을 해제하면 그 학생의 올해 활성 학적(student_enrollments)을 지우고 enrollment_changes 에 admin_direct 이력으로 남기며 대기 중인 변경 신청은 반려로 닫는다(졸업 학적은 남김). 학생에게 tenant 를 지정할 때 올해 학적이 다른 기관에 있으면 WC100(학적을 함께 옮기는 fn_admin_move_student_tenant 를 쓴다), 올해 학적이 없으면 학급 없는 학적을 만든다. 학생이 아니면 학적은 건드리지 않는다. 20261118.';
