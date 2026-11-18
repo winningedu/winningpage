@@ -122,6 +122,11 @@ export default function StudentInfoStep({
     formData.grade !== "" &&
     (!showClass || (formData.className.trim() !== "" && isNumberOk));
 
+  async function handleNext() {
+    if (await pwnedCheck.ensureChecked(formData.password)) return;
+    onNext();
+  }
+
   function field(key: keyof typeof formData) {
     return (value: string) => updateFormData({ [key]: value });
   }
@@ -321,7 +326,11 @@ export default function StudentInfoStep({
         />
       )}
 
-      <StepActions onPrev={onPrev} onNext={onNext} nextDisabled={!canProceed} />
+      <StepActions
+        onPrev={onPrev}
+        onNext={handleNext}
+        nextDisabled={!canProceed}
+      />
     </>
   );
 }

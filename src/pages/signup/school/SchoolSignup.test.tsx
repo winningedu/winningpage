@@ -696,6 +696,32 @@ describe("3단계 유출된 비밀번호", () => {
   });
 });
 
+describe("3단계 유출된 비밀번호 다음 단계", () => {
+  it("칸을 벗어나지 않고 다음을 눌러도 유출된 비밀번호면 3단계에 머문다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+    vi.mocked(checkPwnedPassword).mockResolvedValue("pwned");
+
+    click("다음");
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByLabelText("이름")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
+  });
+
+  it("조회가 실패해도 다음으로 넘어간다", async () => {
+    await goToStudentInfo();
+    await fillValidStudent();
+    vi.mocked(checkPwnedPassword).mockResolvedValue("unknown");
+
+    click("다음");
+
+    expect(
+      await screen.findByRole("button", { name: "건너뛰기" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("3단계 만 14세 미만", () => {
   async function fillUnder14Student() {
     type("이름", "김학생");
@@ -750,6 +776,7 @@ async function goToGuardian() {
   await goToStudentInfo();
   await fillValidStudent();
   click("다음");
+  await screen.findByLabelText("학부모 이름");
 }
 
 describe("4단계 학부모 정보", () => {
@@ -803,6 +830,7 @@ describe("4단계 학부모 정보", () => {
       expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
     );
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     expect(screen.queryByRole("button", { name: "건너뛰기" })).toBeNull();
     expect(screen.getByLabelText("학부모 휴대폰번호")).toHaveValue(
@@ -827,6 +855,7 @@ describe("4단계 학부모 정보", () => {
     expect(screen.getByLabelText("이메일")).toHaveValue(VERIFIED_EMAIL);
 
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     expect(screen.getByLabelText("학부모 이름")).toHaveValue("김부모");
   });
@@ -1065,6 +1094,7 @@ describe("가입 제출과 5단계 완료", () => {
       expect(screen.getByRole("button", { name: "다음" })).toBeEnabled(),
     );
     click("다음");
+    await screen.findByLabelText("학부모 이름");
     check(/법정대리인 정보를 학부모 정보로 수집합니다/);
 
     click("다음");
@@ -1088,6 +1118,7 @@ describe("가입 제출과 5단계 완료", () => {
     type("그룹(선택)", "심화반");
     type("번호(선택)", "7");
     click("다음");
+    await screen.findByLabelText("학부모 이름");
     click("건너뛰기");
     await screen.findByRole("button", { name: "학습진단 시작하기" });
     expect(lastCall("/api/signup/school-student")?.body).toMatchObject({
@@ -1112,6 +1143,7 @@ describe("기타 소속 가입", () => {
     click("기타 소속으로 가입");
     await fillValidStudent();
     click("다음");
+    await screen.findByLabelText("학부모 이름");
 
     click("건너뛰기");
 
