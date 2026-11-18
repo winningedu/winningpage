@@ -8,15 +8,12 @@
 // "알림톡 또는 이메일 인증코드" 중 이번에 새로 구현하는 쪽이라 우선 노출한다.
 //
 // ① 휴대폰 인증(신규)
-//   FindAccount.tsx와 같은 골격(send-phone-code purpose:'reset_password' →
-//   verify-phone-code)으로 번호 소유를 증명한 뒤, /api/reset-password-by-phone이
-//   즉시 새 임시비밀번호를 발급한다. 알림톡으로 임시비밀번호 자체를 보내는 것은
-//   신규 카카오 템플릿 승인이 필요해 이번 범위에 넣지 않았다 — 화면에 한 번
-//   표시하고 복사 버튼을 제공하는 것으로 대신한다(StudentComplete.tsx의 연결코드
-//   복사 패턴과 동일).
-//
-//   스쿨멘토 학생(사 #96)은 임시비밀번호 대신 인증 뒤 새 비밀번호를 직접 정한다. 인증 직후
-//   자동 요청 없이 입력 칸을 보여주고, 제출하면 같은 라우트에 password 를 함께 보낸다.
+//   FindAccount.tsx와 같은 골격(send-phone-code purpose:'reset_password' 다음
+//   verify-phone-code)으로 번호 소유를 증명한 뒤, 회원이 새 비밀번호를 직접 정한다.
+//   인증 직후 자동 요청 없이 입력 칸을 보여주고, 제출하면 /api/reset-password-by-phone에
+//   password 를 보낸다. 규칙은 두 사이트가 같다.
+//   - 같은 번호로 계정이 여러 개면 서버가 409 choose_account 로 목록을 주고, 회원이 계정을 고른다.
+//   - 비밀번호가 바뀌면 서버가 모든 기기의 세션을 끝낸다.
 //
 // ② 이메일 링크(기존, 그대로 유지)
 //   Supabase resetPasswordForEmail로 재설정 링크를 보내고, 사용자가 그 링크를

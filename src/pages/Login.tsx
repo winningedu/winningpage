@@ -38,8 +38,9 @@ const LOGIN_TIMEOUT_MS = 12000;
 const FIRST_PASSWORD_PATH = "/teacher/first-password";
 const TEACHER_HOME_PATH = "/teacher";
 
-// 아이디 저장(스쿨멘토). 아이디만 저장하고 비밀번호나 토큰은 저장하지 않는다.
+// 아이디 저장. 아이디만 저장하고 비밀번호나 토큰은 저장하지 않는다.
 // 저장소가 막힌 환경(사생활 보호 모드 등)에서도 로그인은 되어야 하므로 모두 try/catch 한다.
+// 키 이름은 두 사이트가 함께 쓰며, 이미 저장된 아이디를 잃지 않으려고 스쿨멘토 시절 이름을 그대로 둔다.
 const SAVED_LOGIN_ID_KEY = "schoolmentor.savedLoginId";
 
 function readSavedLoginId(): string {
@@ -61,7 +62,7 @@ function writeSavedLoginId(identifier: string | null) {
 
 const SERVER_LOGIN_FALLBACK_MESSAGE = "잠시 후 다시 시도해 주세요.";
 
-// 스쿨멘토 서버 로그인(POST /api/auth/login) 응답. 실패 문구는 서버가 정한 그대로 보여 준다.
+// 서버 로그인(POST /api/auth/login) 응답. 실패 문구는 서버가 정한 그대로 보여 준다.
 type ServerLoginResult =
   | {
       ok: true;
