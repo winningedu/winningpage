@@ -5,9 +5,13 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import FindPassword from "./FindPassword";
 
-const state = vi.hoisted(() => ({ siteKey: "schoolmentor" }));
+const state = vi.hoisted(() => ({
+  siteKey: "schoolmentor",
+  pwnedResult: "safe" as "safe" | "pwned" | "unknown",
+}));
 const mockFetch = vi.fn();
 
 vi.mock("@/config/site", () => ({
@@ -23,6 +27,11 @@ vi.mock("@/hooks/useSignupEnabled", () => ({ useSignupEnabled: () => false }));
 // 재전송 대기(60초)를 끄고 다시 인증하는 흐름을 바로 확인한다.
 vi.mock("@/hooks/useCooldown", () => ({
   useCooldown: () => ({ active: false, remaining: 0, start: () => {} }),
+}));
+
+vi.mock("@/lib/pwnedPassword", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/pwnedPassword")>()),
+  checkPwnedPassword: async () => state.pwnedResult,
 }));
 
 vi.mock("@/lib/supabase", () => ({ supabase: { auth: {} } }));
@@ -83,6 +92,7 @@ async function verifyPhone() {
 }
 
 beforeEach(() => {
+  state.pwnedResult = "safe";
   mockFetch.mockReset();
   vi.stubGlobal("fetch", mockFetch);
 });
@@ -208,6 +218,67 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
       accountId: "p2",
       password: NEW_PASSWORD,
     });
+  });
+
+  it("유출된 비밀번호면 새 비밀번호 칸 아래에 안내를 보여주고 요청하지 않는다", async () => {
+    state.siteKey = "schoolmentor";
+    state.pwnedResult = "pwned";
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByLabelText("새 비밀번호")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("칸을 벗어날 때 유출 여부를 확인해 안내를 보여준다", async () => {
+    state.siteKey = "schoolmentor";
+    state.pwnedResult = "pwned";
+    await verifyPhone();
+    const field = await screen.findByLabelText("새 비밀번호");
+    fireEvent.change(field, { target: { value: NEW_PASSWORD } });
+    fireEvent.blur(field);
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+  });
+
+  it("조회에 실패해도(unknown) 막지 않고 요청한다", async () => {
+    state.siteKey = "schoolmentor";
+    state.pwnedResult = "unknown";
+    mockFetch.mockResolvedValueOnce(changedResponse);
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("서버가 password_pwned 로 거부하면 같은 안내를 새 비밀번호 칸 아래에 보여준다", async () => {
+    state.siteKey = "schoolmentor";
+    mockFetch.mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({
+        ok: false,
+        reason: "password_pwned",
+        detail: PWNED_PASSWORD_MESSAGE,
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByLabelText("새 비밀번호")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("서버가 실패를 알리면 detail 을 보여주고 다시 시도할 수 있게 입력 칸을 둔다", async () => {
