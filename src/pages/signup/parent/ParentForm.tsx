@@ -321,7 +321,7 @@ export default function ParentForm() {
 
     // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
     // 쓰고, 실제 값은 가입 완료 직전 applySignupPassword가 설정한다
-    // (src/lib/signupEmailAuth.js).
+    // (src/lib/signupEmailAuth.ts).
     if (emailCooldown.active) {
       setEmailMessage({
         text: EMAIL_MESSAGES.cooldown(emailCooldown.remaining),

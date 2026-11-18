@@ -319,7 +319,7 @@ export default function Under14Form() {
     [agreements],
   );
 
-  // --- 이메일 인증: src/lib/signupEmailAuth.js의 공용 시퀀스를 쓴다.
+  // --- 이메일 인증: src/lib/signupEmailAuth.ts의 공용 시퀀스를 쓴다.
   // (상태 확인 → OTP 발송 → OTP 검증. 가입 중단 계정이면 이어서 가입한다)
   // 이전에는 "인증번호 보내기" 클릭이 아무 동작도 하지 않는 no-op 스텁이었다.
   async function requestEmailCode() {
@@ -358,7 +358,7 @@ export default function Under14Form() {
 
     // 비밀번호는 여기서 요구하지 않는다. 이메일 단계는 항상 임시 비밀번호를
     // 쓰고, 실제 값은 가입을 끝내는 시점에 applySignupPassword가 설정한다
-    // (src/lib/signupEmailAuth.js, handleNext에서 호출한다).
+    // (src/lib/signupEmailAuth.ts, handleNext에서 호출한다).
     const { state, mode, resumed, error } = await sendSignupEmailCode({
       email: normalizedEmail,
       name: formData.name.trim(),
