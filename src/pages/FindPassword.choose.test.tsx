@@ -1,5 +1,5 @@
-// FindPassword.tsx 휴대폰 경로 - 스쿨멘토는 chooseAccount 를 보내고 409 choose_account 면
-// 계정을 고르게 한 뒤 임시비밀번호를 보여준다. 위닝은 새 필드를 보내지 않는다.
+// FindPassword.tsx 휴대폰 경로 - 위닝에듀와 스쿨멘토 모두 새 비밀번호를 직접 정하고,
+// chooseAccount 를 보내 409 choose_account 면 계정을 고르게 한다.
 
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -61,18 +61,6 @@ const chooseResponse = {
       { accountId: "p1", maskedId: "kim*****", tenantName: "한빛중학교" },
       { accountId: "p2", maskedId: "abc*", tenantName: "새봄학원" },
     ],
-  }),
-};
-
-const successResponse = {
-  status: 200,
-  ok: true,
-  json: async () => ({
-    ok: true,
-    found: true,
-    temp_password: "Tmp#pass9",
-    masked_email: "ab****@ex***.com",
-    via: "phone",
   }),
 };
 
@@ -176,6 +164,43 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
       "비밀번호가 서로 달라요.",
     );
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["schoolmentor", "winning"])(
+    "%s 에서 성공하면 바뀐 계정의 마스킹 이메일을 보여주고 학부모 안내는 숨긴다",
+    async (siteKey) => {
+      state.siteKey = siteKey;
+      mockFetch.mockResolvedValueOnce(changedResponse);
+      await verifyPhone();
+      await submitNewPassword();
+
+      expect(
+        await screen.findByText(/ab\*\*\*\*@ex\*\*\*\.com/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/학부모 핸드폰으로 등록된 계정이에요/),
+      ).toBeNull();
+    },
+  );
+
+  it("학부모 핸드폰으로 찾은 계정이면 그 사실을 함께 알려 준다", async () => {
+    state.siteKey = "winning";
+    mockFetch.mockResolvedValueOnce({
+      ...changedResponse,
+      json: async () => ({
+        ok: true,
+        found: true,
+        masked_email: "ch****@ex***.com",
+        via: "guardian_phone",
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(
+      await screen.findByText(/학부모 핸드폰으로 등록된 계정이에요/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/ch\*\*\*\*@ex\*\*\*\.com/)).toBeInTheDocument();
   });
 
   it("chooseAccount 와 password 를 보내고 성공하면 완료 화면을 보여준다(임시비밀번호 없음)", async () => {
@@ -412,22 +437,67 @@ describe("FindPassword 스쿨멘토 새 비밀번호 직접 정하기", () => {
   });
 });
 
-describe("FindPassword 위닝 휴대폰 경로", () => {
-  it("인증 직후 임시비밀번호를 받아 보여준다", async () => {
+describe("FindPassword 위닝 휴대폰 경로(스쿨멘토와 같은 경로)", () => {
+  it("인증이 끝나면 임시비밀번호 대신 새 비밀번호 입력 칸을 보여준다", async () => {
     state.siteKey = "winning";
-    mockFetch.mockResolvedValueOnce(successResponse);
     await verifyPhone();
 
-    expect(await screen.findByText("Tmp#pass9")).toBeInTheDocument();
-    expect(screen.queryByLabelText("새 비밀번호")).toBeNull();
+    expect(await screen.findByLabelText("새 비밀번호")).toBeInTheDocument();
+    expect(screen.getByLabelText("새 비밀번호 확인")).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("위닝은 새 필드를 보내지 않는다", async () => {
+  it("chooseAccount 와 password 를 보내고 성공하면 완료 화면을 보여준다(임시비밀번호 없음)", async () => {
     state.siteKey = "winning";
-    mockFetch.mockResolvedValueOnce(successResponse);
+    mockFetch.mockResolvedValueOnce(changedResponse);
     await verifyPhone();
+    await submitNewPassword();
 
-    expect(await screen.findByText("Tmp#pass9")).toBeInTheDocument();
-    expect(requestBody(0)).toEqual({ phone: "01012345678" });
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("임시비밀번호 복사하기")).toBeNull();
+    expect(requestBody(0)).toEqual({
+      phone: "01012345678",
+      chooseAccount: true,
+      password: NEW_PASSWORD,
+    });
+  });
+
+  it("409 면 계정 카드를 보여주고, 고르면 accountId 로 다시 요청한다", async () => {
+    state.siteKey = "winning";
+    mockFetch
+      .mockResolvedValueOnce(chooseResponse)
+      .mockResolvedValueOnce(changedResponse);
+    await verifyPhone();
+    await submitNewPassword();
+
+    fireEvent.click(await screen.findByText("abc*"));
+
+    expect(
+      await screen.findByText(
+        "비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(requestBody(1)).toMatchObject({ accountId: "p2" });
+  });
+
+  it("서버가 password_pwned 로 거부하면 새 비밀번호 칸 아래에 안내를 보여준다", async () => {
+    state.siteKey = "winning";
+    mockFetch.mockResolvedValueOnce({
+      status: 400,
+      ok: false,
+      json: async () => ({
+        ok: false,
+        reason: "password_pwned",
+        detail: PWNED_PASSWORD_MESSAGE,
+      }),
+    });
+    await verifyPhone();
+    await submitNewPassword();
+
+    expect(await screen.findByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument();
   });
 });

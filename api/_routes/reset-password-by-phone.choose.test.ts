@@ -1,8 +1,7 @@
-// POST /api/reset-password-by-phone 의 계정 고르기(chooseAccount, 스쿨멘토).
-// 위닝은 새 필드를 보내지 않으므로 가장 먼저 가입한 계정 하나를 재설정하는
-// 기존 동작이 그대로여야 한다.
+// POST /api/reset-password-by-phone 의 계정 고르기(chooseAccount)와 새 비밀번호 직접 설정.
+// 위닝에듀와 스쿨멘토가 같은 경로를 쓴다(SITE 를 가리지 않는다).
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   callHandler,
   createFakeDb,
@@ -32,14 +31,23 @@ import handler from "./reset-password-by-phone.js";
 
 let db: FakeDb;
 
-const reset = (extra: Record<string, unknown> = {}) =>
-  callHandler(handler as never, { phone: "010-1234-5678", ...extra });
-
 const NEW_PASSWORD = "NewPass123!";
+
+const reset = (extra: Record<string, unknown> = {}) =>
+  callHandler(handler as never, {
+    phone: "010-1234-5678",
+    password: NEW_PASSWORD,
+    ...extra,
+  });
 
 const verification = () => db.tables.phone_verifications?.[0];
 
 beforeEach(() => {
+  state.signIn.mockReset();
+  state.signIn.mockResolvedValue({
+    data: { session: { access_token: "new-access" } },
+    error: null,
+  });
   db = createFakeDb({
     tables: {
       tenants: [
@@ -82,11 +90,20 @@ beforeEach(() => {
 });
 
 describe("reset-password-by-phone chooseAccount", () => {
-  test("새 필드가 없으면 가장 먼저 가입한 계정을 재설정한다(위닝)", async () => {
+  test("계정이 1개면 accountId 없이 바로 재설정한다", async () => {
+    db.tables.profiles?.pop();
     const res = await reset();
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ found: true, via: "phone" });
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
+  });
+
+  test("chooseAccount 를 보내지 않아도 계정이 2개 이상이면 409 로 고르게 한다", async () => {
+    const res = await reset();
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "choose_account" });
+    expect(db.passwordUpdates).toEqual([]);
+    expect(verification()?.consumed_at).toBeNull();
   });
 
   test("계정이 2개 이상이고 accountId 가 없으면 409 로 고르게 하고 인증을 소비하지 않는다", async () => {
@@ -133,10 +150,7 @@ describe("reset-password-by-phone chooseAccount", () => {
   test("고른 accountId 의 계정만 재설정하고 인증을 소비한다", async () => {
     const res = await reset({ chooseAccount: true, accountId: "p2" });
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      found: true,
-      temp_password: expect.any(String),
-    });
+    expect(res.body).toMatchObject({ found: true });
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p2"]);
     expect(verification()?.consumed_at).not.toBeNull();
   });
@@ -155,10 +169,10 @@ describe("reset-password-by-phone chooseAccount", () => {
     expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
   });
 
-  test("chooseAccount 없이 보낸 accountId 는 무시한다", async () => {
+  test("chooseAccount 없이 보낸 accountId 도 매치 목록 안이면 그 계정을 재설정한다", async () => {
     const res = await reset({ accountId: "p2" });
     expect(res.status).toBe(200);
-    expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p1"]);
+    expect(db.passwordUpdates.map((u) => u.id)).toEqual(["p2"]);
   });
 
   test("조회 뒤 다른 요청이 인증을 먼저 소비했으면 401 이고 비밀번호를 바꾸지 않는다", async () => {
@@ -171,7 +185,7 @@ describe("reset-password-by-phone chooseAccount", () => {
         return profiles;
       },
     });
-    const res = await reset();
+    const res = await reset({ accountId: "p1" });
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ reason: "phone_not_verified" });
     expect(db.passwordUpdates).toEqual([]);
@@ -183,30 +197,17 @@ describe("reset-password-by-phone chooseAccount", () => {
         auth: { admin: { updateUserById: () => Promise<unknown> } };
       }
     ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
-    const res = await reset();
+    const res = await reset({ accountId: "p1" });
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
     expect(verification()?.consumed_at).toBeNull();
   });
 });
 
-// 스쿨멘토(SITE=schoolmentor)는 임시비밀번호 대신 학생이 새 비밀번호를 직접 정한다.
-describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)", () => {
-  beforeEach(() => {
-    process.env.SITE = "schoolmentor";
-    state.signIn.mockReset();
-    state.signIn.mockResolvedValue({
-      data: { session: { access_token: "new-access" } },
-      error: null,
-    });
-  });
-
-  afterEach(() => {
-    delete process.env.SITE;
-  });
-
+// 임시비밀번호 대신 회원이 새 비밀번호를 직접 정한다.
+describe("reset-password-by-phone 새 비밀번호 직접 설정", () => {
   test.each([
-    ["비밀번호가 없으면", {}],
+    ["비밀번호가 없으면", { password: undefined }],
     ["비밀번호가 문자열이 아니면", { password: 123456 }],
     ["비밀번호에 특수문자가 없으면", { password: "Abcdef12" }],
   ])("%s 400 invalid_password 이고 DB 를 읽지 않는다", async (_name, extra) => {
@@ -335,7 +336,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
       }
     ).auth.admin.updateUserById = async () => ({ error: new Error("boom") });
 
-    const res = await reset({ password: NEW_PASSWORD });
+    const res = await reset({ accountId: "p1", password: NEW_PASSWORD });
 
     expect(res.status).toBe(500);
     expect(res.body).toMatchObject({ reason: "update_failed" });
@@ -352,7 +353,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
       error: { code: "weak_password", reasons: ["pwned"] },
     });
 
-    const res = await reset({ password: NEW_PASSWORD });
+    const res = await reset({ accountId: "p1", password: NEW_PASSWORD });
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({
@@ -365,20 +366,7 @@ describe("reset-password-by-phone 새 비밀번호 직접 설정(스쿨멘토)",
   });
 });
 
-describe("reset-password-by-phone 위닝은 password 를 무시한다", () => {
-  test("password 를 보내도 임시비밀번호를 만들어 돌려주고 세션 정리는 하지 않는다", async () => {
-    const res = await reset({ password: "NewPass123!" });
-
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      found: true,
-      temp_password: expect.any(String),
-    });
-    expect(db.passwordUpdates).toHaveLength(1);
-    expect(db.passwordUpdates[0]?.password).not.toBe("NewPass123!");
-    expect(state.signIn).not.toHaveBeenCalled();
-  });
-
+describe("reset-password-by-phone 응답 헤더", () => {
   test("응답에 Cache-Control: no-store 를 싣는다", async () => {
     const res = await reset();
 
