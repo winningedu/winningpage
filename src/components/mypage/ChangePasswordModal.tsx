@@ -50,7 +50,7 @@ export default function ChangePasswordModal({
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const pwnedCheck = usePwnedPasswordCheck();
-  const { reset: resetPwned } = pwnedCheck;
+  const { reset: resetPwned, ensureChecked, markPwned } = pwnedCheck;
 
   useEffect(() => {
     if (!open) return;
@@ -69,6 +69,14 @@ export default function ChangePasswordModal({
     if (saving) return;
     setSaving(true);
     setErrorMsg("");
+
+    // 0) 유출 여부 사전 확인. 현재 비밀번호 확인보다 먼저 해서, 유출된 비밀번호로
+    //    시도하다 현재 비밀번호 시도 횟수만 쓰는 일이 없게 한다.
+    if (await ensureChecked(next)) {
+      setSaving(false);
+      setStep("form");
+      return;
+    }
 
     // 1) 현재 비밀번호 확인(위 주석 참고).
     //
@@ -150,7 +158,7 @@ export default function ChangePasswordModal({
     setSaving(false);
     setStep("done");
     onChanged?.();
-  }, [saving, email, current, next, onChanged]);
+  }, [saving, email, current, next, onChanged, ensureChecked]);
 
   if (!open) return null;
 

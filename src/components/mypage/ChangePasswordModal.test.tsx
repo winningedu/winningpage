@@ -47,6 +47,11 @@ function fillForm() {
   });
 }
 
+async function confirmChange() {
+  fireEvent.click(screen.getByRole("button", { name: "변경하기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "변경할게요" }));
+}
+
 describe("ChangePasswordModal: 유출된 비밀번호 확인", () => {
   beforeEach(() => {
     for (const mock of [
@@ -78,5 +83,19 @@ describe("ChangePasswordModal: 유출된 비밀번호 확인", () => {
     await waitFor(() =>
       expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
     );
+  });
+
+  it("입력칸을 벗어나지 않고 바로 제출해도 유출된 비밀번호면 현재 비밀번호 확인 없이 입력 단계로 돌려보낸다", async () => {
+    mockCheckPwnedPassword.mockResolvedValue("pwned");
+    renderModal();
+
+    fillForm();
+    await confirmChange();
+
+    await waitFor(() =>
+      expect(screen.getByText(PWNED_PASSWORD_MESSAGE)).toBeInTheDocument(),
+    );
+    expect(mockSignInWithPassword).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });
