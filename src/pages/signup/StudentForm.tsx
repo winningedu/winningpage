@@ -46,6 +46,7 @@ import {
 } from "@/components/auth";
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
+import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import {
   DUPLICATE_PHONE_MESSAGE,
@@ -56,6 +57,7 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
+import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
 import {
   applySignupPassword,
   EMAIL_RESEND_COOLDOWN_SECONDS,
@@ -237,6 +239,7 @@ export default function StudentForm() {
 
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const pwnedCheck = usePwnedPasswordCheck();
   const [phoneMessage, setPhoneMessage] = useState<FieldMessage>({
     text: "",
     status: "default",
@@ -305,6 +308,8 @@ export default function StudentForm() {
           ? formatPhoneInput(value)
           : value;
       updateFormData({ [key]: nextValue });
+
+      if (key === "password") pwnedCheck.reset();
 
       if (key === "email") {
         lastEmailAttempt.current = "";
@@ -1305,13 +1310,22 @@ export default function StudentForm() {
           value={formData.password}
           onChange={handleField("password")}
           placeholder="비밀번호를 입력 해주세요"
-          helperText="영문/숫자/특수문자 포함 6자 이상"
+          onBlur={() => {
+            if (passwordValid) pwnedCheck.checkOnBlur(formData.password);
+          }}
+          helperText={
+            pwnedCheck.pwned
+              ? PWNED_PASSWORD_MESSAGE
+              : "영문/숫자/특수문자 포함 6자 이상"
+          }
           status={
-            passwordValid === null
-              ? "default"
-              : passwordValid
-                ? "success"
-                : "error"
+            pwnedCheck.pwned
+              ? "error"
+              : passwordValid === null
+                ? "default"
+                : passwordValid
+                  ? "success"
+                  : "error"
           }
           autoComplete="new-password"
           required
