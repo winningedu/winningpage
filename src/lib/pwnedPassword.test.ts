@@ -57,7 +57,7 @@ describe("checkPwnedPassword", () => {
     await expect(checkPwnedPassword("password")).resolves.toBe("ok");
   });
 
-  test("200 이 아니면 unknown 이고 캐시하지 않는다", async () => {
+  test("200 이 아니면 unknown 이고 다음에 다시 조회한다", async () => {
     const { checkPwnedPassword } = await load();
     fetchMock.mockResolvedValueOnce(rangeResponse("", 503));
     fetchMock.mockResolvedValueOnce(rangeResponse(`${SUFFIX}:5\r\n`));
@@ -74,13 +74,16 @@ describe("checkPwnedPassword", () => {
     await expect(checkPwnedPassword("password")).resolves.toBe("unknown");
   });
 
-  test("같은 비밀번호는 한 번만 조회한다", async () => {
+  test("같은 비밀번호도 결과를 보관하지 않고 매번 다시 조회한다", async () => {
     const { checkPwnedPassword } = await load();
-    fetchMock.mockResolvedValue(rangeResponse(`${SUFFIX}:5\r\n`));
+    fetchMock.mockResolvedValueOnce(rangeResponse(`${SUFFIX}:5\r\n`));
+    fetchMock.mockResolvedValueOnce(
+      rangeResponse("0018A45C4D1DEF81644B54AB7F969B88D65:3\r\n"),
+    );
 
-    await checkPwnedPassword("password");
     await expect(checkPwnedPassword("password")).resolves.toBe("pwned");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(checkPwnedPassword("password")).resolves.toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   test("빈 문자열은 조회하지 않고 ok", async () => {

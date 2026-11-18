@@ -12,9 +12,6 @@ export type PwnedCheckResult = "pwned" | "ok" | "unknown";
 const RANGE_URL = "https://api.pwnedpasswords.com/range/";
 const TIMEOUT_MS = 3000;
 
-// 전체 해시를 키로 쓴다(원문은 저장하지 않는다). "unknown"은 캐시하지 않는다.
-const cache = new Map<string, "pwned" | "ok">();
-
 async function sha1Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-1",
@@ -34,9 +31,6 @@ export async function checkPwnedPassword(
 
   try {
     const hash = await sha1Hex(password);
-    const cached = cache.get(hash);
-    if (cached) return cached;
-
     const prefix = hash.slice(0, 5);
     const suffix = hash.slice(5);
     const response = await fetch(RANGE_URL + prefix, {
@@ -52,9 +46,7 @@ export async function checkPwnedPassword(
       return lineSuffix?.toUpperCase() === suffix && Number(count) > 0;
     });
 
-    const result = pwned ? "pwned" : "ok";
-    cache.set(hash, result);
-    return result;
+    return pwned ? "pwned" : "ok";
   } catch {
     return "unknown";
   }
