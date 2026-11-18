@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -105,5 +105,58 @@ describe("StudentForm 유출 비밀번호", () => {
 
     expect(await screen.findByText(PWNED_MESSAGE)).toBeTruthy();
     expect(input.getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("아직 확인하지 않은 채 제출하면 유출된 비밀번호는 가입 처리 전에 막는다", async () => {
+    mocks.checkPwnedPassword.mockResolvedValue("pwned");
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    expect(await screen.findByText(PWNED_MESSAGE)).toBeTruthy();
+    expect(mocks.applySignupPassword).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("유출 조회가 실패해도 가입은 진행된다", async () => {
+    mocks.checkPwnedPassword.mockResolvedValue("unknown");
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalled());
+    expect(screen.queryByText(PWNED_MESSAGE)).toBeNull();
+  });
+
+  it("저장 단계에서 유출 비밀번호로 거절되면 같은 안내를 비밀번호 칸에 보인다", async () => {
+    mocks.applySignupPassword.mockResolvedValue({
+      error: Object.assign(new Error("pwned"), {
+        code: "weak_password",
+        reasons: ["pwned"],
+      }),
+    });
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    expect(await screen.findByText(PWNED_MESSAGE)).toBeTruthy();
+    expect(screen.queryByText(/비밀번호 설정에 실패했습니다/)).toBeNull();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("그 밖의 저장 오류는 기존 실패 문구를 보인다", async () => {
+    mocks.applySignupPassword.mockResolvedValue({ error: new Error("x") });
+    const input = renderForm();
+
+    fireEvent.change(input, { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "가입 완료하기" }));
+
+    expect(
+      await screen.findByText(/비밀번호 설정에 실패했습니다/),
+    ).toBeTruthy();
+    expect(screen.queryByText(PWNED_MESSAGE)).toBeNull();
   });
 });

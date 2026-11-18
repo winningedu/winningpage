@@ -57,7 +57,10 @@ import {
   sendPhoneCode,
   verifyPhoneCode,
 } from "@/lib/phoneVerification";
-import { PWNED_PASSWORD_MESSAGE } from "@/lib/pwnedPassword";
+import {
+  isPwnedPasswordError,
+  PWNED_PASSWORD_MESSAGE,
+} from "@/lib/pwnedPassword";
 import {
   applySignupPassword,
   EMAIL_RESEND_COOLDOWN_SECONDS,
@@ -615,7 +618,7 @@ export default function StudentForm() {
 
     try {
       // 비밀번호는 여기서 요구하지 않는다(파일 상단 2026-08-07 변경 1번).
-      // 아직 비어 있으면 임시 비밀번호로 계정이 만들어지고, 실제 값은
+      // 이메일 단계는 항상 임시 비밀번호로 계정을 만들고, 실제 값은
       // 가입 완료 직전 applySignupPassword가 채운다.
       const { state, mode, resumed, error } = await sendSignupEmailCode({
         email: normalizedEmail,
@@ -802,6 +805,10 @@ export default function StudentForm() {
     setLoading(true);
 
     try {
+      // 입력칸을 벗어날 때 확인하지 않았다면(예: 비밀번호 칸에서 바로 제출) 여기서 확인한다.
+      // 조회가 실패해도(unknown) 막지 않는다. 저장 시점에 Supabase가 다시 판정한다.
+      if (await pwnedCheck.ensureChecked(formData.password)) return;
+
       const normalizedName = formData.name.trim();
       const normalizedEmail = formData.email.trim().toLowerCase();
       // T3(2026-09-03): "학생 명의의 핸드폰이 없어요" 체크 시 학생 본인 phone은
@@ -847,6 +854,11 @@ export default function StudentForm() {
       );
 
       if (passwordError) {
+        if (isPwnedPasswordError(passwordError)) {
+          pwnedCheck.markPwned();
+          return;
+        }
+
         setFormError(
           "비밀번호 설정에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         );
