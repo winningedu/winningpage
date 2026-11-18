@@ -6,7 +6,9 @@
 --   올해는 그 학생 소속 기관의 school_year 다. 같은 학년도 학적이 어느 기관에든 이미 있으면 건드리지 않아 다시 돌려도 늘지 않는다.
 --
 -- 대상 DB: dev (gjowqdiopinhixfivnkx), Winning prod (ykrpjcsubmbenfcnwlzd). dev 먼저, prod 는 소유자 승인 후 수동으로 실행한다.
---   Schoolmentor prod (aalujumpwlnwlemnqrus) 는 가입 때부터 학적이 있어 대상이 아니다(실행해도 0건이어야 한다).
+--   Schoolmentor prod (aalujumpwlnwlemnqrus) 는 가입 때부터 학적이 있어 대상이 아니다.
+--   app_settings.site_key 가 "winning" 일 때만 행을 만든다. 다른 값이거나 키가 없으면 notice 만 남기고 아무것도 만들지 않는다.
+--   그래서 20261118182917_app_settings_site_key.sql 을 대상 DB 에 먼저 실행해 site_key 를 심은 뒤에 이 파일을 실행한다.
 -- 전제: 20261118090341_winning_enrollment_on_tenant_join.sql 이 먼저 적용되어 있어야 한다(WC100 과 같은 학적 규칙).
 
 begin;
@@ -25,7 +27,14 @@ select count(*) as tenant_students,
 do $$
 declare
   r record;
+  v_site_key text;
 begin
+  select (s.value #>> '{}') into v_site_key from public.app_settings s where s.key = 'site_key';
+  if v_site_key is distinct from 'winning' then
+    raise notice 'site_key 가 winning 이 아니라서(현재: %) 학적을 만들지 않고 건너뛴다. 0건 생성.', coalesce(v_site_key, '없음');
+    return;
+  end if;
+
   for r in
     select pr.id as student_id,
            pr.tenant_id,

@@ -7,7 +7,17 @@
 --   Schoolmentor prod aalujumpwlnwlemnqrus : "schoolmentor"
 -- 멱등: 행이 없으면 넣고, 값이 다르면 맞추고, 같으면 바뀌는 행이 없다.
 
+-- 1) 실행 전 확인 (읽기 전용): 행이 없으면 0행
+select key, value, jsonb_typeof(value) as value_type from public.app_settings where key = 'site_key';
+
+-- 2) 반영
 insert into public.app_settings (key, value)
 values ('site_key', '"winning"'::jsonb) -- 스쿨멘토 프로젝트는 '"schoolmentor"'::jsonb
 on conflict (key) do update set value = excluded.value, updated_at = now()
   where public.app_settings.value is distinct from excluded.value;
+
+-- 3) 실행 후 확인 (읽기 전용): 1행이고 value 가 대상 DB 에 맞는 문자열이어야 한다
+select key, value, jsonb_typeof(value) as value_type from public.app_settings where key = 'site_key';
+
+-- 실행 기록
+-- (아직 어느 DB에도 실행하지 않았다)
