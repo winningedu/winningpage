@@ -20,4 +20,6 @@ on conflict (key) do update set value = excluded.value, updated_at = now()
 select key, value, jsonb_typeof(value) as value_type from public.app_settings where key = 'site_key';
 
 -- 실행 기록
--- (아직 어느 DB에도 실행하지 않았다)
+-- 2026-11-19 dev(gjowqdiopinhixfivnkx): 실행 전 site_key 행 없음, 실행 뒤 "winning" 1행.
+-- 2026-11-19 Winning prod(ykrpjcsubmbenfcnwlzd): 실행 전 행 없음, 실행 뒤 "winning" 1행. main 배포(PR #437) 전에 넣었다.
+-- 2026-11-19 Schoolmentor prod(aalujumpwlnwlemnqrus): value 한 줄만 '"schoolmentor"'::jsonb 로 바꾼 사본으로 실행. 실행 전 행 없음, 실행 뒤 "schoolmentor" 1행. main 배포(PR #437) 전에 넣었다.
