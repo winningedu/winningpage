@@ -31,6 +31,8 @@ type Schema = {
   required?: string[];
   items?: Schema;
   enum?: string[];
+  minItems?: number;
+  maxItems?: number;
 };
 
 describe("출력 토큰 상한(§2 26)", () => {
@@ -148,6 +150,19 @@ describe("응답 스키마(RESPONSE_SCHEMAS)", () => {
       "insufficient",
     ]);
     expect(root.properties?.scope?.required).toEqual(["minimum", "optional"]);
+  });
+
+  it("설계 리포트: 절은 8개, must 3~5개, avoid 2~5개로 개수를 스키마에서 막는다", () => {
+    const root = schemas.design_report as Schema;
+    const sections = root.properties?.sections as Schema;
+    expect(sections.minItems).toBe(SECTION_IDS.length);
+    expect(sections.maxItems).toBe(SECTION_IDS.length);
+    expect(SECTION_IDS.length).toBe(8);
+    const sec = sections.items as Schema;
+    expect(sec.properties?.must?.minItems).toBe(3);
+    expect(sec.properties?.must?.maxItems).toBe(5);
+    expect(sec.properties?.avoid?.minItems).toBe(2);
+    expect(sec.properties?.avoid?.maxItems).toBe(5);
   });
 
   it("평가 리포트: 최상위 키와 열거값이 규칙과 같다", () => {

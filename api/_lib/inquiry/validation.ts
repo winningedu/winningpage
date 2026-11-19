@@ -424,12 +424,16 @@ export function validateTopicsResponse(
 
 // ── 설계 리포트(No.39, 59~64, 68~70, §2 25) ─────────────────────────────────
 
-const MUST_RANGE = { min: 3, max: 5 } as const;
-const AVOID_RANGE = { min: 2, max: 5 } as const;
+export const MUST_RANGE = { min: 3, max: 5 } as const;
+export const AVOID_RANGE = { min: 2, max: 5 } as const;
 /** must, avoid 한 항목 글자 수 상한(§2 25). */
 export const DESIGN_ITEM_MAX_CHARS = 100;
+/** must, avoid 한 항목 글자 수 목표. 프롬프트와 재시도 지시가 같은 값을 쓴다. */
+export const DESIGN_ITEM_TARGET_CHARS = 60;
 /** tip 글자 수 상한(§2 25). */
 export const DESIGN_TIP_MAX_CHARS = 120;
+/** tip 글자 수 목표. 프롬프트와 재시도 지시가 같은 값을 쓴다. */
+export const DESIGN_TIP_TARGET_CHARS = 80;
 
 function readSectionPlan(
   raw: unknown,
@@ -465,7 +469,7 @@ function readSectionPlan(
   } else if (exceedsLength(tip, DESIGN_TIP_MAX_CHARS)) {
     issues.push({
       code: "too_long",
-      message: `tip 은 ${DESIGN_TIP_MAX_CHARS}자 이하여야 한다.`,
+      message: `tip 은 ${DESIGN_TIP_MAX_CHARS}자 이하여야 한다. 지금 ${[...tip].length}자다. ${DESIGN_TIP_TARGET_CHARS}자 이내로 줄인다.`,
       path: `${at}.tip`,
     });
   }
@@ -486,7 +490,7 @@ function readSectionPlan(
       if (exceedsLength(item, DESIGN_ITEM_MAX_CHARS)) {
         issues.push({
           code: "too_long",
-          message: `${key} 항목은 ${DESIGN_ITEM_MAX_CHARS}자 이하여야 한다.`,
+          message: `${key} 항목은 ${DESIGN_ITEM_MAX_CHARS}자 이하여야 한다. 지금 ${[...item].length}자다. ${DESIGN_ITEM_TARGET_CHARS}자 이내로 줄인다.`,
           path: `${at}.${key}[${i}]`,
         });
       }
