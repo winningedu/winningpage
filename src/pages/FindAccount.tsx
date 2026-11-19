@@ -85,9 +85,10 @@ async function fetchMaskedEmail(phone: string): Promise<LookupResult> {
 }
 
 // 스쿨멘토는 소속이 다른 계정이 같은 번호에 여러 개일 수 있어 가린 이메일과 소속
-// 이름을 보여준다(선생님만 가린 아이디, 결정 80). 위닝은 가린 이메일 그대로다.
+// 이름을 보여준다(선생님만 가린 아이디, 결정 80). 위닝은 가린 이메일 그대로이되,
+// 선생님 계정이 있으면 내부 이메일 대신 가린 아이디를 보여주려고 계정 목록을 쓴다.
 export default function FindAccount() {
-  const showAccounts = site.key === "schoolmentor";
+  const isSchoolmentor = site.key === "schoolmentor";
   const navigate = useNavigate();
   // 가입 오픈 여부(app_settings.signup_enabled) — false/로딩 중(null)이면
   // 회원가입 안내 CTA를 숨긴다(Header.tsx와 동일 원칙).
@@ -208,11 +209,16 @@ export default function FindAccount() {
     };
   }, [phoneVerified, phone]);
 
+  const showAccounts =
+    isSchoolmentor ||
+    (result?.kind === "found" &&
+      result.accounts.some((account) => account.maskedId));
+
   return (
     <AuthLayout>
       <AuthTitle
         line1={
-          showAccounts ? "이메일을 찾아드려요" : "아이디(이메일)를 찾아드려요"
+          isSchoolmentor ? "이메일을 찾아드려요" : "아이디(이메일)를 찾아드려요"
         }
         line2="가입하신 휴대폰 번호로 인증해 주세요"
         line2Color="ink"
