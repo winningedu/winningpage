@@ -3,11 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LinkChildModal from "./LinkChildModal";
 
-// 학생 화면(ProfileTab)과 같은 스위치: studentEnrollment 사이트(스쿨멘토)는
-// "학생 고유코드", 그 외(위닝에듀)는 "연결코드"로 부른다.
+// 학생 화면(ProfileTab)과 같은 스위치: 사이트로 고른다. 스쿨멘토는
+// "학생 고유코드", 위닝에듀는 "연결코드"로 부른다.
 
 const { siteMock, rpc } = vi.hoisted(() => ({
-  siteMock: { features: { studentEnrollment: false } },
+  siteMock: { key: "winning", features: { studentEnrollment: true } },
   rpc: vi.fn(),
 }));
 
@@ -36,8 +36,8 @@ describe("LinkChildModal 코드 명칭", () => {
     rpc.mockReset();
   });
 
-  it("학생 등록 사이트는 학생 고유코드로 안내한다", async () => {
-    siteMock.features.studentEnrollment = true;
+  it("스쿨멘토는 학생 고유코드로 안내한다", async () => {
+    siteMock.key = "schoolmentor";
     render(<LinkChildModal open onClose={() => {}} />);
 
     expect(screen.getByText("학생 고유코드를 입력해주세요")).toBeVisible();
@@ -50,8 +50,8 @@ describe("LinkChildModal 코드 명칭", () => {
     expect(document.body.textContent).not.toContain("연결코드");
   });
 
-  it("그 외 사이트는 연결코드로 안내한다", async () => {
-    siteMock.features.studentEnrollment = false;
+  it("위닝에듀는 연결코드로 안내한다", async () => {
+    siteMock.key = "winning";
     render(<LinkChildModal open onClose={() => {}} />);
 
     expect(screen.getByText("연결코드를 입력해주세요")).toBeVisible();

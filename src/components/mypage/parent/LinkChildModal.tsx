@@ -8,8 +8,10 @@ import {
   useState,
 } from "react";
 import MyPageModalShell from "@/components/mypage/MyPageModalShell";
-import { site } from "@/config/site";
-import type { RequestParentLinkRpcResult } from "@/lib/parentLink";
+import {
+  linkCodeLabel,
+  type RequestParentLinkRpcResult,
+} from "@/lib/parentLink";
 import { QA_ACCOUNT_MESSAGE } from "@/lib/qaAccount";
 import { supabase } from "@/lib/supabase";
 
@@ -40,13 +42,9 @@ const linkErrorText = (codeLabel: string) => ({
 const LINK_UNKNOWN_ERROR_TEXT =
   "연결 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
-// 학생 화면(ProfileTab)과 같은 이름을 쓴다: 학생 등록 사이트는 학생 고유코드.
-const codeLabelOf = () =>
-  site.features.studentEnrollment ? "학생 고유코드" : "연결코드";
-
 function resolveLinkError(error: { message?: string } | null | undefined) {
   const raw = String(error?.message || "");
-  const texts = linkErrorText(codeLabelOf());
+  const texts = linkErrorText(linkCodeLabel());
   const hit = Object.keys(texts).find((key) => raw.includes(key));
   return hit ? texts[hit] : LINK_UNKNOWN_ERROR_TEXT;
 }
@@ -63,7 +61,7 @@ export default function LinkChildModal({
   onLinked,
 }: LinkChildModalProps) {
   const titleId = useId();
-  const codeLabel = codeLabelOf();
+  const codeLabel = linkCodeLabel();
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const [chars, setChars] = useState(() => Array(CODE_LENGTH).fill(""));

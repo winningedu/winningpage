@@ -1,5 +1,6 @@
-// 회원 상세의 소속 저장 분기(사 결정 r4 4번). 스쿨멘토의 학생은 학적까지 옮기는 이동 폼과 API 를 쓰고,
-// 학생이 아니거나 위닝이면 기존 fn_admin_set_profile_tenant RPC 를 그대로 쓴다.
+// 회원 상세의 소속 저장 분기(사 결정 r4 4번). 학생의 기관 변경은 학적까지 옮기는 이동 폼과 API 를 쓰고,
+// 학생이 아니면 기존 fn_admin_set_profile_tenant RPC 를 쓴다. 소속 없음은 스쿨멘토에서만 막고(기타로 옮김),
+// 위닝은 RPC 에 null 을 넘겨 올해 학적을 DB 가 지운다.
 
 import "@testing-library/jest-dom/vitest";
 import {
@@ -13,15 +14,16 @@ import {
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
-  studentEnrollment: true,
+  siteKey: "schoolmentor",
   rpc: vi.fn(),
 }));
 
 vi.mock("@/config/site", () => ({
   site: {
-    get features() {
-      return { studentEnrollment: hoisted.studentEnrollment };
+    get key() {
+      return hoisted.siteKey;
     },
+    features: { studentEnrollment: true },
   },
 }));
 
@@ -122,7 +124,7 @@ function pickTenantAndSave(tenantName: string) {
 const fetchMock = vi.fn();
 
 beforeEach(() => {
-  hoisted.studentEnrollment = true;
+  hoisted.siteKey = "schoolmentor";
   hoisted.rpc.mockReset().mockResolvedValue({ error: null });
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
@@ -183,7 +185,7 @@ describe("MembersAdmin 소속 저장", () => {
   });
 
   test("위닝에서는 학생도 소속 없음으로 바꿀 수 있다", async () => {
-    hoisted.studentEnrollment = false;
+    hoisted.siteKey = "winning";
     await openMember("김학생");
 
     pickTenantAndSave("소속 없음");
@@ -210,18 +212,13 @@ describe("MembersAdmin 소속 저장", () => {
     expect(screen.queryByText("다라고(으)로 옮기기")).toBeNull();
   });
 
-  test("위닝에서는 학생도 기존 RPC 를 쓴다", async () => {
-    hoisted.studentEnrollment = false;
+  test("위닝에서도 학생의 기관 변경은 RPC 대신 이동 폼이 열린다", async () => {
+    hoisted.siteKey = "winning";
     await openMember("김학생");
 
     pickTenantAndSave("다라고");
 
-    await waitFor(() =>
-      expect(hoisted.rpc).toHaveBeenCalledWith("fn_admin_set_profile_tenant", {
-        p_profile_id: "p-student",
-        p_tenant_id: "t-2",
-      }),
-    );
-    expect(screen.queryByText("다라고(으)로 옮기기")).toBeNull();
+    expect(await screen.findByText("다라고(으)로 옮기기")).toBeInTheDocument();
+    expect(hoisted.rpc).not.toHaveBeenCalled();
   });
 });

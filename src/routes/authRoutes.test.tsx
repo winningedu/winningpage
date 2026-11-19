@@ -36,3 +36,43 @@ describe("authRoutes /signup/student", () => {
     expect(Component).toBe(StudentForm);
   });
 });
+
+describe("authRoutes 위닝식 학생 가입 경로", () => {
+  const winningOnlyPaths = [
+    "/signup/student/birth",
+    "/signup/student/under14/verify",
+    "/signup/student/under14",
+  ];
+
+  async function loadRoute(schoolSignup: boolean, path: string) {
+    vi.resetModules();
+    vi.doMock("@/config/site", () => ({
+      site: { features: { schoolSignup } },
+    }));
+    const { default: authRoutes } = await import("./authRoutes");
+    const flow = authRoutes.find((route) => route.children);
+    return flow?.children?.find((child) => child.path === path);
+  }
+
+  async function redirectOf(route: Awaited<ReturnType<typeof loadRoute>>) {
+    const loader = route?.loader as (() => Response) | undefined;
+    return loader?.();
+  }
+
+  it.each(winningOnlyPaths)(
+    "학교 가입 사이트는 %s 를 학교 가입 화면으로 돌려보낸다",
+    async (path) => {
+      const response = await redirectOf(await loadRoute(true, path));
+
+      expect(response?.status).toBe(302);
+      expect(response?.headers.get("Location")).toBe("/signup/student");
+    },
+  );
+
+  it.each(winningOnlyPaths)("위닝은 %s 를 그대로 연다", async (path) => {
+    const route = await loadRoute(false, path);
+
+    expect(route?.loader).toBeUndefined();
+    expect(route?.Component).toBeDefined();
+  });
+});

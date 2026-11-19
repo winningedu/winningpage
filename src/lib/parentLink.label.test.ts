@@ -1,10 +1,10 @@
 // 학부모 연결 안내 문구가 학생 화면과 같은 코드 이름을 쓰는지 본다.
-// 학생 등록 사이트(스쿨멘토)는 학생 고유코드, 그 외(위닝에듀)는 연결코드다.
+// 스쿨멘토는 학생 고유코드, 위닝에듀는 연결코드다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  site: { features: { studentEnrollment: false } },
+  site: { key: "winning", features: { studentEnrollment: true } },
   rpc: vi.fn(),
   apiFetch: vi.fn(),
 }));
@@ -31,8 +31,8 @@ describe("parentLink 코드 명칭", () => {
     mocks.apiFetch.mockReset();
   });
 
-  test("학생 등록 사이트는 학생 고유코드로 안내한다", async () => {
-    mocks.site.features.studentEnrollment = true;
+  test("스쿨멘토는 학생 고유코드로 안내한다", async () => {
+    mocks.site.key = "schoolmentor";
     expect(linkCodeLabel()).toBe("학생 고유코드");
 
     serverSays("invalid_code_format");
@@ -52,8 +52,8 @@ describe("parentLink 코드 명칭", () => {
     });
   });
 
-  test("그 외 사이트는 연결코드로 안내한다", async () => {
-    mocks.site.features.studentEnrollment = false;
+  test("위닝에듀는 연결코드로 안내한다", async () => {
+    mocks.site.key = "winning";
     expect(linkCodeLabel()).toBe("연결코드");
 
     serverSays("invalid_code_format");

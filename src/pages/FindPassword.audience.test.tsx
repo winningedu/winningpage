@@ -1,4 +1,4 @@
-// FindPassword.tsx 최상단 학생/선생님 탭 - 스쿨멘토에만 보이고 위닝은 지금 그대로 그린다.
+// FindPassword.tsx 최상단 학생/선생님 탭 - 두 사이트 모두 보인다.
 
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -65,15 +65,23 @@ describe("FindPassword 학생/선생님 탭", () => {
     expect(screen.getByLabelText("전화번호")).toBeInTheDocument();
   });
 
-  it("위닝은 학생/선생님 탭 없이 지금 그대로 그린다", () => {
+  it("위닝도 학생/선생님 탭이 있고 선생님 탭에서 선생님 화면으로 바뀐다", () => {
     state.siteKey = "winning";
     renderFindPassword();
 
-    expect(screen.queryByRole("tab", { name: "학생" })).toBeNull();
-    expect(screen.queryByRole("tab", { name: "선생님" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "학생" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(
       screen.getByRole("tab", { name: "휴대폰 인증" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("전화번호")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "선생님" }));
+
+    expect(screen.getByLabelText("아이디")).toBeInTheDocument();
+    expect(screen.getByLabelText("휴대폰 번호")).toBeInTheDocument();
+    expect(screen.queryByLabelText("전화번호")).toBeNull();
   });
 });

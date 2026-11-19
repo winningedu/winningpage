@@ -1,0 +1,643 @@
+-- 위닝 경로도 소속이 생길 때 학적을 만든다. 스쿨멘토 선생님 화면은 student_enrollments 만 읽는데
+-- 위닝 가입과 소속 코드 입력은 profiles.tenant_id 만 정해서 위닝 학생이 선생님 화면에 보이지 않았다.
+--
+-- 1) complete_signup_profile: 20261110033000 본문 그대로, 학생이고 소속이 있으면 학급 없는 학적을 만드는 블록만 더했다.
+--    학적은 app_settings.site_key 가 "winning" 일 때만 만들고, "schoolmentor" 이면 학생 가입을 WC107 로 거절한다(표식이 없으면 이전 동작).
+--    fn_set_my_tenant 와 fn_admin_set_profile_tenant 는 가입 경로가 아니라(스쿨멘토 학생은 가입 때 소속이 정해지고, 어드민 경로는 관리자 전용) 표식을 보지 않는다.
+-- 2) fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 같은 학적을 만든다.
+-- 3) fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생의 소속을 비울 때 올해 활성 학적을 지우고 이력으로 남기며,
+--    소속을 정할 때는 학적을 함께 만든다(올해 학적이 다른 기관에 있으면 WC100, 그 경우는 fn_admin_move_student_tenant 를 쓴다).
+-- 학적 만들기는 그 기관의 올해 학적이 같은 기관에 이미 있으면 건드리지 않고, 다른 기관에 있으면 WC100(other_tenant_enrollment)으로 막는다.
+-- 소유자, 권한은 create or replace 가 그대로 유지한다. 시그니처는 바뀌지 않는다.
+
+CREATE OR REPLACE FUNCTION "public"."complete_signup_profile"("p_name" "text", "p_username" "text", "p_phone" "text", "p_email" "text", "p_region" "text", "p_school_type" "text", "p_school_name" "text", "p_member_type" "text", "p_terms_service_agreed" boolean, "p_privacy_required_agreed" boolean, "p_identity_required_agreed" boolean, "p_privacy_optional_agreed" boolean, "p_marketing_agreed" boolean, "p_ads_agreed" boolean, "p_guardian_phone" "text" DEFAULT NULL::"text", "p_guardian_consent" boolean DEFAULT false, "p_identity_request_id" "text" DEFAULT NULL::"text", "p_birth_date" "date" DEFAULT NULL::"date", "p_gender" "text" DEFAULT NULL::"text", "p_org_code" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $_$
+declare
+  v_user_id        uuid;
+  v_name           text;
+  v_username       text;
+  v_phone          text;
+  v_phone_digits   text;
+  v_pv_id          uuid;
+  v_email          text;
+  v_region         text;
+  v_school_type    text;
+  v_school_name    text;
+  v_member_type    text;
+  v_link_code      text;
+  v_guardian_phone        text;
+  v_guardian_phone_digits text;
+  v_identity_rid   text;
+  v_iv_id          uuid;
+  v_iv_purpose     text;
+  v_iv_under14     boolean;
+  v_iv_birth_date  date;
+  v_iv_gender      text;
+  v_iv_mobile      text;
+  v_under14        boolean := false;
+  v_birth_date     date;
+  v_gender         text;
+  v_org_code_input text;
+  v_tenant_id      uuid;
+  v_require_tenant boolean;
+  v_signup_enabled boolean;
+  v_enroll_tenant  uuid;
+  v_enroll_grade   text;
+  v_enroll_year    smallint;
+  v_site_key       text;
+begin
+  v_user_id := auth.uid();
+
+  if v_user_id is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  -- ── 가입 on/off 게이트 (2026-09-22, S 가입 차단용) ────────────────
+  -- 다른 검증보다 먼저 확인한다 - 꺼져 있으면 이후 어떤 입력도 볼 필요가
+  -- 없다. 행이 없으면(설정 자체가 안 심겼으면) false 로 취급해 막는다 -
+  -- 폴백으로 열어주지 않는다.
+  select ((s.value #>> '{}')::boolean) into v_signup_enabled
+    from public.app_settings s where s.key = 'signup_enabled';
+  if not coalesce(v_signup_enabled, false) then
+    raise exception 'signup_disabled' using errcode = 'WC074';
+  end if;
+
+  v_name        := trim(coalesce(p_name, ''));
+  v_email       := lower(trim(coalesce(p_email, '')));
+  v_username    := lower(trim(coalesce(nullif(p_username, ''), v_email)));
+  v_phone       := trim(coalesce(p_phone, ''));
+  v_region      := trim(coalesce(p_region, ''));
+  v_school_type := trim(coalesce(p_school_type, ''));
+  v_school_name := trim(coalesce(p_school_name, ''));
+  v_member_type := lower(trim(coalesce(p_member_type, '')));
+
+  v_guardian_phone := trim(coalesce(p_guardian_phone, ''));
+  v_identity_rid   := trim(coalesce(p_identity_request_id, ''));
+
+  -- 저장은 입력값 그대로 두고(기존 동작 유지), 조회만 숫자로 정규화한다.
+  v_phone_digits := regexp_replace(v_phone, '[^0-9]', '', 'g');
+
+  if v_name = '' then
+    raise exception 'name_required';
+  end if;
+
+  if v_email = '' then
+    raise exception 'email_required';
+  end if;
+
+  if v_username = '' then
+    v_username := v_email;
+  end if;
+
+  if v_member_type = '' then
+    raise exception 'member_type_required';
+  end if;
+
+  if v_member_type not in ('student', 'parent', 'mentor') then
+    raise exception 'invalid_member_type';
+  end if;
+
+  -- 사이트 표식(app_settings.site_key): 프로젝트마다 데이터 SQL 로 "winning" 또는 "schoolmentor" 를 심는다.
+  -- 스쿨멘토 학생은 /api/signup/school-student(fn_student_signup)로만 가입한다. 이 RPC 로 가입하면
+  -- 이메일 인증과 기관별 전화번호 검사를 건너뛰므로 막는다. 표식이 없으면(마이그레이션만 먼저 배포) 막지 않는다.
+  select (s.value #>> '{}') into v_site_key from public.app_settings s where s.key = 'site_key';
+  if v_site_key = 'schoolmentor' and v_member_type = 'student' then
+    raise exception 'student_signup_not_allowed' using errcode = 'WC107';
+  end if;
+
+  -- 지역,재학 구분은 학생에게만 필수([13]).
+  if v_member_type = 'student' and v_region = '' then
+    raise exception 'region_required';
+  end if;
+
+  if v_member_type = 'student' and v_school_type = '' then
+    raise exception 'school_type_required';
+  end if;
+
+  if coalesce(p_terms_service_agreed, false) is not true then
+    raise exception 'terms_service_required';
+  end if;
+
+  if coalesce(p_privacy_required_agreed, false) is not true then
+    raise exception 'privacy_required';
+  end if;
+
+  -- 본인 인증 정보 수집 동의는 학생 약관에만 있는 항목이다.
+  if v_member_type = 'student'
+     and coalesce(p_identity_required_agreed, false) is not true then
+    raise exception 'identity_required';
+  end if;
+
+  -- ── 생년월일,성별 (QA 2026-08-22) ──────────────────────────────
+  -- 우선 입력값을 그대로 정규화,검증한다. 14세 미만 흐름은 프런트가 이 두 값을 보내지
+  -- 않으므로(PASS 값이 정본) 여기서는 통과하고, 아래 법정대리인 본인확인 블록에서
+  -- identity_verifications 값으로 덮어쓴다.
+  v_birth_date := p_birth_date;
+  v_gender     := nullif(trim(coalesce(p_gender, '')), '');
+
+  -- ── 소속 코드 (2026-09-22, tenants 전환) ────────────────────────
+  -- p_org_code 는 이제 8자 tenant 코드다(fn_generate_tenant_code 출력 형식).
+  -- 값이 있으면 fn_resolve_tenant_code 가 정규화,조회,레이트리밋(WC068)을
+  -- 하고, 못 찾으면 실패 기록을 남긴 뒤 NULL 을 돌려준다(raise 하지 않음 -
+  -- 그래야 기록 insert 가 이 가입 트랜잭션과 함께 커밋된다). 소속이
+  -- 필수(require_tenant_on_signup)가 아니면 잘못된 코드는 조용히 무시하고
+  -- (선택 입력이라 오타로 가입 자체를 막지 않는다), 필수면 아래에서 WC073.
+  v_org_code_input := trim(coalesce(p_org_code, ''));
+  if v_org_code_input <> '' then
+    v_tenant_id := public.fn_resolve_tenant_code(v_org_code_input);
+  end if;
+
+  -- jsonb 를 안전하게 boolean 으로 - #>>'{}' 는 스칼라 jsonb(true/false 이든
+  -- 문자열 "true" 이든) 를 text 로 뽑는다. value::text::boolean 은 값이
+  -- json 문자열 '"true"' 로 저장되면 22P02 로 터져 가입 전체를 막는다.
+  select ((s.value #>> '{}')::boolean) into v_require_tenant
+    from public.app_settings s
+   where s.key = 'require_tenant_on_signup';
+
+  if coalesce(v_require_tenant, false) and v_tenant_id is null then
+    raise exception 'tenant_required' using errcode = 'WC073';
+  end if;
+
+  if v_gender is not null and v_gender not in ('남', '여') then
+    raise exception 'invalid_gender';
+  end if;
+
+  -- ── 법정대리인 본인확인 (만 14세 미만) ──────────────────────────
+  if v_identity_rid <> '' then
+    select id, purpose, is_under14, birth_date, gender, mobile
+      into v_iv_id, v_iv_purpose, v_iv_under14, v_iv_birth_date, v_iv_gender, v_iv_mobile
+    from public.identity_verifications
+    where request_id = v_identity_rid
+      and status = 'verified'
+      and consumed_at is null
+      and verified_at > now() - interval '30 minutes'
+    limit 1;
+
+    if v_iv_id is null then
+      raise exception 'identity_not_verified';
+    end if;
+
+    if v_iv_purpose is distinct from 'under14_guardian' then
+      raise exception 'identity_purpose_mismatch';
+    end if;
+
+    -- 법정대리인이 만 14세 미만이면 대리인이 될 수 없다.
+    if coalesce(v_iv_under14, false) then
+      raise exception 'guardian_age';
+    end if;
+
+    v_under14 := true;
+
+    -- PASS 실명 정보가 정본이다 - 폼에서 보낸 p_birth_date/p_gender는 무시한다.
+    -- NICE 성별코드 관례: 홀수(1/3/5/7)=남, 짝수 계열(0/2/4/6/8)=여
+    -- (0/2/4/6/8은 내국인/외국인,출생연도대별 조합, 매핑에 없는 값이면 null).
+    v_birth_date := v_iv_birth_date;
+    v_gender := case
+      when v_iv_gender in ('1', '3', '5', '7') then '남'
+      when v_iv_gender in ('0', '2', '4', '6', '8') then '여'
+      else null
+    end;
+
+    -- 법정대리인(학부모) 번호도 PASS 콜백이 저장한 mobile_no가 정본이다 - 있으면
+    -- 폼 입력값(p_guardian_phone)을 무시하고 덮어쓴다. 없으면 입력값을 그대로 쓴다.
+    v_guardian_phone := coalesce(
+      nullif(regexp_replace(coalesce(v_iv_mobile, ''), '[^0-9]', '', 'g'), ''),
+      v_guardian_phone
+    );
+  end if;
+
+  v_guardian_phone_digits := regexp_replace(v_guardian_phone, '[^0-9]', '', 'g');
+
+  -- 표기 정규화 - profiles.phone은 사용자가 입력한 형식(예: 010-1234-5678)을 그대로
+  -- 저장하는 관행이라, guardian_phone도 저장 직전에 같은 하이픈 형식으로 맞춘다. PASS
+  -- mobile_no(하이픈 없는 숫자열)와 폼 입력값(하이픈 유무가 제각각) 둘 다 위에서 이미
+  -- v_guardian_phone에 합쳐졌으므로 여기 한 곳에서만 처리하면 된다. 인증 조회,중복
+  -- 비교는 계속 v_guardian_phone_digits(숫자만)를 쓴다.
+  v_guardian_phone := case
+    when v_guardian_phone_digits = '' then ''
+    when length(v_guardian_phone_digits) = 11 then
+      substr(v_guardian_phone_digits, 1, 3) || '-' || substr(v_guardian_phone_digits, 4, 4) || '-' || substr(v_guardian_phone_digits, 8, 4)
+    when length(v_guardian_phone_digits) = 10 then
+      substr(v_guardian_phone_digits, 1, 3) || '-' || substr(v_guardian_phone_digits, 4, 3) || '-' || substr(v_guardian_phone_digits, 7, 4)
+    else v_guardian_phone
+  end;
+
+  if v_under14 then
+    if v_guardian_phone = '' then
+      raise exception 'guardian_phone_required';
+    end if;
+
+    if coalesce(p_guardian_consent, false) is not true then
+      raise exception 'guardian_consent_required';
+    end if;
+  end if;
+
+  -- 14세 이상 학생,학부모는 생년월일,성별이 필수다(멘토는 가입 화면이 아직 없어 제외).
+  if not v_under14 and v_member_type in ('student', 'parent') then
+    if v_birth_date is null then
+      raise exception 'birth_date_required';
+    end if;
+
+    if v_gender is null then
+      raise exception 'gender_required';
+    end if;
+  end if;
+
+  -- 학생은 본인 명의 번호 또는 학부모 번호 중 하나가 있어야 한다("학생 명의의
+  -- 핸드폰이 없어요" 체크 시 phone을 비우고 guardian_phone을 채워 보낸다).
+  -- 14세 미만은 위 guardian_phone_required가 이미 걸러내므로 여기는 14세 이상
+  -- 학생이 phone도 guardian_phone도 안 보낸 경우를 막는 안전망이다.
+  if v_member_type = 'student'
+     and v_phone_digits = ''
+     and v_guardian_phone_digits = '' then
+    raise exception 'phone_or_guardian_required';
+  end if;
+
+  -- ── 휴대폰 인증 확인 (본인 번호) ─────────────────────────────────
+  -- purpose는 가입 목적으로 발송된 것만 인정한다(find_account/reset_password 등
+  -- 다른 목적 인증을 가입에 재사용하지 못하게). TTL은 30분 to 10분으로 단축한다.
+  if v_phone_digits <> '' then
+    select id into v_pv_id
+    from public.phone_verifications
+    where phone = v_phone_digits
+      and purpose in ('signup', 'parent_signup')
+      and verified_at is not null
+      and consumed_at is null
+      and verified_at > now() - interval '10 minutes'
+    order by verified_at desc
+    limit 1;
+  end if;
+
+  -- ── 휴대폰 인증 확인 (학부모 번호 - 14세 이상 학생이 본인 번호 대신 보낸 경우) ──
+  -- 본인 번호를 비우고 학부모 번호를 보낸 14세 이상 학생만 해당한다. 14세 미만은
+  -- PASS 본인확인으로 이미 검증된 번호라 별도 인증이 필요 없다.
+  if v_member_type = 'student'
+     and not v_under14
+     and v_phone_digits = ''
+     and v_guardian_phone_digits <> '' then
+    select id into v_pv_id
+    from public.phone_verifications
+    where phone = v_guardian_phone_digits
+      and purpose = 'guardian_signup'
+      and verified_at is not null
+      and consumed_at is null
+      and verified_at > now() - interval '10 minutes'
+    order by verified_at desc
+    limit 1;
+
+    if v_pv_id is null then
+      raise exception 'guardian_phone_not_verified';
+    end if;
+  end if;
+
+  -- [15]: 학생도 포함. 멘토는 가입 화면이 생길 때 추가한다.
+  -- 만 14세 미만이 본인 번호를 비운 경우만 면제한다(위 (3)-c 주석). 14세 이상
+  -- 학생이 학부모 번호 경로를 탄 경우는 바로 위 블록에서 이미 v_pv_id를 채웠거나
+  -- guardian_phone_not_verified로 걸러졌으므로 여기서 추가로 막을 필요가 없다.
+  if v_member_type in ('parent', 'student')
+     and v_pv_id is null
+     and not (v_under14 and v_phone_digits = '') then
+    raise exception 'phone_not_verified';
+  end if;
+
+  if exists (
+    select 1
+    from public.profiles
+    where lower(trim(email)) = v_email
+      and id <> v_user_id
+  ) then
+    raise exception 'duplicate_email';
+  end if;
+
+  -- ── [16] 전화번호 중복 ──────────────────────────────────────────
+  -- guardian_phone은 검사하지 않는다(학부모 본인 계정 번호,형제 공유가 정상).
+  if v_phone_digits <> '' and exists (
+    select 1
+    from public.profiles
+    where id <> v_user_id
+      and member_type is not null
+      and regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g') = v_phone_digits
+  ) then
+    raise exception 'duplicate_phone';
+  end if;
+
+  -- fn_profiles_lock_tenant(20260922) 게이트를 통과시킨다 - 아래 INSERT ...
+  -- ON CONFLICT DO UPDATE 가 재호출 시 UPDATE 경로를 탈 수 있어서다.
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+  -- member_type 이 이미 있는 회원은 같은 유형일 때만 트리거 게이트를 연다.
+  -- 다른 유형으로의 재호출(유형 갈아타기)은 막는다. 행을 잠가 검사와 upsert 사이에 안 바뀌게 한다.
+  if exists (
+    select 1 from public.profiles
+     where id = v_user_id
+       and member_type is not null
+       and member_type is distinct from v_member_type
+     for update
+  ) then
+    raise exception 'member_type_locked' using errcode = 'WC102';
+  end if;
+  perform set_config('app.member_type_set_via_rpc', 'on', true);
+
+  insert into public.profiles (
+    id, name, username, phone, email, region,
+    school_type, school_name, member_type, role,
+    terms_service_agreed, privacy_required_agreed, privacy_optional_agreed,
+    marketing_agreed, ads_agreed, guardian_phone, guardian_consent,
+    birth_date, gender, tenant_id, updated_at
+  )
+  values (
+    v_user_id, v_name, v_username, nullif(v_phone, ''), v_email, nullif(v_region, ''),
+    nullif(v_school_type, ''), nullif(v_school_name, ''), v_member_type, 'user',
+    coalesce(p_terms_service_agreed, false),
+    coalesce(p_privacy_required_agreed, false),
+    coalesce(p_privacy_optional_agreed, false),
+    coalesce(p_marketing_agreed, false),
+    coalesce(p_ads_agreed, false),
+    nullif(v_guardian_phone, ''),
+    coalesce(p_guardian_consent, false),
+    v_birth_date, v_gender, v_tenant_id,
+    now()
+  )
+  on conflict (id) do update
+  set
+    name                    = excluded.name,
+    username                = excluded.username,
+    phone                   = excluded.phone,
+    email                   = excluded.email,
+    region                  = excluded.region,
+    school_type             = excluded.school_type,
+    school_name             = excluded.school_name,
+    member_type             = excluded.member_type,
+    role                    = coalesce(public.profiles.role, 'user'),
+    terms_service_agreed    = excluded.terms_service_agreed,
+    privacy_required_agreed = excluded.privacy_required_agreed,
+    privacy_optional_agreed = excluded.privacy_optional_agreed,
+    marketing_agreed        = excluded.marketing_agreed,
+    ads_agreed              = excluded.ads_agreed,
+    -- 재호출로 이미 채운 법정대리인 정보를 빈 값이 덮지 않게 한다.
+    guardian_phone          = coalesce(excluded.guardian_phone, public.profiles.guardian_phone),
+    guardian_consent        = excluded.guardian_consent or coalesce(public.profiles.guardian_consent, false),
+    -- 생년월일,성별,소속도 같은 원칙 - 재호출(예: 재시도)로 이번엔 비어 온 값이
+    -- 이전에 채워진 값을 지우지 않게 한다.
+    birth_date              = coalesce(excluded.birth_date, public.profiles.birth_date),
+    gender                  = coalesce(excluded.gender, public.profiles.gender),
+    tenant_id               = coalesce(excluded.tenant_id, public.profiles.tenant_id),
+    updated_at              = now();
+
+  -- 인증 기록을 소비 처리한다. 같은 인증으로 두 번 가입할 수 없게 한다.
+  if v_pv_id is not null then
+    update public.phone_verifications
+    set consumed_at = now()
+    where id = v_pv_id;
+  end if;
+
+  -- 본인확인도 같은 원칙으로 소비하고, 이제서야 생긴 계정과 잇는다.
+  -- user_id를 여기서 채우는 이유는 가입 전 인증이라 그 시점엔 계정이 없어서다([11]).
+  if v_iv_id is not null then
+    update public.identity_verifications
+    set consumed_at = now(),
+        user_id     = v_user_id
+    where id = v_iv_id;
+  end if;
+
+  -- 약관 동의 이력 (버전 단위).
+  insert into public.user_term_agreements (user_id, term_id, agreed)
+  select
+    v_user_id,
+    t.id,
+    case
+      when t.code ~ '_identity$'                        then coalesce(p_identity_required_agreed, false)
+      when t.profile_column = 'terms_service_agreed'    then coalesce(p_terms_service_agreed, false)
+      when t.profile_column = 'privacy_required_agreed' then coalesce(p_privacy_required_agreed, false)
+      when t.profile_column = 'marketing_agreed'        then coalesce(p_marketing_agreed, false)
+      when t.profile_column = 'ads_agreed'              then coalesce(p_ads_agreed, false)
+      else false
+    end
+  from public.terms t
+  where t.is_active
+    and t.audience in (v_member_type, 'common')
+  on conflict (user_id, term_id) do update
+  set agreed    = excluded.agreed,
+      agreed_at = now();
+
+  -- 학생 연결코드: 없을 때만 발급한다(재호출로 코드가 회전하면 안 된다).
+  if v_member_type = 'student' then
+    select code into v_link_code
+    from public.student_link_codes
+    where student_id = v_user_id
+      and is_active;
+
+    if v_link_code is null then
+      v_link_code := public.issue_student_link_code(v_user_id);
+    end if;
+  end if;
+
+  -- 위닝 가입 학생도 스쿨멘토 선생님 화면이 읽는 학적(student_enrollments)을 갖는다.
+  -- 소속은 방금 저장한 profiles.tenant_id 로 본다(재호출에서 기존 소속이 유지될 수 있다).
+  -- 학급과 번호는 없이 만들고, 학년은 student_profiles.grade 가 중1~고3 일 때만 쓴다.
+  -- 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막아 소속과 학적이 갈라지지 않게 한다.
+  -- 사이트 표식이 "winning" 일 때만 만든다(표식이 없으면 이전처럼 소속만 정한다).
+  if v_member_type = 'student' and v_site_key = 'winning' then
+    select pr.tenant_id into v_enroll_tenant from public.profiles pr where pr.id = v_user_id;
+
+    if v_enroll_tenant is not null then
+      select t.school_year into v_enroll_year from public.tenants t where t.id = v_enroll_tenant;
+
+      if exists (
+        select 1 from public.student_enrollments e
+         where e.student_id = v_user_id and e.school_year = v_enroll_year and e.tenant_id <> v_enroll_tenant
+      ) then
+        raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+      end if;
+    end if;
+
+    if v_enroll_tenant is not null and not exists (
+      select 1 from public.student_enrollments e
+       where e.student_id = v_user_id and e.school_year = v_enroll_year and e.tenant_id = v_enroll_tenant
+    ) then
+      select sp.grade into v_enroll_grade from public.student_profiles sp where sp.profile_id = v_user_id;
+      v_enroll_grade := case
+        when v_enroll_grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']) then v_enroll_grade
+      end;
+      perform public.fn_enrollment_join(v_user_id, v_enroll_tenant, v_enroll_grade, null, null, null);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'id', v_user_id,
+    'email', v_email,
+    'member_type', v_member_type,
+    'under14', v_under14,
+    'link_code', v_link_code   -- 학생이 아니면 null
+  );
+end;
+$_$;
+
+comment on function public.complete_signup_profile(text, text, text, text, text, text, text, text, boolean, boolean, boolean, boolean, boolean, boolean, text, boolean, text, date, text, text) is
+  '가입 완료 RPC(위닝). 프로필 upsert, 인증 소비, 약관 이력, 학생 연결 코드 발급까지 한 트랜잭션이다. 학생이고 소속(profiles.tenant_id)이 있으면 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 그 기관의 올해 학적이 이미 있으면(재호출) 건드리지 않고, 올해 학적이 다른 기관에 있으면 WC100 으로 막는다. app_settings.site_key 가 schoolmentor 이면 학생 가입을 WC107 로 거절하고, winning 일 때만 학적을 만든다(표식이 없으면 소속만 정한다). 20261118.';
+
+-- fn_set_my_tenant: 20261110040608 본문 그대로, 학생이면 소속을 정한 뒤 학급 없는 학적을 만드는 블록만 더했다.
+-- 반환 모양은 그대로다. 이미 소속이 있으면 위에서 WC071 로 끝나므로 재호출로 학적이 겹치지 않는다.
+-- 올해 학적이 같은 기관에 이미 있으면 만들지 않고, 다른 기관에 있으면 WC100 으로 막는다.
+create or replace function public.fn_set_my_tenant(p_code text)
+ RETURNS TABLE(tenant_id uuid, name text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_caller   uuid := auth.uid();
+  v_existing uuid;
+  v_id       uuid;
+  v_grade    text;
+  v_year     smallint;
+  v_student  boolean;
+begin
+  if v_caller is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  select p.tenant_id into v_existing from public.profiles p where p.id = v_caller;
+
+  if v_existing is not null then
+    raise exception 'tenant_already_set' using errcode = 'WC071';
+  end if;
+
+  -- 코드 정규화, 레이트리밋(WC068)은 fn_resolve_tenant_code 가 담당한다.
+  -- 못 찾으면 NULL. 여기서 raise 하면 그 함수가 남긴 실패 기록이 같이
+  -- 롤백돼 리밋이 무력화되므로, 0행을 돌려주고 "없는 코드" 표기는 프론트
+  -- 몫으로 둔다.
+  v_id := public.fn_resolve_tenant_code(p_code);
+
+  if v_id is null then
+    return;
+  end if;
+
+  perform public.fn_qa_assert_tenant_join(v_caller, v_id);
+
+  select exists (select 1 from public.profiles pr where pr.id = v_caller and pr.member_type = 'student') into v_student;
+  select t.school_year into v_year from public.tenants t where t.id = v_id;
+
+  -- 올해 학적이 다른 기관에 있는 학생은 소속만 바꾸면 학적과 갈라지므로 막는다.
+  if v_student and exists (
+    select 1 from public.student_enrollments e
+     where e.student_id = v_caller and e.school_year = v_year and e.tenant_id <> v_id
+  ) then
+    raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+  end if;
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+
+  update public.profiles
+     set tenant_id  = v_id,
+         updated_at = now()
+   where id = v_caller;
+
+  -- 학생이면 선생님 화면이 읽는 학적을 만든다(학급과 번호 없이, 학년은 중1~고3 일 때만).
+  if v_student and not exists (
+       select 1 from public.student_enrollments e
+        where e.student_id = v_caller and e.school_year = v_year and e.tenant_id = v_id
+     ) then
+    select sp.grade into v_grade from public.student_profiles sp where sp.profile_id = v_caller;
+    v_grade := case
+      when v_grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']) then v_grade
+    end;
+    perform public.fn_enrollment_join(v_caller, v_id, v_grade, null, null, null);
+  end if;
+
+  return query
+    select t.id, t.name from public.tenants t where t.id = v_id;
+end;
+$function$;
+
+comment on function public.fn_set_my_tenant(text) is
+  '로그인 회원이 스스로 소속 코드를 입력해 profiles.tenant_id 를 세팅한다. 이미 소속이 설정돼 있으면 WC071(재설정은 어드민 경로 fn_admin_set_profile_tenant). 코드 판정은 fn_resolve_tenant_code 재사용(시도 초과 WC068). 없는 코드면 raise 하지 않고 0행을 돌려준다. raise 하면 실패 기록이 롤백돼 리밋이 무력화되기 때문이며, "없는 코드" 안내는 프론트가 0행을 보고 한다. fn_profiles_lock_tenant 트리거를 통과시키려고 update 직전 app.tenant_set_via_rpc 를 켠다. 학생이면 같은 트랜잭션에서 fn_enrollment_join 으로 올해 학급 없는 학적을 만든다(학년은 student_profiles.grade 가 중1~고3 일 때만, 아니면 null). 올해 학적이 다른 기관에 있으면 WC100. 20261118.';
+
+-- fn_admin_set_profile_tenant: 20261021014317 본문 그대로, 학생에게만 학적 처리를 더했다.
+-- 소속 해제(p_tenant_id null): 올해 활성 학적을 지우고 enrollment_changes 에 admin_direct 이력으로 남긴다(실행한 관리자가 decided_by).
+-- 대기 중인 변경 신청은 fn_catch_all_join_tenant 와 같이 반려로 닫고, 졸업 학적은 남긴다.
+-- 소속 지정: 올해 학적이 다른 기관에 있으면 WC100 으로 막는다(학적을 함께 옮기는 fn_admin_move_student_tenant 를 쓴다).
+-- 올해 학적이 없으면 fn_set_my_tenant 와 같이 학급 없는 학적을 만들어 소속과 학적이 갈라지지 않게 한다.
+-- 학생이 아니면 동작은 그대로다.
+create or replace function public.fn_admin_set_profile_tenant(p_profile_id uuid, p_tenant_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_student boolean;
+  v_year    smallint;
+  v_grade   text;
+begin
+  if not public.fn_admin_can('members', 'edit') then
+    raise exception 'not_authorized' using errcode = 'WC072';
+  end if;
+
+  if p_tenant_id is not null then
+    select t.school_year into v_year from public.tenants t where t.id = p_tenant_id;
+    if not found then
+      raise exception 'tenant_not_found';
+    end if;
+  end if;
+
+  select exists (
+    select 1 from public.profiles pr where pr.id = p_profile_id and pr.member_type = 'student'
+  ) into v_student;
+
+  if v_student and p_tenant_id is null then
+    update public.enrollment_changes c
+       set status = 'rejected', reject_reason = '소속 해제', decided_by = auth.uid(), decided_at = now()
+     where c.student_id = p_profile_id and c.status = 'pending';
+
+    with gone as (
+      delete from public.student_enrollments e
+       using public.tenants t
+       where t.id = e.tenant_id
+         and e.student_id = p_profile_id
+         and e.school_year = t.school_year
+         and e.status = 'active'
+      returning e.*
+    )
+    insert into public.enrollment_changes (
+      tenant_id, student_id, school_year, kind, status,
+      from_grade, from_class_id, from_number, reason, base_version, requested_by, decided_by, decided_at
+    )
+    select g.tenant_id, g.student_id, g.school_year, 'admin_direct', 'applied',
+           g.grade, g.class_id, g.number, 'correction', g.version, auth.uid(), auth.uid(), now()
+      from gone g;
+  end if;
+
+  if v_student and p_tenant_id is not null then
+    if exists (
+      select 1 from public.student_enrollments e
+       where e.student_id = p_profile_id and e.school_year = v_year and e.tenant_id <> p_tenant_id
+    ) then
+      raise exception 'other_tenant_enrollment' using errcode = 'WC100';
+    end if;
+  end if;
+
+  perform set_config('app.tenant_set_via_rpc', '1', true);
+
+  update public.profiles
+     set tenant_id  = p_tenant_id,
+         updated_at = now()
+   where id = p_profile_id;
+
+  if v_student and p_tenant_id is not null and not exists (
+    select 1 from public.student_enrollments e
+     where e.student_id = p_profile_id and e.school_year = v_year and e.tenant_id = p_tenant_id
+  ) then
+    select sp.grade into v_grade from public.student_profiles sp where sp.profile_id = p_profile_id;
+    v_grade := case
+      when v_grade = any (array['중1', '중2', '중3', '고1', '고2', '고3']) then v_grade
+    end;
+    perform public.fn_enrollment_join(p_profile_id, p_tenant_id, v_grade, null, null, null);
+  end if;
+end;
+$function$;
+
+comment on function public.fn_admin_set_profile_tenant(uuid, uuid) is
+  '회원 관리 편집 권한(fn_admin_can(''members'',''edit'')) 보유 관리자 전용. p_tenant_id 가 NULL 이면 소속 해제, 존재하지 않는 tenant 면 거부(WC072 는 권한 없음 전용, tenant 미존재는 별도 메시지). fn_set_my_tenant 와 동일하게 트리거 우회 설정을 켜고 UPDATE 한다. 학생의 소속을 해제하면 그 학생의 올해 활성 학적(student_enrollments)을 지우고 enrollment_changes 에 admin_direct 이력으로 남기며 대기 중인 변경 신청은 반려로 닫는다(졸업 학적은 남김). 학생에게 tenant 를 지정할 때 올해 학적이 다른 기관에 있으면 WC100(학적을 함께 옮기는 fn_admin_move_student_tenant 를 쓴다), 올해 학적이 없으면 학급 없는 학적을 만든다. 학생이 아니면 학적은 건드리지 않는다. 20261118.';
