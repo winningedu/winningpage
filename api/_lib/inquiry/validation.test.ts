@@ -459,6 +459,28 @@ describe("validateDesignResponse", () => {
     expect(okTip.ok).toBe(true);
   });
 
+  it("글자 수 초과 메시지에 현재 글자 수와 목표를 담는다(코드포인트 기준)", () => {
+    const longMust = validateDesignResponse(
+      design({
+        sections: sectionsWith("IV", { must: ["가".repeat(101), "b", "c"] }),
+      }),
+      dctx,
+    );
+    const longTip = validateDesignResponse(
+      design({ sections: sectionsWith("IV", { tip: "나".repeat(130) }) }),
+      dctx,
+    );
+    expect(longMust.ok).toBe(false);
+    expect(longTip.ok).toBe(false);
+    if (longMust.ok || longTip.ok) return;
+    expect(longMust.issues.find((i) => i.code === "too_long")?.message).toBe(
+      "must 항목은 100자 이하여야 한다. 지금 101자다. 60자 이내로 줄인다.",
+    );
+    expect(longTip.issues.find((i) => i.code === "too_long")?.message).toBe(
+      "tip 은 120자 이하여야 한다. 지금 130자다. 80자 이내로 줄인다.",
+    );
+  });
+
   it("must 나 tip 한 항목에 완결문이 2개 이상이면 대필로 보고 실패한다", () => {
     const r = validateDesignResponse(
       design({
