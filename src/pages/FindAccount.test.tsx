@@ -92,11 +92,46 @@ describe("FindAccount", () => {
     expect(screen.getByText("새봄학원")).toBeInTheDocument();
   });
 
-  it("위닝은 가린 이메일만 보여준다", async () => {
+  it("위닝은 회원만 있으면 가린 이메일만 보여준다", async () => {
     state.siteKey = "winning";
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        found: true,
+        via: "phone",
+        masked_emails: ["ki****@ex***.com", "ab****@ex***.com"],
+        accounts: [
+          { maskedEmail: "ki****@ex***.com", tenantName: "한빛중학교" },
+          { maskedEmail: "ab****@ex***.com", tenantName: null },
+        ],
+      }),
+    });
     await verifyPhone();
 
     expect(await screen.findByText("ki****@ex***.com")).toBeInTheDocument();
     expect(screen.queryByText("한빛중학교")).not.toBeInTheDocument();
+    expect(screen.getByText("아이디(이메일)를 찾아드려요")).toBeInTheDocument();
+  });
+
+  it("위닝 선생님은 가린 아이디를 보고 내부 이메일은 보지 못한다", async () => {
+    state.siteKey = "winning";
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        found: true,
+        via: "phone",
+        masked_emails: ["te****@teacher.schoolmentor.kr"],
+        accounts: [{ maskedId: "tea***********", tenantName: null }],
+      }),
+    });
+    await verifyPhone();
+
+    expect(
+      await screen.findByText("아이디 tea***********"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/teacher\.schoolmentor\.kr/)).toBeNull();
+    expect(screen.getByText("아이디(이메일)를 찾아드려요")).toBeInTheDocument();
   });
 });

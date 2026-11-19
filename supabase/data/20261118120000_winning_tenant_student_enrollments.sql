@@ -66,4 +66,5 @@ select count(*) as tenant_students,
 commit;
 
 -- 실행 기록
--- (아직 어느 DB에도 실행하지 않았다)
+-- 2026-11-19 dev(gjowqdiopinhixfivnkx): 실행 뒤 소속 학생 6명, 올해 학적 없는 학생 0명. 학적 6건 생성(학년 없음 3건).
+-- 2026-11-19 Winning prod(ykrpjcsubmbenfcnwlzd): main 배포(PR #437)와 마이그레이션 20261118090341 적용 확인 뒤 실행. 실행 전 소속 학생 14명 중 학적 없는 학생 14명, 실행 뒤 0명. 학적 14건 생성(학년 있음 1건), enrollment_changes signup 14건.
