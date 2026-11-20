@@ -1,8 +1,9 @@
-import { Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
+import InstagramIcon from "@/components/icons/InstagramIcon";
 import KakaoIcon from "@/components/icons/KakaoIcon";
 import NaverClipIcon from "@/components/icons/NaverClipIcon";
 import NaverIcon from "@/components/icons/NaverIcon";
+import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import { useNavGroups } from "@/hooks/useNavGroups";
@@ -78,13 +79,13 @@ function SocialLinks({ company }: { company: typeof site.company }) {
     {
       label: "유튜브",
       href: company.youtubeUrl,
-      Icon: Youtube,
+      Icon: YoutubeIcon,
       badgeClassName: "bg-[#ff0000] text-white",
     },
     {
       label: "인스타그램",
       href: company.instagramUrl,
-      Icon: Instagram,
+      Icon: InstagramIcon,
       badgeClassName: "text-white",
       style: {
         background:
