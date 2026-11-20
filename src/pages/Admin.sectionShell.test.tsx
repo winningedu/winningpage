@@ -55,7 +55,7 @@ function renderSection(section: string) {
 describe("Admin 섹션 셸", () => {
   it("config 탭은 링크로 렌더되고 현재 섹션 탭에만 aria-current 가 붙는다", async () => {
     state.hang = false;
-    renderSection("specialHighschool");
+    renderSection("admissionSusiJungsi");
 
     const nav = await screen.findByRole("navigation", { name: "섹션 탭" });
     const links = within(nav).getAllByRole("link");
@@ -64,7 +64,7 @@ describe("Admin 섹션 셸", () => {
       (link) => link.getAttribute("aria-current") === "page",
     );
     expect(current).toHaveLength(1);
-    expect(current[0]).toHaveAttribute("href", "/admin/specialHighschool");
+    expect(current[0]).toHaveAttribute("href", "/admin/admissionSusiJungsi");
   });
 
   it("불러오는 동안 로딩 문구가 role=status 안에 있다", async () => {

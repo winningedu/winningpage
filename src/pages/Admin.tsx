@@ -112,6 +112,7 @@ import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import ServiceCreditAdjustEntry from "./admin/service-credit/ServiceCreditAdjustEntry";
 import {
+  AdminConfigTabs,
   AdminForm,
   type AdminRow,
   AdminTable,
@@ -3191,14 +3192,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
     setTotalCount(paginate ? (count ?? 0) : nextRows.length);
   }
 
-  // 탭 전환. 이제 activeKey는 다른 <Route>로의 실제 이동이다 — 이동한 순간 이
-  // 컴포넌트는 언마운트되고 목적지 섹션의 인스턴스가 새로 마운트되므로,
-  // 예전처럼 mode/editingRow/pendingSection/keyword/searchTerm/page를 손으로
-  // 하나하나 리셋할 필요가 없다(각 useState 초기값이 그 일을 대신한다).
-  function changeTab(key: string) {
-    navigate(`/admin/${key}`);
-  }
-
   // "이 조합의 컷 만들기"(§4-3-C-4) 전용 — 다른 섹션으로 이동하면서 그 섹션의
   // 등록 폼을 프리필값과 함께 바로 연다. 일반 changeTab과 분리한 이유: 프리필값은
   // location.state로 실어야 목적지 인스턴스(마운트 시점)가 읽을 수 있다 — 지금
@@ -3705,22 +3698,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
         ) : (
           <>
             {config.tabs && (
-              <div className="mb-4 flex gap-2">
-                {config.tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => changeTab(tab.key)}
-                    className={`h-9 border px-5 text-sm font-black transition ${
-                      activeKey === tab.key
-                        ? "border-primary bg-primary text-white"
-                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <AdminConfigTabs tabs={config.tabs} activeKey={activeKey} />
             )}
 
             <div className="mb-6 bg-white px-6 py-5 shadow-sm">
@@ -3899,7 +3877,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
             {config.knowledgeSearchPreview && <SearchPreview config={config} />}
 
             {loading ? (
-              <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+              <div
+                role="status"
+                className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+              >
                 데이터를 불러오는 중입니다.
               </div>
             ) : (
