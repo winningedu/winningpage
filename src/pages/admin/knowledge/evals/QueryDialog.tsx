@@ -111,7 +111,19 @@ export default function QueryDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (open) return;
+        // 저장 중에 닫으면 저장 결과를 받을 곳이 사라진다. 저장 중에는 모든 닫기를 막는다.
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[44rem]">
         <DialogHeader>
           <DialogTitle>{target ? "질의 편집" : "질의 추가"}</DialogTitle>
@@ -217,7 +229,7 @@ export default function QueryDialog({
           <div className="text-sm font-bold text-red-600">{message}</div>
         )}
         <div className="flex justify-end gap-2">
-          <ActionButton variant="light" onClick={onClose}>
+          <ActionButton variant="light" onClick={onClose} disabled={busy}>
             취소
           </ActionButton>
           <ActionButton onClick={submit} disabled={busy}>
