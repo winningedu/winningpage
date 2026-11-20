@@ -206,7 +206,7 @@ export default function TenantDetail({
             <TabsTrigger
               key={item.key}
               value={item.key}
-              className="h-9 flex-none px-4 font-semibold data-active:bg-primary data-active:text-primary-foreground"
+              className="h-9 flex-none px-4 font-semibold group-data-horizontal/tabs:after:bottom-0 data-active:text-primary data-active:after:bg-primary"
             >
               {item.label}
             </TabsTrigger>
