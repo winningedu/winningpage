@@ -19,7 +19,14 @@ import BlockEditor, {
   type BlockEditorHandle,
 } from "@/components/editor/BlockEditor";
 import ColumnPreviewModal from "@/components/editor/ColumnPreviewModal";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   type AdmissionDoc,
   HWP_SECTION_JSON_KEYS,
@@ -1652,38 +1659,56 @@ export function AdminTable<T extends AdminRow = AdminRow>({
         전체 <span className="text-blue-600">{total.toLocaleString()}</span>건
       </div>
 
-      <ScrollArea axis="x">
-        <table className="w-full min-w-[1000px] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
-              <th className="w-14 px-3 py-3 text-left">번호</th>
-              {config.columns.map((column) => (
-                <th key={column.key} className="px-3 py-3 text-left">
-                  {column.label}
-                </th>
-              ))}
-              <th className="w-24 px-3 py-3 text-center">관리</th>
-            </tr>
-          </thead>
+      <Table className="min-w-[62.5rem] border-collapse">
+        <TableHeader>
+          <TableRow className="border-y border-gray-300">
+            <TableHead
+              scope="col"
+              className="w-14 px-3 py-3 text-left font-semibold"
+            >
+              번호
+            </TableHead>
+            {config.columns.map((column) => (
+              <TableHead
+                scope="col"
+                key={column.key}
+                className="px-3 py-3 text-left font-semibold"
+              >
+                {column.label}
+              </TableHead>
+            ))}
+            <TableHead
+              scope="col"
+              className="w-24 px-3 py-3 text-center font-semibold"
+            >
+              관리
+            </TableHead>
+          </TableRow>
+        </TableHeader>
 
-          <tbody>
-            {pageRows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={config.columns.length + 2}
-                  className="py-12 text-center text-muted-foreground"
-                >
-                  등록된 데이터가 없습니다.
-                </td>
-              </tr>
-            ) : (
-              pageRows.map((row, index) => (
-                <tr key={row.id} className="border-b border-gray-100">
-                  <td className="px-3 py-3">{total - (start + index)}</td>
+        <TableBody>
+          {pageRows.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={config.columns.length + 2}
+                className="py-12 text-center text-muted-foreground"
+              >
+                등록된 데이터가 없습니다.
+              </TableCell>
+            </TableRow>
+          ) : (
+            pageRows.map((row, index) => (
+              <TableRow key={row.id} className="border-b border-gray-100">
+                <TableCell className="whitespace-normal px-3 py-3">
+                  {total - (start + index)}
+                </TableCell>
 
-                  {config.columns.map((column) => (
-                    <td key={column.key} className="px-3 py-3">
-                      {/* 대학명 = 메타 수정 다이얼로그 진입점.
+                {config.columns.map((column) => (
+                  <TableCell
+                    key={column.key}
+                    className="whitespace-normal px-3 py-3"
+                  >
+                    {/* 대학명 = 메타 수정 다이얼로그 진입점.
                           공개 목록에서 대학명을 누르면 그 대학 입시 홈페이지로
                           가듯, 어드민에서 누르면 그 URL을 고칠 수 있는 창이
                           열린다(사용자 지시 2026-08-10).
@@ -1702,7 +1727,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                           미주입으로 테스트가 ReferenceError 로 죽는다.
                           (앵커 문자열을 이 주석에 그대로 복제하지도 말 것 —
                           "정확히 1개" 조건이 깨져 슬라이스가 실패한다.) */}
-                      {/* column.render(row): 같은 행의 다른 컬럼을 봐야 하는 셀
+                    {/* column.render(row): 같은 행의 다른 컬럼을 봐야 하는 셀
                           전용 훅. formatValue 시그니처가 (value, type, options)라
                           값 하나만 받아 이웃 컬럼을 볼 수 없다 — 목표관리 대학 컷의
                           avg_cut을 cut_type에 따라 "2.35등급" / "87.5백분위"로
@@ -1721,222 +1746,221 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                           config(goalUniversityCuts)는 excel/CSV 경로를 아예
                           선언하지 않아 지금은 실효가 없지만, 그 탭에 내보내기를
                           켜려면 csvBody에도 같은 훅을 태워야 한다. */}
-                      {column.render ? (
-                        column.render(row)
-                      ) : column.type === "universityNameMeta" &&
-                        onOpenMetaEdit ? (
-                        <button
-                          type="button"
-                          onClick={() => onOpenMetaEdit(row)}
-                          title="대학 정보 수정 창 열기"
-                          className="text-left font-bold text-primary underline underline-offset-2 transition hover:text-accent"
-                        >
-                          {formatValue(
-                            row[column.key],
-                            column.type,
-                            column.options,
-                          )}
-                        </button>
-                      ) : column.type === "image" ? (
-                        row[column.key] ? (
-                          column.showFileName ? (
-                            <div className="flex items-center gap-2">
-                              <img
-                                src={row[column.key]}
-                                alt=""
-                                className="h-12 w-20 rounded-sm object-cover"
-                              />
-                              <span
-                                className="max-w-40 truncate text-xs font-bold text-gray-500"
-                                title={fileNameFromUrl(row[column.key])}
-                              >
-                                {fileNameFromUrl(row[column.key])}
-                              </span>
-                            </div>
-                          ) : (
+                    {column.render ? (
+                      column.render(row)
+                    ) : column.type === "universityNameMeta" &&
+                      onOpenMetaEdit ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMetaEdit(row)}
+                        title="대학 정보 수정 창 열기"
+                        className="text-left font-bold text-primary underline underline-offset-2 transition hover:text-accent"
+                      >
+                        {formatValue(
+                          row[column.key],
+                          column.type,
+                          column.options,
+                        )}
+                      </button>
+                    ) : column.type === "image" ? (
+                      row[column.key] ? (
+                        column.showFileName ? (
+                          <div className="flex items-center gap-2">
                             <img
                               src={row[column.key]}
                               alt=""
                               className="h-12 w-20 rounded-sm object-cover"
                             />
-                          )
-                        ) : (
-                          "-"
-                        )
-                      ) : column.type === "imageList" ? (
-                        normalizeArray(row[column.key]).length > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={normalizeArray(row[column.key])[0] as string}
-                              alt=""
-                              className="h-12 w-20 rounded-sm object-cover"
-                            />
-                            <span className="text-xs font-bold text-gray-500">
-                              {normalizeArray(row[column.key]).length > 1
-                                ? `+${normalizeArray(row[column.key]).length - 1}`
-                                : ""}
+                            <span
+                              className="max-w-40 truncate text-xs font-bold text-gray-500"
+                              title={fileNameFromUrl(row[column.key])}
+                            >
+                              {fileNameFromUrl(row[column.key])}
                             </span>
                           </div>
                         ) : (
-                          "-"
+                          <img
+                            src={row[column.key]}
+                            alt=""
+                            className="h-12 w-20 rounded-sm object-cover"
+                          />
                         )
-                      ) : column.type === "admissionSection" ? (
-                        // 공개 목록 표의 [보기] 셀과 같은 자리·같은 어포던스.
-                        // 셀 1클릭으로 같은 껍데기의 편집 다이얼로그가 열린다.
-                        // title에 요약("표 2개 · 5열 12행")을 실어 어느 칸이
-                        // 무거운지 열기 전에 알 수 있게 한다.
-                        // 요약은 위 useMemo가 페이지 단위로 미리 계산한 값이다
-                        // (summarizeHwpSection은 row[jsonKey]/row[sectionKey]만
-                        // 읽는 순수 함수라 목록 row를 그대로 넘길 수 있고,
-                        // loadRows가 select('*')이므로 추가 fetch도 0이다).
-                        //
-                        // ⚠ 빈 칸도 반드시 열려야 한다 (2026-08-07)
-                        // ----------------------------------------
-                        // 사용자 요청: "모든 다이얼로그에서 '비었을 때 추가'
-                        // 기능이 있어야 해." 조사 결과 다이얼로그 **안**은 이미
-                        // 완비였다 — 6섹션 × (블록0 / emptyBox 1개 / group만)
-                        // 18케이스를 SSR 해보면 전부 블록 추가 셀렉트가 나온다
-                        // (DocBlocksEditor의 추가 UI는 blocks.map 바깥에 있고
-                        // blocks.length 조건이 없다). 진짜 구멍은 "다이얼로그를
-                        // 못 연다"였다: 여기 있던 `'내용 없음' → <span>-</span>`
-                        // 게이트가 dev DB 55칸(특수대학 11개교 × 5카테고리)을
-                        // 통째로 죽여놨다. 그 11개교는 전형방법 1칸만 내용이
-                        // 있고 나머지 5칸이 전부 비어 있어, 목록에서는 영영
-                        // 내용을 채워 넣을 수 없었다.
-                        // 지금은 폼(✏️)의 CategorySectionButton이 요약과 무관하게
-                        // 6개를 항상 렌더해 우회로가 되고 있지만, 그 ✏️는 다음
-                        // 커밋에서 사라진다 — 게이트를 먼저 연다.
-                        // 모달 쪽 배선은 이미 되어 있다: AdmissionDocFieldEditor가
-                        // 값이 없으면 blocks:[] 인 source:'manual' doc을 합성한다.
-                        //
-                        // 어포던스만 구분한다 — 빈 칸은 회색 점선 [추가],
-                        // 내용 있는 칸은 기존 파랑 [수정]. 라벨을 통일하지 않는
-                        // 이유는 목록을 훑을 때 "어디가 비었나"가 한눈에 보여야
-                        // 하기 때문이다(기존 `-`가 주던 정보를 잃지 않는다).
-                        (() => {
-                          // column.sectionKey는 admissionSection 컬럼 계약상 항상 실려 있다(위 useMemo 주석 참고).
-                          const summary =
-                            sectionSummaries?.[index]?.[column.sectionKey!];
-                          const empty = summary === "내용 없음";
-                          return (
-                            <button
-                              type="button"
-                              title={summary}
-                              onClick={() =>
-                                onOpenSection?.(row, column.sectionKey!)
-                              }
-                              className={
-                                empty
-                                  ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-black text-muted-foreground transition hover:border-primary hover:text-primary"
-                                  : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary transition hover:border-primary hover:bg-primary hover:text-white"
-                              }
-                            >
-                              {empty ? "추가" : "수정"}
-                            </button>
-                          );
-                        })()
-                      ) : column.type === "fileList" ? (
-                        formatListValue(row[column.key], column.type)
-                      ) : column.type === "truncate" ? (
-                        truncateText(row[column.key])
-                      ) : column.emptyLabel &&
-                        [null, undefined, ""].includes(row[column.key]) ? (
-                        column.emptyLabel
                       ) : (
-                        formatValue(
-                          row[column.key],
-                          column.type,
-                          loadedOptions[column.key] ?? column.options,
-                        )
-                      )}
-                    </td>
-                  ))}
+                        "-"
+                      )
+                    ) : column.type === "imageList" ? (
+                      normalizeArray(row[column.key]).length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={normalizeArray(row[column.key])[0] as string}
+                            alt=""
+                            className="h-12 w-20 rounded-sm object-cover"
+                          />
+                          <span className="text-xs font-bold text-gray-500">
+                            {normalizeArray(row[column.key]).length > 1
+                              ? `+${normalizeArray(row[column.key]).length - 1}`
+                              : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        "-"
+                      )
+                    ) : column.type === "admissionSection" ? (
+                      // 공개 목록 표의 [보기] 셀과 같은 자리·같은 어포던스.
+                      // 셀 1클릭으로 같은 껍데기의 편집 다이얼로그가 열린다.
+                      // title에 요약("표 2개 · 5열 12행")을 실어 어느 칸이
+                      // 무거운지 열기 전에 알 수 있게 한다.
+                      // 요약은 위 useMemo가 페이지 단위로 미리 계산한 값이다
+                      // (summarizeHwpSection은 row[jsonKey]/row[sectionKey]만
+                      // 읽는 순수 함수라 목록 row를 그대로 넘길 수 있고,
+                      // loadRows가 select('*')이므로 추가 fetch도 0이다).
+                      //
+                      // ⚠ 빈 칸도 반드시 열려야 한다 (2026-08-07)
+                      // ----------------------------------------
+                      // 사용자 요청: "모든 다이얼로그에서 '비었을 때 추가'
+                      // 기능이 있어야 해." 조사 결과 다이얼로그 **안**은 이미
+                      // 완비였다 — 6섹션 × (블록0 / emptyBox 1개 / group만)
+                      // 18케이스를 SSR 해보면 전부 블록 추가 셀렉트가 나온다
+                      // (DocBlocksEditor의 추가 UI는 blocks.map 바깥에 있고
+                      // blocks.length 조건이 없다). 진짜 구멍은 "다이얼로그를
+                      // 못 연다"였다: 여기 있던 `'내용 없음' → <span>-</span>`
+                      // 게이트가 dev DB 55칸(특수대학 11개교 × 5카테고리)을
+                      // 통째로 죽여놨다. 그 11개교는 전형방법 1칸만 내용이
+                      // 있고 나머지 5칸이 전부 비어 있어, 목록에서는 영영
+                      // 내용을 채워 넣을 수 없었다.
+                      // 지금은 폼(✏️)의 CategorySectionButton이 요약과 무관하게
+                      // 6개를 항상 렌더해 우회로가 되고 있지만, 그 ✏️는 다음
+                      // 커밋에서 사라진다 — 게이트를 먼저 연다.
+                      // 모달 쪽 배선은 이미 되어 있다: AdmissionDocFieldEditor가
+                      // 값이 없으면 blocks:[] 인 source:'manual' doc을 합성한다.
+                      //
+                      // 어포던스만 구분한다 — 빈 칸은 회색 점선 [추가],
+                      // 내용 있는 칸은 기존 파랑 [수정]. 라벨을 통일하지 않는
+                      // 이유는 목록을 훑을 때 "어디가 비었나"가 한눈에 보여야
+                      // 하기 때문이다(기존 `-`가 주던 정보를 잃지 않는다).
+                      (() => {
+                        // column.sectionKey는 admissionSection 컬럼 계약상 항상 실려 있다(위 useMemo 주석 참고).
+                        const summary =
+                          sectionSummaries?.[index]?.[column.sectionKey!];
+                        const empty = summary === "내용 없음";
+                        return (
+                          <button
+                            type="button"
+                            title={summary}
+                            onClick={() =>
+                              onOpenSection?.(row, column.sectionKey!)
+                            }
+                            className={
+                              empty
+                                ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-black text-muted-foreground transition hover:border-primary hover:text-primary"
+                                : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary transition hover:border-primary hover:bg-primary hover:text-white"
+                            }
+                          >
+                            {empty ? "추가" : "수정"}
+                          </button>
+                        );
+                      })()
+                    ) : column.type === "fileList" ? (
+                      formatListValue(row[column.key], column.type)
+                    ) : column.type === "truncate" ? (
+                      truncateText(row[column.key])
+                    ) : column.emptyLabel &&
+                      [null, undefined, ""].includes(row[column.key]) ? (
+                      column.emptyLabel
+                    ) : (
+                      formatValue(
+                        row[column.key],
+                        column.type,
+                        loadedOptions[column.key] ?? column.options,
+                      )
+                    )}
+                  </TableCell>
+                ))}
 
-                  <td className="px-3 py-3">
-                    <div className="flex justify-center gap-3">
-                      {/* config.hideRowEdit: 행 전체 폼(✏️/👁)으로 들어가는
+                <TableCell className="whitespace-normal px-3 py-3">
+                  <div className="flex justify-center gap-3">
+                    {/* config.hideRowEdit: 행 전체 폼(✏️/👁)으로 들어가는
                           진입점을 끈다. AdminTable 은 36개 config 가 공유하는
                           단일 컴포넌트라 이 한 줄이 전 메뉴의 수정 진입점이고,
                           settlements 의 👁 상세보기까지 같은 버튼이다 —
                           무조건 지우면 35개 메뉴가 함께 죽는다. 그래서
                           config.excel / config.noCreate / config.readOnly 와
                           같은 "공용 렌더 + config 스위치" 패턴으로 켠다. */}
-                      {!config.hideRowEdit && (
-                        <button
-                          type="button"
-                          onClick={() => onEdit(row)}
-                          className="text-gray-500 hover:text-black"
-                        >
-                          {config.readOnly ? (
-                            <Eye size={17} />
-                          ) : (
-                            <Edit3 size={17} />
-                          )}
-                        </button>
-                      )}
+                    {!config.hideRowEdit && (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(row)}
+                        className="text-gray-500 hover:text-black"
+                      >
+                        {config.readOnly ? (
+                          <Eye size={17} />
+                        ) : (
+                          <Edit3 size={17} />
+                        )}
+                      </button>
+                    )}
 
-                      {/* config.showMetaEdit: ✏️(행 전체 폼) 대신 메타 9필드만
+                    {/* config.showMetaEdit: ✏️(행 전체 폼) 대신 메타 9필드만
                           고치는 경량 모달(AdmissionMetaEditModal) 진입점.
                           admissionGuidelines 1개 메뉴에만 켠다 — hideRowEdit과
                           같은 "공용 렌더 + config 스위치" 패턴. */}
-                      {config.showMetaEdit && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenMetaEdit?.(row)}
-                          aria-label="메타 정보 수정"
-                          className="text-gray-500 hover:text-black"
-                        >
-                          <Settings size={17} />
-                        </button>
-                      )}
+                    {config.showMetaEdit && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMetaEdit?.(row)}
+                        aria-label="메타 정보 수정"
+                        className="text-gray-500 hover:text-black"
+                      >
+                        <Settings size={17} />
+                      </button>
+                    )}
 
-                      {/* 🗑 은 손대지 않는다 — 사용자 미언급이고, 지우면 행
+                    {/* 🗑 은 손대지 않는다 — 사용자 미언급이고, 지우면 행
                           삭제 경로가 완전히 사라진다(엑셀 일괄은 insert/update
                           만 한다). 기존 !config.readOnly 게이팅 그대로. */}
-                      {!config.readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(row)}
-                          className="text-gray-500 hover:text-red-600"
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      )}
+                    {!config.readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(row)}
+                        className="text-gray-500 hover:text-red-600"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    )}
 
-                      {config.knowledgeReview && (
-                        <button
-                          type="button"
-                          onClick={() => onMarkReviewed?.(row)}
-                          title="이 카드를 오늘 검토한 것으로 표시합니다."
-                          className="whitespace-nowrap text-xs font-bold text-gray-500 hover:text-blue-600"
-                        >
-                          검토 완료
-                        </button>
-                      )}
+                    {config.knowledgeReview && (
+                      <button
+                        type="button"
+                        onClick={() => onMarkReviewed?.(row)}
+                        title="이 카드를 오늘 검토한 것으로 표시합니다."
+                        className="whitespace-nowrap text-xs font-bold text-gray-500 hover:text-blue-600"
+                      >
+                        검토 완료
+                      </button>
+                    )}
 
-                      {activeKey === "refundRequests" && (
-                        <button
-                          type="button"
-                          onClick={() => onCompleteRefund?.(row)}
-                          disabled={isRefundCompletionBlocked(row)}
-                          title={
-                            isRefundCompletionBlocked(row)
-                              ? "승인완료 + 접수·처리중 상태의 신청만 환불 완료 처리할 수 있어요."
-                              : "환불완료 처리"
-                          }
-                          className="whitespace-nowrap text-xs font-bold text-gray-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-gray-300"
-                        >
-                          환불완료
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </ScrollArea>
+                    {activeKey === "refundRequests" && (
+                      <button
+                        type="button"
+                        onClick={() => onCompleteRefund?.(row)}
+                        disabled={isRefundCompletionBlocked(row)}
+                        title={
+                          isRefundCompletionBlocked(row)
+                            ? "승인완료 + 접수·처리중 상태의 신청만 환불 완료 처리할 수 있어요."
+                            : "환불완료 처리"
+                        }
+                        className="whitespace-nowrap text-xs font-bold text-gray-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:text-gray-300"
+                      >
+                        환불완료
+                      </button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
       <div className="mt-5 flex flex-col items-center gap-2">
         <div className="inline-flex border border-gray-300">
