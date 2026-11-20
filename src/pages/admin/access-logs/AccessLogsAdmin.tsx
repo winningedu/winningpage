@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
@@ -65,7 +74,7 @@ export default function AccessLogsAdmin() {
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <h1 className="mb-4 text-xl font-black text-[#111827]">
+      <h1 className="mb-4 text-xl font-black text-foreground">
         개인정보 접근 로그
       </h1>
       <form
@@ -82,21 +91,21 @@ export default function AccessLogsAdmin() {
           />
         </Field>
         <Field label="시작일">
-          <input
+          <Input
             type="date"
             value={draft.from}
             onChange={(event) =>
               setDraft({ ...draft, from: event.target.value })
             }
-            className="h-10 border border-gray-300 px-3 text-sm font-bold"
+            className="h-10 font-medium"
           />
         </Field>
         <Field label="종료일">
-          <input
+          <Input
             type="date"
             value={draft.to}
             onChange={(event) => setDraft({ ...draft, to: event.target.value })}
-            className="h-10 border border-gray-300 px-3 text-sm font-bold"
+            className="h-10 font-medium"
           />
         </Field>
         <Field label="구분">
@@ -120,51 +129,69 @@ export default function AccessLogsAdmin() {
           {error}
         </p>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[72rem] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
-              {COLUMNS.map((name) => (
-                <th key={name} className="px-3 py-3 text-left">
-                  {name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(result?.logs ?? []).map((log) => (
-              <tr key={log.id} className="border-b border-gray-100">
-                <td className="px-3 py-3">
-                  {formatValue(log.createdAt, "datetime")}
-                </td>
-                <td className="px-3 py-3">{log.tenantCode ?? "-"}</td>
-                <td className="px-3 py-3">
-                  {(log.actorName ?? log.actorEmail) ? (
-                    <>
-                      {log.actorName && <div>{log.actorName}</div>}
-                      {log.actorEmail && (
-                        <div className="text-xs text-gray-500">
-                          {log.actorEmail}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td className="px-3 py-3">{log.teacherName ?? "-"}</td>
-                <td className="px-3 py-3">{log.teacherLoginId ?? "-"}</td>
-                <td className="px-3 py-3">{log.teacherPhone ?? "-"}</td>
-                <td className="px-3 py-3">{log.kindLabel}</td>
-                <td className="px-3 py-3">{log.targetStudentName ?? "-"}</td>
-                <td className="px-3 py-3">{log.content}</td>
-                <td className="px-3 py-3">{log.reason ?? "-"}</td>
-                <td className="px-3 py-3">{log.isProxy ? "대행" : "-"}</td>
-              </tr>
+      <Table className="min-w-[72rem] border-collapse">
+        <TableHeader>
+          <TableRow className="border-y border-gray-300 hover:bg-transparent">
+            {COLUMNS.map((name) => (
+              <TableHead
+                key={name}
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                {name}
+              </TableHead>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(result?.logs ?? []).map((log) => (
+            <TableRow key={log.id} className="border-b border-gray-100">
+              <TableCell className="px-3 py-3">
+                {formatValue(log.createdAt, "datetime")}
+              </TableCell>
+              <TableCell className="px-3 py-3">
+                {log.tenantCode ?? "-"}
+              </TableCell>
+              <TableCell className="whitespace-normal px-3 py-3">
+                {(log.actorName ?? log.actorEmail) ? (
+                  <>
+                    {log.actorName && <div>{log.actorName}</div>}
+                    {log.actorEmail && (
+                      <div className="text-xs text-muted-foreground">
+                        {log.actorEmail}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell className="whitespace-normal px-3 py-3">
+                {log.teacherName ?? "-"}
+              </TableCell>
+              <TableCell className="px-3 py-3">
+                {log.teacherLoginId ?? "-"}
+              </TableCell>
+              <TableCell className="px-3 py-3">
+                {log.teacherPhone ?? "-"}
+              </TableCell>
+              <TableCell className="px-3 py-3">{log.kindLabel}</TableCell>
+              <TableCell className="whitespace-normal px-3 py-3">
+                {log.targetStudentName ?? "-"}
+              </TableCell>
+              <TableCell className="whitespace-normal px-3 py-3">
+                {log.content}
+              </TableCell>
+              <TableCell className="whitespace-normal px-3 py-3">
+                {log.reason ?? "-"}
+              </TableCell>
+              <TableCell className="px-3 py-3">
+                {log.isProxy ? "대행" : "-"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       {result?.logs.length === 0 && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           기록이 없어요.
