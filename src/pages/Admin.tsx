@@ -652,7 +652,9 @@ function AdmissionActiveYearSummary({ rows }) {
     const result = await setAdmissionActiveYear(supabase, year);
     if (!result.ok) {
       setSaving(false);
-      reportAdminError("공개 연도 저장 실패", { message: result.error });
+      reportAdminError("공개 연도 저장 실패", {
+        message: result.error ?? "",
+      });
       return;
     }
 
