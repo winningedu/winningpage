@@ -167,7 +167,7 @@ export default function MemberPurgeAdmin() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-black">계약 종료 회원 삭제</h1>
+      <h1 className="mb-6 text-2xl font-semibold">계약 종료 회원 삭제</h1>
       <div className="mb-6 max-w-sm bg-white p-6 shadow-sm">
         <Field label="기관">
           <Select value={tenantId} onChange={choose}>
@@ -181,17 +181,17 @@ export default function MemberPurgeAdmin() {
         </Field>
       </div>
       {error && (
-        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
+        <div role="alert" className="mb-4 text-sm font-medium text-red-600">
           {error}
         </div>
       )}
       {result && (
-        <div role="status" className="mb-4 text-sm font-bold text-green-700">
+        <div role="status" className="mb-4 text-sm font-medium text-green-700">
           {`삭제 ${result.deleted}명, 제외(유료 전환) ${result.excluded}명, 제외(직접) ${result.skipped}명`}
         </div>
       )}
       {result && result.notProcessed > 0 && (
-        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
+        <div role="alert" className="mb-4 text-sm font-medium text-red-600">
           {`처리하지 못한 학생 ${result.notProcessed}명, 잠시 뒤 다시 실행해 주세요`}
         </div>
       )}
@@ -218,7 +218,7 @@ export default function MemberPurgeAdmin() {
               <AlertDialogTitle className="text-lg font-semibold">
                 계약 종료 회원 삭제 확인
               </AlertDialogTitle>
-              <AlertDialogDescription className="font-black text-red-600">
+              <AlertDialogDescription className="font-semibold text-red-600">
                 {`삭제한 회원정보는 되돌릴 수 없어요. ${selected.size}명을 삭제할까요?`}
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -249,16 +249,22 @@ export default function MemberPurgeAdmin() {
         <div className="bg-white p-6 shadow-sm">
           <dl className="mb-4 flex flex-wrap gap-8 text-sm">
             <div>
-              <dt className="text-xs font-black text-gray-500">계약 종료일</dt>
-              <dd className="font-bold">{preview.contractEnd ?? "-"}</dd>
+              <dt className="text-xs font-semibold text-gray-500">
+                계약 종료일
+              </dt>
+              <dd className="font-medium">{preview.contractEnd ?? "-"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-black text-gray-500">유예 종료일</dt>
-              <dd className="font-bold">{preview.graceEnd ?? "-"}</dd>
+              <dt className="text-xs font-semibold text-gray-500">
+                유예 종료일
+              </dt>
+              <dd className="font-medium">{preview.graceEnd ?? "-"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-black text-gray-500">삭제 가능일</dt>
-              <dd className="font-bold">{ddayText ?? "-"}</dd>
+              <dt className="text-xs font-semibold text-gray-500">
+                삭제 가능일
+              </dt>
+              <dd className="font-medium">{ddayText ?? "-"}</dd>
             </div>
           </dl>
           <div className="mb-4">

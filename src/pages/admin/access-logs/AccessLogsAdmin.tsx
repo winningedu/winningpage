@@ -74,7 +74,7 @@ export default function AccessLogsAdmin() {
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <h1 className="mb-4 text-xl font-black text-foreground">
+      <h1 className="mb-4 text-xl font-semibold text-foreground">
         개인정보 접근 로그
       </h1>
       <form
@@ -125,7 +125,7 @@ export default function AccessLogsAdmin() {
         <ActionButton type="submit">조회</ActionButton>
       </form>
       {error && (
-        <p role="alert" className="mb-3 text-sm font-bold text-red-600">
+        <p role="alert" className="mb-3 text-sm font-medium text-red-600">
           {error}
         </p>
       )}
@@ -205,7 +205,7 @@ export default function AccessLogsAdmin() {
         >
           이전
         </ActionButton>
-        <span className="text-sm font-bold">{filter.page}쪽</span>
+        <span className="text-sm font-medium">{filter.page}쪽</span>
         <ActionButton
           variant="light"
           disabled={!result?.hasNext}

@@ -137,22 +137,22 @@ export default function GrowthReportsAdmin({ config }: Props) {
             이용권 부여
           </ActionButton>
         </div>
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm">
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
           <Table className="min-w-[60rem] border-collapse">
@@ -304,7 +304,7 @@ function ReportDetailDialog({
                   key={p.step}
                   className="flex items-center justify-between px-3 py-2"
                 >
-                  <span className="font-bold">
+                  <span className="font-medium">
                     {p.step}. {p.label}
                   </span>
                   <span className="text-gray-500">
@@ -315,20 +315,20 @@ function ReportDetailDialog({
             </ul>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">종결 </span>
+              <span className="font-semibold text-gray-500">종결 </span>
               {terminalLabel(row.terminal)}
               {row.terminal ? ` (${formatDate(row.terminal.at)})` : ""}
             </div>
 
             {message && (
-              <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+              <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
                 {message}
               </div>
             )}
 
             {canRecover(row) &&
               (confirming ? (
-                <div className="flex items-center gap-2 text-sm font-bold">
+                <div className="flex items-center gap-2 text-sm font-medium">
                   <span>새 회차를 만들어 복구합니다. 진행할까요?</span>
                   <ActionButton onClick={recover} disabled={busy}>
                     {busy ? "처리 중..." : "확인"}
@@ -471,7 +471,7 @@ function GrantDialog({
           </ul>
         )}
 
-        <div className="text-sm font-bold">
+        <div className="text-sm font-medium">
           선택된 학생:{" "}
           {student
             ? `${student.name ?? "-"} (${student.email ?? "-"})`
@@ -488,12 +488,12 @@ function GrantDialog({
         </div>
 
         {message && (
-          <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+          <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
             {message}
           </div>
         )}
         {resultText && (
-          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
             부여했습니다. quota: {resultText}
           </div>
         )}

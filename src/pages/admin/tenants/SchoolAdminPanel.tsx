@@ -139,9 +139,11 @@ export default function SchoolAdminPanel({
               </AlertDialogTitle>
             </AlertDialogHeader>
             <div>
-              <div className="mb-1 text-sm font-bold text-gray-500">아이디</div>
+              <div className="mb-1 text-sm font-medium text-gray-500">
+                아이디
+              </div>
               <div className="flex items-center gap-2">
-                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
                   {issued.loginId}
                 </span>
                 <ActionButton
@@ -156,11 +158,11 @@ export default function SchoolAdminPanel({
             {issued.tempPassword ? (
               <>
                 <div>
-                  <div className="mb-1 text-sm font-bold text-gray-500">
+                  <div className="mb-1 text-sm font-medium text-gray-500">
                     임시 비밀번호
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
+                    <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
                       {issued.tempPassword}
                     </span>
                     <ActionButton
@@ -174,13 +176,13 @@ export default function SchoolAdminPanel({
                     </ActionButton>
                   </div>
                 </div>
-                <p className="text-xs font-bold text-red-600">
+                <p className="text-xs font-medium text-red-600">
                   임시 비밀번호는 지금 한 번만 볼 수 있어요. 닫으면 다시 볼 수
                   없어요.
                 </p>
               </>
             ) : (
-              <p className="text-xs font-bold text-gray-500">
+              <p className="text-xs font-medium text-gray-500">
                 이미 계정이 있어 새 임시 비밀번호는 없어요.
               </p>
             )}
@@ -192,11 +194,11 @@ export default function SchoolAdminPanel({
       )}
 
       <div className="mb-6 bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-bold text-gray-500">
+        <div className="mb-3 text-sm font-medium text-gray-500">
           전체 관리자 목록
         </div>
         {loadError && (
-          <div role="alert" className="mb-3 text-sm font-bold text-red-600">
+          <div role="alert" className="mb-3 text-sm font-medium text-red-600">
             {loadError}
           </div>
         )}
@@ -302,13 +304,13 @@ export default function SchoolAdminPanel({
             )}
           </TableBody>
         </Table>
-        <p className="mt-3 text-xs font-bold text-gray-500">
+        <p className="mt-3 text-xs font-medium text-gray-500">
           취소와 재발급은 본사 대행으로 해 주세요.
         </p>
       </div>
 
       <div className="bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-bold text-gray-500">
+        <div className="mb-3 text-sm font-medium text-gray-500">
           전체 관리자 발급
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -316,7 +318,7 @@ export default function SchoolAdminPanel({
             <input
               value={tenantName}
               readOnly
-              className="h-10 w-full border border-gray-300 bg-gray-50 px-3 text-sm font-bold"
+              className="h-10 w-full border border-gray-300 bg-gray-50 px-3 text-sm font-medium"
             />
           </Field>
           <Field label="이름">
@@ -354,7 +356,7 @@ export default function SchoolAdminPanel({
           </ActionButton>
         </div>
         {formError && (
-          <div role="alert" className="mt-3 text-sm font-bold text-red-600">
+          <div role="alert" className="mt-3 text-sm font-medium text-red-600">
             {formError}
           </div>
         )}

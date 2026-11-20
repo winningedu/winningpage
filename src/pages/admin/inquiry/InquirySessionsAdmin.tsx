@@ -138,22 +138,22 @@ export default function InquirySessionsAdmin({ config }: Props) {
             이용권 부여
           </ActionButton>
         </div>
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm">
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
           <Table className="min-w-[64rem] border-collapse">
@@ -303,7 +303,7 @@ function SessionDetailDialog({
               {modeRows(row).map((m) => (
                 <li key={m.mode} className="px-3 py-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold">{m.label}</span>
+                    <span className="font-medium">{m.label}</span>
                     <span className="text-gray-500">
                       {m.status}, 시도 {m.attempts}
                     </span>
@@ -321,20 +321,20 @@ function SessionDetailDialog({
             </ul>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">종결 </span>
+              <span className="font-semibold text-gray-500">종결 </span>
               {terminalLabel(row.terminal)}
               {row.terminal ? ` (${formatDate(row.terminal.at)})` : ""}
             </div>
 
             {message && (
-              <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+              <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
                 {message}
               </div>
             )}
 
             {canRecover(row) &&
               (confirming ? (
-                <div className="flex items-center gap-2 text-sm font-bold">
+                <div className="flex items-center gap-2 text-sm font-medium">
                   <span>
                     새 세션을 만들어 복구합니다. 주제 추천부터 다시 시작합니다.
                     진행할까요?
@@ -499,7 +499,7 @@ function GrantDialog({
           </ul>
         )}
 
-        <div className="text-sm font-bold">
+        <div className="text-sm font-medium">
           선택된 학생:{" "}
           {student
             ? `${student.name ?? "-"} (${student.email ?? "-"})`
@@ -509,14 +509,14 @@ function GrantDialog({
         <div className="flex items-end gap-3">
           <Field label="세션 수">
             {unlimited ? (
-              <div className="flex h-10 items-center text-sm font-bold text-gray-500">
+              <div className="flex h-10 items-center text-sm font-medium text-gray-500">
                 무제한
               </div>
             ) : (
               <TextInput value={sessionQuota} onChange={setSessionQuota} />
             )}
           </Field>
-          <label className="flex h-10 items-center gap-2 text-sm font-bold">
+          <label className="flex h-10 items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
               checked={unlimited}
@@ -535,12 +535,12 @@ function GrantDialog({
         </div>
 
         {message && (
-          <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+          <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
             {message}
           </div>
         )}
         {resultText && (
-          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
             부여했습니다. quota: {resultText}
           </div>
         )}
@@ -570,7 +570,7 @@ function DateInput({
       type="date"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 w-full border border-gray-300 px-3 text-sm font-bold outline-hidden focus:border-primary"
+      className="h-10 w-full border border-gray-300 px-3 text-sm font-medium outline-hidden focus:border-primary"
     />
   );
 }

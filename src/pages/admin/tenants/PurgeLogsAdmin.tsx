@@ -73,7 +73,7 @@ export default function PurgeLogsAdmin() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-black">삭제 로그</h1>
+        <h1 className="text-2xl font-semibold">삭제 로그</h1>
         <Button
           type="button"
           variant="outline"
@@ -92,7 +92,7 @@ export default function PurgeLogsAdmin() {
         </Button>
       </div>
       {error && (
-        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
+        <div role="alert" className="mb-4 text-sm font-medium text-red-600">
           {error}
         </div>
       )}

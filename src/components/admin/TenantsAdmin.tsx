@@ -247,7 +247,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   if (view === "create") {
     return (
       <div>
-        <h1 className="mb-5 text-2xl font-black text-foreground">
+        <h1 className="mb-5 text-2xl font-semibold text-foreground">
           {config.title} 등록
         </h1>
 
@@ -333,11 +333,11 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
               </AlertDialogTitle>
             </AlertDialogHeader>
             <div>
-              <div className="mb-1 text-sm font-bold text-gray-500">
+              <div className="mb-1 text-sm font-medium text-gray-500">
                 {issuedTenant.name}
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
                   {issuedTenant.code}
                 </span>
                 <ActionButton
@@ -390,19 +390,19 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
           </Button>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {loading ? (
         <div
           role="status"
-          className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
         >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{filteredRows.length}</span>건
           </div>
 

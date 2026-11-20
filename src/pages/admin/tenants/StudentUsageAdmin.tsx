@@ -29,7 +29,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const SAVE_ERROR = "저장하지 못했어요. 권한을 확인해 주세요.";
-const INPUT_CLASS = "h-9 w-24 border border-gray-300 px-2 text-sm font-bold";
+const INPUT_CLASS = "h-9 w-24 border border-gray-300 px-2 text-sm font-medium";
 
 const textOf = (value: number | null | undefined) =>
   value === null || value === undefined ? "" : String(value);
@@ -157,7 +157,9 @@ export default function StudentUsageAdmin() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-black text-[#111827]">서비스이용횟수조정</h1>
+      <h1 className="text-2xl font-semibold text-foreground">
+        서비스이용횟수조정
+      </h1>
 
       <div className="flex items-end gap-2 bg-white p-4 shadow-sm">
         <div className="flex-1">
@@ -182,7 +184,7 @@ export default function StudentUsageAdmin() {
                 checked={selected.includes(student.id)}
                 onChange={(e) => toggleSelected(student.id, e.target.checked)}
               />
-              <span className="text-sm font-bold">
+              <span className="text-sm font-medium">
                 {student.name ?? "-"}
                 <span className="ml-2 text-xs text-gray-500">
                   {student.email}
@@ -198,10 +200,10 @@ export default function StudentUsageAdmin() {
 
       {usage && (
         <div className="space-y-3 bg-white p-4 shadow-sm">
-          <p className="text-sm font-black text-[#111827]">
+          <p className="text-sm font-semibold text-foreground">
             {usage.tenant?.name ?? "기관 없음"}
           </p>
-          <p className="text-xs font-bold text-gray-500">
+          <p className="text-xs font-medium text-gray-500">
             비워 두면 기관 설정을 따라요. 고친 서비스만 저장해요.
           </p>
           {usage.programs.map((program) => {
@@ -216,14 +218,14 @@ export default function StudentUsageAdmin() {
                 data-program={program.programKey}
                 className="border-t border-gray-200 pt-3"
               >
-                <p className="text-sm font-black">{label}</p>
-                <p className="text-xs font-bold text-gray-600">
+                <p className="text-sm font-semibold">{label}</p>
+                <p className="text-xs font-medium text-gray-600">
                   {`이번 달 사용 ${program.monthUsed} / 남은 ${program.monthRemaining ?? "무제한"}`}
                   {" / "}
                   {`학기 사용 ${program.termUsed} / 남은 ${program.termRemaining ?? "무제한"}`}
                 </p>
                 {!program.allowed && (
-                  <p className="text-xs font-bold text-red-600">
+                  <p className="text-xs font-medium text-red-600">
                     {denyReasonLabel(program.denyReason)}
                   </p>
                 )}
@@ -257,7 +259,7 @@ export default function StudentUsageAdmin() {
               type="button"
               onClick={save}
               disabled={busy || dirty.size === 0 || selected.length === 0}
-              className="inline-flex h-9 items-center bg-primary px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-9 items-center bg-primary px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {`선택한 ${selected.length}명에게 저장`}
             </button>
@@ -272,7 +274,9 @@ export default function StudentUsageAdmin() {
         </div>
       )}
 
-      {message && <p className="text-sm font-bold text-gray-700">{message}</p>}
+      {message && (
+        <p className="text-sm font-medium text-gray-700">{message}</p>
+      )}
     </div>
   );
 }

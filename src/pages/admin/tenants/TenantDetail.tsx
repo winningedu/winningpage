@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import {
@@ -176,7 +177,10 @@ export default function TenantDetail({
             목록으로
           </ActionButton>
         </div>
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role={loadFailed || notFound ? "alert" : "status"}
+          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+        >
           {loadFailed
             ? "기관 정보를 불러오지 못했어요."
             : notFound
@@ -190,7 +194,7 @@ export default function TenantDetail({
   return (
     <div>
       <div className="mb-5 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-black text-[#111827]">{savedName}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{savedName}</h1>
         <ActionButton variant="light" onClick={onBack}>
           목록으로
         </ActionButton>
@@ -226,7 +230,7 @@ export default function TenantDetail({
                 <input
                   value={code}
                   readOnly
-                  className="h-10 w-full border border-gray-300 bg-gray-50 px-3 font-mono text-sm font-bold"
+                  className="h-10 w-full border border-gray-300 bg-gray-50 px-3 font-mono text-sm font-medium"
                 />
               </Field>
               <Field label="이름">
@@ -272,31 +276,31 @@ export default function TenantDetail({
                 </Select>
               </Field>
               <Field label="계약 시작일">
-                <input
+                <Input
                   type="date"
                   value={form.contract_start_date}
                   onChange={(e) =>
                     setField("contract_start_date", e.target.value)
                   }
-                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                  className="h-10 font-medium"
                 />
               </Field>
               <Field label="계약 종료일">
-                <input
+                <Input
                   type="date"
                   value={form.contract_end_date}
                   onChange={(e) =>
                     setField("contract_end_date", e.target.value)
                   }
-                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                  className="h-10 font-medium"
                 />
               </Field>
               <Field label="유예 종료일">
-                <input
+                <Input
                   type="date"
                   value={form.grace_ends_on}
                   onChange={(e) => setField("grace_ends_on", e.target.value)}
-                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                  className="h-10 font-medium"
                 />
               </Field>
               <Field label="학기 길이">
@@ -323,7 +327,7 @@ export default function TenantDetail({
                     ))}
                   </Select>
                 </Field>
-                <p className="mt-1 text-xs font-bold text-gray-500">
+                <p className="mt-1 text-xs font-medium text-gray-500">
                   서비스는 계약 종료일 기준으로 막혀요
                 </p>
               </div>
@@ -376,7 +380,7 @@ export default function TenantDetail({
                 {saving ? "저장 중..." : "저장"}
               </ActionButton>
               {message && (
-                <span className="text-sm font-bold text-gray-700">
+                <span className="text-sm font-medium text-gray-700">
                   {message}
                 </span>
               )}
