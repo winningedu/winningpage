@@ -885,7 +885,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       );
     if (error) {
       setApplying(false);
-      alert(`엑셀 적용 실패: ${error.message}`);
+      reportAdminError("엑셀 적용 실패", error);
       return;
     }
     const { summary } = parseResult;
@@ -1263,7 +1263,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
@@ -2002,7 +2002,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       });
     } catch (err) {
       setPreview(null);
-      alert(`미리보기 계산 실패: ${err.message}`);
+      reportAdminError("미리보기 계산 실패", err);
     } finally {
       setSourceProgress(null);
       setComputing(false);
@@ -2445,7 +2445,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
