@@ -222,9 +222,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .single();
       if (error || !data) {
         setSaving(false);
-        alert(
-          `저장 실패: ${error?.message || "권한 묶음을 만들지 못했습니다."}`,
-        );
+        reportAdminError("저장 실패", error);
         return;
       }
       roleId = data.id as string;

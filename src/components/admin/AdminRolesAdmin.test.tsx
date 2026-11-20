@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   roles: [] as Record<string, unknown>[],
   loadError: null as { message: string; code?: string } | null,
   deleteError: null as { message: string; code?: string } | null,
+  insertError: null as { message: string; code?: string } | null,
 }));
 
 vi.mock("@/lib/supabase", () => {
@@ -28,6 +29,11 @@ vi.mock("@/lib/supabase", () => {
               : { data: [], error: null },
           ),
         delete: () => query({ data: null, error: state.deleteError }),
+        insert: () => ({
+          select: () => ({
+            single: async () => ({ data: null, error: state.insertError }),
+          }),
+        }),
       }),
     },
   };
@@ -62,6 +68,7 @@ beforeEach(() => {
   state.roles = [];
   state.loadError = null;
   state.deleteError = null;
+  state.insertError = null;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -94,5 +101,24 @@ describe("AdminRolesAdmin 오류 안내", () => {
     fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
 
     await expectToast("삭제 실패", "이미 등록된 값입니다(중복)");
+  });
+
+  test("등록에 실패하면 원문 없이 안내만 토스트로 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    state.insertError = {
+      message: "permission denied for 홍길동",
+      code: "42501",
+    };
+    renderRoles();
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록하기" }));
+    fireEvent.change(await screen.findByLabelText("권한 묶음 이름"), {
+      target: { value: "운영팀" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await expectToast("저장 실패", "코드: 42501");
+    expect(document.body.textContent).not.toContain("홍길동");
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });
