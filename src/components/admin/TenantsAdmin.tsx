@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { copyToClipboard } from "@/pages/admin/shared/copyToClipboard";
 import {
   ActionButton,
   Field,
@@ -213,14 +214,6 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setIssuedTenant(created);
   }
 
-  async function copyCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
   if (view === "detail" && detailId) {
     return (
       <TenantDetail
@@ -318,7 +311,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
               </span>
               <ActionButton
                 variant="light"
-                onClick={() => copyCode(issuedTenant.code)}
+                onClick={() => copyToClipboard(issuedTenant.code)}
               >
                 <Copy size={14} />
                 복사
@@ -435,7 +428,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                           </span>
                           <button
                             type="button"
-                            onClick={() => copyCode(row.code)}
+                            onClick={() => copyToClipboard(row.code)}
                             aria-label="소속코드 복사"
                             className="text-muted-foreground hover:text-black"
                           >

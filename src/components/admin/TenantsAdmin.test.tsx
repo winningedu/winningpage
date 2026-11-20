@@ -280,4 +280,63 @@ describe("TenantsAdmin 오류 안내", () => {
       document.querySelector('[data-slot="toast-description"]'),
     ).toHaveTextContent("이미 등록된 값입니다(중복)");
   });
+
+  test("소속코드를 복사하면 '복사했습니다' 토스트가 보이고 코드는 토스트에 없다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    fireEvent.click(within(row).getByRole("button", { name: "소속코드 복사" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("복사했습니다"),
+    );
+    expect(writeText).toHaveBeenCalledWith("ABCD2345");
+    expect(
+      document.querySelector('[data-slot="toast-viewport"]')?.textContent,
+    ).not.toContain("ABCD2345");
+  });
+
+  test("복사에 실패하면 실패 토스트가 보이고 로그에 코드가 남지 않는다", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi
+          .fn()
+          .mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+      },
+    });
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    fireEvent.click(within(row).getByRole("button", { name: "소속코드 복사" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("복사하지 못했습니다"),
+    );
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("ABCD2345");
+  });
 });
