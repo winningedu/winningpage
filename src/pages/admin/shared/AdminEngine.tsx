@@ -1,6 +1,7 @@
 import { Edit3, Eye, Settings, Trash2, UploadCloud } from "lucide-react";
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import AdmissionSurface from "@/components/admission/AdmissionSurface";
 import AdmissionSectionEditModal from "@/components/admission/editor/AdmissionSectionEditModal";
 import DocBlocksEditor from "@/components/admission/editor/DocBlocksEditor";
@@ -9,6 +10,7 @@ import BlockEditor, {
   type BlockEditorHandle,
 } from "@/components/editor/BlockEditor";
 import ColumnPreviewModal from "@/components/editor/ColumnPreviewModal";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -1532,6 +1534,34 @@ function isRefundCompletionBlocked(row: AdminRow | null | undefined) {
   if (row.approval_status !== "approved") return true;
   if (!["requested", "processing"].includes(row.status)) return true;
   return false;
+}
+
+// config.tabs: 탭마다 실제 라우트(/admin/{key})인 섹션 단위 이동이라 ARIA tab 이 아니라
+// 링크 내비게이션이다. 활성 탭은 aria-current="page" 로 알린다.
+export function AdminConfigTabs({
+  tabs,
+  activeKey,
+}: {
+  tabs: { key: string; label: string }[];
+  activeKey: string;
+}) {
+  return (
+    <nav aria-label="섹션 탭" className="mb-4 flex gap-2">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.key}
+          to={`/admin/${tab.key}`}
+          aria-current={activeKey === tab.key ? "page" : undefined}
+          className={buttonVariants({
+            variant: activeKey === tab.key ? "default" : "outline",
+            size: "lg",
+          })}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
 }
 
 export function AdminTable<T extends AdminRow = AdminRow>({
