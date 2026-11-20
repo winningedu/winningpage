@@ -123,3 +123,27 @@ describe("ActionButton", () => {
     expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
   });
 });
+
+describe("focus 표시", () => {
+  it("입력, 텍스트영역, 선택, 버튼 모두 focus-visible ring 클래스를 가진다", () => {
+    render(
+      <>
+        <TextInput value="" onChange={() => {}} aria-label="입력" />
+        <Textarea value="" onChange={() => {}} />
+        <Select value="" onChange={() => {}}>
+          <option value="">선택</option>
+        </Select>
+        <ActionButton>저장</ActionButton>
+      </>,
+    );
+
+    for (const element of [
+      screen.getByRole("textbox", { name: "입력" }),
+      screen.getAllByRole("textbox")[1],
+      screen.getByRole("combobox"),
+      screen.getByRole("button", { name: "저장" }),
+    ]) {
+      expect(element.className).toContain("focus-visible:ring");
+    }
+  });
+});
