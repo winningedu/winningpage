@@ -1732,6 +1732,7 @@ export default function CouponAdmin() {
                 placeholder={USER_SEARCH_PLACEHOLDER ?? undefined}
                 onChange={(e) => setUserQuery(e.target.value)}
                 onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return;
                   if (e.key === "Enter") searchUsers();
                 }}
                 className={INPUT_CLASS}
