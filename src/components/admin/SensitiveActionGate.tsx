@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,8 @@ type GateState = {
 
 export function useSensitiveActionGate() {
   const [state, setState] = useState<GateState | null>(null);
+  // 같은 틱의 두 번째 제출은 직전 렌더의 state.busy 가 아직 false 라 막지 못한다.
+  const inFlight = useRef(false);
 
   const requestAccess = useCallback((request: SensitiveAccessRequest) => {
     setState({
@@ -69,41 +71,46 @@ export function useSensitiveActionGate() {
   const close = useCallback(() => setState(null), []);
 
   async function submit() {
-    if (!state || state.busy) return;
+    if (!state || state.busy || inFlight.current) return;
 
-    const reason = state.reason.trim();
-    if (!reason) {
-      setState({ ...state, error: "다운로드 사유를 입력하세요." });
-      return;
+    inFlight.current = true;
+    try {
+      const reason = state.reason.trim();
+      if (!reason) {
+        setState({ ...state, error: "다운로드 사유를 입력하세요." });
+        return;
+      }
+
+      setState({ ...state, busy: true, error: "" });
+
+      const verified = await verifyAdminPassword(state.password);
+      if (!verified.ok) {
+        setState((prev) =>
+          prev ? { ...prev, busy: false, error: verified.message } : prev,
+        );
+        return;
+      }
+
+      const logged = await writeAdminAccessLog({
+        action: state.request.action,
+        resourceKey: state.request.resourceKey,
+        reason,
+        rowCount: state.request.rowCount,
+        targetId: state.request.targetId,
+      });
+      if (!logged.ok) {
+        setState((prev) =>
+          prev ? { ...prev, busy: false, error: logged.message } : prev,
+        );
+        return;
+      }
+
+      const { onGranted } = state.request;
+      setState(null);
+      await onGranted();
+    } finally {
+      inFlight.current = false;
     }
-
-    setState({ ...state, busy: true, error: "" });
-
-    const verified = await verifyAdminPassword(state.password);
-    if (!verified.ok) {
-      setState((prev) =>
-        prev ? { ...prev, busy: false, error: verified.message } : prev,
-      );
-      return;
-    }
-
-    const logged = await writeAdminAccessLog({
-      action: state.request.action,
-      resourceKey: state.request.resourceKey,
-      reason,
-      rowCount: state.request.rowCount,
-      targetId: state.request.targetId,
-    });
-    if (!logged.ok) {
-      setState((prev) =>
-        prev ? { ...prev, busy: false, error: logged.message } : prev,
-      );
-      return;
-    }
-
-    const { onGranted } = state.request;
-    setState(null);
-    await onGranted();
   }
 
   const gate = state ? (
