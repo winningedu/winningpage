@@ -76,7 +76,7 @@ describe("TelemetryAdmin", () => {
     });
     render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     await screen.findByText("1,234");
-    fireEvent.click(screen.getByRole("button", { name: "호출 목록" }));
+    fireEvent.click(screen.getByRole("tab", { name: "호출 목록" }));
     await waitFor(() => expect(api.fetchCalls).toHaveBeenCalled());
     expect(vi.mocked(api.fetchCalls).mock.calls[0]?.[0]).toContain(
       "view=calls",
@@ -132,12 +132,32 @@ describe("TelemetryAdmin", () => {
     });
     render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
     await screen.findByText("1,234");
-    fireEvent.click(screen.getByRole("button", { name: "호출 목록" }));
+    fireEvent.click(screen.getByRole("tab", { name: "호출 목록" }));
     expect(await screen.findByText("section:2-1")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "호출" })).toBeTruthy();
     fireEvent.click(screen.getByText("section:2-1"));
     const dialog = await screen.findByRole("dialog");
     expect(dialog.textContent).toContain("callKey");
     expect(dialog.textContent).toContain("section:2-1");
+  });
+
+  test("탭은 role tab 이고 고른 탭만 aria-selected 가 된다", async () => {
+    vi.mocked(api.fetchSummary).mockResolvedValue(summaryResult(true));
+    vi.mocked(api.fetchPricing).mockResolvedValue({
+      ok: true,
+      data: { pricing: {}, updatedAt: null },
+    });
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    await screen.findByText("1,234");
+    expect(screen.getByRole("tab", { name: "요약" }).ariaSelected).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "단가" }));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "단가" }).ariaSelected).toBe(
+        "true",
+      ),
+    );
+    expect(screen.getByRole("tab", { name: "요약" }).ariaSelected).toBe(
+      "false",
+    );
   });
 });

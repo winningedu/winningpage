@@ -95,7 +95,7 @@ describe("EvalsAdmin", () => {
       },
     });
     renderAdmin();
-    fireEvent.click(screen.getByRole("button", { name: "평가 실행" }));
+    fireEvent.click(screen.getByRole("tab", { name: "평가 실행" }));
     const rrf = await screen.findByPlaceholderText("60");
     fireEvent.change(rrf, { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: "실행" }));
@@ -134,7 +134,7 @@ describe("EvalsAdmin", () => {
       },
     });
     renderAdmin();
-    fireEvent.click(screen.getByRole("button", { name: "평가 실행" }));
+    fireEvent.click(screen.getByRole("tab", { name: "평가 실행" }));
     fireEvent.change(await screen.findByPlaceholderText("예 20, 60"), {
       target: { value: "20, 60, 30" },
     });
@@ -175,7 +175,7 @@ describe("EvalsAdmin", () => {
       },
     });
     renderAdmin();
-    fireEvent.click(screen.getByRole("button", { name: "이력" }));
+    fireEvent.click(screen.getByRole("tab", { name: "이력" }));
     const boxes = await screen.findAllByRole("checkbox");
     expect(screen.queryByText("두 실행 비교")).toBeNull();
     fireEvent.click(boxes[0] as HTMLElement);
@@ -235,6 +235,23 @@ describe("EvalsAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "비활성" }));
     await waitFor(() =>
       expect(api.setGoldenQueryActive).toHaveBeenCalledWith("q1", false),
+    );
+  });
+
+  test("탭은 role tab 이고 고른 탭만 aria-selected 가 된다", async () => {
+    renderAdmin();
+    await screen.findByText("마찰력 실험");
+    expect(screen.getByRole("tab", { name: "기준 문제집" }).ariaSelected).toBe(
+      "true",
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "이력" }));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "이력" }).ariaSelected).toBe(
+        "true",
+      ),
+    );
+    expect(screen.getByRole("tab", { name: "기준 문제집" }).ariaSelected).toBe(
+      "false",
     );
   });
 });
