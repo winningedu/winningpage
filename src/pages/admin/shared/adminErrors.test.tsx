@@ -7,23 +7,45 @@
 //   2. 그러면서 DB 원문·실제 값은 alert 로 새지 않는다. details 의 값 부분에는
 //      중복된 이름·연락처가 그대로 들어 있어 그걸 띄우면 개인정보 노출이다.
 
-import { expect, test, vi } from "vitest";
+import { render, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { Toaster, toast } from "@/components/ui/toast";
 import { buildFieldLabels, reportAdminError } from "./adminErrors";
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+// 관리자에게 보이는 토스트 문구(제목과 설명)를 이어 붙여 돌려준다.
 function captureAlert(
   error: unknown,
   labels: Record<string, string> = {},
 ): string {
-  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-  try {
-    reportAdminError("등록 실패", error as never, labels);
-    return String(alertSpy.mock.calls[0]?.[0] ?? "");
-  } finally {
-    alertSpy.mockRestore();
-    errorSpy.mockRestore();
-  }
+  const addSpy = vi.spyOn(toast, "add").mockReturnValue("toast-id");
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  reportAdminError("등록 실패", error as never, labels);
+  const options = addSpy.mock.calls.at(-1)?.[0];
+  return `${options?.title ?? ""}: ${options?.description ?? ""}`;
 }
+
+test("오류는 window.alert 대신 토스트로 보인다", async () => {
+  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  render(<Toaster />);
+
+  reportAdminError("등록 실패", { message: "WC035" });
+
+  // Base UI 가 스크린리더용 사본도 렌더하므로 토스트 본체의 슬롯으로 집는다.
+  await waitFor(() =>
+    expect(
+      document.querySelector('[data-slot="toast-title"]'),
+    ).toHaveTextContent("등록 실패"),
+  );
+  expect(
+    document.querySelector('[data-slot="toast-description"]'),
+  ).toHaveTextContent("아직 승인되지 않은 환불 신청입니다.");
+  expect(alertSpy).not.toHaveBeenCalled();
+});
 
 // 2026-08-31 메인 배너 관리에서 실제로 뜬 케이스. banners_seed_unique_idx 는
 // 제목·강조문구·부제·이미지·버튼문구·버튼링크·순서를 통째로 묶은 **식 인덱스**라
@@ -142,4 +164,34 @@ test("buildFieldLabels 는 fields 라벨을 columns 보다 우선한다", () => 
   });
 
   expect(labels.phone).toBe("연락처");
+});
+
+test("토스트는 즉시 읽어야 하는 high 우선순위이고 5초 미만으로 사라지지 않는다", () => {
+  const addSpy = vi.spyOn(toast, "add").mockReturnValue("toast-id");
+  vi.spyOn(console, "error").mockImplementation(() => {});
+
+  reportAdminError("등록 실패", { message: "WC035" });
+
+  const options = addSpy.mock.calls[0]?.[0];
+  expect(options?.priority).toBe("high");
+  // timeout 을 비우면 Toaster 기본값(5000ms)을 쓴다. 직접 줄 때는 5초 이상이어야 한다.
+  expect(options?.timeout ?? 5000).toBeGreaterThanOrEqual(5000);
+});
+
+test("토스트에 error.message 원문과 details 는 실리지 않고 console.error 에만 남는다", () => {
+  const addSpy = vi.spyOn(toast, "add").mockReturnValue("toast-id");
+  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const error = {
+    code: "99999",
+    message: "relation secret_table 홍길동 010-1234-5678",
+    details: "Key (phone)=(010-1234-5678) already exists.",
+  };
+
+  reportAdminError("등록 실패", error);
+
+  const shown = JSON.stringify(addSpy.mock.calls[0]?.[0]);
+  expect(shown).not.toContain("secret_table");
+  expect(shown).not.toContain("홍길동");
+  expect(shown).not.toContain("010-1234-5678");
+  expect(errorSpy).toHaveBeenCalledWith("등록 실패", error);
 });

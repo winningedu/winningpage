@@ -29,6 +29,8 @@
 //    들어 있어 alert 에 개인정보를 띄우게 된다. 컬럼 이름까지만 쓴다.
 // ---------------------------------------------------------------------------
 
+import { toast } from "@/components/ui/toast";
+
 // Supabase PostgrestError 등 message/code를 갖는 임의 오류 객체를 느슨하게 받는다 —
 // 호출부가 던지는 값이 항상 Error 인스턴스는 아니다(예: { message, code } 리터럴).
 interface AdminErrorLike {
@@ -219,7 +221,14 @@ export function reportAdminError(
   fieldLabels: AdminFieldLabels = {},
 ): void {
   console.error(label, error);
-  alert(`${label}: ${mapAdminErrorMessage(error, fieldLabels)}`);
+  // 제목은 호출부 접두("저장 실패" 등), 설명은 매핑된 안내문이다. 원문은 싣지 않는다.
+  // timeout 은 Toaster 기본값(5000ms, 5초 미만이 아님)을 그대로 쓴다.
+  toast.add({
+    type: "error",
+    priority: "high",
+    title: label,
+    description: mapAdminErrorMessage(error, fieldLabels),
+  });
 }
 
 /**
