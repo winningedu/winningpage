@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Input } from "@/components/ui/input";
 
 // sql/52_mentor_applications.sql의 status 컬럼 주석에 적힌 값 그대로(CHECK 제약은 없지만
 // 이 6개가 실제 사용 값이다). CONFIGS.mentorApplications 목록 컬럼과 MentorApplicationsAdmin의
@@ -61,6 +62,7 @@ interface TextInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  "aria-label"?: string;
 }
 
 export function TextInput({
@@ -68,13 +70,15 @@ export function TextInput({
   onChange,
   placeholder,
   className = "",
+  "aria-label": ariaLabel,
 }: TextInputProps) {
   return (
-    <input
+    <Input
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
-      className={`h-10 w-full border border-gray-300 px-3 text-sm font-bold outline-hidden focus:border-[#B88737] ${className}`}
+      aria-label={ariaLabel}
+      className={`h-10 font-medium ${className}`}
     />
   );
 }

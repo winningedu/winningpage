@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { Field, TextInput } from "./formFields";
 
 describe("Field", () => {
@@ -13,5 +13,18 @@ describe("Field", () => {
     expect(screen.getByLabelText("이름")).toBeInTheDocument();
     expect(screen.getByText("이름").className).toContain("font-medium");
     expect(screen.getByText("이름").className).not.toMatch(/font-(bold|black)/);
+  });
+});
+
+describe("TextInput", () => {
+  it("입력하면 onChange가 문자열을 받는다", () => {
+    const onChange = vi.fn();
+    render(<TextInput value={null} onChange={onChange} aria-label="제목" />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "제목" }), {
+      target: { value: "abc" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith("abc");
   });
 });
