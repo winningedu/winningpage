@@ -1309,16 +1309,19 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               </div>
                             )}
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
                               <UploadCloud size={16} />
                               이미지 업로드
                               <input
                                 type="file"
                                 accept="image/*"
-                                className="hidden"
+                                className="sr-only"
                                 onChange={async (e) => {
+                                  const input = e.target;
+                                  const selected = input.files?.[0];
+                                  input.value = "";
                                   const uploaded = await trackedUpload(
-                                    e.target.files?.[0],
+                                    selected,
                                     field,
                                   );
                                   if (uploaded?.[0]?.url) {
@@ -1348,16 +1351,19 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               </div>
                             )}
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
                               <UploadCloud size={16} />
                               파일 등록
                               <input
                                 type="file"
                                 accept={field.accept || "*"}
-                                className="hidden"
+                                className="sr-only"
                                 onChange={async (e) => {
+                                  const input = e.target;
+                                  const selected = input.files?.[0];
+                                  input.value = "";
                                   const uploaded = await trackedUpload(
-                                    e.target.files?.[0],
+                                    selected,
                                     field,
                                   );
                                   if (uploaded?.[0]?.url) {
@@ -1415,17 +1421,21 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               )}
                             </div>
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
                               <UploadCloud size={16} />
                               이미지 여러 개 업로드
                               <input
                                 type="file"
                                 accept="image/*"
                                 multiple
-                                className="hidden"
-                                onChange={(e) =>
-                                  uploadMultiple(e.target.files, field)
-                                }
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const selected = Array.from(
+                                    e.target.files ?? [],
+                                  );
+                                  e.target.value = "";
+                                  return uploadMultiple(selected, field);
+                                }}
                               />
                             </label>
                           </div>
@@ -1481,17 +1491,21 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               )}
                             </div>
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
                               <UploadCloud size={16} />
                               파일 여러 개 등록
                               <input
                                 type="file"
                                 accept={field.accept || "*"}
                                 multiple
-                                className="hidden"
-                                onChange={(e) =>
-                                  uploadMultiple(e.target.files, field)
-                                }
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const selected = Array.from(
+                                    e.target.files ?? [],
+                                  );
+                                  e.target.value = "";
+                                  return uploadMultiple(selected, field);
+                                }}
                               />
                             </label>
                           </div>
