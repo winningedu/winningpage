@@ -216,8 +216,12 @@ const GENERIC_FAILURE =
 
 /**
  * 우리 /api 엔드포인트가 관리자에게 보여주려고 쓴 한국어 detail 을 실은 오류.
- * Supabase/Postgres 원문과 달리 그대로 보여도 된다. 응답 본문이 우리 JSON
- * `{detail}` 일 때만 던진다(HTTP 상태나 HTML 같은 원문은 일반 Error 로 던진다).
+ * 규칙: detail 은 우리 서버가 직접 쓴 문장이어야 한다. DB, Supabase, 외부 서비스의
+ * error.message 를 이어 붙인 값은 안 된다(서버가 그렇게 보내면 서버를 고친다).
+ * 예외는 문자 발송 실패 사유(send-message 의 providerMessage)로, SMS 업체가 준
+ * 문구이며 관리자가 발송 실패 이유를 알아야 해서 그대로 전달한다.
+ * 응답 본문이 우리 JSON `{detail}` 일 때만 던진다(HTTP 상태나 HTML 같은 원문은 일반
+ * Error 로 던진다).
  */
 export class AdminApiError extends Error {
   readonly detail: string;
