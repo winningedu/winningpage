@@ -3,6 +3,7 @@ import type { ChangeEvent } from "react";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import BookViewer from "@/components/premiumBook/BookViewer";
 import type { PremiumBookPage } from "@/components/premiumBook/bookPairing";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import {
   AdminForm,
@@ -253,6 +254,8 @@ export default function PremiumBookAdmin({
 
   function handlePickPdf(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null;
+    // 같은 파일을 다시 골라도 change 가 일어나도록 입력값을 비운다.
+    e.target.value = "";
     revokePreviewUrls();
     setPdfFile(file);
     setPreviewPages([]);
@@ -525,17 +528,17 @@ export default function PremiumBookAdmin({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-black text-[#111827]">
+      <h1 className="mb-1 text-2xl font-semibold text-foreground">
         {config.title}
       </h1>
 
       {config.homepage && (
         <div className="mb-4 space-y-1">
-          <p className="text-sm font-bold text-red-500">
+          <p className="text-sm font-medium text-destructive">
             이 메뉴에서 저장한 내용은 실제 홈페이지에 반영됩니다.
           </p>
           {config.guideText && (
-            <p className="whitespace-pre-line text-sm font-black leading-6 text-red-600">
+            <p className="whitespace-pre-line text-sm font-semibold leading-6 text-destructive">
               {config.guideText}
             </p>
           )}
@@ -544,64 +547,71 @@ export default function PremiumBookAdmin({
 
       {/* bespoke 패널 — PDF 1개 업로드 → 변환 → 미리보기 → 적용 */}
       <div className="mb-6 bg-white p-6 shadow-sm">
-        <h2 className="mb-1 text-lg font-black">PDF 일괄 변환·적용</h2>
-        <p className="mb-4 text-sm font-bold text-gray-500">
+        <h2 className="mb-1 text-xl font-semibold">PDF 일괄 변환 및 적용</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
           운영자는 PDF 파일 하나만 올리면 됩니다. 변환·미리보기까지는 저장되지
           않고, [적용]을 눌러야 실제로 반영됩니다.
         </p>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-black hover:bg-gray-50">
-            <UploadCloud size={16} />
+          <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 text-sm font-medium hover:bg-muted has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50">
+            <UploadCloud size={16} aria-hidden="true" />
             PDF 선택
             <input
               type="file"
               accept="application/pdf"
-              className="hidden"
+              className="sr-only"
               onChange={handlePickPdf}
             />
           </label>
 
-          <span className="text-sm font-bold text-gray-600">
+          <span className="text-sm text-gray-600">
             {pdfFile ? pdfFile.name : "선택된 파일 없음"}
           </span>
 
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={handleConvert}
             disabled={!pdfFile || converting || applying}
-            className="inline-flex h-9 items-center gap-2 bg-primary px-4 text-sm font-black text-white disabled:opacity-40"
           >
             {converting
               ? `변환 중 (${progress.done}/${progress.total || "?"})`
               : "PDF 변환"}
-          </button>
+          </Button>
 
           {previewPages.length > 0 && (
-            <button
+            <Button
               type="button"
+              size="lg"
+              variant="destructive"
               onClick={handleApply}
               disabled={applying || converting}
-              className="inline-flex h-9 items-center gap-2 border border-red-500 bg-red-50 px-4 text-sm font-black text-red-600 disabled:opacity-40"
             >
               {applying ? "적용 중..." : `적용 (${previewPages.length}장 반영)`}
-            </button>
+            </Button>
           )}
         </div>
 
         {convertError && (
-          <p className="mt-3 text-sm font-bold text-red-600">{convertError}</p>
+          <p role="alert" className="mt-3 text-sm font-medium text-destructive">
+            {convertError}
+          </p>
         )}
         {applyStatus && (
-          <p className="mt-3 text-sm font-bold text-blue-600">{applyStatus}</p>
+          <p role="status" className="mt-3 text-sm font-medium text-primary">
+            {applyStatus}
+          </p>
         )}
         {applyError && (
-          <p className="mt-3 text-sm font-bold text-red-600">{applyError}</p>
+          <p role="alert" className="mt-3 text-sm font-medium text-destructive">
+            {applyError}
+          </p>
         )}
 
         {previewPages.length > 0 && (
           <div className="mt-6">
-            <p className="mb-2 text-sm font-black text-gray-700">
+            <p className="mb-2 text-sm font-semibold text-gray-700">
               미리보기 — 아직 저장 전 상태입니다. [적용]을 눌러야 반영됩니다.
             </p>
             <BookViewer pages={previewPages} />
@@ -613,7 +623,7 @@ export default function PremiumBookAdmin({
       {mode === "list" ? (
         <>
           {duplicateSortOrders.length > 0 && (
-            <div className="mb-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+            <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
               페이지 번호(sort_order) 중복: {duplicateSortOrders.join(", ")} —
               정렬·표시 순서가 어긋날 수 있습니다. 아래 목록에서 먼저
               정리하세요.
@@ -621,27 +631,27 @@ export default function PremiumBookAdmin({
           )}
 
           <div className="mb-4 flex items-center justify-between gap-4">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={loadRows}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <RefreshCw size={14} />
+              <RefreshCw aria-hidden="true" />
               초기화
-            </button>
+            </Button>
 
-            <button
-              type="button"
-              onClick={createRow}
-              className="inline-flex h-9 items-center gap-1 bg-primary px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
-            >
-              <Plus size={14} />
+            <Button type="button" size="lg" onClick={createRow}>
+              <Plus aria-hidden="true" />
               등록
-            </button>
+            </Button>
           </div>
 
           {rowsLoading ? (
-            <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+            <div
+              role="status"
+              className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+            >
               데이터를 불러오는 중입니다.
             </div>
           ) : (
