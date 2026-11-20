@@ -1,14 +1,4 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Edit3,
-  Eye,
-  Settings,
-  Trash2,
-  UploadCloud,
-} from "lucide-react";
+import { Edit3, Eye, Settings, Trash2, UploadCloud } from "lucide-react";
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdmissionSurface from "@/components/admission/AdmissionSurface";
@@ -43,6 +33,7 @@ import { blocksToPlainText } from "@/lib/blockToPlainText";
 import { plainTextToBlocks } from "@/lib/plainTextToBlocks";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
+import AdminPagination from "./AdminPagination";
 import { reportAdminError } from "./adminErrors";
 import {
   type FieldOption,
@@ -1590,20 +1581,6 @@ export function AdminTable<T extends AdminRow = AdminRow>({
     [rows, start, serverPaginated],
   );
 
-  // 페이지 번호 창. 기존에는 1~10을 고정 렌더했는데, 4,300페이지짜리 입결 목록에서는
-  // 그 방식으로 11페이지 이후에 도달할 방법이 없다(≫ 버튼으로 끝으로 점프한 뒤에도
-  // 번호줄은 1~10을 가리킨다). 현재 페이지를 가운데 두고 창을 굴린다 —
-  // totalPages ≤ 10이면 예전과 완전히 같은 1..N이 나온다.
-  const windowSize = Math.min(totalPages, 10);
-  const windowStart = Math.min(
-    Math.max(1, page - Math.floor(windowSize / 2)),
-    Math.max(1, totalPages - windowSize + 1),
-  );
-  const pageNumbers = Array.from(
-    { length: windowSize },
-    (_, index) => windowStart + index,
-  );
-
   // column.loadOptions 가 있는 컬럼의 불러온 선택지(key 별). 폼의 loadedOptions 와
   // 같은 수명 규칙(언마운트 뒤 결과 무시, 실패는 경고만)이다.
   const [loadedOptions, setLoadedOptions] = useState<
@@ -1962,62 +1939,11 @@ export function AdminTable<T extends AdminRow = AdminRow>({
         </TableBody>
       </Table>
 
-      <div className="mt-5 flex flex-col items-center gap-2">
-        <div className="inline-flex border border-gray-300">
-          <button
-            type="button"
-            onClick={() => setPage(1)}
-            className="h-9 w-10 border-r"
-          >
-            <ChevronsLeft size={15} className="mx-auto" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="h-9 w-10 border-r"
-          >
-            <ChevronLeft size={15} className="mx-auto" />
-          </button>
-
-          {pageNumbers.map((num) => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => setPage(num)}
-              className={`h-9 w-10 border-r text-sm font-bold ${
-                page === num
-                  ? "bg-gray-600 text-white"
-                  : "bg-white text-gray-600"
-              }`}
-            >
-              {num}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="h-9 w-10 border-r"
-          >
-            <ChevronRight size={15} className="mx-auto" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage(totalPages)}
-            className="h-9 w-10"
-          >
-            <ChevronsRight size={15} className="mx-auto" />
-          </button>
-        </div>
-
-        {/* 번호줄이 창(최대 10칸)만 보여주므로 지금 몇 번째인지 따로 알려준다.
-            페이지가 1장뿐인 대부분의 메뉴에서는 노이즈라 2장 이상일 때만 렌더한다. */}
-        {totalPages > 1 && (
-          <p className="text-xs font-bold text-gray-500">
-            {page.toLocaleString()} / {totalPages.toLocaleString()} 페이지
-          </p>
-        )}
-      </div>
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
