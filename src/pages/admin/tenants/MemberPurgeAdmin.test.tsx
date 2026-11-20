@@ -309,5 +309,62 @@ describe("MemberPurgeAdmin", () => {
       ).toBeTruthy();
       await waitFor(() => expect(document.activeElement).toBe(cancel));
     });
+
+    test("삭제 중에는 Esc 로 닫히지 않고 취소도 막혀 있다", async () => {
+      vi.mocked(api.runMemberPurge).mockReturnValue(new Promise(() => {}));
+      const dialog = await openConfirm();
+      fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+        target: { value: "한빛고" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+      await waitFor(() => expect(api.runMemberPurge).toHaveBeenCalledTimes(1));
+
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: "Escape",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(screen.getByRole("alertdialog")).toBeTruthy();
+      expect(
+        (
+          within(dialog).getByRole("button", {
+            name: "취소",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    });
+
+    test("실행 전에 Esc 로 닫으면 입력한 기관 이름이 지워진다", async () => {
+      const dialog = await openConfirm();
+      fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
+        target: { value: "한빛고" },
+      });
+
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: "Escape",
+      });
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+
+      const reopened = await screen.findByRole("alertdialog");
+      expect(
+        (within(reopened).getByLabelText("기관 이름 입력") as HTMLInputElement)
+          .value,
+      ).toBe("");
+      expect(api.runMemberPurge).not.toHaveBeenCalled();
+    });
+
+    test("바깥을 눌러도 닫히지 않는다", async () => {
+      await openConfirm();
+
+      fireEvent.pointerDown(document.body);
+      fireEvent.mouseDown(document.body);
+      fireEvent.pointerUp(document.body);
+      fireEvent.mouseUp(document.body);
+      fireEvent.click(document.body);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(screen.getByRole("alertdialog")).toBeTruthy();
+    });
   });
 });
