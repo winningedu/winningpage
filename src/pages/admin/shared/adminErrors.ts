@@ -72,6 +72,20 @@ const ADMIN_ERROR_MESSAGE_MAP: Array<{ pattern: RegExp; message: string }> = [
     pattern: /refunded_order_immutable|WC039/,
     message: "환불 완료된 주문은 더 이상 수정할 수 없습니다.",
   },
+  // 아래 두 항목은 DB 가 관리자에게 보여주려고 한국어로 쓴 안내다. alert 시절엔
+  // error.message 로 그대로 보였고, 원문 노출을 끊으면서 같이 사라지지 않게 옮겨 적는다.
+  // WC059: admin_members 트리거(20261021014317_busan_oct_extension_goal_gift.sql:4234)
+  {
+    pattern: /WC059/,
+    message:
+      "최고 관리자가 1명뿐이라 강등, 정지, 삭제할 수 없습니다. 다른 사람을 먼저 최고 관리자로 올려 주세요.",
+  },
+  // WC104: QA 계정의 본사 관리자 쓰기 차단. 모든 public 테이블의 문 단위 트리거라
+  // 어느 저장 화면에서든 올라온다(20261110040330_qa_account_guard.sql:50).
+  {
+    pattern: /WC104/,
+    message: "QA 계정이라 이 기능은 작동하지 않아요.",
+  },
   // WC067 은 다른 RPC 도 쓰는 코드라 fn_create_tenant 의 메시지 이름으로 잡는다.
   {
     pattern: /not_super_admin/,

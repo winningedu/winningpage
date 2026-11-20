@@ -239,7 +239,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     setSaving(false);
 
     if (error) {
-      // WC059(마지막 최고 관리자 보호)가 여기로 올라온다 — 원문을 그대로 보여준다.
+      // WC059(마지막 최고 관리자 보호)가 여기로 올라온다. adminErrors 의 WC059 매핑이 한국어 안내로 바꾼다.
       reportAdminError("저장 실패", error);
       return;
     }
