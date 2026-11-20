@@ -81,3 +81,37 @@ describe("AdminForm select 와 textarea", () => {
     });
   });
 });
+
+describe("AdminForm 저장 중복 방지", () => {
+  test("createDefaults 로 연 신규 등록에서 저장을 연달아 두 번 눌러도 한 번만 저장한다", async () => {
+    let finish: () => void = () => {};
+    const onSave = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderForm(
+      {},
+      {
+        mode: "create",
+        row: null,
+        createDefaults: { name: "프리필", rate: 1 },
+        onSave,
+      },
+    );
+
+    const save = screen.getByRole("button", { name: "저장" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(
+      (screen.getByRole("button", { name: "저장 중..." }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    finish();
+    await screen.findByRole("button", { name: "저장" });
+  });
+});
