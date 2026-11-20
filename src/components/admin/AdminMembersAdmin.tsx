@@ -6,7 +6,10 @@ import {
   ADMIN_MEMBER_STATUS_OPTIONS,
   ADMIN_PERMISSION_LEVEL_OPTIONS,
 } from "@/pages/admin/configs/adminSettings";
-import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import {
+  AdminApiError,
+  reportAdminError,
+} from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import {
   ActionButton,
@@ -304,10 +307,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       }),
     });
 
-    const result = await response.json().catch(async () => {
-      const text = await response.text().catch(() => "");
-      return { detail: text || `HTTP ${response.status}` };
-    });
+    // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
+    const result = await response.json().catch(() => ({}));
 
     return { response, result };
   }
@@ -347,7 +348,9 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       }
 
       if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
+        throw result?.detail
+          ? new AdminApiError(result.detail)
+          : new Error(`HTTP ${response.status}`);
       }
 
       // ⚠️ 메일이 나가는 건 신규 계정을 만든 경우뿐이다(서버가 emailed 로 알려준다).

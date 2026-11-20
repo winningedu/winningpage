@@ -195,11 +195,27 @@ function describeConstraint(
 const GENERIC_FAILURE =
   "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
+/**
+ * 우리 /api 엔드포인트가 관리자에게 보여주려고 쓴 한국어 detail 을 실은 오류.
+ * Supabase/Postgres 원문과 달리 그대로 보여도 된다. 응답 본문이 우리 JSON
+ * `{detail}` 일 때만 던진다(HTTP 상태나 HTML 같은 원문은 일반 Error 로 던진다).
+ */
+export class AdminApiError extends Error {
+  readonly detail: string;
+
+  constructor(detail: string) {
+    super(detail);
+    this.name = "AdminApiError";
+    this.detail = detail;
+  }
+}
+
 function mapAdminErrorMessage(
   error: AdminErrorLike | null | undefined,
   labels: AdminFieldLabels = {},
 ): string {
   if (!error) return GENERIC_FAILURE;
+  if (error instanceof AdminApiError) return error.detail;
 
   const detailed = describeConstraint(error, labels);
   if (detailed) return detailed;
