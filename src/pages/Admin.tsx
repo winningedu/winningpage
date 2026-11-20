@@ -44,7 +44,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
 import {
   canAccessSection,
   fetchAdminPermissions,
@@ -130,7 +130,11 @@ import {
   withChunkRows,
 } from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
-import { toastSuccess, toastWarning } from "./admin/shared/adminToast";
+import {
+  toastProgress,
+  toastSuccess,
+  toastWarning,
+} from "./admin/shared/adminToast";
 import { ConfirmAdminHost, confirmAdmin } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
@@ -3646,6 +3650,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
     }
 
     setExporting({ done: 0, total: totalCount });
+    // 민감 다운로드는 게이트 설명이 같은 안내를 하므로, 게이트가 없는 경로만 알린다.
+    const noteId = config.sensitiveDownload
+      ? null
+      : toastProgress(
+          `${totalCount.toLocaleString()}건을 내려받는 중입니다. 건수가 많으면 수십 초 걸릴 수 있으니 이 화면을 벗어나지 마세요.`,
+        );
+    const closeNote = () => {
+      if (noteId) toast.close(noteId);
+    };
 
     const parts: string[] = [];
     let done = 0;
@@ -3657,6 +3670,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       );
 
       if (error) {
+        closeNote();
         setExporting(null);
         reportAdminError("CSV 내보내기 실패", error);
         return;
@@ -3670,6 +3684,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       setExporting({ done, total: totalCount });
     }
 
+    closeNote();
     setExporting(null);
     downloadCsvText(filename, csvHeader(config.columns), parts.join("\n"));
   }

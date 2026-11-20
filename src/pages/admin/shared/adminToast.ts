@@ -30,3 +30,8 @@ export function toastError(title: string, description?: string): void {
     description,
   });
 }
+
+/** 끝날 때까지 남아 있어야 하는 진행 안내. 돌려받은 id 로 toast.close 해 닫는다. */
+export function toastProgress(title: string): string {
+  return toast.add({ type: "info", priority: "low", timeout: 0, title });
+}
