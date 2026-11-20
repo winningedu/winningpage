@@ -1,6 +1,13 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ActionButton,
   Field,
   TextInput,
@@ -110,16 +117,19 @@ export default function SchoolAdminPanel({
   return (
     <div>
       {issued && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="전체 관리자 발급 결과"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        // 임시 비밀번호는 지금 한 번만 보인다. 확인으로만 닫히도록 닫기 시도를 모두
+        // 취소한다(바깥 누름은 AlertDialog 가 기본으로 무시하고, Esc 는 여기서 막는다).
+        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        <AlertDialog
+          open
+          onOpenChange={(_open, eventDetails) => eventDetails.cancel()}
         >
-          <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-lg font-black">
-              전체 관리자를 발급했습니다
-            </h2>
+          <AlertDialogContent className="data-[size=default]:sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-black">
+                전체 관리자를 발급했습니다
+              </AlertDialogTitle>
+            </AlertDialogHeader>
             <div className="mb-1 text-sm font-bold text-gray-500">아이디</div>
             <div className="mb-3 flex items-center gap-2">
               <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
@@ -162,9 +172,11 @@ export default function SchoolAdminPanel({
                 이미 계정이 있어 새 임시 비밀번호는 없어요.
               </p>
             )}
-            <ActionButton onClick={() => setIssued(null)}>확인</ActionButton>
-          </div>
-        </div>
+            <AlertDialogFooter>
+              <ActionButton onClick={() => setIssued(null)}>확인</ActionButton>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       <div className="mb-6 bg-white p-6 shadow-sm">
