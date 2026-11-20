@@ -45,7 +45,6 @@ describe("SummaryTab", () => {
     expect(screen.getByText("일별 호출 수")).toBeTruthy();
     expect(screen.getByText("일별 금액 합계 USD")).toBeTruthy();
     expect(screen.getByText("호출 수")).toBeTruthy();
-    expect(screen.getByText("실패율")).toBeTruthy();
   });
 
   test("호출이 없으면 합계 타일만 Card 로 그린다", () => {

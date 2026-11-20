@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import type { CitationItem } from "./api";
 import { formatDate, formatInt } from "./format";
@@ -30,50 +36,48 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
           {order === "asc" ? "인용 적은 순" : "인용 많은 순"}
         </ActionButton>
       </div>
-      <ScrollArea axis="x">
-        <table className="w-full min-w-[60rem] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
-              <Th>자료명</Th>
-              <Th>유형</Th>
-              <Th>활성</Th>
-              <Th>적중 횟수</Th>
-              <Th>인용 횟수</Th>
-              <Th>마지막 적중</Th>
-              <Th>마지막 인용</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="py-12 text-center text-muted-foreground"
-                >
-                  조회된 자료가 없습니다.
-                </td>
-              </tr>
-            ) : (
-              sorted.map((row) => (
-                <tr
-                  key={row.resourceId}
-                  className={`border-b border-gray-100 ${row.isActive ? "" : "text-muted-foreground"}`}
-                >
-                  <td className="px-3 py-3 font-bold">{row.title}</td>
-                  <td className="px-3 py-3">{row.knowledgeType}</td>
-                  <td className="px-3 py-3">
-                    {row.isActive ? "활성" : "비활성"}
-                  </td>
-                  <td className="px-3 py-3">{formatInt(row.hitCount)}</td>
-                  <td className="px-3 py-3">{formatInt(row.citedCount)}</td>
-                  <td className="px-3 py-3">{formatDate(row.lastHitAt)}</td>
-                  <td className="px-3 py-3">{formatDate(row.lastCitedAt)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </ScrollArea>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <Th>자료명</Th>
+            <Th>유형</Th>
+            <Th>활성</Th>
+            <Th>적중 횟수</Th>
+            <Th>인용 횟수</Th>
+            <Th>마지막 적중</Th>
+            <Th>마지막 인용</Th>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sorted.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={7}
+                className="py-12 text-center text-muted-foreground"
+              >
+                조회된 자료가 없습니다.
+              </TableCell>
+            </TableRow>
+          ) : (
+            sorted.map((row) => (
+              <TableRow
+                key={row.resourceId}
+                className={row.isActive ? "" : "text-muted-foreground"}
+              >
+                <TableCell className="font-medium whitespace-normal">
+                  {row.title}
+                </TableCell>
+                <TableCell>{row.knowledgeType}</TableCell>
+                <TableCell>{row.isActive ? "활성" : "비활성"}</TableCell>
+                <TableCell>{formatInt(row.hitCount)}</TableCell>
+                <TableCell>{formatInt(row.citedCount)}</TableCell>
+                <TableCell>{formatDate(row.lastHitAt)}</TableCell>
+                <TableCell>{formatDate(row.lastCitedAt)}</TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

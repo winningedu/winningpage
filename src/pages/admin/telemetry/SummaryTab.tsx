@@ -9,7 +9,20 @@ import {
   YAxis,
 } from "recharts";
 import { CHART_COLORS, CHART_FONT_SIZE } from "@/components/charts/chartTheme";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { SummaryItem, SummaryResponse } from "./api";
 import {
   formatInt,
@@ -33,10 +46,14 @@ const SERIES_COLORS = [
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-gray-200 bg-white px-4 py-3">
-      <div className="text-sm font-bold text-gray-500">{label}</div>
-      <div className="mt-1 text-xl font-black">{value || NO_DATA}</div>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-semibold">{value || NO_DATA}</div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -74,10 +91,12 @@ function buildCostChart(items: SummaryItem[]): ChartRow[] {
 
 function ChartBox({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="border border-gray-200 p-4">
-      <div className="mb-2 text-sm font-black">{title}</div>
-      <div className="h-[16rem]">{children}</div>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="font-semibold">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="h-[16rem]">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -94,7 +113,7 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
   return (
     <div className="space-y-4">
       {!data.pricingConfigured && (
-        <div className="border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+        <div className="border border-[#B88737] bg-[#FFF8E8] px-4 py-3 text-sm font-medium text-[#7A4A12]">
           단가가 없어 금액은 비워 둡니다. 단가 탭에서 입력하세요.
         </div>
       )}
@@ -163,63 +182,44 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
           </div>
 
           <div className="mt-6">
-            <ScrollArea axis="x">
-              <table className="w-full min-w-[80rem] border-collapse text-sm">
-                <thead>
-                  <tr className="border-y border-gray-300">
-                    <Th>일</Th>
-                    <Th>서비스</Th>
-                    <Th>호출</Th>
-                    <Th>실패율</Th>
-                    <Th>재요청률</Th>
-                    <Th>prompt</Th>
-                    <Th>output</Th>
-                    <Th>cached</Th>
-                    <Th>thoughts</Th>
-                    <Th>캐시 비율</Th>
-                    <Th>p50 ms</Th>
-                    <Th>p95 ms</Th>
-                    <Th>금액 USD</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row) => (
-                    <tr
-                      key={`${row.day}-${row.service}`}
-                      className="border-b border-gray-100"
-                    >
-                      <td className="px-3 py-3">{row.day}</td>
-                      <td className="px-3 py-3">{serviceLabel(row.service)}</td>
-                      <td className="px-3 py-3">{formatInt(row.calls)}</td>
-                      <td className="px-3 py-3">
-                        {formatPercent(row.failureRate)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatPercent(row.retryRate)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatInt(row.promptTokens)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatInt(row.outputTokens)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatInt(row.cachedTokens)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatInt(row.thoughtsTokens)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatPercent(row.cachedRatio)}
-                      </td>
-                      <td className="px-3 py-3">{formatMs(row.p50Ms)}</td>
-                      <td className="px-3 py-3">{formatMs(row.p95Ms)}</td>
-                      <td className="px-3 py-3">{formatUsd(row.costUsd)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollArea>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <Th>일</Th>
+                  <Th>서비스</Th>
+                  <Th>호출</Th>
+                  <Th>실패율</Th>
+                  <Th>재요청률</Th>
+                  <Th>prompt</Th>
+                  <Th>output</Th>
+                  <Th>cached</Th>
+                  <Th>thoughts</Th>
+                  <Th>캐시 비율</Th>
+                  <Th>p50 ms</Th>
+                  <Th>p95 ms</Th>
+                  <Th>금액 USD</Th>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((row) => (
+                  <TableRow key={`${row.day}-${row.service}`}>
+                    <TableCell>{row.day}</TableCell>
+                    <TableCell>{serviceLabel(row.service)}</TableCell>
+                    <TableCell>{formatInt(row.calls)}</TableCell>
+                    <TableCell>{formatPercent(row.failureRate)}</TableCell>
+                    <TableCell>{formatPercent(row.retryRate)}</TableCell>
+                    <TableCell>{formatInt(row.promptTokens)}</TableCell>
+                    <TableCell>{formatInt(row.outputTokens)}</TableCell>
+                    <TableCell>{formatInt(row.cachedTokens)}</TableCell>
+                    <TableCell>{formatInt(row.thoughtsTokens)}</TableCell>
+                    <TableCell>{formatPercent(row.cachedRatio)}</TableCell>
+                    <TableCell>{formatMs(row.p50Ms)}</TableCell>
+                    <TableCell>{formatMs(row.p95Ms)}</TableCell>
+                    <TableCell>{formatUsd(row.costUsd)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
