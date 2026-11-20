@@ -121,4 +121,25 @@ describe("AdminRolesAdmin 오류 안내", () => {
     expect(document.body.textContent).not.toContain("홍길동");
     expect(alertSpy).not.toHaveBeenCalled();
   });
+
+  test("등록 응답에 오류도 데이터도 없으면 만들지 못했다는 안내가 보인다", async () => {
+    renderRoles();
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록하기" }));
+    fireEvent.change(await screen.findByLabelText("권한 묶음 이름"), {
+      target: { value: "운영팀" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => {
+      const shown = Array.from(
+        document.querySelectorAll(
+          '[data-slot="toast-title"], [data-slot="toast-description"]',
+        ),
+      )
+        .map((node) => node.textContent)
+        .join(" ");
+      expect(shown).toContain("권한 묶음을 만들지 못했습니다.");
+    });
+  });
 });
