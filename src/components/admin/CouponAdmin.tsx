@@ -1393,7 +1393,7 @@ export default function CouponAdmin() {
                         <TableCell className="px-3 py-3 whitespace-normal">
                           {row.title}
                         </TableCell>
-                        {/* 파생 칼럼(DB 컬럼 아님) — tenant_id 가 있으면 단체,
+                        {/* 파생 칼럼(DB 컬럼 아님), tenant_id 가 있으면 단체,
                               없고 code+총 발행 수량 1이면 선물, 그 외 할인
                               (2026-08-27 org_code 기준 결정, 2026-09-22
                               tenant_id 로 축 전환. 세 종류를 한눈에 구분). */}
@@ -1425,7 +1425,7 @@ export default function CouponAdmin() {
                           {flagMark(row.stackable)}
                         </TableCell>
 
-                        {/* 표시는 GRANT_TYPE_LABEL(승인된 한국어 라벨) — DB 값
+                        {/* 표시는 GRANT_TYPE_LABEL(승인된 한국어 라벨), DB 값
                               auto/granted 는 이 칼럼에 노출하지 않는다. 폼의 라디오도
                               같은 매핑을 쓰므로 화면 사이에서 말이 바뀌지 않는다. */}
                         <TableCell className="px-3 py-3 whitespace-normal">
@@ -1435,7 +1435,7 @@ export default function CouponAdmin() {
                           {flagMark(row.grant_on_signup)}
                         </TableCell>
 
-                        {/* 유효 건수 / 전체 건수(무효화 포함)를 둘 다 보여준다 —
+                        {/* 유효 건수 / 전체 건수(무효화 포함)를 둘 다 보여준다,
                               void 한 이력이 사라지지 않는 것이 이 도메인의 원칙이라
                               전체만 보이면 "왜 소진인데 쓸 수 있나" 를, 유효만 보이면
                               "되돌린 기록" 을 각각 놓친다. */}
@@ -1457,7 +1457,7 @@ export default function CouponAdmin() {
                         >
                           <div className="flex justify-center gap-3">
                             {/* 수정 아이콘은 AdminTable(:4674)의 기존 액션과
-                                  같은 아이콘·같은 무라벨 규범을 그대로 따른다. */}
+                                  같은 아이콘, 같은 무라벨 규범을 그대로 따른다. */}
                             <Button
                               aria-label="수정"
                               type="button"
@@ -1959,7 +1959,7 @@ export default function CouponAdmin() {
                         <TableCell className="px-3 py-3 whitespace-normal">
                           {dateTimeText(row.granted_at)}
                         </TableCell>
-                        {/* 쿠폰 자신의 기한(위 헤더)과 별개 축이다 — 실제로
+                        {/* 쿠폰 자신의 기한(위 헤더)과 별개 축이다, 실제로
                               쓸 수 있는 마지막 날은 둘 중 이른 쪽이다. */}
                         <TableCell className="px-3 py-3 whitespace-normal">
                           {row.valid_until ?? UNLIMITED_LABEL}
@@ -1974,7 +1974,7 @@ export default function CouponAdmin() {
                         <TableCell className="px-3 py-3 whitespace-normal">
                           {revoked ? (
                             // 회수된 행은 사라지지 않는다(원장). 다시 회수할 수도
-                            // 없다 — 되돌리려면 "다시 발급"(새 행)이다.
+                            // 없다, 되돌리려면 "다시 발급"(새 행)이다.
                             <div className="text-center text-gray-300">-</div>
                           ) : revokingId === row.id ? (
                             // void 와 같은 2단계 게이트. window.confirm 을 쓰면
