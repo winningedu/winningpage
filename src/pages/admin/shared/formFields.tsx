@@ -135,12 +135,12 @@ interface ToggleProps {
 
 export function Toggle({ checked, onChange, label }: ToggleProps) {
   return (
-    <label className="inline-flex items-center gap-2 text-sm font-black text-gray-700">
+    <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
       <input
         type="checkbox"
         checked={!!checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 accent-[#0D1B2A]"
+        className="h-4 w-4 accent-primary"
       />
       {label}
     </label>
