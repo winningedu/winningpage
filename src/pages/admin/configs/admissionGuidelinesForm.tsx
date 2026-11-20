@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AdmissionSectionView from "@/components/admission/AdmissionSectionView";
 import SafeHtml from "@/components/admission/SafeHtml";
+import { Button } from "@/components/ui/button";
 import type { AdmissionDoc } from "@/lib/admissionDoc";
 import {
   HWP_SECTION_JSON_KEYS,
@@ -250,8 +251,8 @@ export function AdmissionParsingPreview({
 
   return (
     <section className="admission-parsing-preview bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-black">HWP 원문 파싱 · 미리보기</h2>
-      <p className="mt-1 text-xs font-bold leading-5 text-gray-500">
+      <h2 className="text-sm font-semibold">HWP 원문 파싱 및 미리보기</h2>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
         모집요강 원문 전체(번호 &quot;1.~6.&quot; 포함)를 붙여넣고 파싱을
         실행하면 좌측 6개 카테고리 원문/HTML 필드가 자동으로 채워집니다. 자동
         분할이 안 되면 좌측 각 카테고리 원문 입력란에 직접 나눠 붙여넣은 뒤
@@ -263,30 +264,33 @@ export function AdmissionParsingPreview({
         onChange={(e) => setHwpSource(e.target.value)}
         rows={12}
         placeholder="HWP에서 복사한 모집요강 원문 전체를 붙여넣으세요"
-        className="mt-3 w-full resize-y border border-[#9ca3af] bg-white px-3 py-2 font-mono text-xs leading-5 outline-hidden"
+        aria-label="HWP 원문 붙여넣기"
+        className="mt-3 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs leading-5 outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
 
       <div className="mt-2 flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={runAutoParse}
           disabled={locked}
-          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#eef2ff] hover:text-primary disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
         >
           파싱 실행(자동 분할)
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={refreshPreview}
           disabled={locked}
-          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#eef2ff] hover:text-primary disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
         >
           미리보기 새로고침(좌측 원문 기준)
-        </button>
+        </Button>
       </div>
 
       {locked && (
-        <p className="mt-2 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-3 py-2 text-xs font-black leading-5 text-primary">
+        <p className="mt-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold leading-5 text-primary">
           카테고리 편집 창이 열려 있는 동안에는 파싱을 실행할 수 없습니다.
           파싱은 6개 카테고리를 한 번에 덮어쓰므로 편집 중인 내용이 사라질 수
           있습니다.
@@ -294,7 +298,7 @@ export function AdmissionParsingPreview({
       )}
 
       {splitStatus === "fallback" && (
-        <p className="mt-3 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black leading-5 text-amber-700">
+        <p className="mt-3 rounded-lg border border-[#B88737] bg-[#FFF8E8] px-3 py-2 text-xs font-semibold leading-5 text-[#7A4A12]">
           자동 분할 실패 — 좌측 각 카테고리 원문(raw) 입력란에 카테고리별로 직접
           붙여넣은 뒤 &quot;미리보기 새로고침&quot;을 눌러주세요.
         </p>
@@ -304,7 +308,7 @@ export function AdmissionParsingPreview({
           규칙에 기대는 죽은 참조였다(이 페이지엔 그 CSS가 로드되지 않는다, 2026-08-06
           전수조사로 확인). data-section은 카테고리별로 다르므로 아래 map 안 개별 항목에
           붙인다(minimum_requirements/exam_schedule 폭 규칙이 카테고리 단위이기 때문). */}
-      <div className="mt-4 space-y-4 border-t border-[#edf0f4] pt-4">
+      <div className="mt-4 space-y-4 border-t border-border pt-4">
         {HWP_SECTION_ORDER.map((key: string) => {
           const html = form[HWP_SECTION_HTML_KEYS[key]] as string | undefined;
           const doc = isDocRenderEnabled()
@@ -322,13 +326,14 @@ export function AdmissionParsingPreview({
           return (
             <div key={key} className="admission-surface" data-section={key}>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-xs font-black text-primary">
+                <h3 className="text-xs font-semibold text-primary">
                   {HWP_SECTION_LABELS[key]}
                 </h3>
                 {hasExisting && (
-                  <label className="flex items-center gap-1 text-[11px] font-bold text-amber-700">
+                  <label className="flex items-center gap-1 text-[0.6875rem] font-medium text-[#7A4A12]">
                     <input
                       type="checkbox"
+                      className="accent-primary"
                       checked={Boolean(overwriteConsent[key])}
                       onChange={() => toggleConsent(key)}
                     />
@@ -355,7 +360,7 @@ export function AdmissionParsingPreview({
                     : { className: "admission-existing-html" })}
                 />
               ) : (
-                <p className="text-xs font-bold text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   미리보기 없음 — 원문을 입력하고 파싱을 실행하세요.
                 </p>
               )}

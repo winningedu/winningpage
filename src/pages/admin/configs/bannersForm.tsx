@@ -50,15 +50,15 @@ function PreviewFrame({
 }) {
   return (
     <section className="bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-black">미리보기</h2>
-      <p className="mt-1 text-xs font-bold leading-5 text-gray-500">
+      <h2 className="text-sm font-semibold">미리보기</h2>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
         홈 화면에 노출되는 모습입니다. 저장 전에 확인하세요.
       </p>
       <div className="mt-3">
         {hasImage ? (
           children
         ) : (
-          <p className="text-xs font-bold text-gray-500">
+          <p className="text-xs text-muted-foreground">
             이미지를 등록하면 미리보기가 표시됩니다.
           </p>
         )}
