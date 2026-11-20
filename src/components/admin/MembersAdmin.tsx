@@ -452,7 +452,11 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       msgRes.error,
     ].filter(Boolean);
     if (errors.length > 0) {
+      // 토스트는 하나만 띄우되, 나머지 오류도 원인 추적을 위해 콘솔에 남긴다.
       reportAdminError("일부 데이터를 불러오지 못했습니다", errors[0]);
+      for (const error of errors.slice(1)) {
+        console.error("일부 데이터를 불러오지 못했습니다", error);
+      }
       setDetailError(
         "일부 데이터를 불러오지 못했습니다. 아래 항목이 비어 있을 수 있습니다.",
       );
