@@ -21,6 +21,8 @@ import { supabase } from "@/lib/supabase";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { toastSuccess } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
@@ -201,6 +203,8 @@ const GOAL_STUDENT_STATUS_OPTIONS: { value: string; label: string }[] = [
 const PROFILE_SEARCH_LIMIT = 500;
 const SEARCH_DEBOUNCE_MS = 300;
 const MS_PER_DAY = 86400000;
+// 온보딩 리셋 성공 토스트가 읽히도록 새로고침을 늦추는 시간.
+const RELOAD_DELAY_MS = 2000;
 
 const GOAL_STUDENT_FILTERS: { key: string; label: string }[] = [
   { key: "all", label: "전체" },
@@ -1226,9 +1230,13 @@ export function GoalStudentDetail({
   async function handleResetOnboarding() {
     if (!student?.profile_id) return;
 
-    const confirmed = window.confirm(
-      "이 학생을 온보딩 이전 상태로 되돌립니다. 학생은 재접속 시 온보딩을 처음부터 다시 진행하게 됩니다. 학습 기록은 보존되지만 확률은 초기화됩니다. 계속하시겠습니까?",
-    );
+    const confirmed = await confirmAdmin({
+      title: "이 학생을 온보딩 이전 상태로 되돌립니다.",
+      description:
+        "학생은 재접속 시 온보딩을 처음부터 다시 진행하게 됩니다. 학습 기록은 보존되지만 확률은 초기화됩니다. 계속하시겠습니까?",
+      confirmLabel: "리셋",
+      destructive: true,
+    });
     if (!confirmed) return;
 
     setResetting(true);
@@ -1254,11 +1262,13 @@ export function GoalStudentDetail({
         throw new Error(result?.detail || `HTTP ${response.status}`);
       }
 
-      alert(
-        "온보딩 리셋이 완료되었습니다. 학생은 재접속 시 온보딩부터 다시 진행합니다.",
+      toastSuccess(
+        "온보딩 리셋이 완료되었습니다.",
+        "학생은 재접속 시 온보딩부터 다시 진행합니다.",
       );
       // 목록 탭의 상태('컷 대기')까지 함께 반영해야 하므로 전체 새로고침한다.
-      window.location.reload();
+      // 새로고침하면 토스트가 사라지므로 안내가 읽힐 시간을 잠시 둔다.
+      window.setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
     } catch (error) {
       console.error("goal/admin/reset-student 실패:", error);
       reportAdminError("온보딩 리셋 실패", error);
