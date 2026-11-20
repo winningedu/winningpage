@@ -95,4 +95,31 @@ describe("SensitiveActionGate 닫기", () => {
     expect(screen.getByLabelText("관리자 비밀번호")).toBeTruthy();
     expect(onGranted).not.toHaveBeenCalled();
   });
+
+  test("확인 중에는 Esc 로 닫히지 않고 검증이 끝나면 정상 승인된다", async () => {
+    let finishVerify: (value: { ok: true }) => void = () => {};
+    log.verify.mockReturnValue(
+      new Promise((resolve) => {
+        finishVerify = resolve;
+      }),
+    );
+    openGate();
+    fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {
+      target: { value: "pw-1234" },
+    });
+    fireEvent.change(screen.getByLabelText(/사유/), {
+      target: { value: "월간 정산" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await screen.findByRole("button", { name: "확인 중…" });
+
+    pressEscape();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByLabelText("관리자 비밀번호")).toBeTruthy();
+    expect(onGranted).not.toHaveBeenCalled();
+
+    finishVerify({ ok: true });
+    await vi.waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+  });
 });
