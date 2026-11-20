@@ -72,4 +72,12 @@ describe("SensitiveActionGate 닫기", () => {
     expect(log.verify).not.toHaveBeenCalled();
     expect(log.write).not.toHaveBeenCalled();
   });
+
+  test("role dialog 로 노출되고 접근 가능한 이름은 요청 제목이다", async () => {
+    openGate();
+
+    expect(
+      await screen.findByRole("dialog", { name: "회원 목록 다운로드" }),
+    ).toBeTruthy();
+  });
 });
