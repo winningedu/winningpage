@@ -71,6 +71,15 @@ describe("SchoolAdminPanel", () => {
     ).toBeTruthy();
   });
 
+  test("열 머리글은 scope col 을 가진다", async () => {
+    renderPanel();
+    await screen.findByText("박관리");
+    expect(screen.getByRole("columnheader", { name: "이름" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
   test("발급 폼의 기관 칸은 읽기 전용 기관 이름이고 입력한 값을 tenantId 와 함께 보낸다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
       ok: true,

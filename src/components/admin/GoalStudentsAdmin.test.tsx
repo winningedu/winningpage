@@ -14,9 +14,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
 import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
-import { GoalStudentDetail } from "./GoalStudentsAdmin";
+import GoalStudentsAdmin, { GoalStudentDetail } from "./GoalStudentsAdmin";
 
-const { studentRowHolder, studentErrorHolder } = vi.hoisted(() => ({
+const { studentRowHolder, studentErrorHolder, rangeCalls } = vi.hoisted(() => ({
+  rangeCalls: [] as [number, number][],
   studentRowHolder: { current: null as Record<string, unknown> | null },
   studentErrorHolder: {
     current: null as { message: string; code?: string } | null,
@@ -26,11 +27,20 @@ const { studentRowHolder, studentErrorHolder } = vi.hoisted(() => ({
 /** 어떤 메서드 체인을 걸어도 자기 자신을 돌려주다가 await되면 result로 resolve되는
  * 프록시. supabase.from(table).select(...).eq(...).maybeSingle() 같은 체인을
  * 테이블별로 하나의 고정 결과로 흉내 낸다. */
-function makeChainable(result: unknown) {
+function makeChainable(
+  result: unknown,
+  onRange?: (from: number, to: number) => void,
+) {
   const handler: ProxyHandler<object> = {
     get(_target, prop) {
       if (prop === "then") {
         return (resolve: (value: unknown) => void) => resolve(result);
+      }
+      if (prop === "range" && onRange) {
+        return (from: number, to: number) => {
+          onRange(from, to);
+          return proxy;
+        };
       }
       return () => proxy;
     },
@@ -51,7 +61,17 @@ vi.mock("@/lib/supabase", () => ({
       if (table === "goal_daily_records") {
         return makeChainable({ data: [], error: null, count: 0 });
       }
-      // goal_student_state / profiles / goal_probability_logs / goal_university_cuts
+      if (table === "goal_student_state") {
+        return makeChainable(
+          {
+            data: [{ profile_id: "student-a", status: "active" }],
+            error: null,
+            count: 25,
+          },
+          (from, to) => rangeCalls.push([from, to]),
+        );
+      }
+      // profiles / goal_probability_logs / goal_university_cuts
       return makeChainable({ data: null, error: null });
     }),
   },
@@ -224,5 +244,37 @@ describe("GoalStudentDetail 온보딩 리셋 확인", () => {
     cleanup();
     await vi.advanceTimersByTimeAsync(2500);
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("GoalStudentsAdmin 목록", () => {
+  const config = {
+    title: "목표 학생",
+    searchPlaceholder: "검색",
+  } as unknown as Parameters<typeof GoalStudentsAdmin>[0]["config"];
+
+  it("공용 페이지 이동으로 다음 페이지 범위를 조회한다", async () => {
+    rangeCalls.length = 0;
+    studentRowHolder.current = null;
+    render(<GoalStudentsAdmin config={config} />);
+
+    await screen.findByRole("navigation", { name: "페이지 이동" });
+    expect(rangeCalls.at(-1)).toEqual([0, 9]);
+
+    fireEvent.click(screen.getByRole("button", { name: "다음 페이지" }));
+
+    await waitFor(() => expect(rangeCalls.at(-1)).toEqual([10, 19]));
+    expect(screen.getByRole("button", { name: "2페이지" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("머리글 칸은 열 머리글로 노출된다", async () => {
+    studentRowHolder.current = null;
+    render(<GoalStudentsAdmin config={config} />);
+
+    const header = await screen.findByRole("columnheader", { name: "이름" });
+    expect(header).toHaveAttribute("scope", "col");
   });
 });

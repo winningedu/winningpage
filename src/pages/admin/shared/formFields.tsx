@@ -91,6 +91,7 @@ interface TextareaProps {
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
+  "aria-label"?: string;
 }
 
 export function Textarea({
@@ -98,6 +99,7 @@ export function Textarea({
   onChange,
   placeholder,
   rows = 3,
+  "aria-label": ariaLabel,
 }: TextareaProps) {
   return (
     <UiTextarea
@@ -105,6 +107,7 @@ export function Textarea({
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
       rows={rows}
+      aria-label={ariaLabel}
       className="field-sizing-fixed resize-y font-medium"
     />
   );
@@ -114,13 +117,20 @@ interface SelectProps {
   value?: string | null;
   onChange: (value: string) => void;
   children: ReactNode;
+  "aria-label"?: string;
 }
 
-export function Select({ value, onChange, children }: SelectProps) {
+export function Select({
+  value,
+  onChange,
+  children,
+  "aria-label": ariaLabel,
+}: SelectProps) {
   return (
     <NativeSelect
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
+      aria-label={ariaLabel}
       className="w-full [&>select]:h-10 [&>select]:font-medium"
     >
       {children}
@@ -172,6 +182,7 @@ interface ActionButtonProps {
   variant?: "dark" | "danger" | "light";
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
+  "aria-label"?: string;
 }
 
 const ACTION_BUTTON_VARIANT = {
@@ -186,12 +197,14 @@ export function ActionButton({
   variant = "dark",
   type = "button",
   disabled = false,
+  "aria-label": ariaLabel,
 }: ActionButtonProps) {
   return (
     <Button
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       variant={ACTION_BUTTON_VARIANT[variant]}
       size="lg"
       className={variant === "dark" ? "font-semibold" : undefined}

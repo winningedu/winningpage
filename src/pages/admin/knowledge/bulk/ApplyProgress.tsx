@@ -8,7 +8,7 @@ export default function ApplyProgress({
   selectedCount: number;
 }) {
   return (
-    <span className="text-xs font-bold text-gray-600">
+    <span className="text-xs text-muted-foreground">
       {progress || `반영 대상 ${selectedCount}행`}
     </span>
   );

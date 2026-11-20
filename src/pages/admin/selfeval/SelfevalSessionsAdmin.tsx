@@ -6,8 +6,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
+import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import {
   ActionButton,
   Field,
@@ -132,113 +140,128 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
             이용권 부여
           </ActionButton>
         </div>
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+        >
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[72rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <th className="px-3 py-3 text-left">학생</th>
-                  <th className="px-3 py-3 text-left">이메일</th>
-                  <th className="px-3 py-3 text-left">상태</th>
-                  <th className="px-3 py-3 text-left">단계</th>
-                  <th className="px-3 py-3 text-left">영역</th>
-                  <th className="px-3 py-3 text-left">과목 또는 활동</th>
-                  <th className="px-3 py-3 text-left">학년도 학기</th>
-                  <th className="px-3 py-3 text-left">재생성</th>
-                  <th className="px-3 py-3 text-left">마지막 활동</th>
-                  <th className="px-3 py-3 text-left">차감</th>
-                  <th className="px-3 py-3 text-left">종결 사유</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!data || data.items.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="py-12 text-center text-muted-foreground"
-                    >
-                      조회된 세션이 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  data.items.map((row) => (
-                    <tr
-                      key={row.id}
-                      onClick={() => setSelected(row)}
-                      className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-3 font-bold">
+          <Table className="min-w-[72rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                {[
+                  "학생",
+                  "이메일",
+                  "상태",
+                  "단계",
+                  "영역",
+                  "과목 또는 활동",
+                  "학년도 학기",
+                  "재생성",
+                  "마지막 활동",
+                  "차감",
+                  "종결 사유",
+                ].map((label) => (
+                  <TableHead
+                    key={label}
+                    scope="col"
+                    className="whitespace-normal px-3 py-3 text-left font-semibold"
+                  >
+                    {label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!data || data.items.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={11}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    조회된 세션이 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.items.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => setSelected(row)}
+                    className="cursor-pointer border-b border-gray-100"
+                  >
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelected(row);
+                        }}
+                        className="text-left font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                      >
                         {row.studentName ?? "-"}
-                      </td>
-                      <td className="px-3 py-3">{row.email ?? "-"}</td>
-                      <td className="px-3 py-3">{statusLabel(row.status)}</td>
-                      <td className="px-3 py-3">
-                        {stepLabel(row.currentStep)}
-                      </td>
-                      <td className="px-3 py-3">{areaLabel(row.area)}</td>
-                      <td className="px-3 py-3">
-                        {row.subject ?? row.activityName ?? "-"}
-                      </td>
-                      <td className="px-3 py-3">
-                        {row.academicYear
-                          ? `${row.academicYear}년 ${row.semester ?? "-"}학기`
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-3">{row.regenerateCount}</td>
-                      <td className="px-3 py-3">
-                        {formatDate(row.lastActivityAt)}
-                      </td>
-                      <td className="px-3 py-3">{ledgerLabel(row)}</td>
-                      <td className="px-3 py-3">
-                        {terminalLabel(row.terminal)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ScrollArea>
+                      </button>
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.email ?? "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {statusLabel(row.status)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {stepLabel(row.currentStep)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {areaLabel(row.area)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.subject ?? row.activityName ?? "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.academicYear
+                        ? `${row.academicYear}년 ${row.semester ?? "-"}학기`
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.regenerateCount}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {formatDate(row.lastActivityAt)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {ledgerLabel(row)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {terminalLabel(row.terminal)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
 
-          <div className="mt-4 flex items-center justify-center gap-3 text-sm font-bold">
-            <ActionButton
-              variant="light"
-              disabled={query.page <= 1}
-              onClick={() =>
-                dispatch({ type: "setPage", page: query.page - 1 })
-              }
-            >
-              이전
-            </ActionButton>
-            <span>
-              {query.page} / {lastPage}
-            </span>
-            <ActionButton
-              variant="light"
-              disabled={query.page >= lastPage}
-              onClick={() =>
-                dispatch({ type: "setPage", page: query.page + 1 })
-              }
-            >
-              다음
-            </ActionButton>
-          </div>
+          <AdminPagination
+            page={query.page}
+            totalPages={lastPage}
+            onPageChange={(page) => dispatch({ type: "setPage", page })}
+          />
         </div>
       )}
 
@@ -301,7 +324,19 @@ function SessionDetailDialog({
   }
 
   return (
-    <Dialog open={row !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={row !== null}
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (open) return;
+        // 복구 요청이 나간 뒤에 닫으면 결과를 보지 못한 채 복구가 끝난다. 진행 중에는 모든 닫기를 막는다.
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[34rem]">
         {row && (
           <>
@@ -313,7 +348,7 @@ function SessionDetailDialog({
             </DialogHeader>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">세션 </span>
+              <span className="font-semibold text-gray-500">세션 </span>
               {row.id} / {stepLabel(row.currentStep)} / 차감 {ledgerLabel(row)}
             </div>
 
@@ -323,7 +358,7 @@ function SessionDetailDialog({
                   key={p.step}
                   className="flex items-center justify-between px-3 py-2"
                 >
-                  <span className="font-bold">{p.label}</span>
+                  <span className="font-medium">{p.label}</span>
                   <span className="text-gray-500">
                     {p.status}, 시도 {p.attempts}
                   </span>
@@ -332,13 +367,13 @@ function SessionDetailDialog({
             </ul>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">종결 </span>
+              <span className="font-semibold text-gray-500">종결 </span>
               {terminalLabel(row.terminal)}
               {row.terminal ? ` (${formatDate(row.terminal.at)})` : ""}
             </div>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">선택 활동 </span>
+              <span className="font-semibold text-gray-500">선택 활동 </span>
               {!detail
                 ? "불러오는 중"
                 : detail.activities.length === 0
@@ -352,7 +387,7 @@ function SessionDetailDialog({
             </div>
 
             <div className="text-sm">
-              <span className="font-black text-gray-500">리포트 </span>
+              <span className="font-semibold text-gray-500">리포트 </span>
               {!detail
                 ? "불러오는 중"
                 : detail.reports.length === 0
@@ -366,14 +401,17 @@ function SessionDetailDialog({
             </div>
 
             {message && (
-              <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+              <div
+                role="alert"
+                className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
+              >
                 {message}
               </div>
             )}
 
             {canRecover(row) &&
               (confirming ? (
-                <div className="flex items-center gap-2 text-sm font-bold">
+                <div className="flex items-center gap-2 text-sm font-medium">
                   <span>새 세션을 만들어 복구합니다. 진행할까요?</span>
                   <ActionButton onClick={recover} disabled={busy}>
                     {busy ? "처리 중..." : "확인"}
@@ -478,7 +516,20 @@ function GrantDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog
+      open={open}
+      disablePointerDismissal
+      onOpenChange={(next, eventDetails) => {
+        if (next) return;
+        // 부여 요청이 나간 뒤에 닫으면 결과를 보지 못한 채 부여가 끝난다. 진행 중에는 모든 닫기를 막는다.
+        // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[28rem]">
         <DialogHeader>
           <DialogTitle>이용권 부여</DialogTitle>
@@ -519,7 +570,7 @@ function GrantDialog({
           </ul>
         )}
 
-        <div className="text-sm font-bold">
+        <div className="text-sm font-medium">
           선택된 학생:{" "}
           {student
             ? `${student.name ?? "-"} (${student.email ?? "-"})`
@@ -539,12 +590,15 @@ function GrantDialog({
         </div>
 
         {message && (
-          <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+          <div
+            role="alert"
+            className="border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600"
+          >
             {message}
           </div>
         )}
         {resultText && (
-          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+          <div className="border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
             부여했습니다. quota: {resultText}
           </div>
         )}
@@ -553,7 +607,7 @@ function GrantDialog({
           <ActionButton onClick={submit} disabled={busy}>
             {busy ? "처리 중..." : "부여"}
           </ActionButton>
-          <ActionButton variant="light" onClick={onClose}>
+          <ActionButton variant="light" onClick={onClose} disabled={busy}>
             닫기
           </ActionButton>
         </div>

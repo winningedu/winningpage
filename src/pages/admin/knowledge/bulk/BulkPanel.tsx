@@ -4,9 +4,11 @@
 // 0 이 될 때까지 반복한다. 단계 전이는 bulkFlow.ts, 판단은 plan.ts, 파싱은 xlsx.ts.
 // 이 파일은 버튼 두 개와 미리보기 Dialog 껍데기만 든다. 서버 호출 순서는 bulkRun.ts.
 
+import { Download } from "lucide-react";
 import { useReducer, useRef } from "react";
 import * as XLSX from "xlsx";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +28,6 @@ import {
   parseKnowledgeRowsFromXlsx,
 } from "./xlsx";
 import { downloadXlsx } from "./xlsxDownload";
-
-const BUTTON_CLASS =
-  "h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50";
 
 type PanelConfig = {
   title: string;
@@ -114,45 +113,57 @@ export default function BulkPanel({
   return (
     <div className="mb-6 bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 등록</div>
+        <div className="font-semibold">엑셀 일괄 등록</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="lg"
             onClick={handleDownload}
             disabled={busy}
-            className={BUTTON_CLASS}
           >
+            <Download aria-hidden="true" />
             엑셀 내려받기 ({rows.length.toLocaleString()}행)
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="lg"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
-            className={BUTTON_CLASS}
           >
             엑셀 올리기
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
             accept=".xlsx"
             onChange={handleFileChange}
-            className="hidden"
+            tabIndex={-1}
+            className="sr-only"
             aria-label={`${config.title} xlsx 파일 선택`}
           />
         </div>
       </div>
 
       {notice && (
-        <p className="mt-3 border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700">
+        <p className="mt-3 border border-border bg-muted/50 px-3 py-2 text-xs font-medium text-foreground">
           {notice}
         </p>
       )}
 
       <Dialog
         open={draft !== null}
-        onOpenChange={(open) => {
-          if (!open) dispatch({ type: "close" });
+        disablePointerDismissal
+        onOpenChange={(open, eventDetails) => {
+          if (open) return;
+          // 반영 중에 닫으면 결과를 보지 못한 채 반영이 끝난다. 진행 중에는 모든 닫기를 막는다.
+          // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+          if (busy) {
+            eventDetails.cancel();
+            return;
+          }
+          dispatch({ type: "close" });
         }}
       >
         <DialogContent className="sm:max-w-[60rem]">
@@ -176,7 +187,10 @@ export default function BulkPanel({
           )}
 
           {error && (
-            <p className="border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+            <p
+              role="alert"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+            >
               {error}
             </p>
           )}
@@ -187,30 +201,33 @@ export default function BulkPanel({
               selectedCount={draft?.selected.size ?? 0}
             />
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="lg"
                 onClick={handleDedupe}
                 disabled={busy || candidateCount === 0}
-                className={BUTTON_CLASS}
               >
                 중복 검사
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="lg"
+                className="font-semibold"
                 onClick={handleApply}
                 disabled={busy || !dedupe || (draft?.selected.size ?? 0) === 0}
-                className="h-9 bg-primary px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 반영
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="lg"
                 onClick={() => dispatch({ type: "close" })}
                 disabled={busy}
-                className={BUTTON_CLASS}
               >
                 취소
-              </button>
+              </Button>
             </div>
           </div>
         </DialogContent>

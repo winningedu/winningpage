@@ -57,6 +57,15 @@ describe("PurgeLogsAdmin", () => {
     expect(screen.getByText("m-2")).toBeTruthy();
   });
 
+  test("열 머리글은 scope col 을 가진다", async () => {
+    render(<PurgeLogsAdmin />);
+    await screen.findByText("한빛고");
+    expect(screen.getByRole("columnheader", { name: "기관" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
   test("파일 내려받기는 같은 열로 만들고 이름이나 연락처 열이 없다", async () => {
     render(<PurgeLogsAdmin />);
     await screen.findByText("한빛고");

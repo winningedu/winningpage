@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ActionButton,
   Field,
@@ -108,17 +109,20 @@ export default function TelemetryAdmin({ config }: Props) {
   return (
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        <div className="flex gap-2">
-          {TABS.map((t) => (
-            <ActionButton
-              key={t.key}
-              variant={t.key === tab ? "dark" : "light"}
-              onClick={() => dispatch({ type: "setTab", tab: t.key })}
-            >
-              {t.label}
-            </ActionButton>
-          ))}
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            dispatch({ type: "setTab", tab: value as AiTelemetryTab })
+          }
+        >
+          <TabsList aria-label="호출 계기판 화면">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} className="px-4">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {tab !== "pricing" && (
           <form
@@ -213,9 +217,10 @@ export default function TelemetryAdmin({ config }: Props) {
                     </Select>
                   </Field>
                 </div>
-                <label className="flex h-10 items-center gap-2 text-sm font-bold">
+                <label className="flex h-10 items-center gap-2 text-sm font-medium">
                   <input
                     type="checkbox"
+                    className="accent-primary"
                     checked={draft.retriedOnly}
                     onChange={(e) =>
                       dispatch({
@@ -231,17 +236,23 @@ export default function TelemetryAdmin({ config }: Props) {
             <ActionButton type="submit">조회</ActionButton>
           </form>
         )}
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-2xl font-semibold">{config.title}</h1>
       </div>
 
       {active.error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mb-4 border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
+        >
           {active.error}
         </div>
       )}
 
       {active.loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (

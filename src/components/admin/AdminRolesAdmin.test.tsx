@@ -230,4 +230,21 @@ describe("AdminRolesAdmin 오류 안내", () => {
     );
     expect(alertSpy).not.toHaveBeenCalled();
   });
+
+  test("아이콘만 있는 삭제 버튼에는 aria-label이 있고, 기본 묶음은 사유가 이름에 담긴다", async () => {
+    state.roles = [
+      { id: "r1", name: "운영팀", is_super: false, is_system: false },
+      { id: "r2", name: "기본", is_super: false, is_system: true },
+    ];
+    renderRoles();
+
+    await screen.findByText("운영팀");
+    const buttons = screen.getAllByRole("button", { name: /삭제/ });
+    expect(buttons[0]).toHaveAttribute("aria-label", "삭제");
+    expect(buttons[1]).toHaveAttribute(
+      "aria-label",
+      "기본 묶음은 삭제할 수 없습니다",
+    );
+    expect(buttons[1]).toBeDisabled();
+  });
 });

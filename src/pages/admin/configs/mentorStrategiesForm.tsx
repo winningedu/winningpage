@@ -1,4 +1,5 @@
 import MentorCard from "@/components/landing/MentorCard";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // ── 멘토 성공전략 카드: photo_layout jsonb ↔ 평탄화 폼 필드 변환 + 라이브 프리뷰 ──
@@ -233,27 +234,28 @@ export function MentorCardFormPreview({
 
   return (
     <section className="bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-black">라이브 프리뷰</h2>
-      <p className="mt-1 text-xs font-bold leading-5 text-gray-500">
+      <h2 className="text-sm font-semibold">라이브 프리뷰</h2>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
         메인 &apos;멘토&apos; 영역과 동일한 컴포넌트로 렌더됩니다.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {MENTOR_CARD_PRESETS.map((preset) => (
-          <button
+          <Button
             key={preset.label}
             type="button"
+            variant="outline"
+            size="sm"
             title={preset.help}
             onClick={() => onPatch(preset.patch)}
-            className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#FFF8E8] hover:text-primary"
           >
             {preset.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {isMissingRequiredFields && (
-        <p className="mt-3 rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black leading-5 text-amber-700">
+        <p className="mt-3 rounded-lg border border-[#B88737] bg-[#FFF8E8] px-3 py-2 text-xs font-semibold leading-5 text-[#7A4A12]">
           필수 항목(배지·소개 문구·인물 사진·사진 배치)이 비어 있어 랜딩에
           카드가 노출되지 않습니다.
         </p>
@@ -261,7 +263,7 @@ export function MentorCardFormPreview({
 
       <ScrollArea axis="x" className="mt-3 rounded-sm bg-primary p-5">
         {isMissingRequiredFields ? (
-          <p className="p-5 text-center text-xs font-bold leading-5 text-white/60">
+          <p className="p-5 text-center text-xs leading-5 text-white/60">
             필수 항목을 모두 입력하면 카드 미리보기가 표시됩니다.
           </p>
         ) : (

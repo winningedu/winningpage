@@ -111,7 +111,19 @@ export default function QueryDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (open) return;
+        // 저장 중에 닫으면 저장 결과를 받을 곳이 사라진다. 저장 중에는 모든 닫기를 막는다.
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[44rem]">
         <DialogHeader>
           <DialogTitle>{target ? "질의 편집" : "질의 추가"}</DialogTitle>
@@ -152,12 +164,14 @@ export default function QueryDialog({
         </Field>
 
         <div>
-          <div className="mb-1 text-xs font-black text-gray-500">기대 자료</div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">
+            기대 자료
+          </div>
           <ul className="mb-2 space-y-1">
             {draft.expected.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between border border-gray-200 px-3 py-2 text-sm font-bold"
+                className="flex items-center justify-between border border-border px-3 py-2 text-sm"
               >
                 <span>{item.title}</span>
                 <ActionButton
@@ -214,10 +228,12 @@ export default function QueryDialog({
         </div>
 
         {message && (
-          <div className="text-sm font-bold text-red-600">{message}</div>
+          <div role="alert" className="text-sm font-medium text-destructive">
+            {message}
+          </div>
         )}
         <div className="flex justify-end gap-2">
-          <ActionButton variant="light" onClick={onClose}>
+          <ActionButton variant="light" onClick={onClose} disabled={busy}>
             취소
           </ActionButton>
           <ActionButton onClick={submit} disabled={busy}>

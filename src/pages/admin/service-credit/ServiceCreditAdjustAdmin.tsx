@@ -1,5 +1,13 @@
 import { useState } from "react";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ActionButton,
   Field,
   TextInput,
@@ -138,7 +146,7 @@ function AdjustForm({
   return (
     <div className="space-y-2">
       {pending ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
           <span>
             {row.periodBased
               ? `${pending.months}개월 이용권을 추가합니다.`
@@ -190,7 +198,7 @@ function AdjustForm({
       )}
       {message && (
         <p
-          className={`text-xs font-bold ${success ? "text-green-700" : "text-red-600"}`}
+          className={`text-xs font-medium ${success ? "text-green-700" : "text-red-600"}`}
         >
           {message}
         </p>
@@ -245,8 +253,8 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
   return (
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        <h1 className="text-xl font-black">{config.title}</h1>
-        <p className="mb-4 mt-2 rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <h1 className="text-xl font-semibold">{config.title}</h1>
+        <p className="mb-4 mt-2 rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
           이 메뉴에서 적용한 조정은 학생의 서비스 이용횟수에 즉시 반영됩니다.
         </p>
         <form
@@ -271,7 +279,7 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
         {results && (
           <ul className="mt-4 max-h-[14rem] divide-y divide-gray-200 overflow-auto border border-gray-200">
             {results.length === 0 && (
-              <li className="px-3 py-2 text-sm font-bold text-gray-500">
+              <li className="px-3 py-2 text-sm font-medium text-gray-500">
                 검색 결과가 없습니다.
               </li>
             )}
@@ -280,13 +288,13 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
                 <button
                   type="button"
                   onClick={() => select(s)}
-                  className={`w-full px-3 py-2 text-left text-sm font-bold hover:bg-gray-50 ${
-                    student?.id === s.id ? "bg-[#F6EFE2]" : ""
+                  className={`w-full px-3 py-2 text-left text-sm font-medium hover:bg-gray-50 ${
+                    student?.id === s.id ? "bg-muted" : ""
                   }`}
                 >
                   {s.name || "(이름 없음)"} ({s.email || "-"})
                   {s.isAdmin && (
-                    <span className="ml-2 bg-[#F6EFE2] px-1.5 py-0.5 text-xs font-black">
+                    <span className="ml-2 bg-muted px-1.5 py-0.5 text-xs font-semibold">
                       관리자
                     </span>
                   )}
@@ -298,55 +306,71 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
       </div>
 
       {error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+        >
           {error}
         </div>
       )}
 
       {student && (
         <div className="bg-white px-6 py-5 shadow-sm">
-          <h2 className="mb-3 text-base font-black">
+          <h2 className="mb-3 text-base font-semibold">
             {student.name || "(이름 없음)"} 님의 서비스 이용횟수
           </h2>
           {loading ? (
-            <p className="text-sm font-bold text-gray-500">불러오는 중...</p>
+            <p role="status" className="text-sm font-medium text-gray-500">
+              불러오는 중...
+            </p>
           ) : (
             rows.length > 0 && (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-300 text-xs font-black text-gray-500">
-                    <th className="py-2">서비스</th>
-                    <th className="py-2">총</th>
-                    <th className="py-2">사용</th>
-                    <th className="py-2">잔여</th>
-                    <th className="py-2">만료</th>
-                    <th className="py-2">조정</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="border-collapse">
+                <TableHeader>
+                  <TableRow className="border-b border-gray-300 hover:bg-transparent">
+                    {["서비스", "총", "사용", "잔여", "만료", "조정"].map(
+                      (label) => (
+                        <TableHead
+                          key={label}
+                          scope="col"
+                          className="whitespace-normal py-2 text-xs font-semibold text-muted-foreground"
+                        >
+                          {label}
+                        </TableHead>
+                      ),
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map((row) => (
-                    <tr
+                    <TableRow
                       key={row.programKey}
                       className="border-b border-gray-200 align-top"
                     >
-                      <td className="py-3 font-black">{row.label}</td>
-                      <td className="py-3">{formatCount(row.quotaTotal)}</td>
-                      <td className="py-3">{row.quotaUsed}</td>
-                      <td className="py-3">
+                      <TableCell className="whitespace-normal py-3 font-semibold">
+                        {row.label}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {formatCount(row.quotaTotal)}
+                      </TableCell>
+                      <TableCell className="py-3">{row.quotaUsed}</TableCell>
+                      <TableCell className="py-3">
                         {formatCount(row.quotaRemaining)}
-                      </td>
-                      <td className="py-3">{formatExpiry(row)}</td>
-                      <td className="py-3">
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {formatExpiry(row)}
+                      </TableCell>
+                      <TableCell className="whitespace-normal py-3">
                         <AdjustForm
                           row={row}
                           profileId={student.id}
                           onApplied={replaceRow}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )
           )}
         </div>

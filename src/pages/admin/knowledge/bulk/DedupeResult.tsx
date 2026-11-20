@@ -26,6 +26,7 @@ export function RowCheckbox({
   return (
     <input
       type="checkbox"
+      className="accent-primary"
       checked={checked}
       onChange={() => onToggle(rowNo)}
       disabled={disabled}
@@ -45,12 +46,12 @@ export function DedupeMatches({
   return (
     <>
       {found && found.exact.length > 0 && (
-        <p className="font-bold text-red-600">
+        <p className="font-medium text-destructive">
           정확 일치: {found.exact.map((m) => m.title).join(", ")}
         </p>
       )}
       {found && found.near.length > 0 && (
-        <p className="font-bold text-amber-700">
+        <p className="font-medium text-amber-700">
           근사 일치:{" "}
           {found.near
             .map((m) => `${m.title} (${Math.round(m.similarity * 100)}%)`)
