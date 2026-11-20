@@ -91,7 +91,10 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
             <tbody>
               {runs.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-gray-400">
+                  <td
+                    colSpan={11}
+                    className="py-12 text-center text-muted-foreground"
+                  >
                     실행 이력이 없습니다.
                   </td>
                 </tr>

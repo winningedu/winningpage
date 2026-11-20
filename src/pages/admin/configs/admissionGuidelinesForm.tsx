@@ -264,7 +264,7 @@ export function AdmissionParsingPreview({
           type="button"
           onClick={runAutoParse}
           disabled={locked}
-          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-[#2348ff] hover:bg-[#eef2ff] hover:text-[#2348ff] disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
+          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#eef2ff] hover:text-primary disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
         >
           파싱 실행(자동 분할)
         </button>
@@ -272,14 +272,14 @@ export function AdmissionParsingPreview({
           type="button"
           onClick={refreshPreview}
           disabled={locked}
-          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-[#2348ff] hover:bg-[#eef2ff] hover:text-[#2348ff] disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
+          className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#eef2ff] hover:text-primary disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
         >
           미리보기 새로고침(좌측 원문 기준)
         </button>
       </div>
 
       {locked && (
-        <p className="mt-2 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-3 py-2 text-xs font-black leading-5 text-[#2348ff]">
+        <p className="mt-2 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-3 py-2 text-xs font-black leading-5 text-primary">
           카테고리 편집 창이 열려 있는 동안에는 파싱을 실행할 수 없습니다.
           파싱은 6개 카테고리를 한 번에 덮어쓰므로 편집 중인 내용이 사라질 수
           있습니다.
@@ -348,7 +348,7 @@ export function AdmissionParsingPreview({
                     : { className: "admission-existing-html" })}
                 />
               ) : (
-                <p className="text-xs font-bold text-gray-400">
+                <p className="text-xs font-bold text-muted-foreground">
                   미리보기 없음 — 원문을 입력하고 파싱을 실행하세요.
                 </p>
               )}

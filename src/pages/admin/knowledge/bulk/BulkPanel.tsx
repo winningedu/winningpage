@@ -199,7 +199,7 @@ export default function BulkPanel({
                 type="button"
                 onClick={handleApply}
                 disabled={busy || !dedupe || (draft?.selected.size ?? 0) === 0}
-                className="h-9 bg-[#2348ff] px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-9 bg-primary px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 반영
               </button>

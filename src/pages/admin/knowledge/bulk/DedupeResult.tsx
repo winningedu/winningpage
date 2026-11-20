@@ -57,7 +57,9 @@ export function DedupeMatches({
             .join(", ")}
         </p>
       )}
-      {checked && !found && <span className="text-gray-400">검사 안 함</span>}
+      {checked && !found && (
+        <span className="text-muted-foreground">검사 안 함</span>
+      )}
     </>
   );
 }

@@ -95,7 +95,7 @@ export default function RevenueDashboard({
             <div className="mt-2 text-xl font-black tabular-nums">
               {formatMoney(kpi.value)}
             </div>
-            <div className="mt-1 text-[11px] font-bold text-gray-400">
+            <div className="mt-1 text-[11px] font-bold text-muted-foreground">
               {kpi.sub}
             </div>
           </div>
@@ -106,13 +106,13 @@ export default function RevenueDashboard({
         <div className="bg-white px-5 py-4 shadow-sm">
           <div className="text-sm font-black">
             일별 매출 · 환불 추이
-            <span className="ml-2 text-xs font-bold text-gray-400">
+            <span className="ml-2 text-xs font-bold text-muted-foreground">
               {periodLabel}
             </span>
           </div>
 
           {trend.length === 0 ? (
-            <p className="mt-6 text-sm font-bold text-gray-400">
+            <p className="mt-6 text-sm font-bold text-muted-foreground">
               표시할 데이터가 없습니다.
             </p>
           ) : (
@@ -127,7 +127,7 @@ export default function RevenueDashboard({
                     >
                       <div className="flex h-32 w-full items-end justify-center gap-0.5">
                         <div
-                          className="w-2 bg-[#2348ff]"
+                          className="w-2 bg-primary"
                           style={{
                             height: `${(point.paid / trendMax) * 100}%`,
                           }}
@@ -139,7 +139,7 @@ export default function RevenueDashboard({
                           }}
                         />
                       </div>
-                      <div className="text-[10px] font-bold text-gray-400">
+                      <div className="text-[10px] font-bold text-muted-foreground">
                         {point.ymd.slice(5).replace("-", "/")}
                       </div>
                     </div>
@@ -149,7 +149,7 @@ export default function RevenueDashboard({
 
               <div className="mt-3 flex gap-4 text-[11px] font-bold text-gray-500">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 bg-[#2348ff]" /> 실납부
+                  <span className="inline-block h-2 w-2 bg-primary" /> 실납부
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="inline-block h-2 w-2 bg-[#e5484d]" /> 환불
@@ -185,7 +185,7 @@ export default function RevenueDashboard({
             </div>
             {/* 파일18 의 "일일정산 미마감"·"매출조정/취소 검토중"은 원장이 없어
                 뺐다. 0건으로 그리면 "처리할 게 없다"로 읽혀 더 나쁘다. */}
-            <p className="mt-3 text-[11px] font-bold text-gray-400">
+            <p className="mt-3 text-[11px] font-bold text-muted-foreground">
               일일정산 미마감 · 매출조정/취소 항목은 해당 원장이 아직 없어
               표시하지 않습니다.
             </p>
@@ -222,7 +222,7 @@ export default function RevenueDashboard({
       <div className="bg-white px-5 py-4 shadow-sm">
         <div className="text-sm font-black">프로그램별 매출 비중</div>
         {share.length === 0 ? (
-          <p className="mt-4 text-sm font-bold text-gray-400">
+          <p className="mt-4 text-sm font-bold text-muted-foreground">
             표시할 데이터가 없습니다.
           </p>
         ) : (
@@ -237,7 +237,7 @@ export default function RevenueDashboard({
                 </div>
                 <div className="mt-1 h-2 w-full bg-[#f1f3f6]">
                   <div
-                    className="h-2 bg-[#2348ff]"
+                    className="h-2 bg-primary"
                     style={{ width: `${entry.pct}%` }}
                   />
                 </div>

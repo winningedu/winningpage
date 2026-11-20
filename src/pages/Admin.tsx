@@ -693,7 +693,7 @@ function AdmissionActiveYearSummary({ rows }) {
           type="button"
           onClick={handleChangeYear}
           disabled={loadingActiveYear || saving}
-          className="h-9 bg-[#2348ff] px-4 text-sm font-black text-white disabled:opacity-50"
+          className="h-9 bg-primary px-4 text-sm font-black text-white disabled:opacity-50"
         >
           {saving ? "저장 중…" : "변경"}
         </button>
@@ -951,7 +951,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
           {/* truncatedCellSkipCount 같은 개별 집계 필드는 여기서 안 쓰고
               warningCounts만 쓴다(team-lead 지시) — type별 건수를 lib이
               그대로 주므로 문자열 매칭·직접 재계산을 안 한다. 경고
@@ -959,7 +959,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               포맷에서 html 3종이 빠지면서(26→23컬럼) "html 파싱" 개념
               자체가 없어져 그쪽 집계 필드도 lib에서 정리됐다 — 애초에
               이 컴포넌트가 그 필드를 쓴 적이 없어 갱신할 코드는 없었다. */}
-          <p className="font-black text-[#2348ff]">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1064,7 +1064,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {applying ? "적용 중…" : "적용"}
             </button>
@@ -1431,8 +1431,8 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1532,7 +1532,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -2189,8 +2189,8 @@ function GoalCutsBackfillPanel({ onReload }) {
           const stats = preview.stats;
           const analysis = preview.analysis;
           return (
-            <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-              <p className="font-black text-[#2348ff]">
+            <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+              <p className="font-black text-primary">
                 생성 대상: 대학 {stats.universityCount.toLocaleString()}개 ·
                 학과 조합 {stats.pairCount.toLocaleString()}개 · 총{" "}
                 {stats.totalRows.toLocaleString()}행 (수시 일반{" "}
@@ -2326,7 +2326,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                   type="button"
                   onClick={handleApply}
                   disabled={!confirmChecked || applying}
-                  className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+                  className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
                 >
                   {(() => {
                     if (!applying) return "적용";
@@ -2634,8 +2634,8 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -2735,7 +2735,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -3629,7 +3629,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
             <p className="mt-3 text-sm font-bold text-gray-500">
               {config.description}
             </p>
-            <div className="mt-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+            <div className="mt-6 rounded-sm border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
               이 메뉴는 추후 별도 Supabase 연결 후 활성화됩니다.
             </div>
           </div>
@@ -3644,7 +3644,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                     onClick={() => changeTab(tab.key)}
                     className={`h-9 border px-5 text-sm font-black transition ${
                       activeKey === tab.key
-                        ? "border-[#2348ff] bg-[#2348ff] text-white"
+                        ? "border-primary bg-primary text-white"
                         : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
@@ -3779,7 +3779,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                   <button
                     type="button"
                     onClick={createRow}
-                    className="inline-flex h-9 items-center gap-1 bg-[#2348ff] px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
+                    className="inline-flex h-9 items-center gap-1 bg-primary px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
                   >
                     <Plus size={14} />
                     등록
@@ -3800,7 +3800,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
               )}
 
               {exporting && (
-                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-[#2348ff]">
+                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-primary">
                   CSV 내보내는 중 — {exporting.done.toLocaleString()} /{" "}
                   {exporting.total.toLocaleString()}건. 완료될 때까지 이 화면을
                   닫지 마세요.

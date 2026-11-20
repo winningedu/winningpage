@@ -395,7 +395,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
               onClick={() => setTab(item.key as "info" | "perm")}
               className={`h-9 border px-5 text-sm font-black transition ${
                 tab === item.key
-                  ? "border-[#2348ff] bg-[#2348ff] text-white"
+                  ? "border-primary bg-primary text-white"
                   : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -467,7 +467,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
           </>
         ) : (
           <>
-            <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+            <div className="mb-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
               개별 권한은 권한 묶음을 덮어씁니다. <b>접근 불가</b>는 묶음이 준
               권한까지 잠그고(차단이 항상 우선), <b>미지정</b>은 아무 말도 하지
               않는 것이라 묶음이 준 권한이 그대로 남습니다.
@@ -646,7 +646,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                   <td className="px-4 py-3">
                     {row.role_name || "-"}
                     {row.role_is_super && (
-                      <span className="ml-2 border border-[#2348ff] px-2 py-0.5 text-xs font-bold text-[#2348ff]">
+                      <span className="ml-2 border border-primary px-2 py-0.5 text-xs font-bold text-primary">
                         최고
                       </span>
                     )}

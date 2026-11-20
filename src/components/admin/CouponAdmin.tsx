@@ -1248,7 +1248,7 @@ export default function CouponAdmin() {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-[#2348ff] px-4 text-sm font-black text-white"
+              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white"
             >
               <Plus size={14} />
               등록
@@ -1305,7 +1305,7 @@ export default function CouponAdmin() {
                     <tr>
                       <td
                         colSpan={15}
-                        className="py-12 text-center text-gray-400"
+                        className="py-12 text-center text-muted-foreground"
                       >
                         등록된 데이터가 없습니다.
                       </td>
@@ -1321,7 +1321,9 @@ export default function CouponAdmin() {
                         <tr
                           key={row.id}
                           className={`border-b border-gray-100 ${
-                            row.is_active ? "" : "bg-[#fafafa] text-gray-400"
+                            row.is_active
+                              ? ""
+                              : "bg-[#fafafa] text-muted-foreground"
                           }`}
                         >
                           <td className="px-3 py-3">{index + 1}</td>
@@ -1531,7 +1533,7 @@ export default function CouponAdmin() {
                     <tr>
                       <td
                         colSpan={8}
-                        className="py-12 text-center text-gray-400"
+                        className="py-12 text-center text-muted-foreground"
                       >
                         등록된 데이터가 없습니다.
                       </td>
@@ -1546,7 +1548,7 @@ export default function CouponAdmin() {
                       return (
                         <tr
                           key={row.id}
-                          className={`border-b border-gray-100 ${voided ? "text-gray-400" : ""}`}
+                          className={`border-b border-gray-100 ${voided ? "text-muted-foreground" : ""}`}
                         >
                           <td className="px-3 py-3">
                             {historyRows.length - index}
@@ -1738,7 +1740,7 @@ export default function CouponAdmin() {
           {!userSearching && userResults !== null && (
             <div className="mt-4 border-t border-gray-200">
               {userResults.length === 0 ? (
-                <div className="py-6 text-center text-sm text-gray-400">
+                <div className="py-6 text-center text-sm text-muted-foreground">
                   등록된 데이터가 없습니다.
                 </div>
               ) : (
@@ -1774,7 +1776,7 @@ export default function CouponAdmin() {
                           type="button"
                           onClick={() => submitGrant(profile)}
                           disabled={actionBusy}
-                          className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-[#2348ff] px-4 text-sm font-black text-white disabled:opacity-50"
+                          className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white disabled:opacity-50"
                         >
                           <Plus size={14} />
                           등록
@@ -1824,7 +1826,7 @@ export default function CouponAdmin() {
                     <tr>
                       <td
                         colSpan={8}
-                        className="py-12 text-center text-gray-400"
+                        className="py-12 text-center text-muted-foreground"
                       >
                         등록된 데이터가 없습니다.
                       </td>
@@ -1837,7 +1839,7 @@ export default function CouponAdmin() {
                       return (
                         <tr
                           key={row.id}
-                          className={`border-b border-gray-100 ${revoked ? "text-gray-400" : ""}`}
+                          className={`border-b border-gray-100 ${revoked ? "text-muted-foreground" : ""}`}
                         >
                           <td className="px-3 py-3">
                             {grantRows.length - index}
@@ -2209,7 +2211,7 @@ export default function CouponAdmin() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="h-10 bg-[#2348ff] px-5 text-sm font-black text-white disabled:opacity-50"
+          className="h-10 bg-primary px-5 text-sm font-black text-white disabled:opacity-50"
         >
           저장
         </button>

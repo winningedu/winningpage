@@ -196,7 +196,10 @@ export default function SchoolAdminPanel({
           <tbody>
             {!list || list.admins.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-gray-400">
+                <td
+                  colSpan={9}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   발급한 전체 관리자가 없습니다.
                 </td>
               </tr>

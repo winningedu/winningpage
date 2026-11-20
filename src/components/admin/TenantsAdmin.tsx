@@ -357,7 +357,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-[#2348ff] px-4 text-sm font-black text-white"
+            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white"
           >
             <Plus size={14} />
             등록
@@ -403,7 +403,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                   <tr>
                     <td
                       colSpan={hq ? 11 : 7}
-                      className="py-12 text-center text-gray-400"
+                      className="py-12 text-center text-muted-foreground"
                     >
                       등록된 데이터가 없습니다.
                     </td>
@@ -441,7 +441,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                             type="button"
                             onClick={() => copyCode(row.code)}
                             aria-label="소속코드 복사"
-                            className="text-gray-400 hover:text-black"
+                            className="text-muted-foreground hover:text-black"
                           >
                             <Copy size={14} />
                           </button>

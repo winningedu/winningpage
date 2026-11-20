@@ -810,7 +810,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
               onClick={() => setTab(item.key)}
               className={`h-9 border px-5 text-sm font-black transition ${
                 tab === item.key
-                  ? "border-[#2348ff] bg-[#2348ff] text-white"
+                  ? "border-primary bg-primary text-white"
                   : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -820,7 +820,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         </div>
 
         {detailError && (
-          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+          <div className="mb-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
             일부 데이터를 불러오지 못했습니다 — {detailError}
           </div>
         )}
@@ -832,7 +832,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         ) : activeTab && "pending" in activeTab && activeTab.pending ? (
           <div className="bg-white p-10 shadow-sm">
             <h2 className="text-lg font-black">{activeTab.label}</h2>
-            <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+            <div className="mt-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
               {activeTab.pending}
             </div>
           </div>
@@ -1394,7 +1394,7 @@ function MessagePane({
 
         <div className="mt-2 flex items-center justify-between">
           <span
-            className={`text-xs font-bold ${isLong ? "text-[#B88737]" : "text-gray-500"}`}
+            className={`text-xs font-bold ${isLong ? "text-primary" : "text-gray-500"}`}
           >
             {bytes} / 90 byte
             {isLong &&
@@ -1446,7 +1446,7 @@ function MessagePane({
                       "발송 완료"
                     ) : (
                       <span
-                        className="text-[#B88737]"
+                        className="text-primary"
                         title={row.provider_message || undefined}
                       >
                         실패

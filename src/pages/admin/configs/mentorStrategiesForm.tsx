@@ -245,7 +245,7 @@ export function MentorCardFormPreview({
             type="button"
             title={preset.help}
             onClick={() => onPatch(preset.patch)}
-            className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-[#B88737] hover:bg-[#FFF8E8] hover:text-[#B88737]"
+            className="rounded-sm border border-gray-400 bg-white px-3 py-1.5 text-xs font-black transition hover:border-primary hover:bg-[#FFF8E8] hover:text-primary"
           >
             {preset.label}
           </button>
@@ -259,7 +259,7 @@ export function MentorCardFormPreview({
         </p>
       )}
 
-      <ScrollArea axis="x" className="mt-3 rounded-sm bg-[#0D1B2A] p-5">
+      <ScrollArea axis="x" className="mt-3 rounded-sm bg-primary p-5">
         {isMissingRequiredFields ? (
           <p className="p-5 text-center text-xs font-bold leading-5 text-white/60">
             필수 항목을 모두 입력하면 카드 미리보기가 표시됩니다.

@@ -321,7 +321,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         </div>
 
         {editing.is_super && (
-          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+          <div className="mb-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
             최고 관리자 묶음은 권한 항목을 갖지 않습니다 — 판정이 전 메뉴 수정
             가능으로 단락되기 때문입니다. 새 메뉴가 생겨도 자동으로 포함되므로
             아래에서 무엇을 고르든 저장돼도 판정에 쓰이지 않습니다.
@@ -347,7 +347,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                     <button
                       type="button"
                       onClick={() => setGroupLevel(groupTitle, choice.value)}
-                      className="text-xs font-bold text-[#2348ff] underline"
+                      className="text-xs font-bold text-primary underline"
                     >
                       일괄
                     </button>
@@ -362,7 +362,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                 >
                   <div className="text-sm">
                     {resource.label}
-                    <span className="ml-2 font-mono text-xs text-gray-400">
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">
                       {resource.key}
                     </span>
                   </div>
@@ -457,7 +457,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                     <td className="px-4 py-3 font-bold">
                       {role.name}
                       {role.is_super && (
-                        <span className="ml-2 border border-[#2348ff] px-2 py-0.5 text-xs font-bold text-[#2348ff]">
+                        <span className="ml-2 border border-primary px-2 py-0.5 text-xs font-bold text-primary">
                           최고 관리자
                         </span>
                       )}

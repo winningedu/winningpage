@@ -545,7 +545,7 @@ export default function LearningDiagnosisAdmin() {
               </div>
             </div>
 
-            <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
+            <div className="mb-6 rounded-sm border border-primary/30 bg-[#FFF8E8] p-4">
               <h3 className="mb-3 text-sm font-black text-[#7A4A12]">
                 새 추천 프로그램 추가
               </h3>
@@ -753,7 +753,7 @@ export default function LearningDiagnosisAdmin() {
               </p>
             </div>
 
-            <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
+            <div className="mb-6 rounded-sm border border-primary/30 bg-[#FFF8E8] p-4">
               <h3 className="mb-3 text-sm font-black text-[#7A4A12]">
                 새 질문 추가
               </h3>
@@ -841,9 +841,9 @@ export default function LearningDiagnosisAdmin() {
                       className="flex w-full items-center justify-between bg-gray-50 px-5 py-4 text-left"
                     >
                       <div>
-                        <p className="text-xs font-black text-[#B88737]">
+                        <p className="text-xs font-black text-primary">
                           QUESTION {String(questionIndex + 1).padStart(2, "0")}
-                          <span className="ml-2 text-gray-400">
+                          <span className="ml-2 text-muted-foreground">
                             정렬순서 {Number(question.sort_order || 0)}
                           </span>
                         </p>

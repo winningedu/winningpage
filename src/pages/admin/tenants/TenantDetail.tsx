@@ -205,7 +205,7 @@ export default function TenantDetail({
             onClick={() => setTab(item.key)}
             className={`h-9 px-4 text-sm font-black ${
               tab === item.key
-                ? "bg-[#0D1B2A] text-white"
+                ? "bg-primary text-white"
                 : "border border-gray-400 bg-white text-gray-800"
             }`}
           >

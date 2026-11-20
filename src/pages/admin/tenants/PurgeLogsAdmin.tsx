@@ -98,7 +98,10 @@ export default function PurgeLogsAdmin() {
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-gray-400">
+                <td
+                  colSpan={8}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   삭제 로그가 없습니다.
                 </td>
               </tr>
@@ -122,7 +125,7 @@ export default function PurgeLogsAdmin() {
                         type="button"
                         aria-expanded={opened.has(log.id)}
                         onClick={() => toggle(log.id)}
-                        className="text-xs font-black text-[#2348ff] underline"
+                        className="text-xs font-black text-primary underline"
                       >
                         회원번호 보기
                       </button>

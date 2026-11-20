@@ -133,7 +133,7 @@ export default function SweepSection({
                   return (
                     <tr
                       key={formatParams(item.params)}
-                      className={`border-b border-gray-100 ${isProduction ? "bg-amber-50 font-black" : ""} ${item.status === "skipped" ? "text-gray-400" : ""}`}
+                      className={`border-b border-gray-100 ${isProduction ? "bg-amber-50 font-black" : ""} ${item.status === "skipped" ? "text-muted-foreground" : ""}`}
                     >
                       <Td>{item.params.rrfK}</Td>
                       <Td>{item.params.fullTextWeight}</Td>

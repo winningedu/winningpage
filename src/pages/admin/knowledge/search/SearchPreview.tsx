@@ -212,7 +212,7 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
               type="button"
               onClick={runSearch}
               disabled={busy}
-              className="h-9 bg-[#2348ff] px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 bg-primary px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "검색 중" : "검색"}
             </button>
