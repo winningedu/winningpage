@@ -129,6 +129,7 @@ import {
   withChunkRows,
 } from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
+import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
   csvHeader,
@@ -3998,6 +3999,7 @@ export function AdminLayout() {
           </div>
         </main>
       </SidebarProvider>
+      <ConfirmAdminHost />
     </Toaster>
   );
 }
