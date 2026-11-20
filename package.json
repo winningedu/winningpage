@@ -50,7 +50,7 @@
     "ai": "^7.0.177",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.76.0",
     "mammoth": "^1.13.0",
     "overlayscrollbars": "^2.17.1",
     "overlayscrollbars-react": "^0.5.8",
