@@ -14,6 +14,11 @@ import {
   toPricingBody,
 } from "./pricingForm";
 
+// 첫 행만 눈에 보이는 라벨을 달고, 나머지 행은 화면 낭독용 이름만 둔다.
+function rowLabel(index: number, text: string) {
+  return index === 0 ? text : <span className="sr-only">{text}</span>;
+}
+
 export default function PricingTab({ initial }: { initial: PricingResponse }) {
   const [rows, setRows] = useState<PricingRow[]>(() =>
     initial.pricing && Object.keys(initial.pricing).length > 0
@@ -66,7 +71,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
           // biome-ignore lint/suspicious/noArrayIndexKey: 행 정체성이 순서뿐이다
           <div key={index} className="flex items-end gap-3">
             <div className="w-[16rem]">
-              <Field label={index === 0 ? "모델명" : ""}>
+              <Field label={rowLabel(index, "모델명")}>
                 <TextInput
                   value={row.model}
                   onChange={(model) => patch(index, { model })}
@@ -75,7 +80,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "입력" : ""}>
+              <Field label={rowLabel(index, "입력")}>
                 <TextInput
                   value={row.input}
                   onChange={(input) => patch(index, { input })}
@@ -83,7 +88,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "캐시 입력" : ""}>
+              <Field label={rowLabel(index, "캐시 입력")}>
                 <TextInput
                   value={row.cachedInput}
                   onChange={(cachedInput) => patch(index, { cachedInput })}
@@ -91,7 +96,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "출력" : ""}>
+              <Field label={rowLabel(index, "출력")}>
                 <TextInput
                   value={row.output}
                   onChange={(output) => patch(index, { output })}
