@@ -530,8 +530,8 @@ export default function LearningDiagnosisAdmin() {
       <div className="bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-black">학습진단 관리</h1>
-            <p className="mt-1 text-sm font-bold text-red-500">
+            <h1 className="text-xl font-semibold">학습진단 관리</h1>
+            <p className="mt-1 text-sm font-medium text-destructive">
               질문 내용, 답변 내용, 중복 선택 여부, 답변별 추천 프로그램을 이
               화면에서 수정합니다.
             </p>
@@ -545,7 +545,10 @@ export default function LearningDiagnosisAdmin() {
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           학습진단 데이터를 불러오는 중입니다.
         </div>
       ) : (
@@ -553,15 +556,15 @@ export default function LearningDiagnosisAdmin() {
           <section className="bg-white p-6 shadow-sm">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-black">추천 프로그램 관리</h2>
-                <p className="mt-1 text-xs font-bold text-gray-500">
+                <h2 className="text-lg font-semibold">추천 프로그램 관리</h2>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
                   답변을 선택했을 때 결과 화면에 노출될 프로그램 카드입니다.
                 </p>
               </div>
             </div>
 
             <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
-              <h3 className="mb-3 text-sm font-black text-[#7A4A12]">
+              <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
                 새 추천 프로그램 추가
               </h3>
               <div className="grid gap-3 lg:grid-cols-2">
@@ -639,7 +642,7 @@ export default function LearningDiagnosisAdmin() {
 
             <div className="grid gap-4 xl:grid-cols-2">
               {programs.map((program) => (
-                <div key={program.id} className="border border-gray-200 p-4">
+                <div key={program.id} className="border border-border p-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field label="프로그램명">
                       <TextInput
@@ -761,15 +764,15 @@ export default function LearningDiagnosisAdmin() {
 
           <section className="bg-white p-6 shadow-sm">
             <div className="mb-5">
-              <h2 className="text-lg font-black">질문·답변 관리</h2>
-              <p className="mt-1 text-xs font-bold text-gray-500">
+              <h2 className="text-lg font-semibold">질문과 답변 관리</h2>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
                 질문 내용은 자유롭게 바꿀 수 있고, 각 질문 안에서 답변을 바로
                 추가·수정합니다.
               </p>
             </div>
 
             <div className="mb-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] p-4">
-              <h3 className="mb-3 text-sm font-black text-[#7A4A12]">
+              <h3 className="mb-3 text-sm font-semibold text-[#7A4A12]">
                 새 질문 추가
               </h3>
               <div className="grid gap-3 lg:grid-cols-[1.3fr_0.7fr_0.5fr]">
@@ -849,23 +852,24 @@ export default function LearningDiagnosisAdmin() {
                 const isOpen = openQuestions.has(question.id);
 
                 return (
-                  <article key={question.id} className="border border-gray-200">
+                  <article key={question.id} className="border border-border">
                     <button
                       type="button"
                       onClick={() => toggleQuestion(question.id)}
-                      className="flex w-full items-center justify-between bg-gray-50 px-5 py-4 text-left"
+                      aria-expanded={isOpen}
+                      className="flex w-full items-center justify-between bg-muted px-5 py-4 text-left"
                     >
                       <div>
-                        <p className="text-xs font-black text-primary">
+                        <p className="text-xs font-semibold text-primary">
                           QUESTION {String(questionIndex + 1).padStart(2, "0")}
                           <span className="ml-2 text-muted-foreground">
                             정렬순서 {Number(question.sort_order || 0)}
                           </span>
                         </p>
-                        <h3 className="mt-1 text-base font-black text-gray-900">
+                        <h3 className="mt-1 text-base font-semibold text-foreground">
                           {question.title || "질문 내용 없음"}
                         </h3>
-                        <p className="mt-1 text-xs font-bold text-gray-500">
+                        <p className="mt-1 text-xs font-medium text-muted-foreground">
                           {question.input_type === "multiple"
                             ? "중복 선택"
                             : "단일 선택"}{" "}
@@ -875,6 +879,7 @@ export default function LearningDiagnosisAdmin() {
                       </div>
                       <ChevronDown
                         size={18}
+                        aria-hidden="true"
                         className={`transition ${isOpen ? "rotate-180" : ""}`}
                       />
                     </button>
@@ -929,7 +934,7 @@ export default function LearningDiagnosisAdmin() {
                             />
                           </Field>
                         </div>
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-5">
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
                           <div className="flex gap-4">
                             <Toggle
                               checked={question.is_required}
@@ -969,7 +974,7 @@ export default function LearningDiagnosisAdmin() {
 
                         <div className="mt-5">
                           <div className="mb-3 flex items-center justify-between">
-                            <h4 className="text-sm font-black">답변 목록</h4>
+                            <h4 className="text-sm font-semibold">답변 목록</h4>
                             <ActionButton
                               onClick={() => createOption(question.id)}
                               variant="light"
@@ -983,7 +988,7 @@ export default function LearningDiagnosisAdmin() {
                             {questionOptions.map((option) => (
                               <div
                                 key={option.id}
-                                className="rounded-sm border border-gray-200 p-4"
+                                className="rounded-sm border border-border p-4"
                               >
                                 <div className="grid gap-3 lg:grid-cols-[1fr_120px]">
                                   <Field label="답변 내용">
@@ -1009,19 +1014,20 @@ export default function LearningDiagnosisAdmin() {
                                   </Field>
                                 </div>
 
-                                <div className="mt-3">
-                                  <Field label="이 답변 선택 시 노출할 추천 프로그램">
-                                    <ProgramSelector
-                                      programs={programs}
-                                      value={option.program_ids}
-                                      onChange={(value) =>
-                                        updateOptionLocal(option.id, {
-                                          program_ids: value,
-                                        })
-                                      }
-                                    />
-                                  </Field>
-                                </div>
+                                <fieldset className="mt-3 min-w-0">
+                                  <legend className="mb-1 text-xs font-medium text-muted-foreground">
+                                    이 답변 선택 시 노출할 추천 프로그램
+                                  </legend>
+                                  <ProgramSelector
+                                    programs={programs}
+                                    value={option.program_ids}
+                                    onChange={(value) =>
+                                      updateOptionLocal(option.id, {
+                                        program_ids: value,
+                                      })
+                                    }
+                                  />
+                                </fieldset>
 
                                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                                   <Toggle
@@ -1053,7 +1059,7 @@ export default function LearningDiagnosisAdmin() {
                             ))}
 
                             {questionOptions.length === 0 && (
-                              <div className="rounded-sm border border-dashed border-gray-300 p-6 text-center text-sm font-bold text-gray-500">
+                              <div className="rounded-sm border border-dashed border-border p-6 text-center text-sm font-medium text-muted-foreground">
                                 아직 등록된 답변이 없습니다. 답변 추가를 눌러
                                 선택지를 만드세요.
                               </div>
