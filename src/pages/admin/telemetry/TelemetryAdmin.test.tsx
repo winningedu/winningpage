@@ -160,4 +160,28 @@ describe("TelemetryAdmin", () => {
       "false",
     );
   });
+
+  test("불러오는 중에는 status, 실패하면 alert 로 알린다", async () => {
+    let finish: (value: ReturnType<typeof summaryResult>) => void = () => {};
+    vi.mocked(api.fetchSummary).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    render(<TelemetryAdmin config={{ title: "AI 호출 계기판" }} />);
+    expect((await screen.findByRole("status")).textContent).toContain(
+      "데이터를 불러오는 중입니다.",
+    );
+
+    vi.mocked(api.fetchCalls).mockResolvedValue({
+      ok: false,
+      message: "호출 목록을 불러오지 못했습니다.",
+    });
+    finish(summaryResult(true));
+    await screen.findByText("1,234");
+    fireEvent.click(screen.getByRole("tab", { name: "호출 목록" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "호출 목록을 불러오지 못했습니다.",
+    );
+  });
 });

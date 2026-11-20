@@ -254,4 +254,16 @@ describe("EvalsAdmin", () => {
       "false",
     );
   });
+
+  test("이력을 불러오지 못하면 오류 상자가 alert 로 알린다", async () => {
+    vi.mocked(api.fetchRuns).mockResolvedValue({
+      ok: false,
+      message: "이력을 불러오지 못했습니다.",
+    });
+    renderAdmin();
+    fireEvent.click(screen.getByRole("tab", { name: "이력" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "이력을 불러오지 못했습니다.",
+    );
+  });
 });
