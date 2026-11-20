@@ -111,6 +111,32 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     );
   });
 
+  it("청크 적용에 실패하면 실패한 행 범위와 DB 오류 코드 안내를 함께 보인다", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(
+      <MemoryRouter initialEntries={["/admin/goalUniversityCuts"]}>
+        <AdminSectionRoute section="goalUniversityCuts" />
+        <Toaster />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "미리보기 계산" }),
+    );
+    fireEvent.click(await screen.findByLabelText(/행을 확인했습니다/));
+    fireEvent.click(screen.getByRole("button", { name: "적용" }));
+
+    await waitFor(() => {
+      const title = document.querySelector('[data-slot="toast-title"]');
+      expect(title).toHaveTextContent("(1~1행)");
+    });
+    // 청크로 감싸도 오류 코드가 살아 있어야 중복 안내가 나온다.
+    expect(
+      document.querySelector('[data-slot="toast-description"]'),
+    ).toHaveTextContent("이미 등록된 값입니다(중복).");
+    expect(document.body.textContent).not.toContain("홍길동");
+  });
+
   it("공개 연도 저장에 실패하면 DB 원문 없이 안내만 토스트로 보인다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     vi.spyOn(window, "confirm").mockReturnValue(true);
