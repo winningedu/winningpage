@@ -130,8 +130,8 @@ import {
   withChunkRows,
 } from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
-import { toastWarning } from "./admin/shared/adminToast";
-import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
+import { toastSuccess, toastWarning } from "./admin/shared/adminToast";
+import { ConfirmAdminHost, confirmAdmin } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
   csvHeader,
@@ -689,7 +689,7 @@ function AdmissionActiveYearSummary({ rows }) {
     const year = Number(draftYear);
     // 4자리 상식선 제한 — 999999 같은 값이 통과하면 안 된다(team-lead 지적).
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      alert("연도는 2000~2100 사이 정수로 입력해 주세요.");
+      toastWarning("연도는 2000~2100 사이 정수로 입력해 주세요.");
       return;
     }
 
@@ -697,9 +697,12 @@ function AdmissionActiveYearSummary({ rows }) {
       (row) => Number(row.admission_year) === year,
     ).length;
     if (matchCount === 0) {
-      const proceed = window.confirm(
-        `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.\n\n그래도 지정하시겠습니까?`,
-      );
+      const proceed = await confirmAdmin({
+        title: "그래도 지정하시겠습니까?",
+        description: `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.`,
+        confirmLabel: "지정",
+        destructive: true,
+      });
       if (!proceed) return;
     }
 
@@ -719,7 +722,7 @@ function AdmissionActiveYearSummary({ rows }) {
     setActiveYear(confirmedYear);
     setDraftYear(String(confirmedYear));
     setSaving(false);
-    alert(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
+    toastSuccess(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
   }
 
   return (
@@ -951,8 +954,9 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
     setConfirmChecked(false);
     setExpandedGroups({});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -1430,8 +1434,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -2078,7 +2083,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       orphanMode === "deactivate" ? preview.analysis.orphanIds : [];
     const total = rowsToApply.length + orphanIds.length;
     if (total === 0) {
-      alert("반영할 행이 없습니다.");
+      toastWarning("반영할 행이 없습니다.");
       return;
     }
     setApplying(true);
@@ -2137,11 +2142,11 @@ function GoalCutsBackfillPanel({ onReload }) {
     setPreview(null);
     setConfirmChecked(false);
     onReload?.();
-    alert(
-      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.` +
-        (orphanIds.length
-          ? ` 고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
-          : ""),
+    toastSuccess(
+      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.`,
+      orphanIds.length
+        ? `고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
+        : undefined,
     );
   }
 
@@ -2619,8 +2624,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -3278,7 +3284,13 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
   async function saveRow(form) {
     // QA A13(2026-08-27): config.confirmBeforeSave 가 있는 섹션은 저장 직전 한 번 더 묻는다.
-    if (config.confirmBeforeSave && !window.confirm(config.confirmBeforeSave)) {
+    if (
+      config.confirmBeforeSave &&
+      !(await confirmAdmin({
+        title: config.confirmBeforeSave,
+        confirmLabel: "저장",
+      }))
+    ) {
       return;
     }
 
@@ -3290,7 +3302,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       config.fixedCategories &&
       !config.fixedCategories.includes(payload.category)
     ) {
-      alert("수시 또는 정시 구분을 선택해 주세요.");
+      toastWarning("수시 또는 정시 구분을 선택해 주세요.");
       return;
     }
 
@@ -3433,10 +3445,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
       requestWinningEmbedding(savedRow);
     }
 
-    alert(
-      !shouldRequestWinningEmbedding(config, savedRow)
-        ? "저장 완료"
-        : "저장 완료. 임베딩은 자동 생성 중입니다.",
+    toastSuccess(
+      "저장 완료",
+      shouldRequestWinningEmbedding(config, savedRow)
+        ? "임베딩은 자동 생성 중입니다."
+        : undefined,
     );
     setMode("list");
     setEditingRow(null);
@@ -3465,7 +3478,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   }
 
   async function deleteRow(row) {
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "정말 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const { error } = await supabase
       .from(config.table)
@@ -3498,7 +3519,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 돈을 돌려주지 않은 채 남는다(qa-payment 환불 흐름 점검 보고).
   // (제네릭 PATCH 로는 completed 로 못 가게 status select 에서 이미 뺐다, ①).
   async function completeRefund(row) {
-    if (!window.confirm("환불을 완료 처리하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "환불을 완료 처리하시겠습니까?",
+        confirmLabel: "완료 처리",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
 
@@ -3525,7 +3554,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    alert("환불 완료 처리되었습니다.");
+    toastSuccess("환불 완료 처리되었습니다.");
     await loadRows();
   }
 
@@ -3563,7 +3592,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return false;
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     setMetaEditRow(null);
     await loadRows();
     return true;

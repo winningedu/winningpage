@@ -73,6 +73,7 @@ vi.mock("./admin/shared/adminSession", () => ({
 
 import { Toaster } from "@/components/ui/toast";
 import { AdminSectionRoute } from "./Admin";
+import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -139,11 +140,12 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
 
   it("공개 연도 저장에 실패하면 DB 원문 없이 안내만 토스트로 보인다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
       <MemoryRouter initialEntries={["/admin/admissionGuidelines"]}>
         <AdminSectionRoute section="admissionGuidelines" />
         <Toaster />
+        <ConfirmAdminHost />
       </MemoryRouter>,
     );
 
@@ -151,6 +153,8 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
       target: { value: "2030" },
     });
     fireEvent.click(screen.getByRole("button", { name: "변경" }));
+    // 0개교 연도는 확인창을 거친다. 예전 window.confirm 이 아니라 AlertDialog 다.
+    fireEvent.click(await screen.findByRole("button", { name: "지정" }));
 
     await waitFor(() => {
       const titles = Array.from(
@@ -160,5 +164,6 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
     });
     expect(document.body.textContent).not.toContain("홍길동");
     expect(alertSpy).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
   });
 });
