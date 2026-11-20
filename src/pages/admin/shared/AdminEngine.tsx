@@ -11,6 +11,8 @@ import BlockEditor, {
 } from "@/components/editor/BlockEditor";
 import ColumnPreviewModal from "@/components/editor/ColumnPreviewModal";
 import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -19,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   type AdmissionDoc,
   HWP_SECTION_JSON_KEYS,
@@ -263,8 +266,6 @@ function AdminInput({
   // 그대로 넘기므로(생략이 아니라 명시적 undefined) undefined도 프로퍼티 타입에 포함한다.
   disabled?: boolean | undefined;
 }) {
-  const base =
-    "h-9 w-full border border-[#9ca3af] bg-white px-3 text-sm outline-hidden disabled:bg-gray-100";
   // field.readOnly: 폼 전체 disabled와 별개로 "이 필드 하나만" 편집 불가로
   // 만든다(예: *_html 미러 — doc이 정본이고 이 필드는 자동 생성값이라
   // 직접 고치면 안 됨). HTML readOnly 속성은 disabled와 달리 값 선택·복사는
@@ -273,24 +274,24 @@ function AdminInput({
 
   if (field.type === "textarea") {
     return (
-      <textarea
+      <Textarea
         value={value || ""}
         onChange={(e) => onChange(field.key, e.target.value)}
         disabled={disabled}
         readOnly={readOnly}
         rows={field.rows || 5}
-        className={`w-full resize-y border border-[#9ca3af] px-3 py-2 font-mono text-xs leading-5 outline-hidden disabled:bg-gray-100 ${readOnly ? "bg-gray-50 text-gray-500" : "bg-white"}`}
+        className={`field-sizing-fixed resize-y font-mono text-xs leading-5 ${readOnly ? "bg-muted text-muted-foreground" : ""}`}
       />
     );
   }
 
   if (field.type === "select") {
     return (
-      <select
+      <NativeSelect
         value={value || ""}
         onChange={(e) => onChange(field.key, e.target.value)}
         disabled={disabled}
-        className={base}
+        className="w-full [&>select]:h-10"
       >
         <option value="">{field.emptyLabel ?? "선택"}</option>
         {(field.options || []).map((option) => {
@@ -302,7 +303,7 @@ function AdminInput({
             </option>
           );
         })}
-      </select>
+      </NativeSelect>
     );
   }
 
@@ -311,6 +312,7 @@ function AdminInput({
       <label className="inline-flex items-center gap-2 text-sm font-bold">
         <input
           type="checkbox"
+          className="accent-primary"
           checked={!!value}
           onChange={(e) => onChange(field.key, e.target.checked)}
           disabled={disabled}
@@ -326,6 +328,7 @@ function AdminInput({
         <label className="inline-flex items-center gap-2 text-sm font-bold">
           <input
             type="radio"
+            className="accent-primary"
             checked={value === true}
             onChange={() => onChange(field.key, true)}
             disabled={disabled}
@@ -336,6 +339,7 @@ function AdminInput({
         <label className="inline-flex items-center gap-2 text-sm font-bold">
           <input
             type="radio"
+            className="accent-primary"
             checked={value === false}
             onChange={() => onChange(field.key, false)}
             disabled={disabled}
@@ -347,7 +351,7 @@ function AdminInput({
   }
 
   return (
-    <input
+    <Input
       type={
         field.type === "number"
           ? "number"
@@ -391,7 +395,7 @@ function AdminInput({
       min={field.min}
       max={field.max}
       step={field.step}
-      className={`${base} ${readOnly ? "bg-gray-50 text-gray-500" : ""}`}
+      className={`h-10 ${readOnly ? "bg-muted text-muted-foreground" : ""}`}
     />
   );
 }
