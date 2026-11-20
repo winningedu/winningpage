@@ -52,6 +52,7 @@ const TERMS_PAGES: Array<
 
 const termsRoutes: RouteObject[] = TERMS_PAGES.map(({ path, ...props }) => ({
   path,
+  // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
   Component: () => <TermsDocPage {...props} />,
 }));
 

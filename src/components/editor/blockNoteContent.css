@@ -82,9 +82,9 @@
    width만 조정한다. 줄바꿈 시엔 width:fit-content가 가용 폭까지 차오르며 사각 밴드가 되는데
    (피그마의 줄 단위 형광펜과는 다름), 실제 데이터는 모두 한 줄이라 문제되지 않는다. */
 .bn-doc
-.bn-block:has(
-  > .bn-block-content[data-content-type="heading"][data-background-color]
-) {
+  .bn-block:has(
+    > .bn-block-content[data-content-type="heading"][data-background-color]
+  ) {
   background-color: transparent;
 }
 

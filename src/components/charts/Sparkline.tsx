@@ -179,30 +179,30 @@ function SparkActiveDot({
 }
 
 // 연도 라벨 — 결측 연도는 흐리게 두되 축에서 지우지는 않는다.
-function makeYearTick(valueByYear: Map<number, number | null>) {
-  return function YearTick({
-    x,
-    y,
-    payload,
-  }: {
-    x?: number;
-    y?: number;
-    payload?: { value: number };
-  }) {
-    const year = payload?.value;
-    const hasValue = year != null && valueByYear.get(year) != null;
-    return (
-      <text
-        x={x}
-        y={(y ?? 0) + 12}
-        textAnchor="middle"
-        fontSize={CHART_FONT_SIZE}
-        fill={hasValue ? CHART_COLORS.label : CHART_COLORS.grid}
-      >
-        {String(year).slice(2)}
-      </text>
-    );
-  };
+function YearTick({
+  x,
+  y,
+  payload,
+  valueByYear,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+  valueByYear: Map<number, number | null>;
+}) {
+  const year = payload?.value;
+  const hasValue = year != null && valueByYear.get(year) != null;
+  return (
+    <text
+      x={x}
+      y={(y ?? 0) + 12}
+      textAnchor="middle"
+      fontSize={CHART_FONT_SIZE}
+      fill={hasValue ? CHART_COLORS.label : CHART_COLORS.grid}
+    >
+      {String(year).slice(2)}
+    </text>
+  );
 }
 
 type SparklineProps = {
@@ -273,7 +273,6 @@ export default function Sparkline({ series, label }: SparklineProps) {
     .map((point) => `${point.year}년 ${point.displayValue}등급`)
     .join(", ");
   const valueByYear = new Map(list.map((point) => [point.year, point.value]));
-  const YearTick = makeYearTick(valueByYear);
 
   return (
     <div
@@ -300,7 +299,7 @@ export default function Sparkline({ series, label }: SparklineProps) {
             tickLine={{ stroke: CHART_COLORS.grid }}
             interval={0}
             padding={X_PADDING}
-            tick={<YearTick />}
+            tick={<YearTick valueByYear={valueByYear} />}
           />
 
           <YAxis
