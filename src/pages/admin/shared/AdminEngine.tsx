@@ -206,7 +206,7 @@ export type AdminConfig<T extends AdminRow = AdminRow> = {
   // 비밀번호 재확인 + 사유 기재 게이트(SensitiveActionGate)를 먼저 태우고,
   // admin_access_logs 에 한 줄 남긴 뒤에야 진행한다 (QA 223·268·270·271).
   sensitiveDownload?: boolean;
-  // 저장 직전 재확인 문구(QA A13) — Admin.tsx saveRow 가 window.confirm 으로 묻는다.
+  // 저장 직전 재확인 문구(QA A13). Admin.tsx saveRow 가 confirmAdmin 으로 묻는다.
   confirmBeforeSave?: string;
   noCreate?: boolean;
   readOnly?: boolean;
