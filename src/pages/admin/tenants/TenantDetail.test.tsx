@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
@@ -275,6 +281,34 @@ describe("TenantDetail 탭과 이동", () => {
 
     expect(screen.getByText("전체 관리자 패널 tenant-7/한빛고")).toBeTruthy();
     expect(screen.queryByLabelText("소속코드")).toBeNull();
+  });
+
+  test("선택한 탭의 내용은 그 탭을 이름으로 가진 tabpanel 안에 있다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+
+    const infoPanel = screen.getByRole("tabpanel", { name: "기관 정보" });
+    expect(within(infoPanel).getByLabelText("소속코드")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "전체 관리자" }));
+
+    const adminPanel = screen.getByRole("tabpanel", { name: "전체 관리자" });
+    expect(
+      within(adminPanel).getByText("전체 관리자 패널 tenant-7/한빛고"),
+    ).toBeTruthy();
+  });
+
+  test("방향키로 다음 탭에 초점을 옮긴다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    const first = screen.getByRole("tab", { name: "기관 정보" });
+    first.focus();
+
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "서비스 설정" })).toHaveFocus(),
+    );
   });
 
   test("목록으로 버튼이 onBack 을 부른다", async () => {
