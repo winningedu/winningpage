@@ -55,6 +55,21 @@ describe("CallsTab", () => {
     expect(dialog.textContent).toContain("section:2-1");
   });
 
+  test("첫 칸의 버튼 클릭은 행으로 전파되지 않아 상세 열기가 한 번만 일어난다", async () => {
+    const reachedBody = vi.fn();
+    document.body.addEventListener("click", reachedBody);
+    try {
+      renderTab();
+      fireEvent.click(
+        screen.getByRole("button", { name: formatDate(item.createdAt) }),
+      );
+      expect(await screen.findByRole("dialog")).toBeTruthy();
+      expect(reachedBody).not.toHaveBeenCalled();
+    } finally {
+      document.body.removeEventListener("click", reachedBody);
+    }
+  });
+
   test("행을 눌러도 호출 상세가 열린다", async () => {
     renderTab();
     fireEvent.click(screen.getByText("section:2-1"));
