@@ -4016,7 +4016,7 @@ export function AdminLayout() {
   }
 
   return (
-    <Toaster>
+    <Toaster limit={5}>
       {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
           open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
           단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
