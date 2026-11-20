@@ -1,4 +1,4 @@
-import { Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -425,17 +425,8 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
                 aria-label="권한 묶음 검색"
-                className="h-9 w-70 rounded-r-none font-medium"
+                className="h-9 w-70 font-medium"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="rounded-l-none border-l-0"
-              >
-                <Search size={14} aria-hidden="true" />
-                검색
-              </Button>
             </div>
             <ActionButton onClick={openCreate}>
               <Plus size={14} aria-hidden="true" />

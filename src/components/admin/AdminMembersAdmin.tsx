@@ -1,4 +1,4 @@
-import { RefreshCw, Search, UserPlus } from "lucide-react";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -571,17 +571,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
                 aria-label="관리자 검색"
-                className="h-9 w-70 rounded-r-none font-medium"
+                className="h-9 w-70 font-medium"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="rounded-l-none border-l-0"
-              >
-                <Search size={14} aria-hidden="true" />
-                검색
-              </Button>
             </div>
             <ActionButton
               onClick={() => {

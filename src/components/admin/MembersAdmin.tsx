@@ -1,4 +1,4 @@
-import { Download, Eye, EyeOff, RefreshCw, Search } from "lucide-react";
+import { Download, Eye, EyeOff, RefreshCw } from "lucide-react";
 import {
   type ReactNode,
   useEffect,
@@ -960,17 +960,8 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
                 aria-label="회원 검색"
-                className="h-9 w-80 rounded-r-none font-medium"
+                className="h-9 w-80 font-medium"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="rounded-l-none border-l-0"
-              >
-                <Search size={14} aria-hidden="true" />
-                검색
-              </Button>
             </div>
           </div>
         </div>
