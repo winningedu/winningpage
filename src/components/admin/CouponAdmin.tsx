@@ -680,6 +680,8 @@ function NullableField({
         <input
           type="radio"
           name={`${fieldKey}_mode`}
+          aria-label={`${FIELD_LABEL[fieldKey]} ${UNLIMITED_LABEL}`}
+          className="accent-primary"
           checked={mode === "unlimited"}
           disabled={disabled}
           onChange={() =>
@@ -695,6 +697,8 @@ function NullableField({
         <input
           type="radio"
           name={`${fieldKey}_mode`}
+          aria-label={`${FIELD_LABEL[fieldKey]} 값 지정`}
+          className="accent-primary"
           checked={mode === "value"}
           disabled={disabled}
           onChange={() => onChange({ [`${fieldKey}_mode`]: "value" })}
@@ -702,6 +706,7 @@ function NullableField({
         <span className="w-40">
           <input
             type={type}
+            aria-label={FIELD_LABEL[fieldKey]}
             min={type === "number" ? 1 : undefined}
             value={value ?? ""}
             disabled={disabled || mode !== "value"}
@@ -1647,6 +1652,7 @@ export default function CouponAdmin() {
                             <div className="flex items-center gap-2">
                               <input
                                 type="text"
+                                aria-label={FIELD_LABEL.void_reason}
                                 value={voidReason}
                                 placeholder={
                                   VOID_REASON_PLACEHOLDER ?? undefined
@@ -1759,6 +1765,7 @@ export default function CouponAdmin() {
             <span className="w-[20rem] max-w-full">
               <input
                 type="text"
+                aria-label={FIELD_LABEL.email}
                 value={userQuery}
                 placeholder={USER_SEARCH_PLACEHOLDER ?? undefined}
                 onChange={(e) => setUserQuery(e.target.value)}
@@ -1944,6 +1951,7 @@ export default function CouponAdmin() {
                             <div className="flex items-center gap-2">
                               <input
                                 type="text"
+                                aria-label={FIELD_LABEL.revoke_reason}
                                 value={revokeReason}
                                 placeholder={
                                   REVOKE_REASON_PLACEHOLDER ?? undefined
@@ -2053,6 +2061,7 @@ export default function CouponAdmin() {
                     <input
                       type="radio"
                       name="is_active"
+                      className="accent-primary"
                       checked={form.is_active === true}
                       onChange={() => patch({ is_active: true })}
                     />
@@ -2062,6 +2071,7 @@ export default function CouponAdmin() {
                     <input
                       type="radio"
                       name="is_active"
+                      className="accent-primary"
                       checked={form.is_active === false}
                       onChange={() => patch({ is_active: false })}
                     />
@@ -2076,6 +2086,8 @@ export default function CouponAdmin() {
                 // 기본은 배타(false)다: sql/55 0-c절.
                 <input
                   type="checkbox"
+                  aria-label={FIELD_LABEL.stackable}
+                  className="accent-primary"
                   checked={form.stackable === true}
                   onChange={(e) => patch({ stackable: e.target.checked })}
                 />
@@ -2094,6 +2106,7 @@ export default function CouponAdmin() {
                       <input
                         type="radio"
                         name="grant_type"
+                        className="accent-primary"
                         checked={form.grant_type === value}
                         onChange={() =>
                           patch(
@@ -2129,6 +2142,8 @@ export default function CouponAdmin() {
                 // 실패하는" 화면을 만들지 않는다.
                 <input
                   type="checkbox"
+                  aria-label={FIELD_LABEL.grant_on_signup}
+                  className="accent-primary"
                   checked={form.grant_on_signup === true}
                   disabled={form.grant_type !== "granted"}
                   onChange={(e) => patch({ grant_on_signup: e.target.checked })}
@@ -2139,6 +2154,7 @@ export default function CouponAdmin() {
                 <>
                   <input
                     type="text"
+                    aria-label={FIELD_LABEL.slug}
                     value={form.slug}
                     onChange={(e) => patch({ slug: e.target.value })}
                     className={`${INPUT_CLASS} font-mono ${
@@ -2169,6 +2185,7 @@ export default function CouponAdmin() {
               {key === "title" && (
                 <input
                   type="text"
+                  aria-label={FIELD_LABEL.title}
                   value={form.title}
                   onChange={(e) => patch({ title: e.target.value })}
                   className={INPUT_CLASS}
@@ -2180,6 +2197,7 @@ export default function CouponAdmin() {
                   <div className="flex items-center gap-3">
                     <input
                       type="text"
+                      aria-label={FIELD_LABEL.code}
                       value={form.code}
                       onChange={(e) => patch({ code: e.target.value })}
                       className={`${INPUT_CLASS} font-mono`}
@@ -2201,6 +2219,7 @@ export default function CouponAdmin() {
               {key === "tenant_id" && (
                 <div className="flex flex-col gap-2">
                   <select
+                    aria-label={FIELD_LABEL.tenant_id}
                     value={form.tenant_id}
                     onChange={(e) => patch({ tenant_id: e.target.value })}
                     className={INPUT_CLASS}
@@ -2223,6 +2242,7 @@ export default function CouponAdmin() {
                   <span className="w-40">
                     <input
                       type="number"
+                      aria-label={FIELD_LABEL[key]}
                       min={key === "discount_amount" ? 1 : 0}
                       value={form[key]}
                       onChange={(e) =>
