@@ -35,6 +35,12 @@ describe("TextInput", () => {
 });
 
 describe("Textarea", () => {
+  it("aria-label을 네이티브 textarea에 넘긴다", () => {
+    render(<Textarea value="" onChange={() => {}} aria-label="메시지 내용" />);
+
+    expect(screen.getByRole("textbox", { name: "메시지 내용" })).toBeVisible();
+  });
+
   it("rows 속성을 유지하고 입력값을 onChange로 넘긴다", () => {
     const onChange = vi.fn();
     render(<Textarea value="" onChange={onChange} rows={5} />);
@@ -51,6 +57,16 @@ describe("Textarea", () => {
 });
 
 describe("Select", () => {
+  it("aria-label을 네이티브 select에 넘긴다", () => {
+    render(
+      <Select value="" onChange={() => {}} aria-label="회원구분">
+        <option value="">전체</option>
+      </Select>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "회원구분" })).toBeVisible();
+  });
+
   it("네이티브 combobox로 옵션을 보여주고 고른 값을 문자열로 넘긴다", () => {
     const onChange = vi.fn();
     render(
@@ -83,6 +99,12 @@ describe("Toggle", () => {
 });
 
 describe("ActionButton", () => {
+  it("aria-label을 버튼에 넘긴다", () => {
+    render(<ActionButton aria-label="삭제 1번째 행">삭제</ActionButton>);
+
+    expect(screen.getByRole("button", { name: "삭제 1번째 행" })).toBeVisible();
+  });
+
   it("기본 type은 button이고 클릭 시 onClick을 부른다", () => {
     const onClick = vi.fn();
     render(<ActionButton onClick={onClick}>저장</ActionButton>);
