@@ -32,7 +32,7 @@ vi.mock("@/lib/supabase", () => ({
 
 import { Toaster, toast } from "@/components/ui/toast";
 import { AdminForm, uploadImage } from "./AdminEngine";
-import { ConfirmAdminHost } from "./confirmAdmin";
+import { ConfirmAdminHost, confirmAdmin } from "./confirmAdmin";
 
 function renderForm(
   validate?: (form: unknown) => unknown,
@@ -134,6 +134,34 @@ describe("AdminForm 저장 전 검증 안내", () => {
 
     finish(null);
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
+  test("비동기 검증의 확인창을 취소한 뒤 다시 저장해 확인하면 정확히 한 번 저장한다", async () => {
+    const validate = vi.fn(async () =>
+      (await confirmAdmin({ title: "계속할까요?" })) ? null : "취소했습니다.",
+    );
+    const { onSave } = renderForm(validate);
+    const save = screen.getByRole("button", { name: "저장" });
+
+    fireEvent.click(save);
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "취소",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(save);
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "확인",
+      }),
+    );
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(validate).toHaveBeenCalledTimes(2);
   });
 
   test("비동기 검증이 문구를 돌려주면 토스트로 보이고 저장하지 않는다", async () => {
