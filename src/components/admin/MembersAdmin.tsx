@@ -18,6 +18,11 @@ import {
   reportAdminError,
 } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import {
+  toastError,
+  toastSuccess,
+  toastWarning,
+} from "@/pages/admin/shared/adminToast";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import {
   ActionButton,
@@ -505,7 +510,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
   function requestExport() {
     if (filteredRows.length === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
 
@@ -550,7 +555,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
     const text = draft.trim();
     if (!text) {
-      alert("보낼 내용을 입력해 주세요.");
+      toastWarning("보낼 내용을 입력해 주세요.");
       return;
     }
 
@@ -580,7 +585,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
       setDraft("");
       await loadDetail(selected);
-      alert(`발송했습니다 (${result.channel}).`);
+      toastSuccess(`발송했습니다 (${result.channel}).`);
     } catch (error) {
       reportAdminError("발송 실패", error as Error);
     } finally {
@@ -612,7 +617,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         row.id === selected.id ? { ...row, member_category: next } : row,
       ),
     );
-    alert("회원구분을 저장했습니다.");
+    toastSuccess("회원구분을 저장했습니다.");
   }
 
   async function saveGuardianPhone() {
@@ -639,7 +644,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         row.id === selected.id ? { ...row, guardian_phone: next } : row,
       ),
     );
-    alert("학부모 핸드폰을 저장했습니다.");
+    toastSuccess("학부모 핸드폰을 저장했습니다.");
   }
 
   // 소속 배정/해제(2026-09-22, WC072) — categoryDraft/guardianPhoneDraft 와
@@ -659,7 +664,9 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     // 스쿨멘토의 학생은 소속만 비우면 학적이 옛 기관에 남는다. 기타 기관으로 옮겨 학적을 정리한다.
     // 위닝은 소속 없음이 개인 회원이라, RPC 가 올해 학적을 같이 지운다(아래 RPC 그대로).
     if (isEnrollmentStudent && site.key === "schoolmentor" && !nextId) {
-      alert("학생은 소속 없음으로 바꿀 수 없어요. 「기타」로 옮겨 주세요.");
+      toastWarning(
+        "학생은 소속 없음으로 바꿀 수 없어요. 「기타」로 옮겨 주세요.",
+      );
       return;
     }
 
@@ -687,7 +694,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingTenant(false);
 
     if (error) {
-      alert(tenantSaveErrorMessage(error));
+      toastError(tenantSaveErrorMessage(error));
       return;
     }
 
@@ -704,7 +711,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
           : row,
       ),
     );
-    alert("소속을 저장했습니다.");
+    toastSuccess("소속을 저장했습니다.");
   }
 
   // 이동 API 가 학적까지 옮긴 뒤 화면의 소속을 맞춘다. school_name 은 서버가 정하므로 목록을 다시 읽는다.
@@ -717,7 +724,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       tenant_name: target.name,
     });
     loadRows();
-    alert("학생을 옮겼습니다.");
+    toastSuccess("학생을 옮겼습니다.");
   }
 
   // 결제 요약 3종 — 참조 HTML 의 "이번 달 결제 / 미납액 / 누적 결제액".

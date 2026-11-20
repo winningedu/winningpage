@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
   Field,
@@ -189,7 +190,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     if (saving) return;
 
     if (!form.name.trim()) {
-      alert("이름 항목을 입력해주세요.");
+      toastWarning("이름 항목을 입력해주세요.");
       return;
     }
 
