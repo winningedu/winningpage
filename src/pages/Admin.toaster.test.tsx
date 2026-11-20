@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +22,7 @@ vi.mock("./admin/shared/adminSession", () => ({
 import { toast } from "@/components/ui/toast";
 import { AdminLayout } from "./Admin";
 import { reportAdminError } from "./admin/shared/adminErrors";
+import { confirmAdmin } from "./admin/shared/confirmAdmin";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -49,5 +50,25 @@ describe("AdminLayout 토스트", () => {
       document.querySelectorAll('[data-slot="toast-viewport"]'),
     ).toHaveLength(1);
     toast.close();
+  });
+
+  it("확인창 호스트가 관리자 셸에 한 번만 마운트돼 confirmAdmin 이 뜬다", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <AdminLayout />
+      </MemoryRouter>,
+    );
+
+    let result: Promise<boolean> | undefined;
+    act(() => {
+      result = confirmAdmin({ title: "셸 확인창" });
+    });
+
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent(
+      "셸 확인창",
+    );
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    screen.getByRole("button", { name: "취소" }).click();
+    await expect(result).resolves.toBe(false);
   });
 });
