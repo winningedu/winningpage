@@ -1,5 +1,6 @@
 import { ChevronDown, Download, Plus, RefreshCw, Search } from "lucide-react";
 import {
+  type CSSProperties,
   Fragment,
   useEffect,
   useEffectEvent,
@@ -7,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import AdminMembersAdmin from "@/components/admin/AdminMembersAdmin";
 import AdminRolesAdmin from "@/components/admin/AdminRolesAdmin";
@@ -26,7 +27,22 @@ import RevenueAdmin from "@/components/admin/RevenueAdmin";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/toast";
 import {
   canAccessSection,
@@ -458,7 +474,20 @@ export async function requestWinningEmbedding(row) {
     return null;
   }
 }
-function AdminSidebar({ activeKey, setActiveKey }) {
+// 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
+// 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
+const ADMIN_SIDEBAR_THEME = {
+  "--sidebar": "#101214",
+  "--sidebar-foreground": "#ffffff",
+  "--sidebar-accent": "rgb(255 255 255 / 0.1)",
+  "--sidebar-accent-foreground": "#ffffff",
+  "--sidebar-border": "rgb(255 255 255 / 0.1)",
+  "--sidebar-primary": "#ffffff",
+  "--sidebar-primary-foreground": "#101214",
+  "--sidebar-ring": "rgb(255 255 255 / 0.6)",
+} as CSSProperties;
+
+function AdminSidebar({ activeKey }: { activeKey: string }) {
   const [open, setOpen] = useState(
     () => new Set(MENU_GROUPS.map((group) => group.title)),
   );
@@ -510,65 +539,82 @@ function AdminSidebar({ activeKey, setActiveKey }) {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[224px] bg-[#101214] text-white">
-      <ScrollArea className="h-full">
-        <div className="border-b border-white/10 px-5 py-5 text-2xl font-black">
+    <aside
+      className="fixed left-0 top-0 z-40 h-screen w-56 text-white"
+      style={ADMIN_SIDEBAR_THEME}
+    >
+      <Sidebar collapsible="none">
+        <SidebarHeader className="border-b border-white/10 px-5 py-5 text-2xl font-bold">
           관리자
-        </div>
+        </SidebarHeader>
 
-        <nav className="px-4 py-5">
-          {menuGroups.map((group) => {
-            const isOpen = open.has(group.title);
+        <SidebarContent className="overflow-hidden">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-2 py-3">
+              {menuGroups.map((group) => {
+                const isOpen = open.has(group.title);
 
-            return (
-              <div key={group.title} className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => toggle(group.title)}
-                  className="flex w-full items-center justify-between py-2 text-left text-[15px] font-black"
-                >
-                  {group.title}
-                  <ChevronDown
-                    size={16}
-                    className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
-                  />
-                </button>
+                return (
+                  <Collapsible
+                    key={group.title}
+                    open={isOpen}
+                    onOpenChange={() => toggle(group.title)}
+                  >
+                    <SidebarGroup className="py-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-[0.9375rem] font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                        {group.title}
+                        <ChevronDown
+                          size={16}
+                          className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                      </CollapsibleTrigger>
 
-                {isOpen && (
-                  <div className="mt-1 space-y-1">
-                    {group.items.map((item, index) => (
-                      <Fragment key={item.key}>
-                        {/* 소분류 캡션 — 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
-                          접었다 펴는 단계를 하나 더 두지 않고 캡션으로 표현한다.
-                          「서비스 관리」가 16개로 가장 크고, 그 안에서 서비스·
-                          프리미엄·멘토·위닝 DB가 섞이면 훑기 어렵다.
-                          섹션이 바뀌는 첫 항목에서만 그린다. */}
-                        {item.section &&
-                          item.section !== group.items[index - 1]?.section && (
-                            <div className="px-4 pb-1 pt-3 text-[11px] font-black tracking-wide text-white/35">
-                              {item.section}
-                            </div>
-                          )}
-                        <button
-                          type="button"
-                          onClick={() => setActiveKey(item.key)}
-                          className={`block w-full rounded px-4 py-2 text-left text-[13px] font-bold ${
-                            sidebarActiveKey === item.key
-                              ? 'bg-white/10 text-white before:mr-2 before:text-red-500 before:content-["•"]'
-                              : 'text-white/55 before:mr-2 before:text-white/35 before:content-["•"] hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </ScrollArea>
+                      <CollapsibleContent>
+                        <SidebarMenu className="mt-1 gap-1">
+                          {group.items.map((item, index) => {
+                            const isActive = sidebarActiveKey === item.key;
+
+                            return (
+                              <Fragment key={item.key}>
+                                {/* 소분류 캡션. 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
+                              접었다 펴는 단계를 하나 더 두지 않고 캡션으로 표현한다.
+                              「서비스 관리」가 16개로 가장 크고, 그 안에서 서비스,
+                              프리미엄, 멘토, 위닝 DB가 섞이면 훑기 어렵다.
+                              섹션이 바뀌는 첫 항목에서만 그린다. */}
+                                {item.section &&
+                                  item.section !==
+                                    group.items[index - 1]?.section && (
+                                    <li className="px-4 pb-1 pt-3 text-[0.6875rem] font-medium tracking-wide text-white/60">
+                                      {item.section}
+                                    </li>
+                                  )}
+                                <SidebarMenuItem>
+                                  <SidebarMenuButton
+                                    isActive={isActive}
+                                    render={<Link to={`/admin/${item.key}`} />}
+                                    aria-current={isActive ? "page" : undefined}
+                                    className={`h-auto px-4 py-2 text-[0.8125rem] font-medium data-active:font-semibold before:mr-2 before:content-["•"] ${
+                                      isActive
+                                        ? "text-white before:text-red-500"
+                                        : "text-white/55 before:text-white/35"
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              </Fragment>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarGroup>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </SidebarContent>
+      </Sidebar>
     </aside>
   );
 }
@@ -3936,16 +3982,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
 // 등)은 그대로 유지된다.
 export function AdminLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
   // 사이드바 하이라이트용 activeKey — 라우팅 매칭(어느 config를 쓸지 결정하는 것)에는
   // 관여하지 않는다. 그건 App.jsx의 개별 <Route path={key}> 매칭이 이미 끝낸 일이고,
   // 여기서는 그 결과인 URL을 보고 "지금 어느 메뉴가 눌려 있어 보여야 하는가"만 고른다.
   const activeKey =
     location.pathname.replace(/^\/admin\/?/, "") || ADMIN_DEFAULT_SECTION_KEY;
-
-  function changeTab(key: string) {
-    navigate(`/admin/${key}`);
-  }
 
   async function logout() {
     // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
@@ -3956,16 +3997,26 @@ export function AdminLayout() {
 
   return (
     <Toaster>
-      <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
-        <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
+      {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
+          open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
+          단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
+          sidebar_state=false 쿠키를 쓰고, 프로바이더가 어드민에서 브라우저 자체의
+          Ctrl+B 를 막는다. */}
+      <SidebarProvider
+        open
+        onOpenChange={() => {}}
+        style={{ "--sidebar-width": "14rem" } as CSSProperties}
+        className="block min-h-screen bg-[#f4f4f4] text-[#111827]"
+      >
+        <AdminSidebar activeKey={activeKey} />
         <AdminTopbar onLogout={logout} />
 
-        <main className="ml-[224px] pt-[56px]">
-          <div className="min-h-[calc(100vh-56px)] px-7 py-8">
+        <main className="ml-56 pt-14">
+          <div className="min-h-[calc(100vh-3.5rem)] px-7 py-8">
             <Outlet />
           </div>
         </main>
-      </div>
+      </SidebarProvider>
     </Toaster>
   );
 }
