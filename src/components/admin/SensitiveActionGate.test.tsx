@@ -58,7 +58,7 @@ beforeEach(() => {
   log.write.mockResolvedValue({ ok: true });
 });
 
-describe("SensitiveActionGate 닫기", () => {
+describe("SensitiveActionGate", () => {
   test("Esc 로 닫으면 게이트만 닫히고 onGranted 는 부르지 않는다", async () => {
     openGate();
     await screen.findByLabelText("관리자 비밀번호");
@@ -121,5 +121,56 @@ describe("SensitiveActionGate 닫기", () => {
 
     finishVerify({ ok: true });
     await vi.waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+  });
+
+  test("비밀번호와 사유를 넣고 확인하면 로그를 먼저 남긴 뒤 onGranted 를 한 번 부른다", async () => {
+    const order: string[] = [];
+    log.verify.mockImplementation(async () => {
+      order.push("verify");
+      return { ok: true };
+    });
+    log.write.mockImplementation(async () => {
+      order.push("log");
+      return { ok: true };
+    });
+    onGranted.mockImplementation(() => {
+      order.push("granted");
+    });
+    openGate();
+    fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {
+      target: { value: "pw-1234" },
+    });
+    fireEvent.change(screen.getByLabelText(/사유/), {
+      target: { value: " 월간 정산 " },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await vi.waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+    expect(log.verify).toHaveBeenCalledWith("pw-1234");
+    expect(log.write).toHaveBeenCalledWith({
+      action: "download",
+      resourceKey: "members",
+      reason: "월간 정산",
+      rowCount: 1,
+      targetId: undefined,
+    });
+    expect(order).toEqual(["verify", "log", "granted"]);
+    await vi.waitFor(() =>
+      expect(screen.queryByLabelText("관리자 비밀번호")).toBeNull(),
+    );
+  });
+
+  test("사유가 비어 있으면 안내만 보이고 검증과 승인은 일어나지 않는다", async () => {
+    openGate();
+    fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {
+      target: { value: "pw-1234" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    expect(await screen.findByText("다운로드 사유를 입력하세요.")).toBeTruthy();
+    expect(log.verify).not.toHaveBeenCalled();
+    expect(onGranted).not.toHaveBeenCalled();
   });
 });
