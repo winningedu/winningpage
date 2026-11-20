@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,15 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Field,
+  Select,
+  Textarea,
+  TextInput,
+} from "@/pages/admin/shared/formFields";
 import type { SearchPreviewMode } from "../../../../../api/_lib/knowledge/preview.js";
 import { postSearchPreview, type SearchPreviewResult } from "../api";
 import SearchResultTable from "./SearchResultTable";
-
-const BUTTON_CLASS =
-  "h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50";
-
-const INPUT_CLASS =
-  "h-9 w-full border border-gray-400 bg-white px-3 text-sm outline-hidden";
 
 // 학생 요청의 학년 값과 같은 형식이다. 빈 값이면 학년 필터 없이 검색한다.
 const GRADE_OPTIONS = ["고1", "고2", "고3"];
@@ -101,19 +102,20 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
   return (
     <div className="mb-6 flex items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
       <div>
-        <div className="font-black">검색 테스트</div>
+        <div className="font-semibold">검색 테스트</div>
         <p className="mt-1 text-xs font-bold text-gray-500">
           학생 요청과 같은 조건으로 검색해 카드 순위와 실제 주입 여부를
           확인합니다.
         </p>
       </div>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="lg"
         onClick={() => setOpen(true)}
-        className={BUTTON_CLASS}
       >
         검색 테스트
-      </button>
+      </Button>
 
       <Dialog
         open={open}
@@ -127,61 +129,50 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
             <DialogDescription>{MODE_DESCRIPTIONS[mode]}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-4 gap-3 text-xs font-bold">
-            <label className="flex flex-col gap-1">
-              학년
-              <select
-                value={form.grade}
-                onChange={(e) => change("grade", e.target.value)}
-                className={INPUT_CLASS}
-              >
+          <div className="grid grid-cols-4 gap-3">
+            <Field label="학년">
+              <Select value={form.grade} onChange={(v) => change("grade", v)}>
                 <option value="">지정 안 함</option>
                 {GRADE_OPTIONS.map((grade) => (
                   <option key={grade} value={grade}>
                     {grade}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              교과군 또는 과목
-              <input
+              </Select>
+            </Field>
+            <Field label="교과군 또는 과목">
+              <TextInput
                 value={form.subject}
-                onChange={(e) => change("subject", e.target.value)}
+                onChange={(v) => change("subject", v)}
                 placeholder="예: 물리학"
-                className={INPUT_CLASS}
               />
-            </label>
-            <label className="flex flex-col gap-1">
-              희망 진로
-              <input
+            </Field>
+            <Field label="희망 진로">
+              <TextInput
                 value={form.career}
-                onChange={(e) => change("career", e.target.value)}
-                className={INPUT_CLASS}
+                onChange={(v) => change("career", v)}
               />
-            </label>
-            <label className="flex flex-col gap-1">
-              주제
-              <input
+            </Field>
+            <Field label="주제">
+              <TextInput
                 value={form.selectedTopic}
-                onChange={(e) => change("selectedTopic", e.target.value)}
-                className={INPUT_CLASS}
+                onChange={(v) => change("selectedTopic", v)}
               />
-            </label>
-            <label className="col-span-4 flex flex-col gap-1">
-              수행평가 안내문
-              <textarea
-                value={form.assessmentInfo}
-                onChange={(e) => change("assessmentInfo", e.target.value)}
-                rows={3}
-                className="w-full resize-y border border-gray-400 px-3 py-2 text-sm outline-hidden"
-              />
-            </label>
+            </Field>
+            <div className="col-span-4">
+              <Field label="수행평가 안내문">
+                <Textarea
+                  value={form.assessmentInfo}
+                  onChange={(v) => change("assessmentInfo", v)}
+                  rows={3}
+                />
+              </Field>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-4">
-              <fieldset className="inline-flex items-center gap-3 text-xs font-bold">
+              <fieldset className="inline-flex items-center gap-3 text-xs font-medium">
                 <legend className="sr-only">검색 방식</legend>
                 {MODE_OPTIONS.map((option) => (
                   <label
@@ -192,6 +183,7 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
                       type="radio"
                       name={`search-preview-mode-${knowledgeType}`}
                       value={option.value}
+                      className="accent-primary"
                       checked={mode === option.value}
                       onChange={() => setMode(option.value)}
                     />
@@ -199,23 +191,25 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
                   </label>
                 ))}
               </fieldset>
-              <label className="inline-flex items-center gap-2 text-xs font-bold">
+              <label className="inline-flex items-center gap-2 text-xs font-medium">
                 <input
                   type="checkbox"
+                  className="accent-primary"
                   checked={includeOtherSubjects}
                   onChange={(e) => setIncludeOtherSubjects(e.target.checked)}
                 />
                 다른 교과군 카드도 포함
               </label>
             </div>
-            <button
+            <Button
               type="button"
+              size="lg"
+              className="font-semibold"
               onClick={runSearch}
               disabled={busy}
-              className="h-9 bg-primary px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "검색 중" : "검색"}
-            </button>
+            </Button>
           </div>
 
           {message && (
