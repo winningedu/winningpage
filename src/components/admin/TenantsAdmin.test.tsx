@@ -136,6 +136,23 @@ describe("TenantsAdmin 위닝(플래그 꺼짐)", () => {
   });
 });
 
+describe("TenantsAdmin 표 접근성", () => {
+  test("열 머리글은 scope col 을 가진다", async () => {
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    expect(screen.getByRole("columnheader", { name: "이름" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
+  test("검색 입력은 접근 가능한 이름을 가진다", async () => {
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    expect(screen.getByLabelText("검색")).toBeInTheDocument();
+  });
+});
+
 describe("TenantsAdmin 발급 코드 모달(플래그 꺼짐)", () => {
   async function openIssuedDialog() {
     state.hqTenantAdmin = false;
