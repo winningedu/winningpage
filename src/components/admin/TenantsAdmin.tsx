@@ -1,5 +1,12 @@
 import { Copy, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
@@ -298,30 +305,44 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     <div>
       {issuedTenant && (
         // 발급 직후 결과 모달 — 코드는 이 순간을 놓치면 목록에서 다시 찾아야
-        // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다).
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-lg font-black">기관을 발급했습니다</h2>
-            <div className="mb-1 text-sm font-bold text-gray-500">
-              {issuedTenant.name}
+        // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다). 확인으로만 닫히도록
+        // 닫기 시도를 모두 취소한다. 바깥 누름은 AlertDialog 가 기본으로 무시하고,
+        // Esc 는 onOpenChange 에서 막는다.
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
+        <AlertDialog
+          open
+          onOpenChange={(_open, eventDetails) => eventDetails.cancel()}
+        >
+          <AlertDialogContent className="data-[size=default]:sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-semibold">
+                기관을 발급했습니다
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+            <div>
+              <div className="mb-1 text-sm font-bold text-gray-500">
+                {issuedTenant.name}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
+                  {issuedTenant.code}
+                </span>
+                <ActionButton
+                  variant="light"
+                  onClick={() => copyToClipboard(issuedTenant.code)}
+                >
+                  <Copy size={14} />
+                  복사
+                </ActionButton>
+              </div>
             </div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
-                {issuedTenant.code}
-              </span>
-              <ActionButton
-                variant="light"
-                onClick={() => copyToClipboard(issuedTenant.code)}
-              >
-                <Copy size={14} />
-                복사
+            <AlertDialogFooter>
+              <ActionButton onClick={() => setIssuedTenant(null)}>
+                확인
               </ActionButton>
-            </div>
-            <ActionButton onClick={() => setIssuedTenant(null)}>
-              확인
-            </ActionButton>
-          </div>
-        </div>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">

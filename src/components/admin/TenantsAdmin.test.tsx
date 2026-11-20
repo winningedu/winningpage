@@ -136,6 +136,55 @@ describe("TenantsAdmin 위닝(플래그 꺼짐)", () => {
   });
 });
 
+describe("TenantsAdmin 발급 코드 모달(플래그 꺼짐)", () => {
+  async function openIssuedDialog() {
+    state.hqTenantAdmin = false;
+    state.created = {
+      ...BASE,
+      id: "tenant-new",
+      code: "NEWC2345",
+      name: "새기관",
+    };
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "새기관" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+  }
+
+  test("제목을 접근 가능한 이름으로 가진 alertdialog 로 발급 코드를 보여 준다", async () => {
+    await openIssuedDialog();
+
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "기관을 발급했습니다",
+    });
+    expect(within(dialog).getByText("NEWC2345")).toBeTruthy();
+  });
+
+  test("Esc 와 바깥 누름으로 닫히지 않고 확인으로만 닫힌다", async () => {
+    await openIssuedDialog();
+    const dialog = await screen.findByRole("alertdialog");
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.mouseUp(document.body);
+    fireEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(within(dialog).getByText("NEWC2345")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
+});
+
 describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
   test("계약 기간, MOU, 유예 종료일, 삭제 D-day 열을 보인다", async () => {
     render(<TenantsAdmin config={CONFIG} />);
