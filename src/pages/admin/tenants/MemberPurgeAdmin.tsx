@@ -188,7 +188,7 @@ export default function MemberPurgeAdmin() {
       {confirming && (
         // 삭제 중에는 Esc 와 취소를 모두 막는다(서버 삭제는 멈추지 않으므로 화면만
         // 닫히면 결과를 놓친다). 바깥 누름은 AlertDialog 가 기본으로 무시한다.
-        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
         <AlertDialog
           open
           onOpenChange={(_open, eventDetails) => {

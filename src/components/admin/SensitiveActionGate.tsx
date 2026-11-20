@@ -121,7 +121,7 @@ export function useSensitiveActionGate() {
         if (open) return;
         // 확인 중에 닫으면 submit 이 이어서 로그 적재와 onGranted 까지 실행해 닫기가
         // 곧 승인이 된다. 확인 중에는 Esc 등 모든 닫기를 막는다.
-        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
         if (state.busy) {
           eventDetails.cancel();
           return;

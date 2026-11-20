@@ -119,7 +119,7 @@ export default function SchoolAdminPanel({
       {issued && (
         // 임시 비밀번호는 지금 한 번만 보인다. 확인으로만 닫히도록 닫기 시도를 모두
         // 취소한다(바깥 누름은 AlertDialog 가 기본으로 무시하고, Esc 는 여기서 막는다).
-        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
         <AlertDialog
           open
           onOpenChange={(_open, eventDetails) => eventDetails.cancel()}

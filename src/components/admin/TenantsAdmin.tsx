@@ -308,7 +308,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
         // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다). 확인으로만 닫히도록
         // 닫기 시도를 모두 취소한다. 바깥 누름은 AlertDialog 가 기본으로 무시하고,
         // Esc 는 onOpenChange 에서 막는다.
-        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
         <AlertDialog
           open
           onOpenChange={(_open, eventDetails) => eventDetails.cancel()}
