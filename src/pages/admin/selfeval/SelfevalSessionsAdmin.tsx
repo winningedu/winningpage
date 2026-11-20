@@ -495,7 +495,20 @@ function GrantDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog
+      open={open}
+      disablePointerDismissal
+      onOpenChange={(next, eventDetails) => {
+        if (next) return;
+        // 부여 요청이 나간 뒤에 닫으면 결과를 보지 못한 채 부여가 끝난다. 진행 중에는 모든 닫기를 막는다.
+        // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[28rem]">
         <DialogHeader>
           <DialogTitle>이용권 부여</DialogTitle>
@@ -570,7 +583,7 @@ function GrantDialog({
           <ActionButton onClick={submit} disabled={busy}>
             {busy ? "처리 중..." : "부여"}
           </ActionButton>
-          <ActionButton variant="light" onClick={onClose}>
+          <ActionButton variant="light" onClick={onClose} disabled={busy}>
             닫기
           </ActionButton>
         </div>
