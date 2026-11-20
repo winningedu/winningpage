@@ -115,7 +115,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // BlockNote 계열을 이름 있는 단일 청크로 고정한다 — 빌드 출력에서 청크 크기를 바로 읽기 위함.
         // 두 importer(Admin의 에디터, ColumnBodyBlockNote)가 모두 lazy라 청크도 async로 남는다.
