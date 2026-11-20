@@ -88,6 +88,18 @@ describe("AdminForm select 와 textarea", () => {
   });
 });
 
+describe("AdminForm textarea 글자 크기", () => {
+  test("ui Textarea 의 md:text-sm 이 text-xs 를 덮지 않도록 md:text-xs 도 갖는다", () => {
+    renderForm({
+      fields: [{ key: "memo", label: "메모", type: "textarea" }],
+    });
+
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toHaveClass("text-xs", "md:text-xs");
+    expect(textarea).not.toHaveClass("md:text-sm");
+  });
+});
+
 describe("AdminForm 저장 중복 방지", () => {
   test("createDefaults 로 연 신규 등록에서 저장을 연달아 두 번 눌러도 한 번만 저장한다", async () => {
     let finish: () => void = () => {};
