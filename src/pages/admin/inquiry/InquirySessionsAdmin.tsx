@@ -294,7 +294,19 @@ function SessionDetailDialog({
   }
 
   return (
-    <Dialog open={row !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={row !== null}
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (open) return;
+        // 복구 요청이 나간 뒤에 닫으면 결과를 보지 못한 채 복구가 끝난다. 진행 중에는 모든 닫기를 막는다.
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[32rem]">
         {row && (
           <>
