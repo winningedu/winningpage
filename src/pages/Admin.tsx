@@ -474,7 +474,7 @@ export async function requestWinningEmbedding(row) {
     return null;
   }
 }
-// 어드민 사이드바는 어두운 배경을 유지한다 — ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
+// 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
 // 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
 const ADMIN_SIDEBAR_THEME = {
   "--sidebar": "#101214",
@@ -3999,7 +3999,9 @@ export function AdminLayout() {
     <Toaster>
       {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
           open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
-          단축키가 눌려도 상태가 바뀌지 않는다. */}
+          단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
+          sidebar_state=false 쿠키를 쓰고, 프로바이더가 어드민에서 브라우저 자체의
+          Ctrl+B 를 막는다. */}
       <SidebarProvider
         open
         onOpenChange={() => {}}
