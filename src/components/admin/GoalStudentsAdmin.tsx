@@ -1,15 +1,15 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Eye,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { Eye, RotateCcw, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   addDaysYMD,
   CONDITION_MULTIPLIER,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/goal/calc/index.js";
 import { supabase } from "@/lib/supabase";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
+import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { toastSuccess } from "@/pages/admin/shared/adminToast";
@@ -701,19 +702,9 @@ export default function GoalStudentsAdmin({
   }, [page, term, filter, todayYMD, config.title]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const windowSize = Math.min(totalPages, 10);
   // QA 317 — 학생 상세는 라우트가 아니라 state 라, 뒤로가기가 목록이 아닌 직전
   // 메뉴로 튄다. 상세를 열 때 히스토리 항목을 쌓아 뒤로가기가 그걸 소비하게 한다.
   useAdminDetailBack(Boolean(detailId), () => setDetailId(null));
-
-  const windowStart = Math.min(
-    Math.max(1, page - Math.floor(windowSize / 2)),
-    Math.max(1, totalPages - windowSize + 1),
-  );
-  const pageNumbers = Array.from(
-    { length: windowSize },
-    (_, index) => windowStart + index,
-  );
 
   if (detailId) {
     return (
@@ -807,177 +798,202 @@ export default function GoalStudentsAdmin({
             명
           </div>
 
-          <ScrollArea axis="x">
-            <table className="w-full min-w-325 border-collapse text-sm">
-              <thead>
-                {/* 표 폭이 컨테이너보다 넓으면 가로 스크롤로 처리한다(§4-1 관행).
+          <Table className="w-full min-w-325 text-sm">
+            <TableHeader>
+              {/* 표 폭이 컨테이너보다 넓으면 가로 스크롤로 처리한다(§4-1 관행).
                     머리글이 줄바꿈되면 "상한 수 / 시" 처럼 끊겨 읽히므로 nowrap 을 건다. */}
-                <tr className="border-y border-gray-300 text-left [&>th]:whitespace-nowrap">
-                  <th className="px-3 py-3">이름</th>
-                  <th className="px-3 py-3">연락처</th>
-                  <th className="px-3 py-3">학년</th>
-                  <th className="px-3 py-3">학교 유형</th>
-                  <th className="px-3 py-3">상한 목표</th>
-                  <th className="px-3 py-3">하한 목표</th>
-                  <th className="px-3 py-3">상태</th>
-                  <th className="px-3 py-3">상한 수시</th>
-                  <th className="px-3 py-3">상한 정시</th>
-                  <th className="px-3 py-3">하한 수시</th>
-                  <th className="px-3 py-3">하한 정시</th>
-                  <th className="px-3 py-3">기록 수</th>
-                  <th className="px-3 py-3">최근 기록일</th>
-                  <th className="px-3 py-3">위험</th>
-                  <th className="w-20 px-3 py-3 text-center">관리</th>
-                </tr>
-              </thead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  이름
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  연락처
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  학년
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  학교 유형
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  상한 목표
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  하한 목표
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  상태
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  상한 수시
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  상한 정시
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  하한 수시
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  하한 정시
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  기록 수
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  최근 기록일
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal px-3 py-3"
+                >
+                  위험
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="font-semibold whitespace-normal w-20 px-3 py-3 text-center"
+                >
+                  관리
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={15}
-                      className="py-12 text-center text-muted-foreground"
-                    >
-                      {term || filter !== "all"
-                        ? "조건에 맞는 학생이 없습니다."
-                        : "온보딩을 마친 학생이 아직 없습니다."}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => {
-                    const flags = buildGoalRiskFlags(row, todayYMD);
-                    return (
-                      <tr
-                        key={row.profile_id}
-                        className="border-b border-gray-100"
-                      >
-                        <td className="whitespace-nowrap px-3 py-3 font-bold">
-                          {row.profile?.name || "-"}
-                        </td>
-                        {/* 목록은 마스킹, 상세는 원본 — maskedPhone 선례와 같은 규칙(§3-D6) */}
-                        <td className="whitespace-nowrap px-3 py-3">
-                          {formatValue(row.profile?.phone, "maskedPhone")}
-                        </td>
-                        <td className="px-3 py-3">
-                          {row.student?.grade || "-"}
-                        </td>
-                        <td className="px-3 py-3">
-                          {row.student?.school_type || "-"}
-                        </td>
-                        <td className="px-3 py-3">
-                          {row.student?.ideal_university || "-"}
-                          <span className="block text-xs text-gray-500">
-                            {row.student?.ideal_department || "-"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3">
-                          {row.student?.min_university || "-"}
-                          <span className="block text-xs text-gray-500">
-                            {row.student?.min_department || "-"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3">
-                          <GoalStatusBadge status={row.status} />
-                        </td>
-                        <td className="px-3 py-3">
-                          <GoalProb value={row.ideal_susi} />
-                        </td>
-                        <td className="px-3 py-3">
-                          <GoalProb value={row.ideal_jungsi} />
-                        </td>
-                        <td className="px-3 py-3">
-                          <GoalProb value={row.min_susi} />
-                        </td>
-                        <td className="px-3 py-3">
-                          <GoalProb value={row.min_jungsi} />
-                        </td>
-                        <td className="px-3 py-3">
-                          {Number(row.record_count || 0).toLocaleString()}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-3">
-                          {row.last_record_date || "-"}
-                        </td>
-                        <td className="px-3 py-3">
-                          <span className="flex flex-wrap gap-1">
-                            {flags.length === 0 ? (
-                              <span className="text-gray-300">-</span>
-                            ) : (
-                              flags.map((flag) => (
-                                <GoalRiskBadge key={flag.key} tone={flag.tone}>
-                                  {flag.label}
-                                </GoalRiskBadge>
-                              ))
-                            )}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setDetailId(row.profile_id)}
-                            title="상세 보기"
-                            className="inline-flex h-7 w-7 items-center justify-center border border-gray-300 text-gray-600"
-                          >
-                            <Eye size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </ScrollArea>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={15}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    {term || filter !== "all"
+                      ? "조건에 맞는 학생이 없습니다."
+                      : "온보딩을 마친 학생이 아직 없습니다."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((row) => {
+                  const flags = buildGoalRiskFlags(row, todayYMD);
+                  return (
+                    <TableRow key={row.profile_id}>
+                      <TableCell className="whitespace-nowrap px-3 py-3 font-bold">
+                        {row.profile?.name || "-"}
+                      </TableCell>
+                      {/* 목록은 마스킹, 상세는 원본 — maskedPhone 선례와 같은 규칙(§3-D6) */}
+                      <TableCell className="whitespace-nowrap px-3 py-3">
+                        {formatValue(row.profile?.phone, "maskedPhone")}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {row.student?.grade || "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {row.student?.school_type || "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {row.student?.ideal_university || "-"}
+                        <span className="block text-xs text-gray-500">
+                          {row.student?.ideal_department || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {row.student?.min_university || "-"}
+                        <span className="block text-xs text-gray-500">
+                          {row.student?.min_department || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <GoalStatusBadge status={row.status} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <GoalProb value={row.ideal_susi} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <GoalProb value={row.ideal_jungsi} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <GoalProb value={row.min_susi} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <GoalProb value={row.min_jungsi} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        {Number(row.record_count || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-3 py-3">
+                        {row.last_record_date || "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3">
+                        <span className="flex flex-wrap gap-1">
+                          {flags.length === 0 ? (
+                            <span className="text-gray-300">-</span>
+                          ) : (
+                            flags.map((flag) => (
+                              <GoalRiskBadge key={flag.key} tone={flag.tone}>
+                                {flag.label}
+                              </GoalRiskBadge>
+                            ))
+                          )}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-3 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(row.profile_id)}
+                          title="상세 보기"
+                          className="inline-flex h-7 w-7 items-center justify-center border border-gray-300 text-gray-600"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
 
-          <div className="mt-6 flex items-center justify-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPage(1)}
-              disabled={page <= 1}
-              className="inline-flex h-8 w-8 items-center justify-center border border-gray-300 disabled:opacity-30"
-            >
-              <ChevronsLeft size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={page <= 1}
-              className="inline-flex h-8 w-8 items-center justify-center border border-gray-300 disabled:opacity-30"
-            >
-              <ChevronLeft size={14} />
-            </button>
-
-            {pageNumbers.map((number) => (
-              <button
-                key={number}
-                type="button"
-                onClick={() => setPage(number)}
-                className={`inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs font-black ${
-                  number === page
-                    ? "border-primary bg-primary text-white"
-                    : "border-gray-300"
-                }`}
-              >
-                {number}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={page >= totalPages}
-              className="inline-flex h-8 w-8 items-center justify-center border border-gray-300 disabled:opacity-30"
-            >
-              <ChevronRight size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage(totalPages)}
-              disabled={page >= totalPages}
-              className="inline-flex h-8 w-8 items-center justify-center border border-gray-300 disabled:opacity-30"
-            >
-              <ChevronsRight size={14} />
-            </button>
-          </div>
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>
@@ -1680,41 +1696,60 @@ export function GoalStudentDetail({
             <GoalDetailRow label="주간 최소">
               {student.week_min ?? "-"} 시간
             </GoalDetailRow>
-            <ScrollArea axis="x" className="px-4 py-3">
-              <table className="w-full min-w-100 border-collapse text-xs">
-                <thead>
-                  <tr className="border-y border-gray-200 text-left">
-                    <th className="px-2 py-2">요일</th>
+            <div className="px-4 py-3">
+              <Table className="w-full min-w-100 text-xs">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-2 py-2"
+                    >
+                      요일
+                    </TableHead>
                     {GOAL_WEEKDAY_LABELS.map((label) => (
-                      <th key={label} className="px-2 py-2">
+                      <TableHead
+                        key={label}
+                        scope="col"
+                        className="font-semibold whitespace-normal px-2 py-2"
+                      >
                         {label}
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-gray-100">
-                    <td className="px-2 py-2 font-black">이상</td>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="whitespace-normal px-2 py-2 font-black">
+                      이상
+                    </TableCell>
                     {VIRTUAL_DAY_NAMES.map((day) => (
-                      <td key={day} className="px-2 py-2">
+                      <TableCell
+                        key={day}
+                        className="whitespace-normal px-2 py-2"
+                      >
                         {schedule?.[day]?.ideal ?? "-"}
-                      </td>
+                      </TableCell>
                     ))}
-                  </tr>
-                  <tr>
-                    <td className="px-2 py-2 font-black">최소</td>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="whitespace-normal px-2 py-2 font-black">
+                      최소
+                    </TableCell>
                     {VIRTUAL_DAY_NAMES.map((day) => (
-                      <td key={day} className="px-2 py-2">
+                      <TableCell
+                        key={day}
+                        className="whitespace-normal px-2 py-2"
+                      >
                         {schedule?.[day]?.min ?? "-"}
-                      </td>
+                      </TableCell>
                     ))}
-                  </tr>
-                </tbody>
-              </table>
+                  </TableRow>
+                </TableBody>
+              </Table>
               <p className="mt-2 text-xs font-bold text-muted-foreground">
                 주간 합계는 월~토만 더합니다(일요일 제외).
               </p>
-            </ScrollArea>
+            </div>
           </GoalCard>
 
           {/* 성적 원자료 — 목록 미노출, 상세 접힘 기본(§3-D6) */}
@@ -1773,57 +1808,72 @@ export function GoalStudentDetail({
         {/* ── C-2 우측: 게이지 분해 + C-3 컷 diff ────────────────────── */}
         <div>
           <GoalCard title="확률 분해 (base + Σdelta = 현재)">
-            <ScrollArea axis="x">
-              <table className="w-full min-w-120 border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      항목
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      base
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      Σdelta
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      현재
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      rate(%/일)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {GOAL_GAUGE_ROWS.map((row) => (
-                    <tr
-                      key={row.label}
-                      className="border-b border-gray-100 last:border-b-0"
-                    >
-                      <td className="px-4 py-2.5 font-black">{row.label}</td>
-                      <td className="px-4 py-2.5">
-                        <GoalProb
-                          value={state?.[row.base]}
-                          digits={1}
-                          suffix=""
-                        />
-                      </td>
-                      <td className="px-4 py-2.5">
-                        {goalSigned(state?.[row.cum])}
-                      </td>
-                      <td className="px-4 py-2.5 font-black">
-                        <GoalProb value={state?.[row.now]} digits={4} />
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500">
-                        {goalNum(student[row.rate]) === null
-                          ? "-"
-                          : Number(student[row.rate]).toFixed(4)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </ScrollArea>
+            <Table className="w-full min-w-120 text-sm">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    항목
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    base
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    Σdelta
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    현재
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    rate(%/일)
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {GOAL_GAUGE_ROWS.map((row) => (
+                  <TableRow
+                    key={row.label}
+                    className="border-b border-gray-100 last:border-b-0"
+                  >
+                    <TableCell className="whitespace-normal px-4 py-2.5 font-black">
+                      {row.label}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-2.5">
+                      <GoalProb
+                        value={state?.[row.base]}
+                        digits={1}
+                        suffix=""
+                      />
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-2.5">
+                      {goalSigned(state?.[row.cum])}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-2.5 font-black">
+                      <GoalProb value={state?.[row.now]} digits={4} />
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-2.5 text-gray-500">
+                      {goalNum(student[row.rate]) === null
+                        ? "-"
+                        : Number(student[row.rate]).toFixed(4)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
             <div className="border-t border-[#edf0f4] px-5 py-3 text-xs font-bold leading-6 text-gray-500">
               rate = (100 − base) ÷ (기준일까지 남은 일수 + 학년 오프셋)입니다.
@@ -1841,90 +1891,103 @@ export function GoalStudentDetail({
 
           {/* ── C-3 컷 스냅샷 vs 현재 컷 diff ────────────────────────── */}
           <GoalCard title="컷 스냅샷 vs 현재 컷">
-            <ScrollArea axis="x">
-              <table className="w-full min-w-136 border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      항목
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      온보딩 스냅샷
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      현재 컷
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      출처 / 연도 / 수정일
-                    </th>
-                    <th className="px-4 py-2.5 text-xs font-black text-gray-500">
-                      차이
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {GOAL_CUT_SLOTS.map((slot) => {
-                    const described = describeGoalCutSlot(slot, student);
-                    const snapshot = goalNum(student[slot.snapshotKey]);
-                    const currentRow = cutRows[slot.key] || null;
-                    const current = goalNum(currentRow?.avg_cut);
-                    const changed =
-                      snapshot !== null &&
-                      current !== null &&
-                      Math.abs(snapshot - current) > 1e-9;
+            <Table className="w-full min-w-136 text-sm">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    항목
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    온보딩 스냅샷
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    현재 컷
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    출처 / 연도 / 수정일
+                  </TableHead>
+                  <TableHead
+                    scope="col"
+                    className="font-semibold whitespace-normal px-4 py-2.5 text-xs text-muted-foreground"
+                  >
+                    차이
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {GOAL_CUT_SLOTS.map((slot) => {
+                  const described = describeGoalCutSlot(slot, student);
+                  const snapshot = goalNum(student[slot.snapshotKey]);
+                  const currentRow = cutRows[slot.key] || null;
+                  const current = goalNum(currentRow?.avg_cut);
+                  const changed =
+                    snapshot !== null &&
+                    current !== null &&
+                    Math.abs(snapshot - current) > 1e-9;
 
-                    return (
-                      <tr
-                        key={slot.key}
-                        className="border-b border-gray-100 last:border-b-0"
-                      >
-                        <td className="px-4 py-2.5">
-                          <span className="font-black">{slot.label}</span>
-                          <span className="block text-xs font-bold text-muted-foreground">
-                            {described.cutType} / {described.university || "-"}{" "}
-                            / {described.department || "-"}
+                  return (
+                    <TableRow
+                      key={slot.key}
+                      className="border-b border-gray-100 last:border-b-0"
+                    >
+                      <TableCell className="whitespace-normal px-4 py-2.5">
+                        <span className="font-black">{slot.label}</span>
+                        <span className="block text-xs font-bold text-muted-foreground">
+                          {described.cutType} / {described.university || "-"} /{" "}
+                          {described.department || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-4 py-2.5">
+                        {snapshot === null ? (
+                          <span className="font-bold text-muted-foreground">
+                            미확보
                           </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {snapshot === null ? (
-                            <span className="font-bold text-muted-foreground">
-                              미확보
-                            </span>
-                          ) : (
-                            snapshot.toFixed(2)
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {current === null ? (
-                            <span className="font-bold text-muted-foreground">
-                              없음
-                            </span>
-                          ) : (
-                            current.toFixed(2)
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-gray-500">
-                          {currentRow
-                            ? `${goalOptionLabel(GOAL_CUT_SOURCE_OPTIONS, currentRow.source)} / ${
-                                currentRow.source_year ?? "-"
-                              } / ${formatValue(currentRow.updated_at, "datetime")}`
-                            : "-"}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {changed ? (
-                            <GoalRiskBadge tone="orange">
-                              {goalSigned(current - snapshot, 2)}
-                            </GoalRiskBadge>
-                          ) : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </ScrollArea>
+                        ) : (
+                          snapshot.toFixed(2)
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-4 py-2.5">
+                        {current === null ? (
+                          <span className="font-bold text-muted-foreground">
+                            없음
+                          </span>
+                        ) : (
+                          current.toFixed(2)
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-4 py-2.5 text-xs text-gray-500">
+                        {currentRow
+                          ? `${goalOptionLabel(GOAL_CUT_SOURCE_OPTIONS, currentRow.source)} / ${
+                              currentRow.source_year ?? "-"
+                            } / ${formatValue(currentRow.updated_at, "datetime")}`
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-normal px-4 py-2.5">
+                        {changed ? (
+                          <GoalRiskBadge tone="orange">
+                            {goalSigned(current - snapshot, 2)}
+                          </GoalRiskBadge>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
 
             <div className="border-t border-[#edf0f4] px-5 py-3">
               {state?.status === "awaiting_cuts" ? (
@@ -1950,57 +2013,94 @@ export function GoalStudentDetail({
             {/* 0건일 때 차트를 그리지 않는다 — 아래 표가 이미 같은 빈 상태 문구를 낸다. */}
             {logs.length > 0 && <GoalProbabilityChart logs={logs} />}
 
-            <ScrollArea axis="x" className="border-t border-[#edf0f4]">
-              <table className="w-full min-w-136 border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="px-4 py-2">기록 시각</th>
-                    <th className="px-4 py-2">사유</th>
-                    <th className="px-4 py-2">상한 수시</th>
-                    <th className="px-4 py-2">상한 정시</th>
-                    <th className="px-4 py-2">하한 수시</th>
-                    <th className="px-4 py-2">하한 정시</th>
-                    <th className="px-4 py-2">기록 id</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="border-t border-[#edf0f4]">
+              <Table className="w-full min-w-136 text-xs">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      기록 시각
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      사유
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      상한 수시
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      상한 정시
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      하한 수시
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      하한 정시
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="font-semibold whitespace-normal px-4 py-2"
+                    >
+                      기록 id
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {logs.length === 0 ? (
-                    <tr>
-                      <td
+                    <TableRow>
+                      <TableCell
                         colSpan={7}
                         className="py-8 text-center text-muted-foreground"
                       >
                         확률 로그가 없습니다.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="border-b border-gray-100">
-                        <td className="px-4 py-2">
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-normal px-4 py-2">
                           {formatValue(log.created_at, "datetime")}
-                        </td>
-                        <td className="px-4 py-2">{log.reason}</td>
-                        <td className="px-4 py-2">
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2">
+                          {log.reason}
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2">
                           <GoalProb value={log.ideal_susi} digits={4} />
-                        </td>
-                        <td className="px-4 py-2">
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2">
                           <GoalProb value={log.ideal_jungsi} digits={4} />
-                        </td>
-                        <td className="px-4 py-2">
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2">
                           <GoalProb value={log.min_susi} digits={4} />
-                        </td>
-                        <td className="px-4 py-2">
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2">
                           <GoalProb value={log.min_jungsi} digits={4} />
-                        </td>
-                        <td className="px-4 py-2 text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="whitespace-normal px-4 py-2 text-muted-foreground">
                           {log.source_record_id ?? "-"}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
-            </ScrollArea>
+                </TableBody>
+              </Table>
+            </div>
           </GoalCard>
         </div>
       </div>
@@ -2107,162 +2207,223 @@ export function GoalStudentDetail({
           ) : null
         }
       >
-        <ScrollArea axis="x">
-          <table className="w-full min-w-250 border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-gray-200 text-left">
-                <th className="px-3 py-2">#</th>
-                <th className="px-3 py-2">가상 날짜</th>
-                <th className="px-3 py-2">제출일</th>
-                <th className="px-3 py-2">공부시간</th>
-                <th className="px-3 py-2">목표(이상/최소)</th>
-                <th className="px-3 py-2">컨디션</th>
-                <th className="px-3 py-2">과목 태그</th>
-                <th className="px-3 py-2">Δ상한수시</th>
-                <th className="px-3 py-2">Δ상한정시</th>
-                <th className="px-3 py-2">Δ하한수시</th>
-                <th className="px-3 py-2">Δ하한정시</th>
-                <th className="px-3 py-2">진단</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={12}
-                    className="py-10 text-center text-muted-foreground"
+        <Table className="w-full min-w-250 text-xs">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                #
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                가상 날짜
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                제출일
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                공부시간
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                목표(이상/최소)
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                컨디션
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                과목 태그
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                Δ상한수시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                Δ상한정시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                Δ하한수시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                Δ하한정시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="font-semibold whitespace-normal px-3 py-2"
+              >
+                진단
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {records.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={12}
+                  className="py-10 text-center text-muted-foreground"
+                >
+                  제출된 일별 기록이 없습니다.
+                </TableCell>
+              </TableRow>
+            ) : (
+              records.map((record) => {
+                const gap = goalDiffDays(
+                  record.record_date,
+                  record.submitted_on,
+                );
+                const hints: { key: string; tone: string; text: string }[] = [];
+
+                if (
+                  Number(record.target_ideal_hours || 0) === 0 ||
+                  Number(record.target_min_hours || 0) === 0
+                ) {
+                  hints.push({
+                    key: "target0",
+                    tone: "orange",
+                    text: '목표 시간이 0이라 "이미 다 채움"으로 취급돼 rate 가 만액 지급됩니다(일요일 구멍).',
+                  });
+                }
+                if (Number(record.study_hours || 0) === 0) {
+                  hints.push({
+                    key: "study0",
+                    tone: "red",
+                    text: "0시간 기록이 존재합니다 — v2는 이 경로를 daily-record API에서 차단하므로 이상 데이터입니다.",
+                  });
+                }
+                if (Math.abs(gap) >= 2) {
+                  hints.push({
+                    key: "gap",
+                    tone: "gray",
+                    text: `가상 날짜와 실제 제출일이 ${Math.abs(gap)}일 차이납니다.`,
+                  });
+                }
+
+                const memo = goalTrim(record.memo);
+
+                return (
+                  <TableRow
+                    key={record.id}
+                    className="border-b border-gray-100 align-top"
                   >
-                    제출된 일별 기록이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                records.map((record) => {
-                  const gap = goalDiffDays(
-                    record.record_date,
-                    record.submitted_on,
-                  );
-                  const hints: { key: string; tone: string; text: string }[] =
-                    [];
-
-                  if (
-                    Number(record.target_ideal_hours || 0) === 0 ||
-                    Number(record.target_min_hours || 0) === 0
-                  ) {
-                    hints.push({
-                      key: "target0",
-                      tone: "orange",
-                      text: '목표 시간이 0이라 "이미 다 채움"으로 취급돼 rate 가 만액 지급됩니다(일요일 구멍).',
-                    });
-                  }
-                  if (Number(record.study_hours || 0) === 0) {
-                    hints.push({
-                      key: "study0",
-                      tone: "red",
-                      text: "0시간 기록이 존재합니다 — v2는 이 경로를 daily-record API에서 차단하므로 이상 데이터입니다.",
-                    });
-                  }
-                  if (Math.abs(gap) >= 2) {
-                    hints.push({
-                      key: "gap",
-                      tone: "gray",
-                      text: `가상 날짜와 실제 제출일이 ${Math.abs(gap)}일 차이납니다.`,
-                    });
-                  }
-
-                  const memo = goalTrim(record.memo);
-
-                  return (
-                    <tr
-                      key={record.id}
-                      className="border-b border-gray-100 align-top"
-                    >
-                      <td className="px-3 py-2">{record.record_index}</td>
-                      <td className="px-3 py-2">
-                        {record.record_date}
-                        <span className="block text-muted-foreground">
-                          {GOAL_WEEKDAY_LABELS[
-                            record.virtual_day_index ?? -1
-                          ] || ""}
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.record_index}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.record_date}
+                      <span className="block text-muted-foreground">
+                        {GOAL_WEEKDAY_LABELS[record.virtual_day_index ?? -1] ||
+                          ""}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.submitted_on}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.study_hours}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.target_ideal_hours} / {record.target_min_hours}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {record.body_condition ? (
+                        <>
+                          {record.body_condition}
+                          <span className="block text-muted-foreground">
+                            ×
+                            {CONDITION_MULTIPLIER[record.body_condition] ?? "?"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          미입력(정상 배수 1.0 적용)
                         </span>
-                      </td>
-                      <td className="px-3 py-2">{record.submitted_on}</td>
-                      <td className="px-3 py-2">{record.study_hours}</td>
-                      <td className="px-3 py-2">
-                        {record.target_ideal_hours} / {record.target_min_hours}
-                      </td>
-                      <td className="px-3 py-2">
-                        {record.body_condition ? (
-                          <>
-                            {record.body_condition}
-                            <span className="block text-muted-foreground">
-                              ×
-                              {CONDITION_MULTIPLIER[record.body_condition] ??
-                                "?"}
-                            </span>
-                          </>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {(record.tasks || []).length === 0
+                        ? "-"
+                        : (record.tasks || []).join(", ")}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {goalSigned(record.delta_ideal_susi)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {goalSigned(record.delta_ideal_jungsi)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {goalSigned(record.delta_min_susi)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      {goalSigned(record.delta_min_jungsi)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-2">
+                      <span className="flex flex-col gap-1">
+                        {hints.length === 0 ? (
+                          <span className="text-gray-300">-</span>
                         ) : (
-                          <span className="text-muted-foreground">
-                            미입력(정상 배수 1.0 적용)
+                          hints.map((hint) => (
+                            <GoalRiskBadge key={hint.key} tone={hint.tone}>
+                              {hint.text}
+                            </GoalRiskBadge>
+                          ))
+                        )}
+                        {/* memo 는 학생 자유 서술이라 목록 미노출·상세 접힘 기본(§3-D6) */}
+                        {memo && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenMemo((prev) => ({
+                                ...prev,
+                                [record.id]: !prev[record.id],
+                              }))
+                            }
+                            className="self-start border border-gray-300 px-1.5 py-0.5 text-[0.6875rem] font-black text-gray-600"
+                          >
+                            {openMemo[record.id] ? "메모 접기" : "메모 보기"}
+                          </button>
+                        )}
+                        {memo && openMemo[record.id] && (
+                          <span className="whitespace-pre-line border border-gray-200 bg-[#fafafa] p-2 text-[0.6875rem] font-bold text-gray-600">
+                            {memo}
                           </span>
                         )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {(record.tasks || []).length === 0
-                          ? "-"
-                          : (record.tasks || []).join(", ")}
-                      </td>
-                      <td className="px-3 py-2">
-                        {goalSigned(record.delta_ideal_susi)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {goalSigned(record.delta_ideal_jungsi)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {goalSigned(record.delta_min_susi)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {goalSigned(record.delta_min_jungsi)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="flex flex-col gap-1">
-                          {hints.length === 0 ? (
-                            <span className="text-gray-300">-</span>
-                          ) : (
-                            hints.map((hint) => (
-                              <GoalRiskBadge key={hint.key} tone={hint.tone}>
-                                {hint.text}
-                              </GoalRiskBadge>
-                            ))
-                          )}
-                          {/* memo 는 학생 자유 서술이라 목록 미노출·상세 접힘 기본(§3-D6) */}
-                          {memo && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenMemo((prev) => ({
-                                  ...prev,
-                                  [record.id]: !prev[record.id],
-                                }))
-                              }
-                              className="self-start border border-gray-300 px-1.5 py-0.5 text-[0.6875rem] font-black text-gray-600"
-                            >
-                              {openMemo[record.id] ? "메모 접기" : "메모 보기"}
-                            </button>
-                          )}
-                          {memo && openMemo[record.id] && (
-                            <span className="whitespace-pre-line border border-gray-200 bg-[#fafafa] p-2 text-[0.6875rem] font-bold text-gray-600">
-                              {memo}
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </ScrollArea>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </GoalCard>
     </div>
   );
