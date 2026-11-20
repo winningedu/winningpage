@@ -21,6 +21,7 @@ export interface ConfirmAdminOptions {
 }
 
 interface Pending {
+  id: number;
   options: ConfirmAdminOptions;
   resolve: (confirmed: boolean) => void;
 }
@@ -28,6 +29,7 @@ interface Pending {
 // 확인창은 한 번에 하나만 뜬다. 열려 있는 동안 들어온 호출은 줄에 세우고, 앞의 창이
 // 닫히면 들어온 순서대로 띄운다(앞 호출을 취소로 끝내지 않는다).
 const queue: Pending[] = [];
+let nextId = 0;
 let current: Pending | null = null;
 let showCurrent: ((pending: Pending | null) => void) | null = null;
 
@@ -49,7 +51,7 @@ function settle(confirmed: boolean) {
 /** 확인창을 띄우고 확인이면 true, 취소나 Esc 면 false 로 끝난다. */
 export function confirmAdmin(options: ConfirmAdminOptions): Promise<boolean> {
   return new Promise((resolve) => {
-    queue.push({ options, resolve });
+    queue.push({ id: nextId++, options, resolve });
     pump();
   });
 }
@@ -82,7 +84,10 @@ export function ConfirmAdminHost() {
       }}
     >
       {options ? (
+        // 줄에 선 호출은 창을 닫지 않고 내용만 바뀌므로, id 로 다시 마운트해 호출마다
+        // initialFocus 가 돈다. 닫힘 애니메이션이 생략되는 것은 겉모습일 뿐이라 받아들인다.
         <AlertDialogContent
+          key={pending?.id}
           initialFocus={options.destructive ? cancelRef : actionRef}
         >
           <AlertDialogHeader>
