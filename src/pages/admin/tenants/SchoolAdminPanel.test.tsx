@@ -12,6 +12,7 @@ vi.mock("./api", () => ({
   issueSchoolAdmin: vi.fn(),
 }));
 
+import { Toaster } from "@/components/ui/toast";
 import * as api from "./api";
 import SchoolAdminPanel from "./SchoolAdminPanel";
 
@@ -150,5 +151,76 @@ describe("SchoolAdminPanel", () => {
 
     expect(screen.getByText("이름과 전화번호를 입력해 주세요.")).toBeTruthy();
     expect(api.issueSchoolAdmin).not.toHaveBeenCalled();
+  });
+
+  describe("복사 안내", () => {
+    async function openIssuedDialog() {
+      vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+        ok: true,
+        data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      });
+      render(
+        <>
+          <SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />
+          <Toaster />
+        </>,
+      );
+      await screen.findByText("박관리");
+      fill("이름", "김새로");
+      fill("전화번호", "010-1111-2222");
+      fireEvent.click(screen.getByRole("button", { name: "발급" }));
+      return await screen.findByRole("dialog");
+    }
+
+    function toastTitle() {
+      return document.querySelector('[data-slot="toast-title"]');
+    }
+
+    test("복사하면 '복사했습니다' 토스트가 보이고 값은 토스트에 없다", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const dialog = await openIssuedDialog();
+
+      fireEvent.click(
+        within(dialog).getAllByRole("button", {
+          name: "복사",
+        })[1] as HTMLElement,
+      );
+
+      await waitFor(() =>
+        expect(toastTitle()).toHaveTextContent("복사했습니다"),
+      );
+      expect(writeText).toHaveBeenCalledWith("Tmp-pass-1");
+      expect(
+        document.querySelector('[data-slot="toast-viewport"]')?.textContent,
+      ).not.toContain("Tmp-pass-1");
+    });
+
+    test("복사에 실패하면 실패 토스트가 보이고 로그에 값이 남지 않는다", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: vi
+            .fn()
+            .mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+        },
+      });
+      const dialog = await openIssuedDialog();
+
+      fireEvent.click(
+        within(dialog).getAllByRole("button", {
+          name: "복사",
+        })[1] as HTMLElement,
+      );
+
+      await waitFor(() =>
+        expect(toastTitle()).toHaveTextContent("복사하지 못했습니다"),
+      );
+      expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("Tmp-pass-1");
+    });
   });
 });

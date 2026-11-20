@@ -1087,3 +1087,13 @@ body {
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* 어드민 Toaster 가 Base UI 다이얼로그(z-50) 위에 보이게 하려는 규칙이다.
+   ui/toast.tsx 는 뷰포트를 z-50 으로 고정하고 Toaster 가 className 을 받지 않는다.
+   포털로 나중에 열리는 다이얼로그(z-50)는 같은 z-index 에서 DOM 순서로 토스트를
+   덮는다. 그래서 z-index 를 한 단계 올리는데, 이 규칙은 일부러 레이어 밖
+   (unlayered)에 둔다. layer 안의 유틸리티 클래스(z-50)보다 항상 우선하기 때문이다.
+   ui/** 는 직접 수정하지 않는 파일이라 고치지 않고 여기서 덮는다. */
+[data-slot="toast-viewport"] {
+  z-index: 60;
+}

@@ -3,12 +3,16 @@
 // 바뀌면(재사용되는 경우를 포함해) 컴포넌트 스스로 재발송 결과를 초기화해야 한다 —
 // 그러지 않으면 이전 학생의 성공/실패 요약이 다음 학생 화면에 그대로 남는다.
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Toaster } from "@/components/ui/toast";
 import { GoalStudentDetail } from "./GoalStudentsAdmin";
 
-const { studentRowHolder } = vi.hoisted(() => ({
+const { studentRowHolder, studentErrorHolder } = vi.hoisted(() => ({
   studentRowHolder: { current: null as Record<string, unknown> | null },
+  studentErrorHolder: {
+    current: null as { message: string; code?: string } | null,
+  },
 }));
 
 /** 어떤 메서드 체인을 걸어도 자기 자신을 돌려주다가 await되면 result로 resolve되는
@@ -31,7 +35,10 @@ vi.mock("@/lib/supabase", () => ({
   supabase: {
     from: vi.fn((table: string) => {
       if (table === "goal_students") {
-        return makeChainable({ data: studentRowHolder.current, error: null });
+        return makeChainable({
+          data: studentRowHolder.current,
+          error: studentErrorHolder.current,
+        });
       }
       if (table === "goal_daily_records") {
         return makeChainable({ data: [], error: null, count: 0 });
@@ -50,6 +57,8 @@ const noop = () => {};
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  studentErrorHolder.current = null;
 });
 
 describe("GoalStudentDetail — 학생 전환 시 재발송 상태 초기화", () => {
@@ -89,5 +98,33 @@ describe("GoalStudentDetail — 학생 전환 시 재발송 상태 초기화", (
     expect(
       screen.queryByText("연결된 학부모가 없어 보낼 대상이 없습니다."),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("GoalStudentDetail 오류 안내", () => {
+  it("학생 상세 조회에 실패하면 원문 없이 안내만 토스트로 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    studentErrorHolder.current = {
+      message: "permission denied for 홍길동",
+      code: "42501",
+    };
+    render(
+      <>
+        <GoalStudentDetail profileId="student-a" onBack={noop} />
+        <Toaster />
+      </>,
+    );
+
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("학생 상세 조회 실패");
+      expect(
+        document.querySelector('[data-slot="toast-description"]'),
+      ).toHaveTextContent("코드: 42501");
+    });
+    expect(document.body.textContent).not.toContain("홍길동");
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });

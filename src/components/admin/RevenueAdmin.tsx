@@ -351,7 +351,7 @@ export default function RevenueAdmin() {
               onClick={() => setActiveService(tab.key)}
               className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold ${
                 activeService === tab.key
-                  ? "border-[#B88737] text-[#B88737]"
+                  ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-800"
               }`}
             >

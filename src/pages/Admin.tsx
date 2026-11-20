@@ -27,6 +27,7 @@ import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Toaster } from "@/components/ui/toast";
 import {
   canAccessSection,
   fetchAdminPermissions,
@@ -104,7 +105,12 @@ import {
   uploadImage,
 } from "./admin/shared/AdminEngine";
 import { AdminTopbar } from "./admin/shared/AdminTopbar";
-import { buildFieldLabels, reportAdminError } from "./admin/shared/adminErrors";
+import {
+  AdminChunkError,
+  buildFieldLabels,
+  reportAdminError,
+  withChunkRows,
+} from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
 import {
   csvBody,
@@ -651,7 +657,9 @@ function AdmissionActiveYearSummary({ rows }) {
     const result = await setAdmissionActiveYear(supabase, year);
     if (!result.ok) {
       setSaving(false);
-      alert(`공개 연도 저장 실패: ${result.error}`);
+      reportAdminError("공개 연도 저장 실패", {
+        message: result.error ?? "",
+      });
       return;
     }
 
@@ -693,7 +701,7 @@ function AdmissionActiveYearSummary({ rows }) {
           type="button"
           onClick={handleChangeYear}
           disabled={loadingActiveYear || saving}
-          className="h-9 bg-[#2348ff] px-4 text-sm font-black text-white disabled:opacity-50"
+          className="h-9 bg-primary px-4 text-sm font-black text-white disabled:opacity-50"
         >
           {saving ? "저장 중…" : "변경"}
         </button>
@@ -884,7 +892,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       );
     if (error) {
       setApplying(false);
-      alert(`엑셀 적용 실패: ${error.message}`);
+      reportAdminError("엑셀 적용 실패", error);
       return;
     }
     const { summary } = parseResult;
@@ -951,7 +959,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
           {/* truncatedCellSkipCount 같은 개별 집계 필드는 여기서 안 쓰고
               warningCounts만 쓴다(team-lead 지시) — type별 건수를 lib이
               그대로 주므로 문자열 매칭·직접 재계산을 안 한다. 경고
@@ -959,7 +967,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               포맷에서 html 3종이 빠지면서(26→23컬럼) "html 파싱" 개념
               자체가 없어져 그쪽 집계 필드도 lib에서 정리됐다 — 애초에
               이 컴포넌트가 그 필드를 쓴 적이 없어 갱신할 코드는 없었다. */}
-          <p className="font-black text-[#2348ff]">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1064,7 +1072,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {applying ? "적용 중…" : "적용"}
             </button>
@@ -1262,7 +1270,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
@@ -1327,8 +1335,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + RESULTS_APPLY_CHUNK);
         const { error } = await supabase.from(RESULTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1340,8 +1350,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           .from(RESULTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1350,8 +1362,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -1431,8 +1444,8 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1532,7 +1545,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -2001,7 +2014,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       });
     } catch (err) {
       setPreview(null);
-      alert(`미리보기 계산 실패: ${err.message}`);
+      reportAdminError("미리보기 계산 실패", err);
     } finally {
       setSourceProgress(null);
       setComputing(false);
@@ -2032,8 +2045,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           onConflict: "cut_type,university_key,department_key",
         });
         if (error) {
-          throw new Error(
-            `컷 반영 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "컷 반영 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2047,8 +2062,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           .update({ is_active: false })
           .in("id", chunk);
         if (error) {
-          throw new Error(
-            `고아 유도 행 노출 끄기 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "고아 유도 행 노출 끄기 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2057,8 +2074,9 @@ function GoalCutsBackfillPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `백필 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("백필 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -2189,8 +2207,8 @@ function GoalCutsBackfillPanel({ onReload }) {
           const stats = preview.stats;
           const analysis = preview.analysis;
           return (
-            <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-              <p className="font-black text-[#2348ff]">
+            <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+              <p className="font-black text-primary">
                 생성 대상: 대학 {stats.universityCount.toLocaleString()}개 ·
                 학과 조합 {stats.pairCount.toLocaleString()}개 · 총{" "}
                 {stats.totalRows.toLocaleString()}행 (수시 일반{" "}
@@ -2326,7 +2344,7 @@ function GoalCutsBackfillPanel({ onReload }) {
                   type="button"
                   onClick={handleApply}
                   disabled={!confirmChecked || applying}
-                  className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+                  className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
                 >
                   {(() => {
                     if (!applying) return "적용";
@@ -2444,7 +2462,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
@@ -2506,8 +2524,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
         const { error } = await supabase.from(GOAL_CUTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2519,8 +2539,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           .from(GOAL_CUTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2529,8 +2551,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -2634,8 +2657,8 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+          <p className="font-black text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -2735,7 +2758,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
+              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -3644,7 +3667,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                     onClick={() => changeTab(tab.key)}
                     className={`h-9 border px-5 text-sm font-black transition ${
                       activeKey === tab.key
-                        ? "border-[#2348ff] bg-[#2348ff] text-white"
+                        ? "border-primary bg-primary text-white"
                         : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
                     }`}
                   >
@@ -3779,7 +3802,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                   <button
                     type="button"
                     onClick={createRow}
-                    className="inline-flex h-9 items-center gap-1 bg-[#2348ff] px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
+                    className="inline-flex h-9 items-center gap-1 bg-primary px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
                   >
                     <Plus size={14} />
                     등록
@@ -3800,7 +3823,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
               )}
 
               {exporting && (
-                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-[#2348ff]">
+                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-primary">
                   CSV 내보내는 중 — {exporting.done.toLocaleString()} /{" "}
                   {exporting.total.toLocaleString()}건. 완료될 때까지 이 화면을
                   닫지 마세요.
@@ -3932,15 +3955,17 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
-      <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
-      <AdminTopbar onLogout={logout} />
+    <Toaster>
+      <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
+        <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
+        <AdminTopbar onLogout={logout} />
 
-      <main className="ml-[224px] pt-[56px]">
-        <div className="min-h-[calc(100vh-56px)] px-7 py-8">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="ml-[224px] pt-[56px]">
+          <div className="min-h-[calc(100vh-56px)] px-7 py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </Toaster>
   );
 }

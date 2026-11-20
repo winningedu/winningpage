@@ -257,7 +257,7 @@ export default function StudentUsageAdmin() {
               type="button"
               onClick={save}
               disabled={busy || dirty.size === 0 || selected.length === 0}
-              className="inline-flex h-9 items-center bg-[#0D1B2A] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-9 items-center bg-primary px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {`선택한 ${selected.length}명에게 저장`}
             </button>

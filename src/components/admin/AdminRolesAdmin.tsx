@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
 import { ADMIN_PERMISSION_LEVEL_OPTIONS } from "@/pages/admin/configs/adminSettings";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   ActionButton,
   Field,
@@ -96,8 +97,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     const error = roleRes.error || resourceRes.error || permRes.error;
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       return;
     }
 
@@ -211,7 +211,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .eq("id", roleId);
       if (error) {
         setSaving(false);
-        alert(`저장 실패: ${error.message}`);
+        reportAdminError("저장 실패", error);
         return;
       }
     } else {
@@ -222,8 +222,10 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .single();
       if (error || !data) {
         setSaving(false);
-        alert(
-          `저장 실패: ${error?.message || "권한 묶음을 만들지 못했습니다."}`,
+        // 오류 없이 행이 안 돌아온 경우는 일반 문구 대신 구체적인 문장을 제목으로 쓴다.
+        reportAdminError(
+          error ? "저장 실패" : "권한 묶음을 만들지 못했습니다.",
+          error,
         );
         return;
       }
@@ -240,7 +242,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     if (deleteError) {
       setSaving(false);
-      alert(`권한 항목 저장 실패: ${deleteError.message}`);
+      reportAdminError("권한 항목 저장 실패", deleteError);
       return;
     }
 
@@ -256,7 +258,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .insert(rows);
       if (insertError) {
         setSaving(false);
-        alert(`권한 항목 저장 실패: ${insertError.message}`);
+        reportAdminError("권한 항목 저장 실패", insertError);
         return;
       }
     }
@@ -288,7 +290,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
       .eq("id", role.id);
 
     if (error) {
-      alert(`삭제 실패: ${error.message}`);
+      reportAdminError("삭제 실패", error);
       return;
     }
     await loadAll();
@@ -347,7 +349,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                     <button
                       type="button"
                       onClick={() => setGroupLevel(groupTitle, choice.value)}
-                      className="text-xs font-bold text-[#2348ff] underline"
+                      className="text-xs font-bold text-primary underline"
                     >
                       일괄
                     </button>
@@ -362,7 +364,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                 >
                   <div className="text-sm">
                     {resource.label}
-                    <span className="ml-2 font-mono text-xs text-gray-400">
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">
                       {resource.key}
                     </span>
                   </div>
@@ -457,7 +459,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                     <td className="px-4 py-3 font-bold">
                       {role.name}
                       {role.is_super && (
-                        <span className="ml-2 border border-[#2348ff] px-2 py-0.5 text-xs font-bold text-[#2348ff]">
+                        <span className="ml-2 border border-primary px-2 py-0.5 text-xs font-bold text-primary">
                           최고 관리자
                         </span>
                       )}

@@ -188,7 +188,7 @@ export default function QueryDialog({
           {results && (
             <ScrollArea className="mt-2 max-h-[14rem]">
               {results.length === 0 ? (
-                <div className="py-4 text-center text-sm text-gray-400">
+                <div className="py-4 text-center text-sm text-muted-foreground">
                   검색 결과가 없습니다.
                 </div>
               ) : (

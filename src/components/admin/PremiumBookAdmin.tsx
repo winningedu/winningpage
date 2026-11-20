@@ -560,7 +560,7 @@ export default function PremiumBookAdmin({
             type="button"
             onClick={handleConvert}
             disabled={!pdfFile || converting || applying}
-            className="inline-flex h-9 items-center gap-2 bg-[#2348ff] px-4 text-sm font-black text-white disabled:opacity-40"
+            className="inline-flex h-9 items-center gap-2 bg-primary px-4 text-sm font-black text-white disabled:opacity-40"
           >
             {converting
               ? `변환 중 (${progress.done}/${progress.total || "?"})`
@@ -623,7 +623,7 @@ export default function PremiumBookAdmin({
             <button
               type="button"
               onClick={createRow}
-              className="inline-flex h-9 items-center gap-1 bg-[#2348ff] px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
+              className="inline-flex h-9 items-center gap-1 bg-primary px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
             >
               <Plus size={14} />
               등록

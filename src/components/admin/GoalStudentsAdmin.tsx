@@ -19,6 +19,7 @@ import {
 } from "@/lib/goal/calc/index.js";
 import { supabase } from "@/lib/supabase";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
@@ -307,7 +308,7 @@ function GoalProb({
 }) {
   const parsed = goalNum(value);
   if (parsed === null)
-    return <span className="font-bold text-gray-400">미산출</span>;
+    return <span className="font-bold text-muted-foreground">미산출</span>;
   return (
     <span>
       {parsed.toFixed(digits)}
@@ -324,7 +325,7 @@ function GoalStatusBadge({ status }: { status?: string | null | undefined }) {
       ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
       : status === "paused"
         ? "border-gray-300 bg-gray-100 text-gray-500"
-        : "border-[#2348ff]/30 bg-[#eef2ff] text-[#2348ff]";
+        : "border-primary/30 bg-[#eef2ff] text-primary";
 
   return (
     <span
@@ -571,8 +572,7 @@ export default function GoalStudentsAdmin({
         if (cancelled) return;
 
         if (error) {
-          console.error(error);
-          alert(`학생 검색 실패: ${error.message}`);
+          reportAdminError("학생 검색 실패", error);
           setRows([]);
           setTotalCount(0);
           setLoading(false);
@@ -623,8 +623,7 @@ export default function GoalStudentsAdmin({
       if (cancelled) return;
 
       if (stateError) {
-        console.error(stateError);
-        alert(`${config.title} 조회 실패: ${stateError.message}`);
+        reportAdminError(`${config.title} 조회 실패`, stateError);
         setRows([]);
         setTotalCount(0);
         setLoading(false);
@@ -662,8 +661,7 @@ export default function GoalStudentsAdmin({
       if (cancelled) return;
 
       if (studentRes.error) {
-        console.error(studentRes.error);
-        alert(`학생 정보 조회 실패: ${studentRes.error.message}`);
+        reportAdminError("학생 정보 조회 실패", studentRes.error);
       }
 
       if (profileRes.error) console.error(profileRes.error);
@@ -738,7 +736,7 @@ export default function GoalStudentsAdmin({
                 }}
                 className={`inline-flex h-9 items-center border px-3 text-xs font-black ${
                   filter === item.key
-                    ? "border-[#2348ff] bg-[#2348ff] text-white"
+                    ? "border-primary bg-primary text-white"
                     : "border-gray-400 bg-white text-gray-700"
                 }`}
               >
@@ -801,9 +799,7 @@ export default function GoalStudentsAdmin({
         <div className="bg-white p-6 shadow-sm">
           <div className="mb-4 text-sm font-bold text-gray-500">
             전체{" "}
-            <span className="text-[#2348ff]">
-              {totalCount.toLocaleString()}
-            </span>
+            <span className="text-primary">{totalCount.toLocaleString()}</span>
             명
           </div>
 
@@ -836,7 +832,7 @@ export default function GoalStudentsAdmin({
                   <tr>
                     <td
                       colSpan={15}
-                      className="py-12 text-center text-gray-400"
+                      className="py-12 text-center text-muted-foreground"
                     >
                       {term || filter !== "all"
                         ? "조건에 맞는 학생이 없습니다."
@@ -953,7 +949,7 @@ export default function GoalStudentsAdmin({
                 onClick={() => setPage(number)}
                 className={`inline-flex h-8 min-w-8 items-center justify-center border px-2 text-xs font-black ${
                   number === page
-                    ? "border-[#2348ff] bg-[#2348ff] text-white"
+                    ? "border-primary bg-primary text-white"
                     : "border-gray-300"
                 }`}
               >
@@ -1004,7 +1000,7 @@ function GoalProbabilityChart({ logs }: { logs: GoalProbabilityLogRow[] }) {
 
   if (logs.length === 0) {
     return (
-      <div className="px-5 py-8 text-center text-sm font-bold text-gray-400">
+      <div className="px-5 py-8 text-center text-sm font-bold text-muted-foreground">
         확률 로그가 없습니다.
       </div>
     );
@@ -1265,7 +1261,7 @@ export function GoalStudentDetail({
       window.location.reload();
     } catch (error) {
       console.error("goal/admin/reset-student 실패:", error);
-      alert(`온보딩 리셋 실패: ${error.message}`);
+      reportAdminError("온보딩 리셋 실패", error);
       setResetting(false);
     }
   }
@@ -1303,8 +1299,7 @@ export function GoalStudentDetail({
       if (cancelled) return;
 
       if (studentRes.error) {
-        console.error(studentRes.error);
-        alert(`학생 상세 조회 실패: ${studentRes.error.message}`);
+        reportAdminError("학생 상세 조회 실패", studentRes.error);
         setLoading(false);
         return;
       }
@@ -1493,7 +1488,7 @@ export function GoalStudentDetail({
             {profile?.name || "이름 없음"}{" "}
             <GoalStatusBadge status={state?.status || student.status} />
           </h1>
-          <p className="mt-1 font-mono text-xs text-gray-400">
+          <p className="mt-1 font-mono text-xs text-muted-foreground">
             {student.profile_id}
           </p>
         </div>
@@ -1609,7 +1604,7 @@ export function GoalStudentDetail({
             <GoalDetailRow label="학년">{student.grade || "-"}</GoalDetailRow>
             <GoalDetailRow label="학교 유형">
               {student.school_type || "-"}
-              <span className="ml-2 text-xs font-bold text-gray-400">
+              <span className="ml-2 text-xs font-bold text-muted-foreground">
                 내신 컷 종류: {naesinCutType}
               </span>
             </GoalDetailRow>
@@ -1700,7 +1695,7 @@ export function GoalStudentDetail({
                   </tr>
                 </tbody>
               </table>
-              <p className="mt-2 text-xs font-bold text-gray-400">
+              <p className="mt-2 text-xs font-bold text-muted-foreground">
                 주간 합계는 월~토만 더합니다(일요일 제외).
               </p>
             </ScrollArea>
@@ -1752,7 +1747,7 @@ export function GoalStudentDetail({
                 </div>
               </div>
             ) : (
-              <div className="px-5 py-4 text-xs font-bold text-gray-400">
+              <div className="px-5 py-4 text-xs font-bold text-muted-foreground">
                 개인 성적 원자료입니다. 필요할 때만 펼쳐 주세요.
               </div>
             )}
@@ -1869,14 +1864,14 @@ export function GoalStudentDetail({
                       >
                         <td className="px-4 py-2.5">
                           <span className="font-black">{slot.label}</span>
-                          <span className="block text-xs font-bold text-gray-400">
+                          <span className="block text-xs font-bold text-muted-foreground">
                             {described.cutType} / {described.university || "-"}{" "}
                             / {described.department || "-"}
                           </span>
                         </td>
                         <td className="px-4 py-2.5">
                           {snapshot === null ? (
-                            <span className="font-bold text-gray-400">
+                            <span className="font-bold text-muted-foreground">
                               미확보
                             </span>
                           ) : (
@@ -1885,7 +1880,7 @@ export function GoalStudentDetail({
                         </td>
                         <td className="px-4 py-2.5">
                           {current === null ? (
-                            <span className="font-bold text-gray-400">
+                            <span className="font-bold text-muted-foreground">
                               없음
                             </span>
                           ) : (
@@ -1957,7 +1952,7 @@ export function GoalStudentDetail({
                     <tr>
                       <td
                         colSpan={7}
-                        className="py-8 text-center text-gray-400"
+                        className="py-8 text-center text-muted-foreground"
                       >
                         확률 로그가 없습니다.
                       </td>
@@ -1981,7 +1976,7 @@ export function GoalStudentDetail({
                         <td className="px-4 py-2">
                           <GoalProb value={log.min_jungsi} digits={4} />
                         </td>
-                        <td className="px-4 py-2 text-gray-400">
+                        <td className="px-4 py-2 text-muted-foreground">
                           {log.source_record_id ?? "-"}
                         </td>
                       </tr>
@@ -2117,7 +2112,10 @@ export function GoalStudentDetail({
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-10 text-center text-gray-400">
+                  <td
+                    colSpan={12}
+                    className="py-10 text-center text-muted-foreground"
+                  >
                     제출된 일별 기록이 없습니다.
                   </td>
                 </tr>
@@ -2165,7 +2163,7 @@ export function GoalStudentDetail({
                       <td className="px-3 py-2">{record.record_index}</td>
                       <td className="px-3 py-2">
                         {record.record_date}
-                        <span className="block text-gray-400">
+                        <span className="block text-muted-foreground">
                           {GOAL_WEEKDAY_LABELS[
                             record.virtual_day_index ?? -1
                           ] || ""}
@@ -2180,14 +2178,14 @@ export function GoalStudentDetail({
                         {record.body_condition ? (
                           <>
                             {record.body_condition}
-                            <span className="block text-gray-400">
+                            <span className="block text-muted-foreground">
                               ×
                               {CONDITION_MULTIPLIER[record.body_condition] ??
                                 "?"}
                             </span>
                           </>
                         ) : (
-                          <span className="text-gray-400">
+                          <span className="text-muted-foreground">
                             미입력(정상 배수 1.0 적용)
                           </span>
                         )}

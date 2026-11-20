@@ -6,6 +6,10 @@ import {
   ADMIN_MEMBER_STATUS_OPTIONS,
   ADMIN_PERMISSION_LEVEL_OPTIONS,
 } from "@/pages/admin/configs/adminSettings";
+import {
+  AdminApiError,
+  reportAdminError,
+} from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import {
   ActionButton,
@@ -142,8 +146,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     const error = dirRes.error || roleRes.error || resourceRes.error;
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       return;
     }
 
@@ -236,8 +239,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     setSaving(false);
 
     if (error) {
-      // WC059(마지막 최고 관리자 보호)가 여기로 올라온다 — 원문을 그대로 보여준다.
-      alert(`저장 실패: ${error.message}`);
+      // WC059(마지막 최고 관리자 보호)가 여기로 올라온다. adminErrors 의 WC059 매핑이 한국어 안내로 바꾼다.
+      reportAdminError("저장 실패", error);
       return;
     }
 
@@ -257,7 +260,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     if (deleteError) {
       setSaving(false);
-      alert(`저장 실패: ${deleteError.message}`);
+      reportAdminError("저장 실패", deleteError);
       return;
     }
 
@@ -273,7 +276,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
         .insert(inserts);
       if (error) {
         setSaving(false);
-        alert(`저장 실패: ${error.message}`);
+        reportAdminError("저장 실패", error);
         return;
       }
     }
@@ -304,10 +307,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       }),
     });
 
-    const result = await response.json().catch(async () => {
-      const text = await response.text().catch(() => "");
-      return { detail: text || `HTTP ${response.status}` };
-    });
+    // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
+    const result = await response.json().catch(() => ({}));
 
     return { response, result };
   }
@@ -347,7 +348,9 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       }
 
       if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
+        throw result?.detail
+          ? new AdminApiError(result.detail)
+          : new Error(`HTTP ${response.status}`);
       }
 
       // ⚠️ 메일이 나가는 건 신규 계정을 만든 경우뿐이다(서버가 emailed 로 알려준다).
@@ -366,7 +369,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       setInviteDept("");
       await loadAll();
     } catch (error) {
-      alert(`초대 실패: ${(error as Error).message}`);
+      reportAdminError("초대 실패", error as Error);
     } finally {
       setInviting(false);
     }
@@ -395,7 +398,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
               onClick={() => setTab(item.key as "info" | "perm")}
               className={`h-9 border px-5 text-sm font-black transition ${
                 tab === item.key
-                  ? "border-[#2348ff] bg-[#2348ff] text-white"
+                  ? "border-primary bg-primary text-white"
                   : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -646,7 +649,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                   <td className="px-4 py-3">
                     {row.role_name || "-"}
                     {row.role_is_super && (
-                      <span className="ml-2 border border-[#2348ff] px-2 py-0.5 text-xs font-bold text-[#2348ff]">
+                      <span className="ml-2 border border-primary px-2 py-0.5 text-xs font-bold text-primary">
                         최고
                       </span>
                     )}

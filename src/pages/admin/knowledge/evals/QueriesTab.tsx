@@ -75,7 +75,10 @@ export default function QueriesTab({
           <tbody>
             {items && items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-400">
+                <td
+                  colSpan={7}
+                  className="py-12 text-center text-muted-foreground"
+                >
                   등록된 질의가 없습니다.
                 </td>
               </tr>
@@ -83,7 +86,7 @@ export default function QueriesTab({
               (items ?? []).map((item) => (
                 <tr
                   key={item.id}
-                  className={`border-b border-gray-100 ${item.is_active ? "" : "text-gray-400"}`}
+                  className={`border-b border-gray-100 ${item.is_active ? "" : "text-muted-foreground"}`}
                 >
                   <Td>{item.grade}</Td>
                   <Td>{item.subject}</Td>

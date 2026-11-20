@@ -5,6 +5,7 @@ import {
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   fetchSchoolAdmins,
   type IssuedSchoolAdmin,
@@ -106,14 +107,6 @@ export default function SchoolAdminPanel({
     await load();
   }
 
-  async function copy(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
   return (
     <div>
       {issued && (
@@ -134,7 +127,7 @@ export default function SchoolAdminPanel({
               </span>
               <ActionButton
                 variant="light"
-                onClick={() => copy(issued.loginId)}
+                onClick={() => copyToClipboard(issued.loginId)}
               >
                 <Copy size={14} />
                 복사
@@ -151,7 +144,9 @@ export default function SchoolAdminPanel({
                   </span>
                   <ActionButton
                     variant="light"
-                    onClick={() => copy(issued.tempPassword as string)}
+                    onClick={() =>
+                      copyToClipboard(issued.tempPassword as string)
+                    }
                   >
                     <Copy size={14} />
                     복사
@@ -196,7 +191,10 @@ export default function SchoolAdminPanel({
           <tbody>
             {!list || list.admins.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-gray-400">
+                <td
+                  colSpan={9}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   발급한 전체 관리자가 없습니다.
                 </td>
               </tr>

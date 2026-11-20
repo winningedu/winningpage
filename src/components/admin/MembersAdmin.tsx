@@ -13,6 +13,10 @@ import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
+import {
+  AdminApiError,
+  reportAdminError,
+} from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import {
@@ -299,8 +303,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setLoading(false);
       setRows([]);
       return;
@@ -566,20 +569,20 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         body: JSON.stringify({ profileId: selected.id, text }),
       });
 
-      const result = await response.json().catch(async () => {
-        const raw = await response.text().catch(() => "");
-        return { detail: raw || `HTTP ${response.status}` };
-      });
+      // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
+        throw result?.detail
+          ? new AdminApiError(result.detail)
+          : new Error(`HTTP ${response.status}`);
       }
 
       setDraft("");
       await loadDetail(selected);
       alert(`발송했습니다 (${result.channel}).`);
     } catch (error) {
-      alert(`발송 실패: ${(error as Error).message}`);
+      reportAdminError("발송 실패", error as Error);
     } finally {
       setSending(false);
     }
@@ -598,7 +601,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingCategory(false);
 
     if (error) {
-      alert(`회원구분 저장 실패: ${error.message}`);
+      reportAdminError("회원구분 저장 실패", error);
       return;
     }
 
@@ -625,7 +628,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingGuardianPhone(false);
 
     if (error) {
-      alert(`학부모 핸드폰 저장 실패: ${error.message}`);
+      reportAdminError("학부모 핸드폰 저장 실패", error);
       return;
     }
 
@@ -810,7 +813,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
               onClick={() => setTab(item.key)}
               className={`h-9 border px-5 text-sm font-black transition ${
                 tab === item.key
-                  ? "border-[#2348ff] bg-[#2348ff] text-white"
+                  ? "border-primary bg-primary text-white"
                   : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -1394,7 +1397,7 @@ function MessagePane({
 
         <div className="mt-2 flex items-center justify-between">
           <span
-            className={`text-xs font-bold ${isLong ? "text-[#B88737]" : "text-gray-500"}`}
+            className={`text-xs font-bold ${isLong ? "text-primary" : "text-gray-500"}`}
           >
             {bytes} / 90 byte
             {isLong &&
@@ -1446,7 +1449,7 @@ function MessagePane({
                       "발송 완료"
                     ) : (
                       <span
-                        className="text-[#B88737]"
+                        className="text-primary"
                         title={row.provider_message || undefined}
                       >
                         실패

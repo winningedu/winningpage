@@ -172,7 +172,7 @@ export default function SelfevalSessionsAdmin({ config }: Props) {
                   <tr>
                     <td
                       colSpan={11}
-                      className="py-12 text-center text-gray-400"
+                      className="py-12 text-center text-muted-foreground"
                     >
                       조회된 세션이 없습니다.
                     </td>
@@ -500,7 +500,9 @@ function GrantDialog({
         {results && (
           <ul className="max-h-[10rem] overflow-y-auto border border-gray-200 text-sm">
             {results.length === 0 ? (
-              <li className="px-3 py-2 text-gray-400">검색 결과가 없습니다.</li>
+              <li className="px-3 py-2 text-muted-foreground">
+                검색 결과가 없습니다.
+              </li>
             ) : (
               results.map((r) => (
                 <li key={r.id}>

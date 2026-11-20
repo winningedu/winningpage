@@ -46,7 +46,10 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-400">
+                <td
+                  colSpan={7}
+                  className="py-12 text-center text-muted-foreground"
+                >
                   조회된 자료가 없습니다.
                 </td>
               </tr>
@@ -54,7 +57,7 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
               sorted.map((row) => (
                 <tr
                   key={row.resourceId}
-                  className={`border-b border-gray-100 ${row.isActive ? "" : "text-gray-400"}`}
+                  className={`border-b border-gray-100 ${row.isActive ? "" : "text-muted-foreground"}`}
                 >
                   <td className="px-3 py-3 font-bold">{row.title}</td>
                   <td className="px-3 py-3">{row.knowledgeType}</td>

@@ -166,7 +166,7 @@ export default function AccessLogsAdmin() {
         </table>
       </div>
       {result?.logs.length === 0 && (
-        <p className="py-12 text-center text-sm text-gray-400">
+        <p className="py-12 text-center text-sm text-muted-foreground">
           기록이 없어요.
         </p>
       )}

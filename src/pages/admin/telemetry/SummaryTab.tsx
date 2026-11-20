@@ -111,7 +111,7 @@ export default function SummaryTab({ data }: { data: SummaryResponse }) {
       </div>
 
       {items.length === 0 ? (
-        <div className="bg-white p-12 text-center text-sm text-gray-400 shadow-sm">
+        <div className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm">
           조회된 호출이 없습니다.
         </div>
       ) : (

@@ -841,9 +841,9 @@ export default function LearningDiagnosisAdmin() {
                       className="flex w-full items-center justify-between bg-gray-50 px-5 py-4 text-left"
                     >
                       <div>
-                        <p className="text-xs font-black text-[#B88737]">
+                        <p className="text-xs font-black text-primary">
                           QUESTION {String(questionIndex + 1).padStart(2, "0")}
-                          <span className="ml-2 text-gray-400">
+                          <span className="ml-2 text-muted-foreground">
                             정렬순서 {Number(question.sort_order || 0)}
                           </span>
                         </p>

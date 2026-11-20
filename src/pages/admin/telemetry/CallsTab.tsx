@@ -54,7 +54,10 @@ export default function CallsTab({
           <tbody>
             {data.items.length === 0 ? (
               <tr>
-                <td colSpan={15} className="py-12 text-center text-gray-400">
+                <td
+                  colSpan={15}
+                  className="py-12 text-center text-muted-foreground"
+                >
                   조회된 호출이 없습니다.
                 </td>
               </tr>

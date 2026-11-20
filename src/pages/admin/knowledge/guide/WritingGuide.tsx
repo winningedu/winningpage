@@ -16,7 +16,7 @@ const GUIDE_ITEMS = [
 export default function WritingGuide() {
   return (
     <details className="mb-4 border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm">
-      <summary className="cursor-pointer font-black text-[#2348ff]">
+      <summary className="cursor-pointer font-black text-primary">
         카드 작성 안내
       </summary>
       <ul className="mt-2 list-disc space-y-1 pl-5 font-bold leading-6 text-gray-700">

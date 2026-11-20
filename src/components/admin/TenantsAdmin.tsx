@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   ActionButton,
   Field,
@@ -10,6 +11,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 import {
   deletionDdayText,
@@ -121,8 +123,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setLoading(false);
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setRows([]);
       return;
     }
@@ -187,12 +188,8 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
 
     setSaving(true);
 
-    // WC067(최고 관리자 아님)은 fn_create_tenant 가 raise 하는 원문 그대로
-    // 보여준다 — 이 화면 진입 자체가 admin_resources 'tenants' 권한을
-    // 통과해야 하므로, 여기 닿고도 이 에러를 받는다면 "메뉴 접근은 되는데
-    // 발급 권한(최고 관리자 전용)은 없는" 드문 경합 상황이라 원문이 더
-    // 정확하다(CouponAdmin 의 DB 원문 은폐 규범과 달리, 이 RPC 는 에러가
-    // 이 한 가지뿐이라 매핑 테이블을 따로 둘 실익이 없다).
+    // 오류 원문은 화면에 싣지 않는다(reportAdminError 가 매핑된 안내만 보인다).
+    // WC067(최고 관리자 아님, not_super_admin)은 adminErrors 매핑이 한국어 안내로 바꾼다.
     const { data, error } = await supabase.rpc("fn_create_tenant", {
       p_name: form.name.trim(),
       p_region: form.region,
@@ -203,7 +200,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setSaving(false);
 
     if (error) {
-      alert(`등록 실패: ${error.message}`);
+      reportAdminError("등록 실패", error);
       return;
     }
 
@@ -215,14 +212,6 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
       return;
     }
     setIssuedTenant(created);
-  }
-
-  async function copyCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch (error) {
-      console.error(error);
-    }
   }
 
   if (view === "detail" && detailId) {
@@ -322,7 +311,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
               </span>
               <ActionButton
                 variant="light"
-                onClick={() => copyCode(issuedTenant.code)}
+                onClick={() => copyToClipboard(issuedTenant.code)}
               >
                 <Copy size={14} />
                 복사
@@ -357,7 +346,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-[#2348ff] px-4 text-sm font-black text-white"
+            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white"
           >
             <Plus size={14} />
             등록
@@ -403,7 +392,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                   <tr>
                     <td
                       colSpan={hq ? 11 : 7}
-                      className="py-12 text-center text-gray-400"
+                      className="py-12 text-center text-muted-foreground"
                     >
                       등록된 데이터가 없습니다.
                     </td>
@@ -439,9 +428,9 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                           </span>
                           <button
                             type="button"
-                            onClick={() => copyCode(row.code)}
+                            onClick={() => copyToClipboard(row.code)}
                             aria-label="소속코드 복사"
-                            className="text-gray-400 hover:text-black"
+                            className="text-muted-foreground hover:text-black"
                           >
                             <Copy size={14} />
                           </button>

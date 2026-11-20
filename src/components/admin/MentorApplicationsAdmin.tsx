@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   downloadCsv,
   normalizeArray,
@@ -211,8 +212,7 @@ export default function MentorApplicationsAdmin({
     setLoading(false);
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setRows([]);
       return;
     }
@@ -292,7 +292,7 @@ export default function MentorApplicationsAdmin({
     setSavingStatus(false);
 
     if (error) {
-      alert(`상태 변경 실패: ${error.message}`);
+      reportAdminError("상태 변경 실패", error);
       return;
     }
 
@@ -322,12 +322,12 @@ export default function MentorApplicationsAdmin({
       // 경로는 있는데 객체가 없는 경우(행은 남고 파일만 사라졌거나, 업로드가 2단계
       // 흐름 중간에 끊긴 경우)를 "없음"으로 흡수한다 — 어드민에게 원문
       // "Object not found"를 그대로 던지면 시스템 장애처럼 읽힌다(QA 318).
-      // 그 외 실패(권한·네트워크)는 원문을 남겨야 원인을 좁힐 수 있으므로 구분한다.
-      alert(
-        isObjectNotFound(error)
-          ? PROOF_FILE_MISSING_MESSAGE
-          : `증빙 파일 열람 실패: ${error?.message || "서명 URL을 가져오지 못했습니다."}`,
-      );
+      // 그 외 실패(권한, 네트워크)는 구분해서 reportAdminError 로 보낸다. 원문은 콘솔에만 남는다.
+      if (isObjectNotFound(error)) {
+        alert(PROOF_FILE_MISSING_MESSAGE);
+      } else {
+        reportAdminError("증빙 파일 열람 실패", error);
+      }
       return;
     }
 

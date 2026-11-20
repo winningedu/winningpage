@@ -1,4 +1,8 @@
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 
 // sql/52_mentor_applications.sql의 status 컬럼 주석에 적힌 값 그대로(CHECK 제약은 없지만
 // 이 6개가 실제 사용 값이다). CONFIGS.mentorApplications 목록 컬럼과 MentorApplicationsAdmin의
@@ -61,6 +65,7 @@ interface TextInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  "aria-label"?: string;
 }
 
 export function TextInput({
@@ -68,13 +73,15 @@ export function TextInput({
   onChange,
   placeholder,
   className = "",
+  "aria-label": ariaLabel,
 }: TextInputProps) {
   return (
-    <input
+    <Input
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
-      className={`h-10 w-full border border-gray-300 px-3 text-sm font-bold outline-hidden focus:border-[#B88737] ${className}`}
+      aria-label={ariaLabel}
+      className={`h-10 font-medium ${className}`}
     />
   );
 }
@@ -93,12 +100,12 @@ export function Textarea({
   rows = 3,
 }: TextareaProps) {
   return (
-    <textarea
+    <UiTextarea
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full resize-y border border-gray-300 px-3 py-2 text-sm font-bold leading-6 outline-hidden focus:border-[#B88737]"
+      className="field-sizing-fixed resize-y font-medium"
     />
   );
 }
@@ -111,13 +118,13 @@ interface SelectProps {
 
 export function Select({ value, onChange, children }: SelectProps) {
   return (
-    <select
+    <NativeSelect
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 w-full border border-gray-300 px-3 text-sm font-bold outline-hidden focus:border-[#B88737]"
+      className="w-full [&>select]:h-10 [&>select]:font-medium"
     >
       {children}
-    </select>
+    </NativeSelect>
   );
 }
 
@@ -129,12 +136,12 @@ interface ToggleProps {
 
 export function Toggle({ checked, onChange, label }: ToggleProps) {
   return (
-    <label className="inline-flex items-center gap-2 text-sm font-black text-gray-700">
+    <label className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
       <input
         type="checkbox"
         checked={!!checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 accent-[#0D1B2A]"
+        className="h-4 w-4 accent-primary"
       />
       {label}
     </label>
@@ -148,9 +155,10 @@ interface FieldProps {
 
 export function Field({ label, children }: FieldProps) {
   return (
+    // 계약: label 안에는 폼 컨트롤 하나만 둔다(getByLabelText가 그 컨트롤을 찾는다).
     // biome-ignore lint/a11y/noLabelWithoutControl: children이 폼 컨트롤을 감싸는(중첩) 연결 방식이다 — 정적 분석이 children 내부를 못 봐서 오탐이다.
     <label className="block">
-      <span className="mb-1 block text-xs font-black text-gray-500">
+      <span className="mb-1 block text-xs font-medium text-muted-foreground">
         {label}
       </span>
       {children}
@@ -166,6 +174,12 @@ interface ActionButtonProps {
   disabled?: boolean;
 }
 
+const ACTION_BUTTON_VARIANT = {
+  dark: "default",
+  danger: "destructive",
+  light: "outline",
+} as const;
+
 export function ActionButton({
   children,
   onClick,
@@ -173,22 +187,17 @@ export function ActionButton({
   type = "button",
   disabled = false,
 }: ActionButtonProps) {
-  const variantClass =
-    variant === "danger"
-      ? "border border-red-500 bg-white text-red-600 hover:bg-red-50"
-      : variant === "light"
-        ? "border border-gray-400 bg-white text-gray-800 hover:bg-gray-50"
-        : "bg-[#0D1B2A] text-white hover:bg-[#162A40]";
-
   return (
-    <button
+    <Button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-9 items-center justify-center gap-1 px-4 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${variantClass}`}
+      variant={ACTION_BUTTON_VARIANT[variant]}
+      size="lg"
+      className={variant === "dark" ? "font-semibold" : undefined}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -219,7 +228,7 @@ export function ProgramSelector({
 
   if (programs.length === 0) {
     return (
-      <div className="rounded-sm border border-dashed border-gray-300 px-3 py-2 text-xs font-bold text-gray-500">
+      <div className="rounded-sm border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500">
         먼저 추천 프로그램을 등록하세요.
       </div>
     );
@@ -230,17 +239,17 @@ export function ProgramSelector({
       {programs.map((program) => (
         <label
           key={program.id}
-          className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-xs font-black transition ${
+          className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-xs font-medium transition ${
             selected.has(program.id)
-              ? "border-[#0D1B2A] bg-[#0D1B2A] text-white"
-              : "border-gray-300 bg-white text-gray-700 hover:border-[#B88737]"
+              ? "border-primary bg-primary text-white"
+              : "border-gray-300 bg-white text-gray-700 hover:border-primary"
           }`}
         >
           <input
             type="checkbox"
             checked={selected.has(program.id)}
             onChange={() => toggle(program.id)}
-            className="h-4 w-4 accent-[#B88737]"
+            className="h-4 w-4 accent-primary"
           />
           {program.title || "제목 없음"}
         </label>

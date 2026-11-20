@@ -96,7 +96,7 @@ export default function SearchResultTable({
               </tr>
             )}
             <tr
-              className={`border-t border-gray-100 ${isActive(item) ? "" : "text-gray-400"}`}
+              className={`border-t border-gray-100 ${isActive(item) ? "" : "text-muted-foreground"}`}
             >
               {columns.map((column) => (
                 <Fragment key={column.key}>

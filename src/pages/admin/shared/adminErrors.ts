@@ -29,6 +29,8 @@
 //    들어 있어 alert 에 개인정보를 띄우게 된다. 컬럼 이름까지만 쓴다.
 // ---------------------------------------------------------------------------
 
+import { toast } from "@/components/ui/toast";
+
 // Supabase PostgrestError 등 message/code를 갖는 임의 오류 객체를 느슨하게 받는다 —
 // 호출부가 던지는 값이 항상 Error 인스턴스는 아니다(예: { message, code } 리터럴).
 interface AdminErrorLike {
@@ -69,6 +71,25 @@ const ADMIN_ERROR_MESSAGE_MAP: Array<{ pattern: RegExp; message: string }> = [
   {
     pattern: /refunded_order_immutable|WC039/,
     message: "환불 완료된 주문은 더 이상 수정할 수 없습니다.",
+  },
+  // 아래 두 항목은 DB 가 관리자에게 보여주려고 한국어로 쓴 안내다. alert 시절엔
+  // error.message 로 그대로 보였고, 원문 노출을 끊으면서 같이 사라지지 않게 옮겨 적는다.
+  // WC059: admin_members 트리거(20261021014317_busan_oct_extension_goal_gift.sql:4234)
+  {
+    pattern: /WC059/,
+    message:
+      "최고 관리자가 1명뿐이라 강등, 정지, 삭제할 수 없습니다. 다른 사람을 먼저 최고 관리자로 올려 주세요.",
+  },
+  // WC104: QA 계정의 본사 관리자 쓰기 차단. 모든 public 테이블의 문 단위 트리거라
+  // 어느 저장 화면에서든 올라온다(20261110040330_qa_account_guard.sql:50).
+  {
+    pattern: /WC104/,
+    message: "QA 계정이라 이 기능은 작동하지 않아요.",
+  },
+  // WC067 은 다른 RPC 도 쓰는 코드라 fn_create_tenant 의 메시지 이름으로 잡는다.
+  {
+    pattern: /not_super_admin/,
+    message: "최고 관리자만 소속을 등록할 수 있습니다.",
   },
   {
     pattern: /23514/,
@@ -193,11 +214,56 @@ function describeConstraint(
 const GENERIC_FAILURE =
   "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
+/**
+ * 우리 /api 엔드포인트가 관리자에게 보여주려고 쓴 한국어 detail 을 실은 오류.
+ * 규칙: detail 은 우리 서버가 직접 쓴 문장이어야 한다. DB, Supabase, 외부 서비스의
+ * error.message 를 이어 붙인 값은 안 된다(서버가 그렇게 보내면 서버를 고친다).
+ * 예외는 문자 발송 실패 사유(send-message 의 providerMessage)로, SMS 업체가 준
+ * 문구이며 관리자가 발송 실패 이유를 알아야 해서 그대로 전달한다.
+ * 응답 본문이 우리 JSON `{detail}` 일 때만 던진다(HTTP 상태나 HTML 같은 원문은 일반
+ * Error 로 던진다).
+ */
+export class AdminApiError extends Error {
+  readonly detail: string;
+
+  constructor(detail: string) {
+    super(detail);
+    this.name = "AdminApiError";
+    this.detail = detail;
+  }
+}
+
+/**
+ * 청크 반복 저장에서 한 청크가 실패했을 때 던지는 오류. Supabase 오류의 code, details
+ * 는 그대로 들고 있어 reportAdminError 가 코드별 안내를 고를 수 있고, 어느 행인지는
+ * 우리가 만든 `rows`("12~24") 로 따로 싣는다. 원문 message 는 Error.message 에
+ * 넣지 않는다(콘솔에는 cause 로 남는다).
+ */
+export class AdminChunkError extends Error {
+  readonly code: string | undefined;
+  readonly details: string | undefined;
+  readonly rows: string;
+
+  constructor(stage: string, rows: string, source: AdminErrorLike) {
+    super(`${stage}(${rows}행)`, { cause: source });
+    this.name = "AdminChunkError";
+    this.code = source.code;
+    this.details = source.details;
+    this.rows = rows;
+  }
+}
+
+/** 청크 실패면 제목에 실패한 행 범위를 붙인다. 아니면 제목 그대로. */
+export function withChunkRows(title: string, error: unknown): string {
+  return error instanceof AdminChunkError ? `${title}(${error.rows}행)` : title;
+}
+
 function mapAdminErrorMessage(
   error: AdminErrorLike | null | undefined,
   labels: AdminFieldLabels = {},
 ): string {
   if (!error) return GENERIC_FAILURE;
+  if (error instanceof AdminApiError) return error.detail;
 
   const detailed = describeConstraint(error, labels);
   if (detailed) return detailed;
@@ -219,7 +285,16 @@ export function reportAdminError(
   fieldLabels: AdminFieldLabels = {},
 ): void {
   console.error(label, error);
-  alert(`${label}: ${mapAdminErrorMessage(error, fieldLabels)}`);
+  // 제목은 호출부 접두("저장 실패" 등), 설명은 매핑된 안내문이다. 원문은 싣지 않는다.
+  // 오류는 관리자가 읽고 닫을 때까지 남긴다(예전 alert 는 확인을 눌러야 닫혔다).
+  // timeout 0 은 자동 닫힘 없음: @base-ui/react 1.9.0 toast/useToastManager.d.ts:32.
+  toast.add({
+    type: "error",
+    priority: "high",
+    timeout: 0,
+    title: label,
+    description: mapAdminErrorMessage(error, fieldLabels),
+  });
 }
 
 /**

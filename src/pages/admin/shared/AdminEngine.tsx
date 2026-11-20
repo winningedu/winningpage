@@ -596,7 +596,7 @@ function CategorySectionButton({
       <span className="text-sm font-black">{item.label}</span>
       <span className="flex items-center gap-3">
         <span className="text-xs font-bold text-gray-500">{item.summary}</span>
-        <span className="rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-[#2348ff]">
+        <span className="rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary">
           수정
         </span>
       </span>
@@ -1198,7 +1198,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                           // 기능(값 확인·복사)은 그대로, 펼쳐야 보이게만 바꾼 것.
                           (field.type === "textarea" && field.readOnly ? (
                             <details className="group">
-                              <summary className="cursor-pointer text-xs font-bold text-gray-400 hover:text-gray-600">
+                              <summary className="cursor-pointer text-xs font-bold text-muted-foreground hover:text-gray-600">
                                 HTML 미러 보기(자동 생성, 편집 불가)
                               </summary>
                               <div className="mt-2">
@@ -1269,7 +1269,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                 className="h-20 w-32 rounded-sm border object-cover"
                               />
                             ) : (
-                              <div className="flex h-20 w-32 items-center justify-center rounded-sm border bg-gray-50 text-xs font-bold text-gray-400">
+                              <div className="flex h-20 w-32 items-center justify-center rounded-sm border bg-gray-50 text-xs font-bold text-muted-foreground">
                                 이미지 없음
                               </div>
                             )}
@@ -1308,7 +1308,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                   : undefined) || "첨부파일 보기"}
                               </a>
                             ) : (
-                              <div className="flex h-10 items-center rounded-sm border bg-gray-50 px-4 text-xs font-bold text-gray-400">
+                              <div className="flex h-10 items-center rounded-sm border bg-gray-50 px-4 text-xs font-bold text-muted-foreground">
                                 첨부파일 없음
                               </div>
                             )}
@@ -1374,7 +1374,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                   </div>
                                 ))
                               ) : (
-                                <div className="flex h-20 w-32 items-center justify-center rounded-sm border bg-gray-50 text-xs font-bold text-gray-400">
+                                <div className="flex h-20 w-32 items-center justify-center rounded-sm border bg-gray-50 text-xs font-bold text-muted-foreground">
                                   이미지 없음
                                 </div>
                               )}
@@ -1440,7 +1440,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                   );
                                 })
                               ) : (
-                                <div className="flex h-10 items-center rounded-sm border bg-gray-50 px-4 text-xs font-bold text-gray-400">
+                                <div className="flex h-10 items-center rounded-sm border bg-gray-50 px-4 text-xs font-bold text-muted-foreground">
                                   첨부파일 없음
                                 </div>
                               )}
@@ -1485,7 +1485,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
             <button
               type="button"
               onClick={openPreview}
-              className="h-10 border border-[#2348ff] bg-white px-5 text-sm font-black text-[#2348ff]"
+              className="h-10 border border-primary bg-white px-5 text-sm font-black text-primary"
             >
               미리보기
             </button>
@@ -1502,7 +1502,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
           {!readonly && (
             <button
               type="submit"
-              className="h-10 bg-[#2348ff] px-5 text-sm font-black text-white"
+              className="h-10 bg-primary px-5 text-sm font-black text-white"
             >
               저장
             </button>
@@ -1671,7 +1671,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
               <tr>
                 <td
                   colSpan={config.columns.length + 2}
-                  className="py-12 text-center text-gray-400"
+                  className="py-12 text-center text-muted-foreground"
                 >
                   등록된 데이터가 없습니다.
                 </td>
@@ -1827,8 +1827,8 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                               }
                               className={
                                 empty
-                                  ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-black text-gray-400 transition hover:border-[#2348ff] hover:text-[#2348ff]"
-                                  : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-[#2348ff] transition hover:border-[#2348ff] hover:bg-[#2348ff] hover:text-white"
+                                  ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-black text-muted-foreground transition hover:border-primary hover:text-primary"
+                                  : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary transition hover:border-primary hover:bg-primary hover:text-white"
                               }
                             >
                               {empty ? "추가" : "수정"}

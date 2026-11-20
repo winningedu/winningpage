@@ -17,14 +17,14 @@ export function AdminTopbar({ onLogout }: AdminTopbarProps) {
         {site.features.hqTenantAdmin && (
           <Link
             to={CONSOLE_BASE}
-            className="inline-flex h-[32px] items-center justify-center rounded-sm border border-[#c9ced6] bg-white px-4 text-xs font-bold text-[#3a3f45] transition hover:border-[#B88737] hover:bg-[#FFF8E8] hover:text-[#B88737]"
+            className="inline-flex h-[32px] items-center justify-center rounded-sm border border-[#c9ced6] bg-white px-4 text-xs font-bold text-[#3a3f45] transition hover:border-primary hover:bg-[#FFF8E8] hover:text-primary"
           >
             선생님 화면으로 이동
           </Link>
         )}
         <Link
           to="/"
-          className="inline-flex h-[32px] items-center justify-center rounded-sm border border-[#c9ced6] bg-white px-4 text-xs font-bold text-[#3a3f45] transition hover:border-[#B88737] hover:bg-[#FFF8E8] hover:text-[#B88737]"
+          className="inline-flex h-[32px] items-center justify-center rounded-sm border border-[#c9ced6] bg-white px-4 text-xs font-bold text-[#3a3f45] transition hover:border-primary hover:bg-[#FFF8E8] hover:text-primary"
         >
           메인으로 이동
         </Link>
