@@ -344,4 +344,24 @@ describe("EvalsAdmin", () => {
     expect(screen.getAllByRole("table").length).toBe(2);
     expectScopedHeaders();
   });
+
+  test("평가 실행 지표 타일 5개는 작은 Card 로 그린다", async () => {
+    vi.mocked(api.postRun).mockResolvedValue({
+      ok: true,
+      data: {
+        runId: "run1",
+        queryCount: 1,
+        params: prod,
+        metrics: { recall: { "1": 1, "3": 1, "5": 1, "10": 1 }, mrr: 1 },
+        perQuery: [],
+      },
+    });
+    renderAdmin();
+    fireEvent.click(screen.getByRole("tab", { name: "평가 실행" }));
+    fireEvent.click(await screen.findByRole("button", { name: "실행" }));
+    await screen.findByText("recall@10");
+    expect(
+      document.querySelectorAll('[data-slot="card"][data-size="sm"]').length,
+    ).toBe(5);
+  });
 });
