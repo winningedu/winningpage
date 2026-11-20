@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -54,5 +54,66 @@ describe("AdminSidebar 메뉴", () => {
     expect(other).toHaveAttribute("href", "/admin/popups");
     expect(current).toHaveAttribute("aria-current", "page");
     expect(other).not.toHaveAttribute("aria-current");
+  });
+
+  it("그룹 토글은 aria-expanded 를 노출하고 누르면 접히고 펼쳐진다", async () => {
+    renderShell("/admin/banners");
+
+    const toggle = await screen.findByRole("button", { name: "메인화면 관리" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "팝업 관리" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "팝업 관리" })).toBeTruthy();
+  });
+
+  it("접근 권한이 없는 섹션은 링크로 그려지지 않는다", async () => {
+    renderShell("/admin/banners");
+
+    await screen.findByRole("link", { name: "팝업 관리" });
+    expect(screen.queryByRole("link", { name: "합격생 대학 관리" })).toBeNull();
+    expect(
+      document.querySelector('a[href="/admin/universityAcceptances"]'),
+    ).toBeNull();
+  });
+
+  it("현재 섹션이 속한 그룹은 처음부터 펼쳐져 있다", async () => {
+    renderShell("/admin/admissionGuidelines");
+
+    const toggle = await screen.findByRole("button", { name: "입시정보 관리" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(
+        toggle.closest("[data-slot=sidebar-group]") as HTMLElement,
+      ).getByRole("link", { name: "대입 모집 요강" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("Cmd+B 를 눌러도 사이드바는 그대로 있고 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {
+    renderShell("/admin/banners");
+    await screen.findByRole("link", { name: "팝업 관리" });
+
+    const editor = document.createElement("div");
+    editor.tabIndex = 0;
+    const seen: string[] = [];
+    editor.addEventListener("keydown", (e) => {
+      seen.push(`own:${e.key}:${e.defaultPrevented}`);
+    });
+    document.querySelector("main")?.appendChild(editor);
+    window.addEventListener("keydown", () => seen.push("window"), {
+      once: true,
+    });
+
+    editor.focus();
+    fireEvent.keyDown(editor, { key: "b", metaKey: true });
+
+    expect(seen[0]).toBe("own:b:false");
+    expect(screen.getByRole("link", { name: "팝업 관리" })).toBeVisible();
+    expect(document.querySelector("[data-slot=sidebar]")).toBeInTheDocument();
+    expect(document.querySelector('[data-state="collapsed"]')).toBeNull();
   });
 });
