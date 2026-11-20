@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-// 인스타그램 카메라 모양(단색, Simple Icons CC0). lucide-react 1.x에서 브랜드 아이콘이 빠져 직접 둔다.
+// 인스타그램 카메라 모양(단색, Simple Icons CC0). lucide-react에 없어 직접 둔다.
 export default function InstagramIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
