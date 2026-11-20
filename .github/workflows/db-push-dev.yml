@@ -5,7 +5,7 @@ on:
   push:
     branches: [dev]
     paths:
-      - 'supabase/migrations/**'
+      - "supabase/migrations/**"
   workflow_dispatch:
 
 concurrency:

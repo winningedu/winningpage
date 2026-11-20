@@ -11,11 +11,11 @@
 
 ## 구조
 
-| 경로 | 역할 |
-|---|---|
+| 경로          | 역할                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------- |
 | `config.toml` | 로컬 Docker 스택 설정 (PG 17, 포트 54321/54322). storage 버킷 선언 포함, `[db.seed]` 비활성 |
-| `migrations/` | 스키마 전용 baseline. 새 변경은 타임스탬프 마이그레이션으로 추가 |
-| `data/` | 수동 실행 데이터 SQL과 실행 기록 |
+| `migrations/` | 스키마 전용 baseline. 새 변경은 타임스탬프 마이그레이션으로 추가                            |
+| `data/`       | 수동 실행 데이터 SQL과 실행 기록                                                            |
 
 마이그레이션에 담는 것: 테이블, 컬럼, 제약, 인덱스, 함수, 트리거, RLS 정책, grant, storage 정책.
 데이터 문(최상위 `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`/`MERGE`/`COPY`, `DO` 블록 안 포함)은 넣지 않는다.
@@ -74,7 +74,7 @@ supabase db reset                # 로컬에서 재생 검증
 - main 브랜치 push: `db-push-prod.yml`(Winning)과 `db-push-prod-schoolmentor.yml`(Schoolmentor)이 각 prod DB에 `supabase db push --include-all`
 - 필요 secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD_DEV`, `SUPABASE_DB_PASSWORD_PROD` (등록 완료)
 
-앱 배포(Vercel)와 DB push는 같은 push 이벤트에 병렬로 돌므로, 파괴적 변경(컬럼 삭제나 
+앱 배포(Vercel)와 DB push는 같은 push 이벤트에 병렬로 돌므로, 파괴적 변경(컬럼 삭제나
 rename)은 expand-contract 2단계로 나눠서 이전 코드가 새 스키마와 공존하게 할 것.
 
 ## 주의
