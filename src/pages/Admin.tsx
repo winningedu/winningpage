@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
   Fragment,
@@ -27,6 +27,7 @@ import RevenueAdmin from "@/components/admin/RevenueAdmin";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -3717,17 +3718,18 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
                   {(config.excel ||
                     ["members", "refunds"].includes(activeKey)) && (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="lg"
                       onClick={handleDownloadClick}
                       disabled={Boolean(exporting)}
-                      className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download size={14} />
+                      <Download aria-hidden="true" />
                       {exporting
                         ? `내보내는 중 ${Math.floor((exporting.done / Math.max(1, exporting.total)) * 100)}%`
                         : "엑셀 다운로드"}
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -3789,13 +3791,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
                     placeholder={config.searchPlaceholder}
                     className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
                   />
-                  <button
-                    type="button"
-                    className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
-                  >
-                    <Search size={14} />
-                    검색
-                  </button>
                 </div>
               </div>
 
