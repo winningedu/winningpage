@@ -597,10 +597,10 @@ function CategorySectionButton({
       onClick={onOpen}
       className="flex w-full items-center justify-between gap-3 border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-left transition hover:bg-[#f3f4f6]"
     >
-      <span className="text-sm font-black">{item.label}</span>
+      <span className="text-sm font-medium">{item.label}</span>
       <span className="flex items-center gap-3">
         <span className="text-xs font-bold text-gray-500">{item.summary}</span>
-        <span className="rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary">
+        <span className="rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-medium text-primary">
           수정
         </span>
       </span>
@@ -1099,7 +1099,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     // 통째로 diff에 잡혀 실제 변경(래핑 + 모달 추가)이 묻힌다.
     <>
       <form ref={formRef} onSubmit={submit}>
-        <h1 className="mb-5 text-2xl font-black text-[#111827]">
+        <h1 className="mb-5 text-2xl font-semibold text-[#111827]">
           {config.title}{" "}
           {mode === "create" ? "등록" : readonly ? "상세" : "수정"}
         </h1>
@@ -1111,7 +1111,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
         )}
 
         {config.guideText && (
-          <p className="mb-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-black leading-6 text-red-600">
+          <p className="mb-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-600">
             {config.guideText}
           </p>
         )}
@@ -1172,7 +1172,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                   key={field.key}
                   className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4]"
                 >
-                  <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+                  <div className="bg-[#fafafa] px-5 py-3 text-sm font-medium">
                     {field.label}
                     {field.required && (
                       <span className="ml-1 text-red-500">*</span>
@@ -1295,7 +1295,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               </div>
                             )}
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-black hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
                               <UploadCloud size={16} />
                               이미지 업로드
                               <input
@@ -1334,7 +1334,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               </div>
                             )}
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-black hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
                               <UploadCloud size={16} />
                               파일 등록
                               <input
@@ -1362,7 +1362,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                   change(field.key, "");
                                   if (field.nameKey) change(field.nameKey, "");
                                 }}
-                                className="h-10 rounded-sm border border-red-200 bg-red-50 px-4 text-sm font-black text-red-600 hover:bg-red-100"
+                                className="h-10 rounded-sm border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-600 hover:bg-red-100"
                               >
                                 삭제
                               </button>
@@ -1388,7 +1388,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                       onClick={() =>
                                         removeListItem(field.key, index)
                                       }
-                                      className="absolute right-1 top-1 rounded-sm bg-black/70 px-2 py-1 text-xs font-black text-white"
+                                      className="absolute right-1 top-1 rounded-sm bg-black/70 px-2 py-1 text-xs font-medium text-white"
                                     >
                                       삭제
                                     </button>
@@ -1401,7 +1401,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               )}
                             </div>
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-black hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
                               <UploadCloud size={16} />
                               이미지 여러 개 업로드
                               <input
@@ -1453,7 +1453,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                                         onClick={() =>
                                           removeListItem(field.key, index)
                                         }
-                                        className="rounded-sm border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-600 hover:bg-red-100"
+                                        className="rounded-sm border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100"
                                       >
                                         삭제
                                       </button>
@@ -1467,7 +1467,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
                               )}
                             </div>
 
-                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-black hover:bg-gray-50">
+                            <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm border border-gray-400 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50">
                               <UploadCloud size={16} />
                               파일 여러 개 등록
                               <input
@@ -1506,7 +1506,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
             <button
               type="button"
               onClick={openPreview}
-              className="h-10 border border-primary bg-white px-5 text-sm font-black text-primary"
+              className="h-10 border border-primary bg-white px-5 text-sm font-medium text-primary"
             >
               미리보기
             </button>
@@ -1515,7 +1515,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
           <button
             type="button"
             onClick={handleCancel}
-            className="h-10 bg-[#4b5563] px-5 text-sm font-black text-white"
+            className="h-10 bg-[#4b5563] px-5 text-sm font-medium text-white"
           >
             취소
           </button>
@@ -1524,7 +1524,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
             <button
               type="submit"
               disabled={saving}
-              className="h-10 bg-primary px-5 text-sm font-black text-white disabled:opacity-50"
+              className="h-10 bg-primary px-5 text-sm font-semibold text-white disabled:opacity-50"
             >
               {saving ? "저장 중..." : "저장"}
             </button>
@@ -1881,8 +1881,8 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                             }
                             className={
                               empty
-                                ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-black text-muted-foreground transition hover:border-primary hover:text-primary"
-                                : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-black text-primary transition hover:border-primary hover:bg-primary hover:text-white"
+                                ? "rounded-sm border border-dashed border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:border-primary hover:text-primary"
+                                : "rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-2.5 py-1 text-xs font-medium text-primary transition hover:border-primary hover:bg-primary hover:text-white"
                             }
                           >
                             {empty ? "추가" : "수정"}
