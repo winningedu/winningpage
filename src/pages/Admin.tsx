@@ -3652,7 +3652,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
             <p className="mt-3 text-sm font-bold text-gray-500">
               {config.description}
             </p>
-            <div className="mt-6 rounded-sm border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+            <div className="mt-6 rounded-sm border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
               이 메뉴는 추후 별도 Supabase 연결 후 활성화됩니다.
             </div>
           </div>

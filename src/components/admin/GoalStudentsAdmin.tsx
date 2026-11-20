@@ -322,7 +322,7 @@ function GoalProb({
 function GoalStatusBadge({ status }: { status?: string | null | undefined }) {
   const tone =
     status === "awaiting_cuts"
-      ? "border-primary/40 bg-[#FFF8E8] text-[#7A4A12]"
+      ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
       : status === "paused"
         ? "border-gray-300 bg-gray-100 text-gray-500"
         : "border-primary/30 bg-[#eef2ff] text-primary";
@@ -347,7 +347,7 @@ function GoalRiskBadge({
     tone === "red"
       ? "border-red-300 bg-red-50 text-red-600"
       : tone === "orange"
-        ? "border-primary/40 bg-[#FFF8E8] text-[#7A4A12]"
+        ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
         : "border-gray-300 bg-gray-50 text-gray-500";
 
   return (
@@ -371,7 +371,7 @@ function GoalNotice({
     tone === "danger"
       ? "border-red-300 bg-red-50 text-red-700"
       : tone === "warn"
-        ? "border-primary/40 bg-[#FFF8E8] text-[#7A4A12]"
+        ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
         : "border-gray-300 bg-[#fafafa] text-gray-600";
 
   return (
@@ -1547,7 +1547,7 @@ export function GoalStudentDetail({
                     key={slot.key}
                     type="button"
                     onClick={() => createCutFromSlot(slot)}
-                    className="inline-flex h-8 items-center border border-primary/50 bg-white px-3 text-xs font-black text-[#7A4A12]"
+                    className="inline-flex h-8 items-center border border-[#B88737]/50 bg-white px-3 text-xs font-black text-[#7A4A12]"
                   >
                     {slot.label} 컷 만들기
                   </button>

@@ -823,7 +823,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         </div>
 
         {detailError && (
-          <div className="mb-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
             일부 데이터를 불러오지 못했습니다 — {detailError}
           </div>
         )}
@@ -835,7 +835,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         ) : activeTab && "pending" in activeTab && activeTab.pending ? (
           <div className="bg-white p-10 shadow-sm">
             <h2 className="text-lg font-black">{activeTab.label}</h2>
-            <div className="mt-4 border border-primary/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+            <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
               {activeTab.pending}
             </div>
           </div>
