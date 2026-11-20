@@ -134,7 +134,7 @@ describe("MemberPurgeAdmin", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog");
     expect(
       within(dialog).getByText(
         "삭제한 회원정보는 되돌릴 수 없어요. 1명을 삭제할까요?",
@@ -163,7 +163,7 @@ describe("MemberPurgeAdmin", () => {
     expect(
       await screen.findByText("삭제 1명, 제외(유료 전환) 1명, 제외(직접) 1명"),
     ).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   test("먼저 고른 기관의 미리보기가 늦게 도착해도 지금 고른 기관의 목록을 덮어쓰지 않는다", async () => {
@@ -223,7 +223,7 @@ describe("MemberPurgeAdmin", () => {
     });
     await openTenant();
     fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
-    let dialog = await screen.findByRole("dialog");
+    let dialog = await screen.findByRole("alertdialog");
     fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
       target: { value: "한빛고" },
     });
@@ -240,7 +240,7 @@ describe("MemberPurgeAdmin", () => {
       data: { deleted: 1, excluded: 0, skipped: 0, notProcessed: 0 },
     });
     fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
-    dialog = await screen.findByRole("dialog");
+    dialog = await screen.findByRole("alertdialog");
     fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
       target: { value: "한빛고" },
     });
@@ -277,7 +277,7 @@ describe("MemberPurgeAdmin", () => {
     });
     await openTenant();
     fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog");
     fireEvent.change(within(dialog).getByLabelText("기관 이름 입력"), {
       target: { value: "한빛고" },
     });
@@ -287,5 +287,27 @@ describe("MemberPurgeAdmin", () => {
       await screen.findByText("아직 삭제할 수 없는 기관입니다."),
     ).toBeTruthy();
     expect(screen.getByText("김*늘")).toBeTruthy();
+  });
+
+  describe("삭제 확인 모달", () => {
+    async function openConfirm() {
+      await openTenant();
+      fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+      return await screen.findByRole("alertdialog", {
+        name: "계약 종료 회원 삭제 확인",
+      });
+    }
+
+    test("취소가 왼쪽 삭제가 오른쪽에 있고 처음 포커스는 취소에 있다", async () => {
+      const dialog = await openConfirm();
+
+      const cancel = within(dialog).getByRole("button", { name: "취소" });
+      const purge = within(dialog).getByRole("button", { name: "삭제" });
+      expect(
+        cancel.compareDocumentPosition(purge) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      await waitFor(() => expect(document.activeElement).toBe(cancel));
+    });
   });
 });
