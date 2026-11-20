@@ -129,6 +129,7 @@ import {
   withChunkRows,
 } from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
+import { toastWarning } from "./admin/shared/adminToast";
 import { ConfirmAdminHost } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
@@ -3578,11 +3579,17 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
     const rowCount = config.serverPaginate ? totalCount : filteredRows.length;
 
+    // 내보낼 행이 없으면 비밀번호와 사유를 받기 전에 알리고 게이트를 열지 않는다.
+    if (rowCount === 0) {
+      toastWarning("내보낼 데이터가 없습니다.");
+      return;
+    }
+
     requestAccess({
       action: "download",
       resourceKey: activeKey,
       title: `${config.title} 다운로드`,
-      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다.`,
+      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다. 건수가 많으면 수십 초 걸릴 수 있습니다.`,
       rowCount,
       onGranted: downloadExcel,
     });
@@ -3604,17 +3611,9 @@ export function AdminSectionRoute({ section }: { section: string }) {
     if (exporting) return;
 
     if (totalCount === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
-
-    const proceed = window.confirm(
-      `${totalCount.toLocaleString()}건을 CSV로 내려받습니다.\n` +
-        `${EXPORT_CHUNK.toLocaleString()}건씩 나눠 받으므로 건수가 많으면 수십 초가 걸리고, ` +
-        `그동안 이 화면을 닫거나 다른 메뉴로 이동하면 안 됩니다.\n\n계속할까요?`,
-    );
-
-    if (!proceed) return;
 
     setExporting({ done: 0, total: totalCount });
 

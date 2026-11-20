@@ -50,7 +50,7 @@ describe("confirmAdmin", () => {
       "취소",
       "확인",
     ]);
-    fireEvent.click(buttons[0]);
+    fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
 
     await expect(result).resolves.toBe(false);
   });
