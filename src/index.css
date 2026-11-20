@@ -1087,3 +1087,10 @@ body {
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* 토스트 뷰포트는 ui/toast.tsx 에서 z-50 으로 고정돼 있고 Toaster 가 className 을
+   받지 않는다. 포털로 나중에 열리는 다이얼로그(z-50)가 같은 z-index 에서는 DOM
+   순서로 토스트를 덮으므로, 밖(unlayered)에서 한 단계 올린다. */
+[data-slot="toast-viewport"] {
+  z-index: 60;
+}

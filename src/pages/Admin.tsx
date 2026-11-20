@@ -27,6 +27,7 @@ import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Toaster } from "@/components/ui/toast";
 import {
   canAccessSection,
   fetchAdminPermissions,
@@ -3932,15 +3933,17 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
-      <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
-      <AdminTopbar onLogout={logout} />
+    <Toaster>
+      <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
+        <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
+        <AdminTopbar onLogout={logout} />
 
-      <main className="ml-[224px] pt-[56px]">
-        <div className="min-h-[calc(100vh-56px)] px-7 py-8">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="ml-[224px] pt-[56px]">
+          <div className="min-h-[calc(100vh-56px)] px-7 py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </Toaster>
   );
 }
