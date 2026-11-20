@@ -282,10 +282,12 @@ export function reportAdminError(
 ): void {
   console.error(label, error);
   // 제목은 호출부 접두("저장 실패" 등), 설명은 매핑된 안내문이다. 원문은 싣지 않는다.
-  // timeout 은 Toaster 기본값(5000ms, 5초 미만이 아님)을 그대로 쓴다.
+  // 오류는 관리자가 읽고 닫을 때까지 남긴다(예전 alert 는 확인을 눌러야 닫혔다).
+  // timeout 0 은 자동 닫힘 없음: @base-ui/react 1.9.0 toast/useToastManager.d.ts:32.
   toast.add({
     type: "error",
     priority: "high",
+    timeout: 0,
     title: label,
     description: mapAdminErrorMessage(error, fieldLabels),
   });
