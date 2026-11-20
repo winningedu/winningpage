@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -1260,32 +1261,37 @@ export default function CouponAdmin() {
       <>
         <div className="mb-6 bg-white px-6 py-5 shadow-sm">
           <div className="flex items-center justify-between gap-4">
-            <button
+            <Button
               type="button"
               onClick={loadList}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
+              variant="outline"
+              size="lg"
             >
               <RefreshCw size={14} />
               초기화
-            </button>
+            </Button>
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-4">
             <h1 className="text-xl font-semibold">{TITLE}</h1>
 
-            <button
+            <Button
               type="button"
               onClick={openCreate}
-              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-semibold text-white"
+              size="lg"
+              className="font-semibold"
             >
               <Plus size={14} />
               등록
-            </button>
+            </Button>
           </div>
         </div>
 
         {loading ? (
-          <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+          <div
+            role="status"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
             데이터를 불러오는 중입니다.
           </div>
         ) : (
@@ -1452,22 +1458,27 @@ export default function CouponAdmin() {
                           <div className="flex justify-center gap-3">
                             {/* 수정 아이콘은 AdminTable(:4674)의 기존 액션과
                                   같은 아이콘·같은 무라벨 규범을 그대로 따른다. */}
-                            <button
+                            <Button
+                              aria-label="수정"
                               type="button"
                               onClick={() => openEdit(row)}
-                              className="text-gray-500 hover:text-black"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground"
                             >
                               <Edit3 size={17} />
-                            </button>
+                            </Button>
 
-                            <button
+                            <Button
                               type="button"
                               onClick={() => openHistory(row)}
                               aria-label={HISTORY_ACTION_LABEL ?? undefined}
-                              className="text-gray-500 hover:text-blue-600"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground"
                             >
                               <History size={17} />
-                            </button>
+                            </Button>
 
                             {/* 발급 관리는 발급형이거나(신규 발급 가능), 과거에
                                   조건형으로 전환된 뒤에도 살아있는(회수 안 된)
@@ -1478,14 +1489,16 @@ export default function CouponAdmin() {
                                   그리지 않는다. */}
                             {(row.grant_type === "granted" ||
                               grantedCouponIds.has(row.id)) && (
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => openGrants(row)}
                                 aria-label={GRANTS_ACTION_LABEL ?? undefined}
-                                className="text-gray-500 hover:text-blue-600"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground"
                               >
                                 <Users size={17} />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -1507,17 +1520,18 @@ export default function CouponAdmin() {
       <>
         <div className="mb-6 bg-white px-6 py-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setView("list");
                 setHistoryCoupon(null);
               }}
               aria-label={BACK_ACTION_LABEL ?? undefined}
-              className="inline-flex h-9 w-9 items-center justify-center border border-gray-500 bg-white"
+              variant="outline"
+              size="icon-lg"
             >
               <ChevronLeft size={15} />
-            </button>
+            </Button>
 
             <h1 className="text-xl font-semibold">{TITLE}</h1>
           </div>
@@ -1540,7 +1554,10 @@ export default function CouponAdmin() {
         </div>
 
         {historyLoading ? (
-          <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+          <div
+            role="status"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
             데이터를 불러오는 중입니다.
           </div>
         ) : (
@@ -1660,38 +1677,46 @@ export default function CouponAdmin() {
                                 onChange={(e) => setVoidReason(e.target.value)}
                                 className={`${INPUT_CLASS} w-48`}
                               />
-                              <button
+                              <Button
+                                aria-label="확인"
                                 type="button"
                                 onClick={() => submitVoid(row)}
                                 disabled={actionBusy}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-40"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
                               >
                                 <Check size={17} />
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                aria-label="취소"
                                 type="button"
                                 onClick={() => {
                                   setVoidingId(null);
                                   setVoidReason("");
                                 }}
-                                className="text-gray-500 hover:text-black"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground"
                               >
                                 <X size={17} />
-                              </button>
+                              </Button>
                             </div>
                           ) : (
                             <div className="flex justify-center">
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => {
                                   setVoidingId(row.id);
                                   setVoidReason("");
                                 }}
                                 aria-label={VOID_ACTION_LABEL ?? undefined}
-                                className="text-gray-500 hover:text-red-600"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
                               >
                                 <Ban size={17} />
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -1713,17 +1738,18 @@ export default function CouponAdmin() {
       <>
         <div className="mb-6 bg-white px-6 py-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setView("list");
                 setGrantCoupon(null);
               }}
               aria-label={BACK_ACTION_LABEL ?? undefined}
-              className="inline-flex h-9 w-9 items-center justify-center border border-gray-500 bg-white"
+              variant="outline"
+              size="icon-lg"
             >
               <ChevronLeft size={15} />
-            </button>
+            </Button>
 
             <h1 className="text-xl font-semibold">{TITLE}</h1>
           </div>
@@ -1776,14 +1802,15 @@ export default function CouponAdmin() {
                 className={INPUT_CLASS}
               />
             </span>
-            <button
+            <Button
               type="button"
               onClick={searchUsers}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
+              variant="outline"
+              size="lg"
             >
               <Search size={14} />
               조회
-            </button>
+            </Button>
           </div>
 
           {userSearching && (
@@ -1827,15 +1854,16 @@ export default function CouponAdmin() {
                           <Check size={17} />
                         </span>
                       ) : (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => submitGrant(profile)}
                           disabled={actionBusy}
-                          className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
+                          size="lg"
+                          className="font-semibold"
                         >
                           <Plus size={14} />
                           등록
-                        </button>
+                        </Button>
                       )}
                     </div>
                   );
@@ -1846,7 +1874,10 @@ export default function CouponAdmin() {
         </div>
 
         {grantLoading ? (
-          <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+          <div
+            role="status"
+            className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+          >
             데이터를 불러오는 중입니다.
           </div>
         ) : (
@@ -1961,38 +1992,46 @@ export default function CouponAdmin() {
                                 }
                                 className={`${INPUT_CLASS} w-48`}
                               />
-                              <button
+                              <Button
+                                aria-label="확인"
                                 type="button"
                                 onClick={() => submitRevoke(row)}
                                 disabled={actionBusy}
-                                className="text-red-600 hover:text-red-800 disabled:opacity-40"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
                               >
                                 <Check size={17} />
-                              </button>
-                              <button
+                              </Button>
+                              <Button
+                                aria-label="취소"
                                 type="button"
                                 onClick={() => {
                                   setRevokingId(null);
                                   setRevokeReason("");
                                 }}
-                                className="text-gray-500 hover:text-black"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground"
                               >
                                 <X size={17} />
-                              </button>
+                              </Button>
                             </div>
                           ) : (
                             <div className="flex justify-center">
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => {
                                   setRevokingId(row.id);
                                   setRevokeReason("");
                                 }}
                                 aria-label={REVOKE_ACTION_LABEL ?? undefined}
-                                className="text-gray-500 hover:text-red-600"
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
                               >
                                 <Ban size={17} />
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </TableCell>
@@ -2163,7 +2202,10 @@ export default function CouponAdmin() {
                   />
                   {slugConflict && (
                     // 문구를 지어내지 않고 "충돌한 기존 쿠폰 행" 을 그대로 보여준다.
-                    <div className="mt-2 border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold">
+                    <div
+                      role="alert"
+                      className="mt-2 border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold"
+                    >
                       {SLUG_DUPLICATE_TEXT && (
                         <div className="mb-1 text-red-600">
                           {SLUG_DUPLICATE_TEXT}
@@ -2202,13 +2244,14 @@ export default function CouponAdmin() {
                       onChange={(e) => patch({ code: e.target.value })}
                       className={`${INPUT_CLASS} font-mono`}
                     />
-                    <button
+                    <Button
                       type="button"
                       onClick={applyGiftCodePreset}
-                      className="h-9 shrink-0 whitespace-nowrap border border-gray-500 bg-white px-3 text-sm font-bold"
+                      variant="outline"
+                      size="lg"
                     >
                       선물 쿠폰 코드 생성
-                    </button>
+                    </Button>
                   </div>
                   <span className="text-xs font-bold text-gray-500">
                     {GIFT_CODE_PRESET_HINT_TEXT}
@@ -2279,22 +2322,25 @@ export default function CouponAdmin() {
       </div>
 
       <div className="mt-5 flex justify-end gap-2">
-        <button
+        <Button
           type="button"
           onClick={closeForm}
-          className="h-10 bg-gray-600 px-5 text-sm font-semibold text-white"
+          variant="secondary"
+          size="lg"
+          className="font-semibold"
         >
           취소
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
           onClick={save}
           disabled={saving}
-          className="h-10 bg-primary px-5 text-sm font-semibold text-white disabled:opacity-50"
+          size="lg"
+          className="font-semibold"
         >
           저장
-        </button>
+        </Button>
       </div>
     </div>
   );
