@@ -1,6 +1,17 @@
 import { RefreshCw, Search, UserPlus } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import {
   ADMIN_MEMBER_STATUS_OPTIONS,
@@ -388,7 +399,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     return (
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">
+          <h1 className="text-2xl font-semibold text-foreground">
             {selected.member_name || selected.member_email || "관리자"} 상세
           </h1>
           <ActionButton variant="light" onClick={closeDetail}>
@@ -396,28 +407,20 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
           </ActionButton>
         </div>
 
-        <div className="mb-4 flex gap-2">
-          {[
-            { key: "info", label: "직원 정보" },
-            { key: "perm", label: "개별 권한 설정" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setTab(item.key as "info" | "perm")}
-              className={`h-9 border px-5 text-sm font-black transition ${
-                tab === item.key
-                  ? "border-primary bg-primary text-white"
-                  : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as "info" | "perm")}
+        >
+          <TabsList variant="line" className="mb-2">
+            <TabsTrigger value="info" className="px-4">
+              직원 정보
+            </TabsTrigger>
+            <TabsTrigger value="perm" className="px-4">
+              개별 권한 설정
+            </TabsTrigger>
+          </TabsList>
 
-        {tab === "info" ? (
-          <>
+          <TabsContent value="info">
             <div className="mb-4 bg-white shadow-sm">
               {[
                 ["이름", selected.member_name || "-"],
@@ -429,9 +432,9 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4] last:border-b-0"
+                  className="grid grid-cols-[220px_1fr] border-b last:border-b-0"
                 >
-                  <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+                  <div className="bg-muted px-5 py-3 text-sm font-semibold">
                     {label}
                   </div>
                   <div className="px-5 py-3 text-sm">{value}</div>
@@ -476,10 +479,10 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                 {saving ? "저장 중..." : "저장"}
               </ActionButton>
             </div>
-          </>
-        ) : (
-          <>
-            <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+          </TabsContent>
+
+          <TabsContent value="perm">
+            <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]">
               개별 권한은 권한 묶음을 덮어씁니다. <b>접근 불가</b>는 묶음이 준
               권한까지 잠그고(차단이 항상 우선), <b>미지정</b>은 아무 말도 하지
               않는 것이라 묶음이 준 권한이 그대로 남습니다.
@@ -492,7 +495,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
             </div>
 
             <div className="bg-white shadow-sm">
-              <div className="grid grid-cols-[1fr_repeat(4,110px)_120px] border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-sm font-black">
+              <div className="grid grid-cols-[1fr_repeat(4,110px)_120px] border-b bg-muted px-5 py-3 text-sm font-semibold">
                 <div>메뉴</div>
                 {LEVEL_CHOICES.map((choice) => (
                   <div key={choice.value} className="text-center">
@@ -504,13 +507,13 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
               {[...grouped.entries()].map(([groupTitle, items]) => (
                 <div key={groupTitle}>
-                  <div className="border-b border-[#edf0f4] bg-[#f4f6f8] px-5 py-2 text-sm font-black">
+                  <div className="border-b bg-muted/50 px-5 py-2 text-sm font-semibold">
                     {groupTitle}
                   </div>
                   {items.map((resource) => (
                     <div
                       key={resource.key}
-                      className="grid grid-cols-[1fr_repeat(4,110px)_120px] items-center border-b border-[#edf0f4] px-5 py-2"
+                      className="grid grid-cols-[1fr_repeat(4,110px)_120px] items-center border-b px-5 py-2"
                     >
                       <div className="text-sm">{resource.label}</div>
                       {LEVEL_CHOICES.map((choice) => (
@@ -518,6 +521,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                           <input
                             type="radio"
                             name={`ov-${resource.key}`}
+                            aria-label={`${resource.label} ${choice.label}`}
+                            className="accent-primary"
                             checked={
                               (overrides[resource.key] ?? "") === choice.value
                             }
@@ -533,7 +538,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                           />
                         </div>
                       ))}
-                      <div className="text-center text-xs font-bold text-gray-600">
+                      <div className="text-center text-xs font-medium text-muted-foreground">
                         {/* 최종 권한에 행이 없으면 접근 불가다(규칙 3: default deny) —
                             "권한 없음"이 아니라 "아무 항목도 받지 못했다"는 뜻이다. */}
                         {LEVEL_LABEL[effective[resource.key] ?? ""] ||
@@ -544,8 +549,8 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                 </div>
               ))}
             </div>
-          </>
-        )}
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
@@ -554,30 +559,29 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={loadAll}
-            className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
-          >
-            <RefreshCw size={14} />
+          <Button type="button" variant="outline" size="lg" onClick={loadAll}>
+            <RefreshCw size={14} aria-hidden="true" />
             초기화
-          </button>
+          </Button>
 
           <div className="flex items-center gap-2">
             <div className="flex items-center">
-              <input
+              <Input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
-                className="h-9 w-[280px] border border-gray-400 px-3 text-sm outline-hidden"
+                aria-label="관리자 검색"
+                className="h-9 w-70 rounded-r-none font-medium"
               />
-              <button
+              <Button
                 type="button"
-                className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
+                variant="outline"
+                size="lg"
+                className="rounded-l-none border-l-0"
               >
-                <Search size={14} />
+                <Search size={14} aria-hidden="true" />
                 검색
-              </button>
+              </Button>
             </div>
             <ActionButton
               onClick={() => {
@@ -585,18 +589,18 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
                 setInviteOpen(true);
               }}
             >
-              <UserPlus size={14} />
+              <UserPlus size={14} aria-hidden="true" />
               관리자 초대
             </ActionButton>
           </div>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {inviteOpen && (
         <div className="mb-4 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-black">관리자 초대</h2>
+          <h2 className="mb-4 text-lg font-semibold">관리자 초대</h2>
           <div className="flex flex-wrap items-end gap-3">
             <Field label="이름">
               <TextInput value={inviteName} onChange={setInviteName} />
@@ -628,69 +632,122 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
-        <ScrollArea axis="x" className="bg-white shadow-sm">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead>
-              <tr className="border-b border-[#edf0f4] bg-[#fafafa] text-left">
-                <th className="w-16 px-4 py-3 font-black">번호</th>
-                <th className="px-4 py-3 font-black">직원명</th>
-                <th className="px-4 py-3 font-black">부서</th>
-                <th className="px-4 py-3 font-black">이메일</th>
-                <th className="px-4 py-3 font-black">권한 묶음</th>
-                <th className="px-4 py-3 font-black">상태</th>
-                <th className="px-4 py-3 font-black">가입일</th>
-                <th className="w-24 px-4 py-3 font-black">관리</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="bg-white shadow-sm">
+          <Table className="min-w-225">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-transparent">
+                <TableHead
+                  scope="col"
+                  className="w-16 px-4 py-3 font-semibold whitespace-normal"
+                >
+                  번호
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  직원명
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  부서
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  이메일
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  권한 묶음
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  상태
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  가입일
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="w-24 px-4 py-3 font-semibold whitespace-normal"
+                >
+                  관리
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredRows.map((row, index) => (
-                <tr key={row.profile_id} className="border-b border-[#edf0f4]">
-                  <td className="px-4 py-3">{index + 1}</td>
-                  <td className="px-4 py-3 font-bold">
+                <TableRow key={row.profile_id}>
+                  <TableCell className="px-4 py-3">{index + 1}</TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
                     {row.member_name || "-"}
-                  </td>
-                  <td className="px-4 py-3">{row.department || "-"}</td>
-                  <td className="px-4 py-3">{row.member_email || "-"}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
+                    {row.department || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
+                    {row.member_email || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
                     {row.role_name || "-"}
                     {row.role_is_super && (
-                      <span className="ml-2 border border-primary px-2 py-0.5 text-xs font-bold text-primary">
+                      <Badge
+                        variant="outline"
+                        className="ml-2 border-primary text-primary"
+                      >
                         최고
-                      </span>
+                      </Badge>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     {STATUS_LABEL[row.status] || row.status}
-                  </td>
-                  <td className="px-4 py-3">{formatDate(row.joined_at)}</td>
-                  <td className="px-4 py-3">
-                    <button
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {formatDate(row.joined_at)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => openDetail(row)}
-                      className="border border-gray-400 px-3 py-1 text-xs font-bold"
                     >
                       더보기
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
               {filteredRows.length === 0 && (
-                <tr>
-                  <td
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
                     colSpan={8}
-                    className="px-4 py-12 text-center font-bold text-gray-500"
+                    className="px-4 py-12 text-center text-muted-foreground"
                   >
                     등록된 관리자가 없습니다.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </ScrollArea>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
