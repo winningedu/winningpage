@@ -205,7 +205,9 @@ export default function MemberPurgeAdmin() {
             initialFocus={cancelRef}
           >
             <AlertDialogHeader>
-              <AlertDialogTitle>계약 종료 회원 삭제 확인</AlertDialogTitle>
+              <AlertDialogTitle className="text-lg font-semibold">
+                계약 종료 회원 삭제 확인
+              </AlertDialogTitle>
               <AlertDialogDescription className="font-black text-red-600">
                 {`삭제한 회원정보는 되돌릴 수 없어요. ${selected.size}명을 삭제할까요?`}
               </AlertDialogDescription>

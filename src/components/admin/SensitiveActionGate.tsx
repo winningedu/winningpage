@@ -132,7 +132,7 @@ export function useSensitiveActionGate() {
     >
       <DialogContent showCloseButton={false} className="sm:max-w-105">
         <DialogHeader>
-          <DialogTitle className="text-lg font-black text-[#111827]">
+          <DialogTitle className="text-lg font-semibold">
             {state.request.title}
           </DialogTitle>
           <DialogDescription className="font-bold text-gray-600">

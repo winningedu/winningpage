@@ -315,7 +315,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
         >
           <AlertDialogContent className="data-[size=default]:sm:max-w-md">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-lg font-black">
+              <AlertDialogTitle className="text-lg font-semibold">
                 기관을 발급했습니다
               </AlertDialogTitle>
             </AlertDialogHeader>
