@@ -123,4 +123,25 @@ describe("confirmAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
     await expect(second).resolves.toBe(false);
   });
+
+  test("줄에 선 destructive 확인창도 처음 포커스가 취소에 간다", async () => {
+    render(<ConfirmAdminHost />);
+
+    let first: Promise<boolean> | undefined;
+    act(() => {
+      first = confirmAdmin({ title: "첫 번째", confirmLabel: "첫 확인" });
+      void confirmAdmin({
+        title: "두 번째",
+        confirmLabel: "두 번째 확인",
+        destructive: true,
+      });
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "첫 확인" }));
+    await expect(first).resolves.toBe(true);
+
+    expect(await screen.findByText("두 번째")).toBeVisible();
+    const cancel = screen.getByRole("button", { name: "취소" });
+    await waitFor(() => expect(cancel).toHaveFocus());
+  });
 });
