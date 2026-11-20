@@ -143,7 +143,7 @@ export function useSensitiveActionGate() {
           </p>
         </DialogHeader>
 
-        <label className="block text-xs font-black text-gray-500">
+        <label className="block text-xs font-medium text-gray-500">
           관리자 비밀번호
           <input
             type="password"
@@ -159,7 +159,7 @@ export function useSensitiveActionGate() {
           />
         </label>
 
-        <label className="block text-xs font-black text-gray-500">
+        <label className="block text-xs font-medium text-gray-500">
           사유 (필수)
           <textarea
             rows={3}
@@ -176,7 +176,7 @@ export function useSensitiveActionGate() {
         </label>
 
         {state.error && (
-          <p className="text-sm font-black text-red-600">{state.error}</p>
+          <p className="text-sm font-semibold text-red-600">{state.error}</p>
         )}
 
         <DialogFooter>
