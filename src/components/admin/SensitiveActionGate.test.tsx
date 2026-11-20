@@ -80,4 +80,19 @@ describe("SensitiveActionGate 닫기", () => {
       await screen.findByRole("dialog", { name: "회원 목록 다운로드" }),
     ).toBeTruthy();
   });
+
+  test("바깥을 눌러도 닫히지 않는다", async () => {
+    openGate();
+    await screen.findByLabelText("관리자 비밀번호");
+
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.mouseUp(document.body);
+    fireEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByLabelText("관리자 비밀번호")).toBeTruthy();
+    expect(onGranted).not.toHaveBeenCalled();
+  });
 });
