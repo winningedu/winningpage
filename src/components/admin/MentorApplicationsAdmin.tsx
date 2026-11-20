@@ -1,6 +1,8 @@
-import { Download, ExternalLink, RefreshCw, Search } from "lucide-react";
+import { Download, ExternalLink, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
@@ -339,7 +341,7 @@ export default function MentorApplicationsAdmin({
     return (
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">
+          <h1 className="text-2xl font-semibold text-foreground">
             {config.title} 상세
           </h1>
           <ActionButton variant="light" onClick={closeDetail}>
@@ -363,23 +365,23 @@ export default function MentorApplicationsAdmin({
           </ActionButton>
 
           <ActionButton variant="light" onClick={openProofFile}>
-            <ExternalLink size={14} />
+            <ExternalLink aria-hidden="true" />
             증빙 파일 열람
           </ActionButton>
         </div>
 
         {MENTOR_APPLICATION_DETAIL_SECTIONS.map((section) => (
           <div key={section.title} className="mb-6 bg-white shadow-sm">
-            <div className="border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-sm font-black">
+            <div className="border-b border-border bg-muted px-5 py-3 text-sm font-semibold">
               {section.title}
             </div>
 
             {section.fields.map((field) => (
               <div
                 key={field.key}
-                className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4] last:border-b-0"
+                className="grid grid-cols-[13.75rem_1fr] border-b border-border last:border-b-0"
               >
-                <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+                <div className="bg-muted px-5 py-3 text-sm font-semibold">
                   {field.label}
                 </div>
                 <div className="whitespace-pre-line px-5 py-3 text-sm">
@@ -391,12 +393,12 @@ export default function MentorApplicationsAdmin({
         ))}
 
         <div className="mb-6 bg-white shadow-sm">
-          <div className="border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="border-b border-border bg-muted px-5 py-3 text-sm font-semibold">
             제출 메타
           </div>
 
-          <div className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4]">
-            <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="grid grid-cols-[13.75rem_1fr] border-b border-border">
+            <div className="bg-muted px-5 py-3 text-sm font-semibold">
               제출일
             </div>
             <div className="px-5 py-3 text-sm">
@@ -404,8 +406,8 @@ export default function MentorApplicationsAdmin({
             </div>
           </div>
 
-          <div className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4]">
-            <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="grid grid-cols-[13.75rem_1fr] border-b border-border">
+            <div className="bg-muted px-5 py-3 text-sm font-semibold">
               수정일
             </div>
             <div className="px-5 py-3 text-sm">
@@ -413,8 +415,8 @@ export default function MentorApplicationsAdmin({
             </div>
           </div>
 
-          <div className="grid grid-cols-[220px_1fr]">
-            <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="grid grid-cols-[13.75rem_1fr]">
+            <div className="bg-muted px-5 py-3 text-sm font-semibold">
               신청 ID
             </div>
             <div className="px-5 py-3 font-mono text-xs">{selected.id}</div>
@@ -431,47 +433,44 @@ export default function MentorApplicationsAdmin({
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={loadRows}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <RefreshCw size={14} />
+              <RefreshCw aria-hidden="true" />
               초기화
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={requestExport}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <Download size={14} />
+              <Download aria-hidden="true" />
               엑셀 다운로드
-            </button>
+            </Button>
           </div>
 
-          <div className="flex items-center">
-            <input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder={config.searchPlaceholder}
-              className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
-            />
-            <button
-              type="button"
-              className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
-            >
-              <Search size={14} />
-              검색
-            </button>
-          </div>
+          <Input
+            aria-label="신청 내역 검색"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder={config.searchPlaceholder}
+            className="h-9 w-80"
+          />
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
