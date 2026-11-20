@@ -110,4 +110,29 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
       expect.stringContaining("홍길동"),
     );
   });
+
+  it("공개 연도 저장에 실패하면 DB 원문 없이 안내만 토스트로 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <MemoryRouter initialEntries={["/admin/admissionGuidelines"]}>
+        <AdminSectionRoute section="admissionGuidelines" />
+        <Toaster />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(await screen.findByLabelText("새 공개 연도"), {
+      target: { value: "2030" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "변경" }));
+
+    await waitFor(() => {
+      const titles = Array.from(
+        document.querySelectorAll('[data-slot="toast-title"]'),
+      ).map((node) => node.textContent);
+      expect(titles).toContain("공개 연도 저장 실패");
+    });
+    expect(document.body.textContent).not.toContain("홍길동");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
 });
