@@ -19,6 +19,7 @@ import {
 } from "@/lib/goal/calc/index.js";
 import { supabase } from "@/lib/supabase";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { formatValue } from "@/pages/admin/shared/csvExport";
 import {
@@ -571,8 +572,7 @@ export default function GoalStudentsAdmin({
         if (cancelled) return;
 
         if (error) {
-          console.error(error);
-          alert(`학생 검색 실패: ${error.message}`);
+          reportAdminError("학생 검색 실패", error);
           setRows([]);
           setTotalCount(0);
           setLoading(false);
@@ -623,8 +623,7 @@ export default function GoalStudentsAdmin({
       if (cancelled) return;
 
       if (stateError) {
-        console.error(stateError);
-        alert(`${config.title} 조회 실패: ${stateError.message}`);
+        reportAdminError(`${config.title} 조회 실패`, stateError);
         setRows([]);
         setTotalCount(0);
         setLoading(false);
@@ -662,8 +661,7 @@ export default function GoalStudentsAdmin({
       if (cancelled) return;
 
       if (studentRes.error) {
-        console.error(studentRes.error);
-        alert(`학생 정보 조회 실패: ${studentRes.error.message}`);
+        reportAdminError("학생 정보 조회 실패", studentRes.error);
       }
 
       if (profileRes.error) console.error(profileRes.error);
@@ -1263,7 +1261,7 @@ export function GoalStudentDetail({
       window.location.reload();
     } catch (error) {
       console.error("goal/admin/reset-student 실패:", error);
-      alert(`온보딩 리셋 실패: ${error.message}`);
+      reportAdminError("온보딩 리셋 실패", error);
       setResetting(false);
     }
   }
@@ -1301,8 +1299,7 @@ export function GoalStudentDetail({
       if (cancelled) return;
 
       if (studentRes.error) {
-        console.error(studentRes.error);
-        alert(`학생 상세 조회 실패: ${studentRes.error.message}`);
+        reportAdminError("학생 상세 조회 실패", studentRes.error);
         setLoading(false);
         return;
       }
