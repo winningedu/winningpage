@@ -224,7 +224,7 @@ export default function MemberPurgeAdmin() {
               <AlertDialogAction
                 variant="destructive"
                 size="lg"
-                disabled={typedName !== tenantName || running}
+                disabled={!tenantName || typedName !== tenantName || running}
                 onClick={run}
               >
                 삭제
