@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   ActionButton,
   Field,
@@ -121,8 +122,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setLoading(false);
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setRows([]);
       return;
     }
@@ -187,12 +187,8 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
 
     setSaving(true);
 
-    // WC067(최고 관리자 아님)은 fn_create_tenant 가 raise 하는 원문 그대로
-    // 보여준다 — 이 화면 진입 자체가 admin_resources 'tenants' 권한을
-    // 통과해야 하므로, 여기 닿고도 이 에러를 받는다면 "메뉴 접근은 되는데
-    // 발급 권한(최고 관리자 전용)은 없는" 드문 경합 상황이라 원문이 더
-    // 정확하다(CouponAdmin 의 DB 원문 은폐 규범과 달리, 이 RPC 는 에러가
-    // 이 한 가지뿐이라 매핑 테이블을 따로 둘 실익이 없다).
+    // 오류 원문은 화면에 싣지 않는다(reportAdminError 가 매핑된 안내만 보인다).
+    // WC067(최고 관리자 아님)은 매핑에 없어 일반 실패 문구에 코드만 붙는다.
     const { data, error } = await supabase.rpc("fn_create_tenant", {
       p_name: form.name.trim(),
       p_region: form.region,
@@ -203,7 +199,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setSaving(false);
 
     if (error) {
-      alert(`등록 실패: ${error.message}`);
+      reportAdminError("등록 실패", error);
       return;
     }
 

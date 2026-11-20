@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
   selects: [] as string[],
   graceDays: 30 as number | null,
   created: null as Record<string, unknown> | null,
+  listError: null as { message: string; code?: string } | null,
+  createError: null as { message: string; code?: string } | null,
 }));
 
 vi.mock("@/config/site", () => ({
@@ -47,12 +49,12 @@ vi.mock("@/lib/supabase", () => ({
         select: (columns: string) => {
           state.selects.push(columns);
           return {
-            order: async () => ({ data: state.rows, error: null }),
+            order: async () => ({ data: state.rows, error: state.listError }),
           };
         },
       };
     }),
-    rpc: vi.fn(async () => ({ data: state.created, error: null })),
+    rpc: vi.fn(async () => ({ data: state.created, error: state.createError })),
   },
 }));
 
@@ -67,6 +69,7 @@ vi.mock("@/pages/admin/tenants/TenantDetail", () => ({
   ),
 }));
 
+import { Toaster } from "@/components/ui/toast";
 import TenantsAdmin from "./TenantsAdmin";
 
 const BASE = {
@@ -108,6 +111,8 @@ beforeEach(() => {
   state.selects = [];
   state.graceDays = 30;
   state.created = null;
+  state.listError = null;
+  state.createError = null;
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-09-21T03:00:00Z"));
 });
@@ -222,5 +227,57 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
     await waitFor(() =>
       expect(screen.getByText("기관 상세 tenant-new")).toBeTruthy(),
     );
+  });
+});
+
+describe("TenantsAdmin 오류 안내", () => {
+  test("목록 조회에 실패하면 원문 없이 제목과 안내만 토스트로 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.listError = { message: "relation tenants 홍길동", code: "42P01" };
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("기관 관리 조회 실패"),
+    );
+    expect(
+      document.querySelector('[data-slot="toast-description"]'),
+    ).toHaveTextContent("코드: 42P01");
+    expect(document.body.textContent).not.toContain("홍길동");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test("등록에 실패하면 '등록 실패' 제목의 토스트가 보인다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.createError = { message: "duplicate", code: "23505" };
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    await screen.findByText("한빛고");
+
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "새기관" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("등록 실패"),
+    );
+    expect(
+      document.querySelector('[data-slot="toast-description"]'),
+    ).toHaveTextContent("이미 등록된 값입니다(중복)");
   });
 });
