@@ -77,7 +77,10 @@ export default function CallsTab({
                   <button
                     type="button"
                     className="rounded-sm underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
-                    onClick={() => setSelected(row)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelected(row);
+                    }}
                   >
                     {formatDate(row.createdAt)}
                   </button>
