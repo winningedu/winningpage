@@ -4,6 +4,7 @@
 // 그러지 않으면 이전 학생의 성공/실패 요약이 다음 학생 화면에 그대로 남는다.
 import "@testing-library/jest-dom/vitest";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -196,5 +197,32 @@ describe("GoalStudentDetail 온보딩 리셋 확인", () => {
     await vi.advanceTimersByTimeAsync(2500);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("2초 안에 화면을 벗어나면 새로고침하지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
+    );
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "온보딩 리셋" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "리셋",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("온보딩 리셋이 완료되었습니다."),
+    );
+
+    cleanup();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(reload).not.toHaveBeenCalled();
   });
 });
