@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import {
   ActionButton,
@@ -195,193 +196,194 @@ export default function TenantDetail({
         </ActionButton>
       </div>
 
-      <div role="tablist" className="mb-4 flex gap-2">
-        {TABS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.key}
-            onClick={() => setTab(item.key)}
-            className={`h-9 px-4 text-sm font-black ${
-              tab === item.key
-                ? "bg-primary text-white"
-                : "border border-gray-400 bg-white text-gray-800"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
+        <TabsList variant="line" className="mb-4 h-auto gap-2">
+          {TABS.map((item) => (
+            <TabsTrigger
+              key={item.key}
+              value={item.key}
+              className="h-9 flex-none px-4 font-semibold data-active:bg-primary data-active:text-primary-foreground"
+            >
+              {item.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {tab === "schoolAdmins" ? (
-        <SchoolAdminPanel tenantId={tenantId} tenantName={savedName} />
-      ) : tab === "serviceSettings" ? (
-        <ServiceSettingsPanel
-          tenantId={tenantId}
-          termMonths={savedTermMonths}
-          isCatchAll={isCatchAll}
-        />
-      ) : (
-        <div className="bg-white p-6 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="소속코드">
-              <input
-                value={code}
-                readOnly
-                className="h-10 w-full border border-gray-300 bg-gray-50 px-3 font-mono text-sm font-bold"
-              />
-            </Field>
-            <Field label="이름">
-              <TextInput
-                value={form.name}
-                onChange={(value) => setField("name", value)}
-              />
-            </Field>
-            <Field label="지역">
-              <Select
-                value={form.region}
-                onChange={(value) => setField("region", value)}
-              >
-                {REGION_OPTIONS.map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="기관 유형">
-              <Select
-                value={form.org_type}
-                onChange={(value) => setField("org_type", value)}
-              >
-                {ORG_TYPE_OPTIONS.map((orgType) => (
-                  <option key={orgType} value={orgType}>
-                    {orgType}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="등급(내부용)">
-              <Select
-                value={form.tier}
-                onChange={(value) => setField("tier", value)}
-              >
-                {TIER_OPTIONS.map((tier) => (
-                  <option key={tier.value} value={tier.value}>
-                    {tier.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="계약 시작일">
-              <input
-                type="date"
-                value={form.contract_start_date}
-                onChange={(e) =>
-                  setField("contract_start_date", e.target.value)
-                }
-                className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
-              />
-            </Field>
-            <Field label="계약 종료일">
-              <input
-                type="date"
-                value={form.contract_end_date}
-                onChange={(e) => setField("contract_end_date", e.target.value)}
-                className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
-              />
-            </Field>
-            <Field label="유예 종료일">
-              <input
-                type="date"
-                value={form.grace_ends_on}
-                onChange={(e) => setField("grace_ends_on", e.target.value)}
-                className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
-              />
-            </Field>
-            <Field label="학기 길이">
-              <Select
-                value={form.term_months}
-                onChange={(value) => setField("term_months", value)}
-              >
-                <option value="">미정</option>
-                <option value="3">3개월</option>
-                <option value="6">6개월</option>
-              </Select>
-            </Field>
-            <div>
-              <Field label="MOU">
+        <TabsContent value="schoolAdmins">
+          <SchoolAdminPanel tenantId={tenantId} tenantName={savedName} />
+        </TabsContent>
+        <TabsContent value="serviceSettings">
+          <ServiceSettingsPanel
+            tenantId={tenantId}
+            termMonths={savedTermMonths}
+            isCatchAll={isCatchAll}
+          />
+        </TabsContent>
+        <TabsContent value="info">
+          <div className="bg-white p-6 shadow-sm">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="소속코드">
+                <input
+                  value={code}
+                  readOnly
+                  className="h-10 w-full border border-gray-300 bg-gray-50 px-3 font-mono text-sm font-bold"
+                />
+              </Field>
+              <Field label="이름">
+                <TextInput
+                  value={form.name}
+                  onChange={(value) => setField("name", value)}
+                />
+              </Field>
+              <Field label="지역">
                 <Select
-                  value={form.mou_status}
-                  onChange={(value) => setField("mou_status", value)}
+                  value={form.region}
+                  onChange={(value) => setField("region", value)}
                 >
-                  <option value="">미정</option>
-                  {MOU_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {mouLabel(status)}
+                  {REGION_OPTIONS.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <p className="mt-1 text-xs font-bold text-gray-500">
-                서비스는 계약 종료일 기준으로 막혀요
-              </p>
+              <Field label="기관 유형">
+                <Select
+                  value={form.org_type}
+                  onChange={(value) => setField("org_type", value)}
+                >
+                  {ORG_TYPE_OPTIONS.map((orgType) => (
+                    <option key={orgType} value={orgType}>
+                      {orgType}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="등급(내부용)">
+                <Select
+                  value={form.tier}
+                  onChange={(value) => setField("tier", value)}
+                >
+                  {TIER_OPTIONS.map((tier) => (
+                    <option key={tier.value} value={tier.value}>
+                      {tier.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="계약 시작일">
+                <input
+                  type="date"
+                  value={form.contract_start_date}
+                  onChange={(e) =>
+                    setField("contract_start_date", e.target.value)
+                  }
+                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                />
+              </Field>
+              <Field label="계약 종료일">
+                <input
+                  type="date"
+                  value={form.contract_end_date}
+                  onChange={(e) =>
+                    setField("contract_end_date", e.target.value)
+                  }
+                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                />
+              </Field>
+              <Field label="유예 종료일">
+                <input
+                  type="date"
+                  value={form.grace_ends_on}
+                  onChange={(e) => setField("grace_ends_on", e.target.value)}
+                  className="h-10 w-full border border-gray-300 px-3 text-sm font-bold"
+                />
+              </Field>
+              <Field label="학기 길이">
+                <Select
+                  value={form.term_months}
+                  onChange={(value) => setField("term_months", value)}
+                >
+                  <option value="">미정</option>
+                  <option value="3">3개월</option>
+                  <option value="6">6개월</option>
+                </Select>
+              </Field>
+              <div>
+                <Field label="MOU">
+                  <Select
+                    value={form.mou_status}
+                    onChange={(value) => setField("mou_status", value)}
+                  >
+                    <option value="">미정</option>
+                    {MOU_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {mouLabel(status)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <p className="mt-1 text-xs font-bold text-gray-500">
+                  서비스는 계약 종료일 기준으로 막혀요
+                </p>
+              </div>
+              <Field label="담당자 이름">
+                <TextInput
+                  value={form.contact_name}
+                  onChange={(value) => setField("contact_name", value)}
+                />
+              </Field>
+              <Field label="담당 전화번호">
+                <TextInput
+                  value={form.contact_phone}
+                  onChange={(value) => setField("contact_phone", value)}
+                />
+              </Field>
+              <Field label="담당 휴대전화">
+                <TextInput
+                  value={form.contact_mobile}
+                  onChange={(value) => setField("contact_mobile", value)}
+                />
+              </Field>
+              <Field label="담당 이메일">
+                <TextInput
+                  value={form.contact_email}
+                  onChange={(value) => setField("contact_email", value)}
+                />
+              </Field>
+              <Field label="대표 전화">
+                <TextInput
+                  value={form.main_phone}
+                  onChange={(value) => setField("main_phone", value)}
+                />
+              </Field>
+              <Field label="홈페이지">
+                <TextInput
+                  value={form.homepage}
+                  onChange={(value) => setField("homepage", value)}
+                />
+              </Field>
+              <Field label="주소">
+                <TextInput
+                  value={form.address}
+                  onChange={(value) => setField("address", value)}
+                />
+              </Field>
             </div>
-            <Field label="담당자 이름">
-              <TextInput
-                value={form.contact_name}
-                onChange={(value) => setField("contact_name", value)}
-              />
-            </Field>
-            <Field label="담당 전화번호">
-              <TextInput
-                value={form.contact_phone}
-                onChange={(value) => setField("contact_phone", value)}
-              />
-            </Field>
-            <Field label="담당 휴대전화">
-              <TextInput
-                value={form.contact_mobile}
-                onChange={(value) => setField("contact_mobile", value)}
-              />
-            </Field>
-            <Field label="담당 이메일">
-              <TextInput
-                value={form.contact_email}
-                onChange={(value) => setField("contact_email", value)}
-              />
-            </Field>
-            <Field label="대표 전화">
-              <TextInput
-                value={form.main_phone}
-                onChange={(value) => setField("main_phone", value)}
-              />
-            </Field>
-            <Field label="홈페이지">
-              <TextInput
-                value={form.homepage}
-                onChange={(value) => setField("homepage", value)}
-              />
-            </Field>
-            <Field label="주소">
-              <TextInput
-                value={form.address}
-                onChange={(value) => setField("address", value)}
-              />
-            </Field>
-          </div>
 
-          <div className="mt-6 flex items-center gap-4">
-            <ActionButton onClick={save} disabled={saving}>
-              {saving ? "저장 중..." : "저장"}
-            </ActionButton>
-            {message && (
-              <span className="text-sm font-bold text-gray-700">{message}</span>
-            )}
+            <div className="mt-6 flex items-center gap-4">
+              <ActionButton onClick={save} disabled={saving}>
+                {saving ? "저장 중..." : "저장"}
+              </ActionButton>
+              {message && (
+                <span className="text-sm font-bold text-gray-700">
+                  {message}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
