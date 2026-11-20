@@ -12,6 +12,7 @@ vi.mock("@/config/site", () => ({
 
 const state = vi.hoisted(() => ({
   ordersError: null as { message: string; code?: string } | null,
+  logsError: null as { message: string; code?: string } | null,
 }));
 
 const PROFILES = [
@@ -43,7 +44,12 @@ vi.mock("@/lib/supabase", () => ({
     from: (table: string) =>
       chain({
         data: table === "profiles" ? PROFILES : [],
-        error: table === "orders" ? state.ordersError : null,
+        error:
+          table === "orders"
+            ? state.ordersError
+            : table === "alimtalk_send_logs"
+              ? state.logsError
+              : null,
       }),
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
   },
@@ -78,6 +84,7 @@ const CONFIG = { title: "회원", searchPlaceholder: "검색", columns: [] };
 
 beforeEach(() => {
   state.ordersError = null;
+  state.logsError = null;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -146,5 +153,25 @@ test("일부 조회가 실패하면 원문 없이 안내만 role=alert로 보인
     expect(
       document.querySelector('[data-slot="toast-description"]'),
     ).toHaveTextContent("코드: 42501"),
+  );
+});
+
+test("여러 조회가 실패하면 토스트는 하나지만 오류는 모두 console.error로 남는다", async () => {
+  const ordersError = { message: "orders 실패", code: "42501" };
+  const logsError = { message: "logs 실패", code: "42P01" };
+  state.ordersError = ordersError;
+  state.logsError = logsError;
+  await openDetail();
+
+  await screen.findByText(/아래 항목이 비어 있을 수 있습니다/);
+  const logged = vi
+    .mocked(console.error)
+    .mock.calls.flat()
+    .filter((arg) => arg === ordersError || arg === logsError);
+  expect(logged).toHaveLength(2);
+  expect(logged).toContain(ordersError);
+  expect(logged).toContain(logsError);
+  expect(document.querySelectorAll('[data-slot="toast-title"]')).toHaveLength(
+    1,
   );
 });
