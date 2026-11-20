@@ -1,7 +1,15 @@
 import { Download } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { downloadCsv, formatValue } from "@/pages/admin/shared/csvExport";
-import { ActionButton } from "@/pages/admin/shared/formFields";
 import { fetchPurgeLogs, type PurgeLogEntry } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -66,8 +74,10 @@ export default function PurgeLogsAdmin() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-black">삭제 로그</h1>
-        <ActionButton
-          variant="light"
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
           disabled={logs.length === 0}
           onClick={() =>
             downloadCsv(
@@ -77,76 +87,95 @@ export default function PurgeLogsAdmin() {
             )
           }
         >
-          <Download size={14} />
+          <Download size={14} aria-hidden="true" />
           파일 내려받기
-        </ActionButton>
+        </Button>
       </div>
       {error && (
-        <div className="mb-4 text-sm font-bold text-red-600">{error}</div>
+        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
+          {error}
+        </div>
       )}
       <div className="bg-white p-6 shadow-sm">
-        <table className="w-full min-w-[55rem] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
+        <Table className="min-w-[55rem] border-collapse">
+          <TableHeader>
+            <TableRow className="border-y border-gray-300 hover:bg-transparent">
               {CSV_COLUMNS.map((column) => (
-                <th key={column.key} className="px-3 py-3 text-left">
+                <TableHead
+                  key={column.key}
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
                   {column.label}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {logs.length === 0 ? (
-              <tr>
-                <td
+              <TableRow>
+                <TableCell
                   colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
                   삭제 로그가 없습니다.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               logs.map((log) => (
                 <Fragment key={log.id}>
-                  <tr className="border-b border-gray-100">
-                    <td className="px-3 py-3">
+                  <TableRow className="border-b border-gray-100">
+                    <TableCell className="px-3 py-3">
                       {formatValue(log.executedAt, "datetime")}
-                    </td>
-                    <td className="px-3 py-3">{log.executedBy ?? "-"}</td>
-                    <td className="px-3 py-3 font-bold">
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {log.executedBy ?? "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3 font-medium">
                       {log.tenant?.name ?? "-"}
-                    </td>
-                    <td className="px-3 py-3">{log.contractEndDate ?? "-"}</td>
-                    <td className="px-3 py-3">{log.deletedCount}</td>
-                    <td className="px-3 py-3">{log.excludedCount}</td>
-                    <td className="px-3 py-3">{log.skippedCount}</td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {log.contractEndDate ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {log.deletedCount}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {log.excludedCount}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {log.skippedCount}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
                       <button
                         type="button"
                         aria-expanded={opened.has(log.id)}
                         onClick={() => toggle(log.id)}
-                        className="text-xs font-black text-primary underline"
+                        className="text-xs font-semibold text-primary underline"
                       >
                         회원번호 보기
                       </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   {opened.has(log.id) && (
-                    <tr className="border-b border-gray-100 bg-gray-50">
-                      <td colSpan={8} className="px-3 py-3">
+                    <TableRow className="border-b border-gray-100 bg-muted/50">
+                      <TableCell
+                        colSpan={8}
+                        className="whitespace-normal px-3 py-3"
+                      >
                         <ul className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
                           {log.memberIds.map((id) => (
                             <li key={id}>{id}</li>
                           ))}
                         </ul>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </Fragment>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

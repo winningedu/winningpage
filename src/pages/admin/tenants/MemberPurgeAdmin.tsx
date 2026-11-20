@@ -9,6 +9,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import { supabase } from "@/lib/supabase";
 import {
@@ -173,15 +181,17 @@ export default function MemberPurgeAdmin() {
         </Field>
       </div>
       {error && (
-        <div className="mb-4 text-sm font-bold text-red-600">{error}</div>
+        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
+          {error}
+        </div>
       )}
       {result && (
-        <div className="mb-4 text-sm font-bold text-green-700">
+        <div role="status" className="mb-4 text-sm font-bold text-green-700">
           {`삭제 ${result.deleted}명, 제외(유료 전환) ${result.excluded}명, 제외(직접) ${result.skipped}명`}
         </div>
       )}
       {result && result.notProcessed > 0 && (
-        <div className="mb-4 text-sm font-bold text-red-600">
+        <div role="alert" className="mb-4 text-sm font-bold text-red-600">
           {`처리하지 못한 학생 ${result.notProcessed}명, 잠시 뒤 다시 실행해 주세요`}
         </div>
       )}
@@ -260,40 +270,79 @@ export default function MemberPurgeAdmin() {
               삭제 실행
             </ActionButton>
           </div>
-          <table className="w-full min-w-[40rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-y border-gray-300">
-                <th className="px-3 py-3 text-left">선택</th>
-                <th className="px-3 py-3 text-left">이름</th>
-                <th className="px-3 py-3 text-left">학년</th>
-                <th className="px-3 py-3 text-left">반</th>
-                <th className="px-3 py-3 text-left">번호</th>
-                <th className="px-3 py-3 text-left">구분</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="min-w-[40rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  선택
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  이름
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  학년
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  반
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  번호
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="whitespace-normal px-3 py-3 text-left font-semibold"
+                >
+                  구분
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {preview.students.map((student) => (
-                <tr key={student.id} className="border-b border-gray-100">
-                  <td className="px-3 py-3">
+                <TableRow key={student.id} className="border-b border-gray-100">
+                  <TableCell className="px-3 py-3">
                     <input
                       type="checkbox"
                       aria-label={`${student.name} 선택`}
                       checked={selected.has(student.id)}
                       disabled={student.protected}
                       onChange={() => toggle(student.id)}
+                      className="accent-primary"
                     />
-                  </td>
-                  <td className="px-3 py-3 font-bold">{student.name}</td>
-                  <td className="px-3 py-3">{student.grade ?? "-"}</td>
-                  <td className="px-3 py-3">{student.classLabel ?? "-"}</td>
-                  <td className="px-3 py-3">{student.number ?? "-"}</td>
-                  <td className="px-3 py-3">
+                  </TableCell>
+                  <TableCell className="px-3 py-3 font-medium">
+                    {student.name}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    {student.grade ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    {student.classLabel ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    {student.number ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
                     {student.protected ? "제외(유료 전환)" : ""}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
