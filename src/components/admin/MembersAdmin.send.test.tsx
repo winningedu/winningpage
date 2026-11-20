@@ -86,7 +86,7 @@ async function sendWith(response: Response) {
     </>,
   );
   fireEvent.click(await screen.findByRole("button", { name: "열기 김학생" }));
-  fireEvent.click(await screen.findByRole("tab", { name: "알림톡·문자" }));
+  fireEvent.click(await screen.findByRole("tab", { name: /알림톡.문자/ }));
   fireEvent.change(await screen.findByRole("textbox"), {
     target: { value: "안내드립니다" },
   });
