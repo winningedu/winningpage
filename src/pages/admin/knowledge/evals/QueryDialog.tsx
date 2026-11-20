@@ -226,7 +226,9 @@ export default function QueryDialog({
         </div>
 
         {message && (
-          <div className="text-sm font-bold text-red-600">{message}</div>
+          <div role="alert" className="text-sm font-bold text-red-600">
+            {message}
+          </div>
         )}
         <div className="flex justify-end gap-2">
           <ActionButton variant="light" onClick={onClose} disabled={busy}>

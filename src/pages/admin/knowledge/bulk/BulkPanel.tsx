@@ -176,7 +176,10 @@ export default function BulkPanel({
           )}
 
           {error && (
-            <p className="border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+            <p
+              role="alert"
+              className="border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
+            >
               {error}
             </p>
           )}

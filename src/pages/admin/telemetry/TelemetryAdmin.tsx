@@ -239,13 +239,19 @@ export default function TelemetryAdmin({ config }: Props) {
       </div>
 
       {active.error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600"
+        >
           {active.error}
         </div>
       )}
 
       {active.loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (

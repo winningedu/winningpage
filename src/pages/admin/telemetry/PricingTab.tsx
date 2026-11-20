@@ -112,12 +112,18 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       </div>
 
       {error && (
-        <div className="mt-4 border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mt-4 border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600"
+        >
           {error}
         </div>
       )}
       {saved && (
-        <div className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+        <div
+          role="status"
+          className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700"
+        >
           단가를 저장했습니다.
         </div>
       )}
