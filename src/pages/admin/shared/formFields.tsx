@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
 
 // sql/52_mentor_applications.sql의 status 컬럼 주석에 적힌 값 그대로(CHECK 제약은 없지만
@@ -116,13 +117,13 @@ interface SelectProps {
 
 export function Select({ value, onChange, children }: SelectProps) {
   return (
-    <select
+    <NativeSelect
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 w-full border border-gray-300 px-3 text-sm font-bold outline-hidden focus:border-[#B88737]"
+      className="w-full"
     >
       {children}
-    </select>
+    </NativeSelect>
   );
 }
 

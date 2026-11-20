@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Field, Textarea, TextInput } from "./formFields";
+import { Field, Select, Textarea, TextInput } from "./formFields";
 
 describe("Field", () => {
   it("label 텍스트로 안쪽 컨트롤을 찾을 수 있고 라벨은 font-medium이다", () => {
@@ -41,5 +41,26 @@ describe("Textarea", () => {
 
     fireEvent.change(textarea, { target: { value: "내용" } });
     expect(onChange).toHaveBeenCalledWith("내용");
+  });
+});
+
+describe("Select", () => {
+  it("네이티브 combobox로 옵션을 보여주고 고른 값을 문자열로 넘기며 래퍼가 w-full이다", () => {
+    const onChange = vi.fn();
+    render(
+      <Select value="a" onChange={onChange}>
+        <option value="a">가</option>
+        <option value="b">나</option>
+      </Select>,
+    );
+    const select = screen.getByRole("combobox");
+
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+    expect(select).toHaveValue("a");
+    expect(select.parentElement?.className).toContain("w-full");
+    expect(select.parentElement?.className).not.toContain("w-fit");
+
+    fireEvent.change(select, { target: { value: "b" } });
+    expect(onChange).toHaveBeenCalledWith("b");
   });
 });
