@@ -1,6 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Field, Select, Textarea, TextInput, Toggle } from "./formFields";
+import {
+  ActionButton,
+  Field,
+  Select,
+  Textarea,
+  TextInput,
+  Toggle,
+} from "./formFields";
 
 describe("Field", () => {
   it("label 텍스트로 안쪽 컨트롤을 찾을 수 있고 라벨은 font-medium이다", () => {
@@ -79,5 +86,40 @@ describe("Toggle", () => {
 
     fireEvent.click(checkbox);
     expect(onChange).toHaveBeenCalledWith(true);
+  });
+});
+
+describe("ActionButton", () => {
+  it("기본 type은 button이고 클릭 시 onClick을 부른다", () => {
+    const onClick = vi.fn();
+    render(<ActionButton onClick={onClick}>저장</ActionButton>);
+    const button = screen.getByRole("button", { name: "저장" });
+
+    expect(button).toHaveAttribute("type", "button");
+    expect(button.className).toContain("bg-primary");
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("danger는 destructive 스타일, light는 outline 스타일로 매핑한다", () => {
+    render(
+      <>
+        <ActionButton variant="danger">삭제</ActionButton>
+        <ActionButton variant="light">취소</ActionButton>
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "삭제" }).className).toContain(
+      "text-destructive",
+    );
+    expect(screen.getByRole("button", { name: "취소" }).className).toContain(
+      "bg-background",
+    );
+  });
+
+  it("disabled를 넘기면 비활성화된다", () => {
+    render(<ActionButton disabled>저장</ActionButton>);
+
+    expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
   });
 });

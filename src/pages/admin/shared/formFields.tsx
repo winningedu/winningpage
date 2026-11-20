@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea as UiTextarea } from "@/components/ui/textarea";
@@ -173,6 +174,12 @@ interface ActionButtonProps {
   disabled?: boolean;
 }
 
+const ACTION_BUTTON_VARIANT = {
+  dark: "default",
+  danger: "destructive",
+  light: "outline",
+} as const;
+
 export function ActionButton({
   children,
   onClick,
@@ -180,22 +187,16 @@ export function ActionButton({
   type = "button",
   disabled = false,
 }: ActionButtonProps) {
-  const variantClass =
-    variant === "danger"
-      ? "border border-red-500 bg-white text-red-600 hover:bg-red-50"
-      : variant === "light"
-        ? "border border-gray-400 bg-white text-gray-800 hover:bg-gray-50"
-        : "bg-[#0D1B2A] text-white hover:bg-[#162A40]";
-
   return (
-    <button
+    <Button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-9 items-center justify-center gap-1 px-4 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${variantClass}`}
+      variant={ACTION_BUTTON_VARIANT[variant]}
+      size="lg"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
