@@ -80,8 +80,8 @@ export default function EvalsAdmin({ config }: Props) {
             </Field>
           </div>
         </div>
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
-        <p className="mt-1 text-sm font-bold text-gray-500">{GUIDE}</p>
+        <h1 className="mt-4 text-2xl font-semibold">{config.title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{GUIDE}</p>
       </div>
 
       {tab === "golden" && (

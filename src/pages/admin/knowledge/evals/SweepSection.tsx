@@ -67,8 +67,8 @@ export default function SweepSection({
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-black">조합 비교</h2>
-      <p className="mt-1 text-xs font-bold text-gray-500">
+      <h2 className="text-xl font-semibold">조합 비교</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
         하이브리드 모드로 목록의 모든 조합을 돌립니다. 조합은 24개까지이고 빈
         칸은 운영값 하나로 채웁니다.
       </p>
@@ -113,7 +113,7 @@ export default function SweepSection({
       )}
       {result && (
         <div className="mt-4">
-          <div className="mb-2 text-sm font-bold text-gray-500">
+          <div className="mb-2 text-sm text-muted-foreground">
             질의 {result.queryCount}건 / 굵은 행이 운영값 조합입니다.
           </div>
           <Table>

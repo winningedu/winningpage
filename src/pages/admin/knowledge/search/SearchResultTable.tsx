@@ -108,10 +108,10 @@ export default function SearchResultTable({
         {result.items.map((item, index) => (
           <Fragment key={item.id}>
             {index === boundary && (
-              <TableRow className="border-t-2 border-red-400 hover:bg-transparent">
+              <TableRow className="border-t-2 border-destructive hover:bg-transparent">
                 <TableCell
                   colSpan={columns.length}
-                  className="bg-red-50 px-2 py-1 font-semibold text-destructive"
+                  className="bg-destructive/10 px-2 py-1 font-semibold text-destructive"
                 >
                   여기부터 threshold 미달
                 </TableCell>

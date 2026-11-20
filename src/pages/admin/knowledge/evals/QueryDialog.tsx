@@ -164,12 +164,14 @@ export default function QueryDialog({
         </Field>
 
         <div>
-          <div className="mb-1 text-xs font-black text-gray-500">기대 자료</div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">
+            기대 자료
+          </div>
           <ul className="mb-2 space-y-1">
             {draft.expected.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between border border-gray-200 px-3 py-2 text-sm font-bold"
+                className="flex items-center justify-between border border-border px-3 py-2 text-sm"
               >
                 <span>{item.title}</span>
                 <ActionButton
@@ -226,7 +228,7 @@ export default function QueryDialog({
         </div>
 
         {message && (
-          <div role="alert" className="text-sm font-bold text-red-600">
+          <div role="alert" className="text-sm font-medium text-destructive">
             {message}
           </div>
         )}

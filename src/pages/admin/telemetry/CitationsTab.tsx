@@ -26,8 +26,8 @@ export default function CitationsTab({ items }: { items: CitationItem[] }) {
   return (
     <div className="bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm font-bold text-gray-500">
-          전체 <span className="text-blue-600">{items.length}</span>건
+        <span className="text-sm text-muted-foreground">
+          전체 <span className="text-primary">{items.length}</span>건
         </span>
         <ActionButton
           variant="light"

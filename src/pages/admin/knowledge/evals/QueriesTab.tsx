@@ -60,8 +60,8 @@ export default function QueriesTab({
     <div className="bg-white p-6 shadow-sm">
       <ErrorBox message={error} />
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm font-bold text-gray-500">
-          활성 <span className="text-blue-600">{activeCount}</span>문항
+        <span className="text-sm text-muted-foreground">
+          활성 <span className="text-primary">{activeCount}</span>문항
         </span>
         <ActionButton onClick={() => setEditing("new")}>질의 추가</ActionButton>
       </div>

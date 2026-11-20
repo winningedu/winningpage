@@ -56,7 +56,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <div className="mb-4 text-sm font-bold text-gray-500">
+      <div className="mb-4 text-sm text-muted-foreground">
         모델별 단가(USD per 1M 토큰). 마지막 저장{" "}
         {formatDate(updatedAt) || NO_DATA}
       </div>
@@ -114,7 +114,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       {error && (
         <div
           role="alert"
-          className="mt-4 border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600"
+          className="mt-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
         >
           {error}
         </div>
@@ -122,7 +122,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       {saved && (
         <div
           role="status"
-          className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700"
+          className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700"
         >
           단가를 저장했습니다.
         </div>

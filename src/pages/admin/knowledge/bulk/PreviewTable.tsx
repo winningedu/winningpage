@@ -28,11 +28,11 @@ export default function PreviewTable({
   return (
     <>
       {parse.errors.length > 0 && (
-        <div className="max-h-[10rem] overflow-y-auto border border-red-300 bg-red-50 p-2 text-xs">
-          <p className="font-black text-red-600">
+        <div className="max-h-[10rem] overflow-y-auto border border-destructive/40 bg-destructive/10 p-2 text-xs">
+          <p className="font-semibold text-destructive">
             오류 행 {parse.errors.length}건은 반영하지 않습니다.
           </p>
-          <table className="mt-1 w-full text-left text-red-700">
+          <table className="mt-1 w-full text-left text-destructive">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead

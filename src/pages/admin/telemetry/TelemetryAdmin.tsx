@@ -217,7 +217,7 @@ export default function TelemetryAdmin({ config }: Props) {
                     </Select>
                   </Field>
                 </div>
-                <label className="flex h-10 items-center gap-2 text-sm font-bold">
+                <label className="flex h-10 items-center gap-2 text-sm font-medium">
                   <input
                     type="checkbox"
                     checked={draft.retriedOnly}
@@ -235,13 +235,13 @@ export default function TelemetryAdmin({ config }: Props) {
             <ActionButton type="submit">조회</ActionButton>
           </form>
         )}
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-2xl font-semibold">{config.title}</h1>
       </div>
 
       {active.error && (
         <div
           role="alert"
-          className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600"
+          className="mb-4 border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
         >
           {active.error}
         </div>
@@ -250,7 +250,7 @@ export default function TelemetryAdmin({ config }: Props) {
       {active.loading ? (
         <div
           role="status"
-          className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+          className="bg-white p-12 text-center text-sm text-muted-foreground shadow-sm"
         >
           데이터를 불러오는 중입니다.
         </div>

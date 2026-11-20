@@ -15,11 +15,11 @@ const GUIDE_ITEMS = [
 
 export default function WritingGuide() {
   return (
-    <details className="mb-4 border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm">
-      <summary className="cursor-pointer font-black text-primary">
+    <details className="mb-4 border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+      <summary className="cursor-pointer font-semibold text-primary">
         카드 작성 안내
       </summary>
-      <ul className="mt-2 list-disc space-y-1 pl-5 font-bold leading-6 text-gray-700">
+      <ul className="mt-2 list-disc space-y-1 pl-5 leading-6 text-foreground">
         {GUIDE_ITEMS.map((item) => (
           <li key={item}>{item}</li>
         ))}

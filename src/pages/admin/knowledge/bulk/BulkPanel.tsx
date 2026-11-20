@@ -147,7 +147,7 @@ export default function BulkPanel({
       </div>
 
       {notice && (
-        <p className="mt-3 border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700">
+        <p className="mt-3 border border-border bg-muted/50 px-3 py-2 text-xs font-medium text-foreground">
           {notice}
         </p>
       )}
@@ -181,7 +181,7 @@ export default function BulkPanel({
           {error && (
             <p
               role="alert"
-              className="border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
             >
               {error}
             </p>

@@ -139,7 +139,7 @@ export default function RunTab({
             {busy ? "실행 중" : "실행"}
           </ActionButton>
         </div>
-        <p className="mt-2 text-xs font-bold text-gray-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           빈 칸은 운영값(회색 글씨)으로 실행합니다. 벡터 모드는 RRF k 와
           가중치를 쓰지 않습니다.
         </p>
@@ -200,7 +200,7 @@ function PerQueryTable({ perQuery }: { perQuery: PerQueryResult[] }) {
 function RunResult({ result }: { result: RunResponse }) {
   return (
     <div className="space-y-4 bg-white p-6 shadow-sm">
-      <div className="text-sm font-bold text-gray-500">
+      <div className="text-sm text-muted-foreground">
         질의 {result.queryCount}건 / {formatParams(result.params)}
       </div>
       <MetricCards metrics={result.metrics} />

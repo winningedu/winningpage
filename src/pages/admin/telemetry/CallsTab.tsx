@@ -33,8 +33,8 @@ export default function CallsTab({
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <div className="mb-4 text-sm font-bold text-gray-500">
-        전체 <span className="text-blue-600">{data.total}</span>건
+      <div className="mb-4 text-sm text-muted-foreground">
+        전체 <span className="text-primary">{data.total}</span>건
       </div>
       <Table>
         <TableHeader>
@@ -91,7 +91,7 @@ export default function CallsTab({
                 <TableCell>{row.transportAttempt ?? ""}</TableCell>
                 <TableCell
                   className={
-                    row.status === "error" ? "font-medium text-red-600" : ""
+                    row.status === "error" ? "font-medium text-destructive" : ""
                   }
                 >
                   {row.status}

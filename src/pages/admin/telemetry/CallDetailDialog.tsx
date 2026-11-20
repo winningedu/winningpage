@@ -47,10 +47,10 @@ export default function CallDetailDialog({
                 {formatDate(row.createdAt)} / {row.model}
               </DialogDescription>
             </DialogHeader>
-            <dl className="divide-y divide-gray-100 border border-gray-200 text-sm">
+            <dl className="divide-y divide-border border border-border text-sm">
               {fields.map(([label, value]) => (
                 <div key={label} className="flex gap-3 px-3 py-2">
-                  <dt className="w-[9rem] shrink-0 font-black text-gray-500">
+                  <dt className="w-[9rem] shrink-0 font-medium text-muted-foreground">
                     {label}
                   </dt>
                   <dd className="min-w-0 break-all">{value}</dd>

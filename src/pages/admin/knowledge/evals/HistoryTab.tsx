@@ -42,8 +42,8 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
     <div className="space-y-6">
       {before && after && (
         <div className="bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-black">두 실행 비교</h2>
-          <div className="mt-1 text-xs font-bold text-gray-500">
+          <h2 className="text-xl font-semibold">두 실행 비교</h2>
+          <div className="mt-1 text-xs text-muted-foreground">
             앞 {formatDate(before.created_at)} / 뒤{" "}
             {formatDate(after.created_at)}
           </div>
@@ -75,7 +75,7 @@ export default function HistoryTab({ runs }: { runs: EvalRun[] }) {
       )}
 
       <div className="bg-white p-6 shadow-sm">
-        <div className="mb-4 text-sm font-bold text-gray-500">
+        <div className="mb-4 text-sm text-muted-foreground">
           최근 실행 {runs.length}건 / 두 건을 고르면 지표 차이를 보여 줍니다.
         </div>
         <Table>

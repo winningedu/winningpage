@@ -103,7 +103,7 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
     <div className="mb-6 flex items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
       <div>
         <div className="font-semibold">검색 테스트</div>
-        <p className="mt-1 text-xs font-bold text-gray-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           학생 요청과 같은 조건으로 검색해 카드 순위와 실제 주입 여부를
           확인합니다.
         </p>
@@ -215,20 +215,20 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
           {message && (
             <p
               role="alert"
-              className="border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
+              className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
             >
               {message}
             </p>
           )}
 
           {result && (
-            <div className="max-h-[24rem] overflow-y-auto border border-gray-200 text-xs">
-              <p className="bg-gray-50 px-2 py-1 font-bold text-gray-600">
+            <div className="max-h-[24rem] overflow-y-auto border border-border text-xs">
+              <p className="bg-muted/50 px-2 py-1 text-muted-foreground">
                 {isHybridResult ? "하이브리드" : "벡터만"}, threshold{" "}
                 {result.threshold}, 결과 {result.items.length}건
               </p>
               {isHybridResult && (
-                <p className="bg-gray-50 px-2 pb-1 font-bold break-all text-gray-500">
+                <p className="bg-muted/50 px-2 pb-1 break-all text-muted-foreground">
                   단어 질의: {result.keywordQuery || "없음(뜻 검색만 반영)"}
                 </p>
               )}
