@@ -1690,10 +1690,10 @@ export function AdminTable<T extends AdminRow = AdminRow>({
 
       <Table className="min-w-[62.5rem] border-collapse">
         <TableHeader>
-          <TableRow className="border-y border-gray-300">
+          <TableRow className="border-y border-gray-300 hover:bg-transparent">
             <TableHead
               scope="col"
-              className="w-14 px-3 py-3 text-left font-semibold"
+              className="w-14 whitespace-normal px-3 py-3 text-left font-semibold"
             >
               번호
             </TableHead>
@@ -1701,14 +1701,14 @@ export function AdminTable<T extends AdminRow = AdminRow>({
               <TableHead
                 scope="col"
                 key={column.key}
-                className="px-3 py-3 text-left font-semibold"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
               >
                 {column.label}
               </TableHead>
             ))}
             <TableHead
               scope="col"
-              className="w-24 px-3 py-3 text-center font-semibold"
+              className="w-24 whitespace-normal px-3 py-3 text-center font-semibold"
             >
               관리
             </TableHead>
