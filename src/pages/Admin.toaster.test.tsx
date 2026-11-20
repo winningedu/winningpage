@@ -22,6 +22,7 @@ vi.mock("./admin/shared/adminSession", () => ({
 import { toast } from "@/components/ui/toast";
 import { AdminLayout } from "./Admin";
 import { reportAdminError } from "./admin/shared/adminErrors";
+import { toastWarning } from "./admin/shared/adminToast";
 import { confirmAdmin } from "./admin/shared/confirmAdmin";
 
 afterEach(() => {
@@ -49,6 +50,24 @@ describe("AdminLayout 토스트", () => {
     expect(
       document.querySelectorAll('[data-slot="toast-viewport"]'),
     ).toHaveLength(1);
+    toast.close();
+  });
+
+  it("닫아야 하는 경고가 5개 쌓여도 모두 보인다(기본 한도 3개로 숨기지 않는다)", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <AdminLayout />
+      </MemoryRouter>,
+    );
+
+    act(() => {
+      for (let i = 1; i <= 5; i++) toastWarning(`경고 ${i}`);
+    });
+
+    await waitFor(() =>
+      expect(document.querySelectorAll('[data-slot="toast"]')).toHaveLength(5),
+    );
+    expect(document.querySelectorAll("[data-limited]")).toHaveLength(0);
     toast.close();
   });
 
