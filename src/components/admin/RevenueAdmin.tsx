@@ -365,7 +365,7 @@ export default function RevenueAdmin() {
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className="h-auto flex-none px-4 py-2 font-medium after:bottom-0 data-active:text-primary data-active:after:bg-primary"
+                className="h-auto flex-none px-4 py-2 font-medium group-data-horizontal/tabs:after:bottom-0 data-active:text-primary data-active:after:bg-primary"
               >
                 {tab.label}
               </TabsTrigger>
