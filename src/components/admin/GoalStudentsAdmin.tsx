@@ -919,7 +919,7 @@ export default function GoalStudentsAdmin({
                       <TableCell className="whitespace-nowrap px-3 py-3 font-medium">
                         {row.profile?.name || "-"}
                       </TableCell>
-                      {/* 목록은 마스킹, 상세는 원본 — maskedPhone 선례와 같은 규칙(§3-D6) */}
+                      {/* 목록은 마스킹, 상세는 원본, maskedPhone 선례와 같은 규칙(§3-D6) */}
                       <TableCell className="whitespace-nowrap px-3 py-3">
                         {formatValue(row.profile?.phone, "maskedPhone")}
                       </TableCell>
@@ -2328,7 +2328,7 @@ export function GoalStudentDetail({
                   hints.push({
                     key: "study0",
                     tone: "red",
-                    text: "0시간 기록이 존재합니다 — v2는 이 경로를 daily-record API에서 차단하므로 이상 데이터입니다.",
+                    text: "0시간 기록이 존재합니다. v2는 이 경로를 daily-record API에서 차단하므로 이상 데이터입니다.",
                   });
                 }
                 if (Math.abs(gap) >= 2) {
@@ -2370,7 +2370,7 @@ export function GoalStudentDetail({
                         <>
                           {record.body_condition}
                           <span className="block text-muted-foreground">
-                            ×
+                            x
                             {CONDITION_MULTIPLIER[record.body_condition] ?? "?"}
                           </span>
                         </>
@@ -2408,7 +2408,7 @@ export function GoalStudentDetail({
                             </GoalRiskBadge>
                           ))
                         )}
-                        {/* memo 는 학생 자유 서술이라 목록 미노출·상세 접힘 기본(§3-D6) */}
+                        {/* memo 는 학생 자유 서술이라 목록 미노출, 상세 접힘 기본(§3-D6) */}
                         {memo && (
                           <Button
                             type="button"
