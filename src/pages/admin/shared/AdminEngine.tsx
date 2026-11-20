@@ -280,7 +280,7 @@ function AdminInput({
         disabled={disabled}
         readOnly={readOnly}
         rows={field.rows || 5}
-        className={`field-sizing-fixed resize-y font-mono text-xs leading-5 ${readOnly ? "bg-muted text-muted-foreground" : ""}`}
+        className={`field-sizing-fixed resize-y font-mono text-xs md:text-xs leading-5 ${readOnly ? "bg-muted text-muted-foreground" : ""}`}
       />
     );
   }
