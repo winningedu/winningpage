@@ -119,8 +119,16 @@ export default function SearchPreview({ config }: { config: PreviewConfig }) {
 
       <Dialog
         open={open}
-        onOpenChange={(next) => {
-          if (!busy) setOpen(next);
+        disablePointerDismissal
+        onOpenChange={(next, eventDetails) => {
+          if (next) return;
+          // 검색 중에 닫으면 응답이 닫힌 화면에 들어온다. 진행 중에는 모든 닫기를 막는다.
+          // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+          if (busy) {
+            eventDetails.cancel();
+            return;
+          }
+          setOpen(false);
         }}
       >
         <DialogContent className="sm:max-w-[64rem]">
