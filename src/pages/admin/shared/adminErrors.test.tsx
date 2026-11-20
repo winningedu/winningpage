@@ -7,7 +7,7 @@
 //   2. 그러면서 DB 원문·실제 값은 alert 로 새지 않는다. details 의 값 부분에는
 //      중복된 이름·연락처가 그대로 들어 있어 그걸 띄우면 개인정보 노출이다.
 
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Toaster, toast } from "@/components/ui/toast";
 import { buildFieldLabels, reportAdminError } from "./adminErrors";
@@ -191,7 +191,7 @@ test("buildFieldLabels 는 fields 라벨을 columns 보다 우선한다", () => 
   expect(labels.phone).toBe("연락처");
 });
 
-test("토스트는 즉시 읽어야 하는 high 우선순위이고 5초 미만으로 사라지지 않는다", () => {
+test("오류 토스트는 high 우선순위이고 자동으로 닫히지 않는다", () => {
   const addSpy = vi.spyOn(toast, "add").mockReturnValue("toast-id");
   vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -199,8 +199,28 @@ test("토스트는 즉시 읽어야 하는 high 우선순위이고 5초 미만�
 
   const options = addSpy.mock.calls[0]?.[0];
   expect(options?.priority).toBe("high");
-  // timeout 을 비우면 Toaster 기본값(5000ms)을 쓴다. 직접 줄 때는 5초 이상이어야 한다.
-  expect(options?.timeout ?? 5000).toBeGreaterThanOrEqual(5000);
+  expect(options?.timeout).toBe(0);
+});
+
+test("오류 토스트는 10초가 지나도 화면에 남는다", async () => {
+  vi.useFakeTimers();
+  try {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<Toaster />);
+
+    act(() => {
+      reportAdminError("등록 실패", { message: "WC035" });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(
+      document.querySelector('[data-slot="toast-title"]'),
+    ).toHaveTextContent("등록 실패");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("토스트에 error.message 원문과 details 는 실리지 않고 console.error 에만 남는다", () => {
