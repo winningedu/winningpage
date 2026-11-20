@@ -13,6 +13,7 @@ import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import {
@@ -299,8 +300,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setLoading(false);
       setRows([]);
       return;
@@ -579,7 +579,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       await loadDetail(selected);
       alert(`발송했습니다 (${result.channel}).`);
     } catch (error) {
-      alert(`발송 실패: ${(error as Error).message}`);
+      reportAdminError("발송 실패", error as Error);
     } finally {
       setSending(false);
     }
@@ -598,7 +598,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingCategory(false);
 
     if (error) {
-      alert(`회원구분 저장 실패: ${error.message}`);
+      reportAdminError("회원구분 저장 실패", error);
       return;
     }
 
@@ -625,7 +625,7 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
     setSavingGuardianPhone(false);
 
     if (error) {
-      alert(`학부모 핸드폰 저장 실패: ${error.message}`);
+      reportAdminError("학부모 핸드폰 저장 실패", error);
       return;
     }
 
