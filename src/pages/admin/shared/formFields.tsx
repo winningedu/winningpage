@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea as UiTextarea } from "@/components/ui/textarea";
 
 // sql/52_mentor_applications.sql의 status 컬럼 주석에 적힌 값 그대로(CHECK 제약은 없지만
 // 이 6개가 실제 사용 값이다). CONFIGS.mentorApplications 목록 컬럼과 MentorApplicationsAdmin의
@@ -97,12 +98,12 @@ export function Textarea({
   rows = 3,
 }: TextareaProps) {
   return (
-    <textarea
+    <UiTextarea
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full resize-y border border-gray-300 px-3 py-2 text-sm font-bold leading-6 outline-hidden focus:border-[#B88737]"
+      className="field-sizing-fixed resize-y font-medium"
     />
   );
 }
