@@ -139,8 +139,8 @@ test("일부 조회가 실패하면 원문 없이 안내만 role=alert로 보인
   };
   await openDetail();
 
-  const notice = await screen.findByRole("alert");
-  expect(notice).toHaveTextContent("일부 데이터를 불러오지 못했습니다");
+  const notice = await screen.findByText(/아래 항목이 비어 있을 수 있습니다/);
+  expect(notice).toHaveAttribute("role", "alert");
   expect(document.body.textContent).not.toContain("홍길동");
   await waitFor(() =>
     expect(

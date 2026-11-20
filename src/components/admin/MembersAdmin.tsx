@@ -8,7 +8,19 @@ import {
 } from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { tenantSaveErrorMessage } from "@/components/admin/tenantSaveError";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card as UiCard } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
@@ -440,12 +452,9 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       msgRes.error,
     ].filter(Boolean);
     if (errors.length > 0) {
-      console.error(errors);
+      reportAdminError("일부 데이터를 불러오지 못했습니다", errors[0]);
       setDetailError(
-        errors
-          .map((e) => e?.message)
-          .filter(Boolean)
-          .join(" / "),
+        "일부 데이터를 불러오지 못했습니다. 아래 항목이 비어 있을 수 있습니다.",
       );
     }
 
@@ -769,12 +778,16 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         {gate}
 
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">
+          <h1 className="text-2xl font-semibold text-foreground">
             {config.title} 상세
           </h1>
           <div className="flex items-center gap-2">
             <ActionButton variant="light" onClick={toggleMasking}>
-              {unmasked ? <EyeOff size={14} /> : <Eye size={14} />}
+              {unmasked ? (
+                <EyeOff size={14} aria-hidden="true" />
+              ) : (
+                <Eye size={14} aria-hidden="true" />
+              )}
               {unmasked ? "개인정보 마스킹" : "마스킹 해제"}
             </ActionButton>
             <ActionButton variant="light" onClick={closeDetail}>
@@ -786,119 +799,120 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         {/* 요약 헤더 — 참조 HTML 의 상단 프로필 블록 */}
         <div className="mb-4 flex flex-wrap items-center gap-x-8 gap-y-2 bg-white px-6 py-5 shadow-sm">
           <div>
-            <div className="text-lg font-black">{selected.name || "-"}</div>
-            <div className="text-xs font-bold text-gray-500">
+            <div className="text-lg font-semibold">{selected.name || "-"}</div>
+            <div className="text-xs font-medium text-muted-foreground">
               {selected.username || "-"}
             </div>
           </div>
           <div className="text-sm">
-            <span className="font-black text-gray-500">유형 </span>
+            <span className="font-medium text-muted-foreground">유형 </span>
             {MEMBER_TYPE_LABEL[String(selected.member_type || "")] ||
               selected.member_type ||
               "-"}
           </div>
           <div className="text-sm">
-            <span className="font-black text-gray-500">학교 </span>
+            <span className="font-medium text-muted-foreground">학교 </span>
             {selected.school_name || "-"}
           </div>
           <div className="text-sm">
-            <span className="font-black text-gray-500">연락처 </span>
+            <span className="font-medium text-muted-foreground">연락처 </span>
             {phoneOf(selected)}
           </div>
           <div className="text-sm">
-            <span className="font-black text-gray-500">가입일 </span>
+            <span className="font-medium text-muted-foreground">가입일 </span>
             {formatDate(selected.created_at)}
           </div>
         </div>
 
         {/* 탭 */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setTab(item.key)}
-              className={`h-9 border px-5 text-sm font-black transition ${
-                tab === item.key
-                  ? "border-primary bg-primary text-white"
-                  : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              }`}
+        <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)}>
+          <TabsList variant="line" className="mb-2 h-auto flex-wrap">
+            {TABS.map((item) => (
+              <TabsTrigger key={item.key} value={item.key} className="px-4">
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {detailError && (
+            <div
+              role="alert"
+              className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]"
             >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        {detailError && (
-          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
-            일부 데이터를 불러오지 못했습니다 — {detailError}
-          </div>
-        )}
-
-        {detailLoading ? (
-          <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
-            데이터를 불러오는 중입니다.
-          </div>
-        ) : activeTab && "pending" in activeTab && activeTab.pending ? (
-          <div className="bg-white p-10 shadow-sm">
-            <h2 className="text-lg font-black">{activeTab.label}</h2>
-            <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
-              {activeTab.pending}
+              {detailError}
             </div>
-          </div>
-        ) : tab === "profile" ? (
-          <ProfilePane
-            profile={selected}
-            isParent={isParent}
-            links={links}
-            unmasked={unmasked}
-            phoneOf={phoneOf}
-            emailOf={emailOf}
-            categoryDraft={categoryDraft}
-            setCategoryDraft={setCategoryDraft}
-            onSaveCategory={saveMemberCategory}
-            savingCategory={savingCategory}
-            guardianPhoneDraft={guardianPhoneDraft}
-            setGuardianPhoneDraft={setGuardianPhoneDraft}
-            onSaveGuardianPhone={saveGuardianPhone}
-            savingGuardianPhone={savingGuardianPhone}
-            tenants={tenants}
-            tenantDraft={tenantDraft}
-            setTenantDraft={setTenantDraft}
-            onSaveTenant={saveTenant}
-            savingTenant={savingTenant}
-            moveForm={
-              moveTarget ? (
-                <MoveStudentForm
-                  key={moveTarget.id}
-                  profileId={selected.id}
-                  tenant={moveTarget}
-                  onMoved={() => onStudentMoved(moveTarget)}
-                  onCancel={() => {
-                    setMoveTarget(null);
-                    setTenantDraft(selected.tenant_id || "");
-                  }}
-                />
-              ) : null
-            }
-          />
-        ) : tab === "services" ? (
-          <ServicesPane accesses={accesses} />
-        ) : tab === "msg" ? (
-          <MessagePane
-            messages={messages}
-            draft={draft}
-            setDraft={setDraft}
-            onSend={sendMessage}
-            sending={sending}
-          />
-        ) : (
-          <PayPane
-            orders={orders}
-            summary={paySummary}
-            viewerId={selected.id}
-          />
-        )}
+          )}
+
+          <TabsContent value={tab}>
+            {detailLoading ? (
+              <div
+                role="status"
+                className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+              >
+                데이터를 불러오는 중입니다.
+              </div>
+            ) : activeTab && "pending" in activeTab && activeTab.pending ? (
+              <div className="bg-white p-10 shadow-sm">
+                <h2 className="text-lg font-semibold">{activeTab.label}</h2>
+                <div className="mt-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]">
+                  {activeTab.pending}
+                </div>
+              </div>
+            ) : tab === "profile" ? (
+              <ProfilePane
+                profile={selected}
+                isParent={isParent}
+                links={links}
+                unmasked={unmasked}
+                phoneOf={phoneOf}
+                emailOf={emailOf}
+                categoryDraft={categoryDraft}
+                setCategoryDraft={setCategoryDraft}
+                onSaveCategory={saveMemberCategory}
+                savingCategory={savingCategory}
+                guardianPhoneDraft={guardianPhoneDraft}
+                setGuardianPhoneDraft={setGuardianPhoneDraft}
+                onSaveGuardianPhone={saveGuardianPhone}
+                savingGuardianPhone={savingGuardianPhone}
+                tenants={tenants}
+                tenantDraft={tenantDraft}
+                setTenantDraft={setTenantDraft}
+                onSaveTenant={saveTenant}
+                savingTenant={savingTenant}
+                moveForm={
+                  moveTarget ? (
+                    <MoveStudentForm
+                      key={moveTarget.id}
+                      profileId={selected.id}
+                      tenant={moveTarget}
+                      onMoved={() => onStudentMoved(moveTarget)}
+                      onCancel={() => {
+                        setMoveTarget(null);
+                        setTenantDraft(selected.tenant_id || "");
+                      }}
+                    />
+                  ) : null
+                }
+              />
+            ) : tab === "services" ? (
+              <ServicesPane accesses={accesses} />
+            ) : tab === "msg" ? (
+              <MessagePane
+                messages={messages}
+                draft={draft}
+                setDraft={setDraft}
+                onSend={sendMessage}
+                sending={sending}
+              />
+            ) : (
+              <PayPane
+                orders={orders}
+                summary={paySummary}
+                viewerId={selected.id}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
@@ -910,23 +924,25 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={loadRows}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
               초기화
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={requestExport}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <Download size={14} />
+              <Download size={14} aria-hidden="true" />
               엑셀 다운로드
-            </button>
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -939,28 +955,34 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
             </Select>
 
             <div className="flex items-center">
-              <input
+              <Input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
-                className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
+                aria-label="회원 검색"
+                className="h-9 w-80 rounded-r-none font-medium"
               />
-              <button
+              <Button
                 type="button"
-                className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
+                variant="outline"
+                size="lg"
+                className="rounded-l-none border-l-0"
               >
-                <Search size={14} />
+                <Search size={14} aria-hidden="true" />
                 검색
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
@@ -983,8 +1005,8 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[220px_1fr] border-b border-[#edf0f4] last:border-b-0">
-      <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">{label}</div>
+    <div className="grid grid-cols-[220px_1fr] border-b last:border-b-0">
+      <div className="bg-muted px-5 py-3 text-sm font-semibold">{label}</div>
       <div className="whitespace-pre-line px-5 py-3 text-sm">{value}</div>
     </div>
   );
@@ -998,12 +1020,12 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 bg-white shadow-sm">
-      <div className="border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-sm font-black">
+    <UiCard size="sm" className="mb-6 gap-0 py-0">
+      <div className="border-b bg-muted px-5 py-3 text-sm font-semibold">
         {title}
       </div>
       {children}
-    </div>
+    </UiCard>
   );
 }
 
@@ -1130,6 +1152,7 @@ function ProfilePane({
                     setGuardianPhoneDraft(formatPhoneInput(value))
                   }
                   placeholder="010-0000-0000"
+                  aria-label="학부모 핸드폰"
                   className="max-w-[13.75rem]"
                 />
                 <ActionButton
@@ -1215,7 +1238,7 @@ function ProfilePane({
 function ServicesPane({ accesses }: { accesses: ProgramAccessRow[] }) {
   if (accesses.length === 0) {
     return (
-      <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+      <div className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm">
         이용 중이거나 보유한 서비스가 없습니다.
       </div>
     );
@@ -1230,27 +1253,29 @@ function ServicesPane({ accesses }: { accesses: ProgramAccessRow[] }) {
         const expiresAt = access.expires_at || access.access_expires_at;
 
         return (
-          <div key={access.id} className="bg-white p-5 shadow-sm">
+          <UiCard key={access.id} size="sm" className="gap-0 p-5">
             <div className="flex items-center justify-between">
-              <div className="text-base font-black">{access.program_key}</div>
-              <span className="border border-gray-300 px-2 py-1 text-xs font-bold">
+              <div className="text-base font-semibold">
+                {access.program_key}
+              </div>
+              <Badge variant="outline">
                 {ACCESS_STATUS_LABEL[String(access.access_status || "")] ||
                   access.access_status ||
                   "-"}
-              </span>
+              </Badge>
             </div>
 
-            <div className="mt-3 text-sm text-gray-600">
+            <div className="mt-3 text-sm text-muted-foreground">
               {startsAt || expiresAt
                 ? `${formatDate(startsAt)} ~ ${expiresAt ? formatDate(expiresAt) : "무기한"}`
                 : "기간 정보 없음"}
             </div>
 
-            <div className="mt-1 text-sm text-gray-600">
+            <div className="mt-1 text-sm text-muted-foreground">
               결제 {access.payment_status || "-"} ·{" "}
               {formatMoney(access.paid_amount)}
             </div>
-          </div>
+          </UiCard>
         );
       })}
     </div>
@@ -1281,68 +1306,111 @@ function PayPane({
           { label: "미납액", value: summary.unpaid },
           { label: "누적 결제액", value: summary.total },
         ].map((item) => (
-          <div key={item.label} className="bg-white p-5 shadow-sm">
-            <div className="text-sm font-black text-gray-500">{item.label}</div>
-            <div className="mt-2 text-xl font-black">
+          <UiCard key={item.label} size="sm" className="gap-0 p-5">
+            <div className="text-sm font-medium text-muted-foreground">
+              {item.label}
+            </div>
+            <div className="mt-2 text-xl font-semibold">
               {formatMoney(item.value)}
             </div>
-          </div>
+          </UiCard>
         ))}
       </div>
 
-      <ScrollArea axis="x" className="bg-white shadow-sm">
-        <table className="w-full min-w-[860px] text-sm">
-          <thead>
-            <tr className="border-b border-[#edf0f4] bg-[#fafafa] text-left">
-              <th className="px-4 py-3 font-black">주문번호</th>
-              <th className="px-4 py-3 font-black">승인 일시</th>
-              <th className="px-4 py-3 font-black">상품</th>
-              <th className="px-4 py-3 font-black">구분</th>
-              <th className="px-4 py-3 font-black">결제 수단</th>
-              <th className="px-4 py-3 text-right font-black">결제 금액</th>
-              <th className="px-4 py-3 font-black">상태</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="bg-white shadow-sm">
+        <Table className="min-w-215">
+          <TableHeader>
+            <TableRow className="bg-muted hover:bg-transparent">
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                주문번호
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                승인 일시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                상품
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                구분
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                결제 수단
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="text-right px-4 py-3 font-semibold whitespace-normal"
+              >
+                결제 금액
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                상태
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {orders.length === 0 ? (
-              <tr>
-                <td
+              <TableRow className="hover:bg-transparent">
+                <TableCell
                   colSpan={7}
-                  className="px-4 py-12 text-center font-bold text-gray-500"
+                  className="px-4 py-12 text-center text-muted-foreground"
                 >
                   결제 내역이 없습니다.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               orders.map((order) => (
-                <tr key={order.id} className="border-b border-[#edf0f4]">
-                  <td className="px-4 py-3 font-mono text-xs">{order.id}</td>
-                  <td className="px-4 py-3">
+                <TableRow key={order.id}>
+                  <TableCell className="px-4 py-3 font-mono text-xs">
+                    {order.id}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     {formatDateTime(order.paid_at || order.created_at)}
-                  </td>
-                  <td className="px-4 py-3">{order.order_name || "-"}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
+                    {order.order_name || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     {order.parent_profile_id === viewerId
                       ? order.student_profile_id === viewerId
                         ? "본인 결제"
                         : "결제자"
                       : "이용자"}
-                  </td>
-                  <td className="px-4 py-3">{order.method || "-"}</td>
-                  <td className="px-4 py-3 text-right">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {order.method || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right">
                     {formatMoney(order.amount)}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     {ORDER_STATUS_LABEL[String(order.status || "")] ||
                       order.status ||
                       "-"}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </ScrollArea>
+          </TableBody>
+        </Table>
+      </div>
     </>
   );
 }
@@ -1392,8 +1460,8 @@ function MessagePane({
   return (
     <>
       <div className="mb-4 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-black">새 메시지 보내기</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold">새 메시지 보내기</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           자유 문구는 문자로 나갑니다. 알림톡은 카카오 승인을 받은 템플릿 본문만
           보낼 수 있습니다.
         </p>
@@ -1404,7 +1472,7 @@ function MessagePane({
 
         <div className="mt-2 flex items-center justify-between">
           <span
-            className={`text-xs font-bold ${isLong ? "text-primary" : "text-gray-500"}`}
+            className={`text-xs font-medium ${isLong ? "text-primary" : "text-muted-foreground"}`}
           >
             {bytes} / 90 byte
             {isLong &&
@@ -1416,42 +1484,67 @@ function MessagePane({
         </div>
       </div>
 
-      <ScrollArea axis="x" className="bg-white shadow-sm">
-        <table className="w-full min-w-[860px] text-sm">
-          <thead>
-            <tr className="border-b border-[#edf0f4] bg-[#fafafa] text-left">
-              <th className="px-4 py-3 font-black">발송 일시</th>
-              <th className="px-4 py-3 font-black">채널</th>
-              <th className="px-4 py-3 font-black">종류</th>
-              <th className="px-4 py-3 font-black">메시지 내용</th>
-              <th className="px-4 py-3 font-black">상태</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="bg-white shadow-sm">
+        <Table className="min-w-215">
+          <TableHeader>
+            <TableRow className="bg-muted hover:bg-transparent">
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                발송 일시
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                채널
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                종류
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                메시지 내용
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="px-4 py-3 font-semibold whitespace-normal"
+              >
+                상태
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {messages.length === 0 ? (
-              <tr>
-                <td
+              <TableRow className="hover:bg-transparent">
+                <TableCell
                   colSpan={5}
-                  className="px-4 py-12 text-center font-bold text-gray-500"
+                  className="px-4 py-12 text-center text-muted-foreground"
                 >
                   발송 이력이 없습니다.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               messages.map((row) => (
-                <tr key={row.id} className="border-b border-[#edf0f4]">
-                  <td className="whitespace-nowrap px-4 py-3">
+                <TableRow key={row.id}>
+                  <TableCell className="px-4 py-3">
                     {formatDateTime(row.sent_at)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">{row.channel}</td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">{row.channel}</TableCell>
+                  <TableCell className="px-4 py-3">
                     {TEMPLATE_LABEL[row.template_key] || row.template_key}
-                  </td>
+                  </TableCell>
                   {/* 본문이 길어 표를 밀지 않도록 줄바꿈은 살리되 폭을 제한한다. */}
-                  <td className="max-w-[420px] whitespace-pre-line px-4 py-3 text-gray-700">
+                  <TableCell className="max-w-105 px-4 py-3 whitespace-pre-line text-foreground">
                     {row.message}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     {row.status === "sent" ? (
                       "발송 완료"
                     ) : (
@@ -1462,13 +1555,13 @@ function MessagePane({
                         실패
                       </span>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </ScrollArea>
+          </TableBody>
+        </Table>
+      </div>
     </>
   );
 }
