@@ -115,17 +115,64 @@ describe("SchoolAdminPanel", () => {
     fill("전화번호", "010-1111-2222");
     fireEvent.click(screen.getByRole("button", { name: "발급" }));
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("NEWLOGIN2345AB")).toBeTruthy();
     expect(within(dialog).getByText("Tmp-pass-1")).toBeTruthy();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.queryByText("Tmp-pass-1")).toBeNull();
     // 발급 뒤 목록을 다시 불러오고 입력칸은 비워진다.
     await waitFor(() => expect(api.fetchSchoolAdmins).toHaveBeenCalledTimes(2));
     expect((screen.getByLabelText("이름") as HTMLInputElement).value).toBe("");
+  });
+
+  test("임시 비밀번호 모달은 제목을 접근 가능한 이름으로 가진 alertdialog 다", async () => {
+    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+      ok: true,
+      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+    });
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+
+    expect(
+      await screen.findByRole("alertdialog", {
+        name: "전체 관리자를 발급했습니다",
+      }),
+    ).toBeTruthy();
+  });
+
+  test("임시 비밀번호 모달은 Esc 와 바깥 누름으로 닫히지 않고 확인으로만 닫힌다", async () => {
+    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+      ok: true,
+      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+    });
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.mouseUp(document.body);
+    fireEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(within(dialog).getByText("Tmp-pass-1")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
   test("발급이 실패하면 서버 문구를 보이고 모달은 열지 않는다", async () => {
@@ -140,7 +187,7 @@ describe("SchoolAdminPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "발급" }));
 
     expect(await screen.findByText("이미 쓰는 전화번호예요.")).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   test("이름이나 전화번호가 비면 서버를 부르지 않는다", async () => {
@@ -169,7 +216,7 @@ describe("SchoolAdminPanel", () => {
       fill("이름", "김새로");
       fill("전화번호", "010-1111-2222");
       fireEvent.click(screen.getByRole("button", { name: "발급" }));
-      return await screen.findByRole("dialog");
+      return await screen.findByRole("alertdialog");
     }
 
     function toastTitle() {
