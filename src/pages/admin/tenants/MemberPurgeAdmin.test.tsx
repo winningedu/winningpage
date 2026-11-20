@@ -310,6 +310,25 @@ describe("MemberPurgeAdmin", () => {
       await waitFor(() => expect(document.activeElement).toBe(cancel));
     });
 
+    test("기관 이름이 비어 있으면 아무것도 입력하지 않아도 삭제 버튼은 막혀 있다", async () => {
+      db.tenants = [{ ...TENANT, name: "" }];
+      render(<MemberPurgeAdmin />);
+      const select = await screen.findByLabelText("기관");
+      await screen.findByRole("option", { name: /ABCD1234/ });
+      fireEvent.change(select, { target: { value: "tenant-7" } });
+      await screen.findByText("김*늘");
+      fireEvent.click(screen.getByRole("button", { name: "삭제 실행" }));
+      const dialog = await screen.findByRole("alertdialog");
+
+      expect(
+        (
+          within(dialog).getByRole("button", {
+            name: "삭제",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    });
+
     test("삭제 중에는 Esc 로 닫히지 않고 취소도 막혀 있다", async () => {
       vi.mocked(api.runMemberPurge).mockReturnValue(new Promise(() => {}));
       const dialog = await openConfirm();
