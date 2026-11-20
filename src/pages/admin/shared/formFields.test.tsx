@@ -139,7 +139,7 @@ describe("focus 표시", () => {
 
     for (const element of [
       screen.getByRole("textbox", { name: "입력" }),
-      screen.getAllByRole("textbox")[1],
+      screen.getByRole("textbox", { name: "" }),
       screen.getByRole("combobox"),
       screen.getByRole("button", { name: "저장" }),
     ]) {

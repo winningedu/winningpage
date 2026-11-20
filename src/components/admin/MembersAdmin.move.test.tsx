@@ -116,7 +116,9 @@ function pickTenantAndSave(tenantName: string) {
   fireEvent.change(select, { target: { value: option.value } });
   const saveButtons = screen.getAllByRole("button", { name: "저장" });
   // 소속 행의 저장 버튼은 소속 선택 바로 옆에 있다.
-  const row = select.closest("div")?.parentElement as HTMLElement;
+  // NativeSelect가 select를 래퍼 div로 한 번 감싸므로 parentElement를 한 단계 더 올라간다.
+  const row = select.closest("div")?.parentElement
+    ?.parentElement as HTMLElement;
   fireEvent.click(within(row).getByRole("button", { name: "저장" }));
   return saveButtons;
 }
