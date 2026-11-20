@@ -1,5 +1,11 @@
 import { useState } from "react";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
+import {
   Table,
   TableBody,
   TableCell,
@@ -30,10 +36,14 @@ import useResourceTitles from "./useResourceTitles";
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-gray-200 bg-white px-4 py-3">
-      <div className="text-sm font-bold text-gray-500">{label}</div>
-      <div className="mt-1 text-xl font-black">{value}</div>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-semibold">{value}</div>
+      </CardContent>
+    </Card>
   );
 }
 

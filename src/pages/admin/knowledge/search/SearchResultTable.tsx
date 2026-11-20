@@ -2,6 +2,13 @@
 // 벡터 결과만 유사도 내림차순이라 threshold 경계선이 한 줄로 그어진다.
 
 import { Fragment } from "react";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import type { SearchPreviewItem } from "../../../../../api/_lib/knowledge/preview.js";
 import type { SearchPreviewResult } from "../api";
@@ -14,38 +21,46 @@ function formatRank(rank: number | null | undefined): string {
 function renderCell(key: SearchColumnKey, item: SearchPreviewItem) {
   switch (key) {
     case "rank":
-      return <td className="px-2 py-1">{item.rank}</td>;
+      return <TableCell className="px-2 py-1">{item.rank}</TableCell>;
     case "title":
-      return <td className="px-2 py-1">{item.title}</td>;
+      return (
+        <TableCell className="px-2 py-1 whitespace-normal">
+          {item.title}
+        </TableCell>
+      );
     case "grade":
-      return <td className="px-2 py-1">{item.grade}</td>;
+      return <TableCell className="px-2 py-1">{item.grade}</TableCell>;
     case "subject":
-      return <td className="px-2 py-1">{item.subject}</td>;
+      return <TableCell className="px-2 py-1">{item.subject}</TableCell>;
     case "similarity":
       return (
-        <td className="px-2 py-1 tabular-nums">{item.similarity.toFixed(4)}</td>
+        <TableCell className="px-2 py-1 tabular-nums">
+          {item.similarity.toFixed(4)}
+        </TableCell>
       );
     case "ranks":
       return (
-        <td className="px-2 py-1 tabular-nums">
+        <TableCell className="px-2 py-1 tabular-nums">
           {formatRank(item.semanticRank)}, {formatRank(item.keywordRank)}
-        </td>
+        </TableCell>
       );
     case "rrf":
       return (
-        <td className="px-2 py-1 tabular-nums">
+        <TableCell className="px-2 py-1 tabular-nums">
           {typeof item.rrfScore === "number" ? item.rrfScore.toFixed(5) : ""}
-        </td>
+        </TableCell>
       );
     case "threshold":
       return (
-        <td className="px-2 py-1">{item.passesThreshold ? "통과" : "미달"}</td>
+        <TableCell className="px-2 py-1">
+          {item.passesThreshold ? "통과" : "미달"}
+        </TableCell>
       );
     case "injected":
       return (
-        <td className="px-2 py-1 font-bold">
+        <TableCell className="px-2 py-1 font-medium">
           {item.wouldBeInjected ? "주입" : "제외"}
-        </td>
+        </TableCell>
       );
   }
 }
@@ -66,47 +81,52 @@ export default function SearchResultTable({
 
   return (
     <table className="w-full text-left">
-      <thead className="sticky top-0 bg-gray-50">
-        <tr>
+      <TableHeader className="sticky top-0 z-10 bg-muted">
+        <TableRow className="hover:bg-transparent">
           {columns.map((column) => (
-            <th key={column.key} className={`${column.width} px-2 py-1`.trim()}>
+            <TableHead
+              key={column.key}
+              scope="col"
+              className={`${column.width} h-8 px-2 font-semibold whitespace-normal`.trim()}
+            >
               {column.label}
-            </th>
+            </TableHead>
           ))}
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {result.items.length === 0 && (
-          <tr>
-            <td colSpan={columns.length} className="px-2 py-6 text-center">
+          <TableRow className="hover:bg-transparent">
+            <TableCell
+              colSpan={columns.length}
+              className="px-2 py-6 text-center whitespace-normal text-muted-foreground"
+            >
               검색된 카드가 없습니다. 임베딩이 끝난 사용 중 카드만 검색됩니다.
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         )}
         {result.items.map((item, index) => (
           <Fragment key={item.id}>
             {index === boundary && (
-              <tr className="border-t-2 border-red-400">
-                <td
+              <TableRow className="border-t-2 border-red-400 hover:bg-transparent">
+                <TableCell
                   colSpan={columns.length}
-                  className="bg-red-50 px-2 py-1 font-black text-red-600"
+                  className="bg-red-50 px-2 py-1 font-semibold text-destructive"
                 >
                   여기부터 threshold 미달
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-            <tr
-              className={`border-t border-gray-100 ${isActive(item) ? "" : "text-muted-foreground"}`}
-            >
+            <TableRow className={isActive(item) ? "" : "text-muted-foreground"}>
               {columns.map((column) => (
                 <Fragment key={column.key}>
                   {renderCell(column.key, item)}
                 </Fragment>
               ))}
-            </tr>
+            </TableRow>
           </Fragment>
         ))}
-      </tbody>
+      </TableBody>
     </table>
   );
 }
