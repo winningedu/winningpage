@@ -1,5 +1,13 @@
 import { useCallback, useState } from "react";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   type AdminAccessAction,
   verifyAdminPassword,
   writeAdminAccessLog,
@@ -99,19 +107,36 @@ export function useSensitiveActionGate() {
   }
 
   const gate = state ? (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-105 bg-white p-6 shadow-lg">
-        <h2 className="text-lg font-black text-[#111827]">
-          {state.request.title}
-        </h2>
-        <p className="mt-2 text-sm font-bold text-gray-600">
-          {state.request.description}
-        </p>
-        <p className="mt-1 text-xs font-bold text-red-500">
-          비밀번호 확인과 사유는 기록으로 남습니다.
-        </p>
+    <Dialog
+      open
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (open) return;
+        // 확인 중에 닫으면 submit 이 이어서 로그 적재와 onGranted 까지 실행해 닫기가
+        // 곧 승인이 된다. 확인 중에는 Esc 등 모든 닫기를 막는다.
+        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        if (state.busy) {
+          eventDetails.cancel();
+          return;
+        }
+        // 닫기는 취소일 뿐이다. onGranted 는 submit 성공 경로에서만 부른다.
+        close();
+      }}
+    >
+      <DialogContent showCloseButton={false} className="sm:max-w-105">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-black text-[#111827]">
+            {state.request.title}
+          </DialogTitle>
+          <DialogDescription className="font-bold text-gray-600">
+            {state.request.description}
+          </DialogDescription>
+          <p className="text-xs font-bold text-red-500">
+            비밀번호 확인과 사유는 기록으로 남습니다.
+          </p>
+        </DialogHeader>
 
-        <label className="mt-5 block text-xs font-black text-gray-500">
+        <label className="block text-xs font-black text-gray-500">
           관리자 비밀번호
           <input
             type="password"
@@ -127,7 +152,7 @@ export function useSensitiveActionGate() {
           />
         </label>
 
-        <label className="mt-4 block text-xs font-black text-gray-500">
+        <label className="block text-xs font-black text-gray-500">
           사유 (필수)
           <textarea
             rows={3}
@@ -144,19 +169,19 @@ export function useSensitiveActionGate() {
         </label>
 
         {state.error && (
-          <p className="mt-3 text-sm font-black text-red-600">{state.error}</p>
+          <p className="text-sm font-black text-red-600">{state.error}</p>
         )}
 
-        <div className="mt-5 flex justify-end gap-2">
+        <DialogFooter>
           <ActionButton variant="light" onClick={close} disabled={state.busy}>
             취소
           </ActionButton>
           <ActionButton onClick={submit} disabled={state.busy}>
             {state.busy ? "확인 중…" : "확인"}
           </ActionButton>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   ) : null;
 
   return { requestAccess, gate };
