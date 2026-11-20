@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   addDaysYMD,
@@ -1146,6 +1146,9 @@ export function GoalStudentDetail({
   // 부분 갱신하는 것보다 안전하다 — GoalStudentsAdmin의 rows state는
   // mutationSeq 같은 재조회 트리거를 두지 않는다).
   const [resetting, setResetting] = useState(false);
+  const reloadTimerRef = useRef<number | undefined>(undefined);
+  // 리셋 뒤 새로고침 예약은 화면을 벗어나면 취소한다.
+  useEffect(() => () => window.clearTimeout(reloadTimerRef.current), []);
 
   // 리포트 알림톡 재발송(QA 2차 행70). 후보 목록·라벨은 서버 검증(2주 규칙)과
   // 같은 상수를 공유하는 순수 함수(goalReportResendOptions.ts)에 위임한다.
@@ -1268,7 +1271,10 @@ export function GoalStudentDetail({
       );
       // 목록 탭의 상태('컷 대기')까지 함께 반영해야 하므로 전체 새로고침한다.
       // 새로고침하면 토스트가 사라지므로 안내가 읽힐 시간을 잠시 둔다.
-      window.setTimeout(() => window.location.reload(), RELOAD_DELAY_MS);
+      reloadTimerRef.current = window.setTimeout(
+        () => window.location.reload(),
+        RELOAD_DELAY_MS,
+      );
     } catch (error) {
       console.error("goal/admin/reset-student 실패:", error);
       reportAdminError("온보딩 리셋 실패", error);
