@@ -2,8 +2,9 @@
 // 36개 config 가 공유하는 표라서 DOM 구조가 아니라 역할(role)로 단언한다.
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { AdminTable } from "./AdminEngine";
+import { AdminConfigTabs, AdminTable } from "./AdminEngine";
 
 type Row = { id: string; title: string };
 
@@ -108,5 +109,28 @@ describe("AdminTable 페이지 이동", () => {
     fireEvent.click(screen.getByRole("button", { name: "마지막 페이지" }));
     const arg = setPage.mock.calls[0]?.[0];
     expect(typeof arg === "function" ? arg(5) : arg).toBe(4300);
+  });
+});
+
+describe("AdminConfigTabs", () => {
+  test("탭은 링크로 렌더되고 활성 탭에만 aria-current=page 가 붙는다", () => {
+    render(
+      <MemoryRouter>
+        <AdminConfigTabs
+          tabs={[
+            { key: "susi", label: "수시" },
+            { key: "jungsi", label: "정시" },
+          ]}
+          activeKey="jungsi"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("navigation", { name: "섹션 탭" })).toBeTruthy();
+    const susi = screen.getByRole("link", { name: "수시" });
+    const jungsi = screen.getByRole("link", { name: "정시" });
+    expect(susi.getAttribute("href")).toBe("/admin/susi");
+    expect(susi.getAttribute("aria-current")).toBeNull();
+    expect(jungsi.getAttribute("aria-current")).toBe("page");
   });
 });
