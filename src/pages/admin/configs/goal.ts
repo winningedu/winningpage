@@ -1,3 +1,4 @@
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 import { GOAL_CUT_SOURCE_OPTIONS } from "@/pages/admin/shared/formFields";
 import { GOAL_CUT_RANGE } from "./goalUniversityCutsBulkXlsx";
@@ -79,7 +80,10 @@ interface GoalUniversityCutsConfig {
   fields: GoalField[];
   rowToForm: (row: GoalCutRow) => GoalCutRow;
   formToPayload: (form: GoalCutRow) => Record<string, unknown>;
-  validate: (form: GoalCutRow, row?: GoalCutRow | null) => string | null;
+  validate: (
+    form: GoalCutRow,
+    row?: GoalCutRow | null,
+  ) => string | null | Promise<string | null>;
   defaults: Record<string, unknown>;
 }
 
@@ -278,7 +282,7 @@ export const goalConfigs: {
     },
     // 🔴 스케일 이원성의 정본 방어선(§3-D4 층 ②). DB CHECK는 jungsi에 2.5(등급)를
     // 넣어도 통과시킨다 — 1~9 구간은 두 스케일 모두 합법이라 DB가 구분할 수 없다.
-    validate: (form, row) => {
+    validate: async (form, row) => {
       // 규칙 0 — 기존 행의 컷 종류 변경 차단. 이 탭이 막아야 할 1순위 사고다.
       if (row?.cut_type && form.cut_type !== row.cut_type) {
         return "컷 종류는 변경할 수 없습니다. 이 행을 삭제한 뒤 새로 등록해 주세요.";
@@ -304,13 +308,15 @@ export const goalConfigs: {
         return `선택한 컷 종류(${range.label})의 범위를 벗어났습니다 — ${range.min} ~ ${range.max} 사이로 입력해 주세요.`;
       }
       // 거부가 아니라 확인 — 백분위 9 이하가 불가능하진 않지만 실무상
-      // 스케일 혼입일 확률이 압도적이다. validate는 동기 함수이고 호출부가
-      // 반환값을 무조건 alert하므로, 취소를 누르면 경고창이 한 번 더 뜬다.
-      // 그래서 반환 문구를 alert로 읽어도 자연스러운 문장으로 확정했다.
+      // 스케일 혼입일 확률이 압도적이다. 호출부가 반환값을 무조건 토스트로
+      // 보이므로, 취소를 누르면 안내가 한 번 더 뜬다. 그래서 반환 문구를
+      // 안내로 읽어도 자연스러운 문장으로 확정했다.
       if (form.cut_type === "jungsi" && avgCut <= 9) {
-        const ok = window.confirm(
-          "정시 컷에 9 이하 값을 넣으셨습니다. 내신 등급을 잘못 입력하신 것은 아닌가요? 백분위 값이 맞다면 [확인]을 눌러 주세요.",
-        );
+        const ok = await confirmAdmin({
+          title: "정시 컷에 9 이하 값을 넣으셨습니다.",
+          description:
+            "내신 등급을 잘못 입력하신 것은 아닌가요? 백분위 값이 맞다면 [확인]을 눌러 주세요.",
+        });
         if (!ok) return "저장하지 않았습니다. 정시 컷 값을 다시 확인해 주세요.";
       }
       return null;

@@ -18,6 +18,8 @@ import {
   HWP_SECTION_ORDER,
   splitHwpTextIntoSections,
 } from "@/lib/admissionParsing";
+import { toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 
 // admissionGuidelines row/form은 AdminForm(AdminEngine.jsx, 미변환)이 소유하는
 // 제네릭 폼 상태다 — HWP 6섹션(raw/*_html/*_json) + university_name 정도만
@@ -45,10 +47,10 @@ const ADMISSION_EXISTING_WRAP_RE =
 // 비교식으로 두면 서로 다른 객체끼리도 항상 '[object Object]' === '[object Object]'로
 // "같음" 판정된다(실질적으로 이 가드가 무력화된다). stableStringifyDoc로 deep 비교해야
 // 실제 doc 변경을 잡는다(generatedAt은 stableStringifyDoc이 비교에서 알아서 뺀다).
-export function admissionGuidelinesValidate(
+export async function admissionGuidelinesValidate(
   form: AdmissionGuidelinesForm,
   row?: AdmissionGuidelinesForm | null,
-): string | null {
+): Promise<string | null> {
   if (!row) return null;
 
   const changedLabels = HWP_SECTION_ORDER.filter((key: string) => {
@@ -66,9 +68,11 @@ export function admissionGuidelinesValidate(
 
   if (changedLabels.length === 0) return null;
 
-  const proceed = window.confirm(
-    `다음 항목의 공개 페이지 내용이 변경됩니다:\n- ${changedLabels.join("\n- ")}\n\n계속 저장하시겠습니까?`,
-  );
+  const proceed = await confirmAdmin({
+    title: "다음 항목의 공개 페이지 내용이 변경됩니다:",
+    description: `- ${changedLabels.join("\n- ")}\n\n계속 저장하시겠습니까?`,
+    confirmLabel: "계속",
+  });
 
   return proceed ? null : "저장이 취소되었습니다.";
 }
@@ -186,8 +190,9 @@ export function AdmissionParsingPreview({
 
   function warnSkipped(skipped: string[]) {
     if (!skipped.length) return;
-    alert(
-      `다음 카테고리는 이미 내용이 있어 자동 반영하지 않았습니다(기존 값 보존):\n- ${skipped.join("\n- ")}\n\n덮어쓰려면 해당 카테고리의 "파싱 결과로 덮어쓰기 동의" 체크박스를 켠 뒤 다시 실행하세요.`,
+    toastWarning(
+      "다음 카테고리는 이미 내용이 있어 자동 반영하지 않았습니다(기존 값 보존):",
+      `${skipped.join(", ")}. 덮어쓰려면 해당 카테고리의 "파싱 결과로 덮어쓰기 동의" 체크박스를 켠 뒤 다시 실행하세요.`,
     );
   }
 
@@ -196,14 +201,15 @@ export function AdmissionParsingPreview({
     const detail = docFailures
       .map((f) => `- ${f.label}: ${f.errors.join(" / ")}`)
       .join("\n");
-    alert(
-      `다음 카테고리는 구조화 문서 생성에 실패해 기존 값을 보존했습니다(HTML만 갱신됨):\n${detail}\n\n공개 페이지에 반영하려면 원문을 다시 확인하거나 개발팀에 문의하세요.`,
+    toastWarning(
+      "다음 카테고리는 구조화 문서 생성에 실패해 기존 값을 보존했습니다(HTML만 갱신됨):",
+      `${detail} 공개 페이지에 반영하려면 원문을 다시 확인하거나 개발팀에 문의하세요.`,
     );
   }
 
   function runAutoParse() {
     if (!cleanAdmissionText(hwpSource)) {
-      alert("HWP 원문 텍스트를 먼저 붙여넣어 주세요.");
+      toastWarning("HWP 원문 텍스트를 먼저 붙여넣어 주세요.");
       return;
     }
 
@@ -214,8 +220,9 @@ export function AdmissionParsingPreview({
 
     if (!found) {
       setSplitStatus("fallback");
-      alert(
-        '번호(1.~6.) 마커를 찾지 못해 카테고리 자동 분할에 실패했습니다.\n좌측 각 카테고리의 원문 입력란에 항목별로 직접 붙여넣은 뒤 "미리보기 새로고침"을 눌러주세요.',
+      toastWarning(
+        "번호(1.~6.) 마커를 찾지 못해 카테고리 자동 분할에 실패했습니다.",
+        '좌측 각 카테고리의 원문 입력란에 항목별로 직접 붙여넣은 뒤 "미리보기 새로고침"을 눌러주세요.',
       );
       return;
     }

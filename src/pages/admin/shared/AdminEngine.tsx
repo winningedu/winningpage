@@ -40,6 +40,8 @@ import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
 import AdminPagination from "./AdminPagination";
 import { reportAdminError } from "./adminErrors";
+import { toastSuccess, toastWarning } from "./adminToast";
+import { confirmAdmin } from "./confirmAdmin";
 import {
   type FieldOption,
   formatListValue,
@@ -214,7 +216,10 @@ export type AdminConfig<T extends AdminRow = AdminRow> = {
   defaults?: Partial<T>;
   rowToForm?: (row: T) => T;
   formToPayload?: (form: T) => Record<string, unknown>;
-  validate?: (form: T, row?: T | null) => string | null | undefined | void;
+  validate?: (
+    form: T,
+    row?: T | null,
+  ) => string | null | undefined | void | Promise<string | null>;
   previewTitleKey?: string;
   previewLabel?: string;
   // 편집 폼 제목 아래, 필드 위에 그리는 안내 컴포넌트(예: 지식 DB 작성 안내).
@@ -928,7 +933,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 검사도 form state를 읽지 네이티브 검증이 아니다. 그래서 <form>이 아예
   // 렌더되지 않는 모드 A(아래 origin === 'list' 조기 반환)에서도 모달이 이
   // 함수를 직접 호출해 폼 하단 [저장]과 같은 검증·저장을 태울 수 있다.
-  function saveForm() {
+  async function saveForm() {
     if (savingRef.current) return;
     if (readonly) {
       onCancel();
@@ -957,22 +962,31 @@ export function AdminForm<T extends AdminRow = AdminRow>({
       if (field.type === "blockEditor") {
         const editorRef = editorRefs.current.get(field.key);
         if (!editorRef?.current || editorRef.current.isEmpty()) {
-          alert(`${field.label} 항목을 입력해주세요.`);
+          toastWarning(`${field.label} 항목을 입력해주세요.`);
           return;
         }
         continue;
       }
 
       if (String(form[field.key] ?? "").trim() === "") {
-        alert(`${field.label} 항목을 입력해주세요.`);
+        toastWarning(`${field.label} 항목을 입력해주세요.`);
         return;
       }
     }
 
     if (config.validate) {
-      const error = config.validate(form, row);
+      let error = config.validate(form, row);
+      if (error instanceof Promise) {
+        // 검증이 확인창을 기다리는 동안 두 번째 저장이 끼어들지 않게 가드를 잡아 둔다.
+        savingRef.current = true;
+        try {
+          error = await error;
+        } finally {
+          savingRef.current = false;
+        }
+      }
       if (error) {
-        alert(error);
+        toastWarning(error);
         return;
       }
     }
@@ -2082,8 +2096,9 @@ function formatFileSize(bytes: number) {
 function validateMaxMB(file: File, maxMB: number | undefined) {
   if (!maxMB) return true;
   if (file.size > maxMB * 1024 * 1024) {
-    alert(
-      `파일 용량이 너무 큽니다. 최대 ${maxMB}MB까지 업로드할 수 있습니다. (현재 ${formatFileSize(file.size)})`,
+    toastWarning(
+      "파일 용량이 너무 큽니다.",
+      `최대 ${maxMB}MB까지 업로드할 수 있습니다. (현재 ${formatFileSize(file.size)})`,
     );
     return false;
   }
@@ -2140,14 +2155,16 @@ async function validateImageSpec(
     matches =
       Math.abs(actualWidth - width) / width <= tolerance &&
       Math.abs(actualHeight - height) / height <= tolerance;
-    expectedText = `${width}×${height}`;
+    expectedText = `${width}x${height}`;
   }
 
   if (matches) return true;
 
-  return window.confirm(
-    `이미지 규격이 다릅니다.\n${expectedText} 필요, 현재 ${actualWidth}×${actualHeight} — 계속 업로드할까요?`,
-  );
+  return confirmAdmin({
+    title: "이미지 규격이 다릅니다.",
+    description: `${expectedText} 필요, 현재 ${actualWidth}x${actualHeight}. 계속 업로드할까요?`,
+    confirmLabel: "계속",
+  });
 }
 
 // 500KB 초과 이미지 canvas 재인코딩 (치수 유지, png→png / jpeg 품질 0.85)
@@ -2180,8 +2197,8 @@ async function maybeCompressImage(file: File, field: Partial<AdminField> = {}) {
 
     if (!blob || blob.size >= file.size) return file;
 
-    alert(
-      `${formatFileSize(file.size)} → ${formatFileSize(blob.size)}로 압축됨`,
+    toastSuccess(
+      `${formatFileSize(file.size)}에서 ${formatFileSize(blob.size)}로 압축됨`,
     );
     return new File([blob], file.name, { type: file.type });
   } catch {
@@ -2276,8 +2293,9 @@ export async function uploadImage(
   // 남는다(2026-08-31 분석 2-c). 건별 alert 와 별개로 합계를 한 번 더 알린다.
   const failedCount = fileList.length - uploaded.length;
   if (failedCount > 0 && uploaded.length > 0) {
-    alert(
-      `${fileList.length}개 중 ${failedCount}개는 업로드되지 않았습니다. 성공한 파일만 반영됩니다.`,
+    toastWarning(
+      `${fileList.length}개 중 ${failedCount}개는 업로드되지 않았습니다.`,
+      "성공한 파일만 반영됩니다.",
     );
   }
 
