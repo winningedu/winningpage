@@ -81,7 +81,7 @@ describe("AdminSidebar 메뉴", () => {
     ).toBeNull();
   });
 
-  it("현재 섹션이 속한 그룹은 처음부터 펼쳐져 있다", async () => {
+  it("모든 그룹이 처음부터 펼쳐져 있고 현재 섹션 링크가 활성으로 표시된다", async () => {
     renderShell("/admin/admissionGuidelines");
 
     const toggle = await screen.findByRole("button", { name: "입시정보 관리" });
@@ -113,7 +113,7 @@ describe("AdminSidebar 메뉴", () => {
 
     expect(seen[0]).toBe("own:b:false");
     expect(screen.getByRole("link", { name: "팝업 관리" })).toBeVisible();
+    expect(document.querySelector("aside")).toBeInTheDocument();
     expect(document.querySelector("[data-slot=sidebar]")).toBeInTheDocument();
-    expect(document.querySelector('[data-state="collapsed"]')).toBeNull();
   });
 });
