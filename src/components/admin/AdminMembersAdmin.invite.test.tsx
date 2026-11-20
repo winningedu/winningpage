@@ -1,7 +1,13 @@
 // AdminMembersAdmin 초대 실패 안내. 우리 서버가 관리자용으로 쓴 detail 은 그대로 보이고,
 // 우리 JSON 이 아닌 응답 원문(HTTP 상태, HTML 등)은 일반 안내로 대체된다.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/supabase", () => {
@@ -30,7 +36,8 @@ vi.mock("@/pages/admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: vi.fn().mockResolvedValue("tok"),
 }));
 
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
+import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import AdminMembersAdmin from "./AdminMembersAdmin";
 
 const CONFIG = { title: "관리자 계정", searchPlaceholder: "검색" };
@@ -40,16 +47,20 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.close();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-async function submitInviteWith(response: Response) {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+async function submitInviteWith(...responses: Response[]) {
+  const fetchMock = vi.fn();
+  for (const response of responses) fetchMock.mockResolvedValueOnce(response);
+  vi.stubGlobal("fetch", fetchMock);
   render(
     <>
       <AdminMembersAdmin config={CONFIG} />
       <Toaster />
+      <ConfirmAdminHost />
     </>,
   );
   fireEvent.click(await screen.findByText("관리자 초대"));
@@ -60,6 +71,7 @@ async function submitInviteWith(response: Response) {
     target: { value: "kim@example.com" },
   });
   fireEvent.click(screen.getByText("초대 메일 보내기"));
+  return fetchMock;
 }
 
 const description = () =>
@@ -90,4 +102,50 @@ test("초대 응답이 우리 JSON 이 아니면 본문 원문 없이 일반 안
   });
   expect(document.body.textContent).not.toContain("upstream-host-7");
   expect(document.body.textContent).not.toContain("HTTP 502");
+});
+
+const NEEDS_CONFIRM = () =>
+  new Response(
+    JSON.stringify({
+      needsConfirm: true,
+      detail: "이미 가입된 계정입니다.",
+      existingName: "홍길동",
+      existingMemberType: "학생",
+    }),
+    { status: 409 },
+  );
+
+test("기존 회원 초대 확인창에서 취소하면 재요청하지 않고, 확인하면 confirmExisting 으로 다시 보낸다", async () => {
+  const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  const fetchMock = await submitInviteWith(
+    NEEDS_CONFIRM(),
+    NEEDS_CONFIRM(),
+    new Response(JSON.stringify({ emailed: false }), { status: 200 }),
+  );
+
+  const dialog = await screen.findByRole("alertdialog");
+  expect(dialog).toHaveTextContent("대상: 홍길동(학생)");
+  expect(dialog).toHaveTextContent("전 회원 정보를 볼 수 있게 됩니다");
+  // 관리자 권한을 주는 동작이라 처음 포커스가 취소에 있다.
+  await waitFor(() =>
+    expect(within(dialog).getByRole("button", { name: "취소" })).toHaveFocus(),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+  );
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByText("초대 메일 보내기"));
+  fireEvent.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", {
+      name: "계속",
+    }),
+  );
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toMatchObject({
+    confirmExisting: true,
+  });
+  expect(confirmSpy).not.toHaveBeenCalled();
 });

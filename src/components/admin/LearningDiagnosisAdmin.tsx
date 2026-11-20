@@ -2,6 +2,8 @@ import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import {
   ActionButton,
   boolValue,
@@ -278,7 +280,7 @@ export default function LearningDiagnosisAdmin() {
     const title = newQuestion.title.trim();
 
     if (!title) {
-      alert("질문 내용을 입력하세요.");
+      toastWarning("질문 내용을 입력하세요.");
       return;
     }
 
@@ -315,7 +317,7 @@ export default function LearningDiagnosisAdmin() {
 
   async function saveQuestion(question: DiagnosisQuestion) {
     if (!String(question.title || "").trim()) {
-      alert("질문 내용을 입력하세요.");
+      toastWarning("질문 내용을 입력하세요.");
       return;
     }
 
@@ -338,15 +340,18 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    alert("질문 저장 완료");
+    toastSuccess("질문 저장 완료");
     await loadAll();
   }
 
   async function deleteQuestion(question: DiagnosisQuestion) {
     if (
-      !window.confirm(
-        "질문을 삭제하면 질문 안의 답변도 함께 삭제됩니다. 삭제하시겠습니까?",
-      )
+      !(await confirmAdmin({
+        title:
+          "질문을 삭제하면 질문 안의 답변도 함께 삭제됩니다. 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
     )
       return;
 
@@ -388,7 +393,7 @@ export default function LearningDiagnosisAdmin() {
 
   async function saveOption(option: DiagnosisOption) {
     if (!String(option.label || "").trim()) {
-      alert("답변 내용을 입력하세요.");
+      toastWarning("답변 내용을 입력하세요.");
       return;
     }
 
@@ -411,12 +416,19 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    alert("답변 저장 완료");
+    toastSuccess("답변 저장 완료");
     await loadAll();
   }
 
   async function deleteOption(option: DiagnosisOption) {
-    if (!window.confirm("이 답변을 삭제하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "이 답변을 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
+    )
+      return;
 
     const { error } = await supabase
       .from("learning_diagnosis_options")
@@ -433,7 +445,7 @@ export default function LearningDiagnosisAdmin() {
   async function createProgram() {
     const title = newProgram.title.trim();
     if (!title) {
-      alert("프로그램명을 입력하세요.");
+      toastWarning("프로그램명을 입력하세요.");
       return;
     }
 
@@ -459,7 +471,7 @@ export default function LearningDiagnosisAdmin() {
 
   async function saveProgram(program: DiagnosisProgram) {
     if (!String(program.title || "").trim()) {
-      alert("프로그램명을 입력하세요.");
+      toastWarning("프로그램명을 입력하세요.");
       return;
     }
 
@@ -486,15 +498,18 @@ export default function LearningDiagnosisAdmin() {
       return;
     }
 
-    alert("추천 프로그램 저장 완료");
+    toastSuccess("추천 프로그램 저장 완료");
     await loadAll();
   }
 
   async function deleteProgram(program: DiagnosisProgram) {
     if (
-      !window.confirm(
-        "추천 프로그램을 삭제하면 기존 답변과의 연결도 결과에서 제외됩니다. 삭제하시겠습니까?",
-      )
+      !(await confirmAdmin({
+        title:
+          "추천 프로그램을 삭제하면 기존 답변과의 연결도 결과에서 제외됩니다. 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
     )
       return;
 

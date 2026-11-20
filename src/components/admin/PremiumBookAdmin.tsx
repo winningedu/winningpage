@@ -12,6 +12,8 @@ import {
   uploadImage,
 } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 
 // CONFIGS(admin-shared-configs 배치 소관, 아직 JS)의 config 값 shape을 여기서 로컬로 추론한다 —
 // 이 컴포넌트가 실제로 읽는 필드만 명시하고 나머지(table/columns/fields/defaults 등, AdminTable/
@@ -180,7 +182,15 @@ export default function PremiumBookAdmin({
   }
 
   async function deleteRow(row: PremiumBookPageRow) {
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "정말 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const { error } = await supabase
       .from("premium_book_pages")
@@ -235,7 +245,7 @@ export default function PremiumBookAdmin({
       }
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     setMode("list");
     setEditingRow(null);
     await loadRows();
@@ -254,7 +264,7 @@ export default function PremiumBookAdmin({
 
   async function handleConvert() {
     if (!pdfFile) {
-      alert("PDF 파일을 먼저 선택하세요.");
+      toastWarning("PDF 파일을 먼저 선택하세요.");
       return;
     }
     if (converting || applying) return;
@@ -366,7 +376,7 @@ export default function PremiumBookAdmin({
 
   async function handleApply() {
     if (!pdfFile || webpBlobs.length === 0) {
-      alert("먼저 PDF를 변환하세요.");
+      toastWarning("먼저 PDF를 변환하세요.");
       return;
     }
     if (applying) return;

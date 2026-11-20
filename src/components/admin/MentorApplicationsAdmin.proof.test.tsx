@@ -12,6 +12,10 @@ const APPLICATION = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
+const signed = vi.hoisted(() => ({
+  error: { message: "permission denied for 홍길동", statusCode: "403" },
+}));
+
 vi.mock("@/lib/supabase", () => {
   type Result = { data: unknown; error: unknown };
   const query = (result: Result): Promise<Result> =>
@@ -29,10 +33,7 @@ vi.mock("@/lib/supabase", () => {
         from: () => ({
           createSignedUrl: async () => ({
             data: null,
-            error: {
-              message: "permission denied for 홍길동",
-              statusCode: "403",
-            },
+            error: signed.error,
           }),
         }),
       },
@@ -58,7 +59,7 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   ),
 }));
 
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
 import MentorApplicationsAdmin from "./MentorApplicationsAdmin";
 
 const CONFIG = { title: "신청 관리", searchPlaceholder: "검색", columns: [] };
@@ -68,6 +69,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.close();
   vi.restoreAllMocks();
 });
 
@@ -94,5 +96,34 @@ test("증빙 파일 열람에 실패하면 원문 없이 안내만 토스트로 
     ).toHaveTextContent("권한이 없거나 로그인이 만료됐습니다.");
   });
   expect(document.body.textContent).not.toContain("홍길동");
+  expect(alertSpy).not.toHaveBeenCalled();
+});
+
+test("증빙 파일이 스토리지에 없으면 자동으로 닫히지 않는 경고 토스트로 알린다", async () => {
+  signed.error = { message: "Object not found", statusCode: "404" };
+  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  const addSpy = vi.spyOn(toast, "add");
+  render(
+    <>
+      <MentorApplicationsAdmin config={CONFIG} />
+      <Toaster />
+    </>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "열기 김지원" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: /증빙 파일 열람/ }),
+  );
+
+  await waitFor(() =>
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "warning",
+        priority: "high",
+        timeout: 0,
+      }),
+    ),
+  );
+  expect(document.body.textContent).not.toContain("Object not found");
   expect(alertSpy).not.toHaveBeenCalled();
 });

@@ -6,6 +6,7 @@ import RevenueDashboard, {
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
+import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 
@@ -323,7 +324,7 @@ export default function RevenueAdmin() {
 
   function requestExport() {
     if (filteredPeriod.length === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
 

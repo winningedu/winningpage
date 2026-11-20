@@ -3,9 +3,17 @@
 // 바뀌면(재사용되는 경우를 포함해) 컴포넌트 스스로 재발송 결과를 초기화해야 한다 —
 // 그러지 않으면 이전 학생의 성공/실패 요약이 다음 학생 화면에 그대로 남는다.
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
+import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import { GoalStudentDetail } from "./GoalStudentsAdmin";
 
 const { studentRowHolder, studentErrorHolder } = vi.hoisted(() => ({
@@ -56,6 +64,8 @@ vi.mock("@/pages/admin/shared/adminSession", () => ({
 const noop = () => {};
 
 afterEach(() => {
+  toast.close();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   studentErrorHolder.current = null;
@@ -126,5 +136,93 @@ describe("GoalStudentDetail 오류 안내", () => {
     });
     expect(document.body.textContent).not.toContain("홍길동");
     expect(alertSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("GoalStudentDetail 온보딩 리셋 확인", () => {
+  function renderDetail() {
+    studentRowHolder.current = { profile_id: "student-a" };
+    render(
+      <>
+        <GoalStudentDetail profileId="student-a" onBack={noop} />
+        <Toaster />
+        <ConfirmAdminHost />
+      </>,
+    );
+  }
+
+  it("확인창에서 취소하면 리셋 요청을 보내지 않는다", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "온보딩 리셋" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("온보딩 이전 상태로 되돌립니다.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it("확인하면 리셋을 요청하고 성공 토스트를 보인 뒤 새로고침한다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
+    );
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "온보딩 리셋" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "리셋",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("온보딩 리셋이 완료되었습니다."),
+    );
+    // 토스트가 읽히도록 새로고침은 잠시 뒤에 한다.
+    expect(reload).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("2초 안에 화면을 벗어나면 새로고침하지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
+    );
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "온보딩 리셋" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "리셋",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("온보딩 리셋이 완료되었습니다."),
+    );
+
+    cleanup();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(reload).not.toHaveBeenCalled();
   });
 });

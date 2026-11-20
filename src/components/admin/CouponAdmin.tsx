@@ -13,6 +13,11 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
+import {
+  toastError,
+  toastSuccess,
+  toastWarning,
+} from "@/pages/admin/shared/adminToast";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import type { TablesInsert, TablesUpdate } from "@/types/database.types";
 
@@ -797,7 +802,7 @@ export default function CouponAdmin() {
 
     if (couponRes.error) {
       console.error(couponRes.error);
-      alert(`${TITLE} 조회 실패: ${ADMIN_LOAD_ERROR_TEXT}`);
+      toastError(`${TITLE} 조회 실패`, ADMIN_LOAD_ERROR_TEXT);
       setCoupons([]);
       return;
     }
@@ -923,16 +928,18 @@ export default function CouponAdmin() {
       // "<X> 항목을 입력해주세요.")에 FIELD_LABEL 을 끼워 넣는다(2026-08-12,
       // 사용자 지시).
       if (invalidKey === "tenant_id") {
-        alert(ORG_CODE_GRANTED_CONFLICT_TEXT);
+        toastWarning(ORG_CODE_GRANTED_CONFLICT_TEXT);
         return;
       }
-      alert(`${FIELD_LABEL[invalidKey] ?? invalidKey} 항목을 입력해주세요.`);
+      toastWarning(
+        `${FIELD_LABEL[invalidKey] ?? invalidKey} 항목을 입력해주세요.`,
+      );
       return;
     }
 
     if (slugConflict) {
       // 사전 검증 — DB 23505(coupons_slug_key) 원문을 사용자에게 보이지 않는다.
-      alert(SLUG_DUPLICATE_TEXT ?? "slug 항목을 입력해주세요.");
+      toastWarning(SLUG_DUPLICATE_TEXT ?? "slug 항목을 입력해주세요.");
       return;
     }
 
@@ -972,11 +979,11 @@ export default function CouponAdmin() {
       } else {
         saveErrorText = ADMIN_UNKNOWN_ERROR_TEXT;
       }
-      alert(`${view === "create" ? "등록" : "수정"} 실패: ${saveErrorText}`);
+      toastError(`${view === "create" ? "등록" : "수정"} 실패`, saveErrorText);
       return;
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     closeForm();
     await loadList();
   }
@@ -1004,7 +1011,7 @@ export default function CouponAdmin() {
     if (error) {
       setHistoryLoading(false);
       console.error(error);
-      alert(`${TITLE} 조회 실패: ${ADMIN_LOAD_ERROR_TEXT}`);
+      toastError(`${TITLE} 조회 실패`, ADMIN_LOAD_ERROR_TEXT);
       setHistoryRows([]);
       return;
     }
@@ -1059,15 +1066,18 @@ export default function CouponAdmin() {
       // 코드(42501/WC002)는 VOID_ERROR_TEXT 를, 그 밖의 예상 밖 코드는
       // ADMIN_UNKNOWN_ERROR_TEXT 를 쓴다. 원본은 콘솔에 남겨 추적 가능하게 한다.
       console.error(error);
-      alert(
-        `수정 실패: ${error.code in VOID_ERROR_TEXT ? VOID_ERROR_TEXT[error.code] : ADMIN_UNKNOWN_ERROR_TEXT}`,
+      toastError(
+        "수정 실패",
+        error.code in VOID_ERROR_TEXT
+          ? VOID_ERROR_TEXT[error.code]
+          : ADMIN_UNKNOWN_ERROR_TEXT,
       );
       return;
     }
 
     setVoidingId(null);
     setVoidReason("");
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     await loadHistory(row.coupon_id);
     // 목록의 사용 건수(유효/전체)도 갱신돼야 한다.
     await loadList();
@@ -1100,7 +1110,7 @@ export default function CouponAdmin() {
     if (error) {
       setGrantLoading(false);
       console.error(error);
-      alert(`${TITLE} 조회 실패: ${ADMIN_LOAD_ERROR_TEXT}`);
+      toastError(`${TITLE} 조회 실패`, ADMIN_LOAD_ERROR_TEXT);
       setGrantRows([]);
       return;
     }
@@ -1165,7 +1175,7 @@ export default function CouponAdmin() {
 
     if (error) {
       console.error(error);
-      alert(`${TITLE} 조회 실패: ${ADMIN_LOAD_ERROR_TEXT}`);
+      toastError(`${TITLE} 조회 실패`, ADMIN_LOAD_ERROR_TEXT);
       setUserResults([]);
       return;
     }
@@ -1187,13 +1197,16 @@ export default function CouponAdmin() {
       setActionBusy(false);
       // GRANT_ERROR_TEXT 와 같은 명시적 분기 — VOID_ERROR_TEXT 주석 참고.
       console.error(error);
-      alert(
-        `등록 실패: ${error.code in GRANT_ERROR_TEXT ? GRANT_ERROR_TEXT[error.code] : ADMIN_UNKNOWN_ERROR_TEXT}`,
+      toastError(
+        "등록 실패",
+        error.code in GRANT_ERROR_TEXT
+          ? GRANT_ERROR_TEXT[error.code]
+          : ADMIN_UNKNOWN_ERROR_TEXT,
       );
       return;
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     await loadGrants(grantCoupon.id);
     setActionBusy(false);
   }
@@ -1213,15 +1226,18 @@ export default function CouponAdmin() {
       setActionBusy(false);
       // GRANT_ERROR_TEXT 와 같은 명시적 분기 — VOID_ERROR_TEXT 주석 참고.
       console.error(error);
-      alert(
-        `수정 실패: ${error.code in GRANT_ERROR_TEXT ? GRANT_ERROR_TEXT[error.code] : ADMIN_UNKNOWN_ERROR_TEXT}`,
+      toastError(
+        "수정 실패",
+        error.code in GRANT_ERROR_TEXT
+          ? GRANT_ERROR_TEXT[error.code]
+          : ADMIN_UNKNOWN_ERROR_TEXT,
       );
       return;
     }
 
     setRevokingId(null);
     setRevokeReason("");
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     await loadGrants(row.coupon_id);
     setActionBusy(false);
   }

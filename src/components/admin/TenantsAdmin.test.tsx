@@ -388,4 +388,24 @@ describe("TenantsAdmin 오류 안내", () => {
     );
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("ABCD2345");
   });
+
+  test("이름을 비우고 등록하면 등록 요청 없이 경고 토스트가 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록" }));
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("이름 항목을 입력해주세요."),
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
 });

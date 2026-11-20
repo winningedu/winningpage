@@ -96,12 +96,18 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   ),
 }));
 
+import { Toaster, toast } from "@/components/ui/toast";
 import MembersAdmin from "./MembersAdmin";
 
 const CONFIG = { title: "회원", searchPlaceholder: "검색", columns: [] };
 
 async function openMember(name: string) {
-  render(<MembersAdmin config={CONFIG} />);
+  render(
+    <>
+      <MembersAdmin config={CONFIG} />
+      <Toaster />
+    </>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: `열기 ${name}` }));
   return await screen.findByDisplayValue("가나고").catch(() => null);
 }
@@ -134,6 +140,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.close();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -180,8 +187,11 @@ describe("MembersAdmin 소속 저장", () => {
     pickTenantAndSave("소속 없음");
 
     await waitFor(() =>
-      expect(alert).toHaveBeenCalledWith(expect.stringContaining("「기타」")),
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("「기타」"),
     );
+    expect(alert).not.toHaveBeenCalled();
     expect(hoisted.rpc).not.toHaveBeenCalled();
     expect(screen.queryByText(/으\)로 옮기기/)).toBeNull();
   });

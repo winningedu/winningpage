@@ -4,6 +4,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
 import { ADMIN_PERMISSION_LEVEL_OPTIONS } from "@/pages/admin/configs/adminSettings";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import {
   ActionButton,
   Field,
@@ -196,7 +198,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     const name = nameDraft.trim();
     if (!name) {
-      alert("권한 묶음 이름을 입력해 주세요.");
+      toastWarning("권한 묶음 이름을 입력해 주세요.");
       return;
     }
 
@@ -266,20 +268,25 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
     setSaving(false);
     closeEdit();
     await loadAll();
-    alert("저장했습니다.");
+    toastSuccess("저장했습니다.");
   }
 
   async function removeRole(role: RoleRow) {
     if (role.is_system) {
-      alert(
-        "기본 권한 묶음은 삭제할 수 없습니다. 이 묶음을 지우면 되돌릴 수단이 없습니다.",
+      toastWarning(
+        "기본 권한 묶음은 삭제할 수 없습니다.",
+        "이 묶음을 지우면 되돌릴 수단이 없습니다.",
       );
       return;
     }
     if (
-      !window.confirm(
-        `'${role.name}' 묶음을 삭제합니다. 이 묶음을 쓰던 관리자는 권한이 사라져 아무 메뉴도 보이지 않게 됩니다. 계속하시겠습니까?`,
-      )
+      !(await confirmAdmin({
+        title: `'${role.name}' 묶음을 삭제합니다.`,
+        description:
+          "이 묶음을 쓰던 관리자는 권한이 사라져 아무 메뉴도 보이지 않게 됩니다. 계속하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
     ) {
       return;
     }

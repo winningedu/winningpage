@@ -4,6 +4,7 @@ import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   downloadCsv,
   normalizeArray,
@@ -250,7 +251,7 @@ export default function MentorApplicationsAdmin({
 
   function requestExport() {
     if (filteredRows.length === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
 
@@ -278,7 +279,7 @@ export default function MentorApplicationsAdmin({
     if (!selected || savingStatus) return;
 
     if (statusDraft === selected.status) {
-      alert("변경된 상태가 없습니다.");
+      toastWarning("변경된 상태가 없습니다.");
       return;
     }
 
@@ -301,7 +302,7 @@ export default function MentorApplicationsAdmin({
     setRows((prev) =>
       prev.map((row) => (row.id === selected.id ? nextSelected : row)),
     );
-    alert("상태를 변경했습니다.");
+    toastSuccess("상태를 변경했습니다.");
   }
 
   // 비공개 버킷(mentor-applications)이라 getPublicUrl은 쓸 수 없다 — Admin.jsx의 기존
@@ -310,7 +311,7 @@ export default function MentorApplicationsAdmin({
   // 여는 일회성 열람이고, 증빙 파일에 개인정보(성적표 등)가 담겨 있어 길게 잡을 이유가 없다.
   async function openProofFile() {
     if (!selected?.proof_file_path) {
-      alert(PROOF_FILE_MISSING_MESSAGE);
+      toastWarning(PROOF_FILE_MISSING_MESSAGE);
       return;
     }
 
@@ -324,7 +325,7 @@ export default function MentorApplicationsAdmin({
       // "Object not found"를 그대로 던지면 시스템 장애처럼 읽힌다(QA 318).
       // 그 외 실패(권한, 네트워크)는 구분해서 reportAdminError 로 보낸다. 원문은 콘솔에만 남는다.
       if (isObjectNotFound(error)) {
-        alert(PROOF_FILE_MISSING_MESSAGE);
+        toastWarning(PROOF_FILE_MISSING_MESSAGE);
       } else {
         reportAdminError("증빙 파일 열람 실패", error);
       }

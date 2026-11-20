@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
   type CSSProperties,
   Fragment,
@@ -27,6 +27,7 @@ import RevenueAdmin from "@/components/admin/RevenueAdmin";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -43,7 +44,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
 import {
   canAccessSection,
   fetchAdminPermissions,
@@ -129,6 +130,12 @@ import {
   withChunkRows,
 } from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
+import {
+  toastProgress,
+  toastSuccess,
+  toastWarning,
+} from "./admin/shared/adminToast";
+import { ConfirmAdminHost, confirmAdmin } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
   csvHeader,
@@ -686,7 +693,7 @@ function AdmissionActiveYearSummary({ rows }) {
     const year = Number(draftYear);
     // 4자리 상식선 제한 — 999999 같은 값이 통과하면 안 된다(team-lead 지적).
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      alert("연도는 2000~2100 사이 정수로 입력해 주세요.");
+      toastWarning("연도는 2000~2100 사이 정수로 입력해 주세요.");
       return;
     }
 
@@ -694,9 +701,12 @@ function AdmissionActiveYearSummary({ rows }) {
       (row) => Number(row.admission_year) === year,
     ).length;
     if (matchCount === 0) {
-      const proceed = window.confirm(
-        `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.\n\n그래도 지정하시겠습니까?`,
-      );
+      const proceed = await confirmAdmin({
+        title: "그래도 지정하시겠습니까?",
+        description: `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.`,
+        confirmLabel: "지정",
+        destructive: true,
+      });
       if (!proceed) return;
     }
 
@@ -716,7 +726,7 @@ function AdmissionActiveYearSummary({ rows }) {
     setActiveYear(confirmedYear);
     setDraftYear(String(confirmedYear));
     setSaving(false);
-    alert(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
+    toastSuccess(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
   }
 
   return (
@@ -948,8 +958,9 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
     setConfirmChecked(false);
     setExpandedGroups({});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -1427,8 +1438,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -2075,7 +2087,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       orphanMode === "deactivate" ? preview.analysis.orphanIds : [];
     const total = rowsToApply.length + orphanIds.length;
     if (total === 0) {
-      alert("반영할 행이 없습니다.");
+      toastWarning("반영할 행이 없습니다.");
       return;
     }
     setApplying(true);
@@ -2134,11 +2146,11 @@ function GoalCutsBackfillPanel({ onReload }) {
     setPreview(null);
     setConfirmChecked(false);
     onReload?.();
-    alert(
-      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.` +
-        (orphanIds.length
-          ? ` 고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
-          : ""),
+    toastSuccess(
+      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.`,
+      orphanIds.length
+        ? `고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
+        : undefined,
     );
   }
 
@@ -2616,8 +2628,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -3275,7 +3288,13 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
   async function saveRow(form) {
     // QA A13(2026-08-27): config.confirmBeforeSave 가 있는 섹션은 저장 직전 한 번 더 묻는다.
-    if (config.confirmBeforeSave && !window.confirm(config.confirmBeforeSave)) {
+    if (
+      config.confirmBeforeSave &&
+      !(await confirmAdmin({
+        title: config.confirmBeforeSave,
+        confirmLabel: "저장",
+      }))
+    ) {
       return;
     }
 
@@ -3287,7 +3306,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       config.fixedCategories &&
       !config.fixedCategories.includes(payload.category)
     ) {
-      alert("수시 또는 정시 구분을 선택해 주세요.");
+      toastWarning("수시 또는 정시 구분을 선택해 주세요.");
       return;
     }
 
@@ -3430,10 +3449,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
       requestWinningEmbedding(savedRow);
     }
 
-    alert(
-      !shouldRequestWinningEmbedding(config, savedRow)
-        ? "저장 완료"
-        : "저장 완료. 임베딩은 자동 생성 중입니다.",
+    toastSuccess(
+      "저장 완료",
+      shouldRequestWinningEmbedding(config, savedRow)
+        ? "임베딩은 자동 생성 중입니다."
+        : undefined,
     );
     setMode("list");
     setEditingRow(null);
@@ -3462,7 +3482,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   }
 
   async function deleteRow(row) {
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "정말 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const { error } = await supabase
       .from(config.table)
@@ -3495,7 +3523,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 돈을 돌려주지 않은 채 남는다(qa-payment 환불 흐름 점검 보고).
   // (제네릭 PATCH 로는 completed 로 못 가게 status select 에서 이미 뺐다, ①).
   async function completeRefund(row) {
-    if (!window.confirm("환불을 완료 처리하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "환불을 완료 처리하시겠습니까?",
+        confirmLabel: "완료 처리",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
 
@@ -3522,7 +3558,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    alert("환불 완료 처리되었습니다.");
+    toastSuccess("환불 완료 처리되었습니다.");
     await loadRows();
   }
 
@@ -3560,7 +3596,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return false;
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     setMetaEditRow(null);
     await loadRows();
     return true;
@@ -3577,11 +3613,17 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
     const rowCount = config.serverPaginate ? totalCount : filteredRows.length;
 
+    // 내보낼 행이 없으면 비밀번호와 사유를 받기 전에 알리고 게이트를 열지 않는다.
+    if (rowCount === 0) {
+      toastWarning("내보낼 데이터가 없습니다.");
+      return;
+    }
+
     requestAccess({
       action: "download",
       resourceKey: activeKey,
       title: `${config.title} 다운로드`,
-      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다.`,
+      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다. 건수가 많으면 수십 초 걸릴 수 있습니다.`,
       rowCount,
       onGranted: downloadExcel,
     });
@@ -3603,19 +3645,20 @@ export function AdminSectionRoute({ section }: { section: string }) {
     if (exporting) return;
 
     if (totalCount === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
 
-    const proceed = window.confirm(
-      `${totalCount.toLocaleString()}건을 CSV로 내려받습니다.\n` +
-        `${EXPORT_CHUNK.toLocaleString()}건씩 나눠 받으므로 건수가 많으면 수십 초가 걸리고, ` +
-        `그동안 이 화면을 닫거나 다른 메뉴로 이동하면 안 됩니다.\n\n계속할까요?`,
-    );
-
-    if (!proceed) return;
-
     setExporting({ done: 0, total: totalCount });
+    // 민감 다운로드는 게이트 설명이 같은 안내를 하므로, 게이트가 없는 경로만 알린다.
+    const noteId = config.sensitiveDownload
+      ? null
+      : toastProgress(
+          `${totalCount.toLocaleString()}건을 내려받는 중입니다. 건수가 많으면 수십 초 걸릴 수 있으니 이 화면을 벗어나지 마세요.`,
+        );
+    const closeNote = () => {
+      if (noteId) toast.close(noteId);
+    };
 
     const parts: string[] = [];
     let done = 0;
@@ -3627,6 +3670,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       );
 
       if (error) {
+        closeNote();
         setExporting(null);
         reportAdminError("CSV 내보내기 실패", error);
         return;
@@ -3640,6 +3684,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       setExporting({ done, total: totalCount });
     }
 
+    closeNote();
     setExporting(null);
     downloadCsvText(filename, csvHeader(config.columns), parts.join("\n"));
   }
@@ -3717,17 +3762,18 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
                   {(config.excel ||
                     ["members", "refunds"].includes(activeKey)) && (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="lg"
                       onClick={handleDownloadClick}
                       disabled={Boolean(exporting)}
-                      className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download size={14} />
+                      <Download aria-hidden="true" />
                       {exporting
                         ? `내보내는 중 ${Math.floor((exporting.done / Math.max(1, exporting.total)) * 100)}%`
                         : "엑셀 다운로드"}
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -3789,13 +3835,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
                     placeholder={config.searchPlaceholder}
                     className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
                   />
-                  <button
-                    type="button"
-                    className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
-                  >
-                    <Search size={14} />
-                    검색
-                  </button>
                 </div>
               </div>
 
@@ -3977,7 +4016,7 @@ export function AdminLayout() {
   }
 
   return (
-    <Toaster>
+    <Toaster limit={5}>
       {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
           open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
           단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
@@ -3998,6 +4037,7 @@ export function AdminLayout() {
           </div>
         </main>
       </SidebarProvider>
+      <ConfirmAdminHost />
     </Toaster>
   );
 }
