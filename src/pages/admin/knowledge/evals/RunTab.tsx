@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ActionButton,
   Field,
@@ -152,32 +158,32 @@ function PerQueryTable({ perQuery }: { perQuery: PerQueryResult[] }) {
     })),
   );
   return (
-    <ScrollArea axis="x">
-      <table className="w-full min-w-[60rem] border-collapse text-sm">
-        <thead>
-          <tr className="border-y border-gray-300">
-            <Th>질의</Th>
-            <Th>기대 자료</Th>
-            <Th>순위</Th>
-            <Th>적중 여부</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key} className="border-b border-gray-100">
-              <td className="px-3 py-3 font-bold">{row.label}</td>
-              <Td>{row.title}</Td>
-              <Td>{row.rank ?? ""}</Td>
-              <td
-                className={`px-3 py-3 font-bold ${row.rank === null ? "text-red-600" : "text-blue-600"}`}
-              >
-                {row.rank === null ? "미적중" : "적중"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </ScrollArea>
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <Th>질의</Th>
+          <Th>기대 자료</Th>
+          <Th>순위</Th>
+          <Th>적중 여부</Th>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell className="font-medium whitespace-normal">
+              {row.label}
+            </TableCell>
+            <Td className="whitespace-normal">{row.title}</Td>
+            <Td>{row.rank ?? ""}</Td>
+            <TableCell
+              className={`font-medium ${row.rank === null ? "text-destructive" : "text-primary"}`}
+            >
+              {row.rank === null ? "미적중" : "적중"}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

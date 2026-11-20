@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import {
   type GoldenQuery,
@@ -59,70 +65,71 @@ export default function QueriesTab({
         </span>
         <ActionButton onClick={() => setEditing("new")}>질의 추가</ActionButton>
       </div>
-      <ScrollArea axis="x">
-        <table className="w-full min-w-[70rem] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
-              <Th>학년</Th>
-              <Th>과목</Th>
-              <Th>진로</Th>
-              <Th>주제</Th>
-              <Th>기대 자료 수</Th>
-              <Th>활성</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {items && items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="py-12 text-center text-muted-foreground"
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <Th>학년</Th>
+            <Th>과목</Th>
+            <Th>진로</Th>
+            <Th>주제</Th>
+            <Th>기대 자료 수</Th>
+            <Th>활성</Th>
+            <Th>
+              <span className="sr-only">작업</span>
+            </Th>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items && items.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                colSpan={7}
+                className="py-12 text-center text-muted-foreground"
+              >
+                등록된 질의가 없습니다.
+              </TableCell>
+            </TableRow>
+          ) : (
+            (items ?? []).map((item) => (
+              <TableRow
+                key={item.id}
+                className={item.is_active ? "" : "text-muted-foreground"}
+              >
+                <Td>{item.grade}</Td>
+                <Td>{item.subject}</Td>
+                <Td>{item.career}</Td>
+                <Td className="font-medium whitespace-normal">
+                  {item.selected_topic}
+                </Td>
+                <TableCell
+                  title={item.expected_resource_ids
+                    .map((id) => titles[id] ?? id)
+                    .join("\n")}
                 >
-                  등록된 질의가 없습니다.
-                </td>
-              </tr>
-            ) : (
-              (items ?? []).map((item) => (
-                <tr
-                  key={item.id}
-                  className={`border-b border-gray-100 ${item.is_active ? "" : "text-muted-foreground"}`}
-                >
-                  <Td>{item.grade}</Td>
-                  <Td>{item.subject}</Td>
-                  <Td>{item.career}</Td>
-                  <td className="px-3 py-3 font-bold">{item.selected_topic}</td>
-                  <td
-                    className="px-3 py-3"
-                    title={item.expected_resource_ids
-                      .map((id) => titles[id] ?? id)
-                      .join("\n")}
-                  >
-                    {item.expected_resource_ids.length}
-                  </td>
-                  <Td>{item.is_active ? "활성" : "비활성"}</Td>
-                  <td className="px-3 py-3">
-                    <div className="flex gap-2">
-                      <ActionButton
-                        variant="light"
-                        onClick={() => setEditing(item)}
-                      >
-                        편집
-                      </ActionButton>
-                      <ActionButton
-                        variant={item.is_active ? "danger" : "light"}
-                        onClick={() => toggleActive(item)}
-                      >
-                        {item.is_active ? "비활성" : "다시 활성"}
-                      </ActionButton>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </ScrollArea>
+                  {item.expected_resource_ids.length}
+                </TableCell>
+                <Td>{item.is_active ? "활성" : "비활성"}</Td>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <ActionButton
+                      variant="light"
+                      onClick={() => setEditing(item)}
+                    >
+                      편집
+                    </ActionButton>
+                    <ActionButton
+                      variant={item.is_active ? "danger" : "light"}
+                      onClick={() => toggleActive(item)}
+                    >
+                      {item.is_active ? "비활성" : "다시 활성"}
+                    </ActionButton>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
       {editing !== null && (
         <QueryDialog
           knowledgeType={knowledgeType}

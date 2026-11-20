@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ActionButton,
   Field,
@@ -110,58 +116,53 @@ export default function SweepSection({
           <div className="mb-2 text-sm font-bold text-gray-500">
             질의 {result.queryCount}건 / 굵은 행이 운영값 조합입니다.
           </div>
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[70rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <Th>RRF k</Th>
-                  <Th>단어 가중치</Th>
-                  <Th>의미 가중치</Th>
-                  <Th>threshold</Th>
-                  {RECALL_KS.map((k) => (
-                    <Th key={k}>recall@{k}</Th>
-                  ))}
-                  <Th>MRR</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const isProduction = isSameParams(
-                    item.params,
-                    productionParams,
-                  );
-                  return (
-                    <tr
-                      key={formatParams(item.params)}
-                      className={`border-b border-gray-100 ${isProduction ? "bg-amber-50 font-black" : ""} ${item.status === "skipped" ? "text-muted-foreground" : ""}`}
-                    >
-                      <Td>{item.params.rrfK}</Td>
-                      <Td>{item.params.fullTextWeight}</Td>
-                      <Td>{item.params.semanticWeight}</Td>
-                      <Td>{item.params.matchThreshold}</Td>
-                      {item.status === "done" ? (
-                        <>
-                          {RECALL_KS.map((k) => (
-                            <Td key={k}>
-                              {formatMetric(item.metrics.recall[k])}
-                            </Td>
-                          ))}
-                          <Td>{formatMetric(item.metrics.mrr)}</Td>
-                        </>
-                      ) : (
-                        <td
-                          colSpan={RECALL_KS.length + 1}
-                          className="px-3 py-3"
-                        >
-                          시간 예산을 넘겨 건너뛰었습니다.
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </ScrollArea>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <Th>RRF k</Th>
+                <Th>단어 가중치</Th>
+                <Th>의미 가중치</Th>
+                <Th>threshold</Th>
+                {RECALL_KS.map((k) => (
+                  <Th key={k}>recall@{k}</Th>
+                ))}
+                <Th>MRR</Th>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => {
+                const isProduction = isSameParams(
+                  item.params,
+                  productionParams,
+                );
+                return (
+                  <TableRow
+                    key={formatParams(item.params)}
+                    className={`${isProduction ? "bg-amber-50 font-semibold" : ""} ${item.status === "skipped" ? "text-muted-foreground" : ""}`}
+                  >
+                    <Td>{item.params.rrfK}</Td>
+                    <Td>{item.params.fullTextWeight}</Td>
+                    <Td>{item.params.semanticWeight}</Td>
+                    <Td>{item.params.matchThreshold}</Td>
+                    {item.status === "done" ? (
+                      <>
+                        {RECALL_KS.map((k) => (
+                          <Td key={k}>
+                            {formatMetric(item.metrics.recall[k])}
+                          </Td>
+                        ))}
+                        <Td>{formatMetric(item.metrics.mrr)}</Td>
+                      </>
+                    ) : (
+                      <TableCell colSpan={RECALL_KS.length + 1}>
+                        시간 예산을 넘겨 건너뛰었습니다.
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
