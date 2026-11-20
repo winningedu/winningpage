@@ -165,3 +165,38 @@ describe("Admin CSV 다운로드 게이트", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 });
+
+describe("Admin 목록 툴바", () => {
+  it("동작 없는 검색 버튼이 없고, 입력하면 목록이 걸러진다", async () => {
+    state.rows = [consult(1, "김하나"), consult(2, "이두리")];
+    renderSection();
+    await screen.findByText("김하나");
+
+    expect(
+      screen.queryByRole("button", { name: "검색" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("이름, 연락처, 이메일 검색"), {
+      target: { value: "이두리" },
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText("김하나")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("이두리")).toBeInTheDocument();
+  });
+
+  it("내보내기 버튼은 outline lg 버튼이고 다운로드 아이콘은 보조기술에 숨긴다", async () => {
+    state.rows = [consult(1)];
+    renderSection();
+
+    const button = await screen.findByRole("button", {
+      name: "엑셀 다운로드",
+    });
+
+    expect(button).toHaveAttribute("data-slot", "button");
+    expect(button.className).toContain("bg-background");
+    expect(button.className).toContain("h-9");
+    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  });
+});
