@@ -23,9 +23,9 @@ export default function AdminPagination({
   onPageChange: (page: number) => void;
 }) {
   // 페이지 번호 창. 기존에는 1~10을 고정 렌더했는데, 4,300페이지짜리 입결 목록에서는
-  // 그 방식으로 11페이지 이후에 도달할 방법이 없다(≫ 버튼으로 끝으로 점프한 뒤에도
-  // 번호줄은 1~10을 가리킨다). 현재 페이지를 가운데 두고 창을 굴린다 —
-  // totalPages ≤ 10이면 예전과 완전히 같은 1..N이 나온다.
+  // 그 방식으로 11페이지 이후에 도달할 방법이 없다(마지막 페이지 버튼으로 끝으로
+  // 점프한 뒤에도 번호줄은 1~10을 가리킨다). 현재 페이지를 가운데 두고 창을 굴린다.
+  // totalPages가 10 이하이면 예전과 완전히 같은 1부터 N까지가 나온다.
   const windowSize = Math.min(totalPages, 10);
   const windowStart = Math.min(
     Math.max(1, page - Math.floor(windowSize / 2)),
@@ -73,6 +73,7 @@ export default function AdminPagination({
                 type="button"
                 variant={page === num ? "outline" : "ghost"}
                 size="icon"
+                className="w-auto min-w-8 px-2"
                 aria-label={`${num}페이지`}
                 aria-current={page === num ? "page" : undefined}
                 onClick={() => onPageChange(num)}
