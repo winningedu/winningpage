@@ -163,6 +163,25 @@ test("fn_create_tenant 의 최고 관리자 아님(WC067)은 한국어 안내로
   expect(text).not.toContain("not_super_admin");
 });
 
+test("마지막 최고 관리자 보호(WC059)는 DB 가 주던 안내를 한국어로 보여준다", () => {
+  const text = captureAlert({
+    message: "최고 관리자가 1명뿐이라 강등, 정지, 삭제할 수 없다.",
+    code: "WC059",
+  });
+  expect(text).toContain(
+    "최고 관리자가 1명뿐이라 강등, 정지, 삭제할 수 없습니다. 다른 사람을 먼저 최고 관리자로 올려 주세요.",
+  );
+  expect(text).not.toContain("할 수 없다.");
+});
+
+test("QA 계정 쓰기 차단(WC104)은 DB 가 주던 안내를 한국어로 보여준다", () => {
+  const text = captureAlert({
+    message: "QA 계정이라 이 기능은 작동하지 않아요.",
+    code: "WC104",
+  });
+  expect(text).toContain("QA 계정이라 이 기능은 작동하지 않아요.");
+});
+
 test("buildFieldLabels 는 fields 라벨을 columns 보다 우선한다", () => {
   const labels = buildFieldLabels({
     columns: [{ key: "phone", label: "전화번호" }],
