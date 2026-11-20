@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { SectionKey } from "@/components/landing/useHomeSectionCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,29 +68,36 @@ export default function SectionCopyPanel({
     );
   }
 
+  const eyebrowId = useId();
+  const titleMainId = useId();
+  const titleSubId = useId();
+
   return (
     <div className="mb-6 space-y-3 bg-white p-4 text-sm shadow-sm">
       {hasEyebrow && (
-        <label className="block">
+        <label htmlFor={eyebrowId} className="block">
           <span className="mb-1 block font-medium">라벨</span>
           <Input
+            id={eyebrowId}
             className={INPUT_CLASS}
             value={eyebrow}
             onChange={(e) => setEyebrow(e.target.value)}
           />
         </label>
       )}
-      <label className="block">
+      <label htmlFor={titleMainId} className="block">
         <span className="mb-1 block font-medium">큰제목</span>
         <Input
+          id={titleMainId}
           className={INPUT_CLASS}
           value={titleMain}
           onChange={(e) => setTitleMain(e.target.value)}
         />
       </label>
-      <label className="block">
+      <label htmlFor={titleSubId} className="block">
         <span className="mb-1 block font-medium">중제목</span>
         <Input
+          id={titleSubId}
           className={INPUT_CLASS}
           value={titleSub}
           onChange={(e) => setTitleSub(e.target.value)}
