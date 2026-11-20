@@ -1,6 +1,8 @@
 import { Eye, RotateCcw, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -30,6 +32,7 @@ import {
   Field,
   GOAL_CUT_SOURCE_OPTIONS,
   Select,
+  TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import {
@@ -313,7 +316,7 @@ function GoalProb({
 }) {
   const parsed = goalNum(value);
   if (parsed === null)
-    return <span className="font-bold text-muted-foreground">미산출</span>;
+    return <span className="font-medium text-muted-foreground">미산출</span>;
   return (
     <span>
       {parsed.toFixed(digits)}
@@ -329,15 +332,13 @@ function GoalStatusBadge({ status }: { status?: string | null | undefined }) {
     status === "awaiting_cuts"
       ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
       : status === "paused"
-        ? "border-gray-300 bg-gray-100 text-gray-500"
-        : "border-primary/30 bg-[#eef2ff] text-primary";
+        ? "border-border bg-muted text-gray-600"
+        : "border-primary/30 bg-primary/10 text-primary";
 
   return (
-    <span
-      className={`inline-flex items-center whitespace-nowrap border px-2 py-0.5 text-xs font-black ${tone}`}
-    >
+    <Badge variant="outline" className={tone}>
       {goalOptionLabel(GOAL_STUDENT_STATUS_OPTIONS, status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -350,17 +351,15 @@ function GoalRiskBadge({
 }) {
   const cls =
     tone === "red"
-      ? "border-red-300 bg-red-50 text-red-600"
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "orange"
         ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
-        : "border-gray-300 bg-gray-50 text-gray-500";
+        : "border-border bg-muted text-gray-600";
 
   return (
-    <span
-      className={`inline-flex items-center border px-1.5 py-0.5 text-[0.6875rem] font-black ${cls}`}
-    >
+    <Badge variant="outline" className={`text-[0.6875rem] ${cls}`}>
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -374,13 +373,13 @@ function GoalNotice({
 }) {
   const cls =
     tone === "danger"
-      ? "border-red-300 bg-red-50 text-red-700"
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "warn"
         ? "border-[#B88737]/40 bg-[#FFF8E8] text-[#7A4A12]"
-        : "border-gray-300 bg-[#fafafa] text-gray-600";
+        : "border-border bg-muted/50 text-gray-600";
 
   return (
-    <div className={`border px-4 py-3 text-sm font-bold leading-6 ${cls}`}>
+    <div className={`border px-4 py-3 text-sm font-medium leading-6 ${cls}`}>
       {children}
     </div>
   );
@@ -464,11 +463,11 @@ function GoalDetailRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[8.75rem_1fr] border-b border-[#edf0f4] last:border-b-0">
-      <div className="bg-[#fafafa] px-4 py-2.5 text-xs font-black text-gray-600">
+    <div className="grid grid-cols-[8.75rem_1fr] border-b border-border last:border-b-0">
+      <div className="bg-muted/50 px-4 py-2.5 text-xs font-semibold text-gray-600">
         {label}
       </div>
-      <div className="whitespace-pre-line px-4 py-2.5 text-sm font-bold">
+      <div className="whitespace-pre-line px-4 py-2.5 text-sm font-medium">
         {children}
       </div>
     </div>
@@ -486,8 +485,8 @@ function GoalCard({
 }) {
   return (
     <div className="mb-5 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3">
-        <span className="text-sm font-black">{title}</span>
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-5 py-3">
+        <span className="text-sm font-semibold">{title}</span>
         {right}
       </div>
       <div>{children}</div>
@@ -722,40 +721,41 @@ export default function GoalStudentsAdmin({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             {GOAL_STUDENT_FILTERS.map((item) => (
-              <button
+              <Button
                 key={item.key}
                 type="button"
+                variant={filter === item.key ? "default" : "outline"}
+                size="lg"
+                aria-pressed={filter === item.key}
                 onClick={() => {
                   setFilter(item.key);
                   setPage(1);
                 }}
-                className={`inline-flex h-9 items-center border px-3 text-xs font-black ${
-                  filter === item.key
-                    ? "border-primary bg-primary text-white"
-                    : "border-gray-400 bg-white text-gray-700"
-                }`}
               >
                 {item.label}
-              </button>
+              </Button>
             ))}
           </div>
 
           <div className="flex items-center">
-            <input
+            <TextInput
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder={config.searchPlaceholder}
-              className="h-9 w-[20rem] border border-gray-400 px-3 text-sm outline-hidden"
+              onChange={setKeyword}
+              {...(config.searchPlaceholder
+                ? { placeholder: config.searchPlaceholder }
+                : {})}
+              aria-label="학생 이름 또는 연락처 검색"
+              className="w-80"
             />
-            <span className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold text-gray-500">
+            <span className="inline-flex h-9 items-center gap-1 border border-l-0 border-border bg-white px-4 text-sm font-medium text-muted-foreground">
               <Search size={14} />
               이름·연락처
             </span>
           </div>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
-        <p className="mt-1 text-xs font-bold text-gray-500">
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
           읽기 전용 화면입니다. 학생 데이터는 어드민에서 수정할 수 없습니다 —
           확률은 온보딩 시점에 확정되고, 컷을 고쳐도 이미 온보딩한 학생의 값은
           바뀌지 않습니다. 유일한 예외는 학생상세의 "온보딩 리셋"
@@ -787,12 +787,15 @@ export default function GoalStudentsAdmin({
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-muted-foreground">
             전체{" "}
             <span className="text-primary">{totalCount.toLocaleString()}</span>
             명
@@ -913,7 +916,7 @@ export default function GoalStudentsAdmin({
                   const flags = buildGoalRiskFlags(row, todayYMD);
                   return (
                     <TableRow key={row.profile_id}>
-                      <TableCell className="whitespace-nowrap px-3 py-3 font-bold">
+                      <TableCell className="whitespace-nowrap px-3 py-3 font-medium">
                         {row.profile?.name || "-"}
                       </TableCell>
                       {/* 목록은 마스킹, 상세는 원본 — maskedPhone 선례와 같은 규칙(§3-D6) */}
@@ -928,13 +931,13 @@ export default function GoalStudentsAdmin({
                       </TableCell>
                       <TableCell className="whitespace-normal px-3 py-3">
                         {row.student?.ideal_university || "-"}
-                        <span className="block text-xs text-gray-500">
+                        <span className="block text-xs text-muted-foreground">
                           {row.student?.ideal_department || "-"}
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-normal px-3 py-3">
                         {row.student?.min_university || "-"}
-                        <span className="block text-xs text-gray-500">
+                        <span className="block text-xs text-muted-foreground">
                           {row.student?.min_department || "-"}
                         </span>
                       </TableCell>
@@ -962,7 +965,7 @@ export default function GoalStudentsAdmin({
                       <TableCell className="whitespace-normal px-3 py-3">
                         <span className="flex flex-wrap gap-1">
                           {flags.length === 0 ? (
-                            <span className="text-gray-300">-</span>
+                            <span className="text-muted-foreground">-</span>
                           ) : (
                             flags.map((flag) => (
                               <GoalRiskBadge key={flag.key} tone={flag.tone}>
@@ -973,14 +976,16 @@ export default function GoalStudentsAdmin({
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-normal px-3 py-3 text-center">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="icon-sm"
                           onClick={() => setDetailId(row.profile_id)}
                           title="상세 보기"
-                          className="inline-flex h-7 w-7 items-center justify-center border border-gray-300 text-gray-600"
+                          aria-label="상세 보기"
                         >
-                          <Eye size={14} />
-                        </button>
+                          <Eye aria-hidden />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -1020,7 +1025,7 @@ function GoalProbabilityChart({ logs }: { logs: GoalProbabilityLogRow[] }) {
 
   if (logs.length === 0) {
     return (
-      <div className="px-5 py-8 text-center text-sm font-bold text-muted-foreground">
+      <div className="px-5 py-8 text-center text-sm font-medium text-muted-foreground">
         확률 로그가 없습니다.
       </div>
     );
@@ -1095,7 +1100,7 @@ function GoalProbabilityChart({ logs }: { logs: GoalProbabilityLogRow[] }) {
         {series.map((item) => (
           <span
             key={item.key}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600"
           >
             <span
               className="inline-block h-0.5 w-4"
@@ -1452,12 +1457,15 @@ export function GoalStudentDetail({
     return (
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">학생 상세</h1>
+          <h1 className="text-2xl font-semibold text-foreground">학생 상세</h1>
           <ActionButton variant="light" onClick={onBack}>
             목록으로
           </ActionButton>
         </div>
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       </div>
@@ -1468,12 +1476,12 @@ export function GoalStudentDetail({
     return (
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">학생 상세</h1>
+          <h1 className="text-2xl font-semibold text-foreground">학생 상세</h1>
           <ActionButton variant="light" onClick={onBack}>
             목록으로
           </ActionButton>
         </div>
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm">
           학생 행을 찾을 수 없습니다.
         </div>
       </div>
@@ -1516,7 +1524,7 @@ export function GoalStudentDetail({
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-[#111827]">
+          <h1 className="text-2xl font-semibold text-foreground">
             {profile?.name || "이름 없음"}{" "}
             <GoalStatusBadge status={state?.status || student.status} />
           </h1>
@@ -1548,18 +1556,18 @@ export function GoalStudentDetail({
             {canCreateCut && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {missingSlots.map((slot) => (
-                  <button
+                  <Button
                     key={slot.key}
                     type="button"
+                    variant="destructive"
                     onClick={() => createCutFromSlot(slot)}
-                    className="inline-flex h-8 items-center border border-red-300 bg-white px-3 text-xs font-black text-red-600"
                   >
                     {slot.label} 컷 만들기
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
-            <div className="mt-2 text-xs font-bold">
+            <div className="mt-2 text-xs font-medium">
               ⓘ 빠진 컷을 만들어 준 뒤 <b>학생이 온보딩을 다시 제출하면</b>{" "}
               그대로 진행중으로 전환됩니다 — 관리자가 할 추가 작업은 없고,
               자동으로 되지도 않습니다. 학생에게 온보딩 재제출을 안내해 주세요.
@@ -1575,18 +1583,19 @@ export function GoalStudentDetail({
             {canCreateCut && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {missingJungsiOnly.map((slot) => (
-                  <button
+                  <Button
                     key={slot.key}
                     type="button"
+                    variant="outline"
                     onClick={() => createCutFromSlot(slot)}
-                    className="inline-flex h-8 items-center border border-[#B88737]/50 bg-white px-3 text-xs font-black text-[#7A4A12]"
+                    className="border-[#B88737]/50 text-[#7A4A12]"
                   >
                     {slot.label} 컷 만들기
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
-            <div className="mt-2 text-xs font-bold">
+            <div className="mt-2 text-xs font-medium">
               ⓘ 지금 정시 컷을 채워도{" "}
               <b>이 학생의 정시 확률은 영원히 미산출로 남습니다</b> — 확률
               기준값(base)은 온보딩 시점에 1회 산출되고 재계산 경로가 없습니다.
@@ -1636,7 +1645,7 @@ export function GoalStudentDetail({
             <GoalDetailRow label="학년">{student.grade || "-"}</GoalDetailRow>
             <GoalDetailRow label="학교 유형">
               {student.school_type || "-"}
-              <span className="ml-2 text-xs font-bold text-muted-foreground">
+              <span className="ml-2 text-xs font-medium text-muted-foreground">
                 내신 컷 종류: {naesinCutType}
               </span>
             </GoalDetailRow>
@@ -1719,7 +1728,7 @@ export function GoalStudentDetail({
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="whitespace-normal px-2 py-2 font-black">
+                    <TableCell className="whitespace-normal px-2 py-2 font-semibold">
                       이상
                     </TableCell>
                     {VIRTUAL_DAY_NAMES.map((day) => (
@@ -1732,7 +1741,7 @@ export function GoalStudentDetail({
                     ))}
                   </TableRow>
                   <TableRow>
-                    <TableCell className="whitespace-normal px-2 py-2 font-black">
+                    <TableCell className="whitespace-normal px-2 py-2 font-semibold">
                       최소
                     </TableCell>
                     {VIRTUAL_DAY_NAMES.map((day) => (
@@ -1746,7 +1755,7 @@ export function GoalStudentDetail({
                   </TableRow>
                 </TableBody>
               </Table>
-              <p className="mt-2 text-xs font-bold text-muted-foreground">
+              <p className="mt-2 text-xs font-medium text-muted-foreground">
                 주간 합계는 월~토만 더합니다(일요일 제외).
               </p>
             </div>
@@ -1767,12 +1776,12 @@ export function GoalStudentDetail({
             {showRaw ? (
               <div className="space-y-3 px-5 py-4">
                 <div>
-                  <div className="mb-1 text-xs font-black text-gray-500">
+                  <div className="mb-1 text-xs font-semibold text-muted-foreground">
                     naesin_scores
                   </div>
                   <ScrollArea
                     axis="x"
-                    className="border border-gray-200 bg-[#fafafa] p-3 text-xs"
+                    className="border border-border bg-muted/50 p-3 text-xs"
                   >
                     <pre>
                       {JSON.stringify(student.naesin_scores ?? null, null, 2)}
@@ -1780,12 +1789,12 @@ export function GoalStudentDetail({
                   </ScrollArea>
                 </div>
                 <div>
-                  <div className="mb-1 text-xs font-black text-gray-500">
+                  <div className="mb-1 text-xs font-semibold text-muted-foreground">
                     mock_exam_scores
                   </div>
                   <ScrollArea
                     axis="x"
-                    className="border border-gray-200 bg-[#fafafa] p-3 text-xs"
+                    className="border border-border bg-muted/50 p-3 text-xs"
                   >
                     <pre>
                       {JSON.stringify(
@@ -1798,7 +1807,7 @@ export function GoalStudentDetail({
                 </div>
               </div>
             ) : (
-              <div className="px-5 py-4 text-xs font-bold text-muted-foreground">
+              <div className="px-5 py-4 text-xs font-medium text-muted-foreground">
                 개인 성적 원자료입니다. 필요할 때만 펼쳐 주세요.
               </div>
             )}
@@ -1847,9 +1856,9 @@ export function GoalStudentDetail({
                 {GOAL_GAUGE_ROWS.map((row) => (
                   <TableRow
                     key={row.label}
-                    className="border-b border-gray-100 last:border-b-0"
+                    className="border-b border-border last:border-b-0"
                   >
-                    <TableCell className="whitespace-normal px-4 py-2.5 font-black">
+                    <TableCell className="whitespace-normal px-4 py-2.5 font-semibold">
                       {row.label}
                     </TableCell>
                     <TableCell className="whitespace-normal px-4 py-2.5">
@@ -1862,10 +1871,10 @@ export function GoalStudentDetail({
                     <TableCell className="whitespace-normal px-4 py-2.5">
                       {goalSigned(state?.[row.cum])}
                     </TableCell>
-                    <TableCell className="whitespace-normal px-4 py-2.5 font-black">
+                    <TableCell className="whitespace-normal px-4 py-2.5 font-semibold">
                       <GoalProb value={state?.[row.now]} digits={4} />
                     </TableCell>
-                    <TableCell className="whitespace-normal px-4 py-2.5 text-gray-500">
+                    <TableCell className="whitespace-normal px-4 py-2.5 text-muted-foreground">
                       {goalNum(student[row.rate]) === null
                         ? "-"
                         : Number(student[row.rate]).toFixed(4)}
@@ -1875,7 +1884,7 @@ export function GoalStudentDetail({
               </TableBody>
             </Table>
 
-            <div className="border-t border-[#edf0f4] px-5 py-3 text-xs font-bold leading-6 text-gray-500">
+            <div className="border-t border-border px-5 py-3 text-xs font-medium leading-6 text-muted-foreground">
               rate = (100 − base) ÷ (기준일까지 남은 일수 + 학년 오프셋)입니다.
               base 가 95라면 rate 는 0.02%/일 수준이라 &ldquo;매일 제출하는데
               확률이 안 오른다&rdquo;는 문의의 1순위 답이 됩니다.
@@ -1940,18 +1949,18 @@ export function GoalStudentDetail({
                   return (
                     <TableRow
                       key={slot.key}
-                      className="border-b border-gray-100 last:border-b-0"
+                      className="border-b border-border last:border-b-0"
                     >
                       <TableCell className="whitespace-normal px-4 py-2.5">
-                        <span className="font-black">{slot.label}</span>
-                        <span className="block text-xs font-bold text-muted-foreground">
+                        <span className="font-semibold">{slot.label}</span>
+                        <span className="block text-xs font-medium text-muted-foreground">
                           {described.cutType} / {described.university || "-"} /{" "}
                           {described.department || "-"}
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-normal px-4 py-2.5">
                         {snapshot === null ? (
-                          <span className="font-bold text-muted-foreground">
+                          <span className="font-medium text-muted-foreground">
                             미확보
                           </span>
                         ) : (
@@ -1960,14 +1969,14 @@ export function GoalStudentDetail({
                       </TableCell>
                       <TableCell className="whitespace-normal px-4 py-2.5">
                         {current === null ? (
-                          <span className="font-bold text-muted-foreground">
+                          <span className="font-medium text-muted-foreground">
                             없음
                           </span>
                         ) : (
                           current.toFixed(2)
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-normal px-4 py-2.5 text-xs text-gray-500">
+                      <TableCell className="whitespace-normal px-4 py-2.5 text-xs text-muted-foreground">
                         {currentRow
                           ? `${goalOptionLabel(GOAL_CUT_SOURCE_OPTIONS, currentRow.source)} / ${
                               currentRow.source_year ?? "-"
@@ -1980,7 +1989,7 @@ export function GoalStudentDetail({
                             {goalSigned(current - snapshot, 2)}
                           </GoalRiskBadge>
                         ) : (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -1989,7 +1998,7 @@ export function GoalStudentDetail({
               </TableBody>
             </Table>
 
-            <div className="border-t border-[#edf0f4] px-5 py-3">
+            <div className="border-t border-border px-5 py-3">
               {state?.status === "awaiting_cuts" ? (
                 <GoalNotice>
                   ⓘ 이 학생은 아직 확률이 산출되지 않았습니다.{" "}
@@ -2013,7 +2022,7 @@ export function GoalStudentDetail({
             {/* 0건일 때 차트를 그리지 않는다 — 아래 표가 이미 같은 빈 상태 문구를 낸다. */}
             {logs.length > 0 && <GoalProbabilityChart logs={logs} />}
 
-            <div className="border-t border-[#edf0f4]">
+            <div className="border-t border-border">
               <Table className="w-full min-w-136 text-xs">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -2149,23 +2158,26 @@ export function GoalStudentDetail({
         </div>
 
         {resendError && (
-          <div className="border-t border-[#edf0f4] px-4 py-3 text-sm font-bold text-red-600">
+          <div
+            role="alert"
+            className="border-t border-border px-4 py-3 text-sm font-medium text-destructive"
+          >
             {resendError}
           </div>
         )}
 
         {resendResult && (
-          <div className="border-t border-[#edf0f4] px-4 py-3 text-sm">
-            <p className="font-black">
+          <div className="border-t border-border px-4 py-3 text-sm">
+            <p className="font-semibold">
               성공 {resendResult.sent} · 실패 {resendResult.failed} · 스킵{" "}
               {resendResult.skipped}
             </p>
             {resendResult.recipients.length === 0 ? (
-              <p className="mt-1 text-gray-500">
+              <p className="mt-1 text-muted-foreground">
                 연결된 학부모가 없어 보낼 대상이 없습니다.
               </p>
             ) : (
-              <ul className="mt-2 space-y-1 text-xs font-bold text-gray-600">
+              <ul className="mt-2 space-y-1 text-xs font-medium text-gray-600">
                 {resendResult.recipients.map((recipient) => (
                   <li key={recipient.parentProfileId}>
                     {recipient.phone} —{" "}
@@ -2332,7 +2344,7 @@ export function GoalStudentDetail({
                 return (
                   <TableRow
                     key={record.id}
-                    className="border-b border-gray-100 align-top"
+                    className="border-b border-border align-top"
                   >
                     <TableCell className="whitespace-normal px-3 py-2">
                       {record.record_index}
@@ -2388,7 +2400,7 @@ export function GoalStudentDetail({
                     <TableCell className="whitespace-normal px-3 py-2">
                       <span className="flex flex-col gap-1">
                         {hints.length === 0 ? (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-muted-foreground">-</span>
                         ) : (
                           hints.map((hint) => (
                             <GoalRiskBadge key={hint.key} tone={hint.tone}>
@@ -2398,21 +2410,23 @@ export function GoalStudentDetail({
                         )}
                         {/* memo 는 학생 자유 서술이라 목록 미노출·상세 접힘 기본(§3-D6) */}
                         {memo && (
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="xs"
                             onClick={() =>
                               setOpenMemo((prev) => ({
                                 ...prev,
                                 [record.id]: !prev[record.id],
                               }))
                             }
-                            className="self-start border border-gray-300 px-1.5 py-0.5 text-[0.6875rem] font-black text-gray-600"
+                            className="self-start"
                           >
                             {openMemo[record.id] ? "메모 접기" : "메모 보기"}
-                          </button>
+                          </Button>
                         )}
                         {memo && openMemo[record.id] && (
-                          <span className="whitespace-pre-line border border-gray-200 bg-[#fafafa] p-2 text-[0.6875rem] font-bold text-gray-600">
+                          <span className="whitespace-pre-line border border-border bg-muted/50 p-2 text-[0.6875rem] font-medium text-gray-600">
                             {memo}
                           </span>
                         )}
