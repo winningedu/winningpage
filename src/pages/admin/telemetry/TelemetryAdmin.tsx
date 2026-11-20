@@ -220,6 +220,7 @@ export default function TelemetryAdmin({ config }: Props) {
                 <label className="flex h-10 items-center gap-2 text-sm font-medium">
                   <input
                     type="checkbox"
+                    className="accent-primary"
                     checked={draft.retriedOnly}
                     onChange={(e) =>
                       dispatch({

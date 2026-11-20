@@ -26,6 +26,7 @@ export function RowCheckbox({
   return (
     <input
       type="checkbox"
+      className="accent-primary"
       checked={checked}
       onChange={() => onToggle(rowNo)}
       disabled={disabled}
