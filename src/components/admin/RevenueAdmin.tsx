@@ -4,7 +4,17 @@ import RevenueDashboard, {
   type RevenuePending,
 } from "@/components/admin/RevenueDashboard";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
@@ -53,6 +63,8 @@ interface ServiceTab {
 // PostgREST 응답 상한이 1,000행이라 그보다 크게 잡아도 잘려 나온다 — Admin.tsx 의
 // CSV 내보내기(EXPORT_CHUNK)와 같은 제약이라 값도 맞춘다.
 const PAGE_SIZE = 1000;
+
+const HEAD = "whitespace-normal px-4 py-3 font-semibold";
 
 const VIEW_COLUMNS =
   "order_item_id, order_id, paid_at, payer_name, payer_email, student_name, service_key, item_name, list_amount, discount_amount, paid_amount, refunded_amount, revenue_status, net_amount";
@@ -344,79 +356,77 @@ export default function RevenueAdmin() {
 
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         {/* 서비스별 탭 — 시안의 전체/목표관리/콜멘토/… 줄 */}
-        <div className="mb-5 flex flex-wrap gap-1 border-b border-[#edf0f4]">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveService(tab.key)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold ${
-                activeService === tab.key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={activeService} onValueChange={setActiveService}>
+          <TabsList
+            variant="line"
+            className="mb-5 h-auto w-full flex-wrap justify-start border-b border-border"
+          >
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.key}
+                value={tab.key}
+                className="h-auto flex-none px-4 py-2 font-medium after:bottom-0 data-active:text-primary data-active:after:bg-primary"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
-            <div
-              key={card.label}
-              className="border border-[#edf0f4] bg-[#fafafa] px-5 py-4"
-            >
-              <div className="text-sm font-bold text-gray-500">
+            <Card key={card.label} size="sm" className="bg-muted px-2">
+              <div className="text-sm font-medium text-muted-foreground">
                 {card.label}
               </div>
-              <div className="mt-2 text-2xl font-black">
+              <div className="text-2xl font-semibold">
                 {formatMoney(card.value)}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-bold text-gray-500">기간</span>
+          <span className="text-sm font-medium text-muted-foreground">
+            기간
+          </span>
           <input
             type="date"
+            aria-label="조회 시작일"
             value={fromYmd}
             max={toYmd}
             onChange={(event) => setFromYmd(event.target.value)}
-            className="h-9 border border-gray-400 px-3 text-sm outline-hidden"
+            className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
-          <span className="text-sm text-gray-500">~</span>
+          <span className="text-sm text-muted-foreground">~</span>
           <input
             type="date"
+            aria-label="조회 종료일"
             value={toYmd}
             min={fromYmd}
             onChange={(event) => setToYmd(event.target.value)}
-            className="h-9 border border-gray-400 px-3 text-sm outline-hidden"
+            className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
           <ActionButton onClick={loadRows} disabled={loading}>
             {loading ? "불러오는 중..." : "조회"}
           </ActionButton>
-          <button
-            type="button"
-            onClick={loadRows}
-            className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
-          >
-            <RefreshCw size={14} />
+          <Button type="button" variant="outline" size="lg" onClick={loadRows}>
+            <RefreshCw aria-hidden="true" />
             새로고침
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="lg"
             onClick={requestExport}
-            className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
           >
-            <Download size={14} />
+            <Download aria-hidden="true" />
             엑셀 다운로드
-          </button>
+          </Button>
         </div>
 
         {error && (
-          <p className="mt-3 text-sm font-bold text-red-600">
+          <p role="alert" className="mt-3 text-sm font-medium text-destructive">
             조회에 실패했습니다: {error}
           </p>
         )}
@@ -434,74 +444,94 @@ export default function RevenueAdmin() {
       )}
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
-        <ScrollArea axis="x" className="bg-white shadow-sm">
-          <table className="w-full min-w-[1000px] text-sm">
-            <thead>
-              <tr className="border-b border-[#edf0f4] bg-[#fafafa] text-left">
-                <th className="px-4 py-3 font-black">결제일시</th>
-                <th className="px-4 py-3 font-black">결제자</th>
-                <th className="px-4 py-3 font-black">이용 서비스</th>
-                <th className="px-4 py-3 font-black">이용 학생</th>
-                <th className="px-4 py-3 text-right font-black">서비스 금액</th>
-                <th className="px-4 py-3 text-right font-black">할인 금액</th>
-                <th className="px-4 py-3 text-right font-black">
+        <div className="bg-white shadow-sm">
+          <Table className="min-w-[62.5rem]">
+            <TableHeader>
+              <TableRow className="bg-muted text-left hover:bg-transparent">
+                <TableHead scope="col" className={HEAD}>
+                  결제일시
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  결제자
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  이용 서비스
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  이용 학생
+                </TableHead>
+                <TableHead scope="col" className={`${HEAD} text-right`}>
+                  서비스 금액
+                </TableHead>
+                <TableHead scope="col" className={`${HEAD} text-right`}>
+                  할인 금액
+                </TableHead>
+                <TableHead scope="col" className={`${HEAD} text-right`}>
                   최종 결제 금액
-                </th>
-                <th className="w-24 px-4 py-3 font-black">상태</th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+                <TableHead scope="col" className={`${HEAD} w-24`}>
+                  상태
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredPeriod.length === 0 ? (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={8}
-                    className="px-4 py-12 text-center font-bold text-gray-500"
+                    className="whitespace-normal px-4 py-12 text-center text-muted-foreground"
                   >
                     이 기간에 결제 내역이 없습니다.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filteredPeriod.map((row) => (
-                  <tr
-                    key={row.order_item_id}
-                    className="border-b border-[#edf0f4]"
-                  >
-                    <td className="px-4 py-3">{formatDateTime(row.paid_at)}</td>
-                    <td className="px-4 py-3 font-bold">
+                  <TableRow key={row.order_item_id}>
+                    <TableCell className="px-4 py-3">
+                      {formatDateTime(row.paid_at)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-3 font-medium">
                       {row.payer_name || row.payer_email || "-"}
-                    </td>
-                    <td className="px-4 py-3">{row.item_name || "-"}</td>
-                    <td className="px-4 py-3">{row.student_name || "-"}</td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-3">
+                      {row.item_name || "-"}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-4 py-3">
+                      {row.student_name || "-"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       {formatMoney(Number(row.list_amount || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       {formatMoney(Number(row.discount_amount || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right font-medium">
                       {formatMoney(Number(row.paid_amount || 0))}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       {row.revenue_status === "refunded" ? (
                         // 부분환불이면 최종 결제 금액과 실제 환불액이 다르다 —
                         // 상태만 보고 전액이 돌아간 것으로 오해하지 않도록 금액을 같이 쓴다.
-                        <span className="font-bold text-red-600">
+                        <span className="font-medium text-destructive">
                           환불 {formatMoney(Number(row.refunded_amount || 0))}
                         </span>
                       ) : (
                         <span className="text-gray-600">정상</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
-        </ScrollArea>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
