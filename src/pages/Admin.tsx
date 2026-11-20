@@ -548,67 +548,71 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
           관리자
         </SidebarHeader>
 
-        <SidebarContent className="px-2 py-3">
-          {menuGroups.map((group) => {
-            const isOpen = open.has(group.title);
+        <SidebarContent className="overflow-hidden">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-2 py-3">
+              {menuGroups.map((group) => {
+                const isOpen = open.has(group.title);
 
-            return (
-              <Collapsible
-                key={group.title}
-                open={isOpen}
-                onOpenChange={() => toggle(group.title)}
-              >
-                <SidebarGroup className="py-2">
-                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-[0.9375rem] font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-                    {group.title}
-                    <ChevronDown
-                      size={16}
-                      className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
-                    />
-                  </CollapsibleTrigger>
+                return (
+                  <Collapsible
+                    key={group.title}
+                    open={isOpen}
+                    onOpenChange={() => toggle(group.title)}
+                  >
+                    <SidebarGroup className="py-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-[0.9375rem] font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                        {group.title}
+                        <ChevronDown
+                          size={16}
+                          className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                      </CollapsibleTrigger>
 
-                  <CollapsibleContent>
-                    <SidebarMenu className="mt-1 gap-1">
-                      {group.items.map((item, index) => {
-                        const isActive = sidebarActiveKey === item.key;
+                      <CollapsibleContent>
+                        <SidebarMenu className="mt-1 gap-1">
+                          {group.items.map((item, index) => {
+                            const isActive = sidebarActiveKey === item.key;
 
-                        return (
-                          <Fragment key={item.key}>
-                            {/* 소분류 캡션 — 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
+                            return (
+                              <Fragment key={item.key}>
+                                {/* 소분류 캡션 — 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
                               접었다 펴는 단계를 하나 더 두지 않고 캡션으로 표현한다.
                               「서비스 관리」가 16개로 가장 크고, 그 안에서 서비스·
                               프리미엄·멘토·위닝 DB가 섞이면 훑기 어렵다.
                               섹션이 바뀌는 첫 항목에서만 그린다. */}
-                            {item.section &&
-                              item.section !==
-                                group.items[index - 1]?.section && (
-                                <li className="px-4 pb-1 pt-3 text-[0.6875rem] font-medium tracking-wide text-white/60">
-                                  {item.section}
-                                </li>
-                              )}
-                            <SidebarMenuItem>
-                              <SidebarMenuButton
-                                isActive={isActive}
-                                render={<Link to={`/admin/${item.key}`} />}
-                                aria-current={isActive ? "page" : undefined}
-                                className={`h-auto px-4 py-2 text-[0.8125rem] font-medium data-active:font-semibold before:mr-2 before:content-["•"] ${
-                                  isActive
-                                    ? "text-white before:text-red-500"
-                                    : "text-white/55 before:text-white/35"
-                                }`}
-                              >
-                                {item.label}
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          </Fragment>
-                        );
-                      })}
-                    </SidebarMenu>
-                  </CollapsibleContent>
-                </SidebarGroup>
-              </Collapsible>
-            );
-          })}
+                                {item.section &&
+                                  item.section !==
+                                    group.items[index - 1]?.section && (
+                                    <li className="px-4 pb-1 pt-3 text-[0.6875rem] font-medium tracking-wide text-white/60">
+                                      {item.section}
+                                    </li>
+                                  )}
+                                <SidebarMenuItem>
+                                  <SidebarMenuButton
+                                    isActive={isActive}
+                                    render={<Link to={`/admin/${item.key}`} />}
+                                    aria-current={isActive ? "page" : undefined}
+                                    className={`h-auto px-4 py-2 text-[0.8125rem] font-medium data-active:font-semibold before:mr-2 before:content-["•"] ${
+                                      isActive
+                                        ? "text-white before:text-red-500"
+                                        : "text-white/55 before:text-white/35"
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              </Fragment>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarGroup>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </SidebarContent>
       </Sidebar>
     </aside>
