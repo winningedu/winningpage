@@ -19,4 +19,12 @@ describe("PricingTab", () => {
     expect(screen.getAllByLabelText("모델명").length).toBe(2);
     expect(screen.getAllByLabelText("캐시 입력").length).toBe(2);
   });
+
+  test("행마다 삭제 버튼은 행 번호가 든 이름을 가진다", () => {
+    render(<PricingTab initial={{ pricing: {}, updatedAt: null }} />);
+    fireEvent.click(screen.getByRole("button", { name: "행 추가" }));
+
+    expect(screen.getByRole("button", { name: "삭제 1번째 행" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "삭제 2번째 행" })).toBeVisible();
+  });
 });
