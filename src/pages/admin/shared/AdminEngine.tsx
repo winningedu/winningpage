@@ -663,7 +663,8 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   mode: string;
   row?: T | null;
   onCancel: () => void;
-  onSave: (form: T) => void;
+  // 비동기 저장(Admin.tsx saveRow)이 Promise 를 돌려주면 끝날 때까지 재진입을 막는다.
+  onSave: (form: T) => unknown;
   onUpload: AdminUploadHandler<T>;
   origin?: "form" | "list";
   initialSection?: string | null;
@@ -682,6 +683,10 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     } as T;
   });
   const [dirty, setDirty] = useState(false);
+  // 저장 중복 방지. 더블클릭은 state 갱신 전에 두 번째 클릭이 들어오므로 ref 로 막고,
+  // state 는 버튼 비활성화와 문구용이다.
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   // field.loadOptions 가 있는 select 의 불러온 선택지(key 별).
   const [loadedOptions, setLoadedOptions] = useState<
     Record<string, AdminOption[]>
@@ -924,6 +929,7 @@ export function AdminForm<T extends AdminRow = AdminRow>({
   // 렌더되지 않는 모드 A(아래 origin === 'list' 조기 반환)에서도 모달이 이
   // 함수를 직접 호출해 폼 하단 [저장]과 같은 검증·저장을 태울 수 있다.
   function saveForm() {
+    if (savingRef.current) return;
     if (readonly) {
       onCancel();
       return;
@@ -1009,7 +1015,18 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     if (bannerPathsToDelete.size > 0) removeBannerPaths(bannerPathsToDelete);
 
     setDirty(false);
-    onSave(merged);
+    savingRef.current = true;
+    setSaving(true);
+    const finishSaving = () => {
+      savingRef.current = false;
+      setSaving(false);
+    };
+    try {
+      Promise.resolve(onSave(merged)).finally(finishSaving);
+    } catch (error) {
+      finishSaving();
+      throw error;
+    }
   }
 
   // <form onSubmit> 어댑터 — 모드 B의 requestSubmit()이 HTML 검증을 태운 뒤
@@ -1506,9 +1523,10 @@ export function AdminForm<T extends AdminRow = AdminRow>({
           {!readonly && (
             <button
               type="submit"
-              className="h-10 bg-primary px-5 text-sm font-black text-white"
+              disabled={saving}
+              className="h-10 bg-primary px-5 text-sm font-black text-white disabled:opacity-50"
             >
-              저장
+              {saving ? "저장 중..." : "저장"}
             </button>
           )}
         </div>
