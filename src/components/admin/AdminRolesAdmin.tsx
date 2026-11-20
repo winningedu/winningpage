@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/lib/supabase";
 import { ADMIN_PERMISSION_LEVEL_OPTIONS } from "@/pages/admin/configs/adminSettings";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   ActionButton,
   Field,
@@ -96,8 +97,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     const error = roleRes.error || resourceRes.error || permRes.error;
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       return;
     }
 
@@ -211,7 +211,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .eq("id", roleId);
       if (error) {
         setSaving(false);
-        alert(`저장 실패: ${error.message}`);
+        reportAdminError("저장 실패", error);
         return;
       }
     } else {
@@ -240,7 +240,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     if (deleteError) {
       setSaving(false);
-      alert(`권한 항목 저장 실패: ${deleteError.message}`);
+      reportAdminError("권한 항목 저장 실패", deleteError);
       return;
     }
 
@@ -256,7 +256,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .insert(rows);
       if (insertError) {
         setSaving(false);
-        alert(`권한 항목 저장 실패: ${insertError.message}`);
+        reportAdminError("권한 항목 저장 실패", insertError);
         return;
       }
     }
@@ -288,7 +288,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
       .eq("id", role.id);
 
     if (error) {
-      alert(`삭제 실패: ${error.message}`);
+      reportAdminError("삭제 실패", error);
       return;
     }
     await loadAll();
