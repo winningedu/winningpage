@@ -1,5 +1,13 @@
 import { useState } from "react";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ActionButton,
   Field,
   TextInput,
@@ -298,7 +306,10 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
       </div>
 
       {error && (
-        <div className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-600"
+        >
           {error}
         </div>
       )}
@@ -309,44 +320,57 @@ export default function ServiceCreditAdjustAdmin({ config }: Props) {
             {student.name || "(이름 없음)"} 님의 서비스 이용횟수
           </h2>
           {loading ? (
-            <p className="text-sm font-bold text-gray-500">불러오는 중...</p>
+            <p role="status" className="text-sm font-bold text-gray-500">
+              불러오는 중...
+            </p>
           ) : (
             rows.length > 0 && (
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-300 text-xs font-black text-gray-500">
-                    <th className="py-2">서비스</th>
-                    <th className="py-2">총</th>
-                    <th className="py-2">사용</th>
-                    <th className="py-2">잔여</th>
-                    <th className="py-2">만료</th>
-                    <th className="py-2">조정</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="border-collapse">
+                <TableHeader>
+                  <TableRow className="border-b border-gray-300 hover:bg-transparent">
+                    {["서비스", "총", "사용", "잔여", "만료", "조정"].map(
+                      (label) => (
+                        <TableHead
+                          key={label}
+                          scope="col"
+                          className="whitespace-normal py-2 text-xs font-semibold text-muted-foreground"
+                        >
+                          {label}
+                        </TableHead>
+                      ),
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map((row) => (
-                    <tr
+                    <TableRow
                       key={row.programKey}
                       className="border-b border-gray-200 align-top"
                     >
-                      <td className="py-3 font-black">{row.label}</td>
-                      <td className="py-3">{formatCount(row.quotaTotal)}</td>
-                      <td className="py-3">{row.quotaUsed}</td>
-                      <td className="py-3">
+                      <TableCell className="whitespace-normal py-3 font-semibold">
+                        {row.label}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {formatCount(row.quotaTotal)}
+                      </TableCell>
+                      <TableCell className="py-3">{row.quotaUsed}</TableCell>
+                      <TableCell className="py-3">
                         {formatCount(row.quotaRemaining)}
-                      </td>
-                      <td className="py-3">{formatExpiry(row)}</td>
-                      <td className="py-3">
+                      </TableCell>
+                      <TableCell className="py-3">
+                        {formatExpiry(row)}
+                      </TableCell>
+                      <TableCell className="whitespace-normal py-3">
                         <AdjustForm
                           row={row}
                           profileId={student.id}
                           onApplied={replaceRow}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )
           )}
         </div>
