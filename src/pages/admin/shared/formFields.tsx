@@ -121,7 +121,7 @@ export function Select({ value, onChange, children }: SelectProps) {
     <NativeSelect
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
-      className="w-full"
+      className="w-full [&>select]:h-10 [&>select]:font-medium"
     >
       {children}
     </NativeSelect>
@@ -194,6 +194,7 @@ export function ActionButton({
       disabled={disabled}
       variant={ACTION_BUTTON_VARIANT[variant]}
       size="lg"
+      className={variant === "dark" ? "font-semibold" : undefined}
     >
       {children}
     </Button>
@@ -227,7 +228,7 @@ export function ProgramSelector({
 
   if (programs.length === 0) {
     return (
-      <div className="rounded-sm border border-dashed border-gray-300 px-3 py-2 text-xs font-bold text-gray-500">
+      <div className="rounded-sm border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500">
         먼저 추천 프로그램을 등록하세요.
       </div>
     );
@@ -238,17 +239,17 @@ export function ProgramSelector({
       {programs.map((program) => (
         <label
           key={program.id}
-          className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-xs font-black transition ${
+          className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-xs font-medium transition ${
             selected.has(program.id)
-              ? "border-[#0D1B2A] bg-[#0D1B2A] text-white"
-              : "border-gray-300 bg-white text-gray-700 hover:border-[#B88737]"
+              ? "border-primary bg-primary text-white"
+              : "border-gray-300 bg-white text-gray-700 hover:border-primary"
           }`}
         >
           <input
             type="checkbox"
             checked={selected.has(program.id)}
             onChange={() => toggle(program.id)}
-            className="h-4 w-4 accent-[#B88737]"
+            className="h-4 w-4 accent-primary"
           />
           {program.title || "제목 없음"}
         </label>
