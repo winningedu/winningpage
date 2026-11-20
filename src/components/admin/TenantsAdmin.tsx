@@ -7,7 +7,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
@@ -102,6 +112,8 @@ function formatDate(value?: string | null) {
 interface TenantsAdminProps {
   config: { title: string; searchPlaceholder: string; [key: string]: unknown };
 }
+
+const HEAD = "whitespace-normal px-3 py-3 text-left font-semibold";
 
 export default function TenantsAdmin({ config }: TenantsAdminProps) {
   const [view, setView] = useState<ViewMode>("list");
@@ -235,7 +247,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   if (view === "create") {
     return (
       <div>
-        <h1 className="mb-5 text-2xl font-black text-[#111827]">
+        <h1 className="mb-5 text-2xl font-black text-foreground">
           {config.title} 등록
         </h1>
 
@@ -349,37 +361,43 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={loadRows}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
               초기화
-            </button>
-            <input
+            </Button>
+            <Input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder={config.searchPlaceholder}
-              className="h-9 w-[15rem] border border-gray-400 px-3 text-sm outline-hidden"
+              aria-label={config.searchPlaceholder}
+              className="h-9 w-[15rem]"
             />
           </div>
 
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={openCreate}
-            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white"
+            className="shrink-0 font-semibold"
           >
-            <Plus size={14} />
+            <Plus size={14} aria-hidden="true" />
             등록
-          </button>
+          </Button>
         </div>
 
         <h1 className="mt-4 text-xl font-black">{config.title}</h1>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
@@ -388,109 +406,134 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
             전체 <span className="text-blue-600">{filteredRows.length}</span>건
           </div>
 
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[45rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <th className="w-14 px-3 py-3 text-left">번호</th>
-                  <th className="px-3 py-3 text-left">이름</th>
-                  <th className="px-3 py-3 text-left">지역</th>
-                  <th className="px-3 py-3 text-left">기관 유형</th>
-                  <th className="px-3 py-3 text-left">소속코드</th>
-                  <th className="px-3 py-3 text-left">등급(내부용)</th>
-                  {hq && (
-                    <>
-                      <th className="px-3 py-3 text-left">계약 기간</th>
-                      <th className="px-3 py-3 text-left">MOU</th>
-                      <th className="px-3 py-3 text-left">유예 종료일</th>
-                      <th className="px-3 py-3 text-left">삭제 D-day</th>
-                    </>
-                  )}
-                  <th className="px-3 py-3 text-left">생성일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={hq ? 11 : 7}
-                      className="py-12 text-center text-muted-foreground"
-                    >
-                      등록된 데이터가 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRows.map((row, index) => (
-                    <tr key={row.id} className="border-b border-gray-100">
-                      <td className="px-3 py-3">{index + 1}</td>
-                      <td className="px-3 py-3 font-bold">
-                        {hq ? (
-                          <button
-                            type="button"
-                            onClick={() => openDetail(row.id)}
-                            className="text-left font-bold text-blue-700 underline"
-                          >
-                            {row.name}
-                          </button>
-                        ) : (
-                          row.name
-                        )}
-                        {hq && row.is_catch_all && (
-                          <span className="ml-2 bg-gray-200 px-2 py-0.5 text-xs font-black text-gray-700">
-                            기타
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">{row.region}</td>
-                      <td className="px-3 py-3">{row.org_type}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[0.8125rem]">
-                            {row.code}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(row.code)}
-                            aria-label="소속코드 복사"
-                            className="text-muted-foreground hover:text-black"
-                          >
-                            <Copy size={14} />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">{row.tier}</td>
-                      {hq && (
-                        <>
-                          <td className="px-3 py-3">
-                            {row.contract_start_date || row.contract_end_date
-                              ? `${row.contract_start_date ?? ""} ~ ${row.contract_end_date ?? ""}`.trim()
-                              : "-"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {mouLabel(row.mou_status)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {row.grace_ends_on ?? "-"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {deletionDdayText({
-                              contractEnd: row.contract_end_date ?? null,
-                              graceEnds: row.grace_ends_on ?? null,
-                              defaultGraceDays: graceDays,
-                              today: todayKst(),
-                            }) ?? "-"}
-                          </td>
-                        </>
-                      )}
-                      <td className="px-3 py-3">
-                        {formatDate(row.created_at)}
-                      </td>
-                    </tr>
-                  ))
+          <Table className="min-w-[45rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                <TableHead scope="col" className={`${HEAD} w-14`}>
+                  번호
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  이름
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  지역
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  기관 유형
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  소속코드
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  등급(내부용)
+                </TableHead>
+                {hq && (
+                  <>
+                    <TableHead scope="col" className={HEAD}>
+                      계약 기간
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      MOU
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      유예 종료일
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      삭제 D-day
+                    </TableHead>
+                  </>
                 )}
-              </tbody>
-            </table>
-          </ScrollArea>
+                <TableHead scope="col" className={HEAD}>
+                  생성일
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={hq ? 11 : 7}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    등록된 데이터가 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRows.map((row, index) => (
+                  <TableRow key={row.id} className="border-b border-gray-100">
+                    <TableCell className="px-3 py-3">{index + 1}</TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3 font-medium">
+                      {hq ? (
+                        <button
+                          type="button"
+                          onClick={() => openDetail(row.id)}
+                          className="text-left font-medium text-primary underline"
+                        >
+                          {row.name}
+                        </button>
+                      ) : (
+                        row.name
+                      )}
+                      {hq && row.is_catch_all && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-gray-700"
+                        >
+                          기타
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">{row.region}</TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.org_type}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[0.8125rem]">
+                          {row.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(row.code)}
+                          aria-label="소속코드 복사"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy size={14} aria-hidden="true" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-3">{row.tier}</TableCell>
+                    {hq && (
+                      <>
+                        <TableCell className="px-3 py-3">
+                          {row.contract_start_date || row.contract_end_date
+                            ? `${row.contract_start_date ?? ""} ~ ${row.contract_end_date ?? ""}`.trim()
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {mouLabel(row.mou_status)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {row.grace_ends_on ?? "-"}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {deletionDdayText({
+                            contractEnd: row.contract_end_date ?? null,
+                            graceEnds: row.grace_ends_on ?? null,
+                            defaultGraceDays: graceDays,
+                            today: todayKst(),
+                          }) ?? "-"}
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell className="px-3 py-3">
+                      {formatDate(row.created_at)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
