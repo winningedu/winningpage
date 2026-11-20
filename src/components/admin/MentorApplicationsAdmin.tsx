@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import {
   downloadCsv,
   normalizeArray,
@@ -211,8 +212,7 @@ export default function MentorApplicationsAdmin({
     setLoading(false);
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setRows([]);
       return;
     }
@@ -292,7 +292,7 @@ export default function MentorApplicationsAdmin({
     setSavingStatus(false);
 
     if (error) {
-      alert(`상태 변경 실패: ${error.message}`);
+      reportAdminError("상태 변경 실패", error);
       return;
     }
 

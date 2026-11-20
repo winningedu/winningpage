@@ -6,6 +6,7 @@ import {
   ADMIN_MEMBER_STATUS_OPTIONS,
   ADMIN_PERMISSION_LEVEL_OPTIONS,
 } from "@/pages/admin/configs/adminSettings";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import {
   ActionButton,
@@ -142,8 +143,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     const error = dirRes.error || roleRes.error || resourceRes.error;
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       return;
     }
 
@@ -237,7 +237,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     if (error) {
       // WC059(마지막 최고 관리자 보호)가 여기로 올라온다 — 원문을 그대로 보여준다.
-      alert(`저장 실패: ${error.message}`);
+      reportAdminError("저장 실패", error);
       return;
     }
 
@@ -257,7 +257,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     if (deleteError) {
       setSaving(false);
-      alert(`저장 실패: ${deleteError.message}`);
+      reportAdminError("저장 실패", deleteError);
       return;
     }
 
@@ -273,7 +273,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
         .insert(inserts);
       if (error) {
         setSaving(false);
-        alert(`저장 실패: ${error.message}`);
+        reportAdminError("저장 실패", error);
         return;
       }
     }
@@ -366,7 +366,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       setInviteDept("");
       await loadAll();
     } catch (error) {
-      alert(`초대 실패: ${(error as Error).message}`);
+      reportAdminError("초대 실패", error as Error);
     } finally {
       setInviting(false);
     }
