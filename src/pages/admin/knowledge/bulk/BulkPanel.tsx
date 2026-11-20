@@ -154,8 +154,16 @@ export default function BulkPanel({
 
       <Dialog
         open={draft !== null}
-        onOpenChange={(open) => {
-          if (!open) dispatch({ type: "close" });
+        disablePointerDismissal
+        onOpenChange={(open, eventDetails) => {
+          if (open) return;
+          // 반영 중에 닫으면 결과를 보지 못한 채 반영이 끝난다. 진행 중에는 모든 닫기를 막는다.
+          // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+          if (busy) {
+            eventDetails.cancel();
+            return;
+          }
+          dispatch({ type: "close" });
         }}
       >
         <DialogContent className="sm:max-w-[60rem]">
