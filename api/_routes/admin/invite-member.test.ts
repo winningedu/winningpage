@@ -118,3 +118,52 @@ describe("admin/invite-member 기존 계정 찾기", () => {
     );
   });
 });
+
+describe("admin/invite-member 실패 응답 detail", () => {
+  const RAW = "secret_relation 홍길동 010-1234-5678";
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    kit.state.rpc.fn_auth_user_id_by_email = () => ({
+      data: null,
+      error: null,
+    });
+  });
+
+  test("초대 메일 발송이 실패해도 detail 에 Supabase 원문을 싣지 않는다", async () => {
+    invite.mockResolvedValue({ data: { user: null }, error: { message: RAW } });
+
+    const r = await callHandler(inviteMember, BODY);
+
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toContain("홍길동");
+    expect(r.body).toEqual({
+      detail: "초대 메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  test("프로필 생성이 실패해도 detail 에 DB 원문을 싣지 않는다", async () => {
+    kit.state.insertErrors.profiles = { message: RAW };
+
+    const r = await callHandler(inviteMember, BODY);
+
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toContain("홍길동");
+    expect(r.body).toEqual({
+      detail: "프로필 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+  });
+
+  test("관리자 등록이 실패해도 detail 에 DB 원문을 싣지 않는다", async () => {
+    kit.state.insertErrors.admin_members = { message: RAW };
+
+    const r = await callHandler(inviteMember, BODY);
+
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(r.body)).not.toContain("홍길동");
+    expect(r.body).toEqual({
+      detail: "관리자 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+  });
+});
