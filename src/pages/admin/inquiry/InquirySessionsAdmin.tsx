@@ -6,8 +6,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
+import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import {
   ActionButton,
   Field,
@@ -148,85 +156,94 @@ export default function InquirySessionsAdmin({ config }: Props) {
           <div className="mb-4 text-sm font-bold text-gray-500">
             전체 <span className="text-blue-600">{total}</span>건
           </div>
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[64rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <th className="px-3 py-3 text-left">학생</th>
-                  <th className="px-3 py-3 text-left">이메일</th>
-                  <th className="px-3 py-3 text-left">상태</th>
-                  <th className="px-3 py-3 text-left">단계</th>
-                  <th className="px-3 py-3 text-left">과목</th>
-                  <th className="px-3 py-3 text-left">주제</th>
-                  <th className="px-3 py-3 text-left">최근 활동</th>
-                  <th className="px-3 py-3 text-left">차감</th>
-                  <th className="px-3 py-3 text-left">종결 사유</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!data || data.items.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="py-12 text-center text-muted-foreground"
-                    >
-                      조회된 세션이 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  data.items.map((row) => (
-                    <tr
-                      key={row.id}
-                      onClick={() => setSelected(row)}
-                      className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-3 font-bold">
+          <Table className="min-w-[64rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                {[
+                  "학생",
+                  "이메일",
+                  "상태",
+                  "단계",
+                  "과목",
+                  "주제",
+                  "최근 활동",
+                  "차감",
+                  "종결 사유",
+                ].map((label) => (
+                  <TableHead
+                    key={label}
+                    scope="col"
+                    className="whitespace-normal px-3 py-3 text-left font-semibold"
+                  >
+                    {label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!data || data.items.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={9}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    조회된 세션이 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.items.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    onClick={() => setSelected(row)}
+                    className="cursor-pointer border-b border-gray-100"
+                  >
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelected(row);
+                        }}
+                        className="text-left font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                      >
                         {row.studentName ?? "-"}
-                      </td>
-                      <td className="px-3 py-3">{row.email ?? "-"}</td>
-                      <td className="px-3 py-3">{statusLabel(row.status)}</td>
-                      <td className="px-3 py-3">
-                        {stepLabel(row.currentStep)}
-                      </td>
-                      <td className="px-3 py-3">{row.subject}</td>
-                      <td className="px-3 py-3">{row.topicTitle ?? "-"}</td>
-                      <td className="px-3 py-3">
-                        {formatDate(row.lastActivityAt)}
-                      </td>
-                      <td className="px-3 py-3">{ledgerLabel(row)}</td>
-                      <td className="px-3 py-3">
-                        {terminalLabel(row.terminal)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ScrollArea>
+                      </button>
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.email ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {statusLabel(row.status)}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {stepLabel(row.currentStep)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.subject}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.topicTitle ?? "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      {formatDate(row.lastActivityAt)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {ledgerLabel(row)}
+                    </TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {terminalLabel(row.terminal)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
 
-          <div className="mt-4 flex items-center justify-center gap-3 text-sm font-bold">
-            <ActionButton
-              variant="light"
-              disabled={query.page <= 1}
-              onClick={() =>
-                dispatch({ type: "setPage", page: query.page - 1 })
-              }
-            >
-              이전
-            </ActionButton>
-            <span>
-              {query.page} / {lastPage}
-            </span>
-            <ActionButton
-              variant="light"
-              disabled={query.page >= lastPage}
-              onClick={() =>
-                dispatch({ type: "setPage", page: query.page + 1 })
-              }
-            >
-              다음
-            </ActionButton>
-          </div>
+          <AdminPagination
+            page={query.page}
+            totalPages={lastPage}
+            onPageChange={(page) => dispatch({ type: "setPage", page })}
+          />
         </div>
       )}
 
@@ -428,7 +445,20 @@ function GrantDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog
+      open={open}
+      disablePointerDismissal
+      onOpenChange={(next, eventDetails) => {
+        if (next) return;
+        // 부여 요청이 나간 뒤에 닫으면 결과를 보지 못한 채 부여가 끝난다. 진행 중에는 모든 닫기를 막는다.
+        // eventDetails.cancel(): Base UI onOpenChange 취소 API (SensitiveActionGate 와 같은 방식)
+        if (busy) {
+          eventDetails.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[28rem]">
         <DialogHeader>
           <DialogTitle>이용권 부여</DialogTitle>
@@ -519,7 +549,7 @@ function GrantDialog({
           <ActionButton onClick={submit} disabled={busy}>
             {busy ? "처리 중..." : "부여"}
           </ActionButton>
-          <ActionButton variant="light" onClick={onClose}>
+          <ActionButton variant="light" onClick={onClose} disabled={busy}>
             닫기
           </ActionButton>
         </div>
