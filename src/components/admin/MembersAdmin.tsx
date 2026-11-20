@@ -13,7 +13,10 @@ import { site } from "@/config/site";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 import { supabase } from "@/lib/supabase";
 import { AdminTable } from "@/pages/admin/shared/AdminEngine";
-import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import {
+  AdminApiError,
+  reportAdminError,
+} from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import { downloadCsv, searchable } from "@/pages/admin/shared/csvExport";
 import {
@@ -566,13 +569,13 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
         body: JSON.stringify({ profileId: selected.id, text }),
       });
 
-      const result = await response.json().catch(async () => {
-        const raw = await response.text().catch(() => "");
-        return { detail: raw || `HTTP ${response.status}` };
-      });
+      // 우리 JSON 이 아닌 본문(HTML 등)은 detail 없이 빈 객체로 둔다.
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(result?.detail || `HTTP ${response.status}`);
+        throw result?.detail
+          ? new AdminApiError(result.detail)
+          : new Error(`HTTP ${response.status}`);
       }
 
       setDraft("");
