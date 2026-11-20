@@ -72,6 +72,11 @@ const ADMIN_ERROR_MESSAGE_MAP: Array<{ pattern: RegExp; message: string }> = [
     pattern: /refunded_order_immutable|WC039/,
     message: "환불 완료된 주문은 더 이상 수정할 수 없습니다.",
   },
+  // WC067 은 다른 RPC 도 쓰는 코드라 fn_create_tenant 의 메시지 이름으로 잡는다.
+  {
+    pattern: /not_super_admin/,
+    message: "최고 관리자만 소속을 등록할 수 있습니다.",
+  },
   {
     pattern: /23514/,
     message: "입력값이 저장 조건을 벗어났습니다. 값을 다시 확인해 주세요.",

@@ -189,7 +189,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setSaving(true);
 
     // 오류 원문은 화면에 싣지 않는다(reportAdminError 가 매핑된 안내만 보인다).
-    // WC067(최고 관리자 아님)은 매핑에 없어 일반 실패 문구에 코드만 붙는다.
+    // WC067(최고 관리자 아님, not_super_admin)은 adminErrors 매핑이 한국어 안내로 바꾼다.
     const { data, error } = await supabase.rpc("fn_create_tenant", {
       p_name: form.name.trim(),
       p_region: form.region,

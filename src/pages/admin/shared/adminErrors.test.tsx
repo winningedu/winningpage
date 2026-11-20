@@ -157,6 +157,12 @@ test("기존 WC 코드 매핑은 그대로다", () => {
   );
 });
 
+test("fn_create_tenant 의 최고 관리자 아님(WC067)은 한국어 안내로 바뀐다", () => {
+  const text = captureAlert({ message: "not_super_admin", code: "WC067" });
+  expect(text).toContain("최고 관리자만 소속을 등록할 수 있습니다.");
+  expect(text).not.toContain("not_super_admin");
+});
+
 test("buildFieldLabels 는 fields 라벨을 columns 보다 우선한다", () => {
   const labels = buildFieldLabels({
     columns: [{ key: "phone", label: "전화번호" }],
