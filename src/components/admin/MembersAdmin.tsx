@@ -946,7 +946,11 @@ export default function MembersAdmin({ config }: MembersAdminProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Select value={memberType} onChange={setMemberType}>
+            <Select
+              value={memberType}
+              onChange={setMemberType}
+              aria-label="회원구분"
+            >
               {MEMBER_TYPE_FILTERS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -1094,7 +1098,11 @@ function ProfilePane({
             <>
               <div className="flex items-center gap-2">
                 <span className="max-w-[13.75rem]">
-                  <Select value={tenantDraft} onChange={setTenantDraft}>
+                  <Select
+                    value={tenantDraft}
+                    onChange={setTenantDraft}
+                    aria-label="소속"
+                  >
                     <option value="">소속 없음</option>
                     {tenants.map((tenant) => (
                       <option key={tenant.id} value={tenant.id}>
@@ -1458,7 +1466,12 @@ function MessagePane({
         </p>
 
         <div className="mt-4">
-          <Textarea value={draft} onChange={setDraft} rows={4} />
+          <Textarea
+            value={draft}
+            onChange={setDraft}
+            rows={4}
+            aria-label="메시지 내용"
+          />
         </div>
 
         <div className="mt-2 flex items-center justify-between">

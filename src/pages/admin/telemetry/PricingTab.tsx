@@ -105,6 +105,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
             </div>
             <ActionButton
               variant="light"
+              aria-label={`삭제 ${index + 1}번째 행`}
               onClick={() => {
                 setSaved(false);
                 setRows((prev) => prev.filter((_, i) => i !== index));
