@@ -1,6 +1,6 @@
 // 개인정보 반출 게이트의 닫기 규칙. 닫기는 취소일 뿐 승인이 되면 안 된다.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const log = vi.hoisted(() => ({
@@ -121,6 +121,26 @@ describe("SensitiveActionGate", () => {
 
     finishVerify({ ok: true });
     await vi.waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+  });
+
+  test("같은 틱에 확인을 두 번 눌러도 검증은 한 번만 하고 onGranted 는 한 번만 부른다", async () => {
+    openGate();
+    fireEvent.change(await screen.findByLabelText("관리자 비밀번호"), {
+      target: { value: "pw-1234" },
+    });
+    fireEvent.change(screen.getByLabelText(/사유/), {
+      target: { value: "월간 정산" },
+    });
+    const confirm = screen.getByRole("button", { name: "확인" });
+
+    await act(async () => {
+      confirm.click();
+      confirm.click();
+    });
+
+    await vi.waitFor(() => expect(onGranted).toHaveBeenCalledTimes(1));
+    expect(log.verify).toHaveBeenCalledTimes(1);
+    expect(log.write).toHaveBeenCalledTimes(1);
   });
 
   test("비밀번호와 사유를 넣고 확인하면 로그를 먼저 남긴 뒤 onGranted 를 한 번 부른다", async () => {
