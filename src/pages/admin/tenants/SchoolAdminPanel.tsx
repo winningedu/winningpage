@@ -1,5 +1,6 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { copyToClipboard } from "@/pages/admin/shared/copyToClipboard";
 import {
   ActionButton,
   Field,
@@ -106,14 +107,6 @@ export default function SchoolAdminPanel({
     await load();
   }
 
-  async function copy(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
   return (
     <div>
       {issued && (
@@ -134,7 +127,7 @@ export default function SchoolAdminPanel({
               </span>
               <ActionButton
                 variant="light"
-                onClick={() => copy(issued.loginId)}
+                onClick={() => copyToClipboard(issued.loginId)}
               >
                 <Copy size={14} />
                 복사
@@ -151,7 +144,9 @@ export default function SchoolAdminPanel({
                   </span>
                   <ActionButton
                     variant="light"
-                    onClick={() => copy(issued.tempPassword as string)}
+                    onClick={() =>
+                      copyToClipboard(issued.tempPassword as string)
+                    }
                   >
                     <Copy size={14} />
                     복사
