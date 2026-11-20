@@ -106,6 +106,14 @@ async function openTenant() {
 }
 
 describe("MemberPurgeAdmin", () => {
+  test("열 머리글은 scope col 을 가진다", async () => {
+    await openTenant();
+    expect(screen.getByRole("columnheader", { name: "이름" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
   test("기관을 고르면 계약 종료일, 유예 종료일, 삭제 가능일 안내와 학생 목록이 보이고 유료 전환 학생은 고를 수 없다", async () => {
     await openTenant();
 
