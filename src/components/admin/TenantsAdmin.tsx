@@ -319,20 +319,22 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
                 기관을 발급했습니다
               </AlertDialogTitle>
             </AlertDialogHeader>
-            <div className="mb-1 text-sm font-bold text-gray-500">
-              {issuedTenant.name}
-            </div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
-                {issuedTenant.code}
-              </span>
-              <ActionButton
-                variant="light"
-                onClick={() => copyToClipboard(issuedTenant.code)}
-              >
-                <Copy size={14} />
-                복사
-              </ActionButton>
+            <div>
+              <div className="mb-1 text-sm font-bold text-gray-500">
+                {issuedTenant.name}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
+                  {issuedTenant.code}
+                </span>
+                <ActionButton
+                  variant="light"
+                  onClick={() => copyToClipboard(issuedTenant.code)}
+                >
+                  <Copy size={14} />
+                  복사
+                </ActionButton>
+              </div>
             </div>
             <AlertDialogFooter>
               <ActionButton onClick={() => setIssuedTenant(null)}>
