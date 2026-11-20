@@ -11,7 +11,14 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
 import {
   toastError,
@@ -376,7 +383,7 @@ const GRANT_PAGE_LIMIT = 200;
 const USER_SEARCH_LIMIT = 20;
 
 const INPUT_CLASS =
-  "h-9 w-full border border-[#9ca3af] bg-white px-3 text-sm outline-hidden disabled:bg-gray-100";
+  "h-9 w-full border border-input bg-white px-3 text-sm outline-hidden disabled:bg-gray-100";
 
 function moneyText(value: number | string | null | undefined) {
   return `${Number(value || 0).toLocaleString()}원`;
@@ -1259,12 +1266,12 @@ export default function CouponAdmin() {
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-4">
-            <h1 className="text-xl font-black">{TITLE}</h1>
+            <h1 className="text-xl font-semibold">{TITLE}</h1>
 
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white"
+              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-semibold text-white"
             >
               <Plus size={14} />
               등록
@@ -1282,193 +1289,207 @@ export default function CouponAdmin() {
               전체 <span className="text-blue-600">{coupons.length}</span>건
             </div>
 
-            <ScrollArea axis="x">
-              <table className="w-full min-w-285 border-collapse text-sm">
-                <thead>
-                  <tr className="border-y border-gray-300">
-                    <th className="w-14 px-3 py-3 text-left">번호</th>
-                    {[
-                      "slug",
-                      "title",
-                      "kind",
-                      "discount_amount",
-                      "min_amount",
-                      "valid_until",
-                      "max_uses_per_user",
-                      "max_redemptions",
-                      "stackable",
-                      "grant_type",
-                      "grant_on_signup",
-                      "used",
-                      "is_active",
-                    ].map((key) => (
-                      <th key={key} className="px-3 py-3 text-left">
-                        <FieldName k={key} />
-                      </th>
-                    ))}
-                    {/* 관리 칼럼을 sticky 로 고정한다. 칼럼이 12개라 1440 이하에서
+            <Table className="min-w-285">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    className="w-14 px-3 py-3 text-left font-semibold whitespace-normal"
+                  >
+                    번호
+                  </TableHead>
+                  {[
+                    "slug",
+                    "title",
+                    "kind",
+                    "discount_amount",
+                    "min_amount",
+                    "valid_until",
+                    "max_uses_per_user",
+                    "max_redemptions",
+                    "stackable",
+                    "grant_type",
+                    "grant_on_signup",
+                    "used",
+                    "is_active",
+                  ].map((key) => (
+                    <TableHead
+                      scope="col"
+                      key={key}
+                      className="px-3 py-3 text-left font-semibold whitespace-normal"
+                    >
+                      <FieldName k={key} />
+                    </TableHead>
+                  ))}
+                  {/* 관리 칼럼을 sticky 로 고정한다. 칼럼이 12개라 1440 이하에서
                         표가 컨테이너보다 넓어지는데(페이지 가로 스크롤은 0 이지만
                         표 안에서 잘린다), 액션이 오른쪽 끝에 있어 기본 화면에서
                         보이지 않으면 발급·이력 진입점이 없는 화면이 된다. */}
-                    <th className="sticky right-0 w-28 bg-white px-3 py-3 text-center">
-                      관리
-                    </th>
-                  </tr>
-                </thead>
+                  <TableHead
+                    scope="col"
+                    className="sticky right-0 w-28 bg-background px-3 py-3 text-center font-semibold whitespace-normal"
+                  >
+                    관리
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-                <tbody>
-                  {coupons.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={15}
-                        className="py-12 text-center text-muted-foreground"
+              <TableBody>
+                {coupons.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={15}
+                      className="py-12 text-center text-muted-foreground whitespace-normal"
+                    >
+                      등록된 데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  coupons.map((row, index) => {
+                    const used = redemptionStats.byCoupon[row.id] || {
+                      active: 0,
+                      total: 0,
+                    };
+
+                    return (
+                      <TableRow
+                        key={row.id}
+                        className={`group border-gray-100 hover:bg-muted ${
+                          row.is_active ? "" : "bg-muted text-muted-foreground"
+                        }`}
                       >
-                        등록된 데이터가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    coupons.map((row, index) => {
-                      const used = redemptionStats.byCoupon[row.id] || {
-                        active: 0,
-                        total: 0,
-                      };
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {index + 1}
+                        </TableCell>
 
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`border-b border-gray-100 ${
-                            row.is_active
-                              ? ""
-                              : "bg-[#fafafa] text-muted-foreground"
-                          }`}
-                        >
-                          <td className="px-3 py-3">{index + 1}</td>
-
-                          {/* slug 단독으로 판단하지 않도록 금액을 같은 셀에 붙여
+                        {/* slug 단독으로 판단하지 않도록 금액을 같은 셀에 붙여
                               보여준다 — 'signup-6000' 이 실제로 2,000원이던
                               사고(sql/55 P1-2)가 여기서 반복되지 않게 하는 지점이다. */}
-                          <td className="px-3 py-3">
-                            <div className="font-mono text-[0.8125rem] font-bold">
-                              {row.slug}
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          <div className="font-mono text-[0.8125rem] font-bold">
+                            {row.slug}
+                          </div>
+                          <div className="text-xs font-bold text-blue-600">
+                            {moneyText(row.discount_amount)}
+                          </div>
+                          {row.code && (
+                            <div className="font-mono text-xs text-gray-500">
+                              {row.code}
                             </div>
-                            <div className="text-xs font-bold text-blue-600">
-                              {moneyText(row.discount_amount)}
-                            </div>
-                            {row.code && (
-                              <div className="font-mono text-xs text-gray-500">
-                                {row.code}
-                              </div>
-                            )}
-                          </td>
+                          )}
+                        </TableCell>
 
-                          <td className="px-3 py-3">{row.title}</td>
-                          {/* 파생 칼럼(DB 컬럼 아님) — tenant_id 가 있으면 단체,
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.title}
+                        </TableCell>
+                        {/* 파생 칼럼(DB 컬럼 아님) — tenant_id 가 있으면 단체,
                               없고 code+총 발행 수량 1이면 선물, 그 외 할인
                               (2026-08-27 org_code 기준 결정, 2026-09-22
                               tenant_id 로 축 전환. 세 종류를 한눈에 구분). */}
-                          <td className="px-3 py-3">
-                            {row.tenant_id
-                              ? "단체"
-                              : row.code && row.max_redemptions === 1
-                                ? "선물"
-                                : "할인"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {moneyText(row.discount_amount)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {moneyText(row.min_amount)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {row.valid_until ??
-                              UNLIMITED_LABEL ??
-                              UNLIMITED_FALLBACK}
-                          </td>
-                          <td className="px-3 py-3">
-                            {nullableText(row.max_uses_per_user)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {nullableText(row.max_redemptions)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {flagMark(row.stackable)}
-                          </td>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.tenant_id
+                            ? "단체"
+                            : row.code && row.max_redemptions === 1
+                              ? "선물"
+                              : "할인"}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {moneyText(row.discount_amount)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {moneyText(row.min_amount)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.valid_until ??
+                            UNLIMITED_LABEL ??
+                            UNLIMITED_FALLBACK}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {nullableText(row.max_uses_per_user)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {nullableText(row.max_redemptions)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {flagMark(row.stackable)}
+                        </TableCell>
 
-                          {/* 표시는 GRANT_TYPE_LABEL(승인된 한국어 라벨) — DB 값
+                        {/* 표시는 GRANT_TYPE_LABEL(승인된 한국어 라벨) — DB 값
                               auto/granted 는 이 칼럼에 노출하지 않는다. 폼의 라디오도
                               같은 매핑을 쓰므로 화면 사이에서 말이 바뀌지 않는다. */}
-                          <td className="px-3 py-3">
-                            {GRANT_TYPE_LABEL[row.grant_type] ?? row.grant_type}
-                          </td>
-                          <td className="px-3 py-3">
-                            {flagMark(row.grant_on_signup)}
-                          </td>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {GRANT_TYPE_LABEL[row.grant_type] ?? row.grant_type}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {flagMark(row.grant_on_signup)}
+                        </TableCell>
 
-                          {/* 유효 건수 / 전체 건수(무효화 포함)를 둘 다 보여준다 —
+                        {/* 유효 건수 / 전체 건수(무효화 포함)를 둘 다 보여준다 —
                               void 한 이력이 사라지지 않는 것이 이 도메인의 원칙이라
                               전체만 보이면 "왜 소진인데 쓸 수 있나" 를, 유효만 보이면
                               "되돌린 기록" 을 각각 놓친다. */}
-                          <td className="px-3 py-3 font-mono text-[0.8125rem]">
-                            {used.active} / {used.total}
-                            {redemptionStats.truncated && "+"}
-                          </td>
+                        <TableCell className="px-3 py-3 font-mono text-[0.8125rem] whitespace-normal">
+                          {used.active} / {used.total}
+                          {redemptionStats.truncated && "+"}
+                        </TableCell>
 
-                          <td className="px-3 py-3">
-                            {boolText(row.is_active)}
-                          </td>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {boolText(row.is_active)}
+                        </TableCell>
 
-                          <td
-                            className={`sticky right-0 px-3 py-3 ${
-                              row.is_active ? "bg-white" : "bg-[#fafafa]"
-                            }`}
-                          >
-                            <div className="flex justify-center gap-3">
-                              {/* 수정 아이콘은 AdminTable(:4674)의 기존 액션과
+                        <TableCell
+                          className={`sticky right-0 px-3 py-3 whitespace-normal ${
+                            row.is_active
+                              ? "bg-background group-hover:bg-muted"
+                              : "bg-muted"
+                          }`}
+                        >
+                          <div className="flex justify-center gap-3">
+                            {/* 수정 아이콘은 AdminTable(:4674)의 기존 액션과
                                   같은 아이콘·같은 무라벨 규범을 그대로 따른다. */}
-                              <button
-                                type="button"
-                                onClick={() => openEdit(row)}
-                                className="text-gray-500 hover:text-black"
-                              >
-                                <Edit3 size={17} />
-                              </button>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(row)}
+                              className="text-gray-500 hover:text-black"
+                            >
+                              <Edit3 size={17} />
+                            </button>
 
-                              <button
-                                type="button"
-                                onClick={() => openHistory(row)}
-                                aria-label={HISTORY_ACTION_LABEL ?? undefined}
-                                className="text-gray-500 hover:text-blue-600"
-                              >
-                                <History size={17} />
-                              </button>
+                            <button
+                              type="button"
+                              onClick={() => openHistory(row)}
+                              aria-label={HISTORY_ACTION_LABEL ?? undefined}
+                              className="text-gray-500 hover:text-blue-600"
+                            >
+                              <History size={17} />
+                            </button>
 
-                              {/* 발급 관리는 발급형이거나(신규 발급 가능), 과거에
+                            {/* 발급 관리는 발급형이거나(신규 발급 가능), 과거에
                                   조건형으로 전환된 뒤에도 살아있는(회수 안 된)
                                   발급 이력이 남아 있으면 보여준다 — 전환된 쿠폰의
                                   이력 접근을 끊지 않는다(요구사항 ⑥). 둘 다
                                   아니면 "눌렀는데 아무도 없는" 빈 화면이거나,
                                   발급 시 WC004 로만 실패하는 버튼이 된다 — 아예
                                   그리지 않는다. */}
-                              {(row.grant_type === "granted" ||
-                                grantedCouponIds.has(row.id)) && (
-                                <button
-                                  type="button"
-                                  onClick={() => openGrants(row)}
-                                  aria-label={GRANTS_ACTION_LABEL ?? undefined}
-                                  className="text-gray-500 hover:text-blue-600"
-                                >
-                                  <Users size={17} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </ScrollArea>
+                            {(row.grant_type === "granted" ||
+                              grantedCouponIds.has(row.id)) && (
+                              <button
+                                type="button"
+                                onClick={() => openGrants(row)}
+                                aria-label={GRANTS_ACTION_LABEL ?? undefined}
+                                className="text-gray-500 hover:text-blue-600"
+                              >
+                                <Users size={17} />
+                              </button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         )}
       </>
@@ -1493,7 +1514,7 @@ export default function CouponAdmin() {
               <ChevronLeft size={15} />
             </button>
 
-            <h1 className="text-xl font-black">{TITLE}</h1>
+            <h1 className="text-xl font-semibold">{TITLE}</h1>
           </div>
 
           {/* 어느 쿠폰의 이력인지 — 값(데이터)만으로 식별한다. */}
@@ -1523,147 +1544,157 @@ export default function CouponAdmin() {
               전체 <span className="text-blue-600">{historyRows.length}</span>건
             </div>
 
-            <ScrollArea axis="x">
-              <table className="w-full min-w-250 border-collapse text-sm">
-                <thead>
-                  <tr className="border-y border-gray-300">
-                    <th className="w-14 px-3 py-3 text-left">번호</th>
-                    {[
-                      "order_id",
-                      "user",
-                      "discount_amount",
-                      "created_at",
-                      "voided_at",
-                      "void_reason",
-                    ].map((key) => (
-                      <th key={key} className="px-3 py-3 text-left">
-                        <FieldName k={key} />
-                      </th>
-                    ))}
-                    <th className="w-24 px-3 py-3 text-center">관리</th>
-                  </tr>
-                </thead>
+            <Table className="min-w-250">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    className="w-14 px-3 py-3 text-left font-semibold whitespace-normal"
+                  >
+                    번호
+                  </TableHead>
+                  {[
+                    "order_id",
+                    "user",
+                    "discount_amount",
+                    "created_at",
+                    "voided_at",
+                    "void_reason",
+                  ].map((key) => (
+                    <TableHead
+                      scope="col"
+                      key={key}
+                      className="px-3 py-3 text-left font-semibold whitespace-normal"
+                    >
+                      <FieldName k={key} />
+                    </TableHead>
+                  ))}
+                  <TableHead
+                    scope="col"
+                    className="w-24 px-3 py-3 text-center font-semibold whitespace-normal"
+                  >
+                    관리
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-                <tbody>
-                  {historyRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="py-12 text-center text-muted-foreground"
+              <TableBody>
+                {historyRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="py-12 text-center text-muted-foreground whitespace-normal"
+                    >
+                      등록된 데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  historyRows.map((row, index) => {
+                    const profile = row.user_id
+                      ? historyProfiles[row.user_id]
+                      : null;
+                    const voided = row.voided_at !== null;
+
+                    return (
+                      <TableRow
+                        key={row.id}
+                        className={`border-b border-gray-100 ${voided ? "text-muted-foreground" : ""}`}
                       >
-                        등록된 데이터가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    historyRows.map((row, index) => {
-                      const profile = row.user_id
-                        ? historyProfiles[row.user_id]
-                        : null;
-                      const voided = row.voided_at !== null;
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {historyRows.length - index}
+                        </TableCell>
 
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`border-b border-gray-100 ${voided ? "text-muted-foreground" : ""}`}
-                        >
-                          <td className="px-3 py-3">
-                            {historyRows.length - index}
-                          </td>
+                        <TableCell className="px-3 py-3 font-mono text-xs whitespace-normal">
+                          {row.order_id}
+                        </TableCell>
 
-                          <td className="px-3 py-3 font-mono text-xs">
-                            {row.order_id}
-                          </td>
-
-                          <td className="px-3 py-3">
-                            {row.user_id ? (
-                              <>
-                                <div className="font-bold">
-                                  {profile?.name || profile?.email || "-"}
-                                </div>
-                                <div className="font-mono text-xs text-gray-500">
-                                  {row.user_id}
-                                </div>
-                              </>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-
-                          <td className="px-3 py-3">
-                            {moneyText(row.discount_amount)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {dateTimeText(row.created_at)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {dateTimeText(row.voided_at)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {row.void_reason || "-"}
-                          </td>
-
-                          <td className="px-3 py-3">
-                            {voided ? (
-                              <div className="text-center text-gray-300">-</div>
-                            ) : voidingId === row.id ? (
-                              // 2단계 액션. 확인 문구(window.confirm)를 쓰려면 새
-                              // 한국어 문구가 필요한데 '정말 삭제하시겠습니까?' 는
-                              // void 가 삭제가 아니라서 거짓말이 된다. 대신 사유
-                              // 입력을 한 단계 끼워 오조작을 구조로 막는다.
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={voidReason}
-                                  placeholder={
-                                    VOID_REASON_PLACEHOLDER ?? undefined
-                                  }
-                                  onChange={(e) =>
-                                    setVoidReason(e.target.value)
-                                  }
-                                  className={`${INPUT_CLASS} w-48`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => submitVoid(row)}
-                                  disabled={actionBusy}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-40"
-                                >
-                                  <Check size={17} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVoidingId(null);
-                                    setVoidReason("");
-                                  }}
-                                  className="text-gray-500 hover:text-black"
-                                >
-                                  <X size={17} />
-                                </button>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.user_id ? (
+                            <>
+                              <div className="font-bold">
+                                {profile?.name || profile?.email || "-"}
                               </div>
-                            ) : (
-                              <div className="flex justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVoidingId(row.id);
-                                    setVoidReason("");
-                                  }}
-                                  aria-label={VOID_ACTION_LABEL ?? undefined}
-                                  className="text-gray-500 hover:text-red-600"
-                                >
-                                  <Ban size={17} />
-                                </button>
+                              <div className="font-mono text-xs text-gray-500">
+                                {row.user_id}
                               </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </ScrollArea>
+                            </>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {moneyText(row.discount_amount)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {dateTimeText(row.created_at)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {dateTimeText(row.voided_at)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.void_reason || "-"}
+                        </TableCell>
+
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {voided ? (
+                            <div className="text-center text-gray-300">-</div>
+                          ) : voidingId === row.id ? (
+                            // 2단계 액션. 확인 문구(window.confirm)를 쓰려면 새
+                            // 한국어 문구가 필요한데 '정말 삭제하시겠습니까?' 는
+                            // void 가 삭제가 아니라서 거짓말이 된다. 대신 사유
+                            // 입력을 한 단계 끼워 오조작을 구조로 막는다.
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={voidReason}
+                                placeholder={
+                                  VOID_REASON_PLACEHOLDER ?? undefined
+                                }
+                                onChange={(e) => setVoidReason(e.target.value)}
+                                className={`${INPUT_CLASS} w-48`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => submitVoid(row)}
+                                disabled={actionBusy}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-40"
+                              >
+                                <Check size={17} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVoidingId(null);
+                                  setVoidReason("");
+                                }}
+                                className="text-gray-500 hover:text-black"
+                              >
+                                <X size={17} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVoidingId(row.id);
+                                  setVoidReason("");
+                                }}
+                                aria-label={VOID_ACTION_LABEL ?? undefined}
+                                className="text-gray-500 hover:text-red-600"
+                              >
+                                <Ban size={17} />
+                              </button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         )}
       </>
@@ -1688,7 +1719,7 @@ export default function CouponAdmin() {
               <ChevronLeft size={15} />
             </button>
 
-            <h1 className="text-xl font-black">{TITLE}</h1>
+            <h1 className="text-xl font-semibold">{TITLE}</h1>
           </div>
 
           {/* 어느 쿠폰의 발급인지 — 사용이력 헤더와 같은 형태. valid_until 을
@@ -1720,7 +1751,7 @@ export default function CouponAdmin() {
         {/* 개별 발급 — 사용자를 찾아서 준다. 이메일·이름 검색은 profiles 를
             직접 조회한다(profiles_admin_select_all 정책). 발급 자체는 RPC 다. */}
         <div className="mb-6 bg-white p-6 shadow-sm">
-          <div className="mb-3 text-sm font-black">
+          <div className="mb-3 text-sm font-semibold">
             <FieldName k="email" />
           </div>
 
@@ -1793,7 +1824,7 @@ export default function CouponAdmin() {
                           type="button"
                           onClick={() => submitGrant(profile)}
                           disabled={actionBusy}
-                          className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-black text-white disabled:opacity-50"
+                          className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
                         >
                           <Plus size={14} />
                           등록
@@ -1817,140 +1848,152 @@ export default function CouponAdmin() {
               전체 <span className="text-blue-600">{grantRows.length}</span>건
             </div>
 
-            <ScrollArea axis="x">
-              <table className="w-full min-w-250 border-collapse text-sm">
-                <thead>
-                  <tr className="border-y border-gray-300">
-                    <th className="w-14 px-3 py-3 text-left">번호</th>
-                    {[
-                      "user",
-                      "granted_by",
-                      "granted_at",
-                      "valid_until",
-                      "revoked_at",
-                      "revoke_reason",
-                    ].map((key) => (
-                      <th key={key} className="px-3 py-3 text-left">
-                        <FieldName k={key} />
-                      </th>
-                    ))}
-                    <th className="w-24 px-3 py-3 text-center">관리</th>
-                  </tr>
-                </thead>
+            <Table className="min-w-250">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead
+                    scope="col"
+                    className="w-14 px-3 py-3 text-left font-semibold whitespace-normal"
+                  >
+                    번호
+                  </TableHead>
+                  {[
+                    "user",
+                    "granted_by",
+                    "granted_at",
+                    "valid_until",
+                    "revoked_at",
+                    "revoke_reason",
+                  ].map((key) => (
+                    <TableHead
+                      scope="col"
+                      key={key}
+                      className="px-3 py-3 text-left font-semibold whitespace-normal"
+                    >
+                      <FieldName k={key} />
+                    </TableHead>
+                  ))}
+                  <TableHead
+                    scope="col"
+                    className="w-24 px-3 py-3 text-center font-semibold whitespace-normal"
+                  >
+                    관리
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-                <tbody>
-                  {grantRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="py-12 text-center text-muted-foreground"
+              <TableBody>
+                {grantRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="py-12 text-center text-muted-foreground whitespace-normal"
+                    >
+                      등록된 데이터가 없습니다.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  grantRows.map((row, index) => {
+                    const profile = grantProfiles[row.user_id];
+                    const revoked = row.revoked_at !== null;
+
+                    return (
+                      <TableRow
+                        key={row.id}
+                        className={`border-b border-gray-100 ${revoked ? "text-muted-foreground" : ""}`}
                       >
-                        등록된 데이터가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    grantRows.map((row, index) => {
-                      const profile = grantProfiles[row.user_id];
-                      const revoked = row.revoked_at !== null;
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {grantRows.length - index}
+                        </TableCell>
 
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`border-b border-gray-100 ${revoked ? "text-muted-foreground" : ""}`}
-                        >
-                          <td className="px-3 py-3">
-                            {grantRows.length - index}
-                          </td>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          <div className="font-bold">
+                            {profile?.name || profile?.email || "-"}
+                          </div>
+                          <div className="font-mono text-xs text-gray-500">
+                            {row.user_id}
+                          </div>
+                        </TableCell>
 
-                          <td className="px-3 py-3">
-                            <div className="font-bold">
-                              {profile?.name || profile?.email || "-"}
-                            </div>
-                            <div className="font-mono text-xs text-gray-500">
-                              {row.user_id}
-                            </div>
-                          </td>
-
-                          <td className="px-3 py-3 font-mono text-[0.8125rem]">
-                            {row.granted_by}
-                          </td>
-                          <td className="px-3 py-3">
-                            {dateTimeText(row.granted_at)}
-                          </td>
-                          {/* 쿠폰 자신의 기한(위 헤더)과 별개 축이다 — 실제로
+                        <TableCell className="px-3 py-3 font-mono text-[0.8125rem] whitespace-normal">
+                          {row.granted_by}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {dateTimeText(row.granted_at)}
+                        </TableCell>
+                        {/* 쿠폰 자신의 기한(위 헤더)과 별개 축이다 — 실제로
                               쓸 수 있는 마지막 날은 둘 중 이른 쪽이다. */}
-                          <td className="px-3 py-3">
-                            {row.valid_until ?? UNLIMITED_LABEL}
-                          </td>
-                          <td className="px-3 py-3">
-                            {dateTimeText(row.revoked_at)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {row.revoke_reason || "-"}
-                          </td>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.valid_until ?? UNLIMITED_LABEL}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {dateTimeText(row.revoked_at)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {row.revoke_reason || "-"}
+                        </TableCell>
 
-                          <td className="px-3 py-3">
-                            {revoked ? (
-                              // 회수된 행은 사라지지 않는다(원장). 다시 회수할 수도
-                              // 없다 — 되돌리려면 "다시 발급"(새 행)이다.
-                              <div className="text-center text-gray-300">-</div>
-                            ) : revokingId === row.id ? (
-                              // void 와 같은 2단계 게이트. window.confirm 을 쓰면
-                              // 새 한국어 문구가 필요해진다.
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={revokeReason}
-                                  placeholder={
-                                    REVOKE_REASON_PLACEHOLDER ?? undefined
-                                  }
-                                  onChange={(e) =>
-                                    setRevokeReason(e.target.value)
-                                  }
-                                  className={`${INPUT_CLASS} w-48`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => submitRevoke(row)}
-                                  disabled={actionBusy}
-                                  className="text-red-600 hover:text-red-800 disabled:opacity-40"
-                                >
-                                  <Check size={17} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRevokingId(null);
-                                    setRevokeReason("");
-                                  }}
-                                  className="text-gray-500 hover:text-black"
-                                >
-                                  <X size={17} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRevokingId(row.id);
-                                    setRevokeReason("");
-                                  }}
-                                  aria-label={REVOKE_ACTION_LABEL ?? undefined}
-                                  className="text-gray-500 hover:text-red-600"
-                                >
-                                  <Ban size={17} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </ScrollArea>
+                        <TableCell className="px-3 py-3 whitespace-normal">
+                          {revoked ? (
+                            // 회수된 행은 사라지지 않는다(원장). 다시 회수할 수도
+                            // 없다 — 되돌리려면 "다시 발급"(새 행)이다.
+                            <div className="text-center text-gray-300">-</div>
+                          ) : revokingId === row.id ? (
+                            // void 와 같은 2단계 게이트. window.confirm 을 쓰면
+                            // 새 한국어 문구가 필요해진다.
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={revokeReason}
+                                placeholder={
+                                  REVOKE_REASON_PLACEHOLDER ?? undefined
+                                }
+                                onChange={(e) =>
+                                  setRevokeReason(e.target.value)
+                                }
+                                className={`${INPUT_CLASS} w-48`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => submitRevoke(row)}
+                                disabled={actionBusy}
+                                className="text-red-600 hover:text-red-800 disabled:opacity-40"
+                              >
+                                <Check size={17} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRevokingId(null);
+                                  setRevokeReason("");
+                                }}
+                                className="text-gray-500 hover:text-black"
+                              >
+                                <X size={17} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRevokingId(row.id);
+                                  setRevokeReason("");
+                                }}
+                                aria-label={REVOKE_ACTION_LABEL ?? undefined}
+                                className="text-gray-500 hover:text-red-600"
+                              >
+                                <Ban size={17} />
+                              </button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
           </div>
         )}
       </>
@@ -1963,14 +2006,14 @@ export default function CouponAdmin() {
 
   return (
     <div>
-      <h1 className="mb-5 text-2xl font-black text-[#111827]">
+      <h1 className="mb-5 text-2xl font-semibold text-foreground">
         {TITLE} {view === "create" ? "등록" : "수정"}
       </h1>
 
       <div className="bg-white shadow-sm">
         {editingRow && (
-          <div className="grid grid-cols-[13.75rem_1fr] border-b border-[#edf0f4]">
-            <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="grid grid-cols-[13.75rem_1fr] border-b border-border">
+            <div className="bg-muted px-5 py-3 text-sm font-semibold">
               <FieldName k="id" />
             </div>
             <div className="px-5 py-3 font-mono text-xs">
@@ -1985,9 +2028,9 @@ export default function CouponAdmin() {
         {FORM_KEYS.map((key) => (
           <div
             key={key}
-            className="grid grid-cols-[13.75rem_1fr] border-b border-[#edf0f4]"
+            className="grid grid-cols-[13.75rem_1fr] border-b border-border"
           >
-            <div className="bg-[#fafafa] px-5 py-3 text-sm font-black">
+            <div className="bg-muted px-5 py-3 text-sm font-semibold">
               <FieldName k={key} />
               {/* 필수 표시는 AdminForm 과 같은 규범(빨간 별표). NULL 을 고를 수
                   있는 3필드도 "선택 자체" 가 필수다 — 비워둘 수 없다. code 는
@@ -2219,7 +2262,7 @@ export default function CouponAdmin() {
         <button
           type="button"
           onClick={closeForm}
-          className="h-10 bg-[#4b5563] px-5 text-sm font-black text-white"
+          className="h-10 bg-gray-600 px-5 text-sm font-semibold text-white"
         >
           취소
         </button>
@@ -2228,7 +2271,7 @@ export default function CouponAdmin() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="h-10 bg-primary px-5 text-sm font-black text-white disabled:opacity-50"
+          className="h-10 bg-primary px-5 text-sm font-semibold text-white disabled:opacity-50"
         >
           저장
         </button>
