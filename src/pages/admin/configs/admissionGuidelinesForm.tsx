@@ -199,8 +199,8 @@ export function AdmissionParsingPreview({
   function warnDocFailures(docFailures: { label: string; errors: string[] }[]) {
     if (!docFailures.length) return;
     const detail = docFailures
-      .map((f) => `- ${f.label}: ${f.errors.join(" / ")}`)
-      .join("\n");
+      .map((f) => `${f.label}: ${f.errors.join(" / ")}`)
+      .join(", ");
     toastWarning(
       "다음 카테고리는 구조화 문서 생성에 실패해 기존 값을 보존했습니다(HTML만 갱신됨):",
       `${detail} 공개 페이지에 반영하려면 원문을 다시 확인하거나 개발팀에 문의하세요.`,
