@@ -1,4 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { fetchAdminPermissions } from "@/lib/adminPermissions";
 import { supabase } from "@/lib/supabase";
 import {
@@ -39,6 +49,7 @@ export default function MemberPurgeAdmin() {
   const [result, setResult] = useState<PurgeResult | null>(null);
   // 가장 최근에 미리보기를 요청한 기관. 늦게 도착한 옛 기관의 응답은 버린다.
   const requestedTenant = useRef("");
+  const cancelRef = useRef<HTMLButtonElement>(null);
   // 서버도 tenants edit 권한을 본다. 못 읽었으면 막아 둔다(fail-closed).
   const [canEdit, setCanEdit] = useState(false);
 
@@ -175,16 +186,30 @@ export default function MemberPurgeAdmin() {
         </div>
       )}
       {confirming && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="계약 종료 회원 삭제 확인"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        // 삭제 중에는 Esc 와 취소를 모두 막는다(서버 삭제는 멈추지 않으므로 화면만
+        // 닫히면 결과를 놓친다). 바깥 누름은 AlertDialog 가 기본으로 무시한다.
+        // eventDetails.cancel: @base-ui/react 1.9.0 internals/createBaseUIEventDetails.d.ts:55
+        <AlertDialog
+          open
+          onOpenChange={(_open, eventDetails) => {
+            if (running) {
+              eventDetails.cancel();
+              return;
+            }
+            setConfirming(false);
+            setTypedName("");
+          }}
         >
-          <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <p className="mb-4 text-sm font-black text-red-600">
-              {`삭제한 회원정보는 되돌릴 수 없어요. ${selected.size}명을 삭제할까요?`}
-            </p>
+          <AlertDialogContent
+            className="data-[size=default]:sm:max-w-md"
+            initialFocus={cancelRef}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>계약 종료 회원 삭제 확인</AlertDialogTitle>
+              <AlertDialogDescription className="font-black text-red-600">
+                {`삭제한 회원정보는 되돌릴 수 없어요. ${selected.size}명을 삭제할까요?`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
             <Field label="기관 이름 입력">
               <TextInput
                 value={typedName}
@@ -192,26 +217,21 @@ export default function MemberPurgeAdmin() {
                 placeholder={tenantName}
               />
             </Field>
-            <div className="mt-4 flex gap-2">
-              <ActionButton
-                variant="danger"
+            <AlertDialogFooter>
+              <AlertDialogCancel ref={cancelRef} size="lg" disabled={running}>
+                취소
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                size="lg"
                 disabled={typedName !== tenantName || running}
                 onClick={run}
               >
                 삭제
-              </ActionButton>
-              <ActionButton
-                variant="light"
-                onClick={() => {
-                  setConfirming(false);
-                  setTypedName("");
-                }}
-              >
-                취소
-              </ActionButton>
-            </div>
-          </div>
-        </div>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       {preview && (
         <div className="bg-white p-6 shadow-sm">
