@@ -39,7 +39,7 @@
       "react": "recommended"
     },
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "overrides": [
