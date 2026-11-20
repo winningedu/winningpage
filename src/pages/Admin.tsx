@@ -105,7 +105,12 @@ import {
   uploadImage,
 } from "./admin/shared/AdminEngine";
 import { AdminTopbar } from "./admin/shared/AdminTopbar";
-import { buildFieldLabels, reportAdminError } from "./admin/shared/adminErrors";
+import {
+  AdminChunkError,
+  buildFieldLabels,
+  reportAdminError,
+  withChunkRows,
+} from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
 import {
   csvBody,
@@ -1330,8 +1335,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + RESULTS_APPLY_CHUNK);
         const { error } = await supabase.from(RESULTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1343,8 +1350,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           .from(RESULTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1354,7 +1363,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       setApplying(false);
       setApplyProgress(null);
       reportAdminError(
-        "엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
         err,
       );
       onReload?.();
@@ -2036,8 +2045,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           onConflict: "cut_type,university_key,department_key",
         });
         if (error) {
-          throw new Error(
-            `컷 반영 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "컷 반영 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2051,8 +2062,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           .update({ is_active: false })
           .in("id", chunk);
         if (error) {
-          throw new Error(
-            `고아 유도 행 노출 끄기 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "고아 유도 행 노출 끄기 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2062,7 +2075,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       setApplying(false);
       setApplyProgress(null);
       reportAdminError(
-        "백필 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        `${withChunkRows("백필 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
         err,
       );
       onReload?.();
@@ -2511,8 +2524,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
         const { error } = await supabase.from(GOAL_CUTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2524,8 +2539,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           .from(GOAL_CUTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2535,7 +2552,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       setApplying(false);
       setApplyProgress(null);
       reportAdminError(
-        "엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
         err,
       );
       onReload?.();

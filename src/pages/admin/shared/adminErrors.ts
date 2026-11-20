@@ -229,6 +229,31 @@ export class AdminApiError extends Error {
   }
 }
 
+/**
+ * 청크 반복 저장에서 한 청크가 실패했을 때 던지는 오류. Supabase 오류의 code, details
+ * 는 그대로 들고 있어 reportAdminError 가 코드별 안내를 고를 수 있고, 어느 행인지는
+ * 우리가 만든 `rows`("12~24") 로 따로 싣는다. 원문 message 는 Error.message 에
+ * 넣지 않는다(콘솔에는 cause 로 남는다).
+ */
+export class AdminChunkError extends Error {
+  readonly code: string | undefined;
+  readonly details: string | undefined;
+  readonly rows: string;
+
+  constructor(stage: string, rows: string, source: AdminErrorLike) {
+    super(`${stage}(${rows}행)`, { cause: source });
+    this.name = "AdminChunkError";
+    this.code = source.code;
+    this.details = source.details;
+    this.rows = rows;
+  }
+}
+
+/** 청크 실패면 제목에 실패한 행 범위를 붙인다. 아니면 제목 그대로. */
+export function withChunkRows(title: string, error: unknown): string {
+  return error instanceof AdminChunkError ? `${title}(${error.rows}행)` : title;
+}
+
 function mapAdminErrorMessage(
   error: AdminErrorLike | null | undefined,
   labels: AdminFieldLabels = {},

@@ -128,7 +128,7 @@ describe("Admin 입결 백필 적용 오류 안내", () => {
 
     await waitFor(() => {
       const title = document.querySelector('[data-slot="toast-title"]');
-      expect(title).toHaveTextContent("(1~1행)");
+      expect(title).toHaveTextContent("(1~2행)");
     });
     // 청크로 감싸도 오류 코드가 살아 있어야 중복 안내가 나온다.
     expect(
