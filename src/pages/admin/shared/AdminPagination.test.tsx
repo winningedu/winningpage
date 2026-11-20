@@ -74,4 +74,15 @@ describe("AdminPagination", () => {
     expect(numbered).toContain("50페이지");
     expect(screen.getByText("50 / 4,300 페이지")).toBeTruthy();
   });
+
+  test("네 자리 페이지 번호도 고정폭 없이 자기 너비로 렌더된다", () => {
+    render(
+      <AdminPagination page={4300} totalPages={4300} onPageChange={() => {}} />,
+    );
+
+    const button = screen.getByRole("button", { name: "4300페이지" });
+    expect(button.textContent).toBe("4300");
+    expect(button.className).toContain("w-auto");
+    expect(button.className).toContain("min-w-8");
+  });
 });
