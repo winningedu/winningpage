@@ -1351,8 +1351,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        "엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        err,
       );
       onReload?.();
       return;
@@ -2058,8 +2059,9 @@ function GoalCutsBackfillPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `백필 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        "백필 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        err,
       );
       onReload?.();
       return;
@@ -2530,8 +2532,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        "엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다",
+        err,
       );
       onReload?.();
       return;
