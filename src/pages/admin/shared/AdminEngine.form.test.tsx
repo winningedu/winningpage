@@ -1,6 +1,12 @@
 // AdminForm 입력 렌더러와 저장 경로 검증.
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { AdminForm } from "./AdminEngine";
 
@@ -113,5 +119,80 @@ describe("AdminForm 저장 중복 방지", () => {
 
     finish();
     await screen.findByRole("button", { name: "저장" });
+  });
+
+  describe("모달 저장 경로(disabled 버튼 없이 saveForm 직접 호출)", () => {
+    function openListModal(onSave: (form: unknown) => unknown) {
+      renderForm(
+        {
+          fields: [
+            { key: "name", label: "이름", type: "text" },
+            { key: "memo", label: "메모", type: "textarea", group: "g" },
+          ],
+        },
+        {
+          mode: "create",
+          row: null,
+          createDefaults: { name: "프리필" },
+          origin: "list",
+          initialSection: "g",
+          onSave,
+        },
+      );
+      return screen.getByRole("button", { name: "저장" });
+    }
+
+    test("첫 저장이 끝나기 전에 모달 저장을 두 번 불러도 한 번만 저장한다", async () => {
+      let finish: () => void = () => {};
+      const onSave = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const save = openListModal(onSave);
+
+      act(() => {
+        fireEvent.click(save);
+        fireEvent.click(save);
+      });
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+      await act(async () => finish());
+    });
+
+    test("첫 저장이 끝난 뒤의 저장은 다시 통과한다", async () => {
+      const onSave = vi.fn(async () => {});
+      const save = openListModal(onSave);
+
+      await act(async () => {
+        fireEvent.click(save);
+      });
+      await act(async () => {
+        fireEvent.click(save);
+      });
+
+      expect(onSave).toHaveBeenCalledTimes(2);
+    });
+
+    test("onSave 가 거부돼도 이후 저장은 다시 통과한다", async () => {
+      const onSave = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("실패"))
+        .mockResolvedValue(undefined);
+      const unhandled = vi.fn();
+      process.on("unhandledRejection", unhandled);
+      const save = openListModal(onSave);
+
+      await act(async () => {
+        fireEvent.click(save);
+      });
+      await act(async () => {
+        fireEvent.click(save);
+      });
+
+      process.off("unhandledRejection", unhandled);
+      expect(onSave).toHaveBeenCalledTimes(2);
+    });
   });
 });
