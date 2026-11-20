@@ -1,6 +1,12 @@
 // 권한 묶음 관리의 오류 안내. DB 원문 대신 매핑된 안내만 토스트로 보인다.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -8,6 +14,7 @@ const state = vi.hoisted(() => ({
   loadError: null as { message: string; code?: string } | null,
   deleteError: null as { message: string; code?: string } | null,
   insertError: null as { message: string; code?: string } | null,
+  deleteCalls: 0,
 }));
 
 vi.mock("@/lib/supabase", () => {
@@ -28,7 +35,10 @@ vi.mock("@/lib/supabase", () => {
               ? { data: state.roles, error: state.loadError }
               : { data: [], error: null },
           ),
-        delete: () => query({ data: null, error: state.deleteError }),
+        delete: () => {
+          state.deleteCalls += 1;
+          return query({ data: null, error: state.deleteError });
+        },
         insert: () => ({
           select: () => ({
             single: async () => ({ data: null, error: state.insertError }),
@@ -39,7 +49,8 @@ vi.mock("@/lib/supabase", () => {
   };
 });
 
-import { Toaster } from "@/components/ui/toast";
+import { Toaster, toast } from "@/components/ui/toast";
+import { ConfirmAdminHost } from "@/pages/admin/shared/confirmAdmin";
 import AdminRolesAdmin from "./AdminRolesAdmin";
 
 const CONFIG = { title: "권한 관리", searchPlaceholder: "검색" };
@@ -49,6 +60,7 @@ function renderRoles() {
     <>
       <AdminRolesAdmin config={CONFIG} />
       <Toaster />
+      <ConfirmAdminHost />
     </>,
   );
 }
@@ -69,10 +81,12 @@ beforeEach(() => {
   state.loadError = null;
   state.deleteError = null;
   state.insertError = null;
+  state.deleteCalls = 0;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  toast.close();
   vi.restoreAllMocks();
 });
 
@@ -91,7 +105,6 @@ describe("AdminRolesAdmin 오류 안내", () => {
   });
 
   test("삭제에 실패하면 '삭제 실패' 토스트가 보인다", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     state.roles = [
       { id: "r1", name: "운영팀", is_super: false, is_system: false },
     ];
@@ -99,6 +112,12 @@ describe("AdminRolesAdmin 오류 안내", () => {
     renderRoles();
 
     fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+    fireEvent.click(
+      await within(await screen.findByRole("alertdialog")).findByRole(
+        "button",
+        { name: "삭제" },
+      ),
+    );
 
     await expectToast("삭제 실패", "이미 등록된 값입니다(중복)");
   });
@@ -141,5 +160,69 @@ describe("AdminRolesAdmin 오류 안내", () => {
         .join(" ");
       expect(shown).toContain("권한 묶음을 만들지 못했습니다.");
     });
+  });
+
+  test("삭제 확인창에서 취소하면 삭제하지 않고, 확인창은 취소에 포커스가 간다", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    state.roles = [
+      { id: "r1", name: "운영팀", is_super: false, is_system: false },
+    ];
+    renderRoles();
+
+    fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("'운영팀' 묶음을 삭제합니다.");
+    expect(dialog).toHaveTextContent("아무 메뉴도 보이지 않게 됩니다");
+    const cancel = within(dialog).getByRole("button", { name: "취소" });
+    await waitFor(() => expect(cancel).toHaveFocus());
+    fireEvent.click(cancel);
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(state.deleteCalls).toBe(0);
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  test("이름이 비면 자동으로 닫히지 않는 경고 토스트가 보인다", async () => {
+    const addSpy = vi.spyOn(toast, "add");
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    renderRoles();
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록하기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("권한 묶음 이름을 입력해 주세요."),
+    );
+    expect(addSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "warning",
+        priority: "high",
+        timeout: 0,
+      }),
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test("저장에 성공하면 성공 토스트가 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    state.insertError = null;
+    renderRoles();
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록하기" }));
+    fireEvent.change(await screen.findByLabelText("권한 묶음 이름"), {
+      target: { value: "운영팀" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("저장했습니다."),
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });
