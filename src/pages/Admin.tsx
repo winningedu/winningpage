@@ -33,6 +33,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sidebar,
@@ -44,6 +46,14 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Toaster, toast } from "@/components/ui/toast";
 import {
   canAccessSection,
@@ -731,7 +741,7 @@ function AdmissionActiveYearSummary({ rows }) {
 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">
+      <div className="font-semibold">
         {loadingActiveYear ? (
           "공개 연도 확인 중…"
         ) : (
@@ -744,24 +754,24 @@ function AdmissionActiveYearSummary({ rows }) {
         )}
       </div>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="number"
           value={draftYear}
           onChange={(e) => setDraftYear(e.target.value)}
           min={2000}
           max={2100}
           disabled={loadingActiveYear || saving}
-          className="h-9 w-24 border border-[#9ca3af] px-2 text-sm outline-hidden disabled:bg-gray-100"
+          className="h-9 w-24 font-medium"
           aria-label="새 공개 연도"
         />
-        <button
+        <Button
+          size="lg"
           type="button"
           onClick={handleChangeYear}
           disabled={loadingActiveYear || saving}
-          className="h-9 bg-primary px-4 text-sm font-black text-white disabled:opacity-50"
         >
           {saving ? "저장 중…" : "변경"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -971,22 +981,24 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
   return (
     <div className="mb-6 bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold"
           >
             {`엑셀 다운로드 (전체 ${totalRows}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold"
           >
             엑셀 업로드
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1017,7 +1029,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
           {/* truncatedCellSkipCount 같은 개별 집계 필드는 여기서 안 쓰고
               warningCounts만 쓴다(team-lead 지시) — type별 건수를 lib이
               그대로 주므로 문자열 매칭·직접 재계산을 안 한다. 경고
@@ -1025,7 +1037,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               포맷에서 html 3종이 빠지면서(26→23컬럼) "html 파싱" 개념
               자체가 없어져 그쪽 집계 필드도 lib에서 정리됐다 — 애초에
               이 컴포넌트가 그 필드를 쓴 적이 없어 갱신할 코드는 없었다. */}
-          <p className="font-black text-primary">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1045,7 +1057,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -1085,7 +1097,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -1119,6 +1131,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -1126,22 +1139,23 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {applying ? "적용 중…" : "적용"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1451,28 +1465,30 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
   return (
     <div className="mb-6 bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {fetchProgress
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {idSetProgress
               ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
               : "엑셀 업로드"}
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1503,8 +1519,8 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-primary">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1517,7 +1533,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -1557,7 +1573,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -1593,6 +1609,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -1600,11 +1617,11 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -1612,15 +1629,16 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
                   return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                 return "적용 중…";
               })()}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1957,7 +1975,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   if (loading && !summary) {
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
-        <div className="font-black">현황 요약</div>
+        <div className="font-semibold">현황 요약</div>
         <p className="mt-2 text-xs text-gray-500">불러오는 중…</p>
       </div>
     );
@@ -1965,7 +1983,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   if (!summary) {
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
-        <div className="font-black">현황 요약</div>
+        <div className="font-semibold">현황 요약</div>
         <p className="mt-2 text-xs text-gray-500">
           현황을 불러오지 못했습니다(목록 사용에는 영향 없습니다).
         </p>
@@ -1976,7 +1994,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   const n = (v) => v.toLocaleString();
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">현황 요약</div>
+      <div className="font-semibold">현황 요약</div>
       <p className="mt-2 text-xs font-bold text-gray-700">
         전체 {n(summary.total)}건 · 노출 {n(summary.active)}건 · 수시 일반{" "}
         {n(summary.normal)}건 · 수시 특목 {n(summary.special)}건 · 정시{" "}
@@ -2162,16 +2180,16 @@ function GoalCutsBackfillPanel({ onReload }) {
 
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">입결정보에서 수시 컷 일괄 생성</div>
+      <div className="font-semibold">입결정보에서 수시 컷 일괄 생성</div>
       <p className="mt-2 text-xs leading-5 text-gray-600">
         입결정보(admission_results)의 70% 컷 등급에서 수시 컷을 유도해 이 표에
         채웁니다. 정시 컷은 원본 데이터가 없어 생성되지 않습니다 — 수기 또는
         엑셀로 입력해 주세요.
       </p>
 
-      <div className="mt-3 space-y-2 rounded-sm border border-gray-200 bg-[#fafafa] p-3 text-xs">
+      <div className="mt-3 space-y-2 rounded-sm border border-gray-200 bg-muted p-3 text-xs">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">기준 연도</span>
+          <span className="w-32 shrink-0 font-semibold">기준 연도</span>
           {GOAL_BACKFILL_YEAR_MODES.map((mode) => (
             <label
               key={mode.value}
@@ -2179,6 +2197,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillYear"
                 checked={yearMode === mode.value}
                 disabled={busy}
@@ -2192,7 +2211,7 @@ function GoalCutsBackfillPanel({ onReload }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">기존 행 처리</span>
+          <span className="w-32 shrink-0 font-semibold">기존 행 처리</span>
           {[
             { value: "preserve", label: "관리자가 손댄 행은 보존" },
             { value: "overwrite", label: "전부 덮어쓰기" },
@@ -2203,6 +2222,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillPreserve"
                 checked={preserveMode === mode.value}
                 disabled={busy}
@@ -2216,7 +2236,7 @@ function GoalCutsBackfillPanel({ onReload }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">
+          <span className="w-32 shrink-0 font-semibold">
             이번 산출에 없는 기존 유도 행
           </span>
           {[
@@ -2229,6 +2249,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillOrphan"
                 checked={orphanMode === mode.value}
                 disabled={busy}
@@ -2244,18 +2265,19 @@ function GoalCutsBackfillPanel({ onReload }) {
       </div>
 
       <div className="mt-3">
-        <button
+        <Button
+          variant="outline"
+          size="lg"
           type="button"
           onClick={handleCompute}
           disabled={busy}
-          className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {sourceProgress
             ? `입결 읽는 중… ${sourceProgress.done.toLocaleString()} / ${sourceProgress.total.toLocaleString()}행`
             : computing
               ? "계산 중…"
               : "미리보기 계산"}
-        </button>
+        </Button>
       </div>
 
       {preview &&
@@ -2266,8 +2288,8 @@ function GoalCutsBackfillPanel({ onReload }) {
           const stats = preview.stats;
           const analysis = preview.analysis;
           return (
-            <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
-              <p className="font-black text-primary">
+            <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+              <p className="font-semibold text-primary">
                 생성 대상: 대학 {stats.universityCount.toLocaleString()}개 ·
                 학과 조합 {stats.pairCount.toLocaleString()}개 · 총{" "}
                 {stats.totalRows.toLocaleString()}행 (수시 일반{" "}
@@ -2299,7 +2321,7 @@ function GoalCutsBackfillPanel({ onReload }) {
               </p>
 
               <div className="mt-2 rounded-sm border border-gray-300 bg-white p-2">
-                <p className="font-black">
+                <p className="font-semibold">
                   기존 행과 겹침: {analysis.overlapCount.toLocaleString()}행
                 </p>
                 <ul className="mt-1 space-y-0.5 text-gray-700">
@@ -2348,40 +2370,51 @@ function GoalCutsBackfillPanel({ onReload }) {
               )}
 
               {stats.samples.length > 0 && (
-                <ScrollArea axis="x" className="mt-3">
-                  <p className="font-black">
+                <div className="mt-3">
+                  <p className="font-semibold">
                     상위 {stats.samples.length}행 샘플
                   </p>
-                  <table className="mt-1 w-full min-w-150 border-collapse text-left">
-                    <thead>
-                      <tr className="border-b border-gray-300 font-black">
-                        <th className="py-1 pr-2">대학</th>
-                        <th className="py-1 pr-2">학과</th>
-                        <th className="py-1 pr-2">종류</th>
-                        <th className="py-1 pr-2">컷</th>
-                        <th className="py-1 pr-2">연도</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="mt-1 min-w-150">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        {["대학", "학과", "종류", "컷", "연도"].map((h) => (
+                          <TableHead
+                            key={h}
+                            scope="col"
+                            className="font-semibold whitespace-normal"
+                          >
+                            {h}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {stats.samples.map((s) => (
-                        <tr
+                        <TableRow
                           key={`${s.cut_type}-${s.university_key}-${s.department_key}`}
-                          className="border-b border-gray-200"
                         >
-                          <td className="py-1 pr-2">{s.university_name}</td>
-                          <td className="py-1 pr-2">{s.department_name}</td>
-                          <td className="py-1 pr-2">
+                          <TableCell className="whitespace-normal">
+                            {s.university_name}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.department_name}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
                             {s.cut_type === "normal"
                               ? "수시 일반"
                               : "수시 특목"}
-                          </td>
-                          <td className="py-1 pr-2">{s.avg_cut}등급</td>
-                          <td className="py-1 pr-2">{s.source_year}</td>
-                        </tr>
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.avg_cut}등급
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.source_year}
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
-                </ScrollArea>
+                    </TableBody>
+                  </Table>
+                </div>
               )}
 
               <p className="mt-3 rounded-sm border border-red-300 bg-red-50 px-2 py-1.5 font-bold text-red-600">
@@ -2392,6 +2425,7 @@ function GoalCutsBackfillPanel({ onReload }) {
               <label className="mt-2 flex items-center gap-2 font-bold">
                 <input
                   type="checkbox"
+                  className="accent-primary"
                   checked={confirmChecked}
                   onChange={(e) => setConfirmChecked(e.target.checked)}
                 />
@@ -2399,11 +2433,11 @@ function GoalCutsBackfillPanel({ onReload }) {
               </label>
 
               <div className="mt-2 flex items-center gap-2">
-                <button
+                <Button
+                  size="lg"
                   type="button"
                   onClick={handleApply}
                   disabled={!confirmChecked || applying}
-                  className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
                 >
                   {(() => {
                     if (!applying) return "적용";
@@ -2411,15 +2445,16 @@ function GoalCutsBackfillPanel({ onReload }) {
                       return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                     return "적용 중…";
                   })()}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
                   type="button"
                   onClick={resetPreview}
                   disabled={applying}
-                  className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
                 >
                   취소
-                </button>
+                </Button>
               </div>
             </div>
           );
@@ -2641,30 +2676,32 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {fetchProgress
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : downloadScope === "jungsiTemplate"
                 ? "엑셀 다운로드 (정시 컷 템플릿)"
                 : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {idMapProgress
               ? `업로드 검증 준비 중… ${idMapProgress.done.toLocaleString()} / ${idMapProgress.total.toLocaleString()}행`
               : "엑셀 업로드"}
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -2677,7 +2714,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span className="font-black">다운로드 범위</span>
+        <span className="font-semibold">다운로드 범위</span>
         {[
           { value: "all", label: "전체" },
           { value: "jungsiTemplate", label: "정시 컷 없는 조합(정시 템플릿)" },
@@ -2688,6 +2725,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           >
             <input
               type="radio"
+              className="accent-primary"
               name="goalCutsDownloadScope"
               checked={downloadScope === scope.value}
               disabled={busy}
@@ -2717,8 +2755,8 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-primary bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-primary">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -2731,7 +2769,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -2772,7 +2810,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -2807,6 +2845,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -2814,11 +2853,11 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-primary px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -2826,15 +2865,16 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
                   return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                 return "적용 중…";
               })()}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -2895,11 +2935,11 @@ function AcceptanceRateSummary({ rows }) {
   return (
     <div className="mb-6 grid grid-cols-2 bg-white text-center text-sm shadow-sm">
       <div className="border p-4">
-        <div className="font-black">노출 연도 수</div>
+        <div className="font-semibold">노출 연도 수</div>
         <div className="mt-2 font-bold">{active.length}개년</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">홈페이지 표시값</div>
+        <div className="font-semibold">홈페이지 표시값</div>
         <div className="mt-2 font-bold text-blue-600">
           {active.length}개년 평균 {average.toFixed(1)}%
         </div>
@@ -2933,21 +2973,21 @@ function MoneySummary({ activeKey, rows }) {
   return (
     <div className="mb-6 grid grid-cols-4 bg-white text-center text-sm shadow-sm">
       <div className="border p-4">
-        <div className="font-black">판매금액 합계</div>
+        <div className="font-semibold">판매금액 합계</div>
         <div className="mt-2 font-bold">{sale.toLocaleString()}원</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">감면액 합계</div>
+        <div className="font-semibold">감면액 합계</div>
         <div className="mt-2 font-bold">{discount.toLocaleString()}원</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">실 납부금액 합계</div>
+        <div className="font-semibold">실 납부금액 합계</div>
         <div className="mt-2 font-bold text-blue-600">
           {paid.toLocaleString()}원
         </div>
       </div>
       <div className="border p-4">
-        <div className="font-black">환불금액 합계</div>
+        <div className="font-semibold">환불금액 합계</div>
         <div className="mt-2 font-bold text-red-500">
           {refund.toLocaleString()}원
         </div>
@@ -3730,7 +3770,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       ) : mode === "list" ? (
         config.comingSoon ? (
           <div className="bg-white p-10 shadow-sm">
-            <h1 className="text-2xl font-black text-[#111827]">
+            <h1 className="text-2xl font-semibold text-foreground">
               {config.title}
             </h1>
             <p className="mt-3 text-sm font-bold text-gray-500">
@@ -3750,14 +3790,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-2">
                   {!config.hideReset && (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="lg"
                       type="button"
                       onClick={loadRows}
-                      className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
                     >
                       <RefreshCw size={14} />
                       초기화
-                    </button>
+                    </Button>
                   )}
 
                   {(config.excel ||
@@ -3779,13 +3820,14 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
                 <div className="flex items-center gap-2">
                   {config.listFilter && listFilterOptions.length > 0 && (
-                    <select
+                    <NativeSelect
                       value={activeListFilter}
+                      aria-label={config.listFilter.allLabel}
                       onChange={(e) => {
                         setListFilterValue(e.target.value);
                         setPage(1);
                       }}
-                      className="h-9 border border-gray-400 px-3 text-sm font-bold outline-hidden"
+                      className="[&>select]:h-9 [&>select]:font-medium"
                     >
                       <option value="">{config.listFilter.allLabel}</option>
                       {listFilterOptions.map((option) => (
@@ -3793,7 +3835,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                           {option}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   )}
 
                   {config.knowledgeReview && (
@@ -3801,6 +3843,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       <label className="inline-flex h-9 items-center gap-2 text-sm font-bold whitespace-nowrap">
                         <input
                           type="checkbox"
+                          className="accent-primary"
                           checked={reviewStaleOnly}
                           onChange={(e) => {
                             setReviewStaleOnly(e.target.checked);
@@ -3809,7 +3852,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                         />
                         미검토만 보기
                       </label>
-                      <select
+                      <NativeSelect
                         value={reviewStaleMonths}
                         onChange={(e) => {
                           setReviewStaleMonths(
@@ -3818,29 +3861,30 @@ export function AdminSectionRoute({ section }: { section: string }) {
                           setPage(1);
                         }}
                         aria-label="미검토 기준 개월 수"
-                        className="h-9 border border-gray-400 px-3 text-sm font-bold outline-hidden"
+                        className="[&>select]:h-9 [&>select]:font-medium"
                       >
                         {REVIEW_STALE_MONTH_OPTIONS.map((months) => (
                           <option key={months} value={months}>
                             {months}개월 이전
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </>
                   )}
 
-                  <input
+                  <Input
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                     placeholder={config.searchPlaceholder}
-                    className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
+                    aria-label={config.searchPlaceholder || "검색"}
+                    className="h-9 w-80 font-medium"
                   />
                 </div>
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-xl font-black">{config.title}</h1>
+                  <h1 className="text-xl font-semibold">{config.title}</h1>
                   {config.homepage && (
                     <div className="mt-1 space-y-1">
                       <p className="text-sm font-bold text-red-500">
@@ -3848,7 +3892,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       </p>
 
                       {config.guideText && (
-                        <p className="whitespace-pre-line text-sm font-black leading-6 text-red-600">
+                        <p className="whitespace-pre-line text-sm font-semibold leading-6 text-red-600">
                           {config.guideText}
                         </p>
                       )}
@@ -3862,14 +3906,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 </div>
 
                 {!config.noCreate && !config.readOnly && (
-                  <button
+                  <Button
+                    size="lg"
+                    className="shrink-0 whitespace-nowrap"
                     type="button"
                     onClick={createRow}
-                    className="inline-flex h-9 items-center gap-1 bg-primary px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
                   >
                     <Plus size={14} />
                     등록
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -3878,7 +3923,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       PAGE_SIZE행만 받고 전체 건수를 count로 따로 받으므로 상한 자체에
                       닿지 않는다. */}
               {config.rowCapWarning && rows.length >= 1000 && (
-                <p className="mt-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-black leading-6 text-red-600">
+                <p className="mt-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-600">
                   조회된 건수가 1,000건에 도달했습니다 — Supabase 기본 조회
                   상한으로 오래된 신청 건이 목록에서 빠졌을 수 있습니다. 전체
                   건수가 아닙니다.
@@ -3886,7 +3931,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
               )}
 
               {exporting && (
-                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-primary">
+                <p className="mt-4 rounded-sm border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold leading-6 text-primary">
                   CSV 내보내는 중 — {exporting.done.toLocaleString()} /{" "}
                   {exporting.total.toLocaleString()}건. 완료될 때까지 이 화면을
                   닫지 마세요.
