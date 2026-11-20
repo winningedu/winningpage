@@ -56,6 +56,14 @@ beforeEach(() => {
   });
 });
 
+function expectScopedHeaders() {
+  const headers = screen.getAllByRole("columnheader");
+  expect(headers.length).toBeGreaterThan(0);
+  for (const header of headers) {
+    expect(header.getAttribute("scope")).toBe("col");
+  }
+}
+
 function renderAdmin() {
   return render(<EvalsAdmin config={{ title: "지식 검색 품질 평가" }} />);
 }
@@ -265,5 +273,75 @@ describe("EvalsAdmin", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "이력을 불러오지 못했습니다.",
     );
+  });
+
+  test("기준 문제집 표의 열 머리글은 scope col 이다", async () => {
+    renderAdmin();
+    await screen.findByText("마찰력 실험");
+    expectScopedHeaders();
+  });
+
+  test("평가 실행 결과 표와 조합 비교 표의 열 머리글은 scope col 이다", async () => {
+    const m = { recall: { "1": 1, "3": 1, "5": 1, "10": 1 }, mrr: 1 };
+    vi.mocked(api.postRun).mockResolvedValue({
+      ok: true,
+      data: {
+        runId: "run1",
+        queryCount: 1,
+        params: prod,
+        metrics: m,
+        perQuery: [
+          { queryId: "q1", label: "질의", expectedIds: ["r1"], ranks: [1] },
+        ],
+      },
+    });
+    vi.mocked(api.postSweep).mockResolvedValue({
+      ok: true,
+      data: {
+        queryCount: 1,
+        productionParams: prod,
+        items: [{ status: "done", runId: "a", params: prod, metrics: m }],
+      },
+    });
+    renderAdmin();
+    fireEvent.click(screen.getByRole("tab", { name: "평가 실행" }));
+    fireEvent.click(await screen.findByRole("button", { name: "실행" }));
+    await screen.findByText("적중");
+    fireEvent.click(screen.getByRole("button", { name: "조합 비교 실행" }));
+    await screen.findByText(/굵은 행이 운영값 조합입니다/);
+    expect(screen.getAllByRole("table").length).toBe(2);
+    expectScopedHeaders();
+  });
+
+  test("이력 표와 비교 표의 열 머리글은 scope col 이다", async () => {
+    const run = (id: string, created_at: string) => ({
+      id,
+      created_at,
+      knowledge_type: "topic_pattern" as const,
+      mode: "hybrid" as const,
+      params: prod,
+      query_count: 3,
+      metrics: { recall: { "1": 0.5 }, mrr: 0.5 },
+      per_query: [],
+      note: null,
+    });
+    vi.mocked(api.fetchRuns).mockResolvedValue({
+      ok: true,
+      data: {
+        productionParams: { topic_pattern: prod, verified_resource: prod },
+        items: [
+          run("new", "2026-10-07T02:00:00Z"),
+          run("old", "2026-10-07T01:00:00Z"),
+        ],
+      },
+    });
+    renderAdmin();
+    fireEvent.click(screen.getByRole("tab", { name: "이력" }));
+    const boxes = await screen.findAllByRole("checkbox");
+    fireEvent.click(boxes[0] as HTMLElement);
+    fireEvent.click(boxes[1] as HTMLElement);
+    await screen.findByText("두 실행 비교");
+    expect(screen.getAllByRole("table").length).toBe(2);
+    expectScopedHeaders();
   });
 });
