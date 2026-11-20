@@ -11,6 +11,8 @@ import {
   reportAdminError,
 } from "@/pages/admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import {
   ActionButton,
   Field,
@@ -245,7 +247,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     }
 
     await loadAll();
-    alert("저장했습니다.");
+    toastSuccess("저장했습니다.");
   }
 
   async function savePermissions() {
@@ -283,7 +285,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
 
     setSaving(false);
     await openDetail(selected);
-    alert("개별 권한을 저장했습니다.");
+    toastSuccess("개별 권한을 저장했습니다.");
   }
 
   // confirmExisting — 기존 서비스 회원을 관리자로 올릴 때 서버가 한 번 되묻고,
@@ -320,7 +322,7 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
     // 직원 목록의 「직원명」이 '-' 로 남는다. 헤더도 이름 유무로 로그인 상태를
     // 판정해서 그 사람에게는 헤더가 통째로 비로그인처럼 보인다(서버 라우트의 ⚠️ 참고).
     if (!inviteEmail.trim() || !inviteName.trim() || !inviteRole) {
-      alert("이름, 이메일, 권한 묶음을 모두 입력해 주세요.");
+      toastWarning("이름, 이메일, 권한 묶음을 모두 입력해 주세요.");
       return;
     }
 
@@ -334,13 +336,13 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
           ? `${result.existingName}(${result.existingMemberType})`
           : result.existingMemberType;
         if (
-          !window.confirm(
-            `${result.detail}
-
-대상: ${label}
-
-이 계정은 관리자가 되면 전 회원 정보를 볼 수 있게 됩니다. 계속하시겠습니까?`,
-          )
+          !(await confirmAdmin({
+            title:
+              "이 계정은 관리자가 되면 전 회원 정보를 볼 수 있게 됩니다. 계속하시겠습니까?",
+            description: `${result.detail}\n\n대상: ${label}`,
+            confirmLabel: "계속",
+            destructive: true,
+          }))
         ) {
           return;
         }
@@ -358,11 +360,18 @@ export default function AdminMembersAdmin({ config }: AdminMembersAdminProps) {
       //   메일 경로가 없어서 통지가 안 나간다 — 예전에는 이 경우에도 "초대 메일을
       //   보냈습니다"라고 띄웠는데, 실제로는 아무것도 안 갔다(api/admin/invite-member
       //   의 ⚠️ 주석). 등록은 됐으므로 실패가 아니라, 알리는 건 사람 몫이라고 말한다.
-      alert(
-        result.emailed
-          ? "초대 메일을 보냈습니다. 받은 사람이 링크를 눌러 비밀번호를 설정하면 활성화됩니다."
-          : "관리자로 등록했습니다.\n\n이미 비밀번호가 있는 계정이라 안내 메일은 나가지 않습니다 — 등록 사실을 직접 알려주세요.",
-      );
+      // 안내 메일이 안 나가는 경우는 사람이 알려야 하므로 닫을 때까지 남긴다.
+      if (result.emailed) {
+        toastSuccess(
+          "초대 메일을 보냈습니다.",
+          "받은 사람이 링크를 눌러 비밀번호를 설정하면 활성화됩니다.",
+        );
+      } else {
+        toastWarning(
+          "관리자로 등록했습니다.",
+          "이미 비밀번호가 있는 계정이라 안내 메일은 나가지 않습니다. 등록 사실을 직접 알려주세요.",
+        );
+      }
       setInviteOpen(false);
       setInviteEmail("");
       setInviteName("");

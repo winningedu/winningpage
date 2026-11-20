@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   loadError: null as { message: string; code?: string } | null,
   deleteError: null as { message: string; code?: string } | null,
   insertError: null as { message: string; code?: string } | null,
+  insertData: null as { id: string } | null,
   deleteCalls: 0,
 }));
 
@@ -41,7 +42,10 @@ vi.mock("@/lib/supabase", () => {
         },
         insert: () => ({
           select: () => ({
-            single: async () => ({ data: null, error: state.insertError }),
+            single: async () => ({
+              data: state.insertData,
+              error: state.insertError,
+            }),
           }),
         }),
       }),
@@ -82,6 +86,7 @@ beforeEach(() => {
   state.deleteError = null;
   state.insertError = null;
   state.deleteCalls = 0;
+  state.insertData = null;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -209,7 +214,7 @@ describe("AdminRolesAdmin 오류 안내", () => {
 
   test("저장에 성공하면 성공 토스트가 보인다", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-    state.insertError = null;
+    state.insertData = { id: "r-new" };
     renderRoles();
 
     fireEvent.click(await screen.findByRole("button", { name: "등록하기" }));
