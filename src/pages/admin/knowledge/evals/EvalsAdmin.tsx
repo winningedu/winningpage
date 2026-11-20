@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActionButton, Field, Select } from "@/pages/admin/shared/formFields";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Field, Select } from "@/pages/admin/shared/formFields";
 import { fetchRuns, type RunsResponse } from "./api";
 import ErrorBox from "./ErrorBox";
 import type { KnowledgeType } from "./form";
@@ -55,17 +56,15 @@ export default function EvalsAdmin({ config }: Props) {
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex gap-2">
-            {TABS.map((t) => (
-              <ActionButton
-                key={t.key}
-                variant={t.key === tab ? "dark" : "light"}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-              </ActionButton>
-            ))}
-          </div>
+          <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+            <TabsList aria-label="평가 화면">
+              {TABS.map((t) => (
+                <TabsTrigger key={t.key} value={t.key} className="px-4">
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <div className="w-[10rem]">
             <Field label="지식 유형">
               <Select

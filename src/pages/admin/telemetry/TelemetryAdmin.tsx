@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ActionButton,
   Field,
@@ -108,17 +109,20 @@ export default function TelemetryAdmin({ config }: Props) {
   return (
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
-        <div className="flex gap-2">
-          {TABS.map((t) => (
-            <ActionButton
-              key={t.key}
-              variant={t.key === tab ? "dark" : "light"}
-              onClick={() => dispatch({ type: "setTab", tab: t.key })}
-            >
-              {t.label}
-            </ActionButton>
-          ))}
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            dispatch({ type: "setTab", tab: value as AiTelemetryTab })
+          }
+        >
+          <TabsList aria-label="호출 계기판 화면">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} className="px-4">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {tab !== "pricing" && (
           <form
