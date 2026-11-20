@@ -4,7 +4,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
-import { copyToClipboard } from "@/pages/admin/shared/copyToClipboard";
 import {
   ActionButton,
   Field,
@@ -12,6 +11,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 import {
   deletionDdayText,

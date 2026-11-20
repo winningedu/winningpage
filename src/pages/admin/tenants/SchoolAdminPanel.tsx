@@ -1,11 +1,11 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { copyToClipboard } from "@/pages/admin/shared/copyToClipboard";
 import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   fetchSchoolAdmins,
   type IssuedSchoolAdmin,
