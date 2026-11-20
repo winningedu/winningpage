@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import type { CallItem, CallsPage } from "./api";
 import CallDetailDialog from "./CallDetailDialog";
@@ -36,7 +37,7 @@ export default function CallsTab({
       <div className="mb-4 text-sm text-muted-foreground">
         전체 <span className="text-primary">{data.total}</span>건
       </div>
-      <Table>
+      <Table className="min-w-[80rem]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <Th>시각</Th>
@@ -73,7 +74,7 @@ export default function CallsTab({
                 onClick={() => setSelected(row)}
                 className="cursor-pointer"
               >
-                <TableCell>
+                <TableCell className="px-3 py-3">
                   <button
                     type="button"
                     className="rounded-sm underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden"
@@ -85,26 +86,43 @@ export default function CallsTab({
                     {formatDate(row.createdAt)}
                   </button>
                 </TableCell>
-                <TableCell>{serviceLabel(row.service)}</TableCell>
-                <TableCell>{row.feature}</TableCell>
-                <TableCell>{row.step ?? ""}</TableCell>
-                <TableCell>{row.callKey ?? ""}</TableCell>
-                <TableCell>{row.model}</TableCell>
-                <TableCell>{row.attempt}</TableCell>
-                <TableCell>{row.transportAttempt ?? ""}</TableCell>
+                <TableCell className="px-3 py-3">
+                  {serviceLabel(row.service)}
+                </TableCell>
+                <TableCell className="px-3 py-3">{row.feature}</TableCell>
+                <TableCell className="px-3 py-3">{row.step ?? ""}</TableCell>
+                <TableCell className="px-3 py-3">{row.callKey ?? ""}</TableCell>
+                <TableCell className="px-3 py-3">{row.model}</TableCell>
+                <TableCell className="px-3 py-3">{row.attempt}</TableCell>
+                <TableCell className="px-3 py-3">
+                  {row.transportAttempt ?? ""}
+                </TableCell>
                 <TableCell
-                  className={
-                    row.status === "error" ? "font-medium text-destructive" : ""
-                  }
+                  className={cn(
+                    "px-3 py-3",
+                    row.status === "error" && "font-medium text-destructive",
+                  )}
                 >
                   {row.status}
                 </TableCell>
-                <TableCell>{row.finishReason ?? ""}</TableCell>
-                <TableCell>{formatNullableInt(row.tokens.prompt)}</TableCell>
-                <TableCell>{formatNullableInt(row.tokens.output)}</TableCell>
-                <TableCell>{formatNullableInt(row.tokens.cached)}</TableCell>
-                <TableCell>{formatMs(row.latencyMs)}</TableCell>
-                <TableCell>{row.validation ?? ""}</TableCell>
+                <TableCell className="px-3 py-3">
+                  {row.finishReason ?? ""}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {formatNullableInt(row.tokens.prompt)}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {formatNullableInt(row.tokens.output)}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {formatNullableInt(row.tokens.cached)}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {formatMs(row.latencyMs)}
+                </TableCell>
+                <TableCell className="px-3 py-3">
+                  {row.validation ?? ""}
+                </TableCell>
               </TableRow>
             ))
           )}
