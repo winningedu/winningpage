@@ -134,3 +134,12 @@ describe("AdminConfigTabs", () => {
     expect(jungsi.getAttribute("aria-current")).toBe("page");
   });
 });
+
+describe("AdminTable 한글 줄바꿈", () => {
+  test("표는 글자 단위가 아니라 단어 단위로 줄바꿈한다(break-keep)", () => {
+    renderTable();
+    expect(screen.getByRole("table").classList.contains("break-keep")).toBe(
+      true,
+    );
+  });
+});

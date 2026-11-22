@@ -1716,7 +1716,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
         전체 <span className="text-blue-600">{total.toLocaleString()}</span>건
       </div>
 
-      <Table className="min-w-[62.5rem] border-collapse">
+      <Table className="min-w-[62.5rem] break-keep border-collapse">
         <TableHeader>
           <TableRow className="border-y border-gray-300 hover:bg-transparent">
             <TableHead
