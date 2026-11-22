@@ -227,10 +227,10 @@ export default function TenantDetail({
           <div className="bg-white p-6 shadow-sm">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="소속코드">
-                <input
+                <Input
                   value={code}
                   readOnly
-                  className="h-10 w-full border border-gray-300 bg-gray-50 px-3 font-mono text-sm font-medium"
+                  className="h-10 bg-muted font-mono font-medium"
                 />
               </Field>
               <Field label="이름">

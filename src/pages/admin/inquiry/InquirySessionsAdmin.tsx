@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -590,11 +591,11 @@ function DateInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <input
+    <Input
       type="date"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 w-full border border-gray-300 px-3 text-sm font-medium outline-hidden focus:border-primary"
+      className="h-10 font-medium"
     />
   );
 }

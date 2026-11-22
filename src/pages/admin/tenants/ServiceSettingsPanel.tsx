@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { ActionButton } from "@/pages/admin/shared/formFields";
 import {
@@ -29,8 +30,7 @@ interface ServiceSettingsPanelProps {
   isCatchAll: boolean;
 }
 
-const INPUT_CLASS =
-  "h-9 w-full border border-gray-300 px-2 text-sm font-medium";
+const INPUT_CLASS = "h-9";
 
 export default function ServiceSettingsPanel({
   tenantId,
@@ -188,7 +188,7 @@ export default function ServiceSettingsPanel({
             )}
             {row.provided && (
               <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <input
+                <Input
                   type="date"
                   aria-label={`${row.label} 시작일`}
                   value={row.startsOn}
@@ -197,7 +197,7 @@ export default function ServiceSettingsPanel({
                   }
                   className={INPUT_CLASS}
                 />
-                <input
+                <Input
                   type="date"
                   aria-label={`${row.label} 종료일`}
                   value={row.endsOn}
@@ -206,7 +206,7 @@ export default function ServiceSettingsPanel({
                   }
                   className={INPUT_CLASS}
                 />
-                <input
+                <Input
                   inputMode="numeric"
                   aria-label={`${row.label} 월 한도`}
                   placeholder="월 한도"
@@ -216,7 +216,7 @@ export default function ServiceSettingsPanel({
                   }
                   className={INPUT_CLASS}
                 />
-                <input
+                <Input
                   inputMode="numeric"
                   aria-label={`${row.label} 학기 한도`}
                   placeholder="학기 한도"
