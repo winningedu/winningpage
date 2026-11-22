@@ -105,6 +105,9 @@ describe("StudentUsageAdmin", () => {
     expect(
       (screen.getByLabelText("성장설계 월 조정") as HTMLInputElement).value,
     ).toBe("");
+    const blank = screen.getByLabelText("성장설계 학기 조정");
+    expect(blank.getAttribute("placeholder")).toBe("기관 설정 따름");
+    expect(blank.getAttribute("inputmode")).toBe("numeric");
   });
 
   test("막힌 서비스는 사유 문구를 보인다", async () => {

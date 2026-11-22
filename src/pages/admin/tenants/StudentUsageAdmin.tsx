@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import {
   type StudentRow,
@@ -29,7 +30,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const SAVE_ERROR = "저장하지 못했어요. 권한을 확인해 주세요.";
-const INPUT_CLASS = "h-9 w-24 border border-gray-300 px-2 text-sm font-medium";
+const INPUT_CLASS = "h-9 w-24";
 
 const textOf = (value: number | null | undefined) =>
   value === null || value === undefined ? "" : String(value);
@@ -230,7 +231,7 @@ export default function StudentUsageAdmin() {
                   </p>
                 )}
                 <div className="mt-2 flex gap-3">
-                  <input
+                  <Input
                     inputMode="numeric"
                     aria-label={`${label} 월 조정`}
                     placeholder="기관 설정 따름"
@@ -240,7 +241,7 @@ export default function StudentUsageAdmin() {
                     }
                     className={INPUT_CLASS}
                   />
-                  <input
+                  <Input
                     inputMode="numeric"
                     aria-label={`${label} 학기 조정`}
                     placeholder="기관 설정 따름"

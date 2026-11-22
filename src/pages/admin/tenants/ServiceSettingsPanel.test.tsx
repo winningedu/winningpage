@@ -174,6 +174,28 @@ describe("ServiceSettingsPanel", () => {
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
+  test("시작일과 종료일 칸을 고치면 그 날짜로 저장하고 한도 칸은 안내 문구를 보인다", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByLabelText("학습진단 제공"));
+    fireEvent.change(screen.getByLabelText("학습진단 시작일"), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(screen.getByLabelText("학습진단 종료일"), {
+      target: { value: "2026-08-31" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "학습진단 저장" }));
+
+    await waitFor(() => expect(db.upserts).toHaveLength(1));
+    expect(db.upserts[0]?.values.starts_on).toBe("2026-03-01");
+    expect(db.upserts[0]?.values.ends_on).toBe("2026-08-31");
+    expect(screen.getByPlaceholderText("월 한도")).toBe(
+      screen.getByLabelText("학습진단 월 한도"),
+    );
+    expect(screen.getByPlaceholderText("학기 한도")).toBe(
+      screen.getByLabelText("학습진단 학기 한도"),
+    );
+  });
+
   test("저장은 그 행 하나를 updated_by 와 함께 upsert 한다", async () => {
     renderPanel();
     fireEvent.click(await screen.findByLabelText("학습진단 제공"));
