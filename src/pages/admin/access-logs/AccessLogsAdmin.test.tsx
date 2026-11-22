@@ -76,6 +76,12 @@ describe("AccessLogsAdmin", () => {
     );
   });
 
+  test("열 머리글은 scope col 을 가진다", async () => {
+    render(<AccessLogsAdmin />);
+    const header = await screen.findByRole("columnheader", { name: "일시" });
+    expect(header).toHaveAttribute("scope", "col");
+  });
+
   test("본사 대행 줄과 본사 다운로드 줄은 관리자 이름, 이메일, 사유를 보여 준다", async () => {
     const proxy: api.AccessLogEntry = {
       ...ENTRY,

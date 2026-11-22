@@ -85,6 +85,31 @@ describe("ServiceCreditAdjustAdmin", () => {
     expect(within(growth).getByText("3")).toBeTruthy();
   });
 
+  test("열 머리글은 scope col 을 가진다", async () => {
+    await selectStudent();
+    expect(
+      screen.getByRole("columnheader", { name: "서비스" }),
+    ).toHaveAttribute("scope", "col");
+  });
+
+  test("조회가 실패하면 오류를 alert 로 알린다", async () => {
+    vi.mocked(api.fetchServiceCredits).mockResolvedValue({
+      ok: false,
+      message: "조회에 실패했습니다.",
+    });
+    render(
+      <ServiceCreditAdjustAdmin config={{ title: "서비스이용횟수조정" }} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("이름 또는 이메일"), {
+      target: { value: "김" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    fireEvent.click(await screen.findByRole("button", { name: /김학생/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "조회에 실패했습니다.",
+    );
+  });
+
   test("차감 입력은 확인 단계를 거친 뒤 delta 와 사유로 API 를 호출한다", async () => {
     vi.mocked(api.postServiceCreditAdjust).mockResolvedValue({
       ok: true,

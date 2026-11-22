@@ -14,6 +14,11 @@ import {
   toPricingBody,
 } from "./pricingForm";
 
+// 첫 행만 눈에 보이는 라벨을 달고, 나머지 행은 화면 낭독용 이름만 둔다.
+function rowLabel(index: number, text: string) {
+  return index === 0 ? text : <span className="sr-only">{text}</span>;
+}
+
 export default function PricingTab({ initial }: { initial: PricingResponse }) {
   const [rows, setRows] = useState<PricingRow[]>(() =>
     initial.pricing && Object.keys(initial.pricing).length > 0
@@ -56,7 +61,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <div className="mb-4 text-sm font-bold text-gray-500">
+      <div className="mb-4 text-sm text-muted-foreground">
         모델별 단가(USD per 1M 토큰). 마지막 저장{" "}
         {formatDate(updatedAt) || NO_DATA}
       </div>
@@ -66,7 +71,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
           // biome-ignore lint/suspicious/noArrayIndexKey: 행 정체성이 순서뿐이다
           <div key={index} className="flex items-end gap-3">
             <div className="w-[16rem]">
-              <Field label={index === 0 ? "모델명" : ""}>
+              <Field label={rowLabel(index, "모델명")}>
                 <TextInput
                   value={row.model}
                   onChange={(model) => patch(index, { model })}
@@ -75,7 +80,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "입력" : ""}>
+              <Field label={rowLabel(index, "입력")}>
                 <TextInput
                   value={row.input}
                   onChange={(input) => patch(index, { input })}
@@ -83,7 +88,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "캐시 입력" : ""}>
+              <Field label={rowLabel(index, "캐시 입력")}>
                 <TextInput
                   value={row.cachedInput}
                   onChange={(cachedInput) => patch(index, { cachedInput })}
@@ -91,7 +96,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
               </Field>
             </div>
             <div className="w-[10rem]">
-              <Field label={index === 0 ? "출력" : ""}>
+              <Field label={rowLabel(index, "출력")}>
                 <TextInput
                   value={row.output}
                   onChange={(output) => patch(index, { output })}
@@ -100,6 +105,7 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
             </div>
             <ActionButton
               variant="light"
+              aria-label={`삭제 ${index + 1}번째 행`}
               onClick={() => {
                 setSaved(false);
                 setRows((prev) => prev.filter((_, i) => i !== index));
@@ -112,12 +118,18 @@ export default function PricingTab({ initial }: { initial: PricingResponse }) {
       </div>
 
       {error && (
-        <div className="mt-4 border border-red-300 bg-red-50 px-3 py-2 text-sm font-bold text-red-600">
+        <div
+          role="alert"
+          className="mt-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+        >
           {error}
         </div>
       )}
       {saved && (
-        <div className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
+        <div
+          role="status"
+          className="mt-4 border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700"
+        >
           단가를 저장했습니다.
         </div>
       )}

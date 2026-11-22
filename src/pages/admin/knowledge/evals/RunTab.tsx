@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ActionButton,
   Field,
@@ -24,10 +36,14 @@ import useResourceTitles from "./useResourceTitles";
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-gray-200 bg-white px-4 py-3">
-      <div className="text-sm font-bold text-gray-500">{label}</div>
-      <div className="mt-1 text-xl font-black">{value}</div>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xl font-semibold">{value}</div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -123,7 +139,7 @@ export default function RunTab({
             {busy ? "실행 중" : "실행"}
           </ActionButton>
         </div>
-        <p className="mt-2 text-xs font-bold text-gray-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           빈 칸은 운영값(회색 글씨)으로 실행합니다. 벡터 모드는 RRF k 와
           가중치를 쓰지 않습니다.
         </p>
@@ -152,39 +168,39 @@ function PerQueryTable({ perQuery }: { perQuery: PerQueryResult[] }) {
     })),
   );
   return (
-    <ScrollArea axis="x">
-      <table className="w-full min-w-[60rem] border-collapse text-sm">
-        <thead>
-          <tr className="border-y border-gray-300">
-            <Th>질의</Th>
-            <Th>기대 자료</Th>
-            <Th>순위</Th>
-            <Th>적중 여부</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key} className="border-b border-gray-100">
-              <td className="px-3 py-3 font-bold">{row.label}</td>
-              <Td>{row.title}</Td>
-              <Td>{row.rank ?? ""}</Td>
-              <td
-                className={`px-3 py-3 font-bold ${row.rank === null ? "text-red-600" : "text-blue-600"}`}
-              >
-                {row.rank === null ? "미적중" : "적중"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </ScrollArea>
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <Th>질의</Th>
+          <Th>기대 자료</Th>
+          <Th>순위</Th>
+          <Th>적중 여부</Th>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell className="font-medium whitespace-normal">
+              {row.label}
+            </TableCell>
+            <Td className="whitespace-normal">{row.title}</Td>
+            <Td>{row.rank ?? ""}</Td>
+            <TableCell
+              className={`font-medium ${row.rank === null ? "text-destructive" : "text-primary"}`}
+            >
+              {row.rank === null ? "미적중" : "적중"}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
 function RunResult({ result }: { result: RunResponse }) {
   return (
     <div className="space-y-4 bg-white p-6 shadow-sm">
-      <div className="text-sm font-bold text-gray-500">
+      <div className="text-sm text-muted-foreground">
         질의 {result.queryCount}건 / {formatParams(result.params)}
       </div>
       <MetricCards metrics={result.metrics} />

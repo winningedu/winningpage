@@ -12,6 +12,7 @@ vi.mock("./api", () => ({
   issueSchoolAdmin: vi.fn(),
 }));
 
+import { Toaster } from "@/components/ui/toast";
 import * as api from "./api";
 import SchoolAdminPanel from "./SchoolAdminPanel";
 
@@ -70,6 +71,15 @@ describe("SchoolAdminPanel", () => {
     ).toBeTruthy();
   });
 
+  test("열 머리글은 scope col 을 가진다", async () => {
+    renderPanel();
+    await screen.findByText("박관리");
+    expect(screen.getByRole("columnheader", { name: "이름" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
   test("발급 폼의 기관 칸은 읽기 전용 기관 이름이고 입력한 값을 tenantId 와 함께 보낸다", async () => {
     vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
       ok: true,
@@ -114,17 +124,64 @@ describe("SchoolAdminPanel", () => {
     fill("전화번호", "010-1111-2222");
     fireEvent.click(screen.getByRole("button", { name: "발급" }));
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("NEWLOGIN2345AB")).toBeTruthy();
     expect(within(dialog).getByText("Tmp-pass-1")).toBeTruthy();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
 
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.queryByText("Tmp-pass-1")).toBeNull();
     // 발급 뒤 목록을 다시 불러오고 입력칸은 비워진다.
     await waitFor(() => expect(api.fetchSchoolAdmins).toHaveBeenCalledTimes(2));
     expect((screen.getByLabelText("이름") as HTMLInputElement).value).toBe("");
+  });
+
+  test("임시 비밀번호 모달은 제목을 접근 가능한 이름으로 가진 alertdialog 다", async () => {
+    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+      ok: true,
+      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+    });
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+
+    expect(
+      await screen.findByRole("alertdialog", {
+        name: "전체 관리자를 발급했습니다",
+      }),
+    ).toBeTruthy();
+  });
+
+  test("임시 비밀번호 모달은 Esc 와 바깥 누름으로 닫히지 않고 확인으로만 닫힌다", async () => {
+    vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+      ok: true,
+      data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+    });
+    renderPanel();
+    await screen.findByText("박관리");
+    fill("이름", "김새로");
+    fill("전화번호", "010-1111-2222");
+    fireEvent.click(screen.getByRole("button", { name: "발급" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.mouseUp(document.body);
+    fireEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(within(dialog).getByText("Tmp-pass-1")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
   test("발급이 실패하면 서버 문구를 보이고 모달은 열지 않는다", async () => {
@@ -139,7 +196,7 @@ describe("SchoolAdminPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "발급" }));
 
     expect(await screen.findByText("이미 쓰는 전화번호예요.")).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   test("이름이나 전화번호가 비면 서버를 부르지 않는다", async () => {
@@ -150,5 +207,76 @@ describe("SchoolAdminPanel", () => {
 
     expect(screen.getByText("이름과 전화번호를 입력해 주세요.")).toBeTruthy();
     expect(api.issueSchoolAdmin).not.toHaveBeenCalled();
+  });
+
+  describe("복사 안내", () => {
+    async function openIssuedDialog() {
+      vi.mocked(api.issueSchoolAdmin).mockResolvedValue({
+        ok: true,
+        data: { loginId: "NEWLOGIN2345AB", tempPassword: "Tmp-pass-1" },
+      });
+      render(
+        <>
+          <SchoolAdminPanel tenantId="tenant-7" tenantName="한빛고" />
+          <Toaster />
+        </>,
+      );
+      await screen.findByText("박관리");
+      fill("이름", "김새로");
+      fill("전화번호", "010-1111-2222");
+      fireEvent.click(screen.getByRole("button", { name: "발급" }));
+      return await screen.findByRole("alertdialog");
+    }
+
+    function toastTitle() {
+      return document.querySelector('[data-slot="toast-title"]');
+    }
+
+    test("복사하면 '복사했습니다' 토스트가 보이고 값은 토스트에 없다", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const dialog = await openIssuedDialog();
+
+      fireEvent.click(
+        within(dialog).getAllByRole("button", {
+          name: "복사",
+        })[1] as HTMLElement,
+      );
+
+      await waitFor(() =>
+        expect(toastTitle()).toHaveTextContent("복사했습니다"),
+      );
+      expect(writeText).toHaveBeenCalledWith("Tmp-pass-1");
+      expect(
+        document.querySelector('[data-slot="toast-viewport"]')?.textContent,
+      ).not.toContain("Tmp-pass-1");
+    });
+
+    test("복사에 실패하면 실패 토스트가 보이고 로그에 값이 남지 않는다", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: vi
+            .fn()
+            .mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+        },
+      });
+      const dialog = await openIssuedDialog();
+
+      fireEvent.click(
+        within(dialog).getAllByRole("button", {
+          name: "복사",
+        })[1] as HTMLElement,
+      );
+
+      await waitFor(() =>
+        expect(toastTitle()).toHaveTextContent("복사하지 못했습니다"),
+      );
+      expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("Tmp-pass-1");
+    });
   });
 });

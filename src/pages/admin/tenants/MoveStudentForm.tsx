@@ -100,7 +100,7 @@ export default function MoveStudentForm({
 
   return (
     <div className="mt-2 space-y-3 border border-gray-300 bg-gray-50 p-3">
-      <p className="text-sm font-black text-gray-700">
+      <p className="text-sm font-semibold text-gray-700">
         {tenant.name}(으)로 옮기기
       </p>
       <Field label="학년">
@@ -126,13 +126,13 @@ export default function MoveStudentForm({
           <Field label="번호">
             <TextInput value={number} onChange={setNumber} />
           </Field>
-          <p className="text-xs font-bold text-gray-500">
+          <p className="text-xs font-medium text-gray-500">
             반을 비우면 학생이 마이페이지에서 반을 입력해요.
           </p>
         </>
       ) : null}
       {errorMessage ? (
-        <p className="text-xs font-black text-red-600">{errorMessage}</p>
+        <p className="text-xs font-semibold text-red-600">{errorMessage}</p>
       ) : null}
       <div className="flex gap-2">
         <ActionButton onClick={submit} disabled={!grade || moving}>

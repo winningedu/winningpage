@@ -256,6 +256,20 @@ describe("SiteFooter, 소셜 아이콘", () => {
     expect(clip.className).toContain("bg-[#6f4dce]");
   });
 
+  it("유튜브와 인스타그램 링크는 aria-label을 갖고, lucide가 아닌 장식용 svg를 담는다", () => {
+    renderFooter();
+    for (const label of ["유튜브", "인스타그램"]) {
+      for (const link of screen.getAllByRole("link", { name: label })) {
+        expect(link).toHaveAttribute("aria-label", label);
+        const svg = link.querySelector("svg");
+        expect(svg).not.toBeNull();
+        expect(svg).toHaveAttribute("aria-hidden", "true");
+        expect(svg?.getAttribute("class") ?? "").not.toContain("lucide");
+        expect(svg).toHaveClass("size-4");
+      }
+    }
+  });
+
   it("URL이 없는 아이콘은 렌더하지 않는다", () => {
     delete siteState.current.company.naverBlogUrl;
     delete siteState.current.company.instagramUrl;

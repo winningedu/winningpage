@@ -1,5 +1,6 @@
-import { ChevronDown, Download, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Download, Plus, RefreshCw } from "lucide-react";
 import {
+  type CSSProperties,
   Fragment,
   useEffect,
   useEffectEvent,
@@ -7,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx";
 import AdminMembersAdmin from "@/components/admin/AdminMembersAdmin";
 import AdminRolesAdmin from "@/components/admin/AdminRolesAdmin";
@@ -26,7 +27,34 @@ import RevenueAdmin from "@/components/admin/RevenueAdmin";
 import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Toaster, toast } from "@/components/ui/toast";
 import {
   canAccessSection,
   fetchAdminPermissions,
@@ -95,6 +123,7 @@ import SectionCopyPanel from "./admin/landing/SectionCopyPanel";
 import SelfevalSessionsAdmin from "./admin/selfeval/SelfevalSessionsAdmin";
 import ServiceCreditAdjustEntry from "./admin/service-credit/ServiceCreditAdjustEntry";
 import {
+  AdminConfigTabs,
   AdminForm,
   type AdminRow,
   AdminTable,
@@ -104,8 +133,19 @@ import {
   uploadImage,
 } from "./admin/shared/AdminEngine";
 import { AdminTopbar } from "./admin/shared/AdminTopbar";
-import { buildFieldLabels, reportAdminError } from "./admin/shared/adminErrors";
+import {
+  AdminChunkError,
+  buildFieldLabels,
+  reportAdminError,
+  withChunkRows,
+} from "./admin/shared/adminErrors";
 import { getFreshSupabaseAccessTokenOrSignOut } from "./admin/shared/adminSession";
+import {
+  toastProgress,
+  toastSuccess,
+  toastWarning,
+} from "./admin/shared/adminToast";
+import { ConfirmAdminHost, confirmAdmin } from "./admin/shared/confirmAdmin";
 import {
   csvBody,
   csvHeader,
@@ -452,7 +492,20 @@ export async function requestWinningEmbedding(row) {
     return null;
   }
 }
-function AdminSidebar({ activeKey, setActiveKey }) {
+// 어드민 사이드바는 어두운 배경을 유지한다. ui 사이드바 토큰을 이 래퍼에서만 덮어쓰고
+// 전역(:root)은 건드리지 않는다. 앱 셸 사이드바(AppShellSidebar)는 전역 값을 그대로 쓴다.
+const ADMIN_SIDEBAR_THEME = {
+  "--sidebar": "#101214",
+  "--sidebar-foreground": "#ffffff",
+  "--sidebar-accent": "rgb(255 255 255 / 0.1)",
+  "--sidebar-accent-foreground": "#ffffff",
+  "--sidebar-border": "rgb(255 255 255 / 0.1)",
+  "--sidebar-primary": "#ffffff",
+  "--sidebar-primary-foreground": "#101214",
+  "--sidebar-ring": "rgb(255 255 255 / 0.6)",
+} as CSSProperties;
+
+function AdminSidebar({ activeKey }: { activeKey: string }) {
   const [open, setOpen] = useState(
     () => new Set(MENU_GROUPS.map((group) => group.title)),
   );
@@ -504,65 +557,82 @@ function AdminSidebar({ activeKey, setActiveKey }) {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[224px] bg-[#101214] text-white">
-      <ScrollArea className="h-full">
-        <div className="border-b border-white/10 px-5 py-5 text-2xl font-black">
+    <aside
+      className="fixed left-0 top-0 z-40 h-screen w-56 text-white"
+      style={ADMIN_SIDEBAR_THEME}
+    >
+      <Sidebar collapsible="none">
+        <SidebarHeader className="border-b border-white/10 px-5 py-5 text-2xl font-bold">
           관리자
-        </div>
+        </SidebarHeader>
 
-        <nav className="px-4 py-5">
-          {menuGroups.map((group) => {
-            const isOpen = open.has(group.title);
+        <SidebarContent className="overflow-hidden">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="px-2 py-3">
+              {menuGroups.map((group) => {
+                const isOpen = open.has(group.title);
 
-            return (
-              <div key={group.title} className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => toggle(group.title)}
-                  className="flex w-full items-center justify-between py-2 text-left text-[15px] font-black"
-                >
-                  {group.title}
-                  <ChevronDown
-                    size={16}
-                    className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
-                  />
-                </button>
+                return (
+                  <Collapsible
+                    key={group.title}
+                    open={isOpen}
+                    onOpenChange={() => toggle(group.title)}
+                  >
+                    <SidebarGroup className="py-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-[0.9375rem] font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                        {group.title}
+                        <ChevronDown
+                          size={16}
+                          className={`transition ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                      </CollapsibleTrigger>
 
-                {isOpen && (
-                  <div className="mt-1 space-y-1">
-                    {group.items.map((item, index) => (
-                      <Fragment key={item.key}>
-                        {/* 소분류 캡션 — 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
-                          접었다 펴는 단계를 하나 더 두지 않고 캡션으로 표현한다.
-                          「서비스 관리」가 16개로 가장 크고, 그 안에서 서비스·
-                          프리미엄·멘토·위닝 DB가 섞이면 훑기 어렵다.
-                          섹션이 바뀌는 첫 항목에서만 그린다. */}
-                        {item.section &&
-                          item.section !== group.items[index - 1]?.section && (
-                            <div className="px-4 pb-1 pt-3 text-[11px] font-black tracking-wide text-white/35">
-                              {item.section}
-                            </div>
-                          )}
-                        <button
-                          type="button"
-                          onClick={() => setActiveKey(item.key)}
-                          className={`block w-full rounded px-4 py-2 text-left text-[13px] font-bold ${
-                            sidebarActiveKey === item.key
-                              ? 'bg-white/10 text-white before:mr-2 before:text-red-500 before:content-["•"]'
-                              : 'text-white/55 before:mr-2 before:text-white/35 before:content-["•"] hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </ScrollArea>
+                      <CollapsibleContent>
+                        <SidebarMenu className="mt-1 gap-1">
+                          {group.items.map((item, index) => {
+                            const isActive = sidebarActiveKey === item.key;
+
+                            return (
+                              <Fragment key={item.key}>
+                                {/* 소분류 캡션. 기획표의 3단(대분류 > 소분류 > 세부메뉴)을
+                              접었다 펴는 단계를 하나 더 두지 않고 캡션으로 표현한다.
+                              「서비스 관리」가 16개로 가장 크고, 그 안에서 서비스,
+                              프리미엄, 멘토, 위닝 DB가 섞이면 훑기 어렵다.
+                              섹션이 바뀌는 첫 항목에서만 그린다. */}
+                                {item.section &&
+                                  item.section !==
+                                    group.items[index - 1]?.section && (
+                                    <li className="px-4 pb-1 pt-3 text-[0.6875rem] font-medium tracking-wide text-white/60">
+                                      {item.section}
+                                    </li>
+                                  )}
+                                <SidebarMenuItem>
+                                  <SidebarMenuButton
+                                    isActive={isActive}
+                                    render={<Link to={`/admin/${item.key}`} />}
+                                    aria-current={isActive ? "page" : undefined}
+                                    className={`h-auto px-4 py-2 text-[0.8125rem] font-medium data-active:font-semibold before:mr-2 before:content-["•"] ${
+                                      isActive
+                                        ? "text-white before:text-red-500"
+                                        : "text-white/55 before:text-white/35"
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              </Fragment>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </CollapsibleContent>
+                    </SidebarGroup>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </SidebarContent>
+      </Sidebar>
     </aside>
   );
 }
@@ -633,7 +703,7 @@ function AdmissionActiveYearSummary({ rows }) {
     const year = Number(draftYear);
     // 4자리 상식선 제한 — 999999 같은 값이 통과하면 안 된다(team-lead 지적).
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      alert("연도는 2000~2100 사이 정수로 입력해 주세요.");
+      toastWarning("연도는 2000~2100 사이 정수로 입력해 주세요.");
       return;
     }
 
@@ -641,9 +711,12 @@ function AdmissionActiveYearSummary({ rows }) {
       (row) => Number(row.admission_year) === year,
     ).length;
     if (matchCount === 0) {
-      const proceed = window.confirm(
-        `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.\n\n그래도 지정하시겠습니까?`,
-      );
+      const proceed = await confirmAdmin({
+        title: "그래도 지정하시겠습니까?",
+        description: `${year}학년도 데이터가 0개교입니다. 이대로 공개 연도를 지정하면 공개 페이지의 대학별 모집요강이 통째로 빈 화면이 됩니다.`,
+        confirmLabel: "지정",
+        destructive: true,
+      });
       if (!proceed) return;
     }
 
@@ -651,7 +724,9 @@ function AdmissionActiveYearSummary({ rows }) {
     const result = await setAdmissionActiveYear(supabase, year);
     if (!result.ok) {
       setSaving(false);
-      alert(`공개 연도 저장 실패: ${result.error}`);
+      reportAdminError("공개 연도 저장 실패", {
+        message: result.error ?? "",
+      });
       return;
     }
 
@@ -661,12 +736,12 @@ function AdmissionActiveYearSummary({ rows }) {
     setActiveYear(confirmedYear);
     setDraftYear(String(confirmedYear));
     setSaving(false);
-    alert(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
+    toastSuccess(`공개 연도를 ${confirmedYear}학년도로 변경했습니다.`);
   }
 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">
+      <div className="font-semibold">
         {loadingActiveYear ? (
           "공개 연도 확인 중…"
         ) : (
@@ -679,24 +754,24 @@ function AdmissionActiveYearSummary({ rows }) {
         )}
       </div>
       <div className="flex items-center gap-2">
-        <input
+        <Input
           type="number"
           value={draftYear}
           onChange={(e) => setDraftYear(e.target.value)}
           min={2000}
           max={2100}
           disabled={loadingActiveYear || saving}
-          className="h-9 w-24 border border-[#9ca3af] px-2 text-sm outline-hidden disabled:bg-gray-100"
+          className="h-9 w-24 font-medium"
           aria-label="새 공개 연도"
         />
-        <button
+        <Button
+          size="lg"
           type="button"
           onClick={handleChangeYear}
           disabled={loadingActiveYear || saving}
-          className="h-9 bg-[#2348ff] px-4 text-sm font-black text-white disabled:opacity-50"
         >
           {saving ? "저장 중…" : "변경"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -884,7 +959,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       );
     if (error) {
       setApplying(false);
-      alert(`엑셀 적용 실패: ${error.message}`);
+      reportAdminError("엑셀 적용 실패", error);
       return;
     }
     const { summary } = parseResult;
@@ -893,8 +968,9 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
     setConfirmChecked(false);
     setExpandedGroups({});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -905,22 +981,24 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
   return (
     <div className="mb-6 bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold"
           >
             {`엑셀 다운로드 (전체 ${totalRows}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold"
           >
             엑셀 업로드
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -951,7 +1029,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
           {/* truncatedCellSkipCount 같은 개별 집계 필드는 여기서 안 쓰고
               warningCounts만 쓴다(team-lead 지시) — type별 건수를 lib이
               그대로 주므로 문자열 매칭·직접 재계산을 안 한다. 경고
@@ -959,7 +1037,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
               포맷에서 html 3종이 빠지면서(26→23컬럼) "html 파싱" 개념
               자체가 없어져 그쪽 집계 필드도 lib에서 정리됐다 — 애초에
               이 컴포넌트가 그 필드를 쓴 적이 없어 갱신할 코드는 없었다. */}
-          <p className="font-black text-[#2348ff]">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -979,7 +1057,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -1019,7 +1097,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -1053,6 +1131,7 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -1060,22 +1139,23 @@ function AdmissionBulkXlsxPanel({ rows, onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
             >
               {applying ? "적용 중…" : "적용"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1262,7 +1342,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
@@ -1327,8 +1407,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + RESULTS_APPLY_CHUNK);
         const { error } = await supabase.from(RESULTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1340,8 +1422,10 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           .from(RESULTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -1350,8 +1434,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -1367,8 +1452,9 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -1379,28 +1465,30 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
   return (
     <div className="mb-6 bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {fetchProgress
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {idSetProgress
               ? `업로드 검증 준비 중… ${idSetProgress.done.toLocaleString()} / ${idSetProgress.total.toLocaleString()}행`
               : "엑셀 업로드"}
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1431,8 +1519,8 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -1445,7 +1533,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -1485,7 +1573,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -1521,6 +1609,7 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -1528,11 +1617,11 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -1540,15 +1629,16 @@ function AdmissionResultsBulkXlsxPanel({ onReload }) {
                   return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                 return "적용 중…";
               })()}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1885,7 +1975,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   if (loading && !summary) {
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
-        <div className="font-black">현황 요약</div>
+        <div className="font-semibold">현황 요약</div>
         <p className="mt-2 text-xs text-gray-500">불러오는 중…</p>
       </div>
     );
@@ -1893,7 +1983,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   if (!summary) {
     return (
       <div className="bg-white p-4 text-sm shadow-sm">
-        <div className="font-black">현황 요약</div>
+        <div className="font-semibold">현황 요약</div>
         <p className="mt-2 text-xs text-gray-500">
           현황을 불러오지 못했습니다(목록 사용에는 영향 없습니다).
         </p>
@@ -1904,7 +1994,7 @@ function GoalCutsOverviewBlock({ refreshToken, mutationSeq }) {
   const n = (v) => v.toLocaleString();
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">현황 요약</div>
+      <div className="font-semibold">현황 요약</div>
       <p className="mt-2 text-xs font-bold text-gray-700">
         전체 {n(summary.total)}건 · 노출 {n(summary.active)}건 · 수시 일반{" "}
         {n(summary.normal)}건 · 수시 특목 {n(summary.special)}건 · 정시{" "}
@@ -2001,7 +2091,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       });
     } catch (err) {
       setPreview(null);
-      alert(`미리보기 계산 실패: ${err.message}`);
+      reportAdminError("미리보기 계산 실패", err);
     } finally {
       setSourceProgress(null);
       setComputing(false);
@@ -2015,7 +2105,7 @@ function GoalCutsBackfillPanel({ onReload }) {
       orphanMode === "deactivate" ? preview.analysis.orphanIds : [];
     const total = rowsToApply.length + orphanIds.length;
     if (total === 0) {
-      alert("반영할 행이 없습니다.");
+      toastWarning("반영할 행이 없습니다.");
       return;
     }
     setApplying(true);
@@ -2032,8 +2122,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           onConflict: "cut_type,university_key,department_key",
         });
         if (error) {
-          throw new Error(
-            `컷 반영 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "컷 반영 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2047,8 +2139,10 @@ function GoalCutsBackfillPanel({ onReload }) {
           .update({ is_active: false })
           .in("id", chunk);
         if (error) {
-          throw new Error(
-            `고아 유도 행 노출 끄기 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "고아 유도 행 노출 끄기 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2057,8 +2151,9 @@ function GoalCutsBackfillPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `백필 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("백필 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -2069,11 +2164,11 @@ function GoalCutsBackfillPanel({ onReload }) {
     setPreview(null);
     setConfirmChecked(false);
     onReload?.();
-    alert(
-      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.` +
-        (orphanIds.length
-          ? ` 고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
-          : ""),
+    toastSuccess(
+      `입결 유도 컷 ${rowsToApply.length.toLocaleString()}행을 반영했습니다.`,
+      orphanIds.length
+        ? `고아 유도 행 ${orphanIds.length.toLocaleString()}건의 노출을 껐습니다.`
+        : undefined,
     );
   }
 
@@ -2085,16 +2180,16 @@ function GoalCutsBackfillPanel({ onReload }) {
 
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
-      <div className="font-black">입결정보에서 수시 컷 일괄 생성</div>
+      <div className="font-semibold">입결정보에서 수시 컷 일괄 생성</div>
       <p className="mt-2 text-xs leading-5 text-gray-600">
         입결정보(admission_results)의 70% 컷 등급에서 수시 컷을 유도해 이 표에
         채웁니다. 정시 컷은 원본 데이터가 없어 생성되지 않습니다 — 수기 또는
         엑셀로 입력해 주세요.
       </p>
 
-      <div className="mt-3 space-y-2 rounded-sm border border-gray-200 bg-[#fafafa] p-3 text-xs">
+      <div className="mt-3 space-y-2 rounded-sm border border-gray-200 bg-muted p-3 text-xs">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">기준 연도</span>
+          <span className="w-32 shrink-0 font-semibold">기준 연도</span>
           {GOAL_BACKFILL_YEAR_MODES.map((mode) => (
             <label
               key={mode.value}
@@ -2102,6 +2197,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillYear"
                 checked={yearMode === mode.value}
                 disabled={busy}
@@ -2115,7 +2211,7 @@ function GoalCutsBackfillPanel({ onReload }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">기존 행 처리</span>
+          <span className="w-32 shrink-0 font-semibold">기존 행 처리</span>
           {[
             { value: "preserve", label: "관리자가 손댄 행은 보존" },
             { value: "overwrite", label: "전부 덮어쓰기" },
@@ -2126,6 +2222,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillPreserve"
                 checked={preserveMode === mode.value}
                 disabled={busy}
@@ -2139,7 +2236,7 @@ function GoalCutsBackfillPanel({ onReload }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="w-32 shrink-0 font-black">
+          <span className="w-32 shrink-0 font-semibold">
             이번 산출에 없는 기존 유도 행
           </span>
           {[
@@ -2152,6 +2249,7 @@ function GoalCutsBackfillPanel({ onReload }) {
             >
               <input
                 type="radio"
+                className="accent-primary"
                 name="goalCutsBackfillOrphan"
                 checked={orphanMode === mode.value}
                 disabled={busy}
@@ -2167,18 +2265,19 @@ function GoalCutsBackfillPanel({ onReload }) {
       </div>
 
       <div className="mt-3">
-        <button
+        <Button
+          variant="outline"
+          size="lg"
           type="button"
           onClick={handleCompute}
           disabled={busy}
-          className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {sourceProgress
             ? `입결 읽는 중… ${sourceProgress.done.toLocaleString()} / ${sourceProgress.total.toLocaleString()}행`
             : computing
               ? "계산 중…"
               : "미리보기 계산"}
-        </button>
+        </Button>
       </div>
 
       {preview &&
@@ -2189,8 +2288,8 @@ function GoalCutsBackfillPanel({ onReload }) {
           const stats = preview.stats;
           const analysis = preview.analysis;
           return (
-            <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-              <p className="font-black text-[#2348ff]">
+            <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+              <p className="font-semibold text-primary">
                 생성 대상: 대학 {stats.universityCount.toLocaleString()}개 ·
                 학과 조합 {stats.pairCount.toLocaleString()}개 · 총{" "}
                 {stats.totalRows.toLocaleString()}행 (수시 일반{" "}
@@ -2222,7 +2321,7 @@ function GoalCutsBackfillPanel({ onReload }) {
               </p>
 
               <div className="mt-2 rounded-sm border border-gray-300 bg-white p-2">
-                <p className="font-black">
+                <p className="font-semibold">
                   기존 행과 겹침: {analysis.overlapCount.toLocaleString()}행
                 </p>
                 <ul className="mt-1 space-y-0.5 text-gray-700">
@@ -2271,40 +2370,51 @@ function GoalCutsBackfillPanel({ onReload }) {
               )}
 
               {stats.samples.length > 0 && (
-                <ScrollArea axis="x" className="mt-3">
-                  <p className="font-black">
+                <div className="mt-3">
+                  <p className="font-semibold">
                     상위 {stats.samples.length}행 샘플
                   </p>
-                  <table className="mt-1 w-full min-w-150 border-collapse text-left">
-                    <thead>
-                      <tr className="border-b border-gray-300 font-black">
-                        <th className="py-1 pr-2">대학</th>
-                        <th className="py-1 pr-2">학과</th>
-                        <th className="py-1 pr-2">종류</th>
-                        <th className="py-1 pr-2">컷</th>
-                        <th className="py-1 pr-2">연도</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="mt-1 min-w-150">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        {["대학", "학과", "종류", "컷", "연도"].map((h) => (
+                          <TableHead
+                            key={h}
+                            scope="col"
+                            className="font-semibold whitespace-normal"
+                          >
+                            {h}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {stats.samples.map((s) => (
-                        <tr
+                        <TableRow
                           key={`${s.cut_type}-${s.university_key}-${s.department_key}`}
-                          className="border-b border-gray-200"
                         >
-                          <td className="py-1 pr-2">{s.university_name}</td>
-                          <td className="py-1 pr-2">{s.department_name}</td>
-                          <td className="py-1 pr-2">
+                          <TableCell className="whitespace-normal">
+                            {s.university_name}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.department_name}
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
                             {s.cut_type === "normal"
                               ? "수시 일반"
                               : "수시 특목"}
-                          </td>
-                          <td className="py-1 pr-2">{s.avg_cut}등급</td>
-                          <td className="py-1 pr-2">{s.source_year}</td>
-                        </tr>
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.avg_cut}등급
+                          </TableCell>
+                          <TableCell className="whitespace-normal">
+                            {s.source_year}
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
-                </ScrollArea>
+                    </TableBody>
+                  </Table>
+                </div>
               )}
 
               <p className="mt-3 rounded-sm border border-red-300 bg-red-50 px-2 py-1.5 font-bold text-red-600">
@@ -2315,6 +2425,7 @@ function GoalCutsBackfillPanel({ onReload }) {
               <label className="mt-2 flex items-center gap-2 font-bold">
                 <input
                   type="checkbox"
+                  className="accent-primary"
                   checked={confirmChecked}
                   onChange={(e) => setConfirmChecked(e.target.checked)}
                 />
@@ -2322,11 +2433,11 @@ function GoalCutsBackfillPanel({ onReload }) {
               </label>
 
               <div className="mt-2 flex items-center gap-2">
-                <button
+                <Button
+                  size="lg"
                   type="button"
                   onClick={handleApply}
                   disabled={!confirmChecked || applying}
-                  className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
                 >
                   {(() => {
                     if (!applying) return "적용";
@@ -2334,15 +2445,16 @@ function GoalCutsBackfillPanel({ onReload }) {
                       return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                     return "적용 중…";
                   })()}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
                   type="button"
                   onClick={resetPreview}
                   disabled={applying}
-                  className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
                 >
                   취소
-                </button>
+                </Button>
               </div>
             </div>
           );
@@ -2444,7 +2556,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         triggerXlsxDownload(workbook, fileName);
       }
     } catch (err) {
-      alert(`엑셀 다운로드 실패: ${err.message}`);
+      reportAdminError("엑셀 다운로드 실패", err);
     } finally {
       setFetchProgress(null);
     }
@@ -2506,8 +2618,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
         const chunk = insertRows.slice(i, i + GOAL_CUTS_APPLY_CHUNK);
         const { error } = await supabase.from(GOAL_CUTS_TABLE).insert(chunk);
         if (error) {
-          throw new Error(
-            `신규 등록 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "신규 등록 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2519,8 +2633,10 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           .from(GOAL_CUTS_TABLE)
           .upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(
-            `수정 실패(청크 ${i + 1}~${i + chunk.length}행): ${error.message}`,
+          throw new AdminChunkError(
+            "수정 실패",
+            `${i + 1}~${i + chunk.length}`,
+            error,
           );
         }
         done += chunk.length;
@@ -2529,8 +2645,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
     } catch (err) {
       setApplying(false);
       setApplyProgress(null);
-      alert(
-        `엑셀 적용 실패 — 이미 반영된 청크는 되돌려지지 않습니다(청크 단위 배치라 단일 트랜잭션이 아님). ${err.message}`,
+      reportAdminError(
+        `${withChunkRows("엑셀 적용 실패", err)}. 이미 반영된 청크는 되돌려지지 않습니다`,
+        err,
       );
       onReload?.();
       return;
@@ -2546,8 +2663,9 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       .then((count) => setTotalRowCount(count))
       .catch(() => {});
     onReload?.();
-    alert(
-      `엑셀 적용 완료 — 신규 ${summary.willInsert}건 · 수정 ${summary.willUpdate}건 · 거부 ${summary.willSkip}건.`,
+    toastSuccess(
+      "엑셀 적용 완료",
+      `신규 ${summary.willInsert}건, 수정 ${summary.willUpdate}건, 거부 ${summary.willSkip}건.`,
     );
   }
 
@@ -2558,30 +2676,32 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
   return (
     <div className="bg-white p-4 text-sm shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="font-black">엑셀 일괄 관리</div>
+        <div className="font-semibold">엑셀 일괄 관리</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={handleDownload}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {fetchProgress
               ? `읽는 중… ${fetchProgress.done.toLocaleString()} / ${fetchProgress.total.toLocaleString()}행`
               : downloadScope === "jungsiTemplate"
                 ? "엑셀 다운로드 (정시 컷 템플릿)"
                 : `엑셀 다운로드 (전체 ${totalRowCount === null ? "-" : totalRowCount.toLocaleString()}행)`}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
-            className="h-9 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {idMapProgress
               ? `업로드 검증 준비 중… ${idMapProgress.done.toLocaleString()} / ${idMapProgress.total.toLocaleString()}행`
               : "엑셀 업로드"}
-          </button>
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -2594,7 +2714,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span className="font-black">다운로드 범위</span>
+        <span className="font-semibold">다운로드 범위</span>
         {[
           { value: "all", label: "전체" },
           { value: "jungsiTemplate", label: "정시 컷 없는 조합(정시 템플릿)" },
@@ -2605,6 +2725,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           >
             <input
               type="radio"
+              className="accent-primary"
               name="goalCutsDownloadScope"
               checked={downloadScope === scope.value}
               disabled={busy}
@@ -2634,8 +2755,8 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
       )}
 
       {parseResult && (
-        <div className="mt-3 rounded-sm border border-[#2348ff] bg-[#eef2ff] p-4 text-xs">
-          <p className="font-black text-[#2348ff]">
+        <div className="mt-3 rounded-sm border border-primary bg-primary/5 p-4 text-xs">
+          <p className="font-semibold text-primary">
             신규 {parseResult.summary.willInsert}건 · 수정{" "}
             {parseResult.summary.willUpdate}건 · 거부{" "}
             {parseResult.summary.willSkip}건 · 경고{" "}
@@ -2648,7 +2769,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
 
           {parseResult.errors.length > 0 && (
             <div className="mt-3 rounded-sm border border-red-300 bg-red-50 p-2">
-              <p className="font-black text-red-600">
+              <p className="font-semibold text-red-600">
                 거부된 행 {parseResult.errors.length}건(적용 대상에서 완전히
                 제외됩니다)
               </p>
@@ -2689,7 +2810,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between text-left font-black"
+                  className="flex w-full items-center justify-between text-left font-semibold"
                 >
                   <span>
                     {group.label} — {groupCount}건
@@ -2724,6 +2845,7 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           <label className="mt-2 flex items-center gap-2 font-bold">
             <input
               type="checkbox"
+              className="accent-primary"
               checked={confirmChecked}
               onChange={(e) => setConfirmChecked(e.target.checked)}
             />
@@ -2731,11 +2853,11 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
           </label>
 
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button
+              size="lg"
               type="button"
               onClick={handleApply}
               disabled={!confirmChecked || applying}
-              className="h-9 bg-[#2348ff] px-4 font-black text-white disabled:opacity-50"
             >
               {(() => {
                 if (!applying) return "적용";
@@ -2743,15 +2865,16 @@ function GoalCutsBulkXlsxPanel({ onReload }) {
                   return `적용 중… ${applyProgress.done.toLocaleString()} / ${applyProgress.total.toLocaleString()}행`;
                 return "적용 중…";
               })()}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               onClick={cancelPreview}
               disabled={applying}
-              className="h-9 border border-gray-400 bg-white px-4 font-bold disabled:opacity-50"
             >
               취소
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -2812,11 +2935,11 @@ function AcceptanceRateSummary({ rows }) {
   return (
     <div className="mb-6 grid grid-cols-2 bg-white text-center text-sm shadow-sm">
       <div className="border p-4">
-        <div className="font-black">노출 연도 수</div>
+        <div className="font-semibold">노출 연도 수</div>
         <div className="mt-2 font-bold">{active.length}개년</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">홈페이지 표시값</div>
+        <div className="font-semibold">홈페이지 표시값</div>
         <div className="mt-2 font-bold text-blue-600">
           {active.length}개년 평균 {average.toFixed(1)}%
         </div>
@@ -2850,21 +2973,21 @@ function MoneySummary({ activeKey, rows }) {
   return (
     <div className="mb-6 grid grid-cols-4 bg-white text-center text-sm shadow-sm">
       <div className="border p-4">
-        <div className="font-black">판매금액 합계</div>
+        <div className="font-semibold">판매금액 합계</div>
         <div className="mt-2 font-bold">{sale.toLocaleString()}원</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">감면액 합계</div>
+        <div className="font-semibold">감면액 합계</div>
         <div className="mt-2 font-bold">{discount.toLocaleString()}원</div>
       </div>
       <div className="border p-4">
-        <div className="font-black">실 납부금액 합계</div>
+        <div className="font-semibold">실 납부금액 합계</div>
         <div className="mt-2 font-bold text-blue-600">
           {paid.toLocaleString()}원
         </div>
       </div>
       <div className="border p-4">
-        <div className="font-black">환불금액 합계</div>
+        <div className="font-semibold">환불금액 합계</div>
         <div className="mt-2 font-bold text-red-500">
           {refund.toLocaleString()}원
         </div>
@@ -3122,14 +3245,6 @@ export function AdminSectionRoute({ section }: { section: string }) {
     setTotalCount(paginate ? (count ?? 0) : nextRows.length);
   }
 
-  // 탭 전환. 이제 activeKey는 다른 <Route>로의 실제 이동이다 — 이동한 순간 이
-  // 컴포넌트는 언마운트되고 목적지 섹션의 인스턴스가 새로 마운트되므로,
-  // 예전처럼 mode/editingRow/pendingSection/keyword/searchTerm/page를 손으로
-  // 하나하나 리셋할 필요가 없다(각 useState 초기값이 그 일을 대신한다).
-  function changeTab(key: string) {
-    navigate(`/admin/${key}`);
-  }
-
   // "이 조합의 컷 만들기"(§4-3-C-4) 전용 — 다른 섹션으로 이동하면서 그 섹션의
   // 등록 폼을 프리필값과 함께 바로 연다. 일반 changeTab과 분리한 이유: 프리필값은
   // location.state로 실어야 목적지 인스턴스(마운트 시점)가 읽을 수 있다 — 지금
@@ -3213,7 +3328,13 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
   async function saveRow(form) {
     // QA A13(2026-08-27): config.confirmBeforeSave 가 있는 섹션은 저장 직전 한 번 더 묻는다.
-    if (config.confirmBeforeSave && !window.confirm(config.confirmBeforeSave)) {
+    if (
+      config.confirmBeforeSave &&
+      !(await confirmAdmin({
+        title: config.confirmBeforeSave,
+        confirmLabel: "저장",
+      }))
+    ) {
       return;
     }
 
@@ -3225,7 +3346,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       config.fixedCategories &&
       !config.fixedCategories.includes(payload.category)
     ) {
-      alert("수시 또는 정시 구분을 선택해 주세요.");
+      toastWarning("수시 또는 정시 구분을 선택해 주세요.");
       return;
     }
 
@@ -3368,10 +3489,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
       requestWinningEmbedding(savedRow);
     }
 
-    alert(
-      !shouldRequestWinningEmbedding(config, savedRow)
-        ? "저장 완료"
-        : "저장 완료. 임베딩은 자동 생성 중입니다.",
+    toastSuccess(
+      "저장 완료",
+      shouldRequestWinningEmbedding(config, savedRow)
+        ? "임베딩은 자동 생성 중입니다."
+        : undefined,
     );
     setMode("list");
     setEditingRow(null);
@@ -3400,7 +3522,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   }
 
   async function deleteRow(row) {
-    if (!window.confirm("정말 삭제하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "정말 삭제하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const { error } = await supabase
       .from(config.table)
@@ -3433,7 +3563,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
   // 돈을 돌려주지 않은 채 남는다(qa-payment 환불 흐름 점검 보고).
   // (제네릭 PATCH 로는 completed 로 못 가게 status select 에서 이미 뺐다, ①).
   async function completeRefund(row) {
-    if (!window.confirm("환불을 완료 처리하시겠습니까?")) return;
+    if (
+      !(await confirmAdmin({
+        title: "환불을 완료 처리하시겠습니까?",
+        confirmLabel: "완료 처리",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
 
     const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
 
@@ -3460,7 +3598,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return;
     }
 
-    alert("환불 완료 처리되었습니다.");
+    toastSuccess("환불 완료 처리되었습니다.");
     await loadRows();
   }
 
@@ -3498,7 +3636,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       return false;
     }
 
-    alert("저장 완료");
+    toastSuccess("저장 완료");
     setMetaEditRow(null);
     await loadRows();
     return true;
@@ -3515,11 +3653,17 @@ export function AdminSectionRoute({ section }: { section: string }) {
 
     const rowCount = config.serverPaginate ? totalCount : filteredRows.length;
 
+    // 내보낼 행이 없으면 비밀번호와 사유를 받기 전에 알리고 게이트를 열지 않는다.
+    if (rowCount === 0) {
+      toastWarning("내보낼 데이터가 없습니다.");
+      return;
+    }
+
     requestAccess({
       action: "download",
       resourceKey: activeKey,
       title: `${config.title} 다운로드`,
-      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다.`,
+      description: `${rowCount.toLocaleString()}건의 개인정보가 CSV 파일로 저장됩니다. 건수가 많으면 수십 초 걸릴 수 있습니다.`,
       rowCount,
       onGranted: downloadExcel,
     });
@@ -3541,19 +3685,20 @@ export function AdminSectionRoute({ section }: { section: string }) {
     if (exporting) return;
 
     if (totalCount === 0) {
-      alert("내보낼 데이터가 없습니다.");
+      toastWarning("내보낼 데이터가 없습니다.");
       return;
     }
 
-    const proceed = window.confirm(
-      `${totalCount.toLocaleString()}건을 CSV로 내려받습니다.\n` +
-        `${EXPORT_CHUNK.toLocaleString()}건씩 나눠 받으므로 건수가 많으면 수십 초가 걸리고, ` +
-        `그동안 이 화면을 닫거나 다른 메뉴로 이동하면 안 됩니다.\n\n계속할까요?`,
-    );
-
-    if (!proceed) return;
-
     setExporting({ done: 0, total: totalCount });
+    // 민감 다운로드는 게이트 설명이 같은 안내를 하므로, 게이트가 없는 경로만 알린다.
+    const noteId = config.sensitiveDownload
+      ? null
+      : toastProgress(
+          `${totalCount.toLocaleString()}건을 내려받는 중입니다. 건수가 많으면 수십 초 걸릴 수 있으니 이 화면을 벗어나지 마세요.`,
+        );
+    const closeNote = () => {
+      if (noteId) toast.close(noteId);
+    };
 
     const parts: string[] = [];
     let done = 0;
@@ -3565,6 +3710,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       );
 
       if (error) {
+        closeNote();
         setExporting(null);
         reportAdminError("CSV 내보내기 실패", error);
         return;
@@ -3578,6 +3724,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       setExporting({ done, total: totalCount });
     }
 
+    closeNote();
     setExporting(null);
     downloadCsvText(filename, csvHeader(config.columns), parts.join("\n"));
   }
@@ -3623,7 +3770,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
       ) : mode === "list" ? (
         config.comingSoon ? (
           <div className="bg-white p-10 shadow-sm">
-            <h1 className="text-2xl font-black text-[#111827]">
+            <h1 className="text-2xl font-semibold text-foreground">
               {config.title}
             </h1>
             <p className="mt-3 text-sm font-bold text-gray-500">
@@ -3636,63 +3783,51 @@ export function AdminSectionRoute({ section }: { section: string }) {
         ) : (
           <>
             {config.tabs && (
-              <div className="mb-4 flex gap-2">
-                {config.tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => changeTab(tab.key)}
-                    className={`h-9 border px-5 text-sm font-black transition ${
-                      activeKey === tab.key
-                        ? "border-[#2348ff] bg-[#2348ff] text-white"
-                        : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <AdminConfigTabs tabs={config.tabs} activeKey={activeKey} />
             )}
 
             <div className="mb-6 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-2">
                   {!config.hideReset && (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="lg"
                       type="button"
                       onClick={loadRows}
-                      className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
                     >
                       <RefreshCw size={14} />
                       초기화
-                    </button>
+                    </Button>
                   )}
 
                   {(config.excel ||
                     ["members", "refunds"].includes(activeKey)) && (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="lg"
                       onClick={handleDownloadClick}
                       disabled={Boolean(exporting)}
-                      className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Download size={14} />
+                      <Download aria-hidden="true" />
                       {exporting
                         ? `내보내는 중 ${Math.floor((exporting.done / Math.max(1, exporting.total)) * 100)}%`
                         : "엑셀 다운로드"}
-                    </button>
+                    </Button>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   {config.listFilter && listFilterOptions.length > 0 && (
-                    <select
+                    <NativeSelect
                       value={activeListFilter}
+                      aria-label={config.listFilter.allLabel}
                       onChange={(e) => {
                         setListFilterValue(e.target.value);
                         setPage(1);
                       }}
-                      className="h-9 border border-gray-400 px-3 text-sm font-bold outline-hidden"
+                      className="[&>select]:h-9 [&>select]:font-medium"
                     >
                       <option value="">{config.listFilter.allLabel}</option>
                       {listFilterOptions.map((option) => (
@@ -3700,7 +3835,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                           {option}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   )}
 
                   {config.knowledgeReview && (
@@ -3708,6 +3843,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       <label className="inline-flex h-9 items-center gap-2 text-sm font-bold whitespace-nowrap">
                         <input
                           type="checkbox"
+                          className="accent-primary"
                           checked={reviewStaleOnly}
                           onChange={(e) => {
                             setReviewStaleOnly(e.target.checked);
@@ -3716,7 +3852,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                         />
                         미검토만 보기
                       </label>
-                      <select
+                      <NativeSelect
                         value={reviewStaleMonths}
                         onChange={(e) => {
                           setReviewStaleMonths(
@@ -3725,36 +3861,30 @@ export function AdminSectionRoute({ section }: { section: string }) {
                           setPage(1);
                         }}
                         aria-label="미검토 기준 개월 수"
-                        className="h-9 border border-gray-400 px-3 text-sm font-bold outline-hidden"
+                        className="[&>select]:h-9 [&>select]:font-medium"
                       >
                         {REVIEW_STALE_MONTH_OPTIONS.map((months) => (
                           <option key={months} value={months}>
                             {months}개월 이전
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </>
                   )}
 
-                  <input
+                  <Input
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                     placeholder={config.searchPlaceholder}
-                    className="h-9 w-[320px] border border-gray-400 px-3 text-sm outline-hidden"
+                    aria-label={config.searchPlaceholder || "검색"}
+                    className="h-9 w-80 font-medium"
                   />
-                  <button
-                    type="button"
-                    className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
-                  >
-                    <Search size={14} />
-                    검색
-                  </button>
                 </div>
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <h1 className="text-xl font-black">{config.title}</h1>
+                  <h1 className="text-xl font-semibold">{config.title}</h1>
                   {config.homepage && (
                     <div className="mt-1 space-y-1">
                       <p className="text-sm font-bold text-red-500">
@@ -3762,7 +3892,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       </p>
 
                       {config.guideText && (
-                        <p className="whitespace-pre-line text-sm font-black leading-6 text-red-600">
+                        <p className="whitespace-pre-line text-sm font-semibold leading-6 text-red-600">
                           {config.guideText}
                         </p>
                       )}
@@ -3776,14 +3906,15 @@ export function AdminSectionRoute({ section }: { section: string }) {
                 </div>
 
                 {!config.noCreate && !config.readOnly && (
-                  <button
+                  <Button
+                    size="lg"
+                    className="shrink-0 whitespace-nowrap"
                     type="button"
                     onClick={createRow}
-                    className="inline-flex h-9 items-center gap-1 bg-[#2348ff] px-4 text-sm font-black text-white shrink-0 whitespace-nowrap"
                   >
                     <Plus size={14} />
                     등록
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -3792,7 +3923,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
                       PAGE_SIZE행만 받고 전체 건수를 count로 따로 받으므로 상한 자체에
                       닿지 않는다. */}
               {config.rowCapWarning && rows.length >= 1000 && (
-                <p className="mt-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-black leading-6 text-red-600">
+                <p className="mt-4 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-600">
                   조회된 건수가 1,000건에 도달했습니다 — Supabase 기본 조회
                   상한으로 오래된 신청 건이 목록에서 빠졌을 수 있습니다. 전체
                   건수가 아닙니다.
@@ -3800,7 +3931,7 @@ export function AdminSectionRoute({ section }: { section: string }) {
               )}
 
               {exporting && (
-                <p className="mt-4 rounded-sm border border-[#c7d2fe] bg-[#eef2ff] px-4 py-3 text-sm font-black leading-6 text-[#2348ff]">
+                <p className="mt-4 rounded-sm border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold leading-6 text-primary">
                   CSV 내보내는 중 — {exporting.done.toLocaleString()} /{" "}
                   {exporting.total.toLocaleString()}건. 완료될 때까지 이 화면을
                   닫지 마세요.
@@ -3830,7 +3961,10 @@ export function AdminSectionRoute({ section }: { section: string }) {
             {config.knowledgeSearchPreview && <SearchPreview config={config} />}
 
             {loading ? (
-              <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+              <div
+                role="status"
+                className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm"
+              >
                 데이터를 불러오는 중입니다.
               </div>
             ) : (
@@ -3913,16 +4047,11 @@ export function AdminSectionRoute({ section }: { section: string }) {
 // 등)은 그대로 유지된다.
 export function AdminLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
   // 사이드바 하이라이트용 activeKey — 라우팅 매칭(어느 config를 쓸지 결정하는 것)에는
   // 관여하지 않는다. 그건 App.jsx의 개별 <Route path={key}> 매칭이 이미 끝낸 일이고,
   // 여기서는 그 결과인 URL을 보고 "지금 어느 메뉴가 눌려 있어 보여야 하는가"만 고른다.
   const activeKey =
     location.pathname.replace(/^\/admin\/?/, "") || ADMIN_DEFAULT_SECTION_KEY;
-
-  function changeTab(key: string) {
-    navigate(`/admin/${key}`);
-  }
 
   async function logout() {
     // 공용 PC에 학습진단 초안(성적, 목표 학교)이 남지 않게 함께 지운다.
@@ -3932,15 +4061,28 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f4f4] text-[#111827]">
-      <AdminSidebar activeKey={activeKey} setActiveKey={changeTab} />
-      <AdminTopbar onLogout={logout} />
+    <Toaster limit={5}>
+      {/* 어드민은 데스크톱 전용이라 사이드바는 접히지 않는다(collapsible="none").
+          open 을 true 로 고정하고 onOpenChange 를 비워, SidebarProvider 의 Cmd/Ctrl+B
+          단축키가 눌려도 상태가 바뀌지 않는다. 다만 Cmd/Ctrl+B 는 아무도 읽지 않는
+          sidebar_state=false 쿠키를 쓰고, 프로바이더가 어드민에서 브라우저 자체의
+          Ctrl+B 를 막는다. */}
+      <SidebarProvider
+        open
+        onOpenChange={() => {}}
+        style={{ "--sidebar-width": "14rem" } as CSSProperties}
+        className="block min-h-screen bg-[#f4f4f4] text-[#111827]"
+      >
+        <AdminSidebar activeKey={activeKey} />
+        <AdminTopbar onLogout={logout} />
 
-      <main className="ml-[224px] pt-[56px]">
-        <div className="min-h-[calc(100vh-56px)] px-7 py-8">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="ml-56 pt-14">
+          <div className="min-h-[calc(100vh-3.5rem)] px-7 py-8">
+            <Outlet />
+          </div>
+        </main>
+      </SidebarProvider>
+      <ConfirmAdminHost />
+    </Toaster>
   );
 }

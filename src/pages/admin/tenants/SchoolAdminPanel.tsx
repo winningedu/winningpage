@@ -1,10 +1,26 @@
 import { Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ActionButton,
   Field,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import {
   fetchSchoolAdmins,
   type IssuedSchoolAdmin,
@@ -106,126 +122,195 @@ export default function SchoolAdminPanel({
     await load();
   }
 
-  async function copy(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
   return (
     <div>
       {issued && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="전체 관리자 발급 결과"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        // 임시 비밀번호는 지금 한 번만 보인다. 확인으로만 닫히도록 닫기 시도를 모두
+        // 취소한다(바깥 누름은 AlertDialog 가 기본으로 무시하고, Esc 는 여기서 막는다).
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
+        <AlertDialog
+          open
+          onOpenChange={(_open, eventDetails) => eventDetails.cancel()}
         >
-          <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-lg font-black">
-              전체 관리자를 발급했습니다
-            </h2>
-            <div className="mb-1 text-sm font-bold text-gray-500">아이디</div>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
-                {issued.loginId}
-              </span>
-              <ActionButton
-                variant="light"
-                onClick={() => copy(issued.loginId)}
-              >
-                <Copy size={14} />
-                복사
-              </ActionButton>
+          <AlertDialogContent className="data-[size=default]:sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-semibold">
+                전체 관리자를 발급했습니다
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+            <div>
+              <div className="mb-1 text-sm font-medium text-gray-500">
+                아이디
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
+                  {issued.loginId}
+                </span>
+                <ActionButton
+                  variant="light"
+                  onClick={() => copyToClipboard(issued.loginId)}
+                >
+                  <Copy size={14} />
+                  복사
+                </ActionButton>
+              </div>
             </div>
             {issued.tempPassword ? (
               <>
-                <div className="mb-1 text-sm font-bold text-gray-500">
-                  임시 비밀번호
+                <div>
+                  <div className="mb-1 text-sm font-medium text-gray-500">
+                    임시 비밀번호
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
+                      {issued.tempPassword}
+                    </span>
+                    <ActionButton
+                      variant="light"
+                      onClick={() =>
+                        copyToClipboard(issued.tempPassword as string)
+                      }
+                    >
+                      <Copy size={14} />
+                      복사
+                    </ActionButton>
+                  </div>
                 </div>
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
-                    {issued.tempPassword}
-                  </span>
-                  <ActionButton
-                    variant="light"
-                    onClick={() => copy(issued.tempPassword as string)}
-                  >
-                    <Copy size={14} />
-                    복사
-                  </ActionButton>
-                </div>
-                <p className="mb-4 text-xs font-bold text-red-600">
+                <p className="text-xs font-medium text-red-600">
                   임시 비밀번호는 지금 한 번만 볼 수 있어요. 닫으면 다시 볼 수
                   없어요.
                 </p>
               </>
             ) : (
-              <p className="mb-4 text-xs font-bold text-gray-500">
+              <p className="text-xs font-medium text-gray-500">
                 이미 계정이 있어 새 임시 비밀번호는 없어요.
               </p>
             )}
-            <ActionButton onClick={() => setIssued(null)}>확인</ActionButton>
-          </div>
-        </div>
+            <AlertDialogFooter>
+              <ActionButton onClick={() => setIssued(null)}>확인</ActionButton>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       <div className="mb-6 bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-bold text-gray-500">
+        <div className="mb-3 text-sm font-medium text-gray-500">
           전체 관리자 목록
         </div>
         {loadError && (
-          <div className="mb-3 text-sm font-bold text-red-600">{loadError}</div>
+          <div role="alert" className="mb-3 text-sm font-medium text-red-600">
+            {loadError}
+          </div>
         )}
-        <table className="w-full min-w-[45rem] border-collapse text-sm">
-          <thead>
-            <tr className="border-y border-gray-300">
-              <th className="px-3 py-3 text-left">이름</th>
-              <th className="px-3 py-3 text-left">직책</th>
-              <th className="px-3 py-3 text-left">아이디</th>
-              <th className="px-3 py-3 text-left">전화번호</th>
-              <th className="px-3 py-3 text-left">일반전화</th>
-              <th className="px-3 py-3 text-left">담당 이메일</th>
-              <th className="px-3 py-3 text-left">주소</th>
-              <th className="px-3 py-3 text-left">발급일</th>
-              <th className="px-3 py-3 text-left">등록취소일</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="min-w-[45rem] border-collapse">
+          <TableHeader>
+            <TableRow className="border-y border-gray-300 hover:bg-transparent">
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                이름
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                직책
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                아이디
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                전화번호
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                일반전화
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                담당 이메일
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                주소
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                발급일
+              </TableHead>
+              <TableHead
+                scope="col"
+                className="whitespace-normal px-3 py-3 text-left font-semibold"
+              >
+                등록취소일
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {!list || list.admins.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="py-8 text-center text-gray-400">
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   발급한 전체 관리자가 없습니다.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               list.admins.map((admin) => (
-                <tr key={admin.id} className="border-b border-gray-100">
-                  <td className="px-3 py-3 font-bold">{admin.name}</td>
-                  <td className="px-3 py-3">{admin.position ?? "-"}</td>
-                  <td className="px-3 py-3 font-mono text-[0.8125rem]">
+                <TableRow key={admin.id} className="border-b border-gray-100">
+                  <TableCell className="whitespace-normal px-3 py-3 font-medium">
+                    {admin.name}
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-3 py-3">
+                    {admin.position ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3 font-mono text-[0.8125rem]">
                     {admin.loginId ?? "-"}
-                  </td>
-                  <td className="px-3 py-3">{admin.phone}</td>
-                  <td className="px-3 py-3">{admin.landline ?? "-"}</td>
-                  <td className="px-3 py-3">{admin.email ?? "-"}</td>
-                  <td className="px-3 py-3">{list.address ?? "-"}</td>
-                  <td className="px-3 py-3">{formatDate(admin.issuedAt)}</td>
-                  <td className="px-3 py-3">{formatDate(admin.canceledAt)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="px-3 py-3">{admin.phone}</TableCell>
+                  <TableCell className="px-3 py-3">
+                    {admin.landline ?? "-"}
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-3 py-3">
+                    {admin.email ?? "-"}
+                  </TableCell>
+                  <TableCell className="whitespace-normal px-3 py-3">
+                    {list.address ?? "-"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    {formatDate(admin.issuedAt)}
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    {formatDate(admin.canceledAt)}
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-        <p className="mt-3 text-xs font-bold text-gray-500">
+          </TableBody>
+        </Table>
+        <p className="mt-3 text-xs font-medium text-gray-500">
           취소와 재발급은 본사 대행으로 해 주세요.
         </p>
       </div>
 
       <div className="bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-bold text-gray-500">
+        <div className="mb-3 text-sm font-medium text-gray-500">
           전체 관리자 발급
         </div>
         <div className="flex flex-wrap items-end gap-4">
@@ -233,7 +318,7 @@ export default function SchoolAdminPanel({
             <input
               value={tenantName}
               readOnly
-              className="h-10 w-full border border-gray-300 bg-gray-50 px-3 text-sm font-bold"
+              className="h-10 w-full border border-gray-300 bg-gray-50 px-3 text-sm font-medium"
             />
           </Field>
           <Field label="이름">
@@ -271,7 +356,9 @@ export default function SchoolAdminPanel({
           </ActionButton>
         </div>
         {formError && (
-          <div className="mt-3 text-sm font-bold text-red-600">{formError}</div>
+          <div role="alert" className="mt-3 text-sm font-medium text-red-600">
+            {formError}
+          </div>
         )}
       </div>
     </div>

@@ -26,9 +26,8 @@ function outOfScaleWarning(rawValue, rawPx, guidance) {
 export default [
   {
     files: ["src/**/*.{js,jsx,ts,tsx}"],
-    ...reactHooks.configs["recommended-latest"][0],
+    ...reactHooks.configs.flat["recommended-latest"],
     languageOptions: {
-      ...reactHooks.configs["recommended-latest"][0].languageOptions,
       parser: tsParser,
       parserOptions: {
         ecmaFeatures: { jsx: true },

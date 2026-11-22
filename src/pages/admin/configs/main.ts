@@ -91,7 +91,7 @@ interface MainCrudConfig {
   // 개인정보 반출 게이트 대상(AdminConfig.sensitiveDownload 와 같은 뜻).
   sensitiveDownload?: boolean;
   // 저장 직전 재확인 문구(QA A13, 2026-08-27) — 값이 있으면 Admin.tsx saveRow 가
-  // window.confirm 으로 한 번 더 묻고, 취소하면 저장하지 않는다.
+  // confirmAdmin 으로 한 번 더 묻고, 취소하면 저장하지 않는다.
   confirmBeforeSave?: string;
   columns: MainColumn[];
   fields: MainField[];

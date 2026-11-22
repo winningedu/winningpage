@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { SectionKey } from "@/components/landing/useHomeSectionCopy";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 
 // 랜딩에서 라벨(eyebrow)을 그리는 섹션만 라벨 입력창을 보인다.
 const SECTIONS_WITH_EYEBROW: SectionKey[] = ["services", "mentor"];
 
-const INPUT_CLASS = "w-full rounded-sm border border-gray-300 px-3 py-2";
+const INPUT_CLASS = "h-9 w-full";
 
 type Status = { kind: "ok" | "error"; message: string } | null;
 
@@ -66,47 +68,57 @@ export default function SectionCopyPanel({
     );
   }
 
+  const eyebrowId = useId();
+  const titleMainId = useId();
+  const titleSubId = useId();
+
   return (
     <div className="mb-6 space-y-3 bg-white p-4 text-sm shadow-sm">
       {hasEyebrow && (
-        <label className="block">
-          <span className="mb-1 block font-black">라벨</span>
-          <input
+        <label htmlFor={eyebrowId} className="block">
+          <span className="mb-1 block font-medium">라벨</span>
+          <Input
+            id={eyebrowId}
             className={INPUT_CLASS}
             value={eyebrow}
             onChange={(e) => setEyebrow(e.target.value)}
           />
         </label>
       )}
-      <label className="block">
-        <span className="mb-1 block font-black">큰제목</span>
-        <input
+      <label htmlFor={titleMainId} className="block">
+        <span className="mb-1 block font-medium">큰제목</span>
+        <Input
+          id={titleMainId}
           className={INPUT_CLASS}
           value={titleMain}
           onChange={(e) => setTitleMain(e.target.value)}
         />
       </label>
-      <label className="block">
-        <span className="mb-1 block font-black">중제목</span>
-        <input
+      <label htmlFor={titleSubId} className="block">
+        <span className="mb-1 block font-medium">중제목</span>
+        <Input
+          id={titleSubId}
           className={INPUT_CLASS}
           value={titleSub}
           onChange={(e) => setTitleSub(e.target.value)}
         />
       </label>
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          size="lg"
           disabled={saving}
           onClick={handleSave}
-          className="rounded-sm bg-black px-4 py-2 font-black text-white disabled:opacity-50"
+          className="font-semibold"
         >
           저장
-        </button>
+        </Button>
         {status && (
           <span
             role="status"
-            className={status.kind === "ok" ? "text-green-700" : "text-red-600"}
+            className={
+              status.kind === "ok" ? "text-green-700" : "text-destructive"
+            }
           >
             {status.message}
           </span>

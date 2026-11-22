@@ -157,11 +157,11 @@ function sliceManageCell(source: string) {
         "리팩터로 앵커가 사라졌다면 이 파일 상단의 이식 메모를 읽고 복원하라.",
     );
   }
-  const start = source.lastIndexOf("<td", first);
-  const end = source.indexOf("</td>", first);
+  const start = source.lastIndexOf("<TableCell", first);
+  const end = source.indexOf("</TableCell>", first);
   if (start === -1 || end === -1)
-    throw new Error("관리 열 <td> 경계를 찾지 못했다.");
-  return source.slice(start, end + "</td>".length);
+    throw new Error("관리 열 <TableCell> 경계를 찾지 못했다.");
+  return source.slice(start, end + "</TableCell>".length);
 }
 
 async function loadManageCell(sliceText: string) {
@@ -171,6 +171,8 @@ const Eye = () => <i data-icon="eye" />;
 const Edit3 = () => <i data-icon="edit3" />;
 const Trash2 = () => <i data-icon="trash2" />;
 const Settings = () => <i data-icon="settings" />;
+// 슬라이스가 ui TableCell 을 쓰므로 같은 td 로 렌더하는 스텁을 둔다.
+const TableCell = (props: any) => <td {...props} />;
 // activeKey: 관리 열 마지막 분기(환불완료 버튼, refundRequests 탭 전용)가
 // 참조하는 자유 변수. entry:9/11 검사 대상(✏️/⚙️/🗑)과 무관해 항상 그
 // 분기를 비활성으로 둔다 — onCompleteRefund/isRefundCompletionBlocked는
@@ -355,10 +357,10 @@ describe("어드민 대학모집요강 편집 진입 경로 검증", () => {
   const manageCell = (() => {
     const anchor = code.indexOf(MANAGE_ANCHOR);
     if (anchor === -1) return null;
-    const start = code.lastIndexOf("<td", anchor);
-    const end = code.indexOf("</td>", anchor);
+    const start = code.lastIndexOf("<TableCell", anchor);
+    const end = code.indexOf("</TableCell>", anchor);
     if (start === -1 || end === -1) return null;
-    return code.slice(start, end + "</td>".length);
+    return code.slice(start, end + "</TableCell>".length);
   })();
 
   test("entry:4. 관리 열의 onEdit(row) 버튼이 `{!config.hideRowEdit && (` 로 감싸져 있다", () => {
@@ -368,7 +370,9 @@ describe("어드민 대학모집요강 편집 진입 경로 검증", () => {
       manageCell!.includes("onClick={() => onEdit(row)}");
     expect(
       pass,
-      manageCell ? manageCell.slice(0, 500) : "관리 열 <td> 를 찾지 못했다",
+      manageCell
+        ? manageCell.slice(0, 500)
+        : "관리 열 <TableCell> 를 찾지 못했다",
     ).toBe(true);
   });
 
@@ -386,7 +390,9 @@ describe("어드민 대학모집요강 편집 진입 경로 검증", () => {
       manageCell!.includes("<Trash2 size={17} />");
     expect(
       pass,
-      manageCell ? manageCell.slice(0, 800) : "관리 열 <td> 를 찾지 못했다",
+      manageCell
+        ? manageCell.slice(0, 800)
+        : "관리 열 <TableCell> 를 찾지 못했다",
     ).toBe(true);
   });
 
@@ -398,7 +404,9 @@ describe("어드민 대학모집요강 편집 진입 경로 검증", () => {
       );
     expect(
       pass,
-      manageCell ? manageCell.slice(0, 500) : "관리 열 <td> 를 찾지 못했다",
+      manageCell
+        ? manageCell.slice(0, 500)
+        : "관리 열 <TableCell> 를 찾지 못했다",
     ).toBe(true);
   });
 

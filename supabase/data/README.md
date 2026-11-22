@@ -6,10 +6,10 @@
 
 ## 대상 DB
 
-| 이름 | project ref |
-|---|---|
-| dev | `gjowqdiopinhixfivnkx` |
-| Winning prod | `ykrpjcsubmbenfcnwlzd` |
+| 이름              | project ref            |
+| ----------------- | ---------------------- |
+| dev               | `gjowqdiopinhixfivnkx` |
+| Winning prod      | `ykrpjcsubmbenfcnwlzd` |
 | Schoolmentor prod | `aalujumpwlnwlemnqrus` |
 
 ## 파일 규칙

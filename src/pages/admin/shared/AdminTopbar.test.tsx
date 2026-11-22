@@ -1,6 +1,6 @@
 // 관리자 상단바. 스쿨멘토(hqTenantAdmin)에서만 선생님 화면(대리 접속) 진입 링크가 보인다.
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -18,10 +18,10 @@ vi.mock("@/config/site", () => ({
 
 import { AdminTopbar } from "./AdminTopbar";
 
-function renderTopbar() {
+function renderTopbar(onLogout: () => void = () => {}) {
   return render(
     <MemoryRouter>
-      <AdminTopbar onLogout={() => {}} />
+      <AdminTopbar onLogout={onLogout} />
     </MemoryRouter>,
   );
 }
@@ -51,5 +51,15 @@ describe("AdminTopbar", () => {
     ).toBeNull();
     expect(screen.getByRole("link", { name: "메인으로 이동" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "로그아웃" })).toBeTruthy();
+  });
+
+  test("로그아웃은 버튼이고 누르면 전달받은 onLogout 을 부른다", () => {
+    const onLogout = vi.fn();
+    renderTopbar(onLogout);
+
+    expect(screen.queryByRole("link", { name: "로그아웃" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "로그아웃" }));
+
+    expect(onLogout).toHaveBeenCalledTimes(1);
   });
 });

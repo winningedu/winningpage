@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
   selects: [] as string[],
   graceDays: 30 as number | null,
   created: null as Record<string, unknown> | null,
+  listError: null as { message: string; code?: string } | null,
+  createError: null as { message: string; code?: string } | null,
 }));
 
 vi.mock("@/config/site", () => ({
@@ -47,12 +49,12 @@ vi.mock("@/lib/supabase", () => ({
         select: (columns: string) => {
           state.selects.push(columns);
           return {
-            order: async () => ({ data: state.rows, error: null }),
+            order: async () => ({ data: state.rows, error: state.listError }),
           };
         },
       };
     }),
-    rpc: vi.fn(async () => ({ data: state.created, error: null })),
+    rpc: vi.fn(async () => ({ data: state.created, error: state.createError })),
   },
 }));
 
@@ -67,6 +69,7 @@ vi.mock("@/pages/admin/tenants/TenantDetail", () => ({
   ),
 }));
 
+import { Toaster } from "@/components/ui/toast";
 import TenantsAdmin from "./TenantsAdmin";
 
 const BASE = {
@@ -108,6 +111,8 @@ beforeEach(() => {
   state.selects = [];
   state.graceDays = 30;
   state.created = null;
+  state.listError = null;
+  state.createError = null;
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-09-21T03:00:00Z"));
 });
@@ -128,6 +133,72 @@ describe("TenantsAdmin 위닝(플래그 꺼짐)", () => {
     expect(screen.queryByText("계약 기간")).toBeNull();
     expect(screen.queryByText("MOU")).toBeNull();
     expect(screen.queryByRole("button", { name: "한빛고" })).toBeNull();
+  });
+});
+
+describe("TenantsAdmin 표 접근성", () => {
+  test("열 머리글은 scope col 을 가진다", async () => {
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    expect(screen.getByRole("columnheader", { name: "이름" })).toHaveAttribute(
+      "scope",
+      "col",
+    );
+  });
+
+  test("검색 입력은 접근 가능한 이름을 가진다", async () => {
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    expect(screen.getByLabelText("검색")).toBeInTheDocument();
+  });
+});
+
+describe("TenantsAdmin 발급 코드 모달(플래그 꺼짐)", () => {
+  async function openIssuedDialog() {
+    state.hqTenantAdmin = false;
+    state.created = {
+      ...BASE,
+      id: "tenant-new",
+      code: "NEWC2345",
+      name: "새기관",
+    };
+    render(<TenantsAdmin config={CONFIG} />);
+    await screen.findByText("한빛고");
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "새기관" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+  }
+
+  test("제목을 접근 가능한 이름으로 가진 alertdialog 로 발급 코드를 보여 준다", async () => {
+    await openIssuedDialog();
+
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "기관을 발급했습니다",
+    });
+    expect(within(dialog).getByText("NEWC2345")).toBeTruthy();
+  });
+
+  test("Esc 와 바깥 누름으로 닫히지 않고 확인으로만 닫힌다", async () => {
+    await openIssuedDialog();
+    const dialog = await screen.findByRole("alertdialog");
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    fireEvent.pointerDown(document.body);
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.mouseUp(document.body);
+    fireEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(within(dialog).getByText("NEWC2345")).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 });
 
@@ -222,5 +293,136 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
     await waitFor(() =>
       expect(screen.getByText("기관 상세 tenant-new")).toBeTruthy(),
     );
+  });
+});
+
+describe("TenantsAdmin 오류 안내", () => {
+  test("목록 조회에 실패하면 원문 없이 제목과 안내만 토스트로 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.listError = { message: "relation tenants 홍길동", code: "42P01" };
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("기관 관리 조회 실패"),
+    );
+    expect(
+      document.querySelector('[data-slot="toast-description"]'),
+    ).toHaveTextContent("코드: 42P01");
+    expect(document.body.textContent).not.toContain("홍길동");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test("등록에 실패하면 '등록 실패' 제목의 토스트가 보인다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    state.createError = { message: "duplicate", code: "23505" };
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    await screen.findByText("한빛고");
+
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "새기관" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("등록 실패"),
+    );
+    expect(
+      document.querySelector('[data-slot="toast-description"]'),
+    ).toHaveTextContent("이미 등록된 값입니다(중복)");
+  });
+
+  test("소속코드를 복사하면 '복사했습니다' 토스트가 보이고 코드는 토스트에 없다", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    fireEvent.click(within(row).getByRole("button", { name: "소속코드 복사" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("복사했습니다"),
+    );
+    expect(writeText).toHaveBeenCalledWith("ABCD2345");
+    expect(
+      document.querySelector('[data-slot="toast-viewport"]')?.textContent,
+    ).not.toContain("ABCD2345");
+  });
+
+  test("복사에 실패하면 실패 토스트가 보이고 로그에 코드가 남지 않는다", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi
+          .fn()
+          .mockRejectedValue(new DOMException("denied", "NotAllowedError")),
+      },
+    });
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+
+    fireEvent.click(within(row).getByRole("button", { name: "소속코드 복사" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("복사하지 못했습니다"),
+    );
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("ABCD2345");
+  });
+
+  test("이름을 비우고 등록하면 등록 요청 없이 경고 토스트가 보인다", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    render(
+      <>
+        <TenantsAdmin config={CONFIG} />
+        <Toaster />
+      </>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "등록" }));
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("이름 항목을 입력해주세요."),
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });

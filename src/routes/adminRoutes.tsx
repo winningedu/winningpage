@@ -56,6 +56,7 @@ const adminRoutes: RouteObject[] = [
         path: key,
         lazy: async () => {
           const { AdminSectionRoute } = await import("@/pages/Admin");
+          // biome-ignore lint/correctness/noComponentHookFactories: 라우트 정의는 모듈 로드 때 한 번만 만들어져 렌더마다 새 컴포넌트가 생기지 않는다
           return { Component: () => <AdminSectionRoute section={key} /> };
         },
       })),

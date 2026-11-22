@@ -29,7 +29,8 @@ interface ServiceSettingsPanelProps {
   isCatchAll: boolean;
 }
 
-const INPUT_CLASS = "h-9 w-full border border-gray-300 px-2 text-sm font-bold";
+const INPUT_CLASS =
+  "h-9 w-full border border-gray-300 px-2 text-sm font-medium";
 
 export default function ServiceSettingsPanel({
   tenantId,
@@ -139,14 +140,14 @@ export default function ServiceSettingsPanel({
 
   if (isCatchAll) {
     return (
-      <div className="bg-white p-6 text-sm font-bold text-gray-600 shadow-sm">
+      <div className="bg-white p-6 text-sm font-medium text-gray-600 shadow-sm">
         기타 기관은 서비스를 제공하지 않아요.
       </div>
     );
   }
   if (loadFailed || !loaded) {
     return (
-      <div className="bg-white p-6 text-sm font-bold text-gray-500 shadow-sm">
+      <div className="bg-white p-6 text-sm font-medium text-gray-500 shadow-sm">
         {loadFailed
           ? "서비스 설정을 불러오지 못했어요."
           : "데이터를 불러오는 중입니다."}
@@ -156,7 +157,7 @@ export default function ServiceSettingsPanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-bold text-gray-600">
+      <p className="text-sm font-medium text-gray-600">
         종료일을 비우면 기관 계약 기간을 따르고, 한도를 비우면 상한이 없어요.
       </p>
       {rows.map((row) => {
@@ -168,7 +169,7 @@ export default function ServiceSettingsPanel({
             data-program={row.programKey}
             className="bg-white p-4 shadow-sm"
           >
-            <label className="flex items-center gap-2 text-sm font-black text-[#111827]">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <input
                 type="checkbox"
                 aria-label={`${row.label} 제공`}
@@ -176,12 +177,12 @@ export default function ServiceSettingsPanel({
                 onChange={(e) => toggle(row, e.target.checked)}
               />
               {row.label}
-              <span className="text-xs font-bold text-gray-500">
+              <span className="text-xs font-medium text-gray-500">
                 {row.provided ? "제공" : "제공 안 함"}
               </span>
             </label>
             {row.programKey === "target" && (
-              <p className="mt-1 text-xs font-bold text-gray-500">
+              <p className="mt-1 text-xs font-medium text-gray-500">
                 {TARGET_NOTICE}
               </p>
             )}
@@ -229,7 +230,7 @@ export default function ServiceSettingsPanel({
               </div>
             )}
             {needsTerm && (
-              <p className="mt-1 text-xs font-bold text-red-600">
+              <p className="mt-1 text-xs font-medium text-red-600">
                 {TERM_MONTHS_NOTICE}
               </p>
             )}
@@ -241,7 +242,7 @@ export default function ServiceSettingsPanel({
                 {row.label} 저장
               </ActionButton>
               {messages[row.programKey] && (
-                <span className="text-sm font-bold text-gray-700">
+                <span className="text-sm font-medium text-gray-700">
                   {messages[row.programKey]}
                 </span>
               )}

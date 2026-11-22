@@ -96,12 +96,18 @@ vi.mock("@/pages/admin/shared/AdminEngine", () => ({
   ),
 }));
 
+import { Toaster, toast } from "@/components/ui/toast";
 import MembersAdmin from "./MembersAdmin";
 
 const CONFIG = { title: "회원", searchPlaceholder: "검색", columns: [] };
 
 async function openMember(name: string) {
-  render(<MembersAdmin config={CONFIG} />);
+  render(
+    <>
+      <MembersAdmin config={CONFIG} />
+      <Toaster />
+    </>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: `열기 ${name}` }));
   return await screen.findByDisplayValue("가나고").catch(() => null);
 }
@@ -116,7 +122,9 @@ function pickTenantAndSave(tenantName: string) {
   fireEvent.change(select, { target: { value: option.value } });
   const saveButtons = screen.getAllByRole("button", { name: "저장" });
   // 소속 행의 저장 버튼은 소속 선택 바로 옆에 있다.
-  const row = select.closest("div")?.parentElement as HTMLElement;
+  // NativeSelect가 select를 래퍼 div로 한 번 감싸므로 parentElement를 한 단계 더 올라간다.
+  const row = select.closest("div")?.parentElement
+    ?.parentElement as HTMLElement;
   fireEvent.click(within(row).getByRole("button", { name: "저장" }));
   return saveButtons;
 }
@@ -132,6 +140,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.close();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -178,8 +187,11 @@ describe("MembersAdmin 소속 저장", () => {
     pickTenantAndSave("소속 없음");
 
     await waitFor(() =>
-      expect(alert).toHaveBeenCalledWith(expect.stringContaining("「기타」")),
+      expect(
+        document.querySelector('[data-slot="toast-title"]'),
+      ).toHaveTextContent("「기타」"),
     );
+    expect(alert).not.toHaveBeenCalled();
     expect(hoisted.rpc).not.toHaveBeenCalled();
     expect(screen.queryByText(/으\)로 옮기기/)).toBeNull();
   });

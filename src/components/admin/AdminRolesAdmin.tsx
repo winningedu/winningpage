@@ -1,8 +1,21 @@
-import { Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/lib/supabase";
 import { ADMIN_PERMISSION_LEVEL_OPTIONS } from "@/pages/admin/configs/adminSettings";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastSuccess, toastWarning } from "@/pages/admin/shared/adminToast";
+import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import {
   ActionButton,
   Field,
@@ -96,8 +109,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     const error = roleRes.error || resourceRes.error || permRes.error;
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       return;
     }
 
@@ -196,7 +208,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     const name = nameDraft.trim();
     if (!name) {
-      alert("권한 묶음 이름을 입력해 주세요.");
+      toastWarning("권한 묶음 이름을 입력해 주세요.");
       return;
     }
 
@@ -211,7 +223,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .eq("id", roleId);
       if (error) {
         setSaving(false);
-        alert(`저장 실패: ${error.message}`);
+        reportAdminError("저장 실패", error);
         return;
       }
     } else {
@@ -222,8 +234,10 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .single();
       if (error || !data) {
         setSaving(false);
-        alert(
-          `저장 실패: ${error?.message || "권한 묶음을 만들지 못했습니다."}`,
+        // 오류 없이 행이 안 돌아온 경우는 일반 문구 대신 구체적인 문장을 제목으로 쓴다.
+        reportAdminError(
+          error ? "저장 실패" : "권한 묶음을 만들지 못했습니다.",
+          error,
         );
         return;
       }
@@ -240,7 +254,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
     if (deleteError) {
       setSaving(false);
-      alert(`권한 항목 저장 실패: ${deleteError.message}`);
+      reportAdminError("권한 항목 저장 실패", deleteError);
       return;
     }
 
@@ -256,7 +270,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         .insert(rows);
       if (insertError) {
         setSaving(false);
-        alert(`권한 항목 저장 실패: ${insertError.message}`);
+        reportAdminError("권한 항목 저장 실패", insertError);
         return;
       }
     }
@@ -264,20 +278,25 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
     setSaving(false);
     closeEdit();
     await loadAll();
-    alert("저장했습니다.");
+    toastSuccess("저장했습니다.");
   }
 
   async function removeRole(role: RoleRow) {
     if (role.is_system) {
-      alert(
-        "기본 권한 묶음은 삭제할 수 없습니다. 이 묶음을 지우면 되돌릴 수단이 없습니다.",
+      toastWarning(
+        "기본 권한 묶음은 삭제할 수 없습니다.",
+        "이 묶음을 지우면 되돌릴 수단이 없습니다.",
       );
       return;
     }
     if (
-      !window.confirm(
-        `'${role.name}' 묶음을 삭제합니다. 이 묶음을 쓰던 관리자는 권한이 사라져 아무 메뉴도 보이지 않게 됩니다. 계속하시겠습니까?`,
-      )
+      !(await confirmAdmin({
+        title: `'${role.name}' 묶음을 삭제합니다.`,
+        description:
+          "이 묶음을 쓰던 관리자는 권한이 사라져 아무 메뉴도 보이지 않게 됩니다. 계속하시겠습니까?",
+        confirmLabel: "삭제",
+        destructive: true,
+      }))
     ) {
       return;
     }
@@ -288,7 +307,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
       .eq("id", role.id);
 
     if (error) {
-      alert(`삭제 실패: ${error.message}`);
+      reportAdminError("삭제 실패", error);
       return;
     }
     await loadAll();
@@ -298,7 +317,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
     return (
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-black text-[#111827]">
+          <h1 className="text-2xl font-semibold text-foreground">
             {editing.id ? "권한 묶음 수정" : "권한 묶음 등록"}
           </h1>
           <div className="flex gap-2">
@@ -321,7 +340,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         </div>
 
         {editing.is_super && (
-          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-bold text-[#7A4A12]">
+          <div className="mb-4 border border-[#B88737]/30 bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7A4A12]">
             최고 관리자 묶음은 권한 항목을 갖지 않습니다 — 판정이 전 메뉴 수정
             가능으로 단락되기 때문입니다. 새 메뉴가 생겨도 자동으로 포함되므로
             아래에서 무엇을 고르든 저장돼도 판정에 쓰이지 않습니다.
@@ -329,7 +348,7 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
         )}
 
         <div className="bg-white shadow-sm">
-          <div className="grid grid-cols-[1fr_repeat(4,110px)] border-b border-[#edf0f4] bg-[#fafafa] px-5 py-3 text-sm font-black">
+          <div className="grid grid-cols-[1fr_repeat(4,110px)] border-b bg-muted px-5 py-3 text-sm font-semibold">
             <div>메뉴</div>
             {LEVEL_CHOICES.map((choice) => (
               <div key={choice.value} className="text-center">
@@ -340,14 +359,15 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
 
           {[...grouped.entries()].map(([groupTitle, items]) => (
             <div key={groupTitle}>
-              <div className="grid grid-cols-[1fr_repeat(4,110px)] items-center border-b border-[#edf0f4] bg-[#f4f6f8] px-5 py-2">
-                <div className="text-sm font-black">{groupTitle}</div>
+              <div className="grid grid-cols-[1fr_repeat(4,110px)] items-center border-b bg-muted/50 px-5 py-2">
+                <div className="text-sm font-semibold">{groupTitle}</div>
                 {LEVEL_CHOICES.map((choice) => (
                   <div key={choice.value} className="text-center">
                     <button
                       type="button"
                       onClick={() => setGroupLevel(groupTitle, choice.value)}
-                      className="text-xs font-bold text-[#2348ff] underline"
+                      aria-label={`${groupTitle} ${choice.label} 일괄`}
+                      className="text-xs font-medium text-primary underline"
                     >
                       일괄
                     </button>
@@ -358,11 +378,11 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
               {items.map((resource) => (
                 <div
                   key={resource.key}
-                  className="grid grid-cols-[1fr_repeat(4,110px)] items-center border-b border-[#edf0f4] px-5 py-2 last:border-b-0"
+                  className="grid grid-cols-[1fr_repeat(4,110px)] items-center border-b px-5 py-2 last:border-b-0"
                 >
                   <div className="text-sm">
                     {resource.label}
-                    <span className="ml-2 font-mono text-xs text-gray-400">
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">
                       {resource.key}
                     </span>
                   </div>
@@ -371,6 +391,8 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                       <input
                         type="radio"
                         name={`level-${resource.key}`}
+                        aria-label={`${resource.label} ${choice.label}`}
+                        className="accent-primary"
                         checked={
                           (permDraft[resource.key] ?? "") === choice.value
                         }
@@ -391,57 +413,70 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
     <div>
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={loadAll}
-            className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
-          >
-            <RefreshCw size={14} />
+          <Button type="button" variant="outline" size="lg" onClick={loadAll}>
+            <RefreshCw size={14} aria-hidden="true" />
             초기화
-          </button>
+          </Button>
 
           <div className="flex items-center gap-2">
             <div className="flex items-center">
-              <input
+              <Input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={config.searchPlaceholder}
-                className="h-9 w-[280px] border border-gray-400 px-3 text-sm outline-hidden"
+                aria-label="권한 묶음 검색"
+                className="h-9 w-70 font-medium"
               />
-              <button
-                type="button"
-                className="inline-flex h-9 items-center gap-1 border border-l-0 border-gray-500 bg-white px-4 text-sm font-bold"
-              >
-                <Search size={14} />
-                검색
-              </button>
             </div>
             <ActionButton onClick={openCreate}>
-              <Plus size={14} />
+              <Plus size={14} aria-hidden="true" />
               등록하기
             </ActionButton>
           </div>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-muted-foreground shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
-        <ScrollArea axis="x" className="bg-white shadow-sm">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-[#edf0f4] bg-[#fafafa] text-left">
-                <th className="w-16 px-4 py-3 font-black">번호</th>
-                <th className="px-4 py-3 font-black">권한 묶음 이름</th>
-                <th className="px-4 py-3 font-black">포함 메뉴</th>
-                <th className="w-32 px-4 py-3 font-black">관리</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="bg-white shadow-sm">
+          <Table className="min-w-205">
+            <TableHeader>
+              <TableRow className="bg-muted hover:bg-transparent">
+                <TableHead
+                  scope="col"
+                  className="w-16 px-4 py-3 font-semibold whitespace-normal"
+                >
+                  번호
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  권한 묶음 이름
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="px-4 py-3 font-semibold whitespace-normal"
+                >
+                  포함 메뉴
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="w-32 px-4 py-3 font-semibold whitespace-normal"
+                >
+                  관리
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredRoles.map((role, index) => {
                 const perms = permsByRole[role.id] || {};
                 const keys = Object.keys(perms);
@@ -452,63 +487,73 @@ export default function AdminRolesAdmin({ config }: AdminRolesAdminProps) {
                   .slice(0, 2);
 
                 return (
-                  <tr key={role.id} className="border-b border-[#edf0f4]">
-                    <td className="px-4 py-3">{index + 1}</td>
-                    <td className="px-4 py-3 font-bold">
+                  <TableRow key={role.id}>
+                    <TableCell className="px-4 py-3">{index + 1}</TableCell>
+                    <TableCell className="px-4 py-3 whitespace-normal">
                       {role.name}
                       {role.is_super && (
-                        <span className="ml-2 border border-[#2348ff] px-2 py-0.5 text-xs font-bold text-[#2348ff]">
+                        <Badge
+                          variant="outline"
+                          className="ml-2 border-primary text-primary"
+                        >
                           최고 관리자
-                        </span>
+                        </Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 whitespace-normal text-muted-foreground">
                       {role.is_super
                         ? "전체 메뉴 (자동 포함)"
                         : keys.length === 0
                           ? "없음"
                           : `${names.join(", ")}${keys.length > names.length ? ` 외 ${keys.length - names.length}개` : ""}`}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => openEdit(role)}
-                          className="border border-gray-400 px-3 py-1 text-xs font-bold"
                         >
                           수정
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => removeRole(role)}
                           disabled={role.is_system}
-                          className="border border-gray-400 px-3 py-1 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label={
+                            role.is_system
+                              ? "기본 묶음은 삭제할 수 없습니다"
+                              : "삭제"
+                          }
                           title={
                             role.is_system
                               ? "기본 묶음은 삭제할 수 없습니다"
                               : "삭제"
                           }
                         >
-                          <Trash2 size={12} />
-                        </button>
+                          <Trash2 size={12} aria-hidden="true" />
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {filteredRoles.length === 0 && (
-                <tr>
-                  <td
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
                     colSpan={4}
-                    className="px-4 py-12 text-center font-bold text-gray-500"
+                    className="px-4 py-12 text-center text-muted-foreground"
                   >
                     권한 묶음이 없습니다.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </ScrollArea>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

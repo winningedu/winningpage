@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ActionButton,
   Field,
@@ -61,8 +67,8 @@ export default function SweepSection({
 
   return (
     <div className="bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-black">조합 비교</h2>
-      <p className="mt-1 text-xs font-bold text-gray-500">
+      <h2 className="text-xl font-semibold">조합 비교</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
         하이브리드 모드로 목록의 모든 조합을 돌립니다. 조합은 24개까지이고 빈
         칸은 운영값 하나로 채웁니다.
       </p>
@@ -107,61 +113,56 @@ export default function SweepSection({
       )}
       {result && (
         <div className="mt-4">
-          <div className="mb-2 text-sm font-bold text-gray-500">
+          <div className="mb-2 text-sm text-muted-foreground">
             질의 {result.queryCount}건 / 굵은 행이 운영값 조합입니다.
           </div>
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[70rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <Th>RRF k</Th>
-                  <Th>단어 가중치</Th>
-                  <Th>의미 가중치</Th>
-                  <Th>threshold</Th>
-                  {RECALL_KS.map((k) => (
-                    <Th key={k}>recall@{k}</Th>
-                  ))}
-                  <Th>MRR</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const isProduction = isSameParams(
-                    item.params,
-                    productionParams,
-                  );
-                  return (
-                    <tr
-                      key={formatParams(item.params)}
-                      className={`border-b border-gray-100 ${isProduction ? "bg-amber-50 font-black" : ""} ${item.status === "skipped" ? "text-gray-400" : ""}`}
-                    >
-                      <Td>{item.params.rrfK}</Td>
-                      <Td>{item.params.fullTextWeight}</Td>
-                      <Td>{item.params.semanticWeight}</Td>
-                      <Td>{item.params.matchThreshold}</Td>
-                      {item.status === "done" ? (
-                        <>
-                          {RECALL_KS.map((k) => (
-                            <Td key={k}>
-                              {formatMetric(item.metrics.recall[k])}
-                            </Td>
-                          ))}
-                          <Td>{formatMetric(item.metrics.mrr)}</Td>
-                        </>
-                      ) : (
-                        <td
-                          colSpan={RECALL_KS.length + 1}
-                          className="px-3 py-3"
-                        >
-                          시간 예산을 넘겨 건너뛰었습니다.
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </ScrollArea>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <Th>RRF k</Th>
+                <Th>단어 가중치</Th>
+                <Th>의미 가중치</Th>
+                <Th>threshold</Th>
+                {RECALL_KS.map((k) => (
+                  <Th key={k}>recall@{k}</Th>
+                ))}
+                <Th>MRR</Th>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => {
+                const isProduction = isSameParams(
+                  item.params,
+                  productionParams,
+                );
+                return (
+                  <TableRow
+                    key={formatParams(item.params)}
+                    className={`${isProduction ? "bg-amber-50 font-semibold" : ""} ${item.status === "skipped" ? "text-muted-foreground" : ""}`}
+                  >
+                    <Td>{item.params.rrfK}</Td>
+                    <Td>{item.params.fullTextWeight}</Td>
+                    <Td>{item.params.semanticWeight}</Td>
+                    <Td>{item.params.matchThreshold}</Td>
+                    {item.status === "done" ? (
+                      <>
+                        {RECALL_KS.map((k) => (
+                          <Td key={k}>
+                            {formatMetric(item.metrics.recall[k])}
+                          </Td>
+                        ))}
+                        <Td>{formatMetric(item.metrics.mrr)}</Td>
+                      </>
+                    ) : (
+                      <TableCell colSpan={RECALL_KS.length + 1}>
+                        시간 예산을 넘겨 건너뛰었습니다.
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

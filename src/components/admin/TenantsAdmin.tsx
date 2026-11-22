@@ -1,8 +1,27 @@
 import { Copy, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { site } from "@/config/site";
 import { supabase } from "@/lib/supabase";
+import { reportAdminError } from "@/pages/admin/shared/adminErrors";
+import { toastWarning } from "@/pages/admin/shared/adminToast";
 import {
   ActionButton,
   Field,
@@ -10,6 +29,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
+import { copyToClipboard } from "@/pages/admin/tenants/copyToClipboard";
 import TenantDetail from "@/pages/admin/tenants/TenantDetail";
 import {
   deletionDdayText,
@@ -93,6 +113,8 @@ interface TenantsAdminProps {
   config: { title: string; searchPlaceholder: string; [key: string]: unknown };
 }
 
+const HEAD = "whitespace-normal px-3 py-3 text-left font-semibold";
+
 export default function TenantsAdmin({ config }: TenantsAdminProps) {
   const [view, setView] = useState<ViewMode>("list");
   const [rows, setRows] = useState<TenantRow[]>([]);
@@ -121,8 +143,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setLoading(false);
 
     if (error) {
-      console.error(error);
-      alert(`${config.title} 조회 실패: ${error.message}`);
+      reportAdminError(`${config.title} 조회 실패`, error);
       setRows([]);
       return;
     }
@@ -181,18 +202,14 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     if (saving) return;
 
     if (!form.name.trim()) {
-      alert("이름 항목을 입력해주세요.");
+      toastWarning("이름 항목을 입력해주세요.");
       return;
     }
 
     setSaving(true);
 
-    // WC067(최고 관리자 아님)은 fn_create_tenant 가 raise 하는 원문 그대로
-    // 보여준다 — 이 화면 진입 자체가 admin_resources 'tenants' 권한을
-    // 통과해야 하므로, 여기 닿고도 이 에러를 받는다면 "메뉴 접근은 되는데
-    // 발급 권한(최고 관리자 전용)은 없는" 드문 경합 상황이라 원문이 더
-    // 정확하다(CouponAdmin 의 DB 원문 은폐 규범과 달리, 이 RPC 는 에러가
-    // 이 한 가지뿐이라 매핑 테이블을 따로 둘 실익이 없다).
+    // 오류 원문은 화면에 싣지 않는다(reportAdminError 가 매핑된 안내만 보인다).
+    // WC067(최고 관리자 아님, not_super_admin)은 adminErrors 매핑이 한국어 안내로 바꾼다.
     const { data, error } = await supabase.rpc("fn_create_tenant", {
       p_name: form.name.trim(),
       p_region: form.region,
@@ -203,7 +220,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     setSaving(false);
 
     if (error) {
-      alert(`등록 실패: ${error.message}`);
+      reportAdminError("등록 실패", error);
       return;
     }
 
@@ -215,14 +232,6 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
       return;
     }
     setIssuedTenant(created);
-  }
-
-  async function copyCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-    } catch (error) {
-      console.error(error);
-    }
   }
 
   if (view === "detail" && detailId) {
@@ -238,7 +247,7 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
   if (view === "create") {
     return (
       <div>
-        <h1 className="mb-5 text-2xl font-black text-[#111827]">
+        <h1 className="mb-5 text-2xl font-semibold text-foreground">
           {config.title} 등록
         </h1>
 
@@ -309,177 +318,222 @@ export default function TenantsAdmin({ config }: TenantsAdminProps) {
     <div>
       {issuedTenant && (
         // 발급 직후 결과 모달 — 코드는 이 순간을 놓치면 목록에서 다시 찾아야
-        // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다).
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-lg font-black">기관을 발급했습니다</h2>
-            <div className="mb-1 text-sm font-bold text-gray-500">
-              {issuedTenant.name}
+        // 한다(trg_tenants_lock_code 로 불변이니 재발급도 못 한다). 확인으로만 닫히도록
+        // 닫기 시도를 모두 취소한다. 바깥 누름은 AlertDialog 가 기본으로 무시하고,
+        // Esc 는 onOpenChange 에서 막는다.
+        // eventDetails.cancel(): Base UI 1.9 onOpenChange 취소 API
+        <AlertDialog
+          open
+          onOpenChange={(_open, eventDetails) => eventDetails.cancel()}
+        >
+          <AlertDialogContent className="data-[size=default]:sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-lg font-semibold">
+                기관을 발급했습니다
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+            <div>
+              <div className="mb-1 text-sm font-medium text-gray-500">
+                {issuedTenant.name}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-semibold tracking-widest">
+                  {issuedTenant.code}
+                </span>
+                <ActionButton
+                  variant="light"
+                  onClick={() => copyToClipboard(issuedTenant.code)}
+                >
+                  <Copy size={14} />
+                  복사
+                </ActionButton>
+              </div>
             </div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="flex-1 border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-lg font-black tracking-widest">
-                {issuedTenant.code}
-              </span>
-              <ActionButton
-                variant="light"
-                onClick={() => copyCode(issuedTenant.code)}
-              >
-                <Copy size={14} />
-                복사
+            <AlertDialogFooter>
+              <ActionButton onClick={() => setIssuedTenant(null)}>
+                확인
               </ActionButton>
-            </div>
-            <ActionButton onClick={() => setIssuedTenant(null)}>
-              확인
-            </ActionButton>
-          </div>
-        </div>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       <div className="mb-6 bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="lg"
               onClick={loadRows}
-              className="inline-flex h-9 items-center gap-2 border border-gray-500 bg-white px-4 text-sm font-bold"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
               초기화
-            </button>
-            <input
+            </Button>
+            <Input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder={config.searchPlaceholder}
-              className="h-9 w-[15rem] border border-gray-400 px-3 text-sm outline-hidden"
+              aria-label={config.searchPlaceholder}
+              className="h-9 w-[15rem]"
             />
           </div>
 
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={openCreate}
-            className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap bg-[#2348ff] px-4 text-sm font-black text-white"
+            className="shrink-0 font-semibold"
           >
-            <Plus size={14} />
+            <Plus size={14} aria-hidden="true" />
             등록
-          </button>
+          </Button>
         </div>
 
-        <h1 className="mt-4 text-xl font-black">{config.title}</h1>
+        <h1 className="mt-4 text-xl font-semibold">{config.title}</h1>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center text-sm font-bold text-gray-500 shadow-sm">
+        <div
+          role="status"
+          className="bg-white p-12 text-center text-sm font-medium text-gray-500 shadow-sm"
+        >
           데이터를 불러오는 중입니다.
         </div>
       ) : (
         <div className="bg-white p-6 shadow-sm">
-          <div className="mb-4 text-sm font-bold text-gray-500">
+          <div className="mb-4 text-sm font-medium text-gray-500">
             전체 <span className="text-blue-600">{filteredRows.length}</span>건
           </div>
 
-          <ScrollArea axis="x">
-            <table className="w-full min-w-[45rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-y border-gray-300">
-                  <th className="w-14 px-3 py-3 text-left">번호</th>
-                  <th className="px-3 py-3 text-left">이름</th>
-                  <th className="px-3 py-3 text-left">지역</th>
-                  <th className="px-3 py-3 text-left">기관 유형</th>
-                  <th className="px-3 py-3 text-left">소속코드</th>
-                  <th className="px-3 py-3 text-left">등급(내부용)</th>
-                  {hq && (
-                    <>
-                      <th className="px-3 py-3 text-left">계약 기간</th>
-                      <th className="px-3 py-3 text-left">MOU</th>
-                      <th className="px-3 py-3 text-left">유예 종료일</th>
-                      <th className="px-3 py-3 text-left">삭제 D-day</th>
-                    </>
-                  )}
-                  <th className="px-3 py-3 text-left">생성일</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={hq ? 11 : 7}
-                      className="py-12 text-center text-gray-400"
-                    >
-                      등록된 데이터가 없습니다.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRows.map((row, index) => (
-                    <tr key={row.id} className="border-b border-gray-100">
-                      <td className="px-3 py-3">{index + 1}</td>
-                      <td className="px-3 py-3 font-bold">
-                        {hq ? (
-                          <button
-                            type="button"
-                            onClick={() => openDetail(row.id)}
-                            className="text-left font-bold text-blue-700 underline"
-                          >
-                            {row.name}
-                          </button>
-                        ) : (
-                          row.name
-                        )}
-                        {hq && row.is_catch_all && (
-                          <span className="ml-2 bg-gray-200 px-2 py-0.5 text-xs font-black text-gray-700">
-                            기타
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">{row.region}</td>
-                      <td className="px-3 py-3">{row.org_type}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[0.8125rem]">
-                            {row.code}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => copyCode(row.code)}
-                            aria-label="소속코드 복사"
-                            className="text-gray-400 hover:text-black"
-                          >
-                            <Copy size={14} />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">{row.tier}</td>
-                      {hq && (
-                        <>
-                          <td className="px-3 py-3">
-                            {row.contract_start_date || row.contract_end_date
-                              ? `${row.contract_start_date ?? ""} ~ ${row.contract_end_date ?? ""}`.trim()
-                              : "-"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {mouLabel(row.mou_status)}
-                          </td>
-                          <td className="px-3 py-3">
-                            {row.grace_ends_on ?? "-"}
-                          </td>
-                          <td className="px-3 py-3">
-                            {deletionDdayText({
-                              contractEnd: row.contract_end_date ?? null,
-                              graceEnds: row.grace_ends_on ?? null,
-                              defaultGraceDays: graceDays,
-                              today: todayKst(),
-                            }) ?? "-"}
-                          </td>
-                        </>
-                      )}
-                      <td className="px-3 py-3">
-                        {formatDate(row.created_at)}
-                      </td>
-                    </tr>
-                  ))
+          <Table className="min-w-[45rem] border-collapse">
+            <TableHeader>
+              <TableRow className="border-y border-gray-300 hover:bg-transparent">
+                <TableHead scope="col" className={`${HEAD} w-14`}>
+                  번호
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  이름
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  지역
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  기관 유형
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  소속코드
+                </TableHead>
+                <TableHead scope="col" className={HEAD}>
+                  등급(내부용)
+                </TableHead>
+                {hq && (
+                  <>
+                    <TableHead scope="col" className={HEAD}>
+                      계약 기간
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      MOU
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      유예 종료일
+                    </TableHead>
+                    <TableHead scope="col" className={HEAD}>
+                      삭제 D-day
+                    </TableHead>
+                  </>
                 )}
-              </tbody>
-            </table>
-          </ScrollArea>
+                <TableHead scope="col" className={HEAD}>
+                  생성일
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={hq ? 11 : 7}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    등록된 데이터가 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredRows.map((row, index) => (
+                  <TableRow key={row.id} className="border-b border-gray-100">
+                    <TableCell className="px-3 py-3">{index + 1}</TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3 font-medium">
+                      {hq ? (
+                        <button
+                          type="button"
+                          onClick={() => openDetail(row.id)}
+                          className="text-left font-medium text-primary underline"
+                        >
+                          {row.name}
+                        </button>
+                      ) : (
+                        row.name
+                      )}
+                      {hq && row.is_catch_all && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-gray-700"
+                        >
+                          기타
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">{row.region}</TableCell>
+                    <TableCell className="whitespace-normal px-3 py-3">
+                      {row.org_type}
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[0.8125rem]">
+                          {row.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(row.code)}
+                          aria-label="소속코드 복사"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy size={14} aria-hidden="true" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-3">{row.tier}</TableCell>
+                    {hq && (
+                      <>
+                        <TableCell className="px-3 py-3">
+                          {row.contract_start_date || row.contract_end_date
+                            ? `${row.contract_start_date ?? ""} ~ ${row.contract_end_date ?? ""}`.trim()
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {mouLabel(row.mou_status)}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {row.grace_ends_on ?? "-"}
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          {deletionDdayText({
+                            contractEnd: row.contract_end_date ?? null,
+                            graceEnds: row.grace_ends_on ?? null,
+                            defaultGraceDays: graceDays,
+                            today: todayKst(),
+                          }) ?? "-"}
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell className="px-3 py-3">
+                      {formatDate(row.created_at)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

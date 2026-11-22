@@ -255,7 +255,7 @@ export default defineHandler({
           res,
           "detail",
           500,
-          `초대 메일 발송에 실패했습니다: ${inviteError?.message || "알 수 없는 오류"}`,
+          "초대 메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         );
       }
 
@@ -292,7 +292,7 @@ export default defineHandler({
         res,
         "detail",
         500,
-        `프로필 생성에 실패했습니다: ${profileError.message}`,
+        "프로필 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       );
     }
 
@@ -321,7 +321,7 @@ export default defineHandler({
         res,
         "detail",
         500,
-        `관리자 등록에 실패했습니다: ${memberError.message}`,
+        "관리자 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       );
     }
 
