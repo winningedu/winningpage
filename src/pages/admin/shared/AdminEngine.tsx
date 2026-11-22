@@ -1947,6 +1947,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                       <button
                         type="button"
                         onClick={() => onEdit(row)}
+                        aria-label={config.readOnly ? "상세 보기" : "수정"}
                         className="text-gray-500 hover:text-black"
                       >
                         {config.readOnly ? (
@@ -1979,6 +1980,7 @@ export function AdminTable<T extends AdminRow = AdminRow>({
                       <button
                         type="button"
                         onClick={() => onDelete(row)}
+                        aria-label="삭제"
                         className="text-gray-500 hover:text-red-600"
                       >
                         <Trash2 size={17} />

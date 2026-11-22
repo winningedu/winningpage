@@ -143,3 +143,25 @@ describe("AdminTable 한글 줄바꿈", () => {
     );
   });
 });
+
+describe("AdminTable 행 버튼 접근성 이름", () => {
+  test("수정/삭제 아이콘 버튼이 이름을 가진다", () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const rows = [{ id: "r1", title: "첫째" }];
+    render(
+      <AdminTable
+        config={CONFIG as never}
+        rows={rows}
+        page={1}
+        setPage={() => {}}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    expect(onEdit).toHaveBeenCalledWith(rows[0]);
+    expect(onDelete).toHaveBeenCalledWith(rows[0]);
+  });
+});
