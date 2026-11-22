@@ -148,6 +148,50 @@ describe("AdminSidebar 메뉴", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("모두 펼치기를 누르면 모든 그룹이 열리고 라벨이 모두 접기로 바뀐다", async () => {
+    renderShell("/admin/banners");
+
+    const expandAll = await screen.findByRole("button", {
+      name: "모두 펼치기",
+    });
+    const groups = ["메인화면 관리", "입시정보 관리"];
+
+    fireEvent.click(expandAll);
+
+    for (const name of groups) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    }
+    expect(screen.getByRole("button", { name: "모두 접기" })).toBeTruthy();
+  });
+
+  it("모두 접기를 누르면 모든 그룹이 닫히고 라벨이 모두 펼치기로 바뀐다", async () => {
+    renderShell("/admin/banners");
+
+    fireEvent.click(await screen.findByRole("button", { name: "모두 펼치기" }));
+    fireEvent.click(screen.getByRole("button", { name: "모두 접기" }));
+
+    expect(
+      screen.getByRole("button", { name: "메인화면 관리" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", { name: "입시정보 관리" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "모두 펼치기" })).toBeTruthy();
+  });
+
+  it("보이는 그룹이 없으면 모두 펼치기 버튼도 그리지 않는다", async () => {
+    state.allowed = new Set();
+    renderShell("/admin/banners");
+
+    await screen.findByText("관리자");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.queryByRole("button", { name: /^모두/ })).toBeNull();
+  });
+
   it("Cmd+B 를 눌러도 사이드바는 그대로 있고 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {
     renderShell("/admin/banners");
     await screen.findByRole("link", { name: "팝업 관리" });

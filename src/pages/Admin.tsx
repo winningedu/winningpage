@@ -561,6 +561,12 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
     loadMenuGroups();
   }, []);
 
+  const allOpen = menuGroups.every((group) => open.has(group.title));
+
+  function toggleAll() {
+    setOpen(allOpen ? new Set() : new Set(menuGroups.map((g) => g.title)));
+  }
+
   function toggle(title) {
     setOpen((prev) => {
       const next = new Set(prev);
@@ -583,6 +589,15 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
         <SidebarContent className="overflow-hidden">
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-2 py-3">
+              {menuGroups.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className="mb-1 rounded px-2 py-1 text-xs text-white/70 outline-hidden hover:text-white focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                >
+                  {allOpen ? "모두 접기" : "모두 펼치기"}
+                </button>
+              )}
               {menuGroups.map((group) => {
                 const isOpen = open.has(group.title);
 
