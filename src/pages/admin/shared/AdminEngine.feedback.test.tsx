@@ -1,5 +1,5 @@
 // AdminForm 과 uploadImage 의 안내. 알림창과 브라우저 확인창 대신 토스트와 확인 대화상자를 쓴다.
-// (저장하지 않은 변경사항 이탈 확인 두 곳은 1단계에서 window.confirm 그대로라 여기서 다루지 않는다.)
+// (뒤로가기 popstate 의 이탈 확인은 동기 응답이 필요해 window.confirm 그대로라 여기서 다루지 않는다.)
 
 import "@testing-library/jest-dom/vitest";
 import {
@@ -221,5 +221,94 @@ describe("uploadImage 안내", () => {
     await expect(accepted).resolves.toHaveLength(1);
     expect(storage.uploads).toHaveLength(1);
     expect(confirmSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("AdminForm 저장하지 않은 변경사항 이탈 확인", () => {
+  function renderDirtyForm() {
+    const onCancel = vi.fn();
+    const confirmSpy = vi.spyOn(window, "confirm");
+    render(
+      <>
+        <AdminForm
+          config={
+            {
+              title: "테스트",
+              table: "t",
+              order: "id",
+              columns: [],
+              fields: [{ key: "name", label: "이름", type: "text" }],
+            } as never
+          }
+          mode="create"
+          row={null}
+          createDefaults={{ name: "프리필" }}
+          onCancel={onCancel}
+          onSave={vi.fn()}
+          onUpload={(async () => null) as never}
+        />
+        <ConfirmAdminHost />
+      </>,
+    );
+    fireEvent.change(screen.getByDisplayValue("프리필"), {
+      target: { value: "고침" },
+    });
+    return { onCancel, confirmSpy };
+  }
+
+  test("고친 폼에서 취소를 누르면 확인 대화상자가 뜨고, 돌아가기를 고르면 폼이 그대로 열려 있다", async () => {
+    const { onCancel, confirmSpy } = renderDirtyForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent(
+      "저장하지 않은 변경사항이 있습니다. 나가시겠습니까?",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue("고침")).toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  test("대화상자에서 나가기를 확인하면 폼을 닫는다", async () => {
+    const { onCancel, confirmSpy } = renderDirtyForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "나가기" }));
+
+    await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  test("고치지 않은 폼은 묻지 않고 바로 닫는다", () => {
+    const onCancel = vi.fn();
+    render(
+      <AdminForm
+        config={
+          {
+            title: "테스트",
+            table: "t",
+            order: "id",
+            columns: [],
+            fields: [{ key: "name", label: "이름", type: "text" }],
+          } as never
+        }
+        mode="create"
+        row={null}
+        createDefaults={{ name: "프리필" }}
+        onCancel={onCancel}
+        onSave={vi.fn()}
+        onUpload={(async () => null) as never}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,6 +7,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -315,10 +316,10 @@ export default function SchoolAdminPanel({
         </div>
         <div className="flex flex-wrap items-end gap-4">
           <Field label="기관">
-            <input
+            <Input
               value={tenantName}
               readOnly
-              className="h-10 w-full border border-gray-300 bg-gray-50 px-3 text-sm font-medium"
+              className="h-10 bg-muted font-medium"
             />
           </Field>
           <Field label="이름">

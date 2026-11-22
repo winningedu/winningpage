@@ -846,10 +846,14 @@ export function AdminForm<T extends AdminRow = AdminRow>({
     };
   }, []);
 
-  function handleCancel() {
+  async function handleCancel() {
     if (
       dirty &&
-      !window.confirm("저장하지 않은 변경사항이 있습니다. 나가시겠습니까?")
+      !(await confirmAdmin({
+        title: "저장하지 않은 변경사항이 있습니다. 나가시겠습니까?",
+        confirmLabel: "나가기",
+        destructive: true,
+      }))
     )
       return;
 
