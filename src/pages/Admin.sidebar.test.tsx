@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -35,6 +35,24 @@ import { AdminLayout } from "./Admin";
 function renderShell(path = "/admin/banners") {
   return render(
     <MemoryRouter initialEntries={[path]}>
+      <AdminLayout />
+    </MemoryRouter>,
+  );
+}
+
+function GoTo({ to }: { to: string }) {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(to)}>
+      이동 {to}
+    </button>
+  );
+}
+
+function renderShellWithNav(path: string, to: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <GoTo to={to} />
       <AdminLayout />
     </MemoryRouter>,
   );
@@ -81,7 +99,7 @@ describe("AdminSidebar 메뉴", () => {
     ).toBeNull();
   });
 
-  it("모든 그룹이 처음부터 펼쳐져 있고 현재 섹션 링크가 활성으로 표시된다", async () => {
+  it("현재 섹션이 속한 그룹이 펼쳐져 있고 그 안의 링크가 활성으로 표시된다", async () => {
     renderShell("/admin/admissionGuidelines");
 
     const toggle = await screen.findByRole("button", { name: "입시정보 관리" });
@@ -91,6 +109,43 @@ describe("AdminSidebar 메뉴", () => {
         toggle.closest("[data-slot=sidebar-group]") as HTMLElement,
       ).getByRole("link", { name: "대입 모집 요강" }),
     ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("처음에는 현재 섹션이 속한 그룹만 펼쳐져 있다", async () => {
+    renderShell("/admin/banners");
+
+    const current = await screen.findByRole("button", {
+      name: "메인화면 관리",
+    });
+    const other = screen.getByRole("button", { name: "입시정보 관리" });
+    expect(current).toHaveAttribute("aria-expanded", "true");
+    expect(other).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "대입 모집 요강" })).toBeNull();
+  });
+
+  it("다른 그룹의 항목으로 이동하면 그 그룹을 추가로 펼치고 기존 그룹은 닫지 않는다", async () => {
+    renderShellWithNav("/admin/banners", "/admin/admissionGuidelines");
+
+    const first = await screen.findByRole("button", { name: "메인화면 관리" });
+    const second = screen.getByRole("button", { name: "입시정보 관리" });
+    expect(second).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: /^이동/ }));
+
+    expect(second).toHaveAttribute("aria-expanded", "true");
+    expect(first).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("사용자가 접은 그룹은 같은 그룹 안에서 이동해도 접힌 채로 있다", async () => {
+    renderShellWithNav("/admin/banners", "/admin/popups");
+
+    const toggle = await screen.findByRole("button", { name: "메인화면 관리" });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: /^이동/ }));
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("Cmd+B 를 눌러도 사이드바는 그대로 있고 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {

@@ -506,9 +506,28 @@ const ADMIN_SIDEBAR_THEME = {
 } as CSSProperties;
 
 function AdminSidebar({ activeKey }: { activeKey: string }) {
+  // 자식 탭(acceptanceRates/admissionCaseLogos)에 있을 때도 사이드바에서는
+  // 탭 목록의 첫 번째 key(admissionSusiJungsi)를 기준으로 활성 항목을 매칭한다.
+  const sidebarActiveKey = CONFIGS[activeKey]?.tabs
+    ? CONFIGS[activeKey].tabs[0].key
+    : activeKey;
+  const activeGroupTitle = MENU_GROUPS.find((group) =>
+    group.items.some((item) => item.key === sidebarActiveKey),
+  )?.title;
+
+  // 처음에는 현재 항목의 그룹만 펼친다. 다른 그룹의 항목으로 이동하면 그 그룹을
+  // 추가로 펼치되, 이미 열린 그룹은 닫지 않는다(렌더 중 prop 변경에 맞춰 state 보정).
   const [open, setOpen] = useState(
-    () => new Set(MENU_GROUPS.map((group) => group.title)),
+    () => new Set(activeGroupTitle ? [activeGroupTitle] : []),
   );
+  const [prevActiveGroupTitle, setPrevActiveGroupTitle] =
+    useState(activeGroupTitle);
+  if (activeGroupTitle !== prevActiveGroupTitle) {
+    setPrevActiveGroupTitle(activeGroupTitle);
+    if (activeGroupTitle && !open.has(activeGroupTitle)) {
+      setOpen(new Set(open).add(activeGroupTitle));
+    }
+  }
 
   // 권한이 있는 메뉴만 그린다 — 라우트 가드(requireAdminMiddleware)와 **같은 규칙**을
   // 쓴다(canAccessSection). 예전에는 MENU_GROUPS 를 무조건 전부 그려서, 「접근 불가」로
@@ -541,11 +560,6 @@ function AdminSidebar({ activeKey }: { activeKey: string }) {
   useEffect(() => {
     loadMenuGroups();
   }, []);
-  // 자식 탭(acceptanceRates/admissionCaseLogos)에 있을 때도 사이드바에서는
-  // 탭 목록의 첫 번째 key(admissionSusiJungsi)를 기준으로 활성 항목을 매칭한다.
-  const sidebarActiveKey = CONFIGS[activeKey]?.tabs
-    ? CONFIGS[activeKey].tabs[0].key
-    : activeKey;
 
   function toggle(title) {
     setOpen((prev) => {
