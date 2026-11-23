@@ -613,6 +613,36 @@ begin
   perform pg_temp.expect_int('NY2 refund', q.refund_amount, 155000);
 end $$;
 
+-- 구매자 프로필 행이 없으면 날짜가 조용히 null 이 되지 않고 WC010 으로 거부한다.
+-- (FK 가 막는 상태라 트리거를 끄고 프로필 행만 지운다. 트랜잭션 로컬이고 마지막에 ROLLBACK.)
+do $$
+declare
+  p uuid; s uuid;
+begin
+  p := pg_temp.mk_user('ny3-p@t.local', 'user', 'parent');
+  s := pg_temp.mk_user('ny3-s@t.local', 'user', 'student');
+  perform pg_temp.mk_order('zt-ny3', p, s,
+    '[{"slug":"zt-goal-1m","list":25000,"price":25000}]', 0, '2026-11-23T03:00:00Z');
+  set local session_replication_role = replica;
+  delete from public.profiles where id = p;
+  set local session_replication_role = origin;
+
+  begin
+    perform public.fn_grant_program_access_for_order('zt-ny3', p, '2026-11-23T03:00:00Z');
+    raise exception '[FAIL] NY3 부여가 거부되지 않았다';
+  exception when sqlstate 'WC010' then
+    raise notice '[PASS] NY3 부여 구매자 프로필 없음 WC010';
+  end;
+
+  perform pg_temp.as_user((select id from public.profiles where email = 'admin@t.local'));
+  begin
+    perform * from public.fn_refund_quote('zt-ny3', null, false, '2026-11-24T03:00:00Z');
+    raise exception '[FAIL] NY3 환불 산정이 거부되지 않았다';
+  exception when sqlstate 'WC010' then
+    raise notice '[PASS] NY3 환불 구매자 프로필 없음 WC010';
+  end;
+end $$;
+
 do $$ begin raise notice '=== refund-quote-ver10.spec: 전체 통과 ==='; end $$;
 
 rollback;

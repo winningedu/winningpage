@@ -66,6 +66,9 @@ begin
   v_paid_at := coalesce(p_paid_at, v_order.paid_at, now());
   -- 구매자(결제한 학부모)의 시간대. 이용 기간의 하루, 개월 경계가 이 시간대 기준이다.
   select pr.time_zone into v_tz from public.profiles pr where pr.id = v_order.parent_profile_id;
+  if v_tz is null then
+    raise exception 'buyer_profile_not_found' using errcode = 'WC010';
+  end if;
   v_anchor  := public.fn_day_start(public.fn_local_date(v_paid_at, v_tz), v_tz);
 
   select count(*) into v_item_count from public.order_items where order_id = p_order_id;
@@ -383,15 +386,18 @@ declare
 begin
   select * into v_order from public.orders o where o.id = p_order_id;
 
-  -- 구매자(결제한 학부모)의 시간대. 부여 때와 같은 시간대로 월 단계를 센다.
-  select pr.time_zone into v_tz from public.profiles pr where pr.id = v_order.parent_profile_id;
-
   -- 소유권 - fn_request_refund 와 같은 쌍 판정(존재 스캐닝 방지, Ver9 유지).
   if v_order.id is null
      or (v_caller is distinct from v_order.student_profile_id
          and v_caller is distinct from v_order.parent_profile_id
          and not public.is_admin()) then
     raise exception 'order_not_found_or_not_owned' using errcode = 'WC005';
+  end if;
+
+  -- 구매자(결제한 학부모)의 시간대. 부여 때와 같은 시간대로 월 단계를 센다.
+  select pr.time_zone into v_tz from public.profiles pr where pr.id = v_order.parent_profile_id;
+  if v_tz is null then
+    raise exception 'buyer_profile_not_found' using errcode = 'WC010';
   end if;
 
   if v_order.status <> 'paid' then
