@@ -278,6 +278,16 @@ export default function SurveyStepShell() {
         showAnswerProblem(result.errors);
         return null;
       }
+      // Other 4xx answers repeat on retry, so the server message is shown as
+      // is (like consume's blocked codes); retry is for network and 5xx only.
+      if (
+        result.reason === "rejected" &&
+        result.status < 500 &&
+        result.message
+      ) {
+        window.alert(result.message);
+        return null;
+      }
       window.alert("진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.");
       return null;
     }

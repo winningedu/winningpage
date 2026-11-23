@@ -636,6 +636,42 @@ describe("SurveyStepShell v3 제출", () => {
     );
   });
 
+  it("다시 해도 같은 거절(4xx)은 다시 시도 안내 대신 서버 메시지를 보인다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValue({
+      ok: false,
+      reason: "rejected",
+      status: 403,
+      code: "FORBIDDEN",
+      message: "본인 제출 건만 저장할 수 있습니다.",
+    });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(window.alert).toHaveBeenCalledWith(
+      "본인 제출 건만 저장할 수 있습니다.",
+    );
+  });
+
+  it("서버 오류(5xx)는 다시 시도 안내를 보인다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValue({
+      ok: false,
+      reason: "rejected",
+      status: 500,
+      code: "INTERNAL",
+      message: "학습진단 채점에 실패했습니다.",
+    });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(window.alert).toHaveBeenCalledWith(
+      "진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    );
+  });
+
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {
     resolveMock.mockResolvedValue({ ok: false });
     const onResult = vi.fn();
