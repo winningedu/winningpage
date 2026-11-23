@@ -66,6 +66,16 @@ export const pageTitle = (page: number) => {
 /** "01" style page number of the PDF toc and page eyebrows. */
 export const twoDigitPage = (page: number) => String(page).padStart(2, "0");
 
+/** PDF p13-p16 planner layout words (spec row 122, 22 r111-r112); no sheet cell holds them. */
+export const PLANNER_LABELS = {
+  /** task table columns */
+  columns: ["영역", "과제", "마감", "완료 기준", "완료일"],
+  planMinutes: "계획 ____분",
+  actualMinutes: "실제 ____분",
+  weekendCheck: "주말 점검",
+  weekendItems: ["실행률", "밀린 요일\u00b7과목", "다음 주 조정"],
+} as const;
+
 export const REPORT_LABELS = {
   reportName: "학습진단 리포트",
   /** PDF cover */

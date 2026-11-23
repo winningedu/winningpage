@@ -36,8 +36,32 @@ describe("PlannerPage (22 r109-r113)", () => {
           r.textContent?.includes("TASK1") && !r.textContent.includes("TASKB1"),
       ) as HTMLElement,
     ).getAllByRole("cell");
-    expect(blank).toHaveLength(4);
+    expect(blank).toHaveLength(5);
     expect(blank[3]).toBeEmptyDOMElement();
+    expect(blank[4]).toBeEmptyDOMElement();
+  });
+
+  it("heads the task table with the PDF p13 columns", () => {
+    render(<PlannerPage page={planner(1)} no={12} />);
+    expect(
+      screen.getAllByRole("columnheader").map((h) => h.textContent),
+    ).toEqual(["영역", "과제", "마감", "완료 기준", "완료일"]);
+  });
+
+  it("gives every day cell the plan and actual minute lines (spec row 122)", () => {
+    render(<PlannerPage page={planner(1)} no={12} />);
+    for (const cell of screen.getAllByTestId("day-cell")) {
+      expect(within(cell).getByText("계획 ____분")).toBeInTheDocument();
+      expect(within(cell).getByText("실제 ____분")).toBeInTheDocument();
+    }
+  });
+
+  it("draws the weekend check box with its three blanks (PDF p13)", () => {
+    render(<PlannerPage page={planner(1)} no={12} />);
+    const box = screen.getByRole("region", { name: "주말 점검" });
+    for (const t of ["실행률", "밀린 요일\u00b7과목", "다음 주 조정"]) {
+      expect(within(box).getByText(t)).toBeInTheDocument();
+    }
   });
 
   it("marks highlighted days (22 r112)", () => {
