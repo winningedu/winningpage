@@ -27,8 +27,19 @@ const ENV = {
   VERCEL_ANALYTICS_TEAM_ID: "team_site",
 };
 
-const get = (query: Record<string, string>) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string>,
+  zone: string | null = "Asia/Seoul",
+) =>
+  callHandler(
+    (req, res) => {
+      if (zone) req.headers["x-time-zone"] = zone;
+      return handler(req, res);
+    },
+    undefined,
+    "GET",
+    query,
+  );
 
 const RANGE = { from: "2026-11-01", to: "2026-11-07" };
 
@@ -281,6 +292,43 @@ describe("GET /api/admin/web-analytics", () => {
     expect(events?.searchParams.get("filter")).toBe(
       "eventName in ('signup_complete','service_start','diagnosis_complete','checkout_start','payment_complete','consult_apply','kakao_inquiry_click','report_export','paywall_cta_click','ai_regenerate')",
     );
+  });
+
+  test("서울 기간 2026-11-01..2026-11-30 은 since 2026-10-31T15:00:00Z until 2026-11-30T14:59:59.999Z 로 묻는다", async () => {
+    await get({ from: "2026-11-01", to: "2026-11-30" });
+
+    for (const call of fetchMock.mock.calls) {
+      const url = new URL(String(call[0]));
+      expect(url.searchParams.get("since")).toBe(
+        String(Date.parse("2026-10-31T15:00:00Z")),
+      );
+      expect(url.searchParams.get("until")).toBe(
+        String(Date.parse("2026-11-30T15:00:00Z") - 1),
+      );
+    }
+  });
+
+  test("로스앤젤레스 기간은 같은 날짜라도 그 시간대의 하루 경계로 묻는다", async () => {
+    await get({ from: "2026-11-01", to: "2026-11-30" }, "America/Los_Angeles");
+
+    for (const call of fetchMock.mock.calls) {
+      const url = new URL(String(call[0]));
+      // 11월 1일은 PDT(-07:00), 12월 1일은 PST(-08:00)
+      expect(url.searchParams.get("since")).toBe(
+        String(Date.parse("2026-11-01T07:00:00Z")),
+      );
+      expect(url.searchParams.get("until")).toBe(
+        String(Date.parse("2026-12-01T08:00:00Z") - 1),
+      );
+    }
+  });
+
+  test("X-Time-Zone 헤더가 없으면 400 TIME_ZONE_REQUIRED 이고 Vercel 을 부르지 않는다", async () => {
+    const r = await get(RANGE, null);
+
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test("합계는 visits/count 대신 visits/aggregate by=environment 를 같은 기간으로 부른다", async () => {

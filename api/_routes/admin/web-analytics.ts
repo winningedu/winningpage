@@ -1,10 +1,14 @@
-// GET /api/admin/web-analytics?from=YYYY-MM-DD&to=YYYY-MM-DD
+// GET /api/admin/web-analytics?from=YYYY-MM-DD&to=YYYY-MM-DD  (X-Time-Zone 필수: from, to 는 보는 사람 시간대의 날짜)
 //
 // 본사 방문 분석 화면(계획 10번). 이 사이트의 Vercel 프로젝트에서 방문 합계, 많이 본 페이지,
 // 이벤트 10개 횟수와 속성별 나눔을 읽는다. 권한: 로그인 + webAnalytics 보기 권한.
 // env 가 없으면 503, Vercel 이 오류를 내면 502.
 
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
+import {
+  defineHandler,
+  requireTimeZone,
+  requireUserId,
+} from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { hasWebAnalyticsViewPermission } from "../../_lib/web-analytics/permission.js";
 import {
@@ -35,7 +39,11 @@ export default defineHandler({
       return;
     }
 
-    const parsed = parseRange(req.query.from, req.query.to);
+    const parsed = parseRange(
+      req.query.from,
+      req.query.to,
+      requireTimeZone(ctx),
+    );
     if (!parsed) {
       sendError(res, "coded", 400, "조회 기간을 확인해 주세요.", "BAD_REQUEST");
       return;
