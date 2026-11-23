@@ -1,13 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { P1_CODES } from "./codes.js";
+import { P1_CODES, P2_CODES } from "./codes.js";
+import type { Likert } from "./likert.js";
 import {
   AREA_STATE_LABELS,
+  AUX_PERCENT,
   areaState,
   compositeOf,
   gradeLevel,
+  SCALE_PERCENT,
   scoreAreas,
+  TARGET_SCORE,
 } from "./scoring.js";
-import { CALC_EXAMPLE } from "./testFixtures.js";
+import { CALC_EXAMPLE, validAnswers } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
 const withAnswers = (
@@ -245,5 +249,53 @@ describe("area order and MIND extremes (23_동점규칙)", () => {
     );
     expect(mind.areas.MIND_GROW.score).toBe(75);
     expect(mind.highest).toBe("MIND_EFF");
+  });
+});
+
+describe("tracks and ranges", () => {
+  test.each(["H12", "H3", "M3"] as const)(
+    "%s PAGE2 holds its own six areas",
+    (track) => {
+      const { track: scored, page2 } = scoreAreas(validAnswers(track));
+      expect(scored).toBe(track);
+      expect(Object.keys(page2.areas)).toEqual([...P2_CODES[track]]);
+      expect(page2.order).toHaveLength(6);
+    },
+  );
+
+  test("H3 q12 pick 1 (내신 경쟁력) is one check on H3_GPA", () => {
+    const { page2 } = scoreAreas(validAnswers("H3"));
+    expect(page2.areas.H3_GPA?.checks).toBe(1);
+  });
+
+  const all = (answer: Likert, n: number) => Array<Likert>(n).fill(answer);
+  const extreme = (answer: Likert, q3: number, picks: number[]) => ({
+    ...CALC_EXAMPLE,
+    q3,
+    q9: { ...CALC_EXAMPLE.q9, items: all(answer, 15) },
+    q20: { ...CALC_EXAMPLE.q20, items: all(answer, 6) },
+    q11: { ...CALC_EXAMPLE.q11, items: all(answer, 12) },
+    q10: picks,
+    q12: picks,
+  });
+
+  test("98 C13: scores stay in 0..100 at both extremes", () => {
+    // 매우 on every item: reverse items fall to 0, so not every area is 100
+    const high = scoreAreas(extreme(4, 1, []));
+    const low = scoreAreas(extreme(0, 6, [1, 2, 3]));
+    for (const result of [high, low]) {
+      for (const group of [result.page1, result.mind, result.page2]) {
+        for (const area of Object.values(group.areas)) {
+          expect(area?.score).toBeGreaterThanOrEqual(0);
+          expect(area?.score).toBeLessThanOrEqual(100);
+        }
+      }
+    }
+    expect(high.page1.total).toBe(100);
+    expect(low.page1.areas.P1_PRIO.score).toBe(0);
+  });
+
+  test("weights and target read from 06 C6-C8", () => {
+    expect([SCALE_PERCENT, AUX_PERCENT, TARGET_SCORE]).toEqual([70, 30, 75]);
   });
 });
