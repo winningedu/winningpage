@@ -163,8 +163,30 @@ describe("GET /api/console/me", () => {
         id: "session-1",
         tenantName: "한빛중학교",
         expiresAt: "2026-11-06T09:00:00Z",
+        readOnly: false,
       },
     });
+  });
+
+  test("읽기 전용 사유의 대행이면 proxySession.readOnly 가 true 다", async () => {
+    kit.state.actor = {
+      kind: "hq_proxy",
+      tenant_id: "tenant-1",
+      teacher_id: null,
+      class_ids: [],
+      proxy_session_id: "session-1",
+      must_change_password: false,
+    };
+    kit.state.rows.proxy_sessions = () => ({
+      id: "session-1",
+      expires_at: "2026-11-06T09:00:00Z",
+      reason: "read_only",
+    });
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ proxySession: { readOnly: true } });
   });
 
   test("임시 비밀번호 상태의 교사도 읽을 수 있고 mustChangePassword 가 true 다", async () => {

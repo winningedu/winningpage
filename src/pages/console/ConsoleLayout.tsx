@@ -95,6 +95,7 @@ export default function ConsoleLayout() {
       {me.proxySession && (
         <ProxyBanner
           tenantName={me.proxySession.tenantName}
+          readOnly={me.proxySession.readOnly}
           onEnd={() => void endProxy()}
           ending={ending}
         />

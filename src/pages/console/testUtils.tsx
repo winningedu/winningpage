@@ -54,6 +54,7 @@ export const proxyMe: ConsoleMe = {
     id: "ps1",
     tenantName: "한빛고등학교",
     expiresAt: "2099-01-01T00:00:00Z",
+    readOnly: false,
   },
 };
 

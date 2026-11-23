@@ -4,6 +4,7 @@ export const REASONS = [
   { value: "admin_absent", label: "전체 관리자 부재" },
   { value: "roster_proxy", label: "명단 대행" },
   { value: "incident_support", label: "장애 지원" },
+  { value: "read_only", label: "읽기 전용" },
 ] as const;
 
 export type Reason = (typeof REASONS)[number]["value"];

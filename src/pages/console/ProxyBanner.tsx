@@ -2,12 +2,14 @@ import { Button } from "@/components/ui/button";
 
 interface ProxyBannerProps {
   tenantName: string;
+  readOnly: boolean;
   onEnd: () => void;
   ending: boolean;
 }
 
 export default function ProxyBanner({
   tenantName,
+  readOnly,
   onEnd,
   ending,
 }: ProxyBannerProps) {
@@ -15,6 +17,11 @@ export default function ProxyBanner({
     <div className="flex items-center justify-center gap-4 bg-surface-warning px-4 py-2 text-text-caution md:py-0 md:h-9">
       <p className="flex-1 text-center text-app-label md:flex-none">
         <strong className="block font-bold md:inline">{`본사 대행 중: ${tenantName}`}</strong>
+        {readOnly && (
+          <span className="ml-2 rounded-sm border border-current px-1.5 font-medium">
+            읽기 전용
+          </span>
+        )}
         <span className="hidden md:inline">{"   "}</span>
         <span className="block md:inline">
           모든 조회와 수정은 본사 직원 이름으로 기록돼요.
