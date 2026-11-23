@@ -76,9 +76,9 @@ describe("validateTenantForm", () => {
   });
 
   test("시범 시작일과 종료일은 함께 넣거나 함께 비운다", () => {
-    expect(
-      validateTenantForm(form({ trial_start_date: "2026-12-01" })),
-    ).toBe("시범 시작일과 종료일을 함께 입력해 주세요.");
+    expect(validateTenantForm(form({ trial_start_date: "2026-12-01" }))).toBe(
+      "시범 시작일과 종료일을 함께 입력해 주세요.",
+    );
     expect(validateTenantForm(form({ trial_end_date: "2026-12-01" }))).toBe(
       "시범 시작일과 종료일을 함께 입력해 주세요.",
     );
