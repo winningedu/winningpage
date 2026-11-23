@@ -1,7 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { REQUIRED_QUESTIONS } from "@/lib/diagnosis-v3/codes";
+import { REQUIRED_QUESTIONS, TRACK_NAMES } from "@/lib/diagnosis-v3/codes";
 import { sheetRows } from "@/lib/diagnosis-v3/sheet";
-import { SURVEY_V3_PAGES, SURVEY_V3_QUESTIONS } from "./diagnosisSurveyV3";
+import {
+  choicesFor,
+  SURVEY_V3_PAGES,
+  SURVEY_V3_QUESTIONS,
+  statementsFor,
+} from "./diagnosisSurveyV3";
+
+const verifyText = (code: string) =>
+  sheetRows("17_신뢰도").find((row) => row.c[0] === code)?.c[2];
+const scaleTexts = (qid: string, track: string) =>
+  sheetRows("01_척도문항")
+    .filter(
+      (row) =>
+        row.c[0] === qid && row.c[1] === track && typeof row.c[2] === "number",
+    )
+    .map((row) => row.c[4]);
+const choiceTexts = (key: string) =>
+  sheetRows("14_선택지코드")
+    .filter((row) => row.c[0] === key && typeof row.c[1] === "number")
+    .map((row) => row.c[2]);
 
 const metaRows = sheetRows("13_문항메타").filter((row) => row.r > 4);
 
@@ -109,6 +128,52 @@ describe("v3 문항 정의", () => {
     expect(byId.q14?.maxPicks).toBe(2);
     expect(byId.q13?.maxPicks).toBe(3);
     expect(byId.q1?.maxPicks).toBeUndefined();
+  });
+
+  it("11번, 12번은 1번 학년의 트랙에 따라 시트 문구로 바뀐다", () => {
+    for (const track of ["H12", "H3", "M3"] as const) {
+      expect(statementsFor("q11", track).map((s) => s.text)).toEqual([
+        ...scaleTexts("Q11", TRACK_NAMES[track]),
+        verifyText("V2"),
+      ]);
+      expect(choicesFor("q12", track).map((o) => o.label)).toEqual(
+        choiceTexts(`q12/${TRACK_NAMES[track]}`),
+      );
+    }
+    expect(statementsFor("q11", "M3")[0]?.text).not.toBe(
+      statementsFor("q11", "H12")[0]?.text,
+    );
+  });
+
+  it("척도 문항 끝에는 17번 시트의 응답 확인 문항이 붙는다", () => {
+    const common = "공통";
+    expect(statementsFor("q9", "H12").map((s) => s.text)).toEqual([
+      ...scaleTexts("Q09", common),
+      verifyText("V1"),
+    ]);
+    expect(statementsFor("q20", "H12").at(-1)?.text).toBe(verifyText("V3"));
+    expect(statementsFor("q23", "H12")).toHaveLength(36);
+    expect(statementsFor("q23", "H12").at(-1)).toEqual({
+      key: "V",
+      text: verifyText("V4"),
+    });
+    expect(statementsFor("q9", "H12")[0]).toEqual({
+      key: "1",
+      text: scaleTexts("Q09", common)[0],
+    });
+  });
+
+  it("선택지는 14번 시트 순번과 문구 그대로다", () => {
+    expect(choicesFor("q10", "H12").map((o) => o.label)).toEqual(
+      choiceTexts("q10"),
+    );
+    expect(choicesFor("q13", "H12").map((o) => o.label)).toEqual(
+      choiceTexts("q13"),
+    );
+    expect(choicesFor("q22", "H12").map((o) => o.label)).toEqual(
+      choiceTexts("q22"),
+    );
+    expect(choicesFor("q4", "H12").map((o) => o.ordinal)).toEqual([1, 2, 3, 4]);
   });
 
   it("제목, 안내문구, 카테고리는 13번 시트 셀과 글자까지 같다", () => {

@@ -5,7 +5,10 @@ import {
   QUESTION_IDS,
   type QuestionId,
   REQUIRED_QUESTIONS,
+  type TrackCode,
 } from "@/lib/diagnosis-v3/codes";
+import { SCALE_ITEMS } from "@/lib/diagnosis-v3/likert";
+import { OPTIONS, type OptionRow } from "@/lib/diagnosis-v3/options";
 import { numberCell, sheetRows, textCell } from "@/lib/diagnosis-v3/sheet";
 
 export type SurveyV3Question = {
@@ -122,6 +125,55 @@ export const SURVEY_V3_QUESTIONS: readonly SurveyV3Question[] =
       maxPicks: maxPicksOf(textCell(row, 5)),
     };
   });
+
+type ChoiceQuestion = Exclude<
+  keyof typeof OPTIONS,
+  "q21Weekday" | "q21Weekend"
+>;
+
+/** 14_선택지코드 rows (q2 13 H6, q4 and q5 16) for the track. */
+export function choicesFor(
+  id: ChoiceQuestion,
+  track: TrackCode,
+): readonly OptionRow[] {
+  return id === "q12" ? OPTIONS.q12[track] : OPTIONS[id];
+}
+
+/** q21 weekday and weekend rows, 14 keys q21/평일 and q21/주말. */
+export const PAIR_CHOICES = [
+  { key: "weekday", rows: OPTIONS.q21Weekday },
+  { key: "weekend", rows: OPTIONS.q21Weekend },
+] as const;
+
+export type Statement = { readonly key: string; readonly text: string };
+
+type LikertQuestion = keyof typeof SCALE_ITEMS;
+
+// 17_신뢰도 A6-A9: the check item that closes each scale question.
+const VERIFY_CODES: Readonly<Record<LikertQuestion, string>> = {
+  q9: "V1",
+  q11: "V2",
+  q20: "V3",
+  q23: "V4",
+};
+
+const verifyText = (code: string) => {
+  const row = sheetRows("17_신뢰도").find((r) => r.c[0] === code);
+  if (!row) throw new Error(`missing 17_신뢰도 row ${code}`);
+  return textCell(row, 2);
+};
+
+/** 01_척도문항 items by No (key "1".."n") plus the 17 check item (key "V"). */
+export function statementsFor(
+  id: LikertQuestion,
+  track: TrackCode,
+): readonly Statement[] {
+  const items = id === "q11" ? SCALE_ITEMS.q11[track] : SCALE_ITEMS[id];
+  return [
+    ...items.map((item) => ({ key: String(item.no), text: item.text })),
+    { key: "V", text: verifyText(VERIFY_CODES[id]) },
+  ];
+}
 
 /** Last 13 B page, spec row 6: six screens. */
 export const SURVEY_V3_PAGES = Math.max(
