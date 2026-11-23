@@ -82,6 +82,7 @@ const BASE = {
   grace_ends_on: null,
   mou_status: null,
   is_catch_all: false,
+  time_zone: "Asia/Seoul",
 };
 const ROWS = [
   {
@@ -227,6 +228,17 @@ describe("TenantsAdmin 스쿨멘토(플래그 켜짐)", () => {
     expect(row.textContent).toContain("2026-10-01");
     // 2026-09-21 KST 에서 삭제 가능일(유예 종료 다음 날 10-02)까지 11일.
     expect(row.textContent).toContain("삭제 가능일 D-11");
+  });
+
+  test("삭제 D-day 의 오늘은 기관 시간대로 센다(뉴욕은 서울보다 하루 늦다)", async () => {
+    state.rows = [{ ...ROWS[0], time_zone: "America/New_York" }];
+    render(<TenantsAdmin config={CONFIG} />);
+
+    const row = (await screen.findByText("한빛고")).closest(
+      "tr",
+    ) as HTMLElement;
+    // 시스템 시각 2026-09-21T03:00Z 는 뉴욕에서 09-20 이라 삭제 가능일 10-02 까지 12일.
+    expect(row.textContent).toContain("삭제 가능일 D-12");
   });
 
   test.each([

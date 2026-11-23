@@ -31,7 +31,7 @@ import {
   type PurgeResult,
   runMemberPurge,
 } from "./api";
-import { deletionDdayText, todayKst } from "./contract";
+import { deletionDdayText, tenantToday } from "./contract";
 
 // ---------------------------------------------------------------------------
 // 계약 종료 회원 삭제(사 #162, #176, 결정 102.1, 102.3, 102.4). 기관을 고르면 미리보기(가린 이름, 학년, 반, 번호,
@@ -43,6 +43,7 @@ interface ContractTenant {
   code: string;
   name: string;
   contract_end_date: string;
+  time_zone: string;
 }
 
 export default function MemberPurgeAdmin() {
@@ -81,7 +82,7 @@ export default function MemberPurgeAdmin() {
     let active = true;
     supabase
       .from("tenants")
-      .select("id, code, name, contract_end_date")
+      .select("id, code, name, contract_end_date, time_zone")
       .not("contract_end_date", "is", null)
       .order("name")
       .then(({ data, error: loadError }) => {
@@ -156,14 +157,16 @@ export default function MemberPurgeAdmin() {
   // 삭제 가능일(유예 종료 다음 날)이 되기 전, 또는 유예 종료일을 모르면 실행할 수 없다.
   const deletable = preview?.dDay != null && preview.dDay <= 0;
 
-  const ddayText = preview
-    ? deletionDdayText({
-        contractEnd: preview.contractEnd,
-        graceEnds: preview.graceEnd,
-        defaultGraceDays: null,
-        today: todayKst(),
-      })
-    : null;
+  const selectedTenant = tenants.find((t) => t.id === tenantId);
+  const ddayText =
+    preview && selectedTenant
+      ? deletionDdayText({
+          contractEnd: preview.contractEnd,
+          graceEnds: preview.graceEnd,
+          defaultGraceDays: null,
+          today: tenantToday(selectedTenant.time_zone),
+        })
+      : null;
 
   return (
     <div>
