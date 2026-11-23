@@ -323,6 +323,47 @@ describe("pick-records select limit", () => {
     expect(res.body).toMatchObject({ ok: true, maxSelect: 7 });
   });
 
+  test("keeps the student's own line on the list and counts it when the link check failed", async () => {
+    const failedState = {
+      steps: {
+        link: {
+          status: "failed",
+          attempts: 1,
+          startedAt: null,
+          finishedAt: null,
+          issues: [],
+        },
+      },
+    };
+    m.loadSession.mockResolvedValue(session(failedState));
+    m.loadRecordLinks.mockResolvedValue([
+      {
+        fromId: "core",
+        toId: "a",
+        type: "complement",
+        strength: "explicit",
+        source: "student",
+        confirmed: true,
+        deleted: false,
+        note: "같은 소재를 이어서 했어요",
+        quoteFrom: null,
+        quoteTo: null,
+      },
+    ]);
+    const listed = await call({ action: "list" });
+    expect(listed.body).toMatchObject({
+      linkStatus: "unchecked",
+      linkUnchecked: true,
+    });
+    expect((listed.body as { links: unknown[] }).links).toHaveLength(1);
+    const picked = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a", "b"],
+    });
+    expect(picked.body).toMatchObject({ ok: true, excludedIds: ["b"] });
+  });
+
   test("rejects a selection above N with the count in the message", async () => {
     m.loadSession.mockResolvedValue({ ...session(), target_chars: 210 });
     m.loadActivityRecords.mockResolvedValue(

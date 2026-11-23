@@ -30,6 +30,19 @@ export function unlinkedIds(
   );
 }
 
+/**
+ * 화면과 선택 규칙이 읽는 연계. 판정이 끝났으면 저장된 전부이고, 그 밖에는 학생이 그은 선만이다.
+ * 학생이 그은 선은 판정 상태와 관계없이 남아 선택과 경고에 반영된다(명세 No.180, 194).
+ */
+export function visibleLinks(
+  status: LinkStatus,
+  stored: RecordLink[],
+): RecordLink[] {
+  return status === "ok"
+    ? stored
+    : stored.filter((l) => l.source === "student");
+}
+
 export type PickSelection = { coreId: string; supportIds: string[] };
 
 export function composePickList(input: {
@@ -40,9 +53,11 @@ export function composePickList(input: {
   targetChars: number | null;
 }) {
   const { rows, links, status, selection, targetChars } = input;
+  // 판정이 끝났거나 학생이 선을 그었으면 연계를 쓴다. 둘 다 없으면 적합도 상위 3건 추천으로 돌아간다.
+  const linked = status === "ok" || links.length > 0;
   const ev = evaluateSelection(
     rows,
-    { links: status === "ok" ? links : null, targetChars },
+    { links: linked ? links : null, targetChars },
     selection?.coreId,
   );
   const auto = selection
@@ -67,8 +82,6 @@ export function composePickList(input: {
     linkUnchecked: status === "unchecked",
     maxSelect: ev.maxSelect,
     excludedIds:
-      selection && status === "ok"
-        ? unlinkedIds(links, selection.supportIds)
-        : [],
+      selection && linked ? unlinkedIds(links, selection.supportIds) : [],
   };
 }

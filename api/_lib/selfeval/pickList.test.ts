@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { composePickList, linkStatusOf, unlinkedIds } from "./pickList.js";
+import {
+  composePickList,
+  linkStatusOf,
+  unlinkedIds,
+  visibleLinks,
+} from "./pickList.js";
 import type { ActivityRecordLike, CandidateRow, RecordLink } from "./types.js";
 
 const row = (
@@ -79,7 +84,36 @@ describe("linkStatusOf", () => {
   });
 });
 
+describe("visibleLinks", () => {
+  const mine: RecordLink = { ...link("core", "a"), source: "student" };
+  const theirs = link("core", "far");
+  it("keeps every stored link once the link check is done", () => {
+    expect(visibleLinks("ok", [mine, theirs])).toEqual([mine, theirs]);
+  });
+  it("keeps the student's own lines whatever the link check status is", () => {
+    expect(visibleLinks("unchecked", [mine, theirs])).toEqual([mine]);
+    expect(visibleLinks("pending", [mine, theirs])).toEqual([mine]);
+  });
+});
+
 describe("composePickList", () => {
+  it("counts the student's own lines as accepted links even when the link check failed", () => {
+    const mine: RecordLink = { ...link("core", "a"), source: "student" };
+    const out = composePickList({
+      rows,
+      links: [mine],
+      status: "unchecked",
+      selection: null,
+      targetChars: 500,
+    });
+    expect(out.linkUnchecked).toBe(true);
+    expect(out.links).toEqual([mine]);
+    expect(out.auto).toMatchObject({ coreId: "core", supportIds: ["a"] });
+    expect(
+      out.candidates.find((r) => r.activity.id === "a")?.linkState?.linked,
+    ).toBe(true);
+  });
+
   it("after a checked link step recommends linked records, with N, links and no fallback", () => {
     const out = composePickList({
       rows,
