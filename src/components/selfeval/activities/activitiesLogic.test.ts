@@ -278,8 +278,13 @@ describe("filterCandidates", () => {
 
 describe("academicYearOf", () => {
   test("3월부터 새 학년도다", () => {
-    expect(academicYearOf("2026-03-01T00:00:00+09:00")).toBe(2026);
-    expect(academicYearOf("2026-02-20T00:00:00+09:00")).toBe(2025);
+    expect(academicYearOf("2026-02-28T15:00:00Z", "Asia/Seoul")).toBe(2026);
+    expect(academicYearOf("2026-02-28T14:59:59Z", "Asia/Seoul")).toBe(2025);
+  });
+  test("학년도 경계는 넘겨 준 시간대의 3월 1일이다", () => {
+    const at = "2026-02-28T20:00:00Z";
+    expect(academicYearOf(at, "Asia/Seoul")).toBe(2026);
+    expect(academicYearOf(at, "UTC")).toBe(2025);
   });
   test("해석할 수 없으면 null", () => {
     expect(academicYearOf("nope")).toBeNull();
@@ -296,10 +301,12 @@ describe("summarizeResult", () => {
 });
 
 describe("formatDotDate", () => {
-  test("한국 시각 기준 YYYY.MM.DD 로 만들고 해석할 수 없으면 null", () => {
-    expect(formatDotDate("2026-09-16T00:00:00+09:00")).toBe("2026.09.16");
-    expect(formatDotDate("2026-09-15T16:00:00Z")).toBe("2026.09.16");
-    expect(formatDotDate("nope")).toBeNull();
+  test("넘겨 준 시간대 기준 YYYY.MM.DD 로 만들고 해석할 수 없으면 null", () => {
+    expect(formatDotDate("2026-09-15T16:00:00Z", "Asia/Seoul")).toBe(
+      "2026.09.16",
+    );
+    expect(formatDotDate("2026-09-15T16:00:00Z", "UTC")).toBe("2026.09.15");
+    expect(formatDotDate("nope", "UTC")).toBeNull();
   });
 });
 

@@ -10,6 +10,8 @@ import {
   MAX_SUPPORT_ACTIVITIES,
   type PickListResponse,
 } from "@/lib/selfeval/types";
+import { schoolYearOf, ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { strengthLabel } from "./linkMapLogic";
 
 // 활동 선택 화면 순수 로직(명세 No.26~36, 107~113). 서버 규칙(api/_lib/selfeval/pick.ts 의
@@ -160,15 +162,13 @@ export function filterCandidates(
   });
 }
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/** 기록 생성 시각이 속한 학년도(한국 시각 기준 3월에 시작). 해석할 수 없으면 null. */
-export function academicYearOf(iso: string): number | null {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  const kst = new Date(t + KST_OFFSET_MS);
-  const year = kst.getUTCFullYear();
-  return kst.getUTCMonth() >= 2 ? year : year - 1;
+/** 기록 생성 시각이 속한 학년도(tz 의 3월 1일에 시작, 기본은 브라우저 시간대). 해석할 수 없으면 null. */
+export function academicYearOf(
+  iso: string,
+  tz: string = browserTimeZone(),
+): number | null {
+  if (Number.isNaN(new Date(iso).getTime())) return null;
+  return schoolYearOf(iso, tz);
 }
 
 /** 카드 요약. 결과 앞부분만 잘라 보여 준다. 비어 있으면 null(그 줄을 그리지 않는다). */
@@ -181,13 +181,13 @@ export function summarizeResult(
   return t.length > max ? `${t.slice(0, max)}...` : t;
 }
 
-/** 카드 날짜. 한국 시각 기준 YYYY.MM.DD. 해석할 수 없으면 null. */
-export function formatDotDate(iso: string): string | null {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  const kst = new Date(t + KST_OFFSET_MS);
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${kst.getUTCFullYear()}.${two(kst.getUTCMonth() + 1)}.${two(kst.getUTCDate())}`;
+/** 카드 날짜. tz(기본은 브라우저 시간대) 기준 YYYY.MM.DD. 해석할 수 없으면 null. */
+export function formatDotDate(
+  iso: string,
+  tz: string = browserTimeZone(),
+): string | null {
+  if (Number.isNaN(new Date(iso).getTime())) return null;
+  return ymdIn(iso, tz).replaceAll("-", ".");
 }
 
 const SOURCE_LABELS: Record<ActivityRecordLike["sourceProgram"], string> = {

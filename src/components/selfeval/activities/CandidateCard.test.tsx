@@ -20,7 +20,7 @@ function row(over: Partial<CandidateRow> = {}): CandidateRow {
       limitation: null,
       numbers: null,
       sources: null,
-      createdAt: "2026-09-16T00:00:00+09:00",
+      createdAt: "2026-09-16T12:00:00Z",
     },
     fit: {
       activityId: "x",

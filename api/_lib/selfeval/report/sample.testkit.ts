@@ -214,7 +214,7 @@ export function sampleInput(over: Partial<BuildInput> = {}): BuildInput {
     },
     bodySections: SAMPLE_BODY,
     charCount: { withSpace: 493, withoutSpace: 380 },
-    timeZone: "Asia/Seoul",
+    timeZone: "Asia/Seoul", // tz-literal-ok: 샘플 PDF 기준 테스트 재료
     savedAt: "2026-11-10T03:00:00.000Z",
     serviceTier: "individual",
     profileGrade: "고1",
