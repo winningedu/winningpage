@@ -7,6 +7,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { consoleRequest, errorMessage } from "../api";
+import FormatErrorDialog, {
+  dropSubject,
+  type FormatErrorItem,
+} from "../FormatErrorDialog";
 import PageHeader from "../PageHeader";
 import ExcelPreview from "./ExcelPreview";
 import ExcelUpload from "./ExcelUpload";
@@ -16,6 +20,7 @@ import {
   applyRows,
   EMPTY_TOTALS,
   isErrorVerdict,
+  REASON_LABEL,
   type Reason,
   type Verdict,
 } from "./excelImport";
@@ -28,6 +33,46 @@ import {
 
 const PC_ONLY = "선생님 엑셀 일괄업로드는 PC나 태블릿에서 할 수 있어요";
 const PREVIEW_FAILED = "미리보기를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요";
+
+/** 형식 오류 줄의 이유를 확인 창의 항목(틀린 칸마다 하나)으로 바꾼다. 이유 문장은 줄마다 보이는 것과 같은 말이다. */
+function formatErrorItems(
+  rows: TeacherFileRow[],
+  reasons: Reason[][],
+): FormatErrorItem[] {
+  return rows.flatMap((row, i) =>
+    (reasons[i] ?? []).map((reason) => {
+      const item = { row: i + 1, name: row.name, cell: "", value: "" };
+      const label = REASON_LABEL[reason];
+      switch (reason) {
+        case "phone":
+          return row.phone === ""
+            ? { ...item, message: label }
+            : {
+                ...item,
+                cell: "전화번호",
+                value: row.phone,
+                message: "확인해 주세요",
+              };
+        case "grade":
+          return {
+            ...item,
+            cell: "학년",
+            value: row.grade,
+            message: dropSubject(label),
+          };
+        case "class":
+          return {
+            ...item,
+            cell: "반",
+            value: row.className,
+            message: dropSubject(label),
+          };
+        default:
+          return { ...item, message: label };
+      }
+    }),
+  );
+}
 
 type Phase =
   | { step: "input" }
@@ -47,6 +92,7 @@ export default function TeacherExcelPage() {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<ApplyMode>("skip");
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [errorItems, setErrorItems] = useState<FormatErrorItem[]>([]);
   // 같은 미리보기를 다시 적용하는 동안 같은 요청 번호와 끝낸 청크를 이어 쓴다.
   const requestId = useRef(crypto.randomUUID());
   const totals = useRef<ApplyTotals>(EMPTY_TOTALS);
@@ -85,12 +131,14 @@ export default function TeacherExcelPage() {
     requestId.current = crypto.randomUUID();
     totals.current = EMPTY_TOTALS;
     setApplyError(null);
+    const reasons = verdicts.map((v) => v.reasons ?? []);
     setPhase({
       step: "preview",
       rows,
       verdicts: verdicts.map((v) => v.verdict),
-      reasons: verdicts.map((v) => v.reasons ?? []),
+      reasons,
     });
+    setErrorItems(formatErrorItems(rows, reasons));
   };
 
   const apply = async () => {
@@ -126,6 +174,11 @@ export default function TeacherExcelPage() {
         title="선생님 엑셀 일괄업로드"
         subtitle="엑셀(.xlsx, .xls) 또는 CSV 파일로 여러 선생님의 이름, 전화번호, 학년, 반을 한 번에 등록합니다"
         mobileSubtitle={PC_ONLY}
+      />
+      <FormatErrorDialog
+        open={errorItems.length > 0}
+        onClose={() => setErrorItems([])}
+        items={errorItems}
       />
       {!mobile && (
         <div className="flex max-w-content flex-col gap-8 px-4 pb-24 md:px-8 lg:px-12">
