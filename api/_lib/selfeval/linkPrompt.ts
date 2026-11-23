@@ -6,7 +6,6 @@ import {
   acceptLink,
   type LinkAreaContext,
   type LinkJudgment,
-  linkRecordText,
   submittedAtOf,
 } from "./link.js";
 import type { PromptBundle } from "./prompts.js";
