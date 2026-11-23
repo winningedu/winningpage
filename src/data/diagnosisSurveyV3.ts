@@ -149,6 +149,15 @@ export const PAIR_CHOICES = [
   { key: "weekend", label: "주말", rows: OPTIONS.q21Weekend },
 ] as const;
 
+/** q13 event field labels (kind, date, subject), from the 13 F24 input type. */
+export const SCHEDULE_FIELD_LABELS = (() => {
+  const inputType = textCell(metaOf("q13"), 5);
+  const [kind, date, subject] =
+    inputType.match(/\((.+)\)/)?.[1]?.split("\u00b7") ?? [];
+  if (!kind || !date || !subject) throw new Error("missing 13 F24 fields");
+  return { kind, date, subject };
+})();
+
 /** Field labels of the q3 target inputs, read from the 13 H7 note. */
 export const Q3_TARGET_LABELS = (() => {
   const note = textCell(metaOf("q3"), 7);

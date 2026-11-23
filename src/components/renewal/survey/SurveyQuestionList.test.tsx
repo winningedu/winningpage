@@ -193,3 +193,54 @@ describe("SurveyQuestionList 척도 문항", () => {
     expect(rowNames()).toEqual(q23Order("seed-1").map((key) => texts.get(key)));
   });
 });
+
+describe("SurveyQuestionList 13번 일정", () => {
+  const addButton = () => screen.getByRole("button", { name: "일정 추가" });
+
+  it("날짜는 진단일부터 Day 42까지만 고를 수 있다", () => {
+    render(<Harness ids={["q13"]} initial={{ q1: 3 }} />);
+    fireEvent.click(addButton());
+    const date = screen.getByLabelText("날짜 1");
+    expect(date).toHaveAttribute("type", "date");
+    expect(date).toHaveAttribute("min", "2026-11-09");
+    expect(date).toHaveAttribute("max", "2026-12-20");
+  });
+
+  it("종류, 날짜, 과목을 받아 일정 코드로 저장하고 최대 3개까지 늘린다", () => {
+    render(<Harness ids={["q13"]} initial={{ q1: 3 }} />);
+    fireEvent.click(addButton());
+    fireEvent.change(screen.getByLabelText("종류 1"), {
+      target: { value: "PERF" },
+    });
+    fireEvent.change(screen.getByLabelText("날짜 1"), {
+      target: { value: "2026-11-27" },
+    });
+    fireEvent.change(screen.getByLabelText("과목 1"), {
+      target: { value: "국어" },
+    });
+    expect(latest.q13).toEqual([
+      { kind: "PERF", date: "2026-11-27", subject: "국어" },
+    ]);
+    expect(
+      within(screen.getByLabelText("종류 1"))
+        .getAllByRole("option")
+        .slice(1)
+        .map((o) => o.textContent),
+    ).toEqual(OPTIONS.q13.slice(0, 5).map((o) => o.label));
+    fireEvent.click(addButton());
+    fireEvent.click(addButton());
+    expect(addButton()).toBeDisabled();
+  });
+
+  it("특별한 일정이 없어요를 고르면 입력한 일정을 지우고, 일정을 추가하면 그 선택을 푼다", () => {
+    render(<Harness ids={["q13"]} initial={{ q1: 3 }} />);
+    fireEvent.click(addButton());
+    fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q13, 6) }));
+    expect(latest.q13).toBe("NONE");
+    expect(screen.queryByLabelText("날짜 1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q13, 7) }));
+    expect(latest.q13).toBe("UNKNOWN");
+    fireEvent.click(addButton());
+    expect(latest.q13).toEqual([{ kind: "", date: "", subject: "" }]);
+  });
+});

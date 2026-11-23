@@ -20,6 +20,7 @@ import ConditionalTextInput from "./ConditionalTextInput";
 import LikertMatrix from "./LikertMatrix";
 import OptionGroup from "./OptionGroup";
 import QuestionCard from "./QuestionCard";
+import ScheduleInput from "./ScheduleInput";
 
 type SurveyQuestionListProps = {
   questionIds: readonly QuestionId[];
@@ -39,6 +40,7 @@ export default function SurveyQuestionList({
   questionIds,
   answers,
   onAnswer,
+  diagnosedAt,
   seed,
 }: SurveyQuestionListProps) {
   // null until q1 is answered; only q11 and q12 depend on it
@@ -83,6 +85,14 @@ export default function SurveyQuestionList({
                 track={track}
                 seed={seed}
                 value={value}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
+            {question.kind === "schedule" && question.maxPicks && (
+              <ScheduleInput
+                value={value}
+                maxEvents={question.maxPicks}
+                diagnosedAt={diagnosedAt}
                 onChange={(next) => onAnswer(id, next)}
               />
             )}
