@@ -24,7 +24,6 @@ import {
 } from "@/lib/goalApi";
 import { goalStudentQueryOptions, queryClient } from "@/lib/queryClient";
 import { ymdIn } from "@/lib/time/day";
-import { browserTimeZone } from "@/lib/time/zone";
 
 // 나의 노력 — Figma 4026:6046(디자이너 시안 재구현).
 // 실데이터 배선(mockEfforts 제거) — src/data/goalPlanMock.js의 mockEfforts/mockEffortsEmpty는
@@ -127,14 +126,12 @@ export default function Efforts() {
   // 오늘 하루치 계획 과제 중 workbook_id가 걸린 것만 문제집별로 묶는다(QA 행286-B).
   // 실패해도 조용히 넘어간다 — 이 목록은 보조 정보라 loadError처럼 화면을 막지 않는다.
   async function loadConnectedTasks() {
-    // 학생 시간대의 오늘. 학생 응답(캐시)을 받지 못하면 브라우저 시간대로 대신한다.
+    // 학생 시간대의 오늘. 학생 응답(timeZone)이 없으면 오늘을 계산하지 않는다.
     const student = await queryClient
       .ensureQueryData(goalStudentQueryOptions(userId))
       .catch(() => null);
-    const tz =
-      student?.kind === "onboarded"
-        ? student.student.timeZone
-        : browserTimeZone();
+    if (student?.kind !== "onboarded") return;
+    const tz = student.student.timeZone;
     const today = ymdIn(new Date(), tz);
     const result = await fetchGoalPlanTasks({ from: today, to: today });
     if (result.kind !== "success") {

@@ -59,4 +59,16 @@ describe("Efforts: 오늘 연결 과제 조회 범위", () => {
       }),
     );
   });
+
+  it("학생 응답에 timeZone이 없으면(미온보딩) 오늘을 계산하지 않고 조회하지 않는다", async () => {
+    api.fetchGoalStudent.mockResolvedValue({ kind: "not-onboarded" });
+    render(
+      <MemoryRouter>
+        <Efforts />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(api.fetchGoalStudent).toHaveBeenCalled());
+    await waitFor(() => expect(api.fetchGoalWorkbooks).toHaveBeenCalled());
+    expect(api.fetchGoalPlanTasks).not.toHaveBeenCalled();
+  });
 });
