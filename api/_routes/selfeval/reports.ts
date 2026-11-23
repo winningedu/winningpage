@@ -25,7 +25,11 @@
 
 import type { VercelResponse } from "@vercel/node";
 import { completePlanItemFromProgram } from "../../_lib/growth/plan/complete.js";
-import { defineHandler, requireUserId } from "../../_lib/handler.js";
+import {
+  defineHandler,
+  requireTimeZone,
+  requireUserId,
+} from "../../_lib/handler.js";
 import {
   fail,
   readSelfevalAccess,
@@ -72,7 +76,12 @@ async function resendReplies(
   }
 }
 
-async function handleList(res: VercelResponse, db: Db, userId: string) {
+async function handleList(
+  res: VercelResponse,
+  db: Db,
+  userId: string,
+  timeZone: string,
+) {
   const now = new Date();
   const replyResent = await resendReplies(db, userId, now);
   const [quota, access, activityCount, sessions, growth, profile] =
@@ -107,6 +116,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
       now,
       profile,
       replyResent,
+      timeZone,
     }),
     sessions: sessions.map((s) => listItem(s, scores.get(s.id) ?? null)),
   });
@@ -153,7 +163,7 @@ export default defineHandler({
       return;
     }
     if (query.sessionId === undefined) {
-      await handleList(res, ctx.supabaseAdmin, userId);
+      await handleList(res, ctx.supabaseAdmin, userId, requireTimeZone(ctx));
       return;
     }
     await handleDetail(res, ctx.supabaseAdmin, userId, query.sessionId);

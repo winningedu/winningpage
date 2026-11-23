@@ -182,7 +182,18 @@ describe("entryBody", () => {
     now: NOW,
     profile: null,
     replyResent: 0,
+    timeZone: "Asia/Seoul",
   };
+
+  it("학년도 기본값은 보는 회원의 시간대 3월 1일 기준이다", () => {
+    const now = new Date("2026-02-28T20:00:00Z");
+    expect(
+      entryBody({ ...base, now, timeZone: "Asia/Seoul" }).academicYearDefault,
+    ).toBe(2026);
+    expect(
+      entryBody({ ...base, now, timeZone: "UTC" }).academicYearDefault,
+    ).toBe(2025);
+  });
 
   it("열린 세션이 없으면 openSession null 과 학년도 기본값", () => {
     const body = entryBody(base);
