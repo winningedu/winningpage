@@ -1,7 +1,7 @@
 // 2p 목표 (22 r29-r36).
 
 import { copy, numbersIn, reportCell } from "../copy.js";
-import { SCALE_ITEMS, scaleValue } from "../likert.js";
+import { LIKERT_LEVELS, SCALE_ITEMS, scaleValue } from "../likert.js";
 import { OPTIONS } from "../options.js";
 import type { Engine } from "../report.js";
 import type {
@@ -10,6 +10,7 @@ import type {
   GoalCell,
   Page2,
 } from "../types.js";
+import { targetText } from "./p1.js";
 
 // 22 r29 D: "목표 명확(C) = 3번 1~3번 선택"
 const [CLEAR_FROM, CLEAR_TO] = numbersIn(
@@ -25,6 +26,26 @@ const [NEAR_ITEM, NEAR_MIN] = numbersIn(
   reportCell(35, 3),
   /가까운 = 8-(\d+) ≥ (\d+)/,
 ) as [number, number];
+
+// 22 r35 D names each rung's question: "먼 목표 = 3번 ...", "중간 = 8-1 ...", "가까운 = 8-2 ..."
+const rungSource = (pattern: RegExp) => {
+  const source = reportCell(35, 3).match(pattern)?.[1];
+  if (!source) throw new Error("unexpected 22 D35 text");
+  return source;
+};
+const FAR_SOURCE = rungSource(/먼 목표 = (\d+번)/);
+const MID_SOURCE = rungSource(/중간 = (8-\d+)/);
+const NEAR_SOURCE = rungSource(/가까운 = (8-\d+)/);
+
+/** PDF p3 rung: the q9 item statement (01 E) and the answer word (01 A2). */
+const itemRung = (answers: DiagnosisV3Answers, no: number, source: string) => {
+  const text = SCALE_ITEMS.q9.find((item) => item.no === no)?.text;
+  const answer = answers.q9.items[no - 1];
+  const word = answer === undefined ? undefined : LIKERT_LEVELS[answer]?.label;
+  if (text === undefined || word === undefined)
+    throw new Error("missing q9 item " + no);
+  return { source, text, answer: word };
+};
 
 /** q3 is one of the clear-target options (22 r29, r35 먼 목표). */
 export const isClearGoal = (q3: number) => q3 >= CLEAR_FROM && q3 <= CLEAR_TO;
@@ -147,6 +168,11 @@ export function buildPage2(engine: Engine): Page2 {
             ? "LADDER_GAP_MULTI"
             : "LADDER_GAP_" + RUNG_IDS[firstEmpty],
       ),
+      rungs: {
+        far: { source: FAR_SOURCE, text: targetText(engine) },
+        mid: itemRung(answers, MID_ITEM, MID_SOURCE),
+        near: itemRung(answers, NEAR_ITEM, NEAR_SOURCE),
+      },
     },
     // 22 r36
     tips: [

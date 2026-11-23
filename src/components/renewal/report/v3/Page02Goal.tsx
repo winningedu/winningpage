@@ -27,10 +27,14 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
   const target = [specificity.university, specificity.major]
     .filter(Boolean)
     .join(" ");
-  const rungs = [
-    { label: L.ladderFar, filled: ladder.far },
-    { label: L.ladderMid, filled: ladder.mid },
-    { label: L.ladderNear, filled: ladder.near },
+  const rungs: readonly {
+    label: string;
+    filled: boolean;
+    content: { source: string; text: string; answer?: string };
+  }[] = [
+    { label: L.ladderFar, filled: ladder.far, content: ladder.rungs.far },
+    { label: L.ladderMid, filled: ladder.mid, content: ladder.rungs.mid },
+    { label: L.ladderNear, filled: ladder.near, content: ladder.rungs.near },
   ];
 
   return (
@@ -141,17 +145,36 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                 key={rung.label}
                 data-rung
                 data-filled={String(rung.filled)}
-                className={`flex items-center gap-2 border-b border-line pb-2 ${rung.filled ? "font-semibold" : "text-ink-sub"}`}
+                className={`flex items-start gap-2 border-b border-line pb-2 ${rung.filled ? "" : "text-ink-sub"}`}
               >
                 <span
                   aria-hidden
-                  className={`size-3 rounded-full ${rung.filled ? "bg-navy-ink" : "border border-line"}`}
+                  className={`mt-1 size-3 shrink-0 rounded-full ${rung.filled ? "bg-navy-ink" : "border border-line"}`}
                 />
-                {rung.label}
                 {rung.filled ? (
-                  <span className="sr-only">{L.ladderFilled}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <p>
+                      <span className="font-semibold">{rung.label}</span>
+                      <span className="sr-only">{L.ladderFilled}</span>
+                      {L.joiner}
+                      <CopyText text={rung.content.text} />
+                    </p>
+                    {/* PDF p3: the question behind the rung and its answer word */}
+                    <p className="text-xs text-ink-sub">
+                      <CopyText text={rung.content.source} />
+                      {rung.content.answer && (
+                        <>
+                          {" ("}
+                          <CopyText text={rung.content.answer} />)
+                        </>
+                      )}
+                    </p>
+                  </div>
                 ) : (
-                  <span className="text-xs">{L.ladderEmpty}</span>
+                  <>
+                    {rung.label}
+                    <span className="text-xs">{L.ladderEmpty}</span>
+                  </>
                 )}
               </li>
             ))}

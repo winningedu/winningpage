@@ -73,4 +73,19 @@ describe("Page02Goal", () => {
     for (const tip of p2.tips)
       expect(screen.getByText(tip)).toBeInTheDocument();
   });
+
+  it("writes each filled rung's content and question like PDF p3, never for an empty rung", () => {
+    const { container } = render(<Page02Goal page={p2} tocTitle="목표 진단" />);
+    const [far, mid, near] = Array.from(
+      container.querySelectorAll("[data-rung]"),
+    );
+    const { rungs } = p2.ladder;
+    expect(far).toHaveTextContent(rungs.far.text);
+    expect(far).toHaveTextContent(rungs.far.source);
+    expect(mid).toHaveTextContent(rungs.mid.text);
+    expect(mid).toHaveTextContent(rungs.mid.source);
+    expect(mid).toHaveTextContent(rungs.mid.answer);
+    expect(near).not.toHaveTextContent(rungs.near.text);
+    expect(near).not.toHaveTextContent(rungs.near.answer);
+  });
 });

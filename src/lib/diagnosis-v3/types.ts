@@ -498,6 +498,11 @@ export type Page1 = {
   readonly one: { readonly title: string; readonly actions: readonly string[] };
 };
 
+export type LadderRung = {
+  readonly source: string;
+  readonly text: string;
+};
+
 export type Page2 = {
   /** 22 r30 */
   readonly title: string;
@@ -533,6 +538,14 @@ export type Page2 = {
     readonly mid: boolean;
     readonly near: boolean;
     readonly text: string;
+    /** PDF p3 rung content; source is the 22 D35 question ("3번", "8-1", "8-2") */
+    readonly rungs: {
+      /** the 1p profile target (16번 names, else 3번 inputs) */
+      readonly far: LadderRung;
+      /** 01 q9 item statement and its 01 A2 answer word */
+      readonly mid: LadderRung & { readonly answer: string };
+      readonly near: LadderRung & { readonly answer: string };
+    };
   };
   /** 22 r36: cell tip, ladder tip */
   readonly tips: readonly [string, string];

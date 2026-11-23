@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { scoreDiagnosisV3 } from "./index.js";
-import { SCALE_ITEMS } from "./likert.js";
+import { LIKERT_LEVELS, SCALE_ITEMS } from "./likert.js";
 import { OPTIONS } from "./options.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import {
@@ -215,7 +215,7 @@ describe("2p 목표 (22 r30-r36)", () => {
       desc: COPY_TEXT.GOAL_Q_C_IN_DESC,
     });
     expect(p2.matrix.highlighted).toBeUndefined();
-    expect(p2.ladder).toEqual({
+    expect(p2.ladder).toMatchObject({
       far: true,
       mid: true,
       near: true,
@@ -225,6 +225,25 @@ describe("2p 목표 (22 r30-r36)", () => {
       COPY_TEXT.GOAL_Q_C_NA_TIP,
       COPY_TEXT.LADDER_TIP_FULL,
     ]);
+  });
+
+  test("PDF p3 rungs: target with 3번, 8-1 and 8-2 statements with their answer words (22 D35)", () => {
+    const { p1, p2 } = run().pages;
+    const statement = (no: number) =>
+      SCALE_ITEMS.q9.find((item) => item.no === no)?.text;
+    expect(p2.ladder.rungs).toEqual({
+      far: { source: "3번", text: p1.profile.target },
+      mid: {
+        source: "8-1",
+        text: statement(1),
+        answer: LIKERT_LEVELS[3]?.label,
+      },
+      near: {
+        source: "8-2",
+        text: statement(2),
+        answer: LIKERT_LEVELS[3]?.label,
+      },
+    });
   });
 
   test("hidden 3-1 and empty rungs pick GAP_MULTI and the nearest tip", () => {
