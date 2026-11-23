@@ -7,9 +7,9 @@
 #
 # 대상 환경은 matrix로 dev/prod 둘 다 배선돼 있고, secrets 존재가 활성화
 # 스위치다:
-#   - dev:  SEED_SUPABASE_URL / SEED_SERVICE_ROLE_KEY (scheduled.yml과 공유,
+#   - dev:  SEED_SUPABASE_URL / SEED_SECRET_KEY (scheduled.yml과 공유,
 #           등록됨) — 미등록이면 실패 처리(배선 사고 감지).
-#   - prod: PROD_SUPABASE_URL / PROD_SERVICE_ROLE_KEY — 미등록이면 조용히
+#   - prod: PROD_SUPABASE_URL / PROD_SECRET_KEY — 미등록이면 조용히
 #           skip. dev에서 2-3주 무사고 확인 후 secrets를 등록하는 행위가
 #           곧 prod 가동이다. 머지 타이밍과 무관하게 사람이 켠다.
 #
@@ -46,11 +46,11 @@ jobs:
         include:
           - target: dev
             url_secret: SEED_SUPABASE_URL
-            key_secret: SEED_SERVICE_ROLE_KEY
+            key_secret: SEED_SECRET_KEY
             required: true
           - target: prod
             url_secret: PROD_SUPABASE_URL
-            key_secret: PROD_SERVICE_ROLE_KEY
+            key_secret: PROD_SECRET_KEY
             required: false
     name: gc-${{ matrix.target }}
     steps:
@@ -64,9 +64,9 @@ jobs:
       - name: Run storage GC (${{ matrix.target }})
         env:
           SUPABASE_URL: ${{ secrets[matrix.url_secret] }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets[matrix.key_secret] }}
+          SUPABASE_SECRET_KEY: ${{ secrets[matrix.key_secret] }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ]; then
             if [ "${{ matrix.required }}" = "true" ]; then
               echo "::error::${{ matrix.target }} secrets(${{ matrix.url_secret }}/${{ matrix.key_secret }}) 미등록"
               exit 1
@@ -74,8 +74,8 @@ jobs:
             echo "::notice::${{ matrix.target }} secrets 미등록 — skip. 등록이 곧 활성화 스위치다."
             exit 0
           fi
-          printf 'SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\n' \
-            "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/gc.env
+          printf 'SUPABASE_URL=%s\nSUPABASE_SECRET_KEY=%s\n' \
+            "$SUPABASE_URL" "$SUPABASE_SECRET_KEY" > /tmp/gc.env
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             node scripts/storage-gc.mjs --env /tmp/gc.env --grace-days 7
           else
