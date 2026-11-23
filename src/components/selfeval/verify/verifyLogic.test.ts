@@ -52,6 +52,13 @@ describe("discriminationLabel", () => {
 });
 
 describe("summarizeVerification", () => {
+  test("문항 없이 채점했으면 promptMissing 을 옮긴다", () => {
+    expect(
+      summarizeVerification(sections({ promptMissing: true })).promptMissing,
+    ).toBe(true);
+    expect(summarizeVerification(sections()).promptMissing).toBe(false);
+  });
+
   test("확인 문장 수와 통과, 확인 필요, 필수 수정 수를 센다", () => {
     expect(
       summarizeVerification(

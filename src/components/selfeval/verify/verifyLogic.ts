@@ -8,6 +8,7 @@ export function discriminationLabel(discrimination: number | null): string {
 
 export type VerificationSummary = {
   total: number;
+  promptMissing: boolean;
   submittable: boolean;
   totalChecks: number;
   passChecks: number;
@@ -26,6 +27,7 @@ export function summarizeVerification(
   const passChecks = checks.filter((c) => c.pass).length;
   return {
     total: sections.total,
+    promptMissing: sections.promptMissing === true,
     submittable: sections.submittable,
     totalChecks: checks.length,
     passChecks,

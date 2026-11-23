@@ -24,6 +24,9 @@ export function SummaryCard({ summary }: { summary: VerificationSummary }) {
         <p className="text-app-stat font-bold text-ink-strong">
           {summary.total} / 100
         </p>
+        {summary.promptMissing && (
+          <span className="text-app-caption text-ink-sub">문항 미입력</span>
+        )}
         <span
           className={`rounded-full px-2.5 py-0.5 text-app-caption font-semibold ${BADGE_TONE[badge.tone]}`}
         >

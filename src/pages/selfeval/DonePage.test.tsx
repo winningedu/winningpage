@@ -207,6 +207,22 @@ describe("DonePage", () => {
     expect(within(panel).getByText("사용한 활동 2건")).toBeTruthy();
   });
 
+  test("문항 없이 만든 세션은 요약에 문항 미입력을 보인다", async () => {
+    detailMock.mockResolvedValue(completed({ schoolPrompt: null }));
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "검증 요약",
+    });
+    expect(within(panel).getByText("문항 미입력")).toBeTruthy();
+  });
+
+  test("문항이 있으면 문항 미입력을 보이지 않는다", async () => {
+    detailMock.mockResolvedValue(completed());
+    renderPage();
+    await screen.findByRole("complementary", { name: "검증 요약" });
+    expect(screen.queryByText("문항 미입력")).toBeNull();
+  });
+
   test("회신 sent 는 과제를 완료로 보냈다고 알린다", async () => {
     detailMock.mockResolvedValue(completed(PLAN));
     renderPage({ reply: { status: "sent" } });

@@ -216,6 +216,7 @@ function DoneBody({
               {final.score !== null && (
                 <li className="text-app-stat font-bold">{final.score} / 100</li>
               )}
+              {session.schoolPrompt === null && <li>문항 미입력</li>}
               <li>
                 <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-app-caption font-semibold text-emerald-800">
                   제출 가능

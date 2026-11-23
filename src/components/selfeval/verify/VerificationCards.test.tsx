@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { VerificationSections } from "@/lib/selfeval/types";
-import { MandatoryFixesCard } from "./VerificationCards";
+import { MandatoryFixesCard, ScoreItemCards } from "./VerificationCards";
 
 const sections = (
   mandatoryFixes: VerificationSections["mandatoryFixes"],
@@ -19,6 +19,44 @@ const sections = (
   clicheDensity: 0,
   clicheHits: [],
   numberCount: 0,
+});
+
+describe("ScoreItemCards", () => {
+  const item = (over: Record<string, unknown>) => ({
+    key: "prompt",
+    label: "문항 대응",
+    max: 10,
+    discrimination: null,
+    checks: [],
+    score: 0,
+    ...over,
+  });
+
+  test("적용하지 않은 문항 대응은 점수 대신 문항 미입력을 보인다", () => {
+    const base = sections([]);
+    render(
+      <ScoreItemCards
+        sections={{
+          ...base,
+          promptMissing: true,
+          items: [item({ applied: false })] as never,
+        }}
+      />,
+    );
+    expect(screen.getByText("문항 미입력")).toBeVisible();
+    expect(screen.queryByText("0 / 10")).toBeNull();
+  });
+
+  test("적용한 항목은 점수를 그대로 보인다", () => {
+    const base = sections([]);
+    render(
+      <ScoreItemCards
+        sections={{ ...base, items: [item({ score: 7 })] as never }}
+      />,
+    );
+    expect(screen.getByText("7 / 10")).toBeVisible();
+    expect(screen.queryByText("문항 미입력")).toBeNull();
+  });
 });
 
 describe("MandatoryFixesCard", () => {

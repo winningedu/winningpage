@@ -94,7 +94,9 @@ export function ScoreItemCards({
                 {discriminationLabel(item.discrimination)}
               </span>
               <span className="text-app-label font-semibold text-ink-strong">
-                {item.score} / {item.max}
+                {item.applied === false
+                  ? "문항 미입력"
+                  : `${item.score} / ${item.max}`}
               </span>
             </div>
           </div>
