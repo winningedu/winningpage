@@ -155,6 +155,12 @@ const minLoadOf = (weekday: Ordinal): number => {
   return Number(match(String(code), /^MINLOAD:(\d+)$/)[1]);
 };
 
+const weekOf = (day: number): Week => {
+  const week = WEEKS.find((w) => day >= w.from && day <= w.to)?.week;
+  if (!week) throw new Error(`day ${day} is outside the plan`);
+  return week;
+};
+
 const first = <T>(list: readonly T[], index: number, what: string): T => {
   const value = list[index];
   if (value === undefined) throw new Error(`missing ${what} ${index + 1}`);
@@ -171,11 +177,12 @@ export function buildPlan(input: PlanInput): Plan {
   const task = (
     day: number,
     rest: Omit<PlanTask, "date" | "day" | "week">,
-  ): PlanTask => {
-    const week = WEEKS.find((w) => day >= w.from && day <= w.to)?.week;
-    if (!week) throw new Error(`day ${day} is outside the plan`);
-    return { date: dateOfDay(input.diagnosedAt, day), day, week, ...rest };
-  };
+  ): PlanTask => ({
+    date: dateOfDay(input.diagnosedAt, day),
+    day,
+    week: weekOf(day),
+    ...rest,
+  });
   const lastDay = first(WEEKS, WEEKS.length - 1, "week").to;
   const events = Array.isArray(input.schedule) ? input.schedule : [];
   const within = events.filter((e) => {
@@ -187,8 +194,7 @@ export function buildPlan(input: PlanInput): Plan {
     within.some(
       (e) =>
         REDUCING_KINDS.includes(e.kind) &&
-        task(dayOfDate(input.diagnosedAt, e.date), { taskId: "" }).week ===
-          week,
+        weekOf(dayOfDate(input.diagnosedAt, e.date)) === week,
     ),
   );
   const areaTasks = WEEKS.flatMap(({ week, from }) =>
