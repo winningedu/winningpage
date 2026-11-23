@@ -177,4 +177,85 @@ describe("buildPlan", () => {
       },
     ]);
   });
+
+  const examOpsOf = (schedule: PlanInput["schedule"]) =>
+    buildPlan({ ...pdfInput(), schedule })
+      .tasks.filter((t) => t.taskId.startsWith("EXAMOPS_"))
+      .map((t) => [t.taskId, t.day]);
+
+  test("RISK without an exam from Day 4 puts EXAMOPS_TASK on Day 13", () => {
+    expect(examOpsOf("NONE")).toEqual([["EXAMOPS_TASK", 13]]);
+    // exam on Day 3 is less than 3 days after diagnosis
+    expect(examOpsOf([{ kind: "EXAM", date: "2026-11-12" }])).toEqual([
+      ["EXAMOPS_TASK", 13],
+    ]);
+  });
+
+  test("exam D-7 before the day after diagnosis moves to Day 2 (spec row 77)", () => {
+    expect(examOpsOf([{ kind: "EXAM", date: "2026-11-15" }])).toEqual([
+      ["EXAMOPS_TASK_EXAM", 2],
+    ]);
+  });
+
+  test("spec row 131: event the day after diagnosis drops past tasks, still reduces", () => {
+    const plan = buildPlan({
+      ...pdfInput(),
+      examOps: "OK",
+      schedule: [{ kind: "PERF", date: "2026-11-11", subject: "국어" }],
+    });
+    expect(
+      plan.tasks
+        .filter((t) => t.taskId.startsWith("EVT_"))
+        .map((t) => [t.taskId, t.day]),
+    ).toEqual([["EVT_PERF_SUBMIT", 1]]);
+    expect(plan.reducedWeeks).toEqual([1]);
+  });
+
+  test("spec row 132: Day 29..42 event makes no task and no reduced week", () => {
+    const plan = buildPlan({
+      ...pdfInput(),
+      schedule: [{ kind: "APPLY", date: "2026-12-21" }],
+    });
+    expect(plan.afterEvents).toEqual([{ kind: "APPLY", date: "2026-12-21" }]);
+    expect(plan.reducedWeeks).toEqual([]);
+    expect(plan.tasks.some((t) => t.event !== undefined)).toBe(false);
+  });
+
+  test("PDF p12-p15: dates and tasks of the PDF student", () => {
+    const plan = buildPlan(pdfInput());
+    expect(plan.columns).toEqual(["P1_PRIO", "P1_EXEC", "H12_DEEP"]);
+    expect(plan.reducedWeeks).toEqual([4]);
+    expect(plan.redxDate).toBe("2026-12-08");
+    expect(plan.minLoad).toBe(60);
+    expect(plan.tasks.map((t) => [t.date, t.taskId, t.doneId])).toEqual([
+      ["2026-11-10", "FIX_START", undefined],
+      ["2026-11-11", "AREA_P1_PRIO_ACT1", "DONE_P1_PRIO_1"],
+      ["2026-11-13", "AREA_P1_EXEC_ACT1", "DONE_P1_EXEC_1"],
+      ["2026-11-15", "AREA_H12_DEEP_ACT1", "DONE_H12_DEEP_1"],
+      ["2026-11-16", "FIX_CHECK_1", undefined],
+      ["2026-11-18", "AREA_P1_PRIO_ACT2", "DONE_P1_PRIO_2"],
+      ["2026-11-20", "AREA_P1_EXEC_ACT2", "DONE_P1_EXEC_2"],
+      ["2026-11-22", "AREA_H12_DEEP_ACT2", "DONE_H12_DEEP_2"],
+      ["2026-11-23", "FIX_CHECK_2", undefined],
+      ["2026-11-25", "AREA_P1_PRIO_ACT3", "DONE_P1_PRIO_3"],
+      ["2026-11-27", "AREA_P1_EXEC_ACT3", "DONE_P1_EXEC_3"],
+      ["2026-11-29", "AREA_H12_DEEP_ACT3", "DONE_H12_DEEP_3"],
+      ["2026-11-30", "EXAMOPS_TASK_EXAM", undefined],
+      ["2026-11-30", "FIX_CHECK_3", undefined],
+      ["2026-12-02", "AREA_P1_PRIO_ACT4", "DONE_P1_PRIO_4"],
+      ["2026-12-04", "AREA_P1_EXEC_ACT4", "DONE_P1_EXEC_4"],
+      ["2026-12-04", "EVT_EXAM", undefined],
+      ["2026-12-06", "AREA_H12_DEEP_ACT4", "DONE_REDUCED"],
+      ["2026-12-07", "FIX_NEXT", undefined],
+      ["2026-12-07", "FIX_CHECK_4", undefined],
+    ]);
+  });
+
+  test("MID or OK adds no exam-ops task", () => {
+    expect(
+      buildPlan({ ...pdfInput(), examOps: "MID" }).tasks.some((t) =>
+        t.taskId.startsWith("EXAMOPS_"),
+      ),
+    ).toBe(false);
+  });
 });
