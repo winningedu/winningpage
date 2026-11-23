@@ -50,6 +50,41 @@ const achievementToNine = (average: number) =>
     ACHIEVEMENT_BANDS[ACHIEVEMENT_BANDS.length - 1]
   )?.nine ?? null;
 
+/** 16 r20: entry year from which high school uses the 5등급제. */
+const FIVE_FROM_ENTRY_YEAR = (() => {
+  const row = sheetRows("16_문항규칙").find(
+    (r) => r.c[0] === "Q04 기본값" && String(r.c[1]).startsWith("고등학교"),
+  );
+  const year = /(\d{4})년 이후/.exec(String(row?.c[2]))?.[1];
+  if (!year) throw new Error("16 r20 entry year missing");
+  return Number(year);
+})();
+
+const ordinalOf = (system: GradeSystem): Ordinal => {
+  const option = OPTIONS.q4.find((o) => systemOf(o.ordinal) === system);
+  if (!option) throw new Error(`no q4 option for ${system}`);
+  return option.ordinal;
+};
+
+/**
+ * Default q4 for the survey (16 r19-r21). Entry year = school year - grade + 1
+ * (16 r20); January and February still belong to the previous school year
+ * (judge-report R13). diagnosedAt is an ISO date.
+ */
+export function defaultQ4(q1: Ordinal, diagnosedAt: string): Ordinal {
+  const label = OPTIONS.q1.find((o) => o.ordinal === q1)?.label;
+  if (label === undefined) throw new Error(`unknown q1 ${q1}`);
+  const highGrade = /^고등학교 (\d)학년$/.exec(label)?.[1];
+  if (highGrade === undefined) {
+    return ordinalOf(label.startsWith("중학교") ? "ACHIEVEMENT" : "NINE");
+  }
+  const year = Number(diagnosedAt.slice(0, 4));
+  const month = Number(diagnosedAt.slice(5, 7));
+  const schoolYear = month <= 2 ? year - 1 : year;
+  const entryYear = schoolYear - Number(highGrade) + 1;
+  return ordinalOf(entryYear >= FIVE_FROM_ENTRY_YEAR ? "FIVE" : "NINE");
+}
+
 /** q6 in the q4 grade system as a 9-grade value; null when q4 has no table. */
 export function toNineGrade(q4: Ordinal, q6: number): number | null {
   switch (systemOf(q4)) {
