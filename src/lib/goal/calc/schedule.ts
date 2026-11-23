@@ -14,6 +14,8 @@
 //
 // 예외: `calcAvailableHoursApprox` 는 원본에 없는 우리 앱 전용 근사 어댑터다(맨 아래).
 
+import { ymdIn } from "../../time/day.js";
+
 // target/api/student.mjs:7 — 인덱스 0=월 … 6=일
 export const VIRTUAL_DAY_NAMES = [
   "monday",
@@ -55,14 +57,12 @@ function toYMD(v: unknown) {
   return d.toISOString().slice(0, 10);
 }
 
+// 이 모듈은 한국 서비스의 KST 영업일 규칙을 서버와 공유한다. 다른 시간대는 time 모듈의 ymdIn 으로 직접 계산한다.
+const KST_ZONE = "Asia/Seoul"; // tz-literal-ok: goal 계산 엔진의 KST 영업일 규칙(U4b-goal-api가 시간대 인자로 옮길 때까지 유지)
+
 // student.mjs:152-159 — 현재 시각은 인자로 주입받는다(테스트 가능성). 원본도 기본값 인자였다.
 function kstYMD(date = new Date()) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return ymdIn(date, KST_ZONE);
 }
 
 // student.mjs:240-242

@@ -21,6 +21,8 @@
 
 // diffDaysYMD 전용. addDaysYMD/getDayIndexFromYMDServer 는 Date.UTC 만 쓰고
 // 밀리초 나눗셈이 필요 없어 이 상수를 쓰지 않는다.
+import { ymdIn } from "../../time/day.js";
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** YMD 문자열 정규화. 원본 student.mjs:144-150 */
@@ -33,25 +35,19 @@ export function toYMD(v: unknown) {
   return d.toISOString().slice(0, 10);
 }
 
+// 이 모듈은 한국 서비스의 KST 영업일 규칙을 서버와 공유한다. 다른 시간대는 time 모듈의 ymdIn 으로 직접 계산한다.
+const KST_ZONE = "Asia/Seoul"; // tz-literal-ok: goal 계산 엔진의 KST 영업일 규칙(U4b-goal-api가 시간대 인자로 옮길 때까지 유지)
+
 /** 주어진 시각의 KST(Asia/Seoul) 날짜를 'YYYY-MM-DD' 로. 원본 student.mjs:152-159 */
 export function kstYMD(date = new Date()) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return ymdIn(date, KST_ZONE);
 }
 
 /**
  * 실제 시작일 + recordIndex 일 = 해당 기록의 가상 날짜.
  * 원본 student.mjs:732-740
  *
- * NOTE(target-parity): 원본은 KST 자정으로 만든 Date 에 `setDate(getDate() + n)` 을 쓴다.
- * getDate/setDate 는 **실행 환경의 로컬 타임존** 기준이라, DST 가 있는 타임존(예:
- * America/New_York, Europe/Berlin)에서 전환 구간을 넘기면 결과가 하루 어긋난다.
- * 예) getRecordDateFromActualStart('2026-01-15', 100) → UTC/KST 는 '2026-04-25',
- * America/New_York 는 '2026-04-24'. 버그로 보이지만 원본 그대로 둔다.
+ * 달력 날짜(YMD)끼리 UTC 로 더하므로 실행 환경의 시간대와 DST 에 영향받지 않는다.
  *
  * NOTE(target-parity): recordIndex 가 숫자로 변환되지 않는 값('abc' 등)이면
  * setDate(NaN) → Invalid Date → Intl.format 이 RangeError 를 던진다. 원본 그대로.
@@ -68,11 +64,13 @@ export function getRecordDateFromActualStart(
 ) {
   if (!actualStartDate) return kstYMD(now);
 
-  const d = new Date(`${String(actualStartDate).slice(0, 10)}T00:00:00+09:00`);
-  if (Number.isNaN(d.getTime())) return kstYMD(now);
+  const [y, m, d] = String(actualStartDate).slice(0, 10).split("-").map(Number);
+  const start = new Date(Date.UTC(y!, m! - 1, d!));
+  if (Number.isNaN(start.getTime())) return kstYMD(now);
 
-  d.setDate(d.getDate() + Number(recordIndex || 0));
-  return kstYMD(d);
+  // 달력 날짜끼리의 덧셈이라 실행 환경의 시간대와 DST 에 영향받지 않는다.
+  start.setUTCDate(start.getUTCDate() + Number(recordIndex || 0));
+  return start.toISOString().slice(0, 10);
 }
 
 /**
