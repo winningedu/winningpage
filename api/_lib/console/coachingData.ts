@@ -8,6 +8,7 @@ import { deriveGradeSystem } from "../../../src/lib/goal/report/aggregate.js";
 import {
   type AreaScores,
   type CoachingMetrics,
+  type DiagnosisAreas,
   type DiagnosisTrend,
   type GradeCurve,
   type GrowthAxisKey,
@@ -16,7 +17,7 @@ import {
   naesinChangeScore,
   type TopicFit,
 } from "./coaching.js";
-import { reportAreas } from "./diagnosisStatus.js";
+import { reportAreas, v3ScoresOf } from "./diagnosisStatus.js";
 import { readAll } from "./directory.js";
 import {
   buildGoalDays,
@@ -96,6 +97,17 @@ function diagnosisFrom(
     areas: areas as AreaScores,
     trend: typeof code === "string" ? (TREND_BY_CODE[code] ?? null) : null,
   };
+}
+
+/** 버전 태그가 붙은 영역 점수. v3 는 payload.scores 를 코드 키로 읽고, 그 밖은 v2 라벨로 읽는다. */
+function areaSetFrom(
+  report: { payload: unknown; snapshot: unknown } | undefined,
+): DiagnosisAreas | null {
+  if (!report) return null;
+  const scores = v3ScoresOf(report.payload);
+  if (scores) return { version: "v3", scores };
+  const v2 = diagnosisFrom(report);
+  return v2 ? { version: "v2", areas: v2.areas } : null;
 }
 
 export interface DiagnosisMeta {
@@ -261,6 +273,10 @@ export interface CoachingData {
   inquiryTopic: string | null;
   /** 최신 바로 앞 학습진단(diagnosed_at 순)의 영역 점수. 없거나 읽을 수 없으면 null. */
   diagnosisPrevious: AreaScores | null;
+  /** 최신 학습진단의 영역 점수(버전 태그). v3 는 metrics.diagnosis 가 아니라 여기에 있다. */
+  diagnosisAreas: DiagnosisAreas | null;
+  /** 최신 바로 앞 학습진단의 영역 점수. 최신과 버전이 같을 때만 담는다. */
+  diagnosisPreviousAreas: DiagnosisAreas | null;
   /** 최신 학습진단 리포트의 학교 유형, 평균 내신, 성적 흐름, 진단일. */
   diagnosisMeta: DiagnosisMeta | null;
   /** 가장 최근에 고친 탐구 세션의 콘솔 단계(6단계 이름). 세션이 없으면 null. */
@@ -490,9 +506,18 @@ export async function loadCoachingData(
     ).map((k) => [k, uses(k)]),
   ) as Record<ServiceKey, boolean>;
 
+  const latestAreas = areaSetFrom(diagnosesNewestFirst[0]);
+  const previousAreas = areaSetFrom(diagnosesNewestFirst[1]);
+  const previousSameVersion =
+    latestAreas && previousAreas?.version === latestAreas.version
+      ? previousAreas
+      : null;
   return {
     lastSeenAt,
-    diagnosisPrevious: diagnosisFrom(diagnosesNewestFirst[1])?.areas ?? null,
+    diagnosisAreas: latestAreas,
+    diagnosisPreviousAreas: previousSameVersion,
+    diagnosisPrevious:
+      previousSameVersion?.version === "v2" ? previousSameVersion.areas : null,
     diagnosisMeta: diagnosisMetaFrom(diagnosesNewestFirst[0]),
     metrics: {
       used: usedMap,

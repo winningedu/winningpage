@@ -1,7 +1,12 @@
 // 코칭 판정 엔진(W9). 서비스 자료를 받아 판정, 6축 점수, 5대 역량, 종합 신호를 만드는 순수 함수 모음.
 // 문구표(코칭 판정 문구표)와 6축 역량 연결표의 행을 그대로 옮긴다. 자료가 없는 지표는 분모에서 뺀다(결정 4).
 
-import { type Urgency, urgencyOfLowest } from "./diagnosisStatus.js";
+import type { DiagnosisV3Scores } from "../../../src/lib/diagnosis-v3/types.js";
+import {
+  type Urgency,
+  urgencyOfLowest,
+  urgencyOfV3,
+} from "./diagnosisStatus.js";
 import type { GoalWeek } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
@@ -57,10 +62,22 @@ export type AreaCode =
   | (typeof READINESS_AREAS)[number];
 export type AreaScores = Record<AreaCode, number>;
 
+/**
+ * 버전 태그가 있는 영역 점수. 영역 집합이 버전과 트랙마다 달라(v2 는 12영역 고정, v3 는 공통 7 + 트랙 6 + MIND 3)
+ * 한 타입으로 묶지 않는다. 버전이 다른 두 값은 서로 비교하지 않는다.
+ */
+export type DiagnosisAreas =
+  | { version: "v2"; areas: AreaScores }
+  | { version: "v3"; scores: DiagnosisV3Scores };
+
 /** 긴급도 4단계(결정 3, 36). 단계 기준은 diagnosisStatus.ts 한 곳이다. */
 export function urgencyOf(areas: AreaScores): Urgency {
   return urgencyOfLowest(Math.min(...Object.values(areas)));
 }
+
+/** 긴급도. v3 는 엔진이 저장한 단계를 쓰고, v2 는 콘솔 규칙(urgencyOf)을 쓴다. */
+export const urgencyOfAreas = (set: DiagnosisAreas): Urgency =>
+  set.version === "v3" ? urgencyOfV3(set.scores) : urgencyOf(set.areas);
 
 export interface LearningInput {
   areas: AreaScores;

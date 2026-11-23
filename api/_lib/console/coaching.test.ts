@@ -18,8 +18,10 @@ import {
   signalOf,
   summaryLine,
   urgencyOf,
+  urgencyOfAreas,
   type VerdictLevel,
 } from "./coaching.js";
+import { v3Payload } from "./diagnosisV3TestKit.js";
 
 describe("executionVerdict (문구표 r2~r8, first match wins)", () => {
   const week = (setDays: number, metDays: number, achievementPct: number) => ({
@@ -117,6 +119,20 @@ describe("urgencyOf (결정 3, 36: 가장 낮은 영역, 기준 45, 60, 70)", ()
     [70, "low"],
   ] as const)("the lowest area %i is %s", (lowest, level) => {
     expect(urgencyOf(areas(lowest))).toBe(level);
+  });
+});
+
+describe("urgencyOfAreas (version tagged)", () => {
+  test("v3 uses the stored engine level even when the console rule would differ", () => {
+    // the lowest v3 area is 40, which the v2 console rule rates very_high; the engine stored L2
+    const scores = v3Payload({ level: "L2" }).scores;
+    expect(urgencyOfAreas({ version: "v3", scores })).toBe("mid");
+  });
+
+  test("v2 keeps the console lowest-area rule", () => {
+    expect(urgencyOfAreas({ version: "v2", areas: areas(44) })).toBe(
+      "very_high",
+    );
   });
 });
 
