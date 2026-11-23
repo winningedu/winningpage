@@ -1,9 +1,21 @@
-import type { ActivityRole, CandidateRow } from "@/lib/selfeval/types";
-import { formatDotDate, sourceLabel, summarizeResult } from "./activitiesLogic";
+import type {
+  ActivityRole,
+  CandidateRow,
+  LinkStatus,
+} from "@/lib/selfeval/types";
+import {
+  formatDotDate,
+  linkChipText,
+  reasonLinesOf,
+  sourceLabel,
+  summarizeResult,
+} from "./activitiesLogic";
+import { needsConfirmState, UNLINKED_WARNING } from "./linkMapLogic";
 
 // 활동 후보 카드 한 장(시안 14~29, 명세 No.27~32, 36). 값이 없는 줄은 그리지 않는다.
 //   사용 불가: 흐리게 그리고 이유를 보여 준다. 체크 시도는 막지 않고 부모가 안내를 띄운다(시안 15).
 //   이미 사용: 경고 칩을 붙이고 선택은 허용한다(시안 22, 29).
+//   연계: 칩으로 유형, 단계, 강도를 보인다(명세 No.179, 185). 연계 없는 기록을 고르면 경고와 한 줄 입력(children)을 둔다(No.180).
 
 const ROLE_LABEL: Record<ActivityRole, string> = {
   core: "핵심",
@@ -18,6 +30,10 @@ type Props = {
   checked: boolean;
   disabled: boolean;
   onToggle: () => void;
+  linkStatus: LinkStatus;
+  /** 고른 보조 기록이 핵심과 이어지지 않았다. children 으로 설명 입력을 받는다. */
+  unlinked: boolean;
+  children?: React.ReactNode;
 };
 
 const CHIP = "rounded-md bg-surface-04 px-2 py-0.5 text-app-caption text-ink";
@@ -28,6 +44,9 @@ export default function CandidateCard({
   checked,
   disabled,
   onToggle,
+  linkStatus,
+  unlinked,
+  children,
 }: Props) {
   const { activity, fit, unavailableReason, alreadyUsed } = row;
   const unavailable = unavailableReason !== null;
@@ -37,6 +56,15 @@ export default function CandidateCard({
   const meta = [sourceLabel(activity.sourceProgram), date]
     .filter((v): v is string => v !== null)
     .join(", ");
+  const chip =
+    fit === null
+      ? null
+      : linkStatus === "unchecked"
+        ? "연계 확인 안 됨"
+        : linkStatus === "ok"
+          ? linkChipText(row)
+          : null;
+  const reasons = reasonLinesOf(row);
   const checkboxLabel = `${title ?? activity.subject ?? "활동"} 선택`;
 
   return (
@@ -61,6 +89,7 @@ export default function CandidateCard({
               사용 불가
             </span>
           )}
+          {chip && <span className={CHIP}>{chip}</span>}
           {alreadyUsed && (
             <span className="rounded-md bg-surface-badge px-2 py-0.5 text-app-caption font-semibold text-ink-strong">
               이미 사용
@@ -92,12 +121,17 @@ export default function CandidateCard({
         </p>
       ) : (
         <>
-          {fit && fit.reasons.length > 0 && (
+          {reasons.length > 0 && (
             <ul className="mt-3 flex flex-col gap-1 rounded-lg bg-surface-04 px-3 py-2 text-app-caption text-ink-sub">
-              {fit.reasons.map((reason) => (
+              {reasons.map((reason) => (
                 <li key={reason}>{reason}</li>
               ))}
             </ul>
+          )}
+          {row.contribution !== undefined && row.contribution > 0 && (
+            <p className="mt-2 text-app-caption text-ink-sub">
+              새로 더하는 항목 {row.contribution}개
+            </p>
           )}
           {fit && (
             <div className="mt-3 flex items-center gap-3">
@@ -121,6 +155,23 @@ export default function CandidateCard({
             </div>
           )}
         </>
+      )}
+      {checked && needsConfirmState(row.linkState) && (
+        <p className="mt-3 text-app-caption text-ink-sub">
+          확인하기 전에는 연결 문장 없이 참고 항목으로만 써요
+        </p>
+      )}
+      {checked && unlinked && (
+        <div className="mt-3 flex flex-col gap-2 rounded-lg bg-surface-04 px-3 py-2">
+          <p className="text-app-caption font-semibold text-ink-strong">
+            {UNLINKED_WARNING}
+          </p>
+          <p className="text-app-caption text-ink-sub">
+            어떻게 이어지는지 한 줄을 쓰지 않으면 이 기록은 글을 만들 때 쓰지
+            않아요
+          </p>
+          {children}
+        </div>
       )}
       {alreadyUsed && checked && (
         <p className="mt-3 text-app-caption text-ink-sub">

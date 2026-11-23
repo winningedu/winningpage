@@ -388,6 +388,8 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     checked
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
+                    linkStatus={pick.linkStatus}
+                    unlinked={false}
                   />
                 ))}
               </section>
@@ -408,6 +410,8 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     checked={false}
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
+                    linkStatus={pick.linkStatus}
+                    unlinked={false}
                   />
                 ))}
               </section>

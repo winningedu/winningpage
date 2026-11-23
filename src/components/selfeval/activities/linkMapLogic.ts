@@ -9,6 +9,13 @@ import {
 // 연계 지도 순수 로직(명세 No.185, 186, 193, 194). 서버 linkGraph.ts 의 도달 판정과 같은 규칙을
 // 화면에서 미리 보여 주기 위한 사본이다. 확정은 서버가 다시 판정한다.
 
+/** 서버와 같은 경고 문구(api/_routes/selfeval/pick-records.ts UNLINKED_WARNING). */
+export const UNLINKED_WARNING = "다른 기록과 이어지는 지점을 찾지 못했어요";
+
+/** 카드용. 연계된 암묵 기록을 학생이 아직 확인하지 않았다. */
+export const needsConfirmState = (state: CandidateRow["linkState"]): boolean =>
+  state?.linked === true && state.strength === "implicit" && !state.confirmed;
+
 /** 암묵 연계는 학생이 "실제로 이어서 했어요" 를 누르기 전까지 연결 문장에 쓰지 않는다(명세 No.185, 193). */
 export const needsConfirm = (l: RecordLink): boolean =>
   l.strength === "implicit" && !l.confirmed;
