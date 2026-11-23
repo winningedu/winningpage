@@ -380,6 +380,19 @@ describe("detailBody", () => {
     expect(sentences?.[2]?.evidence).toEqual([]);
   });
 
+  it("확인하고 포함한 수기 메모 목록을 싣는다", () => {
+    const body = detailBody(
+      session(),
+      [],
+      [],
+      [{ id: "m1", writtenAt: "2026-05-03", text: "메모" }],
+    );
+    expect(body.memos).toEqual([
+      { id: "m1", writtenAt: "2026-05-03", text: "메모" },
+    ]);
+    expect(detailBody(session(), [], []).memos).toEqual([]);
+  });
+
   it("유형마다 revision 이 가장 큰 리포트를 고른다", () => {
     const body = detailBody(
       session(),

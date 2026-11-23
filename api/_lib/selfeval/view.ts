@@ -209,6 +209,7 @@ export function detailBody(
   session: SessionRow,
   activities: SessionActivityWithRecord[],
   reports: ReportRow[],
+  memos: { id: string; writtenAt: string | null; text: string }[] = [],
 ) {
   const generation = latestOf(reports, "generation");
   const edited = latestOf(reports, "edited");
@@ -273,6 +274,7 @@ export function detailBody(
       verification: view(verification),
       final: view(final),
     },
+    memos,
     regenerationsLeft: MAX_REGENERATIONS - session.regenerate_count,
     current: view(current),
   };

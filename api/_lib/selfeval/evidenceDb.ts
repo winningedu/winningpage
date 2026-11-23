@@ -35,6 +35,25 @@ type MemoDbRow = {
   included: boolean;
 };
 
+/** 학생이 확인했고 포함으로 둔 이 세션의 수기 메모. 화면이 문장 근거로 고르게 한다. */
+export async function loadIncludedMemos(
+  db: Db,
+  sessionId: string,
+): Promise<{ id: string; writtenAt: string | null; text: string }[]> {
+  const rows = must(
+    await db
+      .from("selfeval_manual_logs")
+      .select("id, written_at, text")
+      .eq("session_id", sessionId)
+      .eq("confirmed", true)
+      .eq("included", true)
+      .order("written_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true }),
+    "selfeval_manual_logs 조회 실패",
+  ) as { id: string; written_at: string | null; text: string }[];
+  return rows.map((m) => ({ id: m.id, writtenAt: m.written_at, text: m.text }));
+}
+
 /** 세션에 선택된 기록의 새 컬럼, 선택 기록 사이의 연결, 이 세션의 수기 메모를 읽는다. */
 export async function loadEvidenceRows(
   db: Db,
