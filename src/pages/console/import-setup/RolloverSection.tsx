@@ -14,6 +14,7 @@ import RolloverConfirmDialog, {
   type RolloverSummary,
 } from "./RolloverConfirmDialog";
 import RolloverPreviewTable, {
+  FORMAT_REASON_LABEL,
   type PreviewRow,
   resultLegend,
 } from "./RolloverPreviewTable";
@@ -81,22 +82,19 @@ interface RolloverSectionProps {
   onTextChange: (text: string) => void;
 }
 
-/** 적용 응답의 미회원가입 저장 결과를 문장 뒤에 붙인다. 저장도 건너뜀도 없으면 붙이지 않는다. */
-function pendingSentence(done: {
-  pendingStored: number;
+/** 저장하지 못한 줄이 있을 때 적용 뒤에 남기는 결과. 다음 미리보기나 명단 변경까지 보인다. */
+interface ApplyFailure {
+  failed: number;
+  formatErrors: PreviewRow[];
   pendingSkipped: number;
-}): string {
-  const parts = [
-    ...(done.pendingStored > 0
-      ? [`미가입 ${done.pendingStored}명은 학생 목록에 저장했어요`]
-      : []),
-    ...(done.pendingSkipped > 0
-      ? [
-          `학년이나 반을 알 수 없는 ${done.pendingSkipped}명은 저장하지 못했어요`,
-        ]
-      : []),
-  ];
-  return parts.length > 0 ? `. ${parts.join(", ")}` : "";
+  sentence: string;
+}
+
+/** 적용 응답의 미회원가입 저장 결과를 문장 뒤에 붙인다. 저장한 줄이 없으면 붙이지 않는다. */
+function pendingSentence(done: { pendingStored: number }): string {
+  return done.pendingStored > 0
+    ? `. 미가입 ${done.pendingStored}명은 학생 목록에 저장했어요`
+    : "";
 }
 
 export default function RolloverSection({
@@ -112,6 +110,7 @@ export default function RolloverSection({
   const [previewing, setPreviewing] = useState(false);
   const [year, setYear] = useState<SchoolYear | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [failure, setFailure] = useState<ApplyFailure | null>(null);
 
   // 응답이 올 때 지금 입력칸과 같은 명단인지 비교하려고 최신 text 를 들고 있는다.
   const textRef = useRef(text);
@@ -119,7 +118,10 @@ export default function RolloverSection({
 
   // 명단이 바뀌면 낡은 미리보기는 적용할 수 없다.
   // biome-ignore lint/correctness/useExhaustiveDependencies: text 가 바뀔 때만 비운다
-  useEffect(() => setPreview(null), [text]);
+  useEffect(() => {
+    setPreview(null);
+    setFailure(null);
+  }, [text]);
 
   const load = useCallback(async () => {
     setLoadFailed(false);
@@ -138,6 +140,7 @@ export default function RolloverSection({
   const runPreview = async () => {
     if (!year) return;
     const requested = text;
+    setFailure(null);
     setPreviewing(true);
     try {
       const res = await consoleRequest(
@@ -192,11 +195,27 @@ export default function RolloverSection({
       setConfirming(false);
       setPreview(null);
       await load();
-      if (done.mode === "midyear") {
-        toast.show({
-          tone: "Success",
-          message: `명단을 적용했어요. 그룹, 반, 번호 변경 ${done.updated}명${pendingSentence(done)}`,
+      const formatErrors = current.rows.filter(
+        (r) => r.result === "format_error",
+      );
+      const failed = formatErrors.length + done.pendingSkipped;
+      // 저장하지 못한 줄이 있으면 토스트가 3초 만에 사라지므로 결과를 화면에 남긴다.
+      const report = (sentence: string) => {
+        if (failed === 0) {
+          toast.show({ tone: "Success", message: sentence });
+          return;
+        }
+        setFailure({
+          failed,
+          formatErrors,
+          pendingSkipped: done.pendingSkipped,
+          sentence,
         });
+      };
+      if (done.mode === "midyear") {
+        report(
+          `명단을 적용했어요. 그룹, 반, 번호 변경 ${done.updated}명${pendingSentence(done)}`,
+        );
         return;
       }
       // 졸업과 진급이 모두 0이면 그 사이 다른 곳에서 학년도 전환이 끝난 것이다.
@@ -207,10 +226,9 @@ export default function RolloverSection({
         });
         return;
       }
-      toast.show({
-        tone: "Success",
-        message: `학년도 전환을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요${pendingSentence(done)}`,
-      });
+      report(
+        `학년도 전환을 적용했어요. 학년 +1 ${done.assigned}명, 졸업 처리 ${done.graduated}명, 반영하지 못한 ${done.promoted - done.assigned}명은 미배정 목록에서 확인해 주세요${pendingSentence(done)}`,
+      );
     } catch {
       toast.show({ tone: "Error", message: SAVE_FAILED_MESSAGE });
     } finally {
@@ -218,6 +236,8 @@ export default function RolloverSection({
     }
   };
 
+  const formatErrorCount =
+    preview?.rows.filter((r) => r.result === "format_error").length ?? 0;
   const midyear = year?.mode === "midyear";
   const target = year && !midyear ? targetLine(year, gradeLabel) : null;
 
@@ -263,6 +283,31 @@ export default function RolloverSection({
           미리보기
         </Button>
       </div>
+      {failure && (
+        <>
+          <Notice tone="Danger">
+            <p>{failure.failed}명은 저장하지 못했어요</p>
+            {failure.formatErrors.map((row) => (
+              <p key={row.line}>
+                {row.line}번째 줄 {row.displayName}:{" "}
+                {(row.reasons ?? [])
+                  .map((r) => FORMAT_REASON_LABEL[r])
+                  .join(", ")}
+              </p>
+            ))}
+            {failure.pendingSkipped > 0 && (
+              <p>학년이나 반을 알 수 없는 {failure.pendingSkipped}명</p>
+            )}
+          </Notice>
+          <p className="text-app-body text-ink-sub">{failure.sentence}</p>
+        </>
+      )}
+      {preview && formatErrorCount > 0 && (
+        <Notice tone="Danger">
+          형식 오류 {formatErrorCount}줄은 저장하지 않아요. 고친 뒤 다시
+          미리보기하면 저장돼요
+        </Notice>
+      )}
       {preview && (
         <>
           <RolloverPreviewTable rows={preview.rows} />
