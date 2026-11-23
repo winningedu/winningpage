@@ -15,12 +15,10 @@ const MEMBER_TYPES: [string, string][] = [
   ["none", "미지정"],
 ];
 
+// 표에 없는 유형은 DB 값을 그대로 보인다.
 export function memberTypeLabel(type: string | null): string {
-  return (
-    MEMBER_TYPES.find(([key]) => key === (type ?? "none"))?.[1] ??
-    type ??
-    "미지정"
-  );
+  const key = type ?? "none";
+  return MEMBER_TYPES.find(([k]) => k === key)?.[1] ?? key;
 }
 
 export function formatByMemberType(counts: Record<string, number>): string {
