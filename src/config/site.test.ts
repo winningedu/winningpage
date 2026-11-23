@@ -257,6 +257,15 @@ describe("site - 본사 기관 관리 스위치", () => {
   });
 });
 
+describe("site - 본사 대시보드 B2C 화면 스위치", () => {
+  it("위닝만 B2C 회원 화면을 보이고 스쿨멘토는 숨긴다(분석 grill Q5 A11)", async () => {
+    expect((await loadSite("winning")).site.features.hqB2cView).toBe(true);
+    expect((await loadSite("schoolmentor")).site.features.hqB2cView).toBe(
+      false,
+    );
+  });
+});
+
 describe("site - 계획 8 사이트 설정 값(결정 107)", () => {
   it("스쿨멘토는 빈 게시판 문구를 갖고 칼럼 영상 등 위닝 전용 기능은 닫는다", async () => {
     const { site } = await loadSite("schoolmentor");

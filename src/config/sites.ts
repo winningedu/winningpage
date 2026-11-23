@@ -58,6 +58,8 @@ export interface SiteConfig {
     studentEnrollment: boolean;
     // 본사 관리자 화면의 기관 상세(기관 정보, 전체 관리자)와 목록 계약 열(5번 본사 관리 화면, 결정 102).
     hqTenantAdmin: boolean;
+    // 본사 대시보드의 위닝 B2C 회원 구역(기관 없음, 기타 소속 회원 수, B2C DAU, MAU, 결제 요약, 분석 grill Q5 A11).
+    hqB2cView: boolean;
     // 칼럼 영상(결정 107 3~6번).
     columnVideo: boolean;
     // 서비스 시작 안내(결정 107 8~10번).
@@ -131,6 +133,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       schoolSignup: false,
       studentEnrollment: true,
       hqTenantAdmin: true,
+      hqB2cView: true,
       columnVideo: false,
       serviceStartNotice: false,
       admissionResultsNotice: false,
@@ -208,6 +211,7 @@ export const SITES: Record<SiteKey, SiteConfig> = {
       schoolSignup: true,
       studentEnrollment: true,
       hqTenantAdmin: true,
+      hqB2cView: false,
       columnVideo: true,
       serviceStartNotice: true,
       admissionResultsNotice: true,
