@@ -12,16 +12,16 @@ import { supabase } from "@/lib/supabase";
 const SURVEY_ENTRY_PATH = "/app/learning-diagnosis/survey";
 
 /**
- * 무료진단 결과 리포트 페이지 — `/learning-diagnosis/report/:attemptId`.
+ * 무료진단 결과 리포트 페이지: `/learning-diagnosis/report/:attemptId`.
  *
  * diagnosis_reports 를 attempt_id 로 읽어 저장된 payload 를 그대로 렌더한다(재조립하지
- * 않는다 — 리포트는 진단 완료일의 문서다). 설문 제출은 서버가 채점해 저장한 뒤 이 URL 로
- * 이동하고, 마이페이지 "결과 리포트 보기"·알림톡 같은 영속 링크도 같은 경로를 쓴다.
+ * 않는다. 리포트는 진단 완료일의 문서다). 설문 제출은 서버가 채점해 저장한 뒤 이 URL 로
+ * 이동하고, 마이페이지 "결과 리포트 보기", 알림톡 같은 영속 링크도 같은 경로를 쓴다.
  * 저장 행의 schema_version 이 v3 면 ReportV3View, 그 이전 행은 기존 DiagnosisReportView 가
- * 그린다(StoredDiagnosisReport). :attemptId 없는 진입은 설문 시작점으로 보낸다 — 세션 저장분
+ * 그린다(StoredDiagnosisReport). :attemptId 없는 진입은 설문 시작점으로 보낸다. 세션 저장분
  * 으로 리포트를 브라우저에서 조립하던 경로는 없앴다.
  *
- * 헤더/푸터는 SiteLayout(App.tsx 의 부모 라우트)이 공급 — 이 페이지에서 렌더하지 않는다.
+ * 헤더/푸터는 SiteLayout(App.tsx 의 부모 라우트)이 공급하고, 이 페이지에서 렌더하지 않는다.
  */
 export default function FreeDiagnosisReport() {
   const { attemptId } = useParams<{ attemptId?: string }>();
@@ -29,7 +29,7 @@ export default function FreeDiagnosisReport() {
   // SurveyStepShell marks the navigation that follows a successful submit.
   const fromSubmit = location.state?.fromSubmit === true;
 
-  // QA 행 103 — 설문에는 이름 수집 문항이 없어 저장 payload 에 이름이 없을 수 있다. 이 페이지
+  // QA 행 103: 설문에는 이름 수집 문항이 없어 저장 payload 에 이름이 없을 수 있다. 이 페이지
   // 진입은 로그인 필수(diagnosisRoutes.tsx)라 profiles.name 으로 PDF 파일명을 채운다.
   const [studentName, setStudentName] = useState("");
   // 세션은 AuthProvider(전역 단일 구독)에서 읽는다(명세 B-3 §4).

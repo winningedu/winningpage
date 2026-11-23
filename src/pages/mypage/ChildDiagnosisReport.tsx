@@ -20,10 +20,10 @@ import { supabase } from "@/lib/supabase";
 // 막는다.
 //
 // ── 본문 ────────────────────────────────────────────────────────────
-// StoredDiagnosisReport는 FreeDiagnosisReport(자기 열람)와 같은 컴포넌트다 — 저장 행의
-// schema_version 으로 v3 뷰와 기존 뷰를 고른다. studentName은 넘기지 않는다 — 저장된
+// StoredDiagnosisReport는 FreeDiagnosisReport(자기 열람)와 같은 컴포넌트다. 저장 행의
+// schema_version 으로 v3 뷰와 기존 뷰를 고른다. studentName은 넘기지 않는다. 저장된
 // payload의 이름을 그대로 신뢰한다(별도 프로필 조회 없음). 리포트 자체가
-// "뒤로가기·자녀 이름" 같은 셸 없이 완결된 A4 인쇄 문서라 이 페이지는 게이트만 하고
+// "뒤로가기, 자녀 이름" 같은 셸 없이 완결된 A4 인쇄 문서라 이 페이지는 게이트만 하고
 // 그 외에는 아무것도 얹지 않는다(FreeDiagnosisReport와 동일한 원칙).
 
 type ParentChildRow = {

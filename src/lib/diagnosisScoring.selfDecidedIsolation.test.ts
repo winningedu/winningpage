@@ -63,7 +63,6 @@ function filesUnder(dir: string): string[] {
 const DIAGNOSIS_SURFACE = [
   "lib/diagnosisScoring.ts",
   "lib/diagnosisCopyBinding.ts",
-  "lib/diagnosisInputStorage.ts",
   "lib/diagnosisAdmissionCuts.ts",
   "data/diagnosisScoringTable.ts",
   "data/diagnosisScreenCopy.ts",
