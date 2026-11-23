@@ -270,6 +270,10 @@ export const ANALYSIS_FIELDS = [
 
 export type AnalysisField = (typeof ANALYSIS_FIELDS)[number];
 
+/** 본문 근거로 쓸 수 있는 항목. 다음 단계(next)는 본문에 쓰지 않는다(명세 No.37). 서버 types.ts 와 같다. */
+export const BODY_EVIDENCE_FIELDS: readonly AnalysisField[] =
+  ANALYSIS_FIELDS.filter((f) => f !== "next");
+
 export const ANALYSIS_FIELD_LABELS: Record<AnalysisField, string> = {
   motive: "계기",
   concept: "교과 개념",

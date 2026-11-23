@@ -24,6 +24,7 @@ const {
   generateMock,
   editMock,
   confirmMock,
+  repickMock,
   detailMock,
   toastMock,
 } = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
   generateMock: vi.fn(),
   editMock: vi.fn(),
   confirmMock: vi.fn(),
+  repickMock: vi.fn(),
   detailMock: vi.fn(),
   toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
@@ -45,6 +47,7 @@ vi.mock("@/lib/selfeval/api", () => ({
   writeGenerate: generateMock,
   writeEdit: editMock,
   writeConfirmFeeling: confirmMock,
+  writeRepickEvidence: repickMock,
   fetchSessionDetail: detailMock,
   fetchEntry: vi.fn(),
 }));
@@ -211,6 +214,71 @@ describe("ResultPage 결과", () => {
     expect(within(panel).getByText("버스 배차 분석")).toBeTruthy();
     expect(within(panel).getByText("방법")).toBeTruthy();
     expect(within(panel).getByText("배차표 자료를 비교했다")).toBeTruthy();
+  });
+
+  test("근거가 연결된 문장 수를 전체 문장 수와 함께 보인다", async () => {
+    detailMock.mockResolvedValue(withReport());
+    renderPage();
+    const panel = await screen.findByRole("complementary", {
+      name: "문장 근거",
+    });
+    expect(within(panel).getByText("근거 연결 1/2문장")).toBeTruthy();
+  });
+
+  test("수기 메모 근거 문장을 누르면 메모 글을 우측에 보인다", async () => {
+    const sections = makeSections();
+    const first = sections.paragraphs[0]?.sentences[0];
+    if (first) {
+      first.evidence = [
+        { sourceType: "H", refId: "m1", item: "action", weight: "main" },
+      ];
+    }
+    detailMock.mockResolvedValue(
+      withReport(sections, {
+        memos: [
+          { id: "m1", writtenAt: "2026-05-03", text: "센서를 설치한 메모" },
+        ],
+      }),
+    );
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "배차표 자료를 비교했어요." }),
+    );
+    const panel = screen.getByRole("complementary", { name: "문장 근거" });
+    expect(within(panel).getByText("센서를 설치한 메모")).toBeTruthy();
+    expect(within(panel).getByText("한 일")).toBeTruthy();
+  });
+
+  test("근거 다시 고르기에서 항목을 골라 적용하면 repick 요청을 보낸다", async () => {
+    detailMock.mockResolvedValue(withReport());
+    const next = makeSections();
+    repickMock.mockResolvedValue({
+      kind: "ok",
+      data: {
+        ok: true,
+        report: {
+          id: "r1",
+          revision: 2,
+          sections: next,
+          charCount: { withSpace: 510, withoutSpace: 420 },
+        },
+      },
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "뿌듯했어요." }));
+    const panel = screen.getByRole("complementary", { name: "문장 근거" });
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "근거 다시 고르기" }),
+    );
+    fireEvent.click(
+      within(panel).getByRole("checkbox", { name: "버스 배차 분석 방법" }),
+    );
+    fireEvent.click(within(panel).getByRole("button", { name: "적용" }));
+    await waitFor(() =>
+      expect(repickMock).toHaveBeenCalledWith("s1", "p2s1", [
+        { refId: "act-core", item: "method" },
+      ]),
+    );
   });
 
   test("문단별 근거 요약에 문단 번호와 활동명이 나오고 역할 라벨은 없다", async () => {
