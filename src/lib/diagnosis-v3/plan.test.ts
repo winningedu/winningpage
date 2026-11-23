@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { P1Code, P2Code } from "./codes.js";
-import { buildPlan, type PlanInput } from "./plan.js";
+import { buildPlan, buildPlannerPages, type PlanInput } from "./plan.js";
+import { COPY_TEXT } from "./source/copyText.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 
 // 계산 예시 A13 and A18-A23: page orders low to high after the 23 tie rule.
@@ -56,6 +57,18 @@ const pdfInput = (): PlanInput => ({
   schedule: [{ kind: "EXAM", date: "2026-12-07" }],
   examOps: "RISK",
   weekdayLoad: 5,
+});
+
+describe("buildPlannerPages (22 r109-r113)", () => {
+  const pages = () => buildPlannerPages(buildPlan(pdfInput()));
+
+  test("PDF p12 head: WEEK_GOAL_1, plan.week_badge, plan.redx", () => {
+    const [week1] = pages();
+    expect(week1?.week).toBe(1);
+    expect(week1?.goal).toBe(COPY_TEXT.WEEK_GOAL_1);
+    expect(week1?.badge).toBe("1 / 4주 \u00b7 Day 1\u20137");
+    expect(week1?.redx).toBe("4주 학습진단 \u00b7 재진단 12/8(화)");
+  });
 });
 
 describe("buildPlan", () => {

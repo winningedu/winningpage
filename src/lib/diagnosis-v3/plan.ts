@@ -11,6 +11,7 @@ import type {
   EventKind,
   IsoDate,
   Ordinal,
+  PlannerPage,
   PlanTask,
   ScheduleEvent,
 } from "./types.js";
@@ -258,4 +259,52 @@ export function buildPlan(input: PlanInput): Plan {
     redxDate: dateOfDay(input.diagnosedAt, REDX_DAY),
     minLoad: minLoadOf(input.weekdayLoad),
   };
+}
+
+const copy = (id: string): string => {
+  const text = COPY_TEXT[id];
+  if (text === undefined) throw new Error(`missing copy ${id}`);
+  return text;
+};
+
+/** Fills {key} placeholders; an absent value drops the placeholder and its trailing space. */
+export function fillCopy(
+  id: string,
+  values: Readonly<Record<string, string | number | undefined>>,
+): string {
+  return copy(id).replace(/\{(\w+)\} ?/g, (whole, key: string) => {
+    const value = values[key];
+    if (value === undefined) return "";
+    return whole.endsWith(" ") ? `${value} ` : String(value);
+  });
+}
+
+// Weekday names come from the runtime ko-KR locale: no sheet has them.
+const WEEKDAY = new Intl.DateTimeFormat("ko-KR", {
+  weekday: "short",
+  timeZone: "UTC",
+});
+
+/** 11 plan.due: {mm}/{dd}({dow}) */
+export function formatDue(date: IsoDate): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  return fillCopy("plan.due", {
+    mm: value.getUTCMonth() + 1,
+    dd: value.getUTCDate(),
+    dow: WEEKDAY.format(value),
+  });
+}
+
+/** 22 r109-r113: one planner page per week. */
+export function buildPlannerPages(plan: Plan): PlannerPage[] {
+  return WEEKS.map(({ week, from, to }) => ({
+    week,
+    goal: copy(`WEEK_GOAL_${week}`),
+    badge: fillCopy("plan.week_badge", { n: week, d1: from, d2: to }),
+    redx: fillCopy("plan.redx", { date: formatDue(plan.redxDate) }),
+    done: [],
+    tasks: [],
+    days: [],
+    slip: [],
+  }));
 }
