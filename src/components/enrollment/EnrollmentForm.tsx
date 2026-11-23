@@ -1,5 +1,9 @@
 import { type FormEvent, useId, useState } from "react";
 import {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../api/_lib/console/className";
+import {
   type EnrollmentEndpoint,
   SUBMIT_FAILED,
   submitEnrollment,
@@ -41,6 +45,11 @@ export default function EnrollmentForm({
       setErrorMsg("학년, 반, 번호를 모두 입력해 주세요.");
       return;
     }
+    const normalizedClass = normalizeClassName(className);
+    if (normalizedClass === "") {
+      setErrorMsg(CLASS_NAME_INVALID_MESSAGE);
+      return;
+    }
     if (!/^\d+$/.test(number.trim())) {
       setErrorMsg("번호는 숫자로 입력해 주세요.");
       return;
@@ -51,7 +60,7 @@ export default function EnrollmentForm({
       const result = await submitEnrollment(endpoint, {
         grade,
         ...(groupName.trim() && { groupName: groupName.trim() }),
-        className: className.trim(),
+        className: normalizedClass,
         number: Number(number.trim()),
       });
       if (result.ok) onDone();
@@ -99,6 +108,7 @@ export default function EnrollmentForm({
       </label>
       <input
         id={`${base}-class`}
+        inputMode="numeric"
         value={className}
         onChange={(e) => setClassName(e.target.value)}
         className={FIELD_CLASS}
