@@ -362,3 +362,87 @@ describe("5p 방해 요인 \u00b7 마음 상태 (22 r55-r61)", () => {
     expect(run(SIMPLE_PICKS).pages.p5.crossCheck).toBeUndefined();
   });
 });
+
+describe("6p 학교생활 \u00b7 입시 준비도 (22 r63-r69)", () => {
+  test("계산 예시: picked areas overlap the bottom two", () => {
+    const { p6 } = run().pages;
+    expect(p6.title).toBe(
+      COPY_TEXT.SCH_HEAD_OVERLAP?.replace(
+        "{areas}",
+        quote("탐구 심화") + ", " + quote("입시 전략"),
+      ),
+    );
+    expect(p6.lead).toBe(COPY_TEXT.SCH_LEAD);
+    expect(p6.bars.areas.map((a) => a.code)).toEqual(run().scores.page2.order);
+    expect(p6.bars.areas[0]).toEqual({
+      code: "H12_DEEP",
+      label: "탐구 심화",
+      score: 26,
+      state: "우선 보완",
+    });
+    expect(p6.bars).toMatchObject({
+      total: 56.9,
+      gradeText: COPY_TEXT.GRADE_PAGE2_H12_L4,
+    });
+    expect(p6.hardest?.map((h) => h.area)).toEqual([
+      "탐구 심화",
+      "탐구 심화",
+      "입시 전략",
+    ]);
+    expect(p6.overlap).toBe(COPY_TEXT.SCH_OVERLAP_ALL);
+    expect(p6.strengths.map((s) => s.body)).toHaveLength(3);
+    expect(p6.strengthNote).toBeUndefined();
+    expect(p6.weaknesses).toEqual([
+      { heading: "탐구 심화", body: COPY_TEXT.AREA_H12_DEEP_WEAK },
+      { heading: "입시 전략", body: COPY_TEXT.AREA_H12_STRA_WEAK },
+    ]);
+  });
+
+  test("계산 예시 처방표: 11-5 별로 one step to 보통 (계산 예시 D26)", () => {
+    const { rx } = run().pages.p6;
+    expect(rx.lever).toBe(COPY_TEXT.LEVER_H12_DEEP);
+    if (rx.weak.kind !== "items") throw new Error("expected weak items");
+    expect(rx.weak.items[0]).toEqual({
+      question: SCALE_ITEMS.q11.H12[4]?.text,
+      target: COPY_TEXT["rx.target"]
+        ?.replace("{cur}", "별로 그렇지 않다")
+        .replace("{tgt}", "보통이다"),
+      link: "11/14(토) " + COPY_TEXT.AREA_H12_DEEP_ACT1,
+    });
+  });
+
+  test("no pick, a pick off the bottom two, a partial overlap", () => {
+    const none = run({ ...CALC_EXAMPLE, q12: undefined }).pages.p6;
+    expect(none.title).toBe(
+      COPY_TEXT.SCH_HEAD_NONE?.replace("{low}", "탐구 심화"),
+    );
+    expect(none.overlap).toBe(COPY_TEXT.SCH_OVERLAP_NONE);
+    expect(none.hardest).toBeUndefined();
+    // 11-1, 11-2 매우: 교과 관리 stays high with one 12번 check
+    const q11 = {
+      ...CALC_EXAMPLE.q11,
+      items: [4, 4, ...CALC_EXAMPLE.q11.items.slice(2)],
+    };
+    const diff = run({ ...CALC_EXAMPLE, q11, q12: [1] } as DiagnosisV3Answers)
+      .pages.p6;
+    expect(diff.title).toBe(
+      COPY_TEXT.SCH_HEAD_DIFF?.replace("{low}", "탐구 심화"),
+    );
+    expect(diff.overlap).toBe(COPY_TEXT.SCH_OVERLAP_NO);
+    expect(
+      run({ ...CALC_EXAMPLE, q11, q12: [5, 1] } as DiagnosisV3Answers).pages.p6
+        .overlap,
+    ).toBe(COPY_TEXT.SCH_OVERLAP_PART);
+  });
+
+  test("no area at 60 or more shows STR_NONE (22 r68)", () => {
+    const q11 = {
+      items: Array(12).fill(1),
+      verify: 1,
+    } as DiagnosisV3Answers["q11"];
+    const { p6 } = run({ ...CALC_EXAMPLE, q11, q12: undefined }).pages;
+    expect(p6.strengths).toEqual([]);
+    expect(p6.strengthNote).toBe(COPY_TEXT.STR_NONE);
+    expect(p6.weaknesses).toHaveLength(4);
+  });
+});

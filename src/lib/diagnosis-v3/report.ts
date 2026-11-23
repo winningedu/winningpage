@@ -11,6 +11,7 @@ import { buildPage2, goalOf } from "./pages/p2.js";
 import { buildPage3 } from "./pages/p3.js";
 import { buildPage4 } from "./pages/p4.js";
 import { buildPage5 } from "./pages/p5.js";
+import { buildPage6 } from "./pages/p6.js";
 import { buildPlan } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
 import { scoreReliability } from "./reliability.js";
@@ -157,6 +158,7 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     p3: buildPage3(engine),
     p4: buildPage4(engine),
     p5: buildPage5(engine),
+    p6: buildPage6(engine),
     p9,
   };
 }
