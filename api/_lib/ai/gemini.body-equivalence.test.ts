@@ -314,9 +314,11 @@ const SCHEMAS: Array<[string, Record<string, unknown>]> = [
       core: {
         activityName: "탐구",
         activityId: "a1",
+        sourceType: "P",
         analysis: emptyAnalysis(),
       },
       supports: [],
+      memos: [],
       area: "subject",
       subject: "수학",
       activityName: null,

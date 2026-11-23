@@ -4,14 +4,17 @@
 // 본문 생성과 편집(계획서 §2 7, 명세 No.44~52). action 으로 가른다.
 //   generate         분석을 바탕으로 본문을 만든다. 성공 뒤 이용권 1회를 차감한다(재생성은 추가 차감 없음).
 //   edit             학생이 고친 문단을 저장한다. 문단 수는 고정하지 않고 1개 이상이면 된다.
-//   confirm-feeling  자료로 확인되지 않는 느낌 문장을 학생이 확인했다고 표시한다.
+//   confirm-feeling  확인이 필요한 문장을 학생이 확인했다고 표시한다.
+//   repick-evidence  학생이 한 문장의 근거를 선택 기록과 확인한 수기 메모에서 다시 고른다(명세 No.147).
 //
 // 요청  { sessionId, action: "generate" }
 //       { sessionId, action: "edit", paragraphs: string[] }
 //       { sessionId, action: "confirm-feeling", sentenceId }
+//       { sessionId, action: "repick-evidence", sentenceId, picks: { refId, item }[] }
 // 응답  generate      200 { ok, report: { id, revision, sections, charCount }, softIssues, attempts,
 //                           charged, regenerationsLeft, currentStep }
-//       edit, confirm 200 { ok, report: { id, revision, sections, charCount } }
+//       edit, confirm, repick 200 { ok, report: { id, revision, sections, charCount } }
+//       문장 근거 sections.paragraphs[].sentences[].evidence 는 { sourceType, refId, item, weight }[] 이다.
 //       charged false 는 차감하지 못한 것이지 생성 실패가 아니다. 진행은 막지 않는다.
 //       softIssues 는 목표 글자 수를 벗어난 사유로, 있어도 본문은 저장된다.
 //
@@ -35,6 +38,7 @@ import {
 } from "../../_lib/selfeval/stepResponse.js";
 import {
   confirmFeelingSentence,
+  repickSentenceEvidence,
   runWrite,
   saveEdit,
   validateWriteBody,
@@ -106,13 +110,22 @@ export default defineHandler({
     const out =
       body.action === "edit"
         ? await saveEdit(db, userId, session, base, body.paragraphs)
-        : await confirmFeelingSentence(
-            db,
-            userId,
-            session,
-            base,
-            body.sentenceId,
-          );
+        : body.action === "repick-evidence"
+          ? await repickSentenceEvidence(
+              db,
+              userId,
+              session,
+              base,
+              body.sentenceId,
+              body.picks,
+            )
+          : await confirmFeelingSentence(
+              db,
+              userId,
+              session,
+              base,
+              body.sentenceId,
+            );
     sendOutcome(res, out, (r) => ({ report: r.report }));
   },
 });

@@ -111,14 +111,16 @@ const sections: GenerationSections = {
         {
           id: "p1-s1",
           text: "센서로 미세먼지를 측정하였다.",
-          evidence: { activityId: "c1", field: "method" },
+          evidence: [
+            { sourceType: "P", refId: "c1", item: "method", weight: "main" },
+          ],
           feeling: false,
           confirmed: false,
         },
         {
           id: "p1-s2",
           text: "농도를 비교하였다.",
-          evidence: null,
+          evidence: [],
           feeling: true,
           confirmed: false,
         },
@@ -511,7 +513,14 @@ describe("runVerify", () => {
             {
               id: "p1-e1",
               text: "학생이 고친 문장이다.",
-              evidence: { student: true },
+              evidence: [
+                {
+                  sourceType: "S",
+                  refId: null,
+                  item: "student_input",
+                  weight: "main",
+                },
+              ],
               feeling: false,
               confirmed: false,
             },

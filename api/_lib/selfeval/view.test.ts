@@ -327,6 +327,59 @@ describe("detailBody", () => {
     expect(body.current).toBeNull();
   });
 
+  it("옛 근거 모양의 본문은 배열로 맞춰 돌려주고 출처 유형은 선택 기록에서 찾는다", () => {
+    const legacy = {
+      paragraphs: [
+        {
+          sentences: [
+            {
+              id: "p1-s1",
+              text: "가함.",
+              evidence: { activityId: "a1", field: "method" },
+              feeling: false,
+              confirmed: false,
+            },
+            {
+              id: "p1-s2",
+              text: "나함.",
+              evidence: { student: true },
+              feeling: false,
+              confirmed: false,
+            },
+            {
+              id: "p1-s3",
+              text: "다함.",
+              evidence: null,
+              feeling: true,
+              confirmed: false,
+            },
+          ],
+        },
+      ],
+    };
+    const deep = {
+      id: "a1",
+      sourceProgram: "deep",
+      subjectGroup: "교과",
+    } as ActivityRecordLike;
+    const body = detailBody(
+      session(),
+      [{ ...act, record: deep }],
+      [report({ id: "g1", revision: 1, sections: legacy })],
+    );
+    const sections = body.reports.generation?.sections as unknown as
+      | { paragraphs: { sentences: { evidence: unknown[] }[] }[] }
+      | undefined;
+    const sentences = sections?.paragraphs[0]?.sentences;
+    expect(sentences?.[0]?.evidence).toEqual([
+      { sourceType: "D", refId: "a1", item: "method", weight: "main" },
+    ]);
+    expect(sentences?.[1]?.evidence).toEqual([
+      { sourceType: "S", refId: null, item: "student_input", weight: "main" },
+    ]);
+    expect(sentences?.[2]?.evidence).toEqual([]);
+  });
+
   it("유형마다 revision 이 가장 큰 리포트를 고른다", () => {
     const body = detailBody(
       session(),

@@ -7,7 +7,14 @@ import {
   loadReports,
   loadSessionActivities,
 } from "../db.js";
-import { confirmFeeling, plainText, relinkEdited } from "../editLink.js";
+import {
+  confirmFeeling,
+  plainText,
+  relinkEdited,
+  repickEvidence,
+} from "../editLink.js";
+import { loadEvidenceRows } from "../evidenceDb.js";
+import { buildWriteEvidence, type WriteEvidence } from "../evidenceSources.js";
 import { stageLabel } from "../growth.js";
 import { extractPromptKeywords } from "../promptKeywords.js";
 import { buildWritePrompt, type WritePromptInput } from "../prompts.js";
@@ -23,14 +30,13 @@ import { guardStep } from "../session.js";
 import { countChars } from "../text.js";
 import {
   type ActivityRecordLike,
-  ANALYSIS_FIELDS,
   type Analysis,
   type CharCount,
   type GenerationSections,
   MAX_REGENERATIONS,
 } from "../types.js";
 import { validateWriteResponse } from "../validation.js";
-import { detailBody } from "../view.js";
+import { detailBody, type SessionActivityWithRecord } from "../view.js";
 import { chargeAfterSuccess, checkChargeGate, needsCharge } from "./credit.js";
 import {
   activeGrowth,
@@ -47,6 +53,7 @@ import {
 /** 생성 완료 단계. 이 값 이상이어야 편집하고 느낌 문장을 확인할 수 있다. */
 const GENERATED_STEP = 4;
 const MAX_EDIT_PARAGRAPHS = 6;
+const MAX_REPICKS = 30;
 
 export type WriteResult = {
   report: ReturnType<typeof reportRowOut>;
@@ -64,7 +71,13 @@ type ModelWrite = { sections: GenerationSections; charCount: CharCount };
 export type WriteBody =
   | { sessionId: string; action: "generate" }
   | { sessionId: string; action: "edit"; paragraphs: string[] }
-  | { sessionId: string; action: "confirm-feeling"; sentenceId: string };
+  | { sessionId: string; action: "confirm-feeling"; sentenceId: string }
+  | {
+      sessionId: string;
+      action: "repick-evidence";
+      sentenceId: string;
+      picks: { refId: string; item: string }[];
+    };
 
 export function validateWriteBody(
   body: unknown,
@@ -96,37 +109,47 @@ export function validateWriteBody(
     }
     return { ok: true, body: { sessionId, action, sentenceId } };
   }
-  return bad("action 은 generate, edit, confirm-feeling 중 하나여야 해요.");
+  if (action === "repick-evidence") {
+    const { sentenceId, picks } = body;
+    if (typeof sentenceId !== "string" || sentenceId === "") {
+      return bad("sentenceId 가 필요해요.");
+    }
+    if (
+      !Array.isArray(picks) ||
+      picks.length > MAX_REPICKS ||
+      picks.some(
+        (p) =>
+          !isRecord(p) ||
+          typeof p.refId !== "string" ||
+          typeof p.item !== "string",
+      )
+    ) {
+      return bad("picks 형식이 올바르지 않아요.");
+    }
+    return {
+      ok: true,
+      body: {
+        sessionId,
+        action,
+        sentenceId,
+        picks: picks.map((p) => ({ refId: p.refId, item: p.item })),
+      },
+    };
+  }
+  return bad(
+    "action 은 generate, edit, confirm-feeling, repick-evidence 중 하나여야 해요.",
+  );
 }
 
 // ---------------------------------------------------------------------------
 // 입력 조립(순수)
 // ---------------------------------------------------------------------------
 
-const asStrings = (v: unknown): string[] =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-
-/** 보조 활동 요약. 값이 있는 항목만 "라벨: 값" 으로 " / " 로 잇는다. */
-function supportSummary(r: ActivityRecordLike): string {
-  const parts: [string, string][] = [
-    ["주제", r.topic ?? ""],
-    ["개념", r.concept ?? ""],
-    ["방법", r.method ?? ""],
-    ["결과", r.result ?? ""],
-    ["한계", r.limitation ?? ""],
-    ["수치", asStrings(r.numbers).join(", ")],
-    ["자료", asStrings(r.sources).join(", ")],
-  ];
-  return parts
-    .filter(([, v]) => v.trim() !== "")
-    .map(([k, v]) => `${k}: ${v.trim()}`)
-    .join(" / ");
-}
-
 export function buildWriteInput(
   session: SessionRow,
   core: { record: ActivityRecordLike; analysis: Analysis },
   supports: ActivityRecordLike[],
+  evidence: WriteEvidence,
 ):
   | { ok: true; input: WritePromptInput }
   | { ok: false; code: "CONFLICTS_UNRESOLVED" } {
@@ -146,12 +169,27 @@ export function buildWriteInput(
         activityName: activityNameOf(core.record, session),
         analysis: core.analysis,
         activityId: core.record.id,
+        sourceType: evidence.prompt.coreSourceType,
       },
-      supports: supports.map((s) => ({
-        activityId: s.id,
-        activityName: activityNameOf(s, session),
-        summary: supportSummary(s),
-      })),
+      // 완료되지 않은 기록은 evidence.prompt.supports 에 없으므로 프롬프트에서 빠진다.
+      supports: supports.flatMap((s) => {
+        const info = evidence.prompt.supports.find(
+          (i) => i.activityId === s.id,
+        );
+        return info === undefined
+          ? []
+          : [
+              {
+                activityId: s.id,
+                activityName: activityNameOf(s, session),
+                sourceType: info.sourceType,
+                summary: info.summary,
+                link: info.link,
+                items: info.items,
+              },
+            ];
+      }),
+      memos: evidence.prompt.memos,
       area: session.area,
       subject: session.subject,
       activityName: session.activity_name,
@@ -180,26 +218,22 @@ export function buildWriteSpec(
   session: SessionRow,
   core: { record: ActivityRecordLike; analysis: Analysis },
   supports: ActivityRecordLike[],
+  evidence: WriteEvidence,
   regenerate: boolean,
 ):
   | { ok: true; spec: StepSpec<ModelWrite> }
   | { ok: false; code: "CONFLICTS_UNRESOLVED" } {
-  const built = buildWriteInput(session, core, supports);
+  const built = buildWriteInput(session, core, supports, evidence);
   if (!built.ok) return built;
   const { input } = built;
   const universities = careerOf(session).universities;
-  const allowedFields = ANALYSIS_FIELDS.filter(
-    (f) => core.analysis.sources[f] !== "empty",
-  );
   return {
     ok: true,
     spec: {
       build: (retryNotes) => buildWritePrompt(input, retryNotes),
       validate: (value) => {
         const v = validateWriteResponse(value, {
-          coreActivityId: core.record.id,
-          supportActivityIds: supports.map((s) => s.id),
-          allowedFields,
+          sources: evidence.sources,
           targetChars: session.target_chars,
           mode: session.target_chars_mode,
           universities,
@@ -247,13 +281,14 @@ export async function runWrite(
     return { kind: "regenerate_exhausted" };
   }
 
-  const { core, supports } = splitActivities(
-    await loadSessionActivities(db, userId, session.id),
-  );
+  const rows = await loadSessionActivities(db, userId, session.id);
+  const { core, supports } = splitActivities(rows);
+  const evidence = await loadWriteEvidence(db, userId, session.id, rows);
   const built = buildWriteSpec(
     session,
     { record: core.record, analysis: readAnalysis(core.analysis) },
     supports.map((s) => s.record),
+    evidence,
     regenerate,
   );
   if (!built.ok) {
@@ -306,6 +341,21 @@ export async function runWrite(
     attempts: out.attempts,
     softIssues: out.softIssues,
   };
+}
+
+async function loadWriteEvidence(
+  db: Db,
+  userId: string,
+  sessionId: string,
+  rows: SessionActivityWithRecord[],
+): Promise<WriteEvidence> {
+  const loaded = await loadEvidenceRows(
+    db,
+    userId,
+    sessionId,
+    rows.map((r) => r.activity_record_id),
+  );
+  return buildWriteEvidence(rows, loaded.extras, loaded.links, loaded.memos);
 }
 
 /** 학생이 고친 문단을 문장으로 다시 나눠 edited 리포트로 쌓는다(명세 No.50). */
@@ -366,6 +416,39 @@ export async function confirmFeelingSentence(
         confirmFeeling(base, sentenceId),
       ),
     },
+  };
+}
+
+/** 학생이 한 문장의 근거를 다시 골라 edited 리포트로 쌓는다(명세 No.147). */
+export async function repickSentenceEvidence(
+  db: Db,
+  userId: string,
+  session: SessionRow,
+  base: GenerationSections,
+  sentenceId: string,
+  picks: { refId: string; item: string }[],
+): Promise<SimpleOutcome<{ report: ReturnType<typeof reportRowOut> }>> {
+  if (session.current_step < GENERATED_STEP) {
+    return { kind: "order", currentStep: session.current_step };
+  }
+  const { sources } = await loadWriteEvidence(
+    db,
+    userId,
+    session.id,
+    await loadSessionActivities(db, userId, session.id),
+  );
+  const next = repickEvidence(base, sentenceId, picks, sources);
+  if (next === null) {
+    return {
+      kind: "rejected",
+      status: 404,
+      code: "SENTENCE_NOT_FOUND",
+      message: "근거를 바꿀 문장을 찾을 수 없어요.",
+    };
+  }
+  return {
+    kind: "done",
+    result: { report: await saveEdited(db, userId, session, next) },
   };
 }
 

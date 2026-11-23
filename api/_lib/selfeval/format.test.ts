@@ -5,7 +5,7 @@ import type { Sentence } from "./types.js";
 const sentence = (over: Partial<Sentence> = {}): Sentence => ({
   id: "s1",
   text: "문장이다.",
-  evidence: null,
+  evidence: [],
   feeling: false,
   confirmed: false,
   ...over,
