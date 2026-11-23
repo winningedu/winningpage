@@ -137,6 +137,8 @@ export function buildPage16(engine: Engine): Page16 {
           ? "SVC_HEAD_TEMP"
           : "SVC_HEAD_2",
     ),
+    // 17 r168 SVC_LEAD (항상)
+    lead: copy("SVC_LEAD"),
     // 22 r116
     preferences: OPTIONS.q14
       .filter((o) => answers.q14?.includes(o.ordinal))

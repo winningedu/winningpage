@@ -510,6 +510,13 @@ describe("7p 입결 (22 r71-r77)", () => {
     expect(p7.notes).toEqual([COPY_TEXT.ADMISSION_NOTE, COPY_TEXT.PROB_NOTE]);
   });
 
+  test("17 ADM_LEAD is the 7p lead sentence (PDF p8)", () => {
+    expect(run().pages.p7?.lead).toBe(COPY_TEXT.ADM_LEAD);
+    expect(run(omit(CALC_EXAMPLE, "q15")).pages.p7?.lead).toBe(
+      COPY_TEXT.ADM_LEAD,
+    );
+  });
+
   test("an unanswered card shows ADM_NA and carries no text (22 r75 D)", () => {
     const cards = run(omit(CALC_EXAMPLE, "q17")).pages.p7?.cards;
     expect(cards?.[1]).toEqual({
@@ -702,6 +709,10 @@ describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
       COPY_TEXT.REPORT_BASIS,
       COPY_TEXT.REPORT_LIMIT,
     ]);
+  });
+
+  test("17 SVC_LEAD is the 16p lead sentence (PDF p17)", () => {
+    expect(run().pages.p16.lead).toBe(COPY_TEXT.SVC_LEAD);
   });
 
   test("응답 단순 and care titles; care pins CALL with its prefix (22 r115, r117)", () => {

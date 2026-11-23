@@ -16,6 +16,8 @@ export default function Page07Admission({ page }: { page: Page7 }) {
     <ReportSheet page={7}>
       <PageEyebrow page={7} />
       <PageTitle>{page.title}</PageTitle>
+      {/* 17 ADM_LEAD */}
+      <Para>{page.lead}</Para>
       {result.kind === "computed" ? (
         <section className="flex flex-col gap-3">
           {/* 22 r72 */}

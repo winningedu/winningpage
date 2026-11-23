@@ -12,6 +12,7 @@ import type {
 
 export const p7: Page7 = {
   title: "P7 title",
+  lead: "P7 lead",
   result: {
     kind: "computed",
     comparison: {
@@ -169,6 +170,7 @@ export const planner = (week: 1 | 2 | 3 | 4): PlannerPage => ({
 
 export const p16: Page16 = {
   title: "P16 title",
+  lead: "P16 lead",
   preferences: ["PREF1", "PREF2"],
   services: [
     {

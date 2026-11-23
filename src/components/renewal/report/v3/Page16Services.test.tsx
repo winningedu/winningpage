@@ -33,6 +33,7 @@ describe("Page16Services (22 r115-r121)", () => {
     render(<Page16Services page={p16} />);
     for (const t of [
       "P16 title",
+      "P16 lead",
       "PREF1",
       "PREF2",
       "SVC name1",

@@ -665,6 +665,8 @@ export type Page6 = {
 export type Page7 = {
   /** 22 r71 */
   readonly title: string;
+  /** 17 ADM_LEAD (17 r115 항상), the PDF p8 lead (judge-report R6 b) */
+  readonly lead: string;
   /** 22 r72-r73 when computed, else 22 r74 */
   readonly result:
     | {
@@ -899,6 +901,8 @@ export type ServiceCard = {
 export type Page16 = {
   /** 22 r115 */
   readonly title: string;
+  /** 17 SVC_LEAD (17 r168 항상), the PDF p17 lead (judge-report R6 b) */
+  readonly lead: string;
   /** 22 r116 */
   readonly preferences: readonly string[];
   /** 22 r117 */

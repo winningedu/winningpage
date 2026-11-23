@@ -11,6 +11,7 @@ describe("Page07Admission (22 r71-r77)", () => {
     render(<Page07Admission page={p7} />);
     expect(screen.getByText("P7 title")).toBeInTheDocument();
     for (const t of [
+      "P7 lead",
       "CUT50 label",
       "CUT70 label",
       "MINE label",

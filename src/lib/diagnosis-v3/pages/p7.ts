@@ -65,6 +65,8 @@ export function buildPage7(engine: Engine): Page7 | undefined {
           ? "ADM_HEAD_SKIP"
           : "ADM_HEAD_NODATA",
     ),
+    // 17 r115 ADM_LEAD (항상)
+    lead: copy("ADM_LEAD"),
     result:
       admission.status === "COMPUTED" && names
         ? {

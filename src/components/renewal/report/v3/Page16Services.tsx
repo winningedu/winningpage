@@ -38,6 +38,8 @@ export default function Page16Services({ page }: { page: Page16 }) {
       {/* 22 r115 */}
       <PageEyebrow page={16} />
       <PageTitle>{page.title}</PageTitle>
+      {/* 17 SVC_LEAD */}
+      <Para>{page.lead}</Para>
       {/* 22 r116 */}
       <ul className="flex flex-wrap gap-2">
         {page.preferences.map((chip) => (
