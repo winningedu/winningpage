@@ -411,7 +411,7 @@ export function buildPlanPage(
   plan: Plan,
   diagnosedAt: IsoDate,
   schedule: DiagnosisV3Answers["q13"],
-): Pick<Page11, "table" | "numbers" | "events"> {
+): Pick<Page11, "table" | "numbers" | "events" | "checkpoints"> {
   const within = eventsBetween(diagnosedAt, schedule, 1, LAST_DAY);
   const after = plan.afterEvents.map(eventLine).join(", ");
   const cellOf = (week: Week, column: 1 | 2 | 3) => {
@@ -445,6 +445,12 @@ export function buildPlanPage(
               ? {}
               : { after: fillCopy("plan.after_note", { events: after }) }),
           },
+    // 22 r107: each week's last day, re-diagnosis day, Day 29..42 events
+    checkpoints: [
+      ...WEEKS.map(({ to }) => dateOfDay(diagnosedAt, to)),
+      plan.redxDate,
+      ...plan.afterEvents.map((e) => e.date),
+    ].map(formatDue),
     // 22 r105, 21 C30-C32
     numbers: {
       logMinutes: LOG_MINUTES,

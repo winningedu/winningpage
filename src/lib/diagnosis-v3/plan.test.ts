@@ -97,6 +97,20 @@ describe("buildPlanPage (22 r103-r107)", () => {
     });
   });
 
+  test("22 r107 checkpoints: each week's last day, re-diagnosis, Day 29..42 events", () => {
+    expect(page().checkpoints).toEqual([
+      "11/16(월)",
+      "11/23(월)",
+      "11/30(월)",
+      "12/7(월)",
+      "12/8(화)",
+    ]);
+    const plan = buildPlan(calcInput());
+    expect(
+      buildPlanPage(plan, "2026-11-09", CALC_EXAMPLE.q13).checkpoints.slice(4),
+    ).toEqual(["12/7(월)", "12/10(목)"]);
+  });
+
   test("calc example: 수행평가 within 4 weeks, 기말 Day 32 in plan.after_note", () => {
     const plan = buildPlan(calcInput());
     expect(buildPlanPage(plan, "2026-11-09", CALC_EXAMPLE.q13).events).toEqual({
