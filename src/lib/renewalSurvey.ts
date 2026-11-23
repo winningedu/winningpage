@@ -417,6 +417,8 @@ export function applyAnswer(
 ): SurveyDraft {
   const next: Record<string, unknown> = { ...draft, [id]: value };
   if (id !== "q1") return next;
+  // the same grade again changes nothing (the student's q4 stays)
+  if (draft.q1 === value) return draft;
   next.q4 = defaultQ4(value as number, diagnosedAt);
   if (draftTrack(draft) !== draftTrack(next)) {
     delete next.q11;

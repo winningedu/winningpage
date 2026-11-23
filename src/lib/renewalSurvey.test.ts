@@ -244,6 +244,11 @@ describe("v3 1번 학년 응답", () => {
     expect(applyAnswer({}, "q1", 1, "2026-11-09").q4).toBe(3);
   });
 
+  it("1번을 같은 값으로 다시 눌러도 학생이 고른 4번을 되돌리지 않는다", () => {
+    const draft = applyAnswer({ q1: 3, q4: 1, q6: "2" }, "q1", 3, "2026-11-09");
+    expect(draft).toEqual({ q1: 3, q4: 1, q6: "2" });
+  });
+
   it("학생이 고른 4번은 다른 문항 응답으로 바뀌지 않는다", () => {
     const draft = applyAnswer({ q1: 3 }, "q4", 1, "2026-11-09");
     expect(applyAnswer(draft, "q2", 1, "2026-11-09").q4).toBe(1);
