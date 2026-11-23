@@ -43,6 +43,8 @@ interface GoalProbabilityHistoryEntry {
 /** GET /api/goal/student 200 본문(온보딩 완료 학생), api/_lib/goal/repo.ts buildStudentPayload(). */
 export interface GoalStudentPayload {
   onboarded: true;
+  /** 학생 시간대(IANA). 학생 화면의 "오늘"은 이 시간대의 달력 날짜다. */
+  timeZone: string;
   status: string;
   profile: {
     name: string | null;

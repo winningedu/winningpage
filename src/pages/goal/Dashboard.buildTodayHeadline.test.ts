@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildTodayHeadline, pickWelcomeHeadline } from "./Dashboard";
+import {
+  buildTodayHeadline,
+  mapNearestSchedules,
+  pickWelcomeHeadline,
+  resolveDaySchedule,
+} from "./Dashboard";
 
 // QA 행304 — "오늘의 조언"에 "오늘 달성률 N% (목표 대비)"가 없었다. 규칙 기반 문구
 // 확장 회귀 테스트(LLM 아님).
@@ -87,5 +92,37 @@ describe("pickWelcomeHeadline", () => {
         ruleHeadline: rule,
       }),
     ).toBe(rule);
+  });
+});
+
+// 2026-11-22T15:30Z = 서울 11/23(월) 00:30, 로스앤젤레스 11/22(일) 07:30.
+// 브라우저 시간대와 무관하게 학생 시간대의 "오늘"을 쓴다.
+describe("학생 시간대 기준 오늘", () => {
+  const instant = new Date("2026-11-22T15:30:00Z");
+
+  it("오늘 요일의 목표 시간은 학생 시간대의 요일에서 고른다", () => {
+    const weeklySchedule = {
+      monday: { ideal: 3, min: 1 },
+      sunday: { ideal: 5, min: 2 },
+    } as never;
+    expect(resolveDaySchedule(weeklySchedule, instant, "Asia/Seoul")).toEqual({
+      ideal: 3,
+      min: 1,
+    });
+    expect(
+      resolveDaySchedule(weeklySchedule, instant, "America/Los_Angeles"),
+    ).toEqual({ ideal: 5, min: 2 });
+  });
+
+  it("가까운 일정은 학생 시간대의 오늘 이후만 남긴다", () => {
+    const schedules = [
+      { id: 1, title: "A", dueDate: "2026-11-22", memo: null },
+    ] as never;
+    expect(mapNearestSchedules(schedules, instant, "Asia/Seoul")).toHaveLength(
+      0,
+    );
+    const la = mapNearestSchedules(schedules, instant, "America/Los_Angeles");
+    expect(la).toHaveLength(1);
+    expect(la[0]?.dday).toBe("D-day");
   });
 });

@@ -21,7 +21,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/context/AuthProvider";
 import {
   getDayIndexFromYMDServer,
-  kstYMD,
   VIRTUAL_DAY_NAMES,
 } from "@/lib/goal/calc/index.js";
 import { buildZoneGapRows } from "@/lib/goal/gapToTarget";
@@ -43,6 +42,8 @@ import {
   goalStudentQueryOptions,
   queryClient,
 } from "@/lib/queryClient";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // QA 행303-1 — 저장 완료 배너 자동 소멸 시간. DailyRecord.tsx의
@@ -128,6 +129,8 @@ export function pickWelcomeHeadline(args: {
 
 // api/_lib/goal/repo.ts buildStudentPayload() 반환 shape 중 이 페이지가 실제로 읽는 필드만.
 type GoalStudent = {
+  /** 학생 시간대(IANA). GET /api/goal/student 가 내려준다. */
+  timeZone: string;
   jungsiAvailable: boolean;
   targets: {
     ideal: {
@@ -205,15 +208,16 @@ type SchedulesResult =
   | { kind: "no-session" | "not-allowed" | "error" };
 
 /**
- * 주어진 시각이 속한 KST 요일의 student.weeklySchedule 항목. 오늘의 목표 카드(같은
+ * 주어진 시각이 속한 학생 시간대 요일의 student.weeklySchedule 항목. 오늘의 목표 카드(같은
  * 날)와 내일 계획 카드(다음 날, `now`에 +1일한 Date를 넘긴다)가 공유한다.
  * 스케줄이 없으면(온보딩 직후 등) {ideal:0, min:0}.
  */
-function resolveDaySchedule(
+export function resolveDaySchedule(
   weeklySchedule: GoalStudent["weeklySchedule"],
   now = new Date(),
+  tz = browserTimeZone(),
 ) {
-  const dayIndex = getDayIndexFromYMDServer(kstYMD(now), now);
+  const dayIndex = getDayIndexFromYMDServer(ymdIn(now, tz), now);
   // getDayIndexFromYMDServer는 항상 0~6을 반환하고 VIRTUAL_DAY_NAMES는 7개 고정이다.
   const dayName = VIRTUAL_DAY_NAMES[dayIndex]!;
   return weeklySchedule?.[dayName] || { ideal: 0, min: 0 };
@@ -355,22 +359,23 @@ function mapRankingRows(rankingResult: RankingResult | null) {
 }
 
 /**
- * 우측 레일 "중요일정 체크하기" 카드용 — 오늘(KST) 이후(오늘 포함) 마감일 중 가장 가까운
+ * 우측 레일 "중요일정 체크하기" 카드용 — 오늘(학생 시간대) 이후(오늘 포함) 마감일 중 가장 가까운
  * 3건. 지난 일정은 이 위젯(체크리스트 목적)에서 제외한다 — 전체 이력은
  * Schedules.jsx(/app/goal/schedules)가 담당한다(이번 UoW 판단 지점).
  */
-function mapNearestSchedules(
+export function mapNearestSchedules(
   schedules?: ScheduleItem[] | null,
   now = new Date(),
+  tz = browserTimeZone(),
 ) {
-  const today = kstYMD(now);
+  const today = ymdIn(now, tz);
   return [...(schedules || [])]
     .filter((schedule) => schedule.dueDate >= today)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, 3)
     .map((schedule) => ({
       ...schedule,
-      dday: formatScheduleDday(schedule.dueDate, now),
+      dday: formatScheduleDday(schedule.dueDate, now, tz),
       meta: formatScheduleMeta(schedule.dueDate, schedule.memo),
     }));
 }
@@ -602,7 +607,12 @@ export default function Dashboard() {
       ideal: student.targets.ideal.jungsiCut,
     },
   });
-  const todayDaySchedule = resolveDaySchedule(student.weeklySchedule);
+  const studentTz = student.timeZone;
+  const todayDaySchedule = resolveDaySchedule(
+    student.weeklySchedule,
+    new Date(),
+    studentTz,
+  );
   const todayGoalData = mapTodayGoal(todayDaySchedule, dailyRecordResult);
   const mockExamData = mapMockExam(student);
   const naesinData = mapNaesin(student);
@@ -610,6 +620,7 @@ export default function Dashboard() {
   const tomorrowDaySchedule = resolveDaySchedule(
     student.weeklySchedule,
     new Date(Date.now() + ONE_DAY_MS),
+    studentTz,
   );
   const tomorrowPlan = buildTomorrowPlan(
     tomorrowDaySchedule.ideal,
@@ -636,7 +647,7 @@ export default function Dashboard() {
     headline: pickWelcomeHeadline({
       summary: goalAdviceData?.intake?.probabilitySummary,
       intakeFor: goalAdviceData?.intakeFor,
-      today: kstYMD(new Date()),
+      today: ymdIn(new Date(), studentTz),
       ruleHeadline: buildTodayHeadline(
         todayDaySchedule.ideal,
         todayGoalData.studyHours,
@@ -665,7 +676,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-x-10 gap-y-19.5 xl:grid-cols-[minmax(0,1fr)_23.25rem]">
             <DashboardPageHeader
               adviceType={advice.adviceType}
-              dateLabel={formatTodayDateLabel()}
+              dateLabel={formatTodayDateLabel(new Date(), studentTz)}
               headline={advice.headline}
               className="xl:col-start-1 xl:row-start-1"
             />
@@ -708,6 +719,7 @@ export default function Dashboard() {
                         : null
                     }
                     generatedFor={displayedAdviceFor}
+                    timeZone={studentTz}
                   />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -749,9 +761,15 @@ export default function Dashboard() {
               <TargetUniversityRail data={targetUniversities} />
               {/* StudyPlanRail: 오늘 과제 조회(GET /api/goal/plan-tasks)를 위젯이 직접 한다
                 (StudyPlanRail.jsx 참고). Dashboard는 tasks를 내려주지 않는다. */}
-              <StudyPlanRail />
+              <StudyPlanRail timeZone={studentTz} />
               {/* ScheduleRail: GET /api/goal/schedules 실데이터, 가까운 순 3건(mapNearestSchedules). */}
-              <ScheduleRail schedules={mapNearestSchedules(schedules)} />
+              <ScheduleRail
+                schedules={mapNearestSchedules(
+                  schedules,
+                  new Date(),
+                  studentTz,
+                )}
+              />
               {shouldShowRankingRail(rankingResult) && (
                 <RankingRail ranking={mapRankingRows(rankingResult)} />
               )}
