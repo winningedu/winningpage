@@ -246,6 +246,49 @@ begin
   perform pg_temp.expect_text('by_code 서울 학생 어제 기한 expired', r.reason, 'expired');
 end $$;
 
+-- ---------------------------------------------------------------------
+-- fn_respond_enrollment: 승인 시 쿠폰 만료 판정이 학생 현지 오늘이다
+-- ---------------------------------------------------------------------
+create function pg_temp.mk_pending_order(p_id text, p_parent uuid, p_student uuid) returns void
+language plpgsql as $$
+begin
+  insert into public.orders (
+    id, user_id, status, order_name, list_amount, discount_amount, amount,
+    customer_email, created_at,
+    student_profile_id, parent_profile_id,
+    approval_status, requested_at
+  ) values (
+    p_id, p_parent, 'pending', p_id, 100000, 0, 100000,
+    'spec@test.local', now(),
+    p_student, p_parent,
+    'requested', now()
+  );
+end $$;
+
+do $$
+declare
+  v_pago_today date := public.fn_local_date(now(), 'Pacific/Pago_Pago');
+  v_c uuid;
+  r record;
+begin
+  insert into public.coupons (title, discount_amount, slug, grant_type, valid_until)
+  values ('cz-r-pago', 5000, 'cz-r-pago', 'auto', v_pago_today) returning id into v_c;
+
+  perform pg_temp.mk_pending_order('cz-ord-pago', (select v::uuid from fx where k = 'par-pago'), (select v::uuid from fx where k = 'pago'));
+  perform pg_temp.mk_pending_order('cz-ord-kiri', (select v::uuid from fx where k = 'par-kiri'), (select v::uuid from fx where k = 'kiri'));
+
+  -- 사모아 학생 주문: 사모아 마지막 날 쿠폰이 적용된다.
+  perform pg_temp.as_user((select v::uuid from fx where k = 'par-pago'));
+  select * into r from public.fn_respond_enrollment('cz-ord-pago', true, null, array[v_c]);
+  perform pg_temp.expect_bool('respond 사모아 쿠폰 적용', v_c = any (r.applied_coupon_ids), true);
+
+  -- 키리바시 학생 주문: 같은 쿠폰이 이미 만료라 건너뛴다.
+  perform pg_temp.as_user((select v::uuid from fx where k = 'par-kiri'));
+  select * into r from public.fn_respond_enrollment('cz-ord-kiri', true, null, array[v_c]);
+  perform pg_temp.expect_bool('respond 키리바시 쿠폰 건너뜀', v_c = any (r.skipped_coupon_ids), true);
+  perform pg_temp.expect_bool('respond 키리바시 쿠폰 미적용', v_c = any (r.applied_coupon_ids), false);
+end $$;
+
 -- 인자 기본값 때문에 직접 호출이 모호한 옛 오버로드까지 포함해, 쿠폰 함수 본문에
 -- 서울 시간대 하드코딩이 남지 않았는지 본다.
 do $$
@@ -256,7 +299,8 @@ begin
         from pg_proc p
         join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
        where p.proname in ('fn_coupon_by_code', 'fn_coupon_is_granted', 'fn_usable_coupons',
-                           'fn_grant_coupon', 'fn_grant_signup_coupons_for_user')
+                           'fn_grant_coupon', 'fn_grant_signup_coupons_for_user',
+                           'fn_respond_enrollment')
          and p.prosrc like '%Asia/Seoul%'
     ), ''), '');
 end $$;
