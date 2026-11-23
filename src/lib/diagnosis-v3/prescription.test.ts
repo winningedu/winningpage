@@ -71,4 +71,78 @@ describe("buildPrescriptions", () => {
       task: { date: "2026-11-10", taskId: "AREA_P1_LOG_ACT1" },
     });
   });
+
+  test("calc example A26: 11-5 별로 is a one-step item, LEVER_H12_DEEP, task 11/14", () => {
+    const page2 = calcRx().page2;
+    expect(page2.lever).toBe("LEVER_H12_DEEP");
+    expect(page2.weak.map((w) => [w.no, w.area, w.answer, w.target])).toEqual([
+      [5, "H12_DEEP", 1, 2],
+    ]);
+    expect(page2.weak[0]?.link).toMatchObject({
+      kind: "task",
+      task: { date: "2026-11-14", taskId: "AREA_H12_DEEP_ACT1" },
+    });
+  });
+
+  test("strengths: answers of 75+ high to low, then item number, PAGE1 4, PAGE2 3", () => {
+    const rx = calcRx();
+    expect(rx.page1.strong.map((s) => s.no)).toEqual([1, 2, 3, 4]);
+    expect(rx.page2.strong.map((s) => s.no)).toEqual([1, 9]);
+    const top = buildPrescriptions({
+      answers: {
+        ...CALC_EXAMPLE,
+        q11: {
+          ...CALC_EXAMPLE.q11,
+          items: [3, 4, 3, 4, 4, 3, 2, 2, 2, 2, 2, 2],
+        },
+      },
+      track: "H12",
+      areaScores: CALC_SCORES,
+      plan: calcPlan,
+    });
+    expect(top.page2.strong.map((s) => s.no)).toEqual([2, 4, 5]);
+  });
+
+  test("weak sort: lever sources first, then area score, capped at 3; other areas link ACT1", () => {
+    const rx = buildPrescriptions({
+      answers: {
+        ...CALC_EXAMPLE,
+        q9: { ...CALC_EXAMPLE.q9, items: Array(15).fill(1) },
+      },
+      track: "H12",
+      areaScores: CALC_SCORES,
+      plan: calcPlan,
+    });
+    expect(rx.page1.weak.map((w) => w.no)).toEqual([9, 5, 1]);
+    expect(rx.page1.lever).toBe("LEVER_P1_LOG");
+    expect(rx.page1.weak[2]?.link).toEqual({
+      kind: "act",
+      actId: "AREA_P1_GOAL_ACT1",
+    });
+  });
+
+  test("H3 track: no q11 lever, 11-11 rises one step (20 B14), 11-1 two", () => {
+    const items = Array(12).fill(3);
+    items[0] = 0;
+    items[10] = 0;
+    const rx = buildPrescriptions({
+      answers: { ...CALC_EXAMPLE, q1: 5, q11: { ...CALC_EXAMPLE.q11, items } },
+      track: "H3",
+      areaScores: {
+        ...CALC_SCORES,
+        H3_GPA: 60,
+        H3_CSAT: 60,
+        H3_FIT: 60,
+        H3_TYPE: 60,
+        H3_REC: 60,
+        H3_APPLY: 60,
+      },
+      plan: calcPlan,
+    });
+    expect(rx.page2.lever).toBeNull();
+    expect(rx.page2.weak.map((w) => [w.no, w.answer, w.target])).toEqual([
+      [1, 0, 2],
+      [11, 0, 1],
+    ]);
+  });
 });
