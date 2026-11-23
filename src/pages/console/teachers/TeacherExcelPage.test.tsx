@@ -212,6 +212,10 @@ describe("W15 미리보기", () => {
     fireEvent.click(screen.getByRole("button", { name: "올리기" }));
 
     await screen.findByText("3. 행 판정 미리보기");
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull(),
+    );
     const rows = screen.getAllByRole("row").slice(1);
     const first = within(rows[0] as HTMLElement);
     expect(first.getByText("형식 오류")).toBeTruthy();
@@ -227,6 +231,69 @@ describe("W15 미리보기", () => {
       ),
     ).toBeTruthy();
     expect(within(rows[2] as HTMLElement).queryByText(/적어요/)).toBeNull();
+  });
+
+  it("미리보기에 형식 오류 줄이 있으면 확인 창이 저절로 열려 틀린 칸의 글을 보이고, 확인으로 닫는다", async () => {
+    stubPage({
+      [PREVIEW]: {
+        body: {
+          rows: [{ index: 0, verdict: "format_error", reasons: ["grade"] }],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste("박지훈\t010-1234-5678\t3학년\t\t3반");
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "형식 오류 1줄을 고쳐 주세요",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('1행 박지훈: 학년 "3학년"은 중1~고3 중에서 골라 적어요'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull(),
+    );
+  });
+
+  it("확인 창은 틀린 전화번호를 자연스러운 문장으로 보인다", async () => {
+    stubPage({
+      [PREVIEW]: {
+        body: {
+          rows: [{ index: 0, verdict: "format_error", reasons: ["phone"] }],
+        },
+      },
+    });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste("박지훈\t0101234\t중1\t\t3");
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    expect(
+      await screen.findByText(
+        '1행 박지훈: 전화번호 "0101234"는 형식이 맞지 않아요',
+      ),
+    ).toBeTruthy();
+  });
+
+  it("형식 오류가 없으면 확인 창을 열지 않는다", async () => {
+    stubPage({ [PREVIEW]: { body: verdictsBody("new", "new", "new") } });
+
+    renderRoutes(routes, "/teacher/teachers/excel");
+    await screen.findByText("1. 양식 내려받기");
+    paste(PASTED);
+    fireEvent.click(screen.getByRole("button", { name: "올리기" }));
+
+    await screen.findByText("3. 행 판정 미리보기");
+    expect(screen.queryByRole("heading", { name: /형식 오류/ })).toBeNull();
   });
 
   it("취소하면 처음 화면으로 돌아간다", async () => {
