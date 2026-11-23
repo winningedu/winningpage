@@ -80,7 +80,7 @@ describe("evaluateRolloverPreview", () => {
   const kim = student({ studentId: "s1", name: "김하늘" });
 
   test("a matched student with a new class and number is applied with the new grade worked out from the current one", () => {
-    const r = run("김하늘\t1학년\t없음\t4\t7번\t2학년\t없음\t3\t8번", [kim]);
+    const r = run("김하늘\t고1\t없음\t4\t7번\t고2\t없음\t3\t8번", [kim]);
 
     expect(r.rows).toEqual([
       {
@@ -98,13 +98,9 @@ describe("evaluateRolloverPreview", () => {
   });
 
   test("a class cell with the trailing 반, spaces or leading zeros is the same class", () => {
-    const r = run(
-      "김하늘\t1학년\t없음\t4반\t7번\t2학년\t없음\t03 반\t8번",
-      [kim],
-      {
-        homeroomClasses: new Set(["고2||3"]),
-      },
-    );
+    const r = run("김하늘\t고1\t없음\t4반\t7번\t고2\t없음\t03 반\t8번", [kim], {
+      homeroomClasses: new Set(["고2||3"]),
+    });
 
     expect(r.rows[0]?.result).toBe("applied");
     expect(r.applyRows).toEqual([
@@ -113,14 +109,14 @@ describe("evaluateRolloverPreview", () => {
   });
 
   test("a target class that already has a homeroom is plainly applied", () => {
-    const r = run("김하늘,1학년,,4,7,2학년,,3,8", [kim], {
+    const r = run("김하늘,고1,,4,7,고2,,3,8", [kim], {
       homeroomClasses: new Set(["고2||3"]),
     });
     expect(r.rows[0]?.result).toBe("applied");
   });
 
   test("the group name is looked up case-insensitively and an unknown group needs a check", () => {
-    const known = run("김하늘,1학년,,4,7,2학년,a레벨,3,8", [kim], {
+    const known = run("김하늘,고1,,4,7,고2,a레벨,3,8", [kim], {
       homeroomClasses: new Set(["고2|g-a|3"]),
     });
     expect(known.rows[0]).toMatchObject({
@@ -129,13 +125,13 @@ describe("evaluateRolloverPreview", () => {
     });
     expect(known.applyRows[0]?.groupId).toBe("g-a");
 
-    const unknown = run("김하늘,1학년,,4,7,2학년,Z레벨,3,8", [kim]);
+    const unknown = run("김하늘,고1,,4,7,고2,Z레벨,3,8", [kim]);
     expect(unknown.rows[0]?.result).toBe("check_target");
     expect(unknown.applyRows).toEqual([]);
   });
 
   test("a name that is not a current student is student_not_found", () => {
-    const r = run("없는사람,1학년,,4,7,2학년,,3,8", [kim]);
+    const r = run("없는사람,고1,,4,7,고2,,3,8", [kim]);
     expect(r.rows[0]).toMatchObject({
       result: "student_not_found",
       studentId: null,
@@ -159,10 +155,10 @@ describe("evaluateRolloverPreview", () => {
       number: 2,
     });
 
-    const narrowed = run("김하늘,1학년,,4,7,2학년,,3,8", [twinA, twinB]);
+    const narrowed = run("김하늘,고1,,4,7,고2,,3,8", [twinA, twinB]);
     expect(narrowed.rows[0]).toMatchObject({ studentId: "t1" });
 
-    const unresolved = run("김하늘,,,,,2학년,,3,8", [twinA, twinB]);
+    const unresolved = run("김하늘,,,,,고2,,3,8", [twinA, twinB]);
     expect(unresolved.rows[0]).toMatchObject({
       result: "same_name",
       studentId: null,
@@ -173,7 +169,7 @@ describe("evaluateRolloverPreview", () => {
 
   test("a student in a graduating grade is graduating and has no target", () => {
     const senior = student({ studentId: "s3", name: "박서준", grade: "고3" });
-    const r = run("박서준,3학년,,4,7,,,,", [senior]);
+    const r = run("박서준,고3,,4,7,,,,", [senior]);
     expect(r.rows[0]).toMatchObject({
       result: "graduating",
       to: null,
@@ -184,9 +180,9 @@ describe("evaluateRolloverPreview", () => {
 
   test("a blank new class, a different new grade or a bad number needs a check and is not applied", () => {
     for (const line of [
-      "김하늘,1학년,,4,7,2학년,,,8",
-      "김하늘,1학년,,4,7,3학년,,3,8",
-      "김하늘,1학년,,4,7,2학년,,3,100",
+      "김하늘,고1,,4,7,고2,,,8",
+      "김하늘,고1,,4,7,고3,,3,8",
+      "김하늘,고1,,4,7,고2,,3,100",
     ]) {
       const r = run(line, [kim]);
       expect(r.rows[0]?.result).toBe("check_target");
@@ -195,7 +191,7 @@ describe("evaluateRolloverPreview", () => {
   });
 
   test("a blank new number is applied with no number", () => {
-    const r = run("김하늘,1학년,,4,7,2학년,,3,", [kim]);
+    const r = run("김하늘,고1,,4,7,고2,,3,", [kim]);
     expect(r.applyRows).toEqual([
       { studentId: "s1", groupId: null, className: "3", number: null },
     ]);
@@ -209,9 +205,7 @@ describe("evaluateRolloverPreview", () => {
       number: 1,
     });
     const r = run(
-      ["김하늘,1학년,,4,7,2학년,,3,8", "이도윤,1학년,,5,1,2학년,,3,8"].join(
-        "\n",
-      ),
+      ["김하늘,고1,,4,7,고2,,3,8", "이도윤,고1,,5,1,고2,,3,8"].join("\n"),
       [kim, lee],
     );
     expect(r.rows.map((x) => x.result)).toEqual([
@@ -223,10 +217,10 @@ describe("evaluateRolloverPreview", () => {
 
   test("the middle school third year graduates only for a school", () => {
     const mid = student({ studentId: "s4", name: "최민호", grade: "중3" });
-    const academy = run("최민호,3학년,,4,7,1학년,,2,3", [mid]);
+    const academy = run("최민호,중3,,4,7,고1,,2,3", [mid]);
     expect(academy.rows[0]).toMatchObject({ to: { grade: "고1" } });
 
-    const school = run("최민호,3학년,,4,7,,,,", [mid], {
+    const school = run("최민호,중3,,4,7,,,,", [mid], {
       orgType: "학교",
       graduatingGrades: ["중3", "고3"],
     });
@@ -249,7 +243,7 @@ describe("evaluateRolloverPreview", () => {
       number: null,
     });
 
-    const r = run("김하늘,1학년,,4,7,2학년,,3,8", [kim, lee, senior, pool]);
+    const r = run("김하늘,고1,,4,7,고2,,3,8", [kim, lee, senior, pool]);
 
     expect(r.summary).toEqual({ graduate: 1, promote: 2, waiting: 1 });
   });
@@ -263,7 +257,7 @@ describe("evaluateRolloverPreview", () => {
       grade: "고3",
     });
 
-    const r = run("김하늘,1학년,,4,7,2학년,,3,8", [
+    const r = run("김하늘,고1,,4,7,고2,,3,8", [
       listed,
       unlisted,
       unlistedSenior,
@@ -276,7 +270,7 @@ describe("evaluateRolloverPreview", () => {
   test("a uniquely matched row gets a star when its class has another student with the same real name, numberless students count", () => {
     const a = student({ studentId: "s1", name: "김준호", number: 14 });
     const b = student({ studentId: "s2", name: "김준호", number: null });
-    const r = run("김준호,1학년,,4,14\n김준호,1학년,,4,", [a, b]);
+    const r = run("김준호,고1,,4,14\n김준호,고1,,4,", [a, b]);
 
     expect(r.rows[0]).toMatchObject({
       displayName: "김*호*",
@@ -291,7 +285,7 @@ describe("evaluateRolloverPreview", () => {
   test("same name in different classes, a single student, and a not found row get no star", () => {
     const a = student({ studentId: "s1", name: "김준호", className: "4" });
     const b = student({ studentId: "s2", name: "김준호", className: "5" });
-    const r = run("김준호,1학년,,4,7\n박민수,1학년,,4,7", [a, b]);
+    const r = run("김준호,고1,,4,7\n박민수,고1,,4,7", [a, b]);
 
     expect(r.rows[0]?.displayName).toBe("김*호");
     expect(r.rows[1]).toMatchObject({
@@ -306,7 +300,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   const midyear = { mode: "midyear" as const };
 
   test("only group, class and number change: the student's grade stays, and a class change is shown as class_changed (still applied)", () => {
-    const r = run("김하늘,1학년,,4,7,1학년,a레벨,5,2", [kim], {
+    const r = run("김하늘,고1,,4,7,고1,a레벨,5,2", [kim], {
       ...midyear,
       homeroomClasses: new Set(["고1|g-a|5"]),
     });
@@ -322,7 +316,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   });
 
   test("a number-only change in the same class is plainly applied", () => {
-    const r = run("김하늘,1학년,,4,7,,,4,9", [kim], midyear);
+    const r = run("김하늘,고1,,4,7,,,4,9", [kim], midyear);
     expect(r.rows[0]).toMatchObject({
       result: "no_homeroom",
       to: { grade: "고1", className: "4", number: 9 },
@@ -334,7 +328,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   });
 
   test("a registered student, a line with the same name and grade but another class: applied with a class change", () => {
-    const r = run("김하늘,1학년,,9,3", [kim], midyear);
+    const r = run("김하늘,고1,,9,3", [kim], midyear);
     expect(r.rows[0]?.result).toBe("class_changed");
     expect(r.applyRows).toEqual([
       { studentId: "s1", groupId: null, className: "9", number: 3 },
@@ -342,13 +336,13 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   });
 
   test("a new grade cell that differs from the current grade needs a check and is not applied", () => {
-    const r = run("김하늘,1학년,,4,7,3학년,,5,2", [kim], midyear);
+    const r = run("김하늘,고1,,4,7,고3,,5,2", [kim], midyear);
     expect(r.rows[0]?.result).toBe("check_target");
     expect(r.applyRows).toEqual([]);
   });
 
   test("two lines for the same registered student are all same_name: none applied, none pending", () => {
-    const r = run("김하늘,1학년,,9,3\n김하늘,1학년,,8,2", [kim], midyear);
+    const r = run("김하늘,고1,,9,3\n김하늘,고1,,8,2", [kim], midyear);
     expect(r.rows.map((x) => x.result)).toEqual(["same_name", "same_name"]);
     expect(r.rows.every((x) => x.studentId === null)).toBe(true);
     expect(r.applyRows).toEqual([]);
@@ -356,7 +350,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   });
 
   test("a registered name in another grade needs a check: not applied, not stored as pending", () => {
-    const r = run("김하늘,2학년,,4,7", [kim], midyear);
+    const r = run("김하늘,고2,,4,7", [kim], midyear);
     expect(r.rows[0]).toMatchObject({
       result: "check_target",
       studentId: null,
@@ -366,29 +360,27 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
   });
 
   test("a name nobody registered is still pending", () => {
-    const r = run("모르는사람,2학년,,4,7", [kim], midyear);
+    const r = run("모르는사람,고2,,4,7", [kim], midyear);
     expect(r.rows[0]?.result).toBe("student_not_found");
     expect(r.pendingRows).toHaveLength(1);
   });
 
-  test("an explicit new grade must match the stage too: 고2 for a 중2 student is a check, 2학년 and 2 are fine", () => {
+  test("an explicit new grade must match the stage too: 고2 for a 중2 student is a check, 중2 is fine", () => {
     const mid = student({ studentId: "m", name: "중이", grade: "중2" });
-    const wrong = run("중이,2학년,,4,7,고2,,5,1", [mid], midyear);
+    const wrong = run("중이,중2,,4,7,고2,,5,1", [mid], midyear);
     expect(wrong.rows[0]?.result).toBe("check_target");
     expect(wrong.applyRows).toEqual([]);
-    for (const cell of ["2학년", "2", "중2"]) {
-      const ok = run(`중이,2학년,,4,7,${cell},,5,1`, [mid], midyear);
-      expect(ok.applyRows).toHaveLength(1);
-    }
+    const ok = run("중이,중2,,4,7,중2,,5,1", [mid], midyear);
+    expect(ok.applyRows).toHaveLength(1);
   });
 
   test("a class change with no homeroom in the new class keeps both facts", () => {
-    const r = run("김하늘,1학년,,4,7,1학년,,5,2", [kim], midyear);
+    const r = run("김하늘,고1,,4,7,고1,,5,2", [kim], midyear);
     expect(r.rows[0]).toMatchObject({
       result: "class_changed",
       noHomeroom: true,
     });
-    const withHomeroom = run("김하늘,1학년,,4,7,1학년,,5,2", [kim], {
+    const withHomeroom = run("김하늘,고1,,4,7,고1,,5,2", [kim], {
       ...midyear,
       homeroomClasses: new Set(["고1||5"]),
     });
@@ -399,7 +391,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
     const longName = "가".repeat(51);
     const longClass = "나".repeat(31);
     const r = run(
-      `${longName},1학년,,4,7\n김하늘,1학년,,4,7,1학년,,${longClass},1\n새사람,1학년,,${longClass},1`,
+      `${longName},고1,,4,7\n김하늘,고1,,4,7,고1,,${longClass},1\n새사람,고1,,${longClass},1`,
       [kim],
       midyear,
     );
@@ -414,7 +406,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 
   test("a student in the top grade is not graduating", () => {
     const r = run(
-      "박서준,3학년,,4,7,,,6,1",
+      "박서준,고3,,4,7,,,6,1",
       [student({ studentId: "s3", name: "박서준", grade: "고3" })],
       { ...midyear, graduatingGrades: ["고3"] },
     );
@@ -425,7 +417,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 
   test("students missing from the list are not counted as promoted or graduating", () => {
     const r = run(
-      "김하늘,1학년,,4,7,,,6,1",
+      "김하늘,고1,,4,7,,,6,1",
       [kim, student({ studentId: "s2", name: "윤하린", grade: "고3" })],
       midyear,
     );
@@ -435,7 +427,7 @@ describe("evaluateRolloverPreview in mid-year mode", () => {
 
   test("a line with only the roster cells (no new cells) takes those cells as the target and matches by name and grade", () => {
     const r = run(
-      "김하늘,1학년,,9,3",
+      "김하늘,고1,,9,3",
       [
         student({
           studentId: "s1",
@@ -473,7 +465,7 @@ describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
   const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
 
   test("a not found line is kept with its new cells as the target, in mid-year the grade is the existing grade cell", () => {
-    const r = run("없는사람,1학년,,4,7,2학년,a레벨,3,8", [kim], {
+    const r = run("없는사람,고1,,4,7,고2,a레벨,3,8", [kim], {
       mode: "midyear",
     });
 
@@ -511,16 +503,16 @@ describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
     ]);
   });
 
-  test("a digit only grade is resolved against the grades the tenant has; an ambiguous or unknown one stays unresolved", () => {
+  test("an explicit grade is stored as written whatever grades the tenant has", () => {
     const mixed = [
       student({ studentId: "a", name: "가", grade: "중2" }),
       student({ studentId: "b", name: "나", grade: "고2" }),
     ];
-    const r = run("없는사람,2학년,,4,7", mixed, { mode: "midyear" });
+    const r = run("없는사람,고2,,4,7", mixed, { mode: "midyear" });
     expect(r.pendingRows).toEqual([
       {
         name: "없는사람",
-        grade: null,
+        grade: "고2",
         groupId: null,
         className: "4",
         number: 7,
@@ -528,11 +520,15 @@ describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
     ]);
   });
 
-  test("a line without a class, or with an unknown group, has no class so the apply skips it", () => {
-    const r = run("없는사람,1학년,,,\n없는둘,1학년,Z레벨,4,1", [kim], {
+  test("a line without a class, or with an unknown group, is a format_error and is not stored", () => {
+    const r = run("없는사람,고1,,,\n없는둘,고1,Z레벨,4,1", [kim], {
       mode: "midyear",
     });
-    expect(r.pendingRows.map((p) => p.className)).toEqual([null, null]);
+    expect(r.rows.map((x) => x.result)).toEqual([
+      "format_error",
+      "format_error",
+    ]);
+    expect(r.pendingRows).toEqual([]);
   });
 
   test("same_name lines and matched lines are not pending", () => {
@@ -540,32 +536,35 @@ describe("evaluateRolloverPreview pendingRows (미회원가입)", () => {
       student({ studentId: "s1", name: "김하늘", grade: "고1", number: 1 }),
       student({ studentId: "s2", name: "김하늘", grade: "고1", number: 2 }),
     ];
-    const r = run("김하늘,1학년,,4,,,,5,1", twin, { mode: "midyear" });
+    const r = run("김하늘,고1,,4,,,,5,1", twin, { mode: "midyear" });
     expect(r.rows[0]?.result).toBe("same_name");
     expect(r.pendingRows).toEqual([]);
   });
 });
 
 describe("isGradeCell", () => {
+  test.each(["고2", " 고 2 ", "중3"])("%s is a grade cell", (cell) => {
+    expect(isGradeCell(cell)).toBe(true);
+  });
+
   test.each([
-    "고2",
-    " 고 2 ",
-    "중3",
+    "",
+    "   ",
+    "다학년",
+    "초6",
+    "4학년",
+    "4",
+    "중등",
+    "고4",
+    "혼합",
     "고1반",
     "고2학년",
     "1",
     "2학년",
     " 3 학년 ",
-  ])("%s is a grade cell", (cell) => {
-    expect(isGradeCell(cell)).toBe(true);
+  ])("%j is not a grade cell", (cell) => {
+    expect(isGradeCell(cell)).toBe(false);
   });
-
-  test.each(["", "   ", "다학년", "초6", "4학년", "4", "중등", "고4", "혼합"])(
-    "%j is not a grade cell",
-    (cell) => {
-      expect(isGradeCell(cell)).toBe(false);
-    },
-  );
 });
 
 describe("mixed-grade lines (다학년, academy only)", () => {
@@ -611,8 +610,8 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     );
 
     test("the token on a 9-column line is mixed in a mid-year and in a rollover", () => {
-      const mid = run("김하늘,1학년,,4,7,다학년,,A,3", [kim], midyear);
-      const roll = run("김하늘,1학년,,4,7,다학년,,A,3", [kim], {
+      const mid = run("김하늘,고1,,4,7,다학년,,A,3", [kim], midyear);
+      const roll = run("김하늘,고1,,4,7,다학년,,A,3", [kim], {
         homeroomClasses: new Set(["||A"]),
       });
 
@@ -653,7 +652,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
 
   describe("R2 a blank new grade on a 9-column line is not 다학년", () => {
     test("mid-year keeps the student's grade and the graded class (number change only)", () => {
-      const r = run("김하늘,1학년,,4,7,,,4,9", [kim], midyear);
+      const r = run("김하늘,고1,,4,7,,,4,9", [kim], midyear);
 
       expect(r.rows[0]).toMatchObject({
         to: { grade: "고1", className: "4", number: 9 },
@@ -662,7 +661,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     });
 
     test("a rollover uses the next grade", () => {
-      const r = run("김하늘,1학년,,4,7,,,4,9", [kim]);
+      const r = run("김하늘,고1,,4,7,,,4,9", [kim]);
 
       expect(r.rows[0]).toMatchObject({ to: { grade: "고2", className: "4" } });
       expect(r.applyRows[0]).not.toHaveProperty("mixed");
@@ -691,7 +690,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     });
 
     test("it is 다학년 only when the target class already is one (R1c)", () => {
-      const r = run("김하늘,1학년,,4,7,,,A,3", [kim], {
+      const r = run("김하늘,고1,,4,7,,,A,3", [kim], {
         ...midyear,
         mixedClasses: new Set(["|a"]),
       });
@@ -700,7 +699,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     });
   });
 
-  describe("R3 other text in the deciding grade cell is a check", () => {
+  describe("R3 other text in a grade cell is a format_error", () => {
     test.each([
       "4",
       "고4",
@@ -712,7 +711,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
       "A레벨",
       "4학년",
     ])(
-      "%j on a 5-column line needs a check and is neither applied nor stored",
+      "%j on a 5-column line is a format_error and is neither applied nor stored",
       (cell) => {
         const r = run(
           `김하늘,${cell},,A,3\n모르는사람,${cell},,A,4`,
@@ -721,8 +720,8 @@ describe("mixed-grade lines (다학년, academy only)", () => {
         );
 
         expect(r.rows.map((x) => x.result)).toEqual([
-          "check_target",
-          "check_target",
+          "format_error",
+          "format_error",
         ]);
         expect(r.applyRows).toEqual([]);
         expect(r.pendingRows).toEqual([]);
@@ -730,22 +729,25 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     );
 
     test.each(["4", "고4", "1반", "초6", "중등", "A레벨"])(
-      "%j in the new grade cell of a 9-column line needs a check",
+      "%j in the new grade cell of a 9-column line is a format_error",
       (cell) => {
-        const mid = run(`김하늘,1학년,,4,7,${cell},,A,3`, [kim], midyear);
-        const roll = run(`김하늘,1학년,,4,7,${cell},,A,3`, [kim]);
+        const mid = run(`김하늘,고1,,4,7,${cell},,A,3`, [kim], midyear);
+        const roll = run(`김하늘,고1,,4,7,${cell},,A,3`, [kim]);
 
-        expect(mid.rows[0]?.result).toBe("check_target");
-        expect(roll.rows[0]?.result).toBe("check_target");
+        expect(mid.rows[0]?.result).toBe("format_error");
+        expect(roll.rows[0]?.result).toBe("format_error");
         expect(mid.applyRows).toEqual([]);
         expect(roll.applyRows).toEqual([]);
       },
     );
 
-    test("free text in the existing-grade cell of a 9-column line is ignored for matching", () => {
-      const r = run("김하늘,초6,,4,7,1학년,,5,1", [kim], midyear);
+    test("free text in the existing-grade cell of a 9-column line is a format_error too", () => {
+      const r = run("김하늘,초6,,4,7,고1,,5,1", [kim], midyear);
 
-      expect(r.rows[0]).toMatchObject({ studentId: "s1" });
+      expect(r.rows[0]).toMatchObject({
+        result: "format_error",
+        reasons: ["grade"],
+      });
     });
   });
 
@@ -847,7 +849,7 @@ describe("mixed-grade lines (다학년, academy only)", () => {
     });
 
     test("the token on a 9-column line is a check too, in a rollover as well", () => {
-      const roll = run("김하늘,1학년,,4,7,다학년,,A,3", [kim], {
+      const roll = run("김하늘,고1,,4,7,다학년,,A,3", [kim], {
         gradedClasses: new Set(["|a"]),
       });
 
@@ -1069,7 +1071,7 @@ describe("school tenants are unchanged by the mixed-grade rules", () => {
   };
 
   test("a blank new grade still infers the next grade and never produces mixed fields", () => {
-    const r = run("김하늘,1학년,,4,7,,,3,8", [kim], school);
+    const r = run("김하늘,고1,,4,7,,,3,8", [kim], school);
 
     expect(r.rows[0]).toEqual({
       line: 1,
@@ -1084,10 +1086,10 @@ describe("school tenants are unchanged by the mixed-grade rules", () => {
     ]);
   });
 
-  test("free text in the new grade cell is still a wrong grade needing a check", () => {
-    const r = run("김하늘,1학년,,4,7,다학년,,3,8", [kim], school);
+  test("free text in the new grade cell is a format_error", () => {
+    const r = run("김하늘,고1,,4,7,다학년,,3,8", [kim], school);
 
-    expect(r.rows[0]?.result).toBe("check_target");
+    expect(r.rows[0]?.result).toBe("format_error");
     expect(r.applyRows).toEqual([]);
   });
 
@@ -1106,7 +1108,7 @@ describe("school tenants are unchanged by the mixed-grade rules", () => {
   });
 
   test("an existing mixed class set is ignored for a school", () => {
-    const r = run("김하늘,1학년,,4,7,2학년,,3,8", [kim], {
+    const r = run("김하늘,고1,,4,7,고2,,3,8", [kim], {
       ...school,
       mixedClasses: new Set(["|3"]),
     });
@@ -1114,17 +1116,186 @@ describe("school tenants are unchanged by the mixed-grade rules", () => {
     expect(r.applyRows[0]).not.toHaveProperty("mixed");
   });
 
-  test("a pending line without a grade is still not flagged", () => {
+  test("a pending line without a grade is a format_error and not stored", () => {
     const r = run("모르는사람,,,4,7", [kim], { ...school, mode: "midyear" });
 
-    expect(r.pendingRows).toEqual([
-      {
-        name: "모르는사람",
-        grade: null,
-        groupId: null,
-        className: "4",
-        number: 7,
-      },
+    expect(r.rows[0]).toMatchObject({
+      result: "format_error",
+      reasons: ["grade"],
+    });
+    expect(r.pendingRows).toEqual([]);
+  });
+});
+
+describe("format_error: only 중1 to 고3 are grades, and a class text must survive normalizing", () => {
+  const existing = Array.from({ length: 8 }, (_, i) =>
+    student({
+      studentId: `e${i}`,
+      name: `기존${i}`,
+      grade: null,
+      className: String((i % 5) + 1),
+      number: i + 1,
+      mixedClass: true,
+    }),
+  );
+  const customer = {
+    mode: "midyear" as const,
+    orgType: "캠퍼스",
+    mixedClasses: new Set(["|1", "|2", "|3", "|4", "|5"]),
+  };
+  const rosterText = (grade: string) =>
+    Array.from(
+      { length: 31 },
+      (_, i) => `가짜${i + 1}\t${grade}\t\t${(i % 5) + 1}\t${i + 1}`,
+    ).join("\n");
+
+  test("a 5-column roster with 3학년 in every grade cell is all format_error and nothing is stored", () => {
+    const r = run(rosterText("3학년"), existing, customer);
+
+    expect(r.rows).toHaveLength(31);
+    expect(r.rows.every((x) => x.result === "format_error")).toBe(true);
+    expect(r.rows.every((x) => x.reasons?.join() === "grade")).toBe(true);
+    expect(r.pendingRows).toHaveLength(0);
+    expect(r.applyRows).toHaveLength(0);
+  });
+
+  test("the same roster with 고3 is stored as 31 pending rows", () => {
+    const r = run(rosterText("고3"), existing, customer);
+
+    expect(r.pendingRows).toHaveLength(31);
+    expect(r.pendingRows.every((p) => p.grade === "고3")).toBe(true);
+    expect(r.rows.some((x) => x.result === "format_error")).toBe(false);
+  });
+
+  test.each(["3", "2학년", "고2학년", "초6"])(
+    "%j is a format_error in the existing grade cell and in the new grade cell of a 9-column line",
+    (cell) => {
+      const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+      const fromBad = run(`김하늘,${cell},,4,7,고1,,5,2`, [kim], {
+        mode: "midyear",
+      });
+      const toBad = run(`김하늘,고1,,4,7,${cell},,5,2`, [kim], {
+        mode: "midyear",
+      });
+      const pendingBad = run(`없는사람,${cell},,4,7`, [kim], {
+        mode: "midyear",
+      });
+
+      for (const r of [fromBad, toBad, pendingBad]) {
+        expect(r.rows[0]).toMatchObject({
+          result: "format_error",
+          reasons: ["grade"],
+        });
+        expect(r.applyRows).toEqual([]);
+        expect(r.pendingRows).toEqual([]);
+      }
+    },
+  );
+
+  test("고2 passes as a grade", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고2" });
+    const r = run("김하늘,고2,,4,7,고2,,5,2", [kim], { mode: "midyear" });
+
+    expect(r.rows[0]?.result).not.toBe("format_error");
+    expect(r.applyRows).toHaveLength(1);
+  });
+
+  test.each(["반", "0"])(
+    "a class cell %j that normalizes to empty is a format_error with class",
+    (cell) => {
+      const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+      const matched = run(`김하늘,고1,,${cell},7`, [kim], { mode: "midyear" });
+      const pending = run(`없는사람,고1,,${cell},7`, [kim], {
+        mode: "midyear",
+      });
+
+      for (const r of [matched, pending]) {
+        expect(r.rows[0]).toMatchObject({
+          result: "format_error",
+          reasons: ["class"],
+        });
+        expect(r.applyRows).toEqual([]);
+        expect(r.pendingRows).toEqual([]);
+      }
+    },
+  );
+
+  test.each([
+    ["1반", "1"],
+    ["01", "1"],
+    ["A", "A"],
+  ])("a class cell %j is fine and normalized to %j", (cell, want) => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run(`없는사람,고1,,${cell},7`, [kim], { mode: "midyear" });
+
+    expect(r.rows[0]?.result).toBe("student_not_found");
+    expect(r.pendingRows).toMatchObject([{ className: want }]);
+  });
+
+  test("a pending line with an unknown group is a format_error with group", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("없는사람,고1,Z레벨,4,1", [kim], { mode: "midyear" });
+
+    expect(r.rows[0]).toMatchObject({
+      result: "format_error",
+      reasons: ["group"],
+    });
+    expect(r.pendingRows).toEqual([]);
+  });
+
+  test("a pending line without a class is a format_error with class", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("없는사람,고1,,,", [kim], { mode: "midyear" });
+
+    expect(r.rows[0]).toMatchObject({
+      result: "format_error",
+      reasons: ["class"],
+    });
+    expect(r.pendingRows).toEqual([]);
+  });
+
+  test("a school line with an empty grade and no student is a format_error with grade", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("없는사람,,,4,7", [kim], {
+      mode: "midyear",
+      orgType: "학교",
+    });
+
+    expect(r.rows[0]).toMatchObject({
+      result: "format_error",
+      reasons: ["grade"],
+    });
+    expect(r.pendingRows).toEqual([]);
+  });
+
+  test("a graduating pending line in a rollover is left out without being an error", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("없는사람,고3,,4,7", [kim]);
+
+    expect(r.rows[0]?.result).toBe("student_not_found");
+    expect(r.pendingRows).toEqual([]);
+  });
+
+  test("academy 다학년 lines still behave as before", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("김하늘,다학년,,A,3\n없는사람,,,A,4", [kim], {
+      mode: "midyear",
+    });
+
+    expect(r.rows[0]?.result).not.toBe("format_error");
+    expect(r.applyRows).toMatchObject([{ className: "A", mixed: true }]);
+    expect(r.pendingRows).toMatchObject([
+      { name: "없는사람", grade: null, className: "A", mixed: true },
     ]);
+  });
+
+  test("다학년 in a school is a format_error", () => {
+    const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+    const r = run("김하늘,고1,,4,7,다학년,,3,8", [kim], { orgType: "학교" });
+
+    expect(r.rows[0]).toMatchObject({
+      result: "format_error",
+      reasons: ["grade"],
+    });
   });
 });

@@ -6,7 +6,8 @@
 //
 // 결과: student_not_found 현재 학생이 없음(미회원가입), same_name 같은 이름이 둘 이상이라 사람이 확인, graduating 졸업 대상,
 // check_target 새 학년, 그룹, 반, 번호를 확인해야 함, duplicate_target 같은 새 반과 번호가 겹침,
-// no_homeroom 새 반에 담임이 없음(안내만, 반영됨), applied 반영.
+// no_homeroom 새 반에 담임이 없음(안내만, 반영됨), applied 반영,
+// format_error 칸 형식이 틀림(reasons 에 학년, 반, 그룹). 학년은 중1부터 고3까지만 받고(학원은 다학년도) 고쳐서 다시 올려야 한다.
 // 졸업 학년은 호출부가 정한다(고3 항상, 중3 은 학교만). 새 학년은 현재 학년에서 한 학년 올린 값이다(중3 은 고1).
 //
 // 다학년(학원만, 학교는 아래 규칙이 모두 꺼진다): 학년 칸이 "다학년" 이면 그 줄은 다학년 학급 줄이다. 명단 양식(5칸) 줄은 학년 칸이
@@ -65,7 +66,11 @@ export type PreviewResult =
   | "duplicate_target"
   | "same_name"
   | "no_homeroom"
-  | "class_changed";
+  | "class_changed"
+  | "format_error";
+
+/** 형식 오류가 난 칸. */
+export type FormatReason = "grade" | "class" | "group";
 
 export interface PreviewSlot {
   /** 다학년 학급이면 null. */
@@ -86,6 +91,8 @@ export interface PreviewRow {
   result: PreviewResult;
   /** 반이 바뀌는 줄(class_changed)에서 새 반에 담임이 없을 때. 두 사실을 같이 보인다. */
   noHomeroom?: boolean;
+  /** 형식 오류(format_error) 줄에서 틀린 칸. */
+  reasons?: FormatReason[];
 }
 
 export interface ApplyRow {
@@ -99,7 +106,7 @@ export interface ApplyRow {
   mixed?: boolean;
 }
 
-/** 가입하지 않은 학생의 명단 줄. 학년이나 반을 못 정한 줄은 null 로 두고 저장할 때 건너뛴다. */
+/** 가입하지 않은 학생의 명단 줄. 학년, 반, 그룹이 틀린 줄은 미리보기가 형식 오류로 돌려 여기에 담지 않는다. 다학년 줄의 학년만 null 일 수 있다. */
 export interface PendingRow {
   name: string;
   grade: string | null;
@@ -157,15 +164,11 @@ export function parseRolloverText(text: string): ParsedLine[] {
   return lines;
 }
 
-const digitOf = (value: string): string | null => /\d/.exec(value)?.[0] ?? null;
+const compact = (cell: string) => cell.replace(/\s/g, "");
 
-/** 학년 칸인가. "고2", "고2학년" 처럼 학년으로 시작하거나 "2", "2학년" 처럼 1부터 3까지 숫자뿐이면 학년이다. */
+/** 학년 칸인가. 공백을 빼면 중1, 중2, 중3, 고1, 고2, 고3 중 하나여야 한다("3학년", "2", "고2학년" 은 아니다). */
 export function isGradeCell(cell: string): boolean {
-  const text = cell.replace(/\s/g, "");
-  return (
-    ROLLOVER_GRADES.some((g) => text.startsWith(g)) ||
-    /^[1-3](학년)?$/.test(text)
-  );
+  return ROLLOVER_GRADES.includes(compact(cell));
 }
 
 /** 학원(학교가 아닌 기관)만 다학년 줄을 쓴다. */
@@ -185,52 +188,63 @@ function nextGrade(grade: string): string {
   return ROLLOVER_GRADES[ROLLOVER_GRADES.indexOf(grade) + 1] ?? grade;
 }
 
-/** "고2" 처럼 학년이 적혔으면 그대로, "2학년" 처럼 숫자뿐이면 기관에 있는 학년 중 하나로 정해질 때만 정한다. */
-function resolveGrade(cell: string, known: string[]): string | null {
-  const text = cell.replace(/\s/g, "");
-  const explicit = ROLLOVER_GRADES.find((g) => text.startsWith(g));
-  if (explicit) return explicit;
-  const digit = digitOf(text);
-  if (!digit) return null;
-  const hits = [...new Set(known)].filter((g) => g.endsWith(digit));
-  return hits.length === 1 ? (hits[0] as string) : null;
+/** 학년 칸이 비었거나 중1부터 고3 중 하나(학원은 다학년도)면 맞는 칸이다. */
+const isValidGradeCell = (cell: string, academy: boolean) =>
+  cell.trim() === "" || isGradeCell(cell) || (academy && isMixedToken(cell));
+
+/** 줄의 학년 칸(기존, 새)과 새 반 칸 형식을 본다. 틀린 칸이 없으면 빈 목록. */
+function formatReasonsOf(line: ParsedLine, academy: boolean): FormatReason[] {
+  const reasons: FormatReason[] = [];
+  if (
+    !isValidGradeCell(line.from.grade, academy) ||
+    !isValidGradeCell(line.to.grade, academy)
+  ) {
+    reasons.push("grade");
+  }
+  const { className } = targetCellsOf(line);
+  if (className.trim() !== "" && normalizeClassName(className) === "") {
+    reasons.push("class");
+  }
+  return reasons;
 }
 
+/** 가입 전 줄을 저장 대상으로 만든다. 졸업하는 학년 줄은 row 가 null 이고, 저장할 수 없는 칸은 reasons 에 담는다. */
 function pendingOf(
   line: ParsedLine,
   midyear: boolean,
   input: PreviewInput,
   mixed: boolean,
-): PendingRow | null {
-  const current = input.students.flatMap((s) => (s.grade ? [s.grade] : []));
-  const academy = isAcademy(input.orgType);
+): { row: PendingRow | null; reasons: FormatReason[] } {
   const { from } = line;
   const to = isRosterOnly(line) ? { ...from, grade: "" } : line.to;
   let grade: string | null;
-  // 학원에서 학년이 아닌 글("초6" 등)은 빈 칸으로 보고 글은 저장하지 않는다.
-  const existing = resolveGrade(
-    academy && !isGradeCell(from.grade) ? "" : from.grade,
-    current,
-  );
+  // 학원의 다학년 글은 빈 칸으로 본다.
+  const existing = isGradeCell(from.grade) ? compact(from.grade) : null;
   if (!midyear && existing && input.graduatingGrades.includes(existing)) {
     // 졸업하는 학년의 명단 줄은 저장 대상에서 뺀다(건너뜀으로 세지 않는다).
-    return null;
+    return { row: null, reasons: [] };
   } else if (midyear) {
     grade = existing;
-  } else if (to.grade !== "" && (!academy || isGradeCell(to.grade))) {
-    grade = resolveGrade(to.grade, current.map(nextGrade));
+  } else if (isGradeCell(to.grade)) {
+    grade = compact(to.grade);
   } else {
     grade = existing === null ? null : nextGrade(existing);
   }
   const target = targetOf({ ...line, to }, grade ?? "", input, mixed);
-  const unknownGroup = !isNoGroup(to.group) && target.groupId === null;
+  const reasons: FormatReason[] = [];
+  if (grade === null && !mixed) reasons.push("grade");
+  if (target.slot.className === null) reasons.push("class");
+  if (!isNoGroup(to.group) && target.groupId === null) reasons.push("group");
   return {
-    name: cleanName(line.name),
-    grade,
-    groupId: target.groupId,
-    className: unknownGroup ? null : target.slot.className,
-    number: target.slot.number,
-    ...(mixed && { mixed: true }),
+    row: {
+      name: cleanName(line.name),
+      grade,
+      groupId: target.groupId,
+      className: target.slot.className,
+      number: target.slot.number,
+      ...(mixed && { mixed: true }),
+    },
+    reasons,
   };
 }
 
@@ -249,7 +263,7 @@ function narrow(
   from: ParsedCells,
 ): PreviewStudent[] {
   return candidates.filter((s) => {
-    if (from.grade !== "" && digitOf(from.grade) !== digitOf(s.grade ?? ""))
+    if (from.grade !== "" && compact(from.grade) !== (s.grade ?? ""))
       return false;
     if (from.group !== "") {
       const want = isNoGroup(from.group) ? null : from.group.toLowerCase();
@@ -289,16 +303,7 @@ function targetOf(
     : (input.groups.get(to.group.toLowerCase()) ?? null);
   const groupId = group?.id ?? null;
   const unknownGroup = !isNoGroup(to.group) && group === null;
-  // 학기 중에는 "고2" 처럼 학년을 적었으면 중학교인지 고등학교인지도 같아야 한다. 숫자만이면 숫자만 본다.
-  const written = ROLLOVER_GRADES.find((g) =>
-    to.grade.replace(/\s/g, "").startsWith(g),
-  );
-  const wrongGrade =
-    !mixed &&
-    to.grade !== "" &&
-    (input.mode === "midyear" && written !== undefined
-      ? written !== grade
-      : digitOf(to.grade) !== digitOf(grade));
+  const wrongGrade = !mixed && to.grade !== "" && compact(to.grade) !== grade;
   return {
     slot: {
       grade: mixed ? null : grade,
@@ -367,6 +372,7 @@ function flagLines(input: PreviewInput): Map<ParsedLine, LineFlags> {
   const existing = input.mixedClasses ?? new Set<string>();
   const graded = input.gradedClasses ?? new Set<string>();
   type Kind = "grade" | "mixed" | "blank" | "junk";
+  // junk 줄은 형식 오류로 먼저 걸러지므로 학급 묶음에 넣지 않는다.
   const kindOf = (line: ParsedLine): Kind => {
     const cell = decidingGradeOf(line);
     if (isGradeCell(cell)) return "grade";
@@ -393,7 +399,6 @@ function flagLines(input: PreviewInput): Map<ParsedLine, LineFlags> {
     flags.set(line, {
       // 다학년 줄이 같은 그룹과 이름의 학년 학급을 가리키면 DB 가 다학년 학급을 만들지 못한다(이미 다학년이면 그 학급으로 간다).
       check:
-        kind === "junk" ||
         conflicting.has(line) ||
         (kind === "mixed" &&
           key !== null &&
@@ -433,9 +438,8 @@ export function evaluateRolloverPreview(input: PreviewInput): {
   }
 
   const rosterOnlyOf = (line: ParsedLine) => midyear && isRosterOnly(line);
-  // 학원에서 학년이 아닌 글("초6" 등)은 빈 칸처럼 학생을 좁히지 않는다.
-  const matchGrade = (cell: string) =>
-    academy && !isGradeCell(cell) ? "" : cell;
+  // 학원의 다학년 글은 빈 칸처럼 학생을 좁히지 않는다.
+  const matchGrade = (cell: string) => (isGradeCell(cell) ? cell : "");
   const foundFor = (line: ParsedLine) =>
     narrow(
       input.students.filter((s) => s.name === line.name),
@@ -466,6 +470,19 @@ export function evaluateRolloverPreview(input: PreviewInput): {
     const found = foundFor(line);
     const masked = maskName(line.name);
     const name = cleanName(line.name);
+    const formatReasons = formatReasonsOf(line, academy);
+    if (formatReasons.length > 0) {
+      rows.push({
+        line: line.line,
+        displayName: masked,
+        from: null,
+        to: null,
+        studentId: null,
+        result: "format_error",
+        reasons: formatReasons,
+      });
+      continue;
+    }
     // 길이 한도를 넘는 줄은 적용이 막으므로 미리보기에서 먼저 확인 대상으로 돌린다.
     if (
       name === "" ||
@@ -517,13 +534,25 @@ export function evaluateRolloverPreview(input: PreviewInput): {
         continue;
       }
       if (!same) {
-        const pendingRow = pendingOf(
+        const pendingResult = pendingOf(
           line,
           midyear,
           input,
           lineFlags.get(line)?.mixed ?? false,
         );
-        if (pendingRow) pendingRows.push(pendingRow);
+        if (pendingResult.reasons.length > 0) {
+          rows.push({
+            line: line.line,
+            displayName: masked,
+            from: null,
+            to: null,
+            studentId: null,
+            result: "format_error",
+            reasons: pendingResult.reasons,
+          });
+          continue;
+        }
+        if (pendingResult.row) pendingRows.push(pendingResult.row);
       }
       rows.push({
         line: line.line,
