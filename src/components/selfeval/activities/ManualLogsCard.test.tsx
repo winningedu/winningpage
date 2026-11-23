@@ -51,6 +51,13 @@ describe("ManualLogsCard", () => {
     ).toBeTruthy();
   });
 
+  test("문서 파일은 글을 붙여넣으라고 업로드 안내에 적는다", async () => {
+    renderCard();
+    expect(
+      await screen.findByText(/문서 파일은 글을 복사해 붙여넣어 주세요/),
+    ).toBeTruthy();
+  });
+
   test("붙여넣은 글을 올리고 메모를 목록에 보인다", async () => {
     api.manualLogsUpload.mockResolvedValue(
       ok({ ok: true, memos: [memo()], personNameDetected: false }),

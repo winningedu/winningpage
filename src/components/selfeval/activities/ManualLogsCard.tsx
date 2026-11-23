@@ -127,7 +127,7 @@ export default function ManualLogsCard({ sessionId }: Props) {
             }}
           />
           <p className="text-app-caption text-ink-sub">
-            파일 하나가 3MB까지예요.
+            파일 하나가 3MB까지예요. 문서 파일은 글을 복사해 붙여넣어 주세요.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
