@@ -44,4 +44,20 @@ describe("area order low to high (23_동점규칙 r6-r10)", () => {
       "P1_GOAL",
     ]);
   });
+
+  test("step 4: larger 05 weight first (계획 수립 15 before 우선순위 10)", () => {
+    const areas = { P1_PRIO: area(60), P1_PLAN: area(60) };
+    expect(orderLowToHigh(areas, ["P1_PRIO", "P1_PLAN"])).toEqual([
+      "P1_PLAN",
+      "P1_PRIO",
+    ]);
+  });
+
+  test("step 5: 05 display order when all else ties", () => {
+    const areas = { P1_GOAL: area(60), P1_PLAN: area(60) };
+    expect(orderLowToHigh(areas, ["P1_GOAL", "P1_PLAN"])).toEqual([
+      "P1_GOAL",
+      "P1_PLAN",
+    ]);
+  });
 });

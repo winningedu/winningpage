@@ -1,6 +1,6 @@
 // Area tie rule, 23_동점규칙 r6-r10.
 
-import type { AreaCode } from "./codes.js";
+import { AREAS, type AreaCode } from "./codes.js";
 import type { AreaScore } from "./types.js";
 
 type Areas<C extends AreaCode> = Readonly<Partial<Record<C, AreaScore>>>;
@@ -28,6 +28,8 @@ export function orderLowToHigh<C extends AreaCode>(
       y.checks - x.checks ||
       // 23 r8 step 3: lower lowest single answer first
       x.minItem - y.minItem ||
+      // 23 r9 step 4: larger 05 weight first
+      AREAS[b].weight - AREAS[a].weight ||
       // 23 r10 step 5: 05 display order
       codes.indexOf(a) - codes.indexOf(b)
     );
