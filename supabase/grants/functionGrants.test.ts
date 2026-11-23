@@ -6,7 +6,6 @@ import {
   grantRevokeLines,
   hasExecute,
   MIGRATIONS_SQL,
-  revokesFrom,
   revokesPublic,
 } from "./migrationGrants";
 
@@ -61,22 +60,38 @@ describe("baseline 재생으로 열린 서버, 로그인 전용 함수에서 ano
   ])("%s", (fn) => {
     const acl = grantRevokeLines(fn);
     expect(revokesPublic(acl)).toBe(true);
-    expect(revokesFrom(acl, "anon")).toBe(true);
+    // pg_dump 는 최종 권한만 남기므로 anon 에 대한 GRANT 가 없다는 사실로 확인한다.
+    expect(hasExecute(acl, "anon")).toBe(false);
   });
 });
 
 describe("앞으로 만드는 함수는 닫힌 채로 시작한다", () => {
-  const flat = MIGRATIONS_SQL.replace(/\s+/g, " ").toLowerCase();
+  // pg_dump 는 default privileges 를 인용부호 식별자로 한 문장씩 적어 둔다.
+  const statements = MIGRATIONS_SQL.replace(/"/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .split(";")
+    .map((statement) => statement.trim());
+  const functionDefaults = statements.filter(
+    (statement) =>
+      statement.startsWith(
+        "alter default privileges for role postgres in schema public",
+      ) && statement.includes(" on functions "),
+  );
 
-  test("public 스키마 함수의 default privileges 에서 anon, authenticated 를 회수한다", () => {
-    expect(flat).toContain(
-      "alter default privileges for role postgres in schema public revoke execute on functions from anon, authenticated;",
+  test("public 스키마 함수의 default privileges 에 anon, authenticated 가 없다", () => {
+    expect(functionDefaults.length).toBeGreaterThan(0);
+    for (const statement of functionDefaults) {
+      expect(statement).not.toMatch(/\b(anon|authenticated)\b/);
+    }
+    expect(functionDefaults).toContain(
+      "alter default privileges for role postgres in schema public grant all on functions to service_role",
     );
   });
 
   test("함수 default privileges 의 PUBLIC EXECUTE 를 회수한다", () => {
-    expect(flat).toContain(
-      "alter default privileges for role postgres revoke execute on functions from public;",
+    expect(statements).toContain(
+      "alter default privileges for role postgres revoke all on functions from public",
     );
   });
 });

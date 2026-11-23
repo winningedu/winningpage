@@ -4,10 +4,10 @@
 수행한다([data/README.md](data/README.md)). 추적은 supabase CLI가
 `supabase_migrations.schema_migrations`로 전담한다.
 
-2026-10-23에 이력 마이그레이션 122개를 스키마 전용 baseline 한 파일
-`20261021014317_busan_oct_extension_goal_gift.sql`로 스쿼시했다. 원격 DB 3곳이 이미 이 버전을
-기록하고 있어 파일명은 유지했다. 이전 파일은 git 이력에 남아 있고, 원격 이력은 이 단일 버전으로
-정리했다.
+2026-11-24에 이력 마이그레이션 76개를 스키마 전용 baseline 한 파일
+`20261123153447_utc_drop_legacy_kst.sql`로 다시 스쿼시했다(첫 스쿼시는 2026-10-23, 122개를 `20261021014317_busan_oct_extension_goal_gift.sql`로). 원격 DB 3곳이
+이미 이 버전을 기록하고 있어 파일명은 유지했다. 이전 파일은 git 이력에 남아 있고, 원격 이력은 이 단일
+버전으로 정리했다. baseline에는 `auth.users` 트리거 2개와 `storage.objects` 정책 6개도 들어 있다.
 
 ## 구조
 
