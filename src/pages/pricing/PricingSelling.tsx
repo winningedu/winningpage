@@ -13,6 +13,7 @@ import {
   useProducts,
 } from "@/lib/products";
 import { supabase } from "@/lib/supabase";
+import { formatCouponDeadline } from "./couponDeadline";
 import {
   BODY as PARENT_BODY,
   TITLE as PARENT_TITLE,
@@ -31,17 +32,6 @@ type PricingCoupon = {
   title: string;
   deadlineText: string | null;
 };
-
-// valid_until(date, 예: '2026-09-30')을 "~9월 30일까지" 형태로. coupons.valid_until은
-// DATE 컬럼이라 항상 자정 기준이고, KST(UTC+9)는 UTC보다 앞서므로 로컬 Date 파싱에서
-// 날짜가 하루 당겨질 일이 없다(반대 방향 타임존이면 문제가 될 수 있어 이 프로젝트
-// 전제인 ko-KR 단일 로캘 한정 안전). 파싱 실패・값 없음이면 기한을 아예 표기하지 않는다.
-function formatCouponDeadline(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `~${date.getMonth() + 1}월 ${date.getDate()}일까지`;
-}
 
 type CartItem = {
   id: string;
