@@ -145,3 +145,45 @@ test.each([
     expect(await learningOf()).toEqual(expected);
   },
 );
+
+// B1: a v3 student must not be treated as "not diagnosed" by the text, the indicators or the competencies.
+const resultOf = async (
+  services: readonly ("diagnosis" | "goal")[] = ["diagnosis"],
+) => buildCoaching(createFakeAdmin(kit) as never, "s1", [...services], "고1");
+
+test("a v3 student's text never says to take the diagnosis", async () => {
+  withDiagnosis(v3Payload({ level: "L4", total1: 80 }));
+  const { text } = await resultOf();
+  const all = JSON.stringify(text);
+  expect(all).not.toContain("학습진단을 응시");
+  expect(all).not.toContain("학습진단 미실시");
+});
+
+test("a v3 student's diagnosis card shows the stored urgency, both page totals and the lowest page 1 area", async () => {
+  withDiagnosis(v3Payload({ level: "L4", total1: 80, total2: 63.1 }));
+  const card = (await resultOf()).text.serviceCards.find(
+    (c) => c.service === "diagnosis",
+  );
+  // P1_EXEC is the lowest page 1 area (40) in the fixture
+  expect(card?.value).toBe("긴급도 매우 높음");
+  expect(card?.detail).toContain("학습 실행 역량 80점, 학교생활 준비도 63점");
+  expect(card?.detail).toContain("가장 시급한 영역");
+  expect(card?.detail).toContain("(40점)");
+});
+
+test("a v3 student's execution indicator is the page 1 total and feeds axis 1 and the academic competency", async () => {
+  withDiagnosis(v3Payload({ total1: 62.3 }));
+  const result = await resultOf();
+  const axis = result.axesResult.axes.find((a) => a.key === "execution");
+  expect(axis?.score).toBe(62);
+  expect(
+    result.competencies.find((c) => c.key === "academic")?.score,
+  ).not.toBeNull();
+});
+
+test("a v3 student's weaknesses name the lowest page 1 area with its state and a first step from the sheet", async () => {
+  withDiagnosis(v3Payload({ level: "L2", total1: 62 }));
+  const { text } = await resultOf();
+  expect(text.weaknesses.join("\n")).toContain("40점");
+  expect(JSON.stringify(text.studyMethods)).not.toContain("학습진단을 응시");
+});

@@ -124,10 +124,33 @@ export interface GrowthAxisState {
   optional?: boolean;
 }
 
+/** 학습진단 한 영역. 버전과 상관없이 소비처가 읽는 값만 담는다(이름, 점수, 쪽, 상태 이름, 보강 단계 문구). */
+export interface DiagnosisViewArea {
+  name: string;
+  score: number;
+  group: "execution" | "readiness";
+  state: string;
+  /** 영역의 첫 단계, 둘째 단계 순서. */
+  steps: string[];
+}
+
+/** 학습진단의 버전 공통 값. v2 는 12영역 라벨에서, v3 는 payload.scores 에서 채운다. */
+export interface DiagnosisView {
+  urgency: Urgency;
+  /** 학습 실행 역량: v2 는 1쪽 6영역 평균, v3 는 1쪽 총점. */
+  executionAvg: number;
+  /** 학교생활 준비도: v2 는 2쪽 6영역 평균, v3 는 2쪽 총점. */
+  readinessAvg: number;
+  /** 1쪽 영역 뒤에 2쪽 영역 순서. */
+  areas: DiagnosisViewArea[];
+}
+
 /** 서비스별 자료. 서비스를 쓰지 않으면 null. 자료가 없는 지표는 이 모양에 아예 없다(결정 4). */
 export interface CoachingMetrics {
   used: Record<ServiceKey, boolean>;
   diagnosis: { areas: AreaScores; trend: DiagnosisTrend | null } | null;
+  /** 버전 공통 학습진단 값. 없으면 diagnosis(v2)에서 읽는다. v3 는 이 값만 있다. */
+  diagnosisView?: DiagnosisView | null;
   goal: {
     week: GoalWeek;
     /** 입력 내신 변화, 입력 모의고사 백분위 변화(연결표 r41, r42)를 0~100 으로 바꾼 값. */
@@ -218,7 +241,8 @@ export function indicatorsOf(m: CoachingMetrics) {
     dxExecution: make(
       "학습진단",
       "학습 실행 역량",
-      dx ? areaAverage(EXECUTION_AREAS, dx.areas) : null,
+      m.diagnosisView?.executionAvg ??
+        (dx ? areaAverage(EXECUTION_AREAS, dx.areas) : null),
     ),
     dxSubject: make("학습진단", "교과 관리", area("SUBJECT")),
     dxPerform: make("학습진단", "수행 대응", area("PERFORM")),

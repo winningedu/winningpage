@@ -18,6 +18,7 @@ import {
   type TopicFit,
 } from "./coaching.js";
 import { reportAreas, v3ScoresOf } from "./diagnosisStatus.js";
+import { diagnosisViewOf } from "./diagnosisView.js";
 import { readAll } from "./directory.js";
 import {
   buildGoalDays,
@@ -522,6 +523,7 @@ export async function loadCoachingData(
     metrics: {
       used: usedMap,
       diagnosis: diagnosisFrom(diagnosesNewestFirst[0]),
+      diagnosisView: latestAreas ? diagnosisViewOf(latestAreas) : null,
       goal: uses("goal")
         ? {
             week,
