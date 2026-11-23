@@ -4,6 +4,7 @@ import { sheetRows } from "./sheet.js";
 import {
   representativeTemperament,
   type TempDimScore,
+  temperamentCrossChecks,
   temperamentDims,
   temperamentFactors,
 } from "./temperament.js";
@@ -182,5 +183,43 @@ describe("four diagnosis factors (18 r21-r25, judge-report R12)", () => {
     expect(cell(23)).toBe("([NS] + (100 - [SD]) + [RD]) / 3");
     expect(cell(24)).toBe("(2 * (100 - [HA]) + [SD] + [PS]) / 4");
     expect(cell(25)).toBe("(2 * [PS] + [SD] + (100 - [NS])) / 4");
+  });
+});
+
+describe("cross checks with the learning diagnosis (18 r29-r30)", () => {
+  const ha = (score: number, raw: Likert) =>
+    temperamentCrossChecks({ ha: score, q20Item5: raw, sust: 50, exec: 50 })
+      .xchkHa;
+
+  test("HA 70 or more with 별로 or 전혀 differs", () => {
+    expect([ha(70, 1), ha(70, 0), ha(100, 1)]).toEqual([true, true, true]);
+    expect([ha(70, 2), ha(69, 1), ha(70, 3)]).toEqual([false, false, false]);
+  });
+
+  test("HA under 40 with 매우 or 대체로 differs", () => {
+    expect([ha(39, 4), ha(39, 3), ha(0, 3)]).toEqual([true, true, true]);
+    expect([ha(40, 4), ha(39, 2), ha(39, 1)]).toEqual([false, false, false]);
+  });
+
+  const sust = (f: number, exec: number) =>
+    temperamentCrossChecks({ ha: 50, q20Item5: 2, sust: f, exec }).xchkSust;
+
+  test("F_SUST under 40 with 학습 수행 70 or more differs", () => {
+    expect([sust(39, 70), sust(0, 100)]).toEqual([true, true]);
+    expect([sust(40, 70), sust(39, 69)]).toEqual([false, false]);
+  });
+
+  test("F_SUST 70 or more with 학습 수행 under 45 differs", () => {
+    expect([sust(70, 44), sust(100, 0)]).toEqual([true, true]);
+    expect([sust(70, 45), sust(69, 44)]).toEqual([false, false]);
+  });
+
+  test("the thresholds are the ones written in the sheet cells", () => {
+    const cell = (r: number) =>
+      String(sheetRows("18_기질설정").find((row) => row.r === r)?.c[2]);
+    expect(cell(29)).toContain("HA 70 이상인데");
+    expect(cell(29)).toContain("HA 40 미만인데");
+    expect(cell(30)).toContain("F_SUST 40 미만인데 [학습 수행] 70 이상");
+    expect(cell(30)).toContain("F_SUST 70 이상인데 [학습 수행] 45 미만");
   });
 });

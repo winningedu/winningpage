@@ -202,3 +202,38 @@ export function temperamentFactors(
     swayCause,
   };
 }
+
+// 18 r29 (XCHK_HA) and r30 (XCHK_SUST) are prose cells, so the thresholds are
+// typed here and temperament.test.ts asserts they appear in the cells.
+const XCHK_HA_HIGH = 70;
+const XCHK_HA_LOW = 40;
+const XCHK_SUST_LOW = 40;
+const XCHK_SUST_HIGH = 70;
+const XCHK_EXEC_HIGH = 70;
+const XCHK_EXEC_LOW = 45;
+
+export type CrossCheckInput = {
+  readonly ha: number;
+  /** q20 item 5 answer before reversal (불안, 18 r29 "Q20-5 원응답") */
+  readonly q20Item5: Likert;
+  readonly sust: number;
+  /** P1_EXEC (학습 수행) area score */
+  readonly exec: number;
+};
+
+export function temperamentCrossChecks(input: CrossCheckInput): {
+  readonly xchkHa: boolean;
+  readonly xchkSust: boolean;
+} {
+  // Likert 0 전혀, 1 별로, 3 대체로, 4 매우
+  const lowAnswer = input.q20Item5 <= 1;
+  const highAnswer = input.q20Item5 >= 3;
+  return {
+    xchkHa:
+      (input.ha >= XCHK_HA_HIGH && lowAnswer) ||
+      (input.ha < XCHK_HA_LOW && highAnswer),
+    xchkSust:
+      (input.sust < XCHK_SUST_LOW && input.exec >= XCHK_EXEC_HIGH) ||
+      (input.sust >= XCHK_SUST_HIGH && input.exec < XCHK_EXEC_LOW),
+  };
+}
