@@ -82,9 +82,8 @@ describe("spec worked examples (기능요구명세서 No 34-36)", () => {
 
 describe("exclusive and empty picks (No 37, No 127-129; 16 r22-r26)", () => {
   test("No 127: q10 and q12 skipped count as 0 checks, aux 100", () => {
-    const { page1, page2 } = scoreAreas(
-      withAnswers({ q10: undefined, q12: undefined }),
-    );
+    const { q10: _q10, q12: _q12, ...skipped } = CALC_EXAMPLE;
+    const { page1, page2 } = scoreAreas(skipped);
     expect(page1.areas.P1_PLAN.score).toBe(65);
     expect(page2.areas.H12_DEEP?.score).toBe(56);
   });
