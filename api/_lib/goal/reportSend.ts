@@ -62,6 +62,15 @@ export type ReportSendOptions = {
   dedupeSuffix?: string;
 };
 
+/** 로더 옵션. */
+export type ReportLoadOptions = {
+  /**
+   * studentIds 를 준 경우에도 그 기간에 기록이 있는 학생만 남긴다. 크론이
+   * 시간대별로 고른 학생에 쓴다(관리자 재발송은 기록 없어도 허용이라 끈다).
+   */
+  requireRecords?: boolean;
+};
+
 /** studentIds → { studentProfileId: 그 학생의 승인된 학부모 목록 } 배치 조회. */
 async function groupRecipientsByStudent(
   supabaseAdmin: SupabaseClient,
@@ -198,6 +207,7 @@ export async function loadDailyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   date: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, DailyReportInput>> {
   let recordQuery = supabaseAdmin
     .from("goal_daily_records")
@@ -218,13 +228,14 @@ export async function loadDailyReportInputs(
   }
   const rows = recordRows || [];
 
-  const targetIds =
-    studentIds ??
-    Array.from(
-      new Set(
-        rows.map((row: { profile_id: unknown }) => String(row.profile_id)),
-      ),
-    );
+  const recordedIds = new Set(
+    rows.map((row: { profile_id: unknown }) => String(row.profile_id)),
+  );
+  const targetIds = studentIds
+    ? options.requireRecords
+      ? studentIds.filter((id) => recordedIds.has(id))
+      : studentIds
+    : Array.from(recordedIds);
 
   if (targetIds.length === 0) {
     return new Map();
@@ -352,16 +363,19 @@ export async function loadWeeklyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   weekStart: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, WeeklyReportInput>> {
   const weekEnd = addDaysYmd(weekStart, 6);
 
   let targetIds = studentIds;
-  if (!targetIds) {
-    const { data: rows, error } = await supabaseAdmin
+  if (!targetIds || options.requireRecords) {
+    let recordQuery = supabaseAdmin
       .from("goal_daily_records")
       .select("profile_id")
       .gte("record_date", weekStart)
       .lte("record_date", weekEnd);
+    if (studentIds) recordQuery = recordQuery.in("profile_id", studentIds);
+    const { data: rows, error } = await recordQuery;
     if (error) {
       throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
     }
@@ -468,6 +482,7 @@ export async function loadMonthlyReportInputs(
   supabaseAdmin: SupabaseClient,
   studentIds: string[] | null,
   monthKey: string,
+  options: ReportLoadOptions = {},
 ): Promise<Map<string, MonthlyReportInput>> {
   const [yearPart, monthPart] = monthKey.split("-");
   const year = Number(yearPart);
@@ -476,12 +491,14 @@ export async function loadMonthlyReportInputs(
   const monthEnd = addDaysYmd(`${monthKey}-01`, daysInMonth(year, month) - 1);
 
   let targetIds = studentIds;
-  if (!targetIds) {
-    const { data: rows, error } = await supabaseAdmin
+  if (!targetIds || options.requireRecords) {
+    let recordQuery = supabaseAdmin
       .from("goal_daily_records")
       .select("profile_id")
       .gte("record_date", monthStart)
       .lte("record_date", monthEnd);
+    if (studentIds) recordQuery = recordQuery.in("profile_id", studentIds);
+    const { data: rows, error } = await recordQuery;
     if (error) {
       throw new Error(`goal_daily_records 조회 실패: ${error.message}`);
     }
