@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { AREAS, MIND_CODES, P1_CODES, P2_CODES, TRACK_NAMES } from "./codes.js";
+import {
+  AREAS,
+  MIND_CODES,
+  P1_CODES,
+  P2_CODES,
+  SERVICE_CODES,
+  TEMP_DIMS,
+  TEMP_FACTORS,
+  TRACK_NAMES,
+} from "./codes.js";
 import { SCORE_SHEETS } from "./source/scoreSheets.js";
 
 const areaRows = (SCORE_SHEETS["05_영역설정"] ?? []).filter((row) =>
@@ -39,5 +48,35 @@ describe("area codes (05_영역설정)", () => {
       H12: "고1\u00b72",
       H3: "고3\u00b7N수",
     });
+  });
+});
+
+const rowsOf = (sheet: string, key: string) =>
+  (SCORE_SHEETS[sheet] ?? []).filter((row) => row.c[0] === key);
+
+describe("temperament and service codes", () => {
+  test("dimensions follow 18_기질설정 차원 rows", () => {
+    expect(TEMP_DIMS).toEqual(rowsOf("18_기질설정", "차원").map((r) => r.c[1]));
+  });
+
+  test("factors follow 18_기질설정 요소 rows", () => {
+    const names = rowsOf("18_기질설정", "요소").map(
+      (row) => String(row.c[1]).split(" ")[0],
+    );
+    expect(TEMP_FACTORS).toEqual(names);
+  });
+
+  test("service codes are in the 23_동점규칙 fixed tie order", () => {
+    const tieRow = rowsOf("23_동점규칙", "서비스").find(
+      (row) => row.c[1] === "4",
+    );
+    expect(SERVICE_CODES).toEqual(String(tieRow?.c[3]).split(" \u2192 "));
+  });
+
+  test("service codes match 07_서비스 rows", () => {
+    const codes = (SCORE_SHEETS["07_서비스"] ?? [])
+      .filter((row) => row.r >= 5 && row.r <= 14)
+      .map((row) => row.c[0]);
+    expect(SERVICE_CODES).toEqual([...new Set(codes)]);
   });
 });

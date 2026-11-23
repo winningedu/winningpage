@@ -67,3 +67,22 @@ export const AREAS = Object.fromEntries(
 export const TRACK_NAMES = Object.fromEntries(
   TRACK_CODES.map((track) => [track, AREAS[P2_CODES[track][0]].group]),
 ) as Readonly<Record<TrackCode, string>>;
+
+// 18_기질설정 B6-B12.
+export const TEMP_DIMS = ["NS", "HA", "RD", "PS", "SD", "CO", "ST"] as const;
+export type TempDim = (typeof TEMP_DIMS)[number];
+
+// 18_기질설정 B22-B25.
+export const TEMP_FACTORS = ["F_STAB", "F_SWAY", "F_PRESS", "F_SUST"] as const;
+export type TempFactor = (typeof TEMP_FACTORS)[number];
+
+// 23_동점규칙 D20, also the 07_서비스 row order. Tie order is this order.
+export const SERVICE_CODES = [
+  "GOAL",
+  "PERF",
+  "DEEP",
+  "SELF",
+  "GROW",
+  "CALL",
+] as const;
+export type ServiceCode = (typeof SERVICE_CODES)[number];
