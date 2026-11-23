@@ -116,3 +116,8 @@ begin
   raise notice 'class names normalize: renamed=%, merged=%, deleted=%', v_renamed, v_m, v_deleted;
 end
 $$;
+
+-- 실행 기록
+-- 2026-11-23 dev gjowqdiopinhixfivnkx: 실행 전 (C, M) = (1, 0), 이름 바꾸기 1, 합치기 0, 지우기 0. 다시 실행해도 변경 없음. 학급 1 그대로.
+-- 2026-11-23 Winning prod ykrpjcsubmbenfcnwlzd: 실행 전 (0, 0), 변경 없음. 다시 실행해도 변경 없음. 학급 0.
+-- 2026-11-23 Schoolmentor prod aalujumpwlnwlemnqrus: 실행 전 (22, 8), 합치기 8(담임 8건을 숫자 반으로 옮기고 N반 8개 삭제), 이름 바꾸기 14. 학급 50 에서 42. 다시 실행해도 변경 없음. 글자 반 1 그대로.
