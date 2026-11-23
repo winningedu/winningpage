@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import type { SubmitErrorView } from "./infoLogic";
 
 const PRICING = "/pricing?service=inquiry";
@@ -31,6 +32,12 @@ export default function SubmitError({ error }: { error: SubmitErrorView }) {
         </p>
         <Link
           to={PRICING}
+          onClick={() =>
+            trackEvent("paywall_cta_click", {
+              service: "inquiry",
+              location: "usage_exhausted",
+            })
+          }
           className={`${buttonVariants({ variant: "outline", size: "lg" })} h-10 px-5 text-app-label`}
         >
           이용권 보기

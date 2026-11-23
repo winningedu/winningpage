@@ -34,7 +34,14 @@ export type AnalyticsEventMap = {
   };
   paywall_cta_click: {
     service: AnalyticsService;
-    location: "chat_card" | "banner" | "start_page" | "survey" | "reports";
+    location:
+      | "chat_card"
+      | "banner"
+      | "start_page"
+      | "survey"
+      | "reports"
+      | "usage_exhausted"
+      | "finalize";
   };
   ai_regenerate: { service: AnalyticsService; step: "topics" | "result" };
 };

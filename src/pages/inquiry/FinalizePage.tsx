@@ -23,6 +23,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
+import { trackEvent } from "@/lib/analytics";
 import { finalizeSession } from "@/lib/inquiry/api";
 import { inquirySessionDetailQuery } from "@/lib/inquiry/queries";
 import type { FinalizePreview } from "@/lib/inquiry/types";
@@ -126,7 +127,18 @@ function FinalizeForm({
         >
           <p>{error.message}</p>
           {error.link && (
-            <Link to={error.link.to} className="font-semibold underline">
+            <Link
+              to={error.link.to}
+              onClick={() => {
+                if (error.link?.to === PRICING) {
+                  trackEvent("paywall_cta_click", {
+                    service: "inquiry",
+                    location: "finalize",
+                  });
+                }
+              }}
+              className="font-semibold underline"
+            >
               {error.link.label}
             </Link>
           )}
