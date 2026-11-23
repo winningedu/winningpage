@@ -18,6 +18,7 @@ import {
   fetchWebAnalytics,
   type WebAnalyticsEventName,
   type WebAnalyticsProperty,
+  type WebAnalyticsPropertyValue,
   type WebAnalyticsRange,
   type WebAnalyticsReport,
 } from "./api";
@@ -84,8 +85,10 @@ function useRangeParams(): [
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
 // 속성 값 한글 이름. 값 목록은 src/lib/analytics.ts(hqa-vercel)의 유니온과 같다.
-// 목록에 없는 값(새 값, Vercel 의 "Others" 묶음)은 받은 값을 그대로 보인다.
-const VALUE_LABELS: Record<WebAnalyticsProperty, Record<string, string>> = {
+// 타입이 값마다 이름을 요구한다. 그래도 응답에 목록 밖 값(Vercel 의 "Others" 묶음)이 오면 받은 값을 그대로 보인다.
+const VALUE_LABELS: {
+  [P in WebAnalyticsProperty]: Record<WebAnalyticsPropertyValue<P>, string>;
+} = {
   member_type: {
     student: "학생",
     under14: "만 14세 미만 학생",
@@ -122,6 +125,8 @@ const VALUE_LABELS: Record<WebAnalyticsProperty, Record<string, string>> = {
     start_page: "시작 화면",
     survey: "설문",
     reports: "보고서 목록",
+    usage_exhausted: "이용 횟수 소진",
+    finalize: "저장 화면",
   },
   step: { topics: "주제", result: "결과" },
 };
@@ -134,7 +139,11 @@ function breakdownText(breakdown: Breakdown): string {
   const values = breakdown.values
     .map(
       (v) =>
-        `${VALUE_LABELS[breakdown.property][v.value] ?? v.value} ${numberFormat.format(v.count)}`,
+        `${
+          (VALUE_LABELS[breakdown.property] as Record<string, string>)[
+            v.value
+          ] ?? v.value
+        } ${numberFormat.format(v.count)}`,
     )
     .join(", ");
   return `${label}: ${values}`;

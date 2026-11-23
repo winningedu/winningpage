@@ -1,26 +1,28 @@
 // 방문 분석 화면의 데이터 호출. Vercel 토큰은 서버에만 있어 /api/admin/web-analytics 로만 읽는다.
 
+import type { AnalyticsEventMap, AnalyticsEventName } from "@/lib/analytics";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 
-// 서버 api/_lib/web-analytics/report.ts 의 WEB_ANALYTICS_EVENTS 와 같은 이름과 속성이다.
-export type WebAnalyticsEventName =
-  | "signup_complete"
-  | "service_start"
-  | "diagnosis_complete"
-  | "checkout_start"
-  | "payment_complete"
-  | "consult_apply"
-  | "kakao_inquiry_click"
-  | "report_export"
-  | "paywall_cta_click"
-  | "ai_regenerate";
+// 이벤트 이름과 속성은 수집 쪽 src/lib/analytics.ts 가 정본이다(서버 report.test.ts 가 서버 목록과 맞춰 잠근다).
+export type WebAnalyticsEventName = AnalyticsEventName;
 
-export type WebAnalyticsProperty =
-  | "member_type"
-  | "service"
-  | "method"
-  | "location"
-  | "step";
+type EventProperties = {
+  [K in AnalyticsEventName]: AnalyticsEventMap[K] extends undefined
+    ? never
+    : keyof AnalyticsEventMap[K];
+};
+
+export type WebAnalyticsProperty = EventProperties[AnalyticsEventName];
+
+/** 속성 하나가 가질 수 있는 값 전체(여러 이벤트에 걸친 합집합). */
+export type WebAnalyticsPropertyValue<P extends WebAnalyticsProperty> = {
+  [K in AnalyticsEventName]: NonNullable<AnalyticsEventMap[K]> extends Record<
+    P,
+    infer V extends string
+  >
+    ? V
+    : never;
+}[AnalyticsEventName];
 
 export interface WebAnalyticsRange {
   from: string;
