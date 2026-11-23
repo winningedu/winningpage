@@ -10,19 +10,18 @@ import {
   SUBJECT_FIELDS,
 } from "@/data/diagnosisSurveyV3";
 import { MOCK_GRADE_INPUT_RULE } from "@/data/renewalSurveyQuestions";
-import { MOCK_MONTHS } from "@/lib/diagnosis-v3/validate";
+import { gradeBoundsOf, MOCK_MONTHS } from "@/lib/diagnosis-v3/validate";
 import GradeInputGrid, { type GradeInputRule } from "./GradeInputGrid";
 
 /** Typing mask: up to three digits and two decimals; range is checked on submit. */
 const GRADE_PATTERN = /^\d{0,3}(\.\d{0,2})?$/;
 
-/** Input rule of the q4 grade system: 1..9, 1..5, or open for 성취평가제. */
+/** Input rule of the q4 grade system; bounds are the ones validateAnswers enforces. */
 export function gradeRule(q4: unknown): GradeInputRule {
   const max = gradeMaxOf(q4);
   return {
     code: max === null ? "OPEN" : `MAX${max}`,
-    min: 1,
-    max: max ?? Number.POSITIVE_INFINITY,
+    ...gradeBoundsOf(q4),
     decimals: 2,
     pattern: GRADE_PATTERN,
   };
