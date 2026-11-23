@@ -305,6 +305,8 @@ export type ScoreItem = {
   discrimination: number | null;
   checks: ScoreCheck[];
   score: number;
+  /** false 면 채점에서 뺀 항목이다(학교 문항이 없는 문항 대응). 없으면 적용으로 본다. */
+  applied?: boolean;
 };
 
 export type FormatCheckKey =
@@ -354,6 +356,8 @@ export type GrowthFit = {
 export type VerificationSections = {
   items: ScoreItem[];
   total: number;
+  /** 학교 문항이 없어 문항 대응을 뺀 채점이면 true. 이전 리포트에는 없다. */
+  promptMissing?: boolean;
   format: FormatCheck[];
   mandatoryFixes: MandatoryFix[];
   submittable: boolean;

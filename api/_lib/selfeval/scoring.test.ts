@@ -131,6 +131,91 @@ describe("improvements", () => {
   });
 });
 
+describe("문항 없음 채점", () => {
+  const noPrompt = (passes: Partial<Record<ScoreItemKey, boolean[]>> = {}) => ({
+    ...checks(passes),
+    prompt: [] as ScoreCheck[],
+  });
+
+  it("문항 대응은 적용하지 않고 0점, 배점 10 은 표시용으로 남긴다", () => {
+    const prompt = scoreItems(noPrompt(), { promptMissing: true }).find(
+      (i) => i.key === "prompt",
+    );
+    expect(prompt).toMatchObject({
+      applied: false,
+      score: 0,
+      max: 10,
+      checks: [],
+    });
+  });
+
+  it("나머지 7항목 만점이면 100점이다", () => {
+    const items = scoreItems(noPrompt(), { promptMissing: true });
+    expect(totalScore(items)).toBe(100);
+  });
+
+  it("나머지 90점을 100점으로 환산해 반올림한다", () => {
+    // judgment 25 * 1/2 = 13 이라 나머지 합 78, 78 * 100 / 90 = 86.67
+    const items = scoreItems(noPrompt({ judgment: [true, false] }), {
+      promptMissing: true,
+    });
+    expect(totalScore(items)).toBe(87);
+  });
+
+  it("고치면 좋은 곳에 문항 대응을 넣지 않는다", () => {
+    const items = scoreItems(noPrompt({ judgment: [false, false] }), {
+      promptMissing: true,
+    });
+    expect(improvements(items).map((i) => i.key)).not.toContain("prompt");
+  });
+
+  it("문항이 없으면 모델이 문항 확인 문장을 채워도 점수에 넣지 않는다", () => {
+    const items = scoreItems(checks(), { promptMissing: true });
+    expect(items.find((i) => i.key === "prompt")).toMatchObject({
+      applied: false,
+      score: 0,
+      checks: [],
+    });
+  });
+
+  it("판단 필수 수정은 환산 전 판단 점수로 가른다", () => {
+    const items = scoreItems(noPrompt({ judgment: [true, false] }), {
+      promptMissing: true,
+    });
+    const fixes = mandatoryFixes({ items, format: allPass(), clicheHits: [] });
+    expect(fixes.map((f) => f.key)).toContain("judgment_low");
+  });
+
+  it("검증 결과에 promptMissing 을 싣고 총점을 환산한다", () => {
+    const v = assembleVerification({
+      checks: checks(),
+      promptMissing: true,
+      text: "가나다 2회 실험.",
+      targetChars: null,
+      mode: "without_space",
+      universities: [],
+      sentences: [],
+      growthFit: null,
+    });
+    expect(v.promptMissing).toBe(true);
+    expect(v.total).toBe(100);
+    expect(v.improvements.map((i) => i.key)).not.toContain("prompt");
+  });
+
+  it("문항이 있으면 promptMissing 은 false 다", () => {
+    const v = assembleVerification({
+      checks: checks(),
+      text: "가나다 2회 실험.",
+      targetChars: null,
+      mode: "without_space",
+      universities: [],
+      sentences: [],
+      growthFit: null,
+    });
+    expect(v.promptMissing).toBe(false);
+  });
+});
+
 describe("assembleVerification", () => {
   it("본문 수치와 점수, 형식, 필수 수정을 한 덩어리로 묶는다", () => {
     const text = `${"가".repeat(99)}. ${"나".repeat(99)}. ${"다".repeat(99)}. 성실한 ${"라".repeat(85)} 2회 실험.`;
