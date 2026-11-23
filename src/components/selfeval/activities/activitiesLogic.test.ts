@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type {
+  CandidateLinkState,
   CandidateRow,
   GrowthSnapshot,
   PickListResponse,
@@ -359,7 +360,7 @@ describe("bannerFromSnapshot", () => {
 });
 
 describe("linkChipText", () => {
-  const withLink = (linkState: CandidateRow["linkState"]): CandidateRow => ({
+  const withLink = (linkState: CandidateLinkState | null): CandidateRow => ({
     ...row("x", 70),
     linkState,
   });
