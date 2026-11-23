@@ -9141,6 +9141,31 @@ export type Database = {
         Args: { p_include_internal: boolean; p_profile_id: string };
         Returns: boolean;
       };
+      fn_hq_tenant_overview: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          contract_end_date: string;
+          contract_start_date: string;
+          contract_status: string;
+          grace_end: string;
+          last_activity_on: string;
+          name: string;
+          org_type: string;
+          region: string;
+          student_count: number;
+          student_without_enrollment_count: number;
+          teacher_count: number;
+          tenant_id: string;
+        }[];
+      };
+      fn_hq_tenant_students: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          has_enrollment: boolean;
+          profile_id: string;
+          tenant_id: string;
+        }[];
+      };
       fn_inquiry_claim_generation: {
         Args: {
           p_mode: string;
