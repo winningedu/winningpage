@@ -7,6 +7,8 @@
 // 별개 개념이라 그 모듈은 쓰지 않는다.
 
 import { addDaysYMD, getMondayYMD, kstYMD } from "./goal/calc/index.js";
+import { ymdIn } from "./time/day.js";
+import { browserTimeZone } from "./time/zone.js";
 
 // 호출부(StudyPlanRail.jsx 등)가 "오늘" YMD가 필요할 때 calc 배럴을 따로 또 import하지
 // 않도록 그대로 재노출한다 — 이 파일이 이미 같은 심볼을 쓰고 있어 재노출 비용이 없다.
@@ -30,31 +32,39 @@ const WEEKDAY_SHORT_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
  * 표시할 주(월~일)의 실제 날짜 7개(YYYY-MM-DD)를 돌려준다.
  * weekOffset=0은 이번 주, -1/+1은 지난/다음 주(주 이동 화살표용).
  */
-export function getWeekDates(weekOffset = 0, now = new Date()): string[] {
-  const thisMonday = getMondayYMD(kstYMD(now), now);
+export function getWeekDates(
+  weekOffset = 0,
+  now = new Date(),
+  tz = browserTimeZone(),
+): string[] {
+  const thisMonday = getMondayYMD(ymdIn(now, tz), now);
   const monday =
     weekOffset === 0 ? thisMonday : addDaysYMD(thisMonday, weekOffset * 7, now);
   return Array.from({ length: 7 }, (_, i) => addDaysYMD(monday, i, now));
 }
 
 /** weekDates(getWeekDates 반환값) 안에 오늘이 있으면 그 요일의 short key, 없으면 null. */
-export function getTodayShortKeyInWeek(weekDates: string[], now = new Date()) {
-  const idx = weekDates.indexOf(kstYMD(now));
+export function getTodayShortKeyInWeek(
+  weekDates: string[],
+  now = new Date(),
+  tz = browserTimeZone(),
+) {
+  const idx = weekDates.indexOf(ymdIn(now, tz));
   // weekDates는 7일치, WEEKDAY_SHORT_KEYS도 7개 고정이라 idx(-1 아닌 경우)는 항상 유효하다.
   return idx === -1 ? null : WEEKDAY_SHORT_KEYS[idx]!;
 }
 
 /**
- * 오늘의 한글 요일 라벨("월요일"~"일요일", KST 기준). 대시보드 레일
+ * 오늘의 한글 요일 라벨("월요일"~"일요일", 넘겨준 시간대 기준). 대시보드 레일
  * "OO요일 나의 학습 계획하기" 헤딩용 — AddTaskModal.getTodayLabel()(로컬 브라우저 시간대
  * 기준 Date#getDay())과 별개다. 이쪽은 kstYMD/getWeekDates와 타임존 기준을 맞춰야
  * "이번 주" 판정(getTodayShortKeyInWeek)과 화면에 보이는 요일 라벨이 항상 같은 날을
- * 가리키게 하기 위해 Intl로 KST를 명시한다.
+ * 가리키게 하기 위해 Intl로 시간대를 명시한다.
  */
-export function getTodayWeekdayLabel(now = new Date()) {
+export function getTodayWeekdayLabel(now = new Date(), tz = browserTimeZone()) {
   return new Intl.DateTimeFormat("ko-KR", {
     weekday: "long",
-    timeZone: "Asia/Seoul",
+    timeZone: tz,
   }).format(now);
 }
 
@@ -75,35 +85,38 @@ function formatDotDate(ymd: string) {
 
 /**
  * 대시보드 헤더 날짜 라벨 — "YYYY.MM.DD 요일 기준"(요일 전체 표기, 예: "2026.08.20 목요일 기준").
- * KST 기준으로 오늘을 읽는다(getTodayWeekdayLabel과 동일 타임존).
+ * 넘겨준 시간대 기준으로 오늘을 읽는다(getTodayWeekdayLabel과 동일 타임존).
  */
-export function formatTodayDateLabel(now = new Date()) {
-  return `${formatDotDate(kstYMD(now))} ${getTodayWeekdayLabel(now)} 기준`;
+export function formatTodayDateLabel(now = new Date(), tz = browserTimeZone()) {
+  return `${formatDotDate(ymdIn(now, tz))} ${getTodayWeekdayLabel(now, tz)} 기준`;
 }
 
 /**
  * GoalPageHeader meta 라벨 — "YYYY.MM.DD (요일)"(요일 축약, 예: "2026.08.20 (목)").
  * DailyRecord.jsx "오늘의 공부 기록" 헤더 전용.
  */
-export function formatTodayDateMeta(now = new Date()) {
+export function formatTodayDateMeta(now = new Date(), tz = browserTimeZone()) {
   const short = new Intl.DateTimeFormat("ko-KR", {
     weekday: "short",
-    timeZone: "Asia/Seoul",
+    timeZone: tz,
   }).format(now);
-  return `${formatDotDate(kstYMD(now))} (${short})`;
+  return `${formatDotDate(ymdIn(now, tz))} (${short})`;
 }
 
 /**
- * QA3 행305 — 12시간 쿨다운 해제 시각 라벨("HH:mm", KST). unlocksAt이 오늘을
+ * QA3 행305 — 12시간 쿨다운 해제 시각 라벨("HH:mm", 학생 시간대). unlocksAt이 오늘을
  * 넘어가도(예: 22시 제출 → 익일 10시 해제) 날짜는 표시하지 않는다 — "다시 기록
  * 가능: HH:mm" 문구가 시각만 요구한다(설계 문서 §5(c) B안).
  */
-export function formatCooldownUnlockLabel(unlocksAt: string) {
+export function formatCooldownUnlockLabel(
+  unlocksAt: string,
+  tz = browserTimeZone(),
+) {
   return new Intl.DateTimeFormat("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Asia/Seoul",
+    timeZone: tz,
   }).format(new Date(unlocksAt));
 }
 
