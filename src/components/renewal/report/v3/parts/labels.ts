@@ -2,11 +2,34 @@
 // these come from the improved report PDF layout (page chrome, card titles);
 // no sheet cell holds them. Content strings always come from the payload.
 
+import type { MockSubjectCode, SubjectVerdict } from "@/lib/diagnosis-v3/types";
+
 /**
  * Footer total. judge-report R9: numbering stays fixed at 16 even when M3
  * drops page 7 (명세 123행: cover + 16 pages).
  */
 export const TOTAL_PAGES = 16;
+
+/**
+ * 22_리포트요소 D44 subject names (국어, 수학, 영어, 사회, 과학); 한국사 is
+ * the q6m extra of judge-report R3 and has no sheet cell.
+ */
+export const SUBJECT_LABELS: Readonly<Record<MockSubjectCode, string>> = {
+  KOR: "국어",
+  MATH: "수학",
+  ENG: "영어",
+  SOC: "사회",
+  SCI: "과학",
+  HIST: "한국사",
+};
+
+/** 22 D44 verdicts, the suffixes of the SUBJ_J_ copy ids. */
+export const VERDICT_LABELS: Readonly<Record<SubjectVerdict, string>> = {
+  PRIORITY: "우선 보완",
+  CHECK: "점검",
+  STRENGTH: "강점",
+  KEEP: "유지",
+};
 
 /** "01" style page number of the PDF toc and page eyebrows. */
 export const twoDigitPage = (page: number) => String(page).padStart(2, "0");
@@ -54,6 +77,16 @@ export const REPORT_LABELS = {
   ladderEmpty: "빈 칸",
   ladderFilled: "채움",
   suggestion: "제안",
+  /** PDF p3 cards */
+  gpaAll: "내신 전체 평균",
+  gpaRecent: "최근 정기고사 평균",
+  gradeTrend: "성적 흐름",
+  schoolGrades: "내신 과목별 등급",
+  mockGrades: "최근 모의고사 등급",
+  month: "월",
+  subjectTable: "두 기준을 겹쳐 본 과목 진단",
+  subject: "과목",
+  verdict: "판정",
   /** joins two short values on one line, as the PDF does */
   joiner: " \u00b7 ",
   studentOnly: "학생 전용",
