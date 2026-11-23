@@ -22,6 +22,7 @@ import SessionDetailGate, {
 import { SELFEVAL_PATHS } from "@/components/selfeval/selfevalPaths";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { copyTextWithToast } from "@/lib/clipboard";
 import { useReportPdfSave } from "@/lib/report/useReportPdfSave";
 import { buildSelfevalPdfFileName } from "@/lib/selfeval/pdfFileName";
@@ -246,9 +247,13 @@ function DoneBody({
                 variant="outline"
                 size="lg"
                 className="h-10 px-5 text-app-label font-medium"
-                onClick={() =>
-                  void copyTextWithToast(texts.join("\n\n"), toast)
-                }
+                onClick={async () => {
+                  if (await copyTextWithToast(texts.join("\n\n"), toast))
+                    trackEvent("report_export", {
+                      service: "selfeval",
+                      method: "copy",
+                    });
+                }}
               >
                 전체 복사
               </Button>

@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { detailMock } = vi.hoisted(() => ({ detailMock: vi.fn() }));
 
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/lib/performance/reports", () => ({
   fetchSavedReportsList: vi.fn(),
   fetchSavedReportDetail: detailMock,
@@ -22,6 +23,7 @@ vi.mock("@/context/SessionContext", () => ({
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import PerformanceReportsPage from "./PerformanceReportsPage";
 
 function detail() {
@@ -72,6 +74,7 @@ describe("PerformanceReportsPage 최종 제출본 전체 복사", () => {
   beforeEach(() => {
     detailMock.mockReset();
     detailMock.mockResolvedValue(detail());
+    vi.mocked(trackEvent).mockClear();
   });
   afterEach(() => {
     cleanup();
@@ -91,6 +94,10 @@ describe("PerformanceReportsPage 최종 제출본 전체 복사", () => {
     expect(copied).toContain("서론 본문 문장이다.");
     expect(copied).toContain("본론 본문 문장이다.");
     expect(await screen.findByText("복사했어요")).toBeVisible();
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "performance",
+      method: "copy",
+    });
   });
 
   it("클립보드 쓰기가 실패하면 실패 토스트를 띄운다", async () => {
@@ -106,6 +113,7 @@ describe("PerformanceReportsPage 최종 제출본 전체 복사", () => {
         "복사하지 못했어요. 직접 선택해서 복사해 주세요.",
       ),
     ).toBeVisible();
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 });
 
