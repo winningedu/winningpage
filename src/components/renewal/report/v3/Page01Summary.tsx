@@ -8,19 +8,23 @@ import SectionHeader from "./parts/SectionHeader";
 
 const PAGE = 1;
 
+/** PDF p1 period row word before the re-diagnosis date; 22 r16 holds no copy id for it. */
+const REDX_LABEL = "재진단";
+
 type Page01SummaryProps = { page: Page1; tocTitle: string };
 
 /** 1p summary, 22 r9-r27. */
 export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
   const { profile } = page;
-  const profileRows = [
-    [L.profileTarget, profile.target],
-    [L.profileGpa, profile.gpa],
-    [L.profileTrend, profile.trend],
-    [L.profilePeriod, profile.period],
-    [L.profileTemperament, profile.temperament],
-    [L.profileReliability, profile.reliability],
-  ] as const;
+  const { period } = profile;
+  const row = (label: string, value: string) => (
+    <div key={label} className="contents">
+      <dt className="text-ink-sub">{label}</dt>
+      <dd>
+        <CopyText text={value} />
+      </dd>
+    </div>
+  );
 
   return (
     <ReportSheet page={PAGE}>
@@ -40,14 +44,18 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
               {L.joiner}
               <span>{profile.school}</span>
             </dd>
-            {profileRows.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-ink-sub">{label}</dt>
-                <dd>
-                  <CopyText text={value} />
-                </dd>
-              </div>
-            ))}
+            {row(L.profileTarget, profile.target)}
+            {row(L.profileGpa, profile.gpa)}
+            {row(L.profileTrend, profile.trend)}
+            {/* 22 r16: the layout joins the three plan.due dates */}
+            <dt className="text-ink-sub">{L.profilePeriod}</dt>
+            <dd>
+              <span>{`${period.from} ~ ${period.to}`}</span>
+              {L.joiner}
+              <span>{`${REDX_LABEL} ${period.redx}`}</span>
+            </dd>
+            {row(L.profileTemperament, profile.temperament)}
+            {row(L.profileReliability, profile.reliability)}
           </dl>
         </ReportCard>
         {/* 22 r19 */}

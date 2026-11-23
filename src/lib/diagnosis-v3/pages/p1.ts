@@ -3,7 +3,7 @@
 import { AREAS, P1_CODES } from "../codes.js";
 import { copy, copyCell, fill, numbersIn, reportCell } from "../copy.js";
 import { OPTIONS } from "../options.js";
-import { dateOfDay, fillCopy, formatDue, WEEKS } from "../plan.js";
+import { dateOfDay, formatDue, WEEKS } from "../plan.js";
 import type { Engine } from "../report.js";
 import { TARGET_SCORE } from "../scoring.js";
 import type {
@@ -145,13 +145,12 @@ export function buildPage1(engine: Engine, temperamentName: string): Page1 {
       target: targetText(engine),
       gpa: gpaText(answers),
       trend: trendText(answers),
-      // 22 r16: Day 1 ~ Day 28, re-diagnosis plan.redx
-      period:
-        formatDue(context.diagnosedAt) +
-        " ~ " +
-        formatDue(dateOfDay(context.diagnosedAt, lastDay)) +
-        SEP +
-        fillCopy("plan.redx", { date: formatDue(scores.plan.redxDate) }),
+      // 22 r16 D: 진단일, 진단일+27일, 재진단 진단일+28일; E: each plan.due
+      period: {
+        from: formatDue(context.diagnosedAt),
+        to: formatDue(dateOfDay(context.diagnosedAt, lastDay)),
+        redx: formatDue(scores.plan.redxDate),
+      },
       temperament: temperamentName,
       reliability: reliabilityText(engine),
     },

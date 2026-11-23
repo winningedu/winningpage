@@ -453,8 +453,12 @@ export type Page1 = {
     readonly gpa: string;
     /** 22 r15 */
     readonly trend: string;
-    /** 22 r16 plan.due range and re-diagnosis date */
-    readonly period: string;
+    /** 22 r16: Day 1, Day 28 and the re-diagnosis date, each plan.due; the layout joins them */
+    readonly period: {
+      readonly from: string;
+      readonly to: string;
+      readonly redx: string;
+    };
     /** 22 r17 */
     readonly temperament: string;
     /** 22 r18 */

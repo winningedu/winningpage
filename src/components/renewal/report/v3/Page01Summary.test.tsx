@@ -15,7 +15,8 @@ describe("Page01Summary", () => {
       p1.title,
     );
     expect(screen.getByText(p1.lead)).toBeInTheDocument();
-    for (const value of Object.values(p1.profile)) {
+    const { period: _period, ...textRows } = p1.profile;
+    for (const value of Object.values(textRows)) {
       expect(screen.getAllByText(value).length).toBeGreaterThan(0);
     }
     expect(container.querySelectorAll("[data-axis]")).toHaveLength(7);
@@ -33,6 +34,12 @@ describe("Page01Summary", () => {
     expect(screen.getByText(p1.one.title)).toBeInTheDocument();
     expect(screen.getByText(p1.one.actions[1] as string)).toBeInTheDocument();
     expect(screen.getByText("1 / 16")).toBeInTheDocument();
+  });
+
+  it("joins the period fields in the layout, PDF p1 style (22 r16)", () => {
+    render(<Page01Summary page={p1} tocTitle="진단 요약" />);
+    expect(screen.getByText("11/10(화) ~ 12/7(월)")).toBeInTheDocument();
+    expect(screen.getByText("재진단 12/8(화)")).toBeInTheDocument();
   });
 
   it("SIMPLE response hides the student type block", () => {

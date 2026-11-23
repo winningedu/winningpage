@@ -104,7 +104,7 @@ export const FRONT_PAGES: FrontPages = {
       target: "고려대학교 경제학과",
       gpa: "1.25 (5등급제)",
       trend: "과목마다 오르내림이 커요",
-      period: "11/10(화) ~ 12/7(월) (4주), 재진단 12/8(화)",
+      period: { from: "11/10(화)", to: "12/7(월)", redx: "12/8(화)" },
       temperament: "끈기 성취형",
       reliability: "양호, 응답 확인 문항에서 이상이 없었습니다.",
     },

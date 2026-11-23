@@ -111,9 +111,8 @@ describe("1p 요약 (22 r9-r27)", () => {
       target: "연세대학교 경영학과 \u00b7 학생부교과(추천형)",
       gpa: "1.4 (5등급제)",
       trend: "미입력",
-      period:
-        "11/9(월) ~ 12/6(일) \u00b7 " +
-        COPY_TEXT["plan.redx"]?.replace("{date}", "12/7(월)"),
+      // 22 r16: Day 1, Day 28 and the re-diagnosis day, each plan.due
+      period: { from: "11/9(월)", to: "12/6(일)", redx: "12/7(월)" },
       temperament: COPY_TEXT.TEMP_TYPE_NS_NAME,
       reliability: COPY_TEXT.RELIAB_GOOD,
     });
