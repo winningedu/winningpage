@@ -262,6 +262,7 @@ export const FRONT_PAGES: FrontPages = {
       heading: "시험 운영 보완",
       body: "시험 보는 방식부터 정하면 가장 빨리 되찾을 수 있는 점수입니다.",
     },
+    examOpsVerdict: "보완",
     examOpsEvidence: {
       item: "8-15",
       answer: "별로 그렇지 않다",

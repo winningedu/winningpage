@@ -23,6 +23,17 @@ const RISK_MAX = Number(parsed[3]);
 export const EXAM_OPTION = Number(parsed[4]);
 const OK_MIN = Number(parsed[5]);
 
+/** 21 C35 verdict words: "보완(RISK)", "양호(OK)", "보통(MID)". */
+export const EXAM_OPS_WORDS = Object.fromEntries(
+  [...textCell(rule, 2).matchAll(/([가-힣]+)\((RISK|MID|OK)\)/g)].map(
+    ([, word, verdict]) => [verdict, word],
+  ),
+) as Record<ExamOpsVerdict, string>;
+for (const verdict of ["RISK", "MID", "OK"] as const) {
+  if (!EXAM_OPS_WORDS[verdict])
+    throw new Error("21 C35 has no word for " + verdict);
+}
+
 export function judgeExamOps(answers: DiagnosisV3Answers): ExamOpsVerdict {
   const answer = answers.q9.items[EXAM_ITEM - 1];
   const score = answer === undefined ? undefined : LIKERT_LEVELS[answer]?.score;

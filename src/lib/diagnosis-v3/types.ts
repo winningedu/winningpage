@@ -590,6 +590,8 @@ export type Page3 = {
     | { readonly kind: "skip"; readonly note: string };
   /** 22 r46 */
   readonly examOps: TextBlock;
+  /** spec row 76: verdict word of scores.examOps, 21 C35 (보완, 보통, 양호) */
+  readonly examOpsVerdict: string;
   /** spec row 76: the 8-15 answer word (01 A2) and the 10번 15 option label (02 r20) when picked */
   readonly examOpsEvidence: {
     readonly item: string;

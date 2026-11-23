@@ -336,6 +336,16 @@ describe("3p 성적 (22 r38-r46)", () => {
     });
   });
 
+  test("시험 운영 verdict word from 21 C35: 보완 (RISK), 보통 (MID), 양호 (OK)", () => {
+    expect(run().pages.p3.examOpsVerdict).toBe("양호");
+    const risk = run({ ...CALC_EXAMPLE, q10: [15] }).pages.p3;
+    expect(risk.examOpsVerdict).toBe("보완");
+    const items = CALC_EXAMPLE.q9.items.map((v, i) => (i === 14 ? 2 : v));
+    const mid = run({ ...CALC_EXAMPLE, q9: { ...CALC_EXAMPLE.q9, items } });
+    expect(mid.scores.examOps).toBe("MID");
+    expect(mid.pages.p3.examOpsVerdict).toBe("보통");
+  });
+
   test("PDF p3 grades: subject table, recent gap and exam ops RISK", () => {
     const { p3 } = run({
       ...CALC_EXAMPLE,

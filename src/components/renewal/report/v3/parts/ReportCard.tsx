@@ -23,7 +23,11 @@ export default function ReportCard({
         <CardTitle className="text-base font-bold text-ink-title">
           <CopyText text={title} />
         </CardTitle>
-        {meta && <span className="text-xs text-ink-sub">{meta}</span>}
+        {meta && (
+          <span className="text-xs text-ink-sub">
+            <CopyText text={meta} />
+          </span>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm text-ink-strong">
         {children}
