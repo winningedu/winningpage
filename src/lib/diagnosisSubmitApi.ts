@@ -2,7 +2,11 @@
 // scores them and stores the report (judge-report 3-2). The browser no longer
 // scores or saves a report itself.
 
-import type { AdmissionTarget, DiagnosisV3Payload } from "@/lib/diagnosis-v3";
+import type {
+  AdmissionTarget,
+  DiagnosisV3Payload,
+  ValidationError,
+} from "@/lib/diagnosis-v3";
 import { apiFetch, getAuthHeader } from "./apiFetch";
 import { NO_SUBJECT_REFLECTION_LABEL } from "./diagnosisAdmissionCascade";
 import {
@@ -17,7 +21,15 @@ export type DiagnosisSubmitResult =
       payload: DiagnosisV3Payload;
     }
   | { ok: false; reason: "no-session" | "network" }
-  | { ok: false; reason: "rejected"; code: string | null };
+  | {
+      ok: false;
+      reason: "rejected";
+      status: number;
+      code: string | null;
+      message: string | null;
+      /** INVALID_ANSWERS only: the server validateAnswers errors */
+      errors?: readonly ValidationError[];
+    };
 
 /** POST /api/diagnosis/submit { attemptId, answers }. Never throws. */
 export async function submitDiagnosisV3(input: {
@@ -36,6 +48,8 @@ export async function submitDiagnosisV3(input: {
         answers: input.answers,
       }),
     });
+    // 401 = the access token expired or was revoked (api/_lib/handler.ts)
+    if (response.status === 401) return { ok: false, reason: "no-session" };
     const body = await response.json().catch(() => ({}));
     if (response.ok && body?.ok === true) {
       return {
@@ -45,7 +59,15 @@ export async function submitDiagnosisV3(input: {
       };
     }
     // api/_lib/httpResponse.ts "coded" shape: { error: { code, message } }
-    return { ok: false, reason: "rejected", code: body?.error?.code ?? null };
+    return {
+      ok: false,
+      reason: "rejected",
+      status: response.status,
+      code: body?.error?.code ?? null,
+      message:
+        typeof body?.error?.message === "string" ? body.error.message : null,
+      ...(Array.isArray(body?.errors) ? { errors: body.errors } : {}),
+    };
   } catch {
     return { ok: false, reason: "network" };
   }

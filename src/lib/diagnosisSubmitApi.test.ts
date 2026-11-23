@@ -86,10 +86,52 @@ describe("submitDiagnosisV3", () => {
       attemptId: ATTEMPT_ID,
       answers: ANSWERS,
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       reason: "rejected",
       code: "INVALID_ANSWERS",
+    });
+  });
+
+  test("401 은 세션 만료라 no-session 이다", async () => {
+    mockGetAuthHeader.mockResolvedValue({ Authorization: "Bearer t" });
+    mockApiFetch.mockResolvedValue(
+      jsonResponse(401, {
+        ok: false,
+        error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다." },
+      }),
+    );
+    const result = await submitDiagnosisV3({
+      attemptId: ATTEMPT_ID,
+      answers: ANSWERS,
+    });
+    expect(result).toEqual({ ok: false, reason: "no-session" });
+  });
+
+  test("거절 결과는 상태 코드, 서버 메시지, 문항 오류 목록을 함께 준다", async () => {
+    mockGetAuthHeader.mockResolvedValue({ Authorization: "Bearer t" });
+    const errors = [{ question: "q13", reason: "invalid" }];
+    mockApiFetch.mockResolvedValue(
+      jsonResponse(400, {
+        ok: false,
+        error: {
+          code: "INVALID_ANSWERS",
+          message: "답안이 올바르지 않습니다.",
+        },
+        errors,
+      }),
+    );
+    const result = await submitDiagnosisV3({
+      attemptId: ATTEMPT_ID,
+      answers: ANSWERS,
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "rejected",
+      status: 400,
+      code: "INVALID_ANSWERS",
+      message: "답안이 올바르지 않습니다.",
+      errors,
     });
   });
 
