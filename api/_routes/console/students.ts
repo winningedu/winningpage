@@ -6,7 +6,8 @@
 // scopeTotal 은 필터 없이 범위 안의 학생 수라 "학생 없음"과 "조건에 맞는 학생 없음"을 가른다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { diffDaysYMD, kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { diffDaysYMD } from "../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { loadDiagnosisStatus } from "../../_lib/console/diagnosisStatus.js";
 import {
   compareClassName,
@@ -36,7 +37,7 @@ import {
   resolveThresholds,
   specialReasonsOf,
 } from "../../_lib/console/special.js";
-import { defineHandler } from "../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -96,7 +97,7 @@ async function loadFlagged(
   );
   return new Set(rows.map((r) => r.student_id));
 }
-/** 이름, 가입일(KST 날짜), 최근 접속 시각. in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
+/** 이름, 가입 시각(ISO Z), 최근 접속 시각. in 목록이 URL 한도를 넘지 않게 100명씩 읽는다. */
 async function loadProfiles(
   admin: SupabaseClient,
   ids: string[],
@@ -127,7 +128,7 @@ async function loadProfiles(
       p.id,
       {
         name: p.name ?? "",
-        joinedAt: p.created_at ? kstYMD(new Date(p.created_at)) : null,
+        joinedAt: p.created_at ? new Date(p.created_at).toISOString() : null,
         lastSeenAt: p.last_seen_at,
       },
     ]),
@@ -147,6 +148,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const pageQuery = parsePageQuery(req.query);
     if (!pageQuery) {
@@ -295,10 +297,10 @@ export default defineHandler({
       });
     }
 
-    // 접속한 날과 오늘의 KST 달력 날짜 차이. 기록이 없으면 null(미접속으로 잡지 않는다).
-    const today = kstYMD(new Date());
+    // 접속한 날과 오늘의 달력 날짜 차이(보는 사람 시간대). 기록이 없으면 null(미접속으로 잡지 않는다).
+    const today = ymdIn(new Date(), viewerZone);
     const daysSince = (at: string | null | undefined) =>
-      at ? diffDaysYMD(kstYMD(new Date(at)), today) : null;
+      at ? diffDaysYMD(ymdIn(at, viewerZone), today) : null;
     const extrasOf = async (rows: EnrollmentRow[]) => {
       const ids = rows.map((e) => e.student_id);
       await ensureServices(ids);
@@ -314,11 +316,11 @@ export default defineHandler({
           ids.filter((id) => usedOf(id).includes("performance")),
         ),
       ]);
-      // 가장 최근 제출이 평가를 기다리면 제출일(KST)부터 오늘까지의 달력 날짜 차이.
+      // 가장 최근 제출이 평가를 기다리면 제출일(보는 사람 시간대)부터 오늘까지의 달력 날짜 차이.
       const feedbackWaitingDaysOf = (id: string) => {
         const status = performance.get(id);
         return status?.feedback === "waiting" && status.lastSubmittedAt
-          ? diffDaysYMD(status.lastSubmittedAt, today)
+          ? diffDaysYMD(ymdIn(status.lastSubmittedAt, viewerZone), today)
           : null;
       };
       const reasonsOf = (id: string) =>

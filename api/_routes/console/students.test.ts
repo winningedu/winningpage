@@ -19,10 +19,13 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
 
 import { ymdIn } from "../../../src/lib/time/day.js";
 import { weekWindows } from "../../_lib/console/goalRate.js";
+import { withTimeZone } from "../../_lib/console/zoneTestKit.js";
 import handler from "./students.js";
 
-const get = (query: Record<string, string> = {}) =>
-  callHandler(handler, undefined, "GET", query);
+const get = (
+  query: Record<string, string> = {},
+  zone: string | null = "Asia/Seoul",
+) => callHandler(withTimeZone(handler, zone), undefined, "GET", query);
 
 const row = (over: Record<string, unknown>) => ({
   tenant_id: "tenant-1",
@@ -162,7 +165,7 @@ describe("GET /api/console/students", () => {
     expect(s1).toEqual({
       studentId: "s1",
       displayName: "김*늘",
-      joinedAt: "2026-03-02",
+      joinedAt: "2026-03-02T01:00:00.000Z",
       grade: "고2",
       groupId: null,
       groupName: null,
@@ -190,9 +193,9 @@ describe("GET /api/console/students", () => {
       groupName: "A레벨",
       serviceCount: 0,
     });
-    // 협정 세계시 16시는 한국 시각으로 다음 날이다.
+    // 가입 시각은 UTC 시각 그대로 내린다. 날짜로 바꾸는 일은 화면이 한다.
     expect(items(r).find((i) => i.studentId === "s4")).toMatchObject({
-      joinedAt: "2026-03-06",
+      joinedAt: "2026-03-05T16:00:00.000Z",
     });
   });
 
@@ -890,6 +893,23 @@ describe("GET /api/console/students special students", () => {
       const only = await get({ special: "1" });
       expect(special(only).map((i) => i.studentId)).toEqual(["s1"]);
       expect(only.body).toMatchObject({ total: 1 });
+    });
+
+    test("days since the last access are calendar days in the viewer zone, so the day edge differs by zone", async () => {
+      seen({ s1: "2026-11-02T14:59:59Z" });
+
+      // 서울 보는 사람은 11-09 에 11-02 를 보니 7일, 로스앤젤레스 보는 사람은 11-08 에 11-02 를 보니 6일이다.
+      expect(reasonsById(await get({}, "Asia/Seoul")).s1).toEqual(["inactive"]);
+      expect(reasonsById(await get({}, "America/Los_Angeles")).s1).toEqual([]);
+    });
+
+    test("without X-Time-Zone the answer is 400 TIME_ZONE_REQUIRED", async () => {
+      const r = await get({}, null);
+
+      expect(r.status).toBe(400);
+      expect((r.body as { error: { code: string } }).error.code).toBe(
+        "TIME_ZONE_REQUIRED",
+      );
     });
 
     test("the tenant's inactive days replace the default 7", async () => {
