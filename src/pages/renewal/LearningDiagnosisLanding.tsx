@@ -644,6 +644,7 @@ export default function LearningDiagnosisLanding() {
   const { requestStart, startDialogs, isGuestBlocked } = useServiceStart({
     to: DIAGNOSIS_APP_ROUTE,
     resultNotice: false,
+    service: "diagnosis",
   });
 
   // 스쿨멘토 비로그인만 링크 이동을 막고 안내를 연다. 그 밖에는 링크가 그대로 이동한다.

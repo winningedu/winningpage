@@ -30,6 +30,7 @@ import {
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { trackEvent } from "@/lib/analytics";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import { formatPhoneInput, normalizePhone } from "@/lib/phoneVerification";
 import {
@@ -622,6 +623,7 @@ export default function Under14Form() {
       }
 
       setSignupCompleted(true);
+      trackEvent("signup_complete", { member_type: "under14" });
 
       // 가입 완료 후 signOut 하지 않는다 — C-2의 CTA가 로그인 상태를 요구한다
       // (2026-08-06 정책, StudentForm과 동일).

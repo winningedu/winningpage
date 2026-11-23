@@ -340,6 +340,7 @@ export default function SelfAssessment() {
   const { requestStart, startDialogs } = useServiceStart({
     to: "/app/selfeval",
     resultNotice: true,
+    service: "selfeval",
   });
 
   function handleCta() {

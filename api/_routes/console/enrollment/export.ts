@@ -12,6 +12,8 @@ export const config = { runtime: "nodejs" };
 export default defineHandler({
   methods: ["POST"],
   auth: "console",
+  // 데이터를 바꾸지 않는 POST 라 읽기 전용 대행에서도 연다(결정 116).
+  allowReadOnlyProxy: true,
   consoleRole: "schoolAdmin",
   errorShape: "coded",
   methodNotAllowedCode: "METHOD_NOT_ALLOWED",

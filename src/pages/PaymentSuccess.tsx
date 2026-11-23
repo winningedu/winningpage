@@ -6,6 +6,7 @@ import { useMemberType } from "@/hooks/useMemberType";
 import type { PaymentInfo } from "@/hooks/usePaymentConfirmation";
 import { usePaymentConfirmation } from "@/hooks/usePaymentConfirmation";
 import { useSignupEnabled } from "@/hooks/useSignupEnabled";
+import { trackEvent } from "@/lib/analytics";
 import { openPaidServiceOrAlert } from "@/lib/paidServiceAccess";
 import {
   accountLabel,
@@ -450,6 +451,9 @@ export default function PaymentSuccess() {
             {COMPANY.kakaoChannelUrl ? (
               <a
                 href={COMPANY.kakaoChannelUrl}
+                onClick={() =>
+                  trackEvent("kakao_inquiry_click", { location: "payment" })
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-xl bg-primary px-8 py-3.5 text-center text-base font-semibold leading-5 text-white transition hover:bg-primary/90"
@@ -722,6 +726,9 @@ export default function PaymentSuccess() {
                 return (
                   <a
                     href={COMPANY.kakaoChannelUrl}
+                    onClick={() =>
+                      trackEvent("kakao_inquiry_click", { location: "payment" })
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full rounded-xl bg-primary py-4 text-center text-base font-semibold leading-5 text-white transition hover:bg-primary/90 sm:mx-auto sm:w-auto sm:px-16 sm:leading-5.5"

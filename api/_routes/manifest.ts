@@ -6,8 +6,14 @@ export const routes: Record<string, RouteLoader> = {
   "admin/ai-telemetry": () => import("./admin/ai-telemetry.js"),
   "admin/ai-telemetry-pricing": () => import("./admin/ai-telemetry-pricing.js"),
   "admin/growth-grant": () => import("./admin/growth-grant.js"),
+  "admin/hq-dashboard/summary": () => import("./admin/hq-dashboard/summary.js"),
+  "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
+  "admin/hq-dashboard/usage": () => import("./admin/hq-dashboard/usage.js"),
   "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
+  "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
+  "admin/hq-dashboard/b2c": () => import("./admin/hq-dashboard/b2c.js"),
+  "admin/hq-dashboard/trends": () => import("./admin/hq-dashboard/trends.js"),
   "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
@@ -31,6 +37,7 @@ export const routes: Record<string, RouteLoader> = {
     import("./admin/tenants/school-admins.js"),
   "admin/tenants/student-usage": () =>
     import("./admin/tenants/student-usage.js"),
+  "admin/web-analytics": () => import("./admin/web-analytics.js"),
   "auth/login": () => import("./auth/login.js"),
   "auth/teacher-reset-password": () =>
     import("./auth/teacher-reset-password.js"),

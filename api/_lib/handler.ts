@@ -68,6 +68,8 @@ const AUTH_REQUIRED_CODE = "UNAUTHENTICATED";
 const NOT_CONSOLE_MESSAGE = "선생님 화면 권한이 없습니다.";
 const MUST_CHANGE_PASSWORD_MESSAGE = "임시 비밀번호를 먼저 변경해 주세요.";
 const NOT_SCHOOL_ADMIN_MESSAGE = "전체 관리자만 사용할 수 있습니다.";
+const READ_ONLY_PROXY_MESSAGE = "읽기 전용 대행 중에는 바꿀 수 없습니다.";
+const READ_ONLY_METHODS = new Set(["GET", "HEAD"]);
 
 // api/performance/cleanup-attachments.ts, embed-session-vectors.ts 기준.
 const CRON_REQUIRED_MESSAGE = "인증이 필요합니다.";
@@ -103,6 +105,11 @@ export interface DefineHandlerOptions {
   consoleRole?: "schoolAdmin";
   /** auth:"console" 전용 — 임시 비밀번호 상태의 계정도 허용한다(비밀번호 설정 라우트용). */
   allowMustChange?: boolean;
+  /**
+   * auth:"console" 전용: 읽기 전용 대행에서도 GET 이 아닌 요청을 허용한다.
+   * 데이터를 바꾸지 않는 POST(미리보기, 내려받기와 출력 기록)만 켠다.
+   */
+  allowReadOnlyProxy?: boolean;
   /** 미처리 예외(500) 응답 문구 — 라우트마다 달라 필수로 받는다. */
   unhandledMessage: string;
   /** errorShape가 "coded"일 때만 쓰는 500 코드. */
@@ -216,6 +223,21 @@ export function defineHandler(opts: DefineHandlerOptions) {
               403,
               NOT_SCHOOL_ADMIN_MESSAGE,
               "NOT_SCHOOL_ADMIN",
+              opts.authFailureExtra,
+            );
+            return;
+          }
+          if (
+            actor.readOnly &&
+            !opts.allowReadOnlyProxy &&
+            !READ_ONLY_METHODS.has(req.method ?? "")
+          ) {
+            sendError(
+              res,
+              opts.errorShape,
+              403,
+              READ_ONLY_PROXY_MESSAGE,
+              "READ_ONLY_PROXY",
               opts.authFailureExtra,
             );
             return;

@@ -107,6 +107,7 @@ export default defineHandler({
       id: string;
       tenantName: string;
       expiresAt: string;
+      readOnly: boolean;
     } | null = null;
     if (actor.proxySessionId) {
       const { data, error } = await admin
@@ -119,6 +120,7 @@ export default defineHandler({
         id: data.id,
         tenantName: tenant.name,
         expiresAt: data.expires_at,
+        readOnly: actor.readOnly,
       };
     }
 

@@ -20,6 +20,7 @@ import EvaluationReportModal, {
 } from "@/components/performance/step5/EvaluationReportModal";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { copyTextWithToast, elementPlainText } from "@/lib/clipboard";
 import {
   fetchSavedReportDetail,
@@ -209,12 +210,17 @@ function FinalReportModal({
           </button>
           <button
             type="button"
-            onClick={() =>
-              void copyTextWithToast(
+            onClick={async () => {
+              const copied = await copyTextWithToast(
                 elementPlainText(surfaceRef.current),
                 toast,
-              )
-            }
+              );
+              if (copied)
+                trackEvent("report_export", {
+                  service: "performance",
+                  method: "copy",
+                });
+            }}
             disabled={!hasContent}
             className={REPORT_MODAL_FOOTER_BUTTON.secondary}
           >

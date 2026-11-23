@@ -44,6 +44,7 @@ vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
   useSelfevalShell: shellMock,
   useSelfevalScreenStep: stepMock,
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/lib/selfeval/api", () => ({
   fetchSessionDetail: detailMock,
   fetchEntry: vi.fn(),
@@ -72,6 +73,7 @@ vi.mock("react-router", async (orig) => ({
   useNavigate: () => navigateMock,
 }));
 
+import { trackEvent } from "@/lib/analytics";
 import DonePage from "./DonePage";
 
 function renderPage(state?: unknown) {
@@ -360,6 +362,10 @@ describe("DonePage", () => {
       ),
     );
     expect(toastMock.success).toHaveBeenCalledWith("복사했어요");
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "selfeval",
+      method: "copy",
+    });
   });
 
   test("아직 저장하지 않은 세션은 저장 안내와 검증 화면 이동만 보인다", async () => {

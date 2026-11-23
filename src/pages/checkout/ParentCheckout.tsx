@@ -15,6 +15,7 @@ import ConfirmModal from "@/components/checkout/ConfirmModal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatKRW, SERVICE_NOTICES } from "@/data/pricingCatalog";
 import { useTermsDocs } from "@/hooks/useTermsDocs";
+import { trackEvent } from "@/lib/analytics";
 import {
   filterOrgProducts,
   type ServiceProduct,
@@ -875,6 +876,8 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
       };
 
       if (method === "VIRTUAL_ACCOUNT") {
+        // 결제창으로 리다이렉트되므로 요청 전에 보낸다.
+        trackEvent("checkout_start", { method: "virtual_account" });
         await payment.requestPayment({
           method,
           ...commonPaymentParams,
@@ -884,6 +887,7 @@ function EnrollmentCheckout({ orderId }: { orderId: string }) {
           },
         });
       } else {
+        trackEvent("checkout_start", { method: "card" });
         await payment.requestPayment({
           method,
           ...commonPaymentParams,

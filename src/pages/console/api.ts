@@ -24,7 +24,13 @@ export interface ConsoleMe {
   } | null;
   classIds: string[];
   classes: ConsoleClass[];
-  proxySession: { id: string; tenantName: string; expiresAt: string } | null;
+  proxySession: {
+    id: string;
+    tenantName: string;
+    expiresAt: string;
+    /** 읽기 전용 사유의 대행. 서버가 쓰기를 403 으로 막는다(결정 116). */
+    readOnly: boolean;
+  } | null;
   mustChangePassword: boolean;
 }
 

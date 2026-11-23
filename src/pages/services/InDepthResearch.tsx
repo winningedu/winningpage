@@ -194,6 +194,7 @@ function HeroSection() {
   const { requestStart, startDialogs } = useServiceStart({
     to: INQUIRY_APP_ROUTE,
     resultNotice: true,
+    service: "inquiry",
   });
 
   // 히어로 CTA는 인앱 서비스(/app/inquiry)로 직접 이동한다(수행평가 소개 페이지의 HERO_SERVICE

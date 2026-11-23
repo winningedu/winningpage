@@ -45,6 +45,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
+import { trackEvent } from "@/lib/analytics";
 import { postAssets, postSession } from "@/lib/inquiry/api";
 import { clearGrowthHandoff, readGrowthHandoff } from "@/lib/inquiry/handoff";
 import { upsertStudentProfile } from "@/lib/inquiry/profile";
@@ -95,6 +96,12 @@ export default function InfoPage() {
             !site.features.tenantServiceGate && (
               <Link
                 to="/pricing?service=inquiry"
+                onClick={() =>
+                  trackEvent("paywall_cta_click", {
+                    service: "inquiry",
+                    location: "no_entitlement",
+                  })
+                }
                 className={`${buttonVariants({ variant: "outline", size: "lg" })} h-10 w-fit px-5 text-app-label`}
               >
                 이용권 보기

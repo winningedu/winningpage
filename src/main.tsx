@@ -1,8 +1,10 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { Analytics } from "@vercel/analytics/react";
 import { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { AuthProvider } from "./context/AuthProvider";
+import { analyticsBeforeSend } from "./lib/analytics";
 import { queryClient } from "./lib/queryClient";
 import "./styles/pretendard.css"; // 벤더 원본(92 @font-face). 본문 서체 — 등록만 한다
 import "./styles/fonts.css"; // 우리 선언(GraceSerif 1블록)
@@ -68,6 +70,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <App />
     </AuthProvider>
+    {/* admin, teacher 경로는 제외하고 쿼리스트링과 해시는 analyticsBeforeSend에서 지운다. */}
+    <Analytics beforeSend={analyticsBeforeSend} />
     {/* 프로덕션 번들에는 절대 포함되지 않아야 하는 개발용 패널 — import.meta.env.DEV로만
         렌더한다. lazy() 덕에 이 조건이 false면 청크 자체를 내려받지 않는다. */}
     {import.meta.env.DEV && (

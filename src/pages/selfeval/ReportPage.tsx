@@ -82,7 +82,7 @@ function ReportView({
   const navigate = useNavigate();
   const { studentName } = useSelfevalShell();
   const report = useSelfevalReport(sessionId);
-  const pdf = useReportPdfSave(buildSelfevalPdfFileName(pdfTitle));
+  const pdf = useReportPdfSave(buildSelfevalPdfFileName(pdfTitle), "selfeval");
 
   return (
     <>

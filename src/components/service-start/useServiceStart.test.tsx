@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { trackEvent } from "@/lib/analytics";
 import { useServiceStart } from "./useServiceStart";
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +17,8 @@ vi.mock("@/config/site", () => ({
   },
 }));
 
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
+
 vi.mock("@/context/AuthProvider", () => ({
   useAuthOptional: () => mocks.auth,
 }));
@@ -30,6 +33,7 @@ function Harness({
   const { requestStart, startDialogs } = useServiceStart({
     to: "/app/performance",
     resultNotice,
+    service: "performance",
   });
   const location = useLocation();
   return (
@@ -59,8 +63,21 @@ function renderHarness(resultNotice: boolean) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mocks.startNotice = true;
   mocks.auth = { user: null, isReady: true };
+});
+
+describe("useServiceStart - 분석 이벤트", () => {
+  it("시작을 누르면 관문 결과와 무관하게 service_start를 한 번 보낸다", () => {
+    renderHarness(true);
+    fireEvent.click(screen.getByRole("button", { name: "시작" }));
+
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("service_start", {
+      service: "performance",
+    });
+  });
 });
 
 describe("useServiceStart - 스쿨멘토 비로그인", () => {

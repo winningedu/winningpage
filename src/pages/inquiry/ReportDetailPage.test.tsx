@@ -16,6 +16,7 @@ const { fetchDetailMock, stepMock } = vi.hoisted(() => ({
   stepMock: vi.fn(),
 }));
 
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/lib/inquiry/api", () => ({
   fetchSessionDetail: fetchDetailMock,
 }));
@@ -51,6 +52,7 @@ vi.mock("@/components/inquiry/evaluate/EvaluationBody", () => ({
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
 import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
 import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
@@ -114,6 +116,7 @@ describe("ReportDetailPage", () => {
   beforeEach(() => {
     fetchDetailMock.mockReset();
     stepMock.mockClear();
+    vi.mocked(trackEvent).mockClear();
   });
   afterEach(() => {
     cleanup();
@@ -208,6 +211,10 @@ describe("ReportDetailPage", () => {
       ),
     );
     expect(await screen.findByText("복사했어요")).toBeVisible();
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "inquiry",
+      method: "copy",
+    });
   });
 
   it("확정 세션은 최종 본문 영역에 절 제목과 본문을 그리고 빈 절은 그리지 않는다", async () => {

@@ -192,6 +192,31 @@ describe("AdminSidebar 메뉴", () => {
     expect(screen.queryByRole("button", { name: /^모두/ })).toBeNull();
   });
 
+  it("통계 그룹에 대시보드와 방문 분석 링크가 있다", async () => {
+    state.allowed = new Set(["hqDashboard", "webAnalytics"]);
+    renderShell("/admin/hqDashboard");
+
+    const toggle = await screen.findByRole("button", { name: "통계" });
+    const group = toggle.closest("[data-slot=sidebar-group]") as HTMLElement;
+    expect(
+      within(group).getByRole("link", { name: "대시보드" }),
+    ).toHaveAttribute("href", "/admin/hqDashboard");
+    expect(
+      within(group).getByRole("link", { name: "방문 분석" }),
+    ).toHaveAttribute("href", "/admin/webAnalytics");
+  });
+
+  it("옛 메뉴 일일 입장과 이용 현황은 권한이 있어도 그리지 않는다", async () => {
+    state.allowed = new Set(["members", "dailyEntries", "usageStatus"]);
+    renderShell("/admin/members");
+
+    await screen.findByRole("link", { name: "회원 목록" });
+    expect(screen.queryByRole("link", { name: "일일 입장" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "이용 현황" })).toBeNull();
+    expect(document.querySelector('a[href="/admin/dailyEntries"]')).toBeNull();
+    expect(document.querySelector('a[href="/admin/usageStatus"]')).toBeNull();
+  });
+
   it("Cmd+B 를 눌러도 사이드바는 그대로 있고 포커스된 요소의 keydown 핸들러가 먼저 실행된다", async () => {
     renderShell("/admin/banners");
     await screen.findByRole("link", { name: "팝업 관리" });

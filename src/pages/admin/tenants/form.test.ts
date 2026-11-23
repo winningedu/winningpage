@@ -56,6 +56,47 @@ describe("validateTenantForm", () => {
     ).toBeNull();
   });
 
+  test("시범 시작일이 종료일보다 늦으면 거부하고 같은 날은 통과한다(결정 117)", () => {
+    expect(
+      validateTenantForm(
+        form({
+          trial_start_date: "2026-12-02",
+          trial_end_date: "2026-12-01",
+        }),
+      ),
+    ).toBe("시범 시작일은 종료일보다 늦을 수 없어요.");
+    expect(
+      validateTenantForm(
+        form({
+          trial_start_date: "2026-12-01",
+          trial_end_date: "2026-12-01",
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  test("시범 시작일과 종료일은 함께 넣거나 함께 비운다", () => {
+    expect(validateTenantForm(form({ trial_start_date: "2026-12-01" }))).toBe(
+      "시범 시작일과 종료일을 함께 입력해 주세요.",
+    );
+    expect(validateTenantForm(form({ trial_end_date: "2026-12-01" }))).toBe(
+      "시범 시작일과 종료일을 함께 입력해 주세요.",
+    );
+  });
+
+  test("시범기간은 계약일과 따로 본다(계약 기간과 겹쳐도 된다)", () => {
+    expect(
+      validateTenantForm(
+        form({
+          contract_start_date: "2027-03-01",
+          contract_end_date: "2028-02-28",
+          trial_start_date: "2026-12-01",
+          trial_end_date: "2027-03-31",
+        }),
+      ),
+    ).toBeNull();
+  });
+
   test("학기 길이는 비우거나 3 또는 6 만 된다", () => {
     expect(validateTenantForm(form({ term_months: "4" }))).toBe(
       "학기 길이는 3개월 또는 6개월이어야 해요.",
@@ -109,6 +150,21 @@ describe("tenantPayload", () => {
       mou_status: null,
       grace_ends_on: null,
       contact_name: null,
+    });
+  });
+
+  test("시범 날짜는 그대로 보내고 비우면 null 로 보낸다", () => {
+    expect(
+      tenantPayload(
+        form({ trial_start_date: "2026-12-01", trial_end_date: "2026-12-31" }),
+      ),
+    ).toMatchObject({
+      trial_start_date: "2026-12-01",
+      trial_end_date: "2026-12-31",
+    });
+    expect(tenantPayload(form())).toMatchObject({
+      trial_start_date: null,
+      trial_end_date: null,
     });
   });
 

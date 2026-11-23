@@ -1,9 +1,10 @@
 // W5a 학교 고르기(/teacher/proxy). 본사 관리자가 대행할 학교와 사유 하나를 골라 8시간 대행을 시작한다.
 // 사이드바 없이 사이트 헤더만 있는 카드 한 장이다. 시작하면 me 를 다시 읽어 대시보드(대행 띠)로 간다.
+// 본사 대시보드의 기관 행은 ?tenant=<id>&reason=read_only 로 들어와 미리 골라 두고, 시작은 사용자가 누른다(Q4).
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { consoleRequest } from "../api";
@@ -12,7 +13,7 @@ import Notice from "../Notice";
 import TextField from "../TextField";
 import { useToast } from "../Toast";
 import { CONSOLE_ME_KEY } from "../useConsoleMe";
-import ProxyReasonField, { type Reason } from "./ProxyReasonField";
+import ProxyReasonField, { REASONS, type Reason } from "./ProxyReasonField";
 import { useProxyTenants } from "./useProxyTenants";
 
 const START_FAILED = "대행을 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요";
@@ -67,8 +68,13 @@ export default function ProxySelectPage() {
   const queryClient = useQueryClient();
   const tenants = useProxyTenants();
   const [keyword, setKeyword] = useState("");
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [reason, setReason] = useState<Reason | null>(null);
+  const [searchParams] = useSearchParams();
+  const [tenantId, setTenantId] = useState<string | null>(
+    searchParams.get("tenant"),
+  );
+  const [reason, setReason] = useState<Reason | null>(
+    REASONS.find((r) => r.value === searchParams.get("reason"))?.value ?? null,
+  );
   const [starting, setStarting] = useState(false);
 
   // 방금 끝낸 대행 세션이 me 에 남아 있지 않게 다시 읽는다.
@@ -83,8 +89,11 @@ export default function ProxySelectPage() {
       t.code.toLowerCase().includes(query),
   );
 
+  // 주소로 받은 기관이 목록에 없으면 고르지 않은 것으로 본다.
+  const tenantChosen = (tenants.data ?? []).some((t) => t.id === tenantId);
+
   const start = async () => {
-    if (!tenantId || !reason) return;
+    if (!tenantChosen || !tenantId || !reason) return;
     setStarting(true);
     try {
       const res = await consoleRequest("/api/console/proxy/start", {
@@ -156,7 +165,7 @@ export default function ProxySelectPage() {
 
         <ProxyReasonField reason={reason} onChange={setReason} />
 
-        {tenantId && reason && (
+        {tenantChosen && reason && (
           <Notice tone="Info">
             대행은 8시간 뒤 자동으로 끝나요. 모든 조회와 수정은 본사 직원
             이름으로 기록돼요.
@@ -165,7 +174,7 @@ export default function ProxySelectPage() {
 
         <Button
           type="submit"
-          disabled={!tenantId || !reason || starting}
+          disabled={!tenantChosen || !reason || starting}
           className="h-11 rounded-lg text-app-body font-semibold"
         >
           대행 시작

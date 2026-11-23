@@ -23,7 +23,12 @@ type PremiumCtaBannerProps = {
   title: ReactNode;
   eyebrow?: ReactNode;
   sub?: ReactNode;
-  cta: { label: string; to?: string | undefined; href?: string | undefined };
+  cta: {
+    label: string;
+    to?: string | undefined;
+    href?: string | undefined;
+    onClick?: (() => void) | undefined;
+  };
   secondaryCta?: { label: string; href: string } | undefined;
   /** public/images/premium/cta-s-program-bg.webp — 페이지가 명시적으로 넘긴다. variant="light" 에선 불필요. */
   bgSrc?: string;
@@ -102,6 +107,7 @@ export default function PremiumCtaBanner({
             {cta.href ? (
               <a
                 href={cta.href}
+                onClick={cta.onClick}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={

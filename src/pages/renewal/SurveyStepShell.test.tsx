@@ -24,6 +24,7 @@ const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
 const submitMock = vi.hoisted(() => vi.fn());
 const resolveMock = vi.hoisted(() => vi.fn());
+const trackMock = vi.hoisted(() => vi.fn());
 const copyOverridesMock = vi.hoisted(() => vi.fn(async () => new Map()));
 
 vi.mock("@/config/site", async (orig) => {
@@ -47,6 +48,7 @@ vi.mock("@/config/site", async (orig) => {
 vi.mock("@/context/AuthProvider", () => ({
   useAuthOptional: () => ({ userId: authState.userId }),
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: trackMock }));
 vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
@@ -212,6 +214,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
   submitMock.mockReset();
+  trackMock.mockReset();
   sessionStorage.clear();
   resolveMock.mockReset();
   resolveMock.mockResolvedValue({ ok: true, target: CALC_EXAMPLE.q15 });
@@ -584,6 +587,30 @@ describe("SurveyStepShell v3 제출", () => {
       attemptId,
       answers: CALC_EXAMPLE,
     });
+  });
+
+  it("제출에 성공하면 diagnosis_complete 이벤트를 한 번 보낸다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    submitMock.mockResolvedValue({
+      ok: true,
+      schemaVersion: "2026-11-v3",
+      payload: {},
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(trackMock).toHaveBeenCalledTimes(1);
+    expect(trackMock).toHaveBeenCalledWith("diagnosis_complete");
+  });
+
+  it("서버 채점이 거절되면 diagnosis_complete 이벤트를 보내지 않는다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    submitMock.mockResolvedValue({ ok: false, reason: "network" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(trackMock).not.toHaveBeenCalled();
   });
 
   it("제출 뒤 리포트로는 히스토리를 교체해 이동하고, 뒤로가기가 설문 화면으로 돌아가지 않는다", async () => {

@@ -3,6 +3,7 @@ import GoalCard from "@/components/goal/GoalCard";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,12 @@ export default function NoEntitlementCard({
       </p>
       <Link
         to={PRICING_PATH}
+        onClick={() =>
+          trackEvent("paywall_cta_click", {
+            service: "growth",
+            location: "survey",
+          })
+        }
         className={cn(
           buttonVariants({ variant: "default" }),
           "mt-3 h-10 px-4 text-app-label",

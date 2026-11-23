@@ -5714,6 +5714,33 @@ export type Database = {
           },
         ];
       };
+      profile_login_days: {
+        Row: {
+          first_seen_at: string;
+          kst_date: string;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          first_seen_at?: string;
+          kst_date: string;
+          profile_id: string;
+        };
+        Update: {
+          first_seen_at?: string;
+          kst_date?: string;
+          profile_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_login_days_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           address: string | null;
@@ -7690,6 +7717,8 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          trial_end_date: string | null;
+          trial_start_date: string | null;
           updated_at: string;
         };
         ComputedFields: never;
@@ -7720,6 +7749,8 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier: string;
+          trial_end_date?: string | null;
+          trial_start_date?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -7749,6 +7780,8 @@ export type Database = {
           special_inactive_days?: number | null;
           term_months?: number | null;
           tier?: string;
+          trial_end_date?: string | null;
+          trial_start_date?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -8941,6 +8974,8 @@ export type Database = {
           special_inactive_days: number | null;
           term_months: number | null;
           tier: string;
+          trial_end_date: string | null;
+          trial_start_date: string | null;
           updated_at: string;
         };
         SetofOptions: {
@@ -9109,6 +9144,128 @@ export type Database = {
           p_step: number;
         };
         Returns: Json;
+      };
+      fn_hq_b2c_summary: {
+        Args: { p_from: string; p_include_internal: boolean; p_to: string };
+        Returns: {
+          by_member_type: Json;
+          member_total: number;
+          net_amount: number;
+          order_count: number;
+          paid_amount: number;
+          paying_members: number;
+          refunded_amount: number;
+        }[];
+      };
+      fn_hq_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_mau_mode: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+        }[];
+      };
+      fn_hq_is_b2c_tenant: { Args: { p_tenant_id: string }; Returns: boolean };
+      fn_hq_login_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_include_internal: boolean;
+          p_mau_mode: string;
+          p_scope: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+          by_member_type: Json;
+          members: number;
+          source: string;
+        }[];
+      };
+      fn_hq_login_log: {
+        Args: {
+          p_from: string;
+          p_include_internal: boolean;
+          p_limit: number;
+          p_offset: number;
+          p_to: string;
+        };
+        Returns: {
+          first_seen_at: string;
+          kst_date: string;
+          member_type: string;
+          name: string;
+          profile_id: string;
+          tenant_name: string;
+          total_count: number;
+        }[];
+      };
+      fn_hq_stat_included: {
+        Args: { p_include_internal: boolean; p_profile_id: string };
+        Returns: boolean;
+      };
+      fn_hq_tenant_overview: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          contract_end_date: string;
+          contract_start_date: string;
+          contract_status: string;
+          grace_end: string;
+          last_activity_on: string;
+          name: string;
+          org_type: string;
+          region: string;
+          student_count: number;
+          student_without_enrollment_count: number;
+          teacher_count: number;
+          tenant_id: string;
+          trial_end_date: string;
+          trial_start_date: string;
+        }[];
+      };
+      fn_hq_tenant_students: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          has_enrollment: boolean;
+          profile_id: string;
+          tenant_id: string;
+        }[];
+      };
+      fn_hq_tenant_usage: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          month_capped_students: number;
+          month_limit: number;
+          month_used: number;
+          program_key: string;
+          provided: boolean;
+          tenant_id: string;
+          term_capped_students: number;
+          term_limit: number;
+          term_resets_on: string;
+          term_used: number;
+        }[];
+      };
+      fn_hq_trend_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_include_internal: boolean;
+          p_mau_mode: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+          paid_orders: number;
+          signups: number;
+          signups_by_member_type: Json;
+        }[];
       };
       fn_inquiry_claim_generation: {
         Args: {
@@ -9305,6 +9462,7 @@ export type Database = {
           counsel_statuses_deleted: number;
           enrollment_changes_deleted: number;
           enrollments_deleted: number;
+          login_days_deleted: number;
           memos_deleted: number;
           student_flags_deleted: number;
         }[];

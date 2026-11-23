@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import { clearCart } from "@/lib/cart";
 import { queryClient } from "@/lib/queryClient";
@@ -75,6 +76,14 @@ export type PaymentConfirmationStatus =
   | "error"
   | "missing_params";
 
+// 토스 결제 응답의 method(한글)를 분석 이벤트 값으로 바꾼다.
+function toAnalyticsMethod(method: string | undefined) {
+  if (method === "카드") return "card";
+  if (method === "간편결제") return "easy_pay";
+  if (method === "계좌이체") return "transfer";
+  return "other";
+}
+
 /**
  * 토스 결제 승인을 서버(api/confirm-payment)에 확정 요청하고 결과를 반환한다.
  * 승인 성공 시 장바구니를 비우는 부수효과도 여기서 함께 처리한다.
@@ -127,6 +136,12 @@ export function usePaymentConfirmation({
         } else {
           setPayment(result);
           setStatus("done");
+          // 가상계좌는 입금 전(WAITING_FOR_DEPOSIT)이라 완료가 아니다. 입금은 DB 기준으로 센다.
+          if (result.status === "DONE") {
+            trackEvent("payment_complete", {
+              method: toAnalyticsMethod(result.method),
+            });
+          }
           clearCart();
           // 결제 직후 이용권 상태가 바뀌었으므로(예: goal 미보유 → 보유), 캐시된
           // entitlement(staleTime 15초, queryClient.ts)를 즉시 무효화한다 — 그대로

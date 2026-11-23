@@ -6,6 +6,7 @@ import { formatCoverDate } from "@/components/report/formatCoverDate";
 import { formatGradeLabel } from "@/components/report/formatGradeLabel";
 import ReportCoverPage from "@/components/report/ReportCoverPage";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -145,6 +146,7 @@ export default function DiagnosisReportView({
       if (!accessToken) return;
       const html = buildPrintDocument({ root, title: fileName });
       downloadReportPdf({ html, filename: fileName, accessToken });
+      trackEvent("report_export", { service: "diagnosis", method: "pdf" });
     })();
   };
 
@@ -176,6 +178,7 @@ export default function DiagnosisReportView({
     );
     window.addEventListener("afterprint", restoreTitle);
     window.print();
+    trackEvent("report_export", { service: "diagnosis", method: "print" });
   };
 
   return (

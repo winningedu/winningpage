@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { site } from "@/config/site";
 import { useAuthOptional } from "@/context/AuthProvider";
+import { type AnalyticsService, trackEvent } from "@/lib/analytics";
 import GuestStartNotice from "./GuestStartNotice";
 import ResultUseNoticeDialog from "./ResultUseNoticeDialog";
 
@@ -15,9 +16,11 @@ type Pending = "guest" | "result" | null;
 export function useServiceStart({
   to,
   resultNotice,
+  service,
 }: {
   to: string;
   resultNotice: boolean;
+  service: AnalyticsService;
 }) {
   const navigate = useNavigate();
   const auth = useAuthOptional();
@@ -28,6 +31,7 @@ export function useServiceStart({
   const isGuestBlocked = gated && !auth.user;
 
   function requestStart(proceed: () => void) {
+    trackEvent("service_start", { service });
     if (!gated) {
       proceed();
       return;

@@ -47,6 +47,7 @@ import {
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { trackEvent } from "@/lib/analytics";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import {
   DUPLICATE_PHONE_MESSAGE,
@@ -1040,6 +1041,7 @@ export default function StudentForm() {
 
       // C-2(StudentComplete) 진입 가드용 완료 플래그 — RPC 성공 직후에만 true로 설정한다.
       setSignupCompleted(true);
+      trackEvent("signup_complete", { member_type: "student" });
 
       // ⚠️ 가입 완료 후 signOut 하지 않는다 (2026-08-06 정책 확정)
       //   예전에는 AS-IS를 따라 여기서 세션을 파기했다. 그런데 다음 화면(C-2)의

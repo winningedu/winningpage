@@ -3,10 +3,13 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { trackEvent } from "@/lib/analytics";
 import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
 import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
 import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
 import GrowthReportBody, { type GrowthReport } from "./GrowthReportBody";
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 function makeReport(): GrowthReport {
   return {
@@ -47,6 +50,7 @@ function makeReport(): GrowthReport {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.mocked(trackEvent).mockClear();
 });
 
 describe("GrowthReportBody — 서버 PDF 경로 분기", () => {
@@ -82,6 +86,10 @@ describe("GrowthReportBody — 서버 PDF 경로 분기", () => {
       html: "<html>built</html>",
       accessToken: "test-token",
     });
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "goal",
+      method: "pdf",
+    });
   });
 
   it("데스크톱 UA면 downloadReportPdf를 부르지 않는다(기존 react-to-print 경로 유지)", () => {
@@ -101,5 +109,9 @@ describe("GrowthReportBody — 서버 PDF 경로 분기", () => {
     fireEvent.click(getByRole("button", { name: "PDF 저장" }));
 
     expect(downloadSpy).not.toHaveBeenCalled();
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "goal",
+      method: "print",
+    });
   });
 });

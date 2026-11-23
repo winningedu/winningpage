@@ -1,9 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SiteConfig } from "@/config/site";
 import type { FooterOperatorImage } from "@/hooks/useFooterOperatorImage";
+import { trackEvent } from "@/lib/analytics";
 import SiteFooter from "./SiteFooter";
 
 type MockSite = Pick<SiteConfig, "brandName" | "logo" | "company">;
@@ -51,6 +52,8 @@ afterEach(() => {
 const operatorImage = vi.hoisted(() => ({
   value: null as FooterOperatorImage | null,
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
+
 vi.mock("@/hooks/useFooterOperatorImage", () => ({
   useFooterOperatorImage: () => operatorImage.value,
 }));
@@ -214,6 +217,32 @@ function getSocialLinks() {
       SOCIAL_LABELS.includes(link.getAttribute("aria-label") ?? ""),
     );
 }
+
+describe("SiteFooter, 카카오 문의 클릭 이벤트", () => {
+  it("카카오톡 채널 링크를 누르면 kakao_inquiry_click을 footer로 보낸다", () => {
+    vi.mocked(trackEvent).mockClear();
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "카카오톡 채널" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).toHaveBeenCalledWith("kakao_inquiry_click", {
+      location: "footer",
+    });
+  });
+
+  it("다른 소셜 링크는 이벤트를 보내지 않는다", () => {
+    vi.mocked(trackEvent).mockClear();
+    renderFooter();
+
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "유튜브" })[0] as HTMLElement,
+    );
+
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+});
 
 describe("SiteFooter, 소셜 아이콘", () => {
   it("카카오, 네이버 블로그, 네이버 클립, 유튜브, 인스타그램 순서로 새 탭 링크를 렌더한다", () => {
