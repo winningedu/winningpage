@@ -6,11 +6,13 @@ import {
   TEMP_FACTORS,
   type TempDim,
   type TempFactor,
+  TRACK_NAMES,
+  type TrackCode,
 } from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import type { LikertBlock } from "./types.js";
+import type { LikertBlock, TempRuleArea } from "./types.js";
 
 const tempSheet = sheetRows("18_기질설정");
 const tempRow = (r: number) => {
@@ -236,4 +238,79 @@ export function temperamentCrossChecks(input: CrossCheckInput): {
       (input.sust < XCHK_SUST_LOW && input.exec >= XCHK_EXEC_HIGH) ||
       (input.sust >= XCHK_SUST_HIGH && input.exec < XCHK_EXEC_LOW),
   };
+}
+
+/** Values a sheet condition may name: [NS] .. [ST], [F_STAB] .. [F_SUST], area scores. */
+export type ConditionVars = Readonly<Record<string, number>>;
+
+/** Evaluates 18 conditions: ALWAYS, or comparisons joined by AND or OR (never both). */
+const holds = (condition: string, vars: ConditionVars): boolean => {
+  if (condition === "ALWAYS") return true;
+  const joiner = condition.includes(" OR ") ? " OR " : " AND ";
+  const checks = condition.split(joiner).map((part) => {
+    const match = part.match(/^\[(.+)\] (>=|<) (\d+)$/);
+    if (!match?.[1] || !match[2] || !match[3]) {
+      throw new Error(`unreadable condition ${part}`);
+    }
+    const value = vars[match[1]];
+    if (value === undefined) throw new Error(`no value for [${match[1]}]`);
+    return match[2] === ">="
+      ? value >= Number(match[3])
+      : value < Number(match[3]);
+  });
+  return joiner === " OR " ? checks.some(Boolean) : checks.every(Boolean);
+};
+
+// 18 r32-r48 B column: rule id, area name, tracks, direction, joined by " \u00b7 ".
+const RULE_AREA_BY_NAME: Readonly<Record<string, TempRuleArea>> = {
+  "고교 유형 선택": "HS",
+  "수시 / 정시 비중": "AD_RATIO",
+  "학생부종합 준비": "AD_HOLISTIC",
+  "선행 속도": "PACE",
+  "과목 선택": "SUBJ",
+};
+
+type RuleRow = {
+  readonly id: string;
+  readonly area: TempRuleArea;
+  readonly tracks: readonly string[];
+  readonly condition: string;
+};
+
+const RULES: readonly RuleRow[] = tempSheet
+  .filter((row) => row.r >= 32 && row.r <= 48)
+  .map((row) => {
+    const [id, areaName, ...rest] = textCell(row, 1).split(" \u00b7 ");
+    const area = areaName ? RULE_AREA_BY_NAME[areaName] : undefined;
+    if (!id || !area) throw new Error(`unreadable rule row r${row.r}`);
+    return {
+      id,
+      area,
+      tracks: rest.slice(0, -1),
+      condition: textCell(row, 2),
+    };
+  });
+
+// 18 r31 header: at most 2 rules per area.
+const RULE_MAX_PER_AREA = 2;
+
+/**
+ * 18 r31 and 23 r109: per area of the track, the first two rules (sheet order)
+ * whose condition holds. An area with no hit stays listed as [] so the page
+ * can show TEMP_RULE_NONE. Rules of other tracks are skipped.
+ */
+export function temperamentRules(
+  track: TrackCode,
+  vars: ConditionVars,
+): Partial<Record<TempRuleArea, readonly string[]>> {
+  const rules: Partial<Record<TempRuleArea, string[]>> = {};
+  for (const rule of RULES) {
+    if (!rule.tracks.includes(TRACK_NAMES[track])) continue;
+    const hits = rules[rule.area] ?? [];
+    rules[rule.area] = hits;
+    if (hits.length < RULE_MAX_PER_AREA && holds(rule.condition, vars)) {
+      hits.push(rule.id);
+    }
+  }
+  return rules;
 }

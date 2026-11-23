@@ -7,6 +7,7 @@ import {
   temperamentCrossChecks,
   temperamentDims,
   temperamentFactors,
+  temperamentRules,
 } from "./temperament.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 
@@ -221,5 +222,49 @@ describe("cross checks with the learning diagnosis (18 r29-r30)", () => {
     expect(cell(29)).toContain("HA 40 미만인데");
     expect(cell(30)).toContain("F_SUST 40 미만인데 [학습 수행] 70 이상");
     expect(cell(30)).toContain("F_SUST 70 이상인데 [학습 수행] 45 미만");
+  });
+});
+
+const rulesFor = (track: "M3" | "H12" | "H3", scores: readonly number[]) => {
+  const dims = dimsOf(scores);
+  return temperamentRules(track, {
+    ...Object.fromEntries(Object.entries(dims).map(([d, v]) => [d, v.score])),
+    ...temperamentFactors(dims).scores,
+  });
+};
+
+describe("temperament admission rules (18 r32-r48)", () => {
+  test("계산 예시 A32 for H12: rules per area, max 2, in sheet order", () => {
+    expect(rulesFor("H12", [70, 65, 60, 45, 55, 70, 55])).toEqual({
+      AD_RATIO: ["T_AD_2"],
+      AD_HOLISTIC: ["T_AD_5", "T_AD_6"],
+      PACE: ["T_PACE_2", "T_PACE_3"],
+      SUBJ: ["T_SUBJ_0", "T_SUBJ_1"],
+    });
+  });
+
+  test("M3 only checks 고교 유형 and 선행 속도 rules", () => {
+    // NS 70, RD 70: F_PRESS 100, F_SUST 83 => T_HS_1; T_HS_3 and T_HS_4 also hold, max 2
+    const rules = rulesFor("M3", [70, 0, 70, 100, 100, 0, 0]);
+    expect(Object.keys(rules)).toEqual(["HS", "PACE"]);
+    expect(rules.HS).toEqual(["T_HS_1", "T_HS_3"]);
+    expect(rules.PACE).toEqual(["T_PACE_1", "T_PACE_3"]);
+  });
+
+  test("H3 only checks 수시/정시 비중 and 학종 rules, empty areas stay listed", () => {
+    const rules = rulesFor("H3", [0, 50, 0, 0, 0, 0, 0]);
+    expect(Object.keys(rules)).toEqual(["AD_RATIO", "AD_HOLISTIC"]);
+    expect(rules.AD_RATIO).toEqual(["T_AD_2"]);
+    expect(rules.AD_HOLISTIC).toEqual([]);
+  });
+
+  test("OR and AND conditions: T_AD_6 on CO alone, T_AD_3 needs low sway and NS", () => {
+    expect(rulesFor("H3", [0, 0, 0, 0, 0, 70, 0]).AD_HOLISTIC).toContain(
+      "T_AD_6",
+    );
+    // NS 70 SD 100 RD 40: F_SWAY 37 => T_AD_3 (sway < 40, NS >= 70)
+    expect(rulesFor("H3", [70, 0, 40, 0, 100, 0, 0]).AD_HOLISTIC).toEqual([
+      "T_AD_3",
+    ]);
   });
 });
