@@ -1,22 +1,6 @@
 import type { ReactNode } from "react";
 import type { AreaState } from "@/lib/diagnosis-v3/types";
 
-// 06 r20-r23 state floors (70 / 60 / 45 / 0). Kept as constants so the report
-// view does not pull the score sheets into the client bundle; StatusBadge.test
-// asserts them against areaState() of the engine for every score.
-const TOP_FLOOR = 70;
-const MID_FLOOR = 60;
-const LOW_FLOOR = 45;
-
-export const areaStateOfScore = (score: number): AreaState =>
-  score >= TOP_FLOOR
-    ? "TOP"
-    : score >= MID_FLOOR
-      ? "MID"
-      : score >= LOW_FLOOR
-        ? "LOW"
-        : "WEAK";
-
 // 15 r17: WEAK red, LOW orange, MID grey, TOP blue.
 export const STATE_BADGE_CLASS: Record<AreaState, string> = {
   WEAK: "bg-error/10 text-error",

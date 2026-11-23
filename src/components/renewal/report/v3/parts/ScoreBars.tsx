@@ -1,5 +1,5 @@
 import type { ScoreBar } from "@/lib/diagnosis-v3/types";
-import StatusBadge, { areaStateOfScore, STATE_FILL_CLASS } from "./StatusBadge";
+import StatusBadge, { STATE_FILL_CLASS } from "./StatusBadge";
 
 const SCORE_MAX = 100;
 
@@ -13,8 +13,7 @@ export default function ScoreBars({ bars }: ScoreBarsProps) {
   return (
     <ul className="flex flex-col gap-3">
       {bars.map((bar) => {
-        // ScoreBar carries no state code, so the state comes from the score (06 r20-r23)
-        const state = areaStateOfScore(bar.score);
+        const state = bar.stateCode;
         return (
           <li
             key={bar.code}
