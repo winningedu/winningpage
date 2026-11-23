@@ -7,6 +7,7 @@
 import {
   AREAS,
   type AreaCode,
+  byTrack,
   MIND_CODES,
   P1_CODES,
   P2_CODES,
@@ -89,12 +90,9 @@ export const OPTIONS = {
   q8s: choicesOf("q8s"),
   q8d: choicesOf("q8d"),
   q10: choicesOf("q10", q10Areas),
-  q12: Object.fromEntries(
-    TRACK_CODES.map((track) => [
-      track,
-      choicesOf(`q12/${TRACK_NAMES[track]}`, P2_CODES[track]),
-    ]),
-  ) as Readonly<Record<TrackCode, readonly OptionRow[]>>,
+  q12: byTrack((track) =>
+    choicesOf(`q12/${TRACK_NAMES[track]}`, P2_CODES[track]),
+  ),
   q13: choicesOf("q13"),
   q14: choicesOf("q14"),
   q15: choicesOf("q15"),

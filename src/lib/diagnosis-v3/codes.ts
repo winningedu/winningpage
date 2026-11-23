@@ -7,6 +7,15 @@ import { numberCell, sheetRows, textCell } from "./sheet.js";
 export const TRACK_CODES = ["M3", "H12", "H3"] as const;
 export type TrackCode = (typeof TRACK_CODES)[number];
 
+/** One value per track. */
+export const byTrack = <T>(
+  make: (track: TrackCode) => T,
+): Record<TrackCode, T> => ({
+  M3: make("M3"),
+  H12: make("H12"),
+  H3: make("H3"),
+});
+
 // 05_영역설정 C5-C11, display order.
 export const P1_CODES = [
   "P1_GOAL",
@@ -64,9 +73,9 @@ export const AREAS = Object.fromEntries(
 ) as Readonly<Record<AreaCode, AreaInfo>>;
 
 /** Sheet track name per track code, read from the 05 group column. */
-export const TRACK_NAMES = Object.fromEntries(
-  TRACK_CODES.map((track) => [track, AREAS[P2_CODES[track][0]].group]),
-) as Readonly<Record<TrackCode, string>>;
+export const TRACK_NAMES: Readonly<Record<TrackCode, string>> = byTrack(
+  (track) => AREAS[P2_CODES[track][0]].group,
+);
 
 // 18_기질설정 B6-B12.
 export const TEMP_DIMS = ["NS", "HA", "RD", "PS", "SD", "CO", "ST"] as const;

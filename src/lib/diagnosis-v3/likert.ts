@@ -3,6 +3,7 @@
 
 import {
   AREAS,
+  byTrack,
   MIND_CODES,
   type MindCode,
   P1_CODES,
@@ -11,9 +12,7 @@ import {
   type P2Code,
   TEMP_DIMS,
   type TempDim,
-  TRACK_CODES,
   TRACK_NAMES,
-  type TrackCode,
 } from "./codes.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 
@@ -25,16 +24,16 @@ const legendRow = scaleSheet.find((row) => row.r === 2);
 if (!legendRow) throw new Error("missing 01_척도문항 A2");
 
 /** "매우 그렇다 100 / ... / 전혀 그렇지 않다 0" before the first " \u00b7 ". */
-export const LIKERT_LEVELS: readonly { label: string; score: number }[] =
-  textCell(legendRow, 0)
-    .split(" \u00b7 ")[0]
-    .split(" / ")
-    .map((part) => {
-      const match = part.match(/^(.+) (\d+)$/);
-      if (!match?.[1] || !match[2]) throw new Error(`bad legend ${part}`);
-      return { label: match[1], score: Number(match[2]) };
-    })
-    .sort((a, b) => a.score - b.score);
+export const LIKERT_LEVELS: readonly { label: string; score: number }[] = (
+  textCell(legendRow, 0).split(" \u00b7 ")[0] ?? ""
+)
+  .split(" / ")
+  .map((part) => {
+    const match = part.match(/^(.+) (\d+)$/);
+    if (!match?.[1] || !match[2]) throw new Error(`bad legend ${part}`);
+    return { label: match[1], score: Number(match[2]) };
+  })
+  .sort((a, b) => a.score - b.score);
 
 export type ScaleItem<A> = {
   /** 01 C: item number, also the answer array index + 1 */
@@ -81,12 +80,9 @@ const dimOf = (label: string): TempDim => {
 export const SCALE_ITEMS = {
   q9: itemsOf("Q09", null, areaByLabel(P1_CODES)),
   q20: itemsOf("Q20", null, areaByLabel(MIND_CODES)),
-  q11: Object.fromEntries(
-    TRACK_CODES.map((track) => [
-      track,
-      itemsOf("Q11", TRACK_NAMES[track], areaByLabel(P2_CODES[track])),
-    ]),
-  ) as Readonly<Record<TrackCode, readonly ScaleItem<P2Code>[]>>,
+  q11: byTrack((track) =>
+    itemsOf("Q11", TRACK_NAMES[track], areaByLabel(P2_CODES[track])),
+  ),
   q23: itemsOf("Q23", null, dimOf),
 } as const;
 
