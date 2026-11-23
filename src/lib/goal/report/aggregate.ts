@@ -514,11 +514,11 @@ const TIME_SLOT_BUCKETS = [
   { label: "오후 9~12", startHour: 21, endHour: 24 },
 ] as const;
 
-/** 세션 started_at(timestamptz ISO)의 KST 시(0~23). */
-function kstHour(isoString: string): number {
+/** 세션 started_at(timestamptz ISO)의 tz 기준 시(0~23). */
+function hourIn(isoString: string, tz: string): number {
   const d = new Date(isoString);
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
+    timeZone: tz,
     hour: "2-digit",
     hourCycle: "h23",
   }).formatToParts(d);
@@ -526,11 +526,12 @@ function kstHour(isoString: string): number {
 }
 
 /**
- * D8 — 세션을 시작 시각(KST) 기준으로 7버킷에 귀속시킨다(경계 걸침 분할은 하지 않는다 —
+ * D8 — 세션을 시작 시각(tz 기준)으로 7버킷에 귀속시킨다(경계 걸침 분할은 하지 않는다 —
  * "시작 시각이 속한 버킷 전체"로 판단, 판단 지점).
  */
 export function bucketTimeSlots(
   sessions: GoalTimerSessionRow[],
+  tz: string,
 ): { label: string; value: number; unit: "h" }[] {
   const buckets = TIME_SLOT_BUCKETS.map((b) => ({
     label: b.label,
@@ -542,7 +543,7 @@ export function bucketTimeSlots(
   for (const session of sessions) {
     const seconds = toNum(session.duration_seconds, 0) ?? 0;
     if (seconds <= 0 || !session.started_at) continue;
-    const hour = kstHour(session.started_at);
+    const hour = hourIn(session.started_at, tz);
     const bucket = buckets.find((b) => hour >= b.startHour && hour < b.endHour);
     if (bucket) bucket.seconds += seconds;
   }

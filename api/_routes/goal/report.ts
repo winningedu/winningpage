@@ -215,7 +215,7 @@ async function buildGrowthReport({
 
   const conditionBreakdown = computeConditionBreakdown(records);
   const subjectShare = computeSubjectShare(sessions);
-  const timeSlotBuckets = bucketTimeSlots(sessions);
+  const timeSlotBuckets = bucketTimeSlots(sessions, timeZone);
   const distraction = computeDistraction(records);
   const coreItems = computeCoreItems(records);
 
