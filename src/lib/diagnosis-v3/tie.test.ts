@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { P1_CODES } from "./codes.js";
 import { scoreAreas } from "./scoring.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
-import { orderLowToHigh } from "./tie.js";
+import { orderHighToLow, orderLowToHigh } from "./tie.js";
 import type { AreaScore } from "./types.js";
 
 const area = (score: number, checks = 0, minItem = 50): AreaScore => ({
@@ -58,6 +58,37 @@ describe("area order low to high (23_동점규칙 r6-r10)", () => {
     expect(orderLowToHigh(areas, ["P1_GOAL", "P1_PLAN"])).toEqual([
       "P1_GOAL",
       "P1_PLAN",
+    ]);
+  });
+});
+
+describe("area order high to low (23 r6 강점 순위, judge-report R2 (a))", () => {
+  test("higher score first, then fewer checks, higher lowest answer, larger weight, display order", () => {
+    const areas = {
+      H12_SUBJ: area(65, 0, 50),
+      H12_PERF: area(65, 0, 50),
+      H12_DEEP: area(65, 1, 50),
+      H12_LINK: area(65, 0, 25),
+      H12_REC: area(91),
+      H12_STRA: area(65, 0, 50),
+    };
+    expect(
+      orderHighToLow(areas, [
+        "H12_SUBJ",
+        "H12_PERF",
+        "H12_DEEP",
+        "H12_LINK",
+        "H12_REC",
+        "H12_STRA",
+      ]),
+    ).toEqual([
+      "H12_REC",
+      // 65 with 0 checks and lowest 50: weight 20, 20, 15
+      "H12_SUBJ",
+      "H12_STRA",
+      "H12_PERF",
+      "H12_LINK",
+      "H12_DEEP",
     ]);
   });
 });

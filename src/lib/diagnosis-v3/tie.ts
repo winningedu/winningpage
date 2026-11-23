@@ -35,3 +35,25 @@ export function orderLowToHigh<C extends AreaCode>(
     );
   });
 }
+
+/**
+ * High to low (강점 순위, 23 r6). judge-report R2 (a): steps 2 and 3 flip
+ * (fewer checks, higher lowest answer first); step 4 (larger weight) and step 5
+ * (display order) stay.
+ */
+export function orderHighToLow<C extends AreaCode>(
+  areas: Areas<C>,
+  codes: readonly C[],
+): C[] {
+  return [...codes].sort((a, b) => {
+    const x = scoreOf(areas, a);
+    const y = scoreOf(areas, b);
+    return (
+      y.score - x.score ||
+      x.checks - y.checks ||
+      y.minItem - x.minItem ||
+      AREAS[b].weight - AREAS[a].weight ||
+      codes.indexOf(a) - codes.indexOf(b)
+    );
+  });
+}
