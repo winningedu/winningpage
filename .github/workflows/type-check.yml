@@ -101,6 +101,11 @@ jobs:
       - name: biome ci
         run: npm run format:ci
 
+      # 새 고정 시간대(Asia/Seoul, +09:00 등)를 막는다. 기존 적중은 baseline에 고정돼 있고
+      # 코디네이터가 0까지 줄인다.
+      - name: time zone literals
+        run: npm run check:time-zone
+
   # type-coverage 는 타입 검사를 처음부터 다시 해서 38초에서 70초가 걸린다.
   # static 잡에 두면 그 잡이 가장 늦게 끝나므로 따로 떼어 동시에 돌린다.
   type-coverage:
