@@ -22,6 +22,7 @@
 //   중복 발송된다. goalReportSend.test.ts 가 이 포맷을 리터럴 문자열로 고정한다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDaysYmd } from "../../../src/lib/time/day.js";
 import {
   CONDITION_LABELS,
   TASK_LABELS,
@@ -32,7 +33,6 @@ import {
   formatHours,
   type ReportRecipient,
   resolveParentRecipients,
-  toYmd,
   weekOfMonth,
 } from "./reportNotify.js";
 import { MAX_RESEND_DAYS_AGO } from "./reportResendPolicy.js";
@@ -353,11 +353,7 @@ export async function loadWeeklyReportInputs(
   studentIds: string[] | null,
   weekStart: string,
 ): Promise<Map<string, WeeklyReportInput>> {
-  const weekEnd = toYmd(
-    new Date(
-      new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
-    ),
-  );
+  const weekEnd = addDaysYmd(weekStart, 6);
 
   let targetIds = studentIds;
   if (!targetIds) {
@@ -401,11 +397,7 @@ export async function sendWeeklyReport(
   options: ReportSendOptions = {},
 ): Promise<ReportSendResult> {
   const { studentProfileId, weekStart, recipients } = input;
-  const weekEnd = toYmd(
-    new Date(
-      new Date(`${weekStart}T00:00:00Z`).getTime() + 6 * 24 * 60 * 60 * 1000,
-    ),
-  );
+  const weekEnd = addDaysYmd(weekStart, 6);
 
   return sendToRecipients(
     supabaseAdmin,
@@ -424,6 +416,11 @@ export async function sendWeeklyReport(
     { studentProfileId, weekStart, weekEnd },
     options,
   );
+}
+
+/** 달력상 그 달의 일수. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 // ── 월간 ────────────────────────────────────────────────────────────────
@@ -476,7 +473,7 @@ export async function loadMonthlyReportInputs(
   const year = Number(yearPart);
   const month = Number(monthPart);
   const monthStart = `${monthKey}-01`;
-  const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
+  const monthEnd = addDaysYmd(`${monthKey}-01`, daysInMonth(year, month) - 1);
 
   let targetIds = studentIds;
   if (!targetIds) {
@@ -524,7 +521,7 @@ export async function sendMonthlyReport(
   const year = Number(yearPart);
   const month = Number(monthPart);
   const monthStart = `${monthKey}-01`;
-  const monthEnd = toYmd(new Date(Date.UTC(year, month, 0)));
+  const monthEnd = addDaysYmd(`${monthKey}-01`, daysInMonth(year, month) - 1);
 
   return sendToRecipients(
     supabaseAdmin,
