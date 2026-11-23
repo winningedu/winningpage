@@ -536,6 +536,18 @@ describe("SurveyStepShell v3 제출", () => {
     expect(screen.queryByRole("button", { name: "제출" })).toBeNull();
   });
 
+  it("위닝 소진 판정을 못 받으면(fail-open) 서버 채점을 부르지 않고 다시 시도 안내를 보인다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "fail-open" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(window.alert).toHaveBeenCalledWith(
+      "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+    );
+  });
+
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {
     resolveMock.mockResolvedValue({ ok: false });
     const onResult = vi.fn();

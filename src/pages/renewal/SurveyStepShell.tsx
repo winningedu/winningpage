@@ -206,8 +206,13 @@ export default function SurveyStepShell() {
     }
     const attemptId = diagnosisAttemptIdRef.current;
     const consumeResult = await consumeDiagnosisAttempt(attemptId);
-    if (consumeResult.outcome === "check-failed") {
-      // 스쿨멘토는 소진 판정을 못 받으면 저장하지 않는다. 같은 attemptId 로 다시 시도하면 멱등이다.
+    if (
+      consumeResult.outcome === "check-failed" ||
+      consumeResult.outcome === "fail-open"
+    ) {
+      // Without a recorded attempt the server cannot store a report (404
+      // ATTEMPT_NOT_FOUND), so v3 stops on both sites. Retrying with the same
+      // attemptId is idempotent.
       window.alert(
         "이용 횟수를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
       );
