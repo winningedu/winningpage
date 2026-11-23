@@ -1,5 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,5 +88,72 @@ describe("check-time-zone-literals", () => {
     const under = run();
     expect(under.code).toBe(0);
     expect(under.out).toContain("--update");
+  });
+
+  test.each([
+    ['const o = "+09:00";'],
+    ['const o = "+0900";'],
+    ["const ms = 9 * 60 * 60 * 1000;"],
+    ["const ms = 9*60*60;"],
+    ["const s = 9 * 3600;"],
+    ["const o = KST_OFFSET;"],
+    ["const d = new Date().toISOString().slice(0, 10);"],
+    ['const d = new Date().toISOString().split("T")[0];'],
+    ["select now() at time zone 'Asia/Seoul';"],
+  ])("고정 시간대 패턴을 잡는다: %s", (line) => {
+    put("src/pages/a.ts", `${line}\n`);
+    expect(run().code).toBe(1);
+  });
+
+  test("로컬 Date getter는 api/와 src/lib/에서만 실패하고 UTC getter는 어디서나 통과한다", () => {
+    put("src/pages/a.ts", "const h = d.getHours();\n");
+    put("src/components/a.tsx", "d.setDate(1);\n");
+    put("api/utc.ts", "const h = d.getUTCHours();\n");
+    put("src/lib/utc.ts", "const h = d.getUTCDay();\n");
+    expect(run().code).toBe(0);
+
+    put("src/lib/a.ts", "const h = d.getHours();\n");
+    put("api/b.ts", "d.setMonth(2);\n");
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("src/lib/a.ts");
+    expect(r.out).toContain("api/b.ts");
+    expect(r.out).not.toContain("src/pages/a.ts");
+  });
+
+  test("시간 모듈, 테스트 파일, 검사 스크립트 자신은 건너뛴다", () => {
+    const line = 'const tz = "Asia/Seoul";\n';
+    put("src/lib/time/zone.ts", line);
+    put("src/lib/a.test.ts", line);
+    put("src/a.test.tsx", line);
+    put("api/a.spec.ts", line);
+    put("supabase/migrations/a.spec.sql", line);
+    put("e2e/a.ts", line);
+    put("scripts/check-time-zone-literals.mjs", line);
+    put("scripts/check-time-zone-literals.test.mjs", line);
+    put("docs/a.ts", line);
+    put("api/a.json", line);
+    expect(run().code).toBe(0);
+  });
+
+  test("--update 출력은 정렬되어 결정적이다", () => {
+    put("src/b.ts", 'x("Asia/Seoul");\n');
+    put("api/a.ts", 'x("Asia/Seoul");\ny("+09:00");\n');
+    expect(run("--update").code).toBe(0);
+    const first = readFileSync(
+      join(root, "scripts/time-zone-literals.baseline.json"),
+      "utf8",
+    );
+    expect(first).toBe(
+      `${JSON.stringify({ "api/a.ts": 2, "src/b.ts": 1 }, null, 2)}\n`,
+    );
+    expect(run("--update").code).toBe(0);
+    expect(
+      readFileSync(
+        join(root, "scripts/time-zone-literals.baseline.json"),
+        "utf8",
+      ),
+    ).toBe(first);
+    expect(run().code).toBe(0);
   });
 });

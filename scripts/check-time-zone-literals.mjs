@@ -12,14 +12,31 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BASELINE_PATH = "scripts/time-zone-literals.baseline.json";
 
 const PATTERNS = [
-  { name: "Asia/Seoul", test: (line) => /Asia\/Seoul/.test(line) },
+  { re: /Asia\/Seoul/ },
+  { re: /\+09:00|\+0900/ },
+  { re: /9\s*\*\s*60\s*\*\s*60|9\s*\*\s*3600|KST_OFFSET/ },
+  // UTC 날짜를 로컬 날짜처럼 쓰는 관용구
+  { re: /toISOString\(\)\.slice\(0,\s*10\)/ },
+  { re: /toISOString\(\)\.split\((["'])T\1\)\[0\]/ },
+  // 로컬 getter/setter: 서버와 공용 lib에서만 막는다(UI는 브라우저 시간대가 로컬이다)
+  {
+    re: /\.(get|set)(Hours|Minutes|Date|Day|Month|FullYear)\(/,
+    only: /^(api|src\/lib)\//,
+  },
+];
+
+const EXEMPT = [
+  /^src\/lib\/time\//,
+  /\.(test|spec)\.(ts|tsx|sql)$/,
+  /^e2e\//,
+  /^scripts\/check-time-zone-literals\.(mjs|test\.mjs)$/,
 ];
 
 export function scan(root) {
@@ -29,14 +46,15 @@ export function scan(root) {
   })
     .split("\n")
     .filter((f) => /^(api|src|supabase\/migrations|scripts)\//.test(f))
-    .filter((f) => /\.(ts|tsx|mjs|js|sql)$/.test(f));
+    .filter((f) => /\.(ts|tsx|mjs|js|sql)$/.test(f))
+    .filter((f) => !EXEMPT.some((re) => re.test(f)));
   const hits = {};
   for (const file of files) {
     const lines = readFileSync(join(root, file), "utf8").split("\n");
     lines.forEach((text, i) => {
       if (/tz-literal-ok:\s*\S/.test(text)) return;
       for (const p of PATTERNS) {
-        if (p.test(text)) {
+        if (p.re.test(text) && (!p.only || p.only.test(file))) {
           hits[file] ??= [];
           hits[file].push({ line: i + 1, text: text.trim() });
         }
@@ -62,6 +80,20 @@ function main() {
       ? resolve(argv[rootIdx + 1])
       : join(dirname(fileURLToPath(import.meta.url)), "..");
   const hits = scan(root);
+  if (argv.includes("--update")) {
+    const counts = Object.fromEntries(
+      Object.keys(hits)
+        .sort()
+        .map((f) => [f, hits[f].length]),
+    );
+    mkdirSync(dirname(join(root, BASELINE_PATH)), { recursive: true });
+    writeFileSync(
+      join(root, BASELINE_PATH),
+      `${JSON.stringify(counts, null, 2)}\n`,
+    );
+    console.log(`baseline 갱신: 파일 ${Object.keys(counts).length}개`);
+    process.exit(0);
+  }
   const baseline = readBaseline(root);
   let failed = false;
   let shrunk = false;
