@@ -11,18 +11,21 @@ import { gradeLabel, schoolLabel } from "./p1.js";
 // "(중3 숨김)" note is not part of it (22 r70).
 const TOC = sheetRows("22_리포트요소").flatMap((row) => {
   if (row.c.slice(1).some((v) => v !== null && v !== undefined)) return [];
-  const found = String(row.c[0]).match(/^(\d+)(?:~(\d+))?p (.+?)(?: \(.+\))?$/);
+  const found = String(row.c[0]).match(
+    /^(\d+)(?:~(\d+))?p (.+?)(?: \((.+)\))?$/,
+  );
   if (!found?.[1] || !found[3]) return [];
   const from = Number(found[1]);
   const to = Number(found[2] ?? found[1]);
   const title = found[3];
+  // 22 r70 note "(중3 숨김)", 22 r7 "중3은 7페이지 제외"
+  const hiddenForM3 = found[4] === "중3 숨김";
   return Array.from({ length: to - from + 1 }, (_, i) => ({
     page: from + i,
     title,
+    hiddenForM3,
   }));
 });
-// 22 r70 / r7: the 7p section is the one M3 hides
-const HIDDEN_FOR_M3 = 7;
 
 export function buildCover(engine: Engine, p1: Page1): CoverPage {
   const { answers, context, scores } = engine;
@@ -31,8 +34,8 @@ export function buildCover(engine: Engine, p1: Page1): CoverPage {
     gradeLabel: gradeLabel(answers),
     schoolTypeLabel: schoolLabel(answers),
     diagnosedAt: context.diagnosedAt,
-    toc: TOC.filter(
-      (entry) => scores.track !== "M3" || entry.page !== HIDDEN_FOR_M3,
+    toc: TOC.filter((entry) => scores.track !== "M3" || !entry.hiddenForM3).map(
+      ({ page, title }) => ({ page, title }),
     ),
     headline: p1.title,
     stages: p1.radar.stages,

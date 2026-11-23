@@ -3,7 +3,6 @@
 
 import { type AdmissionResult, computeAdmission } from "./admission.js";
 import type { AreaCode } from "./codes.js";
-import { P1_CODES, P2_CODES } from "./codes.js";
 import { judgeExamOps } from "./examOps.js";
 import { mbtiPage8, scoreMbti } from "./mbti.js";
 import { buildCover } from "./pages/cover.js";
@@ -30,6 +29,7 @@ import {
   temperamentPage10,
 } from "./temperament.js";
 import type {
+  AreaScore,
   DiagnosisV3Answers,
   DiagnosisV3Context,
   DiagnosisV3Pages,
@@ -54,23 +54,12 @@ export function scoreEngine(
   const areas = scoreAreas(answers);
   const reliability = scoreReliability(answers);
   const track = areas.track;
-  const p1Scores = Object.fromEntries(
-    P1_CODES.map((code) => [code, areas.page1.areas[code].score]),
+  const pageScores = scoresOf(areas.page1.areas, areas.page2.areas);
+  const allScores = scoresOf(
+    areas.page1.areas,
+    areas.page2.areas,
+    areas.mind.areas,
   );
-  const p2Scores = Object.fromEntries(
-    P2_CODES[track].map((code) => [code, areas.page2.areas[code]?.score]),
-  );
-  const mindScores = Object.fromEntries(
-    Object.entries(areas.mind.areas).map(([code, a]) => [code, a.score]),
-  );
-  const pageScores: Partial<Record<AreaCode, number>> = {
-    ...p1Scores,
-    ...p2Scores,
-  };
-  const allScores: Partial<Record<AreaCode, number>> = {
-    ...pageScores,
-    ...mindScores,
-  };
   const q20Item5 = answers.q20.items[4];
   if (q20Item5 === undefined) throw new Error("missing q20 item 5");
   const temperament = scoreTemperament({
@@ -176,7 +165,10 @@ export function buildPages(engine: Engine): DiagnosisV3Pages {
     p5: buildPage5(engine),
     p6: buildPage6(engine),
     ...(p7 ? { p7 } : {}),
-    p8: mbtiPage8(answers.q22, allAreaScores(scores)),
+    p8: mbtiPage8(
+      answers.q22,
+      scoresOf(scores.page1.areas, scores.page2.areas, scores.mind.areas),
+    ),
     p9,
     p10,
     p11: buildPage11(engine, p10.methods),
@@ -188,15 +180,13 @@ export function buildPages(engine: Engine): DiagnosisV3Pages {
   };
 }
 
-/** PAGE1, track PAGE2 and MIND scores by code. */
-function allAreaScores(
-  scores: DiagnosisV3Scores,
+/** Area scores by code from one or more area groups. */
+function scoresOf(
+  ...groups: Readonly<Partial<Record<AreaCode, AreaScore>>>[]
 ): Partial<Record<AreaCode, number>> {
   return Object.fromEntries(
-    [
-      ...Object.entries(scores.page1.areas),
-      ...Object.entries(scores.page2.areas),
-      ...Object.entries(scores.mind.areas),
-    ].map(([code, area]) => [code, area?.score]),
+    groups
+      .flatMap((group) => Object.entries(group))
+      .map(([code, area]) => [code, area?.score]),
   );
 }
