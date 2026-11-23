@@ -1,11 +1,19 @@
 import {
   type ChoiceQuestion,
   choicesFor,
+  PAIR_CHOICES,
+  Q3_TARGET_LABELS,
   SURVEY_V3_QUESTIONS,
 } from "@/data/diagnosisSurveyV3";
 import type { QuestionId, TrackCode } from "@/lib/diagnosis-v3/codes";
+import type { OptionRow } from "@/lib/diagnosis-v3/options";
 import type { IsoDate } from "@/lib/diagnosis-v3/types";
-import { draftTrack, type SurveyDraft } from "@/lib/renewalSurvey";
+import {
+  draftTrack,
+  type SurveyDraft,
+  showsQ3Target,
+} from "@/lib/renewalSurvey";
+import ConditionalTextInput from "./ConditionalTextInput";
 import OptionGroup from "./OptionGroup";
 import QuestionCard from "./QuestionCard";
 
@@ -58,6 +66,18 @@ export default function SurveyQuestionList({
                 onChange={(next) => onAnswer(id, next)}
               />
             )}
+            {id === "q3" && showsQ3Target(answers) && (
+              <TargetFields
+                value={answers.q3Target}
+                onChange={(next) => onAnswer("q3Target", next)}
+              />
+            )}
+            {question.kind === "pair" && (
+              <PairField
+                value={value}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
           </QuestionCard>
         );
       })}
@@ -83,10 +103,11 @@ function ChoiceField({
   onChange: (value: unknown) => void;
 }) {
   const rows = choicesFor(id as ChoiceQuestion, track);
-  const options = rows.map((row) => ({
-    value: String(row.ordinal),
-    label: row.label,
-  }));
+  // q22 answers are MBTI codes (types.ts MbtiType | "NONE"), others ordinals
+  const toKey = (row: OptionRow) =>
+    id === "q22" ? String(row.code).slice("MBTI:".length) : String(row.ordinal);
+  const fromKey = (key: string) => (id === "q22" ? key : Number(key));
+  const options = rows.map((row) => ({ value: toKey(row), label: row.label }));
   if (multiple) {
     return (
       <OptionGroup
@@ -108,7 +129,70 @@ function ChoiceField({
       variant={chip ? "chip" : "row"}
       options={options}
       value={value === undefined ? null : String(value)}
-      onChange={(next) => onChange(Number(next))}
+      onChange={(next) => onChange(fromKey(next as string))}
     />
+  );
+}
+
+type Fields = Readonly<Record<string, unknown>>;
+const fieldsOf = (value: unknown): Fields =>
+  typeof value === "object" && value !== null ? (value as Fields) : {};
+
+/** 13 H7: q3 options 1..3 open the target university and major inputs. */
+function TargetFields({
+  value,
+  onChange,
+}: {
+  value: unknown;
+  onChange: (value: Fields) => void;
+}) {
+  const current = fieldsOf(value);
+  return (
+    <div className="flex w-full flex-col gap-3">
+      {(["university", "major"] as const).map((key) => (
+        <ConditionalTextInput
+          key={key}
+          label={Q3_TARGET_LABELS[key]}
+          value={typeof current[key] === "string" ? current[key] : ""}
+          onChange={(text) => onChange({ ...current, [key]: text })}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** q21: weekday and weekend picked separately (13 F25). */
+function PairField({
+  value,
+  onChange,
+}: {
+  value: unknown;
+  onChange: (value: Fields) => void;
+}) {
+  const current = fieldsOf(value);
+  return (
+    <div className="flex w-full flex-col gap-5">
+      {PAIR_CHOICES.map((pair) => (
+        <div key={pair.key} className="flex w-full flex-col gap-3">
+          <p className="text-base font-medium leading-5 text-ink">
+            {pair.label}
+          </p>
+          <OptionGroup
+            variant="chip"
+            ariaLabel={pair.label}
+            options={pair.rows.map((row) => ({
+              value: String(row.ordinal),
+              label: row.label,
+            }))}
+            value={
+              current[pair.key] === undefined ? null : String(current[pair.key])
+            }
+            onChange={(next) =>
+              onChange({ ...current, [pair.key]: Number(next) })
+            }
+          />
+        </div>
+      ))}
+    </div>
   );
 }

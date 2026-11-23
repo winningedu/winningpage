@@ -143,11 +143,19 @@ export function choicesFor(
   return track === null ? [] : OPTIONS.q12[track];
 }
 
-/** q21 weekday and weekend rows, 14 keys q21/평일 and q21/주말. */
+/** q21 weekday and weekend rows; labels are the 14 keys q21/평일, q21/주말. */
 export const PAIR_CHOICES = [
-  { key: "weekday", rows: OPTIONS.q21Weekday },
-  { key: "weekend", rows: OPTIONS.q21Weekend },
+  { key: "weekday", label: "평일", rows: OPTIONS.q21Weekday },
+  { key: "weekend", label: "주말", rows: OPTIONS.q21Weekend },
 ] as const;
+
+/** Field labels of the q3 target inputs, read from the 13 H7 note. */
+export const Q3_TARGET_LABELS = (() => {
+  const note = textCell(metaOf("q3"), 7);
+  const match = note.match(/(목표 대학)\u00b7(학과) 입력칸/);
+  if (!match?.[1] || !match[2]) throw new Error("missing 13 H7 target labels");
+  return { university: match[1], major: match[2] };
+})();
 
 export type Statement = { readonly key: string; readonly text: string };
 

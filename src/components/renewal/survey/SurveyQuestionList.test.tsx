@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { QuestionId } from "@/lib/diagnosis-v3/codes";
@@ -83,5 +89,52 @@ describe("SurveyQuestionList 선택 문항", () => {
     render(<Harness ids={["q1"]} />);
     fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q1, 5) }));
     expect(latest.q1).toBe(5);
+  });
+});
+
+describe("SurveyQuestionList 특수 선택 문항", () => {
+  it("20번 MBTI는 코드 문자열로, 몰라요는 NONE으로 저장한다", () => {
+    render(<Harness ids={["q22"]} initial={{ q1: 3 }} />);
+    fireEvent.click(screen.getByRole("radio", { name: "INTJ" }));
+    expect(latest.q22).toBe("INTJ");
+    fireEvent.click(
+      screen.getByRole("radio", { name: label(OPTIONS.q22, 17) }),
+    );
+    expect(latest.q22).toBe("NONE");
+  });
+
+  it("14번은 평일과 주말을 따로 고른다", () => {
+    render(<Harness ids={["q21"]} initial={{ q1: 3 }} />);
+    const weekday = screen.getByRole("radiogroup", { name: "평일" });
+    const weekend = screen.getByRole("radiogroup", { name: "주말" });
+    fireEvent.click(
+      within(weekday).getByRole("radio", {
+        name: label(OPTIONS.q21Weekday, 3),
+      }),
+    );
+    fireEvent.click(
+      within(weekend).getByRole("radio", {
+        name: label(OPTIONS.q21Weekend, 2),
+      }),
+    );
+    expect(latest.q21).toEqual({ weekday: 3, weekend: 2 });
+  });
+
+  it("3번 1~3번을 고르면 목표 대학과 학과 입력칸이 열린다", () => {
+    render(<Harness ids={["q3"]} initial={{ q1: 3 }} />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q3, 2) }));
+    fireEvent.change(screen.getByRole("textbox", { name: "목표 대학" }), {
+      target: { value: "연세대학교" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "학과" }), {
+      target: { value: "경영학과" },
+    });
+    expect(latest.q3Target).toEqual({
+      university: "연세대학교",
+      major: "경영학과",
+    });
+    fireEvent.click(screen.getByRole("radio", { name: label(OPTIONS.q3, 4) }));
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 });
