@@ -13,7 +13,7 @@ import { fetchCalls, fetchCitations, fetchSummary } from "./api";
 
 function stubFetch() {
   const fn = vi.fn(
-    async () =>
+    async (_url: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ ok: true, items: [] }), { status: 200 }),
   );
   vi.stubGlobal("fetch", fn);
@@ -30,8 +30,8 @@ describe("AI 텔레메트리 요청 헤더", () => {
   ])("%s 요청은 X-Time-Zone 과 Authorization 을 싣는다", async (_n, run) => {
     const fn = stubFetch();
     await run("view=x&from=2026-10-01&to=2026-10-02");
-    const init = fn.mock.calls[0]?.[1] as RequestInit;
-    const headers = new Headers(init.headers);
+    const init = fn.mock.calls[0]?.[1];
+    const headers = new Headers(init?.headers);
     expect(headers.get("X-Time-Zone")).toBe("Asia/Seoul");
     expect(headers.get("Authorization")).toBe("Bearer token-1");
     expect(headers.get("Content-Type")).toBe("application/json");
