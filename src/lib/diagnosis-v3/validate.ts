@@ -4,7 +4,8 @@
 
 import { type QuestionId, REQUIRED_QUESTIONS } from "./codes.js";
 import { SCALE_ITEMS } from "./likert.js";
-import { OPTIONS, type OptionRow } from "./options.js";
+import { OPTIONS, type OptionRow, trackOf } from "./options.js";
+import { sheetRows, textCell } from "./sheet.js";
 import type { DiagnosisV3Answers, IsoDate } from "./types.js";
 
 export type ValidationError = {
@@ -70,6 +71,59 @@ const LIKERT_SIZES = {
   q23: SCALE_ITEMS.q23.length,
 } as const;
 
+/** Option whose label the 13 H note quotes in 「」 for a hiding rule. */
+const hidingOption = (qid: QuestionId, rows: readonly OptionRow[]) => {
+  const meta = sheetRows("13_문항메타").find((row) => row.c[0] === qid);
+  const quoted = meta && textCell(meta, 7).match(/「(.+?)」/)?.[1];
+  const option = quoted && rows.find((o) => o.label.startsWith(quoted));
+  if (!option) throw new Error(`no hiding option for ${qid}`);
+  return option.ordinal;
+};
+
+const Q3_NO_TARGET = hidingOption("q3r", OPTIONS.q3);
+const Q8_NOT_COMPARABLE = hidingOption("q8s", OPTIONS.q8);
+const Q8S_UNKNOWN = hidingOption("q8d", OPTIONS.q8s);
+/** 13 H7: q3 options 1..3 open the target university and major inputs. */
+const Q3_TARGET_ORDINALS = [1, 2, 3];
+
+const subjectRow = sheetRows("06_임계값").find(
+  (row) => row.c[1] === "과목별 성적 수집",
+);
+/** 06 C51 switch for q6s, q6r, q6m. */
+const SUBJECT_GRADES_ON = subjectRow?.c[2] === "사용";
+
+const isHidden = (question: QuestionId | "q3Target", input: Raw) => {
+  const track = isOrdinalOf(OPTIONS.q1, input.q1)
+    ? trackOf(input.q1 as number)
+    : null;
+  switch (question) {
+    // a missing or invalid q3 is reported on q3 itself
+    case "q3r":
+      return input.q3 === Q3_NO_TARGET;
+    case "q3Target":
+      return (
+        isOrdinalOf(OPTIONS.q3, input.q3) &&
+        !Q3_TARGET_ORDINALS.includes(input.q3 as number)
+      );
+    case "q8s":
+      return input.q8 === undefined || input.q8 === Q8_NOT_COMPARABLE;
+    case "q8d":
+      return input.q8s === undefined || input.q8s === Q8S_UNKNOWN;
+    case "q6s":
+    case "q6r":
+    case "q6m":
+      return !SUBJECT_GRADES_ON || track === "M3";
+    case "q15":
+      return track === "M3";
+    case "q16":
+    case "q17":
+    case "q18":
+      return input.q15 === undefined;
+    default:
+      return false;
+  }
+};
+
 const isValid = (question: QuestionId, value: unknown, input: Raw) => {
   if (question in SINGLE_CHOICES) {
     return isOrdinalOf(
@@ -115,7 +169,10 @@ export function validateAnswers(
   const errors: ValidationError[] = [];
   for (const question of Object.keys(input) as QuestionId[]) {
     const value = input[question];
-    if (value !== undefined && !isValid(question, value, input)) {
+    if (value === undefined) continue;
+    if (isHidden(question, input)) {
+      errors.push({ question, reason: "hidden" });
+    } else if (!isValid(question, value, input)) {
       errors.push({ question, reason: "invalid" });
     }
   }

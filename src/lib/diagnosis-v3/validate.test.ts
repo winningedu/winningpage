@@ -98,3 +98,51 @@ describe("option values", () => {
     ]);
   });
 });
+
+describe("visibility (13 H, 16 r33-r35)", () => {
+  const M3 = validAnswers("M3");
+  const hidden = (question: string) => [{ question, reason: "hidden" }];
+
+  test("q3r and the target inputs follow q3", () => {
+    expect(errorsOf({ ...H12, q3: 6, q3r: [1] })).toEqual([
+      ...hidden("q3Target"),
+      ...hidden("q3r"),
+    ]);
+    expect(errorsOf({ ...without(H12, "q3Target"), q3: 5, q3r: [1] })).toEqual(
+      [],
+    );
+    expect(errorsOf({ ...H12, q3: 4 })).toEqual(hidden("q3Target"));
+    expect(errorsOf({ ...H12, q3: 3 })).toEqual([]);
+  });
+
+  test("q8s needs a comparable q8, q8d needs a known q8s", () => {
+    expect(errorsOf({ ...H12, q8s: 1 })).toEqual(hidden("q8s"));
+    expect(errorsOf({ ...H12, q8: 6, q8s: 1 })).toEqual(hidden("q8s"));
+    expect(errorsOf({ ...H12, q8: 4, q8s: 1, q8d: 2 })).toEqual([]);
+    expect(errorsOf({ ...H12, q8: 4, q8s: 7, q8d: 2 })).toEqual(hidden("q8d"));
+    expect(errorsOf({ ...H12, q8: 4, q8d: 2 })).toEqual(hidden("q8d"));
+  });
+
+  test("subject grades are hidden for M3 only (06 C51 is 사용)", () => {
+    const grades = {
+      q6s: { KOR: 2 },
+      q6r: 2.1,
+      q6m: { month: 9, grades: { KOR: 3 } },
+    };
+    expect(errorsOf({ ...H12, ...grades })).toEqual([]);
+    expect(errorsOf({ ...M3, ...grades })).toEqual([
+      ...hidden("q6s"),
+      ...hidden("q6r"),
+      ...hidden("q6m"),
+    ]);
+  });
+
+  test("q15 is hidden for M3 and q16..q18 need q15", () => {
+    expect(errorsOf({ ...M3, q15: H12.q15 })).toEqual(hidden("q15"));
+    expect(errorsOf(without(H12, "q15"))).toEqual([
+      ...hidden("q16"),
+      ...hidden("q17"),
+      ...hidden("q18"),
+    ]);
+  });
+});
