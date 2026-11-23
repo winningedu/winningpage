@@ -21,7 +21,14 @@ import {
   consumeDiagnosisAttempt,
 } from "@/lib/diagnosisAccess";
 // 이어 답하기 초안(사 #44, 스쿨멘토 전용). 이 기기 localStorage 에 사용자별로 저장한다.
-import { clearDraft, loadDraft, saveDraft } from "@/lib/diagnosisDraft";
+import {
+  clearDraft,
+  clearPendingAttemptId,
+  loadDraft,
+  loadPendingAttemptId,
+  saveDraft,
+  savePendingAttemptId,
+} from "@/lib/diagnosisDraft";
 // v3 server scoring (judge-report 3-2): the browser sends answers and the
 // server scores and stores the report; nothing is scored or saved here.
 import {
@@ -75,9 +82,9 @@ export default function SurveyStepShell() {
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
   >(() => new Map());
-  // 제출 플로우당 1회만 생성해 재사용한다(더블클릭 시 같은 attemptId로 재호출 →
-  // 서버가 already_recorded로 멱등 처리). 셸 인스턴스가 answers와 같은 생애주기를
-  // 공유하므로(새로고침 시 함께 소실 — 셸 상단 주석 참고) ref 하나로 충분하다.
+  // One attemptId per submit flow, reused on retry (the server answers a
+  // repeated attemptId as already_recorded). rememberAttemptId keeps it
+  // across a reload until submit succeeds.
   const diagnosisAttemptIdRef = useRef<string | null>(null);
 
   // 스쿨멘토는 이용 거부를 결제 이동이 아니라 기관 사유 안내로 보인다(결정 99).
@@ -151,6 +158,7 @@ export default function SurveyStepShell() {
     if (!draft) return;
     setAnswers((prev) => ({ ...draft.answers, ...prev }));
     setSeed(draft.seed);
+    if (draft.attemptId) diagnosisAttemptIdRef.current = draft.attemptId;
     // 1단계로 들어왔으면 답이 끝난 단계를 건너뛰어 첫 미완료 단계에서 이어 답하게 한다.
     // 인덱스 진입은 자식 라우트가 1단계로 리다이렉트하므로 둘 다 대상이다.
     const entry = entryPathRef.current;
@@ -167,7 +175,8 @@ export default function SurveyStepShell() {
   useEffect(() => {
     if (!resumeEnabled || !userId) return;
     if (Object.keys(answers).length === 0) return;
-    saveDraft(userId, { answers, seed });
+    const attemptId = diagnosisAttemptIdRef.current;
+    saveDraft(userId, { answers, seed, ...(attemptId ? { attemptId } : {}) });
   }, [answers, seed, resumeEnabled, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
@@ -192,6 +201,27 @@ export default function SurveyStepShell() {
       navigate(getStepPath(firstErrorScreen(errors)));
     },
     [navigate],
+  );
+
+  // The attemptId outlives a reload until submit succeeds: in the draft where
+  // drafts exist (스쿨멘토), in sessionStorage otherwise (위닝).
+  const rememberAttemptId = useCallback(
+    (attemptId: string | null) => {
+      diagnosisAttemptIdRef.current = attemptId;
+      if (!userId) return;
+      if (resumeEnabled) {
+        saveDraft(userId, {
+          answers,
+          seed,
+          ...(attemptId ? { attemptId } : {}),
+        });
+      } else if (attemptId) {
+        savePendingAttemptId(userId, attemptId);
+      } else {
+        clearPendingAttemptId(userId);
+      }
+    },
+    [answers, seed, userId, resumeEnabled],
   );
 
   const submitDiagnosis = useCallback(async () => {
@@ -219,10 +249,11 @@ export default function SurveyStepShell() {
       return null;
     }
 
-    if (!diagnosisAttemptIdRef.current) {
-      diagnosisAttemptIdRef.current = crypto.randomUUID();
-    }
-    const attemptId = diagnosisAttemptIdRef.current;
+    const attemptId =
+      diagnosisAttemptIdRef.current ??
+      (userId && !resumeEnabled ? loadPendingAttemptId(userId) : null) ??
+      crypto.randomUUID();
+    rememberAttemptId(attemptId);
     const consumeResult = await consumeDiagnosisAttempt(attemptId);
     if (
       consumeResult.outcome === "check-failed" ||
@@ -241,7 +272,7 @@ export default function SurveyStepShell() {
         // 충돌은 서비스 막힘이 아니다. 서버 메시지를 보이고 다음 시도에 새 attemptId 를 쓴다.
         if (consumeResult.code === "ATTEMPT_CONFLICT") {
           window.alert(consumeResult.message);
-          diagnosisAttemptIdRef.current = null;
+          rememberAttemptId(null);
           return null;
         }
         setTenantBlock({ reason: consumeResult.tenantReason });
@@ -293,6 +324,7 @@ export default function SurveyStepShell() {
     }
     // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
     if (resumeEnabled && userId) clearDraft(userId);
+    if (userId) clearPendingAttemptId(userId);
     // Replace the survey entry so Back cannot re-enter the submitted survey; the flag
     // tells the report page to hold the user there (see FreeDiagnosisReport).
     navigate(reportPathFor(attemptId), {
@@ -300,7 +332,15 @@ export default function SurveyStepShell() {
       state: { fromSubmit: true },
     });
     return result.payload;
-  }, [answers, navigate, pathname, userId, resumeEnabled, showAnswerProblem]);
+  }, [
+    answers,
+    navigate,
+    pathname,
+    userId,
+    resumeEnabled,
+    showAnswerProblem,
+    rememberAttemptId,
+  ]);
 
   if (accessFailed) {
     return (

@@ -211,6 +211,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
   submitMock.mockReset();
+  sessionStorage.clear();
   resolveMock.mockReset();
   resolveMock.mockResolvedValue({ ok: true, target: CALC_EXAMPLE.q15 });
   localStorage.clear();
@@ -419,6 +420,30 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     await answerAllAndSubmit();
     await waitFor(() => expect(onResult).toHaveBeenCalled());
     expect(onResult).not.toHaveBeenCalledWith(null);
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("소진 뒤 제출이 실패하면 초안에 attemptId를 남겨 다시 들어와도 같은 것을 쓴다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "charged" });
+    submitMock.mockResolvedValueOnce({ ok: false, reason: "network" });
+    const first = renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    const attemptId = consumeMock.mock.calls[0]?.[0];
+    expect(JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}").attemptId).toBe(
+      attemptId,
+    );
+    first.unmount();
+
+    submitMock.mockResolvedValueOnce({
+      ok: true,
+      schemaVersion: "v",
+      payload: {},
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(consumeMock.mock.calls[1]?.[0]).toBe(attemptId);
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 
@@ -670,6 +695,26 @@ describe("SurveyStepShell v3 제출", () => {
     expect(window.alert).toHaveBeenCalledWith(
       "진단 결과를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.",
     );
+  });
+
+  it("위닝은 소진 뒤 제출이 실패하면 새로고침해도 같은 attemptId를 다시 쓰고, 성공하면 지운다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "proceed", status: "free_used" });
+    submitMock.mockResolvedValueOnce({ ok: false, reason: "network" });
+    const first = renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    submitMock.mockResolvedValueOnce({
+      ok: true,
+      schemaVersion: "v",
+      payload: {},
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(consumeMock.mock.calls[1]?.[0]).toBe(consumeMock.mock.calls[0]?.[0]);
+    expect(sessionStorage.length).toBe(0);
   });
 
   it("목표 대학 입결 키를 확인하지 못하면 소진하지 않고 다시 시도 안내를 보인다", async () => {
