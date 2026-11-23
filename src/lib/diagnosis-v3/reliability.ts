@@ -27,6 +27,24 @@ const V2_FLAG = quotedAnswers("V2");
 const V3_PASS = quotedAnswers("V3");
 const V4_PASS = quotedAnswers("V4");
 
+const verdictCell = (group: string, label: string) => {
+  const row = rows.find((r) => r.c[0] === group && r.c[1] === label);
+  if (!row) throw new Error(`missing 17_신뢰도 ${group} ${label}`);
+  return textCell(row, 2);
+};
+const numberIn = (text: string, pattern: RegExp) => {
+  const value = Number(text.match(pattern)?.[1]);
+  if (Number.isNaN(value)) throw new Error(`no number in ${text}`);
+  return value;
+};
+
+// 17 C14 "F5 또는 (F1+F2+F3) \u2265 2", C15 "(F1+F2+F3) = 1 이고 F5 아님".
+const SIMPLE_MIN = numberIn(
+  verdictCell("학습진단", "응답 단순"),
+  /\u2265 (\d+)/,
+);
+const MID_SUM = numberIn(verdictCell("학습진단", "보통"), /= (\d+)/);
+
 export function scoreReliability(answers: DiagnosisV3Answers): Reliability {
   const flags = {
     F1: V1_FLAG.includes(answers.q9.verify),
@@ -36,5 +54,14 @@ export function scoreReliability(answers: DiagnosisV3Answers): Reliability {
     F5: false,
     F6: false,
   };
-  return { flags, diagnosis: "GOOD", temperament: "NORMAL" };
+  const verifyFlags = [flags.F1, flags.F2, flags.F3].filter(Boolean).length;
+  const diagnosis =
+    flags.F5 || verifyFlags >= SIMPLE_MIN
+      ? "SIMPLE"
+      : verifyFlags === MID_SUM
+        ? "MID"
+        : "GOOD";
+  // 17 C17 "F4 또는 F6"
+  const temperament = flags.F4 || flags.F6 ? "CAUTION" : "NORMAL";
+  return { flags, diagnosis, temperament };
 }
