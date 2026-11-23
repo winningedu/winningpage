@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { logSearch, readLoginFilters, statsSearch } from "./filters";
+import {
+  b2cSearch,
+  logSearch,
+  readLoginFilters,
+  statsSearch,
+  trendSearch,
+} from "./filters";
 
 const TODAY = "2026-11-23";
 const read = (search: string) =>
@@ -54,6 +60,30 @@ describe("검색 문자열", () => {
   test("기록 표 조회는 view=log 와 쪽 번호를 싣는다", () => {
     expect(logSearch(read("loginPage=2&includeInternal=1"))).toBe(
       "view=log&from=2026-11-01&to=2026-11-23&page=2&includeInternal=1",
+    );
+  });
+
+  test("B2C 로그인 통계는 같은 조회에 scope=b2c 를 싣는다", () => {
+    expect(statsSearch(read("loginGrain=week"), "b2c")).toBe(
+      "view=stats&from=2026-11-01&to=2026-11-23&grain=week&mau=calendar&scope=b2c&includeInternal=0",
+    );
+  });
+
+  test("추이 조회는 로그인 지표와 같은 기간, 묶음, MAU 기준을 싣는다", () => {
+    expect(
+      trendSearch(
+        read(
+          "loginFrom=2026-10-01&loginGrain=month&loginMau=rolling30&includeInternal=1",
+        ),
+      ),
+    ).toBe(
+      "from=2026-10-01&to=2026-11-23&grain=month&mau=rolling30&includeInternal=1",
+    );
+  });
+
+  test("B2C 요약 조회는 기간과 포함 여부만 싣는다", () => {
+    expect(b2cSearch(read("loginTo=2026-11-20&loginPage=3"))).toBe(
+      "from=2026-11-01&to=2026-11-20&includeInternal=0",
     );
   });
 });

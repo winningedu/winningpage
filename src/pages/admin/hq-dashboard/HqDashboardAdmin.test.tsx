@@ -12,6 +12,8 @@ vi.mock("./TenantOverview", () => ({
 
 // 로그인 지표 화면은 LoginSection.test.tsx 가 본다.
 vi.mock("./LoginSection", () => ({ default: () => null }));
+vi.mock("./TrendSection", () => ({ default: () => <p>추이 구역</p> }));
+vi.mock("./B2cSection", () => ({ default: () => <p>B2C 구역</p> }));
 
 import HqDashboardAdmin from "./HqDashboardAdmin";
 
@@ -25,6 +27,8 @@ test("기관을 고르면 그 기관과 읽기 전용 사유를 미리 고른 �
   );
   render(<RouterProvider router={router} />);
   expect(screen.getByRole("heading", { name: "대시보드" })).toBeTruthy();
+  expect(screen.getByText("추이 구역")).toBeTruthy();
+  expect(screen.getByText("B2C 구역")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "기관 고르기" }));
   expect(await screen.findByText("대행 고르기")).toBeTruthy();
   expect(router.state.location.pathname).toBe("/teacher/proxy");

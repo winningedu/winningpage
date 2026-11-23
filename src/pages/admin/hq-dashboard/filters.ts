@@ -59,14 +59,37 @@ function search(entries: [string, string][], includeInternal: boolean): string {
   return params.toString();
 }
 
-export function statsSearch(f: LoginFilters): string {
+// scope b2c 는 위닝 B2C 구역(B2cSection)이 부른다. 기본(all)은 주소에 싣지 않는다.
+export function statsSearch(f: LoginFilters, scope?: "b2c"): string {
+  const entries: [string, string][] = [
+    ["view", "stats"],
+    ["from", f.from],
+    ["to", f.to],
+    ["grain", f.grain],
+    ["mau", f.mau],
+  ];
+  if (scope) entries.push(["scope", scope]);
+  return search(entries, f.includeInternal);
+}
+
+// 가입, 결제 추이(/trends)는 로그인 지표와 같은 기간, 묶음, MAU 기준을 쓴다.
+export function trendSearch(f: LoginFilters): string {
   return search(
     [
-      ["view", "stats"],
       ["from", f.from],
       ["to", f.to],
       ["grain", f.grain],
       ["mau", f.mau],
+    ],
+    f.includeInternal,
+  );
+}
+
+export function b2cSearch(f: LoginFilters): string {
+  return search(
+    [
+      ["from", f.from],
+      ["to", f.to],
     ],
     f.includeInternal,
   );

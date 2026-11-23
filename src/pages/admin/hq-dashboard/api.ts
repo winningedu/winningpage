@@ -154,9 +154,9 @@ export interface LoginLogResponse {
   items: LoginLogItem[];
 }
 
-async function getLogins<T>(search: string): Promise<T> {
+async function getWithSearch<T>(path: string, search: string): Promise<T> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(`/api/admin/hq-dashboard/logins?${search}`, {
+  const response = await fetch(`${path}?${search}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const result = await response.json().catch(() => null);
@@ -171,6 +171,9 @@ async function getLogins<T>(search: string): Promise<T> {
   return result as T;
 }
 
+const getLogins = <T>(search: string) =>
+  getWithSearch<T>("/api/admin/hq-dashboard/logins", search);
+
 export function fetchLoginStats(search: string) {
   return getLogins<LoginStatsResponse>(search);
 }
@@ -181,4 +184,50 @@ export function fetchLoginLog(search: string) {
 
 export function fetchHqUsage(includeInternal: boolean): Promise<HqUsage> {
   return getJson<HqUsage>("/api/admin/hq-dashboard/usage", includeInternal);
+}
+
+// 가입, 결제 추이(/api/admin/hq-dashboard/trends). search 는 filters.ts 의 trendSearch 가 만든다.
+export interface HqTrendBucket {
+  start: string;
+  end: string;
+  signups: number;
+  signupsByMemberType: Record<string, number>;
+  paidOrders: number;
+}
+
+export interface HqTrendsResponse {
+  ok: true;
+  from: string;
+  to: string;
+  grain: "day" | "week" | "month";
+  mauMode: "calendar" | "rolling30";
+  includeInternal: boolean;
+  series: HqTrendBucket[];
+}
+
+export function fetchHqTrends(search: string) {
+  return getWithSearch<HqTrendsResponse>(
+    "/api/admin/hq-dashboard/trends",
+    search,
+  );
+}
+
+// 위닝 B2C 요약(/api/admin/hq-dashboard/b2c). search 는 filters.ts 의 b2cSearch 가 만든다.
+export interface HqB2cResponse {
+  ok: true;
+  from: string;
+  to: string;
+  includeInternal: boolean;
+  members: { total: number; byMemberType: Record<string, number> };
+  payments: {
+    payingMembers: number;
+    orderCount: number;
+    paidAmount: number;
+    refundedAmount: number;
+    netAmount: number;
+  };
+}
+
+export function fetchHqB2c(search: string) {
+  return getWithSearch<HqB2cResponse>("/api/admin/hq-dashboard/b2c", search);
 }

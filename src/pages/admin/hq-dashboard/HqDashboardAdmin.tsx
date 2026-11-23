@@ -2,8 +2,10 @@
 // 대행 시작은 그 화면에서 사용자가 누른다.
 
 import { useNavigate } from "react-router";
+import B2cSection from "./B2cSection";
 import LoginSection from "./LoginSection";
 import TenantOverview from "./TenantOverview";
+import TrendSection from "./TrendSection";
 
 export default function HqDashboardAdmin() {
   const navigate = useNavigate();
@@ -18,6 +20,8 @@ export default function HqDashboardAdmin() {
         }
       />
       <LoginSection />
+      <TrendSection />
+      <B2cSection />
     </div>
   );
 }

@@ -37,22 +37,24 @@ function SourceBadge({ source }: { source: LoginSource }) {
   );
 }
 
-function period(from: string, to: string) {
+export function period(from: string, to: string) {
   return from === to ? from : `${from} ~ ${to}`;
 }
 
-function StatCard({
+export function StatCard({
   label,
   value,
   from,
   to,
   source,
+  note,
 }: {
   label: string;
   value: string;
   from: string;
   to: string;
-  source: LoginSource;
+  source?: LoginSource;
+  note?: string;
 }) {
   return (
     <section aria-label={label}>
@@ -64,7 +66,8 @@ function StatCard({
           <div className="text-xl font-semibold">{value}</div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{period(from, to)}</span>
-            <SourceBadge source={source} />
+            {source && <SourceBadge source={source} />}
+            {note && <span>{note}</span>}
           </div>
         </CardContent>
       </Card>
