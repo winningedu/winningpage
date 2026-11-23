@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/native-select";
 import { kstYMD } from "@/lib/goal/calc";
 import { fetchLoginLog, fetchLoginStats } from "./api";
+import ErrorBox from "./ErrorBox";
 import {
   LOGIN_PARAM,
   logSearch,
@@ -23,17 +24,6 @@ import LoginLogTable from "./LoginLogTable";
 import LoginStats from "./LoginStats";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function ErrorBox({ message }: { message: string }) {
-  return (
-    <div
-      role="alert"
-      className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
-    >
-      {message}
-    </div>
-  );
-}
 
 function Loading() {
   return (

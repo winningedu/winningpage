@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { kstYMD } from "@/lib/goal/calc";
 import { fetchHqTrends } from "./api";
+import ErrorBox from "./ErrorBox";
 import { readLoginFilters, trendSearch } from "./filters";
 import { period } from "./LoginStats";
 import { formatByMemberType } from "./labels";
@@ -58,12 +59,7 @@ export default function TrendSection() {
         </p>
       </div>
       {query.error ? (
-        <div
-          role="alert"
-          className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
-        >
-          {query.error.message}
-        </div>
+        <ErrorBox message={query.error.message} />
       ) : query.data ? (
         <Card size="sm">
           <CardContent className="space-y-4">

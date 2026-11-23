@@ -9,22 +9,12 @@ import { useSearchParams } from "react-router";
 import { site } from "@/config/site";
 import { kstYMD } from "@/lib/goal/calc";
 import { fetchHqB2c, fetchLoginStats } from "./api";
+import ErrorBox from "./ErrorBox";
 import { b2cSearch, readLoginFilters, statsSearch } from "./filters";
 import { StatCard } from "./LoginStats";
 import { formatByMemberType } from "./labels";
 
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
-
-function ErrorBox({ message }: { message: string }) {
-  return (
-    <div
-      role="alert"
-      className="border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
-    >
-      {message}
-    </div>
-  );
-}
 
 function B2cBody() {
   const id = useId();
