@@ -87,6 +87,34 @@ describe("선점", () => {
     expect(mocks.reverseCredit).not.toHaveBeenCalled();
   });
 
+  it("keepSession 단계는 시도 상한에 닿아도 세션을 종결하지 않는다", async () => {
+    mocks.claimStep.mockResolvedValue({ kind: "exhausted", attempts: 10 });
+    const out = await runModelStep(db, "u1", session, "link", deps(), {
+      build: () => bundle,
+      validate: okValidate,
+      keepSession: true,
+    });
+    expect(out).toEqual({ kind: "exhausted", terminal: false });
+    expect(mocks.terminateSession).not.toHaveBeenCalled();
+    expect(callStructured).not.toHaveBeenCalled();
+  });
+
+  it("keepSession 단계의 실패가 상한을 채워도 세션을 종결하지 않는다", async () => {
+    mocks.claimStep.mockResolvedValue({ kind: "claimed", attempts: 10 });
+    callStructured.mockRejectedValue(new Error("boom"));
+    const out = await runModelStep(db, "u1", session, "link", deps(), {
+      build: () => bundle,
+      validate: okValidate,
+      keepSession: true,
+    });
+    expect(out).toMatchObject({
+      kind: "failure",
+      terminal: false,
+      attempts: 10,
+    });
+    expect(mocks.terminateSession).not.toHaveBeenCalled();
+  });
+
   it("종결 때 되돌릴 차감이 있으면 selfeval:exhausted 로 되돌린다", async () => {
     mocks.claimStep.mockResolvedValue({ kind: "exhausted", attempts: 10 });
     mocks.terminateSession.mockResolvedValue({

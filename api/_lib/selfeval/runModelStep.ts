@@ -41,7 +41,7 @@ export type Outcome<T> =
   | { kind: "running" }
   | { kind: "order"; currentStep: number }
   | { kind: "superseded" }
-  | { kind: "exhausted"; terminal: true }
+  | { kind: "exhausted"; terminal: boolean }
   | {
       kind: "failure";
       failure: StepFailureKind;
@@ -84,6 +84,8 @@ export type StepSpec<T> = {
     | { ok: false; issues: ValidationIssue[] };
   /** validate 의 patch 에 덧붙이는 patch(예: regenerate_increment). */
   patchOnSuccess?: Record<string, unknown>;
+  /** true 면 시도 상한에 닿아도 세션을 종결하지 않는다(연계 판정, 명세 No.196). */
+  keepSession?: boolean;
 };
 
 /**
@@ -232,6 +234,8 @@ export async function runModelStep<T>(
     return { kind: "order", currentStep: claim.currentStep };
   }
   if (claim.kind === "exhausted") {
+    if (spec.keepSession === true)
+      return { kind: "exhausted", terminal: false };
     await terminateAndReverse(db, userId, session.id, step, "exhausted");
     return { kind: "exhausted", terminal: true };
   }
@@ -273,7 +277,8 @@ export async function runModelStep<T>(
     });
     // 다른 요청이 이 단계를 가져갔으면 그 요청이 결과를 정한다.
     if (!closed) return { kind: "superseded" };
-    const terminal = attempts >= MAX_MODEL_ATTEMPTS_PER_STEP;
+    const terminal =
+      attempts >= MAX_MODEL_ATTEMPTS_PER_STEP && spec.keepSession !== true;
     if (terminal) {
       await terminateAndReverse(db, userId, session.id, step, "exhausted");
     }
@@ -380,7 +385,7 @@ export function outcomeToHttp(outcome: Outcome<unknown>): HttpMapping {
         status: 409,
         code: "ATTEMPTS_EXHAUSTED",
         message: "이 단계의 시도 횟수를 모두 사용했어요.",
-        extra: { terminal: true },
+        extra: { terminal: outcome.terminal },
       };
     case "failure":
       return {
