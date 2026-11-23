@@ -4,11 +4,13 @@ import {
   buildCopyText,
   extractSheets,
 } from "../../../../scripts/lib/diagnosisV3Extract.mjs";
+import { COPY_SHEETS, COPY_TEXT } from "./copyText.js";
+import { SCORE_SHEETS } from "./scoreSheets.js";
 
 const load = (name: string) =>
   extractSheets(readFileSync(new URL(`./${name}-v3.0.xlsx`, import.meta.url)));
 
-const sheetRows = (sheets: ReturnType<typeof load>, name: string) => {
+const sheetRows = (sheets: typeof SCORE_SHEETS, name: string) => {
   const rows = sheets[name];
   if (!rows) throw new Error(`missing sheet ${name}`);
   return rows;
@@ -41,6 +43,33 @@ describe("xlsx extraction", () => {
     const text = buildCopyText(copy);
     expect(text.TYPE_1_HEAD).toBe(
       "목표\u2013계획\u2013실행\u2013피드백의 흐름이 안정적으로 돌아가고 있습니다.",
+    );
+  });
+});
+
+describe("generated modules match a fresh extraction", () => {
+  test("SCORE_SHEETS equals the score workbook, cell for cell", () => {
+    expect(SCORE_SHEETS).toEqual(load("score"));
+  });
+
+  test("COPY_SHEETS equals the copy workbook, cell for cell", () => {
+    expect(COPY_SHEETS).toEqual(load("copy"));
+  });
+
+  test("COPY_TEXT equals the IDs mapped from the copy workbook", () => {
+    expect(COPY_TEXT).toEqual(buildCopyText(load("copy")));
+  });
+
+  test("spot values stay readable", () => {
+    expect(COPY_TEXT.TYPE_1_HEAD).toBe(
+      "목표\u2013계획\u2013실행\u2013피드백의 흐름이 안정적으로 돌아가고 있습니다.",
+    );
+    expect(COPY_TEXT.SUM_LEAD).toBeTypeOf("string");
+    const meta = sheetRows(SCORE_SHEETS, "13_문항메타");
+    expect(meta[2]?.c[0]).toBe("문항ID");
+    const conv = sheetRows(SCORE_SHEETS, "09_환산_5등급제");
+    expect(conv.length - conv.findIndex((row) => row.c[0] === "No") - 1).toBe(
+      401,
     );
   });
 });
