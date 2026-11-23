@@ -625,3 +625,99 @@ describe("11p 4주 플랜 and 12-15p 플래너 (22 r101-r113)", () => {
     ]);
   });
 });
+
+/** HA 100, SD 0 and 불안\u00b7회복 24: TEMP_COUNSEL (18 r27). */
+const COUNSEL: DiagnosisV3Answers = (() => {
+  const items = [...CALC_EXAMPLE.q23.items];
+  items.splice(5, 5, 4, 4, 4, 4, 0);
+  items.splice(20, 5, 0, 0, 0, 0, 4);
+  const q20Items = [...CALC_EXAMPLE.q20.items];
+  q20Items.splice(4, 2, 4, 1);
+  return {
+    ...CALC_EXAMPLE,
+    q20: { ...CALC_EXAMPLE.q20, items: q20Items },
+    q23: { ...CALC_EXAMPLE.q23, items },
+  };
+})();
+
+describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
+  test("계산 예시: DEEP then GOAL cards, agenda and reading (계산 예시 D27)", () => {
+    const { p16 } = run().pages;
+    expect(p16.title).toBe(COPY_TEXT.SVC_HEAD_2);
+    expect(p16.preferences).toEqual([
+      "일주일에 한 번 공부 계획과 실천 결과를 점검받고 싶어요.",
+      "교과 심화탐구의 주제와 방향을 설계받고 싶어요.",
+    ]);
+    expect(p16.services[0]).toEqual({
+      code: "DEEP",
+      name: "위닝 심화탐구",
+      prefix: COPY_TEXT.SVC_RANK1_PREFIX,
+      text: COPY_TEXT.SVC_DEEP_S2,
+      tags: [3, 4, 5, 6].map((c) => cell("09_서비스태그", "DEEP", c)),
+    });
+    expect(p16.services[1]).toMatchObject({
+      code: "GOAL",
+      prefix: COPY_TEXT.SVC_RANK2_PREFIX?.replace("{영역}", "활동 기록"),
+      text: COPY_TEXT.SVC_GOAL_S2,
+    });
+    expect(p16.scopeNote).toBeUndefined();
+    expect(p16.agenda).toEqual([
+      COPY_TEXT.AGENDA_P1?.replace("{area}", "활동 기록").replace(
+        "{next}",
+        String(COPY_TEXT.NEXT_P1_LOG_개선),
+      ),
+      COPY_TEXT.AGENDA_P2?.replace("{area}", "탐구 심화").replace(
+        "{next}",
+        String(COPY_TEXT.NEXT_H12_DEEP_개선),
+      ),
+      COPY_TEXT.AGENDA_ADM_4,
+    ]);
+    expect(p16.reading).toEqual([
+      COPY_TEXT.READ_1,
+      COPY_TEXT.READ_2,
+      COPY_TEXT.READ_3,
+      COPY_TEXT.READ_4,
+      COPY_TEXT.READ_RELIAB?.replace("{label}", "양호").replace(
+        "{text}",
+        String(COPY_TEXT.RELIAB_GOOD),
+      ),
+      COPY_TEXT.READ_REDX?.replace("{date}", "12/7(월)"),
+    ]);
+    expect(p16.footer).toEqual([
+      COPY_TEXT.REPORT_BASIS,
+      COPY_TEXT.REPORT_LIMIT,
+    ]);
+  });
+
+  test("응답 단순 and care titles; care pins CALL with its prefix (22 r115, r117)", () => {
+    expect(run(SIMPLE).pages.p16.title).toBe(COPY_TEXT.SVC_HEAD_HIDDEN);
+    const care = run(COUNSEL);
+    expect(care.scores.services.counselPinned).toBe(true);
+    expect(care.pages.p16.title).toBe(COPY_TEXT.SVC_HEAD_TEMP);
+    expect(care.pages.p16.services[0]).toMatchObject({
+      code: "CALL",
+      prefix: COPY_TEXT.SVC_CALL_TEMP_PREFIX,
+    });
+  });
+
+  test("M3 scope note and agenda; H3 prefers the 고3\u00b7N수 copy (22 r117-r119)", () => {
+    const m3 = run(validAnswers("M3")).pages.p16;
+    expect(m3.scopeNote).toBe(COPY_TEXT.SVC_M3_LIMIT);
+    expect(m3.agenda[2]).toBe(COPY_TEXT.AGENDA_ADM_M3);
+    const h3 = run(validAnswers("H3"));
+    const card = h3.pages.p16.services.find(
+      (s) => s.code !== "GOAL" && s.code !== "CALL",
+    );
+    if (card) {
+      const band = h3.scores.services.ranked.find(
+        (s) => s.code === card.code,
+      )?.band;
+      expect(card.text).toBe(
+        COPY_TEXT["SVC_" + card.code + "_" + band + "@고3\u00b7N수"],
+      );
+    }
+    expect(run({ ...CALC_EXAMPLE, q15: undefined }).pages.p16.agenda[2]).toBe(
+      COPY_TEXT.AGENDA_ADM_SKIP,
+    );
+  });
+});
