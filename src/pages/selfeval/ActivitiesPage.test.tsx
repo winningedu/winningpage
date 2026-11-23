@@ -18,6 +18,7 @@ const {
   pickManualMock,
   updateMock,
   detailMock,
+  manualLogsListMock,
   toastMock,
 } = vi.hoisted(() => ({
   shellMock: vi.fn(),
@@ -28,6 +29,7 @@ const {
   pickManualMock: vi.fn(),
   updateMock: vi.fn(),
   detailMock: vi.fn(),
+  manualLogsListMock: vi.fn(),
   toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
@@ -42,6 +44,7 @@ vi.mock("@/lib/selfeval/api", () => ({
   updateSession: updateMock,
   fetchSessionDetail: detailMock,
   fetchEntry: vi.fn(),
+  manualLogsList: manualLogsListMock,
 }));
 vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
@@ -212,6 +215,10 @@ beforeEach(() => {
   });
   detailMock.mockResolvedValue(sessionDetail());
   pickListMock.mockResolvedValue(pickResponse());
+  manualLogsListMock.mockResolvedValue({
+    kind: "ok",
+    data: { ok: true, memos: [] },
+  });
 });
 
 describe("로딩과 오류", () => {
@@ -590,6 +597,22 @@ describe("확정", () => {
     expect(screen.queryByRole("button", { name: /분석하기$/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "분석 확인으로 가기" }));
     expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/analysis");
+  });
+});
+
+describe("수기 수행보고", () => {
+  test("활동 선택 화면에 수기 수행보고 카드를 보인다", async () => {
+    renderPage();
+    await ready();
+    expect(screen.getByRole("region", { name: "수기 수행보고" })).toBeTruthy();
+    expect(manualLogsListMock).toHaveBeenCalledWith("s1");
+  });
+
+  test("분석을 시작해 잠긴 뒤에는 카드를 보이지 않는다", async () => {
+    pickListMock.mockResolvedValue(pickResponse({ currentStep: 3 }));
+    renderPage();
+    await screen.findByText(/분석을 시작한 뒤에는 활동을 바꿀 수 없어요/);
+    expect(screen.queryByRole("region", { name: "수기 수행보고" })).toBeNull();
   });
 });
 

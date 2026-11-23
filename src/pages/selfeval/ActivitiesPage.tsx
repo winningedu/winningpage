@@ -14,6 +14,7 @@ import {
 } from "@/components/selfeval/activities/activitiesLogic";
 import CandidateCard from "@/components/selfeval/activities/CandidateCard";
 import ManualEntryCard from "@/components/selfeval/activities/ManualEntryCard";
+import ManualLogsCard from "@/components/selfeval/activities/ManualLogsCard";
 import { initialManualForm } from "@/components/selfeval/activities/manualForm";
 import SourceFilterCard from "@/components/selfeval/activities/SourceFilterCard";
 import GrowthDirectionBanner from "@/components/selfeval/GrowthDirectionBanner";
@@ -439,6 +440,8 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                 </Button>
               </section>
             )}
+
+            <ManualLogsCard sessionId={sessionId} />
 
             <div className="flex justify-end gap-3">
               <Button
