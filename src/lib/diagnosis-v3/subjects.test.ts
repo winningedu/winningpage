@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { judgeSubjects } from "./subjects.js";
+import { OPTIONS } from "./options.js";
+import { judgeSubjects, SUBJECT_CODES } from "./subjects.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
 
@@ -23,5 +24,45 @@ describe("judgeSubjects (22 r44)", () => {
       ENG: "CHECK",
       SOC: "KEEP",
     });
+  });
+
+  test("with mock: both lowest PRIORITY, one side CHECK, both 1등급 STRENGTH", () => {
+    expect(
+      judgeSubjects({
+        ...PDF_STUDENT,
+        q8d: 1, // 올랐어요: no down rule
+        q6s: { KOR: 1.0, MATH: 3.0, ENG: 2.0, SOC: 2.0, SCI: 3.0 },
+        q6m: { month: 9, grades: { KOR: 1, MATH: 4, ENG: 4, SOC: 2 } },
+      }),
+    ).toEqual({
+      KOR: "STRENGTH",
+      MATH: "PRIORITY",
+      ENG: "CHECK",
+      SOC: "KEEP",
+      SCI: "CHECK",
+    });
+  });
+
+  test("all grades equal means no lowest; 한국사 mock is not judged", () => {
+    expect(
+      judgeSubjects({
+        ...PDF_STUDENT,
+        q8d: 3,
+        q6s: { KOR: 2, MATH: 2 },
+        q6m: { month: 6, grades: { KOR: 3, MATH: 3, HIST: 9 } },
+      }),
+    ).toEqual({ KOR: "KEEP", MATH: "KEEP" });
+  });
+
+  test("22 r45: no q6s skips the verdicts", () => {
+    const { q6s: _q6s, ...rest } = PDF_STUDENT;
+    expect(judgeSubjects(rest)).toBeNull();
+    expect(judgeSubjects({ ...PDF_STUDENT, q6s: {} })).toBeNull();
+  });
+
+  test("q8s ordinals 1..5 follow the 13 F12 subject order", () => {
+    expect(
+      OPTIONS.q8s.slice(0, SUBJECT_CODES.length).map((o) => o.label[0]),
+    ).toEqual(["국", "수", "영", "사", "과"]);
   });
 });
