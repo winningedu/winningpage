@@ -8,6 +8,8 @@ export default defineConfig({
   testDir: "e2e",
   // fixtures 아래 *.test.ts 는 Vitest 단위 테스트라 Playwright 가 줍지 않게 한다.
   testIgnore: "**/fixtures/**",
+  // 모든 spec 이 학생 계정 하나를 공유하므로 worker 를 나누면 그 계정의 세션이 서로 겹친다.
+  workers: 1,
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:5303",
     viewport: { width: 1440, height: 900 },
