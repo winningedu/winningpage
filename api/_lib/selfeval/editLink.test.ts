@@ -4,8 +4,14 @@ import {
   paragraphTexts,
   plainText,
   relinkEdited,
+  repickEvidence,
 } from "./editLink.js";
-import type { GenerationSections } from "./types.js";
+import type { EvidenceSources } from "./evidence.js";
+import type { GenerationSections, SentenceEvidence } from "./types.js";
+
+const evOf = (item: SentenceEvidence["item"]): SentenceEvidence[] => [
+  { sourceType: "P", refId: "a1", item, weight: "main" },
+];
 
 const prev: GenerationSections = {
   paragraphs: [
@@ -15,14 +21,14 @@ const prev: GenerationSections = {
         {
           id: "p1-s1",
           text: "계수를 바꿔 관찰했다.",
-          evidence: { activityId: "a1", field: "method" },
+          evidence: evOf("method"),
           feeling: false,
           confirmed: false,
         },
         {
           id: "p1-s2",
           text: "폭이 좁아졌다고 느꼈다.",
-          evidence: null,
+          evidence: [],
           feeling: true,
           confirmed: true,
         },
@@ -34,7 +40,7 @@ const prev: GenerationSections = {
         {
           id: "p2-s1",
           text: "다음에는 소수 계수를 본다.",
-          evidence: { activityId: "a1", field: "result" },
+          evidence: evOf("result"),
           feeling: false,
           confirmed: false,
         },
@@ -68,10 +74,9 @@ describe("relinkEdited", () => {
       feeling: true,
       confirmed: true,
     });
-    expect(r.sections.paragraphs[0]?.sentences[0]?.evidence).toEqual({
-      activityId: "a1",
-      field: "method",
-    });
+    expect(r.sections.paragraphs[0]?.sentences[0]?.evidence).toEqual(
+      evOf("method"),
+    );
   });
 
   it("바뀌거나 새 문장은 새 id 와 student evidence, 미확인으로 둔다", () => {
@@ -84,7 +89,9 @@ describe("relinkEdited", () => {
     expect(r.sections.paragraphs[0]?.sentences[1]).toEqual({
       id: "p1-e2",
       text: "직접 표로 정리했다.",
-      evidence: { student: true },
+      evidence: [
+        { sourceType: "S", refId: null, item: "student_input", weight: "main" },
+      ],
       feeling: false,
       confirmed: false,
     });
@@ -108,7 +115,7 @@ describe("relinkEdited", () => {
       expect(merged.sections.paragraphs).toHaveLength(1);
       expect(merged.sections.paragraphs[0]?.sentences[1]).toMatchObject({
         id: "p2-s1",
-        evidence: { activityId: "a1", field: "result" },
+        evidence: evOf("result"),
       });
     }
     const split = relinkEdited(prev, [
@@ -143,5 +150,48 @@ describe("confirmFeeling", () => {
     expect(r.paragraphs[1]?.sentences[0]?.confirmed).toBe(true);
     expect(r.paragraphs[0]?.sentences[0]?.confirmed).toBe(false);
     expect(confirmFeeling(prev, "nope")).toEqual(prev);
+  });
+});
+
+describe("repickEvidence", () => {
+  const sources: EvidenceSources = {
+    records: [
+      {
+        id: "a1",
+        sourceType: "P",
+        completed: true,
+        itemTexts: { method: "계수를 바꿈", result: "폭이 좁아짐" },
+      },
+    ],
+    memos: [{ id: "m1", text: "메모 글" }],
+  };
+  const pick = (refId: string, item: string) => ({ refId, item });
+
+  it("고른 기록과 메모로 그 문장의 근거를 바꾼다", () => {
+    const r = repickEvidence(
+      prev,
+      "p1-s2",
+      [pick("a1", "result"), pick("m1", "action")],
+      sources,
+    );
+    expect(r?.paragraphs[0]?.sentences[1]?.evidence).toEqual([
+      { sourceType: "P", refId: "a1", item: "result", weight: "main" },
+      { sourceType: "H", refId: "m1", item: "action", weight: "main" },
+    ]);
+    expect(r?.paragraphs[0]?.sentences[1]?.feeling).toBe(false);
+    expect(r?.paragraphs[0]?.sentences[0]).toEqual(
+      prev.paragraphs[0]?.sentences[0],
+    );
+  });
+
+  it("선택 밖 근거는 버리고 하나도 남지 않으면 학생 입력 근거로 둔다", () => {
+    const r = repickEvidence(prev, "p1-s1", [pick("zzz", "method")], sources);
+    expect(r?.paragraphs[0]?.sentences[0]?.evidence).toEqual([
+      { sourceType: "S", refId: null, item: "student_input", weight: "main" },
+    ]);
+  });
+
+  it("없는 문장 id 는 null 이다", () => {
+    expect(repickEvidence(prev, "nope", [], sources)).toBeNull();
   });
 });
