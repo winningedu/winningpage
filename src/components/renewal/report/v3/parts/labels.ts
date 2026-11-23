@@ -74,6 +74,9 @@ export const REPORT_LABELS = {
   coverStudent: "학생명",
   coverGradeSchool: "학년 \u00b7 학교유형",
   coverDate: "진단일",
+  /** PDF p1 caption under the 7 scores; HEX_CAPTION (22 r50) is the 4p diagram caption */
+  coverStagesCaption:
+    "7단계 학습관리 점수 \u00b7 붉은 표시는 순환이 끊기는 지점",
   /** PDF p1 cards */
   profile: "학생 프로필",
   profileGradeSchool: "학년 / 학교",

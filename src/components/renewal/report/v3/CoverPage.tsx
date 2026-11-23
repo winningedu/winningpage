@@ -19,15 +19,24 @@ export default function CoverPage({ cover }: { cover: CoverPageData }) {
           {cover.stages.map((stage) => (
             <li
               key={stage.code}
-              className="flex flex-col gap-1 border-t-2 border-line pt-2"
+              data-broken={stage.broken ? "true" : undefined}
+              className={`flex flex-col gap-1 border-t-2 pt-2 ${stage.broken ? "border-dashed border-error text-error" : "border-line"}`}
             >
-              <span className="text-xs text-ink-sub">{stage.label}</span>
+              <span className={`text-xs ${stage.broken ? "" : "text-ink-sub"}`}>
+                {stage.label}
+              </span>
               <span className="text-xl font-semibold tabular-nums">
                 {stage.score}
               </span>
+              {stage.broken && (
+                <span className="text-xs">{REPORT_LABELS.broken}</span>
+              )}
             </li>
           ))}
         </ol>
+        <p className="text-xs text-ink-sub">
+          {REPORT_LABELS.coverStagesCaption}
+        </p>
       </section>
       <nav aria-label={REPORT_LABELS.coverToc} className="flex flex-col gap-3">
         <h2 className="text-sm text-ink-sub">{REPORT_LABELS.coverToc}</h2>

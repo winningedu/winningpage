@@ -18,6 +18,21 @@ describe("CoverPage", () => {
     expect(screen.getByText(cover.basis)).toBeInTheDocument();
   });
 
+  it("captions the 7 scores as PDF p1 and marks broken stages with a red dashed rule", () => {
+    render(<CoverPage cover={cover} />);
+    expect(
+      screen.getByText(
+        "7단계 학습관리 점수 \u00b7 붉은 표시는 순환이 끊기는 지점",
+      ),
+    ).toBeInTheDocument();
+    const broken = screen.getByText("우선순위").closest("li");
+    expect(broken).toHaveAttribute("data-broken", "true");
+    expect(broken).toHaveClass("border-dashed", "border-error");
+    expect(broken).toHaveTextContent("여기서 끊김");
+    const kept = screen.getByText("목표 설정").closest("li");
+    expect(kept).not.toHaveAttribute("data-broken");
+  });
+
   it("lists every toc entry with its fixed two-digit page number", () => {
     render(<CoverPage cover={cover} />);
     const items = screen
