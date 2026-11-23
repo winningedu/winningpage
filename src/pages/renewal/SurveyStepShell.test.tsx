@@ -105,7 +105,7 @@ function SubmitChild({
   draft = CALC_DRAFT,
 }: {
   onResult: (v: unknown) => void;
-  draft?: Record<string, unknown>;
+  draft?: Record<string, unknown> | undefined;
 }) {
   const ctx = useOutletContext<{
     submitDiagnosis: () => Promise<unknown>;
