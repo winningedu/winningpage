@@ -45,7 +45,7 @@ const APPLIED_MIGRATION_CUTOFF = "20261123111847";
 
 function isAppliedMigration(file) {
   const m = /^supabase\/migrations\/(\d{14})/.exec(file);
-  return m !== null && m[1] <= APPLIED_MIGRATION_CUTOFF;
+  return m !== null && (m[1] ?? "") <= APPLIED_MIGRATION_CUTOFF;
 }
 
 export function scan(root) {
