@@ -1,9 +1,17 @@
 // W9a 학습진단 상세 창의 내용(지표 세 칸, 요약 문장, 12개 영역 줄, 우선순위 표).
 
 import { describe, expect, test } from "vitest";
+import {
+  AREAS as AREA_INFO,
+  P1_CODES,
+  P2_CODES,
+} from "../../../src/lib/diagnosis-v3/codes.js";
+import { sheetRows } from "../../../src/lib/diagnosis-v3/sheet.js";
+import { COPY_TEXT } from "../../../src/lib/diagnosis-v3/source/copyText.js";
 import type { AreaScores } from "./coaching.js";
 import type { DiagnosisMeta } from "./coachingData.js";
-import { diagnosisDetail } from "./diagnosisDetail.js";
+import { copyOf, diagnosisDetail, requireRow } from "./diagnosisDetail.js";
+import { v3Scores } from "./diagnosisV3TestKit.js";
 
 const AREAS: AreaScores = {
   GOAL: 64,
@@ -165,5 +173,108 @@ describe("diagnosisDetail priorities", () => {
       ],
       ["유지", "목표 설정", "64점", "보통", "목표 대학, 학과 조사"],
     ]);
+  });
+});
+
+describe("diagnosisDetail with v3 scores", () => {
+  const v3 = (options = {}) => ({
+    version: "v3" as const,
+    scores: v3Scores(options),
+  });
+
+  test("metrics show the stored page totals, the engine urgency, and a previous only from the same version", () => {
+    const d = diagnosisDetail(
+      v3({ level: "L3" }),
+      v3({ total1: 55.4, total2: 50.5 }),
+      null,
+    );
+    expect(d.metrics).toEqual([
+      {
+        label: "학습 실행 역량(종합점수)",
+        value: "62점",
+        sub: "직전 진단 55점",
+      },
+      { label: "학교생활 준비도", value: "63점", sub: "직전 진단 51점" },
+      { label: "학습진단 긴급도", value: "높음", sub: "긴급도 점수 20점" },
+    ]);
+    // v2 previous beside a v3 diagnosis is never compared
+    const mixed = diagnosisDetail(v3(), flat(58, 69), null);
+    expect(
+      mixed.metrics.every(
+        (m) => m.sub === undefined || !m.sub.startsWith("직전"),
+      ),
+    ).toBe(true);
+    // v3 previous beside a v2 diagnosis is never compared either
+    const back = diagnosisDetail(AREAS, v3(), META);
+    expect(back.metrics[0]?.sub).toBeUndefined();
+  });
+
+  test("bars are the 7 common areas then the 6 track areas with sheet labels, state labels and the ACT1 first step", () => {
+    const { bars } = diagnosisDetail(v3({ track: "H12" }), null, null);
+    const codes = [...P1_CODES, ...P2_CODES.H12];
+    expect(bars.map((b) => b.name)).toEqual(
+      codes.map((c) => AREA_INFO[c].label),
+    );
+    expect(bars.map((b) => b.group)).toEqual([
+      ...P1_CODES.map(() => "execution"),
+      ...P2_CODES.H12.map(() => "readiness"),
+    ]);
+    expect(bars[3]).toMatchObject({
+      score: 40,
+      status: "취약",
+      target: 75,
+      firstStep: COPY_TEXT.AREA_P1_EXEC_ACT1,
+    });
+    const subj = bars.find((b) => b.name === AREA_INFO.H12_SUBJ.label);
+    expect(subj).toMatchObject({
+      score: 74,
+      status: "양호",
+      firstStep: COPY_TEXT.AREA_H12_SUBJ_ACT1,
+    });
+    expect(subj?.target).toBeUndefined();
+    // 06 r8: the target score is 75
+    expect(String(sheetRows("06_임계값").find((r) => r.r === 8)?.c[2])).toBe(
+      "75",
+    );
+  });
+
+  test("priority table follows 06 r35-r37: low to high, 1~4순위, then 유지 at 70+ else 점검", () => {
+    const { priorities } = diagnosisDetail(v3(), null, null);
+    expect(priorities.rows.map((r) => [r[0], r[1]])).toEqual([
+      ["1순위", AREA_INFO.P1_EXEC.label],
+      ["2순위", AREA_INFO.P1_PRIO.label],
+      ["3순위", AREA_INFO.P1_PATT.label],
+      ["4순위", AREA_INFO.P1_GOAL.label],
+      ["점검", AREA_INFO.P1_LOG.label],
+      ["유지", AREA_INFO.P1_PLAN.label],
+      ["유지", AREA_INFO.P1_ADJ.label],
+    ]);
+  });
+
+  test("summary names the first of the engine order with the gap to the target", () => {
+    const { summary } = diagnosisDetail(v3(), null, null);
+    expect(summary).toBe(
+      `가장 시급한 영역 ${AREA_INFO.P1_EXEC.label} 40점, 목표까지 35점`,
+    );
+  });
+
+  test("every track yields 13 bars, each with a first step from the sheet copy", () => {
+    for (const track of ["M3", "H12", "H3"] as const) {
+      const { bars } = diagnosisDetail(v3({ track }), null, null);
+      expect(bars).toHaveLength(13);
+      for (const b of bars) expect(b.firstStep).toBeTruthy();
+    }
+  });
+});
+
+describe("sheet and copy lookups never fall back (N1)", () => {
+  test("a missing copy id throws instead of returning undefined", () => {
+    expect(() => copyOf("AREA_NOPE_ACT1")).toThrow("AREA_NOPE_ACT1");
+    expect(copyOf("AREA_P1_EXEC_ACT1")).toBe(COPY_TEXT.AREA_P1_EXEC_ACT1);
+  });
+
+  test("a missing sheet row throws instead of using an empty row", () => {
+    expect(() => requireRow("06_임계값", 9999)).toThrow("06_임계값 r9999");
+    expect(requireRow("06_임계값", 37).r).toBe(37);
   });
 });

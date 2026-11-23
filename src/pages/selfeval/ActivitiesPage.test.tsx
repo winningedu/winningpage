@@ -16,8 +16,13 @@ const {
   pickListMock,
   pickSelectMock,
   pickManualMock,
+  pickLinkMock,
+  pickDeleteLinkMock,
+  pickConfirmLinkMock,
+  pickAddLinkMock,
   updateMock,
   detailMock,
+  manualLogsListMock,
   toastMock,
 } = vi.hoisted(() => ({
   shellMock: vi.fn(),
@@ -26,8 +31,13 @@ const {
   pickListMock: vi.fn(),
   pickSelectMock: vi.fn(),
   pickManualMock: vi.fn(),
+  pickLinkMock: vi.fn(),
+  pickDeleteLinkMock: vi.fn(),
+  pickConfirmLinkMock: vi.fn(),
+  pickAddLinkMock: vi.fn(),
   updateMock: vi.fn(),
   detailMock: vi.fn(),
+  manualLogsListMock: vi.fn(),
   toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
@@ -39,9 +49,14 @@ vi.mock("@/lib/selfeval/api", () => ({
   pickList: pickListMock,
   pickSelect: pickSelectMock,
   pickManual: pickManualMock,
+  pickLink: pickLinkMock,
+  pickDeleteLink: pickDeleteLinkMock,
+  pickConfirmLink: pickConfirmLinkMock,
+  pickAddLink: pickAddLinkMock,
   updateSession: updateMock,
   fetchSessionDetail: detailMock,
   fetchEntry: vi.fn(),
+  manualLogsList: manualLogsListMock,
 }));
 vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
@@ -52,6 +67,7 @@ vi.mock("react-router", async (orig) => ({
   useNavigate: () => navigateMock,
 }));
 
+import type { CandidateRow } from "@/lib/selfeval/types";
 import ActivitiesPage from "./ActivitiesPage";
 
 const refetchEntry = vi.fn();
@@ -66,6 +82,7 @@ type RowOpts = {
   grade?: "고1" | "고2" | "고3";
   reasons?: string[];
   result?: string | null;
+  linkState?: CandidateRow["linkState"];
 };
 
 function row(id: string, topic: string, o: RowOpts = {}) {
@@ -100,6 +117,7 @@ function row(id: string, topic: string, o: RowOpts = {}) {
     unavailableReason: o.unavailable ?? null,
     alreadyUsed: o.used ?? false,
     role: null,
+    ...(o.linkState !== undefined && { linkState: o.linkState }),
   };
 }
 
@@ -172,6 +190,11 @@ function pickResponse(over: Record<string, unknown> = {}) {
       planItem: null,
       growthApplied: true,
       currentStep: 1,
+      links: [],
+      linkStatus: "ok",
+      linkUnchecked: false,
+      maxSelect: 3,
+      excludedIds: [],
       ...over,
     },
   };
@@ -212,6 +235,10 @@ beforeEach(() => {
   });
   detailMock.mockResolvedValue(sessionDetail());
   pickListMock.mockResolvedValue(pickResponse());
+  manualLogsListMock.mockResolvedValue({
+    kind: "ok",
+    data: { ok: true, memos: [] },
+  });
 });
 
 describe("로딩과 오류", () => {
@@ -593,6 +620,22 @@ describe("확정", () => {
   });
 });
 
+describe("수기 수행보고", () => {
+  test("활동 선택 화면에 수기 수행보고 카드를 보인다", async () => {
+    renderPage();
+    await ready();
+    expect(screen.getByRole("region", { name: "수기 수행보고" })).toBeTruthy();
+    expect(manualLogsListMock).toHaveBeenCalledWith("s1");
+  });
+
+  test("분석을 시작해 잠긴 뒤에는 카드를 보이지 않는다", async () => {
+    pickListMock.mockResolvedValue(pickResponse({ currentStep: 3 }));
+    renderPage();
+    await screen.findByText(/분석을 시작한 뒤에는 활동을 바꿀 수 없어요/);
+    expect(screen.queryByRole("region", { name: "수기 수행보고" })).toBeNull();
+  });
+});
+
 describe("직접 입력", () => {
   test("직접 입력 버튼을 누르면 폼이 열린다", async () => {
     renderPage();
@@ -667,6 +710,293 @@ describe("직접 입력", () => {
     );
     await waitFor(() =>
       expect(navigateMock).toHaveBeenCalledWith("/app/selfeval/s/s1/analysis"),
+    );
+  });
+});
+
+const LINKED = {
+  linked: true,
+  hop: 1,
+  type: "inherit" as const,
+  strength: "explicit" as const,
+  confirmed: false,
+};
+const autoOf = (coreId: string | null, supportIds: string[]) => ({
+  coreId,
+  supportIds,
+  coreMismatch: false,
+  noneAboveThreshold: coreId === null,
+});
+const storedLink = (over: Record<string, unknown> = {}) => ({
+  fromId: "a",
+  toId: "b",
+  type: "inherit",
+  strength: "explicit",
+  source: "model",
+  confirmed: false,
+  deleted: false,
+  note: null,
+  quoteFrom: null,
+  quoteTo: null,
+  ...over,
+});
+
+describe("연계 확인", () => {
+  test("연계 판정 전이면 한 번 호출하고 확인 중 표시 뒤 서버의 자동 선택을 쓴다", async () => {
+    let resolve: (v: unknown) => void = () => {};
+    pickLinkMock.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    pickListMock.mockResolvedValue(
+      pickResponse({
+        linkStatus: "pending",
+        auto: autoOf("a", ["b", "c"]),
+      }),
+    );
+    renderPage();
+    expect(
+      await screen.findByRole("status", { name: "연계 확인 중" }),
+    ).toHaveTextContent("연계를 확인하고 있어요");
+    expect(pickLinkMock).toHaveBeenCalledTimes(1);
+    expect(pickLinkMock).toHaveBeenCalledWith("s1");
+    resolve(
+      pickResponse({
+        linkStatus: "ok",
+        auto: autoOf("a", ["c"]),
+        links: [storedLink({ toId: "c" })],
+        candidates: pickResponse().data.candidates.map((c) =>
+          c.activity.id === "c" ? { ...c, linkState: LINKED } : c,
+        ),
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("status", { name: "연계 확인 중" })).toBeNull(),
+    );
+    expect(checkbox(/버스 배차/).checked).toBe(true);
+    expect(checkbox(/표본조사/).checked).toBe(true);
+    expect(checkbox(/지역성/).checked).toBe(false);
+    expect(pickLinkMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("이미 판정을 마쳤으면 연계 호출을 하지 않는다", async () => {
+    renderPage();
+    await ready();
+    expect(pickLinkMock).not.toHaveBeenCalled();
+  });
+
+  test("연계 확인이 안 되면 안 됨을 표시하고 서버가 준 상위 추천을 그대로 쓴다", async () => {
+    pickListMock.mockResolvedValue(
+      pickResponse({
+        linkStatus: "pending",
+        auto: autoOf("a", ["b", "c"]),
+      }),
+    );
+    pickLinkMock.mockResolvedValue(
+      pickResponse({
+        linkStatus: "unchecked",
+        linkUnchecked: true,
+        auto: autoOf("a", ["b", "c"]),
+        linkError: "MODEL_FAILED",
+      }),
+    );
+    renderPage();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "연계 안내" }),
+      ).toHaveTextContent("연계 확인 안 됨"),
+    );
+    expect(screen.getAllByText("연계 확인 안 됨").length).toBeGreaterThan(1);
+    expect(
+      screen.getByRole("button", { name: "선택한 3건 분석하기" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("선택 상한", () => {
+  test("서버가 준 maxSelect 까지 고를 수 있고 넘으면 그 숫자로 안내한다", async () => {
+    pickListMock.mockResolvedValue(pickResponse({ maxSelect: 4 }));
+    renderPage();
+    await ready();
+    fireEvent.click(checkbox(/동아리 설문/));
+    expect(checkbox(/동아리 설문/).checked).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "선택한 4건 분석하기" }),
+    ).toBeTruthy();
+  });
+
+  test("상한에 닿으면 활동은 최대 N건까지 고를 수 있어요 로 알린다", async () => {
+    pickListMock.mockResolvedValue(pickResponse({ maxSelect: 3 }));
+    renderPage();
+    await ready();
+    fireEvent.click(checkbox(/동아리 설문/));
+    expect(screen.getByRole("status", { name: "선택 안내" })).toHaveTextContent(
+      "활동은 최대 3건까지 고를 수 있어요",
+    );
+  });
+});
+
+describe("연계 없는 기록", () => {
+  const unlinkedPick = () =>
+    pickResponse({
+      auto: autoOf("a", ["b"]),
+      links: [],
+      candidates: [
+        row("a", "버스 배차 간격 분석", { score: 86, same: true }),
+        row("b", "지역성을 활용한 마케팅", {
+          score: 70,
+          subject: "한국지리",
+          linkState: {
+            linked: false,
+            hop: null,
+            type: null,
+            strength: null,
+            confirmed: false,
+          },
+        }),
+      ],
+    });
+
+  test("연계 없는 보조 기록은 경고와 생성 제외 안내를 보인다", async () => {
+    pickListMock.mockResolvedValue(unlinkedPick());
+    renderPage();
+    await ready();
+    expect(
+      screen.getByText("다른 기록과 이어지는 지점을 찾지 못했어요"),
+    ).toBeTruthy();
+    expect(screen.getByText(/글을 만들 때 쓰지 않아요/)).toBeTruthy();
+  });
+
+  test("한 줄 설명을 쓰면 핵심과 잇는 선으로 저장하고 경고가 사라진다", async () => {
+    pickListMock.mockResolvedValue(unlinkedPick());
+    pickAddLinkMock.mockResolvedValue(
+      pickResponse({
+        auto: autoOf("a", ["b"]),
+        links: [
+          storedLink({
+            type: "background",
+            source: "student",
+            confirmed: true,
+            note: "지리 자료를 통계로 다시 봤다",
+          }),
+        ],
+        candidates: unlinkedPick().data.candidates,
+      }),
+    );
+    renderPage();
+    await ready();
+    const card = screen
+      .getByRole("heading", { name: "지역성을 활용한 마케팅" })
+      .closest("article") as HTMLElement;
+    fireEvent.change(within(card).getByLabelText("연계 유형"), {
+      target: { value: "background" },
+    });
+    fireEvent.change(within(card).getByLabelText("어떻게 이어지는지 한 줄"), {
+      target: { value: "지리 자료를 통계로 다시 봤다" },
+    });
+    fireEvent.click(within(card).getByRole("button", { name: "이어서 쓰기" }));
+    await waitFor(() =>
+      expect(pickAddLinkMock).toHaveBeenCalledWith("s1", {
+        fromId: "a",
+        toId: "b",
+        type: "background",
+        note: "지리 자료를 통계로 다시 봤다",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("다른 기록과 이어지는 지점을 찾지 못했어요"),
+      ).toBeNull(),
+    );
+  });
+});
+
+describe("연계 지도", () => {
+  const mapPick = (over: Record<string, unknown> = {}) =>
+    pickResponse({
+      auto: autoOf("a", ["b"]),
+      links: [storedLink({ strength: "implicit" })],
+      candidates: [
+        row("a", "버스 배차 간격 분석", { score: 86, same: true }),
+        row("b", "지역성을 활용한 마케팅", {
+          score: 70,
+          subject: "한국지리",
+          linkState: { ...LINKED, strength: "implicit" },
+        }),
+      ],
+      ...over,
+    });
+
+  test("고른 기록이 둘 이상이면 연계 지도를 보인다", async () => {
+    pickListMock.mockResolvedValue(mapPick());
+    renderPage();
+    await ready();
+    expect(screen.getByRole("region", { name: "연계 지도" })).toBeTruthy();
+  });
+
+  test("연계 판정을 못 했으면 지도를 보이지 않는다", async () => {
+    pickListMock.mockResolvedValue(
+      mapPick({ linkStatus: "unchecked", linkUnchecked: true }),
+    );
+    renderPage();
+    await ready();
+    expect(screen.queryByRole("region", { name: "연계 지도" })).toBeNull();
+  });
+
+  test("선을 지우면 서버에 알리고 응답으로 지도를 다시 그린다", async () => {
+    pickListMock.mockResolvedValue(mapPick());
+    pickDeleteLinkMock.mockResolvedValue(
+      mapPick({ links: [storedLink({ deleted: true })] }),
+    );
+    renderPage();
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "선 지우기" }));
+    await waitFor(() =>
+      expect(pickDeleteLinkMock).toHaveBeenCalledWith("s1", "a", "b"),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("이어진 선이 없어요")).toBeTruthy(),
+    );
+  });
+
+  test("암묵 연계를 확인하면 서버에 알린다", async () => {
+    pickListMock.mockResolvedValue(mapPick());
+    pickConfirmLinkMock.mockResolvedValue(
+      mapPick({
+        links: [storedLink({ strength: "implicit", confirmed: true })],
+      }),
+    );
+    renderPage();
+    await ready();
+    fireEvent.click(
+      screen.getByRole("button", { name: "실제로 이어서 했어요" }),
+    );
+    await waitFor(() =>
+      expect(pickConfirmLinkMock).toHaveBeenCalledWith("s1", "a", "b"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "실제로 이어서 했어요" }),
+      ).toBeNull(),
+    );
+  });
+
+  test("지도 편집이 실패하면 서버 문구를 알린다", async () => {
+    pickListMock.mockResolvedValue(mapPick());
+    pickDeleteLinkMock.mockResolvedValue({
+      kind: "error",
+      status: 404,
+      code: "LINK_NOT_FOUND",
+      message: "해당 연계를 찾을 수 없어요.",
+    });
+    renderPage();
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "선 지우기" }));
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith(
+        "해당 연계를 찾을 수 없어요.",
+      ),
     );
   });
 });

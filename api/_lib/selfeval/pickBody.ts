@@ -19,7 +19,18 @@ export type PickBody =
       coreId: string;
       supportIds: string[];
     }
-  | { sessionId: string; action: "manual"; input: ManualInput };
+  | { sessionId: string; action: "manual"; input: ManualInput }
+  | { sessionId: string; action: "link" }
+  | { sessionId: string; action: "delete-link"; fromId: string; toId: string }
+  | { sessionId: string; action: "confirm-link"; fromId: string; toId: string }
+  | {
+      sessionId: string;
+      action: "add-link";
+      fromId: string;
+      toId: string;
+      type: string;
+      note: string;
+    };
 
 export type PickBodyValidation =
   | { ok: true; body: PickBody }
@@ -45,6 +56,8 @@ const MANUAL_TEXT_KEYS = [
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
+
+const nonEmpty = (v: unknown): v is string => typeof v === "string" && v !== "";
 
 const invalid = (message: string): PickBodyValidation => ({
   ok: false,
@@ -102,7 +115,28 @@ export function validatePickBody(body: unknown): PickBodyValidation {
     if (!checked.ok) return checked;
     return { ok: true, body: { sessionId, action, input } };
   }
-  return invalid("action 은 list, select, manual 중 하나여야 해요.");
+  if (action === "link") return { ok: true, body: { sessionId, action } };
+  if (
+    action === "delete-link" ||
+    action === "confirm-link" ||
+    action === "add-link"
+  ) {
+    const { fromId, toId } = body;
+    if (!nonEmpty(fromId) || !nonEmpty(toId)) {
+      return invalid("fromId 와 toId 가 필요해요.");
+    }
+    if (action === "delete-link" || action === "confirm-link") {
+      return { ok: true, body: { sessionId, action, fromId, toId } };
+    }
+    const { type, note } = body;
+    if (!nonEmpty(type) || typeof note !== "string") {
+      return invalid("type 과 note 가 필요해요.");
+    }
+    return { ok: true, body: { sessionId, action, fromId, toId, type, note } };
+  }
+  return invalid(
+    "action 은 list, select, manual, link, delete-link, confirm-link, add-link 중 하나여야 해요.",
+  );
 }
 
 /** 후보 계산에 쓰는 컨텍스트. 연동은 스냅샷이 있고 학생이 켠 때만 적용한다. */

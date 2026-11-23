@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type {
+  CandidateLinkState,
   CandidateRow,
   GrowthSnapshot,
   PickListResponse,
@@ -11,6 +12,8 @@ import {
   filterCandidates,
   formatDotDate,
   initialSelection,
+  linkChipText,
+  reasonLinesOf,
   sourceLabel,
   sourceLabelOrNull,
   summarizeResult,
@@ -113,6 +116,19 @@ describe("deriveRoles", () => {
     expect(r.tooMany).toBe(true);
   });
 
+  test("서버가 준 선택 상한 N 만큼 보조를 쓴다", () => {
+    const rows = [
+      row("a", 90, { sameSubject: true }),
+      row("b", 50),
+      row("c", 60),
+      row("d", 70),
+    ];
+    const r = deriveRoles(["a", "b", "c", "d"], rows, 4);
+    expect(r.supportIds).toEqual(["d", "c", "b"]);
+    expect(r.tooMany).toBe(false);
+    expect(deriveRoles(["a", "b", "c", "d"], rows, 3).tooMany).toBe(true);
+  });
+
   test("이미 쓴 활동이 하나라도 있으면 경고를 켠다", () => {
     const rows = [
       row("a", 90, { sameSubject: true, used: true }),
@@ -127,6 +143,22 @@ describe("deriveRoles", () => {
       coreId: "b",
       supportIds: [],
     });
+  });
+});
+
+describe("toggleSelection 상한", () => {
+  const rows = ["a", "b", "c", "d"].map((id) => row(id, 60));
+  test("상한 N 에 닿으면 건수를 넣은 안내를 돌려준다", () => {
+    expect(toggleSelection(["a", "b", "c"], "d", rows, 3)).toEqual({
+      next: ["a", "b", "c"],
+      notice: "활동은 최대 3건까지 고를 수 있어요",
+    });
+    expect(toggleSelection(["a", "b", "c"], "d", rows, 4).next).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
   });
 });
 
@@ -324,5 +356,89 @@ describe("bannerFromSnapshot", () => {
       stageLabel: null,
       currentSubtheme: "2학년 소주제",
     });
+  });
+});
+
+describe("linkChipText", () => {
+  const withLink = (linkState: CandidateLinkState | null): CandidateRow => ({
+    ...row("x", 70),
+    linkState,
+  });
+
+  test("연계됨은 유형 라벨, 단계, 기록에 명시를 보여 준다", () => {
+    expect(
+      linkChipText(
+        withLink({
+          linked: true,
+          hop: 1,
+          type: "inherit",
+          strength: "explicit",
+          confirmed: false,
+        }),
+      ),
+    ).toBe("연계됨, 이어받음, 1단계, 기록에 명시");
+  });
+
+  test("암묵 연계는 추론이고 학생이 확인했으면 그렇게 적는다", () => {
+    const implicit = (confirmed: boolean) =>
+      withLink({
+        linked: true,
+        hop: 2,
+        type: "deepen",
+        strength: "implicit",
+        confirmed,
+      });
+    expect(linkChipText(implicit(false))).toBe(
+      "연계됨, 같은 질문 심화, 2단계, 추론",
+    );
+    expect(linkChipText(implicit(true))).toBe(
+      "연계됨, 같은 질문 심화, 2단계, 추론, 학생 확인",
+    );
+  });
+
+  test("연계 상태가 없거나 이어지지 않았으면 연계 없음이다", () => {
+    expect(linkChipText(withLink(null))).toBe("연계 없음");
+    expect(
+      linkChipText(
+        withLink({
+          linked: false,
+          hop: null,
+          type: null,
+          strength: null,
+          confirmed: false,
+        }),
+      ),
+    ).toBe("연계 없음");
+  });
+
+  test("핵심 자신(0단계)과 사용할 수 없는 행에는 칩이 없다", () => {
+    expect(
+      linkChipText(
+        withLink({
+          linked: true,
+          hop: 0,
+          type: null,
+          strength: null,
+          confirmed: false,
+        }),
+      ),
+    ).toBeNull();
+    expect(linkChipText({ ...row("u", null), linkState: null })).toBeNull();
+  });
+});
+
+describe("reasonLinesOf", () => {
+  test("서버의 선정 이유를 그대로 쓰고 없으면 적합도 이유로 대신한다", () => {
+    const base = row("x", 70);
+    expect(reasonLinesOf({ ...base, selectionReasons: ["가", "나"] })).toEqual([
+      "가",
+      "나",
+    ]);
+    expect(
+      reasonLinesOf({
+        ...base,
+        fit: base.fit && { ...base.fit, reasons: ["다"] },
+      }),
+    ).toEqual(["다"]);
   });
 });

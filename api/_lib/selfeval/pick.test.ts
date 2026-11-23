@@ -117,6 +117,63 @@ const row = (
   ...o,
 });
 
+describe("buildCandidates v4.2", () => {
+  it("수행, 심화, 직접 입력만 후보이고 업로드와 자기평가서 기록은 뺀다", () => {
+    const rows = buildCandidates(
+      [
+        rec("a"),
+        rec("d", { sourceProgram: "deep" }),
+        rec("m", { sourceProgram: "manual" }),
+        rec("u", { sourceProgram: "upload" }),
+        rec("s", { sourceProgram: "self" }),
+      ],
+      ctx(),
+    );
+    expect(rows.map((r) => r.activity.id).sort()).toEqual(["a", "d", "m"]);
+  });
+  it("record_status 가 completed 가 아니면 이유를 달고 쓸 수 없게 한다", () => {
+    const rows = buildCandidates(
+      [
+        rec("c"),
+        rec("i", { recordStatus: "in_progress" }),
+        rec("p", { recordStatus: "plan" }),
+        rec("x", { status: "planned" }),
+      ],
+      ctx(),
+    );
+    const by = (id: string) => rows.find((r) => r.activity.id === id);
+    expect(by("c")?.recordStatus).toBe("completed");
+    expect(by("c")?.fit).not.toBeNull();
+    expect(by("i")?.recordStatus).toBe("in_progress");
+    expect(by("i")?.fit).toBeNull();
+    expect(by("i")?.unavailableReason).toBe(
+      "아직 진행 중인 기록이라 근거로 쓸 수 없어요",
+    );
+    expect(by("p")?.unavailableReason).toBe(
+      "아직 수행하지 않은 계획이라 재료로 쓸 수 없어요",
+    );
+    expect(by("x")?.recordStatus).toBe("plan");
+  });
+  it("제출일을 쓰고 없으면 createdAt 으로 읽어 최신순으로 놓는다", () => {
+    const rows = buildCandidates(
+      [
+        rec("old", {
+          createdAt: "2026-09-01T00:00:00Z",
+          submittedAt: "2026-01-01T00:00:00Z",
+        }),
+        rec("new", {
+          createdAt: "2026-02-01T00:00:00Z",
+          submittedAt: "2026-08-01T00:00:00Z",
+        }),
+        rec("mid", { createdAt: "2026-05-01T00:00:00Z" }),
+      ],
+      ctx(),
+    );
+    expect(rows.map((r) => r.activity.id)).toEqual(["new", "mid", "old"]);
+    expect(rows[1]?.submittedAt).toBe("2026-05-01T00:00:00Z");
+  });
+});
+
 describe("autoSelect", () => {
   it("작성 과목 활동 중 최고점이 핵심, 보조는 나머지 상위 2", () => {
     const r = autoSelect(
@@ -142,8 +199,20 @@ describe("autoSelect", () => {
     expect(r.coreMismatch).toBe(true);
     expect(r.supportIds).toEqual(["b"]);
   });
-  it("40 미만은 대상이 아니다", () => {
-    const r = autoSelect([row("a", 39, true), row("p", null)], ctx());
+  it("작성 과목 활동은 40 미만이어도 핵심이 된다", () => {
+    const r = autoSelect(
+      [row("a", 39, true), row("b", 45), row("p", null)],
+      ctx(),
+    );
+    expect(r).toEqual({
+      coreId: "a",
+      supportIds: ["b"],
+      coreMismatch: false,
+      noneAboveThreshold: false,
+    });
+  });
+  it("작성 과목 활동이 없고 40 이상도 없으면 자동 선택이 없다", () => {
+    const r = autoSelect([row("a", 39), row("p", null)], ctx());
     expect(r).toEqual({
       coreId: null,
       supportIds: [],
@@ -169,6 +238,7 @@ describe("applySelection", () => {
       rows,
       { coreId: "a", supportIds: ["b", "c"] },
       ctx(),
+      3,
     );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.coreId).toBe("b");
@@ -176,45 +246,83 @@ describe("applySelection", () => {
     expect(r.coreMismatch).toBe(false);
   });
   it("작성 과목 활동이 선택에 없으면 그대로 두고 coreMismatch", () => {
-    const r = applySelection(rows, { coreId: "a", supportIds: ["c"] }, ctx());
+    const r = applySelection(
+      rows,
+      { coreId: "a", supportIds: ["c"] },
+      ctx(),
+      3,
+    );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.coreId).toBe("a");
     expect(r.coreMismatch).toBe(true);
   });
   it("핵심이 비면 CORE_REQUIRED", () => {
-    const r = applySelection(rows, { coreId: "", supportIds: [] }, ctx());
+    const r = applySelection(rows, { coreId: "", supportIds: [] }, ctx(), 3);
     expect(r).toMatchObject({ ok: false, code: "CORE_REQUIRED" });
   });
   it("모르는 활동은 UNKNOWN_ACTIVITY", () => {
     expect(
-      applySelection(rows, { coreId: "zz", supportIds: [] }, ctx()),
+      applySelection(rows, { coreId: "zz", supportIds: [] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNKNOWN_ACTIVITY" });
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["zz"] }, ctx()),
+      applySelection(rows, { coreId: "a", supportIds: ["zz"] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNKNOWN_ACTIVITY" });
   });
   it("계획 활동은 UNAVAILABLE", () => {
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["p"] }, ctx()),
+      applySelection(rows, { coreId: "a", supportIds: ["p"] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNAVAILABLE" });
   });
   it("보조 3개는 TOO_MANY_SUPPORT", () => {
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["b", "c", "d"] }, ctx()),
+      applySelection(
+        rows,
+        { coreId: "a", supportIds: ["b", "c", "d"] },
+        ctx(),
+        3,
+      ),
     ).toMatchObject({ ok: false, code: "TOO_MANY_SUPPORT" });
+  });
+  it("선택 상한을 넘기면 N 을 넣은 메시지로 거절한다", () => {
+    const many = ["a", "b", "c", "d", "e", "f"].map((id) => row(id, 60));
+    const r = applySelection(
+      many,
+      { coreId: "a", supportIds: ["b", "c", "d", "e", "f"] },
+      ctx(),
+      5,
+    );
+    expect(r).toEqual({
+      ok: false,
+      code: "TOO_MANY_SUPPORT",
+      message: "활동은 최대 5건까지 고를 수 있어요.",
+    });
+    expect(
+      applySelection(
+        many,
+        { coreId: "a", supportIds: ["b", "c", "d", "e"] },
+        ctx(),
+        5,
+      ).ok,
+    ).toBe(true);
   });
   it("보조에 핵심이 섞여 있거나 중복이면 걸러서 센다", () => {
     const r = applySelection(
       rows,
       { coreId: "a", supportIds: ["a", "c", "c"] },
       ctx(),
+      3,
     );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.supportIds).toEqual(["c"]);
   });
   it("이미 쓴 활동은 경고만 하고 허용", () => {
     const used = [row("a", 90, true, { alreadyUsed: true }), row("c", 50)];
-    const r = applySelection(used, { coreId: "a", supportIds: ["c"] }, ctx());
+    const r = applySelection(
+      used,
+      { coreId: "a", supportIds: ["c"] },
+      ctx(),
+      3,
+    );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.warnings).toContain("이전 자기평가서에서 쓴 활동이에요");
   });

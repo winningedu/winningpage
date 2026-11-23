@@ -29,7 +29,7 @@ import type { ReactNode } from "react";
 
 type QuestionCardProps = {
   // exactOptionalPropertyTypes 대응 — 호출부(QuestionCardList)가 옵셔널 필드를 그대로 넘긴다.
-  number?: number | undefined;
+  number?: number | string | undefined;
   category?: string | undefined;
   title?: ReactNode | undefined;
   helper?: string | undefined;

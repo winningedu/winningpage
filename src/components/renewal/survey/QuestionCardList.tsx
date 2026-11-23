@@ -36,7 +36,7 @@ type QuestionCardListProps = {
   questions: SurveyQuestion[];
   answers: Answers;
   onAnswer: (questionId: string, value: unknown) => void;
-  // exactOptionalPropertyTypes 대응 — 호출부(SurveyStepPage/SurveyPreview)가 옵셔널 필드를 그대로 넘긴다.
+  // exactOptionalPropertyTypes 대응: 호출부가 옵셔널 필드를 그대로 넘긴다.
   highlightedId?: string | number | null | undefined;
   cascadeLevels?: CascadeLevel[] | undefined;
 };

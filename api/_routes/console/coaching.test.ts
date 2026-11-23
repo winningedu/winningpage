@@ -17,6 +17,7 @@ vi.mock("../../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
+import { v3Payload } from "../../_lib/console/diagnosisV3TestKit.js";
 import handler from "./coaching.js";
 
 const get = (query: Record<string, string> = { studentId: "s1" }) =>
@@ -455,6 +456,30 @@ describe("GET /api/console/coaching", () => {
         "2026-10-26T14:50:00.000Z",
       );
     });
+  });
+
+  test("diagnosisUrgency of a v2 student stays the console rule on the lowest area (60 is mid)", async () => {
+    expect(
+      ((await get()).body as { diagnosisUrgency: string }).diagnosisUrgency,
+    ).toBe("mid");
+  });
+
+  test("diagnosisUrgency of a v3 student is the urgency step the engine stored", async () => {
+    kit.state.rows.diagnosis_reports = (f) =>
+      matchRows(
+        [
+          {
+            attempt_id: "d1",
+            profile_id: "s1",
+            diagnosed_at: "2026-10-10T00:00:00Z",
+            payload: v3Payload({ level: "L4" }),
+            snapshot: null,
+          },
+        ],
+        f,
+      );
+    const body = (await get()).body as { diagnosisUrgency: string };
+    expect(body.diagnosisUrgency).toBe("very_high");
   });
 
   test("a student who uses nothing has no scored axis and insufficient data", async () => {

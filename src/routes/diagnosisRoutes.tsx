@@ -3,7 +3,6 @@ import { Navigate } from "react-router";
 import { AuthCheckingFallback } from "@/components/routeGuards/RouteGuardUi";
 import { requireAuthMiddleware } from "@/lib/routeMiddleware";
 import LearningDiagnosisLanding from "@/pages/renewal/LearningDiagnosisLanding";
-import SurveyPreview from "@/pages/renewal/SurveyPreview";
 import SurveyStepPage from "@/pages/renewal/SurveyStepPage";
 import SurveyStepShell from "@/pages/renewal/SurveyStepShell";
 
@@ -32,8 +31,6 @@ const diagnosisRoutes: RouteObject[] = [
           <Navigate to="/app/learning-diagnosis/survey/1" replace />
         ),
       },
-      // 정적 세그먼트를 :step 보다 먼저 선언 — v6 랭킹상 정적이 우선이지만 의도를 코드로 고정한다.
-      { path: "preview", Component: SurveyPreview },
       { path: ":step", Component: SurveyStepPage },
       // /survey/1/2 같은 초과 세그먼트 방어. 반드시 마지막.
       {

@@ -1,60 +1,138 @@
+import { useEffect, useState } from "react";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import { Button } from "@/components/ui/button";
+import { evidenceCompletion } from "@/lib/selfeval/evidence";
 import type {
+  EvidenceMemoView,
   GenerationSections,
   Sentence,
   SessionActivityView,
 } from "@/lib/selfeval/types";
-import { type EvidenceView, paragraphSummaries } from "./resultLogic";
+import EvidenceRepicker from "./EvidenceRepicker";
+import {
+  type EvidenceView,
+  paragraphSummaries,
+  repickGroups,
+} from "./resultLogic";
 
 // 결과 화면 우측 패널 두 장(시안 37~41).
 
 type EvidenceProps = {
   sections: GenerationSections;
   activities: SessionActivityView[];
-  selected: { sentence: Sentence; view: EvidenceView } | null;
+  memos: EvidenceMemoView[];
+  selected: { sentence: Sentence; views: EvidenceView[] } | null;
+  busy: boolean;
+  onRepick: (
+    sentenceId: string,
+    picks: { refId: string; item: string }[],
+  ) => void;
 };
 
 export function EvidencePanel({
   sections,
   activities,
+  memos,
   selected,
+  busy,
+  onRepick,
 }: EvidenceProps) {
   const summaries = paragraphSummaries(sections, activities);
+  const completion = evidenceCompletion(
+    sections.paragraphs.flatMap((p) => p.sentences),
+  );
+  const [repicking, setRepicking] = useState(false);
+  // 다른 문장을 고르면 열려 있던 다시 고르기는 닫는다.
+  const selectedId = selected?.sentence.id ?? null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 문장이 바뀔 때만 닫는다
+  useEffect(() => setRepicking(false), [selectedId]);
   return (
     <aside className={CARD} aria-label="문장 근거">
       <h2 className={CARD_TITLE}>문장 근거</h2>
+      <p className="mt-1 text-app-label text-ink-sub">
+        근거 연결 {completion.linked}/{completion.total}문장
+      </p>
       {selected ? (
-        <div className="mt-3 rounded-lg bg-surface-03 px-4 py-3">
-          {selected.view.kind === "activity" ? (
-            <>
-              <p className="text-app-label font-semibold text-ink-strong">
-                {selected.view.activityName}
-              </p>
-              <p className="mt-1 text-app-caption font-medium text-accent">
-                {selected.view.fieldLabel}
-              </p>
-              {selected.view.source && (
-                <p className="mt-2 text-app-label text-ink-strong">
-                  {selected.view.source}
+        <div className="mt-3 flex flex-col gap-2">
+          {selected.views.length === 0 && (
+            <p className="rounded-lg bg-surface-03 px-4 py-3 text-app-label text-ink-strong">
+              연결된 근거가 없어요
+            </p>
+          )}
+          {selected.views.map((view, i) => (
+            <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: 문장 근거는 순서가 곧 식별자다
+              key={i}
+              className="rounded-lg bg-surface-03 px-4 py-3"
+            >
+              {view.kind === "activity" && (
+                <>
+                  <p className="text-app-label font-semibold text-ink-strong">
+                    {view.activityName}
+                  </p>
+                  <p className="mt-1 text-app-caption font-medium text-accent">
+                    {view.fieldLabel}
+                  </p>
+                  {view.source && (
+                    <p className="mt-2 text-app-label text-ink-strong">
+                      {view.source}
+                    </p>
+                  )}
+                </>
+              )}
+              {view.kind === "memo" && (
+                <>
+                  <p className="text-app-label font-semibold text-ink-strong">
+                    수기 메모{view.writtenAt ? ` ${view.writtenAt}` : ""}
+                  </p>
+                  <p className="mt-1 text-app-caption font-medium text-accent">
+                    {view.fieldLabel}
+                  </p>
+                  <p className="mt-2 text-app-label text-ink-strong">
+                    {view.text}
+                  </p>
+                </>
+              )}
+              {view.kind === "student" && (
+                <p className="text-app-label text-ink-strong">
+                  학생이 고치거나 직접 쓴 문장이에요
                 </p>
               )}
-            </>
+            </div>
+          ))}
+          {repicking ? (
+            <EvidenceRepicker
+              sentence={selected.sentence}
+              groups={repickGroups(activities, memos)}
+              busy={busy}
+              onApply={(picks) => {
+                setRepicking(false);
+                onRepick(selected.sentence.id, picks);
+              }}
+              onCancel={() => setRepicking(false)}
+            />
           ) : (
-            <p className="text-app-label text-ink-strong">
-              학생이 고친 문장이에요
-            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 self-start px-3 text-app-label"
+              disabled={busy}
+              onClick={() => setRepicking(true)}
+            >
+              근거 다시 고르기
+            </Button>
           )}
         </div>
       ) : (
         <p className="mt-2 text-app-label text-ink-sub">
-          밑줄 친 문장을 누르면 어떤 활동에서 나왔는지 볼 수 있어요
+          문장을 누르면 어떤 활동에서 나왔는지 볼 수 있어요
         </p>
       )}
       <ul className="mt-4 flex flex-col gap-2">
         {summaries.map((s) => (
           <li key={s.number} className="text-app-label text-ink-strong">
-            {s.number}문단 {s.roleLabel}
+            {s.number}문단
             {s.activityNames.length > 0 && `: ${s.activityNames.join(", ")}`}
           </li>
         ))}

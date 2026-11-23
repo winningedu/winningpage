@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import GoalPageHeader from "@/components/goal/GoalPageHeader";
 import { CARD } from "@/components/growth/start/cardStyles";
@@ -13,7 +13,11 @@ import {
   toggleSelection,
 } from "@/components/selfeval/activities/activitiesLogic";
 import CandidateCard from "@/components/selfeval/activities/CandidateCard";
+import LinkMap from "@/components/selfeval/activities/LinkMap";
+import LinkNoteForm from "@/components/selfeval/activities/LinkNoteForm";
+import { unlinkedIds } from "@/components/selfeval/activities/linkMapLogic";
 import ManualEntryCard from "@/components/selfeval/activities/ManualEntryCard";
+import ManualLogsCard from "@/components/selfeval/activities/ManualLogsCard";
 import { initialManualForm } from "@/components/selfeval/activities/manualForm";
 import SourceFilterCard from "@/components/selfeval/activities/SourceFilterCard";
 import GrowthDirectionBanner from "@/components/selfeval/GrowthDirectionBanner";
@@ -29,6 +33,10 @@ import { useToast } from "@/context/ToastContext";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/growth/apiResult";
 import {
   type ApiResult,
+  pickAddLink,
+  pickConfirmLink,
+  pickDeleteLink,
+  pickLink,
   pickManual,
   pickSelect,
   updateSession,
@@ -41,7 +49,9 @@ import {
 } from "@/lib/selfeval/queries";
 import type {
   HighGrade,
+  LinkType,
   ManualInput,
+  PickLinkResponse,
   PickListResponse,
   SessionView,
 } from "@/lib/selfeval/types";
@@ -142,9 +152,20 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
   const [busy, setBusy] = useState(false);
   const [directionDismissed, setDirectionDismissed] = useState(false);
   const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [linkFailed, setLinkFailed] = useState(false);
+  const linkStarted = useRef(false);
+
+  // 서버가 돌려준 본문(연계 판정, 선 편집)을 그대로 캐시에 넣어 화면이 한 번에 다시 그려지게 한다.
+  function applyPick(data: PickListResponse) {
+    queryClient.setQueryData(
+      selfevalPickQuery(userId, sessionId).queryKey,
+      data,
+    );
+  }
 
   const selected = local ?? initialSelection(pick);
-  const roles = deriveRoles(selected, pick.candidates);
+  const roles = deriveRoles(selected, pick.candidates, pick.maxSelect);
   // 분석을 시작한 뒤(단계 3 이상)에는 서버가 선택 변경을 거절한다. 파기하고 새로 시작해야 한다.
   const locked = pick.currentStep >= 3;
   const growthApplied = pick.growthApplied;
@@ -195,7 +216,12 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
 
   function toggle(id: string) {
     if (locked) return;
-    const result = toggleSelection(selected, id, pick.candidates);
+    const result = toggleSelection(
+      selected,
+      id,
+      pick.candidates,
+      pick.maxSelect,
+    );
     setLocal(result.next);
     setNotice(result.notice);
   }
@@ -247,9 +273,58 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
       return;
     }
     setLocal(null);
+    linkStarted.current = false;
     await refetchAll();
     await refetchEntry();
     setBusy(false);
+  }
+
+  const linkStatus = linkFailed ? "unchecked" : pick.linkStatus;
+  const linkUnchecked = linkFailed || pick.linkUnchecked;
+  const unlinked = new Set(
+    linkStatus === "ok" && roles.coreId !== null
+      ? unlinkedIds(pick.links, roles.supportIds)
+      : [],
+  );
+  const chosenAll = pick.candidates
+    .filter((r) => isChosen(r.activity.id))
+    .sort((a, b) => order(a.activity.id) - order(b.activity.id));
+
+  // 연계 판정은 모델 1회라 화면에 들어와 판정 전이면 한 번만 부른다(명세 No.174, 196).
+  useEffect(() => {
+    if (
+      pick.linkStatus !== "pending" ||
+      locked ||
+      pick.candidates.length === 0 ||
+      linkStarted.current
+    ) {
+      return;
+    }
+    linkStarted.current = true;
+    setLinking(true);
+    void pickLink(sessionId).then((result) => {
+      setLinking(false);
+      if (result.kind === "ok") {
+        applyPick(result.data);
+        return;
+      }
+      setLinkFailed(true);
+      toast.error(failureMessage(result));
+    });
+  });
+
+  async function editLink(
+    call: () => Promise<ApiResult<PickLinkResponse>>,
+  ): Promise<void> {
+    if (busy) return;
+    setBusy(true);
+    const result = await call();
+    setBusy(false);
+    if (result.kind !== "ok") {
+      toast.error(failureMessage(result));
+      return;
+    }
+    applyPick(result.data);
   }
 
   const emptyAfterAuto = selected.length === 0 && pick.candidates.length > 0;
@@ -340,6 +415,16 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
               selectedCount={selected.length}
             />
 
+            {linking && (
+              <p role="status" aria-label="연계 확인 중" className={NOTE}>
+                연계를 확인하고 있어요
+              </p>
+            )}
+            {linkUnchecked && (
+              <p role="status" aria-label="연계 안내" className={NOTE}>
+                연계 확인 안 됨. 적합도가 높은 3건을 추천했어요.
+              </p>
+            )}
             {notice && (
               <p role="status" aria-label="선택 안내" className={NOTE}>
                 {notice}
@@ -387,7 +472,25 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     checked
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
-                  />
+                    linkStatus={linkStatus}
+                    unlinked={unlinked.has(row.activity.id)}
+                  >
+                    {roles.coreId !== null && (
+                      <LinkNoteForm
+                        submitLabel="이어서 쓰기"
+                        busy={busy}
+                        onSubmit={(input) =>
+                          void editLink(() =>
+                            pickAddLink(sessionId, {
+                              fromId: roles.coreId as string,
+                              toId: row.activity.id,
+                              ...input,
+                            }),
+                          )
+                        }
+                      />
+                    )}
+                  </CandidateCard>
                 ))}
               </section>
             )}
@@ -407,9 +510,31 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     checked={false}
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
+                    linkStatus={linkStatus}
+                    unlinked={false}
                   />
                 ))}
               </section>
+            )}
+
+            {linkStatus === "ok" && chosenAll.length >= 2 && (
+              <LinkMap
+                rows={chosenAll}
+                links={pick.links}
+                busy={busy}
+                onDelete={(fromId, toId) =>
+                  void editLink(() => pickDeleteLink(sessionId, fromId, toId))
+                }
+                onConfirm={(fromId, toId) =>
+                  void editLink(() => pickConfirmLink(sessionId, fromId, toId))
+                }
+                onAdd={(input: {
+                  fromId: string;
+                  toId: string;
+                  type: LinkType;
+                  note: string;
+                }) => void editLink(() => pickAddLink(sessionId, input))}
+              />
             )}
 
             {showManual ? (
@@ -440,6 +565,8 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
               </section>
             )}
 
+            <ManualLogsCard sessionId={sessionId} />
+
             <div className="flex justify-end gap-3">
               <Button
                 type="button"
@@ -456,7 +583,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                 type="button"
                 size="lg"
                 className="h-10 px-5 text-app-label font-semibold"
-                disabled={busy || roles.coreId === null}
+                disabled={busy || linking || roles.coreId === null}
                 onClick={() => void confirm()}
               >
                 선택한 {selected.length}건 분석하기

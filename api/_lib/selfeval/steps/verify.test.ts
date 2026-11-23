@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   consumeCredit: vi.fn(),
   loadSessionActivities: vi.fn(),
   loadReports: vi.fn(),
+  loadEvidenceRows: vi.fn(),
   hasSelfevalAccess: vi.fn(),
   readSelfevalQuota: vi.fn(),
 }));
@@ -20,12 +21,16 @@ vi.mock("../db.js", () => ({
   loadSessionActivities: mocks.loadSessionActivities,
   loadReports: mocks.loadReports,
 }));
+vi.mock("../evidenceDb.js", () => ({
+  loadEvidenceRows: mocks.loadEvidenceRows,
+}));
 vi.mock("../access.js", () => ({
   hasSelfevalAccess: mocks.hasSelfevalAccess,
   readSelfevalQuota: mocks.readSelfevalQuota,
 }));
 
 import { SCORE_RUBRIC } from "../dictionaries.js";
+import type { SupportLinkState } from "../linkWrite.js";
 import type { ReportRow, SessionRow } from "../rows.js";
 import {
   type ActivityRecordLike,
@@ -111,14 +116,16 @@ const sections: GenerationSections = {
         {
           id: "p1-s1",
           text: "센서로 미세먼지를 측정하였다.",
-          evidence: { activityId: "c1", field: "method" },
+          evidence: [
+            { sourceType: "P", refId: "c1", item: "method", weight: "main" },
+          ],
           feeling: false,
           confirmed: false,
         },
         {
           id: "p1-s2",
           text: "농도를 비교하였다.",
-          evidence: null,
+          evidence: [],
           feeling: true,
           confirmed: false,
         },
@@ -142,8 +149,9 @@ const reportRow = (p: Partial<ReportRow>): ReportRow => ({
 
 const core = () => ({ record: record("c1"), analysis: analysis() });
 
-const verifyJson = (pass = true) =>
+const verifyJson = (pass = true, linkChecks: unknown[] = []) =>
   JSON.stringify({
+    linkChecks,
     items: SCORE_RUBRIC.map((r) => ({
       key: r.key,
       checks: r.checks.map((text) => ({ text, pass })),
@@ -182,6 +190,11 @@ beforeEach(() => {
   mocks.claimStep.mockResolvedValue({ kind: "claimed", attempts: 1 });
   mocks.finishStep.mockResolvedValue(true);
   mocks.loadSessionActivities.mockResolvedValue(activities());
+  mocks.loadEvidenceRows.mockResolvedValue({
+    extras: new Map(),
+    links: [],
+    memos: [],
+  });
   mocks.hasSelfevalAccess.mockResolvedValue(true);
   mocks.readSelfevalQuota.mockResolvedValue({ quotaRemaining: null });
   mocks.consumeCredit.mockResolvedValue({ status: "charged", charged: true });
@@ -214,6 +227,26 @@ describe("buildVerifyInput", () => {
     expect(input.growth).toBeNull();
   });
 
+  it("핵심 낱말은 핵심 분석만이 아니라 모든 선택 기록의 7항목에서 뽑는다(명세 No.55)", () => {
+    const input = buildVerifyInput(session(), sections, core(), [
+      record("s2", {
+        concept: "공급 곡선",
+        sources: ["통계청 가계동향조사"],
+      }),
+      record("s3", { concept: "비용 구조", sources: ["교과서 표"] }),
+    ]);
+    expect(input.coreTerms.concepts).toEqual(
+      expect.arrayContaining(["단위", "공급", "곡선", "비용", "구조"]),
+    );
+    expect(input.coreTerms.sources).toEqual(
+      expect.arrayContaining(["통계청 가계동향조사", "교과서 표"]),
+    );
+    expect(input.coreTerms.roles).toContain("측정");
+    expect(new Set(input.coreTerms.concepts).size).toBe(
+      input.coreTerms.concepts.length,
+    );
+  });
+
   it("성장설계가 켜져 있으면 현재 단계와 이번 학년 하위 주제를 싣는다", () => {
     const snapshot = {
       narrativeTheme: "주제",
@@ -233,6 +266,58 @@ describe("buildVerifyInput", () => {
       stageLabel: "개화",
       currentSubtheme: "데이터로 말하기",
     });
+  });
+});
+
+describe("학교 문항 없는 세션", () => {
+  it("buildVerifyInput 은 던지지 않고 schoolPrompt 와 낱말을 비운다", () => {
+    const input = buildVerifyInput(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    expect(input.schoolPrompt).toBeNull();
+    expect(input.promptKeywords).toEqual([]);
+  });
+
+  it("문항 대응을 채점에서 빼고 100점으로 환산하며 promptMissing 을 싣는다", () => {
+    const spec = buildVerifySpec(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    const body = JSON.parse(verifyJson(true));
+    body.items = body.items.filter((i: { key: string }) => i.key !== "prompt");
+    const v = spec.validate(body);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    const ver = v.result.sections;
+    expect(ver.promptMissing).toBe(true);
+    expect(ver.items.find((i) => i.key === "prompt")).toMatchObject({
+      applied: false,
+      score: 0,
+      checks: [],
+    });
+    expect(ver.total).toBe(100);
+    expect(ver.improvements.map((i) => i.key)).not.toContain("prompt");
+  });
+
+  it("모델이 문항 대응 확인을 false 로 보내도 점수에 넣지 않는다", () => {
+    const spec = buildVerifySpec(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    const v = spec.validate(JSON.parse(verifyJson(false)));
+    expect(v.ok).toBe(true);
+    if (v.ok) {
+      expect(
+        v.result.sections.items.find((i) => i.key === "prompt"),
+      ).toMatchObject({ applied: false, score: 0 });
+    }
   });
 });
 
@@ -307,6 +392,188 @@ describe("buildVerifySpec", () => {
   it("확인 문장 수가 틀리면 실패 사유를 낸다", () => {
     const spec = buildVerifySpec(session(), sections, core(), []);
     expect(spec.validate({ items: [] }).ok).toBe(false);
+  });
+});
+
+describe("연계 경고(명세 No.182, 190)", () => {
+  const state = (over: Partial<SupportLinkState> = {}): SupportLinkState => ({
+    id: "s2",
+    mode: "link",
+    reason: "linked",
+    hop: 1,
+    typeLabel: "이어받음",
+    strength: "explicit",
+    confirmed: false,
+    quotes: [],
+    carried: ["황사"],
+    ...over,
+  });
+  const citing = (text: string): GenerationSections => ({
+    paragraphs: [
+      {
+        sentences: [
+          ...(sections.paragraphs[0]?.sentences ?? []),
+          {
+            id: "p1-s3",
+            text,
+            evidence: [
+              { sourceType: "P", refId: "s2", item: "method", weight: "sub" },
+            ],
+            feeling: false,
+            confirmed: false,
+          },
+        ],
+      },
+    ],
+  });
+  const supports = [record("s2", { topic: "황사 비교" })];
+  const judged = [{ recordId: "s2", linkShown: true, standsWithout: true }];
+
+  it("연계 문장을 써야 하는 기록은 코드와 모델 판정을 linkChecks 에 싣는다", () => {
+    const spec = buildVerifySpec(
+      session(),
+      citing("황사 자료를 이어받아 농도를 비교함."),
+      core(),
+      supports,
+      [state()],
+    );
+    const v = spec.validate(JSON.parse(verifyJson(true, judged)));
+    expect(v.ok && v.result.sections.linkChecks).toEqual([
+      {
+        recordId: "s2",
+        label: "황사 비교",
+        status: "checked",
+        linkShown: true,
+        concreteWordPresent: true,
+        listingSuspect: true,
+      },
+    ]);
+  });
+
+  it("본문이 인용하지 않은 선택 기록은 미사용이고 모델 판정을 요구하지 않는다", () => {
+    const spec = buildVerifySpec(session(), sections, core(), supports, [
+      state(),
+    ]);
+    const v = spec.validate(JSON.parse(verifyJson(true)));
+    expect(v.ok && v.result.sections.linkChecks).toEqual([
+      {
+        recordId: "s2",
+        label: "황사 비교",
+        status: "unused",
+        linkShown: null,
+        concreteWordPresent: null,
+        listingSuspect: null,
+      },
+    ]);
+  });
+
+  it("연계 경고는 점수, 필수 수정, 제출 가능 판정을 바꾸지 않는다", () => {
+    const text = citing("황사 자료를 이어받아 농도를 비교함.");
+    const plain = buildVerifySpec(session(), text, core(), supports).validate(
+      JSON.parse(verifyJson(true)),
+    );
+    const linked = buildVerifySpec(session(), text, core(), supports, [
+      state({ carried: ["없는낱말"] }),
+    ]).validate(JSON.parse(verifyJson(true, judged)));
+    expect(plain.ok && linked.ok).toBe(true);
+    if (!plain.ok || !linked.ok) return;
+    const a = plain.result.sections;
+    const b = linked.result.sections;
+    expect(b.linkChecks?.[0]).toMatchObject({
+      concreteWordPresent: false,
+      listingSuspect: true,
+    });
+    expect(b.total).toBe(a.total);
+    expect(b.items).toEqual(a.items);
+    expect(b.mandatoryFixes).toEqual(a.mandatoryFixes);
+    expect(b.submittable).toBe(a.submittable);
+    expect(b.format).toEqual(a.format);
+    expect(b.improvements).toEqual(a.improvements);
+    const report = (r: typeof plain) =>
+      (r.patch as { report: { score: unknown; mandatory_fixes: unknown } })
+        .report;
+    expect(report(linked).score).toBe(report(plain).score);
+    expect(report(linked).mandatory_fixes).toEqual(
+      report(plain).mandatory_fixes,
+    );
+  });
+
+  it("인용된 연계 기록의 판정이 응답에 없으면 재요청 사유다", () => {
+    const spec = buildVerifySpec(
+      session(),
+      citing("황사 자료를 이어받아 농도를 비교함."),
+      core(),
+      supports,
+      [state()],
+    );
+    const v = spec.validate(JSON.parse(verifyJson(true)));
+    expect(!v.ok && v.issues.map((i) => i.code)).toEqual([
+      "link_check_missing",
+    ]);
+  });
+
+  it("검증 실행은 선택 기록의 연계를 읽어 점검 대상을 모델에 보낸다", async () => {
+    mocks.loadEvidenceRows.mockResolvedValue({
+      extras: new Map(),
+      links: [
+        {
+          fromRecordId: "c1",
+          toRecordId: "s2",
+          linkType: "inherit",
+          strength: "explicit",
+          source: "model",
+          confirmed: false,
+          deleted: false,
+          note: null,
+          quoteFrom: null,
+          quoteTo: null,
+        },
+      ],
+      memos: [],
+    });
+    callStructured.mockResolvedValue({
+      text: verifyJson(true, judged),
+      finishReason: "STOP",
+    });
+    mocks.loadReports.mockResolvedValue([
+      {
+        id: "g1",
+        session_id: "s1",
+        report_type: "generation",
+        revision: 1,
+        sections: citing("황사 자료를 이어받아 농도를 비교함."),
+        char_count: { withSpace: 10, withoutSpace: 8 },
+        score: null,
+        mandatory_fixes: null,
+        created_at: "2026-10-06T00:00:00Z",
+      },
+      reportRow({
+        id: "v1",
+        report_type: "verification",
+        revision: 1,
+        score: 80,
+        mandatory_fixes: [],
+        created_at: "2026-10-06T00:01:00Z",
+      }),
+    ]);
+    await runVerify(
+      db,
+      "u1",
+      session(),
+      [
+        reportRow({
+          sections: citing("황사 자료를 이어받아 농도를 비교함."),
+        }),
+      ],
+      deps(),
+    );
+    expect(mocks.loadEvidenceRows).toHaveBeenCalledWith(db, "u1", "s1", [
+      "c1",
+      "s2",
+    ]);
+    const user = callStructured.mock.calls[0]?.[1] as string;
+    expect(user).toContain("[연계 점검 대상]");
+    expect(user).toContain("recordId=s2 이름=황사 비교");
   });
 });
 
@@ -459,7 +726,14 @@ describe("runVerify", () => {
             {
               id: "p1-e1",
               text: "학생이 고친 문장이다.",
-              evidence: { student: true },
+              evidence: [
+                {
+                  sourceType: "S",
+                  refId: null,
+                  item: "student_input",
+                  weight: "main",
+                },
+              ],
               feeling: false,
               confirmed: false,
             },

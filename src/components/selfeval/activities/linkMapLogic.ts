@@ -1,0 +1,121 @@
+import {
+  type CandidateRow,
+  LINK_TYPE_LABELS,
+  type LinkStrength,
+  type LinkType,
+  type RecordLink,
+} from "@/lib/selfeval/types";
+
+// 연계 지도 순수 로직(명세 No.185, 186, 193, 194). 서버 linkGraph.ts 의 도달 판정과 같은 규칙을
+// 화면에서 미리 보여 주기 위한 사본이다. 확정은 서버가 다시 판정한다.
+
+/** 서버와 같은 경고 문구(api/_routes/selfeval/pick-records.ts UNLINKED_WARNING). */
+export const UNLINKED_WARNING = "다른 기록과 이어지는 지점을 찾지 못했어요";
+
+/** 카드용. 연계된 암묵 기록을 학생이 아직 확인하지 않았다. */
+export const needsConfirmState = (state: CandidateRow["linkState"]): boolean =>
+  state?.linked === true && state.strength === "implicit" && !state.confirmed;
+
+/** 암묵 연계는 학생이 "실제로 이어서 했어요" 를 누르기 전까지 연결 문장에 쓰지 않는다(명세 No.185, 193). */
+export const needsConfirm = (l: RecordLink): boolean =>
+  l.strength === "implicit" && !l.confirmed;
+
+export const strengthLabel = (
+  strength: LinkStrength | null,
+  confirmed: boolean,
+): string =>
+  strength === "explicit"
+    ? "기록에 명시"
+    : confirmed
+      ? "추론, 학생 확인"
+      : "추론";
+
+/** 지운 선까지 포함해 연결 행이 한 줄도 닿지 않은 보조 id. 한 줄을 쓰지 않으면 생성에서 빠진다(명세 No.180). 연계를 모두 지운 기록은 기여 항목으로만 쓰므로 들지 않는다(No.194). 서버 pickList.unlinkedIds 와 같은 규칙이다. */
+export function unlinkedIds(
+  links: readonly RecordLink[],
+  supportIds: readonly string[],
+): string[] {
+  const touched = new Set(links.flatMap((l) => [l.fromId, l.toId]));
+  return supportIds.filter((id) => !touched.has(id));
+}
+
+const submittedOf = (r: CandidateRow): number => {
+  const t = new Date(r.submittedAt ?? r.activity.createdAt).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/** 앞선 제출일이 from. 같으면 인자 순서를 지킨다. */
+export function orderPair(
+  rows: readonly CandidateRow[],
+  a: string,
+  b: string,
+): { fromId: string; toId: string } {
+  const at = (id: string) => {
+    const r = rows.find((x) => x.activity.id === id);
+    return r ? submittedOf(r) : 0;
+  };
+  return at(b) < at(a) ? { fromId: b, toId: a } : { fromId: a, toId: b };
+}
+
+export type MapEdge = {
+  fromId: string;
+  toId: string;
+  type: LinkType;
+  typeLabel: string;
+  strengthLabel: string;
+  needsConfirm: boolean;
+  note: string | null;
+};
+
+export type MapNode = {
+  id: string;
+  /** 주제, 없으면 과목. 둘 다 없으면 제목을 그리지 않는다. */
+  title: string | null;
+  /** 과목 열 이름. 제목이 없을 때 목록에서 기록을 가리키는 글자로 쓴다. */
+  label: string;
+  col: number;
+  row: number;
+};
+
+export type LinkMapLayout = {
+  columns: { label: string }[];
+  nodes: MapNode[];
+  edges: MapEdge[];
+};
+
+const NO_SUBJECT = "과목 미기재";
+
+/** 선택한 기록을 과목별 열, 제출일 순 행으로 놓고 두 끝이 모두 선택된 지워지지 않은 선만 남긴다(명세 No.186). */
+export function layoutLinkMap(
+  rows: readonly CandidateRow[],
+  links: readonly RecordLink[],
+): LinkMapLayout {
+  const sorted = [...rows].sort((a, b) => submittedOf(a) - submittedOf(b));
+  const labels: string[] = [];
+  const nodes = sorted.map((r, row): MapNode => {
+    const label = r.activity.courseName ?? r.activity.subject ?? NO_SUBJECT;
+    if (!labels.includes(label)) labels.push(label);
+    return {
+      id: r.activity.id,
+      title: r.activity.topic ?? r.activity.subject,
+      label,
+      col: labels.indexOf(label),
+      row,
+    };
+  });
+  const ids = new Set(nodes.map((n) => n.id));
+  const edges = links
+    .filter((l) => !l.deleted && ids.has(l.fromId) && ids.has(l.toId))
+    .map(
+      (l): MapEdge => ({
+        fromId: l.fromId,
+        toId: l.toId,
+        type: l.type,
+        typeLabel: LINK_TYPE_LABELS[l.type],
+        strengthLabel: strengthLabel(l.strength, l.confirmed),
+        needsConfirm: needsConfirm(l),
+        note: l.note,
+      }),
+    );
+  return { columns: labels.map((label) => ({ label })), nodes, edges };
+}

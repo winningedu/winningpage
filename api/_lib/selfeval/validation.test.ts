@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SCORE_RUBRIC } from "./dictionaries.js";
+import { countSentences } from "./text.js";
 import {
   type ActivityRecordLike,
   ANALYSIS_FIELDS,
@@ -160,12 +161,21 @@ describe("validateAnalyzeResponse", () => {
   });
 });
 
+// 모델 응답의 근거 후보 하나. 출처 유형은 서버가 붙이므로 모델은 refId, item, weight 만 낸다.
+const ev = (refId: string, item: string, weight = "main") => ({
+  refId,
+  item,
+  weight,
+});
+
 // 문장 하나를 만드는 도우미. evidence 기본값은 핵심 활동의 method.
 const sent = (
   text: string,
-  evidence: unknown = { activityId: "core1", field: "method" },
-  feeling = false,
-) => ({ text, evidence, feeling });
+  evidence: unknown = [ev("core1", "method")],
+): { text: string; evidence: unknown; feeling?: boolean } => ({
+  text,
+  evidence,
+});
 
 function para(
   b: { paragraphs: { role: string; sentences: unknown[] }[] },
@@ -183,14 +193,37 @@ function sentenceAt(sections: GenerationSections, p: number, s: number) {
 }
 
 const wctx: WriteValidationContext = {
-  coreActivityId: "core1",
-  supportActivityIds: ["sup1"],
-  allowedFields: ["motive", "method", "result", "limitation"],
+  sources: {
+    records: [
+      {
+        id: "core1",
+        sourceType: "P",
+        completed: true,
+        itemTexts: {
+          motive: "그래프가 궁금했음",
+          method: "계수를 바꿔 관찰함",
+          result: "계수가 커질수록 폭이 좁아짐",
+          limitation: "정수 계수만 확인함",
+        },
+      },
+      {
+        id: "sup1",
+        sourceType: "D",
+        completed: true,
+        itemTexts: { method: "표로 정리함", career: "공학 진로와 이어짐" },
+      },
+      {
+        id: "wip1",
+        sourceType: "A",
+        completed: false,
+        itemTexts: { method: "진행 중 방법" },
+      },
+    ],
+    memos: [{ id: "m1", text: "수업 뒤 한계를 적어 둠", belongsTo: "r1" }],
+  },
   targetChars: null,
   mode: "without_space",
   universities: ["한국대학교"],
-  shortMode: false,
-  expectedParagraphs: 3,
 };
 
 function body3(over: Record<string, unknown>[] = []) {
@@ -199,28 +232,24 @@ function body3(over: Record<string, unknown>[] = []) {
       {
         role: "process",
         sentences: [
-          sent("그래프 프로그램으로 계수를 바꿔 관찰했다."),
-          sent("관찰 결과를 표로 정리했다."),
+          sent("그래프 프로그램으로 계수를 바꿔 관찰함."),
+          sent("관찰 결과를 표로 정리함."),
         ],
       },
       {
         role: "judgment",
         sentences: [
-          sent("계수가 커질수록 폭이 좁아진다고 판단했다.", {
-            activityId: "core1",
-            field: "result",
-          }),
-          sent("정수 계수만 확인한 점이 한계였다.", {
-            activityId: "core1",
-            field: "limitation",
-          }),
+          sent("계수가 커질수록 폭이 좁아진다고 판단함.", [
+            ev("core1", "result"),
+          ]),
+          sent("정수 계수만 확인한 점이 한계임.", [ev("core1", "limitation")]),
         ],
       },
       {
         role: "wrap",
         sentences: [
-          sent("다음에는 소수 계수를 확인하고 싶다.", null, true),
-          sent("이 과정에서 방법을 고쳤다."),
+          sent("다음에는 소수 계수를 확인하고 싶음.", []),
+          sent("이 과정에서 방법을 고침."),
         ],
       },
     ],
@@ -233,11 +262,7 @@ describe("validateWriteResponse", () => {
     const r = validateWriteResponse(body3(), wctx);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.sections.paragraphs.map((p) => p.role)).toEqual([
-      "process",
-      "judgment",
-      "wrap",
-    ]);
+    expect(r.sections.paragraphs).toHaveLength(3);
     expect(sentenceAt(r.sections, 0, 0).id).toBe("p1-s1");
     expect(sentenceAt(r.sections, 2, 1).id).toBe("p3-s2");
     expect(sentenceAt(r.sections, 0, 0).confirmed).toBe(false);
@@ -245,89 +270,284 @@ describe("validateWriteResponse", () => {
     expect(r.softIssues).toEqual([]);
   });
 
-  it("문단 수가 다르면 paragraph_count 다", () => {
-    const b = body3();
-    b.paragraphs.pop();
+  it("끝 부호 없는 ~함 문장 9개도 문장마다 마침표를 붙여 9문장으로 센다(명세 No.56)", () => {
+    const b = {
+      paragraphs: [
+        {
+          sentences: Array.from({ length: 9 }, (_, i) =>
+            sent(`${i + 1}번째 값을 확인함`),
+          ),
+        },
+      ],
+    };
     const r = validateWriteResponse(b, wctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.issues.map((i) => i.code)).toContain("paragraph_count");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const texts = r.sections.paragraphs[0]?.sentences.map((s) => s.text) ?? [];
+    expect(texts.every((t) => t.endsWith("함."))).toBe(true);
+    expect(countSentences(texts.join(" "))).toBe(9);
   });
 
-  it("4문단 기대에서 link 로 시작하지 않으면 paragraph_role 이다", () => {
-    const r = validateWriteResponse(body3(), {
+  it("인용 문장은 닫는 따옴표 뒤에 마침표를 붙이고 No.56 인용 규칙을 따른다", () => {
+    const b = {
+      paragraphs: [{ sentences: [sent('교재의 "A. B 이다"를 옮겨 적음')] }],
+    };
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const text = sentenceAt(r.sections, 0, 0).text;
+    expect(text).toBe('교재의 "A. B 이다"를 옮겨 적음.');
+    expect(countSentences(text)).toBe(1);
+  });
+
+  it("문단 수는 고정하지 않는다. 1개와 5개도 통과한다(명세 No.44, No.80)", () => {
+    const one = body3();
+    one.paragraphs.splice(1);
+    expect(validateWriteResponse(one, wctx).ok).toBe(true);
+    const five = body3();
+    five.paragraphs.push(
+      { role: "link", sentences: [sent("앞 활동에서 이어 확인함.")] },
+      { role: "wrap", sentences: [sent("개념으로 정리함.")] },
+    );
+    const r = validateWriteResponse(five, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.sections.paragraphs).toHaveLength(5);
+  });
+
+  it("문단이 하나도 없으면 paragraph_count 다", () => {
+    const r = validateWriteResponse({ paragraphs: [] }, wctx);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues.map((i) => i.code)).toEqual(["paragraph_count"]);
+  });
+
+  it("role 이 없어도 role 순서를 검사하지 않고 저장 문단에 role 을 싣지 않는다", () => {
+    const b = {
+      paragraphs: body3().paragraphs.map(({ sentences }) => ({ sentences })),
+    };
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.sections.paragraphs.every((p) => !("role" in p))).toBe(true);
+    }
+    const swapped = body3();
+    para(swapped, 0).role = "wrap";
+    para(swapped, 2).role = "process";
+    expect(validateWriteResponse(swapped, wctx).ok).toBe(true);
+  });
+
+  describe("연계 문장 검사(명세 No.189, 193)", () => {
+    const states = (over: object): WriteValidationContext => ({
       ...wctx,
-      expectedParagraphs: 4,
+      linkStates: [
+        {
+          id: "sup1",
+          mode: "contribute",
+          reason: "implicit_unconfirmed",
+          hop: 1,
+          typeLabel: "이어받음",
+          strength: "implicit",
+          confirmed: false,
+          quotes: [],
+          carried: [],
+          ...over,
+        },
+      ],
     });
-    expect(r.ok).toBe(false);
+    const withSup = (text: string) => {
+      const b = body3();
+      para(b, 0).sentences[0] = sent(text, [ev("sup1", "method")]);
+      return b;
+    };
+
+    it("확인하지 않은 암묵 연계 기록을 인용한 문장의 인과 표현은 재요청 사유이고 확인 필요로 남긴다", () => {
+      for (const phrase of [
+        "표를 바탕으로 계수를 정리함.",
+        "표에서 이어 계수를 정리함.",
+      ]) {
+        const r = validateWriteResponse(withSup(phrase), states({}));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.softIssues.map((i) => i.code)).toEqual([
+          "causal_unconfirmed_link",
+        ]);
+        expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+        expect(sentenceAt(r.sections, 0, 1).feeling).toBe(false);
+      }
+    });
+
+    it("인과 표현이 없거나 그 기록을 인용하지 않은 문장은 걸지 않는다", () => {
+      const plain = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states({}),
+      );
+      expect(plain.ok && plain.softIssues).toEqual([]);
+      const b = body3();
+      para(b, 0).sentences[0] = sent("그래프를 바탕으로 계수를 바꿈.");
+      const other = validateWriteResponse(b, states({}));
+      expect(other.ok && other.softIssues).toEqual([]);
+    });
+
+    it("학생이 확인한 연계 기록의 인과 표현은 걸지 않는다", () => {
+      const r = validateWriteResponse(
+        withSup("표를 바탕으로 계수를 정리함."),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: [],
+        }),
+      );
+      expect(r.ok && r.softIssues).toEqual([]);
+    });
+
+    it("연계 기록을 처음 인용한 문장에 구체물 낱말이 없으면 재요청 사유이고 있으면 통과한다", () => {
+      const link = {
+        mode: "link",
+        reason: "linked",
+        strength: "explicit",
+        carried: ["수요", "탄력성"],
+      };
+      const miss = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states(link),
+      );
+      expect(miss.ok && miss.softIssues.map((i) => i.code)).toEqual([
+        "link_word_missing",
+      ]);
+      const hit = validateWriteResponse(
+        withSup("수요 표로 계수를 정리함."),
+        states(link),
+      );
+      expect(hit.ok && hit.softIssues).toEqual([]);
+    });
+
+    it("구체물 낱말은 처음 인용한 문장에서만 본다", () => {
+      const link = {
+        mode: "link",
+        reason: "linked",
+        strength: "explicit",
+        carried: ["수요"],
+      };
+      const b = withSup("표로 계수를 정리함.");
+      para(b, 0).sentences[1] = sent("수요 값을 비교함.", [
+        ev("sup1", "method"),
+      ]);
+      const r = validateWriteResponse(b, states(link));
+      expect(r.ok && r.softIssues.map((i) => i.code)).toEqual([
+        "link_word_missing",
+      ]);
+    });
+
+    it("구체물 낱말이 없거나 기록을 인용한 문장이 없으면 낱말 검사를 하지 않는다", () => {
+      const noWords = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: [],
+        }),
+      );
+      expect(noWords.ok && noWords.softIssues).toEqual([]);
+      const unused = validateWriteResponse(
+        body3(),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: ["수요"],
+        }),
+      );
+      expect(unused.ok && unused.softIssues).toEqual([]);
+    });
   });
 
-  it("role 순서가 틀리면 paragraph_role 이다", () => {
+  it("다음 단계(next) 항목은 근거로 쓸 수 없고 버려진다(명세 No.37)", () => {
     const b = body3();
-    para(b, 0).role = "wrap";
-    para(b, 2).role = "process";
+    para(b, 0).sentences[0] = sent("다음 단계로 이어 확인함.", [
+      ev("core1", "next"),
+    ]);
     const r = validateWriteResponse(b, wctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.issues.map((i) => i.code)).toContain("paragraph_role");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+    }
   });
 
-  it("빈 문장, 모르는 활동, 비운 항목, 잘못된 모양 evidence 를 막는다", () => {
+  it("빈 문장은 막고, 선택 밖 기록과 비운 항목 근거는 버리되 실패시키지 않는다", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("  ");
-    para(b, 0).sentences[1] = sent("가나다 라마바.", {
-      activityId: "zzz",
-      field: "method",
-    });
-    para(b, 1).sentences[0] = sent("가나다 라마바.", {
-      activityId: "core1",
-      field: "role",
-    });
-    para(b, 1).sentences[1] = sent("가나다 라마바.", { student: true });
+    para(b, 0).sentences[1] = sent("가나다 라마함.", [ev("zzz", "method")]);
+    para(b, 1).sentences[0] = sent("가나다 라마함.", [ev("core1", "role")]);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
-    if (r.ok) return;
-    const codes = r.issues.map((i) => i.code);
-    expect(codes).toContain("empty_sentence");
-    expect(codes).toContain("unknown_evidence");
-    expect(codes).toContain("empty_field_used");
+    if (!r.ok) expect(r.issues.map((i) => i.code)).toEqual(["empty_sentence"]);
+    para(b, 0).sentences.shift();
+    const r2 = validateWriteResponse(b, wctx);
+    expect(r2.ok).toBe(true);
+    if (r2.ok) {
+      expect(sentenceAt(r2.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r2.sections, 0, 0).feeling).toBe(true);
+      expect(sentenceAt(r2.sections, 1, 0).evidence).toEqual([]);
+    }
   });
 
-  it("보조 활동 id 는 허용된다", () => {
+  it("evidence 가 배열이 아닌 값이면 invalid_evidence 로 막는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이었다.", {
-      activityId: "sup1",
-      field: "method",
-    });
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
-  });
-
-  it("보조 활동 evidence 는 핵심 활동의 allowedFields 로 막지 않는다", () => {
-    const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동의 진로 연결을 이었다.", {
-      activityId: "sup1",
-      field: "career",
-    });
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
-  });
-
-  it("보조 활동 evidence 도 field 가 11항목 밖이면 막는다", () => {
-    const b = body3();
-    para(b, 0).sentences[0] = sent("보조 활동 근거를 썼다.", {
-      activityId: "sup1",
-      field: "nonsense",
-    });
+    para(b, 0).sentences[0] = sent("가나다 라마함.", { activityId: "core1" });
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
-    if (!r.ok)
-      expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
+    if (!r.ok) {
+      const issue = r.issues.find((i) => i.code === "invalid_evidence");
+      expect(issue?.path).toBe("p1-s1");
+    }
   });
 
-  it("했습니다, 해요 같은 존댓말 종결은 sentence_style 로 막는다", () => {
+  it("보조 기록 근거도 값이 있는 항목이면 붙고 출처 유형은 서버가 정한다", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("보조 활동에서 나온 방법을 이음.", [
+      ev("sup1", "method"),
+    ]);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([
+        { sourceType: "D", refId: "sup1", item: "method", weight: "main" },
+      ]);
+    }
+  });
+
+  it("진행 중 기록과 수기 메모 근거를 다룬다(명세 No.200, 161)", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("진행 중 기록을 근거로 씀.", [
+      ev("wip1", "method"),
+    ]);
+    para(b, 0).sentences[1] = sent("메모의 한계를 씀.", [
+      ev("m1", "limitation"),
+      ev("m1", "result"),
+    ]);
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).evidence).toEqual([]);
+      expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+      expect(sentenceAt(r.sections, 0, 1).evidence.map((e) => e.item)).toEqual([
+        "limitation",
+      ]);
+      expect(sentenceAt(r.sections, 0, 1).feeling).toBe(false);
+    }
+  });
+
+  it("했습니다, 해요, 했다 같은 종결은 sentence_style 로 막는다", () => {
     for (const bad of [
       "탐구 활동을 시작했습니다.",
       "결과를 정리합니다",
       "그래프를 그렸어요.",
       "표를 만들었죠?",
       "값이 컸네요 예요.",
+      "상관계수를 계산했다.",
+      "결과를 정리한다.",
     ]) {
       const b = body3();
       para(b, 0).sentences[1] = sent(bad);
@@ -336,23 +556,32 @@ describe("validateWriteResponse", () => {
       if (!r.ok) {
         const issue = r.issues.find((i) => i.code === "sentence_style");
         expect(issue?.path, bad).toBe("p1-s2");
-        expect(issue?.message).toContain("했다");
+        expect(issue?.message).toContain("~함");
       }
     }
   });
 
-  it("했다 체 평서문은 sentence_style 에 걸리지 않는다", () => {
-    const b = body3();
-    para(b, 0).sentences[1] = sent('상관계수를 계산했다."');
-    expect(validateWriteResponse(b, wctx).ok).toBe(true);
+  it("함, 세움, 깨달음 같은 명사형 종결은 sentence_style 에 걸리지 않는다", () => {
+    for (const good of [
+      '상관계수를 계산함."',
+      "기준을 세움.",
+      "한계를 깨달음",
+      "오차가 없음.",
+      "한계가 있음.",
+      "표본 수가 12명임.",
+    ]) {
+      const b = body3();
+      para(b, 0).sentences[1] = sent(good);
+      expect(validateWriteResponse(b, wctx).ok, good).toBe(true);
+    }
   });
 
   it("대학명, 학교명, 마크다운, 금지 표현을 막는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("한국대 진학을 목표로 했다.");
-    para(b, 0).sentences[1] = sent("한빛고등학교 수업에서 시작했다.");
-    para(b, 1).sentences[0] = sent("**굵게** 썼다.");
-    para(b, 1).sentences[1] = sent("합격 가능성이 보인다.");
+    para(b, 0).sentences[0] = sent("한국대 진학을 목표로 함.");
+    para(b, 0).sentences[1] = sent("한빛고등학교 수업에서 시작함.");
+    para(b, 1).sentences[0] = sent("**굵게** 씀.");
+    para(b, 1).sentences[1] = sent("합격 가능성이 보임.");
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(false);
     if (r.ok) return;
@@ -366,38 +595,69 @@ describe("validateWriteResponse", () => {
       expect(codes).toContain(c);
   });
 
-  it("shortMode 에서 문단당 문장 3개 이상이면 short_mode_overflow 다", () => {
+  it("근거가 없으면 모델이 feeling 을 false 로 신고해도 서버가 true 로 올린다", () => {
     const b = body3();
-    para(b, 0).sentences.push(sent("하나 더 썼다."));
-    const r = validateWriteResponse(b, { ...wctx, shortMode: true });
-    expect(r.ok).toBe(false);
-    if (!r.ok)
-      expect(r.issues.map((i) => i.code)).toContain("short_mode_overflow");
-  });
-
-  it("evidence 가 없고 feeling 도 false 면 feeling true 로 올린다", () => {
-    const b = body3();
-    para(b, 0).sentences[0] = sent("그냥 쓴 문장이다.", null, false);
+    para(b, 0).sentences[0] = sent("그냥 쓴 문장임.", []);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
-  it("느낌 표현 패턴이 걸리면 evidence 가 있어도 feeling true 다", () => {
+  it("모델이 feeling 을 true 로 신고해도 근거가 있으면 올리지 않는다", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("계수를 바꾸며 뿌듯했다.");
+    para(b, 0).sentences[0] = { ...sent("계수를 바꿔 관찰함."), feeling: true };
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(false);
+  });
+
+  it("느낌 표현 패턴이 걸려도 근거가 있으면 표시하지 않는다(명세 No.49 결정)", () => {
+    for (const f of [
+      "계수를 바꾸며 뿌듯함.",
+      "수업에서 새로운 느낌을 받음.",
+      "한계를 깨달음.",
+      "그래프가 인상 깊었음.",
+    ]) {
+      const b = body3();
+      para(b, 0).sentences[0] = sent(f);
+      const r = validateWriteResponse(b, wctx);
+      expect(r.ok, f).toBe(true);
+      if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling, f).toBe(false);
+    }
+  });
+
+  it("느낌 표현 패턴이 걸리고 근거가 없으면 표시한다", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("직접 만들어 보니 뿌듯함.", []);
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
-  it("명사형 종결은 고쳐 저장한다", () => {
+  it("근거 글에 없는 수치가 문장에 있으면 표시한다(명세 No.5)", () => {
     const b = body3();
-    para(b, 0).sentences[0] = sent("계수 변화를 확인함.");
+    para(b, 0).sentences[0] = sent("계수를 99번 바꿔 관찰함.");
     const r = validateWriteResponse(b, wctx);
     expect(r.ok).toBe(true);
-    if (r.ok)
-      expect(sentenceAt(r.sections, 0, 0).text).toBe("계수 변화를 확인한 점.");
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+  });
+
+  it("느낌 표현이 없는 ~함 문장은 근거가 있으면 feeling false 다", () => {
+    const r = validateWriteResponse(body3(), wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(false);
+  });
+
+  it("하였음, 했음 종결은 함으로 고쳐 저장한다", () => {
+    const b = body3();
+    para(b, 0).sentences[0] = sent("계수 변화를 확인하였음.");
+    para(b, 0).sentences[1] = sent("변수를 통제하지 못하였음.");
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(sentenceAt(r.sections, 0, 0).text).toBe("계수 변화를 확인함.");
+      expect(sentenceAt(r.sections, 0, 1).text).toBe("변수를 통제하지 못함.");
+    }
   });
 
   it("글자 수가 목표 ±5% 밖이면 hard 가 아닌 softIssues 로 length_off_target 을 낸다", () => {
@@ -455,6 +715,79 @@ describe("validateVerifyResponse", () => {
       );
       expect(r.stageChecks).toEqual([]);
     }
+  });
+
+  describe("연계 점검 판정(명세 No.182, 190)", () => {
+    const ctx = { expectGrowth: false, linkRecordIds: ["s1", "s2"] };
+    const withLinks = (linkChecks: unknown) => ({
+      ...verifyBody(),
+      linkChecks,
+    });
+
+    it("대상 기록마다 linkShown 과 standsWithout 을 돌려준다", () => {
+      const r = validateVerifyResponse(
+        withLinks([
+          { recordId: "s2", linkShown: false, standsWithout: true },
+          { recordId: "s1", linkShown: true, standsWithout: false },
+        ]),
+        ctx,
+      );
+      expect(r.ok && r.linkJudgments).toEqual([
+        { recordId: "s1", linkShown: true, standsWithout: false },
+        { recordId: "s2", linkShown: false, standsWithout: true },
+      ]);
+    });
+
+    it("대상이 없으면 linkChecks 가 없어도 통과하고 응답에 있는 판정은 버린다", () => {
+      const none = validateVerifyResponse(verifyBody(), {
+        expectGrowth: false,
+      });
+      expect(none.ok && none.linkJudgments).toEqual([]);
+      const extra = validateVerifyResponse(
+        withLinks([{ recordId: "zz", linkShown: true, standsWithout: true }]),
+        { expectGrowth: false },
+      );
+      expect(extra.ok && extra.linkJudgments).toEqual([]);
+    });
+
+    it("대상 기록의 판정이 빠지거나 불리언이 아니면 link_check_missing 이다", () => {
+      for (const bad of [
+        [{ recordId: "s1", linkShown: true, standsWithout: false }],
+        [
+          { recordId: "s1", linkShown: true, standsWithout: false },
+          { recordId: "s2", linkShown: "yes", standsWithout: false },
+        ],
+        undefined,
+      ]) {
+        const r = validateVerifyResponse(withLinks(bad), ctx);
+        expect(r.ok).toBe(false);
+        if (!r.ok) {
+          expect(r.issues.length).toBeGreaterThan(0);
+          expect(r.issues.every((i) => i.code === "link_check_missing")).toBe(
+            true,
+          );
+        }
+      }
+    });
+  });
+
+  it("문항이 없으면 문항 대응 항목이 응답에 없어도 통과하고 빈 확인을 돌려준다", () => {
+    const b = verifyBody();
+    b.items = b.items.filter((i) => i.key !== "prompt");
+    const r = validateVerifyResponse(b, {
+      expectGrowth: false,
+      promptMissing: true,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.checks.prompt).toEqual([]);
+  });
+
+  it("문항이 없으면 모델이 문항 대응 확인을 보내도 버린다", () => {
+    const r = validateVerifyResponse(verifyBody(), {
+      expectGrowth: false,
+      promptMissing: true,
+    });
+    expect(r.ok && r.checks.prompt).toEqual([]);
   });
 
   it("모델이 바꿔 쓴 text 는 루브릭 문장으로 덮어쓴다", () => {

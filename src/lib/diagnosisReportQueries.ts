@@ -1,5 +1,5 @@
 // 학습진단 리포트 영속화 클라이언트 — 읽기(RLS select) 계약.
-// QA 시트 행 210. 저장(service_role API 경유)은 diagnosisReportApi.ts 가 맡는다.
+// QA 시트 행 210. 저장은 서버 채점 API(api/_routes/diagnosis/submit.ts)가 맡는다.
 //
 // public.diagnosis_reports RLS: 본인(profile_id = auth.uid()) · 승인된 연결의
 // 학부모 · 관리자만 select 가능하다. 그래서 여기 함수들은 권한 판정을 따로 하지

@@ -151,7 +151,7 @@ function fillRequired(subject = "수학", prompt = "수학 탐구 활동을 쓰�
   fireEvent.change(screen.getByLabelText("과목명"), {
     target: { value: subject },
   });
-  fireEvent.change(screen.getByLabelText("학교 문항 전문"), {
+  fireEvent.change(screen.getByLabelText("학교 문항 전문 (선택)"), {
     target: { value: prompt },
   });
 }
@@ -246,7 +246,7 @@ describe("NewSessionPage 화면", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "동아리" }));
     expect(screen.queryByLabelText("과목명")).toBeNull();
-    expect(screen.getByLabelText("활동명 (선택)")).toBeTruthy();
+    expect(screen.getByLabelText("활동명")).toBeTruthy();
     expect(
       screen
         .getByRole("button", { name: "동아리" })
@@ -273,31 +273,39 @@ describe("NewSessionPage 화면", () => {
   });
 });
 
+describe("학교 문항 선택 입력", () => {
+  test("라벨에 선택을 표시하고 비워도 된다는 안내를 보인다", () => {
+    renderPage();
+    expect(screen.getByLabelText("학교 문항 전문 (선택)")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "문항이 있으면 가장 먼저 쓰고, 비워 두어도 진행할 수 있어요",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 describe("검증", () => {
   test("과목명과 문항을 비우고 제출하면 인라인 오류를 보이고 요청하지 않는다", () => {
     renderPage();
     submit();
     expect(screen.getByText("과목명을 입력해 주세요.")).toBeTruthy();
     expect(
-      screen.getByText("학교에서 받은 문항을 입력해 주세요."),
-    ).toBeTruthy();
+      screen.queryByText("학교에서 받은 문항을 입력해 주세요."),
+    ).toBeNull();
     expect(createMock).not.toHaveBeenCalled();
     expect(saveProfileMock).not.toHaveBeenCalled();
   });
 
-  test("창체 영역은 활동명이 비어도 오류 없이 생성을 요청한다", async () => {
+  test("창체 영역은 활동명이 비면 오류를 보이고 생성을 요청하지 않는다", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "자율" }));
-    fireEvent.change(screen.getByLabelText("학교 문항 전문"), {
+    fireEvent.change(screen.getByLabelText("학교 문항 전문 (선택)"), {
       target: { value: "문항" },
     });
     submit();
-    expect(screen.queryByText("활동명을 입력해 주세요.")).toBeNull();
-    await waitFor(() => expect(createMock).toHaveBeenCalled());
-    expect(createMock.mock.calls[0]?.[0]).toMatchObject({
-      area: "autonomy",
-      activityName: null,
-    });
+    expect(screen.getByText("활동명을 입력해 주세요.")).toBeTruthy();
+    expect(createMock).not.toHaveBeenCalled();
   });
 });
 
@@ -559,7 +567,8 @@ describe("기본 입력 수정(sessionId 쿼리)", () => {
       ),
     );
     expect(
-      (screen.getByLabelText("학교 문항 전문") as HTMLTextAreaElement).value,
+      (screen.getByLabelText("학교 문항 전문 (선택)") as HTMLTextAreaElement)
+        .value,
     ).toBe("기존 문항");
     expect(
       (screen.getByLabelText("목표 글자 수") as HTMLInputElement).value,

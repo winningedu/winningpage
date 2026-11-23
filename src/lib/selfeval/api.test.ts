@@ -20,11 +20,18 @@ import {
   analyzeResolveConflict,
   analyzeRun,
   analyzeSave,
+  buildReport,
   createSession,
   discardSession,
   fetchEntry,
+  fetchReport,
   fetchSessionDetail,
   finalizeSession,
+  manualLogsDelete,
+  manualLogsList,
+  manualLogsSetIncluded,
+  manualLogsUpdate,
+  manualLogsUpload,
   pickList,
   pickManual,
   pickSelect,
@@ -33,6 +40,7 @@ import {
   writeConfirmFeeling,
   writeEdit,
   writeGenerate,
+  writeRepickEvidence,
 } from "./api";
 
 const json = (status: number, body: unknown) =>
@@ -199,6 +207,18 @@ describe("분석, 생성, 검증, 최종 저장", () => {
     });
   });
 
+  test("근거 다시 고르기는 repick-evidence 로 문장 id 와 picks 를 보낸다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await writeRepickEvidence("s1", "p1s2", [{ refId: "a1", item: "method" }]);
+    expect(lastCall().path).toBe("/api/selfeval/write");
+    expect(lastCall().body).toEqual({
+      sessionId: "s1",
+      action: "repick-evidence",
+      sentenceId: "p1s2",
+      picks: [{ refId: "a1", item: "method" }],
+    });
+  });
+
   test("검증은 sessionId 만, 최종 저장은 승격 7항목과 과제 완료 여부를 보낸다", async () => {
     apiFetchMock.mockResolvedValue(json(200, { ok: true }));
     await verifySession("s1");
@@ -220,5 +240,89 @@ describe("분석, 생성, 검증, 최종 저장", () => {
       promoted,
       fulfillsPlanItem: true,
     });
+  });
+});
+
+describe("manualLogs", () => {
+  const SID = "s1";
+
+  test("list 는 manual-logs 로 POST 한다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
+    const r = await manualLogsList(SID);
+    expect(r).toEqual({ kind: "ok", data: { ok: true, memos: [] } });
+    const c = lastCall();
+    expect(c.path).toBe("/api/selfeval/manual-logs");
+    expect(c.body).toEqual({ sessionId: SID, action: "list" });
+  });
+
+  test("upload 는 글이나 파일 하나를 싣는다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, memos: [] }));
+    await manualLogsUpload(SID, { text: "글" });
+    expect(lastCall().body).toEqual({
+      sessionId: SID,
+      action: "upload",
+      text: "글",
+    });
+  });
+
+  test("update, set-included, delete 본문", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true }));
+    await manualLogsUpdate(SID, "m1", {
+      writtenAt: "2026-04-03",
+      confirmed: true,
+    });
+    expect(lastCall().body).toEqual({
+      sessionId: SID,
+      action: "update",
+      memoId: "m1",
+      writtenAt: "2026-04-03",
+      confirmed: true,
+    });
+    await manualLogsSetIncluded(SID, "m1", false);
+    expect(lastCall().body).toEqual({
+      sessionId: SID,
+      action: "set-included",
+      memoId: "m1",
+      included: false,
+    });
+    await manualLogsDelete(SID, "m1");
+    expect(lastCall().body).toEqual({
+      sessionId: SID,
+      action: "delete",
+      memoId: "m1",
+    });
+  });
+
+  test("서버 오류 코드와 메시지를 그대로 돌려준다", async () => {
+    apiFetchMock.mockResolvedValue(
+      json(422, { ok: false, code: "RECORD_BOOK_DETECTED", message: "거절" }),
+    );
+    const r = await manualLogsUpload(SID, { text: "x" });
+    expect(r).toMatchObject({
+      kind: "error",
+      status: 422,
+      code: "RECORD_BOOK_DETECTED",
+      message: "거절",
+    });
+  });
+});
+
+describe("리포트", () => {
+  test("조회는 sessionId 를 쿼리로 GET 한다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+    await fetchReport("s 1");
+    const { path, init } = lastCall();
+    expect(path).toBe("/api/selfeval/report?sessionId=s+1");
+    expect(init.method).toBe("GET");
+  });
+
+  test("만들기는 sessionId 만 POST 하고 모델 호출용 긴 타임아웃 경로를 쓴다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+    const result = await buildReport("s1");
+    expect(result.kind).toBe("ok");
+    expect(lastCall().path).toBe("/api/selfeval/report");
+    expect(lastCall().init.method).toBe("POST");
+    expect(lastCall().body).toEqual({ sessionId: "s1" });
+    expect(apiFetchMock.mock.calls.at(-1)?.[2]).toEqual({ timeoutMs: 70000 });
   });
 });

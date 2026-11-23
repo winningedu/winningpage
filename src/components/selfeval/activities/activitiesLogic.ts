@@ -6,9 +6,11 @@ import {
   type GrowthBanner,
   type GrowthSnapshot,
   type HighGrade,
+  LINK_TYPE_LABELS,
   MAX_SUPPORT_ACTIVITIES,
   type PickListResponse,
 } from "@/lib/selfeval/types";
+import { strengthLabel } from "./linkMapLogic";
 
 // 활동 선택 화면 순수 로직(명세 No.26~36, 107~113). 서버 규칙(api/_lib/selfeval/pick.ts 의
 // autoSelect, applySelection)과 같은 판정을 클라이언트에서 미리 보여 주기 위한 사본이다.
@@ -41,6 +43,8 @@ export type DerivedRoles = {
 export function deriveRoles(
   selectedIds: readonly string[],
   candidates: readonly CandidateRow[],
+  /** 핵심을 포함한 선택 상한. 서버가 준 maxSelect 를 넘긴다. 없으면 연계 확인 전의 3건이다. */
+  maxSelect: number = MAX_SELECTED,
 ): DerivedRoles {
   const chosen = candidates
     .filter((r) => selectedIds.includes(r.activity.id) && isSelectable(r))
@@ -59,14 +63,34 @@ export function deriveRoles(
   const rest = chosen.filter((r) => r !== core);
   return {
     coreId: core.activity.id,
-    supportIds: rest.slice(0, MAX_SUPPORT_ACTIVITIES).map((r) => r.activity.id),
+    supportIds: rest.slice(0, maxSelect - 1).map((r) => r.activity.id),
     coreMismatch: !isSameSubject(core),
-    tooMany: rest.length > MAX_SUPPORT_ACTIVITIES,
+    tooMany: rest.length > maxSelect - 1,
     usedWarning: chosen.some((r) => r.alreadyUsed),
   };
 }
 
 const MAX_SELECTED = 1 + MAX_SUPPORT_ACTIVITIES;
+
+/**
+ * 카드의 연계 칩 문구(명세 No.179, 185). 사용할 수 없는 행과 핵심 자신(0단계)에는 칩이 없다.
+ * 연계 상태가 없거나 이어지지 않았으면 "연계 없음"이다.
+ */
+export function linkChipText(row: CandidateRow): string | null {
+  if (row.fit === null) return null;
+  const state = row.linkState;
+  if (!state?.linked) return "연계 없음";
+  if (state.hop === 0 || state.hop === null || state.type === null) return null;
+  const strength = strengthLabel(state.strength, state.confirmed);
+  return `연계됨, ${LINK_TYPE_LABELS[state.type]}, ${state.hop}단계, ${strength}`;
+}
+
+/** 선정 이유 줄(명세 No.32, 179). 서버가 만든 줄이 먼저이고 없으면 적합도 이유를 쓴다. */
+export function reasonLinesOf(row: CandidateRow): string[] {
+  return row.selectionReasons && row.selectionReasons.length > 0
+    ? row.selectionReasons
+    : (row.fit?.reasons ?? []);
+}
 
 /**
  * 체크 한 번의 결과. 사용할 수 없는 활동과 세 건 초과는 선택하지 않고 안내 문구를 돌려준다
@@ -76,6 +100,7 @@ export function toggleSelection(
   selectedIds: readonly string[],
   id: string,
   candidates: readonly CandidateRow[],
+  maxSelect: number = MAX_SELECTED,
 ): { next: string[]; notice: string | null } {
   if (selectedIds.includes(id)) {
     return { next: selectedIds.filter((s) => s !== id), notice: null };
@@ -87,10 +112,10 @@ export function toggleSelection(
       notice: row.unavailableReason ?? "재료로 쓸 수 없는 활동이에요",
     };
   }
-  if (selectedIds.length >= MAX_SELECTED) {
+  if (selectedIds.length >= maxSelect) {
     return {
       next: [...selectedIds],
-      notice: `활동은 핵심 1건과 보조 ${MAX_SUPPORT_ACTIVITIES}건, 모두 ${MAX_SELECTED}건까지 고를 수 있어요`,
+      notice: `활동은 최대 ${maxSelect}건까지 고를 수 있어요`,
     };
   }
   return { next: [...selectedIds, id], notice: null };

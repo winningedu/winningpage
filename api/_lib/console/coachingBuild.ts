@@ -10,6 +10,7 @@ import {
   learningVerdict,
   linkageVerdict,
   signalOf,
+  urgencyOfAreas,
 } from "./coaching.js";
 import { loadCoachingData } from "./coachingData.js";
 import { buildCoachingText } from "./coachingText.js";
@@ -33,12 +34,17 @@ export async function buildCoaching(
       ...(week ? { week } : {}),
     }),
     learning: learningVerdict(
-      metrics.diagnosis
+      data.diagnosisAreas?.version === "v3"
         ? {
-            areas: metrics.diagnosis.areas,
-            executionAvg: indicatorsOf(metrics).dxExecution.score as number,
+            urgency: urgencyOfAreas(data.diagnosisAreas),
+            executionAvg: data.diagnosisAreas.scores.page1.total,
           }
-        : null,
+        : metrics.diagnosis
+          ? {
+              areas: metrics.diagnosis.areas,
+              executionAvg: indicatorsOf(metrics).dxExecution.score as number,
+            }
+          : null,
     ),
     linkage: linkageVerdict(careerLink?.score ?? null),
   };

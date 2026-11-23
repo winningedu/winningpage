@@ -18,7 +18,8 @@ export type SessionInput = {
   area: Area;
   subject: string | null;
   activityName: string | null;
-  schoolPrompt: string;
+  /** 비어 있으면 null. 문항 없이도 진행한다(명세 No.22, 105). */
+  schoolPrompt: string | null;
   teacherNote: string | null;
   targetChars: number | null;
   targetCharsMode: TargetCharsMode;
@@ -35,7 +36,6 @@ export type SessionBodyErrorCode =
   | "AREA_INVALID"
   | "SUBJECT_REQUIRED"
   | "ACTIVITY_NAME_REQUIRED"
-  | "PROMPT_REQUIRED"
   | "TEACHER_NOTE_INVALID"
   | "TARGET_CHARS_INVALID"
   | "TARGET_MODE_INVALID"
@@ -125,9 +125,9 @@ const PARSERS: FieldParsers = {
       : { ok: true, value: t };
   },
   schoolPrompt: (v) => {
-    const t = typeof v === "string" ? v.trim() : "";
-    return t === ""
-      ? fail("PROMPT_REQUIRED", "학교에서 받은 문항을 입력해 주세요.")
+    const t = trimmedOrNull(v);
+    return t === undefined
+      ? fail("INVALID_BODY", "학교 문항 형식이 올바르지 않아요.")
       : { ok: true, value: t };
   },
   teacherNote: (v) => {
@@ -170,6 +170,7 @@ const FIELD_KEYS = Object.keys(PARSERS) as (keyof SessionInput)[];
 const OPTIONAL_ON_CREATE: ReadonlySet<keyof SessionInput> = new Set([
   "subject",
   "activityName",
+  "schoolPrompt",
   "teacherNote",
   "planItemId",
 ]);
@@ -191,6 +192,13 @@ function parsePartial(
 function crossCheck(input: Partial<SessionInput>): Fail | null {
   if (input.area === "subject" && !input.subject) {
     return fail("SUBJECT_REQUIRED", "과목을 입력해 주세요.");
+  }
+  if (
+    input.area !== undefined &&
+    input.area !== "subject" &&
+    !input.activityName
+  ) {
+    return fail("ACTIVITY_NAME_REQUIRED", "활동명을 입력해 주세요.");
   }
   return null;
 }
@@ -272,7 +280,7 @@ export function sessionToInput(row: SessionRow): Partial<SessionInput> {
     ...(row.area !== null && { area: row.area }),
     subject: row.subject,
     activityName: row.activity_name,
-    ...(row.school_prompt !== null && { schoolPrompt: row.school_prompt }),
+    schoolPrompt: row.school_prompt,
     teacherNote: row.teacher_note,
     targetChars: row.target_chars,
     targetCharsMode: row.target_chars_mode,

@@ -41,7 +41,7 @@ export type Outcome<T> =
   | { kind: "running" }
   | { kind: "order"; currentStep: number }
   | { kind: "superseded" }
-  | { kind: "exhausted"; terminal: true }
+  | { kind: "exhausted"; terminal: boolean }
   | {
       kind: "failure";
       failure: StepFailureKind;
@@ -84,6 +84,13 @@ export type StepSpec<T> = {
     | { ok: false; issues: ValidationIssue[] };
   /** validate 의 patch 에 덧붙이는 patch(예: regenerate_increment). */
   patchOnSuccess?: Record<string, unknown>;
+  /** true 면 시도 상한에 닿아도 세션을 종결하지 않는다(연계 판정, 명세 No.196). */
+  keepSession?: boolean;
+  /**
+   * 단계를 ok 로 닫기 전에 결과를 저장한다(연계 저장 등). 던지면 단계는 실패로 닫혀 다시 시도할 수 있다.
+   * 돌려준 값이 단계 결과가 된다.
+   */
+  beforeClose?(result: T): Promise<T>;
 };
 
 /**
@@ -232,6 +239,8 @@ export async function runModelStep<T>(
     return { kind: "order", currentStep: claim.currentStep };
   }
   if (claim.kind === "exhausted") {
+    if (spec.keepSession === true)
+      return { kind: "exhausted", terminal: false };
     await terminateAndReverse(db, userId, session.id, step, "exhausted");
     return { kind: "exhausted", terminal: true };
   }
@@ -252,6 +261,9 @@ export async function runModelStep<T>(
     const attempts = claim.attempts + extraAttempts;
 
     if (loop.ok) {
+      const result = spec.beforeClose
+        ? await spec.beforeClose(loop.value.result)
+        : loop.value.result;
       const closed = await finishStep(db, userId, session.id, step, {
         ok: true,
         patch: { ...loop.value.patch, ...spec.patchOnSuccess },
@@ -260,7 +272,7 @@ export async function runModelStep<T>(
       if (!closed) return { kind: "superseded" };
       return {
         kind: "ok",
-        result: loop.value.result,
+        result,
         attempts,
         softIssues: loop.value.softIssues ?? [],
       };
@@ -273,7 +285,8 @@ export async function runModelStep<T>(
     });
     // 다른 요청이 이 단계를 가져갔으면 그 요청이 결과를 정한다.
     if (!closed) return { kind: "superseded" };
-    const terminal = attempts >= MAX_MODEL_ATTEMPTS_PER_STEP;
+    const terminal =
+      attempts >= MAX_MODEL_ATTEMPTS_PER_STEP && spec.keepSession !== true;
     if (terminal) {
       await terminateAndReverse(db, userId, session.id, step, "exhausted");
     }
@@ -380,7 +393,7 @@ export function outcomeToHttp(outcome: Outcome<unknown>): HttpMapping {
         status: 409,
         code: "ATTEMPTS_EXHAUSTED",
         message: "이 단계의 시도 횟수를 모두 사용했어요.",
-        extra: { terminal: true },
+        extra: { terminal: outcome.terminal },
       };
     case "failure":
       return {

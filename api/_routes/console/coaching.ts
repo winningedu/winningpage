@@ -6,7 +6,7 @@
 // 이름은 담임만 실명이고 그 밖에는 서버에서 가린다. 자료가 없는 지표는 판정에서 빠진다(결정 4).
 
 import { writeConsoleAuditLog } from "../../_lib/console/audit.js";
-import { summaryLine, urgencyOf } from "../../_lib/console/coaching.js";
+import { summaryLine, urgencyOfAreas } from "../../_lib/console/coaching.js";
 import { buildCoaching } from "../../_lib/console/coachingBuild.js";
 import {
   loadClassIndex,
@@ -68,7 +68,7 @@ export default defineHandler({
 
     const built = await buildCoaching(admin, studentId, used, enrollment.grade);
     const {
-      data: { metrics, targets, lastSeenAt },
+      data: { targets, lastSeenAt, diagnosisAreas },
       axesResult,
       verdicts,
       type,
@@ -118,9 +118,7 @@ export default defineHandler({
       },
       competencies,
       goalWeek: week ?? null,
-      diagnosisUrgency: metrics.diagnosis
-        ? urgencyOf(metrics.diagnosis.areas)
-        : null,
+      diagnosisUrgency: diagnosisAreas ? urgencyOfAreas(diagnosisAreas) : null,
     });
   },
 });

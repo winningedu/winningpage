@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
+import { buildReport } from "@/lib/diagnosisReport";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
 import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
@@ -33,7 +33,7 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
       .mockImplementation(() => {});
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { findAllByRole } = render(<DiagnosisReportView data={data} />);
 
     const buttons = await findAllByRole("button", {
@@ -61,7 +61,7 @@ describe("DiagnosisReportView — 서버 PDF 경로 분기", () => {
     const downloadSpy = vi.spyOn(downloadReportPdfModule, "downloadReportPdf");
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { getAllByRole } = render(<DiagnosisReportView data={data} />);
 
     fireEvent.click(

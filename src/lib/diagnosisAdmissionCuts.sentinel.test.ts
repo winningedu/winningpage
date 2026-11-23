@@ -110,15 +110,4 @@ const admissionInput = makeInput({
   test("awaitCuts 가 정의돼 있다(제출 시점 경합 방지)", () => {
     expect(cascadeSource.includes("awaitCuts")).toBe(true);
   });
-  test("submitDiagnosis 는 cuts/cutsError 를 직접 읽지 않고 awaitCuts() 를 기다린다", () => {
-    expect(
-      sourceOf("pages/renewal/SurveyStepShell.tsx").includes("awaitCuts()"),
-    ).toBe(true);
-  });
-  // 센티널 객체를 그대로 저장하면 직렬화로 참조 동일성이 사라진다 — 불리언만 넘어가야 한다.
-  test("저장 계층은 불리언 신호만 받는다", () => {
-    expect(
-      sourceOf("lib/diagnosisInputStorage.ts").includes("admissionCutsError"),
-    ).toBe(true);
-  });
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { VerificationSections } from "@/lib/selfeval/types";
 import {
   discriminationLabel,
+  linkWarningLines,
   saveBadge,
   summarizeVerification,
 } from "./verifyLogic";
@@ -52,6 +53,13 @@ describe("discriminationLabel", () => {
 });
 
 describe("summarizeVerification", () => {
+  test("문항 없이 채점했으면 promptMissing 을 옮긴다", () => {
+    expect(
+      summarizeVerification(sections({ promptMissing: true })).promptMissing,
+    ).toBe(true);
+    expect(summarizeVerification(sections()).promptMissing).toBe(false);
+  });
+
   test("확인 문장 수와 통과, 확인 필요, 필수 수정 수를 센다", () => {
     expect(
       summarizeVerification(
@@ -112,5 +120,84 @@ describe("saveBadge", () => {
       tone: "ok",
       label: "제출 가능",
     });
+  });
+});
+
+describe("linkWarningLines(명세 No.182, 190)", () => {
+  const check = (over: Record<string, unknown>) => ({
+    recordId: "s1",
+    label: "보조탐구",
+    status: "checked",
+    linkShown: true,
+    concreteWordPresent: true,
+    listingSuspect: false,
+    ...over,
+  });
+  const lines = (...checks: Record<string, unknown>[]) =>
+    linkWarningLines(sections({ linkChecks: checks as never })).map(
+      (l) => l.text,
+    );
+
+  test("문제가 없는 기록은 경고를 내지 않는다", () => {
+    expect(lines(check({}))).toEqual([]);
+  });
+
+  test("연계가 드러난 문장이 없으면 그 경고를 낸다", () => {
+    expect(lines(check({ linkShown: false }))).toEqual([
+      "보조탐구: 연계가 드러난 문장이 없어요",
+    ]);
+  });
+
+  test("구체물 낱말이 연계 문장에 없으면 그 경고를 낸다", () => {
+    expect(lines(check({ concreteWordPresent: false }))).toEqual([
+      "보조탐구: 넘어온 구체물 낱말이 연계 문장에 없어요",
+    ]);
+  });
+
+  test("그 기록 문장을 빼도 글이 성립하면 나열 의심 경고를 낸다", () => {
+    expect(lines(check({ listingSuspect: true }))).toEqual([
+      "보조탐구: 이 기록 문장을 빼도 글이 성립해요(나열 의심)",
+    ]);
+  });
+
+  test("판정을 못 낸 칸(null)은 경고하지 않는다", () => {
+    expect(
+      lines(
+        check({
+          linkShown: null,
+          concreteWordPresent: null,
+          listingSuspect: null,
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  test("선택했지만 쓰이지 않은 기록은 미사용으로 알린다", () => {
+    expect(
+      lines(
+        check({
+          status: "unused",
+          linkShown: null,
+          concreteWordPresent: null,
+          listingSuspect: null,
+        }),
+      ),
+    ).toEqual(["보조탐구: 선택했지만 본문에 쓰이지 않았어요(미사용)"]);
+  });
+
+  test("이전 리포트처럼 linkChecks 가 없으면 빈 목록이다", () => {
+    expect(linkWarningLines(sections())).toEqual([]);
+  });
+
+  test("연계 경고는 요약의 필수 수정 수와 저장 배지를 바꾸지 않는다", () => {
+    const warned = sections({
+      linkChecks: [check({ linkShown: false, listingSuspect: true })] as never,
+    });
+    expect(summarizeVerification(warned)).toEqual(
+      summarizeVerification(sections()),
+    );
+    expect(saveBadge(summarizeVerification(warned))).toEqual(
+      saveBadge(summarizeVerification(sections())),
+    );
   });
 });

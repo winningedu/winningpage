@@ -94,6 +94,9 @@ export default function SourceFilterCard({
           전체 {counts.total}
         </Chip>
       </div>
+      <p className="mt-2 text-app-caption text-ink">
+        자기평가서 확정본은 결과물이라 재료로 쓸 수 없어요
+      </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <select
           aria-label="학년도 필터"

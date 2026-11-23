@@ -138,6 +138,7 @@ export function isExhausted(record: StepRecord): boolean {
 }
 
 const STEP_LABELS: Record<ModelStepKey, string> = {
+  link: "연계",
   analyze: "분석",
   write: "생성",
   verify: "검증",
@@ -149,7 +150,8 @@ export function progress(state: StepState): {
   status: StepStatus;
   attempts: number;
 }[] {
-  return MODEL_STEP_KEYS.map((step) => {
+  // 연계 판정은 활동 선택 안의 보조 호출이라 진행 표시에는 넣지 않는다.
+  return MODEL_STEP_KEYS.filter((step) => step !== "link").map((step) => {
     const r = stepRecord(state, step);
     return {
       step,
