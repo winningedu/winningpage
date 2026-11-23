@@ -6,11 +6,13 @@ import { queryClient } from "@/lib/queryClient";
 import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { TENANT_MESSAGES } from "@/pages/signup/school/copy";
 import {
-  CLASS_NAME_INVALID_MESSAGE,
   ENROLLMENT_GRADES,
   isValidClassNumber,
-  normalizeClassName,
 } from "@/pages/signup/school/rules";
+import {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../api/_lib/console/className";
 import { joinTenant, lookupJoinTenant, SUBMIT_FAILED } from "./api";
 
 // 기타 소속 학생이 소속코드로 기관을 옮기는 모달(결정 96, 98, 99).
@@ -247,7 +249,6 @@ export default function JoinTenantModal({
             </label>
             <input
               id={`${base}-class`}
-              inputMode="numeric"
               value={className}
               onChange={(e) => setClassName(e.target.value)}
               className={`mt-2 ${FIELD_CLASS}`}

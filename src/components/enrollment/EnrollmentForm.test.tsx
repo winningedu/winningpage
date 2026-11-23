@@ -108,7 +108,7 @@ describe("EnrollmentForm - 스스로 입력(self-assign)", () => {
   });
 });
 
-describe("EnrollmentForm - 반은 숫자만", () => {
+describe("EnrollmentForm - 반 이름", () => {
   const renderForm = (orgType = "학교") =>
     render(
       <EnrollmentForm
@@ -120,37 +120,33 @@ describe("EnrollmentForm - 반은 숫자만", () => {
       />,
     );
 
-  it("반 칸은 숫자 키패드를 띄운다", () => {
-    renderForm("캠퍼스");
-
-    expect(screen.getByLabelText("반")).toHaveAttribute("inputmode", "numeric");
-  });
-
-  it.each(["A", "B반", "3학년 2반", "1-2", "3 반", "0"])(
-    "반 %s 는 숫자가 아니므로 보내지 않고 안내한다",
+  it.each(["반", "0", "00반"])(
+    "반 %s 는 올바른 반이 아니므로 보내지 않고 안내한다",
     async (bad) => {
       renderForm("캠퍼스");
 
       fill("고2", bad, "12");
       fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "반은 숫자만 적어요",
-      );
+      expect(await screen.findByRole("alert")).toHaveTextContent("반을 적어요");
       expect(mockApiFetch).not.toHaveBeenCalled();
     },
   );
 
-  it("3반 은 숫자 3 으로 보낸다", async () => {
+  it.each([
+    [" 03반 ", "3"],
+    ["A반", "A"],
+    ["B 반", "B"],
+  ])("반 '%s' 은 '%s' 로 보낸다", async (raw, want) => {
     mockApiFetch.mockResolvedValue(jsonResponse(200, { ok: true }));
     renderForm();
 
-    fill("고2", " 03반 ", "12");
+    fill("고2", raw, "12");
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
     const [, init] = mockApiFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(init.body as string)).toMatchObject({ className: "3" });
+    expect(JSON.parse(init.body as string)).toMatchObject({ className: want });
   });
 });
 

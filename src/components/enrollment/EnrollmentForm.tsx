@@ -108,7 +108,6 @@ export default function EnrollmentForm({
       </label>
       <input
         id={`${base}-class`}
-        inputMode="numeric"
         value={className}
         onChange={(e) => setClassName(e.target.value)}
         className={FIELD_CLASS}
