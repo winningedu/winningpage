@@ -83,13 +83,59 @@ function useRangeParams(): [
 
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
+// 속성 값 한글 이름. 값 목록은 src/lib/analytics.ts(hqa-vercel)의 유니온과 같다.
+// 목록에 없는 값(새 값, Vercel 의 "Others" 묶음)은 받은 값을 그대로 보인다.
+const VALUE_LABELS: Record<WebAnalyticsProperty, Record<string, string>> = {
+  member_type: {
+    student: "학생",
+    under14: "만 14세 미만 학생",
+    parent: "학부모",
+    school_student: "학교 학생",
+  },
+  service: {
+    diagnosis: "진단",
+    goal: "목표 관리",
+    growth: "성장설계",
+    performance: "수행평가",
+    selfeval: "자기평가",
+    inquiry: "심화탐구",
+  },
+  method: {
+    card: "카드",
+    virtual_account: "가상계좌",
+    easy_pay: "간편결제",
+    transfer: "계좌이체",
+    other: "기타",
+    pdf: "PDF",
+    print: "인쇄",
+    copy: "복사",
+  },
+  location: {
+    footer: "하단",
+    online_inquiry: "온라인 문의",
+    mypage: "마이페이지",
+    payment: "결제 결과",
+    premium: "프리미엄",
+    signup_notice: "가입 안내",
+    chat_card: "대화 카드",
+    banner: "배너",
+    start_page: "시작 화면",
+    survey: "설문",
+    reports: "보고서 목록",
+  },
+  step: { topics: "주제", result: "결과" },
+};
+
 type Breakdown = WebAnalyticsReport["events"][number]["breakdowns"][number];
 
 // 예: "방식: pdf 6, copy 3"
 function breakdownText(breakdown: Breakdown): string {
   const label = PROPERTY_LABELS[breakdown.property];
   const values = breakdown.values
-    .map((v) => `${v.value} ${numberFormat.format(v.count)}`)
+    .map(
+      (v) =>
+        `${VALUE_LABELS[breakdown.property][v.value] ?? v.value} ${numberFormat.format(v.count)}`,
+    )
     .join(", ");
   return `${label}: ${values}`;
 }

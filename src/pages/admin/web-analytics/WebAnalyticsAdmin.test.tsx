@@ -116,8 +116,8 @@ describe("WebAnalyticsAdmin", () => {
     const cells = within(row as HTMLElement);
     expect(cells.getByText("9")).toBeInTheDocument();
     expect(cells.getByText("5")).toBeInTheDocument();
-    expect(cells.getByText("서비스: growth 7")).toBeInTheDocument();
-    expect(cells.getByText("방식: pdf 6, copy 3")).toBeInTheDocument();
+    expect(cells.getByText("서비스: 성장설계 7")).toBeInTheDocument();
+    expect(cells.getByText("방식: PDF 6, 복사 3")).toBeInTheDocument();
     const empty = within(table).getByText("상담 신청").closest("tr");
     expect(within(empty as HTMLElement).getAllByText("0")).toHaveLength(2);
     for (const header of ["이벤트", "횟수", "방문자", "속성별 나눔"]) {
