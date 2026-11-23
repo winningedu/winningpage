@@ -263,6 +263,42 @@ describe("temperament admission rules (18 r32-r48)", () => {
     expect(rules.AD_HOLISTIC).toEqual([]);
   });
 
+  test("T_HS_2 on low pressure and T_HS_4 on RD 70 when the cap leaves room (18 r33, r35)", () => {
+    // HA 100 SD 0 PS 0: F_PRESS 0 < 40; RD 70; NS 0 keeps T_HS_3 off
+    expect(rulesFor("M3", [0, 100, 70, 0, 0, 0, 0]).HS).toEqual([
+      "T_HS_2",
+      "T_HS_4",
+    ]);
+  });
+
+  test("T_AD_1 needs F_SUST and F_PRESS both 70 or more (18 r37)", () => {
+    // NS 0 HA 0 PS 100 SD 100: F_SUST 100, F_PRESS 100
+    expect(rulesFor("H12", [0, 0, 0, 100, 100, 0, 0]).AD_RATIO).toEqual([
+      "T_AD_1",
+    ]);
+  });
+
+  test("T_AD_4 on F_SWAY 70 or more, before T_AD_6 (18 r38, r41)", () => {
+    // NS 100 SD 0 RD 100: F_SWAY 100
+    expect(rulesFor("H3", [100, 0, 100, 0, 0, 0, 0]).AD_HOLISTIC).toEqual([
+      "T_AD_4",
+      "T_AD_6",
+    ]);
+  });
+
+  test("T_SUBJ_2 on PS 70 and T_SUBJ_3 on ST 70 after T_SUBJ_0 (18 r45-r48)", () => {
+    // PS 100 HA 0 SD 0: F_PRESS 75 keeps T_SUBJ_1 off
+    expect(rulesFor("H12", [0, 0, 0, 100, 0, 0, 0]).SUBJ).toEqual([
+      "T_SUBJ_0",
+      "T_SUBJ_2",
+    ]);
+    // HA 0 SD 0 PS 0: F_PRESS 50 is not under 50; ST 70 fires T_SUBJ_3
+    expect(rulesFor("H12", [0, 0, 0, 0, 0, 0, 70]).SUBJ).toEqual([
+      "T_SUBJ_0",
+      "T_SUBJ_3",
+    ]);
+  });
+
   test("OR and AND conditions: T_AD_6 on CO alone, T_AD_3 needs low sway and NS", () => {
     expect(rulesFor("H3", [0, 0, 0, 0, 0, 70, 0]).AD_HOLISTIC).toContain(
       "T_AD_6",

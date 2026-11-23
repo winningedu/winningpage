@@ -662,6 +662,12 @@ describe("8p-10p MBTI and 기질 (22 r79-r99)", () => {
     });
   });
 
+  test("9p lead and scale note are TEMP_LEAD and TEMP_SCALE_NOTE (22 r87)", () => {
+    const { p9 } = run().pages;
+    expect(p9.lead).toBe(COPY_TEXT.TEMP_LEAD);
+    expect(p9.scaleNote).toBe(COPY_TEXT.TEMP_SCALE_NOTE);
+  });
+
   test("an MBTI answer fills the type card", () => {
     const { p8 } = run({ ...CALC_EXAMPLE, q22: "ESTJ" }).pages;
     expect(p8.mbti.kind).toBe("type");
