@@ -389,10 +389,133 @@ describe("ImportSetupPage 미리보기", () => {
     expect(screen.getAllByText("새 반과 번호 확인").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "결과 종류: 반영, 반 변경, 미가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미가입, 3학년은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨), 형식 오류",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "적용" })).toBeTruthy();
+  });
+});
+
+const FORMAT_ERROR_ROW = {
+  line: 5,
+  displayName: "가*짜",
+  from: null,
+  to: null,
+  studentId: null,
+  result: "format_error",
+  reasons: ["grade"],
+};
+
+describe("ImportSetupPage 미리보기 형식 오류", () => {
+  const FORMAT_PREVIEW = {
+    ...PREVIEW,
+    rows: [...PREVIEW.rows, FORMAT_ERROR_ROW],
+  };
+
+  it("형식 오류 줄은 칩과 이유 문장을 보이고 표 위에 저장하지 않는다는 안내를 둔다", async () => {
+    await previewIt({}, FORMAT_PREVIEW);
+
+    expect(await screen.findByText("가*짜")).toBeTruthy();
+    expect(screen.getByText("형식 오류")).toBeTruthy();
+    expect(screen.getByText("학년은 중1~고3 중에서 골라 적어요")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "형식 오류 1줄은 저장하지 않아요. 고친 뒤 다시 미리보기하면 저장돼요",
+      ),
+    ).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "적용" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
+  it("반과 그룹 이유도 문장으로 보인다", async () => {
+    await previewIt(
+      {},
+      {
+        ...PREVIEW,
+        rows: [{ ...FORMAT_ERROR_ROW, reasons: ["class", "group"] }],
+      },
+    );
+
+    expect(
+      await screen.findByText(
+        "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("등록되지 않은 그룹")).toBeTruthy();
+  });
+
+  it("형식 오류가 없으면 안내를 보이지 않는다", async () => {
+    await previewIt();
+
+    await screen.findByText("김*늘");
+    expect(screen.queryByText(/저장하지 않아요/)).toBeNull();
+  });
+
+  it("적용 뒤 저장하지 못한 줄이 있으면 성공 토스트 대신 결과 블록을 먼저, 성공 문장을 그 뒤에 보인다", async () => {
+    await previewIt(
+      {
+        "POST /api/console/school-year/rollover": {
+          body: {
+            ok: true,
+            mode: "rollover",
+            graduated: 150,
+            promoted: 300,
+            skipped: 2,
+            assigned: 297,
+            pendingStored: 0,
+            pendingSkipped: 0,
+          },
+        },
+      },
+      FORMAT_PREVIEW,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+
+    const failed = await screen.findByText("1명은 저장하지 못했어요");
+    expect(
+      screen.getByText("5번째 줄 가*짜: 학년은 중1~고3 중에서 골라 적어요"),
+    ).toBeTruthy();
+    const sentence = screen.getByText(
+      "학년도 전환을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요",
+    );
+    expect(
+      failed.compareDocumentPosition(sentence) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("결과 블록은 다음 미리보기를 누르면 사라진다", async () => {
+    await previewIt(
+      {
+        "POST /api/console/school-year/rollover": {
+          body: {
+            ok: true,
+            mode: "rollover",
+            graduated: 1,
+            promoted: 1,
+            skipped: 0,
+            assigned: 1,
+            pendingStored: 0,
+            pendingSkipped: 0,
+          },
+        },
+      },
+      FORMAT_PREVIEW,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "적용" }));
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+    await screen.findByText("1명은 저장하지 못했어요");
+
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("1명은 저장하지 못했어요")).toBeNull(),
+    );
   });
 });
 
@@ -441,7 +564,7 @@ describe("ImportSetupPage 미리보기 학원", () => {
     expect(screen.queryByText("3학년은 졸업 처리 대상")).toBeNull();
     expect(
       screen.getByText(
-        "결과 종류: 반영, 반 변경, 미가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨)",
+        "결과 종류: 반영, 반 변경, 미가입, 고3은 졸업 처리 대상, 새 반과 번호 확인, 같은 새 반과 번호가 중복, 같은 이름이 2명 이상(사람이 확인), 새 반에 담임 선생님 없음(안내만, 반영됨), 형식 오류",
       ),
     ).toBeTruthy();
   });
@@ -627,11 +750,16 @@ describe("ImportSetupPage W11a 적용 확인", () => {
     fireEvent.click(await screen.findByRole("button", { name: "적용" }));
     fireEvent.click(await screen.findByRole("button", { name: "확인" }));
 
+    const failed = await screen.findByText("1명은 저장하지 못했어요");
+    expect(screen.getByText("학년이나 반을 알 수 없는 1명")).toBeTruthy();
+    const sentence = screen.getByText(
+      "학년도 전환을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요. 미가입 4명은 학생 목록에 저장했어요",
+    );
     expect(
-      await screen.findByText(
-        "학년도 전환을 적용했어요. 학년 +1 297명, 졸업 처리 150명, 반영하지 못한 3명은 미배정 목록에서 확인해 주세요. 미가입 4명은 학생 목록에 저장했어요, 학년이나 반을 알 수 없는 1명은 저장하지 못했어요",
-      ),
+      failed.compareDocumentPosition(sentence) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
     expect(
       calls.find((c) => c.key === "POST /api/console/school-year/rollover")
         ?.body,
