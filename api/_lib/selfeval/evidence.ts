@@ -2,9 +2,11 @@
 // 저장된 옛 리포트의 근거는 {activityId, field} 단일 객체, {student:true}, null 이었다.
 // 새 모양은 SentenceEvidence 배열이라, 읽는 길목마다 normalizeEvidence 로 같은 모양으로 맞춘다.
 
+import { extractNumbers } from "./text.js";
 import {
   ANALYSIS_FIELDS,
   type AnalysisField,
+  BODY_EVIDENCE_FIELDS,
   type EvidenceItem,
   type EvidenceSourceType,
   type EvidenceWeight,
@@ -106,5 +108,103 @@ export function normalizeSections(
         ),
       };
     }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 모델이 제안한 근거를 서버가 거른다(명세 No.145, 48, 199, 80, 200, 5, 161)
+// ---------------------------------------------------------------------------
+
+/** 이번 세션에서 근거가 될 수 있는 기록 하나. P, D, A 구분은 sourceTypeOfRecord 가 정한다. */
+export type RecordEvidenceSource = {
+  id: string;
+  sourceType: "P" | "D" | "A";
+  /** record_status 가 completed 인 기록만 근거가 된다(명세 No.200). */
+  completed: boolean;
+  /** 값이 있는 항목의 글. 비운 항목은 넣지 않는다. */
+  itemTexts: Partial<Record<AnalysisField, string>>;
+};
+
+/** 학생이 확인했고 포함으로 둔 수기 메모(명세 No.161). */
+export type MemoEvidenceSource = { id: string; text: string };
+
+export type EvidenceSources = {
+  records: RecordEvidenceSource[];
+  memos: MemoEvidenceSource[];
+};
+
+/** 수기 메모가 근거가 될 수 있는 항목: 계기, 한 일, 방법, 한계(명세 No.161). */
+export const MEMO_EVIDENCE_ITEMS: readonly AnalysisField[] = [
+  "motive",
+  "action",
+  "method",
+  "limitation",
+];
+
+const numberCore = (token: string): string =>
+  (token.match(/^[\d,.]+/)?.[0] ?? token).replace(/,/g, "");
+
+const numberSet = (text: string): Set<string> =>
+  new Set(extractNumbers(text).map(numberCore));
+
+export type ResolvedEvidence = {
+  evidence: SentenceEvidence[];
+  /** 서버가 정한 확인 필요 여부. 모델 신고는 보지 않는다. */
+  needsConfirmation: boolean;
+};
+
+/**
+ * 모델이 문장마다 낸 근거 후보(refId, item, weight)를 이번 세션의 선택 기록과 포함된 수기 메모로
+ * 거른다. 범위 밖 근거와 빈 항목은 조용히 버린다(명세 No.145). 다음으로 확인 필요를 서버가 정한다.
+ *   근거가 하나도 남지 않음(명세 No.48, 199)
+ *   완료되지 않은 기록을 가리킨 근거가 있었음(명세 No.200)
+ *   문장 속 수치가 인용한 근거의 글에 없음(명세 No.5, 161): 수기 메모만으로 결과 수치를 만들지 못하게
+ *     하려고, 근거 글(기록 항목 글과 수기 메모 글)에 같은 수가 없으면 올린다.
+ * 가장 비슷한 기록을 대신 붙이는 일은 하지 않는다(명세 No.199).
+ */
+export function resolveSentenceEvidence(
+  raw: unknown,
+  text: string,
+  sources: EvidenceSources,
+): ResolvedEvidence {
+  const kept: SentenceEvidence[] = [];
+  const citedTexts: string[] = [];
+  let droppedInProgress = false;
+  const list = Array.isArray(raw) ? raw : [];
+  for (const entry of list) {
+    if (!isRecord(entry)) continue;
+    const { refId, item } = entry;
+    if (typeof refId !== "string" || typeof item !== "string") continue;
+    if (!(BODY_EVIDENCE_FIELDS as readonly string[]).includes(item)) continue;
+    const field = item as AnalysisField;
+    const weight: EvidenceWeight = entry.weight === "main" ? "main" : "sub";
+    const record = sources.records.find((r) => r.id === refId);
+    const memo = sources.memos.find((m) => m.id === refId);
+    let cited: SentenceEvidence | null = null;
+    let citedText = "";
+    if (record !== undefined) {
+      const itemText = record.itemTexts[field]?.trim() ?? "";
+      if (itemText === "") continue;
+      if (!record.completed) {
+        droppedInProgress = true;
+        continue;
+      }
+      cited = { sourceType: record.sourceType, refId, item: field, weight };
+      citedText = itemText;
+    } else if (memo !== undefined) {
+      if (!MEMO_EVIDENCE_ITEMS.includes(field)) continue;
+      cited = { sourceType: "H", refId, item: field, weight };
+      citedText = memo.text;
+    }
+    if (cited === null) continue;
+    if (kept.some((k) => k.refId === refId && k.item === field)) continue;
+    kept.push(cited);
+    citedTexts.push(citedText);
+  }
+  const known = new Set(citedTexts.flatMap((t) => [...numberSet(t)]));
+  const unexplained = [...numberSet(text)].some((n) => !known.has(n));
+  return {
+    evidence: kept,
+    needsConfirmation: kept.length === 0 || droppedInProgress || unexplained,
   };
 }
