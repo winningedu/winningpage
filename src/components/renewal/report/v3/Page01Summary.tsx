@@ -8,9 +8,6 @@ import SectionHeader from "./parts/SectionHeader";
 
 const PAGE = 1;
 
-/** PDF p1 period row word before the re-diagnosis date; 22 r16 holds no copy id for it. */
-const REDX_LABEL = "재진단";
-
 type Page01SummaryProps = { page: Page1; tocTitle: string };
 
 /** 1p summary, 22 r9-r27. */
@@ -52,7 +49,7 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
             <dd>
               <span>{`${period.from} ~ ${period.to}`}</span>
               {L.joiner}
-              <span>{`${REDX_LABEL} ${period.redx}`}</span>
+              <span>{`${L.redx} ${period.redx}`}</span>
             </dd>
             {row(L.profileTemperament, profile.temperament)}
             {row(L.profileReliability, profile.reliability)}

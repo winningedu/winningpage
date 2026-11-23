@@ -94,6 +94,8 @@ export const REPORT_LABELS = {
   profileGpa: "내신 평균",
   profileTrend: "성적 흐름",
   profilePeriod: "진단 기간",
+  /** PDF p2 period row word before the re-diagnosis date; 22 r16 holds no copy id for it */
+  redx: "재진단",
   profileTemperament: "대표 기질",
   profileReliability: "응답 신뢰도",
   cycleRadar: "7단계 학습관리",
