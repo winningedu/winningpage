@@ -12,6 +12,8 @@
 //   413 PAYLOAD_TOO_LARGE
 
 import type { VercelResponse } from "@vercel/node";
+import { validateAnswers } from "../../../src/lib/diagnosis-v3/index.js";
+import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
@@ -95,6 +97,36 @@ export default defineHandler({
         "ATTEMPT_NOT_COUNTED",
         "이용 횟수가 센 제출만 저장할 수 있습니다.",
       );
+      return;
+    }
+
+    // Idempotent replay: a stored report is returned as is, never recomputed.
+    const { data: stored, error: storedError } = await ctx.supabaseAdmin
+      .from("diagnosis_reports")
+      .select("schema_version, payload")
+      .eq("attempt_id", attemptId)
+      .maybeSingle();
+    if (storedError) {
+      console.error("diagnosis/submit 기존 리포트 조회 실패:", storedError);
+      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
+      return;
+    }
+    if (stored) {
+      res.status(200).json({
+        ok: true,
+        schemaVersion: stored.schema_version,
+        payload: stored.payload,
+      });
+      return;
+    }
+
+    // Diagnosis date = today in KST, set by the server (judge-report 3-2).
+    const diagnosedAt = kstYMD(new Date());
+    const validated = validateAnswers(answers, diagnosedAt);
+    if (!validated.ok) {
+      fail(res, 400, "INVALID_ANSWERS", "답안이 올바르지 않습니다.", {
+        errors: validated.errors,
+      });
       return;
     }
 
