@@ -45,7 +45,7 @@ export interface HqTenantRow {
   /** 학적이 없는 학생 수. 화면은 "학년, 반 미상"으로 보인다. */
   studentWithoutEnrollmentCount: number;
   teacherCount: number;
-  lastActivityOn: string | null;
+  lastActivityAt: string | null;
   goalRateAverage: number | null;
   goalUserCount: number;
 }

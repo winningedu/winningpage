@@ -8,6 +8,9 @@ import {
 } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { ymdIn } from "@/lib/time/day";
+import { formatDate, formatDateTime } from "@/lib/time/format";
+import { browserTimeZone } from "@/lib/time/zone";
 
 const gate = vi.hoisted(() => ({ requests: [] as Record<string, unknown>[] }));
 
@@ -52,7 +55,7 @@ function row(overrides: Partial<HqTenantRow> = {}): HqTenantRow {
     studentCount: 10,
     studentWithoutEnrollmentCount: 0,
     teacherCount: 2,
-    lastActivityOn: "2026-11-20",
+    lastActivityAt: "2026-11-20T01:30:00.000Z",
     goalRateAverage: 50,
     goalUserCount: 4,
     ...overrides,
@@ -146,7 +149,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   gate.requests = [];
   vi.mocked(api.fetchHqSummary).mockResolvedValue({
-    asOf: "2026-11-23",
+    asOf: "2026-11-23T01:30:00.000Z",
     tenantCount: 3,
     studentCount: 47,
     studentWithoutEnrollmentCount: 4,
@@ -162,11 +165,11 @@ beforeEach(() => {
     },
   });
   vi.mocked(api.fetchHqTenants).mockResolvedValue({
-    asOf: "2026-11-23",
+    asOf: "2026-11-23T01:30:00.000Z",
     tenants: ROWS,
   });
   vi.mocked(api.fetchHqUsage).mockResolvedValue({
-    asOf: "2026-11-23",
+    asOf: "2026-11-23T01:30:00.000Z",
     usage: USAGE,
   });
 });
@@ -193,7 +196,9 @@ describe("합계 카드", () => {
     expect(within(cards).getByText("계약 종료").nextSibling?.textContent).toBe(
       "1",
     );
-    expect(screen.getByText("2026-11-23 기준")).toBeTruthy();
+    expect(
+      screen.getByText(`${formatDateTime("2026-11-23T01:30:00.000Z")} 기준`),
+    ).toBeTruthy();
   });
 
   test("불러오지 못하면 오류를 보인다", async () => {
@@ -216,7 +221,7 @@ describe("시범기간(결정 117)", () => {
 
   test("계약 상태 필터에 시범기간 중이 있고, 표에 상태와 시범 날짜를 보인다", async () => {
     vi.mocked(api.fetchHqTenants).mockResolvedValue({
-      asOf: "2026-11-23",
+      asOf: "2026-11-23T01:30:00.000Z",
       tenants: [
         ...ROWS,
         row({
@@ -246,6 +251,17 @@ describe("시범기간(결정 117)", () => {
       .map((c) => c.textContent);
     expect(cells).toContain("시범기간 중");
     expect(cells).toContain("2026-11-20 ~ 2026-12-19");
+  });
+});
+
+describe("마지막 활동", () => {
+  test("순간을 보는 사람 시간대의 날짜로 보인다", async () => {
+    renderAt("/admin/hqDashboard");
+    await screen.findByText("가람중");
+    const cells = within(screen.getAllByRole("row")[1] as HTMLElement)
+      .getAllByRole("cell")
+      .map((c) => c.textContent);
+    expect(cells).toContain(formatDate("2026-11-20T01:30:00.000Z"));
   });
 });
 
@@ -341,7 +357,7 @@ describe("기관 표와 URL 검색 파라미터", () => {
 
   test("20건을 넘으면 쪽을 나누고 쪽 번호는 주소에 남는다", async () => {
     vi.mocked(api.fetchHqTenants).mockResolvedValue({
-      asOf: "2026-11-23",
+      asOf: "2026-11-23T01:30:00.000Z",
       tenants: Array.from({ length: 25 }, (_, i) =>
         row({ tenantId: `t${i}`, name: `기관${String(i).padStart(2, "0")}` }),
       ),
@@ -384,7 +400,9 @@ describe("엑셀 다운로드", () => {
     expect(triggerXlsxDownload).toHaveBeenCalledTimes(1);
     const [workbook, fileName] = vi.mocked(triggerXlsxDownload).mock
       .calls[0] as [XLSX.WorkBook, string];
-    expect(fileName).toBe("기관현황_2026-11-23.xlsx");
+    expect(fileName).toBe(
+      `기관현황_${ymdIn(new Date(), browserTimeZone())}.xlsx`,
+    );
     const sheet = workbook.Sheets[
       workbook.SheetNames[0] as string
     ] as XLSX.WorkSheet;
