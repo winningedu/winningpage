@@ -82,24 +82,24 @@ begin
   raise notice '[PASS] % = %', t, want;
 end $$;
 
--- 학년도: KST 기준 (시각 - 2개월) 의 연도. 3월 1일 00:00 KST 에 새 학년도가 시작한다.
+-- 학년도: 서울 기준 (시각 - 2개월) 의 연도. 3월 1일 00:00 KST 에 새 학년도가 시작한다.
 select pg_temp.expect_int('2026-03-01 00:00 KST 는 2026학년도',
-  public.fn_school_year_kst('2026-03-01 00:00:00+09'), 2026);
+  public.fn_school_year('2026-03-01 00:00:00+09', 'Asia/Seoul'), 2026);
 select pg_temp.expect_int('2026-02-28 23:59 KST 는 2025학년도',
-  public.fn_school_year_kst('2026-02-28 23:59:59+09'), 2025);
+  public.fn_school_year('2026-02-28 23:59:59+09', 'Asia/Seoul'), 2025);
 select pg_temp.expect_int('2026-01-01 00:00 KST 는 2025학년도',
-  public.fn_school_year_kst('2026-01-01 00:00:00+09'), 2025);
+  public.fn_school_year('2026-01-01 00:00:00+09', 'Asia/Seoul'), 2025);
 select pg_temp.expect_int('2026-12-31 23:59 KST 는 2026학년도',
-  public.fn_school_year_kst('2026-12-31 23:59:59+09'), 2026);
+  public.fn_school_year('2026-12-31 23:59:59+09', 'Asia/Seoul'), 2026);
 -- UTC 로는 2월 28일 15:00 이지만 KST 로는 3월 1일 00:00
 select pg_temp.expect_int('UTC 2026-02-28 15:00 은 KST 로 2026학년도',
-  public.fn_school_year_kst('2026-02-28 15:00:00+00'), 2026);
+  public.fn_school_year('2026-02-28 15:00:00+00', 'Asia/Seoul'), 2026);
 
 -- 새 tenants 행의 기본값
 select pg_temp.mk_tenant('T2AAAAAA');
-select pg_temp.expect_int('school_year 기본값 = fn_school_year_kst(now())',
+select pg_temp.expect_int('school_year 기본값 = 서울 기준 fn_school_year(now())',
   (select school_year from public.tenants where code = 'T2AAAAAA'),
-  public.fn_school_year_kst(now()));
+  public.fn_school_year(now(), 'Asia/Seoul'));
 select pg_temp.expect_bool('is_catch_all 기본값 false',
   (select is_catch_all from public.tenants where code = 'T2AAAAAA'), false);
 
