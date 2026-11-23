@@ -1,7 +1,7 @@
 // 4-week plan (21_4주플랜, 15_4주과제 copy). Area orders come in already
 // sorted low to high by the 23 tie rule, so the plan never re-ranks areas.
 
-import type { P1Code, P2Code } from "./codes.js";
+import { AREAS, type P1Code, type P2Code } from "./codes.js";
 import { OPTIONS } from "./options.js";
 import { sheetRows, textCell } from "./sheet.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
@@ -309,9 +309,35 @@ const taskRow = (id: string) => {
   return { kind: String(row.c[1]), done: String(row.c[3]) };
 };
 
+/** Display text of a plan task: {subject} from q13, PLAN_REDUCE on a reduced column 3 (21 C27). */
+export function taskText(plan: Plan, task: PlanTask): string {
+  const text = fillCopy(task.taskId, { subject: task.event?.subject });
+  const reduced = task.column === 3 && plan.reducedWeeks.includes(task.week);
+  return reduced ? `${text} ${copy("PLAN_REDUCE")}` : text;
+}
+
+/** 22 r111 row: area label (05 B, else 15 B), due date, done criterion (15 D). */
+const tableRow = (
+  plan: Plan,
+  task: PlanTask,
+): PlannerPage["tasks"][number] => ({
+  area: task.area ? AREAS[task.area].label : taskRow(task.taskId).kind,
+  task: taskText(plan, task),
+  due: formatDue(task.date),
+  done: taskRow(task.doneId ?? task.taskId).done,
+});
+
 /** 22 r109-r113: one planner page per week. */
 export function buildPlannerPages(plan: Plan): PlannerPage[] {
-  const logDone = taskRow("FIX_LOG").done;
+  const log = taskRow("FIX_LOG");
+  const logDone = log.done;
+  // 15 r7: FIX_LOG is due every day, its 15 B label stands in the due column
+  const logRow = {
+    area: log.kind,
+    task: copy("FIX_LOG"),
+    due: log.kind,
+    done: log.done,
+  };
   return WEEKS.map(({ week, from, to }) => {
     const weekTasks = plan.tasks.filter((t) => t.week === week);
     // 22 r110: record days, plan.rate, first column done that differs from FIX_LOG's
@@ -330,7 +356,7 @@ export function buildPlannerPages(plan: Plan): PlannerPage[] {
         fillCopy("plan.rate", { rate }),
         ...(columnDone === undefined ? [] : [columnDone]),
       ],
-      tasks: [],
+      tasks: [logRow, ...weekTasks.map((t) => tableRow(plan, t))],
       days: [],
       slip: [],
     };

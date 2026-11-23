@@ -83,6 +83,63 @@ describe("buildPlannerPages (22 r109-r113)", () => {
       "다음 주 우선순위 3개",
     ]);
   });
+
+  test("PDF p12 task table: FIX_LOG row first, then due tasks with area, due, done", () => {
+    expect(pages()[0]?.tasks).toEqual([
+      {
+        area: "매일",
+        task: COPY_TEXT.FIX_LOG,
+        due: "매일",
+        done: "주 7일 중 5일 이상",
+      },
+      {
+        area: "시작",
+        task: COPY_TEXT.FIX_START,
+        due: "11/10(화)",
+        done: "목표 1문장",
+      },
+      {
+        area: "우선순위",
+        task: COPY_TEXT.AREA_P1_PRIO_ACT1,
+        due: "11/11(수)",
+        done: "중요\u00b7급함 4칸 표 1장",
+      },
+      {
+        area: "학습 수행",
+        task: COPY_TEXT.AREA_P1_EXEC_ACT1,
+        due: "11/13(금)",
+        done: "최소 학습량 5일 이상",
+      },
+      {
+        area: "탐구 심화",
+        task: COPY_TEXT.AREA_H12_DEEP_ACT1,
+        due: "11/15(일)",
+        done: "탐구 질문 1문장 + 교과서 근거 1개",
+      },
+      {
+        area: "1주 점검",
+        task: COPY_TEXT.FIX_CHECK_1,
+        due: "11/16(월)",
+        done: "실행률 % + 다음 주 분량표",
+      },
+    ]);
+  });
+
+  test("PDF p15: reduced column 3 gets PLAN_REDUCE, EVT_EXAM drops the empty {subject}", () => {
+    const tasks = pages()[3]?.tasks ?? [];
+    expect(tasks.find((t) => t.area === "탐구 심화")).toEqual({
+      area: "탐구 심화",
+      task: `${COPY_TEXT.AREA_H12_DEEP_ACT4} ${COPY_TEXT.PLAN_REDUCE}`,
+      due: "12/6(일)",
+      done: "이번 주는 절반 분량 완료",
+    });
+    expect(tasks.find((t) => t.area === "정기고사")).toEqual({
+      area: "정기고사",
+      task: "시험 대비 실전 리허설 1회 (시간 재고 풀기)",
+      due: "12/4(금)",
+      done: "리허설 점수 기록",
+    });
+  });
 });
 
 describe("buildPlan", () => {
