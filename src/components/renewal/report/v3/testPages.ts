@@ -222,7 +222,7 @@ export const FRONT_PAGES: FrontPages = {
       near: false,
       text: "가까운 목표가 비어 있습니다.",
       rungs: {
-        far: { source: "3번", text: "고려대 경제학과 학생부교과(학교추천)" },
+        far: { source: "3번", text: "FAR 목표 고려대 경제학과" },
         mid: {
           source: "8-1",
           text: "다음 시험에서 받고 싶은 과목별 목표 성적을 정해 두었다.",
