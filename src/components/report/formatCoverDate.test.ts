@@ -3,17 +3,24 @@ import { formatCoverDate, formatCoverPeriod } from "./formatCoverDate";
 
 describe("formatCoverDate", () => {
   it("점 뒤에 공백을 둔 날짜로 만든다", () => {
-    expect(formatCoverDate("2026-10-16T03:00:00Z")).toBe("2026. 10. 16");
+    expect(formatCoverDate("2026-10-16T03:00:00Z", "Asia/Seoul")).toBe(
+      "2026. 10. 16",
+    );
   });
 
-  it("한국 시간 기준으로 날짜를 센다", () => {
-    expect(formatCoverDate("2026-10-15T16:00:00Z")).toBe("2026. 10. 16");
+  it("회원 시간대 기준으로 날짜를 센다", () => {
+    expect(formatCoverDate("2026-11-22T15:30:00Z", "Asia/Seoul")).toBe(
+      "2026. 11. 23",
+    );
+    expect(formatCoverDate("2026-11-22T15:30:00Z", "America/Los_Angeles")).toBe(
+      "2026. 11. 22",
+    );
   });
 
   it("값이 없거나 날짜가 아니면 null", () => {
-    expect(formatCoverDate(null)).toBeNull();
-    expect(formatCoverDate(undefined)).toBeNull();
-    expect(formatCoverDate("abc")).toBeNull();
+    expect(formatCoverDate(null, "Asia/Seoul")).toBeNull();
+    expect(formatCoverDate(undefined, "Asia/Seoul")).toBeNull();
+    expect(formatCoverDate("abc", "Asia/Seoul")).toBeNull();
   });
 });
 
