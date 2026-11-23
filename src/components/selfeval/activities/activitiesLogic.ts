@@ -10,6 +10,7 @@ import {
   MAX_SUPPORT_ACTIVITIES,
   type PickListResponse,
 } from "@/lib/selfeval/types";
+import { strengthLabel } from "./linkMapLogic";
 
 // 활동 선택 화면 순수 로직(명세 No.26~36, 107~113). 서버 규칙(api/_lib/selfeval/pick.ts 의
 // autoSelect, applySelection)과 같은 판정을 클라이언트에서 미리 보여 주기 위한 사본이다.
@@ -80,12 +81,7 @@ export function linkChipText(row: CandidateRow): string | null {
   const state = row.linkState;
   if (!state?.linked) return "연계 없음";
   if (state.hop === 0 || state.hop === null || state.type === null) return null;
-  const strength =
-    state.strength === "explicit"
-      ? "기록에 명시"
-      : state.confirmed
-        ? "추론, 학생 확인"
-        : "추론";
+  const strength = strengthLabel(state.strength, state.confirmed);
   return `연계됨, ${LINK_TYPE_LABELS[state.type]}, ${state.hop}단계, ${strength}`;
 }
 
