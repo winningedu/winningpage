@@ -25,7 +25,7 @@ const STATS: LoginStatsResponse = {
   grain: "day",
   mauMode: "calendar",
   includeInternal: false,
-  firstMeasuredOn: "2026-11-23",
+  firstMeasuredAt: "2026-11-22T15:15:00.000Z",
   series: [],
   dau: {
     from: "2026-11-01",

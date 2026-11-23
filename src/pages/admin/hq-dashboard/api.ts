@@ -121,7 +121,8 @@ export interface LoginStatsResponse {
   grain: "day" | "week" | "month";
   mauMode: "calendar" | "rolling30";
   includeInternal: boolean;
-  firstMeasuredOn: string | null;
+  /** 가장 이른 로그인 기록 순간(ISO Z). 화면이 브라우저 시간대의 날짜로 바꿔 보인다. */
+  firstMeasuredAt: string | null;
   series: LoginBucket[];
   dau: { from: string; to: string; average: number; source: LoginSource };
   mau: {
@@ -136,7 +137,9 @@ export interface LoginStatsResponse {
 
 export interface LoginLogItem {
   profileId: string;
-  kstDate: string;
+  /** 보는 사람 시간대의 날(YYYY-MM-DD). */
+  loginDate: string;
+  /** 그날 처음 기록된 순간(ISO Z). */
   firstSeenAt: string;
   name: string | null;
   memberType: string | null;
