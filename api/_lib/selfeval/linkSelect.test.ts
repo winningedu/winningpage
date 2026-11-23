@@ -178,6 +178,25 @@ describe("evaluateSelection with links", () => {
   });
 });
 
+describe("evaluateSelection with a chosen core", () => {
+  it("builds the graph from the student's core instead of the best-fit core", () => {
+    const rows = [
+      core,
+      row("mine", 50, { concept: "내 개념" }),
+      row("a", 60, { limitation: "한계" }),
+    ];
+    const ev = evaluateSelection(
+      rows,
+      { links: [link("mine", "a")], targetChars: 500 },
+      "mine",
+    );
+    expect(ev.coreId).toBe("mine");
+    expect(ev.coreMismatch).toBe(true);
+    expect(ev.supportIds).toEqual(["a"]);
+    expect(ev.graph.get("a")?.hop).toBe(1);
+  });
+});
+
 describe("annotateRows", () => {
   it("adds link state, bonus, contribution and at least one selection reason per usable row", () => {
     const rows = [

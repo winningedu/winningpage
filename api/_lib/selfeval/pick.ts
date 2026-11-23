@@ -25,7 +25,7 @@ const CANDIDATE_SOURCES: readonly ActivityRecordLike["sourceProgram"][] = [
   "manual",
 ];
 
-const isSameSubject = (r: CandidateRow): boolean =>
+export const isSameSubject = (r: CandidateRow): boolean =>
   r.fit?.signals.some((s) => s.key === "same_subject" && s.hit) === true;
 
 export function buildCandidates(

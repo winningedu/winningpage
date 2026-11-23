@@ -8,7 +8,7 @@ import {
   maxSelectFor,
   newKeys,
 } from "./linkGraph.js";
-import { autoSelect } from "./pick.js";
+import { autoSelect, isSameSubject } from "./pick.js";
 import {
   type AnalysisField,
   type CandidateRow,
@@ -44,8 +44,20 @@ const score = (r: CandidateRow): number => r.fit?.score ?? 0;
 export function evaluateSelection(
   rows: CandidateRow[],
   linking: LinkingInput,
+  /** 학생이 고른 핵심. 없으면 적합도로 정한 핵심을 쓴다. */
+  chosenCoreId?: string,
 ): LinkEvaluation {
-  const base = autoSelect(rows);
+  const chosen = chosenCoreId
+    ? rows.find((r) => r.activity.id === chosenCoreId && r.fit !== null)
+    : undefined;
+  const base = chosen
+    ? {
+        coreId: chosen.activity.id,
+        supportIds: [] as string[],
+        coreMismatch: !isSameSubject(chosen),
+        noneAboveThreshold: false,
+      }
+    : autoSelect(rows);
   const empty = {
     graph: new Map<string, LinkNode>(),
     bonus: {},
