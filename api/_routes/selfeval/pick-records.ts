@@ -333,7 +333,11 @@ async function handleLinkEdit(
   await updateSession(db, userId, session.id, {
     last_activity_at: new Date().toISOString(),
   });
-  res.status(200).json(await listPayload(db, userId, session, "ok"));
+  res
+    .status(200)
+    .json(
+      await listPayload(db, userId, session, linkStatusOf(session.step_state)),
+    );
 }
 
 async function handleManual(

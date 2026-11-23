@@ -302,6 +302,26 @@ describe("pick-records link edits", () => {
     );
   });
 
+  test("add-link keeps the unchecked list status when the link check failed", async () => {
+    m.loadSession.mockResolvedValue(
+      session({
+        steps: {
+          link: { ...okState.steps.link, status: "failed" },
+        },
+      }),
+    );
+    m.loadRecordLinks.mockResolvedValue([]);
+    const res = await call({
+      action: "add-link",
+      fromId: "core",
+      toId: "b",
+      type: "complement",
+      note: "국어에서 같은 소재를 다뤘어요",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ linkStatus: "unchecked" });
+  });
+
   test("delete-link on a missing pair is 404", async () => {
     const res = await call({ action: "delete-link", fromId: "a", toId: "b" });
     expect(res.status).toBe(404);
