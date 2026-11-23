@@ -109,7 +109,7 @@ export default defineHandler({
       if (className === "") {
         res.status(400).json({
           code: "CLASS_INVALID",
-          message: "반을 적어요",
+          message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
           field: "className",
         });
         return;

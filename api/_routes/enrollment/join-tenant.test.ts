@@ -118,7 +118,10 @@ describe("POST /api/enrollment/join-tenant", () => {
       expect(await post({ ...BODY, className })).toMatchObject({
         status: 400,
         body: {
-          error: { code: "CLASS_INVALID", message: "반을 적어요" },
+          error: {
+            code: "CLASS_INVALID",
+            message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+          },
         },
       });
       expect(join).not.toHaveBeenCalled();

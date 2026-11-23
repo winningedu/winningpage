@@ -286,7 +286,7 @@ describe("POST /api/signup/school-student", () => {
       expect(r.status).toBe(400);
       expect(r.body).toMatchObject({
         code: "CLASS_INVALID",
-        message: "반을 적어요",
+        message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
         field: "className",
       });
       expect(kit.state.events).not.toContain("rpc:fn_student_signup");

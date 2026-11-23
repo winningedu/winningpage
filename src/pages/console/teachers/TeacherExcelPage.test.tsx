@@ -98,7 +98,7 @@ describe("W15 기본 화면", () => {
     expect(link.getAttribute("href")).toBe("/templates/teacher-roster.xlsx");
     expect(
       screen.getByText(
-        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중 하나, 반은 3 또는 A처럼 적어요. 예시 2행이 들어 있어요",
+        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중 하나, 반은 3 또는 A처럼 '반' 글자 없이 적어요. 예시 2행이 들어 있어요",
       ),
     ).toBeTruthy();
     expect(screen.getByText("2. 파일 올리기 또는 붙여넣기")).toBeTruthy();
@@ -218,7 +218,9 @@ describe("W15 미리보기", () => {
     expect(first.getByText("이름을 적어요")).toBeTruthy();
     expect(first.getByText("전화번호를 확인해 주세요")).toBeTruthy();
     expect(first.getByText("학년은 중1~고3 중에서 골라 적어요")).toBeTruthy();
-    expect(first.getByText("반을 확인해 주세요")).toBeTruthy();
+    expect(
+      first.getByText("반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요"),
+    ).toBeTruthy();
     expect(
       within(rows[1] as HTMLElement).getByText(
         "그룹을 적었다면 학년과 반도 적어요",

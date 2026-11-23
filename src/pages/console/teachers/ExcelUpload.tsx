@@ -54,7 +54,8 @@ export default function ExcelUpload({
           </a>
           <p className="text-app-label text-ink-sub">
             양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중
-            하나, 반은 3 또는 A처럼 적어요. 예시 2행이 들어 있어요
+            하나, 반은 3 또는 A처럼 '반' 글자 없이 적어요. 예시 2행이 들어
+            있어요
           </p>
         </div>
       </section>

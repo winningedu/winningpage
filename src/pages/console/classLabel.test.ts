@@ -65,6 +65,11 @@ describe("classLabel", () => {
     expect(classLabel(cls({ name: "5" }), academy)).toBe("고2 5반");
   });
 
+  test("이름에 반이 이미 붙어 있어도 반반으로 보이지 않는다", () => {
+    expect(classLabel(cls({ name: "5반" }), school)).toBe("2학년 5반");
+    expect(classLabel(cls({ name: "A반" }), academy)).toBe("고2 A반");
+  });
+
   test("반 이름 A 는 A반으로 보인다", () => {
     expect(classLabel(cls({ name: "A" }), school)).toBe("2학년 A반");
     expect(classLabel(cls({ name: "A" }), academy)).toBe("고2 A반");

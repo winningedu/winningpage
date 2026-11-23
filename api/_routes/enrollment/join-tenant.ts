@@ -54,7 +54,7 @@ function parseBody(body: unknown): Parsed {
     return {
       ok: false,
       code: "CLASS_INVALID",
-      message: "반을 적어요",
+      message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
     };
   }
   if (groupName != null && typeof groupName !== "string") return BAD_REQUEST;

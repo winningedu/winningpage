@@ -128,7 +128,9 @@ describe("EnrollmentForm - 반 이름", () => {
       fill("고2", bad, "12");
       fireEvent.click(screen.getByRole("button", { name: "저장" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("반을 적어요");
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+      );
       expect(mockApiFetch).not.toHaveBeenCalled();
     },
   );

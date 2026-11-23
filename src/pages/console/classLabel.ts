@@ -17,7 +17,7 @@ export function gradeLabel(grade: string | null, academy: boolean): string {
 }
 
 export function classLabel(c: ConsoleClass, label: GradeLabeler): string {
-  return `${c.group ? `${c.group} ` : ""}${label(c.grade)} ${c.name}반`;
+  return `${c.group ? `${c.group} ` : ""}${label(c.grade)} ${c.name.replace(/반$/, "")}반`;
 }
 
 /** 학년(다학년은 맨 뒤), 반 이름(숫자는 숫자 순) 순서. */
