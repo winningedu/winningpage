@@ -62,3 +62,43 @@ export function temperamentDims(
   }
   return dims;
 }
+
+// 18 r18 C: candidates and their fixed order (NS, HA, RD, PS).
+const REP_CANDIDATES = textCell(tempRow(18), 2)
+  .split(" \u00b7 ")
+  .map((code) => {
+    const dim = TEMP_DIMS.find((d) => d === code);
+    if (!dim) throw new Error(`unknown candidate ${code}`);
+    return dim;
+  });
+
+// 18 r19: a gap under this value between 1st and 2nd is 혼합형.
+const MIXED_GAP = numberCell(tempRow(19), 2);
+
+export type Representative = {
+  readonly kind: "single" | "mixed";
+  /** 1st candidate */
+  readonly dim: TempDim;
+  /** 1st and 2nd candidate, set when kind is mixed */
+  readonly dims?: readonly [TempDim, TempDim];
+  /** all four candidates, best first (23 r13-r15 order) */
+  readonly ranked: readonly TempDim[];
+};
+
+/** 18 r18-r19 with the 23 r13-r15 tie rule: score, extreme answers, fixed order. */
+export function representativeTemperament(
+  dims: Readonly<Record<TempDim, TempDimScore>>,
+): Representative {
+  const ranked = [...REP_CANDIDATES].sort(
+    (a, b) =>
+      dims[b].score - dims[a].score ||
+      dims[b].extremes - dims[a].extremes ||
+      REP_CANDIDATES.indexOf(a) - REP_CANDIDATES.indexOf(b),
+  );
+  const [first, second] = ranked;
+  if (!first || !second) throw new Error("need two representative candidates");
+  const mixed = dims[first].score - dims[second].score < MIXED_GAP;
+  return mixed
+    ? { kind: "mixed", dim: first, dims: [first, second], ranked }
+    : { kind: "single", dim: first, ranked };
+}
