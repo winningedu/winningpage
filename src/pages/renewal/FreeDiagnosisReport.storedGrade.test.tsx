@@ -3,14 +3,14 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
+import { buildReport } from "@/lib/diagnosisReport";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import FreeDiagnosisReport from "./FreeDiagnosisReport";
 
 const input = makeInput({
   profile: { name: null, gradeLevel: "H1", schoolType: null },
 });
-const oldPayload = buildReportFromInput(input) as any;
+const oldPayload = buildReport(input) as any;
 delete oldPayload.student.gradeRaw;
 
 vi.mock("@/lib/diagnosisReportQueries", () => ({
