@@ -2,4 +2,8 @@
 // payload pieces (src/lib/diagnosis-v3/types.ts) as they are; no scoring here.
 
 export { REPORT_LABELS, TOTAL_PAGES } from "./labels";
+export {
+  default as RadarChart7,
+  type RadarAxis,
+} from "./RadarChart7";
 export { default as ReportSheet } from "./ReportSheet";

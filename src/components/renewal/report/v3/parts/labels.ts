@@ -11,4 +11,6 @@ export const TOTAL_PAGES = 16;
 export const REPORT_LABELS = {
   reportName: "학습진단 리포트",
   studentOnly: "학생 전용",
+  /** PDF p4 break mark */
+  broken: "여기서 끊김",
 } as const;
