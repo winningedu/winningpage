@@ -91,11 +91,12 @@ rename)은 expand-contract 2단계로 나눠서 이전 코드가 새 스키마�
   `db:reseed`의 첫 단계)은 다른 워크트리나 세션이 로컬 DB에 만들어 둔 데이터까지 전부
   지운다. 병렬 작업 중에는 실행 전에 반드시 확인할 것.
 
-## 알려진 드리프트 (2026-10-23 스쿼시 시점)
+## 알려진 드리프트 (2026-11-24 확인)
 
 - `auth.users` 트리거 2종(`on_auth_user_created`, `on_auth_user_created_coupon_grant`)은 dev에만
   있고 마이그레이션에는 없다. Winning prod와 Schoolmentor prod에는 없다.
-- Winning prod는 `fn_parent_create_enrollment`, `fn_respond_enrollment`의 EXECUTE grant가
-  anon과 service_role에 없다. Schoolmentor prod는 baseline과 일치한다. dev는 baseline에 있는
-  anon/authenticated grant 약 60개가 없다.
-- grant 드리프트 해소 방식은 소유자 결정 대기 중이다.
+- public 스키마의 함수, 테이블, 시퀀스 권한은 드리프트가 없다. 2026-11-24 마이그레이션
+  `20261123180742_grant_converge.sql`이 차이 나던 객체 32개를 위 "함수 EXECUTE 권한" 규칙으로 정한 값에
+  맞췄고, 그 뒤 dev, Winning prod, Schoolmentor prod의 public 권한 375개가 baseline 재생 DB와 같다.
+- 권한을 비교할 때는 공유 로컬 DB가 아니라 새로 재생한 DB와 원격 3곳을 비교한다. 오래된 로컬 DB는
+  예전 baseline 재생 결과라 원격보다 넓은 권한이 남아 있을 수 있다.
