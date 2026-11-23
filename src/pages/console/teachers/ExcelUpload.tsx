@@ -53,8 +53,8 @@ export default function ExcelUpload({
             양식 내려받기(.xlsx)
           </a>
           <p className="text-app-label text-ink-sub">
-            양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 예시 2행이 들어
-            있어요
+            양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중
+            하나, 반은 숫자만 적어요. 예시 2행이 들어 있어요
           </p>
         </div>
       </section>

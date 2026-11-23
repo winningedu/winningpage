@@ -98,7 +98,7 @@ describe("W15 기본 화면", () => {
     expect(link.getAttribute("href")).toBe("/templates/teacher-roster.xlsx");
     expect(
       screen.getByText(
-        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 예시 2행이 들어 있어요",
+        "양식 5칸: 선생님 이름, 전화번호, 학년, 그룹, 반. 학년은 중1~고3 중 하나, 반은 숫자만 적어요. 예시 2행이 들어 있어요",
       ),
     ).toBeTruthy();
     expect(screen.getByText("2. 파일 올리기 또는 붙여넣기")).toBeTruthy();
