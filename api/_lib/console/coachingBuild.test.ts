@@ -29,7 +29,8 @@ let kit: KitState;
 
 beforeEach(() => {
   kit = createKitState();
-  kit.rows.profiles = () => [];
+  kit.rows.profiles = (f) =>
+    matchRows([{ id: "s1", time_zone: "Asia/Seoul" }], f);
   kit.rows.goal_students = (f) =>
     matchRows(
       [

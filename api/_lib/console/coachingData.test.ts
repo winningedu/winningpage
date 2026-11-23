@@ -340,6 +340,14 @@ describe("time zones", () => {
     expect(seoul.goalFacts?.week.setDays).toBe(0);
   });
 
+  test("a goal student without a profile zone is an error, not a guessed zone", async () => {
+    goal();
+    kit.rows.profiles = () => [];
+    await expect(load(["goal"], "Asia/Seoul", NOW)).rejects.toThrow(
+      "student time zone missing",
+    );
+  });
+
   test("days since the last access are calendar days in the viewer's zone", async () => {
     goal();
     profile({

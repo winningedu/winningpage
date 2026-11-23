@@ -98,7 +98,8 @@ export async function loadGoalStatus(
   for (const chunk of chunked(studentIds)) {
     // 하루 기준은 학생마다 다르다. 묶음 안에서 가장 이른 날부터 읽고, 학생별 창은 아래에서 자른다.
     const zones = await loadStudentZones(admin, chunk);
-    const todayOf = (id: string) => ymdIn(now, zones.get(id) ?? "UTC");
+    // 프로필이 없어 시간대를 모르는 학생은 하루를 정할 수 없으니 맵에 담지 않는다.
+    const todayOf = (id: string) => ymdIn(now, zones.get(id) as string);
     const thisWeekOf = (id: string) => weekWindows(todayOf(id)).thisWeek;
     const readFrom = [...zones.keys()]
       .map((id) =>
@@ -142,6 +143,7 @@ export async function loadGoalStatus(
     const stateOf = new Map(states.map((s) => [s.profile_id, s]));
 
     for (const s of students) {
+      if (!zones.has(s.profile_id)) continue;
       const mine = recordsOf.get(s.profile_id) ?? [];
       const week = summarizeGoalWeek(
         buildGoalDays(thisWeekOf(s.profile_id), mine, s.study_schedule),

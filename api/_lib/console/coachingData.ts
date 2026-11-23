@@ -37,7 +37,6 @@ import {
   SELFEVAL_STEPS,
   selfevalFinished,
 } from "./sessionStatus.js";
-import { FALLBACK_ZONE } from "./studentZone.js";
 
 const AREA_BY_LABEL: Record<string, keyof AreaScores> = {
   "목표 설정": "GOAL",
@@ -432,7 +431,11 @@ export async function loadCoachingData(
 
   const goal = goalStudent[0];
   // 학생의 하루(목표 기록 기준)와 보는 사람의 하루(접속 일수 기준)는 시간대가 다를 수 있다.
-  const today = ymdIn(now, seenRows[0]?.time_zone ?? FALLBACK_ZONE);
+  const studentZone = seenRows[0]?.time_zone;
+  // 목표를 쓰는데 시간대를 모르면 주간 창을 정할 수 없으니 오류로 드러낸다. 쓰지 않으면 이 값은 쓰이지 않는다.
+  if (uses("goal") && !studentZone)
+    throw new Error("student time zone missing");
+  const today = ymdIn(now, studentZone ?? viewerZone);
   const lastSeenAt = seenRows[0]?.last_seen_at ?? null;
   // 접속한 날과 오늘의 달력 날짜 차이(보는 사람 시간대). 기록이 없으면 null(미접속 규칙을 건너뛴다).
   const daysSinceLastSeen = lastSeenAt

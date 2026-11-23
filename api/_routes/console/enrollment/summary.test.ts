@@ -116,7 +116,14 @@ beforeEach(() => {
   kit.state.rows.teachers = (f) =>
     matchRows([{ id: "t1", tenant_id: "tenant-1", name: "김담임" }], f);
   kit.state.rows.student_enrollments = (f) => matchRows(ENROLLMENTS, f);
-  kit.state.rows.profiles = () => [];
+  kit.state.rows.profiles = (f) =>
+    matchRows(
+      ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"].map((id) => ({
+        id,
+        time_zone: "Asia/Seoul",
+      })),
+      f,
+    );
   kit.state.rows.roster_pending_students = (f) => matchRows(PENDING, f);
   for (const table of [
     "growth_profiles",

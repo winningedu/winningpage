@@ -3,10 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
 
-/** 프로필 행이 없을 때의 대비. 서울 같은 특정 지역으로 기울지 않게 UTC 로 둔다. */
-export const FALLBACK_ZONE = "UTC";
-
-/** 학생 id 목록의 시간대를 한 번에 읽는다(in 목록 한 번). 호출하는 쪽이 100명 이내로 끊어 넘긴다. */
+/** 학생 id 목록의 시간대를 한 번에 읽는다(in 목록 한 번). 프로필 행이 없는 학생은 맵에 없다(대체 시간대를 두지 않는다). 호출하는 쪽이 100명 이내로 끊어 넘긴다. */
 export async function loadStudentZones(
   admin: SupabaseClient,
   ids: string[],
@@ -18,7 +15,10 @@ export async function loadStudentZones(
     "id, time_zone",
     (q) => q.in("id", ids),
   );
-  const zones = new Map(ids.map((id) => [id, FALLBACK_ZONE]));
-  for (const r of rows) zones.set(r.id, r.time_zone ?? FALLBACK_ZONE);
-  return zones;
+  return new Map(
+    rows.flatMap((r) => (r.time_zone ? [[r.id, r.time_zone]] : [])) as [
+      string,
+      string,
+    ][],
+  );
 }

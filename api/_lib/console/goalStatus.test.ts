@@ -70,6 +70,14 @@ describe("loadGoalStatus student time zone", () => {
     expect(status.get("seoul")?.streakDays).toBe(2);
   });
 
+  test("a student without a profile row has no zone and is left out of the result", async () => {
+    kit.rows.profiles = (f) =>
+      matchRows([{ id: "seoul", time_zone: "Asia/Seoul" }], f);
+    kit.rows.goal_daily_records = () => [];
+    const status = await load();
+    expect([...status.keys()]).toEqual(["seoul"]);
+  });
+
   test("the profile zones are read in one query for the chunk", async () => {
     kit.rows.goal_daily_records = () => [];
     await load();

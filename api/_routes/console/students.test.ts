@@ -105,10 +105,30 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
-        { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
-        { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
-        { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
+        {
+          id: "s1",
+          name: "김하늘",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-02T01:00:00Z",
+        },
+        {
+          id: "s2",
+          name: "윤하린",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-04T01:00:00Z",
+        },
+        {
+          id: "s3",
+          name: "박서준",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-04T01:00:00Z",
+        },
+        {
+          id: "s4",
+          name: "이도윤",
+          time_zone: "Asia/Seoul",
+          created_at: "2026-03-05T16:00:00Z",
+        },
       ],
       f,
     );
@@ -410,10 +430,30 @@ describe("GET /api/console/students", () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
-          { id: "s1", name: "김하늘", created_at: null },
-          { id: "s2", name: "김하늘", created_at: null },
-          { id: "s3", name: "박서준", created_at: null },
-          { id: "s4", name: "김하늘", created_at: null },
+          {
+            id: "s1",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s2",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s3",
+            name: "박서준",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
+          {
+            id: "s4",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: null,
+          },
         ],
         f,
       );
@@ -544,12 +584,42 @@ describe("GET /api/console/students mixed-grade class", () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
-          { id: "s1", name: "김하늘", created_at: "2026-03-02T01:00:00Z" },
-          { id: "s2", name: "윤하린", created_at: "2026-03-04T01:00:00Z" },
-          { id: "s3", name: "박서준", created_at: "2026-03-04T01:00:00Z" },
-          { id: "s4", name: "이도윤", created_at: "2026-03-05T16:00:00Z" },
-          { id: "s7", name: "최민준", created_at: "2026-03-06T01:00:00Z" },
-          { id: "s8", name: "정서아", created_at: "2026-03-06T01:00:00Z" },
+          {
+            id: "s1",
+            name: "김하늘",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-02T01:00:00Z",
+          },
+          {
+            id: "s2",
+            name: "윤하린",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-04T01:00:00Z",
+          },
+          {
+            id: "s3",
+            name: "박서준",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-04T01:00:00Z",
+          },
+          {
+            id: "s4",
+            name: "이도윤",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-05T16:00:00Z",
+          },
+          {
+            id: "s7",
+            name: "최민준",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-06T01:00:00Z",
+          },
+          {
+            id: "s8",
+            name: "정서아",
+            time_zone: "Asia/Seoul",
+            created_at: "2026-03-06T01:00:00Z",
+          },
         ],
         f,
       );
@@ -729,12 +799,14 @@ describe("GET /api/console/students special students", () => {
             ...["s1", "s2", "s3", "s7"].map((id) => ({
               id,
               name: `학생${id}`,
+              time_zone: "Asia/Seoul",
               created_at: "2026-03-02T01:00:00Z",
               last_seen_at: null,
             })),
             {
               id: "s4",
               name: "학생s4",
+              time_zone: "Asia/Seoul",
               created_at: "2026-03-02T01:00:00Z",
               last_seen_at: "2026-10-01T00:00:00Z",
             },
@@ -865,6 +937,7 @@ describe("GET /api/console/students special students", () => {
           ["s1", "s2", "s3", "s4"].map((id) => ({
             id,
             name: `학생${id}`,
+            time_zone: "Asia/Seoul",
             created_at: null,
             last_seen_at: lastSeen[id] ?? null,
           })),

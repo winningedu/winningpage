@@ -116,10 +116,10 @@ beforeEach(() => {
   kit.state.rows.profiles = (f) =>
     matchRows(
       [
-        { id: "s1", name: "김서연" },
-        { id: "s2", name: "최민준" },
-        { id: "s3", name: "마리아" },
-        { id: "s4", name: "강호준" },
+        { id: "s1", name: "김서연", time_zone: "Asia/Seoul" },
+        { id: "s2", name: "최민준", time_zone: "Asia/Seoul" },
+        { id: "s3", name: "마리아", time_zone: "Asia/Seoul" },
+        { id: "s4", name: "강호준", time_zone: "Asia/Seoul" },
       ],
       f,
     );
@@ -292,10 +292,10 @@ describe("GET /api/console/service-status (diagnosis)", () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
-          { id: "s1", name: "김서연" },
-          { id: "s2", name: "최민준" },
-          { id: "s4", name: "강호준" },
-          { id: "s5", name: "오지안" },
+          { id: "s1", name: "김서연", time_zone: "Asia/Seoul" },
+          { id: "s2", name: "최민준", time_zone: "Asia/Seoul" },
+          { id: "s4", name: "강호준", time_zone: "Asia/Seoul" },
+          { id: "s5", name: "오지안", time_zone: "Asia/Seoul" },
         ],
         f,
       );
