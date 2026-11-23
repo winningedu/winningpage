@@ -1,7 +1,7 @@
 import { confirmAdmin } from "@/pages/admin/shared/confirmAdmin";
 import type { FieldOption } from "@/pages/admin/shared/csvExport";
 import { GOAL_CUT_SOURCE_OPTIONS } from "@/pages/admin/shared/formFields";
-import { GOAL_CUT_RANGE } from "./goalUniversityCutsBulkXlsx";
+import { GOAL_CUT_RANGE } from "../goal/cutsBulkXlsx";
 
 // ---------------------------------------------------------------------
 // 목표관리 도메인 상수 (docs/figma-goal/goal-admin-spec.md §4-1-2)
@@ -17,7 +17,7 @@ const GOAL_CUT_TYPE_OPTIONS: FieldOption[] = [
 ];
 
 // GOAL_CUT_RANGE(sql/55 의 goal_university_cuts_avg_cut_check 미러)는 여기서
-// 선언하지 않고 같은 디렉토리의 goalUniversityCutsBulkXlsx.ts 에서 import 한다 —
+// 선언하지 않고 goal/cutsBulkXlsx.ts 에서 import 한다 —
 // 폼(config.validate)과 엑셀 파서가 **같은 상수**를 봐야 두 입력 경로의
 // 스케일 판정이 갈라지지 않기 때문이다. CHECK 는 "1~9 범위 안의 정시
 // 백분위"(예: 3.5) 같은 혼입을 잡지 못하므로 그 상수가 실질 방어선이다

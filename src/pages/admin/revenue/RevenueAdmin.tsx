@@ -1,9 +1,5 @@
 import { Download, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import RevenueDashboard, {
-  type RevenuePending,
-} from "@/components/admin/RevenueDashboard";
-import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -16,9 +12,13 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import RevenueDashboard, {
+  type RevenuePending,
+} from "@/pages/admin/revenue/RevenueDashboard";
 import { toastWarning } from "@/pages/admin/shared/adminToast";
 import { downloadCsv } from "@/pages/admin/shared/csvExport";
 import { ActionButton } from "@/pages/admin/shared/formFields";
+import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 
 // ---------------------------------------------------------------------------
 // 매출 및 결제(revenue) — Figma 4466:7097.

@@ -13,7 +13,7 @@ import {
   listMonthlyResendCandidates,
   listResendCandidates,
   listWeeklyResendCandidates,
-} from "./goalReportResendOptions";
+} from "./reportResendOptions";
 
 function kst(ymd: string, time = "23:59:59"): Date {
   return new Date(`${ymd}T${time}+09:00`);

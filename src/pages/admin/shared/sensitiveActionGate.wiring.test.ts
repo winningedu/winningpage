@@ -11,7 +11,7 @@ import { expect, test } from "vitest";
 import { ADMIN_SECTION_KEYS } from "@/pages/admin/adminSectionKeys";
 import { mainConfigs } from "@/pages/admin/configs/main";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 
 const read = (rel: string) =>
   fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
@@ -20,17 +20,17 @@ const read = (rel: string) =>
 // 아래 별도 테스트가 config 플래그로 확인한다.
 const GATED_SCREENS = [
   {
-    rel: "src/components/admin/MembersAdmin.tsx",
+    rel: "src/pages/admin/members/MembersAdmin.tsx",
     resourceKey: "members",
     actions: ["download", "unmask"],
   },
   {
-    rel: "src/components/admin/MentorApplicationsAdmin.tsx",
+    rel: "src/pages/admin/mentor/MentorApplicationsAdmin.tsx",
     resourceKey: "mentorApplications",
     actions: ["download"],
   },
   {
-    rel: "src/components/admin/RevenueAdmin.tsx",
+    rel: "src/pages/admin/revenue/RevenueAdmin.tsx",
     resourceKey: "revenue",
     actions: ["download"],
   },

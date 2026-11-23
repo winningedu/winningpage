@@ -1,4 +1,4 @@
-// goalUniversityCutsBulkXlsx.ts 검증.
+// cutsBulkXlsx.ts 검증.
 //
 // **DB를 만지지 않는다 — 손으로 만든 픽스처만 쓴다.** 이 lib 은 순수
 // 함수뿐이고, 유일한 외부 입력인 existingCutTypeById(Map)도 호출부가
@@ -13,7 +13,7 @@ import {
   GOAL_CUTS_XLSX_HEADERS,
   parseGoalUniversityCutRowsFromXlsx,
   TRUNCATION_MARKER,
-} from "./goalUniversityCutsBulkXlsx.ts";
+} from "./cutsBulkXlsx.ts";
 
 // 헤더 행 + 본문 행(배열)로 workbook 을 만든다. 헤더는 항상 lib 이
 // 내보내는 순서를 그대로 쓴다(컬럼 순서 무관 검증은 별도 케이스).

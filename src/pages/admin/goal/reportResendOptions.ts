@@ -25,7 +25,7 @@ import {
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
-} from "../../../api/_lib/goal/reportResendPolicy.js";
+} from "../../../../api/_lib/goal/reportResendPolicy.js";
 
 export type ResendKind = "daily" | "weekly" | "monthly";
 

@@ -10,22 +10,6 @@ import {
 } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import * as XLSX from "xlsx";
-import AdminMembersAdmin from "@/components/admin/AdminMembersAdmin";
-import AdminRolesAdmin from "@/components/admin/AdminRolesAdmin";
-// 쿠폰관리는 제네릭 CRUD 로 표현되지 않는다(파생 사용 건수 · NULL=무제한 3상태
-// 입력 · slug 사전중복검사 · 사용이력 드릴다운 + void RPC). config.custom +
-// customComponentKey(CUSTOM_COMPONENT_REGISTRY 조회)로 붙인다 — premiumBookPages 선례와 같은 방식이다.
-// Admin.jsx 가 5,700줄이라 컴포넌트 본체는 별도 파일에 둔다(이 파일이 그 파일을
-// import 하므로 역방향 import 는 만들지 않는다 — 순환 참조 방지).
-import CouponAdmin from "@/components/admin/CouponAdmin";
-import GoalStudentsAdmin from "@/components/admin/GoalStudentsAdmin";
-import LearningDiagnosisAdmin from "@/components/admin/LearningDiagnosisAdmin";
-import MembersAdmin from "@/components/admin/MembersAdmin";
-import MentorApplicationsAdmin from "@/components/admin/MentorApplicationsAdmin";
-import PremiumBookAdmin from "@/components/admin/PremiumBookAdmin";
-import RevenueAdmin from "@/components/admin/RevenueAdmin";
-import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
-import TenantsAdmin from "@/components/admin/TenantsAdmin";
 import AdmissionMetaEditModal from "@/components/admission/editor/AdmissionMetaEditModal";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,8 +70,24 @@ import {
 } from "@/lib/goal/goalCutBackfill";
 import { withDedupedKeys } from "@/lib/reactKeys";
 import { supabase } from "@/lib/supabase";
+// 쿠폰관리는 제네릭 CRUD 로 표현되지 않는다(파생 사용 건수 · NULL=무제한 3상태
+// 입력 · slug 사전중복검사 · 사용이력 드릴다운 + void RPC). config.custom +
+// customComponentKey(CUSTOM_COMPONENT_REGISTRY 조회)로 붙인다 — premiumBookPages 선례와 같은 방식이다.
+// Admin.jsx 가 5,700줄이라 컴포넌트 본체는 별도 파일에 둔다(이 파일이 그 파일을
+// import 하므로 역방향 import 는 만들지 않는다 — 순환 참조 방지).
+import CouponAdmin from "@/pages/admin/coupons/CouponAdmin";
+import GoalStudentsAdmin from "@/pages/admin/goal/GoalStudentsAdmin";
+import LearningDiagnosisAdmin from "@/pages/admin/learning-diagnosis/LearningDiagnosisAdmin";
+import MembersAdmin from "@/pages/admin/members/MembersAdmin";
+import MentorApplicationsAdmin from "@/pages/admin/mentor/MentorApplicationsAdmin";
+import PremiumBookAdmin from "@/pages/admin/premium-book/PremiumBookAdmin";
+import RevenueAdmin from "@/pages/admin/revenue/RevenueAdmin";
+import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
+import AdminMembersAdmin from "@/pages/admin/staff/AdminMembersAdmin";
+import AdminRolesAdmin from "@/pages/admin/staff/AdminRolesAdmin";
 import MemberPurgeAdmin from "@/pages/admin/tenants/MemberPurgeAdmin";
 import PurgeLogsAdmin from "@/pages/admin/tenants/PurgeLogsAdmin";
+import TenantsAdmin from "@/pages/admin/tenants/TenantsAdmin";
 import type { TablesInsert } from "@/types/database.types";
 import AccessLogsAdmin from "./admin/access-logs/AccessLogsAdmin";
 import {
@@ -99,15 +99,15 @@ import { adminSettingsConfigs } from "./admin/configs/adminSettings";
 import { admissionConfigs } from "./admin/configs/admission";
 import { boardConfigs } from "./admin/configs/board";
 import { goalConfigs } from "./admin/configs/goal";
-import {
-  exportGoalUniversityCutRowsToXlsx,
-  parseGoalUniversityCutRowsFromXlsx,
-} from "./admin/configs/goalUniversityCutsBulkXlsx";
 import { mainConfigs } from "./admin/configs/main";
 import { memberConfigs } from "./admin/configs/member";
 import { programConfigs } from "./admin/configs/program";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
+import {
+  exportGoalUniversityCutRowsToXlsx,
+  parseGoalUniversityCutRowsFromXlsx,
+} from "./admin/goal/cutsBulkXlsx";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
 import BulkPanel from "./admin/knowledge/bulk/BulkPanel";

@@ -35,10 +35,7 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
-import {
-  listResendCandidates,
-  type ResendKind,
-} from "./goalReportResendOptions";
+import { listResendCandidates, type ResendKind } from "./reportResendOptions";
 
 // 이 파일 로컬 전용 타입(새 전역 타입 파일 없음). goal_students/goal_student_state는
 // 파생·원자료 컬럼이 매우 많은 넓은 테이블/뷰라 실제로 읽는 필드만 명시하고
@@ -1172,7 +1169,7 @@ export function GoalStudentDetail({
   useEffect(() => () => window.clearTimeout(reloadTimerRef.current), []);
 
   // 리포트 알림톡 재발송(QA 2차 행70). 후보 목록·라벨은 서버 검증(2주 규칙)과
-  // 같은 상수를 공유하는 순수 함수(goalReportResendOptions.ts)에 위임한다.
+  // 같은 상수를 공유하는 순수 함수(reportResendOptions.ts)에 위임한다.
   const [resendKind, setResendKind] = useState<ResendKind>("daily");
   const resendCandidates = useMemo(
     () => listResendCandidates(resendKind),

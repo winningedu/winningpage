@@ -6,8 +6,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
-import { tenantSaveErrorMessage } from "@/components/admin/tenantSaveError";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card as UiCard } from "@/components/ui/card";
@@ -42,10 +40,12 @@ import {
   Textarea,
   TextInput,
 } from "@/pages/admin/shared/formFields";
+import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 import MoveStudentForm, {
   type MoveTarget,
 } from "@/pages/admin/tenants/MoveStudentForm";
+import { tenantSaveErrorMessage } from "@/pages/admin/tenants/saveError";
 
 // ---------------------------------------------------------------------------
 // 회원 관리(members) — 목록 + 고객 상세.

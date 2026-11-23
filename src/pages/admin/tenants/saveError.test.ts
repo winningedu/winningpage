@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tenantSaveErrorMessage } from "./tenantSaveError";
+import { tenantSaveErrorMessage } from "./saveError";
 
 describe("tenantSaveErrorMessage", () => {
   it("같은 번호 회원이 이미 있어 unique 위반(23505)이면 안내 문구를 준다", () => {

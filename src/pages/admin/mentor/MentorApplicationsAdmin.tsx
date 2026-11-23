@@ -1,6 +1,5 @@
 import { Download, ExternalLink, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { useSensitiveActionGate } from "@/components/admin/SensitiveActionGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +17,7 @@ import {
   MENTOR_APPLICATION_STATUS_OPTIONS,
   Select,
 } from "@/pages/admin/shared/formFields";
+import { useSensitiveActionGate } from "@/pages/admin/shared/SensitiveActionGate";
 import { useAdminDetailBack } from "@/pages/admin/shared/useAdminDetailBack";
 
 // ---------------------------------------------------------------------------
