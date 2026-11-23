@@ -116,6 +116,48 @@ describe("service fit (07_서비스)", () => {
     expect(tier(26)).toMatchObject({ code: "GOAL", fit: 64.4, band: "S3" });
   });
 
+  test("tiers compare the exact fit: 64.95 shows as 65 but is 필요성 있음 (07 B31)", () => {
+    // GOAL: q10 3 is 1 of 2 (25), q14 1 is hope (20), deficits 50+50+33+0
+    // over 4 areas give 0.6 * 133 / 4 = 19.95
+    const goal = recommendServices(
+      input({
+        areaScores: scoresOf("H12", 90, {
+          P1_PLAN: 0,
+          P1_EXEC: 0,
+          P1_LOG: 17,
+          P1_ADJ: 50,
+        }),
+        q10: [3],
+        q14: [1],
+      }),
+    ).ranked[0];
+    expect(goal).toMatchObject({ code: "GOAL", fit: 65, band: "S3" });
+  });
+
+  test("tie step 1 compares the exact fit, not the rounded one (23 r17)", () => {
+    // GROW 30.4 without hope: q12 7 is 1 of 2 (25), 0.6 * 27 / 3 = 5.4.
+    // GOAL 30.35 with hope: q14 2 (20), 0.6 * 69 / 4 = 10.35. Both show 30.4.
+    const result = recommendServices(
+      input({
+        areaScores: scoresOf("H12", 90, {
+          H12_LINK: 23,
+          H12_REC: 50,
+          H12_STRA: 50,
+          P1_PLAN: 0,
+          P1_EXEC: 31,
+          P1_LOG: 50,
+          P1_ADJ: 50,
+        }),
+        q12: [7],
+        q14: [2],
+      }),
+    );
+    expect(result.ranked.map((fit) => [fit.code, fit.fit, fit.hope])).toEqual([
+      ["GROW", 30.4, 0],
+      ["GOAL", 30.4, 20],
+    ]);
+  });
+
   test("tie: larger hope first (23 r18), then lower related mean (23 r19), then code order (23 r20)", () => {
     // GOAL: difficulty 50. PERF: hope 20 + deficit 30. Both 50, PERF has hope.
     const byHope = recommendServices(

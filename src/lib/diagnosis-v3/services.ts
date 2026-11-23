@@ -13,7 +13,7 @@ import {
   type TrackCode,
 } from "./codes.js";
 import { OPTIONS, trackOf } from "./options.js";
-import { roundHalfUp1, roundHalfUpInt } from "./round.js";
+import { roundHalfUp1 } from "./round.js";
 import { sheetRows, textCell } from "./sheet.js";
 import type { Ordinal, ServiceFit } from "./types.js";
 
@@ -123,18 +123,25 @@ export type ServicesResult = {
   readonly preferTrackCopy: boolean;
 };
 
-const bandOf = (tenths: number): ServiceFit["band"] =>
-  tenths >= S1_FROM * 10 ? "S1" : tenths >= S2_FROM * 10 ? "S2" : "S3";
+/** 07 B31 on the exact fit numerator / whole; the rounded fit is display only. */
+const bandOf = (numerator: number, whole: number): ServiceFit["band"] =>
+  numerator >= S1_FROM * whole
+    ? "S1"
+    : numerator >= S2_FROM * whole
+      ? "S2"
+      : "S3";
 
 type Scored = ServiceFit & {
-  readonly tenths: number;
+  /** exact fit = numerator / whole */
+  readonly numerator: number;
+  readonly whole: number;
   readonly sumScore: number;
   readonly count: number;
 };
 
-/** 23 r17-r20: fit, then hope, then lower related mean, then code order. */
+/** 23 r17-r20: exact fit, then hope, then lower related mean, then code order. */
 const compareFit = (a: Scored, b: Scored): number =>
-  b.tenths - a.tenths ||
+  b.numerator * a.whole - a.numerator * b.whole ||
   b.hope - a.hope ||
   a.sumScore * b.count - b.sumScore * a.count ||
   SERVICE_CODES.indexOf(a.code) - SERVICE_CODES.indexOf(b.code);
@@ -173,7 +180,6 @@ const scoreService = (
     hope * whole +
     DEFICIT_POINTS * sumDeficit * denominator;
 
-  const tenths = roundHalfUpInt(10 * numerator, whole);
   return {
     code: row.code,
     fit: roundHalfUp1(numerator, whole),
@@ -181,8 +187,9 @@ const scoreService = (
     hope,
     deficit: roundHalfUp1(DEFICIT_POINTS * sumDeficit, DEFICIT_ZERO_AT * count),
     relatedMean: roundHalfUp1(sumScore, count),
-    band: bandOf(tenths),
-    tenths,
+    band: bandOf(numerator, whole),
+    numerator,
+    whole,
     sumScore,
     count,
   };
@@ -273,7 +280,8 @@ export function recommendServices(input: ServiceInput): ServicesResult {
 }
 
 const strip = ({
-  tenths: _tenths,
+  numerator: _numerator,
+  whole: _whole,
   sumScore: _sumScore,
   count: _count,
   ...fit
