@@ -44,6 +44,21 @@ describe("Page02Goal", () => {
     ).toBeNull();
   });
 
+  it("shows the NA name and desc as the matrix note when the cell is NA", () => {
+    const { highlighted: _h, ...rest } = p2.matrix;
+    render(
+      <Page02Goal
+        page={{
+          ...p2,
+          matrix: { ...rest, note: { name: "NA name", desc: "NA desc" } },
+        }}
+        tocTitle="목표 진단"
+      />,
+    );
+    expect(screen.getByText("NA name")).toBeInTheDocument();
+    expect(screen.getByText("NA desc")).toBeInTheDocument();
+  });
+
   it("fills ladder rungs from the payload and shows ladder text and tips", () => {
     const { container } = render(<Page02Goal page={p2} tocTitle="목표 진단" />);
     const rungs = container.querySelectorAll("[data-rung]");

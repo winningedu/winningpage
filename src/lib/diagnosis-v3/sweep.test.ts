@@ -976,18 +976,11 @@ describe("98_전수검증 r17 문구 도달", () => {
 
   /**
    * Copy ids 22 names that no input can print today (spec gaps, see the report):
-   * - GOAL_Q_C_NA_NAME/DESC, GOAL_Q_E_NA_DESC: the 2p matrix lists the six
-   *   non-NA cells only and 22 r34 says NA highlights nothing.
    * - PLAN_MINLOAD_EST: 22 r105 shows it when 14번 (q21) is unanswered, but
    *   q21 is a required question (13 G), so that branch cannot occur.
    * Remove an id from this list when the engine or sheet starts printing it.
    */
-  const KNOWN_UNREACHED = [
-    "GOAL_Q_C_NA_NAME",
-    "GOAL_Q_C_NA_DESC",
-    "GOAL_Q_E_NA_DESC",
-    "PLAN_MINLOAD_EST",
-  ];
+  const KNOWN_UNREACHED = ["PLAN_MINLOAD_EST"];
 
   it("r17 문구 도달: every copy id named by 22_리포트요소 is reached by some sweep set", () => {
     const { ids, unmatched } = namedIds();

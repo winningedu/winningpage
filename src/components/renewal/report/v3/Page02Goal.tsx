@@ -115,6 +115,16 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
             />
           ))}
         </div>
+        {/* 22 r34: NA highlights no cell; its name and desc stand below */}
+        {matrix.note && (
+          <p className="rounded-lg bg-surface-card p-3 text-sm">
+            <span className="font-semibold">{matrix.note.name}</span>
+            {L.joiner}
+            <span>
+              <CopyText text={matrix.note.desc} />
+            </span>
+          </p>
+        )}
       </ReportCard>
       <div className="grid grid-cols-2 gap-4">
         {/* 22 r35 */}

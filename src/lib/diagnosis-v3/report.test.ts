@@ -186,6 +186,27 @@ describe("2p 목표 (22 r30-r36)", () => {
     expect(p2.tips[1]).toBe(COPY_TEXT.LADDER_TIP_NEAR);
   });
 
+  test("an NA cell highlights nothing and notes the NA name and desc by goal clarity", () => {
+    const clear = run().pages.p2.matrix;
+    expect(clear.highlighted).toBeUndefined();
+    expect(clear.note).toEqual({
+      name: COPY_TEXT.GOAL_Q_C_NA_NAME,
+      desc: COPY_TEXT.GOAL_Q_C_NA_DESC,
+    });
+    const explore = run({ ...omit(CALC_EXAMPLE, "q3Target"), q3: 5 }).pages.p2
+      .matrix;
+    expect(explore.note).toEqual({
+      name: COPY_TEXT.GOAL_Q_E_NA_NAME,
+      desc: COPY_TEXT.GOAL_Q_E_NA_DESC,
+    });
+    const picked = run({
+      ...omit(CALC_EXAMPLE, "q3Target"),
+      q3: 5,
+      q3r: [1, 3],
+    }).pages.p2.matrix;
+    expect(picked.note).toBeUndefined();
+  });
+
   test("picked reasons highlight the cell and fill the chips", () => {
     const { p2 } = run({
       ...omit(CALC_EXAMPLE, "q3Target"),

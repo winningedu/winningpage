@@ -522,6 +522,8 @@ export type Page2 = {
       readonly desc: string;
     }[];
     readonly highlighted?: GoalCell;
+    /** 22 r29/r34: an NA cell is not drawn, its GOAL_Q_C_NA / GOAL_Q_E_NA name and desc stand as the matrix note */
+    readonly note?: { readonly name: string; readonly desc: string };
   };
   /** 22 r35 */
   readonly ladder: {

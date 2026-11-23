@@ -127,7 +127,15 @@ export function buildPage2(engine: Engine): Page2 {
         name: copy("GOAL_Q_" + c + "_NAME"),
         desc: copy("GOAL_Q_" + c + "_DESC"),
       })),
-      ...(cell.endsWith("_NA") ? {} : { highlighted: cell }),
+      // 22 r34 "NA면 강조 없음": the NA cell copy becomes the note
+      ...(cell.endsWith("_NA")
+        ? {
+            note: {
+              name: copy("GOAL_Q_" + cell + "_NAME"),
+              desc: copy("GOAL_Q_" + cell + "_DESC"),
+            },
+          }
+        : { highlighted: cell }),
     },
     // 22 r35
     ladder: {
