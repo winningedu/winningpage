@@ -29,9 +29,9 @@ const v3Row = (pages: object) => ({
   payload: { version: SCHEMA_VERSION, scores: {}, pages },
 });
 
-function renderRoute(path: string) {
+function renderRoute(path: string, state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[{ pathname: path, state }]}>
       <Routes>
         <Route path="/report/:attemptId" element={<FreeDiagnosisReport />} />
         <Route path="/report" element={<FreeDiagnosisReport />} />
@@ -105,5 +105,37 @@ describe("FreeDiagnosisReport", () => {
 
     expect(await screen.findByText("survey entry")).toBeInTheDocument();
     expect(fetchDiagnosisReport).not.toHaveBeenCalled();
+  });
+
+  // Regression of 904f474c: after a submit the report holds the user on the page when
+  // Back is pressed; a stored link opened from elsewhere keeps normal Back.
+  describe("back navigation", () => {
+    const flush = () =>
+      waitFor(() => expect(fetchDiagnosisReport).toHaveBeenCalled());
+
+    it("after a submit, absorbs one Back and re-pushes the URL on popstate", async () => {
+      const push = vi.spyOn(window.history, "pushState");
+      fetchDiagnosisReport.mockResolvedValue(
+        v3Row({ ...FRONT_PAGES, ...laterPages }),
+      );
+      renderRoute("/report/a1", { fromSubmit: true });
+      await flush();
+      await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(push).toHaveBeenCalledTimes(2);
+      push.mockRestore();
+    });
+
+    it("leaves history alone for a stored link opened without a submit", async () => {
+      const push = vi.spyOn(window.history, "pushState");
+      fetchDiagnosisReport.mockResolvedValue(
+        v3Row({ ...FRONT_PAGES, ...laterPages }),
+      );
+      renderRoute("/report/a1");
+      await flush();
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(push).not.toHaveBeenCalled();
+      push.mockRestore();
+    });
   });
 });

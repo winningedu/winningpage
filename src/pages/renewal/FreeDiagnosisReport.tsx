@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { Link, Navigate, useLocation, useParams } from "react-router";
 import StoredDiagnosisReport from "@/components/renewal/report/StoredDiagnosisReport";
 import { useAuth } from "@/context/AuthProvider";
 import {
@@ -25,6 +25,9 @@ const SURVEY_ENTRY_PATH = "/app/learning-diagnosis/survey";
  */
 export default function FreeDiagnosisReport() {
   const { attemptId } = useParams<{ attemptId?: string }>();
+  const location = useLocation();
+  // SurveyStepShell marks the navigation that follows a successful submit.
+  const fromSubmit = location.state?.fromSubmit === true;
 
   // QA 행 103 — 설문에는 이름 수집 문항이 없어 저장 payload 에 이름이 없을 수 있다. 이 페이지
   // 진입은 로그인 필수(diagnosisRoutes.tsx)라 profiles.name 으로 PDF 파일명을 채운다.
@@ -68,6 +71,21 @@ export default function FreeDiagnosisReport() {
       alive = false;
     };
   }, [attemptId]);
+
+  // 904f474c (QA row 341): after seeing the just-submitted report, Back must not return
+  // to the survey. The shell replaces the survey entry; this absorbs one Back and keeps the
+  // user here. Only a navigation from a submit is held: stored links (my page, alimtalk)
+  // keep a normal Back.
+  const reportShown = row !== undefined && row !== null;
+  useEffect(() => {
+    if (!fromSubmit || !reportShown) return undefined;
+    window.history.pushState(null, "", window.location.href);
+    const trapBack = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", trapBack);
+    return () => window.removeEventListener("popstate", trapBack);
+  }, [fromSubmit, reportShown]);
 
   if (!attemptId) return <Navigate to={SURVEY_ENTRY_PATH} replace />;
 
