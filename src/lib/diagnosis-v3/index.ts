@@ -1,10 +1,13 @@
 // Entry of the v3 diagnosis engine. Pure TS shared by api/ and src/: no
 // React, clock, site config or Supabase; inputs arrive as arguments.
 
-import type {
-  DiagnosisV3Answers,
-  DiagnosisV3Context,
-  DiagnosisV3Payload,
+import { buildPages, scoreEngine } from "./report.js";
+import {
+  type DiagnosisV3Answers,
+  type DiagnosisV3Context,
+  type DiagnosisV3Pages,
+  type DiagnosisV3Payload,
+  SCHEMA_VERSION,
 } from "./types.js";
 
 export * from "./types.js";
@@ -15,8 +18,13 @@ export {
 } from "./validate.js";
 
 export function scoreDiagnosisV3(
-  _answers: DiagnosisV3Answers,
-  _context: DiagnosisV3Context,
+  answers: DiagnosisV3Answers,
+  context: DiagnosisV3Context,
 ): DiagnosisV3Payload {
-  throw new Error("scoreDiagnosisV3 is not implemented");
+  const engine = scoreEngine(answers, context);
+  return {
+    version: SCHEMA_VERSION,
+    scores: engine.scores,
+    pages: buildPages(engine) as DiagnosisV3Pages,
+  };
 }
