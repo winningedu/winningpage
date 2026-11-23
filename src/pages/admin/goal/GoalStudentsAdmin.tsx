@@ -16,10 +16,11 @@ import {
   addDaysYMD,
   CONDITION_MULTIPLIER,
   getSchoolCutType,
-  kstYMD,
   VIRTUAL_DAY_NAMES,
 } from "@/lib/goal/calc/index.js";
 import { supabase } from "@/lib/supabase";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 import { PAGE_SIZE } from "@/pages/admin/shared/AdminEngine";
 import AdminPagination from "@/pages/admin/shared/AdminPagination";
 import { reportAdminError } from "@/pages/admin/shared/adminErrors";
@@ -528,7 +529,8 @@ export default function GoalStudentsAdmin({
   const [searchTruncated, setSearchTruncated] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const todayYMD = useMemo(() => kstYMD(), []);
+  // 목록 전체에 한 번 쓰는 기준일이라 학생별 시간대를 쓸 수 없다. 보는 관리자의 브라우저 시간대 기준이다.
+  const todayYMD = useMemo(() => ymdIn(new Date(), browserTimeZone()), []);
 
   // 검색 디바운스. 확정 시 1페이지로 되돌린다(공용 목록의 관행과 동일).
   useEffect(() => {
@@ -1246,7 +1248,7 @@ export function GoalStudentDetail({
     }
   }
 
-  const _todayYMD = useMemo(() => kstYMD(), []);
+  const _todayYMD = useMemo(() => ymdIn(new Date(), browserTimeZone()), []);
 
   async function handleResetOnboarding() {
     if (!student?.profile_id) return;
