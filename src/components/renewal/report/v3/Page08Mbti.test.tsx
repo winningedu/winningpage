@@ -17,7 +17,8 @@ describe("Page08Mbti (22 r79-r84)", () => {
       "POLE name E",
       "POLE habit N",
       "POLE tip N",
-      "FACTORS text",
+      "FACTOR a",
+      "FACTOR b",
       "FACTOR habit1",
       "SMALL sample",
       "LINK1",
@@ -26,6 +27,17 @@ describe("Page08Mbti (22 r79-r84)", () => {
     ]) {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
+  });
+
+  it("joins the tied factor names after the lead (22 r81)", () => {
+    render(<Page08Mbti page={p8} />);
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === "P" &&
+          el.textContent === "FACTORS lead FACTOR a \u00b7 FACTOR b",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("renders only the NONE text and habits without a type card (22 r83)", () => {

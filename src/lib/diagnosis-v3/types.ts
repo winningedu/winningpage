@@ -731,7 +731,10 @@ export type Page8 = {
         }[];
         /** 22 r81 */
         readonly factors: {
-          readonly text: string;
+          /** mbti.top up to {factors} */
+          readonly lead: string;
+          /** 19 r4 names of the tied top factors; the layout joins them */
+          readonly names: readonly string[];
           readonly habits: readonly string[];
           readonly smallSample?: string;
         };

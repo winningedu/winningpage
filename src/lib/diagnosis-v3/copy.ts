@@ -16,7 +16,16 @@ export function fill(
   id: string,
   values: Readonly<Record<string, string | number>>,
 ): string {
-  return copy(id).replace(/\{([^{}]+)\}/g, (_, key: string) => {
+  return fillText(copy(id), values, id);
+}
+
+/** Fills every {key} of a piece of copy text; a key without a value throws. */
+export function fillText(
+  text: string,
+  values: Readonly<Record<string, string | number>>,
+  id: string,
+): string {
+  return text.replace(/\{([^{}]+)\}/g, (_, key: string) => {
     const value = values[key];
     if (value === undefined)
       throw new Error("no value for {" + key + "} in " + id);

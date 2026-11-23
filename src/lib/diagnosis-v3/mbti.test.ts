@@ -99,9 +99,9 @@ describe("page 8 text (22 r79-r84)", () => {
         "어려우면 주변에 물어 빠르게 해결하고, 다양한 공부법을 시도해 보는 편",
       tip: "친구에게 설명하며 복습하기. 단, 공부법을 자주 갈아타지 않기",
     });
-    expect(page.mbti.factors.text).toBe(
-      "ESTJ 상위권의 차별 포인트: 수업태도\u00b7학습행동",
-    );
+    // 22 r81 mbti.top: the tied factor names stay a list, the layout joins them
+    expect(page.mbti.factors.lead).toBe("ESTJ 상위권의 차별 포인트: ");
+    expect(page.mbti.factors.names).toEqual(["수업태도\u00b7학습행동"]);
     expect(page.mbti.factors.habits).toEqual([
       "수업 전 교재\u00b7필기구를 미리 챙기고 수업에 집중하기",
     ]);
@@ -124,6 +124,7 @@ describe("page 8 text (22 r79-r84)", () => {
     const tie = mbtiPage8("ISTP", links);
     if (tie.mbti.kind !== "type") throw new Error("expected type");
     expect(tie.mbti.factors.habits).toHaveLength(2);
+    expect(tie.mbti.factors.names).toHaveLength(2);
   });
 
   test("NONE shows MBTI_NONE and the five common habits", () => {

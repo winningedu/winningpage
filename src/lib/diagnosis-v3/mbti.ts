@@ -2,7 +2,7 @@
 // Pure TS: sheet constants are read at module load, text lives in COPY_TEXT.
 
 import { AREAS, type AreaCode } from "./codes.js";
-import { copy, fill } from "./copy.js";
+import { copy, fill, fillText } from "./copy.js";
 import { roundHalfUp1 } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 import { COPY_SHEETS } from "./source/copyText.js";
@@ -106,6 +106,16 @@ const FACTOR_NAMES = [2, 3, 4, 5, 6].map((col) => {
   return textCell(row, col);
 });
 
+// 22 r81 mbti.top "{type} ...: {factors}": the tied factor names stay a list
+// (no separator in the sheet), so the copy before {factors} is the lead.
+const TOP_LEAD = ((): string => {
+  const [lead, rest] = copy("mbti.top").split("{factors}");
+  if (lead === undefined || rest !== "") {
+    throw new Error("mbti.top must end with {factors}");
+  }
+  return lead;
+})();
+
 const habitsOf = (numbers: readonly number[]) =>
   numbers.map((n) => copy(`MBTI_HABIT_${n}`));
 
@@ -145,10 +155,8 @@ export function mbtiPage8(
         tip: copy(`MBTI_POLE_${letter}_TIP`),
       })),
       factors: {
-        text: fill("mbti.top", {
-          type: score.type,
-          factors: score.topFactors.map((n) => FACTOR_NAMES[n - 1]).join(", "),
-        }),
+        lead: fillText(TOP_LEAD, { type: score.type }, "mbti.top"),
+        names: score.topFactors.map((n) => FACTOR_NAMES[n - 1] as string),
         habits: habitsOf(score.topFactors),
         ...(score.smallSample ? { smallSample: copy("MBTI_SMALLN") } : {}),
       },

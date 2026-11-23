@@ -57,7 +57,8 @@ export const p8: Page8 = {
       },
     ],
     factors: {
-      text: "FACTORS text",
+      lead: "FACTORS lead ",
+      names: ["FACTOR a", "FACTOR b"],
       habits: ["FACTOR habit1"],
       smallSample: "SMALL sample",
     },
