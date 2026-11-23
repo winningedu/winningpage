@@ -41,6 +41,8 @@ export type DerivedRoles = {
 export function deriveRoles(
   selectedIds: readonly string[],
   candidates: readonly CandidateRow[],
+  /** 핵심을 포함한 선택 상한. 서버가 준 maxSelect 를 넘긴다. 없으면 연계 확인 전의 3건이다. */
+  maxSelect: number = MAX_SELECTED,
 ): DerivedRoles {
   const chosen = candidates
     .filter((r) => selectedIds.includes(r.activity.id) && isSelectable(r))
@@ -59,9 +61,9 @@ export function deriveRoles(
   const rest = chosen.filter((r) => r !== core);
   return {
     coreId: core.activity.id,
-    supportIds: rest.slice(0, MAX_SUPPORT_ACTIVITIES).map((r) => r.activity.id),
+    supportIds: rest.slice(0, maxSelect - 1).map((r) => r.activity.id),
     coreMismatch: !isSameSubject(core),
-    tooMany: rest.length > MAX_SUPPORT_ACTIVITIES,
+    tooMany: rest.length > maxSelect - 1,
     usedWarning: chosen.some((r) => r.alreadyUsed),
   };
 }
@@ -76,6 +78,7 @@ export function toggleSelection(
   selectedIds: readonly string[],
   id: string,
   candidates: readonly CandidateRow[],
+  maxSelect: number = MAX_SELECTED,
 ): { next: string[]; notice: string | null } {
   if (selectedIds.includes(id)) {
     return { next: selectedIds.filter((s) => s !== id), notice: null };
@@ -87,10 +90,10 @@ export function toggleSelection(
       notice: row.unavailableReason ?? "재료로 쓸 수 없는 활동이에요",
     };
   }
-  if (selectedIds.length >= MAX_SELECTED) {
+  if (selectedIds.length >= maxSelect) {
     return {
       next: [...selectedIds],
-      notice: `활동은 핵심 1건과 보조 ${MAX_SUPPORT_ACTIVITIES}건, 모두 ${MAX_SELECTED}건까지 고를 수 있어요`,
+      notice: `활동은 최대 ${maxSelect}건까지 고를 수 있어요`,
     };
   }
   return { next: [...selectedIds, id], notice: null };

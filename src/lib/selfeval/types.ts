@@ -25,9 +25,10 @@ export const AREA_LABELS: Record<Area, string> = {
 
 export type TargetCharsMode = "with_space" | "without_space";
 
-export type ModelStepKey = "analyze" | "write" | "verify";
+export type ModelStepKey = "link" | "analyze" | "write" | "verify";
 
 export const MODEL_STEP_KEYS: readonly ModelStepKey[] = [
+  "link",
   "analyze",
   "write",
   "verify",
@@ -138,7 +139,17 @@ export type ActivityRecordLike = {
   numbers: unknown;
   sources: unknown;
   createdAt: string;
+  /** 제출일. 서버가 createdAt 으로 대신한 값은 CandidateRow.submittedAt 에 있다. */
+  submittedAt?: string | null;
+  recordStatus?: RecordStatus | null;
+  summary?: string | null;
+  reflection?: string | null;
+  parentRecordId?: string | null;
+  courseName?: string | null;
+  entryKind?: "performance" | "deep" | "activity" | null;
 };
+
+export type RecordStatus = "completed" | "in_progress" | "plan";
 
 export type FitSignalKey =
   | "same_subject"
@@ -175,7 +186,69 @@ export type CandidateRow = {
   unavailableReason: string | null;
   alreadyUsed: boolean;
   role: ActivityRole | null;
+  /** 기록 상태. 없으면 completed 로 본다. */
+  recordStatus?: RecordStatus;
+  /** 제출일(createdAt 으로 대신한 값 포함). */
+  submittedAt?: string;
+  /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null. */
+  linkState?: CandidateLinkState | null;
+  /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
+  bonus?: number;
+  /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다. */
+  contribution?: number;
+  /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 한 줄 이상이다. */
+  selectionReasons?: string[];
 };
+
+// 활동 기록 연계(명세 No.174~196)
+export const LINK_TYPES = [
+  "inherit",
+  "deepen",
+  "borrow_method",
+  "complement",
+  "background",
+  "area_extend",
+  "grade_continue",
+] as const;
+
+export type LinkType = (typeof LINK_TYPES)[number];
+
+export const LINK_TYPE_LABELS: Record<LinkType, string> = {
+  inherit: "이어받음",
+  deepen: "같은 질문 심화",
+  borrow_method: "방법 빌림",
+  complement: "관점 보완",
+  background: "배경 개념",
+  area_extend: "영역 확장",
+  grade_continue: "학년 이어짐",
+};
+
+export type LinkStrength = "explicit" | "implicit";
+export type LinkSource = "model" | "student";
+
+export type RecordLink = {
+  fromId: string;
+  toId: string;
+  type: LinkType;
+  strength: LinkStrength;
+  source: LinkSource;
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
+  quoteFrom: string | null;
+  quoteTo: string | null;
+};
+
+export type CandidateLinkState = {
+  linked: boolean;
+  hop: number | null;
+  type: LinkType | null;
+  strength: LinkStrength | null;
+  confirmed: boolean;
+};
+
+/** pending 판정 전, ok 판정 끝, unchecked 호출 실패나 시도 소진. */
+export type LinkStatus = "pending" | "ok" | "unchecked";
 
 // ---------------------------------------------------------------------------
 // 11항목 분석(명세 No.37~43)
@@ -609,6 +682,24 @@ export type PickListResponse = {
   planItem: GrowthPlanItemRef | null;
   growthApplied: boolean;
   currentStep: SessionStep;
+  /** 저장된 연계. deleted 가 true 인 선은 그리지 않는다. */
+  links: RecordLink[];
+  linkStatus: LinkStatus;
+  /** true 면 "연계 확인 안 됨" 을 보이고 적합도 상위 3건만 추천한다(명세 No.196). */
+  linkUnchecked: boolean;
+  /** 핵심을 포함한 선택 상한 N. */
+  maxSelect: number;
+  /** 선택했지만 핵심과 이어지지 않아 한 줄 설명이 없으면 생성에서 빠지는 기록. */
+  excludedIds: string[];
+};
+
+/** link, delete-link, confirm-link, add-link 의 응답. list 와 같은 본문이다. */
+export type PickLinkResponse = PickListResponse & {
+  /** link 만. 이미 판정을 마쳐 모델을 부르지 않았으면 true. */
+  cached?: boolean;
+  attempts?: number;
+  /** 연계 판정이 실패하거나 시도를 소진했을 때의 코드. */
+  linkError?: string;
 };
 
 export type PickSelectResponse = {
@@ -616,6 +707,8 @@ export type PickSelectResponse = {
   selection: PickSelection;
   coreMismatch: boolean;
   warnings: string[];
+  excludedIds: string[];
+  maxSelect: number;
   currentStep: 2;
 };
 

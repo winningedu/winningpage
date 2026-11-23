@@ -22,7 +22,9 @@ import type {
   ConflictChoice,
   EntryResponse,
   FinalizeResponse,
+  LinkType,
   ManualInput,
+  PickLinkResponse,
   PickListResponse,
   PickManualResponse,
   PickSelectResponse,
@@ -156,6 +158,49 @@ export function pickSelect(
   return request<PickSelectResponse>(`${BASE}/pick-records`, {
     method: "POST",
     body: { sessionId, action: "select", coreId, supportIds },
+  });
+}
+
+/** 연계 판정(모델 1회). 이미 판정을 마쳤으면 저장된 연계를 돌려준다. 호출 실패여도 200 으로 linkUnchecked 를 준다. */
+export function pickLink(sessionId: string) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "link" },
+    ai: true,
+  });
+}
+
+export function pickDeleteLink(
+  sessionId: string,
+  fromId: string,
+  toId: string,
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "delete-link", fromId, toId },
+  });
+}
+
+/** 암묵 연계를 "실제로 이어서 했어요" 로 확인한다. */
+export function pickConfirmLink(
+  sessionId: string,
+  fromId: string,
+  toId: string,
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "confirm-link", fromId, toId },
+  });
+}
+
+/** 학생이 선을 긋는다. 한 줄 설명(note)이 필수다. */
+export function pickAddLink(
+  sessionId: string,
+  link: { fromId: string; toId: string; type: LinkType; note: string },
+) {
+  return request<PickLinkResponse>(`${BASE}/pick-records`, {
+    method: "POST",
+    body: { sessionId, action: "add-link", ...link },
   });
 }
 

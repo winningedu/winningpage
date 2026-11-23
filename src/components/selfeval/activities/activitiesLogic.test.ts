@@ -113,6 +113,19 @@ describe("deriveRoles", () => {
     expect(r.tooMany).toBe(true);
   });
 
+  test("서버가 준 선택 상한 N 만큼 보조를 쓴다", () => {
+    const rows = [
+      row("a", 90, { sameSubject: true }),
+      row("b", 50),
+      row("c", 60),
+      row("d", 70),
+    ];
+    const r = deriveRoles(["a", "b", "c", "d"], rows, 4);
+    expect(r.supportIds).toEqual(["d", "c", "b"]);
+    expect(r.tooMany).toBe(false);
+    expect(deriveRoles(["a", "b", "c", "d"], rows, 3).tooMany).toBe(true);
+  });
+
   test("이미 쓴 활동이 하나라도 있으면 경고를 켠다", () => {
     const rows = [
       row("a", 90, { sameSubject: true, used: true }),
@@ -127,6 +140,22 @@ describe("deriveRoles", () => {
       coreId: "b",
       supportIds: [],
     });
+  });
+});
+
+describe("toggleSelection 상한", () => {
+  const rows = ["a", "b", "c", "d"].map((id) => row(id, 60));
+  test("상한 N 에 닿으면 건수를 넣은 안내를 돌려준다", () => {
+    expect(toggleSelection(["a", "b", "c"], "d", rows, 3)).toEqual({
+      next: ["a", "b", "c"],
+      notice: "활동은 최대 3건까지 고를 수 있어요",
+    });
+    expect(toggleSelection(["a", "b", "c"], "d", rows, 4).next).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
   });
 });
 
