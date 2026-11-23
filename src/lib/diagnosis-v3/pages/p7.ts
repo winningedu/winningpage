@@ -127,7 +127,7 @@ export function buildPage7(engine: Engine): Page7 | undefined {
             const ordinal = answers[id];
             const label = OPTIONS[id].find((o) => o.ordinal === ordinal)?.label;
             return label === undefined
-              ? { question: titleOf(id), answer: copy("ADM_NA"), text: "" }
+              ? { question: titleOf(id), answer: copy("ADM_NA") }
               : {
                   question: titleOf(id),
                   answer: label,

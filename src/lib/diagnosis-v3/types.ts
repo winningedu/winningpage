@@ -694,7 +694,8 @@ export type Page7 = {
   readonly cards?: readonly {
     readonly question: string;
     readonly answer: string;
-    readonly text: string;
+    /** ADM_Q1x_n; absent for an unanswered card (ADM_NA) */
+    readonly text?: string;
   }[];
   /** 22 r76 */
   readonly roadmap: {

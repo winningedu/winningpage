@@ -511,6 +511,14 @@ describe("7p 입결 (22 r71-r77)", () => {
     expect(p7.notes).toEqual([COPY_TEXT.ADMISSION_NOTE, COPY_TEXT.PROB_NOTE]);
   });
 
+  test("an unanswered card shows ADM_NA and carries no text (22 r75 D)", () => {
+    const cards = run(omit(CALC_EXAMPLE, "q17")).pages.p7?.cards;
+    expect(cards?.[1]).toEqual({
+      question: "학생부종합전형 준비 상태는 어디에 가깝나요?",
+      answer: COPY_TEXT.ADM_NA,
+    });
+  });
+
   test("M3 has no 7p; no target skips; no cut is NODATA (22 r70, r74)", () => {
     expect(run(validAnswers("M3")).pages.p7).toBeUndefined();
     const { q15: _q15, ...noTarget } = CALC_EXAMPLE;
