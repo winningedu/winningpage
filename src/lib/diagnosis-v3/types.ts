@@ -575,6 +575,12 @@ export type Page3 = {
     | { readonly kind: "skip"; readonly note: string };
   /** 22 r46 */
   readonly examOps: TextBlock;
+  /** spec row 76: the 8-15 answer word (01 A2) and the 10번 15 option label (02 r20) when picked */
+  readonly examOpsEvidence: {
+    readonly item: string;
+    readonly answer: string;
+    readonly examRoom?: string;
+  };
 };
 
 export type Page4 = {

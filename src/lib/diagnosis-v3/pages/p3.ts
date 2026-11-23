@@ -1,6 +1,9 @@
 // 3p 성적 (22 r38-r46).
 
 import { copy, fill } from "../copy.js";
+import { EXAM_ITEM, EXAM_ITEM_LABEL, EXAM_OPTION } from "../examOps.js";
+import { LIKERT_LEVELS } from "../likert.js";
+import { OPTIONS } from "../options.js";
 import type { Engine } from "../report.js";
 import { SUBJECT_CODES, subjectTextId } from "../subjects.js";
 import type { MockSubjectCode, Page3, SubjectCode } from "../types.js";
@@ -36,6 +39,20 @@ const gradesOf = <S extends MockSubjectCode>(
     const grade = grades[subject];
     return grade === undefined ? [] : [{ subject, grade }];
   });
+
+const examOpsEvidence = (answers: Engine["answers"]) => {
+  const answer = answers.q9.items[EXAM_ITEM - 1];
+  const word = answer === undefined ? undefined : LIKERT_LEVELS[answer]?.label;
+  if (word === undefined) throw new Error("missing q9 item " + EXAM_ITEM);
+  const examRoom = answers.q10?.includes(EXAM_OPTION)
+    ? OPTIONS.q10.find((o) => o.ordinal === EXAM_OPTION)?.label
+    : undefined;
+  return {
+    item: EXAM_ITEM_LABEL,
+    answer: word,
+    ...(examRoom === undefined ? {} : { examRoom }),
+  };
+};
 
 export function buildPage3(engine: Engine): Page3 {
   const { answers, scores } = engine;
@@ -88,5 +105,7 @@ export function buildPage3(engine: Engine): Page3 {
       heading: copy("EXAMOPS_TITLE"),
       body: copy(EXAM_OPS_IDS[scores.examOps]),
     },
+    // spec row 76: 응답 근거 (8-15 응답어, 10번 15항목 선택 여부) from 21 C35
+    examOpsEvidence: examOpsEvidence(answers),
   };
 }

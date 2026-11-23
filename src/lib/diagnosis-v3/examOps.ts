@@ -11,15 +11,17 @@ const rule = sheetRows("21_4주플랜").find((row) => row.r === 35);
 if (!rule) throw new Error("missing 21_4주플랜 r35");
 // "8-15 \u2264 25 OR 10번 15항목 선택 ... / 8-15 \u2265 75 AND 미선택 ..."
 const parsed = textCell(rule, 2).match(
-  /^8-(\d+) \u2264 (\d+) OR 10번 (\d+)항목 .* 8-\d+ \u2265 (\d+) AND /,
+  /^(8-(\d+)) \u2264 (\d+) OR 10번 (\d+)항목 .* 8-\d+ \u2265 (\d+) AND /,
 );
-if (!parsed) throw new Error("unexpected 21 C35 text");
+if (!parsed?.[1]) throw new Error("unexpected 21 C35 text");
+/** "8-15" as 21 C35 writes the exam item */
+export const EXAM_ITEM_LABEL = parsed[1];
 /** q9 item number of the exam item (8-15) */
-export const EXAM_ITEM = Number(parsed[1]);
-const RISK_MAX = Number(parsed[2]);
+export const EXAM_ITEM = Number(parsed[2]);
+const RISK_MAX = Number(parsed[3]);
 /** q10 option ordinal of 시험장 실수 */
-export const EXAM_OPTION = Number(parsed[3]);
-const OK_MIN = Number(parsed[4]);
+export const EXAM_OPTION = Number(parsed[4]);
+const OK_MIN = Number(parsed[5]);
 
 export function judgeExamOps(answers: DiagnosisV3Answers): ExamOpsVerdict {
   const answer = answers.q9.items[EXAM_ITEM - 1];

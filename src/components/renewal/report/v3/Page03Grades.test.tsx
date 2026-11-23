@@ -27,6 +27,23 @@ describe("Page03Grades", () => {
     expect(screen.getByText("3 / 16")).toBeInTheDocument();
   });
 
+  it("shows the exam ops evidence line as PDF p4: 8-15 answer and the 10번 pick", () => {
+    const { rerender } = render(
+      <Page03Grades page={p3} tocTitle="성적 진단" />,
+    );
+    const line = screen.getByText(/^8-15 /);
+    expect(line).toHaveTextContent(
+      "8-15 별로 그렇지 않다 \u00b7 10번 시험장에서 답안 표시를 실수해 점수를 잃어요. 선택",
+    );
+    rerender(
+      <Page03Grades
+        page={{ ...p3, examOpsEvidence: { item: "8-15", answer: "보통이다" } }}
+        tocTitle="성적 진단"
+      />,
+    );
+    expect(screen.getByText(/^8-15 /)).toHaveTextContent(/^8-15 보통이다$/);
+  });
+
   it("skip note replaces the table and absent bars draw nothing", () => {
     const { bars: _bars, ...rest } = p3;
     render(

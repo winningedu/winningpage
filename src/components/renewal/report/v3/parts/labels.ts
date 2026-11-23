@@ -123,6 +123,9 @@ export const REPORT_LABELS = {
   mockGrades: "최근 모의고사 등급",
   month: "월",
   subjectTable: "두 기준을 겹쳐 본 과목 진단",
+  /** PDF p4 exam ops evidence line "8-15 별로 \u00b7 10번 시험장 실수 선택" */
+  examRoomQuestion: "10번",
+  examRoomPicked: "선택",
   subject: "과목",
   verdict: "판정",
   /** PDF p4 cards */

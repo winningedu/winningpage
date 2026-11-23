@@ -212,6 +212,11 @@ export const FRONT_PAGES: FrontPages = {
       heading: "시험 운영 보완",
       body: "시험 보는 방식부터 정하면 가장 빨리 되찾을 수 있는 점수입니다.",
     },
+    examOpsEvidence: {
+      item: "8-15",
+      answer: "별로 그렇지 않다",
+      examRoom: "시험장에서 답안 표시를 실수해 점수를 잃어요.",
+    },
   },
   p4: {
     title: "우선순위에서 순환이 끊깁니다.",

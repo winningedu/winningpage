@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { scoreDiagnosisV3 } from "./index.js";
 import { SCALE_ITEMS } from "./likert.js";
+import { OPTIONS } from "./options.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import {
   CALC_EXAMPLE,
@@ -221,6 +222,28 @@ describe("2p 목표 (22 r30-r36)", () => {
 });
 
 describe("3p 성적 (22 r38-r46)", () => {
+  test("시험 운영 evidence: 8-15 answer word and the 10번 15 pick (spec row 76, PDF p4)", () => {
+    const answer = CALC_EXAMPLE.q9.items[14] as number;
+    const label = [
+      "전혀 그렇지 않다",
+      "별로 그렇지 않다",
+      "보통이다",
+      "대체로 그렇다",
+      "매우 그렇다",
+    ][answer];
+    expect(run().pages.p3.examOpsEvidence).toEqual({
+      item: "8-15",
+      answer: label,
+    });
+    const picked = run({ ...CALC_EXAMPLE, q10: [15] }).pages.p3.examOpsEvidence;
+    expect(picked).toEqual({
+      item: "8-15",
+      answer: label,
+      examRoom: OPTIONS.q10.find((o) => o.ordinal === 15)?.label,
+    });
+    expect(picked.examRoom).toMatch(/^시험장에서/);
+  });
+
   test("계산 예시: no flow, no subjects, exam ops OK", () => {
     const { p3 } = run().pages;
     expect(p3.title).toBe(COPY_TEXT.GRD_HEAD_NA);

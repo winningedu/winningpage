@@ -16,7 +16,7 @@ type Page03GradesProps = { page: Page3; tocTitle: string };
 
 /** 3p grades, 22 r38-r46. */
 export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
-  const { bars, subjects } = page;
+  const { bars, subjects, examOpsEvidence: evidence } = page;
   const metrics = [
     [L.gpaAll, page.gpa],
     [L.gpaRecent, page.recent],
@@ -99,6 +99,12 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
       <ReportCard title={page.examOps.heading}>
         <p>
           <CopyText text={page.examOps.body} />
+        </p>
+        {/* spec row 76: 응답 근거 */}
+        <p className="text-sm text-ink-sub">
+          {`${evidence.item} ${evidence.answer}`}
+          {evidence.examRoom &&
+            `${L.joiner}${L.examRoomQuestion} ${evidence.examRoom} ${L.examRoomPicked}`}
         </p>
       </ReportCard>
     </ReportSheet>
