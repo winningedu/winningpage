@@ -198,10 +198,23 @@ const SEGMENT_BY_SCOPE = {
   G3LATE: "고3후기",
 } as const;
 
+/**
+ * Lead decision W5: 고3 전기 = joined before the 07 B23 month (day 1) of the
+ * current 고3 school year. The school year comes from diagnosedAt with the
+ * judge-report R13 rule that defaultQ4 (gradeConvert.ts) also applies:
+ * January and February belong to the previous school year.
+ */
+const joinedEarly = (joinedAt: string, diagnosedAt: string): boolean => {
+  const year = Number(diagnosedAt.slice(0, 4));
+  const schoolYear = Number(diagnosedAt.slice(5, 7)) <= 2 ? year - 1 : year;
+  const cutoff = `${schoolYear}-${String(LATE_FROM_MONTH).padStart(2, "0")}-01`;
+  return joinedAt.slice(0, 10) < cutoff;
+};
+
 const scopeOf = (
   track: TrackCode,
   grade: Ordinal,
-  month: number,
+  early: boolean,
 ): ServicesResult["scope"] => {
   if (track === "M3") return "M3";
   if (track === "H12") return "ALL";
@@ -209,7 +222,7 @@ const scopeOf = (
     .find((option) => option.ordinal === grade)
     ?.code?.split("|")[1];
   if (sub === "N수") return "NSU";
-  return month < LATE_FROM_MONTH ? "ALL" : "G3LATE";
+  return early ? "ALL" : "G3LATE";
 };
 
 /** Service codes in the candidate lists for one group label (07 rows 16-21). */
@@ -221,8 +234,12 @@ const candidatesOf = (segment: string): readonly string[] =>
 
 export function recommendServices(input: ServiceInput): ServicesResult {
   const track = trackOf(input.grade);
-  const month = Number((input.joinedAt ?? input.diagnosedAt).slice(5, 7));
-  const scope = scopeOf(track, input.grade, month);
+  // 07 B24: join date, else the diagnosis date
+  const early = joinedEarly(
+    input.joinedAt ?? input.diagnosedAt,
+    input.diagnosedAt,
+  );
+  const scope = scopeOf(track, input.grade, early);
   const segment =
     scope === "ALL"
       ? track === "H12"

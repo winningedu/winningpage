@@ -215,6 +215,24 @@ describe("service fit (07_서비스)", () => {
     expect(codes(m3).sort()).toEqual(["CALL", "GOAL"]);
   });
 
+  test("고3 전기 is joined before June 1 of the current 고3 school year (07 B23, lead decision W5)", () => {
+    const scope = (joinedAt: string, diagnosedAt: string) =>
+      recommendServices(
+        input({
+          grade: 5, // 고3
+          joinedAt,
+          diagnosedAt,
+          areaScores: scoresOf("H3", 0),
+        }),
+      ).scope;
+    // joined in September of an earlier school year (고2): 전기
+    expect(scope("2025-09-01", "2026-04-10")).toBe("ALL");
+    // January and February still belong to the previous school year (R13)
+    expect(scope("2026-05-01", "2027-02-10")).toBe("ALL");
+    expect(scope("2026-07-01", "2027-02-10")).toBe("G3LATE");
+    expect(scope("2027-01-15", "2027-02-10")).toBe("G3LATE");
+  });
+
   test("temperament care pins CALL to rank 1, best of the rest second (07 B32)", () => {
     // GOAL 50 would lead, CALL is 0
     const base = {
