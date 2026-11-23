@@ -8723,7 +8723,12 @@ export type Database = {
         }[];
       };
       fn_ai_telemetry_daily_summary: {
-        Args: { p_from: string; p_service?: string; p_to: string };
+        Args: {
+          p_from: string;
+          p_service?: string;
+          p_to: string;
+          p_tz?: string;
+        };
         Returns: {
           avg_ms: number;
           cached_tokens: number;
