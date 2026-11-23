@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readBody } from "../../../api/_lib/selfeval/report/body";
 import {
   chipLabel,
   circledNumber,
@@ -73,6 +74,24 @@ describe("sentenceNumbers", () => {
       ],
     };
     expect(sentenceNumbers(sections).get("b")).toBe(3);
+  });
+});
+
+describe("sentenceNumbers and the report numbering", () => {
+  it("결과 화면 번호와 리포트 본문 번호가 한 덩이에 두 문장이 든 본문에서도 같다", () => {
+    const sections: GenerationSections = {
+      paragraphs: [
+        {
+          sentences: [
+            sentence("a", { text: "가함. 나함." }),
+            sentence("b", { text: "다함." }),
+          ],
+        },
+      ],
+    };
+    const screen = sentenceNumbers(sections);
+    const report = readBody(sections, { records: [], memos: [] }).sentences;
+    expect(report.map((s) => s.n)).toEqual([screen.get("a"), screen.get("b")]);
   });
 });
 

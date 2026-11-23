@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { sentenceNumbers } from "../../../../src/lib/selfeval/evidence.js";
 import { readBody } from "./body.js";
 import { SAMPLE_BODY, SAMPLE_MEMOS, SAMPLE_RECORDS } from "./sample.testkit.js";
 
@@ -8,6 +7,20 @@ const ctx = { records: SAMPLE_RECORDS, memos: SAMPLE_MEMOS };
 const flat = (sections: unknown) => readBody(sections, ctx).sentences;
 
 describe("readBody", () => {
+  it("numbers by the sentence span so a two sentence object takes two numbers", () => {
+    const body = flat({
+      paragraphs: [
+        {
+          sentences: [
+            { text: "가함. 나함.", evidence: [] },
+            { text: "다함.", evidence: [] },
+          ],
+        },
+      ],
+    });
+    expect(body.map((x) => x.n)).toEqual([1, 3]);
+  });
+
   it("numbers the sentence objects from 1 across paragraphs", () => {
     const body = readBody(SAMPLE_BODY, ctx);
     expect(body.sentences.map((s) => s.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
@@ -143,24 +156,5 @@ describe("readBody", () => {
     });
     expect(s[0]?.refs).toEqual([]);
     expect(s[0]?.needsConfirm).toBe(true);
-  });
-
-  it("numbers a sentence object that holds two sentences the same way as the result screen", () => {
-    const sections = {
-      paragraphs: [
-        {
-          sentences: [
-            { id: "a", text: "가함. 나함.", evidence: [] },
-            { id: "b", text: "다함.", evidence: [] },
-          ],
-        },
-      ],
-    };
-    const screen = sentenceNumbers(
-      sections as unknown as Parameters<typeof sentenceNumbers>[0],
-    );
-    const report = flat(sections);
-    expect(report.map((x) => x.n)).toEqual([screen.get("a"), screen.get("b")]);
-    expect(report.map((x) => x.n)).toEqual([1, 3]);
   });
 });
