@@ -313,6 +313,11 @@ describe("buildWritePrompt", () => {
     expect(sys).toContain("상관계수를 계산했다(틀림)");
   });
 
+  it("문장마다 끝에 마침표를 찍으라고 적는다", () => {
+    const sys = buildWritePrompt(writeInput()).system;
+    expect(sys).toContain("모든 문장은 마침표로 끝낸다(예: '확인함.')");
+  });
+
   it("값이 있는 항목만 싣고 비운 항목은 싣지 않으며 student 출처를 표시한다", () => {
     const b = buildWritePrompt(writeInput());
     expect(b.user).toContain("motive값내용");
