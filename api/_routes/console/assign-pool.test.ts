@@ -1,4 +1,4 @@
-// GET /api/console/assign-pool 계약 검증(W12 미배정 목록). 학교 관리자 전용, 이름은 가리고 동명 재학생을 함께 준다.
+// GET /api/console/assign-pool 계약 검증(W12 미배정 목록). 학교 관리자, 본사 대행, 담임이 같은 풀을 실명으로 보고 동명 재학생을 함께 받는다.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -113,7 +113,7 @@ const ids = (r: { body: unknown }) =>
   (r.body as { items: PoolRow[] }).items.map((i) => i.studentId);
 
 describe("GET /api/console/assign-pool", () => {
-  test("lists current active students with no grade or no class, masked, with their version", async () => {
+  test("lists current active students with no grade or no class, with real names and their version", async () => {
     const r = await get();
 
     expect(r.status).toBe(200);
@@ -124,7 +124,7 @@ describe("GET /api/console/assign-pool", () => {
         (i) => i.studentId === "p1",
       ),
     ).toMatchObject({
-      name: "김*늘",
+      name: "김하늘",
       enrollmentVersion: 4,
       grade: null,
     });
@@ -177,18 +177,30 @@ describe("GET /api/console/assign-pool", () => {
     expect(none.body).toMatchObject({ total: 0, items: [] });
   });
 
-  test("q matches only the exact full name (decision 61)", async () => {
-    expect(ids(await get({ q: "하늘" }))).toEqual([]);
-    expect(ids(await get({ q: "김하늘" }))).toEqual(["p1"]);
+  test.each([
+    ["school_admin", {}],
+    ["hq_proxy", { kind: "hq_proxy" }],
+    ["homeroom", { kind: "homeroom", class_ids: ["c-A"] }],
+  ])("%s sees real names and q is a partial match", async (_kind, actor) => {
+    kit.state.actor = schoolAdminActor(actor);
+
+    expect(ids(await get({ q: "하늘" }))).toEqual(["p1"]);
+    expect(ids(await get({ q: "윤" })).sort()).toEqual(["p2", "p3"]);
+    const r = await get({ q: "김하" });
+    expect(r.body).toMatchObject({
+      items: [{ studentId: "p1", name: "김하늘" }],
+    });
   });
 
-  test("a homeroom teacher is refused", async () => {
+  test("a homeroom teacher gets the whole tenant pool, not only own classes", async () => {
     kit.state.actor = schoolAdminActor({
       kind: "homeroom",
       class_ids: ["c-A"],
     });
 
-    expect((await get()).status).toBe(403);
+    const r = await get();
+    expect(r.status).toBe(200);
+    expect(ids(r).sort()).toEqual(["p1", "p2", "p3"]);
   });
 
   test("pageSize and page slice the list and a malformed page is a 400", async () => {
@@ -198,7 +210,7 @@ describe("GET /api/console/assign-pool", () => {
     expect((await get({ page: "x" })).status).toBe(400);
   });
 
-  test("pool students whose masked names match get a trailing star", async () => {
+  test("pool students with the same name keep the plain real name", async () => {
     kit.state.rows.profiles = (f) =>
       matchRows(
         [
@@ -214,7 +226,7 @@ describe("GET /api/console/assign-pool", () => {
       r.body as { items: { studentId: string; name: string }[] }
     ).items.map((i) => i.name);
 
-    expect(names.sort()).toEqual(["김*늘*", "김*늘*", "전*윤"]);
+    expect(names.sort()).toEqual(["김하늘", "김하늘", "전지윤"]);
   });
 
   test("classId narrows only the same-name enrolled lookup, pool membership is unchanged", async () => {
