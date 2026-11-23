@@ -79,6 +79,24 @@ describe("relinkEdited", () => {
     );
   });
 
+  it("끝 부호 없이 고친 문장은 마침표를 붙이고, 글자가 같은 옛 문장은 연결을 유지한다", () => {
+    const r = relinkEdited(prev, [
+      "계수를 바꿔 관찰했다. 폭이 좁아졌다고 느꼈다",
+      "다음에는 소수 계수를 본다",
+    ]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const p0 = r.sections.paragraphs[0]?.sentences;
+    expect(p0?.map((s) => s.text)).toEqual([
+      "계수를 바꿔 관찰했다.",
+      "폭이 좁아졌다고 느꼈다.",
+    ]);
+    expect(p0?.[1]).toMatchObject({ id: "p1-s2", confirmed: true });
+    expect(r.sections.paragraphs[1]?.sentences[0]?.text).toBe(
+      "다음에는 소수 계수를 본다.",
+    );
+  });
+
   it("바뀌거나 새 문장은 새 id 와 student evidence, 미확인으로 둔다", () => {
     const r = relinkEdited(prev, [
       "계수를 바꿔 관찰했다. 직접 표로 정리했다.",

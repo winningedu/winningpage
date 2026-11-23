@@ -21,7 +21,7 @@ import {
 } from "./types.js";
 import type { ValidationIssue } from "./validation.js";
 
-export const LINK_MAX_OUTPUT_TOKENS = 4096;
+export const LINK_MAX_OUTPUT_TOKENS = 8192;
 
 export type LinkPromptInput = {
   core: ActivityRecordLike;
@@ -68,7 +68,7 @@ const RULES = [
   "- 2차: 1차에서 연계라고 한 기록이 있으면 그 기록과 다른 기록 사이의 쌍도 같은 응답에서 판정한다. 핵심이나 이미 연계된 기록과 이어지면 연계다.",
   "- 판정마다 from 기록의 원문과 to 기록의 원문에서 근거 문장을 글자 그대로 가져와 quote_from, quote_to 에 쓴다. 고쳐 쓰지 않는다.",
   "- 이어받음(inherit)과 같은 질문 심화(deepen)는 from 이 먼저 제출한 기록이고 to 가 나중에 제출한 기록이다.",
-  "- 연계가 아니면 linked 를 false 로 하고 나머지는 빈 문자열로 둔다.",
+  "- 연계가 아닌 쌍은 judgments 에 넣지 않는다. 연계인 쌍만 linked 를 true 로 해서 낸다.",
 ].join("\n");
 
 const judgmentSchema = {

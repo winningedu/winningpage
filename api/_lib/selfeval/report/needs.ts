@@ -36,6 +36,8 @@ export type ComposeNeed = {
 };
 
 export const RECORD_QUOTE_MAX = 30;
+/** 한 번의 호출로 요약을 부탁하는 기록 수 상한. 넘는 기록은 요약 줄 없이 그린다. */
+export const MAX_SUMMARY_NEEDS = 20;
 export const RELATION_QUOTE_MAX = 15;
 
 const toText = (v: unknown): string =>
@@ -95,12 +97,29 @@ export function buildNeeds(
   };
   const rows = ch02.ch02.subjects.flatMap((s) => s.rows);
 
-  // 기록 요약(02장). 기록에 요약이 없을 때만 모델이 쓴다.
-  for (const row of rows) {
+  // 기록 요약(02장). 기록에 요약이 없을 때만 모델이 쓴다. 상한을 넘으면 반영된 기록, 작성 과목,
+  // 최근 제출 순으로 남기고 나머지는 요약을 받지 않는다.
+  const summaryRows = rows.flatMap((row) => {
     const info = ch02.info.get(row.recordId);
-    if (info === undefined || info.record.summary !== null) continue;
+    if (info === undefined || info.record.summary !== null) return [];
     const src = recordSource(info.record);
-    if (src === "") continue;
+    return src === "" ? [] : [{ row, info, src }];
+  });
+  const keep = new Set(
+    [...summaryRows]
+      .sort(
+        (a, b) =>
+          Number(b.info.sentenceNumbers.length > 0) -
+            Number(a.info.sentenceNumbers.length > 0) ||
+          Number(b.info.writing) - Number(a.info.writing) ||
+          Date.parse(b.info.record.submittedAt) -
+            Date.parse(a.info.record.submittedAt),
+      )
+      .slice(0, MAX_SUMMARY_NEEDS)
+      .map((x) => x.row.recordId),
+  );
+  for (const { row, src } of summaryRows) {
+    if (!keep.has(row.recordId)) continue;
     out.push({
       id: `summary:${row.tag}`,
       kind: "summary",

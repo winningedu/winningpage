@@ -62,7 +62,8 @@ describe("buildLinkPrompt", () => {
     );
     expect(p.system).toContain("explicit");
     expect(p.system).toContain("implicit");
-    expect(p.maxOutputTokens).toBeGreaterThan(0);
+    expect(p.maxOutputTokens).toBeGreaterThanOrEqual(8192);
+    expect(p.system).toContain("연계가 아닌 쌍은 judgments 에 넣지 않는다");
     expect(p.responseSchema).toMatchObject({ type: "object" });
   });
 

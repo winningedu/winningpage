@@ -5,7 +5,7 @@ import { buildCh03 } from "./ch03.js";
 import { buildCh04 } from "./ch04.js";
 import { findNextStepCandidates } from "./ch05.js";
 import { buildNeeds } from "./needs.js";
-import { sampleInput } from "./sample.testkit.js";
+import { SAMPLE_RECORDS, sampleInput } from "./sample.testkit.js";
 
 function needs(over: Parameters<typeof sampleInput>[0] = {}) {
   const input = sampleInput(over);
@@ -60,6 +60,24 @@ describe("buildNeeds", () => {
     const next = needs().find((n) => n.id === "next:verify_action");
     expect(next?.requiredTag).toBe("H4");
     expect(next?.sources.join(" ")).toContain("판매 장부");
+  });
+
+  it("asks for at most 20 record summaries, keeping reflected records first and then the most recent", () => {
+    const extras = Array.from({ length: 25 }, (_, i) => ({
+      ...(SAMPLE_RECORDS[0] as (typeof SAMPLE_RECORDS)[number]),
+      id: `rec-x${String(i).padStart(2, "0")}`,
+      topic: `추가주제${String(i).padStart(2, "0")}`,
+      summary: null,
+      submittedAt: `2026-08-${String(i + 1).padStart(2, "0")}T03:00:00.000Z`,
+    }));
+    const summaries = needs({
+      records: [...SAMPLE_RECORDS, ...extras],
+    }).filter((n) => n.kind === "summary");
+    expect(summaries).toHaveLength(20);
+    const all = summaries.map((n) => n.sources.join(" ")).join(" ");
+    expect(summaries.map((n) => n.id)).toContain("summary:D2");
+    expect(all).toContain("추가주제24");
+    expect(all).not.toContain("추가주제00");
   });
 
   it("does not ask for a memo rate sentence or memo texts without memos", () => {
