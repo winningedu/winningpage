@@ -1,4 +1,5 @@
 // 자동 생성 — 손으로 고치지 말 것. 재생성: npm run gen:types
+
 export type Json =
   | string
   | number
@@ -14,13 +15,18 @@ export type Database = {
         Row: {
           concept: string | null;
           confirmed_at: string | null;
+          course_name: string | null;
           created_at: string;
+          entry_kind: string | null;
           grade_label: string | null;
           id: string;
           limitation: string | null;
           method: string | null;
           numbers: Json | null;
+          parent_record_id: string | null;
           profile_id: string;
+          record_status: string | null;
+          reflection: string | null;
           result: string | null;
           semester: number | null;
           source_program: string;
@@ -29,6 +35,8 @@ export type Database = {
           status: string;
           subject: string | null;
           subject_group: string | null;
+          submitted_at: string | null;
+          summary: string | null;
           topic: string | null;
           updated_at: string;
         };
@@ -36,13 +44,18 @@ export type Database = {
         Insert: {
           concept?: string | null;
           confirmed_at?: string | null;
+          course_name?: string | null;
           created_at?: string;
+          entry_kind?: string | null;
           grade_label?: string | null;
           id?: string;
           limitation?: string | null;
           method?: string | null;
           numbers?: Json | null;
+          parent_record_id?: string | null;
           profile_id: string;
+          record_status?: string | null;
+          reflection?: string | null;
           result?: string | null;
           semester?: number | null;
           source_program: string;
@@ -51,19 +64,26 @@ export type Database = {
           status: string;
           subject?: string | null;
           subject_group?: string | null;
+          submitted_at?: string | null;
+          summary?: string | null;
           topic?: string | null;
           updated_at?: string;
         };
         Update: {
           concept?: string | null;
           confirmed_at?: string | null;
+          course_name?: string | null;
           created_at?: string;
+          entry_kind?: string | null;
           grade_label?: string | null;
           id?: string;
           limitation?: string | null;
           method?: string | null;
           numbers?: Json | null;
+          parent_record_id?: string | null;
           profile_id?: string;
+          record_status?: string | null;
+          reflection?: string | null;
           result?: string | null;
           semester?: number | null;
           source_program?: string;
@@ -72,10 +92,19 @@ export type Database = {
           status?: string;
           subject?: string | null;
           subject_group?: string | null;
+          submitted_at?: string | null;
+          summary?: string | null;
           topic?: string | null;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "activity_records_parent_record_id_fkey";
+            columns: ["parent_record_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "activity_records_profile_id_fkey";
             columns: ["profile_id"];
@@ -6439,6 +6468,174 @@ export type Database = {
           },
         ];
       };
+      selfeval_manual_logs: {
+        Row: {
+          belongs_to: string | null;
+          confirmed: boolean;
+          created_at: string;
+          id: string;
+          included: boolean;
+          ocr: boolean;
+          session_id: string;
+          text: string;
+          updated_at: string;
+          written_at: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          belongs_to?: string | null;
+          confirmed?: boolean;
+          created_at?: string;
+          id?: string;
+          included?: boolean;
+          ocr?: boolean;
+          session_id: string;
+          text: string;
+          updated_at?: string;
+          written_at?: string | null;
+        };
+        Update: {
+          belongs_to?: string | null;
+          confirmed?: boolean;
+          created_at?: string;
+          id?: string;
+          included?: boolean;
+          ocr?: boolean;
+          session_id?: string;
+          text?: string;
+          updated_at?: string;
+          written_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_manual_logs_belongs_to_fkey";
+            columns: ["belongs_to"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_manual_logs_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "selfeval_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      selfeval_record_links: {
+        Row: {
+          confirmed: boolean;
+          created_at: string;
+          deleted: boolean;
+          from_record_id: string;
+          id: string;
+          link_type: string;
+          note: string | null;
+          quote_from: string | null;
+          quote_to: string | null;
+          session_id: string;
+          source: string;
+          strength: string;
+          to_record_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          confirmed?: boolean;
+          created_at?: string;
+          deleted?: boolean;
+          from_record_id: string;
+          id?: string;
+          link_type: string;
+          note?: string | null;
+          quote_from?: string | null;
+          quote_to?: string | null;
+          session_id: string;
+          source: string;
+          strength: string;
+          to_record_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          confirmed?: boolean;
+          created_at?: string;
+          deleted?: boolean;
+          from_record_id?: string;
+          id?: string;
+          link_type?: string;
+          note?: string | null;
+          quote_from?: string | null;
+          quote_to?: string | null;
+          session_id?: string;
+          source?: string;
+          strength?: string;
+          to_record_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_record_links_from_record_id_fkey";
+            columns: ["from_record_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_record_links_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "selfeval_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "selfeval_record_links_to_record_id_fkey";
+            columns: ["to_record_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_records";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      selfeval_report_views: {
+        Row: {
+          attempts: number;
+          built_at: string;
+          final_revision: number;
+          payload: NonNullable<Json>;
+          session_id: string;
+          status: string;
+          tag_map: NonNullable<Json>;
+        };
+        ComputedFields: never;
+        Insert: {
+          attempts?: number;
+          built_at?: string;
+          final_revision: number;
+          payload?: NonNullable<Json>;
+          session_id: string;
+          status: string;
+          tag_map?: NonNullable<Json>;
+        };
+        Update: {
+          attempts?: number;
+          built_at?: string;
+          final_revision?: number;
+          payload?: NonNullable<Json>;
+          session_id?: string;
+          status?: string;
+          tag_map?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "selfeval_report_views_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: true;
+            referencedRelation: "selfeval_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       selfeval_reports: {
         Row: {
           char_count: Json | null;
@@ -6986,6 +7183,7 @@ export type Database = {
           profile_id: string;
           school_type: string | null;
           semester: number | null;
+          service_tier: string | null;
           universities: string[];
           updated_at: string;
           updated_by: string | null;
@@ -7000,6 +7198,7 @@ export type Database = {
           profile_id: string;
           school_type?: string | null;
           semester?: number | null;
+          service_tier?: string | null;
           universities?: string[];
           updated_at?: string;
           updated_by?: string | null;
@@ -7013,6 +7212,7 @@ export type Database = {
           profile_id?: string;
           school_type?: string | null;
           semester?: number | null;
+          service_tier?: string | null;
           universities?: string[];
           updated_at?: string;
           updated_by?: string | null;
