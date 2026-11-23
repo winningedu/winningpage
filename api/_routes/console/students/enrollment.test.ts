@@ -53,6 +53,10 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
           filters.push((r) => vals.includes(r[col]));
           return chain;
         },
+        is: (col: string, val: unknown) => {
+          filters.push((r) => r[col] === val);
+          return chain;
+        },
         maybeSingle: () =>
           Promise.resolve({
             data:
@@ -164,6 +168,21 @@ beforeEach(() => {
         class_id: "class-Q",
         version: 1,
       },
+      {
+        student_id: "student-5",
+        tenant_id: "tenant-1",
+        school_year: 2026,
+        class_id: "class-Z",
+        grade: null,
+        version: 1,
+      },
+      {
+        student_id: "student-6",
+        tenant_id: "tenant-2",
+        school_year: 2026,
+        class_id: null,
+        version: 1,
+      },
     ],
   };
   state.updateResult = {
@@ -214,8 +233,8 @@ describe("PATCH /api/console/students/enrollment", () => {
     expect(updateCall()?.args.p_reason).toBe("auto");
   });
 
-  test("homeroom cannot edit a student outside own classes, other tenant, or the pool (404, no RPC, no log)", async () => {
-    for (const studentId of ["student-2", "student-3", "student-4", "ghost"]) {
+  test("homeroom cannot edit a student outside own classes, other tenant, or another teacher's class (404, no RPC, no log)", async () => {
+    for (const studentId of ["student-2", "student-4", "student-5", "ghost"]) {
       state.rpcCalls = [];
       const result = await patch({ ...BODY, studentId });
       expect(result).toEqual({
@@ -240,6 +259,50 @@ describe("PATCH /api/console/students/enrollment", () => {
     });
     expect(updateCall()).toBeUndefined();
     expect(state.inserts).toEqual([]);
+  });
+
+  test("homeroom assigns a class-less pool student into an own class as pool_assign and logs it", async () => {
+    const result = await patch({
+      ...BODY,
+      studentId: "student-3",
+      expectedVersion: 1,
+    });
+
+    expect(result.status).toBe(200);
+    expect(updateCall()?.args).toMatchObject({
+      p_student: "student-3",
+      p_to_class_id: "class-B",
+      p_kind: "pool_assign",
+      p_tenant: "tenant-1",
+      p_allowed_class_ids: ["class-A", "class-B"],
+    });
+    const log = state.inserts.find((i) => i.table === "admin_access_logs")?.row;
+    expect(JSON.stringify(log)).toContain('"kind":"pool_assign"');
+  });
+
+  test("homeroom pool assign into another teacher's class or with no class is 404 (no RPC, no log)", async () => {
+    for (const classId of ["class-Z", null]) {
+      const result = await patch({
+        ...BODY,
+        studentId: "student-3",
+        expectedVersion: 1,
+        classId,
+      });
+      expect(result.status).toBe(404);
+    }
+    expect(updateCall()).toBeUndefined();
+    expect(state.inserts).toEqual([]);
+  });
+
+  test("homeroom cannot pick up a pool student of another tenant (404)", async () => {
+    const result = await patch({
+      ...BODY,
+      studentId: "student-6",
+      expectedVersion: 1,
+    });
+
+    expect(result.status).toBe(404);
+    expect(updateCall()).toBeUndefined();
   });
 
   test("school admin edits any student in the tenant, pool students as pool_assign, never other tenants", async () => {
