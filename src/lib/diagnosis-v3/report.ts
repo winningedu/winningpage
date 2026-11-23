@@ -7,7 +7,7 @@ import { P1_CODES, P2_CODES } from "./codes.js";
 import { judgeExamOps } from "./examOps.js";
 import { scoreMbti } from "./mbti.js";
 import { buildPage1 } from "./pages/p1.js";
-import { goalOf } from "./pages/p2.js";
+import { buildPage2, goalOf } from "./pages/p2.js";
 import { buildPlan } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
 import { scoreReliability } from "./reliability.js";
@@ -150,6 +150,7 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
   );
   return {
     p1: buildPage1(engine, p9.hero.name),
+    p2: buildPage2(engine),
     p9,
   };
 }

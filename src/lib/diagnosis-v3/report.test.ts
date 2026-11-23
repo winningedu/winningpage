@@ -105,3 +105,71 @@ describe("1p 요약 (22 r9-r27)", () => {
     ]);
   });
 });
+
+describe("2p 목표 (22 r30-r36)", () => {
+  test("계산 예시: C_NA cell, full ladder, no highlight", () => {
+    const { p2 } = run().pages;
+    expect(p2.title).toBe(COPY_TEXT.GOAL_Q_C_NA_HEAD);
+    expect(p2.lead).toBe(COPY_TEXT.GOAL_LEAD);
+    expect(p2.specificity).toMatchObject({
+      selectedIndex: 0,
+      university: "연세대학교",
+      major: "경영학과",
+    });
+    expect(p2.specificity.options).toHaveLength(6);
+    expect(p2.reasons).toEqual({ chips: [], intrinsic: 0, extrinsic: 0 });
+    expect(p2.matrix.cells.map((c) => c.cell)).toEqual([
+      "C_IN",
+      "C_MIX",
+      "C_EX",
+      "E_IN",
+      "E_MIX",
+      "E_EX",
+    ]);
+    expect(p2.matrix.cells[0]).toEqual({
+      cell: "C_IN",
+      name: COPY_TEXT.GOAL_Q_C_IN_NAME,
+      desc: COPY_TEXT.GOAL_Q_C_IN_DESC,
+    });
+    expect(p2.matrix.highlighted).toBeUndefined();
+    expect(p2.ladder).toEqual({
+      far: true,
+      mid: true,
+      near: true,
+      text: COPY_TEXT.LADDER_FULL,
+    });
+    expect(p2.tips).toEqual([
+      COPY_TEXT.GOAL_Q_C_NA_TIP,
+      COPY_TEXT.LADDER_TIP_FULL,
+    ]);
+  });
+
+  test("hidden 3-1 and empty rungs pick GAP_MULTI and the nearest tip", () => {
+    const q9 = {
+      ...CALC_EXAMPLE.q9,
+      items: [3, 0, ...CALC_EXAMPLE.q9.items.slice(2)],
+    };
+    const { p2 } = run({
+      ...CALC_EXAMPLE,
+      q3: 6,
+      q3Target: undefined,
+      q9,
+    } as DiagnosisV3Answers).pages;
+    expect(p2.reasons).toBeUndefined();
+    expect(p2.ladder.text).toBe(COPY_TEXT.LADDER_GAP_MULTI);
+    expect(p2.tips[1]).toBe(COPY_TEXT.LADDER_TIP_NEAR);
+  });
+
+  test("picked reasons highlight the cell and fill the chips", () => {
+    const { p2 } = run({
+      ...CALC_EXAMPLE,
+      q3: 5,
+      q3Target: undefined,
+      q3r: [1, 3],
+    }).pages;
+    expect(p2.matrix.highlighted).toBe("E_MIX");
+    expect(p2.reasons).toMatchObject({ intrinsic: 1, extrinsic: 1 });
+    expect(p2.reasons?.chips).toHaveLength(2);
+    expect(p2.ladder.text).toBe(COPY_TEXT.LADDER_GAP_FAR);
+  });
+});
