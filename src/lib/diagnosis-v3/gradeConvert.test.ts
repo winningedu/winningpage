@@ -11,6 +11,15 @@ describe("toNineGrade", () => {
     expect(toNineGrade(1, 3.27)).toBe(3.27);
   });
 
+  test("성취평가제 average falls in its A to E band (12 r5-r9)", () => {
+    expect(toNineGrade(3, 95)).toBe(3.17); // A
+    expect(toNineGrade(3, 90)).toBe(3.17); // A lower edge
+    expect(toNineGrade(3, 89.9)).toBe(4.39); // B
+    expect(toNineGrade(3, 75)).toBe(5.17); // C
+    expect(toNineGrade(3, 65)).toBe(5.95); // D
+    expect(toNineGrade(3, 59.9)).toBe(7.12); // E, no lower bound
+  });
+
   test("잘 모르겠어요 has no 9-grade value (16 r9)", () => {
     expect(toNineGrade(4, 3.27)).toBeNull();
   });

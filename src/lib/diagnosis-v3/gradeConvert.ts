@@ -33,6 +33,23 @@ const fiveKey = (raw: number) =>
     Math.max(FIVE_MIN, Math.round(Number((raw * 100).toPrecision(15)))),
   );
 
+/**
+ * 12 r5-r9 A to E in order: lower bound of the 원점수 interval ("90 ~ 100점")
+ * and its 9-grade value. E ("60점 미만") has no lower bound and catches the rest.
+ */
+const ACHIEVEMENT_BANDS = sheetRows("12_환산_성취평가제")
+  .filter((row) => /^[A-E]$/.test(String(row.c[0])))
+  .map((row) => ({
+    lower: Number(/^(\d+)\s*~/.exec(String(row.c[1]))?.[1] ?? Number.NaN),
+    nine: numberCell(row, 3),
+  }));
+
+const achievementToNine = (average: number) =>
+  (
+    ACHIEVEMENT_BANDS.find((band) => average >= band.lower) ??
+    ACHIEVEMENT_BANDS[ACHIEVEMENT_BANDS.length - 1]
+  )?.nine ?? null;
+
 /** q6 in the q4 grade system as a 9-grade value; null when q4 has no table. */
 export function toNineGrade(q4: Ordinal, q6: number): number | null {
   switch (systemOf(q4)) {
@@ -40,6 +57,8 @@ export function toNineGrade(q4: Ordinal, q6: number): number | null {
       return q6;
     case "FIVE":
       return FIVE_TO_NINE.get(fiveKey(q6)) ?? null;
+    case "ACHIEVEMENT":
+      return achievementToNine(q6);
     default:
       return null;
   }
