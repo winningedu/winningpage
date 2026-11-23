@@ -12,8 +12,14 @@
 //   413 PAYLOAD_TOO_LARGE
 
 import type { VercelResponse } from "@vercel/node";
-import { validateAnswers } from "../../../src/lib/diagnosis-v3/index.js";
+import {
+  type DiagnosisV3Context,
+  SCHEMA_VERSION,
+  scoreDiagnosisV3,
+  validateAnswers,
+} from "../../../src/lib/diagnosis-v3/index.js";
 import { kstYMD } from "../../../src/lib/goal/calc/virtualDate.js";
+import { fetchAdmissionInputs } from "../../_lib/diagnosis/admissionInputs.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { isSchoolmentorSite } from "../../_lib/site.js";
@@ -130,7 +136,67 @@ export default defineHandler({
       return;
     }
 
-    res.status(200).json({ ok: true });
+    // Student name and join date: profiles.name, profiles.created_at as a KST date
+    // (07 B24: a missing join date falls back to the diagnosis date in the engine).
+    const { data: profile, error: profileError } = await ctx.supabaseAdmin
+      .from("profiles")
+      .select("name, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) {
+      console.error("diagnosis/submit profile 조회 실패:", profileError);
+      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
+      return;
+    }
+    const name = typeof profile?.name === "string" ? profile.name.trim() : "";
+    const context: DiagnosisV3Context = {
+      diagnosedAt,
+      joinedAt: profile?.created_at
+        ? kstYMD(new Date(profile.created_at))
+        : null,
+      admission: validated.answers.q15
+        ? await fetchAdmissionInputs(ctx.supabaseAdmin, validated.answers.q15)
+        : null,
+      studentName: name.length > 0 ? name : null,
+    };
+
+    const payload = scoreDiagnosisV3(validated.answers, context);
+
+    // Insert on conflict do nothing, then read back: two concurrent submits for
+    // one attempt both answer with the single stored row.
+    const { error: upsertError } = await ctx.supabaseAdmin
+      .from("diagnosis_reports")
+      .upsert(
+        {
+          attempt_id: attemptId,
+          profile_id: userId,
+          schema_version: SCHEMA_VERSION,
+          diagnosed_at: diagnosedAt,
+          snapshot: { answers: validated.answers, context },
+          payload,
+        },
+        { onConflict: "attempt_id", ignoreDuplicates: true },
+      );
+    if (upsertError) {
+      console.error("diagnosis/submit insert 실패:", upsertError);
+      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
+      return;
+    }
+    const { data: saved, error: savedError } = await ctx.supabaseAdmin
+      .from("diagnosis_reports")
+      .select("schema_version, payload")
+      .eq("attempt_id", attemptId)
+      .maybeSingle();
+    if (savedError || !saved) {
+      console.error("diagnosis/submit 저장 리포트 조회 실패:", savedError);
+      fail(res, 500, "INTERNAL", "학습진단 채점에 실패했습니다.");
+      return;
+    }
+    res.status(200).json({
+      ok: true,
+      schemaVersion: saved.schema_version,
+      payload: saved.payload,
+    });
   },
 });
 

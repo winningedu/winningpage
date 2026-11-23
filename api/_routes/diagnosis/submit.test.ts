@@ -2,6 +2,10 @@
 // The engine is mocked here, it is built in parallel under src/lib/diagnosis-v3/.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  CALC_EXAMPLE,
+  validAnswers,
+} from "../../../src/lib/diagnosis-v3/testFixtures.js";
 import { callHandler } from "../../_lib/fakeSupabase.testkit.js";
 
 type Row = Record<string, unknown>;
@@ -27,6 +31,8 @@ const ATTEMPT = "98af95da-47bf-4cee-8a2e-7d70d07fb1c9";
 type Setup = {
   attempt?: Row | null;
   report?: Row | null;
+  /** row another request stored between our replay check and our insert */
+  winner?: Row;
   profile?: Row | null;
   admission?: Row[];
   admissionError?: unknown;
@@ -67,12 +73,13 @@ function setup(init: Setup = {}) {
         },
         upsert: async (row: Row, opts: unknown) => {
           log.upserts.push({ row, opts });
-          report ??= {
+          report ??= init.winner ?? {
             schema_version: row.schema_version,
             payload: row.payload,
           };
           return { error: null };
         },
+        // biome-ignore lint/suspicious/noThenProperty: the real query builder is awaitable
         then: (resolve: (v: unknown) => unknown) =>
           resolve({
             data: init.admission ?? [],
@@ -166,5 +173,114 @@ describe("diagnosis/submit replay and validation", () => {
       errors: expect.arrayContaining([{ question: "q1", reason: "missing" }]),
     });
     expect(engine.score).not.toHaveBeenCalled();
+  });
+});
+
+describe("diagnosis/submit scoring", () => {
+  const payload = { engine: "payload" };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // 2026-11-09 01:00 KST is still 2026-11-08 in UTC: the date must be KST.
+    vi.setSystemTime(new Date("2026-11-08T16:00:00Z"));
+    engine.score.mockReturnValue(payload);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const cutRow = (over: Row) => ({
+    result_year: 2025,
+    university_name: "U",
+    department_name: "D",
+    admission_track: "T",
+    grade_50: 1.5,
+    grade_70: 1.9,
+    competition_rate: 7.5,
+    variant_seq: 0,
+    ...over,
+  });
+
+  test("scores with the KST date, profile inputs and the fetched cut", async () => {
+    const log = setup({
+      profile: { name: " 홍길동 ", created_at: "2026-10-31T16:30:00Z" },
+      admission: [
+        cutRow({ result_year: 2024, grade_50: 9 }),
+        cutRow({ result_year: 2025, variant_seq: 1, grade_50: 8 }),
+        cutRow({ result_year: 2025 }),
+        cutRow({ result_year: 2026, grade_50: null, grade_70: null }),
+      ],
+    });
+    const res = await post({ attemptId: ATTEMPT, answers: CALC_EXAMPLE });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ok: true,
+      schemaVersion: "2026-11-v3",
+      payload,
+    });
+    expect(engine.score).toHaveBeenCalledWith(CALC_EXAMPLE, {
+      diagnosedAt: "2026-11-09",
+      joinedAt: "2026-11-01",
+      studentName: "홍길동",
+      admission: {
+        cut50: 1.5,
+        cut70: 1.9,
+        competitionRate: 7.5,
+        universityName: "U",
+        unitName: "D",
+        typeName: "T",
+        year: 2025,
+      },
+    });
+    expect(log.admissionFilters).toContainEqual([
+      "is",
+      "subject_reflection",
+      null,
+    ]);
+    expect(log.upserts).toHaveLength(1);
+    expect(log.upserts[0]?.opts).toMatchObject({
+      onConflict: "attempt_id",
+      ignoreDuplicates: true,
+    });
+    expect(log.upserts[0]?.row).toEqual({
+      attempt_id: ATTEMPT,
+      profile_id: "me",
+      schema_version: "2026-11-v3",
+      diagnosed_at: "2026-11-09",
+      snapshot: {
+        answers: CALC_EXAMPLE,
+        context: engine.score.mock.calls[0]?.[1],
+      },
+      payload,
+    });
+  });
+
+  test("a track without q15 skips the admission query", async () => {
+    setup();
+    const res = await post({ attemptId: ATTEMPT, answers: validAnswers("M3") });
+    expect(res.status).toBe(200);
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({
+      admission: null,
+      joinedAt: null,
+      studentName: null,
+    });
+  });
+
+  test("no row with a cut gives admission null", async () => {
+    setup({ admission: [cutRow({ grade_50: null, grade_70: null })] });
+    await post({ attemptId: ATTEMPT, answers: CALC_EXAMPLE });
+    expect(engine.score.mock.calls[0]?.[1]).toMatchObject({ admission: null });
+  });
+
+  test("a failed cut query is 500 and nothing is stored", async () => {
+    const log = setup({ admissionError: { message: "boom" } });
+    const res = await post({ attemptId: ATTEMPT, answers: CALC_EXAMPLE });
+    expect(res.status).toBe(500);
+    expect(log.upserts).toHaveLength(0);
+  });
+
+  test("the response is the stored row, so a racing submit returns the winner", async () => {
+    setup({
+      winner: { schema_version: "2026-11-v3", payload: { winner: 1 } },
+    });
+    const res = await post({ attemptId: ATTEMPT, answers: CALC_EXAMPLE });
+    expect(res.body).toMatchObject({ payload: { winner: 1 } });
   });
 });
