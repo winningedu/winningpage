@@ -6,6 +6,7 @@ import {
   type GrowthBanner,
   type GrowthSnapshot,
   type HighGrade,
+  LINK_TYPE_LABELS,
   MAX_SUPPORT_ACTIVITIES,
   type PickListResponse,
 } from "@/lib/selfeval/types";
@@ -69,6 +70,31 @@ export function deriveRoles(
 }
 
 const MAX_SELECTED = 1 + MAX_SUPPORT_ACTIVITIES;
+
+/**
+ * 카드의 연계 칩 문구(명세 No.179, 185). 사용할 수 없는 행과 핵심 자신(0단계)에는 칩이 없다.
+ * 연계 상태가 없거나 이어지지 않았으면 "연계 없음"이다.
+ */
+export function linkChipText(row: CandidateRow): string | null {
+  if (row.fit === null) return null;
+  const state = row.linkState;
+  if (!state?.linked) return "연계 없음";
+  if (state.hop === 0 || state.hop === null || state.type === null) return null;
+  const strength =
+    state.strength === "explicit"
+      ? "기록에 명시"
+      : state.confirmed
+        ? "추론, 학생 확인"
+        : "추론";
+  return `연계됨, ${LINK_TYPE_LABELS[state.type]}, ${state.hop}단계, ${strength}`;
+}
+
+/** 선정 이유 줄(명세 No.32, 179). 서버가 만든 줄이 먼저이고 없으면 적합도 이유를 쓴다. */
+export function reasonLinesOf(row: CandidateRow): string[] {
+  return row.selectionReasons && row.selectionReasons.length > 0
+    ? row.selectionReasons
+    : (row.fit?.reasons ?? []);
+}
 
 /**
  * 체크 한 번의 결과. 사용할 수 없는 활동과 세 건 초과는 선택하지 않고 안내 문구를 돌려준다
