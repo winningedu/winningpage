@@ -2,6 +2,8 @@ import type { ChangeEvent } from "react";
 import { useEffect, useId, useState } from "react";
 import AppModal from "@/components/goal/AppModal";
 import ModalField from "@/components/goal/ModalField";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 
 // 내신 성적 추가 모달(#36, 530×537 = 33.125rem×33.5625rem) — #35 내신 표의 `+ 회차 추가` 트리거.
 // `AddMockExamGradeModal`(part-08 #22, 모의고사 표 전용)과 동일한 셸 패턴(회차/응시일 2열 +
@@ -21,8 +23,8 @@ const SUBJECTS = [
   { key: "second_language", label: "제2외국어" },
 ];
 
-function todayDateValue() {
-  return new Date().toISOString().slice(0, 10);
+function todayDateValue(timeZone: string) {
+  return ymdIn(new Date(), timeZone);
 }
 
 // 등급 입력 행 — ModalField의 라벨-위/컨트롤-아래 레이아웃과 달리 시안(#36)은 "국어 [입력] 등급"
@@ -77,6 +79,9 @@ type AddNaesinGradeModalProps = {
   // 수정 모드로 바꾼다(성적관리 행322, 팀장 지시 "기존 폼을 편집 모드로 재사용"). 없으면
   // 기존 추가 모드 그대로.
   initialEntry?: NaesinEntry;
+  // 학생 시간대(GET /api/goal/student timeZone). 입력일 기본값(오늘)을 이 시간대로 정한다.
+  // 생략하면 브라우저 시간대.
+  timeZone?: string;
 };
 
 // onSubmit: async (entry) => {ok:boolean, detail?:string} — entry = {term, enteredAt, subjects}.
@@ -87,10 +92,11 @@ export default function AddNaesinGradeModal({
   onClose,
   onSubmit,
   initialEntry,
+  timeZone = browserTimeZone(),
 }: AddNaesinGradeModalProps) {
   const isEditMode = Boolean(initialEntry);
   const [semester, setSemester] = useState("");
-  const [enteredAt, setEnteredAt] = useState(todayDateValue());
+  const [enteredAt, setEnteredAt] = useState(todayDateValue(timeZone));
   const [grades, setGrades] = useState<Record<string, string>>({
     korean: "",
     math: "",
@@ -116,7 +122,7 @@ export default function AddNaesinGradeModal({
       });
     } else {
       setSemester("");
-      setEnteredAt(todayDateValue());
+      setEnteredAt(todayDateValue(timeZone));
       setGrades({
         korean: "",
         math: "",
