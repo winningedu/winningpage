@@ -3,7 +3,6 @@ import { useEffect, useId, useState } from "react";
 import AppModal from "@/components/goal/AppModal";
 import ModalField from "@/components/goal/ModalField";
 import { ymdIn } from "@/lib/time/day";
-import { browserTimeZone } from "@/lib/time/zone";
 
 // 내신 성적 추가 모달(#36, 530×537 = 33.125rem×33.5625rem) — #35 내신 표의 `+ 회차 추가` 트리거.
 // `AddMockExamGradeModal`(part-08 #22, 모의고사 표 전용)과 동일한 셸 패턴(회차/응시일 2열 +
@@ -80,8 +79,7 @@ type AddNaesinGradeModalProps = {
   // 기존 추가 모드 그대로.
   initialEntry?: NaesinEntry;
   // 학생 시간대(GET /api/goal/student timeZone). 입력일 기본값(오늘)을 이 시간대로 정한다.
-  // 생략하면 브라우저 시간대.
-  timeZone?: string;
+  timeZone: string;
 };
 
 // onSubmit: async (entry) => {ok:boolean, detail?:string} — entry = {term, enteredAt, subjects}.
@@ -92,7 +90,7 @@ export default function AddNaesinGradeModal({
   onClose,
   onSubmit,
   initialEntry,
-  timeZone = browserTimeZone(),
+  timeZone,
 }: AddNaesinGradeModalProps) {
   const isEditMode = Boolean(initialEntry);
   const [semester, setSemester] = useState("");

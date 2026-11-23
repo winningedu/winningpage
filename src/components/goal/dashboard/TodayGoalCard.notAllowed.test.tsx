@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 async function save() {
-  render(<TodayGoalCard data={data as never} />);
+  render(<TodayGoalCard timeZone="Asia/Seoul" data={data as never} />);
   fireEvent.click(screen.getByRole("button", { name: /기록 저장/ }));
 }
 

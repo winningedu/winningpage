@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DailyRecord from "./DailyRecord";
 
 const siteState = vi.hoisted(() => ({ tenantServiceGate: false }));
+vi.mock("@/hooks/useStudentTimeZone", () => ({
+  useStudentTimeZone: () => "Asia/Seoul",
+}));
+
 vi.mock("@/config/site", () => ({ site: { features: siteState } }));
 
 vi.mock("@/context/AuthProvider", () => ({

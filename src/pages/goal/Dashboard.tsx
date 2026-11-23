@@ -695,6 +695,7 @@ export default function Dashboard() {
               <ScrollArea axis="x">
                 <TodayGoalCard
                   data={todayGoalData}
+                  timeZone={studentTz}
                   onSaved={reloadDailyRecord}
                 />
               </ScrollArea>
@@ -740,7 +741,7 @@ export default function Dashboard() {
                   <MockExamCard data={mockExamData} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <NaesinCard data={naesinData} />
+                  <NaesinCard data={naesinData} timeZone={studentTz} />
                 </div>
               </div>
 

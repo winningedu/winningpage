@@ -7,6 +7,7 @@ import AddNaesinGradeModal from "@/components/goal/modals/AddNaesinGradeModal";
 import GoalGaugeCard from "@/components/goal/report/GoalGaugeCard";
 import GoalTable from "@/components/goal/report/GoalTable";
 import { useAuth } from "@/context/AuthProvider";
+import { useStudentTimeZone } from "@/hooks/useStudentTimeZone";
 import {
   addGoalGrade,
   deleteGoalGrade,
@@ -91,6 +92,7 @@ export default function Grades() {
   // fetchGoalStudent만) — 기존처럼 로컬 상태로 직접 조회한다.
   const { userId } = useAuth();
   const goalStudentQuery = useQuery(goalStudentQueryOptions(userId));
+  const studentTimeZone = useStudentTimeZone();
   const [gradesResult, setGradesResult] =
     useState<FetchGoalGradesResult | null>(null);
 
@@ -364,22 +366,25 @@ export default function Grades() {
         />
       </div>
 
-      <AddNaesinGradeModal
-        open={naesinModalOpen}
-        onClose={() => setNaesinModalOpen(false)}
-        onSubmit={(entry) =>
-          editingNaesinTerm
-            ? handleUpdateGrade("naesin", editingNaesinTerm, entry)
-            : handleSaveGrade("naesin", entry)
-        }
-        {...(editingNaesinRecord
-          ? {
-              initialEntry: editingNaesinRecord as unknown as NonNullable<
-                ComponentProps<typeof AddNaesinGradeModal>["initialEntry"]
-              >,
-            }
-          : {})}
-      />
+      {studentTimeZone && (
+        <AddNaesinGradeModal
+          timeZone={studentTimeZone}
+          open={naesinModalOpen}
+          onClose={() => setNaesinModalOpen(false)}
+          onSubmit={(entry) =>
+            editingNaesinTerm
+              ? handleUpdateGrade("naesin", editingNaesinTerm, entry)
+              : handleSaveGrade("naesin", entry)
+          }
+          {...(editingNaesinRecord
+            ? {
+                initialEntry: editingNaesinRecord as unknown as NonNullable<
+                  ComponentProps<typeof AddNaesinGradeModal>["initialEntry"]
+                >,
+              }
+            : {})}
+        />
+      )}
       <AddMockExamGradeModal
         open={mockModalOpen}
         onClose={() => setMockModalOpen(false)}

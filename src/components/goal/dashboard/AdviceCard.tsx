@@ -1,6 +1,5 @@
 import GoalCard from "@/components/goal/GoalCard";
 import { ymdIn } from "@/lib/time/day";
-import { browserTimeZone } from "@/lib/time/zone";
 
 // "오늘의 조언" 카드(530×194 = 33.125rem×12.125rem, part-07 #20 y=700) — 카드 타이틀 + 본문만
 // 렌더한다. 조언 뱃지("일일 분석 조언"/"AI 입시 분석 조언")는 이 카드 소속이 아니라 페이지
@@ -27,8 +26,8 @@ type AdviceCardProps = {
   data: AdviceCardData;
   /** 조언 생성일(YYYY-MM-DD, 학생 시간대). 오늘이 아니면 날짜 라벨을 보여준다. */
   generatedFor?: string | null;
-  /** 학생 시간대(GET /api/goal/student timeZone). 생략하면 브라우저 시간대. */
-  timeZone?: string;
+  /** 학생 시간대(GET /api/goal/student timeZone). */
+  timeZone: string;
 };
 
 function formatAdviceDateLabel(generatedFor: string) {
@@ -39,7 +38,7 @@ function formatAdviceDateLabel(generatedFor: string) {
 export default function AdviceCard({
   data,
   generatedFor,
-  timeZone = browserTimeZone(),
+  timeZone,
 }: AdviceCardProps) {
   const isPast = !!generatedFor && generatedFor !== ymdIn(new Date(), timeZone);
   return (
