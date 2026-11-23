@@ -9,12 +9,12 @@
 <h2>비밀번호를 재설정해 주세요</h2>
 <p>위닝에듀 비밀번호 재설정 요청을 받았습니다. 아래 버튼을 눌러 새 비밀번호를 정해 주세요.</p>
 <p>
-  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery" style="display:inline-block;padding:12px 24px;background:#B88737;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold">비밀번호 재설정하기</a>
+  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery" style="display:inline-block;padding:12px 24px;background:#8F6420;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold">비밀번호 재설정하기</a>
 </p>
 <p style="color:#666;font-size:13px">
   이 링크는 30분간, 한 번만 쓸 수 있어요. 버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.<br>
   {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery
 </p>
-<p style="color:#888;font-size:12px">
+<p style="color:#666;font-size:12px">
   본인이 요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 비밀번호는 변경되지 않습니다.
 </p>
