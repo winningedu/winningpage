@@ -1,4 +1,4 @@
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import "@/styles/report-print.css";
 import type { DiagnosisV3Pages } from "@/lib/diagnosis-v3/types";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
@@ -69,6 +69,16 @@ export default function ReportV3View({
 }: ReportV3ViewProps) {
   const mainRef = useRef<HTMLElement>(null);
   const [isPreparingServerPdf, setIsPreparingServerPdf] = useState(false);
+  const pdfButtonTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (pdfButtonTimerRef.current !== null) {
+        window.clearTimeout(pdfButtonTimerRef.current);
+      }
+    },
+    [],
+  );
 
   // 22 r7: the toc lists every shown page; pages 1 to 6 are always shown.
   const tocTitle = (page: number) => {
@@ -83,7 +93,10 @@ export default function ReportV3View({
     if (!root) return;
     // A form post has no completion event, so a fixed timer re-enables the button.
     setIsPreparingServerPdf(true);
-    window.setTimeout(() => setIsPreparingServerPdf(false), 3000);
+    pdfButtonTimerRef.current = window.setTimeout(
+      () => setIsPreparingServerPdf(false),
+      3000,
+    );
     void (async () => {
       const accessToken = await getReportAccessToken();
       if (!accessToken) return;

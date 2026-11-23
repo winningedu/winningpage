@@ -108,6 +108,27 @@ describe("ReportV3View", () => {
     });
   });
 
+  it("clears the PDF button re-enable timer on unmount", () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+        true,
+      );
+      vi.spyOn(
+        downloadReportPdfModule,
+        "getReportAccessToken",
+      ).mockResolvedValue(null);
+      const { getByRole, unmount } = render(
+        <ReportV3View pages={FRONT_PAGES} />,
+      );
+      fireEvent.click(getByRole("button", { name: "PDF 파일로 다운 받기" }));
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("opens the browser print dialog on desktop agents", () => {
     vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
       false,
