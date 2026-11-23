@@ -67,6 +67,18 @@ describe("Admin 섹션 셸", () => {
     expect(current[0]).toHaveAttribute("href", "/admin/admissionSusiJungsi");
   });
 
+  it.each([
+    ["hqDashboard", "대시보드"],
+    ["webAnalytics", "방문 분석"],
+  ])("%s 섹션은 빈 화면 제목을 그린다", async (section, heading) => {
+    state.hang = false;
+    renderSection(section);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: heading }),
+    ).toBeInTheDocument();
+  });
+
   it("불러오는 동안 로딩 문구가 role=status 안에 있다", async () => {
     state.hang = true;
     renderSection("banners");

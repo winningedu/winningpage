@@ -66,15 +66,16 @@ import {
 } from "./admin/admission/AdmissionPanels";
 import { adminSettingsConfigs } from "./admin/configs/adminSettings";
 import { admissionConfigs } from "./admin/configs/admission";
+import { analyticsConfigs } from "./admin/configs/analytics";
 import { boardConfigs } from "./admin/configs/board";
 import { goalConfigs } from "./admin/configs/goal";
 import { mainConfigs } from "./admin/configs/main";
 import { memberConfigs } from "./admin/configs/member";
-import { programConfigs } from "./admin/configs/program";
 import { revenueConfigs } from "./admin/configs/revenue";
 import { winningConfigs } from "./admin/configs/winning";
 import { GoalCutsListSummary } from "./admin/goal/GoalCutsPanels";
 import GrowthReportsAdmin from "./admin/growth/GrowthReportsAdmin";
+import HqDashboardAdmin from "./admin/hq-dashboard/HqDashboardAdmin";
 import InquirySessionsAdmin from "./admin/inquiry/InquirySessionsAdmin";
 import BulkPanel from "./admin/knowledge/bulk/BulkPanel";
 import EvalsAdmin from "./admin/knowledge/evals/EvalsAdmin";
@@ -115,6 +116,7 @@ import {
   searchable,
 } from "./admin/shared/csvExport";
 import TelemetryAdmin from "./admin/telemetry/TelemetryAdmin";
+import WebAnalyticsAdmin from "./admin/web-analytics/WebAnalyticsAdmin";
 
 // CSV 청크 내보내기 1회 요청 크기. PostgREST 기본 응답 상한이 1,000행이라 이보다
 // 크게 잡아도 잘려 나온다 — 43k행이면 44회 왕복이다.
@@ -139,6 +141,14 @@ type AdminMenuItem = {
 };
 
 const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
+  // 통계: 본사 대시보드(우리 DB)와 방문 분석(Vercel Web Analytics). 분석 grill 2026-11-23.
+  {
+    title: "통계",
+    items: [
+      { key: "hqDashboard", label: "대시보드" },
+      { key: "webAnalytics", label: "방문 분석" },
+    ],
+  },
   {
     title: "메인화면 관리",
     items: [
@@ -259,10 +269,6 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
   },
   // 회원관리 — 상세(6탭)가 QA 182의 「고객조회상담」을 통째로 흡수했다.
   // 수강 신청 내역은 결제 원장이라 매출·결제관리로 옮겼다.
-  //
-  // 일일 입장·이용 현황은 "누가 언제 들어와서 무엇을 썼나"를 보는 화면이라
-  // 서비스 운영이 아니라 **회원**에 붙는다(사용자 확정 2026-08-23). 원래는
-  // 서비스 관리 > 이용 현황에 있었다.
   {
     title: "회원관리",
     items: [
@@ -273,8 +279,6 @@ const MENU_GROUPS: { title: string; items: AdminMenuItem[] }[] = [
       // 스쿨멘토 전용. canAccessSection 이 tenants 권한과 hqTenantAdmin 플래그로 거른다.
       { key: "memberPurge", label: "계약 종료 회원 삭제" },
       { key: "memberPurgeLogs", label: "삭제 로그" },
-      { key: "dailyEntries", label: "일일 입장", section: "이용 현황" },
-      { key: "usageStatus", label: "이용 현황", section: "이용 현황" },
     ],
   },
   {
@@ -318,11 +322,11 @@ const CONFIGS = {
   ...boardConfigs,
   ...admissionConfigs,
   ...memberConfigs,
-  ...programConfigs,
   ...winningConfigs,
   ...revenueConfigs,
   ...goalConfigs,
   ...adminSettingsConfigs,
+  ...analyticsConfigs,
 };
 
 // App.jsx의 ADMIN_SECTION_KEYS(라우트 목록, adminSectionKeys.ts)와 여기 CONFIGS가
@@ -367,6 +371,8 @@ const CUSTOM_COMPONENT_REGISTRY = {
   knowledgeEvals: EvalsAdmin,
   serviceCreditAdjust: ServiceCreditAdjustEntry,
   inquirySessions: InquirySessionsAdmin,
+  hqDashboard: HqDashboardAdmin,
+  webAnalytics: WebAnalyticsAdmin,
 };
 
 // CUSTOM_COMPONENT_REGISTRY와 같은 이유의 간접 레이어 — config.ListSummary가
