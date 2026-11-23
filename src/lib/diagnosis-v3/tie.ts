@@ -21,7 +21,13 @@ export function orderLowToHigh<C extends AreaCode>(
   return [...codes].sort((a, b) => {
     const x = scoreOf(areas, a);
     const y = scoreOf(areas, b);
-    // 23 r6 step 1: lower score first
-    return x.score - y.score || codes.indexOf(a) - codes.indexOf(b);
+    return (
+      // 23 r6 step 1: lower score first
+      x.score - y.score ||
+      // 23 r7 step 2: more picked difficulty checks first
+      y.checks - x.checks ||
+      // 23 r10 step 5: 05 display order
+      codes.indexOf(a) - codes.indexOf(b)
+    );
   });
 }

@@ -3,6 +3,16 @@ import { P1_CODES } from "./codes.js";
 import { scoreAreas } from "./scoring.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 import { orderLowToHigh } from "./tie.js";
+import type { AreaScore } from "./types.js";
+
+const area = (score: number, checks = 0, minItem = 50): AreaScore => ({
+  score,
+  state: "MID",
+  level: "L3",
+  gapToTarget: 0,
+  checks,
+  minItem,
+});
 
 describe("area order low to high (23_동점규칙 r6-r10)", () => {
   test("계산 예시 A13: 목표 설정 and 우선순위 tie at 83, weight 15 > 10", () => {
@@ -15,6 +25,15 @@ describe("area order low to high (23_동점규칙 r6-r10)", () => {
       "P1_EXEC",
       "P1_GOAL",
       "P1_PRIO",
+    ]);
+  });
+
+  test("step 2: more q10 / q12 checks first", () => {
+    // 목표 설정 is earlier in display order and heavier, 활동 기록 has a check
+    const areas = { P1_GOAL: area(60, 0), P1_LOG: area(60, 1) };
+    expect(orderLowToHigh(areas, ["P1_GOAL", "P1_LOG"])).toEqual([
+      "P1_LOG",
+      "P1_GOAL",
     ]);
   });
 });
