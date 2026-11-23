@@ -158,6 +158,55 @@ export const SCHEDULE_FIELD_LABELS = (() => {
   return { kind, date, subject };
 })();
 
+export type GradeField = { readonly key: string; readonly label: string };
+
+const q8sLabel = (ordinal: number) => {
+  const option = OPTIONS.q8s.find((o) => o.ordinal === ordinal);
+  if (!option) throw new Error(`missing 14 q8s row ${ordinal}`);
+  return option.label;
+};
+
+/** q6s cells (13 F12 국, 수, 영, 사, 과) labelled with the 14 q8s subjects. */
+export const SUBJECT_FIELDS: readonly GradeField[] = [
+  { key: "KOR", label: q8sLabel(1) },
+  { key: "MATH", label: q8sLabel(2) },
+  { key: "ENG", label: q8sLabel(3) },
+  { key: "SOC", label: q8sLabel(4) },
+  { key: "SCI", label: q8sLabel(5) },
+];
+
+/** 13 H14: 고1 sees 통합사회 and 통합과학 instead of the 탐구 labels. */
+const FIRST_YEAR_SCIENCE = (() => {
+  const note = textCell(metaOf("q6m"), 7);
+  const match = note.match(/(통합사회)\u00b7(통합과학)/);
+  if (!match?.[1] || !match[2]) throw new Error("missing 13 H14 labels");
+  return { SOC: match[1], SCI: match[2] };
+})();
+
+/** q1 ordinal of 고등학교 1학년 (14 r8). */
+const FIRST_YEAR_GRADE = 3;
+
+/**
+ * q6m cells: the q6s subjects plus 한국사 (judge-report R3: six cells, 한국사
+ * collected but not judged; no sheet cell names it).
+ */
+export function mockFields(grade: unknown): readonly GradeField[] {
+  const fields = [...SUBJECT_FIELDS, { key: "HIST", label: "한국사" }];
+  if (grade !== FIRST_YEAR_GRADE) return fields;
+  return fields.map((field) =>
+    field.key === "SOC" || field.key === "SCI"
+      ? { ...field, label: FIRST_YEAR_SCIENCE[field.key] }
+      : field,
+  );
+}
+
+/** Highest grade of the q4 system (16 r6-r7 9등급제, 5등급제); null otherwise. */
+export function gradeMaxOf(q4: unknown): number | null {
+  const label = OPTIONS.q4.find((option) => option.ordinal === q4)?.label;
+  const max = Number.parseInt(label ?? "", 10);
+  return Number.isNaN(max) ? null : max;
+}
+
 /** Field labels of the q3 target inputs, read from the 13 H7 note. */
 export const Q3_TARGET_LABELS = (() => {
   const note = textCell(metaOf("q3"), 7);

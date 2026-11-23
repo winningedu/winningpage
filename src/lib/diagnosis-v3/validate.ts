@@ -205,7 +205,7 @@ const isEvent = (value: unknown, diagnosedAt: IsoDate) => {
 const SUBJECTS = ["KOR", "MATH", "ENG", "SOC", "SCI"];
 const MOCK_SUBJECTS = [...SUBJECTS, "HIST"];
 /** judge-report R3: one exam month, March to November. */
-const MOCK_MONTHS = { first: 3, last: 11 };
+export const MOCK_MONTHS = { first: 3, last: 11 };
 /** Mock exams always use the 9-grade scale. */
 const MOCK_GRADE_MAX = 9;
 

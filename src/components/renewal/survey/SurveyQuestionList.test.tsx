@@ -244,3 +244,42 @@ describe("SurveyQuestionList 13번 일정", () => {
     expect(latest.q13).toEqual([{ kind: "", date: "", subject: "" }]);
   });
 });
+
+describe("SurveyQuestionList 성적 입력", () => {
+  it("6번은 전체 평균 1칸을 입력값 그대로 저장한다", () => {
+    render(<Harness ids={["q6"]} initial={{ q1: 3, q4: 2 }} />);
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "현재 성적을 입력해 주세요" }),
+      { target: { value: "1.4" } },
+    );
+    expect(latest.q6).toBe("1.4");
+  });
+
+  it("6-1번은 7-1번 과목 문구로 5칸을 보인다", () => {
+    render(<Harness ids={["q6s"]} initial={{ q1: 3, q4: 2 }} />);
+    fireEvent.change(screen.getByLabelText(label(OPTIONS.q8s, 2)), {
+      target: { value: "2" },
+    });
+    expect(latest.q6s).toEqual({ MATH: "2" });
+    expect(screen.getAllByRole("textbox")).toHaveLength(5);
+  });
+
+  it("6-3번은 시행 월과 6칸을 받고 고1은 통합사회, 통합과학 라벨을 쓴다", () => {
+    render(<Harness ids={["q6m"]} initial={{ q1: 3, q4: 2 }} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText("통합사회"), {
+      target: { value: "3" },
+    });
+    expect(latest.q6m).toEqual({ month: 6, grades: { SOC: "3" } });
+    expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    expect(
+      within(screen.getByRole("combobox"))
+        .getAllByRole("option")
+        .slice(1)
+        .map((o) => o.getAttribute("value")),
+    ).toEqual(["3", "4", "5", "6", "7", "8", "9", "10", "11"]);
+    cleanup();
+    render(<Harness ids={["q6m"]} initial={{ q1: 4, q4: 2 }} />);
+    expect(screen.getByLabelText(label(OPTIONS.q8s, 4))).toBeInTheDocument();
+  });
+});

@@ -17,6 +17,11 @@ import {
   showsQ3Target,
 } from "@/lib/renewalSurvey";
 import ConditionalTextInput from "./ConditionalTextInput";
+import {
+  MockGradesField,
+  NumberField,
+  SubjectGradesField,
+} from "./GradeFields";
 import LikertMatrix from "./LikertMatrix";
 import OptionGroup from "./OptionGroup";
 import QuestionCard from "./QuestionCard";
@@ -93,6 +98,29 @@ export default function SurveyQuestionList({
                 value={value}
                 maxEvents={question.maxPicks}
                 diagnosedAt={diagnosedAt}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
+            {question.kind === "number" && (
+              <NumberField
+                title={question.title}
+                q4={answers.q4}
+                value={value}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
+            {question.kind === "grades" && (
+              <SubjectGradesField
+                q4={answers.q4}
+                value={value}
+                onChange={(next) => onAnswer(id, next)}
+              />
+            )}
+            {question.kind === "mock" && (
+              <MockGradesField
+                grade={answers.q1}
+                title={question.helper ?? question.title}
+                value={value}
                 onChange={(next) => onAnswer(id, next)}
               />
             )}

@@ -23,6 +23,7 @@
  *   문자열로 조립할 수 없어(JIT 인식 불가) 전용 CSS(grade-input-grid-filler.css)의
  *   data-v-{bp} 속성 스위치로 뷰포트별 표시 여부를 토글한다.
  */
+import { useId } from "react";
 import "../../../styles/grade-input-grid-filler.css";
 import {
   GRADE_SYSTEM_INPUT_RULES,
@@ -108,6 +109,8 @@ export default function GradeInputGrid({
   onChange,
 }: GradeInputGridProps) {
   const values = value || {};
+  // two grids on one screen (q6s, q6m) share field keys such as KOR
+  const gridId = useId();
 
   function handleFieldChange(field: GradeField, raw: string) {
     if (raw !== "" && !ruleForField(field, constraint).pattern.test(raw))
@@ -159,7 +162,7 @@ export default function GradeInputGrid({
                 const raw = values[field.key] ?? "";
                 const rule = ruleForField(field, constraint);
                 const outOfRange = isOutOfRange(raw, rule);
-                const inputId = `grade-input-${field.key}`;
+                const inputId = `${gridId}-${field.key}`;
                 // 체계별 예시값이 따로 있으면 그것을 쓴다(중학생 평균에서 `3.24` 는 오입력을 유도한다).
                 const placeholder =
                   field.placeholderBySystem?.[rule.code] ?? field.placeholder;
