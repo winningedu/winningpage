@@ -17,7 +17,7 @@ vi.mock("../../_lib/supabaseAdmin.js", async (importOriginal) => ({
   createSupabaseAdmin: () => createFakeAdmin(kit.state),
 }));
 
-type Handler = (typeof import("./web-analytics.js"))["default"];
+type Handler = typeof import("./web-analytics.js")["default"];
 let handler: Handler;
 
 const TOKEN = "vercel-secret-token";
@@ -91,8 +91,9 @@ function vercelFake(url: URL): Response {
   return ok([]);
 }
 
-const fetchMock = vi.fn(async (input: string | URL | Request) =>
-  vercelFake(new URL(String(input))),
+const fetchMock = vi.fn(
+  async (input: string | URL | Request, _init?: RequestInit) =>
+    vercelFake(new URL(String(input))),
 );
 
 beforeEach(async () => {
