@@ -1,5 +1,5 @@
 -- 반 이름을 정규화한 값으로 맞춘다(결정: 학교와 학원 모두 글자와 숫자를 받는다).
--- 규칙(fn_normalize_class_name 과 같다): 모든 공백을 지우고, 끝의 "반" 한 번을 떼고, 남은 것이 숫자뿐이면 앞의 0 을 뗀다.
+-- 규칙(fn_normalize_class_name 과 같다): 바깥 공백만 지우고(안쪽 공백은 둔다), 끝의 "반" 한 번을 떼고, 남은 것이 숫자뿐이면 앞의 0 을 뗀다. 글자가 든 이름의 0 은 그대로 둔다("A01").
 -- 아직 새 함수가 배포되기 전일 수 있어 규칙을 아래에 직접 적는다.
 --
 -- 대상 DB: dev gjowqdiopinhixfivnkx, Winning prod ykrpjcsubmbenfcnwlzd, Schoolmentor prod aalujumpwlnwlemnqrus.
@@ -38,7 +38,7 @@ begin
     from public.classes c
     cross join lateral (
       select case when r.rest ~ '^[0-9]+$' then ltrim(r.rest, '0') else r.rest end as norm
-        from (select regexp_replace(regexp_replace(c.name, '\s', '', 'g'), '반$', '') as rest) r
+        from (select regexp_replace(regexp_replace(regexp_replace(c.name, '^\s+|\s+$', '', 'g'), '반$', ''), '^\s+|\s+$', '', 'g') as rest) r
     ) n
   window w as (
     partition by c.tenant_id, c.school_year, c.grade, c.group_id, lower(n.norm)
@@ -97,7 +97,7 @@ begin
     from public.classes c
     cross join lateral (
       select case when r.rest ~ '^[0-9]+$' then ltrim(r.rest, '0') else r.rest end as norm
-        from (select regexp_replace(regexp_replace(c.name, '\s', '', 'g'), '반$', '') as rest) r
+        from (select regexp_replace(regexp_replace(regexp_replace(c.name, '^\s+|\s+$', '', 'g'), '반$', ''), '^\s+|\s+$', '', 'g') as rest) r
     ) n
    where c.name <> n.norm;
   if v_left > 0 then

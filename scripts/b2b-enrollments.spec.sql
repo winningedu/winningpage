@@ -303,7 +303,7 @@ insert into public.class_groups (tenant_id, name) values (pg_temp.fx('tc'), '수
 select pg_temp.expect_ok('join: 그룹 이름은 대소문자와 앞뒤 공백을 무시하고 찾는다',
   $$select * from public.fn_enrollment_join(pg_temp.fx('s7'), pg_temp.fx('tc'), '고3', ' 수능반 ', ' A 1 ', 1::smallint)$$);
 select pg_temp.expect_bool('join: 학원 학급은 그룹에 묶이고 이름이 A1',
-  (select c.name = 'A1' and c.group_id is not null
+  (select c.name = 'A 1' and c.group_id is not null
      from public.student_enrollments e join public.classes c on c.id = e.class_id
     where e.student_id = pg_temp.fx('s7') and e.tenant_id = pg_temp.fx('tc')), true);
 select pg_temp.expect_error('join: 등록되지 않은 그룹 거부(WC080)',
