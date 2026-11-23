@@ -34,6 +34,7 @@ vi.mock("../access.js", () => ({
 }));
 
 import { buildWriteEvidence } from "../evidenceSources.js";
+import type { LinkInfo } from "../linkWrite.js";
 import type { ReportRow, SessionRow } from "../rows.js";
 import {
   type ActivityRecordLike,
@@ -120,6 +121,7 @@ const core = (a: Analysis = analysis()) => ({
 const evidenceOf = (
   supports: ActivityRecordLike[] = [],
   a: Analysis = analysis(),
+  links: LinkInfo[] = [],
 ) =>
   buildWriteEvidence(
     [
@@ -143,7 +145,7 @@ const evidenceOf = (
       })),
     ],
     new Map(),
-    [],
+    links,
     [],
   );
 
@@ -343,6 +345,39 @@ describe("buildWriteSpec", () => {
     expect(built.ok && built.spec.patchOnSuccess).toEqual({
       regenerate_increment: true,
     });
+  });
+
+  it("확인하지 않은 암묵 연계 기록을 인과로 쓴 문장은 재요청 사유이고 확인 필요로 남긴다(명세 No.193)", () => {
+    const s2 = record("s2");
+    const evidence = evidenceOf([s2], analysis(), [
+      {
+        fromRecordId: "c1",
+        toRecordId: "s2",
+        linkType: "inherit",
+        strength: "implicit",
+        source: "model",
+        confirmed: false,
+        deleted: false,
+        note: null,
+        quoteFrom: null,
+        quoteTo: null,
+      },
+    ]);
+    const built = buildWriteSpec(session(), core(), [s2], evidence, false);
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const body = JSON.parse(modelJson());
+    body.paragraphs[0].sentences[0] = {
+      text: "환경부 자료를 바탕으로 측정함.",
+      evidence: [{ refId: "s2", item: "method", weight: "sub" }],
+    };
+    const v = built.spec.validate(body);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.softIssues?.map((i) => i.code)).toEqual([
+      "causal_unconfirmed_link",
+    ]);
+    expect(v.result.sections.paragraphs[0]?.sentences[0]?.feeling).toBe(true);
   });
 
   it("보조 활동이 있어도 문단 수를 고정하지 않는다", () => {

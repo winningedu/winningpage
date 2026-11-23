@@ -239,6 +239,7 @@ export function buildWriteSpec(
           targetChars: session.target_chars,
           mode: session.target_chars_mode,
           universities,
+          linkStates: evidence.linkStates,
         });
         if (!v.ok) return v;
         return {

@@ -9,11 +9,13 @@ import {
   SENTENCE_STYLE,
 } from "./dictionaries.js";
 import { type EvidenceSources, resolveSentenceEvidence } from "./evidence.js";
+import type { SupportLinkState } from "./linkWrite.js";
 import {
   containsUniversity,
   countByMode,
   countChars,
   extractKeywords,
+  findCausalLinkPhrases,
   hasMarkdown,
   normalizeNominalEndings,
 } from "./text.js";
@@ -80,7 +82,11 @@ export function parseModelJson(
 }
 
 /** 재요청 뒤에도 두 번째 벗어남을 통과시키는 soft 사유 코드. */
-const SOFT_CODES: ReadonlySet<string> = new Set(["length_off_target"]);
+const SOFT_CODES: ReadonlySet<string> = new Set([
+  "length_off_target",
+  "causal_unconfirmed_link",
+  "link_word_missing",
+]);
 
 /** 사유가 하나라도 있으면 같은 단계를 한 번 더 요청할 수 있다. 횟수 상한은 호출자가 본다. */
 export function canRetry(issues: ValidationIssue[]): boolean {
@@ -200,6 +206,8 @@ export type WriteValidationContext = {
   targetChars: number | null;
   mode: TargetCharsMode;
   universities: string[];
+  /** 핵심 밖 선택 기록마다 연계 문장 규칙. 없으면 연계 문장 검사를 하지 않는다(명세 No.189, 193). */
+  linkStates?: SupportLinkState[];
 };
 
 export type WriteValidation =
@@ -224,6 +232,47 @@ function isNominalStyle(text: string): boolean {
   if (last === "") return false;
   const code = last.charCodeAt(0) - 0xac00;
   return code >= 0 && code <= 11171 && code % 28 === JONG_MIEUM;
+}
+
+/**
+ * 연계 문장 검사(명세 No.189, 193). 둘 다 soft 라서 첫 시도에만 재요청하고, 그래도 남으면 글을 그대로 둔다.
+ * 확인하지 않은 암묵 연계 기록을 인용한 문장에 인과 표현이 있으면 그 문장을 확인 필요로 올려 남긴다.
+ * 연계 문장을 쓸 기록은 처음 인용한 문장에 앞 기록의 구체물 낱말이 하나라도 있어야 한다.
+ */
+function checkLinkSentences(
+  paragraphs: Paragraph[],
+  states: SupportLinkState[],
+): ValidationIssue[] {
+  const all = paragraphs.flatMap((p) => p.sentences);
+  const issues: ValidationIssue[] = [];
+  for (const st of states) {
+    const citing = all.filter((s) => s.evidence.some((e) => e.refId === st.id));
+    if (st.reason === "implicit_unconfirmed") {
+      const causal = citing.filter(
+        (s) => findCausalLinkPhrases(s.text).length > 0,
+      );
+      for (const s of causal) s.feeling = true;
+      if (causal.length > 0) {
+        issues.push({
+          code: "causal_unconfirmed_link",
+          message: `기록 ${st.id} 는 학생이 확인하지 않은 연계라서 기여 항목으로만 씁니다. 문장 ${causal.map((s) => s.id).join(", ")} 의 '~을 바탕으로', '~에서 이어' 같은 인과 표현을 쓰지 않고 다시 작성합니다.`,
+        });
+      }
+    }
+    const first = citing[0];
+    if (
+      st.mode === "link" &&
+      st.carried.length > 0 &&
+      first !== undefined &&
+      !st.carried.some((w) => first.text.includes(w))
+    ) {
+      issues.push({
+        code: "link_word_missing",
+        message: `기록 ${st.id} 를 처음 인용한 문장 ${first.id} 에 넘어온 구체물 낱말(${st.carried.join(", ")}) 중 하나가 없습니다. 연계 문장에 그 낱말을 적어 다시 작성합니다.`,
+      });
+    }
+  }
+  return issues;
 }
 
 /**
@@ -360,6 +409,8 @@ export function validateWriteResponse(
       });
     }
   }
+
+  softIssues.push(...checkLinkSentences(paragraphs, ctx.linkStates ?? []));
 
   if (issues.length > 0)
     return { ok: false, issues: [...issues, ...softIssues] };

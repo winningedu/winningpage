@@ -304,6 +304,133 @@ describe("validateWriteResponse", () => {
     expect(validateWriteResponse(swapped, wctx).ok).toBe(true);
   });
 
+  describe("연계 문장 검사(명세 No.189, 193)", () => {
+    const states = (over: object): WriteValidationContext => ({
+      ...wctx,
+      linkStates: [
+        {
+          id: "sup1",
+          mode: "contribute",
+          reason: "implicit_unconfirmed",
+          hop: 1,
+          typeLabel: "이어받음",
+          strength: "implicit",
+          confirmed: false,
+          quotes: [],
+          carried: [],
+          ...over,
+        },
+      ],
+    });
+    const withSup = (text: string) => {
+      const b = body3();
+      para(b, 0).sentences[0] = sent(text, [ev("sup1", "method")]);
+      return b;
+    };
+
+    it("확인하지 않은 암묵 연계 기록을 인용한 문장의 인과 표현은 재요청 사유이고 확인 필요로 남긴다", () => {
+      for (const phrase of [
+        "표를 바탕으로 계수를 정리함.",
+        "표에서 이어 계수를 정리함.",
+      ]) {
+        const r = validateWriteResponse(withSup(phrase), states({}));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.softIssues.map((i) => i.code)).toEqual([
+          "causal_unconfirmed_link",
+        ]);
+        expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
+        expect(sentenceAt(r.sections, 0, 1).feeling).toBe(false);
+      }
+    });
+
+    it("인과 표현이 없거나 그 기록을 인용하지 않은 문장은 걸지 않는다", () => {
+      const plain = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states({}),
+      );
+      expect(plain.ok && plain.softIssues).toEqual([]);
+      const b = body3();
+      para(b, 0).sentences[0] = sent("그래프를 바탕으로 계수를 바꿈.");
+      const other = validateWriteResponse(b, states({}));
+      expect(other.ok && other.softIssues).toEqual([]);
+    });
+
+    it("학생이 확인한 연계 기록의 인과 표현은 걸지 않는다", () => {
+      const r = validateWriteResponse(
+        withSup("표를 바탕으로 계수를 정리함."),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: [],
+        }),
+      );
+      expect(r.ok && r.softIssues).toEqual([]);
+    });
+
+    it("연계 기록을 처음 인용한 문장에 구체물 낱말이 없으면 재요청 사유이고 있으면 통과한다", () => {
+      const link = {
+        mode: "link",
+        reason: "linked",
+        strength: "explicit",
+        carried: ["수요", "탄력성"],
+      };
+      const miss = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states(link),
+      );
+      expect(miss.ok && miss.softIssues.map((i) => i.code)).toEqual([
+        "link_word_missing",
+      ]);
+      const hit = validateWriteResponse(
+        withSup("수요 표로 계수를 정리함."),
+        states(link),
+      );
+      expect(hit.ok && hit.softIssues).toEqual([]);
+    });
+
+    it("구체물 낱말은 처음 인용한 문장에서만 본다", () => {
+      const link = {
+        mode: "link",
+        reason: "linked",
+        strength: "explicit",
+        carried: ["수요"],
+      };
+      const b = withSup("표로 계수를 정리함.");
+      para(b, 0).sentences[1] = sent("수요 값을 비교함.", [
+        ev("sup1", "method"),
+      ]);
+      const r = validateWriteResponse(b, states(link));
+      expect(r.ok && r.softIssues.map((i) => i.code)).toEqual([
+        "link_word_missing",
+      ]);
+    });
+
+    it("구체물 낱말이 없거나 기록을 인용한 문장이 없으면 낱말 검사를 하지 않는다", () => {
+      const noWords = validateWriteResponse(
+        withSup("표로 계수를 정리함."),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: [],
+        }),
+      );
+      expect(noWords.ok && noWords.softIssues).toEqual([]);
+      const unused = validateWriteResponse(
+        body3(),
+        states({
+          mode: "link",
+          reason: "linked",
+          strength: "explicit",
+          carried: ["수요"],
+        }),
+      );
+      expect(unused.ok && unused.softIssues).toEqual([]);
+    });
+  });
+
   it("다음 단계(next) 항목은 근거로 쓸 수 없고 버려진다(명세 No.37)", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("다음 단계로 이어 확인함.", [

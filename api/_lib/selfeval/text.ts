@@ -1,7 +1,11 @@
 // 자기평가서 결정론 텍스트 유틸. 모델 호출 없이 글자 수, 문장 수, 상투어 밀도 등을
 // 같은 규칙으로 세어 검증, 형식 점검, 승격이 같은 숫자를 쓰게 한다.
 
-import { CLICHES, PLAN_EXPRESSIONS } from "./dictionaries.js";
+import {
+  CAUSAL_LINK_PHRASES,
+  CLICHES,
+  PLAN_EXPRESSIONS,
+} from "./dictionaries.js";
 import type { CharCount, TargetCharsMode } from "./types.js";
 
 const TERMINATORS = new Set([".", "?", "!"]);
@@ -118,6 +122,14 @@ export function clicheDensity(
 export function findPlanExpressions(text: string): string[] {
   const compact = text.replace(/\s/g, "");
   return PLAN_EXPRESSIONS.filter((p) => compact.includes(p.replace(/\s/g, "")));
+}
+
+/** 본문에서 찾은 인과 연계 표현(명세 No.193). 공백을 지우고 비교하고 사전 원문으로 돌려준다. */
+export function findCausalLinkPhrases(text: string): string[] {
+  const compact = text.replace(/\s/g, "");
+  return CAUSAL_LINK_PHRASES.filter((p) =>
+    compact.includes(p.replace(/\s/g, "")),
+  );
 }
 
 /**
