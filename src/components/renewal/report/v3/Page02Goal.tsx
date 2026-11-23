@@ -166,7 +166,7 @@ function MatrixRow({
 }: {
   label: string;
   cells: readonly (MatrixCell | undefined)[];
-  highlighted?: GoalCell;
+  highlighted: GoalCell | undefined;
 }) {
   return (
     <>
