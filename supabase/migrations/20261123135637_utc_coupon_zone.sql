@@ -990,3 +990,162 @@ begin
            v_applied_ids, v_skipped_ids;
 end;
 $$;
+
+-- 환불 완료. 취소 시 쿠폰 복원의 유효기간 판정 오늘은 주문자 현지 날짜다.
+CREATE OR REPLACE FUNCTION "public"."fn_complete_refund"("p_refund_request_id" bigint, "p_admin_memo" "text" DEFAULT NULL::"text") RETURNS "public"."refund_requests"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_order_id         text;
+  v_row              public.refund_requests;
+  v_order            public.orders;
+  v_completed_amount integer;
+  v_revoke_result    jsonb;
+  v_quote            record;
+  v_method           text;
+  v_restored         integer := 0;
+  v_tz               text;
+begin
+  if not public.is_admin() then
+    raise exception 'not_authorized' using errcode = '42501';
+  end if;
+
+  select r.order_id into v_order_id
+    from public.refund_requests r
+   where r.id = p_refund_request_id;
+
+  if v_order_id is null then
+    raise exception 'refund_request_not_found' using errcode = 'WC026';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(v_order_id, 100));
+
+  select * into v_row from public.refund_requests where id = p_refund_request_id for update;
+  if not found then
+    raise exception 'refund_request_not_found' using errcode = 'WC026';
+  end if;
+
+  select * into v_order from public.orders where id = v_row.order_id for update;
+  if not found then
+    raise exception 'order_not_found' using errcode = 'WC010';
+  end if;
+
+  if v_row.approval_status <> 'approved' then
+    raise exception 'refund_not_approved_for_completion' using errcode = 'WC035';
+  end if;
+
+  if v_row.status not in ('requested', 'processing') then
+    raise exception 'refund_completion_not_processable'
+      using errcode = 'WC036',
+            detail  = format('refund_request_id=%s status=%s', p_refund_request_id, v_row.status);
+  end if;
+
+  -- 재견적 가드(WC039) — 신청 이후 추가 이용이 생겨 산정액이 줄었으면
+  -- 거부한다. 금액이 바뀌면 신청자에게 다시 동의를 받아야 하므로 조용히
+  -- 깎지 않는다. 신청 시점과 같은 조건(대상 항목·회사 귀책)으로 재현한다.
+  --
+  -- terms_version='v9' 행은 이 비교를 건너뛴다(§3-4) — Ver9 산식(100원
+  -- 내림)으로 확정·동의된 금액을 v10 산식과 비교하면 만료 규칙(expired
+  -- 0원) 등으로 정당한 완료까지 막힌다. WC037 누적 상한은 그대로 지킨다.
+  if v_row.terms_version <> 'v9' then
+    select * into v_quote
+      from public.fn_refund_quote(v_row.order_id, v_row.order_item_ids,
+                                  v_row.company_fault, now());
+    if v_quote.refund_amount < v_row.amount then
+      raise exception 'refund_quote_changed'
+        using errcode = 'WC039',
+              detail  = format('refund_request_id=%s requested_amount=%s current_quote=%s — 신청 이후 추가 이용이 발생했다. 반려 후 재신청을 받을 것.',
+                               p_refund_request_id, v_row.amount, v_quote.refund_amount);
+    end if;
+  end if;
+
+  select coalesce(sum(r.amount), 0) into v_completed_amount
+    from public.refund_requests r
+   where r.order_id = v_row.order_id
+     and r.status = 'completed'
+     and r.id <> p_refund_request_id;
+
+  if v_completed_amount + v_row.amount > v_order.amount then
+    raise exception 'refund_amount_exceeds_paid'
+      using errcode = 'WC037',
+            detail  = format('order_id=%s completed_amount=%s this_amount=%s orders.amount=%s',
+                             v_row.order_id, v_completed_amount, v_row.amount, v_order.amount);
+  end if;
+
+  -- 환불방법 확정(QA 273·275, 20260831081100 원문).
+  v_method := case
+    when coalesce(btrim(v_row.refund_bank), '') <> '' then '계좌이체'
+    else '카드취소'
+  end;
+
+  perform set_config('winning.refund_completing', p_refund_request_id::text, true);
+
+  update public.refund_requests
+     set status        = 'completed',
+         admin_memo    = coalesce(p_admin_memo, admin_memo),
+         completed_at  = coalesce(completed_at, now()),
+         processed_by  = coalesce(processed_by, auth.uid()),
+         refund_method = coalesce(refund_method, v_method)
+   where id = p_refund_request_id
+  returning * into v_row;
+
+  -- 부분해지면 대상 라인만 회수한다(제33조의2 ② — 잔여 구성서비스 존속 ⑧).
+  v_revoke_result := public.fn_revoke_program_access_for_order(
+    v_row.order_id, v_order.user_id, 'refunded', 'refund_completed',
+    v_row.order_item_ids);
+
+  -- 주문 종결은 살아있는 부여가 0이 됐을 때만(§3-2). 부분환불 주문은
+  -- 'paid' 로 남고, "일부 환불" 표시는 화면이 완료 누적액으로 파생한다
+  -- (§2-11 — orders_status_check 에 새 상태를 만들지 않는다).
+  if not exists (
+    select 1 from public.program_access_grants g
+     where g.order_id = v_row.order_id and g.revoked_at is null
+  ) then
+    update public.orders
+       set status = 'refunded'
+     where id = v_row.order_id;
+  end if;
+
+  -- 전부 청약철회 쿠폰 복원(제33조의3 ⑤) — v10 재견적이 조건 충족을
+  -- 판정했고, 쿠폰 자체가 아직 유효기간 안일 때만 사용 이력을 무효화해
+  -- 되살린다(coupon_redemptions.voided_at — fn_coupon_is_redeemed 가 보는
+  -- 단일 축). 유효기간이 지난 쿠폰은 복원해도 쓸 수 없으므로 건드리지
+  -- 않는다(⑤ 단서).
+  -- v9 행은 v_quote 가 애초에 실행되지 않으므로(WC039 우회) 바깥 if 로
+  -- 먼저 갈라 미할당 record 필드 접근을 원천 차단한다.
+  if v_row.terms_version <> 'v9' then
+    if coalesce(v_quote.coupon_restore, false) then
+      -- 쿠폰 유효기간 판정의 "오늘"은 주문자(쿠폰 사용자)의 현지 날짜다. 프로필이
+      -- 없으면 시간대를 채우지 않고 예외로 막는다.
+      select p.time_zone into v_tz from public.profiles p where p.id = v_order.user_id;
+      if not found then
+        raise exception 'profile_not_found' using errcode = 'P0002';
+      end if;
+
+      with restored as (
+        update public.coupon_redemptions cr
+           set voided_at   = now(),
+               void_reason = 'refund_withdrawal_full'
+          from public.coupons c
+         where c.id = cr.coupon_id
+           and cr.order_id = v_row.order_id
+           and cr.voided_at is null
+           and (c.valid_until is null
+                or c.valid_until >= public.fn_local_date(now(), v_tz))
+        returning cr.id
+      )
+      select count(*) into v_restored from restored;
+
+      if v_restored > 0 then
+        update public.refund_requests
+           set coupon_restored_at = now()
+         where id = p_refund_request_id
+        returning * into v_row;
+      end if;
+    end if;
+  end if;
+
+  return v_row;
+end;
+$$;

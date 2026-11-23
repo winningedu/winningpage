@@ -300,7 +300,7 @@ begin
         join pg_namespace n on n.oid = p.pronamespace and n.nspname = 'public'
        where p.proname in ('fn_coupon_by_code', 'fn_coupon_is_granted', 'fn_usable_coupons',
                            'fn_grant_coupon', 'fn_grant_signup_coupons_for_user',
-                           'fn_respond_enrollment')
+                           'fn_respond_enrollment', 'fn_complete_refund')
          and p.prosrc like '%Asia/Seoul%'
     ), ''), '');
 end $$;
