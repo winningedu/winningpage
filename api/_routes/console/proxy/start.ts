@@ -2,10 +2,12 @@
 //
 // 본사 관리자가 기관 콘솔을 대행하는 8시간 세션을 연다(설계 5.2절, D10).
 // 권한: 로그인 + HQ 권한 teacherConsoleProxy edit (fn_admin_effective_permissions).
+// 읽기 전용 사유는 view 권한으로도 연다(결정 116, Q10). fn_console_actor 와 같은 술어다.
 
 import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
 import {
   hasProxyEditPermission,
+  hasProxyViewPermission,
   PROXY_RESOURCE_KEY,
 } from "../../../_lib/console/proxy.js";
 import { defineHandler } from "../../../_lib/handler.js";
@@ -14,7 +16,12 @@ import { assertQaAdminMayWrite } from "../../../_lib/qaAccount.js";
 
 export const config = { runtime: "nodejs" };
 
-const REASONS = ["admin_absent", "roster_proxy", "incident_support"] as const;
+const REASONS = [
+  "admin_absent",
+  "roster_proxy",
+  "incident_support",
+  "read_only",
+] as const;
 type ProxyReason = (typeof REASONS)[number];
 
 function parseBody(
@@ -36,14 +43,7 @@ export default defineHandler({
   logLabel: "[console/proxy/start]",
   headers: { "Cache-Control": "no-store" },
   handler: async (req, res, ctx) => {
-    if (
-      !(await hasProxyEditPermission(ctx.supabaseAdmin, ctx.userId as string))
-    ) {
-      sendError(res, "coded", 403, "대행 권한이 없습니다.", "FORBIDDEN");
-      return;
-    }
-
-    await assertQaAdminMayWrite(ctx.supabaseAdmin, ctx.userId as string);
+    // 사유에 따라 필요한 권한이 달라 본문을 먼저 읽는다.
     const body = parseBody(req.body);
     if (!body) {
       sendError(
@@ -54,6 +54,19 @@ export default defineHandler({
         "BAD_REQUEST",
       );
       return;
+    }
+    const readOnly = body.reason === "read_only";
+    const permitted = readOnly
+      ? await hasProxyViewPermission(ctx.supabaseAdmin, ctx.userId as string)
+      : await hasProxyEditPermission(ctx.supabaseAdmin, ctx.userId as string);
+    if (!permitted) {
+      sendError(res, "coded", 403, "대행 권한이 없습니다.", "FORBIDDEN");
+      return;
+    }
+
+    // 읽기 전용 대행 시작은 쓰기로 세지 않는다(결정 116, 11/16 대행 차단 사례).
+    if (!readOnly) {
+      await assertQaAdminMayWrite(ctx.supabaseAdmin, ctx.userId as string);
     }
 
     const { data: sessionId, error: startError } = await ctx.supabaseAdmin.rpc(
@@ -91,7 +104,7 @@ export default defineHandler({
           proxySessionId: sessionId,
           mustChangePassword: false,
           loginId: null,
-          readOnly: false,
+          readOnly,
         },
       },
       {

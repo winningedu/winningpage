@@ -83,7 +83,20 @@ beforeEach(() => {
 });
 
 describe("POST /api/console/proxy/end", () => {
-  test("teacherConsoleProxy edit 권한이 없으면 403 이고 세션을 닫지 않는다", async () => {
+  test("view 권한으로도 대행을 닫는다(읽기 전용 대행, Q10)", async () => {
+    state.permissions = [
+      { resource_key: "teacherConsoleProxy", level: "view" },
+    ];
+
+    const r = await end();
+
+    expect(r.status).toBe(200);
+    expect(state.rpc).toHaveBeenCalledWith("fn_proxy_end", {
+      p_admin: "admin-1",
+    });
+  });
+
+  test("teacherConsoleProxy 권한이 없으면 403 이고 세션을 닫지 않는다", async () => {
     state.permissions = [];
 
     const r = await end();

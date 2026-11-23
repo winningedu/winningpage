@@ -38,6 +38,14 @@ export async function hasAdminViewPermission(
   );
 }
 
+/** 읽기 전용 대행(결정 116)의 시작, 종료와 기관 목록용. */
+export function hasProxyViewPermission(
+  admin: SupabaseClient,
+  profileId: string,
+): Promise<boolean> {
+  return hasAdminViewPermission(admin, profileId, PROXY_RESOURCE_KEY);
+}
+
 export function hasProxyEditPermission(
   admin: SupabaseClient,
   profileId: string,

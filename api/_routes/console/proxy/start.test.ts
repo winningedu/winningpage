@@ -1,7 +1,7 @@
 // POST /api/console/proxy/start 계약 검증. 관리자 클라이언트는 createSupabaseAdmin 모킹으로 바꿔 끼운다.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   permissions: [] as { resource_key: string; level: string }[],
@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
     error: unknown;
   },
   logError: null as unknown,
+  qa: false,
   rpc: vi.fn(),
   inserts: [] as { table: string; row: Record<string, unknown> }[],
 }));
@@ -36,10 +37,14 @@ vi.mock("../../../_lib/supabaseAdmin.js", () => ({
       return Promise.resolve({ data: null, error: null });
     },
     from: (table: string) => ({
-      // QA 계정 조회(qa_accounts): 이 파일의 관리자는 QA 가 아니다.
+      // QA 계정 조회(qa_accounts): state.qa 일 때만 QA 관리자다.
       select: () => ({
         eq: () => ({
-          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          maybeSingle: () =>
+            Promise.resolve({
+              data: state.qa ? { profile_id: "admin-1" } : null,
+              error: null,
+            }),
         }),
       }),
       insert: (row: Record<string, unknown>) => {
@@ -86,8 +91,15 @@ beforeEach(() => {
   state.permError = null;
   state.startResult = { data: "session-1", error: null };
   state.logError = null;
+  state.qa = false;
   state.inserts = [];
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+const READ_ONLY = { tenantId: "tenant-1", reason: "read_only" };
 
 describe("POST /api/console/proxy/start", () => {
   test("teacherConsoleProxy edit 권한이 없으면 403 이고 세션을 열지 않는다", async () => {
@@ -103,6 +115,49 @@ describe("POST /api/console/proxy/start", () => {
       "fn_proxy_start",
       expect.anything(),
     );
+  });
+
+  test("읽기 전용 사유는 teacherConsoleProxy view 권한으로도 대행을 연다", async () => {
+    state.permissions = [
+      { resource_key: "teacherConsoleProxy", level: "view" },
+    ];
+
+    const r = await start(READ_ONLY);
+
+    expect(r.status).toBe(200);
+    expect(state.rpc).toHaveBeenCalledWith("fn_proxy_start", {
+      p_admin: "admin-1",
+      p_tenant: "tenant-1",
+      p_reason: "read_only",
+    });
+    expect(state.inserts[0]).toMatchObject({
+      row: { action: "proxy_start", reason: "read_only" },
+    });
+  });
+
+  test("teacherConsoleProxy 권한이 아예 없으면 읽기 전용도 403 이다", async () => {
+    state.permissions = [];
+
+    const r = await start(READ_ONLY);
+
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: { code: "FORBIDDEN" } });
+    expect(state.rpc).not.toHaveBeenCalledWith(
+      "fn_proxy_start",
+      expect.anything(),
+    );
+  });
+
+  test("QA 본사 관리자도 읽기 전용 대행은 시작한다(쓰기로 세지 않는다)", async () => {
+    vi.stubEnv("QA_ACCOUNT_GUARD_ENABLED", "true");
+    state.qa = true;
+
+    const readOnly = await start(READ_ONLY);
+    const roster = await start(VALID);
+
+    expect(readOnly.status).toBe(200);
+    expect(roster.status).toBe(403);
+    expect(roster.body).toMatchObject({ code: "QA_ACCOUNT_READ_ONLY" });
   });
 
   test.each([
