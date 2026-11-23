@@ -2,6 +2,7 @@
 // sorted low to high by the 23 tie rule, so the plan never re-ranks areas.
 
 import type { P1Code, P2Code } from "./codes.js";
+import { OPTIONS } from "./options.js";
 import { sheetRows, textCell } from "./sheet.js";
 import { COPY_TEXT } from "./source/copyText.js";
 import type {
@@ -118,13 +119,19 @@ export function dateOfDay(diagnosedAt: IsoDate, day: number): IsoDate {
   return new Date(base + (day - 1) * DAY_MS).toISOString().slice(0, 10);
 }
 
+/** 21 C32: q21 weekday MINLOAD:n code (14 r144-r148), minutes. */
+const minLoadOf = (weekday: Ordinal): number => {
+  const code = OPTIONS.q21Weekday.find((o) => o.ordinal === weekday)?.code;
+  return Number(match(String(code), /^MINLOAD:(\d+)$/)[1]);
+};
+
 const first = <T>(list: readonly T[], index: number, what: string): T => {
   const value = list[index];
   if (value === undefined) throw new Error(`missing ${what} ${index + 1}`);
   return value;
 };
 
-export function buildPlan(input: PlanInput): Omit<Plan, "minLoad"> {
+export function buildPlan(input: PlanInput): Plan {
   // 21 C9: columns 1-2 = two lowest PAGE1 stages; 21 C10: column 3 = lowest PAGE2 area
   const columns: Plan["columns"] = [
     first(input.page1Order, 0, "PAGE1 stage"),
@@ -203,5 +210,6 @@ export function buildPlan(input: PlanInput): Omit<Plan, "minLoad"> {
     reducedWeeks,
     afterEvents,
     redxDate: dateOfDay(input.diagnosedAt, REDX_DAY),
+    minLoad: minLoadOf(input.weekdayLoad),
   };
 }

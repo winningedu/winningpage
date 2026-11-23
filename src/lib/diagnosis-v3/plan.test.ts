@@ -131,4 +131,9 @@ describe("buildPlan", () => {
     expect(plan.tasks.some((t) => t.event?.date === "2026-12-10")).toBe(false);
     expect(plan.redxDate).toBe("2026-12-07");
   });
+
+  test("min load is the q21 weekday MINLOAD code (14 r144-r148)", () => {
+    expect(calcPlan().minLoad).toBe(30);
+    expect(buildPlan({ ...calcInput(), weekdayLoad: 5 }).minLoad).toBe(60);
+  });
 });
