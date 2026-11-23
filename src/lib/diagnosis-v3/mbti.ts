@@ -2,9 +2,10 @@
 // Pure TS: sheet constants are read at module load, text lives in COPY_TEXT.
 
 import { AREAS, type AreaCode } from "./codes.js";
+import { copy, fill } from "./copy.js";
 import { roundHalfUp1 } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
+import { COPY_SHEETS } from "./source/copyText.js";
 import type { DiagnosisV3Scores, MbtiType, Page8 } from "./types.js";
 
 const mbtiSheet = sheetRows("19_MBTI데이터");
@@ -98,19 +99,6 @@ export function mbtiLinks(
   });
 }
 
-const copy = (id: string): string => {
-  const text = COPY_TEXT[id];
-  if (text === undefined) throw new Error(`missing copy ${id}`);
-  return text;
-};
-
-const fill = (template: string, values: Record<string, string | number>) =>
-  template.replace(/\{(\w+)\}/g, (_, key: string) => {
-    const value = values[key];
-    if (value === undefined) throw new Error(`no value for {${key}}`);
-    return String(value);
-  });
-
 // 19 r4 C-G: factor names, factor number n is MBTI_HABIT_n.
 const FACTOR_NAMES = [2, 3, 4, 5, 6].map((col) => {
   const row = mbtiSheet.find((candidate) => candidate.r === 4);
@@ -145,7 +133,7 @@ export function mbtiPage8(
         type: score.type,
         nick: copy(`MBTI_${score.type}_NICK`),
         style: copy(`MBTI_${score.type}_STYLE`),
-        share: fill(copy("mbti.share"), {
+        share: fill("mbti.share", {
           n: score.sampleN,
           pct: score.sharePct.toFixed(1),
         }),
@@ -157,7 +145,7 @@ export function mbtiPage8(
         tip: copy(`MBTI_POLE_${letter}_TIP`),
       })),
       factors: {
-        text: fill(copy("mbti.top"), {
+        text: fill("mbti.top", {
           type: score.type,
           factors: score.topFactors.map((n) => FACTOR_NAMES[n - 1]).join(", "),
         }),
@@ -165,7 +153,7 @@ export function mbtiPage8(
         ...(score.smallSample ? { smallSample: copy("MBTI_SMALLN") } : {}),
       },
       links: mbtiLinks(score.type, areaScores).map((link) =>
-        fill(copy(link.id), { score: link.score }),
+        fill(link.id, { score: link.score }),
       ),
     },
     disclaimer,

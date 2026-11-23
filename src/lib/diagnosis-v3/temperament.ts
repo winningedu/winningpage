@@ -9,10 +9,10 @@ import {
   TRACK_NAMES,
   type TrackCode,
 } from "./codes.js";
+import { copy, fill } from "./copy.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import { COPY_TEXT } from "./source/copyText.js";
 import type {
   DiagnosisV3Scores,
   LikertBlock,
@@ -475,19 +475,6 @@ export function scoreTemperament(input: TemperamentInput): TemperamentResult {
   };
 }
 
-const copy = (id: string): string => {
-  const text = COPY_TEXT[id];
-  if (text === undefined) throw new Error(`missing copy ${id}`);
-  return text;
-};
-
-const fill = (template: string, values: Record<string, string | number>) =>
-  template.replace(/\{(\w+)\}/g, (_, key: string) => {
-    const value = values[key];
-    if (value === undefined) throw new Error(`no value for {${key}}`);
-    return String(value);
-  });
-
 /** 22 r86-r94: page 9 text for the temperament result (copy sheet 13, 10, 11). */
 export function temperamentPage9(
   result: TemperamentResult,
@@ -509,12 +496,12 @@ export function temperamentPage9(
   const pick = (kind: "STR" | "CAU") =>
     shown.flatMap((dim) => parts.map((n) => typeCopy(dim, `${kind}${n}`)));
   return {
-    title: names ? fill(copy("TEMP_MIX_HEAD"), names) : typeCopy(top, "HEAD"),
+    title: names ? fill("TEMP_MIX_HEAD", names) : typeCopy(top, "HEAD"),
     lead: copy("TEMP_LEAD"),
     scaleNote: copy("TEMP_SCALE_NOTE"),
     hero: {
-      name: names ? fill(copy("temp.mixed"), names) : typeCopy(top, "NAME"),
-      sub: fill(copy("temp.hero_sub"), {
+      name: names ? fill("temp.mixed", names) : typeCopy(top, "NAME"),
+      sub: fill("temp.hero_sub", {
         top: DIM_LABELS[top],
         second: DIM_LABELS[second],
         level2: levelLabel(result.dims[second].level),
@@ -542,7 +529,7 @@ export function temperamentPage9(
         // 22 r92: heading (temp.factor) and sentence stay separate elements
         return {
           factor,
-          heading: fill(copy("temp.factor"), {
+          heading: fill("temp.factor", {
             name: FACTOR_ROWS[factor].name,
             score: result.factors[factor],
             label,
@@ -550,7 +537,7 @@ export function temperamentPage9(
           text: copy(`TEMP_F_${code}_${label}`),
         };
       }),
-      swayCause: fill(copy("temp.sway_cause"), {
+      swayCause: fill("temp.sway_cause", {
         cause: copy(`TEMP_CAUSE_${result.swayCause}`),
       }),
     },
