@@ -248,9 +248,9 @@ insert into fx values
   ('w1', pg_temp.mk_user('rm-w1@t.local')), ('w2', pg_temp.mk_user('rm-w2@t.local')),
   ('w3', pg_temp.mk_user('rm-w3@t.local')), ('w4', pg_temp.mk_user('rm-w4@t.local')),
   ('ws', pg_temp.mk_user('rm-ws@t.local'));
-select pg_temp.enroll('w1', '중2', 'A', 1);
-select pg_temp.enroll('w2', '고1', 'A', 2);
-select pg_temp.enroll('w3', '고3', 'A', 3);
+select pg_temp.enroll('w1', '중2', '81', 1);
+select pg_temp.enroll('w2', '고1', '81', 2);
+select pg_temp.enroll('w3', '고3', '81', 3);
 update public.student_profiles set grade = '중2' where profile_id = pg_temp.fx('w1');
 update public.student_profiles set grade = '고3' where profile_id = pg_temp.fx('w3');
 
@@ -260,9 +260,9 @@ language sql as $$
 $$;
 
 select pg_temp.expect_text('midyear 다학년: 중2 학생이 다학년 학급 MX 로(바뀐 1)',
-  pg_temp.midyear(jsonb_build_array(pg_temp.mrow('w1', 'MX', 1, true))), '1/0/0/0/0');
+  pg_temp.midyear(jsonb_build_array(pg_temp.mrow('w1', '92', 1, true))), '1/0/0/0/0');
 select pg_temp.expect_text('midyear 다학년: 학생 학년은 그대로, 학급만 바뀐다',
-  pg_temp.enr_s('w1'), 'active/중2/MX/1/v2');
+  pg_temp.enr_s('w1'), 'active/중2/92/1/v2');
 select pg_temp.expect_bool('midyear 다학년: 그 학급은 학년이 없다',
   (select c.grade is null from public.student_enrollments e join public.classes c on c.id = e.class_id
     where e.student_id = pg_temp.fx('w1') and e.school_year = pg_temp.year('ta')), true);
@@ -275,42 +275,42 @@ select pg_temp.expect_text('midyear 다학년: 이력의 학년은 이전, 이�
 -- 줄 순서와 상관없이 같은 이름의 줄은 한 다학년 학급: 학년 줄(mixed 아님)이 앞서도 갈라지지 않는다
 select pg_temp.expect_text('midyear 다학년: 학년 줄이 앞서고 다학년 줄이 뒤에 있어도 바뀐 2',
   pg_temp.midyear(jsonb_build_array(
-    pg_temp.mrow('w2', 'MX', 2, false), pg_temp.mrow('w3', 'MX', 3, true))), '2/0/0/0/0');
+    pg_temp.mrow('w2', '92', 2, false), pg_temp.mrow('w3', '92', 3, true))), '2/0/0/0/0');
 select pg_temp.expect_text('midyear 다학년: 세 학생이 모두 한 학급에 있다',
   (select count(distinct e.class_id) || '/' || count(*) from public.student_enrollments e
     where e.student_id in (pg_temp.fx('w1'), pg_temp.fx('w2'), pg_temp.fx('w3')) and e.school_year = pg_temp.year('ta')), '1/3');
 select pg_temp.expect_text('midyear 다학년: w2 는 고1, w3 는 고3 그대로',
-  pg_temp.enr_s('w2') || ',' || pg_temp.enr_s('w3'), 'active/고1/MX/2/v2,active/고3/MX/3/v2');
+  pg_temp.enr_s('w2') || ',' || pg_temp.enr_s('w3'), 'active/고1/92/2/v2,active/고3/92/3/v2');
 select pg_temp.expect_text('midyear 다학년: MX 학급은 하나이고 학년이 없다',
   (select count(*) || '/' || count(*) filter (where grade is null) from public.classes
-    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = 'MX'), '1/1');
+    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = '92'), '1/1');
 
 -- 순서가 반대(다학년 줄이 앞)인 새 학급 MY 도 같다
 select pg_temp.expect_text('midyear 다학년: 다학년 줄이 앞서도 한 학급(MY)',
   pg_temp.midyear(jsonb_build_array(
-    pg_temp.mrow('w2', 'MY', 4, true), pg_temp.mrow('w3', 'MY', 5, false))), '2/0/0/0/0');
+    pg_temp.mrow('w2', '108', 4, true), pg_temp.mrow('w3', '108', 5, false))), '2/0/0/0/0');
 select pg_temp.expect_text('midyear 다학년: MY 학급은 하나이고 학년이 없다',
   (select count(*) || '/' || count(*) filter (where grade is null) from public.classes
-    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = 'MY'), '1/1');
+    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = '108'), '1/1');
 
 -- 학년 없는 학생은 건너뛴다(다학년이어도 학생 학년을 만들어 내지 않는다)
 insert into fx values ('w5', pg_temp.mk_user('rm-w5@t.local'));
 insert into public.student_enrollments (tenant_id, student_id, school_year, grade)
   values (pg_temp.fx('ta'), pg_temp.fx('w5'), pg_temp.year('ta'), null);
 select pg_temp.expect_text('midyear 다학년: 학년이 없는 학생은 건너뛴다',
-  pg_temp.midyear(jsonb_build_array(pg_temp.mrow('w5', 'MX', 7, true))), '0/1/0/0/0');
+  pg_temp.midyear(jsonb_build_array(pg_temp.mrow('w5', '92', 7, true))), '0/1/0/0/0');
 select pg_temp.expect_text('midyear 다학년: 건너뛴 학생은 학년도 학급도 없다', pg_temp.enr_s('w5'), 'active/-/-/-/v1');
 
 -- 가입 전 줄: 다학년 줄은 학년 없이도(또는 줄에 적힌 실제 학년으로) 다학년 학급에 저장된다
 select pg_temp.expect_text('pending 다학년: 저장 4, 건너뜀 2(학년도 없고 다학년도 아님, 이름 없음)',
   (select r.stored_count || '/' || r.skipped_count
      from public.fn_roster_pending_replace(pg_temp.fx('ta'), pg_temp.year('ta'), jsonb_build_array(
-       jsonb_build_object('name', 'pm1', 'class_name', 'MX', 'mixed', true),
-       jsonb_build_object('name', 'pm2', 'grade', '고1', 'class_name', 'MX', 'mixed', true),
-       jsonb_build_object('name', 'pm3', 'grade', '중3', 'class_name', 'MX'),
-       jsonb_build_object('name', 'rm-w4@t.local', 'class_name', 'MX', 'mixed', true, 'number', 8),
-       jsonb_build_object('name', 'pm5', 'class_name', 'MX'),
-       jsonb_build_object('name', '', 'class_name', 'MX', 'mixed', true)), pg_temp.fx('actor'), '{}') r), '4/2');
+       jsonb_build_object('name', 'pm1', 'class_name', '92', 'mixed', true),
+       jsonb_build_object('name', 'pm2', 'grade', '고1', 'class_name', '92', 'mixed', true),
+       jsonb_build_object('name', 'pm3', 'grade', '중3', 'class_name', '92'),
+       jsonb_build_object('name', 'rm-w4@t.local', 'class_name', '92', 'mixed', true, 'number', 8),
+       jsonb_build_object('name', 'pm5', 'class_name', '92'),
+       jsonb_build_object('name', '', 'class_name', '92', 'mixed', true)), pg_temp.fx('actor'), '{}') r), '4/2');
 select pg_temp.expect_text('pending 다학년: 줄의 학년은 적힌 대로(없으면 null)',
   (select string_agg(p.name || ':' || coalesce(p.grade, '-'), ',' order by p.name) from public.roster_pending_students p
     where p.tenant_id = pg_temp.fx('ta') and p.school_year = pg_temp.year('ta') and p.name <> '미가입9'),
@@ -324,7 +324,7 @@ select pg_temp.expect_text('pending 다학년: 학년 줄 pm3 도 이름 우선 
 insert into public.student_enrollments (tenant_id, student_id, school_year, grade, class_id, number)
   select pg_temp.fx('ta'), pg_temp.fx('w4'), pg_temp.year('ta'), '고1', c.id, 8
     from public.classes c where c.tenant_id = pg_temp.fx('ta') and c.school_year = pg_temp.year('ta')
-     and c.name = 'MX' and c.grade is null;
+     and c.name = '92' and c.grade is null;
 select pg_temp.expect_int('trigger 다학년: 다학년 학급에 같은 이름과 번호로 가입하면 가입 전 줄이 지워진다',
   (select count(*) from public.roster_pending_students where tenant_id = pg_temp.fx('ta') and name = 'rm-w4@t.local'), 0);
 
@@ -332,7 +332,7 @@ select pg_temp.expect_int('trigger 다학년: 다학년 학급에 같은 이름�
 select pg_temp.expect_error('다학년: 다른 기관의 다학년 학급을 쓰는 가입 전 줄 거부',
   format($f$insert into public.roster_pending_students (tenant_id, school_year, name, grade, class_id)
     select %L, %s, 'x', null, c.id from public.classes c
-     where c.tenant_id = %L and c.name = 'MX' and c.grade is null$f$,
+     where c.tenant_id = %L and c.name = '92' and c.grade is null$f$,
     pg_temp.fx('tb'), pg_temp.year('ta'), pg_temp.fx('ta')), '23503');
 
 -- 학교는 그대로: mixed 줄은 DB 에서 막히고, 학년 줄은 지금처럼 학년 학급이다
@@ -360,48 +360,48 @@ select pg_temp.expect_bool('학교: 학급은 학년이 있다',
 select pg_temp.expect_text('S1 midyear: 없는 학생 id 와 학년 없는 학생의 mixed 줄은 학급을 남기지 않는다',
   (select r.updated_count || '/' || r.skipped_count
      from public.fn_roster_midyear(pg_temp.fx('ta'), jsonb_build_array(
-       jsonb_build_object('student_id', gen_random_uuid(), 'class_name', 'NOSTU', 'mixed', true, 'version', 1),
-       jsonb_build_object('student_id', pg_temp.fx('w5'), 'class_name', 'NOGRADE', 'mixed', true, 'version', 1)),
+       jsonb_build_object('student_id', gen_random_uuid(), 'class_name', '101', 'mixed', true, 'version', 1),
+       jsonb_build_object('student_id', pg_temp.fx('w5'), 'class_name', '102', 'mixed', true, 'version', 1)),
        '[]', pg_temp.fx('actor')) r), '0/2');
 select pg_temp.expect_int('S1 midyear: NOSTU, NOGRADE 학급은 없다',
-  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('NOSTU', 'NOGRADE')), 0);
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('101', '102')), 0);
 select pg_temp.expect_text('S1 pending: 저장하지 못할 mixed 줄(이름 없음, 학년 목록 밖)은 학급을 남기지 않는다',
   (select r.stored_count || '/' || r.skipped_count
      from public.fn_roster_pending_replace(pg_temp.fx('ta'), pg_temp.year('ta'), jsonb_build_array(
-       jsonb_build_object('name', '', 'class_name', 'NONAME', 'mixed', true),
-       jsonb_build_object('name', '가', 'grade', '초6', 'class_name', 'BADGRADE', 'mixed', true)),
+       jsonb_build_object('name', '', 'class_name', '103', 'mixed', true),
+       jsonb_build_object('name', '가', 'grade', '초6', 'class_name', '104', 'mixed', true)),
        pg_temp.fx('actor'), '{}') r), '0/2');
 select pg_temp.expect_int('S1 pending: NONAME, BADGRADE 학급은 없다',
-  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('NONAME', 'BADGRADE')), 0);
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('103', '104')), 0);
 
 -- 한 학생은 한 줄만(22023)
 select pg_temp.expect_error('midyear: 같은 student_id 가 두 줄이면 아무것도 하기 전에 22023',
   format($f$select * from public.fn_roster_midyear(%L, %L::jsonb, '[]', %L)$f$, pg_temp.fx('ta'),
     jsonb_build_array(
-      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', 'DUP1', 'version', 1),
-      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', 'DUP2', 'version', 1)),
+      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', '105', 'version', 1),
+      jsonb_build_object('student_id', pg_temp.fx('w1'), 'class_name', '106', 'version', 1)),
     pg_temp.fx('actor')), '22023');
 select pg_temp.expect_int('midyear: 22023 이면 DUP 학급이 없다',
-  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name like 'DUP%'), 0);
+  (select count(*) from public.classes where tenant_id = pg_temp.fx('ta') and name in ('105', '106')), 0);
 
 -- 학적 줄(학년 줄) 뒤의 가입 전 mixed 줄도 같은 사전 생성에서 만들어 학급이 하나로 모인다
 insert into fx values ('w6', pg_temp.mk_user('rm-w6@t.local'));
 select pg_temp.enroll('w6', '고2', '1', 9);
 select pg_temp.expect_text('midyear: 학년 줄과 가입 전 mixed 줄이 같은 이름이면 다학년 학급 하나',
-  pg_temp.midyear(jsonb_build_array(pg_temp.row_of('w6', 'PX', 1, pg_temp.ver('w6'))),
-    jsonb_build_array(jsonb_build_object('name', 'pxp', 'class_name', 'PX', 'number', 2, 'mixed', true))),
+  pg_temp.midyear(jsonb_build_array(pg_temp.row_of('w6', '107', 1, pg_temp.ver('w6'))),
+    jsonb_build_array(jsonb_build_object('name', 'pxp', 'class_name', '107', 'number', 2, 'mixed', true))),
   '1/0/1/0/0');
 select pg_temp.expect_text('midyear: PX 학급은 하나이고 학년이 없으며 학생이 들어갔다',
   (select count(*) || '/' || count(*) filter (where grade is null) from public.classes
-    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = 'PX')
-  || '/' || pg_temp.enr_s('w6'), '1/1/active/고2/PX/1/v2');
+    where tenant_id = pg_temp.fx('ta') and school_year = pg_temp.year('ta') and name = '107')
+  || '/' || pg_temp.enr_s('w6'), '1/1/active/고2/107/1/v2');
 
 -- 같은 이름의 학년 학급이 이미 있으면 다학년 줄은 WC105 로 거부되고 전체가 되돌려진다
 select pg_temp.expect_error('midyear: 학년 학급과 같은 이름의 mixed 줄은 WC105',
   format($f$select * from public.fn_roster_midyear(%L, %L::jsonb, '[]', %L)$f$, pg_temp.fx('ta'),
     jsonb_build_array(jsonb_build_object('student_id', pg_temp.fx('w6'), 'class_name', '1', 'number', 5,
       'version', pg_temp.ver('w6'), 'mixed', true)), pg_temp.fx('actor')), 'WC105');
-select pg_temp.expect_text('midyear: WC105 이면 학생은 그대로', pg_temp.enr_s('w6'), 'active/고2/PX/1/v2');
+select pg_temp.expect_text('midyear: WC105 이면 학생은 그대로', pg_temp.enr_s('w6'), 'active/고2/107/1/v2');
 
 -- ---------------------------------------------------------------------
 -- fn_roster_rollover: 넘기기와 가입 전 명단이 같은 트랜잭션
