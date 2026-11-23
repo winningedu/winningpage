@@ -1,5 +1,6 @@
 import InlineCard from "@/components/performance/chat/InlineCard";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { type TenantBlockReason, tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 회차 소진 인라인 카드 (표면 B) — docs/수행평가-상세-명세.md §5.20 / §9.3 / §8.6.
@@ -134,6 +135,12 @@ export default function QuotaExhaustedCard({
             라우터를 경유할 이유가 없어서다. */}
         <a
           href={PURCHASE_TO}
+          onClick={() =>
+            trackEvent("paywall_cta_click", {
+              service: "performance",
+              location: "chat_card",
+            })
+          }
           target="_blank"
           rel="noopener noreferrer"
           aria-label={PURCHASE_ARIA_LABEL}

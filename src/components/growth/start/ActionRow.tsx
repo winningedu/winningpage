@@ -1,6 +1,7 @@
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button } from "@/components/ui/button";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
 import type { StartMode } from "./startLogic";
 
@@ -43,7 +44,13 @@ export default function ActionRow({
             type="button"
             size="lg"
             className="mt-4 h-10 px-5 text-app-label font-semibold"
-            onClick={onBuy}
+            onClick={() => {
+              trackEvent("paywall_cta_click", {
+                service: "growth",
+                location: "start_page",
+              });
+              onBuy();
+            }}
           >
             이용권 구매하기
           </Button>

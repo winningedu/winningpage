@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { type TenantBlockReason, tenantBlockMessage } from "@/lib/tenantBlock";
 
 // 회차 소진 안내 (표면 A) — 셸 상단 배너. docs/수행평가-상세-명세.md §5.20 (A) / §11.1 Q47.
@@ -65,6 +66,12 @@ export default function QuotaExhaustedBanner({
       </p>
       <Link
         to={PURCHASE_TO}
+        onClick={() =>
+          trackEvent("paywall_cta_click", {
+            service: "performance",
+            location: "banner",
+          })
+        }
         className="shrink-0 rounded-lg bg-primary px-4 py-2 text-app-label font-semibold leading-4.5 text-white transition hover:bg-primary/90 active:scale-[0.97] motion-reduce:active:scale-100"
       >
         {CTA_LABEL}
