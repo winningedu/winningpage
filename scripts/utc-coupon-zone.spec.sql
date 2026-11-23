@@ -126,4 +126,68 @@ begin
   perform pg_temp.expect_bool('is_granted 서울 어제 기한은 무효', public.fn_coupon_is_granted(c, v_seoul), false);
 end $$;
 
+-- ---------------------------------------------------------------------
+-- fn_grant_coupon / fn_grant_signup_coupons_for_user: 발급 기한 = 사용자 현지 오늘 + N개월
+-- ---------------------------------------------------------------------
+insert into fx select 'admin', pg_temp.mk_user('cz-admin@t.local', 'admin', null, 'Asia/Seoul')::text;
+
+do $$
+declare
+  v_seoul uuid := (select v::uuid from fx where k = 'seoul');
+  v_pago  uuid := (select v::uuid from fx where k = 'pago');
+  v_kiri  uuid := (select v::uuid from fx where k = 'kiri');
+  v_months int := public.fn_coupon_grant_valid_months();
+  v_coupon uuid;
+  v_until date;
+begin
+  insert into public.coupons (title, discount_amount, slug, grant_type, max_uses_per_user)
+  values ('cz-admin-grant', 1000, 'cz-admin-grant', 'granted', 1)
+  returning id into v_coupon;
+
+  perform pg_temp.as_user((select v::uuid from fx where k = 'admin'));
+  perform public.fn_grant_coupon(v_coupon, v_seoul);
+  perform public.fn_grant_coupon(v_coupon, v_pago);
+  perform public.fn_grant_coupon(v_coupon, v_kiri);
+
+  select valid_until into v_until from public.coupon_grants where coupon_id = v_coupon and user_id = v_seoul;
+  perform pg_temp.expect_text('grant_coupon 서울 = 서울 오늘 + N개월', v_until::text,
+    ((public.fn_local_date(now(), 'Asia/Seoul') + (v_months || ' months')::interval)::date)::text);
+  select valid_until into v_until from public.coupon_grants where coupon_id = v_coupon and user_id = v_pago;
+  perform pg_temp.expect_text('grant_coupon 사모아 = 사모아 오늘 + N개월', v_until::text,
+    ((public.fn_local_date(now(), 'Pacific/Pago_Pago') + (v_months || ' months')::interval)::date)::text);
+  select valid_until into v_until from public.coupon_grants where coupon_id = v_coupon and user_id = v_kiri;
+  perform pg_temp.expect_text('grant_coupon 키리바시 = 키리바시 오늘 + N개월', v_until::text,
+    ((public.fn_local_date(now(), 'Pacific/Kiritimati') + (v_months || ' months')::interval)::date)::text);
+
+  perform pg_temp.expect_error('grant_coupon 프로필 없는 사용자는 예외',
+    format('select public.fn_grant_coupon(%L, %L)', v_coupon, gen_random_uuid()), 'P0002');
+end $$;
+
+do $$
+declare
+  v_seoul uuid := (select v::uuid from fx where k = 'seoul');
+  v_pago  uuid := (select v::uuid from fx where k = 'pago');
+  v_kiri  uuid := (select v::uuid from fx where k = 'kiri');
+  v_months int := public.fn_coupon_grant_valid_months();
+  v_coupon uuid;
+  v_until date;
+begin
+  -- 쿠폰 자체 기한 = 사모아 오늘: 사모아 사용자는 가입 발급을 받고 키리바시 사용자는 못 받는다.
+  insert into public.coupons (title, discount_amount, slug, grant_type, max_uses_per_user, grant_on_signup, valid_until)
+  values ('cz-signup', 1000, 'cz-signup', 'granted', 1, true, public.fn_local_date(now(), 'Pacific/Pago_Pago'))
+  returning id into v_coupon;
+
+  perform public.fn_grant_signup_coupons_for_user(v_pago);
+  perform public.fn_grant_signup_coupons_for_user(v_kiri);
+
+  select valid_until into v_until from public.coupon_grants where coupon_id = v_coupon and user_id = v_pago;
+  perform pg_temp.expect_text('signup 사모아 = 사모아 오늘 + N개월', v_until::text,
+    ((public.fn_local_date(now(), 'Pacific/Pago_Pago') + (v_months || ' months')::interval)::date)::text);
+  perform pg_temp.expect_bool('signup 키리바시는 쿠폰 기한이 지나 발급 없음',
+    exists (select 1 from public.coupon_grants where coupon_id = v_coupon and user_id = v_kiri), false);
+
+  perform pg_temp.expect_error('signup 프로필 없는 사용자는 예외',
+    format('select public.fn_grant_signup_coupons_for_user(%L)', gen_random_uuid()), 'P0002');
+end $$;
+
 rollback;
