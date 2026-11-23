@@ -41,7 +41,7 @@ describe("W15 teacher-roster.xlsx", () => {
     }
   });
 
-  test("columns carry data validation: 학년 list of six grades, 반 whole number >= 1, 전화번호 text format", () => {
+  test("columns carry data validation: 학년 list of six grades, no 반 rule (letters allowed), 전화번호 text format", () => {
     const xml = execFileSync(
       "unzip",
       ["-p", TEMPLATE, "xl/worksheets/sheet1.xml"],
@@ -55,9 +55,8 @@ describe("W15 teacher-roster.xlsx", () => {
 
     expect(rule("C2:C500")).toContain('type="list"');
     expect(rule("C2:C500")).toContain("중1,중2,중3,고1,고2,고3");
-    expect(rule("E2:E500")).toContain('type="whole"');
-    expect(rule("E2:E500")).toContain('operator="greaterThanOrEqual"');
-    expect(rule("E2:E500")).toContain("<formula1>1</formula1>");
+    expect(rule("E2:E500")).toBe("");
+    expect(rules).toHaveLength(1);
 
     // numFmtId 49 is the built-in text format "@"; it must be the style of every 전화번호 cell.
     const styles = execFileSync("unzip", ["-p", TEMPLATE, "xl/styles.xml"], {

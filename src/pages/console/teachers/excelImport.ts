@@ -46,7 +46,7 @@ export const REASON_LABEL: Record<Reason, string> = {
   name: "이름을 적어요",
   phone: "전화번호를 확인해 주세요",
   grade: "학년은 중1~고3 중에서 골라 적어요",
-  class: "반은 숫자만 적어요",
+  class: "반을 확인해 주세요",
   group_without_class: "그룹을 적었다면 학년과 반도 적어요",
 };
 

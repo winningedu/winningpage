@@ -4,7 +4,7 @@
 #
 # Sheet "선생님", headers: 선생님 이름 | 전화번호 | 학년 | 그룹 | 반.
 # Row 2 is a school example, row 3 an academy example (fake names and numbers only).
-# 학년 accepts a list of six values, 반 accepts a whole number >= 1, 전화번호 is text so the leading 0 stays.
+# 학년 accepts a list of six values, 반 has no rule (letters and digits), 전화번호 is text so the leading 0 stays.
 # Keep the rules in step with judgeRows in api/_lib/console/teacherImport.ts.
 
 from pathlib import Path
@@ -35,18 +35,7 @@ grade_rule = DataValidation(
     error="학년은 중1~고3 중에서 골라 적어요",
 )
 grade_rule.add(f"C2:C{LAST_ROW}")
-class_rule = DataValidation(
-    type="whole",
-    operator="greaterThanOrEqual",
-    formula1="1",
-    allow_blank=True,
-    showErrorMessage=True,
-    errorTitle="반",
-    error="반은 숫자만 적어요",
-)
-class_rule.add(f"E2:E{LAST_ROW}")
 ws.add_data_validation(grade_rule)
-ws.add_data_validation(class_rule)
 
 for col, width in zip("ABCDE", (14, 16, 8, 12, 8)):
     ws.column_dimensions[col].width = width
