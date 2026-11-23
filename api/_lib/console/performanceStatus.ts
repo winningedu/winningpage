@@ -19,7 +19,7 @@ export interface PerformanceStatus {
   submissionCount: number;
   /** 제출이 없으면 null. */
   feedback: "waiting" | "done" | null;
-  /** 가장 최근 제출일(KST, YYYY-MM-DD). 제출이 없으면 null. */
+  /** 가장 최근 제출 시각(ISO Z). 제출이 없으면 null. */
   lastSubmittedAt: string | null;
 }
 

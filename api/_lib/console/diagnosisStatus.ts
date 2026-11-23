@@ -23,7 +23,7 @@ export interface DiagnosisStatus {
   readinessAvg: number | null;
   /** 학습 실행 역량 6영역 중 가장 낮은 영역. */
   weakest: { name: string; score: number; status: string } | null;
-  /** 진단일(KST, YYYY-MM-DD). */
+  /** 진단 시각(ISO Z). */
   diagnosedAt: string;
 }
 
