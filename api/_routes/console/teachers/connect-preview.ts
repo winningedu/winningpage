@@ -41,7 +41,7 @@ export default defineHandler({
     const grade = first(req.query.grade);
     const groupId = first(req.query.groupId);
     const rawNumber = first(req.query.number);
-    const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
+    const { schoolYear } = await loadTenant(admin, actor.tenantId);
     const className = normalizeClassName(first(req.query.className));
     const number = /^[1-9]\d?$/.test(rawNumber) ? Number(rawNumber) : null;
     if (name === "" || grade === "" || className === "" || number === null) {
