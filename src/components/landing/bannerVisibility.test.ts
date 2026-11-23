@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { isBannerInPeriod, selectVisibleBanners } from "./bannerVisibility";
+import {
+  bannerTodayYmd,
+  isBannerInPeriod,
+  selectVisibleBanners,
+} from "./bannerVisibility";
 
 describe("isBannerInPeriod", () => {
   const today = "2026-11-04";
@@ -78,5 +82,19 @@ describe("selectVisibleBanners", () => {
   test("tenant_id 키가 없는 행은 공통으로 본다", () => {
     const legacy: { id: string; tenant_id?: string | null } = { id: "legacy" };
     expect(selectVisibleBanners([legacy], today, [])).toEqual([legacy]);
+  });
+});
+
+describe("bannerTodayYmd", () => {
+  const instant = new Date("2026-11-30T16:00:00Z");
+  const banner = { start_date: null, end_date: "2026-11-30" };
+
+  test("종료일 당일이면 로스앤젤레스에서는 노출하고 서울에서는 노출하지 않는다", () => {
+    expect(
+      isBannerInPeriod(banner, bannerTodayYmd(instant, "America/Los_Angeles")),
+    ).toBe(true);
+    expect(
+      isBannerInPeriod(banner, bannerTodayYmd(instant, "Asia/Seoul")),
+    ).toBe(false);
   });
 });
