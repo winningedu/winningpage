@@ -17,18 +17,21 @@ afterEach(() => {
 
 describe("diagnosisDraft", () => {
   it("저장한 답을 같은 사용자가 다시 읽는다", () => {
-    saveDraft("u1", { q1: "중학생" });
-    expect(loadDraft("u1")).toEqual({ q1: "중학생" });
+    saveDraft("u1", { answers: { q1: "중학생" }, seed: "s" });
+    expect(loadDraft("u1")).toEqual({
+      answers: { q1: "중학생" },
+      seed: "s",
+    });
     expect(localStorage.getItem("diagnosis-draft:u1")).not.toBeNull();
   });
 
   it("다른 사용자는 초안을 보지 못한다", () => {
-    saveDraft("u1", { q1: "중학생" });
+    saveDraft("u1", { answers: { q1: "중학생" }, seed: "s" });
     expect(loadDraft("u2")).toBeNull();
   });
 
   it("지우면 키가 사라진다", () => {
-    saveDraft("u1", { q1: "중학생" });
+    saveDraft("u1", { answers: { q1: "중학생" }, seed: "s" });
     clearDraft("u1");
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
     expect(loadDraft("u1")).toBeNull();
@@ -37,9 +40,12 @@ describe("diagnosisDraft", () => {
   it("14일이 지난 초안은 버린다", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
-    saveDraft("u1", { q1: "중학생" });
+    saveDraft("u1", { answers: { q1: "중학생" }, seed: "s" });
     vi.setSystemTime(new Date("2026-11-14T23:59:59Z"));
-    expect(loadDraft("u1")).toEqual({ q1: "중학생" });
+    expect(loadDraft("u1")).toEqual({
+      answers: { q1: "중학생" },
+      seed: "s",
+    });
     vi.setSystemTime(new Date("2026-11-15T00:00:01Z"));
     expect(loadDraft("u1")).toBeNull();
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
@@ -50,9 +56,26 @@ describe("diagnosisDraft", () => {
     expect(loadDraft("u1")).toBeNull();
     localStorage.setItem(
       "diagnosis-draft:u2",
-      JSON.stringify({ v: 2, savedAt: Date.now(), answers: { q1: "x" } }),
+      JSON.stringify({ v: 3, savedAt: Date.now(), answers: { q1: 1 } }),
     );
     expect(loadDraft("u2")).toBeNull();
+  });
+
+  it("v3 이전 형식(v1) 초안은 버리고 지운다", () => {
+    localStorage.setItem(
+      "diagnosis-draft:u1",
+      JSON.stringify({ v: 1, savedAt: Date.now(), answers: { q1: "N수생" } }),
+    );
+    expect(loadDraft("u1")).toBeNull();
+    expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
+  });
+
+  it("시드가 없는 초안은 버린다", () => {
+    localStorage.setItem(
+      "diagnosis-draft:u1",
+      JSON.stringify({ v: 2, savedAt: Date.now(), answers: { q1: 1 } }),
+    );
+    expect(loadDraft("u1")).toBeNull();
   });
 
   it("저장소가 던져도 세 함수 모두 던지지 않는다", () => {
@@ -62,14 +85,16 @@ describe("diagnosisDraft", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(boom);
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(boom);
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation(boom);
-    expect(() => saveDraft("u1", { q1: "a" })).not.toThrow();
+    expect(() =>
+      saveDraft("u1", { answers: { q1: "a" }, seed: "s" }),
+    ).not.toThrow();
     expect(loadDraft("u1")).toBeNull();
     expect(() => clearDraft("u1")).not.toThrow();
   });
 
   it("clearAllDrafts는 모든 사용자의 초안만 지우고 다른 키는 둔다", () => {
-    saveDraft("u1", { q1: "a" });
-    saveDraft("u2", { q1: "b" });
+    saveDraft("u1", { answers: { q1: "a" }, seed: "s" });
+    saveDraft("u2", { answers: { q1: "b" }, seed: "s" });
     localStorage.setItem("other-key", "keep");
     clearAllDrafts();
     expect(localStorage.getItem("diagnosis-draft:u1")).toBeNull();
@@ -80,14 +105,14 @@ describe("diagnosisDraft", () => {
   it("저장하거나 읽을 때 다른 사용자의 만료된 초안을 쓸어낸다", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
-    saveDraft("old", { q1: "a" });
+    saveDraft("old", { answers: { q1: "a" }, seed: "s" });
     vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
-    saveDraft("u1", { q1: "b" });
+    saveDraft("u1", { answers: { q1: "b" }, seed: "s" });
     expect(localStorage.getItem("diagnosis-draft:old")).toBeNull();
     expect(localStorage.getItem("diagnosis-draft:u1")).not.toBeNull();
 
     vi.setSystemTime(new Date("2026-11-01T00:00:00Z"));
-    saveDraft("old2", { q1: "c" });
+    saveDraft("old2", { answers: { q1: "c" }, seed: "s" });
     vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
     loadDraft("u1");
     expect(localStorage.getItem("diagnosis-draft:old2")).toBeNull();

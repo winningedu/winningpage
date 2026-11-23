@@ -63,6 +63,9 @@ export default function SurveyStepShell() {
   const userId = useAuthOptional()?.userId ?? null;
   const resumeEnabled = site.features.diagnosisResume && !!userId;
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  // q23 shuffle seed (기능요구명세서 row 31): one per survey, kept in the draft
+  // so a resumed survey shows the same order.
+  const [seed, setSeed] = useState<string>(() => crypto.randomUUID());
   const [surveyCopyOverrides, setSurveyCopyOverrides] = useState<
     Map<string, unknown>
   >(() => new Map());
@@ -147,13 +150,14 @@ export default function SurveyStepShell() {
     if (!resumeEnabled || !userId) return;
     const draft = loadDraft(userId);
     if (!draft) return;
-    setAnswers((prev) => ({ ...draft, ...prev }));
+    setAnswers((prev) => ({ ...draft.answers, ...prev }));
+    setSeed(draft.seed);
     // 1단계로 들어왔으면 답이 끝난 단계를 건너뛰어 첫 미완료 단계에서 이어 답하게 한다.
     // 인덱스 진입은 자식 라우트가 1단계로 리다이렉트하므로 둘 다 대상이다.
     const entry = entryPathRef.current;
     if (entry !== SURVEY_FIRST_STEP_PATH && entry !== SURVEY_BASE_PATH) return;
     for (let step = 1; step <= SURVEY_TOTAL_STEPS; step++) {
-      if (isStepComplete(step, draft)) continue;
+      if (isStepComplete(step, draft.answers)) continue;
       if (step > 1) navigate(getStepPath(step), { replace: true });
       return;
     }
@@ -163,8 +167,8 @@ export default function SurveyStepShell() {
   useEffect(() => {
     if (!resumeEnabled || !userId) return;
     if (Object.keys(answers).length === 0) return;
-    saveDraft(userId, answers);
-  }, [answers, resumeEnabled, userId]);
+    saveDraft(userId, { answers, seed });
+  }, [answers, seed, resumeEnabled, userId]);
 
   // B-1 — q15(목표 대학 입결 조회) 캐스케이드 옵션·컷 fetch 상태. answers.q15 가 바뀔 때마다
   // 훅 내부에서 대학→학과→전형유형/세부전형명/반영교과 순으로 필요한 조회만 다시 tap 한다.

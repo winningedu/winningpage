@@ -4,14 +4,24 @@
  * 저장소 접근은 전부 try/catch 로 감싼다(비공개 모드 등에서 SecurityError 가 날 수 있다).
  */
 const KEY_PREFIX = "diagnosis-draft:";
+// v2 = learning diagnosis v3 answer shape plus the q23 shuffle seed. Drafts of
+// any other version (v1 = the old string-label answers) are dropped on read.
+const DRAFT_VERSION = 2;
+
+export type SurveyDraftState = {
+  answers: Record<string, unknown>;
+  /** q23 shuffle seed, kept so a resumed draft shows the same order */
+  seed: string;
+};
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 function isExpired(raw: string | null): boolean {
   try {
     const draft = JSON.parse(raw ?? "");
     return (
-      draft?.v !== 1 ||
+      draft?.v !== DRAFT_VERSION ||
       typeof draft.savedAt !== "number" ||
+      typeof draft.seed !== "string" ||
       Date.now() - draft.savedAt > MAX_AGE_MS
     );
   } catch {
@@ -49,33 +59,34 @@ export function clearAllDrafts() {
   }
 }
 
-export function saveDraft(userId: string, answers: Record<string, unknown>) {
+export function saveDraft(userId: string, state: SurveyDraftState) {
   sweepExpiredDrafts();
   try {
     localStorage.setItem(
       KEY_PREFIX + userId,
-      JSON.stringify({ v: 1, savedAt: Date.now(), answers }),
+      JSON.stringify({
+        v: DRAFT_VERSION,
+        savedAt: Date.now(),
+        answers: state.answers,
+        seed: state.seed,
+      }),
     );
   } catch {
     // 저장 실패는 설문 진행을 막지 않는다.
   }
 }
 
-export function loadDraft(userId: string): Record<string, unknown> | null {
+export function loadDraft(userId: string): SurveyDraftState | null {
   sweepExpiredDrafts();
   try {
     const raw = localStorage.getItem(KEY_PREFIX + userId);
     if (!raw) return null;
-    const draft = JSON.parse(raw);
-    if (
-      draft?.v !== 1 ||
-      typeof draft.savedAt !== "number" ||
-      Date.now() - draft.savedAt > MAX_AGE_MS
-    ) {
+    if (isExpired(raw)) {
       localStorage.removeItem(KEY_PREFIX + userId);
       return null;
     }
-    return draft.answers ?? null;
+    const draft = JSON.parse(raw);
+    return draft.answers ? { answers: draft.answers, seed: draft.seed } : null;
   } catch {
     return null;
   }
