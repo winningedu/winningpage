@@ -364,6 +364,21 @@ const addDays = (date: IsoDate, days: number): IsoDate =>
     .toISOString()
     .slice(0, 10);
 
+/** Why one q13 row fails validateAnswers, or null when the row is valid. */
+export type ScheduleRowProblem = "incomplete" | "out_of_range";
+
+export function scheduleRowProblem(
+  row: Readonly<{ kind: string; date: string; subject: string }>,
+  diagnosedAt: IsoDate,
+): ScheduleRowProblem | null {
+  const result = validateAnswers({ q13: scheduleOf([row]) }, diagnosedAt);
+  if (result.ok || !result.errors.some((error) => error.question === "q13")) {
+    return null;
+  }
+  // a complete row can only fail on its date: 16 r30 past dates and Day 43+
+  return row.kind === "" || row.date === "" ? "incomplete" : "out_of_range";
+}
+
 /** 16 r30, 06 C55: q13 dates from Day 1 (diagnosedAt) to Day 42. */
 export function scheduleDateBounds(diagnosedAt: IsoDate) {
   return { min: diagnosedAt, max: addDays(diagnosedAt, EVENT_WINDOW_DAYS - 1) };

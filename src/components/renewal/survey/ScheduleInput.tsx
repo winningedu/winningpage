@@ -5,10 +5,13 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { SCHEDULE_FIELD_LABELS } from "@/data/diagnosisSurveyV3";
+import {
+  SCHEDULE_FIELD_LABELS,
+  SURVEY_V3_QUESTIONS,
+} from "@/data/diagnosisSurveyV3";
 import { OPTIONS } from "@/lib/diagnosis-v3/options";
 import type { IsoDate } from "@/lib/diagnosis-v3/types";
-import { scheduleDateBounds } from "@/lib/renewalSurvey";
+import { scheduleDateBounds, scheduleRowProblem } from "@/lib/renewalSurvey";
 import OptionGroup from "./OptionGroup";
 
 /** One event row while typing; kind and date stay "" until picked. */
@@ -25,6 +28,15 @@ const KIND_ROWS = OPTIONS.q13.filter(
 const CHOICE_ROWS = OPTIONS.q13.filter((o) =>
   EXCLUSIVE.includes(codeOf(o.code)),
 );
+
+// 13 E24 "최대 3개 \u00b7 일정 종류와 날짜를 골라 주세요.": its second part
+// is the row message for a missing kind or date.
+const INCOMPLETE_ROW_MESSAGE = (() => {
+  const helper = SURVEY_V3_QUESTIONS.find((q) => q.id === "q13")?.helper;
+  const message = helper?.split("\u00b7")[1]?.trim();
+  if (!message) throw new Error("missing 13 E24 schedule helper");
+  return message;
+})();
 
 const EMPTY_ROW: ScheduleRow = { kind: "", date: "", subject: "" };
 
@@ -60,12 +72,17 @@ export default function ScheduleInput({
       {rows.map((row, index) => {
         const n = index + 1;
         const fieldId = (field: string) => `${baseId}-${field}-${n}`;
+        const problem = scheduleRowProblem(row, diagnosedAt);
+        const errorId = fieldId("error");
+        const errorProps = problem
+          ? { "aria-invalid": true, "aria-describedby": errorId }
+          : {};
         return (
           <fieldset
             // rows have no stable id; order is the identity while editing
             // biome-ignore lint/suspicious/noArrayIndexKey: see above
             key={index}
-            className="flex w-full flex-col gap-3 rounded-2xl border border-[#EDEDED] p-4 sm:flex-row sm:items-end"
+            className="flex w-full flex-col gap-3 rounded-2xl border border-[#EDEDED] p-4 sm:flex-row sm:flex-wrap sm:items-end"
           >
             <label
               htmlFor={fieldId("kind")}
@@ -75,6 +92,7 @@ export default function ScheduleInput({
               <NativeSelect
                 id={fieldId("kind")}
                 aria-label={`${SCHEDULE_FIELD_LABELS.kind} ${n}`}
+                {...(row.kind === "" ? errorProps : {})}
                 value={row.kind}
                 onChange={(event) =>
                   update(index, { kind: event.target.value })
@@ -103,6 +121,9 @@ export default function ScheduleInput({
                 type="date"
                 id={fieldId("date")}
                 aria-label={`${SCHEDULE_FIELD_LABELS.date} ${n}`}
+                {...(row.date === "" || problem === "out_of_range"
+                  ? errorProps
+                  : {})}
                 min={bounds.min}
                 max={bounds.max}
                 value={row.date}
@@ -135,6 +156,16 @@ export default function ScheduleInput({
             >
               삭제
             </Button>
+            {problem && (
+              <p
+                id={errorId}
+                className="basis-full text-base font-medium text-[#D92D20]"
+              >
+                {problem === "incomplete"
+                  ? INCOMPLETE_ROW_MESSAGE
+                  : `${bounds.min}부터 ${bounds.max} 사이 날짜를 골라 주세요.`}
+              </p>
+            )}
           </fieldset>
         );
       })}
