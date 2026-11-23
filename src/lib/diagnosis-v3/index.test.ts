@@ -41,7 +41,7 @@ describe("계산 예시 scores", () => {
   });
 
   test("goal cell follows the q3r motive counts (22 r29)", () => {
-    const goal = (q3: number, q3r?: number[]) =>
+    const goal = (q3: number, q3r: number[]) =>
       scoreDiagnosisV3({ ...CALC_EXAMPLE, q3, q3r }, CALC_EXAMPLE_CONTEXT)
         .scores.goal.cell;
     expect(goal(5, [1, 3])).toBe("E_MIX");
