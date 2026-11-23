@@ -6,8 +6,10 @@ import { queryClient } from "@/lib/queryClient";
 import { isValidTenantCodeFormat, normalizeTenantCode } from "@/lib/tenantCode";
 import { TENANT_MESSAGES } from "@/pages/signup/school/copy";
 import {
+  CLASS_NAME_INVALID_MESSAGE,
   ENROLLMENT_GRADES,
   isValidClassNumber,
+  normalizeClassName,
 } from "@/pages/signup/school/rules";
 import { joinTenant, lookupJoinTenant, SUBMIT_FAILED } from "./api";
 
@@ -94,6 +96,11 @@ export default function JoinTenantModal({
       setErrorMsg("반을 입력해 주세요.");
       return;
     }
+    const normalizedClass = normalizeClassName(className);
+    if (normalizedClass === "") {
+      setErrorMsg(CLASS_NAME_INVALID_MESSAGE);
+      return;
+    }
     if (number.trim() && !isValidClassNumber(number.trim())) {
       setErrorMsg("번호는 1에서 99까지 숫자로 입력해 주세요.");
       return;
@@ -106,7 +113,7 @@ export default function JoinTenantModal({
         grade,
         ...(tenant?.orgType !== "학교" &&
           groupName.trim() && { groupName: groupName.trim() }),
-        className: className.trim(),
+        className: normalizedClass,
         ...(number.trim() && { number: Number(number.trim()) }),
       });
       if (!result.ok) {
@@ -240,6 +247,7 @@ export default function JoinTenantModal({
             </label>
             <input
               id={`${base}-class`}
+              inputMode="numeric"
               value={className}
               onChange={(e) => setClassName(e.target.value)}
               className={`mt-2 ${FIELD_CLASS}`}

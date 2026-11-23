@@ -196,6 +196,22 @@ describe("JoinTenantModal", () => {
     });
   });
 
+  it("반 칸은 숫자 키패드를 띄우고 3반 은 숫자 3 으로 보낸다", async () => {
+    await reachFields("학교");
+    expect(screen.getByLabelText("반")).toHaveAttribute("inputmode", "numeric");
+    mockApiFetch.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+
+    fireEvent.change(screen.getByLabelText("학년"), {
+      target: { value: "고1" },
+    });
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: "3반" } });
+    fireEvent.click(screen.getByRole("button", { name: "옮기기" }));
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(2));
+    const [, init] = mockApiFetch.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ className: "3" });
+  });
+
   it("학교에는 그룹 칸이 없다", async () => {
     await reachFields("학교");
 
@@ -205,6 +221,8 @@ describe("JoinTenantModal", () => {
   it.each([
     ["학년을 고르지 않으면", "", "3", "", "학년을 선택해 주세요."],
     ["반을 비우면", "고1", "  ", "", "반을 입력해 주세요."],
+    ["반이 글자면", "고1", "A", "", "반은 숫자만 적어요"],
+    ["반에 학년이 섞이면", "고1", "3학년 2반", "", "반은 숫자만 적어요"],
     [
       "번호가 100이면",
       "고1",
