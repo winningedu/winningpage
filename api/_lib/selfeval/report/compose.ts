@@ -11,7 +11,7 @@ import { parseModelJson } from "../validation.js";
 import { validateCompose } from "./factCheck.js";
 import type { ComposeNeed } from "./needs.js";
 
-const MAX_OUTPUT_TOKENS = 3072;
+const MAX_OUTPUT_TOKENS = 8192;
 /** 요청 한 번에서 모델을 부르는 최대 횟수. 첫 시도와 재요청 1회. */
 const MAX_TRIES = 2;
 

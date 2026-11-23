@@ -109,6 +109,6 @@ describe("buildComposePrompt", () => {
     expect(p.user).toContain("relation:P1");
     expect(p.user).toContain("이차함수 꼭짓점 24%");
     expect(p.system).toContain("숫자");
-    expect(p.maxOutputTokens).toBeGreaterThan(0);
+    expect(p.maxOutputTokens).toBeGreaterThanOrEqual(8192);
   });
 });
