@@ -2,7 +2,11 @@
 // (13_문항메타 G), option ranges, visibility (13 H, 16), max picks, exclusive
 // options (16 r22-r26) and the q13 date window (06 r55, judge-report R11).
 
-import { type QuestionId, REQUIRED_QUESTIONS } from "./codes.js";
+import {
+  type QuestionId,
+  REQUIRED_QUESTIONS,
+  type TrackCode,
+} from "./codes.js";
 import { SCALE_ITEMS } from "./likert.js";
 import { OPTIONS, type OptionRow, trackOf } from "./options.js";
 import { sheetRows, textCell } from "./sheet.js";
@@ -92,10 +96,11 @@ const subjectRow = sheetRows("06_임계값").find(
 /** 06 C51 switch for q6s, q6r, q6m. */
 const SUBJECT_GRADES_ON = subjectRow?.c[2] === "사용";
 
-const isHidden = (question: QuestionId | "q3Target", input: Raw) => {
-  const track = isOrdinalOf(OPTIONS.q1, input.q1)
-    ? trackOf(input.q1 as number)
-    : null;
+const isHidden = (
+  question: QuestionId | "q3Target",
+  input: Raw,
+  track: TrackCode | null,
+) => {
   switch (question) {
     // a missing or invalid q3 is reported on q3 itself
     case "q3r":
@@ -122,6 +127,37 @@ const isHidden = (question: QuestionId | "q3Target", input: Raw) => {
     default:
       return false;
   }
+};
+
+/** 13 F 복수선택(최대 N). */
+const maxPicks = (qid: QuestionId) => {
+  const meta = sheetRows("13_문항메타").find((row) => row.c[0] === qid);
+  const max = meta && textCell(meta, 5).match(/최대 (\d+)/)?.[1];
+  if (!max) throw new Error(`no max picks for ${qid}`);
+  return Number(max);
+};
+
+const MULTI_CHOICES = {
+  q3r: { max: maxPicks("q3r"), rows: () => OPTIONS.q3r },
+  q10: { max: maxPicks("q10"), rows: () => OPTIONS.q10 },
+  q12: { max: maxPicks("q12"), rows: (track: TrackCode) => OPTIONS.q12[track] },
+  q14: { max: maxPicks("q14"), rows: () => OPTIONS.q14 },
+} as const;
+type MultiChoice = keyof typeof MULTI_CHOICES;
+const isMultiChoice = (question: string): question is MultiChoice =>
+  question in MULTI_CHOICES;
+
+const isPickList = (rows: readonly OptionRow[], value: unknown) =>
+  Array.isArray(value) &&
+  new Set(value).size === value.length &&
+  value.every((pick) => isOrdinalOf(rows, pick));
+
+/** 16 r24: an exclusive option sent with others is ignored. */
+const withoutLoneExclusive = (rows: readonly OptionRow[], picks: number[]) => {
+  const rest = picks.filter(
+    (pick) => !rows.some((o) => o.ordinal === pick && o.exclusive),
+  );
+  return rest.length > 0 ? rest : picks;
 };
 
 const isValid = (question: QuestionId, value: unknown, input: Raw) => {
@@ -167,11 +203,26 @@ export function validateAnswers(
     };
   }
   const errors: ValidationError[] = [];
+  const answers: Record<string, unknown> = { ...input };
+  const track = isOrdinalOf(OPTIONS.q1, input.q1)
+    ? trackOf(input.q1 as number)
+    : null;
   for (const question of Object.keys(input) as QuestionId[]) {
     const value = input[question];
     if (value === undefined) continue;
-    if (isHidden(question, input)) {
+    if (isHidden(question, input, track)) {
       errors.push({ question, reason: "hidden" });
+    } else if (isMultiChoice(question)) {
+      if (track === null) continue;
+      const { max, rows } = MULTI_CHOICES[question];
+      const options = rows(track);
+      if (!isPickList(options, value)) {
+        errors.push({ question, reason: "invalid" });
+        continue;
+      }
+      const picks = withoutLoneExclusive(options, value as number[]);
+      if (picks.length > max) errors.push({ question, reason: "too_many" });
+      answers[question] = picks;
     } else if (!isValid(question, value, input)) {
       errors.push({ question, reason: "invalid" });
     }
@@ -182,5 +233,5 @@ export function validateAnswers(
     }
   }
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, answers: input as DiagnosisV3Answers };
+  return { ok: true, answers: answers as DiagnosisV3Answers };
 }

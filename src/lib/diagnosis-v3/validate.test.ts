@@ -146,3 +146,46 @@ describe("visibility (13 H, 16 r33-r35)", () => {
     ]);
   });
 });
+
+describe("multiple choice (13 F max, 16 r22-r26 exclusive)", () => {
+  test.each([
+    ["q3r", [1, 2, 3]],
+    ["q10", [1, 2, 3, 4]],
+    ["q12", [1, 2, 3, 4]],
+    ["q14", [1, 2, 3]],
+  ])("%s over the 13 F maximum is too_many", (question, picks) => {
+    expect(errorsOf({ ...H12, [question]: picks })).toEqual([
+      { question, reason: "too_many" },
+    ]);
+  });
+
+  test.each([
+    ["q10", [17]],
+    ["q10", [1, 1]],
+    ["q12", [14]],
+    ["q14", "2"],
+    ["q3r", [0]],
+  ])("%s = %j is invalid", (question, picks) => {
+    expect(errorsOf({ ...H12, [question]: picks })).toEqual([
+      { question, reason: "invalid" },
+    ]);
+  });
+
+  test("an exclusive option alone is kept", () => {
+    const result = validateAnswers({ ...H12, q10: [16], q12: [13] }, DAY1);
+    expect(result.ok && [result.answers.q10, result.answers.q12]).toEqual([
+      [16],
+      [13],
+    ]);
+  });
+
+  test("an exclusive option sent with others is dropped (16 r24)", () => {
+    const result = validateAnswers(
+      { ...H12, q3r: [7, 1], q10: [1, 2, 3, 16], q12: [13, 5] },
+      DAY1,
+    );
+    expect(
+      result.ok && [result.answers.q3r, result.answers.q10, result.answers.q12],
+    ).toEqual([[1], [1, 2, 3], [5]]);
+  });
+});
