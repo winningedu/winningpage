@@ -1,6 +1,7 @@
 // 최종 본문 읽기(명세 No.145~147, 199, 200). 문장에 번호를 붙이고 근거를 정규화한다.
 // 근거는 리포트에 실린 기록(진행 중이 아닌 것)과 확인한 수기 메모만 남긴다. 옛 저장 모양도 읽는다.
 
+import { normalizeEvidence, sentenceSpan } from "../evidence.js";
 import type { ReportMemo, ReportRecord } from "./inputs.js";
 
 export type EvidenceRef = {
@@ -28,52 +29,6 @@ export type ReadBody = {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-type RawEvidence = {
-  refId: string | null;
-  item: string;
-  weight: "main" | "sub";
-  student: boolean;
-};
-
-/** 새 모양(배열), 옛 모양({activityId, field}, {student: true}, null)을 한 모양으로 맞춘다. */
-function rawEvidence(value: unknown): RawEvidence[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((x): RawEvidence[] => {
-      if (!isRecord(x)) return [];
-      if (x.sourceType === "S") {
-        return [
-          { refId: null, item: "", weight: "main" as const, student: true },
-        ];
-      }
-      if (typeof x.refId !== "string") return [];
-      return [
-        {
-          refId: x.refId,
-          item: typeof x.item === "string" ? x.item : "",
-          weight: x.weight === "sub" ? ("sub" as const) : ("main" as const),
-          student: false,
-        },
-      ];
-    });
-  }
-  if (isRecord(value)) {
-    if (value.student === true) {
-      return [{ refId: null, item: "", weight: "main", student: true }];
-    }
-    if (typeof value.activityId === "string") {
-      return [
-        {
-          refId: value.activityId,
-          item: typeof value.field === "string" ? value.field : "",
-          weight: "main",
-          student: false,
-        },
-      ];
-    }
-  }
-  return [];
-}
-
 export function readBody(
   sections: unknown,
   ctx: { records: ReportRecord[]; memos: ReportMemo[] },
@@ -85,13 +40,15 @@ export function readBody(
       ? sections.paragraphs
       : [];
   const sentences: BodySentence[] = [];
+  let next = 1;
   const paragraphs: BodySentence[][] = [];
   for (const p of paragraphsRaw) {
     const list: BodySentence[] = [];
     const raw = isRecord(p) && Array.isArray(p.sentences) ? p.sentences : [];
     for (const s of raw) {
       if (!isRecord(s) || typeof s.text !== "string") continue;
-      const evidence = rawEvidence(s.evidence);
+      const evidence = normalizeEvidence(s.evidence);
+      let droppedInProgress = false;
       const refs: EvidenceRef[] = [];
       const seen = new Set<string>();
       for (const w of ["main", "sub"] as const) {
@@ -101,7 +58,10 @@ export function readBody(
           const record = records.get(ev.refId);
           if (record !== undefined) {
             // 진행 중이거나 계획인 기록은 근거로 쓰지 않는다(No.200).
-            if (record.recordStatus !== "completed") continue;
+            if (record.recordStatus !== "completed") {
+              droppedInProgress = true;
+              continue;
+            }
             seen.add(ev.refId);
             refs.push({
               refId: ev.refId,
@@ -120,14 +80,15 @@ export function readBody(
           }
         }
       }
-      const student = evidence.some((ev) => ev.student);
+      const student = evidence.some((ev) => ev.sourceType === "S");
       const sentence: BodySentence = {
-        n: sentences.length + 1,
+        n: next,
         text: s.text,
         refs,
         student,
-        needsConfirm: refs.length === 0 && !student,
+        needsConfirm: (refs.length === 0 && !student) || droppedInProgress,
       };
+      next += sentenceSpan(s.text);
       sentences.push(sentence);
       list.push(sentence);
     }

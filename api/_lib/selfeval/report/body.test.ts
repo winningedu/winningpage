@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sentenceNumbers } from "../../../../src/lib/selfeval/evidence.js";
 import { readBody } from "./body.js";
 import { SAMPLE_BODY, SAMPLE_MEMOS, SAMPLE_RECORDS } from "./sample.testkit.js";
 
@@ -95,5 +96,71 @@ describe("readBody", () => {
     expect(s[1]?.refs).toEqual([]);
     expect(s[1]?.needsConfirm).toBe(false);
     expect(s[2]?.needsConfirm).toBe(true);
+  });
+
+  it("marks a sentence for confirmation when an in-progress evidence was dropped, even if other evidence remains", () => {
+    const s = flat({
+      paragraphs: [
+        {
+          sentences: [
+            {
+              text: "결과 문장.",
+              evidence: [
+                {
+                  sourceType: "P",
+                  refId: "rec-p1",
+                  item: "method",
+                  weight: "main",
+                },
+                {
+                  sourceType: "D",
+                  refId: "rec-d2",
+                  item: "result",
+                  weight: "sub",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(s[0]?.refs.map((r) => r.refId)).toEqual(["rec-p1"]);
+    expect(s[0]?.needsConfirm).toBe(true);
+  });
+
+  it("drops evidence with a missing weight like the result screen does", () => {
+    const s = flat({
+      paragraphs: [
+        {
+          sentences: [
+            {
+              text: "문장.",
+              evidence: [{ sourceType: "P", refId: "rec-p1", item: "method" }],
+            },
+          ],
+        },
+      ],
+    });
+    expect(s[0]?.refs).toEqual([]);
+    expect(s[0]?.needsConfirm).toBe(true);
+  });
+
+  it("numbers a sentence object that holds two sentences the same way as the result screen", () => {
+    const sections = {
+      paragraphs: [
+        {
+          sentences: [
+            { id: "a", text: "가함. 나함.", evidence: [] },
+            { id: "b", text: "다함.", evidence: [] },
+          ],
+        },
+      ],
+    };
+    const screen = sentenceNumbers(
+      sections as unknown as Parameters<typeof sentenceNumbers>[0],
+    );
+    const report = flat(sections);
+    expect(report.map((x) => x.n)).toEqual([screen.get("a"), screen.get("b")]);
+    expect(report.map((x) => x.n)).toEqual([1, 3]);
   });
 });

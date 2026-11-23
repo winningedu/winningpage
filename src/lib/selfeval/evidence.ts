@@ -37,6 +37,7 @@ export function evidenceCompletion(sentences: Sentence[]): {
 /**
  * 본문 전체의 문장 번호. 문장 나누기는 글자 수 점검(명세 No.56)과 같은 splitSentences 규칙이라,
  * 한 문장 글이 둘로 갈리면 다음 번호를 건너뛰어 점검 화면의 문장 수와 어긋나지 않게 한다.
+ * 리포트 번호(api/_lib/selfeval/evidence.ts 의 sentenceSpan)가 같은 규칙이다. 한쪽을 바꾸면 같이 고친다.
  */
 export function sentenceNumbers(
   sections: GenerationSections,

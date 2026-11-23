@@ -2,7 +2,7 @@
 // 저장된 옛 리포트의 근거는 {activityId, field} 단일 객체, {student:true}, null 이었다.
 // 새 모양은 SentenceEvidence 배열이라, 읽는 길목마다 normalizeEvidence 로 같은 모양으로 맞춘다.
 
-import { extractNumbers } from "./text.js";
+import { countSentences, extractNumbers } from "./text.js";
 import {
   ANALYSIS_FIELDS,
   type AnalysisField,
@@ -110,6 +110,14 @@ export function normalizeSections(
     }),
   };
 }
+
+/**
+ * 저장된 문장 한 덩이가 본문 번호를 몇 칸 차지하는가. 글자 수 점검(명세 No.56)과 같은 문장 나누기로
+ * 세고, 한 덩이는 적어도 1칸이다. 리포트 번호는 이 값으로 매기고, 결과 화면의 sentenceNumbers
+ * (src/lib/selfeval/evidence.ts)가 같은 규칙을 쓴다. 한쪽을 바꾸면 다른 쪽도 같이 고친다.
+ */
+export const sentenceSpan = (text: string): number =>
+  Math.max(1, countSentences(text));
 
 // ---------------------------------------------------------------------------
 // 모델이 제안한 근거를 서버가 거른다(명세 No.145, 48, 199, 80, 200, 5, 161)
