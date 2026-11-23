@@ -55,18 +55,41 @@ const isLikertBlock = (value: unknown, size: number) =>
   value.items.every(isLikert) &&
   isLikert(value.verify);
 
-/** 9 for 9등급제, 5 for 5등급제 (16 r6-r7 labels); null for the others. */
-const gradeMax = (q4: unknown): number | null => {
-  const label = OPTIONS.q4.find((option) => option.ordinal === q4)?.label;
-  const max = Number.parseInt(label ?? "", 10);
-  return Number.isNaN(max) ? null : max;
+const labelOfQ4 = (q4: unknown) =>
+  OPTIONS.q4.find((option) => option.ordinal === q4);
+
+/** 12 B5 "90 ~ 100점": the top of the 원점수 range for 성취평가제. */
+const ACHIEVEMENT_MAX = (() => {
+  const row = sheetRows("12_환산_성취평가제").find((r) => r.r === 5);
+  const max = row && textCell(row, 1).match(/(\d+)점$/)?.[1];
+  if (!max) throw new Error("missing 12 B5 score range");
+  return Number(max);
+})();
+
+/**
+ * Accepted q6, q6r and q6s values per q4 (review W3): 9등급제 and 5등급제 from
+ * the 16 r6-r7 labels, 성취평가제 0 to the 12 B5 max (12 B11: E has no lower bound),
+ * and 잘 모르겠어요 on the 9-grade scale (16 r9: 환산 없음).
+ */
+export const gradeBoundsOf = (q4: unknown) => {
+  const option = labelOfQ4(q4);
+  const max = Number.parseInt(option?.label ?? "", 10);
+  if (!Number.isNaN(max)) return { min: 1, max };
+  if (option?.code === "12_환산_성취평가제") {
+    return { min: 0, max: ACHIEVEMENT_MAX };
+  }
+  return { min: 1, max: Number.parseInt(OPTIONS.q4[0]?.label ?? "", 10) };
 };
 
-const isGrade = (value: unknown, q4: unknown) =>
-  typeof value === "number" &&
-  Number.isFinite(value) &&
-  value > 0 &&
-  value <= (gradeMax(q4) ?? Number.POSITIVE_INFINITY);
+const isGrade = (value: unknown, q4: unknown) => {
+  const { min, max } = gradeBoundsOf(q4);
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= min &&
+    value <= max
+  );
+};
 
 const MBTI_VALUES = OPTIONS.q22.map((option) =>
   String(option.code).slice("MBTI:".length),
@@ -294,7 +317,9 @@ const isValid = (
           value.grades,
           MOCK_SUBJECTS,
           (grade) =>
-            typeof grade === "number" && grade >= 1 && grade <= MOCK_GRADE_MAX,
+            Number.isInteger(grade) &&
+            (grade as number) >= 1 &&
+            (grade as number) <= MOCK_GRADE_MAX,
         )
       );
     case "q15":

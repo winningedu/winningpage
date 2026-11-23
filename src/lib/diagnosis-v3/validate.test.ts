@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { REQUIRED_QUESTIONS } from "./codes.js";
 import { CALC_EXAMPLE, validAnswers } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
-import { MAX_TEXT_LENGTH, validateAnswers } from "./validate.js";
+import { gradeBoundsOf, MAX_TEXT_LENGTH, validateAnswers } from "./validate.js";
 
 const DAY1 = "2026-11-09";
 
@@ -330,4 +330,53 @@ describe("text length and duplicate events (review W1)", () => {
       errorsOf({ ...H12, q13: [same, { kind: "PERF", date: "2026-11-20" }] }),
     ).toEqual([]);
   });
+});
+
+describe("grade ranges per q4 (review W3, 16 r6-r9, 12 B5)", () => {
+  test("bounds come from the 16 labels and the 12 원점수 구간", () => {
+    expect(gradeBoundsOf(1)).toEqual({ min: 1, max: 9 }); // 16 r6
+    expect(gradeBoundsOf(2)).toEqual({ min: 1, max: 5 }); // 16 r7
+    expect(gradeBoundsOf(3)).toEqual({ min: 0, max: 100 }); // 12 B5 "90 ~ 100점"
+    expect(gradeBoundsOf(4)).toEqual({ min: 1, max: 9 }); // 16 r9 환산 없음
+  });
+
+  test.each([
+    [1, 0.01],
+    [1, 9.01],
+    [2, 0.99],
+    [2, 5.01],
+    [3, -1],
+    [3, 100.5],
+    [3, 1e9],
+    [4, 0.5],
+    [4, 10],
+  ])("q4 %s rejects q6 = %s, q6r and q6s too", (q4, grade) => {
+    const invalid = (question: string) => ({ question, reason: "invalid" });
+    expect(errorsOf({ ...H12, q4, q6: grade })).toEqual([invalid("q6")]);
+    expect(errorsOf({ ...H12, q4, q6r: grade })).toEqual([invalid("q6r")]);
+    expect(errorsOf({ ...H12, q4, q6s: { KOR: grade } })).toEqual([
+      invalid("q6s"),
+    ]);
+  });
+
+  test.each([
+    [1, 1],
+    [1, 9],
+    [2, 5],
+    [3, 0],
+    [3, 95.5],
+    [3, 100],
+    [4, 9],
+  ])("q4 %s accepts q6 = %s", (q4, grade) => {
+    expect(errorsOf({ ...H12, q4, q6: grade })).toEqual([]);
+  });
+
+  test.each([2.5, 0, 10, 1e9, Number.NaN])(
+    "a mock grade of %s is invalid, grades are integers 1..9",
+    (grade) => {
+      expect(
+        errorsOf({ ...H12, q6m: { month: 9, grades: { KOR: grade } } }),
+      ).toEqual([{ question: "q6m", reason: "invalid" }]);
+    },
+  );
 });
