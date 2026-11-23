@@ -11,6 +11,8 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
+  useNavigate,
   useOutletContext,
   useParams,
 } from "react-router";
@@ -123,6 +125,21 @@ function SubmitChild({ onResult }: { onResult: (v: unknown) => void }) {
   );
 }
 
+// Report route stand-in: shows the navigation state and a Back button (history -1).
+function ReportStub() {
+  const navigate = useNavigate();
+  const { state } = useLocation();
+  return (
+    <>
+      <p>리포트 페이지</p>
+      <p>{state?.fromSubmit ? "방금 제출함" : "저장 링크"}</p>
+      <button type="button" onClick={() => navigate(-1)}>
+        뒤로
+      </button>
+    </>
+  );
+}
+
 function renderSubmit(onResult: (v: unknown) => void) {
   return render(
     <MemoryRouter initialEntries={["/survey"]}>
@@ -133,7 +150,7 @@ function renderSubmit(onResult: (v: unknown) => void) {
         <Route path="/pricing" element={<p>결제 페이지</p>} />
         <Route
           path="/learning-diagnosis/report/:attemptId"
-          element={<p>리포트 페이지</p>}
+          element={<ReportStub />}
         />
       </Routes>
     </MemoryRouter>,
@@ -498,6 +515,22 @@ describe("SurveyStepShell v3 제출", () => {
       attemptId,
       answers: CALC_EXAMPLE,
     });
+  });
+
+  it("제출 뒤 리포트로는 히스토리를 교체해 이동하고, 뒤로가기가 설문 화면으로 돌아가지 않는다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    submitMock.mockResolvedValue({
+      ok: true,
+      schemaVersion: "2026-11-v3",
+      payload: {},
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(screen.getByText("방금 제출함")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
+    expect(screen.getByText("리포트 페이지")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "제출" })).toBeNull();
   });
 
   it("답안이 검증을 통과하지 못하면 소진하지 않고 보내지 않는다", async () => {

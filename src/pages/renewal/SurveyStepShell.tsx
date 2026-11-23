@@ -241,7 +241,12 @@ export default function SurveyStepShell() {
     }
     // 이어 답하기(사 #44): 제출이 끝났으니 초안을 지운다.
     if (resumeEnabled && userId) clearDraft(userId);
-    navigate(reportPathFor(attemptId));
+    // Replace the survey entry so Back cannot re-enter the submitted survey; the flag
+    // tells the report page to hold the user there (see FreeDiagnosisReport).
+    navigate(reportPathFor(attemptId), {
+      replace: true,
+      state: { fromSubmit: true },
+    });
     return result.payload;
   }, [answers, diagnosedAt, navigate, userId, resumeEnabled]);
 
