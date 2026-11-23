@@ -26,6 +26,8 @@ export function orderLowToHigh<C extends AreaCode>(
       x.score - y.score ||
       // 23 r7 step 2: more picked difficulty checks first
       y.checks - x.checks ||
+      // 23 r8 step 3: lower lowest single answer first
+      x.minItem - y.minItem ||
       // 23 r10 step 5: 05 display order
       codes.indexOf(a) - codes.indexOf(b)
     );

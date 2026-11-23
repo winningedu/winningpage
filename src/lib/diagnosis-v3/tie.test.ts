@@ -36,4 +36,12 @@ describe("area order low to high (23_동점규칙 r6-r10)", () => {
       "P1_GOAL",
     ]);
   });
+
+  test("step 3: lower single item after reversal first", () => {
+    const areas = { P1_GOAL: area(60, 1, 50), P1_LOG: area(60, 1, 25) };
+    expect(orderLowToHigh(areas, ["P1_GOAL", "P1_LOG"])).toEqual([
+      "P1_LOG",
+      "P1_GOAL",
+    ]);
+  });
 });
