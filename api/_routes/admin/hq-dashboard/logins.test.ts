@@ -328,6 +328,13 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
     expect(r.body).toMatchObject({ includeInternal: true });
   });
 
+  test("includeInternal=0 이면 기본 제외로 센다(기관 현황과 같은 키, 1 또는 0)", async () => {
+    const r = await get({ includeInternal: "0" });
+
+    expect(bucketCalls.every((a) => a.p_include_internal === false)).toBe(true);
+    expect(r.body).toMatchObject({ includeInternal: false });
+  });
+
   test("로그인 기록이 아직 없으면 firstMeasuredOn 은 null", async () => {
     kit.state.rows.profile_login_days = () => null;
 
