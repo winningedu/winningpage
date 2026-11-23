@@ -480,6 +480,28 @@ describe("ImportSetupPage 미리보기 형식 오류", () => {
     );
   });
 
+  it("확인 창은 등록되지 않은 그룹을 자연스러운 문장으로 보인다", async () => {
+    await previewIt(
+      {},
+      {
+        ...PREVIEW,
+        rows: [
+          {
+            ...FORMAT_ERROR_ROW,
+            reasons: ["group"],
+            values: { group: "Z레벨" },
+          },
+        ],
+      },
+    );
+
+    expect(
+      await screen.findByText(
+        '5행 가*짜: 그룹 "Z레벨"은 그룹 관리에 등록되지 않은 그룹이에요',
+      ),
+    ).toBeTruthy();
+  });
+
   it("형식 오류가 없으면 확인 창을 열지 않는다", async () => {
     await previewIt();
 

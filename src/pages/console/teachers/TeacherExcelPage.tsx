@@ -51,7 +51,7 @@ function formatErrorItems(
                 ...item,
                 cell: "전화번호",
                 value: row.phone,
-                message: "확인해 주세요",
+                message: "형식이 맞지 않아요",
               };
         case "grade":
           return {
