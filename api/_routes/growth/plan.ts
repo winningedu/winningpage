@@ -18,17 +18,18 @@
 //   INVALID_QUERY 400, PLAN_NOT_FOUND 404(완료 회차가 없거나 지정 id 가 없음, 남의 회차 포함),
 //   METHOD_NOT_ALLOWED 405, UNAUTHENTICATED 401, INTERNAL 500.
 //
-// 오늘 날짜는 KST 기준(UTC+9)으로 만든다. 마감 판정은 날짜 문자열 앞 10자만 쓴다.
+// 오늘 날짜는 회원 시간대(profiles.time_zone)로 만든다. 마감 판정은 날짜 문자열 앞 10자만 쓴다.
 // 소유자 격리: service_role 로 읽으므로 모든 쿼리에 profile_id 조건을 건다.
 // 핸들러 본문은 DB 에 묶여 단위 테스트하지 않는다. 판단은 api/_lib/growth/plan 의 순수 모듈에서 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { loadMemberTimeZone } from "../../_lib/growth/memberZone.js";
 import { planMetrics } from "../../_lib/growth/plan/metrics.js";
 import {
   loadPlanItems,
   loadPlanReport,
 } from "../../_lib/growth/plan/planDb.js";
-import { buildPlanBody, todayKstIso } from "../../_lib/growth/plan/view.js";
+import { buildPlanBody, todayIn } from "../../_lib/growth/plan/view.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
@@ -71,7 +72,7 @@ export default defineHandler({
     }
     const items = await loadPlanItems(db, userId, report.id);
     const metrics = planMetrics(report, items);
-    const todayIso = todayKstIso(Date.now());
+    const todayIso = todayIn(Date.now(), await loadMemberTimeZone(db, userId));
     res.status(200).json({
       ok: true,
       plan: buildPlanBody(report, items, todayIso, metrics),
