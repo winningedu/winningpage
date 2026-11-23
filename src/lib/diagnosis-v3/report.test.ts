@@ -15,6 +15,13 @@ const SIMPLE: DiagnosisV3Answers = {
   q10: undefined,
 };
 
+/** V1 and V2 매우 그렇다: F1 + F2, 응답 단순 with the q10 picks kept (17 r6, r7, r14). */
+const SIMPLE_PICKS: DiagnosisV3Answers = {
+  ...CALC_EXAMPLE,
+  q9: { ...CALC_EXAMPLE.q9, verify: 4 },
+  q11: { ...CALC_EXAMPLE.q11, verify: 4 },
+};
+
 const cell = (sheet: string, id: string, col: number) =>
   String(COPY_SHEETS[sheet]?.find((r) => r.c[0] === id)?.c[col]);
 
@@ -292,5 +299,66 @@ describe("4p 7단계 사이클 (22 r48-r53)", () => {
     expect(p4.cycle.stages.some((s) => s.broken)).toBe(false);
     expect(p4.rx.weak).toEqual({ kind: "none", text: COPY_TEXT.RX_NONE_WEAK });
     expect(p4.rx.lever).toBeUndefined();
+  });
+});
+
+describe("5p 방해 요인 \u00b7 마음 상태 (22 r55-r61)", () => {
+  test("계산 예시: picked areas, mind lines and cross check", () => {
+    const { p5 } = run().pages;
+    expect(p5.title).toBe(
+      COPY_TEXT.OBS_HEAD_SEL?.replace(
+        "{areas}",
+        [quote("계획 수립"), quote("활동 기록"), quote("불안\u00b7회복")].join(
+          ", ",
+        ),
+      ).replace("{mind}", String(COPY_TEXT.OBS_MIND_HIGH)),
+    );
+    expect(p5.lead).toBe(COPY_TEXT.OBS_LEAD);
+    expect(p5.groups).toHaveLength(7);
+    expect(p5.groups[2]?.options).toHaveLength(3);
+    expect(
+      p5.groups.flatMap((g) => g.options).filter((o) => o.selected),
+    ).toHaveLength(3);
+    expect(p5.mind.note).toBe(COPY_TEXT.MIND_NOTE);
+    expect(p5.mind.bars.map((b) => b.score)).toEqual([75, 63, 41]);
+    expect(p5.interpretation).toEqual({
+      areas: [
+        COPY_TEXT.AREA_MIND_EFF_L2,
+        COPY_TEXT.AREA_MIND_GROW_L3,
+        COPY_TEXT.AREA_MIND_RECV_L5,
+      ],
+      weak: COPY_TEXT.AREA_MIND_RECV_WEAK,
+    });
+    if (p5.crossCheck?.kind !== "items") throw new Error("expected items");
+    expect(
+      p5.crossCheck.items.map((i) => [i.area.code, i.answers.length, i.text]),
+    ).toEqual([
+      ["P1_PLAN", 2, COPY_TEXT.XCHK_MATCH],
+      ["P1_LOG", 2, COPY_TEXT.XCHK_MATCH],
+      ["MIND_RECV", 2, COPY_TEXT.XCHK_MATCH],
+    ]);
+    expect(p5.crossCheck.items[0]?.answers[0]).toEqual({
+      question: SCALE_ITEMS.q9[4]?.text,
+      answer: "보통이다",
+    });
+  });
+
+  test("no pick or the exclusive pick skips the cross check (22 r55, r61)", () => {
+    const { p5 } = run({ ...CALC_EXAMPLE, q10: [16] }).pages;
+    expect(p5.title).toBe(
+      COPY_TEXT.OBS_HEAD_NONE?.replace(
+        "{mind}",
+        String(COPY_TEXT.OBS_MIND_HIGH),
+      ),
+    );
+    expect(p5.crossCheck).toEqual({
+      kind: "skipped",
+      text: COPY_TEXT.OBS_NONE_NOTE,
+    });
+    expect(run(SIMPLE).pages.p5.crossCheck?.kind).toBe("skipped");
+  });
+
+  test("응답 단순 with picks hides the cross check (22 r60)", () => {
+    expect(run(SIMPLE_PICKS).pages.p5.crossCheck).toBeUndefined();
   });
 });
