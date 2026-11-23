@@ -1,0 +1,130 @@
+import { describe, expect, test } from "vitest";
+import type { Likert } from "./likert.js";
+import { scoreReliability } from "./reliability.js";
+import { SCORE_SHEETS } from "./source/scoreSheets.js";
+import { CALC_EXAMPLE } from "./testFixtures.js";
+import type { DiagnosisV3Answers } from "./types.js";
+
+describe("response reliability (17_신뢰도, spec No 42-47)", () => {
+  test("계산 예시 A11: no flag, 학습진단 양호, 기질 정상", () => {
+    expect(scoreReliability(CALC_EXAMPLE)).toEqual({
+      flags: {
+        F1: false,
+        F2: false,
+        F3: false,
+        F4: false,
+        F5: false,
+        F6: false,
+      },
+      diagnosis: "GOOD",
+      temperament: "NORMAL",
+    });
+  });
+
+  const withVerify = (
+    q: "q9" | "q11" | "q20" | "q23",
+    verify: Likert,
+  ): DiagnosisV3Answers => ({
+    ...CALC_EXAMPLE,
+    [q]: { ...CALC_EXAMPLE[q], verify },
+  });
+
+  test.each([
+    ["F1", "q9", 4, true],
+    ["F1", "q9", 3, true],
+    ["F1", "q9", 2, false],
+    ["F2", "q11", 4, true],
+    ["F2", "q11", 3, true],
+    ["F2", "q11", 1, false],
+    ["F3", "q20", 2, false],
+    ["F3", "q20", 3, true],
+    ["F3", "q20", 0, true],
+    ["F4", "q23", 3, false],
+    ["F4", "q23", 4, true],
+    ["F4", "q23", 2, true],
+  ] as const)(
+    "%s from %s answer %d is %s (17 D6-D9)",
+    (flag, q, verify, on) => {
+      expect(scoreReliability(withVerify(q, verify)).flags[flag]).toBe(on);
+    },
+  );
+
+  test("one of F1..F3 is 보통 (17 C15), two are 응답 단순 (17 C14)", () => {
+    expect(scoreReliability(withVerify("q9", 4)).diagnosis).toBe("MID");
+    const two = {
+      ...withVerify("q9", 4),
+      q20: { ...CALC_EXAMPLE.q20, verify: 0 as const },
+    };
+    expect(scoreReliability(two).diagnosis).toBe("SIMPLE");
+  });
+
+  test("F4 alone is 기질 주의 and leaves 학습진단 양호 (17 C17)", () => {
+    const result = scoreReliability(withVerify("q23", 4));
+    expect(result.temperament).toBe("CAUTION");
+    expect(result.diagnosis).toBe("GOOD");
+  });
+
+  const run = (length: number): Likert[] => [
+    ...Array<Likert>(length).fill(2),
+    ...([3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3].slice(
+      length,
+    ) as Likert[]),
+  ];
+  const f5Case = (length: number, q10: readonly number[] | undefined) => {
+    const { q10: _q10, ...rest } = CALC_EXAMPLE;
+    const q9 = { ...CALC_EXAMPLE.q9, items: run(length) };
+    return scoreReliability(q10 ? { ...rest, q9, q10 } : { ...rest, q9 });
+  };
+
+  test("F5: 10 same answers in a row and q10 skipped is 응답 단순 (17 C11)", () => {
+    expect(f5Case(10, undefined)).toMatchObject({
+      flags: { F5: true },
+      diagnosis: "SIMPLE",
+    });
+    expect(f5Case(10, []).flags.F5).toBe(true);
+  });
+
+  test("F5 needs 10 in a row: 9 is not enough", () => {
+    expect(f5Case(9, undefined).flags.F5).toBe(false);
+  });
+
+  test("No 129: the q10 exclusive pick counts as picked, so no F5", () => {
+    expect(f5Case(15, [16]).flags.F5).toBe(false);
+    expect(f5Case(15, [3]).flags.F5).toBe(false);
+  });
+
+  const q23With = (same: number) => ({
+    ...CALC_EXAMPLE,
+    q23: {
+      ...CALC_EXAMPLE.q23,
+      items: Array.from({ length: 35 }, (_, i) =>
+        i < same ? 3 : i % 2 === 0 ? 1 : 0,
+      ) as Likert[],
+    },
+  });
+
+  test("F6: one answer 28 times or more in q23 is 기질 주의 (17 C12)", () => {
+    expect(scoreReliability(q23With(28))).toMatchObject({
+      flags: { F6: true },
+      diagnosis: "GOOD",
+      temperament: "CAUTION",
+    });
+    expect(scoreReliability(q23With(27)).flags.F6).toBe(false);
+  });
+
+  test("the verdict rules this module hard-codes still read the same in 17 C11-C17", () => {
+    const cells = (SCORE_SHEETS["17_신뢰도"] ?? [])
+      .filter((row) => row.r >= 11 && row.r <= 18)
+      .map((row) => row.c[2])
+      .filter((cell) => cell !== null);
+    expect(cells).toEqual([
+      "같은 응답이 10개 이상 연속 AND q10 미선택",
+      "가장 많이 고른 응답이 28개(80%) 이상",
+      "F5 또는 (F1+F2+F3) \u2265 2",
+      "(F1+F2+F3) = 1 이고 F5 아님",
+      "그 외",
+      "F4 또는 F6",
+      "그 외",
+    ]);
+  });
+});

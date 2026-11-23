@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { buildReportFromInput } from "@/lib/diagnosisReportBuild";
+import { buildReport } from "@/lib/diagnosisReport";
 import { makeInput } from "@/lib/diagnosisScoringTestFixtures";
 import DiagnosisReportView, {
   type DiagnosisReportData,
@@ -42,14 +42,14 @@ function hasUnscopedHeaderFooterRule(css: string) {
 
 describe("DiagnosisReportView — @page margin:0 마운트 스코프", () => {
   it("렌더 중에는 문서에 @page margin:0 규칙이 존재한다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 
     expect(hasZeroMarginPageRule()).toBe(true);
   });
 
   it("언마운트 후에는 @page margin:0 규칙이 사라진다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { unmount } = render(<DiagnosisReportView data={data} />);
 
     unmount();
@@ -72,14 +72,14 @@ describe("DiagnosisReportView — @page margin:0 마운트 스코프", () => {
 // rem이 71%로 축소된다. @page와 동일하게 마운트 스코프 <style>로 옮겼는지 검증한다.
 describe("DiagnosisReportView — font-size:3mm 마운트 스코프", () => {
   it("렌더 중에는 문서에 font-size:3mm 규칙이 존재한다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 
     expect(hasFontSize3mmRule()).toBe(true);
   });
 
   it("언마운트 후에는 font-size:3mm 규칙이 사라진다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { unmount } = render(<DiagnosisReportView data={data} />);
 
     unmount();
@@ -102,14 +102,14 @@ describe("DiagnosisReportView — font-size:3mm 마운트 스코프", () => {
 // #root 직계 자식만 겨냥하도록 좁혀 옮겼는지 검증한다.
 describe("DiagnosisReportView — 헤더·푸터 인쇄 숨김 스코프", () => {
   it("렌더 중에는 #root 직계 header·footer만 겨냥한 인쇄 숨김 규칙이 존재한다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     render(<DiagnosisReportView data={data} />);
 
     expect(hasScopedHeaderFooterHideRule()).toBe(true);
   });
 
   it("언마운트 후에는 그 규칙이 사라진다", () => {
-    const data = buildReportFromInput(makeInput()) as DiagnosisReportData;
+    const data = buildReport(makeInput()) as DiagnosisReportData;
     const { unmount } = render(<DiagnosisReportView data={data} />);
 
     unmount();

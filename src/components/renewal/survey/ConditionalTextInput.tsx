@@ -14,6 +14,8 @@
  *   filled  텍스트 #181D24
  *   error   border #D92D20 (스타일만, 검증 로직 없음)
  */
+import { useId } from "react";
+
 type ConditionalTextInputProps = {
   label?: string;
   placeholder?: string;
@@ -37,6 +39,7 @@ export default function ConditionalTextInput({
   error = false,
   errorMessage,
 }: ConditionalTextInputProps) {
+  const inputId = useId();
   // 세로 padding 은 multiline 에만 남긴다. 1줄 입력은 input 이 박스 68px 을 그대로 채우고
   // (h-full) 텍스트는 input 자신의 단일행 수직 중앙정렬로 놓이므로 렌더 결과가 동일하면서
   // 클릭 가능 영역만 28px → 68px 로 넓어진다. py-3.5 를 남기면 content box 가 40px 이라
@@ -59,12 +62,18 @@ export default function ConditionalTextInput({
   return (
     <div className="flex w-full flex-col items-start gap-3">
       {label && (
-        <p className="text-base font-medium leading-5 text-ink">{label}</p>
+        <label
+          htmlFor={inputId}
+          className="text-base font-medium leading-5 text-ink"
+        >
+          {label}
+        </label>
       )}
 
       <div className={boxClass}>
         {multiline ? (
           <textarea
+            id={inputId}
             rows={rows}
             value={value ?? ""}
             onChange={(event) => onChange?.(event.target.value)}
@@ -74,6 +83,7 @@ export default function ConditionalTextInput({
           />
         ) : (
           <input
+            id={inputId}
             type="text"
             value={value ?? ""}
             onChange={(event) => onChange?.(event.target.value)}

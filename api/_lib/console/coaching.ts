@@ -1,7 +1,12 @@
 // 코칭 판정 엔진(W9). 서비스 자료를 받아 판정, 6축 점수, 5대 역량, 종합 신호를 만드는 순수 함수 모음.
 // 문구표(코칭 판정 문구표)와 6축 역량 연결표의 행을 그대로 옮긴다. 자료가 없는 지표는 분모에서 뺀다(결정 4).
 
-import { type Urgency, urgencyOfLowest } from "./diagnosisStatus.js";
+import type { DiagnosisV3Scores } from "../../../src/lib/diagnosis-v3/types.js";
+import {
+  type Urgency,
+  urgencyOfLowest,
+  urgencyOfV3,
+} from "./diagnosisStatus.js";
 import type { GoalWeek } from "./goalRate.js";
 import type { ServiceKey } from "./serviceUsage.js";
 
@@ -57,21 +62,33 @@ export type AreaCode =
   | (typeof READINESS_AREAS)[number];
 export type AreaScores = Record<AreaCode, number>;
 
+/**
+ * 버전 태그가 있는 영역 점수. 영역 집합이 버전과 트랙마다 달라(v2 는 12영역 고정, v3 는 공통 7 + 트랙 6 + MIND 3)
+ * 한 타입으로 묶지 않는다. 버전이 다른 두 값은 서로 비교하지 않는다.
+ */
+export type DiagnosisAreas =
+  | { version: "v2"; areas: AreaScores }
+  | { version: "v3"; scores: DiagnosisV3Scores };
+
 /** 긴급도 4단계(결정 3, 36). 단계 기준은 diagnosisStatus.ts 한 곳이다. */
 export function urgencyOf(areas: AreaScores): Urgency {
   return urgencyOfLowest(Math.min(...Object.values(areas)));
 }
 
-export interface LearningInput {
-  areas: AreaScores;
-  /** 학습 실행 역량: 1쪽 6영역 평균. */
+/** 긴급도. v3 는 엔진이 저장한 단계를 쓰고, v2 는 콘솔 규칙(urgencyOf)을 쓴다. */
+export const urgencyOfAreas = (set: DiagnosisAreas): Urgency =>
+  set.version === "v3" ? urgencyOfV3(set.scores) : urgencyOf(set.areas);
+
+/** 긴급도는 v2 는 영역 점수에서(areas), v3 는 엔진이 저장한 단계(urgency)로 받는다. */
+export type LearningInput = {
+  /** 학습 실행 역량: v2 는 1쪽 6영역 평균, v3 는 1쪽 총점. */
   executionAvg: number;
-}
+} & ({ areas: AreaScores } | { urgency: Urgency });
 
 /** 판정 축 ② 학습역량(문구표 r9~r12). 긴급도 높음은 높음과 매우 높음이다. */
 export function learningVerdict(input: LearningInput | null): Verdict {
   if (!input) return { level: "no_data" };
-  const urgency = urgencyOf(input.areas);
+  const urgency = "urgency" in input ? input.urgency : urgencyOf(input.areas);
   if (
     urgency === "high" ||
     urgency === "very_high" ||
@@ -107,10 +124,33 @@ export interface GrowthAxisState {
   optional?: boolean;
 }
 
+/** 학습진단 한 영역. 버전과 상관없이 소비처가 읽는 값만 담는다(이름, 점수, 쪽, 상태 이름, 보강 단계 문구). */
+export interface DiagnosisViewArea {
+  name: string;
+  score: number;
+  group: "execution" | "readiness";
+  state: string;
+  /** 영역의 첫 단계, 둘째 단계 순서. */
+  steps: string[];
+}
+
+/** 학습진단의 버전 공통 값. v2 는 12영역 라벨에서, v3 는 payload.scores 에서 채운다. */
+export interface DiagnosisView {
+  urgency: Urgency;
+  /** 학습 실행 역량: v2 는 1쪽 6영역 평균, v3 는 1쪽 총점. */
+  executionAvg: number;
+  /** 학교생활 준비도: v2 는 2쪽 6영역 평균, v3 는 2쪽 총점. */
+  readinessAvg: number;
+  /** 1쪽 영역 뒤에 2쪽 영역 순서. */
+  areas: DiagnosisViewArea[];
+}
+
 /** 서비스별 자료. 서비스를 쓰지 않으면 null. 자료가 없는 지표는 이 모양에 아예 없다(결정 4). */
 export interface CoachingMetrics {
   used: Record<ServiceKey, boolean>;
   diagnosis: { areas: AreaScores; trend: DiagnosisTrend | null } | null;
+  /** 버전 공통 학습진단 값. 없으면 diagnosis(v2)에서 읽는다. v3 는 이 값만 있다. */
+  diagnosisView?: DiagnosisView | null;
   goal: {
     week: GoalWeek;
     /** 입력 내신 변화, 입력 모의고사 백분위 변화(연결표 r41, r42)를 0~100 으로 바꾼 값. */
@@ -201,7 +241,8 @@ export function indicatorsOf(m: CoachingMetrics) {
     dxExecution: make(
       "학습진단",
       "학습 실행 역량",
-      dx ? areaAverage(EXECUTION_AREAS, dx.areas) : null,
+      m.diagnosisView?.executionAvg ??
+        (dx ? areaAverage(EXECUTION_AREAS, dx.areas) : null),
     ),
     dxSubject: make("학습진단", "교과 관리", area("SUBJECT")),
     dxPerform: make("학습진단", "수행 대응", area("PERFORM")),

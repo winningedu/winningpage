@@ -45,6 +45,8 @@ type OptionGroupProps = {
   disabled?: boolean;
   error?: boolean;
   errorMessage?: string;
+  /** accessible name of the group when the card title does not name it */
+  ariaLabel?: string;
 };
 
 function normalizeOption(option: RawOption) {
@@ -63,6 +65,7 @@ export default function OptionGroup({
   disabled = false,
   error = false,
   errorMessage,
+  ariaLabel,
 }: OptionGroupProps) {
   const selectedList = multiple ? (Array.isArray(value) ? value : []) : [];
   const limit = maxSelect ?? Infinity;
@@ -115,7 +118,12 @@ export default function OptionGroup({
 
   return (
     <div className="flex w-full flex-col items-start">
-      <div className={containerClass} role={multiple ? "group" : "radiogroup"}>
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is dynamic (group or radiogroup); both take aria-label. */}
+      <div
+        className={containerClass}
+        role={multiple ? "group" : "radiogroup"}
+        aria-label={ariaLabel}
+      >
         {options.map((rawOption) => {
           const { value: optionValue, label } = normalizeOption(rawOption);
           const active = multiple
