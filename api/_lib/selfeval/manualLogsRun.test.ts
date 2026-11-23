@@ -143,6 +143,7 @@ describe("runManualLogs upload", () => {
       "manualLogsRun.ts",
       "manualLogsDb.ts",
       "manualLogsModel.ts",
+      "../../_routes/selfeval/manual-logs.ts",
     ]) {
       const src = readFileSync(new URL(f, import.meta.url), "utf8");
       expect(src).not.toMatch(/\.storage\b|storage\.from|\.upload\(/);
