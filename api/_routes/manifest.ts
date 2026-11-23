@@ -106,6 +106,7 @@ export const routes: Record<string, RouteLoader> = {
   "diagnosis/access": () => import("./diagnosis/access.js"),
   "diagnosis/consume": () => import("./diagnosis/consume.js"),
   "diagnosis/report": () => import("./diagnosis/report.js"),
+  "diagnosis/submit": () => import("./diagnosis/submit.js"),
   "enrollment/join-tenant": () => import("./enrollment/join-tenant.js"),
   "enrollment/join-tenant-lookup": () =>
     import("./enrollment/join-tenant-lookup.js"),
