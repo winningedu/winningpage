@@ -177,6 +177,25 @@ describe("runReport", () => {
     expect(kept.state.row?.payload).toEqual(before);
   });
 
+  it("never writes building when a same revision placeholder hits a hard failure", async () => {
+    const broken = async (): Promise<LoadedInput> =>
+      loaded({ session: { ...sampleInput().session, subject: null } });
+    const placeholder: StoredReport = {
+      sessionId: "s1",
+      finalRevision: 1,
+      payload: null,
+      tagMap: {},
+      status: "building",
+      attempts: 0,
+      builtAt: now(),
+    };
+    const { state, store } = memoryStore(placeholder);
+    expect((await runReport(deps(store, okModel(), broken))).kind).toBe(
+      "failed",
+    );
+    expect(state.row).toMatchObject({ status: "failed", payload: null });
+  });
+
   it("fails without storing when the inputs cannot be read", async () => {
     const { state, store } = memoryStore();
     const boom = async () => {

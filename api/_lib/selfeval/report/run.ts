@@ -121,17 +121,18 @@ export async function runReport(deps: RunDeps): Promise<RunOutcome> {
   } catch (e) {
     console.error("selfeval 리포트 생성 실패:", e);
     // 이미 만든 같은 리비전의 저장본은 지우지 않는다.
-    const row: StoredReport = same
-      ? { ...existing, attempts, builtAt: deps.now() }
-      : {
-          sessionId,
-          finalRevision,
-          payload: null,
-          tagMap: {},
-          status: "failed",
-          attempts,
-          builtAt: deps.now(),
-        };
+    const row: StoredReport =
+      same && existing.payload !== null
+        ? { ...existing, status: "ready", attempts, builtAt: deps.now() }
+        : {
+            sessionId,
+            finalRevision,
+            payload: null,
+            tagMap: {},
+            status: "failed",
+            attempts,
+            builtAt: deps.now(),
+          };
     try {
       await deps.store.finish(claimedAt, row);
     } catch (inner) {
