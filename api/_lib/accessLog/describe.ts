@@ -117,6 +117,8 @@ const COLUMN_LABELS: Record<string, string> = {
   term_months: "학기 길이",
   grace_ends_on: "유예 종료일",
   mou_status: "MOU",
+  trial_start_date: "시범 시작일",
+  trial_end_date: "시범 종료일",
 };
 
 export interface AccessLogContentInput {

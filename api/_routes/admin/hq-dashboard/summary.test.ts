@@ -55,6 +55,8 @@ function overviewRow(overrides: Record<string, unknown> = {}) {
     contract_start_date: "2026-03-01",
     contract_end_date: "2027-02-28",
     grace_end: "2027-03-30",
+    trial_start_date: null,
+    trial_end_date: null,
     contract_status: "active",
     student_count: 10,
     student_without_enrollment_count: 2,
@@ -130,7 +132,7 @@ describe("권한과 입력", () => {
 });
 
 describe("합계 카드", () => {
-  test("기관 행을 더해 기관 수, 학생 수, 선생님 수, 계약 상태별 수를 준다", async () => {
+  test("기관 행을 더해 기관 수, 학생 수, 선생님 수, 계약 상태별 수(시범기간 중 포함)를 준다", async () => {
     kit.state.rpc.fn_hq_tenant_overview = () => ({
       data: [
         overviewRow({ tenant_id: "t-1", contract_status: "active" }),
@@ -162,6 +164,13 @@ describe("합계 카드", () => {
           student_without_enrollment_count: 0,
           teacher_count: 0,
         }),
+        overviewRow({
+          tenant_id: "t-6",
+          contract_status: "trial",
+          student_count: 2,
+          student_without_enrollment_count: 0,
+          teacher_count: 1,
+        }),
       ],
       error: null,
     });
@@ -170,11 +179,12 @@ describe("합계 카드", () => {
     expect(res.headers["Cache-Control"]).toBe("no-store");
     expect(res.body).toMatchObject({
       ok: true,
-      tenantCount: 5,
-      studentCount: 16,
+      tenantCount: 6,
+      studentCount: 18,
       studentWithoutEnrollmentCount: 3,
-      teacherCount: 4,
+      teacherCount: 5,
       contracts: {
+        trial: 1,
         none: 1,
         upcoming: 0,
         active: 1,
@@ -192,7 +202,7 @@ describe("합계 카드", () => {
       tenantCount: 0,
       studentCount: 0,
       teacherCount: 0,
-      contracts: { active: 0, endingSoon: 0, grace: 0, expired: 0 },
+      contracts: { trial: 0, active: 0, endingSoon: 0, grace: 0, expired: 0 },
     });
   });
 

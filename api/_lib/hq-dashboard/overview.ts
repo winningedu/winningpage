@@ -6,6 +6,7 @@ import { loadGoalStatus } from "../console/goalStatus.js";
 import { fetchAllRows } from "../console/paging.js";
 
 export type ContractStatus =
+  | "trial"
   | "none"
   | "upcoming"
   | "active"
@@ -21,6 +22,9 @@ export interface TenantOverviewRow {
   contractStartDate: string | null;
   contractEndDate: string | null;
   graceEnd: string | null;
+  trialStartDate: string | null;
+  trialEndDate: string | null;
+  /** trial 은 시범기간 안이고 계약 기간(active, ending_soon) 밖인 기관(결정 117). */
   contractStatus: ContractStatus;
   studentCount: number;
   /** 학적이 없는 학생(위닝 옛 학생). 화면은 "학년, 반 미상"으로 보인다. */
@@ -37,6 +41,8 @@ interface DbOverviewRow {
   contract_start_date: string | null;
   contract_end_date: string | null;
   grace_end: string | null;
+  trial_start_date: string | null;
+  trial_end_date: string | null;
   contract_status: ContractStatus;
   student_count: number;
   student_without_enrollment_count: number;
@@ -70,6 +76,8 @@ export async function loadTenantOverview(
     contractStartDate: row.contract_start_date,
     contractEndDate: row.contract_end_date,
     graceEnd: row.grace_end,
+    trialStartDate: row.trial_start_date,
+    trialEndDate: row.trial_end_date,
     contractStatus: row.contract_status,
     studentCount: row.student_count,
     studentWithoutEnrollmentCount: row.student_without_enrollment_count,
@@ -84,6 +92,7 @@ export interface TenantSummary {
   studentWithoutEnrollmentCount: number;
   teacherCount: number;
   contracts: {
+    trial: number;
     none: number;
     upcoming: number;
     active: number;
@@ -95,6 +104,7 @@ export interface TenantSummary {
 
 const CONTRACT_KEYS: Record<ContractStatus, keyof TenantSummary["contracts"]> =
   {
+    trial: "trial",
     none: "none",
     upcoming: "upcoming",
     active: "active",
@@ -105,6 +115,7 @@ const CONTRACT_KEYS: Record<ContractStatus, keyof TenantSummary["contracts"]> =
 
 export function summarizeTenants(rows: TenantOverviewRow[]): TenantSummary {
   const contracts = {
+    trial: 0,
     none: 0,
     upcoming: 0,
     active: 0,

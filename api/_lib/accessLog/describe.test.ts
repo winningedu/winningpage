@@ -108,6 +108,21 @@ describe("contentSummary", () => {
     ).toBe("기관 서비스 설정 (학습진단 월 한도 1에서 2로)");
   });
 
+  test("기관 시범기간 변경은 시범 시작일, 시범 종료일 이름으로 보인다(결정 117)", () => {
+    const text = contentSummary({
+      action: "settings_change",
+      resourceKey: "tenants",
+      rowCount: null,
+      meta: {
+        before: { trial_start_date: null, trial_end_date: null },
+        after: { trial_start_date: "2026-11-24", trial_end_date: "2026-12-23" },
+      },
+    });
+    expect(text).toContain("시범 시작일");
+    expect(text).toContain("시범 종료일");
+    expect(text).not.toContain("trial_");
+  });
+
   test("값이 없던 항목은 없음으로, 여러 항목은 쉼표로 잇는다", () => {
     expect(
       contentSummary({

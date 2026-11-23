@@ -57,6 +57,8 @@ function overviewRow(overrides: Record<string, unknown> = {}) {
     contract_start_date: "2026-03-01",
     contract_end_date: "2027-02-28",
     grace_end: "2027-03-30",
+    trial_start_date: null,
+    trial_end_date: null,
     contract_status: "active",
     student_count: 10,
     student_without_enrollment_count: 2,
@@ -201,6 +203,8 @@ describe("기관 목록", () => {
           contractStartDate: "2026-03-01",
           contractEndDate: "2027-02-28",
           graceEnd: "2027-03-30",
+          trialStartDate: null,
+          trialEndDate: null,
           contractStatus: "active",
           studentCount: 10,
           studentWithoutEnrollmentCount: 2,
@@ -208,6 +212,32 @@ describe("기관 목록", () => {
           lastActivityOn: "2026-11-22",
           goalRateAverage: null,
           goalUserCount: 0,
+        },
+      ],
+    });
+  });
+
+  test("시범기간 기관은 시범 날짜와 trial 상태를 그대로 준다(결정 117)", async () => {
+    kit.state.rpc.fn_hq_tenant_overview = () => ({
+      data: [
+        overviewRow({
+          contract_start_date: null,
+          contract_end_date: null,
+          grace_end: null,
+          trial_start_date: "2026-11-20",
+          trial_end_date: "2026-12-19",
+          contract_status: "trial",
+        }),
+      ],
+      error: null,
+    });
+    const res = await get();
+    expect(res.body).toMatchObject({
+      tenants: [
+        {
+          trialStartDate: "2026-11-20",
+          trialEndDate: "2026-12-19",
+          contractStatus: "trial",
         },
       ],
     });
