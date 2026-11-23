@@ -17,7 +17,10 @@ vi.mock("./supabaseAdmin.js", () => ({
 
 import { defineHandler, type HandlerCtx, requireTimeZone } from "./handler.js";
 
-let seen: { timeZone: string | undefined; required?: string } | null;
+let seen: {
+  timeZone: string | undefined;
+  required?: string | undefined;
+} | null;
 
 function route(
   auth: "none" | "user" | "admin" | "winningAdmin" | "cron" | "console",

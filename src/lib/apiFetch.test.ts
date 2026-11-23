@@ -10,7 +10,7 @@ function stubFetch() {
 
 function sentHeaders(spy: ReturnType<typeof stubFetch>): Headers {
   const calls = spy.mock.calls as unknown as [unknown, RequestInit][];
-  return new Headers(calls[0][1].headers);
+  return new Headers(calls[0]?.[1].headers);
 }
 
 afterEach(() => {

@@ -192,7 +192,8 @@ export function defineHandler(opts: DefineHandlerOptions) {
       });
 
       // 인증보다 먼저 읽는다: 모든 auth 모드에서 잘못된 값은 같은 400 이다.
-      ctx.timeZone = readTimeZone(req);
+      const timeZone = readTimeZone(req);
+      if (timeZone) ctx.timeZone = timeZone;
 
       if (opts.auth === "user" || opts.auth === "console") {
         const authed = await resolveUser(req);
