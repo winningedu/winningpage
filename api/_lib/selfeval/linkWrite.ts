@@ -1,7 +1,29 @@
 // 본문 생성과 검증에서 쓰는 기록 연계 규칙(명세 No.181~195). 순수 함수만 둔다.
 
+import { buildLinkGraph } from "./linkGraph.js";
 import { extractKeywords, extractNumbers } from "./text.js";
-import type { ActivityRecordLike } from "./types.js";
+import {
+  type ActivityRecordLike,
+  LINK_TYPE_LABELS,
+  LINK_TYPES,
+  type LinkStrength,
+  type LinkType,
+  type RecordLink,
+} from "./types.js";
+
+/** selfeval_record_links 한 줄(지운 연결 포함). 유형은 DB 값 그대로라 문자열이다. */
+export type LinkInfo = {
+  fromRecordId: string;
+  toRecordId: string;
+  linkType: string;
+  strength: LinkStrength;
+  source: "model" | "student";
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
+  quoteFrom: string | null;
+  quoteTo: string | null;
+};
 
 /** 생성 입력에 넘기는 구체물 낱말의 상한(명세 No.189). */
 const MAX_CARRIED_WORDS = 4;
@@ -35,6 +57,116 @@ export function carriedWords(record: ActivityRecordLike): string[] {
       if (out.length >= MAX_CARRIED_WORDS || next[i] >= pool.length) return;
       out.push(pool[next[i]++]);
       progressed = true;
+    });
+  }
+  return out;
+}
+
+export type SupportLinkState = {
+  id: string;
+  /** link 는 연계 문장을 쓰고, contribute 는 기여 항목으로만 쓴다. */
+  mode: "link" | "contribute";
+  reason: "linked" | "implicit_unconfirmed" | "no_link";
+  hop: number | null;
+  typeLabel: string | null;
+  strength: LinkStrength | null;
+  confirmed: boolean;
+  /** 앞 기록에서 뽑은 구체물 낱말. contribute 면 빈 배열. */
+  carried: string[];
+};
+
+const isLinkType = (v: string): v is LinkType =>
+  (LINK_TYPES as readonly string[]).includes(v);
+
+const toRecordLink = (l: LinkInfo): RecordLink | null =>
+  isLinkType(l.linkType)
+    ? {
+        fromId: l.fromRecordId,
+        toId: l.toRecordId,
+        type: l.linkType,
+        strength: l.strength,
+        source: l.source,
+        confirmed: l.confirmed,
+        deleted: l.deleted,
+        note: l.note,
+        quoteFrom: l.quoteFrom,
+        quoteTo: l.quoteTo,
+      }
+    : null;
+
+const rank = (l: RecordLink): number =>
+  l.strength === "explicit" || l.confirmed ? 1 : 0;
+
+const NO_LINK = {
+  mode: "contribute",
+  reason: "no_link",
+  hop: null,
+  typeLabel: null,
+  strength: null,
+  confirmed: false,
+  carried: [],
+} as const;
+
+/**
+ * 핵심이 아닌 선택 기록마다 본문에서 연계 문장을 쓸지 정한다(명세 No.181, 189, 193~195).
+ * 지운 연계는 없는 것으로 본다. 핵심에 닿지 않는 기록과, 암묵이면서 학생이 확인하지 않은
+ * 기록은 기여 항목으로만 쓴다. 연계 기록의 구체물 낱말은 연계 선의 앞 기록(from)에서 뽑는다.
+ */
+export function supportLinkStates(
+  records: ActivityRecordLike[],
+  coreId: string,
+  supportIds: string[],
+  infos: LinkInfo[],
+): Map<string, SupportLinkState> {
+  const links = infos.flatMap((l) => {
+    const one = toRecordLink(l);
+    return one === null ? [] : [one];
+  });
+  const live = links.filter((l) => !l.deleted);
+  const graph = buildLinkGraph(links, coreId);
+  const out = new Map<string, SupportLinkState>();
+  for (const id of supportIds) {
+    const node = graph.get(id);
+    if (node === undefined || node.hop === 0) {
+      out.set(id, { id, ...NO_LINK });
+      continue;
+    }
+    const chosen = live
+      .filter((l) => {
+        const other =
+          l.fromId === id ? l.toId : l.toId === id ? l.fromId : null;
+        return other !== null && graph.get(other)?.hop === node.hop - 1;
+      })
+      .reduce<RecordLink | null>(
+        (best, l) => (best === null || rank(l) > rank(best) ? l : best),
+        null,
+      );
+    if (chosen === null) {
+      out.set(id, { id, ...NO_LINK });
+      continue;
+    }
+    const base = {
+      id,
+      hop: node.hop,
+      typeLabel: LINK_TYPE_LABELS[chosen.type],
+      strength: chosen.strength,
+      confirmed: chosen.confirmed,
+    };
+    if (chosen.strength === "implicit" && !chosen.confirmed) {
+      out.set(id, {
+        ...base,
+        mode: "contribute",
+        reason: "implicit_unconfirmed",
+        carried: [],
+      });
+      continue;
+    }
+    const earlier = records.find((r) => r.id === chosen.fromId);
+    out.set(id, {
+      ...base,
+      mode: "link",
+      reason: "linked",
+      carried: earlier === undefined ? [] : carriedWords(earlier),
     });
   }
   return out;
