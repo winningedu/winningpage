@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { P1Code, P2Code } from "./codes.js";
-import { buildPlan } from "./plan.js";
+import { buildPlan, type PlanInput } from "./plan.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 
 // 계산 예시 A13 and A18-A23: page orders low to high after the 23 tie rule.
@@ -22,15 +22,15 @@ const CALC_P2: readonly P2Code[] = [
   "H12_REC",
 ];
 
-const calcPlan = () =>
-  buildPlan({
-    diagnosedAt: "2026-11-09",
-    page1Order: CALC_P1,
-    page2Order: CALC_P2,
-    schedule: CALC_EXAMPLE.q13,
-    examOps: "OK",
-    weekdayLoad: CALC_EXAMPLE.q21.weekday,
-  });
+const calcInput = (): PlanInput => ({
+  diagnosedAt: "2026-11-09",
+  page1Order: CALC_P1,
+  page2Order: CALC_P2,
+  schedule: CALC_EXAMPLE.q13,
+  examOps: "OK",
+  weekdayLoad: CALC_EXAMPLE.q21.weekday,
+});
+const calcPlan = () => buildPlan(calcInput());
 
 describe("buildPlan", () => {
   test("calc example A33: columns are 활동 기록, 계획 수립, 탐구 심화", () => {
@@ -123,5 +123,12 @@ describe("buildPlan", () => {
       "DONE_REDUCED",
       "DONE_H12_DEEP_4",
     ]);
+  });
+
+  test("calc example A33: 기말 Day 32 is an after-note only, re-diagnosis 12/7(월)", () => {
+    const plan = calcPlan();
+    expect(plan.afterEvents).toEqual([{ kind: "EXAM", date: "2026-12-10" }]);
+    expect(plan.tasks.some((t) => t.event?.date === "2026-12-10")).toBe(false);
+    expect(plan.redxDate).toBe("2026-12-07");
   });
 });

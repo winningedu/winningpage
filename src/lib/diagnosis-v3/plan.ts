@@ -31,12 +31,14 @@ export type PlanInput = {
 
 const planSheet = sheetRows("21_4주플랜");
 
-/** 21 C cell of one row. */
-const planCell = (r: number): string => {
+const planRow = (r: number) => {
   const row = planSheet.find((x) => x.r === r);
   if (!row) throw new Error(`missing 21_4주플랜 r${r}`);
-  return textCell(row, 2);
+  return row;
 };
+
+/** 21 C cell of one row. */
+const planCell = (r: number): string => textCell(planRow(r), 2);
 
 const match = (text: string, pattern: RegExp): RegExpMatchArray => {
   const found = text.match(pattern);
@@ -63,6 +65,14 @@ const CHECK_OFFSET = Number(match(planCell(16), /^\+(\d+)일/)[1]);
 const dayCell = (r: number) => Number(match(planCell(r), /^Day (\d+)$/)[1]);
 const START_DAY = dayCell(17);
 const NEXT_DAY = dayCell(19);
+// 21 C7: re-diagnosis day; 21 B28: after-plan window "Day 29~42"
+const REDX_DAY = dayCell(7);
+const [AFTER_FROM, AFTER_TO] = match(
+  textCell(planRow(28), 1),
+  /^Day (\d+)~(\d+) /,
+)
+  .slice(1)
+  .map(Number) as [number, number];
 
 /** Same-day order of the planner table (PDF p12-p15). */
 const rank = (taskId: string): number => {
@@ -75,11 +85,6 @@ const rank = (taskId: string): number => {
 };
 
 // 21 r21-r25: per event kind, tasks "n일 전 EVT_*" (ETC has none)
-const planRow = (r: number) => {
-  const row = planSheet.find((x) => x.r === r);
-  if (!row) throw new Error(`missing 21_4주플랜 r${r}`);
-  return row;
-};
 const EVENT_TASKS: Readonly<
   Record<EventKind, readonly { before: number; taskId: string }[]>
 > = Object.fromEntries(
@@ -119,9 +124,7 @@ const first = <T>(list: readonly T[], index: number, what: string): T => {
   return value;
 };
 
-export function buildPlan(
-  input: PlanInput,
-): Pick<Plan, "columns" | "tasks" | "reducedWeeks"> {
+export function buildPlan(input: PlanInput): Omit<Plan, "minLoad"> {
   // 21 C9: columns 1-2 = two lowest PAGE1 stages; 21 C10: column 3 = lowest PAGE2 area
   const columns: Plan["columns"] = [
     first(input.page1Order, 0, "PAGE1 stage"),
@@ -189,5 +192,16 @@ export function buildPlan(
   const tasks = [...areaTasks, ...fixedTasks, ...eventTasks].sort(
     (a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId),
   );
-  return { columns, tasks, reducedWeeks };
+  // 21 C28: Day 29..42 events are listed after the plan, never tasks
+  const afterEvents = events.filter((e) => {
+    const day = dayOfDate(input.diagnosedAt, e.date);
+    return day >= AFTER_FROM && day <= AFTER_TO;
+  });
+  return {
+    columns,
+    tasks,
+    reducedWeeks,
+    afterEvents,
+    redxDate: dateOfDay(input.diagnosedAt, REDX_DAY),
+  };
 }
