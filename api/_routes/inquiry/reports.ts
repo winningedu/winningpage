@@ -5,14 +5,14 @@
 // 목록과 상세를 한 GET 라우트로 묶는다(growth/reports.ts 와 같은 관례).
 //
 //   ① 목록 `GET /api/inquiry/reports`
-//      200 { ok, items: [{ sessionId, completedAt, subject, topicTitle, linkKind, score, label }],
+//      200 { ok, timeZone(회원 IANA 시간대), items: [{ sessionId, completedAt, subject, topicTitle, linkKind, score, label }],
 //            open: { sessionId, currentStep, subject, topicTitle|null, lastActivityAt }|null,
 //            archived: [{ sessionId, subject, topicTitle|null, lastActivityAt,
 //                         terminal: { reason, mode }|null }] }
 //      items 는 완료(completed) 세션만 completedAt 내림차순이다. archived 는 종결 사유가 있으면
 //      terminal 에 담고 없으면(만료) null 이다.
 //   ② 상세 `GET /api/inquiry/reports?sessionId=<uuid>`
-//      200 { ok, session: SessionView, assets: AssetView[], topics: TopicView[](최신 라운드),
+//      200 { ok, timeZone, session: SessionView, assets: AssetView[], topics: TopicView[](최신 라운드),
 //            topic: TopicView|null(선택), design: DesignView|null,
 //            submission: SubmissionView|null(초안 우선, 없으면 최신 revision),
 //            evaluation: EvaluationView|null, finalizePreview: FinalizePreview|null,
@@ -30,6 +30,7 @@
 // 순수 함수로 검증한다.
 
 import type { VercelResponse } from "@vercel/node";
+import { loadMemberTimeZone } from "../../_lib/growth/memberZone.js";
 import { defineHandler, requireUserId } from "../../_lib/handler.js";
 import { asGradeLabel } from "../../_lib/inquiry/bootstrap.js";
 import {
@@ -140,6 +141,7 @@ async function handleList(res: VercelResponse, db: Db, userId: string) {
 
   res.status(200).json({
     ok: true,
+    timeZone: await loadMemberTimeZone(db, userId),
     items,
     open,
     archived: archived.map((row) => toArchivedItem(row, titleOf(row))),
@@ -226,6 +228,7 @@ async function handleDetail(
 
   res.status(200).json({
     ok: true,
+    timeZone: await loadMemberTimeZone(db, userId),
     session,
     assets,
     topics,

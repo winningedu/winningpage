@@ -13,6 +13,7 @@ import {
 function list(over: Partial<ReportsList> = {}): ReportsList {
   return {
     ok: true,
+    timeZone: "Asia/Seoul",
     items: [
       {
         sessionId: "s1",
@@ -44,11 +45,16 @@ function list(over: Partial<ReportsList> = {}): ReportsList {
 }
 
 describe("formatReportDate", () => {
-  it("서울 날짜 기준 YYYY.MM.DD 로 만든다", () => {
-    expect(formatReportDate("2026-09-30T15:30:00.000Z")).toBe("2026.10.01");
+  it("회원 시간대 날짜 기준 YYYY.MM.DD 로 만든다", () => {
+    expect(formatReportDate("2026-11-22T15:30:00Z", "Asia/Seoul")).toBe(
+      "2026.11.23",
+    );
+    expect(
+      formatReportDate("2026-11-22T15:30:00Z", "America/Los_Angeles"),
+    ).toBe("2026.11.22");
   });
   it("해석할 수 없으면 대시를 낸다", () => {
-    expect(formatReportDate("nope")).toBe("-");
+    expect(formatReportDate("nope", "Asia/Seoul")).toBe("-");
   });
 });
 
@@ -112,6 +118,11 @@ describe("buildReportRows 제출 영역", () => {
 });
 
 describe("buildReportRows", () => {
+  it("행 날짜는 목록의 회원 시간대로 센다", () => {
+    const rows = buildReportRows(list({ timeZone: "America/Los_Angeles" }));
+    expect(rows[0]?.date).toBe("2026.09.30");
+  });
+
   it("확정 행은 연계 방식 라벨, 소수 첫째 자리 점수, 열기 동작을 가진다", () => {
     const rows = buildReportRows(list());
     expect(rows[0]).toMatchObject({
