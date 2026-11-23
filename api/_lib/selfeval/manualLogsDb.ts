@@ -7,9 +7,17 @@ import type { ManualStore, MemoRow } from "./manualLogsRun.js";
 const COLUMNS =
   "id, session_id, written_at, text, ocr, confirmed, included, belongs_to";
 
+/** 닫힌 세션이라 업로드 호출을 셀 수 없을 때 던진다. 라우트가 409 SESSION_NOT_OPEN 으로 답한다. */
+export class SessionNotOpenError extends Error {
+  constructor() {
+    super("fn_selfeval_claim_upload: 닫힌 세션");
+    this.name = "SessionNotOpenError";
+  }
+}
+
 /**
  * 수기 업로드 호출을 세션당 상한 안에서 하나 센다. 세는 일은 DB 함수가 세션 행 잠금 안에서 한다.
- * 상한 안이면 true, 다 썼으면 false. 닫힌 세션이나 알 수 없는 응답은 던진다.
+ * 상한 안이면 true, 다 썼으면 false. 닫힌 세션은 SessionNotOpenError, 알 수 없는 응답은 일반 오류를 던진다.
  */
 export async function claimUploadAttempt(
   db: Db,
@@ -26,6 +34,7 @@ export async function claimUploadAttempt(
   const kind = (data as { kind?: unknown } | null)?.kind;
   if (kind === "claimed") return true;
   if (kind === "limit") return false;
+  if (kind === "locked") throw new SessionNotOpenError();
   throw new Error(
     `fn_selfeval_claim_upload 응답을 읽을 수 없음: ${String(kind)}`,
   );

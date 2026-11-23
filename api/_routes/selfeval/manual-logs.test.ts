@@ -66,6 +66,17 @@ beforeEach(() => {
 });
 
 describe("manual-logs access", () => {
+  test("answers 409 SESSION_NOT_OPEN when the claim finds the session locked", async () => {
+    const { SessionNotOpenError } = await import(
+      "../../_lib/selfeval/manualLogsDb.js"
+    );
+    m.claimUploadAttempt.mockRejectedValue(new SessionNotOpenError());
+    const res = await call({ action: "upload", text: "수행 기록" });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: { code: "SESSION_NOT_OPEN" } });
+    expect(m.extractText).not.toHaveBeenCalled();
+  });
+
   test("rejects a student without an entitlement before reading the session or calling the model", async () => {
     m.access.mockResolvedValue({ allowed: false, tenantReason: null });
     const res = await call({ action: "upload", text: "수행 기록" });

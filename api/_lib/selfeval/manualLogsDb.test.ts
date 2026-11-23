@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { claimUploadAttempt } from "./manualLogsDb.js";
+import { claimUploadAttempt, SessionNotOpenError } from "./manualLogsDb.js";
 
 const rpc = (data: unknown) => vi.fn(async () => ({ data, error: null }));
 
@@ -25,7 +25,7 @@ describe("claimUploadAttempt", () => {
     expect(ok).toBe(false);
   });
 
-  test("throws for a locked or unknown result so the upload does not go through", async () => {
+  test("throws SessionNotOpenError for a locked result so the route can answer 409", async () => {
     await expect(
       claimUploadAttempt(
         { rpc: rpc({ kind: "locked" }) } as never,
@@ -33,6 +33,17 @@ describe("claimUploadAttempt", () => {
         "s1",
         10,
       ),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(SessionNotOpenError);
+  });
+
+  test("throws a plain error for an unknown result so the upload does not go through", async () => {
+    const err = await claimUploadAttempt(
+      { rpc: rpc({ kind: "weird" }) } as never,
+      "u1",
+      "s1",
+      10,
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(SessionNotOpenError);
   });
 });

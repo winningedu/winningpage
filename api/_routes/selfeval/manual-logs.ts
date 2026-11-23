@@ -29,6 +29,7 @@ import { validateManualLogsBody } from "../../_lib/selfeval/manualLogs.js";
 import {
   claimUploadAttempt,
   manualLogsStore,
+  SessionNotOpenError,
 } from "../../_lib/selfeval/manualLogsDb.js";
 import {
   extractFromFile,
@@ -81,16 +82,21 @@ export default defineHandler({
       fail(res, 409, "SESSION_NOT_OPEN", "이미 닫힌 세션이에요.");
       return;
     }
-    const result = await runManualLogs(body, session, {
-      store: manualLogsStore(db),
-      extractFile: extractFromFile,
-      extractText: extractFromText,
-      attempts: {
-        claim: (sessionId) =>
-          claimUploadAttempt(db, userId, sessionId, UPLOAD_ATTEMPT_CAP),
-      },
-    });
-    res.status(result.status).json(result.body);
+    try {
+      const result = await runManualLogs(body, session, {
+        store: manualLogsStore(db),
+        extractFile: extractFromFile,
+        extractText: extractFromText,
+        attempts: {
+          claim: (sessionId) =>
+            claimUploadAttempt(db, userId, sessionId, UPLOAD_ATTEMPT_CAP),
+        },
+      });
+      res.status(result.status).json(result.body);
+    } catch (e) {
+      if (!(e instanceof SessionNotOpenError)) throw e;
+      fail(res, 409, "SESSION_NOT_OPEN", "이미 닫힌 세션이에요.");
+    }
   },
 });
 
