@@ -3,6 +3,7 @@ import type { Likert } from "./likert.js";
 import { sheetRows } from "./sheet.js";
 import {
   representativeTemperament,
+  scoreTemperament,
   type TempDimScore,
   temperamentCounsel,
   temperamentCrossChecks,
@@ -304,5 +305,60 @@ describe("plan methods (18 r50-r52) and counsel flag (18 r27)", () => {
     expect(
       temperamentCounsel(low, { diagnosis: "MID", temperament: "NORMAL" }),
     ).toBe(true);
+  });
+});
+
+describe("scoreTemperament on CALC_EXAMPLE (계산 예시 A30-A32)", () => {
+  const result = scoreTemperament({
+    q23: CALC_EXAMPLE.q23,
+    track: "H12",
+    q20Item5: CALC_EXAMPLE.q20.items[4] as Likert,
+    exec: 66,
+    recv: 50,
+    reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+  });
+
+  test("dims, representative, factors, labels", () => {
+    expect(result.dims.NS).toEqual({ score: 70, level: "H" });
+    expect(result.representative).toEqual({ kind: "single", dim: "NS" });
+    expect(result.factors).toEqual({
+      F_STAB: 35,
+      F_SWAY: 58,
+      F_PRESS: 43,
+      F_SUST: 44,
+    });
+    expect(result.factorLabels.F_SUST).toBe("중기형");
+    expect(result.swayCause).toBe("NS");
+  });
+
+  test("checks, counsel, rules and methods", () => {
+    expect(result).toMatchObject({
+      xchkHa: false,
+      xchkSust: false,
+      counsel: false,
+      methods: ["M_NS", "M_HA", "M_PS"],
+    });
+    expect(result.rules).toEqual({
+      AD_RATIO: ["T_AD_2"],
+      AD_HOLISTIC: ["T_AD_5", "T_AD_6"],
+      PACE: ["T_PACE_2", "T_PACE_3"],
+      SUBJ: ["T_SUBJ_0", "T_SUBJ_1"],
+    });
+  });
+
+  test("mixed representative lists the two dims, 1st first", () => {
+    const mixed = scoreTemperament({
+      q23: {
+        // NS 50: 2 x4 + reverse 2; HA 50 ...; all dimensions the same => NS, HA by fixed order
+        items: Array(35).fill(2) as Likert[],
+        verify: 3,
+      },
+      track: "H3",
+      q20Item5: 2,
+      exec: 50,
+      recv: 50,
+      reliability: { diagnosis: "GOOD", temperament: "NORMAL" },
+    });
+    expect(mixed.representative).toEqual({ kind: "mixed", dims: ["NS", "HA"] });
   });
 });

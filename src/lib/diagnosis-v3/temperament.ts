@@ -12,7 +12,7 @@ import {
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
-import type { LikertBlock, TempRuleArea } from "./types.js";
+import type { DiagnosisV3Scores, LikertBlock, TempRuleArea } from "./types.js";
 
 const tempSheet = sheetRows("18_기질설정");
 const tempRow = (r: number) => {
@@ -361,4 +361,66 @@ export function temperamentCounsel(
     SD: input.SD,
     "불안\u00b7회복": input.recv,
   });
+}
+
+export type TemperamentInput = {
+  readonly q23: LikertBlock;
+  readonly track: TrackCode;
+  /** q20 item 5 before reversal */
+  readonly q20Item5: Likert;
+  /** P1_EXEC (학습 수행) area score */
+  readonly exec: number;
+  /** MIND_RECV (불안 회복) area score */
+  readonly recv: number;
+  readonly reliability: {
+    readonly diagnosis: "SIMPLE" | "MID" | "GOOD";
+    readonly temperament: "CAUTION" | "NORMAL";
+  };
+};
+
+export type TemperamentResult = DiagnosisV3Scores["temperament"] & {
+  /** label per factor, the TEMP_F_<x>_<label> copy id suffix */
+  readonly factorLabels: Readonly<Record<TempFactor, string>>;
+  /** 4 candidates best first, for the hero sub line */
+  readonly ranked: readonly TempDim[];
+};
+
+/** The whole temperament block of the scores layer (18, spec rows 87-110). */
+export function scoreTemperament(input: TemperamentInput): TemperamentResult {
+  const dimScores = temperamentDims(input.q23);
+  const factors = temperamentFactors(dimScores);
+  const rep = representativeTemperament(dimScores);
+  const vars: Record<string, number> = {
+    ...factors.scores,
+    ...Object.fromEntries(
+      TEMP_DIMS.map((dim) => [dim, dimScores[dim].score] as const),
+    ),
+  };
+  return {
+    dims: Object.fromEntries(
+      TEMP_DIMS.map((dim) => [
+        dim,
+        { score: dimScores[dim].score, level: dimScores[dim].level },
+      ]),
+    ) as TemperamentResult["dims"],
+    factors: factors.scores,
+    factorLabels: factors.labels,
+    representative: rep.dims
+      ? { kind: "mixed", dims: rep.dims }
+      : { kind: "single", dim: rep.dim },
+    ranked: rep.ranked,
+    swayCause: factors.swayCause,
+    ...temperamentCrossChecks({
+      ha: dimScores.HA.score,
+      q20Item5: input.q20Item5,
+      sust: factors.scores.F_SUST,
+      exec: input.exec,
+    }),
+    counsel: temperamentCounsel(
+      { HA: dimScores.HA.score, SD: dimScores.SD.score, recv: input.recv },
+      input.reliability,
+    ),
+    rules: temperamentRules(input.track, vars),
+    methods: temperamentMethods(vars),
+  };
 }
