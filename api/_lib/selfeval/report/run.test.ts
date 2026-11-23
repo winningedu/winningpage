@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { BuildInput } from "./inputs.js";
+import type { BuildInput, ReportRecord } from "./inputs.js";
 import {
   type LoadedInput,
   type ReportStore,
@@ -121,7 +121,7 @@ describe("runReport", () => {
     await runReport(deps(store, badModel() as never));
     const first = { ...state.row?.tagMap };
     const earlier = {
-      ...(sampleInput().records[0] as never),
+      ...(sampleInput().records[0] as ReportRecord),
       id: "rec-early",
       subject: "수학",
       submittedAt: "2026-04-01T00:00:00.000Z",

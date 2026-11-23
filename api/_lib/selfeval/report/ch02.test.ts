@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readBody } from "./body.js";
 import { buildCh02 } from "./ch02.js";
-import type { ReportLink } from "./inputs.js";
+import type { ReportLink, ReportRecord } from "./inputs.js";
 import { sampleInput } from "./sample.testkit.js";
 
 function run(over: Parameters<typeof sampleInput>[0] = {}) {
@@ -53,7 +53,7 @@ describe("buildCh02 subjects and counts", () => {
   it("keeps stored tags and gives a new record the next number", () => {
     const first = run();
     const extra = {
-      ...(sampleInput().records[0] as never),
+      ...(sampleInput().records[0] as ReportRecord),
       id: "rec-new",
       subject: "수학",
       submittedAt: "2026-01-01T00:00:00.000Z",

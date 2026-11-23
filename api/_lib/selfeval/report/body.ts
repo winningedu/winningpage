@@ -38,7 +38,7 @@ type RawEvidence = {
 /** 새 모양(배열), 옛 모양({activityId, field}, {student: true}, null)을 한 모양으로 맞춘다. */
 function rawEvidence(value: unknown): RawEvidence[] {
   if (Array.isArray(value)) {
-    return value.flatMap((x) => {
+    return value.flatMap((x): RawEvidence[] => {
       if (!isRecord(x)) return [];
       if (x.sourceType === "S") {
         return [

@@ -73,8 +73,8 @@ export async function composeTexts(args: {
   /** 이 리포트에서 이미 센 모델 호출 횟수. */
   attemptsSoFar: number;
   callStructured: typeof callStructured;
-  trace?: AiTrace;
-  signal?: AbortSignal;
+  trace?: AiTrace | undefined;
+  signal?: AbortSignal | undefined;
 }): Promise<ComposeOutcome> {
   if (args.needs.length === 0) return { kind: "ok", texts: {}, attempts: 0 };
   let attempts = 0;
@@ -94,8 +94,8 @@ export async function composeTexts(args: {
         responseMimeType: "application/json",
         responseSchema: bundle.responseSchema as never,
         maxOutputTokens: bundle.maxOutputTokens,
-        abortSignal: args.signal,
-        telemetry: args.trace,
+        ...(args.signal === undefined ? {} : { abortSignal: args.signal }),
+        ...(args.trace === undefined ? {} : { telemetry: args.trace }),
       });
     } catch (e) {
       console.error("selfeval report_compose 모델 호출 실패:", e);

@@ -48,7 +48,7 @@ function checkOne(n: ComposeNeed, text: string): StepIssue[] {
   }
   const haystack = n.sources.join(" ");
 
-  const tags = trimmed.match(TAG) ?? [];
+  const tags: string[] = trimmed.match(TAG) ?? [];
   for (const t of new Set(tags)) {
     if (!n.allowedTags.includes(t)) {
       issues.push(
