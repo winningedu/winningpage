@@ -794,6 +794,13 @@ export type Page10 = {
         readonly kind: "rules";
         readonly areas: readonly {
           readonly area: TempRuleArea;
+          /** 18 B area name, the area heading */
+          readonly name: string;
+          /** 22 r97 D: values named by the fired rule conditions, [] for TEMP_RULE_NONE */
+          readonly basis: readonly {
+            readonly label: string;
+            readonly score: number;
+          }[];
           readonly texts: readonly string[];
         }[];
       }

@@ -308,6 +308,11 @@ const RULE_AREA_BY_NAME: Readonly<Record<string, TempRuleArea>> = {
   "과목 선택": "SUBJ",
 };
 
+/** 18 B area name per area code, the 10p area heading (22 r97). */
+const RULE_AREA_NAMES = Object.fromEntries(
+  Object.entries(RULE_AREA_BY_NAME).map(([name, area]) => [area, name]),
+) as Record<TempRuleArea, string>;
+
 type RuleRow = {
   readonly id: string;
   readonly area: TempRuleArea;
@@ -551,6 +556,39 @@ export function temperamentPage9(
   };
 }
 
+const RULE_BY_ID = new Map(RULES.map((rule) => [rule.id, rule]));
+
+/** [VAR] names of a condition in their sheet order, e.g. [RD] and [CO] of T_AD_6. */
+const conditionVars = (condition: string): string[] =>
+  [...condition.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1] as string);
+
+/**
+ * 22 r97 D: basis = the dimension and factor values named by the fired rules'
+ * conditions, labels from 18 C6-C12 (dimensions) and 18 B22-B25 (factors).
+ */
+const ruleBasis = (result: TemperamentResult, ids: readonly string[]) => {
+  const values: Record<string, { label: string; score: number }> = {};
+  for (const dim of TEMP_DIMS) {
+    values[dim] = { label: DIM_LABELS[dim], score: result.dims[dim].score };
+  }
+  for (const factor of TEMP_FACTORS) {
+    values[factor] = {
+      label: FACTOR_ROWS[factor].name,
+      score: result.factors[factor],
+    };
+  }
+  const names = ids.flatMap((id) => {
+    const rule = RULE_BY_ID.get(id);
+    if (!rule) throw new Error(`unknown rule ${id}`);
+    return conditionVars(rule.condition);
+  });
+  return [...new Set(names)].map((name) => {
+    const value = values[name];
+    if (!value) throw new Error(`no basis value for [${name}]`);
+    return value;
+  });
+};
+
 /** 22 r96-r99: page 10 text. Rules are hidden for CAUTION (F4, F6) and SIMPLE answers. */
 export function temperamentPage10(
   result: TemperamentResult,
@@ -577,6 +615,8 @@ export function temperamentPage10(
               ][]
             ).map(([area, ids]) => ({
               area,
+              name: RULE_AREA_NAMES[area],
+              basis: ruleBasis(result, ids),
               texts: ids.length > 0 ? ids.map(copy) : [copy("TEMP_RULE_NONE")],
             })),
           },

@@ -91,8 +91,16 @@ export const p10: Page10 = {
   admission: {
     kind: "rules",
     areas: [
-      { area: "HS", texts: ["RULE hs1", "RULE hs2"] },
-      { area: "PACE", texts: ["RULE pace"] },
+      {
+        area: "HS",
+        name: "AREA hs",
+        basis: [
+          { label: "BASIS a", score: 50 },
+          { label: "BASIS b", score: 75 },
+        ],
+        texts: ["RULE hs1", "RULE hs2"],
+      },
+      { area: "PACE", name: "AREA pace", basis: [], texts: ["RULE pace"] },
     ],
   },
   methods: ["METHOD1"],

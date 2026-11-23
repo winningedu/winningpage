@@ -502,6 +502,20 @@ describe("page 10 text (22 r96-r99)", () => {
     expect(page.admission.areas[0]?.texts[0]).toContain("교과\u00b7정시 모두");
   });
 
+  test("each area carries its 18 B name and the values its fired conditions name (22 r97 D)", () => {
+    const page = temperamentPage10(calc(), normal);
+    if (page.admission.kind !== "rules") throw new Error("expected rules");
+    const holistic = page.admission.areas.find((a) => a.area === "AD_HOLISTIC");
+    // T_AD_5 [NS] [F_SWAY], T_AD_6 [RD] [CO] (18 r40, r41); CALC_EXAMPLE A30-A31
+    expect(holistic?.name).toBe("학생부종합 준비");
+    expect(holistic?.basis).toEqual([
+      { label: "자극추구", score: 70 },
+      { label: "선택 흔들림", score: 58 },
+      { label: "사회적 민감성", score: 60 },
+      { label: "연대감", score: 70 },
+    ]);
+  });
+
   test("an area without a hit shows TEMP_RULE_NONE", () => {
     const page = temperamentPage10({ ...calc(), rules: { SUBJ: [] } }, normal);
     if (page.admission.kind !== "rules") throw new Error("expected rules");
