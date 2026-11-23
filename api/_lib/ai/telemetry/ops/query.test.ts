@@ -8,10 +8,11 @@ import {
 
 // 2026-10-07 02:00 KST 는 UTC 로 10-06 17:00 이다. KST 날짜 기준 동작을 확인한다.
 const NOW = new Date("2026-10-06T17:00:00Z");
+const SEOUL = "Asia/Seoul";
 
 describe("parseRange", () => {
   it("기본값은 오늘(KST)까지 30일이며 to 는 다음 날 KST 0시", () => {
-    const r = parseRange({}, NOW);
+    const r = parseRange({}, NOW, SEOUL);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.from.toISOString()).toBe("2026-09-07T15:00:00.000Z");
@@ -19,15 +20,30 @@ describe("parseRange", () => {
   });
 
   it("from, to 를 KST 날짜로 해석한다", () => {
-    const r = parseRange({ from: "2026-10-01", to: "2026-10-03" }, NOW);
+    const r = parseRange({ from: "2026-10-01", to: "2026-10-03" }, NOW, SEOUL);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.from.toISOString()).toBe("2026-09-30T15:00:00.000Z");
     expect(r.to.toISOString()).toBe("2026-10-03T15:00:00.000Z");
   });
 
+  it("UTC 시간대는 UTC 날짜 경계로 해석한다", () => {
+    const r = parseRange({ from: "2026-10-01", to: "2026-10-03" }, NOW, "UTC");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.from.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-10-04T00:00:00.000Z");
+  });
+
+  it("기본 to 는 시간대별 오늘이다(10-06 17:00Z 는 UTC 로 10-06)", () => {
+    const r = parseRange({}, NOW, "UTC");
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.to.toISOString()).toBe("2026-10-07T00:00:00.000Z");
+  });
+
   it("같은 날짜는 하루 구간", () => {
-    const r = parseRange({ from: "2026-10-01", to: "2026-10-01" }, NOW);
+    const r = parseRange({ from: "2026-10-01", to: "2026-10-01" }, NOW, SEOUL);
     expect(r.ok).toBe(true);
   });
 
@@ -37,15 +53,15 @@ describe("parseRange", () => {
     ["from 이 to 보다 뒤", { from: "2026-10-05", to: "2026-10-01" }],
     ["366일 초과", { from: "2025-10-01", to: "2026-10-02" }],
   ])("거부: %s", (_n, q) => {
-    const r = parseRange(q, NOW);
+    const r = parseRange(q, NOW, SEOUL);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason.length).toBeGreaterThan(0);
   });
 
   it("366일은 허용한다", () => {
-    expect(parseRange({ from: "2025-10-01", to: "2026-10-01" }, NOW).ok).toBe(
-      true,
-    );
+    expect(
+      parseRange({ from: "2025-10-01", to: "2026-10-01" }, NOW, SEOUL).ok,
+    ).toBe(true);
   });
 });
 
@@ -77,7 +93,7 @@ describe("parseView", () => {
 
 describe("parseCallsQuery", () => {
   it("기본값", () => {
-    const r = parseCallsQuery({}, NOW);
+    const r = parseCallsQuery({}, NOW, SEOUL);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.query).toMatchObject({
@@ -103,6 +119,7 @@ describe("parseCallsQuery", () => {
         pageSize: "100",
       },
       NOW,
+      SEOUL,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -128,6 +145,6 @@ describe("parseCallsQuery", () => {
     ["service", { service: "nope" }],
     ["range", { from: "bad" }],
   ])("거부: %s", (_n, q) => {
-    expect(parseCallsQuery(q, NOW).ok).toBe(false);
+    expect(parseCallsQuery(q, NOW, SEOUL).ok).toBe(false);
   });
 });
