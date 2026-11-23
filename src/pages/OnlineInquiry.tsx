@@ -1,6 +1,7 @@
 import kakaoChatPhone from "@/assets/inquiry/kakao-chat-phone.png";
 import kakaoLogo from "@/assets/inquiry/kakao-logo.png";
 import { COMPANY } from "@/data/company";
+import { trackEvent } from "@/lib/analytics";
 
 // 온라인 문의 — 카카오톡 채널 상담 유도 랜딩 (Figma 4275:2588).
 // 러프 구현 방침: 구조·위계·컬러·카피는 시안대로, 세부 수치는 재량.
@@ -72,6 +73,11 @@ export default function OnlineInquiry() {
               <div className="flex flex-col items-center gap-2 lg:items-start">
                 <a
                   href={kakaoChannelUrl}
+                  onClick={() =>
+                    trackEvent("kakao_inquiry_click", {
+                      location: "online_inquiry",
+                    })
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-xl bg-[#fbe300] px-5 py-3 shadow-[0_8px_24px_rgba(13,27,42,0.16)] transition hover:brightness-95"

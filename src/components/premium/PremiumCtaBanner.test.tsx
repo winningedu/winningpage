@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import PremiumCtaBanner from "./PremiumCtaBanner";
 
 function renderBanner(props: React.ComponentProps<typeof PremiumCtaBanner>) {
@@ -64,5 +64,20 @@ describe("PremiumCtaBanner — 값 없으면 버튼을 렌더하지 않는다", 
     expect(
       screen.queryByRole("link", { name: "안내" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("PremiumCtaBanner, cta onClick", () => {
+  it("light variant 외부 링크 CTA를 누르면 onClick을 부른다", () => {
+    const onClick = vi.fn();
+    renderBanner({
+      title: "제목",
+      cta: { label: "카카오톡 상담", href: "https://pf.kakao.com/x", onClick },
+      variant: "light",
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "카카오톡 상담" }));
+
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
