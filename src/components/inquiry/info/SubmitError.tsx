@@ -56,6 +56,12 @@ export default function SubmitError({ error }: { error: SubmitErrorView }) {
         </h2>
         <Link
           to={PRICING}
+          onClick={() =>
+            trackEvent("paywall_cta_click", {
+              service: "inquiry",
+              location: "no_entitlement",
+            })
+          }
           className={`${buttonVariants({ variant: "outline", size: "lg" })} h-10 px-5 text-app-label`}
         >
           이용권 보기

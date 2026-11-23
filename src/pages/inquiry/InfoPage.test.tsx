@@ -227,6 +227,27 @@ describe("InfoPage 화면 상태", () => {
     expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
   });
 
+  test("위닝의 부트스트랩 이용권 없음 이용권 보기를 누르면 paywall_cta_click 을 보낸다", () => {
+    setShell(null, {
+      bootstrapError: {
+        result: {
+          kind: "error",
+          status: 403,
+          code: "NO_ENTITLEMENT",
+          message: "x",
+        },
+      },
+    });
+    renderPage();
+    expect(trackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "이용권 보기" }));
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("paywall_cta_click", {
+      service: "inquiry",
+      location: "no_entitlement",
+    });
+  });
+
   test("프로필 값으로 폼이 채워진다", () => {
     renderPage();
     expect(screen.getByRole("radio", { name: "고2" })).toBeChecked();

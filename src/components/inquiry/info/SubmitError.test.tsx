@@ -1,13 +1,19 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { trackEvent } from "@/lib/analytics";
 import SubmitError from "./SubmitError";
 
 const siteState = vi.hoisted(() => ({ tenantServiceGate: false }));
 vi.mock("@/config/site", () => ({ site: { features: siteState } }));
 
-afterEach(cleanup);
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 const renderError = (error: Parameters<typeof SubmitError>[0]["error"]) =>
   render(
@@ -24,6 +30,18 @@ describe("SubmitError 이용 막힘", () => {
       "href",
       "/pricing?service=inquiry",
     );
+  });
+
+  it("이용권 없음의 이용권 보기를 누르면 paywall_cta_click 을 no_entitlement 로 보낸다", () => {
+    siteState.tenantServiceGate = false;
+    renderError({ kind: "entitlement", tenantReason: null });
+    expect(trackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "이용권 보기" }));
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("paywall_cta_click", {
+      service: "inquiry",
+      location: "no_entitlement",
+    });
   });
 
   it.each([

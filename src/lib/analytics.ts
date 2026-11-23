@@ -41,7 +41,8 @@ export type AnalyticsEventMap = {
       | "survey"
       | "reports"
       | "usage_exhausted"
-      | "finalize";
+      | "finalize"
+      | "no_entitlement";
   };
   ai_regenerate: { service: AnalyticsService; step: "topics" | "result" };
 };
