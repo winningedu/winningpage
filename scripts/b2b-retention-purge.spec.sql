@@ -557,6 +557,16 @@ select pg_temp.expect_bool('서쪽 시간대 기관은 그 기관의 오늘이 �
      from public.fn_anonymize_expired_b2b_members(pg_temp.fx('ten_zwest'), pg_temp.fx('m_t1'), 'hq@example.com', array[pg_temp.fx('m_zw1')]))
   and pg_temp.pname('zw1') = '홍길동zw1', true);
 
+-- 미리보기의 local_today 는 기관 시간대의 오늘이다(실행 함수와 같다). 학생이 없는 한 줄에도 담긴다.
+select pg_temp.expect_bool('미리보기 local_today 는 기관 시간대 날짜다',
+  (select bool_and(local_today = public.fn_local_date(now(), 'Pacific/Kiritimati'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_zeast')))
+  and (select bool_and(local_today = public.fn_local_date(now(), 'Etc/GMT+12'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_zwest'))), true);
+select pg_temp.expect_bool('미리보기 local_today 는 학생이 없는 한 줄에도 담긴다',
+  (select count(*) = 1 and bool_and(profile_id is null and local_today = public.fn_local_date(now(), 'Asia/Seoul'))
+     from public.fn_member_purge_preview(pg_temp.fx('ten_tempty'))), true);
+
 -- 3개 인자 함수는 더 이상 없다(오버로드가 모호해지지 않는다).
 select pg_temp.expect_int('옛 3개 인자 시그니처는 없다',
   (select count(*) from pg_proc p where p.proname = 'fn_anonymize_expired_b2b_members' and p.pronargs = 3), 0);

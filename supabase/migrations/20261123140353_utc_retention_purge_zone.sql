@@ -220,3 +220,59 @@ $$;
 
 revoke all on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text, uuid[]) from public, anon, authenticated;
 grant execute on function public.fn_anonymize_expired_b2b_members(uuid, uuid, text, uuid[]) to service_role;
+
+-- 미리보기: 반환 열이 바뀌어 옛 함수를 지우고 새로 만든다. local_today 외 본문은 20261106084702_b2b_member_purge_targets.sql 과 같다.
+drop function public.fn_member_purge_preview(uuid);
+
+create function public.fn_member_purge_preview(p_tenant uuid)
+returns table (
+  profile_id uuid,
+  name text,
+  grade text,
+  class_label text,
+  number smallint,
+  protected boolean,
+  contract_end date,
+  grace_end date,
+  local_today date
+)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  with t as (
+    select x.id, x.school_year, x.contract_end_date, x.time_zone,
+           coalesce(x.grace_ends_on, x.contract_end_date + (
+             select case when jsonb_typeof(a.value) = 'number' then (a.value #>> '{}')::integer end
+               from public.app_settings a where a.key = 'contract_grace_days')) as grace_end
+      from public.tenants x
+     where x.id = p_tenant and x.contract_end_date is not null
+  ), cand as (
+    select p.id as profile_id, p.name, e.grade,
+           case when c.id is null then null else coalesce(g.name || ' ', '') || c.name end as class_label,
+           e.number,
+           exists (
+             select 1 from public.program_access_grants pg
+              where pg.profile_id = p.id and pg.paid_amount > 0
+                and pg.revoked_at is null and (pg.expires_at is null or pg.expires_at > now())
+           ) as protected,
+           t.contract_end_date as contract_end, t.grace_end,
+           public.fn_local_date(now(), t.time_zone) as local_today
+      from t
+      join public.profiles p on p.tenant_id = t.id and p.member_type = 'student' and p.name is distinct from '삭제된 학생'
+      left join public.student_enrollments e
+        on e.student_id = p.id and e.tenant_id = t.id and e.school_year = t.school_year and e.status = 'active'
+      left join public.classes c on c.id = e.class_id
+      left join public.class_groups g on g.id = c.group_id
+  )
+  select * from cand
+  union all
+  select null, null, null, null, null, null, t.contract_end_date, t.grace_end,
+         public.fn_local_date(now(), t.time_zone)
+    from t where not exists (select 1 from cand)
+  order by 3 nulls last, 4 nulls last, 5 nulls last, 1 nulls last;
+$$;
+
+revoke all on function public.fn_member_purge_preview(uuid) from public, anon, authenticated;
+grant execute on function public.fn_member_purge_preview(uuid) to service_role;

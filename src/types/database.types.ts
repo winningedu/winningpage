@@ -9412,6 +9412,7 @@ export type Database = {
           contract_end: string;
           grace_end: string;
           grade: string;
+          local_today: string;
           name: string;
           number: number;
           profile_id: string;
