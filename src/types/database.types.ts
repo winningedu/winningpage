@@ -9800,10 +9800,7 @@ export type Database = {
           skipped_count: number;
         }[];
       };
-      fn_school_year: {
-        Args: { p_ts: string; p_tz: string };
-        Returns: number;
-      };
+      fn_school_year: { Args: { p_ts: string; p_tz: string }; Returns: number };
       fn_school_year_kst: { Args: { p_ts: string }; Returns: number };
       fn_school_year_rollover: {
         Args: {
