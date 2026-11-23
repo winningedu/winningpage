@@ -1,6 +1,7 @@
 // Page 8: MBTI (22_리포트요소 r79-r84).
 import type { Page8 } from "@/lib/diagnosis-v3/types";
 import { Bullets, Note, PageEyebrow, Para, SectionTitle } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import { REPORT_LABELS as L } from "./parts/labels";
 import ReportSheet from "./parts/ReportSheet";
 
@@ -13,7 +14,9 @@ export default function Page08Mbti({ page }: { page: Page8 }) {
         <>
           {/* 22 r79 */}
           <section className="flex flex-col gap-1 rounded-lg border border-[#e5e5e5] p-4">
-            <p className="text-3xl font-bold text-ink">{mbti.card.type}</p>
+            <p className="text-3xl font-bold text-ink">
+              <CopyText text={mbti.card.type} />
+            </p>
             <SectionTitle>{mbti.card.nick}</SectionTitle>
             <Para>{mbti.card.style}</Para>
             <Note>{mbti.card.share}</Note>
@@ -25,7 +28,9 @@ export default function Page08Mbti({ page }: { page: Page8 }) {
                 key={pole.letter}
                 className="flex flex-col gap-1 rounded-lg border border-[#e5e5e5] p-3"
               >
-                <p className="text-sm font-bold text-ink">{pole.name}</p>
+                <p className="text-sm font-bold text-ink">
+                  <CopyText text={pole.name} />
+                </p>
                 <Para>{pole.habit}</Para>
                 <Para>{pole.tip}</Para>
               </article>
@@ -38,7 +43,9 @@ export default function Page08Mbti({ page }: { page: Page8 }) {
               {mbti.factors.names.map((name, i) => (
                 <span key={name}>
                   {i > 0 ? L.joiner : null}
-                  <span>{name}</span>
+                  <span>
+                    <CopyText text={name} />
+                  </span>
                 </span>
               ))}
             </Para>

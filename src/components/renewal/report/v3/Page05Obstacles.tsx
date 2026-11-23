@@ -37,7 +37,9 @@ export default function Page05Obstacles({
                 className={`flex flex-col gap-2 rounded-lg p-2 text-xs ${pickedCount > 0 ? "border-2 border-navy-ink" : "bg-surface-card"}`}
               >
                 <h3 className="flex justify-between font-semibold">
-                  <span>{group.area}</span>
+                  <span>
+                    <CopyText text={group.area} />
+                  </span>
                   <span>{pickedCount}</span>
                 </h3>
                 <ul className="flex flex-col gap-1">
@@ -47,7 +49,7 @@ export default function Page05Obstacles({
                       data-selected={String(option.selected)}
                       className={option.selected ? "font-bold" : "text-ink-sub"}
                     >
-                      {option.label}
+                      <CopyText text={option.label} />
                       {option.selected && (
                         <span className="sr-only"> {L.selected}</span>
                       )}
@@ -96,15 +98,23 @@ export default function Page05Obstacles({
               <tbody>
                 {page.crossCheck.items.map((item) => (
                   <tr key={item.option} className="border-b border-line">
-                    <td className="py-2 pr-4">{item.option}</td>
                     <td className="py-2 pr-4">
-                      {item.answers
-                        .map((answer) => `${answer.question} ${answer.answer}`)
-                        .join(", ")}
-                      {L.joiner}
-                      {item.area.label} {item.area.score}
+                      <CopyText text={item.option} />
                     </td>
-                    <td className="py-2 font-semibold">{item.text}</td>
+                    <td className="py-2 pr-4">
+                      <CopyText
+                        text={item.answers
+                          .map(
+                            (answer) => `${answer.question} ${answer.answer}`,
+                          )
+                          .join(", ")}
+                      />
+                      {L.joiner}
+                      <CopyText text={item.area.label} /> {item.area.score}
+                    </td>
+                    <td className="py-2 font-semibold">
+                      <CopyText text={item.text} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

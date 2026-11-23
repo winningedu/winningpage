@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { site } from "@/config/site";
+import CopyText from "./CopyText";
 import { REPORT_LABELS, TOTAL_PAGES } from "./labels";
 
 type ReportSheetProps = {
@@ -37,7 +38,9 @@ export default function ReportSheet({
       </header>
       <div className="mt-8 flex flex-1 flex-col gap-6">{children}</div>
       <footer className="mt-10 flex items-center justify-between border-t border-line pt-4 text-xs text-ink-sub">
-        <span>{pageText ?? footerNote}</span>
+        <span>
+          {pageText ?? (footerNote && <CopyText text={footerNote} />)}
+        </span>
         <span>
           {site.brandName} {REPORT_LABELS.studentOnly}
         </span>

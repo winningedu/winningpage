@@ -58,12 +58,16 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                     aria-hidden
                     className={`h-2 rounded-full ${isSelected ? "bg-navy-ink" : "bg-surface-muted"}`}
                   />
-                  {option}
+                  <CopyText text={option} />
                 </li>
               );
             })}
           </ol>
-          {target && <p className="font-semibold">{target}</p>}
+          {target && (
+            <p className="font-semibold">
+              <CopyText text={target} />
+            </p>
+          )}
         </ReportCard>
         {/* 22 r33, only when q3r was shown */}
         {reasons && (
@@ -74,7 +78,7 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                   key={chip}
                   className="rounded-md bg-navy-ink px-3 py-1 text-white"
                 >
-                  {chip}
+                  <CopyText text={chip} />
                 </li>
               ))}
             </ul>
@@ -118,7 +122,9 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
         {/* 22 r34: NA highlights no cell; its name and desc stand below */}
         {matrix.note && (
           <p className="rounded-lg bg-surface-card p-3 text-sm">
-            <span className="font-semibold">{matrix.note.name}</span>
+            <span className="font-semibold">
+              <CopyText text={matrix.note.name} />
+            </span>
             {L.joiner}
             <span>
               <CopyText text={matrix.note.desc} />
@@ -197,7 +203,9 @@ function MatrixRow({
             aria-current={isCurrent ? "true" : undefined}
             className={`rounded-lg p-3 ${isCurrent ? "border-2 border-navy-ink bg-white" : "bg-surface-card"}`}
           >
-            <p className="font-semibold">{cell.name}</p>
+            <p className="font-semibold">
+              <CopyText text={cell.name} />
+            </p>
             {isCurrent && (
               <p className="mt-1 text-xs text-ink">
                 <CopyText text={cell.desc} />

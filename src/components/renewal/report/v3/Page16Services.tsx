@@ -9,6 +9,7 @@ import {
   Para,
   SectionTitle,
 } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import ReportSheet from "./parts/ReportSheet";
 
 /**
@@ -47,7 +48,7 @@ export default function Page16Services({ page }: { page: Page16 }) {
             key={chip}
             className="rounded-full border border-[#e5e5e5] px-3 py-1 text-sm text-ink"
           >
-            {chip}
+            <CopyText text={chip} />
           </li>
         ))}
       </ul>
@@ -58,13 +59,15 @@ export default function Page16Services({ page }: { page: Page16 }) {
             key={svc.code}
             className="flex flex-col gap-2 rounded-lg border border-[#e5e5e5] p-4"
           >
-            <p className="text-sm font-bold text-ink">{svc.prefix}</p>
+            <p className="text-sm font-bold text-ink">
+              <CopyText text={svc.prefix} />
+            </p>
             <SectionTitle>{svc.name}</SectionTitle>
             <Para>{svc.text}</Para>
             <ul className="flex flex-wrap gap-2">
               {svc.tags.map((tag) => (
                 <li key={tag} className="text-xs text-[#808080]">
-                  {tag}
+                  <CopyText text={tag} />
                 </li>
               ))}
             </ul>
@@ -77,7 +80,7 @@ export default function Page16Services({ page }: { page: Page16 }) {
       <ol className="flex list-decimal flex-col gap-2 ps-4.5">
         {page.agenda.map((item) => (
           <li key={item} className="text-base text-[#808080]">
-            {item}
+            <CopyText text={item} />
           </li>
         ))}
       </ol>

@@ -39,9 +39,9 @@ export default function Page06School({ page, tocTitle }: Page06SchoolProps) {
             <ul className="flex flex-col gap-1">
               {page.hardest.map((item) => (
                 <li key={item.option}>
-                  {item.option}
+                  <CopyText text={item.option} />
                   {L.joiner}
-                  {item.area}
+                  <CopyText text={item.area} />
                 </li>
               ))}
             </ul>
@@ -76,7 +76,9 @@ function TextBlockList({ blocks }: { blocks: readonly TextBlock[] }) {
     <ul className="flex list-disc flex-col gap-2 pl-4">
       {blocks.map((block) => (
         <li key={block.heading}>
-          <span className="font-semibold">{block.heading}</span>
+          <span className="font-semibold">
+            <CopyText text={block.heading} />
+          </span>
           {L.joiner}
           <CopyText text={block.body} />
         </li>

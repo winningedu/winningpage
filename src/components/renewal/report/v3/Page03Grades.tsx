@@ -79,7 +79,9 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
                     </td>
                     <td className="flex items-center gap-2 py-2">
                       <StatusBadge>{VERDICT_LABELS[row.verdict]}</StatusBadge>
-                      <span>{row.text}</span>
+                      <span>
+                        <CopyText text={row.text} />
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -102,9 +104,12 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
         </p>
         {/* spec row 76: 응답 근거 */}
         <p className="text-sm text-ink-sub">
-          {`${evidence.item} ${evidence.answer}`}
-          {evidence.examRoom &&
-            `${L.joiner}${L.examRoomQuestion} ${evidence.examRoom} ${L.examRoomPicked}`}
+          <CopyText text={`${evidence.item} ${evidence.answer}`} />
+          {evidence.examRoom && (
+            <CopyText
+              text={`${L.joiner}${L.examRoomQuestion} ${evidence.examRoom} ${L.examRoomPicked}`}
+            />
+          )}
         </p>
       </ReportCard>
     </ReportSheet>

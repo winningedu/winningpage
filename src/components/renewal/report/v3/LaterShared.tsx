@@ -1,7 +1,14 @@
 // Text blocks for report v3 pages 7 to 16 (title, paragraph, bullets, note). The sheet frame is parts/ReportSheet.
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 import { withDedupedKeys } from "@/lib/reactKeys";
+import CopyText from "./parts/CopyText";
 import { pageTitle, twoDigitPage } from "./parts/labels";
+
+/** Plain strings in the children are payload copy and may carry <br> markers. */
+const withLineBreaks = (children: ReactNode) =>
+  Children.map(children, (child) =>
+    typeof child === "string" ? <CopyText text={child} /> : child,
+  );
 
 /** "07 입시 준비도 ..." eyebrow of the PDF page header; the number is fixed (R9). */
 export function PageEyebrow({ page }: { page: number }) {
@@ -17,18 +24,26 @@ export function PageEyebrow({ page }: { page: number }) {
 
 export function PageTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="text-2xl font-bold leading-[1.3] text-ink">{children}</h2>
+    <h2 className="text-2xl font-bold leading-[1.3] text-ink">
+      {withLineBreaks(children)}
+    </h2>
   );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h3 className="text-lg font-bold leading-[1.3] text-ink">{children}</h3>
+    <h3 className="text-lg font-bold leading-[1.3] text-ink">
+      {withLineBreaks(children)}
+    </h3>
   );
 }
 
 export function Para({ children }: { children: ReactNode }) {
-  return <p className="text-base leading-[1.4] text-[#808080]">{children}</p>;
+  return (
+    <p className="text-base leading-[1.4] text-[#808080]">
+      {withLineBreaks(children)}
+    </p>
+  );
 }
 
 export function Bullets({ items }: { items: readonly string[] }) {
@@ -36,7 +51,7 @@ export function Bullets({ items }: { items: readonly string[] }) {
     <ul className="flex list-disc flex-col gap-2 ps-4.5">
       {withDedupedKeys([...items]).map(({ item, key }) => (
         <li key={key} className="text-base leading-[1.4] text-[#808080]">
-          {item}
+          <CopyText text={item} />
         </li>
       ))}
     </ul>
@@ -44,5 +59,9 @@ export function Bullets({ items }: { items: readonly string[] }) {
 }
 
 export function Note({ children }: { children: ReactNode }) {
-  return <p className="text-sm leading-[1.4] text-[#808080]">{children}</p>;
+  return (
+    <p className="text-sm leading-[1.4] text-[#808080]">
+      {withLineBreaks(children)}
+    </p>
+  );
 }

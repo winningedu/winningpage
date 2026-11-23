@@ -1,6 +1,7 @@
 // Page 11: 4 week plan (22_리포트요소 r101-r107).
 import type { Page11 } from "@/lib/diagnosis-v3/types";
 import { Bullets, Note, PageEyebrow, PageTitle, Para } from "./LaterShared";
+import CopyText from "./parts/CopyText";
 import ReportSheet from "./parts/ReportSheet";
 
 export default function Page11Plan({ page }: { page: Page11 }) {
@@ -13,7 +14,9 @@ export default function Page11Plan({ page }: { page: Page11 }) {
       <Para>{page.lead}</Para>
       {/* 22 r102 */}
       <section className="rounded-lg border border-[#e5e5e5] p-3">
-        <p className="text-sm font-bold text-ink">{page.urgency.label}</p>
+        <p className="text-sm font-bold text-ink">
+          <CopyText text={page.urgency.label} />
+        </p>
         <Para>{page.urgency.text}</Para>
       </section>
       {/* 22 r103 */}
@@ -36,7 +39,7 @@ export default function Page11Plan({ page }: { page: Page11 }) {
                 scope="col"
                 className="border border-[#e5e5e5] p-2 text-ink"
               >
-                {c}
+                <CopyText text={c} />
               </th>
             ))}
           </tr>
@@ -58,7 +61,7 @@ export default function Page11Plan({ page }: { page: Page11 }) {
                   key={cell}
                   className="border border-[#e5e5e5] p-2 text-[#808080]"
                 >
-                  {cell}
+                  <CopyText text={cell} />
                 </td>
               ))}
             </tr>
