@@ -2,7 +2,7 @@ import { Check, TriangleAlert } from "lucide-react";
 import { CARD, CARD_TITLE } from "@/components/growth/start/cardStyles";
 import { Button } from "@/components/ui/button";
 import type { VerificationSections } from "@/lib/selfeval/types";
-import { discriminationLabel } from "./verifyLogic";
+import { discriminationLabel, linkWarningLines } from "./verifyLogic";
 
 // 검증 결과 본문 카드들(시안 43~50). 점수 근거를 항목별로 그대로 보여 준다.
 
@@ -194,6 +194,28 @@ export function ExcludedCard({ sections }: { sections: VerificationSections }) {
           <li key={row.label} className="text-app-label text-ink-strong">
             <span className="font-semibold">{row.label}</span>
             <span className="ml-2 text-ink-sub">{row.note}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** 연계 경고(명세 No.182, 190). 필수 수정이 아니라서 경고 알림 영역으로 그리지 않고 제출을 막지 않는다. */
+export function LinkWarningsCard({
+  sections,
+}: {
+  sections: VerificationSections;
+}) {
+  const lines = linkWarningLines(sections);
+  if (lines.length === 0) return null;
+  return (
+    <section className={CARD} aria-label="연계 경고">
+      <h2 className={CARD_TITLE}>연계 경고</h2>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {lines.map((line) => (
+          <li key={line.key} className="text-app-label text-ink-strong">
+            {line.text}
           </li>
         ))}
       </ul>

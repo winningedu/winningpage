@@ -436,6 +436,17 @@ export type GrowthFit = {
   }[];
 };
 
+/** 연계 경고 한 건(명세 No.182, 190). 점수와 제출 가능 판정에는 들어가지 않는다. */
+export type LinkCheck = {
+  recordId: string;
+  label: string;
+  /** unused 는 선택했지만 본문이 인용하지 않은 기록이다. */
+  status: "checked" | "unused";
+  linkShown: boolean | null;
+  concreteWordPresent: boolean | null;
+  listingSuspect: boolean | null;
+};
+
 export type VerificationSections = {
   items: ScoreItem[];
   total: number;
@@ -452,6 +463,8 @@ export type VerificationSections = {
   clicheDensity: number;
   clicheHits: string[];
   numberCount: number;
+  /** 연계 경고. 이전 리포트에는 없다. */
+  linkChecks?: LinkCheck[];
 };
 
 // ---------------------------------------------------------------------------

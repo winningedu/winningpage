@@ -168,6 +168,36 @@ describe("VerifyPage 검증 실행", () => {
     await waitFor(() => expect(verifyMock).toHaveBeenCalled());
   });
 
+  test("연계 경고는 필수 수정과 따로 보이고 저장을 막지 않는다(명세 No.182, 190)", async () => {
+    const withWarning = {
+      ...makeVerification(),
+      linkChecks: [
+        {
+          recordId: "a-support",
+          label: "보조탐구",
+          status: "unused" as const,
+          linkShown: null,
+          concreteWordPresent: null,
+          listingSuspect: null,
+        },
+      ],
+    };
+    detailMock.mockResolvedValue(verified(withWarning));
+    renderPage();
+    const card = await screen.findByRole("region", { name: "연계 경고" });
+    expect(card.textContent).toContain(
+      "보조탐구: 선택했지만 본문에 쓰이지 않았어요(미사용)",
+    );
+    expect(screen.queryByRole("alert", { name: "필수 수정" })).toBeNull();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "최종본으로 저장",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
   test("최신 검증이 있으면 다시 부르지 않는다", async () => {
     detailMock.mockResolvedValue(verified());
     renderPage();
