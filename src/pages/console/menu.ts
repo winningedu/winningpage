@@ -54,7 +54,6 @@ export const menuGroups: MenuGroup[] = [
       {
         label: "미배정 목록",
         to: `${CONSOLE_BASE}/unassigned`,
-        adminOnly: true,
       },
       {
         label: "학생조회-변경-이력",

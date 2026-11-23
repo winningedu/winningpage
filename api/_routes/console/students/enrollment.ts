@@ -2,7 +2,7 @@
 //   { studentId, expectedVersion, grade, classId, number, reason?, applyYear? }
 //
 // 학적(학년, 학급, 번호) 수정. 담임은 담당 학급 학생만(W6b), 학교 관리자와 본사 대행은 기관 전체(W12, W13b).
-// 범위 밖 학생과 담당 밖 학급으로의 이동은 404 로 숨긴다. 학급이 비어 있는 학생(풀)은 담임 범위가 아니라 관리자만 배정한다.
+// 범위 밖 학생과 담당 밖 학급으로의 이동은 404 로 숨긴다. 학급이 비어 있는 올해 학생(풀)은 담임도 자기 담당 학급으로만 배정한다(pool_assign).
 // 이력과 version 검사는 fn_enrollment_update 가 한 트랜잭션으로 처리한다.
 
 import { writeConsoleAuditLog } from "../../../_lib/console/audit.js";
@@ -43,6 +43,7 @@ interface EnrollmentEdit {
 interface EnrollmentQuery {
   eq(column: string, value: string): EnrollmentQuery;
   in(column: string, values: string[]): EnrollmentQuery;
+  is(column: string, value: null): EnrollmentQuery;
   maybeSingle(): PromiseLike<{
     data: Record<string, unknown> | null;
     error: unknown;
@@ -115,7 +116,7 @@ export default defineHandler({
       return;
     }
 
-    const { data: current, error: lookupError } = await scopeQuery(
+    const { data: scoped, error: lookupError } = await scopeQuery(
       ctx.supabaseAdmin
         .from("student_enrollments")
         .select("tenant_id, class_id, grade, number")
@@ -125,15 +126,40 @@ export default defineHandler({
       { classColumn: "class_id" },
     ).maybeSingle();
     if (lookupError) throw new Error("enrollment lookup failed");
+    // 담임은 올해 학급이 비어 있는 풀 학생도 기관 안에서 찾아 담당 학급으로 배정할 수 있다.
+    let current = scoped;
+    let homeroomPoolAssign = false;
+    if (!current && actor.kind === "homeroom" && year === currentYear) {
+      const { data: pooled, error: poolError } = await (
+        ctx.supabaseAdmin
+          .from("student_enrollments")
+          .select("tenant_id, class_id, grade, number")
+          .eq("student_id", edit.studentId)
+          .eq("school_year", String(year))
+          .eq("tenant_id", actor.tenantId) as unknown as EnrollmentQuery
+      )
+        .is("class_id", null)
+        .maybeSingle();
+      if (poolError) throw new Error("enrollment pool lookup failed");
+      current = pooled;
+      homeroomPoolAssign = !!pooled;
+    }
     // 다음 해 행이 없으면 RPC 가 만든다(올해 학적과 담당 학급은 RPC 가 잠금 아래에서 확인한다).
     const creatingNextYear = !current && year === currentYear + 1;
     if (
       !creatingNextYear &&
+      !homeroomPoolAssign &&
       !requireInScope(res, "coded", actor, {
         tenantId: (current?.tenant_id as string | undefined) ?? null,
         classId: (current?.class_id as string | null | undefined) ?? null,
       })
     ) {
+      return;
+    }
+
+    // 풀 배정은 담당 학급이 정해져야 한다. 학급을 비워 두는 요청은 없는 것처럼 404 로 숨긴다.
+    if (homeroomPoolAssign && edit.classId === null) {
+      sendError(res, "coded", 404, "대상을 찾을 수 없습니다.", "NOT_FOUND");
       return;
     }
 
@@ -150,7 +176,9 @@ export default defineHandler({
 
     const kind =
       actor.kind === "homeroom"
-        ? "homeroom_edit"
+        ? homeroomPoolAssign
+          ? "pool_assign"
+          : "homeroom_edit"
         : current?.class_id || creatingNextYear
           ? "admin_direct"
           : "pool_assign";
