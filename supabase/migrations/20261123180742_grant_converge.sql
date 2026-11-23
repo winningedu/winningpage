@@ -1,5 +1,6 @@
--- 객체 권한을 확정값으로 수렴한다. 원격 DB 3곳의 실제 권한이 확정값과 같아
--- 원격 동작은 바뀌지 않고, baseline 재생 DB 만 같은 상태가 된다.
+-- 객체 권한을 확정값으로 수렴한다. 원격 DB 3곳과 baseline 재생 DB 가 같은 상태가 된다.
+-- 원격에서 실제로 바뀌는 것(fn_normalize_tenant_code 의 authenticated, 브라우저 함수 2개의 service_role,
+-- 테이블 4개와 시퀀스 1개의 anon, authenticated)은 쓰는 곳이 없거나 RLS 정책이 0개라 동작은 바뀌지 않는다.
 -- 1) 서버 전용 함수 25개: service_role 만 EXECUTE
 -- 2) 브라우저 함수 2개: authenticated 와 service_role 만 EXECUTE
 -- 3) 서버 전용 테이블 5개와 소유 시퀀스: service_role 만 접근
