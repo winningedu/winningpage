@@ -23,13 +23,20 @@ function fakeDb(
     data: { issued_at: "2026-11-14T11:00:00Z" },
     error: null,
   },
+  timeZone = "Asia/Seoul",
 ) {
-  const chain = {
-    select: () => chain,
-    eq: () => chain,
-    maybeSingle: async () => result,
+  const make = (table: string) => {
+    const chain = {
+      select: () => chain,
+      eq: () => chain,
+      maybeSingle: async () =>
+        table === "profiles"
+          ? { data: { time_zone: timeZone }, error: null }
+          : result,
+    };
+    return chain;
   };
-  return { from: () => chain } as never;
+  return { from: make } as never;
 }
 
 const recipient = {
@@ -40,10 +47,18 @@ const recipient = {
 };
 
 describe("formatIssuedDate", () => {
-  it("KST 날짜를 YYYY.MM.DD 로 만든다", () => {
-    expect(formatIssuedDate("2026-11-14T11:00:00Z")).toBe("2026.11.14");
-    // UTC 15시 이후는 KST 로 다음 날이다.
-    expect(formatIssuedDate("2026-11-14T16:00:00Z")).toBe("2026.11.15");
+  it("수신자 시간대의 날짜를 YYYY.MM.DD 로 만든다", () => {
+    expect(formatIssuedDate("2026-11-14T11:00:00Z", "Asia/Seoul")).toBe(
+      "2026.11.14",
+    );
+    // UTC 15시 이후는 서울로 다음 날이다.
+    expect(formatIssuedDate("2026-11-14T16:00:00Z", "Asia/Seoul")).toBe(
+      "2026.11.15",
+    );
+    // 같은 순간이 로스앤젤레스(PST)에서는 전날 밤이다.
+    expect(
+      formatIssuedDate("2026-11-14T05:00:00Z", "America/Los_Angeles"),
+    ).toBe("2026.11.13");
   });
 });
 
@@ -55,6 +70,7 @@ describe("buildGrowthDoneVariables", () => {
       studentId: "s1",
       reportId: "r1",
       siteUrl: "https://www.schoolmentor.kr",
+      timeZone: "Asia/Seoul",
     });
     expect(v.학생이름).toBe("김학생");
     expect(v.발행일).toBe("2026.11.14");
@@ -126,6 +142,24 @@ describe("notifyGrowthReportDone", () => {
           발행일: "2026.11.14",
           링크: "https://www.winningedu.com/mypage/children/s1/growth/r1",
         },
+      }),
+    );
+  });
+
+  it("발행일은 학생 프로필 시간대 기준으로 적는다", async () => {
+    mocks.resolveParentRecipients.mockResolvedValue([recipient]);
+    mocks.sendAndLog.mockResolvedValue({ status: "sent", logId: 1 });
+    await notifyGrowthReportDone(
+      fakeDb(
+        { data: { issued_at: "2026-11-14T05:00:00Z" }, error: null },
+        "America/Los_Angeles",
+      ),
+      "s1",
+      "r1",
+    );
+    expect(mocks.sendAndLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({ 발행일: "2026.11.13" }),
       }),
     );
   });
