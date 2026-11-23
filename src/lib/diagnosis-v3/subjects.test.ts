@@ -55,6 +55,19 @@ describe("judgeSubjects (22 r44)", () => {
     ).toEqual({ KOR: "KEEP", MATH: "KEEP" });
   });
 
+  test("q4 성취평가제 (16 r8): 원점수 cannot be ranked as grades, so the verdicts are skipped", () => {
+    const achievement = OPTIONS.q4.find(
+      (o) => o.code === "12_환산_성취평가제",
+    )?.ordinal;
+    expect(
+      judgeSubjects({
+        ...PDF_STUDENT,
+        q4: achievement as number,
+        q6s: { KOR: 95, MATH: 60, ENG: 90 },
+      }),
+    ).toBeNull();
+  });
+
   test("22 r45: no q6s skips the verdicts", () => {
     const { q6s: _q6s, ...rest } = PDF_STUDENT;
     expect(judgeSubjects(rest)).toBeNull();

@@ -32,6 +32,15 @@ const VERDICT_WORDS: Readonly<Record<SubjectVerdict, string>> = {
 
 type Grades = Readonly<Partial<Record<SubjectCode, number>>>;
 
+/**
+ * 16 r8: q4 성취평가제 takes 원점수 (12 r5-r9), where larger is better, so the
+ * 22 r44 grade ranking does not apply. Lead decision: skip (SUBJ_SKIP_NOTE).
+ */
+const ACHIEVEMENT_Q4 = OPTIONS.q4.find(
+  (o) => o.code === "12_환산_성취평가제",
+)?.ordinal;
+if (ACHIEVEMENT_Q4 === undefined) throw new Error("no q4 성취평가제 option");
+
 /** 22 r44: lowest = largest grade, ties all; none when every grade is equal. */
 const lowestOf = (grades: Grades): ReadonlySet<SubjectCode> => {
   const entries = SUBJECT_CODES.flatMap((s) => {
@@ -54,6 +63,7 @@ const downSubject = (answers: DiagnosisV3Answers): SubjectCode | null => {
 export function judgeSubjects(
   answers: DiagnosisV3Answers,
 ): DiagnosisV3Scores["subjects"] {
+  if (answers.q4 === ACHIEVEMENT_Q4) return null;
   const school = answers.q6s ?? {};
   // 22 r45: no q6s (switch off, M3 hidden or left empty) skips the table
   if (!SUBJECT_CODES.some((s) => school[s] !== undefined)) return null;
