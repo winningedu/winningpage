@@ -34,9 +34,10 @@ Repo-specific facts and exceptions. General placement and naming rules live in t
 ## DB
 
 - Migrations (`supabase/migrations/`) hold schema only. No data statements, including inside DO blocks (CI lint `scripts/check-migration-data-inserts.mjs`).
+- Grants and revokes are schema: write them in migrations, one statement per line, following `supabase/README.md` "함수 EXECUTE 권한".
 - Create migration files only with `supabase migration new` (CI checks the filename timestamp).
 - CI applies migrations to dev and prod. Never run manual `db push`.
-- Data changes (names, prices, reference rows, backfills, grants) are not migrations. Follow `supabase/data/README.md`: SQL file in `supabase/data/`, idempotent, natural keys, owner approval, dev first, then prod.
+- Data changes (names, prices, reference rows, backfills) are not migrations. Follow `supabase/data/README.md`: SQL file in `supabase/data/`, idempotent, natural keys, owner approval, dev first, then prod.
 - Never patch data over REST.
 - Local DB: `npm run db:reseed`. No seed.sql, no production seed files.
 

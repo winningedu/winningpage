@@ -1,6 +1,6 @@
 # supabase/data/ 데이터 SQL
 
-데이터 변경(상품명, 가격, 참조 행, 백필, grant, 모든 행 값)은 마이그레이션이 아니다.
+데이터 변경(상품명, 가격, 참조 행, 백필, 모든 행 값)은 마이그레이션이 아니다. grant 와 revoke 는 스키마라서 마이그레이션에 쓴다([../README.md](../README.md)).
 마이그레이션은 스키마만 담는다. 데이터는 이 폴더의 SQL 파일로 수동 실행한다.
 `scripts/` 아래의 기존 데이터 SQL(예: `scripts/busan-oct-goal-gift-data.sql`)은 그 자리에 둔다.
 
