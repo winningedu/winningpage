@@ -108,6 +108,50 @@ describe("EnrollmentForm - 스스로 입력(self-assign)", () => {
   });
 });
 
+describe("EnrollmentForm - 반 이름", () => {
+  const renderForm = (orgType = "학교") =>
+    render(
+      <EnrollmentForm
+        endpoint="self-assign"
+        orgType={orgType}
+        initialGrade="고2"
+        submitLabel="저장"
+        onDone={vi.fn()}
+      />,
+    );
+
+  it.each(["반", "0", "00반"])(
+    "반 %s 는 올바른 반이 아니므로 보내지 않고 안내한다",
+    async (bad) => {
+      renderForm("캠퍼스");
+
+      fill("고2", bad, "12");
+      fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+      );
+      expect(mockApiFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [" 03반 ", "3"],
+    ["A반", "A"],
+    ["B 반", "B"],
+  ])("반 '%s' 은 '%s' 로 보낸다", async (raw, want) => {
+    mockApiFetch.mockResolvedValue(jsonResponse(200, { ok: true }));
+    renderForm();
+
+    fill("고2", raw, "12");
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    const [, init] = mockApiFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ className: want });
+  });
+});
+
 describe("EnrollmentForm - 실패와 입력 검사", () => {
   it("요청이 예외로 끝나면 실패 문구를 보이고 버튼을 다시 누를 수 있다", async () => {
     mockApiFetch.mockRejectedValue(new Error("network"));

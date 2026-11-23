@@ -16,6 +16,7 @@ import {
   applyRows,
   EMPTY_TOTALS,
   isErrorVerdict,
+  type Reason,
   type Verdict,
 } from "./excelImport";
 import IssuedPanel from "./IssuedPanel";
@@ -30,7 +31,12 @@ const PREVIEW_FAILED = "미리보기를 만들지 못했어요. 잠시 뒤 다�
 
 type Phase =
   | { step: "input" }
-  | { step: "preview"; rows: TeacherFileRow[]; verdicts: Verdict[] }
+  | {
+      step: "preview";
+      rows: TeacherFileRow[];
+      verdicts: Verdict[];
+      reasons: Reason[][];
+    }
   | { step: "done"; totals: ApplyTotals; errors: number };
 
 export default function TeacherExcelPage() {
@@ -68,7 +74,9 @@ export default function TeacherExcelPage() {
     });
     setBusy(false);
     const verdicts = (
-      res.body as { rows?: { index: number; verdict: Verdict }[] } | null
+      res.body as {
+        rows?: { index: number; verdict: Verdict; reasons?: Reason[] }[];
+      } | null
     )?.rows;
     if (res.status !== 200 || !verdicts) {
       setError(errorMessage(res.body) ?? PREVIEW_FAILED);
@@ -81,6 +89,7 @@ export default function TeacherExcelPage() {
       step: "preview",
       rows,
       verdicts: verdicts.map((v) => v.verdict),
+      reasons: verdicts.map((v) => v.reasons ?? []),
     });
   };
 
@@ -133,6 +142,7 @@ export default function TeacherExcelPage() {
             <ExcelPreview
               rows={phase.rows}
               verdicts={phase.verdicts}
+              reasons={phase.reasons}
               mode={mode}
               busy={busy}
               error={applyError}

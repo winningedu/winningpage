@@ -1,5 +1,7 @@
 // 교사 엑셀(W15)을 브라우저에서 읽어 탭 줄로 바꾸고, 붙여넣은 글과 같은 규칙으로 행을 만든다(교 #121, #122, #206).
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import {
@@ -138,5 +140,36 @@ describe("parseTeacherLines", () => {
 
   it("줄이 없으면 빈 목록이다", () => {
     expect(parseTeacherLines("  \n")).toEqual([]);
+  });
+});
+
+describe("양식 파일(public/templates/teacher-roster.xlsx)", () => {
+  it("앱이 읽는 길로 읽으면 학교 예시는 숫자 반, 학원 예시는 글자 반으로 나온다", async () => {
+    const bytes = readFileSync(
+      join(process.cwd(), "public", "templates", "teacher-roster.xlsx"),
+    );
+    const book = XLSX.read(bytes);
+    expect(book.SheetNames).toEqual(["선생님"]);
+
+    const text = await readTeacherFile(
+      new File([new Uint8Array(bytes)], "teacher-roster.xlsx"),
+    );
+    const [school, academy, ...rest] = parseTeacherLines(text);
+
+    expect(rest).toEqual([]);
+    expect(school).toMatchObject({
+      phone: "010-1234-5678",
+      grade: "고2",
+      group: "",
+      className: "3",
+    });
+    expect(academy).toMatchObject({
+      phone: "010-4321-8765",
+      grade: "고1",
+      group: "ACE1",
+      className: "A",
+    });
+    expect(school?.name).not.toBe("");
+    expect(academy?.name).not.toBe("");
   });
 });

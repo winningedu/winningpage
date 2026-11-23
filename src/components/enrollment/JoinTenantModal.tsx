@@ -9,6 +9,10 @@ import {
   ENROLLMENT_GRADES,
   isValidClassNumber,
 } from "@/pages/signup/school/rules";
+import {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../api/_lib/console/className";
 import { joinTenant, lookupJoinTenant, SUBMIT_FAILED } from "./api";
 
 // 기타 소속 학생이 소속코드로 기관을 옮기는 모달(결정 96, 98, 99).
@@ -94,6 +98,11 @@ export default function JoinTenantModal({
       setErrorMsg("반을 입력해 주세요.");
       return;
     }
+    const normalizedClass = normalizeClassName(className);
+    if (normalizedClass === "") {
+      setErrorMsg(CLASS_NAME_INVALID_MESSAGE);
+      return;
+    }
     if (number.trim() && !isValidClassNumber(number.trim())) {
       setErrorMsg("번호는 1에서 99까지 숫자로 입력해 주세요.");
       return;
@@ -106,7 +115,7 @@ export default function JoinTenantModal({
         grade,
         ...(tenant?.orgType !== "학교" &&
           groupName.trim() && { groupName: groupName.trim() }),
-        className: className.trim(),
+        className: normalizedClass,
         ...(number.trim() && { number: Number(number.trim()) }),
       });
       if (!result.ok) {

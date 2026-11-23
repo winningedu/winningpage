@@ -4,6 +4,7 @@
 // 학생 본인 토큰의 클라이언트로 fn_request_enrollment_change 를 불러 auth.uid() 가 학생이 되게 한다.
 // 열린 신청은 학생당 하나이고, 승인은 콘솔의 decide 라우트가 한다.
 
+import { normalizeClassName } from "../../_lib/console/className.js";
 import { sendEnrollmentRpcError } from "../../_lib/console/enrollmentErrors.js";
 import {
   isEnrollmentGrade,
@@ -65,13 +66,26 @@ export default defineHandler({
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
     }
+    // 비운 반은 지금 반을 유지한다는 뜻이라 null 그대로 두고, 적은 반만 숫자로 맞춘다.
+    const className =
+      body.className === null ? null : normalizeClassName(body.className);
+    if (className === "") {
+      sendError(
+        res,
+        "coded",
+        400,
+        "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+        "CLASS_INVALID",
+      );
+      return;
+    }
 
     const { data: changeId, error } = await createSupabaseUserClient(
       ctx.token as string,
     ).rpc("fn_request_enrollment_change", {
       p_to_grade: body.grade as string,
       p_to_group_name: body.groupName as string,
-      p_to_class_name: body.className as string,
+      p_to_class_name: className as string,
       p_to_number: body.number as number,
     });
     if (error) {

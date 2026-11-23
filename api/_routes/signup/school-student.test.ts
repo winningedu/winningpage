@@ -276,6 +276,36 @@ describe("POST /api/signup/school-student", () => {
     expect(kit.state.events).not.toContain("rpc:fn_student_signup");
   });
 
+  test.each(["반", "0", "00반"])(
+    "반 '%s' 은 400 CLASS_INVALID 이고 가입 확정을 부르지 않는다",
+    async (className) => {
+      happyPath();
+
+      const r = await post({ ...BODY, className });
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({
+        code: "CLASS_INVALID",
+        message: "반은 숫자나 영문으로 적고, '반' 글자는 빼 주세요",
+        field: "className",
+      });
+      expect(kit.state.events).not.toContain("rpc:fn_student_signup");
+    },
+  );
+
+  test("반 '03반' 은 숫자 3 으로 가입 확정에 넘긴다", async () => {
+    happyPath();
+    const signupCalls: Record<string, unknown>[] = [];
+    kit.state.rpc.fn_student_signup = (args) => {
+      signupCalls.push(args);
+      return { data: SIGNUP_OK, error: null };
+    };
+
+    await post({ ...BODY, className: "03반" });
+
+    expect(signupCalls[0]).toMatchObject({ p_class_name: "3" });
+  });
+
   test("성공하면 토큰의 사용자 id 로 가입 확정을 부르고 세션 없이 학급 연결 코드를 돌려준다", async () => {
     happyPath();
     const signupCalls: Record<string, unknown>[] = [];
