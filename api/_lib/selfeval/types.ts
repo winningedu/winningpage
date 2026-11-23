@@ -246,6 +246,22 @@ export type CandidateRow = {
   recordStatus?: RecordStatus;
   /** 제출일. createdAt 으로 대신한 값이 들어간다. */
   submittedAt?: string;
+  /** 핵심과의 연계 상태. 연계 확인 전이거나 실패했으면 null(명세 No.177, 196). */
+  linkState?: CandidateLinkState | null;
+  /** 연계 가점. 선택 순서에만 쓰고 적합도 점수에는 넣지 않는다. */
+  bonus?: number;
+  /** 이미 고른 기록에 없는 11항목 칸 수. 0 이면 중복이다(명세 No.178). */
+  contribution?: number;
+  /** 학생이 읽는 선정 이유. 쓸 수 있는 기록은 항상 한 줄 이상이다(명세 No.32). */
+  selectionReasons?: string[];
+};
+
+export type CandidateLinkState = {
+  linked: boolean;
+  hop: number | null;
+  type: LinkType | null;
+  strength: LinkStrength | null;
+  confirmed: boolean;
 };
 
 // ---------------------------------------------------------------------------
