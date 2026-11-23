@@ -1,8 +1,10 @@
 // MBTI block (spec rows 111-113, score sheet 19_MBTI데이터, copy sheet 14).
 // Pure TS: sheet constants are read at module load, text lives in COPY_TEXT.
 
+import { AREAS, type AreaCode } from "./codes.js";
 import { roundHalfUp1 } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
+import { COPY_SHEETS } from "./source/copyText.js";
 import type { DiagnosisV3Scores, MbtiType } from "./types.js";
 
 const mbtiSheet = sheetRows("19_MBTI데이터");
@@ -56,4 +58,42 @@ export function scoreMbti(
     ),
     smallSample: row.n < SMALL_SAMPLE_BELOW,
   };
+}
+
+type LinkKind = "P" | "J" | "F" | "T";
+
+// 14 MBTI_LINK_<x>_LOW rows: C = "<area label> <n> 미만" gives the area and the
+// threshold; the HIGH row of the same letter is the other side of it.
+const LINK_RULES = Object.fromEntries(
+  (["P", "J", "F", "T"] as const).map((kind) => {
+    const row = (COPY_SHEETS["14_MBTI문구"] ?? []).find(
+      (candidate) => candidate.c[0] === `MBTI_LINK_${kind}_LOW`,
+    );
+    const match = String(row?.c[2]).match(/^(.+) (\d+) 미만$/);
+    const area = Object.values(AREAS).find((a) => a.label === match?.[1]);
+    if (!match?.[2] || !area) throw new Error(`unreadable link rule ${kind}`);
+    return [kind, { area: area.code, below: Number(match[2]) }];
+  }),
+) as Record<LinkKind, { area: AreaCode; below: number }>;
+
+export type MbtiLink = { readonly id: string; readonly score: number };
+
+/**
+ * Spec row 112 and 22 r82: the P or J letter and the F or T letter each link
+ * to one diagnosis area score. P and J come before F and T.
+ */
+export function mbtiLinks(
+  type: MbtiType,
+  areaScores: Readonly<Partial<Record<AreaCode, number>>>,
+): readonly MbtiLink[] {
+  const kinds = [type.charAt(3), type.charAt(2)] as LinkKind[];
+  return kinds.map((kind) => {
+    const rule = LINK_RULES[kind];
+    const score = areaScores[rule.area];
+    if (score === undefined) throw new Error(`no score for ${rule.area}`);
+    return {
+      id: `MBTI_LINK_${kind}_${score < rule.below ? "LOW" : "HIGH"}`,
+      score,
+    };
+  });
 }
