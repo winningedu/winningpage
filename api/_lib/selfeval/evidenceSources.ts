@@ -9,6 +9,11 @@ import type {
   RecordEvidenceSource,
 } from "./evidence.js";
 import {
+  type LinkInfo,
+  type SupportLinkState,
+  supportLinkStates,
+} from "./linkWrite.js";
+import {
   type ActivityRecordLike,
   type Analysis,
   type AnalysisField,
@@ -25,13 +30,7 @@ export type RecordExtras = {
   reflection: string | null;
 };
 
-export type LinkInfo = {
-  fromRecordId: string;
-  toRecordId: string;
-  linkType: string;
-  quoteFrom: string | null;
-  quoteTo: string | null;
-};
+export type { LinkInfo };
 
 export type MemoRow = {
   id: string;
@@ -145,8 +144,12 @@ export type PromptRecordInfo = {
   activityId: string;
   sourceType: "P" | "D" | "A";
   summary: string;
-  /** 연계 유형과 인용. 연결 정보가 없으면 null. */
+  /** 연계 문장을 쓸 기록이면 연계 유형, 단계, 강도, 인용. 기여 항목으로만 쓰면 null. */
   link: string | null;
+  /** link 는 연계 문장을 쓰고, contribute 는 기여 항목으로만 쓴다(명세 No.181, 193~195). */
+  linkMode: "link" | "contribute";
+  /** 연계 문장에 적을 앞 기록의 구체물 낱말(명세 No.189). */
+  carried: string[];
   items: AnalysisField[];
 };
 
@@ -157,21 +160,25 @@ export type WriteEvidence = {
     supports: PromptRecordInfo[];
     memos: { id: string; writtenAt: string | null; text: string }[];
   };
+  /** 완료된 선택 기록(핵심 밖)마다 연계 문장 규칙. 생성 검사와 검증이 읽는다. */
+  linkStates: SupportLinkState[];
   /** 옛 리포트의 {activityId, field} 를 읽을 때 쓰는 출처 유형 조회. */
   typeOf: (activityId: string) => "P" | "D" | "A" | null;
 };
 
-function linkText(id: string, links: LinkInfo[]): string | null {
-  const parts = links
-    .filter((l) => l.fromRecordId === id || l.toRecordId === id)
-    .map((l) => {
-      const quotes = [l.quoteFrom, l.quoteTo].filter((q): q is string => !!q);
-      return [
-        `연계 유형 ${l.linkType}`,
-        ...quotes.map((q) => `인용 "${q}"`),
-      ].join(", ");
-    });
-  return parts.length === 0 ? null : parts.join("; ");
+const STRENGTH_LABELS = { explicit: "명시", implicit: "암묵" } as const;
+
+function linkText(s: SupportLinkState): string | null {
+  if (s.mode !== "link" || s.typeLabel === null || s.strength === null) {
+    return null;
+  }
+  return [
+    `연계 유형 ${s.typeLabel}`,
+    `핵심에서 ${s.hop}단계`,
+    STRENGTH_LABELS[s.strength],
+    s.confirmed ? "학생 확인" : "학생 미확인",
+    ...s.quotes.map((q) => `인용 "${q}"`),
+  ].join(", ");
 }
 
 /**
@@ -188,6 +195,19 @@ export function buildWriteEvidence(
 ): WriteEvidence {
   const records: RecordEvidenceSource[] = [];
   const supports: PromptRecordInfo[] = [];
+  const coreRow = rows.find((r) => r.role === "core");
+  const states =
+    coreRow === undefined
+      ? new Map<string, SupportLinkState>()
+      : supportLinkStates(
+          rows.map((r) => r.record),
+          coreRow.activity_record_id,
+          rows
+            .filter((r) => r.role !== "core")
+            .map((r) => r.activity_record_id),
+          links,
+        );
+  const linkStates: SupportLinkState[] = [];
   let coreSourceType: "P" | "D" | "A" = "A";
   const types = new Map<string, "P" | "D" | "A">();
   for (const row of rows) {
@@ -218,11 +238,16 @@ export function buildWriteEvidence(
     if (row.role === "core") {
       coreSourceType = sourceType;
     } else if (completed) {
+      const state = states.get(row.activity_record_id);
+      if (state === undefined) throw new Error("연계 상태를 찾지 못했습니다.");
+      linkStates.push(state);
       supports.push({
         activityId: row.activity_record_id,
         sourceType,
         summary: supportSummary(row.record, extra),
-        link: linkText(row.activity_record_id, links),
+        link: linkText(state),
+        linkMode: state.mode,
+        carried: state.carried,
         items: Object.keys(itemTexts) as AnalysisField[],
       });
     }
@@ -243,6 +268,7 @@ export function buildWriteEvidence(
         text: m.text,
       })),
     },
+    linkStates,
     typeOf: (id) => types.get(id) ?? null,
   };
 }

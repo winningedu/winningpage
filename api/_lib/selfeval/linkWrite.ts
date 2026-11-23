@@ -48,16 +48,13 @@ export function carriedWords(record: ActivityRecordLike): string[] {
     asStrings(record.numbers).flatMap((n) => extractNumbers(n)),
   ];
   const out: string[] = [];
-  const next = pools.map(() => 0);
-  let progressed = true;
-  while (out.length < MAX_CARRIED_WORDS && progressed) {
-    progressed = false;
-    pools.forEach((pool, i) => {
-      while (next[i] < pool.length && out.includes(pool[next[i]])) next[i]++;
-      if (out.length >= MAX_CARRIED_WORDS || next[i] >= pool.length) return;
-      out.push(pool[next[i]++]);
-      progressed = true;
-    });
+  const queues = pools.map((p) => [...p]);
+  while (out.length < MAX_CARRIED_WORDS && queues.some((q) => q.length > 0)) {
+    for (const q of queues) {
+      let w = q.shift();
+      while (w !== undefined && out.includes(w)) w = q.shift();
+      if (w !== undefined && out.length < MAX_CARRIED_WORDS) out.push(w);
+    }
   }
   return out;
 }
@@ -71,6 +68,8 @@ export type SupportLinkState = {
   typeLabel: string | null;
   strength: LinkStrength | null;
   confirmed: boolean;
+  /** 연계 선에 적힌 양쪽 인용. */
+  quotes: string[];
   /** 앞 기록에서 뽑은 구체물 낱말. contribute 면 빈 배열. */
   carried: string[];
 };
@@ -97,15 +96,17 @@ const toRecordLink = (l: LinkInfo): RecordLink | null =>
 const rank = (l: RecordLink): number =>
   l.strength === "explicit" || l.confirmed ? 1 : 0;
 
-const NO_LINK = {
+const noLink = (id: string): SupportLinkState => ({
+  id,
   mode: "contribute",
   reason: "no_link",
   hop: null,
   typeLabel: null,
   strength: null,
   confirmed: false,
+  quotes: [],
   carried: [],
-} as const;
+});
 
 /**
  * 핵심이 아닌 선택 기록마다 본문에서 연계 문장을 쓸지 정한다(명세 No.181, 189, 193~195).
@@ -128,7 +129,7 @@ export function supportLinkStates(
   for (const id of supportIds) {
     const node = graph.get(id);
     if (node === undefined || node.hop === 0) {
-      out.set(id, { id, ...NO_LINK });
+      out.set(id, noLink(id));
       continue;
     }
     const chosen = live
@@ -142,7 +143,7 @@ export function supportLinkStates(
         null,
       );
     if (chosen === null) {
-      out.set(id, { id, ...NO_LINK });
+      out.set(id, noLink(id));
       continue;
     }
     const base = {
@@ -157,6 +158,7 @@ export function supportLinkStates(
         ...base,
         mode: "contribute",
         reason: "implicit_unconfirmed",
+        quotes: [],
         carried: [],
       });
       continue;
@@ -166,6 +168,9 @@ export function supportLinkStates(
       ...base,
       mode: "link",
       reason: "linked",
+      quotes: [chosen.quoteFrom, chosen.quoteTo].filter(
+        (q): q is string => !!q,
+      ),
       carried: earlier === undefined ? [] : carriedWords(earlier),
     });
   }

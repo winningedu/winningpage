@@ -133,6 +133,11 @@ describe("buildWriteEvidence", () => {
         fromRecordId: "c1",
         toRecordId: "s1",
         linkType: "deepen",
+        strength: "explicit",
+        source: "model",
+        confirmed: false,
+        deleted: false,
+        note: null,
         quoteFrom: "앞 인용",
         quoteTo: null,
       },
@@ -192,8 +197,46 @@ describe("buildWriteEvidence", () => {
     const s = out.prompt.supports[0];
     expect(s?.summary).toContain("요약: 요약 글");
     expect(s?.summary).toContain("성찰: 성찰 글");
-    expect(s?.link).toContain("deepen");
+    expect(s?.link).toContain("같은 질문 심화");
     expect(s?.link).toContain("앞 인용");
+  });
+
+  it("연계 문장을 쓸 기록은 유형, 단계, 강도, 확인 여부와 구체물 낱말을 싣는다", () => {
+    const s = out.prompt.supports[0];
+    expect(s?.linkMode).toBe("link");
+    expect(s?.link).toContain("핵심에서 1단계");
+    expect(s?.link).toContain("명시");
+    expect(s?.link).toContain("학생 미확인");
+    expect(s?.carried).toEqual(["개념", "방법"]);
+    expect(out.linkStates.map((l) => [l.id, l.mode])).toEqual([["s1", "link"]]);
+  });
+
+  it("암묵이고 확인하지 않은 연계와 지운 연계는 연계 문장 없이 기여 항목으로만 싣는다", () => {
+    const base = {
+      fromRecordId: "c1",
+      toRecordId: "s1",
+      linkType: "inherit",
+      strength: "implicit" as const,
+      source: "model" as const,
+      confirmed: false,
+      deleted: false,
+      note: null,
+      quoteFrom: "앞 인용",
+      quoteTo: null,
+    };
+    const rows = [
+      row("c1", "core", analysis({ motive: "계기 글" })),
+      row("s1", "support", null),
+    ];
+    for (const l of [
+      base,
+      { ...base, strength: "explicit" as const, deleted: true },
+    ]) {
+      const s = buildWriteEvidence(rows, extras, [l], []).prompt.supports[0];
+      expect(s?.linkMode).toBe("contribute");
+      expect(s?.link).toBeNull();
+      expect(s?.carried).toEqual([]);
+    }
   });
 
   it("옛 근거의 출처 유형을 기록 id 로 찾는다", () => {

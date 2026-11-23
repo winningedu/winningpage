@@ -23,6 +23,11 @@ type LinkDbRow = {
   from_record_id: string;
   to_record_id: string;
   link_type: string;
+  strength: "explicit" | "implicit";
+  source: "model" | "student";
+  confirmed: boolean;
+  deleted: boolean;
+  note: string | null;
   quote_from: string | null;
   quote_to: string | null;
 };
@@ -75,9 +80,10 @@ export async function loadEvidenceRows(
     must(
       await db
         .from("selfeval_record_links")
-        .select("from_record_id, to_record_id, link_type, quote_from, quote_to")
-        .eq("session_id", sessionId)
-        .eq("deleted", false),
+        .select(
+          "from_record_id, to_record_id, link_type, strength, source, confirmed, deleted, note, quote_from, quote_to",
+        )
+        .eq("session_id", sessionId),
       "selfeval_record_links 조회 실패",
     ) as LinkDbRow[],
     must(
@@ -111,6 +117,11 @@ export async function loadEvidenceRows(
         fromRecordId: l.from_record_id,
         toRecordId: l.to_record_id,
         linkType: l.link_type,
+        strength: l.strength,
+        source: l.source,
+        confirmed: l.confirmed,
+        deleted: l.deleted,
+        note: l.note,
         quoteFrom: l.quote_from,
         quoteTo: l.quote_to,
       })),
