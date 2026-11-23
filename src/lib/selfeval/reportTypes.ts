@@ -223,6 +223,8 @@ export type ReportPayload = {
   ch05: ReportCh05;
   /** true 면 모델 문장이 비었다. 화면이 다시 만들기를 제안한다(No.138, 201). */
   composeMissing: boolean;
+  /** true 면 일부 항목의 모델 문장만 비었다. 화면이 다시 만들기를 제안한다(No.138). */
+  composePartial: boolean;
 };
 
 /** 태그 번호를 첫 생성 때 고정한 맵(No.146). 값은 기록 id 또는 수기 로그 id. */

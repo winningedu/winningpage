@@ -116,6 +116,25 @@ describe("runReport", () => {
     expect(state.row?.attempts).toBe(3);
   });
 
+  it("keeps the valid sentences, flags a partial report and rebuilds it on the next request", async () => {
+    const { state, store } = memoryStore();
+    const partial = vi.fn(async () => ({
+      text: JSON.stringify({
+        items: [{ id: "relation:P1", text: "기록 내용을 정리함 P1." }],
+      }),
+      finishReason: "STOP",
+    }));
+    await runReport(deps(store, partial as never));
+    expect(state.row?.payload?.composeMissing).toBe(false);
+    expect(state.row?.payload?.composePartial).toBe(true);
+    expect(state.row?.payload?.ch03.rows[0]?.explanation).toBe(
+      "기록 내용을 정리함 P1.",
+    );
+    const again = await runReport(deps(store, okModel()));
+    expect(again).toMatchObject({ kind: "ok", reused: false });
+    expect(state.row?.payload?.composePartial).toBe(false);
+  });
+
   it("keeps the fixed tag numbers when rebuilding the same final revision", async () => {
     const { state, store } = memoryStore();
     await runReport(deps(store, badModel() as never));

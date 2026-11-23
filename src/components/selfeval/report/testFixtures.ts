@@ -110,6 +110,7 @@ const mathRows: ReportCh02Row[] = [
 export const SAMPLE_PAYLOAD: ReportPayload = {
   version: 1,
   composeMissing: false,
+  composePartial: false,
   cover: {
     gradeLabel: "고등학교 1학년",
     savedAt: "2026. 11. 10",

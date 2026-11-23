@@ -48,6 +48,23 @@ describe("buildReport", () => {
     expect(done.payload.ch04?.summary).toContain("문장 memoRate");
   });
 
+  it("flags a partial compose when some needs have no text", () => {
+    const first = buildReport(sampleInput(), null);
+    expect(first.payload.composePartial).toBe(false);
+    const [kept, ...rest] = first.needs;
+    expect(rest.length).toBeGreaterThan(0);
+    const part = buildReport(sampleInput(), {
+      [(kept as { id: string }).id]: "문장",
+    });
+    expect(part.payload.composeMissing).toBe(false);
+    expect(part.payload.composePartial).toBe(true);
+    const all = buildReport(
+      sampleInput(),
+      Object.fromEntries(first.needs.map((n) => [n.id, "문장"])),
+    );
+    expect(all.payload.composePartial).toBe(false);
+  });
+
   it("drops chapter 04 and has no memo needs without confirmed memos", () => {
     const { payload, needs } = buildReport(sampleInput({ memos: [] }), null);
     expect(payload.ch04).toBeNull();
