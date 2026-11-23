@@ -57,6 +57,22 @@ const COLUMN_OFFSETS = [13, 14, 15].map((r) =>
   Number(match(planCell(r), /^\+(\d+)일$/)[1]),
 );
 
+// 21 C16: weekly check offset; 21 C17, C19: start and wrap-up days
+const CHECK_OFFSET = Number(match(planCell(16), /^\+(\d+)일/)[1]);
+const dayCell = (r: number) => Number(match(planCell(r), /^Day (\d+)$/)[1]);
+const START_DAY = dayCell(17);
+const NEXT_DAY = dayCell(19);
+
+/** Same-day order of the planner table (PDF p12-p15). */
+const rank = (taskId: string): number => {
+  if (taskId === "FIX_START") return 0;
+  if (taskId.startsWith("AREA_")) return 1;
+  if (taskId.startsWith("EVT_")) return 2;
+  if (taskId.startsWith("EXAMOPS_")) return 3;
+  if (taskId === "FIX_NEXT") return 4;
+  return 5;
+};
+
 const DAY_MS = 86_400_000;
 
 /** Calendar date of a Day number, Day 1 = diagnosedAt. */
@@ -86,7 +102,7 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
     if (!week) throw new Error(`day ${day} is outside the plan`);
     return { date: dateOfDay(input.diagnosedAt, day), day, week, ...rest };
   };
-  const tasks: PlanTask[] = WEEKS.flatMap(({ week, from }) =>
+  const areaTasks = WEEKS.flatMap(({ week, from }) =>
     columns.map((area, index) => {
       // 21 C11: task AREA_{code}_ACTn, done DONE_{code}_{n} else DONE_GENERIC
       const doneId = `DONE_${area}_${week}`;
@@ -97,6 +113,16 @@ export function buildPlan(input: PlanInput): Pick<Plan, "columns" | "tasks"> {
         area,
       });
     }),
+  );
+  const fixedTasks = [
+    task(START_DAY, { taskId: "FIX_START" }),
+    task(NEXT_DAY, { taskId: "FIX_NEXT" }),
+    ...WEEKS.map(({ week, from }) =>
+      task(from + CHECK_OFFSET, { taskId: `FIX_CHECK_${week}` }),
+    ),
+  ];
+  const tasks = [...areaTasks, ...fixedTasks].sort(
+    (a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId),
   );
   return { columns, tasks };
 }

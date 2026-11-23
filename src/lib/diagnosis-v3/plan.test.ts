@@ -76,4 +76,18 @@ describe("buildPlan", () => {
       "2026-12-05",
     ]);
   });
+
+  test("fixed tasks: FIX_START Day 1, FIX_CHECK_n +6, FIX_NEXT Day 28 (21 C16-C19)", () => {
+    const fixed = calcPlan()
+      .tasks.filter((t) => t.taskId.startsWith("FIX_"))
+      .map((t) => [t.taskId, t.date]);
+    expect(fixed).toEqual([
+      ["FIX_START", "2026-11-09"],
+      ["FIX_CHECK_1", "2026-11-15"],
+      ["FIX_CHECK_2", "2026-11-22"],
+      ["FIX_CHECK_3", "2026-11-29"],
+      ["FIX_NEXT", "2026-12-06"],
+      ["FIX_CHECK_4", "2026-12-06"],
+    ]);
+  });
 });
