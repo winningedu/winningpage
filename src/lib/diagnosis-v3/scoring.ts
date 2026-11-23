@@ -1,6 +1,13 @@
 // Area scores (spec No 32-41; score sheets 01, 02, 03, 05, 06, 16).
 
-import { AREAS, P1_CODES, type P1Code } from "./codes.js";
+import {
+  AREAS,
+  type AreaCode,
+  MIND_CODES,
+  type MindCode,
+  P1_CODES,
+  type P1Code,
+} from "./codes.js";
 import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { OPTIONS } from "./options.js";
 import { roundHalfUpInt } from "./round.js";
@@ -56,11 +63,13 @@ const scaleOf = <A extends string>(
  * 05 B6 / spec No 32: scale mean x 0.7 + aux x 0.3, rounded once on the exact
  * fraction (judge-report 3-1).
  */
-const combine = (scale: Scale, aux: number) =>
-  roundHalfUpInt(
-    SCALE_PERCENT * scale.sum + AUX_PERCENT * aux * scale.count,
-    100 * scale.count,
-  );
+const combine = (scale: Scale, aux: number | null) =>
+  aux === null
+    ? roundHalfUpInt(scale.sum, scale.count)
+    : roundHalfUpInt(
+        SCALE_PERCENT * scale.sum + AUX_PERCENT * aux * scale.count,
+        100 * scale.count,
+      );
 
 // 06 C9-C11 (어려움 0개 / 1개 / 2개): 2 or more checks score the 2개 value (00 B7).
 const CHECK_POINTS = [
@@ -81,22 +90,41 @@ const checksOf = (
     (ordinal) => options.find((o) => o.ordinal === ordinal)?.area === area,
   ).length;
 
-const auxOf = (answers: DiagnosisV3Answers, code: P1Code): number => {
-  if (AREAS[code].aux === "Q03_goal") return goalPoints(answers.q3);
-  return checkPoints(checksOf(OPTIONS.q10, answers.q10, code));
+// 05 D: Q03_goal, Q10, Q12 or 없음 (scale mean as is, spec No 32).
+const auxOf = (answers: DiagnosisV3Answers, code: AreaCode): number | null => {
+  const aux = AREAS[code].aux;
+  if (aux === "Q03_goal") return goalPoints(answers.q3);
+  if (aux === "Q10")
+    return checkPoints(checksOf(OPTIONS.q10, answers.q10, code));
+  if (aux === "없음") return null;
+  throw new Error(`aux ${aux} not handled for ${code}`);
 };
 
-export function scoreAreas(answers: DiagnosisV3Answers) {
-  const page1 = Object.fromEntries(
-    P1_CODES.map((code) => [
+const scoresOf = <C extends AreaCode>(
+  codes: readonly C[],
+  items: readonly { no: number; area: C; reverse: boolean }[],
+  block: readonly Likert[],
+  answers: DiagnosisV3Answers,
+) =>
+  Object.fromEntries(
+    codes.map((code) => [
       code,
-      {
-        score: combine(
-          scaleOf(SCALE_ITEMS.q9, answers.q9.items, code),
-          auxOf(answers, code),
-        ),
-      },
+      { score: combine(scaleOf(items, block, code), auxOf(answers, code)) },
     ]),
-  ) as Record<P1Code, { score: number }>;
-  return { page1: { areas: page1 } };
+  ) as Record<C, { score: number }>;
+
+export function scoreAreas(answers: DiagnosisV3Answers) {
+  return {
+    page1: {
+      areas: scoresOf(P1_CODES, SCALE_ITEMS.q9, answers.q9.items, answers),
+    },
+    mind: {
+      areas: scoresOf<MindCode>(
+        MIND_CODES,
+        SCALE_ITEMS.q20,
+        answers.q20.items,
+        answers,
+      ),
+    },
+  };
 }
