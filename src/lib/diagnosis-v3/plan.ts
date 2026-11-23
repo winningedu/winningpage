@@ -12,6 +12,7 @@ import type {
   IsoDate,
   Ordinal,
   PlanTask,
+  ScheduleEvent,
 } from "./types.js";
 
 export type ExamOps = DiagnosisV3Scores["examOps"];
@@ -104,6 +105,14 @@ const REDUCING_KINDS = match(
   /\(([A-Z\u00b7]+)\)/,
 )[1]?.split("\u00b7") as readonly EventKind[];
 
+// 21 C37: exam-ops task, first exam at least "진단일+n일" away, D-k, else Day m
+const [EXAMOPS_MIN_GAP, EXAMOPS_BEFORE, EXAMOPS_DEFAULT_DAY] = match(
+  planCell(37),
+  /진단일\+(\d+)일 .*D-(\d+)에 EXAMOPS_TASK_EXAM, 없으면 Day (\d+)에 EXAMOPS_TASK$/,
+)
+  .slice(1)
+  .map(Number) as [number, number, number];
+
 const DAY_MS = 86_400_000;
 
 /** Day number of a date, Day 1 = diagnosedAt. */
@@ -117,6 +126,27 @@ export function dayOfDate(diagnosedAt: IsoDate, date: IsoDate): number {
 export function dateOfDay(diagnosedAt: IsoDate, day: number): IsoDate {
   const base = Date.parse(`${diagnosedAt}T00:00:00Z`);
   return new Date(base + (day - 1) * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** 21 C37, spec row 77: one task only when exam ops is RISK. */
+function examOpsTasks(
+  input: PlanInput,
+  within: readonly ScheduleEvent[],
+  task: (
+    day: number,
+    rest: Omit<PlanTask, "date" | "day" | "week">,
+  ) => PlanTask,
+): PlanTask[] {
+  if (input.examOps !== "RISK") return [];
+  const exam = within
+    .filter((e) => e.kind === "EXAM")
+    .map((event) => ({ event, day: dayOfDate(input.diagnosedAt, event.date) }))
+    .filter(({ day }) => day >= START_DAY + EXAMOPS_MIN_GAP)
+    .sort((a, b) => a.day - b.day)[0];
+  if (!exam) return [task(EXAMOPS_DEFAULT_DAY, { taskId: "EXAMOPS_TASK" })];
+  // spec row 77: never before the day after diagnosis
+  const day = Math.max(exam.day - EXAMOPS_BEFORE, START_DAY + 1);
+  return [task(day, { taskId: "EXAMOPS_TASK_EXAM", event: exam.event })];
 }
 
 /** 21 C32: q21 weekday MINLOAD:n code (14 r144-r148), minutes. */
@@ -196,9 +226,12 @@ export function buildPlan(input: PlanInput): Plan {
       .filter(({ day }) => day >= 1)
       .map(({ day, taskId }) => task(day, { taskId, event })),
   );
-  const tasks = [...areaTasks, ...fixedTasks, ...eventTasks].sort(
-    (a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId),
-  );
+  const tasks = [
+    ...areaTasks,
+    ...fixedTasks,
+    ...eventTasks,
+    ...examOpsTasks(input, within, task),
+  ].sort((a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId));
   // 21 C28: Day 29..42 events are listed after the plan, never tasks
   const afterEvents = events.filter((e) => {
     const day = dayOfDate(input.diagnosedAt, e.date);

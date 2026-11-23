@@ -32,6 +32,32 @@ const calcInput = (): PlanInput => ({
 });
 const calcPlan = () => buildPlan(calcInput());
 
+// PDF student (고2, diagnosed 2026-11-10): p2 stage scores, p7 lowest area,
+// p12 columns 우선순위, 학습 수행, 탐구 심화; 정기고사 12/7; p3 시험 운영 보완; 60분.
+const pdfInput = (): PlanInput => ({
+  diagnosedAt: "2026-11-10",
+  page1Order: [
+    "P1_PRIO",
+    "P1_EXEC",
+    "P1_LOG",
+    "P1_PLAN",
+    "P1_GOAL",
+    "P1_PATT",
+    "P1_ADJ",
+  ],
+  page2Order: [
+    "H12_DEEP",
+    "H12_STRA",
+    "H12_PERF",
+    "H12_LINK",
+    "H12_SUBJ",
+    "H12_REC",
+  ],
+  schedule: [{ kind: "EXAM", date: "2026-12-07" }],
+  examOps: "RISK",
+  weekdayLoad: 5,
+});
+
 describe("buildPlan", () => {
   test("calc example A33: columns are 활동 기록, 계획 수립, 탐구 심화", () => {
     expect(calcPlan().columns).toEqual(["P1_LOG", "P1_PLAN", "H12_DEEP"]);
@@ -135,5 +161,20 @@ describe("buildPlan", () => {
   test("min load is the q21 weekday MINLOAD code (14 r144-r148)", () => {
     expect(calcPlan().minLoad).toBe(30);
     expect(buildPlan({ ...calcInput(), weekdayLoad: 5 }).minLoad).toBe(60);
+  });
+
+  test("PDF p14: RISK puts EXAMOPS_TASK_EXAM at the first exam D-7 (21 C37)", () => {
+    const examops = buildPlan(pdfInput()).tasks.filter((t) =>
+      t.taskId.startsWith("EXAMOPS_"),
+    );
+    expect(examops).toEqual([
+      {
+        date: "2026-11-30",
+        day: 21,
+        week: 3,
+        taskId: "EXAMOPS_TASK_EXAM",
+        event: { kind: "EXAM", date: "2026-12-07" },
+      },
+    ]);
   });
 });
