@@ -12,6 +12,9 @@
 //   (api/_lib/phoneCode.js)와 규칙이 짝을 이룬다. 여기에 사본을 두면 두 규칙이 조용히 갈라진다.
 //   import { normalizePhone, isValidMobile } from './phoneVerification';
 
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
+
 // 기존 5곳이 쓰던 정규식 그대로. 의도적으로 느슨하다(TLD·길이 제한 없음) —
 // 최종 판정은 어차피 발송 성공 여부이고, 과한 정규식은 정상 주소를 막는 쪽이 더 흔하다.
 // trim 하지 않는 것도 기존 동작 유지다([^\s@]+ 가 앞뒤 공백을 이미 거부한다).
@@ -31,28 +34,38 @@ export function isValidEmail(value: string) {
 // Date 는 month=13, day=32 같은 범위 밖 값을 다음 달/해로 조용히 롤오버시켜 전혀 다른 날짜를
 // 만든다(2024-02-30 → 2024-03-01). 그래서 만들어진 Date 를 다시 분해해 입력과 대조한다.
 export function isValidBirthDate(value: unknown) {
-  const digits = String(value ?? "");
+  const birth = birthYmdOf(String(value ?? ""));
 
-  if (!/^\d{8}$/.test(digits)) return false;
+  return birth !== null && birth <= todayYmd();
+}
+
+// 생년월일 8자리를 YYYY-MM-DD 로 바꾼다. 달력 계산만 하므로 시간대와 무관하다(UTC 로 롤오버를 역검증).
+// 형식이 틀리거나 1900년 이전이거나 없는 날짜면 null.
+export function birthYmdOf(digits: string): string | null {
+  if (!/^\d{8}$/.test(digits)) return null;
 
   const year = Number(digits.slice(0, 4));
   const month = Number(digits.slice(4, 6));
   const day = Number(digits.slice(6, 8));
 
-  if (year < 1900) return false;
+  if (year < 1900) return null;
 
-  const birth = new Date(year, month - 1, day);
+  const birth = new Date(Date.UTC(year, month - 1, day));
 
-  if (Number.isNaN(birth.getTime())) return false;
   if (
-    birth.getFullYear() !== year ||
-    birth.getMonth() !== month - 1 ||
-    birth.getDate() !== day
+    birth.getUTCFullYear() !== year ||
+    birth.getUTCMonth() !== month - 1 ||
+    birth.getUTCDate() !== day
   ) {
-    return false;
+    return null;
   }
 
-  return birth.getTime() <= Date.now();
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+// 브라우저 시간대의 오늘(YYYY-MM-DD). 생년월일 비교와 만 나이 계산의 기준이다.
+export function todayYmd(): string {
+  return ymdIn(new Date(), browserTimeZone());
 }
 
 // 입학년도 하한. 시안에 범위 정의가 없어(명세 §폼 명세 2-3 "4자리 연도 — 범위 미정의")
