@@ -148,7 +148,7 @@ function DoneBody({
   const navigate = useNavigate();
   const toast = useToast();
   const location = useLocation();
-  const { studentName } = useSelfevalShell();
+  const { studentName, timeZone } = useSelfevalShell();
   const { session, activities } = detail;
   const final = detail.reports.final;
   const pdf = useReportPdfSave(
@@ -194,7 +194,10 @@ function DoneBody({
   const message = replyMessage(reply, planTitle);
   const title = archiveTitle(session);
   const submitBadge = submitBadgeOf(detail.reports.verification);
-  const saved = session.completedAt ? formatDotDate(session.completedAt) : null;
+  const saved =
+    session.completedAt && timeZone
+      ? formatDotDate(session.completedAt, timeZone)
+      : null;
 
   return (
     <>

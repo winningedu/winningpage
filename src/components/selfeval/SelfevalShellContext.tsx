@@ -35,6 +35,8 @@ type SelfevalShellValue = {
   studentName: string | null;
   /** 사이드바 학년 줄. 진입 정보 프로필의 학년이며 없으면 null. */
   gradeLabel: string | null;
+  /** 회원 시간대(profiles.time_zone). 화면의 날짜 표기와 학년도 계산 기준이며 진입 정보 전이면 null. */
+  timeZone: string | null;
   isEntryLoading: boolean;
   /** 진입 조회 실패. 원본 ApiResult 는 error.result 에 있다. */
   entryError: SelfevalApiError | null;
@@ -72,6 +74,7 @@ export function SelfevalShellProvider({ children }: { children: ReactNode }) {
       sessions: query.data?.sessions ?? null,
       studentName,
       gradeLabel: entry?.profile?.gradeLabel ?? null,
+      timeZone: entry?.timeZone ?? null,
       isEntryLoading: query.isPending && query.fetchStatus !== "idle",
       entryError,
       currentStep,

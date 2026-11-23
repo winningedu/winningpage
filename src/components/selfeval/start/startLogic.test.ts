@@ -19,6 +19,7 @@ function entry(over: Partial<Entry> = {}): Entry {
     profile: null,
     replyResent: 0,
     academicYearDefault: 2026,
+    timeZone: "Asia/Seoul",
     ...over,
   };
 }
@@ -77,9 +78,9 @@ describe("deriveStartMode", () => {
 describe("monthsSince", () => {
   const now = new Date("2026-10-06T00:00:00Z");
   test("달 단위 경과를 내림으로 센다", () => {
-    expect(monthsSince("2026-04-06T00:00:00Z", now)).toBe(6);
-    expect(monthsSince("2026-04-07T00:00:00Z", now)).toBe(5);
-    expect(monthsSince("2026-10-01T00:00:00Z", now)).toBe(0);
+    expect(monthsSince("2026-04-06T00:00:00Z", now, "UTC")).toBe(6);
+    expect(monthsSince("2026-04-07T00:00:00Z", now, "UTC")).toBe(5);
+    expect(monthsSince("2026-10-01T00:00:00Z", now, "UTC")).toBe(0);
   });
   test("달력 날짜는 넘겨 준 시간대로 센다", () => {
     // 서울 4월 7일 0시(UTC 4월 6일 15:00), 지금은 서울 10월 7일 0시 직전
@@ -93,18 +94,22 @@ describe("monthsSince", () => {
     expect(monthsSince(from, new Date("2026-10-06T14:59:59Z"), "UTC")).toBe(6);
   });
   test("해석할 수 없는 날짜는 null", () => {
-    expect(monthsSince("nope", now)).toBeNull();
+    expect(monthsSince("nope", now, "UTC")).toBeNull();
   });
 });
 
 describe("staleLabel", () => {
   test("경과 개월 수를 문장으로 만든다", () => {
     expect(
-      staleLabel("2026-04-06T00:00:00Z", new Date("2026-10-06T00:00:00Z")),
+      staleLabel(
+        "2026-04-06T00:00:00Z",
+        new Date("2026-10-06T00:00:00Z"),
+        "UTC",
+      ),
     ).toBe("발행일이 6개월 지났어요");
   });
   test("개월 수를 모르면 null", () => {
-    expect(staleLabel("nope", new Date())).toBeNull();
+    expect(staleLabel("nope", new Date(), "UTC")).toBeNull();
   });
 });
 

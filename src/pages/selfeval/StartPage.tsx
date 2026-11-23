@@ -105,7 +105,11 @@ function StartBody({ entry }: { entry: EntryResponse["entry"] }) {
   return (
     <div className={BODY}>
       {growth && (
-        <GrowthDirectionBanner banner={growth.banner} stale={growth.stale} />
+        <GrowthDirectionBanner
+          banner={growth.banner}
+          stale={growth.stale}
+          timeZone={entry.timeZone}
+        />
       )}
       <StudentSummaryCard
         studentName={studentName}

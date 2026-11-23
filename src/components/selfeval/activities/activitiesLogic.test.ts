@@ -263,7 +263,7 @@ describe("filterCandidates", () => {
     }),
   ];
   const ids = (f: Parameters<typeof filterCandidates>[1]) =>
-    filterCandidates(rows, f).map((r) => r.activity.id);
+    filterCandidates(rows, f, "Asia/Seoul").map((r) => r.activity.id);
 
   test("필터가 비어 있으면 전부 돌려준다", () => {
     expect(ids({})).toEqual(["a", "b", "c"]);
@@ -287,7 +287,7 @@ describe("academicYearOf", () => {
     expect(academicYearOf(at, "UTC")).toBe(2025);
   });
   test("해석할 수 없으면 null", () => {
-    expect(academicYearOf("nope")).toBeNull();
+    expect(academicYearOf("nope", "UTC")).toBeNull();
   });
 });
 

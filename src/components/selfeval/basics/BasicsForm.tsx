@@ -261,6 +261,7 @@ export default function BasicsForm({
         {growth && (
           <GrowthCard
             growth={growth}
+            timeZone={entry.timeZone}
             form={form}
             disabled={disabled}
             onChange={onChange}
@@ -319,11 +320,13 @@ export default function BasicsForm({
 
 function GrowthCard({
   growth,
+  timeZone,
   form,
   disabled,
   onChange,
 }: {
   growth: NonNullable<Entry["growth"]>;
+  timeZone: string;
   form: BasicsFormState;
   disabled: boolean;
   onChange: (patch: Partial<BasicsFormState>) => void;
@@ -332,7 +335,11 @@ function GrowthCard({
   const label = "이 방향을 이번 자기평가서에 적용합니다";
   return (
     <section className="flex flex-col gap-3" aria-label="성장설계 연동">
-      <GrowthDirectionBanner banner={growth.banner} stale={growth.stale} />
+      <GrowthDirectionBanner
+        banner={growth.banner}
+        stale={growth.stale}
+        timeZone={timeZone}
+      />
       <div className={`${CARD_BOX} flex flex-col gap-4`}>
         <div className="flex items-center justify-between gap-4">
           <span className="text-app-body font-semibold text-ink-strong">

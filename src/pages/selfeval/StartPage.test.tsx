@@ -93,6 +93,7 @@ function makeEntry(over: Record<string, unknown> = {}) {
     },
     replyResent: 0,
     academicYearDefault: 2026,
+    timeZone: "Asia/Seoul",
     ...over,
   };
 }

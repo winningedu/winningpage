@@ -231,6 +231,7 @@ beforeEach(() => {
   refetchEntry.mockResolvedValue(undefined);
   shellMock.mockReturnValue({
     entry: { academicYearDefault: 2026, openSession: null },
+    timeZone: "Asia/Seoul",
     refetchEntry,
   });
   detailMock.mockResolvedValue(sessionDetail());

@@ -11,7 +11,6 @@ import {
   type PickListResponse,
 } from "@/lib/selfeval/types";
 import { schoolYearOf, ymdIn } from "@/lib/time/day";
-import { browserTimeZone } from "@/lib/time/zone";
 import { strengthLabel } from "./linkMapLogic";
 
 // 활동 선택 화면 순수 로직(명세 No.26~36, 107~113). 서버 규칙(api/_lib/selfeval/pick.ts 의
@@ -146,6 +145,7 @@ export type CandidateFilter = {
 export function filterCandidates(
   rows: readonly CandidateRow[],
   filter: CandidateFilter,
+  tz: string,
 ): CandidateRow[] {
   return rows.filter(({ activity: a }) => {
     if (filter.gradeLabel && a.gradeLabel !== filter.gradeLabel) return false;
@@ -154,7 +154,7 @@ export function filterCandidates(
     if (filter.source && a.sourceProgram !== filter.source) return false;
     if (
       filter.academicYear &&
-      academicYearOf(a.createdAt) !== filter.academicYear
+      academicYearOf(a.createdAt, tz) !== filter.academicYear
     ) {
       return false;
     }
@@ -162,11 +162,8 @@ export function filterCandidates(
   });
 }
 
-/** 기록 생성 시각이 속한 학년도(tz 의 3월 1일에 시작, 기본은 브라우저 시간대). 해석할 수 없으면 null. */
-export function academicYearOf(
-  iso: string,
-  tz: string = browserTimeZone(),
-): number | null {
+/** 기록 생성 시각이 속한 학년도(회원 시간대 tz 의 3월 1일에 시작). 해석할 수 없으면 null. */
+export function academicYearOf(iso: string, tz: string): number | null {
   if (Number.isNaN(new Date(iso).getTime())) return null;
   return schoolYearOf(iso, tz);
 }
@@ -181,11 +178,8 @@ export function summarizeResult(
   return t.length > max ? `${t.slice(0, max)}...` : t;
 }
 
-/** 카드 날짜. tz(기본은 브라우저 시간대) 기준 YYYY.MM.DD. 해석할 수 없으면 null. */
-export function formatDotDate(
-  iso: string,
-  tz: string = browserTimeZone(),
-): string | null {
+/** 카드 날짜. 회원 시간대 tz 기준 YYYY.MM.DD. 해석할 수 없으면 null. */
+export function formatDotDate(iso: string, tz: string): string | null {
   if (Number.isNaN(new Date(iso).getTime())) return null;
   return ymdIn(iso, tz).replaceAll("-", ".");
 }

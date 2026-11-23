@@ -48,6 +48,7 @@ function renderCard(
       onToggle={vi.fn()}
       linkStatus="ok"
       unlinked={false}
+      timeZone="UTC"
       {...over}
     />,
   );
@@ -60,6 +61,21 @@ const linked = (over = {}) => ({
   strength: "explicit" as const,
   confirmed: false,
   ...over,
+});
+
+describe("CandidateCard 날짜", () => {
+  const base = row({});
+  const at = {
+    ...base,
+    activity: { ...base.activity, createdAt: "2026-09-15T16:00:00Z" },
+  };
+  test("카드 날짜는 넘겨 준 회원 시간대의 달력 날짜다", () => {
+    const { unmount } = renderCard(at, { timeZone: "Asia/Seoul" });
+    expect(screen.getByText(/2026\.09\.16/)).toBeTruthy();
+    unmount();
+    renderCard(at, { timeZone: "UTC" });
+    expect(screen.getByText(/2026\.09\.15/)).toBeTruthy();
+  });
 });
 
 describe("CandidateCard 연계 표시", () => {

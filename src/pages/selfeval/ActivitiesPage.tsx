@@ -74,11 +74,13 @@ export default function ActivitiesPage() {
   const { userId } = useSession();
   const pick = useQuery(selfevalPickQuery(userId, sessionId));
   const detail = useQuery(selfevalSessionQuery(userId, sessionId));
+  const { timeZone } = useSelfevalShell();
 
-  if (pick.data && detail.data && sessionId) {
+  if (pick.data && detail.data && sessionId && timeZone) {
     return (
       <ActivitiesBody
         sessionId={sessionId}
+        timeZone={timeZone}
         pick={pick.data}
         session={detail.data.session}
         refetchAll={async () => {
@@ -132,12 +134,20 @@ export default function ActivitiesPage() {
 
 type BodyProps = {
   sessionId: string;
+  /** 회원 시간대. 학년도 필터와 카드 날짜 기준. */
+  timeZone: string;
   pick: PickListResponse;
   session: SessionView;
   refetchAll: () => Promise<void>;
 };
 
-function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
+function ActivitiesBody({
+  sessionId,
+  timeZone,
+  pick,
+  session,
+  refetchAll,
+}: BodyProps) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -176,7 +186,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
     manualOpen ??
     (params.get("manual") === "1" || pick.candidates.length === 0);
 
-  const visible = filterCandidates(pick.candidates, filter);
+  const visible = filterCandidates(pick.candidates, filter, timeZone);
   const isChosen = (id: string) =>
     roles.coreId === id || roles.supportIds.includes(id);
   const roleOf = (id: string) =>
@@ -195,7 +205,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
   const academicYears = [
     ...new Set(
       pick.candidates
-        .map((r) => academicYearOf(r.activity.createdAt))
+        .map((r) => academicYearOf(r.activity.createdAt, timeZone))
         .filter((y): y is number => y !== null),
     ),
   ].sort((a, b) => b - a);
@@ -473,6 +483,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
                     linkStatus={linkStatus}
+                    timeZone={timeZone}
                     unlinked={unlinked.has(row.activity.id)}
                   >
                     {roles.coreId !== null && (
@@ -511,6 +522,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
                     disabled={busy}
                     onToggle={() => toggle(row.activity.id)}
                     linkStatus={linkStatus}
+                    timeZone={timeZone}
                     unlinked={false}
                   />
                 ))}
