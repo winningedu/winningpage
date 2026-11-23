@@ -41,6 +41,19 @@ export type AnalyticsEventMap = {
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;
 
+const ALLOWED_EVENTS: ReadonlySet<string> = new Set<AnalyticsEventName>([
+  "signup_complete",
+  "service_start",
+  "diagnosis_complete",
+  "checkout_start",
+  "payment_complete",
+  "consult_apply",
+  "kakao_inquiry_click",
+  "report_export",
+  "paywall_cta_click",
+  "ai_regenerate",
+]);
+
 type TrackArgs<N extends AnalyticsEventName> =
   AnalyticsEventMap[N] extends undefined ? [] : [props: AnalyticsEventMap[N]];
 
@@ -48,5 +61,7 @@ export function trackEvent<N extends AnalyticsEventName>(
   name: N,
   ...args: TrackArgs<N>
 ): void {
+  // 타입은 우회될 수 있어 런타임에서도 허용 목록만 통과시킨다.
+  if (!ALLOWED_EVENTS.has(name)) return;
   track(name, args[0]);
 }

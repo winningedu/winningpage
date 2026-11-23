@@ -15,4 +15,33 @@ describe("trackEvent", () => {
     trackEvent("diagnosis_complete");
     expect(trackMock).toHaveBeenCalledWith("diagnosis_complete", undefined);
   });
+
+  test("props 있는 허용 이벤트는 props를 그대로 track에 넘긴다", () => {
+    trackEvent("signup_complete", { member_type: "parent" });
+    trackEvent("service_start", { service: "goal" });
+    trackEvent("checkout_start", { method: "card" });
+    trackEvent("payment_complete", { method: "easy_pay" });
+    trackEvent("consult_apply");
+    trackEvent("kakao_inquiry_click", { location: "footer" });
+    trackEvent("report_export", { service: "growth", method: "pdf" });
+    trackEvent("paywall_cta_click", { service: "inquiry", location: "banner" });
+    trackEvent("ai_regenerate", { service: "selfeval", step: "topics" });
+    expect(trackMock.mock.calls).toEqual([
+      ["signup_complete", { member_type: "parent" }],
+      ["service_start", { service: "goal" }],
+      ["checkout_start", { method: "card" }],
+      ["payment_complete", { method: "easy_pay" }],
+      ["consult_apply", undefined],
+      ["kakao_inquiry_click", { location: "footer" }],
+      ["report_export", { service: "growth", method: "pdf" }],
+      ["paywall_cta_click", { service: "inquiry", location: "banner" }],
+      ["ai_regenerate", { service: "selfeval", step: "topics" }],
+    ]);
+  });
+
+  test("모르는 이벤트 이름은 조용히 버린다", () => {
+    // @ts-expect-error 런타임 가드 검증을 위해 타입을 우회한다
+    trackEvent("unknown_event");
+    expect(trackMock).not.toHaveBeenCalled();
+  });
 });
