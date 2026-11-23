@@ -2,7 +2,7 @@
 //
 // 학년도 넘기기(W11)의 상태. 학교 관리자와 본사 대행만, 기관은 행위자에서 정한다.
 // 넘기기 RPC 는 같은 학년도로 다시 부르면 0 만 돌려주므로, 이미 넘겼는지는 여기서 알려 준다(결정 32).
-//   toYear     이번에 넘어갈 학년도. 달력의 학년도(3월 시작, KST)와 기관의 다음 학년도 중 이른 쪽이다.
+//   toYear     이번에 넘어갈 학년도. 달력의 학년도(3월 시작, 기관 시간대)와 기관의 다음 학년도 중 이른 쪽이다.
 //              RPC 가 한 해씩만 올리므로 두 해 이상 밀린 기관은 한 해씩 넘긴다(schoolYear.ts).
 //   rolledOver 기관의 학년도가 이미 달력의 학년도면 true.
 //   mode       rollover(학년 +1 과 졸업) 또는 midyear(학년은 두고 그룹, 반, 번호만). 서버가 정한다.
@@ -33,8 +33,11 @@ export default defineHandler({
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
 
-    const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    const { mode, toYear } = rosterModeOf(schoolYear);
+    const { schoolYear, timeZone, orgType } = await loadTenant(
+      admin,
+      actor.tenantId,
+    );
+    const { mode, toYear } = rosterModeOf(schoolYear, timeZone);
 
     const [enrollments, changes] = await Promise.all([
       readAll<{ grade: string | null }>(

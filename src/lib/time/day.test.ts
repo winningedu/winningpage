@@ -142,7 +142,7 @@ describe("schoolYearOf", () => {
       "2027-02-28T15:00:00Z",
     ]) {
       expect(schoolYearOf(iso, "Asia/Seoul")).toBe(
-        calendarSchoolYear(new Date(iso)),
+        calendarSchoolYear(new Date(iso), "Asia/Seoul"),
       );
     }
   });

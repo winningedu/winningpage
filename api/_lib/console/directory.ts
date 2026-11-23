@@ -60,6 +60,7 @@ export async function readLatest<Row>(
 
 export interface TenantInfo {
   schoolYear: number;
+  timeZone: string;
   orgType: string | null;
   isCatchAll: boolean;
 }
@@ -70,12 +71,13 @@ export async function loadTenant(
 ): Promise<TenantInfo> {
   const { data, error } = await admin
     .from("tenants")
-    .select("school_year, org_type, is_catch_all")
+    .select("school_year, time_zone, org_type, is_catch_all")
     .eq("id", tenantId)
     .maybeSingle();
   if (error || !data) throw new Error("tenant lookup failed");
   return {
     schoolYear: data.school_year,
+    timeZone: data.time_zone,
     orgType: data.org_type,
     isCatchAll: data.is_catch_all === true,
   };

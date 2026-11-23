@@ -53,8 +53,11 @@ export default defineHandler({
       return;
     }
 
-    const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    const { mode, toYear: expectedYear } = rosterModeOf(schoolYear);
+    const { schoolYear, timeZone, orgType } = await loadTenant(
+      admin,
+      actor.tenantId,
+    );
+    const { mode, toYear: expectedYear } = rosterModeOf(schoolYear, timeZone);
     if (toYear !== expectedYear) {
       sendError(res, "coded", 400, "입력 값을 확인해 주세요.", "BAD_REQUEST");
       return;
