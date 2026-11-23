@@ -3,10 +3,12 @@
 
 export { default as CopyText } from "./CopyText";
 export { REPORT_LABELS, TOTAL_PAGES } from "./labels";
+export { default as PrescriptionTable } from "./PrescriptionTable";
 export {
   default as RadarChart7,
   type RadarAxis,
 } from "./RadarChart7";
+export { default as ReportCard } from "./ReportCard";
 export { default as ReportSheet } from "./ReportSheet";
 export { default as ScoreBars } from "./ScoreBars";
 export { default as SectionHeader } from "./SectionHeader";

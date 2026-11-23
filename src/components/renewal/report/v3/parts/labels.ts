@@ -13,4 +13,12 @@ export const REPORT_LABELS = {
   studentOnly: "학생 전용",
   /** PDF p4 break mark */
   broken: "여기서 끊김",
+  /** PDF p4 and p6 prescription block */
+  rxTitle: "지금 \u2192 4주 목표",
+  rxLever: "\u2460 지렛대",
+  rxWeak: "\u2461 4주 목표",
+  rxStrong: "\u2462 이미 잘하는 것",
+  rxQuestion: "문항",
+  rxTarget: "지금 \u2192 4주 목표",
+  rxLink: "연결 과제",
 } as const;
