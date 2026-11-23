@@ -1,6 +1,6 @@
 import type { CoverPage as CoverPageData } from "@/lib/diagnosis-v3/types";
 import CopyText from "./parts/CopyText";
-import { REPORT_LABELS, twoDigitPage } from "./parts/labels";
+import { pageTitle, REPORT_LABELS, twoDigitPage } from "./parts/labels";
 import ReportSheet from "./parts/ReportSheet";
 
 /** Cover: 22 r6 (student facts), r7 (toc), judge-report R6 (headline, stages, basis). */
@@ -40,7 +40,7 @@ export default function CoverPage({ cover }: { cover: CoverPageData }) {
               <span className="text-ink-sub tabular-nums">
                 {twoDigitPage(entry.page)}
               </span>
-              <span>{entry.title}</span>
+              <span>{pageTitle(entry.page)}</span>
             </li>
           ))}
         </ol>

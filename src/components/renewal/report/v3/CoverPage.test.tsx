@@ -24,7 +24,19 @@ describe("CoverPage", () => {
       .getAllByRole("listitem")
       .filter((item) => item.closest("nav"));
     expect(items).toHaveLength(16);
-    expect(items[6]).toHaveTextContent("07입시 준비도 목표 대학");
+    expect(items[6]).toHaveTextContent("07입시 준비도 \u00b7 목표 대학");
+  });
+
+  it("shows the PDF titles even when the engine toc carries its own section names", () => {
+    const sheetTitles = {
+      ...cover,
+      toc: cover.toc.map((entry) => ({ ...entry, title: "섹션명" })),
+    };
+    render(<CoverPage cover={sheetTitles} />);
+    const nav = screen.getByRole("navigation");
+    expect(nav).not.toHaveTextContent("섹션명");
+    expect(nav).toHaveTextContent("01진단 요약");
+    expect(nav).toHaveTextContent("12 1주차 목표과제 플래너".replace(" ", ""));
   });
 
   it("M3 toc without page 7 keeps the other numbers and drops 07", () => {
@@ -32,7 +44,7 @@ describe("CoverPage", () => {
     render(<CoverPage cover={m3} />);
     const nav = screen.getByRole("navigation");
     expect(nav).not.toHaveTextContent("07");
-    expect(nav).not.toHaveTextContent("입시 준비도 목표 대학");
+    expect(nav).not.toHaveTextContent("목표 대학");
     expect(nav).toHaveTextContent("08재미로 보는 MBTI 학습 궁합");
   });
 

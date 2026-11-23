@@ -31,6 +31,38 @@ export const VERDICT_LABELS: Readonly<Record<SubjectVerdict, string>> = {
   KEEP: "유지",
 };
 
+/**
+ * Page titles of the improved report PDF (page 1 toc and each page header).
+ * No sheet cell holds them (22_리포트요소 only names sections), so the UI owns
+ * them as layout labels. Keys are the fixed page numbers (judge-report R9).
+ */
+export const PAGE_TITLES: Readonly<Record<number, string>> = {
+  1: "진단 요약",
+  2: "목표 진단",
+  3: "성적 진단",
+  4: "7단계 학습관리 사이클",
+  5: "방해 요인과 마음 상태",
+  6: "학교생활\u00b7입시 준비도",
+  7: "입시 준비도 \u00b7 목표 대학",
+  8: "재미로 보는 MBTI 학습 궁합",
+  9: "나의 기질 프로파일",
+  10: "기질 기반 입시 설계",
+  11: "진단 후 4주 실행 플랜",
+  12: "1주차 목표과제 플래너",
+  13: "2주차 목표과제 플래너",
+  14: "3주차 목표과제 플래너",
+  15: "4주차 목표과제 플래너",
+  16: "추천 서비스와 다음 단계",
+};
+
+/** Title of a fixed page; an unknown page is an error, not a blank. */
+export const pageTitle = (page: number) => {
+  const title = PAGE_TITLES[page];
+  if (title === undefined)
+    throw new Error(`v3 report has no title for page ${page}`);
+  return title;
+};
+
 /** "01" style page number of the PDF toc and page eyebrows. */
 export const twoDigitPage = (page: number) => String(page).padStart(2, "0");
 
