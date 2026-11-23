@@ -402,6 +402,30 @@ describe("validateWriteResponse", () => {
     if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(true);
   });
 
+  it("~함 형태 느낌 표현도 feeling true 다(명세 No.49)", () => {
+    for (const f of [
+      "수업에서 새로운 느낌을 받음.",
+      "한계를 깨달음.",
+      "결과가 흥미로웠음.",
+      "직접 만들어 보니 뿌듯함.",
+      "끝까지 해내서 보람참.",
+      "그래프가 인상 깊었음.",
+      "처음과 같았음.",
+    ]) {
+      const b = body3();
+      para(b, 0).sentences[0] = sent(f);
+      const r = validateWriteResponse(b, wctx);
+      expect(r.ok, f).toBe(true);
+      if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling, f).toBe(true);
+    }
+  });
+
+  it("느낌 표현이 없는 ~함 문장은 근거가 있으면 feeling false 다", () => {
+    const r = validateWriteResponse(body3(), wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(sentenceAt(r.sections, 0, 0).feeling).toBe(false);
+  });
+
   it("하였음, 했음 종결은 함으로 고쳐 저장한다", () => {
     const b = body3();
     para(b, 0).sentences[0] = sent("계수 변화를 확인하였음.");
