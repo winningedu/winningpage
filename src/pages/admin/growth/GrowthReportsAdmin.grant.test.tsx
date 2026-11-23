@@ -5,7 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./growthReportsApi", () => ({
+vi.mock("./api", () => ({
   fetchGrowthReports: vi.fn(),
   postGrowthGrant: vi.fn(),
   postGrowthRecover: vi.fn(),
@@ -26,8 +26,8 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+import * as api from "./api";
 import GrowthReportsAdmin from "./GrowthReportsAdmin";
-import * as api from "./growthReportsApi";
 
 const ITEM = {
   id: "s-1",

@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-vi.mock("./inquirySessionsApi", () => ({
+vi.mock("./api", () => ({
   fetchInquirySessions: vi.fn(),
   postInquiryGrant: vi.fn(),
   postInquiryRecover: vi.fn(),
@@ -13,8 +13,8 @@ vi.mock("@/lib/supabase", () => ({
   supabase: { from: () => ({}) },
 }));
 
+import * as api from "./api";
 import InquirySessionsAdmin from "./InquirySessionsAdmin";
-import * as api from "./inquirySessionsApi";
 
 const ITEM = {
   id: "s-1",

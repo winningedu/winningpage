@@ -1,6 +1,6 @@
 // "자동 발송된 지 2주 안이면 다시 보낼 수 있다"(고객사 의도) — 관리자 재발송이
 // 허용하는 기준. api/_routes/goal/admin/resend-report.ts(서버 검증)와
-// src/components/admin/goalReportResendOptions.ts(관리자 화면의 기간 후보
+// src/pages/admin/goal/reportResendOptions.ts(관리자 화면의 기간 후보
 // 계산) 양쪽이 이 파일 하나를 그대로 가져다 쓴다.
 //
 // 의존이 0에 가까운 잎 모듈이다(addDaysYMD 하나만 쓴다 — 그 자체가 Date.UTC

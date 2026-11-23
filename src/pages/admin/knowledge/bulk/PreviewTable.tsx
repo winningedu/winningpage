@@ -7,8 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { DedupeMap } from "./bulkFlow";
 import { DedupeMatches, RowCheckbox } from "./DedupeResult";
+import type { DedupeMap } from "./flow";
 import type { KnowledgeParseResult } from "./xlsx";
 
 export default function PreviewTable({

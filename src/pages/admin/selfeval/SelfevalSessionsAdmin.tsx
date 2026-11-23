@@ -23,22 +23,22 @@ import {
   TextInput,
 } from "@/pages/admin/shared/formFields";
 import {
-  buildGrantBody,
-  type GrantFormValues,
-  validateGrantForm,
-} from "./selfevalGrantForm";
-import {
   fetchSelfevalSessionDetail,
   fetchSelfevalSessions,
   postSelfevalGrant,
   postSelfevalRecover,
   type SelfevalSessionsPage,
-} from "./selfevalSessionsApi";
+} from "./api";
+import {
+  buildGrantBody,
+  type GrantFormValues,
+  validateGrantForm,
+} from "./grantForm";
 import {
   buildSelfevalSessionsSearch,
   initialSelfevalSessionsQuery,
   selfevalSessionsQueryReducer,
-} from "./selfevalSessionsQuery";
+} from "./query";
 import {
   areaLabel,
   canRecover,
@@ -49,7 +49,7 @@ import {
   statusLabel,
   stepLabel,
   terminalLabel,
-} from "./selfevalSessionsRow";
+} from "./row";
 
 const STUDENT_SEARCH_LIMIT = 20;
 

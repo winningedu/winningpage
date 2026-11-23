@@ -153,7 +153,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
   // 기관 관리(2026-09-22) — profiles/products/coupons.org_code(자유
   // 입력 text)를 대체하는 마스터 테이블 화면. tenants 테이블엔 insert 정책이
   // 없다(신설은 fn_create_tenant RPC 전용, WC067 최고 관리자 게이트) — 목록·
-  // 등록 폼 모두 custom 컴포넌트가 직접 다룬다(src/components/admin/TenantsAdmin.tsx).
+  // 등록 폼 모두 custom 컴포넌트가 직접 다룬다(src/pages/admin/tenants/TenantsAdmin.tsx).
   // columns 는 목록에서만 쓰인다(members 와 같은 관례).
   tenants: {
     title: "기관 관리",
@@ -182,7 +182,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
   // 이용서비스/결제내역/상담/알림톡·문자/서비스이용내역)이고, profiles 한 테이블이
   // 아니라 parent_child_links·program_access·orders 를 함께 읽으며 개인정보 마스킹
   // 토글이 필요해 제네릭 AdminForm 으로는 표현할 수 없다. mentorApplications 와 같은
-  // 방식으로 목록만 AdminTable 을 재사용한다(src/components/admin/MembersAdmin.tsx).
+  // 방식으로 목록만 AdminTable 을 재사용한다(src/pages/admin/members/MembersAdmin.tsx).
   //
   // ⚠️ 이 전환으로 **제네릭 편집 폼이 사라진다.** 이전에는 이 탭에서 회원 정보를
   //    자유 편집할 수 있었는데, 와이어프레임의 고객 상세는 조회 화면이라 편집
@@ -216,7 +216,7 @@ export const memberConfigs: Record<string, MemberConfig> = {
       //
       // ⚠️ 이 config 가 custom 으로 바뀌면서 제네릭 편집 폼이 사라졌다. 그래서
       //    회원구분 **편집**은 MembersAdmin 상세의 「고객 상세 정보」 탭이 맡는다
-      //    (src/components/admin/MembersAdmin.tsx) — 목록에서 값만 보이고 고칠
+      //    (src/pages/admin/members/MembersAdmin.tsx) — 목록에서 값만 보이고 고칠
       //    데가 없으면 QA 186 요구가 반쪽이 된다.
       { key: "member_category", label: "회원구분" },
       // QA G4 — 생년월일/소속코드/학교명/지역/이용서비스 5열 추가(2026-08-27).

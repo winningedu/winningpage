@@ -1,7 +1,7 @@
 // 미리보기 표의 중복 검사 결과 칸과 반영 체크박스. 정확 일치는 기본 제외, 근사 일치는 경고다.
 
 import type { DedupeResult } from "../../../../../api/_lib/knowledge/dedupe.js";
-import type { DedupeMap } from "./bulkFlow";
+import type { DedupeMap } from "./flow";
 
 /** 미리보기 설명 끝에 붙는 중복 검사 요약. 검사 전이면 빈 문자열이다. */
 export function dedupeSummary(dedupe: DedupeMap | null): string {

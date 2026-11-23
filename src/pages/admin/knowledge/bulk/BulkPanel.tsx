@@ -1,8 +1,8 @@
 // 위닝 수행 주제 DB, 위닝 수행 자료 DB 목록 상단의 엑셀 일괄 등록 패널.
 // 흐름: 내려받기 / 올리기, 파싱 미리보기 모달, 중복 검사(정확 일치는 기본 제외,
 // 근사 일치는 경고), 반영(api/admin/knowledge-bulk) 뒤 임베딩 backfill 을 embedded 가
-// 0 이 될 때까지 반복한다. 단계 전이는 bulkFlow.ts, 판단은 plan.ts, 파싱은 xlsx.ts.
-// 이 파일은 버튼 두 개와 미리보기 Dialog 껍데기만 든다. 서버 호출 순서는 bulkRun.ts.
+// 0 이 될 때까지 반복한다. 단계 전이는 flow.ts, 판단은 plan.ts, 파싱은 xlsx.ts.
+// 이 파일은 버튼 두 개와 미리보기 Dialog 껍데기만 든다. 서버 호출 순서는 run.ts.
 
 import { Download } from "lucide-react";
 import { useReducer, useRef } from "react";
@@ -17,11 +17,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import ApplyProgress from "./ApplyProgress";
-import { bulkReducer, INITIAL_BULK_STATE, isBulkBusy } from "./bulkFlow";
-import { runApply, runDedupe } from "./bulkRun";
 import { dedupeSummary } from "./DedupeResult";
+import { bulkReducer, INITIAL_BULK_STATE, isBulkBusy } from "./flow";
 import PreviewTable from "./PreviewTable";
 import { defaultSelection } from "./plan";
+import { runApply, runDedupe } from "./run";
 import {
   exportKnowledgeRowsToXlsx,
   type KnowledgeBulkField,
