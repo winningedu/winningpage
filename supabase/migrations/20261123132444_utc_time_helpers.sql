@@ -67,9 +67,9 @@ grant execute on function public.fn_add_months(timestamptz, int, text) to anon, 
 
 -- 소유자 시간대(D1). 보는 사람이 없는 만료, 쿼터 리셋, cron 이 이 값을 쓴다.
 alter table public.tenants
-  add column time_zone text not null default 'Asia/Seoul',
+  add column time_zone text not null default 'Asia/Seoul', -- tz-literal-ok: D1 기존 행과 새 행의 기본 시간대
   add constraint tenants_time_zone_valid check (public.fn_is_valid_time_zone(time_zone));
 
 alter table public.profiles
-  add column time_zone text not null default 'Asia/Seoul',
+  add column time_zone text not null default 'Asia/Seoul', -- tz-literal-ok: D1 기존 행과 새 행의 기본 시간대
   add constraint profiles_time_zone_valid check (public.fn_is_valid_time_zone(time_zone));
