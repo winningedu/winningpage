@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/growth/apiResult";
 import {
   type ApiResult,
@@ -333,7 +334,13 @@ function ResultBody({
                     size="lg"
                     className="h-10 px-5 text-app-label font-medium"
                     disabled={regenerationsLeft <= 0 || busy || generating}
-                    onClick={() => setRunKey((k) => k + 1)}
+                    onClick={() => {
+                      trackEvent("ai_regenerate", {
+                        service: "selfeval",
+                        step: "result",
+                      });
+                      setRunKey((k) => k + 1);
+                    }}
                   >
                     다시 생성 (남은 {regenerationsLeft}회)
                   </Button>

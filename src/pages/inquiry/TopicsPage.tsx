@@ -26,6 +26,7 @@ import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import {
   type ApiResult,
   createPlanReport,
@@ -362,7 +363,13 @@ function TopicsBody() {
             size="lg"
             className="h-10 px-5 text-app-label"
             disabled={busy || rerecommendBlocked}
-            onClick={() => recommend()}
+            onClick={() => {
+              trackEvent("ai_regenerate", {
+                service: "inquiry",
+                step: "topics",
+              });
+              recommend();
+            }}
           >
             {`다시 추천받기(남은 ${remaining} / ${MAX_RERECOMMENDS})`}
           </Button>
