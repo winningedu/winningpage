@@ -3,6 +3,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  CLASS_NAME_INVALID_MESSAGE,
+  normalizeClassName,
+} from "../../../../api/_lib/console/className";
 import { consoleRequest } from "../api";
 import FilterSelect from "../FilterSelect";
 import TextField from "../TextField";
@@ -43,9 +47,13 @@ export default function ConnectPreviewPanel() {
   const [busy, setBusy] = useState(false);
   const change = (patch: Partial<typeof values>) =>
     setValues((prev) => ({ ...prev, ...patch }));
+  const classValid =
+    values.className.trim() === "" ||
+    normalizeClassName(values.className) !== "";
   const ready =
     values.name.trim() !== "" &&
     values.grade !== "" &&
+    classValid &&
     values.className.trim() !== "" &&
     values.number.trim() !== "";
 
@@ -112,6 +120,8 @@ export default function ConnectPreviewPanel() {
         )}
         <TextField
           label="반"
+          inputMode="numeric"
+          error={classValid ? null : CLASS_NAME_INVALID_MESSAGE}
           value={values.className}
           onChange={(e) => change({ className: e.target.value })}
         />

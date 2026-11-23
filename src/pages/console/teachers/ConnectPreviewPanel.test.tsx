@@ -41,6 +41,29 @@ afterEach(() => {
 });
 
 describe("W14 학생 가입 연결 미리보기", () => {
+  it("반은 숫자 키패드를 쓰고 숫자가 아니면 안내하며 확인을 막는다", () => {
+    stubApi({ "GET /api/console/groups": { body: { groups: [] } } });
+    open();
+
+    fillAll();
+    expect(screen.getByLabelText("반").getAttribute("inputmode")).toBe(
+      "numeric",
+    );
+    expect(screen.queryByText("반은 숫자만 적어요")).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: "확인" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("반"), { target: { value: "A" } });
+
+    expect(screen.getByText("반은 숫자만 적어요")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "확인" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it("값이 다 차야 확인할 수 있고 정상 연결이면 담임 선생님 이름과 함께 알린다", async () => {
     const calls = stubApi({
       "GET /api/console/groups": { body: { groups: [] } },
