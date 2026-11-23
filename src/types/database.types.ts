@@ -9208,6 +9208,21 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      fn_hq_tenant_usage: {
+        Args: { p_include_internal: boolean };
+        Returns: {
+          month_capped_students: number;
+          month_limit: number;
+          month_used: number;
+          program_key: string;
+          provided: boolean;
+          tenant_id: string;
+          term_capped_students: number;
+          term_limit: number;
+          term_resets_on: string;
+          term_used: number;
+        }[];
+      };
       fn_inquiry_claim_generation: {
         Args: {
           p_mode: string;
