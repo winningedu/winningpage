@@ -20,9 +20,11 @@ import {
   analyzeResolveConflict,
   analyzeRun,
   analyzeSave,
+  buildReport,
   createSession,
   discardSession,
   fetchEntry,
+  fetchReport,
   fetchSessionDetail,
   finalizeSession,
   manualLogsDelete,
@@ -302,5 +304,25 @@ describe("manualLogs", () => {
       code: "RECORD_BOOK_DETECTED",
       message: "거절",
     });
+  });
+});
+
+describe("리포트", () => {
+  test("조회는 sessionId 를 쿼리로 GET 한다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+    await fetchReport("s 1");
+    const { path, init } = lastCall();
+    expect(path).toBe("/api/selfeval/report?sessionId=s+1");
+    expect(init.method).toBe("GET");
+  });
+
+  test("만들기는 sessionId 만 POST 하고 모델 호출용 긴 타임아웃 경로를 쓴다", async () => {
+    apiFetchMock.mockResolvedValue(json(200, { ok: true, report: null }));
+    const result = await buildReport("s1");
+    expect(result.kind).toBe("ok");
+    expect(lastCall().path).toBe("/api/selfeval/report");
+    expect(lastCall().init.method).toBe("POST");
+    expect(lastCall().body).toEqual({ sessionId: "s1" });
+    expect(apiFetchMock.mock.calls.at(-1)?.[2]).toEqual({ timeoutMs: 70000 });
   });
 });

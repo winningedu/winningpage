@@ -239,3 +239,11 @@ export type ReportView = {
   builtAt: string;
   payload: ReportPayload | null;
 };
+
+/** GET, POST /api/selfeval/report 성공 본문. */
+export type ReportResponse = {
+  ok: true;
+  /** POST 에서만. 같은 리비전의 완성본을 다시 만들지 않고 돌려줬는지. */
+  reused?: boolean;
+  report: ReportView;
+};

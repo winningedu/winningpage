@@ -15,6 +15,7 @@ import {
   normalizeApiResult,
 } from "../growth/apiResult";
 import { AI_CALL_TIMEOUT_MS, fetchWithTimeout } from "../performance/apiClient";
+import type { ReportResponse } from "./reportTypes";
 import type {
   AnalysisField,
   AnalyzeEditResponse,
@@ -117,6 +118,24 @@ export function fetchSessionDetail(sessionId: string) {
   const query = new URLSearchParams({ sessionId });
   return request<SessionDetailResponse>(`${BASE}/reports?${query.toString()}`, {
     method: "GET",
+  });
+}
+
+// ── 리포트(표지 + 01~05장, 명세 No.133) ───────────────────────────────
+/** 저장된 리포트. 없으면 404 REPORT_NOT_FOUND. */
+export function fetchReport(sessionId: string) {
+  const query = new URLSearchParams({ sessionId });
+  return request<ReportResponse>(`${BASE}/report?${query.toString()}`, {
+    method: "GET",
+  });
+}
+
+/** 만들기, 다시 만들기. 같은 리비전의 완성본은 서버가 다시 만들지 않는다. 모델 호출이라 긴 타임아웃. */
+export function buildReport(sessionId: string) {
+  return request<ReportResponse>(`${BASE}/report`, {
+    method: "POST",
+    body: { sessionId },
+    ai: true,
   });
 }
 
