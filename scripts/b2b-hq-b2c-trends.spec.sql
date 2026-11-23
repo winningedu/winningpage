@@ -102,14 +102,14 @@ update public.profiles set created_at = timestamptz '2002-03-11 09:00+09' where 
 update public.profiles set created_at = timestamptz '2002-03-04 12:00+09' where id in (pg_temp.fx('qa'), pg_temp.fx('adm'));
 
 -- 로그인 기록(실측). 이 스펙의 기록만 보이게 비운다.
-delete from public.profile_login_days;
-insert into public.profile_login_days (profile_id, kst_date, first_seen_at) values
-  (pg_temp.fx('b1'), date '2002-03-10', timestamptz '2002-03-10 09:00+09'),
-  (pg_temp.fx('ca'), date '2002-03-10', timestamptz '2002-03-10 09:10+09'),
-  (pg_temp.fx('tn'), date '2002-03-10', timestamptz '2002-03-10 09:20+09'),
-  (pg_temp.fx('qa'), date '2002-03-10', timestamptz '2002-03-10 09:30+09'),
-  (pg_temp.fx('bp'), date '2002-03-11', timestamptz '2002-03-11 09:00+09'),
-  (pg_temp.fx('tp'), date '2002-03-11', timestamptz '2002-03-11 09:00+09');
+delete from public.profile_login_slots;
+insert into public.profile_login_slots (profile_id, slot_start) values
+  (pg_temp.fx('b1'), timestamptz '2002-03-10 09:00+09'),
+  (pg_temp.fx('ca'), timestamptz '2002-03-10 09:10+09'),
+  (pg_temp.fx('tn'), timestamptz '2002-03-10 09:20+09'),
+  (pg_temp.fx('qa'), timestamptz '2002-03-10 09:30+09'),
+  (pg_temp.fx('bp'), timestamptz '2002-03-11 09:00+09'),
+  (pg_temp.fx('tp'), timestamptz '2002-03-11 09:00+09');
 
 -- 주문. 결제자(user_id)는 학부모, 이용 학생은 student_profile_id.
 create function pg_temp.mk_order(p_id text, p_student uuid, p_parent uuid, p_status text, p_paid_at timestamptz,
@@ -146,7 +146,7 @@ set local session_replication_role = origin;
 -- ---------------------------------------------------------------------
 create function pg_temp.lb(p_from date, p_to date, p_grain text, p_inc boolean, p_scope text)
 returns table (bucket_start date, bucket_end date, source text, members bigint, by_member_type jsonb)
-language sql as $$ select * from public.fn_hq_login_buckets(p_from, p_to, p_grain, 'calendar', p_inc, p_scope) $$;
+language sql as $$ select * from public.fn_hq_login_buckets(p_from, p_to, p_grain, 'calendar', p_inc, p_scope, 'Asia/Seoul') $$;
 
 select pg_temp.expect_text('all 은 기관 학생도 센다(QA 제외)',
   (select members::text from pg_temp.lb('2002-03-10', '2002-03-10', 'day', false, 'all')), '3');
@@ -157,11 +157,12 @@ select pg_temp.expect_text('b2c 도 포함 스위치를 켜면 QA 를 센다',
 select pg_temp.expect_text('b2c 유형별 인원',
   (select by_member_type::text from pg_temp.lb('2002-03-10', '2002-03-11', 'month', false, 'b2c')), '{"parent": 1, "student": 2}');
 select pg_temp.expect_error('모르는 범위는 거부',
-  $$select * from public.fn_hq_login_buckets('2002-03-10', '2002-03-11', 'day', 'calendar', false, 'b2b')$$, '22023');
+  $$select * from public.fn_hq_login_buckets('2002-03-10', '2002-03-11', 'day', 'calendar', false, 'b2b', 'Asia/Seoul')$$, '22023');
 select pg_temp.expect_error('범위가 비면 거부',
-  $$select * from public.fn_hq_login_buckets('2002-03-10', '2002-03-11', 'day', 'calendar', false, null)$$, '22023');
-select pg_temp.expect_bool('5개 인자 옛 함수는 없다',
-  to_regprocedure('public.fn_hq_login_buckets(date, date, text, text, boolean)') is null, true);
+  $$select * from public.fn_hq_login_buckets('2002-03-10', '2002-03-11', 'day', 'calendar', false, null, 'Asia/Seoul')$$, '22023');
+select pg_temp.expect_bool('5개, 6개 인자 옛 함수는 없다',
+  to_regprocedure('public.fn_hq_login_buckets(date, date, text, text, boolean)') is null
+  and to_regprocedure('public.fn_hq_login_buckets(date, date, text, text, boolean, text)') is null, true);
 
 -- ---------------------------------------------------------------------
 -- fn_hq_trend_buckets: 묶음마다 새 가입(유형별)과 결제 주문 수(A10)
@@ -197,7 +198,7 @@ select pg_temp.expect_text('달 묶음 최근 30일 기준은 로그인 묶음�
   (select string_agg(bucket_start::text || '=' || bucket_end::text, ',' order by bucket_start)
      from pg_temp.tb('2002-02-01', '2002-03-12', 'month', 'rolling30', false)),
   (select string_agg(bucket_start::text || '=' || bucket_end::text, ',' order by bucket_start)
-     from public.fn_hq_login_buckets('2002-02-01', '2002-03-12', 'month', 'rolling30', false, 'all')));
+     from public.fn_hq_login_buckets('2002-02-01', '2002-03-12', 'month', 'rolling30', false, 'all', 'Asia/Seoul')));
 select pg_temp.expect_error('추이도 시작일이 종료일보다 늦으면 거부',
   $$select * from public.fn_hq_trend_buckets('2002-03-05', '2002-03-04', 'day', 'calendar', false, 'Asia/Seoul')$$, '22023');
 select pg_temp.expect_error('추이도 모르는 묶음 단위는 거부',
@@ -277,14 +278,14 @@ select pg_temp.expect_bool('시간대 없는 옛 B2C 요약 함수는 없다',
 -- ---------------------------------------------------------------------
 create temp table fns (sig text);
 insert into fns values
-  ('public.fn_hq_login_buckets(date, date, text, text, boolean, text)'),
+  ('public.fn_hq_login_buckets(date, date, text, text, boolean, text, text)'),
   ('public.fn_hq_trend_buckets(date, date, text, text, boolean, text)'),
   ('public.fn_hq_b2c_summary(date, date, boolean, text)'),
   ('public.fn_hq_buckets(date, date, text, text)'),
   ('public.fn_hq_is_b2c_tenant(uuid)');
 select pg_temp.expect_bool('통계 함수 셋은 security definer',
   (select bool_and(prosecdef) from pg_proc where oid in (
-    'public.fn_hq_login_buckets(date, date, text, text, boolean, text)'::regprocedure,
+    'public.fn_hq_login_buckets(date, date, text, text, boolean, text, text)'::regprocedure,
     'public.fn_hq_trend_buckets(date, date, text, text, boolean, text)'::regprocedure,
     'public.fn_hq_b2c_summary(date, date, boolean, text)'::regprocedure)), true);
 select pg_temp.expect_bool('anon, authenticated 는 새 함수를 실행할 수 없다',
