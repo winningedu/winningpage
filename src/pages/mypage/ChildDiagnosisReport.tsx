@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import DiagnosisReportView, {
-  type DiagnosisReportData,
-} from "@/components/renewal/report/DiagnosisReportView";
-import { withStoredGradeRaw } from "@/lib/diagnosisReport";
-import { fetchDiagnosisReport } from "@/lib/diagnosisReportQueries";
+import StoredDiagnosisReport from "@/components/renewal/report/StoredDiagnosisReport";
+import {
+  type DiagnosisReportRow,
+  fetchDiagnosisReport,
+} from "@/lib/diagnosisReportQueries";
 import { supabase } from "@/lib/supabase";
 
 // 학부모가 자녀의 학습진단 리포트 한 건을 여는 뷰어. 진입: ChildDiagnosisReports(목록)의
@@ -20,10 +20,9 @@ import { supabase } from "@/lib/supabase";
 // 막는다.
 //
 // ── 본문 ────────────────────────────────────────────────────────────
-// DiagnosisReportView는 FreeDiagnosisReport(자기 열람)와 완전히 동일한 프레젠테이션
-// 컴포넌트를 그대로 재사용한다 — data 하나만 받는 순수 컴포넌트라 학부모 열람에도 그대로
-// 맞는다. studentName은 넘기지 않는다 — data.student.name(저장된 payload)을 그대로
-// 신뢰한다(별도 프로필 조회 없음, DiagnosisReportView 헤더 주석 참고). 리포트 자체가
+// StoredDiagnosisReport는 FreeDiagnosisReport(자기 열람)와 같은 컴포넌트다 — 저장 행의
+// schema_version 으로 v3 뷰와 기존 뷰를 고른다. studentName은 넘기지 않는다 — 저장된
+// payload의 이름을 그대로 신뢰한다(별도 프로필 조회 없음). 리포트 자체가
 // "뒤로가기·자녀 이름" 같은 셸 없이 완결된 A4 인쇄 문서라 이 페이지는 게이트만 하고
 // 그 외에는 아무것도 얹지 않는다(FreeDiagnosisReport와 동일한 원칙).
 
@@ -67,7 +66,7 @@ export default function ChildDiagnosisReport() {
     };
   }, [studentId]);
 
-  const [report, setReport] = useState<{ payload: unknown } | null | undefined>(
+  const [report, setReport] = useState<DiagnosisReportRow | null | undefined>(
     undefined,
   );
 
@@ -80,9 +79,7 @@ export default function ChildDiagnosisReport() {
       if (!alive) return;
       // profile_id가 이 화면의 자녀와 다르면(권한 판정 위 주석 참고) 없음으로 취급한다.
       setReport(
-        row && row.profile_id === child.student_profile_id
-          ? { payload: withStoredGradeRaw(row.payload, row.snapshot) }
-          : null,
+        row && row.profile_id === child.student_profile_id ? row : null,
       );
     });
 
@@ -155,7 +152,7 @@ export default function ChildDiagnosisReport() {
           ← 리포트 목록
         </Link>
       </div>
-      <DiagnosisReportView data={report.payload as DiagnosisReportData} />
+      <StoredDiagnosisReport row={report} />
     </>
   );
 }
