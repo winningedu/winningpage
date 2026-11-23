@@ -13,7 +13,7 @@ import {
 } from "./codes.js";
 import { OPTIONS, trackOf } from "./options.js";
 import { roundHalfUp1, roundHalfUpInt } from "./round.js";
-import { numberCell, sheetRows, textCell } from "./sheet.js";
+import { sheetRows, textCell } from "./sheet.js";
 import type { Ordinal, ServiceFit } from "./types.js";
 
 type ServiceRow = {
@@ -43,6 +43,11 @@ const [DIFFICULTY_POINTS, HOPE_POINTS, DEFICIT_POINTS] = matchOf(
 ) as [number, number, number];
 // 07 B27 "분모 = 그 서비스에 매핑된 항목 수(최대 2)"
 const [DENOMINATOR_CAP] = matchOf(cellAt(27), /최대 (\d+)/) as [number];
+// 07 B31 "매우 추천 80 이상 / 추천 65 이상 80 미만 / 필요성 있음 65 미만"
+const [S1_FROM, S2_FROM] = matchOf(
+  cellAt(31),
+  /(\d+) 이상 \/ 추천 (\d+) 이상/,
+) as [number, number];
 // 07 B29 "MAX(0, 50 - 점수)": the score at which the deficit is zero
 const [DEFICIT_ZERO_AT] = matchOf(cellAt(29), /MAX\(0, (\d+)/) as [number];
 
@@ -111,6 +116,9 @@ export type ServicesResult = {
   readonly ranked: readonly [ServiceFit, ServiceFit];
 };
 
+const bandOf = (tenths: number): ServiceFit["band"] =>
+  tenths >= S1_FROM * 10 ? "S1" : tenths >= S2_FROM * 10 ? "S2" : "S3";
+
 type Scored = ServiceFit & { readonly tenths: number };
 
 const scoreService = (
@@ -147,6 +155,7 @@ const scoreService = (
     hope * whole +
     DEFICIT_POINTS * sumDeficit * denominator;
 
+  const tenths = roundHalfUpInt(10 * numerator, whole);
   return {
     code: row.code,
     fit: roundHalfUp1(numerator, whole),
@@ -154,8 +163,8 @@ const scoreService = (
     hope,
     deficit: roundHalfUp1(DEFICIT_POINTS * sumDeficit, DEFICIT_ZERO_AT * count),
     relatedMean: roundHalfUp1(sumScore, count),
-    band: "S3",
-    tenths: roundHalfUpInt(10 * numerator, whole),
+    band: bandOf(tenths),
+    tenths,
   };
 };
 
