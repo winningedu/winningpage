@@ -192,7 +192,7 @@ describe("GET /api/console/teachers/connect-preview", () => {
               school_year: 2026,
               grade: "고2",
               group_id: null,
-              name: "A",
+              name: "8",
             },
             {
               id: "c-m",
@@ -200,7 +200,7 @@ describe("GET /api/console/teachers/connect-preview", () => {
               school_year: 2026,
               grade: null,
               group_id: null,
-              name: "A",
+              name: "8",
             },
           ],
           f,
@@ -224,7 +224,7 @@ describe("GET /api/console/teachers/connect-preview", () => {
     });
 
     test("같은 그룹과 이름의 다학년 학급이 학년 학급보다 먼저다", async () => {
-      const r = await get({ ...BASE, name: "오지안", className: "A" });
+      const r = await get({ ...BASE, name: "오지안", className: "8" });
 
       expect(r.body).toMatchObject({ result: "already_signed_up" });
     });
@@ -234,7 +234,7 @@ describe("GET /api/console/teachers/connect-preview", () => {
         ...BASE,
         grade: "고1",
         name: "정도윤",
-        className: "A",
+        className: "8",
         number: "7",
       });
 
@@ -242,7 +242,7 @@ describe("GET /api/console/teachers/connect-preview", () => {
     });
 
     test("다른 이름은 여전히 없는 학급이다", async () => {
-      expect((await get({ ...BASE, className: "B" })).body).toEqual({
+      expect((await get({ ...BASE, className: "6" })).body).toEqual({
         result: "no_class",
       });
     });
@@ -252,6 +252,11 @@ describe("GET /api/console/teachers/connect-preview", () => {
     expect((await get({ ...BASE, name: " " })).status).toBe(400);
     expect((await get({ ...BASE, number: "0" })).status).toBe(400);
     expect((await get({ ...BASE, grade: "" })).status).toBe(400);
+  });
+
+  test("반이 숫자가 아니면 400 이다", async () => {
+    expect((await get({ ...BASE, className: "A" })).status).toBe(400);
+    expect((await get({ ...BASE, className: "3학년 2반" })).status).toBe(400);
   });
 
   test("담임은 403 이다", async () => {

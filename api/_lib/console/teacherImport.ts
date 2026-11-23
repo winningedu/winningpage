@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ConsoleAuditCtx, writeConsoleAuditLog } from "./audit.js";
+import { normalizeClassName } from "./className.js";
 import {
   type RegisterInput,
   RpcError,
@@ -149,13 +150,6 @@ function classKeyOf(grade: string, groupId: string | null, name: string) {
 
 const mixedKeyOf = (groupId: string | null, name: string) =>
   `${groupId ?? ""}|${name.toLowerCase()}`;
-
-/** 서버의 fn_normalize_class_name 과 같은 규칙: 학교는 숫자만(앞의 0 제거), 그 밖은 공백 제거. */
-export function normalizeClassName(orgType: string, raw: string): string {
-  return orgType === "학교"
-    ? raw.replace(/\D/g, "").replace(/^0+/, "")
-    : raw.replace(/\s/g, "");
-}
 
 function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
@@ -325,14 +319,13 @@ function judgeRows(
     prepared.push(row);
 
     const hasClass = grade !== "" || className !== "";
-    const normalizedClass = normalizeClassName(context.orgType, className);
+    const normalizedClass = normalizeClassName(className);
     // 결정 118: 학년은 중1~고3 여섯 값만, 반은 숫자만(0만 있는 값 제외). 학교와 학원이 같다.
     const rowReasons: ImportReason[] = [];
     if (name === "") rowReasons.push("name");
     if (!/^01[0-9]{8,9}$/.test(phone)) rowReasons.push("phone");
     if (hasClass && !GRADES.includes(grade)) rowReasons.push("grade");
-    if (hasClass && !(/^[0-9]+$/.test(className) && /[1-9]/.test(className)))
-      rowReasons.push("class");
+    if (hasClass && normalizedClass === "") rowReasons.push("class");
     if (!hasClass && group !== "") rowReasons.push("group_without_class");
     if (rowReasons.length > 0) {
       verdicts.push("format_error");

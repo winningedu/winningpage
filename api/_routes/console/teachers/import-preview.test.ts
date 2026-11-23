@@ -190,8 +190,11 @@ describe("POST /api/console/teachers/import-preview", () => {
     };
 
     test.each([
-      ["3반", ["class"]],
       ["A", ["class"]],
+      ["B반", ["class"]],
+      ["3학년 2반", ["class"]],
+      ["1-2", ["class"]],
+      ["3 반", ["class"]],
       ["0", ["class"]],
       ["00", ["class"]],
       ["", ["class"]],
@@ -201,6 +204,11 @@ describe("POST /api/console/teachers/import-preview", () => {
         verdict: "format_error",
         reasons,
       });
+    });
+
+    test("끝의 반 한 번은 뗀 숫자 반으로 받는다(3반, 12반)", async () => {
+      expect((await verdictOf({ className: "3반" }))?.verdict).toBe("new");
+      expect((await verdictOf({ className: " 12반 " }))?.verdict).toBe("new");
     });
 
     test("학교와 학원 모두 앞뒤 공백을 뺀 숫자 반은 유효하다", async () => {

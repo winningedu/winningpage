@@ -15,6 +15,7 @@
 // 다학년과 실제 학년으로 갈리면 그 줄 모두 확인 대상이다. 다학년 줄은 학년으로 학생을 좁히지 않고(이름으로 찾음) 학생의
 // 학년은 그대로 두거나(학기 중) 한 학년 올린다(넘기기).
 
+import { normalizeClassName } from "./className.js";
 import { maskName } from "./maskName.js";
 
 /** 한 번에 읽는 명단 줄 수의 한도(미리보기와 적용이 같이 쓴다). */
@@ -156,16 +157,6 @@ export function parseRolloverText(text: string): ParsedLine[] {
   return lines;
 }
 
-/** fn_normalize_class_name 과 같다. 학교는 숫자만 남기고 앞의 0 을 떼며, 그 밖에는 공백을 모두 지운다. */
-export function normalizeClassName(
-  orgType: string | null,
-  raw: string,
-): string {
-  return orgType === "학교"
-    ? raw.replace(/[^0-9]/g, "").replace(/^0+/, "")
-    : raw.replace(/\s/g, "");
-}
-
 const digitOf = (value: string): string | null => /\d/.exec(value)?.[0] ?? null;
 
 /** 학년 칸인가. "고2", "고2학년" 처럼 학년으로 시작하거나 "2", "2학년" 처럼 1부터 3까지 숫자뿐이면 학년이다. */
@@ -256,7 +247,6 @@ function slotOf(s: PreviewStudent): PreviewSlot {
 function narrow(
   candidates: PreviewStudent[],
   from: ParsedCells,
-  orgType: string | null,
 ): PreviewStudent[] {
   return candidates.filter((s) => {
     if (from.grade !== "" && digitOf(from.grade) !== digitOf(s.grade ?? ""))
@@ -267,8 +257,9 @@ function narrow(
     }
     if (
       from.className !== "" &&
-      normalizeClassName(orgType, from.className) !==
-        normalizeClassName(orgType, s.className ?? "")
+      (normalizeClassName(from.className) === "" ||
+        normalizeClassName(from.className) !==
+          normalizeClassName(s.className ?? ""))
     ) {
       return false;
     }
@@ -291,7 +282,7 @@ function targetOf(
   mixed: boolean,
 ): Target {
   const { to } = line;
-  const className = normalizeClassName(input.orgType, to.className);
+  const className = normalizeClassName(to.className);
   const number = parseNumber(to.number);
   const group = isNoGroup(to.group)
     ? null
@@ -348,10 +339,7 @@ const decidingGradeOf = (line: ParsedLine) =>
 /** 줄이 가리키는 학급: `${그룹id 또는 빈 문자열}|${반 이름 소문자}`. 반이 비었거나 모르는 그룹이면 null. */
 function classKeyOf(line: ParsedLine, input: PreviewInput): string | null {
   const cells = targetCellsOf(line);
-  const className = normalizeClassName(
-    input.orgType,
-    cells.className,
-  ).toLowerCase();
+  const className = normalizeClassName(cells.className);
   if (className === "") return null;
   if (isNoGroup(cells.group)) return `|${className}`;
   const group = input.groups.get(cells.group.toLowerCase());
@@ -460,7 +448,6 @@ export function evaluateRolloverPreview(input: PreviewInput): {
             number: "",
           }
         : { ...line.from, grade: matchGrade(line.from.grade) },
-      input.orgType,
     );
   // 학기 중에는 한 학생을 가리키는 줄이 둘 이상이면 어느 줄이 맞는지 알 수 없어 모두 사람이 확인한다.
   const lineCounts = new Map<string, number>();

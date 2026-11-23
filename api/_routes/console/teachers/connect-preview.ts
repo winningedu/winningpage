@@ -5,6 +5,7 @@
 // ok(정상 연결). 가입 화면에 없는 학급이면 no_class. 담임 이름을 함께 준다. 읽기만 한다.
 // 권한: 학교 관리자 또는 본사 대행. 다른 학생 이름은 가려서 보낸다(결정 8, 30).
 
+import { normalizeClassName } from "../../../_lib/console/className.js";
 import {
   loadHomeroomName,
   loadProfileNames,
@@ -12,7 +13,6 @@ import {
   readAll,
 } from "../../../_lib/console/directory.js";
 import { maskName } from "../../../_lib/console/maskName.js";
-import { normalizeClassName } from "../../../_lib/console/teacherImport.js";
 import { defineHandler } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 
@@ -42,10 +42,7 @@ export default defineHandler({
     const groupId = first(req.query.groupId);
     const rawNumber = first(req.query.number);
     const { schoolYear, orgType } = await loadTenant(admin, actor.tenantId);
-    const className = normalizeClassName(
-      orgType ?? "",
-      first(req.query.className).trim(),
-    );
+    const className = normalizeClassName(first(req.query.className));
     const number = /^[1-9]\d?$/.test(rawNumber) ? Number(rawNumber) : null;
     if (name === "" || grade === "" || className === "" || number === null) {
       sendError(
