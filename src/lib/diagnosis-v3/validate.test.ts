@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { REQUIRED_QUESTIONS } from "./codes.js";
 import { CALC_EXAMPLE, validAnswers } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
-import { validateAnswers } from "./validate.js";
+import { MAX_TEXT_LENGTH, validateAnswers } from "./validate.js";
 
 const DAY1 = "2026-11-09";
 
@@ -294,5 +294,40 @@ describe("nested unknown keys (review W1)", () => {
     expect(errorsOf({ ...H12, [question]: value() })).toEqual([
       { question, reason: "invalid" },
     ]);
+  });
+});
+
+describe("text length and duplicate events (review W1)", () => {
+  const long = "x".repeat(MAX_TEXT_LENGTH + 1);
+
+  test("a q13 subject over the cap is invalid, at the cap is valid", () => {
+    const event = (subject: string) => [
+      { kind: "EXAM", date: "2026-11-20", subject },
+    ];
+    expect(
+      errorsOf({ ...H12, q13: event("x".repeat(MAX_TEXT_LENGTH)) }),
+    ).toEqual([]);
+    expect(errorsOf({ ...H12, q13: event(long) })).toEqual([
+      { question: "q13", reason: "invalid" },
+    ]);
+  });
+
+  test.each(["university", "major"])(
+    "a q3Target %s over the cap is invalid",
+    (field) => {
+      expect(errorsOf({ ...H12, q3Target: { [field]: long } })).toEqual([
+        { question: "q3Target", reason: "invalid" },
+      ]);
+    },
+  );
+
+  test("the same kind on the same date twice is invalid", () => {
+    const same = { kind: "EXAM", date: "2026-11-20" };
+    expect(
+      errorsOf({ ...H12, q13: [same, { ...same, subject: "국어" }] }),
+    ).toEqual([{ question: "q13", reason: "invalid" }]);
+    expect(
+      errorsOf({ ...H12, q13: [same, { kind: "PERF", date: "2026-11-20" }] }),
+    ).toEqual([]);
   });
 });

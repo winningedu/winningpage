@@ -32,6 +32,15 @@ const isRecord = (value: unknown): value is Raw =>
 const hasOnlyKeys = (value: Raw, keys: readonly string[]) =>
   Object.keys(value).every((key) => keys.includes(key));
 
+/**
+ * Free-text length cap (review W1). No sheet cell names a length for the q3
+ * target inputs (13 H7) or the q13 subject; this is an abuse guard only, listed
+ * as a spec gap in the report.
+ */
+export const MAX_TEXT_LENGTH = 100;
+const isShortText = (value: unknown) =>
+  typeof value === "string" && value.length <= MAX_TEXT_LENGTH;
+
 const isOrdinalOf = (rows: readonly OptionRow[], value: unknown) =>
   rows.some((option) => option.ordinal === value);
 
@@ -206,12 +215,16 @@ const isEvent = (value: unknown, diagnosedAt: IsoDate) => {
   ) {
     return false;
   }
-  if (value.subject !== undefined && typeof value.subject !== "string") {
+  if (value.subject !== undefined && !isShortText(value.subject)) {
     return false;
   }
   const day = dayOf(value.date, diagnosedAt);
   return day !== null && day >= 1 && day <= EVENT_WINDOW_DAYS;
 };
+
+/** Review W1: one event per kind and date. */
+const hasDuplicateEvent = (events: readonly Raw[]) =>
+  new Set(events.map((e) => `${e.kind}|${e.date}`)).size !== events.length;
 
 const SUBJECTS = ["KOR", "MATH", "ENG", "SOC", "SCI"];
 const MOCK_SUBJECTS = [...SUBJECTS, "HIST"];
@@ -290,7 +303,7 @@ const isValid = (
       return (
         isRecord(value) &&
         hasOnlyKeys(value, ["university", "major"]) &&
-        Object.values(value).every((text) => typeof text === "string")
+        Object.values(value).every(isShortText)
       );
     case "q21":
       return (
@@ -354,7 +367,11 @@ export function validateAnswers(
       if (picks.length > max) errors.push({ question, reason: "too_many" });
       answers[question] = picks;
     } else if (question === "q13" && Array.isArray(value)) {
-      if (value.length === 0 || !value.every((e) => isEvent(e, diagnosedAt))) {
+      if (
+        value.length === 0 ||
+        !value.every((e) => isEvent(e, diagnosedAt)) ||
+        hasDuplicateEvent(value)
+      ) {
         errors.push({ question, reason: "invalid" });
       } else if (value.length > MAX_EVENTS) {
         errors.push({ question, reason: "too_many" });
