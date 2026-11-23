@@ -79,19 +79,6 @@ export const SELF_MADE_WORDS: readonly string[] = [
   "작성",
 ];
 
-/** 자료로 확인되지 않는 느낌 표현(§6 14). */
-export const FEELING_PATTERNS: readonly RegExp[] = [
-  /느꼈(?:다|음)/,
-  /느낌/,
-  /깨달았(?:다|음)/,
-  /깨달음/,
-  /같았(?:다|음)/,
-  /인상 깊/,
-  /뿌듯/,
-  /보람/,
-  /흥미로웠(?:다|음)/,
-];
-
 /** 자료명으로 보는 명사 끝(§2 21). */
 export const SOURCE_SUFFIXES: readonly string[] = [
   "표",
