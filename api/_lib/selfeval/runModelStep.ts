@@ -86,6 +86,11 @@ export type StepSpec<T> = {
   patchOnSuccess?: Record<string, unknown>;
   /** true 면 시도 상한에 닿아도 세션을 종결하지 않는다(연계 판정, 명세 No.196). */
   keepSession?: boolean;
+  /**
+   * 단계를 ok 로 닫기 전에 결과를 저장한다(연계 저장 등). 던지면 단계는 실패로 닫혀 다시 시도할 수 있다.
+   * 돌려준 값이 단계 결과가 된다.
+   */
+  beforeClose?(result: T): Promise<T>;
 };
 
 /**
@@ -256,6 +261,9 @@ export async function runModelStep<T>(
     const attempts = claim.attempts + extraAttempts;
 
     if (loop.ok) {
+      const result = spec.beforeClose
+        ? await spec.beforeClose(loop.value.result)
+        : loop.value.result;
       const closed = await finishStep(db, userId, session.id, step, {
         ok: true,
         patch: { ...loop.value.patch, ...spec.patchOnSuccess },
@@ -264,7 +272,7 @@ export async function runModelStep<T>(
       if (!closed) return { kind: "superseded" };
       return {
         kind: "ok",
-        result: loop.value.result,
+        result,
         attempts,
         softIssues: loop.value.softIssues ?? [],
       };

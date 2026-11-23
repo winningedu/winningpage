@@ -71,15 +71,17 @@ export async function runLinkStep(
         return { ok: true, patch: {}, result: { links: v.links } };
       },
       keepSession: true,
+      // 단계를 ok 로 닫기 전에 저장한다. 저장이 실패하면 단계가 실패로 남아 다시 판정할 수 있다.
+      // 이미 저장된 쌍은 지운 것까지 그대로 둔다. 지운 연계를 모델이 되살리지 못한다(명세 No.194).
+      beforeClose: async (result) => {
+        const fresh = mergeNewModelLinks(
+          await loadRecordLinks(db, session.id),
+          result.links,
+        );
+        await insertModelLinks(db, session.id, fresh);
+        return { links: fresh };
+      },
     },
   );
-  if (out.kind !== "ok") return out;
-
-  // 이미 저장된 쌍은 지운 것까지 그대로 둔다. 지운 연계를 모델이 되살리지 못한다(명세 No.194).
-  const fresh = mergeNewModelLinks(
-    await loadRecordLinks(db, session.id),
-    out.result.links,
-  );
-  await insertModelLinks(db, session.id, fresh);
-  return { ...out, result: { links: fresh } };
+  return out;
 }

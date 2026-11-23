@@ -168,6 +168,41 @@ describe("runLinkStep", () => {
     expect(mocks.terminateSession).not.toHaveBeenCalled();
   });
 
+  it("stores links before the step is closed ok, and a failed insert leaves it failed so it can retry", async () => {
+    callStructured.mockResolvedValue(
+      reply([yes("R0", "R1", "개념core 공통개념", "개념hi 공통개념")]),
+    );
+    mocks.insertModelLinks.mockRejectedValue(new Error("db down"));
+    const out = await runLinkStep(
+      db,
+      "u1",
+      session,
+      deps(),
+      [row("core", 70), row("hi", 90)],
+      "core",
+    );
+    expect(out).toMatchObject({ kind: "failure" });
+    expect(mocks.finishStep).toHaveBeenCalledTimes(1);
+    expect(mocks.finishStep.mock.calls[0]?.[4]).toMatchObject({ ok: false });
+  });
+
+  it("closes the step ok only after the links are stored", async () => {
+    callStructured.mockResolvedValue(
+      reply([yes("R0", "R1", "개념core 공통개념", "개념hi 공통개념")]),
+    );
+    await runLinkStep(
+      db,
+      "u1",
+      session,
+      deps(),
+      [row("core", 70), row("hi", 90)],
+      "core",
+    );
+    expect(mocks.insertModelLinks.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.finishStep.mock.invocationCallOrder[0] as number,
+    );
+  });
+
   it("returns a failure outcome when the model keeps failing, without storing links", async () => {
     callStructured.mockRejectedValue(new Error("boom"));
     const out = await runLinkStep(
