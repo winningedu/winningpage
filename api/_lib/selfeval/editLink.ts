@@ -3,7 +3,7 @@
 // 검증과 표시가 거짓 근거를 가리킨다. 그래서 글자가 같은 문장만 연결을 유지한다.
 
 import { splitSentences } from "./text.js";
-import type { GenerationSections, Sentence } from "./types.js";
+import type { GenerationSections, Paragraph, Sentence } from "./types.js";
 
 const stripSpaces = (v: string): string => v.replace(/\s+/g, "");
 
@@ -27,39 +27,39 @@ export type RelinkResult =
  * 같은 문장은 id, evidence, feeling, confirmed 를 유지하고, 바뀌거나 새로 생긴 문장은
  * 학생이 쓴 것으로 보아 evidence {student:true}, feeling false 로 둔다. 학생이 직접 쓴
  * 문장에 서버가 느낌 표시를 붙이면 자기 글을 확인하라고 요구하게 되기 때문이다.
- * 문단 수는 바꿀 수 없다. 문단 role 이 구조 검증의 기준이라서다.
+ * 문단 수는 고정하지 않는다(명세 No.44). 문장은 문단을 옮겨도 연결을 유지하고, 같은 자리에
+ * 옛 role 이 있는 옛 리포트는 그 role 을 그대로 둔다.
  */
 export function relinkEdited(
   previous: GenerationSections,
   editedParagraphs: string[],
 ): RelinkResult {
-  if (editedParagraphs.length !== previous.paragraphs.length) {
+  if (editedParagraphs.length < 1) {
     return {
       ok: false,
       code: "PARAGRAPH_COUNT",
-      message: `문단은 ${previous.paragraphs.length}개를 유지해야 합니다.`,
+      message: "문단은 1개 이상이어야 합니다.",
     };
   }
-  const paragraphs = previous.paragraphs.map((prevP, pi) => {
-    const pool = new Map<string, Sentence[]>();
-    for (const s of prevP.sentences) {
-      const key = stripSpaces(s.text);
-      pool.set(key, [...(pool.get(key) ?? []), s]);
-    }
-    const sentences = splitSentences(editedParagraphs[pi] ?? "").map(
-      (text, si): Sentence => {
-        const kept = pool.get(stripSpaces(text))?.shift();
-        if (kept) return { ...kept, text };
-        return {
-          id: `p${pi + 1}-e${si + 1}`,
-          text,
-          evidence: { student: true },
-          feeling: false,
-          confirmed: false,
-        };
-      },
-    );
-    return { role: prevP.role, sentences };
+  const pool = new Map<string, Sentence[]>();
+  for (const s of previous.paragraphs.flatMap((p) => p.sentences)) {
+    const key = stripSpaces(s.text);
+    pool.set(key, [...(pool.get(key) ?? []), s]);
+  }
+  const paragraphs = editedParagraphs.map((edited, pi): Paragraph => {
+    const sentences = splitSentences(edited).map((text, si): Sentence => {
+      const kept = pool.get(stripSpaces(text))?.shift();
+      if (kept) return { ...kept, text };
+      return {
+        id: `p${pi + 1}-e${si + 1}`,
+        text,
+        evidence: { student: true },
+        feeling: false,
+        confirmed: false,
+      };
+    });
+    const role = previous.paragraphs[pi]?.role;
+    return role === undefined ? { sentences } : { role, sentences };
   });
   return { ok: true, sections: { paragraphs } };
 }

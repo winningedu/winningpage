@@ -259,11 +259,12 @@ export const PARAGRAPH_ROLE_LABELS: Record<ParagraphRole, string> = {
   link: "연계 발전 지점",
   process: "과정과 역할",
   judgment: "결과와 판단",
-  wrap: "정리와 다음 단계",
+  wrap: "정리",
 };
 
 export type Paragraph = {
-  role: ParagraphRole;
+  /** 문단 수를 고정하지 않으므로 새 본문에는 없다. 옛 리포트를 읽을 때만 있다. */
+  role?: ParagraphRole;
   sentences: Sentence[];
 };
 

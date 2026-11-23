@@ -99,10 +99,41 @@ describe("relinkEdited", () => {
     expect(r.ok && r.sections.paragraphs[1]?.role).toBe("wrap");
   });
 
-  it("문단 수가 다르면 PARAGRAPH_COUNT 를 돌려준다", () => {
-    const r = relinkEdited(prev, ["하나뿐"]);
+  it("문단 수를 줄이거나 늘려도 같은 문장의 연결을 유지한다(명세 No.44)", () => {
+    const merged = relinkEdited(prev, [
+      "계수를 바꿔 관찰했다. 다음에는 소수 계수를 본다.",
+    ]);
+    expect(merged.ok).toBe(true);
+    if (merged.ok) {
+      expect(merged.sections.paragraphs).toHaveLength(1);
+      expect(merged.sections.paragraphs[0]?.sentences[1]).toMatchObject({
+        id: "p2-s1",
+        evidence: { activityId: "a1", field: "result" },
+      });
+    }
+    const split = relinkEdited(prev, [
+      "계수를 바꿔 관찰했다.",
+      "폭이 좁아졌다고 느꼈다.",
+      "다음에는 소수 계수를 본다.",
+    ]);
+    expect(split.ok).toBe(true);
+    if (split.ok) {
+      expect(split.sections.paragraphs).toHaveLength(3);
+      expect(split.sections.paragraphs[1]?.sentences[0]).toMatchObject({
+        id: "p1-s2",
+        confirmed: true,
+      });
+      expect(split.sections.paragraphs[2]?.role).toBeUndefined();
+    }
+  });
+
+  it("문단이 하나도 없으면 PARAGRAPH_COUNT 를 돌려준다", () => {
+    const r = relinkEdited(prev, []);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe("PARAGRAPH_COUNT");
+    if (!r.ok) {
+      expect(r.code).toBe("PARAGRAPH_COUNT");
+      expect(r.message).toBe("문단은 1개 이상이어야 합니다.");
+    }
   });
 });
 

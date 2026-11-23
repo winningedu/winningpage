@@ -290,12 +290,11 @@ describe("buildWriteSpec", () => {
     });
   });
 
-  it("보조 활동이 있으면 4문단을 기대한다", () => {
+  it("보조 활동이 있어도 문단 수를 고정하지 않는다", () => {
     const built = buildWriteSpec(session(), core(), [record("s2")], false);
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    // 3문단 응답은 4문단 기대에 실패한다
-    expect(built.spec.validate(JSON.parse(modelJson())).ok).toBe(false);
+    expect(built.spec.validate(JSON.parse(modelJson())).ok).toBe(true);
   });
 });
 
@@ -467,12 +466,27 @@ describe("saveEdit", () => {
     expect(out.kind).toBe("order");
   });
 
-  it("문단 수가 다르면 400 PARAGRAPH_COUNT 다", async () => {
-    const out = await saveEdit(db, "u1", session({ current_step: 4 }), base, [
-      "a",
-      "b",
-    ]);
-    expect(out).toMatchObject({
+  it("문단 수가 달라도 저장하고, 문단이 하나도 없으면 400 PARAGRAPH_COUNT 다", async () => {
+    mocks.insertReport.mockResolvedValue(
+      reportRow({ id: "e2", report_type: "edited", revision: 2 }),
+    );
+    const changed = await saveEdit(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      ["a", "b"],
+    );
+    expect(changed.kind).toBe("done");
+    mocks.insertReport.mockClear();
+    const none = await saveEdit(
+      db,
+      "u1",
+      session({ current_step: 4 }),
+      base,
+      [],
+    );
+    expect(none).toMatchObject({
       kind: "rejected",
       status: 400,
       code: "PARAGRAPH_COUNT",

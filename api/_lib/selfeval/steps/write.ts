@@ -28,7 +28,6 @@ import {
   type CharCount,
   type GenerationSections,
   MAX_REGENERATIONS,
-  SHORT_TARGET_MAX,
 } from "../types.js";
 import { validateWriteResponse } from "../validation.js";
 import { detailBody } from "../view.js";
@@ -204,10 +203,6 @@ export function buildWriteSpec(
           targetChars: session.target_chars,
           mode: session.target_chars_mode,
           universities,
-          shortMode:
-            session.target_chars !== null &&
-            session.target_chars <= SHORT_TARGET_MAX,
-          expectedParagraphs: supports.length > 0 ? 4 : 3,
         });
         if (!v.ok) return v;
         return {

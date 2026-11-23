@@ -24,7 +24,6 @@ import {
   type CharCount,
   type GenerationSections,
   type Paragraph,
-  type ParagraphRole,
   type ScoreCheck,
   type ScoreItemKey,
   type Sentence,
@@ -203,8 +202,6 @@ export type WriteValidationContext = {
   targetChars: number | null;
   mode: TargetCharsMode;
   universities: string[];
-  shortMode: boolean;
-  expectedParagraphs: 3 | 4;
 };
 
 export type WriteValidation =
@@ -215,9 +212,6 @@ export type WriteValidation =
       softIssues: ValidationIssue[];
     }
   | { ok: false; issues: ValidationIssue[] };
-
-const ROLES_3: readonly ParagraphRole[] = ["process", "judgment", "wrap"];
-const ROLES_4: readonly ParagraphRole[] = ["link", ...ROLES_3];
 
 /**
  * 본문 문장은 "~함" 명사형으로 끝나야 한다(명세 No.11). 끝의 문장 부호와 따옴표는 떼고,
@@ -234,8 +228,7 @@ function isNominalStyle(text: string): boolean {
   return code >= 0 && code <= 11171 && code % 28 === JONG_MIEUM;
 }
 
-/** 문단당 이 수 이상이면 짧은 글(300자 이하) 모드 위반. 명세 §2 14 의 2문장 이하. */
-const SHORT_MODE_MAX_SENTENCES = 2;
+const BODY_EXCLUDED_FIELD: AnalysisField = "next";
 
 function readEvidence(
   raw: unknown,
@@ -260,10 +253,12 @@ function readEvidence(
   const field = raw.field;
   // 비운 항목 제한은 핵심 활동에만 건다. 보조 활동은 요약 문장만 받으므로
   // 핵심에서 비운 항목이 보조 근거까지 막으면 정당한 연계 근거를 못 쓴다.
-  const allowed =
+  // 다음 단계(next)는 리포트의 다음 단계 제안에만 쓰고 본문 근거로는 쓰지 않는다(명세 No.37).
+  const allowed = (
     raw.activityId === ctx.coreActivityId
       ? (ctx.allowedFields as string[])
-      : (ANALYSIS_FIELDS as readonly string[]);
+      : (ANALYSIS_FIELDS as readonly string[])
+  ).filter((f) => f !== BODY_EXCLUDED_FIELD);
   if (typeof field !== "string" || !allowed.includes(field)) {
     issues.push({
       code: "empty_field_used",
@@ -303,11 +298,10 @@ export function validateWriteResponse(
     };
   }
   const issues: ValidationIssue[] = [];
-  const roles = ctx.expectedParagraphs === 4 ? ROLES_4 : ROLES_3;
-  if (rawParagraphs.length !== ctx.expectedParagraphs) {
+  if (rawParagraphs.length < 1) {
     issues.push({
       code: "paragraph_count",
-      message: `문단은 ${ctx.expectedParagraphs}개여야 합니다(순서: ${roles.join(", ")}). 지금은 ${rawParagraphs.length}개입니다.`,
+      message: "문단은 1개 이상이어야 합니다.",
       path: "paragraphs",
     });
   }
@@ -316,25 +310,7 @@ export function validateWriteResponse(
   rawParagraphs.forEach((rawP, pi) => {
     const pn = pi + 1;
     const p = isRecord(rawP) ? rawP : {};
-    const expectedRole = roles[pi];
-    if (
-      rawParagraphs.length === ctx.expectedParagraphs &&
-      p.role !== expectedRole
-    ) {
-      issues.push({
-        code: "paragraph_role",
-        message: `문단 ${pn} 의 role 은 ${expectedRole} 여야 합니다.`,
-        path: `p${pn}`,
-      });
-    }
     const rawSentences = Array.isArray(p.sentences) ? p.sentences : [];
-    if (ctx.shortMode && rawSentences.length > SHORT_MODE_MAX_SENTENCES) {
-      issues.push({
-        code: "short_mode_overflow",
-        message: `분량이 짧아 문단 ${pn} 은 문장 ${SHORT_MODE_MAX_SENTENCES}개 이하여야 합니다.`,
-        path: `p${pn}`,
-      });
-    }
     const sentences: Sentence[] = [];
     rawSentences.forEach((rawS, si) => {
       const id = `p${pn}-s${si + 1}`;
@@ -363,12 +339,7 @@ export function validateWriteResponse(
         FEELING_PATTERNS.some((re) => re.test(text));
       sentences.push({ id, text, evidence, feeling, confirmed: false });
     });
-    paragraphs.push({
-      role: (typeof p.role === "string"
-        ? p.role
-        : expectedRole) as ParagraphRole,
-      sentences,
-    });
+    paragraphs.push({ sentences });
   });
 
   const fullText = paragraphs

@@ -189,8 +189,6 @@ const wctx: WriteValidationContext = {
   targetChars: null,
   mode: "without_space",
   universities: ["한국대학교"],
-  shortMode: false,
-  expectedParagraphs: 3,
 };
 
 function body3(over: Record<string, unknown>[] = []) {
@@ -233,11 +231,7 @@ describe("validateWriteResponse", () => {
     const r = validateWriteResponse(body3(), wctx);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.sections.paragraphs.map((p) => p.role)).toEqual([
-      "process",
-      "judgment",
-      "wrap",
-    ]);
+    expect(r.sections.paragraphs).toHaveLength(3);
     expect(sentenceAt(r.sections, 0, 0).id).toBe("p1-s1");
     expect(sentenceAt(r.sections, 2, 1).id).toBe("p3-s2");
     expect(sentenceAt(r.sections, 0, 0).confirmed).toBe(false);
@@ -245,29 +239,56 @@ describe("validateWriteResponse", () => {
     expect(r.softIssues).toEqual([]);
   });
 
-  it("문단 수가 다르면 paragraph_count 다", () => {
-    const b = body3();
-    b.paragraphs.pop();
-    const r = validateWriteResponse(b, wctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.issues.map((i) => i.code)).toContain("paragraph_count");
+  it("문단 수는 고정하지 않는다. 1개와 5개도 통과한다(명세 No.44, No.80)", () => {
+    const one = body3();
+    one.paragraphs.splice(1);
+    expect(validateWriteResponse(one, wctx).ok).toBe(true);
+    const five = body3();
+    five.paragraphs.push(
+      { role: "link", sentences: [sent("앞 활동에서 이어 확인함.")] },
+      { role: "wrap", sentences: [sent("개념으로 정리함.")] },
+    );
+    const r = validateWriteResponse(five, wctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.sections.paragraphs).toHaveLength(5);
   });
 
-  it("4문단 기대에서 link 로 시작하지 않으면 paragraph_role 이다", () => {
-    const r = validateWriteResponse(body3(), {
-      ...wctx,
-      expectedParagraphs: 4,
-    });
+  it("문단이 하나도 없으면 paragraph_count 다", () => {
+    const r = validateWriteResponse({ paragraphs: [] }, wctx);
     expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.issues.map((i) => i.code)).toEqual(["paragraph_count"]);
   });
 
-  it("role 순서가 틀리면 paragraph_role 이다", () => {
-    const b = body3();
-    para(b, 0).role = "wrap";
-    para(b, 2).role = "process";
+  it("role 이 없어도 role 순서를 검사하지 않고 저장 문단에 role 을 싣지 않는다", () => {
+    const b = {
+      paragraphs: body3().paragraphs.map(({ sentences }) => ({ sentences })),
+    };
     const r = validateWriteResponse(b, wctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.issues.map((i) => i.code)).toContain("paragraph_role");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.sections.paragraphs.every((p) => !("role" in p))).toBe(true);
+    }
+    const swapped = body3();
+    para(swapped, 0).role = "wrap";
+    para(swapped, 2).role = "process";
+    expect(validateWriteResponse(swapped, wctx).ok).toBe(true);
+  });
+
+  it("다음 단계(next) 항목은 근거로 쓸 수 없다(명세 No.37)", () => {
+    for (const activityId of ["core1", "sup1"]) {
+      const b = body3();
+      para(b, 0).sentences[0] = sent("다음 단계로 이어 확인함.", {
+        activityId,
+        field: "next",
+      });
+      const r = validateWriteResponse(b, {
+        ...wctx,
+        allowedFields: [...wctx.allowedFields, "next"],
+      });
+      expect(r.ok, activityId).toBe(false);
+      if (!r.ok)
+        expect(r.issues.map((i) => i.code)).toContain("empty_field_used");
+    }
   });
 
   it("빈 문장, 모르는 활동, 비운 항목, 잘못된 모양 evidence 를 막는다", () => {
@@ -375,15 +396,6 @@ describe("validateWriteResponse", () => {
       "forbidden_phrase",
     ])
       expect(codes).toContain(c);
-  });
-
-  it("shortMode 에서 문단당 문장 3개 이상이면 short_mode_overflow 다", () => {
-    const b = body3();
-    para(b, 0).sentences.push(sent("하나 더 씀."));
-    const r = validateWriteResponse(b, { ...wctx, shortMode: true });
-    expect(r.ok).toBe(false);
-    if (!r.ok)
-      expect(r.issues.map((i) => i.code)).toContain("short_mode_overflow");
   });
 
   it("evidence 가 없고 feeling 도 false 면 feeling true 로 올린다", () => {
