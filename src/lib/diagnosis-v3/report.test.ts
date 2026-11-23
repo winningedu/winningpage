@@ -789,6 +789,14 @@ describe("표지 (22 r6-r7, judge-report R6)", () => {
     expect(cover.toc[11]?.title).toBe(cover.toc[14]?.title);
   });
 
+  test("cover stages carry the 4p break marks (22 r50 under 45, PDF p1 red marks)", () => {
+    const { cover, p4 } = run().pages;
+    expect(cover.stages).toEqual(p4.cycle.stages);
+    expect(cover.stages.filter((s) => s.broken).map((s) => s.code)).toEqual([
+      "P1_LOG",
+    ]);
+  });
+
   test("M3 drops page 7 from the toc; a profile name is shown", () => {
     const m3 = scoreDiagnosisV3(validAnswers("M3"), {
       ...CALC_EXAMPLE_CONTEXT,

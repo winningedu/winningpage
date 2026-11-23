@@ -73,6 +73,12 @@ const MIND_BARS: readonly ScoreBar[] = [
   { code: "MIND_RECV", label: "불안 회복", score: 65, state: "보통" },
 ];
 
+/** 4p and cover stages: under 45 is a break (22 r50). */
+const BROKEN_STAGES = STAGES.map((stage) => ({
+  ...stage,
+  broken: stage.score < 45,
+}));
+
 /** Pages 1 to 6 plus the cover; later pages are another view's concern. */
 export type FrontPages = Pick<
   DiagnosisV3Pages,
@@ -87,7 +93,7 @@ export const FRONT_PAGES: FrontPages = {
     diagnosedAt: "2026. 11. 10",
     toc: TOC,
     headline: "표지 한 줄 헤드라인",
-    stages: STAGES,
+    stages: BROKEN_STAGES,
     basis:
       "본 리포트는 학생이 직접 입력한 응답과 성적을 바탕으로 산출되었습니다.",
   },
@@ -212,7 +218,7 @@ export const FRONT_PAGES: FrontPages = {
     lead: "공부는 7단계가 한 바퀴 돌 때 다음 주가 나아집니다.",
     scoreNote: "단계 점수 산식 안내",
     cycle: {
-      stages: STAGES.map((stage) => ({ ...stage, broken: stage.score < 45 })),
+      stages: BROKEN_STAGES,
       total: 64.4,
       gradeText: "점검 필요, 영역별 편차가 있습니다.",
       caption: "일곱 단계의 상대적 균형을 보여줍니다.",

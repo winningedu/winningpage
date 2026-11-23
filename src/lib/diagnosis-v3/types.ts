@@ -429,9 +429,9 @@ export type CoverPage = {
   readonly diagnosedAt: string;
   /** 22 r7: shown page numbers and titles (M3 drops page 7) */
   readonly toc: readonly { readonly page: number; readonly title: string }[];
-  /** judge-report R6: 1p title, 1p radar scores, REPORT_BASIS */
+  /** judge-report R6: 1p title, 4p stage scores with their break marks (PDF p1), REPORT_BASIS */
   readonly headline: string;
-  readonly stages: readonly ScoreBar[];
+  readonly stages: readonly (ScoreBar & { readonly broken: boolean })[];
   readonly basis: string;
 };
 

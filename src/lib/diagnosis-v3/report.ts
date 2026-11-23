@@ -149,6 +149,7 @@ export function buildPages(engine: Engine): DiagnosisV3Pages {
   );
   const p10 = temperamentPage10(engine.temperament, scores.reliability);
   const p1 = buildPage1(engine, p9.hero.name);
+  const p4 = buildPage4(engine);
   const p7 = buildPage7(engine);
   const [p12, p13, p14, p15] = buildPlannerPages(
     scores.plan,
@@ -157,11 +158,11 @@ export function buildPages(engine: Engine): DiagnosisV3Pages {
   );
   if (!p12 || !p13 || !p14 || !p15) throw new Error("need 4 planner pages");
   return {
-    cover: buildCover(engine, p1),
+    cover: buildCover(engine, p1, p4),
     p1,
     p2: buildPage2(engine),
     p3: buildPage3(engine),
-    p4: buildPage4(engine),
+    p4,
     p5: buildPage5(engine),
     p6: buildPage6(engine),
     ...(p7 ? { p7 } : {}),
