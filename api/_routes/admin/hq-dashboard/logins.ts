@@ -1,21 +1,24 @@
 // GET /api/admin/hq-dashboard/logins?view=stats|log&from=&to=&grain=&mau=&includeInternal=1&page=
 // Authorization: Bearer <supabase access token>
 //
-// 본사 대시보드 로그인 지표(분석 grill Q1, Q7, Q13). 날짜는 KST 달력 날짜(YYYY-MM-DD)이고 양 끝을 포함한다.
-// 기본 기간은 이번 달 1일부터 오늘(KST). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
+// 본사 대시보드 로그인 지표(분석 grill Q1, Q7, Q13). 날짜는 보는 사람 시간대(X-Time-Zone 헤더 필수)의 달력 날짜(YYYY-MM-DD)이고 양 끝을 포함한다.
+// 기본 기간은 이번 달 1일부터 오늘(그 시간대). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
+// 헤더가 없으면 400 TIME_ZONE_REQUIRED. 로그인은 15분 칸(profile_login_slots)을 그 시간대의 날로 묶어 센다.
 // includeInternal=1 이면 QA, 본사 관리자 계정도 센다(기본 제외, fn_hq_stat_included).
 //
 // view=stats(기본) 쿼리 grain(day 기본, week, month), mau(calendar 기본, rolling30), scope(all 기본, b2c: 기관 없음, 기타 소속 회원만)
-//   200 { ok, from, to, grain, mauMode, scope, includeInternal, firstMeasuredOn, series[], dau, mau }
+//   200 { ok, from, to, grain, mauMode, scope, includeInternal, firstMeasuredAt, series[], dau, mau }
+//   firstMeasuredAt: 가장 이른 로그인 기록 순간(ISO Z), 없으면 null. 화면이 보는 사람 시간대의 날짜로 바꿔 보인다.
 //   series[]: start, end, source(measured, estimated, none), members, byMemberType
 //   dau: 기간 일평균. 모든 날이 실측이면 measured, 모든 날이 기록 없음이면 none, 나머지는 estimated.
 //   mau: calendar 는 종료일이 속한 달 1일부터 종료일, rolling30 은 종료일 포함 30일.
 // view=log 쿼리 page(1 부터)
 //   200 { ok, from, to, includeInternal, page, pageSize, total, namesVisible, items[] }
+//   items[]: profileId, loginDate(보는 사람 시간대의 날), firstSeenAt(그날 처음 기록된 순간, ISO Z), name, memberType, tenantName
 //   이름은 개인정보라 members 보기 권한이 있을 때만 보낸다(없으면 null, namesVisible false).
 // 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
 
-import { addDaysYMD } from "../../../../src/lib/goal/calc/index.js";
+import { addDaysYmd } from "../../../../src/lib/time/day.js";
 import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
 import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import {
@@ -46,7 +49,7 @@ interface BucketRow {
 
 interface LogRow {
   profile_id: string;
-  kst_date: string;
+  login_date: string;
   first_seen_at: string;
   name: string | null;
   member_type: string | null;
@@ -81,7 +84,8 @@ export default defineHandler({
     const invalid = (message: string) =>
       sendError(res, "coded", 400, message, "INVALID_QUERY");
 
-    const period = parsePeriod(req.query, requireTimeZone(ctx));
+    const tz = requireTimeZone(ctx);
+    const period = parsePeriod(req.query, tz);
     if (typeof period === "string") return invalid(period);
     const { from, to } = period;
 
@@ -101,6 +105,7 @@ export default defineHandler({
           p_include_internal: includeInternal,
           p_limit: LOG_PAGE_SIZE,
           p_offset: (page - 1) * LOG_PAGE_SIZE,
+          p_tz: tz,
         }),
       ]);
       if (log.error)
@@ -117,8 +122,8 @@ export default defineHandler({
         namesVisible,
         items: rows.map((row) => ({
           profileId: row.profile_id,
-          kstDate: row.kst_date,
-          firstSeenAt: row.first_seen_at,
+          loginDate: row.login_date,
+          firstSeenAt: new Date(row.first_seen_at).toISOString(),
           name: namesVisible ? row.name : null,
           memberType: row.member_type,
           tenantName: row.tenant_name,
@@ -147,6 +152,7 @@ export default defineHandler({
         p_mau_mode,
         p_include_internal: includeInternal,
         p_scope: scope,
+        p_tz: tz,
       });
       if (error) throw new Error(`fn_hq_login_buckets 실패: ${error.message}`);
       return (data ?? []) as BucketRow[];
@@ -156,18 +162,19 @@ export default defineHandler({
     const days =
       grain === "day" ? series : await buckets(from, to, "day", mauMode);
     const mauFrom =
-      mauMode === "calendar" ? `${to.slice(0, 8)}01` : addDaysYMD(to, -29);
+      mauMode === "calendar" ? `${to.slice(0, 8)}01` : addDaysYmd(to, -29);
     const [mauRows, first] = await Promise.all([
       buckets(mauFrom, to, "month", mauMode),
       db
-        .from("profile_login_days")
-        .select("kst_date")
-        .order("kst_date", { ascending: true })
+        .from("profile_login_slots")
+        .select("slot_start")
+        .order("slot_start", { ascending: true })
         .limit(1)
         .maybeSingle(),
     ]);
     if (first.error)
-      throw new Error(`profile_login_days 조회 실패: ${first.error.message}`);
+      throw new Error(`profile_login_slots 조회 실패: ${first.error.message}`);
+    const firstSlot = (first.data as { slot_start: string } | null)?.slot_start;
     const mau = mauRows[mauRows.length - 1];
     const dayTotal = days.reduce((sum, row) => sum + Number(row.members), 0);
 
@@ -179,8 +186,7 @@ export default defineHandler({
       mauMode,
       scope,
       includeInternal,
-      firstMeasuredOn:
-        (first.data as { kst_date: string } | null)?.kst_date ?? null,
+      firstMeasuredAt: firstSlot ? new Date(firstSlot).toISOString() : null,
       series: series.map((row) => ({
         start: row.bucket_start,
         end: row.bucket_end,

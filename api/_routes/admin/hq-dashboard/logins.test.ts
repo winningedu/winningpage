@@ -32,10 +32,10 @@ type Bucket = {
   by_member_type: Record<string, number>;
 };
 
-const get = (query: Record<string, string> = {}) =>
+const get = (query: Record<string, string> = {}, zone = "Asia/Seoul") =>
   callHandler(
     (req, res) => {
-      req.headers["x-time-zone"] = "Asia/Seoul";
+      if (zone) req.headers["x-time-zone"] = zone;
       return handler(req, res);
     },
     undefined,
@@ -89,7 +89,9 @@ beforeEach(() => {
     logCalls.push(args);
     return { data: [], error: null };
   };
-  kit.state.rows.profile_login_days = () => ({ kst_date: "2026-11-20" });
+  kit.state.rows.profile_login_slots = () => ({
+    slot_start: "2026-11-19T15:15:00+00:00",
+  });
 });
 
 afterEach(() => {
@@ -177,7 +179,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       grain: "day",
       mauMode: "calendar",
       includeInternal: false,
-      firstMeasuredOn: "2026-11-20",
+      firstMeasuredAt: "2026-11-19T15:15:00.000Z",
     });
     expect(bucketCalls[0]).toEqual({
       p_from: "2026-11-01",
@@ -186,6 +188,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_mau_mode: "calendar",
       p_include_internal: false,
       p_scope: "all",
+      p_tz: "Asia/Seoul",
     });
     // 일 단위면 DAU 를 위해 다시 부르지 않고, MAU 는 종료일이 속한 달 1일부터 종료일까지 한 묶음.
     expect(bucketCalls).toHaveLength(2);
@@ -196,6 +199,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_mau_mode: "calendar",
       p_include_internal: false,
       p_scope: "all",
+      p_tz: "Asia/Seoul",
     });
   });
 
@@ -326,6 +330,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_mau_mode: "rolling30",
       p_include_internal: false,
       p_scope: "all",
+      p_tz: "Asia/Seoul",
     });
     expect(r.body).toMatchObject({
       mauMode: "rolling30",
@@ -347,20 +352,20 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
     expect(r.body).toMatchObject({ includeInternal: false });
   });
 
-  test("로그인 기록이 아직 없으면 firstMeasuredOn 은 null", async () => {
-    kit.state.rows.profile_login_days = () => null;
+  test("로그인 기록이 아직 없으면 firstMeasuredAt 은 null", async () => {
+    kit.state.rows.profile_login_slots = () => null;
 
     const r = await get();
 
-    expect(r.body).toMatchObject({ firstMeasuredOn: null });
+    expect(r.body).toMatchObject({ firstMeasuredAt: null });
   });
 
-  test("첫 실측일은 kst_date 오름차순 한 줄로 읽는다", async () => {
+  test("첫 실측 시각은 slot_start 오름차순 한 줄로 읽는다", async () => {
     await get();
 
-    const read = kit.state.reads.find((x) => x.table === "profile_login_days");
+    const read = kit.state.reads.find((x) => x.table === "profile_login_slots");
     expect(read).toMatchObject({
-      orderBy: { column: "kst_date", ascending: true },
+      orderBy: { column: "slot_start", ascending: true },
       limit: 1,
     });
   });
@@ -374,6 +379,37 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
     const r = await get();
 
     expect(r.status).toBe(500);
+  });
+});
+
+describe("GET /api/admin/hq-dashboard/logins 시간대", () => {
+  test.each(["stats", "log"])(
+    "X-Time-Zone 헤더가 없으면 view=%s 는 400 TIME_ZONE_REQUIRED 이고 읽지 않는다",
+    async (view) => {
+      const r = await get({ view }, "");
+
+      expect(r.status).toBe(400);
+      expect(r.body).toMatchObject({ error: { code: "TIME_ZONE_REQUIRED" } });
+      expect(kit.state.events).not.toContain("rpc:fn_hq_login_buckets");
+      expect(kit.state.events).not.toContain("rpc:fn_hq_login_log");
+    },
+  );
+
+  test("보는 사람 시간대로 오늘을 정하고 모든 집계에 같은 시간대를 넘긴다", async () => {
+    // 2026-11-23T03:00Z 는 로스앤젤레스에서 11-22 19:00 이다.
+    const r = await get({ grain: "week" }, "America/Los_Angeles");
+
+    expect(r.body).toMatchObject({ from: "2026-11-01", to: "2026-11-22" });
+    expect(bucketCalls).toHaveLength(3);
+    expect(bucketCalls.every((a) => a.p_tz === "America/Los_Angeles")).toBe(
+      true,
+    );
+  });
+
+  test("기록 표도 보는 사람 시간대를 넘긴다", async () => {
+    await get({ view: "log" }, "UTC");
+
+    expect(logCalls[0]).toMatchObject({ p_tz: "UTC" });
   });
 });
 
@@ -398,8 +434,8 @@ describe("GET /api/admin/hq-dashboard/logins scope", () => {
 describe("GET /api/admin/hq-dashboard/logins view=log", () => {
   const row = {
     profile_id: "p-1",
-    kst_date: "2026-11-22",
-    first_seen_at: "2026-11-22T00:10:00Z",
+    login_date: "2026-11-22",
+    first_seen_at: "2026-11-22T00:10:00+00:00",
     name: "김학생",
     member_type: "student",
     tenant_name: "한빛고",
@@ -430,6 +466,7 @@ describe("GET /api/admin/hq-dashboard/logins view=log", () => {
       p_include_internal: false,
       p_limit: 50,
       p_offset: 50,
+      p_tz: "Asia/Seoul",
     });
     expect(r.body).toEqual({
       ok: true,
@@ -443,8 +480,8 @@ describe("GET /api/admin/hq-dashboard/logins view=log", () => {
       items: [
         {
           profileId: "p-1",
-          kstDate: "2026-11-22",
-          firstSeenAt: "2026-11-22T00:10:00Z",
+          loginDate: "2026-11-22",
+          firstSeenAt: "2026-11-22T00:10:00.000Z",
           name: "김학생",
           memberType: "student",
           tenantName: "한빛고",
