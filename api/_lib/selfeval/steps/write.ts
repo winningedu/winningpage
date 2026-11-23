@@ -135,7 +135,7 @@ export function buildWriteInput(
   if (core.analysis.conflicts.some((c) => c.resolved === null)) {
     return { ok: false, code: "CONFLICTS_UNRESOLVED" };
   }
-  if (session.area === null || session.school_prompt === null) {
+  if (session.area === null) {
     throw new Error("기본 입력이 비어 있는 세션은 생성할 수 없습니다.");
   }
   const snapshot = activeGrowth(session);
@@ -157,7 +157,10 @@ export function buildWriteInput(
       subject: session.subject,
       activityName: session.activity_name,
       schoolPrompt: session.school_prompt,
-      promptKeywords: extractPromptKeywords(session.school_prompt),
+      promptKeywords:
+        session.school_prompt === null
+          ? []
+          : extractPromptKeywords(session.school_prompt),
       teacherNote: session.teacher_note,
       targetChars: session.target_chars,
       mode: session.target_chars_mode,

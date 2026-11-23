@@ -257,6 +257,41 @@ describe("buildWritePrompt", () => {
   });
 });
 
+describe("학교 문항 없음 프롬프트", () => {
+  it("쓰기: 학교 문항 블록, 핵심 낱말, 문항 답변 규칙을 넣지 않는다", () => {
+    const b = buildWritePrompt(
+      writeInput({ schoolPrompt: null, promptKeywords: [] }),
+    );
+    expect(b.user).not.toContain("[학교 문항]");
+    expect(b.user).not.toContain("[문항의 핵심 낱말]");
+    expect(b.system).not.toContain("학교 문항의 핵심 낱말");
+  });
+
+  it("쓰기: 문항이 있으면 블록과 규칙이 그대로 있다", () => {
+    const b = buildWritePrompt(writeInput({ schoolPrompt: "지원 동기" }));
+    expect(b.user).toContain("[학교 문항]\n지원 동기");
+    expect(b.system).toContain("학교 문항의 핵심 낱말");
+  });
+
+  it("검증: 문항 블록 없이 문항 대응 확인 문장을 요구하지 않는다", () => {
+    const b = buildVerifyPrompt({
+      text: "계수를 바꿨다.",
+      sentences: [{ id: "p1-s1", text: "계수를 바꿨다." }],
+      schoolPrompt: null,
+      promptKeywords: [],
+      teacherNote: null,
+      coreTerms: { concepts: [], roles: [], sources: [] },
+      supportNames: [],
+      growth: null,
+    });
+    expect(b.user).not.toContain("[학교 문항]");
+    const promptRow = SCORE_RUBRIC.find((r) => r.key === "prompt");
+    for (const c of promptRow?.checks ?? []) expect(b.user).not.toContain(c);
+    expect(b.user).not.toContain("prompt(");
+    expect(b.user).toContain("judgment(");
+  });
+});
+
 describe("buildVerifyPrompt", () => {
   const vin: VerifyPromptInput = {
     text: "계수를 바꿨다.",

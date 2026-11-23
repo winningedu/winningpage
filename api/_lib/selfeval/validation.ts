@@ -442,7 +442,7 @@ export type VerifyValidation =
  */
 export function validateVerifyResponse(
   value: unknown,
-  ctx: { expectGrowth: boolean },
+  ctx: { expectGrowth: boolean; promptMissing?: boolean },
 ): VerifyValidation {
   const rawItems =
     isRecord(value) && Array.isArray(value.items) ? value.items : null;
@@ -461,6 +461,11 @@ export function validateVerifyResponse(
   const issues: ValidationIssue[] = [];
   const checks = {} as Record<ScoreItemKey, ScoreCheck[]>;
   for (const row of SCORE_RUBRIC) {
+    // 학교 문항이 없으면 문항 대응은 묻지 않고, 응답에 있어도 버린다.
+    if (row.key === "prompt" && ctx.promptMissing) {
+      checks.prompt = [];
+      continue;
+    }
     const raw = rawItems.find((i) => isRecord(i) && i.key === row.key);
     const list = isRecord(raw) && Array.isArray(raw.checks) ? raw.checks : null;
     if (!list) {

@@ -161,7 +161,8 @@ export type WritePromptInput = {
   area: Area;
   subject: string | null;
   activityName: string | null;
-  schoolPrompt: string;
+  /** 학교 문항이 없으면 null. 문항 블록과 문항 규칙을 빼고 만든다. */
+  schoolPrompt: string | null;
   promptKeywords: string[];
   teacherNote: string | null;
   targetChars: number | null;
@@ -270,7 +271,9 @@ function writeSystem(input: WritePromptInput): string {
   ];
   const guide = [
     "내용 원칙",
-    "- 학교 문항의 핵심 낱말에 직접 답하는 문장을 넣는다.",
+    ...(input.schoolPrompt !== null
+      ? ["- 학교 문항의 핵심 낱말에 직접 답하는 문장을 넣는다."]
+      : []),
     "- 선생님 요구사항이 있으면 반드시 지킨다.",
     "- 성장설계 정보가 주어지면 어디에 힘을 줄지 고르는 강조점으로만 쓴다. 방향 문구를 문장에 그대로 옮기지 않는다.",
   ];
@@ -316,9 +319,11 @@ function writeUser(input: WritePromptInput): string {
         .join("\n")}`,
     );
   }
-  parts.push(`[학교 문항]\n${input.schoolPrompt}`);
-  if (input.promptKeywords.length > 0) {
-    parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
+  if (input.schoolPrompt !== null) {
+    parts.push(`[학교 문항]\n${input.schoolPrompt}`);
+    if (input.promptKeywords.length > 0) {
+      parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
+    }
   }
   if (input.teacherNote) {
     parts.push(`[선생님 요구사항]\n${input.teacherNote}`);
@@ -365,7 +370,8 @@ export function buildWritePrompt(
 export type VerifyPromptInput = {
   text: string;
   sentences: { id: string; text: string }[];
-  schoolPrompt: string;
+  /** 학교 문항이 없으면 null. 문항 대응 확인 문장을 요구하지 않는다. */
+  schoolPrompt: string | null;
   promptKeywords: string[];
   teacherNote: string | null;
   coreTerms: { concepts: string[]; roles: string[]; sources: string[] };
@@ -412,17 +418,23 @@ export function buildVerifyPrompt(
   input: VerifyPromptInput,
   retryNotes: string[] = [],
 ): PromptBundle {
-  const rubric = SCORE_RUBRIC.map(
-    (r) =>
-      `${r.key}(${r.label})\n${r.checks.map((c) => `  - ${c}`).join("\n")}`,
-  ).join("\n");
+  const rubric = SCORE_RUBRIC.filter(
+    (r) => r.key !== "prompt" || input.schoolPrompt !== null,
+  )
+    .map(
+      (r) =>
+        `${r.key}(${r.label})\n${r.checks.map((c) => `  - ${c}`).join("\n")}`,
+    )
+    .join("\n");
   const parts: string[] = [
     `[채점 항목과 확인 문장]\n${rubric}`,
     `[본문]\n${input.text}`,
     `[문장 목록]\n${input.sentences.map((s) => `${s.id}: ${s.text}`).join("\n")}`,
-    `[학교 문항]\n${input.schoolPrompt}`,
   ];
-  if (input.promptKeywords.length > 0) {
+  if (input.schoolPrompt !== null) {
+    parts.push(`[학교 문항]\n${input.schoolPrompt}`);
+  }
+  if (input.schoolPrompt !== null && input.promptKeywords.length > 0) {
     parts.push(`[문항의 핵심 낱말]\n${input.promptKeywords.join(", ")}`);
   }
   if (input.teacherNote) {

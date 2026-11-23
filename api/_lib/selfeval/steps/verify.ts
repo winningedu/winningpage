@@ -88,16 +88,16 @@ export function buildVerifyInput(
   core: { record: ActivityRecordLike; analysis: Analysis },
   supports: ActivityRecordLike[],
 ): VerifyPromptInput {
-  if (session.school_prompt === null) {
-    throw new Error("학교 문항이 없는 세션은 검증할 수 없습니다.");
-  }
   const snapshot = activeGrowth(session);
   const { values } = core.analysis;
   return {
     text: plainText(current),
     sentences: allSentences(current).map((s) => ({ id: s.id, text: s.text })),
     schoolPrompt: session.school_prompt,
-    promptKeywords: extractPromptKeywords(session.school_prompt),
+    promptKeywords:
+      session.school_prompt === null
+        ? []
+        : extractPromptKeywords(session.school_prompt),
     teacherNote: session.teacher_note,
     coreTerms: {
       concepts: extractKeywords(values.concept),
@@ -133,6 +133,7 @@ export function buildVerifySpec(
     validate: (value) => {
       const v = validateVerifyResponse(value, {
         expectGrowth: snapshot !== null,
+        promptMissing: input.schoolPrompt === null,
       });
       if (!v.ok) return v;
       // 문자열 포함 여부처럼 코드가 더 정확한 판정은 모델 결과를 덮는다(명세 No.23).
@@ -147,6 +148,7 @@ export function buildVerifySpec(
         mode: session.target_chars_mode,
         universities,
         sentences,
+        promptMissing: input.schoolPrompt === null,
         growthFit:
           snapshot === null
             ? null

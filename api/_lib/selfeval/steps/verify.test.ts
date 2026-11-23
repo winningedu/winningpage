@@ -236,6 +236,58 @@ describe("buildVerifyInput", () => {
   });
 });
 
+describe("학교 문항 없는 세션", () => {
+  it("buildVerifyInput 은 던지지 않고 schoolPrompt 와 낱말을 비운다", () => {
+    const input = buildVerifyInput(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    expect(input.schoolPrompt).toBeNull();
+    expect(input.promptKeywords).toEqual([]);
+  });
+
+  it("문항 대응을 채점에서 빼고 100점으로 환산하며 promptMissing 을 싣는다", () => {
+    const spec = buildVerifySpec(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    const body = JSON.parse(verifyJson(true));
+    body.items = body.items.filter((i: { key: string }) => i.key !== "prompt");
+    const v = spec.validate(body);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    const ver = v.result.sections;
+    expect(ver.promptMissing).toBe(true);
+    expect(ver.items.find((i) => i.key === "prompt")).toMatchObject({
+      applied: false,
+      score: 0,
+      checks: [],
+    });
+    expect(ver.total).toBe(100);
+    expect(ver.improvements.map((i) => i.key)).not.toContain("prompt");
+  });
+
+  it("모델이 문항 대응 확인을 false 로 보내도 점수에 넣지 않는다", () => {
+    const spec = buildVerifySpec(
+      session({ school_prompt: null }),
+      sections,
+      core(),
+      [],
+    );
+    const v = spec.validate(JSON.parse(verifyJson(false)));
+    expect(v.ok).toBe(true);
+    if (v.ok) {
+      expect(
+        v.result.sections.items.find((i) => i.key === "prompt"),
+      ).toMatchObject({ applied: false, score: 0 });
+    }
+  });
+});
+
 describe("buildVerifySpec", () => {
   it("검증을 통과하면 5단계로 올리고 점수와 필수 수정을 리포트에 싣는다", () => {
     const spec = buildVerifySpec(session(), sections, core(), []);

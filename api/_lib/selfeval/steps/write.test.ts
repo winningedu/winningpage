@@ -199,6 +199,15 @@ describe("buildWriteInput", () => {
     expect(buildWriteInput(session(), core(a), []).ok).toBe(true);
   });
 
+  it("학교 문항이 없어도 던지지 않고 문항 입력을 비운다", () => {
+    const r = buildWriteInput(session({ school_prompt: null }), core(), []);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.input.schoolPrompt).toBeNull();
+      expect(r.input.promptKeywords).toEqual([]);
+    }
+  });
+
   it("세션과 활동을 프롬프트 입력으로 옮긴다", () => {
     const r = buildWriteInput(session(), core(), [
       record("s2", {

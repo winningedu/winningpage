@@ -457,6 +457,25 @@ describe("validateVerifyResponse", () => {
     }
   });
 
+  it("문항이 없으면 문항 대응 항목이 응답에 없어도 통과하고 빈 확인을 돌려준다", () => {
+    const b = verifyBody();
+    b.items = b.items.filter((i) => i.key !== "prompt");
+    const r = validateVerifyResponse(b, {
+      expectGrowth: false,
+      promptMissing: true,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.checks.prompt).toEqual([]);
+  });
+
+  it("문항이 없으면 모델이 문항 대응 확인을 보내도 버린다", () => {
+    const r = validateVerifyResponse(verifyBody(), {
+      expectGrowth: false,
+      promptMissing: true,
+    });
+    expect(r.ok && r.checks.prompt).toEqual([]);
+  });
+
   it("모델이 바꿔 쓴 text 는 루브릭 문장으로 덮어쓴다", () => {
     const b = verifyBody();
     item(b, 0).checks.splice(0, 1, { text: "마음대로 바꾼 문장", pass: true });
