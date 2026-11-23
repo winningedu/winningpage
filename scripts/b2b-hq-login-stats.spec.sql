@@ -108,7 +108,7 @@ insert into public.growth_profiles (profile_id, survey_saved_at) values
 -- 일, 주, 달 묶음 결과를 쉽게 꺼내는 도우미
 create function pg_temp.b(p_from date, p_to date, p_grain text, p_mode text, p_inc boolean)
 returns table (bucket_start date, bucket_end date, source text, members bigint, by_member_type jsonb)
-language sql as $$ select * from public.fn_hq_login_buckets(p_from, p_to, p_grain, p_mode, p_inc) $$;
+language sql as $$ select * from public.fn_hq_login_buckets(p_from, p_to, p_grain, p_mode, p_inc, 'all') $$;
 
 -- ---------------------------------------------------------------------
 -- 일 단위(DAU), KST 경계, 실측과 추정과 기록 없음
@@ -175,13 +175,13 @@ select pg_temp.expect_text('최근 30일 기준에서 기간이 30일이면 한 
 -- 입력 검사와 권한
 -- ---------------------------------------------------------------------
 select pg_temp.expect_error('시작일이 종료일보다 늦으면 거부',
-  $$select * from public.fn_hq_login_buckets('2001-03-02', '2001-03-01', 'day', 'calendar', false)$$, '22023');
+  $$select * from public.fn_hq_login_buckets('2001-03-02', '2001-03-01', 'day', 'calendar', false, 'all')$$, '22023');
 select pg_temp.expect_error('모르는 묶음 단위는 거부',
-  $$select * from public.fn_hq_login_buckets('2001-03-01', '2001-03-02', 'year', 'calendar', false)$$, '22023');
+  $$select * from public.fn_hq_login_buckets('2001-03-01', '2001-03-02', 'year', 'calendar', false, 'all')$$, '22023');
 select pg_temp.expect_error('모르는 MAU 기준은 거부',
-  $$select * from public.fn_hq_login_buckets('2001-03-01', '2001-03-02', 'month', 'weekly', false)$$, '22023');
+  $$select * from public.fn_hq_login_buckets('2001-03-01', '2001-03-02', 'month', 'weekly', false, 'all')$$, '22023');
 select pg_temp.expect_error('날짜가 비면 거부',
-  $$select * from public.fn_hq_login_buckets(null, '2001-03-02', 'day', 'calendar', false)$$, '22023');
+  $$select * from public.fn_hq_login_buckets(null, '2001-03-02', 'day', 'calendar', false, 'all')$$, '22023');
 
 -- ---------------------------------------------------------------------
 -- fn_hq_login_log: 로그인 기록 표(Q13). 최근 날짜, 늦게 처음 들어온 순, 쪽 나눔
@@ -212,15 +212,15 @@ select pg_temp.expect_error('기록 표도 시작일이 종료일보다 늦으�
 
 select pg_temp.expect_bool('두 함수 모두 security definer',
   (select bool_and(prosecdef) from pg_proc
-    where oid in ('public.fn_hq_login_buckets(date, date, text, text, boolean)'::regprocedure,
+    where oid in ('public.fn_hq_login_buckets(date, date, text, text, boolean, text)'::regprocedure,
                   'public.fn_hq_login_log(date, date, boolean, integer, integer)'::regprocedure)), true);
 select pg_temp.expect_bool('anon, authenticated 는 두 함수를 실행할 수 없다',
-  not has_function_privilege('anon', 'public.fn_hq_login_buckets(date, date, text, text, boolean)', 'execute')
-  and not has_function_privilege('authenticated', 'public.fn_hq_login_buckets(date, date, text, text, boolean)', 'execute')
+  not has_function_privilege('anon', 'public.fn_hq_login_buckets(date, date, text, text, boolean, text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.fn_hq_login_buckets(date, date, text, text, boolean, text)', 'execute')
   and not has_function_privilege('anon', 'public.fn_hq_login_log(date, date, boolean, integer, integer)', 'execute')
   and not has_function_privilege('authenticated', 'public.fn_hq_login_log(date, date, boolean, integer, integer)', 'execute'), true);
 select pg_temp.expect_bool('service_role 은 두 함수를 실행할 수 있다',
-  has_function_privilege('service_role', 'public.fn_hq_login_buckets(date, date, text, text, boolean)', 'execute')
+  has_function_privilege('service_role', 'public.fn_hq_login_buckets(date, date, text, text, boolean, text)', 'execute')
   and has_function_privilege('service_role', 'public.fn_hq_login_log(date, date, boolean, integer, integer)', 'execute'), true);
 
 do $$ begin raise notice '=== b2b-hq-login-stats.spec: 전체 통과 ==='; end $$;
