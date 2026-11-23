@@ -63,7 +63,7 @@ function overviewRow(overrides: Record<string, unknown> = {}) {
     student_count: 10,
     student_without_enrollment_count: 2,
     teacher_count: 3,
-    last_activity_on: "2026-11-22",
+    last_activity_at: "2026-11-22T14:30:00.000Z",
     ...overrides,
   };
 }
@@ -89,6 +89,19 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("기준 시각", () => {
+  test("asOf 는 ISO Z 순간이다(날짜 문자열이 아니다)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-30T16:00:00.000Z"));
+
+    const res = await get();
+
+    expect((res.body as { asOf: string }).asOf).toBe(
+      "2026-11-30T16:00:00.000Z",
+    );
+  });
 });
 
 describe("권한과 입력", () => {
@@ -209,7 +222,7 @@ describe("기관 목록", () => {
           studentCount: 10,
           studentWithoutEnrollmentCount: 2,
           teacherCount: 3,
-          lastActivityOn: "2026-11-22",
+          lastActivityAt: "2026-11-22T14:30:00.000Z",
           goalRateAverage: null,
           goalUserCount: 0,
         },

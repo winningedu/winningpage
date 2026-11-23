@@ -30,7 +30,8 @@ export interface TenantOverviewRow {
   /** 학적이 없는 학생(위닝 옛 학생). 화면은 "학년, 반 미상"으로 보인다. */
   studentWithoutEnrollmentCount: number;
   teacherCount: number;
-  lastActivityOn: string | null;
+  /** 마지막 활동 순간(ISO). 센 회원의 last_seen_at 과 로그인 15분 칸 중 늦은 것. */
+  lastActivityAt: string | null;
 }
 
 interface DbOverviewRow {
@@ -47,7 +48,7 @@ interface DbOverviewRow {
   student_count: number;
   student_without_enrollment_count: number;
   teacher_count: number;
-  last_activity_on: string | null;
+  last_activity_at: string | null;
 }
 
 /** includeInternal 은 "1"(포함) 또는 "0", 없으면 기본 제외. 그 밖의 값은 null. */
@@ -58,6 +59,11 @@ export function parseIncludeInternal(
   if (raw === "1") return true;
   if (raw === "0") return false;
   return null;
+}
+
+/** PostgREST 는 timestamptz 를 +00:00 로 주므로 ISO Z 로 맞춘다. */
+function toIsoZ(value: string | null): string | null {
+  return value ? new Date(value).toISOString() : null;
 }
 
 export async function loadTenantOverview(
@@ -82,7 +88,7 @@ export async function loadTenantOverview(
     studentCount: row.student_count,
     studentWithoutEnrollmentCount: row.student_without_enrollment_count,
     teacherCount: row.teacher_count,
-    lastActivityOn: row.last_activity_on,
+    lastActivityAt: toIsoZ(row.last_activity_at),
   }));
 }
 
