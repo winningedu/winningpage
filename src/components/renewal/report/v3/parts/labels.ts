@@ -105,8 +105,11 @@ export const REPORT_LABELS = {
   ladderFar: "먼 목표",
   ladderMid: "중간 목표",
   ladderNear: "가까운 목표",
-  /** 22 r35 wording for an empty rung */
-  ladderEmpty: "빈 칸",
+  /**
+   * Empty rung: no 22 or copy cell holds a display word (22 r35 E "빈 칸 0개"
+   * is a rule count), so spec row 60 「비어 있음」 is used.
+   */
+  ladderEmpty: "비어 있음",
   ladderFilled: "채움",
   suggestion: "제안",
   /** PDF p3 cards */

@@ -142,9 +142,11 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                   className={`size-3 rounded-full ${rung.filled ? "bg-navy-ink" : "border border-line"}`}
                 />
                 {rung.label}
-                <span className="sr-only">
-                  {rung.filled ? L.ladderFilled : L.ladderEmpty}
-                </span>
+                {rung.filled ? (
+                  <span className="sr-only">{L.ladderFilled}</span>
+                ) : (
+                  <span className="text-xs">{L.ladderEmpty}</span>
+                )}
               </li>
             ))}
           </ul>

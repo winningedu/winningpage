@@ -65,6 +65,10 @@ describe("Page02Goal", () => {
     expect(rungs).toHaveLength(3);
     expect(rungs[0]).toHaveAttribute("data-filled", "true");
     expect(rungs[2]).toHaveAttribute("data-filled", "false");
+    // spec row 60: an empty rung reads 「비어 있음」 on the page, not only to screen readers
+    const empty = screen.getByText("비어 있음");
+    expect(rungs[2]).toContainElement(empty);
+    expect(empty).not.toHaveClass("sr-only");
     expect(screen.getByText(p2.ladder.text)).toBeInTheDocument();
     for (const tip of p2.tips)
       expect(screen.getByText(tip)).toBeInTheDocument();
