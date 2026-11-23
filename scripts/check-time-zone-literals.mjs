@@ -77,7 +77,7 @@ function main() {
   const rootIdx = argv.indexOf("--root");
   const root =
     rootIdx >= 0
-      ? resolve(argv[rootIdx + 1])
+      ? resolve(argv[rootIdx + 1] ?? ".")
       : join(dirname(fileURLToPath(import.meta.url)), "..");
   const hits = scan(root);
   if (argv.includes("--update")) {
