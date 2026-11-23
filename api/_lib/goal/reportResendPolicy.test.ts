@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   dailyReportDispatchYmd,
-  dispatchAtKst,
+  dispatchAt,
   MAX_RESEND_DAYS_AGO,
   monthlyReportDispatchYmd,
   weeklyReportDispatchYmd,
@@ -37,26 +37,42 @@ test("MAX_RESEND_DAYS_AGO는 14다", () => {
   expect(MAX_RESEND_DAYS_AGO).toBe(14);
 });
 
-// QA 행 — *DispatchYmd 함수들은 "날짜"까지만 알려줘 당일 발송 시각(22:00/08:00/23:00
-// KST) 전에도 재발송을 허용하는 사고가 있었다. dispatchAtKst는 시·분까지 포함한
-// 정확한 발송 시각을 UTC Date로 돌려준다(KST = UTC+9이므로 UTC 시는 9를 뺀 값).
-describe("dispatchAtKst", () => {
-  test("daily — 그날 22:00 KST = 그날 13:00 UTC", () => {
-    expect(dispatchAtKst("daily", "2026-09-10").toISOString()).toBe(
+// QA 행 — *DispatchYmd 함수들은 "날짜"까지만 알려줘 당일 발송 시각(현지 22:00/08:00/23:00)
+// 전에도 재발송을 허용하는 사고가 있었다. dispatchAt은 시·분까지 포함한 정확한
+// 발송 시각을 수신자 시간대 기준으로 UTC Date로 돌려준다.
+describe("dispatchAt", () => {
+  test("daily — 서울 그날 22:00 = 그날 13:00Z", () => {
+    expect(dispatchAt("daily", "2026-09-10", "Asia/Seoul").toISOString()).toBe(
       "2026-09-10T13:00:00.000Z",
     );
   });
 
-  test("weekly — 다음 월요일 08:00 KST는 전날(일요일) 23:00 UTC", () => {
-    // weekStart=09-07 → 발송 월요일 09-14, 08:00 KST = 09-13 23:00 UTC.
-    expect(dispatchAtKst("weekly", "2026-09-07").toISOString()).toBe(
+  test("weekly — 서울 다음 월요일 08:00은 전날(일요일) 23:00Z", () => {
+    // weekStart=09-07 → 발송 월요일 09-14, 08:00 서울 = 09-13 23:00Z.
+    expect(dispatchAt("weekly", "2026-09-07", "Asia/Seoul").toISOString()).toBe(
       "2026-09-13T23:00:00.000Z",
     );
   });
 
-  test("monthly — 그 달 마지막 날 23:00 KST = 같은 날 14:00 UTC", () => {
-    expect(dispatchAtKst("monthly", "2026-09").toISOString()).toBe(
+  test("monthly — 서울 그 달 마지막 날 23:00 = 같은 날 14:00Z", () => {
+    expect(dispatchAt("monthly", "2026-09", "Asia/Seoul").toISOString()).toBe(
       "2026-09-30T14:00:00.000Z",
     );
+  });
+
+  test("daily — 로스앤젤레스 22:00은 겨울(PST) 다음 날 06:00Z, 여름(PDT) 05:00Z", () => {
+    expect(
+      dispatchAt("daily", "2026-01-10", "America/Los_Angeles").toISOString(),
+    ).toBe("2026-01-11T06:00:00.000Z");
+    expect(
+      dispatchAt("daily", "2026-07-10", "America/Los_Angeles").toISOString(),
+    ).toBe("2026-07-11T05:00:00.000Z");
+  });
+
+  test("서머타임이 바뀌는 날에도 현지 22:00을 지킨다", () => {
+    // 2026-03-08 미국 서머타임 시작. 22:00 PDT = 03-09 05:00Z.
+    expect(
+      dispatchAt("daily", "2026-03-08", "America/Los_Angeles").toISOString(),
+    ).toBe("2026-03-09T05:00:00.000Z");
   });
 });
