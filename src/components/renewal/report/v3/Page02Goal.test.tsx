@@ -80,6 +80,7 @@ describe("Page02Goal", () => {
       container.querySelectorAll("[data-rung]"),
     );
     const { rungs } = p2.ladder;
+    if (!rungs) throw new Error("the fixture carries rung content");
     expect(far).toHaveTextContent(rungs.far.text);
     expect(far).toHaveTextContent(rungs.far.source);
     expect(mid).toHaveTextContent(rungs.mid.text);

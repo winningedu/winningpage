@@ -538,8 +538,8 @@ export type Page2 = {
     readonly mid: boolean;
     readonly near: boolean;
     readonly text: string;
-    /** PDF p3 rung content; source is the 22 D35 question ("3번", "8-1", "8-2") */
-    readonly rungs: {
+    /** PDF p3 rung content; source is the 22 D35 question ("3번", "8-1", "8-2"); absent in payloads stored before 2026-11-23 */
+    readonly rungs?: {
       /** the 1p profile target (16번 names, else 3번 inputs) */
       readonly far: LadderRung;
       /** 01 q9 item statement and its 01 A2 answer word */
@@ -590,8 +590,8 @@ export type Page3 = {
     | { readonly kind: "skip"; readonly note: string };
   /** 22 r46 */
   readonly examOps: TextBlock;
-  /** spec row 76: verdict word of scores.examOps, 21 C35 (보완, 보통, 양호) */
-  readonly examOpsVerdict: string;
+  /** spec row 76: verdict word of scores.examOps, 21 C35 (보완, 보통, 양호); absent in payloads stored before 2026-11-23 */
+  readonly examOpsVerdict?: string;
   /** spec row 76: the 8-15 answer word (01 A2) and the 10번 15 option label (02 r20) when picked */
   readonly examOpsEvidence: {
     readonly item: string;
@@ -858,10 +858,10 @@ export type Page11 = {
   readonly lead: string;
   /** 22 r102 (judge-report R5: no formula sentence) */
   readonly urgency: {
-    /** 22 B102 element name, the PDF p11 box title */
-    readonly title: string;
-    /** scores.urgency.points (not a 0..100 score), the PDF p11 "N점" */
-    readonly points: number;
+    /** 22 B102 element name, the PDF p11 box title; absent in payloads stored before 2026-11-23 */
+    readonly title?: string;
+    /** scores.urgency.points (not a 0..100 score), the PDF p11 "N점"; absent in payloads stored before 2026-11-23 */
+    readonly points?: number;
     readonly label: string;
     readonly text: string;
   };

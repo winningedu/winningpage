@@ -30,11 +30,12 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
   const rungs: readonly {
     label: string;
     filled: boolean;
-    content: { source: string; text: string; answer?: string };
+    /** absent in payloads stored before the rung content existed */
+    content: { source: string; text: string; answer?: string } | undefined;
   }[] = [
-    { label: L.ladderFar, filled: ladder.far, content: ladder.rungs.far },
-    { label: L.ladderMid, filled: ladder.mid, content: ladder.rungs.mid },
-    { label: L.ladderNear, filled: ladder.near, content: ladder.rungs.near },
+    { label: L.ladderFar, filled: ladder.far, content: ladder.rungs?.far },
+    { label: L.ladderMid, filled: ladder.mid, content: ladder.rungs?.mid },
+    { label: L.ladderNear, filled: ladder.near, content: ladder.rungs?.near },
   ];
 
   return (
@@ -156,19 +157,25 @@ export default function Page02Goal({ page, tocTitle }: Page02GoalProps) {
                     <p>
                       <span className="font-semibold">{rung.label}</span>
                       <span className="sr-only">{L.ladderFilled}</span>
-                      {L.joiner}
-                      <CopyText text={rung.content.text} />
-                    </p>
-                    {/* PDF p3: the question behind the rung and its answer word */}
-                    <p className="text-xs text-ink-sub">
-                      <CopyText text={rung.content.source} />
-                      {rung.content.answer && (
+                      {rung.content && (
                         <>
-                          {" ("}
-                          <CopyText text={rung.content.answer} />)
+                          {L.joiner}
+                          <CopyText text={rung.content.text} />
                         </>
                       )}
                     </p>
+                    {/* PDF p3: the question behind the rung and its answer word */}
+                    {rung.content && (
+                      <p className="text-xs text-ink-sub">
+                        <CopyText text={rung.content.source} />
+                        {rung.content.answer && (
+                          <>
+                            {" ("}
+                            <CopyText text={rung.content.answer} />)
+                          </>
+                        )}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <>

@@ -28,11 +28,20 @@ export default function Page11Plan({ page }: { page: Page11 }) {
       {/* 22 r102 */}
       <section className="flex flex-col gap-1 rounded-lg border border-[#e5e5e5] p-3">
         <p className="text-sm text-ink">
-          <span className="font-bold">
-            <CopyText text={urgency.title} />
-          </span>{" "}
-          <span className="font-bold">{`${urgency.points}${L.points}`}</span>
-          {L.joiner}
+          {/* title and points are absent in payloads stored before 2026-11-23 */}
+          {urgency.title && (
+            <>
+              <span className="font-bold">
+                <CopyText text={urgency.title} />
+              </span>{" "}
+            </>
+          )}
+          {urgency.points !== undefined && (
+            <>
+              <span className="font-bold">{`${urgency.points}${L.points}`}</span>
+              {L.joiner}
+            </>
+          )}
           <span>
             <CopyText text={urgency.label} />
           </span>

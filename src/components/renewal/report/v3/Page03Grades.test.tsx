@@ -48,7 +48,7 @@ describe("Page03Grades", () => {
     render(<Page03Grades page={p3} tocTitle="성적 진단" />);
     const title = screen.getByText(p3.examOps.heading);
     expect(title.parentElement).toContainElement(
-      screen.getByText(p3.examOpsVerdict),
+      screen.getByText(p3.examOpsVerdict as string),
     );
   });
 

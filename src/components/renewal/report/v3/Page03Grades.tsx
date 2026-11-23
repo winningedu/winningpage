@@ -98,7 +98,10 @@ export default function Page03Grades({ page, tocTitle }: Page03GradesProps) {
         )}
       </ReportCard>
       {/* 22 r46 */}
-      <ReportCard title={page.examOps.heading} meta={page.examOpsVerdict}>
+      <ReportCard
+        title={page.examOps.heading}
+        {...(page.examOpsVerdict ? { meta: page.examOpsVerdict } : {})}
+      >
         <p>
           <CopyText text={page.examOps.body} />
         </p>
