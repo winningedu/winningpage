@@ -1,4 +1,4 @@
-import { track } from "@vercel/analytics";
+import { type BeforeSendEvent, track } from "@vercel/analytics";
 
 export type AnalyticsService =
   | "diagnosis"
@@ -74,4 +74,21 @@ export function trackEvent<N extends AnalyticsEventName>(
   } catch {
     // 삼킨다
   }
+}
+
+const EXCLUDED_PATH = /^\/(admin|teacher)(\/|$)/;
+
+// 관리자와 선생님 화면은 집계에서 뺀다. 쿼리스트링과 해시에는 토큰과 식별자가 실릴 수 있어
+// (비밀번호 재설정, 결제 완료, 로그인 redirect, Supabase 인증 해시) origin과 pathname만 남긴다.
+export function analyticsBeforeSend(
+  event: BeforeSendEvent,
+): BeforeSendEvent | null {
+  let url: URL;
+  try {
+    url = new URL(event.url);
+  } catch {
+    return null;
+  }
+  if (EXCLUDED_PATH.test(url.pathname)) return null;
+  return { ...event, url: url.origin + url.pathname };
 }

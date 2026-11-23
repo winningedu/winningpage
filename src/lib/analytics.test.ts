@@ -1,6 +1,6 @@
 import { track } from "@vercel/analytics";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { trackEvent } from "./analytics";
+import { analyticsBeforeSend, trackEvent } from "./analytics";
 
 vi.mock("@vercel/analytics", () => ({ track: vi.fn() }));
 
@@ -62,5 +62,39 @@ describe("trackEvent", () => {
       throw new Error("boom");
     });
     expect(() => trackEvent("consult_apply")).not.toThrow();
+  });
+});
+
+describe("analyticsBeforeSend", () => {
+  const pageview = (url: string) =>
+    ({ type: "pageview", url }) as Parameters<typeof analyticsBeforeSend>[0];
+
+  test.each([
+    "https://winning.test/admin",
+    "https://winning.test/admin/users",
+    "https://winning.test/teacher",
+    "https://winning.test/teacher/classes",
+  ])("%s 는 버린다", (url) => {
+    expect(analyticsBeforeSend(pageview(url))).toBeNull();
+  });
+
+  test.each([
+    "https://winning.test/adminx",
+    "https://winning.test/app/goal",
+    "https://winning.test/",
+  ])("%s 는 그대로 둔다", (url) => {
+    expect(analyticsBeforeSend(pageview(url))).toEqual(pageview(url));
+  });
+
+  test("쿼리스트링과 해시를 지운다", () => {
+    expect(
+      analyticsBeforeSend(
+        pageview("https://winning.test/pay?paymentKey=k&a=b#tok"),
+      ),
+    ).toEqual(pageview("https://winning.test/pay"));
+  });
+
+  test("URL을 해석할 수 없으면 버린다", () => {
+    expect(analyticsBeforeSend(pageview("not a url"))).toBeNull();
   });
 });
