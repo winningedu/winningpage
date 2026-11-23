@@ -117,6 +117,10 @@ export type ServicesResult = {
   /** 07 C16-C21 candidate scope */
   readonly scope: "ALL" | "M3" | "NSU" | "G3LATE";
   readonly ranked: readonly [ServiceFit, ServiceFit];
+  /** 07 B32: the care condition put CALL first */
+  readonly counselPinned: boolean;
+  /** spec row 114: the copy layer prefers the 고3/N수 copy rows when present */
+  readonly preferTrackCopy: boolean;
 };
 
 const bandOf = (tenths: number): ServiceFit["band"] =>
@@ -230,9 +234,25 @@ export function recommendServices(input: ServiceInput): ServicesResult {
     .filter((row) => candidates.includes(row.code))
     .map((row) => scoreService(track, row, input));
   scored.sort(compareFit);
-  const [first, second] = scored;
+  // 07 B32 and B34, 18 r27: care pins CALL unless the response is simple or
+  // the temperament answers need caution
+  const counselPinned =
+    input.counsel &&
+    input.reliability.diagnosis !== "SIMPLE" &&
+    input.reliability.temperament !== "CAUTION";
+  const pinned = scored.find((fit) => fit.code === "CALL");
+  const ordered =
+    counselPinned && pinned
+      ? [pinned, ...scored.filter((fit) => fit !== pinned)]
+      : scored;
+  const [first, second] = ordered;
   if (!first || !second) throw new Error("fewer than 2 service candidates");
-  return { scope, ranked: [strip(first), strip(second)] };
+  return {
+    scope,
+    ranked: [strip(first), strip(second)],
+    counselPinned,
+    preferTrackCopy: track === "H3",
+  };
 }
 
 const strip = ({

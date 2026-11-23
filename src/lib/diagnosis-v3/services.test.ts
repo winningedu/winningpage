@@ -214,4 +214,54 @@ describe("service fit (07_서비스)", () => {
     expect(m3.scope).toBe("M3");
     expect(codes(m3).sort()).toEqual(["CALL", "GOAL"]);
   });
+
+  test("temperament care pins CALL to rank 1, best of the rest second (07 B32)", () => {
+    // GOAL 50 would lead, CALL is 0
+    const base = {
+      areaScores: scoresOf("H12", 90),
+      q10: [3, 7],
+    };
+    expect(codes(recommendServices(input(base)))[0]).toBe("GOAL");
+
+    const care = recommendServices(input({ ...base, counsel: true }));
+    expect(codes(care)).toEqual(["CALL", "GOAL"]);
+    expect(care.counselPinned).toBe(true);
+
+    expect(recommendServices(input(base)).counselPinned).toBe(false);
+  });
+
+  test("care is not applied for a simple response or a temperament caution (07 B34, 18 r27)", () => {
+    const base = { q10: [3, 7], counsel: true };
+    const simple = recommendServices(
+      input({
+        ...base,
+        reliability: { diagnosis: "SIMPLE", temperament: "NORMAL" },
+      }),
+    );
+    expect(codes(simple)[0]).toBe("GOAL");
+    expect(simple.counselPinned).toBe(false);
+
+    const caution = recommendServices(
+      input({
+        ...base,
+        reliability: { diagnosis: "GOOD", temperament: "CAUTION" },
+      }),
+    );
+    expect(codes(caution)[0]).toBe("GOAL");
+    expect(caution.counselPinned).toBe(false);
+  });
+
+  test("copy layer flag: 고3 and N수 rows prefer their own copy (spec row 114)", () => {
+    expect(recommendServices(input()).preferTrackCopy).toBe(false);
+    const h3 = input({ grade: 5, areaScores: scoresOf("H3", 90) });
+    expect(recommendServices(h3).preferTrackCopy).toBe(true);
+    const repeat = input({ grade: 6, areaScores: scoresOf("H3", 90) });
+    expect(recommendServices(repeat).preferTrackCopy).toBe(true);
+  });
+
+  test("a missing area score is an error, not a default", () => {
+    expect(() =>
+      recommendServices(input({ areaScores: { P1_GOAL: 50 } })),
+    ).toThrow("missing score");
+  });
 });
