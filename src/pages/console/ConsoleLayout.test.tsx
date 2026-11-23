@@ -215,6 +215,32 @@ describe("ConsoleLayout 본사 대행 띠", () => {
     expect(calls.map((c) => c.key)).toContain("POST /api/console/proxy/end");
   });
 
+  it("읽기 전용 대행이면 띠에 읽기 전용을 보인다", async () => {
+    stubApi({
+      "GET /api/console/me": {
+        body: {
+          ...proxyMe,
+          proxySession: { ...proxyMe.proxySession, readOnly: true },
+        },
+      },
+      ...countOk,
+    });
+
+    renderRoutes(routes, "/teacher/my");
+
+    expect(await screen.findByText("본사 대행 중: 한빛고등학교")).toBeTruthy();
+    expect(screen.getByText("읽기 전용")).toBeTruthy();
+  });
+
+  it("쓰기가 되는 사유의 대행 띠에는 읽기 전용이 없다", async () => {
+    stubApi({ "GET /api/console/me": { body: proxyMe }, ...countOk });
+
+    renderRoutes(routes, "/teacher/my");
+
+    expect(await screen.findByText("본사 대행 중: 한빛고등학교")).toBeTruthy();
+    expect(screen.queryByText("읽기 전용")).toBeNull();
+  });
+
   it("대행 중이 아니면 띠가 없다", async () => {
     stubApi({ "GET /api/console/me": { body: adminMe }, ...countOk });
 

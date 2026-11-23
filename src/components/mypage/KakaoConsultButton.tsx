@@ -1,4 +1,5 @@
 import { COMPANY } from "@/data/company";
+import { trackEvent } from "@/lib/analytics";
 
 // 카카오톡 상담 플로팅 버튼 (Figma 3679:1230 버튼 / 3679:1233 말풍선).
 //
@@ -31,6 +32,9 @@ export default function KakaoConsultButton() {
 
       <a
         href={url}
+        onClick={() =>
+          trackEvent("kakao_inquiry_click", { location: "mypage" })
+        }
         target="_blank"
         rel="noopener noreferrer"
         className="flex h-12.5 items-center gap-2 rounded-3xl bg-[#fbe300] pl-5 pr-6 text-base font-semibold text-ink-title shadow-[0_8px_24px_rgba(13,27,42,0.16)] transition hover:brightness-95"

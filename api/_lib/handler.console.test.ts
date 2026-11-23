@@ -20,6 +20,9 @@ const state = vi.hoisted(() => ({
   actor: null as unknown,
   rpcError: null as unknown,
   loginId: "kim01" as string | null,
+  proxyReason: "roster_proxy" as string | null,
+  proxyReadError: null as unknown,
+  tablesRead: [] as string[],
   rpc: vi.fn(),
 }));
 
@@ -39,13 +42,20 @@ vi.mock("./supabaseAdmin.js", () => ({
         error: state.rpcError,
       });
     },
-    from: () => {
+    from: (table: string) => {
+      state.tablesRead.push(table);
       const chain: Record<string, unknown> = {};
       for (const m of ["select", "eq"]) chain[m] = () => chain;
-      chain.maybeSingle = async () => ({
-        data: state.loginId ? { login_id: state.loginId } : null,
-        error: null,
-      });
+      chain.maybeSingle = async () =>
+        table === "proxy_sessions"
+          ? {
+              data: state.proxyReason ? { reason: state.proxyReason } : null,
+              error: state.proxyReadError,
+            }
+          : {
+              data: state.loginId ? { login_id: state.loginId } : null,
+              error: null,
+            };
       return chain;
     },
   }),
@@ -67,11 +77,25 @@ function teacherRow(over: Partial<ActorRow> = {}): ActorRow {
 
 const seen: { ctx?: HandlerCtx | undefined } = {};
 
+function proxyRow(): ActorRow {
+  return teacherRow({
+    kind: "hq_proxy",
+    teacher_id: null,
+    class_ids: [],
+    proxy_session_id: "proxy-1",
+    must_change_password: false,
+  });
+}
+
 function build(
-  extra: { consoleRole?: "schoolAdmin"; allowMustChange?: boolean } = {},
+  extra: {
+    consoleRole?: "schoolAdmin";
+    allowMustChange?: boolean;
+    allowReadOnlyProxy?: boolean;
+  } = {},
 ) {
   return defineHandler({
-    methods: ["GET"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     auth: "console",
     errorShape: "coded",
     unhandledMessage: "fail",
@@ -87,6 +111,7 @@ function build(
 async function call(
   handler: ReturnType<typeof build>,
   headers: Record<string, string> = { authorization: "Bearer tok" },
+  method = "GET",
 ) {
   const out = { status: 0, body: undefined as unknown };
   const res = {
@@ -100,7 +125,7 @@ async function call(
       return res;
     },
   } as unknown as VercelResponse;
-  await handler({ method: "GET", headers } as unknown as VercelRequest, res);
+  await handler({ method, headers } as unknown as VercelRequest, res);
   return out;
 }
 
@@ -116,6 +141,9 @@ beforeEach(() => {
   state.actor = teacherRow();
   state.rpcError = null;
   state.loginId = "kim01";
+  state.proxyReason = "roster_proxy";
+  state.proxyReadError = null;
+  state.tablesRead = [];
 });
 
 describe('defineHandler auth:"console"', () => {
@@ -156,7 +184,9 @@ describe('defineHandler auth:"console"', () => {
       proxySessionId: null,
       mustChangePassword: false,
       loginId: "kim01",
+      readOnly: false,
     });
+    expect(state.tablesRead).not.toContain("proxy_sessions");
     expect(seen.ctx?.userId).toBe("profile-1");
   });
 
@@ -197,6 +227,70 @@ describe('defineHandler auth:"console"', () => {
       teacherId: null,
       loginId: null,
     });
+  });
+
+  test.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "읽기 전용 대행의 %s 는 403 READ_ONLY_PROXY 이고 핸들러를 부르지 않는다",
+    async (method) => {
+      state.actor = proxyRow();
+      state.proxyReason = "read_only";
+
+      const r = await call(build(), undefined, method);
+
+      expect(r.status).toBe(403);
+      expect(code(r)).toBe("READ_ONLY_PROXY");
+      expect(message(r)).toBe("읽기 전용 대행 중에는 바꿀 수 없습니다.");
+      expect(seen.ctx).toBeUndefined();
+    },
+  );
+
+  test("읽기 전용 대행도 GET 은 통과하고 ctx.console.readOnly 가 true 다", async () => {
+    state.actor = proxyRow();
+    state.proxyReason = "read_only";
+
+    const r = await call(build());
+
+    expect(r.status).toBe(200);
+    expect(seen.ctx?.console).toMatchObject({
+      kind: "hq_proxy",
+      proxySessionId: "proxy-1",
+      readOnly: true,
+    });
+  });
+
+  test("allowReadOnlyProxy 라우트는 읽기 전용 대행의 POST 도 통과한다", async () => {
+    state.actor = proxyRow();
+    state.proxyReason = "read_only";
+
+    const r = await call(
+      build({ allowReadOnlyProxy: true }),
+      undefined,
+      "POST",
+    );
+
+    expect(r.status).toBe(200);
+    expect(seen.ctx?.console?.readOnly).toBe(true);
+  });
+
+  test("다른 사유의 대행과 교사는 POST 가 그대로 통과한다", async () => {
+    state.actor = proxyRow();
+    const proxy = await call(build(), undefined, "POST");
+    state.actor = teacherRow();
+    const teacher = await call(build(), undefined, "POST");
+
+    expect(proxy.status).toBe(200);
+    expect(teacher.status).toBe(200);
+    expect(seen.ctx?.console?.readOnly).toBe(false);
+  });
+
+  test("대행 세션 사유를 읽지 못하면 쓰기를 열어 두지 않고 500 이다", async () => {
+    state.actor = proxyRow();
+    state.proxyReadError = { code: "XX000" };
+
+    const r = await call(build(), undefined, "POST");
+
+    expect(r.status).toBe(500);
+    expect(seen.ctx).toBeUndefined();
   });
 
   test("행위자 조회가 실패하면 403 이 아니라 500 이다", async () => {

@@ -408,6 +408,7 @@ function HeroSection() {
   const { requestStart, startDialogs } = useServiceStart({
     to: HERO_SERVICE.to,
     resultNotice: false,
+    service: "goal",
   });
 
   return (

@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { trackEvent } from "@/lib/analytics";
 import type { TopicView } from "@/lib/inquiry/api";
 
 const { shellMock, recommendMock, planMock } = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const { shellMock, recommendMock, planMock } = vi.hoisted(() => ({
 }));
 
 const gateState = vi.hoisted(() => ({ on: false }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
   return {
@@ -406,6 +408,31 @@ describe("TopicsPage", () => {
     await waitFor(() =>
       expect(recommendMock).toHaveBeenCalledWith({ sessionId: "s1" }),
     );
+  });
+
+  test("다시 추천받기를 누르면 ai_regenerate를 topics로 보낸다", async () => {
+    recommendMock.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: "다시 추천받기(남은 3 / 3)" }),
+    );
+    expect(trackEvent).toHaveBeenCalledWith("ai_regenerate", {
+      service: "inquiry",
+      step: "topics",
+    });
+  });
+
+  test("직접 주제 입력으로 추천받을 때는 ai_regenerate를 보내지 않는다", async () => {
+    recommendMock.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    fireEvent.change(screen.getByLabelText("직접 주제 한 줄"), {
+      target: { value: "꿀벌" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "이 주제로 다시 추천받기" }),
+    );
+    await waitFor(() => expect(recommendMock).toHaveBeenCalled());
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 
   test("직접 주제 입력은 seedTopic 으로 추천을 부른다", async () => {

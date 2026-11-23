@@ -5,6 +5,9 @@
 // 분리돼 있는 이유와 같은 제약이라, 여기서는 문자열 키만 별도로 들고 있는다.
 // CONFIGS와의 어긋남은 Admin.tsx 모듈 스코프의 dev 전용 검증(assertAdminSectionKeysInSync)이 잡는다.
 export const ADMIN_SECTION_KEYS = [
+  // 통계
+  "hqDashboard",
+  "webAnalytics",
   // 메인화면 관리
   "popups",
   "banners",
@@ -63,9 +66,6 @@ export const ADMIN_SECTION_KEYS = [
   // 회원관리, 계약 종료 회원 삭제(스쿨멘토, tenants 권한을 같이 쓴다. adminPermissions.ts 의 별칭)
   "memberPurge",
   "memberPurgeLogs",
-  // 회원관리 — 이용 현황
-  "dailyEntries",
-  "usageStatus",
   // 매출·결제관리
   "revenue",
   "enrollments",

@@ -170,6 +170,26 @@ insert into public.proxy_sessions (admin_profile_id, tenant_id, reason, expires_
   values (pg_temp.fx('plain'), pg_temp.fx('ta'), 'admin_absent', now() + interval '8 hours');
 select pg_temp.expect_text('관리자가 아니면 none', pg_temp.actor_s(pg_temp.fx('plain')), 'none/-/false/0/false/-');
 
+-- 읽기 전용 사유(결정 116, Q10): teacherConsoleProxy view 로도 대행이 열린다. 다른 사유는 edit 그대로.
+select pg_temp.set_proxy_perm(pg_temp.fx('admin2'), 'view');
+insert into sess values ('r1', public.fn_proxy_start(pg_temp.fx('admin2'), pg_temp.fx('ta'), 'read_only'));
+select pg_temp.expect_text('읽기 전용 대행은 view 권한으로 hq_proxy',
+  pg_temp.actor_s(pg_temp.fx('admin2')), 'hq_proxy/T7AAAAAA/false/0/true/false');
+select pg_temp.set_proxy_perm(pg_temp.fx('admin2'), 'edit');
+select pg_temp.expect_text('읽기 전용 대행은 edit 권한으로도 hq_proxy',
+  pg_temp.actor_s(pg_temp.fx('admin2')), 'hq_proxy/T7AAAAAA/false/0/true/false');
+select pg_temp.set_proxy_perm(pg_temp.fx('admin2'), null);
+select pg_temp.expect_text('권한이 없으면 읽기 전용 대행도 none',
+  pg_temp.actor_s(pg_temp.fx('admin2')), 'none/-/false/0/false/-');
+select pg_temp.set_proxy_perm(pg_temp.fx('admin2'), 'view');
+insert into sess values ('r2', public.fn_proxy_start(pg_temp.fx('admin2'), pg_temp.fx('ta'), 'admin_absent'));
+select pg_temp.expect_text('읽기 전용이 아닌 사유는 view 권한이면 none',
+  pg_temp.actor_s(pg_temp.fx('admin2')), 'none/-/false/0/false/-');
+select pg_temp.expect_text('읽기 전용 세션 뒤 다른 사유로 시작하면 읽기 전용 세션은 replaced',
+  (select end_reason from public.proxy_sessions where id = (select v from sess where k = 'r1')), 'replaced');
+select public.fn_proxy_end(pg_temp.fx('admin2'));
+select pg_temp.set_proxy_perm(pg_temp.fx('admin2'), null);
+
 -- 테이블 제약
 select pg_temp.expect_error('사유 목록 밖 거부',
   $$select public.fn_proxy_start(pg_temp.fx('admin2'), pg_temp.fx('ta'), 'because')$$, '23514');

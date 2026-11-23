@@ -22,6 +22,7 @@ const { shellMock, stepMock, fetchDetailMock, finalizeMock, refetchMock } =
     refetchMock: vi.fn(),
   }));
 
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
   return {
@@ -57,6 +58,7 @@ vi.mock("@/components/goal/GoalPageHeader", () => ({
   ),
 }));
 
+import { trackEvent } from "@/lib/analytics";
 import FinalizePage from "./FinalizePage";
 
 function session(over: Record<string, unknown> = {}) {
@@ -134,6 +136,7 @@ beforeEach(() => {
   fetchDetailMock.mockReset();
   finalizeMock.mockReset();
   refetchMock.mockReset();
+  vi.mocked(trackEvent).mockReset();
   refetchMock.mockResolvedValue(undefined);
   fetchDetailMock.mockResolvedValue(detail());
   shellMock.mockReturnValue({
@@ -261,6 +264,26 @@ describe("FinalizePage 제출", () => {
       "href",
       "/app/inquiry/evaluate",
     );
+    fireEvent.click(screen.getByRole("link", { name: "평가 리포트로" }));
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  test("403 NO_ENTITLEMENT 의 이용권 보기를 누르면 paywall_cta_click 을 보낸다", async () => {
+    finalizeMock.mockResolvedValue({
+      kind: "error",
+      status: 403,
+      code: "NO_ENTITLEMENT",
+      message: "x",
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: SUBMIT }));
+    expect(trackEvent).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("link", { name: "이용권 보기" }));
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("paywall_cta_click", {
+      service: "inquiry",
+      location: "finalize",
+    });
   });
 
   test("403 NO_ENTITLEMENT 는 이용권 보기 링크", async () => {

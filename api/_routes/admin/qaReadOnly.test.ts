@@ -67,7 +67,7 @@ describe.each(ROUTES)("%s", (_name, handler) => {
 
     const r = await callHandler(handler, {
       tenantId: "t1",
-      reason: "support",
+      reason: "roster_proxy",
       profileId: "p1",
       text: "hi",
       phone: "01012345678",

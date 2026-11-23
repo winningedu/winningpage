@@ -39,6 +39,7 @@ import {
 import { summarizeVerification } from "@/components/selfeval/verify/verifyLogic";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/growth/apiResult";
 import { finalizeSession, verifySession } from "@/lib/selfeval/api";
 import { selfevalQueryKeys } from "@/lib/selfeval/queries";
@@ -187,6 +188,7 @@ function VerifyBody({
     if (!currentText) return;
     try {
       await navigator.clipboard.writeText(currentText);
+      trackEvent("report_export", { service: "selfeval", method: "copy" });
       toast.success("복사했어요");
     } catch {
       toast.error("복사하지 못했어요. 직접 선택해서 복사해 주세요.");

@@ -17,13 +17,16 @@ import { createClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { callHandler } from "../_lib/console/consoleTestKit.js";
 
-// 핸들러 테스트용 admin 가짜: auth.getUser 와 profiles 의 조건부 update 만 흉내 낸다.
+// 핸들러 테스트용 admin 가짜: auth.getUser, profiles 의 조건부 update, profile_login_days 의 upsert 만 흉내 낸다.
 const fake = vi.hoisted(() => ({
   getUser: null as unknown as () => Promise<unknown>,
   profiles: [] as { id: string; last_seen_at: string | null }[],
   writes: [] as { id: string; at: string }[],
   updateError: null as null | { message: string },
   updateThrows: false,
+  loginDays: [] as { profile_id: string; kst_date: string }[],
+  loginError: null as null | { message: string },
+  loginThrows: false,
 }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
@@ -31,6 +34,24 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   createSupabaseAdmin: () => ({
     auth: { getUser: () => fake.getUser() },
     from: (table: string) => ({
+      // 기본 키 (profile_id, kst_date) 를 흉내 낸다: ignoreDuplicates 면 on conflict do nothing, 아니면 23505.
+      upsert: async (
+        row: { profile_id: string; kst_date: string },
+        options: { onConflict?: string; ignoreDuplicates?: boolean },
+      ) => {
+        expect(table).toBe("profile_login_days");
+        if (fake.loginThrows) throw new Error("db down");
+        if (fake.loginError) return { error: fake.loginError };
+        expect(options.onConflict).toBe("profile_id,kst_date");
+        const exists = fake.loginDays.some(
+          (r) => r.profile_id === row.profile_id && r.kst_date === row.kst_date,
+        );
+        if (exists && !options.ignoreDuplicates) {
+          return { error: { message: "duplicate key", code: "23505" } };
+        }
+        if (!exists) fake.loginDays.push({ ...row });
+        return { error: null };
+      },
       update: (patch: { last_seen_at: string }) => ({
         eq: (_col: string, id: string) => ({
           // or("last_seen_at.is.null,last_seen_at.lt.<cutoff>")
@@ -150,6 +171,9 @@ describe("session-check handler: 최근 접속 기록", () => {
     fake.writes = [];
     fake.updateError = null;
     fake.updateThrows = false;
+    fake.loginDays = [];
+    fake.loginError = null;
+    fake.loginThrows = false;
     fake.getUser = async () => ({ data: { user: { id: "u1" } }, error: null });
   });
   afterEach(() => {
@@ -204,5 +228,69 @@ describe("session-check handler: 최근 접속 기록", () => {
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ error: { code: SESSION_REVOKED_CODE } });
     expect(fake.writes).toHaveLength(0);
+    expect(fake.loginDays).toHaveLength(0);
+  });
+});
+
+describe("session-check handler: 하루 로그인 기록", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fake.profiles = [{ id: "u1", last_seen_at: null }];
+    fake.writes = [];
+    fake.updateError = null;
+    fake.updateThrows = false;
+    fake.loginDays = [];
+    fake.loginError = null;
+    fake.loginThrows = false;
+    fake.getUser = async () => ({ data: { user: { id: "u1" } }, error: null });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test("유효한 토큰이면 그 사용자의 KST 날짜로 한 줄을 남기고, 같은 날 다시 불러도 한 줄이다", async () => {
+    // 2026-11-09 00:30 UTC 는 KST 로 같은 날 09:30 이고, 2026-11-08 23:30 UTC 는 KST 로 11-09 08:30 이다.
+    vi.setSystemTime(new Date("2026-11-08T23:30:00Z"));
+    const res = await callHandler(handler, undefined, "GET");
+    vi.setSystemTime(new Date("2026-11-09T05:00:00Z"));
+    await callHandler(handler, undefined, "GET");
+
+    expect(res.status).toBe(200);
+    expect(fake.loginDays).toEqual([
+      { profile_id: "u1", kst_date: "2026-11-09" },
+    ]);
+  });
+
+  test("30분 접속 기록 간격과 따로 판단해 KST 자정을 넘기면 새 날 한 줄을 더 남긴다", async () => {
+    vi.setSystemTime(new Date("2026-11-09T23:50:00+09:00"));
+    await callHandler(handler, undefined, "GET");
+    vi.setSystemTime(new Date("2026-11-10T00:10:00+09:00"));
+    await callHandler(handler, undefined, "GET");
+
+    // last_seen_at 은 30분 간격이라 한 번만 적히지만 로그인 기록은 날마다 남는다.
+    expect(fake.writes).toHaveLength(1);
+    expect(fake.loginDays.map((r) => r.kst_date)).toEqual([
+      "2026-11-09",
+      "2026-11-10",
+    ]);
+  });
+
+  test("로그인 기록에 실패해도 응답은 200 이고 last_seen_at 은 적힌다", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.setSystemTime(new Date("2026-11-09T12:00:00+09:00"));
+
+    fake.loginError = { message: "boom" };
+    const failed = await callHandler(handler, undefined, "GET");
+    expect(failed.status).toBe(200);
+    expect(failed.body).toEqual({ ok: true });
+    expect(fake.writes).toHaveLength(1);
+
+    fake.loginError = null;
+    fake.loginThrows = true;
+    const thrown = await callHandler(handler, undefined, "GET");
+    expect(thrown.status).toBe(200);
+    expect(thrown.body).toEqual({ ok: true });
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });

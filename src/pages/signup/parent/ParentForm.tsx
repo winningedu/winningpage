@@ -27,6 +27,7 @@ import {
 import { useSignup } from "@/context/SignupContext";
 import { useCooldown } from "@/hooks/useCooldown";
 import { usePwnedPasswordCheck } from "@/hooks/usePwnedPasswordCheck";
+import { trackEvent } from "@/lib/analytics";
 import { apiFetch, getAuthHeader } from "@/lib/apiFetch";
 import type { SignupProfileRpcResult } from "@/lib/parentLink";
 import {
@@ -570,6 +571,7 @@ export default function ParentForm() {
       }
 
       setParentSignupCompleted(true);
+      trackEvent("signup_complete", { member_type: "parent" });
 
       // 가입 축하 쿠폰 발급 + 안내 알림톡 (학부모 가입에만 있는 단계,
       // 2026-08-25 회의 확정). 기다리지 않는다 — 알리고 왕복이 몇 초 걸릴 수

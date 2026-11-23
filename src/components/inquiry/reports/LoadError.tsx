@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import ServiceBlockedNotice from "@/components/service/ServiceBlockedNotice";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { InquiryApiError } from "@/lib/inquiry/queries";
 import { parseTenantReason, type TenantBlockReason } from "@/lib/tenantBlock";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,12 @@ export default function LoadError({ error, message, onRetry }: Props) {
       {noEntitlement ? (
         <Link
           to={INQUIRY_PRICING_PATH}
+          onClick={() =>
+            trackEvent("paywall_cta_click", {
+              service: "inquiry",
+              location: "reports",
+            })
+          }
           className={cn(buttonVariants(), "h-10 px-5 text-app-label")}
         >
           이용권 보기

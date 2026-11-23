@@ -140,6 +140,14 @@ select pg_temp.log('view', interval '1 day');
 insert into public.admin_access_logs (actor_email, action, resource_key, reason, created_at)
   values ('t23-hq@t.local', 'download', 't23.hq', 't23 legacy hq', now() - interval '3 years');
 
+-- 로그인 기록(profile_login_days): KST 날짜가 2년보다 오래된 행만 지운다(접근 로그와 같은 2년, 분석 grill Q1).
+create function pg_temp.kst_today() returns date language sql as $$ select (now() at time zone 'Asia/Seoul')::date $$;
+insert into public.profile_login_days (profile_id, kst_date) values
+  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '3 years')::date),
+  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years 1 day')::date),
+  (pg_temp.fx('active'), (pg_temp.kst_today() - interval '2 years')::date),
+  (pg_temp.fx('active'), pg_temp.kst_today());
+
 -- 기관마다 따로(결정 64): 한 기관의 졸업이 2년 지났어도 다른 기관의 학적, 이력, 특이학생, 상담 상태는 지우지 않는다.
 insert into public.tenants (code, name, region, org_type, tier)
   values ('RPBBBBBB', 't23-b', '서울', '학교', 'B');
@@ -220,13 +228,21 @@ select pg_temp.expect_int('6개월 된 member_purge 보존', pg_temp.logs_n('mem
 select pg_temp.expect_int('옛 본사 행은 3년이 지나도 보존',
   (select count(*) from public.admin_access_logs where resource_key = 't23.hq' and actor_kind is null), 1);
 
+select pg_temp.expect_int('2년보다 오래된 로그인 기록 삭제',
+  (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')
+     and kst_date < (pg_temp.kst_today() - interval '2 years')::date), 0);
+select pg_temp.expect_int('딱 2년 전과 오늘 로그인 기록은 보존',
+  (select count(*) from public.profile_login_days where profile_id = pg_temp.fx('active')), 2);
+
 -- 반환 건수는 지운 행 수 이상이다(로컬 DB 에 다른 행이 있을 수 있다).
 select pg_temp.expect_bool('반환 건수',
-  (select enrollments_deleted >= 3 and enrollment_changes_deleted >= 2 and access_logs_deleted >= 3 from purge_result), true);
+  (select enrollments_deleted >= 3 and enrollment_changes_deleted >= 2 and access_logs_deleted >= 3
+      and login_days_deleted >= 2 from purge_result), true);
 
 -- 다시 불러도 같다(지울 것이 없다).
 select pg_temp.expect_int('재실행은 아무것도 지우지 않는다',
-  (select enrollments_deleted + enrollment_changes_deleted + access_logs_deleted from public.fn_purge_b2b_retention()), 0);
+  (select enrollments_deleted + enrollment_changes_deleted + access_logs_deleted + login_days_deleted
+     from public.fn_purge_b2b_retention()), 0);
 
 -- ---------------------------------------------------------------------
 -- fn_anonymize_expired_b2b_members: 계약 종료 + 유예 뒤 학생 개인정보 익명화 (사 #162, #176, 사 결정 r16)

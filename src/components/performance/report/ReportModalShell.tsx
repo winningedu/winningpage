@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { buildPrintDocument } from "@/lib/report/buildPrintDocument";
 import {
   downloadReportPdf,
@@ -141,6 +142,7 @@ export default function ReportModalShell({
     // 경로로 둔다(호출부가 documentTitle을 반드시 넘기게 하는 계약은 위 주석 참고).
     if (!shouldUseServerPdf(window.navigator.userAgent) || !documentTitle) {
       reactToPrint();
+      trackEvent("report_export", { service: "performance", method: "print" });
       return;
     }
     if (!contentRef.current || isPreparingServerPdf) return;
@@ -159,6 +161,7 @@ export default function ReportModalShell({
         extraCss: PRINT_PAGE_STYLE,
       });
       downloadReportPdf({ html, filename: fileName, accessToken });
+      trackEvent("report_export", { service: "performance", method: "pdf" });
     })();
   };
 

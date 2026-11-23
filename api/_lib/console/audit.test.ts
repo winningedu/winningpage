@@ -13,6 +13,7 @@ const TEACHER: ConsoleActor = {
   proxySessionId: null,
   mustChangePassword: false,
   loginId: "kim01",
+  readOnly: false,
 };
 
 function makeCtx(

@@ -1,3 +1,4 @@
+import { trackEvent } from "@/lib/analytics";
 import TopicCard, { type Topic } from "./TopicCard";
 
 // STEP3 추천 주제 3카드 묶음 + `다른 주제 1번 더 추천받기` — docs/수행평가-상세-명세.md §5.10
@@ -82,6 +83,7 @@ export default function TopicCardList({
 
   function handleRegenerateClick() {
     if (locked) return;
+    trackEvent("ai_regenerate", { service: "performance", step: "topics" });
     onRegenerate?.();
   }
 

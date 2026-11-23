@@ -67,9 +67,19 @@ describe("GET /api/console/proxy/tenants", () => {
     expect(state.filters).toEqual({ is_catch_all: false });
   });
 
-  test("an admin without teacherConsoleProxy edit gets 403 and no list", async () => {
+  test("a view-only admin gets the list too (read-only proxy, Q10)", async () => {
     state.permissions = [
       { resource_key: "teacherConsoleProxy", level: "view" },
+    ];
+
+    const r = await get();
+
+    expect(r.status).toBe(200);
+  });
+
+  test("an admin without teacherConsoleProxy view gets 403 and no list", async () => {
+    state.permissions = [
+      { resource_key: "teacherConsoleProxy", level: "none" },
     ];
 
     const r = await get();

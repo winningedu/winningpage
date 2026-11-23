@@ -8,6 +8,7 @@ import {
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignupProvider } from "@/context/SignupContext";
+import { trackEvent } from "@/lib/analytics";
 import {
   checkPwnedPassword,
   PWNED_PASSWORD_MESSAGE,
@@ -20,6 +21,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { runIdentityVerification } from "../identityVerification";
 import SchoolSignup from "./SchoolSignup";
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 
 vi.mock("../identityVerification", () => ({
   runIdentityVerification: vi.fn(),
@@ -883,6 +886,18 @@ function lastHeaders() {
 }
 
 describe("가입 제출과 5단계 완료", () => {
+  it("가입이 끝나면 signup_complete 이벤트를 school_student로 보낸다", async () => {
+    await goToGuardian();
+    type("학부모 이름", "김부모");
+
+    click("건너뛰기");
+
+    await screen.findByRole("button", { name: "학습진단 시작하기" });
+    expect(trackEvent).toHaveBeenCalledWith("signup_complete", {
+      member_type: "school_student",
+    });
+  });
+
   it("학부모 정보를 건너뛰면 학생 정보만 보내고 완료 화면을 보인다", async () => {
     await goToGuardian();
     type("학부모 이름", "김부모");

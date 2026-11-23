@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -42,13 +43,25 @@ vi.mock("./admin/shared/adminSession", () => ({
   getFreshSupabaseAccessTokenOrSignOut: async () => "token",
 }));
 
+// 대시보드 내용(서버 조회)은 hq-dashboard 테스트가 본다. 여기서는 섹션 셸만 본다.
+vi.mock("./admin/hq-dashboard/TenantOverview", () => ({ default: () => null }));
+vi.mock("./admin/hq-dashboard/LoginSection", () => ({ default: () => null }));
+vi.mock("./admin/hq-dashboard/TrendSection", () => ({ default: () => null }));
+vi.mock("./admin/hq-dashboard/B2cSection", () => ({ default: () => null }));
+
 import { AdminSectionRoute } from "./Admin";
 
 function renderSection(section: string) {
+  // 방문 분석 화면이 react-query 로 읽어서 provider 가 필요하다.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={[`/admin/${section}`]}>
-      <AdminSectionRoute section={section} />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[`/admin/${section}`]}>
+        <AdminSectionRoute section={section} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -65,6 +78,18 @@ describe("Admin 섹션 셸", () => {
     );
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveAttribute("href", "/admin/admissionSusiJungsi");
+  });
+
+  it.each([
+    ["hqDashboard", "대시보드"],
+    ["webAnalytics", "방문 분석"],
+  ])("%s 섹션은 화면 제목을 그린다", async (section, heading) => {
+    state.hang = false;
+    renderSection(section);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: heading }),
+    ).toBeInTheDocument();
   });
 
   it("불러오는 동안 로딩 문구가 role=status 안에 있다", async () => {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { trackEvent } from "@/lib/analytics";
 import type { SessionResponse, SessionView } from "@/lib/inquiry/types";
 
 const gateState = vi.hoisted(() => ({ on: false }));
@@ -16,6 +17,7 @@ const h = vi.hoisted(() => ({
   refetch: vi.fn(),
 }));
 
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
   return {
@@ -151,6 +153,7 @@ beforeEach(() => {
     h.navigate,
     h.applyBootstrap,
     h.refetch,
+    vi.mocked(trackEvent),
   ]) {
     mock.mockReset();
   }
@@ -222,6 +225,27 @@ describe("InfoPage 화면 상태", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByRole("link", { name: "이용권 보기" })).toBeNull();
+  });
+
+  test("위닝의 부트스트랩 이용권 없음 이용권 보기를 누르면 paywall_cta_click 을 보낸다", () => {
+    setShell(null, {
+      bootstrapError: {
+        result: {
+          kind: "error",
+          status: 403,
+          code: "NO_ENTITLEMENT",
+          message: "x",
+        },
+      },
+    });
+    renderPage();
+    expect(trackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "이용권 보기" }));
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("paywall_cta_click", {
+      service: "inquiry",
+      location: "no_entitlement",
+    });
   });
 
   test("프로필 값으로 폼이 채워진다", () => {
@@ -434,6 +458,27 @@ describe("InfoPage 제출", () => {
       "/pricing?service=inquiry",
     );
     expect(h.navigate).not.toHaveBeenCalled();
+  });
+
+  test("이용 횟수 소진 카드의 이용권 보기를 누르면 paywall_cta_click 을 보낸다", async () => {
+    h.postSession.mockResolvedValue({
+      kind: "error",
+      status: 429,
+      code: "QUOTA_EXHAUSTED",
+      message: "x",
+    });
+    renderPage();
+    fill();
+    addOneline();
+    fireEvent.click(SUBMIT());
+    await screen.findByText("이용 횟수를 모두 썼어요");
+    expect(trackEvent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "이용권 보기" }));
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith("paywall_cta_click", {
+      service: "inquiry",
+      location: "usage_exhausted",
+    });
   });
 
   test("409 SESSION_LOCKED 는 잠김 안내를 보여 준다", async () => {

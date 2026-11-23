@@ -13,6 +13,7 @@ import { useLocation } from "react-router";
 import { PREMIUM_APPLY_FORM_ANCHOR_ID } from "@/components/premium/premiumRoutesPaths";
 import BookViewer from "@/components/premiumBook/BookViewer";
 import { usePremiumBookPages } from "@/components/premiumBook/usePremiumBookPages";
+import { trackEvent } from "@/lib/analytics";
 import { getAuthHeader } from "@/lib/apiFetch";
 import { formatPhoneInput } from "@/lib/phoneVerification";
 
@@ -294,6 +295,7 @@ export function ConsultApplyPage({ copy }: { copy: ConsultApplyCopy }) {
       setForm(INITIAL_FORM);
       setErrors({});
       setSubmitted(true);
+      trackEvent("consult_apply");
     } catch {
       setSubmitError(
         "네트워크 오류로 상담 신청에 실패했습니다. 잠시 후 다시 시도해주세요.",

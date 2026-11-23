@@ -7,6 +7,7 @@ import YoutubeIcon from "@/components/icons/YoutubeIcon";
 import { site } from "@/config/site";
 import { useFooterOperatorImage } from "@/hooks/useFooterOperatorImage";
 import { useNavGroups } from "@/hooks/useNavGroups";
+import { trackEvent } from "@/lib/analytics";
 
 // 결제/랜딩 공용 푸터. 사업자 정보 + 이용약관/개인정보처리방침 링크 포함.
 // 메뉴 컬럼은 헤더 메가메뉴와 동일한 useNavGroups()(DB → 캐시 → fallback)를 공유한다.
@@ -61,6 +62,7 @@ function SocialLinks({ company }: { company: typeof site.company }) {
     {
       label: "카카오톡 채널",
       href: company.kakaoChannelUrl,
+      onClick: () => trackEvent("kakao_inquiry_click", { location: "footer" }),
       Icon: KakaoIcon,
       badgeClassName: "bg-[#fee500] text-[#191919]",
     },
@@ -96,10 +98,11 @@ function SocialLinks({ company }: { company: typeof site.company }) {
 
   return (
     <div className="flex items-center gap-4">
-      {items.map(({ label, href, Icon, badgeClassName, style }) => (
+      {items.map(({ label, href, onClick, Icon, badgeClassName, style }) => (
         <a
           key={label}
           href={href}
+          onClick={onClick}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={label}

@@ -310,6 +310,7 @@ function HeroSection() {
   const { requestStart, startDialogs } = useServiceStart({
     to: HERO_SERVICE.to,
     resultNotice: true,
+    service: "performance",
   });
 
   // 히어로를 벗어나 스크롤하면 30초 회전을 멈춘다 — SVG 리페인트 비용 절감

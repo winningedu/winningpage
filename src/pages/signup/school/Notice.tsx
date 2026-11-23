@@ -1,6 +1,7 @@
 // 가입 오류 안내 상자. 같은 문제를 풀 수 있는 곳(아이디 찾기, 온라인문의)으로 이어 준다.
 import { Link } from "react-router";
 import { site } from "@/config/site";
+import { trackEvent } from "@/lib/analytics";
 import { NOTICE_MESSAGES } from "./copy";
 
 interface NoticeProps {
@@ -30,6 +31,9 @@ export default function Notice({ message, hint }: NoticeProps) {
           {inquiryUrl ? (
             <a
               href={inquiryUrl}
+              onClick={() =>
+                trackEvent("kakao_inquiry_click", { location: "signup_notice" })
+              }
               target="_blank"
               rel="noreferrer"
               className="underline underline-offset-2"

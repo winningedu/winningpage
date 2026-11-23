@@ -43,6 +43,7 @@ function DesignContent() {
   );
   const pdf = useReportPdfSave(
     buildInquiryPdfFileName("design", data?.topic?.detail?.title),
+    "inquiry",
   );
 
   if (isPending) {

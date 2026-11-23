@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { site } from "@/config/site";
 import { useSession } from "@/context/SessionContext";
 import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { copyTextWithToast } from "@/lib/clipboard";
 import {
   submissionBodyEntries,
@@ -98,6 +99,7 @@ export default function ReportDetailPage() {
   );
   const pdf = useReportPdfSave(
     buildInquiryPdfFileName("report", data?.topic?.detail?.title),
+    "inquiry",
   );
 
   if (isError && errorCode(error) === "SESSION_NOT_FOUND") {
@@ -248,7 +250,13 @@ export default function ReportDetailPage() {
               variant="outline"
               size="lg"
               className="h-10 px-5 text-app-label font-medium"
-              onClick={() => void copyTextWithToast(copyBody, toast)}
+              onClick={async () => {
+                if (await copyTextWithToast(copyBody, toast))
+                  trackEvent("report_export", {
+                    service: "inquiry",
+                    method: "copy",
+                  });
+              }}
             >
               전체 복사
             </Button>

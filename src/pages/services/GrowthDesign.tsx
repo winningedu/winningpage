@@ -325,6 +325,7 @@ function HeroSection() {
   const { requestStart, startDialogs } = useServiceStart({
     to: GROWTH_APP_ROUTE,
     resultNotice: false,
+    service: "growth",
   });
 
   // 비로그인은 /login 으로 보내 복귀지를 앱 경로로 남긴다. 이용권 판정은 앱 라우트가 맡는다.

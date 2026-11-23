@@ -56,6 +56,7 @@ beforeEach(() => {
         memos_deleted: 4,
         student_flags_deleted: 2,
         counsel_statuses_deleted: 5,
+        login_days_deleted: 6,
       },
     ],
     error: null,
@@ -82,6 +83,7 @@ describe("GET /api/cron/b2b-retention-purge", () => {
       memosDeleted: 4,
       studentFlagsDeleted: 2,
       counselStatusesDeleted: 5,
+      loginDaysDeleted: 6,
     });
     // 계약 종료 회원 삭제는 본사가 수동으로 한다(사 #162, #176). 크론은 익명화 함수를 부르지 않는다.
     expect(state.rpc.mock.calls.map((c) => c[0])).toEqual([

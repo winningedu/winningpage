@@ -19,6 +19,7 @@ const ACTOR: ConsoleActor = {
   proxySessionId: null,
   mustChangePassword: false,
   loginId: "ADMINLOGIN0001",
+  readOnly: false,
 };
 
 function ctx() {

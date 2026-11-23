@@ -14,6 +14,7 @@ import {
   emptyTenantForm,
   GRACE_ORDER_MESSAGE,
   type TenantFormValues,
+  TRIAL_ORDER_MESSAGE,
   tenantFormFromRow,
   tenantPayload,
   validateTenantForm,
@@ -37,7 +38,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const TENANT_COLUMNS =
-  "id, code, name, region, org_type, tier, contract_start_date, contract_end_date, term_months, mou_status, grace_ends_on, contact_name, contact_phone, contact_mobile, contact_email, address, main_phone, homepage, is_catch_all, updated_at";
+  "id, code, name, region, org_type, tier, contract_start_date, contract_end_date, term_months, mou_status, grace_ends_on, trial_start_date, trial_end_date, contact_name, contact_phone, contact_mobile, contact_email, address, main_phone, homepage, is_catch_all, updated_at";
 
 const MOU_OPTIONS = ["pending", "signed", "ended"];
 
@@ -151,6 +152,10 @@ export default function TenantDetail({
         }
         if (error.message.includes("tenants_grace_after_end")) {
           setMessage(GRACE_ORDER_MESSAGE);
+          return;
+        }
+        if (error.message.includes("tenants_trial_order")) {
+          setMessage(TRIAL_ORDER_MESSAGE);
           return;
         }
       }
@@ -299,6 +304,27 @@ export default function TenantDetail({
                   className="h-10 font-medium"
                 />
               </Field>
+              <Field label="시범 시작일">
+                <Input
+                  type="date"
+                  value={form.trial_start_date}
+                  onChange={(e) => setField("trial_start_date", e.target.value)}
+                  className="h-10 font-medium"
+                />
+              </Field>
+              <div>
+                <Field label="시범 종료일">
+                  <Input
+                    type="date"
+                    value={form.trial_end_date}
+                    onChange={(e) => setField("trial_end_date", e.target.value)}
+                    className="h-10 font-medium"
+                  />
+                </Field>
+                <p className="mt-1 text-xs font-medium text-gray-500">
+                  시범기간에는 계약이 없어도 서비스가 열려요
+                </p>
+              </div>
               <Field label="학기 길이">
                 <Select
                   value={form.term_months}

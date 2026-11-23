@@ -8,6 +8,7 @@ import {
   type CascadeValue,
   useAdmissionCascade,
 } from "@/hooks/useAdmissionCascade";
+import { trackEvent } from "@/lib/analytics";
 import {
   type AdmissionTarget,
   type ValidationError,
@@ -315,6 +316,7 @@ export default function SurveyStepShell() {
       replace: true,
       state: { fromSubmit: true },
     });
+    trackEvent("diagnosis_complete");
     return result.payload;
   }, [
     answers,

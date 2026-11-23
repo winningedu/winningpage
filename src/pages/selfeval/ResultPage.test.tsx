@@ -54,6 +54,7 @@ vi.mock("@/lib/selfeval/api", () => ({
 vi.mock("@/context/SessionContext", () => ({
   useSession: () => ({ userId: "u1" }),
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/context/ToastContext", () => ({ useToast: () => toastMock }));
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -75,6 +76,7 @@ vi.mock("react-router", async (orig) => ({
   useNavigate: () => navigateMock,
 }));
 
+import { trackEvent } from "@/lib/analytics";
 import ResultPage from "./ResultPage";
 
 const refetchEntry = vi.fn();
@@ -397,6 +399,10 @@ describe("ResultPage 버튼", () => {
     expect(
       await screen.findByRole("button", { name: "다시 생성 (남은 1회)" }),
     ).toBeTruthy();
+    expect(trackEvent).toHaveBeenCalledWith("ai_regenerate", {
+      service: "selfeval",
+      step: "result",
+    });
   });
 
   test("횟수를 다 쓰면 다시 생성이 막히고 안내가 나온다", async () => {
@@ -408,6 +414,8 @@ describe("ResultPage 버튼", () => {
       name: "다시 생성 (남은 0회)",
     });
     expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(trackEvent).not.toHaveBeenCalled();
     expect(
       screen.getByText(
         "다시 생성을 3회 모두 썼어요. 직접 고치거나 검증으로 넘어가 주세요",

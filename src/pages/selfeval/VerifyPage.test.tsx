@@ -39,6 +39,7 @@ vi.mock("@/components/selfeval/SelfevalShellContext", () => ({
   useSelfevalShell: shellMock,
   useSelfevalScreenStep: stepMock,
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("@/lib/selfeval/api", () => ({
   verifySession: verifyMock,
   finalizeSession: finalizeMock,
@@ -54,6 +55,7 @@ vi.mock("react-router", async (orig) => ({
   useNavigate: () => navigateMock,
 }));
 
+import { trackEvent } from "@/lib/analytics";
 import VerifyPage from "./VerifyPage";
 
 const refetchEntry = vi.fn();
@@ -713,6 +715,20 @@ describe("VerifyPage 저장", () => {
       ),
     );
     expect(toastMock.success).toHaveBeenCalledWith("복사했어요");
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "selfeval",
+      method: "copy",
+    });
+  });
+
+  test("복사에 실패하면 report_export를 보내지 않는다", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.assign(navigator, { clipboard: { writeText } });
+    detailMock.mockResolvedValue(verified());
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "전체 복사" }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    expect(trackEvent).not.toHaveBeenCalled();
   });
 
   test("작성 화면으로는 결과 화면으로 이동한다", async () => {

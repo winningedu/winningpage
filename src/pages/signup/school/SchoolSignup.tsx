@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { AuthLayout } from "@/components/auth";
 import { type SchoolStep, useSignup } from "@/context/SignupContext";
+import { trackEvent } from "@/lib/analytics";
 import { getAuthHeader } from "@/lib/apiFetch";
 import { isPwnedPasswordError } from "@/lib/pwnedPassword";
 import { applySignupPassword } from "@/lib/signupEmailAuth";
@@ -105,6 +106,7 @@ export default function SchoolSignup() {
   function finish(linkCode: string | null) {
     setLinkCode(linkCode);
     setSignupCompleted(true);
+    trackEvent("signup_complete", { member_type: "school_student" });
     setSchoolStep(5);
   }
 

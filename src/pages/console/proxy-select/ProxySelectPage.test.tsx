@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 describe("ProxySelectPage", () => {
-  it("본사 관리자는 기관 목록과 사유 3개를 보고, 기관와 사유를 모두 고르기 전까지 대행 시작이 막혀 있다", async () => {
+  it("본사 관리자는 기관 목록과 사유 4개를 보고, 기관와 사유를 모두 고르기 전까지 대행 시작이 막혀 있다", async () => {
     stubApi({
       "GET /api/console/me": NOT_CONSOLE,
       "GET /api/console/proxy/tenants": { body: TENANTS },
@@ -58,7 +58,12 @@ describe("ProxySelectPage", () => {
 
     expect(await screen.findByText("한빛고등학교")).toBeTruthy();
     expect(screen.getByText("SM26HB83")).toBeTruthy();
-    for (const reason of ["전체 관리자 부재", "명단 대행", "장애 지원"]) {
+    for (const reason of [
+      "전체 관리자 부재",
+      "명단 대행",
+      "장애 지원",
+      "읽기 전용",
+    ]) {
       expect(screen.getByRole("radio", { name: reason })).toBeTruthy();
     }
     const start = screen.getByRole("button", {
@@ -174,6 +179,83 @@ describe("ProxySelectPage", () => {
     expect(
       calls.find((c) => c.key === "POST /api/console/proxy/start")?.body,
     ).toEqual({ tenantId: "t2", reason: "incident_support" });
+  });
+
+  it("읽기 전용 사유를 고르면 read_only 로 대행을 시작한다", async () => {
+    let started = false;
+    const calls = stubApi({
+      "GET /api/console/me": () => (started ? { body: proxyMe } : NOT_CONSOLE),
+      "GET /api/console/proxy/tenants": { body: TENANTS },
+      "POST /api/console/proxy/start": () => {
+        started = true;
+        return { body: { ok: true, sessionId: "ps1" } };
+      },
+    });
+
+    renderRoutes(routes, "/teacher/proxy");
+    await screen.findByText("한빛고등학교");
+    fireEvent.click(screen.getByRole("radio", { name: "한빛고등학교" }));
+    fireEvent.click(screen.getByRole("radio", { name: "읽기 전용" }));
+    fireEvent.click(screen.getByRole("button", { name: "대행 시작" }));
+
+    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    expect(
+      calls.find((c) => c.key === "POST /api/console/proxy/start")?.body,
+    ).toEqual({ tenantId: "t1", reason: "read_only" });
+  });
+
+  it("주소의 tenant, reason 으로 기관과 사유를 미리 고르고, 시작은 사용자가 누를 때만 한다", async () => {
+    let started = false;
+    const calls = stubApi({
+      "GET /api/console/me": () => (started ? { body: proxyMe } : NOT_CONSOLE),
+      "GET /api/console/proxy/tenants": { body: TENANTS },
+      "POST /api/console/proxy/start": () => {
+        started = true;
+        return { body: { ok: true, sessionId: "ps1" } };
+      },
+    });
+
+    renderRoutes(routes, "/teacher/proxy?tenant=t2&reason=read_only");
+    await screen.findByText("한빛고등학교");
+    expect(
+      (screen.getByRole("radio", { name: "한빛수학학원" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("radio", { name: "읽기 전용" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    const start = screen.getByRole("button", {
+      name: "대행 시작",
+    }) as HTMLButtonElement;
+    expect(start.disabled).toBe(false);
+    expect(calls.some((c) => c.key === "POST /api/console/proxy/start")).toBe(
+      false,
+    );
+
+    fireEvent.click(start);
+    expect(await screen.findByText("대시보드 화면")).toBeTruthy();
+    expect(
+      calls.find((c) => c.key === "POST /api/console/proxy/start")?.body,
+    ).toEqual({ tenantId: "t2", reason: "read_only" });
+  });
+
+  it("목록에 없는 기관이나 모르는 사유가 주소에 있으면 고르지 않은 상태로 둔다", async () => {
+    stubApi({
+      "GET /api/console/me": NOT_CONSOLE,
+      "GET /api/console/proxy/tenants": { body: TENANTS },
+    });
+
+    renderRoutes(routes, "/teacher/proxy?tenant=gone&reason=hack");
+    await screen.findByText("한빛고등학교");
+    for (const radio of screen.getAllByRole("radio") as HTMLInputElement[]) {
+      expect(radio.checked).toBe(false);
+    }
+    fireEvent.click(screen.getByRole("radio", { name: "명단 대행" }));
+    expect(
+      (screen.getByRole("button", { name: "대행 시작" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 
   it("대행을 시작하지 못하면 오류 알림을 보이고 이 화면에 머문다", async () => {
