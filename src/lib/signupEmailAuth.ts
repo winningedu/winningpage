@@ -38,6 +38,7 @@
 
 import { clearAllDrafts } from "./diagnosisDraft";
 import { supabase } from "./supabase";
+import { browserTimeZone, isValidTimeZone } from "./time/zone";
 
 /**
  * 사람에게 읽히지 않는 message 값들. 형식은 문자열이라 truthy 검사를 통과하지만
@@ -217,6 +218,7 @@ export async function sendSignupEmailCode({
 
     // available / resumable_unverified 는 둘 다 signUp으로 처리된다.
     // 미확인 계정에 대한 signUp 재호출은 확인메일을 다시 보낸다.
+    const zone = browserTimeZone();
     const { error } = await supabase.auth.signUp({
       email,
       // 항상 임시값이다. 실제 비밀번호는 applySignupPassword가 가입 완료 직전에 넣는다(파일 상단 주석).
@@ -228,6 +230,8 @@ export async function sendSignupEmailCode({
           full_name: name,
           member_type: memberType,
           role: "user",
+          // 회원 시간대(D5): 가입 RPC가 이 값을 profiles.time_zone 에 저장한다. 틀린 값은 싣지 않는다(열 기본값).
+          ...(isValidTimeZone(zone) ? { time_zone: zone } : {}),
         },
       },
     });
