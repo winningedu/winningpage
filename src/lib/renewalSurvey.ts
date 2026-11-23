@@ -322,6 +322,13 @@ export function toSubmitAnswers(
       if (value !== undefined) answers[id] = value;
     }
   }
+  // q15 whose keys could not be resolved is sent as absent, and q16..q18
+  // only exist with q15 (13 H28-H30)
+  if (answers.q15 === undefined) {
+    delete answers.q16;
+    delete answers.q17;
+    delete answers.q18;
+  }
   const goal = showsQ3Target(draft) ? filledText(draft.q3Target) : undefined;
   if (goal) answers.q3Target = goal;
   return answers;
@@ -415,4 +422,12 @@ export function applyAnswer(
     delete next.q12;
   }
   return next;
+}
+
+/** Screens of the v3 survey (13 B), routed as /app/learning-diagnosis/survey/1..6. */
+export const SURVEY_V3_STEPS = SURVEY_V3_PAGES;
+
+/** Stored report of one attempt (src/routes/homeRoutes.tsx). */
+export function reportPathFor(attemptId: string) {
+  return `/learning-diagnosis/report/${attemptId}`;
 }

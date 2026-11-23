@@ -20,6 +20,7 @@ const gateState = vi.hoisted(() => ({ on: false, resume: false }));
 const authState = vi.hoisted(() => ({ userId: "u1" as string | null }));
 const accessMock = vi.hoisted(() => vi.fn());
 const consumeMock = vi.hoisted(() => vi.fn());
+const submitMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/config/site", async (orig) => {
   const actual = await orig<typeof import("@/config/site")>();
@@ -46,8 +47,9 @@ vi.mock("@/lib/diagnosisAccess", () => ({
   checkDiagnosisAccess: accessMock,
   consumeDiagnosisAttempt: consumeMock,
 }));
-vi.mock("@/lib/diagnosisInputStorage", () => ({
-  submitDiagnosisAnswers: () => ({ meta: { diagnosedAt: null } }),
+vi.mock("@/lib/diagnosisSubmitApi", () => ({
+  submitDiagnosisV3: submitMock,
+  resolveAdmissionTarget: async () => CALC_EXAMPLE.q15,
 }));
 vi.mock("@/lib/diagnosisSurveyCopyOverrides", () => ({
   fetchSurveyCopyOverrides: async () => new Map(),
@@ -56,12 +58,31 @@ vi.mock("@/hooks/useAdmissionCascade", () => ({
   useAdmissionCascade: () => ({ levels: [], awaitCuts: async () => ({}) }),
 }));
 vi.mock("@/lib/programEntry", () => ({ markProgramEntry: () => undefined }));
-vi.mock("./diagnosisStudentName", () => ({
-  fetchLoggedInStudentName: async () => null,
-}));
 
-import { getStepRequiredQuestions } from "@/lib/renewalSurvey";
+import type { LikertBlock } from "@/lib/diagnosis-v3";
+import { CALC_EXAMPLE } from "@/lib/diagnosis-v3/testFixtures";
 import SurveyStepShell from "./SurveyStepShell";
+
+const likertMap = (block: LikertBlock) => ({
+  ...Object.fromEntries(block.items.map((value, i) => [String(i + 1), value])),
+  V: block.verify,
+});
+
+/** Screen answers that submit as CALC_EXAMPLE (diagnosed 2026-11-09). */
+const CALC_DRAFT: Record<string, unknown> = {
+  ...CALC_EXAMPLE,
+  q6: "1.4",
+  q9: likertMap(CALC_EXAMPLE.q9),
+  q20: likertMap(CALC_EXAMPLE.q20),
+  q11: likertMap(CALC_EXAMPLE.q11),
+  q23: likertMap(CALC_EXAMPLE.q23),
+  q15: {
+    university: "연세대",
+    department: "경영학과",
+    admissionType: "교과",
+    detailType: "추천형",
+  },
+};
 
 const DRAFT_KEY = "diagnosis-draft:u1";
 
@@ -76,14 +97,29 @@ const denied = (tenantReason: string | null) => ({
 });
 
 function SubmitChild({ onResult }: { onResult: (v: unknown) => void }) {
-  const ctx = useOutletContext<{ submitDiagnosis: () => Promise<unknown> }>();
+  const ctx = useOutletContext<{
+    submitDiagnosis: () => Promise<unknown>;
+    setAnswer: (id: string, v: unknown) => void;
+  }>();
   return (
-    <button
-      type="button"
-      onClick={async () => onResult(await ctx.submitDiagnosis())}
-    >
-      제출
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          for (const [id, value] of Object.entries(CALC_DRAFT)) {
+            ctx.setAnswer(id, value);
+          }
+        }}
+      >
+        모두 답하기
+      </button>
+      <button
+        type="button"
+        onClick={async () => onResult(await ctx.submitDiagnosis())}
+      >
+        제출
+      </button>
+    </>
   );
 }
 
@@ -95,9 +131,18 @@ function renderSubmit(onResult: (v: unknown) => void) {
           <Route index element={<SubmitChild onResult={onResult} />} />
         </Route>
         <Route path="/pricing" element={<p>결제 페이지</p>} />
+        <Route
+          path="/learning-diagnosis/report/:attemptId"
+          element={<p>리포트 페이지</p>}
+        />
       </Routes>
     </MemoryRouter>,
   );
+}
+
+async function answerAllAndSubmit() {
+  fireEvent.click(await screen.findByRole("button", { name: "모두 답하기" }));
+  fireEvent.click(screen.getByRole("button", { name: "제출" }));
 }
 
 function renderShell() {
@@ -114,6 +159,9 @@ function renderShell() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-09T03:00:00Z"));
+  submitMock.mockReset();
   localStorage.clear();
   gateState.resume = false;
   authState.userId = "u1";
@@ -123,6 +171,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -183,9 +232,10 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
     consumeMock.mockResolvedValue({ outcome: "check-failed" });
     const onResult = vi.fn();
     renderSubmit(onResult);
-    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await answerAllAndSubmit();
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
     expect(window.alert).toHaveBeenCalled();
+    expect(submitMock).not.toHaveBeenCalled();
     expect(screen.queryByText("결제 페이지")).not.toBeInTheDocument();
   });
 
@@ -200,7 +250,7 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
     });
     const onResult = vi.fn();
     renderSubmit(onResult);
-    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await answerAllAndSubmit();
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
     expect(window.alert).toHaveBeenCalledWith(
       "이미 사용된 요청입니다. 다시 시도해 주세요.",
@@ -211,10 +261,9 @@ describe("SurveyStepShell 스쿨멘토 판정 실패와 충돌", () => {
   });
 });
 
+/** Screen 1 answered: 고1, 일반고, 목표 없음 (q3r hidden). */
 function step1Answers() {
-  return Object.fromEntries(
-    getStepRequiredQuestions(1).map((q) => [q.id, q.options?.[0]]),
-  );
+  return { q1: 3, q2: 1, q3: 6 };
 }
 
 function DraftChild() {
@@ -224,7 +273,7 @@ function DraftChild() {
   }>();
   return (
     <>
-      <button type="button" onClick={() => ctx.setAnswer("q1", "중학생")}>
+      <button type="button" onClick={() => ctx.setAnswer("q1", 1)}>
         q1 답하기
       </button>
       <p data-testid="answers">{JSON.stringify(ctx.answers)}</p>
@@ -256,7 +305,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     await waitFor(() =>
       expect(
         JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}").answers,
-      ).toEqual({ q1: "중학생", q4: expect.any(String) }),
+      ).toEqual({ q1: 1, q4: 3 }),
     );
   });
 
@@ -266,13 +315,13 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
       JSON.stringify({
         v: 2,
         savedAt: Date.now(),
-        answers: { q1: "N수생" },
+        answers: { q1: 6 },
         seed: "s",
       }),
     );
     renderDraft();
     await waitFor(() =>
-      expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"N수생"'),
+      expect(screen.getByTestId("answers")).toHaveTextContent('"q1":6'),
     );
   });
 
@@ -292,7 +341,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
       JSON.stringify({
         v: 2,
         savedAt: Date.now(),
-        answers: { q1: "N수생" },
+        answers: { q1: 6 },
         seed: "s",
       }),
     );
@@ -304,18 +353,19 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
 
   it("제출에 성공하면 초안을 지운다", async () => {
     consumeMock.mockResolvedValue({ outcome: "allowed" });
+    submitMock.mockResolvedValue({ ok: true, schemaVersion: "v", payload: {} });
     localStorage.setItem(
       DRAFT_KEY,
       JSON.stringify({
         v: 2,
         savedAt: Date.now(),
-        answers: { q1: "N수생" },
+        answers: { q1: 6 },
         seed: "s",
       }),
     );
     const onResult = vi.fn();
     renderSubmit(onResult);
-    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await answerAllAndSubmit();
     await waitFor(() => expect(onResult).toHaveBeenCalled());
     expect(onResult).not.toHaveBeenCalledWith(null);
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
@@ -328,13 +378,13 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
       JSON.stringify({
         v: 2,
         savedAt: Date.now(),
-        answers: { q1: "N수생" },
+        answers: { q1: 6 },
         seed: "s",
       }),
     );
     const onResult = vi.fn();
     renderSubmit(onResult);
-    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await answerAllAndSubmit();
     await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
     expect(localStorage.getItem(DRAFT_KEY)).not.toBeNull();
   });
@@ -349,7 +399,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     consumeMock.mockResolvedValue({ outcome: "allowed" });
     renderDraft();
     fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
-    expect(screen.getByTestId("answers")).toHaveTextContent('"q1":"중학생"');
+    expect(screen.getByTestId("answers")).toHaveTextContent('"q1":1');
   });
 
   it("위닝은 저장소에 아무것도 쓰지 않는다", async () => {
@@ -358,7 +408,7 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     renderDraft();
     fireEvent.click(await screen.findByRole("button", { name: "q1 답하기" }));
     await waitFor(() =>
-      expect(screen.getByTestId("answers")).toHaveTextContent("중학생"),
+      expect(screen.getByTestId("answers")).toHaveTextContent('"q1":1'),
     );
     expect(setItem).not.toHaveBeenCalled();
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
@@ -419,6 +469,64 @@ describe("SurveyStepShell 이어 답하기 초안", () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId("step")).toHaveTextContent("2"),
+    );
+  });
+});
+
+describe("SurveyStepShell v3 제출", () => {
+  beforeEach(() => {
+    gateState.on = false;
+    accessMock.mockResolvedValue({ ...denied(null), allowed: true });
+  });
+
+  it("소진 확인 뒤 답안을 서버 채점 API로 보내고 저장된 리포트로 이동한다", async () => {
+    const calls: string[] = [];
+    consumeMock.mockImplementation(async () => {
+      calls.push("consume");
+      return { outcome: "allowed" };
+    });
+    submitMock.mockImplementation(async () => {
+      calls.push("submit");
+      return { ok: true, schemaVersion: "2026-11-v3", payload: {} };
+    });
+    renderSubmit(vi.fn());
+    await answerAllAndSubmit();
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(calls).toEqual(["consume", "submit"]);
+    const attemptId = consumeMock.mock.calls[0]?.[0];
+    expect(submitMock).toHaveBeenCalledWith({
+      attemptId,
+      answers: CALC_EXAMPLE,
+    });
+  });
+
+  it("답안이 검증을 통과하지 못하면 소진하지 않고 보내지 않는다", async () => {
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    fireEvent.click(await screen.findByRole("button", { name: "제출" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(consumeMock).not.toHaveBeenCalled();
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(window.alert).toHaveBeenCalled();
+  });
+
+  it("서버 채점이 실패하면 리포트로 이동하지 않고 같은 attemptId로 다시 보낼 수 있다", async () => {
+    consumeMock.mockResolvedValue({ outcome: "allowed" });
+    submitMock.mockResolvedValueOnce({ ok: false, reason: "network" });
+    const onResult = vi.fn();
+    renderSubmit(onResult);
+    await answerAllAndSubmit();
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+    expect(screen.queryByText("리포트 페이지")).not.toBeInTheDocument();
+    submitMock.mockResolvedValueOnce({
+      ok: true,
+      schemaVersion: "v",
+      payload: {},
+    });
+    fireEvent.click(screen.getByRole("button", { name: "제출" }));
+    expect(await screen.findByText("리포트 페이지")).toBeInTheDocument();
+    expect(submitMock.mock.calls[1]?.[0].attemptId).toBe(
+      submitMock.mock.calls[0]?.[0].attemptId,
     );
   });
 });

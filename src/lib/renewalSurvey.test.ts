@@ -145,6 +145,16 @@ describe("v3 제출 답안", () => {
     expect(answers.q8).toBe(6);
   });
 
+  it("16번 키를 찾지 못하면 16번과 17~19번을 보내지 않는다", () => {
+    const answers = toSubmitAnswers(calcDraft, null);
+    for (const id of ["q15", "q16", "q17", "q18"]) {
+      expect(answers).not.toHaveProperty(id);
+    }
+    expect(validateAnswers(answers, CALC_EXAMPLE_CONTEXT.diagnosedAt).ok).toBe(
+      true,
+    );
+  });
+
   it("과목별 성적과 모의고사는 채운 칸만 숫자로 보낸다", () => {
     const answers = toSubmitAnswers(
       {
