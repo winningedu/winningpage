@@ -20,7 +20,7 @@
 //
 // 필요 환경변수 (confirm-payment.js 와 동일)
 //   TOSS_SECRET_KEY
-//   WINNING_SUPABASE_URL / WINNING_SUPABASE_SERVICE_ROLE_KEY
+//   WINNING_SUPABASE_URL / SUPABASE_SECRET_KEY
 //
 // 배포 후 토스 개발자센터 > 웹훅에 이 URL(/api/toss-webhook)을 등록하는 것은
 // 콘솔 작업이라 코드로 처리하지 않는다.

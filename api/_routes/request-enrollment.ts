@@ -11,7 +11,7 @@
 //
 // 필요 환경변수:
 //   WINNING_SUPABASE_URL / SUPABASE_URL / VITE_SUPABASE_URL
-//   WINNING_SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE_KEY
+//   SUPABASE_SECRET_KEY
 //
 // 수량 계약: body.items[] 는 { id, quantity? } 이고 quantity 는 정수(생략 시 1)다.
 // 추가 이용권(products.addon_only)만 1~10 을 허용하고 일반 상품은 1 고정이다.
