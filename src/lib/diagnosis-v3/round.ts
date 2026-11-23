@@ -15,3 +15,8 @@ export function roundHalfUpInt(numerator: number, denominator: number): number {
   assertIntegers(numerator, denominator);
   return Math.floor((2 * numerator + denominator) / (2 * denominator));
 }
+
+/** numerator / denominator rounded to one decimal, .05 up. Non-negative inputs. */
+export function roundHalfUp1(numerator: number, denominator: number): number {
+  return roundHalfUpInt(10 * numerator, denominator) / 10;
+}
