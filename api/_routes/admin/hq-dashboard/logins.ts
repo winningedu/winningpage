@@ -5,8 +5,8 @@
 // 기본 기간은 이번 달 1일부터 오늘(KST). 종료일은 오늘을 넘을 수 없고 기간은 최대 731일(로그인 기록 보관 2년).
 // includeInternal=1 이면 QA, 본사 관리자 계정도 센다(기본 제외, fn_hq_stat_included).
 //
-// view=stats(기본) 쿼리 grain(day 기본, week, month), mau(calendar 기본, rolling30)
-//   200 { ok, from, to, grain, mauMode, includeInternal, firstMeasuredOn, series[], dau, mau }
+// view=stats(기본) 쿼리 grain(day 기본, week, month), mau(calendar 기본, rolling30), scope(all 기본, b2c: 기관 없음, 기타 소속 회원만)
+//   200 { ok, from, to, grain, mauMode, scope, includeInternal, firstMeasuredOn, series[], dau, mau }
 //   series[]: start, end, source(measured, estimated, none), members, byMemberType
 //   dau: 기간 일평균. 모든 날이 실측이면 measured, 모든 날이 기록 없음이면 none, 나머지는 estimated.
 //   mau: calendar 는 종료일이 속한 달 1일부터 종료일, rolling30 은 종료일 포함 30일.
@@ -15,22 +15,25 @@
 //   이름은 개인정보라 members 보기 권한이 있을 때만 보낸다(없으면 null, namesVisible false).
 // 권한: 로그인 + hqDashboard 보기 권한. 오류(coded): 400 INVALID_QUERY, 401, 403 FORBIDDEN, 500 INTERNAL.
 
-import { addDaysYMD, kstYMD } from "../../../../src/lib/goal/calc/index.js";
+import { addDaysYMD } from "../../../../src/lib/goal/calc/index.js";
 import { hasAdminViewPermission } from "../../../_lib/console/proxy.js";
 import { defineHandler } from "../../../_lib/handler.js";
+import {
+  GRAINS,
+  type Grain,
+  MAU_MODES,
+  type MauMode,
+  parsePeriod,
+  pick,
+} from "../../../_lib/hq-dashboard/period.js";
 import { hasHqDashboardViewPermission } from "../../../_lib/hq-dashboard/permission.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
 
-const MAX_SPAN_DAYS = 731;
 const LOG_PAGE_SIZE = 50;
-const GRAINS = ["day", "week", "month"] as const;
-const MAU_MODES = ["calendar", "rolling30"] as const;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const SCOPES = ["all", "b2c"] as const;
 
-type Grain = (typeof GRAINS)[number];
-type MauMode = (typeof MAU_MODES)[number];
 type Source = "measured" | "estimated" | "none";
 
 interface BucketRow {
@@ -49,31 +52,6 @@ interface LogRow {
   member_type: string | null;
   tenant_name: string | null;
   total_count: number;
-}
-
-function isDate(value: string): boolean {
-  if (!DATE_RE.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
-  );
-}
-
-function daysBetween(from: string, to: string): number {
-  return (
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
-    86_400_000
-  );
-}
-
-function pick<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  fallback: T,
-): T | null {
-  if (value === undefined) return fallback;
-  return allowed.includes(value as T) ? (value as T) : null;
 }
 
 // 여러 날의 출처를 하나로 모은다. 모두 실측이면 실측, 모두 기록 없음이면 기록 없음, 나머지는 추정.
@@ -103,18 +81,9 @@ export default defineHandler({
     const invalid = (message: string) =>
       sendError(res, "coded", 400, message, "INVALID_QUERY");
 
-    const today = kstYMD(new Date());
-    const from =
-      req.query.from === undefined
-        ? `${today.slice(0, 8)}01`
-        : String(req.query.from);
-    const to = req.query.to === undefined ? today : String(req.query.to);
-    if (!isDate(from) || !isDate(to))
-      return invalid("날짜를 YYYY-MM-DD 로 적어 주세요.");
-    if (from > to) return invalid("시작일이 종료일보다 늦습니다.");
-    if (to > today) return invalid("종료일은 오늘을 넘을 수 없습니다.");
-    if (daysBetween(from, to) + 1 > MAX_SPAN_DAYS)
-      return invalid("기간은 최대 731일입니다.");
+    const period = parsePeriod(req.query);
+    if (typeof period === "string") return invalid(period);
+    const { from, to } = period;
 
     const view = pick(req.query.view, ["stats", "log"] as const, "stats");
     if (!view) return invalid("view 가 올바르지 않습니다.");
@@ -162,6 +131,8 @@ export default defineHandler({
     if (!grain) return invalid("grain 이 올바르지 않습니다.");
     const mauMode = pick(req.query.mau, MAU_MODES, "calendar");
     if (!mauMode) return invalid("mau 가 올바르지 않습니다.");
+    const scope = pick(req.query.scope, SCOPES, "all");
+    if (!scope) return invalid("scope 가 올바르지 않습니다.");
 
     const buckets = async (
       p_from: string,
@@ -175,6 +146,7 @@ export default defineHandler({
         p_grain,
         p_mau_mode,
         p_include_internal: includeInternal,
+        p_scope: scope,
       });
       if (error) throw new Error(`fn_hq_login_buckets 실패: ${error.message}`);
       return (data ?? []) as BucketRow[];
@@ -205,6 +177,7 @@ export default defineHandler({
       to,
       grain,
       mauMode,
+      scope,
       includeInternal,
       firstMeasuredOn:
         (first.data as { kst_date: string } | null)?.kst_date ?? null,

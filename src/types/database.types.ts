@@ -9143,12 +9143,41 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_hq_b2c_summary: {
+        Args: { p_from: string; p_include_internal: boolean; p_to: string };
+        Returns: {
+          by_member_type: Json;
+          member_total: number;
+          net_amount: number;
+          order_count: number;
+          paid_amount: number;
+          paying_members: number;
+          refunded_amount: number;
+        }[];
+      };
+      fn_hq_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_mau_mode: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+        }[];
+      };
+      fn_hq_is_b2c_tenant: {
+        Args: { p_tenant_id: string };
+        Returns: boolean;
+      };
       fn_hq_login_buckets: {
         Args: {
           p_from: string;
           p_grain: string;
           p_include_internal: boolean;
           p_mau_mode: string;
+          p_scope: string;
           p_to: string;
         };
         Returns: {
@@ -9221,6 +9250,22 @@ export type Database = {
           term_limit: number;
           term_resets_on: string;
           term_used: number;
+        }[];
+      };
+      fn_hq_trend_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_include_internal: boolean;
+          p_mau_mode: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+          paid_orders: number;
+          signups: number;
+          signups_by_member_type: Json;
         }[];
       };
       fn_inquiry_claim_generation: {

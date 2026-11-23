@@ -137,6 +137,7 @@ describe("GET /api/admin/hq-dashboard/logins 입력 검사", () => {
     ["모르는 묶음 단위", { grain: "year" }],
     ["모르는 MAU 기준", { mau: "weekly" }],
     ["모르는 화면", { view: "raw" }],
+    ["모르는 범위", { scope: "b2b" }],
     ["쪽 번호가 0", { view: "log", page: "0" }],
     ["쪽 번호가 숫자가 아님", { view: "log", page: "x" }],
   ])("%s 이면 400 이고 통계를 읽지 않는다", async (_label, query) => {
@@ -176,6 +177,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_grain: "day",
       p_mau_mode: "calendar",
       p_include_internal: false,
+      p_scope: "all",
     });
     // 일 단위면 DAU 를 위해 다시 부르지 않고, MAU 는 종료일이 속한 달 1일부터 종료일까지 한 묶음.
     expect(bucketCalls).toHaveLength(2);
@@ -185,6 +187,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_grain: "month",
       p_mau_mode: "calendar",
       p_include_internal: false,
+      p_scope: "all",
     });
   });
 
@@ -314,6 +317,7 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
       p_grain: "month",
       p_mau_mode: "rolling30",
       p_include_internal: false,
+      p_scope: "all",
     });
     expect(r.body).toMatchObject({
       mauMode: "rolling30",
@@ -362,6 +366,24 @@ describe("GET /api/admin/hq-dashboard/logins view=stats", () => {
     const r = await get();
 
     expect(r.status).toBe(500);
+  });
+});
+
+describe("GET /api/admin/hq-dashboard/logins scope", () => {
+  test("scope=b2c 면 모든 묶음 집계를 B2C 범위로 부르고 응답에 범위를 싣는다", async () => {
+    const r = await get({ scope: "b2c", grain: "week" });
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ scope: "b2c" });
+    expect(bucketCalls).toHaveLength(3);
+    expect(bucketCalls.every((a) => a.p_scope === "b2c")).toBe(true);
+  });
+
+  test("scope 가 없으면 전체(all)다", async () => {
+    const r = await get();
+
+    expect(r.body).toMatchObject({ scope: "all" });
+    expect(bucketCalls.every((a) => a.p_scope === "all")).toBe(true);
   });
 });
 
