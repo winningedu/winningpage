@@ -75,18 +75,34 @@ function vercelFake(url: URL): Response {
       { eventName: "signup_complete", count: 4, visitors: 4 },
     ]);
   }
+  if (by[1] === "eventData/location") {
+    return ok([
+      {
+        eventName: "kakao_inquiry_click",
+        "eventData/location": "footer",
+        visitors: 1,
+        count: 1,
+      },
+    ]);
+  }
   if (by[1] === "eventData/service") {
-    return ok([{ eventName: "report_export", eventData: "growth", count: 7 }]);
+    return ok([
+      { eventName: "report_export", "eventData/service": "growth", count: 7 },
+    ]);
   }
   if (by[1] === "eventData/method") {
     return ok([
-      { eventName: "report_export", eventData: "pdf", count: 6 },
-      { eventName: "report_export", eventData: "copy", count: 3 },
+      { eventName: "report_export", "eventData/method": "pdf", count: 6 },
+      { eventName: "report_export", "eventData/method": "copy", count: 3 },
     ]);
   }
   if (by[1] === "eventData/member_type") {
     return ok([
-      { eventName: "signup_complete", eventData: "student", count: 4 },
+      {
+        eventName: "signup_complete",
+        "eventData/member_type": "student",
+        count: 4,
+      },
     ]);
   }
   return ok([]);
@@ -220,6 +236,17 @@ describe("GET /api/admin/web-analytics", () => {
       breakdowns: [],
     });
     expect(JSON.stringify(r.body)).not.toContain(TOKEN);
+  });
+
+  test("속성 나눔 값은 실제 응답의 eventData/<속성> 키에서 읽는다", async () => {
+    const r = await get(RANGE);
+
+    const kakao = (r.body as Body).events.find(
+      (e) => e.name === "kakao_inquiry_click",
+    );
+    expect(kakao?.breakdowns).toEqual([
+      { property: "location", values: [{ value: "footer", count: 1 }] },
+    ]);
   });
 
   test("Vercel 에는 Bearer 토큰, 프로젝트, 팀, 한국 날짜 경계를 보낸다", async () => {

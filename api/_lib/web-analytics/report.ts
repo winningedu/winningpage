@@ -195,7 +195,7 @@ async function buildReport(
           values: (breakdownRows.get(property) ?? [])
             .filter((r) => r.eventName === event.name)
             .map((r) => ({
-              value: String(r.eventData ?? ""),
+              value: String(r[`eventData/${property}`] ?? ""),
               count: num(r.count),
             })),
         })),
