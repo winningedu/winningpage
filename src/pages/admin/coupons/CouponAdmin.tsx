@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -383,8 +385,7 @@ const GRANT_PAGE_LIMIT = 200;
 // 사용자 검색 결과 상한. 어드민이 이메일 일부로 좁혀 고르는 용도라 넉넉하다.
 const USER_SEARCH_LIMIT = 20;
 
-const INPUT_CLASS =
-  "h-9 w-full border border-input bg-white px-3 text-sm outline-hidden disabled:bg-gray-100";
+const INPUT_CLASS = "h-9 w-full px-3 text-sm";
 
 function moneyText(value: number | string | null | undefined) {
   return `${Number(value || 0).toLocaleString()}원`;
@@ -705,7 +706,7 @@ function NullableField({
           onChange={() => onChange({ [`${fieldKey}_mode`]: "value" })}
         />
         <span className="w-40">
-          <input
+          <Input
             type={type}
             aria-label={FIELD_LABEL[fieldKey]}
             min={type === "number" ? 1 : undefined}
@@ -1667,7 +1668,7 @@ export default function CouponAdmin() {
                             // void 가 삭제가 아니라서 거짓말이 된다. 대신 사유
                             // 입력을 한 단계 끼워 오조작을 구조로 막는다.
                             <div className="flex items-center gap-2">
-                              <input
+                              <Input
                                 type="text"
                                 aria-label={FIELD_LABEL.void_reason}
                                 value={voidReason}
@@ -1789,7 +1790,7 @@ export default function CouponAdmin() {
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-[20rem] max-w-full">
-              <input
+              <Input
                 type="text"
                 aria-label={FIELD_LABEL.email}
                 value={userQuery}
@@ -1980,7 +1981,7 @@ export default function CouponAdmin() {
                             // void 와 같은 2단계 게이트. window.confirm 을 쓰면
                             // 새 한국어 문구가 필요해진다.
                             <div className="flex items-center gap-2">
-                              <input
+                              <Input
                                 type="text"
                                 aria-label={FIELD_LABEL.revoke_reason}
                                 value={revokeReason}
@@ -2191,7 +2192,7 @@ export default function CouponAdmin() {
 
               {key === "slug" && (
                 <>
-                  <input
+                  <Input
                     type="text"
                     aria-label={FIELD_LABEL.slug}
                     value={form.slug}
@@ -2225,7 +2226,7 @@ export default function CouponAdmin() {
               )}
 
               {key === "title" && (
-                <input
+                <Input
                   type="text"
                   aria-label={FIELD_LABEL.title}
                   value={form.title}
@@ -2237,7 +2238,7 @@ export default function CouponAdmin() {
               {key === "code" && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="text"
                       aria-label={FIELD_LABEL.code}
                       value={form.code}
@@ -2261,11 +2262,11 @@ export default function CouponAdmin() {
 
               {key === "tenant_id" && (
                 <div className="flex flex-col gap-2">
-                  <select
+                  <NativeSelect
                     aria-label={FIELD_LABEL.tenant_id}
                     value={form.tenant_id}
                     onChange={(e) => patch({ tenant_id: e.target.value })}
-                    className={INPUT_CLASS}
+                    className="w-full [&>select]:h-9"
                   >
                     <option value="">소속 없음</option>
                     {tenants.map((tenant) => (
@@ -2273,7 +2274,7 @@ export default function CouponAdmin() {
                         {tenant.name}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                   <span className="text-xs font-bold text-gray-500">
                     {ORG_CODE_HELPER_TEXT}
                   </span>
@@ -2283,7 +2284,7 @@ export default function CouponAdmin() {
               {(key === "discount_amount" || key === "min_amount") && (
                 <div className="flex items-center gap-3">
                   <span className="w-40">
-                    <input
+                    <Input
                       type="number"
                       aria-label={FIELD_LABEL[key]}
                       min={key === "discount_amount" ? 1 : 0}

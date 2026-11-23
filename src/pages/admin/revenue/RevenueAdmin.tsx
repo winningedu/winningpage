@@ -2,6 +2,7 @@ import { Download, RefreshCw } from "lucide-react";
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -390,22 +391,22 @@ export default function RevenueAdmin() {
           <span className="text-sm font-medium text-muted-foreground">
             기간
           </span>
-          <input
+          <Input
             type="date"
             aria-label="조회 시작일"
             value={fromYmd}
             max={toYmd}
             onChange={(event) => setFromYmd(event.target.value)}
-            className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-9 w-auto px-3 text-sm"
           />
           <span className="text-sm text-muted-foreground">~</span>
-          <input
+          <Input
             type="date"
             aria-label="조회 종료일"
             value={toYmd}
             min={fromYmd}
             onChange={(event) => setToYmd(event.target.value)}
-            className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-9 w-auto px-3 text-sm"
           />
           <ActionButton onClick={loadRows} disabled={loading}>
             {loading ? "불러오는 중..." : "조회"}

@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   type AdminAccessAction,
   verifyAdminPassword,
@@ -143,9 +145,10 @@ export function useSensitiveActionGate() {
           </p>
         </DialogHeader>
 
+        {/* biome-ignore lint/a11y/noLabelWithoutControl: Input, Textarea를 label 안에 중첩해 연결한다. 정적 분석이 컴포넌트 내부를 못 봐서 오탐이다. */}
         <label className="block text-xs font-medium text-gray-500">
           관리자 비밀번호
-          <input
+          <Input
             type="password"
             autoComplete="current-password"
             value={state.password}
@@ -155,13 +158,14 @@ export function useSensitiveActionGate() {
                 prev ? { ...prev, password: e.target.value } : prev,
               )
             }
-            className="mt-1 h-9 w-full border border-gray-400 px-3 text-sm font-bold outline-hidden disabled:bg-gray-100"
+            className="mt-1 h-9 w-full px-3 text-sm font-bold"
           />
         </label>
 
+        {/* biome-ignore lint/a11y/noLabelWithoutControl: Input, Textarea를 label 안에 중첩해 연결한다. 정적 분석이 컴포넌트 내부를 못 봐서 오탐이다. */}
         <label className="block text-xs font-medium text-gray-500">
           사유 (필수)
-          <textarea
+          <Textarea
             rows={3}
             value={state.reason}
             disabled={state.busy}
@@ -171,7 +175,7 @@ export function useSensitiveActionGate() {
                 prev ? { ...prev, reason: e.target.value } : prev,
               )
             }
-            className="mt-1 w-full resize-none border border-gray-400 px-3 py-2 text-sm font-bold outline-hidden disabled:bg-gray-100"
+            className="mt-1 field-sizing-fixed w-full resize-none px-3 py-2 text-sm font-bold"
           />
         </label>
 
