@@ -9,6 +9,7 @@ import { scoreMbti } from "./mbti.js";
 import { buildPage1 } from "./pages/p1.js";
 import { buildPage2, goalOf } from "./pages/p2.js";
 import { buildPage3 } from "./pages/p3.js";
+import { buildPage4 } from "./pages/p4.js";
 import { buildPlan } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
 import { scoreReliability } from "./reliability.js";
@@ -153,6 +154,7 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     p1: buildPage1(engine, p9.hero.name),
     p2: buildPage2(engine),
     p3: buildPage3(engine),
+    p4: buildPage4(engine),
     p9,
   };
 }

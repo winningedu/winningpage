@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { scoreDiagnosisV3 } from "./index.js";
+import { SCALE_ITEMS } from "./likert.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import { CALC_EXAMPLE, CALC_EXAMPLE_CONTEXT } from "./testFixtures.js";
 import type { DiagnosisV3Answers } from "./types.js";
@@ -225,5 +226,71 @@ describe("3p 성적 (22 r38-r46)", () => {
       note: COPY_TEXT.SUBJ_RULE_NOTE,
     });
     expect(p3.examOps.body).toBe(COPY_TEXT.EXAMOPS_RISK);
+  });
+});
+
+const quote = (label: string) => "\u2018" + label + "\u2019";
+
+describe("4p 7단계 사이클 (22 r48-r53)", () => {
+  test("계산 예시: BREAK head, bottom three NARR, why 기록 (계산 예시 D14)", () => {
+    const { p4 } = run().pages;
+    expect(p4.title).toBe(
+      COPY_TEXT.CYC_HEAD_BREAK?.replace(
+        "{top2}",
+        quote("목표 설정") + ", " + quote("우선순위"),
+      ).replace("{low}", "활동 기록"),
+    );
+    expect(p4.lead).toBe(COPY_TEXT.CYC_LEAD);
+    expect(p4.scoreNote).toBe(COPY_TEXT.CYC_SCORE_NOTE);
+    expect(p4.breaks).toEqual(
+      ["NARR_P1_LOG_취약", "NARR_P1_PLAN_보완", "NARR_P1_ADJ_보통"].map(
+        (id) => ({
+          heading: cell("04_진단서술", id, 3),
+          body: COPY_TEXT[id],
+        }),
+      ),
+    );
+    expect(p4.why).toEqual({
+      heading: COPY_TEXT.CYC_WHY_TITLE,
+      body: COPY_TEXT.CYCLE_WHY,
+    });
+    expect(p4.cycle.stages.filter((s) => s.broken).map((s) => s.code)).toEqual([
+      "P1_LOG",
+    ]);
+    expect(p4.cycle).toMatchObject({
+      total: 67,
+      gradeText: COPY_TEXT.GRADE_PAGE1_ALL_L3,
+      caption: COPY_TEXT.HEX_CAPTION,
+    });
+  });
+
+  test("계산 예시 처방표: lever 기록, 8-9 별로 to 대체로 linked to Day 2 (계산 예시 D25)", () => {
+    const { rx } = run().pages.p4;
+    expect(rx.intro).toBe(COPY_TEXT.RX_INTRO);
+    expect(rx.lever).toBe(COPY_TEXT.LEVER_P1_LOG);
+    if (rx.weak.kind !== "items") throw new Error("expected weak items");
+    expect(rx.weak.items[0]).toEqual({
+      question: SCALE_ITEMS.q9[8]?.text,
+      target: COPY_TEXT["rx.target"]
+        ?.replace("{cur}", "별로 그렇지 않다")
+        .replace("{tgt}", "대체로 그렇다"),
+      link: "11/10(화) " + COPY_TEXT.AREA_P1_LOG_ACT1,
+    });
+    expect(rx.strong.length).toBeGreaterThan(0);
+    expect(rx.strong[0]?.answer).toBe("대체로 그렇다");
+  });
+
+  test("all stages 70+ give STABLE and no break or why", () => {
+    const high = {
+      ...CALC_EXAMPLE,
+      q9: { items: Array(15).fill(4), verify: 1 },
+      q10: [16],
+    } as DiagnosisV3Answers;
+    const { p4 } = run(high).pages;
+    expect(p4.title).toBe(COPY_TEXT.CYC_HEAD_STABLE);
+    expect(p4.why).toBeUndefined();
+    expect(p4.cycle.stages.some((s) => s.broken)).toBe(false);
+    expect(p4.rx.weak).toEqual({ kind: "none", text: COPY_TEXT.RX_NONE_WEAK });
+    expect(p4.rx.lever).toBeUndefined();
   });
 });

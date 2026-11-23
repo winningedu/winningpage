@@ -46,3 +46,7 @@ export function narrative(code: AreaCode, state: AreaState) {
 export function nextText(code: AreaCode, score: number): string {
   return copy("NEXT_" + code + (score < TARGET_SCORE ? "_개선" : "_유지"));
 }
+
+/** Area labels in single quotes, comma separated, as PDF p4 and p5 print {top2} and {areas}. */
+export const quoteList = (labels: readonly string[]) =>
+  labels.map((label) => "\u2018" + label + "\u2019").join(", ");
