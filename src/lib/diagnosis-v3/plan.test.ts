@@ -87,6 +87,14 @@ describe("buildPlanPage (22 r103-r107)", () => {
     expect(table.reduceNote).toBe(COPY_TEXT.PLAN_REDUCE);
     expect(table.ruleNote).toBe(COPY_TEXT.PLAN_RULE_NOTE);
   });
+
+  test("PDF p11 numbers: record 1 minute, rates 50/60/65/70, plan.minload 60 (21 r30-r32)", () => {
+    expect(page().numbers).toEqual({
+      logMinutes: 1,
+      rates: [50, 60, 65, 70],
+      minLoad: "하루 최소 학습량 60분",
+    });
+  });
 });
 
 describe("buildPlannerPages (22 r109-r113)", () => {

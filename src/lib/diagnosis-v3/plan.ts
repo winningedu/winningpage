@@ -296,6 +296,9 @@ export function formatDue(date: IsoDate): string {
   });
 }
 
+// 21 C30: daily record minutes ("1분")
+const LOG_MINUTES = Number(match(planCell(30), /^(\d+)분$/)[1]);
+
 // 21 C31: target run rate per week, "1주 50%"
 export const RATES: readonly number[] = [
   ...planCell(31).matchAll(/(\d)주 (\d+)%/g),
@@ -387,7 +390,7 @@ export function buildPlanPage(
   plan: Plan,
   _diagnosedAt: IsoDate,
   _schedule: DiagnosisV3Answers["q13"],
-): Pick<Page11, "table"> {
+): Pick<Page11, "table" | "numbers"> {
   const cellOf = (week: Week, column: 1 | 2 | 3) => {
     const task = plan.tasks.find((t) => t.week === week && t.column === column);
     if (!task) throw new Error(`missing plan cell ${week}/${column}`);
@@ -407,6 +410,12 @@ export function buildPlanPage(
         ? { reduceNote: copy("PLAN_REDUCE") }
         : {}),
       ruleNote: copy("PLAN_RULE_NOTE"),
+    },
+    // 22 r105, 21 C30-C32
+    numbers: {
+      logMinutes: LOG_MINUTES,
+      rates: RATES,
+      minLoad: fillCopy("plan.minload", { min: plan.minLoad }),
     },
   };
 }
