@@ -1,5 +1,5 @@
 // 기관 정보 탭의 입력 값, 검증, 저장 페이로드. 저장은 tenants 를 RLS 로 바로 고치므로(서버 검증 없음)
-// 날짜 순서는 DB 제약(tenants_contract_order, tenants_grace_after_end)과 같은 규칙을 여기서 먼저 막는다.
+// 날짜 순서는 DB 제약(tenants_contract_order, tenants_grace_after_end, tenants_trial_order)과 같은 규칙을 여기서 먼저 막는다.
 // 형식 규칙은 api/_routes/console/org-info.ts 와 같다. 소속 코드는 발급 후 불변이라 페이로드에 넣지 않는다.
 
 import { HOMEPAGE_PREFIX, withoutBareScheme } from "@/lib/homepage";
@@ -14,6 +14,8 @@ export interface TenantFormValues {
   term_months: string;
   mou_status: string;
   grace_ends_on: string;
+  trial_start_date: string;
+  trial_end_date: string;
   contact_name: string;
   contact_phone: string;
   contact_mobile: string;
@@ -38,6 +40,8 @@ export function emptyTenantForm(): TenantFormValues {
     term_months: "",
     mou_status: "",
     grace_ends_on: "",
+    trial_start_date: "",
+    trial_end_date: "",
     contact_name: "",
     contact_phone: "",
     contact_mobile: "",
@@ -68,6 +72,8 @@ export const CONTRACT_ORDER_MESSAGE =
   "계약 시작일은 종료일보다 늦을 수 없어요.";
 export const GRACE_ORDER_MESSAGE =
   "유예 종료일은 계약 종료일과 같거나 그 뒤여야 해요.";
+export const TRIAL_ORDER_MESSAGE = "시범 시작일은 종료일보다 늦을 수 없어요.";
+const TRIAL_BOTH_MESSAGE = "시범 시작일과 종료일을 함께 입력해 주세요.";
 
 export function validateTenantForm(values: TenantFormValues): string | null {
   if (!values.name.trim()) return "이름 항목을 입력해주세요.";
@@ -77,6 +83,12 @@ export function validateTenantForm(values: TenantFormValues): string | null {
   }
   if (end && values.grace_ends_on && values.grace_ends_on < end) {
     return GRACE_ORDER_MESSAGE;
+  }
+  // 시범기간(결정 117): DB 제약 tenants_trial_order 와 같다. 둘 다 비우거나 둘 다 넣고, 계약일과는 따로 본다.
+  const { trial_start_date: trialStart, trial_end_date: trialEnd } = values;
+  if (Boolean(trialStart) !== Boolean(trialEnd)) return TRIAL_BOTH_MESSAGE;
+  if (trialStart && trialEnd && trialStart > trialEnd) {
+    return TRIAL_ORDER_MESSAGE;
   }
   if (values.term_months !== "" && !["3", "6"].includes(values.term_months)) {
     return "학기 길이는 3개월 또는 6개월이어야 해요.";
@@ -114,6 +126,8 @@ export function tenantPayload(values: TenantFormValues) {
     term_months: values.term_months === "" ? null : Number(values.term_months),
     mou_status: blankToNull(values.mou_status),
     grace_ends_on: blankToNull(values.grace_ends_on),
+    trial_start_date: blankToNull(values.trial_start_date),
+    trial_end_date: blankToNull(values.trial_end_date),
     contact_name: blankToNull(values.contact_name),
     contact_phone: blankToNull(values.contact_phone),
     contact_mobile: blankToNull(values.contact_mobile),

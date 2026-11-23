@@ -91,6 +91,8 @@ const ROW = {
   term_months: 6,
   mou_status: "signed",
   grace_ends_on: null,
+  trial_start_date: "2026-11-20",
+  trial_end_date: "2026-12-19",
   contact_name: "김담당",
   contact_phone: null,
   contact_mobile: null,
@@ -136,6 +138,42 @@ describe("TenantDetail 기관 정보 탭", () => {
     expect((screen.getByLabelText("MOU") as HTMLSelectElement).value).toBe(
       "signed",
     );
+  });
+
+  test("시범 시작일과 종료일을 불러와 고쳐 저장한다(결정 117)", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    expect(
+      (screen.getByLabelText("시범 시작일") as HTMLInputElement).value,
+    ).toBe("2026-11-20");
+    expect(
+      (screen.getByLabelText("시범 종료일") as HTMLInputElement).value,
+    ).toBe("2026-12-19");
+
+    fireEvent.change(screen.getByLabelText("시범 종료일"), {
+      target: { value: "2026-12-31" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(db.updated).toHaveLength(1));
+    expect(db.updated[0]?.values).toMatchObject({
+      trial_start_date: "2026-11-20",
+      trial_end_date: "2026-12-31",
+    });
+  });
+
+  test("시범 종료일만 비우면 저장하지 않고 안내를 보인다", async () => {
+    renderDetail();
+    await screen.findByDisplayValue("한빛고");
+    fireEvent.change(screen.getByLabelText("시범 종료일"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(
+      await screen.findByText("시범 시작일과 종료일을 함께 입력해 주세요."),
+    ).toBeTruthy();
+    expect(db.updated).toHaveLength(0);
   });
 
   test("MOU 칸 옆에 계약 종료일 기준 안내를 보인다(결정 102.7)", async () => {
@@ -244,6 +282,7 @@ describe("TenantDetail 기관 정보 탭", () => {
       "tenants_grace_after_end",
       "유예 종료일은 계약 종료일과 같거나 그 뒤여야 해요.",
     ],
+    ["tenants_trial_order", "시범 시작일은 종료일보다 늦을 수 없어요."],
   ])(
     "DB 가 23514 %s 로 거절하면 클라이언트 검증과 같은 날짜 순서 문구를 보인다",
     async (constraint, expected) => {
