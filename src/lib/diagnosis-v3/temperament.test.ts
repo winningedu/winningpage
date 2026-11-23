@@ -11,6 +11,7 @@ import {
   temperamentFactors,
   temperamentMethods,
   temperamentPage9,
+  temperamentPage10,
   temperamentRules,
 } from "./temperament.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
@@ -467,5 +468,73 @@ describe("page 9 text (22 r86-r94, PDF p9)", () => {
       "준비가 꼼꼼해 실수가 적습니다.",
     ]);
     expect(page.study.cautions).toHaveLength(2);
+  });
+});
+
+describe("page 10 text (22 r96-r99)", () => {
+  const calc = (temperament: "CAUTION" | "NORMAL" = "NORMAL") =>
+    scoreTemperament({
+      q23: CALC_EXAMPLE.q23,
+      track: "H12",
+      q20Item5: 3,
+      exec: 66,
+      recv: 50,
+      reliability: { diagnosis: "GOOD", temperament },
+    });
+  const normal = { diagnosis: "GOOD", temperament: "NORMAL" } as const;
+
+  test("title, intro and the rule sentences per area (계산 예시 A32)", () => {
+    const page = temperamentPage10(calc(), normal);
+    expect(page.title).toBe(
+      "같은 전략도 기질에 맞게 실행해야<br>끝까지 갑니다.",
+    );
+    expect(page.intro).toContain(
+      "고교 유형\u00b7수시/정시 비중\u00b7과목 선택은",
+    );
+    expect(page.admission.kind).toBe("rules");
+    if (page.admission.kind !== "rules") return;
+    expect(page.admission.areas.map((a) => [a.area, a.texts.length])).toEqual([
+      ["AD_RATIO", 1],
+      ["AD_HOLISTIC", 2],
+      ["PACE", 2],
+      ["SUBJ", 2],
+    ]);
+    expect(page.admission.areas[0]?.texts[0]).toContain("교과\u00b7정시 모두");
+  });
+
+  test("an area without a hit shows TEMP_RULE_NONE", () => {
+    const page = temperamentPage10({ ...calc(), rules: { SUBJ: [] } }, normal);
+    if (page.admission.kind !== "rules") throw new Error("expected rules");
+    expect(page.admission.areas[0]?.texts).toEqual([
+      "이 영역은 기질에 따라 따로 조정할 점이 없습니다. 성적과 목표를 기준으로 정하시면 됩니다.",
+    ]);
+  });
+
+  test("method sentences follow the fired M_* ids", () => {
+    const page = temperamentPage10(calc(), normal);
+    expect(page.methods).toEqual([
+      "같은 과제도 형식을 바꿔 가며 (개념 정리 \u2192 문제 \u2192 설명하기)",
+      "시험\u00b7마감 3일 전 실전 리허설 1회 (시간 재고 풀기)",
+      "과제를 30분 단위로 쪼개고, 끝낸 칸은 바로 체크",
+    ]);
+  });
+
+  test("CAUTION hides the rules with TEMP_LOWREL, SIMPLE with SINCERITY_BANNER", () => {
+    const caution = temperamentPage10(calc("CAUTION"), {
+      diagnosis: "GOOD",
+      temperament: "CAUTION",
+    });
+    expect(caution.admission).toMatchObject({ kind: "hidden" });
+    expect(
+      caution.admission.kind === "hidden" && caution.admission.text,
+    ).toContain("기질 문항의 응답이 한쪽으로 몰려");
+    const simple = temperamentPage10(calc(), {
+      diagnosis: "SIMPLE",
+      temperament: "NORMAL",
+    });
+    expect(simple.admission.kind).toBe("hidden");
+    expect(
+      simple.admission.kind === "hidden" && simple.admission.text,
+    ).not.toContain("기질 문항의 응답이 한쪽으로 몰려");
   });
 });

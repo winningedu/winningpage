@@ -353,7 +353,14 @@ const METHOD_ROWS = tempSheet
   .map((row) => ({
     id: textCell(row, 1) as "M_NS" | "M_HA" | "M_PS",
     condition: textCell(row, 2),
+    copyId: textCell(row, 3),
   }));
+
+const methodCopyId = (id: string): string => {
+  const row = METHOD_ROWS.find((candidate) => candidate.id === id);
+  if (!row) throw new Error(`unknown method ${id}`);
+  return row.copyId;
+};
 
 /** Method sentences added under the plan table, in sheet order. */
 export function temperamentMethods(
@@ -535,5 +542,38 @@ export function temperamentPage9(
       ? { lowReliability: copy("TEMP_LOWREL") }
       : {}),
     protect: copy("TEMP_PROTECT"),
+  };
+}
+
+/** 22 r96-r99: page 10 text. Rules are hidden for CAUTION (F4, F6) and SIMPLE answers. */
+export function temperamentPage10(
+  result: TemperamentResult,
+  reliability: TemperamentInput["reliability"],
+): Page10 {
+  const hiddenText =
+    reliability.temperament === "CAUTION"
+      ? copy("TEMP_LOWREL")
+      : reliability.diagnosis === "SIMPLE"
+        ? copy("SINCERITY_BANNER")
+        : null;
+  return {
+    title: copy("TEMP_ADM_HEAD"),
+    intro: copy("TEMP_ADMIT_INTRO"),
+    admission:
+      hiddenText !== null
+        ? { kind: "hidden", text: hiddenText }
+        : {
+            kind: "rules",
+            areas: (
+              Object.entries(result.rules) as [
+                TempRuleArea,
+                readonly string[],
+              ][]
+            ).map(([area, ids]) => ({
+              area,
+              texts: ids.length > 0 ? ids.map(copy) : [copy("TEMP_RULE_NONE")],
+            })),
+          },
+    methods: result.methods.map((id) => copy(methodCopyId(id))),
   };
 }
