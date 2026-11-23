@@ -2,7 +2,7 @@
 // Authorization: Bearer <access_token>
 //
 // 대시보드 우측 레일 "오늘의 학습 순위" 카드(4012:22399)의 실데이터 소스.
-// 전체 활성(goal_students.status='active') 학생을 대상으로, 오늘(KST) 제출된
+// 전체 활성(goal_students.status='active') 학생을 대상으로, 오늘(학생 현지) 제출된
 // goal_daily_records.study_hours 로 순위를 매긴다.
 //
 // ── "오늘"의 기준이 record_date 가 아니라 submitted_on 인 이유 ──────────────
@@ -10,7 +10,7 @@
 // (actual_start_date + record_index, sql/55_goal_management.sql:340-341 주석 —
 // "실제 달력과 어긋나는 것이 정상이다"). 랭킹은 "오늘 실제로 제출한 사람들"을
 // 비교하는 화면이라 실제 제출일 감사 컬럼인 submitted_on(같은 파일:344-345,
-// "실제 제출일(KST)")으로 필터한다. record_date로 필터하면 과거에 밀린 가상
+// "실제 제출일(학생 현지)")으로 필터한다. record_date로 필터하면 과거에 밀린 가상
 // 일차를 오늘 몰아 제출한 학생과 실제로 오늘 공부한 학생이 뒤섞인다.
 //
 // ── SUM인 이유(단일 행이 아니라) ────────────────────────────────────────────
@@ -26,9 +26,13 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { kstYMD } from "../../../src/lib/goal/calc/index.js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import { isRankingVisible } from "../../_lib/goal/rankingVisibility.js";
-import { num, openGoalSession } from "../../_lib/goal/repo.js";
+import {
+  getStudentTimeZone,
+  num,
+  openGoalSession,
+} from "../../_lib/goal/repo.js";
 import { sendError } from "../../_lib/httpResponse.js";
 import { tenantReasonExtra } from "../../_lib/tenantUsage.js";
 
@@ -105,7 +109,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const today = kstYMD();
+    // 랭킹은 요청한 학생의 현지 하루로 묶는다(같은 시각에 시간대가 다른 학생은 다른 날을 본다).
+    const today = ymdIn(
+      new Date(),
+      await getStudentTimeZone(supabaseAdmin, profileId),
+    );
 
     const [
       { data: activeRows, error: activeError },
