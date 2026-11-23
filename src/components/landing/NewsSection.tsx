@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import Chip from "@/components/Chip";
 import { site } from "@/config/site";
+import { formatDate as formatInstantDate } from "@/lib/time/format";
 import AreaNotice from "./AreaNotice";
 
 /**
@@ -49,10 +50,7 @@ type NewsItem = {
 // ★ 배지는 is_pinned 단일 상태만 노출한다 — DB category(보도자료/공지 등 자유 텍스트)는
 //   랜딩에서 미노출(사용자 확정 2026-08-20). 게시판 "중요" 칩(BoardTable)과 같은 축.
 
-// KST(UTC+9) 기준 날짜 표기 — Home.jsx todayKstYmd와 동일한 +9h 시프트 방식.
-// toISOString() 단독 사용 시 KST 00:00~08:59 생성 글이 전날로 표시되는 문제 방지.
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
+// 날짜는 보는 사람의 브라우저 시간대 기준으로 표기한다.
 function formatDate(value: string | number | Date | null | undefined) {
   if (!value) return "";
 
@@ -62,10 +60,7 @@ function formatDate(value: string | number | Date | null | undefined) {
     return String(value).slice(0, 10).replace(/-/g, ".");
   }
 
-  return new Date(date.getTime() + KST_OFFSET_MS)
-    .toISOString()
-    .slice(0, 10)
-    .replace(/-/g, ".");
+  return formatInstantDate(date).replace(/-/g, ".");
 }
 
 // 배지 폭은 0803 시안(3015:14378) 기준 min 4rem — '중요'(2자) 64px 고정.
