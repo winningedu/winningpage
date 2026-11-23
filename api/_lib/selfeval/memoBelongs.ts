@@ -8,6 +8,7 @@
 // 미구현(열린 항목): 명세는 후보를 모델이 인용으로 확인하게 하지만, 생성 프롬프트를 흔들지 않으려고
 // 같은 write 호출에서 확인하지 않는다. 그래서 모델 인용 확인 없이 위 결정론 규칙만 쓴다.
 
+import { submittedAtOf } from "./rows.js";
 import { extractKeywords } from "./text.js";
 import type { ActivityRecordLike } from "./types.js";
 
@@ -21,8 +22,7 @@ export type MemoForBelongs = {
   belongsTo: string | null;
 };
 
-const dayOf = (r: ActivityRecordLike): string =>
-  (r.submittedAt ?? r.createdAt).slice(0, 10);
+const dayOf = (r: ActivityRecordLike): string => submittedAtOf(r).slice(0, 10);
 
 const recordWords = (r: ActivityRecordLike): Set<string> =>
   new Set(
