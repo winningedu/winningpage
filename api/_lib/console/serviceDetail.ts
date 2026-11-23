@@ -155,11 +155,11 @@ export function serviceDetail(
       };
     }
     case "diagnosis": {
-      const dx = m.diagnosis;
-      if (!dx) return null;
+      // 버전 태그가 붙은 영역 점수를 읽는다. v2 는 기존 영역 집합 그대로, v3 는 저장된 점수 그대로.
+      if (!data.diagnosisAreas) return null;
       const { metrics, summary, bars, priorities } = diagnosisDetail(
-        dx.areas,
-        data.diagnosisPrevious,
+        data.diagnosisAreas,
+        data.diagnosisPreviousAreas,
         data.diagnosisMeta,
       );
       return {
