@@ -59,8 +59,9 @@ function ok(data: unknown) {
 // 경로와 by 값으로 가짜 응답을 고른다.
 function vercelFake(url: URL): Response {
   const by = url.searchParams.getAll("by");
-  if (url.pathname.endsWith("/visits/count")) {
-    return ok({ pageviews: 1200, visitors: 340 });
+  // 실제 응답: visits/count 는 날짜 단위로 내림해 합계가 틀려 쓰지 않고, environment 로 나눈 집계를 합산한다.
+  if (url.pathname.endsWith("/visits/aggregate") && by[0] === "environment") {
+    return ok([{ environment: "production", visitors: 340, pageviews: 1200 }]);
   }
   if (url.pathname.endsWith("/visits/aggregate")) {
     return ok([
@@ -253,6 +254,48 @@ describe("GET /api/admin/web-analytics", () => {
     expect(events?.searchParams.get("filter")).toBe(
       "eventName in ('signup_complete','service_start','diagnosis_complete','checkout_start','payment_complete','consult_apply','kakao_inquiry_click','report_export','paywall_cta_click','ai_regenerate')",
     );
+  });
+
+  test("합계는 visits/count 대신 visits/aggregate by=environment 를 같은 기간으로 부른다", async () => {
+    await get(RANGE);
+
+    const urls = fetchMock.mock.calls.map((call) => new URL(String(call[0])));
+    expect(urls.some((u) => u.pathname.endsWith("/visits/count"))).toBe(false);
+    const totals = urls.find(
+      (u) =>
+        u.pathname.endsWith("/visits/aggregate") &&
+        u.searchParams.getAll("by").join() === "environment",
+    );
+    expect(totals?.searchParams.get("since")).toBe(
+      String(Date.parse("2026-11-01T00:00:00+09:00")),
+    );
+    expect(totals?.searchParams.get("until")).toBe(
+      String(Date.parse("2026-11-08T00:00:00+09:00") - 1),
+    );
+  });
+
+  test("합계 행이 없으면 0 이고 environment 행이 여럿이면 더한다", async () => {
+    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("by") === "environment") {
+        return ok(
+          url.searchParams.get("since") ===
+            String(Date.parse("2026-11-02T00:00:00+09:00"))
+            ? []
+            : [
+                { environment: "production", visitors: 1, pageviews: 2 },
+                { environment: "preview", visitors: 3, pageviews: 4 },
+              ],
+        );
+      }
+      return ok([]);
+    });
+
+    const sum = await get(RANGE);
+    const empty = await get({ from: "2026-11-02", to: "2026-11-07" });
+
+    expect((sum.body as Body).totals).toEqual({ pageviews: 6, visitors: 4 });
+    expect((empty.body as Body).totals).toEqual({ pageviews: 0, visitors: 0 });
   });
 
   test("같은 사이트와 기간은 짧게 캐시해 Vercel 을 다시 부르지 않는다", async () => {

@@ -132,7 +132,8 @@ async function buildReport(
   ];
 
   const [totals, pages, events, ...breakdowns] = await Promise.all([
-    query(config, "visits/count", period),
+    // visits/count 는 since, until 을 UTC 날짜 시작으로 내려 한국 하루 합계가 틀린다. 시간 단위를 지키는 aggregate 를 합산한다.
+    query(config, "visits/aggregate", [...period, ["by", "environment"]]),
     query(config, "visits/aggregate", [
       ...period,
       ["by", "requestPath"],
@@ -163,7 +164,7 @@ async function buildReport(
     ),
   ]);
 
-  const totalRow = (totals ?? {}) as Row;
+  const totalRows = (Array.isArray(totals) ? totals : []) as Row[];
   const eventRows = (Array.isArray(events) ? events : []) as Row[];
   const breakdownRows = new Map(
     properties.map((property, i) => [
@@ -175,8 +176,8 @@ async function buildReport(
   return {
     range,
     totals: {
-      pageviews: num(totalRow.pageviews),
-      visitors: num(totalRow.visitors),
+      pageviews: totalRows.reduce((sum, r) => sum + num(r.pageviews), 0),
+      visitors: totalRows.reduce((sum, r) => sum + num(r.visitors), 0),
     },
     topPages: ((Array.isArray(pages) ? pages : []) as Row[]).map((row) => ({
       path: String(row.requestPath ?? ""),
