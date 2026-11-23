@@ -1,6 +1,7 @@
 // 학생 한 명의 코칭 계산 한 벌(자료 읽기, 판정, 6축, 5대 역량, 문구). 코칭 조회와 서비스 상세가 같이 쓴다.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ymdIn } from "../../../src/lib/time/day.js";
 import {
   coachingTypeOf,
   computeAxes,
@@ -21,8 +22,10 @@ export async function buildCoaching(
   studentId: string,
   used: ServiceKey[],
   enrollmentGrade: string | null,
+  /** 보는 사람의 시간대. 접속 일수와 문구의 "이번 달"이 이 시간대의 날짜를 따른다. */
+  viewerZone: string,
 ) {
-  const data = await loadCoachingData(admin, studentId, used);
+  const data = await loadCoachingData(admin, studentId, used, viewerZone);
   const { metrics, targets } = data;
   const axesResult = computeAxes(metrics);
   const careerLink = axesResult.axes.find((a) => a.key === "careerLink");
@@ -59,9 +62,7 @@ export async function buildCoaching(
   const competencies = computeCompetencies(metrics);
   const text = buildCoachingText({
     grade: data.grade ?? enrollmentGrade,
-    month: Number(
-      new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(5, 7),
-    ),
+    month: Number(ymdIn(new Date(), viewerZone).slice(5, 7)),
     department: targets?.ideal?.department || targets?.min?.department || null,
     metrics,
     axes: axesResult,

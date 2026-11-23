@@ -82,6 +82,7 @@ test("the inquiry stage, the self-assessment stage and the targets with probabil
     "s1",
     ["goal", "inquiry", "selfeval"],
     "고1",
+    "Asia/Seoul",
   );
   expect(seen.facts.inquiryStage).toEqual({
     step: 3,
@@ -124,6 +125,7 @@ const learningOf = async () =>
       "s1",
       ["diagnosis"],
       "고1",
+      "Asia/Seoul",
     )
   ).verdicts.learning;
 
@@ -149,7 +151,14 @@ test.each([
 // B1: a v3 student must not be treated as "not diagnosed" by the text, the indicators or the competencies.
 const resultOf = async (
   services: readonly ("diagnosis" | "goal")[] = ["diagnosis"],
-) => buildCoaching(createFakeAdmin(kit) as never, "s1", [...services], "고1");
+) =>
+  buildCoaching(
+    createFakeAdmin(kit) as never,
+    "s1",
+    [...services],
+    "고1",
+    "Asia/Seoul",
+  );
 
 test("a v3 student's text never says to take the diagnosis", async () => {
   withDiagnosis(v3Payload({ level: "L4", total1: 80 }));
@@ -186,4 +195,19 @@ test("a v3 student's weaknesses name the lowest page 1 area with its state and a
   const { text } = await resultOf();
   expect(text.weaknesses.join("\n")).toContain("40점");
   expect(JSON.stringify(text.studyMethods)).not.toContain("학습진단을 응시");
+});
+
+test("the month in the text is the month in the viewer's zone", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-30T20:00:00Z"));
+  try {
+    const build = (zone: string) =>
+      buildCoaching(createFakeAdmin(kit) as never, "s1", ["goal"], "고1", zone);
+    await build("Asia/Seoul");
+    expect(seen.facts.month).toBe(12);
+    await build("America/Los_Angeles");
+    expect(seen.facts.month).toBe(11);
+  } finally {
+    vi.useRealTimers();
+  }
 });

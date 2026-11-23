@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { readAll } from "./directory.js";
 
 /** 프로필 행이 없을 때의 대비. 서울 같은 특정 지역으로 기울지 않게 UTC 로 둔다. */
-const FALLBACK_ZONE = "UTC";
+export const FALLBACK_ZONE = "UTC";
 
 /** 학생 id 목록의 시간대를 한 번에 읽는다(in 목록 한 번). 호출하는 쪽이 100명 이내로 끊어 넘긴다. */
 export async function loadStudentZones(

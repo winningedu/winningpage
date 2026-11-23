@@ -14,7 +14,7 @@ import {
   type ServiceKey,
 } from "../../../_lib/console/serviceUsage.js";
 import { loadScopedEnrollment } from "../../../_lib/console/studentScope.js";
-import { defineHandler } from "../../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../../_lib/handler.js";
 import { sendError } from "../../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -35,6 +35,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const studentId = first(req.query.studentId);
     const service = first(req.query.service) as ServiceKey | undefined;
@@ -50,7 +51,13 @@ export default defineHandler({
     const detail = used.includes(service)
       ? serviceDetail(
           service,
-          await buildCoaching(admin, studentId, used, enrollment.grade),
+          await buildCoaching(
+            admin,
+            studentId,
+            used,
+            enrollment.grade,
+            viewerZone,
+          ),
         )
       : null;
     if (!detail) {

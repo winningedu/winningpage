@@ -12,8 +12,12 @@ import { v3Payload } from "./diagnosisV3TestKit.js";
 
 let kit: KitState;
 
-const load = (used: Parameters<typeof loadCoachingData>[2]) =>
-  loadCoachingData(createFakeAdmin(kit) as never, "s1", used);
+const load = (
+  used: Parameters<typeof loadCoachingData>[2],
+  viewerZone = "Asia/Seoul",
+  now?: Date,
+) =>
+  loadCoachingData(createFakeAdmin(kit) as never, "s1", used, viewerZone, now);
 
 const inquiry = (rows: Record<string, unknown>[]) => {
   kit.rows.inquiry_sessions = (f) =>
@@ -284,5 +288,71 @@ describe("previous diagnosis and report meta (결정 106.4)", () => {
     expect(back.diagnosisAreas?.version).toBe("v2");
     expect(back.diagnosisPreviousAreas).toBeNull();
     expect(back.diagnosisPrevious).toBeNull();
+  });
+});
+
+describe("time zones", () => {
+  // 서울은 11-11 05:00, 로스앤젤레스는 11-10 12:00 이다.
+  const NOW = new Date("2026-11-10T20:00:00Z");
+  const profile = (over: Record<string, unknown>) => {
+    kit.rows.profiles = (f) =>
+      matchRows([{ id: "s1", name: "김서연", ...over }], f);
+  };
+  const goal = () => {
+    kit.rows.goal_students = (f) =>
+      matchRows(
+        [
+          {
+            profile_id: "s1",
+            ideal_university: "",
+            ideal_department: "",
+            min_university: "",
+            min_department: "",
+            study_schedule: null,
+            grade: "고1",
+            naesin_scores: null,
+            mock_exam_scores: null,
+          },
+        ],
+        f,
+      );
+    kit.rows.goal_student_state = () => [];
+    kit.rows.goal_daily_records = () => [
+      {
+        record_date: "2026-11-03",
+        target_ideal_hours: 2,
+        target_min_hours: 1,
+        study_hours: 1,
+        reasons: [],
+      },
+    ];
+  };
+
+  test("the goal week window follows the student's zone, not the viewer's", async () => {
+    goal();
+    profile({ time_zone: "America/Los_Angeles", last_seen_at: null });
+    // 로스앤젤레스 학생의 창은 11-03~11-09 라서 11-03 기록이 든다.
+    const la = await load(["goal"], "Asia/Seoul", NOW);
+    expect(la.goalFacts?.week.setDays).toBe(1);
+    profile({ time_zone: "Asia/Seoul", last_seen_at: null });
+    // 서울 학생의 창은 11-04~11-10 이라 11-03 기록은 밖이다.
+    const seoul = await load(["goal"], "America/Los_Angeles", NOW);
+    expect(seoul.goalFacts?.week.setDays).toBe(0);
+  });
+
+  test("days since the last access are calendar days in the viewer's zone", async () => {
+    goal();
+    profile({
+      time_zone: "Asia/Seoul",
+      last_seen_at: "2026-11-02T14:59:59Z",
+    });
+    const now = new Date("2026-11-09T03:00:00Z");
+    expect(
+      (await load(["goal"], "Asia/Seoul", now)).goalFacts?.daysSinceLastSeen,
+    ).toBe(7);
+    expect(
+      (await load(["goal"], "America/Los_Angeles", now)).goalFacts
+        ?.daysSinceLastSeen,
+    ).toBe(6);
   });
 });

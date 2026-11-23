@@ -19,7 +19,7 @@ import {
   SERVICE_KEYS,
 } from "../../_lib/console/serviceUsage.js";
 import { loadScopedEnrollment } from "../../_lib/console/studentScope.js";
-import { defineHandler } from "../../_lib/handler.js";
+import { defineHandler, requireTimeZone } from "../../_lib/handler.js";
 import { sendError } from "../../_lib/httpResponse.js";
 
 export const config = { runtime: "nodejs" };
@@ -37,6 +37,7 @@ export default defineHandler({
     const actor = ctx.console;
     if (!actor) throw new Error("console actor missing");
     const admin = ctx.supabaseAdmin;
+    const viewerZone = requireTimeZone(ctx);
 
     const raw = Array.isArray(req.query.studentId)
       ? req.query.studentId[0]
@@ -66,7 +67,13 @@ export default defineHandler({
       enrollment.class_id,
     );
 
-    const built = await buildCoaching(admin, studentId, used, enrollment.grade);
+    const built = await buildCoaching(
+      admin,
+      studentId,
+      used,
+      enrollment.grade,
+      viewerZone,
+    );
     const {
       data: { targets, lastSeenAt, diagnosisAreas },
       axesResult,
