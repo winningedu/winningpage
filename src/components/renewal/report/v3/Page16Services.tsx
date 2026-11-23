@@ -10,6 +10,7 @@ import {
   SectionTitle,
 } from "./LaterShared";
 import CopyText from "./parts/CopyText";
+import { SERVICE_LABELS as SL } from "./parts/labels";
 import ReportSheet from "./parts/ReportSheet";
 
 /**
@@ -42,16 +43,21 @@ export default function Page16Services({ page }: { page: Page16 }) {
       {/* 17 SVC_LEAD */}
       <Para>{page.lead}</Para>
       {/* 22 r116 */}
-      <ul className="flex flex-wrap gap-2">
-        {page.preferences.map((chip) => (
-          <li
-            key={chip}
-            className="rounded-full border border-[#e5e5e5] px-3 py-1 text-sm text-ink"
-          >
-            <CopyText text={chip} />
-          </li>
-        ))}
-      </ul>
+      {page.preferences.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-bold text-ink">{SL.preferences}</h3>
+          <ul className="flex flex-wrap gap-2">
+            {page.preferences.map((chip) => (
+              <li
+                key={chip}
+                className="rounded-full border border-[#e5e5e5] px-3 py-1 text-sm text-ink"
+              >
+                <CopyText text={chip} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {/* 22 r117 */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {services.map((svc) => (
@@ -77,15 +83,21 @@ export default function Page16Services({ page }: { page: Page16 }) {
       {/* 22 r118 */}
       {scopeNote ? <Note>{scopeNote}</Note> : null}
       {/* 22 r119 */}
-      <ol className="flex list-decimal flex-col gap-2 ps-4.5">
-        {page.agenda.map((item) => (
-          <li key={item} className="text-base text-[#808080]">
-            <CopyText text={item} />
-          </li>
-        ))}
-      </ol>
+      <section className="flex flex-col gap-2">
+        <SectionTitle>{SL.agenda}</SectionTitle>
+        <ol className="flex list-decimal flex-col gap-2 ps-4.5">
+          {page.agenda.map((item) => (
+            <li key={item} className="text-base text-[#808080]">
+              <CopyText text={item} />
+            </li>
+          ))}
+        </ol>
+      </section>
       {/* 22 r120 */}
-      <Bullets items={page.reading} />
+      <section className="flex flex-col gap-2">
+        <SectionTitle>{SL.reading}</SectionTitle>
+        <Bullets items={page.reading} />
+      </section>
       {/* 22 r121 */}
       {page.footer.map((text) => (
         <Note key={text}>{text}</Note>

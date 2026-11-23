@@ -95,6 +95,22 @@ export const PLAN_LABELS = {
   afterLabel: "4주 이후 일정",
 } as const;
 
+/** PDF p10 (report page 9) section headings; 22 r90-r92 hold no display cell for them. */
+export const TEMPERAMENT_LABELS = {
+  study: "공부할 때 나타나는 모습",
+  strengths: "강점",
+  cautions: "조심할 점",
+  crossCheck: "학습진단과 맞는가?",
+  factors: "입시 설계에 쓰는 4개 진단 요소",
+} as const;
+
+/** PDF p17 (report page 16) section headings; 22 r116, r119, r120 hold no display cell for them. */
+export const SERVICE_LABELS = {
+  preferences: "선호하는 도움 방식",
+  agenda: "재진단 전까지 스스로 점검할 3가지",
+  reading: "이 리포트를 읽을 때",
+} as const;
+
 export const REPORT_LABELS = {
   reportName: "학습진단 리포트",
   /** PDF cover */
