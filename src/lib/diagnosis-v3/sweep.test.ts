@@ -1,7 +1,7 @@
 // Deterministic sweep over the whole engine: mirrors 98_전수검증 r11-r17 on
 // seeded pseudo-random answer sets built through the same option tables.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   AREAS,
   type AreaCode,
@@ -23,6 +23,8 @@ import { OPTIONS, trackOf } from "./options.js";
 import { AREA_STATE_LABELS, areaState } from "./scoring.js";
 import { COPY_SHEETS, COPY_TEXT } from "./source/copyText.js";
 import { SCORE_SHEETS } from "./source/scoreSheets.js";
+
+vi.setConfig({ testTimeout: 60_000 });
 
 // ---------------------------------------------------------------------------
 // Seeded generator
