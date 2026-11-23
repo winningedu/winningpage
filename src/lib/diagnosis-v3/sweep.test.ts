@@ -153,6 +153,8 @@ const gradeMax = (q4: number) => {
 };
 const grade = (rng: Rng, max: number) =>
   Math.round((1 + rng() * (max - 1)) * 100) / 100;
+/** Mock exam grades are whole 9-grade numbers (validate.ts q6m). */
+const mockGrade = (rng: Rng) => 1 + int(rng, 9);
 
 const EVENT_KIND_ORDINALS = OPTIONS.q13
   .map((o) => String(o.code).slice("EVENT:".length))
@@ -225,9 +227,9 @@ function generate(rng: Rng, options: GenOptions = {}): Generated {
       raw.q6m = {
         month: 3 + int(rng, 9),
         grades: {
-          KOR: grade(rng, 9),
-          MATH: grade(rng, 9),
-          HIST: grade(rng, 9),
+          KOR: mockGrade(rng),
+          MATH: mockGrade(rng),
+          HIST: mockGrade(rng),
         },
       };
     }
