@@ -2,7 +2,7 @@
 // Authorization: Bearer <supabase access token>
 //
 // 위닝 B2C 요약(분석 grill Q5 A11). B2C 회원은 소속 기관이 없거나 기타 소속(is_catch_all)인 회원이다.
-// 회원 수는 지금 기준(유형별), 결제는 기간 안 결제일(KST) 기준 admin_revenue_items 합이다(매출 및 결제 화면과 같은 원천).
+// 회원 수는 지금 기준(유형별), 결제는 기간 안 결제일(보는 사람 시간대 X-Time-Zone) 기준 admin_revenue_items 합이다(매출 및 결제 화면과 같은 원천).
 // B2C DAU, MAU 는 logins?scope=b2c 가 준다. includeInternal=1 이면 QA, 본사 관리자 계정도 센다.
 //   200 { ok, from, to, includeInternal, members { total, byMemberType },
 //         payments { payingMembers, orderCount, paidAmount, refundedAmount, netAmount } }
@@ -40,7 +40,8 @@ export default defineHandler({
       sendError(res, "coded", 403, "대시보드 권한이 없습니다.", "FORBIDDEN");
       return;
     }
-    const period = parsePeriod(req.query, requireTimeZone(ctx));
+    const timeZone = requireTimeZone(ctx);
+    const period = parsePeriod(req.query, timeZone);
     if (typeof period === "string") {
       sendError(res, "coded", 400, period, "INVALID_QUERY");
       return;
@@ -51,6 +52,7 @@ export default defineHandler({
       p_from: period.from,
       p_to: period.to,
       p_include_internal: includeInternal,
+      p_tz: timeZone,
     });
     const row = ((data ?? []) as SummaryRow[])[0];
     if (error || !row)

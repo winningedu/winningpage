@@ -135,7 +135,12 @@ describe("GET /api/admin/hq-dashboard/b2c", () => {
     expect(r.status).toBe(200);
     expect(r.headers["Cache-Control"]).toBe("no-store");
     expect(calls).toEqual([
-      { p_from: "2026-11-01", p_to: "2026-11-23", p_include_internal: false },
+      {
+        p_from: "2026-11-01",
+        p_to: "2026-11-23",
+        p_include_internal: false,
+        p_tz: "Asia/Seoul",
+      },
     ]);
   });
 
@@ -162,6 +167,19 @@ describe("GET /api/admin/hq-dashboard/b2c", () => {
     await get({ includeInternal: "1" });
 
     expect(calls[0]).toMatchObject({ p_include_internal: true });
+  });
+
+  test("보는 사람 시간대(X-Time-Zone)를 p_tz 로 넘긴다", async () => {
+    await callHandler(
+      (req, res) => {
+        req.headers["x-time-zone"] = "America/Los_Angeles";
+        return handler(req, res);
+      },
+      undefined,
+      "GET",
+    );
+
+    expect(calls[0]).toMatchObject({ p_tz: "America/Los_Angeles" });
   });
 
   test("요약 함수가 실패하면 500 이다", async () => {

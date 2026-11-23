@@ -9159,7 +9159,12 @@ export type Database = {
         Returns: Json;
       };
       fn_hq_b2c_summary: {
-        Args: { p_from: string; p_include_internal: boolean; p_to: string };
+        Args: {
+          p_from: string;
+          p_include_internal: boolean;
+          p_to: string;
+          p_tz: string;
+        };
         Returns: {
           by_member_type: Json;
           member_total: number;
@@ -9271,6 +9276,7 @@ export type Database = {
           p_include_internal: boolean;
           p_mau_mode: string;
           p_to: string;
+          p_tz: string;
         };
         Returns: {
           bucket_end: string;
