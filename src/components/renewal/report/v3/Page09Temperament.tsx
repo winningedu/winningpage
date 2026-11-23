@@ -45,7 +45,10 @@ export default function Page09Temperament({ page }: { page: Page9 }) {
       {/* 22 r92 */}
       <section className="flex flex-col gap-2">
         {page.factors.items.map((item) => (
-          <Para key={item.factor}>{item.text}</Para>
+          <div key={item.factor} className="flex flex-col gap-1">
+            <SectionTitle>{item.heading}</SectionTitle>
+            <Para>{item.text}</Para>
+          </div>
         ))}
         <Para>{page.factors.swayCause}</Para>
       </section>

@@ -37,6 +37,14 @@ describe("Page09Temperament (22 r86-r94)", () => {
     expect(screen.getByText("DIM label2 HA 3 LEVEL mid")).toBeInTheDocument();
   });
 
+  it("renders the factor heading apart from its sentence (22 r92)", () => {
+    render(<Page09Temperament page={p9} />);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "TFACTOR heading" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("TFACTOR text").tagName).toBe("P");
+  });
+
   it("omits the low reliability note when absent (22 r93)", () => {
     const { lowReliability: _omitted, ...page } = p9;
     render(<Page09Temperament page={page} />);
