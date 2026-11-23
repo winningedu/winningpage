@@ -13,7 +13,13 @@ import { type Likert, SCALE_ITEMS, scaleValue } from "./likert.js";
 import { roundHalfUpInt } from "./round.js";
 import { numberCell, sheetRows, textCell } from "./sheet.js";
 import { COPY_TEXT } from "./source/copyText.js";
-import type { DiagnosisV3Scores, LikertBlock, TempRuleArea } from "./types.js";
+import type {
+  DiagnosisV3Scores,
+  LikertBlock,
+  Page9,
+  Page10,
+  TempRuleArea,
+} from "./types.js";
 
 const tempSheet = sheetRows("18_기질설정");
 const tempRow = (r: number) => {
