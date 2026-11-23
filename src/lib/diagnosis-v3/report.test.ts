@@ -73,7 +73,13 @@ describe("1p 요약 (22 r9-r27)", () => {
     const { p1 } = run().pages;
     expect(p1.kpi1).toEqual({
       label: COPY_TEXT.KPI1_LABEL,
-      area: { code: "P1_LOG", label: "활동 기록", score: 41, state: "취약" },
+      area: {
+        code: "P1_LOG",
+        label: "활동 기록",
+        score: 41,
+        state: "취약",
+        stateCode: "WEAK",
+      },
       subtitle: cell("04_진단서술", "NARR_P1_LOG_취약", 3),
     });
     expect(p1.kpi2.total).toBe(56.9);
@@ -440,6 +446,7 @@ describe("6p 학교생활 \u00b7 입시 준비도 (22 r63-r69)", () => {
       label: "탐구 심화",
       score: 26,
       state: "우선 보완",
+      stateCode: "WEAK",
     });
     expect(p6.bars).toMatchObject({
       total: 56.9,

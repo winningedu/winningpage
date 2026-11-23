@@ -391,6 +391,8 @@ export type ScoreBar = {
   readonly score: number;
   /** state label text (06 r20-r23 for the page) */
   readonly state: string;
+  /** 06 r20-r23 state code behind the label; the view colors by it (15 r17) */
+  readonly stateCode: AreaState;
 };
 
 export type TextBlock = { readonly heading: string; readonly body: string };

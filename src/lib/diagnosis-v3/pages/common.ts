@@ -18,6 +18,7 @@ export function scoreBar(
     label: AREAS[code].label,
     score: area.score,
     state: AREA_STATE_LABELS[page][area.state],
+    stateCode: area.state,
   };
 }
 

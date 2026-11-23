@@ -9,16 +9,17 @@ const p1Stage = (
   label: string,
   score: number,
   state: string,
-): ScoreBar => ({ code, label, score, state });
+  stateCode: ScoreBar["stateCode"],
+): ScoreBar => ({ code, label, score, state, stateCode });
 
 const STAGES: readonly ScoreBar[] = [
-  p1Stage("P1_GOAL", "목표 설정", 74, "양호"),
-  p1Stage("P1_PRIO", "우선순위", 41, "취약"),
-  p1Stage("P1_PLAN", "계획 수립", 65, "점검 필요"),
-  p1Stage("P1_EXEC", "학습 수행", 56, "보완 필요"),
-  p1Stage("P1_LOG", "활동 기록", 56, "보완 필요"),
-  p1Stage("P1_PATT", "패턴 분석", 74, "양호"),
-  p1Stage("P1_ADJ", "피드백 조정", 83, "우수"),
+  p1Stage("P1_GOAL", "목표 설정", 74, "양호", "TOP"),
+  p1Stage("P1_PRIO", "우선순위", 41, "취약", "WEAK"),
+  p1Stage("P1_PLAN", "계획 수립", 65, "점검 필요", "MID"),
+  p1Stage("P1_EXEC", "학습 수행", 56, "보완 필요", "LOW"),
+  p1Stage("P1_LOG", "활동 기록", 56, "보완 필요", "LOW"),
+  p1Stage("P1_PATT", "패턴 분석", 74, "양호", "TOP"),
+  p1Stage("P1_ADJ", "피드백 조정", 83, "우수", "TOP"),
 ];
 
 const TOC = [
@@ -62,15 +63,51 @@ const RX_ITEMS = {
 } as const;
 
 const SCHOOL_BARS: readonly ScoreBar[] = [
-  { code: "H12_DEEP", label: "탐구 심화", score: 56, state: "보완 필요" },
-  { code: "H12_STRA", label: "입시 전략", score: 65, state: "점검 필요" },
-  { code: "H12_SUBJ", label: "교과 관리", score: 91, state: "양호" },
+  {
+    code: "H12_DEEP",
+    label: "탐구 심화",
+    score: 56,
+    state: "보완 필요",
+    stateCode: "LOW",
+  },
+  {
+    code: "H12_STRA",
+    label: "입시 전략",
+    score: 65,
+    state: "점검 필요",
+    stateCode: "MID",
+  },
+  {
+    code: "H12_SUBJ",
+    label: "교과 관리",
+    score: 91,
+    state: "양호",
+    stateCode: "TOP",
+  },
 ];
 
 const MIND_BARS: readonly ScoreBar[] = [
-  { code: "MIND_EFF", label: "자기효능감", score: 75, state: "상위" },
-  { code: "MIND_GROW", label: "성장 마인드셋", score: 75, state: "상위" },
-  { code: "MIND_RECV", label: "불안 회복", score: 65, state: "보통" },
+  {
+    code: "MIND_EFF",
+    label: "자기효능감",
+    score: 75,
+    state: "상위",
+    stateCode: "TOP",
+  },
+  {
+    code: "MIND_GROW",
+    label: "성장 마인드셋",
+    score: 75,
+    state: "상위",
+    stateCode: "TOP",
+  },
+  {
+    code: "MIND_RECV",
+    label: "불안 회복",
+    score: 65,
+    state: "보통",
+    stateCode: "MID",
+  },
 ];
 
 /** 4p and cover stages: under 45 is a break (22 r50). */
