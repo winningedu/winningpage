@@ -166,16 +166,19 @@ const minLoadOf = (weekday: Ordinal): number => {
 
 const LAST_DAY = first(WEEKS, WEEKS.length - 1, "week").to;
 
-/** q13 events whose Day falls in from..to. */
+/** q13 events whose Day falls in from..to, one per kind and date (98 r15). */
 const eventsBetween = (
   diagnosedAt: IsoDate,
   schedule: DiagnosisV3Answers["q13"],
   from: number,
   to: number,
 ): ScheduleEvent[] =>
-  (Array.isArray(schedule) ? schedule : []).filter((e) => {
+  (Array.isArray(schedule) ? schedule : []).filter((e, index, all) => {
     const day = dayOfDate(diagnosedAt, e.date);
-    return day >= from && day <= to;
+    const firstIndex = all.findIndex(
+      (o) => o.kind === e.kind && o.date === e.date,
+    );
+    return firstIndex === index && day >= from && day <= to;
   });
 
 const weekOf = (day: number): Week => {

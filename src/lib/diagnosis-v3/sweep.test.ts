@@ -998,25 +998,26 @@ describe("98_전수검증 r17 문구 도달", () => {
   });
 });
 
-// 98 r15 gap found by the sweep: two events of one kind on one day print the
-// same task twice. The main r15 row keeps events distinct; this row pins the bug.
+// 98 r15: two events of one kind on one day must not print the same task
+// twice. validateAnswers rejects such a pair, so the engine is fed directly.
 describe("98_전수검증 r15 same-day twin events", () => {
-  it.fails("r15 같은 날 같은 종류 일정 두 개도 같은 과제를 두 번 내지 않는다 (engine bug, see report)", () => {
+  it("r15 같은 날 같은 종류 일정 두 개도 같은 과제를 두 번 내지 않는다", () => {
     const rng = makeRng(SEED + 8);
     const diagnosedAt = "2026-11-09";
     const duplicates: string[] = [];
     for (const kind of EVENT_KIND_ORDINALS) {
       const date = addDays(diagnosedAt, 6);
-      const r = run(
-        generate(rng, {
-          grade: 3,
-          diagnosedAt,
-          events: [
+      const g = generate(rng, { grade: 3, diagnosedAt, events: "NONE" });
+      const r = run({
+        ...g,
+        answers: {
+          ...g.answers,
+          q13: [
             { kind, date },
             { kind, date },
           ],
-        }),
-      );
+        },
+      });
       const seen = new Set<string>();
       for (const task of r.payload.scores.plan.tasks) {
         const id = task.taskId + "@" + task.date;

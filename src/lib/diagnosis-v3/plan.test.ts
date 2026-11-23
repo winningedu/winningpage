@@ -441,6 +441,16 @@ describe("buildPlan", () => {
     ]);
   });
 
+  test("98 r15: two events of one kind on one day add that day's tasks once", () => {
+    const twin = { kind: "PERF", date: "2026-11-27" } as const;
+    const plan = buildPlan({ ...calcInput(), schedule: [twin, twin] });
+    const ids = plan.tasks.map((t) => `${t.taskId}@${t.date}`);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(plan.tasks.filter((t) => t.taskId.startsWith("EVT_"))).toHaveLength(
+      2,
+    );
+  });
+
   test("MID or OK adds no exam-ops task", () => {
     expect(
       buildPlan({ ...pdfInput(), examOps: "MID" }).tasks.some((t) =>
