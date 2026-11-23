@@ -28,8 +28,8 @@ export default function Page09Temperament({ page }: { page: Page9 }) {
       <ul className="flex flex-col gap-2">
         {page.dims.map((d) => (
           <li key={d.dim} className="flex gap-3">
-            <span className="w-16 shrink-0 text-sm font-bold text-ink">
-              {d.dim} {d.score}
+            <span className="w-48 shrink-0 text-sm font-bold text-ink">
+              {`${d.label} ${d.dim} ${d.score} ${d.levelLabel}`}
             </span>
             <span className="text-base text-[#808080]">{d.text}</span>
           </li>

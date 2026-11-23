@@ -31,6 +31,12 @@ describe("Page09Temperament (22 r86-r94)", () => {
     }
   });
 
+  it("renders each dim as label, code, score and level word (PDF p9)", () => {
+    render(<Page09Temperament page={p9} />);
+    expect(screen.getByText("DIM label1 NS 4 LEVEL high")).toBeInTheDocument();
+    expect(screen.getByText("DIM label2 HA 3 LEVEL mid")).toBeInTheDocument();
+  });
+
   it("omits the low reliability note when absent (22 r93)", () => {
     const { lowReliability: _omitted, ...page } = p9;
     render(<Page09Temperament page={page} />);
