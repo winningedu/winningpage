@@ -34,6 +34,7 @@ export function scan(root) {
   for (const file of files) {
     const lines = readFileSync(join(root, file), "utf8").split("\n");
     lines.forEach((text, i) => {
+      if (/tz-literal-ok:\s*\S/.test(text)) return;
       for (const p of PATTERNS) {
         if (p.test(text)) {
           hits[file] ??= [];

@@ -52,4 +52,19 @@ describe("check-time-zone-literals", () => {
     expect(r.out).toContain("api/a.ts");
     expect(r.out).toContain(":1:");
   });
+
+  test("tz-literal-ok 표식과 사유가 있으면 통과하고, 사유가 없으면 실패한다", () => {
+    put(
+      "api/a.ts",
+      'const tz = "Asia/Seoul"; // tz-literal-ok: 기존 행 기본 시간대 (D1)\n',
+    );
+    expect(run().code).toBe(0);
+    put("api/b.ts", 'const tz = "Asia/Seoul"; // tz-literal-ok:\n');
+    put("api/c.ts", 'const tz = "Asia/Seoul"; // tz-literal-ok\n');
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("api/b.ts");
+    expect(r.out).toContain("api/c.ts");
+    expect(r.out).not.toContain("api/a.ts");
+  });
 });
