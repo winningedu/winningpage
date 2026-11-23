@@ -67,6 +67,7 @@ export default function ChildGrowthReports() {
                 key={item.id}
                 childId={query.data.child.id}
                 item={item}
+                timeZone={query.data.timeZone}
               />
             ))}
           </ul>

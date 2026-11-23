@@ -62,7 +62,7 @@ export default function ReportBody({ detail, parentView = false }: Props) {
     parentView,
   });
   const previousDate = narrative?.previous
-    ? formatKoreanDate(narrative.previous.issuedAt)
+    ? formatKoreanDate(narrative.previous.issuedAt, detail.timeZone)
     : "";
 
   return (

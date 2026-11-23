@@ -51,6 +51,7 @@ describe("useReportGeneration", () => {
       kind: "ok" as const,
       data: {
         ok: true as const,
+        timeZone: "Asia/Seoul",
         items: [],
         archivedCount: 0,
         lastTerminal: null,

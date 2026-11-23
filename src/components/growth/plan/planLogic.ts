@@ -8,6 +8,7 @@ import type {
   PlanProgress,
   ProgramHandoff,
 } from "@/lib/growth/api";
+import { browserTimeZone } from "@/lib/time/zone";
 import { formatKoreanDate } from "../reports/reportsLogic";
 
 // 실행계획 화면의 순수 로직. 화면 컴포넌트는 이 파일의 결과만 그린다.
@@ -265,7 +266,8 @@ export function buildHandoffRows(
   issuedAt: string | null,
 ): HandoffRow[] {
   const rows: HandoffRow[] = [];
-  const issued = formatKoreanDate(issuedAt);
+  // 성장설계 plan 응답(U-growth 소관)에 회원 시간대가 실리면 그 값으로 바꾼다.
+  const issued = formatKoreanDate(issuedAt, browserTimeZone());
   if (issued)
     rows.push({ label: "발행 리포트", value: `${issued} 발행 리포트` });
   if (handoff.theme) rows.push({ label: "서사 대주제", value: handoff.theme });
