@@ -5,7 +5,7 @@ import { type AdmissionResult, computeAdmission } from "./admission.js";
 import type { AreaCode } from "./codes.js";
 import { P1_CODES, P2_CODES } from "./codes.js";
 import { judgeExamOps } from "./examOps.js";
-import { scoreMbti } from "./mbti.js";
+import { mbtiPage8, scoreMbti } from "./mbti.js";
 import { buildPage1 } from "./pages/p1.js";
 import { buildPage2, goalOf } from "./pages/p2.js";
 import { buildPage3 } from "./pages/p3.js";
@@ -13,7 +13,8 @@ import { buildPage4 } from "./pages/p4.js";
 import { buildPage5 } from "./pages/p5.js";
 import { buildPage6 } from "./pages/p6.js";
 import { buildPage7 } from "./pages/p7.js";
-import { buildPlan } from "./plan.js";
+import { buildPage11 } from "./pages/p11.js";
+import { buildPlan, buildPlannerPages } from "./plan.js";
 import { buildPrescriptions } from "./prescription.js";
 import { scoreReliability } from "./reliability.js";
 import { scoreAreas } from "./scoring.js";
@@ -24,6 +25,7 @@ import {
   scoreTemperament,
   type TemperamentResult,
   temperamentPage9,
+  temperamentPage10,
 } from "./temperament.js";
 import type {
   DiagnosisV3Answers,
@@ -154,6 +156,14 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     engine.scores.reliability.temperament,
   );
   const p7 = buildPage7(engine);
+  const { scores, answers, context } = engine;
+  const p10 = temperamentPage10(engine.temperament, scores.reliability);
+  const [p12, p13, p14, p15] = buildPlannerPages(
+    scores.plan,
+    context.diagnosedAt,
+    answers.q13,
+  );
+  if (!p12 || !p13 || !p14 || !p15) throw new Error("need 4 planner pages");
   return {
     p1: buildPage1(engine, p9.hero.name),
     p2: buildPage2(engine),
@@ -162,6 +172,26 @@ export function buildPages(engine: Engine): Partial<DiagnosisV3Pages> {
     p5: buildPage5(engine),
     p6: buildPage6(engine),
     ...(p7 ? { p7 } : {}),
+    p8: mbtiPage8(answers.q22, allAreaScores(scores)),
     p9,
+    p10,
+    p11: buildPage11(engine, p10.methods),
+    p12,
+    p13,
+    p14,
+    p15,
   };
+}
+
+/** PAGE1, track PAGE2 and MIND scores by code. */
+function allAreaScores(
+  scores: DiagnosisV3Scores,
+): Partial<Record<AreaCode, number>> {
+  return Object.fromEntries(
+    [
+      ...Object.entries(scores.page1.areas),
+      ...Object.entries(scores.page2.areas),
+      ...Object.entries(scores.mind.areas),
+    ].map(([code, area]) => [code, area?.score]),
+  );
 }

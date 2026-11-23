@@ -26,6 +26,12 @@ const SIMPLE_PICKS: DiagnosisV3Answers = {
   q11: { ...CALC_EXAMPLE.q11, verify: 4 },
 };
 
+/** 21번 all 보통: F6, 기질 주의 (17 r12, r17). */
+const CAUTION: DiagnosisV3Answers = {
+  ...CALC_EXAMPLE,
+  q23: { items: Array(35).fill(2), verify: 3 },
+};
+
 const cell = (sheet: string, id: string, col: number) =>
   String(COPY_SHEETS[sheet]?.find((r) => r.c[0] === id)?.c[col]);
 
@@ -546,5 +552,76 @@ describe("7p 입결 (22 r71-r77)", () => {
       COPY_TEXT.diff_over?.replace("{v}", "0.55"),
     );
     expect(p7.result.band.precision).toBeUndefined();
+  });
+});
+
+describe("8p-10p MBTI and 기질 (22 r79-r99)", () => {
+  test("계산 예시: no MBTI, single NS hero, track rules (계산 예시 D30, D32)", () => {
+    const { p8, p9, p10 } = run().pages;
+    expect(p8.mbti.kind).toBe("none");
+    expect(p8.disclaimer).toBe(COPY_TEXT.MBTI_DISCLAIMER);
+    expect(p9.title).toBe(COPY_TEXT.TEMP_TYPE_NS_HEAD);
+    expect(p9.lowReliability).toBeUndefined();
+    if (p10.admission.kind !== "rules") throw new Error("expected rules");
+    expect(p10.admission.areas.flatMap((a) => a.texts)).toEqual(
+      [
+        "T_AD_2",
+        "T_AD_5",
+        "T_AD_6",
+        "T_PACE_2",
+        "T_PACE_3",
+        "T_SUBJ_0",
+        "T_SUBJ_1",
+      ].map((id) => COPY_TEXT[id]),
+    );
+  });
+
+  test("기질 주의 adds TEMP_LOWREL and hides the rules; 응답 단순 hides them too", () => {
+    const caution = run(CAUTION).pages;
+    expect(caution.p9.lowReliability).toBe(COPY_TEXT.TEMP_LOWREL);
+    expect(caution.p10.admission).toEqual({
+      kind: "hidden",
+      text: COPY_TEXT.TEMP_LOWREL,
+    });
+    expect(run(SIMPLE).pages.p10.admission).toEqual({
+      kind: "hidden",
+      text: COPY_TEXT.SINCERITY_BANNER,
+    });
+  });
+
+  test("an MBTI answer fills the type card", () => {
+    const { p8 } = run({ ...CALC_EXAMPLE, q22: "ESTJ" }).pages;
+    expect(p8.mbti.kind).toBe("type");
+  });
+});
+
+describe("11p 4주 플랜 and 12-15p 플래너 (22 r101-r113)", () => {
+  test("계산 예시: urgency 보통, events and table (계산 예시 D28, D33)", () => {
+    const { p11, p12, p15 } = run().pages;
+    expect(p11.title).toBe(COPY_TEXT.PLAN_HEAD);
+    expect(p11.lead).toBe(COPY_TEXT.PLAN_LEAD);
+    expect(p11.urgency).toEqual({
+      label: cell("06_긴급도", "URG_L2", 1),
+      text: COPY_TEXT.URG_L2,
+    });
+    expect(p11.events.kind).toBe("events");
+    expect(p11.table.weeks.filter((w) => w.reduced).map((w) => w.week)).toEqual(
+      [3],
+    );
+    expect(p11.checkpoints).toHaveLength(6);
+    expect(p12.week).toBe(1);
+    expect(p15.week).toBe(4);
+  });
+
+  test("style tips: temperament methods plus MBTI J/P and E/I tips, else hidden (22 r106)", () => {
+    const methods = run().pages.p10.methods;
+    const plain = run().pages.p11.styleTips;
+    expect(plain).toEqual(methods.length > 0 ? methods : undefined);
+    const withMbti = run({ ...CALC_EXAMPLE, q22: "ESTJ" }).pages.p11.styleTips;
+    expect(withMbti).toEqual([
+      ...methods,
+      COPY_TEXT.MBTI_TIP_J,
+      COPY_TEXT.MBTI_TIP_E,
+    ]);
   });
 });
