@@ -37,7 +37,6 @@ import {
   resolveAdmissionTarget,
   submitDiagnosisV3,
 } from "@/lib/diagnosisSubmitApi";
-import { kstYMD } from "@/lib/goal/calc/virtualDate";
 // 이용개시 시작 로그(programEntry.ts) — 진입 게이트가 allowed를 확인한 직후 기록한다.
 import { markProgramEntry } from "@/lib/programEntry";
 import {
@@ -52,6 +51,8 @@ import {
   toSubmitAnswers,
 } from "@/lib/renewalSurvey";
 import type { TenantBlockReason } from "@/lib/tenantBlock";
+import { ymdIn } from "@/lib/time/day";
+import { browserTimeZone } from "@/lib/time/zone";
 
 const SURVEY_BASE_PATH = SURVEY_FIRST_STEP_PATH.replace(/\/1$/, "");
 
@@ -74,9 +75,13 @@ export default function SurveyStepShell() {
   // q23 shuffle seed (기능요구명세서 row 31): one per survey, kept in the draft
   // so a resumed survey shows the same order.
   const [seed, setSeed] = useState<string>(() => crypto.randomUUID());
-  // KST calendar date the survey runs on: q4 default and q13 date bounds.
-  // Submit moves it to the submit day, the date the server scores with.
-  const [diagnosedAt, setDiagnosedAt] = useState(() => kstYMD());
+  // Calendar date the survey runs on in the browser zone: q4 default and q13 date bounds.
+  // The server sets the real diagnosis day from profiles.time_zone, so a browser zone that
+  // differs from the profile zone can shift this by a day. The server then answers
+  // INVALID_ANSWERS for a row it sees as past, and showAnswerProblem sends the user back.
+  const [diagnosedAt, setDiagnosedAt] = useState(() =>
+    ymdIn(new Date(), browserTimeZone()),
+  );
   // One attemptId per submit flow, reused on retry (the server answers a
   // repeated attemptId as already_recorded). rememberAttemptId keeps it
   // across a reload until submit succeeds.
@@ -224,9 +229,9 @@ export default function SurveyStepShell() {
       target = resolved.target;
     }
     const submitAnswers = toSubmitAnswers(answers, target);
-    // The server checks the answers against the submit day (KST), so a survey
+    // The server checks the answers against the submit day, so a survey
     // that crossed midnight is checked again before consume (16 r30 dates).
-    const today = kstYMD();
+    const today = ymdIn(new Date(), browserTimeZone());
     setDiagnosedAt(today);
     const checked = validateAnswers(submitAnswers, today);
     if (!checked.ok) {
