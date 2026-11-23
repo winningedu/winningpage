@@ -4,6 +4,8 @@ import {
   MIND_CODES,
   P1_CODES,
   P2_CODES,
+  QUESTION_IDS,
+  REQUIRED_QUESTIONS,
   SERVICE_CODES,
   TEMP_DIMS,
   TEMP_FACTORS,
@@ -78,5 +80,31 @@ describe("temperament and service codes", () => {
       .filter((row) => row.r >= 5 && row.r <= 14)
       .map((row) => row.c[0]);
     expect(SERVICE_CODES).toEqual([...new Set(codes)]);
+  });
+});
+
+describe("question ids (13_문항메타)", () => {
+  const metaIds = (SCORE_SHEETS["13_문항메타"] ?? [])
+    .filter((row) => /^q\d/.test(String(row.c[0])))
+    .map((row) => row.c[0]);
+
+  test("typed ids follow the sheet order", () => {
+    expect(QUESTION_IDS).toEqual(metaIds);
+  });
+
+  test("required ids are the 필수 column", () => {
+    expect(REQUIRED_QUESTIONS).toEqual([
+      "q1",
+      "q2",
+      "q3",
+      "q4",
+      "q5",
+      "q6",
+      "q9",
+      "q20",
+      "q11",
+      "q21",
+      "q23",
+    ]);
   });
 });

@@ -86,3 +86,42 @@ export const SERVICE_CODES = [
   "CALL",
 ] as const;
 export type ServiceCode = (typeof SERVICE_CODES)[number];
+
+// 13_문항메타 A5-A32, screen order.
+export const QUESTION_IDS = [
+  "q1",
+  "q2",
+  "q3",
+  "q3r",
+  "q4",
+  "q5",
+  "q6",
+  "q6s",
+  "q6r",
+  "q6m",
+  "q8",
+  "q8s",
+  "q8d",
+  "q9",
+  "q20",
+  "q10",
+  "q11",
+  "q12",
+  "q13",
+  "q21",
+  "q14",
+  "q15",
+  "q16",
+  "q17",
+  "q18",
+  "q22",
+  "q23",
+] as const;
+export type QuestionId = (typeof QUESTION_IDS)[number];
+
+/** 13_문항메타 G column = 필수, screen order. */
+export const REQUIRED_QUESTIONS: readonly QuestionId[] = sheetRows(
+  "13_문항메타",
+)
+  .filter((row) => row.r > 4 && row.c[6] === "필수")
+  .map((row) => textCell(row, 0) as QuestionId);
