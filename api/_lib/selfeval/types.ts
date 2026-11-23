@@ -202,6 +202,13 @@ export const ANALYSIS_FIELDS = [
 
 export type AnalysisField = (typeof ANALYSIS_FIELDS)[number];
 
+/**
+ * 본문 생성 입력과 문장 근거로 쓸 수 있는 항목. 다음 단계(next)는 분석에 저장해 두었다가
+ * 리포트의 다음 단계 제안에만 쓰므로 본문에는 쓰지 않는다(명세 No.37).
+ */
+export const BODY_EVIDENCE_FIELDS: readonly AnalysisField[] =
+  ANALYSIS_FIELDS.filter((f) => f !== "next");
+
 export const ANALYSIS_FIELD_LABELS: Record<AnalysisField, string> = {
   motive: "계기",
   concept: "교과 개념",
@@ -257,8 +264,8 @@ export type ParagraphRole = "link" | "process" | "judgment" | "wrap";
 
 export const PARAGRAPH_ROLE_LABELS: Record<ParagraphRole, string> = {
   link: "연계 발전 지점",
-  process: "과정과 역할",
-  judgment: "결과와 판단",
+  process: "과정",
+  judgment: "판단",
   wrap: "정리",
 };
 

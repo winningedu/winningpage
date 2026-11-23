@@ -149,21 +149,69 @@ function writeInput(over: Partial<WritePromptInput> = {}): WritePromptInput {
 }
 
 describe("buildWritePrompt", () => {
-  it("보조 활동이 없으면 3문단, 있으면 4문단(link 포함)을 요구한다", () => {
-    const three = buildWritePrompt(writeInput());
-    expect(three.system).toContain("3문단");
-    expect(three.system).not.toContain("연계 발전 지점");
-    const four = buildWritePrompt(
+  it("문단 수를 고정하지 않고 흐름 순서와 문단 나눔 기준을 적는다(명세 No.44)", () => {
+    const sys = buildWritePrompt(
+      writeInput({
+        supports: [
+          { activityId: "s1", activityName: "보조탐구", summary: "요약" },
+        ],
+      }),
+    ).system;
+    expect(sys).toContain("문단 수는 정하지 않는다");
+    expect(sys).toContain("문단 나눔은 분량에 따른다");
+    expect(sys).not.toMatch(/[34]문단/);
+    const order = ["연계 발전 지점", "과정", "판단", "정리"].map((l) =>
+      sys.indexOf(`- ${l}:`),
+    );
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(sys).toContain("앞 활동의 이름과 그 활동이 남긴 것");
+    expect(sys).toContain("측정 기준이나 방법을 스스로 정하고 바꾼 대목");
+    expect(sys).toContain(
+      "확인한 값과 그 값으로 무엇을 판단했고 무엇을 포기했는지",
+    );
+    expect(sys).toContain("개념으로 정리하고 처음 질문으로 돌아오기");
+  });
+
+  it("연계된 보조 활동이 없으면 연계 발전 지점을 쓰지 않고 앞 활동을 지어내지 않는다", () => {
+    const none = buildWritePrompt(writeInput()).system;
+    expect(none).not.toContain("- 연계 발전 지점:");
+    expect(none).toContain("연계 발전 지점은 쓰지 않는다");
+    expect(none).toContain("없는 앞 활동을 지어내지 않는다");
+    const withSupport = buildWritePrompt(
       writeInput({
         supports: [
           { activityId: "s1", activityName: "보조탐구", summary: "요약" },
         ],
       }),
     );
-    expect(four.system).toContain("4문단");
-    expect(four.system).toContain("연계 발전 지점");
-    expect(four.user).toContain("s1");
-    expect(four.user).toContain("보조탐구");
+    expect(withSupport.system).toContain("- 연계 발전 지점:");
+    expect(withSupport.system).not.toContain("연계 발전 지점은 쓰지 않는다");
+    expect(withSupport.user).toContain("s1");
+    expect(withSupport.user).toContain("보조탐구");
+  });
+
+  it("계획과 예정 문장을 쓰지 않고 후속은 기록 근거가 있는 실제 행동만 쓰게 한다", () => {
+    const sys = buildWritePrompt(writeInput()).system;
+    expect(sys).toContain("하지 않은 계획이나 예정 문장은 쓰지 않는다");
+    expect(sys).toContain("계획을 세움, ~할 예정, ~할 것임, ~하고 싶음");
+    expect(sys).toContain("기록 근거가 있는 실제 후속 행동만 쓴다");
+  });
+
+  it("다음 단계(next) 항목은 값이 있어도 본문 생성 입력에 싣지 않는다(명세 No.37)", () => {
+    const b = buildWritePrompt(
+      writeInput({
+        core: {
+          activityName: "이차함수 탐구",
+          activityId: "a1",
+          analysis: analysis({ motive: "record", next: "record" }),
+        },
+      }),
+    );
+    expect(b.user).toContain("motive값내용");
+    expect(b.user).not.toContain("next값내용");
+    expect(b.user).not.toMatch(/next\(/);
+    expect(JSON.stringify(b.responseSchema)).not.toContain('"next"');
   });
 
   it("문체 규칙을 ~함 체 예시와 함께 분명히 적는다", () => {
@@ -194,12 +242,18 @@ describe("buildWritePrompt", () => {
     expect(b.system).toContain("공백 제외");
   });
 
-  it("300자 이하면 필수 절만 쓰라는 규칙을 넣는다", () => {
+  it("300자 이하면 흐름 단계마다 필수 절만 쓰라는 규칙을 넣는다(명세 No.47)", () => {
     const b = buildWritePrompt(writeInput({ targetChars: 300 }));
-    expect(b.system).toContain("문단당 문장 2개 이하");
-    expect(
-      buildWritePrompt(writeInput({ targetChars: 800 })).system,
-    ).not.toContain("문단당 문장 2개 이하");
+    expect(b.system).toContain(
+      "선택 절은 빼고 흐름 단계마다 꼭 필요한 절만 쓴다",
+    );
+    expect(b.system).toContain("단계마다 문장 2개 이하");
+    expect(b.system).not.toMatch(/문단당/);
+    const long = buildWritePrompt(writeInput({ targetChars: 800 })).system;
+    expect(long).not.toContain("선택 절은 빼고");
+    expect(long).toContain(
+      "필수 절을 먼저 채운 뒤 목표 분량에 닿을 때까지 선택 절을 더한다",
+    );
   });
 
   it("목표가 null 이면 500자 기준으로 쓴다", () => {
@@ -239,11 +293,11 @@ describe("buildWritePrompt", () => {
     expect(buildWritePrompt(writeInput()).user).not.toContain("성장설계");
   });
 
-  it("응답 스키마는 문단 role enum 과 문장 evidence nullable 구조다", () => {
+  it("응답 스키마는 role 없이 문단과 문장 evidence nullable 구조다", () => {
     const b = buildWritePrompt(writeInput());
     const json = JSON.stringify(b.responseSchema);
     for (const r of ["link", "process", "judgment", "wrap"])
-      expect(json).toContain(r);
+      expect(json).not.toContain(r);
     expect(json).toContain("evidence");
     expect(json).toContain("feeling");
     expect(b.maxOutputTokens).toBe(3072);

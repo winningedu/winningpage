@@ -21,6 +21,7 @@ import {
   type ActivityRecordLike,
   ANALYSIS_FIELDS,
   type AnalysisField,
+  BODY_EVIDENCE_FIELDS,
   type CharCount,
   type GenerationSections,
   type Paragraph,
@@ -228,8 +229,6 @@ function isNominalStyle(text: string): boolean {
   return code >= 0 && code <= 11171 && code % 28 === JONG_MIEUM;
 }
 
-const BODY_EXCLUDED_FIELD: AnalysisField = "next";
-
 function readEvidence(
   raw: unknown,
   ctx: WriteValidationContext,
@@ -258,7 +257,7 @@ function readEvidence(
     raw.activityId === ctx.coreActivityId
       ? (ctx.allowedFields as string[])
       : (ANALYSIS_FIELDS as readonly string[])
-  ).filter((f) => f !== BODY_EXCLUDED_FIELD);
+  ).filter((f) => (BODY_EVIDENCE_FIELDS as readonly string[]).includes(f));
   if (typeof field !== "string" || !allowed.includes(field)) {
     issues.push({
       code: "empty_field_used",

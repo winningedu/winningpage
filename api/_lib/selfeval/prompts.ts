@@ -15,9 +15,11 @@ import {
   type Analysis,
   AREA_LABELS,
   type Area,
+  BODY_EVIDENCE_FIELDS,
   DEFAULT_TARGET_CHARS,
   type ModelStepKey,
   PARAGRAPH_ROLE_LABELS,
+  type ParagraphRole,
   SHORT_TARGET_MAX,
   TARGET_TOLERANCE,
   type TargetCharsMode,
@@ -188,10 +190,6 @@ const writeSchema = {
       items: {
         type: "object",
         properties: {
-          role: {
-            type: "string",
-            enum: ["link", "process", "judgment", "wrap"],
-          },
           sentences: {
             type: "array",
             items: {
@@ -203,7 +201,7 @@ const writeSchema = {
                   nullable: true,
                   properties: {
                     activityId: { type: "string" },
-                    field: { type: "string", enum: [...ANALYSIS_FIELDS] },
+                    field: { type: "string", enum: [...BODY_EVIDENCE_FIELDS] },
                   },
                   required: ["activityId", "field"],
                 },
@@ -213,11 +211,19 @@ const writeSchema = {
             },
           },
         },
-        required: ["role", "sentences"],
+        required: ["sentences"],
       },
     },
   },
   required: ["paragraphs"],
+};
+
+/** 본문 흐름 단계별 안내(명세 No.44). 문단 수와 무관하게 이 순서로 쓴다. */
+const FLOW_GUIDES: Record<ParagraphRole, string> = {
+  link: "앞 활동의 이름과 그 활동이 남긴 것",
+  process: "측정 기준이나 방법을 스스로 정하고 바꾼 대목",
+  judgment: "확인한 값과 그 값으로 무엇을 판단했고 무엇을 포기했는지",
+  wrap: "개념으로 정리하고 처음 질문으로 돌아오기",
 };
 
 function lengthRules(
@@ -241,24 +247,30 @@ function lengthRules(
   rules.push("- 문장 하나는 40자에서 90자 사이로 쓴다.");
   if (targetChars !== null && targetChars <= SHORT_TARGET_MAX) {
     rules.push(
-      `- 분량이 짧으므로 꼭 필요한 절만 쓴다. 문단당 문장 2개 이하로 쓰고${hasLink ? ", 연계 문단은 한 문장으로 쓴다" : ""}.`,
+      `- 분량이 짧으므로 선택 절은 빼고 흐름 단계마다 꼭 필요한 절만 쓴다. 단계마다 문장 2개 이하로 쓰고${hasLink ? ", 연계 발전 지점은 한 문장으로 쓴다" : ""}.`,
     );
   } else {
-    rules.push("- 문단당 문장은 2개에서 4개로 쓴다.");
+    rules.push(
+      "- 흐름 단계마다 반드시 들어갈 필수 절을 먼저 채운 뒤 목표 분량에 닿을 때까지 선택 절을 더한다. 단계마다 문장은 2개에서 4개로 쓴다.",
+    );
   }
   return rules;
 }
 
 function writeSystem(input: WritePromptInput): string {
   const hasLink = input.supports.length > 0;
-  const roles = hasLink
+  const steps = hasLink
     ? (["link", "process", "judgment", "wrap"] as const)
     : (["process", "judgment", "wrap"] as const);
   const structure = [
-    `이번 작업: 자기평가서 본문 작성. 본문은 ${roles.length}문단이다.`,
-    ...roles.map(
-      (r, i) => `- ${i + 1}문단 role=${r}: ${PARAGRAPH_ROLE_LABELS[r]}`,
-    ),
+    "이번 작업: 자기평가서 본문 작성. 문단 수는 정하지 않는다. 아래 흐름 순서로 쓰고 문단 나눔은 분량에 따른다.",
+    ...steps.map((r) => `- ${PARAGRAPH_ROLE_LABELS[r]}: ${FLOW_GUIDES[r]}`),
+    ...(hasLink
+      ? []
+      : [
+          "- 연계된 보조 활동이 없으므로 연계 발전 지점은 쓰지 않는다. 없는 앞 활동을 지어내지 않는다.",
+        ]),
+    "- 하지 않은 계획이나 예정 문장은 쓰지 않는다(계획을 세움, ~할 예정, ~할 것임, ~하고 싶음). 다음 단계는 기록 근거가 있는 실제 후속 행동만 쓴다.",
     `- 모든 문장은 '~${SENTENCE_STYLE}' 처럼 명사형으로 끝낸다(예: 확인함, 세움, 깨달음, 있음, 없음). '~했다', '~한다', '~합니다', '~해요' 는 쓰지 않는다.`,
     "- 한 문장 안에서 어미를 섞어 쓰지 않는다. 앞 절은 연결형으로 이어 쓰고 문장 끝만 명사형으로 맺는다(예: '표를 만들고 값을 비교함').",
     `- 예: '상관계수를 계산${SENTENCE_STYLE}(맞음)', '상관계수를 계산했다(틀림)'`,
@@ -295,7 +307,7 @@ function writeSystem(input: WritePromptInput): string {
 
 function writeUser(input: WritePromptInput): string {
   const { core } = input;
-  const filled = ANALYSIS_FIELDS.filter(
+  const filled = BODY_EVIDENCE_FIELDS.filter(
     (f) =>
       core.analysis.sources[f] !== "empty" && core.analysis.values[f] !== "",
   );
@@ -315,7 +327,7 @@ function writeUser(input: WritePromptInput): string {
   ];
   if (input.supports.length > 0) {
     parts.push(
-      `[보조 활동] 연계 문단에서만 쓴다.\n${input.supports
+      `[보조 활동] 연계 발전 지점에서만 쓴다.\n${input.supports
         .map((s) => `- id=${s.activityId} 이름=${s.activityName}: ${s.summary}`)
         .join("\n")}`,
     );
