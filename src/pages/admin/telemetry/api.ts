@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/apiFetch";
 import { getFreshSupabaseAccessTokenOrSignOut } from "@/pages/admin/shared/adminSession";
 import type { PricingTableValue } from "./pricingForm";
 
@@ -100,7 +101,7 @@ async function call<T>(
   init: { method: "GET" | "PUT"; body?: unknown },
 ): Promise<ApiResult<T>> {
   const accessToken = await getFreshSupabaseAccessTokenOrSignOut();
-  const response = await fetch(url, {
+  const response = await apiFetch(url, {
     method: init.method,
     headers: {
       "Content-Type": "application/json",
