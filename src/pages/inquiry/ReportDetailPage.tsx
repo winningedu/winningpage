@@ -98,6 +98,7 @@ export default function ReportDetailPage() {
   );
   const pdf = useReportPdfSave(
     buildInquiryPdfFileName("report", data?.topic?.detail?.title),
+    "inquiry",
   );
 
   if (isError && errorCode(error) === "SESSION_NOT_FOUND") {

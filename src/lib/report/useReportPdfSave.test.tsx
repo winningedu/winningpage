@@ -17,6 +17,7 @@ vi.mock("react-to-print", () => ({
     return printMock;
   },
 }));
+vi.mock("@/lib/analytics", () => ({ trackEvent: vi.fn() }));
 vi.mock("./downloadReportPdf", () => ({
   getReportAccessToken: tokenMock,
   downloadReportPdf: downloadMock,
@@ -27,6 +28,7 @@ vi.mock("./buildPrintDocument", () => ({
 }));
 
 import { ToastProvider } from "@/context/ToastContext";
+import { trackEvent } from "@/lib/analytics";
 import { REPORT_PRINT_PAGE_BASE_STYLE } from "./printPageStyle";
 import { useReportPdfSave } from "./useReportPdfSave";
 
@@ -35,7 +37,9 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 function setup() {
-  const hook = renderHook(() => useReportPdfSave("report"), { wrapper });
+  const hook = renderHook(() => useReportPdfSave("report", "growth"), {
+    wrapper,
+  });
   // 인쇄 대상 요소가 있어야 서버 경로가 시작된다.
   hook.result.current.contentRef.current = document.createElement("div");
   return hook;
@@ -52,6 +56,42 @@ afterEach(() => {
   vi.useRealTimers();
   for (const m of [tokenMock, downloadMock, serverMock, printMock])
     m.mockReset();
+  vi.mocked(trackEvent).mockClear();
+});
+
+describe("useReportPdfSave 분석 이벤트", () => {
+  test("서버 PDF 요청을 보내면 report_export를 pdf로 보낸다", async () => {
+    const { result } = setup();
+    await act(async () => {
+      result.current.save();
+    });
+    expect(downloadMock).toHaveBeenCalled();
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "growth",
+      method: "pdf",
+    });
+  });
+
+  test("토큰이 없어 요청하지 못하면 보내지 않는다", async () => {
+    tokenMock.mockResolvedValue(null);
+    const { result } = setup();
+    await act(async () => {
+      result.current.save();
+    });
+    expect(downloadMock).not.toHaveBeenCalled();
+    expect(trackEvent).not.toHaveBeenCalled();
+  });
+
+  test("데스크톱 인쇄 경로는 report_export를 print로 보낸다", () => {
+    serverMock.mockReturnValue(false);
+    const { result } = setup();
+    result.current.save();
+    expect(printMock).toHaveBeenCalled();
+    expect(trackEvent).toHaveBeenCalledWith("report_export", {
+      service: "growth",
+      method: "print",
+    });
+  });
 });
 
 describe("useReportPdfSave 서버 PDF 경로", () => {

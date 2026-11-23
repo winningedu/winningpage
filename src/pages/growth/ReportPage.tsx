@@ -40,7 +40,7 @@ export default function ReportPage() {
 
   const report = data?.report;
   const theme = normalizeNarrative(report?.narrative)?.theme;
-  const pdf = useReportPdfSave(buildGrowthPdfFileName(theme));
+  const pdf = useReportPdfSave(buildGrowthPdfFileName(theme), "growth");
 
   if (error instanceof GrowthApiError && error.result.kind === "error") {
     if (error.result.code === "REPORT_NOT_COMPLETED")

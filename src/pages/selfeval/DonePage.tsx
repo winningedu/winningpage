@@ -135,7 +135,10 @@ function DoneBody({
   const { studentName } = useSelfevalShell();
   const { session, activities } = detail;
   const final = detail.reports.final;
-  const pdf = useReportPdfSave(buildSelfevalPdfFileName(archiveName(session)));
+  const pdf = useReportPdfSave(
+    buildSelfevalPdfFileName(archiveName(session)),
+    "selfeval",
+  );
 
   if (session.status !== "completed" || !final) {
     return (

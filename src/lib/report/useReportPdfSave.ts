@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { useToast } from "@/context/ToastContext";
+import { type AnalyticsService, trackEvent } from "@/lib/analytics";
 import { buildPrintDocument } from "./buildPrintDocument";
 import { downloadReportPdf, getReportAccessToken } from "./downloadReportPdf";
 import { inlineDocumentCss } from "./inlineDocumentCss";
@@ -12,7 +13,7 @@ import { shouldUseServerPdf } from "./shouldUseServerPdf";
 
 const INJECTED_CSS_SELECTOR = "style[data-report-print-css]";
 
-export function useReportPdfSave(fileName: string) {
+export function useReportPdfSave(fileName: string, service: AnalyticsService) {
   const contentRef = useRef<HTMLDivElement>(null);
   // react-to-print 는 <link> URL 을 iframe 에 다시 받게 하는데, 배포로 해시가 바뀌면
   // 404 라 스타일 없이 인쇄된다. 전역 스타일 복사를 끄고, 클릭 시점에 읽은 로드된 CSS 를
@@ -58,6 +59,7 @@ export function useReportPdfSave(fileName: string) {
       style.textContent = `${inlineDocumentCss(document)}\n${REPORT_PRINT_PAGE_BASE_STYLE}`;
       root.prepend(style);
       print();
+      trackEvent("report_export", { service, method: "print" });
       return;
     }
     if (!root) return;
@@ -78,6 +80,7 @@ export function useReportPdfSave(fileName: string) {
           extraCss: REPORT_PRINT_PAGE_BASE_STYLE,
         });
         downloadReportPdf({ html, filename: fileName, accessToken });
+        trackEvent("report_export", { service, method: "pdf" });
       } catch (error) {
         console.error("[report] PDF 저장 실패:", error);
         clearResetTimer();
