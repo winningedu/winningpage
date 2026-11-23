@@ -242,6 +242,10 @@ export type CandidateRow = {
   unavailableReason: string | null;
   alreadyUsed: boolean;
   role: ActivityRole | null;
+  /** 기록 상태. 없으면 completed 로 읽는다(명세 No.34). */
+  recordStatus?: RecordStatus;
+  /** 제출일. createdAt 으로 대신한 값이 들어간다. */
+  submittedAt?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -468,7 +472,6 @@ export const SESSION_EXPIRY_DAYS = 90;
 export const GROWTH_STALE_DAYS = 180;
 export const FIT_AUTO_SELECT_THRESHOLD = 40;
 export const CANDIDATE_LIMIT = 20;
-export const MAX_SUPPORT_ACTIVITIES = 2;
 export const MAX_SELECTED_ACTIVITIES = 8;
 export const MIN_SELECTED_ACTIVITIES = 3;
 export const CHARS_PER_ACTIVITY = 70;
