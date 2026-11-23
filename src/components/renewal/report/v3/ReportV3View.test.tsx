@@ -1,7 +1,10 @@
 import "@testing-library/jest-dom/vitest";
-import { render, within } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as buildPrintDocumentModule from "@/lib/report/buildPrintDocument";
+import * as downloadReportPdfModule from "@/lib/report/downloadReportPdf";
+import * as shouldUseServerPdfModule from "@/lib/report/shouldUseServerPdf";
 import ReportV3View from "./ReportV3View";
 import { FRONT_PAGES } from "./testPages";
 
@@ -10,6 +13,10 @@ const later = (
     7 이후
   </section>
 );
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("ReportV3View", () => {
   it("renders the cover, pages 1 to 6 in order, then the later pages slot", () => {
@@ -48,5 +55,54 @@ describe("ReportV3View", () => {
     for (let page = 1; page <= 6; page += 1) {
       expect(html).toContain(`${page} / 16`);
     }
+  });
+
+  it("posts the printed v3 html to the server PDF route on mobile or in-app agents", async () => {
+    vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+      true,
+    );
+    vi.spyOn(downloadReportPdfModule, "getReportAccessToken").mockResolvedValue(
+      "test-token",
+    );
+    const buildSpy = vi
+      .spyOn(buildPrintDocumentModule, "buildPrintDocument")
+      .mockReturnValue("<html>v3</html>");
+    const downloadSpy = vi
+      .spyOn(downloadReportPdfModule, "downloadReportPdf")
+      .mockImplementation(() => {});
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+
+    const { getByRole } = render(
+      <ReportV3View
+        pages={FRONT_PAGES}
+        laterPages={later}
+        diagnosedAt="2026-11-10T03:00:00.000Z"
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: "PDF 파일로 다운 받기" }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(printSpy).not.toHaveBeenCalled();
+    expect(buildSpy).toHaveBeenCalledTimes(1);
+    expect(downloadSpy.mock.calls[0]?.[0]).toMatchObject({
+      html: "<html>v3</html>",
+      accessToken: "test-token",
+      filename: expect.stringContaining("김위닝학생_20261110"),
+    });
+  });
+
+  it("opens the browser print dialog on desktop agents", () => {
+    vi.spyOn(shouldUseServerPdfModule, "shouldUseServerPdf").mockReturnValue(
+      false,
+    );
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+
+    const { getByRole } = render(
+      <ReportV3View pages={FRONT_PAGES} laterPages={later} />,
+    );
+    fireEvent.click(getByRole("button", { name: "PDF 파일로 다운 받기" }));
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
   });
 });
