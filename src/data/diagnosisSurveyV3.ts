@@ -126,17 +126,21 @@ export const SURVEY_V3_QUESTIONS: readonly SurveyV3Question[] =
     };
   });
 
-type ChoiceQuestion = Exclude<
+export type ChoiceQuestion = Exclude<
   keyof typeof OPTIONS,
   "q21Weekday" | "q21Weekend"
 >;
 
-/** 14_선택지코드 rows (q2 13 H6, q4 and q5 16) for the track. */
+/**
+ * 14_선택지코드 rows (q2 13 H6, q4 and q5 16). q12 rows depend on the track;
+ * before q1 is answered (track null) q12 has none.
+ */
 export function choicesFor(
   id: ChoiceQuestion,
-  track: TrackCode,
+  track: TrackCode | null,
 ): readonly OptionRow[] {
-  return id === "q12" ? OPTIONS.q12[track] : OPTIONS[id];
+  if (id !== "q12") return OPTIONS[id];
+  return track === null ? [] : OPTIONS.q12[track];
 }
 
 /** q21 weekday and weekend rows, 14 keys q21/평일 and q21/주말. */
