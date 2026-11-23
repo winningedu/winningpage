@@ -46,6 +46,14 @@ export function scan(root) {
   return hits;
 }
 
+function readBaseline(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, BASELINE_PATH), "utf8"));
+  } catch {
+    return {};
+  }
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const rootIdx = argv.indexOf("--root");
@@ -54,11 +62,24 @@ function main() {
       ? resolve(argv[rootIdx + 1])
       : join(dirname(fileURLToPath(import.meta.url)), "..");
   const hits = scan(root);
+  const baseline = readBaseline(root);
   let failed = false;
+  let shrunk = false;
   for (const [file, list] of Object.entries(hits)) {
-    failed = true;
-    console.error(`${file}: ${list.length} (baseline 0)`);
-    for (const h of list) console.error(`  ${file}:${h.line}: ${h.text}`);
+    const allowed = baseline[file] ?? 0;
+    if (list.length > allowed) {
+      failed = true;
+      console.error(`${file}: ${list.length} (baseline ${allowed})`);
+      for (const h of list) console.error(`  ${file}:${h.line}: ${h.text}`);
+    } else if (list.length < allowed) shrunk = true;
+  }
+  for (const [file, allowed] of Object.entries(baseline)) {
+    if ((hits[file]?.length ?? 0) < allowed) shrunk = true;
+  }
+  if (shrunk && !failed) {
+    console.log(
+      "baseline보다 적중이 줄었다. node scripts/check-time-zone-literals.mjs --update 로 baseline을 갱신한다.",
+    );
   }
   process.exit(failed ? 1 : 0);
 }

@@ -67,4 +67,20 @@ describe("check-time-zone-literals", () => {
     expect(r.out).toContain("api/c.ts");
     expect(r.out).not.toContain("api/a.ts");
   });
+
+  test("baseline 이하면 통과하고 초과하면 실패하며, 줄어들면 갱신 힌트를 낸다", () => {
+    put("api/a.ts", 'a("Asia/Seoul");\nb("Asia/Seoul");\n');
+    setBaseline({ "api/a.ts": 2 });
+    expect(run().code).toBe(0);
+
+    setBaseline({ "api/a.ts": 1 });
+    const over = run();
+    expect(over.code).toBe(1);
+    expect(over.out).toContain("api/a.ts: 2 (baseline 1)");
+
+    setBaseline({ "api/a.ts": 3 });
+    const under = run();
+    expect(under.code).toBe(0);
+    expect(under.out).toContain("--update");
+  });
 });
