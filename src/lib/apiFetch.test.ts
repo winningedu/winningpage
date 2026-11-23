@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { apiFetch } from "./apiFetch";
+import * as zone from "./time/zone";
 import { browserTimeZone } from "./time/zone";
 
 function stubFetch() {
@@ -59,4 +60,28 @@ describe("apiFetch X-Time-Zone", () => {
 
     expect(sentHeaders(spy).get("X-Time-Zone")).toBe("Asia/Tokyo");
   });
+
+  test.each([
+    ["undefined", undefined],
+    ["빈 문자열", ""],
+    ["오프셋", "+09:00"],
+  ])(
+    "브라우저 시간대가 유효하지 않으면(%s) 헤더를 생략하고 요청은 보낸다",
+    async (_n, bad) => {
+      const spy = stubFetch();
+      const zoneSpy = vi
+        .spyOn(zone, "browserTimeZone")
+        .mockReturnValue(bad as unknown as string);
+
+      const res = await apiFetch("/api/x", {
+        headers: { Authorization: "Bearer t" },
+      });
+
+      zoneSpy.mockRestore();
+      expect(res.ok).toBe(true);
+      const headers = sentHeaders(spy);
+      expect(headers.has("X-Time-Zone")).toBe(false);
+      expect(headers.get("Authorization")).toBe("Bearer t");
+    },
+  );
 });
