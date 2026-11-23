@@ -451,6 +451,46 @@ describe("buildPlan", () => {
     );
   });
 
+  const eventPlan = (schedule: PlanInput["schedule"]) =>
+    buildPlan({ ...calcInput(), schedule });
+  const eventTasks = (plan: ReturnType<typeof buildPlan>) =>
+    plan.tasks
+      .filter((t) => t.event !== undefined)
+      .map((t) => [t.taskId, t.date]);
+
+  test("MOCK Day 15 adds EVT_MOCK 2 days before and reduces no week (21 r23, r27)", () => {
+    const plan = eventPlan([{ kind: "MOCK", date: "2026-11-23" }]);
+    expect(eventTasks(plan)).toEqual([["EVT_MOCK", "2026-11-21"]]);
+    expect(plan.reducedWeeks).toEqual([]);
+  });
+
+  test("ETC is shown on its day only: no task, no reduced week (21 r25, r27)", () => {
+    const plan = eventPlan([{ kind: "ETC", date: "2026-11-23" }]);
+    expect(eventTasks(plan)).toEqual([]);
+    expect(plan.reducedWeeks).toEqual([]);
+    const page = buildPlannerPages(plan, "2026-11-09", [
+      { kind: "ETC", date: "2026-11-23" },
+    ]);
+    expect(page[2]?.days[0]?.highlight).toBe(true);
+  });
+
+  test("APPLY Day 20 adds EVT_APPLY 7 days before and reduces its week (21 r24, r27)", () => {
+    const plan = eventPlan([{ kind: "APPLY", date: "2026-11-28" }]);
+    expect(eventTasks(plan)).toEqual([["EVT_APPLY", "2026-11-21"]]);
+    expect(plan.reducedWeeks).toEqual([3]);
+  });
+
+  test("an area without DONE_<code>_<week> rows uses DONE_GENERIC (21 C11)", () => {
+    const plan = buildPlan({
+      ...calcInput(),
+      schedule: "NONE",
+      page2Order: ["H3_GPA", ...CALC_P2],
+    });
+    expect(
+      plan.tasks.filter((t) => t.column === 3).map((t) => t.doneId),
+    ).toEqual(Array(4).fill("DONE_GENERIC"));
+  });
+
   test("MID or OK adds no exam-ops task", () => {
     expect(
       buildPlan({ ...pdfInput(), examOps: "MID" }).tasks.some((t) =>

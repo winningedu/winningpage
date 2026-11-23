@@ -354,7 +354,48 @@ describe("3p 성적 (22 r38-r46)", () => {
 
 const quote = (label: string) => "\u2018" + label + "\u2019";
 
+describe("3p branches (22 r41, r46)", () => {
+  test("6-2 better than 6 is GRD_RECENT_UP, equal is GRD_RECENT_SAME", () => {
+    expect(run({ ...CALC_EXAMPLE, q6r: 1.2 }).pages.p3.recent).toBe(
+      COPY_TEXT.GRD_RECENT_UP?.replace("{d}", "0.2"),
+    );
+    expect(run({ ...CALC_EXAMPLE, q6r: 1.4 }).pages.p3.recent).toBe(
+      COPY_TEXT.GRD_RECENT_SAME,
+    );
+  });
+
+  test("8-15 보통 without the 10번 15 pick is EXAMOPS_MID (21 C35)", () => {
+    const items = [...CALC_EXAMPLE.q9.items];
+    items[14] = 2;
+    const r = run({ ...CALC_EXAMPLE, q9: { ...CALC_EXAMPLE.q9, items } });
+    expect(r.scores.examOps).toBe("MID");
+    expect(r.pages.p3.examOps.body).toBe(COPY_TEXT.EXAMOPS_MID);
+  });
+});
+
 describe("4p 7단계 사이클 (22 r48-r53)", () => {
+  test("lowest stage 45 to 69 gives CYC_HEAD_WEAK (22 r48)", () => {
+    const { p4 } = run({
+      ...CALC_EXAMPLE,
+      q9: { items: Array(15).fill(3), verify: 1 },
+    }).pages;
+    const stages = p4.cycle.stages;
+    const low = [...stages].sort((a, b) => a.score - b.score)[0];
+    expect(low?.score).toBeGreaterThanOrEqual(45);
+    expect(low?.score).toBeLessThan(70);
+    const top2 = [...stages]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .map((s) => "\u2018" + s.label + "\u2019")
+      .join(", ");
+    expect(p4.title).toBe(
+      COPY_TEXT.CYC_HEAD_WEAK?.replace("{top2}", top2).replace(
+        "{low}",
+        String(low?.label),
+      ),
+    );
+  });
+
   test("계산 예시: BREAK head, bottom three NARR, why 기록 (계산 예시 D14)", () => {
     const { p4 } = run().pages;
     expect(p4.title).toBe(
@@ -476,6 +517,42 @@ describe("5p 방해 요인 \u00b7 마음 상태 (22 r55-r61)", () => {
 
   test("응답 단순 with picks hides the cross check (22 r60)", () => {
     expect(run(SIMPLE_PICKS).pages.p5.crossCheck).toBeUndefined();
+  });
+});
+
+describe("5p and 6p branches (22 r55, r60, r68)", () => {
+  test("자기효능감 under 70 puts OBS_MIND_LOW in the title (22 r55)", () => {
+    const r = run({
+      ...CALC_EXAMPLE,
+      q20: { items: [1, 1, 1, 2, 3, 2], verify: 2 },
+    });
+    expect(r.scores.mind.areas.MIND_EFF.score).toBeLessThan(70);
+    expect(r.pages.p5.title).toContain(String(COPY_TEXT.OBS_MIND_LOW));
+  });
+
+  test("a picked area scoring 70 or more is XCHK_GAP (22 r60)", () => {
+    const { p5 } = run({
+      ...CALC_EXAMPLE,
+      q9: { items: Array(15).fill(4), verify: 1 },
+    }).pages;
+    if (p5.crossCheck?.kind !== "items") throw new Error("expected items");
+    const gap = p5.crossCheck.items.filter(
+      (item) => item.text === COPY_TEXT.XCHK_GAP,
+    );
+    expect(gap.length).toBeGreaterThan(0);
+    for (const item of gap) expect(item.area.score).toBeGreaterThanOrEqual(70);
+  });
+
+  test("one PAGE2 area at 60 or more shows STR_ONE (22 r68)", () => {
+    const items = SCALE_ITEMS.q11.H12.map((item) =>
+      item.area === "H12_SUBJ" ? 4 : 0,
+    ) as DiagnosisV3Answers["q11"]["items"];
+    const { p6 } = run({
+      ...omit(CALC_EXAMPLE, "q12"),
+      q11: { items, verify: 1 },
+    }).pages;
+    expect(p6.strengths).toHaveLength(1);
+    expect(p6.strengthNote).toBe(COPY_TEXT.STR_ONE);
   });
 });
 
@@ -650,6 +727,20 @@ describe("7p 입결 (22 r71-r77)", () => {
       universityName: "연세대학교",
       unitName: "경영학과",
     });
+  });
+
+  test("mine equal to the 70% cut shows diff_base (22 r72)", () => {
+    const p7 = scoreDiagnosisV3(CALC_EXAMPLE, {
+      ...CALC_EXAMPLE_CONTEXT,
+      admission: {
+        ...(CALC_EXAMPLE_CONTEXT.admission as NonNullable<
+          typeof CALC_EXAMPLE_CONTEXT.admission
+        >),
+        cut70: 2.25,
+      },
+    }).pages.p7;
+    if (p7?.result.kind !== "computed") throw new Error("expected computed");
+    expect(p7.result.comparison.diff).toBe(COPY_TEXT.diff_base);
   });
 
   test("precise mode shows both cuts with their gaps (22 r72)", () => {
@@ -830,6 +921,18 @@ describe("16p 서비스 \u00b7 안내 (22 r115-r121)", () => {
       code: "CALL",
       prefix: COPY_TEXT.SVC_CALL_TEMP_PREFIX,
     });
+  });
+
+  test("N수 and 고3 후기 scope notes (07 C16-C21, 22 r118)", () => {
+    const nsu = run({ ...validAnswers("H3"), q1: 6 }).pages.p16;
+    expect(nsu.scope).toBe("NSU");
+    expect(nsu.scopeNote).toBe(COPY_TEXT.SVC_NSU_LIMIT);
+    const late = scoreDiagnosisV3(validAnswers("H3"), {
+      ...CALC_EXAMPLE_CONTEXT,
+      joinedAt: "2026-07-01",
+    }).pages.p16;
+    expect(late.scope).toBe("G3LATE");
+    expect(late.scopeNote).toBe(COPY_TEXT.SVC_G3LATE_LIMIT);
   });
 
   test("M3 scope note and agenda; H3 prefers the 고3\u00b7N수 copy (22 r117-r119)", () => {
