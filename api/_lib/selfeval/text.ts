@@ -1,7 +1,7 @@
 // 자기평가서 결정론 텍스트 유틸. 모델 호출 없이 글자 수, 문장 수, 상투어 밀도 등을
 // 같은 규칙으로 세어 검증, 형식 점검, 승격이 같은 숫자를 쓰게 한다.
 
-import { CLICHES } from "./dictionaries.js";
+import { CLICHES, PLAN_EXPRESSIONS } from "./dictionaries.js";
 import type { CharCount, TargetCharsMode } from "./types.js";
 
 const TERMINATORS = new Set([".", "?", "!"]);
@@ -112,6 +112,12 @@ export function clicheDensity(
   const len = countByMode(text, mode);
   if (len === 0) return { density: 0, hits };
   return { density: Math.round((hits.length / len) * 1000 * 100) / 100, hits };
+}
+
+/** 본문에서 찾은 계획 표현. 공백을 지우고 비교하고 사전 원문을 사전 순서로, 중복 없이 돌려준다. */
+export function findPlanExpressions(text: string): string[] {
+  const compact = text.replace(/\s/g, "");
+  return PLAN_EXPRESSIONS.filter((p) => compact.includes(p.replace(/\s/g, "")));
 }
 
 /**

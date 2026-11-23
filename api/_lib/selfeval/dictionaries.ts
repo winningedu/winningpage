@@ -19,6 +19,19 @@ export const CLICHES: readonly string[] = [
   "노력하는 모습",
 ];
 
+/**
+ * 계획 표현(명세 No.56). 본문에는 실제로 한 일만 쓰므로 미래 계획 문장을 막는다.
+ * 상투어 사전과 같은 곳에 둔다. "~할 것임", "~하고 싶음" 은 어미 부분만 사전에 둔다.
+ * "~고자 함" 은 제품 확인 전이라 넣지 않는다.
+ */
+export const PLAN_EXPRESSIONS: readonly string[] = [
+  "계획을 세움",
+  "계획임",
+  "할 예정",
+  "할 것임",
+  "하고 싶음",
+];
+
 /** 합격을 암시하는 표현. 위닝 점수는 학교 채점 예측이 아니라서 본문과 안내에 쓰지 않는다. */
 export const FORBIDDEN_PHRASES: readonly string[] = [
   "합격 가능성",

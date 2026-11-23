@@ -230,7 +230,7 @@ describe("assembleVerification", () => {
     });
     expect(v.total).toBe(100);
     expect(v.items).toHaveLength(8);
-    expect(v.format).toHaveLength(6);
+    expect(v.format).toHaveLength(7);
     expect(v.sentenceCount).toBe(4);
     expect(v.clicheHits).toEqual(["성실"]);
     expect(v.numberCount).toBe(1);

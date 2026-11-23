@@ -310,7 +310,8 @@ export type FormatCheckKey =
   | "min_length"
   | "min_sentences"
   | "no_university"
-  | "no_pending_feelings";
+  | "no_pending_feelings"
+  | "no_plan_expression";
 
 export type FormatCheck = {
   key: FormatCheckKey;

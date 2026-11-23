@@ -33,7 +33,7 @@ const byKey = (checks: ReturnType<typeof run>, key: string) => {
 };
 
 describe("runFormatChecks", () => {
-  it("여섯 항목을 정해진 순서로 돌려준다", () => {
+  it("일곱 항목을 정해진 순서로 돌려준다", () => {
     expect(run().map((c) => c.key)).toEqual([
       "target_range",
       "cliche_density",
@@ -41,7 +41,39 @@ describe("runFormatChecks", () => {
       "min_sentences",
       "no_university",
       "no_pending_feelings",
+      "no_plan_expression",
     ]);
+  });
+
+  it("계획 표현이 없으면 통과하고 라벨은 계획 표현 미포함이다", () => {
+    const c = byKey(run(), "no_plan_expression");
+    expect(c.pass).toBe(true);
+    expect(c.label).toBe("계획 표현 미포함");
+    expect(c.skipped).toBe(false);
+  });
+
+  it("계획을 세움, 계획임, 할 예정, ~할 것임, ~하고 싶음 이 있으면 실패하고 찾은 표현을 적는다", () => {
+    for (const phrase of [
+      "계획을 세움",
+      "계획임",
+      "할 예정",
+      "비교할 것임",
+      "더 확인하고 싶음",
+    ]) {
+      const text = `${hundred} ${hundred} ${hundred} 다음에 ${phrase}.`;
+      const c = byKey(run({ text, targetChars: null }), "no_plan_expression");
+      expect(c.pass, phrase).toBe(false);
+      expect(c.detail, phrase).toContain(
+        phrase.replace(/^.*?(할 것임|하고 싶음)$/, "$1"),
+      );
+    }
+  });
+
+  it("고자 함 은 계획 표현으로 세지 않는다", () => {
+    const text = `${hundred} ${hundred} ${hundred} 원인을 밝히고자 함.`;
+    expect(
+      byKey(run({ text, targetChars: null }), "no_plan_expression").pass,
+    ).toBe(true);
   });
 
   it("전부 기준을 채우면 전부 통과한다", () => {

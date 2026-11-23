@@ -6,6 +6,7 @@ import {
   countChars,
   extractKeywords,
   extractNumbers,
+  findPlanExpressions,
   hasMarkdown,
   normalizeNominalEndings,
   normalizeUniversity,
@@ -144,6 +145,19 @@ describe("hasMarkdown", () => {
 
   it("두 번째 줄 머리의 목록 표시도 잡는다", () => {
     expect(hasMarkdown("첫 줄\n- 둘째 줄")).toBe(true);
+  });
+});
+
+describe("findPlanExpressions", () => {
+  it("사전에 있는 계획 표현을 사전 순서로 중복 없이 돌려준다", () => {
+    expect(
+      findPlanExpressions("계획을 세움. 값을 비교할 것임. 계획을 세움."),
+    ).toEqual(["계획을 세움", "할 것임"]);
+  });
+
+  it("공백이 달라도 찾고, 없으면 빈 배열이다", () => {
+    expect(findPlanExpressions("발표할예정")).toEqual(["할 예정"]);
+    expect(findPlanExpressions("값을 비교함.")).toEqual([]);
   });
 });
 
