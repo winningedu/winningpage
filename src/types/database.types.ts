@@ -9137,6 +9137,40 @@ export type Database = {
         };
         Returns: Json;
       };
+      fn_hq_login_buckets: {
+        Args: {
+          p_from: string;
+          p_grain: string;
+          p_include_internal: boolean;
+          p_mau_mode: string;
+          p_to: string;
+        };
+        Returns: {
+          bucket_end: string;
+          bucket_start: string;
+          by_member_type: Json;
+          members: number;
+          source: string;
+        }[];
+      };
+      fn_hq_login_log: {
+        Args: {
+          p_from: string;
+          p_include_internal: boolean;
+          p_limit: number;
+          p_offset: number;
+          p_to: string;
+        };
+        Returns: {
+          first_seen_at: string;
+          kst_date: string;
+          member_type: string;
+          name: string;
+          profile_id: string;
+          tenant_name: string;
+          total_count: number;
+        }[];
+      };
       fn_hq_stat_included: {
         Args: { p_include_internal: boolean; p_profile_id: string };
         Returns: boolean;
