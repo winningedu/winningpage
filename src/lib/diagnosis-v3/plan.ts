@@ -11,6 +11,7 @@ import type {
   EventKind,
   IsoDate,
   Ordinal,
+  Page11,
   PlannerPage,
   PlanTask,
   ScheduleEvent,
@@ -379,4 +380,33 @@ export function buildPlannerPages(
       slip: [1, 2, 3].map((n) => copy(`PLAN_SLIP_${n}`)),
     };
   });
+}
+
+/** 22 r103-r107 plan parts of page 11 (urgency and style tips live elsewhere). */
+export function buildPlanPage(
+  plan: Plan,
+  _diagnosedAt: IsoDate,
+  _schedule: DiagnosisV3Answers["q13"],
+): Pick<Page11, "table"> {
+  const cellOf = (week: Week, column: 1 | 2 | 3) => {
+    const task = plan.tasks.find((t) => t.week === week && t.column === column);
+    if (!task) throw new Error(`missing plan cell ${week}/${column}`);
+    return taskText(plan, task);
+  };
+  const [c1, c2, c3] = plan.columns;
+  return {
+    // 22 r104: 3 columns x 4 weeks, PLAN_REDUCE on reduced weeks, PLAN_RULE_NOTE
+    table: {
+      columns: [AREAS[c1].label, AREAS[c2].label, AREAS[c3].label],
+      weeks: WEEKS.map(({ week }) => ({
+        week,
+        cells: [cellOf(week, 1), cellOf(week, 2), cellOf(week, 3)],
+        reduced: plan.reducedWeeks.includes(week),
+      })),
+      ...(plan.reducedWeeks.length > 0
+        ? { reduceNote: copy("PLAN_REDUCE") }
+        : {}),
+      ruleNote: copy("PLAN_RULE_NOTE"),
+    },
+  };
 }

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import type { P1Code, P2Code } from "./codes.js";
-import { buildPlan, buildPlannerPages, type PlanInput } from "./plan.js";
+import {
+  buildPlan,
+  buildPlannerPages,
+  buildPlanPage,
+  type PlanInput,
+} from "./plan.js";
 import { COPY_TEXT } from "./source/copyText.js";
 import { CALC_EXAMPLE } from "./testFixtures.js";
 
@@ -57,6 +62,31 @@ const pdfInput = (): PlanInput => ({
   schedule: [{ kind: "EXAM", date: "2026-12-07" }],
   examOps: "RISK",
   weekdayLoad: 5,
+});
+
+describe("buildPlanPage (22 r103-r107)", () => {
+  const page = () =>
+    buildPlanPage(buildPlan(pdfInput()), "2026-11-10", pdfInput().schedule);
+
+  test("PDF p11 table: column labels, ACTn cells, reduced week 4 with PLAN_REDUCE", () => {
+    const table = page().table;
+    expect(table.columns).toEqual(["우선순위", "학습 수행", "탐구 심화"]);
+    expect(table.weeks[0]).toEqual({
+      week: 1,
+      cells: [
+        COPY_TEXT.AREA_P1_PRIO_ACT1,
+        COPY_TEXT.AREA_P1_EXEC_ACT1,
+        COPY_TEXT.AREA_H12_DEEP_ACT1,
+      ],
+      reduced: false,
+    });
+    expect(table.weeks[3]?.reduced).toBe(true);
+    expect(table.weeks[3]?.cells[2]).toBe(
+      `${COPY_TEXT.AREA_H12_DEEP_ACT4} ${COPY_TEXT.PLAN_REDUCE}`,
+    );
+    expect(table.reduceNote).toBe(COPY_TEXT.PLAN_REDUCE);
+    expect(table.ruleNote).toBe(COPY_TEXT.PLAN_RULE_NOTE);
+  });
 });
 
 describe("buildPlannerPages (22 r109-r113)", () => {
