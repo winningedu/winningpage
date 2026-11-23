@@ -93,6 +93,8 @@ export interface PreviewRow {
   noHomeroom?: boolean;
   /** 형식 오류(format_error) 줄에서 틀린 칸. */
   reasons?: FormatReason[];
+  /** 형식 오류 줄에서 틀린 칸마다 사람이 적은 글 그대로. */
+  values?: Partial<Record<FormatReason, string>>;
 }
 
 export interface ApplyRow {
@@ -206,6 +208,24 @@ function formatReasonsOf(line: ParsedLine, academy: boolean): FormatReason[] {
     reasons.push("class");
   }
   return reasons;
+}
+
+/** 틀린 칸마다 사람이 적은 글 그대로. 학년은 틀린 칸(기존, 새)이고 없으면 빈 글, 반과 그룹은 줄의 새 칸이다. */
+function valuesOf(
+  line: ParsedLine,
+  reasons: FormatReason[],
+  academy: boolean,
+): Partial<Record<FormatReason, string>> {
+  const cells = targetCellsOf(line);
+  const text: Record<FormatReason, string> = {
+    grade:
+      [line.from.grade, line.to.grade].find(
+        (c) => !isValidGradeCell(c, academy),
+      ) ?? "",
+    class: cells.className,
+    group: cells.group,
+  };
+  return Object.fromEntries(reasons.map((r) => [r, text[r]]));
 }
 
 /** 가입 전 줄을 저장 대상으로 만든다. 졸업하는 학년 줄은 row 가 null 이고, 저장할 수 없는 칸은 reasons 에 담는다. */
@@ -480,6 +500,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
         studentId: null,
         result: "format_error",
         reasons: formatReasons,
+        values: valuesOf(line, formatReasons, academy),
       });
       continue;
     }
@@ -549,6 +570,7 @@ export function evaluateRolloverPreview(input: PreviewInput): {
             studentId: null,
             result: "format_error",
             reasons: pendingResult.reasons,
+            values: valuesOf(line, pendingResult.reasons, academy),
           });
           continue;
         }

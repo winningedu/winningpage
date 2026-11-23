@@ -1299,3 +1299,38 @@ describe("format_error: only 중1 to 고3 are grades, and a class text must surv
     });
   });
 });
+
+describe("format_error values: the raw text of each failing cell", () => {
+  const kim = student({ studentId: "s1", name: "김하늘", grade: "고1" });
+  const mid = { mode: "midyear" as const };
+
+  test("a bad existing grade cell is returned under grade", () => {
+    const r = run("김하늘,3학년,,4,7", [kim], mid);
+
+    expect(r.rows[0]?.values).toEqual({ grade: "3학년" });
+  });
+
+  test("a bad new grade cell is returned under grade", () => {
+    const r = run("김하늘,고1,,4,7,2학년,,5,2", [kim], mid);
+
+    expect(r.rows[0]?.values).toEqual({ grade: "2학년" });
+  });
+
+  test("a class cell that normalizes to empty is returned under class", () => {
+    const r = run("김하늘,고1,,반,7", [kim], mid);
+
+    expect(r.rows[0]?.values).toEqual({ class: "반" });
+  });
+
+  test("an unknown group of a pending line is returned under group", () => {
+    const r = run("없는사람,고1,Z레벨,4,1", [kim], mid);
+
+    expect(r.rows[0]?.values).toEqual({ group: "Z레벨" });
+  });
+
+  test("a pending line with an empty grade cell returns an empty grade text", () => {
+    const r = run("없는사람,,,4,7", [kim], { ...mid, orgType: "학교" });
+
+    expect(r.rows[0]?.values).toEqual({ grade: "" });
+  });
+});
