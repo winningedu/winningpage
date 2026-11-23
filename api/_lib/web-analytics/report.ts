@@ -11,7 +11,22 @@ const CACHE_MAX_ENTRIES = 50;
 const TOP_PAGES_LIMIT = 10;
 const GROUP_LIMIT = 100;
 
-// 이벤트 이름과 속성은 src/lib/analytics.ts 의 AnalyticsEventMap 과 같다(분석 grill Q12, 속성 최대 2개).
+// 수집 쪽 계약: src/lib/analytics.ts 의 AnalyticsEventMap(hqa-vercel)을 옮겨 적은 이벤트별 속성 키.
+// report.test.ts 가 WEB_ANALYTICS_EVENTS 와 비교한다. hqa-vercel 통합 뒤 비교 대상을 analytics.ts 로 바꾼다.
+export const ANALYTICS_EVENT_CONTRACT = {
+  signup_complete: ["member_type"],
+  service_start: ["service"],
+  diagnosis_complete: [],
+  checkout_start: ["method"],
+  payment_complete: ["method"],
+  consult_apply: [],
+  kakao_inquiry_click: ["location"],
+  report_export: ["service", "method"],
+  paywall_cta_click: ["service", "location"],
+  ai_regenerate: ["service", "step"],
+} as const;
+
+// 서버가 Vercel 에서 읽는 이벤트와 속성(분석 grill Q12, 속성 최대 2개). 화면 표 순서이기도 하다.
 export const WEB_ANALYTICS_EVENTS = [
   { name: "signup_complete", properties: ["member_type"] },
   { name: "service_start", properties: ["service"] },
