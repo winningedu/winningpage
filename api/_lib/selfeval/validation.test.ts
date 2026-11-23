@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SCORE_RUBRIC } from "./dictionaries.js";
+import { countSentences } from "./text.js";
 import {
   type ActivityRecordLike,
   ANALYSIS_FIELDS,
@@ -267,6 +268,36 @@ describe("validateWriteResponse", () => {
     expect(sentenceAt(r.sections, 0, 0).confirmed).toBe(false);
     expect(r.charCount.withoutSpace).toBeGreaterThan(30);
     expect(r.softIssues).toEqual([]);
+  });
+
+  it("끝 부호 없는 ~함 문장 9개도 문장마다 마침표를 붙여 9문장으로 센다(명세 No.56)", () => {
+    const b = {
+      paragraphs: [
+        {
+          sentences: Array.from({ length: 9 }, (_, i) =>
+            sent(`${i + 1}번째 값을 확인함`),
+          ),
+        },
+      ],
+    };
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const texts = r.sections.paragraphs[0]?.sentences.map((s) => s.text) ?? [];
+    expect(texts.every((t) => t.endsWith("함."))).toBe(true);
+    expect(countSentences(texts.join(" "))).toBe(9);
+  });
+
+  it("인용 문장은 닫는 따옴표 뒤에 마침표를 붙이고 No.56 인용 규칙을 따른다", () => {
+    const b = {
+      paragraphs: [{ sentences: [sent('교재의 "A. B 이다"를 옮겨 적음')] }],
+    };
+    const r = validateWriteResponse(b, wctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const text = sentenceAt(r.sections, 0, 0).text;
+    expect(text).toBe('교재의 "A. B 이다"를 옮겨 적음.');
+    expect(countSentences(text)).toBe(1);
   });
 
   it("문단 수는 고정하지 않는다. 1개와 5개도 통과한다(명세 No.44, No.80)", () => {

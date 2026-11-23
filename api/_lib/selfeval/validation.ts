@@ -14,6 +14,7 @@ import {
   containsUniversity,
   countByMode,
   countChars,
+  ensureTerminalPunctuation,
   extractKeywords,
   findCausalLinkPhrases,
   hasMarkdown,
@@ -330,7 +331,7 @@ export function validateWriteResponse(
         });
         return;
       }
-      const text = normalizeNominalEndings(rawText);
+      const text = ensureTerminalPunctuation(normalizeNominalEndings(rawText));
       if (!isNominalStyle(text)) {
         issues.push({
           code: "sentence_style",
