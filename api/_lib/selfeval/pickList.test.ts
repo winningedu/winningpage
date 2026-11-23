@@ -107,7 +107,7 @@ describe("composePickList", () => {
       targetChars: 700,
     });
     expect(out.linkUnchecked).toBe(true);
-    expect(out.maxSelect).toBe(3);
+    expect(out.maxSelect).toBe(8);
     expect(out.auto).toMatchObject({
       coreId: "core",
       supportIds: ["far", "a"],
@@ -128,7 +128,7 @@ describe("composePickList", () => {
     });
     expect(out.linkUnchecked).toBe(false);
     expect(out.linkStatus).toBe("pending");
-    expect(out.maxSelect).toBe(3);
+    expect(out.maxSelect).toBe(7);
   });
 
   it("uses the student's selection, builds the map from its core and lists unlinked picks as excluded", () => {

@@ -134,9 +134,9 @@ export type ApplySelectionResult =
 export function applySelection(
   rows: CandidateRow[],
   selection: { coreId: string; supportIds: string[] },
-  _ctx?: Omit<PickContext, "others">,
-  /** 핵심을 포함한 선택 상한. 연계 확인이 없으면 추천과 같은 3건이다. */
-  maxSelect: number = FALLBACK_SELECT_COUNT,
+  _ctx: Omit<PickContext, "others"> | undefined,
+  /** 핵심을 포함한 직접 선택 상한. 항상 maxSelectFor(목표 글자 수)다. */
+  maxSelect: number,
 ): ApplySelectionResult {
   if (selection.coreId === "") {
     return {

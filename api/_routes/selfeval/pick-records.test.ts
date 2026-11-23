@@ -205,7 +205,7 @@ describe("pick-records link", () => {
       ok: true,
       linkUnchecked: true,
       linkStatus: "unchecked",
-      maxSelect: 3,
+      maxSelect: 7,
       linkError: "MODEL_UPSTREAM_FAILED",
     });
     expect(m.terminateSession).not.toHaveBeenCalled();
@@ -309,6 +309,20 @@ describe("pick-records link edits", () => {
 });
 
 describe("pick-records select limit", () => {
+  test("lets the student pick up to N by hand even when the link check never ran", async () => {
+    // step_state 가 비어 연계 판정이 pending 이어도 직접 고르는 상한은 N(500자면 7건)이다.
+    m.loadActivityRecords.mockResolvedValue(
+      ["core", "a", "b", "c", "d", "e"].map((id) => record(id)),
+    );
+    const res = await call({
+      action: "select",
+      coreId: "core",
+      supportIds: ["a", "b", "c", "d", "e"],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, maxSelect: 7 });
+  });
+
   test("rejects a selection above N with the count in the message", async () => {
     m.loadSession.mockResolvedValue({ ...session(), target_chars: 210 });
     m.loadActivityRecords.mockResolvedValue(

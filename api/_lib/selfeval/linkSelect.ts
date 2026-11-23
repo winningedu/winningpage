@@ -12,7 +12,6 @@ import { autoSelect, isSameSubject } from "./pick.js";
 import {
   type AnalysisField,
   type CandidateRow,
-  FALLBACK_SELECT_COUNT,
   FIT_AUTO_SELECT_THRESHOLD,
   LINK_TYPE_LABELS,
   type RecordLink,
@@ -31,7 +30,7 @@ export type LinkEvaluation = {
   noneAboveThreshold: boolean;
   /** 연계 확인이 안 돼 적합도 상위 3건만 추천한 경우. */
   fallback: boolean;
-  /** 핵심을 포함한 선택 상한. */
+  /** 핵심을 포함한 직접 선택 상한. 연계 확인이 안 돼도 N 이다(3건은 자동 추천에만 쓴다, 명세 No.144, 196). */
   maxSelect: number;
   graph: Map<string, LinkNode>;
   bonus: Record<string, number>;
@@ -75,7 +74,7 @@ export function evaluateSelection(
     return {
       ...base,
       fallback: true,
-      maxSelect: FALLBACK_SELECT_COUNT,
+      maxSelect: maxSelectFor(linking.targetChars),
       ...empty,
     };
   }

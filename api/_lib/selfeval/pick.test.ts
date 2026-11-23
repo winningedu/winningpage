@@ -238,6 +238,7 @@ describe("applySelection", () => {
       rows,
       { coreId: "a", supportIds: ["b", "c"] },
       ctx(),
+      3,
     );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.coreId).toBe("b");
@@ -245,31 +246,41 @@ describe("applySelection", () => {
     expect(r.coreMismatch).toBe(false);
   });
   it("작성 과목 활동이 선택에 없으면 그대로 두고 coreMismatch", () => {
-    const r = applySelection(rows, { coreId: "a", supportIds: ["c"] }, ctx());
+    const r = applySelection(
+      rows,
+      { coreId: "a", supportIds: ["c"] },
+      ctx(),
+      3,
+    );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.coreId).toBe("a");
     expect(r.coreMismatch).toBe(true);
   });
   it("핵심이 비면 CORE_REQUIRED", () => {
-    const r = applySelection(rows, { coreId: "", supportIds: [] }, ctx());
+    const r = applySelection(rows, { coreId: "", supportIds: [] }, ctx(), 3);
     expect(r).toMatchObject({ ok: false, code: "CORE_REQUIRED" });
   });
   it("모르는 활동은 UNKNOWN_ACTIVITY", () => {
     expect(
-      applySelection(rows, { coreId: "zz", supportIds: [] }, ctx()),
+      applySelection(rows, { coreId: "zz", supportIds: [] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNKNOWN_ACTIVITY" });
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["zz"] }, ctx()),
+      applySelection(rows, { coreId: "a", supportIds: ["zz"] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNKNOWN_ACTIVITY" });
   });
   it("계획 활동은 UNAVAILABLE", () => {
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["p"] }, ctx()),
+      applySelection(rows, { coreId: "a", supportIds: ["p"] }, ctx(), 3),
     ).toMatchObject({ ok: false, code: "UNAVAILABLE" });
   });
   it("보조 3개는 TOO_MANY_SUPPORT", () => {
     expect(
-      applySelection(rows, { coreId: "a", supportIds: ["b", "c", "d"] }, ctx()),
+      applySelection(
+        rows,
+        { coreId: "a", supportIds: ["b", "c", "d"] },
+        ctx(),
+        3,
+      ),
     ).toMatchObject({ ok: false, code: "TOO_MANY_SUPPORT" });
   });
   it("선택 상한을 넘기면 N 을 넣은 메시지로 거절한다", () => {
@@ -299,13 +310,19 @@ describe("applySelection", () => {
       rows,
       { coreId: "a", supportIds: ["a", "c", "c"] },
       ctx(),
+      3,
     );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.supportIds).toEqual(["c"]);
   });
   it("이미 쓴 활동은 경고만 하고 허용", () => {
     const used = [row("a", 90, true, { alreadyUsed: true }), row("c", 50)];
-    const r = applySelection(used, { coreId: "a", supportIds: ["c"] }, ctx());
+    const r = applySelection(
+      used,
+      { coreId: "a", supportIds: ["c"] },
+      ctx(),
+      3,
+    );
     if (!r.ok) throw new Error("ok 여야 한다");
     expect(r.warnings).toContain("이전 자기평가서에서 쓴 활동이에요");
   });

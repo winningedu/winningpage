@@ -165,7 +165,7 @@ describe("evaluateSelection with links", () => {
     expect(ev.supportIds).toEqual([]);
   });
 
-  it("recommends top 3 by fit (core plus 2) when the link check is unavailable", () => {
+  it("recommends top 3 by fit (core plus 2) but keeps the manual limit at N when the link check is unavailable", () => {
     const rows = [
       core,
       withConcept("a", 90),
@@ -173,7 +173,7 @@ describe("evaluateSelection with links", () => {
       withConcept("c", 75),
     ];
     const ev = evaluateSelection(rows, { links: null, targetChars: 700 });
-    expect(ev).toMatchObject({ coreId: "core", fallback: true, maxSelect: 3 });
+    expect(ev).toMatchObject({ coreId: "core", fallback: true, maxSelect: 8 });
     expect(ev.supportIds).toEqual(["a", "b"]);
   });
 });
