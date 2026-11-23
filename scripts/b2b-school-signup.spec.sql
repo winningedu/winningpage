@@ -667,6 +667,16 @@ select pg_temp.expect_ok('만 14세 생일 당일은 14세 이상이라 본인�
   select pg_temp.go(86, jsonb_build_object('birth_date', ((now() at time zone 'Asia/Seoul')::date - interval '14 years')::date))
 $$);
 
+-- 만 14세 미만 판정의 오늘은 회원 시간대로 센다. Kiritimati(UTC+14)와 Pago_Pago(UTC-11)는 오늘 날짜가 항상 다르다.
+-- 생일을 Kiritimati 의 14년 전 오늘로 잡으면 Kiritimati 회원은 만 14세, Pago_Pago 회원은 만 13세다(본인확인 없이 가입 불가).
+select pg_temp.expect_text('회원 시간대의 오늘이 만 14세 생일이면 본인확인 없이 가입된다',
+  pg_temp.signup_zone(5, '{"time_zone": "Pacific/Kiritimati"}',
+    (public.fn_local_date(now(), 'Pacific/Kiritimati') - interval '14 years')::date), 'Pacific/Kiritimati');
+select pg_temp.expect_msg('같은 생일이라도 회원 시간대의 오늘이 하루 이르면 만 13세라 거부한다', $$
+  select pg_temp.signup_zone(6, '{"time_zone": "Pacific/Pago_Pago"}',
+    (public.fn_local_date(now(), 'Pacific/Kiritimati') - interval '14 years')::date)
+$$, 'P0001', 'identity_not_verified');
+
 select pg_temp.expect_msg('없는 본인확인', $$select pg_temp.go14(73, 'nope')$$, 'P0001', 'identity_not_verified');
 select pg_temp.mk_iv('rid-74', p_status => 'pending');
 select pg_temp.expect_msg('완료되지 않은 본인확인', $$select pg_temp.go14(74, 'rid-74')$$, 'P0001', 'identity_not_verified');

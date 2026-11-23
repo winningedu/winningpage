@@ -163,8 +163,8 @@ begin
   if v_gender is null then
     raise exception 'gender_required';
   end if;
-  -- 만 14세 미만(KST 오늘 기준 만 나이)인데 본인확인이 없으면 거부한다.
-  if not v_under14 and extract(year from age((now() at time zone 'Asia/Seoul')::date, v_birth_date)) < 14 then
+  -- 만 14세 미만(회원 시간대의 오늘 기준 만 나이)인데 본인확인이 없으면 거부한다.
+  if not v_under14 and extract(year from age(public.fn_local_date(now(), v_time_zone), v_birth_date)) < 14 then
     raise exception 'identity_not_verified';
   end if;
 
