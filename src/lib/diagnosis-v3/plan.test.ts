@@ -4,6 +4,7 @@ import {
   buildPlan,
   buildPlannerPages,
   buildPlanPage,
+  fillCopy,
   type PlanInput,
 } from "./plan.js";
 import { COPY_TEXT } from "./source/copyText.js";
@@ -93,6 +94,27 @@ describe("buildPlanPage (22 r103-r107)", () => {
       logMinutes: 1,
       rates: [50, 60, 65, 70],
       minLoad: "하루 최소 학습량 60분",
+    });
+  });
+
+  test("calc example: 수행평가 within 4 weeks, 기말 Day 32 in plan.after_note", () => {
+    const plan = buildPlan(calcInput());
+    expect(buildPlanPage(plan, "2026-11-09", CALC_EXAMPLE.q13).events).toEqual({
+      kind: "events",
+      within: ["수행평가 11/27(금)"],
+      after: fillCopy("plan.after_note", { events: "정기고사 12/10(목)" }),
+    });
+  });
+
+  test("PDF p11: 정기고사 12/7(월) within, no after note; no events is PLAN_NOEVENT", () => {
+    expect(page().events).toEqual({
+      kind: "events",
+      within: ["정기고사 12/7(월)"],
+    });
+    const none = buildPlan({ ...pdfInput(), schedule: "NONE" });
+    expect(buildPlanPage(none, "2026-11-10", "NONE").events).toEqual({
+      kind: "none",
+      text: COPY_TEXT.PLAN_NOEVENT,
     });
   });
 });

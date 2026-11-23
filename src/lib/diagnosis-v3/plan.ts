@@ -164,17 +164,31 @@ const minLoadOf = (weekday: Ordinal): number => {
   return Number(match(String(code), /^MINLOAD:(\d+)$/)[1]);
 };
 
+const LAST_DAY = first(WEEKS, WEEKS.length - 1, "week").to;
+
+/** q13 events whose Day falls in from..to. */
+const eventsBetween = (
+  diagnosedAt: IsoDate,
+  schedule: DiagnosisV3Answers["q13"],
+  from: number,
+  to: number,
+): ScheduleEvent[] =>
+  (Array.isArray(schedule) ? schedule : []).filter((e) => {
+    const day = dayOfDate(diagnosedAt, e.date);
+    return day >= from && day <= to;
+  });
+
 const weekOf = (day: number): Week => {
   const week = WEEKS.find((w) => day >= w.from && day <= w.to)?.week;
   if (!week) throw new Error(`day ${day} is outside the plan`);
   return week;
 };
 
-const first = <T>(list: readonly T[], index: number, what: string): T => {
+function first<T>(list: readonly T[], index: number, what: string): T {
   const value = list[index];
   if (value === undefined) throw new Error(`missing ${what} ${index + 1}`);
   return value;
-};
+}
 
 export function buildPlan(input: PlanInput): Plan {
   // 21 C9: columns 1-2 = two lowest PAGE1 stages; 21 C10: column 3 = lowest PAGE2 area
@@ -192,12 +206,7 @@ export function buildPlan(input: PlanInput): Plan {
     week: weekOf(day),
     ...rest,
   });
-  const lastDay = first(WEEKS, WEEKS.length - 1, "week").to;
-  const events = Array.isArray(input.schedule) ? input.schedule : [];
-  const within = events.filter((e) => {
-    const day = dayOfDate(input.diagnosedAt, e.date);
-    return day >= 1 && day <= lastDay;
-  });
+  const within = eventsBetween(input.diagnosedAt, input.schedule, 1, LAST_DAY);
   // 21 B27: weeks holding an EXAM, PERF or APPLY day
   const reducedWeeks = WEEKS.map((w) => w.week).filter((week) =>
     within.some(
@@ -248,10 +257,12 @@ export function buildPlan(input: PlanInput): Plan {
     ...examOpsTasks(input, within, task),
   ].sort((a, b) => a.day - b.day || rank(a.taskId) - rank(b.taskId));
   // 21 C28: Day 29..42 events are listed after the plan, never tasks
-  const afterEvents = events.filter((e) => {
-    const day = dayOfDate(input.diagnosedAt, e.date);
-    return day >= AFTER_FROM && day <= AFTER_TO;
-  });
+  const afterEvents = eventsBetween(
+    input.diagnosedAt,
+    input.schedule,
+    AFTER_FROM,
+    AFTER_TO,
+  );
   return {
     columns,
     tasks,
@@ -385,12 +396,24 @@ export function buildPlannerPages(
   });
 }
 
+/** Event kind label (15 B of its first EVT_ task, else the q13 option) and due date. */
+const eventLine = (event: ScheduleEvent): string => {
+  const evt = EVENT_TASKS[event.kind][0];
+  const label = evt
+    ? taskRow(evt.taskId).kind
+    : OPTIONS.q13.find((o) => o.code === `EVENT:${event.kind}`)?.label;
+  if (label === undefined) throw new Error(`no label for ${event.kind}`);
+  return `${label} ${formatDue(event.date)}`;
+};
+
 /** 22 r103-r107 plan parts of page 11 (urgency and style tips live elsewhere). */
 export function buildPlanPage(
   plan: Plan,
-  _diagnosedAt: IsoDate,
-  _schedule: DiagnosisV3Answers["q13"],
-): Pick<Page11, "table" | "numbers"> {
+  diagnosedAt: IsoDate,
+  schedule: DiagnosisV3Answers["q13"],
+): Pick<Page11, "table" | "numbers" | "events"> {
+  const within = eventsBetween(diagnosedAt, schedule, 1, LAST_DAY);
+  const after = plan.afterEvents.map(eventLine).join(", ");
   const cellOf = (week: Week, column: 1 | 2 | 3) => {
     const task = plan.tasks.find((t) => t.week === week && t.column === column);
     if (!task) throw new Error(`missing plan cell ${week}/${column}`);
@@ -411,6 +434,17 @@ export function buildPlanPage(
         : {}),
       ruleNote: copy("PLAN_RULE_NOTE"),
     },
+    // 22 r103: Day 1..28 events, Day 29..42 in plan.after_note, else PLAN_NOEVENT
+    events:
+      within.length === 0 && after === ""
+        ? { kind: "none", text: copy("PLAN_NOEVENT") }
+        : {
+            kind: "events",
+            within: within.map(eventLine),
+            ...(after === ""
+              ? {}
+              : { after: fillCopy("plan.after_note", { events: after }) }),
+          },
     // 22 r105, 21 C30-C32
     numbers: {
       logMinutes: LOG_MINUTES,
