@@ -10,6 +10,7 @@ export const routes: Record<string, RouteLoader> = {
   "admin/hq-dashboard/tenants": () => import("./admin/hq-dashboard/tenants.js"),
   "admin/growth-recover": () => import("./admin/growth-recover.js"),
   "admin/growth-reports": () => import("./admin/growth-reports.js"),
+  "admin/hq-dashboard/logins": () => import("./admin/hq-dashboard/logins.js"),
   "admin/inquiry-grant": () => import("./admin/inquiry-grant.js"),
   "admin/inquiry-recover": () => import("./admin/inquiry-recover.js"),
   "admin/inquiry-sessions": () => import("./admin/inquiry-sessions.js"),
