@@ -18,10 +18,16 @@ export function textCell(row: SheetRow, col: number): string {
   return String(value);
 }
 
-/** One cell as a number; throws when the cell is not numeric. */
+/** One cell as a number; throws when the cell is empty or not numeric. */
 export function numberCell(row: SheetRow, col: number): number {
-  const value = Number(row.c[col]);
-  if (row.c[col] === null || Number.isNaN(value)) {
+  const cell = row.c[col];
+  const value = Number(cell);
+  if (
+    cell === null ||
+    cell === undefined ||
+    String(cell).trim() === "" ||
+    Number.isNaN(value)
+  ) {
     throw new Error(`not a number r${row.r} c${col}`);
   }
   return value;
