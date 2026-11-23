@@ -1,7 +1,7 @@
 // pick-records list 응답 조립(명세 No.31, 32, 144, 177~180, 195, 196). 순수 모듈이다.
 
-import { buildLinkGraph } from "./linkGraph.js";
 import { annotateRows, evaluateSelection } from "./linkSelect.js";
+import { neverLinkedIds } from "./linkWrite.js";
 import { assignRoles } from "./pick.js";
 import { parseStepState } from "./session.js";
 import type { CandidateRow, RecordLink } from "./types.js";
@@ -15,14 +15,19 @@ export function linkStatusOf(stepState: unknown): LinkStatus {
   return status === "failed" ? "unchecked" : "pending";
 }
 
-/** 핵심과 같은 덩어리로 이어지지 않은 선택 기록. 학생이 한 줄을 쓰지 않으면 생성에서 쓰지 않는다(명세 No.180). */
+/**
+ * 연결 행이 한 줄도 닿지 않은 선택 기록. 학생이 한 줄을 쓰지 않으면 생성에서 쓰지 않는다(명세 No.180).
+ * 지운 행도 닿은 것으로 센다: 연계를 모두 지운 기록은 기여 항목으로만 쓰므로 여기에 들지 않는다(No.194).
+ * 생성 쪽 규칙(evidenceSources.buildWriteEvidence)과 같은 함수를 쓴다.
+ */
 export function unlinkedIds(
   links: RecordLink[],
-  coreId: string,
   supportIds: string[],
 ): string[] {
-  const graph = buildLinkGraph(links, coreId);
-  return supportIds.filter((id) => !graph.has(id));
+  return neverLinkedIds(
+    supportIds,
+    links.map((l) => [l.fromId, l.toId] as const),
+  );
 }
 
 export type PickSelection = { coreId: string; supportIds: string[] };
@@ -63,7 +68,7 @@ export function composePickList(input: {
     maxSelect: ev.maxSelect,
     excludedIds:
       selection && status === "ok"
-        ? unlinkedIds(links, selection.coreId, selection.supportIds)
+        ? unlinkedIds(links, selection.supportIds)
         : [],
   };
 }

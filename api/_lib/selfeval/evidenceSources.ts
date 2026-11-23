@@ -10,6 +10,7 @@ import type {
 } from "./evidence.js";
 import {
   type LinkInfo,
+  neverLinkedIds,
   type SupportLinkState,
   supportLinkStates,
 } from "./linkWrite.js";
@@ -186,11 +187,15 @@ function linkText(s: SupportLinkState): string | null {
  * 완료(completed)가 아닌 기록은 근거 원천에는 남겨 그 근거를 서버가 알아보고 버리게 하되,
  * 프롬프트에서는 빼서 모델이 쓰지 않게 한다(명세 No.200). 수기 메모는 학생이 확인하고
  * 포함으로 둔 것만 쓴다(명세 No.161).
+ * 연계 점검이 끝났으면(linksChecked) 핵심 밖 선택 기록 가운데 연결 행이 한 줄도 닿지 않은 기록은
+ * 학생이 한 줄을 쓰지 않은 것이라 생성 입력과 근거에서 뺀다(명세 No.180). 연계를 모두 지운 기록은
+ * 행이 남아 있어 빼지 않고 기여 항목으로만 쓴다(명세 No.194).
  */
 export function buildWriteEvidence(
   rows: SessionActivityWithRecord[],
   extras: Map<string, RecordExtras>,
   links: LinkInfo[],
+  linksChecked: boolean,
   memoRows: MemoRow[],
 ): WriteEvidence {
   const records: RecordEvidenceSource[] = [];
@@ -207,10 +212,31 @@ export function buildWriteEvidence(
             .map((r) => r.activity_record_id),
           links,
         );
+  const excluded = new Set(
+    linksChecked
+      ? neverLinkedIds(
+          rows
+            .filter((r) => r.role !== "core")
+            .map((r) => r.activity_record_id),
+          links.map((l) => [l.fromRecordId, l.toRecordId] as const),
+        )
+      : [],
+  );
   const linkStates: SupportLinkState[] = [];
   let coreSourceType: "P" | "D" | "A" = "A";
   const types = new Map<string, "P" | "D" | "A">();
   for (const row of rows) {
+    if (excluded.has(row.activity_record_id)) {
+      types.set(
+        row.activity_record_id,
+        sourceTypeOfRecord({
+          sourceProgram: row.record.sourceProgram,
+          subjectGroup: row.record.subjectGroup,
+          entryKind: extras.get(row.activity_record_id)?.entryKind ?? null,
+        }),
+      );
+      continue;
+    }
     const extra = extras.get(row.activity_record_id) ?? {
       recordStatus: null,
       entryKind: null,

@@ -141,7 +141,20 @@ describe("buildWriteEvidence", () => {
         quoteFrom: "앞 인용",
         quoteTo: null,
       },
+      {
+        fromRecordId: "c1",
+        toRecordId: "w1",
+        linkType: "deepen",
+        strength: "explicit",
+        source: "model",
+        confirmed: false,
+        deleted: false,
+        note: null,
+        quoteFrom: null,
+        quoteTo: null,
+      },
     ],
+    true,
     [
       {
         id: "m1",
@@ -232,7 +245,8 @@ describe("buildWriteEvidence", () => {
       base,
       { ...base, strength: "explicit" as const, deleted: true },
     ]) {
-      const s = buildWriteEvidence(rows, extras, [l], []).prompt.supports[0];
+      const s = buildWriteEvidence(rows, extras, [l], true, []).prompt
+        .supports[0];
       expect(s?.linkMode).toBe("contribute");
       expect(s?.link).toBeNull();
       expect(s?.carried).toEqual([]);
@@ -242,5 +256,56 @@ describe("buildWriteEvidence", () => {
   it("옛 근거의 출처 유형을 기록 id 로 찾는다", () => {
     expect(out.typeOf("s1")).toBe("D");
     expect(out.typeOf("nope")).toBeNull();
+  });
+});
+
+describe("buildWriteEvidence: 연계 없는 기록(명세 No.180, 194)", () => {
+  const rows = [
+    row("c1", "core", analysis({ motive: "계기 글" })),
+    row("s1", "support", null),
+  ];
+  const link = (over = {}) => ({
+    fromRecordId: "c1",
+    toRecordId: "s1",
+    linkType: "deepen",
+    strength: "explicit" as const,
+    source: "model" as const,
+    confirmed: false,
+    deleted: false,
+    note: null,
+    quoteFrom: "앞 인용",
+    quoteTo: null,
+    ...over,
+  });
+  const build = (links: ReturnType<typeof link>[], checked = true) =>
+    buildWriteEvidence(rows, extras, links, checked, []);
+
+  it("연결 행이 한 줄도 없고 학생 메모 줄도 없으면 생성 입력과 근거에서 뺀다", () => {
+    const out = build([]);
+    expect(out.prompt.supports).toEqual([]);
+    expect(out.linkStates).toEqual([]);
+    expect(out.sources.records.map((r) => r.id)).toEqual(["c1"]);
+  });
+
+  it("연계를 모두 지운 기록은 기여 항목으로만 쓴다(명세 No.194)", () => {
+    const out = build([link({ deleted: true })]);
+    expect(out.prompt.supports.map((s) => [s.activityId, s.linkMode])).toEqual([
+      ["s1", "contribute"],
+    ]);
+    expect(out.sources.records.map((r) => r.id)).toEqual(["c1", "s1"]);
+  });
+
+  it("학생이 메모를 붙여 더한 연계가 있으면 보통 연계 기록이다", () => {
+    const out = build([
+      link({ source: "student", note: "학생 메모", strength: "explicit" }),
+    ]);
+    expect(out.prompt.supports.map((s) => [s.activityId, s.linkMode])).toEqual([
+      ["s1", "link"],
+    ]);
+  });
+
+  it("연계 점검이 끝나지 않았으면 아무것도 빼지 않는다", () => {
+    const out = build([], false);
+    expect(out.prompt.supports.map((s) => s.activityId)).toEqual(["s1"]);
   });
 });

@@ -283,7 +283,7 @@ function ActivitiesBody({ sessionId, pick, session, refetchAll }: BodyProps) {
   const linkUnchecked = linkFailed || pick.linkUnchecked;
   const unlinked = new Set(
     linkStatus === "ok" && roles.coreId !== null
-      ? unlinkedIds(pick.links, roles.coreId, roles.supportIds)
+      ? unlinkedIds(pick.links, roles.supportIds)
       : [],
   );
   const chosenAll = pick.candidates

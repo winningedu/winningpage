@@ -61,6 +61,19 @@ export function carriedWords(record: ActivityRecordLike): string[] {
   return out;
 }
 
+/**
+ * 연결 행(지운 행 포함)이 한 줄도 닿지 않은 선택 기록 id(명세 No.180). 이 기록은 학생이 한 줄을
+ * 쓰지 않았으므로 생성 입력과 근거에서 뺀다. 연계를 모두 지운 기록은 행이 남아 있어 여기에 들지 않고
+ * 기여 항목으로만 쓴다(명세 No.194). 핵심에 닿는지는 보지 않는다(그 판단은 supportLinkStates).
+ */
+export function neverLinkedIds(
+  ids: readonly string[],
+  ends: ReadonlyArray<readonly [string, string]>,
+): string[] {
+  const touched = new Set(ends.flat());
+  return ids.filter((id) => !touched.has(id));
+}
+
 export type SupportLinkState = {
   id: string;
   /** link 는 연계 문장을 쓰고, contribute 는 기여 항목으로만 쓴다. */

@@ -13,6 +13,7 @@ import {
   linkTargets,
   type SupportLinkState,
 } from "../linkWrite.js";
+import { linkStatusOf } from "../pickList.js";
 import { promoteToRecord } from "../promote.js";
 import { extractPromptKeywords } from "../promptKeywords.js";
 import { buildVerifyPrompt, type VerifyPromptInput } from "../prompts.js";
@@ -249,6 +250,7 @@ export async function runVerify(
     rows,
     loaded.extras,
     loaded.links,
+    linkStatusOf(session.step_state) === "ok",
     loaded.memos,
   );
   const spec = buildVerifySpec(

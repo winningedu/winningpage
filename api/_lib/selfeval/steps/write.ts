@@ -16,6 +16,7 @@ import {
 import { loadEvidenceRows } from "../evidenceDb.js";
 import { buildWriteEvidence, type WriteEvidence } from "../evidenceSources.js";
 import { stageLabel } from "../growth.js";
+import { linkStatusOf } from "../pickList.js";
 import { extractPromptKeywords } from "../promptKeywords.js";
 import { buildWritePrompt, type WritePromptInput } from "../prompts.js";
 import type { ReportRow, SessionRow } from "../rows.js";
@@ -286,7 +287,7 @@ export async function runWrite(
 
   const rows = await loadSessionActivities(db, userId, session.id);
   const { core, supports } = splitActivities(rows);
-  const evidence = await loadWriteEvidence(db, userId, session.id, rows);
+  const evidence = await loadWriteEvidence(db, userId, session, rows);
   const built = buildWriteSpec(
     session,
     { record: core.record, analysis: readAnalysis(core.analysis) },
@@ -349,16 +350,22 @@ export async function runWrite(
 async function loadWriteEvidence(
   db: Db,
   userId: string,
-  sessionId: string,
+  session: SessionRow,
   rows: SessionActivityWithRecord[],
 ): Promise<WriteEvidence> {
   const loaded = await loadEvidenceRows(
     db,
     userId,
-    sessionId,
+    session.id,
     rows.map((r) => r.activity_record_id),
   );
-  return buildWriteEvidence(rows, loaded.extras, loaded.links, loaded.memos);
+  return buildWriteEvidence(
+    rows,
+    loaded.extras,
+    loaded.links,
+    linkStatusOf(session.step_state) === "ok",
+    loaded.memos,
+  );
 }
 
 /** 학생이 고친 문단을 문장으로 다시 나눠 edited 리포트로 쌓는다(명세 No.50). */
@@ -437,7 +444,7 @@ export async function repickSentenceEvidence(
   const { sources } = await loadWriteEvidence(
     db,
     userId,
-    session.id,
+    session,
     await loadSessionActivities(db, userId, session.id),
   );
   const next = repickEvidence(base, sentenceId, picks, sources);

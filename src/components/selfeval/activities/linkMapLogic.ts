@@ -30,30 +30,13 @@ export const strengthLabel = (
       ? "추론, 학생 확인"
       : "추론";
 
-/** 지워지지 않은 선을 무방향으로 보고 핵심에서 닿지 않는 보조 id. 한 줄을 쓰지 않으면 생성에서 빠진다(명세 No.180). */
+/** 지운 선까지 포함해 연결 행이 한 줄도 닿지 않은 보조 id. 한 줄을 쓰지 않으면 생성에서 빠진다(명세 No.180). 연계를 모두 지운 기록은 기여 항목으로만 쓰므로 들지 않는다(No.194). 서버 pickList.unlinkedIds 와 같은 규칙이다. */
 export function unlinkedIds(
   links: readonly RecordLink[],
-  coreId: string,
   supportIds: readonly string[],
 ): string[] {
-  const live = links.filter((l) => !l.deleted);
-  const reached = new Set([coreId]);
-  let frontier = [coreId];
-  while (frontier.length > 0) {
-    const next: string[] = [];
-    for (const id of frontier) {
-      for (const l of live) {
-        const other =
-          l.fromId === id ? l.toId : l.toId === id ? l.fromId : null;
-        if (other !== null && !reached.has(other)) {
-          reached.add(other);
-          next.push(other);
-        }
-      }
-    }
-    frontier = next;
-  }
-  return supportIds.filter((id) => !reached.has(id));
+  const touched = new Set(links.flatMap((l) => [l.fromId, l.toId]));
+  return supportIds.filter((id) => !touched.has(id));
 }
 
 const submittedOf = (r: CandidateRow): number => {

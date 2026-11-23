@@ -224,9 +224,7 @@ async function handleSelect(
   });
   // 연계 없는 기록은 허용하되 경고하고, 학생이 한 줄을 쓰지 않으면 생성에서 뺀다(명세 No.180).
   const unlinked =
-    status === "ok"
-      ? unlinkedIds(links, applied.coreId, applied.supportIds)
-      : [];
+    status === "ok" ? unlinkedIds(links, applied.supportIds) : [];
   res.status(200).json({
     ok: true,
     selection: { coreId: applied.coreId, supportIds: applied.supportIds },

@@ -131,16 +131,13 @@ describe("연계 판정 보조", () => {
     expect(strengthLabel("explicit", false)).toBe("기록에 명시");
   });
 
-  test("핵심에서 지워지지 않은 선으로 닿지 않는 보조를 찾는다", () => {
+  test("지운 선까지 포함해 한 줄도 닿지 않은 보조만 찾는다", () => {
     const links = [
       link("core", "a"),
       link("a", "b"),
       link("core", "c", { deleted: true }),
     ];
-    expect(unlinkedIds(links, "core", ["a", "b", "c", "d"])).toEqual([
-      "c",
-      "d",
-    ]);
+    expect(unlinkedIds(links, ["a", "b", "c", "d"])).toEqual(["d"]);
   });
 
   test("두 기록은 제출일이 앞선 쪽을 앞에 둔다", () => {

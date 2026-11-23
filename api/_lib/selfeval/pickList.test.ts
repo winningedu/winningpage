@@ -159,9 +159,16 @@ describe("composePickList", () => {
 });
 
 describe("unlinkedIds", () => {
-  it("returns selected supports that the core component does not reach", () => {
-    expect(unlinkedIds([link("core", "a")], "core", ["a", "far"])).toEqual([
-      "far",
-    ]);
+  it("returns selected supports that no stored link row touches", () => {
+    expect(unlinkedIds([link("core", "a")], ["a", "far"])).toEqual(["far"]);
+  });
+
+  it("keeps a support whose links were all deleted (contribution only, No 194)", () => {
+    const deleted = { ...link("core", "gone"), deleted: true };
+    expect(unlinkedIds([deleted], ["gone", "far"])).toEqual(["far"]);
+  });
+
+  it("keeps a support linked only to another support (not reaching the core)", () => {
+    expect(unlinkedIds([link("a", "b")], ["a", "b", "far"])).toEqual(["far"]);
   });
 });
