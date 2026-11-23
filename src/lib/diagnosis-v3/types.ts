@@ -778,6 +778,9 @@ export type Page9 = {
   readonly factors: {
     readonly items: readonly {
       readonly factor: TempFactor;
+      /** temp.factor: name, score, label */
+      readonly heading: string;
+      /** TEMP_F_<x>_<label> */
       readonly text: string;
     }[];
     readonly swayCause: string;

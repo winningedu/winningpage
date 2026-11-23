@@ -435,11 +435,30 @@ describe("page 9 text (22 r86-r94, PDF p9)", () => {
   test("cross check, factor lines and the sway cause", () => {
     const page = temperamentPage9(pdf, "NORMAL");
     expect(page.crossCheck).toEqual(["학습진단 응답과 같은 방향입니다."]);
-    expect(page.factors.items.map((i) => i.text)).toEqual([
-      "기질 안정도 50 \u00b7 균형형 상황에 따라 긴장도가 달라지는 편입니다.",
-      "선택 흔들림 42 \u00b7 보통 목표는 유지하되 상황에 따라 전략을 바꾸는 편입니다.",
-      "압박 대응력 63 \u00b7 보통 압박이 커지면 흔들릴 수 있어 실전 리허설이 도움이 됩니다.",
-      "학습 지속력 69 \u00b7 중기형 2~4주 단위로 계획을 끊어 점검하면 잘 이어 갑니다.",
+    // 22 r92: temp.factor heading and the TEMP_F_ sentence are separate elements
+    expect(
+      page.factors.items.map((i) => [i.factor, i.heading, i.text]),
+    ).toEqual([
+      [
+        "F_STAB",
+        "기질 안정도 50 \u00b7 균형형",
+        "상황에 따라 긴장도가 달라지는 편입니다.",
+      ],
+      [
+        "F_SWAY",
+        "선택 흔들림 42 \u00b7 보통",
+        "목표는 유지하되 상황에 따라 전략을 바꾸는 편입니다.",
+      ],
+      [
+        "F_PRESS",
+        "압박 대응력 63 \u00b7 보통",
+        "압박이 커지면 흔들릴 수 있어 실전 리허설이 도움이 됩니다.",
+      ],
+      [
+        "F_SUST",
+        "학습 지속력 69 \u00b7 중기형",
+        "2~4주 단위로 계획을 끊어 점검하면 잘 이어 갑니다.",
+      ],
     ]);
     expect(page.factors.swayCause).toBe("주된 원인: 새것에 끌림(자극추구)");
     expect(page.protect).toContain("기질에는 좋고 나쁨이 없습니다.");

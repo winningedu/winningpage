@@ -92,7 +92,9 @@ export const p9: Page9 = {
   study: { strengths: ["STUDY strength"], cautions: ["STUDY caution"] },
   crossCheck: ["CROSS item"],
   factors: {
-    items: [{ factor: "F_STAB", text: "TFACTOR text" }],
+    items: [
+      { factor: "F_STAB", heading: "TFACTOR heading", text: "TFACTOR text" },
+    ],
     swayCause: "SWAY cause",
   },
   lowReliability: "LOWREL text",

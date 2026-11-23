@@ -539,13 +539,15 @@ export function temperamentPage9(
       items: TEMP_FACTORS.map((factor) => {
         const code = factor.replace("F_", "");
         const label = result.factorLabels[factor];
+        // 22 r92: heading (temp.factor) and sentence stay separate elements
         return {
           factor,
-          text: `${fill(copy("temp.factor"), {
+          heading: fill(copy("temp.factor"), {
             name: FACTOR_ROWS[factor].name,
             score: result.factors[factor],
             label,
-          })} ${copy(`TEMP_F_${code}_${label}`)}`,
+          }),
+          text: copy(`TEMP_F_${code}_${label}`),
         };
       }),
       swayCause: fill(copy("temp.sway_cause"), {
