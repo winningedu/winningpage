@@ -25,9 +25,10 @@ export default function Page10TempAdmission({ page }: { page: Page10 }) {
           {admission.areas.map((area) => (
             <section key={area.area} className="flex flex-col gap-1">
               <SectionTitle>{area.name}</SectionTitle>
-              {/* 22 r97 D basis; no copy id holds a heading word for it */}
+              {/* 22 r97 D basis; the heading words are PDF p11 layout labels */}
               {area.basis.length > 0 ? (
                 <Note>
+                  {`${L.ruleBasis} `}
                   {area.basis.map((value, i) => (
                     <span key={value.label}>
                       {i > 0 ? L.joiner : null}
@@ -35,7 +36,9 @@ export default function Page10TempAdmission({ page }: { page: Page10 }) {
                     </span>
                   ))}
                 </Note>
-              ) : null}
+              ) : (
+                <Note>{L.ruleNone}</Note>
+              )}
               <Bullets items={area.texts} />
             </section>
           ))}

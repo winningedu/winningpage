@@ -30,6 +30,11 @@ describe("Page10TempAdmission (22 r96-r99)", () => {
     expect(
       screen.getByRole("heading", { level: 3, name: "AREA pace" }),
     ).toBeInTheDocument();
+    // PDF p11: 「조정 근거:」 before the values, 「조정 없음」 when no rule fired
+    expect(screen.getByText("BASIS a 50").closest("p")).toHaveTextContent(
+      /^조정 근거: BASIS a 50/,
+    );
+    expect(screen.getByText("조정 없음")).toBeInTheDocument();
     expect(screen.getByText("BASIS a 50")).toBeInTheDocument();
     expect(screen.getByText("BASIS b 75")).toBeInTheDocument();
   });

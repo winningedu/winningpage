@@ -96,6 +96,11 @@ export const REPORT_LABELS = {
   profilePeriod: "진단 기간",
   /** PDF p2 period row word before the re-diagnosis date; 22 r16 holds no copy id for it */
   redx: "재진단",
+  /** PDF p2 period row length after the Day 28 date */
+  periodWeeks: "(4주)",
+  /** PDF p11 rule area heading words (22 r97 D basis) */
+  ruleBasis: "조정 근거:",
+  ruleNone: "조정 없음",
   profileTemperament: "대표 기질",
   profileReliability: "응답 신뢰도",
   cycleRadar: "7단계 학습관리",

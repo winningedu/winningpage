@@ -38,7 +38,7 @@ describe("Page01Summary", () => {
 
   it("joins the period fields in the layout, PDF p1 style (22 r16)", () => {
     render(<Page01Summary page={p1} tocTitle="진단 요약" />);
-    expect(screen.getByText("11/10(화) ~ 12/7(월)")).toBeInTheDocument();
+    expect(screen.getByText("11/10(화) ~ 12/7(월) (4주)")).toBeInTheDocument();
     expect(screen.getByText("재진단 12/8(화)")).toBeInTheDocument();
   });
 

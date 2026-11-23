@@ -47,7 +47,7 @@ export default function Page01Summary({ page, tocTitle }: Page01SummaryProps) {
             {/* 22 r16: the layout joins the three plan.due dates */}
             <dt className="text-ink-sub">{L.profilePeriod}</dt>
             <dd>
-              <span>{`${period.from} ~ ${period.to}`}</span>
+              <span>{`${period.from} ~ ${period.to} ${L.periodWeeks}`}</span>
               {L.joiner}
               <span>{`${L.redx} ${period.redx}`}</span>
             </dd>
