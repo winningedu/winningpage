@@ -417,6 +417,21 @@ describe("page 9 text (22 r86-r94, PDF p9)", () => {
     );
   });
 
+  test("each dim carries its 18 C label and 18 B14-B16 level word (PDF p9 자극추구 NS 50 중간)", () => {
+    const page = temperamentPage9(pdf, "NORMAL");
+    expect(
+      page.dims.map((d) => [d.label, d.dim, d.score, d.levelLabel]),
+    ).toEqual([
+      ["자극추구", "NS", 50, "중간"],
+      ["위험회피", "HA", 50, "중간"],
+      ["사회적 민감성", "RD", 50, "중간"],
+      ["인내력", "PS", 75, "높음"],
+      ["자율성", "SD", 75, "높음"],
+      ["연대감", "CO", 75, "높음"],
+      ["자기초월", "ST", 50, "중간"],
+    ]);
+  });
+
   test("cross check, factor lines and the sway cause", () => {
     const page = temperamentPage9(pdf, "NORMAL");
     expect(page.crossCheck).toEqual(["학습진단 응답과 같은 방향입니다."]);

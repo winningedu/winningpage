@@ -521,10 +521,13 @@ export function temperamentPage9(
       }),
       body: names ? copy("TEMP_MIXED_BODY") : typeCopy(top, "BODY"),
     },
+    // 22 r89: 18 C6-C12 label, score, 18 B14-B16 level word
     dims: TEMP_DIMS.map((dim) => ({
       dim,
+      label: DIM_LABELS[dim],
       score: result.dims[dim].score,
       level: result.dims[dim].level,
+      levelLabel: levelLabel(result.dims[dim].level),
       text: copy(`TEMP_DIM_${dim}_${result.dims[dim].level}`),
     })),
     study: { strengths: pick("STR"), cautions: pick("CAU") },

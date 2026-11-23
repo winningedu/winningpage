@@ -759,8 +759,12 @@ export type Page9 = {
   /** 22 r89 */
   readonly dims: readonly {
     readonly dim: TempDim;
+    /** 18 C6-C12 dimension name */
+    readonly label: string;
     readonly score: number;
     readonly level: "H" | "M" | "L";
+    /** 18 B14-B16 level word */
+    readonly levelLabel: string;
     readonly text: string;
   }[];
   /** 22 r90 */
